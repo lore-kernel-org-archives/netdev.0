@@ -1,177 +1,73 @@
-From: Stanislaw Gruszka <sgruszka@redhat.com>
-Subject: [PATCH 2/2 -next] r8169: use device model DMA API
-Date: Thu, 23 Sep 2010 14:01:31 +0200
-Message-ID: <1285243291-4520-2-git-send-email-sgruszka@redhat.com>
-References: <1285243291-4520-1-git-send-email-sgruszka@redhat.com>
-Cc: Stanislaw Gruszka <sgruszka@redhat.com>
-To: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33453 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752561Ab0IWMAe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Sep 2010 08:00:34 -0400
-In-Reply-To: <1285243291-4520-1-git-send-email-sgruszka@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 8/8] net: Implement socketat.
+Date: Thu, 23 Sep 2010 08:11:21 -0400
+Message-ID: <1285243881.5036.22.camel@bigi>
+References: <m1ocborgq7.fsf@fess.ebiederm.org>
+	 <m1bp7oq1u8.fsf@fess.ebiederm.org>  <4C9B162E.7040201@parallels.com>
+	 <1285240797.5036.5.camel@bigi>  <4C9B3B06.900@parallels.com>
+	 <1285242055.5036.9.camel@bigi>  <4C9B3F9C.8080506@parallels.com>
+Reply-To: hadi@cyberus.ca
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	linux-kernel@vger.kernel.org,
+	Linux Containers <containers@lists.osdl.org>,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org,
+	Daniel Lezcano <daniel.lezcano@free.fr>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Michael Kerrisk <mtk.manpages@gmail.com>,
+	Ulrich Drepper <drepper@gmail.com>,
+	Al Viro <viro@ZenIV.linux.org.uk>,
+	David Miller <davem@davemloft.net>,
+	"Serge E. Hallyn" <serge@hallyn.com>,
+	Pavel Emelyanov <xemul@openvz.org>,
+	Ben Greear <greearb@candelatech.com>,
+	Matt Helsley <matthltc@us.ibm.com>,
+	Jonathan Corbet <corbet@lwn.net>,
+	Sukadev Bhattiprolu <sukadev@linux.vnet.ibm.com>,
+	Jan Engelhardt <jengelh@medozas.de>,
+	Patrick McHardy <kaber@trash.net>
+To: Pavel Emelyanov <xemul@parallels.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4C9B3F9C.8080506@parallels.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Use DMA API as PCI equivalents will be deprecated. This change also
-allow to allocate with GFP_KERNEL where possible.
+On Thu, 2010-09-23 at 15:53 +0400, Pavel Emelyanov wrote:
 
-Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
----
- drivers/net/r8169.c |   53 +++++++++++++++++++++++++++-----------------------
- 1 files changed, 29 insertions(+), 24 deletions(-)
+> Why does it matter? You told, that the usage scenario was to
+> add routes to container. If I do 2 syscalls instead of 1, is
+> it THAT worse?
+> 
 
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 4f94073..51dd9ac 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -1217,7 +1217,8 @@ static void rtl8169_update_counters(struct net_device *dev)
- 	if ((RTL_R8(ChipCmd) & CmdRxEnb) == 0)
- 		return;
- 
--	counters = pci_alloc_consistent(tp->pci_dev, sizeof(*counters), &paddr);
-+	counters = dma_alloc_coherent(&tp->pci_dev->dev, sizeof(*counters),
-+				      &paddr, GFP_KERNEL);
- 	if (!counters)
- 		return;
- 
-@@ -1238,7 +1239,8 @@ static void rtl8169_update_counters(struct net_device *dev)
- 	RTL_W32(CounterAddrLow, 0);
- 	RTL_W32(CounterAddrHigh, 0);
- 
--	pci_free_consistent(tp->pci_dev, sizeof(*counters), counters, paddr);
-+	dma_free_coherent(&tp->pci_dev->dev, sizeof(*counters), counters,
-+			  paddr);
- }
- 
- static void rtl8169_get_ethtool_stats(struct net_device *dev,
-@@ -3298,15 +3300,15 @@ static int rtl8169_open(struct net_device *dev)
- 
- 	/*
- 	 * Rx and Tx desscriptors needs 256 bytes alignment.
--	 * pci_alloc_consistent provides more.
-+	 * dma_alloc_coherent provides more.
- 	 */
--	tp->TxDescArray = pci_alloc_consistent(pdev, R8169_TX_RING_BYTES,
--					       &tp->TxPhyAddr);
-+	tp->TxDescArray = dma_alloc_coherent(&pdev->dev, R8169_TX_RING_BYTES,
-+					     &tp->TxPhyAddr, GFP_KERNEL);
- 	if (!tp->TxDescArray)
- 		goto err_pm_runtime_put;
- 
--	tp->RxDescArray = pci_alloc_consistent(pdev, R8169_RX_RING_BYTES,
--					       &tp->RxPhyAddr);
-+	tp->RxDescArray = dma_alloc_coherent(&pdev->dev, R8169_RX_RING_BYTES,
-+					     &tp->RxPhyAddr, GFP_KERNEL);
- 	if (!tp->RxDescArray)
- 		goto err_free_tx_0;
- 
-@@ -3340,12 +3342,12 @@ out:
- err_release_ring_2:
- 	rtl8169_rx_clear(tp);
- err_free_rx_1:
--	pci_free_consistent(pdev, R8169_RX_RING_BYTES, tp->RxDescArray,
--			    tp->RxPhyAddr);
-+	dma_free_coherent(&pdev->dev, R8169_RX_RING_BYTES, tp->RxDescArray,
-+			  tp->RxPhyAddr);
- 	tp->RxDescArray = NULL;
- err_free_tx_0:
--	pci_free_consistent(pdev, R8169_TX_RING_BYTES, tp->TxDescArray,
--			    tp->TxPhyAddr);
-+	dma_free_coherent(&pdev->dev, R8169_TX_RING_BYTES, tp->TxDescArray,
-+			  tp->TxPhyAddr);
- 	tp->TxDescArray = NULL;
- err_pm_runtime_put:
- 	pm_runtime_put_noidle(&pdev->dev);
-@@ -3981,7 +3983,7 @@ static void rtl8169_free_rx_skb(struct rtl8169_private *tp,
- {
- 	struct pci_dev *pdev = tp->pci_dev;
- 
--	pci_unmap_single(pdev, le64_to_cpu(desc->addr), tp->rx_buf_sz,
-+	dma_unmap_single(&pdev->dev, le64_to_cpu(desc->addr), tp->rx_buf_sz,
- 			 PCI_DMA_FROMDEVICE);
- 	dev_kfree_skb(*sk_buff);
- 	*sk_buff = NULL;
-@@ -4020,7 +4022,7 @@ static struct sk_buff *rtl8169_alloc_rx_skb(struct pci_dev *pdev,
- 
- 	skb_reserve(skb, align ? ((pad - 1) & (unsigned long)skb->data) : pad);
- 
--	mapping = pci_map_single(pdev, skb->data, rx_buf_sz,
-+	mapping = dma_map_single(&pdev->dev, skb->data, rx_buf_sz,
- 				 PCI_DMA_FROMDEVICE);
- 
- 	rtl8169_map_to_asic(desc, mapping, rx_buf_sz);
-@@ -4105,7 +4107,8 @@ static void rtl8169_unmap_tx_skb(struct pci_dev *pdev, struct ring_info *tx_skb,
- {
- 	unsigned int len = tx_skb->len;
- 
--	pci_unmap_single(pdev, le64_to_cpu(desc->addr), len, PCI_DMA_TODEVICE);
-+	dma_unmap_single(&pdev->dev, le64_to_cpu(desc->addr), len,
-+			 PCI_DMA_TODEVICE);
- 	desc->opts1 = 0x00;
- 	desc->opts2 = 0x00;
- 	desc->addr = 0x00;
-@@ -4249,7 +4252,8 @@ static int rtl8169_xmit_frags(struct rtl8169_private *tp, struct sk_buff *skb,
- 		txd = tp->TxDescArray + entry;
- 		len = frag->size;
- 		addr = ((void *) page_address(frag->page)) + frag->page_offset;
--		mapping = pci_map_single(tp->pci_dev, addr, len, PCI_DMA_TODEVICE);
-+		mapping = dma_map_single(&tp->pci_dev->dev, addr, len,
-+					 PCI_DMA_TODEVICE);
- 
- 		/* anti gcc 2.95.3 bugware (sic) */
- 		status = opts1 | len | (RingEnd * !((entry + 1) % NUM_TX_DESC));
-@@ -4319,7 +4323,8 @@ static netdev_tx_t rtl8169_start_xmit(struct sk_buff *skb,
- 		tp->tx_skb[entry].skb = skb;
- 	}
- 
--	mapping = pci_map_single(tp->pci_dev, skb->data, len, PCI_DMA_TODEVICE);
-+	mapping = dma_map_single(&tp->pci_dev->dev, skb->data, len,
-+				 PCI_DMA_TODEVICE);
- 
- 	tp->tx_skb[entry].len = len;
- 	txd->addr = cpu_to_le64(mapping);
-@@ -4482,8 +4487,8 @@ static inline bool rtl8169_try_rx_copy(struct sk_buff **sk_buff,
- 	if (!skb)
- 		goto out;
- 
--	pci_dma_sync_single_for_cpu(tp->pci_dev, addr, pkt_size,
--				    PCI_DMA_FROMDEVICE);
-+	dma_sync_single_for_cpu(&tp->pci_dev->dev, addr, pkt_size,
-+				PCI_DMA_FROMDEVICE);
- 	skb_copy_from_linear_data(*sk_buff, skb->data, pkt_size);
- 	*sk_buff = skb;
- 	done = true;
-@@ -4552,11 +4557,11 @@ static int rtl8169_rx_interrupt(struct net_device *dev,
- 			}
- 
- 			if (rtl8169_try_rx_copy(&skb, tp, pkt_size, addr)) {
--				pci_dma_sync_single_for_device(pdev, addr,
-+				dma_sync_single_for_device(&pdev->dev, addr,
- 					pkt_size, PCI_DMA_FROMDEVICE);
- 				rtl8169_mark_to_asic(desc, tp->rx_buf_sz);
- 			} else {
--				pci_unmap_single(pdev, addr, tp->rx_buf_sz,
-+				dma_unmap_single(&pdev->dev, addr, tp->rx_buf_sz,
- 						 PCI_DMA_FROMDEVICE);
- 				tp->Rx_skbuff[entry] = NULL;
- 			}
-@@ -4774,10 +4779,10 @@ static int rtl8169_close(struct net_device *dev)
- 
- 	free_irq(dev->irq, dev);
- 
--	pci_free_consistent(pdev, R8169_RX_RING_BYTES, tp->RxDescArray,
--			    tp->RxPhyAddr);
--	pci_free_consistent(pdev, R8169_TX_RING_BYTES, tp->TxDescArray,
--			    tp->TxPhyAddr);
-+	dma_free_coherent(&pdev->dev, R8169_RX_RING_BYTES, tp->RxDescArray,
-+			  tp->RxPhyAddr);
-+	dma_free_coherent(&pdev->dev, R8169_TX_RING_BYTES, tp->TxDescArray,
-+			  tp->TxPhyAddr);
- 	tp->TxDescArray = NULL;
- 	tp->RxDescArray = NULL;
- 
--- 
-1.7.0.1
+Anything to do with socket IO that requires namespace awareness
+applies for usage; it could be tcp/udp/etc socket. If it doesnt
+make any difference performance wise using one scheme vs other
+to write/read heavy messages then i dont see an issue and socketat
+is redundant.
+
+If i was to pick blindly - I would say whatever approach with
+less syscalls is better even if just a "slow" path one time
+thing. I could create a scenario which would make it bad
+to have more syscalls.
+
+But theres also the simplicity aspect in doing:
+fdx = socketat namespace foo
+use fdx for read/write/poll into foo without any wrapper code.
+Vs
+enter foo
+fdx = socket ..
+read/write fdx
+leave foo.
+
+> Just like it used to before the enter.
+> 
+
+So if i enter foo, get a fdx, leave foo i can use it in
+ns0 as if it was in ns0?
+
+cheers,
+jamal
 
