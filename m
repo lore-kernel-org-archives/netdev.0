@@ -1,61 +1,66 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH] dont create cached routes from ARP requests
-Date: Thu, 23 Sep 2010 17:05:02 +0200
-Message-ID: <1285254302.2509.47.camel@edumazet-laptop>
-References: <20100922162209.GA10281@babylon>
-	 <20100922.203442.233700254.davem@davemloft.net>
-	 <20100923144708.GA8037@babylon>
+Subject: [PATCH net-next-2.6] net: skb_frag_t can be smaller on small arches
+Date: Thu, 23 Sep 2010 17:06:54 +0200
+Message-ID: <1285254414.2509.50.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Ulrich Weber <uweber@astaro.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:38038 "EHLO
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:48245 "EHLO
 	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754136Ab0IWPFH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Sep 2010 11:05:07 -0400
-Received: by fxm3 with SMTP id 3so98161fxm.19
-        for <netdev@vger.kernel.org>; Thu, 23 Sep 2010 08:05:06 -0700 (PDT)
-In-Reply-To: <20100923144708.GA8037@babylon>
+	with ESMTP id S1753155Ab0IWPG6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Sep 2010 11:06:58 -0400
+Received: by fxm3 with SMTP id 3so100109fxm.19
+        for <netdev@vger.kernel.org>; Thu, 23 Sep 2010 08:06:57 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 23 septembre 2010 =C3=A0 16:47 +0200, Ulrich Weber a =C3=A9cri=
-t :
-> On Wed, Sep 22, 2010 at 08:34:42PM -0700, David Miller wrote:
-> > From: Ulrich Weber <uweber@astaro.com>
-> > Date: Wed, 22 Sep 2010 18:22:09 +0200
-> >=20
-> > > Background: At home I have two Internet connections, DSL and Cabl=
-e.
-> > > DSL is the primary uplink while Cable is the secondary.
-> > > My Cable ISP is flooding me with ARP request from 10.0.0.0/8,
-> > > which creates routes via the primary uplink.
-> > > There are thousands of cached routes and after some time
-> > > I get "Neighbour table overflow" messages.
-> >=20
-> > If you get neighbour table overflows, something is holding a refere=
-nce
-> > to the routing cache entry and/or the neighbour entries those routi=
-ng
-> > cache entries are attached to.
-> >=20
-> > If these really are transient entries, they should be trivially
-> > garbage collected and not cause any problems at all.
-> rt_garbage_collect is not called within rt_intern_hash,
-> because the call is done within softirq context.
->=20
-> Forcing the call of rt_garbage_collect didn't help either,
-> there are no routes freed afterwards...
->=20
+David
 
-Please give us more information.
+I remember you reacted on my three years old comment about
+commit a309bb072b96bfe (Page offsets and lengths need to be __u32.)
 
-grep . /proc/sys/net/ipv4/route/*
+http://www.mail-archive.com/netdev@vger.kernel.org/msg43999.html
 
-rtstat -c10 -i1
+Could we reconsider the thing now and allow to shrink
+sizeof(skb_shared_info) from 0x104 to 0xbc, considering nothing happened
+about scatterlist work ?
 
-Thanks
+This saves 128 bytes on i386 because of alignments, and can be reverted
+pretty fast if needed.
+
+Thanks !
+
+[PATCH net-next-2.6] net: skb_frag_t can be smaller on small arches
+
+On 32bit arches, if PAGE_SIZE is smaller than 65536, we can use 16bit
+offset and size fields. This patch saves 72 bytes per skb on i386, or
+128 bytes after rounding.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ include/linux/skbuff.h |    5 +++++
+ 1 files changed, 5 insertions(+)
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 9e8085a..9a7ea70 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -129,8 +129,13 @@ typedef struct skb_frag_struct skb_frag_t;
+ 
+ struct skb_frag_struct {
+ 	struct page *page;
++#if (BITS_PER_LONG > 32) || (PAGE_SIZE >= 65536)
+ 	__u32 page_offset;
+ 	__u32 size;
++#else
++	__u16 page_offset;
++	__u16 size;
++#endif
+ };
+ 
+ #define HAVE_HW_TIME_STAMP
 
 
