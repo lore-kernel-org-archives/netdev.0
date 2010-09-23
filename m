@@ -1,76 +1,95 @@
-From: john stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 1/8] posix clocks: introduce a syscall for clock tuning.
-Date: Thu, 23 Sep 2010 12:48:51 -0700
-Message-ID: <1285271331.2587.56.camel@localhost.localdomain>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH v6 0/8] ptp: IEEE 1588 hardware clock support
+Date: Thu, 23 Sep 2010 21:36:54 +0100
+Message-ID: <20100923213654.0c64b047@lxorguk.ukuu.org.uk>
 References: <cover.1285261533.git.richard.cochran@omicron.at>
-	 <b94ef1cd9c04ef3ad5964408bd0af7251add78de.1285261534.git.richard.cochran@omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>,
-	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>,
-	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
-To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <b94ef1cd9c04ef3ad5964408bd0af7251add78de.1285261534.git.richard.cochran-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: John Stultz <johnstul@us.ibm.com>, Rodolfo Giometti <giometti@linux.it>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Peter Zijlstra <peterz@infradead.org>, linux-api@vger.kernel.org,
+	devicetree-discuss@lists.ozlabs.org, linux-kernel@vger.kernel.org,
+	Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org,
+	Christoph Lameter <cl@linux.com>, linuxppc-dev@lists.ozlabs.org,
+	David Miller <davem@davemloft.net>, linux-arm-kernel@lists.infradead.org,
+	Krzysztof Halasa <khc@pm.waw.pl>
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <cover.1285261533.git.richard.cochran@omicron.at>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2010-09-23 at 19:31 +0200, Richard Cochran wrote:
-> A new syscall is introduced that allows tuning of a POSIX clock. The
-> syscall is implemented for four architectures: arm, blackfin, powerpc,
-> and x86.
+>    So as far as the POSIX standard is concerned, offering a clock id
+>    to represent the PHC would be acceptable.
+
+But completely useless as you may have more than one entirely different
+time managed by PTP and in which you are not master but must work with
+the timebases provided.
+
+
+>     /sys/class/timesource/<name>/id
+>     /sys/class/ptp/ptp_clock_X/id
 > 
-> The new syscall, clock_adjtime, takes two parameters, the clock ID,
-> and a pointer to a struct timex. The semantics of the timex struct
-> have been expanded by one additional mode flag, which allows an
-> absolute offset correction. When specificied, the clock offset is
-> immediately corrected by adding the given time value to the current
-> time value.
+>     Note: I am not too sure that this is exactly what people imagined,
+>           but it is my best understanding so far. I gleaned two
+>           different ideas about where to offer the clock id. In order
+>           to keep just one way, I will be happy to remove the less
+>           popular one.
+
+I see no fix proposed for the race condition I pointed out. This doesn't
+work.
 
 
-So I'd still split this patch up a little bit more.
+>    If the Linux system time is synchronized to the PHC via the PPS
 
-1) Patch that implements the ADJ_SETOFFSET  (*and its implementation*)
-in do_adjtimex.
+To which PHC we can have several
 
-2) Patch that adds the new syscall and clock_id multiplexing.
+>    + Intel IXP465
+>      - Auxiliary Slave/Master Mode Snapshot (optional interrupt)
+>      - Target Time (optional interrupt)
 
-3) Patches that wire it up to the rest of the architectures (there's
-still a bunch missing here).
-
-
-
-And one little nit in the code:
-
-> diff --git a/kernel/posix-timers.c b/kernel/posix-timers.c
-> index 9ca4973..446b566 100644
-> --- a/kernel/posix-timers.c
-> +++ b/kernel/posix-timers.c
-> @@ -197,6 +197,14 @@ static int common_timer_create(struct k_itimer *new_timer)
->  	return 0;
->  }
-> 
-> +static inline int common_clock_adj(const clockid_t which_clock, struct timex *t)
-> +{
-> +	if (CLOCK_REALTIME == which_clock)
-> +		return do_adjtimex(t);
-> +	else
-> +		return -EOPNOTSUPP;
-> +}
+And about 40 already supported by char driver interface clocks and rtcs
+in the kernel...
 
 
-Would it make sense to point to the do_adjtimex() in the k_clock
-definition for CLOCK_REALTIME rather then conditionalizing it here?
+I'd say the inability to have multiple clocks and the race condition
+because of the clockid stuff leaves the proposal dead in the water.
+
+It also ignores the existing APIs we have floating around attached to
+devices.
+
+You need to make one small important change. You need to take the POSIX
+crap about enumerating things out and shoot it, bury it at a crossroads
+and sprinkle holy water on it.
+
+Drop the clockid_t and swap it for a file handle like a proper Unix or
+Linux interface. The rest is much the same
+
+	fd = open /sys/class/timesource/[whatever]
+
+	various queries you may want to do to check the name etc
+
+	fclock_adjtime(fd, ...)
+	
+
+The posix interface is fundamentally flawed. It only works for staticly
+enumerable objects. Unix avoided that forty years ago by making the
+identifier a handle which immediately cures all your object lifetime
+problems in one swoop.
+
+Namespace -> file handle translations are dynamic, but once you have it
+open you hold on to the same object, which means you can check what you
+have.
 
 
 
-thanks
--john
+Alan
