@@ -1,8 +1,7 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH ethtool 5/7] ethtool: Add Ethernet-level RX n-tuple
- filtering and 'clear' action
-Date: Thu, 23 Sep 2010 22:49:43 +0100
-Message-ID: <1285278583.7794.32.camel@achroite.uk.solarflarecom.com>
+Subject: [PATCH ethtool 6/7] ethtool: Update sfc register dump
+Date: Thu, 23 Sep 2010 22:50:00 +0100
+Message-ID: <1285278600.7794.33.camel@achroite.uk.solarflarecom.com>
 References: <1285278428.7794.27.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -10,245 +9,117 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:54667 "EHLO
+Received: from exchange.solarflare.com ([216.237.3.220]:54710 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752350Ab0IWVtq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Sep 2010 17:49:46 -0400
+	with ESMTP id S1755167Ab0IWVuD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Sep 2010 17:50:03 -0400
 In-Reply-To: <1285278428.7794.27.camel@achroite.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Add length checks to allow for extensions to the register dump without
+changing the version number.
+
+Show the RX IP filter table if present.
+
+Fix address field definitions for the MAC filter tables.
+
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- ethtool.8 |   48 ++++++++++++++++++++++++++++++++++++++----
- ethtool.c |   68 +++++++++++++++++++++++++++++++++++++++++++++++++++++-------
- 2 files changed, 103 insertions(+), 13 deletions(-)
+ sfc.c |   25 ++++++++++++++-----------
+ 1 files changed, 14 insertions(+), 11 deletions(-)
 
-diff --git a/ethtool.8 b/ethtool.8
-index 295caab..2c54cb4 100644
---- a/ethtool.8
-+++ b/ethtool.8
-@@ -233,8 +233,9 @@ ethtool \- Display or change ethernet card settings
- .B ethtool \-u|\-\-show\-ntuple
- .I ethX
+diff --git a/sfc.c b/sfc.c
+index 2e4735f..c8ca74a 100644
+--- a/sfc.c
++++ b/sfc.c
+@@ -2420,8 +2420,8 @@
+ #define	FRF_CZ_RMFT_RXQ_ID_WIDTH 12
+ #define	FRF_CZ_RMFT_WILDCARD_MATCH_LBN 60
+ #define	FRF_CZ_RMFT_WILDCARD_MATCH_WIDTH 1
+-#define	FRF_CZ_RMFT_DEST_MAC_LBN 16
+-#define	FRF_CZ_RMFT_DEST_MAC_WIDTH 44
++#define	FRF_CZ_RMFT_DEST_MAC_LBN 12
++#define	FRF_CZ_RMFT_DEST_MAC_WIDTH 48
+ #define	FRF_CZ_RMFT_VLAN_ID_LBN 0
+ #define	FRF_CZ_RMFT_VLAN_ID_WIDTH 12
  
--.B ethtool \-U|\-\-config\-ntuple
--.I ethX
-+.TP
-+.BI ethtool\ \-U|\-\-config\-ntuple \ ethX
-+.RB {
- .A3 flow-type tcp4 udp4 sctp4
- .RB [ src-ip
- .IR addr
-@@ -252,6 +253,21 @@ ethtool \- Display or change ethernet card settings
- .IR port
- .RB [ dst-port-mask
- .IR mask ]]
-+.br
-+.RB | \ flow-type\ ether
-+.RB [ src
-+.IR mac-addr
-+.RB [ src-mask
-+.IR mask ]]
-+.RB [ dst
-+.IR mac-addr
-+.RB [ dst-mask
-+.IR mask ]]
-+.RB [ proto
-+.IR N
-+.RB [ proto-mask
-+.IR mask ]]\ }
-+.br
- .RB [ vlan
- .IR VLAN-tag
- .RB [ vlan-mask
-@@ -649,7 +665,7 @@ Get Rx ntuple filters and actions, then display them to the user.
- .B \-U \-\-config-ntuple
- Configure Rx ntuple filters and actions
- .TP
--.B flow-type tcp4|udp4|sctp4
-+.B flow-type tcp4|udp4|sctp4|ether
- .RS
- .PD 0
- .TP 3
-@@ -658,6 +674,8 @@ Configure Rx ntuple filters and actions
- .BR "udp4" "    UDP over IPv4"
- .TP 3
- .BR "sctp4" "   SCTP over IPv4"
-+.TP 3
-+.BR "ether" "   Ethernet"
- .PD
- .RE
- .TP
-@@ -686,6 +704,25 @@ Includes the destination port.
- .BI dst-port-mask \ mask
- Specify a mask for the destination port.
- .TP
-+.BI src \ mac-addr
-+Includes the source MAC address, specified as 6 bytes in hexadecimal
-+separated by colons.
-+.TP
-+.BI src-mask \ mask
-+Specify a mask for the source MAC address.
-+.TP
-+.BI dst \ mac-addr
-+Includes the destination MAC address.
-+.TP
-+.BI dst-mask \ mask
-+Specify a mask for the destination MAC address.
-+.TP
-+.BI proto \ N
-+Includes the Ethernet protocol number (ethertype).
-+.TP
-+.BI proto-mask \ mask
-+Specify a mask for the Ethernet protocol number.
-+.TP
- .BI vlan \ VLAN-tag
- Includes the VLAN tag.
- .TP
-@@ -699,11 +736,12 @@ Includes 64-bits of user-specific data.
- Specify a mask for the user-specific data.
- .TP
- .BI action \ N
--Specifies either the Rx queue to send packets to, or to drop
--the matched flow.
-+Specifies the Rx queue to send packets to, or some other action.
- .RS
- .PD 0
- .TP 3
-+.BR "-2" "             Clear the filter"
-+.TP 3
- .BR "-1" "             Drop the matched flow"
- .TP 3
- .BR "0 or higher" "    Rx queue to route the flow"
-diff --git a/ethtool.c b/ethtool.c
-index ea6a26f..31158f8 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -240,11 +240,15 @@ static struct option {
- 		"		equal N | weight W0 W1 ...\n" },
-     { "-U", "--config-ntuple", MODE_SNTUPLE, "Configure Rx ntuple filters "
- 		"and actions",
--		"		flow-type tcp4|udp4|sctp4\n"
--		"		[ src-ip ADDR [src-ip-mask MASK] ]\n"
--		"		[ dst-ip ADDR [dst-ip-mask MASK] ]\n"
--		"		[ src-port PORT [src-port-mask MASK] ]\n"
--		"		[ dst-port PORT [dst-port-mask MASK] ]\n"
-+		"		{ flow-type tcp4|udp4|sctp4\n"
-+		"		  [ src-ip ADDR [src-ip-mask MASK] ]\n"
-+		"		  [ dst-ip ADDR [dst-ip-mask MASK] ]\n"
-+		"		  [ src-port PORT [src-port-mask MASK] ]\n"
-+		"		  [ dst-port PORT [dst-port-mask MASK] ]\n"
-+		"		| flow-type ether\n"
-+		"		  [ src MAC-ADDR [src-mask MASK] ]\n"
-+		"		  [ dst MAC-ADDR [dst-mask MASK] ]\n"
-+		"		  [ proto N [proto-mask MASK] ] }\n"
- 		"		[ vlan VLAN-TAG [vlan-mask MASK] ]\n"
- 		"		[ user-def DATA [user-def-mask MASK] ]\n"
- 		"		action N\n" },
-@@ -377,6 +381,12 @@ static int ntuple_psrc_seen = 0;
- static int ntuple_psrc_mask_seen = 0;
- static int ntuple_pdst_seen = 0;
- static int ntuple_pdst_mask_seen = 0;
-+static int ntuple_ether_dst_seen = 0;
-+static int ntuple_ether_dst_mask_seen = 0;
-+static int ntuple_ether_src_seen = 0;
-+static int ntuple_ether_src_mask_seen = 0;
-+static int ntuple_ether_proto_seen = 0;
-+static int ntuple_ether_proto_mask_seen = 0;
- static int ntuple_vlan_tag_seen = 0;
- static int ntuple_vlan_tag_mask_seen = 0;
- static int ntuple_user_def_seen = 0;
-@@ -497,7 +507,7 @@ static struct cmdline_info cmdline_coalesce[] = {
- 	{ "tx-frames-high", CMDL_S32, &coal_tx_frames_high_wanted, &ecoal.tx_max_coalesced_frames_high },
+@@ -2497,8 +2497,8 @@
+ #define	FRF_CZ_TMFT_TXQ_ID_WIDTH 12
+ #define	FRF_CZ_TMFT_WILDCARD_MATCH_LBN 60
+ #define	FRF_CZ_TMFT_WILDCARD_MATCH_WIDTH 1
+-#define	FRF_CZ_TMFT_SRC_MAC_LBN 16
+-#define	FRF_CZ_TMFT_SRC_MAC_WIDTH 44
++#define	FRF_CZ_TMFT_SRC_MAC_LBN 12
++#define	FRF_CZ_TMFT_SRC_MAC_WIDTH 48
+ #define	FRF_CZ_TMFT_VLAN_ID_LBN 0
+ #define	FRF_CZ_TMFT_VLAN_ID_WIDTH 12
+ 
+@@ -3445,9 +3445,11 @@ static const struct efx_nic_reg_field efx_nic_reg_fields_BUF_FULL_TBL[] = {
+ };
+ #define efx_nic_reg_fields_BUF_FULL_TBL_KER efx_nic_reg_fields_BUF_FULL_TBL
+ static const struct efx_nic_reg_field efx_nic_reg_fields_RX_FILTER_TBL0[] = {
+-	REGISTER_FIELD_BZ(SRC_TCP_DEST_UDP),
++	/* Source port for full match; destination port for UDP wild match */
++	REGISTER_FIELD_BZ_RENAME(SRC_TCP_DEST_UDP, "SRC_PORT"),
+ 	REGISTER_FIELD_BZ(SRC_IP),
+-	REGISTER_FIELD_BZ(DEST_PORT_TCP),
++	/* Destination port for full match or TCP wild match */
++	REGISTER_FIELD_BZ_RENAME(DEST_PORT_TCP, "DEST_PORT"),
+ 	REGISTER_FIELD_BZ(DEST_IP),
+ 	REGISTER_FIELD_BZ(RXQ_ID),
+ 	REGISTER_FIELD_BZ(TCP_UDP),
+@@ -3663,8 +3665,7 @@ static const struct efx_nic_reg_table efx_nic_reg_tables[] = {
+ 	REGISTER_TABLE_BB_CZ(TX_DESC_PTR_TBL),
+ 	REGISTER_TABLE_AA(EVQ_PTR_TBL_KER),
+ 	REGISTER_TABLE_BB_CZ(EVQ_PTR_TBL),
+-	/* The register buffer is allocated with slab, so we can't
+-	 * reasonably read all of the buffer table (up to 8MB!).
++	/* We can't reasonably read all of the buffer table (up to 8MB!).
+ 	 * However this driver will only use a few entries.  Reading
+ 	 * 1K entries allows for some expansion of queue count and
+ 	 * size before we need to change the version. */
+@@ -3672,7 +3673,6 @@ static const struct efx_nic_reg_table efx_nic_reg_tables[] = {
+ 				  A, A, 8, 1024),
+ 	REGISTER_TABLE_DIMENSIONS(BUF_FULL_TBL, FR_BZ_BUF_FULL_TBL,
+ 				  B, Z, 8, 1024),
+-	/* RX_FILTER_TBL{0,1} is huge and not used by this driver */
+ 	REGISTER_TABLE_CZ(RX_MAC_FILTER_TBL0),
+ 	REGISTER_TABLE_BB_CZ(TIMER_TBL),
+ 	REGISTER_TABLE_BB_CZ(TX_PACE_TBL),
+@@ -3682,6 +3682,7 @@ static const struct efx_nic_reg_table efx_nic_reg_tables[] = {
+ 	REGISTER_TABLE_CZ(MC_TREG_SMEM),
+ 	/* MSIX_PBA_TABLE is not mapped */
+ 	/* SRM_DBG is not mapped (and is redundant with BUF_FLL_TBL) */
++	REGISTER_TABLE_BZ(RX_FILTER_TBL0),
  };
  
--static struct cmdline_info cmdline_ntuple[] = {
-+static struct cmdline_info cmdline_ntuple_tcp_ip4[] = {
- 	{ "src-ip", CMDL_IP4, &ntuple_fs.h_u.tcp_ip4_spec.ip4src, NULL,
- 	  0, &ntuple_ip4src_seen },
- 	{ "src-ip-mask", CMDL_IP4, &ntuple_fs.m_u.tcp_ip4_spec.ip4src, NULL,
-@@ -525,6 +535,30 @@ static struct cmdline_info cmdline_ntuple[] = {
- 	{ "action", CMDL_S32, &ntuple_fs.action, NULL },
- };
+ static size_t column_width(const struct efx_nic_reg_field *field)
+@@ -3830,12 +3831,13 @@ sfc_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
+ 	const struct efx_nic_reg_table *table;
+ 	unsigned revision = regs->version;
+ 	const void *buf = regs->data;
++	const void *end = regs->data + regs->len;
  
-+static struct cmdline_info cmdline_ntuple_ether[] = {
-+	{ "dst", CMDL_MAC, ntuple_fs.h_u.ether_spec.h_dest, NULL,
-+	  0, &ntuple_ether_dst_seen },
-+	{ "dst-mask", CMDL_MAC, ntuple_fs.m_u.ether_spec.h_dest, NULL,
-+	  0, &ntuple_ether_dst_mask_seen },
-+	{ "src", CMDL_MAC, ntuple_fs.h_u.ether_spec.h_source, NULL,
-+	  0, &ntuple_ether_src_seen },
-+	{ "src-mask", CMDL_MAC, ntuple_fs.m_u.ether_spec.h_source, NULL,
-+	  0, &ntuple_ether_src_mask_seen },
-+	{ "proto", CMDL_BE16, &ntuple_fs.h_u.ether_spec.h_proto, NULL,
-+	  0, &ntuple_ether_proto_seen },
-+	{ "proto-mask", CMDL_BE16, &ntuple_fs.m_u.ether_spec.h_proto, NULL,
-+	  0, &ntuple_ether_proto_mask_seen },
-+	{ "vlan", CMDL_U16, &ntuple_fs.vlan_tag, NULL,
-+	  0, &ntuple_vlan_tag_seen },
-+	{ "vlan-mask", CMDL_U16, &ntuple_fs.vlan_tag_mask, NULL,
-+	  0, &ntuple_vlan_tag_mask_seen },
-+	{ "user-def", CMDL_U64, &ntuple_fs.data, NULL,
-+	  0, &ntuple_user_def_seen },
-+	{ "user-def-mask", CMDL_U64, &ntuple_fs.data_mask, NULL,
-+	  0, &ntuple_user_def_mask_seen },
-+	{ "action", CMDL_S32, &ntuple_fs.action, NULL },
-+};
-+
- static struct cmdline_info cmdline_msglvl[] = {
- 	{ "drv", CMDL_FLAG, &msglvl_wanted, NULL,
- 	  NETIF_MSG_DRV, &msglvl_mask },
-@@ -741,6 +775,8 @@ static int rxflow_str_to_type(const char *str)
- 		flow_type = AH_ESP_V6_FLOW;
- 	else if (!strcmp(str, "sctp6"))
- 		flow_type = SCTP_V6_FLOW;
-+	else if (!strcmp(str, "ether"))
-+		flow_type = ETHER_FLOW;
+ 	if (revision > REGISTER_REVISION_Z)
+ 		return -1;
  
- 	return flow_type;
- }
-@@ -1551,8 +1587,8 @@ static void parse_rxntupleopts(int argc, char **argp, int i)
- 	case SCTP_V4_FLOW:
- 		parse_generic_cmdline(argc, argp, i + 1,
- 				      &sntuple_changed,
--				      cmdline_ntuple,
--				      ARRAY_SIZE(cmdline_ntuple));
-+				      cmdline_ntuple_tcp_ip4,
-+				      ARRAY_SIZE(cmdline_ntuple_tcp_ip4));
- 		if (!ntuple_ip4src_seen)
- 			ntuple_fs.m_u.tcp_ip4_spec.ip4src = 0xffffffff;
- 		if (!ntuple_ip4dst_seen)
-@@ -1563,6 +1599,19 @@ static void parse_rxntupleopts(int argc, char **argp, int i)
- 			ntuple_fs.m_u.tcp_ip4_spec.pdst = 0xffff;
- 		ntuple_fs.m_u.tcp_ip4_spec.tos = 0xff;
- 		break;
-+	case ETHER_FLOW:
-+		parse_generic_cmdline(argc, argp, i + 1,
-+				      &sntuple_changed,
-+				      cmdline_ntuple_ether,
-+				      ARRAY_SIZE(cmdline_ntuple_ether));
-+		if (!ntuple_ether_dst_seen)
-+			memset(ntuple_fs.m_u.ether_spec.h_dest, 0xff, ETH_ALEN);
-+		if (!ntuple_ether_src_seen)
-+			memset(ntuple_fs.m_u.ether_spec.h_source, 0xff,
-+			       ETH_ALEN);
-+		if (!ntuple_ether_proto_seen)
-+			ntuple_fs.m_u.ether_spec.h_proto = 0xffff;
-+		break;
- 	default:
- 		fprintf(stderr, "Unsupported flow type \"%s\"\n", argp[i]);
- 		exit(106);
-@@ -1578,6 +1627,9 @@ static void parse_rxntupleopts(int argc, char **argp, int i)
- 	    (ntuple_ip4dst_mask_seen && !ntuple_ip4dst_seen) ||
- 	    (ntuple_psrc_mask_seen && !ntuple_psrc_seen) ||
- 	    (ntuple_pdst_mask_seen && !ntuple_pdst_seen) ||
-+	    (ntuple_ether_dst_mask_seen && !ntuple_ether_dst_seen) ||
-+	    (ntuple_ether_src_mask_seen && !ntuple_ether_src_seen) ||
-+	    (ntuple_ether_proto_mask_seen && !ntuple_ether_proto_seen) ||
- 	    (ntuple_vlan_tag_mask_seen && !ntuple_vlan_tag_seen) ||
- 	    (ntuple_user_def_mask_seen && !ntuple_user_def_seen)) {
- 		fprintf(stderr, "Cannot specify mask without value\n");
+ 	for (reg = efx_nic_regs;	
+-	     reg < efx_nic_regs + ARRAY_SIZE(efx_nic_regs);
++	     reg < efx_nic_regs + ARRAY_SIZE(efx_nic_regs) && buf < end;
+ 	     reg++) {
+ 		if (revision >= reg->min_revision &&
+ 		    revision <= reg->max_revision)
+@@ -3843,7 +3845,8 @@ sfc_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
+ 	}
+ 
+ 	for (table = efx_nic_reg_tables;
+-	     table < efx_nic_reg_tables + ARRAY_SIZE(efx_nic_reg_tables);
++	     table < efx_nic_reg_tables + ARRAY_SIZE(efx_nic_reg_tables) &&
++		     buf < end;
+ 	     table++) {
+ 		if (revision >= table->min_revision &&
+ 		    revision <= table->max_revision) {
 -- 
 1.7.2.1
 
