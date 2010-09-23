@@ -1,71 +1,37 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next-2.6 RFC PATCH] e1000e: NUMA changes, add Node=
- parameter
-Date: Thu, 23 Sep 2010 18:17:24 +0100
-Message-ID: <1285262244.7794.11.camel@achroite.uk.solarflarecom.com>
-References: <20100923032534.11274.77976.stgit@localhost.localdomain>
-	 <20100922.203642.02274207.davem@davemloft.net>
-	 <alpine.WNT.2.00.1009230932300.5948@jbrandeb-desk1.amr.corp.intel.com>
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: Re: igmp: Staggered igmp report intervals for unsolicited igmp
+	reports
+Date: Thu, 23 Sep 2010 11:26:03 -0600
+Message-ID: <20100923172603.GM11157@obsidianresearch.com>
+References: <alpine.DEB.2.00.1009221354410.32661@router.home> <alpine.DEB.2.00.1009221400010.32661@router.home> <OFF06BBC88.0B6755D5-ON882577A6.0068F4F8-882577A6.006B31FB@us.ibm.com> <alpine.DEB.2.00.1009221448460.32661@router.home> <20100922215052.GK11157@obsidianresearch.com> <alpine.DEB.2.00.1009231026510.32567@router.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"bphilips@novell.com" <bphilips@novell.com>,
-	shemminger@linux-foundation.org
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Stevens <dlstevens@us.ibm.com>, linux-rdma@vger.kernel.org,
+	netdev@vger.kernel.org, Bob Arendt <rda@rincon.com>
+To: Christoph Lameter <cl@linux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:32892 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755600Ab0IWRR2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Sep 2010 13:17:28 -0400
-In-Reply-To: <alpine.WNT.2.00.1009230932300.5948@jbrandeb-desk1.amr.corp.intel.com>
+Received: from quartz.orcorp.ca ([139.142.54.143]:56080 "EHLO quartz.orcorp.ca"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755427Ab0IWR0N (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Sep 2010 13:26:13 -0400
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.00.1009231026510.32567@router.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-09-23 at 09:46 -0700, Brandeburg, Jesse wrote:
-> 
-> On Wed, 22 Sep 2010, David Miller wrote:
-> 
-> > From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> > Date: Wed, 22 Sep 2010 20:28:10 -0700
-> > 
-> > > Although a module parameter is not the preferred way for
-> > > in-tree modules, this problem is not solvable in ethtool without
-> > > mod params because of needing the information at probe time to
-> > > control early allocations of memory.  Ideally there would even be
-> > > a way to control the node where the memory of the netdev struct
-> > > would be allocated also.
-> > 
-> > Sorry, no.
-> > 
-> > Various folks are working on infrastructure such that the Numa node of
-> > everything other than the netdev struct can be dynamically choosen.
-> > 
-> > I'm sure we can find a way to dynamically reallocate and re-attach the
-> > netdev structure as well.
-> 
-> okay, thanks for your comments, we can carry this patch out-of-tree.  
-> 
-> Unfortunately as I said in the comments there is really no way around this 
-> *now* other than some fixed binding scheme, none of which are one size 
-> fits all, which is why I (reluctantly) supplied the module parameter 
-> patch.
-> 
-> I'm interested to hear more about the "various folks' infrastructure" 
-> plans, I'll do some research.  I can definitely provide testing.
-[...]
+On Thu, Sep 23, 2010 at 10:32:17AM -0500, Christoph Lameter wrote:
 
-I think David may be referring to this:
+> > Is the issue you are dropping IGMP packets because the 224.0.0.2 join
+> > hasn't finished? Ideally you'd wait for the SA to reply before sending
+> > a IGMP, but a simpler solution might just be to use the broadcast MLID
+> > for packets addressed to a MGID that has not yet got a MLID. This
+> > would bebe similar to the ethernet behaviour of flooding.
+> 
+> IGMP reports are sent on the multicast group not on 224.0.0.2. 224.0.0.2
+> is only used when leaving a multicast group.
 
-http://article.gmane.org/gmane.linux.network/172386
+Hm, that is quite different than in IGMPv3.. How does this work at all
+in IB? A message to the multicast group isn't going to make it to any
+routers unless the routers use some other means to join the IB MGID.
 
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Jason
