@@ -1,73 +1,131 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 PATCH 3/6] e1000e: 82566DC fails to get link
-Date: Wed, 22 Sep 2010 20:15:54 -0700
-Message-ID: <20100923031553.10976.18727.stgit@localhost.localdomain>
+Subject: [net-2.6 PATCH 4/6] e1000e: 82579 unaccounted missed packets
+Date: Wed, 22 Sep 2010 20:16:18 -0700
+Message-ID: <20100923031617.10976.68976.stgit@localhost.localdomain>
 References: <20100923031432.10976.81909.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
-	stable@kernel.org, Bruce Allan <bruce.w.allan@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta02.westchester.pa.mail.comcast.net ([76.96.62.24]:50071
-	"EHLO qmta02.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752540Ab0IWDQR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Sep 2010 23:16:17 -0400
+Received: from qmta04.westchester.pa.mail.comcast.net ([76.96.62.40]:50463
+	"EHLO qmta04.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751893Ab0IWDQj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Sep 2010 23:16:39 -0400
 In-Reply-To: <20100923031432.10976.81909.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-Two recent patches to cleanup the reset[1] and initial PHY configuration[2]
-code paths for ICH/PCH devices inadvertently left out a 10msec delay and
-device ID check respectively which are necessary for the 82566DC (device id
-0x104b) to be configured properly, otherwise it will not get link.
+On 82579, there is a hardware bug that can cause received packets to not
+get transferred from the PHY to the MAC due to K1 (a power saving feature
+of the PHY-MAC interconnect similar to ASPM L1).  Since the MAC controls
+the accounting of missed packets, these will go unnoticed.  Workaround the
+issue by setting the K1 beacon duration according to the link speed.
 
-[1] commit e98cac447cc1cc418dff1d610a5c79c4f2bdec7f
-[2] commit 3f0c16e84438d657d29446f85fe375794a93f159
-
-CC: stable@kernel.org
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/e1000e/ich8lan.c |    7 +++++--
- 1 files changed, 5 insertions(+), 2 deletions(-)
+ drivers/net/e1000e/hw.h      |    1 +
+ drivers/net/e1000e/ich8lan.c |   48 ++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 49 insertions(+), 0 deletions(-)
 
+diff --git a/drivers/net/e1000e/hw.h b/drivers/net/e1000e/hw.h
+index 66ed08f..ba302a5 100644
+--- a/drivers/net/e1000e/hw.h
++++ b/drivers/net/e1000e/hw.h
+@@ -57,6 +57,7 @@ enum e1e_registers {
+ 	E1000_SCTL     = 0x00024, /* SerDes Control - RW */
+ 	E1000_FCAL     = 0x00028, /* Flow Control Address Low - RW */
+ 	E1000_FCAH     = 0x0002C, /* Flow Control Address High -RW */
++	E1000_FEXTNVM4 = 0x00024, /* Future Extended NVM 4 - RW */
+ 	E1000_FEXTNVM  = 0x00028, /* Future Extended NVM - RW */
+ 	E1000_FCT      = 0x00030, /* Flow Control Type - RW */
+ 	E1000_VET      = 0x00038, /* VLAN Ether Type - RW */
 diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
-index fc8c3ce..6f9cb0d 100644
+index 6f9cb0d..89b1e1a 100644
 --- a/drivers/net/e1000e/ich8lan.c
 +++ b/drivers/net/e1000e/ich8lan.c
-@@ -932,7 +932,6 @@ out:
-  **/
- static s32 e1000_sw_lcd_config_ich8lan(struct e1000_hw *hw)
- {
--	struct e1000_adapter *adapter = hw->adapter;
- 	struct e1000_phy_info *phy = &hw->phy;
- 	u32 i, data, cnf_size, cnf_base_addr, sw_cfg_mask;
- 	s32 ret_val = 0;
-@@ -950,7 +949,8 @@ static s32 e1000_sw_lcd_config_ich8lan(struct e1000_hw *hw)
- 		if (phy->type != e1000_phy_igp_3)
- 			return ret_val;
+@@ -105,6 +105,10 @@
+ #define E1000_FEXTNVM_SW_CONFIG		1
+ #define E1000_FEXTNVM_SW_CONFIG_ICH8M (1 << 27) /* Bit redefined for ICH8M :/ */
  
--		if (adapter->pdev->device == E1000_DEV_ID_ICH8_IGP_AMT) {
-+		if ((hw->adapter->pdev->device == E1000_DEV_ID_ICH8_IGP_AMT) ||
-+		    (hw->adapter->pdev->device == E1000_DEV_ID_ICH8_IGP_C)) {
- 			sw_cfg_mask = E1000_FEXTNVM_SW_CONFIG;
- 			break;
- 		}
-@@ -1626,6 +1626,9 @@ static s32 e1000_post_phy_reset_ich8lan(struct e1000_hw *hw)
- 	if (e1000_check_reset_block(hw))
- 		goto out;
- 
-+	/* Allow time for h/w to get to quiescent state after reset */
-+	msleep(10);
++#define E1000_FEXTNVM4_BEACON_DURATION_MASK    0x7
++#define E1000_FEXTNVM4_BEACON_DURATION_8USEC   0x7
++#define E1000_FEXTNVM4_BEACON_DURATION_16USEC  0x3
 +
- 	/* Perform any necessary post-reset workarounds */
- 	switch (hw->mac.type) {
- 	case e1000_pchlan:
+ #define PCIE_ICH8_SNOOP_ALL		PCIE_NO_SNOOP_ALL
+ 
+ #define E1000_ICH_RAR_ENTRIES		7
+@@ -238,6 +242,7 @@ static s32  e1000_k1_gig_workaround_hv(struct e1000_hw *hw, bool link);
+ static s32 e1000_set_mdio_slow_mode_hv(struct e1000_hw *hw);
+ static bool e1000_check_mng_mode_ich8lan(struct e1000_hw *hw);
+ static bool e1000_check_mng_mode_pchlan(struct e1000_hw *hw);
++static s32 e1000_k1_workaround_lv(struct e1000_hw *hw);
+ 
+ static inline u16 __er16flash(struct e1000_hw *hw, unsigned long reg)
+ {
+@@ -653,6 +658,12 @@ static s32 e1000_check_for_copper_link_ich8lan(struct e1000_hw *hw)
+ 			goto out;
+ 	}
+ 
++	if (hw->mac.type == e1000_pch2lan) {
++		ret_val = e1000_k1_workaround_lv(hw);
++		if (ret_val)
++			goto out;
++	}
++
+ 	/*
+ 	 * Check if there was DownShift, must be checked
+ 	 * immediately after link-up
+@@ -1583,6 +1594,43 @@ out:
+ }
+ 
+ /**
++ *  e1000_k1_gig_workaround_lv - K1 Si workaround
++ *  @hw:   pointer to the HW structure
++ *
++ *  Workaround to set the K1 beacon duration for 82579 parts
++ **/
++static s32 e1000_k1_workaround_lv(struct e1000_hw *hw)
++{
++	s32 ret_val = 0;
++	u16 status_reg = 0;
++	u32 mac_reg;
++
++	if (hw->mac.type != e1000_pch2lan)
++		goto out;
++
++	/* Set K1 beacon duration based on 1Gbps speed or otherwise */
++	ret_val = e1e_rphy(hw, HV_M_STATUS, &status_reg);
++	if (ret_val)
++		goto out;
++
++	if ((status_reg & (HV_M_STATUS_LINK_UP | HV_M_STATUS_AUTONEG_COMPLETE))
++	    == (HV_M_STATUS_LINK_UP | HV_M_STATUS_AUTONEG_COMPLETE)) {
++		mac_reg = er32(FEXTNVM4);
++		mac_reg &= ~E1000_FEXTNVM4_BEACON_DURATION_MASK;
++
++		if (status_reg & HV_M_STATUS_SPEED_1000)
++			mac_reg |= E1000_FEXTNVM4_BEACON_DURATION_8USEC;
++		else
++			mac_reg |= E1000_FEXTNVM4_BEACON_DURATION_16USEC;
++
++		ew32(FEXTNVM4, mac_reg);
++	}
++
++out:
++	return ret_val;
++}
++
++/**
+  *  e1000_lan_init_done_ich8lan - Check for PHY config completion
+  *  @hw: pointer to the HW structure
+  *
 
