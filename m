@@ -1,51 +1,71 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH] Use firmware provided index to register a network
- interface
-Date: Thu, 23 Sep 2010 09:33:36 -0700
-Message-ID: <20100923163336.GA15603@kroah.com>
-References: <20100922183137.GA7607@auslistsprd01.us.dell.com>
- <20100922192228.GB29899@kroah.com>
- <EDA0A4495861324DA2618B4C45DCB3EE6A0AF8@blrx3m08.blr.amer.dell.com>
- <20100923152730.GA1261@kroah.com>
- <EDA0A4495861324DA2618B4C45DCB3EE6A0AFD@blrx3m08.blr.amer.dell.com>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: Re: [net-next-2.6 RFC PATCH] e1000e: NUMA changes, add Node=
+ parameter
+Date: Thu, 23 Sep 2010 09:46:21 -0700 (Pacific Daylight Time)
+Message-ID: <alpine.WNT.2.00.1009230932300.5948@jbrandeb-desk1.amr.corp.intel.com>
+References: <20100923032534.11274.77976.stgit@localhost.localdomain> <20100922.203642.02274207.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-hotplug@vger.kernel.org,
-	linux-pci@vger.kernel.org, Matt_Domsch@Dell.com,
-	Charles_Rose@Dell.com, Jordan_Hargrave@Dell.com,
-	Vijay_Nijhawan@Dell.com
-To: Narendra_K@Dell.com
-Return-path: <linux-pci-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <EDA0A4495861324DA2618B4C45DCB3EE6A0AFD@blrx3m08.blr.amer.dell.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"bphilips@novell.com" <bphilips@novell.com>,
+	shemminger@linux-foundation.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:55618 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755701Ab0IWQqV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Sep 2010 12:46:21 -0400
+In-Reply-To: <20100922.203642.02274207.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 23, 2010 at 09:20:57PM +0530, Narendra_K@Dell.com wrote:
-> > Now trying to change the kernel namespace itself seems like a bad hack
-> > around this fact.
-> > 
+
+
+On Wed, 22 Sep 2010, David Miller wrote:
+
+> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Date: Wed, 22 Sep 2010 20:28:10 -0700
 > 
-> The patch does not change the existing kernel name space.
+> > Although a module parameter is not the preferred way for
+> > in-tree modules, this problem is not solvable in ethtool without
+> > mod params because of needing the information at probe time to
+> > control early allocations of memory.  Ideally there would even be
+> > a way to control the node where the memory of the netdev struct
+> > would be allocated also.
+> 
+> Sorry, no.
+> 
+> Various folks are working on infrastructure such that the Numa node of
+> everything other than the netdev struct can be dynamically choosen.
+> 
+> I'm sure we can find a way to dynamically reallocate and re-attach the
+> netdev structure as well.
 
-You are "reordering it", right?
+okay, thanks for your comments, we can carry this patch out-of-tree.  
 
-> It adheres to the existing ethN name space with IFNAMSIZ length
-> requirements. The patch only makes sure that eth0 always corresponds
-> to what is labeled as 'Gb1' on server chassis, on systems where SMBIOS
-> type 41 record is available. And removes the need for any renames for
-> the interfaces which have a firmware index assigned by system
-> firmware, as the very first name assigned by the kernel will be as
-> expected and deterministic.
+Unfortunately as I said in the comments there is really no way around this 
+*now* other than some fixed binding scheme, none of which are one size 
+fits all, which is why I (reluctantly) supplied the module parameter 
+patch.
 
-And on systems with buggy firmware, what is going to happen here?  And
-yes, there will be buggy BIOS tables, we can guarantee that, as this is
-not something that Windows supports, right?
+I'm interested to hear more about the "various folks' infrastructure" 
+plans, I'll do some research.  I can definitely provide testing.
 
-You are also complicating the logic for 99% of the world that will never
-use this feature.  But I'll leave that up to the netdev developers to
-decide, it's their code to maintain over time, not mine :)
+The big gains from this patch come in router set ups, or really anything 
+with lots of small-ish packets.  The cross node traffic *really* impacts 
+I/O workloads, and when trying to tune a system for performance, the lack 
+of being able to control where the hot path memory for an adapter is 
+allocated can cause extremely difficult to diagnose performance problems.  
 
-thanks,
+We don't generally post numbers, but if it would help get this patch 
+accepted I could run some "for example" numbers with my 12 port 1G e1000e 
+routing setup, maybe
+1) irqbalance only,
+2) taskset modprobe/ifup, irq bind (basically everything you can do 
+without the patch)
+3) patch applied, with nodes set, irq bind
 
-greg k-h
+If that would be useful let me know, I don't want to waste yours or my 
+time.
