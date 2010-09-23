@@ -1,64 +1,73 @@
-From: Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
-Subject: Re: [PATCH v6 0/8] ptp: IEEE 1588 hardware clock support
-Date: Thu, 23 Sep 2010 22:34:17 +0100
-Message-ID: <20100923223417.4ed62e5b@lxorguk.ukuu.org.uk>
-References: <cover.1285261533.git.richard.cochran@omicron.at>
-	<alpine.DEB.2.00.1009231238170.2962@router.home>
-	<1285268380.2587.11.camel@localhost.localdomain>
-	<alpine.DEB.2.00.1009231402420.2962@router.home>
-	<1285273684.2587.92.camel@localhost.localdomain>
-	<alpine.DEB.2.00.1009231533040.7522@router.home>
+From: Przemo Firszt <przemo-q9SP4D9nreWHXe+LvDLADg@public.gmane.org>
+Subject: Re: [PATCH v4 0/2] Get and Set Feature Reports on HIDRAW (USB and
+ Bluetooth)
+Date: Thu, 23 Sep 2010 21:16:19 +0100
+Message-ID: <1285272979.2869.14.camel@pldmachine>
+References: <1281442367.12579.206.camel@localhost.localdomain>
+	 <1281990059-3562-1-git-send-email-alan@signal11.us>
+	 <20100923162521.GA15641@null>
+	 <AANLkTinJXYbZh_MvG81iJMu84LKBOKL3s-Gbfe77Vq7q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: john stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
-	Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>,
-	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>,
-	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
-To: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <alpine.DEB.2.00.1009231533040.7522-sBS69tsa9Uj/9pzu0YdTqQ@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Ville Tervo <ville.tervo-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>,
+	ext Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>,
+	Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>,
+	Stefan Achatz <erazor_de-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+	Antonio Ospite <ospite-aNJ+ML1ZbiP93QAQaVx+gl6hYfS7NtTn@public.gmane.org>,
+	Alexey Dobriyan <adobriyan-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>,
+	Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+	Stephane Chatty <chatty-rXV5z7KbLFk@public.gmane.org>,
+	Michael Poole <mdpoole-IZmAEv5cUt1AfugRpC6u6w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Bastien Nocera <hadess-0MeiytkfxGOsTnJN9+BGXg@public.gmane.org>,
+	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"linux-input-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-input-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Ping Cheng <pinglinux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <AANLkTinJXYbZh_MvG81iJMu84LKBOKL3s-Gbfe77Vq7q-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-> There is no other scalable time source available for fast timer access
-> than the time stamp counter in the cpu. Other time source require
-> memory accesses which is inherently slower.
+Dnia 2010-09-23, czw o godzinie 10:07 -0700, Ping Cheng pisze:
+> On Thu, Sep 23, 2010 at 9:25 AM, Ville Tervo <ville.tervo-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org> wrote:
+> > Hi Alan,
+> >
+> > On Mon, Aug 16, 2010 at 10:20:57PM +0200, ext Alan Ott wrote:
+> >> This is version 4. Built against 2.6.35+ revision 320b2b8de12698 .
+> >
+> > I gave a try to to this patch using your test tool [1] and very old BT
+> > keyboard. I don't have anything else ATM to test with. Is there some BT hid
+> > devices which support setting and getting features?
+> 
+> As far as I know Wacom BT devices (Graphire and Intuos4) need to get
+> and set features.
+> 
+> Przemo,
+> 
+> Do you have time to test the patchset with your Graphire BT and
+> provide your result here?
+Hi Ping,
+Speed switching works as expected.
 
-On what hardware ?
+Tested on HP NC4200 with internal and external bluetooth modules:
 
-> An accurate other time source is used to adjust this clock. NTP does that
-> via the clock interfaces from user space which has its problems with
-> accuracy. PTP can provide the network synced time access
-> that would a more accurate calibration of the time.
+Linux pldmachine 2.6.35-07788-g320b2b8-dirty #15 Thu Sep 23 19:55:03 IST
+2010 i686 Intel(R)_Pentium(R)_M_processor_1.86GHz PLD Linux
 
-Accuracy does not require speed of access. Accuracy requires predictible
-latency of access.
+ID 03f0:011d Hewlett-Packard Integrated Bluetooth Module
+ID 0a12:0001 Cambridge Silicon Radio, Ltd Bluetooth Dongle (HCI mode)
 
-> Userland code would introduce latencies that would make sub microsecond
-> time sync very difficult.
+and Wacom Pen Tablet CTE-630BT
 
-You can take a multiple micro-second I/O stall or SMI trap on a PC so you
-already lost the battle on the platform you seem to be discussing.
-
-> You dont need the user APIs if you directly use the PTP time source to
-> steer the system clock. In fact I think you have to do it in kernel space
-> since user space latencies will degrade accuracy otherwise.
-
-PTP is not a 'time source' it is one or more source of time. The
-distinction is rather important.
-
-> It implies clock tuning in userspace for a potential sub microsecond
-> accurate clock. The clock accuracy will be limited by user space
-> latencies and noise. You wont be able to discipline the system clock
-> accurately.
-
-Noise matters, latency doesn't. And the kernel is getting more and more
-real time support all the time.
+Tested-by: Przemo Firszt <przemo-q9SP4D9nreWHXe+LvDLADg@public.gmane.org>
+-- 
+Regards,
+Przemo Firszt <przemo-q9SP4D9nreWHXe+LvDLADg@public.gmane.org>
