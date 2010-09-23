@@ -1,43 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH 2/3] e1000: fix occasional panic on unload
-Date: Thu, 23 Sep 2010 14:34:28 -0700 (PDT)
-Message-ID: <20100923.143428.124066088.davem@davemloft.net>
-References: <20100923042126.11798.49675.stgit@localhost.localdomain>
-	<20100923042240.11798.65680.stgit@localhost.localdomain>
+From: Christian Riesch <christian@riesch.at>
+Subject: Re: [PATCH v6 0/8] ptp: IEEE 1588 hardware clock support
+Date: Thu, 23 Sep 2010 23:34:06 +0200
+Message-ID: <4C9BC7CE.8020400@riesch.at>
+References: <cover.1285261533.git.richard.cochran@omicron.at>	<alpine.DEB.2.00.1009231238170.2962@router.home>	<1285268380.2587.11.camel@localhost.localdomain>	<alpine.DEB.2.00.1009231402420.2962@router.home>	<1285273684.2587.92.camel@localhost.localdomain>	<alpine.DEB.2.00.1009231533040.7522@router.home> <20100923223417.4ed62e5b@lxorguk.ukuu.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
-	jesse.brandeburg@intel.com
-To: jeffrey.t.kirsher@intel.com
+Cc: Christoph Lameter <cl@linux.com>,
+	john stultz <johnstul@us.ibm.com>,
+	Richard Cochran <richardcochran@gmail.com>,
+	linux-kernel@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
+	linux-api@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
+	Arnd Bergmann <arnd@arndb.de>,
+	David Miller <davem@davemloft.net>,
+	Krzysztof Halasa <khc@pm.waw.pl>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Rodolfo Giometti <giometti@linux.it>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38124
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753041Ab0IWVeJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Sep 2010 17:34:09 -0400
-In-Reply-To: <20100923042240.11798.65680.stgit@localhost.localdomain>
+Received: from smtprelay01.ispgateway.de ([80.67.31.39]:36636 "EHLO
+	smtprelay01.ispgateway.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753665Ab0IWVeO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Sep 2010 17:34:14 -0400
+In-Reply-To: <20100923223417.4ed62e5b@lxorguk.ukuu.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Wed, 22 Sep 2010 21:22:42 -0700
+Alan Cox wrote:
+>> It implies clock tuning in userspace for a potential sub microsecond
+>> accurate clock. The clock accuracy will be limited by user space
+>> latencies and noise. You wont be able to discipline the system clock
+>> accurately.
+> 
+> Noise matters, latency doesn't. 
 
-> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> 
-> Net drivers in general have an issue where timers fired
-> by mod_timer or work threads with schedule_work are running
-> outside of the rtnl_lock.
-> 
-> With no other lock protection these routines are vulnerable
-> to races with driver unload or reset paths.
-> 
-> The longer term solution to this might be a redesign with
-> safer locks being taken in the driver to guarantee no
-> reentrance, but for now a safe and effective fix is
-> to take the rtnl_lock in these routines.
-> 
-> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Well put! That's why we need hardware support for PTP timestamping to 
+reduce the noise, but get along well with the clock servo that is 
+steering the PHC in user space.
 
-Applied.
+Christian
