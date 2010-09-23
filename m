@@ -1,50 +1,68 @@
-From: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
-Subject: Re: igmp: Staggered igmp report intervals for unsolicited igmp
- reports
-Date: Thu, 23 Sep 2010 12:56:17 -0500 (CDT)
-Message-ID: <alpine.DEB.2.00.1009231254240.2962@router.home>
-References: <alpine.DEB.2.00.1009221354410.32661@router.home> <alpine.DEB.2.00.1009221400010.32661@router.home> <OFF06BBC88.0B6755D5-ON882577A6.0068F4F8-882577A6.006B31FB@us.ibm.com> <alpine.DEB.2.00.1009221448460.32661@router.home> <20100922215052.GK11157@obsidianresearch.com>
- <alpine.DEB.2.00.1009231026510.32567@router.home> <20100923172603.GM11157@obsidianresearch.com> <alpine.DEB.2.00.1009231230100.2962@router.home> <20100923174614.GN11157@obsidianresearch.com>
+From: Christoph Lameter <cl@linux.com>
+Subject: Re: [PATCH v6 0/8] ptp: IEEE 1588 hardware clock support
+Date: Thu, 23 Sep 2010 13:36:41 -0500 (CDT)
+Message-ID: <alpine.DEB.2.00.1009231327000.2962@router.home>
+References: <cover.1285261533.git.richard.cochran@omicron.at> <alpine.DEB.2.00.1009231238170.2962@router.home> <AANLkTim0JqVTyvrvjLRp1Cg423MdrwmyZG2uN6uSyeLb@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Stevens <dlstevens-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bob Arendt <rda-x0S3BwdUo6DQT0dZR+AlfA@public.gmane.org>
-To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20100923174614.GN11157-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Richard Cochran <richardcochran@gmail.com>,
+	linux-kernel@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
+	linux-api@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
+	Arnd Bergmann <arnd@arndb.de>,
+	David Miller <davem@davemloft.net>,
+	John Stultz <johnstul@us.ibm.com>,
+	Krzysztof Halasa <khc@pm.waw.pl>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Rodolfo Giometti <giometti@linux.it>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: Jacob Keller <jacob.keller@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AANLkTim0JqVTyvrvjLRp1Cg423MdrwmyZG2uN6uSyeLb@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 23 Sep 2010, Jason Gunthorpe wrote:
+On Thu, 23 Sep 2010, Jacob Keller wrote:
 
-> > IPoIB creates a infiniband multicast group via the IB calls for a IP
-> > multicast group. Then IGMP comes into play and the kernel sends the IP
-> > based igmp report. This igmp report must be received by an outside router
-> > (on an IP network) in order to for traffic to get forwarded into the IB
-> > fabric. You can end up with a IB multicast configuration that is all fine
-> > but with loss of the unsolicited packets due to fabric reconfiguration not
-> > being complete yet. The larger the fabric the worse the situation.
+> > There is a reason for not being able to shift posix clocks: The system has
+> > one time base. The various clocks are contributing to maintaining that
+> > sytem wide time.
+> >
+> > Adjusting clocks is absolutely essential for proper functioning of the PTP
+> protocol. The slave obtains and calculates the offset from master and uses
+> that in order to adjust the clock properly, The problem is that the
+> timestamps are done via the hardware. We need a method to expose that
+> hardware so that the ptp software can properly adjust those clocks.
+
+There is no way to use that clock directly to avoid all the user space
+tuning etc? There are already tuning mechanisms in the kernel that do this
+with system time based on periodic clocks. If you calculate the
+nanoseconds since the epoch then you should be able to use that to tune
+system time.
+
+> > I do not understand why you want to maintain different clocks running at
+> > different speeds. Certainly interesting for some uses I guess that I
+> > do not have the energy to imagine right now. But can we get the PTP killer
+> > feature of synchronized accurate system time first?
+> >
 >
-> But my point is that IB has very limited multicast, if I create a IB
-> group and then send IGMP into that group *it will not reach a router*.
+> The problem is maintaining a hardware clock at the correct speed/frequency
+> and time. The timestamping is done via hardware, and that hardware clock
+> needs to be accurate. We need to be able to modify that clock. Yes, having
+> the system time be the same value would be nice, but the problem comes
+> because we don't want to jump through hoops to keep that hardware clock
+> accurate to the ptp protocol running on the network.
 
-The IPoIB routers automatically join all IP MC groups created.
+Then allow system time == hardware clock?
 
-> The only way this kind of scheme could work is if an IGMPv2 IPoIB
-> router listens for IB MGID Create notices from the SA and
-> automatically joins all groups that are created, so it can get IGMPv2
-> membership reports. Which obviously adds more delay, lag, and risk.
+> All of the necessary features for microsecond or better accuracy are done
+> via the hardware. You can get accuracy to within <10 mircoseconds while only
+> sending sync packets and such once per second. The reason is because the
+> hardware timestamps are very accurate. But if we can't properly adjust the
+> clocks time and frequency, we cannot maintain the accuracy of the
+> timestamps.
 
-Right that is how it works now.
-
-> I'm *guessing* that the change in IGMPv3 to send reports to 224.0.0.22
-> (all IGMPv3 multicast address) is related to this sort of problem, and
-> it seems like on IB IGMPv2 is not a good fit and should not be used if
-> v3 is available..
-
-Existing routers do no support IGMPv3.
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+You can already adjust the system time with the existing APIs. Tuning
+hardware clocks is currently done using device specific controls. But I
+would think that you do not need to expose this to user space if you can
+do it all in kernel.
