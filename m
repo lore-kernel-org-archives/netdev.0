@@ -1,73 +1,92 @@
-From: Przemo Firszt <przemo-q9SP4D9nreWHXe+LvDLADg@public.gmane.org>
-Subject: Re: [PATCH v4 0/2] Get and Set Feature Reports on HIDRAW (USB and
- Bluetooth)
-Date: Thu, 23 Sep 2010 21:16:19 +0100
-Message-ID: <1285272979.2869.14.camel@pldmachine>
-References: <1281442367.12579.206.camel@localhost.localdomain>
-	 <1281990059-3562-1-git-send-email-alan@signal11.us>
-	 <20100923162521.GA15641@null>
-	 <AANLkTinJXYbZh_MvG81iJMu84LKBOKL3s-Gbfe77Vq7q@mail.gmail.com>
+From: Ondrej Zary <linux@rainbow-software.org>
+Subject: Re: [PATCH] de2104x: disable autonegotiation on broken hardware
+Date: Thu, 23 Sep 2010 23:18:08 +0200
+Message-ID: <201009232318.11541.linux@rainbow-software.org>
+References: <201009232259.20261.linux@rainbow-software.org> <AANLkTikwXyr4pH5rqkoXpiYvkvpLc7s8tq-EwmM1+r7m@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Ville Tervo <ville.tervo-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>,
-	ext Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>,
-	Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>,
-	Stefan Achatz <erazor_de-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-	Antonio Ospite <ospite-aNJ+ML1ZbiP93QAQaVx+gl6hYfS7NtTn@public.gmane.org>,
-	Alexey Dobriyan <adobriyan-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>,
-	Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
-	Stephane Chatty <chatty-rXV5z7KbLFk@public.gmane.org>,
-	Michael Poole <mdpoole-IZmAEv5cUt1AfugRpC6u6w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Bastien Nocera <hadess-0MeiytkfxGOsTnJN9+BGXg@public.gmane.org>,
-	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"linux-input-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-input-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Ping Cheng <pinglinux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <AANLkTinJXYbZh_MvG81iJMu84LKBOKL3s-Gbfe77Vq7q-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org,
+	Kernel development list <linux-kernel@vger.kernel.org>
+To: Jeff Garzik <jgarzik@pobox.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AANLkTikwXyr4pH5rqkoXpiYvkvpLc7s8tq-EwmM1+r7m@mail.gmail.com>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dnia 2010-09-23, czw o godzinie 10:07 -0700, Ping Cheng pisze:
-> On Thu, Sep 23, 2010 at 9:25 AM, Ville Tervo <ville.tervo-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org> wrote:
-> > Hi Alan,
+On Thursday 23 September 2010 23:03:13 Jeff Garzik wrote:
+> On Thu, Sep 23, 2010 at 4:59 PM, Ondrej Zary <linux@rainbow-software.=
+org>=20
+wrote:
+> > At least on older 21041-AA chips (mine is rev. 11), TP duplex
+> > autonegotiation causes the card not to work at all (link is up but =
+no
+> > packets are transmitted).
 > >
-> > On Mon, Aug 16, 2010 at 10:20:57PM +0200, ext Alan Ott wrote:
-> >> This is version 4. Built against 2.6.35+ revision 320b2b8de12698 .
+> > de4x5 disables autonegotiation completely. But it seems to work on =
+newer
+> > (21041-PA rev. 21) so disable it only on rev<20 chips.
 > >
-> > I gave a try to to this patch using your test tool [1] and very old BT
-> > keyboard. I don't have anything else ATM to test with. Is there some BT hid
-> > devices which support setting and getting features?
-> 
-> As far as I know Wacom BT devices (Graphire and Intuos4) need to get
-> and set features.
-> 
-> Przemo,
-> 
-> Do you have time to test the patchset with your Graphire BT and
-> provide your result here?
-Hi Ping,
-Speed switching works as expected.
+> > Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
+> >
+> > --- linux-2.6.36-rc3-orig/drivers/net/tulip/de2104x.c =C2=A0 2010-0=
+8-29
+> > 17:36:04.000000000 +0200 +++ linux-2.6.36-rc3/drivers/net/tulip/de2=
+104x.c
+> > =C2=A0 =C2=A0 =C2=A0 =C2=A02010-09-24 00:27:41.000000000 +0200 @@ -=
+364,6 +364,8 @@ static u16
+> > t21040_csr15[] =3D { 0, 0, 0x00
+> > =C2=A0/* 21041 transceiver register settings: TP AUTO, BNC, AUI, TP=
+, TP FD*/
+> > =C2=A0static u16 t21041_csr13[] =3D { 0xEF01, 0xEF09, 0xEF09, 0xEF0=
+1, 0xEF09, };
+> > =C2=A0static u16 t21041_csr14[] =3D { 0xFFFF, 0xF7FD, 0xF7FD, 0x6F3=
+=46, 0x6F3D, };
+> > +/* If on-chip autonegotiation is broken, use half-duplex (FF3F) in=
+stead
+> > */ +static u16 t21041_csr14_brk[] =3D { 0xFF3F, 0xF7FD, 0xF7FD, 0x6=
+=463F,
+> > 0x6F3D, }; static u16 t21041_csr15[] =3D { 0x0008, 0x0006, 0x000E, =
+0x0008,
+> > 0x0008, };
+> >
+> >
+> > @@ -1911,8 +1913,14 @@ fill_defaults:
+> > =C2=A0 =C2=A0 =C2=A0 =C2=A0for (i =3D 0; i < DE_MAX_MEDIA; i++) {
+> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0if (de->medi=
+a[i].csr13 =3D=3D 0xffff)
+> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0de->media[i].csr13 =3D t21041_csr13[i];
+> > - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (de->media[i]=
+=2Ecsr14 =3D=3D 0xffff)
+> > - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 de->media[i].csr14 =3D t21041_csr14[i];
+> > + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (de->media[i]=
+=2Ecsr14 =3D=3D 0xffff) {
+> > + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 /* autonegotiation is broken at least on some
+> > chip + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0revisions - rev. 0x21 works, 0x11 does
+> > not */ + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 if (de->pdev->revision < 0x20)
+> > + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 de->media[i].csr14 =3D t21041_cs=
+r14_brk[i];
+> > + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 else
+> > + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 de->media[i].csr14 =3D t21041_cs=
+r14[i];
+> > + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 }
+>
+> Interesting...  I never knew about that quirk.
 
-Tested on HP NC4200 with internal and external bluetooth modules:
+This errata document says that autonegotiation is somehow broken but it=
+ does=20
+not specify it further:
+http://ftp.nluug.nl/ftp/ftp/pub/os/NetBSD/misc/dec-docs/ec-qd2ma-te.ps.=
+gz
 
-Linux pldmachine 2.6.35-07788-g320b2b8-dirty #15 Thu Sep 23 19:55:03 IST
-2010 i686 Intel(R)_Pentium(R)_M_processor_1.86GHz PLD Linux
-
-ID 03f0:011d Hewlett-Packard Integrated Bluetooth Module
-ID 0a12:0001 Cambridge Silicon Radio, Ltd Bluetooth Dongle (HCI mode)
-
-and Wacom Pen Tablet CTE-630BT
-
-Tested-by: Przemo Firszt <przemo-q9SP4D9nreWHXe+LvDLADg@public.gmane.org>
--- 
-Regards,
-Przemo Firszt <przemo-q9SP4D9nreWHXe+LvDLADg@public.gmane.org>
+--=20
+Ondrej Zary
