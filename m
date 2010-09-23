@@ -1,38 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 RFC PATCH] e1000e: NUMA changes, add Node=
- parameter
-Date: Wed, 22 Sep 2010 20:36:42 -0700 (PDT)
-Message-ID: <20100922.203642.02274207.davem@davemloft.net>
-References: <20100923032534.11274.77976.stgit@localhost.localdomain>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 0/6] netfilter: netfilter fixes
+Date: Thu, 23 Sep 2010 05:49:17 +0200
+Message-ID: <4C9ACE3D.5010008@trash.net>
+References: <1285139854-11827-1-git-send-email-kaber@trash.net> <20100922.131232.59680750.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
-	jesse.brandeburg@intel.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33833
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751783Ab0IWDgX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Sep 2010 23:36:23 -0400
-In-Reply-To: <20100923032534.11274.77976.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20100922.131232.59680750.davem@davemloft.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Wed, 22 Sep 2010 20:28:10 -0700
+Am 22.09.2010 22:12, schrieb David Miller:
+> From: kaber@trash.net
+> Date: Wed, 22 Sep 2010 09:17:28 +0200
+> 
+>> Please apply or pull from:
+>>
+>> git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-2.6.git master
+> 
+> Patrick I can't pull from this, it's not based upon net-2.6
 
-> Although a module parameter is not the preferred way for
-> in-tree modules, this problem is not solvable in ethtool without
-> mod params because of needing the information at probe time to
-> control early allocations of memory.  Ideally there would even be
-> a way to control the node where the memory of the netdev struct
-> would be allocated also.
+Indeed, that's what I've always based my nf-2.6 tree on for one
+or two years now, but this time I made a fresh clone at a quite
+late time because of my absence.
 
-Sorry, no.
+> It looks like it's based upon Linus's tree, because when I pull
+> I get a bunch of changes that are in Linus's tree but aren't
+> in net-2.6
 
-Various folks are working on infrastructure such that the Numa node of
-everything other than the netdev struct can be dynamically choosen.
+I didn't notice that, sorry.
 
-I'm sure we can find a way to dynamically reallocate and re-attach the
-netdev structure as well.
+> Please base all future pull requests on net-2.6, thanks.
+
+Sure, will do.
+
+> I'll apply these patches by hand (and also this will allow me
+> to fix Eric's author email in that one patch).
+> 
+> Thanks again.
+
+Thanks Dave!
+
