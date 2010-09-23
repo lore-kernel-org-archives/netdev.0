@@ -1,89 +1,54 @@
-From: Ville Tervo <ville.tervo-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v4 0/2] Get and Set Feature Reports on HIDRAW (USB and
- Bluetooth)
-Date: Thu, 23 Sep 2010 19:25:21 +0300
-Message-ID: <20100923162521.GA15641@null>
-References: <1281442367.12579.206.camel@localhost.localdomain>
- <1281990059-3562-1-git-send-email-alan@signal11.us>
+From: "Zou, Yi" <yi.zou@intel.com>
+Subject: RE: [PATCH net-next-2.6] net: propagate NETIF_F_HIGHDMA to vlans
+Date: Thu, 23 Sep 2010 09:30:03 -0700
+Message-ID: <7C88852EF6F99F4EB538472FCFEBE222013DAB2152@orsmsx509.amr.corp.intel.com>
+References: <20100923035755.11561.14170.stgit@localhost.localdomain>
+	 <20100922.212023.91330415.davem@davemloft.net>
+	 <1285219690.2380.70.camel@edumazet-laptop>
+	 <AANLkTikDdxFho2ioBHMbze685+garDWF9kF3qFXZA9Hr@mail.gmail.com>
+	 <1285222405.2380.80.camel@edumazet-laptop>
+ <1285238771.2864.38.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>,
-	Stefan Achatz <erazor_de-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-	Antonio Ospite <ospite-aNJ+ML1ZbiP93QAQaVx+gl6hYfS7NtTn@public.gmane.org>,
-	Alexey Dobriyan <adobriyan-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>,
-	Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
-	Stephane Chatty <chatty-rXV5z7KbLFk@public.gmane.org>,
-	Michael Poole <mdpoole-IZmAEv5cUt1AfugRpC6u6w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Bastien Nocera <hadess-0MeiytkfxGOsTnJN9+BGXg@public.gmane.org>,
-	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"linux-input-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-input-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: ext Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1281990059-3562-1-git-send-email-alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"bphilips@novell.com" <bphilips@novell.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:59508 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754619Ab0IWQa3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Sep 2010 12:30:29 -0400
+In-Reply-To: <1285238771.2864.38.camel@edumazet-laptop>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Alan,
-
-On Mon, Aug 16, 2010 at 10:20:57PM +0200, ext Alan Ott wrote:
-> This is version 4. Built against 2.6.35+ revision 320b2b8de12698 .
-
-
-I gave a try to to this patch using your test tool [1] and very old BT
-keyboard. I don't have anything else ATM to test with. Is there some BT hid
-devices which support setting and getting features?
-
-Shouldn't HIDIOCSFEATURE's bt version have similar wait as HIDIOCGFEATURE to
-get report status back from the device? or is there even any status coming back
-in successful case? Sorry I'm a newbie with HID and trying to understand how
-this should work.
-
-Now it just returns num of send bytes even if the remote device returned some
-error. Which one is the expected behavior?
-
-Other problem is that Get report is getting now handshake from set report.
-
-
-2010-09-23 17:55:46.680612 < ACL data: handle 38 flags 0x02 dlen 9
-    L2CAP(d): cid 0x008b len 5 [psm 17]
-      HIDP: Set report: Feature report
-      0000: 09 ff ff ff                                       ....
-2010-09-23 17:55:46.680653 < ACL data: handle 38 flags 0x02 dlen 6
-    L2CAP(d): cid 0x008b len 2 [psm 17]
-      HIDP: Get report: Feature report
-      0000: 09                                                .
-2010-09-23 17:55:46.697577 > HCI Event: Number of Completed Packets (0x13) plen 5
-    handle 38 packets 1
-2010-09-23 17:55:46.698579 > HCI Event: Number of Completed Packets (0x13) plen 5
-    handle 38 packets 1
-2010-09-23 17:55:46.776827 > ACL data: handle 38 flags 0x02 dlen 5
-    L2CAP(d): cid 0x0040 len 1 [psm 17]
-      HIDP: Handshake: Invalid parameter
-2010-09-23 17:55:46.777069 < ACL data: handle 38 flags 0x02 dlen 7
-    L2CAP(d): cid 0x008b len 3 [psm 17]
-      HIDP: Data: Output report
-      0000: 01 77                                             .w
-2010-09-23 17:55:46.797577 > HCI Event: Number of Completed Packets (0x13) plen 5
-    handle 38 packets 1
-2010-09-23 17:55:46.816826 > ACL data: handle 38 flags 0x02 dlen 5
-    L2CAP(d): cid 0x0040 len 1 [psm 17]
-      HIDP: Handshake: Invalid parameter
-2010-09-23 17:55:46.856828 > ACL data: handle 38 flags 0x02 dlen 5
-    L2CAP(d): cid 0x0040 len 1 [psm 17]
-      HIDP: Handshake: Unsupported request
-
-
-
-[1] http://lkml.org/lkml/2010/6/17/414
-
--- 
-Ville the HID newbie
+PiANCj4gQXV0b21hdGljYWxseSBhbGxvd3MgdmxhbnMgdG8gZ2V0IE5FVElGX0ZfSElHSERNQSBp
+ZiB1bmRlcmx5aW5nIGRldmljZQ0KPiBzdXBwb3J0cyBpdC4NCj4gDQo+IE9uIDMyYml0IGFyY2hl
+cyAoYW5kIG1vcmUgcHJlY2lzZWx5IGlmIENPTkZJR19ISUdITUVNIGlzIGVuYWJsZWQpLCBpdA0K
+PiBjYW4gaGVscCB0byByZWR1Y2UgY29zdCBvZiBpbGxlZ2FsX2hpZ2hkbWEoKSBhbmQgX19za2Jf
+bGluZWFyaXplKCkNCj4gY2FsbHMuDQo+IA0KPiBUZXN0ZWQgb24gdGczICwgYm54MiwgYm9uZGlu
+ZywgdGhpcyB3b3JrZWQgdmVyeSB3ZWxsLg0KPiANCj4gVGhpcyBpcyBhIGdlbmVyYWxpemF0aW9u
+IG9mIGEgcGF0Y2ggcHJvdmlkZWQgYnkgWWkgWm91ICYgSmVmZiBLaXJzaGVyLg0KPiANCj4gU2ln
+bmVkLW9mZi1ieTogRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPg0KPiAtLS0N
+Cj4gIG5ldC9jb3JlL2Rldi5jIHwgICAgNyArKysrLS0tDQo+ICAxIGZpbGUgY2hhbmdlZCwgNCBp
+bnNlcnRpb25zKCspLCAzIGRlbGV0aW9ucygtKQ0KPiANCj4gZGlmZiAtLWdpdCBhL25ldC9jb3Jl
+L2Rldi5jIGIvbmV0L2NvcmUvZGV2LmMNCj4gaW5kZXggMmM3OTM0Zi4uZTBjMGI4NiAxMDA2NDQN
+Cj4gLS0tIGEvbmV0L2NvcmUvZGV2LmMNCj4gKysrIGIvbmV0L2NvcmUvZGV2LmMNCj4gQEAgLTUw
+NTgsMTAgKzUwNTgsMTEgQEAgaW50IHJlZ2lzdGVyX25ldGRldmljZShzdHJ1Y3QgbmV0X2Rldmlj
+ZSAqZGV2KQ0KPiAgCWlmIChkZXYtPmZlYXR1cmVzICYgTkVUSUZfRl9TRykNCj4gIAkJZGV2LT5m
+ZWF0dXJlcyB8PSBORVRJRl9GX0dTTzsNCj4gDQo+IC0JLyogRW5hYmxlIEdSTyBmb3IgdmxhbnMg
+YnkgZGVmYXVsdCBpZiBkZXYtPmZlYXR1cmVzIGhhcyBHUk8gYWxzby4NCj4gLQkgKiB2bGFuX2Rl
+dl9pbml0KCkgd2lsbCBkbyB0aGUgZGV2LT5mZWF0dXJlcyBjaGVjay4NCj4gKwkvKiBFbmFibGUg
+R1JPIGFuZCBORVRJRl9GX0hJR0hETUEgZm9yIHZsYW5zIGJ5IGRlZmF1bHQsDQo+ICsJICogdmxh
+bl9kZXZfaW5pdCgpIHdpbGwgZG8gdGhlIGRldi0+ZmVhdHVyZXMgY2hlY2ssIHNvIHRoZXNlDQo+
+IGZlYXR1cmVzDQo+ICsJICogYXJlIGVuYWJsZWQgb25seSBpZiBzdXBwb3J0ZWQgYnkgdW5kZXJs
+eWluZyBkZXZpY2UuDQo+ICAJICovDQo+IC0JZGV2LT52bGFuX2ZlYXR1cmVzIHw9IE5FVElGX0Zf
+R1JPOw0KPiArCWRldi0+dmxhbl9mZWF0dXJlcyB8PSAoTkVUSUZfRl9HUk8gfCBORVRJRl9GX0hJ
+R0hETUEpOw0KPiANCj4gIAlyZXQgPSBjYWxsX25ldGRldmljZV9ub3RpZmllcnMoTkVUREVWX1BP
+U1RfSU5JVCwgZGV2KTsNCj4gIAlyZXQgPSBub3RpZmllcl90b19lcnJubyhyZXQpOw0KPiANCkNv
+b2wsIHRoYW5rcyBmb3IgdGFraW5nIGNhcmUgb2YgdGhpcywgRXJpYy4NCg0KLXlpDQo=
