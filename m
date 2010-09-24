@@ -1,111 +1,49 @@
-From: Andrew Lutomirski <luto@mit.edu>
-Subject: Re: [ABI REVIEW][PATCH 0/8] Namespace file descriptors
-Date: Fri, 24 Sep 2010 09:02:39 -0400
-Message-ID: <4C9CA16F.3000505@mit.edu>
-References: <m1ocborgq7.fsf@fess.ebiederm.org>
+From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v6 0/8] ptp: IEEE 1588 hardware clock support
+Date: Fri, 24 Sep 2010 15:14:07 +0200
+Message-ID: <20100924131407.GA3113@riccoc20.at.omicron.at>
+References: <cover.1285261533.git.richard.cochran@omicron.at>
+ <20100923213654.0c64b047@lxorguk.ukuu.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	Linux Containers <containers@lists.osdl.org>,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org, jamal <hadi@cyberus.ca>,
-	Daniel Lezcano <daniel.lezcano@free.fr>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Michael Kerrisk <mtk.manpages@gmail.com>,
-	Ulrich Drepper <drepper@gmail.com>,
-	Al Viro <viro@ZenIV.linux.org.uk>,
-	David Miller <davem@davemloft.net>,
-	"Serge E. Hallyn" <serge@hallyn.com>,
-	Pavel Emelyanov <xemul@openvz.org>,
-	Pavel Emelyanov <xemul@parallels.com>,
-	Ben Greear <greearb@candelatech.com>,
-	Matt Helsley <matthltc@us.ibm.com>,
-	Jonathan Corbet <corbet@lwn.net>,
-	Sukadev Bhattiprolu <sukadev@linux.vnet.ibm.com>,
-	Jan Engelhardt <jengelh@medozas.de>,
-	Patrick McHardy <kaber@trash.net>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <m1ocborgq7.fsf@fess.ebiederm.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	John Stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
+	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>,
+	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>,
+	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+To: Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20100923213654.0c64b047-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Eric W. Biederman wrote:
-> Introduce file for manipulating namespaces and related syscalls.
-> files:
-> /proc/self/ns/<nstype>
+On Thu, Sep 23, 2010 at 09:36:54PM +0100, Alan Cox wrote:
+> Drop the clockid_t and swap it for a file handle like a proper Unix or
+> Linux interface. The rest is much the same
 > 
-> syscalls:
-> int setns(unsigned long nstype, int fd);
-> socketat(int nsfd, int family, int type, int protocol);
+> 	fd = open /sys/class/timesource/[whatever]
 > 
+> 	various queries you may want to do to check the name etc
+> 
+> 	fclock_adjtime(fd, ...)
 
-How does security work?  Are there different kinds of fd that give (say) pin-the-namespace permission, socketat permission, and setns permission?
+Okay, but lets extend the story:
 
---Andy
+	clock_getttime(fd, ...);
 
-> Netlink attribute:
-> IFLA_NS_FD int fd.
-> 
-> Name space file descriptors address three specific problems that
-> can make namespaces hard to work with.
-> - Namespaces require a dedicated process to pin them in memory.
-> - It is not possible to use a namespace unless you are the child of the
->   original creator.
-> - Namespaces don't have names that userspace can use to talk about them.
-> 
-> Opening of the /proc/self/ns/<nstype> files return a file descriptor
-> that can be used to talk about a specific namespace, and to keep the
-> specified namespace alive.
-> 
-> /proc/self/ns/<nstype> can be bind mounted as:
-> mount --bind /proc/self/ns/net /some/filesystem/path
-> to keep the namespace alive as long as the mount exists.
-> 
-> setns() as a companion to unshare allows changing the namespace
-> of the current process, being able to unshare the namespace is
-> a requirement.
-> 
-> There are two primary envisioned uses for this functionality.
-> o ``Entering'' an existing container.
-> o Allowing multiple network namespaces to be in use at once on
->   the same machine, without requiring elaborate infrastructure.
-> 
-> Overall this received positive reviews on the containers list but this
-> needs a wider review of the ABI as this is pretty fundamental kernel
-> functionality.
-> 
-> 
-> I have left out the pid namespaces bits for the moment because the pid
-> namespace still needs work before it is safe to unshare, and my concern
-> at the moment is ensuring the system calls seem reasonable.
-> 
-> Eric W. Biederman (8):
->       ns: proc files for namespace naming policy.
->       ns: Introduce the setns syscall
->       ns proc: Add support for the network namespace.
->       ns proc: Add support for the uts namespace
->       ns proc: Add support for the ipc namespace
->       ns proc: Add support for the mount namespace
->       net: Allow setting the network namespace by fd
->       net: Implement socketat.
-> 
-> ---
->  fs/namespace.c              |   57 +++++++++++++
->  fs/proc/Makefile            |    1 +
->  fs/proc/base.c              |   22 +++---
->  fs/proc/inode.c             |    7 ++
->  fs/proc/internal.h          |   18 ++++
->  fs/proc/namespaces.c        |  193 +++++++++++++++++++++++++++++++++++++++++++
->  include/linux/if_link.h     |    1 +
->  include/linux/proc_fs.h     |   20 +++++
->  include/net/net_namespace.h |    1 +
->  ipc/namespace.c             |   31 +++++++
->  kernel/nsproxy.c            |   39 +++++++++
->  kernel/utsname.c            |   32 +++++++
->  net/core/net_namespace.c    |   56 +++++++++++++
->  net/core/rtnetlink.c        |    4 +-
->  net/socket.c                |   26 ++++++-
->  15 files changed, 494 insertions(+), 14 deletions(-)
-> 
+	clock_settime(fd, ...);
+
+	timer_create(fd, ...);
+
+Can you agree to that as well?
+
+(We would need to ensure that 'fd' avoids the range 0 to MAX_CLOCKS).
+
+Richard
