@@ -1,57 +1,81 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/2] Phonet: Implement Pipe Controller to support Nokia
- Slim Modems
-Date: Fri, 24 Sep 2010 15:52:13 +0200
-Message-ID: <1285336333.2503.153.camel@edumazet-laptop>
-References: <1285330996-27076-1-git-send-email-kumar.sanghvi@stericsson.com>
-	 <1285330996-27076-2-git-send-email-kumar.sanghvi@stericsson.com>
+From: David Lamparter <equinox@diac24.net>
+Subject: Re: [PATCH 7/8] net: Allow setting the network namespace by fd
+Date: Fri, 24 Sep 2010 16:09:43 +0200
+Message-ID: <20100924140943.GB1551619@jupiter.n2.diac24.net>
+References: <m1ocborgq7.fsf@fess.ebiederm.org>
+ <m1hbhgq1v1.fsf@fess.ebiederm.org>
+ <1285240926.5036.7.camel@bigi>
+ <20100923145856.GB1160234@jupiter.n2.diac24.net>
+ <1285329084.13976.661.camel@bigi>
+ <20100924125704.GA1551619@jupiter.n2.diac24.net>
+ <1285335173.13976.693.camel@bigi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: remi.denis-courmont@nokia.com, davem@davemloft.net,
-	netdev@vger.kernel.org, STEricsson_nomadik_linux@list.st.com,
-	sudeep.divakaran@stericsson.com, gulshan.karmani@stericsson.com,
-	Linus Walleij <linus.walleij@stericsson.com>
-To: Kumar A Sanghvi <kumar.sanghvi@stericsson.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:33334 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932158Ab0IXNwT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Sep 2010 09:52:19 -0400
-Received: by fxm3 with SMTP id 3so696265fxm.19
-        for <netdev@vger.kernel.org>; Fri, 24 Sep 2010 06:52:18 -0700 (PDT)
-In-Reply-To: <1285330996-27076-2-git-send-email-kumar.sanghvi@stericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Lamparter <equinox@diac24.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	linux-kernel@vger.kernel.org,
+	Linux Containers <containers@lists.osdl.org>,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org
+To: jamal <hadi@cyberus.ca>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1285335173.13976.693.camel@bigi>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le vendredi 24 septembre 2010 =C3=A0 17:53 +0530, Kumar A Sanghvi a =C3=
-=A9crit :
+On Fri, Sep 24, 2010 at 09:32:53AM -0400, jamal wrote:
+> On Fri, 2010-09-24 at 14:57 +0200, David Lamparter wrote:
+> > No. While you sure could associate routes with devices, they don't
+> > *functionally* reside on top of network devices. They reside on top of
+> > the entire IP configuration, 
+> 
+> I think i am not clearly making my point. There are data dependencies;
+> If you were to move routes, youd need everything that routes depend on.
+> IOW, if i was to draw a functional graph, routes would appear on top
+> of netdevs (I dont care what other functional blocks you put in between
+> or sideways to them).
 
-> +static int pipe_get_flow_info(struct sock *sk, struct sk_buff *skb,
-> +		u8 *pref_rx_fc, u8 *req_tx_fc)
-> +{
-> +	struct pnpipehdr *hdr =3D pnp_hdr(skb);
-> +	u8 n_sb;
-> +
-> +	if (!pskb_may_pull(skb, sizeof(*hdr) + 4))
-> +		return -EINVAL;
+I understood your point. What I'm saying is that that functional graph
+you're describing is too simplistic do be a workable model. Your graph
+allows for what you're trying to do, yes. But your graph is not modeling
+the reality.
 
-This is wrong.
+> > The routes depend on your BGP view, and
+> > if your set of interfaces (and peers) changes, your routes will change.
+> > Your bgpd will, either way, need to set up new peerings and redo best
+> > path evaluations.
+> 
+> Worst case scenario, yes. I am beginning to get a feeling we are trying 
+> to achieve different goals maybe? Why are you even migrating netdevs?
 
-pskb_may_pull() might change skb->data, so you should do
+Err... I'm migrating netdevs to assign them to namespaces to allow them
+to use them? Setup, basically. Either way a device move only happens as
+result of some administrative action; be it creating a new namespace or
+changing the physical/logical network setup.
 
-{
-	struct pnpipehdr *hdr;
-	u8 n_sb;
+> > (On an unrelated note, how often are you planning to move stuff between
+> > namespaces? I don't expect to be moving stuff except on configuration
+> > events...)
+> 
+> Triggering on config events is useful and it is likely the only
+> possibility if you assumed the other namespace is remote.
 
-	if (!pskb_may_pull(skb, sizeof(*hdr) + 4))
-		return -EINVAL;
+wtf is a "remote" namespace?
 
-	hdr =3D pnp_hdr(skb);
+>                                                           But if could
+> send a single command to migrate several things in the kernel (in my
+> case to recover state to a different ns), then that is much simpler and
+> uses the least resources (memory, cpu, bandwidth). I admit it is very
+> hard to do in most cases where the underlying dependencies are evolving
+> and synchronizing via user space is the best approach. The example
+> of route table i pointed to is simple.
+> Besides that: dynamic state created in the kernel that doesnt have to be
+> recreated by the next arriving 100K packets helps to improve recovery.
 
-=2E..
+Can you please describe your application that requires moving possibly
+several network devices together with "their" routes to a different
+namespace?
 
 
-
-
-
+-David
