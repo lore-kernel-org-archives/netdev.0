@@ -1,50 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH] dont create cached routes from ARP requests
-Date: Fri, 24 Sep 2010 17:28:03 +0200
-Message-ID: <1285342083.2503.252.camel@edumazet-laptop>
-References: <20100922162209.GA10281@babylon>
-	 <20100922.203442.233700254.davem@davemloft.net>
-	 <20100923144708.GA8037@babylon> <1285254302.2509.47.camel@edumazet-laptop>
-	 <4C9CBCFC.6080300@gmail.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH net-next-2.6 1/2] net: Allow changing number of RX queues
+ after device allocation
+Date: Fri, 24 Sep 2010 08:34:30 -0700
+Message-ID: <AANLkTik=pmH7nZc9uKPuX3DXcZ4nTiU=5x1CGBxyNhq7@mail.gmail.com>
+References: <1285273118.7794.23.camel@achroite.uk.solarflarecom.com>
+	<1285273194.7794.24.camel@achroite.uk.solarflarecom.com>
+	<1285296505.2380.43.camel@edumazet-laptop>
+	<1285331081.2257.3.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ulrich Weber <uweber@astaro.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Ulrich Weber <ulrich.weber@googlemail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-net-drivers@solarflare.com
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:64602 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752639Ab0IXP2J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Sep 2010 11:28:09 -0400
-Received: by fxm3 with SMTP id 3so779688fxm.19
-        for <netdev@vger.kernel.org>; Fri, 24 Sep 2010 08:28:08 -0700 (PDT)
-In-Reply-To: <4C9CBCFC.6080300@gmail.com>
+Received: from smtp-out.google.com ([216.239.44.51]:63031 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751781Ab0IXPed (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Sep 2010 11:34:33 -0400
+Received: from wpaz13.hot.corp.google.com (wpaz13.hot.corp.google.com [172.24.198.77])
+	by smtp-out.google.com with ESMTP id o8OFYWOm021223
+	for <netdev@vger.kernel.org>; Fri, 24 Sep 2010 08:34:32 -0700
+Received: from pxi12 (pxi12.prod.google.com [10.243.27.12])
+	by wpaz13.hot.corp.google.com with ESMTP id o8OFYUAO001502
+	for <netdev@vger.kernel.org>; Fri, 24 Sep 2010 08:34:31 -0700
+Received: by pxi12 with SMTP id 12so1119159pxi.18
+        for <netdev@vger.kernel.org>; Fri, 24 Sep 2010 08:34:30 -0700 (PDT)
+In-Reply-To: <1285331081.2257.3.camel@achroite.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 24 septembre 2010 =C3=A0 17:00 +0200, Ulrich Weber a =C3=A9=
-crit :
-> Hi Eric,
->=20
-> please find the output in the attached text file.
->=20
-> Neighbor garbage collection wont't work because all
-> neighbor records are bound to cached routes.
->=20
-> Forced route garbaged collections returns without freeing
-> any routes, probably because the route threshold is quite high
-> with 65536 compared to the small neighbor threshold of 1024,
-> resulting in a fixed amount of 1024 cached routes...
->=20
-> Instead of running the garbage collection we could flush the route
-> cache completely if the neighbor cache overflows.
-> But why do we have to cache that routes in first place ?
-> See the previous patch which skips caching for that kind of routes.
+Looks good to me.
 
-What are the packets you receive ? A flood of ARP answers ?
-
-a "tcpdump -X" of a few packets would help to understand.
-
-
-
+>> All functions in this file use a single line.
+>>
+>> > -static int rx_queue_register_kobjects(struct net_device *net)
+>> > +int
+>> > +net_rx_queue_update_kobjects(struct net_device *net, int old_num, int new_num)
+>>
+>> ->
+>>
+>> int net_rx_queue_update_kobjects(struct net_device *net, int old, int new)
+>
+> Why should I rename variables to fit a function signature on one line?
+>
+Maybe split the line within the parameter list, this would be more
+consistent with other function declarations.
