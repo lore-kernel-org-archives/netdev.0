@@ -1,101 +1,80 @@
-From: Kumar A Sanghvi <kumar.sanghvi@stericsson.com>
-Subject: [PATCH 2/2] Documentation: Update Phonet doc for Pipe Controller implementation
-Date: Fri, 24 Sep 2010 17:53:16 +0530
-Message-ID: <1285330996-27076-3-git-send-email-kumar.sanghvi@stericsson.com>
-References: <1285330996-27076-1-git-send-email-kumar.sanghvi@stericsson.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next-2.6 1/2] net: Allow changing number of RX
+ queues after device allocation
+Date: Fri, 24 Sep 2010 13:24:41 +0100
+Message-ID: <1285331081.2257.3.camel@achroite.uk.solarflarecom.com>
+References: <1285273118.7794.23.camel@achroite.uk.solarflarecom.com>
+	 <1285273194.7794.24.camel@achroite.uk.solarflarecom.com>
+	 <1285296505.2380.43.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <STEricsson_nomadik_linux@list.st.com>,
-	<sudeep.divakaran@stericsson.com>,
-	<gulshan.karmani@stericsson.com>,
-	Kumar Sanghvi <kumar.sanghvi@stericsson.com>,
-	Linus Walleij <linus.walleij@stericsson.com>
-To: <remi.denis-courmont@nokia.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-net-drivers@solarflare.com, Tom Herbert <therbert@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog114.obsmtp.com ([207.126.144.137]:59965 "EHLO
-	eu1sys200aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752158Ab0IXMXn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Sep 2010 08:23:43 -0400
-In-Reply-To: <1285330996-27076-1-git-send-email-kumar.sanghvi@stericsson.com>
+Received: from mail.solarflare.com ([216.237.3.220]:35506 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752423Ab0IXMYo convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Sep 2010 08:24:44 -0400
+In-Reply-To: <1285296505.2380.43.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kumar Sanghvi <kumar.sanghvi@stericsson.com>
+On Fri, 2010-09-24 at 04:48 +0200, Eric Dumazet wrote:
+> Le jeudi 23 septembre 2010 =C3=A0 21:19 +0100, Ben Hutchings a =C3=A9=
+crit :
+> > For RPS, we create a kobject for each RX queue based on the number =
+of
+> > queues passed to alloc_netdev_mq().  However, drivers generally do =
+not
+> > determine the numbers of hardware queues to use until much later, s=
+o
+> > this usually represents the maximum number the driver may use and n=
+ot
+> > the actual number in use.
+> >=20
+> > For TX queues, drivers can update the actual number using
+> > netif_set_real_num_tx_queues().  Add a corresponding function for R=
+X
+> > queues, netif_set_real_num_rx_queues().
+> >=20
+> > Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> > ---
+>=20
+> Seems very good to me, except a minor style issue here :
+>=20
+> All functions in this file use a single line.
+>=20
+> > -static int rx_queue_register_kobjects(struct net_device *net)
+> > +int
+> > +net_rx_queue_update_kobjects(struct net_device *net, int old_num, =
+int new_num)
+>=20
+> ->
+>=20
+> int net_rx_queue_update_kobjects(struct net_device *net, int old, int=
+ new)
 
-Updates the Phonet document with description related to Pipe controller
-implementation
+Why should I rename variables to fit a function signature on one line?
 
-Signed-off-by: Kumar Sanghvi <kumar.sanghvi@stericsson.com>
-Acked-by: Linus Walleij <linus.walleij@stericsson.com>
----
- Documentation/networking/phonet.txt |   53 +++++++++++++++++++++++++++++++++++
- 1 files changed, 53 insertions(+), 0 deletions(-)
+> Also, I dont understand why we need to restrict
+> netif_set_real_num_rx_queues() to lower the count.
+> This wastes memory.
+>=20
+> Why dont we allocate dev->_rx once we know the real count, not in
+> alloc_netdev_mq() but in register_netdevice() ?
 
-diff --git a/Documentation/networking/phonet.txt b/Documentation/networking/phonet.txt
-index cf76608..cccf5ff 100644
---- a/Documentation/networking/phonet.txt
-+++ b/Documentation/networking/phonet.txt
-@@ -182,6 +182,59 @@ The pipe protocol provides two socket options at the SOL_PNPIPE level:
-     or zero if encapsulation is off.
- 
- 
-+Phonet Pipe-controller Implementation
-+-------------------------------------
-+
-+Phonet Pipe-controller is enabled by selecting the CONFIG_PHONET_PIPECTRLR Kconfig
-+option. It is useful when communicating with those Nokia Modems which do not
-+implement Pipe controller in them e.g. Nokia Slim Modem used in ST-Ericsson
-+U8500 platform.
-+
-+The implementation is based on the Data Connection Establishment Sequence
-+depicted in 'Nokia Wireless Modem API - Wireless_modem_user_guide.pdf'
-+document.
-+
-+It allows a phonet sequenced socket (host-pep) to initiate a Pipe connection
-+between itself and a remote pipe-end point (e.g. modem).
-+
-+The implementation adds socket options at SOL_PNPIPE level:
-+
-+ PNPIPE_CREATE
-+	It accepts an integer argument where-in
-+		lower order 16 bits: pn_dev and pn_port pair for remote pep.
-+		higher order 16 bits: 8 bit pipe-handle
-+
-+	It sends a PNS_PEP_CONNECT_REQ on sequenced socket itself. On getting
-+	PNS_PEP_CONNECT_RESP, it sends PNS_PEP_CONNECT_REQ to remote pep. On
-+	getting response from remote pep, it selects the best possible Flow
-+	control mechanism supported by remote-pep (modem) and then it sends
-+	PNS_PEP_CREATED_IND to the sequenced socket and to the remote pep.
-+
-+	It then updates the pipe state associated with the sequenced socket to
-+	be PIPE_DISABLED.
-+
-+  PNPIPE_ENABLE
-+	It follows the same sequence as above for enabling a pipe by sending
-+	PNS_PEP_ENABLE_REQ initially and then sending PNS_PEP_ENABLED_IND after
-+	getting responses from sequenced socket and remote-pep.
-+	It will also update the pipe state associated with the sequenced socket
-+	to PIPE_ENABLED.
-+
-+   PNPIPE_DESTROY
-+	This will send out PNS_PEP_DISCONNECT_REQ on the sequenced socket and
-+	the remote pep.
-+	It will also update the pipe state associated with the sequenced socket
-+	to PIPE_IDLE
-+
-+   PNPIPE_INQ
-+	This getsocktopt allows the user-space running on the sequenced socket
-+	to examine the pipe state associated with that socket ie. whether the
-+	pipe is created (PIPE_DISABLED) or enabled (PIPE_ENABLED) or disabled
-+	(PIPE_DISABLED) or no pipe exists (PIPE_IDLE).
-+
-+After a pipe has been created and enabled successfully, the Pipe data can be
-+exchanged between the host-pep and remote-pep (modem).
-+
- Authors
- -------
- 
--- 
-1.7.2.dirty
+We probably could do.  I was just being consistent with
+netif_set_real_num_tx_queues().
+
+Note that both functions allow changing the number of queues on a
+registered device, although I don't think any driver uses this.
+
+Ben.
+
+--=20
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
