@@ -1,70 +1,66 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH] dont create cached routes from ARP requests
-Date: Fri, 24 Sep 2010 18:05:52 +0200
-Message-ID: <1285344352.2503.321.camel@edumazet-laptop>
-References: <20100922162209.GA10281@babylon>
-	 <20100922.203442.233700254.davem@davemloft.net>
-	 <20100923144708.GA8037@babylon> <1285254302.2509.47.camel@edumazet-laptop>
-	 <4C9CBCFC.6080300@gmail.com> <1285342083.2503.252.camel@edumazet-laptop>
-	 <4C9CC608.7010401@astaro.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH] net: reset skb queue mapping when rx'ing over tunnel
+Date: Fri, 24 Sep 2010 09:18:30 -0700
+Message-ID: <AANLkTimG9ZCZwDyo_9bYURShn7hk6ROzX4-qypo7nG5i@mail.gmail.com>
+References: <alpine.DEB.1.00.1009231415290.25121@pokey.mtv.corp.google.com>
+	<1285293960.2380.23.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ulrich Weber <ulrich.weber@googlemail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Ulrich Weber <uweber@astaro.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net, chavey@google.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:36930 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752855Ab0IXQF7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Sep 2010 12:05:59 -0400
-Received: by fxm3 with SMTP id 3so811775fxm.19
-        for <netdev@vger.kernel.org>; Fri, 24 Sep 2010 09:05:58 -0700 (PDT)
-In-Reply-To: <4C9CC608.7010401@astaro.com>
+Received: from smtp-out.google.com ([74.125.121.35]:42532 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932428Ab0IXQSe convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Sep 2010 12:18:34 -0400
+Received: from wpaz37.hot.corp.google.com (wpaz37.hot.corp.google.com [172.24.198.101])
+	by smtp-out.google.com with ESMTP id o8OGIWh4025385
+	for <netdev@vger.kernel.org>; Fri, 24 Sep 2010 09:18:32 -0700
+Received: from pxi5 (pxi5.prod.google.com [10.243.27.5])
+	by wpaz37.hot.corp.google.com with ESMTP id o8OGIRP4030364
+	for <netdev@vger.kernel.org>; Fri, 24 Sep 2010 09:18:31 -0700
+Received: by pxi5 with SMTP id 5so1186306pxi.14
+        for <netdev@vger.kernel.org>; Fri, 24 Sep 2010 09:18:30 -0700 (PDT)
+In-Reply-To: <1285293960.2380.23.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 24 septembre 2010 =C3=A0 17:38 +0200, Ulrich Weber a =C3=A9=
-crit :
-> Yes, as I wrote before my Cable ISP is flooding me with
-> ARP requests from 10.0.0.0/8, which get a route
-> via the primary PPP link.
->=20
-> I know thats not a common setup but why do that
-> kind of routes have to be cached ? :)
->=20
->=20
-> steps to reproduce:
-> server:
->  ip route add 1.0.0.0/8 dev dummy0
->=20
-> client:
->  ip route add 1.0.0.0/8 dev eth0
->  nmap --min-rate 500 -sP 1.0.0.0/8
->=20
+> Hmm...
+>
+> This would need to be reverted later when tunnels are updated to be
+> multiqueue aware ? I made an attempt with GRE some days ago.
+>
+> I dont understand why this patch is needed, since get_rps_cpu() has a
+> check anyway
+>
+I think the skb queue_mapping should correspond to a queue in the
+skb's device as an invariant.  In the case that an skb's device is
+change from a multiqueue device to single queue device (like GRE), the
+inconsistency in the queue_mapping is fairly innocuous, we get one
+warning but will pretty much take the unlikely branch for GRE packets
+then on.  But imagine a case where skb's device was change from one
+multiqueue device to another, but the queue mapping was not also
+updated.  This  would cause poor weighting in get_rps_cpus.  For
+example, if the new device had fewer queues than the old one,
+get_rps_cpu will bias toward using queue 0's rps mask.
 
-Great, you use nmap and fill 'client' neighbour cache.
-
-Now, back to the _real_ problem, please ?
-
-<quote>
-
-Background: At home I have two Internet connections, DSL and Cable.
-DSL is the primary uplink while Cable is the secondary.
-My Cable ISP is flooding me with ARP request from 10.0.0.0/8,
-which creates routes via the primary uplink.
-There are thousands of cached routes and after some time
-I get "Neighbour table overflow" messages.
-
-</quote>
-
-You receive an ARP request on device eth1,
-this creates a route on eth0 ?
-
-Could you send your routing/address setup ?
-
-ip addr
-ip ro
-
-
-
+> =A0 =A0 =A0 =A0if (skb_rx_queue_recorded(skb)) {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0u16 index =3D skb_get_rx_queue(skb);
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (unlikely(index >=3D dev->num_rx_qu=
+eues)) {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0WARN_ONCE(dev->num_rx_=
+queues > 1, "%s received packet "
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0"on qu=
+eue %u, but number of RX queues is %u\n",
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0dev->n=
+ame, index, dev->num_rx_queues);
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0goto done;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0rxqueue =3D dev->_rx + index;
+> =A0 =A0 =A0 =A0} else
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0rxqueue =3D dev->_rx;
+>
+>
+>
+>
