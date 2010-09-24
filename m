@@ -1,45 +1,54 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 1/2 -next] r8169: allocate with GFP_KERNEL flag when able
- to sleep
-Date: Sat, 25 Sep 2010 00:24:34 +0200
-Message-ID: <20100924222434.GA7743@electric-eye.fr.zoreil.com>
-References: <1285243291-4520-1-git-send-email-sgruszka@redhat.com>
- <20100923212012.GA10925@electric-eye.fr.zoreil.com>
- <20100924131842.26f1fb1f@dhcp-lab-109.englab.brq.redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Stanislaw Gruszka <sgruszka@redhat.com>
+From: chavey@google.com
+Subject: [PATCH 1/1] net-gre: clear skb->queue_mapping in GRE recv path
+Date: Fri, 24 Sep 2010 16:15:48 -0700
+Message-ID: <pvm4oderavv.fsf@chavey.mtv.corp.google.com>
+Cc: netdev@vger.kernel.org, therbert@google.com
+To: chavey@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 158.13.115-78.rev.gaoland.net ([78.115.13.158]:47953 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754650Ab0IXWYz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Sep 2010 18:24:55 -0400
-Content-Disposition: inline
-In-Reply-To: <20100924131842.26f1fb1f@dhcp-lab-109.englab.brq.redhat.com>
+Received: from smtp-out.google.com ([216.239.44.51]:50774 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755424Ab0IXXPw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Sep 2010 19:15:52 -0400
+Received: from kpbe17.cbf.corp.google.com (kpbe17.cbf.corp.google.com [172.25.105.81])
+	by smtp-out.google.com with ESMTP id o8ONFp0V025645
+	for <netdev@vger.kernel.org>; Fri, 24 Sep 2010 16:15:51 -0700
+Received: from pwi9 (pwi9.prod.google.com [10.241.219.9])
+	by kpbe17.cbf.corp.google.com with ESMTP id o8ONFoVA022493
+	for <netdev@vger.kernel.org>; Fri, 24 Sep 2010 16:15:50 -0700
+Received: by pwi9 with SMTP id 9so2877495pwi.2
+        for <netdev@vger.kernel.org>; Fri, 24 Sep 2010 16:15:49 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stanislaw Gruszka <sgruszka@redhat.com> :
-> Francois Romieu <romieu@fr.zoreil.com> wrote:
-[...]
-> > Feel free to add a Acked-by: Francois Romieu <romieu@fr.zoreil.com>
-> > as soon as it will have been explicitely reported to improve the
-> > situation (it is not clear in the PR above).
-> 
-> I'm pretty sure patch fix the problem, however yes, we do not have
-> confirmation from reporter yet.
+From: chavey <chavey@google.com>
+Date: Fri, 24 Sep 2010 15:05:02 -0700
 
-A success report would help me swallow a 6 parameters
-rtl8169_alloc_rx_skb method.
+A continuous stream of errors:
 
-The driver is not smart wrt partially allocated rx ring, especially
-at init time. It considers a single init time skb allocation failure
-fatal.
+  slbgre0 received packet on queue [123], but number of RX queues is 1
+  net_ratelimit: 155786 callbacks suppressed
 
-> Anyway atomic allocation should not be used in process context.
+is filling up /var/log/messages.
 
-What do you mean ? tg3->open() does not seem to bother. It is not alone.
+This is due to not unsetting skb->queue_mapping in the GRE receive path.
 
+Signed-off-by: chavey <chavey@google.com>
+---
+ net/ipv4/ip_gre.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index 945b20a..53bdb97 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -641,6 +641,7 @@ static int ipgre_rcv(struct sk_buff *skb)
+ 		}
+ 
+ 		skb_tunnel_rx(skb, tunnel->dev);
++		skb_set_queue_mapping(skb, 0);
+ 
+ 		skb_reset_network_header(skb);
+ 		ipgre_ecn_decapsulate(iph, skb);
 -- 
-Ueimor
+1.7.1
+
