@@ -1,58 +1,64 @@
-From: Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Subject: Re: [PATCH v6 0/8] ptp: IEEE 1588 hardware clock support
-Date: Fri, 24 Sep 2010 15:02:46 +0100
-Message-ID: <20100924150246.0e6064b6@lxorguk.ukuu.org.uk>
+Date: Fri, 24 Sep 2010 15:07:38 +0100
+Message-ID: <20100924150738.744297d0@lxorguk.ukuu.org.uk>
 References: <cover.1285261533.git.richard.cochran@omicron.at>
 	<20100923213654.0c64b047@lxorguk.ukuu.org.uk>
 	<20100924131407.GA3113@riccoc20.at.omicron.at>
+	<20100924150246.0e6064b6@lxorguk.ukuu.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	John Stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
-	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>,
-	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>,
-	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
-To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20100924131407.GA3113-7KxsofuKt4IfAd9E5cN8NEzG7cXyKsk/@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: John Stultz <johnstul@us.ibm.com>, Rodolfo Giometti <giometti@linux.it>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Peter Zijlstra <peterz@infradead.org>, linux-api@vger.kernel.org,
+	devicetree-discuss@lists.ozlabs.org,
+	linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org,
+	Christoph Lameter <cl@linux.com>, linuxppc-dev@lists.ozlabs.org,
+	Richard Cochran <richardcochran@gmail.com>,
+	linux-arm-kernel@lists.infradead.org, Krzysztof Halasa <khc@pm.waw.pl>
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <20100924150246.0e6064b6@lxorguk.ukuu.org.uk>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 24 Sep 2010 15:14:07 +0200
-Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> You can't do that avoiding as you might like because the behaviour of
+> file handle numbering is defined by the standards. Hence the "f*"
+> versions of the calls (and of lots of other stuff)
+> 
+> Whether you add new syscalls or do the fd passing using flags and hide
+> the ugly bits in glibc is another question.
 
-> On Thu, Sep 23, 2010 at 09:36:54PM +0100, Alan Cox wrote:
-> > Drop the clockid_t and swap it for a file handle like a proper Unix or
-> > Linux interface. The rest is much the same
-> > 
-> > 	fd = open /sys/class/timesource/[whatever]
-> > 
-> > 	various queries you may want to do to check the name etc
-> > 
-> > 	fclock_adjtime(fd, ...)
-> 
-> Okay, but lets extend the story:
-> 
-> 	clock_getttime(fd, ...);
-> 
-> 	clock_settime(fd, ...);
-> 
-> 	timer_create(fd, ...);
-> 
-> Can you agree to that as well?
-> 
-> (We would need to ensure that 'fd' avoids the range 0 to MAX_CLOCKS).
+To add an example of what I mean you might end up defining "CLOCK_FD" to
+indicate to use the fd in the struct, but given syscalls are trivial
+codewise and would end up as
 
-You can't do that avoiding as you might like because the behaviour of
-file handle numbering is defined by the standards. Hence the "f*"
-versions of the calls (and of lots of other stuff)
+	fclock_foo(int fd, blah)
+	{
+		clock = fd_to_clock(fd);
+		if (error)
+			return error
+		clock_do_foo(clock, blah);
+		clock_put(clock);
+	}
 
-Whether you add new syscalls or do the fd passing using flags and hide
-the ugly bits in glibc is another question.
+and
+
+	clock_foo(int posixid, blah)
+	{
+		clock = posix_to_clock(posixid)
+		...
+		rest same
+	}
+
+as wrappers it seems hardly worth adding ugly hacks
