@@ -1,64 +1,57 @@
-From: Daniel Lezcano <daniel.lezcano@free.fr>
-Subject: Re: [ABI REVIEW][PATCH 0/8] Namespace file descriptors
-Date: Fri, 24 Sep 2010 15:49:48 +0200
-Message-ID: <4C9CAC7C.2080900@free.fr>
-References: <m1ocborgq7.fsf@fess.ebiederm.org> <4C9CA16F.3000505@mit.edu>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/2] Phonet: Implement Pipe Controller to support Nokia
+ Slim Modems
+Date: Fri, 24 Sep 2010 15:52:13 +0200
+Message-ID: <1285336333.2503.153.camel@edumazet-laptop>
+References: <1285330996-27076-1-git-send-email-kumar.sanghvi@stericsson.com>
+	 <1285330996-27076-2-git-send-email-kumar.sanghvi@stericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Sukadev Bhattiprolu <sukadev@linux.vnet.ibm.com>,
-	Pavel Emelyanov <xemul@openvz.org>,
-	Pavel Emelyanov <xemul@parallels.com>,
-	Ulrich Drepper <drepper@gmail.com>, netdev@vger.kernel.org,
-	Jonathan Corbet <corbet@lwn.net>, linux-kernel@vger.kernel.org,
-	Jan Engelhardt <jengelh@medozas.de>,
-	linux-fsdevel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Michael Kerrisk <mtk.manpages@gmail.com>,
-	Linux Containers <containers@lists.osdl.org>,
-	Ben Greear <greearb@candelatech.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	Al Viro <viro@ZenIV.linux.org.uk>
-To: Andrew Lutomirski <luto@mit.edu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4C9CA16F.3000505@mit.edu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: remi.denis-courmont@nokia.com, davem@davemloft.net,
+	netdev@vger.kernel.org, STEricsson_nomadik_linux@list.st.com,
+	sudeep.divakaran@stericsson.com, gulshan.karmani@stericsson.com,
+	Linus Walleij <linus.walleij@stericsson.com>
+To: Kumar A Sanghvi <kumar.sanghvi@stericsson.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:33334 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932158Ab0IXNwT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Sep 2010 09:52:19 -0400
+Received: by fxm3 with SMTP id 3so696265fxm.19
+        for <netdev@vger.kernel.org>; Fri, 24 Sep 2010 06:52:18 -0700 (PDT)
+In-Reply-To: <1285330996-27076-2-git-send-email-kumar.sanghvi@stericsson.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/24/2010 03:02 PM, Andrew Lutomirski wrote:
-> Eric W. Biederman wrote:
->> Introduce file for manipulating namespaces and related syscalls.
->> files:
->> /proc/self/ns/<nstype>
->>
->> syscalls:
->> int setns(unsigned long nstype, int fd);
->> socketat(int nsfd, int family, int type, int protocol);
->>
->
-> How does security work?  Are there different kinds of fd that give (say) pin-the-namespace permission, socketat permission, and setns permission?
+Le vendredi 24 septembre 2010 =C3=A0 17:53 +0530, Kumar A Sanghvi a =C3=
+=A9crit :
 
-AFAICS, socketat, setns and "set netns by fd" only accept fd from 
-/proc/<pid>/ns/<ns>.
+> +static int pipe_get_flow_info(struct sock *sk, struct sk_buff *skb,
+> +		u8 *pref_rx_fc, u8 *req_tx_fc)
+> +{
+> +	struct pnpipehdr *hdr =3D pnp_hdr(skb);
+> +	u8 n_sb;
+> +
+> +	if (!pskb_may_pull(skb, sizeof(*hdr) + 4))
+> +		return -EINVAL;
 
-setns does :
+This is wrong.
 
-	file = proc_ns_fget(fd);
-	if (IS_ERR(file))
-		return PTR_ERR(file);
+pskb_may_pull() might change skb->data, so you should do
 
-proc_ns_fget checks if (file->f_op != &ns_file_operations)
+{
+	struct pnpipehdr *hdr;
+	u8 n_sb;
+
+	if (!pskb_may_pull(skb, sizeof(*hdr) + 4))
+		return -EINVAL;
+
+	hdr =3D pnp_hdr(skb);
+
+=2E..
 
 
-socketat and get_net_ns_by_fd:
 
-	net = get_net_ns_by_fd(fd);
 
-this one calls proc_ns_fget.
 
-We have the guarantee here, the fd is resulting from an open of the file 
-with the right permissions.
-
-Another way to pin the namespace, would be to mount --bind 
-/proc/<pid>/ns/<ns> but we have to be root to do that ...
