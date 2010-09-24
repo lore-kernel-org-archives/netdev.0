@@ -1,76 +1,96 @@
-From: Florian Mickler <florian-sVu6HhrpSfRAfugRpC6u6w@public.gmane.org>
-Subject: [PATCH] iwl3945: queue the right work if the scan needs to be aborted
-Date: Fri, 24 Sep 2010 18:22:01 +0200
-Message-ID: <1285345323-4250-1-git-send-email-florian@mickler.org>
-Cc: Florian Mickler <florian-sVu6HhrpSfRAfugRpC6u6w@public.gmane.org>,
-	Reinette Chatre <reinette.chatre-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Wey-Yi Guy <wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Intel Linux Wireless <ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Zhu Yi <yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, Ben Cahill <ben.m.cahill-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Ulrich Weber <uweber@astaro.com>
+Subject: Re: [RFC PATCH] dont create cached routes from ARP requests
+Date: Fri, 24 Sep 2010 18:40:06 +0200
+Message-ID: <4C9CD466.4010909@astaro.com>
+References: <20100922162209.GA10281@babylon>	 <20100922.203442.233700254.davem@davemloft.net>	 <20100923144708.GA8037@babylon> <1285254302.2509.47.camel@edumazet-laptop>	 <4C9CBCFC.6080300@gmail.com> <1285342083.2503.252.camel@edumazet-laptop>	 <4C9CC608.7010401@astaro.com> <1285344352.2503.321.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ulrich Weber <ulrich.weber@googlemail.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dhost002-77.dex002.intermedia.net ([64.78.20.107]:56851 "EHLO
+	DHOST002-77.dex002.intermedia.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932784Ab0IXQkN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Sep 2010 12:40:13 -0400
+In-Reply-To: <1285344352.2503.321.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-iwl3945's scan_completed calls into the mac80211 stack which triggers a
-warn on if there is no scan outstanding.
+On 09/24/2010 06:05 PM, Eric Dumazet wrote:
+> Le vendredi 24 septembre 2010 =C3=A0 17:38 +0200, Ulrich Weber a =C3=A9=
+crit :
+>> steps to reproduce:
+>> server:
+>>  ip route add 1.0.0.0/8 dev dummy0
+>>
+>> client:
+>>  ip route add 1.0.0.0/8 dev eth0
+>>  nmap --min-rate 500 -sP 1.0.0.0/8
+>>
+>=20
+> Great, you use nmap and fill 'client' neighbour cache.
 
-This can be avoided by not calling scan_completed but abort_scan in
-iwl3945_request_scan  in the done: branch of the function which is used
-as an error out.
+Nope, I fills the 'server' neighbor cache too
+due cached routes in arp_process():
+        if (arp->ar_op =3D=3D htons(ARPOP_REQUEST) &&
+            ip_route_input_noref(skb, tip, sip, 0, dev) =3D=3D 0)
 
-The done: branch seems to be an error-out branch, as, for example, if
-iwl_is_ready(priv) returns false  the done: branch is executed.
+> Now, back to the _real_ problem, please ?
+>=20
+> <quote>
+>=20
+> Background: At home I have two Internet connections, DSL and Cable.
+> DSL is the primary uplink while Cable is the secondary.
+> My Cable ISP is flooding me with ARP request from 10.0.0.0/8,
+> which creates routes via the primary uplink.
+> There are thousands of cached routes and after some time
+> I get "Neighbour table overflow" messages.
+>=20
+> </quote>
+>=20
+> You receive an ARP request on device eth1,
+> this creates a route on eth0 ?
+>=20
+> Could you send your routing/address setup ?
+>=20
+> ip addr
+> ip ro
+>=20
 
-NOTE:
-I'm not familiar with the driver at all.
-I just quickly scanned as a reaction to
+ARP request flood comes in via eth2.
 
-https://bugzilla.kernel.org/show_bug.cgi?id=17722
+Have to correct myself: With configuration below only route cache
+increases but no "Neighbour table overflow".
 
-the users of scan_completed in the  iwl3945 driver and noted the odd
-discrepancy between the comment above this instance and the comment in
-mac80211 scan_completed function.
+By adding "ip route add 10.0.0.0/8 dev eth0" the Neighbor table overflo=
+w
+will occur.
 
-Signed-off-by: Florian Mickler <florian-sVu6HhrpSfRAfugRpC6u6w@public.gmane.org>
----
- drivers/net/wireless/iwlwifi/iwl-agn-lib.c  |    2 +-
- drivers/net/wireless/iwlwifi/iwl3945-base.c |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/wireless/iwlwifi/iwl-agn-lib.c b/drivers/net/wireless/iwlwifi/iwl-agn-lib.c
-index 9dd9e64..8fd00a6 100644
---- a/drivers/net/wireless/iwlwifi/iwl-agn-lib.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-agn-lib.c
-@@ -1411,7 +1411,7 @@ void iwlagn_request_scan(struct iwl_priv *priv, struct ieee80211_vif *vif)
- 	clear_bit(STATUS_SCAN_HW, &priv->status);
- 	clear_bit(STATUS_SCANNING, &priv->status);
- 	/* inform mac80211 scan aborted */
--	queue_work(priv->workqueue, &priv->scan_completed);
-+	queue_work(priv->workqueue, &priv->abort_scan);
- }
- 
- int iwlagn_manage_ibss_station(struct iwl_priv *priv,
-diff --git a/drivers/net/wireless/iwlwifi/iwl3945-base.c b/drivers/net/wireless/iwlwifi/iwl3945-base.c
-index 59a308b..d31661c 100644
---- a/drivers/net/wireless/iwlwifi/iwl3945-base.c
-+++ b/drivers/net/wireless/iwlwifi/iwl3945-base.c
-@@ -3018,7 +3018,7 @@ void iwl3945_request_scan(struct iwl_priv *priv, struct ieee80211_vif *vif)
- 	clear_bit(STATUS_SCANNING, &priv->status);
- 
- 	/* inform mac80211 scan aborted */
--	queue_work(priv->workqueue, &priv->scan_completed);
-+	queue_work(priv->workqueue, &priv->abort_scan);
- }
- 
- static void iwl3945_bg_restart(struct work_struct *data)
--- 
-1.7.3
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN
+    inet 127.0.0.1/8 scope host lo
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
+state UP qlen 1000
+    inet 192.168.1.1/24 brd 192.168.1.255 scope global eth0
+4: eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
+state UP qlen 1000
+    inet 78.43.x.x/22 brd 78.43.35.255 scope global eth2
+12: ppp0: <POINTOPOINT,MULTICAST,NOARP,UP,LOWER_UP> mtu 1492 qdisc hfsc
+state UNKNOWN qlen 3
+    inet 95.114.x.x peer 213.20.56.129/32 scope global ppp0
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+default via 213.20.56.129 dev ppp0
+78.43.32.0/22 dev eth2  proto kernel  scope link  src 78.43.x.x
+127.0.0.0/8 dev lo  scope link
+192.168.1.0/24 dev eth0  proto kernel  scope link  src 192.168.1.1
+213.20.56.129 dev ppp0  proto kernel  scope link  src 95.114.x.x
+
+
+--=20
+Ulrich Weber | uweber@astaro.com | Software Engineer
+Astaro GmbH & Co. KG | www.astaro.com | Phone +49-721-25516-0 | Fax =E2=
+=80=93200
+An der RaumFabrik 33a | 76227 Karlsruhe | Germany
