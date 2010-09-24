@@ -1,90 +1,134 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [ABI REVIEW][PATCH 0/8] Namespace file descriptors
-Date: Fri, 24 Sep 2010 10:06:41 -0700
-Message-ID: <m1fwwzdqam.fsf@fess.ebiederm.org>
-References: <m1ocborgq7.fsf@fess.ebiederm.org> <4C9CA16F.3000505@mit.edu>
-	<4C9CAC7C.2080900@free.fr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Lutomirski <luto@mit.edu>,
-	Sukadev Bhattiprolu <sukadev@linux.vnet.ibm.com>,
-	Pavel Emelyanov <xemul@openvz.org>,
-	Pavel Emelyanov <xemul@parallels.com>,
-	Ulrich Drepper <drepper@gmail.com>, netdev@vger.kernel.org,
-	Jonathan Corbet <corbet@lwn.net>, linux-kernel@vger.kernel.org,
-	Jan Engelhardt <jengelh@medozas.de>,
-	linux-fsdevel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Michael Kerrisk <mtk.manpages@gmail.com>,
-	Linux Containers <containers@lists.osdl.org>,
-	Ben Greear <greearb@candelatech.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	Al Viro <viro@ZenIV.linux.org.uk>
-To: Daniel Lezcano <daniel.lezcano@free.fr>
+From: Alban Crequy <alban.crequy@collabora.co.uk>
+Subject: [PATCH 2/5] AF_UNIX: enable/disable multicast with getsockopt/setsockopt
+Date: Fri, 24 Sep 2010 18:25:13 +0100
+Message-ID: <1285349116-17529-2-git-send-email-alban.crequy@collabora.co.uk>
+References: <20100924182257.11abd9a6@chocolatine.cbg.collabora.co.uk>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Cyrill Gorcunov <gorcunov@openvz.org>,
+	Alexey Dobriyan <adobriyan@gmail.com>,
+	Lennart Poettering <lennart@poettering.net>,
+	Kay Sievers <kay.sievers@vrfy.org>,
+	Ian Molton <ian.molton@collabora.co.uk>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	dbus@freedesktop.org, Alban Crequy <alban.crequy@collabora.co.uk>
+To: Alban Crequy <alban.crequy@collabora.co.uk>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4C9CAC7C.2080900@free.fr> (Daniel Lezcano's message of "Fri, 24
-	Sep 2010 15:49:48 +0200")
+In-Reply-To: <20100924182257.11abd9a6@chocolatine.cbg.collabora.co.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Daniel Lezcano <daniel.lezcano@free.fr> writes:
+Multicast can be enabled or disabled after a socket is allocated but this
+cannot be changed once the socket is bound or connected.
 
-> On 09/24/2010 03:02 PM, Andrew Lutomirski wrote:
->> Eric W. Biederman wrote:
->>> Introduce file for manipulating namespaces and related syscalls.
->>> files:
->>> /proc/self/ns/<nstype>
->>>
->>> syscalls:
->>> int setns(unsigned long nstype, int fd);
->>> socketat(int nsfd, int family, int type, int protocol);
->>>
->>
->> How does security work?  Are there different kinds of fd that give (say) pin-the-namespace permission, socketat permission, and setns permission?
->
-> AFAICS, socketat, setns and "set netns by fd" only accept fd from
-> /proc/<pid>/ns/<ns>.
->
-> setns does :
->
-> 	file = proc_ns_fget(fd);
-> 	if (IS_ERR(file))
-> 		return PTR_ERR(file);
->
-> proc_ns_fget checks if (file->f_op != &ns_file_operations)
->
->
-> socketat and get_net_ns_by_fd:
->
-> 	net = get_net_ns_by_fd(fd);
->
-> this one calls proc_ns_fget.
->
-> We have the guarantee here, the fd is resulting from an open of the file with
-> the right permissions.
+Userspace applications can enable multicast on an Unix stream socket:
+  sockfd = socket(AF_UNIX, SOCK_STREAM, 0);
+  #define UNIX_MULTICAST 1
+  val = 1;
+  len = sizeof(val);
+  ret = setsockopt(sockfd, 0, UNIX_MULTICAST, &val, len);
 
-In particular the default /proc permissions say you have to be the owner
-of the process (or root) to access the file.  If you are the owner of
-the process with a namespace (or root) you already have permission to
-access and manipulate the namespace.
+Signed-off-by: Alban Crequy <alban.crequy@collabora.co.uk>
+---
+ include/net/af_unix.h |    4 +++
+ net/unix/af_unix.c    |   57 +++++++++++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 59 insertions(+), 2 deletions(-)
 
-Additionally setns like unshare requires CAP_SYS_ADMIN (aka root magic).
-
-> Another way to pin the namespace, would be to mount --bind /proc/<pid>/ns/<ns>
-> but we have to be root to do that ...
-
-Simply keeping the process running, pins the namespace. That requires no
-new permissions.
-
-Similarly socketat.  It is possible to use unix domain sockets to
-implement it today without any kernel changes.  It is just an
-unnecessary pain to run a server process to pin a namespace or to serve
-up file descriptors in other network namespaces.
-
-The primary change of this patchset is the ability to do everything
-with file descriptors, and with the mount namespace.  That moves
-everything from a bizarre hard to understand and manipulate interface
-to one where things can be done much more easily, and cheaply.
-Resulting in a much more powerful and usable interface.
-
-Eric
+diff --git a/include/net/af_unix.h b/include/net/af_unix.h
+index 20725e2..4c77c69 100644
+--- a/include/net/af_unix.h
++++ b/include/net/af_unix.h
+@@ -40,6 +40,9 @@ struct unix_skb_parms {
+ 				spin_lock_nested(&unix_sk(s)->lock, \
+ 				SINGLE_DEPTH_NESTING)
+ 
++/* UNIX socket options */
++#define UNIX_MULTICAST	1	/* Enable multicast Unix sockets */
++
+ #ifdef __KERNEL__
+ /* The AF_UNIX socket */
+ struct unix_sock {
+@@ -56,6 +59,7 @@ struct unix_sock {
+ 	spinlock_t		lock;
+ 	unsigned int		gc_candidate : 1;
+ 	unsigned int		gc_maybe_cycle : 1;
++	unsigned int		multicast : 1;
+ 	struct socket_wq	peer_wq;
+ };
+ #define unix_sk(__sk) ((struct unix_sock *)__sk)
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 47d9f77..c766e88 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -1501,13 +1501,66 @@ out:
+ static int unix_stream_setsockopt(struct socket *sock, int level, int optname,
+ 				  char __user *optval, unsigned int optlen)
+ {
+-	return -EOPNOTSUPP;
++	struct unix_sock *u = unix_sk(sock->sk);
++	int val;
++	int err = 0;
++
++	if (optlen < sizeof(int))
++		return -EINVAL;
++
++	if (get_user(val, (int __user *)optval))
++		return -EFAULT;
++
++	switch (optname) {
++	case UNIX_MULTICAST:
++		/* Multicast feature can only be changed when the socket is
++		 * not used yet */
++		if (u->addr || sock->sk->sk_state != TCP_CLOSE)
++			return -EINVAL;
++
++		if (val != 0) {
++			u->multicast = 1;
++		} else {
++			u->multicast = 0;
++		}
++		break;
++
++	default:
++		err = -ENOPROTOOPT;
++		break;
++	}
++
++	return err;
+ }
+ 
+ int unix_stream_getsockopt(struct socket *sock, int level, int optname,
+ 			   char __user *optval, int __user *optlen)
+ {
+-	return -EOPNOTSUPP;
++	struct unix_sock *u = unix_sk(sock->sk);
++	int val, len;
++
++	if (get_user(len, optlen))
++		return -EFAULT;
++
++	len = min_t(unsigned int, len, sizeof(int));
++
++	if (len < 0)
++		return -EINVAL;
++
++	switch (optname) {
++	case UNIX_MULTICAST:
++		val = u->multicast;
++		break;
++
++	default:
++		return -ENOPROTOOPT;
++	}
++
++	if (put_user(len, optlen))
++		return -EFAULT;
++	if (copy_to_user(optval, &val, len))
++		return -EFAULT;
++	return 0;
+ }
+ 
+ 
+-- 
+1.7.1
