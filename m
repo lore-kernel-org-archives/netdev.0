@@ -1,37 +1,44 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH 15/24] net: change to new flag variable
-Date: Fri, 24 Sep 2010 15:25:04 -0400
-Message-ID: <20100924192504.GG8077@tuxdriver.com>
-References: <e0bdab5d2e8c52041c003de68ba774c3e706716c.1285355033.git.mfm@muteddisk.com>
- <facbf79cadc81f9043e89160b7b3b8a90926aba1.1285355033.git.mfm@muteddisk.com>
+From: arno@natisbad.org (Arnaud Ebalard)
+Subject: Re: [PATCH net-next-2.6 0/5] XFRM,IPv6: Removal of RH2/HAO from IPsec-protected MIPv6 traffic
+Date: Fri, 24 Sep 2010 21:34:52 +0200
+Message-ID: <87zkv7orz7.fsf@small.ssi.corp>
+References: <87ocbnxa0i.fsf@small.ssi.corp>
+	<20100924.120156.115937401.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: kernel-janitors@vger.kernel.org,
-	Sjur Braendeland <sjur.brandeland@stericsson.com>,
-	Jouni Malinen <j@w1.fi>, Daniel Drake <dsd@gentoo.org>,
-	Ulrich Kunitz <kune@deine-taler.de>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org
-To: matt mooney <mfm@muteddisk.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:55785 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757879Ab0IXT3j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Sep 2010 15:29:39 -0400
-Content-Disposition: inline
-In-Reply-To: <facbf79cadc81f9043e89160b7b3b8a90926aba1.1285355033.git.mfm@muteddisk.com>
+Received: from lo.gmane.org ([80.91.229.12]:60827 "EHLO lo.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757652Ab0IXTe0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 24 Sep 2010 15:34:26 -0400
+Received: from list by lo.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1OzE2L-0003qH-1O
+	for netdev@vger.kernel.org; Fri, 24 Sep 2010 21:34:25 +0200
+Received: from cct.net8.nerim.net ([213.41.184.223])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Fri, 24 Sep 2010 21:34:25 +0200
+Received: from arno by cct.net8.nerim.net with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Fri, 24 Sep 2010 21:34:25 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 24, 2010 at 12:17:25PM -0700, matt mooney wrote:
-> Replace EXTRA_CFLAGS with ccflags-y.
-> 
-> Signed-off-by: matt mooney <mfm@muteddisk.com>
-> ---
->  drivers/net/wireless/hostap/hostap_config.h |    4 ++--
->  drivers/net/wireless/zd1211rw/Makefile      |    4 +---
+Hi,
 
-ACK for these bits...
+David Miller <davem@davemloft.net> writes:
 
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+>> [This is a resend: after 6 hours, nothing appeared on the list. Sorry
+>>  if you received it twice]
+>
+> They didn't appear on the list because your email header fields
+> are all screwed up, I forwarded the bounce messages to you twice
+> under seperate cover.
+
+Sorry for that. I decided to mangle email addresses by hand. That was a
+baaaaaaad idea.
+
+a+
+
