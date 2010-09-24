@@ -1,59 +1,111 @@
-From: David Lamparter <equinox@diac24.net>
-Subject: Re: [PATCH 7/8] net: Allow setting the network namespace by fd
-Date: Fri, 24 Sep 2010 14:57:04 +0200
-Message-ID: <20100924125704.GA1551619@jupiter.n2.diac24.net>
+From: Andrew Lutomirski <luto@mit.edu>
+Subject: Re: [ABI REVIEW][PATCH 0/8] Namespace file descriptors
+Date: Fri, 24 Sep 2010 09:02:39 -0400
+Message-ID: <4C9CA16F.3000505@mit.edu>
 References: <m1ocborgq7.fsf@fess.ebiederm.org>
- <m1hbhgq1v1.fsf@fess.ebiederm.org>
- <1285240926.5036.7.camel@bigi>
- <20100923145856.GB1160234@jupiter.n2.diac24.net>
- <1285329084.13976.661.camel@bigi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Lamparter <equinox@diac24.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	linux-kernel@vger.kernel.org,
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org,
 	Linux Containers <containers@lists.osdl.org>,
 	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org
-To: jamal <hadi@cyberus.ca>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1285329084.13976.661.camel@bigi>
-Sender: linux-fsdevel-owner@vger.kernel.org
+	linux-fsdevel@vger.kernel.org, jamal <hadi@cyberus.ca>,
+	Daniel Lezcano <daniel.lezcano@free.fr>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Michael Kerrisk <mtk.manpages@gmail.com>,
+	Ulrich Drepper <drepper@gmail.com>,
+	Al Viro <viro@ZenIV.linux.org.uk>,
+	David Miller <davem@davemloft.net>,
+	"Serge E. Hallyn" <serge@hallyn.com>,
+	Pavel Emelyanov <xemul@openvz.org>,
+	Pavel Emelyanov <xemul@parallels.com>,
+	Ben Greear <greearb@candelatech.com>,
+	Matt Helsley <matthltc@us.ibm.com>,
+	Jonathan Corbet <corbet@lwn.net>,
+	Sukadev Bhattiprolu <sukadev@linux.vnet.ibm.com>,
+	Jan Engelhardt <jengelh@medozas.de>,
+	Patrick McHardy <kaber@trash.net>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <m1ocborgq7.fsf@fess.ebiederm.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 24, 2010 at 07:51:24AM -0400, jamal wrote:
-> > migrating route table entries makes no sense because
-> > a) they refer to devices and configuration that does not exist in the
-> >    target namespace; they only make sense within their netns context
-> > b) they are purely virtual and you get the same result from deleting and
-> >    recreating them.
-> > 
-> > Network devices are special because they may have something attached to
-> > them, be it hardware or some daemon.
+Eric W. Biederman wrote:
+> Introduce file for manipulating namespaces and related syscalls.
+> files:
+> /proc/self/ns/<nstype>
 > 
-> Routes functionally reside on top of netdevices, point to nexthop
-> neighbors across these netdevices etc. Underlying assumption is you take
-> care of that dependency when migrating.
-> We are talking about FIB entries here not the route cache; moving a few
-> pointers within the kernel is a hell lot faster than recreating a subset
-> of BGP entries from user space. 
+> syscalls:
+> int setns(unsigned long nstype, int fd);
+> socketat(int nsfd, int family, int type, int protocol);
+> 
 
-No. While you sure could associate routes with devices, they don't
-*functionally* reside on top of network devices. They reside on top of
-the entire IP configuration, and in case of BGP they even reside on top
-of your set of peerings and their data.
+How does security work?  Are there different kinds of fd that give (say) pin-the-namespace permission, socketat permission, and setns permission?
 
-Even if you could "move" routes together with a network device, the
-result would be utter nonsense. The routes depend on your BGP view, and
-if your set of interfaces (and peers) changes, your routes will change.
-Your bgpd will, either way, need to set up new peerings and redo best
-path evaluations.
+--Andy
 
-(On an unrelated note, how often are you planning to move stuff between
-namespaces? I don't expect to be moving stuff except on configuration
-events...)
-
-
--David
-
+> Netlink attribute:
+> IFLA_NS_FD int fd.
+> 
+> Name space file descriptors address three specific problems that
+> can make namespaces hard to work with.
+> - Namespaces require a dedicated process to pin them in memory.
+> - It is not possible to use a namespace unless you are the child of the
+>   original creator.
+> - Namespaces don't have names that userspace can use to talk about them.
+> 
+> Opening of the /proc/self/ns/<nstype> files return a file descriptor
+> that can be used to talk about a specific namespace, and to keep the
+> specified namespace alive.
+> 
+> /proc/self/ns/<nstype> can be bind mounted as:
+> mount --bind /proc/self/ns/net /some/filesystem/path
+> to keep the namespace alive as long as the mount exists.
+> 
+> setns() as a companion to unshare allows changing the namespace
+> of the current process, being able to unshare the namespace is
+> a requirement.
+> 
+> There are two primary envisioned uses for this functionality.
+> o ``Entering'' an existing container.
+> o Allowing multiple network namespaces to be in use at once on
+>   the same machine, without requiring elaborate infrastructure.
+> 
+> Overall this received positive reviews on the containers list but this
+> needs a wider review of the ABI as this is pretty fundamental kernel
+> functionality.
+> 
+> 
+> I have left out the pid namespaces bits for the moment because the pid
+> namespace still needs work before it is safe to unshare, and my concern
+> at the moment is ensuring the system calls seem reasonable.
+> 
+> Eric W. Biederman (8):
+>       ns: proc files for namespace naming policy.
+>       ns: Introduce the setns syscall
+>       ns proc: Add support for the network namespace.
+>       ns proc: Add support for the uts namespace
+>       ns proc: Add support for the ipc namespace
+>       ns proc: Add support for the mount namespace
+>       net: Allow setting the network namespace by fd
+>       net: Implement socketat.
+> 
+> ---
+>  fs/namespace.c              |   57 +++++++++++++
+>  fs/proc/Makefile            |    1 +
+>  fs/proc/base.c              |   22 +++---
+>  fs/proc/inode.c             |    7 ++
+>  fs/proc/internal.h          |   18 ++++
+>  fs/proc/namespaces.c        |  193 +++++++++++++++++++++++++++++++++++++++++++
+>  include/linux/if_link.h     |    1 +
+>  include/linux/proc_fs.h     |   20 +++++
+>  include/net/net_namespace.h |    1 +
+>  ipc/namespace.c             |   31 +++++++
+>  kernel/nsproxy.c            |   39 +++++++++
+>  kernel/utsname.c            |   32 +++++++
+>  net/core/net_namespace.c    |   56 +++++++++++++
+>  net/core/rtnetlink.c        |    4 +-
+>  net/socket.c                |   26 ++++++-
+>  15 files changed, 494 insertions(+), 14 deletions(-)
+> 
