@@ -1,54 +1,44 @@
-From: chavey@google.com
-Subject: [PATCH 1/1] net-gre: clear skb->queue_mapping in GRE recv path
-Date: Fri, 24 Sep 2010 16:18:52 -0700
-Message-ID: <pvm39syraqr.fsf@chavey.mtv.corp.google.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Yuchung Cheng <ycheng@google.com>
+Subject: [PATCH] fix TSO FACK loss marking in tcp_mark_head_lost
+Date: Fri, 24 Sep 2010 16:22:06 -0700
+Message-ID: <1285370526-18279-1-git-send-email-ycheng@google.com>
+Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>
+To: ilpo.jarvinen@helsinki.fi, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.35]:44154 "EHLO
+Received: from smtp-out.google.com ([74.125.121.35]:46526 "EHLO
 	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758443Ab0IXXTB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Sep 2010 19:19:01 -0400
-Received: from wpaz37.hot.corp.google.com (wpaz37.hot.corp.google.com [172.24.198.101])
-	by smtp-out.google.com with ESMTP id o8ONIxcO032092
-	for <netdev@vger.kernel.org>; Fri, 24 Sep 2010 16:19:00 -0700
-Received: from pvg12 (pvg12.prod.google.com [10.241.210.140])
-	by wpaz37.hot.corp.google.com with ESMTP id o8ONIwVS019891
-	for <netdev@vger.kernel.org>; Fri, 24 Sep 2010 16:18:58 -0700
-Received: by pvg12 with SMTP id 12so1063213pvg.36
-        for <netdev@vger.kernel.org>; Fri, 24 Sep 2010 16:18:58 -0700 (PDT)
+	with ESMTP id S1751676Ab0IXXXw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Sep 2010 19:23:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: chavey <chavey@google.com>
-Date: Fri, 24 Sep 2010 15:05:02 -0700
+When TCP uses FACK algorithm to mark lost packets in
+tcp_mark_head_lost(), if the number of packets in the (TSO) skb is
+greater than the number of packets that should be marked lost, TCP
+incorrectly exits the loop and marks no packets lost in the skb. This
+underestimates tp->lost_out and affects the recovery/retransmission.
+This patch fargments the skb and marks the correct amount of packets
+lost.
 
-A continuous stream of errors:
-
-  slbgre0 received packet on queue [123], but number of RX queues is 1
-  net_ratelimit: 155786 callbacks suppressed
-
-is filling up /var/log/messages.
-
-This is due to not unsetting skb->queue_mapping in the GRE receive path.
-
-Signed-off-by: chavey <chavey@google.com>
+Signed-off-by: Yuchung Cheng <ycheng@google.com>
 ---
- net/ipv4/ip_gre.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ net/ipv4/tcp_input.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index 945b20a..53bdb97 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -641,6 +641,7 @@ static int ipgre_rcv(struct sk_buff *skb)
- 		}
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 1bc87a0..e4f472e 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2532,7 +2532,8 @@ static void tcp_mark_head_lost(struct sock *sk, int packets)
+ 			cnt += tcp_skb_pcount(skb);
  
- 		skb_tunnel_rx(skb, tunnel->dev);
-+		skb_set_queue_mapping(skb, 0);
+ 		if (cnt > packets) {
+-			if (tcp_is_sack(tp) || (oldcnt >= packets))
++			if ((tcp_is_sack(tp) && !tcp_is_fack(tp)) ||
++			    (oldcnt >= packets))
+ 				break;
  
- 		skb_reset_network_header(skb);
- 		ipgre_ecn_decapsulate(iph, skb);
+ 			mss = skb_shinfo(skb)->gso_size;
 -- 
 1.7.1
 
