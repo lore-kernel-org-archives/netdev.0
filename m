@@ -1,46 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ip : take care of last fragment in ip_append_data
-Date: Fri, 24 Sep 2010 14:42:07 -0700 (PDT)
-Message-ID: <20100924.144207.245411336.davem@davemloft.net>
-References: <1285013853.2323.148.camel@edumazet-laptop>
-	<1285018272.2323.243.camel@edumazet-laptop>
-	<1285049787.2323.797.camel@edumazet-laptop>
+From: Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
+Subject: Re: [PATCH 1/8] posix clocks: introduce a syscall for clock tuning.
+Date: Sat, 25 Sep 2010 08:12:20 +1000
+Message-ID: <1285366340.14081.34.camel@pasglop>
+References: <cover.1285261533.git.richard.cochran@omicron.at>
+	<b94ef1cd9c04ef3ad5964408bd0af7251add78de.1285261534.git.richard.cochran@omicron.at>
+	<1285279423.5158.20.camel@pasglop>
+	<20100924075534.GB5043@riccoc20.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: nbowler@elliptictech.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1285049787.2323.797.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>, John Stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
+	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
+	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>, Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>
+To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+In-Reply-To: <20100924075534.GB5043-7KxsofuKt4IfAd9E5cN8NEzG7cXyKsk/@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 21 Sep 2010 08:16:27 +0200
 
-> [PATCH] ip : take care of last fragment in ip_append_data
+> > This list is getting way too much unrelated stuff, which I find
+> > annoying, it would be nice if we were all a bit more careful here with
+> > our CC lists.
 > 
-> While investigating a bit, I found ip_fragment() slow path was taken
-> because ip_append_data() provides following layout for a send(MTU +
-> N*(MTU - 20)) syscall :
+> Sorry, I only added device-tree because some one asked me to do so.
 > 
-> - one skb with 1500 (mtu) bytes
-> - N fragments of 1480 (mtu-20) bytes (before adding IP header)
-> last fragment gets 17 bytes of trail data because of following bit:
+>     http://marc.info/?l=linux-netdev&m=127273157912358
 > 
-> 	if (datalen == length + fraggap)
-> 		alloclen += rt->dst.trailer_len;
-> 
-> Then esp4 adds 16 bytes of data (while trailer_len is 17... hmm...
-> another bug ?)
-> 
-> In ip_fragment(), we notice last fragment is too big (1496 + 20) > mtu,
-> so we take slow path, building another skb chain.
-> 
-> In order to avoid taking slow path, we should correct ip_append_data()
-> to make sure last fragment has real trail space, under mtu...
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> I'll leave it off next time.
 
-Applied, thanks Eric.
+That's allright. I'd rather you just post the bindings there than the
+whole patch least but no big deal.
+
+I was just fixing my email filters and notice a lot of seemingly
+unrelated stuff landing there :-)
+
+Cheers,
+Ben.
