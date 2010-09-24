@@ -1,48 +1,41 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH net-next-2.6 1/2] net: Allow changing number of RX queues
- after device allocation
-Date: Fri, 24 Sep 2010 08:34:30 -0700
-Message-ID: <AANLkTik=pmH7nZc9uKPuX3DXcZ4nTiU=5x1CGBxyNhq7@mail.gmail.com>
-References: <1285273118.7794.23.camel@achroite.uk.solarflarecom.com>
-	<1285273194.7794.24.camel@achroite.uk.solarflarecom.com>
-	<1285296505.2380.43.camel@edumazet-laptop>
-	<1285331081.2257.3.camel@achroite.uk.solarflarecom.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH] dont create cached routes from ARP requests
+Date: Fri, 24 Sep 2010 17:34:57 +0200
+Message-ID: <1285342497.2503.260.camel@edumazet-laptop>
+References: <20100922162209.GA10281@babylon>
+	 <20100922.203442.233700254.davem@davemloft.net>
+	 <20100923144708.GA8037@babylon> <1285254302.2509.47.camel@edumazet-laptop>
+	 <4C9CBCFC.6080300@gmail.com>  <1285342083.2503.252.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-net-drivers@solarflare.com
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ulrich Weber <uweber@astaro.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Ulrich Weber <ulrich.weber@googlemail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:63031 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751781Ab0IXPed (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Sep 2010 11:34:33 -0400
-Received: from wpaz13.hot.corp.google.com (wpaz13.hot.corp.google.com [172.24.198.77])
-	by smtp-out.google.com with ESMTP id o8OFYWOm021223
-	for <netdev@vger.kernel.org>; Fri, 24 Sep 2010 08:34:32 -0700
-Received: from pxi12 (pxi12.prod.google.com [10.243.27.12])
-	by wpaz13.hot.corp.google.com with ESMTP id o8OFYUAO001502
-	for <netdev@vger.kernel.org>; Fri, 24 Sep 2010 08:34:31 -0700
-Received: by pxi12 with SMTP id 12so1119159pxi.18
-        for <netdev@vger.kernel.org>; Fri, 24 Sep 2010 08:34:30 -0700 (PDT)
-In-Reply-To: <1285331081.2257.3.camel@achroite.uk.solarflarecom.com>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:52936 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753298Ab0IXPfC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Sep 2010 11:35:02 -0400
+Received: by fxm3 with SMTP id 3so785076fxm.19
+        for <netdev@vger.kernel.org>; Fri, 24 Sep 2010 08:35:01 -0700 (PDT)
+In-Reply-To: <1285342083.2503.252.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Looks good to me.
+Le vendredi 24 septembre 2010 =C3=A0 17:28 +0200, Eric Dumazet a =C3=A9=
+crit :
 
->> All functions in this file use a single line.
->>
->> > -static int rx_queue_register_kobjects(struct net_device *net)
->> > +int
->> > +net_rx_queue_update_kobjects(struct net_device *net, int old_num, int new_num)
->>
->> ->
->>
->> int net_rx_queue_update_kobjects(struct net_device *net, int old, int new)
->
-> Why should I rename variables to fit a function signature on one line?
->
-Maybe split the line within the parameter list, this would be more
-consistent with other function declarations.
+> What are the packets you receive ? A flood of ARP answers ?
+>=20
+> a "tcpdump -X" of a few packets would help to understand.
+>=20
+>=20
+
+
+Also please report=20
+
+grep . `find /proc/sys -name arp_accept`
+
+
+
