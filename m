@@ -1,81 +1,88 @@
-From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 6/8] ptp: Added a clock that uses the eTSEC found on
- the MPC85xx.
-Date: Fri, 24 Sep 2010 10:49:12 +0200
-Message-ID: <20100924084912.GA15286@riccoc20.at.omicron.at>
-References: <cover.1285261533.git.richard.cochran@omicron.at>
- <57b64051c816dc9cb856bbb9f38fc901c9d3d651.1285261535.git.richard.cochran@omicron.at>
- <alpine.DEB.2.00.1009231348150.2962@router.home>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6] rps: allocate rx queues in
+ register_netdevice only
+Date: Fri, 24 Sep 2010 11:21:50 +0200
+Message-ID: <1285320110.2503.42.camel@edumazet-laptop>
+References: <1285273118.7794.23.camel@achroite.uk.solarflarecom.com>
+	 <1285273194.7794.24.camel@achroite.uk.solarflarecom.com>
+	 <1285296505.2380.43.camel@edumazet-laptop>
+	 <1285298795.2380.54.camel@edumazet-laptop>  <4C9C5E0C.1000200@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	John Stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
-	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>,
-	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>,
-	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
-To: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.DEB.2.00.1009231348150.2962-sBS69tsa9Uj/9pzu0YdTqQ@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-net-drivers@solarflare.com" <linux-net-drivers@solarflare.com>,
+	Tom Herbert <therbert@google.com>
+To: John Fastabend <john.r.fastabend@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:60314 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755190Ab0IXJV4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Sep 2010 05:21:56 -0400
+Received: by fxm3 with SMTP id 3so595751fxm.19
+        for <netdev@vger.kernel.org>; Fri, 24 Sep 2010 02:21:54 -0700 (PDT)
+In-Reply-To: <4C9C5E0C.1000200@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 23, 2010 at 02:17:36PM -0500, Christoph Lameter wrote:
-> On Thu, 23 Sep 2010, Richard Cochran wrote:
-> > +  These properties set the operational parameters for the PTP
-> > +  clock. You must choose these carefully for the clock to work right.
-> > +  Here is how to figure good values:
-> > +
-> > +  TimerOsc     = system clock               MHz
-> > +  tclk_period  = desired clock period       nanoseconds
-> > +  NominalFreq  = 1000 / tclk_period         MHz
-> > +  FreqDivRatio = TimerOsc / NominalFreq     (must be greater that 1.0)
-> > +  tmr_add      = ceil(2^32 / FreqDivRatio)
-> > +  OutputClock  = NominalFreq / tmr_prsc     MHz
-> > +  PulseWidth   = 1 / OutputClock            microseconds
-> > +  FiperFreq1   = desired frequency in Hz
-> > +  FiperDiv1    = 1000000 * OutputClock / FiperFreq1
-> > +  tmr_fiper1   = tmr_prsc * tclk_period * FiperDiv1 - tclk_period
-> > +  max_adj      = 1000000000 * (FreqDivRatio - 1.0) - 1
-> 
-> Great stuff for clock synchronization...
-> 
-> > +  The calculation for tmr_fiper2 is the same as for tmr_fiper1. The
-> > +  driver expects that tmr_fiper1 will be correctly set to produce a 1
-> > +  Pulse Per Second (PPS) signal, since this will be offered to the PPS
-> > +  subsystem to synchronize the Linux clock.
-> 
-> Argh. And conceptually completely screwed up. Why go through the PPS
-> subsystem if you can directly tune the system clock based on a number of
-> the cool periodic clock features that you have above? See how the other
-> clocks do that easily? Look into drivers/clocksource. Add it there.
-> 
-> Please do not introduce useless additional layers for clock sync. Load
-> these ptp clocks like the other regular clock modules and make them sync
-> system time like any other clock.
-> 
-> Really guys: I want a PTP solution! Now! And not some idiotic additional
-> kernel layers that just pass bits around because its so much fun and
-> screws up clock accurary in due to the latency noise introduced while
-> having so much fun with the bits.
+Le vendredi 24 septembre 2010 =C3=A0 01:15 -0700, John Fastabend a =C3=A9=
+crit :
+> On 9/23/2010 8:26 PM, Eric Dumazet wrote:
+> >=20
+> >> Also, I dont understand why we need to restrict
+> >> netif_set_real_num_rx_queues() to lower the count.
+> >> This wastes memory.
+> >>
+> >> Why dont we allocate dev->_rx once we know the real count, not in
+> >> alloc_netdev_mq() but in register_netdevice() ?
+> >>
+>=20
+> Eric,
+>=20
+> At least in the TX case we may not "know" until later how many
+> tx_queues we want to use. For example it could change based on
+> enabling/disabling features or available interrupts. So we use
+> num_tx_queues as the max we ever expect to use and then
+> netif_set_real_num_tx_queues() sets the number we want to use.
+>=20
+> I presume for rx queues there are similar cases where features and
+> available interrupts may determine how many rx queues are needed.
+>=20
+> Moving the allocation later could help drivers make better max number
+> of queue decisions. But, I think we still need the
+> netif_set_num_rx_queues() and netif_set_num_tx_queues(). Although thi=
+s
+> does end up wasting memory as you pointed out.
+>=20
 
-(Sorry if this message comes twice. Mutt/Gmail flaked out again.)
+Note I am not against having netif_set_num_rx_queues() and
+netif_set_num_tx_queues(). My patch was a cleanup, not an alternative.
 
-I think you misunderstood this particular patch. The device tree
-parameters are really just internal driver stuff. When you use the
-eTSEC, you must make some design choices at the same time as you plan
-your board. The proper values for some of the eTSEC registers are
-based on these design choices. Since the Freescale documentation is a
-bit thin on this, I added a few notes to help my fellow board
-designers.
 
-Because these values are closely related to the board itself, I think
-that it is nicer to configure them via the device tree than using
-either CONFIG_ variables or platform data.
+If I take a look at sysfs stuff, on a machine with a bnx2 adapter,
+single queue, I get :
 
-Richard
+/sys/class/net/eth0/queues/rx-0/rps_cpus
+/sys/class/net/eth0/queues/rx-0/rps_flow_cnt
+/sys/class/net/eth0/queues/rx-1/rps_cpus
+/sys/class/net/eth0/queues/rx-1/rps_flow_cnt
+/sys/class/net/eth0/queues/rx-2/rps_cpus
+/sys/class/net/eth0/queues/rx-2/rps_flow_cnt
+/sys/class/net/eth0/queues/rx-3/rps_cpus
+/sys/class/net/eth0/queues/rx-3/rps_flow_cnt
+/sys/class/net/eth0/queues/rx-4/rps_cpus
+/sys/class/net/eth0/queues/rx-4/rps_flow_cnt
+/sys/class/net/eth0/queues/rx-5/rps_cpus
+/sys/class/net/eth0/queues/rx-5/rps_flow_cnt
+/sys/class/net/eth0/queues/rx-6/rps_cpus
+/sys/class/net/eth0/queues/rx-6/rps_flow_cnt
+/sys/class/net/eth0/queues/rx-7/rps_cpus
+/sys/class/net/eth0/queues/rx-7/rps_flow_cnt
+
+Thats a lot of extra memory and administrator confusion.
+
+We all agree :)
+
+
