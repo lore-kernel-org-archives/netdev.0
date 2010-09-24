@@ -1,64 +1,63 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCH v6 0/8] ptp: IEEE 1588 hardware clock support
-Date: Fri, 24 Sep 2010 15:07:38 +0100
-Message-ID: <20100924150738.744297d0@lxorguk.ukuu.org.uk>
-References: <cover.1285261533.git.richard.cochran@omicron.at>
-	<20100923213654.0c64b047@lxorguk.ukuu.org.uk>
-	<20100924131407.GA3113@riccoc20.at.omicron.at>
-	<20100924150246.0e6064b6@lxorguk.ukuu.org.uk>
+From: Daniel Lezcano <dlezcano-NmTC/0ZBporQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 7/8] net: Allow setting the network namespace by fd
+Date: Fri, 24 Sep 2010 15:46:28 +0200
+Message-ID: <4C9CABB4.3010002@fr.ibm.com>
+References: <m1ocborgq7.fsf@fess.ebiederm.org>
+	<m1hbhgq1v1.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: John Stultz <johnstul@us.ibm.com>, Rodolfo Giometti <giometti@linux.it>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Peter Zijlstra <peterz@infradead.org>, linux-api@vger.kernel.org,
-	devicetree-discuss@lists.ozlabs.org,
-	linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org,
-	Christoph Lameter <cl@linux.com>, linuxppc-dev@lists.ozlabs.org,
-	Richard Cochran <richardcochran@gmail.com>,
-	linux-arm-kernel@lists.infradead.org, Krzysztof Halasa <khc@pm.waw.pl>
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <20100924150246.0e6064b6@lxorguk.ukuu.org.uk>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Cc: Pavel Emelyanov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>, Ulrich Drepper <drepper-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Jonathan Corbet <corbet-T1hC0tSOHrs@public.gmane.org>,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Jan Engelhardt <jengelh-nopoi9nDyk+ELgA04lAiVw@public.gmane.org>,
+        Linux Containers <containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org>,
+        Al Viro <viro-3bDd1+5oDREiFSDQTTA3OLVCufUGDwFn@public.gmane.org>, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>,
+        Sukadev Bhattiprolu <sukadev-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+        Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Pavel Emelyanov <xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <m1hbhgq1v1.fsf-+imSwln9KH6u2/kzUuoCbdi2O/JbrIOy@public.gmane.org>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-> You can't do that avoiding as you might like because the behaviour of
-> file handle numbering is defined by the standards. Hence the "f*"
-> versions of the calls (and of lots of other stuff)
-> 
-> Whether you add new syscalls or do the fd passing using flags and hide
-> the ugly bits in glibc is another question.
+On 09/23/2010 10:51 AM, Eric W. Biederman wrote:
+>
+> Take advantage of the new abstraction and allow network devices
+> to be placed in any network namespace that we have a fd to talk
+> about.
+>
+> Signed-off-by: Eric W. Biederman<ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+> ---
 
-To add an example of what I mean you might end up defining "CLOCK_FD" to
-indicate to use the fd in the struct, but given syscalls are trivial
-codewise and would end up as
+[ ... ]
 
-	fclock_foo(int fd, blah)
-	{
-		clock = fd_to_clock(fd);
-		if (error)
-			return error
-		clock_do_foo(clock, blah);
-		clock_put(clock);
-	}
+> +struct net *get_net_ns_by_fd(int fd)
+> +{
+> +	struct proc_inode *ei;
+> +	struct file *file;
+> +	struct net *net;
+> +
+> +	file = NULL;
+> +	net = ERR_PTR(-EINVAL);
+> +	file = proc_ns_fget(fd);
+> +	if (!fd)
+> +		goto out;
+> +		return ERR_PTR(-EINVAL);
+> +
+> +	ei = PROC_I(file->f_dentry->d_inode);
+> +	if (ei->ns_ops !=&netns_operations)
+> +		goto out;
 
-and
-
-	clock_foo(int posixid, blah)
-	{
-		clock = posix_to_clock(posixid)
-		...
-		rest same
-	}
-
-as wrappers it seems hardly worth adding ugly hacks
+Is this check necessary here ? proc_ns_fget checks "file->f_op != 
+&ns_file_operations", no ?
