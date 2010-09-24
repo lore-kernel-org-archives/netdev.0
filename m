@@ -1,33 +1,32 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 2/5] AF_UNIX: enable/disable multicast with
- getsockopt/setsockopt
-Date: Fri, 24 Sep 2010 20:02:06 +0200
-Message-ID: <1285351326.2478.9.camel@edumazet-laptop>
-References: <20100924182257.11abd9a6@chocolatine.cbg.collabora.co.uk>
-	 <1285349116-17529-2-git-send-email-alban.crequy@collabora.co.uk>
-	 <1285350388.2478.0.camel@edumazet-laptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6 0/5] XFRM,IPv6: Removal of RH2/HAO from
+ IPsec-protected MIPv6 traffic
+Date: Fri, 24 Sep 2010 12:01:56 -0700 (PDT)
+Message-ID: <20100924.120156.115937401.davem@davemloft.net>
+References: <87ocbnxa0i.fsf@small.ssi.corp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Cyrill Gorcunov <gorcunov@openvz.org>,
-	Alexey Dobriyan <adobriyan@gmail.com>,
-	Lennart Poettering <lennart@poettering.net>,
-	Kay Sievers <kay.sievers@vrfy.org>,
-	Ian Molton <ian.molton@collabora.co.uk>,
-	netdev@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>
-To: Alban Crequy <alban.crequy@collabora.co.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1285350388.2478.0.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, herbert@gondor.apana.org.au,
+	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+To: arno@natisbad.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59790
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752861Ab0IXTBh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Sep 2010 15:01:37 -0400
+In-Reply-To: <87ocbnxa0i.fsf@small.ssi.corp>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 24 septembre 2010 =C3=A0 19:46 +0200, Eric Dumazet a =C3=A9=
-crit :
+From: arno@natisbad.org (Arnaud Ebalard)
+Date: Fri, 24 Sep 2010 20:38:05 +0200
 
-Hmm
+> Hi,
+> 
+> [This is a resend: after 6 hours, nothing appeared on the list. Sorry
+>  if you received it twice]
 
-dbus-owner@lists.freedesktop.org is a subscriber only list ....
-
-Please dont use it
+They didn't appear on the list because your email header fields
+are all screwed up, I forwarded the bounce messages to you twice
+under seperate cover.
