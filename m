@@ -1,7 +1,7 @@
 From: Alban Crequy <alban.crequy@collabora.co.uk>
-Subject: [PATCH 5/5] AF_UNIX: deliver the data to all the multicast peers
-Date: Fri, 24 Sep 2010 18:25:16 +0100
-Message-ID: <1285349116-17529-5-git-send-email-alban.crequy@collabora.co.uk>
+Subject: [PATCH 1/5] AF_UNIX: add getsockopt and setsockopt on stream sockets
+Date: Fri, 24 Sep 2010 18:25:12 +0100
+Message-ID: <1285349116-17529-1-git-send-email-alban.crequy@collabora.co.uk>
 References: <20100924182257.11abd9a6@chocolatine.cbg.collabora.co.uk>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Eric Dumazet <eric.dumazet@gmail.com>,
@@ -14,170 +14,66 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	dbus@freedesktop.org, Alban Crequy <alban.crequy@collabora.co.uk>
 To: Alban Crequy <alban.crequy@collabora.co.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bhuna.collabora.co.uk ([93.93.128.226]:39586 "EHLO
+	bhuna.collabora.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752613Ab0IXRfV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Sep 2010 13:35:21 -0400
 In-Reply-To: <20100924182257.11abd9a6@chocolatine.cbg.collabora.co.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-With multicast sockets, unix_stream_sendmsg() needs to deliver the data to
-zero, one or several recipients. skb_clone() is used to get as many sk_buff as
-recipients.
-
-If a multicast peer is too slow to receive the packets, it will block the
-sender at some point in sock_alloc_send_skb().
-
-A sender can receive SIGPIPE caused by an unique peer on the multicast group.
-This is probably not what we want.
-
-I tested this with a few peers and either sending data, receiving data or just
-sleeping.
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Alban Crequy <alban.crequy@collabora.co.uk>
 ---
- net/unix/af_unix.c |   77 +++++++++++++++++++++++++++++++++++----------------
- 1 files changed, 53 insertions(+), 24 deletions(-)
+ net/unix/af_unix.c |   21 +++++++++++++++++++--
+ 1 files changed, 19 insertions(+), 2 deletions(-)
 
 diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index f259849..01cb603 100644
+index fef2cc5..47d9f77 100644
 --- a/net/unix/af_unix.c
 +++ b/net/unix/af_unix.c
-@@ -1640,10 +1640,10 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
- 	struct sock *sk = sock->sk;
- 	struct sock *other = NULL;
- 	struct sock **others = NULL;
-+	struct sock **others_cur = NULL;
- 	int max_others;
- 	struct sockaddr_un *sunaddr = msg->msg_name;
- 	int err, size;
--	struct sk_buff *skb;
- 	int sent = 0;
- 	struct scm_cookie tmp_scm;
- 	bool fds_sent = false;
-@@ -1668,15 +1668,22 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
- 		other = unix_peer(sk);
- 		if (!other)
- 			goto out_err;
-+		err = -ENOMEM;
-+		others = kzalloc(2 * sizeof(void *), GFP_KERNEL);
-+		if (!others)
-+			goto out_err;
-+		others[0] = other;
- 	} else {
- 		sunaddr = NULL;
--		err = -ENOTCONN;
- 		max_others = atomic_read(&unix_nr_multicast_socks);
-+		err = -ENOMEM;
- 		others = kzalloc((max_others + 1) * sizeof(void *), GFP_KERNEL);
-+		if (!others)
-+			goto out_err;
- 		unix_find_other(sock_net(sk), u->addr->name,
- 		    u->addr->len, 0, u->addr->hash, 1, others, max_others, &err);
-+		err = -ENOTCONN;
- 		other = others[0];
--		kfree(others);
- 		if (!other)
- 			goto out_err;
- 	}
-@@ -1685,6 +1692,8 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
- 		goto pipe_err;
- 
- 	while (sent < len) {
-+		struct sk_buff *skb;
-+		struct sk_buff *skb_cloned;
- 		/*
- 		 *	Optimisation for the fact that under 0.01% of X
- 		 *	messages typically need breaking up.
-@@ -1718,43 +1727,61 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
- 		 */
- 		size = min_t(int, size, skb_tailroom(skb));
- 
--		memcpy(UNIXCREDS(skb), &siocb->scm->creds, sizeof(struct ucred));
--		/* Only send the fds in the first buffer */
--		if (siocb->scm->fp && !fds_sent) {
--			err = unix_attach_fds(siocb->scm, skb);
--			if (err) {
--				kfree_skb(skb);
--				goto out_err;
--			}
--			fds_sent = true;
--		}
--
- 		err = memcpy_fromiovec(skb_put(skb, size), msg->msg_iov, size);
- 		if (err) {
- 			kfree_skb(skb);
- 			goto out_err;
- 		}
- 
--		unix_state_lock(other);
-+		others_cur = others;
-+		while (*others_cur != NULL) {
-+			skb_cloned = skb_clone(skb, GFP_KERNEL);
-+			if (!skb_cloned) {
-+				kfree_skb(skb);
-+				goto out_err;
-+			}
-+			skb_set_owner_w(skb_cloned, sk);
-+
-+			memcpy(UNIXCREDS(skb_cloned), &siocb->scm->creds, sizeof(struct ucred));
-+			/* Only send the fds in the first buffer of each
-+ 			 * recipient */
-+			if (siocb->scm->fp && !fds_sent) {
-+				err = unix_attach_fds(siocb->scm, skb_cloned);
-+				if (err) {
-+					kfree_skb(skb);
-+					kfree_skb(skb_cloned);
-+					goto out_err;
-+				}
-+			}
-+
-+			unix_state_lock(*others_cur);
- 
--		if (sock_flag(other, SOCK_DEAD) ||
--		    (other->sk_shutdown & RCV_SHUTDOWN))
--			goto pipe_err_free;
-+			if (sock_flag(*others_cur, SOCK_DEAD) ||
-+			    ((*others_cur)->sk_shutdown & RCV_SHUTDOWN)) {
-+				unix_state_unlock(*others_cur);
-+				kfree_skb(skb);
-+				kfree_skb(skb_cloned);
-+				goto pipe_err;
-+			}
- 
--		skb_queue_tail(&other->sk_receive_queue, skb);
--		unix_state_unlock(other);
--		other->sk_data_ready(other, size);
-+			skb_queue_tail(&(*others_cur)->sk_receive_queue,
-+			    skb_cloned);
-+			unix_state_unlock(*others_cur);
-+			(*others_cur)->sk_data_ready(*others_cur, size);
-+			others_cur++;
-+		}
-+		kfree_skb(skb);
-+		fds_sent = true;
- 		sent += size;
- 	}
- 
- 	scm_destroy(siocb->scm);
- 	siocb->scm = NULL;
-+	if (others)
-+		kfree(others);
- 
- 	return sent;
- 
--pipe_err_free:
--	unix_state_unlock(other);
--	kfree_skb(skb);
- pipe_err:
- 	if (sent == 0 && !(msg->msg_flags&MSG_NOSIGNAL))
- 		send_sig(SIGPIPE, current, 0);
-@@ -1762,6 +1789,8 @@ pipe_err:
- out_err:
- 	scm_destroy(siocb->scm);
- 	siocb->scm = NULL;
-+	if (others)
-+		kfree(others);
- 	return sent ? : err;
+@@ -492,6 +492,10 @@ static unsigned int unix_dgram_poll(struct file *, struct socket *,
+ 				    poll_table *);
+ static int unix_ioctl(struct socket *, unsigned int, unsigned long);
+ static int unix_shutdown(struct socket *, int);
++static int unix_stream_setsockopt(struct socket *, int, int,
++				  char __user *, unsigned int);
++static int unix_stream_getsockopt(struct socket *, int, int,
++				  char __user *, int __user *);
+ static int unix_stream_sendmsg(struct kiocb *, struct socket *,
+ 			       struct msghdr *, size_t);
+ static int unix_stream_recvmsg(struct kiocb *, struct socket *,
+@@ -518,8 +522,8 @@ static const struct proto_ops unix_stream_ops = {
+ 	.ioctl =	unix_ioctl,
+ 	.listen =	unix_listen,
+ 	.shutdown =	unix_shutdown,
+-	.setsockopt =	sock_no_setsockopt,
+-	.getsockopt =	sock_no_getsockopt,
++	.setsockopt =	unix_stream_setsockopt,
++	.getsockopt =	unix_stream_getsockopt,
+ 	.sendmsg =	unix_stream_sendmsg,
+ 	.recvmsg =	unix_stream_recvmsg,
+ 	.mmap =		sock_no_mmap,
+@@ -1494,6 +1498,19 @@ out:
  }
  
+ 
++static int unix_stream_setsockopt(struct socket *sock, int level, int optname,
++				  char __user *optval, unsigned int optlen)
++{
++	return -EOPNOTSUPP;
++}
++
++int unix_stream_getsockopt(struct socket *sock, int level, int optname,
++			   char __user *optval, int __user *optlen)
++{
++	return -EOPNOTSUPP;
++}
++
++
+ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 			       struct msghdr *msg, size_t len)
+ {
 -- 
 1.7.1
+
