@@ -1,22 +1,22 @@
 From: chavey@google.com
 Subject: [PATCH 1/1] net-gre: clear skb->queue_mapping in GRE recv path
-Date: Fri, 24 Sep 2010 16:15:48 -0700
-Message-ID: <pvm4oderavv.fsf@chavey.mtv.corp.google.com>
-Cc: netdev@vger.kernel.org, therbert@google.com
-To: chavey@google.com
+Date: Fri, 24 Sep 2010 16:18:52 -0700
+Message-ID: <pvm39syraqr.fsf@chavey.mtv.corp.google.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:50774 "EHLO
+Received: from smtp-out.google.com ([74.125.121.35]:44154 "EHLO
 	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755424Ab0IXXPw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Sep 2010 19:15:52 -0400
-Received: from kpbe17.cbf.corp.google.com (kpbe17.cbf.corp.google.com [172.25.105.81])
-	by smtp-out.google.com with ESMTP id o8ONFp0V025645
-	for <netdev@vger.kernel.org>; Fri, 24 Sep 2010 16:15:51 -0700
-Received: from pwi9 (pwi9.prod.google.com [10.241.219.9])
-	by kpbe17.cbf.corp.google.com with ESMTP id o8ONFoVA022493
-	for <netdev@vger.kernel.org>; Fri, 24 Sep 2010 16:15:50 -0700
-Received: by pwi9 with SMTP id 9so2877495pwi.2
-        for <netdev@vger.kernel.org>; Fri, 24 Sep 2010 16:15:49 -0700 (PDT)
+	with ESMTP id S1758443Ab0IXXTB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Sep 2010 19:19:01 -0400
+Received: from wpaz37.hot.corp.google.com (wpaz37.hot.corp.google.com [172.24.198.101])
+	by smtp-out.google.com with ESMTP id o8ONIxcO032092
+	for <netdev@vger.kernel.org>; Fri, 24 Sep 2010 16:19:00 -0700
+Received: from pvg12 (pvg12.prod.google.com [10.241.210.140])
+	by wpaz37.hot.corp.google.com with ESMTP id o8ONIwVS019891
+	for <netdev@vger.kernel.org>; Fri, 24 Sep 2010 16:18:58 -0700
+Received: by pvg12 with SMTP id 12so1063213pvg.36
+        for <netdev@vger.kernel.org>; Fri, 24 Sep 2010 16:18:58 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
