@@ -1,88 +1,120 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next-2.6] rps: allocate rx queues in
- register_netdevice only
-Date: Fri, 24 Sep 2010 11:21:50 +0200
-Message-ID: <1285320110.2503.42.camel@edumazet-laptop>
-References: <1285273118.7794.23.camel@achroite.uk.solarflarecom.com>
-	 <1285273194.7794.24.camel@achroite.uk.solarflarecom.com>
-	 <1285296505.2380.43.camel@edumazet-laptop>
-	 <1285298795.2380.54.camel@edumazet-laptop>  <4C9C5E0C.1000200@intel.com>
+Subject: [PATCH net-next-2.6] net: loopback driver cleanup
+Date: Fri, 24 Sep 2010 11:51:51 +0200
+Message-ID: <1285321911.2503.48.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-net-drivers@solarflare.com" <linux-net-drivers@solarflare.com>,
-	Tom Herbert <therbert@google.com>
-To: John Fastabend <john.r.fastabend@intel.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:60314 "EHLO
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:39225 "EHLO
 	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755190Ab0IXJV4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Sep 2010 05:21:56 -0400
-Received: by fxm3 with SMTP id 3so595751fxm.19
-        for <netdev@vger.kernel.org>; Fri, 24 Sep 2010 02:21:54 -0700 (PDT)
-In-Reply-To: <4C9C5E0C.1000200@intel.com>
+	with ESMTP id S1752230Ab0IXJv4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Sep 2010 05:51:56 -0400
+Received: by fxm3 with SMTP id 3so602269fxm.19
+        for <netdev@vger.kernel.org>; Fri, 24 Sep 2010 02:51:54 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 24 septembre 2010 =C3=A0 01:15 -0700, John Fastabend a =C3=A9=
-crit :
-> On 9/23/2010 8:26 PM, Eric Dumazet wrote:
-> >=20
-> >> Also, I dont understand why we need to restrict
-> >> netif_set_real_num_rx_queues() to lower the count.
-> >> This wastes memory.
-> >>
-> >> Why dont we allocate dev->_rx once we know the real count, not in
-> >> alloc_netdev_mq() but in register_netdevice() ?
-> >>
->=20
-> Eric,
->=20
-> At least in the TX case we may not "know" until later how many
-> tx_queues we want to use. For example it could change based on
-> enabling/disabling features or available interrupts. So we use
-> num_tx_queues as the max we ever expect to use and then
-> netif_set_real_num_tx_queues() sets the number we want to use.
->=20
-> I presume for rx queues there are similar cases where features and
-> available interrupts may determine how many rx queues are needed.
->=20
-> Moving the allocation later could help drivers make better max number
-> of queue decisions. But, I think we still need the
-> netif_set_num_rx_queues() and netif_set_num_tx_queues(). Although thi=
-s
-> does end up wasting memory as you pointed out.
->=20
+loopback driver uses dev->ml_priv to store its percpu stats pointer.
+It uses ugly casts "(void __percpu __force *)" to shut up sparse
+complains.
 
-Note I am not against having netif_set_num_rx_queues() and
-netif_set_num_tx_queues(). My patch was a cleanup, not an alternative.
+Define an union to better document we use ml_priv in loopback driver and
+define a lstats field with appropriate types.
 
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ drivers/net/loopback.c    |   20 +++++---------------
+ include/linux/netdevice.h |    6 ++++--
+ 2 files changed, 9 insertions(+), 17 deletions(-)
 
-If I take a look at sysfs stuff, on a machine with a bnx2 adapter,
-single queue, I get :
-
-/sys/class/net/eth0/queues/rx-0/rps_cpus
-/sys/class/net/eth0/queues/rx-0/rps_flow_cnt
-/sys/class/net/eth0/queues/rx-1/rps_cpus
-/sys/class/net/eth0/queues/rx-1/rps_flow_cnt
-/sys/class/net/eth0/queues/rx-2/rps_cpus
-/sys/class/net/eth0/queues/rx-2/rps_flow_cnt
-/sys/class/net/eth0/queues/rx-3/rps_cpus
-/sys/class/net/eth0/queues/rx-3/rps_flow_cnt
-/sys/class/net/eth0/queues/rx-4/rps_cpus
-/sys/class/net/eth0/queues/rx-4/rps_flow_cnt
-/sys/class/net/eth0/queues/rx-5/rps_cpus
-/sys/class/net/eth0/queues/rx-5/rps_flow_cnt
-/sys/class/net/eth0/queues/rx-6/rps_cpus
-/sys/class/net/eth0/queues/rx-6/rps_flow_cnt
-/sys/class/net/eth0/queues/rx-7/rps_cpus
-/sys/class/net/eth0/queues/rx-7/rps_flow_cnt
-
-Thats a lot of extra memory and administrator confusion.
-
-We all agree :)
+diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
+index 9a09967..4b0e30b 100644
+--- a/drivers/net/loopback.c
++++ b/drivers/net/loopback.c
+@@ -74,7 +74,6 @@ struct pcpu_lstats {
+ static netdev_tx_t loopback_xmit(struct sk_buff *skb,
+ 				 struct net_device *dev)
+ {
+-	struct pcpu_lstats __percpu *pcpu_lstats;
+ 	struct pcpu_lstats *lb_stats;
+ 	int len;
+ 
+@@ -83,8 +82,7 @@ static netdev_tx_t loopback_xmit(struct sk_buff *skb,
+ 	skb->protocol = eth_type_trans(skb, dev);
+ 
+ 	/* it's OK to use per_cpu_ptr() because BHs are off */
+-	pcpu_lstats = (void __percpu __force *)dev->ml_priv;
+-	lb_stats = this_cpu_ptr(pcpu_lstats);
++	lb_stats = this_cpu_ptr(dev->lstats);
+ 
+ 	len = skb->len;
+ 	if (likely(netif_rx(skb) == NET_RX_SUCCESS)) {
+@@ -101,19 +99,17 @@ static netdev_tx_t loopback_xmit(struct sk_buff *skb,
+ static struct rtnl_link_stats64 *loopback_get_stats64(struct net_device *dev,
+ 						      struct rtnl_link_stats64 *stats)
+ {
+-	const struct pcpu_lstats __percpu *pcpu_lstats;
+ 	u64 bytes = 0;
+ 	u64 packets = 0;
+ 	u64 drops = 0;
+ 	int i;
+ 
+-	pcpu_lstats = (void __percpu __force *)dev->ml_priv;
+ 	for_each_possible_cpu(i) {
+ 		const struct pcpu_lstats *lb_stats;
+ 		u64 tbytes, tpackets;
+ 		unsigned int start;
+ 
+-		lb_stats = per_cpu_ptr(pcpu_lstats, i);
++		lb_stats = per_cpu_ptr(dev->lstats, i);
+ 		do {
+ 			start = u64_stats_fetch_begin(&lb_stats->syncp);
+ 			tbytes = lb_stats->bytes;
+@@ -147,22 +143,16 @@ static const struct ethtool_ops loopback_ethtool_ops = {
+ 
+ static int loopback_dev_init(struct net_device *dev)
+ {
+-	struct pcpu_lstats __percpu *lstats;
+-
+-	lstats = alloc_percpu(struct pcpu_lstats);
+-	if (!lstats)
++	dev->lstats = alloc_percpu(struct pcpu_lstats);
++	if (!dev->lstats)
+ 		return -ENOMEM;
+ 
+-	dev->ml_priv = (void __force *)lstats;
+ 	return 0;
+ }
+ 
+ static void loopback_dev_free(struct net_device *dev)
+ {
+-	struct pcpu_lstats __percpu *lstats =
+-		(void __percpu __force *)dev->ml_priv;
+-
+-	free_percpu(lstats);
++	free_percpu(dev->lstats);
+ 	free_netdev(dev);
+ }
+ 
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index f7f1302..65ae79c 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1050,8 +1050,10 @@ struct net_device {
+ #endif
+ 
+ 	/* mid-layer private */
+-	void			*ml_priv;
+-
++	union {
++		void				*ml_priv;
++		struct pcpu_lstats __percpu	*lstats; /* loopback stats */
++	};
+ 	/* GARP */
+ 	struct garp_port	*garp_port;
+ 
 
 
