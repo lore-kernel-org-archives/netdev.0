@@ -1,55 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: ESP trailer_len calculation
-Date: Fri, 24 Sep 2010 14:40:44 -0700 (PDT)
-Message-ID: <20100924.144044.179940003.davem@davemloft.net>
+Subject: Re: [PATCH] ip : take care of last fragment in ip_append_data
+Date: Fri, 24 Sep 2010 14:42:07 -0700 (PDT)
+Message-ID: <20100924.144207.245411336.davem@davemloft.net>
+References: <1285013853.2323.148.camel@edumazet-laptop>
+	<1285018272.2323.243.camel@edumazet-laptop>
+	<1285049787.2323.797.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, eric.dumazet@gmail.com,
+Cc: nbowler@elliptictech.com, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-To: kaber@trash.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45055
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758154Ab0IXVkY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Sep 2010 17:40:24 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: eric.dumazet@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1285049787.2323.797.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 21 Sep 2010 08:16:27 +0200
 
-Eric Dumazet and I recently were looking into a strange artifact in
-ESP ->trailer_len calculations.
+> [PATCH] ip : take care of last fragment in ip_append_data
+> 
+> While investigating a bit, I found ip_fragment() slow path was taken
+> because ip_append_data() provides following layout for a send(MTU +
+> N*(MTU - 20)) syscall :
+> 
+> - one skb with 1500 (mtu) bytes
+> - N fragments of 1480 (mtu-20) bytes (before adding IP header)
+> last fragment gets 17 bytes of trail data because of following bit:
+> 
+> 	if (datalen == length + fraggap)
+> 		alloclen += rt->dst.trailer_len;
+> 
+> Then esp4 adds 16 bytes of data (while trailer_len is 17... hmm...
+> another bug ?)
+> 
+> In ip_fragment(), we notice last fragment is too big (1496 + 20) > mtu,
+> so we take slow path, building another skb chain.
+> 
+> In order to avoid taking slow path, we should correct ip_append_data()
+> to make sure last fragment has real trail space, under mtu...
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Eric was seeing values like "17" which looked strange.
-
-He foudn that it's because of this line in esp4.c:esp_init_state()
-
-	x->props.trailer_len = align + 1 + crypto_aead_authsize(esp->aead);
-
-which comes from commit:
-
-commit c5c2523893747f88a83376abad310c8ad13f7197
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Mon Apr 9 11:47:18 2007 -0700
-
-    [XFRM]: Optimize MTU calculation
-
-which is based upon discussion threads:
-
-http://marc.info/?l=linux-netdev&m=115468159401118&w=2
-
-and
-
-http://marc.info/?l=linux-netdev&m=117561805827241&w=2
-
-Even more strange, in the orignal version of this patch the
-calcaluation is actually:
-
-	x->props.trailer_len = align - 1 + esp->auth.icv_trunc_len;
-
-(ie. 'align - 1' instead of 'align + 1')
-
-It seems that this "- 1 " or "+ 1" term can be completely eliminated,
-unless there are some funny semantics wrt. the padding area of ESP.
-
-Patrick and Herbert, what do you guys think?
+Applied, thanks Eric.
