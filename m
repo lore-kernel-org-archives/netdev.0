@@ -1,71 +1,51 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/1] net-gre: clear skb->queue_mapping in GRE recv path
-Date: Sat, 25 Sep 2010 08:46:46 +0200
-Message-ID: <1285397206.2478.97.camel@edumazet-laptop>
-References: <pvm39syraqr.fsf@chavey.mtv.corp.google.com>
+Subject: Re: [PATCH] net: reset skb queue mapping when rx'ing over tunnel
+Date: Sat, 25 Sep 2010 08:49:10 +0200
+Message-ID: <1285397350.2478.102.camel@edumazet-laptop>
+References: <alpine.DEB.1.00.1009231415290.25121@pokey.mtv.corp.google.com>
+	 <1285293960.2380.23.camel@edumazet-laptop>
+	 <AANLkTimG9ZCZwDyo_9bYURShn7hk6ROzX4-qypo7nG5i@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Tom Herbert <therbert@google.com>
-To: chavey@google.com
+Cc: netdev@vger.kernel.org, davem@davemloft.net, chavey@google.com
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:60475 "EHLO
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:56031 "EHLO
 	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750746Ab0IYGrG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Sep 2010 02:47:06 -0400
-Received: by fxm3 with SMTP id 3so1105581fxm.19
-        for <netdev@vger.kernel.org>; Fri, 24 Sep 2010 23:47:05 -0700 (PDT)
-In-Reply-To: <pvm39syraqr.fsf@chavey.mtv.corp.google.com>
+	with ESMTP id S1752802Ab0IYGtQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Sep 2010 02:49:16 -0400
+Received: by fxm3 with SMTP id 3so1105834fxm.19
+        for <netdev@vger.kernel.org>; Fri, 24 Sep 2010 23:49:15 -0700 (PDT)
+In-Reply-To: <AANLkTimG9ZCZwDyo_9bYURShn7hk6ROzX4-qypo7nG5i@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 24 septembre 2010 =C3=A0 16:18 -0700, chavey@google.com a =C3=
-=A9crit :
-> From: chavey <chavey@google.com>
-> Date: Fri, 24 Sep 2010 15:05:02 -0700
->=20
-> A continuous stream of errors:
->=20
->   slbgre0 received packet on queue [123], but number of RX queues is =
-1
->   net_ratelimit: 155786 callbacks suppressed
->=20
-> is filling up /var/log/messages.
->=20
-> This is due to not unsetting skb->queue_mapping in the GRE receive pa=
-th.
->=20
-> Signed-off-by: chavey <chavey@google.com>
-> ---
->  net/ipv4/ip_gre.c |    1 +
->  1 files changed, 1 insertions(+), 0 deletions(-)
->=20
-> diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-> index 945b20a..53bdb97 100644
-> --- a/net/ipv4/ip_gre.c
-> +++ b/net/ipv4/ip_gre.c
-> @@ -641,6 +641,7 @@ static int ipgre_rcv(struct sk_buff *skb)
->  		}
-> =20
->  		skb_tunnel_rx(skb, tunnel->dev);
-> +		skb_set_queue_mapping(skb, 0);
-> =20
->  		skb_reset_network_header(skb);
->  		ipgre_ecn_decapsulate(iph, skb);
+Le vendredi 24 septembre 2010 =C3=A0 09:18 -0700, Tom Herbert a =C3=A9c=
+rit :
+> > Hmm...
+> >
+> > This would need to be reverted later when tunnels are updated to be
+> > multiqueue aware ? I made an attempt with GRE some days ago.
+> >
+> > I dont understand why this patch is needed, since get_rps_cpu() has=
+ a
+> > check anyway
+> >
+> I think the skb queue_mapping should correspond to a queue in the
+> skb's device as an invariant.  In the case that an skb's device is
+> change from a multiqueue device to single queue device (like GRE), th=
+e
+> inconsistency in the queue_mapping is fairly innocuous, we get one
+> warning but will pretty much take the unlikely branch for GRE packets
+> then on.  But imagine a case where skb's device was change from one
+> multiqueue device to another, but the queue mapping was not also
+> updated.  This  would cause poor weighting in get_rps_cpus.  For
+> example, if the new device had fewer queues than the old one,
+> get_rps_cpu will bias toward using queue 0's rps mask.
 
+I believe your patch is fine. Thanks
 
-Laurent
-
-Please use you full name in your signature,=20
-
-Then, have you seen Tom Herbert patch yesterday ?
-
-http://patchwork.ozlabs.org/patch/65583/
-
-He suggested to place this skb_set_queue_mapping(skb, 0) inside
-skb_tunnel_rx(), so that we dont patch every tunnel driver ...
-
-Thanks
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
 
 
