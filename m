@@ -1,60 +1,53 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/2 -next] r8169: allocate with GFP_KERNEL flag when
- able to sleep
-Date: Sat, 25 Sep 2010 11:12:25 +0200
-Message-ID: <1285405945.2478.255.camel@edumazet-laptop>
-References: <20100924222434.GA7743@electric-eye.fr.zoreil.com>
-	 <20100924.223709.233700415.davem@davemloft.net>
-	 <1285394797.2478.54.camel@edumazet-laptop>
-	 <20100925.001300.193725148.davem@davemloft.net>
+From: Ondrej Zary <linux@rainbow-software.org>
+Subject: de2104x: fix power management
+Date: Sat, 25 Sep 2010 11:57:02 +0200
+Message-ID: <201009251157.07197.linux@rainbow-software.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: romieu@fr.zoreil.com, sgruszka@redhat.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	Kernel development list <linux-kernel@vger.kernel.org>
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:34972 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754448Ab0IYJMu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Sep 2010 05:12:50 -0400
-Received: by fxm3 with SMTP id 3so1123722fxm.19
-        for <netdev@vger.kernel.org>; Sat, 25 Sep 2010 02:12:49 -0700 (PDT)
-In-Reply-To: <20100925.001300.193725148.davem@davemloft.net>
+Received: from mail1-out1.atlantis.sk ([80.94.52.55]:36664 "EHLO
+	mail.atlantis.sk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754768Ab0IYJ52 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Sep 2010 05:57:28 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le samedi 25 septembre 2010 =C3=A0 00:13 -0700, David Miller a =C3=A9cr=
-it :
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Sat, 25 Sep 2010 08:06:37 +0200
->=20
-> > Patch solves the suspend/resume, probably, but as soon as we receiv=
-e
-> > trafic, we can hit the allocation error anyway...
->=20
-> It allocates 1536 + N, where N can be NET_IP_ALIGN, or some small
-> value like 8.
->=20
-> This is in the same ballpark as what tg3 allocates for RX buffers.
->=20
-> SLAB/SLUB/whatever just wants multi-order page allocations even
-> for SKBs which are about this size.
->=20
-> Furthermore, the sleeping allocations we do at ->open() time to
-> allocate the entire RX ring all at once will buddy up a lot of
-> pages and make 1-order allocs more likely.
+At least my 21041 cards come out of suspend with bus mastering disabled so
+they did not work after resume(no data transferred).
+After adding pci_set_master(), the driver oopsed immediately on resume -
+because de_clean_rings() is called on suspend but de_init_rings() call
+was missing in resume.
 
-Yes, I forgot this problem about SLUB (I ended using SLAB on servers
-because of this order-3 problem on kmalloc(2048))
+Also disable link (reset SIA) before sleep (de4x5 does this too).
 
-bnx2 uses GFP_KERNEL allocations at init time, but tg3 uses GFP_ATOMIC
-(because tp->lock is held).
+Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
 
-The r8169 current problem is its currently copying all incoming frames.
-I guess nobody cares or noticed the performance drop.
-(But commit c0cd884a is recent (2.6.34), this is not yet in
-production...)
+--- linux-2.6.36-rc3-/drivers/net/tulip/de2104x.c	2010-09-25 11:27:26.000000000 +0200
++++ linux-2.6.36-rc3/drivers/net/tulip/de2104x.c	2010-09-25 11:29:22.000000000 +0200
+@@ -1231,6 +1231,7 @@ static void de_adapter_sleep (struct de_
+ 	if (de->de21040)
+ 		return;
+ 
++	dw32(CSR13, 0); /* Reset phy */
+ 	pci_read_config_dword(de->pdev, PCIPM, &pmctl);
+ 	pmctl |= PM_Sleep;
+ 	pci_write_config_dword(de->pdev, PCIPM, pmctl);
+@@ -2166,6 +2167,8 @@ static int de_resume (struct pci_dev *pd
+ 		dev_err(&dev->dev, "pci_enable_device failed in resume\n");
+ 		goto out;
+ 	}
++	pci_set_master(pdev);
++	de_init_rings(de);
+ 	de_init_hw(de);
+ out_attach:
+ 	netif_device_attach(dev);
 
 
-
-
+-- 
+Ondrej Zary
