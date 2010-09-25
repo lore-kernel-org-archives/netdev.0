@@ -1,90 +1,47 @@
-From: Ondrej Zary <linux@rainbow-software.org>
-Subject: [PATCH] de2104x: fix TP link detection
-Date: Sat, 25 Sep 2010 22:39:17 +0200
-Message-ID: <201009252239.21376.linux@rainbow-software.org>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] de2104x: fix TP link detection
+Date: Sat, 25 Sep 2010 16:58:10 -0400
+Message-ID: <AANLkTikasuZbf6ymCWBjAW3oq7+BBox1N06jPZqTBQr4@mail.gmail.com>
+References: <201009252239.21376.linux@rainbow-software.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: base64
 Cc: netdev@vger.kernel.org,
 	Kernel development list <linux-kernel@vger.kernel.org>
-To: jgarzik@pobox.com
+To: Ondrej Zary <linux@rainbow-software.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
+In-Reply-To: <201009252239.21376.linux@rainbow-software.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Compex FreedomLine 32 PnP-PCI2 cards have only TP and BNC connectors but the
-SROM contains AUI port too. When TP loses link, the driver switches to
-non-existing AUI port (which reports that carrier is always present).
-
-Connecting TP back generates LinkPass interrupt but de_media_interrupt() is
-broken - it only updates the link state of currently connected media, ignoring
-the fact that LinkPass and LinkFail bits of MacStatus register belong to the
-TP port only (the chip documentation says that).
-
-This patch changes de_media_interrupt() to switch media to TP when link goes
-up (and media type is not locked) and also to update the link state only when
-the TP port is used.
-
-Also the NonselPortActive (and also SelPortActive) bits of SIAStatus register
-need to be cleared (by writing 1) after reading or they're useless.
-
-Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
-
---- linux-2.6.36-rc3-/drivers/net/tulip/de2104x.c	2010-09-25 21:19:53.000000000 +0200
-+++ linux-2.6.36-rc3/drivers/net/tulip/de2104x.c	2010-09-25 21:22:11.000000000 +0200
-@@ -243,6 +243,7 @@ enum {
- 	NWayState		= (1 << 14) | (1 << 13) | (1 << 12),
- 	NWayRestart		= (1 << 12),
- 	NonselPortActive	= (1 << 9),
-+	SelPortActive		= (1 << 8),
- 	LinkFailStatus		= (1 << 2),
- 	NetCxnErr		= (1 << 1),
- };
-@@ -1066,6 +1067,9 @@ static void de21041_media_timer (unsigne
- 	unsigned int carrier;
- 	unsigned long flags;
- 
-+	/* clear port active bits */
-+	dw32(SIAStatus, NonselPortActive | SelPortActive);
-+
- 	carrier = (status & NetCxnErr) ? 0 : 1;
- 
- 	if (carrier) {
-@@ -1160,14 +1164,29 @@ no_link_yet:
- static void de_media_interrupt (struct de_private *de, u32 status)
- {
- 	if (status & LinkPass) {
-+		/* Ignore if current media is AUI or BNC and we can't use TP */
-+		if ((de->media_type == DE_MEDIA_AUI ||
-+		     de->media_type == DE_MEDIA_BNC) &&
-+		    (de->media_lock ||
-+		     !de_ok_to_advertise(de, DE_MEDIA_TP_AUTO)))
-+			return;
-+		/* If current media is not TP, change it to TP */
-+		if ((de->media_type == DE_MEDIA_AUI ||
-+		     de->media_type == DE_MEDIA_BNC)) {
-+			de->media_type = DE_MEDIA_TP_AUTO;
-+			de_stop_rxtx(de);
-+			de_set_media(de);
-+			de_start_rxtx(de);
-+		}
- 		de_link_up(de);
- 		mod_timer(&de->media_timer, jiffies + DE_TIMER_LINK);
- 		return;
- 	}
- 
- 	BUG_ON(!(status & LinkFail));
--
--	if (netif_carrier_ok(de->dev)) {
-+	/* Mark the link as down only if current media is TP */
-+	if (netif_carrier_ok(de->dev) && de->media_type != DE_MEDIA_AUI &&
-+	    de->media_type != DE_MEDIA_BNC) {
- 		de_link_down(de);
- 		mod_timer(&de->media_timer, jiffies + DE_TIMER_NO_LINK);
- 	}
-
-
--- 
-Ondrej Zary
+T24gU2F0LCBTZXAgMjUsIDIwMTAgYXQgNDozOSBQTSwgT25kcmVqIFphcnkgPGxpbnV4QHJhaW5i
+b3ctc29mdHdhcmUub3JnPiB3cm90ZToKPiBAQCAtMTE2MCwxNCArMTE2NCwyOSBAQCBub19saW5r
+X3lldDoKPiDCoHN0YXRpYyB2b2lkIGRlX21lZGlhX2ludGVycnVwdCAoc3RydWN0IGRlX3ByaXZh
+dGUgKmRlLCB1MzIgc3RhdHVzKQo+IMKgewo+IMKgIMKgIMKgIMKgaWYgKHN0YXR1cyAmIExpbmtQ
+YXNzKSB7Cj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCAvKiBJZ25vcmUgaWYgY3VycmVudCBtZWRp
+YSBpcyBBVUkgb3IgQk5DIGFuZCB3ZSBjYW4ndCB1c2UgVFAgKi8KPiArIMKgIMKgIMKgIMKgIMKg
+IMKgIMKgIGlmICgoZGUtPm1lZGlhX3R5cGUgPT0gREVfTUVESUFfQVVJIHx8Cj4gKyDCoCDCoCDC
+oCDCoCDCoCDCoCDCoCDCoCDCoCDCoGRlLT5tZWRpYV90eXBlID09IERFX01FRElBX0JOQykgJiYK
+PiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIChkZS0+bWVkaWFfbG9jayB8fAo+ICsgwqAg
+wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAhZGVfb2tfdG9fYWR2ZXJ0aXNlKGRlLCBERV9NRURJ
+QV9UUF9BVVRPKSkpCj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCByZXR1cm47
+Cj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCAvKiBJZiBjdXJyZW50IG1lZGlhIGlzIG5vdCBUUCwg
+Y2hhbmdlIGl0IHRvIFRQICovCj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCBpZiAoKGRlLT5tZWRp
+YV90eXBlID09IERFX01FRElBX0FVSSB8fAo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
+wqBkZS0+bWVkaWFfdHlwZSA9PSBERV9NRURJQV9CTkMpKSB7Cj4gKyDCoCDCoCDCoCDCoCDCoCDC
+oCDCoCDCoCDCoCDCoCDCoCBkZS0+bWVkaWFfdHlwZSA9IERFX01FRElBX1RQX0FVVE87Cj4gKyDC
+oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCBkZV9zdG9wX3J4dHgoZGUpOwo+ICsgwqAg
+wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgZGVfc2V0X21lZGlhKGRlKTsKPiArIMKgIMKg
+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIGRlX3N0YXJ0X3J4dHgoZGUpOwo+ICsgwqAgwqAg
+wqAgwqAgwqAgwqAgwqAgfQo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgZGVfbGlua191cChkZSk7
+Cj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqBtb2RfdGltZXIoJmRlLT5tZWRpYV90aW1lciwgamlm
+ZmllcyArIERFX1RJTUVSX0xJTkspOwo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgcmV0dXJuOwo+
+IMKgIMKgIMKgIMKgfQo+Cj4gwqAgwqAgwqAgwqBCVUdfT04oIShzdGF0dXMgJiBMaW5rRmFpbCkp
+Owo+IC0KPiAtIMKgIMKgIMKgIGlmIChuZXRpZl9jYXJyaWVyX29rKGRlLT5kZXYpKSB7Cj4gKyDC
+oCDCoCDCoCAvKiBNYXJrIHRoZSBsaW5rIGFzIGRvd24gb25seSBpZiBjdXJyZW50IG1lZGlhIGlz
+IFRQICovCj4gKyDCoCDCoCDCoCBpZiAobmV0aWZfY2Fycmllcl9vayhkZS0+ZGV2KSAmJiBkZS0+
+bWVkaWFfdHlwZSAhPSBERV9NRURJQV9BVUkgJiYKPiArIMKgIMKgIMKgIMKgIMKgIGRlLT5tZWRp
+YV90eXBlICE9IERFX01FRElBX0JOQykgewo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgZGVfbGlu
+a19kb3duKGRlKTsKPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoG1vZF90aW1lcigmZGUtPm1lZGlh
+X3RpbWVyLCBqaWZmaWVzICsgREVfVElNRVJfTk9fTElOSyk7Cj4gwqAgwqAgwqAgwqB9CgpBY2tl
+ZC1ieTogSmVmZiBHYXJ6aWsgPGpnYXJ6aWtAcmVkaGF0LmNvbT4K
