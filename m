@@ -1,47 +1,68 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] de2104x: fix TP link detection
-Date: Sat, 25 Sep 2010 16:58:10 -0400
-Message-ID: <AANLkTikasuZbf6ymCWBjAW3oq7+BBox1N06jPZqTBQr4@mail.gmail.com>
-References: <201009252239.21376.linux@rainbow-software.org>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH 1/2 -next] r8169: allocate with GFP_KERNEL flag when
+ able to sleep
+Date: Sun, 26 Sep 2010 00:33:17 +0100
+Message-ID: <1285457597.2697.183.camel@localhost>
+References: <20100924222434.GA7743@electric-eye.fr.zoreil.com>
+	 <20100924.223709.233700415.davem@davemloft.net>
+	 <1285394797.2478.54.camel@edumazet-laptop>
+	 <20100925.001300.193725148.davem@davemloft.net>
+	 <1285405945.2478.255.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org,
-	Kernel development list <linux-kernel@vger.kernel.org>
-To: Ondrej Zary <linux@rainbow-software.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201009252239.21376.linux@rainbow-software.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-M1duQENH3LDaYo/Cn8hl"
+Cc: David Miller <davem@davemloft.net>, romieu@fr.zoreil.com,
+	sgruszka@redhat.com, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:40672 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756786Ab0IYXd1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Sep 2010 19:33:27 -0400
+In-Reply-To: <1285405945.2478.255.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gU2F0LCBTZXAgMjUsIDIwMTAgYXQgNDozOSBQTSwgT25kcmVqIFphcnkgPGxpbnV4QHJhaW5i
-b3ctc29mdHdhcmUub3JnPiB3cm90ZToKPiBAQCAtMTE2MCwxNCArMTE2NCwyOSBAQCBub19saW5r
-X3lldDoKPiDCoHN0YXRpYyB2b2lkIGRlX21lZGlhX2ludGVycnVwdCAoc3RydWN0IGRlX3ByaXZh
-dGUgKmRlLCB1MzIgc3RhdHVzKQo+IMKgewo+IMKgIMKgIMKgIMKgaWYgKHN0YXR1cyAmIExpbmtQ
-YXNzKSB7Cj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCAvKiBJZ25vcmUgaWYgY3VycmVudCBtZWRp
-YSBpcyBBVUkgb3IgQk5DIGFuZCB3ZSBjYW4ndCB1c2UgVFAgKi8KPiArIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIGlmICgoZGUtPm1lZGlhX3R5cGUgPT0gREVfTUVESUFfQVVJIHx8Cj4gKyDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCDCoGRlLT5tZWRpYV90eXBlID09IERFX01FRElBX0JOQykgJiYK
-PiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIChkZS0+bWVkaWFfbG9jayB8fAo+ICsgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAhZGVfb2tfdG9fYWR2ZXJ0aXNlKGRlLCBERV9NRURJ
-QV9UUF9BVVRPKSkpCj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCByZXR1cm47
-Cj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCAvKiBJZiBjdXJyZW50IG1lZGlhIGlzIG5vdCBUUCwg
-Y2hhbmdlIGl0IHRvIFRQICovCj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCBpZiAoKGRlLT5tZWRp
-YV90eXBlID09IERFX01FRElBX0FVSSB8fAo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-wqBkZS0+bWVkaWFfdHlwZSA9PSBERV9NRURJQV9CTkMpKSB7Cj4gKyDCoCDCoCDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCBkZS0+bWVkaWFfdHlwZSA9IERFX01FRElBX1RQX0FVVE87Cj4gKyDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCBkZV9zdG9wX3J4dHgoZGUpOwo+ICsgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgZGVfc2V0X21lZGlhKGRlKTsKPiArIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIGRlX3N0YXJ0X3J4dHgoZGUpOwo+ICsgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgfQo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgZGVfbGlua191cChkZSk7
-Cj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqBtb2RfdGltZXIoJmRlLT5tZWRpYV90aW1lciwgamlm
-ZmllcyArIERFX1RJTUVSX0xJTkspOwo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgcmV0dXJuOwo+
-IMKgIMKgIMKgIMKgfQo+Cj4gwqAgwqAgwqAgwqBCVUdfT04oIShzdGF0dXMgJiBMaW5rRmFpbCkp
-Owo+IC0KPiAtIMKgIMKgIMKgIGlmIChuZXRpZl9jYXJyaWVyX29rKGRlLT5kZXYpKSB7Cj4gKyDC
-oCDCoCDCoCAvKiBNYXJrIHRoZSBsaW5rIGFzIGRvd24gb25seSBpZiBjdXJyZW50IG1lZGlhIGlz
-IFRQICovCj4gKyDCoCDCoCDCoCBpZiAobmV0aWZfY2Fycmllcl9vayhkZS0+ZGV2KSAmJiBkZS0+
-bWVkaWFfdHlwZSAhPSBERV9NRURJQV9BVUkgJiYKPiArIMKgIMKgIMKgIMKgIMKgIGRlLT5tZWRp
-YV90eXBlICE9IERFX01FRElBX0JOQykgewo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgZGVfbGlu
-a19kb3duKGRlKTsKPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoG1vZF90aW1lcigmZGUtPm1lZGlh
-X3RpbWVyLCBqaWZmaWVzICsgREVfVElNRVJfTk9fTElOSyk7Cj4gwqAgwqAgwqAgwqB9CgpBY2tl
-ZC1ieTogSmVmZiBHYXJ6aWsgPGpnYXJ6aWtAcmVkaGF0LmNvbT4K
+
+--=-M1duQENH3LDaYo/Cn8hl
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Sat, 2010-09-25 at 11:12 +0200, Eric Dumazet wrote:
+[...]
+> The r8169 current problem is its currently copying all incoming frames.
+> I guess nobody cares or noticed the performance drop.
+> (But commit c0cd884a is recent (2.6.34), this is not yet in
+> production...)
+
+Since that was a security fix it was backported to 2.6.32.12 and
+probably most distribution kernels.  So yes it is in production.
+
+Ben.
+
+--=20
+Ben Hutchings
+Once a job is fouled up, anything done to improve it makes it worse.
+
+--=-M1duQENH3LDaYo/Cn8hl
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iQIVAwUATJ6Gtue/yOyVhhEJAQLdlRAAg0vXGs6H5Bah/x9d3c/vhCD4miX9j53G
+5T3tuParzYdZl3B9/xWnzPK8TaEz4A8KV8U/uME70lG/o3Wz0J4/uJC6tENKIxYW
+ThI4rAObKCPP0p5T4jmdCVz1WYT+HzcQAel8TKjskpF7xdOtUngwGACiYZ8pCd/t
+wnIoSHEUaDKXHDwHji74ZZq4X5xQP0Lo8eZyRPephr2Q0UFCLvrfIwWDQRhab4ED
++qqyhJKEp6DjGS+h74JCFF2YX1JFMjNpHObBnD+0rdFUuXmjtNlhZy3Ru1hsLrJU
+MR3nplsNPA3A0xgfTChw6Wprztx2Jd+JUJvlDqeZ97xNV3gu3PbJNBPxteKPbijA
+Zsj+be6/NLJnm5WJ6WZ/hzqSSQqn6+HCugal4ZYM+LrQdg25io4sa6y7y8UOa5iM
+G2y5hWfHuVSg44KuFRTx3pFt8VmKGIs/oOTm1uZceBp1yF923zbjxWnPSwtSfqoS
+EDw22tW99ZrjbF0oa2Lu3o92/A62SN53odX+E3VvMgPARS5GBSGziv0gDM3lFky6
+8ioTPFfEHxVB8XinKeh5fGqRYvlfrz936b8jcO8WZA5IiqAPXquCMpvsL6m2dpC0
+2mGLY5dXhBsc8827oKPXQClhhGkjK3KpC24YqgL4dgLkQgBe6H55vvYnF3LdV6LY
+s4KkBT8MdiI=
+=Qq3u
+-----END PGP SIGNATURE-----
+
+--=-M1duQENH3LDaYo/Cn8hl--
