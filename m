@@ -1,51 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: reset skb queue mapping when rx'ing over tunnel
-Date: Sat, 25 Sep 2010 08:49:10 +0200
-Message-ID: <1285397350.2478.102.camel@edumazet-laptop>
-References: <alpine.DEB.1.00.1009231415290.25121@pokey.mtv.corp.google.com>
-	 <1285293960.2380.23.camel@edumazet-laptop>
-	 <AANLkTimG9ZCZwDyo_9bYURShn7hk6ROzX4-qypo7nG5i@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2 -next] r8169: allocate with GFP_KERNEL flag when
+ able to sleep
+Date: Sat, 25 Sep 2010 00:13:00 -0700 (PDT)
+Message-ID: <20100925.001300.193725148.davem@davemloft.net>
+References: <20100924222434.GA7743@electric-eye.fr.zoreil.com>
+	<20100924.223709.233700415.davem@davemloft.net>
+	<1285394797.2478.54.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net, chavey@google.com
-To: Tom Herbert <therbert@google.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: romieu@fr.zoreil.com, sgruszka@redhat.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:56031 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752802Ab0IYGtQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Sep 2010 02:49:16 -0400
-Received: by fxm3 with SMTP id 3so1105834fxm.19
-        for <netdev@vger.kernel.org>; Fri, 24 Sep 2010 23:49:15 -0700 (PDT)
-In-Reply-To: <AANLkTimG9ZCZwDyo_9bYURShn7hk6ROzX4-qypo7nG5i@mail.gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42417
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751472Ab0IYHMl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Sep 2010 03:12:41 -0400
+In-Reply-To: <1285394797.2478.54.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 24 septembre 2010 =C3=A0 09:18 -0700, Tom Herbert a =C3=A9c=
-rit :
-> > Hmm...
-> >
-> > This would need to be reverted later when tunnels are updated to be
-> > multiqueue aware ? I made an attempt with GRE some days ago.
-> >
-> > I dont understand why this patch is needed, since get_rps_cpu() has=
- a
-> > check anyway
-> >
-> I think the skb queue_mapping should correspond to a queue in the
-> skb's device as an invariant.  In the case that an skb's device is
-> change from a multiqueue device to single queue device (like GRE), th=
-e
-> inconsistency in the queue_mapping is fairly innocuous, we get one
-> warning but will pretty much take the unlikely branch for GRE packets
-> then on.  But imagine a case where skb's device was change from one
-> multiqueue device to another, but the queue mapping was not also
-> updated.  This  would cause poor weighting in get_rps_cpus.  For
-> example, if the new device had fewer queues than the old one,
-> get_rps_cpu will bias toward using queue 0's rps mask.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sat, 25 Sep 2010 08:06:37 +0200
 
-I believe your patch is fine. Thanks
+> Patch solves the suspend/resume, probably, but as soon as we receive
+> trafic, we can hit the allocation error anyway...
 
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+It allocates 1536 + N, where N can be NET_IP_ALIGN, or some small
+value like 8.
 
+This is in the same ballpark as what tg3 allocates for RX buffers.
 
+SLAB/SLUB/whatever just wants multi-order page allocations even
+for SKBs which are about this size.
+
+Furthermore, the sleeping allocations we do at ->open() time to
+allocate the entire RX ring all at once will buddy up a lot of
+pages and make 1-order allocs more likely.
