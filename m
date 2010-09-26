@@ -1,182 +1,83 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC PATCH v9 12/16] Add mp(mediate passthru) device.
-Date: Sun, 26 Sep 2010 13:50:18 +0200
-Message-ID: <20100926115018.GA19655@redhat.com>
-References: <20100915112811.GB29267@redhat.com>
- <1284970128-7343-1-git-send-email-xiaohui.xin@intel.com>
- <20100920113643.GB23898@redhat.com>
- <F2E9EB7348B8264F86B6AB8151CE2D792B8CAA0F6A@shsmsx502.ccr.corp.intel.com>
- <20100921131421.GA10439@redhat.com>
- <F2E9EB7348B8264F86B6AB8151CE2D792D171853DF@shsmsx502.ccr.corp.intel.com>
- <20100922115505.GF16423@redhat.com>
- <F2E9EB7348B8264F86B6AB8151CE2D792D17185524@shsmsx502.ccr.corp.intel.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH 1/2 -next] r8169: allocate with GFP_KERNEL flag when
+ able to sleep
+Date: Sun, 26 Sep 2010 13:46:19 +0100
+Message-ID: <1285505179.2697.210.camel@localhost>
+References: <20100924222434.GA7743@electric-eye.fr.zoreil.com>
+	 <20100924.223709.233700415.davem@davemloft.net>
+	 <1285394797.2478.54.camel@edumazet-laptop>
+	 <20100925.001300.193725148.davem@davemloft.net>
+	 <1285405945.2478.255.camel@edumazet-laptop>
+	 <1285457597.2697.183.camel@localhost>
+	 <1285481398.2436.7.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"mingo@elte.hu" <mingo@elte.hu>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"herbert@gondor.hengli.com.au" <herbert@gondor.hengli.com.au>,
-	"jdike@linux.intel.com" <jdike@linux.intel.com>
-To: "Xin, Xiaohui" <xiaohui.xin@intel.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <F2E9EB7348B8264F86B6AB8151CE2D792D17185524@shsmsx502.ccr.corp.intel.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-On Thu, Sep 23, 2010 at 08:56:33PM +0800, Xin, Xiaohui wrote:
-> >-----Original Message-----
-> >From: Michael S. Tsirkin [mailto:mst@redhat.com]
-> >Sent: Wednesday, September 22, 2010 7:55 PM
-> >To: Xin, Xiaohui
-> >Cc: netdev@vger.kernel.org; kvm@vger.kernel.org; linux-kernel@vger.kernel.org;
-> >mingo@elte.hu; davem@davemloft.net; herbert@gondor.hengli.com.au;
-> >jdike@linux.intel.com
-> >Subject: Re: [RFC PATCH v9 12/16] Add mp(mediate passthru) device.
-> >
-> >On Wed, Sep 22, 2010 at 07:41:36PM +0800, Xin, Xiaohui wrote:
-> >> >-----Original Message-----
-> >> >From: Michael S. Tsirkin [mailto:mst@redhat.com]
-> >> >Sent: Tuesday, September 21, 2010 9:14 PM
-> >> >To: Xin, Xiaohui
-> >> >Cc: netdev@vger.kernel.org; kvm@vger.kernel.org; linux-kernel@vger.kernel.org;
-> >> >mingo@elte.hu; davem@davemloft.net; herbert@gondor.hengli.com.au;
-> >> >jdike@linux.intel.com
-> >> >Subject: Re: [RFC PATCH v9 12/16] Add mp(mediate passthru) device.
-> >> >
-> >> >On Tue, Sep 21, 2010 at 09:39:31AM +0800, Xin, Xiaohui wrote:
-> >> >> >From: Michael S. Tsirkin [mailto:mst@redhat.com]
-> >> >> >Sent: Monday, September 20, 2010 7:37 PM
-> >> >> >To: Xin, Xiaohui
-> >> >> >Cc: netdev@vger.kernel.org; kvm@vger.kernel.org; linux-kernel@vger.kernel.org;
-> >> >> >mingo@elte.hu; davem@davemloft.net; herbert@gondor.hengli.com.au;
-> >> >> >jdike@linux.intel.com
-> >> >> >Subject: Re: [RFC PATCH v9 12/16] Add mp(mediate passthru) device.
-> >> >> >
-> >> >> >On Mon, Sep 20, 2010 at 04:08:48PM +0800, xiaohui.xin@intel.com wrote:
-> >> >> >> From: Xin Xiaohui <xiaohui.xin@intel.com>
-> >> >> >>
-> >> >> >> ---
-> >> >> >> Michael,
-> >> >> >> I have move the ioctl to configure the locked memory to vhost
-> >> >> >
-> >> >> >It's ok to move this to vhost but vhost does not
-> >> >> >know how much memory is needed by the backend.
-> >> >>
-> >> >> I think the backend here you mean is mp device.
-> >> >> Actually, the memory needed is related to vq->num to run zero-copy
-> >> >> smoothly.
-> >> >> That means mp device did not know it but vhost did.
-> >> >
-> >> >Well, this might be so if you insist on locking
-> >> >all posted buffers immediately. However, let's assume I have a
-> >> >very large ring and prepost a ton of RX buffers:
-> >> >there's no need to lock all of them directly:
-> >> >
-> >> >if we have buffers A and B, we can lock A, pass it
-> >> >to hardware, and when A is consumed unlock A, lock B
-> >> >and pass it to hardware.
-> >> >
-> >> >
-> >> >It's not really critical. But note we can always have userspace
-> >> >tell MP device all it wants to know, after all.
-> >> >
-> >> Ok. Here are two values we have mentioned, one is how much memory
-> >> user application wants to lock, and one is how much memory locked
-> >> is needed to run smoothly. When net backend is setup, we first need
-> >> an ioctl to get how much memory is needed to lock, and then we call
-> >> another ioctl to set how much it want to lock. Is that what's in your mind?
-> >
-> >That's fine.
-> >
-> >> >> And the rlimt stuff is per process, we use current pointer to set
-> >> >> and check the rlimit, the operations should be in the same process.
-> >> >
-> >> >Well no, the ring is handled from the kernel thread: we switch the mm to
-> >> >point to the owner task so copy from/to user and friends work, but you
-> >> >can't access the rlimit etc.
-> >> >
-> >> Yes, the userspace and vhost kernel is not the same process. But we can
-> >> record the task pointer as mm.
-> >
-> >So you will have to store mm and do device->mm, not current->mm.
-> >Anyway, better not touch mm on data path.
-> >
-> >> >> Now the check operations are in vhost process, as mp_recvmsg() or
-> >> >> mp_sendmsg() are called by vhost.
-> >> >
-> >> >Hmm, what do you mean by the check operations?
-> >> >send/recv are data path operations, they shouldn't
-> >> >do any checks, should they?
-> >> >
-> >> As you mentioned what infiniband driver done:
-> >>         down_write(&current->mm->mmap_sem);
-> >>
-> >>         locked     = npages + current->mm->locked_vm;
-> >>         lock_limit = rlimit(RLIMIT_MEMLOCK) >> PAGE_SHIFT;
-> >>
-> >>         if ((locked > lock_limit) && !capable(CAP_IPC_LOCK)) {
-> >>                 ret = -ENOMEM;
-> >>                 goto out;
-> >>         }
-> >>
-> >>         cur_base = addr & PAGE_MASK;
-> >>
-> >>         ret = 0;
-> >>         while (npages) {
-> >>                 ret = get_user_pages(current, current->mm, cur_base,
-> >>                                      min_t(unsigned long, npages,
-> >>                                            PAGE_SIZE / sizeof (struct page *)),
-> >>                                      1, !umem->writable, page_list, vma_list);
-> >>
-> >> I think it's a data path too.
-> >
-> >in infiniband this is used to 'register memory' which is not data path.
-> >
-> >> We do the check because get_user_pages() really pin and locked
-> >> the memory.
-> >
-> >Don't do this. Performance will be bad.
-> >Do the check once in ioctl and increment locked_vm by max amount you will use.
-> >On data path just make sure you do not exceed what userspace told you
-> >to.
-> 
-> What's in my mind is that in the ioctl which to get the memory locked needed to run smoothly,
-> it just return a value of how much memory is needed by mp device.
-> And then in the ioctl which to set the memory locked by user space, it check the rlimit and
-> increment locked_vm by user want.
-
-Fine.
-
-> But I'm not sure how to "make sure do not exceed what
-> userspace told to". If we don't check locked_vm, what do we use to check? And Is it another kind of check on data path?
-
-An example: on ioctl we have incremented locked_vm by say 128K.
-We will record this number 128K in mp data structure and on data path
-verify that amount of memory we actually lock with get_user_pages_fast
-does not exceed 128K. This is not part of mm and so can use
-any locking scheme, no need to take mm semaphore.
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-uxCj07otv/cQWSa3aZXS"
+Cc: David Miller <davem@davemloft.net>, romieu@fr.zoreil.com,
+	sgruszka@redhat.com, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:47171 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757696Ab0IZMq1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Sep 2010 08:46:27 -0400
+In-Reply-To: <1285481398.2436.7.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
+--=-uxCj07otv/cQWSa3aZXS
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-> >
-> >>
-> >> >> So set operations should be in
-> >> >> vhost process too, it's natural.
-> >> >>
-> >> >> >So I think we'll need another ioctl in the backend
-> >> >> >to tell userspace how much memory is needed?
-> >> >> >
-> >> >> Except vhost tells it to mp device, mp did not know
-> >> >> how much memory is needed to run zero-copy smoothly.
-> >> >> Is userspace interested about the memory mp is needed?
-> >> >
-> >> >Couldn't parse this last question.
-> >> >I think userspace generally does want control over
-> >> >how much memory we'll lock. We should not just lock
-> >> >as much as we can.
-> >> >
-> >> >--
-> >> >MST
+On Sun, 2010-09-26 at 08:09 +0200, Eric Dumazet wrote:
+> Le dimanche 26 septembre 2010 =C3=A0 00:33 +0100, Ben Hutchings a =C3=A9c=
+rit :
+> > On Sat, 2010-09-25 at 11:12 +0200, Eric Dumazet wrote:
+> > [...]
+> > > The r8169 current problem is its currently copying all incoming frame=
+s.
+> > > I guess nobody cares or noticed the performance drop.
+> > > (But commit c0cd884a is recent (2.6.34), this is not yet in
+> > > production...)
+> >=20
+> > Since that was a security fix it was backported to 2.6.32.12 and
+> > probably most distribution kernels.  So yes it is in production.
+>=20
+> Maybe in your company, not a single machine in mine ;)
+>=20
+> Most linux servers in production run much older kernels.
+>=20
+> rhel 5 -> 2.6.18
+> debian 5 -> 2.6.26.x
+
+Those both have the fix.  Look for CVE-2009-4537 in the changelog.
+
+Ben.
+
+--=20
+Ben Hutchings
+Once a job is fouled up, anything done to improve it makes it worse.
+
+--=-uxCj07otv/cQWSa3aZXS
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iQIVAwUATJ9Alee/yOyVhhEJAQKPtA/+K+8ydO4w0HF76HBZ3MvKwRmpOU5zXXJv
+7tULHlD8dMGZQo4QlNHDxIAqp/8XZb491yh/HSnDKiHyt9d5ePpCiv+Yc0vSpx6X
+1JzYcRNt+riH+NQRYoI8ynspYkF5EUDs+uu7ZgEQnHVIFl5mjJSd3+bEXH48//6J
+4n0Vtmzrl3+iawT04gu9Jh+ssS+D7WbdQI1LVihjAs8C3xhYh+oWnKUQXPy8Qk1G
+R7U7BhiegK/m5vcTDKNMgGO9nZdDPkPcPZrmGkFUaM3YD6ecEiMWGAo6QoFY07Kk
+6h0RuKmp0alDia4Nqn+RzvYB7HRcu7IApKnI4CjODP5XghAQnMhxWXOTNY4RkODE
+a/TV4kcr+KjXD26i1plZwg5gCpxLXLUBER9lGjpVXyRuyBsvGamHIQ0bwzefGlzd
+VppRr9/YarfYuWQh/R7OFBHS0iXYBmYIT0NnrM3qylNV6U/cawkpKmFcGDE/1wGu
+Gx32LzNiadFq4+Bo/o8VwzyloVLMkEyEfy17Cju65EsUqGdyvRHVtp7YZbeNCpM8
+0irqtLqeM1aBmvxeLIYRVuwidtomNsl3KXPLV9dHvypSV5Ni0aHkvugqdZyK5mot
+ziWaZJU8Ye44xnwOD2DOLcPNQ2LOKfqgwD7aNBPKU06qRXEuskGCkZiGAzVKzes9
+4lZ+6FMISig=
+=Qthg
+-----END PGP SIGNATURE-----
+
+--=-uxCj07otv/cQWSa3aZXS--
