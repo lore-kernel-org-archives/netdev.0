@@ -1,255 +1,97 @@
-From: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
-Subject: 2.6.36-rc5-git7: Reported regressions 2.6.34 -> 2.6.35
-Date: Sun, 26 Sep 2010 22:29:12 +0200 (CEST)
-Message-ID: <onxdOCF6lb.A.vKB.a_6nMB@chimera>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: TCP: orphans broken by RFC 2525 #2.17
+Date: Sun, 26 Sep 2010 23:01:11 +0200
+Message-ID: <1285534871.2357.19.camel@edumazet-laptop>
+References: <20100926131717.GA13046@1wt.eu>
+	 <1285520567.2530.8.camel@edumazet-laptop> <20100926174014.GA12373@1wt.eu>
+	 <1285526115.2530.12.camel@edumazet-laptop>  <20100926184914.GC12373@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8BIT
-Cc: Maciej Rutecki <maciej.rutecki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Florian Mickler <florian-sVu6HhrpSfRAfugRpC6u6w@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	DRI <dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org>
-To: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Willy Tarreau <w@1wt.eu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:33783 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932335Ab0IZVBQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Sep 2010 17:01:16 -0400
+Received: by wwd20 with SMTP id 20so86676wwd.1
+        for <netdev@vger.kernel.org>; Sun, 26 Sep 2010 14:01:15 -0700 (PDT)
+In-Reply-To: <20100926184914.GC12373@1wt.eu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This message contains a list of some post-2.6.34 regressions introduced before
-2.6.35, for which there are no fixes in the mainline known to the tracking team.
-If any of them have been fixed already, please let us know.
+Le dimanche 26 septembre 2010 =C3=A0 20:49 +0200, Willy Tarreau a =C3=A9=
+crit :
+> On Sun, Sep 26, 2010 at 08:35:15PM +0200, Eric Dumazet wrote:
+> > I was referring to this code. It works well for me.
+> >=20
+> > shutdown(fd, SHUT_RDWR);
+> > while (recv(fd, buff, sizeof(buff), 0) > 0)
+> > 	;
+> > close(fd);
+>=20
+> Ah this one yes, but it's overkill. We're actively pumping data from =
+the
+> other side to drop it on the floor until it finally closes while we o=
+nly
+> need to know when it has ACKed the FIN. In practice, doing that on a =
+POST
+> request which causes a 302 or 401 will result in the whole amount of =
+data
+> being transferred twice. Not only this is bad for the bandwidth, this=
+ is
+> also bad for the user, as we're causing him to experience a complete =
+upload
+> twice, just to be sure it has received the FIN, while it's pretty obv=
+ious
+> that it's not necessary in 99.9% of the cases.
+>=20
 
-If you know of any other unresolved post-2.6.34 regressions, please let us know
-either and we'll add them to the list.  Also, please let us know if any
-of the entries below are invalid.
+I dont understand how recv() could transfert data twice.
 
-Each entry from the list will be sent additionally in an automatic reply to
-this message with CCs to the people involved in reporting and handling the
-issue.
+Once you issued shutdown(RDWR), socket rx buffer is freezed and no more
+incoming data should be accepted/queued.
 
-
-Listed regressions statistics:
-
-  Date          Total  Pending  Unresolved
-  ----------------------------------------
-  2010-09-26      139       24          21
-  2010-09-20      137       27          25
-  2010-09-12      135       26          25
-  2010-08-30      124       38          34
-  2010-08-01      100       27          23
-  2010-07-23       94       33          25
-  2010-07-09       79       45          37
-  2010-06-21       46       37          26
-  2010-06-09       15       13          10
-
-
-Unresolved regressions
-----------------------
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=18732
-Subject		: Radeon HD 4700 needs MSI disabled
-Submitter	: Rafael Gandolfi <kaillasse91-PkbjNfxxIARGWvitb5QawA@public.gmane.org>
-Date		: 2010-09-18 12:06 (9 days old)
+You only read from the socket receive queue to null buffer, and in most
+cases a single recv() call will be enough to drain the queue.
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=18522
-Subject		: [REGRESSION] cdrom drive doesn't detect removal
-Submitter	: Maxim Levitsky <maximlevitsky-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2010-09-12 9:49 (15 days old)
-First-Bad-Commit: http://git.kernel.org/linus/6b4517a7913a09d3259bb1d21c9cb300f12294bd
-Message-ID	: <1284284969.2928.18.camel@maxim-laptop>
-References	: http://marc.info/?l=linux-kernel&m=128428499013930&w=2
+> Since this method is the least efficient one and clearly not acceptab=
+le
+> for practical cases, I wanted to dig at the root, where the informati=
+on
+> is known. And the TCP recv code is precisely the place where we know
+> exactly when it's safe to reset.
+>=20
+
+And its safe to reset exactly when application just does close(), if
+unread data was not drained. Not only its safe, but required. A new RFC
+might be needed ?
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=18202
-Subject		: Microphone levels too low
-Submitter	: Alexander Hunziker <alex.hunziker-Mds7TqofYmjt3F02DXVmkw@public.gmane.org>
-Date		: 2010-09-09 22:20 (18 days old)
+> Also there's another issue in doing this. It requires polling of the
+> receive side for all requests, which adds one epoll_ctl() syscall and
+> one recv() call, which have a much noticeable negative performance
+> impact at high rates (at 100000 connections per second, every syscall
+> counts). For now I could very well consider that I do this only for
+> POST requests, which currently are the ones exhibiting the issue the
+> most, but since HTTP browsers will try to enable pipelining again
+> soon, the problem will generalize to all types of requests. Hence my
+> attempts to do it the optimal way.
+
+This might be overkill but is a portable way of doing this, on all
+versions of linux.
+
+Sure, you could patch kernel to add a new system call
+
+close_proper(fd);
+
+As shutdown() only uses two bits, you can eventually add another bit to
+flush receive queue as well (to avoid the copy of it)
+
+Another question, is : why the server closes the socket, if you believe
+more pipelining is coming soon ?
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=18032
-Subject		: No sound on headphone jack
-Submitter	: Alexander Hunziker <alex.hunziker-Mds7TqofYmjt3F02DXVmkw@public.gmane.org>
-Date		: 2010-09-07 21:45 (20 days old)
 
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=17812
-Subject		: Kernel completely frozen when memory is full
-Submitter	: Mickey86 <mikael.cordon-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2010-09-05 13:09 (22 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=17772
-Subject		: Unable to locate IOAPIC for GSI *
-Submitter	: zersaa <zersaa-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2010-09-04 21:28 (23 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=17261
-Subject		: Freezes on bootup
-Submitter	: Dan Dart <dandart-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-Date		: 2010-08-29 09:00 (29 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16691
-Subject		: IPW5100: iwlagn broken with 2.6.34.x to 2.6.35.2 update
-Submitter	: Can Celasun <dcelasun-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2010-08-21 08:28 (37 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16633
-Subject		: ath5k + 2.6.35 x86 + hostapd - Failed to set channel
-Submitter	: NiTr0 <nitr0-z9XQkeP78BxUq1AO9QMCaQ@public.gmane.org>
-Date		: 2010-08-19 19:37 (39 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16614
-Subject		: [2.6.35] usb 2.0 em28xx  kernel panic general protection fault: 0000 [#1] SMP          RIP: 0010:[<ffffffffa004fbc5>]  [<ffffffffa004fbc5>] em28xx_isoc_copy_vbi+0x62e/0x812 [em28xx]
-Submitter	: Sander Eikelenboom <linux-6SM94LqRVpn6gRhOQ7JHfg@public.gmane.org>
-Date		: 2010-08-10 22:12 (48 days old)
-Message-ID	: <61936849.20100811001257-6SM94LqRVpn6gRhOQ7JHfg@public.gmane.org>
-References	: http://marc.info/?l=linux-kernel&m=128152075830927&w=2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16562
-Subject		: 2.6.35: cpu_idle bug report / on i7 870 cpu (x86_64)
-Submitter	: Justin Piszcz <jpiszcz-BP4nVm5VUdNhbmWW9KSYcQ@public.gmane.org>
-Date		: 2010-08-06 22:09 (52 days old)
-Message-ID	: <alpine.DEB.2.00.1008061800530.5241-0qmrozcXWo8bm2hyYBkBBg@public.gmane.org>
-References	: http://marc.info/?l=linux-kernel&m=128113260904048&w=2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16549
-Subject		: 2.6.35: suspicious rcu_dereference_check() usage
-Submitter	: Vladislav Bolkhovitin <vst-d+Crzxg7Rs0@public.gmane.org>
-Date		: 2010-08-04 10:56 (54 days old)
-Message-ID	: <4C594740.1090608-d+Crzxg7Rs0@public.gmane.org>
-References	: http://marc.info/?l=linux-kernel&m=128091938215177&w=2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16525
-Subject		: unexpected high load since 2.6.35
-Submitter	: MadLoisae-hi6Y0CQ0nG0@public.gmane.org <MadLoisae-hi6Y0CQ0nG0@public.gmane.org>
-Date		: 2010-08-02 20:53 (56 days old)
-Message-ID	: <4C573041.1070103-hi6Y0CQ0nG0@public.gmane.org>
-References	: http://marc.info/?l=linux-kernel&m=128078243726655&w=2
-		  http://lkml.org/lkml/2010/9/14/105
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16515
-Subject		: [bisected] Radeon rv280 can't boot on kernel 2.6.35.
-Submitter	: Albert Gall <ss3vdr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2010-08-04 16:10 (54 days old)
-First-Bad-Commit: http://git.kernel.org/linus/https://bugzilla.kernel.org/attachment.cgi?id=27350
-Handled-By	: Alex Deucher <alexdeucher-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16488
-Subject		: [i915] Framebuffer ID error after suspend/hibernate leading to X crash
-Submitter	: Milan Bouchet-Valat <nalimilan-pqIVbhRXszc@public.gmane.org>
-Date		: 2010-08-01 08:55 (57 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16462
-Subject		: unable to connect to AP on legal channel 13
-Submitter	: Daniel J Blueman <daniel.blueman-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2010-07-25 17:06 (64 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16458
-Subject		: Bluetooth disabled after resume
-Submitter	: AttilaN <attila123456-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2010-07-25 09:33 (64 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16380
-Subject		: Loop devices act strangely in 2.6.35
-Submitter	: Artem S. Tashkinov <t.artem-VInPYn6yXxRWk0Htik3J/w@public.gmane.org>
-Date		: 2010-07-13 23:21 (76 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16322
-Subject		: WARNING: at /arch/x86/include/asm/processor.h:1005 read_measured_perf_ctrs+0x5a/0x70()
-Submitter	: boris64 <bugzilla.kernel.org-ro/BP3KN3ujR7s880joybQ@public.gmane.org>
-Date		: 2010-07-01 13:54 (88 days old)
-Handled-By	: H. Peter Anvin <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16265
-Subject		: Why is kslowd accumulating so much CPU time?
-Submitter	: Theodore Ts'o <tytso-3s7WtUTddSA@public.gmane.org>
-Date		: 2010-06-09 18:36 (110 days old)
-First-Bad-Commit: http://git.kernel.org/linus/fbf81762e385d3d45acad057b654d56972acf58c
-Message-ID	: <E1OMQ88-0002a1-Gb-UK71uKi2zisAobODsErMgNi2O/JbrIOy@public.gmane.org>
-References	: http://marc.info/?l=linux-kernel&m=127610857819033&w=4
-		  http://bugs.freedesktop.org/show_bug.cgi?id=29536
-Handled-By	: Chris Wilson <chris-Y6uKTt2uX1cEflXRtASbqLVCufUGDwFn@public.gmane.org>
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16221
-Subject		: 2.6.35-rc2-git5 -- [drm:drm_mode_getfb] *ERROR* invalid framebuffer id
-Submitter	: Miles Lane <miles.lane-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2010-06-11 20:31 (108 days old)
-Message-ID	: <AANLkTim0jVRyqkwlGOcrg_XTvUQwcBYfWJX-aRzkkrLG-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-References	: http://marc.info/?l=linux-kernel&m=127628828119623&w=2
-
-
-Regressions with patches
-------------------------
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16396
-Subject		: [bisected] resume from suspend freezes system
-Submitter	: tomas m <tmezzadra-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2010-07-15 02:32 (74 days old)
-Handled-By	: Rafael J. Wysocki <rjw-KKrjLPT3xs0@public.gmane.org>
-Patch		: https://bugzilla.kernel.org/attachment.cgi?id=31422
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16312
-Subject		: WARNING: at fs/fs-writeback.c:1127 __mark_inode_dirty
-Submitter	: Zdenek Kabelac <zdenek.kabelac-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2010-06-28 9:40 (91 days old)
-Message-ID	: <AANLkTin24fr5O4_q5Xbo9Y_NKkEmtcp6Hgmr9_4qXaFz-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-References	: http://marc.info/?l=linux-kernel&m=127771804806465&w=2
-		  http://lkml.indiana.edu/hypermail/linux/kernel/1007.3/00884.html
-Handled-By	: Jan Kara <jack-AlSwsSmVLrQ@public.gmane.org>
-		  Jan Kara <jack-AlSwsSmVLrQ@public.gmane.org>
-Patch		: https://bugzilla.kernel.org/attachment.cgi?id=30282
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16228
-Subject		: BUG/boot failure on Dell Precision T3500 (pci/ahci_stop_engine)
-Submitter	: Brian Bloniarz <brian.bloniarz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2010-06-16 17:57 (103 days old)
-Handled-By	: Bjorn Helgaas <bjorn.helgaas-VXdhtT5mjnY@public.gmane.org>
-Patch		: https://patchwork.kernel.org/patch/189182/
-		  https://patchwork.kernel.org/patch/189232/
-		  https://patchwork.kernel.org/patch/189242/
-		  https://patchwork.kernel.org/patch/189252/
-
-
-For details, please visit the bug entries and follow the links given in
-references.
-
-As you can see, there is a Bugzilla entry for each of the listed regressions.
-There also is a Bugzilla entry used for tracking the regressions introduced
-between 2.6.34 and 2.6.35, unresolved as well as resolved, at:
-
-http://bugzilla.kernel.org/show_bug.cgi?id=16055
-
-Please let the tracking team know if there are any Bugzilla entries that
-should be added to the list in there.
-
-Thanks!
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
