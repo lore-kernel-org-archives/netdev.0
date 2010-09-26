@@ -1,56 +1,42 @@
-From: Sven Wegener <sven.wegener@stealer.net>
-Subject: Re: [patch] ipvs: Keep track of backlog connections
-Date: Sun, 26 Sep 2010 16:59:28 +0200 (CEST)
-Message-ID: <alpine.LNX.2.00.1009261657570.609@titan.stealer.net>
-References: <20100926133101.GA9004@verge.net.au> <alpine.LNX.2.00.1009261629240.609@titan.stealer.net>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Venkata Mohan Reddy Koppula <mohanreddykv@gmail.com>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.00.1009261629240.609@titan.stealer.net>
-Sender: lvs-devel-owner@vger.kernel.org
+From: Sven Eckelmann <sven.eckelmann@gmx.de>
+Subject: [PATCH] net/9p: Mount only matching virtio channels
+Date: Sun, 26 Sep 2010 17:28:13 +0200
+Message-ID: <1285514893-11233-1-git-send-email-sven.eckelmann@gmx.de>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Sven Eckelmann <sven.eckelmann@gmx.de>
+To: ericvh@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 26 Sep 2010, Sven Wegener wrote:
+p9_virtio_create will only compare the the channel's tag characters
+against the device name till the end of the channel's tag but not till
+the end of the device name. This means that if a user defines channels
+with the tags foo and foobar then he would mount foo when he requested
+foonot and may mount foo when he requested foobar.
 
-> On Sun, 26 Sep 2010, Simon Horman wrote:
-> 
-> > here is an updated though as yet untested version of your patch from Julian
-> > to take into account recent changes. In particualr, the ip_vs_sync.c
-> > portion is no longer needed as only the flags in the first 16 bits are
-> > synced now. It applies against Patrick McHardy's nf-next-2.6 tree.
-> > 
-> > You mentioned in your original post that you would work on an ipvsadm
-> > patch for this feature. Have you had time to do so?
-> > 
-> > Also, are you in a position to test this? If not I can do so.
-> 
-> I've tested your patch with the below addition to ipvsadm and it works 
-> correctly. 
+Thus it is necessary to check both string lengths against each other in
+case of a successful partial string match.
 
-And here is a small patch for the manpage:
+Signed-off-by: Sven Eckelmann <sven.eckelmann@gmx.de>
+---
+ net/9p/trans_virtio.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-diff --git a/ipvsadm.8 b/ipvsadm.8
-index 6874c0e..78d67ef 100644
---- a/ipvsadm.8
-+++ b/ipvsadm.8
-@@ -392,6 +392,15 @@ information of each server in service listing. The persistent
- connection is used to forward the actual connections from the same
- client/network to the same server.
- .TP
-+.B --backlog-conn
-+Output of backlog connection information. The \fIlist\fP command
-+with this option will display the backlog connection counter
-+information of each server in service listing. A backlog connection
-+is a connection that is inactive, but is expected to move to active
-+soon. Speaking in TCP language, a connection from which we have seen
-+the initial SYN packet, but the three-way handshake has not finished
-+yet.
-+.TP
- .B --sort
- Sort the list of virtual services and real servers. The virtual
- service entries are sorted in ascending order by <protocol, address,
+diff --git a/net/9p/trans_virtio.c b/net/9p/trans_virtio.c
+index dcfbe99..b885159 100644
+--- a/net/9p/trans_virtio.c
++++ b/net/9p/trans_virtio.c
+@@ -329,7 +329,8 @@ p9_virtio_create(struct p9_client *client, const char *devname, char *args)
+ 
+ 	mutex_lock(&virtio_9p_lock);
+ 	list_for_each_entry(chan, &virtio_chan_list, chan_list) {
+-		if (!strncmp(devname, chan->tag, chan->tag_len)) {
++		if (!strncmp(devname, chan->tag, chan->tag_len) &&
++		    strlen(devname) == chan->tag_len) {
+ 			if (!chan->inuse) {
+ 				chan->inuse = true;
+ 				found = 1;
+-- 
+1.7.2.3
