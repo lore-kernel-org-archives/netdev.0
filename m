@@ -1,7 +1,7 @@
 From: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
-Subject: 2.6.36-rc5-git7: Reported regressions from 2.6.35
-Date: Sun, 26 Sep 2010 21:55:19 +0200 (CEST)
-Message-ID: <MEG5YPP-fxC.A.vnD.So6nMB@chimera>
+Subject: 2.6.36-rc5-git7: Reported regressions 2.6.34 -> 2.6.35
+Date: Sun, 26 Sep 2010 22:29:12 +0200 (CEST)
+Message-ID: <onxdOCF6lb.A.vKB.a_6nMB@chimera>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 8BIT
@@ -17,166 +17,239 @@ Cc: Maciej Rutecki <maciej.rutecki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
 	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
 	DRI <dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org>
 To: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This message contains a list of some regressions from 2.6.35,
-for which there are no fixes in the mainline known to the tracking team.
+This message contains a list of some post-2.6.34 regressions introduced before
+2.6.35, for which there are no fixes in the mainline known to the tracking team.
 If any of them have been fixed already, please let us know.
 
-If you know of any other unresolved regressions from 2.6.35, please let us
-know either and we'll add them to the list.  Also, please let us know
-if any of the entries below are invalid.
+If you know of any other unresolved post-2.6.34 regressions, please let us know
+either and we'll add them to the list.  Also, please let us know if any
+of the entries below are invalid.
 
-Each entry from the list will be sent additionally in an automatic reply
-to this message with CCs to the people involved in reporting and handling
-the issue.
+Each entry from the list will be sent additionally in an automatic reply to
+this message with CCs to the people involved in reporting and handling the
+issue.
 
 
 Listed regressions statistics:
 
   Date          Total  Pending  Unresolved
   ----------------------------------------
-  2010-09-26       46       15          13
-  2010-09-20       38       15          15
-  2010-09-12       28       14          13
-  2010-08-30       21       16          15
+  2010-09-26      139       24          21
+  2010-09-20      137       27          25
+  2010-09-12      135       26          25
+  2010-08-30      124       38          34
+  2010-08-01      100       27          23
+  2010-07-23       94       33          25
+  2010-07-09       79       45          37
+  2010-06-21       46       37          26
+  2010-06-09       15       13          10
 
 
 Unresolved regressions
 ----------------------
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=19082
-Subject		: fs/fs-writeback.c to dump
-Submitter	: Pavel Vasilyev <pavel-wkUsHEiXLHUox3rIn2DAYQ@public.gmane.org>
-Date		: 2010-09-25 15:52 (2 days old)
-Message-ID	: <201009251952.58749.pavel-wkUsHEiXLHUox3rIn2DAYQ@public.gmane.org>
-References	: http://marc.info/?l=linux-kernel&m=128543035026659&w=2
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=18732
+Subject		: Radeon HD 4700 needs MSI disabled
+Submitter	: Rafael Gandolfi <kaillasse91-PkbjNfxxIARGWvitb5QawA@public.gmane.org>
+Date		: 2010-09-18 12:06 (9 days old)
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=19072
-Subject		: [2.6.36-rc regression] occasional complete system hangs on sparc64 SMP
-Submitter	: Mikael Pettersson <mikpe-1zs4UD6AkMk@public.gmane.org>
-Date		: 2010-09-23 17:02 (4 days old)
-Message-ID	: <19611.34846.813757.309183-tgku4HJDRZih8lFjZTKsyTAV6s6igYVG@public.gmane.org>
-References	: http://marc.info/?l=linux-kernel&m=128526136531048&w=2
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=18522
+Subject		: [REGRESSION] cdrom drive doesn't detect removal
+Submitter	: Maxim Levitsky <maximlevitsky-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date		: 2010-09-12 9:49 (15 days old)
+First-Bad-Commit: http://git.kernel.org/linus/6b4517a7913a09d3259bb1d21c9cb300f12294bd
+Message-ID	: <1284284969.2928.18.camel@maxim-laptop>
+References	: http://marc.info/?l=linux-kernel&m=128428499013930&w=2
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=19062
-Subject		: Dirtiable inode bdi default != sb bdi btrfs
-Submitter	: Cesar Eduardo Barros <cesarb-PWySMVKUnqmsTnJN9+BGXg@public.gmane.org>
-Date		: 2010-09-23 0:54 (4 days old)
-Message-ID	: <4C9AA546.6050201-PWySMVKUnqmsTnJN9+BGXg@public.gmane.org>
-References	: http://marc.info/?l=linux-kernel&m=128520328929595&w=2
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=18202
+Subject		: Microphone levels too low
+Submitter	: Alexander Hunziker <alex.hunziker-Mds7TqofYmjt3F02DXVmkw@public.gmane.org>
+Date		: 2010-09-09 22:20 (18 days old)
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=19052
-Subject		: 2.6.36-rc5-git1 -- [drm:i915_report_and_clear_eir] *ERROR* EIR stuck: 0x00000010, masking
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=18032
+Subject		: No sound on headphone jack
+Submitter	: Alexander Hunziker <alex.hunziker-Mds7TqofYmjt3F02DXVmkw@public.gmane.org>
+Date		: 2010-09-07 21:45 (20 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=17812
+Subject		: Kernel completely frozen when memory is full
+Submitter	: Mickey86 <mikael.cordon-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date		: 2010-09-05 13:09 (22 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=17772
+Subject		: Unable to locate IOAPIC for GSI *
+Submitter	: zersaa <zersaa-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date		: 2010-09-04 21:28 (23 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=17261
+Subject		: Freezes on bootup
+Submitter	: Dan Dart <dandart-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+Date		: 2010-08-29 09:00 (29 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16691
+Subject		: IPW5100: iwlagn broken with 2.6.34.x to 2.6.35.2 update
+Submitter	: Can Celasun <dcelasun-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date		: 2010-08-21 08:28 (37 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16633
+Subject		: ath5k + 2.6.35 x86 + hostapd - Failed to set channel
+Submitter	: NiTr0 <nitr0-z9XQkeP78BxUq1AO9QMCaQ@public.gmane.org>
+Date		: 2010-08-19 19:37 (39 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16614
+Subject		: [2.6.35] usb 2.0 em28xx  kernel panic general protection fault: 0000 [#1] SMP          RIP: 0010:[<ffffffffa004fbc5>]  [<ffffffffa004fbc5>] em28xx_isoc_copy_vbi+0x62e/0x812 [em28xx]
+Submitter	: Sander Eikelenboom <linux-6SM94LqRVpn6gRhOQ7JHfg@public.gmane.org>
+Date		: 2010-08-10 22:12 (48 days old)
+Message-ID	: <61936849.20100811001257-6SM94LqRVpn6gRhOQ7JHfg@public.gmane.org>
+References	: http://marc.info/?l=linux-kernel&m=128152075830927&w=2
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16562
+Subject		: 2.6.35: cpu_idle bug report / on i7 870 cpu (x86_64)
+Submitter	: Justin Piszcz <jpiszcz-BP4nVm5VUdNhbmWW9KSYcQ@public.gmane.org>
+Date		: 2010-08-06 22:09 (52 days old)
+Message-ID	: <alpine.DEB.2.00.1008061800530.5241-0qmrozcXWo8bm2hyYBkBBg@public.gmane.org>
+References	: http://marc.info/?l=linux-kernel&m=128113260904048&w=2
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16549
+Subject		: 2.6.35: suspicious rcu_dereference_check() usage
+Submitter	: Vladislav Bolkhovitin <vst-d+Crzxg7Rs0@public.gmane.org>
+Date		: 2010-08-04 10:56 (54 days old)
+Message-ID	: <4C594740.1090608-d+Crzxg7Rs0@public.gmane.org>
+References	: http://marc.info/?l=linux-kernel&m=128091938215177&w=2
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16525
+Subject		: unexpected high load since 2.6.35
+Submitter	: MadLoisae-hi6Y0CQ0nG0@public.gmane.org <MadLoisae-hi6Y0CQ0nG0@public.gmane.org>
+Date		: 2010-08-02 20:53 (56 days old)
+Message-ID	: <4C573041.1070103-hi6Y0CQ0nG0@public.gmane.org>
+References	: http://marc.info/?l=linux-kernel&m=128078243726655&w=2
+		  http://lkml.org/lkml/2010/9/14/105
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16515
+Subject		: [bisected] Radeon rv280 can't boot on kernel 2.6.35.
+Submitter	: Albert Gall <ss3vdr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date		: 2010-08-04 16:10 (54 days old)
+First-Bad-Commit: http://git.kernel.org/linus/https://bugzilla.kernel.org/attachment.cgi?id=27350
+Handled-By	: Alex Deucher <alexdeucher-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16488
+Subject		: [i915] Framebuffer ID error after suspend/hibernate leading to X crash
+Submitter	: Milan Bouchet-Valat <nalimilan-pqIVbhRXszc@public.gmane.org>
+Date		: 2010-08-01 08:55 (57 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16462
+Subject		: unable to connect to AP on legal channel 13
+Submitter	: Daniel J Blueman <daniel.blueman-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date		: 2010-07-25 17:06 (64 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16458
+Subject		: Bluetooth disabled after resume
+Submitter	: AttilaN <attila123456-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date		: 2010-07-25 09:33 (64 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16380
+Subject		: Loop devices act strangely in 2.6.35
+Submitter	: Artem S. Tashkinov <t.artem-VInPYn6yXxRWk0Htik3J/w@public.gmane.org>
+Date		: 2010-07-13 23:21 (76 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16322
+Subject		: WARNING: at /arch/x86/include/asm/processor.h:1005 read_measured_perf_ctrs+0x5a/0x70()
+Submitter	: boris64 <bugzilla.kernel.org-ro/BP3KN3ujR7s880joybQ@public.gmane.org>
+Date		: 2010-07-01 13:54 (88 days old)
+Handled-By	: H. Peter Anvin <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16265
+Subject		: Why is kslowd accumulating so much CPU time?
+Submitter	: Theodore Ts'o <tytso-3s7WtUTddSA@public.gmane.org>
+Date		: 2010-06-09 18:36 (110 days old)
+First-Bad-Commit: http://git.kernel.org/linus/fbf81762e385d3d45acad057b654d56972acf58c
+Message-ID	: <E1OMQ88-0002a1-Gb-UK71uKi2zisAobODsErMgNi2O/JbrIOy@public.gmane.org>
+References	: http://marc.info/?l=linux-kernel&m=127610857819033&w=4
+		  http://bugs.freedesktop.org/show_bug.cgi?id=29536
+Handled-By	: Chris Wilson <chris-Y6uKTt2uX1cEflXRtASbqLVCufUGDwFn@public.gmane.org>
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16221
+Subject		: 2.6.35-rc2-git5 -- [drm:drm_mode_getfb] *ERROR* invalid framebuffer id
 Submitter	: Miles Lane <miles.lane-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2010-09-22 23:47 (5 days old)
-Message-ID	: <AANLkTikWQjUQjFJU9MO1+XbSLAEE-GARz+S+Dz2Fgu4h-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-References	: http://marc.info/?l=linux-kernel&m=128519926626322&w=2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=19002
-Subject		: Radeon rv730 AGP/KMS/DRM kernel lockup
-Submitter	: Duncan <1i5t5.duncan-j9pdmedNgrk@public.gmane.org>
-Date		: 2010-09-23 16:48 (4 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=18992
-Subject		: warn_slow_path_common in iwlagn/mac80211 in 2.6.36-rc5
-Submitter	: rocko <rockorequin-PkbjNfxxIARBDgjK7y7TUQ@public.gmane.org>
-Date		: 2010-09-23 03:07 (4 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=18342
-Subject		: [regression] i915 incorrectly detects bogus LVDS connection instead of LVDS1
-Submitter	: Woody Suwalski <terraluna977-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2010-09-08 15:10 (19 days old)
-Message-ID	: <AANLkTim2mrVRCKg-2couMTFV7krHQp0+2e_cbaiT_KYW-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-References	: http://marc.info/?l=linux-kernel&m=128395866331382&w=2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=17722
-Subject		: 2.6.36-rc3: WARNING: at net/mac80211/scan.c:269 ieee80211_scan_completed
-Submitter	: Thomas Meyer <thomas-VsYtu1Qij5c@public.gmane.org>
-Date		: 2010-08-31 20:14 (27 days old)
-Message-ID	: <201008312214.52473.thomas-VsYtu1Qij5c@public.gmane.org>
-References	: http://marc.info/?l=linux-kernel&m=128328580504227&w=2
-		  http://www.spinics.net/lists/netdev/msg140769.html
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=17361
-Subject		: Watchdog detected hard LOCKUP in jbd2_journal_get_write_access
-Submitter	: Christian Casteyde <casteyde.christian-GANU6spQydw@public.gmane.org>
-Date		: 2010-08-29 19:59 (29 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=17121
-Subject		: Two blank rectangles more than 10 cm long when booting
-Submitter	: Eric Valette <eric.valette-GANU6spQydw@public.gmane.org>
-Date		: 2010-08-26 17:24 (32 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=17061
-Subject		: 2.6.36-rc1 on zaurus: bluetooth regression
-Submitter	: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>
-Date		: 2010-08-21 15:24 (37 days old)
-Message-ID	: <20100821152445.GA1536-+ZI9xUNit7I@public.gmane.org>
-References	: http://marc.info/?l=linux-kernel&m=128240433828087&w=2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16971
-Subject		: qla4xxx compile failure on 32-bit PowerPC: missing readq and writeq
-Submitter	: Meelis Roos <mroos-Y27EyoLml9s@public.gmane.org>
-Date		: 2010-08-19 21:03 (39 days old)
-Message-ID	: <alpine.SOC.1.00.1008192359310.19654-ptEonEWSGqKptlylMvRsHA@public.gmane.org>
-References	: http://marc.info/?l=linux-kernel&m=128225184900892&w=2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16951
-Subject		: hackbench regression with 2.6.36-rc1
-Submitter	: Zhang, Yanmin <yanmin_zhang-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Date		: 2010-08-18 6:18 (40 days old)
-Message-ID	: <1282112318.21202.8.camel-sz7BYL/Y5Hu/P+R7jlPCFVaTQe2KTcn/@public.gmane.org>
-References	: http://marc.info/?l=linux-kernel&m=128211235904910&w=2
+Date		: 2010-06-11 20:31 (108 days old)
+Message-ID	: <AANLkTim0jVRyqkwlGOcrg_XTvUQwcBYfWJX-aRzkkrLG-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+References	: http://marc.info/?l=linux-kernel&m=127628828119623&w=2
 
 
 Regressions with patches
 ------------------------
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=18962
-Subject		: screen failes in kde
-Submitter	: Hans de Bruin <jmdebruin-agH9qYG3oEhmR6Xm/wNWPw@public.gmane.org>
-Date		: 2010-09-22 15:42 (5 days old)
-First-Bad-Commit: http://git.kernel.org/linus/e259befd9013e212648c3bd4f6f1fbf92d0dd51d
-Handled-By	: Chris Wilson <chris-Y6uKTt2uX1cEflXRtASbqLVCufUGDwFn@public.gmane.org>
-Patch		: https://bugzilla.kernel.org/attachment.cgi?id=31042
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16396
+Subject		: [bisected] resume from suspend freezes system
+Submitter	: tomas m <tmezzadra-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date		: 2010-07-15 02:32 (74 days old)
+Handled-By	: Rafael J. Wysocki <rjw-KKrjLPT3xs0@public.gmane.org>
+Patch		: https://bugzilla.kernel.org/attachment.cgi?id=31422
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=18742
-Subject		: PROBLEM: Kernel panic on 2.6.36-rc4 when loading intel_ips on Core i3 laptop
-Submitter	: infernix <infernix-ZHiucA87ovfk1uMJSBkQmQ@public.gmane.org>
-Date		: 2010-09-15 14:35 (12 days old)
-Message-ID	: <4C90D998.6050103-ZHiucA87ovfk1uMJSBkQmQ@public.gmane.org>
-References	: http://marc.info/?l=linux-kernel&m=128456187928496&w=2
-Handled-By	: Jesse Barnes <jbarnes-Y1mF5jBUw70BENJcbMCuUQ@public.gmane.org>
-Patch		: https://bugzilla.kernel.org/attachment.cgi?id=31112
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16312
+Subject		: WARNING: at fs/fs-writeback.c:1127 __mark_inode_dirty
+Submitter	: Zdenek Kabelac <zdenek.kabelac-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date		: 2010-06-28 9:40 (91 days old)
+Message-ID	: <AANLkTin24fr5O4_q5Xbo9Y_NKkEmtcp6Hgmr9_4qXaFz-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+References	: http://marc.info/?l=linux-kernel&m=127771804806465&w=2
+		  http://lkml.indiana.edu/hypermail/linux/kernel/1007.3/00884.html
+Handled-By	: Jan Kara <jack-AlSwsSmVLrQ@public.gmane.org>
+		  Jan Kara <jack-AlSwsSmVLrQ@public.gmane.org>
+Patch		: https://bugzilla.kernel.org/attachment.cgi?id=30282
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16228
+Subject		: BUG/boot failure on Dell Precision T3500 (pci/ahci_stop_engine)
+Submitter	: Brian Bloniarz <brian.bloniarz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date		: 2010-06-16 17:57 (103 days old)
+Handled-By	: Bjorn Helgaas <bjorn.helgaas-VXdhtT5mjnY@public.gmane.org>
+Patch		: https://patchwork.kernel.org/patch/189182/
+		  https://patchwork.kernel.org/patch/189232/
+		  https://patchwork.kernel.org/patch/189242/
+		  https://patchwork.kernel.org/patch/189252/
 
 
 For details, please visit the bug entries and follow the links given in
 references.
 
 As you can see, there is a Bugzilla entry for each of the listed regressions.
-There also is a Bugzilla entry used for tracking the regressions from 2.6.35,
-unresolved as well as resolved, at:
+There also is a Bugzilla entry used for tracking the regressions introduced
+between 2.6.34 and 2.6.35, unresolved as well as resolved, at:
 
-http://bugzilla.kernel.org/show_bug.cgi?id=16444
+http://bugzilla.kernel.org/show_bug.cgi?id=16055
 
 Please let the tracking team know if there are any Bugzilla entries that
 should be added to the list in there.
 
 Thanks!
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
