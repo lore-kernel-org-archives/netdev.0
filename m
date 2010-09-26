@@ -1,68 +1,102 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH 1/2 -next] r8169: allocate with GFP_KERNEL flag when
- able to sleep
-Date: Sun, 26 Sep 2010 00:33:17 +0100
-Message-ID: <1285457597.2697.183.camel@localhost>
-References: <20100924222434.GA7743@electric-eye.fr.zoreil.com>
-	 <20100924.223709.233700415.davem@davemloft.net>
-	 <1285394797.2478.54.camel@edumazet-laptop>
-	 <20100925.001300.193725148.davem@davemloft.net>
-	 <1285405945.2478.255.camel@edumazet-laptop>
+From: "Gustavo F. Padovan" <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
+Subject: Re: Deadlock in Bluetooth code in 2.6.36
+Date: Sat, 25 Sep 2010 21:14:48 -0300
+Message-ID: <20100926001448.GA2979@vigoh>
+References: <1285104013-9946-1-git-send-email-padovan@profusion.mobi>
+ <20100924.211824.242130957.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-M1duQENH3LDaYo/Cn8hl"
-Cc: David Miller <davem@davemloft.net>, romieu@fr.zoreil.com,
-	sgruszka@redhat.com, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:40672 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756786Ab0IYXd1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Sep 2010 19:33:27 -0400
-In-Reply-To: <1285405945.2478.255.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org,
+	mathewm-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20100924.211824.242130957.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+* David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> [2010-09-24 21:18:24 -0700]:
 
---=-M1duQENH3LDaYo/Cn8hl
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+> From: "Gustavo F. Padovan" <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
+> Date: Tue, 21 Sep 2010 18:20:12 -0300
+> 
+> > My questions here is on how to fix this properly. Maybe
+> > sock_alloc_send_skb() should not be used with SOCK_STREAM and reliable
+> > protocols and I'm not aware of that? And should I use something like
+> > sk_stream_alloc_skb() instead?
+> > 
+> > Any comments are welcome. With lucky we can fix that for 2.6.36 and
+> > together with others fixes we have queued deliver a fully functional
+> > L2CAP layer on 2.6.36.
+> 
+> Use sock_alloc_send_skb() as you do now, but if it fails wait for socket
+> space to become available just like TCP does, then loop back and try to
+> allocate again if the space-wait doesn't return an error.
 
-On Sat, 2010-09-25 at 11:12 +0200, Eric Dumazet wrote:
-[...]
-> The r8169 current problem is its currently copying all incoming frames.
-> I guess nobody cares or noticed the performance drop.
-> (But commit c0cd884a is recent (2.6.34), this is not yet in
-> production...)
+sock_alloc_send_skb() doesn't fail when there is no space available
+it sleeps and try again later. That is the problem. So if
+sock_alloc_send_skb() is called with the socket lock held potentially we
+can have a starvation in the backlog queue and then the deadlock due to
+be unable to read the acknowledgments packets residing in the backlog
+queue.
 
-Since that was a security fix it was backported to 2.6.32.12 and
-probably most distribution kernels.  So yes it is in production.
+Our current solution is release the lock before call
+sock_alloc_send_skb() and acquire it again when sock_alloc_send_skb()
+returns. Patch follows:
 
-Ben.
+------
+Bluetooth: Fix deadlock in the ERTM logic                        
+                                                                                      
+The Enhanced Retransmission Mode(ERTM) is a reliable mode of operation               
+of the Bluetooth L2CAP layer. Think on it like a simplified version of                
+TCP.                                                                                  
+The problem we were facing here was a deadlock. ERTM uses a backlog                   
+queue to queue incomimg packets while the user is helding the lock. At                
+some moment the sk_sndbuf can be exceeded and we can't alloc new skbs                 
+then the code sleep with the lock to wait for memory, that stalls the                 
+ERTM connection once we can't read the acknowledgements packets in the                
+backlog queue to free memory and make the allocation of outcoming skb
+successful.
 
---=20
-Ben Hutchings
-Once a job is fouled up, anything done to improve it makes it worse.
+This patch actually affect all users of bt_skb_send_alloc(), i.e., all
+L2CAP modes and SCO.
 
---=-M1duQENH3LDaYo/Cn8hl
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+Signed-off-by: Gustavo F. Padovan <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
+Signed-off-by: Ulisses Furquim <ulisses-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
+---
+ include/net/bluetooth/bluetooth.h |   11 +++++++++++
+ 1 files changed, 11 insertions(+), 0 deletions(-)
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
+diff --git a/include/net/bluetooth/bluetooth.h b/include/net/bluetooth/bluetooth.h
+index 27a902d..118b69b 100644
+--- a/include/net/bluetooth/bluetooth.h
++++ b/include/net/bluetooth/bluetooth.h
+@@ -161,10 +161,21 @@ static inline struct sk_buff *bt_skb_send_alloc(struct sock *sk, unsigned long l
+ {
+        struct sk_buff *skb;
+ 
++       release_sock(sk);
+        if ((skb = sock_alloc_send_skb(sk, len + BT_SKB_RESERVE, nb, err))) {
+                skb_reserve(skb, BT_SKB_RESERVE);
+                bt_cb(skb)->incoming  = 0;
+        }
++       lock_sock(sk);
++
++       if (*err)
++               return NULL;
++
++       *err = sock_error(sk);
++       if (*err) {
++               kfree_skb(skb);
++               return NULL;
++       }
+ 
+        return skb;
+ }
+-- 
+1.7.2.2
 
-iQIVAwUATJ6Gtue/yOyVhhEJAQLdlRAAg0vXGs6H5Bah/x9d3c/vhCD4miX9j53G
-5T3tuParzYdZl3B9/xWnzPK8TaEz4A8KV8U/uME70lG/o3Wz0J4/uJC6tENKIxYW
-ThI4rAObKCPP0p5T4jmdCVz1WYT+HzcQAel8TKjskpF7xdOtUngwGACiYZ8pCd/t
-wnIoSHEUaDKXHDwHji74ZZq4X5xQP0Lo8eZyRPephr2Q0UFCLvrfIwWDQRhab4ED
-+qqyhJKEp6DjGS+h74JCFF2YX1JFMjNpHObBnD+0rdFUuXmjtNlhZy3Ru1hsLrJU
-MR3nplsNPA3A0xgfTChw6Wprztx2Jd+JUJvlDqeZ97xNV3gu3PbJNBPxteKPbijA
-Zsj+be6/NLJnm5WJ6WZ/hzqSSQqn6+HCugal4ZYM+LrQdg25io4sa6y7y8UOa5iM
-G2y5hWfHuVSg44KuFRTx3pFt8VmKGIs/oOTm1uZceBp1yF923zbjxWnPSwtSfqoS
-EDw22tW99ZrjbF0oa2Lu3o92/A62SN53odX+E3VvMgPARS5GBSGziv0gDM3lFky6
-8ioTPFfEHxVB8XinKeh5fGqRYvlfrz936b8jcO8WZA5IiqAPXquCMpvsL6m2dpC0
-2mGLY5dXhBsc8827oKPXQClhhGkjK3KpC24YqgL4dgLkQgBe6H55vvYnF3LdV6LY
-s4KkBT8MdiI=
-=Qq3u
------END PGP SIGNATURE-----
-
---=-M1duQENH3LDaYo/Cn8hl--
+-- 
+Gustavo F. Padovan
+ProFUSION embedded systems - http://profusion.mobi
