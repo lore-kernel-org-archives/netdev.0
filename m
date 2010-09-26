@@ -1,32 +1,59 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: TCP: orphans broken by RFC 2525 #2.17
-Date: Sun, 26 Sep 2010 15:38:32 -0700 (PDT)
-Message-ID: <20100926.153832.115943505.davem@davemloft.net>
-References: <20100926131717.GA13046@1wt.eu>
-	<20100926.151346.112585478.davem@davemloft.net>
-	<20100926223448.GF12373@1wt.eu>
+Subject: Re: de2104x: fix power management
+Date: Sun, 26 Sep 2010 15:49:14 -0700 (PDT)
+Message-ID: <20100926.154914.48490607.davem@davemloft.net>
+References: <201009251157.07197.linux@rainbow-software.org>
+	<4C9E2E88.3080101@pobox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: w@1wt.eu
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36728
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932424Ab0IZWiM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Sep 2010 18:38:12 -0400
-In-Reply-To: <20100926223448.GF12373@1wt.eu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux@rainbow-software.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: jgarzik@pobox.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4C9E2E88.3080101@pobox.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Willy Tarreau <w@1wt.eu>
-Date: Mon, 27 Sep 2010 00:34:48 +0200
+From: Jeff Garzik <jgarzik@pobox.com>
+Date: Sat, 25 Sep 2010 13:16:56 -0400
 
-> I don't see what is being violated nor what reliability has been
-> compromised.
+> On 09/25/2010 05:57 AM, Ondrej Zary wrote:
+>> At least my 21041 cards come out of suspend with bus mastering
+>> disabled so
+>> they did not work after resume(no data transferred).
+>> After adding pci_set_master(), the driver oopsed immediately on resume
+>> -
+>> because de_clean_rings() is called on suspend but de_init_rings() call
+>> was missing in resume.
+>>
+>> Also disable link (reset SIA) before sleep (de4x5 does this too).
+>>
+>> Signed-off-by: Ondrej Zary<linux@rainbow-software.org>
+ ...
+> Acked-by: Jeff Garzik <jgarzik@redhat.com>
 
-The TCP protcol's obligation to reliably deliver data between
-two applications, that is what has been violated.
+I'll apply this, thanks guys.
 
-You don't have to like this, but you certainly must cope with it
-in your applications :-)
+> IMO suspend/resume could use another look; if netif_running is false
+> (interface is down), de2104x does not put the PCI device to sleep,
+> which seems strange.
+
+TG3 does the same.
+
+The reason is that until we bringing the device up (and thus
+netif_running becomes true) the device is left in the most appropriate
+powered down state.
+
+At least that is my understanding.
+
+What is appropriate for any driver in this situation depends upon how
+it programs the device before ->open() occurs.
+
+> I also wonder if rtnl_lock() couldn't be eliminated, as other net
+> drivers don't need it in suspend/resume.
+
+I suspect the RTNL stuff here can be safely removed.
+
+I think it's using it to guard the netif_running() check but that
+isn't necessary.
