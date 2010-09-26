@@ -1,83 +1,216 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH 1/2 -next] r8169: allocate with GFP_KERNEL flag when
- able to sleep
-Date: Sun, 26 Sep 2010 13:46:19 +0100
-Message-ID: <1285505179.2697.210.camel@localhost>
-References: <20100924222434.GA7743@electric-eye.fr.zoreil.com>
-	 <20100924.223709.233700415.davem@davemloft.net>
-	 <1285394797.2478.54.camel@edumazet-laptop>
-	 <20100925.001300.193725148.davem@davemloft.net>
-	 <1285405945.2478.255.camel@edumazet-laptop>
-	 <1285457597.2697.183.camel@localhost>
-	 <1285481398.2436.7.camel@edumazet-laptop>
+From: Willy Tarreau <w@1wt.eu>
+Subject: TCP: orphans broken by RFC 2525 #2.17
+Date: Sun, 26 Sep 2010 15:17:17 +0200
+Message-ID: <20100926131717.GA13046@1wt.eu>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-uxCj07otv/cQWSa3aZXS"
-Cc: David Miller <davem@davemloft.net>, romieu@fr.zoreil.com,
-	sgruszka@redhat.com, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: multipart/mixed; boundary="MGYHOYXEY6WxJCY8"
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:47171 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757696Ab0IZMq1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Sep 2010 08:46:27 -0400
-In-Reply-To: <1285481398.2436.7.camel@edumazet-laptop>
+Received: from 1wt.eu ([62.212.114.60]:45689 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757821Ab0IZNRT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 26 Sep 2010 09:17:19 -0400
+Received: (from willy@localhost)
+	by mail.home.local (8.14.4/8.14.4/Submit) id o8QDHHRN013333
+	for netdev@vger.kernel.org; Sun, 26 Sep 2010 15:17:17 +0200
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-uxCj07otv/cQWSa3aZXS
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+--MGYHOYXEY6WxJCY8
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-On Sun, 2010-09-26 at 08:09 +0200, Eric Dumazet wrote:
-> Le dimanche 26 septembre 2010 =C3=A0 00:33 +0100, Ben Hutchings a =C3=A9c=
-rit :
-> > On Sat, 2010-09-25 at 11:12 +0200, Eric Dumazet wrote:
-> > [...]
-> > > The r8169 current problem is its currently copying all incoming frame=
-s.
-> > > I guess nobody cares or noticed the performance drop.
-> > > (But commit c0cd884a is recent (2.6.34), this is not yet in
-> > > production...)
-> >=20
-> > Since that was a security fix it was backported to 2.6.32.12 and
-> > probably most distribution kernels.  So yes it is in production.
->=20
-> Maybe in your company, not a single machine in mine ;)
->=20
-> Most linux servers in production run much older kernels.
->=20
-> rhel 5 -> 2.6.18
-> debian 5 -> 2.6.26.x
+Hi,
 
-Those both have the fix.  Look for CVE-2009-4537 in the changelog.
+one haproxy user was reporting occasionally truncated responses to
+HTTP POST requests exclusively. After he took many captures, we
+could verify that the strace dumps were showing all data to be
+emitted, but network captures showed that an RST was emitted before
+the end of the data.
 
-Ben.
+Looking more closely, I noticed that in traces showing the issue,
+the client was sending an additional CRLF after the data in a
+separate packet (permitted eventhough not recommended).
 
---=20
-Ben Hutchings
-Once a job is fouled up, anything done to improve it makes it worse.
+I could thus finally understand what happens and I'm now able to
+reproduce it very easily using the attached program. What happens
+is that haproxy sends the last data to the client, followed by a
+shutdown()+close(). This is mimmicked by the attached program,
+which is connected to by a simple netcat from another machine
+sending two distinct chunks :
 
---=-uxCj07otv/cQWSa3aZXS
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+server:$ ./abort-data
+client:$ (echo "req1";usleep 200000; echo "req2") | nc6 server 8000
+block1
+("block2" is missing here)
+client:$
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
+It gives the following capture, with client=10.8.3.4 and server=10.8.3.1 :
 
-iQIVAwUATJ9Alee/yOyVhhEJAQKPtA/+K+8ydO4w0HF76HBZ3MvKwRmpOU5zXXJv
-7tULHlD8dMGZQo4QlNHDxIAqp/8XZb491yh/HSnDKiHyt9d5ePpCiv+Yc0vSpx6X
-1JzYcRNt+riH+NQRYoI8ynspYkF5EUDs+uu7ZgEQnHVIFl5mjJSd3+bEXH48//6J
-4n0Vtmzrl3+iawT04gu9Jh+ssS+D7WbdQI1LVihjAs8C3xhYh+oWnKUQXPy8Qk1G
-R7U7BhiegK/m5vcTDKNMgGO9nZdDPkPcPZrmGkFUaM3YD6ecEiMWGAo6QoFY07Kk
-6h0RuKmp0alDia4Nqn+RzvYB7HRcu7IApKnI4CjODP5XghAQnMhxWXOTNY4RkODE
-a/TV4kcr+KjXD26i1plZwg5gCpxLXLUBER9lGjpVXyRuyBsvGamHIQ0bwzefGlzd
-VppRr9/YarfYuWQh/R7OFBHS0iXYBmYIT0NnrM3qylNV6U/cawkpKmFcGDE/1wGu
-Gx32LzNiadFq4+Bo/o8VwzyloVLMkEyEfy17Cju65EsUqGdyvRHVtp7YZbeNCpM8
-0irqtLqeM1aBmvxeLIYRVuwidtomNsl3KXPLV9dHvypSV5Ni0aHkvugqdZyK5mot
-ziWaZJU8Ye44xnwOD2DOLcPNQ2LOKfqgwD7aNBPKU06qRXEuskGCkZiGAzVKzes9
-4lZ+6FMISig=
-=Qthg
------END PGP SIGNATURE-----
+reading from file abort-linux.cap, link-type EN10MB (Ethernet)
+10:47:07.057793 IP (tos 0x0, ttl 64, id 57159, offset 0, flags [DF], proto TCP (6), length 60)
+    10.8.3.4.39925 > 10.8.3.1.8000: Flags [S], cksum 0xdad9 (correct), seq 2570439277, win 5840, options [mss 1460,sackOK,TS val 138417450 ecr 0,nop,wscale 6], length 0
+10:47:07.058015 IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 60)
+    10.8.3.1.8000 > 10.8.3.4.39925: Flags [S.], cksum 0x3851 (correct), seq 1066199564, ack 2570439278, win 5792, options [mss 1460,sackOK,TS val 295921514 ecr 138417450,nop,wscale 7], length 0
+10:47:07.058071 IP (tos 0x0, ttl 64, id 57160, offset 0, flags [DF], proto TCP (6), length 52)
+    10.8.3.4.39925 > 10.8.3.1.8000: Flags [.], cksum 0x7d60 (correct), seq 2570439278, ack 1066199565, win 92, options [nop,nop,TS val 138417451 ecr 295921514], length 0
+10:47:07.058213 IP (tos 0x0, ttl 64, id 57161, offset 0, flags [DF], proto TCP (6), length 57)
+    10.8.3.4.39925 > 10.8.3.1.8000: Flags [P.], cksum 0x1a40 (incorrect -> 0x8fbc), seq 2570439278:2570439283, ack 1066199565, win 92, options [nop,nop,TS val 138417451 ecr 295921514], length 5
+10:47:07.058410 IP (tos 0x0, ttl 64, id 36199, offset 0, flags [DF], proto TCP (6), length 52)
+    10.8.3.1.8000 > 10.8.3.4.39925: Flags [.], cksum 0x7d89 (correct), seq 1066199565, ack 2570439283, win 46, options [nop,nop,TS val 295921514 ecr 138417451], length 0
+10:47:07.253294 IP (tos 0x0, ttl 64, id 57162, offset 0, flags [DF], proto TCP (6), length 53)
+    10.8.3.4.39925 > 10.8.3.1.8000: Flags [P.], cksum 0x1a3c (incorrect -> 0x7321), seq 2570439283:2570439284, ack 1066199565, win 92, options [nop,nop,TS val 138417500 ecr 295921514], length 1
+10:47:07.253468 IP (tos 0x0, ttl 64, id 36200, offset 0, flags [DF], proto TCP (6), length 52)
+    10.8.3.1.8000 > 10.8.3.4.39925: Flags [.], cksum 0x7d27 (correct), seq 1066199565, ack 2570439284, win 46, options [nop,nop,TS val 295921562 ecr 138417500], length 0
+10:47:08.060213 IP (tos 0x0, ttl 64, id 36201, offset 0, flags [DF], proto TCP (6), length 59)
+    10.8.3.1.8000 > 10.8.3.4.39925: Flags [P.], cksum 0x354c (correct), seq 1066199565:1066199572, ack 2570439284, win 46, options [nop,nop,TS val 295921765 ecr 138417500], length 7
+10:47:08.060270 IP (tos 0x0, ttl 64, id 57163, offset 0, flags [DF], proto TCP (6), length 52)
+    10.8.3.4.39925 > 10.8.3.1.8000: Flags [.], cksum 0x7b5e (correct), seq 2570439284, ack 1066199572, win 92, options [nop,nop,TS val 138417701 ecr 295921765], length 0
+10:47:08.060298 IP (tos 0x0, ttl 64, id 36202, offset 0, flags [DF], proto TCP (6), length 52)
+    10.8.3.1.8000 > 10.8.3.4.39925: Flags [R.], cksum 0x7c51 (correct), seq 1066199572, ack 2570439284, win 46, options [nop,nop,TS val 295921765 ecr 138417500], length 0
+10:47:08.060613 IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 40)
+    10.8.3.1.8000 > 10.8.3.4.39925: Flags [R], cksum 0xb0f5 (correct), seq 1066199572, win 0, length 0
+.
 
---=-uxCj07otv/cQWSa3aZXS--
+The connection should in theory become an orphan. I'm saying "in theory",
+because since the following test was added to tcp_close(), if the client
+happens to send any data between the last recv() and the close(), we
+immediately send an RST to it, regardless of any pending outgoing data :
+
+        /* As outlined in RFC 2525, section 2.17, we send a RST here because
+         * data was lost. To witness the awful effects of the old behavior of
+         * always doing a FIN, run an older 2.1.x kernel or 2.0.x, start a bulk
+         * GET in an FTP client, suspend the process, wait for the client to
+         * advertise a zero window, then kill -9 the FTP client, wheee...
+         * Note: timeout is always zero in such a case.
+         */
+        if (data_was_unread) {
+                /* Unread data was tossed, zap the connection. */
+                NET_INC_STATS_USER(sock_net(sk), LINUX_MIB_TCPABORTONCLOSE);
+                tcp_set_state(sk, TCP_CLOSE);
+                tcp_send_active_reset(sk, sk->sk_allocation);
+	}
+
+The immediate effect then is that the client receives an abort before it
+even gets the last data that were scheduled for being sent.
+
+I've read RFC 2525 #2.17 and it shows quite interesting examples of what
+it wanted to protect against. However, the recommendation did not consider
+the fact that there could be some unacked pending data in the outgoing
+buffers.
+
+What is even more more embarrassing is that the HTTP working group is
+trying to encourage browsers to enable pipelining by default. That means
+that the situation above can become much more common, where two requests
+will be pipeline, the first one will cause a short response followed by
+a close(), and the simple presence of the second one will kill the first
+one's data.
+
+I tried to think about a finer way to process those unwanted data. Ideally,
+we should just ignore until the ACK indicates that our last segment was
+properly received. Then we could emit the RST.
+
+I made a few attempts by first changing the test above like this :
+
+-        if (data_was_unread) {
++        if (data_was_unread && !tcp_sk(sk)->packets_out) {
+
+then fiddling a little bit in tcp_input.c:tcp_rcv_state_process() for
+the TCP_FIN_WAIT1 state, but I'm not satisfied with my experimentations,
+they were a bit too much experimental for the results to be considered
+reliable.
+
+What I was looking for was a way to only send an RST when the socket is
+an orphan and all of its outgoing data has been ACKed. This would cover
+the situations that RFC 2525 #2.17 tries to fix without rendering orphans
+unusable.
+
+Has anyone an opinion on this, or even could suggest a patch to relax
+the conditions in which we send an RST ?
+
+Thanks,
+Willy
+
+
+--MGYHOYXEY6WxJCY8
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="abort-data.c"
+
+#include <stdio.h>
+#include <errno.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <string.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+int port = 8000;
+int one = 1;
+
+struct sockaddr_in lst_a;
+int lst_fd, srv_fd;
+int lbuf;
+
+char buf[1024];
+
+void die_msg(const char *msg)
+{
+	if (msg)
+		fprintf(stderr, "%s\n", msg);
+	exit(1);
+}
+
+void die_err(const char *msg)
+{
+	perror(msg);
+	exit(1);
+}
+
+int main(int argc, char **argv)
+{
+	if (argc > 1)
+		port = atol(argv[1]);
+
+	if ((lst_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
+		die_err("socket");
+
+	if ((setsockopt(lst_fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one))) == -1)
+		die_err("setsockopt");
+
+	bzero((char *)&lst_a, sizeof(lst_a));
+	lst_a.sin_family      = AF_INET;
+	lst_a.sin_addr.s_addr = htonl(INADDR_ANY);
+	lst_a.sin_port        = htons(port);
+	if (bind(lst_fd, (struct sockaddr *)&lst_a, sizeof(lst_a)) == -1)
+		die_err("bind");
+
+	if (listen(lst_fd, 1) == -1)
+		die_err("listen");
+
+	if ((srv_fd = accept(lst_fd, NULL, NULL)) == -1)
+		die_err("accept");
+
+	fprintf(stderr, "accept() returns %d\n", srv_fd);
+
+	if ((lbuf = recv(srv_fd, buf, sizeof(buf), 0)) == -1)
+		die_err("recv");
+
+	fprintf(stderr, "recv() returns %d\n", lbuf);
+
+	/* now let's pretend some processing time. If the sender sends any more
+	 * data during the sleep(), it causes the response to be truncated.
+	 */
+	sleep(1);
+
+	send(srv_fd, "block1\n", 7, 0);
+	send(srv_fd, "block2\n", 7, 0);
+	//shutdown(srv_fd, SHUT_WR);
+	close(srv_fd);
+	return 0;
+}
+
+
+--MGYHOYXEY6WxJCY8--
