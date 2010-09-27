@@ -1,65 +1,68 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3] net: af_packet: don't call tpacket_destruct_skb()
- until the skb is sent out
-Date: Mon, 27 Sep 2010 07:40:01 +0200
-Message-ID: <1285566001.2357.544.camel@edumazet-laptop>
-References: <20100924063623.GA6359@ff.dom.local>
-	 <1285311660.2380.62.camel@edumazet-laptop>
-	 <20100926.182548.179922569.davem@davemloft.net>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the final tree (net tree
+ related)
+Date: Mon, 27 Sep 2010 15:44:08 +1000
+Message-ID: <20100927154408.55a28127.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: jarkao2@gmail.com, xiaosuo@gmail.com, socketcan@hartkopp.net,
-	mst@redhat.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:55694 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750872Ab0I0FkH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Sep 2010 01:40:07 -0400
-Received: by wwd20 with SMTP id 20so255607wwd.1
-        for <netdev@vger.kernel.org>; Sun, 26 Sep 2010 22:40:05 -0700 (PDT)
-In-Reply-To: <20100926.182548.179922569.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Mon__27_Sep_2010_15_44_08_+1000_=FaTB+MmrIvzOgz5"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Ohad Ben-Cohen <ohad@wizery.com>,
+	"John W. Linville" <linville@tuxdriver.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le dimanche 26 septembre 2010 =C3=A0 18:25 -0700, David Miller a =C3=A9=
-crit :
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Fri, 24 Sep 2010 09:01:00 +0200
->=20
-> > af_packet (tx with mmap) is broken. I wonder who really uses it ?
->=20
-> I suspect now that af_packet supports VNET headers on transmit,
-> there are some things using this tx+mmap thing for sure.
->=20
-> > To properly cope with paged skbs, it should not try to fit several
-> > packets per page.
-> >=20
-> > The mmap api should change so that one mmaped page belongs to at mo=
-st
-> > one skb, or else we need invasive changes in net/core
-> >=20
-> > This probably makes this stuff less interesting, unless the need is=
- to
-> > send big packets. In this case, why splice was not used instead of
-> > custom mmap ?
->=20
-> I don't really see what the big issue is.
->=20
-> When the data destructor runs it means that packet's part of the page=
-s
-> are available for reuse for the tx mmap client.  And if I read it
-> correctly, that's exactly what tpacket_destruct_skb() is in fact doin=
-g.
->=20
-> There seems to be no conflict with that rule and reusing a page for
-> multiple packets.
+--Signature=_Mon__27_Sep_2010_15_44_08_+1000_=FaTB+MmrIvzOgz5
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-I was wondering if somewhere we transfert a frag from one skb1 to
-another skb2, and eventually free skb1.
+Hi all,
 
-I just check tcp collapse and found it was not coping with frags, yet.
+After merging the final tree, today's linux-next build (x86_64
+allmodconfig) failed like this:
 
+Assembler messages:
+Fatal error: can't create drivers/net/wireless/wl12xx/.tmp_wl12xx_platform_=
+data.o: No such file or directory
+drivers/net/wireless/wl12xx/wl12xx_platform_data.c: In function 'wl12xx_get=
+_platform_data':
+drivers/net/wireless/wl12xx/wl12xx_platform_data.c:28: error: cannot open d=
+rivers/net/wireless/wl12xx/.tmp_wl12xx_platform_data.gcno
+drivers/net/wireless/wl12xx/wl12xx_platform_data.c:28: confused by earlier =
+errors, bailing out
 
+Presumably caused by commit 61ee7007a5d61aa066076da578e8e8084e122d7d
+("wl12xx: add platform data passing support").
 
+I do my builds with a separate object directory (which may be a reason
+you don't see this).
+
+I have reverted that commit for today (and commits
+09cecc340b3b4d9960b039c0f576548bbf857f5a ("wl1271: take irq info from
+private board data") and 15cea99306ae14ce5f7c3d3989bcc17202e2b0be
+("wl1271: make ref_clock configurable by board") which follow it).
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Mon__27_Sep_2010_15_44_08_+1000_=FaTB+MmrIvzOgz5
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iQEcBAEBAgAGBQJMoC8oAAoJEDMEi1NhKgbstzUH/RSlxBgO/QqzmyZyWXMGScFq
+25EE+9svHn1yLcLrsmGShzigfpHHHFOo1uboQyvsqaKXdubxEA6TsIpjpnc2uhaO
+mfMv7P4tev7c1m05Hw/zJZASBPMLxXo7ORL+5guZjNr/KCdRZw4WUHp9l2JdDeIi
+ZnsBq68KD5Qs8t+qgn6lYgx1X923t+pTfJUv53Gng0eEoC1IEQwvKqGZ52lAgxaP
+vjDLmgBGYnodo0m00Y+4KLROg/n5exae0N24A9QXBtoa6ANtd25VMg9elrkZiPUX
+ofFjx8Sq2K3bYQkzguRoyWLKrbZlwprMtWTMPP7spCGBAtqrhC7fjEmFIaUEzk0=
+=K7Nw
+-----END PGP SIGNATURE-----
+
+--Signature=_Mon__27_Sep_2010_15_44_08_+1000_=FaTB+MmrIvzOgz5--
