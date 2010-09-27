@@ -1,88 +1,39 @@
-From: "Guy, Wey-Yi" <wey-yi.w.guy@intel.com>
-Subject: Re: [PATCH] iwl3945: queue the right work if the scan needs to be
- aborted
-Date: Mon, 27 Sep 2010 13:11:54 -0700
-Message-ID: <1285618314.12594.14.camel@wwguy-ubuntu>
-References: <1285345323-4250-1-git-send-email-florian@mickler.org>
+From: David Stevens <dlstevens-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
+Subject: Re:
+Date: Mon, 27 Sep 2010 13:14:11 -0700
+Message-ID: <OF056C7E7C.A9A5EFC7-ON882577AB.006E6B89-882577AB.006F2C1E@us.ibm.com>
+References: <20100927200500.GB25879@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"Chatre, Reinette" <reinette.chatre@intel.com>,
-	Intel Linux Wireless <ilw@linux.intel.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"Berg, Johannes" <johannes.berg@intel.com>,
-	Zhu Yi <yi.zhu@intel.com>,
-	"Cahill, Ben M" <ben.m.cahill@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Florian Mickler <florian@mickler.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:13339 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933537Ab0I0UMn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Sep 2010 16:12:43 -0400
-In-Reply-To: <1285345323-4250-1-git-send-email-florian@mickler.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Bob Arendt <rda-x0S3BwdUo6DQT0dZR+AlfA@public.gmane.org>
+To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20100927200500.GB25879-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2010-09-24 at 09:22 -0700, Florian Mickler wrote:
-> iwl3945's scan_completed calls into the mac80211 stack which triggers a
-> warn on if there is no scan outstanding.
-> 
-> This can be avoided by not calling scan_completed but abort_scan in
-> iwl3945_request_scan  in the done: branch of the function which is used
-> as an error out.
-> 
-> The done: branch seems to be an error-out branch, as, for example, if
-> iwl_is_ready(priv) returns false  the done: branch is executed.
-> 
-> NOTE:
-> I'm not familiar with the driver at all.
-> I just quickly scanned as a reaction to
-> 
-> https://bugzilla.kernel.org/show_bug.cgi?id=17722
-> 
-> the users of scan_completed in the  iwl3945 driver and noted the odd
-> discrepancy between the comment above this instance and the comment in
-> mac80211 scan_completed function.
-> Signed-off-by: Florian Mickler <florian@mickler.org>
-Acked-by: Wey-Yi Guy <wey-yi.w.guy@intel.com>
-> ---
-go into wireless-2.6 and stable only, scan fix already in
-wireless-next-2.6
+Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org> wrote on 09/27/2010 
+01:05:00 PM:
 
-Thanks
-Wey
-
->  drivers/net/wireless/iwlwifi/iwl-agn-lib.c  |    2 +-
->  drivers/net/wireless/iwlwifi/iwl3945-base.c |    2 +-
->  2 files changed, 2 insertions(+), 2 deletions(-)
+> On Mon, Sep 27, 2010 at 12:32:45PM -0700, David Stevens wrote:
 > 
-> diff --git a/drivers/net/wireless/iwlwifi/iwl-agn-lib.c b/drivers/net/wireless/iwlwifi/iwl-agn-lib.c
-> index 9dd9e64..8fd00a6 100644
-> --- a/drivers/net/wireless/iwlwifi/iwl-agn-lib.c
-> +++ b/drivers/net/wireless/iwlwifi/iwl-agn-lib.c
-> @@ -1411,7 +1411,7 @@ void iwlagn_request_scan(struct iwl_priv *priv, struct ieee80211_vif *vif)
->  	clear_bit(STATUS_SCAN_HW, &priv->status);
->  	clear_bit(STATUS_SCANNING, &priv->status);
->  	/* inform mac80211 scan aborted */
-> -	queue_work(priv->workqueue, &priv->scan_completed);
-> +	queue_work(priv->workqueue, &priv->abort_scan);
->  }
->  
->  int iwlagn_manage_ibss_station(struct iwl_priv *priv,
-> diff --git a/drivers/net/wireless/iwlwifi/iwl3945-base.c b/drivers/net/wireless/iwlwifi/iwl3945-base.c
-> index 59a308b..d31661c 100644
-> --- a/drivers/net/wireless/iwlwifi/iwl3945-base.c
-> +++ b/drivers/net/wireless/iwlwifi/iwl3945-base.c
-> @@ -3018,7 +3018,7 @@ void iwl3945_request_scan(struct iwl_priv *priv, struct ieee80211_vif *vif)
->  	clear_bit(STATUS_SCANNING, &priv->status);
->  
->  	/* inform mac80211 scan aborted */
-> -	queue_work(priv->workqueue, &priv->scan_completed);
-> +	queue_work(priv->workqueue, &priv->abort_scan);
->  }
->  
->  static void iwl3945_bg_restart(struct work_struct *data)
+> > You can, of course, add a querier (or configure it, assuming an
+> > attached switch supports it) and set the query interval and
+> > robustness count as appropriate for that network.
+> 
+> Presumably the IPoIB multicast router should already be the querier..
+> How does this help handling joins to new groups?
 
+        Because a querier can set the robustness value and
+query interval to anything you want. In the original report,
+he's not running a querier. The fact that it's a new group
+doesn't matter -- these are per-interface.
+
+                                                        +-DLS
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
