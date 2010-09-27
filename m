@@ -1,48 +1,126 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH v3] net: af_packet: don't call tpacket_destruct_skb()
-	until the skb is sent out
-Date: Mon, 27 Sep 2010 05:46:57 +0000
-Message-ID: <20100927054657.GB6296@ff.dom.local>
-References: <1285236939-3239-1-git-send-email-xiaosuo@gmail.com> <20100924063623.GA6359@ff.dom.local> <AANLkTin71NME-WwD+tjuxFyh_6Ue7gFTXpLwDUVtaLKR@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: TCP: orphans broken by RFC 2525 #2.17
+Date: Mon, 27 Sep 2010 07:48:24 +0200
+Message-ID: <1285566504.2357.549.camel@edumazet-laptop>
+References: <20100926225440.GH12373@1wt.eu>
+	 <20100926.160838.246540910.davem@davemloft.net>
+	 <20100926232530.GK12373@1wt.eu>
+	 <20100926.181202.28824153.davem@davemloft.net>
+	 <20100927053901.GL12373@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: xiaohui.xin@intel.com, "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Willy Tarreau <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:36986 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758626Ab0I0FrD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Sep 2010 01:47:03 -0400
-Received: by fxm3 with SMTP id 3so1598197fxm.19
-        for <netdev@vger.kernel.org>; Sun, 26 Sep 2010 22:47:01 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <AANLkTin71NME-WwD+tjuxFyh_6Ue7gFTXpLwDUVtaLKR@mail.gmail.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:36236 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757653Ab0I0Fs3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Sep 2010 01:48:29 -0400
+Received: by wyb28 with SMTP id 28so3526675wyb.19
+        for <netdev@vger.kernel.org>; Sun, 26 Sep 2010 22:48:27 -0700 (PDT)
+In-Reply-To: <20100927053901.GL12373@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 27, 2010 at 09:24:02AM +0800, Changli Gao wrote:
-> On Fri, Sep 24, 2010 at 2:36 PM, Jarek Poplawski <jarkao2@gmail.com> wrote:
-> > On 2010-09-23 12:15, Changli Gao wrote:
-> >> Since skb->destructor() is used to account socket memory, and maybe called
-> >> before the skb is sent out, a corrupt skb maybe sent out finally.
-> >>
-> >> A new destructor is added into structure skb_shared_info(), and it won't
-> >> be called until the last reference to the data of an skb is put. af_packet
-> >> uses this destructor instead.
-> >
-> > IMHO, we shouldn't allow for fixing the bad design of one protocol at
-> > the expense of others by adding more and more conditionals. The proper
-> > way of handling paged skbs (splice compatible) exists. And the current
-> > patch doesn't even fix the problem completely against things like
-> > pskb_expand_head or pskb_copy.
-> 
-> pskb_expand_head is handled in my patch, but not pskb_copy().
+Le lundi 27 septembre 2010 =C3=A0 07:39 +0200, Willy Tarreau a =C3=A9cr=
+it :
+> On Sun, Sep 26, 2010 at 06:12:02PM -0700, David Miller wrote:
+> > From: Willy Tarreau <w@1wt.eu>
+> > Date: Mon, 27 Sep 2010 01:25:30 +0200
+> >=20
+> > > Agreed. But that's not a reason for killing outgoing data that is
+> > > being sent when there are some data left in the rcv buffer.
+> >=20
+> > What alternative notification to the peer do you suggest other than=
+ a
+> > reset, then?  TCP gives us no other.
+>=20
+> I know, and I agree to send the reset, but after the data are correct=
+ly
+> transferred. This reset's purpose is only to inform the other side th=
+at
+> the data it sent were destroyed. It is not a requirement to tell it t=
+hey
+> were destroyed earlier or later. What matters is that it's informed t=
+hey
+> were destroyed.
+>=20
+> That's why I think that it is perfectly reasonable to either destroy =
+them
+> after the ACK or simply notify about their destruction after the ACK.
+>=20
+> Instead of having :
+>=20
+>         A                                               B
+>=20
+>        --->     <SEQ=3D100><ACK=3D300>                     --->
+>        <---     <SEQ=3D300><ACK=3D100><DATA=3D10>            <---
+>        --->     <SEQ=3D100><ACK=3D310>                     --->
+>        send(100)
+>        shutdown()
+>        close()
+>        --->     <SEQ=3D100><CTL=3DRST>                     --->
+>=20
+> We would just have :
+>=20
+>         A                                               B
+>=20
+>        --->     <SEQ=3D100><ACK=3D300>                     --->
+>        <---     <SEQ=3D300><ACK=3D100><DATA=3D10>            <---
+>        --->     <SEQ=3D100><ACK=3D310>                     --->
+>        send(100)
+>        shutdown()
+>        close()
+>        --->     <SEQ=3D100><ACK=3D310><DATA=3D100><CTL=3DFIN>  --->
+>        <---     <SEQ=3D300><ACK=3D111>                     <---
+>        --->     <SEQ=3D111><CTL=3DRST>                     --->
+>=20
+> Note that the notification is exactly the same as if we wanted
+> to notify B about the destruction of data that were sent just
+> after the close, because the RST only carries a SEQ field and
+> no ACK indicating what it destroyed :
+>=20
+>         A                                               B
+>=20
+>        --->     <SEQ=3D100><ACK=3D300>                     --->
+>        send(100)
+>        shutdown()
+>        --->     <SEQ=3D100><ACK=3D310><DATA=3D100><CTL=3DFIN>  --->
+>        <---     <SEQ=3D300><ACK=3D111><DATA=3D10>            <---
+>        close()
+>        --->     <SEQ=3D111><CTL=3DRST>                     --->
+>=20
+> In my opinion, last two examples are perfectly valid, they just mean
+> "after that, I close and don't want to hear about you again".
+>=20
+> > That's the thing, data integrity is full duplex, thus once it has b=
+een
+> > compromised in one direction everything currently in flight must be
+> > zapped.
+>=20
+> I'm well aware of that, and even though that's an annoying method, we
+> must live with it, it's probably one of the things that contribute TC=
+P
+> its well known reliability. But I think that RFC 2525 abused the TCP
+> use based on traces showing a bad behaviour and overlooked all impact=
+s
+> (nothing there talks about the case of data being sent or in flight a=
+t
+> the moment of the close).
 
-It's not enough: "skb_shinfo(skb)->data_destructor = NULL" means
-skb_release_data() for the original skb->data will not have one, and
-you don't know which of the two releases will be the last.
+If you can cook a patch that makes sure the RST is sent, just do so.
 
-Jarek P.
+Your previous attempt was wrong, since the RST was sent only if client
+sent "req3".
+
+If it sent "req1", "req2" only, req2 was unread and still no RST sent.
+
+This is an RFC violation.
+
+Its a bit tricky, because you cannot send the FIN flag on the last
+segment, but have to wait for the final ACK coming from client, to
+finally send an RST.
+
+
+
