@@ -1,58 +1,45 @@
-From: David Miller <davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: TCP: orphans broken by RFC 2525 #2.17
-Date: Mon, 27 Sep 2010 00:42:39 -0700 (PDT)
-Message-ID: <20100927.004239.58422076.davem@davemloft.net>
-References: <20100927053901.GL12373@1wt.eu>
-	<20100926.234202.241938788.davem@davemloft.net>
-	<20100927073443.GR12373@1wt.eu>
+Date: Mon, 27 Sep 2010 16:02:22 +0800
+Message-ID: <20100927080222.GA31309@gondor.apana.org.au>
+References: <20100926131717.GA13046@1wt.eu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: w@1wt.eu
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	"David S. Miller" <davem@davemloft.net>
+To: Willy Tarreau <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35525
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753744Ab0I0HmT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Sep 2010 03:42:19 -0400
-In-Reply-To: <20100927073443.GR12373@1wt.eu>
+Received: from helcar.apana.org.au ([209.40.204.226]:40585 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751419Ab0I0IC0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Sep 2010 04:02:26 -0400
+Content-Disposition: inline
+In-Reply-To: <20100926131717.GA13046@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Willy Tarreau <w@1wt.eu>
-Date: Mon, 27 Sep 2010 09:34:43 +0200
+Willy Tarreau <w@1wt.eu> wrote:
+>
+> Looking more closely, I noticed that in traces showing the issue,
+> the client was sending an additional CRLF after the data in a
+> separate packet (permitted eventhough not recommended).
 
-> On Sun, Sep 26, 2010 at 11:42:02PM -0700, David Miller wrote:
->> just because your application
->> doesn't want to wait around to sink a pending newline character?
-> 
-> it's not that it *doesn't want* to wait for the pending newline character,
-> it's that this character has no reason to be there and cannot be predicted,
-> and even when you find it, nothing tells the application that it's the last
-> one.
-> 
->> Is that what this boils down to?
-> 
-> No, it's the opposite in fact, the goal is to ensure we can reliably
-> release the whole connection ASAP instead of being forced to sink any
-> possible data that may come from it and that will not be consumed nor
-> will lead to a reset. Look :
+Where is this permitted? RFC2616 says:
 
-I still think it's completely broken that you want to close a
-connection for which data is still going to arrive.
+	Certain buggy HTTP/1.0 client implementations generate
+	extra CRLF's after a POST request. To restate what is
+	explicitly forbidden by the BNF, an HTTP/1.1 client MUST
+	NOT preface or follow a request with an extra CRLF. 
 
-And I really can't think of why this can't be solved at the
-application level.
+Now if you want to support these broken clients it should be
+as simple as doing the read that Eric suggested but with the
+proviso that you only have to read one CRLF before closing.
 
-Either there is an application level ACK that you have to wait for
-anyways, or there isn't and you receive the entire request packet
-before you start sending the data.
+This workaround for broken HTTP clients definitely does not belong
+in the TCP stack.
 
-If there is some kind of unpredictable "dribbling" after the request
-arrives, you really have to fix that.
-
-I honestly have no sympathy for an application level protocol that
-works this way, and I don't think the kernel is the place where this
-should be handled.
-
-Please don't exhaust me any further on this issue, thank you.
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
