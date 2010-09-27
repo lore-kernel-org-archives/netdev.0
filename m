@@ -1,67 +1,63 @@
-From: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] sunrpc: prompt for RPCSEC_GSS_KRB5 even if NFS_V4 is
- enabled
-Date: Mon, 27 Sep 2010 07:39:32 -0400
-Message-ID: <1285587572.19362.2.camel@heimdal.trondhjem.org>
-References: <20100909181454.GB14915@pengutronix.de>
-	 <1285584120-16860-1-git-send-email-u.kleine-koenig@pengutronix.de>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH] fix TSO FACK loss marking in tcp_mark_head_lost
+Date: Mon, 27 Sep 2010 15:22:09 +0300 (EEST)
+Message-ID: <alpine.DEB.2.00.1009271520560.26447@wel-95.cs.helsinki.fi>
+References: <1285370526-18279-1-git-send-email-ycheng@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Randy Dunlap <randy.dunlap-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Uwe =?ISO-8859-1?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1285584120-16860-1-git-send-email-u.kleine-koenig-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: MULTIPART/MIXED; boundary="8323329-972842323-1285590083=:26447"
+Cc: David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>
+To: Yuchung Cheng <ycheng@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:33630 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759087Ab0I0MWL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Sep 2010 08:22:11 -0400
+In-Reply-To: <1285370526-18279-1-git-send-email-ycheng@google.com>
+Content-ID: <alpine.DEB.2.00.1009271522060.26447@wel-95.cs.helsinki.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2010-09-27 at 12:41 +0200, Uwe Kleine-K=C3=B6nig wrote:
-> NFS_V4 works fine without RPCSEC_GSS_KRB5 (even without CRYPTO).
-> This dependency was introduced in
->=20
-> 	df486a2 (NFS: Fix the selection of security flavours in Kconfig)
->=20
-> to fix a build failure as RPCSEC_GSS_KRB5 was thought to be needed fo=
-r
-> NFS_V4.  The fix didn't work completely as NFS_V4 didn't enforce CRYP=
-TO
-> and so the select on RPCSEC_GSS_KRB5 didn't work in all situations (e=
-=2Eg.
-> arm/mx1_defconfig).
->=20
-> This was rectified by
->=20
-> 	827e345 (SUNRPC: Fix the NFSv4 and RPCSEC_GSS Kconfig dependencies)
->=20
-> but the magic for RPCSEC_GSS_KRB5 introduced by df486a2 wasn't revert=
-ed.
->=20
-> Cc: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
-> Signed-off-by: Uwe Kleine-K=C3=B6nig <u.kleine-koenig-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+
+--8323329-972842323-1285590083=:26447
+Content-Type: TEXT/PLAIN; charset=ISO-8859-15
+Content-Transfer-Encoding: 8BIT
+Content-ID: <alpine.DEB.2.00.1009271522061.26447@wel-95.cs.helsinki.fi>
+
+On Fri, 24 Sep 2010, Yuchung Cheng wrote:
+
+> When TCP uses FACK algorithm to mark lost packets in
+> tcp_mark_head_lost(), if the number of packets in the (TSO) skb is
+> greater than the number of packets that should be marked lost, TCP
+> incorrectly exits the loop and marks no packets lost in the skb. This
+> underestimates tp->lost_out and affects the recovery/retransmission.
+> This patch fargments the skb and marks the correct amount of packets
+> lost.
+> 
+> Signed-off-by: Yuchung Cheng <ycheng@google.com>
 > ---
-> Hello,
->=20
-> after Trond sent me the patch that later ended in 827e345702 I sugges=
-ted
-> to fold the patch below into it[1], but without reaction and success =
-as I
-> noticed just now. :-(
->=20
-> Best regards
-> Uwe
+>  net/ipv4/tcp_input.c |    3 ++-
+>  1 files changed, 2 insertions(+), 1 deletions(-)
+> 
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index 1bc87a0..e4f472e 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -2532,7 +2532,8 @@ static void tcp_mark_head_lost(struct sock *sk, int packets)
+>  			cnt += tcp_skb_pcount(skb);
+>  
+>  		if (cnt > packets) {
+> -			if (tcp_is_sack(tp) || (oldcnt >= packets))
+> +			if ((tcp_is_sack(tp) && !tcp_is_fack(tp)) ||
+> +			    (oldcnt >= packets))
+>  				break;
+>  
+>  			mss = skb_shinfo(skb)->gso_size;
+> 
 
-That's because you completely fail to justify why should we change the
-behaviour to suddenly make RPCSEC_GSS_KRB5 optional for NFSv4. That has
-never been the case before.
+Acked-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
 
-Trond
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+ i.
+--8323329-972842323-1285590083=:26447--
