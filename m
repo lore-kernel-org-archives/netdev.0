@@ -1,62 +1,63 @@
-From: "M. Warner Losh" <imp@bsdimp.com>
-Subject: Re: [PATCH v6 0/8] ptp: IEEE 1588 hardware clock support
-Date: Mon, 27 Sep 2010 10:14:23 -0600 (MDT)
-Message-ID: <20100927.101423.702773873740300798.imp@bsdimp.com>
-References: <alpine.DEB.2.00.1009231533040.7522@router.home>
-	<1285278136.2587.154.camel@localhost.localdomain>
-	<alpine.DEB.2.00.1009271038150.9258@router.home>
+From: Dimitris Michailidis <dm@chelsio.com>
+Subject: net-next rcu_dereference_check() warning
+Date: Mon, 27 Sep 2010 09:30:09 -0700
+Message-ID: <4CA0C691.1090001@chelsio.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: johnstul@us.ibm.com, giometti@linux.it, peterz@infradead.org,
-	linux-api@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
-	linux-kernel@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org, tglx@linutronix.de,
-	linuxppc-dev@lists.ozlabs.org, richardcochran@gmail.com,
-	linux-arm-kernel@lists.infradead.org, khc@pm.waw.pl
-To: cl@linux.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.00.1009271038150.9258@router.home>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:23991 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759753Ab0I0QaO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Sep 2010 12:30:14 -0400
+Received: from [127.0.0.1] (honeypot.asicdesigners.com [10.192.176.252])
+	by stargate.chelsio.com (8.13.1/8.13.1) with ESMTP id o8RGUBGP012033
+	for <netdev@vger.kernel.org>; Mon, 27 Sep 2010 09:30:11 -0700
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In message: <alpine.DEB.2.00.1009271038150.9258@router.home>
-            Christoph Lameter <cl@linux.com> writes:
-: On Thu, 23 Sep 2010, john stultz wrote:
-: > The design actually avoids most userland induced latency.
-: >
-: > 1) On the PTP hardware syncing point, the reference packet gets
-: > timestamped with the PTP hardware time on arrival. This allows the
-: > offset calculation to be done in userland without introducing latency.
-: 
-: The timestamps allows the calculation of the network transmission time I
-: guess and therefore its more accurate to calculate that effect out. Ok but
-: then the overhead of getting to code in user space (that does the proper
-: clock adjustments) is resulting in the addition of a relatively long time
-: that is subject to OS scheduling latencies and noises.
+With today's net-next I am getting the below.  It appears to be recent, it 
+wasn't happening with the net-next I was using last week.
 
-The timestamps at the hardware level allow you to factor out variation
-caused by OS Scheduling, OS network stack delay and internal buffering
-on the NIC.  Variation in measurements is what kills accuracy.
+===================================================
+[ INFO: suspicious rcu_dereference_check() usage. ]
+---------------------------------------------------
+/build/net-next-2.6/include/linux/netpoll.h:67 invoked 
+rcu_dereference_check() without protection!
 
-When steering a clock by making an error measurement of the phase and
-frequency of it, the latency induced by OS scheduling tends to be
-unimportant.  It is far more important to know when you steered the
-clock (called adjtime or friends) than to steer it at any fixed
-latency to when the data for the measurements was made.  Measuring the
-time of steer can tolerate errors in the range of OS scheduling
-latencies easily, since that tends to produce a very small effect.  It
-introduces an error in your expected phase for the next measurement on
-the order of the product of the time of steer error times the change
-in fractional frequency (abs( 1 - (nu_new / nu_old))).  Even if the
-estimate is really bad at 100ms, most steers are on the order about
-one part per million.  This leads to a sub-nanosecond phase error
-estimate in the next measurement cycle (a non-accumulating error).  A
-1ms error leads to maybe tens of picoseconds of estimate error.
+other info that might help us debug this:
 
-This is a common error that I've seen repeated in this thread.  The
-only reason that it has historically been important is because when
-you are doing timestamping in software based on an interrupt, that
-stuff does matter.
 
-Warner
+rcu_scheduler_active = 1, debug_locks = 0
+1 lock held by ypbind/5046:
+  #0:  (sk_lock-AF_INET){+.+.+.}, at: [<ffffffff81503139>] 
+udp_sendmsg+0x3fd/0x5dc
+
+stack backtrace:
+Pid: 5046, comm: ypbind Not tainted 2.6.36-rc3+ #16
+Call Trace:
+  [<ffffffff810668e4>] lockdep_rcu_dereference+0xaa/0xb3
+  [<ffffffff814b8d09>] netif_rx+0x53/0x1cf
+  [<ffffffff810313b7>] ? get_parent_ip+0x11/0x41
+  [<ffffffff814b9068>] netif_rx_ni+0x23/0x5d
+  [<ffffffff814e57a9>] ip_dev_loopback_xmit+0xc5/0xcb
+  [<ffffffff814e593c>] ip_mc_output+0x18d/0x1a5
+  [<ffffffff814e30ec>] ip_local_out+0x62/0x66
+  [<ffffffff814e33cb>] ip_push_pending_frames+0x2db/0x337
+  [<ffffffff81501b55>] udp_push_pending_frames+0x2de/0x34c
+  [<ffffffff81503139>] ? udp_sendmsg+0x3fd/0x5dc
+  [<ffffffff8150322a>] udp_sendmsg+0x4ee/0x5dc
+  [<ffffffff8150aa74>] inet_sendmsg+0x13a/0x145
+  [<ffffffff8150a93a>] ? inet_sendmsg+0x0/0x145
+  [<ffffffff814a6d24>] sock_sendmsg+0xc0/0xd9
+  [<ffffffff8106aad4>] ? lock_release_non_nested+0xe5/0x296
+  [<ffffffff810c8fb0>] ? might_fault+0x68/0xb8
+  [<ffffffff810c8fb0>] ? might_fault+0x68/0xb8
+  [<ffffffff810c8ff9>] ? might_fault+0xb1/0xb8
+  [<ffffffff810c8fb0>] ? might_fault+0x68/0xb8
+  [<ffffffff814a6672>] ? move_addr_to_kernel+0x3f/0x56
+  [<ffffffff814a7458>] sys_sendto+0xe0/0x108
+  [<ffffffff810f9a76>] ? d_kill+0x6c/0x74
+  [<ffffffff810e99df>] ? fput+0x1ce/0x1dd
+  [<ffffffff81002c9b>] system_call_fastpath+0x16/0x1b
