@@ -1,162 +1,68 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: linux-next: build failure after merge of the final tree (net
- tree related)
-Date: Mon, 27 Sep 2010 15:44:08 -0400
-Message-ID: <20100927194408.GG11086@tuxdriver.com>
-References: <20100927154408.55a28127.sfr@canb.auug.org.au>
- <AANLkTinHk82jM7Ztwb1aB1xb-hSLeg5Hb07mhYCaeszi@mail.gmail.com>
- <20100927180412.GD11086@tuxdriver.com>
- <20100927.111818.149846920.davem@davemloft.net>
- <20100927182546.GE11086@tuxdriver.com>
- <AANLkTi=YHhRWFix1QDuEnRW7r_UaNtp6KSL9uLdUzdqM@mail.gmail.com>
- <20100927184445.GF11086@tuxdriver.com>
- <AANLkTi=2KqQb+gvuigxb+-tSzawx7=q3HtnkkE6t_4XF@mail.gmail.com>
- <AANLkTim9nHmhNLmECnYk-OHYmyk96tz65kd=ybz24M3Y@mail.gmail.com>
+From: David Stevens <dlstevens-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
+Subject: Re: igmp: Allow mininum interval specification for igmp timers.
+Date: Mon, 27 Sep 2010 12:55:29 -0700
+Message-ID: <OFC4EC0538.26831D99-ON882577AB.006B8055-882577AB.006D75FF@us.ibm.com>
+References: <alpine.DEB.2.00.1009221354410.32661@router.home>	<20100923.213823.137834706.davem@davemloft.net>
+	<OF4BA8F9C2.467056E9-ON882577AB.005F4832-882577AB.00612DD6@us.ibm.com> <20100927.105444.214208865.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, sfr@canb.auug.org.au,
-	netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Ohad Ben-Cohen <ohad@wizery.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <AANLkTim9nHmhNLmECnYk-OHYmyk96tz65kd=ybz24M3Y@mail.gmail.com>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rda-x0S3BwdUo6DQT0dZR+AlfA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20100927.105444.214208865.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 27, 2010 at 09:06:09PM +0200, Ohad Ben-Cohen wrote:
-> On Mon, Sep 27, 2010 at 9:01 PM, Ohad Ben-Cohen <ohad@wizery.com> wro=
-te:
-> > On Mon, Sep 27, 2010 at 8:44 PM, John W. Linville
-> > <linville@tuxdriver.com> wrote:
-> >> On Mon, Sep 27, 2010 at 08:38:50PM +0200, Ohad Ben-Cohen wrote:
-> >>> On Mon, Sep 27, 2010 at 8:25 PM, John W. Linville
-> >>> <linville@tuxdriver.com> wrote:
-> >>> >> BTW, if this fuglet going to work if the driver is built modul=
-ar?
-> >>> >>
-> >>> >> The idea of this things seems to be to allow arch platform cod=
-e to call
-> >>> >> into it to set things. =A0Such calls from arch platform code a=
-re going
-> >>> >> to be "obj-y"
-> >>> >>
-> >>> >> So if this is built into the modular driver, I can't see how i=
-t
-> >>> >> can work.
-> >>> >
-> >>> > Dave is right -- these Kconfig dependencies (or lack thereof) s=
-eem
-> >>> > to be wrong.
-> >>>
-> >>> This is why I had to put it in drivers/net/wireless/Makefile (in =
-both
-> >>> the original patch and in the fix I sent earlier) and not in
-> >>> drivers/net/wireless/wl12xx/Makefile (as it was in the fix that D=
-ave
-> >>> was referring to).
-> >>>
-> >>> This way it works with a modular driver.
-> >>
-> >> That doesn't seem very helpful if someone selects
-> >>
-> >> CONFIG_MACH_OMAP_ZOOM2=3Dy
-> >> CONFIG_WL12XX_PLATFORM_DATA=3Dn
->=20
->=20
-> That's a good point (it's a separate issue); we need to have a select=
- there.
->=20
-> I'll send a patch.
+David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote on 09/27/2010 10:54:44 AM:
 
-No, maybe you don't need it -- the bool line by itself means there
-is no menu item.  So the default y does the job of selecting it all
-the time (which kinda sucks for non-OMAP)...
+> This patch on the other hand is attacking a different problem,
+> namely avoiding the worst cases caused by the randomization we
+> do for the timer.
+> 
+> With bad luck this thing times out way too fast because the total of
+> all of the randomized intervals can end up being very small, and I
+> think we should fix that independently of the other issues hit by the
+> IB folks.
 
-> >>
-> >
-> > CONFIG_WL12XX_PLATFORM_DATA is selected automatically if the releva=
-nt
-> > driver is selected (this is independent of the underlying arch/boar=
-d):
-> >
-> > config WL12XX_PLATFORM_DATA
-> > =A0 =A0 =A0 =A0bool
-> > =A0 =A0 =A0 =A0depends on WL1271_SDIO !=3D n
-> > =A0 =A0 =A0 =A0default y
-> >
-> > All we have to make sure is that it will be compiled built-in. If w=
-e
-> > use drivers/net/wireless/wl12xx/Makefile, and we build a modular
-> > wl1271_sdio, it won't (despite it being selected as y).
+        I think I'm caught up on the discussion now. For IGMPv3, we
+would send all the reports always in < 2 secs, and the average would
+be < 1 sec, so I'm not sure any sort of tweaks we do to enforce a
+minimum randomized interval are compatible with IGMPv3 and still
+solve IB's problem.
+        As I said before, I think per protocol, back-to-back is both
+allowed and not a problem, even if both subsequent randomized reports
+come out to 0 time. But if we wanted to enforce a minimum interval
+of, say, X, then I think the better way to do that is to set the
+timer to X + rand(Interval-X) and not a table of fixed intervals
+as in the original patch. For v2, X=1 or 2 sec and Interval=10
+might work well, but for v3, the entire interval is 1 sec and I
+think I saw that the set-up time for the fabric may be on the
+order of 1 sec.
+        I also don't think that we want those kinds of delays on
+Ethernet. A program may join and send lots of traffic in 1 sec,
+and if the immediate join is lost, one of the quickly-following
+<1 sec duplicate reports will make it recover and work. Delaying
+the minimum would guarantee it wouldn't work until that minimum
+and drop all that traffic if the immediate report is lost, then.
+        Really, of course, I think the solution belongs in IB, but
+if we did anything in IGMP, I'd prefer it were a per-interface
+tunable that defaults as in the RFC. Since you can change the
+interval and # of reports through a querier now, exporting the
+default values of (10,2) for v2 and (1,2) for v3 to instead be
+per-interface tunables and then bumped as needed for IB would
+allow tweaking without running a querier. But a querier that's
+using default values would also override that and cause the
+problem all over again. Queuing in the driver until the MAC
+address is usable solves it generally.
 
-I don't understand this part.  FWIW, Kconfig is not a strength for me.
-But...
+        Also, MLD and IPv6 will have all these same issues, and
+working multicasting is even more important there.
 
-> > That's why I put it in drivers/net/wireless/Makefile.
-
-Can't we do this?  It seems to work (i.e. the symbols from
-wl12xx_platform_data.o end-up in built-in.o).
-
-=46rom d8ddd0ebe8ae3791ba9c76a506bfcdd60be40f5b Mon Sep 17 00:00:00 200=
-1
-=46rom: John W. Linville <linville@tuxdriver.com>
-Date: Mon, 27 Sep 2010 14:00:51 -0400
-Subject: [PATCH] wl12xx: fix separate-object-folder builds
-
-Make this go away (happens when building with a separate object
-directory):
-
-Assembler messages:
-=46atal error: can't create drivers/net/wireless/wl12xx/.tmp_wl12xx_pla=
-tform_data.o: No such file or directory
-drivers/net/wireless/wl12xx/wl12xx_platform_data.c: In function 'wl12xx=
-_get_platform_data':
-drivers/net/wireless/wl12xx/wl12xx_platform_data.c:28: error: cannot op=
-en drivers/net/wireless/wl12xx/.tmp_wl12xx_platform_data.gcno
-drivers/net/wireless/wl12xx/wl12xx_platform_data.c:28: confused by earl=
-ier errors, bailing out
-
-Signed-off-by: John W. Linville <linville@tuxdriver.com>
-Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
-Cc: Signed-off-by: Ohad Ben-Cohen <ohad@wizery.com>
----
- drivers/net/wireless/Makefile        |    3 +--
- drivers/net/wireless/wl12xx/Makefile |    3 +++
- 2 files changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/wireless/Makefile b/drivers/net/wireless/Makef=
-ile
-index 85af697..a13a602 100644
---- a/drivers/net/wireless/Makefile
-+++ b/drivers/net/wireless/Makefile
-@@ -50,7 +50,6 @@ obj-$(CONFIG_ATH_COMMON)	+=3D ath/
- obj-$(CONFIG_MAC80211_HWSIM)	+=3D mac80211_hwsim.o
-=20
- obj-$(CONFIG_WL12XX)	+=3D wl12xx/
--# small builtin driver bit
--obj-$(CONFIG_WL12XX_PLATFORM_DATA)	+=3D wl12xx/wl12xx_platform_data.o
-+obj-$(CONFIG_WL12XX_PLATFORM_DATA)	+=3D wl12xx/
-=20
- obj-$(CONFIG_IWM)	+=3D iwmc3200wifi/
-diff --git a/drivers/net/wireless/wl12xx/Makefile b/drivers/net/wireles=
-s/wl12xx/Makefile
-index 078b439..0d334d6 100644
---- a/drivers/net/wireless/wl12xx/Makefile
-+++ b/drivers/net/wireless/wl12xx/Makefile
-@@ -16,3 +16,6 @@ wl1271-$(CONFIG_NL80211_TESTMODE)	+=3D wl1271_testmod=
-e.o
- obj-$(CONFIG_WL1271)	+=3D wl1271.o
- obj-$(CONFIG_WL1271_SPI)	+=3D wl1271_spi.o
- obj-$(CONFIG_WL1271_SDIO)	+=3D wl1271_sdio.o
-+
-+# small builtin driver bit
-+obj-$(CONFIG_WL12XX_PLATFORM_DATA)	+=3D wl12xx_platform_data.o
---=20
-1.7.2.3
+                                                                +-DLS
 
 
---=20
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
