@@ -1,48 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] net: af_packet: don't call tpacket_destruct_skb()
- until the skb is sent out
-Date: Sun, 26 Sep 2010 18:25:48 -0700 (PDT)
-Message-ID: <20100926.182548.179922569.davem@davemloft.net>
-References: <20100924063623.GA6359@ff.dom.local>
-	<1285311660.2380.62.camel@edumazet-laptop>
+Subject: Re: [PATCH net-next-2.6] net: propagate NETIF_F_HIGHDMA to vlans
+Date: Sun, 26 Sep 2010 18:27:28 -0700 (PDT)
+Message-ID: <20100926.182728.245387828.davem@davemloft.net>
+References: <AANLkTikDdxFho2ioBHMbze685+garDWF9kF3qFXZA9Hr@mail.gmail.com>
+	<1285222405.2380.80.camel@edumazet-laptop>
+	<1285238771.2864.38.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jarkao2@gmail.com, xiaosuo@gmail.com, socketcan@hartkopp.net,
-	mst@redhat.com, netdev@vger.kernel.org
+Cc: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
+	gospo@redhat.com, bphilips@novell.com, yi.zou@intel.com
 To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56465
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44524
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754544Ab0I0BZ2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Sep 2010 21:25:28 -0400
-In-Reply-To: <1285311660.2380.62.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1758588Ab0I0B1I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Sep 2010 21:27:08 -0400
+In-Reply-To: <1285238771.2864.38.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 24 Sep 2010 09:01:00 +0200
+Date: Thu, 23 Sep 2010 12:46:11 +0200
 
-> af_packet (tx with mmap) is broken. I wonder who really uses it ?
-
-I suspect now that af_packet supports VNET headers on transmit,
-there are some things using this tx+mmap thing for sure.
-
-> To properly cope with paged skbs, it should not try to fit several
-> packets per page.
+> Automatically allows vlans to get NETIF_F_HIGHDMA if underlying device
+> supports it.
 > 
-> The mmap api should change so that one mmaped page belongs to at most
-> one skb, or else we need invasive changes in net/core
+> On 32bit arches (and more precisely if CONFIG_HIGHMEM is enabled), it
+> can help to reduce cost of illegal_highdma() and __skb_linearize()
+> calls.
 > 
-> This probably makes this stuff less interesting, unless the need is to
-> send big packets. In this case, why splice was not used instead of
-> custom mmap ?
+> Tested on tg3 , bnx2, bonding, this worked very well.
+> 
+> This is a generalization of a patch provided by Yi Zou & Jeff Kirsher.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-I don't really see what the big issue is.
-
-When the data destructor runs it means that packet's part of the pages
-are available for reuse for the tx mmap client.  And if I read it
-correctly, that's exactly what tpacket_destruct_skb() is in fact doing.
-
-There seems to be no conflict with that rule and reusing a page for
-multiple packets.
+Applied, thanks Eric.
