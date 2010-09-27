@@ -1,33 +1,74 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/9p: Mount only matching virtio channels
-Date: Mon, 27 Sep 2010 15:54:14 -0700 (PDT)
-Message-ID: <20100927.155414.43043854.davem@davemloft.net>
-References: <1285514893-11233-1-git-send-email-sven.eckelmann@gmx.de>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 16603] New: send of data > 4 GB fails on 64
+ bit systems
+Date: Mon, 27 Sep 2010 16:15:40 -0700
+Message-ID: <20100927161540.776f748e.akpm@linux-foundation.org>
+References: <bug-16603-10286@https.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: ericvh@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: sven.eckelmann@gmx.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1285514893-11233-1-git-send-email-sven.eckelmann@gmx.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, bono@onlinehome.de
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:44169 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756413Ab0I0XQj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Sep 2010 19:16:39 -0400
+In-Reply-To: <bug-16603-10286@https.bugzilla.kernel.org/>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sven Eckelmann <sven.eckelmann@gmx.de>
-Date: Sun, 26 Sep 2010 17:28:13 +0200
 
-> p9_virtio_create will only compare the the channel's tag characters
-> against the device name till the end of the channel's tag but not till
-> the end of the device name. This means that if a user defines channels
-> with the tags foo and foobar then he would mount foo when he requested
-> foonot and may mount foo when he requested foobar.
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
+
+On Mon, 16 Aug 2010 10:01:09 GMT
+bugzilla-daemon@bugzilla.kernel.org wrote:
+
+> https://bugzilla.kernel.org/show_bug.cgi?id=16603
 > 
-> Thus it is necessary to check both string lengths against each other in
-> case of a successful partial string match.
+>            Summary: send of data > 4 GB fails on 64 bit systems
+>            Product: Networking
+>            Version: 2.5
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: IPV4
+>         AssignedTo: shemminger@linux-foundation.org
+>         ReportedBy: bono@onlinehome.de
+>         Regression: No
 > 
-> Signed-off-by: Sven Eckelmann <sven.eckelmann@gmx.de>
+> 
+> Sending of data using linux function send fails if size is too large. glibc
+> function is:
+> 
+> ssize_t send(int sockfd, const void *buf, size_t len, int flags);
+> 
+> Type of len is size_t, argument is stored in a kernel structure msgheader which
+> contains an iovec. This iovec contains a size_t (64bit) length field, but in
+> the linux kernel in function tcp_sendmsg the following lines
+> 
+>        while (--iovlen >= 0) {
+>                 int seglen = iov->iov_len;
+>                 unsigned char __user *from = iov->iov_base;
+> 
+> 
+> convert the len to int (32 bit).
+> 
+> Thus sending of 5 GB of data results in 1 GB sent (no problem), but sending of
+> 4 GB results in 0 bytes sent.
+> 
+> Workaround in userspace is easy (e.g. instead of len use len < 0x8000000 ? len
+> : 0x7fffffff) but the kernel should handle this correctly.
+> 
 
-I'll apply this, but this code would be so much simpler and this bug
-would have never happened if these tags were NULL terminated when they
-were pulled in from virtio.
+whoops.
+
+Yes, I think seglen should be size_t.  Do you know if making that
+change fixes the bug?
+
+
