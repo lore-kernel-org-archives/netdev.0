@@ -1,80 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: TCP: orphans broken by RFC 2525 #2.17
-Date: Mon, 27 Sep 2010 22:00:53 +0200
-Message-ID: <1285617653.2512.67.camel@edumazet-laptop>
-References: <20100926232530.GK12373@1wt.eu>
-	 <20100926.181202.28824153.davem@davemloft.net>
-	 <20100927053901.GL12373@1wt.eu>
-	 <20100926.234202.241938788.davem@davemloft.net>
-	 <20100927073443.GR12373@1wt.eu>
-	 <alpine.LFD.2.00.1009271159070.2191@u.domain.uli>
-	 <20100927192450.GU12373@1wt.eu>
+From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Subject: (unknown)
+Date: Mon, 27 Sep 2010 14:05:00 -0600
+Message-ID: <20100927200500.GB25879@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Julian Anastasov <ja@ssi.bg>, netdev@vger.kernel.org
-To: Willy Tarreau <w@1wt.eu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:65067 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760139Ab0I0UBF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Sep 2010 16:01:05 -0400
-Received: by wyb28 with SMTP id 28so4256152wyb.19
-        for <netdev@vger.kernel.org>; Mon, 27 Sep 2010 13:01:04 -0700 (PDT)
-In-Reply-To: <20100927192450.GU12373@1wt.eu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bob Arendt <rda-x0S3BwdUo6DQT0dZR+AlfA@public.gmane.org>
+To: David Stevens <dlstevens-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le lundi 27 septembre 2010 =C3=A0 21:24 +0200, Willy Tarreau a =C3=A9cr=
-it :
-> Hi Julian
->=20
-> [removed Davem from the CC upon his request, not to pollute him]
->=20
-> On Mon, Sep 27, 2010 at 12:12:24PM +0300, Julian Anastasov wrote:
-> > 	If it is not already mentioned, the application can
-> > know if sent data is acked. I think, ioctl SIOCOUTQ is for
-> > this purpose. May be the application that wants to send
-> > reliably HTTP error response before closing should do something
-> > like:
-> >=20
-> > - add this FD in some list for monitoring instead of keeping
-> > large connection state
-> > - use shutdown SHUT_WR to add FIN after response
-> > - use setsockopt SO_RCVBUF with some low value to close the
-> > RX window, we do not want the body
-> > - wait for POLLHUP (FIN), not for POLLIN because we want to
-> > ignore data, not to read it. Still, data can be read and
-> > dropped if needed to release the socket memory
-> > - use timer to limit the time we wait our data to be acked
-> > - use SIOCOUTQ to know if everything is received in peer and
-> > then close the fd
->=20
-> Thanks very much for this suggestion. I was looking for something
-> like this and even looked at the tcp_info struct, but it did not
-> look very easy to use.
->=20
-> Still, I think that polling on POLLIN and checking with SIOCOUTQ
-> on every read to see if the out queue is now empty would do the
-> trick, without forcing to read huge amounts of unnecessary data.
->=20
-> I'll simply enclose that inside a #ifdef LINUX and that should be
-> OK. It kinda sucks to be able to workaround low level issues at the
-> application level but at least this workaround is acceptable.
+Bcc: 
+Subject: Re: igmp: Staggered igmp report intervals for unsolicited igmp
+	reports
+Reply-To: 
+In-Reply-To: <OF871D4733.876C9DA0-ON882577AB.006AB200-882577AB.006B6101-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
 
-Just a point :
+On Mon, Sep 27, 2010 at 12:32:45PM -0700, David Stevens wrote:
+ 
+> You can, of course, add a querier (or configure it, assuming an
+> attached switch supports it) and set the query interval and
+> robustness count as appropriate for that network.
 
-RFC1122 :
+Presumably the IPoIB multicast router should already be the querier..
+How does this help handling joins to new groups?
 
-	A host MAY implement a "half-duplex" TCP close sequence, so
-        that an application that has called CLOSE cannot continue to
-        read data from the connection.  If such a host issues a
-        CLOSE call while received data is still pending in TCP, or
-        if new data is received after CLOSE is called, its TCP
-        SHOULD send a RST to show that data was lost.
+> As would be having those networks queue packets for hardware
+> addresses they know require a delay before a transmit can
+> complete. But that approach can't adversely affect already-working
+> solutions for typical networks, or depart unnecessarily from
+> established standard protocols.
 
+There is no way to know when a hardware address is 'ready' in a IGMPv2
+sense.. The problem with IGMPv2 and any network that doesn't flood
+multicast to all nodes is that there is no way to know when all IGMPv2
+listeners are listening on the group you just created.
 
-Maybe only linux respects the RFC ? ;)
+For IGMPv2 there is a special hack in the IPoIB routers that cause
+them to automatically join the IP multicast groups as they are created
+so they can get the per-group IGMP messages, and this process takes
+time and is completely opaque to the end nodes.
 
+IB could emulate something like ethernet flooding by sending packets
+to the permanent 'broadcast' (all-IP-endpoints) multicast group - but
+it has no way to know when that is necessary and when it is not.
 
+Sending IGMPv2 packets to the group address that is being managed
+(rather than an IGMP specific group like in v3) is a design choice
+that probably only works well on ethernet :(
 
+Jason
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
