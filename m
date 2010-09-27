@@ -1,70 +1,69 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v3] xmit_compl_seq: information to reclaim vmsplice
- buffers
-Date: Mon, 27 Sep 2010 19:23:15 +0200
-Message-ID: <20100927172315.GA8387@redhat.com>
-References: <alpine.DEB.1.00.1009231426450.11579@pokey.mtv.corp.google.com>
+From: James Chapman <jchapman@katalix.com>
+Subject: Re: l2tpv3 support not yet in iproute2?
+Date: Mon, 27 Sep 2010 18:26:38 +0100
+Message-ID: <4CA0D3CE.7010208@katalix.com>
+References: <loom.20100927T170521-559@post.gmane.org> <1285604596.3017.80.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, sridharr@google.com
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jpo234 <pommnitz@yahoo.com>, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:12026 "EHLO mx1.redhat.com"
+Received: from katalix.com ([82.103.140.233]:57736 "EHLO mail.katalix.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757074Ab0I0R3Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Sep 2010 13:29:25 -0400
-Content-Disposition: inline
-In-Reply-To: <alpine.DEB.1.00.1009231426450.11579@pokey.mtv.corp.google.com>
+	id S1759781Ab0I0RfS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Sep 2010 13:35:18 -0400
+In-Reply-To: <1285604596.3017.80.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 23, 2010 at 02:35:16PM -0700, Tom Herbert wrote:
-> In this patch we propose to adds some socket API to retrieve the
->  "transmit completion sequence number", essentially a byte counter
-> for the number of bytes that have been transmitted and will not be
-> retransmitted.  In the case of TCP, this should correspond to snd_una.
-> 
-> The purpose of this API is to provide information to userspace about
-> which buffers can be reclaimed when sending with vmsplice() on a
-> socket.
-> 
-> There are two methods for retrieving the completed sequence number:
-> through a simple getsockopt (implemented here for TCP), as well as
-> returning the value in the ancilary data of a recvmsg.
-> 
-> The expected flow would be something like:
->    - Connect is created
->    - Initial completion seq # is retrieved through the sockopt, and is
->      stored in userspace "compl_seq" variable for the connection.
->    - Whenever a send is done, compl_seq += # bytes sent.
->    - When doing a vmsplice the completion sequence number is saved
->      for each user space buffer, buffer_compl_seq = compl_seq.
->    - When recvmsg returns with a completion sequence number in
->      ancillary data, any buffers cover by that sequence number
->      (where buffer_compl_seq < recvmsg_compl_seq) are reclaimed
->      and can be written to again.
->    - If no data is receieved on a connection (recvmsg does not
->      return), a timeout can be used to call the getsockopt and
->      reclaim buffers as a fallback.
-> 
-> Using recvmsg data in this manner is sort of a cheap way to get a
-> "callback" for when a vmspliced buffer is consumed.  It will work
-> well for a client where the response causes recvmsg to return.
-> On the server side it works well if there are a sufficient
-> number of requests coming on the connection (resorting to the
-> timeout if necessary as described above).
-> 
-> Signed-off-by: Tom Herbert <therbert@google.com>
-> Signed-off-by: Sridhar Raman <sridharr@google.com>
+On 27/09/2010 17:23, Eric Dumazet wrote:
+> Le lundi 27 septembre 2010 =E0 15:22 +0000, jpo234 a =E9crit :
+>> Hello all,
+>> some time ago James Chapman sent patches that add L2TPv3 support to =
+iproute2:
+>> http://kerneltrap.org/mailarchive/linux-netdev/2010/3/18/6272266/thr=
+ead
+>> While the kernel support arrived in 2.6.35 the user space configurat=
+ion support
+>> still seems to be missing:
+>> iproute2-2.6.35$ find . -type f -iname "*.c" | xargs fgrep -i l2tp
+>> doesn't find anything.
+>>
+>> Can somebody clarify the current situation?
 
-Can not packets referencing this memory
-still be outstanding at the NIC device, if retransmit happens
-before the ack but after the packet was passed to a device?
+Stephen Hemminger (maintainer of iproute2) rejected the patches because
+they would add a dependency of libnl to iproute2. iproute2 uses
+libnetlink, not libnl. Stephen's objections are reasonable.
 
-It's true that the reftransmit will likely get discarded
-by the remote end, but this might be a security issue
-if an application puts sensitive data in the buffer
-and that gets inadvertently sent on the wire, can it not?
+The l2tpv3 API uses generic-netlink (genl) which is handled by libnl
+APIs very well (and is the main reason why libnl was chosen in the firs=
+t
+place). To recode using libnetlink would require working with low level
+libnetlink helpers to build/parse genl messages at low level,
+effectively reimplementing some of what is already handled by libnl. I
+don't have motivation or time to do this, though I'm happy to support
+someone else doing so.
 
--- 
-MST
+As a quick solution, I posted a new utility, l2tpv3tun, which does the
+same as the iproute2 l2tpv3 patches in a standalone utility. l2tpv3tun
+is at ftp://ftp.openl2tp.org/releases/l2tpv3tun-0.1.tar.gz
+
+> Hmm, this reminds me l2tp locking is buggy and not yet fixed.
+>=20
+> http://kerneltrap.org/mailarchive/linux-netdev/2010/4/20/6275106
+>=20
+> James, any chance you could fix the locking ?
+
+This dropped off my radar. I'm too busy right now but I'll look at it a=
+s
+soon as I can, unless someone else beats me to it.
+
+
+--=20
+James Chapman
+Katalix Systems Ltd
+http://www.katalix.com
+Catalysts for your Embedded Linux software development
+
