@@ -1,44 +1,58 @@
-From: Ulrich Weber <uweber@astaro.com>
-Subject: Re: [RFC PATCH] dont create cached routes from ARP requests
-Date: Mon, 27 Sep 2010 15:11:47 +0200
-Message-ID: <4CA09813.6090707@astaro.com>
-References: <20100922162209.GA10281@babylon>	 <20100922.203442.233700254.davem@davemloft.net>	 <20100923144708.GA8037@babylon> <1285254302.2509.47.camel@edumazet-laptop>	 <4C9CBCFC.6080300@gmail.com> <1285342083.2503.252.camel@edumazet-laptop>	 <4C9CC608.7010401@astaro.com> <1285344352.2503.321.camel@edumazet-laptop>	 <4C9CD466.4010909@astaro.com> <1285347509.2503.357.camel@edumazet-laptop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH -next 2/4] ip_gre: percpu stats accounting
+Date: Mon, 27 Sep 2010 14:29:00 +0100
+Message-ID: <1285594140.2263.0.camel@achroite.uk.solarflarecom.com>
+References: <1285583707.23938.93.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exsmtpd002-2.dex002.intermedia.net ([64.78.19.134]:10315 "EHLO
-	EXSMTPD002-2.dex002.intermedia.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759301Ab0I0N1C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Sep 2010 09:27:02 -0400
-In-Reply-To: <1285347509.2503.357.camel@edumazet-laptop>
+Received: from exchange.solarflare.com ([216.237.3.220]:26731 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750745Ab0I0N3K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Sep 2010 09:29:10 -0400
+In-Reply-To: <1285583707.23938.93.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
+On Mon, 2010-09-27 at 12:35 +0200, Eric Dumazet wrote:
+> Maintain per_cpu tx_bytes, tx_packets, rx_bytes, rx_packets.
+> 
+> Other seldom used fields are kept in netdev->stats structure, possibly
+> unsafe.
+> 
+> This is a preliminary work to support lockless transmit path, and
+> correct RX stats, that are already unsafe.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> ---
+>  net/ipv4/ip_gre.c |  138 +++++++++++++++++++++++++++++++-------------
+>  1 file changed, 99 insertions(+), 39 deletions(-)
+> 
+> diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+> index 5d6ddcb..de39b22 100644
+> --- a/net/ipv4/ip_gre.c
+> +++ b/net/ipv4/ip_gre.c
+[...]
+> @@ -377,7 +405,7 @@ static struct ip_tunnel *ipgre_tunnel_locate(struct net *net,
+>  	if (parms->name[0])
+>  		strlcpy(name, parms->name, IFNAMSIZ);
+>  	else
+> -		sprintf(name, "gre%%d");
+> +		strcpy(name, "gre%d");
+>  
+>  	dev = alloc_netdev(sizeof(*t), name, ipgre_tunnel_setup);
+>  	if (!dev)
+[...]
 
-thanks for the correction! Searched through the log files and discovere=
-d
-that the initial "Neighbor overflow" message was caused by an IPv6 ping
-scan from the Internet.
+This is a valid fix, but doesn't belong in this patch!
 
-rt_garbage_collect() is called from dst_alloc and rt_intern_hash. In an=
-y
-case no routes will be freed if the total entries are smaller than
-ipv4.route.gc_thresh.
+Ben.
 
-neigh.default.gc_thresh is static while ipv4.route.gc_thresh is based o=
-n
-system memory. Wouldn't it make sense to set neigh.default.gc_thresh
-based on system memory too?
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
-Cheers
- Ulrich
-
---=20
-Ulrich Weber | uweber@astaro.com | Software Engineer
-Astaro GmbH & Co. KG | www.astaro.com | Phone +49-721-25516-0 | Fax =E2=
-=80=93200
-An der RaumFabrik 33a | 76227 Karlsruhe | Germany
