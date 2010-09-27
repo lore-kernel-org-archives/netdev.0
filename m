@@ -1,74 +1,36 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 16603] New: send of data > 4 GB fails on 64
- bit systems
-Date: Mon, 27 Sep 2010 16:15:40 -0700
-Message-ID: <20100927161540.776f748e.akpm@linux-foundation.org>
-References: <bug-16603-10286@https.bugzilla.kernel.org/>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: TCP: orphans broken by RFC 2525 #2.17
+Date: Tue, 28 Sep 2010 08:28:57 +0900
+Message-ID: <20100927232857.GA23803@gondor.apana.org.au>
+References: <20100927192112.GT12373@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, bono@onlinehome.de
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Willy Tarreau <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:44169 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756413Ab0I0XQj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Sep 2010 19:16:39 -0400
-In-Reply-To: <bug-16603-10286@https.bugzilla.kernel.org/>
+Received: from helcar.apana.org.au ([209.40.204.226]:39813 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755652Ab0I0X3E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Sep 2010 19:29:04 -0400
+Content-Disposition: inline
+In-Reply-To: <20100927192112.GT12373@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Willy Tarreau <w@1wt.eu> wrote:
+> 
+> Two quick facts :
+>  - HTTP allows the client to send whatever it wants whenever it wants
+>    and allows the server to close after whatever response it wants.
+>    Thus the server cannot predict that the client will talk.
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
+No it does not.  Only buggy HTTP clients do that.  Also, have
+you ever observed any buggy HTTP client that sends more than
+one CRLF? If not then you only have to deal with the case of
+a single extra CRLF.
 
-On Mon, 16 Aug 2010 10:01:09 GMT
-bugzilla-daemon@bugzilla.kernel.org wrote:
-
-> https://bugzilla.kernel.org/show_bug.cgi?id=16603
-> 
->            Summary: send of data > 4 GB fails on 64 bit systems
->            Product: Networking
->            Version: 2.5
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: IPV4
->         AssignedTo: shemminger@linux-foundation.org
->         ReportedBy: bono@onlinehome.de
->         Regression: No
-> 
-> 
-> Sending of data using linux function send fails if size is too large. glibc
-> function is:
-> 
-> ssize_t send(int sockfd, const void *buf, size_t len, int flags);
-> 
-> Type of len is size_t, argument is stored in a kernel structure msgheader which
-> contains an iovec. This iovec contains a size_t (64bit) length field, but in
-> the linux kernel in function tcp_sendmsg the following lines
-> 
->        while (--iovlen >= 0) {
->                 int seglen = iov->iov_len;
->                 unsigned char __user *from = iov->iov_base;
-> 
-> 
-> convert the len to int (32 bit).
-> 
-> Thus sending of 5 GB of data results in 1 GB sent (no problem), but sending of
-> 4 GB results in 0 bytes sent.
-> 
-> Workaround in userspace is easy (e.g. instead of len use len < 0x8000000 ? len
-> : 0x7fffffff) but the kernel should handle this correctly.
-> 
-
-whoops.
-
-Yes, I think seglen should be size_t.  Do you know if making that
-change fixes the bug?
-
-
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
