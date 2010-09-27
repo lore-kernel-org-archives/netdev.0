@@ -1,40 +1,56 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH v3] xmit_compl_seq: information to reclaim vmsplice buffers
-Date: Mon, 27 Sep 2010 14:49:27 -0700
-Message-ID: <AANLkTikmpfsBMRu2DPWKoR9pmQ9R-1MmxaZgoyB6y7Zi@mail.gmail.com>
-References: <alpine.DEB.1.00.1009231426450.11579@pokey.mtv.corp.google.com>
-	<20100927172315.GA8387@redhat.com>
-	<AANLkTimdrFuYONq6FvBW41AnhpA6Q+acSUmy4CiJatYL@mail.gmail.com>
-	<1285614757.2512.6.camel@edumazet-laptop>
+From: David Stevens <dlstevens-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
+Subject: Re:
+Date: Mon, 27 Sep 2010 14:50:01 -0700
+Message-ID: <OF980F8B87.D755A28E-ON882577AB.00779881-882577AB.0077F27A@us.ibm.com>
+References: <20100927200500.GB25879@obsidianresearch.com> <OF056C7E7C.A9A5EFC7-ON882577AB.006E6B89-882577AB.006F2C1E@us.ibm.com> <alpine.DEB.2.00.1009271521510.14117@router.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, sridharr@google.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.35]:47009 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755887Ab0I0Vtb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Sep 2010 17:49:31 -0400
-Received: from hpaq2.eem.corp.google.com (hpaq2.eem.corp.google.com [172.25.149.2])
-	by smtp-out.google.com with ESMTP id o8RLnTVd003159
-	for <netdev@vger.kernel.org>; Mon, 27 Sep 2010 14:49:29 -0700
-Received: from pvb32 (pvb32.prod.google.com [10.241.209.96])
-	by hpaq2.eem.corp.google.com with ESMTP id o8RLmuk6016490
-	for <netdev@vger.kernel.org>; Mon, 27 Sep 2010 14:49:28 -0700
-Received: by pvb32 with SMTP id 32so2323359pvb.15
-        for <netdev@vger.kernel.org>; Mon, 27 Sep 2010 14:49:27 -0700 (PDT)
-In-Reply-To: <1285614757.2512.6.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bob Arendt <rda-x0S3BwdUo6DQT0dZR+AlfA@public.gmane.org>
+To: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <alpine.DEB.2.00.1009271521510.14117-sBS69tsa9Uj/9pzu0YdTqQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> Alternative would be to copy data on retransmits, for tcp sockets using
-> SOCK_XMIT_COMPL_SEQ. (ie not using skb_clone but skb_copy())
->
+Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org> wrote on 09/27/2010 01:23:00 PM:
 
-That's coming awfully close to COW! ;-)
+> From: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
+> To: David Stevens/Beaverton/IBM@IBMUS
+> Cc: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>, linux-
+> rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-
+> owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bob Arendt <rda-x0S3BwdUo6DQT0dZR+AlfA@public.gmane.org>
+> Date: 09/27/2010 01:23 PM
+> Subject: Re:
+> 
+> On Mon, 27 Sep 2010, David Stevens wrote:
+> 
+> >         Because a querier can set the robustness value and
+> > query interval to anything you want. In the original report,
+> > he's not running a querier. The fact that it's a new group
+> > doesn't matter -- these are per-interface.
+> 
+> The per interface settings are used to force an IGMP version overriding
+> any information by the queriers.
 
->
->
->
->
+        No. I'm not talking about the force_igmp_tunable here, I'm talking
+about the per-interface robustness and interval settings which come from
+the querier (whatever version you are using).
+
+> You would not want to enable that because
+> it disables support for other IGMP versions. Without the override
+> different version of IGMP can be handled per MC group.
+
+        No. IGMPv3 includes backward compatibility for both IGMPv2 and
+IGMPv1. If queries for an earlier version are present, that is the
+IGMP version all use, and the features of the later version are not
+available to anyone.
+
+                                                                +-DLS
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
