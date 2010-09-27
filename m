@@ -1,103 +1,56 @@
-From: Ohad Ben-Cohen <ohad@wizery.com>
-Subject: Re: linux-next: build failure after merge of the final tree (net tree related)
-Date: Mon, 27 Sep 2010 21:06:09 +0200
-Message-ID: <AANLkTim9nHmhNLmECnYk-OHYmyk96tz65kd=ybz24M3Y@mail.gmail.com>
-References: <20100927154408.55a28127.sfr@canb.auug.org.au> <AANLkTinHk82jM7Ztwb1aB1xb-hSLeg5Hb07mhYCaeszi@mail.gmail.com>
- <20100927180412.GD11086@tuxdriver.com> <20100927.111818.149846920.davem@davemloft.net>
- <20100927182546.GE11086@tuxdriver.com> <AANLkTi=YHhRWFix1QDuEnRW7r_UaNtp6KSL9uLdUzdqM@mail.gmail.com>
- <20100927184445.GF11086@tuxdriver.com> <AANLkTi=2KqQb+gvuigxb+-tSzawx7=q3HtnkkE6t_4XF@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3] xmit_compl_seq: information to reclaim vmsplice
+ buffers
+Date: Mon, 27 Sep 2010 21:12:37 +0200
+Message-ID: <1285614757.2512.6.camel@edumazet-laptop>
+References: <alpine.DEB.1.00.1009231426450.11579@pokey.mtv.corp.google.com>
+	 <20100927172315.GA8387@redhat.com>
+	 <AANLkTimdrFuYONq6FvBW41AnhpA6Q+acSUmy4CiJatYL@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, sfr@canb.auug.org.au,
-	netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTi=2KqQb+gvuigxb+-tSzawx7=q3HtnkkE6t_4XF@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, sridharr@google.com
+To: Tom Herbert <therbert@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:59834 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757175Ab0I0TMu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Sep 2010 15:12:50 -0400
+Received: by wyb28 with SMTP id 28so4206040wyb.19
+        for <netdev@vger.kernel.org>; Mon, 27 Sep 2010 12:12:48 -0700 (PDT)
+In-Reply-To: <AANLkTimdrFuYONq6FvBW41AnhpA6Q+acSUmy4CiJatYL@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 27, 2010 at 9:01 PM, Ohad Ben-Cohen <ohad@wizery.com> wrote=
-:
-> On Mon, Sep 27, 2010 at 8:44 PM, John W. Linville
-> <linville@tuxdriver.com> wrote:
->> On Mon, Sep 27, 2010 at 08:38:50PM +0200, Ohad Ben-Cohen wrote:
->>> On Mon, Sep 27, 2010 at 8:25 PM, John W. Linville
->>> <linville@tuxdriver.com> wrote:
->>> >> BTW, if this fuglet going to work if the driver is built modular=
-?
->>> >>
->>> >> The idea of this things seems to be to allow arch platform code =
-to call
->>> >> into it to set things. =A0Such calls from arch platform code are=
- going
->>> >> to be "obj-y"
->>> >>
->>> >> So if this is built into the modular driver, I can't see how it
->>> >> can work.
->>> >
->>> > Dave is right -- these Kconfig dependencies (or lack thereof) see=
-m
->>> > to be wrong.
->>>
->>> This is why I had to put it in drivers/net/wireless/Makefile (in bo=
-th
->>> the original patch and in the fix I sent earlier) and not in
->>> drivers/net/wireless/wl12xx/Makefile (as it was in the fix that Dav=
-e
->>> was referring to).
->>>
->>> This way it works with a modular driver.
->>
->> That doesn't seem very helpful if someone selects
->>
->> CONFIG_MACH_OMAP_ZOOM2=3Dy
->> CONFIG_WL12XX_PLATFORM_DATA=3Dn
+Le lundi 27 septembre 2010 =C3=A0 11:38 -0700, Tom Herbert a =C3=A9crit=
+ :
+> >
+> > Can not packets referencing this memory
+> > still be outstanding at the NIC device, if retransmit happens
+> > before the ack but after the packet was passed to a device?
+> >
+> > It's true that the reftransmit will likely get discarded
+> > by the remote end, but this might be a security issue
+> > if an application puts sensitive data in the buffer
+> > and that gets inadvertently sent on the wire, can it not?
+> >
+> Yes, this hole probably does exist.  I don't know how to fix it other
+> than more API that specifically reports when all references to a
+> buffer are released.  In the case of TCP that probably means we'd nee=
+d
+> a destructor.
+
+Hmm, thats a serious problem IMHO. This would need destructor on data,
+not on skb (see previous discussion about early skb_orphan and
+af_packet)
+
+Then, it needs to handle an ordered list of packets in flight, to be
+able to return the sequence of the first packet.
+
+Alternative would be to copy data on retransmits, for tcp sockets using
+SOCK_XMIT_COMPL_SEQ. (ie not using skb_clone but skb_copy())
 
 
-That's a good point (it's a separate issue); we need to have a select t=
-here.
 
-I'll send a patch.
 
->>
->
-> CONFIG_WL12XX_PLATFORM_DATA is selected automatically if the relevant
-> driver is selected (this is independent of the underlying arch/board)=
-:
->
-> config WL12XX_PLATFORM_DATA
-> =A0 =A0 =A0 =A0bool
-> =A0 =A0 =A0 =A0depends on WL1271_SDIO !=3D n
-> =A0 =A0 =A0 =A0default y
->
-> All we have to make sure is that it will be compiled built-in. If we
-> use drivers/net/wireless/wl12xx/Makefile, and we build a modular
-> wl1271_sdio, it won't (despite it being selected as y).
->
-> That's why I put it in drivers/net/wireless/Makefile.
->
-> In the original patch I put the code itself in
-> drivers/net/wireless/wl12xx to make it look nicer, but as Stephen
-> reported that seem to break building with a separate object folder...
->
-> So the fix I sent just moves that builtin code to
-> drivers/net/wireless. This maintains the builtin property even if the
-> driver is modular, and fixes the issue reported by Stephen.
->
-> Please tell me if you have any thoughts/suggestions.
->
-> Thanks,
-> Ohad.
->
->> or am I missing something?
->>
->> John
->> --
->> John W. Linville =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Someday the world wi=
-ll need a hero, and you
->> linville@tuxdriver.com =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0might be a=
-ll we have. =A0Be ready.
->>
->
