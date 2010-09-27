@@ -1,40 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] de2104x: fix ethtool
-Date: Mon, 27 Sep 2010 15:40:41 -0700 (PDT)
-Message-ID: <20100927.154041.137841283.davem@davemloft.net>
-References: <201009272341.50668.linux@rainbow-software.org>
-	<4CA11546.8@pobox.com>
+Subject: Re: [PATCH] net/9p: Mount only matching virtio channels
+Date: Mon, 27 Sep 2010 15:54:14 -0700 (PDT)
+Message-ID: <20100927.155414.43043854.davem@davemloft.net>
+References: <1285514893-11233-1-git-send-email-sven.eckelmann@gmx.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux@rainbow-software.org, netdev@vger.kernel.org,
+Cc: ericvh@gmail.com, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: jgarzik@pobox.com
+To: sven.eckelmann@gmx.de
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4CA11546.8@pobox.com>
+In-Reply-To: <1285514893-11233-1-git-send-email-sven.eckelmann@gmx.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jeff Garzik <jgarzik@pobox.com>
-Date: Mon, 27 Sep 2010 18:05:58 -0400
+From: Sven Eckelmann <sven.eckelmann@gmx.de>
+Date: Sun, 26 Sep 2010 17:28:13 +0200
 
-> On 09/27/2010 05:41 PM, Ondrej Zary wrote:
->> When the interface is up, using ethtool breaks it because:
->> a) link is put down but media_timer interval is not shortened to
->> NO_LINK
->> b) rxtx is stopped but not restarted
->>
->> Also manual 10baseT-HD (and probably FD too - untested) mode does not
->> work -
->> the link is forced up, packets are transmitted but nothing is
->> received.
->> Changing CSR14 value to match documentation (not disabling link check)
->> fixes this.
->>
->> Signed-off-by: Ondrej Zary<linux@rainbow-software.org>
+> p9_virtio_create will only compare the the channel's tag characters
+> against the device name till the end of the channel's tag but not till
+> the end of the device name. This means that if a user defines channels
+> with the tags foo and foobar then he would mount foo when he requested
+> foonot and may mount foo when he requested foobar.
 > 
-> Acked-by: Jeff Garzik <jgarzik@redhat.com>
+> Thus it is necessary to check both string lengths against each other in
+> case of a successful partial string match.
 > 
-> Good catch on the missing de_start_rxtx()
+> Signed-off-by: Sven Eckelmann <sven.eckelmann@gmx.de>
 
-Applied, thanks everyone.
+I'll apply this, but this code would be so much simpler and this bug
+would have never happened if these tags were NULL terminated when they
+were pulled in from virtio.
