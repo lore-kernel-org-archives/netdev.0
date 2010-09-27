@@ -1,90 +1,93 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH] mm: do not print backtraces on GFP_ATOMIC failures
-Date: Mon, 27 Sep 2010 11:49:11 -0700
-Message-ID: <20100927114911.bc95ac87.akpm@linux-foundation.org>
-References: <20100921094638.9910add0.akpm@linux-foundation.org>
-	<1285088427.2617.723.camel@edumazet-laptop>
-	<20100927110723.6B37.A69D9226@jp.fujitsu.com>
+From: Ohad Ben-Cohen <ohad@wizery.com>
+Subject: Re: linux-next: build failure after merge of the final tree (net tree related)
+Date: Mon, 27 Sep 2010 21:01:08 +0200
+Message-ID: <AANLkTi=2KqQb+gvuigxb+-tSzawx7=q3HtnkkE6t_4XF@mail.gmail.com>
+References: <20100927154408.55a28127.sfr@canb.auug.org.au> <AANLkTinHk82jM7Ztwb1aB1xb-hSLeg5Hb07mhYCaeszi@mail.gmail.com>
+ <20100927180412.GD11086@tuxdriver.com> <20100927.111818.149846920.davem@davemloft.net>
+ <20100927182546.GE11086@tuxdriver.com> <AANLkTi=YHhRWFix1QDuEnRW7r_UaNtp6KSL9uLdUzdqM@mail.gmail.com>
+ <20100927184445.GF11086@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, Rik van Riel <riel@redhat.com>,
-        linux-mm@kvack.org, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org
-To: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20100927110723.6B37.A69D9226@jp.fujitsu.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, sfr@canb.auug.org.au,
+	netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "John W. Linville" <linville@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:33542 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933403Ab0I0TB3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Sep 2010 15:01:29 -0400
+In-Reply-To: <20100927184445.GF11086@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 27 Sep 2010 11:17:19 +0900 (JST)
-KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com> wrote:
+On Mon, Sep 27, 2010 at 8:44 PM, John W. Linville
+<linville@tuxdriver.com> wrote:
+> On Mon, Sep 27, 2010 at 08:38:50PM +0200, Ohad Ben-Cohen wrote:
+>> On Mon, Sep 27, 2010 at 8:25 PM, John W. Linville
+>> <linville@tuxdriver.com> wrote:
+>> >> BTW, if this fuglet going to work if the driver is built modular?
+>> >>
+>> >> The idea of this things seems to be to allow arch platform code t=
+o call
+>> >> into it to set things. =A0Such calls from arch platform code are =
+going
+>> >> to be "obj-y"
+>> >>
+>> >> So if this is built into the modular driver, I can't see how it
+>> >> can work.
+>> >
+>> > Dave is right -- these Kconfig dependencies (or lack thereof) seem
+>> > to be wrong.
+>>
+>> This is why I had to put it in drivers/net/wireless/Makefile (in bot=
+h
+>> the original patch and in the fix I sent earlier) and not in
+>> drivers/net/wireless/wl12xx/Makefile (as it was in the fix that Dave
+>> was referring to).
+>>
+>> This way it works with a modular driver.
+>
+> That doesn't seem very helpful if someone selects
+>
+> CONFIG_MACH_OMAP_ZOOM2=3Dy
+> CONFIG_WL12XX_PLATFORM_DATA=3Dn
+>
 
-> > > > @@ -72,7 +72,7 @@ struct vm_area_struct;
-> > > >  /* This equals 0, but use constants in case they ever change */
-> > > >  #define GFP_NOWAIT	(GFP_ATOMIC & ~__GFP_HIGH)
-> > > >  /* GFP_ATOMIC means both !wait (__GFP_WAIT not set) and use emergency pool */
-> > > > -#define GFP_ATOMIC	(__GFP_HIGH)
-> > > > +#define GFP_ATOMIC	(__GFP_HIGH | __GFP_NOWARN)
-> > > >  #define GFP_NOIO	(__GFP_WAIT)
-> > > >  #define GFP_NOFS	(__GFP_WAIT | __GFP_IO)
-> > > >  #define GFP_KERNEL	(__GFP_WAIT | __GFP_IO | __GFP_FS)
-> > > 
-> > > A much finer-tuned implementation would be to add __GFP_NOWARN just to
-> > > the networking call sites.  I asked about this in June and it got
-> > > nixed:
-> > > 
-> > > http://www.spinics.net/lists/netdev/msg131965.html
-> > > --
-> > 
-> > Yes, I remember this particular report was useful to find and correct a
-> > bug.
-> > 
-> > I dont know what to say.
-> > 
-> > Being silent or verbose, it really depends on the context ?
-> 
-> At least, MM developers don't want to track network allocation failure
-> issue. We don't have enough knowledge in this area. To be honest, We 
-> are unhappy current bad S/N bug report rate ;)
-> 
-> Traditionally, We hoped this warnings help to debug VM issue.
+CONFIG_WL12XX_PLATFORM_DATA is selected automatically if the relevant
+driver is selected (this is independent of the underlying arch/board):
 
-Well, no, not really.  I thought that the main reason for having that
-warning was to debug _callers_ of the memory allocator.
+config WL12XX_PLATFORM_DATA
+        bool
+        depends on WL1271_SDIO !=3D n
+        default y
 
-Firstly it tells us when callsites are being too optimistic: asking for
-large amounts of contiguous pages, sometimes from atomic context. 
-Quite a number of such callsites have been fixed as a result.
+All we have to make sure is that it will be compiled built-in. If we
+use drivers/net/wireless/wl12xx/Makefile, and we build a modular
+wl1271_sdio, it won't (despite it being selected as y).
 
-Secondly, memory allocation failures are a rare event, so the calling
-code's error paths are not well tested.  This warning turns the bug
-report "hey, my computer locked up" into the much better "hey, I got
-this error message and then my computer locked up".  This allows us to
-go and look at the offending code and see if it is handling ENOMEM
-correctly.  However I don't recall this scenario ever having actually
-happened.
+That's why I put it in drivers/net/wireless/Makefile.
 
-> but
-> It haven't happen. We haven't detect VM issue from this allocation
-> failure report. Instead, We've received a lot of network allocation
-> failure report.
-> 
-> Recently, The S/N ratio became more bad. If the network device enable
-> jumbo frame feature, order-2 GFP_ATOMIC allocation is called frequently.
-> Anybody don't have to assume order-2 allocation can success anytime.
-> 
-> I'm not against accurate warning at all. but I cant tolerate this
-> semi-random warning steal our time. If anyone will not make accurate
-> warning, I hope to remove this one completely instead.
+In the original patch I put the code itself in
+drivers/net/wireless/wl12xx to make it look nicer, but as Stephen
+reported that seem to break building with a separate object folder...
 
-We can disable the warning for only net drivers quite easily.  I don't
-have any strong opinions, really - yes, we get quite a few such bug
-reports but most of them end up in my lap anyway and it can't be more
-than one per week, shrug.
+So the fix I sent just moves that builtin code to
+drivers/net/wireless. This maintains the builtin property even if the
+driver is modular, and fixes the issue reported by Stephen.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Please tell me if you have any thoughts/suggestions.
+
+Thanks,
+Ohad.
+
+> or am I missing something?
+>
+> John
+> --
+> John W. Linville =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Someday the world wil=
+l need a hero, and you
+> linville@tuxdriver.com =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0might be al=
+l we have. =A0Be ready.
+>
