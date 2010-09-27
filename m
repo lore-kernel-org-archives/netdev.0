@@ -1,34 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/9] sgiseeq: use free_netdev(netdev) instead of kfree()
-Date: Sun, 26 Sep 2010 18:55:29 -0700 (PDT)
-Message-ID: <20100926.185529.200365761.davem@davemloft.net>
-References: <1285495086-21956-1-git-send-email-segooon@gmail.com>
+Subject: Re: [PATCH net-next-2.6] rps: allocate rx queues in
+ register_netdevice only
+Date: Sun, 26 Sep 2010 19:05:09 -0700 (PDT)
+Message-ID: <20100926.190509.258105871.davem@davemloft.net>
+References: <1285273194.7794.24.camel@achroite.uk.solarflarecom.com>
+	<1285296505.2380.43.camel@edumazet-laptop>
+	<1285298795.2380.54.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@vger.kernel.org, eric.dumazet@gmail.com,
-	u.kleine-koenig@pengutronix.de, julia@diku.dk, tj@kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: segooon@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1285495086-21956-1-git-send-email-segooon@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: bhutchings@solarflare.com, netdev@vger.kernel.org,
+	linux-net-drivers@solarflare.com, therbert@google.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57232
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757773Ab0I0CEt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Sep 2010 22:04:49 -0400
+In-Reply-To: <1285298795.2380.54.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vasiliy Kulikov <segooon@gmail.com>
-Date: Sun, 26 Sep 2010 13:58:06 +0400
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 24 Sep 2010 05:26:35 +0200
 
-> Freeing netdev without free_netdev() leads to net, tx leaks.
-> I might lead to dereferencing freed pointer.
+> [PATCH net-next-2.6] rps: allocate rx queues in register_netdevice()
 > 
-> The semantic match that finds this problem is as follows:
-> (http://coccinelle.lip6.fr/)
+> Instead of having two places were we allocate dev->_rx, introduce
+> netif_alloc_rx_queues() helper and call it only from
+> register_netdevice(), not from alloc_netdev_mq()
 > 
-> @@
-> struct net_device* dev;
-> @@
+> Goal is to let drivers change dev->num_rx_queues after allocating netdev
+> and before registering it.
 > 
-> -kfree(dev)
-> +free_netdev(dev)
+> This also removes a lot of ifdefs in net/core/dev.c
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Applied.
+Applied, thanks Eric.
+
+Please cook up a patch that adds a check to make sure that
+alloc_netdev_mq() is never called with number of queues < 1
+
+Thanks again!
+
