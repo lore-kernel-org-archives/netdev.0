@@ -1,60 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] fib: use atomic_inc_not_zero() in
- fib_rules_lookup
-Date: Mon, 27 Sep 2010 16:18:27 +0200
-Message-ID: <1285597107.23938.250.camel@edumazet-laptop>
+From: jpo234 <pommnitz@yahoo.com>
+Subject: l2tpv3 support not yet in iproute2?
+Date: Mon, 27 Sep 2010 15:22:38 +0000 (UTC)
+Message-ID: <loom.20100927T170521-559@post.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:55446 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756026Ab0I0OSd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Sep 2010 10:18:33 -0400
-Received: by fxm3 with SMTP id 3so1830421fxm.19
-        for <netdev@vger.kernel.org>; Mon, 27 Sep 2010 07:18:32 -0700 (PDT)
+Received: from lo.gmane.org ([80.91.229.12]:57105 "EHLO lo.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759697Ab0I0PpQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Sep 2010 11:45:16 -0400
+Received: from list by lo.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1P0FtD-0003mp-Jl
+	for netdev@vger.kernel.org; Mon, 27 Sep 2010 17:45:15 +0200
+Received: from proxyext.iabg.de ([proxyext.iabg.de])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 27 Sep 2010 17:45:15 +0200
+Received: from pommnitz by proxyext.iabg.de with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 27 Sep 2010 17:45:15 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It seems we dont use appropriate refcount increment in an
-rcu_read_lock() protected section.
+Hello all,
+some time ago James Chapman sent patches that add L2TPv3 support to iproute2:
+http://kerneltrap.org/mailarchive/linux-netdev/2010/3/18/6272266/thread
+While the kernel support arrived in 2.6.35 the user space configuration support
+still seems to be missing:
+iproute2-2.6.35$ find . -type f -iname "*.c" | xargs fgrep -i l2tp
+doesn't find anything.
 
-fib_rule_get() might increment a null refcount and bad things could
-happen.
+Can somebody clarify the current situation?
 
-While fib_nl_delrule() respects an rcu grace period before calling
-fib_rule_put(), fib_rules_cleanup_ops() calls fib_rule_put() without a
-grace period.
-
-Note : after this patch, we might avoid the synchronize_rcu() call done
-in fib_nl_delrule()
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/core/fib_rules.c |    8 +++++---
- 1 files changed, 5 insertions(+), 3 deletions(-)
-
-diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
-index 42e84e0..910eac3 100644
---- a/net/core/fib_rules.c
-+++ b/net/core/fib_rules.c
-@@ -225,9 +225,11 @@ jumped:
- 			err = ops->action(rule, fl, flags, arg);
- 
- 		if (err != -EAGAIN) {
--			fib_rule_get(rule);
--			arg->rule = rule;
--			goto out;
-+			if (likely(atomic_inc_not_zero(&rule->refcnt))) {
-+				arg->rule = rule;
-+				goto out;
-+			}
-+			break;
- 		}
- 	}
- 
-
+Thanks in advance
+  Joerg
 
