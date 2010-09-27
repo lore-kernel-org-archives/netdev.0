@@ -1,56 +1,32 @@
-From: David Stevens <dlstevens-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
-Subject: Re:
-Date: Mon, 27 Sep 2010 14:50:01 -0700
-Message-ID: <OF980F8B87.D755A28E-ON882577AB.00779881-882577AB.0077F27A@us.ibm.com>
-References: <20100927200500.GB25879@obsidianresearch.com> <OF056C7E7C.A9A5EFC7-ON882577AB.006E6B89-882577AB.006F2C1E@us.ibm.com> <alpine.DEB.2.00.1009271521510.14117@router.home>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] fix TSO FACK loss marking in tcp_mark_head_lost
+Date: Mon, 27 Sep 2010 14:56:41 -0700 (PDT)
+Message-ID: <20100927.145641.55868180.davem@davemloft.net>
+References: <alpine.DEB.2.00.1009271520560.26447@wel-95.cs.helsinki.fi>
+	<20100927.111114.124003889.davem@davemloft.net>
+	<alpine.DEB.2.00.1009272155030.15680@melkinpaasi.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bob Arendt <rda-x0S3BwdUo6DQT0dZR+AlfA@public.gmane.org>
-To: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <alpine.DEB.2.00.1009271521510.14117-sBS69tsa9Uj/9pzu0YdTqQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: ycheng@google.com, netdev@vger.kernel.org
+To: ilpo.jarvinen@helsinki.fi
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60705
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759288Ab0I0V4V convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Sep 2010 17:56:21 -0400
+In-Reply-To: <alpine.DEB.2.00.1009272155030.15680@melkinpaasi.cs.helsinki.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org> wrote on 09/27/2010 01:23:00 PM:
+=46rom: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Mon, 27 Sep 2010 22:20:57 +0300 (EEST)
 
-> From: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
-> To: David Stevens/Beaverton/IBM@IBMUS
-> Cc: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>, linux-
-> rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-
-> owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bob Arendt <rda-x0S3BwdUo6DQT0dZR+AlfA@public.gmane.org>
-> Date: 09/27/2010 01:23 PM
-> Subject: Re:
-> 
-> On Mon, 27 Sep 2010, David Stevens wrote:
-> 
-> >         Because a querier can set the robustness value and
-> > query interval to anything you want. In the original report,
-> > he's not running a querier. The fact that it's a new group
-> > doesn't matter -- these are per-interface.
-> 
-> The per interface settings are used to force an IGMP version overriding
-> any information by the queriers.
+> I disagree now with myself btw, it's not just "a policy decision" as =
+we=20
+> do not retransmit some segments at all before RTO in some scenarios.
 
-        No. I'm not talking about the force_igmp_tunable here, I'm talking
-about the per-interface robustness and interval settings which come from
-the querier (whatever version you are using).
+Ok, thanks for explaining all of this.
 
-> You would not want to enable that because
-> it disables support for other IGMP versions. Without the override
-> different version of IGMP can be handled per MC group.
-
-        No. IGMPv3 includes backward compatibility for both IGMPv2 and
-IGMPv1. If queries for an earlier version are present, that is the
-IGMP version all use, and the features of the later version are not
-available to anyone.
-
-                                                                +-DLS
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I've applied Yuchung's patch to net-2.6, thanks everyone!
