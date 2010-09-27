@@ -1,59 +1,80 @@
-From: Willy Tarreau <w@1wt.eu>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: TCP: orphans broken by RFC 2525 #2.17
-Date: Mon, 27 Sep 2010 22:00:18 +0200
-Message-ID: <20100927200018.GY12373@1wt.eu>
-References: <20100926131717.GA13046@1wt.eu> <20100927080222.GA31309@gondor.apana.org.au>
+Date: Mon, 27 Sep 2010 22:00:53 +0200
+Message-ID: <1285617653.2512.67.camel@edumazet-laptop>
+References: <20100926232530.GK12373@1wt.eu>
+	 <20100926.181202.28824153.davem@davemloft.net>
+	 <20100927053901.GL12373@1wt.eu>
+	 <20100926.234202.241938788.davem@davemloft.net>
+	 <20100927073443.GR12373@1wt.eu>
+	 <alpine.LFD.2.00.1009271159070.2191@u.domain.uli>
+	 <20100927192450.GU12373@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.hengli.com.au>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Julian Anastasov <ja@ssi.bg>, netdev@vger.kernel.org
+To: Willy Tarreau <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:45732 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755947Ab0I0UAZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Sep 2010 16:00:25 -0400
-Content-Disposition: inline
-In-Reply-To: <20100927080222.GA31309@gondor.apana.org.au>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:65067 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760139Ab0I0UBF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Sep 2010 16:01:05 -0400
+Received: by wyb28 with SMTP id 28so4256152wyb.19
+        for <netdev@vger.kernel.org>; Mon, 27 Sep 2010 13:01:04 -0700 (PDT)
+In-Reply-To: <20100927192450.GU12373@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Herbert,
+Le lundi 27 septembre 2010 =C3=A0 21:24 +0200, Willy Tarreau a =C3=A9cr=
+it :
+> Hi Julian
+>=20
+> [removed Davem from the CC upon his request, not to pollute him]
+>=20
+> On Mon, Sep 27, 2010 at 12:12:24PM +0300, Julian Anastasov wrote:
+> > 	If it is not already mentioned, the application can
+> > know if sent data is acked. I think, ioctl SIOCOUTQ is for
+> > this purpose. May be the application that wants to send
+> > reliably HTTP error response before closing should do something
+> > like:
+> >=20
+> > - add this FD in some list for monitoring instead of keeping
+> > large connection state
+> > - use shutdown SHUT_WR to add FIN after response
+> > - use setsockopt SO_RCVBUF with some low value to close the
+> > RX window, we do not want the body
+> > - wait for POLLHUP (FIN), not for POLLIN because we want to
+> > ignore data, not to read it. Still, data can be read and
+> > dropped if needed to release the socket memory
+> > - use timer to limit the time we wait our data to be acked
+> > - use SIOCOUTQ to know if everything is received in peer and
+> > then close the fd
+>=20
+> Thanks very much for this suggestion. I was looking for something
+> like this and even looked at the tcp_info struct, but it did not
+> look very easy to use.
+>=20
+> Still, I think that polling on POLLIN and checking with SIOCOUTQ
+> on every read to see if the out queue is now empty would do the
+> trick, without forcing to read huge amounts of unnecessary data.
+>=20
+> I'll simply enclose that inside a #ifdef LINUX and that should be
+> OK. It kinda sucks to be able to workaround low level issues at the
+> application level but at least this workaround is acceptable.
 
-On Mon, Sep 27, 2010 at 04:02:22PM +0800, Herbert Xu wrote:
-> Willy Tarreau <w@1wt.eu> wrote:
-> >
-> > Looking more closely, I noticed that in traces showing the issue,
-> > the client was sending an additional CRLF after the data in a
-> > separate packet (permitted eventhough not recommended).
-> 
-> Where is this permitted? RFC2616 says:
-> 
-> 	Certain buggy HTTP/1.0 client implementations generate
-> 	extra CRLF's after a POST request. To restate what is
-> 	explicitly forbidden by the BNF, an HTTP/1.1 client MUST
-> 	NOT preface or follow a request with an extra CRLF. 
+Just a point :
 
-And the paragraph just before says :
+RFC1122 :
 
-   In the interest of robustness, servers SHOULD ignore any empty
-   line(s) received where a Request-Line is expected. In other words, if
-   the server is reading the protocol stream at the beginning of a
-   message and receives a CRLF first, it should ignore the CRLF.
+	A host MAY implement a "half-duplex" TCP close sequence, so
+        that an application that has called CLOSE cannot continue to
+        read data from the connection.  If such a host issues a
+        CLOSE call while received data is still pending in TCP, or
+        if new data is received after CLOSE is called, its TCP
+        SHOULD send a RST to show that data was lost.
 
-That's the usual principle : be strict with what you send and be liberal
-with what you accept. Also, clients are encouraged to pipeline requests
-over a connection and may very legally send a new request before the
-current response is completely received.
 
-> This workaround for broken HTTP clients definitely does not belong
-> in the TCP stack.
+Maybe only linux respects the RFC ? ;)
 
-I'm not trying to workaround broken HTTP clients using the TCP stack,
-that's contrary to my principles. I want to ensure that the orphans code
-that should legitimately be used can be used. And if orphans work again
-as advertised, then the HTTP issue that revealed the issue automatically
-gets fixed.
 
-Regards,
-Willy
 
