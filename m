@@ -1,45 +1,53 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH v3] xmit_compl_seq: information to reclaim vmsplice buffers
-Date: Mon, 27 Sep 2010 11:38:36 -0700
-Message-ID: <AANLkTimdrFuYONq6FvBW41AnhpA6Q+acSUmy4CiJatYL@mail.gmail.com>
-References: <alpine.DEB.1.00.1009231426450.11579@pokey.mtv.corp.google.com>
-	<20100927172315.GA8387@redhat.com>
+From: Ohad Ben-Cohen <ohad@wizery.com>
+Subject: Re: linux-next: build failure after merge of the final tree (net tree related)
+Date: Mon, 27 Sep 2010 20:38:50 +0200
+Message-ID: <AANLkTi=YHhRWFix1QDuEnRW7r_UaNtp6KSL9uLdUzdqM@mail.gmail.com>
+References: <20100927154408.55a28127.sfr@canb.auug.org.au> <AANLkTinHk82jM7Ztwb1aB1xb-hSLeg5Hb07mhYCaeszi@mail.gmail.com>
+ <20100927180412.GD11086@tuxdriver.com> <20100927.111818.149846920.davem@davemloft.net>
+ <20100927182546.GE11086@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, davem@davemloft.net, sridharr@google.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.35]:52052 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933309Ab0I0Sij (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Sep 2010 14:38:39 -0400
-Received: from kpbe14.cbf.corp.google.com (kpbe14.cbf.corp.google.com [172.25.105.78])
-	by smtp-out.google.com with ESMTP id o8RIcb0v024065
-	for <netdev@vger.kernel.org>; Mon, 27 Sep 2010 11:38:38 -0700
-Received: from pvg16 (pvg16.prod.google.com [10.241.210.144])
-	by kpbe14.cbf.corp.google.com with ESMTP id o8RIcAWS010779
-	for <netdev@vger.kernel.org>; Mon, 27 Sep 2010 11:38:36 -0700
-Received: by pvg16 with SMTP id 16so1497489pvg.12
-        for <netdev@vger.kernel.org>; Mon, 27 Sep 2010 11:38:36 -0700 (PDT)
-In-Reply-To: <20100927172315.GA8387@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, sfr@canb.auug.org.au,
+	netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "John W. Linville" <linville@tuxdriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100927182546.GE11086@tuxdriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Mon, Sep 27, 2010 at 8:25 PM, John W. Linville
+<linville@tuxdriver.com> wrote:
+>> BTW, if this fuglet going to work if the driver is built modular?
+>>
+>> The idea of this things seems to be to allow arch platform code to c=
+all
+>> into it to set things. =A0Such calls from arch platform code are goi=
+ng
+>> to be "obj-y"
+>>
+>> So if this is built into the modular driver, I can't see how it
+>> can work.
 >
-> Can not packets referencing this memory
-> still be outstanding at the NIC device, if retransmit happens
-> before the ack but after the packet was passed to a device?
->
-> It's true that the reftransmit will likely get discarded
-> by the remote end, but this might be a security issue
-> if an application puts sensitive data in the buffer
-> and that gets inadvertently sent on the wire, can it not?
->
-Yes, this hole probably does exist.  I don't know how to fix it other
-than more API that specifically reports when all references to a
-buffer are released.  In the case of TCP that probably means we'd need
-a destructor.
+> Dave is right -- these Kconfig dependencies (or lack thereof) seem
+> to be wrong.
 
+This is why I had to put it in drivers/net/wireless/Makefile (in both
+the original patch and in the fix I sent earlier) and not in
+drivers/net/wireless/wl12xx/Makefile (as it was in the fix that Dave
+was referring to).
+
+This way it works with a modular driver.
+
+
+> =A0Seems like the OMAP code needs to select the option
+> for this code?
+>
+> John
 > --
-> MST
+> John W. Linville =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Someday the world wil=
+l need a hero, and you
+> linville@tuxdriver.com =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0might be al=
+l we have. =A0Be ready.
 >
