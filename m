@@ -1,58 +1,50 @@
-From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Subject: (unknown)
-Date: Mon, 27 Sep 2010 14:05:00 -0600
-Message-ID: <20100927200500.GB25879@obsidianresearch.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: TCP: orphans broken by RFC 2525 #2.17
+Date: Mon, 27 Sep 2010 13:08:13 -0700
+Message-ID: <4CA0F9AD.5050302@hp.com>
+References: <20100926131717.GA13046@1wt.eu>	<20100927080222.GA31309@gondor.apana.org.au> <20100927200018.GY12373@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bob Arendt <rda-x0S3BwdUo6DQT0dZR+AlfA@public.gmane.org>
-To: David Stevens <dlstevens-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.hengli.com.au>, netdev@vger.kernel.org
+To: Willy Tarreau <w@1wt.eu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:39144 "EHLO
+	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932619Ab0I0UIR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Sep 2010 16:08:17 -0400
+In-Reply-To: <20100927200018.GY12373@1wt.eu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Bcc: 
-Subject: Re: igmp: Staggered igmp report intervals for unsolicited igmp
-	reports
-Reply-To: 
-In-Reply-To: <OF871D4733.876C9DA0-ON882577AB.006AB200-882577AB.006B6101-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
+Willy Tarreau wrote:
+> Hi Herbert,
+> 
+> On Mon, Sep 27, 2010 at 04:02:22PM +0800, Herbert Xu wrote:
+> 
+>>Willy Tarreau <w@1wt.eu> wrote:
+>>
+>>>Looking more closely, I noticed that in traces showing the issue,
+>>>the client was sending an additional CRLF after the data in a
+>>>separate packet (permitted eventhough not recommended).
+>>
+>>Where is this permitted? RFC2616 says:
+>>
+>>	Certain buggy HTTP/1.0 client implementations generate
+>>	extra CRLF's after a POST request. To restate what is
+>>	explicitly forbidden by the BNF, an HTTP/1.1 client MUST
+>>	NOT preface or follow a request with an extra CRLF. 
+> 
+> 
+> And the paragraph just before says :
+> 
+>    In the interest of robustness, servers SHOULD ignore any empty
+>    line(s) received where a Request-Line is expected. In other words, if
+>    the server is reading the protocol stream at the beginning of a
+>    message and receives a CRLF first, it should ignore the CRLF.
 
-On Mon, Sep 27, 2010 at 12:32:45PM -0700, David Stevens wrote:
- 
-> You can, of course, add a querier (or configure it, assuming an
-> attached switch supports it) and set the query interval and
-> robustness count as appropriate for that network.
+It is the HTTP server code being addressed there, not the underlying TCP stack 
+is it not?
 
-Presumably the IPoIB multicast router should already be the querier..
-How does this help handling joins to new groups?
 
-> As would be having those networks queue packets for hardware
-> addresses they know require a delay before a transmit can
-> complete. But that approach can't adversely affect already-working
-> solutions for typical networks, or depart unnecessarily from
-> established standard protocols.
-
-There is no way to know when a hardware address is 'ready' in a IGMPv2
-sense.. The problem with IGMPv2 and any network that doesn't flood
-multicast to all nodes is that there is no way to know when all IGMPv2
-listeners are listening on the group you just created.
-
-For IGMPv2 there is a special hack in the IPoIB routers that cause
-them to automatically join the IP multicast groups as they are created
-so they can get the per-group IGMP messages, and this process takes
-time and is completely opaque to the end nodes.
-
-IB could emulate something like ethernet flooding by sending packets
-to the permanent 'broadcast' (all-IP-endpoints) multicast group - but
-it has no way to know when that is necessary and when it is not.
-
-Sending IGMPv2 packets to the group address that is being managed
-(rather than an IGMP specific group like in v3) is a design choice
-that probably only works well on ethernet :(
-
-Jason
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+rick jones
