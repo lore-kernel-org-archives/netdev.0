@@ -1,39 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v6] Gigabit Ethernet driver of Topcliff PCH
-Date: Sun, 26 Sep 2010 23:47:03 -0700 (PDT)
-Message-ID: <20100926.234703.52201352.davem@davemloft.net>
-References: <4CA03198.8080802@dsn.okisemi.com>
-	<1285567800.2357.565.camel@edumazet-laptop>
-	<002c01cb5e0e$d23087a0$66f8800a@maildom.okisemi.com>
+Subject: Re: [PATCH v3] net: af_packet: don't call tpacket_destruct_skb()
+ until the skb is sent out
+Date: Sun, 26 Sep 2010 23:56:30 -0700 (PDT)
+Message-ID: <20100926.235630.13733736.davem@davemloft.net>
+References: <20100924063623.GA6359@ff.dom.local>
+	<20100926.182208.102539866.davem@davemloft.net>
+	<20100927053046.GA6296@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, randy.dunlap@oracle.com,
-	john.linn@xilinx.com, ralf@linux-mips.org, kristoffer@gaisler.com,
-	mbizon@freebox.fr, gregory.v.rose@intel.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	okada533@dsn.okisemi.com, shimizu394@dsn.okisemi.com,
-	morinaga526@dsn.okisemi.com, qi.wang@intel.com,
-	yong.y.wang@intel.com, andrew.chih.howe.khor@intel.com,
-	joel.clark@intel.com, margie.foster@intel.com, meego-dev@meego.com
-To: masa-korg@dsn.okisemi.com
+Cc: xiaosuo@gmail.com, eric.dumazet@gmail.com, socketcan@hartkopp.net,
+	mst@redhat.com, netdev@vger.kernel.org
+To: jarkao2@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35387
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32795
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758591Ab0I0Gqn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Sep 2010 02:46:43 -0400
-In-Reply-To: <002c01cb5e0e$d23087a0$66f8800a@maildom.okisemi.com>
+	by vger.kernel.org with ESMTP id S1751374Ab0I0G4K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Sep 2010 02:56:10 -0400
+In-Reply-To: <20100927053046.GA6296@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Masayuki Ohtake" <masa-korg@dsn.okisemi.com>
-Date: Mon, 27 Sep 2010 15:39:57 +0900
+From: Jarek Poplawski <jarkao2@gmail.com>
+Date: Mon, 27 Sep 2010 05:30:47 +0000
 
-> Thank you for information.
-> I did not know "net-next-2.6."
-> This driver is not changed.
+> On Sun, Sep 26, 2010 at 06:22:08PM -0700, David Miller wrote:
+>> From: Jarek Poplawski <jarkao2@gmail.com>
+>> Date: Fri, 24 Sep 2010 06:36:23 +0000
+>> 
+>> > af_packet could check some flag which guarantees the queued dev can do
+>> > skb_orphan after the real xmit and copy buffers otherwise.
+>> 
+>> Jarek, we pre-orphan SKBs in the core way before device even gets
+>> the packet.
+> 
+> I'm not sure which place in the core do you mean; skb_orphan_try() in
+> dev_hard_start_xmit() depends on ->tx_flags.
 
-Regardless of whether you know about the net-next-2.6 tree
-or not, what do you think it means what I say to you "Applied"?
-
-It means I've added your patch, there is no possible confusion.
+Right, I keep forgetting about that special check, thanks for
+reminding me :)
