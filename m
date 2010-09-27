@@ -1,53 +1,65 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next-2.6 02/17] net: Add netif_copy_real_num_queues()
- for use by virtual net drivers
-Date: Mon, 27 Sep 2010 19:24:49 +0100
-Message-ID: <1285611889.2263.292.camel@achroite.uk.solarflarecom.com>
+Subject: [PATCH net-next-2.6 03/17] bnx2: Use
+ netif_set_real_num_{rx,tx}_queues()
+Date: Mon, 27 Sep 2010 19:25:16 +0100
+Message-ID: <1285611916.2263.295.camel@achroite.uk.solarflarecom.com>
 References: <1285611791.2263.287.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
+	Michael Chan <mchan@broadcom.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:51050 "EHLO
+Received: from exchange.solarflare.com ([216.237.3.220]:51124 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933177Ab0I0SYx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Sep 2010 14:24:53 -0400
+	with ESMTP id S933058Ab0I0SZT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Sep 2010 14:25:19 -0400
 In-Reply-To: <1285611791.2263.287.camel@achroite.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This sets the active numbers of queues on a net device to match another.
-
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- include/linux/netdevice.h |   12 ++++++++++++
- 1 files changed, 12 insertions(+), 0 deletions(-)
+ drivers/net/bnx2.c |    9 ++++++---
+ 1 files changed, 6 insertions(+), 3 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index cf3d5a3..7fd39b3 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1698,6 +1698,18 @@ static inline int netif_set_real_num_rx_queues(struct net_device *dev,
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index 3d1a5da..b10be27 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -6202,7 +6202,7 @@ bnx2_enable_msix(struct bnx2 *bp, int msix_vecs)
+ 	}
  }
- #endif
  
-+static inline int netif_copy_real_num_queues(struct net_device *to_dev,
-+					     const struct net_device *from_dev)
-+{
-+	netif_set_real_num_tx_queues(to_dev, from_dev->real_num_tx_queues);
-+#ifdef CONFIG_RPS
-+	return netif_set_real_num_rx_queues(to_dev,
-+					    from_dev->real_num_rx_queues);
-+#else
-+	return 0;
-+#endif
-+}
-+
- /* Use this variant when it is known for sure that it
-  * is executing from hardware interrupt context or with hardware interrupts
-  * disabled.
+-static void
++static int
+ bnx2_setup_int_mode(struct bnx2 *bp, int dis_msi)
+ {
+ 	int cpus = num_online_cpus();
+@@ -6231,9 +6231,10 @@ bnx2_setup_int_mode(struct bnx2 *bp, int dis_msi)
+ 	}
+ 
+ 	bp->num_tx_rings = rounddown_pow_of_two(bp->irq_nvecs);
+-	bp->dev->real_num_tx_queues = bp->num_tx_rings;
++	netif_set_real_num_tx_queues(bp->dev, bp->num_tx_rings);
+ 
+ 	bp->num_rx_rings = bp->irq_nvecs;
++	return netif_set_real_num_rx_queues(bp->dev, bp->num_rx_rings);
+ }
+ 
+ /* Called with rtnl_lock */
+@@ -6248,7 +6249,9 @@ bnx2_open(struct net_device *dev)
+ 	bnx2_set_power_state(bp, PCI_D0);
+ 	bnx2_disable_int(bp);
+ 
+-	bnx2_setup_int_mode(bp, disable_msi);
++	rc = bnx2_setup_int_mode(bp, disable_msi);
++	if (rc)
++		goto open_err;
+ 	bnx2_init_napi(bp);
+ 	bnx2_napi_enable(bp);
+ 	rc = bnx2_alloc_mem(bp);
 -- 
 1.7.2.1
 
