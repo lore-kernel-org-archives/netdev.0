@@ -1,80 +1,44 @@
-From: David Stevens <dlstevens-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
-Subject: Re: igmp: Allow mininum interval specification for igmp timers.
-Date: Mon, 27 Sep 2010 11:16:51 -0700
-Message-ID: <OFB62F550A.B0782081-ON882577AB.0062DE1F-882577AB.00646E27@us.ibm.com>
-References: <alpine.DEB.2.00.1009221354410.32661@router.home>	<20100923.213823.137834706.davem@davemloft.net>
-	<OF4BA8F9C2.467056E9-ON882577AB.005F4832-882577AB.00612DD6@us.ibm.com> <20100927.105444.214208865.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: linux-next: build failure after merge of the final tree (net
+ tree related)
+Date: Mon, 27 Sep 2010 11:18:18 -0700 (PDT)
+Message-ID: <20100927.111818.149846920.davem@davemloft.net>
+References: <20100927154408.55a28127.sfr@canb.auug.org.au>
+	<AANLkTinHk82jM7Ztwb1aB1xb-hSLeg5Hb07mhYCaeszi@mail.gmail.com>
+	<20100927180412.GD11086@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rda-x0S3BwdUo6DQT0dZR+AlfA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20100927.105444.214208865.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ohad@wizery.com, sfr@canb.auug.org.au, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linville@tuxdriver.com
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20100927180412.GD11086@tuxdriver.com>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-netdev-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org wrote on 09/27/2010 10:54:44 AM:
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Mon, 27 Sep 2010 14:04:12 -0400
 
-> From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-> To: David Stevens/Beaverton/IBM@IBMUS
-> Cc: cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, 
-> netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rda-x0S3BwdUo6DQT0dZR+AlfA@public.gmane.org
-> Date: 09/27/2010 10:54 AM
-> Subject: Re: igmp: Allow mininum interval specification for igmp timers.
-> Sent by: netdev-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> Subject: [PATCH] wl12xx: fix separate-object-folder builds
 > 
-> From: David Stevens <dlstevens-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
-> Date: Mon, 27 Sep 2010 10:41:20 -0700
+> Make this go away (happens when building with a separate object
+> directory):
 > 
-> >         I don't know if you saw the more extended discussion we
-> > had on this or not, but I think while this would help for IB,
-> > it's not appropriate in general. These can in fact be "0" per
-> > RFC which is worst case for IB if there is a delay for being
-> > able to use the group, and the newer IGMPv3 standard has shortened
-> > the max interval from 10sec in v2 to 1 sec.
+> Assembler messages:
+> Fatal error: can't create drivers/net/wireless/wl12xx/.tmp_wl12xx_platform_data.o: No such file or directory
+> drivers/net/wireless/wl12xx/wl12xx_platform_data.c: In function 'wl12xx_get_platform_data':
+> drivers/net/wireless/wl12xx/wl12xx_platform_data.c:28: error: cannot open drivers/net/wireless/wl12xx/.tmp_wl12xx_platform_data.gcno
+> drivers/net/wireless/wl12xx/wl12xx_platform_data.c:28: confused by earlier errors, bailing out
 > 
-> I did see the extended discussion, and it was interesting :-)
-> 
-> But that mainly focused on the second patch, which I appropriately
-> marked as needing changes in patchwork.
+> Signed-off-by: John W. Linville <linville@tuxdriver.com>
+> Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
 
-        OK, I'm not sure I've seen them all; haven't caught up on
-e-mail yet.
+BTW, if this fuglet going to work if the driver is built modular?
 
-> This patch on the other hand is attacking a different problem,
-> namely avoiding the worst cases caused by the randomization we
-> do for the timer.
+The idea of this things seems to be to allow arch platform code to call
+into it to set things.  Such calls from arch platform code are going
+to be "obj-y"
 
-        I think the multiples are to allow for drops and the
-randomization is to prevent storms. As far as IGMP is concerned,
-it's perfectly fine to send them back-to-back, since drops are
-not necessarily time periods of network outage (as with IB) but
-rather transient queue overflows where even the short delay of
-a "0" timer but still having protocol and packet transmit delay
-would be fine.
- 
-> With bad luck this thing times out way too fast because the total of
-> all of the randomized intervals can end up being very small, and I
-> think we should fix that independently of the other issues hit by the
-> IB folks.
-> 
-> Don't you agree?
-
-        If you mean enforcing a minimum spacing higher than a "0" timer,
-I don't know that it's an issue for other network types. According to
-IGMPv3, all of them (3 total) on average would be sent in 1 sec, but
-it also isn't fatal to drop all of them. To the extent that 1 sec is
-"small," it is intentional.
-        I'll try digging out the particular patch and comment. I'm not
-sure many of these tweaks would necessarily hurt other network types
-but I think the current code also isn't a problem for anything but IB,
-and that issue can be fixed within IB.
-
-                                                                +-DLS
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+So if this is built into the modular driver, I can't see how it
+can work.
