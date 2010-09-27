@@ -1,91 +1,43 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next-2.6 10/17] ixgbe: Use
+Subject: [PATCH net-next-2.6 11/17] mlx4_en: Use
  netif_set_real_num_{rx,tx}_queues()
-Date: Mon, 27 Sep 2010 19:28:56 +0100
-Message-ID: <1285612136.2263.306.camel@achroite.uk.solarflarecom.com>
+Date: Mon, 27 Sep 2010 19:29:34 +0100
+Message-ID: <1285612174.2263.309.camel@achroite.uk.solarflarecom.com>
 References: <1285611791.2263.287.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
-	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	e1000-devel <e1000-devel@lists.sourceforge.net>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Alex Duyck <alexander.h.duyck@intel.com>
+	Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:51832 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:51979 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757189Ab0I0S3A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Sep 2010 14:29:00 -0400
+	with ESMTP id S933309Ab0I0S3h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Sep 2010 14:29:37 -0400
 In-Reply-To: <1285611791.2263.287.camel@achroite.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ixgbe/ixgbe_main.c |   16 +++++++++++-----
- 1 files changed, 11 insertions(+), 5 deletions(-)
+ drivers/net/mlx4/en_netdev.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 4e0ce91..c35185c 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -4088,7 +4088,7 @@ static inline bool ixgbe_set_sriov_queues(struct ixgbe_adapter *adapter)
-  * fallthrough conditions.
-  *
-  **/
--static void ixgbe_set_num_queues(struct ixgbe_adapter *adapter)
-+static int ixgbe_set_num_queues(struct ixgbe_adapter *adapter)
- {
- 	/* Start with base case */
- 	adapter->num_rx_queues = 1;
-@@ -4097,7 +4097,7 @@ static void ixgbe_set_num_queues(struct ixgbe_adapter *adapter)
- 	adapter->num_rx_queues_per_pool = 1;
+diff --git a/drivers/net/mlx4/en_netdev.c b/drivers/net/mlx4/en_netdev.c
+index 411bda5..79478bd 100644
+--- a/drivers/net/mlx4/en_netdev.c
++++ b/drivers/net/mlx4/en_netdev.c
+@@ -1025,7 +1025,8 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+ 	 */
+ 	dev->netdev_ops = &mlx4_netdev_ops;
+ 	dev->watchdog_timeo = MLX4_EN_WATCHDOG_TIMEOUT;
+-	dev->real_num_tx_queues = MLX4_EN_NUM_TX_RINGS;
++	netif_set_real_num_tx_queues(dev, priv->tx_ring_num);
++	netif_set_real_num_rx_queues(dev, priv->rx_ring_num);
  
- 	if (ixgbe_set_sriov_queues(adapter))
--		return;
-+		goto done;
+ 	SET_ETHTOOL_OPS(dev, &mlx4_en_ethtool_ops);
  
- #ifdef IXGBE_FCOE
- 	if (ixgbe_set_fcoe_queues(adapter))
-@@ -4120,8 +4120,10 @@ static void ixgbe_set_num_queues(struct ixgbe_adapter *adapter)
- 	adapter->num_tx_queues = 1;
- 
- done:
--	/* Notify the stack of the (possibly) reduced Tx Queue count. */
-+	/* Notify the stack of the (possibly) reduced queue counts. */
- 	netif_set_real_num_tx_queues(adapter->netdev, adapter->num_tx_queues);
-+	return netif_set_real_num_rx_queues(adapter->netdev,
-+					    adapter->num_rx_queues);
- }
- 
- static void ixgbe_acquire_msix_vectors(struct ixgbe_adapter *adapter,
-@@ -4550,7 +4552,9 @@ static int ixgbe_set_interrupt_capability(struct ixgbe_adapter *adapter)
- 	if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED)
- 		ixgbe_disable_sriov(adapter);
- 
--	ixgbe_set_num_queues(adapter);
-+	err = ixgbe_set_num_queues(adapter);
-+	if (err)
-+		return err;
- 
- 	err = pci_enable_msi(adapter->pdev);
- 	if (!err) {
-@@ -4675,7 +4679,9 @@ int ixgbe_init_interrupt_scheme(struct ixgbe_adapter *adapter)
- 	int err;
- 
- 	/* Number of supported queues */
--	ixgbe_set_num_queues(adapter);
-+	err = ixgbe_set_num_queues(adapter);
-+	if (err)
-+		return err;
- 
- 	err = ixgbe_set_interrupt_capability(adapter);
- 	if (err) {
 -- 
 1.7.2.1
 
