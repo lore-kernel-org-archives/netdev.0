@@ -1,53 +1,89 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: TCP: orphans broken by RFC 2525 #2.17
-Date: Mon, 27 Sep 2010 22:20:13 +0200
-Message-ID: <20100927202013.GA12373@1wt.eu>
-References: <20100926131717.GA13046@1wt.eu> <20100927080222.GA31309@gondor.apana.org.au> <20100927200018.GY12373@1wt.eu> <4CA0F9AD.5050302@hp.com>
+From: Christoph Lameter <cl@linux.com>
+Subject: Re: igmp: Allow mininum interval specification for igmp timers.
+Date: Mon, 27 Sep 2010 15:20:54 -0500 (CDT)
+Message-ID: <alpine.DEB.2.00.1009271503420.14117@router.home>
+References: <alpine.DEB.2.00.1009221354410.32661@router.home> <20100923.213823.137834706.davem@davemloft.net> <OF4BA8F9C2.467056E9-ON882577AB.005F4832-882577AB.00612DD6@us.ibm.com> <20100927.105444.214208865.davem@davemloft.net>
+ <OFC4EC0538.26831D99-ON882577AB.006B8055-882577AB.006D75FF@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.hengli.com.au>, netdev@vger.kernel.org
-To: Rick Jones <rick.jones2@hp.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, linux-rdma@vger.kernel.org,
+	netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
+	rda@rincon.com
+To: David Stevens <dlstevens@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:45736 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755687Ab0I0UUY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Sep 2010 16:20:24 -0400
-Content-Disposition: inline
-In-Reply-To: <4CA0F9AD.5050302@hp.com>
+Received: from smtp101.prem.mail.ac4.yahoo.com ([76.13.13.40]:20733 "HELO
+	smtp101.prem.mail.ac4.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1757228Ab0I0UU6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Sep 2010 16:20:58 -0400
+In-Reply-To: <OFC4EC0538.26831D99-ON882577AB.006B8055-882577AB.006D75FF@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 27, 2010 at 01:08:13PM -0700, Rick Jones wrote:
-> Willy Tarreau wrote:
-> >Hi Herbert,
-> >
-> >On Mon, Sep 27, 2010 at 04:02:22PM +0800, Herbert Xu wrote:
-> >
-> >>Willy Tarreau <w@1wt.eu> wrote:
-> >>
-> >>>Looking more closely, I noticed that in traces showing the issue,
-> >>>the client was sending an additional CRLF after the data in a
-> >>>separate packet (permitted eventhough not recommended).
-> >>
-> >>Where is this permitted? RFC2616 says:
-> >>
-> >>	Certain buggy HTTP/1.0 client implementations generate
-> >>	extra CRLF's after a POST request. To restate what is
-> >>	explicitly forbidden by the BNF, an HTTP/1.1 client MUST
-> >>	NOT preface or follow a request with an extra CRLF. 
-> >
-> >
-> >And the paragraph just before says :
-> >
-> >   In the interest of robustness, servers SHOULD ignore any empty
-> >   line(s) received where a Request-Line is expected. In other words, if
-> >   the server is reading the protocol stream at the beginning of a
-> >   message and receives a CRLF first, it should ignore the CRLF.
-> 
-> It is the HTTP server code being addressed there, not the underlying TCP 
-> stack is it not?
+On Mon, 27 Sep 2010, David Stevens wrote:
 
-yes, precisely.
+> > With bad luck this thing times out way too fast because the total of
+> > all of the randomized intervals can end up being very small, and I
+> > think we should fix that independently of the other issues hit by the
+> > IB folks.
+>
+>         I think I'm caught up on the discussion now. For IGMPv3, we
+> would send all the reports always in < 2 secs, and the average would
+> be < 1 sec, so I'm not sure any sort of tweaks we do to enforce a
+> minimum randomized interval are compatible with IGMPv3 and still
+> solve IB's problem.
 
-regards,
-Willy
+Ok thanks for the effort but so far I do not see you having caught up. I'd
+rather avoid responding to the misleading statements you made in other
+replies and just respond to where you missed the boat here.
+
+>         As I said before, I think per protocol, back-to-back is both
+> allowed and not a problem, even if both subsequent randomized reports
+> come out to 0 time. But if we wanted to enforce a minimum interval
+> of, say, X, then I think the better way to do that is to set the
+> timer to X + rand(Interval-X) and not a table of fixed intervals
+
+The second patch sets the intervals to X .. X + Rand (interval) and not to
+a table of fixed intervals as you state here. I have pointed this out
+before.
+
+> as in the original patch. For v2, X=1 or 2 sec and Interval=10
+> might work well, but for v3, the entire interval is 1 sec and I
+> think I saw that the set-up time for the fabric may be on the
+> order of 1 sec.
+
+Again there is no knowledge about V2 or V3 without a query and this is
+during the period when no querier is known yet. You stated elsewhere that
+I can assume V3 by default? So 1 sec?
+
+>         I also don't think that we want those kinds of delays on
+> Ethernet. A program may join and send lots of traffic in 1 sec,
+> and if the immediate join is lost, one of the quickly-following
+> <1 sec duplicate reports will make it recover and work. Delaying
+> the minimum would guarantee it wouldn't work until that minimum
+> and drop all that traffic if the immediate report is lost, then.
+
+There can be any number of reasons that a short outage could prevent the
+packets from going through. A buffer overrun (that you mentioned
+elsewhere) usually causes lots of packets to be lost. Buffer overrun
+scenarios usually mean that all igmp queries are lost.
+
+>         Really, of course, I think the solution belongs in IB, but
+> if we did anything in IGMP, I'd prefer it were a per-interface
+> tunable that defaults as in the RFC. Since you can change the
+> interval and # of reports through a querier now, exporting the
+> default values of (10,2) for v2 and (1,2) for v3 to instead be
+> per-interface tunables and then bumped as needed for IB would
+> allow tweaking without running a querier. But a querier that's
+> using default values would also override that and cause the
+> problem all over again. Queuing in the driver until the MAC
+> address is usable solves it generally.
+
+There is no solution on the IB layer since there is no notification when
+the fabric reconfiguration necessary for an multicast group is complete.
+
+The querier is of not use since (for the gazillionth of times) this is an
+unsolicited IGMP report. If there is a querier then the unsolicited igmp
+reports would not be used but the timeout indicated by the querier would
+be used.
+
+
