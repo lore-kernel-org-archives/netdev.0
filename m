@@ -1,68 +1,48 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build failure after merge of the final tree (net tree
- related)
-Date: Mon, 27 Sep 2010 15:44:08 +1000
-Message-ID: <20100927154408.55a28127.sfr@canb.auug.org.au>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH v3] net: af_packet: don't call tpacket_destruct_skb()
+	until the skb is sent out
+Date: Mon, 27 Sep 2010 05:46:57 +0000
+Message-ID: <20100927054657.GB6296@ff.dom.local>
+References: <1285236939-3239-1-git-send-email-xiaosuo@gmail.com> <20100924063623.GA6359@ff.dom.local> <AANLkTin71NME-WwD+tjuxFyh_6Ue7gFTXpLwDUVtaLKR@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Mon__27_Sep_2010_15_44_08_+1000_=FaTB+MmrIvzOgz5"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Ohad Ben-Cohen <ohad@wizery.com>,
-	"John W. Linville" <linville@tuxdriver.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
---Signature=_Mon__27_Sep_2010_15_44_08_+1000_=FaTB+MmrIvzOgz5
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
+Cc: xiaohui.xin@intel.com, "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:36986 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758626Ab0I0FrD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Sep 2010 01:47:03 -0400
+Received: by fxm3 with SMTP id 3so1598197fxm.19
+        for <netdev@vger.kernel.org>; Sun, 26 Sep 2010 22:47:01 -0700 (PDT)
 Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+In-Reply-To: <AANLkTin71NME-WwD+tjuxFyh_6Ue7gFTXpLwDUVtaLKR@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+On Mon, Sep 27, 2010 at 09:24:02AM +0800, Changli Gao wrote:
+> On Fri, Sep 24, 2010 at 2:36 PM, Jarek Poplawski <jarkao2@gmail.com> wrote:
+> > On 2010-09-23 12:15, Changli Gao wrote:
+> >> Since skb->destructor() is used to account socket memory, and maybe called
+> >> before the skb is sent out, a corrupt skb maybe sent out finally.
+> >>
+> >> A new destructor is added into structure skb_shared_info(), and it won't
+> >> be called until the last reference to the data of an skb is put. af_packet
+> >> uses this destructor instead.
+> >
+> > IMHO, we shouldn't allow for fixing the bad design of one protocol at
+> > the expense of others by adding more and more conditionals. The proper
+> > way of handling paged skbs (splice compatible) exists. And the current
+> > patch doesn't even fix the problem completely against things like
+> > pskb_expand_head or pskb_copy.
+> 
+> pskb_expand_head is handled in my patch, but not pskb_copy().
 
-After merging the final tree, today's linux-next build (x86_64
-allmodconfig) failed like this:
+It's not enough: "skb_shinfo(skb)->data_destructor = NULL" means
+skb_release_data() for the original skb->data will not have one, and
+you don't know which of the two releases will be the last.
 
-Assembler messages:
-Fatal error: can't create drivers/net/wireless/wl12xx/.tmp_wl12xx_platform_=
-data.o: No such file or directory
-drivers/net/wireless/wl12xx/wl12xx_platform_data.c: In function 'wl12xx_get=
-_platform_data':
-drivers/net/wireless/wl12xx/wl12xx_platform_data.c:28: error: cannot open d=
-rivers/net/wireless/wl12xx/.tmp_wl12xx_platform_data.gcno
-drivers/net/wireless/wl12xx/wl12xx_platform_data.c:28: confused by earlier =
-errors, bailing out
-
-Presumably caused by commit 61ee7007a5d61aa066076da578e8e8084e122d7d
-("wl12xx: add platform data passing support").
-
-I do my builds with a separate object directory (which may be a reason
-you don't see this).
-
-I have reverted that commit for today (and commits
-09cecc340b3b4d9960b039c0f576548bbf857f5a ("wl1271: take irq info from
-private board data") and 15cea99306ae14ce5f7c3d3989bcc17202e2b0be
-("wl1271: make ref_clock configurable by board") which follow it).
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
-
---Signature=_Mon__27_Sep_2010_15_44_08_+1000_=FaTB+MmrIvzOgz5
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iQEcBAEBAgAGBQJMoC8oAAoJEDMEi1NhKgbstzUH/RSlxBgO/QqzmyZyWXMGScFq
-25EE+9svHn1yLcLrsmGShzigfpHHHFOo1uboQyvsqaKXdubxEA6TsIpjpnc2uhaO
-mfMv7P4tev7c1m05Hw/zJZASBPMLxXo7ORL+5guZjNr/KCdRZw4WUHp9l2JdDeIi
-ZnsBq68KD5Qs8t+qgn6lYgx1X923t+pTfJUv53Gng0eEoC1IEQwvKqGZ52lAgxaP
-vjDLmgBGYnodo0m00Y+4KLROg/n5exae0N24A9QXBtoa6ANtd25VMg9elrkZiPUX
-ofFjx8Sq2K3bYQkzguRoyWLKrbZlwprMtWTMPP7spCGBAtqrhC7fjEmFIaUEzk0=
-=K7Nw
------END PGP SIGNATURE-----
-
---Signature=_Mon__27_Sep_2010_15_44_08_+1000_=FaTB+MmrIvzOgz5--
+Jarek P.
