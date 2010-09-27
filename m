@@ -1,35 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] net: update SOCK_MIN_RCVBUF
-Date: Sun, 26 Sep 2010 18:53:20 -0700 (PDT)
-Message-ID: <20100926.185320.15237220.davem@davemloft.net>
-References: <1285345177.2503.346.camel@edumazet-laptop>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 1/9] ibm_newemac: use free_netdev(netdev) instead of
+	kfree()
+Date: Sun, 26 Sep 2010 18:54:57 -0700 (PDT)
+Message-ID: <20100926.185457.242128057.davem@davemloft.net>
+References: <1285495080-21857-1-git-send-email-segooon@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43111
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757758Ab0I0BxA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Sep 2010 21:53:00 -0400
-In-Reply-To: <1285345177.2503.346.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: segooon-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+In-Reply-To: <1285495080-21857-1-git-send-email-segooon-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 24 Sep 2010 18:19:37 +0200
+From: Vasiliy Kulikov <segooon-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Sun, 26 Sep 2010 13:58:00 +0400
 
-> SOCK_MIN_RCVBUF current value is 256 bytes
+> Freeing netdev without free_netdev() leads to net, tx leaks.
+> I might lead to dereferencing freed pointer.
 > 
-> It doesnt permit to receive the smallest possible frame, considering
-> socket sk_rmem_alloc/sk_rcvbuf account skb truesizes. On 64bit arches,
-> sizeof(struct sk_buff) is 240 bytes. Add the typical 64 bytes of
-> headroom, and we go over the limit.
+> The semantic match that finds this problem is as follows:
+> (http://coccinelle.lip6.fr/)
 > 
-> With old kernels and 32bit arches, we were under the limit, if netdriver
-> was doing copybreak.
+> @@
+> struct net_device* dev;
+> @@
 > 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> -kfree(dev)
+> +free_netdev(dev)
 
-Fair enough, applied, thanks Eric.
+Applied.
