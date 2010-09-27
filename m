@@ -1,43 +1,67 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: l2tpv3 support not yet in iproute2?
-Date: Mon, 27 Sep 2010 18:23:16 +0200
-Message-ID: <1285604596.3017.80.camel@edumazet-laptop>
-References: <loom.20100927T170521-559@post.gmane.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH RFC] netns: keep vlan slaves on master netns move
+Date: Mon, 27 Sep 2010 09:23:32 -0700
+Message-ID: <m1fwwvqhob.fsf@fess.ebiederm.org>
+References: <20100824115056.GA235835@jupiter.n2.diac24.net>
+	<20100913114315.GA859019@jupiter.n2.diac24.net>
+	<m1bp7z4v0m.fsf@fess.ebiederm.org> <4C9363CB.7050302@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, James Chapman <jchapman@katalix.com>
-To: jpo234 <pommnitz@yahoo.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Daniel Lezcano <daniel.lezcano@free.fr>,
+	David Lamparter <equinox@diac24.net>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f46.google.com ([209.85.215.46]:45540 "EHLO
-	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759161Ab0I0QX0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Sep 2010 12:23:26 -0400
-Received: by ewy23 with SMTP id 23so1437710ewy.19
-        for <netdev@vger.kernel.org>; Mon, 27 Sep 2010 09:23:24 -0700 (PDT)
-In-Reply-To: <loom.20100927T170521-559@post.gmane.org>
+Received: from out01.mta.xmission.com ([166.70.13.231]:54183 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933190Ab0I0QXp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Sep 2010 12:23:45 -0400
+In-Reply-To: <4C9363CB.7050302@trash.net> (Patrick McHardy's message of "Fri,
+	17 Sep 2010 14:49:15 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 27 septembre 2010 =C3=A0 15:22 +0000, jpo234 a =C3=A9crit :
-> Hello all,
-> some time ago James Chapman sent patches that add L2TPv3 support to i=
-proute2:
-> http://kerneltrap.org/mailarchive/linux-netdev/2010/3/18/6272266/thre=
-ad
-> While the kernel support arrived in 2.6.35 the user space configurati=
-on support
-> still seems to be missing:
-> iproute2-2.6.35$ find . -type f -iname "*.c" | xargs fgrep -i l2tp
-> doesn't find anything.
->=20
-> Can somebody clarify the current situation?
+Patrick McHardy <kaber@trash.net> writes:
 
-Hmm, this reminds me l2tp locking is buggy and not yet fixed.
+> Am 15.09.2010 04:10, schrieb Eric W. Biederman:
+>> 
+>> Reviewed-by: "Eric W. Biederman" <ebiederm@xmission.com>
+>> 
+>> My inclination is that the best way to handle this is to would be to
+>> push the device deletion for vlan and macvlan devices into the device
+>> core, where we could get the advantage of batched deletions.
+>
+> We've added batched deletion to both about a year ago, what exactly
+> is the problem?
 
-http://kerneltrap.org/mailarchive/linux-netdev/2010/4/20/6275106
+My problem is that while the both have dellink implemented we
+don't really batch their deletes as best we can.
 
-James, any chance you could fix the locking ?
+For macvlan when the underlying device is unregistered we delete
+each macvlan device one by one.
 
+For vlans we do batch the deletes, but not in the same batch as
+the underlying device.
 
+>>  Right
+>> now vlan and macvlan devices are the only devices I know of that cause
+>> other devices to be removed during unregister, so removing that
+>> specialness seems reasonable.
+>
+> Actually all devices can cause this when used as a lower device by
+> vlan or macvlan. Both vlan and macvlan are useless without a lower
+> device, so I don't see why we shouldn't remove them when the lower
+> device is unregistered.
 
+I definitely think we should remove the devices when the lower device
+is destroyed/removed.  However unregistered is a slightly different
+concept, and arguably macvlan and vlan devices are much more intimately
+connected to their underlying device than that.
+
+What I meant is we should implement the deletion differently.  By doing
+something like having a list of all derived devices for a device, that
+we could walk and call dellink on from rollback_registered_many.  In
+theory that could destroy a whole pile of macvlan and vlan devices with
+various different stackings one on the other all in the same batch.
+
+Eric
