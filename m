@@ -1,50 +1,88 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: TCP: orphans broken by RFC 2525 #2.17
-Date: Mon, 27 Sep 2010 13:08:13 -0700
-Message-ID: <4CA0F9AD.5050302@hp.com>
-References: <20100926131717.GA13046@1wt.eu>	<20100927080222.GA31309@gondor.apana.org.au> <20100927200018.GY12373@1wt.eu>
+From: "Guy, Wey-Yi" <wey-yi.w.guy@intel.com>
+Subject: Re: [PATCH] iwl3945: queue the right work if the scan needs to be
+ aborted
+Date: Mon, 27 Sep 2010 13:11:54 -0700
+Message-ID: <1285618314.12594.14.camel@wwguy-ubuntu>
+References: <1285345323-4250-1-git-send-email-florian@mickler.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.hengli.com.au>, netdev@vger.kernel.org
-To: Willy Tarreau <w@1wt.eu>
+Cc: "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"Chatre, Reinette" <reinette.chatre@intel.com>,
+	Intel Linux Wireless <ilw@linux.intel.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"Berg, Johannes" <johannes.berg@intel.com>,
+	Zhu Yi <yi.zhu@intel.com>,
+	"Cahill, Ben M" <ben.m.cahill@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Florian Mickler <florian@mickler.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:39144 "EHLO
-	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932619Ab0I0UIR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Sep 2010 16:08:17 -0400
-In-Reply-To: <20100927200018.GY12373@1wt.eu>
+Received: from mga02.intel.com ([134.134.136.20]:13339 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933537Ab0I0UMn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Sep 2010 16:12:43 -0400
+In-Reply-To: <1285345323-4250-1-git-send-email-florian@mickler.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Willy Tarreau wrote:
-> Hi Herbert,
+On Fri, 2010-09-24 at 09:22 -0700, Florian Mickler wrote:
+> iwl3945's scan_completed calls into the mac80211 stack which triggers a
+> warn on if there is no scan outstanding.
 > 
-> On Mon, Sep 27, 2010 at 04:02:22PM +0800, Herbert Xu wrote:
+> This can be avoided by not calling scan_completed but abort_scan in
+> iwl3945_request_scan  in the done: branch of the function which is used
+> as an error out.
 > 
->>Willy Tarreau <w@1wt.eu> wrote:
->>
->>>Looking more closely, I noticed that in traces showing the issue,
->>>the client was sending an additional CRLF after the data in a
->>>separate packet (permitted eventhough not recommended).
->>
->>Where is this permitted? RFC2616 says:
->>
->>	Certain buggy HTTP/1.0 client implementations generate
->>	extra CRLF's after a POST request. To restate what is
->>	explicitly forbidden by the BNF, an HTTP/1.1 client MUST
->>	NOT preface or follow a request with an extra CRLF. 
+> The done: branch seems to be an error-out branch, as, for example, if
+> iwl_is_ready(priv) returns false  the done: branch is executed.
 > 
+> NOTE:
+> I'm not familiar with the driver at all.
+> I just quickly scanned as a reaction to
 > 
-> And the paragraph just before says :
+> https://bugzilla.kernel.org/show_bug.cgi?id=17722
 > 
->    In the interest of robustness, servers SHOULD ignore any empty
->    line(s) received where a Request-Line is expected. In other words, if
->    the server is reading the protocol stream at the beginning of a
->    message and receives a CRLF first, it should ignore the CRLF.
+> the users of scan_completed in the  iwl3945 driver and noted the odd
+> discrepancy between the comment above this instance and the comment in
+> mac80211 scan_completed function.
+> Signed-off-by: Florian Mickler <florian@mickler.org>
+Acked-by: Wey-Yi Guy <wey-yi.w.guy@intel.com>
+> ---
+go into wireless-2.6 and stable only, scan fix already in
+wireless-next-2.6
 
-It is the HTTP server code being addressed there, not the underlying TCP stack 
-is it not?
+Thanks
+Wey
 
+>  drivers/net/wireless/iwlwifi/iwl-agn-lib.c  |    2 +-
+>  drivers/net/wireless/iwlwifi/iwl3945-base.c |    2 +-
+>  2 files changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/wireless/iwlwifi/iwl-agn-lib.c b/drivers/net/wireless/iwlwifi/iwl-agn-lib.c
+> index 9dd9e64..8fd00a6 100644
+> --- a/drivers/net/wireless/iwlwifi/iwl-agn-lib.c
+> +++ b/drivers/net/wireless/iwlwifi/iwl-agn-lib.c
+> @@ -1411,7 +1411,7 @@ void iwlagn_request_scan(struct iwl_priv *priv, struct ieee80211_vif *vif)
+>  	clear_bit(STATUS_SCAN_HW, &priv->status);
+>  	clear_bit(STATUS_SCANNING, &priv->status);
+>  	/* inform mac80211 scan aborted */
+> -	queue_work(priv->workqueue, &priv->scan_completed);
+> +	queue_work(priv->workqueue, &priv->abort_scan);
+>  }
+>  
+>  int iwlagn_manage_ibss_station(struct iwl_priv *priv,
+> diff --git a/drivers/net/wireless/iwlwifi/iwl3945-base.c b/drivers/net/wireless/iwlwifi/iwl3945-base.c
+> index 59a308b..d31661c 100644
+> --- a/drivers/net/wireless/iwlwifi/iwl3945-base.c
+> +++ b/drivers/net/wireless/iwlwifi/iwl3945-base.c
+> @@ -3018,7 +3018,7 @@ void iwl3945_request_scan(struct iwl_priv *priv, struct ieee80211_vif *vif)
+>  	clear_bit(STATUS_SCANNING, &priv->status);
+>  
+>  	/* inform mac80211 scan aborted */
+> -	queue_work(priv->workqueue, &priv->scan_completed);
+> +	queue_work(priv->workqueue, &priv->abort_scan);
+>  }
+>  
+>  static void iwl3945_bg_restart(struct work_struct *data)
 
-rick jones
