@@ -1,62 +1,57 @@
 From: Willy Tarreau <w@1wt.eu>
 Subject: Re: TCP: orphans broken by RFC 2525 #2.17
-Date: Mon, 27 Sep 2010 21:21:12 +0200
-Message-ID: <20100927192112.GT12373@1wt.eu>
-References: <20100927053901.GL12373@1wt.eu> <20100926.234202.241938788.davem@davemloft.net> <20100927073443.GR12373@1wt.eu> <20100927.004239.58422076.davem@davemloft.net>
+Date: Mon, 27 Sep 2010 21:24:50 +0200
+Message-ID: <20100927192450.GU12373@1wt.eu>
+References: <20100926232530.GK12373@1wt.eu> <20100926.181202.28824153.davem@davemloft.net> <20100927053901.GL12373@1wt.eu> <20100926.234202.241938788.davem@davemloft.net> <20100927073443.GR12373@1wt.eu> <alpine.LFD.2.00.1009271159070.2191@u.domain.uli>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:45723 "EHLO 1wt.eu"
+Received: from 1wt.eu ([62.212.114.60]:45725 "EHLO 1wt.eu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933430Ab0I0TVQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Sep 2010 15:21:16 -0400
+	id S1755640Ab0I0TY5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Sep 2010 15:24:57 -0400
 Content-Disposition: inline
-In-Reply-To: <20100927.004239.58422076.davem@davemloft.net>
+In-Reply-To: <alpine.LFD.2.00.1009271159070.2191@u.domain.uli>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 27, 2010 at 12:42:39AM -0700, David Miller wrote:
-> I still think it's completely broken that you want to close a
-> connection for which data is still going to arrive.
+Hi Julian
+
+[removed Davem from the CC upon his request, not to pollute him]
+
+On Mon, Sep 27, 2010 at 12:12:24PM +0300, Julian Anastasov wrote:
+> 	If it is not already mentioned, the application can
+> know if sent data is acked. I think, ioctl SIOCOUTQ is for
+> this purpose. May be the application that wants to send
+> reliably HTTP error response before closing should do something
+> like:
 > 
-> And I really can't think of why this can't be solved at the
-> application level.
-> 
-> Either there is an application level ACK that you have to wait for
-> anyways, or there isn't and you receive the entire request packet
-> before you start sending the data.
-> 
-> If there is some kind of unpredictable "dribbling" after the request
-> arrives, you really have to fix that.
-> 
-> I honestly have no sympathy for an application level protocol that
-> works this way, and I don't think the kernel is the place where this
-> should be handled.
-> 
-> Please don't exhaust me any further on this issue, thank you.
+> - add this FD in some list for monitoring instead of keeping
+> large connection state
+> - use shutdown SHUT_WR to add FIN after response
+> - use setsockopt SO_RCVBUF with some low value to close the
+> RX window, we do not want the body
+> - wait for POLLHUP (FIN), not for POLLIN because we want to
+> ignore data, not to read it. Still, data can be read and
+> dropped if needed to release the socket memory
+> - use timer to limit the time we wait our data to be acked
+> - use SIOCOUTQ to know if everything is received in peer and
+> then close the fd
 
-David,
+Thanks very much for this suggestion. I was looking for something
+like this and even looked at the tcp_info struct, but it did not
+look very easy to use.
 
-I don't want to exhaust you on the issue and I really understand that
-you quickly read my explanations and don't get the issues.
+Still, I think that polling on POLLIN and checking with SIOCOUTQ
+on every read to see if the out queue is now empty would do the
+trick, without forcing to read huge amounts of unnecessary data.
 
-Two quick facts :
-  - HTTP allows the client to send whatever it wants whenever it wants
-    and allows the server to close after whatever response it wants.
-    Thus the server cannot predict that the client will talk.
+I'll simply enclose that inside a #ifdef LINUX and that should be
+OK. It kinda sucks to be able to workaround low level issues at the
+application level but at least this workaround is acceptable.
 
-  - orphans don't work anymore, period. Why not remove that whole code
-    if you pretend it must not be used ? You still did not reply to this
-    point, and I'm sure you will still not respond to this, probably
-    because you've realized that there is indeed a bug which is probably
-    not easy to solve, given the limited use it has.
-
-Please, wait for a moment when you have a bit more spare time and check
-what the orphans may be used for with this issue => nothing. That's why
-I'm trying to discuss a possible fix.
-
-Thanks,
+Regards,
 Willy
 
