@@ -1,81 +1,67 @@
-From: "Jan Beulich" <JBeulich@novell.com>
-Subject: [PATCH] 3c59x: fix regression from patch "Add ethtool WOL
-	 support"
-Date: Mon, 27 Sep 2010 12:37:49 +0100
-Message-ID: <4CA09E2D0200007800019050@vpn.id2.novell.com>
+From: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] sunrpc: prompt for RPCSEC_GSS_KRB5 even if NFS_V4 is
+ enabled
+Date: Mon, 27 Sep 2010 07:39:32 -0400
+Message-ID: <1285587572.19362.2.camel@heimdal.trondhjem.org>
+References: <20100909181454.GB14915@pengutronix.de>
+	 <1285584120-16860-1-git-send-email-u.kleine-koenig@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8BIT
-Cc: <andrew@beldisplaytech.com>, <netdev@vger.kernel.org>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Randy Dunlap <randy.dunlap-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Uwe =?ISO-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1285584120-16860-1-git-send-email-u.kleine-koenig-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This patch (commit 690a1f2002a3091bd18a501f46c9530f10481463) added a
-new call site for acpi_set_WOL() without checking that the function is
-actually suitable to be called via
+On Mon, 2010-09-27 at 12:41 +0200, Uwe Kleine-K=C3=B6nig wrote:
+> NFS_V4 works fine without RPCSEC_GSS_KRB5 (even without CRYPTO).
+> This dependency was introduced in
+>=20
+> 	df486a2 (NFS: Fix the selection of security flavours in Kconfig)
+>=20
+> to fix a build failure as RPCSEC_GSS_KRB5 was thought to be needed fo=
+r
+> NFS_V4.  The fix didn't work completely as NFS_V4 didn't enforce CRYP=
+TO
+> and so the select on RPCSEC_GSS_KRB5 didn't work in all situations (e=
+=2Eg.
+> arm/mx1_defconfig).
+>=20
+> This was rectified by
+>=20
+> 	827e345 (SUNRPC: Fix the NFSv4 and RPCSEC_GSS Kconfig dependencies)
+>=20
+> but the magic for RPCSEC_GSS_KRB5 introduced by df486a2 wasn't revert=
+ed.
+>=20
+> Cc: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+> Signed-off-by: Uwe Kleine-K=C3=B6nig <u.kleine-koenig-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+> ---
+> Hello,
+>=20
+> after Trond sent me the patch that later ended in 827e345702 I sugges=
+ted
+> to fold the patch below into it[1], but without reaction and success =
+as I
+> noticed just now. :-(
+>=20
+> Best regards
+> Uwe
 
- vortex_set_wol+0xcd/0xe0 [3c59x]
- dev_ethtool+0xa5a/0xb70
- dev_ioctl+0x2e0/0x4b0
- T.961+0x49/0x50
- sock_ioctl+0x47/0x290
- do_vfs_ioctl+0x7f/0x340
- sys_ioctl+0x80/0xa0
- system_call_fastpath+0x16/0x1b
+That's because you completely fail to justify why should we change the
+behaviour to suddenly make RPCSEC_GSS_KRB5 optional for NFSv4. That has
+never been the case before.
 
-i.e. outside of code paths run when the device is not yet enabled or
-already disabled. In particular, putting the device into D3hot is a
-pretty bad idea when it was already brought up.
-
-Furthermore, all prior callers of the function made sure they're
-actually dealing with a PCI device, while the newly added one didn't.
-
-In the same spirit, the .get_wol handler shouldn't indicate support
-for WOL for non-PCI devices.
-
-Signed-off-by: Jan Beulich <jbeulich@novell.com>
-Cc: Andrew O. Shadoura <andrew@beldisplaytech.com>
-
----
- drivers/net/3c59x.c |   10 ++++++++++
- 1 file changed, 10 insertions(+)
-
---- linux-2.6.36-rc5/drivers/net/3c59x.c
-+++ 2.6.36-rc5-3c59x-WOL/drivers/net/3c59x.c
-@@ -2942,6 +2942,9 @@ static void vortex_get_wol(struct net_de
- {
- 	struct vortex_private *vp = netdev_priv(dev);
- 
-+	if (!VORTEX_PCI(vp))
-+		return;
-+
- 	wol->supported = WAKE_MAGIC;
- 
- 	wol->wolopts = 0;
-@@ -2952,6 +2955,10 @@ static void vortex_get_wol(struct net_de
- static int vortex_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
- {
- 	struct vortex_private *vp = netdev_priv(dev);
-+
-+	if (!VORTEX_PCI(vp))
-+		return -EOPNOTSUPP;
-+
- 	if (wol->wolopts & ~WAKE_MAGIC)
- 		return -EINVAL;
- 
-@@ -3201,6 +3208,9 @@ static void acpi_set_WOL(struct net_devi
- 			return;
- 		}
- 
-+		if (VORTEX_PCI(vp)->current_state < PCI_D3hot)
-+			return;
-+
- 		/* Change the power state to D3; RxEnable doesn't take effect. */
- 		pci_set_power_state(VORTEX_PCI(vp), PCI_D3hot);
- 	}
-
-
-
+Trond
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
