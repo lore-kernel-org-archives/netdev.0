@@ -1,55 +1,50 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: linux-next: build failure after merge of the final tree (net
- tree related)
-Date: Mon, 27 Sep 2010 14:25:47 -0400
-Message-ID: <20100927182546.GE11086@tuxdriver.com>
-References: <20100927154408.55a28127.sfr@canb.auug.org.au>
- <AANLkTinHk82jM7Ztwb1aB1xb-hSLeg5Hb07mhYCaeszi@mail.gmail.com>
- <20100927180412.GD11086@tuxdriver.com>
- <20100927.111818.149846920.davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH net-next-2.6 12/17] mv643xx_eth: Use
+ netif_set_real_num_{rx,tx}_queues()
+Date: Mon, 27 Sep 2010 19:30:05 +0100
+Message-ID: <1285612205.2263.310.camel@achroite.uk.solarflarecom.com>
+References: <1285611791.2263.287.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ohad@wizery.com, sfr@canb.auug.org.au, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
+	Lennert Buytenhek <buytenh@wantstofly.org>
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20100927.111818.149846920.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:52015 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933295Ab0I0SaJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Sep 2010 14:30:09 -0400
+In-Reply-To: <1285611791.2263.287.camel@achroite.uk.solarflarecom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 27, 2010 at 11:18:18AM -0700, David Miller wrote:
-> From: "John W. Linville" <linville@tuxdriver.com>
-> Date: Mon, 27 Sep 2010 14:04:12 -0400
-> 
-> > Subject: [PATCH] wl12xx: fix separate-object-folder builds
-> > 
-> > Make this go away (happens when building with a separate object
-> > directory):
-> > 
-> > Assembler messages:
-> > Fatal error: can't create drivers/net/wireless/wl12xx/.tmp_wl12xx_platform_data.o: No such file or directory
-> > drivers/net/wireless/wl12xx/wl12xx_platform_data.c: In function 'wl12xx_get_platform_data':
-> > drivers/net/wireless/wl12xx/wl12xx_platform_data.c:28: error: cannot open drivers/net/wireless/wl12xx/.tmp_wl12xx_platform_data.gcno
-> > drivers/net/wireless/wl12xx/wl12xx_platform_data.c:28: confused by earlier errors, bailing out
-> > 
-> > Signed-off-by: John W. Linville <linville@tuxdriver.com>
-> > Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
-> 
-> BTW, if this fuglet going to work if the driver is built modular?
-> 
-> The idea of this things seems to be to allow arch platform code to call
-> into it to set things.  Such calls from arch platform code are going
-> to be "obj-y"
-> 
-> So if this is built into the modular driver, I can't see how it
-> can work.
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ drivers/net/mv643xx_eth.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-Dave is right -- these Kconfig dependencies (or lack thereof) seem
-to be wrong.  Seems like the OMAP code needs to select the option
-for this code?
-
-John
+diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
+index 2d488ab..dd2b6a7 100644
+--- a/drivers/net/mv643xx_eth.c
++++ b/drivers/net/mv643xx_eth.c
+@@ -2901,7 +2901,8 @@ static int mv643xx_eth_probe(struct platform_device *pdev)
+ 	mp->dev = dev;
+ 
+ 	set_params(mp, pd);
+-	dev->real_num_tx_queues = mp->txq_count;
++	netif_set_real_num_tx_queues(dev, mp->txq_count);
++	netif_set_real_num_rx_queues(dev, mp->rxq_count);
+ 
+ 	if (pd->phy_addr != MV643XX_ETH_PHY_NONE)
+ 		mp->phy = phy_scan(mp, pd->phy_addr);
 -- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+1.7.2.1
+
+
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
