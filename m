@@ -1,52 +1,162 @@
-From: David Stevens <dlstevens-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
-Subject: Re: igmp: Staggered igmp report intervals for unsolicited igmp reports
-Date: Mon, 27 Sep 2010 12:32:45 -0700
-Message-ID: <OF871D4733.876C9DA0-ON882577AB.006AB200-882577AB.006B6101@us.ibm.com>
-References: <alpine.DEB.2.00.1009221354410.32661@router.home> <alpine.DEB.2.00.1009221400010.32661@router.home> <OFF06BBC88.0B6755D5-ON882577A6.0068F4F8-882577A6.006B31FB@us.ibm.com> <alpine.DEB.2.00.1009221448460.32661@router.home> <20100922215052.GK11157@obsidianresearch.com> <alpine.DEB.2.00.1009231026510.32567@router.home> <20100923172603.GM11157@obsidianresearch.com> <alpine.DEB.2.00.1009231230100.2962@router.home>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: linux-next: build failure after merge of the final tree (net
+ tree related)
+Date: Mon, 27 Sep 2010 15:44:08 -0400
+Message-ID: <20100927194408.GG11086@tuxdriver.com>
+References: <20100927154408.55a28127.sfr@canb.auug.org.au>
+ <AANLkTinHk82jM7Ztwb1aB1xb-hSLeg5Hb07mhYCaeszi@mail.gmail.com>
+ <20100927180412.GD11086@tuxdriver.com>
+ <20100927.111818.149846920.davem@davemloft.net>
+ <20100927182546.GE11086@tuxdriver.com>
+ <AANLkTi=YHhRWFix1QDuEnRW7r_UaNtp6KSL9uLdUzdqM@mail.gmail.com>
+ <20100927184445.GF11086@tuxdriver.com>
+ <AANLkTi=2KqQb+gvuigxb+-tSzawx7=q3HtnkkE6t_4XF@mail.gmail.com>
+ <AANLkTim9nHmhNLmECnYk-OHYmyk96tz65kd=ybz24M3Y@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Bob Arendt <rda-x0S3BwdUo6DQT0dZR+AlfA@public.gmane.org>
-To: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <alpine.DEB.2.00.1009231230100.2962-sBS69tsa9Uj/9pzu0YdTqQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, sfr@canb.auug.org.au,
+	netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Ohad Ben-Cohen <ohad@wizery.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <AANLkTim9nHmhNLmECnYk-OHYmyk96tz65kd=ybz24M3Y@mail.gmail.com>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org> wrote on 09/23/2010 10:37:28 AM:
+On Mon, Sep 27, 2010 at 09:06:09PM +0200, Ohad Ben-Cohen wrote:
+> On Mon, Sep 27, 2010 at 9:01 PM, Ohad Ben-Cohen <ohad@wizery.com> wro=
+te:
+> > On Mon, Sep 27, 2010 at 8:44 PM, John W. Linville
+> > <linville@tuxdriver.com> wrote:
+> >> On Mon, Sep 27, 2010 at 08:38:50PM +0200, Ohad Ben-Cohen wrote:
+> >>> On Mon, Sep 27, 2010 at 8:25 PM, John W. Linville
+> >>> <linville@tuxdriver.com> wrote:
+> >>> >> BTW, if this fuglet going to work if the driver is built modul=
+ar?
+> >>> >>
+> >>> >> The idea of this things seems to be to allow arch platform cod=
+e to call
+> >>> >> into it to set things. =A0Such calls from arch platform code a=
+re going
+> >>> >> to be "obj-y"
+> >>> >>
+> >>> >> So if this is built into the modular driver, I can't see how i=
+t
+> >>> >> can work.
+> >>> >
+> >>> > Dave is right -- these Kconfig dependencies (or lack thereof) s=
+eem
+> >>> > to be wrong.
+> >>>
+> >>> This is why I had to put it in drivers/net/wireless/Makefile (in =
+both
+> >>> the original patch and in the fix I sent earlier) and not in
+> >>> drivers/net/wireless/wl12xx/Makefile (as it was in the fix that D=
+ave
+> >>> was referring to).
+> >>>
+> >>> This way it works with a modular driver.
+> >>
+> >> That doesn't seem very helpful if someone selects
+> >>
+> >> CONFIG_MACH_OMAP_ZOOM2=3Dy
+> >> CONFIG_WL12XX_PLATFORM_DATA=3Dn
+>=20
+>=20
+> That's a good point (it's a separate issue); we need to have a select=
+ there.
+>=20
+> I'll send a patch.
 
-> 
-> If all unsolicited igmp reports are lost then the router will
-> only start forwarding the mc group after the reporting intervals
-> (which could be in the range of minutes) when it triggers igmp reports
-> through a general igmp query. Until that time the MC group looks dead. 
-And
-> people and software may conclude that the **** network is broken.
+No, maybe you don't need it -- the bool line by itself means there
+is no menu item.  So the default y does the job of selecting it all
+the time (which kinda sucks for non-OMAP)...
 
-        You can, of course, add a querier (or configure it, assuming
-an attached switch supports it) and set the query interval and robustness
-count as appropriate for that network.
+> >>
+> >
+> > CONFIG_WL12XX_PLATFORM_DATA is selected automatically if the releva=
+nt
+> > driver is selected (this is independent of the underlying arch/boar=
+d):
+> >
+> > config WL12XX_PLATFORM_DATA
+> > =A0 =A0 =A0 =A0bool
+> > =A0 =A0 =A0 =A0depends on WL1271_SDIO !=3D n
+> > =A0 =A0 =A0 =A0default y
+> >
+> > All we have to make sure is that it will be compiled built-in. If w=
+e
+> > use drivers/net/wireless/wl12xx/Makefile, and we build a modular
+> > wl1271_sdio, it won't (despite it being selected as y).
 
-> This is a general issue for any network where configurations for MC
-> forwarding is needed and where initial igmp reports may get lost.
+I don't understand this part.  FWIW, Kconfig is not a strength for me.
+But...
 
-Meaning "IB-only", right? :-) Maybe other NBMA networks too, but
-certainly not a typical problem for typical networks (i.e., Ethernet).
+> > That's why I put it in drivers/net/wireless/Makefile.
 
-> A staggering of time intervals would be a general solution to that 
-issue.
+Can't we do this?  It seems to work (i.e. the symbols from
+wl12xx_platform_data.o end-up in built-in.o).
 
-As would be having those networks queue packets for hardware addresses 
-they
-know require a delay before a transmit can complete. But that approach 
-can't
-adversely affect already-working solutions for typical networks, or
-depart unnecessarily from established standard protocols.
+=46rom d8ddd0ebe8ae3791ba9c76a506bfcdd60be40f5b Mon Sep 17 00:00:00 200=
+1
+=46rom: John W. Linville <linville@tuxdriver.com>
+Date: Mon, 27 Sep 2010 14:00:51 -0400
+Subject: [PATCH] wl12xx: fix separate-object-folder builds
 
- +-DLS
+Make this go away (happens when building with a separate object
+directory):
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Assembler messages:
+=46atal error: can't create drivers/net/wireless/wl12xx/.tmp_wl12xx_pla=
+tform_data.o: No such file or directory
+drivers/net/wireless/wl12xx/wl12xx_platform_data.c: In function 'wl12xx=
+_get_platform_data':
+drivers/net/wireless/wl12xx/wl12xx_platform_data.c:28: error: cannot op=
+en drivers/net/wireless/wl12xx/.tmp_wl12xx_platform_data.gcno
+drivers/net/wireless/wl12xx/wl12xx_platform_data.c:28: confused by earl=
+ier errors, bailing out
+
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
+Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
+Cc: Signed-off-by: Ohad Ben-Cohen <ohad@wizery.com>
+---
+ drivers/net/wireless/Makefile        |    3 +--
+ drivers/net/wireless/wl12xx/Makefile |    3 +++
+ 2 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/Makefile b/drivers/net/wireless/Makef=
+ile
+index 85af697..a13a602 100644
+--- a/drivers/net/wireless/Makefile
++++ b/drivers/net/wireless/Makefile
+@@ -50,7 +50,6 @@ obj-$(CONFIG_ATH_COMMON)	+=3D ath/
+ obj-$(CONFIG_MAC80211_HWSIM)	+=3D mac80211_hwsim.o
+=20
+ obj-$(CONFIG_WL12XX)	+=3D wl12xx/
+-# small builtin driver bit
+-obj-$(CONFIG_WL12XX_PLATFORM_DATA)	+=3D wl12xx/wl12xx_platform_data.o
++obj-$(CONFIG_WL12XX_PLATFORM_DATA)	+=3D wl12xx/
+=20
+ obj-$(CONFIG_IWM)	+=3D iwmc3200wifi/
+diff --git a/drivers/net/wireless/wl12xx/Makefile b/drivers/net/wireles=
+s/wl12xx/Makefile
+index 078b439..0d334d6 100644
+--- a/drivers/net/wireless/wl12xx/Makefile
++++ b/drivers/net/wireless/wl12xx/Makefile
+@@ -16,3 +16,6 @@ wl1271-$(CONFIG_NL80211_TESTMODE)	+=3D wl1271_testmod=
+e.o
+ obj-$(CONFIG_WL1271)	+=3D wl1271.o
+ obj-$(CONFIG_WL1271_SPI)	+=3D wl1271_spi.o
+ obj-$(CONFIG_WL1271_SDIO)	+=3D wl1271_sdio.o
++
++# small builtin driver bit
++obj-$(CONFIG_WL12XX_PLATFORM_DATA)	+=3D wl12xx_platform_data.o
+--=20
+1.7.2.3
+
+
+--=20
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
