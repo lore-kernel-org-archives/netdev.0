@@ -1,50 +1,45 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next-2.6 17/17] 8021q: Use netif_copy_real_num_queues()
- to set queue counts
-Date: Mon, 27 Sep 2010 19:32:59 +0100
-Message-ID: <1285612379.2263.320.camel@achroite.uk.solarflarecom.com>
-References: <1285611791.2263.287.camel@achroite.uk.solarflarecom.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH v3] xmit_compl_seq: information to reclaim vmsplice buffers
+Date: Mon, 27 Sep 2010 11:38:36 -0700
+Message-ID: <AANLkTimdrFuYONq6FvBW41AnhpA6Q+acSUmy4CiJatYL@mail.gmail.com>
+References: <alpine.DEB.1.00.1009231426450.11579@pokey.mtv.corp.google.com>
+	<20100927172315.GA8387@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
-	Patrick McHardy <kaber@trash.net>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, davem@davemloft.net, sridharr@google.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:52383 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933186Ab0I0SdD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Sep 2010 14:33:03 -0400
-In-Reply-To: <1285611791.2263.287.camel@achroite.uk.solarflarecom.com>
+Received: from smtp-out.google.com ([74.125.121.35]:52052 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933309Ab0I0Sij (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Sep 2010 14:38:39 -0400
+Received: from kpbe14.cbf.corp.google.com (kpbe14.cbf.corp.google.com [172.25.105.78])
+	by smtp-out.google.com with ESMTP id o8RIcb0v024065
+	for <netdev@vger.kernel.org>; Mon, 27 Sep 2010 11:38:38 -0700
+Received: from pvg16 (pvg16.prod.google.com [10.241.210.144])
+	by kpbe14.cbf.corp.google.com with ESMTP id o8RIcAWS010779
+	for <netdev@vger.kernel.org>; Mon, 27 Sep 2010 11:38:36 -0700
+Received: by pvg16 with SMTP id 16so1497489pvg.12
+        for <netdev@vger.kernel.org>; Mon, 27 Sep 2010 11:38:36 -0700 (PDT)
+In-Reply-To: <20100927172315.GA8387@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This covers RX if necessary, as well as TX.
+>
+> Can not packets referencing this memory
+> still be outstanding at the NIC device, if retransmit happens
+> before the ack but after the packet was passed to a device?
+>
+> It's true that the reftransmit will likely get discarded
+> by the remote end, but this might be a security issue
+> if an application puts sensitive data in the buffer
+> and that gets inadvertently sent on the wire, can it not?
+>
+Yes, this hole probably does exist.  I don't know how to fix it other
+than more API that specifically reports when all references to a
+buffer are released.  In the case of TCP that probably means we'd need
+a destructor.
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- net/8021q/vlan.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index 2c6c2bd..25c2133 100644
---- a/net/8021q/vlan.c
-+++ b/net/8021q/vlan.c
-@@ -321,7 +321,7 @@ static int register_vlan_device(struct net_device *real_dev, u16 vlan_id)
- 	if (new_dev == NULL)
- 		return -ENOBUFS;
- 
--	new_dev->real_num_tx_queues = real_dev->real_num_tx_queues;
-+	netif_copy_real_num_queues(new_dev, real_dev);
- 	dev_net_set(new_dev, net);
- 	/* need 4 bytes for extra VLAN header info,
- 	 * hope the underlying device can handle it.
--- 
-1.7.2.1
-
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+> --
+> MST
+>
