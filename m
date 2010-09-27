@@ -1,32 +1,73 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] fix TSO FACK loss marking in tcp_mark_head_lost
-Date: Mon, 27 Sep 2010 14:56:41 -0700 (PDT)
-Message-ID: <20100927.145641.55868180.davem@davemloft.net>
-References: <alpine.DEB.2.00.1009271520560.26447@wel-95.cs.helsinki.fi>
-	<20100927.111114.124003889.davem@davemloft.net>
-	<alpine.DEB.2.00.1009272155030.15680@melkinpaasi.cs.helsinki.fi>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re:
+Date: Mon, 27 Sep 2010 15:01:18 -0700
+Message-ID: <OF9D99FA29.B3F53176-ON882577AB.00780023-882577AB.0078FAAE@us.ibm.com>
+References: <20100927200500.GB25879@obsidianresearch.com> <OF056C7E7C.A9A5EFC7-ON882577AB.006E6B89-882577AB.006F2C1E@us.ibm.com> <alpine.DEB.2.00.1009271521510.14117@router.home> <4CA1048C.8020508@rincon.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ycheng@google.com, netdev@vger.kernel.org
-To: ilpo.jarvinen@helsinki.fi
+Content-Type: text/plain; charset="US-ASCII"
+Cc: Christoph Lameter <cl@linux.com>,
+	Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
+	"linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"netdev-owner@vger.kernel.org" <netdev-owner@vger.kernel.org>
+To: Bob Arendt <rda@rincon.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60705
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759288Ab0I0V4V convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Sep 2010 17:56:21 -0400
-In-Reply-To: <alpine.DEB.2.00.1009272155030.15680@melkinpaasi.cs.helsinki.fi>
+Received: from e32.co.us.ibm.com ([32.97.110.150]:33874 "EHLO
+	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750865Ab0I0WBh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Sep 2010 18:01:37 -0400
+In-Reply-To: <4CA1048C.8020508@rincon.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Mon, 27 Sep 2010 22:20:57 +0300 (EEST)
+Bob Arendt <rda@rincon.com> wrote on 09/27/2010 01:54:36 PM:
+ 
+> On 09/27/10 13:23, Christoph Lameter wrote:
+> > On Mon, 27 Sep 2010, David Stevens wrote:
+> >
+> >>          Because a querier can set the robustness value and
+> >> query interval to anything you want. In the original report,
+> >> he's not running a querier. The fact that it's a new group
+> >> doesn't matter -- these are per-interface.
+> >
+> > The per interface settings are used to force an IGMP version 
+overriding
+> > any information by the queriers. You would not want to enable that 
+because
+> > it disables support for other IGMP versions. Without the override
+> > different version of IGMP can be handled per MC group.
+> >
+> If a network vlan has IGMPv3 capability, then it should be able
+> to support both v2 and v3 Joins (clients).  But if the vlan is
+> IGMPv2 only, then an initial Join from a Linux client might go out
+> as v3 (if it hasn't seen a query yet) and be ignored.  I believe
+> this is the case that force_igmp_version really addresses.
 
-> I disagree now with myself btw, it's not just "a policy decision" as =
-we=20
-> do not retransmit some segments at all before RTO in some scenarios.
+        Not really. It's for the case where there is no querier at all,
+but a snooping switch that only supports IGMPv2. After any query has
+put an interface in IGMPv2 mode (or IGMPv1), the initial report for
+all joins will use the earlier protocol. It isn't per-group, it's
+per interface, and you cannot mix versions of IGMP on the same network.
 
-Ok, thanks for explaining all of this.
+> 
+> And it turns out that  force_igmp_version=2 doesn't fully work.
+> If the host sees a IGMPv3 query, it still responds with a v3 Join
+> despite the flag.  Bug report and candidate patch here:
+> https://bugzilla.kernel.org/show_bug.cgi?id=18212
 
-I've applied Yuchung's patch to net-2.6, thanks everyone!
+        This is a special case. The "correct" alternative is to drop
+the query and not send any report at all. Sending an answer in the
+originating protocol doesn't hurt anything here, because MC routers
+are required to use the earlier version too; there should be no such
+thing as an "IGMPv3-only querier" as in that report. IGMPv3 compliance
+*requires* falling back to IGMPv2 if there is a v2 query by another
+router. 
+        By answering instead of dropping, it allows fuller filter
+information from a manual query to be returned even if the network
+is using v2 MC routers, but dropping and ignoring the query as
+required by RFC does not fix the bug & patch submitter's problem.
+Which is why I also NACKed that patch.
+
+                                                        +-DLS
+
+
