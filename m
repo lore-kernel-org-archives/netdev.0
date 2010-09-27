@@ -1,73 +1,70 @@
-From: Glenn Wurster <gwurster@scs.carleton.ca>
-Subject: [PATCH linux-2.6 v2] IPv6: Temp addresses are immediately deleted.
-Date: Mon, 27 Sep 2010 13:10:10 -0400
-Message-ID: <20100927171010.GB7106@adams.ccsl.carleton.ca>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH v3] xmit_compl_seq: information to reclaim vmsplice
+ buffers
+Date: Mon, 27 Sep 2010 19:23:15 +0200
+Message-ID: <20100927172315.GA8387@redhat.com>
+References: <alpine.DEB.1.00.1009231426450.11579@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yosh
+Cc: netdev@vger.kernel.org, davem@davemloft.net, sridharr@google.com
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shakespeare.ccsl.carleton.ca ([134.117.225.11]:56148 "EHLO
-	shakespeare.ccsl.carleton.ca" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757041Ab0I0RKl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Sep 2010 13:10:41 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:12026 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757074Ab0I0R3Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Sep 2010 13:29:25 -0400
 Content-Disposition: inline
+In-Reply-To: <alpine.DEB.1.00.1009231426450.11579@pokey.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is a bug in the interaction between ipv6_create_tempaddr and 
-addrconf_verify.  Because ipv6_create_tempaddr uses the cstamp and tstamp 
-from the public address in creating a private address, if we have not 
-received a router advertisement in a while, tstamp + temp_valid_lft might be 
-< now.  If this happens, the new address is created inside 
-ipv6_create_tempaddr, then the loop within addrconf_verify starts again and 
-the address is immediately deleted.  We are left with no temporary addresses 
-on the interface, and no more will be created until the public IP address is 
-updated.  To avoid this, set the expiry time to be the minimum of the time 
-left on the public address or the config option PLUS the current age of the 
-public interface.
+On Thu, Sep 23, 2010 at 02:35:16PM -0700, Tom Herbert wrote:
+> In this patch we propose to adds some socket API to retrieve the
+>  "transmit completion sequence number", essentially a byte counter
+> for the number of bytes that have been transmitted and will not be
+> retransmitted.  In the case of TCP, this should correspond to snd_una.
+> 
+> The purpose of this API is to provide information to userspace about
+> which buffers can be reclaimed when sending with vmsplice() on a
+> socket.
+> 
+> There are two methods for retrieving the completed sequence number:
+> through a simple getsockopt (implemented here for TCP), as well as
+> returning the value in the ancilary data of a recvmsg.
+> 
+> The expected flow would be something like:
+>    - Connect is created
+>    - Initial completion seq # is retrieved through the sockopt, and is
+>      stored in userspace "compl_seq" variable for the connection.
+>    - Whenever a send is done, compl_seq += # bytes sent.
+>    - When doing a vmsplice the completion sequence number is saved
+>      for each user space buffer, buffer_compl_seq = compl_seq.
+>    - When recvmsg returns with a completion sequence number in
+>      ancillary data, any buffers cover by that sequence number
+>      (where buffer_compl_seq < recvmsg_compl_seq) are reclaimed
+>      and can be written to again.
+>    - If no data is receieved on a connection (recvmsg does not
+>      return), a timeout can be used to call the getsockopt and
+>      reclaim buffers as a fallback.
+> 
+> Using recvmsg data in this manner is sort of a cheap way to get a
+> "callback" for when a vmspliced buffer is consumed.  It will work
+> well for a client where the response causes recvmsg to return.
+> On the server side it works well if there are a sufficient
+> number of requests coming on the connection (resorting to the
+> timeout if necessary as described above).
+> 
+> Signed-off-by: Tom Herbert <therbert@google.com>
+> Signed-off-by: Sridhar Raman <sridharr@google.com>
 
-Version 2, now with 100% fewer line wraps.  Thanks to David Miller for
-pointing out the line wrapping issue.
+Can not packets referencing this memory
+still be outstanding at the NIC device, if retransmit happens
+before the ack but after the packet was passed to a device?
 
-Signed-off-by: Glenn Wurster <gwurster@scs.carleton.ca>
----
- net/ipv6/addrconf.c |    7 ++++---
- 1 files changed, 4 insertions(+), 3 deletions(-)
+It's true that the reftransmit will likely get discarded
+by the remote end, but this might be a security issue
+if an application puts sensitive data in the buffer
+and that gets inadvertently sent on the wire, can it not?
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index cfee6ae..9c74454 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -836,7 +836,7 @@ static int ipv6_create_tempaddr(struct inet6_ifaddr *ifp, struct inet6_ifaddr *i
- {
- 	struct inet6_dev *idev = ifp->idev;
- 	struct in6_addr addr, *tmpaddr;
--	unsigned long tmp_prefered_lft, tmp_valid_lft, tmp_cstamp, tmp_tstamp;
-+	unsigned long tmp_prefered_lft, tmp_valid_lft, tmp_cstamp, tmp_tstamp, age;
- 	unsigned long regen_advance;
- 	int tmp_plen;
- 	int ret = 0;
-@@ -886,12 +886,13 @@ retry:
- 		goto out;
- 	}
- 	memcpy(&addr.s6_addr[8], idev->rndid, 8);
-+	age = (jiffies - ifp->tstamp) / HZ;
- 	tmp_valid_lft = min_t(__u32,
- 			      ifp->valid_lft,
--			      idev->cnf.temp_valid_lft);
-+			      idev->cnf.temp_valid_lft + age);
- 	tmp_prefered_lft = min_t(__u32,
- 				 ifp->prefered_lft,
--				 idev->cnf.temp_prefered_lft -
-+				 idev->cnf.temp_prefered_lft + age -
- 				 idev->cnf.max_desync_factor);
- 	tmp_plen = ifp->prefix_len;
- 	max_addresses = idev->cnf.max_addresses;
 -- 
-1.5.6.5
-
+MST
