@@ -1,44 +1,62 @@
-From: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
+From: "M. Warner Losh" <imp@bsdimp.com>
 Subject: Re: [PATCH v6 0/8] ptp: IEEE 1588 hardware clock support
-Date: Mon, 27 Sep 2010 10:37:35 -0500 (CDT)
-Message-ID: <alpine.DEB.2.00.1009271035110.9258@router.home>
-References: <cover.1285261533.git.richard.cochran@omicron.at> <alpine.DEB.2.00.1009231238170.2962@router.home> <1285268380.2587.11.camel@localhost.localdomain> <alpine.DEB.2.00.1009231402420.2962@router.home> <1285273684.2587.92.camel@localhost.localdomain>
- <alpine.DEB.2.00.1009231533040.7522@router.home> <20100923223417.4ed62e5b@lxorguk.ukuu.org.uk> <4C9BC7CE.8020400@riesch.at>
+Date: Mon, 27 Sep 2010 10:14:23 -0600 (MDT)
+Message-ID: <20100927.101423.702773873740300798.imp@bsdimp.com>
+References: <alpine.DEB.2.00.1009231533040.7522@router.home>
+	<1285278136.2587.154.camel@localhost.localdomain>
+	<alpine.DEB.2.00.1009271038150.9258@router.home>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
-	john stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
-	Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>,
-	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>,
-	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
-To: Christian Riesch <christian-U4+xqT1Vg0VeoWH0uzbU5w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4C9BC7CE.8020400-U4+xqT1Vg0VeoWH0uzbU5w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: johnstul@us.ibm.com, giometti@linux.it, peterz@infradead.org,
+	linux-api@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
+	linux-kernel@vger.kernel.org, davem@davemloft.net,
+	netdev@vger.kernel.org, tglx@linutronix.de,
+	linuxppc-dev@lists.ozlabs.org, richardcochran@gmail.com,
+	linux-arm-kernel@lists.infradead.org, khc@pm.waw.pl
+To: cl@linux.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.00.1009271038150.9258@router.home>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 23 Sep 2010, Christian Riesch wrote:
+In message: <alpine.DEB.2.00.1009271038150.9258@router.home>
+            Christoph Lameter <cl@linux.com> writes:
+: On Thu, 23 Sep 2010, john stultz wrote:
+: > The design actually avoids most userland induced latency.
+: >
+: > 1) On the PTP hardware syncing point, the reference packet gets
+: > timestamped with the PTP hardware time on arrival. This allows the
+: > offset calculation to be done in userland without introducing latency.
+: 
+: The timestamps allows the calculation of the network transmission time I
+: guess and therefore its more accurate to calculate that effect out. Ok but
+: then the overhead of getting to code in user space (that does the proper
+: clock adjustments) is resulting in the addition of a relatively long time
+: that is subject to OS scheduling latencies and noises.
 
-> > > It implies clock tuning in userspace for a potential sub microsecond
-> > > accurate clock. The clock accuracy will be limited by user space
-> > > latencies and noise. You wont be able to discipline the system clock
-> > > accurately.
-> >
-> > Noise matters, latency doesn't.
->
-> Well put! That's why we need hardware support for PTP timestamping to reduce
-> the noise, but get along well with the clock servo that is steering the PHC in
-> user space.
+The timestamps at the hardware level allow you to factor out variation
+caused by OS Scheduling, OS network stack delay and internal buffering
+on the NIC.  Variation in measurements is what kills accuracy.
 
-Even if I buy into the catch phrase above: User space is subject to noise
-that the in kernel code is not. If you do the tuning over long intervals
-then it hopefully averages out but it still causes jitter effects that
-affects the degree of accuracy (or sync) that you can reach. And the noise
-varies with the load on the system.
+When steering a clock by making an error measurement of the phase and
+frequency of it, the latency induced by OS scheduling tends to be
+unimportant.  It is far more important to know when you steered the
+clock (called adjtime or friends) than to steer it at any fixed
+latency to when the data for the measurements was made.  Measuring the
+time of steer can tolerate errors in the range of OS scheduling
+latencies easily, since that tends to produce a very small effect.  It
+introduces an error in your expected phase for the next measurement on
+the order of the product of the time of steer error times the change
+in fractional frequency (abs( 1 - (nu_new / nu_old))).  Even if the
+estimate is really bad at 100ms, most steers are on the order about
+one part per million.  This leads to a sub-nanosecond phase error
+estimate in the next measurement cycle (a non-accumulating error).  A
+1ms error leads to maybe tens of picoseconds of estimate error.
+
+This is a common error that I've seen repeated in this thread.  The
+only reason that it has historically been important is because when
+you are doing timestamping in software based on an interrupt, that
+stuff does matter.
+
+Warner
