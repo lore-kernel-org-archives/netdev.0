@@ -1,66 +1,42 @@
-From: Damian Lukowski <damian@tvk.rwth-aachen.de>
-Subject: Re: [Bugme-new] [Bug 18952] New: The mount of SYN retries is not equal
- to /proc/sys/net/ipv4/tcp_syn_retries
-Date: Mon, 27 Sep 2010 10:35:41 +0200
-Message-ID: <1285576541.27290.1.camel@nexus>
-References: <20100922020212.d2aaec57.akpm@linux-foundation.org>
- <20100924.200557.229751150.davem@davemloft.net>
- <201009271007.06705.yuri@itinteg.net>
- <20100927.011046.45906887.davem@davemloft.net>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [MeeGo-Dev][PATCH v3] Topcliff: Update PCH_CAN driver to 2.6.35
+Date: Mon, 27 Sep 2010 10:38:18 +0200
+Message-ID: <4CA057FA.1000101@grandegger.com>
+References: <4C9C7C6F.1000003@dsn.okisemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7BIT
-Cc: yuri@itinteg.net, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta-1.ms.rz.RWTH-Aachen.DE ([134.130.7.72]:33648 "EHLO
-	mta-1.ms.rz.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932655Ab0I0Ifn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Sep 2010 04:35:43 -0400
-Received: from ironport-out-1.rz.rwth-aachen.de ([134.130.5.40])
- by mta-1.ms.rz.RWTH-Aachen.de
- (Sun Java(tm) System Messaging Server 6.3-7.04 (built Sep 26 2008))
- with ESMTP id <0L9E00098D7I4P30@mta-1.ms.rz.RWTH-Aachen.de> for
- netdev@vger.kernel.org; Mon, 27 Sep 2010 10:35:42 +0200 (CEST)
-Received: from [192.168.0.131] ([unknown] [62.143.253.104])
- by relay-auth-2.ms.rz.rwth-aachen.de
- (Sun Java(tm) System Messaging Server 7.0-3.01 64bit (built Dec  9 2008))
- with ESMTPA id <0L9E00C60D7H6I40@relay-auth-2.ms.rz.rwth-aachen.de> for
- netdev@vger.kernel.org; Mon, 27 Sep 2010 10:35:42 +0200 (CEST)
-In-reply-to: <20100927.011046.45906887.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	Tomoya MORINAGA <morinaga526-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>,
+	meego-dev-WXzIur8shnEAvxtiuMwx3w@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+To: Masayuki Ohtak <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4C9C7C6F.1000003-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi David,
+Hi Ohtake,
 
-give me some time, please. I'll take a closer look in the evening.
-
-Regards
- Damian
-
-Am Montag, den 27.09.2010, 01:10 -0700 schrieb David Miller:
-> From: Yuri Chislov <yuri@itinteg.net>
-> Date: Mon, 27 Sep 2010 10:07:06 +0200
+On 09/24/2010 12:24 PM, Masayuki Ohtak wrote:
+> Hi Wolfgang and Marc,
 > 
-> >   It looks like the behavior changed in 2.6.32. 2.6.32 and up, uses some 
-> > calculation instead of a direct definition of the retries number, that makes it 
-> > harder to achieve the necessary system behavior.
-> > 
-> >  The default behavior of the system changed completely
-> > (the old default connect timeout was ~ 180 seconds, while the new one is ~21 
-> > sec). 
-> > 
-> > The new behavior invalidates the kernel documentation and tcp man page.
-> > 
-> > It's not possible to set a connect timeout > 25 sec in the applications while 
-> > using the default values in /proc. 
-> > 
-> > From my view point is regression.
-> 
-> Agreed, Damian you have to fix this.
-> 
-> Otherwise I'm reverting all of your Revert Backoff commits.
+> We have modified a pretty amount of our driver based on other accepted Socket CAN driver.
+> Additionally, We have reduced the number of lines 3601 to 1444.
 
+Much better now! I need some more time for a full review, though.
 
+Thanks,
+
+Wolfgang.
