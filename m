@@ -1,80 +1,60 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: Re: [PATCH net-next-2.6 16/17] tg3: Use
- netif_set_real_num_{rx,tx}_queues()
-Date: Mon, 27 Sep 2010 14:41:07 -0700
-Message-ID: <20100927214107.GA32336@mcarlson.broadcom.com>
-References: <1285611791.2263.287.camel@achroite.uk.solarflarecom.com>
- <1285612357.2263.319.camel@achroite.uk.solarflarecom.com>
+From: Ondrej Zary <linux@rainbow-software.org>
+Subject: [PATCH] de2104x: fix ethtool
+Date: Mon, 27 Sep 2010 23:41:45 +0200
+Message-ID: <201009272341.50668.linux@rainbow-software.org>
 Mime-Version: 1.0
 Content-Type: text/plain;
- charset=us-ascii
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-net-drivers@solarflare.com" <linux-net-drivers@solarflare.com>,
-	"Matthew Carlson" <mcarlson@broadcom.com>,
-	"Michael Chan" <mchan@broadcom.com>
-To: "Ben Hutchings" <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1552 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753480Ab0I0Vld (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Sep 2010 17:41:33 -0400
-In-Reply-To: <1285612357.2263.319.camel@achroite.uk.solarflarecom.com>
+Cc: netdev@vger.kernel.org,
+	Kernel development list <linux-kernel@vger.kernel.org>
+To: jgarzik@pobox.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 27, 2010 at 11:32:37AM -0700, Ben Hutchings wrote:
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-> ---
-> This *always* sets real_num_tx_queues to 1, so this could be improved.
-> For now, do a simple conversion.
-> 
-> Ben.
-> 
->  drivers/net/tg3.c |    8 ++++++--
->  1 files changed, 6 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-> index fdb438d..ca41140 100644
-> --- a/drivers/net/tg3.c
-> +++ b/drivers/net/tg3.c
-> @@ -8821,7 +8821,11 @@ static bool tg3_enable_msix(struct tg3 *tp)
->  	for (i = 0; i < tp->irq_max; i++)
->  		tp->napi[i].irq_vec = msix_ent[i].vector;
->  
-> -	tp->dev->real_num_tx_queues = 1;
-> +	netif_set_real_num_tx_queues(tp->dev, 1);
-> +	if (netif_set_real_num_rx_queues(tp->dev, tp->irq_cnt)) {
+When the interface is up, using ethtool breaks it because:
+a) link is put down but media_timer interval is not shortened to NO_LINK
+b) rxtx is stopped but not restarted
 
-This should be tp->irq_cnt - 1, not tp->irq_cnt.  The first MSI-X vector
-only handles link interrupts and device errors.
+Also manual 10baseT-HD (and probably FD too - untested) mode does not work -
+the link is forced up, packets are transmitted but nothing is received.
+Changing CSR14 value to match documentation (not disabling link check) fixes this.
 
-> +		pci_disable_msix(tp->pdev);
-> +		return false;
-> +	}
->  	if (tp->irq_cnt > 1)
->  		tp->tg3_flags3 |= TG3_FLG3_ENABLE_RSS;
->
-> @@ -8856,7 +8860,7 @@ defcfg:
->  	if (!(tp->tg3_flags2 & TG3_FLG2_USING_MSIX)) {
->  		tp->irq_cnt = 1;
->  		tp->napi[0].irq_vec = tp->pdev->irq;
-> -		tp->dev->real_num_tx_queues = 1;
-> +		netif_set_real_num_tx_queues(tp->dev, 1);
->  	}
->  }
->  
-> -- 
-> 1.7.2.1
-> 
-> 
-> 
-> -- 
-> Ben Hutchings, Senior Software Engineer, Solarflare Communications
-> Not speaking for my employer; that's the marketing department's job.
-> They asked us to note that Solarflare product names are trademarked.
-> 
-> 
+Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
 
+--- linux-2.6.36-rc3-/drivers/net/tulip/de2104x.c	2010-09-26 21:58:42.000000000 +0200
++++ linux-2.6.36-rc3/drivers/net/tulip/de2104x.c	2010-09-27 23:36:51.000000000 +0200
+@@ -364,9 +364,9 @@ static u16 t21040_csr15[] = { 0, 0, 0x00
+ 
+ /* 21041 transceiver register settings: TP AUTO, BNC, AUI, TP, TP FD*/
+ static u16 t21041_csr13[] = { 0xEF01, 0xEF09, 0xEF09, 0xEF01, 0xEF09, };
+-static u16 t21041_csr14[] = { 0xFFFF, 0xF7FD, 0xF7FD, 0x6F3F, 0x6F3D, };
++static u16 t21041_csr14[] = { 0xFFFF, 0xF7FD, 0xF7FD, 0x7F3F, 0x7F3D, };
+ /* If on-chip autonegotiation is broken, use half-duplex (FF3F) instead */
+-static u16 t21041_csr14_brk[] = { 0xFF3F, 0xF7FD, 0xF7FD, 0x6F3F, 0x6F3D, };
++static u16 t21041_csr14_brk[] = { 0xFF3F, 0xF7FD, 0xF7FD, 0x7F3F, 0x7F3D, };
+ static u16 t21041_csr15[] = { 0x0008, 0x0006, 0x000E, 0x0008, 0x0008, };
+ 
+ 
+@@ -1596,12 +1596,15 @@ static int __de_set_settings(struct de_p
+ 		return 0; /* nothing to change */
+ 
+ 	de_link_down(de);
++	mod_timer(&de->media_timer, jiffies + DE_TIMER_NO_LINK);
+ 	de_stop_rxtx(de);
+ 
+ 	de->media_type = new_media;
+ 	de->media_lock = media_lock;
+ 	de->media_advertise = ecmd->advertising;
+ 	de_set_media(de);
++	if (netif_running(de->dev))
++		de_start_rxtx(de);
+ 
+ 	return 0;
+ }
+
+
+-- 
+Ondrej Zary
