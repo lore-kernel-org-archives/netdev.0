@@ -1,43 +1,53 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next-2.6 12/17] mv643xx_eth: Use
+Subject: [PATCH net-next-2.6 13/17] myri10ge: Use
  netif_set_real_num_{rx,tx}_queues()
-Date: Mon, 27 Sep 2010 19:30:05 +0100
-Message-ID: <1285612205.2263.310.camel@achroite.uk.solarflarecom.com>
+Date: Mon, 27 Sep 2010 19:30:34 +0100
+Message-ID: <1285612234.2263.313.camel@achroite.uk.solarflarecom.com>
 References: <1285611791.2263.287.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
-	Lennert Buytenhek <buytenh@wantstofly.org>
+	Andrew Gallatin <gallatin@myri.com>,
+	Brice Goglin <brice@myri.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:52015 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:52085 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933295Ab0I0SaJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Sep 2010 14:30:09 -0400
+	with ESMTP id S933295Ab0I0Sah (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Sep 2010 14:30:37 -0400
 In-Reply-To: <1285611791.2263.287.camel@achroite.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/mv643xx_eth.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+ drivers/net/myri10ge/myri10ge.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
-index 2d488ab..dd2b6a7 100644
---- a/drivers/net/mv643xx_eth.c
-+++ b/drivers/net/mv643xx_eth.c
-@@ -2901,7 +2901,8 @@ static int mv643xx_eth_probe(struct platform_device *pdev)
- 	mp->dev = dev;
- 
- 	set_params(mp, pd);
--	dev->real_num_tx_queues = mp->txq_count;
-+	netif_set_real_num_tx_queues(dev, mp->txq_count);
-+	netif_set_real_num_rx_queues(dev, mp->rxq_count);
- 
- 	if (pd->phy_addr != MV643XX_ETH_PHY_NONE)
- 		mp->phy = phy_scan(mp, pd->phy_addr);
+diff --git a/drivers/net/myri10ge/myri10ge.c b/drivers/net/myri10ge/myri10ge.c
+index 4f3a3c0..3ad1a21 100644
+--- a/drivers/net/myri10ge/myri10ge.c
++++ b/drivers/net/myri10ge/myri10ge.c
+@@ -990,7 +990,7 @@ static int myri10ge_reset(struct myri10ge_priv *mgp)
+ 		 * RX queues, so if we get an error, first retry using a
+ 		 * single TX queue before giving up */
+ 		if (status != 0 && mgp->dev->real_num_tx_queues > 1) {
+-			mgp->dev->real_num_tx_queues = 1;
++			netif_set_real_num_tx_queues(mgp->dev, 1);
+ 			cmd.data0 = mgp->num_slices;
+ 			cmd.data1 = MXGEFW_SLICE_INTR_MODE_ONE_PER_SLICE;
+ 			status = myri10ge_send_cmd(mgp,
+@@ -3923,7 +3923,8 @@ static int myri10ge_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		dev_err(&pdev->dev, "failed to alloc slice state\n");
+ 		goto abort_with_firmware;
+ 	}
+-	netdev->real_num_tx_queues = mgp->num_slices;
++	netif_set_real_num_tx_queues(netdev, mgp->num_slices);
++	netif_set_real_num_rx_queues(netdev, mgp->num_slices);
+ 	status = myri10ge_reset(mgp);
+ 	if (status != 0) {
+ 		dev_err(&pdev->dev, "failed reset\n");
 -- 
 1.7.2.1
 
