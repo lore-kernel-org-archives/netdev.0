@@ -1,85 +1,43 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6 v2] net: sk_{detach|attach}_filter() rcu fixes
-Date: Mon, 27 Sep 2010 18:07:30 +0200
-Message-ID: <1285603650.3017.57.camel@edumazet-laptop>
-References: <1285603064.3017.42.camel@edumazet-laptop>
+Subject: Re: l2tpv3 support not yet in iproute2?
+Date: Mon, 27 Sep 2010 18:23:16 +0200
+Message-ID: <1285604596.3017.80.camel@edumazet-laptop>
+References: <loom.20100927T170521-559@post.gmane.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, James Chapman <jchapman@katalix.com>
+To: jpo234 <pommnitz@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:37877 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756812Ab0I0QIc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Sep 2010 12:08:32 -0400
-Received: by eyb6 with SMTP id 6so1419711eyb.19
-        for <netdev@vger.kernel.org>; Mon, 27 Sep 2010 09:08:31 -0700 (PDT)
-In-Reply-To: <1285603064.3017.42.camel@edumazet-laptop>
+Received: from mail-ew0-f46.google.com ([209.85.215.46]:45540 "EHLO
+	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759161Ab0I0QX0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Sep 2010 12:23:26 -0400
+Received: by ewy23 with SMTP id 23so1437710ewy.19
+        for <netdev@vger.kernel.org>; Mon, 27 Sep 2010 09:23:24 -0700 (PDT)
+In-Reply-To: <loom.20100927T170521-559@post.gmane.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 27 septembre 2010 =C3=A0 17:57 +0200, Eric Dumazet a =C3=A9cri=
-t :
-> sk_attach_filter() is run with socket locked.
+Le lundi 27 septembre 2010 =C3=A0 15:22 +0000, jpo234 a =C3=A9crit :
+> Hello all,
+> some time ago James Chapman sent patches that add L2TPv3 support to i=
+proute2:
+> http://kerneltrap.org/mailarchive/linux-netdev/2010/3/18/6272266/thre=
+ad
+> While the kernel support arrived in 2.6.35 the user space configurati=
+on support
+> still seems to be missing:
+> iproute2-2.6.35$ find . -type f -iname "*.c" | xargs fgrep -i l2tp
+> doesn't find anything.
 >=20
-> Use the appropriate rcu_dereference_protected() instead of blocking B=
-H,
-> and rcu_dereference_bh().
-> There is no point adding BH prevention and memory barrier.
+> Can somebody clarify the current situation?
 
-Hmm, same thing can be done in sk_detach_filter, here is a v2.
+Hmm, this reminds me l2tp locking is buggy and not yet fixed.
 
-Thanks
+http://kerneltrap.org/mailarchive/linux-netdev/2010/4/20/6275106
 
-[PATCH net-next-2.6 v2] net: sk_{detach|attach}_filter() rcu fixes
+James, any chance you could fix the locking ?
 
-sk_attach_filter() and sk_detach_filter() are run with socket locked.
-
-Use the appropriate rcu_dereference_protected() instead of blocking BH,
-and rcu_dereference_bh().
-There is no point adding BH prevention and memory barrier.
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/core/filter.c |   10 ++++------
- 1 file changed, 4 insertions(+), 6 deletions(-)
-
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 52b051f..7adf503 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -638,10 +638,9 @@ int sk_attach_filter(struct sock_fprog *fprog, str=
-uct sock *sk)
- 		return err;
- 	}
-=20
--	rcu_read_lock_bh();
--	old_fp =3D rcu_dereference_bh(sk->sk_filter);
-+	old_fp =3D rcu_dereference_protected(sk->sk_filter,
-+					   sock_owned_by_user(sk));
- 	rcu_assign_pointer(sk->sk_filter, fp);
--	rcu_read_unlock_bh();
-=20
- 	if (old_fp)
- 		sk_filter_delayed_uncharge(sk, old_fp);
-@@ -654,14 +653,13 @@ int sk_detach_filter(struct sock *sk)
- 	int ret =3D -ENOENT;
- 	struct sk_filter *filter;
-=20
--	rcu_read_lock_bh();
--	filter =3D rcu_dereference_bh(sk->sk_filter);
-+	filter =3D rcu_dereference_protected(sk->sk_filter,
-+					   sock_owned_by_user(sk));
- 	if (filter) {
- 		rcu_assign_pointer(sk->sk_filter, NULL);
- 		sk_filter_delayed_uncharge(sk, filter);
- 		ret =3D 0;
- 	}
--	rcu_read_unlock_bh();
- 	return ret;
- }
- EXPORT_SYMBOL_GPL(sk_detach_filter);
 
 
