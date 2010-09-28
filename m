@@ -1,75 +1,55 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] ip_gre: lockless xmit
-Date: Tue, 28 Sep 2010 11:05:47 +0200
-Message-ID: <1285664747.2607.48.camel@edumazet-laptop>
+From: Kumar A Sanghvi <kumar.sanghvi@stericsson.com>
+Subject: [PATCH] Phonet: Correct header retrieval after pskb_may_pull
+Date: Tue, 28 Sep 2010 14:40:42 +0530
+Message-ID: <1285665042-20548-1-git-send-email-kumar.sanghvi@stericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <gulshan.karmani@stericsson.com>,
+	Kumar Sanghvi <kumar.sanghvi@stericsson.com>,
+	Linus Walleij <linus.walleij@stericsson.com>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>,
+	<remi.denis-courmont@nokia.com>, <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:59363 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758515Ab0I1JF6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Sep 2010 05:05:58 -0400
-Received: by fxm3 with SMTP id 3so2441860fxm.19
-        for <netdev@vger.kernel.org>; Tue, 28 Sep 2010 02:05:57 -0700 (PDT)
+Received: from eu1sys200aog106.obsmtp.com ([207.126.144.121]:37093 "EHLO
+	eu1sys200aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753214Ab0I1JLA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Sep 2010 05:11:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-GRE tunnels can benefit from lockless xmits, using NETIF_F_LLTX
+From: Kumar Sanghvi <kumar.sanghvi@stericsson.com>
 
-Note: If tunnels are created with the "oseq" option, LLTX is not
-enabled :
+Retrieve the header after doing pskb_may_pull since, pskb_may_pull
+could change the buffer structure.
 
-Even using an atomic_t o_seq, we would increase chance for packets being
-out of order at receiver.
+This is based on the comment given by Eric Dumazet on Phonet
+Pipe controller patch for a similar problem.
 
-Bench on a 16 cpus machine (dual E5540 cpus), 16 threads sending
-10000000 UDP frames via one gre tunnel (size:200 bytes per frame)
-
-Before patch : 
-real	3m0.094s
-user	0m9.365s
-sys	47m50.103s
-
-After patch:
-real	0m29.756s
-user	0m11.097s
-sys	7m33.012s
-
-Last problem to solve is the contention on dst :
-
-
-38660.00 21.4% __ip_route_output_key          vmlinux             
-20786.00 11.5% dst_release                    vmlinux             
-14191.00  7.8% __xfrm_lookup                  vmlinux             
-12410.00  6.9% ip_finish_output               vmlinux             
- 4540.00  2.5% ip_push_pending_frames         vmlinux             
- 4427.00  2.4% ip_append_data                 vmlinux             
- 4265.00  2.4% __alloc_skb                    vmlinux             
- 4140.00  2.3% __ip_local_out                 vmlinux             
- 3991.00  2.2% dev_queue_xmit                 vmlinux     
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Kumar Sanghvi <kumar.sanghvi@stericsson.com>
+Acked-by: Linus Walleij <linus.walleij@stericsson.com>
 ---
- net/ipv4/ip_gre.c |    4 ++++
- 1 files changed, 4 insertions(+)
+ net/phonet/pep.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index a1b5d5e..035db63 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -1557,6 +1557,10 @@ static int ipgre_newlink(struct net *src_net, struct net_device *dev, struct nla
- 	if (!tb[IFLA_MTU])
- 		dev->mtu = mtu;
+diff --git a/net/phonet/pep.c b/net/phonet/pep.c
+index 7bf23cf..9746c6d 100644
+--- a/net/phonet/pep.c
++++ b/net/phonet/pep.c
+@@ -507,12 +507,13 @@ static void pipe_grant_credits(struct sock *sk)
+ static int pipe_rcv_status(struct sock *sk, struct sk_buff *skb)
+ {
+ 	struct pep_sock *pn = pep_sk(sk);
+-	struct pnpipehdr *hdr = pnp_hdr(skb);
++	struct pnpipehdr *hdr;
+ 	int wake = 0;
  
-+	/* Can use a lockless transmit, unless we generate output sequences */
-+	if (!(nt->parms.o_flags & GRE_SEQ))
-+		dev->features |= NETIF_F_LLTX;
-+
- 	err = register_netdevice(dev);
- 	if (err)
- 		goto out;
-
+ 	if (!pskb_may_pull(skb, sizeof(*hdr) + 4))
+ 		return -EINVAL;
+ 
++	hdr = pnp_hdr(skb);
+ 	if (hdr->data[0] != PN_PEP_TYPE_COMMON) {
+ 		LIMIT_NETDEBUG(KERN_DEBUG"Phonet unknown PEP type: %u\n",
+ 				(unsigned)hdr->data[0]);
+-- 
+1.7.2.dirty
 
