@@ -1,33 +1,36 @@
-From: Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-Subject: WiMAX linux firmware pull request
-Date: Tue, 28 Sep 2010 11:46:10 -0700
-Message-ID: <1285699570.3136.307.camel@localhost.localdomain>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] de2104x: disable media debug messages by default
+Date: Tue, 28 Sep 2010 14:51:45 -0400
+Message-ID: <4CA23941.2050803@pobox.com>
+References: <201009282018.57547.linux@rainbow-software.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: wimax@linuxwimax.org, netdev@vger.kernel.org
-To: David Woodhouse <dwmw2@infradead.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:2226 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757855Ab0I1Sva (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Sep 2010 14:51:30 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org,
+	Kernel development list <linux-kernel@vger.kernel.org>
+To: Ondrej Zary <linux@rainbow-software.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201009282018.57547.linux@rainbow-software.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On 09/28/2010 02:18 PM, Ondrej Zary wrote:
+> Print media debug messages only when HW debug is enabled.
+>
+> Signed-off-by: Ondrej Zary<linux@rainbow-software.org>
+>
+> --- linux-2.6.36-rc3-/drivers/net/tulip/de2104x.c	2010-09-28 19:50:51.000000000 +0200
+> +++ linux-2.6.36-rc3/drivers/net/tulip/de2104x.c	2010-09-28 20:05:34.000000000 +0200
+> @@ -948,8 +948,9 @@ static void de_set_media (struct de_priv
+>   	else
+>   		macmode&= ~FullDuplex;
+>
+> -	if (netif_msg_link(de)) {
+> +	if (netif_msg_link(de))
+>   		dev_info(&de->dev->dev, "set link %s\n", media_name[media]);
+> +	if (netif_msg_hw(de)) {
+>   		dev_info(&de->dev->dev, "mode 0x%x, sia 0x%x,0x%x,0x%x,0x%x\n",
+>   			 dr32(MacMode), dr32(SIAStatus),
+>   			 dr32(CSR13), dr32(CSR14), dr32(CSR15));
 
-Hello David
-
-I don't know if I forgot to send this request or it fell through the
-cracks a fer kversions ago. Anyway, sending again.
-
-Could you please pull
-
-git://git.kernel.org/pub/scm/linux/kernel/git/inaky/linux-firmware-wimax.git
-
-This contains the firmware for the 1.5 driver release for i5x50 and
-i6x50 Intel cards, which have been available in
-http://linuxwimax.org/Download since. 
-
-Thanks!
-
+Acked-by: Jeff Garzik <jgarzik@redhat.com>
