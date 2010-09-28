@@ -1,49 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 net-next-2.6 0/5] XFRM,IPv6: Removal of RH2/HAO from
- IPsec-protected MIPv6 traffic
-Date: Tue, 28 Sep 2010 13:38:49 -0700 (PDT)
-Message-ID: <20100928.133849.112575548.davem@davemloft.net>
-References: <cover.1285687738.git.arno@natisbad.org>
+From: Mike Christie <michaelc@cs.wisc.edu>
+Subject: Re: [PATCH 0/4] cxgbi: bug fixes and driver update
+Date: Tue, 28 Sep 2010 15:45:15 -0500
+Message-ID: <4CA253DB.8040408@cs.wisc.edu>
+References: <201009232343.o8NNhN0E006459@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, herbert@gondor.apana.org.au,
-	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-To: arno@natisbad.org
+Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
+	open-iscsi@googlegroups.com, rranjan@chelsio.com,
+	James.Bottomley@HansenPartnership.com, davem@davemloft.net
+To: kxie@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37775
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751543Ab0I1Ui3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Sep 2010 16:38:29 -0400
-In-Reply-To: <cover.1285687738.git.arno@natisbad.org>
+Received: from sabe.cs.wisc.edu ([128.105.6.20]:33936 "EHLO sabe.cs.wisc.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751236Ab0I1UjO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Sep 2010 16:39:14 -0400
+In-Reply-To: <201009232343.o8NNhN0E006459@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arnaud Ebalard <arno@natisbad.org>
-Date: Tue, 28 Sep 2010 17:53:50 +0200
+On 09/23/2010 06:43 PM, kxie@chelsio.com wrote:
+> [PATCH 0/4] cxgbi: bug fixes and driver update
+>
+> From: Karen Xie<kxie@chelsio.com>
+>
+> This patchset includes:
+> - renamed alloc_cpl() to alloc_wr(),
+> - fixed locking in pdu read,
+> - fixed cxgb3i connecting over VLAN, and
+> - updated cxgb4i connection setting and ddp programming.
+>
 
-> This an updated version of the patches. For reference, introduction of
-> the feature is here http://thread.gmane.org/gmane.linux.network/172941
-> Just tell me if you prefer I resend the full intro each time.
-> 
-> Compared to initial version, this v2 is
-> 
->  - against net-next-2.6
->  - fixed and more exhaustively build tested for various kernel
->    configuration (w/ and w/o IPv6, IPv4, MIPv6, XFRM*, RO, ...).
->    It adds some #ifdef but I did not found good ways to spare those.
->  - built and tested on both current linux-2.6 and net-next-2.6 (*)
-> 
-> Comments welcome.
+Looks ok.
 
-Try again, this time with ipv6 modular:
-
-net/built-in.o: In function `xfrm_input_addr_check':
-/home/davem/src/GIT/net-next-2.6/net/xfrm/xfrm_input.c:115: undefined reference to `xfrm6_input_addr_check'
-
-You can't put xfrm6_input_addr_check into the ipv6.o object build if you want to
-call it from the generic xfrm stack which is always built statically.
-
-Put this and xfrm4_input_addr_check where it belongs, as an afinfo->op()
-
-
+Reviewed-by: Mike Christie <michaelc@cs.wisc.edu>
