@@ -1,177 +1,99 @@
-From: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont"
-	<remi.denis-courmont@nokia.com>
-Subject: Re: [PATCH v2 1/2] Phonet: Implement Pipe Controller to support Nokia Slim Modems
-Date: Wed, 29 Sep 2010 01:25:06 +0300
-Message-ID: <201009290125.07068.remi.denis-courmont@nokia.com>
-References: <1285564079-23066-1-git-send-email-kumar.sanghvi@stericsson.com>
+From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
+Subject: Re: [PATCH] net: Fix IPv6 PMTU disc. w/ asymmetric routes
+Date: Tue, 28 Sep 2010 15:37:26 -0700
+Message-ID: <AANLkTi=9THOcD9FieK3uy635C1kNDc=uEdtDe4qm1WU6@mail.gmail.com>
+References: <55a4f86e1001131651j102b600fm1552a42866c3c671@mail.gmail.com>
+	<1285581957-30694-1-git-send-email-zenczykowski@gmail.com>
+	<20100928.135800.39205209.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"STEricsson_nomadik_linux@list.st.com"
-	<STEricsson_nomadik_linux@list.st.com>,
-	"sudeep.divakaran@stericsson.com" <sudeep.divakaran@stericsson.com>,
-	"gulshan.karmani@stericsson.com" <gulshan.karmani@stericsson.com>,
-	Linus Walleij <linus.walleij@stericsson.com>
-To: ext Kumar A Sanghvi <kumar.sanghvi@stericsson.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, Hideaki Yoshifuji <yoshfuji@linux-ipv6.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw-sa02.nokia.com ([147.243.1.48]:33802 "EHLO
-	mgw-sa02.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754381Ab0I1WYd convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Sep 2010 18:24:33 -0400
-In-Reply-To: <1285564079-23066-1-git-send-email-kumar.sanghvi@stericsson.com>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:39924 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750890Ab0I1Wh1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Sep 2010 18:37:27 -0400
+Received: by wwd20 with SMTP id 20so58738wwd.1
+        for <netdev@vger.kernel.org>; Tue, 28 Sep 2010 15:37:26 -0700 (PDT)
+In-Reply-To: <20100928.135800.39205209.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday 27 September 2010 08:07:59 ext Kumar A Sanghvi, you wrote:
-> From: Kumar Sanghvi <kumar.sanghvi@stericsson.com>
->=20
-> Phonet stack assumes the presence of Pipe Controller, either in Modem=
- or
-> on Application Processing Engine user-space for the Pipe data.
-> Nokia Slim Modems like WG2.5 used in ST-Ericsson U8500 platform do no=
-t
-> implement Pipe controller in them.
-> This patch adds Pipe Controller implemenation to Phonet stack to supp=
-ort
-> Pipe data over Phonet stack for Nokia Slim Modems.
->=20
-> Signed-off-by: Kumar Sanghvi <kumar.sanghvi@stericsson.com>
-> Acked-by: Linus Walleij <linus.walleij@stericsson.com>
-> ---
-> Changes:
->=20
->  -v2: Correction for header retrieving after pskb_may_pull
->=20
->  include/linux/phonet.h   |    5 +
->  include/net/phonet/pep.h |   21 +++
->  net/phonet/Kconfig       |   11 ++
->  net/phonet/pep.c         |  448
-> +++++++++++++++++++++++++++++++++++++++++++++- 4 files changed, 479
-> insertions(+), 6 deletions(-)
->=20
-> diff --git a/include/linux/phonet.h b/include/linux/phonet.h
-> index 85e14a8..96f5625 100644
-> --- a/include/linux/phonet.h
-> +++ b/include/linux/phonet.h
-> @@ -36,6 +36,11 @@
->  /* Socket options for SOL_PNPIPE level */
->  #define PNPIPE_ENCAP           1
->  #define PNPIPE_IFINDEX         2
-> +#define PNPIPE_CREATE           3
-> +#define PNPIPE_ENABLE           4
-> +#define PNPIPE_DISABLE          5
-> +#define PNPIPE_DESTROY          6
-> +#define PNPIPE_INQ              7
+> Please handle all 4 cases just like the ipv4 routing code does:
+>
+> { saddr = SADDR, ifindex = dev->ifindex }
+> { saddr = SADDR, ifindex = 0 }
+> { saddr = INADDR_ANY, ifindex = dev->ifindex }
+> { saddr = INADDR_ANY, ifindex = 0 }
+>
+> I believe I've specifically asked for this every time someone mentioned that they wanted to fix this issue.
 
-As far as I know, you don't need to do that in kernel space. I don't kn=
-ow the=20
-internals of the STE modem. Regardless of having or not having a pipe=20
-controller, Linux userspace can send pipe messages using a plain Phonet=
-=20
-datagram socket. This avoids adding ioctl()'s and protocol stuff in ker=
-nel=20
-space. Then, as far as kernel is concerned, only small changes to the d=
-ata=20
-path would be required.
+I believe that is exactly what the following code fragment from the
+above patch does:
 
-Both the Nokia modem plugin for oFono, and the (closed-source) Nokia N9=
-00 CSD-
-GPRS service work that way. In other words, the pipe 'signaling' is don=
-e in=20
-userspace, while the pipe 'data' is done in kernel space for optimal=20
-performance.
++       rt6_do_pmtu_disc(daddr, saddr, net, pmtu, 0);
++       rt6_do_pmtu_disc(daddr, saddr, net, pmtu, dev->ifindex);
++       rt6_do_pmtu_disc(daddr, NULL, net, pmtu, 0);
++       rt6_do_pmtu_disc(daddr, NULL, net, pmtu, dev->ifindex);
 
-=46or some background - Phonet pipes work very much like FTP. There are=
- two=20
-endpoints exchaning data, and one client ('owner') deciding which endpo=
-ints=20
-and when to establish a pipe between. In most case the client is also o=
-ne of=20
-the endpoint, but this is not required. With this patch, the client is =
-tied to=20
-being one of the endpoint. Arguably, this is not a problem for most use=
-cases.=20
-But I am not sure this belongs in *kernel* space. Sticking to the same=20
-comparison: with FTP, you have TCP (data path) in kernel, but not FTP i=
-tself=20
-(signaling).
+The last two of these lines were added to the patch last time around
+per your feedback - precisely to address this issue.
+I reposted with those changes and you appeared to be ok with the
+patch, and your only comment was to add a 'Signed-off-by' line.
 
-> @@ -791,6 +1171,48 @@ static int pep_setsockopt(struct sock *sk, int =
-level,
-> int optname,
->=20
->         lock_sock(sk);
->         switch (optname) {
-> +#ifdef CONFIG_PHONET_PIPECTRLR
-> +       case PNPIPE_CREATE:
-> +               if (val) {
-> +                       if (pn->pipe_state > PIPE_IDLE) {
-> +                               err =3D -EFAULT;
 
-Why EFAULT here? I can't see any user-space memory access failure.
+Side note:
+* I still think that handling the saddr == NULL ie. INADDR_ANY case is
+entirely superfluous, since it doesn't actually iterate through all
+possible source addresses.  With IPv6 there can be many, many possible
+source addresses (just think of link local vs global public vs privacy
+addresses and then tack on 6to4 and mobility, etc... for example I see
+13 ipv6 addresses on eth0 on my desktop at home, 12 of them globally
+reachable).
+* Currently PMTU discovery is broken.  With this patch with all 4
+lines we end up doing PMTU discovery per source address that isn't the
+default source address.  Without those last two lines we'd just do
+PMTU discovery per source address.  Not much of a difference, both
+allow PMTU discovery to actually happen.
 
-> +                               break;
-> +                       }
-> +                       remote_pep =3D val & 0xFFFF;
-> +                       pipe_handle =3D  (val >> 16) & 0xFF;
-> +                       pn->remote_pep =3D remote_pep;
-> +                       err =3D pipe_handler_create_pipe(sk, pipe_han=
-dle,
-> +                                       PNPIPE_CREATE);
-> +                       break;
-> +               }
-> +
-> +       case PNPIPE_ENABLE:
-> +               if (pn->pipe_state !=3D PIPE_DISABLED) {
-> +                       err =3D -EFAULT;
+Except:
 
-Same here.
+Imagine a machine with a 1500 MTU network card and 2 source addresses:
+  - one default v6 native 'A'
+  - one additional 6to4 address 'B'
+The native address can reach the internet with a max MTU of 1500.
+While due to source address based routing the 6to4 address goes
+through a sit ipv4 based tunnel and thus has a max MTU of 1480 (1500 -
+20 bytes IPv4 header).
 
-> +                       break;
-> +               }
-> +               err =3D pipe_handler_enable_pipe(sk, PNPIPE_ENABLE);
-> +               break;
-> +
-> +       case PNPIPE_DISABLE:
-> +               if (pn->pipe_state !=3D PIPE_ENABLED) {
-> +                       err =3D -EFAULT;
+Imagine a remote machine with v6 address 'Z' (our default address to
+reach 'Z' is 'A').
+Clearly the PMTU of A->Z is 1500, while the PMTU of B->Z is 1480.
+[Assume there's nothing which would cause them to be lower.]
 
-Ditto.
+If you do PMTU discovery of A->Z, you will indeed get 1500, and mark
+that as the PMTU of A->Z.
+However if you do PMTU discovery of B->Z, you will indeed get 1480,
+but you will mark that as the PMTU of both B->Z and A->Z (since A is
+the default to reach Z).
+Suddenly the PMTU of A->Z _needlessly and incorrectly_ dropped from
+1500 to 1480 merely because of PMTU discovery being performed on B->Z.
 
-> +                       break;
-> +               }
-> +
-> +               err =3D pipe_handler_enable_pipe(sk, PNPIPE_DISABLE);
-> +               break;
-> +
-> +       case PNPIPE_DESTROY:
-> +               if (pn->pipe_state < PIPE_DISABLED) {
-> +                       err =3D -EFAULT;
+And this is precisely why I think that adding those last two lines
+that handle INADDR_ANY is actually more of a problem then solution
+(indeed as far as I can tell, adding them doesn't actually fix any
+problem - the code works just fine and performs PMTU discovery
+correctly with just the first two lines).
 
-And here,
+Thankfully ending up with a lower MTU than actually possible is only a
+slight performance problem, while not doing PMTU discovery correctly
+at all (current state with asymmetric routing) is a big issue.
+Hence regardless of whether this patch includes INADDR_ANY or not the
+end result will still be an improvement.
 
-> @@ -877,11 +1313,11 @@ static int pipe_skb_send(struct sock *sk, stru=
-ct
-> sk_buff *skb) } else
->                 ph->message_id =3D PNS_PIPE_DATA;
->         ph->pipe_handle =3D pn->pipe_handle;
-> -
-> -       err =3D pn_skb_send(sk, skb, &pipe_srv);
-> -       if (err && pn_flow_safe(pn->tx_fc))
-> -               atomic_inc(&pn->tx_credits);
-> -       return err;
-> +#ifdef CONFIG_PHONET_PIPECTRLR
-> +       return pn_skb_send(sk, skb, &spn);
-> +#else
-> +       return pn_skb_send(sk, skb, &pipe_srv);
-> +#endif
->  }
+> And the ipv4 side is a good guide in other ways, it uses a set of two arrays so you can just loop over them, making your rt6_do_pmtu_disc() calls along the way.
 
-This reintroduces the bug that I fixed in=20
-1a98214feef2221cd7c24b17cd688a5a9d85b2ea :-(
-
---=20
-R=E9mi Denis-Courmont
-Nokia Devices R&D, Maemo Software, Helsinki
+Sure, I can change it to use arrays, although I don't see any
+particular improvement in performance (even if rt6_do_pmtu_disc was
+inlined) or readability or anything.
