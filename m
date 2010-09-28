@@ -1,243 +1,199 @@
-From: Arnaud Ebalard <arno@natisbad.org>
-Subject: [PATCHv2 net-next-2.6 5/5] XFRM,IPv6: Add IRO remapping capability via socket ancillary data path
-Date: Tue, 28 Sep 2010 17:54:40 +0200
-Message-ID: <792eafd23b5d8054ddd2ac7f4551d3ae542d2784.1285687738.git.arno@natisbad.org>
-References: <cover.1285687738.git.arno@natisbad.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next2.6] net: rename netdev rx_queue to ingress_queue
+Date: Tue, 28 Sep 2010 17:58:37 +0200
+Message-ID: <1285689517.3154.76.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Jarek Poplawski <jarkao2@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from copper.chdir.org ([88.191.97.87]:58327 "EHLO copper.chdir.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754463Ab0I1Pxp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Sep 2010 11:53:45 -0400
-In-Reply-To: <cover.1285687738.git.arno@natisbad.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:33922 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750941Ab0I1P6m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Sep 2010 11:58:42 -0400
+Received: by fxm14 with SMTP id 14so78372fxm.19
+        for <netdev@vger.kernel.org>; Tue, 28 Sep 2010 08:58:41 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+There is some confusion with rx_queue name after RPS, and net drivers
+private rx_queue fields.
 
-This provides the ability to remap src/dst address using IRO
-via ancillary data passed to sockets. This is the IRO equivalent
-of what is done for RH2/HAO (i.e. IPV6_RTHDR/IPV6_DSTOPTS).
-This is used by UMIP during BA emission when acting as a Home
-Agent.
+I suggest to rename "struct net_device"->rx_queue to ingress_queue.
 
-Signed-off-by: Arnaud Ebalard <arno@natisbad.org>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 ---
- include/net/ipv6.h       |    4 ++++
- net/ipv6/datagram.c      |   20 ++++++++++++++++++++
- net/ipv6/exthdrs.c       |   19 +++++++++++++------
- net/ipv6/ip6_flowlabel.c |    7 +++++++
- net/ipv6/ip6_output.c    |   22 ++++++++++++++++++++++
- net/ipv6/raw.c           |    3 ++-
- 6 files changed, 68 insertions(+), 7 deletions(-)
 
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index 4a3cd2c..2ba96d8 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -188,6 +188,10 @@ struct ipv6_txoptions {
- 	struct ipv6_rt_hdr	*srcrt;	/* Routing Header */
- 	struct ipv6_opt_hdr	*dst1opt;
+My plan is to make this structure dynamically allocated, in the rare
+case ingress is setup, to shrink net_device.
+
+ include/linux/netdevice.h |    2 +-
+ net/core/dev.c            |    8 ++++----
+ net/sched/sch_api.c       |   14 +++++++-------
+ net/sched/sch_generic.c   |    8 ++++----
+ 4 files changed, 16 insertions(+), 16 deletions(-)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 83de0eb..1ae0d65 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -983,7 +983,7 @@ struct net_device {
+ 	rx_handler_func_t	*rx_handler;
+ 	void			*rx_handler_data;
  
-+	/* XXX protect those via some ifdef e.g. CONFIG_XFRM_SUB_POLICY ? */
-+	struct in6_addr         *iro_src;
-+	struct in6_addr         *iro_dst;
-+
- 	/* Option buffer, as read by IPV6_PKTOPTIONS, starts here. */
- };
+-	struct netdev_queue	rx_queue; /* use two cache lines */
++	struct netdev_queue	ingress_queue; /* use two cache lines */
  
-diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
-index 2952c9e..0ac7adf 100644
---- a/net/ipv6/datagram.c
-+++ b/net/ipv6/datagram.c
-@@ -757,6 +757,26 @@ int datagram_send_ctl(struct net *net,
- 			}
- 			break;
+ /*
+  * Cache lines mostly used on transmit path
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 42b200f..0ed0669 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2674,7 +2674,7 @@ static int ing_filter(struct sk_buff *skb)
+ 	skb->tc_verd = SET_TC_RTTL(skb->tc_verd, ttl);
+ 	skb->tc_verd = SET_TC_AT(skb->tc_verd, AT_INGRESS);
  
-+#ifdef CONFIG_XFRM_SUB_POLICY
-+		case IPV6_IROSRC:
-+		case IPV6_IRODST:
-+			if (cmsg->cmsg_len < CMSG_LEN(sizeof(struct in6_addr))) {
-+				err = -EINVAL;
-+				goto exit_f;
-+			}
-+
-+			if (!capable(CAP_NET_RAW)) {
-+				err = -EPERM;
-+				goto exit_f;
-+			}
-+
-+			if (cmsg->cmsg_type == IPV6_IROSRC)
-+				opt->iro_src = (struct in6_addr *)CMSG_DATA(cmsg);
-+			else
-+				opt->iro_dst = (struct in6_addr *)CMSG_DATA(cmsg);
-+			break;
-+#endif
-+
- 		case IPV6_2292RTHDR:
- 		case IPV6_RTHDR:
- 			if (cmsg->cmsg_len < CMSG_LEN(sizeof(struct ipv6_rt_hdr))) {
-diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
-index 262f105..e480b06 100644
---- a/net/ipv6/exthdrs.c
-+++ b/net/ipv6/exthdrs.c
-@@ -750,6 +750,10 @@ ipv6_dup_options(struct sock *sk, struct ipv6_txoptions *opt)
- 			*((char**)&opt2->dst1opt) += dif;
- 		if (opt2->srcrt)
- 			*((char**)&opt2->srcrt) += dif;
-+		if (opt2->iro_src)
-+			*((char**)&opt2->iro_src) += dif;
-+		if (opt2->iro_dst)
-+			*((char**)&opt2->iro_dst) += dif;
- 	}
- 	return opt2;
- }
-@@ -874,24 +878,27 @@ struct ipv6_txoptions *ipv6_fixup_options(struct ipv6_txoptions *opt_space,
+-	rxq = &dev->rx_queue;
++	rxq = &dev->ingress_queue;
  
- /**
-  * fl6_update_dst - update flowi destination address with info given
-- *                  by srcrt option, if any.
-+ *                  by srcrt/iro_dst option, if any.
-  *
-  * @fl: flowi for which fl6_dst is to be updated
-- * @opt: struct ipv6_txoptions in which to look for srcrt opt
-+ * @opt: struct ipv6_txoptions in which to look for srcrt/iro_dst opt
-  * @orig: copy of original fl6_dst address if modified
-  *
-- * Returns NULL if no txoptions or no srcrt, otherwise returns orig
-- * and initial value of fl->fl6_dst set in orig
-+ * Returns NULL if no txoptions or no options to change flowi destination
-+ * (srcrt or IRO destination remapping rule), otherwise returns orig and
-+ * initial value of fl->fl6_dst set in orig
-  */
- struct in6_addr *fl6_update_dst(struct flowi *fl,
- 				const struct ipv6_txoptions *opt,
- 				struct in6_addr *orig)
+ 	q = rxq->qdisc;
+ 	if (q != &noop_qdisc) {
+@@ -2691,7 +2691,7 @@ static inline struct sk_buff *handle_ing(struct sk_buff *skb,
+ 					 struct packet_type **pt_prev,
+ 					 int *ret, struct net_device *orig_dev)
  {
--	if (!opt || !opt->srcrt)
-+	if (!opt || (!opt->srcrt && !opt->iro_dst))
- 		return NULL;
+-	if (skb->dev->rx_queue.qdisc == &noop_qdisc)
++	if (skb->dev->ingress_queue.qdisc == &noop_qdisc)
+ 		goto out;
  
- 	ipv6_addr_copy(orig, &fl->fl6_dst);
--	ipv6_addr_copy(&fl->fl6_dst, ((struct rt0_hdr *)opt->srcrt)->addr);
-+	ipv6_addr_copy(&fl->fl6_dst,
-+		       opt->iro_dst ?: ((struct rt0_hdr *)opt->srcrt)->addr);
-+
- 	return orig;
+ 	if (*pt_prev) {
+@@ -4894,7 +4894,7 @@ static void __netdev_init_queue_locks_one(struct net_device *dev,
+ static void netdev_init_queue_locks(struct net_device *dev)
+ {
+ 	netdev_for_each_tx_queue(dev, __netdev_init_queue_locks_one, NULL);
+-	__netdev_init_queue_locks_one(dev, &dev->rx_queue, NULL);
++	__netdev_init_queue_locks_one(dev, &dev->ingress_queue, NULL);
  }
  
-diff --git a/net/ipv6/ip6_flowlabel.c b/net/ipv6/ip6_flowlabel.c
-index 1365468..dbf9c29 100644
---- a/net/ipv6/ip6_flowlabel.c
-+++ b/net/ipv6/ip6_flowlabel.c
-@@ -280,6 +280,9 @@ struct ipv6_txoptions *fl6_merge_options(struct ipv6_txoptions * opt_space,
- 		opt_space->hopopt = fl_opt->hopopt;
- 		opt_space->dst0opt = fl_opt->dst0opt;
- 		opt_space->srcrt = fl_opt->srcrt;
-+		/* XXX protect those via some ifdef - see net/ipv6.h */
-+		opt_space->iro_src = fl_opt->iro_src;
-+		opt_space->iro_dst = fl_opt->iro_dst;
- 		opt_space->opt_nflen = fl_opt->opt_nflen;
- 	} else {
- 		if (fopt->opt_nflen == 0)
-@@ -287,6 +290,9 @@ struct ipv6_txoptions *fl6_merge_options(struct ipv6_txoptions * opt_space,
- 		opt_space->hopopt = NULL;
- 		opt_space->dst0opt = NULL;
- 		opt_space->srcrt = NULL;
-+		/* XXX protect those via some ifdef - see net/ipv6.h */
-+		opt_space->iro_src = NULL;
-+		opt_space->iro_dst = NULL;
- 		opt_space->opt_nflen = 0;
- 	}
- 	opt_space->dst1opt = fopt->dst1opt;
-@@ -456,6 +462,7 @@ static int ipv6_opt_cmp(struct ipv6_txoptions *o1, struct ipv6_txoptions *o2)
- 		return 1;
- 	if (ipv6_hdr_cmp((struct ipv6_opt_hdr *)o1->srcrt, (struct ipv6_opt_hdr *)o2->srcrt))
- 		return 1;
-+
- 	return 0;
+ unsigned long netdev_fix_features(unsigned long features, const char *name)
+@@ -5406,7 +5406,7 @@ static void netdev_init_one_queue(struct net_device *dev,
+ 
+ static void netdev_init_queues(struct net_device *dev)
+ {
+-	netdev_init_one_queue(dev, &dev->rx_queue, NULL);
++	netdev_init_one_queue(dev, &dev->ingress_queue, NULL);
+ 	netdev_for_each_tx_queue(dev, netdev_init_one_queue, NULL);
+ 	spin_lock_init(&dev->tx_global_lock);
  }
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index 6fb3d41..b802078 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -240,7 +240,7 @@ struct Qdisc *qdisc_lookup(struct net_device *dev, u32 handle)
+ 	if (q)
+ 		goto out;
  
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 99157b4..210f269 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -222,6 +222,8 @@ int ip6_xmit(struct sock *sk, struct sk_buff *skb, struct flowi *fl,
- 			ipv6_push_frag_opts(skb, opt, &proto);
- 		if (opt->opt_nflen)
- 			ipv6_push_nfrag_opts(skb, opt, &proto, &first_hop);
-+		if (opt->iro_dst)
-+			first_hop = opt->iro_dst;
- 	}
- 
- 	skb_push(skb, sizeof(struct ipv6hdr));
-@@ -1106,6 +1108,12 @@ static inline struct ipv6_rt_hdr *ip6_rthdr_dup(struct ipv6_rt_hdr *src,
- 	return src ? kmemdup(src, (src->hdrlen + 1) * 8, gfp) : NULL;
+-	q = qdisc_match_from_root(dev->rx_queue.qdisc_sleeping, handle);
++	q = qdisc_match_from_root(dev->ingress_queue.qdisc_sleeping, handle);
+ out:
+ 	return q;
  }
- 
-+static inline struct in6_addr *ip6_iro_addr_dup(struct in6_addr *addr,
-+						gfp_t gfp)
-+{
-+	return addr ? kmemdup(addr, sizeof(struct in6_addr), gfp) : NULL;
-+}
-+
- int ip6_append_data(struct sock *sk, int getfrag(void *from, char *to,
- 	int offset, int len, int odd, struct sk_buff *skb),
- 	void *from, int length, int transhdrlen,
-@@ -1162,6 +1170,16 @@ int ip6_append_data(struct sock *sk, int getfrag(void *from, char *to,
- 			if (opt->srcrt && !np->cork.opt->srcrt)
- 				return -ENOBUFS;
- 
-+			np->cork.opt->iro_src = ip6_iro_addr_dup(opt->iro_src,
-+								 sk->sk_allocation);
-+			if (opt->iro_src && !np->cork.opt->iro_src)
-+				return -ENOBUFS;
-+
-+			np->cork.opt->iro_dst = ip6_iro_addr_dup(opt->iro_dst,
-+								 sk->sk_allocation);
-+			if (opt->iro_dst && !np->cork.opt->iro_dst)
-+				return -ENOBUFS;
-+
- 			/* need source address above miyazawa*/
+@@ -701,7 +701,7 @@ static int qdisc_graft(struct net_device *dev, struct Qdisc *parent,
  		}
- 		dst_hold(&rt->dst);
-@@ -1440,6 +1458,8 @@ static void ip6_cork_release(struct inet_sock *inet, struct ipv6_pinfo *np)
- 		kfree(np->cork.opt->dst1opt);
- 		kfree(np->cork.opt->hopopt);
- 		kfree(np->cork.opt->srcrt);
-+		kfree(np->cork.opt->iro_src);
-+		kfree(np->cork.opt->iro_dst);
- 		kfree(np->cork.opt);
- 		np->cork.opt = NULL;
- 	}
-@@ -1495,6 +1515,8 @@ int ip6_push_pending_frames(struct sock *sk)
- 		ipv6_push_frag_opts(skb, opt, &proto);
- 	if (opt && opt->opt_nflen)
- 		ipv6_push_nfrag_opts(skb, opt, &proto, &final_dst);
-+	if (opt && opt->iro_dst)
-+		final_dst = opt->iro_dst;
  
- 	skb_push(skb, sizeof(struct ipv6hdr));
- 	skb_reset_network_header(skb);
-diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-index 45e6efb..1a11bd5 100644
---- a/net/ipv6/raw.c
-+++ b/net/ipv6/raw.c
-@@ -828,7 +828,8 @@ static int rawv6_sendmsg(struct kiocb *iocb, struct sock *sk,
- 			if (flowlabel == NULL)
- 				return -EINVAL;
- 		}
--		if (!(opt->opt_nflen|opt->opt_flen))
-+		if (!(opt->opt_nflen|opt->opt_flen) &&
-+		    (!opt->iro_src && !opt->iro_dst))
- 			opt = NULL;
- 	}
- 	if (opt == NULL)
--- 
-1.7.1
+ 		for (i = 0; i < num_q; i++) {
+-			struct netdev_queue *dev_queue = &dev->rx_queue;
++			struct netdev_queue *dev_queue = &dev->ingress_queue;
+ 
+ 			if (!ingress)
+ 				dev_queue = netdev_get_tx_queue(dev, i);
+@@ -979,7 +979,7 @@ static int tc_get_qdisc(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
+ 					return -ENOENT;
+ 				q = qdisc_leaf(p, clid);
+ 			} else { /* ingress */
+-				q = dev->rx_queue.qdisc_sleeping;
++				q = dev->ingress_queue.qdisc_sleeping;
+ 			}
+ 		} else {
+ 			q = dev->qdisc;
+@@ -1044,7 +1044,7 @@ replay:
+ 					return -ENOENT;
+ 				q = qdisc_leaf(p, clid);
+ 			} else { /*ingress */
+-				q = dev->rx_queue.qdisc_sleeping;
++				q = dev->ingress_queue.qdisc_sleeping;
+ 			}
+ 		} else {
+ 			q = dev->qdisc;
+@@ -1124,7 +1124,7 @@ create_n_graft:
+ 	if (!(n->nlmsg_flags&NLM_F_CREATE))
+ 		return -ENOENT;
+ 	if (clid == TC_H_INGRESS)
+-		q = qdisc_create(dev, &dev->rx_queue, p,
++		q = qdisc_create(dev, &dev->ingress_queue, p,
+ 				 tcm->tcm_parent, tcm->tcm_parent,
+ 				 tca, &err);
+ 	else {
+@@ -1304,7 +1304,7 @@ static int tc_dump_qdisc(struct sk_buff *skb, struct netlink_callback *cb)
+ 		if (tc_dump_qdisc_root(dev->qdisc, skb, cb, &q_idx, s_q_idx) < 0)
+ 			goto done;
+ 
+-		dev_queue = &dev->rx_queue;
++		dev_queue = &dev->ingress_queue;
+ 		if (tc_dump_qdisc_root(dev_queue->qdisc_sleeping, skb, cb, &q_idx, s_q_idx) < 0)
+ 			goto done;
+ 
+@@ -1595,7 +1595,7 @@ static int tc_dump_tclass(struct sk_buff *skb, struct netlink_callback *cb)
+ 	if (tc_dump_tclass_root(dev->qdisc, skb, tcm, cb, &t, s_t) < 0)
+ 		goto done;
+ 
+-	dev_queue = &dev->rx_queue;
++	dev_queue = &dev->ingress_queue;
+ 	if (tc_dump_tclass_root(dev_queue->qdisc_sleeping, skb, tcm, cb, &t, s_t) < 0)
+ 		goto done;
+ 
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 2aeb3a4..545278a 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -753,7 +753,7 @@ void dev_activate(struct net_device *dev)
+ 
+ 	need_watchdog = 0;
+ 	netdev_for_each_tx_queue(dev, transition_one_qdisc, &need_watchdog);
+-	transition_one_qdisc(dev, &dev->rx_queue, NULL);
++	transition_one_qdisc(dev, &dev->ingress_queue, NULL);
+ 
+ 	if (need_watchdog) {
+ 		dev->trans_start = jiffies;
+@@ -812,7 +812,7 @@ static bool some_qdisc_is_busy(struct net_device *dev)
+ void dev_deactivate(struct net_device *dev)
+ {
+ 	netdev_for_each_tx_queue(dev, dev_deactivate_queue, &noop_qdisc);
+-	dev_deactivate_queue(dev, &dev->rx_queue, &noop_qdisc);
++	dev_deactivate_queue(dev, &dev->ingress_queue, &noop_qdisc);
+ 
+ 	dev_watchdog_down(dev);
+ 
+@@ -838,7 +838,7 @@ void dev_init_scheduler(struct net_device *dev)
+ {
+ 	dev->qdisc = &noop_qdisc;
+ 	netdev_for_each_tx_queue(dev, dev_init_scheduler_queue, &noop_qdisc);
+-	dev_init_scheduler_queue(dev, &dev->rx_queue, &noop_qdisc);
++	dev_init_scheduler_queue(dev, &dev->ingress_queue, &noop_qdisc);
+ 
+ 	setup_timer(&dev->watchdog_timer, dev_watchdog, (unsigned long)dev);
+ }
+@@ -861,7 +861,7 @@ static void shutdown_scheduler_queue(struct net_device *dev,
+ void dev_shutdown(struct net_device *dev)
+ {
+ 	netdev_for_each_tx_queue(dev, shutdown_scheduler_queue, &noop_qdisc);
+-	shutdown_scheduler_queue(dev, &dev->rx_queue, &noop_qdisc);
++	shutdown_scheduler_queue(dev, &dev->ingress_queue, &noop_qdisc);
+ 	qdisc_destroy(dev->qdisc);
+ 	dev->qdisc = &noop_qdisc;
+ 
+
 
