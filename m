@@ -1,40 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bugme-new] [Bug 16603] New: send of data > 4 GB fails on 64
- bit systems
-Date: Mon, 27 Sep 2010 19:41:28 -0700 (PDT)
-Message-ID: <20100927.194128.193725825.davem@davemloft.net>
-References: <bug-16603-10286@https.bugzilla.kernel.org/>
-	<20100927161540.776f748e.akpm@linux-foundation.org>
+From: "Gustavo F. Padovan" <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
+Subject: pull-request: bluetooth-2.6 2010-09-27
+Date: Mon, 27 Sep 2010 23:30:35 -0300
+Message-ID: <20100928023035.GA3033@vigoh>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, bono@onlinehome.de
-To: akpm@linux-foundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38495
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757938Ab0I1ClJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Sep 2010 22:41:09 -0400
-In-Reply-To: <20100927161540.776f748e.akpm@linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Andrew Morton <akpm@linux-foundation.org>
-Date: Mon, 27 Sep 2010 16:15:40 -0700
+Hi David,
 
-> Yes, I think seglen should be size_t.  Do you know if making that
-> change fixes the bug?
+These are the Bluetooth fixes for 2.6.36, you are used to see Marcel doing this
+job, but he has been busy lately so I'm taking the job of the pull request this
+time. Since we are a bit late on the pull request I'm skipping the
+wireless-2.6 step, tell me if you (including John here) disagree.
 
-Oh boy, what a rats nest.
+In this patch set we have two fixes for regressions in L2CAP due to ERTM code
+we added in L2CAP for 2.6.36, a bugfix in the L2CAP Streaming Mode that was
+making the kernel crash. And a fix for a deadlock issue between the sk_sndbuf
+and the backlog queue in ERTM. The rest are also needed bug fixes.
 
-Just scanning generically I see that net/core/iovec.c:verify_iovec()
-has similar issues, it should probably use "long" instead of "int"
-because it's trying to prevent the return value being interpreted
-as an error code.
+Please tell me any problem you have pulling this.
 
-So if you fix that and make it return "long" this leads to another
-set of problems, even if you fix that TCP bit sys_sendmsg() holds
-the total length in an 'int' too.  So more stuff to fix.
+PS: Considering that these patches do not go immediately to net-next how do I
+run the Bluetooth pull request to net-next? Currently my -next tree is rebased
+on net-next but before the bluetooth-next patches I put the bluetooth patches
+I have in my bluetooth-2.6 tree, i.e., when making the pull request I have to be
+sure that the -next patches will be on top of the patches I'm submitting now
+for 2.6.36. Any help on that is welcome. :)
 
-I'll try to do the whole audit, but no promises ;)
+Regards,
+
+
+---
+
+The following changes since commit b30a3f6257ed2105259b404d419b4964e363928c:
+
+  Linux 2.6.36-rc5 (2010-09-20 16:56:53 -0700)
+
+are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/padovan/bluetooth-2.6.git master
+
+Andrei Emeltchenko (1):
+      Bluetooth: fix MTU L2CAP configuration parameter
+
+Gustavo F. Padovan (4):
+      Bluetooth: Simplify L2CAP Streaming mode sending
+      Bluetooth: Fix inconsistent lock state with RFCOMM
+      Revert "Bluetooth: Don't accept ConfigReq if we aren't in the BT_CONFIG state"
+      Bluetooth: Fix deadlock in the ERTM logic
+
+Mat Martineau (1):
+      Bluetooth: Only enable L2CAP FCS for ERTM or streaming
+
+ include/net/bluetooth/bluetooth.h |   11 +++++++
+ net/bluetooth/l2cap.c             |   57 +++++++++++++++---------------------
+ net/bluetooth/rfcomm/sock.c       |    4 ++
+ 3 files changed, 39 insertions(+), 33 deletions(-)
+
+-- 
+Gustavo F. Padovan
+ProFUSION embedded systems - http://profusion.mobi
