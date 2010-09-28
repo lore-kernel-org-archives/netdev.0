@@ -1,7 +1,7 @@
 From: Arnaud Ebalard <arno@natisbad.org>
-Subject: [PATCHv2 net-next-2.6 2/5] XFRM,IPv6: Introduce receive sockopts to access IRO remapped src/dst addresses
-Date: Tue, 28 Sep 2010 17:54:13 +0200
-Message-ID: <ed611d57e5b5302043559ef5c17df2aadd97bc44.1285687738.git.arno@natisbad.org>
+Subject: [PATCHv2 net-next-2.6 3/5] XFRM,IPv6: Add IRO src/dst address remapping XFRM types and i/o handlers
+Date: Tue, 28 Sep 2010 17:54:23 +0200
+Message-ID: <827bb82774668a323538af55c60430ba724c3e80.1285687738.git.arno@natisbad.org>
 References: <cover.1285687738.git.arno@natisbad.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -11,173 +11,279 @@ To: "David S. Miller" <davem@davemloft.net>,
 	Herbert Xu <herbert@gondor.apana.org.au>,
 	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from copper.chdir.org ([88.191.97.87]:58308 "EHLO copper.chdir.org"
+Received: from copper.chdir.org ([88.191.97.87]:58315 "EHLO copper.chdir.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754292Ab0I1PxS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Sep 2010 11:53:18 -0400
+	id S1754369Ab0I1Px2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Sep 2010 11:53:28 -0400
 In-Reply-To: <cover.1285687738.git.arno@natisbad.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-This patch introduces IRO recv sockopts, in order for userland processes
-(e.g. UMIP) to access on-wire source or destination addresses found in
-incoming (IPsec-protected) packets as they were before remapping by IRO.
-The socket options are respectively IPV6_RECVIROSRC and IPV6_RECVIRODST.
-
-Basically, the two recv socket options are similar in their purpose to
-their generic RH2/HAO counterparts defined in RFC 3542 (IPV6_RECVIROSRC
-<->  IPV6_RECVDSTOPTS, IPV6_RECVIRODST <-> IPV6_RECVRTHDR). They differ
-on the following aspects:
-
- - IRO reporting sockopts only work on incoming IPsec-protected packets
-   Userspace will never get IRO remapped address report for common
-   (non protected) packets.
- - The receiver gets the original source/desination address (IRO
-   remapping) from its IPsec stack.
- - as IRO sockopts only deal with addresses, no specific structure is
-   defined, i.e. struct in6_addr is used to pass info.
-
-As we only interact with IPsec protected packets, struct sec_path is
-used to carry information (addresses) for incoming packets that have
-undergone remapping process.
+Add IRO source and destination remapping XFRM types and associated
+input/output handlers. This allows userland to install such states
+in order to support remapping of source or destination address
+of packet. They basically work like existing RH2 and HAO ones; the
+main difference is that output handlers do not expand the packet by
+adding an extension header: they simply change the source or
+destination in place. Input handlers are almost the same as RH2/HAO
+version in their behavior, but they are triggered differently. RH2
+and HAO handlers are triggered based on structures found in the
+packet. On input, IRO states (and associated handlers) are looked
+up when processing an IPsec-protected packet, when there is an
+address mismatch.
 
 Signed-off-by: Arnaud Ebalard <arno@natisbad.org>
 ---
- include/linux/in6.h      |    7 +++++++
- include/linux/ipv6.h     |    4 +++-
- include/net/xfrm.h       |    5 +++++
- net/ipv6/datagram.c      |   18 ++++++++++++++++++
- net/ipv6/ipv6_sockglue.c |   26 ++++++++++++++++++++++++++
- 5 files changed, 59 insertions(+), 1 deletions(-)
+ include/net/xfrm.h       |    2 +
+ net/ipv6/mip6.c          |  153 ++++++++++++++++++++++++++++++++++++++++++++++
+ net/ipv6/xfrm6_mode_ro.c |   11 +++-
+ net/xfrm/xfrm_user.c     |    4 +
+ 4 files changed, 169 insertions(+), 1 deletions(-)
 
-diff --git a/include/linux/in6.h b/include/linux/in6.h
-index c4bf46f..52a98ab 100644
---- a/include/linux/in6.h
-+++ b/include/linux/in6.h
-@@ -283,4 +283,11 @@ struct in6_flowlabel_req {
-  * MRT6_PIM			208
-  * (reserved)			209
-  */
-+
-+/* IRO (IPsec Route Optimization) sockopts */
-+#define IPV6_RECVIROSRC         74
-+#define IPV6_IROSRC		75
-+#define IPV6_RECVIRODST         76
-+#define IPV6_IRODST		77
-+
- #endif
-diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index e62683b..55289ee 100644
---- a/include/linux/ipv6.h
-+++ b/include/linux/ipv6.h
-@@ -341,7 +341,9 @@ struct ipv6_pinfo {
- 				odstopts:1,
-                                 rxflow:1,
- 				rxtclass:1,
--				rxpmtu:1;
-+				rxpmtu:1,
-+				irosrc:1,
-+				irodst:1;
- 		} bits;
- 		__u16		all;
- 	} rxopt;
 diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 4f53532..e6a753c 100644
+index e6a753c..05b2b1f 100644
 --- a/include/net/xfrm.h
 +++ b/include/net/xfrm.h
-@@ -909,6 +909,11 @@ struct sec_path {
- 	atomic_t		refcnt;
- 	int			len;
- 	struct xfrm_state	*xvec[XFRM_MAX_DEPTH];
-+
-+#ifdef CONFIG_XFRM_SUB_POLICY
-+	struct in6_addr         irosrc;
-+	struct in6_addr         irodst;
-+#endif
+@@ -35,6 +35,8 @@
+ #define XFRM_PROTO_IPV6		41
+ #define XFRM_PROTO_ROUTING	IPPROTO_ROUTING
+ #define XFRM_PROTO_DSTOPTS	IPPROTO_DSTOPTS
++#define XFRM_PROTO_IRO_SRC      127
++#define XFRM_PROTO_IRO_DST      128
+ 
+ #define XFRM_ALIGN8(len)	(((len) + 7) & ~7)
+ #define MODULE_ALIAS_XFRM_MODE(family, encap) \
+diff --git a/net/ipv6/mip6.c b/net/ipv6/mip6.c
+index d6e9599..04b9e1d 100644
+--- a/net/ipv6/mip6.c
++++ b/net/ipv6/mip6.c
+@@ -477,6 +477,131 @@ static const struct xfrm_type mip6_rthdr_type =
+ 	.hdr_offset	= mip6_rthdr_offset,
  };
  
- static inline struct sec_path *
-diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
-index ef371aa..2952c9e 100644
---- a/net/ipv6/datagram.c
-+++ b/net/ipv6/datagram.c
-@@ -29,6 +29,7 @@
- #include <net/transp_v6.h>
- #include <net/ip6_route.h>
- #include <net/tcp_states.h>
-+#include <net/xfrm.h>
- 
- #include <linux/errqueue.h>
- #include <asm/uaccess.h>
-@@ -504,6 +505,23 @@ int datagram_recv_ctl(struct sock *sk, struct msghdr *msg, struct sk_buff *skb)
- 		put_cmsg(msg, SOL_IPV6, IPV6_HOPOPTS, (ptr[1]+1)<<3, ptr);
- 	}
- 
 +#ifdef CONFIG_XFRM_SUB_POLICY
-+	/* If access to IRO-remapped source or destination address has been
-+	 * requested and it has indeed been remapped, provide the on-wire
-+	 * address to userland */
-+	if (skb_sec_path(skb)) {
-+		struct sec_path *sp = skb_sec_path(skb);
++/* IRO equivalent of mip6_destopt_input(): handles incoming packet with a
++ * source address different from the one expected in the SA: check that
++ * received source address is indeed the CoA we expected (or any address
++ * if the state references the unspecified address '::') */
++static int mip6_iro_src_input(struct xfrm_state *x, struct sk_buff *skb)
++{
++	struct ipv6hdr *iph = ipv6_hdr(skb);
++	int err = 1;
 +
-+		if (np->rxopt.bits.irosrc && !ipv6_addr_any(&sp->irosrc))
-+			put_cmsg(msg, SOL_IPV6, IPV6_IROSRC,
-+				 sizeof(sp->irosrc), &sp->irosrc);
++	spin_lock(&x->lock);
++	if (!ipv6_addr_equal(&iph->saddr, (struct in6_addr *)x->coaddr) &&
++	    !ipv6_addr_any((struct in6_addr *)x->coaddr))
++		err = -ENOENT;
++	spin_unlock(&x->lock);
 +
-+		if (np->rxopt.bits.irodst && !ipv6_addr_any(&sp->irodst))
-+			put_cmsg(msg, SOL_IPV6, IPV6_IRODST,
-+				 sizeof(sp->irodst), &sp->irodst);
++	return err;
++}
++
++/* IRO equivalent of mip6_destopt_output(): replaces current source address
++ * of outgoing packet by state's CoA. */
++static int mip6_iro_src_output(struct xfrm_state *x, struct sk_buff *skb)
++{
++	struct ipv6hdr *iph = ipv6_hdr(skb);
++
++	spin_lock_bh(&x->lock);
++	memcpy(&iph->saddr, x->coaddr, sizeof(iph->saddr));
++	spin_unlock_bh(&x->lock);
++
++	return 0;
++}
++
++static int mip6_iro_src_reject(struct xfrm_state *x, struct sk_buff *skb, struct flowi *fl)
++{
++	int err = 0;
++
++	/* XXX We may need some reject handler at some point but it is not
++	 * critical yet: see xfrm_secpath_reject() in net/xfrm/xfrm_policy.c
++	 * and aslo what mip6_destopt_reject() implements */
++
++	printk("XXX FIXME: mip6_iro_src_reject() called\n");
++
++	return err;
++}
++
++/* This is the IRO equivalent of mip6_rthdr_input(): handles incoming packet
++ * with a destination address different from the one expected in the SA:
++ * check that received destination address is indeed the CoA we expected
++ * (or any address if the state references the unspecified address '::') */
++static int mip6_iro_dst_input(struct xfrm_state *x, struct sk_buff *skb)
++{
++	struct ipv6hdr *iph = ipv6_hdr(skb);
++	int err = 1;
++
++	spin_lock(&x->lock);
++	if (!ipv6_addr_equal(&iph->daddr, (struct in6_addr *)x->coaddr) &&
++	    !ipv6_addr_any((struct in6_addr *)x->coaddr))
++		err = -ENOENT;
++	spin_unlock(&x->lock);
++
++	return err;
++}
++
++/* IRO equivalent of mip6_rthdr_output(): replaces current destination
++ * address of outgoing packet with state's CoA */
++static int mip6_iro_dst_output(struct xfrm_state *x, struct sk_buff *skb)
++{
++	struct ipv6hdr *iph = ipv6_hdr(skb);
++
++	spin_lock_bh(&x->lock);
++	memcpy(&iph->daddr, x->coaddr, sizeof(iph->daddr));
++	spin_unlock_bh(&x->lock);
++
++	return 0;
++}
++
++/* Common to iro src and dst remapping states. */
++static int mip6_iro_init_state(struct xfrm_state *x)
++{
++	if (x->id.spi) {
++		printk(KERN_INFO "%s: spi is not 0: %u\n", __func__,
++		       x->id.spi);
++		return -EINVAL;
++	}
++	if (x->props.mode != XFRM_MODE_ROUTEOPTIMIZATION) {
++		printk(KERN_INFO "%s: state's mode is not %u: %u\n",
++		       __func__, XFRM_MODE_ROUTEOPTIMIZATION,
++		       x->props.mode);
++		return -EINVAL;
++	}
++
++	return 0;
++}
++
++/* Unlike common IPsec protocols, nothing to do when destroying */
++static void mip6_iro_destroy(struct xfrm_state *x)
++{
++}
++
++static const struct xfrm_type mip6_iro_src_type =
++{
++	.description	= "MIP6_IRO_SRC",
++	.owner		= THIS_MODULE,
++	.proto	     	= XFRM_PROTO_IRO_SRC,
++	.flags		= XFRM_TYPE_NON_FRAGMENT | XFRM_TYPE_LOCAL_COADDR,
++	.init_state	= mip6_iro_init_state,
++	.destructor	= mip6_iro_destroy,
++	.input		= mip6_iro_src_input,
++	.output		= mip6_iro_src_output,
++	.reject         = mip6_iro_src_reject,
++};
++
++static const struct xfrm_type mip6_iro_dst_type =
++{
++	.description	= "MIP6_IRO_DST",
++	.owner		= THIS_MODULE,
++	.proto	     	= XFRM_PROTO_IRO_DST,
++	.flags		= XFRM_TYPE_NON_FRAGMENT | XFRM_TYPE_REMOTE_COADDR,
++	.init_state	= mip6_iro_init_state,
++	.destructor	= mip6_iro_destroy,
++	.input		= mip6_iro_dst_input,
++	.output		= mip6_iro_dst_output,
++};
++#endif /* CONFIG_XFRM_SUB_POLICY */
++
+ static int __init mip6_init(void)
+ {
+ 	printk(KERN_INFO "Mobile IPv6\n");
+@@ -489,6 +614,20 @@ static int __init mip6_init(void)
+ 		printk(KERN_INFO "%s: can't add xfrm type(rthdr)\n", __func__);
+ 		goto mip6_rthdr_xfrm_fail;
+ 	}
++
++#ifdef CONFIG_XFRM_SUB_POLICY
++	if (xfrm_register_type(&mip6_iro_src_type, AF_INET6) < 0) {
++		printk(KERN_INFO "%s: can't add xfrm type(IRO src remap)\n",
++		       __func__);
++		goto mip6_iro_src_remap_xfrm_fail;
++	}
++	if (xfrm_register_type(&mip6_iro_dst_type, AF_INET6) < 0) {
++		printk(KERN_INFO "%s: can't add xfrm type(IRO dst remap)\n",
++		       __func__);
++		goto mip6_iro_dst_remap_xfrm_fail;
 +	}
 +#endif
 +
- 	if (opt->lastopt &&
- 	    (np->rxopt.bits.dstopts || np->rxopt.bits.srcrt)) {
- 		/*
-diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
-index a7f66bc..722a49f 100644
---- a/net/ipv6/ipv6_sockglue.c
-+++ b/net/ipv6/ipv6_sockglue.c
-@@ -302,6 +302,22 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
- 		retv = 0;
- 		break;
+ 	if (rawv6_mh_filter_register(mip6_mh_filter) < 0) {
+ 		printk(KERN_INFO "%s: can't add rawv6 mh filter\n", __func__);
+ 		goto mip6_rawv6_mh_fail;
+@@ -498,6 +637,12 @@ static int __init mip6_init(void)
+ 	return 0;
  
+  mip6_rawv6_mh_fail:
 +#ifdef CONFIG_XFRM_SUB_POLICY
-+	case IPV6_RECVIROSRC:
-+		if (optlen < sizeof(int))
-+			goto e_inval;
-+		np->rxopt.bits.irosrc = valbool;
-+		retv = 0;
-+		break;
-+
-+	case IPV6_RECVIRODST:
-+		if (optlen < sizeof(int))
-+			goto e_inval;
-+		np->rxopt.bits.irodst = valbool;
-+		retv = 0;
-+		break;
++	xfrm_unregister_type(&mip6_iro_dst_type, AF_INET6);
++ mip6_iro_dst_remap_xfrm_fail:
++	xfrm_unregister_type(&mip6_iro_src_type, AF_INET6);
++ mip6_iro_src_remap_xfrm_fail:
 +#endif
-+
- 	case IPV6_2292DSTOPTS:
- 		if (optlen < sizeof(int))
- 			goto e_inval;
-@@ -1056,6 +1072,16 @@ static int do_ipv6_getsockopt(struct sock *sk, int level, int optname,
- 		val = np->rxopt.bits.dstopts;
- 		break;
+ 	xfrm_unregister_type(&mip6_rthdr_type, AF_INET6);
+  mip6_rthdr_xfrm_fail:
+ 	xfrm_unregister_type(&mip6_destopt_type, AF_INET6);
+@@ -509,6 +654,14 @@ static void __exit mip6_fini(void)
+ {
+ 	if (rawv6_mh_filter_unregister(mip6_mh_filter) < 0)
+ 		printk(KERN_INFO "%s: can't remove rawv6 mh filter\n", __func__);
++#ifdef CONFIG_XFRM_SUB_POLICY
++	if (xfrm_unregister_type(&mip6_iro_dst_type, AF_INET6) < 0)
++		printk(KERN_INFO "%s: can't remove xfrm type(IRO dst remap)\n",
++		       __func__);
++	if (xfrm_unregister_type(&mip6_iro_src_type, AF_INET6) < 0)
++		printk(KERN_INFO "%s: can't remove xfrm type(IRO src remap)\n",
++		       __func__);
++#endif
+ 	if (xfrm_unregister_type(&mip6_rthdr_type, AF_INET6) < 0)
+ 		printk(KERN_INFO "%s: can't remove xfrm type(rthdr)\n", __func__);
+ 	if (xfrm_unregister_type(&mip6_destopt_type, AF_INET6) < 0)
+diff --git a/net/ipv6/xfrm6_mode_ro.c b/net/ipv6/xfrm6_mode_ro.c
+index 63d5d49..ea33178 100644
+--- a/net/ipv6/xfrm6_mode_ro.c
++++ b/net/ipv6/xfrm6_mode_ro.c
+@@ -45,6 +45,15 @@ static int xfrm6_ro_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	u8 *prevhdr;
+ 	int hdr_len;
  
++	/* Unlike RH2 (IPPROTO_ROUTING) and HAO in DstOpt
++	 * (IPPROTO_DSTOPTS), IRO remapping states do not
++	 * add extension header to the packet. Source
++	 * and/or destination addresses are simply modified
++	 * in place. */
++	if (x->id.proto == XFRM_PROTO_IRO_SRC ||
++	    x->id.proto == XFRM_PROTO_IRO_DST)
++		goto out;
++
+ 	iph = ipv6_hdr(skb);
+ 
+ 	hdr_len = x->type->hdr_offset(x, skb, &prevhdr);
+@@ -54,8 +63,8 @@ static int xfrm6_ro_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	__skb_pull(skb, hdr_len);
+ 	memmove(ipv6_hdr(skb), iph, hdr_len);
+ 
++ out:
+ 	x->lastused = get_seconds();
+-
+ 	return 0;
+ }
+ 
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index 8bae6b2..2aecd40 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -179,6 +179,10 @@ static int verify_newsa_info(struct xfrm_usersa_info *p,
+ #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+ 	case IPPROTO_DSTOPTS:
+ 	case IPPROTO_ROUTING:
 +#ifdef CONFIG_XFRM_SUB_POLICY
-+	case IPV6_RECVIROSRC:
-+		val = np->rxopt.bits.irosrc;
-+		break;
-+
-+	case IPV6_RECVIRODST:
-+		val = np->rxopt.bits.irodst;
-+		break;
++	case XFRM_PROTO_IRO_SRC:
++	case XFRM_PROTO_IRO_DST:
 +#endif
-+
- 	case IPV6_2292DSTOPTS:
- 		val = np->rxopt.bits.odstopts;
- 		break;
+ 		if (attrs[XFRMA_ALG_COMP]	||
+ 		    attrs[XFRMA_ALG_AUTH]	||
+ 		    attrs[XFRMA_ALG_AUTH_TRUNC]	||
 -- 
 1.7.1
 
