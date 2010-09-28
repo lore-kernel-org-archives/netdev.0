@@ -1,256 +1,293 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] ip6tnl: percpu stats accounting
-Date: Tue, 28 Sep 2010 15:23:34 +0200
-Message-ID: <1285680214.3154.65.camel@edumazet-laptop>
+From: Antonio Ospite <ospite@studenti.unina.it>
+Subject: Re: [PATCH v4 1/2] HID: Add Support for Setting and Getting Feature
+ Reports from hidraw
+Date: Tue, 28 Sep 2010 15:30:11 +0200
+Message-ID: <20100928153011.32750e5d.ospite@studenti.unina.it>
+References: <1281442367.12579.206.camel@localhost.localdomain>
+	<1281990059-3562-2-git-send-email-alan@signal11.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:34266 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753255Ab0I1NXj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Sep 2010 09:23:39 -0400
-Received: by fxm3 with SMTP id 3so2554355fxm.19
-        for <netdev@vger.kernel.org>; Tue, 28 Sep 2010 06:23:37 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Tue__28_Sep_2010_15_30_11_+0200_04WdI0dfmz8J0Vd7"
+Cc: Jiri Kosina <jkosina@suse.cz>,
+	Stefan Achatz <erazor_de@users.sourceforge.net>,
+	Alexey Dobriyan <adobriyan@gmail.com>,
+	Tejun Heo <tj@kernel.org>,
+	Alan Stern <stern@rowland.harvard.edu>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	Marcel Holtmann <marcel@holtmann.org>,
+	Stephane Chatty <chatty@enac.fr>,
+	Michael Poole <mdpoole@troilus.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Bastien Nocera <hadess@hadess.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	linux-input@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-usb@vger.kernel.org, linux-bluetooth@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Alan Ott <alan@signal11.us>
+Return-path: <linux-input-owner@vger.kernel.org>
+In-Reply-To: <1281990059-3562-2-git-send-email-alan@signal11.us>
+Sender: linux-input-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Maintain per_cpu tx_bytes, tx_packets, rx_bytes, rx_packets.
+--Signature=_Tue__28_Sep_2010_15_30_11_+0200_04WdI0dfmz8J0Vd7
+Content-Type: multipart/mixed;
+ boundary="Multipart=_Tue__28_Sep_2010_15_30_11_+0200_SaDIWec7Q_CkPCmg"
 
-Other seldom used fields are kept in netdev->stats structure, possibly
-unsafe.
 
-This is a preliminary work to support lockless transmit path, and
-correct RX stats, that are already unsafe.
+--Multipart=_Tue__28_Sep_2010_15_30_11_+0200_SaDIWec7Q_CkPCmg
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/ipv6/ip6_tunnel.c |   93 +++++++++++++++++++++++++++++++++-------
- 1 files changed, 77 insertions(+), 16 deletions(-)
+On Mon, 16 Aug 2010 16:20:58 -0400
+Alan Ott <alan@signal11.us> wrote:
 
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index f6d9f68..8be3c45 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -75,7 +75,7 @@ MODULE_LICENSE("GPL");
- 		     (addr)->s6_addr32[2] ^ (addr)->s6_addr32[3]) & \
- 		    (HASH_SIZE - 1))
- 
--static void ip6_tnl_dev_init(struct net_device *dev);
-+static int ip6_tnl_dev_init(struct net_device *dev);
- static void ip6_tnl_dev_setup(struct net_device *dev);
- 
- static int ip6_tnl_net_id __read_mostly;
-@@ -88,6 +88,34 @@ struct ip6_tnl_net {
- 	struct ip6_tnl __rcu **tnls[2];
- };
- 
-+/* often modified stats are per cpu, other are shared (netdev->stats) */
-+struct pcpu_tstats {
-+	unsigned long	rx_packets;
-+	unsigned long	rx_bytes;
-+	unsigned long	tx_packets;
-+	unsigned long	tx_bytes;
-+};
-+
-+static struct net_device_stats *ip6_get_stats(struct net_device *dev)
-+{
-+	struct pcpu_tstats sum = { 0 };
-+	int i;
-+
-+	for_each_possible_cpu(i) {
-+		const struct pcpu_tstats *tstats = per_cpu_ptr(dev->tstats, i);
-+
-+		sum.rx_packets += tstats->rx_packets;
-+		sum.rx_bytes   += tstats->rx_bytes;
-+		sum.tx_packets += tstats->tx_packets;
-+		sum.tx_bytes   += tstats->tx_bytes;
-+	}
-+	dev->stats.rx_packets = sum.rx_packets;
-+	dev->stats.rx_bytes   = sum.rx_bytes;
-+	dev->stats.tx_packets = sum.tx_packets;
-+	dev->stats.tx_bytes   = sum.tx_bytes;
-+	return &dev->stats;
-+}
-+
- /*
-  * Locking : hash tables are protected by RCU and RTNL
-  */
-@@ -216,6 +244,12 @@ ip6_tnl_unlink(struct ip6_tnl_net *ip6n, struct ip6_tnl *t)
- 	}
- }
- 
-+static void ip6_dev_free(struct net_device *dev)
-+{
-+	free_percpu(dev->tstats);
-+	free_netdev(dev);
-+}
-+
- /**
-  * ip6_tnl_create() - create a new tunnel
-  *   @p: tunnel parameters
-@@ -254,7 +288,9 @@ static struct ip6_tnl *ip6_tnl_create(struct net *net, struct ip6_tnl_parm *p)
- 
- 	t = netdev_priv(dev);
- 	t->parms = *p;
--	ip6_tnl_dev_init(dev);
-+	err = ip6_tnl_dev_init(dev);
-+	if (err < 0)
-+		goto failed_free;
- 
- 	if ((err = register_netdevice(dev)) < 0)
- 		goto failed_free;
-@@ -264,7 +300,7 @@ static struct ip6_tnl *ip6_tnl_create(struct net *net, struct ip6_tnl_parm *p)
- 	return t;
- 
- failed_free:
--	free_netdev(dev);
-+	ip6_dev_free(dev);
- failed:
- 	return NULL;
- }
-@@ -700,6 +736,8 @@ static int ip6_tnl_rcv(struct sk_buff *skb, __u16 protocol,
- 
- 	if ((t = ip6_tnl_lookup(dev_net(skb->dev), &ipv6h->saddr,
- 					&ipv6h->daddr)) != NULL) {
-+		struct pcpu_tstats *tstats;
-+
- 		if (t->parms.proto != ipproto && t->parms.proto != 0) {
- 			rcu_read_unlock();
- 			goto discard;
-@@ -722,7 +760,11 @@ static int ip6_tnl_rcv(struct sk_buff *skb, __u16 protocol,
- 		skb->pkt_type = PACKET_HOST;
- 		memset(skb->cb, 0, sizeof(struct inet6_skb_parm));
- 
--		skb_tunnel_rx(skb, t->dev);
-+		tstats = this_cpu_ptr(t->dev->tstats);
-+		tstats->rx_packets++;
-+		tstats->rx_bytes += skb->len;
-+
-+		__skb_tunnel_rx(skb, t->dev);
- 
- 		dscp_ecn_decapsulate(t, ipv6h, skb);
- 
-@@ -935,8 +977,10 @@ static int ip6_tnl_xmit2(struct sk_buff *skb,
- 	err = ip6_local_out(skb);
- 
- 	if (net_xmit_eval(err) == 0) {
--		stats->tx_bytes += pkt_len;
--		stats->tx_packets++;
-+		struct pcpu_tstats *tstats = this_cpu_ptr(t->dev->tstats);
-+
-+		tstats->tx_bytes += pkt_len;
-+		tstats->tx_packets++;
- 	} else {
- 		stats->tx_errors++;
- 		stats->tx_aborted_errors++;
-@@ -1301,12 +1345,14 @@ ip6_tnl_change_mtu(struct net_device *dev, int new_mtu)
- 
- 
- static const struct net_device_ops ip6_tnl_netdev_ops = {
--	.ndo_uninit = ip6_tnl_dev_uninit,
-+	.ndo_uninit	= ip6_tnl_dev_uninit,
- 	.ndo_start_xmit = ip6_tnl_xmit,
--	.ndo_do_ioctl = ip6_tnl_ioctl,
-+	.ndo_do_ioctl	= ip6_tnl_ioctl,
- 	.ndo_change_mtu = ip6_tnl_change_mtu,
-+	.ndo_get_stats	= ip6_get_stats,
- };
- 
-+
- /**
-  * ip6_tnl_dev_setup - setup virtual tunnel device
-  *   @dev: virtual device associated with tunnel
-@@ -1318,7 +1364,7 @@ static const struct net_device_ops ip6_tnl_netdev_ops = {
- static void ip6_tnl_dev_setup(struct net_device *dev)
- {
- 	dev->netdev_ops = &ip6_tnl_netdev_ops;
--	dev->destructor = free_netdev;
-+	dev->destructor = ip6_dev_free;
- 
- 	dev->type = ARPHRD_TUNNEL6;
- 	dev->hard_header_len = LL_MAX_HEADER + sizeof (struct ipv6hdr);
-@@ -1334,12 +1380,17 @@ static void ip6_tnl_dev_setup(struct net_device *dev)
-  *   @dev: virtual device associated with tunnel
-  **/
- 
--static inline void
-+static inline int
- ip6_tnl_dev_init_gen(struct net_device *dev)
- {
- 	struct ip6_tnl *t = netdev_priv(dev);
-+
- 	t->dev = dev;
- 	strcpy(t->parms.name, dev->name);
-+	dev->tstats = alloc_percpu(struct pcpu_tstats);
-+	if (!dev->tstats)
-+		return -ENOMEM;
-+	return 0;
- }
- 
- /**
-@@ -1347,11 +1398,15 @@ ip6_tnl_dev_init_gen(struct net_device *dev)
-  *   @dev: virtual device associated with tunnel
-  **/
- 
--static void ip6_tnl_dev_init(struct net_device *dev)
-+static int ip6_tnl_dev_init(struct net_device *dev)
- {
- 	struct ip6_tnl *t = netdev_priv(dev);
--	ip6_tnl_dev_init_gen(dev);
-+	int err = ip6_tnl_dev_init_gen(dev);
-+
-+	if (err)
-+		return err;
- 	ip6_tnl_link_config(t);
-+	return 0;
- }
- 
- /**
-@@ -1361,16 +1416,20 @@ static void ip6_tnl_dev_init(struct net_device *dev)
-  * Return: 0
-  **/
- 
--static void __net_init ip6_fb_tnl_dev_init(struct net_device *dev)
-+static int __net_init ip6_fb_tnl_dev_init(struct net_device *dev)
- {
- 	struct ip6_tnl *t = netdev_priv(dev);
- 	struct net *net = dev_net(dev);
- 	struct ip6_tnl_net *ip6n = net_generic(net, ip6_tnl_net_id);
-+	int err = ip6_tnl_dev_init_gen(dev);
-+
-+	if (err)
-+		return err;
- 
--	ip6_tnl_dev_init_gen(dev);
- 	t->parms.proto = IPPROTO_IPV6;
- 	dev_hold(dev);
- 	rcu_assign_pointer(ip6n->tnls_wc[0], t);
-+	return 0;
- }
- 
- static struct xfrm6_tunnel ip4ip6_handler __read_mostly = {
-@@ -1420,7 +1479,9 @@ static int __net_init ip6_tnl_init_net(struct net *net)
- 		goto err_alloc_dev;
- 	dev_net_set(ip6n->fb_tnl_dev, net);
- 
--	ip6_fb_tnl_dev_init(ip6n->fb_tnl_dev);
-+	err = ip6_fb_tnl_dev_init(ip6n->fb_tnl_dev);
-+	if (err < 0)
-+		goto err_register;
- 
- 	err = register_netdev(ip6n->fb_tnl_dev);
- 	if (err < 0)
-@@ -1428,7 +1489,7 @@ static int __net_init ip6_tnl_init_net(struct net *net)
- 	return 0;
- 
- err_register:
--	free_netdev(ip6n->fb_tnl_dev);
-+	ip6_dev_free(ip6n->fb_tnl_dev);
- err_alloc_dev:
- 	return err;
+> Per the HID Specification, Feature reports must be sent and received on
+> the Configuration endpoint (EP 0) through the Set_Report/Get_Report
+> interfaces.  This patch adds two ioctls to hidraw to set and get feature
+> reports to and from the device.  Modifications were made to hidraw and
+> usbhid.
+>=20
+> New hidraw ioctls:
+>   HIDIOCSFEATURE - Perform a Set_Report transfer of a Feature report.
+>   HIDIOCGFEATURE - Perform a Get_Report transfer of a Feature report.
+>=20
+> Signed-off-by: Alan Ott <alan@signal11.us>
+
+Hi Alan, I am doing some stress testing on hidraw, if I have a loop with
+HIDIOCGFEATURE on a given report and I disconnect the device while the
+loop is running I get this:
+
+BUG: unable to handle kernel NULL pointer dereference at 0000000000000028
+IP: [<ffffffffa02c66b4>] hidraw_ioctl+0xfc/0x32c [hid]
+
+Full log attached along with the test program, the device is a Sony PS3
+Controller (sixaxis).
+
+If my objdump analysis is right, hidraw_ioctl+0xfc should be around line
+361 in hidraw.c (with your patch applied):
+
+struct hid_device *hid =3D dev->hid;
+
+It looks like 'dev' (which is hidraw_table[minor]) can be NULL
+sometimes, can't it?
+This is not introduced by your changes tho.
+
+Just as a side note, the bug does not show up if the userspace program
+handles return values properly and exits as soon as it gets an error
+from the HID layer, see the XXX comment in test_hidraw_feature.c.
+
+This fixes it, if it looks ok I will resend the patch rebased on
+mainline code:
+
+diff --git a/drivers/hid/hidraw.c b/drivers/hid/hidraw.c
+index 7df1310..3c040c6 100644
+--- a/drivers/hid/hidraw.c
++++ b/drivers/hid/hidraw.c
+@@ -322,6 +322,10 @@ static long hidraw_ioctl(struct file *file, unsigned i=
+nt cmd,
+
+        mutex_lock(&minors_lock);
+        dev =3D hidraw_table[minor];
++       if (!dev) {
++               ret =3D -ENODEV;
++               goto out;
++       }
+
+        switch (cmd) {
+                case HIDIOCGRDESCSIZE:
+@@ -412,6 +416,7 @@ static long hidraw_ioctl(struct file *file, unsigned in=
+t cmd,
+
+                ret =3D -ENOTTY;
+        }
++out:
+        mutex_unlock(&minors_lock);
+        return ret;
  }
 
 
+this change covers also the other uses of hidraw_table[minor] in
+hidraw_send_report/hidraw_get_report.
+
+Regards,
+   Antonio
+
+--=20
+Antonio Ospite
+http://ao2.it
+
+PGP public key ID: 0x4553B001
+
+A: Because it messes up the order in which people normally read text.
+   See http://en.wikipedia.org/wiki/Posting_style
+Q: Why is top-posting such a bad thing?
+
+--Multipart=_Tue__28_Sep_2010_15_30_11_+0200_SaDIWec7Q_CkPCmg
+Content-Type: application/octet-stream;
+ name="dmesg_hidraw_feature_bug.log"
+Content-Disposition: attachment;
+ filename="dmesg_hidraw_feature_bug.log"
+Content-Transfer-Encoding: base64
+
+WyAgMTExLjY0NTgzNl0gdXNiIDQtMTogVVNCIGRpc2Nvbm5lY3QsIGFkZHJlc3MgMgpbICAxMTEu
+NjY5NDY2XSBCVUc6IHVuYWJsZSB0byBoYW5kbGUga2VybmVsIE5VTEwgcG9pbnRlciBkZXJlZmVy
+ZW5jZSBhdCAwMDAwMDAwMDAwMDAwMDI4ClsgIDExMS42Njk0ODRdIElQOiBbPGZmZmZmZmZmYTAy
+YzY2YjQ+XSBoaWRyYXdfaW9jdGwrMHhmYy8weDMyYyBbaGlkXQpbICAxMTEuNjY5NTI5XSBQR0Qg
+NWE5NTMwNjcgUFVEIDZkNzQxMDY3IFBNRCAwIApbICAxMTEuNjY5NTM5XSBPb3BzOiAwMDAwIFsj
+MV0gU01QIApbICAxMTEuNjY5NTQ1XSBsYXN0IHN5c2ZzIGZpbGU6IC9zeXMvZGV2aWNlcy9wY2kw
+MDAwOjAwLzAwMDA6MDA6MDQuMC91c2I0L2lkVmVuZG9yClsgIDExMS42Njk1NTZdIENQVSAwIApb
+ICAxMTEuNjY5NTU5XSBNb2R1bGVzIGxpbmtlZCBpbjogaGlkcCBwb3dlcm5vd19rOCBtcGVyZiBj
+cHVmcmVxX3Bvd2Vyc2F2ZSBjcHVmcmVxX2NvbnNlcnZhdGl2ZSBjcHVmcmVxX3N0YXRzIGNwdWZy
+ZXFfdXNlcnNwYWNlIGxpcmNfc2VyaWFsKEMpIGxpcmNfZGV2IGlwdF9NQVNRVUVSQURFIGJyaWRn
+ZSBzdHAgcHBkZXYgbHAgc2NvIGJuZXAgcmZjb21tIGwyY2FwIGNyYzE2IHR1biBzaXQgdHVubmVs
+NCBrdm1fYW1kIGt2bSBiaW5mbXRfbWlzYyB1aW5wdXQgZnVzZSBuZnNkIGlwNnRhYmxlX3JhdyBp
+cDZ0YWJsZV9tYW5nbGUgaXA2dF9SRUpFQ1QgZXhwb3J0ZnMgbmZzIGlwNnRfTE9HIGxvY2tkIGZz
+Y2FjaGUgbmZfY29ubnRyYWNrX2lwdjYgbmZzX2FjbCBhdXRoX3JwY2dzcyBpcDZ0YWJsZV9maWx0
+ZXIgc3VucnBjIGlwNl90YWJsZXMgeHRfdGNwdWRwIGlwdF9SRUpFQ1QgaXB0X1VMT0cgeHRfbGlt
+aXQgeHRfc3RhdGUgeHRfbXVsdGlwb3J0IGlwdGFibGVfZmlsdGVyIGlwdGFibGVfbmF0IG5mX25h
+dCBuZl9jb25udHJhY2tfaXB2NCBuZl9jb25udHJhY2sgbmZfZGVmcmFnX2lwdjQgaXB0YWJsZV9t
+YW5nbGUgaXB0YWJsZV9yYXcgaXBfdGFibGVzIHhfdGFibGVzIGh3bW9uX3ZpZCBsb29wIHNuZF9o
+ZGFfY29kZWNfbnZoZG1pIHNuZF9oZGFfY29kZWNfdmlhIHNuZF9oZGFfaW50ZWwgc25kX2hkYV9j
+b2RlYyBzbmRfaHdkZXAgc25kX3BjbV9vc3Mgc25kX21peGVyX29zcyBzbmRfcGNtIHNuZF9zZXFf
+bWlkaSBzbmRfcmF3bWlkaSBudmlkaWEoUCkgc25kX3NlcV9taWRpX2V2ZW50IHNuZF9zZXEgcGFy
+cG9ydF9wYyBidHVzYiBzbmRfdGltZXIgc25kX3NlcV9kZXZpY2UgYXN1c19hdGswMTEwIGpveWRl
+diB2aWRlbyBzbmQgYmx1ZXRvb3RoIHJma2lsbCBoaWRfc29ueSBvdXRwdXQgd21pIHBhcnBvcnQg
+ZWRhY19jb3JlIGkyY19uZm9yY2UyIHRwbV90aXMgc2hwY2hwIHBjaV9ob3RwbHVnIGs4dGVtcCBl
+ZGFjX21jZV9hbWQgcGNzcGtyIHRwbSB0cG1fYmlvcyBldmRldiBzb3VuZGNvcmUgc25kX3BhZ2Vf
+YWxsb2MgaTJjX2NvcmUgYnV0dG9uIHByb2Nlc3NvciBleHQzIGpiZCBtYmNhY2hlIGRtX21vZCBz
+ZyBzcl9tb2Qgc2RfbW9kIGNyY190MTBkaWYgY2Ryb20gYXRhX2dlbmVyaWMgdXNiaGlkIGhpZCBh
+aGNpIGxpYmFoY2kgcGF0YV9hbWQgb2hjaV9oY2QgbGliYXRhIGVoY2lfaGNkIHNjc2lfbW9kIHVz
+YmNvcmUgdGhlcm1hbCBmb3JjZWRldGggbmxzX2Jhc2UgdGhlcm1hbF9zeXMgZmxvcHB5IFtsYXN0
+IHVubG9hZGVkOiBzY3NpX3dhaXRfc2Nhbl0KWyAgMTExLjY2OTczNl0gClsgIDExMS42Njk3NDZd
+IFBpZDogMjk2OSwgY29tbTogdGVzdF9oaWRyYXdfZmVhIFRhaW50ZWQ6IFAgICAgICAgICBDICAy
+LjYuMzYtcmM1LWFvMisgIzEgTTNONzgtVk0vU3lzdGVtIFByb2R1Y3QgTmFtZQpbICAxMTEuNjY5
+NzUzXSBSSVA6IDAwMTA6WzxmZmZmZmZmZmEwMmM2NmI0Pl0gIFs8ZmZmZmZmZmZhMDJjNjZiND5d
+IGhpZHJhd19pb2N0bCsweGZjLzB4MzJjIFtoaWRdClsgIDExMS42Njk3NzFdIFJTUDogMDAxODpm
+ZmZmODgwMDU2ODMxZTc4ICBFRkxBR1M6IDAwMDEwMjA2ClsgIDExMS42Njk3NzZdIFJBWDogMDAw
+MDAwMDAwMDAwMDA0OCBSQlg6IDAwMDAwMDAwYzAyZDQ4MDcgUkNYOiAwMDAwMDAwMDAyMmM3ZTUw
+ClsgIDExMS42Njk3ODNdIFJEWDogMDAwMDAwMDEwMDAwMDAwMCBSU0k6IGZmZmZmZmZmODEwMzc3
+ZTAgUkRJOiBmZmZmZmZmZmEwMmNlYWEwClsgIDExMS42Njk3ODldIFJCUDogMDAwMDAwMDAwMjJj
+N2U1MCBSMDg6IDAwMDA3Zjk4M2YxY2JlYzggUjA5OiAwMDAwMDAwMDAwNDAwYWNhClsgIDExMS42
+Njk3OTVdIFIxMDogZmZmZmZmZmY4MTAwNzY5ZiBSMTE6IGZmZmY4ODAwMzdhNzhkZDggUjEyOiBm
+ZmZmODgwMDVhODVjMzAwClsgIDExMS42Njk4MDFdIFIxMzogMDAwMDAwMDAwMDAwMDAwMCBSMTQ6
+IDAwMDAwMDAwMDAwMDAwMDAgUjE1OiAwMDAwMDAwMDAwMDAwMDAwClsgIDExMS42Njk4MDhdIEZT
+OiAgMDAwMDdmOTgzZjNjYzcwMCgwMDAwKSBHUzpmZmZmODgwMDAxYTAwMDAwKDAwMDApIGtubEdT
+OjAwMDAwMDAwMDAwMDAwMDAKWyAgMTExLjY2OTgxNV0gQ1M6ICAwMDEwIERTOiAwMDAwIEVTOiAw
+MDAwIENSMDogMDAwMDAwMDA4MDA1MDAzMwpbICAxMTEuNjY5ODIxXSBDUjI6IDAwMDAwMDAwMDAw
+MDAwMjggQ1IzOiAwMDAwMDAwMDVhYmE5MDAwIENSNDogMDAwMDAwMDAwMDAwMDZmMApbICAxMTEu
+NjY5ODI3XSBEUjA6IDAwMDAwMDAwMDAwMDAwMDAgRFIxOiAwMDAwMDAwMDAwMDAwMDAwIERSMjog
+MDAwMDAwMDAwMDAwMDAwMApbICAxMTEuNjY5ODMzXSBEUjM6IDAwMDAwMDAwMDAwMDAwMDAgRFI2
+OiAwMDAwMDAwMGZmZmYwZmYwIERSNzogMDAwMDAwMDAwMDAwMDQwMApbICAxMTEuNjY5ODQwXSBQ
+cm9jZXNzIHRlc3RfaGlkcmF3X2ZlYSAocGlkOiAyOTY5LCB0aHJlYWRpbmZvIGZmZmY4ODAwNTY4
+MzAwMDAsIHRhc2sgZmZmZjg4MDA1YWI5MzY4MCkKWyAgMTExLjY2OTg0NF0gU3RhY2s6ClsgIDEx
+MS42Njk4NDhdICAwMDAwMDAwMDAxMGFhZDE0IGZmZmY4ODAwNWFiOTM2YjggZmZmZjg4MDA1YTg1
+YzMwMCBmZmZmODgwMDM3ZmM2NzAwClsgIDExMS42Njk4NTddIDwwPiAwMDAwMDAwMDAyMmM3ZTUw
+IDAwMDAwMDAwMDIyYzdlNTAgMDAwMDAwMDAwMDAwMDAwMCBmZmZmZmZmZjgxMGY2NGE1ClsgIDEx
+MS42Njk4NjVdIDwwPiBmZmZmODgwMDAxYTE0ODgwIGZmZmY4ODAwNWFiOTM2ODAgZmZmZmZmZmY4
+MTMwMjc3NiAwMDAwMDAwMDAwMDAwMDAwClsgIDExMS42Njk4NzVdIENhbGwgVHJhY2U6ClsgIDEx
+MS42Njk4OThdICBbPGZmZmZmZmZmODEwZjY0YTU+XSA/IGRvX3Zmc19pb2N0bCsweDRhMi8weDRl
+ZgpbICAxMTEuNjY5OTE1XSAgWzxmZmZmZmZmZjgxMzAyNzc2Pl0gPyBzY2hlZHVsZSsweDU3My8w
+eDViNwpbICAxMTEuNjY5OTIzXSAgWzxmZmZmZmZmZjgxMGY2NTNkPl0gPyBzeXNfaW9jdGwrMHg0
+Yi8weDcyClsgIDExMS42Njk5MzNdICBbPGZmZmZmZmZmODEwZWEwMDI+XSA/IHN5c193cml0ZSsw
+eDVmLzB4NmIKWyAgMTExLjY2OTk0N10gIFs8ZmZmZmZmZmY4MTAwOGEwMj5dID8gc3lzdGVtX2Nh
+bGxfZmFzdHBhdGgrMHgxNi8weDFiClsgIDExMS42Njk5NTJdIENvZGU6IDJjIDY2IDg5IDQ0IDI0
+IDA2IGU4IDFhIGMyIDAzIGUxIDQ4IDg5IGU2IGJhIDA4IDAwIDAwIDAwIDQ4IDg5IGVmIGU4IGNj
+IDc5IGVjIGUwIDg1IGMwIDBmIDg0IDE4IDAyIDAwIDAwIGU5IDAxIDAyIDAwIDAwIDBmIGI2IGM3
+IDw0OT4gOGIgN2QgMjggODMgZjggNDggMGYgODUgZmEgMDEgMDAgMDAgMGYgYjYgYzMgODMgZjgg
+MDYgNzUgMjQgClsgIDExMS42NzAwMTFdIFJJUCAgWzxmZmZmZmZmZmEwMmM2NmI0Pl0gaGlkcmF3
+X2lvY3RsKzB4ZmMvMHgzMmMgW2hpZF0KWyAgMTExLjY3MDAyNV0gIFJTUCA8ZmZmZjg4MDA1Njgz
+MWU3OD4KWyAgMTExLjY3MDAyOV0gQ1IyOiAwMDAwMDAwMDAwMDAwMDI4ClsgIDExMS42NzAwMzZd
+IC0tLVsgZW5kIHRyYWNlIDljNzUzMGNmYzcwMDkyMDIgXS0tLQo=
+
+--Multipart=_Tue__28_Sep_2010_15_30_11_+0200_SaDIWec7Q_CkPCmg
+Content-Type: text/x-csrc;
+ name="test_hidraw_feature.c"
+Content-Disposition: attachment;
+ filename="test_hidraw_feature.c"
+Content-Transfer-Encoding: quoted-printable
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdint.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/ioctl.h>
+
+/*
+#include <linux/hidraw.h>
+*/
+#include "/home/ao2/Proj/linux/linux-2.6/include/linux/hidraw.h"
+
+void dump_hex_string(unsigned char *buf, unsigned int len)
+{
+	unsigned int i;
+
+	for (i =3D 0; i < len; i++)
+		printf("%02x%c", buf[i], i < len - 1 ? ' ' : 0);
+}
+
+void dump_feature_report(int fd, uint8_t report_number, unsigned int len)
+{
+	unsigned char *buf;
+	int ret;
+
+	buf =3D calloc(len, sizeof(*buf));
+
+	buf[0] =3D report_number;
+
+	ret =3D ioctl(fd, HIDIOCGFEATURE(len), buf);
+	if (ret < 0) {
+		fprintf(stderr, "report: 0x%02x ret: %d\n", report_number, ret);
+		/* XXX: if I put exit(1) here the bug is masked */
+		return;
+	}
+
+	dump_hex_string(buf, len);
+	printf("\r");
+	fflush(stdout);
+
+	free(buf);
+}
+
+int main(int argc, char *argv[])
+{
+	int fd =3D -1;
+
+	if (argc !=3D 2) {
+		fprintf(stderr, "usage: %s </dev/hidrawX>\n", argv[0]);
+		exit(1);
+	}
+
+	fd =3D open(argv[1], O_RDWR);
+	if (fd < 0) {
+		perror("hidraw open");
+		exit(1);
+	}
+
+	while (1)
+		dump_feature_report(fd, 0x01, 45);
+	printf("\n");
+
+	close(fd);
+	exit(0);
+}
+
+--Multipart=_Tue__28_Sep_2010_15_30_11_+0200_SaDIWec7Q_CkPCmg--
+
+--Signature=_Tue__28_Sep_2010_15_30_11_+0200_04WdI0dfmz8J0Vd7
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iEYEARECAAYFAkyh7eMACgkQ5xr2akVTsAHSYwCfc7sGcTmFBpVyUVyk6cYK+LPn
+pwIAoIGB+RtAuLA2xUOo8DtE9bJqNlmy
+=g/gZ
+-----END PGP SIGNATURE-----
+
+--Signature=_Tue__28_Sep_2010_15_30_11_+0200_04WdI0dfmz8J0Vd7--
