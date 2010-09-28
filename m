@@ -1,43 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Fix IPv6 PMTU disc. w/ asymmetric routes
-Date: Tue, 28 Sep 2010 13:58:00 -0700 (PDT)
-Message-ID: <20100928.135800.39205209.davem@davemloft.net>
-References: <55a4f86e1001131651j102b600fm1552a42866c3c671@mail.gmail.com>
-	<1285581957-30694-1-git-send-email-zenczykowski@gmail.com>
+Subject: Re: [PATCH] net: Implement Any-IP support for IPv6.
+Date: Tue, 28 Sep 2010 13:59:23 -0700 (PDT)
+Message-ID: <20100928.135923.59699712.davem@davemloft.net>
+References: <1285582022-30787-1-git-send-email-zenczykowski@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=iso-8859-2
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org, maze@google.com
 To: zenczykowski@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36916
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36921
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752273Ab0I1U5k convert rfc822-to-8bit
+	by vger.kernel.org with ESMTP id S1752273Ab0I1U7D convert rfc822-to-8bit
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Sep 2010 16:57:40 -0400
-In-Reply-To: <1285581957-30694-1-git-send-email-zenczykowski@gmail.com>
+	Tue, 28 Sep 2010 16:59:03 -0400
+In-Reply-To: <1285582022-30787-1-git-send-email-zenczykowski@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 =46rom: Maciej =AFenczykowski <zenczykowski@gmail.com>
-Date: Mon, 27 Sep 2010 03:05:57 -0700
+Date: Mon, 27 Sep 2010 03:07:02 -0700
 
 > From: Maciej =AFenczykowski <maze@google.com>
 >=20
+> AnyIP is the capability to receive packets and establish incoming
+> connections on IPs we have not explicitly configured on the machine.
+>=20
+> An example use case is to configure a machine to accept all incoming
+> traffic on eth0, and leave the policy of whether traffic for a given =
+IP
+> should be delivered to the machine up to the load balancer.
+>=20
+> Can be setup as follows:
+>   ip -6 rule from all iif eth0 lookup 200
+>   ip -6 route add local default dev lo table 200
+> (in this case for all IPv6 addresses)
+>=20
 > Signed-off-by: Maciej =AFenczykowski <maze@google.com>
 
-Please handle all 4 cases just like the ipv4 routing code does:
+Does this already work on the ipv4 side?
 
-{ saddr =3D SADDR, ifindex =3D dev->ifindex }
-{ saddr =3D SADDR, ifindex =3D 0 }
-{ saddr =3D INADDR_ANY, ifindex =3D dev->ifindex }
-{ saddr =3D INADDR_ANY, ifindex =3D 0 }
-
-I believe I've specifically asked for this every time someone
-mentioned that they wanted to fix this issue.
-
-And the ipv4 side is a good guide in other ways, it uses a set
-of two arrays so you can just loop over them, making your
-rt6_do_pmtu_disc() calls along the way.
-
-
+If not, why only add it to ipv6?
