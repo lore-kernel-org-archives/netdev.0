@@ -1,73 +1,82 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] sit: enable lockless xmits
-Date: Tue, 28 Sep 2010 14:53:41 +0200
-Message-ID: <1285678421.3154.56.camel@edumazet-laptop>
+From: "Vladislav Zolotarov" <vladz@broadcom.com>
+Subject: RE: [PATCH net-next-2.6 04/17] bnx2x: Use
+ netif_set_real_num_{rx,tx}_queues()
+Date: Tue, 28 Sep 2010 05:59:15 -0700
+Message-ID: <8628FE4E7912BF47A96AE7DD7BAC0AADDDEDAE6ECA@SJEXCHCCR02.corp.ad.broadcom.com>
+References: <1285611791.2263.287.camel@achroite.uk.solarflarecom.com>
+ <1285611927.2263.296.camel@achroite.uk.solarflarecom.com>
+ <8628FE4E7912BF47A96AE7DD7BAC0AADDDEDAE6E96@SJEXCHCCR02.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-net-drivers@solarflare.com" <linux-net-drivers@solarflare.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>
+To: "Vladislav Zolotarov" <vladz@broadcom.com>,
+	"Ben Hutchings" <bhutchings@solarflare.com>,
+	"David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:61261 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753691Ab0I1Mxq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Sep 2010 08:53:46 -0400
-Received: by fxm3 with SMTP id 3so2527799fxm.19
-        for <netdev@vger.kernel.org>; Tue, 28 Sep 2010 05:53:45 -0700 (PDT)
+Received: from mms1.broadcom.com ([216.31.210.17]:3384 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753069Ab0I1M7b (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Sep 2010 08:59:31 -0400
+In-Reply-To: <8628FE4E7912BF47A96AE7DD7BAC0AADDDEDAE6E96@SJEXCHCCR02.corp.ad.broadcom.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SIT tunnels can benefit from lockless xmits, using NETIF_F_LLTX
-
-Bench on a 16 cpus machine (dual E5540 cpus), 16 threads sending
-10000000 UDP frames via one sit tunnel (size:220 bytes per frame)
-
-Before patch : 
-
-real	3m15.399s
-user	0m9.185s
-sys	51m55.403s
-
-75029.00 87.5% _raw_spin_lock            vmlinux                                                             
- 1090.00  1.3% dst_release               vmlinux                                                             
-  902.00  1.1% dev_queue_xmit            vmlinux                                                             
-  627.00  0.7% sock_wfree                vmlinux                                                             
-  613.00  0.7% ip6_push_pending_frames   ipv6.ko
-  505.00  0.6% __ip_route_output_key     vmlinux                                            
-
-After patch:
-
-real	1m1.387s
-user	0m12.489s
-sys	15m58.868s
-
-28239.00 23.3% dst_release               vmlinux                                                             
-13570.00 11.2% ip6_push_pending_frames   ipv6.ko
-13118.00 10.8% ip6_append_data           ipv6.ko
- 7995.00  6.6% __ip_route_output_key     vmlinux                                                             
- 7924.00  6.5% sk_dst_check              vmlinux                                                             
- 5015.00  4.1% udpv6_sendmsg             ipv6.ko
- 3594.00  3.0% sock_alloc_send_pskb      vmlinux                                                             
- 3135.00  2.6% sock_wfree                vmlinux                                                             
- 3055.00  2.5% ip6_sk_dst_lookup         ipv6.ko
- 2473.00  2.0% ip_finish_output          vmlinux               
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/ipv6/sit.c |    1 +
- 1 files changed, 1 insertion(+)
-
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index 011ecf5..d770178 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -1140,6 +1140,7 @@ static void ipip6_tunnel_setup(struct net_device *dev)
- 	dev->iflink		= 0;
- 	dev->addr_len		= 4;
- 	dev->features		|= NETIF_F_NETNS_LOCAL;
-+	dev->features		|= NETIF_F_LLTX;
- }
- 
- static int ipip6_tunnel_init(struct net_device *dev)
-
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogbmV0ZGV2LW93bmVyQHZn
+ZXIua2VybmVsLm9yZyBbbWFpbHRvOm5ldGRldi0NCj4gb3duZXJAdmdlci5rZXJuZWwub3JnXSBP
+biBCZWhhbGYgT2YgVmxhZGlzbGF2IFpvbG90YXJvdg0KPiBTZW50OiBUdWVzZGF5LCBTZXB0ZW1i
+ZXIgMjgsIDIwMTAgMTE6MjYgQU0NCj4gVG86IEJlbiBIdXRjaGluZ3M7IERhdmlkIE1pbGxlcg0K
+PiBDYzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgbGludXgtbmV0LWRyaXZlcnNAc29sYXJmbGFy
+ZS5jb207IEVpbG9uDQo+IEdyZWVuc3RlaW4NCj4gU3ViamVjdDogUkU6IFtQQVRDSCBuZXQtbmV4
+dC0yLjYgMDQvMTddIGJueDJ4OiBVc2UNCj4gbmV0aWZfc2V0X3JlYWxfbnVtX3tyeCx0eH1fcXVl
+dWVzKCkNCj4gDQo+IA0KPiANCj4gPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiA+IEZy
+b206IG5ldGRldi1vd25lckB2Z2VyLmtlcm5lbC5vcmcgW21haWx0bzpuZXRkZXYtDQo+ID4gb3du
+ZXJAdmdlci5rZXJuZWwub3JnXSBPbiBCZWhhbGYgT2YgQmVuIEh1dGNoaW5ncw0KPiA+IFNlbnQ6
+IE1vbmRheSwgU2VwdGVtYmVyIDI3LCAyMDEwIDg6MjUgUE0NCj4gPiBUbzogRGF2aWQgTWlsbGVy
+DQo+ID4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGxpbnV4LW5ldC1kcml2ZXJzQHNvbGFy
+ZmxhcmUuY29tOyBFaWxvbg0KPiA+IEdyZWVuc3RlaW4NCj4gPiBTdWJqZWN0OiBbUEFUQ0ggbmV0
+LW5leHQtMi42IDA0LzE3XSBibngyeDogVXNlDQo+ID4gbmV0aWZfc2V0X3JlYWxfbnVtX3tyeCx0
+eH1fcXVldWVzKCkNCj4gPg0KPiA+IFNpZ25lZC1vZmYtYnk6IEJlbiBIdXRjaGluZ3MgPGJodXRj
+aGluZ3NAc29sYXJmbGFyZS5jb20+DQo+ID4gLS0tDQo+ID4gIGRyaXZlcnMvbmV0L2JueDJ4L2Ju
+eDJ4X2Ntbi5jIHwgICAgNiArKysrLS0NCj4gPiAgMSBmaWxlcyBjaGFuZ2VkLCA0IGluc2VydGlv
+bnMoKyksIDIgZGVsZXRpb25zKC0pDQo+ID4NCj4gPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQv
+Ym54MngvYm54MnhfY21uLmMNCj4gPiBiL2RyaXZlcnMvbmV0L2JueDJ4L2JueDJ4X2Ntbi5jDQo+
+ID4gaW5kZXggZWZjN2JlNC4uMDVjMDVhNCAxMDA2NDQNCj4gPiAtLS0gYS9kcml2ZXJzL25ldC9i
+bngyeC9ibngyeF9jbW4uYw0KPiA+ICsrKyBiL2RyaXZlcnMvbmV0L2JueDJ4L2JueDJ4X2Ntbi5j
+DQo+ID4gQEAgLTEyMDcsOCArMTIwNyw4IEBAIHN0YXRpYyBpbnQgYm54Mnhfc2V0X251bV9xdWV1
+ZXMoc3RydWN0IGJueDJ4DQo+ICpicCkNCj4gPiAgCQkJYnAtPm51bV9xdWV1ZXMgPSAxOw0KPiA+
+ICAJCWJyZWFrOw0KPiA+ICAJfQ0KPiA+IC0JYnAtPmRldi0+cmVhbF9udW1fdHhfcXVldWVzID0g
+YnAtPm51bV9xdWV1ZXM7DQo+ID4gLQlyZXR1cm4gcmM7DQo+ID4gKwluZXRpZl9zZXRfcmVhbF9u
+dW1fdHhfcXVldWVzKGJwLT5kZXYsIGJwLT5udW1fcXVldWVzKTsNCj4gPiArCXJldHVybiBuZXRp
+Zl9zZXRfcmVhbF9udW1fcnhfcXVldWVzKGJwLT5kZXYsIGJwLT5udW1fcXVldWVzKTsNCj4gPiAg
+fQ0KPiA+DQo+ID4gIHN0YXRpYyB2b2lkIGJueDJ4X3JlbGVhc2VfZmlybXdhcmUoc3RydWN0IGJu
+eDJ4ICpicCkNCj4gPiBAQCAtMTI0MCw2ICsxMjQwLDggQEAgaW50IGJueDJ4X25pY19sb2FkKHN0
+cnVjdCBibngyeCAqYnAsIGludA0KPiA+IGxvYWRfbW9kZSkNCj4gPiAgCWJwLT5zdGF0ZSA9IEJO
+WDJYX1NUQVRFX09QRU5JTkdfV0FJVDRfTE9BRDsNCj4gPg0KPiA+ICAJcmMgPSBibngyeF9zZXRf
+bnVtX3F1ZXVlcyhicCk7DQo+ID4gKwlpZiAocmMpDQo+ID4gKwkJcmV0dXJuIHJjOw0KPiA+DQo+
+ID4gIAlpZiAoYm54MnhfYWxsb2NfbWVtKGJwKSkgew0KPiA+ICAJCWJueDJ4X2ZyZWVfaXJxKGJw
+LCB0cnVlKTsNCj4gPiAtLQ0KPiA+IDEuNy4yLjENCj4gPg0KPiANCj4gVGhpcyBwYXRjaCBicmVh
+a3Mgb3VyIGludGVycnVwdCBlbmFibGVtZW50IGZsb3cuIEknbGwgc2VuZCB0aGUgbmV3IG9uZQ0K
+PiB0aGF0IGluY29ycG9yYXRlcyB0aGUgbmV0aWZfc2V0X3JlYWxfbnVtX3J4X3F1ZXVlcygpIHNo
+b3J0bHkuDQoNCkJlbiwgSSdtIGdvaW5nIHRvIGZpeCB0aGUgYm54MnggdGhlIHdheSB5b3VyIHBh
+dGNoIHdvdWxkIGFwcGx5LiBJIHN1c3BlY3QgdGhpcyB3b3VsZCBwcm9iYWJseSByZXF1aXJlIHUg
+dG8gcmVzcGluIHRoZSBibngyeCBwYXRjaC4NClNvcnJ5IGZvciB0aGUgaW5jb252ZW5pZW5jZS4N
+Cg0KVGhhbmtzLA0KdmxhZA0KDQo+IA0KPiBUaGFua3MsDQo+IHZsYWQNCj4gDQo+ID4NCj4gPg0K
+PiA+IC0tDQo+ID4gQmVuIEh1dGNoaW5ncywgU2VuaW9yIFNvZnR3YXJlIEVuZ2luZWVyLCBTb2xh
+cmZsYXJlIENvbW11bmljYXRpb25zDQo+ID4gTm90IHNwZWFraW5nIGZvciBteSBlbXBsb3llcjsg
+dGhhdCdzIHRoZSBtYXJrZXRpbmcgZGVwYXJ0bWVudCdzIGpvYi4NCj4gPiBUaGV5IGFza2VkIHVz
+IHRvIG5vdGUgdGhhdCBTb2xhcmZsYXJlIHByb2R1Y3QgbmFtZXMgYXJlIHRyYWRlbWFya2VkLg0K
+PiA+DQo+ID4gLS0NCj4gPiBUbyB1bnN1YnNjcmliZSBmcm9tIHRoaXMgbGlzdDogc2VuZCB0aGUg
+bGluZSAidW5zdWJzY3JpYmUgbmV0ZGV2IiBpbg0KPiA+IHRoZSBib2R5IG9mIGEgbWVzc2FnZSB0
+byBtYWpvcmRvbW9Admdlci5rZXJuZWwub3JnDQo+ID4gTW9yZSBtYWpvcmRvbW8gaW5mbyBhdCAg
+aHR0cDovL3ZnZXIua2VybmVsLm9yZy9tYWpvcmRvbW8taW5mby5odG1sDQo+IA0KPiAT77+977+9
+7Lm7HO+/vSbvv71+77+9Ju+/vRjvv73vv70rLe+/ve+/vd22F++/ve+/vXfvv73vv73Lm++/ve+/
+ve+/vW3vv73etdev77+9e2F577+9HcqH2pnvv70sag3vv73vv71m77+977+977+9aO+/ve+/ve+/
+vXrvv70e77+9d++/ve+/ve+/vQ0KPiANCj4g77+977+977+9ajordu+/ve+/ve+/vXfvv71q77+9
+be+/ve+/ve+/ve+/vQ3vv73vv73vv73vv716Wivvv73vv73vv73vv73vv73domoi77+977+9Ie+/
+vWkNCg==
 
