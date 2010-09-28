@@ -1,68 +1,130 @@
-From: Carl-Daniel Hailfinger <c-d.hailfinger.devel.2006@gmx.net>
-Subject: Re: [RFC] Online firmware upgrade in non-embedded systems
-Date: Wed, 29 Sep 2010 00:41:57 +0200
-Message-ID: <4CA26F35.6060408@gmx.net>
-References: <1285696787.2282.45.camel@achroite.uk.solarflarecom.com>
+From: "Gustavo F. Padovan" <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
+Subject: Re: pull-request: bluetooth-2.6 2010-09-27
+Date: Tue, 28 Sep 2010 19:49:41 -0300
+Message-ID: <20100928224941.GA19409@vigoh>
+References: <20100928023035.GA3033@vigoh>
+ <20100927.200016.226762808.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-mtd <linux-mtd@lists.infradead.org>,
-	sf-linux-drivers <linux-net-drivers@solarflare.com>,
-	flashrom <flashrom@flashrom.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1285696787.2282.45.camel@achroite.uk.solarflarecom.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20100927.200016.226762808.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-[adding flashrom@flashrom.org to CC, senders will be whitelisted after a
-short delay]
+* David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> [2010-09-27 20:00:16 -0700]:
 
-On 28.09.2010 19:59, Ben Hutchings wrote:
-> Network and disk controllers normally have at least some firmware in
-> flash to support their use as boot devices. [...]
->
-> Currently the sfc network driver is optionally combined with an MTD
-> driver (CONFIG_SFC_MTD) which exposes all upgradable firmware and
-> configuration partitions in flash.  This works nicely in kernels with
-> MTD enabled, but since MTD is mainly used in embedded systems with
-> on-board flash it is often disabled in distribution kernels and custom
-> kernels alike.  This leaves users of sfc unable to upgrade firmware
-> without rebuilding the kernel or booting some other distribution.  The
-> lack of widespread MTD support is a regular cause of support requests.
->
-> There are two main alternatives I'm aware of:
->
-> - Use the ethtool ETHTOOL_SEEPROM [...]
->
-> - Use the ethtool ETHTOOL_FLASHDEV command [..]
->
-> Of course these are both specific to network devices; it seems deisrable
-> to have a more general convention for online firmware upgrades.  MTDs
-> clearly are more generally applicable, and pretty much every computer
-> does have flash storage for firmware and boot configuration, so perhaps
-> it should be treated as more of a standard feature?
->   
+> From: "Gustavo F. Padovan" <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
+> Date: Mon, 27 Sep 2010 23:30:35 -0300
+> 
+> > And a fix for a deadlock issue between the sk_sndbuf and the backlog
+> > queue in ERTM. The rest are also needed bug fixes.
+> 
+> This fix is still under discussion.
+> 
+> That change effects quite a few code paths.  And when I looked
+> at them, I was not at all convinced that dropping the socket
+> lock like that is safe.
+> 
+> Are you sure there are no pieces of socket or socket related state
+> that might change under us while we drop that lock, which would thus
+> make the operation suddenly invalid or cause a state corruption or
+> crash?
 
-Given that the flashrom utility <http://www.flashrom.org/> (GPLv2)
-supports flashing many network cards, SATA/PATA controllers, graphics
-cards, and of course the main system firmware/BIOS/EFI, and it does that
-from userspace without any kernel support, using flashrom for those
-purposes makes sense IMHO.
+We can group all the code paths in only two different code paths. One
+wirh SCO, L2CAP Basic Mode and L2CAP Streaming Mode once they are very
+similar and other for ERTM, a more complicated protocol.
+For the first group the only bottom half action we have are incoming data,
+which doesn't affect the sk states, and disconnection request, that can
+change the sk states. We guarantee that this won't affect by checking the
+sk_err after get the lock again. Looking to the code again we might
+also want to check the sk->sk_shutdown value like TCP does inside
+sk_stream_wait_memory().
 
-flashrom works fine under Linux 2.4, 2.6 and pretty much every other OS
-out there. There is a focus on x86, but MIPS, PowerPC and other
-architectures are supported as well. flashrom is independent of the MTD
-framework, so you don't need to boot a special kernel for a firmware
-upgrade.
+Actually sk_stream_wait_memory is another point why it's safe to release
+the lock and block waiting for memory. We've been doing that safely in
+protocols like TCP, SCTP and DCCP for a long time.
 
-That said, writing a flashrom driver for your hardware is pretty easy.
-You could even use existing kernel code for your device as a template
-for the flashrom driver since the license is compatible.
+Back to patch, the other code path it affects is the ERTM one, besides
+the incoming data we have other bottom halves actions, but in the end the
+only action that can affect ERTM flow is closing the channeli, but we are
+prepared for that by checking the sk->sk_err and sk->sk_shutdown when we
+get the lock back.
 
-If you have any questions, please ask.
 
-Regards,
-Carl-Daniel
+---
+
+Bluetooth: Fix deadlock in the ERTM logic
+
+The Enhanced Retransmission Mode(ERTM) is a realiable mode of operation
+of the Bluetooth L2CAP layer. Think on it like a simplified version of
+TCP.
+The problem we were facing here was a deadlock. ERTM uses a backlog
+queue to queue incomimg packets while the user is helding the lock. At
+some moment the sk_sndbuf can be exceeded and we can't alloc new skbs
+then the code sleep with the lock to wait for memory, that stalls the
+ERTM connection once we can't read the acknowledgements packets in the
+backlog queue to free memory and make the allocation of outcoming skb
+successful.
+
+This patch actually affect all users of bt_skb_send_alloc(), i.e., all
+L2CAP modes and SCO.
+
+We are safe against socket states changes or channels deletion while the
+we are sleeping wait memory. Checking for the sk->sk_err and
+sk->sk_shutdown make the code safe, since any action that can leave the
+socket or the channel in a not usable state set one of the struct
+members at least. Then we can check both of them when getting the lock
+again and return with the proper error if something unexpected happens.
+
+Signed-off-by: Gustavo F. Padovan <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
+Signed-off-by: Ulisses Furquim <ulisses-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
+---
+ include/net/bluetooth/bluetooth.h |   18 ++++++++++++++++++
+ 1 files changed, 18 insertions(+), 0 deletions(-)
+
+diff --git a/include/net/bluetooth/bluetooth.h b/include/net/bluetooth/bluetooth.h
+index 27a902d..e8d64ba 100644
+--- a/include/net/bluetooth/bluetooth.h
++++ b/include/net/bluetooth/bluetooth.h
+@@ -161,12 +161,30 @@ static inline struct sk_buff *bt_skb_send_alloc(struct sock *sk, unsigned long l
+ {
+        struct sk_buff *skb;
+ 
++       release_sock(sk);
+        if ((skb = sock_alloc_send_skb(sk, len + BT_SKB_RESERVE, nb, err))) {
+                skb_reserve(skb, BT_SKB_RESERVE);
+                bt_cb(skb)->incoming  = 0;
+        }
++       lock_sock(sk);
++
++       if (!skb && *err)
++               return NULL;
++
++       *err = sock_error(sk);
++       if (*err)
++               goto out;
++
++       if (sk->sk_shutdown) {
++               *err = ECONNRESET;
++               goto out;
++       }
+ 
+        return skb;
++
++out:
++       kfree_skb(skb);
++       return NULL;
+ }
+ 
+ int bt_err(__u16 code);
+-- 
+1.7.3
+
+
+-- 
+Gustavo F. Padovan
+ProFUSION embedded systems - http://profusion.mobi
