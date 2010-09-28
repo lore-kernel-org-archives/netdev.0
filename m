@@ -1,63 +1,62 @@
-From: "Vladislav Zolotarov" <vladz@broadcom.com>
-Subject: RE: [PATCH net-next-2.6 04/17] bnx2x: Use
- netif_set_real_num_{rx,tx}_queues()
-Date: Tue, 28 Sep 2010 02:26:05 -0700
-Message-ID: <8628FE4E7912BF47A96AE7DD7BAC0AADDDEDAE6E96@SJEXCHCCR02.corp.ad.broadcom.com>
-References: <1285611791.2263.287.camel@achroite.uk.solarflarecom.com>
- <1285611927.2263.296.camel@achroite.uk.solarflarecom.com>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: TCP: orphans broken by RFC 2525 #2.17
+Date: Tue, 28 Sep 2010 11:26:52 +0200
+Message-ID: <20100928092652.GA28378@1wt.eu>
+References: <20100926232530.GK12373@1wt.eu> <20100926.181202.28824153.davem@davemloft.net> <20100927053901.GL12373@1wt.eu> <20100926.234202.241938788.davem@davemloft.net> <20100927073443.GR12373@1wt.eu> <alpine.LFD.2.00.1009271159070.2191@u.domain.uli> <20100927192450.GU12373@1wt.eu> <alpine.LFD.2.00.1009281139430.1506@ja.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-net-drivers@solarflare.com" <linux-net-drivers@solarflare.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: "Ben Hutchings" <bhutchings@solarflare.com>,
-	"David Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2208 "EHLO mms2.broadcom.com"
+Received: from 1wt.eu ([62.212.114.60]:45762 "EHLO 1wt.eu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752402Ab0I1J0X (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Sep 2010 05:26:23 -0400
-In-Reply-To: <1285611927.2263.296.camel@achroite.uk.solarflarecom.com>
-Content-Language: en-US
+	id S1752526Ab0I1J07 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Sep 2010 05:26:59 -0400
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.2.00.1009281139430.1506@ja.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogbmV0ZGV2LW93bmVyQHZn
-ZXIua2VybmVsLm9yZyBbbWFpbHRvOm5ldGRldi0NCj4gb3duZXJAdmdlci5rZXJuZWwub3JnXSBP
-biBCZWhhbGYgT2YgQmVuIEh1dGNoaW5ncw0KPiBTZW50OiBNb25kYXksIFNlcHRlbWJlciAyNywg
-MjAxMCA4OjI1IFBNDQo+IFRvOiBEYXZpZCBNaWxsZXINCj4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5l
-bC5vcmc7IGxpbnV4LW5ldC1kcml2ZXJzQHNvbGFyZmxhcmUuY29tOyBFaWxvbg0KPiBHcmVlbnN0
-ZWluDQo+IFN1YmplY3Q6IFtQQVRDSCBuZXQtbmV4dC0yLjYgMDQvMTddIGJueDJ4OiBVc2UNCj4g
-bmV0aWZfc2V0X3JlYWxfbnVtX3tyeCx0eH1fcXVldWVzKCkNCj4gDQo+IFNpZ25lZC1vZmYtYnk6
-IEJlbiBIdXRjaGluZ3MgPGJodXRjaGluZ3NAc29sYXJmbGFyZS5jb20+DQo+IC0tLQ0KPiAgZHJp
-dmVycy9uZXQvYm54MngvYm54MnhfY21uLmMgfCAgICA2ICsrKystLQ0KPiAgMSBmaWxlcyBjaGFu
-Z2VkLCA0IGluc2VydGlvbnMoKyksIDIgZGVsZXRpb25zKC0pDQo+IA0KPiBkaWZmIC0tZ2l0IGEv
-ZHJpdmVycy9uZXQvYm54MngvYm54MnhfY21uLmMNCj4gYi9kcml2ZXJzL25ldC9ibngyeC9ibngy
-eF9jbW4uYw0KPiBpbmRleCBlZmM3YmU0Li4wNWMwNWE0IDEwMDY0NA0KPiAtLS0gYS9kcml2ZXJz
-L25ldC9ibngyeC9ibngyeF9jbW4uYw0KPiArKysgYi9kcml2ZXJzL25ldC9ibngyeC9ibngyeF9j
-bW4uYw0KPiBAQCAtMTIwNyw4ICsxMjA3LDggQEAgc3RhdGljIGludCBibngyeF9zZXRfbnVtX3F1
-ZXVlcyhzdHJ1Y3QgYm54MnggKmJwKQ0KPiAgCQkJYnAtPm51bV9xdWV1ZXMgPSAxOw0KPiAgCQli
-cmVhazsNCj4gIAl9DQo+IC0JYnAtPmRldi0+cmVhbF9udW1fdHhfcXVldWVzID0gYnAtPm51bV9x
-dWV1ZXM7DQo+IC0JcmV0dXJuIHJjOw0KPiArCW5ldGlmX3NldF9yZWFsX251bV90eF9xdWV1ZXMo
-YnAtPmRldiwgYnAtPm51bV9xdWV1ZXMpOw0KPiArCXJldHVybiBuZXRpZl9zZXRfcmVhbF9udW1f
-cnhfcXVldWVzKGJwLT5kZXYsIGJwLT5udW1fcXVldWVzKTsNCj4gIH0NCj4gDQo+ICBzdGF0aWMg
-dm9pZCBibngyeF9yZWxlYXNlX2Zpcm13YXJlKHN0cnVjdCBibngyeCAqYnApDQo+IEBAIC0xMjQw
-LDYgKzEyNDAsOCBAQCBpbnQgYm54MnhfbmljX2xvYWQoc3RydWN0IGJueDJ4ICpicCwgaW50DQo+
-IGxvYWRfbW9kZSkNCj4gIAlicC0+c3RhdGUgPSBCTlgyWF9TVEFURV9PUEVOSU5HX1dBSVQ0X0xP
-QUQ7DQo+IA0KPiAgCXJjID0gYm54Mnhfc2V0X251bV9xdWV1ZXMoYnApOw0KPiArCWlmIChyYykN
-Cj4gKwkJcmV0dXJuIHJjOw0KPiANCj4gIAlpZiAoYm54MnhfYWxsb2NfbWVtKGJwKSkgew0KPiAg
-CQlibngyeF9mcmVlX2lycShicCwgdHJ1ZSk7DQo+IC0tDQo+IDEuNy4yLjENCj4gDQoNClRoaXMg
-cGF0Y2ggYnJlYWtzIG91ciBpbnRlcnJ1cHQgZW5hYmxlbWVudCBmbG93LiBJJ2xsIHNlbmQgdGhl
-IG5ldyBvbmUgdGhhdCBpbmNvcnBvcmF0ZXMgdGhlIG5ldGlmX3NldF9yZWFsX251bV9yeF9xdWV1
-ZXMoKSBzaG9ydGx5Lg0KDQpUaGFua3MsDQp2bGFkDQoNCj4gDQo+IA0KPiAtLQ0KPiBCZW4gSHV0
-Y2hpbmdzLCBTZW5pb3IgU29mdHdhcmUgRW5naW5lZXIsIFNvbGFyZmxhcmUgQ29tbXVuaWNhdGlv
-bnMNCj4gTm90IHNwZWFraW5nIGZvciBteSBlbXBsb3llcjsgdGhhdCdzIHRoZSBtYXJrZXRpbmcg
-ZGVwYXJ0bWVudCdzIGpvYi4NCj4gVGhleSBhc2tlZCB1cyB0byBub3RlIHRoYXQgU29sYXJmbGFy
-ZSBwcm9kdWN0IG5hbWVzIGFyZSB0cmFkZW1hcmtlZC4NCj4gDQo+IC0tDQo+IFRvIHVuc3Vic2Ny
-aWJlIGZyb20gdGhpcyBsaXN0OiBzZW5kIHRoZSBsaW5lICJ1bnN1YnNjcmliZSBuZXRkZXYiIGlu
-DQo+IHRoZSBib2R5IG9mIGEgbWVzc2FnZSB0byBtYWpvcmRvbW9Admdlci5rZXJuZWwub3JnDQo+
-IE1vcmUgbWFqb3Jkb21vIGluZm8gYXQgIGh0dHA6Ly92Z2VyLmtlcm5lbC5vcmcvbWFqb3Jkb21v
-LWluZm8uaHRtbA0KDQo=
+Hello Julian,
+
+On Tue, Sep 28, 2010 at 12:01:42PM +0300, Julian Anastasov wrote:
+> 	I think for another option but I don't know the TCP details
+> well:
+> 
+> - If SO_RCVBUF=0 really closes RX window
+
+I've been wondering what happens to an incoming data after the RX window
+is closed. Is the packet just dropped or may it still be queued. In fact,
+my concerns are : if SO_RCVBUF=0 just advertises a zero window, we can
+only be sure about the flush after an RTT. However, if it really prevents
+the receive side from accepting new data, then I agree we're safe.
+
+> and
+> 
+> - while (read() > 0) {} gets all unread data
+
+During my tests on other products, I found that squid does that without
+the zero window, possibly resulting in an infinite loop when the sender
+is faster than the receiver. In our case, if the zero window works, it
+should not be an issue.
+
+> - just call close() to convert socket to orphan without a risk
+> of RST
+> 
+> 	Now when we are orphan socket I'm not sure what has
+> priority:
+> 
+> - if new DATA is flying to us, is it considered out of window,
+> do we send RST in FIN_WAIT1/CLOSING/LAST_ACK state in this case?
+> If we do not send RST then our goal is achieved: send everything
+> reliably without accepting data that needs RST. And we do not
+> need to keep fd in user space.
+
+>From what I have observed, the issue is only for data present before
+the close. Upon FIN_WAIT1/CLOSING/LAST_ACK, we get the expected reset
+once the ACK acknowledges the last data sent, but I've not observed
+it for new data.
+
+Best regards,
+Willy
 
