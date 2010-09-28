@@ -1,63 +1,95 @@
-From: David Stevens <dlstevens-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
-Subject: Re: IGMP v3 reponse
-Date: Mon, 27 Sep 2010 17:41:57 -0700
-Message-ID: <OF080A5D13.27F9E9BB-ON882577AC.00037A62-882577AC.0003D9E8@us.ibm.com>
-References: <20100927200500.GB25879@obsidianresearch.com> <OF056C7E7C.A9A5EFC7-ON882577AB.006E6B89-882577AB.006F2C1E@us.ibm.com> <alpine.DEB.2.00.1009271521510.14117@router.home> <4CA1048C.8020508@rincon.com> <OF9D99FA29.B3F53176-ON882577AB.00780023-882577AB.0078FAAE@us.ibm.com> <4CA12DF3.6050608@rincon.com>
+From: "Xin, Xiaohui" <xiaohui.xin@intel.com>
+Subject: RE: [PATCH v11 00/17] Provide a zero-copy method on KVM virtio-net.
+Date: Tue, 28 Sep 2010 09:25:46 +0800
+Message-ID: <F2E9EB7348B8264F86B6AB8151CE2D792EC64F796C@shsmsx502.ccr.corp.intel.com>
+References: <1285388855-27410-1-git-send-email-xiaohui.xin@intel.com>
+ <20100926170142.GA24196@redhat.com>
+ <F2E9EB7348B8264F86B6AB8151CE2D792EC64F74FA@shsmsx502.ccr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
-	Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
-	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Bob Arendt <rda-x0S3BwdUo6DQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4CA12DF3.6050608-x0S3BwdUo6DQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"mingo@elte.hu" <mingo@elte.hu>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"herbert@gondor.hengli.com.au" <herbert@gondor.hengli.com.au>,
+	"jdike@linux.intel.com" <jdike@linux.intel.com>
+To: "Xin, Xiaohui" <xiaohui.xin@intel.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <F2E9EB7348B8264F86B6AB8151CE2D792EC64F74FA@shsmsx502.ccr.corp.intel.com>
+Content-Language: en-US
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Bob Arendt <rda-x0S3BwdUo6DQT0dZR+AlfA@public.gmane.org> wrote on 09/27/2010 04:51:15 PM:
+>-----Original Message-----
+>From: linux-kernel-owner@vger.kernel.org [mailto:linux-kernel-owner@vger.kernel.org] On
+>Behalf Of Xin, Xiaohui
+>Sent: Monday, September 27, 2010 8:45 AM
+>To: Michael S. Tsirkin
+>Cc: netdev@vger.kernel.org; kvm@vger.kernel.org; linux-kernel@vger.kernel.org;
+>mingo@elte.hu; davem@davemloft.net; herbert@gondor.hengli.com.au;
+>jdike@linux.intel.com
+>Subject: RE: [PATCH v11 00/17] Provide a zero-copy method on KVM virtio-net.
+>
+>>From: Michael S. Tsirkin [mailto:mst@redhat.com]
+>>Sent: Monday, September 27, 2010 1:02 AM
+>>To: Xin, Xiaohui
+>>Cc: netdev@vger.kernel.org; kvm@vger.kernel.org; linux-kernel@vger.kernel.org;
+>>mingo@elte.hu; davem@davemloft.net; herbert@gondor.hengli.com.au;
+>>jdike@linux.intel.com
+>>Subject: Re: [PATCH v11 00/17] Provide a zero-copy method on KVM virtio-net.
+>>
+>>On Sat, Sep 25, 2010 at 12:27:18PM +0800, xiaohui.xin@intel.com wrote:
+>>> We provide an zero-copy method which driver side may get external
+>>> buffers to DMA. Here external means driver don't use kernel space
+>>> to allocate skb buffers. Currently the external buffer can be from
+>>> guest virtio-net driver.
+>>>
+>>> The idea is simple, just to pin the guest VM user space and then
+>>> let host NIC driver has the chance to directly DMA to it.
+>>> The patches are based on vhost-net backend driver. We add a device
+>>> which provides proto_ops as sendmsg/recvmsg to vhost-net to
+>>> send/recv directly to/from the NIC driver. KVM guest who use the
+>>> vhost-net backend may bind any ethX interface in the host side to
+>>> get copyless data transfer thru guest virtio-net frontend.
+>>> patch 01-10:  	net core and kernel changes.
+>>> patch 11-13:  	new device as interface to mantpulate external buffers.
+>>> patch 14: 	for vhost-net.
+>>> patch 15:	An example on modifying NIC driver to using napi_gro_frags().
+>>> patch 16:	An example how to get guest buffers based on driver
+>>> 		who using napi_gro_frags().
+>>> patch 17:	It's a patch to address comments from Michael S. Thirkin
+>>> 		to add 2 new ioctls in mp device.
+>>> 		We split it out here to make easier reiewer.
+>>
+>>
+>>
+>>I commented on how to avoid mm semaphore on data path separately, and
+>>since you didn't have time to review that yet, I won't repeat that here.
+>>
+>
+>I think I did avoid that in data path to use mm semaphore. I stored the value
+>in mp structures and check with that.
+>
+Hi Michael,
+Did you think I have addressed your comments about to avoid mm semaphore on
+data path or not? I stored the value in mp structures and don't use mmap_semphore.
+Or you still have some concerns with it?
 
-> Per rfc 2236, the v2 client *can't* drop the IGMPv3 query.  From para 
-2.5:
->    2.5.  Other fields
->     Note that IGMP messages may be longer than 8 octets, especially
->     future backwards-compatible versions of IGMP.  As long as the Type 
-is
->     one that is recognized, an IGMPv2 implementation MUST ignore 
-anything
->     past the first 8 octets while processing the packet.  However, the
->     IGMP checksum is always computed over the whole IP payload, not just
->     over the first 8 octets.
-> 
-> The IGMPv3 query *is* a valid v2 query with extra crap at the end (it's
-> backward compatible).  Per rfc 2236 p2.5, the v3 query has to be 
-regarded
-> as a valid v2 query if you're correctly implementing IGMPv2.  Some 
-switch
-> vendors (Cisco for one) only generate v3 queries when operating as an
-> IGMP snooping switch, since a proper v2 client will respond with IGMPv2
-> packets and it handles this properly.  However, we're seeing some 
-switches
-> get confused when a client initial joins with v2, then responds to a 
-query
-> with v3.  It ends up creating 2 entries, and only one is cleared by the
-> leave message.  This is also an issue when the primary (querier) switch
-> only generates v3 queries, and some intermediate switches only support 
-v2.
-> We set all the Linux clients to v2 .. but they respond the v2 query with
-> v3 protocols, which could be missed by the intermediate switch.
-> 
-> I believe the intent of the bug 18212 patch is correct.
-
-Bob,
-        That would've been a nice quote for the other discussion; I didn't
-do the v2 implementation for Linux, but it appears I broke this. I'll
-take another look (and thanks for pointing that out!).
-
-                                                        +-DLS
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>At this point what are the plans on macvtap integration?
+>>You indicated this is the interface you intend to use longterm.
+>
+>I'm now working on that.
+>
+I'm now trying to export some functions from mp device, and let macvtap to use them
+for rx zero-copy.
+>
+>Thanks
+>Xiaohui
+>--
+>To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>Please read the FAQ at  http://www.tux.org/lkml/
