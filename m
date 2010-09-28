@@ -1,82 +1,125 @@
-From: "Vladislav Zolotarov" <vladz@broadcom.com>
-Subject: RE: [PATCH net-next-2.6 04/17] bnx2x: Use
- netif_set_real_num_{rx,tx}_queues()
-Date: Tue, 28 Sep 2010 05:59:15 -0700
-Message-ID: <8628FE4E7912BF47A96AE7DD7BAC0AADDDEDAE6ECA@SJEXCHCCR02.corp.ad.broadcom.com>
-References: <1285611791.2263.287.camel@achroite.uk.solarflarecom.com>
- <1285611927.2263.296.camel@achroite.uk.solarflarecom.com>
- <8628FE4E7912BF47A96AE7DD7BAC0AADDDEDAE6E96@SJEXCHCCR02.corp.ad.broadcom.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH v11 13/17] Add mp(mediate passthru) device.
+Date: Tue, 28 Sep 2010 15:06:54 +0200
+Message-ID: <20100928130654.GD14385@redhat.com>
+References: <1285388855-27410-1-git-send-email-xiaohui.xin@intel.com>
+ <2c954a831e2d9a93437aaf06386cd3a5af6b73b9.1285385607.git.xiaohui.xin@intel.com>
+ <1285622613.2263.550.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-net-drivers@solarflare.com" <linux-net-drivers@solarflare.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: "Vladislav Zolotarov" <vladz@broadcom.com>,
-	"Ben Hutchings" <bhutchings@solarflare.com>,
-	"David Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: xiaohui.xin@intel.com, netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mingo@elte.hu, davem@davemloft.net,
+	herbert@gondor.hengli.com.au, jdike@linux.intel.com, arnd@arndb.de
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3384 "EHLO mms1.broadcom.com"
+Received: from mx1.redhat.com ([209.132.183.28]:62740 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753069Ab0I1M7b (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Sep 2010 08:59:31 -0400
-In-Reply-To: <8628FE4E7912BF47A96AE7DD7BAC0AADDDEDAE6E96@SJEXCHCCR02.corp.ad.broadcom.com>
-Content-Language: en-US
+	id S1753802Ab0I1NN3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Sep 2010 09:13:29 -0400
+Content-Disposition: inline
+In-Reply-To: <1285622613.2263.550.camel@achroite.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogbmV0ZGV2LW93bmVyQHZn
-ZXIua2VybmVsLm9yZyBbbWFpbHRvOm5ldGRldi0NCj4gb3duZXJAdmdlci5rZXJuZWwub3JnXSBP
-biBCZWhhbGYgT2YgVmxhZGlzbGF2IFpvbG90YXJvdg0KPiBTZW50OiBUdWVzZGF5LCBTZXB0ZW1i
-ZXIgMjgsIDIwMTAgMTE6MjYgQU0NCj4gVG86IEJlbiBIdXRjaGluZ3M7IERhdmlkIE1pbGxlcg0K
-PiBDYzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgbGludXgtbmV0LWRyaXZlcnNAc29sYXJmbGFy
-ZS5jb207IEVpbG9uDQo+IEdyZWVuc3RlaW4NCj4gU3ViamVjdDogUkU6IFtQQVRDSCBuZXQtbmV4
-dC0yLjYgMDQvMTddIGJueDJ4OiBVc2UNCj4gbmV0aWZfc2V0X3JlYWxfbnVtX3tyeCx0eH1fcXVl
-dWVzKCkNCj4gDQo+IA0KPiANCj4gPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiA+IEZy
-b206IG5ldGRldi1vd25lckB2Z2VyLmtlcm5lbC5vcmcgW21haWx0bzpuZXRkZXYtDQo+ID4gb3du
-ZXJAdmdlci5rZXJuZWwub3JnXSBPbiBCZWhhbGYgT2YgQmVuIEh1dGNoaW5ncw0KPiA+IFNlbnQ6
-IE1vbmRheSwgU2VwdGVtYmVyIDI3LCAyMDEwIDg6MjUgUE0NCj4gPiBUbzogRGF2aWQgTWlsbGVy
-DQo+ID4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGxpbnV4LW5ldC1kcml2ZXJzQHNvbGFy
-ZmxhcmUuY29tOyBFaWxvbg0KPiA+IEdyZWVuc3RlaW4NCj4gPiBTdWJqZWN0OiBbUEFUQ0ggbmV0
-LW5leHQtMi42IDA0LzE3XSBibngyeDogVXNlDQo+ID4gbmV0aWZfc2V0X3JlYWxfbnVtX3tyeCx0
-eH1fcXVldWVzKCkNCj4gPg0KPiA+IFNpZ25lZC1vZmYtYnk6IEJlbiBIdXRjaGluZ3MgPGJodXRj
-aGluZ3NAc29sYXJmbGFyZS5jb20+DQo+ID4gLS0tDQo+ID4gIGRyaXZlcnMvbmV0L2JueDJ4L2Ju
-eDJ4X2Ntbi5jIHwgICAgNiArKysrLS0NCj4gPiAgMSBmaWxlcyBjaGFuZ2VkLCA0IGluc2VydGlv
-bnMoKyksIDIgZGVsZXRpb25zKC0pDQo+ID4NCj4gPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQv
-Ym54MngvYm54MnhfY21uLmMNCj4gPiBiL2RyaXZlcnMvbmV0L2JueDJ4L2JueDJ4X2Ntbi5jDQo+
-ID4gaW5kZXggZWZjN2JlNC4uMDVjMDVhNCAxMDA2NDQNCj4gPiAtLS0gYS9kcml2ZXJzL25ldC9i
-bngyeC9ibngyeF9jbW4uYw0KPiA+ICsrKyBiL2RyaXZlcnMvbmV0L2JueDJ4L2JueDJ4X2Ntbi5j
-DQo+ID4gQEAgLTEyMDcsOCArMTIwNyw4IEBAIHN0YXRpYyBpbnQgYm54Mnhfc2V0X251bV9xdWV1
-ZXMoc3RydWN0IGJueDJ4DQo+ICpicCkNCj4gPiAgCQkJYnAtPm51bV9xdWV1ZXMgPSAxOw0KPiA+
-ICAJCWJyZWFrOw0KPiA+ICAJfQ0KPiA+IC0JYnAtPmRldi0+cmVhbF9udW1fdHhfcXVldWVzID0g
-YnAtPm51bV9xdWV1ZXM7DQo+ID4gLQlyZXR1cm4gcmM7DQo+ID4gKwluZXRpZl9zZXRfcmVhbF9u
-dW1fdHhfcXVldWVzKGJwLT5kZXYsIGJwLT5udW1fcXVldWVzKTsNCj4gPiArCXJldHVybiBuZXRp
-Zl9zZXRfcmVhbF9udW1fcnhfcXVldWVzKGJwLT5kZXYsIGJwLT5udW1fcXVldWVzKTsNCj4gPiAg
-fQ0KPiA+DQo+ID4gIHN0YXRpYyB2b2lkIGJueDJ4X3JlbGVhc2VfZmlybXdhcmUoc3RydWN0IGJu
-eDJ4ICpicCkNCj4gPiBAQCAtMTI0MCw2ICsxMjQwLDggQEAgaW50IGJueDJ4X25pY19sb2FkKHN0
-cnVjdCBibngyeCAqYnAsIGludA0KPiA+IGxvYWRfbW9kZSkNCj4gPiAgCWJwLT5zdGF0ZSA9IEJO
-WDJYX1NUQVRFX09QRU5JTkdfV0FJVDRfTE9BRDsNCj4gPg0KPiA+ICAJcmMgPSBibngyeF9zZXRf
-bnVtX3F1ZXVlcyhicCk7DQo+ID4gKwlpZiAocmMpDQo+ID4gKwkJcmV0dXJuIHJjOw0KPiA+DQo+
-ID4gIAlpZiAoYm54MnhfYWxsb2NfbWVtKGJwKSkgew0KPiA+ICAJCWJueDJ4X2ZyZWVfaXJxKGJw
-LCB0cnVlKTsNCj4gPiAtLQ0KPiA+IDEuNy4yLjENCj4gPg0KPiANCj4gVGhpcyBwYXRjaCBicmVh
-a3Mgb3VyIGludGVycnVwdCBlbmFibGVtZW50IGZsb3cuIEknbGwgc2VuZCB0aGUgbmV3IG9uZQ0K
-PiB0aGF0IGluY29ycG9yYXRlcyB0aGUgbmV0aWZfc2V0X3JlYWxfbnVtX3J4X3F1ZXVlcygpIHNo
-b3J0bHkuDQoNCkJlbiwgSSdtIGdvaW5nIHRvIGZpeCB0aGUgYm54MnggdGhlIHdheSB5b3VyIHBh
-dGNoIHdvdWxkIGFwcGx5LiBJIHN1c3BlY3QgdGhpcyB3b3VsZCBwcm9iYWJseSByZXF1aXJlIHUg
-dG8gcmVzcGluIHRoZSBibngyeCBwYXRjaC4NClNvcnJ5IGZvciB0aGUgaW5jb252ZW5pZW5jZS4N
-Cg0KVGhhbmtzLA0KdmxhZA0KDQo+IA0KPiBUaGFua3MsDQo+IHZsYWQNCj4gDQo+ID4NCj4gPg0K
-PiA+IC0tDQo+ID4gQmVuIEh1dGNoaW5ncywgU2VuaW9yIFNvZnR3YXJlIEVuZ2luZWVyLCBTb2xh
-cmZsYXJlIENvbW11bmljYXRpb25zDQo+ID4gTm90IHNwZWFraW5nIGZvciBteSBlbXBsb3llcjsg
-dGhhdCdzIHRoZSBtYXJrZXRpbmcgZGVwYXJ0bWVudCdzIGpvYi4NCj4gPiBUaGV5IGFza2VkIHVz
-IHRvIG5vdGUgdGhhdCBTb2xhcmZsYXJlIHByb2R1Y3QgbmFtZXMgYXJlIHRyYWRlbWFya2VkLg0K
-PiA+DQo+ID4gLS0NCj4gPiBUbyB1bnN1YnNjcmliZSBmcm9tIHRoaXMgbGlzdDogc2VuZCB0aGUg
-bGluZSAidW5zdWJzY3JpYmUgbmV0ZGV2IiBpbg0KPiA+IHRoZSBib2R5IG9mIGEgbWVzc2FnZSB0
-byBtYWpvcmRvbW9Admdlci5rZXJuZWwub3JnDQo+ID4gTW9yZSBtYWpvcmRvbW8gaW5mbyBhdCAg
-aHR0cDovL3ZnZXIua2VybmVsLm9yZy9tYWpvcmRvbW8taW5mby5odG1sDQo+IA0KPiAT77+977+9
-7Lm7HO+/vSbvv71+77+9Ju+/vRjvv73vv70rLe+/ve+/vd22F++/ve+/vXfvv73vv73Lm++/ve+/
-ve+/vW3vv73etdev77+9e2F577+9HcqH2pnvv70sag3vv73vv71m77+977+977+9aO+/ve+/ve+/
-vXrvv70e77+9d++/ve+/ve+/vQ0KPiANCj4g77+977+977+9ajordu+/ve+/ve+/vXfvv71q77+9
-be+/ve+/ve+/ve+/vQ3vv73vv73vv73vv716Wivvv73vv73vv73vv73vv73domoi77+977+9Ie+/
-vWkNCg==
+On Mon, Sep 27, 2010 at 10:23:33PM +0100, Ben Hutchings wrote:
+> > +/* The main function to transform the guest user space address
+> > + * to host kernel address via get_user_pages(). Thus the hardware
+> > + * can do DMA directly to the external buffer address.
+> > + */
+> > +static struct page_info *alloc_page_info(struct page_ctor *ctor,
+> > +		struct kiocb *iocb, struct iovec *iov,
+> > +		int count, struct frag *frags,
+> > +		int npages, int total)
+> > +{
+> > +	int rc;
+> > +	int i, j, n = 0;
+> > +	int len;
+> > +	unsigned long base, lock_limit;
+> > +	struct page_info *info = NULL;
+> > +
+> > +	lock_limit = current->signal->rlim[RLIMIT_MEMLOCK].rlim_cur;
+> > +	lock_limit >>= PAGE_SHIFT;
+> > +
+> > +	if (ctor->lock_pages + count > lock_limit && npages) {
+> > +		printk(KERN_INFO "exceed the locked memory rlimit.");
+> > +		return NULL;
+> > +	}
+> 
+> What if the process is locking pages with mlock() as well?  Doesn't this
+> allow it to lock twice as many pages as it should be able to?
 
+No, since locked_vm is incremented by both mp and mlock.
+Or at least, that's the idea :)
+In any case, twice as many would not be a big deal: admin can control
+which processes can do this by controlling access to the device.
+
+> > +	info = kmem_cache_alloc(ext_page_info_cache, GFP_KERNEL);
+> > +	
+> > +	if (!info)
+> > +		return NULL;
+> > +	info->skb = NULL;
+> > +	info->next = info->prev = NULL;
+> > +
+> > +	for (i = j = 0; i < count; i++) {
+> > +		base = (unsigned long)iov[i].iov_base;
+> > +		len = iov[i].iov_len;
+> > +
+> > +		if (!len)
+> > +			continue;
+> > +		n = ((base & ~PAGE_MASK) + len + ~PAGE_MASK) >> PAGE_SHIFT;
+> > +
+> > +		rc = get_user_pages_fast(base, n, npages ? 1 : 0,
+> > +				&info->pages[j]);
+> > +		if (rc != n)
+> > +			goto failed;
+> > +
+> > +		while (n--) {
+> > +			frags[j].offset = base & ~PAGE_MASK;
+> > +			frags[j].size = min_t(int, len,
+> > +					PAGE_SIZE - frags[j].offset);
+> > +			len -= frags[j].size;
+> > +			base += frags[j].size;
+> > +			j++;
+> > +		}
+> > +	}
+> > +
+> > +#ifdef CONFIG_HIGHMEM
+> > +	if (npages && !(dev->features & NETIF_F_HIGHDMA)) {
+> > +		for (i = 0; i < j; i++) {
+> > +			if (PageHighMem(info->pages[i]))
+> > +				goto failed;
+> > +		}
+> > +	}
+> > +#endif
+> 
+> Shouldn't you try to allocate lowmem pages explicitly, rather than
+> failing at this point?
+
+We don't allocate pages, we lock given pages. Once this is
+integrated in macvtap presumably we'll fall back on data copy
+for such devices.
+
+...
+
+> > +	skb_reserve(skb, NET_IP_ALIGN);
+> > +	skb_put(skb, len);
+> > +
+> > +	if (skb_copy_datagram_from_iovec(skb, 0, iov, 0, len)) {
+> > +		kfree_skb(skb);
+> > +		return -EAGAIN;
+> > +	}
+> > +
+> > +	skb->protocol = eth_type_trans(skb, mp->dev);
+> 
+> Why are you calling eth_type_trans() on transmit?
+
+So that GSO can work.  BTW macvtap does:
+
+        skb_set_network_header(skb, ETH_HLEN);
+        skb_reset_mac_header(skb);
+        skb->protocol = eth_hdr(skb)->h_proto;
+
+and I think this is broken for vlans. Arnd?
+
+-- 
+MST
