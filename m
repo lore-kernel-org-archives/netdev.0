@@ -1,36 +1,29 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re:
-Date: Tue, 28 Sep 2010 10:49:25 -0500 (CDT)
-Message-ID: <alpine.DEB.2.00.1009281007130.6360@router.home>
-References: <20100927200500.GB25879@obsidianresearch.com> <OF056C7E7C.A9A5EFC7-ON882577AB.006E6B89-882577AB.006F2C1E@us.ibm.com> <alpine.DEB.2.00.1009271521510.14117@router.home> <OF980F8B87.D755A28E-ON882577AB.00779881-882577AB.0077F27A@us.ibm.com>
+From: arno@natisbad.org (Arnaud Ebalard)
+Subject: Re: [PATCH net-next-2.6 0/5] XFRM,IPv6: Removal of RH2/HAO from IPsec-protected MIPv6 traffic
+Date: Tue, 28 Sep 2010 17:53:12 +0200
+Message-ID: <87eicd7tlj.fsf@small.ssi.corp>
+References: <87bp7nrlvy.fsf@small.ssi.corp>
+	<20100927.212541.183056184.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
-	linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>, Bob Arendt <rda@rincon.com>
-To: David Stevens <dlstevens@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: eric.dumazet@gmail.com, herbert@gondor.apana.org.au,
+	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp110.prem.mail.ac4.yahoo.com ([76.13.13.93]:32307 "HELO
-	smtp110.prem.mail.ac4.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1750941Ab0I1Pt3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Sep 2010 11:49:29 -0400
-In-Reply-To: <OF980F8B87.D755A28E-ON882577AB.00779881-882577AB.0077F27A@us.ibm.com>
+Received: from copper.chdir.org ([88.191.97.87]:58280 "EHLO copper.chdir.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754112Ab0I1PwV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Sep 2010 11:52:21 -0400
+In-Reply-To: <20100927.212541.183056184.davem@davemloft.net> (David Miller's
+	message of "Mon, 27 Sep 2010 21:25:41 -0700 (PDT)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 27 Sep 2010, David Stevens wrote:
+Hi David,
 
->         No. I'm not talking about the force_igmp_tunable here, I'm talking
-> about the per-interface robustness and interval settings which come from
-> the querier (whatever version you are using).
+David Miller <davem@davemloft.net> writes:
 
-The igmp subsystem currently does not keep state on the interface layer
-about robustness etc. An interval setting is only kept for IGMP v3 and
-used only for general query timeouts with igmp V3. The interval is
-different one from the one used for the host membership reports.
+> Please resubmit this after you've done some more exhaustive
+> build testing:
 
-Looking at the spec I get the impression that these variables seems to be
-mainly of interest to router to router communications?
-
-
-
+I spent some time on it today. An updated version follows. 
