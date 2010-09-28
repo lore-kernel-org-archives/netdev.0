@@ -1,73 +1,75 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: TCP: orphans broken by RFC 2525 #2.17
-Date: Tue, 28 Sep 2010 12:01:42 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1009281139430.1506@ja.ssi.bg>
-References: <20100926232530.GK12373@1wt.eu> <20100926.181202.28824153.davem@davemloft.net> <20100927053901.GL12373@1wt.eu> <20100926.234202.241938788.davem@davemloft.net> <20100927073443.GR12373@1wt.eu> <alpine.LFD.2.00.1009271159070.2191@u.domain.uli>
- <20100927192450.GU12373@1wt.eu>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] ip_gre: lockless xmit
+Date: Tue, 28 Sep 2010 11:05:47 +0200
+Message-ID: <1285664747.2607.48.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: netdev@vger.kernel.org
-To: Willy Tarreau <w@1wt.eu>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:57498 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753707Ab0I1JCQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Sep 2010 05:02:16 -0400
-In-Reply-To: <20100927192450.GU12373@1wt.eu>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:59363 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758515Ab0I1JF6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Sep 2010 05:05:58 -0400
+Received: by fxm3 with SMTP id 3so2441860fxm.19
+        for <netdev@vger.kernel.org>; Tue, 28 Sep 2010 02:05:57 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+GRE tunnels can benefit from lockless xmits, using NETIF_F_LLTX
 
- 	Hello,
+Note: If tunnels are created with the "oseq" option, LLTX is not
+enabled :
 
-On Mon, 27 Sep 2010, Willy Tarreau wrote:
+Even using an atomic_t o_seq, we would increase chance for packets being
+out of order at receiver.
 
->> - add this FD in some list for monitoring instead of keeping
->> large connection state
->> - use shutdown SHUT_WR to add FIN after response
->> - use setsockopt SO_RCVBUF with some low value to close the
->> RX window, we do not want the body
->> - wait for POLLHUP (FIN), not for POLLIN because we want to
->> ignore data, not to read it. Still, data can be read and
->> dropped if needed to release the socket memory
->> - use timer to limit the time we wait our data to be acked
->> - use SIOCOUTQ to know if everything is received in peer and
->> then close the fd
->
-> Thanks very much for this suggestion. I was looking for something
-> like this and even looked at the tcp_info struct, but it did not
-> look very easy to use.
->
-> Still, I think that polling on POLLIN and checking with SIOCOUTQ
-> on every read to see if the out queue is now empty would do the
-> trick, without forcing to read huge amounts of unnecessary data.
->
-> I'll simply enclose that inside a #ifdef LINUX and that should be
-> OK. It kinda sucks to be able to workaround low level issues at the
-> application level but at least this workaround is acceptable.
+Bench on a 16 cpus machine (dual E5540 cpus), 16 threads sending
+10000000 UDP frames via one gre tunnel (size:200 bytes per frame)
 
- 	I think for another option but I don't know the TCP details
-well:
+Before patch : 
+real	3m0.094s
+user	0m9.365s
+sys	47m50.103s
 
-- If SO_RCVBUF=0 really closes RX window
+After patch:
+real	0m29.756s
+user	0m11.097s
+sys	7m33.012s
 
-and
+Last problem to solve is the contention on dst :
 
-- while (read() > 0) {} gets all unread data
 
-- just call close() to convert socket to orphan without a risk
-of RST
+38660.00 21.4% __ip_route_output_key          vmlinux             
+20786.00 11.5% dst_release                    vmlinux             
+14191.00  7.8% __xfrm_lookup                  vmlinux             
+12410.00  6.9% ip_finish_output               vmlinux             
+ 4540.00  2.5% ip_push_pending_frames         vmlinux             
+ 4427.00  2.4% ip_append_data                 vmlinux             
+ 4265.00  2.4% __alloc_skb                    vmlinux             
+ 4140.00  2.3% __ip_local_out                 vmlinux             
+ 3991.00  2.2% dev_queue_xmit                 vmlinux     
 
- 	Now when we are orphan socket I'm not sure what has
-priority:
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/ipv4/ip_gre.c |    4 ++++
+ 1 files changed, 4 insertions(+)
 
-- if new DATA is flying to us, is it considered out of window,
-do we send RST in FIN_WAIT1/CLOSING/LAST_ACK state in this case?
-If we do not send RST then our goal is achieved: send everything
-reliably without accepting data that needs RST. And we do not
-need to keep fd in user space.
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index a1b5d5e..035db63 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -1557,6 +1557,10 @@ static int ipgre_newlink(struct net *src_net, struct net_device *dev, struct nla
+ 	if (!tb[IFLA_MTU])
+ 		dev->mtu = mtu;
+ 
++	/* Can use a lockless transmit, unless we generate output sequences */
++	if (!(nt->parms.o_flags & GRE_SEQ))
++		dev->features |= NETIF_F_LLTX;
++
+ 	err = register_netdevice(dev);
+ 	if (err)
+ 		goto out;
 
-Regards
 
---
-Julian Anastasov <ja@ssi.bg>
