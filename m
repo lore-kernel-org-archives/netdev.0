@@ -1,95 +1,40 @@
-From: "Xin, Xiaohui" <xiaohui.xin@intel.com>
-Subject: RE: [PATCH v11 00/17] Provide a zero-copy method on KVM virtio-net.
-Date: Tue, 28 Sep 2010 09:25:46 +0800
-Message-ID: <F2E9EB7348B8264F86B6AB8151CE2D792EC64F796C@shsmsx502.ccr.corp.intel.com>
-References: <1285388855-27410-1-git-send-email-xiaohui.xin@intel.com>
- <20100926170142.GA24196@redhat.com>
- <F2E9EB7348B8264F86B6AB8151CE2D792EC64F74FA@shsmsx502.ccr.corp.intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Bugme-new] [Bug 16603] New: send of data > 4 GB fails on 64
+ bit systems
+Date: Mon, 27 Sep 2010 19:41:28 -0700 (PDT)
+Message-ID: <20100927.194128.193725825.davem@davemloft.net>
+References: <bug-16603-10286@https.bugzilla.kernel.org/>
+	<20100927161540.776f748e.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"mingo@elte.hu" <mingo@elte.hu>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"herbert@gondor.hengli.com.au" <herbert@gondor.hengli.com.au>,
-	"jdike@linux.intel.com" <jdike@linux.intel.com>
-To: "Xin, Xiaohui" <xiaohui.xin@intel.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <F2E9EB7348B8264F86B6AB8151CE2D792EC64F74FA@shsmsx502.ccr.corp.intel.com>
-Content-Language: en-US
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, bono@onlinehome.de
+To: akpm@linux-foundation.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38495
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757938Ab0I1ClJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Sep 2010 22:41:09 -0400
+In-Reply-To: <20100927161540.776f748e.akpm@linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->-----Original Message-----
->From: linux-kernel-owner@vger.kernel.org [mailto:linux-kernel-owner@vger.kernel.org] On
->Behalf Of Xin, Xiaohui
->Sent: Monday, September 27, 2010 8:45 AM
->To: Michael S. Tsirkin
->Cc: netdev@vger.kernel.org; kvm@vger.kernel.org; linux-kernel@vger.kernel.org;
->mingo@elte.hu; davem@davemloft.net; herbert@gondor.hengli.com.au;
->jdike@linux.intel.com
->Subject: RE: [PATCH v11 00/17] Provide a zero-copy method on KVM virtio-net.
->
->>From: Michael S. Tsirkin [mailto:mst@redhat.com]
->>Sent: Monday, September 27, 2010 1:02 AM
->>To: Xin, Xiaohui
->>Cc: netdev@vger.kernel.org; kvm@vger.kernel.org; linux-kernel@vger.kernel.org;
->>mingo@elte.hu; davem@davemloft.net; herbert@gondor.hengli.com.au;
->>jdike@linux.intel.com
->>Subject: Re: [PATCH v11 00/17] Provide a zero-copy method on KVM virtio-net.
->>
->>On Sat, Sep 25, 2010 at 12:27:18PM +0800, xiaohui.xin@intel.com wrote:
->>> We provide an zero-copy method which driver side may get external
->>> buffers to DMA. Here external means driver don't use kernel space
->>> to allocate skb buffers. Currently the external buffer can be from
->>> guest virtio-net driver.
->>>
->>> The idea is simple, just to pin the guest VM user space and then
->>> let host NIC driver has the chance to directly DMA to it.
->>> The patches are based on vhost-net backend driver. We add a device
->>> which provides proto_ops as sendmsg/recvmsg to vhost-net to
->>> send/recv directly to/from the NIC driver. KVM guest who use the
->>> vhost-net backend may bind any ethX interface in the host side to
->>> get copyless data transfer thru guest virtio-net frontend.
->>> patch 01-10:  	net core and kernel changes.
->>> patch 11-13:  	new device as interface to mantpulate external buffers.
->>> patch 14: 	for vhost-net.
->>> patch 15:	An example on modifying NIC driver to using napi_gro_frags().
->>> patch 16:	An example how to get guest buffers based on driver
->>> 		who using napi_gro_frags().
->>> patch 17:	It's a patch to address comments from Michael S. Thirkin
->>> 		to add 2 new ioctls in mp device.
->>> 		We split it out here to make easier reiewer.
->>
->>
->>
->>I commented on how to avoid mm semaphore on data path separately, and
->>since you didn't have time to review that yet, I won't repeat that here.
->>
->
->I think I did avoid that in data path to use mm semaphore. I stored the value
->in mp structures and check with that.
->
-Hi Michael,
-Did you think I have addressed your comments about to avoid mm semaphore on
-data path or not? I stored the value in mp structures and don't use mmap_semphore.
-Or you still have some concerns with it?
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Mon, 27 Sep 2010 16:15:40 -0700
 
->>At this point what are the plans on macvtap integration?
->>You indicated this is the interface you intend to use longterm.
->
->I'm now working on that.
->
-I'm now trying to export some functions from mp device, and let macvtap to use them
-for rx zero-copy.
->
->Thanks
->Xiaohui
->--
->To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
->Please read the FAQ at  http://www.tux.org/lkml/
+> Yes, I think seglen should be size_t.  Do you know if making that
+> change fixes the bug?
+
+Oh boy, what a rats nest.
+
+Just scanning generically I see that net/core/iovec.c:verify_iovec()
+has similar issues, it should probably use "long" instead of "int"
+because it's trying to prevent the return value being interpreted
+as an error code.
+
+So if you fix that and make it return "long" this leads to another
+set of problems, even if you fix that TCP bit sys_sendmsg() holds
+the total length in an 'int' too.  So more stuff to fix.
+
+I'll try to do the whole audit, but no promises ;)
