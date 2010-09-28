@@ -1,40 +1,35 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: TCP: orphans broken by RFC 2525 #2.17
-Date: Tue, 28 Sep 2010 07:37:47 +0200
-Message-ID: <20100928053747.GF12373@1wt.eu>
-References: <20100927192112.GT12373@1wt.eu> <20100927232857.GA23803@gondor.apana.org.au> <20100928051258.GB12373@1wt.eu> <20100927.223231.179927955.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/2] Documentation: Update Phonet doc for Pipe
+ Controller implementation
+Date: Mon, 27 Sep 2010 23:30:59 -0700 (PDT)
+Message-ID: <20100927.233059.245388440.davem@davemloft.net>
+References: <1285652106-29966-1-git-send-email-kumar.sanghvi@stericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: herbert@gondor.hengli.com.au, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: remi.denis-courmont@nokia.com, netdev@vger.kernel.org,
+	STEricsson_nomadik_linux@list.st.com,
+	sudeep.divakaran@stericsson.com, gulshan.karmani@stericsson.com,
+	linus.walleij@stericsson.com
+To: kumar.sanghvi@stericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:45756 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752998Ab0I1Fhx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Sep 2010 01:37:53 -0400
-Content-Disposition: inline
-In-Reply-To: <20100927.223231.179927955.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50595
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752998Ab0I1Gaj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Sep 2010 02:30:39 -0400
+In-Reply-To: <1285652106-29966-1-git-send-email-kumar.sanghvi@stericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 27, 2010 at 10:32:31PM -0700, David Miller wrote:
-> From: Willy Tarreau <w@1wt.eu>
-> Date: Tue, 28 Sep 2010 07:12:58 +0200
+From: Kumar A Sanghvi <kumar.sanghvi@stericsson.com>
+Date: Tue, 28 Sep 2010 11:05:06 +0530
+
+> From: Kumar Sanghvi <kumar.sanghvi@stericsson.com>
 > 
-> > Once again, for now, I will only handle this precise case of the extra
-> > CRLF, but this will not fix the issue with pipelined requests.
+> Updates the Phonet document with description related to Pipe controller
+> implementation
 > 
-> You might want to read server/connection.c in the apache httpd
-> sources.
->
-> It does exactly what Eric Dumazet and I have suggested to you.
+> Signed-off-by: Kumar Sanghvi <kumar.sanghvi@stericsson.com>
+> Acked-by: Linus Walleij <linus.walleij@stericsson.com>
 
-I've seen that. Though nginx, squid, thttpd, haproxy and lighttpd all
-make use of the standard orphans and are all affected by the same issue.
-
-> But, I guess the entire world is wrong and you're right Willy.
-
-Given the figures above, that's not how I analyze it, I'm sorry.
-
-Willy
-
+Applied, thanks.
