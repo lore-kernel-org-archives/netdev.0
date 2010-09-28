@@ -1,41 +1,37 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: TCP: orphans broken by RFC 2525 #2.17
-Date: Tue, 28 Sep 2010 07:12:58 +0200
-Message-ID: <20100928051258.GB12373@1wt.eu>
-References: <20100927192112.GT12373@1wt.eu> <20100927232857.GA23803@gondor.apana.org.au>
+From: Kumar SANGHVI <kumar.sanghvi@stericsson.com>
+Subject: Re: [PATCH v2 1/2] Phonet: Implement Pipe Controller to support
+ Nokia Slim Modems
+Date: Tue, 28 Sep 2010 11:01:47 +0530
+Message-ID: <20100928053145.GA26938@bnru01.bnr.st.com>
+References: <1285564079-23066-1-git-send-email-kumar.sanghvi@stericsson.com>
+ <20100927.215059.39193491.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.hengli.com.au>
+Content-Type: text/plain; charset="us-ascii"
+Cc: "remi.denis-courmont@nokia.com" <remi.denis-courmont@nokia.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	STEricsson_nomadik_linux <STEricsson_nomadik_linux@list.st.com>,
+	Sudeep DIVAKARAN <sudeep.divakaran@stericsson.com>,
+	Gulshan KARMANI <gulshan.karmani@stericsson.com>,
+	Linus WALLEIJ <linus.walleij@stericsson.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:45743 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754491Ab0I1FNH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Sep 2010 01:13:07 -0400
+Received: from eu1sys200aog118.obsmtp.com ([207.126.144.145]:48685 "EHLO
+	eu1sys200aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755673Ab0I1FcC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Sep 2010 01:32:02 -0400
 Content-Disposition: inline
-In-Reply-To: <20100927232857.GA23803@gondor.apana.org.au>
+In-Reply-To: <20100927.215059.39193491.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 28, 2010 at 08:28:57AM +0900, Herbert Xu wrote:
-> Willy Tarreau <w@1wt.eu> wrote:
-> > 
-> > Two quick facts :
-> >  - HTTP allows the client to send whatever it wants whenever it wants
-> >    and allows the server to close after whatever response it wants.
-> >    Thus the server cannot predict that the client will talk.
+On Tue, Sep 28, 2010 at 06:50:59 +0200, David Miller wrote:
+ 
+> Applied, thanks.
 > 
-> No it does not.  Only buggy HTTP clients do that.
+> Please resubmit patch 2/2 if you want me to apply it.
 
-I don't agree Herbert. Pipelining consists exactly in that, and is an
-encouraged practice. If you say that only buggy clients send an extra
-CRLF, then yes I agree. But you might very well get a new request you
-can't predict at all, and the arrival of this new request must not 
-destroy the end of last response's data.
+Thanks David.
+I will re-submit the patch 2/2.
 
-Once again, for now, I will only handle this precise case of the extra
-CRLF, but this will not fix the issue with pipelined requests.
-
-Regards,
-Willy
-
+Best regards,
+Kumar.
