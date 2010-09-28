@@ -1,43 +1,37 @@
-From: arno@natisbad.org (Arnaud Ebalard)
-Subject: Re: [PATCHv2 net-next-2.6 0/5] XFRM,IPv6: Removal of RH2/HAO from IPsec-protected MIPv6 traffic
-Date: Tue, 28 Sep 2010 23:33:16 +0200
-Message-ID: <87r5gdtuxv.fsf@small.ssi.corp>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv2 net-next-2.6 0/5] XFRM,IPv6: Removal of RH2/HAO from
+ IPsec-protected MIPv6 traffic
+Date: Tue, 28 Sep 2010 14:40:05 -0700 (PDT)
+Message-ID: <20100928.144005.260072379.davem@davemloft.net>
 References: <cover.1285687738.git.arno@natisbad.org>
 	<20100928.133849.112575548.davem@davemloft.net>
+	<87r5gdtuxv.fsf@small.ssi.corp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: eric.dumazet@gmail.com, herbert@gondor.apana.org.au,
 	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: arno@natisbad.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from copper.chdir.org ([88.191.97.87]:35465 "EHLO copper.chdir.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752337Ab0I1Vcc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Sep 2010 17:32:32 -0400
-In-Reply-To: <20100928.133849.112575548.davem@davemloft.net> (David Miller's
-	message of "Tue, 28 Sep 2010 13:38:49 -0700 (PDT)")
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58473
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753639Ab0I1Vjp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Sep 2010 17:39:45 -0400
+In-Reply-To: <87r5gdtuxv.fsf@small.ssi.corp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: arno@natisbad.org (Arnaud Ebalard)
+Date: Tue, 28 Sep 2010 23:33:16 +0200
 
-David Miller <davem@davemloft.net> writes:
+> Before following the (dumb) #ifdef path, I was about to do that but
+> worried about the penalty of the additional xfrm_state_get/put_afinfo()
+> calls on each packet I was about to add. Should I just reduce my amount
+> of coffee or is it a valid concern?
 
-> Try again, this time with ipv6 modular:
->
-> net/built-in.o: In function `xfrm_input_addr_check':
-> /home/davem/src/GIT/net-next-2.6/net/xfrm/xfrm_input.c:115: undefined reference to `xfrm6_input_addr_check'
->
-> You can't put xfrm6_input_addr_check into the ipv6.o object build if you want to
-> call it from the generic xfrm stack which is always built statically.
->
-> Put this and xfrm4_input_addr_check where it belongs, as an afinfo->op()
+Indeed, it is.
 
-Before following the (dumb) #ifdef path, I was about to do that but
-worried about the penalty of the additional xfrm_state_get/put_afinfo()
-calls on each packet I was about to add. Should I just reduce my amount
-of coffee or is it a valid concern?
+Even without the concern of afinfo refcounting, this test is very
+heavy handed for the packet path.
 
-Cheers,
-
-a+
+Can you make it small enough that it can reasonably be inlined?
