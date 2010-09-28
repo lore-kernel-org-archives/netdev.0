@@ -1,62 +1,146 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] Phonet: Correct header retrieval after pskb_may_pull
-Date: Tue, 28 Sep 2010 11:47:18 +0200
-Message-ID: <1285667238.3154.0.camel@edumazet-laptop>
-References: <1285665042-20548-1-git-send-email-kumar.sanghvi@stericsson.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	remi.denis-courmont@nokia.com, gulshan.karmani@stericsson.com,
-	Linus Walleij <linus.walleij@stericsson.com>
-To: Kumar A Sanghvi <kumar.sanghvi@stericsson.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: [PATCH] ethtool: add the stmmac support
+Date: Tue, 28 Sep 2010 11:51:59 +0200
+Message-ID: <1285667519-4621-1-git-send-email-peppe.cavallaro@st.com>
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:51060 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758768Ab0I1Jra (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Sep 2010 05:47:30 -0400
-Received: by fxm3 with SMTP id 3so2455894fxm.19
-        for <netdev@vger.kernel.org>; Tue, 28 Sep 2010 02:47:29 -0700 (PDT)
-In-Reply-To: <1285665042-20548-1-git-send-email-kumar.sanghvi@stericsson.com>
+Received: from eu1sys200aog118.obsmtp.com ([207.126.144.145]:52615 "EHLO
+	eu1sys200aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752830Ab0I1JwI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Sep 2010 05:52:08 -0400
+Received: from zeta.dmz-eu.st.com (ns2.st.com [164.129.230.9])
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id E60FE77
+	for <netdev@vger.kernel.org>; Tue, 28 Sep 2010 09:52:05 +0000 (GMT)
+Received: from mail3.ctn.st.com (mail3.ctn.st.com [164.130.116.150])
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id A8FC81CDE
+	for <netdev@vger.kernel.org>; Tue, 28 Sep 2010 09:52:05 +0000 (GMT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 28 septembre 2010 =C3=A0 14:40 +0530, Kumar A Sanghvi a =C3=A9=
-crit :
-> From: Kumar Sanghvi <kumar.sanghvi@stericsson.com>
->=20
-> Retrieve the header after doing pskb_may_pull since, pskb_may_pull
-> could change the buffer structure.
->=20
-> This is based on the comment given by Eric Dumazet on Phonet
-> Pipe controller patch for a similar problem.
->=20
-> Signed-off-by: Kumar Sanghvi <kumar.sanghvi@stericsson.com>
-> Acked-by: Linus Walleij <linus.walleij@stericsson.com>
-> ---
->  net/phonet/pep.c |    3 ++-
->  1 files changed, 2 insertions(+), 1 deletions(-)
->=20
-> diff --git a/net/phonet/pep.c b/net/phonet/pep.c
-> index 7bf23cf..9746c6d 100644
-> --- a/net/phonet/pep.c
-> +++ b/net/phonet/pep.c
-> @@ -507,12 +507,13 @@ static void pipe_grant_credits(struct sock *sk)
->  static int pipe_rcv_status(struct sock *sk, struct sk_buff *skb)
->  {
->  	struct pep_sock *pn =3D pep_sk(sk);
-> -	struct pnpipehdr *hdr =3D pnp_hdr(skb);
-> +	struct pnpipehdr *hdr;
->  	int wake =3D 0;
-> =20
->  	if (!pskb_may_pull(skb, sizeof(*hdr) + 4))
->  		return -EINVAL;
-> =20
-> +	hdr =3D pnp_hdr(skb);
->  	if (hdr->data[0] !=3D PN_PEP_TYPE_COMMON) {
->  		LIMIT_NETDEBUG(KERN_DEBUG"Phonet unknown PEP type: %u\n",
->  				(unsigned)hdr->data[0]);
+Add the stmmac support into the ethtool to
+dump both the Mac Core and Dma registers.
 
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+---
+ Makefile.am    |    2 +-
+ ethtool-util.h |    4 +++
+ ethtool.c      |    2 +
+ stmmac.c       |   66 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 73 insertions(+), 1 deletions(-)
+ create mode 100644 stmmac.c
 
+diff --git a/Makefile.am b/Makefile.am
+index 632f054..a0d2116 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -8,7 +8,7 @@ ethtool_SOURCES = ethtool.c ethtool-copy.h ethtool-util.h	\
+ 		  amd8111e.c de2104x.c e100.c e1000.c igb.c	\
+ 		  fec_8xx.c ibm_emac.c ixgb.c ixgbe.c natsemi.c	\
+ 		  pcnet32.c realtek.c tg3.c marvell.c vioc.c	\
+-		  smsc911x.c at76c50x-usb.c sfc.c
++		  smsc911x.c at76c50x-usb.c sfc.c stmmac.c
+ 
+ dist-hook:
+ 	cp $(top_srcdir)/ethtool.spec $(distdir)
+diff --git a/ethtool-util.h b/ethtool-util.h
+index 01b1d03..4ef3a9f 100644
+--- a/ethtool-util.h
++++ b/ethtool-util.h
+@@ -93,4 +93,8 @@ int at76c50x_usb_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *re
+ /* Solarflare Solarstorm controllers */
+ int sfc_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs);
+ 
++/* STMMAC embedded ethernet controller */
++int st_mac100_dump_regs(struct ethtool_drvinfo *info,
++			struct ethtool_regs *regs);
++int st_gmac_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs);
+ #endif
+diff --git a/ethtool.c b/ethtool.c
+index 6b2b7c8..ab69b95 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -1539,6 +1539,8 @@ static struct {
+         { "smsc911x", smsc911x_dump_regs },
+         { "at76c50x-usb", at76c50x_usb_dump_regs },
+         { "sfc", sfc_dump_regs },
++	{ "st_mac100", st_mac100_dump_regs },
++	{ "st_gmac", st_gmac_dump_regs },
+ };
+ 
+ static int dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
+diff --git a/stmmac.c b/stmmac.c
+new file mode 100644
+index 0000000..ad4311c
+--- /dev/null
++++ b/stmmac.c
+@@ -0,0 +1,66 @@
++/****************************************************************************
++ * Support for the Synopsys MAC 10/100/1000 on-chip Ethernet controllers
++ *
++ * Copyright (C) 2010  STMicroelectronics Ltd
++ *
++ * Author: Giuseppe Cavallaro <peppe.cavallaro@st.com>
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 as published
++ * by the Free Software Foundation, incorporated herein by reference.
++ */
++
++#include <stdio.h>
++#include <string.h>
++#include "ethtool-util.h"
++
++int st_mac100_dump_regs(struct ethtool_drvinfo *info,
++			struct ethtool_regs *regs)
++{
++	int i;
++	unsigned int *stmmac_reg = (unsigned int *)regs->data;
++
++	fprintf(stdout, "ST MAC 10/100 Registers\n");
++	fprintf(stdout, "control reg  0x%08X\n", *stmmac_reg++);
++	fprintf(stdout, "addr HI 0x%08X\n", *stmmac_reg++);
++	fprintf(stdout, "addr LO 0x%08X\n", *stmmac_reg++);
++	fprintf(stdout, "multicast hash HI 0x%08X\n", *stmmac_reg++);
++	fprintf(stdout, "multicast hash LO 0x%08X\n", *stmmac_reg++);
++	fprintf(stdout, "MII addr 0x%08X\n", *stmmac_reg++);
++	fprintf(stdout, "MII data %08X\n", *stmmac_reg++);
++	fprintf(stdout, "flow control 0x%08X\n", *stmmac_reg++);
++	fprintf(stdout, "VLAN1 tag 0x%08X\n", *stmmac_reg++);
++	fprintf(stdout, "VLAN2 tag 0x%08X\n", *stmmac_reg++);
++	fprintf(stdout, "mac wakeup frame 0x%08X\n", *stmmac_reg++);
++	fprintf(stdout, "mac wakeup crtl 0x%08X\n", *stmmac_reg++);
++
++	fprintf(stdout, "\n");
++	fprintf(stdout, "DMA Registers\n");
++	for (i = 0; i < 9; i++)
++		fprintf(stdout, "CSR%d  0x%08X\n", i, *stmmac_reg++);
++
++	fprintf(stdout, "DMA cur tx buf addr 0x%08X\n", *stmmac_reg++);
++	fprintf(stdout, "DMA cur rx buf addr 0x%08X\n", *stmmac_reg++);
++
++	fprintf(stdout, "\n");
++
++	return 0;
++}
++
++int st_gmac_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
++{
++	int i;
++	unsigned int *stmmac_reg = (unsigned int *)regs->data;
++
++	fprintf(stdout, "ST GMAC Registers\n");
++	fprintf(stdout, "GMAC Registers\n");
++	for (i = 0; i < 55; i++)
++		fprintf(stdout, "Reg%d  0x%08X\n", i, *stmmac_reg++);
++
++	fprintf(stdout, "\n");
++	fprintf(stdout, "DMA Registers\n");
++	for (i = 0; i < 22; i++)
++		fprintf(stdout, "Reg%d  0x%08X\n", i, *stmmac_reg++);
++
++	return 0;
++}
+-- 
+1.5.5.6
 
