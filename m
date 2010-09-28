@@ -1,66 +1,43 @@
-From: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont"
-	<remi.denis-courmont@nokia.com>
-Subject: Re: [PATCH] Phonet: Correct header retrieval after pskb_may_pull
-Date: Wed, 29 Sep 2010 00:23:44 +0300
-Message-ID: <201009290023.44717.remi.denis-courmont@nokia.com>
-References: <1285665042-20548-1-git-send-email-kumar.sanghvi@stericsson.com>
+From: arno@natisbad.org (Arnaud Ebalard)
+Subject: Re: [PATCHv2 net-next-2.6 0/5] XFRM,IPv6: Removal of RH2/HAO from IPsec-protected MIPv6 traffic
+Date: Tue, 28 Sep 2010 23:33:16 +0200
+Message-ID: <87r5gdtuxv.fsf@small.ssi.corp>
+References: <cover.1285687738.git.arno@natisbad.org>
+	<20100928.133849.112575548.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"gulshan.karmani@stericsson.com" <gulshan.karmani@stericsson.com>,
-	Linus Walleij <linus.walleij@stericsson.com>
-To: ext Kumar A Sanghvi <kumar.sanghvi@stericsson.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: eric.dumazet@gmail.com, herbert@gondor.apana.org.au,
+	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([192.100.105.134]:63776 "EHLO
-	mgw-mx09.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753344Ab0I1VYD convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Sep 2010 17:24:03 -0400
-In-Reply-To: <1285665042-20548-1-git-send-email-kumar.sanghvi@stericsson.com>
+Received: from copper.chdir.org ([88.191.97.87]:35465 "EHLO copper.chdir.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752337Ab0I1Vcc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Sep 2010 17:32:32 -0400
+In-Reply-To: <20100928.133849.112575548.davem@davemloft.net> (David Miller's
+	message of "Tue, 28 Sep 2010 13:38:49 -0700 (PDT)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 28 September 2010 12:10:42 ext Kumar A Sanghvi, you wrote:
-> From: Kumar Sanghvi <kumar.sanghvi@stericsson.com>
->=20
-> Retrieve the header after doing pskb_may_pull since, pskb_may_pull
-> could change the buffer structure.
->=20
-> This is based on the comment given by Eric Dumazet on Phonet
-> Pipe controller patch for a similar problem.
->=20
-> Signed-off-by: Kumar Sanghvi <kumar.sanghvi@stericsson.com>
-> Acked-by: Linus Walleij <linus.walleij@stericsson.com>
-> ---
->  net/phonet/pep.c |    3 ++-
->  1 files changed, 2 insertions(+), 1 deletions(-)
->=20
-> diff --git a/net/phonet/pep.c b/net/phonet/pep.c
-> index 7bf23cf..9746c6d 100644
-> --- a/net/phonet/pep.c
-> +++ b/net/phonet/pep.c
-> @@ -507,12 +507,13 @@ static void pipe_grant_credits(struct sock *sk)
->  static int pipe_rcv_status(struct sock *sk, struct sk_buff *skb)
->  {
->  	struct pep_sock *pn =3D pep_sk(sk);
-> -	struct pnpipehdr *hdr =3D pnp_hdr(skb);
-> +	struct pnpipehdr *hdr;
->  	int wake =3D 0;
->=20
->  	if (!pskb_may_pull(skb, sizeof(*hdr) + 4))
->  		return -EINVAL;
->=20
-> +	hdr =3D pnp_hdr(skb);
->  	if (hdr->data[0] !=3D PN_PEP_TYPE_COMMON) {
->  		LIMIT_NETDEBUG(KERN_DEBUG"Phonet unknown PEP type: %u\n",
->  				(unsigned)hdr->data[0]);
+Hi,
 
-Acked-by: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+David Miller <davem@davemloft.net> writes:
 
-Thanks!
+> Try again, this time with ipv6 modular:
+>
+> net/built-in.o: In function `xfrm_input_addr_check':
+> /home/davem/src/GIT/net-next-2.6/net/xfrm/xfrm_input.c:115: undefined reference to `xfrm6_input_addr_check'
+>
+> You can't put xfrm6_input_addr_check into the ipv6.o object build if you want to
+> call it from the generic xfrm stack which is always built statically.
+>
+> Put this and xfrm4_input_addr_check where it belongs, as an afinfo->op()
 
---=20
-R=E9mi Denis-Courmont
-Nokia Devices R&D, Maemo Software, Helsinki
+Before following the (dumb) #ifdef path, I was about to do that but
+worried about the penalty of the additional xfrm_state_get/put_afinfo()
+calls on each packet I was about to add. Should I just reduce my amount
+of coffee or is it a valid concern?
+
+Cheers,
+
+a+
