@@ -1,60 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 2.6] myri10ge: DCA update
-Date: Tue, 28 Sep 2010 16:21:23 +0200
-Message-ID: <1285683683.3154.66.camel@edumazet-laptop>
-References: <4CA1F06E.3070109@myri.com>
+From: Philip Rakity <prakity@marvell.com>
+Subject: [PATCH] net: pxa168_etc.c  recognize additional contributors
+Date: Tue, 28 Sep 2010 07:26:30 -0700
+Message-ID: <73276AFF-CD7C-4D61-AD6B-E0EC48C5D30C@marvell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Loic Prylli <loic@myri.com>
-To: Andrew Gallatin <gallatin@myri.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Mark Brown <markb@marvell.com>, Sachin Sanap <ssanap@marvell.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:56111 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752006Ab0I1OWG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Sep 2010 10:22:06 -0400
-Received: by fxm3 with SMTP id 3so2617659fxm.19
-        for <netdev@vger.kernel.org>; Tue, 28 Sep 2010 07:22:05 -0700 (PDT)
-In-Reply-To: <4CA1F06E.3070109@myri.com>
+Received: from na3sys009aog113.obsmtp.com ([74.125.149.209]:56082 "HELO
+	na3sys009aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752006Ab0I1OcG convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Sep 2010 10:32:06 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 28 septembre 2010 =C3=A0 09:41 -0400, Andrew Gallatin a =C3=A9=
-crit :
-> This patch contains the following DCA improvements to myri10ge:
->=20
-> 1) Finally move myri10ge to use dca3 API
->=20
-> 2) Disable PCIe relaxed ordering when enabling DCA on
->      myri10ge.  This provides a performance boost on Nehalem
->      based Xeons
->=20
-> 3) Make sure to properly initialize NIC's DCA state when it is enable=
-d,
->      rather than giving the NIC a bogus tag (0) and waiting for
->      the first received packet to trigger an update.  Not using a
->      real tag can cause hardware exceptions on some motherboards
->      when a CPU socket is empty.
->=20
-> 3) Always update the cached CPU when our interrupt affinity changes
->      so as to avoid excessive calls to dca3_get_tag()
->=20
-> Signed-off-by: Andrew Gallatin <gallatin@myri.com>
-> Signed-off-by: Loic Prylli <loic@myri.com>
+Signed-off-by: Philip Rakity <prakity@marvell.com>
+Signed-off-by: Sachin Sanap <ssanap@marvell.com>
+Signed-off-by: Mark Brown <markb@marvell.com>
+---
+ drivers/net/pxa168_eth.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-ERROR: return is not a function, parentheses are not required
-#99: FILE: drivers/net/myri10ge/myri10ge.c:1086:
-+		return (0);
-
-ERROR: trailing whitespace
-#108: FILE: drivers/net/myri10ge/myri10ge.c:1095:
-+^Ireturn (ret);^I$
-
-ERROR: return is not a function, parentheses are not required
-#108: FILE: drivers/net/myri10ge/myri10ge.c:1095:
-+	return (ret);=09
-
-total: 3 errors, 0 warnings, 71 lines checked
-
+diff --git a/drivers/net/pxa168_eth.c b/drivers/net/pxa168_eth.c
+index c6eeb38..0f2d41b 100644
+--- a/drivers/net/pxa168_eth.c
++++ b/drivers/net/pxa168_eth.c
+@@ -4,8 +4,10 @@
+  *
+  * Copyright (C) 2010 Marvell International Ltd.
+  *		Sachin Sanap <ssanap@marvell.com>
++ *		Zhangfei Gao <zgao6@marvell.com>
+  *		Philip Rakity <prakity@marvell.com>
+  *		Mark Brown <markb@marvell.com>
+  *
+  * This program is free software; you can redistribute it and/or
+  * modify it under the terms of the GNU General Public License
+-- 
+1.6.0.4
 
