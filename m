@@ -1,84 +1,65 @@
-From: "Vladislav Zolotarov" <vladz@broadcom.com>
-Subject: [PATCH net-next-2.6] bnx2x: Moved enabling of MSI to the
- bnx2x_set_num_queues()
-Date: Tue, 28 Sep 2010 16:42:20 +0200
-Message-ID: <1285684941.31967.21.camel@lb-tlvb-vladz>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH v11 13/17] Add mp(mediate passthru) device.
+Date: Tue, 28 Sep 2010 16:43:11 +0200
+Message-ID: <20100928144311.GB15294@redhat.com>
+References: <1285388855-27410-1-git-send-email-xiaohui.xin@intel.com>
+ <1285622613.2263.550.camel@achroite.uk.solarflarecom.com>
+ <20100928130654.GD14385@redhat.com>
+ <201009281639.59417.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "Eilon Greenstein" <eilong@broadcom.com>,
-	"netdev list" <netdev@vger.kernel.org>
-To: "Dave Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Hutchings <bhutchings@solarflare.com>, xiaohui.xin@intel.com,
+	netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mingo@elte.hu, davem@davemloft.net,
+	herbert@gondor.hengli.com.au, jdike@linux.intel.com,
+	Sridhar Samudrala <sri@us.ibm.com>
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1646 "EHLO MMS3.broadcom.com"
+Received: from mx1.redhat.com ([209.132.183.28]:59620 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754781Ab0I1Omd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Sep 2010 10:42:33 -0400
+	id S1756145Ab0I1Otj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Sep 2010 10:49:39 -0400
+Content-Disposition: inline
+In-Reply-To: <201009281639.59417.arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Moved enabling of MSI to the bnx2x_set_num_queues() - the same functions that
-handles the initialization of the MSI-X.
+On Tue, Sep 28, 2010 at 04:39:59PM +0200, Arnd Bergmann wrote:
+> On Tuesday 28 September 2010, Michael S. Tsirkin wrote:
+> > > > +   skb_reserve(skb, NET_IP_ALIGN);
+> > > > +   skb_put(skb, len);
+> > > > +
+> > > > +   if (skb_copy_datagram_from_iovec(skb, 0, iov, 0, len)) {
+> > > > +           kfree_skb(skb);
+> > > > +           return -EAGAIN;
+> > > > +   }
+> > > > +
+> > > > +   skb->protocol = eth_type_trans(skb, mp->dev);
+> > > 
+> > > Why are you calling eth_type_trans() on transmit?
+> > 
+> > So that GSO can work.  BTW macvtap does:
+> > 
+> >         skb_set_network_header(skb, ETH_HLEN);
+> >         skb_reset_mac_header(skb);
+> >         skb->protocol = eth_hdr(skb)->h_proto;
+> > 
+> > and I think this is broken for vlans. Arnd?
+> 
+> Hmm, that code (besides set_network_header) was added by Sridhar
+> for GSO support. I believe I originally did eth_type_trans but
+> had to change it before that time because it broke something.
+> Unfortunately, my memory on that is not very good any more.
+> 
+> Can you be more specific what the problem is? Do you think
+> it breaks when a guest sends VLAN tagged frames or when macvtap
+> is connected to a VLAN interface that adds another tag (or
+> only the combination)?
+> 
+> 	Arnd
 
-Signed-off-by: Vladislav Zolotarov <vladz@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
+I expect the protocol value to be wrong when guest sends vlan tagged
+frames as 802.1q frames have a different format.
 
-This patch is required for the integration of Ben Hutchings bnx2x patch from
-the "netif_set_real_num_{rx,tx}_queues" patch series.
-
- drivers/net/bnx2x/bnx2x_cmn.c |   17 +++++++++++------
- 1 files changed, 11 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/bnx2x/bnx2x_cmn.c b/drivers/net/bnx2x/bnx2x_cmn.c
-index efc7be4..453d3b6 100644
---- a/drivers/net/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/bnx2x/bnx2x_cmn.c
-@@ -1185,8 +1185,10 @@ static int bnx2x_set_num_queues(struct bnx2x *bp)
- 	int rc = 0;
- 
- 	switch (bp->int_mode) {
--	case INT_MODE_INTx:
- 	case INT_MODE_MSI:
-+		bnx2x_enable_msi(bp);
-+		/* falling through... */
-+	case INT_MODE_INTx:
- 		bp->num_queues = 1;
- 		DP(NETIF_MSG_IFUP, "set number of queues to 1\n");
- 		break;
-@@ -1202,9 +1204,16 @@ static int bnx2x_set_num_queues(struct bnx2x *bp)
- 		 * and fallback to MSI or legacy INTx with one fp
- 		 */
- 		rc = bnx2x_enable_msix(bp);
--		if (rc)
-+		if (rc) {
- 			/* failed to enable MSI-X */
- 			bp->num_queues = 1;
-+
-+			/* Fall to INTx if failed to enable MSI-X due to lack of
-+			 * memory (in bnx2x_set_num_queues()) */
-+			if ((rc != -ENOMEM) && (bp->int_mode != INT_MODE_INTx))
-+				bnx2x_enable_msi(bp);
-+		}
-+
- 		break;
- 	}
- 	bp->dev->real_num_tx_queues = bp->num_queues;
-@@ -1263,10 +1272,6 @@ int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
- 			goto load_error1;
- 		}
- 	} else {
--		/* Fall to INTx if failed to enable MSI-X due to lack of
--		   memory (in bnx2x_set_num_queues()) */
--		if ((rc != -ENOMEM) && (bp->int_mode != INT_MODE_INTx))
--			bnx2x_enable_msi(bp);
- 		bnx2x_ack_int(bp);
- 		rc = bnx2x_req_irq(bp);
- 		if (rc) {
 -- 
-1.7.0.4
-
-
-
-
+MST
