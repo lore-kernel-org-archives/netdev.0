@@ -1,38 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Bugme-new] [Bug 18952] New: The mount of SYN retries is not
- equal to /proc/sys/net/ipv4/tcp_syn_retries
-Date: Mon, 27 Sep 2010 21:52:41 -0700 (PDT)
-Message-ID: <20100927.215241.246534990.davem@davemloft.net>
-References: <201009271007.06705.yuri@itinteg.net>
-	<20100927.011046.45906887.davem@davemloft.net>
-	<1285617608.9983.30.camel@nexus>
+Subject: Re: [PATCH net-next-2.6 00/17] netdev: Fix queue count
+ initialisation
+Date: Mon, 27 Sep 2010 22:12:40 -0700 (PDT)
+Message-ID: <20100927.221240.28820650.davem@davemloft.net>
+References: <1285611791.2263.287.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yuri@itinteg.net, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org
-To: damian@tvk.rwth-aachen.de
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56047
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41853
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753952Ab0I1EwV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Sep 2010 00:52:21 -0400
-In-Reply-To: <1285617608.9983.30.camel@nexus>
+	by vger.kernel.org with ESMTP id S1754943Ab0I1FMU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Sep 2010 01:12:20 -0400
+In-Reply-To: <1285611791.2263.287.camel@achroite.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Damian Lukowski <damian@tvk.rwth-aachen.de>
-Date: Mon, 27 Sep 2010 22:00:08 +0200
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Mon, 27 Sep 2010 19:23:11 +0100
 
-> My suggestion for solving this issue:
-> Introducing a third boolean parameter for retransmits_timed_out()
-> indicating whether the socket is in SYN state or not. In the SYN case, 
-> TCP_TIMEOUT_INIT will be used for the calculation instead of
-> TCP_RTO_MIN.
+> This adds the functions:
+> - netif_set_real_num_rx_queues() - set actual number of RX queues used
+> - netif_copy_real_num_queues() - copy queue counts from another device
 > 
-> Is that ok?
+> and changes all drivers that currently set
+> net_device::real_num_tx_queues to use netif_set_real_num_tx_queues()
+> and/or these functions.
+> 
+> The changes are compile-tested only, except that:
+> - sfc and 8021q have been briefly tested
+> - gianfar and mv643xx_eth have not been compiled, since they are
+>   platform-specific
+> 
+> I noticed that the bonding driver sets its numbers of queues without
+> regard to its slave devices.  This makes some sense since a bond device
+> initially has no slave devices.  However, it seems to mean that a bond
+> device can pass up an skb with an out-of-range queue_index, triggering a
+> warning in get_rps_cpu().
 
-Sounds fine to me, please prepare a patch.
-
-Thanks!
+Series applied, thanks Ben.
