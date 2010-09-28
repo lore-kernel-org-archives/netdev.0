@@ -1,32 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6 04/17] bnx2x: Use
- netif_set_real_num_{rx,tx}_queues()
-Date: Tue, 28 Sep 2010 10:39:16 -0700 (PDT)
-Message-ID: <20100928.103916.226757256.davem@davemloft.net>
-References: <1285611927.2263.296.camel@achroite.uk.solarflarecom.com>
-	<8628FE4E7912BF47A96AE7DD7BAC0AADDDEDAE6E96@SJEXCHCCR02.corp.ad.broadcom.com>
-	<8628FE4E7912BF47A96AE7DD7BAC0AADDDEDAE6ECA@SJEXCHCCR02.corp.ad.broadcom.com>
+Subject: Re: [PATCH net-next 2.6] myri10ge: DCA update
+Date: Tue, 28 Sep 2010 10:40:23 -0700 (PDT)
+Message-ID: <20100928.104023.71133512.davem@davemloft.net>
+References: <4CA1F06E.3070109@myri.com>
+	<1285683683.3154.66.camel@edumazet-laptop>
+	<4CA202FC.5000609@myri.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, netdev@vger.kernel.org,
-	linux-net-drivers@solarflare.com, eilong@broadcom.com
-To: vladz@broadcom.com
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, loic@myri.com
+To: gallatin@myri.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53284
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53287
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750738Ab0I1Ri4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Sep 2010 13:38:56 -0400
-In-Reply-To: <8628FE4E7912BF47A96AE7DD7BAC0AADDDEDAE6ECA@SJEXCHCCR02.corp.ad.broadcom.com>
+	by vger.kernel.org with ESMTP id S1750914Ab0I1RkD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Sep 2010 13:40:03 -0400
+In-Reply-To: <4CA202FC.5000609@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Vladislav Zolotarov" <vladz@broadcom.com>
-Date: Tue, 28 Sep 2010 05:59:15 -0700
+From: Andrew Gallatin <gallatin@myri.com>
+Date: Tue, 28 Sep 2010 11:00:12 -0400
 
-> Ben, I'm going to fix the bnx2x the way your patch would apply. I
-> suspect this would probably require u to respin the bnx2x patch.
-> Sorry for the inconvenience.
+> I've corrected the style problems pointed out by checkpatch, and
+> I've attached a new diff.  Is that sufficient, or do I start a
+> new thread, or..?
 
-Ben's patch is already in the tree, so you need to send me patches
-relative to his.
+Please send a new fresh patch submission, or as you term it
+"start a new thread" :-)
