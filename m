@@ -1,67 +1,41 @@
-From: "Gustavo F. Padovan" <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
-Subject: pull-request: bluetooth-2.6 2010-09-27
-Date: Mon, 27 Sep 2010 23:30:35 -0300
-Message-ID: <20100928023035.GA3033@vigoh>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: bonding vs GSO vs checksumming.
+Date: Tue, 28 Sep 2010 11:49:07 +0900
+Message-ID: <20100928024907.GA24948@gondor.apana.org.au>
+References: <AANLkTim2FF2n9JXfpdZmmnV5ZJ1ptC7se_JiU_z91okt@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux NetDev <netdev@vger.kernel.org>
+To: Maciej =?utf-8?Q?=C5=BBenczykowski?= <zenczykowski@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.apana.org.au ([209.40.204.226]:51093 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758002Ab0I1CtL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Sep 2010 22:49:11 -0400
 Content-Disposition: inline
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <AANLkTim2FF2n9JXfpdZmmnV5ZJ1ptC7se_JiU_z91okt@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+On Thu, Sep 23, 2010 at 05:56:43PM -0700, Maciej =C5=BBenczykowski wrot=
+e:
+> I'm seeing the following:
+>=20
+> bonding: caps=3D(0x1113a3, 0x1113ab) len=3D18192 data_len=3D18120 ip_=
+summed=3D0
+>=20
+> on a 2.6.34.5 based kernel originating from v6 tcp transmit (mtu 1280=
+)
+> on a bonded device of tg3 (presumably with TSO6) and forcedeth
+> (presumably without TSO6).
+>=20
+> I can't quite figure out what this truly means...
 
-These are the Bluetooth fixes for 2.6.36, you are used to see Marcel doing this
-job, but he has been busy lately so I'm taking the job of the pull request this
-time. Since we are a bit late on the pull request I'm skipping the
-wireless-2.6 step, tell me if you (including John here) disagree.
+Did it come with a kernel backtrace?
 
-In this patch set we have two fixes for regressions in L2CAP due to ERTM code
-we added in L2CAP for 2.6.36, a bugfix in the L2CAP Streaming Mode that was
-making the kernel crash. And a fix for a deadlock issue between the sk_sndbuf
-and the backlog queue in ERTM. The rest are also needed bug fixes.
-
-Please tell me any problem you have pulling this.
-
-PS: Considering that these patches do not go immediately to net-next how do I
-run the Bluetooth pull request to net-next? Currently my -next tree is rebased
-on net-next but before the bluetooth-next patches I put the bluetooth patches
-I have in my bluetooth-2.6 tree, i.e., when making the pull request I have to be
-sure that the -next patches will be on top of the patches I'm submitting now
-for 2.6.36. Any help on that is welcome. :)
-
-Regards,
-
-
----
-
-The following changes since commit b30a3f6257ed2105259b404d419b4964e363928c:
-
-  Linux 2.6.36-rc5 (2010-09-20 16:56:53 -0700)
-
-are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/padovan/bluetooth-2.6.git master
-
-Andrei Emeltchenko (1):
-      Bluetooth: fix MTU L2CAP configuration parameter
-
-Gustavo F. Padovan (4):
-      Bluetooth: Simplify L2CAP Streaming mode sending
-      Bluetooth: Fix inconsistent lock state with RFCOMM
-      Revert "Bluetooth: Don't accept ConfigReq if we aren't in the BT_CONFIG state"
-      Bluetooth: Fix deadlock in the ERTM logic
-
-Mat Martineau (1):
-      Bluetooth: Only enable L2CAP FCS for ERTM or streaming
-
- include/net/bluetooth/bluetooth.h |   11 +++++++
- net/bluetooth/l2cap.c             |   57 +++++++++++++++---------------------
- net/bluetooth/rfcomm/sock.c       |    4 ++
- 3 files changed, 39 insertions(+), 33 deletions(-)
-
--- 
-Gustavo F. Padovan
-ProFUSION embedded systems - http://profusion.mobi
+Thanks,
+--=20
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
