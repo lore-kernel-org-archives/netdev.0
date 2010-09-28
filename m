@@ -1,62 +1,108 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: TCP: orphans broken by RFC 2525 #2.17
-Date: Tue, 28 Sep 2010 11:26:52 +0200
-Message-ID: <20100928092652.GA28378@1wt.eu>
-References: <20100926232530.GK12373@1wt.eu> <20100926.181202.28824153.davem@davemloft.net> <20100927053901.GL12373@1wt.eu> <20100926.234202.241938788.davem@davemloft.net> <20100927073443.GR12373@1wt.eu> <alpine.LFD.2.00.1009271159070.2191@u.domain.uli> <20100927192450.GU12373@1wt.eu> <alpine.LFD.2.00.1009281139430.1506@ja.ssi.bg>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [Bugme-new] [Bug 18952] New: The mount of SYN retries is not
+ equal to /proc/sys/net/ipv4/tcp_syn_retries
+Date: Tue, 28 Sep 2010 12:47:23 +0300 (EEST)
+Message-ID: <alpine.DEB.2.00.1009281244040.26447@wel-95.cs.helsinki.fi>
+References: <201009271007.06705.yuri@itinteg.net> <1285617608.9983.30.camel@nexus> <20100927.215241.246534990.davem@davemloft.net> <201009280940.53153.yuri@itinteg.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Julian Anastasov <ja@ssi.bg>
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, damian@tvk.rwth-aachen.de,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Netdev <netdev@vger.kernel.org>,
+	bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org
+To: Yuri Chislov <yuri@itinteg.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:45762 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752526Ab0I1J07 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Sep 2010 05:26:59 -0400
-Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.00.1009281139430.1506@ja.ssi.bg>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:54246 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753527Ab0I1Jr0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Sep 2010 05:47:26 -0400
+In-Reply-To: <201009280940.53153.yuri@itinteg.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Julian,
+On Tue, 28 Sep 2010, Yuri Chislov wrote:
 
-On Tue, Sep 28, 2010 at 12:01:42PM +0300, Julian Anastasov wrote:
-> 	I think for another option but I don't know the TCP details
-> well:
-> 
-> - If SO_RCVBUF=0 really closes RX window
+>  What is advantage in the replace compare by calculation?
+> Please clarify, if possible.
+> Thanks.
+> Yuri.     
 
-I've been wondering what happens to an incoming data after the RX window
-is closed. Is the packet just dropped or may it still be queued. In fact,
-my concerns are : if SO_RCVBUF=0 just advertises a zero window, we can
-only be sure about the flush after an RTT. However, if it really prevents
-the receive side from accepting new data, then I agree we're safe.
+If you did take this from kernel history, reading the particular log 
+message might have helped?!?
 
-> and
-> 
-> - while (read() > 0) {} gets all unread data
+> --- linux-2.6.31.14/net/ipv4/tcp_timer.c        2010-07-05 17:11:43.000000000 
+> +0000
+> +++ linux-2.6.32.15/net/ipv4/tcp_timer.c        2010-06-01 16:56:03.000000000 
+> +0000
+> @@ -137,13 +137,14 @@
+>  {
+>         struct inet_connection_sock *icsk = inet_csk(sk);
+>         int retry_until;
+> +       bool do_reset;
+>  
+>         if ((1 << sk->sk_state) & (TCPF_SYN_SENT | TCPF_SYN_RECV)) {
+>                 if (icsk->icsk_retransmits)
+>                         dst_negative_advice(&sk->sk_dst_cache);
+>                 retry_until = icsk->icsk_syn_retries ? : 
+> sysctl_tcp_syn_retries;
+>         } else {
+> -               if (icsk->icsk_retransmits >= sysctl_tcp_retries1) {
+> +               if (retransmits_timed_out(sk, sysctl_tcp_retries1)) {
+>                         /* Black hole detection */
+>                         tcp_mtu_probing(icsk, sk);
+>  
+> @@ -155,13 +156,15 @@
+>                         const int alive = (icsk->icsk_rto < TCP_RTO_MAX);
+>  
+>                         retry_until = tcp_orphan_retries(sk, alive);
+> +                       do_reset = alive ||
+> +                                  !retransmits_timed_out(sk, retry_until);
+>  
+> -                       if (tcp_out_of_resources(sk, alive || icsk-
+> >icsk_retransmits < retry_until))
+> +                       if (tcp_out_of_resources(sk, do_reset))
+>                                 return 1;
+>                 }
+>         }
+>  
+> -       if (icsk->icsk_retransmits >= retry_until) {
+> +       if (retransmits_timed_out(sk, retry_until)) {
+>                 /* Has it gone just too far? */
+>                 tcp_write_err(sk);
+>                 return 1;
+> @@ -279,7 +282,7 @@
+>   *     The TCP retransmit timer.
+>   */
+>  
+> -static void tcp_retransmit_timer(struct sock *sk)
+> +void tcp_retransmit_timer(struct sock *sk)
+>  {
+>         struct tcp_sock *tp = tcp_sk(sk);
+>         struct inet_connection_sock *icsk = inet_csk(sk);
+> @@ -385,7 +388,7 @@
+>  out_reset_timer:
+>         icsk->icsk_rto = min(icsk->icsk_rto << 1, TCP_RTO_MAX);
+>         inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS, icsk->icsk_rto, 
+> TCP_RTO_MAX);
+> -       if (icsk->icsk_retransmits > sysctl_tcp_retries1)
+> +       if (retransmits_timed_out(sk, sysctl_tcp_retries1 + 1))
+>                 __sk_dst_reset(sk);
+>  
+>  out:;
+> @@ -499,8 +502,7 @@
+>         elapsed = tcp_time_stamp - tp->rcv_tstamp;
+>  
+>         if (elapsed >= keepalive_time_when(tp)) {
+> -               if ((!tp->keepalive_probes && icsk->icsk_probes_out >= 
+> sysctl_tcp_keepalive_probes) ||
+> -                    (tp->keepalive_probes && icsk->icsk_probes_out >= tp-
+> >keepalive_probes)) {
+> +               if (icsk->icsk_probes_out >= keepalive_probes(tp)) {
+>                         tcp_send_active_reset(sk, GFP_ATOMIC);
+>                         tcp_write_err(sk);
 
-During my tests on other products, I found that squid does that without
-the zero window, possibly resulting in an infinite loop when the sender
-is faster than the receiver. In our case, if the zero window works, it
-should not be an issue.
 
-> - just call close() to convert socket to orphan without a risk
-> of RST
-> 
-> 	Now when we are orphan socket I'm not sure what has
-> priority:
-> 
-> - if new DATA is flying to us, is it considered out of window,
-> do we send RST in FIN_WAIT1/CLOSING/LAST_ACK state in this case?
-> If we do not send RST then our goal is achieved: send everything
-> reliably without accepting data that needs RST. And we do not
-> need to keep fd in user space.
-
->From what I have observed, the issue is only for data present before
-the close. Upon FIN_WAIT1/CLOSING/LAST_ACK, we get the expected reset
-once the ACK acknowledges the last data sent, but I've not observed
-it for new data.
-
-Best regards,
-Willy
-
+-- 
+ i.
