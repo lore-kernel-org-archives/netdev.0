@@ -1,92 +1,58 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: Re: [PATCH] ipv4: remove all rt cache entries on UNREGISTER event
-Date: Tue, 28 Sep 2010 20:35:52 +0300
-Message-ID: <201009282035.53148.opurdila@ixiacom.com>
-References: <4CA208C9.1020800@6wind.com> <1285691629.3154.80.camel@edumazet-laptop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [RFC] Online firmware upgrade in non-embedded systems
+Date: Tue, 28 Sep 2010 18:59:47 +0100
+Message-ID: <1285696787.2282.45.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: nicolas.dichtel@6wind.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:31297 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754237Ab0I1RvM convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Sep 2010 13:51:12 -0400
-In-Reply-To: <1285691629.3154.80.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: sf-linux-drivers <linux-net-drivers@solarflare.com>
+To: netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-mtd <linux-mtd@lists.infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tuesday 28 September 2010, 19:33:49
+Network and disk controllers normally have at least some firmware in
+flash to support their use as boot devices.  Solarflare's current
+network adapters can have as many as 4 distinct firmware partitions: one
+for each PHY, one for the management CPU and one for net-boot.  Any or
+all of these may need to be updated in the field, to fix bugs or to add
+features.  (Furthermore, the net-boot firmware is based on gPXE and is
+therefore modifiable by any user.)
 
-> Le mardi 28 septembre 2010 =E0 17:24 +0200, Nicolas Dichtel a =E9crit=
- :
-> > Hi,
-> >=20
-> > I face a problem when I try to remove an interface,
-> > netdev_wait_allrefs() complains about refcount.
-> >=20
-> > Here is a trivial scenario to reproduce the problem:
-> > # ip tunnel add mode ipip remote 10.16.0.164 local 10.16.0.72 dev e=
-th0
-> > # ./a.out tunl1
-> > # ip tunnel del tunl1
-> >=20
-> > Note: a.out binary create an IPv4 raw socket, attach it to tunl1
-> > (SO_BINDTODEVICE), set it as multicast (IP_MULTICAST_LOOP), set the
-> > multicast interface to tunl1 (IP_MULTICAST_IF), build the IP header
-> > (IP_HDRINCL) and then send a single packet (192.168.6.1 -> 224.0.0.=
-18).
-> >=20
-> > Note2: when a.out is executed, tunl1 has no ip address and is down.
->=20
-> CC Octavian Purdila, the patch author.
->=20
-> I am just wondering why this route is created in the first place.
->=20
-> Maybe a fix would be to forbid this ?
->=20
-> Some machines have a giant route cache, so its very important to avoi=
-d
-> expensive scans.
->=20
-> > Then, I got a serie of "kernel:[1206699.728010] unregister_netdevic=
-e:
-> > waiting for tunl1 to become free. Usage count =3D 3" and after some=
- time,
-> > interface is removed.
-> >=20
-> > The problem is that route cache entries are only invalidate on
-> > UNREGISTER event, and not removed (introduced by commit
-> > e2ce146848c81af2f6d42e67990191c284bf0c33). We must wait that
-> > rt_check_expire() remove the remaining route cache entries.
-> >=20
-> > To fix the problem, I propose to remove a part of the previous comm=
-it.
-> >=20
+Currently the sfc network driver is optionally combined with an MTD
+driver (CONFIG_SFC_MTD) which exposes all upgradable firmware and
+configuration partitions in flash.  This works nicely in kernels with
+MTD enabled, but since MTD is mainly used in embedded systems with
+on-board flash it is often disabled in distribution kernels and custom
+kernels alike.  This leaves users of sfc unable to upgrade firmware
+without rebuilding the kernel or booting some other distribution.  The
+lack of widespread MTD support is a regular cause of support requests.
 
+There are two main alternatives I'm aware of:
 
-Hi Nicolas,
+- Use the ethtool ETHTOOL_SEEPROM command with multiple magic numbers
+for different partitions. bnx2x does something a little like this for
+PHY firmware upgrades. The ethtool core passes in a page at a time so
+this won't work well with flash block sizes greater than PAGE_SIZE.
 
-The purpose of my original patch was to speed up interfaces deregistrat=
-ion=20
-even more after Eric's batch work. Reverting it might slow things down =
-again,=20
-but since this is breaking things we should probably revert it and thin=
-k a=20
-proper optimization afterward. I know that Eric B has done some more wo=
-rk in=20
-this area, for batch namespace cleanup, maybe the issue is not even the=
-re=20
-anymore.=20
+- Use the ethtool ETHTOOL_FLASHDEV command. It's intended for precisely
+this purpose, but the driver is supposed to implement it using
+request_firmware(). That seems to require any firmware update program to
+integrate with udev or to copy firmware images under /lib/firmware even
+though they are one-time updates. That doesn't make a lot of sense to
+me. Am I missing something?
 
-So, Ack from me.
+Of course these are both specific to network devices; it seems deisrable
+to have a more general convention for online firmware upgrades.  MTDs
+clearly are more generally applicable, and pretty much every computer
+does have flash storage for firmware and boot configuration, so perhaps
+it should be treated as more of a standard feature?
 
-We might even fully revert the patch, since the bit that is left doesn'=
-t have=20
-any value anymore.
+Ben.
 
-Thanks,
-tavi
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
