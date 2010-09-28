@@ -1,45 +1,41 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] de2104x: remove experimental status
-Date: Tue, 28 Sep 2010 14:52:19 -0400
-Message-ID: <4CA23963.8040409@pobox.com>
-References: <201009282046.21279.linux@rainbow-software.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Kernel development list <linux-kernel@vger.kernel.org>
-To: Ondrej Zary <linux@rainbow-software.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f174.google.com ([209.85.161.174]:60890 "EHLO
-	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756857Ab0I1SwX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Sep 2010 14:52:23 -0400
-In-Reply-To: <201009282046.21279.linux@rainbow-software.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexander Clouter <alex@digriz.org.uk>
+Subject: Re: [RFC] Online firmware upgrade in non-embedded systems
+Date: Tue, 28 Sep 2010 19:45:33 +0100
+Message-ID: <dnp9n7-puv.ln1@chipmunk.wormnet.eu>
+References: <1285696787.2282.45.camel@achroite.uk.solarflarecom.com>
+Cc: netdev@vger.kernel.org, linux-mtd@lists.infradead.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 09/28/2010 02:46 PM, Ondrej Zary wrote:
-> It should be ready after 8 years...remove the experimental dependency.
->
-> Signed-off-by: Ondrej Zary<linux@rainbow-software.org>
->
-> --- linux-2.6.36-rc3-/drivers/net/tulip/Kconfig	2010-08-29 17:36:04.000000000 +0200
-> +++ linux-2.6.36-rc3/drivers/net/tulip/Kconfig	2010-09-28 19:49:46.000000000 +0200
-> @@ -11,8 +11,8 @@ menuconfig NET_TULIP
->   if NET_TULIP
->
->   config DE2104X
-> -	tristate "Early DECchip Tulip (dc2104x) PCI support (EXPERIMENTAL)"
-> -	depends on PCI&&  EXPERIMENTAL
-> +	tristate "Early DECchip Tulip (dc2104x) PCI support"
-> +	depends on PCI
->   	select CRC32
->   	---help---
->   	  This driver is developed for the SMC EtherPower series Ethernet
+In gmane.linux.kernel Ben Hutchings <bhutchings@solarflare.com> wrote:
+> 
+> Currently the sfc network driver is optionally combined with an MTD
+> driver (CONFIG_SFC_MTD) which exposes all upgradable firmware and
+> configuration partitions in flash.  This works nicely in kernels with
+> MTD enabled, but since MTD is mainly used in embedded systems with
+> on-board flash it is often disabled in distribution kernels and custom
+> kernels alike.  This leaves users of sfc unable to upgrade firmware
+> without rebuilding the kernel or booting some other distribution.  The
+> lack of widespread MTD support is a regular cause of support requests.
+> 
+----
+ac56@proxy0:~$ uname -a
+Linux proxy0 2.6.32-5-686 #1 SMP Wed Aug 25 14:28:12 UTC 2010 i686 GNU/Linux
+ac56@proxy0:~$ cat /etc/debian_version 
+squeeze/sid
+ac56@proxy0:~$ grep CONFIG_SFC_MTD /boot/config-2.6.32-5-686 
+CONFIG_SFC_MTD=y
+ac56@proxy0:~$ grep '^CONFIG_MTD' /boot/config-2.6.32-5-686 | wc
+     72      72    1693
+----
 
-Well...  it's not the years, it's the quality...  which I think has been 
-sufficiently increased.
+I tell them "use a real distribution".
 
-Acked-by: Jeff Garzik <jgarzik@redhat.com>
+Cheers
 
-
+-- 
+Alexander Clouter
+.sigmonster says: BOFH excuse #119:
+                  evil hackers from Serbia.
