@@ -1,34 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6 16/17] tg3: Use
- netif_set_real_num_{rx,tx}_queues()
-Date: Mon, 27 Sep 2010 22:13:02 -0700 (PDT)
-Message-ID: <20100927.221302.102545210.davem@davemloft.net>
-References: <1285612357.2263.319.camel@achroite.uk.solarflarecom.com>
-	<20100927214107.GA32336@mcarlson.broadcom.com>
-	<20100927214416.GA32384@mcarlson.broadcom.com>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: TCP: orphans broken by RFC 2525 #2.17
+Date: Tue, 28 Sep 2010 07:12:58 +0200
+Message-ID: <20100928051258.GB12373@1wt.eu>
+References: <20100927192112.GT12373@1wt.eu> <20100927232857.GA23803@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, netdev@vger.kernel.org,
-	linux-net-drivers@solarflare.com, mchan@broadcom.com
-To: mcarlson@broadcom.com
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.hengli.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41857
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754299Ab0I1FMm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Sep 2010 01:12:42 -0400
-In-Reply-To: <20100927214416.GA32384@mcarlson.broadcom.com>
+Received: from 1wt.eu ([62.212.114.60]:45743 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754491Ab0I1FNH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Sep 2010 01:13:07 -0400
+Content-Disposition: inline
+In-Reply-To: <20100927232857.GA23803@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Date: Mon, 27 Sep 2010 14:44:16 -0700
-
-> On Mon, Sep 27, 2010 at 02:41:07PM -0700, Matt Carlson wrote:
->> This should be tp->irq_cnt - 1, not tp->irq_cnt.  The first MSI-X vector
->> only handles link interrupts and device errors.
+On Tue, Sep 28, 2010 at 08:28:57AM +0900, Herbert Xu wrote:
+> Willy Tarreau <w@1wt.eu> wrote:
+> > 
+> > Two quick facts :
+> >  - HTTP allows the client to send whatever it wants whenever it wants
+> >    and allows the server to close after whatever response it wants.
+> >    Thus the server cannot predict that the client will talk.
 > 
-> I need to correct myself.  If the irq_cnt > 1, then it needs to be
-> tp->irq_cnt - 1.  If the irq_cnt == 1, then it should be 1.
+> No it does not.  Only buggy HTTP clients do that.
 
-I fixed this when I applied Ben's patch, thanks!
+I don't agree Herbert. Pipelining consists exactly in that, and is an
+encouraged practice. If you say that only buggy clients send an extra
+CRLF, then yes I agree. But you might very well get a new request you
+can't predict at all, and the arrival of this new request must not 
+destroy the end of last response's data.
+
+Once again, for now, I will only handle this precise case of the extra
+CRLF, but this will not fix the issue with pipelined requests.
+
+Regards,
+Willy
+
