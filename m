@@ -1,43 +1,52 @@
-From: Philip Rakity <prakity@marvell.com>
-Subject: [PATCH] net: pxa168_etc.c  recognize additional contributors
-Date: Tue, 28 Sep 2010 07:26:30 -0700
-Message-ID: <73276AFF-CD7C-4D61-AD6B-E0EC48C5D30C@marvell.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH v11 13/17] Add mp(mediate passthru) device.
+Date: Tue, 28 Sep 2010 16:39:59 +0200
+Message-ID: <201009281639.59417.arnd@arndb.de>
+References: <1285388855-27410-1-git-send-email-xiaohui.xin@intel.com> <1285622613.2263.550.camel@achroite.uk.solarflarecom.com> <20100928130654.GD14385@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Mark Brown <markb@marvell.com>, Sachin Sanap <ssanap@marvell.com>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog113.obsmtp.com ([74.125.149.209]:56082 "HELO
-	na3sys009aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752006Ab0I1OcG convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Sep 2010 10:32:06 -0400
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Ben Hutchings <bhutchings@solarflare.com>, xiaohui.xin@intel.com,
+	netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mingo@elte.hu, davem@davemloft.net,
+	herbert@gondor.hengli.com.au, jdike@linux.intel.com,
+	Sridhar Samudrala <sri@us.ibm.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100928130654.GD14385@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Philip Rakity <prakity@marvell.com>
-Signed-off-by: Sachin Sanap <ssanap@marvell.com>
-Signed-off-by: Mark Brown <markb@marvell.com>
----
- drivers/net/pxa168_eth.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+On Tuesday 28 September 2010, Michael S. Tsirkin wrote:
+> > > +   skb_reserve(skb, NET_IP_ALIGN);
+> > > +   skb_put(skb, len);
+> > > +
+> > > +   if (skb_copy_datagram_from_iovec(skb, 0, iov, 0, len)) {
+> > > +           kfree_skb(skb);
+> > > +           return -EAGAIN;
+> > > +   }
+> > > +
+> > > +   skb->protocol = eth_type_trans(skb, mp->dev);
+> > 
+> > Why are you calling eth_type_trans() on transmit?
+> 
+> So that GSO can work.  BTW macvtap does:
+> 
+>         skb_set_network_header(skb, ETH_HLEN);
+>         skb_reset_mac_header(skb);
+>         skb->protocol = eth_hdr(skb)->h_proto;
+> 
+> and I think this is broken for vlans. Arnd?
 
-diff --git a/drivers/net/pxa168_eth.c b/drivers/net/pxa168_eth.c
-index c6eeb38..0f2d41b 100644
---- a/drivers/net/pxa168_eth.c
-+++ b/drivers/net/pxa168_eth.c
-@@ -4,8 +4,10 @@
-  *
-  * Copyright (C) 2010 Marvell International Ltd.
-  *		Sachin Sanap <ssanap@marvell.com>
-+ *		Zhangfei Gao <zgao6@marvell.com>
-  *		Philip Rakity <prakity@marvell.com>
-  *		Mark Brown <markb@marvell.com>
-  *
-  * This program is free software; you can redistribute it and/or
-  * modify it under the terms of the GNU General Public License
--- 
-1.6.0.4
+Hmm, that code (besides set_network_header) was added by Sridhar
+for GSO support. I believe I originally did eth_type_trans but
+had to change it before that time because it broke something.
+Unfortunately, my memory on that is not very good any more.
 
+Can you be more specific what the problem is? Do you think
+it breaks when a guest sends VLAN tagged frames or when macvtap
+is connected to a VLAN interface that adds another tag (or
+only the combination)?
+
+	Arnd
