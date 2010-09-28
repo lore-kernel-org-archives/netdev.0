@@ -1,99 +1,68 @@
-From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
-Subject: Re: [PATCH] net: Fix IPv6 PMTU disc. w/ asymmetric routes
-Date: Tue, 28 Sep 2010 15:37:26 -0700
-Message-ID: <AANLkTi=9THOcD9FieK3uy635C1kNDc=uEdtDe4qm1WU6@mail.gmail.com>
-References: <55a4f86e1001131651j102b600fm1552a42866c3c671@mail.gmail.com>
-	<1285581957-30694-1-git-send-email-zenczykowski@gmail.com>
-	<20100928.135800.39205209.davem@davemloft.net>
+From: Carl-Daniel Hailfinger <c-d.hailfinger.devel.2006@gmx.net>
+Subject: Re: [RFC] Online firmware upgrade in non-embedded systems
+Date: Wed, 29 Sep 2010 00:41:57 +0200
+Message-ID: <4CA26F35.6060408@gmx.net>
+References: <1285696787.2282.45.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, Hideaki Yoshifuji <yoshfuji@linux-ipv6.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:39924 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750890Ab0I1Wh1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Sep 2010 18:37:27 -0400
-Received: by wwd20 with SMTP id 20so58738wwd.1
-        for <netdev@vger.kernel.org>; Tue, 28 Sep 2010 15:37:26 -0700 (PDT)
-In-Reply-To: <20100928.135800.39205209.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-mtd <linux-mtd@lists.infradead.org>,
+	sf-linux-drivers <linux-net-drivers@solarflare.com>,
+	flashrom <flashrom@flashrom.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1285696787.2282.45.camel@achroite.uk.solarflarecom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> Please handle all 4 cases just like the ipv4 routing code does:
+[adding flashrom@flashrom.org to CC, senders will be whitelisted after a
+short delay]
+
+On 28.09.2010 19:59, Ben Hutchings wrote:
+> Network and disk controllers normally have at least some firmware in
+> flash to support their use as boot devices. [...]
 >
-> { saddr = SADDR, ifindex = dev->ifindex }
-> { saddr = SADDR, ifindex = 0 }
-> { saddr = INADDR_ANY, ifindex = dev->ifindex }
-> { saddr = INADDR_ANY, ifindex = 0 }
+> Currently the sfc network driver is optionally combined with an MTD
+> driver (CONFIG_SFC_MTD) which exposes all upgradable firmware and
+> configuration partitions in flash.  This works nicely in kernels with
+> MTD enabled, but since MTD is mainly used in embedded systems with
+> on-board flash it is often disabled in distribution kernels and custom
+> kernels alike.  This leaves users of sfc unable to upgrade firmware
+> without rebuilding the kernel or booting some other distribution.  The
+> lack of widespread MTD support is a regular cause of support requests.
 >
-> I believe I've specifically asked for this every time someone mentioned that they wanted to fix this issue.
+> There are two main alternatives I'm aware of:
+>
+> - Use the ethtool ETHTOOL_SEEPROM [...]
+>
+> - Use the ethtool ETHTOOL_FLASHDEV command [..]
+>
+> Of course these are both specific to network devices; it seems deisrable
+> to have a more general convention for online firmware upgrades.  MTDs
+> clearly are more generally applicable, and pretty much every computer
+> does have flash storage for firmware and boot configuration, so perhaps
+> it should be treated as more of a standard feature?
+>   
 
-I believe that is exactly what the following code fragment from the
-above patch does:
+Given that the flashrom utility <http://www.flashrom.org/> (GPLv2)
+supports flashing many network cards, SATA/PATA controllers, graphics
+cards, and of course the main system firmware/BIOS/EFI, and it does that
+from userspace without any kernel support, using flashrom for those
+purposes makes sense IMHO.
 
-+       rt6_do_pmtu_disc(daddr, saddr, net, pmtu, 0);
-+       rt6_do_pmtu_disc(daddr, saddr, net, pmtu, dev->ifindex);
-+       rt6_do_pmtu_disc(daddr, NULL, net, pmtu, 0);
-+       rt6_do_pmtu_disc(daddr, NULL, net, pmtu, dev->ifindex);
+flashrom works fine under Linux 2.4, 2.6 and pretty much every other OS
+out there. There is a focus on x86, but MIPS, PowerPC and other
+architectures are supported as well. flashrom is independent of the MTD
+framework, so you don't need to boot a special kernel for a firmware
+upgrade.
 
-The last two of these lines were added to the patch last time around
-per your feedback - precisely to address this issue.
-I reposted with those changes and you appeared to be ok with the
-patch, and your only comment was to add a 'Signed-off-by' line.
+That said, writing a flashrom driver for your hardware is pretty easy.
+You could even use existing kernel code for your device as a template
+for the flashrom driver since the license is compatible.
 
+If you have any questions, please ask.
 
-Side note:
-* I still think that handling the saddr == NULL ie. INADDR_ANY case is
-entirely superfluous, since it doesn't actually iterate through all
-possible source addresses.  With IPv6 there can be many, many possible
-source addresses (just think of link local vs global public vs privacy
-addresses and then tack on 6to4 and mobility, etc... for example I see
-13 ipv6 addresses on eth0 on my desktop at home, 12 of them globally
-reachable).
-* Currently PMTU discovery is broken.  With this patch with all 4
-lines we end up doing PMTU discovery per source address that isn't the
-default source address.  Without those last two lines we'd just do
-PMTU discovery per source address.  Not much of a difference, both
-allow PMTU discovery to actually happen.
-
-Except:
-
-Imagine a machine with a 1500 MTU network card and 2 source addresses:
-  - one default v6 native 'A'
-  - one additional 6to4 address 'B'
-The native address can reach the internet with a max MTU of 1500.
-While due to source address based routing the 6to4 address goes
-through a sit ipv4 based tunnel and thus has a max MTU of 1480 (1500 -
-20 bytes IPv4 header).
-
-Imagine a remote machine with v6 address 'Z' (our default address to
-reach 'Z' is 'A').
-Clearly the PMTU of A->Z is 1500, while the PMTU of B->Z is 1480.
-[Assume there's nothing which would cause them to be lower.]
-
-If you do PMTU discovery of A->Z, you will indeed get 1500, and mark
-that as the PMTU of A->Z.
-However if you do PMTU discovery of B->Z, you will indeed get 1480,
-but you will mark that as the PMTU of both B->Z and A->Z (since A is
-the default to reach Z).
-Suddenly the PMTU of A->Z _needlessly and incorrectly_ dropped from
-1500 to 1480 merely because of PMTU discovery being performed on B->Z.
-
-And this is precisely why I think that adding those last two lines
-that handle INADDR_ANY is actually more of a problem then solution
-(indeed as far as I can tell, adding them doesn't actually fix any
-problem - the code works just fine and performs PMTU discovery
-correctly with just the first two lines).
-
-Thankfully ending up with a lower MTU than actually possible is only a
-slight performance problem, while not doing PMTU discovery correctly
-at all (current state with asymmetric routing) is a big issue.
-Hence regardless of whether this patch includes INADDR_ANY or not the
-end result will still be an improvement.
-
-> And the ipv4 side is a good guide in other ways, it uses a set of two arrays so you can just loop over them, making your rt6_do_pmtu_disc() calls along the way.
-
-Sure, I can change it to use arrays, although I don't see any
-particular improvement in performance (even if rt6_do_pmtu_disc was
-inlined) or readability or anything.
+Regards,
+Carl-Daniel
