@@ -1,53 +1,35 @@
-From: Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-Subject: Re: WiMAX linux firmware pull request
-Date: Tue, 28 Sep 2010 21:27:45 -0700
-Message-ID: <1285734465.3136.339.camel@localhost.localdomain>
-References: <1285699570.3136.307.camel@localhost.localdomain>
-	 <1285728768.814.74.camel@macbook.infradead.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] ip_gre: CONFIG_IPV6_MODULE support
+Date: Wed, 29 Sep 2010 13:36:42 +0900
+Message-ID: <20100929043642.GA3660@gondor.apana.org.au>
+References: <20100928084139.GA26793@gondor.apana.org.au> <1285663738.2607.30.camel@edumazet-laptop> <1285733911.22570.20.camel@edumazet-laptop> <1285734295.22570.25.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "wimax@linuxwimax.org" <wimax@linuxwimax.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Woodhouse <dwmw2@infradead.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:4797 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751087Ab0I2EdH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Sep 2010 00:33:07 -0400
-In-Reply-To: <1285728768.814.74.camel@macbook.infradead.org>
+Received: from helcar.apana.org.au ([209.40.204.226]:45730 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751091Ab0I2Egt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Sep 2010 00:36:49 -0400
+Content-Disposition: inline
+In-Reply-To: <1285734295.22570.25.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2010-09-28 at 19:52 -0700, David Woodhouse wrote: 
-> On Tue, 2010-09-28 at 11:46 -0700, Inaky Perez-Gonzalez wrote:    
-> >    The 1.3 version is purged as it is not supported anymore.
+On Wed, Sep 29, 2010 at 06:24:55AM +0200, Eric Dumazet wrote:
+>
+> Well, we all know icmpv6_cleanup() is not really called (or can we
+> really unload ipv6 ?).
 > 
-> Not supported by newer kernels? Or "if you are using something that
-> requires the 1.3 firmware, you can just fuck off and die", along the
-> lines of what we say to users of the 2.4 kernel?
+> But unregister_icmpv6_send() should be the first call in it.
 
-Along those lines -- basically 1.3 was an experimental release and if
-you have that firmware, you won't be able to connect to anything than a
-very specific test setup in a lab. The code is still there because it is
-just two perfectly isolated paths (if curious, check what goes with the
-i2400m_le_v1_3() test) that I forgot to excise out.
+Do we really need to support IPV6=m and GRE=y? It might be simpler
+to just behave as if IPv6 is off when this combination is given.
 
-> We shouldn't drop stuff from linux-firmware.git until there really is
-> *no* reason to need it any more. We shouldn't force people to keep
-> linux-firmware in step with their kernel; they should always be able to
-> use the latest.
-
-Yes, I am aware of that. That's why 1.4 is kept there -- 1.3 is an
-special case because as I said above, it can't be used in the real world
-of WiMAX, 
-
-> When I get home from Tokyo I'll be working on a way to specify min/max
-> kernel versions for each firmware image, along with a 'make install'
-> target which lets you say "drop anything which is only relevant to
-> kernels < 2.6.35' or whatever.
-
-That looks pretty sensible :)
-
-
-
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
