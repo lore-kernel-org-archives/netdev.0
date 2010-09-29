@@ -1,41 +1,48 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH net-next2.6] net: rename netdev rx_queue to
- ingress_queue
-Date: Wed, 29 Sep 2010 15:18:52 +0200
-Message-ID: <20100929131852.GA1891@del.dom.local>
-References: <1285689517.3154.76.camel@edumazet-laptop>
- <20100928180447.GA1880@del.dom.local>
- <1285757817.3561.2.camel@bigi>
+From: "Xin, Xiaohui" <xiaohui.xin@intel.com>
+Subject: RE: [PATCH v11 12/17] Add a kconfig entry and make entry for mp
+ device.
+Date: Wed, 29 Sep 2010 21:39:54 +0800
+Message-ID: <F2E9EB7348B8264F86B6AB8151CE2D792EC64F8155@shsmsx502.ccr.corp.intel.com>
+References: <1285388855-27410-1-git-send-email-xiaohui.xin@intel.com>
+	 <0eed02838e581f2ef2247be8e69bc34cdecce6b2.1285385607.git.xiaohui.xin@intel.com>
+ <1285595805.2263.13.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: jamal <hadi@cyberus.ca>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:38148 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755484Ab0I2NS6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Sep 2010 09:18:58 -0400
-Received: by wwb39 with SMTP id 39so15835wwb.1
-        for <netdev@vger.kernel.org>; Wed, 29 Sep 2010 06:18:57 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1285757817.3561.2.camel@bigi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"mingo@elte.hu" <mingo@elte.hu>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"herbert@gondor.hengli.com.au" <herbert@gondor.hengli.com.au>,
+	"jdike@linux.intel.com" <jdike@linux.intel.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1285595805.2263.13.camel@achroite.uk.solarflarecom.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 29, 2010 at 06:56:57AM -0400, jamal wrote:
-> On Tue, 2010-09-28 at 20:04 +0200, Jarek Poplawski wrote:
-> 
-> > I hope Master of Ingress will forgive you this CC some day... ;-)
-> 
-> Forgiven-by: moi 
-> 
-> Which may or may not stand for "me" if you pardon my French
+Thanks, I will move this in order next version.
 
-Which, may or may not stand for "my" if you pardon my Polish ;-)
+Thanks
+Xiaohui
 
-Btw, now, of course, this patch looks OK to me.
-
-Cheers,
-Jarek P.
+>-----Original Message-----
+>From: Ben Hutchings [mailto:bhutchings@solarflare.com]
+>Sent: Monday, September 27, 2010 9:57 PM
+>To: Xin, Xiaohui
+>Cc: netdev@vger.kernel.org; kvm@vger.kernel.org; linux-kernel@vger.kernel.org;
+>mingo@elte.hu; davem@davemloft.net; herbert@gondor.hengli.com.au;
+>jdike@linux.intel.com
+>Subject: Re: [PATCH v11 12/17] Add a kconfig entry and make entry for mp device.
+>
+>This patch is in the wrong position in the sequence.  It needs to be
+>applied after mpassthru.c is created, not before.
+>
+>Ben.
+>
+>--
+>Ben Hutchings, Senior Software Engineer, Solarflare Communications
+>Not speaking for my employer; that's the marketing department's job.
+>They asked us to note that Solarflare product names are trademarked.
