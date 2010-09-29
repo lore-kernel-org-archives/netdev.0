@@ -1,50 +1,117 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH net-next] arp: remove unnecessary export of arp_broken_ops
-Date: Wed, 29 Sep 2010 12:08:02 +0900
-Message-ID: <20100929120802.2f642d0d@s6510>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 3] drivers/net/usb/qcusbnet: Spelling and extern int debug
+ cleanups
+Date: Tue, 28 Sep 2010 20:09:24 -0700
+Message-ID: <1285729764.1866.161.camel@Joe-Laptop>
+References: <20100928171026.GB6083@google.com>
+	 <cover.1285727642.git.joe@perches.com>
+	 <0aa502d0e385f2333f8bc12dafdcde88e5ca0262.1285727642.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, dbrownell@users.sourceforge.net,
+	mjg59@srcf.ucam.org, jglasgow@google.com, msb@google.com,
+	olofj@google.com
+To: Elly Jones <ellyjones@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:57251 "EHLO mail.vyatta.com"
+Received: from mail.perches.com ([173.55.12.10]:2532 "EHLO mail.perches.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751223Ab0I2DIL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Sep 2010 23:08:11 -0400
+	id S1751832Ab0I2DJ0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Sep 2010 23:09:26 -0400
+In-Reply-To: <0aa502d0e385f2333f8bc12dafdcde88e5ca0262.1285727642.git.joe@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-arp_broken_ops is only used in arp.c
+Some miscellaneous typo cleanups.
+Add missing newlines to DBG messages.
+"debug" is not a good global variable name, use qcusbnet_debug instead.
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ drivers/net/usb/qcusbnet/qcusbnet.c  |   10 +++++-----
+ drivers/net/usb/qcusbnet/qmidevice.c |    6 +++---
+ drivers/net/usb/qcusbnet/structs.h   |    2 +-
+ 3 files changed, 9 insertions(+), 9 deletions(-)
 
-
---- a/include/net/arp.h	2010-09-29 10:36:46.125871462 +0900
-+++ b/include/net/arp.h	2010-09-29 10:36:51.195923872 +0900
-@@ -26,6 +26,4 @@ extern struct sk_buff *arp_create(int ty
- 				  const unsigned char *target_hw);
- extern void arp_xmit(struct sk_buff *skb);
+diff --git a/drivers/net/usb/qcusbnet/qcusbnet.c b/drivers/net/usb/qcusbnet/qcusbnet.c
+index 54a354e..7e218a8 100644
+--- a/drivers/net/usb/qcusbnet/qcusbnet.c
++++ b/drivers/net/usb/qcusbnet/qcusbnet.c
+@@ -25,7 +25,7 @@
+ #define DRIVER_AUTHOR "Qualcomm Innovation Center"
+ #define DRIVER_DESC "QCUSBNet2k"
  
--extern const struct neigh_ops arp_broken_ops;
--
- #endif	/* _ARP_H */
---- a/net/ipv4/arp.c	2010-09-29 10:36:46.135874409 +0900
-+++ b/net/ipv4/arp.c	2010-09-29 10:37:15.985915408 +0900
-@@ -161,7 +161,7 @@ static const struct neigh_ops arp_direct
- 	.queue_xmit =		dev_queue_xmit,
+-int debug;
++int qcusbnet_debug;
+ static struct class *devclass;
+ 
+ int qc_suspend(struct usb_interface *iface, pm_message_t event)
+@@ -558,7 +558,7 @@ int qcnet_probe(struct usb_interface *iface, const struct usb_device_id *vidpids
+ 
+ 	dev = kmalloc(sizeof(struct qcusbnet), GFP_KERNEL);
+ 	if (!dev) {
+-		DBG("falied to allocate device buffers");
++		DBG("failed to allocate device buffers\n");
+ 		return -ENOMEM;
+ 	}
+ 
+@@ -568,7 +568,7 @@ int qcnet_probe(struct usb_interface *iface, const struct usb_device_id *vidpids
+ 
+ 	netdevops = kmalloc(sizeof(struct net_device_ops), GFP_KERNEL);
+ 	if (!netdevops) {
+-		DBG("falied to allocate net device ops");
++		DBG("failed to allocate net device ops\n");
+ 		return -ENOMEM;
+ 	}
+ 	memcpy(netdevops, usbnet->net->netdev_ops, sizeof(struct net_device_ops));
+@@ -645,5 +645,5 @@ MODULE_AUTHOR(DRIVER_AUTHOR);
+ MODULE_DESCRIPTION(DRIVER_DESC);
+ MODULE_LICENSE("Dual BSD/GPL");
+ 
+-module_param(debug, bool, S_IRUGO | S_IWUSR);
+-MODULE_PARM_DESC(debug, "Debuging enabled or not");
++module_param(qcusbnet_debug, bool, S_IRUGO | S_IWUSR);
++MODULE_PARM_DESC(qcusbnet_debug, "Debugging enabled or not");
+diff --git a/drivers/net/usb/qcusbnet/qmidevice.c b/drivers/net/usb/qcusbnet/qmidevice.c
+index 5150453..d1cb341 100755
+--- a/drivers/net/usb/qcusbnet/qmidevice.c
++++ b/drivers/net/usb/qcusbnet/qmidevice.c
+@@ -54,7 +54,7 @@ struct qmihandle {
+ 	struct qcusbnet *dev;
  };
  
--const struct neigh_ops arp_broken_ops = {
-+static const struct neigh_ops arp_broken_ops = {
- 	.family =		AF_INET,
- 	.solicit =		arp_solicit,
- 	.error_report =		arp_error_report,
-@@ -170,7 +170,6 @@ const struct neigh_ops arp_broken_ops = 
- 	.hh_output =		dev_queue_xmit,
- 	.queue_xmit =		dev_queue_xmit,
- };
--EXPORT_SYMBOL(arp_broken_ops);
+-extern int debug;
++extern int qcusbnet_debug;
+ static int qcusbnet2k_fwdelay;
  
- struct neigh_table arp_tbl = {
- 	.family		= AF_INET,
+ static bool device_valid(struct qcusbnet *dev);
+@@ -339,12 +339,12 @@ int qc_startread(struct qcusbnet *dev)
+ void qc_stopread(struct qcusbnet *dev)
+ {
+ 	if (dev->qmi.readurb) {
+-		DBG("Killng read URB\n");
++		DBG("Killing read URB\n");
+ 		usb_kill_urb(dev->qmi.readurb);
+ 	}
+ 
+ 	if (dev->qmi.inturb) {
+-		DBG("Killng int URB\n");
++		DBG("Killing int URB\n");
+ 		usb_kill_urb(dev->qmi.inturb);
+ 	}
+ 
+diff --git a/drivers/net/usb/qcusbnet/structs.h b/drivers/net/usb/qcusbnet/structs.h
+index 2999e62..7a89c5c 100755
+--- a/drivers/net/usb/qcusbnet/structs.h
++++ b/drivers/net/usb/qcusbnet/structs.h
+@@ -33,7 +33,7 @@
+ 
+ #define DBG(fmt, arg...)						\
+ do {									\
+-	if (debug == 1)							\
++	if (qcusbnet_debug == 1)					\
+ 		printk(KERN_INFO "QCUSBNet2k::%s " fmt, __func__, ##arg); \
+ } while (0)
+ 
+
+
