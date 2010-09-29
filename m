@@ -1,35 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] net: add a recursion limit in xmit path
-Date: Wed, 29 Sep 2010 13:23:23 -0700 (PDT)
-Message-ID: <20100929.132323.28800834.davem@davemloft.net>
-References: <AANLkTinCz_0jHsMYW9_Wko78i9U20qefFbTYCQQQ-pz5@mail.gmail.com>
-	<1285785794.2813.292.camel@edumazet-laptop>
-	<1285787072.2813.333.camel@edumazet-laptop>
+Subject: Re: [PATCH net-next-2.6] dummy: percpu stats and lockless xmit
+Date: Wed, 29 Sep 2010 13:26:41 -0700 (PDT)
+Message-ID: <20100929.132641.102556696.davem@davemloft.net>
+References: <1285656633.10438.35.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jesse@nicira.com, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51294
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34956
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754398Ab0I2UXE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Sep 2010 16:23:04 -0400
-In-Reply-To: <1285787072.2813.333.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1754054Ab0I2U0V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Sep 2010 16:26:21 -0400
+In-Reply-To: <1285656633.10438.35.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 29 Sep 2010 21:04:32 +0200
+Date: Tue, 28 Sep 2010 08:50:33 +0200
 
-> [PATCH net-next-2.6] net: add a recursion limit in xmit path
+> Converts dummy network device driver to :
 > 
-> As tunnel devices are going to be lockless, we need to make sure a
-> misconfigured machine wont enter an infinite loop.
+> - percpu stats
 > 
-> Add a percpu variable, and limit to three the number of stacked xmits.
+> - 64bit stats
 > 
-> Reported-by: Jesse Gross <jesse@nicira.com>
+> - lockless xmit (NETIF_F_LLTX)
+> 
+> - performance features added (NETIF_F_SG | NETIF_F_FRAGLIST |
+> NETIF_F_TSO | NETIF_F_NO_CSUM | NETIF_F_HIGHDMA)
+> 
 > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
 Applied.
