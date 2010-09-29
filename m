@@ -1,60 +1,168 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [RFC PATCH 2/2] macvtap: TX zero copy between guest and host
- kernel
-Date: Tue, 28 Sep 2010 20:24:29 -0700
-Message-ID: <1285730669.31343.7.camel@localhost.localdomain>
-References: <20100914152231.GA13105@redhat.com>
-	 <1284480025.13351.49.camel@localhost.localdomain>
-	 <20100914162952.GB13560@redhat.com>
-	 <1284483745.13351.71.camel@localhost.localdomain>
-	 <20100914182707.GB15549@redhat.com>
-	 <1284490143.13351.82.camel@localhost.localdomain>
-	 <20100914190156.GA16037@redhat.com>
-	 <1284492983.13351.95.camel@localhost.localdomain>
-	 <20100915051241.GA25340@redhat.com>
-	 <1284531675.24603.259.camel@localhost.localdomain>
-	 <20100915101000.GB28016@redhat.com>
-	 <1284562354.2573.12.camel@localhost.localdomain>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] ip_gre: CONFIG_IPV6_MODULE support
+Date: Wed, 29 Sep 2010 06:18:30 +0200
+Message-ID: <1285733911.22570.20.camel@edumazet-laptop>
+References: <20100928084139.GA26793@gondor.apana.org.au>
+	 <1285663738.2607.30.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Arnd Bergmann <arnd@arndb.de>, Avi Kivity <avi@redhat.com>,
-	"Xin, Xiaohui" <xiaohui.xin@intel.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1284562354.2573.12.camel@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:45573 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750769Ab0I2ESk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Sep 2010 00:18:40 -0400
+Received: by fxm14 with SMTP id 14so240148fxm.19
+        for <netdev@vger.kernel.org>; Tue, 28 Sep 2010 21:18:39 -0700 (PDT)
+In-Reply-To: <1285663738.2607.30.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Michael,
+Le mardi 28 septembre 2010 =C3=A0 10:48 +0200, Eric Dumazet a =C3=A9cri=
+t :
+> Le mardi 28 septembre 2010 =C3=A0 17:41 +0900, Herbert Xu a =C3=A9cri=
+t :
+> > Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > > ipv6 can be a module, we should test CONFIG_IPV6 and CONFIG_IPV6_=
+MODULE
+> > > to enable ipv6 bits in ip_gre.
+> > >=20
+> > > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> >=20
+> > To do this safely, we also need to disallow IPV6=3Dm and GRE=3Dy.
+> >=20
+> > Cheers,
+>=20
 
-On Wed, 2010-09-15 at 07:52 -0700, Shirley Ma wrote:
-> > >  Don't you think once I address vhost_add_used_and_signal update
-> > > issue, it is a simple and complete patch for macvtap TX zero copy?
-> > > 
-> > > Thanks
-> > > Shirley
-> > 
-> > I like the fact that the patch is simple. Unfortunately
-> > I suspect it'll stop being simple by the time it's complete :) 
-> 
-> I can make a try. :)
+I even remember Patrick warned about this 30 months ago.... Doh...
 
-I compared several approaches for addressing the issue being raised here
-on how/when to update vhost_add_used_and_signal. The simple approach I
-have found is:
+http://www.kerneltrap.com/mailarchive/linux-netdev/2008/1/22/590393
 
-1. Adding completion field in struct virtqueue;
-2. when it is a zero copy packet, put vhost thread wait for completion
-to update vhost_add_used_and_signal;
-3. passing vq from vhost to macvtap as skb destruct_arg;
-4. when skb is freed for the last reference, signal vq completion
+Given its now rare ipv6 is not loaded, what about following patch ?
 
-The test results show same performance as the original patch. How do you
-think? If it sounds good to you. I will resubmit this reversion patch.
-The patch still keeps as simple as it was before. :)
+Thanks !
 
-Thanks
-Shirley
+Tested here, with a non loaded ipv6 module.
+
+
+[PATCH] ipv6: introduce call_icmpv6_send()
+
+ip_gre module has a dependency against IPv6:
+
+It needs to call icmpv6_send(), while this symbol is available only if
+IPv6 module is loaded (or static)
+
+Introduce call_icmpv6_send(), provided in core network, to indirectly
+call icmpv6_send() function if available.
+
+Reported-by: Patrick McHardy <kaber@trash.net>
+Reported-by: Herbert Xu <herbert@gondor.apana.org.au>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ include/net/icmp.h |    6 ++++++
+ net/ipv4/icmp.c    |   33 +++++++++++++++++++++++++++++++++
+ net/ipv4/ip_gre.c  |    2 +-
+ net/ipv6/icmp.c    |    2 ++
+ 4 files changed, 42 insertions(+), 1 deletion(-)
+
+diff --git a/include/net/icmp.h b/include/net/icmp.h
+index 6e991e0..ec45a4f 100644
+--- a/include/net/icmp.h
++++ b/include/net/icmp.h
+@@ -48,4 +48,10 @@ extern void	icmp_out_count(struct net *net, unsigned=
+ char type);
+ /* Move into dst.h ? */
+ extern int 	xrlim_allow(struct dst_entry *dst, int timeout);
+=20
++extern int register_icmpv6_send(void (*func)(struct sk_buff *skb, u8 t=
+ype,
++					     u8 code, __u32 info));
++extern int unregister_icmpv6_send(void);
++extern void call_icmpv6_send(struct sk_buff *skb, u8 type,
++			     u8 code, __u32 info);
++
+ #endif	/* _ICMP_H */
+diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+index a0d847c..4c5b817 100644
+--- a/net/ipv4/icmp.c
++++ b/net/ipv4/icmp.c
+@@ -1217,3 +1217,36 @@ int __init icmp_init(void)
+ {
+ 	return register_pernet_subsys(&icmp_sk_ops);
+ }
++
++
++/* wrappers to call icmpv6_send() if ipv6 module is loaded */
++
++static void __rcu (*icmpv6_send_ptr)(struct sk_buff *skb, u8 type, u8 =
+code,
++				     __u32 info);
++
++int register_icmpv6_send(void (*func)(struct sk_buff *skb, u8 type, u8=
+ code,
++				      __u32 info))
++{
++	rcu_assign_pointer(icmpv6_send_ptr, func);
++	return 0;
++}
++EXPORT_SYMBOL(register_icmpv6_send);
++
++int unregister_icmpv6_send(void)
++{
++	rcu_assign_pointer(icmpv6_send_ptr, NULL);
++	synchronize_rcu();
++	return 0;
++}
++EXPORT_SYMBOL(unregister_icmpv6_send);
++
++/* called with rcu_read_lock */
++void call_icmpv6_send(struct sk_buff *skb, u8 type, u8 code, __u32 inf=
+o)
++{
++	void (*func)(struct sk_buff *skb, u8 type, u8 code, __u32 info);
++
++	func =3D rcu_dereference(icmpv6_send_ptr);
++	if (func)
++		(*func)(skb, type, code, info);
++}
++EXPORT_SYMBOL(call_icmpv6_send);
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index 35c93e8..6cbd37c 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -788,7 +788,7 @@ static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff=
+ *skb, struct net_device *dev
+ 		}
+=20
+ 		if (mtu >=3D IPV6_MIN_MTU && mtu < skb->len - tunnel->hlen + gre_hle=
+n) {
+-			icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
++			call_icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
+ 			ip_rt_put(rt);
+ 			goto tx_error;
+ 		}
+diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+index 03e62f9..25e9ad6 100644
+--- a/net/ipv6/icmp.c
++++ b/net/ipv6/icmp.c
+@@ -862,6 +862,7 @@ int __init icmpv6_init(void)
+ 	err =3D -EAGAIN;
+ 	if (inet6_add_protocol(&icmpv6_protocol, IPPROTO_ICMPV6) < 0)
+ 		goto fail;
++	register_icmpv6_send(icmpv6_send);
+ 	return 0;
+=20
+ fail:
+@@ -874,6 +875,7 @@ void icmpv6_cleanup(void)
+ {
+ 	unregister_pernet_subsys(&icmpv6_sk_ops);
+ 	inet6_del_protocol(&icmpv6_protocol, IPPROTO_ICMPV6);
++	unregister_icmpv6_send();
+ }
+=20
+=20
+
+
