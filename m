@@ -1,82 +1,105 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC PATCH 2/2] macvtap: TX zero copy between guest and host
- kernel
-Date: Wed, 29 Sep 2010 10:28:20 +0200
-Message-ID: <20100929082820.GC21195@redhat.com>
-References: <20100914182707.GB15549@redhat.com>
- <1284490143.13351.82.camel@localhost.localdomain>
- <20100914190156.GA16037@redhat.com>
- <1284492983.13351.95.camel@localhost.localdomain>
- <20100915051241.GA25340@redhat.com>
- <1284531675.24603.259.camel@localhost.localdomain>
- <20100915101000.GB28016@redhat.com>
- <1284562354.2573.12.camel@localhost.localdomain>
- <1285730669.31343.7.camel@localhost.localdomain>
- <20100929081645.GA21195@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] ipv4: remove all rt cache entries on UNREGISTER event
+Date: Wed, 29 Sep 2010 10:35:49 +0200
+Message-ID: <1285749349.2615.27.camel@edumazet-laptop>
+References: <4CA208C9.1020800@6wind.com>
+	 <1285691629.3154.80.camel@edumazet-laptop>  <4CA21BC6.5070300@6wind.com>
+	 <1285692969.3154.86.camel@edumazet-laptop>  <4CA2EF9C.9040909@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arnd Bergmann <arnd@arndb.de>, Avi Kivity <avi@redhat.com>,
-	"Xin, Xiaohui" <xiaohui.xin@intel.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Shirley Ma <mashirle@us.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20100929081645.GA21195@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>,
+	Octavian Purdila <opurdila@ixiacom.com>
+To: nicolas.dichtel@6wind.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:43603 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753178Ab0I2Ifz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Sep 2010 04:35:55 -0400
+Received: by fxm14 with SMTP id 14so295589fxm.19
+        for <netdev@vger.kernel.org>; Wed, 29 Sep 2010 01:35:54 -0700 (PDT)
+In-Reply-To: <4CA2EF9C.9040909@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 29, 2010 at 10:16:45AM +0200, Michael S. Tsirkin wrote:
-> On Tue, Sep 28, 2010 at 08:24:29PM -0700, Shirley Ma wrote:
-> > Hello Michael,
-> > 
-> > On Wed, 2010-09-15 at 07:52 -0700, Shirley Ma wrote:
-> > > > >  Don't you think once I address vhost_add_used_and_signal update
-> > > > > issue, it is a simple and complete patch for macvtap TX zero copy?
-> > > > > 
-> > > > > Thanks
-> > > > > Shirley
-> > > > 
-> > > > I like the fact that the patch is simple. Unfortunately
-> > > > I suspect it'll stop being simple by the time it's complete :) 
-> > > 
-> > > I can make a try. :)
-> > 
-> > I compared several approaches for addressing the issue being raised here
-> > on how/when to update vhost_add_used_and_signal. The simple approach I
-> > have found is:
-> > 
-> > 1. Adding completion field in struct virtqueue;
-> > 2. when it is a zero copy packet, put vhost thread wait for completion
-> > to update vhost_add_used_and_signal;
-> > 3. passing vq from vhost to macvtap as skb destruct_arg;
-> > 4. when skb is freed for the last reference, signal vq completion
-> > The test results show same performance as the original patch. How do you
-> > think? If it sounds good to you. I will resubmit this reversion patch.
-> > The patch still keeps as simple as it was before. :)
-> > 
-> > Thanks
-> > Shirley
-> 
-> If you look at dev_hard_start_xmit you will see a call
-> to skb_orphan_try which often calls the skb destructor.
-> So I suspect this is almost equivalent to your original patch,
-> and has the same correctness issue.
+Le mercredi 29 septembre 2010 =C3=A0 09:49 +0200, Nicolas Dichtel a =C3=
+=A9crit :
+> Eric Dumazet wrote:
+> > Le mardi 28 septembre 2010 =C3=A0 18:45 +0200, Nicolas Dichtel a =C3=
+=A9crit :
+> >> Eric Dumazet wrote:
+> >>> Le mardi 28 septembre 2010 =C3=A0 17:24 +0200, Nicolas Dichtel a =
+=C3=A9crit :
+> >>>> Hi,
+> >>>>
+> >>>> I face a problem when I try to remove an interface,=20
+> >>>> netdev_wait_allrefs() complains about refcount.
+> >>>>
+> >>>> Here is a trivial scenario to reproduce the problem:
+> >>>> # ip tunnel add mode ipip remote 10.16.0.164 local 10.16.0.72 de=
+v eth0
+> >>>> # ./a.out tunl1
+> >>>> # ip tunnel del tunl1
+> >>>>
+> >>>> Note: a.out binary create an IPv4 raw socket, attach it to tunl1=
+=20
+> >>>> (SO_BINDTODEVICE), set it as multicast (IP_MULTICAST_LOOP), set =
+the=20
+> >>>> multicast interface to tunl1 (IP_MULTICAST_IF), build the IP hea=
+der=20
+> >>>> (IP_HDRINCL) and then send a single packet (192.168.6.1 -> 224.0=
+=2E0.18).
+> >>>>
+> >>>> Note2: when a.out is executed, tunl1 has no ip address and is do=
+wn.
+> >>>>
+> >>> CC Octavian Purdila, the patch author.
+> >>>
+> >>> I am just wondering why this route is created in the first place.
+> The route is created because no function will check interface status =
+(up=20
+> and running or down). Just at the end, the packet will be enqueued in=
+=20
+> the noop qdisc.
+>=20
 
-So you could try doing skb_tx(skb)->prevent_sk_orphan = 1
-just to see what will happen. Might be interesting - just
-make sure the device doesn't orphan the skb first thing.
-I suspect lack of parallelism will result in bad throughput
-esp for small messages.
+In your case maybe, but I think there is another point where we can cal=
+l
+dev_hold() while device is in dismantle phase.
 
-Note this still won't make it correct (this has module unloading
-issue, and devices might still orphan skb, clone it, or hang on to
-paged data in some other way) but at least closer.
 
-I think you should try testing with guest to external communication,
-this will uncover some of these correctness issues for you.
-I think netperf also has some flag to check data, might
-be a good idea to use it for testing.
+> >> At first, I asked myself the same question, but it seems that this=
+ is=20
+> >> allowed to send a packet through this kind of socket, even if inte=
+rface=20
+> >> is down. Packet will be destroyed by the noop qdisk.
+> >> But I agree that it is strange to perform route lookup and everyth=
+ing to=20
+> >>    destroy the packet at the end ...
+> >> Maybe raw_sendmsg() can delete it directly ;-) ... or maybe=20
+> >> ip_route_output_flow().
+> >>
+> >> Any suggestions welcome.
+> >>
+> >=20
+> > Hmm...
+> >=20
+> > One way to track this kind of problem would be to add a WARN_ON() i=
+n
+> > dev_hold()
+> >=20
+> > -> Check that when a reference on dev is taken, we are in a known s=
+tate.
+> >=20
+> > Something like this ?
+> dev_hold() is done when interface is down, but before unregistering=20
+> process start.
 
-> -- 
-> MST
+Not on my machine. I can see the backtrace sometimes.
+
+There is a race somewhere (maybe several), and your patch only reduce
+the window of this race.
+
+I am working on it.
+
+
