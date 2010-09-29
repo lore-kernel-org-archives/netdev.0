@@ -1,49 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH linux-2.6 v2] IPv6: Create temporary address if none
- exists.
-Date: Tue, 28 Sep 2010 22:25:10 -0700 (PDT)
-Message-ID: <20100928.222510.71109554.davem@davemloft.net>
-References: <20100927170430.GA7106@adams.ccsl.carleton.ca>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH net-next] tcp: tcp_enter_quickack_mode can be static
+Date: Wed, 29 Sep 2010 14:30:14 +0900
+Message-ID: <20100929143014.7f32cec3@s6510>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, shemminger@vyatta.com,
-	eric.dumazet@gmail.com, herbert@gondor.apana.org.au,
-	ebiederm@xmission.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: gwurster@scs.carleton.ca
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100927170430.GA7106@adams.ccsl.carleton.ca>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:58751 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750903Ab0I2FaV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Sep 2010 01:30:21 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Glenn Wurster <gwurster@scs.carleton.ca>
-Date: Mon, 27 Sep 2010 13:04:30 -0400
+Function only used in tcp_input.c
 
-> If privacy extentions are enabled, but no current temporary address exists,
-> then create one when we get a router advertisement.
-> 
-> Version 2, now with 100% fewer line wraps.  Thanks to David Miller for
-> pointing out the line wrapping issue.
-> 
-> Signed-off-by: Glenn Wurster <gwurster@scs.carleton.ca>
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-The existing code is correct from what I can tell.
+---
+ include/net/tcp.h    |    2 --
+ net/ipv4/tcp_input.c |    2 +-
+ 2 files changed, 1 insertion(+), 3 deletions(-)
 
-Variable "create" is true when "ifp == NULL" and "valid_lft != 0"
-
-And RFC 3041 explicitly states in section 3.3:
-
-	When a new public address is created as described in [ADDRCONF]
-	(because the prefix advertised does not match the prefix of any
-	address already assigned to the interface, and Valid Lifetime
-	in the option is not zero), also create a new temporary address.
-
-Your patch is going to cause us to create a temporary address even
-when valid_lft is zero, which the RFC says we should not do.
-
-That goes against what the RFC tells us to do, so I can only conclude
-that your patch is not correct.
-
-I'm not applying this, sorry.
+--- a/net/ipv4/tcp_input.c	2010-09-29 14:00:54.145805254 +0900
++++ b/net/ipv4/tcp_input.c	2010-09-29 14:24:27.595831651 +0900
+@@ -182,7 +182,7 @@ static void tcp_incr_quickack(struct soc
+ 		icsk->icsk_ack.quick = min(quickacks, TCP_MAX_QUICKACKS);
+ }
+ 
+-void tcp_enter_quickack_mode(struct sock *sk)
++static void tcp_enter_quickack_mode(struct sock *sk)
+ {
+ 	struct inet_connection_sock *icsk = inet_csk(sk);
+ 	tcp_incr_quickack(sk);
+--- a/include/net/tcp.h	2010-09-29 14:27:53.543307029 +0900
++++ b/include/net/tcp.h	2010-09-29 14:28:10.435891279 +0900
+@@ -346,8 +346,6 @@ static inline void tcp_dec_quickack_mode
+ 	}
+ }
+ 
+-extern void tcp_enter_quickack_mode(struct sock *sk);
+-
+ #define	TCP_ECN_OK		1
+ #define	TCP_ECN_QUEUE_CWR	2
+ #define	TCP_ECN_DEMAND_CWR	4
