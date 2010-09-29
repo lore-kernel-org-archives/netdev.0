@@ -1,111 +1,74 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH linux-2.6 v2] IPv6: Create temporary address if none exists.
-Date: Wed, 29 Sep 2010 10:43:16 -0400
-Message-ID: <4CA35084.8010503@hp.com>
-References: <20100927170430.GA7106@adams.ccsl.carleton.ca> <20100928.222510.71109554.davem@davemloft.net>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [RFC PATCH 2/2] macvtap: TX zero copy between guest and host
+ kernel
+Date: Wed, 29 Sep 2010 07:56:26 -0700
+Message-ID: <1285772186.31343.23.camel@localhost.localdomain>
+References: <20100914182707.GB15549@redhat.com>
+	 <1284490143.13351.82.camel@localhost.localdomain>
+	 <20100914190156.GA16037@redhat.com>
+	 <1284492983.13351.95.camel@localhost.localdomain>
+	 <20100915051241.GA25340@redhat.com>
+	 <1284531675.24603.259.camel@localhost.localdomain>
+	 <20100915101000.GB28016@redhat.com>
+	 <1284562354.2573.12.camel@localhost.localdomain>
+	 <1285730669.31343.7.camel@localhost.localdomain>
+	 <20100929081645.GA21195@redhat.com>  <20100929082820.GC21195@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: gwurster@scs.carleton.ca, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	shemminger@vyatta.com, eric.dumazet@gmail.com,
-	herbert@gondor.apana.org.au, ebiederm@xmission.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Arnd Bergmann <arnd@arndb.de>, Avi Kivity <avi@redhat.com>,
+	"Xin, Xiaohui" <xiaohui.xin@intel.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0015.houston.hp.com ([15.201.24.18]:29141 "EHLO
-	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752747Ab0I2On3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Sep 2010 10:43:29 -0400
-In-Reply-To: <20100928.222510.71109554.davem@davemloft.net>
+Received: from e35.co.us.ibm.com ([32.97.110.153]:33270 "EHLO
+	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750984Ab0I2O4i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Sep 2010 10:56:38 -0400
+In-Reply-To: <20100929082820.GC21195@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/29/2010 01:25 AM, David Miller wrote:
-> From: Glenn Wurster <gwurster@scs.carleton.ca>
-> Date: Mon, 27 Sep 2010 13:04:30 -0400
+On Wed, 2010-09-29 at 10:28 +0200, Michael S. Tsirkin wrote:
+> > > 1. Adding completion field in struct virtqueue;
+> > > 2. when it is a zero copy packet, put vhost thread wait for
+> completion
+> > > to update vhost_add_used_and_signal;
+> > > 3. passing vq from vhost to macvtap as skb destruct_arg;
+> > > 4. when skb is freed for the last reference, signal vq completion
+> > > The test results show same performance as the original patch. How
+> do you
+> > > think? If it sounds good to you. I will resubmit this reversion
+> patch.
+> > > The patch still keeps as simple as it was before. :)
+> > > 
+> > > Thanks
+> > > Shirley
+> > 
+> > If you look at dev_hard_start_xmit you will see a call
+> > to skb_orphan_try which often calls the skb destructor.
+> > So I suspect this is almost equivalent to your original patch,
+> > and has the same correctness issue.
 > 
->> If privacy extentions are enabled, but no current temporary address exists,
->> then create one when we get a router advertisement.
->>
->> Version 2, now with 100% fewer line wraps.  Thanks to David Miller for
->> pointing out the line wrapping issue.
->>
->> Signed-off-by: Glenn Wurster <gwurster@scs.carleton.ca>
+> So you could try doing skb_tx(skb)->prevent_sk_orphan = 1
+> just to see what will happen. Might be interesting - just
+> make sure the device doesn't orphan the skb first thing.
+> I suspect lack of parallelism will result in bad throughput
+> esp for small messages.
 > 
-> The existing code is correct from what I can tell.
-> 
-> Variable "create" is true when "ifp == NULL" and "valid_lft != 0"
-> 
-> And RFC 3041 explicitly states in section 3.3:
-> 
-> 	When a new public address is created as described in [ADDRCONF]
-> 	(because the prefix advertised does not match the prefix of any
-> 	address already assigned to the interface, and Valid Lifetime
-> 	in the option is not zero), also create a new temporary address.
-> 
-> Your patch is going to cause us to create a temporary address even
-> when valid_lft is zero, which the RFC says we should not do.
-> 
-> That goes against what the RFC tells us to do, so I can only conclude
-> that your patch is not correct.
+> Note this still won't make it correct (this has module unloading
+> issue, and devices might still orphan skb, clone it, or hang on to
+> paged data in some other way) but at least closer. 
 
-I think this patch might actually be OK, I had to look at this more than
-once to figure out the problem Glenn was trying to fix.  Maybe he can
-confirm.
+For message size smaller than 128, it still does copy. I tested some
+small message size, I didn't see any regression. I will run more test to
+focus on small message size between 128 - 4K.
 
->From what I have found, this is fixing the case where we've changed
-use_tempaddr to 1 on an interface that already has a "stable" IPv6
-prefix.  In that case you'll never add a temporary address:
+I don't need prevent_sk_orphan since in skb_release_data for last
+reference, I just need the ZEROCOPY flag from that sock to signal a
+completion.
 
-# ip -6 a s dev eth6
-10: eth6: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qlen 1000
-    inet6 2620:0:a09:e000:21f:29ff:fe59:faca/64 scope global dynamic 
-       valid_lft 2591820sec preferred_lft 604620sec
-    inet6 fe80::21f:29ff:fe59:faca/64 scope link 
-       valid_lft forever preferred_lft forever
+Thanks
+Shirley
 
-07:47:52.119051 IP6 fe80::205:9aff:fe3a:1871 > ip6-allnodes: ICMP6, router advertisement
-
-# ip -6 a s dev eth6
-10: eth6: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qlen 1000
-    inet6 2620:0:a09:e000:21f:29ff:fe59:faca/64 scope global dynamic 
-       valid_lft 2591996sec preferred_lft 604796sec
-    inet6 fe80::21f:29ff:fe59:faca/64 scope link 
-       valid_lft forever preferred_lft forever
-
-No temp address :(
-
-Since we're in the "if (ifp)" block, we can assume that at some point
-in time we did get a valid advertisement to add this address, whether
-is was right now or an hour ago doesn't matter.  Of course the RFCs
-don't cover this case, they assume privacy settings were enabled at
-boot time, if there's ever an update to 4941/3041 that should be
-clarified.
-
-Maybe the below (untested) patch is better?  Glenn, can you test this?
-
--Brian
-
-
----
-
-If privacy extensions are enabled, but no current temporary address exists,
-then create one when we get a router advertisement with a valid lifetime.
-
-Signed-off-by: Brian Haley <brian.haley@hp.com>
-
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 8c88340..fb238d6 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -1925,7 +1925,8 @@ ok:
- 			update_lft = create = 1;
- 			ifp->cstamp = jiffies;
- 			addrconf_dad_start(ifp, RTF_ADDRCONF|RTF_PREFIX_RT);
--		}
-+		} else if (list_empty(&in6_dev->tempaddr_list) && valid_lft)
-+			create = 1;	/* use_tempaddr could have changed */
- 
- 		if (ifp) {
- 			int flags;
