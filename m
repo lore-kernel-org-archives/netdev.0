@@ -1,75 +1,53 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH 4/7] net: emaclite: Add support for little-endian
- platforms
-Date: Wed, 29 Sep 2010 15:11:46 +0900
-Message-ID: <20100929061146.GA2439@angua.secretlab.ca>
-References: <1285739538-29058-1-git-send-email-monstr@monstr.eu>
- <1285739538-29058-2-git-send-email-monstr@monstr.eu>
- <1285739538-29058-3-git-send-email-monstr@monstr.eu>
- <1285739538-29058-4-git-send-email-monstr@monstr.eu>
- <1285739538-29058-5-git-send-email-monstr@monstr.eu>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] ip_gre: CONFIG_IPV6_MODULE support
+Date: Wed, 29 Sep 2010 08:24:03 +0200
+Message-ID: <1285741443.22570.27.camel@edumazet-laptop>
+References: <20100928084139.GA26793@gondor.apana.org.au>
+	 <1285663738.2607.30.camel@edumazet-laptop>
+	 <1285733911.22570.20.camel@edumazet-laptop>
+	 <1285734295.22570.25.camel@edumazet-laptop>
+	 <20100929043642.GA3660@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, john.williams@petalogix.com,
-	edgar.iglesias@gmail.com, duyl@xilinx.com, linnj@xilinx.com,
-	microblaze-uclinux@itee.uq.edu.au,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	devicetree-discuss@lists.ozlabs.org
-To: Michal Simek <monstr@monstr.eu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1285739538-29058-5-git-send-email-monstr@monstr.eu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:56370 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751091Ab0I2GYJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Sep 2010 02:24:09 -0400
+Received: by fxm14 with SMTP id 14so263950fxm.19
+        for <netdev@vger.kernel.org>; Tue, 28 Sep 2010 23:24:08 -0700 (PDT)
+In-Reply-To: <20100929043642.GA3660@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 29, 2010 at 03:52:15PM +1000, Michal Simek wrote:
-> Upcomming Microblaze is little endian that's why is necessary
-> to fix protocol and length loading.
-> 
-> Signed-off-by: Michal Simek <monstr@monstr.eu>
-> CC: "David S. Miller" <davem@davemloft.net>
-> CC: Grant Likely <grant.likely@secretlab.ca>
-> CC: Eric Dumazet <eric.dumazet@gmail.com>
-> CC: netdev@vger.kernel.org
-> CC: linux-kernel@vger.kernel.org
-> CC: devicetree-discuss@lists.ozlabs.org
+Le mercredi 29 septembre 2010 =C3=A0 13:36 +0900, Herbert Xu a =C3=A9cr=
+it :
+> On Wed, Sep 29, 2010 at 06:24:55AM +0200, Eric Dumazet wrote:
+> >
+> > Well, we all know icmpv6_cleanup() is not really called (or can we
+> > really unload ipv6 ?).
+> >=20
+> > But unregister_icmpv6_send() should be the first call in it.
+>=20
+> Do we really need to support IPV6=3Dm and GRE=3Dy? It might be simple=
+r
+> to just behave as if IPv6 is off when this combination is given.
+>=20
+> Cheers,
 
-This should go via davem, but it looks correct to me.
+Well, sometimes people wants to :
 
-Acked-by: Grant Likely <grant.likely@secretlab.ca>
+/etc/modprobe.conf
+install ipv6 /bin/true
 
-> ---
->  drivers/net/xilinx_emaclite.c |    8 ++++----
->  1 files changed, 4 insertions(+), 4 deletions(-)
-> 
-> diff --git a/drivers/net/xilinx_emaclite.c b/drivers/net/xilinx_emaclite.c
-> index 71122ee..533ebb1 100644
-> --- a/drivers/net/xilinx_emaclite.c
-> +++ b/drivers/net/xilinx_emaclite.c
-> @@ -430,8 +430,8 @@ static u16 xemaclite_recv_data(struct net_local *drvdata, u8 *data)
->  	}
->  
->  	/* Get the protocol type of the ethernet frame that arrived */
-> -	proto_type = ((in_be32(addr + XEL_HEADER_OFFSET +
-> -			XEL_RXBUFF_OFFSET) >> XEL_HEADER_SHIFT) &
-> +	proto_type = ((ntohl(in_be32(addr + XEL_HEADER_OFFSET +
-> +			XEL_RXBUFF_OFFSET)) >> XEL_HEADER_SHIFT) &
->  			XEL_RPLR_LENGTH_MASK);
->  
->  	/* Check if received ethernet frame is a raw ethernet frame
-> @@ -439,9 +439,9 @@ static u16 xemaclite_recv_data(struct net_local *drvdata, u8 *data)
->  	if (proto_type > (ETH_FRAME_LEN + ETH_FCS_LEN)) {
->  
->  		if (proto_type == ETH_P_IP) {
-> -			length = ((in_be32(addr +
-> +			length = ((ntohl(in_be32(addr +
->  					XEL_HEADER_IP_LENGTH_OFFSET +
-> -					XEL_RXBUFF_OFFSET) >>
-> +					XEL_RXBUFF_OFFSET)) >>
->  					XEL_HEADER_SHIFT) &
->  					XEL_RPLR_LENGTH_MASK);
->  			length += ETH_HLEN + ETH_FCS_LEN;
-> -- 
-> 1.5.5.1
-> 
+
+Yet, be able to load ip_gre as a module
+
+so IPV6=3Dm, GRE=3Dm,
+
+
+
