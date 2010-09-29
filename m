@@ -1,62 +1,159 @@
 From: Flavio Leitner <fbl@redhat.com>
-Subject: Re: [PATCH] bonding: fix to rejoin multicast groups immediately
-Date: Wed, 29 Sep 2010 10:16:19 -0300
-Message-ID: <20100929131619.GA2857@redhat.com>
-References: <1285744327-1194-1-git-send-email-fleitner@redhat.com>
+Subject: Re: [PATCH] bonding: rejoin multicast groups on VLANs
+Date: Wed, 29 Sep 2010 10:17:13 -0300
+Message-ID: <20100929131713.GB2857@redhat.com>
+References: <1285744344-1231-1-git-send-email-fleitner@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: bonding-devel@lists.sourceforge.net,
 	Jay Vosburgh <fubar@us.ibm.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51345 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:38142 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755484Ab0I2NQd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Sep 2010 09:16:33 -0400
+	id S1755484Ab0I2NRX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Sep 2010 09:17:23 -0400
 Content-Disposition: inline
-In-Reply-To: <1285744327-1194-1-git-send-email-fleitner@redhat.com>
+In-Reply-To: <1285744344-1231-1-git-send-email-fleitner@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-forgot CC to bonding-devel@lists.sourceforge.net
+forgot CC to bonding-devel
 
-On Wed, Sep 29, 2010 at 04:12:07AM -0300, Flavio Leitner wrote:
-> It should rejoin multicast groups immediately when
-> the failover happens to restore the multicast traffic.
+On Wed, Sep 29, 2010 at 04:12:24AM -0300, Flavio Leitner wrote:
+> It fixes bonding to rejoin multicast groups added
+> to VLAN devices on top of bonding when a failover
+> happens.
+> 
+> The first packet may be discarded, so the timer
+> assure that at least 3 Reports are sent.
 > 
 > Signed-off-by: Flavio Leitner <fleitner@redhat.com>
 > ---
->  net/ipv4/igmp.c |   16 ++++++++--------
->  1 files changed, 8 insertions(+), 8 deletions(-)
+>  drivers/net/bonding/bond_main.c |   59 +++++++++++++++++++++++++++++++++-----
+>  drivers/net/bonding/bonding.h   |    2 +
+>  2 files changed, 53 insertions(+), 8 deletions(-)
 > 
-> diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-> index 1fdcacd..b81d674 100644
-> --- a/net/ipv4/igmp.c
-> +++ b/net/ipv4/igmp.c
-> @@ -1257,14 +1257,14 @@ void ip_mc_rejoin_group(struct ip_mc_list *im)
->  	if (im->multiaddr == IGMP_ALL_HOSTS)
->  		return;
->  
-> -	if (IGMP_V1_SEEN(in_dev) || IGMP_V2_SEEN(in_dev)) {
-> -		igmp_mod_timer(im, IGMP_Initial_Report_Delay);
-> -		return;
-> -	}
-> -	/* else, v3 */
-> -	im->crcount = in_dev->mr_qrv ? in_dev->mr_qrv :
-> -		IGMP_Unsolicited_Report_Count;
-> -	igmp_ifc_event(in_dev);
-> +	/* a failover is happening and switches
-> +	 * must be notified immediately */
-> +	if (IGMP_V1_SEEN(in_dev))
-> +		igmp_send_report(in_dev, im, IGMP_HOST_MEMBERSHIP_REPORT);
-> +	else if (IGMP_V2_SEEN(in_dev))
-> +		igmp_send_report(in_dev, im, IGMPV2_HOST_MEMBERSHIP_REPORT);
-> +	else
-> +		igmp_send_report(in_dev, im, IGMPV3_HOST_MEMBERSHIP_REPORT);
->  #endif
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index 3b16f62..a23a5fa 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -865,18 +865,14 @@ static void bond_mc_del(struct bonding *bond, void *addr)
 >  }
->  EXPORT_SYMBOL(ip_mc_rejoin_group);
+>  
+>  
+> -/*
+> - * Retrieve the list of registered multicast addresses for the bonding
+> - * device and retransmit an IGMP JOIN request to the current active
+> - * slave.
+> - */
+> -static void bond_resend_igmp_join_requests(struct bonding *bond)
+> +static void __bond_resend_igmp_join_requests(struct net_device *dev)
+>  {
+>  	struct in_device *in_dev;
+>  	struct ip_mc_list *im;
+>  
+>  	rcu_read_lock();
+> -	in_dev = __in_dev_get_rcu(bond->dev);
+> +
+> +	in_dev = __in_dev_get_rcu(dev);
+>  	if (in_dev) {
+>  		for (im = in_dev->mc_list; im; im = im->next)
+>  			ip_mc_rejoin_group(im);
+> @@ -885,6 +881,42 @@ static void bond_resend_igmp_join_requests(struct bonding *bond)
+>  	rcu_read_unlock();
+>  }
+>  
+> +
+> +/*
+> + * Retrieve the list of registered multicast addresses for the bonding
+> + * device and retransmit an IGMP JOIN request to the current active
+> + * slave.
+> + */
+> +static void bond_resend_igmp_join_requests(struct bonding *bond)
+> +{
+> +	struct net_device *vlan_dev;
+> +	struct vlan_entry *vlan;
+> +
+> +	read_lock(&bond->lock);
+> +	if (bond->kill_timers)
+> +		goto out;
+> +
+> +	/* rejoin all groups on bond device */
+> +	__bond_resend_igmp_join_requests(bond->dev);
+> +
+> +	if (!bond->vlgrp)
+> +		goto reschedule;
+> +
+> +	/* rejoin all groups on vlan devices */
+> +	list_for_each_entry(vlan, &bond->vlan_list, vlan_list) {
+> +		vlan_dev = vlan_group_get_device(bond->vlgrp, vlan->vlan_id);
+> +		if (vlan_dev)
+> +			__bond_resend_igmp_join_requests(vlan_dev);
+> +	}
+> +
+> +reschedule:
+> +	if (--bond->resend_igmp > 0)
+> +		mod_timer(&bond->mc_timer, jiffies + HZ/5);
+> +
+> +out:
+> +	read_unlock(&bond->lock);
+> +}
+> +
+>  /*
+>   * flush all members of flush->mc_list from device dev->mc_list
+>   */
+> @@ -944,7 +976,10 @@ static void bond_mc_swap(struct bonding *bond, struct slave *new_active,
+>  
+>  		netdev_for_each_mc_addr(ha, bond->dev)
+>  			dev_mc_add(new_active->dev, ha->addr);
+> -		bond_resend_igmp_join_requests(bond);
+> +
+> +		/* rejoin multicast groups */
+> +		bond->resend_igmp = 3;
+> +		mod_timer(&bond->mc_timer, jiffies + 1);
+>  	}
+>  }
+>  
+> @@ -3741,9 +3776,15 @@ static int bond_xmit_hash_policy_l2(struct sk_buff *skb, int count)
+>  static int bond_open(struct net_device *bond_dev)
+>  {
+>  	struct bonding *bond = netdev_priv(bond_dev);
+> +	struct timer_list *mc_timer = &bond->mc_timer;
+>  
+>  	bond->kill_timers = 0;
+>  
+> +	/* multicast */
+> +	init_timer(mc_timer);
+> +	mc_timer->data = (unsigned long)bond;
+> +	mc_timer->function = (void *)&bond_resend_igmp_join_requests;
+> +
+>  	if (bond_is_lb(bond)) {
+>  		/* bond_alb_initialize must be called before the timer
+>  		 * is started.
+> @@ -3808,6 +3849,8 @@ static int bond_close(struct net_device *bond_dev)
+>  
+>  	write_unlock_bh(&bond->lock);
+>  
+> +	del_timer_sync(&bond->mc_timer);
+> +
+>  	if (bond->params.miimon) {  /* link check interval, in milliseconds. */
+>  		cancel_delayed_work(&bond->mii_work);
+>  	}
+> diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+> index c6fdd85..5fd4164 100644
+> --- a/drivers/net/bonding/bonding.h
+> +++ b/drivers/net/bonding/bonding.h
+> @@ -198,6 +198,8 @@ struct bonding {
+>  	s32      slave_cnt; /* never change this value outside the attach/detach wrappers */
+>  	rwlock_t lock;
+>  	rwlock_t curr_slave_lock;
+> +	struct   timer_list mc_timer;
+> +	s8       resend_igmp;
+>  	s8       kill_timers;
+>  	s8	 send_grat_arp;
+>  	s8	 send_unsol_na;
 > -- 
 > 1.7.2.3
 > 
