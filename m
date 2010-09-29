@@ -1,74 +1,48 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [RFC PATCH 2/2] macvtap: TX zero copy between guest and host
- kernel
-Date: Wed, 29 Sep 2010 07:56:26 -0700
-Message-ID: <1285772186.31343.23.camel@localhost.localdomain>
-References: <20100914182707.GB15549@redhat.com>
-	 <1284490143.13351.82.camel@localhost.localdomain>
-	 <20100914190156.GA16037@redhat.com>
-	 <1284492983.13351.95.camel@localhost.localdomain>
-	 <20100915051241.GA25340@redhat.com>
-	 <1284531675.24603.259.camel@localhost.localdomain>
-	 <20100915101000.GB28016@redhat.com>
-	 <1284562354.2573.12.camel@localhost.localdomain>
-	 <1285730669.31343.7.camel@localhost.localdomain>
-	 <20100929081645.GA21195@redhat.com>  <20100929082820.GC21195@redhat.com>
+From: Randy Dunlap <rdunlap@xenotime.net>
+Subject: Re: mmotm 2010-09-28-16-13 uploaded
+Date: Wed, 29 Sep 2010 08:01:13 -0700
+Message-ID: <20100929080113.5581c19d.rdunlap@xenotime.net>
+References: <201009282344.o8SNiliN024981@imap1.linux-foundation.org>
+	<AANLkTinYExzihm6BuP=amLDwMO-zXejeUq5xeHL4ETg_@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Arnd Bergmann <arnd@arndb.de>, Avi Kivity <avi@redhat.com>,
-	"Xin, Xiaohui" <xiaohui.xin@intel.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e35.co.us.ibm.com ([32.97.110.153]:33270 "EHLO
-	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750984Ab0I2O4i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Sep 2010 10:56:38 -0400
-In-Reply-To: <20100929082820.GC21195@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: akpm@linux-foundation.org, mm-commits@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: "N.P.S. N.P.S." <napohybelskurwysynom2010@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AANLkTinYExzihm6BuP=amLDwMO-zXejeUq5xeHL4ETg_@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2010-09-29 at 10:28 +0200, Michael S. Tsirkin wrote:
-> > > 1. Adding completion field in struct virtqueue;
-> > > 2. when it is a zero copy packet, put vhost thread wait for
-> completion
-> > > to update vhost_add_used_and_signal;
-> > > 3. passing vq from vhost to macvtap as skb destruct_arg;
-> > > 4. when skb is freed for the last reference, signal vq completion
-> > > The test results show same performance as the original patch. How
-> do you
-> > > think? If it sounds good to you. I will resubmit this reversion
-> patch.
-> > > The patch still keeps as simple as it was before. :)
-> > > 
-> > > Thanks
-> > > Shirley
-> > 
-> > If you look at dev_hard_start_xmit you will see a call
-> > to skb_orphan_try which often calls the skb destructor.
-> > So I suspect this is almost equivalent to your original patch,
-> > and has the same correctness issue.
+On Wed, 29 Sep 2010 15:13:41 +0200 N.P.S. N.P.S. wrote:
+
+> 2010/9/29  <akpm@linux-foundation.org>:
+> > The mm-of-the-moment snapshot 2010-09-28-16-13 has been uploaded to
 > 
-> So you could try doing skb_tx(skb)->prevent_sk_orphan = 1
-> just to see what will happen. Might be interesting - just
-> make sure the device doesn't orphan the skb first thing.
-> I suspect lack of parallelism will result in bad throughput
-> esp for small messages.
+> Another randconfig thing
 > 
-> Note this still won't make it correct (this has module unloading
-> issue, and devices might still orphan skb, clone it, or hang on to
-> paged data in some other way) but at least closer. 
+> drivers/net/pch_gbe/pch_gbe_main.c: In function 'pch_gbe_tx_queue':
+> drivers/net/pch_gbe/pch_gbe_main.c:965: error: implicit declaration of
+> function 'tcp_hdr'
+> drivers/net/pch_gbe/pch_gbe_main.c:965: error: invalid type argument
+> of '->' (have 'int')
+> drivers/net/pch_gbe/pch_gbe_main.c:968: error: invalid type argument
+> of '->' (have 'int')
+> drivers/net/pch_gbe/pch_gbe_main.c:976: error: implicit declaration of
+> function 'udp_hdr'
+> drivers/net/pch_gbe/pch_gbe_main.c:976: error: invalid type argument
+> of '->' (have 'int')
+> drivers/net/pch_gbe/pch_gbe_main.c:980: error: invalid type argument
+> of '->' (have 'int')
+> make[3]: *** [drivers/net/pch_gbe/pch_gbe_main.o] Error 1
+> make[2]: *** [drivers/net/pch_gbe] Error 2
+> make[1]: *** [drivers/net] Error 2
+> make: *** [drivers] Error 2
 
-For message size smaller than 128, it still does copy. I tested some
-small message size, I didn't see any regression. I will run more test to
-focus on small message size between 128 - 4K.
+Patch has been sent to DaveM and he has merged it.
 
-I don't need prevent_sk_orphan since in skb_release_data for last
-reference, I just need the ZEROCOPY flag from that sock to signal a
-completion.
 
-Thanks
-Shirley
-
+---
+~Randy
+*** Remember to use Documentation/SubmitChecklist when testing your code ***
