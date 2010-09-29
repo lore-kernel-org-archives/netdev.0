@@ -1,68 +1,69 @@
-From: Na Pohybel <napohybelskurwysynom2010@gmail.com>
-Subject: Re: mmotm 2010-09-28-16-13 uploaded
-Date: Wed, 29 Sep 2010 17:05:07 +0200
-Message-ID: <AANLkTim0+vCOMQ9QXGWbEn_n7x=znZkVEQ36xmCT6hsY@mail.gmail.com>
-References: <201009282344.o8SNiliN024981@imap1.linux-foundation.org>
-	<AANLkTinYExzihm6BuP=amLDwMO-zXejeUq5xeHL4ETg_@mail.gmail.com>
-	<20100929080113.5581c19d.rdunlap@xenotime.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [RFC PATCH 2/2] macvtap: TX zero copy between guest and host
+ kernel
+Date: Wed, 29 Sep 2010 17:14:15 +0200
+Message-ID: <20100929151415.GA27041@redhat.com>
+References: <1284483745.13351.71.camel@localhost.localdomain>
+ <20100914182707.GB15549@redhat.com>
+ <1284490143.13351.82.camel@localhost.localdomain>
+ <20100914190156.GA16037@redhat.com>
+ <1284492983.13351.95.camel@localhost.localdomain>
+ <20100915051241.GA25340@redhat.com>
+ <1284531675.24603.259.camel@localhost.localdomain>
+ <20100915101000.GB28016@redhat.com>
+ <1284562354.2573.12.camel@localhost.localdomain>
+ <1285730669.31343.7.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: akpm@linux-foundation.org, mm-commits@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Randy Dunlap <rdunlap@xenotime.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Arnd Bergmann <arnd@arndb.de>, Avi Kivity <avi@redhat.com>,
+	"Xin, Xiaohui" <xiaohui.xin@intel.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Shirley Ma <mashirle@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f42.google.com ([74.125.82.42]:63740 "EHLO
-	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751915Ab0I2PGd convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Sep 2010 11:06:33 -0400
-In-Reply-To: <20100929080113.5581c19d.rdunlap@xenotime.net>
+Received: from mx1.redhat.com ([209.132.183.28]:27662 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750984Ab0I2PUf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Sep 2010 11:20:35 -0400
+Content-Disposition: inline
+In-Reply-To: <1285730669.31343.7.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2010/9/29 Randy Dunlap <rdunlap@xenotime.net>:
-> On Wed, 29 Sep 2010 15:13:41 +0200 N.P.S. N.P.S. wrote:
->
->> 2010/9/29 =A0<akpm@linux-foundation.org>:
->> > The mm-of-the-moment snapshot 2010-09-28-16-13 has been uploaded t=
-o
->>
->> Another randconfig thing
->>
->> drivers/net/pch_gbe/pch_gbe_main.c: In function 'pch_gbe_tx_queue':
->> drivers/net/pch_gbe/pch_gbe_main.c:965: error: implicit declaration =
-of
->> function 'tcp_hdr'
->> drivers/net/pch_gbe/pch_gbe_main.c:965: error: invalid type argument
->> of '->' (have 'int')
->> drivers/net/pch_gbe/pch_gbe_main.c:968: error: invalid type argument
->> of '->' (have 'int')
->> drivers/net/pch_gbe/pch_gbe_main.c:976: error: implicit declaration =
-of
->> function 'udp_hdr'
->> drivers/net/pch_gbe/pch_gbe_main.c:976: error: invalid type argument
->> of '->' (have 'int')
->> drivers/net/pch_gbe/pch_gbe_main.c:980: error: invalid type argument
->> of '->' (have 'int')
->> make[3]: *** [drivers/net/pch_gbe/pch_gbe_main.o] Error 1
->> make[2]: *** [drivers/net/pch_gbe] Error 2
->> make[1]: *** [drivers/net] Error 2
->> make: *** [drivers] Error 2
->
-> Patch has been sent to DaveM and he has merged it.
+On Tue, Sep 28, 2010 at 08:24:29PM -0700, Shirley Ma wrote:
+> Hello Michael,
+> 
+> On Wed, 2010-09-15 at 07:52 -0700, Shirley Ma wrote:
+> > > >  Don't you think once I address vhost_add_used_and_signal update
+> > > > issue, it is a simple and complete patch for macvtap TX zero copy?
+> > > > 
+> > > > Thanks
+> > > > Shirley
+> > > 
+> > > I like the fact that the patch is simple. Unfortunately
+> > > I suspect it'll stop being simple by the time it's complete :) 
+> > 
+> > I can make a try. :)
+> 
+> I compared several approaches for addressing the issue being raised here
+> on how/when to update vhost_add_used_and_signal. The simple approach I
+> have found is:
+> 
+> 1. Adding completion field in struct virtqueue;
+> 2. when it is a zero copy packet, put vhost thread wait for completion
+> to update vhost_add_used_and_signal;
+> 3. passing vq from vhost to macvtap as skb destruct_arg;
+> 4. when skb is freed for the last reference, signal vq completion
+> 
+> The test results show same performance as the original patch. How do you
+> think? If it sounds good to you. I will resubmit this reversion patch.
+> The patch still keeps as simple as it was before. :)
+> 
+> Thanks
+> Shirley
 
-Thanks again!
+I guess I just don't understand what your patch does.
+If you send it, I can take a look.
 
->
->
-> ---
-> ~Randy
-> *** Remember to use Documentation/SubmitChecklist when testing your c=
-ode ***
->
-
-
-
---=20
-Slawa!
-N.P.S.
+-- 
+MST
