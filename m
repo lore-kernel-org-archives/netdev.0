@@ -1,135 +1,151 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Packet time delays on multi-core systems
-Date: Wed, 29 Sep 2010 23:45:21 +0200
-Message-ID: <1285796721.5211.156.camel@edumazet-laptop>
-References: <20100929191851.GC86786@beaver.vrungel.ru>
+Subject: [PATCH net-next] ipv4: __mkroute_output() speedup
+Date: Wed, 29 Sep 2010 23:53:50 +0200
+Message-ID: <1285797230.5211.173.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Alexey Vlasov <renton@renton.name>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:62710 "EHLO
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:45337 "EHLO
 	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755362Ab0I2Vp1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Sep 2010 17:45:27 -0400
-In-Reply-To: <20100929191851.GC86786@beaver.vrungel.ru>
+	with ESMTP id S1750996Ab0I2Vx4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Sep 2010 17:53:56 -0400
+Received: by fxm4 with SMTP id 4so337964fxm.19
+        for <netdev@vger.kernel.org>; Wed, 29 Sep 2010 14:53:54 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 29 septembre 2010 =C3=A0 23:18 +0400, Alexey Vlasov a =C3=A9=
-crit :=20
-> Hi.
->=20
-> I'm not sure actually that I should write here, may be I should ask i=
-n
-> netfilter maillist, but if is something wrong please correct me.
->=20
+While doing stress tests with a disabled IP route cache, I found
+__mkroute_output() was touching three times in_device atomic refcount.
 
-CC netdev
+Use RCU to touch it once to reduce cache line ping pongs.
 
+Before patch
 
-> I've got rather large linux shared hosting, and on my new servers I
-> noticed some strange singularity, that this simple rule:
->=20
-> # iptables -A OUTPUT -p tcp -m tcp --dport 80 --tcp-flags
-> FIN,SYN,RST,ACK SYN -j LOG --log-prefix "ipsec:SYN-OUTPUT "
-> --log-uid
->=20
-> gives essential time delays simply at ping from the adjacent server
-> on a local area network. I don't know precisely what's wrong whether =
-the
-> reason is in the bad support by a kernel of new hardware, or it conce=
-rns
-> generally the new kernel, but now it leads to the situation that even=
- at simple
-> DDOS attacks to client sites, it becomes difficult to make something,=
- and in
-> general all works only worse.
->=20
-> It seems to me that with the increase of CPU cores' amount, it only b=
-ecomes
-> worse and worse, and, obviously, iptables uses resources of only one =
-processor,
-> which resources to it for any reason doesn't suffice.
->=20
+time to perform the test
+real	1m42.009s
+user	0m12.545s
+sys	25m0.726s
 
-Its not true. iptables can run on all cpus in //
+Profile :
 
-> newbox # iptables -F
-> otherbox # ping -c 100 newbox
-> ...
-> 100 packets transmitted, 100 received, 0% packet loss, time 100044ms
-> rtt min/avg/max/mdev =3D 0.133/2.637/17.172/3.736 ms
->=20
-> OK.
->=20
-> newbox # iptables -A OUTPUT -p tcp -m tcp --dport 80 --tcp-flags FIN,=
-SYN,RST,ACK SYN
-> -j LOG --log-prefix "ipsec:SYN-OUTPUT " --log-uid
-> otherbox # ping -c 100 newbox
-> ...
-> 64 bytes from (newbox): icmp_seq=3D3 ttl=3D64 time=3D1.58 ms
-> 64 bytes from (newbox): icmp_seq=3D4 ttl=3D64 time=3D98.7 ms
-> 64 bytes from (newbox): icmp_seq=3D5 ttl=3D64 time=3D18.2 ms
-> 64 bytes from (newbox): icmp_seq=3D6 ttl=3D64 time=3D6.13 ms
-> 64 bytes from (newbox): icmp_seq=3D7 ttl=3D64 time=3D108 ms
-> ...
-> 64 bytes from (newbox): icmp_seq=3D55 ttl=3D64 time=3D2.30 ms
-> 64 bytes from (newbox): icmp_seq=3D56 ttl=3D64 time=3D59.9 ms
-> 64 bytes from (newbox): icmp_seq=3D57 ttl=3D64 time=3D0.155 ms
-> ...
-> 64 bytes from (newbox): icmp_seq=3D61 ttl=3D64 time=3D13.4 ms
-> 64 bytes from (newbox): icmp_seq=3D62 ttl=3D64 time=3D55.0 ms
-> 64 bytes from (newbox): icmp_seq=3D63 ttl=3D64 time=3D0.233 ms
-> ...
-> 100 packets transmitted, 100 received, 0% packet loss, time 99957ms
-> rtt min/avg/max/mdev =3D 0.111/7.519/108.061/18.478 ms
->=20
-> newbox # iptables -L -v -n
-> Chain INPUT (policy ACCEPT 346K packets, 213M bytes)
->  pkts bytes target     prot opt in     out     source               d=
-estination
->=20
-> Chain FORWARD (policy ACCEPT 0 packets, 0 bytes)
->  pkts bytes target     prot opt in     out     source               d=
-estination
->=20
-> Chain OUTPUT (policy ACCEPT 296K packets, 290M bytes)
->  pkts bytes target     prot opt in     out     source               d=
-estination
->   234 14040 LOG        tcp  --  *      *       0.0.0.0/0            0=
-=2E0.0.0/0   =20
-> tcp dpt:80 flags:0x17/0x02 LOG flags 8 level 4 prefix `ipsec:SYN-OUTP=
-UT- '
->=20
-> My old server: Intel SR1500, Xeon 5430, kernel 2.6.24 - 2.6.28
-> Newbox: SR1620UR, 5650, kernel 2.6.32
->=20
-> Thanks in advance.
->=20
+16109.00 26.4% ip_route_output_slow   vmlinux              
+ 7434.00 12.2% dst_destroy            vmlinux              
+ 3280.00  5.4% fib_rules_lookup       vmlinux              
+ 3252.00  5.3% fib_semantic_match     vmlinux              
+ 2622.00  4.3% fib_table_lookup       vmlinux              
+ 2535.00  4.1% dst_alloc              vmlinux              
+ 1750.00  2.9% _raw_read_lock         vmlinux              
+ 1532.00  2.5% rt_set_nexthop         vmlinux   
 
-Seems strange indeed, since the LOG you add should not slowdown icmp
-trafic that much.
+After patch
 
-But if you send SYN packets in the same time, (logged), this might slow
-down the reception (and answers) of ICMP frames. LOG target can be quit=
-e
-expensive...=20
+real	1m36.503s
+user	0m12.977s
+sys	23m25.608s
 
-Is using other rules gives same problem ?
+14234.00 22.4% ip_route_output_slow   vmlinux              
+ 8717.00 13.7% dst_destroy            vmlinux              
+ 4052.00  6.4% fib_rules_lookup       vmlinux              
+ 3951.00  6.2% fib_semantic_match     vmlinux              
+ 3191.00  5.0% dst_alloc              vmlinux              
+ 1764.00  2.8% fib_table_lookup       vmlinux              
+ 1692.00  2.7% _raw_read_lock         vmlinux              
+ 1605.00  2.5% rt_set_nexthop         vmlinux              
+ 
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/ipv4/route.c |   33 +++++++++++++++------------------
+ 1 file changed, 15 insertions(+), 18 deletions(-)
 
-iptables -A OUTPUT -p tcp -m tcp --dport 80 --tcp-flags FIN,SYN,RST,ACK=
- SYN
-iptables -A OUTPUT -p tcp -m tcp --dport 80 --tcp-flags FIN,SYN,RST,ACK=
- SYN
-iptables -A OUTPUT -p tcp -m tcp --dport 80 --tcp-flags FIN,SYN,RST,ACK=
- SYN
-iptables -A OUTPUT -p tcp -m tcp --dport 80 --tcp-flags FIN,SYN,RST,ACK=
- SYN
-
-
-
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 98beda4..ea89500 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -2358,9 +2358,8 @@ static int __mkroute_output(struct rtable **result,
+ 	struct rtable *rth;
+ 	struct in_device *in_dev;
+ 	u32 tos = RT_FL_TOS(oldflp);
+-	int err = 0;
+ 
+-	if (ipv4_is_loopback(fl->fl4_src) && !(dev_out->flags&IFF_LOOPBACK))
++	if (ipv4_is_loopback(fl->fl4_src) && !(dev_out->flags & IFF_LOOPBACK))
+ 		return -EINVAL;
+ 
+ 	if (fl->fl4_dst == htonl(0xFFFFFFFF))
+@@ -2373,11 +2372,12 @@ static int __mkroute_output(struct rtable **result,
+ 	if (dev_out->flags & IFF_LOOPBACK)
+ 		flags |= RTCF_LOCAL;
+ 
+-	/* get work reference to inet device */
+-	in_dev = in_dev_get(dev_out);
+-	if (!in_dev)
++	rcu_read_lock();
++	in_dev = __in_dev_get_rcu(dev_out);
++	if (!in_dev) {
++		rcu_read_unlock();
+ 		return -EINVAL;
+-
++	}
+ 	if (res->type == RTN_BROADCAST) {
+ 		flags |= RTCF_BROADCAST | RTCF_LOCAL;
+ 		if (res->fi) {
+@@ -2385,13 +2385,13 @@ static int __mkroute_output(struct rtable **result,
+ 			res->fi = NULL;
+ 		}
+ 	} else if (res->type == RTN_MULTICAST) {
+-		flags |= RTCF_MULTICAST|RTCF_LOCAL;
++		flags |= RTCF_MULTICAST | RTCF_LOCAL;
+ 		if (!ip_check_mc(in_dev, oldflp->fl4_dst, oldflp->fl4_src,
+ 				 oldflp->proto))
+ 			flags &= ~RTCF_LOCAL;
+ 		/* If multicast route do not exist use
+-		   default one, but do not gateway in this case.
+-		   Yes, it is hack.
++		 * default one, but do not gateway in this case.
++		 * Yes, it is hack.
+ 		 */
+ 		if (res->fi && res->prefixlen < 4) {
+ 			fib_info_put(res->fi);
+@@ -2402,9 +2402,12 @@ static int __mkroute_output(struct rtable **result,
+ 
+ 	rth = dst_alloc(&ipv4_dst_ops);
+ 	if (!rth) {
+-		err = -ENOBUFS;
+-		goto cleanup;
++		rcu_read_unlock();
++		return -ENOBUFS;
+ 	}
++	in_dev_hold(in_dev);
++	rcu_read_unlock();
++	rth->idev = in_dev;
+ 
+ 	atomic_set(&rth->dst.__refcnt, 1);
+ 	rth->dst.flags= DST_HOST;
+@@ -2425,7 +2428,6 @@ static int __mkroute_output(struct rtable **result,
+ 	   cache entry */
+ 	rth->dst.dev	= dev_out;
+ 	dev_hold(dev_out);
+-	rth->idev	= in_dev_get(dev_out);
+ 	rth->rt_gateway = fl->fl4_dst;
+ 	rth->rt_spec_dst= fl->fl4_src;
+ 
+@@ -2460,13 +2462,8 @@ static int __mkroute_output(struct rtable **result,
+ 	rt_set_nexthop(rth, res, 0);
+ 
+ 	rth->rt_flags = flags;
+-
+ 	*result = rth;
+- cleanup:
+-	/* release work reference to inet device */
+-	in_dev_put(in_dev);
+-
+-	return err;
++	return 0;
+ }
+ 
+ static int ip_mkroute_output(struct rtable **rp,
 
 
