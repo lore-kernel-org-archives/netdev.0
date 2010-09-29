@@ -1,45 +1,66 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ip_gre: CONFIG_IPV6_MODULE support
-Date: Wed, 29 Sep 2010 10:22:38 +0200
-Message-ID: <1285748558.2615.16.camel@edumazet-laptop>
-References: <20100929.002544.183044247.davem@davemloft.net>
-	 <1285746352.2615.11.camel@edumazet-laptop>
-	 <20100929075758.GA5188@gondor.apana.org.au>
-	 <20100929.010056.115931816.davem@davemloft.net>
-	 <20100929080303.GA5318@gondor.apana.org.au>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [RFC PATCH 2/2] macvtap: TX zero copy between guest and host
+ kernel
+Date: Wed, 29 Sep 2010 10:16:45 +0200
+Message-ID: <20100929081645.GA21195@redhat.com>
+References: <1284483745.13351.71.camel@localhost.localdomain>
+ <20100914182707.GB15549@redhat.com>
+ <1284490143.13351.82.camel@localhost.localdomain>
+ <20100914190156.GA16037@redhat.com>
+ <1284492983.13351.95.camel@localhost.localdomain>
+ <20100915051241.GA25340@redhat.com>
+ <1284531675.24603.259.camel@localhost.localdomain>
+ <20100915101000.GB28016@redhat.com>
+ <1284562354.2573.12.camel@localhost.localdomain>
+ <1285730669.31343.7.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	kaber@trash.net
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:40605 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754596Ab0I2IWn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Sep 2010 04:22:43 -0400
-Received: by fxm14 with SMTP id 14so292003fxm.19
-        for <netdev@vger.kernel.org>; Wed, 29 Sep 2010 01:22:42 -0700 (PDT)
-In-Reply-To: <20100929080303.GA5318@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Arnd Bergmann <arnd@arndb.de>, Avi Kivity <avi@redhat.com>,
+	"Xin, Xiaohui" <xiaohui.xin@intel.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Shirley Ma <mashirle@us.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1285730669.31343.7.camel@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mercredi 29 septembre 2010 =C3=A0 17:03 +0900, Herbert Xu a =C3=A9cr=
-it :
-> On Wed, Sep 29, 2010 at 01:00:56AM -0700, David Miller wrote:
-> .
-> > > 	options ipv6 disable=3D1
-> > >=20
-> > > If so then that's what should be used in this case.
-> >=20
-> > That's what one should use "always" :-)
-> >=20
-> > Bonding has the same issue, and it's why we added the
-> > disable module option, so that the /bin/true stupidity
-> > could stop.
->=20
-> Right, that settles it :)
+On Tue, Sep 28, 2010 at 08:24:29PM -0700, Shirley Ma wrote:
+> Hello Michael,
+> 
+> On Wed, 2010-09-15 at 07:52 -0700, Shirley Ma wrote:
+> > > >  Don't you think once I address vhost_add_used_and_signal update
+> > > > issue, it is a simple and complete patch for macvtap TX zero copy?
+> > > > 
+> > > > Thanks
+> > > > Shirley
+> > > 
+> > > I like the fact that the patch is simple. Unfortunately
+> > > I suspect it'll stop being simple by the time it's complete :) 
+> > 
+> > I can make a try. :)
+> 
+> I compared several approaches for addressing the issue being raised here
+> on how/when to update vhost_add_used_and_signal. The simple approach I
+> have found is:
+> 
+> 1. Adding completion field in struct virtqueue;
+> 2. when it is a zero copy packet, put vhost thread wait for completion
+> to update vhost_add_used_and_signal;
+> 3. passing vq from vhost to macvtap as skb destruct_arg;
+> 4. when skb is freed for the last reference, signal vq completion
+> The test results show same performance as the original patch. How do you
+> think? If it sounds good to you. I will resubmit this reversion patch.
+> The patch still keeps as simple as it was before. :)
+> 
+> Thanks
+> Shirley
 
-OK guys, you convinced me ;)
+If you look at dev_hard_start_xmit you will see a call
+to skb_orphan_try which often calls the skb destructor.
+So I suspect this is almost equivalent to your original patch,
+and has the same correctness issue.
 
-
+-- 
+MST
