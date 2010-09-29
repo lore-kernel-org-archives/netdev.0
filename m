@@ -1,39 +1,50 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: WiMAX linux firmware pull request
-Date: Wed, 29 Sep 2010 11:52:48 +0900
-Message-ID: <1285728768.814.74.camel@macbook.infradead.org>
-References: <1285699570.3136.307.camel@localhost.localdomain>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH net-next] arp: remove unnecessary export of arp_broken_ops
+Date: Wed, 29 Sep 2010 12:08:02 +0900
+Message-ID: <20100929120802.2f642d0d@s6510>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: wimax@linuxwimax.org, netdev@vger.kernel.org
-To: Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:58691 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751223Ab0I2Cwz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Sep 2010 22:52:55 -0400
-In-Reply-To: <1285699570.3136.307.camel@localhost.localdomain>
+Received: from mail.vyatta.com ([76.74.103.46]:57251 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751223Ab0I2DIL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Sep 2010 23:08:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2010-09-28 at 11:46 -0700, Inaky Perez-Gonzalez wrote:    
->    The 1.3 version is purged as it is not supported anymore.
+arp_broken_ops is only used in arp.c
 
-Not supported by newer kernels? Or "if you are using something that
-requires the 1.3 firmware, you can just fuck off and die", along the
-lines of what we say to users of the 2.4 kernel?
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-We shouldn't drop stuff from linux-firmware.git until there really is
-*no* reason to need it any more. We shouldn't force people to keep
-linux-firmware in step with their kernel; they should always be able to
-use the latest.
 
-When I get home from Tokyo I'll be working on a way to specify min/max
-kernel versions for each firmware image, along with a 'make install'
-target which lets you say "drop anything which is only relevant to
-kernels < 2.6.35' or whatever.
-
--- 
-dwmw2
-
+--- a/include/net/arp.h	2010-09-29 10:36:46.125871462 +0900
++++ b/include/net/arp.h	2010-09-29 10:36:51.195923872 +0900
+@@ -26,6 +26,4 @@ extern struct sk_buff *arp_create(int ty
+ 				  const unsigned char *target_hw);
+ extern void arp_xmit(struct sk_buff *skb);
+ 
+-extern const struct neigh_ops arp_broken_ops;
+-
+ #endif	/* _ARP_H */
+--- a/net/ipv4/arp.c	2010-09-29 10:36:46.135874409 +0900
++++ b/net/ipv4/arp.c	2010-09-29 10:37:15.985915408 +0900
+@@ -161,7 +161,7 @@ static const struct neigh_ops arp_direct
+ 	.queue_xmit =		dev_queue_xmit,
+ };
+ 
+-const struct neigh_ops arp_broken_ops = {
++static const struct neigh_ops arp_broken_ops = {
+ 	.family =		AF_INET,
+ 	.solicit =		arp_solicit,
+ 	.error_report =		arp_error_report,
+@@ -170,7 +170,6 @@ const struct neigh_ops arp_broken_ops = 
+ 	.hh_output =		dev_queue_xmit,
+ 	.queue_xmit =		dev_queue_xmit,
+ };
+-EXPORT_SYMBOL(arp_broken_ops);
+ 
+ struct neigh_table arp_tbl = {
+ 	.family		= AF_INET,
