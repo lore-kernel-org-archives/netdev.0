@@ -1,34 +1,90 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: VLAN GARP triggers a lot of timers if linux compiled with VLAN_8021Q_GVRP
-Date: Wed, 29 Sep 2010 11:22:51 +0200
-Message-ID: <4CA3056B.6010901@trash.net>
-References: <AANLkTinZ_6+PzAHHc5vaY+H2iX_pf4vsdNsnZ2_N7EDf@mail.gmail.com>
+From: Stanislaw Gruszka <sgruszka@redhat.com>
+Subject: [PATCH] skge: add quirk to limit DMA
+Date: Wed, 29 Sep 2010 11:33:23 +0200
+Message-ID: <20100929092515.GA6804@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: didier <did447@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: luya@fedoraproject.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:53035 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752442Ab0I2JXJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Sep 2010 05:23:09 -0400
-In-Reply-To: <AANLkTinZ_6+PzAHHc5vaY+H2iX_pf4vsdNsnZ2_N7EDf@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:23325 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751028Ab0I2Jc2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Sep 2010 05:32:28 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am 29.09.2010 02:35, schrieb didier:
-> Hi,
-> 
-> In my understanding GARP is using a periodic timer but in net/802/garp.c:
-> 
-> garp_join_timer_arm()
-> 
-> delay = (u64)msecs_to_jiffies(garp_join_time)* net_random() >> 32;
-> mod_timer(&app->join_timer, jiffies +delay)
-> 
-> Isn't this stuff triggering a *lot* of events?
+Skge devices installed on some Gigabyte motherboards are not able to
+perform 64 dma correctly due to board PCI implementation, so limit
+DMA to 32bit if such boards are detected.
 
-Yeah, something around 5-10 timers per second IIRC. There was an RFC
-patch a while ago to only schedule the timer on-demand, I'll see
-whether I can find it again.
+Bug was reported here:
+https://bugzilla.redhat.com/show_bug.cgi?id=447489
+
+Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
+Tested-by: Luya Tshimbalanga <luya@fedoraproject.org>
+---
+ drivers/net/skge.c |   22 +++++++++++++++++++++-
+ 1 files changed, 21 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/skge.c b/drivers/net/skge.c
+index a8a6358..571d4c3 100644
+--- a/drivers/net/skge.c
++++ b/drivers/net/skge.c
+@@ -43,6 +43,7 @@
+ #include <linux/seq_file.h>
+ #include <linux/mii.h>
+ #include <linux/slab.h>
++#include <linux/dmi.h>
+ #include <asm/irq.h>
+ 
+ #include "skge.h"
+@@ -3869,6 +3870,8 @@ static void __devinit skge_show_addr(struct net_device *dev)
+ 	netif_info(skge, probe, skge->netdev, "addr %pM\n", dev->dev_addr);
+ }
+ 
++static int only_32bit_dma;
++
+ static int __devinit skge_probe(struct pci_dev *pdev,
+ 				const struct pci_device_id *ent)
+ {
+@@ -3890,7 +3893,7 @@ static int __devinit skge_probe(struct pci_dev *pdev,
+ 
+ 	pci_set_master(pdev);
+ 
+-	if (!pci_set_dma_mask(pdev, DMA_BIT_MASK(64))) {
++	if (!only_32bit_dma && !pci_set_dma_mask(pdev, DMA_BIT_MASK(64))) {
+ 		using_dac = 1;
+ 		err = pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(64));
+ 	} else if (!(err = pci_set_dma_mask(pdev, DMA_BIT_MASK(32)))) {
+@@ -4148,8 +4151,25 @@ static struct pci_driver skge_driver = {
+ 	.shutdown =	skge_shutdown,
+ };
+ 
++#ifndef CONFIG_DMI
++#warning "DMA quirk for Gigabyte nForce boards will not be applied"
++#endif
++
++static struct dmi_system_id skge_32bit_dma_boards[] = {
++	{
++		.ident = "Gigabyte nForce boards",
++		.matches = {
++			DMI_MATCH(DMI_BOARD_VENDOR, "Gigabyte Technology Co"),
++			DMI_MATCH(DMI_BOARD_NAME, "nForce"),
++		},
++	},
++	{}
++};
++
+ static int __init skge_init_module(void)
+ {
++	if (dmi_check_system(skge_32bit_dma_boards))
++		only_32bit_dma = 1;
+ 	skge_debug_init();
+ 	return pci_register_driver(&skge_driver);
+ }
+-- 
+1.5.5.6
+
