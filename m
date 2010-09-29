@@ -1,31 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next2.6] net: rename netdev rx_queue to
- ingress_queue
-Date: Wed, 29 Sep 2010 13:27:39 -0700 (PDT)
-Message-ID: <20100929.132739.35023082.davem@davemloft.net>
-References: <1285689517.3154.76.camel@edumazet-laptop>
+From: Roel Kluin <roel.kluin@gmail.com>
+Subject: [PATCH] [XFRM]: Don't dereference error pointer dst1
+Date: Thu, 30 Sep 2010 00:37:23 +0200
+Message-ID: <4CA3BFA3.1060204@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jarkao2@gmail.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34980
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755805Ab0I2U1T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Sep 2010 16:27:19 -0400
-In-Reply-To: <1285689517.3154.76.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	LKML <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 28 Sep 2010 17:58:37 +0200
+Don't dereference dst1 when it's an error pointer.
 
-> There is some confusion with rx_queue name after RPS, and net drivers
-> private rx_queue fields.
-> 
-> I suggest to rename "struct net_device"->rx_queue to ingress_queue.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+---
+ net/xfrm/xfrm_policy.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-Applied.
+I just noticed this by code analysis. It wasn't tested in any way.
+
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index cbab6e1..b186c3d 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -1414,13 +1414,14 @@ static struct dst_entry *xfrm_bundle_create(struct xfrm_policy *policy,
+ 
+ 	for (; i < nx; i++) {
+ 		struct xfrm_dst *xdst = xfrm_alloc_dst(net, family);
+-		struct dst_entry *dst1 = &xdst->u.dst;
++		struct dst_entry *dst1;
+ 
+ 		err = PTR_ERR(xdst);
+ 		if (IS_ERR(xdst)) {
+ 			dst_release(dst);
+ 			goto put_states;
+ 		}
++		dst1 = &xdst->u.dst;
+ 
+ 		if (!dst_prev)
+ 			dst0 = dst1;
