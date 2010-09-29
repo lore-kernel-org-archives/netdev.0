@@ -1,48 +1,64 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH net-next] tcp: tcp_enter_quickack_mode can be static
-Date: Wed, 29 Sep 2010 14:30:14 +0900
-Message-ID: <20100929143014.7f32cec3@s6510>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ip_gre: CONFIG_IPV6_MODULE support
+Date: Tue, 28 Sep 2010 22:38:50 -0700 (PDT)
+Message-ID: <20100928.223850.104051485.davem@davemloft.net>
+References: <1285734295.22570.25.camel@edumazet-laptop>
+	<20100929043642.GA3660@gondor.apana.org.au>
+	<20100928.214132.226782961.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, kaber@trash.net
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:58751 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750903Ab0I2FaV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Sep 2010 01:30:21 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56401
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751358Ab0I2Fi3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Sep 2010 01:38:29 -0400
+In-Reply-To: <20100928.214132.226782961.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Function only used in tcp_input.c
+From: David Miller <davem@davemloft.net>
+Date: Tue, 28 Sep 2010 21:41:32 -0700 (PDT)
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> Eric, please cook up a patch which does this, I think the
+> magic Kconfig dependency formula for this is:
+> 
+> 	depends on IPV6 || IPV6=n
+> 
+> Thanks!
 
+Nevermind, I took care of it :-)
+
+--------------------
+ip_gre: Fix dependencies wrt. ipv6.
+
+The GRE tunnel driver needs to invoke icmpv6 helpers in the
+ipv6 stack when ipv6 support is enabled.
+
+Therefore if IPV6 is enabled, we have to enforce that GRE's
+enabling (modular or static) matches that of ipv6.
+
+Reported-by: Patrick McHardy <kaber@trash.net>
+Reported-by: Herbert Xu <herbert@gondor.apana.org.au>
+Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- include/net/tcp.h    |    2 --
- net/ipv4/tcp_input.c |    2 +-
- 2 files changed, 1 insertion(+), 3 deletions(-)
+ net/ipv4/Kconfig |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
---- a/net/ipv4/tcp_input.c	2010-09-29 14:00:54.145805254 +0900
-+++ b/net/ipv4/tcp_input.c	2010-09-29 14:24:27.595831651 +0900
-@@ -182,7 +182,7 @@ static void tcp_incr_quickack(struct soc
- 		icsk->icsk_ack.quick = min(quickacks, TCP_MAX_QUICKACKS);
- }
+diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
+index 571f895..72380a3 100644
+--- a/net/ipv4/Kconfig
++++ b/net/ipv4/Kconfig
+@@ -217,6 +217,7 @@ config NET_IPIP
  
--void tcp_enter_quickack_mode(struct sock *sk)
-+static void tcp_enter_quickack_mode(struct sock *sk)
- {
- 	struct inet_connection_sock *icsk = inet_csk(sk);
- 	tcp_incr_quickack(sk);
---- a/include/net/tcp.h	2010-09-29 14:27:53.543307029 +0900
-+++ b/include/net/tcp.h	2010-09-29 14:28:10.435891279 +0900
-@@ -346,8 +346,6 @@ static inline void tcp_dec_quickack_mode
- 	}
- }
- 
--extern void tcp_enter_quickack_mode(struct sock *sk);
--
- #define	TCP_ECN_OK		1
- #define	TCP_ECN_QUEUE_CWR	2
- #define	TCP_ECN_DEMAND_CWR	4
+ config NET_IPGRE
+ 	tristate "IP: GRE tunnels over IP"
++	depends on IPV6 || IPV6=n
+ 	help
+ 	  Tunneling means encapsulating data of one protocol type within
+ 	  another protocol and sending it over a channel that understands the
+-- 
+1.7.3
+
