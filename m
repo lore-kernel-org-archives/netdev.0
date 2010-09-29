@@ -1,69 +1,37 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
+From: Shirley Ma <mashirle@us.ibm.com>
 Subject: Re: [RFC PATCH 2/2] macvtap: TX zero copy between guest and host
  kernel
-Date: Wed, 29 Sep 2010 17:14:15 +0200
-Message-ID: <20100929151415.GA27041@redhat.com>
+Date: Wed, 29 Sep 2010 08:23:39 -0700
+Message-ID: <1285773819.31343.24.camel@localhost.localdomain>
 References: <1284483745.13351.71.camel@localhost.localdomain>
- <20100914182707.GB15549@redhat.com>
- <1284490143.13351.82.camel@localhost.localdomain>
- <20100914190156.GA16037@redhat.com>
- <1284492983.13351.95.camel@localhost.localdomain>
- <20100915051241.GA25340@redhat.com>
- <1284531675.24603.259.camel@localhost.localdomain>
- <20100915101000.GB28016@redhat.com>
- <1284562354.2573.12.camel@localhost.localdomain>
- <1285730669.31343.7.camel@localhost.localdomain>
+	 <20100914182707.GB15549@redhat.com>
+	 <1284490143.13351.82.camel@localhost.localdomain>
+	 <20100914190156.GA16037@redhat.com>
+	 <1284492983.13351.95.camel@localhost.localdomain>
+	 <20100915051241.GA25340@redhat.com>
+	 <1284531675.24603.259.camel@localhost.localdomain>
+	 <20100915101000.GB28016@redhat.com>
+	 <1284562354.2573.12.camel@localhost.localdomain>
+	 <1285730669.31343.7.camel@localhost.localdomain>
+	 <20100929151415.GA27041@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 Cc: Arnd Bergmann <arnd@arndb.de>, Avi Kivity <avi@redhat.com>,
 	"Xin, Xiaohui" <xiaohui.xin@intel.com>,
 	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
 	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Shirley Ma <mashirle@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:27662 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750984Ab0I2PUf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Sep 2010 11:20:35 -0400
-Content-Disposition: inline
-In-Reply-To: <1285730669.31343.7.camel@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100929151415.GA27041@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 28, 2010 at 08:24:29PM -0700, Shirley Ma wrote:
-> Hello Michael,
-> 
-> On Wed, 2010-09-15 at 07:52 -0700, Shirley Ma wrote:
-> > > >  Don't you think once I address vhost_add_used_and_signal update
-> > > > issue, it is a simple and complete patch for macvtap TX zero copy?
-> > > > 
-> > > > Thanks
-> > > > Shirley
-> > > 
-> > > I like the fact that the patch is simple. Unfortunately
-> > > I suspect it'll stop being simple by the time it's complete :) 
-> > 
-> > I can make a try. :)
-> 
-> I compared several approaches for addressing the issue being raised here
-> on how/when to update vhost_add_used_and_signal. The simple approach I
-> have found is:
-> 
-> 1. Adding completion field in struct virtqueue;
-> 2. when it is a zero copy packet, put vhost thread wait for completion
-> to update vhost_add_used_and_signal;
-> 3. passing vq from vhost to macvtap as skb destruct_arg;
-> 4. when skb is freed for the last reference, signal vq completion
-> 
-> The test results show same performance as the original patch. How do you
-> think? If it sounds good to you. I will resubmit this reversion patch.
-> The patch still keeps as simple as it was before. :)
-> 
-> Thanks
-> Shirley
+On Wed, 2010-09-29 at 17:14 +0200, Michael S. Tsirkin wrote:
+> I guess I just don't understand what your patch does.
+> If you send it, I can take a look.
 
-I guess I just don't understand what your patch does.
-If you send it, I can take a look.
+Ok, I will collect more performance data and send the patch.
 
--- 
-MST
+Thanks
+Shirley
