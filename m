@@ -1,7 +1,7 @@
 From: Arnaud Ebalard <arno@natisbad.org>
-Subject: [PATCHv3 net-next-2.6 4/5] XFRM,IPv6: Add IRO remapping hook in xfrm_input()
-Date: Wed, 29 Sep 2010 11:05:59 +0200
-Message-ID: <cc9aa9a5b238d27701140d0d9230593954e53a39.1285749610.git.arno@natisbad.org>
+Subject: [PATCHv3 net-next-2.6 5/5] XFRM,IPv6: Add IRO remapping capability via socket ancillary data path
+Date: Wed, 29 Sep 2010 11:06:06 +0200
+Message-ID: <384554908598fb095c8d49a36bdab57fbb3bf113.1285749610.git.arno@natisbad.org>
 References: <cover.1285749610.git.arno@natisbad.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -11,252 +11,233 @@ To: "David S. Miller" <davem@davemloft.net>,
 	Herbert Xu <herbert@gondor.apana.org.au>,
 	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from copper.chdir.org ([88.191.97.87]:38538 "EHLO copper.chdir.org"
+Received: from copper.chdir.org ([88.191.97.87]:38543 "EHLO copper.chdir.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754453Ab0I2JFE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Sep 2010 05:05:04 -0400
+	id S1754940Ab0I2JFL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Sep 2010 05:05:11 -0400
 In-Reply-To: <cover.1285749610.git.arno@natisbad.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Add a hook in xfrm_input() to allow IRO remapping to occur when
-an incoming packet matching an existing SA (based on SPI) with
-an unexpected destination or source address is received.
-Because IRO does not consume additional bits in a packet (that's
-the point), there is no way to demultiplex based on something
-like nh or spi. Instead, IRO input handlers (for source and
-destination address remapping) are called upon address mismatch
-during IPsec processing.
-For that to work, we rely on the fact that SPI values generated
-locally are no more linked to destination address (first patch
-of the set) and we postpone a bit the expected address check in
-xfrm_input() (inside xfrm_state_lookup() against daddr param) by
-introducing a call to the input_addr_check() handler from the
-struct xfrm_state_afinfo associated with the address family.
+This provides the ability to remap src/dst address using IRO
+via ancillary data passed to sockets. This is the IRO equivalent
+of what is done for RH2/HAO (i.e. IPV6_RTHDR/IPV6_DSTOPTS).
+This is used by UMIP during BA emission when acting as a Home
+Agent.
 
 Signed-off-by: Arnaud Ebalard <arno@natisbad.org>
 ---
- include/net/xfrm.h     |    5 +++
- net/ipv4/xfrm4_input.c |   12 ++++++++
- net/ipv4/xfrm4_state.c |    1 +
- net/ipv6/xfrm6_input.c |   70 +++++++++++++++++++++++++++++++++++++++++++++++-
- net/ipv6/xfrm6_state.c |    1 +
- net/xfrm/xfrm_input.c  |    5 ++-
- net/xfrm/xfrm_state.c  |    2 +-
- 7 files changed, 92 insertions(+), 4 deletions(-)
+ include/net/ipv6.h       |    4 ++++
+ net/ipv6/datagram.c      |   20 ++++++++++++++++++++
+ net/ipv6/exthdrs.c       |   19 +++++++++++++------
+ net/ipv6/ip6_flowlabel.c |    7 +++++++
+ net/ipv6/ip6_output.c    |   22 ++++++++++++++++++++++
+ net/ipv6/raw.c           |    3 ++-
+ 6 files changed, 68 insertions(+), 7 deletions(-)
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 05b2b1f..5b84c19 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -312,6 +312,8 @@ struct xfrm_state_afinfo {
- 						  struct sk_buff *skb);
- 	int			(*transport_finish)(struct sk_buff *skb,
- 						    int async);
-+	int			(*input_addr_check)(struct sk_buff *skb,
-+						    struct xfrm_state *x);
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index 4a3cd2c..2ba96d8 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -188,6 +188,10 @@ struct ipv6_txoptions {
+ 	struct ipv6_rt_hdr	*srcrt;	/* Routing Header */
+ 	struct ipv6_opt_hdr	*dst1opt;
+ 
++	/* XXX protect those via some ifdef e.g. CONFIG_XFRM_SUB_POLICY ? */
++	struct in6_addr         *iro_src;
++	struct in6_addr         *iro_dst;
++
+ 	/* Option buffer, as read by IPV6_PKTOPTIONS, starts here. */
  };
  
- extern int xfrm_state_register_afinfo(struct xfrm_state_afinfo *afinfo);
-@@ -623,6 +625,7 @@ struct xfrm_spi_skb_cb {
- 		struct inet6_skb_parm h6;
- 	} header;
+diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
+index 2952c9e..0ac7adf 100644
+--- a/net/ipv6/datagram.c
++++ b/net/ipv6/datagram.c
+@@ -757,6 +757,26 @@ int datagram_send_ctl(struct net *net,
+ 			}
+ 			break;
  
-+	unsigned int saddroff;
- 	unsigned int daddroff;
- 	unsigned int family;
- };
-@@ -1405,6 +1408,7 @@ extern int xfrm4_rcv_encap(struct sk_buff *skb, int nexthdr, __be32 spi,
- 			   int encap_type);
- extern int xfrm4_transport_finish(struct sk_buff *skb, int async);
- extern int xfrm4_rcv(struct sk_buff *skb);
-+extern int xfrm4_input_addr_check(struct sk_buff *skb, struct xfrm_state *x);
- 
- static inline int xfrm4_rcv_spi(struct sk_buff *skb, int nexthdr, __be32 spi)
- {
-@@ -1423,6 +1427,7 @@ extern int xfrm6_transport_finish(struct sk_buff *skb, int async);
- extern int xfrm6_rcv(struct sk_buff *skb);
- extern int xfrm6_input_addr(struct sk_buff *skb, xfrm_address_t *daddr,
- 			    xfrm_address_t *saddr, u8 proto);
-+extern int xfrm6_input_addr_check(struct sk_buff *skb, struct xfrm_state *x);
- extern int xfrm6_tunnel_register(struct xfrm6_tunnel *handler, unsigned short family);
- extern int xfrm6_tunnel_deregister(struct xfrm6_tunnel *handler, unsigned short family);
- extern __be32 xfrm6_tunnel_alloc_spi(struct net *net, xfrm_address_t *saddr);
-diff --git a/net/ipv4/xfrm4_input.c b/net/ipv4/xfrm4_input.c
-index 06814b6..82e23ec 100644
---- a/net/ipv4/xfrm4_input.c
-+++ b/net/ipv4/xfrm4_input.c
-@@ -41,6 +41,7 @@ int xfrm4_rcv_encap(struct sk_buff *skb, int nexthdr, __be32 spi,
- 		    int encap_type)
- {
- 	XFRM_SPI_SKB_CB(skb)->family = AF_INET;
-+	XFRM_SPI_SKB_CB(skb)->saddroff = offsetof(struct iphdr, saddr);
- 	XFRM_SPI_SKB_CB(skb)->daddroff = offsetof(struct iphdr, daddr);
- 	return xfrm_input(skb, nexthdr, spi, encap_type);
- }
-@@ -164,3 +165,14 @@ int xfrm4_rcv(struct sk_buff *skb)
- 	return xfrm4_rcv_spi(skb, ip_hdr(skb)->protocol, 0);
- }
- EXPORT_SYMBOL(xfrm4_rcv);
++#ifdef CONFIG_XFRM_SUB_POLICY
++		case IPV6_IROSRC:
++		case IPV6_IRODST:
++			if (cmsg->cmsg_len < CMSG_LEN(sizeof(struct in6_addr))) {
++				err = -EINVAL;
++				goto exit_f;
++			}
 +
-+int xfrm4_input_addr_check(struct sk_buff *skb, struct xfrm_state *x)
-+{
-+	xfrm_address_t *daddr;
++			if (!capable(CAP_NET_RAW)) {
++				err = -EPERM;
++				goto exit_f;
++			}
 +
-+	daddr = (xfrm_address_t *)(skb_network_header(skb) +
-+				   XFRM_SPI_SKB_CB(skb)->daddroff);
-+
-+	return xfrm_addr_cmp(&x->id.daddr, daddr, AF_INET);
-+}
-+EXPORT_SYMBOL(xfrm4_input_addr_check);
-diff --git a/net/ipv4/xfrm4_state.c b/net/ipv4/xfrm4_state.c
-index 4794762..c6b038a 100644
---- a/net/ipv4/xfrm4_state.c
-+++ b/net/ipv4/xfrm4_state.c
-@@ -79,6 +79,7 @@ static struct xfrm_state_afinfo xfrm4_state_afinfo = {
- 	.extract_input		= xfrm4_extract_input,
- 	.extract_output		= xfrm4_extract_output,
- 	.transport_finish	= xfrm4_transport_finish,
-+	.input_addr_check	= xfrm4_input_addr_check,
- };
- 
- void __init xfrm4_state_init(void)
-diff --git a/net/ipv6/xfrm6_input.c b/net/ipv6/xfrm6_input.c
-index f8c3cf8..754ecf7 100644
---- a/net/ipv6/xfrm6_input.c
-+++ b/net/ipv6/xfrm6_input.c
-@@ -15,6 +15,7 @@
- #include <linux/netfilter_ipv6.h>
- #include <net/ipv6.h>
- #include <net/xfrm.h>
-+#include <net/ip6_route.h> /* XXX for ip6_route_input() */
- 
- int xfrm6_extract_input(struct xfrm_state *x, struct sk_buff *skb)
- {
-@@ -24,6 +25,7 @@ int xfrm6_extract_input(struct xfrm_state *x, struct sk_buff *skb)
- int xfrm6_rcv_spi(struct sk_buff *skb, int nexthdr, __be32 spi)
- {
- 	XFRM_SPI_SKB_CB(skb)->family = AF_INET6;
-+	XFRM_SPI_SKB_CB(skb)->saddroff = offsetof(struct ipv6hdr, saddr);
- 	XFRM_SPI_SKB_CB(skb)->daddroff = offsetof(struct ipv6hdr, daddr);
- 	return xfrm_input(skb, nexthdr, spi, 0);
- }
-@@ -142,5 +144,71 @@ int xfrm6_input_addr(struct sk_buff *skb, xfrm_address_t *daddr,
- drop:
- 	return -1;
- }
--
- EXPORT_SYMBOL(xfrm6_input_addr);
-+
-+#if defined(CONFIG_XFRM_SUB_POLICY)
-+/* Perform check on source and destination addresses and possibly IRO
-+ * address remapping upon mismatch and if matching IRO state exists. */
-+int xfrm6_input_addr_check(struct sk_buff *skb, struct xfrm_state *x)
-+{
-+	xfrm_address_t *saddr, *exp_saddr, *daddr, *exp_daddr;
-+
-+	saddr = (xfrm_address_t *)(skb_network_header(skb) +
-+				   XFRM_SPI_SKB_CB(skb)->saddroff);
-+	daddr = (xfrm_address_t *)(skb_network_header(skb) +
-+				   XFRM_SPI_SKB_CB(skb)->daddroff);
-+
-+	exp_daddr = &x->id.daddr;
-+	if (xfrm_addr_cmp(exp_daddr, daddr, AF_INET6)) {
-+		/* Destination address mismatch: check if we have an IRO
-+		 * destination remapping state to explain that.
-+		 *
-+		 * Note: saddr is provided as a hint. If source address
-+		 * is also a remapped one, xfrm6_input_addr() will manage
-+		 * to find IRO destination remapping state */
-+		if (xfrm6_input_addr(skb, exp_daddr, saddr,
-+				     XFRM_PROTO_IRO_DST) < 0)
-+			return -1;
-+
-+		/* Copy destination address to sec_path for sock opts and
-+		 * replace packet destination address with expected HoA */
-+		ipv6_addr_copy(&skb->sp->irodst, (struct in6_addr *)daddr);
-+		ipv6_addr_copy((struct in6_addr *)daddr,
-+			       (struct in6_addr *)exp_daddr);
-+
-+		skb_dst_drop(skb);
-+		ip6_route_input(skb);
-+		if (skb_dst(skb)->error)
-+			return -1;
-+	}
-+
-+	exp_saddr = &x->props.saddr;
-+	if (xfrm_addr_cmp(exp_saddr, saddr, AF_INET6)) {
-+		/* Source address mismatch: check if we have an IRO
-+		 * source remapping state to explain that.
-+		 *
-+		 * Note: unlike for destination addresses above, a
-+		 * source mismatch is not considered fatal */
-+		if (xfrm6_input_addr(skb, daddr, exp_saddr,
-+				     XFRM_PROTO_IRO_SRC) < 0)
-+			return 0;
-+
-+		/* Copy destination address to sec_path for sock opts and
-+		 * then replace source address with expected peer's HoA */
-+		ipv6_addr_copy(&skb->sp->irosrc, (struct in6_addr *)saddr);
-+		ipv6_addr_copy((struct in6_addr *)saddr,
-+			       (struct in6_addr *)exp_saddr);
-+	}
-+
-+	return 0;
-+}
-+#else
-+int xfrm6_input_addr_check(struct sk_buff *skb, struct xfrm_state *x)
-+{
-+	xfrm_address_t *daddr;
-+	daddr = (xfrm_address_t *)(skb_network_header(skb) +
-+				   XFRM_SPI_SKB_CB(skb)->daddroff);
-+	return xfrm_addr_cmp(&x->id.daddr, daddr, AF_INET6);
-+}
++			if (cmsg->cmsg_type == IPV6_IROSRC)
++				opt->iro_src = (struct in6_addr *)CMSG_DATA(cmsg);
++			else
++				opt->iro_dst = (struct in6_addr *)CMSG_DATA(cmsg);
++			break;
 +#endif
-+EXPORT_SYMBOL(xfrm6_input_addr_check);
-diff --git a/net/ipv6/xfrm6_state.c b/net/ipv6/xfrm6_state.c
-index a67575d..aeb4688 100644
---- a/net/ipv6/xfrm6_state.c
-+++ b/net/ipv6/xfrm6_state.c
-@@ -179,6 +179,7 @@ static struct xfrm_state_afinfo xfrm6_state_afinfo = {
- 	.extract_input		= xfrm6_extract_input,
- 	.extract_output		= xfrm6_extract_output,
- 	.transport_finish	= xfrm6_transport_finish,
-+	.input_addr_check	= xfrm6_input_addr_check,
- };
++
+ 		case IPV6_2292RTHDR:
+ 		case IPV6_RTHDR:
+ 			if (cmsg->cmsg_len < CMSG_LEN(sizeof(struct ipv6_rt_hdr))) {
+diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
+index 262f105..e480b06 100644
+--- a/net/ipv6/exthdrs.c
++++ b/net/ipv6/exthdrs.c
+@@ -750,6 +750,10 @@ ipv6_dup_options(struct sock *sk, struct ipv6_txoptions *opt)
+ 			*((char**)&opt2->dst1opt) += dif;
+ 		if (opt2->srcrt)
+ 			*((char**)&opt2->srcrt) += dif;
++		if (opt2->iro_src)
++			*((char**)&opt2->iro_src) += dif;
++		if (opt2->iro_dst)
++			*((char**)&opt2->iro_dst) += dif;
+ 	}
+ 	return opt2;
+ }
+@@ -874,24 +878,27 @@ struct ipv6_txoptions *ipv6_fixup_options(struct ipv6_txoptions *opt_space,
  
- int __init xfrm6_state_init(void)
-diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
-index 45f1c98..9ff65f6 100644
---- a/net/xfrm/xfrm_input.c
-+++ b/net/xfrm/xfrm_input.c
-@@ -152,8 +152,9 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
- 			goto drop;
+ /**
+  * fl6_update_dst - update flowi destination address with info given
+- *                  by srcrt option, if any.
++ *                  by srcrt/iro_dst option, if any.
+  *
+  * @fl: flowi for which fl6_dst is to be updated
+- * @opt: struct ipv6_txoptions in which to look for srcrt opt
++ * @opt: struct ipv6_txoptions in which to look for srcrt/iro_dst opt
+  * @orig: copy of original fl6_dst address if modified
+  *
+- * Returns NULL if no txoptions or no srcrt, otherwise returns orig
+- * and initial value of fl->fl6_dst set in orig
++ * Returns NULL if no txoptions or no options to change flowi destination
++ * (srcrt or IRO destination remapping rule), otherwise returns orig and
++ * initial value of fl->fl6_dst set in orig
+  */
+ struct in6_addr *fl6_update_dst(struct flowi *fl,
+ 				const struct ipv6_txoptions *opt,
+ 				struct in6_addr *orig)
+ {
+-	if (!opt || !opt->srcrt)
++	if (!opt || (!opt->srcrt && !opt->iro_dst))
+ 		return NULL;
+ 
+ 	ipv6_addr_copy(orig, &fl->fl6_dst);
+-	ipv6_addr_copy(&fl->fl6_dst, ((struct rt0_hdr *)opt->srcrt)->addr);
++	ipv6_addr_copy(&fl->fl6_dst,
++		       opt->iro_dst ?: ((struct rt0_hdr *)opt->srcrt)->addr);
++
+ 	return orig;
+ }
+ 
+diff --git a/net/ipv6/ip6_flowlabel.c b/net/ipv6/ip6_flowlabel.c
+index 1365468..dbf9c29 100644
+--- a/net/ipv6/ip6_flowlabel.c
++++ b/net/ipv6/ip6_flowlabel.c
+@@ -280,6 +280,9 @@ struct ipv6_txoptions *fl6_merge_options(struct ipv6_txoptions * opt_space,
+ 		opt_space->hopopt = fl_opt->hopopt;
+ 		opt_space->dst0opt = fl_opt->dst0opt;
+ 		opt_space->srcrt = fl_opt->srcrt;
++		/* XXX protect those via some ifdef - see net/ipv6.h */
++		opt_space->iro_src = fl_opt->iro_src;
++		opt_space->iro_dst = fl_opt->iro_dst;
+ 		opt_space->opt_nflen = fl_opt->opt_nflen;
+ 	} else {
+ 		if (fopt->opt_nflen == 0)
+@@ -287,6 +290,9 @@ struct ipv6_txoptions *fl6_merge_options(struct ipv6_txoptions * opt_space,
+ 		opt_space->hopopt = NULL;
+ 		opt_space->dst0opt = NULL;
+ 		opt_space->srcrt = NULL;
++		/* XXX protect those via some ifdef - see net/ipv6.h */
++		opt_space->iro_src = NULL;
++		opt_space->iro_dst = NULL;
+ 		opt_space->opt_nflen = 0;
+ 	}
+ 	opt_space->dst1opt = fopt->dst1opt;
+@@ -456,6 +462,7 @@ static int ipv6_opt_cmp(struct ipv6_txoptions *o1, struct ipv6_txoptions *o2)
+ 		return 1;
+ 	if (ipv6_hdr_cmp((struct ipv6_opt_hdr *)o1->srcrt, (struct ipv6_opt_hdr *)o2->srcrt))
+ 		return 1;
++
+ 	return 0;
+ }
+ 
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 99157b4..210f269 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -222,6 +222,8 @@ int ip6_xmit(struct sock *sk, struct sk_buff *skb, struct flowi *fl,
+ 			ipv6_push_frag_opts(skb, opt, &proto);
+ 		if (opt->opt_nflen)
+ 			ipv6_push_nfrag_opts(skb, opt, &proto, &first_hop);
++		if (opt->iro_dst)
++			first_hop = opt->iro_dst;
+ 	}
+ 
+ 	skb_push(skb, sizeof(struct ipv6hdr));
+@@ -1106,6 +1108,12 @@ static inline struct ipv6_rt_hdr *ip6_rthdr_dup(struct ipv6_rt_hdr *src,
+ 	return src ? kmemdup(src, (src->hdrlen + 1) * 8, gfp) : NULL;
+ }
+ 
++static inline struct in6_addr *ip6_iro_addr_dup(struct in6_addr *addr,
++						gfp_t gfp)
++{
++	return addr ? kmemdup(addr, sizeof(struct in6_addr), gfp) : NULL;
++}
++
+ int ip6_append_data(struct sock *sk, int getfrag(void *from, char *to,
+ 	int offset, int len, int odd, struct sk_buff *skb),
+ 	void *from, int length, int transhdrlen,
+@@ -1162,6 +1170,16 @@ int ip6_append_data(struct sock *sk, int getfrag(void *from, char *to,
+ 			if (opt->srcrt && !np->cork.opt->srcrt)
+ 				return -ENOBUFS;
+ 
++			np->cork.opt->iro_src = ip6_iro_addr_dup(opt->iro_src,
++								 sk->sk_allocation);
++			if (opt->iro_src && !np->cork.opt->iro_src)
++				return -ENOBUFS;
++
++			np->cork.opt->iro_dst = ip6_iro_addr_dup(opt->iro_dst,
++								 sk->sk_allocation);
++			if (opt->iro_dst && !np->cork.opt->iro_dst)
++				return -ENOBUFS;
++
+ 			/* need source address above miyazawa*/
  		}
+ 		dst_hold(&rt->dst);
+@@ -1440,6 +1458,8 @@ static void ip6_cork_release(struct inet_sock *inet, struct ipv6_pinfo *np)
+ 		kfree(np->cork.opt->dst1opt);
+ 		kfree(np->cork.opt->hopopt);
+ 		kfree(np->cork.opt->srcrt);
++		kfree(np->cork.opt->iro_src);
++		kfree(np->cork.opt->iro_dst);
+ 		kfree(np->cork.opt);
+ 		np->cork.opt = NULL;
+ 	}
+@@ -1495,6 +1515,8 @@ int ip6_push_pending_frames(struct sock *sk)
+ 		ipv6_push_frag_opts(skb, opt, &proto);
+ 	if (opt && opt->opt_nflen)
+ 		ipv6_push_nfrag_opts(skb, opt, &proto, &final_dst);
++	if (opt && opt->iro_dst)
++		final_dst = opt->iro_dst;
  
--		x = xfrm_state_lookup(net, skb->mark, daddr, spi, nexthdr, family);
--		if (x == NULL) {
-+		x = xfrm_state_lookup(net, skb->mark, NULL, spi, nexthdr, family);
-+		if (x == NULL ||
-+		    x->outer_mode->afinfo->input_addr_check(skb, x)) {
- 			XFRM_INC_STATS(net, LINUX_MIB_XFRMINNOSTATES);
- 			xfrm_audit_state_notfound(skb, family, spi, seq);
- 			goto drop;
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index b6a4d8d..b8f7c08 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -685,7 +685,7 @@ static struct xfrm_state *__xfrm_state_lookup(struct net *net, u32 mark, xfrm_ad
- 		if (x->props.family != family ||
- 		    x->id.spi       != spi ||
- 		    x->id.proto     != proto ||
--		    xfrm_addr_cmp(&x->id.daddr, daddr, family))
-+		    (daddr && xfrm_addr_cmp(&x->id.daddr, daddr, family)))
- 			continue;
- 
- 		if ((mark & x->mark.m) != x->mark.v)
+ 	skb_push(skb, sizeof(struct ipv6hdr));
+ 	skb_reset_network_header(skb);
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+index 45e6efb..1a11bd5 100644
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -828,7 +828,8 @@ static int rawv6_sendmsg(struct kiocb *iocb, struct sock *sk,
+ 			if (flowlabel == NULL)
+ 				return -EINVAL;
+ 		}
+-		if (!(opt->opt_nflen|opt->opt_flen))
++		if (!(opt->opt_nflen|opt->opt_flen) &&
++		    (!opt->iro_src && !opt->iro_dst))
+ 			opt = NULL;
+ 	}
+ 	if (opt == NULL)
 -- 
 1.7.1
-
 
