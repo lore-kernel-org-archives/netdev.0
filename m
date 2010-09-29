@@ -1,53 +1,60 @@
-From: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont" <remi@remlab.net>
-Subject: Re: [ABI REVIEW][PATCH 0/8] Namespace file descriptors
-Date: Wed, 29 Sep 2010 06:09:33 +0300
-Message-ID: <201009290609.33773.remi@remlab.net>
-References: <m1ocborgq7.fsf@fess.ebiederm.org>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [RFC PATCH 2/2] macvtap: TX zero copy between guest and host
+ kernel
+Date: Tue, 28 Sep 2010 20:24:29 -0700
+Message-ID: <1285730669.31343.7.camel@localhost.localdomain>
+References: <20100914152231.GA13105@redhat.com>
+	 <1284480025.13351.49.camel@localhost.localdomain>
+	 <20100914162952.GB13560@redhat.com>
+	 <1284483745.13351.71.camel@localhost.localdomain>
+	 <20100914182707.GB15549@redhat.com>
+	 <1284490143.13351.82.camel@localhost.localdomain>
+	 <20100914190156.GA16037@redhat.com>
+	 <1284492983.13351.95.camel@localhost.localdomain>
+	 <20100915051241.GA25340@redhat.com>
+	 <1284531675.24603.259.camel@localhost.localdomain>
+	 <20100915101000.GB28016@redhat.com>
+	 <1284562354.2573.12.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Linux Containers <containers@lists.osdl.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from yop.chewa.net ([91.121.105.214]:49473 "EHLO yop.chewa.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751462Ab0I2DJ4 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Sep 2010 23:09:56 -0400
-In-Reply-To: <m1ocborgq7.fsf@fess.ebiederm.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Arnd Bergmann <arnd@arndb.de>, Avi Kivity <avi@redhat.com>,
+	"Xin, Xiaohui" <xiaohui.xin@intel.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1284562354.2573.12.camel@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-(Trimming To/Cc heavily)
+Hello Michael,
 
-   Hello,
+On Wed, 2010-09-15 at 07:52 -0700, Shirley Ma wrote:
+> > >  Don't you think once I address vhost_add_used_and_signal update
+> > > issue, it is a simple and complete patch for macvtap TX zero copy?
+> > > 
+> > > Thanks
+> > > Shirley
+> > 
+> > I like the fact that the patch is simple. Unfortunately
+> > I suspect it'll stop being simple by the time it's complete :) 
+> 
+> I can make a try. :)
 
-On Thursday 23 September 2010, Eric W. Biederman wrote:
-> Introduce file for manipulating namespaces and related syscalls.
-> files:
-> /proc/self/ns/<nstype>
->=20
-> syscalls:
-> int setns(unsigned long nstype, int fd);
-> socketat(int nsfd, int family, int type, int protocol);
->=20
-> Netlink attribute:
-> IFLA_NS_FD int fd.
+I compared several approaches for addressing the issue being raised here
+on how/when to update vhost_add_used_and_signal. The simple approach I
+have found is:
 
-I have not reviewed the code, but that seems quite nice. At Nokia, we a=
-lready=20
-use network namespaces to implement the Multimedia Message Service.=20
-Inconveniently enough, that is HTTP/TCP/IP in a dedicated IP namespace.=
-=20
-Similarly, I expect this could be useful to implement the IMS, if/when =
-mobile=20
-operators start using it (that does not mean Nokia will or will not do =
-it).
+1. Adding completion field in struct virtqueue;
+2. when it is a zero copy packet, put vhost thread wait for completion
+to update vhost_add_used_and_signal;
+3. passing vq from vhost to macvtap as skb destruct_arg;
+4. when skb is freed for the last reference, signal vq completion
 
-Using netns, we avoided overlapping with the normal Internet connectivi=
-ty.=20
-setns() would be much more convenient than fork()+unshare().
+The test results show same performance as the original patch. How do you
+think? If it sounds good to you. I will resubmit this reversion patch.
+The patch still keeps as simple as it was before. :)
 
---=20
-R=E9mi Denis-Courmont
-http://www.remlab.net/
+Thanks
+Shirley
