@@ -1,46 +1,56 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] ip_gre: CONFIG_IPV6_MODULE support
-Date: Wed, 29 Sep 2010 16:11:58 +0900
-Message-ID: <20100929071158.GA4684@gondor.apana.org.au>
-References: <20100928084139.GA26793@gondor.apana.org.au> <1285663738.2607.30.camel@edumazet-laptop> <1285733911.22570.20.camel@edumazet-laptop> <1285734295.22570.25.camel@edumazet-laptop> <20100929043642.GA3660@gondor.apana.org.au> <1285741443.22570.27.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Flavio Leitner <fleitner@redhat.com>
+Subject: [PATCH] bonding: fix to rejoin multicast groups immediately
+Date: Wed, 29 Sep 2010 04:12:07 -0300
+Message-ID: <1285744327-1194-1-git-send-email-fleitner@redhat.com>
+Cc: Flavio Leitner <fleitner@redhat.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:44179 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751403Ab0I2HMF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Sep 2010 03:12:05 -0400
-Content-Disposition: inline
-In-Reply-To: <1285741443.22570.27.camel@edumazet-laptop>
+Received: from mx1.redhat.com ([209.132.183.28]:15921 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751756Ab0I2HMN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Sep 2010 03:12:13 -0400
+Received: from int-mx02.intmail.prod.int.phx2.redhat.com (int-mx02.intmail.prod.int.phx2.redhat.com [10.5.11.12])
+	by mx1.redhat.com (8.13.8/8.13.8) with ESMTP id o8T7CDEU006334
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Wed, 29 Sep 2010 03:12:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 29, 2010 at 08:24:03AM +0200, Eric Dumazet wrote:
-.
-> Well, sometimes people wants to :
-> 
-> /etc/modprobe.conf
-> install ipv6 /bin/true
-> 
-> 
-> Yet, be able to load ip_gre as a module
-> 
-> so IPV6=m, GRE=m,
+It should rejoin multicast groups immediately when
+the failover happens to restore the multicast traffic.
 
-I think if we cared about this we should provide ways to disable
-IPv6 (if there aren't any already) even when the module is loaded
-or the code is built-in.
+Signed-off-by: Flavio Leitner <fleitner@redhat.com>
+---
+ net/ipv4/igmp.c |   16 ++++++++--------
+ 1 files changed, 8 insertions(+), 8 deletions(-)
 
-BTW, I think the code isn't 100% safe as is as it tries to access
-skb_dst unconditionally in the IPv6 case.  If the packet came via
-a remote source (e.g., bridging and virt) it may not have an IPv6
-skb_dst at all.
-
-Cheers,
+diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
+index 1fdcacd..b81d674 100644
+--- a/net/ipv4/igmp.c
++++ b/net/ipv4/igmp.c
+@@ -1257,14 +1257,14 @@ void ip_mc_rejoin_group(struct ip_mc_list *im)
+ 	if (im->multiaddr == IGMP_ALL_HOSTS)
+ 		return;
+ 
+-	if (IGMP_V1_SEEN(in_dev) || IGMP_V2_SEEN(in_dev)) {
+-		igmp_mod_timer(im, IGMP_Initial_Report_Delay);
+-		return;
+-	}
+-	/* else, v3 */
+-	im->crcount = in_dev->mr_qrv ? in_dev->mr_qrv :
+-		IGMP_Unsolicited_Report_Count;
+-	igmp_ifc_event(in_dev);
++	/* a failover is happening and switches
++	 * must be notified immediately */
++	if (IGMP_V1_SEEN(in_dev))
++		igmp_send_report(in_dev, im, IGMP_HOST_MEMBERSHIP_REPORT);
++	else if (IGMP_V2_SEEN(in_dev))
++		igmp_send_report(in_dev, im, IGMPV2_HOST_MEMBERSHIP_REPORT);
++	else
++		igmp_send_report(in_dev, im, IGMPV3_HOST_MEMBERSHIP_REPORT);
+ #endif
+ }
+ EXPORT_SYMBOL(ip_mc_rejoin_group);
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.7.2.3
+
