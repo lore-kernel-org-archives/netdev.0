@@ -1,54 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ip_gre: CONFIG_IPV6_MODULE support
-Date: Wed, 29 Sep 2010 01:00:56 -0700 (PDT)
-Message-ID: <20100929.010056.115931816.davem@davemloft.net>
-References: <20100929.002544.183044247.davem@davemloft.net>
-	<1285746352.2615.11.camel@edumazet-laptop>
-	<20100929075758.GA5188@gondor.apana.org.au>
+Subject: Re: [PATCH] net: Implement Any-IP support for IPv6.
+Date: Wed, 29 Sep 2010 01:02:01 -0700 (PDT)
+Message-ID: <20100929.010201.48530508.davem@davemloft.net>
+References: <1285582022-30787-1-git-send-email-zenczykowski@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, kaber@trash.net
-To: herbert@gondor.apana.org.au
+Content-Type: Text/Plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, maze@google.com
+To: zenczykowski@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54473
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54450
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752160Ab0I2IAg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Sep 2010 04:00:36 -0400
-In-Reply-To: <20100929075758.GA5188@gondor.apana.org.au>
+	by vger.kernel.org with ESMTP id S1752621Ab0I2IBk convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Sep 2010 04:01:40 -0400
+In-Reply-To: <1285582022-30787-1-git-send-email-zenczykowski@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Wed, 29 Sep 2010 16:57:58 +0900
+=46rom: Maciej =AFenczykowski <zenczykowski@gmail.com>
+Date: Mon, 27 Sep 2010 03:07:02 -0700
 
-> On Wed, Sep 29, 2010 at 09:45:52AM +0200, Eric Dumazet wrote:
-> .
->> > > install ipv6 /bin/true
->> > > 
->> > > or
->> > > 
->> > > options ipv6 disable=1
->> > 
->> > If you set the disable option, it should do the right thing.  Since
->> > the ipv6 symbols will be available, yet the ipv6 stack won't by
->> > default bring up ipv6 addresses onto interfaces etc.
->> 
->> I must miss something obvious.
->> 
->> David, with your patch, I cant :
->> 
->> install ipv6 /bin/true
->> modprobe ip_gre
-> 
-> Does it work if you use
-> 
-> 	options ipv6 disable=1
-> 
-> If so then that's what should be used in this case.
+> From: Maciej =AFenczykowski <maze@google.com>
+>=20
+> AnyIP is the capability to receive packets and establish incoming
+> connections on IPs we have not explicitly configured on the machine.
+>=20
+> An example use case is to configure a machine to accept all incoming
+> traffic on eth0, and leave the policy of whether traffic for a given =
+IP
+> should be delivered to the machine up to the load balancer.
+>=20
+> Can be setup as follows:
+>   ip -6 rule from all iif eth0 lookup 200
+>   ip -6 route add local default dev lo table 200
+> (in this case for all IPv6 addresses)
+>=20
+> Signed-off-by: Maciej =AFenczykowski <maze@google.com>
 
-That's what one should use "always" :-)
+Ok, I applied this and Tom's ipv4-side patch and pushed it all
+out to net-next-2.6
 
-Bonding has the same issue, and it's why we added the
-disable module option, so that the /bin/true stupidity
-could stop.
+Thanks!
