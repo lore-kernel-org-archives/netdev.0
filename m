@@ -1,59 +1,61 @@
-From: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont"
-	<remi.denis-courmont@nokia.com>
-Subject: Re: [PATCH v2 1/2] Phonet: Implement Pipe Controller to support Nokia Slim Modems
-Date: Wed, 29 Sep 2010 21:21:17 +0300
-Message-ID: <201009292121.18274.remi.denis-courmont@nokia.com>
-References: <1285564079-23066-1-git-send-email-kumar.sanghvi@stericsson.com> <201009290125.07068.remi.denis-courmont@nokia.com> <20100929063219.GA18733@bnru01.bnr.st.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6] ip_gre: lockless xmit
+Date: Wed, 29 Sep 2010 20:43:14 +0200
+Message-ID: <1285785794.2813.292.camel@edumazet-laptop>
+References: <1285664747.2607.48.camel@edumazet-laptop>
+	 <AANLkTinCz_0jHsMYW9_Wko78i9U20qefFbTYCQQQ-pz5@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "STEricsson_nomadik_linux" <STEricsson_nomadik_linux@list.st.com>,
-	Sudeep DIVAKARAN <sudeep.divakaran@stericsson.com>,
-	Gulshan KARMANI <gulshan.karmani@stericsson.com>,
-	Linus WALLEIJ <linus.walleij@stericsson.com>
-To: ext Kumar SANGHVI <kumar.sanghvi@stericsson.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([192.100.122.233]:24699 "EHLO
-	mgw-mx06.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753926Ab0I2SUu convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Sep 2010 14:20:50 -0400
-In-Reply-To: <20100929063219.GA18733@bnru01.bnr.st.com>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:46809 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754345Ab0I2SnX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Sep 2010 14:43:23 -0400
+Received: by fxm4 with SMTP id 4so154921fxm.19
+        for <netdev@vger.kernel.org>; Wed, 29 Sep 2010 11:43:22 -0700 (PDT)
+In-Reply-To: <AANLkTinCz_0jHsMYW9_Wko78i9U20qefFbTYCQQQ-pz5@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Le mercredi 29 septembre 2010 =C3=A0 10:33 -0700, Jesse Gross a =C3=A9c=
+rit :
 
-	Hello,
+> The tx lock has another use here: to break local loops.  With this
+> change, a misconfigured tunnel can bring down the machine with a stac=
+k
+> overflow.  There are clearly other ways to fix this that don't requir=
+e
+> a lock that restricts parallelism, such as a loop counter, but that's
+> the way it is now.
 
-On Wednesday 29 September 2010 09:32:20 ext Kumar SANGHVI, you wrote:
-> We can introduce corrections in Phonet stack for the PS path which
-> would be minor. But then those changes look more like a hack. Further=
-,
-> this change would be required at several places where PS communicatio=
-n
-> is happening with modem e.g. pep_reply, pipe_skb_send, pipe_snd_statu=
-s,
-> etc.
->=20
-> Further, if a new function tomorrow is introduced for PS path
-> communication with modem then, that hack will have to be added to tha=
-t
-> function also.
+Thats a very good point !
 
-It seems to me that you really want to implement the connect() socket c=
-all, so=20
-that one of the two endpoints will stand up for the missing controller.=
- That's=20
-still much cleaner than CREATE and DESTROY ioctl()'s.
+We could use a loop counter in the skb, but this use a bit of ram,
+or percpu counters in tunnel drivers, to avoid a given level of
+recursion.
 
-Besides, the pipe should be destroyed when the last socket descriptor i=
-s=20
-closed anyway. So ioctl(DESTROY) really seems like a bad idea to me.
+/* this should be shared by all tunnels */
+DEFINE_PER_CPU(tunnel_xmit_count);
 
-Similarly, ENABLE and DISABLE should be revectored into a boolean socke=
-t=20
-option.
 
---=20
-R=E9mi Denis-Courmont
-Nokia Devices R&D, Maemo Software, Helsinki
+
+tunnel_xmit()
+{
+if (__this_cpu_read(tunnel_xmit_count) >=3D LIMIT)
+	goto tx_error;
+__this_cpu_inc(tunnel_xmit_count);
+
+=2E...
+
+__IPTUNNEL_XMIT(tstats, &dev->stats);
+
+__this_cpu_dec(tunnel_xmit_count),
+return NETDEV_TX_OK;
+
+}
+
+
+
