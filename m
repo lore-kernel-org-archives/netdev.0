@@ -1,44 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Implement Any-IP support for IPv6.
-Date: Wed, 29 Sep 2010 01:02:01 -0700 (PDT)
-Message-ID: <20100929.010201.48530508.davem@davemloft.net>
-References: <1285582022-30787-1-git-send-email-zenczykowski@gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] ip_gre: CONFIG_IPV6_MODULE support
+Date: Wed, 29 Sep 2010 17:03:03 +0900
+Message-ID: <20100929080303.GA5318@gondor.apana.org.au>
+References: <20100929.002544.183044247.davem@davemloft.net> <1285746352.2615.11.camel@edumazet-laptop> <20100929075758.GA5188@gondor.apana.org.au> <20100929.010056.115931816.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, maze@google.com
-To: zenczykowski@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, kaber@trash.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54450
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752621Ab0I2IBk convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Sep 2010 04:01:40 -0400
-In-Reply-To: <1285582022-30787-1-git-send-email-zenczykowski@gmail.com>
+Received: from helcar.apana.org.au ([209.40.204.226]:52707 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754094Ab0I2IDI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Sep 2010 04:03:08 -0400
+Content-Disposition: inline
+In-Reply-To: <20100929.010056.115931816.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Maciej =AFenczykowski <zenczykowski@gmail.com>
-Date: Mon, 27 Sep 2010 03:07:02 -0700
+On Wed, Sep 29, 2010 at 01:00:56AM -0700, David Miller wrote:
+.
+> > 	options ipv6 disable=1
+> > 
+> > If so then that's what should be used in this case.
+> 
+> That's what one should use "always" :-)
+> 
+> Bonding has the same issue, and it's why we added the
+> disable module option, so that the /bin/true stupidity
+> could stop.
 
-> From: Maciej =AFenczykowski <maze@google.com>
->=20
-> AnyIP is the capability to receive packets and establish incoming
-> connections on IPs we have not explicitly configured on the machine.
->=20
-> An example use case is to configure a machine to accept all incoming
-> traffic on eth0, and leave the policy of whether traffic for a given =
-IP
-> should be delivered to the machine up to the load balancer.
->=20
-> Can be setup as follows:
->   ip -6 rule from all iif eth0 lookup 200
->   ip -6 route add local default dev lo table 200
-> (in this case for all IPv6 addresses)
->=20
-> Signed-off-by: Maciej =AFenczykowski <maze@google.com>
-
-Ok, I applied this and Tom's ipv4-side patch and pushed it all
-out to net-next-2.6
-
-Thanks!
+Right, that settles it :)
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
