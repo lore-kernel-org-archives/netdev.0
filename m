@@ -1,9 +1,10 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH] ip_gre: CONFIG_IPV6_MODULE support
-Date: Wed, 29 Sep 2010 06:18:30 +0200
-Message-ID: <1285733911.22570.20.camel@edumazet-laptop>
+Date: Wed, 29 Sep 2010 06:24:55 +0200
+Message-ID: <1285734295.22570.25.camel@edumazet-laptop>
 References: <20100928084139.GA26793@gondor.apana.org.au>
 	 <1285663738.2607.30.camel@edumazet-laptop>
+	 <1285733911.22570.20.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -11,44 +12,46 @@ Cc: davem@davemloft.net, netdev@vger.kernel.org,
 	Patrick McHardy <kaber@trash.net>
 To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:45573 "EHLO
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:61466 "EHLO
 	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750769Ab0I2ESk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Sep 2010 00:18:40 -0400
-Received: by fxm14 with SMTP id 14so240148fxm.19
-        for <netdev@vger.kernel.org>; Tue, 28 Sep 2010 21:18:39 -0700 (PDT)
-In-Reply-To: <1285663738.2607.30.camel@edumazet-laptop>
+	with ESMTP id S1750896Ab0I2EZD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Sep 2010 00:25:03 -0400
+Received: by fxm14 with SMTP id 14so241460fxm.19
+        for <netdev@vger.kernel.org>; Tue, 28 Sep 2010 21:24:59 -0700 (PDT)
+In-Reply-To: <1285733911.22570.20.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 28 septembre 2010 =C3=A0 10:48 +0200, Eric Dumazet a =C3=A9cri=
-t :
-> Le mardi 28 septembre 2010 =C3=A0 17:41 +0900, Herbert Xu a =C3=A9cri=
-t :
-> > Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > > ipv6 can be a module, we should test CONFIG_IPV6 and CONFIG_IPV6_=
-MODULE
-> > > to enable ipv6 bits in ip_gre.
-> > >=20
-> > > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> >=20
-> > To do this safely, we also need to disallow IPV6=3Dm and GRE=3Dy.
-> >=20
-> > Cheers,
->=20
+Le mercredi 29 septembre 2010 =C3=A0 06:18 +0200, Eric Dumazet a =C3=A9=
+crit :
 
-I even remember Patrick warned about this 30 months ago.... Doh...
+> diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+> index 03e62f9..25e9ad6 100644
+> --- a/net/ipv6/icmp.c
+> +++ b/net/ipv6/icmp.c
+> @@ -862,6 +862,7 @@ int __init icmpv6_init(void)
+>  	err =3D -EAGAIN;
+>  	if (inet6_add_protocol(&icmpv6_protocol, IPPROTO_ICMPV6) < 0)
+>  		goto fail;
+> +	register_icmpv6_send(icmpv6_send);
+>  	return 0;
+> =20
+>  fail:
+> @@ -874,6 +875,7 @@ void icmpv6_cleanup(void)
+>  {
+>  	unregister_pernet_subsys(&icmpv6_sk_ops);
+>  	inet6_del_protocol(&icmpv6_protocol, IPPROTO_ICMPV6);
+> +	unregister_icmpv6_send();
+>  }
 
-http://www.kerneltrap.com/mailarchive/linux-netdev/2008/1/22/590393
+Well, we all know icmpv6_cleanup() is not really called (or can we
+really unload ipv6 ?).
 
-Given its now rare ipv6 is not loaded, what about following patch ?
+But unregister_icmpv6_send() should be the first call in it.
 
-Thanks !
+Updated patch :
 
-Tested here, with a non loaded ipv6 module.
-
-
-[PATCH] ipv6: introduce call_icmpv6_send()
+[PATCH v2] ipv6: introduce call_icmpv6_send()
 
 ip_gre module has a dependency against IPv6:
 
@@ -145,7 +148,7 @@ n) {
  			goto tx_error;
  		}
 diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
-index 03e62f9..25e9ad6 100644
+index 03e62f9..2d0f56b 100644
 --- a/net/ipv6/icmp.c
 +++ b/net/ipv6/icmp.c
 @@ -862,6 +862,7 @@ int __init icmpv6_init(void)
@@ -156,13 +159,13 @@ index 03e62f9..25e9ad6 100644
  	return 0;
 =20
  fail:
-@@ -874,6 +875,7 @@ void icmpv6_cleanup(void)
+@@ -872,6 +873,7 @@ fail:
+=20
+ void icmpv6_cleanup(void)
  {
++	unregister_icmpv6_send();
  	unregister_pernet_subsys(&icmpv6_sk_ops);
  	inet6_del_protocol(&icmpv6_protocol, IPPROTO_ICMPV6);
-+	unregister_icmpv6_send();
  }
-=20
-=20
 
 
