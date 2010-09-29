@@ -1,37 +1,40 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH net-next2.6] net: rename netdev rx_queue to
- ingress_queue
-Date: Wed, 29 Sep 2010 06:56:57 -0400
-Message-ID: <1285757817.3561.2.camel@bigi>
-References: <1285689517.3154.76.camel@edumazet-laptop>
-	 <20100928180447.GA1880@del.dom.local>
-Reply-To: hadi@cyberus.ca
+From: didier <did447@gmail.com>
+Subject: Re: VLAN GARP triggers a lot of timers if linux compiled with VLAN_8021Q_GVRP
+Date: Wed, 29 Sep 2010 13:02:02 +0200
+Message-ID: <AANLkTimMTi-pHe7OYLV0=3m4KF35B+Scjf_HYZ8iiqLu@mail.gmail.com>
+References: <AANLkTinZ_6+PzAHHc5vaY+H2iX_pf4vsdNsnZ2_N7EDf@mail.gmail.com>
+	<4CA3056B.6010901@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f181.google.com ([209.85.216.181]:65081 "EHLO
-	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751927Ab0I2K5A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Sep 2010 06:57:00 -0400
-Received: by qyk33 with SMTP id 33so1076044qyk.19
-        for <netdev@vger.kernel.org>; Wed, 29 Sep 2010 03:57:00 -0700 (PDT)
-In-Reply-To: <20100928180447.GA1880@del.dom.local>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:63159 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751427Ab0I2LCE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Sep 2010 07:02:04 -0400
+Received: by bwz11 with SMTP id 11so411784bwz.19
+        for <netdev@vger.kernel.org>; Wed, 29 Sep 2010 04:02:02 -0700 (PDT)
+In-Reply-To: <4CA3056B.6010901@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2010-09-28 at 20:04 +0200, Jarek Poplawski wrote:
+Hi,
+>
+>> garp_join_timer_arm()
+>>
+>> delay = (u64)msecs_to_jiffies(garp_join_time)* net_random() >> 32;
+>> mod_timer(&app->join_timer, jiffies +delay)
+>>
+>> Isn't this stuff triggering a *lot* of events?
+>
+> Yeah, something around 5-10 timers per second IIRC. There was an RFC
+> patch a while ago to only schedule the timer on-demand, I'll see
+> whether I can find it again.
 
-> I hope Master of Ingress will forgive you this CC some day... ;-)
+But with this formula delay can be often rather small, or do I miss something?
 
-Forgiven-by: moi 
+Here on an idle box with two vlans vmstat output shows  burst of up to
+15000 context switches per seconds.
 
-Which may or may not stand for "me" if you pardon my French
-
-cheers,
-jamal
-
+Didier
