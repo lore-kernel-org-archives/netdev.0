@@ -1,73 +1,60 @@
 From: xiaohui.xin@intel.com
-Subject: [PATCH v12 07/17]Modify netdev_alloc_page() to get external buffer
-Date: Thu, 30 Sep 2010 22:04:24 +0800
-Message-ID: <095b529a397d60b9ac9bcd345bd587630bcbab79.1285853725.git.xiaohui.xin@intel.com>
+Subject: [PATCH v12 13/17] Add a kconfig entry and make entry for mp device.
+Date: Thu, 30 Sep 2010 22:04:29 +0800
+Message-ID: <a77e19e8a86f6754d4961a1128834cb98402966c.1285853725.git.xiaohui.xin@intel.com>
 References: <1285855474-12110-1-git-send-email-xiaohui.xin@intel.com>
 Cc: Xin Xiaohui <xiaohui.xin@intel.com>
 To: netdev@vger.kernel.org, kvm@vger.kernel.org,
 	linux-kernel@vger.kernel.org, mst@redhat.com, mingo@elte.hu,
 	davem@davemloft.net, herbert@gondor.apana.org.au,
 	jdike@linux.intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([143.182.124.21]:30013 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756312Ab0I3NrM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Sep 2010 09:47:12 -0400
 In-Reply-To: <1285855474-12110-1-git-send-email-xiaohui.xin@intel.com>
 In-Reply-To: <59d8a50047ee01e26658fd676d26c0162b79e5fd.1285853725.git.xiaohui.xin@intel.com>
 References: <59d8a50047ee01e26658fd676d26c0162b79e5fd.1285853725.git.xiaohui.xin@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Xin Xiaohui <xiaohui.xin@intel.com>
 
-    Currently, it can get external buffers from mp device.
-
-    Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
-    Signed-off-by: Zhao Yu <yzhao81new@gmail.com>
-    Reviewed-by: Jeff Dike <jdike@linux.intel.com>
+Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
+Reviewed-by: Jeff Dike <jdike@linux.intel.com>
 ---
- net/core/skbuff.c |   27 +++++++++++++++++++++++++++
- 1 files changed, 27 insertions(+), 0 deletions(-)
+ drivers/vhost/Kconfig  |   10 ++++++++++
+ drivers/vhost/Makefile |    2 ++
+ 2 files changed, 12 insertions(+), 0 deletions(-)
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 117d82b..da02fa1 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -269,11 +269,38 @@ struct sk_buff *__netdev_alloc_skb(struct net_device *dev,
- }
- EXPORT_SYMBOL(__netdev_alloc_skb);
+diff --git a/drivers/vhost/Kconfig b/drivers/vhost/Kconfig
+index e4e2fd1..a6b8cbf 100644
+--- a/drivers/vhost/Kconfig
++++ b/drivers/vhost/Kconfig
+@@ -9,3 +9,13 @@ config VHOST_NET
+ 	  To compile this driver as a module, choose M here: the module will
+ 	  be called vhost_net.
  
-+struct page *netdev_alloc_ext_pages(struct net_device *dev, int npages)
-+{
-+	struct mp_port *port;
-+	struct skb_ext_page *ext_page = NULL;
++config MEDIATE_PASSTHRU
++	tristate "mediate passthru network driver (EXPERIMENTAL)"
++	depends on VHOST_NET
++	---help---
++	  zerocopy network I/O support, we call it as mediate passthru to
++	  be distiguish with hardare passthru.
 +
-+	port = dev->mp_port;
-+	if (!port)
-+		goto out;
-+	ext_page = port->ctor(port, NULL, npages);
-+	if (ext_page)
-+		return ext_page->page;
-+out:
-+	return NULL;
++	  To compile this driver as a module, choose M here: the module will
++	  be called mpassthru.
 +
-+}
-+EXPORT_SYMBOL(netdev_alloc_ext_pages);
+diff --git a/drivers/vhost/Makefile b/drivers/vhost/Makefile
+index 72dd020..c18b9fc 100644
+--- a/drivers/vhost/Makefile
++++ b/drivers/vhost/Makefile
+@@ -1,2 +1,4 @@
+ obj-$(CONFIG_VHOST_NET) += vhost_net.o
+ vhost_net-y := vhost.o net.o
 +
-+struct page *netdev_alloc_ext_page(struct net_device *dev)
-+{
-+	return netdev_alloc_ext_pages(dev, 1);
-+
-+}
-+EXPORT_SYMBOL(netdev_alloc_ext_page);
-+
- struct page *__netdev_alloc_page(struct net_device *dev, gfp_t gfp_mask)
- {
- 	int node = dev->dev.parent ? dev_to_node(dev->dev.parent) : -1;
- 	struct page *page;
- 
-+	if (dev_is_mpassthru(dev))
-+		return netdev_alloc_ext_page(dev);
-+
- 	page = alloc_pages_node(node, gfp_mask, 0);
- 	return page;
- }
++obj-$(CONFIG_MEDIATE_PASSTHRU) += mpassthru.o
 -- 
 1.7.3
+
