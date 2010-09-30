@@ -1,24 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-2.6 2010-09-29
-Date: Thu, 30 Sep 2010 12:03:02 -0700 (PDT)
-Message-ID: <20100930.120302.214230306.davem@davemloft.net>
-References: <20100929203352.GC2516@tuxdriver.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100929203352.GC2516@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Dimitris Michailidis <dm@chelsio.com>
+Subject: [PATCH net-next] cxgb4: remove a bogus PCI function number check
+Date: Thu, 30 Sep 2010 12:17:12 -0700
+Message-ID: <1285874232-1554-1-git-send-email-dm@chelsio.com>
+Cc: Dimitris Michailidis <dm@chelsio.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:21248 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756278Ab0I3TYN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Sep 2010 15:24:13 -0400
+Received: from maui.asicdesigners.com (maui.asicdesigners.com [10.192.180.15])
+	by stargate.chelsio.com (8.13.1/8.13.1) with SMTP id o8UJOCph031116
+	for <netdev@vger.kernel.org>; Thu, 30 Sep 2010 12:24:12 -0700
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Wed, 29 Sep 2010 16:33:53 -0400
+Remove a bogus PCI function number check from the driver's .remove
+method that causes pci_release_regions not to be called for function 0
+if additional functions are attached and one of them is used as primary.
 
-> Here are two more fixes intended for 2.6.36.  One fixes a user after
-> free error, the other fixes a reported regression (bug 17722).  Both are
-> reasonably small and well documented in the commit logs.
+Signed-off-by: Dimitris Michailidis <dm@chelsio.com>
+---
+ drivers/net/cxgb4/cxgb4_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Pulled, thanks John.
+diff --git a/drivers/net/cxgb4/cxgb4_main.c b/drivers/net/cxgb4/cxgb4_main.c
+index 4fb08e3..22169a7 100644
+--- a/drivers/net/cxgb4/cxgb4_main.c
++++ b/drivers/net/cxgb4/cxgb4_main.c
+@@ -3863,7 +3863,7 @@ static void __devexit remove_one(struct pci_dev *pdev)
+ 		pci_disable_device(pdev);
+ 		pci_release_regions(pdev);
+ 		pci_set_drvdata(pdev, NULL);
+-	} else if (PCI_FUNC(pdev->devfn) > 0)
++	} else
+ 		pci_release_regions(pdev);
+ }
+ 
+-- 
+1.5.4
+
