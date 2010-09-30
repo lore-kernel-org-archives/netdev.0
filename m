@@ -1,203 +1,151 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next 2/2] ipv4: rcu conversion in ip_route_output_slow
-Date: Thu, 30 Sep 2010 15:33:58 +0200
-Message-ID: <1285853638.2615.520.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:42193 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752279Ab0I3NeE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Sep 2010 09:34:04 -0400
-Received: by fxm4 with SMTP id 4so680823fxm.19
-        for <netdev@vger.kernel.org>; Thu, 30 Sep 2010 06:34:03 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: xiaohui.xin@intel.com
+Subject: [PATCH v12 00/17] Provide a zero-copy method on KVM virtio-net.
+Date: Thu, 30 Sep 2010 22:04:17 +0800
+Message-ID: <1285855474-12110-1-git-send-email-xiaohui.xin@intel.com>
+To: netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mst@redhat.com, mingo@elte.hu,
+	davem@davemloft.net, herbert@gondor.apana.org.au,
+	jdike@linux.intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-ip_route_output_slow() is enclosed in an rcu_read_lock() protected
-section, so that no references are taken/released on device, thanks to
-__ip_dev_find() & dev_get_by_index_rcu()
+We provide an zero-copy method which driver side may get external
+buffers to DMA. Here external means driver don't use kernel space
+to allocate skb buffers. Currently the external buffer can be from
+guest virtio-net driver.
 
-Tested with ip route cache disabled, and a stress test :
+The idea is simple, just to pin the guest VM user space and then
+let host NIC driver has the chance to directly DMA to it. 
+The patches are based on vhost-net backend driver. We add a device
+which provides proto_ops as sendmsg/recvmsg to vhost-net to
+send/recv directly to/from the NIC driver. KVM guest who use the
+vhost-net backend may bind any ethX interface in the host side to
+get copyless data transfer thru guest virtio-net frontend.
 
-Before patch:
+patch 01-10:  	net core and kernel changes.
+patch 11-13:  	new device as interface to mantpulate external buffers.
+patch 14: 	for vhost-net.
+patch 15:	An example on modifying NIC driver to using napi_gro_frags().
+patch 16:	An example how to get guest buffers based on driver
+		who using napi_gro_frags().
+patch 17:	It's a patch to address comments from Michael S. Thirkin
+		to add 2 new ioctls in mp device.
+		We split it out here to make easier reiewer.
+		Need to revise.
 
-elapsed time :
+The guest virtio-net driver submits multiple requests thru vhost-net
+backend driver to the kernel. And the requests are queued and then
+completed after corresponding actions in h/w are done.
 
-real	1m38.347s
-user	0m11.909s
-sys	23m51.501s
+For read, user space buffers are dispensed to NIC driver for rx when
+a page constructor API is invoked. Means NICs can allocate user buffers
+from a page constructor. We add a hook in netif_receive_skb() function
+to intercept the incoming packets, and notify the zero-copy device.
 
-Profile:
+For write, the zero-copy deivce may allocates a new host skb and puts
+payload on the skb_shinfo(skb)->frags, and copied the header to skb->data.
+The request remains pending until the skb is transmitted by h/w.
 
-13788.00 22.7% ip_route_output_slow [kernel]
- 7875.00 13.0% dst_destroy          [kernel]
- 3925.00  6.5% fib_semantic_match   [kernel]
- 3144.00  5.2% fib_rules_lookup     [kernel]
- 3061.00  5.0% dst_alloc            [kernel]
- 2276.00  3.7% rt_set_nexthop       [kernel]
- 1762.00  2.9% fib_table_lookup     [kernel]
- 1538.00  2.5% _raw_read_lock       [kernel]
- 1358.00  2.2% ip_output            [kernel]
+We provide multiple submits and asynchronous notifiicaton to 
+vhost-net too.
 
-After patch:
+Our goal is to improve the bandwidth and reduce the CPU usage.
+Exact performance data will be provided later.
 
-real	1m28.808s
-user	0m13.245s
-sys	20m37.293s
+What we have not done yet:
+	Performance tuning
 
+what we have done in v1:
+	polish the RCU usage
+	deal with write logging in asynchroush mode in vhost
+	add notifier block for mp device
+	rename page_ctor to mp_port in netdevice.h to make it looks generic
+	add mp_dev_change_flags() for mp device to change NIC state
+	add CONIFG_VHOST_MPASSTHRU to limit the usage when module is not load
+	a small fix for missing dev_put when fail
+	using dynamic minor instead of static minor number
+	a __KERNEL__ protect to mp_get_sock()
 
-10950.00 17.2% ip_route_output_slow [kernel]
-10726.00 16.9% dst_destroy          [kernel]
- 5170.00  8.1% fib_semantic_match   [kernel]
- 3937.00  6.2% dst_alloc            [kernel]
- 3635.00  5.7% rt_set_nexthop       [kernel]
- 2900.00  4.6% fib_rules_lookup     [kernel]
- 2240.00  3.5% fib_table_lookup     [kernel]
- 1427.00  2.2% _raw_read_lock       [kernel]
- 1157.00  1.8% kmem_cache_alloc     [kernel]
+what we have done in v2:
+	
+	remove most of the RCU usage, since the ctor pointer is only
+	changed by BIND/UNBIND ioctl, and during that time, NIC will be
+	stopped to get good cleanup(all outstanding requests are finished),
+	so the ctor pointer cannot be raced into wrong situation.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/ipv4/route.c |   38 ++++++++++++--------------------------
- 1 files changed, 12 insertions(+), 26 deletions(-)
+	Remove the struct vhost_notifier with struct kiocb.
+	Let vhost-net backend to alloc/free the kiocb and transfer them
+	via sendmsg/recvmsg.
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 98beda4..9b60129 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -2490,6 +2490,7 @@ static int ip_mkroute_output(struct rtable **rp,
- 
- /*
-  * Major route resolver routine.
-+ * called with rcu_read_lock();
-  */
- 
- static int ip_route_output_slow(struct net *net, struct rtable **rp,
-@@ -2508,7 +2509,7 @@ static int ip_route_output_slow(struct net *net, struct rtable **rp,
- 			    .iif = net->loopback_dev->ifindex,
- 			    .oif = oldflp->oif };
- 	struct fib_result res;
--	unsigned flags = 0;
-+	unsigned int flags = 0;
- 	struct net_device *dev_out = NULL;
- 	int free_res = 0;
- 	int err;
-@@ -2538,7 +2539,7 @@ static int ip_route_output_slow(struct net *net, struct rtable **rp,
- 		    (ipv4_is_multicast(oldflp->fl4_dst) ||
- 		     oldflp->fl4_dst == htonl(0xFFFFFFFF))) {
- 			/* It is equivalent to inet_addr_type(saddr) == RTN_LOCAL */
--			dev_out = ip_dev_find(net, oldflp->fl4_src);
-+			dev_out = __ip_dev_find(net, oldflp->fl4_src, false);
- 			if (dev_out == NULL)
- 				goto out;
- 
-@@ -2563,26 +2564,21 @@ static int ip_route_output_slow(struct net *net, struct rtable **rp,
- 
- 		if (!(oldflp->flags & FLOWI_FLAG_ANYSRC)) {
- 			/* It is equivalent to inet_addr_type(saddr) == RTN_LOCAL */
--			dev_out = ip_dev_find(net, oldflp->fl4_src);
--			if (dev_out == NULL)
-+			if (!__ip_dev_find(net, oldflp->fl4_src, false))
- 				goto out;
--			dev_put(dev_out);
--			dev_out = NULL;
- 		}
- 	}
- 
- 
- 	if (oldflp->oif) {
--		dev_out = dev_get_by_index(net, oldflp->oif);
-+		dev_out = dev_get_by_index_rcu(net, oldflp->oif);
- 		err = -ENODEV;
- 		if (dev_out == NULL)
- 			goto out;
- 
- 		/* RACE: Check return value of inet_select_addr instead. */
--		if (rcu_dereference_raw(dev_out->ip_ptr) == NULL) {
--			dev_put(dev_out);
-+		if (rcu_dereference(dev_out->ip_ptr) == NULL)
- 			goto out;	/* Wrong error code */
--		}
- 
- 		if (ipv4_is_local_multicast(oldflp->fl4_dst) ||
- 		    oldflp->fl4_dst == htonl(0xFFFFFFFF)) {
-@@ -2605,10 +2601,7 @@ static int ip_route_output_slow(struct net *net, struct rtable **rp,
- 		fl.fl4_dst = fl.fl4_src;
- 		if (!fl.fl4_dst)
- 			fl.fl4_dst = fl.fl4_src = htonl(INADDR_LOOPBACK);
--		if (dev_out)
--			dev_put(dev_out);
- 		dev_out = net->loopback_dev;
--		dev_hold(dev_out);
- 		fl.oif = net->loopback_dev->ifindex;
- 		res.type = RTN_LOCAL;
- 		flags |= RTCF_LOCAL;
-@@ -2642,8 +2635,6 @@ static int ip_route_output_slow(struct net *net, struct rtable **rp,
- 			res.type = RTN_UNICAST;
- 			goto make_route;
- 		}
--		if (dev_out)
--			dev_put(dev_out);
- 		err = -ENETUNREACH;
- 		goto out;
- 	}
-@@ -2652,10 +2643,7 @@ static int ip_route_output_slow(struct net *net, struct rtable **rp,
- 	if (res.type == RTN_LOCAL) {
- 		if (!fl.fl4_src)
- 			fl.fl4_src = fl.fl4_dst;
--		if (dev_out)
--			dev_put(dev_out);
- 		dev_out = net->loopback_dev;
--		dev_hold(dev_out);
- 		fl.oif = dev_out->ifindex;
- 		if (res.fi)
- 			fib_info_put(res.fi);
-@@ -2675,28 +2663,23 @@ static int ip_route_output_slow(struct net *net, struct rtable **rp,
- 	if (!fl.fl4_src)
- 		fl.fl4_src = FIB_RES_PREFSRC(res);
- 
--	if (dev_out)
--		dev_put(dev_out);
- 	dev_out = FIB_RES_DEV(res);
--	dev_hold(dev_out);
- 	fl.oif = dev_out->ifindex;
- 
- 
- make_route:
- 	err = ip_mkroute_output(rp, &res, &fl, oldflp, dev_out, flags);
- 
--
- 	if (free_res)
- 		fib_res_put(&res);
--	if (dev_out)
--		dev_put(dev_out);
- out:	return err;
- }
- 
- int __ip_route_output_key(struct net *net, struct rtable **rp,
- 			  const struct flowi *flp)
- {
--	unsigned hash;
-+	unsigned int hash;
-+	int res;
- 	struct rtable *rth;
- 
- 	if (!rt_caching(net))
-@@ -2727,7 +2710,10 @@ int __ip_route_output_key(struct net *net, struct rtable **rp,
- 	rcu_read_unlock_bh();
- 
- slow_output:
--	return ip_route_output_slow(net, rp, flp);
-+	rcu_read_lock();
-+	res = ip_route_output_slow(net, rp, flp);
-+	rcu_read_unlock();
-+	return res;
- }
- EXPORT_SYMBOL_GPL(__ip_route_output_key);
- 
+	use get_user_pages_fast() and set_page_dirty_lock() when read.
 
+	Add some comments for netdev_mp_port_prep() and handle_mpassthru().
 
+what we have done in v3:
+	the async write logging is rewritten 
+	a drafted synchronous write function for qemu live migration
+	a limit for locked pages from get_user_pages_fast() to prevent Dos
+	by using RLIMIT_MEMLOCK
+	
+
+what we have done in v4:
+	add iocb completion callback from vhost-net to queue iocb in mp device
+	replace vq->receiver by mp_sock_data_ready()
+	remove stuff in mp device which access structures from vhost-net
+	modify skb_reserve() to ignore host NIC driver reserved space
+	rebase to the latest vhost tree
+	split large patches into small pieces, especially for net core part.
+	
+
+what we have done in v5:
+	address Arnd Bergmann's comments
+		-remove IFF_MPASSTHRU_EXCL flag in mp device
+		-Add CONFIG_COMPAT macro
+		-remove mp_release ops
+	move dev_is_mpassthru() as inline func
+	fix a bug in memory relinquish
+	Apply to current git (2.6.34-rc6) tree.
+
+what we have done in v6:
+	move create_iocb() out of page_dtor which may happen in interrupt context
+	-This remove the potential issues which lock called in interrupt context
+	make the cache used by mp, vhost as static, and created/destoryed during
+	modules init/exit functions.
+	-This makes multiple mp guest created at the same time.
+
+what we have done in v7:
+	some cleanup prepared to suppprt PS mode
+
+what we have done in v8:
+	discarding the modifications to point skb->data to guest buffer directly.
+	Add code to modify driver to support napi_gro_frags() with Herbert's comments.
+	To support PS mode.
+	Add mergeable buffer support in mp device.
+	Add GSO/GRO support in mp deice.
+	Address comments from Eric Dumazet about cache line and rcu usage.
+
+what we have done in v9:
+	v8 patch is based on a fix in dev_gro_receive().
+	But Herbert did not agree with the fix we have sent out.
+	And he suggest another fix. v9 is modified to base on that fix.
+	
+
+what we have done in v10:
+	Fix a partial csum error.
+	Cleanup some unused fields with struct page_info{} in mp device.
+	Modify kmem_cache_zalloc() to kmem_cache_alloc() based on Michael S. Thirkin.
+
+what we have done in v11:
+	Address comments from Michael S. Thirkin to add two new ioctls in mp device.
+	But still need to revise.
+
+what we have done in v11:
+	Address most comments from Ben Hutchings, except the compat ioctls.
+	As the comments are sparse, so do not make a split patch.
+	Change struct mpassthru_port to struct mp_port, and struct page_ctor
+	to struct page_pool.
+ 
+Performance:
+	We have seen the performance data request from mailling-list.
+	And we are now looking into this.
