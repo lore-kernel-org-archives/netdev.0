@@ -1,116 +1,65 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v12 10/17] Add a hook to intercept external buffers
- from NIC driver.
-Date: Thu, 30 Sep 2010 16:22:13 +0200
-Message-ID: <1285856533.2615.573.camel@edumazet-laptop>
-References: <1285855474-12110-1-git-send-email-xiaohui.xin@intel.com>
-	 <fda262fa746dfc1feb8543cf88d5ecf60001c186.1285853725.git.xiaohui.xin@intel.com>
+Subject: [PATCH net-next] neigh: reorder fields in struct neighbour
+Date: Thu, 30 Sep 2010 17:36:29 +0200
+Message-ID: <1285860989.2615.650.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mst@redhat.com, mingo@elte.hu,
-	davem@davemloft.net, herbert@gondor.apana.org.au,
-	jdike@linux.intel.com
-To: xiaohui.xin@intel.com
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <fda262fa746dfc1feb8543cf88d5ecf60001c186.1285853725.git.xiaohui.xin@intel.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:36258 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932082Ab0I3Pgg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Sep 2010 11:36:36 -0400
+Received: by fxm4 with SMTP id 4so811809fxm.19
+        for <netdev@vger.kernel.org>; Thu, 30 Sep 2010 08:36:35 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 30 septembre 2010 =C3=A0 22:04 +0800, xiaohui.xin@intel.com a
-=C3=A9crit :
-> From: Xin Xiaohui <xiaohui.xin@intel.com>
->=20
-> The hook is called in netif_receive_skb().
-> Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
-> Signed-off-by: Zhao Yu <yzhao81new@gmail.com>
-> Reviewed-by: Jeff Dike <jdike@linux.intel.com>
-> ---
->  net/core/dev.c |   35 +++++++++++++++++++++++++++++++++++
->  1 files changed, 35 insertions(+), 0 deletions(-)
->=20
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index c11e32c..83172b8 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -2517,6 +2517,37 @@ err:
->  EXPORT_SYMBOL(netdev_mp_port_prep);
->  #endif
-> =20
-> +#if defined(CONFIG_MEDIATE_PASSTHRU) || defined(CONFIG_MEDIATE_PASST=
-HRU_MODULE)
-> +/* Add a hook to intercept mediate passthru(zero-copy) packets,
-> + * and insert it to the socket queue owned by mp_port specially.
-> + */
-> +static inline struct sk_buff *handle_mpassthru(struct sk_buff *skb,
-> +					       struct packet_type **pt_prev,
-> +					       int *ret,
-> +					       struct net_device *orig_dev)
-> +{
-> +	struct mp_port *mp_port =3D NULL;
-> +	struct sock *sk =3D NULL;
-> +
-> +	if (!dev_is_mpassthru(skb->dev))
-> +		return skb;
-> +	mp_port =3D skb->dev->mp_port;
-> +
-> +	if (*pt_prev) {
-> +		*ret =3D deliver_skb(skb, *pt_prev, orig_dev);
-> +		*pt_prev =3D NULL;
-> +	}
-> +
-> +	sk =3D mp_port->sock->sk;
-> +	skb_queue_tail(&sk->sk_receive_queue, skb);
-> +	sk->sk_state_change(sk);
-> +
-> +	return NULL;
-> +}
-> +#else
-> +#define handle_mpassthru(skb, pt_prev, ret, orig_dev)     (skb)
-> +#endif
-> +
->  /**
->   *	netif_receive_skb - process receive buffer from network
->   *	@skb: buffer to process
-> @@ -2598,6 +2629,10 @@ int netif_receive_skb(struct sk_buff *skb)
->  ncls:
->  #endif
-> =20
-> +	/* To intercept mediate passthru(zero-copy) packets here */
-> +	skb =3D handle_mpassthru(skb, &pt_prev, &ret, orig_dev);
-> +	if (!skb)
-> +		goto out;
->  	skb =3D handle_bridge(skb, &pt_prev, &ret, orig_dev);
->  	if (!skb)
->  		goto out;
+On 64bit arches, there are two 32bit holes that we can remove.
 
-This does not apply to current net-next-2.6
+sizeof(struct neighbour) shrinks from 0xf8 to 0xf0 bytes
 
-We now have dev->rx_handler (currently for bridge or macvlan)
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ include/net/neighbour.h |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-
-commit ab95bfe01f9872459c8678572ccadbf646badad0
-Author: Jiri Pirko <jpirko@redhat.com>
-Date:   Tue Jun 1 21:52:08 2010 +0000
-
-    net: replace hooks in __netif_receive_skb V5
-   =20
-    What this patch does is it removes two receive frame hooks (for bri=
-dge and for
-    macvlan) from __netif_receive_skb. These are replaced them with a s=
-ingle
-    hook for both. It only supports one hook per device because it make=
-s no
-    sense to do bridging and macvlan on the same device.
-   =20
-    Then a network driver (of virtual netdev like macvlan or bridge) ca=
-n register
-    an rx_handler for needed net device.
-   =20
-    Signed-off-by: Jiri Pirko <jpirko@redhat.com>
-    Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
+diff --git a/include/net/neighbour.h b/include/net/neighbour.h
+index 242879b..7d08fd1 100644
+--- a/include/net/neighbour.h
++++ b/include/net/neighbour.h
+@@ -94,7 +94,7 @@ struct neighbour {
+ 	struct neighbour	*next;
+ 	struct neigh_table	*tbl;
+ 	struct neigh_parms	*parms;
+-	struct net_device		*dev;
++	struct net_device	*dev;
+ 	unsigned long		used;
+ 	unsigned long		confirmed;
+ 	unsigned long		updated;
+@@ -102,11 +102,11 @@ struct neighbour {
+ 	__u8			nud_state;
+ 	__u8			type;
+ 	__u8			dead;
++	atomic_t		refcnt;
+ 	atomic_t		probes;
+ 	rwlock_t		lock;
+ 	unsigned char		ha[ALIGN(MAX_ADDR_LEN, sizeof(unsigned long))];
+ 	struct hh_cache		*hh;
+-	atomic_t		refcnt;
+ 	int			(*output)(struct sk_buff *skb);
+ 	struct sk_buff_head	arp_queue;
+ 	struct timer_list	timer;
+@@ -163,7 +163,7 @@ struct neigh_table {
+ 	atomic_t		entries;
+ 	rwlock_t		lock;
+ 	unsigned long		last_rand;
+-	struct kmem_cache		*kmem_cachep;
++	struct kmem_cache	*kmem_cachep;
+ 	struct neigh_statistics	__percpu *stats;
+ 	struct neighbour	**hash_buckets;
+ 	unsigned int		hash_mask;
 
 
