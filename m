@@ -1,31 +1,28 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Packet time delays on multi-core systems
-Date: Thu, 30 Sep 2010 08:33:52 +0200
-Message-ID: <1285828432.5211.812.camel@edumazet-laptop>
-References: <20100929191851.GC86786@beaver.vrungel.ru>
-	 <1285796721.5211.156.camel@edumazet-laptop>
-	 <20100930062419.GD86786@beaver.vrungel.ru>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] ip_gre: comments change
+Date: Wed, 29 Sep 2010 23:35:20 -0700 (PDT)
+Message-ID: <20100929.233520.58441474.davem@davemloft.net>
+References: <1285824777.5211.663.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Alexey Vlasov <renton@renton.name>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100930062419.GD86786@beaver.vrungel.ru>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54881
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753937Ab0I3GfE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Sep 2010 02:35:04 -0400
+In-Reply-To: <1285824777.5211.663.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 30 septembre 2010 =C3=A0 10:24 +0400, Alexey Vlasov a =C3=A9cr=
-it :
-> Here I found some dude with the same problem:
-> http://lkml.org/lkml/2010/7/9/340
->=20
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 30 Sep 2010 07:32:57 +0200
 
-In your opinion its the same problem.
+> HARD_TX_LOCK no longer protects tunnels from dead loops,
+> but xmit_recursion percpu counter.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-But the description you gave is completely different.
-
-You have time skew only when activating a particular iptables rule.
-
-No ?
+Applied, t hanks Eric.
