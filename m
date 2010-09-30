@@ -1,77 +1,136 @@
-From: Kumar SANGHVI <kumar.sanghvi@stericsson.com>
-Subject: Re: [PATCH v2 1/2] Phonet: Implement Pipe Controller to support
- Nokia Slim Modems
-Date: Thu, 30 Sep 2010 12:49:53 +0530
-Message-ID: <20100930071952.GA21859@bnru01.bnr.st.com>
-References: <1285564079-23066-1-git-send-email-kumar.sanghvi@stericsson.com>
- <201009290125.07068.remi.denis-courmont@nokia.com>
- <20100929063219.GA18733@bnru01.bnr.st.com>
- <201009292121.18274.remi.denis-courmont@nokia.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 PATCH] ixgbe: fix link issues and panic with shared
+	interrupts for 82598
+Date: Thu, 30 Sep 2010 00:35:23 -0700
+Message-ID: <20100930073251.12750.67720.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	STEricsson_nomadik_linux <STEricsson_nomadik_linux@list.st.com>,
-	Sudeep DIVAKARAN <sudeep.divakaran@stericsson.com>,
-	Gulshan KARMANI <gulshan.karmani@stericsson.com>,
-	Linus WALLEIJ <linus.walleij@stericsson.com>
-To: =?iso-8859-1?Q?R=E9mi?= Denis-Courmont
-	<remi.denis-courmont@nokia.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
+	Emil Tantilov <emil.s.tantilov@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog105.obsmtp.com ([207.126.144.119]:56846 "EHLO
-	eu1sys200aog105.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753927Ab0I3HT7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Sep 2010 03:19:59 -0400
-Content-Disposition: inline
-In-Reply-To: <201009292121.18274.remi.denis-courmont@nokia.com>
+Received: from qmta06.westchester.pa.mail.comcast.net ([76.96.62.56]:47610
+	"EHLO qmta06.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752802Ab0I3Hfo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Sep 2010 03:35:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi R=E9mi Denis-Courmont,=20
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-On Wed, Sep 29, 2010 at 20:21:17 +0200, R=E9mi Denis-Courmont wrote:
-> It seems to me that you really want to implement the connect() socket=
- call, so=20
-> that one of the two endpoints will stand up for the missing controlle=
-r.
+Fix possible panic/hang with shared Legacy interrupts by not enabling
+interrupts when interface is down.
 
-Yes, implementing connect() socket call would be nice.
+Also fixes an intermittent link by enabling LSC upon exit from ixgbe_intr()
 
-> That's=20
-> still much cleaner than CREATE and DESTROY ioctl()'s.
+This patch adds flags to ixgbe_irq_enable() to allow for some flexibility
+when enabling interrupts.
 
-I have not introduced any new ioctl()'s as part of Pipe controller
-implementation.
-The PIPE_CREATE/PIPE_DESTROY/PIPE_ENABLE/PIPE_DISABLE are all provided
-as socket options.
-So, user-space can call setsockopt for creating/enabling or
-disabling/destroying pipe.
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Tested-by: Stephen Ko <stephen.s.ko@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
-Regarding implementing connect() socket call, few queries:
-1. It should carry out all the same steps which I am currently doing as=
- part
-   of PIPE_CREATE socket option, right?
-2. Currently, as part of Pipe controller implementation, user-space
-   follows below sequence:-
-	socket()
-	bind()
-	listen()
-	setsockopt(PIPE_CREATE)
-	accept()
+ drivers/net/ixgbe/ixgbe_main.c |   36 ++++++++++++++++++++++++++----------
+ 1 files changed, 26 insertions(+), 10 deletions(-)
 
-   In the phonet stack pipe controller logic, we wait for PEP_CONNECT_R=
-ESP
-   from host-pep (GPRS socket or video telephony socket is a host-pep.
-   pep_reply sends out the PEP_CONNECT_RESP) and remote-pep (modem),
-   negotiate the best flow-control to be used, and then send
-   PIPE_CREATED_IND, with selected flow-control to both pipe end-points=
-=2E
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index c35185c..c35e13c 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -2233,7 +2233,8 @@ static void ixgbe_set_itr(struct ixgbe_adapter *adapter)
+  * ixgbe_irq_enable - Enable default interrupt generation settings
+  * @adapter: board private structure
+  **/
+-static inline void ixgbe_irq_enable(struct ixgbe_adapter *adapter)
++static inline void ixgbe_irq_enable(struct ixgbe_adapter *adapter, bool queues,
++				    bool flush)
+ {
+ 	u32 mask;
+ 
+@@ -2254,8 +2255,10 @@ static inline void ixgbe_irq_enable(struct ixgbe_adapter *adapter)
+ 		mask |= IXGBE_EIMS_FLOW_DIR;
+ 
+ 	IXGBE_WRITE_REG(&adapter->hw, IXGBE_EIMS, mask);
+-	ixgbe_irq_enable_queues(adapter, ~0);
+-	IXGBE_WRITE_FLUSH(&adapter->hw);
++	if (queues)
++		ixgbe_irq_enable_queues(adapter, ~0);
++	if (flush)
++		IXGBE_WRITE_FLUSH(&adapter->hw);
+ 
+ 	if (adapter->num_vfs > 32) {
+ 		u32 eitrsel = (1 << (adapter->num_vfs - 32)) - 1;
+@@ -2277,7 +2280,7 @@ static irqreturn_t ixgbe_intr(int irq, void *data)
+ 	u32 eicr;
+ 
+ 	/*
+-	 * Workaround for silicon errata.  Mask the interrupts
++	 * Workaround for silicon errata on 82598.  Mask the interrupts
+ 	 * before the read of EICR.
+ 	 */
+ 	IXGBE_WRITE_REG(hw, IXGBE_EIMC, IXGBE_IRQ_CLEAR_MASK);
+@@ -2286,10 +2289,15 @@ static irqreturn_t ixgbe_intr(int irq, void *data)
+ 	 * therefore no explict interrupt disable is necessary */
+ 	eicr = IXGBE_READ_REG(hw, IXGBE_EICR);
+ 	if (!eicr) {
+-		/* shared interrupt alert!
++		/*
++		 * shared interrupt alert!
+ 		 * make sure interrupts are enabled because the read will
+-		 * have disabled interrupts due to EIAM */
+-		ixgbe_irq_enable(adapter);
++		 * have disabled interrupts due to EIAM
++		 * finish the workaround of silicon errata on 82598.  Unmask
++		 * the interrupt that we masked before the EICR read.
++		 */
++		if (!test_bit(__IXGBE_DOWN, &adapter->state))
++			ixgbe_irq_enable(adapter, true, true);
+ 		return IRQ_NONE;	/* Not our interrupt */
+ 	}
+ 
+@@ -2313,6 +2321,14 @@ static irqreturn_t ixgbe_intr(int irq, void *data)
+ 		__napi_schedule(&(q_vector->napi));
+ 	}
+ 
++	/*
++	 * re-enable link(maybe) and non-queue interrupts, no flush.
++	 * ixgbe_poll will re-enable the queue interrupts
++	 */
++
++	if (!test_bit(__IXGBE_DOWN, &adapter->state))
++		ixgbe_irq_enable(adapter, false, false);
++
+ 	return IRQ_HANDLED;
+ }
+ 
+@@ -3048,7 +3064,7 @@ static void ixgbe_vlan_rx_kill_vid(struct net_device *netdev, u16 vid)
+ 	vlan_group_set_device(adapter->vlgrp, vid, NULL);
+ 
+ 	if (!test_bit(__IXGBE_DOWN, &adapter->state))
+-		ixgbe_irq_enable(adapter);
++		ixgbe_irq_enable(adapter, true, true);
+ 
+ 	/* remove VID from filter table */
+ 	hw->mac.ops.set_vfta(&adapter->hw, vid, pool_ndx, false);
+@@ -3145,7 +3161,7 @@ static void ixgbe_vlan_rx_register(struct net_device *netdev,
+ 	ixgbe_vlan_rx_add_vid(netdev, 0);
+ 
+ 	if (!test_bit(__IXGBE_DOWN, &adapter->state))
+-		ixgbe_irq_enable(adapter);
++		ixgbe_irq_enable(adapter, true, true);
+ }
+ 
+ static void ixgbe_restore_vlan(struct ixgbe_adapter *adapter)
+@@ -3546,7 +3562,7 @@ static int ixgbe_up_complete(struct ixgbe_adapter *adapter)
+ 
+ 	/* clear any pending interrupts, may auto mask */
+ 	IXGBE_READ_REG(hw, IXGBE_EICR);
+-	ixgbe_irq_enable(adapter);
++	ixgbe_irq_enable(adapter, true, true);
+ 
+ 	/*
+ 	 * If this adapter has a fan, check to see if we had a failure
 
-   I am not sure how the sequence would be when using the connect() soc=
-ket
-   call.
-
-Thanks for your inputs.
-
-Thanks & regards,
-Kumar.
