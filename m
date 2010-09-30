@@ -1,136 +1,241 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH] ixgbe: fix link issues and panic with shared
-	interrupts for 82598
-Date: Thu, 30 Sep 2010 00:35:23 -0700
-Message-ID: <20100930073251.12750.67720.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 1/3] e1000e: use hardware writeback batching
+Date: Thu, 30 Sep 2010 00:38:49 -0700
+Message-ID: <20100930073814.13378.4212.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
-	Emil Tantilov <emil.s.tantilov@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta06.westchester.pa.mail.comcast.net ([76.96.62.56]:47610
-	"EHLO qmta06.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752802Ab0I3Hfo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Sep 2010 03:35:44 -0400
+Received: from qmta12.emeryville.ca.mail.comcast.net ([76.96.27.227]:33675
+	"EHLO qmta12.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754912Ab0I3HjJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Sep 2010 03:39:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-Fix possible panic/hang with shared Legacy interrupts by not enabling
-interrupts when interface is down.
+Most e1000e parts support batching writebacks.  The problem with this is
+that when some of the TADV or TIDV timers are not set, Tx can sit forever.
 
-Also fixes an intermittent link by enabling LSC upon exit from ixgbe_intr()
+This is solved in this patch with write flushes using the Flush Partial
+Descriptors (FPD) bit in TIDV and RDTR.
 
-This patch adds flags to ixgbe_irq_enable() to allow for some flexibility
-when enabling interrupts.
+This improves bus utilization and removes partial writes on e1000e,
+particularly from 82571 parts in S5500 chipset based machines.
 
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
-Tested-by: Stephen Ko <stephen.s.ko@intel.com>
+Only ES2LAN and 82571/2 parts are included in this optimization, to reduce
+testing load.
+
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Tested-by: Emil Tantilov <emil.s.tantilov@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe_main.c |   36 ++++++++++++++++++++++++++----------
- 1 files changed, 26 insertions(+), 10 deletions(-)
+ drivers/net/e1000e/82571.c   |    6 +++--
+ drivers/net/e1000e/defines.h |    2 ++
+ drivers/net/e1000e/e1000.h   |   28 ++++++++++++++++++++++
+ drivers/net/e1000e/es2lan.c  |    1 +
+ drivers/net/e1000e/netdev.c  |   53 ++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/e1000e/param.c   |    2 --
+ 6 files changed, 88 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index c35185c..c35e13c 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -2233,7 +2233,8 @@ static void ixgbe_set_itr(struct ixgbe_adapter *adapter)
-  * ixgbe_irq_enable - Enable default interrupt generation settings
-  * @adapter: board private structure
-  **/
--static inline void ixgbe_irq_enable(struct ixgbe_adapter *adapter)
-+static inline void ixgbe_irq_enable(struct ixgbe_adapter *adapter, bool queues,
-+				    bool flush)
- {
- 	u32 mask;
+diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
+index d3d4a57..ca663f1 100644
+--- a/drivers/net/e1000e/82571.c
++++ b/drivers/net/e1000e/82571.c
+@@ -1801,7 +1801,8 @@ struct e1000_info e1000_82571_info = {
+ 				  | FLAG_RESET_OVERWRITES_LAA /* errata */
+ 				  | FLAG_TARC_SPEED_MODE_BIT /* errata */
+ 				  | FLAG_APME_CHECK_PORT_B,
+-	.flags2			= FLAG2_DISABLE_ASPM_L1, /* errata 13 */
++	.flags2			= FLAG2_DISABLE_ASPM_L1 /* errata 13 */
++				  | FLAG2_DMA_BURST,
+ 	.pba			= 38,
+ 	.max_hw_frame_size	= DEFAULT_JUMBO,
+ 	.get_variants		= e1000_get_variants_82571,
+@@ -1819,7 +1820,8 @@ struct e1000_info e1000_82572_info = {
+ 				  | FLAG_RX_CSUM_ENABLED
+ 				  | FLAG_HAS_CTRLEXT_ON_LOAD
+ 				  | FLAG_TARC_SPEED_MODE_BIT, /* errata */
+-	.flags2			= FLAG2_DISABLE_ASPM_L1, /* errata 13 */
++	.flags2			= FLAG2_DISABLE_ASPM_L1 /* errata 13 */
++				  | FLAG2_DMA_BURST,
+ 	.pba			= 38,
+ 	.max_hw_frame_size	= DEFAULT_JUMBO,
+ 	.get_variants		= e1000_get_variants_82571,
+diff --git a/drivers/net/e1000e/defines.h b/drivers/net/e1000e/defines.h
+index 93b3bed..d3f7a9c 100644
+--- a/drivers/net/e1000e/defines.h
++++ b/drivers/net/e1000e/defines.h
+@@ -446,7 +446,9 @@
  
-@@ -2254,8 +2255,10 @@ static inline void ixgbe_irq_enable(struct ixgbe_adapter *adapter)
- 		mask |= IXGBE_EIMS_FLOW_DIR;
+ /* Transmit Descriptor Control */
+ #define E1000_TXDCTL_PTHRESH 0x0000003F /* TXDCTL Prefetch Threshold */
++#define E1000_TXDCTL_HTHRESH 0x00003F00 /* TXDCTL Host Threshold */
+ #define E1000_TXDCTL_WTHRESH 0x003F0000 /* TXDCTL Writeback Threshold */
++#define E1000_TXDCTL_GRAN    0x01000000 /* TXDCTL Granularity */
+ #define E1000_TXDCTL_FULL_TX_DESC_WB 0x01010000 /* GRAN=1, WTHRESH=1 */
+ #define E1000_TXDCTL_MAX_TX_DESC_PREFETCH 0x0100001F /* GRAN=1, PTHRESH=31 */
+ /* Enable the counting of desc. still to be processed. */
+diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
+index f9a31c8..5ec0af5 100644
+--- a/drivers/net/e1000e/e1000.h
++++ b/drivers/net/e1000e/e1000.h
+@@ -153,6 +153,33 @@ struct e1000_info;
+ /* Time to wait before putting the device into D3 if there's no link (in ms). */
+ #define LINK_TIMEOUT		100
  
- 	IXGBE_WRITE_REG(&adapter->hw, IXGBE_EIMS, mask);
--	ixgbe_irq_enable_queues(adapter, ~0);
--	IXGBE_WRITE_FLUSH(&adapter->hw);
-+	if (queues)
-+		ixgbe_irq_enable_queues(adapter, ~0);
-+	if (flush)
-+		IXGBE_WRITE_FLUSH(&adapter->hw);
++#define DEFAULT_RDTR			0
++#define DEFAULT_RADV			8
++#define BURST_RDTR			0x20
++#define BURST_RADV			0x20
++
++/*
++ * in the case of WTHRESH, it appears at least the 82571/2 hardware
++ * writes back 4 descriptors when WTHRESH=5, and 3 descriptors when
++ * WTHRESH=4, and since we want 64 bytes at a time written back, set
++ * it to 5
++ */
++#define E1000_TXDCTL_DMA_BURST_ENABLE                          \
++	(E1000_TXDCTL_GRAN | /* set descriptor granularity */  \
++	 E1000_TXDCTL_COUNT_DESC |                             \
++	 (5 << 16) | /* wthresh must be +1 more than desired */\
++	 (1 << 8)  | /* hthresh */                             \
++	 0x1f)       /* pthresh */
++
++#define E1000_RXDCTL_DMA_BURST_ENABLE                          \
++	(0x01000000 | /* set descriptor granularity */         \
++	 (4 << 16)  | /* set writeback threshold    */         \
++	 (4 << 8)   | /* set prefetch threshold     */         \
++	 0x20)        /* set hthresh                */
++
++#define E1000_TIDV_FPD (1 << 31)
++#define E1000_RDTR_FPD (1 << 31)
++
+ enum e1000_boards {
+ 	board_82571,
+ 	board_82572,
+@@ -425,6 +452,7 @@ struct e1000_info {
+ #define FLAG2_DISABLE_ASPM_L1             (1 << 3)
+ #define FLAG2_HAS_PHY_STATS               (1 << 4)
+ #define FLAG2_HAS_EEE                     (1 << 5)
++#define FLAG2_DMA_BURST                   (1 << 6)
  
- 	if (adapter->num_vfs > 32) {
- 		u32 eitrsel = (1 << (adapter->num_vfs - 32)) - 1;
-@@ -2277,7 +2280,7 @@ static irqreturn_t ixgbe_intr(int irq, void *data)
- 	u32 eicr;
+ #define E1000_RX_DESC_PS(R, i)	    \
+ 	(&(((union e1000_rx_desc_packet_split *)((R).desc))[i]))
+diff --git a/drivers/net/e1000e/es2lan.c b/drivers/net/e1000e/es2lan.c
+index 45aebb4..24f8ac9 100644
+--- a/drivers/net/e1000e/es2lan.c
++++ b/drivers/net/e1000e/es2lan.c
+@@ -1494,6 +1494,7 @@ struct e1000_info e1000_es2_info = {
+ 				  | FLAG_APME_CHECK_PORT_B
+ 				  | FLAG_DISABLE_FC_PAUSE_TIME /* errata */
+ 				  | FLAG_TIPG_MEDIUM_FOR_80003ESLAN,
++	.flags2			= FLAG2_DMA_BURST,
+ 	.pba			= 38,
+ 	.max_hw_frame_size	= DEFAULT_JUMBO,
+ 	.get_variants		= e1000_get_variants_80003es2lan,
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index c69563c..1aa4228 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -2650,6 +2650,26 @@ static void e1000_configure_tx(struct e1000_adapter *adapter)
+ 	/* Tx irq moderation */
+ 	ew32(TADV, adapter->tx_abs_int_delay);
  
- 	/*
--	 * Workaround for silicon errata.  Mask the interrupts
-+	 * Workaround for silicon errata on 82598.  Mask the interrupts
- 	 * before the read of EICR.
- 	 */
- 	IXGBE_WRITE_REG(hw, IXGBE_EIMC, IXGBE_IRQ_CLEAR_MASK);
-@@ -2286,10 +2289,15 @@ static irqreturn_t ixgbe_intr(int irq, void *data)
- 	 * therefore no explict interrupt disable is necessary */
- 	eicr = IXGBE_READ_REG(hw, IXGBE_EICR);
- 	if (!eicr) {
--		/* shared interrupt alert!
++	if (adapter->flags2 & FLAG2_DMA_BURST) {
++		u32 txdctl = er32(TXDCTL(0));
++		txdctl &= ~(E1000_TXDCTL_PTHRESH | E1000_TXDCTL_HTHRESH |
++			    E1000_TXDCTL_WTHRESH);
 +		/*
-+		 * shared interrupt alert!
- 		 * make sure interrupts are enabled because the read will
--		 * have disabled interrupts due to EIAM */
--		ixgbe_irq_enable(adapter);
-+		 * have disabled interrupts due to EIAM
-+		 * finish the workaround of silicon errata on 82598.  Unmask
-+		 * the interrupt that we masked before the EICR read.
++		 * set up some performance related parameters to encourage the
++		 * hardware to use the bus more efficiently in bursts, depends
++		 * on the tx_int_delay to be enabled,
++		 * wthresh = 5 ==> burst write a cacheline (64 bytes) at a time
++		 * hthresh = 1 ==> prefetch when one or more available
++		 * pthresh = 0x1f ==> prefetch if internal cache 31 or less
++		 * BEWARE: this seems to work but should be considered first if
++		 * there are tx hangs or other tx related bugs
 +		 */
-+		if (!test_bit(__IXGBE_DOWN, &adapter->state))
-+			ixgbe_irq_enable(adapter, true, true);
- 		return IRQ_NONE;	/* Not our interrupt */
- 	}
- 
-@@ -2313,6 +2321,14 @@ static irqreturn_t ixgbe_intr(int irq, void *data)
- 		__napi_schedule(&(q_vector->napi));
- 	}
- 
-+	/*
-+	 * re-enable link(maybe) and non-queue interrupts, no flush.
-+	 * ixgbe_poll will re-enable the queue interrupts
-+	 */
++		txdctl |= E1000_TXDCTL_DMA_BURST_ENABLE;
++		ew32(TXDCTL(0), txdctl);
++		/* erratum work around: set txdctl the same for both queues */
++		ew32(TXDCTL(1), txdctl);
++	}
 +
-+	if (!test_bit(__IXGBE_DOWN, &adapter->state))
-+		ixgbe_irq_enable(adapter, false, false);
+ 	/* Program the Transmit Control Register */
+ 	tctl = er32(TCTL);
+ 	tctl &= ~E1000_TCTL_CT;
+@@ -2872,6 +2892,29 @@ static void e1000_configure_rx(struct e1000_adapter *adapter)
+ 	e1e_flush();
+ 	msleep(10);
+ 
++	if (adapter->flags2 & FLAG2_DMA_BURST) {
++		/*
++		 * set the writeback threshold (only takes effect if the RDTR
++		 * is set). set GRAN=1 and write back up to 0x4 worth, and
++		 * enable prefetching of 0x20 rx descriptors
++		 * granularity = 01
++		 * wthresh = 04,
++		 * hthresh = 04,
++		 * pthresh = 0x20
++		 */
++		ew32(RXDCTL(0), E1000_RXDCTL_DMA_BURST_ENABLE);
++		ew32(RXDCTL(1), E1000_RXDCTL_DMA_BURST_ENABLE);
 +
- 	return IRQ_HANDLED;
- }
++		/*
++		 * override the delay timers for enabling bursting, only if
++		 * the value was not set by the user via module options
++		 */
++		if (adapter->rx_int_delay == DEFAULT_RDTR)
++			adapter->rx_int_delay = BURST_RDTR;
++		if (adapter->rx_abs_int_delay == DEFAULT_RADV)
++			adapter->rx_abs_int_delay = BURST_RADV;
++	}
++
+ 	/* set the Receive Delay Timer Register */
+ 	ew32(RDTR, adapter->rx_int_delay);
  
-@@ -3048,7 +3064,7 @@ static void ixgbe_vlan_rx_kill_vid(struct net_device *netdev, u16 vid)
- 	vlan_group_set_device(adapter->vlgrp, vid, NULL);
+@@ -4235,6 +4278,16 @@ link_up:
+ 	/* Force detection of hung controller every watchdog period */
+ 	adapter->detect_tx_hung = 1;
  
- 	if (!test_bit(__IXGBE_DOWN, &adapter->state))
--		ixgbe_irq_enable(adapter);
-+		ixgbe_irq_enable(adapter, true, true);
- 
- 	/* remove VID from filter table */
- 	hw->mac.ops.set_vfta(&adapter->hw, vid, pool_ndx, false);
-@@ -3145,7 +3161,7 @@ static void ixgbe_vlan_rx_register(struct net_device *netdev,
- 	ixgbe_vlan_rx_add_vid(netdev, 0);
- 
- 	if (!test_bit(__IXGBE_DOWN, &adapter->state))
--		ixgbe_irq_enable(adapter);
-+		ixgbe_irq_enable(adapter, true, true);
- }
- 
- static void ixgbe_restore_vlan(struct ixgbe_adapter *adapter)
-@@ -3546,7 +3562,7 @@ static int ixgbe_up_complete(struct ixgbe_adapter *adapter)
- 
- 	/* clear any pending interrupts, may auto mask */
- 	IXGBE_READ_REG(hw, IXGBE_EICR);
--	ixgbe_irq_enable(adapter);
-+	ixgbe_irq_enable(adapter, true, true);
- 
++	/* flush partial descriptors to memory before detecting tx hang */
++	if (adapter->flags2 & FLAG2_DMA_BURST) {
++		ew32(TIDV, adapter->tx_int_delay | E1000_TIDV_FPD);
++		ew32(RDTR, adapter->rx_int_delay | E1000_RDTR_FPD);
++		/*
++		 * no need to flush the writes because the timeout code does
++		 * an er32 first thing
++		 */
++	}
++
  	/*
- 	 * If this adapter has a fan, check to see if we had a failure
+ 	 * With 82571 controllers, LAA may be overwritten due to controller
+ 	 * reset from the other port. Set the appropriate LAA in RAR[0]
+diff --git a/drivers/net/e1000e/param.c b/drivers/net/e1000e/param.c
+index 34aeec1..3d36911 100644
+--- a/drivers/net/e1000e/param.c
++++ b/drivers/net/e1000e/param.c
+@@ -91,7 +91,6 @@ E1000_PARAM(TxAbsIntDelay, "Transmit Absolute Interrupt Delay");
+  * Valid Range: 0-65535
+  */
+ E1000_PARAM(RxIntDelay, "Receive Interrupt Delay");
+-#define DEFAULT_RDTR 0
+ #define MAX_RXDELAY 0xFFFF
+ #define MIN_RXDELAY 0
+ 
+@@ -101,7 +100,6 @@ E1000_PARAM(RxIntDelay, "Receive Interrupt Delay");
+  * Valid Range: 0-65535
+  */
+ E1000_PARAM(RxAbsIntDelay, "Receive Absolute Interrupt Delay");
+-#define DEFAULT_RADV 8
+ #define MAX_RXABSDELAY 0xFFFF
+ #define MIN_RXABSDELAY 0
+ 
 
