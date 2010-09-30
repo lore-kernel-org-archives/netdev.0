@@ -1,173 +1,102 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 3/3] e1000e: 82579 performance improvements
-Date: Thu, 30 Sep 2010 00:39:37 -0700
-Message-ID: <20100930073934.13378.44230.stgit@localhost.localdomain>
-References: <20100930073814.13378.4212.stgit@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: Fix IPv6 PMTU disc. w/ asymmetric routes
+Date: Thu, 30 Sep 2010 00:41:36 -0700 (PDT)
+Message-ID: <20100930.004136.91329579.davem@davemloft.net>
+References: <1285581957-30694-1-git-send-email-zenczykowski@gmail.com>
+	<20100928.135800.39205209.davem@davemloft.net>
+	<AANLkTi=9THOcD9FieK3uy635C1kNDc=uEdtDe4qm1WU6@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Content-Type: Text/Plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: zenczykowski@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta07.emeryville.ca.mail.comcast.net ([76.96.30.64]:35705 "EHLO
-	qmta07.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754818Ab0I3Hj4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Sep 2010 03:39:56 -0400
-In-Reply-To: <20100930073814.13378.4212.stgit@localhost.localdomain>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40689
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754587Ab0I3HlQ convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Sep 2010 03:41:16 -0400
+In-Reply-To: <AANLkTi=9THOcD9FieK3uy635C1kNDc=uEdtDe4qm1WU6@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+=46rom: Maciej =AFenczykowski <zenczykowski@gmail.com>
+Date: Tue, 28 Sep 2010 15:37:26 -0700
 
-The initial support for 82579 was tuned poorly for performance.  Adjust the
-packet buffer allocation appropriately for both standard and jumbo frames;
-and for jumbo frames increase the receive descriptor pre-fetch, disable
-adaptive interrupt moderation and set the DMA latency tolerance.
+> * I still think that handling the saddr =3D=3D NULL ie. INADDR_ANY ca=
+se is
+> entirely superfluous, since it doesn't actually iterate through all
+> possible source addresses.  With IPv6 there can be many, many possibl=
+e
+> source addresses (just think of link local vs global public vs privac=
+y
+> addresses and then tack on 6to4 and mobility, etc... for example I se=
+e
+> 13 ipv6 addresses on eth0 on my desktop at home, 12 of them globally
+> reachable).
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+I only have %100 confidence in the reasoning behind why ipv4 handles
+things this way, so I'll discuss this in those terms and then try
+to tie it into the ipv6 side.
 
- drivers/net/e1000e/e1000.h   |    1 +
- drivers/net/e1000e/ich8lan.c |    2 +-
- drivers/net/e1000e/netdev.c  |   50 +++++++++++++++++++++++++++++++++++++-----
- 3 files changed, 46 insertions(+), 7 deletions(-)
+When we are looking up an ipv4 output route, there are 2 "source
+address" objects.
 
-diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
-index da3b82f..8a79bbd 100644
---- a/drivers/net/e1000e/e1000.h
-+++ b/drivers/net/e1000e/e1000.h
-@@ -455,6 +455,7 @@ struct e1000_info {
- #define FLAG2_HAS_EEE                     (1 << 5)
- #define FLAG2_DMA_BURST                   (1 << 6)
- #define FLAG2_CHECK_PHY_HANG              (1 << 7)
-+#define FLAG2_DISABLE_AIM                 (1 << 8)
- 
- #define E1000_RX_DESC_PS(R, i)	    \
- 	(&(((union e1000_rx_desc_packet_split *)((R).desc))[i]))
-diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
-index 57b5435..e3374d9 100644
---- a/drivers/net/e1000e/ich8lan.c
-+++ b/drivers/net/e1000e/ich8lan.c
-@@ -3986,7 +3986,7 @@ struct e1000_info e1000_pch2_info = {
- 				  | FLAG_APME_IN_WUC,
- 	.flags2			= FLAG2_HAS_PHY_STATS
- 				  | FLAG2_HAS_EEE,
--	.pba			= 18,
-+	.pba			= 26,
- 	.max_hw_frame_size	= DEFAULT_JUMBO,
- 	.get_variants		= e1000_get_variants_ich8lan,
- 	.mac_ops		= &ich8_mac_ops,
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index a8b55ab..c194804 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -2290,6 +2290,11 @@ static void e1000_set_itr(struct e1000_adapter *adapter)
- 		goto set_itr_now;
- 	}
- 
-+	if (adapter->flags2 & FLAG2_DISABLE_AIM) {
-+		new_itr = 0;
-+		goto set_itr_now;
-+	}
-+
- 	adapter->tx_itr = e1000_update_itr(adapter,
- 				    adapter->tx_itr,
- 				    adapter->total_tx_packets,
-@@ -2338,7 +2343,10 @@ set_itr_now:
- 		if (adapter->msix_entries)
- 			adapter->rx_ring->set_itr = 1;
- 		else
--			ew32(ITR, 1000000000 / (new_itr * 256));
-+			if (new_itr)
-+				ew32(ITR, 1000000000 / (new_itr * 256));
-+			else
-+				ew32(ITR, 0);
- 	}
- }
- 
-@@ -2920,7 +2928,7 @@ static void e1000_configure_rx(struct e1000_adapter *adapter)
- 
- 	/* irq moderation */
- 	ew32(RADV, adapter->rx_abs_int_delay);
--	if (adapter->itr_setting != 0)
-+	if ((adapter->itr_setting != 0) && (adapter->itr != 0))
- 		ew32(ITR, 1000000000 / (adapter->itr * 256));
- 
- 	ctrl_ext = er32(CTRL_EXT);
-@@ -2965,11 +2973,13 @@ static void e1000_configure_rx(struct e1000_adapter *adapter)
- 	 * packet size is equal or larger than the specified value (in 8 byte
- 	 * units), e.g. using jumbo frames when setting to E1000_ERT_2048
- 	 */
--	if (adapter->flags & FLAG_HAS_ERT) {
-+	if ((adapter->flags & FLAG_HAS_ERT) ||
-+	    (adapter->hw.mac.type == e1000_pch2lan)) {
- 		if (adapter->netdev->mtu > ETH_DATA_LEN) {
- 			u32 rxdctl = er32(RXDCTL(0));
- 			ew32(RXDCTL(0), rxdctl | 0x3);
--			ew32(ERT, E1000_ERT_2048 | (1 << 13));
-+			if (adapter->flags & FLAG_HAS_ERT)
-+				ew32(ERT, E1000_ERT_2048 | (1 << 13));
- 			/*
- 			 * With jumbo frames and early-receive enabled,
- 			 * excessive C-state transition latencies result in
-@@ -3232,9 +3242,35 @@ void e1000e_reset(struct e1000_adapter *adapter)
- 		fc->low_water = 0x05048;
- 		fc->pause_time = 0x0650;
- 		fc->refresh_time = 0x0400;
-+		if (adapter->netdev->mtu > ETH_DATA_LEN) {
-+			pba = 14;
-+			ew32(PBA, pba);
-+		}
- 		break;
- 	}
- 
-+	/*
-+	 * Disable Adaptive Interrupt Moderation if 2 full packets cannot
-+	 * fit in receive buffer and early-receive not supported.
-+	 */
-+	if (adapter->itr_setting & 0x3) {
-+		if (((adapter->max_frame_size * 2) > (pba << 10)) &&
-+		    !(adapter->flags & FLAG_HAS_ERT)) {
-+			if (!(adapter->flags2 & FLAG2_DISABLE_AIM)) {
-+				dev_info(&adapter->pdev->dev,
-+					"Interrupt Throttle Rate turned off\n");
-+				adapter->flags2 |= FLAG2_DISABLE_AIM;
-+				ew32(ITR, 0);
-+			}
-+		} else if (adapter->flags2 & FLAG2_DISABLE_AIM) {
-+			dev_info(&adapter->pdev->dev,
-+				 "Interrupt Throttle Rate turned on\n");
-+			adapter->flags2 &= ~FLAG2_DISABLE_AIM;
-+			adapter->itr = 20000;
-+			ew32(ITR, 1000000000 / (adapter->itr * 256));
-+		}
-+	}
-+
- 	/* Allow time for pending master requests to run */
- 	mac->ops.reset_hw(hw);
- 
-@@ -3553,7 +3589,8 @@ static int e1000_open(struct net_device *netdev)
- 		e1000_update_mng_vlan(adapter);
- 
- 	/* DMA latency requirement to workaround early-receive/jumbo issue */
--	if (adapter->flags & FLAG_HAS_ERT)
-+	if ((adapter->flags & FLAG_HAS_ERT) ||
-+	    (adapter->hw.mac.type == e1000_pch2lan))
- 		pm_qos_add_request(&adapter->netdev->pm_qos_req,
- 				   PM_QOS_CPU_DMA_LATENCY,
- 				   PM_QOS_DEFAULT_VALUE);
-@@ -3662,7 +3699,8 @@ static int e1000_close(struct net_device *netdev)
- 	if (adapter->flags & FLAG_HAS_AMT)
- 		e1000_release_hw_control(adapter);
- 
--	if (adapter->flags & FLAG_HAS_ERT)
-+	if ((adapter->flags & FLAG_HAS_ERT) ||
-+	    (adapter->hw.mac.type == e1000_pch2lan))
- 		pm_qos_remove_request(&adapter->netdev->pm_qos_req);
- 
- 	pm_runtime_put_sync(&pdev->dev);
+1) The one specified in the "struct flowi" for the lookup
+   (the flp->fl4_src passed into ip_route_output_flow) which
+   is also the one that ends up in the routing cache entry's
+   ->fl.fl4_src member.
 
+2) The one contained in the routing cache entry's specification.
+   Ie. rth->rt_src
+
+These are distinct.  #1 is what is used to hash and find a matching
+routing cache entry.
+
+Since a source address of INADDR_ANY is allowed for routing lookups,
+routing cache entries for the same daddr/saddr pair can exist in more
+than one hash chains.
+
+Therefore, if we didn't iterate over INADDR_ANY and the specific
+address in the icmp PMTU message, we'd miss some routing cache
+entries.
+
+Look at the PMTU loops in ipv4 ip_rt_frag_needed():
+
+	for (k =3D 0; k < 2; k++) {
+		for (i =3D 0; i < 2; i++) {
+			unsigned hash =3D rt_hash(daddr, skeys[i], ikeys[k],
+						rt_genid(net));
+
+("ANY vs. specific" ifindex and saddr are used for the hash
+ computation)
+
+				if (rth->fl.fl4_dst !=3D daddr ||
+				    rth->fl.fl4_src !=3D skeys[i] ||
+				    rth->rt_dst !=3D daddr ||
+				    rth->rt_src !=3D iph->saddr ||
+				    rth->fl.oif !=3D ikeys[k] ||
+				    rth->fl.iif !=3D 0 ||
+
+(and for the routing cache entry flow member comparisons)
+
+But the routing cache entry "rt_src" member is compared always to
+"iph->saddr", it doesn't use the "ANY vs. specific" skey[] value.
+
+Unless ipv6 does not allow INADDR_ANY source address specifications
+during route lookups, it ought to have the same issue too.
+
+My understanding is that ipv6 uses a two-layered tree based scheme,
+one layer to key off of the source address and one layer to key off
+of the destination address.
+
+So it seems to me that the lookups would have the same aliasing issue
+that ipv4 does, and thus require checking both the specific saddr
+and also the saddr INADDR_ANY.
+
+Maybe the problem is that the ipv6 side uses the same saddr for both
+the lookup and the entry comparison in these PMTU code paths?  Does it
+not allow specifying them seperately as the ipv4 PMTU (and incidently
+the RT redirect) code paths do?
+
+Or is this not an issue on the ipv6 side for some reason?
