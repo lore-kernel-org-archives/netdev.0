@@ -1,383 +1,156 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 6/8] tg3: Prepare for larger rx ring sizes
-Date: Thu, 30 Sep 2010 13:34:35 -0700
-Message-ID: <1285878877-12148-7-git-send-email-mcarlson@broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andy@greyhouse.net, mcarlson@broadcom.com
-To: davem@davemloft.net
+From: Flavio Leitner <fleitner@redhat.com>
+Subject: [PATCH v2] bonding: rejoin multicast groups on VLANs
+Date: Thu, 30 Sep 2010 17:45:24 -0300
+Message-ID: <1285879524-7046-1-git-send-email-fleitner@redhat.com>
+References: <20100929131713.GB2857@redhat.com>
+Cc: Andy Gospodarek <andy@greyhouse.net>,
+	bonding-devel@lists.sourceforge.net,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Flavio Leitner <fleitner@redhat.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4676 "EHLO mms1.broadcom.com"
+Received: from mx1.redhat.com ([209.132.183.28]:19136 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756649Ab0I3Uey (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Sep 2010 16:34:54 -0400
+	id S1754788Ab0I3Upu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Sep 2010 16:45:50 -0400
+In-Reply-To: <20100929131713.GB2857@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds two new variables to track the size of the standard and
-jumbo rx producer ring sizes.  The code is then pivoted to these
-variables from preprocessor constants.
+It fixes bonding to rejoin multicast groups added
+to VLAN devices on top of bonding when a failover
+happens.
 
-Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
-Reviewed-by: Michael Chan <mchan@broadcom.com>
+Signed-off-by: Flavio Leitner <fleitner@redhat.com>
 ---
- drivers/net/tg3.c |  119 ++++++++++++++++++++++++++++------------------------
- drivers/net/tg3.h |    2 +
- 2 files changed, 66 insertions(+), 55 deletions(-)
+ drivers/net/bonding/bond_main.c |   61 +++++++++++++++++++++++++++++++++-----
+ drivers/net/bonding/bonding.h   |    1 +
+ 2 files changed, 54 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 50b7e35..16848a9 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -101,9 +101,9 @@
-  * You can't change the ring sizes, but you can change where you place
-  * them in the NIC onboard memory.
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 3b16f62..1016c09 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -865,18 +865,14 @@ static void bond_mc_del(struct bonding *bond, void *addr)
+ }
+ 
+ 
+-/*
+- * Retrieve the list of registered multicast addresses for the bonding
+- * device and retransmit an IGMP JOIN request to the current active
+- * slave.
+- */
+-static void bond_resend_igmp_join_requests(struct bonding *bond)
++static void __bond_resend_igmp_join_requests(struct net_device *dev)
+ {
+ 	struct in_device *in_dev;
+ 	struct ip_mc_list *im;
+ 
+ 	rcu_read_lock();
+-	in_dev = __in_dev_get_rcu(bond->dev);
++
++	in_dev = __in_dev_get_rcu(dev);
+ 	if (in_dev) {
+ 		for (im = in_dev->mc_list; im; im = im->next)
+ 			ip_mc_rejoin_group(im);
+@@ -885,6 +881,45 @@ static void bond_resend_igmp_join_requests(struct bonding *bond)
+ 	rcu_read_unlock();
+ }
+ 
++
++/*
++ * Retrieve the list of registered multicast addresses for the bonding
++ * device and retransmit an IGMP JOIN request to the current active
++ * slave.
++ */
++static void bond_resend_igmp_join_requests(struct bonding *bond)
++{
++	struct net_device *vlan_dev;
++	struct vlan_entry *vlan;
++
++	read_lock(&bond->lock);
++	if (bond->kill_timers)
++		goto out;
++
++	/* rejoin all groups on bond device */
++	__bond_resend_igmp_join_requests(bond->dev);
++
++	/* rejoin all groups on vlan devices */
++	if (bond->vlgrp) {
++		list_for_each_entry(vlan, &bond->vlan_list, vlan_list) {
++			vlan_dev = vlan_group_get_device(bond->vlgrp,
++							 vlan->vlan_id);
++			if (vlan_dev)
++				__bond_resend_igmp_join_requests(vlan_dev);
++		}
++	}
++
++out:
++	read_unlock(&bond->lock);
++}
++
++void bond_resend_igmp_join_requests_delayed(struct work_struct *work)
++{
++	struct bonding *bond = container_of(work, struct bonding,
++					    mcast_work.work);
++	bond_resend_igmp_join_requests(bond);
++}
++
+ /*
+  * flush all members of flush->mc_list from device dev->mc_list
   */
--#define TG3_RX_RING_SIZE		512
-+#define TG3_RX_STD_RING_SIZE(tp)	512
- #define TG3_DEF_RX_RING_PENDING		200
--#define TG3_RX_JUMBO_RING_SIZE		256
-+#define TG3_RX_JMB_RING_SIZE(tp)	256
- #define TG3_DEF_RX_JUMBO_RING_PENDING	100
- #define TG3_RSS_INDIR_TBL_SIZE		128
+@@ -944,7 +979,9 @@ static void bond_mc_swap(struct bonding *bond, struct slave *new_active,
  
-@@ -120,12 +120,12 @@
- #define TG3_TX_RING_SIZE		512
- #define TG3_DEF_TX_RING_PENDING		(TG3_TX_RING_SIZE - 1)
+ 		netdev_for_each_mc_addr(ha, bond->dev)
+ 			dev_mc_add(new_active->dev, ha->addr);
+-		bond_resend_igmp_join_requests(bond);
++
++		/* rejoin multicast groups */
++		queue_delayed_work(bond->wq, &bond->mcast_work, 0);
+ 	}
+ }
  
--#define TG3_RX_RING_BYTES	(sizeof(struct tg3_rx_buffer_desc) * \
--				 TG3_RX_RING_SIZE)
--#define TG3_RX_JUMBO_RING_BYTES	(sizeof(struct tg3_ext_rx_buffer_desc) * \
--				 TG3_RX_JUMBO_RING_SIZE)
--#define TG3_RX_RCB_RING_BYTES(tp) (sizeof(struct tg3_rx_buffer_desc) * \
--				 TG3_RX_RCB_RING_SIZE(tp))
-+#define TG3_RX_STD_RING_BYTES(tp) \
-+	(sizeof(struct tg3_rx_buffer_desc) * TG3_RX_STD_RING_SIZE(tp))
-+#define TG3_RX_JMB_RING_BYTES(tp) \
-+	(sizeof(struct tg3_ext_rx_buffer_desc) * TG3_RX_JMB_RING_SIZE(tp))
-+#define TG3_RX_RCB_RING_BYTES(tp) \
-+	(sizeof(struct tg3_rx_buffer_desc) * TG3_RX_RCB_RING_SIZE(tp))
- #define TG3_TX_RING_BYTES	(sizeof(struct tg3_tx_buffer_desc) * \
- 				 TG3_TX_RING_SIZE)
- #define NEXT_TX(N)		(((N) + 1) & (TG3_TX_RING_SIZE - 1))
-@@ -143,11 +143,11 @@
- #define TG3_RX_STD_MAP_SZ		TG3_RX_DMA_TO_MAP_SZ(TG3_RX_STD_DMA_SZ)
- #define TG3_RX_JMB_MAP_SZ		TG3_RX_DMA_TO_MAP_SZ(TG3_RX_JMB_DMA_SZ)
+@@ -3744,6 +3781,9 @@ static int bond_open(struct net_device *bond_dev)
  
--#define TG3_RX_STD_BUFF_RING_SIZE \
--	(sizeof(struct ring_info) * TG3_RX_RING_SIZE)
-+#define TG3_RX_STD_BUFF_RING_SIZE(tp) \
-+	(sizeof(struct ring_info) * TG3_RX_STD_RING_SIZE(tp))
+ 	bond->kill_timers = 0;
  
--#define TG3_RX_JMB_BUFF_RING_SIZE \
--	(sizeof(struct ring_info) * TG3_RX_JUMBO_RING_SIZE)
-+#define TG3_RX_JMB_BUFF_RING_SIZE(tp) \
-+	(sizeof(struct ring_info) * TG3_RX_JMB_RING_SIZE(tp))
- 
- /* Due to a hardware bug, the 5701 can only DMA to memory addresses
-  * that are at least dword aligned when used in PCIX mode.  The driver
-@@ -4445,14 +4445,14 @@ static int tg3_alloc_rx_skb(struct tg3 *tp, struct tg3_rx_prodring_set *tpr,
- 	src_map = NULL;
- 	switch (opaque_key) {
- 	case RXD_OPAQUE_RING_STD:
--		dest_idx = dest_idx_unmasked % TG3_RX_RING_SIZE;
-+		dest_idx = dest_idx_unmasked & tp->rx_std_ring_mask;
- 		desc = &tpr->rx_std[dest_idx];
- 		map = &tpr->rx_std_buffers[dest_idx];
- 		skb_size = tp->rx_pkt_map_sz;
++	/* multicast retrans */
++	INIT_DELAYED_WORK(&bond->mcast_work, bond_resend_igmp_join_requests_delayed);
++
+ 	if (bond_is_lb(bond)) {
+ 		/* bond_alb_initialize must be called before the timer
+ 		 * is started.
+@@ -3828,6 +3868,8 @@ static int bond_close(struct net_device *bond_dev)
  		break;
- 
- 	case RXD_OPAQUE_RING_JUMBO:
--		dest_idx = dest_idx_unmasked % TG3_RX_JUMBO_RING_SIZE;
-+		dest_idx = dest_idx_unmasked & tp->rx_jmb_ring_mask;
- 		desc = &tpr->rx_jmb[dest_idx].std;
- 		map = &tpr->rx_jmb_buffers[dest_idx];
- 		skb_size = TG3_RX_JMB_MAP_SZ;
-@@ -4507,7 +4507,7 @@ static void tg3_recycle_rx(struct tg3_napi *tnapi,
- 
- 	switch (opaque_key) {
- 	case RXD_OPAQUE_RING_STD:
--		dest_idx = dest_idx_unmasked % TG3_RX_RING_SIZE;
-+		dest_idx = dest_idx_unmasked & tp->rx_std_ring_mask;
- 		dest_desc = &dpr->rx_std[dest_idx];
- 		dest_map = &dpr->rx_std_buffers[dest_idx];
- 		src_desc = &spr->rx_std[src_idx];
-@@ -4515,7 +4515,7 @@ static void tg3_recycle_rx(struct tg3_napi *tnapi,
- 		break;
- 
- 	case RXD_OPAQUE_RING_JUMBO:
--		dest_idx = dest_idx_unmasked % TG3_RX_JUMBO_RING_SIZE;
-+		dest_idx = dest_idx_unmasked & tp->rx_jmb_ring_mask;
- 		dest_desc = &dpr->rx_jmb[dest_idx].std;
- 		dest_map = &dpr->rx_jmb_buffers[dest_idx];
- 		src_desc = &spr->rx_jmb[src_idx].std;
-@@ -4715,7 +4715,8 @@ next_pkt:
- 		(*post_ptr)++;
- 
- 		if (unlikely(rx_std_posted >= tp->rx_std_max_post)) {
--			tpr->rx_std_prod_idx = std_prod_idx % TG3_RX_RING_SIZE;
-+			tpr->rx_std_prod_idx = std_prod_idx &
-+					       tp->rx_std_ring_mask;
- 			tw32_rx_mbox(TG3_RX_STD_PROD_IDX_REG,
- 				     tpr->rx_std_prod_idx);
- 			work_mask &= ~RXD_OPAQUE_RING_STD;
-@@ -4739,13 +4740,14 @@ next_pkt_nopost:
- 	/* Refill RX ring(s). */
- 	if (!(tp->tg3_flags3 & TG3_FLG3_ENABLE_RSS)) {
- 		if (work_mask & RXD_OPAQUE_RING_STD) {
--			tpr->rx_std_prod_idx = std_prod_idx % TG3_RX_RING_SIZE;
-+			tpr->rx_std_prod_idx = std_prod_idx &
-+					       tp->rx_std_ring_mask;
- 			tw32_rx_mbox(TG3_RX_STD_PROD_IDX_REG,
- 				     tpr->rx_std_prod_idx);
- 		}
- 		if (work_mask & RXD_OPAQUE_RING_JUMBO) {
--			tpr->rx_jmb_prod_idx = jmb_prod_idx %
--					       TG3_RX_JUMBO_RING_SIZE;
-+			tpr->rx_jmb_prod_idx = jmb_prod_idx &
-+					       tp->rx_jmb_ring_mask;
- 			tw32_rx_mbox(TG3_RX_JMB_PROD_IDX_REG,
- 				     tpr->rx_jmb_prod_idx);
- 		}
-@@ -4756,8 +4758,8 @@ next_pkt_nopost:
- 		 */
- 		smp_wmb();
- 
--		tpr->rx_std_prod_idx = std_prod_idx % TG3_RX_RING_SIZE;
--		tpr->rx_jmb_prod_idx = jmb_prod_idx % TG3_RX_JUMBO_RING_SIZE;
-+		tpr->rx_std_prod_idx = std_prod_idx & tp->rx_std_ring_mask;
-+		tpr->rx_jmb_prod_idx = jmb_prod_idx & tp->rx_jmb_ring_mask;
- 
- 		if (tnapi != &tp->napi[1])
- 			napi_schedule(&tp->napi[1].napi);
-@@ -4813,9 +4815,11 @@ static int tg3_rx_prodring_xfer(struct tg3 *tp,
- 		if (spr->rx_std_cons_idx < src_prod_idx)
- 			cpycnt = src_prod_idx - spr->rx_std_cons_idx;
- 		else
--			cpycnt = TG3_RX_RING_SIZE - spr->rx_std_cons_idx;
-+			cpycnt = tp->rx_std_ring_mask + 1 -
-+				 spr->rx_std_cons_idx;
- 
--		cpycnt = min(cpycnt, TG3_RX_RING_SIZE - dpr->rx_std_prod_idx);
-+		cpycnt = min(cpycnt,
-+			     tp->rx_std_ring_mask + 1 - dpr->rx_std_prod_idx);
- 
- 		si = spr->rx_std_cons_idx;
- 		di = dpr->rx_std_prod_idx;
-@@ -4849,10 +4853,10 @@ static int tg3_rx_prodring_xfer(struct tg3 *tp,
- 			dbd->addr_lo = sbd->addr_lo;
- 		}
- 
--		spr->rx_std_cons_idx = (spr->rx_std_cons_idx + cpycnt) %
--				       TG3_RX_RING_SIZE;
--		dpr->rx_std_prod_idx = (dpr->rx_std_prod_idx + cpycnt) %
--				       TG3_RX_RING_SIZE;
-+		spr->rx_std_cons_idx = (spr->rx_std_cons_idx + cpycnt) &
-+				       tp->rx_std_ring_mask;
-+		dpr->rx_std_prod_idx = (dpr->rx_std_prod_idx + cpycnt) &
-+				       tp->rx_std_ring_mask;
  	}
  
- 	while (1) {
-@@ -4869,10 +4873,11 @@ static int tg3_rx_prodring_xfer(struct tg3 *tp,
- 		if (spr->rx_jmb_cons_idx < src_prod_idx)
- 			cpycnt = src_prod_idx - spr->rx_jmb_cons_idx;
- 		else
--			cpycnt = TG3_RX_JUMBO_RING_SIZE - spr->rx_jmb_cons_idx;
-+			cpycnt = tp->rx_jmb_ring_mask + 1 -
-+				 spr->rx_jmb_cons_idx;
++	if (delayed_work_pending(&bond->mcast_work))
++		cancel_delayed_work(&bond->mcast_work);
  
- 		cpycnt = min(cpycnt,
--			     TG3_RX_JUMBO_RING_SIZE - dpr->rx_jmb_prod_idx);
-+			     tp->rx_jmb_ring_mask + 1 - dpr->rx_jmb_prod_idx);
+ 	if (bond_is_lb(bond)) {
+ 		/* Must be called only after all
+@@ -4699,6 +4741,9 @@ static void bond_work_cancel_all(struct bonding *bond)
+ 	if (bond->params.mode == BOND_MODE_8023AD &&
+ 	    delayed_work_pending(&bond->ad_work))
+ 		cancel_delayed_work(&bond->ad_work);
++
++	if (delayed_work_pending(&bond->mcast_work))
++		cancel_delayed_work(&bond->mcast_work);
+ }
  
- 		si = spr->rx_jmb_cons_idx;
- 		di = dpr->rx_jmb_prod_idx;
-@@ -4906,10 +4911,10 @@ static int tg3_rx_prodring_xfer(struct tg3 *tp,
- 			dbd->addr_lo = sbd->addr_lo;
- 		}
- 
--		spr->rx_jmb_cons_idx = (spr->rx_jmb_cons_idx + cpycnt) %
--				       TG3_RX_JUMBO_RING_SIZE;
--		dpr->rx_jmb_prod_idx = (dpr->rx_jmb_prod_idx + cpycnt) %
--				       TG3_RX_JUMBO_RING_SIZE;
-+		spr->rx_jmb_cons_idx = (spr->rx_jmb_cons_idx + cpycnt) &
-+				       tp->rx_jmb_ring_mask;
-+		dpr->rx_jmb_prod_idx = (dpr->rx_jmb_prod_idx + cpycnt) &
-+				       tp->rx_jmb_ring_mask;
- 	}
- 
- 	return err;
-@@ -6059,14 +6064,14 @@ static void tg3_rx_prodring_free(struct tg3 *tp,
- 
- 	if (tpr != &tp->napi[0].prodring) {
- 		for (i = tpr->rx_std_cons_idx; i != tpr->rx_std_prod_idx;
--		     i = (i + 1) % TG3_RX_RING_SIZE)
-+		     i = (i + 1) & tp->rx_std_ring_mask)
- 			tg3_rx_skb_free(tp, &tpr->rx_std_buffers[i],
- 					tp->rx_pkt_map_sz);
- 
- 		if (tp->tg3_flags & TG3_FLAG_JUMBO_CAPABLE) {
- 			for (i = tpr->rx_jmb_cons_idx;
- 			     i != tpr->rx_jmb_prod_idx;
--			     i = (i + 1) % TG3_RX_JUMBO_RING_SIZE) {
-+			     i = (i + 1) & tp->rx_jmb_ring_mask) {
- 				tg3_rx_skb_free(tp, &tpr->rx_jmb_buffers[i],
- 						TG3_RX_JMB_MAP_SZ);
- 			}
-@@ -6075,12 +6080,12 @@ static void tg3_rx_prodring_free(struct tg3 *tp,
- 		return;
- 	}
- 
--	for (i = 0; i < TG3_RX_RING_SIZE; i++)
-+	for (i = 0; i <= tp->rx_std_ring_mask; i++)
- 		tg3_rx_skb_free(tp, &tpr->rx_std_buffers[i],
- 				tp->rx_pkt_map_sz);
- 
- 	if (tp->tg3_flags & TG3_FLAG_JUMBO_CAPABLE) {
--		for (i = 0; i < TG3_RX_JUMBO_RING_SIZE; i++)
-+		for (i = 0; i <= tp->rx_jmb_ring_mask; i++)
- 			tg3_rx_skb_free(tp, &tpr->rx_jmb_buffers[i],
- 					TG3_RX_JMB_MAP_SZ);
- 	}
-@@ -6104,15 +6109,16 @@ static int tg3_rx_prodring_alloc(struct tg3 *tp,
- 	tpr->rx_jmb_prod_idx = 0;
- 
- 	if (tpr != &tp->napi[0].prodring) {
--		memset(&tpr->rx_std_buffers[0], 0, TG3_RX_STD_BUFF_RING_SIZE);
-+		memset(&tpr->rx_std_buffers[0], 0,
-+		       TG3_RX_STD_BUFF_RING_SIZE(tp));
- 		if (tp->tg3_flags & TG3_FLAG_JUMBO_CAPABLE)
- 			memset(&tpr->rx_jmb_buffers[0], 0,
--			       TG3_RX_JMB_BUFF_RING_SIZE);
-+			       TG3_RX_JMB_BUFF_RING_SIZE(tp));
- 		goto done;
- 	}
- 
- 	/* Zero out all descriptors. */
--	memset(tpr->rx_std, 0, TG3_RX_RING_BYTES);
-+	memset(tpr->rx_std, 0, TG3_RX_STD_RING_BYTES(tp));
- 
- 	rx_pkt_dma_sz = TG3_RX_STD_DMA_SZ;
- 	if ((tp->tg3_flags2 & TG3_FLG2_5780_CLASS) &&
-@@ -6124,7 +6130,7 @@ static int tg3_rx_prodring_alloc(struct tg3 *tp,
- 	 * stuff once.  This works because the card does not
- 	 * write into the rx buffer posting rings.
- 	 */
--	for (i = 0; i < TG3_RX_RING_SIZE; i++) {
-+	for (i = 0; i <= tp->rx_std_ring_mask; i++) {
- 		struct tg3_rx_buffer_desc *rxd;
- 
- 		rxd = &tpr->rx_std[i];
-@@ -6151,12 +6157,12 @@ static int tg3_rx_prodring_alloc(struct tg3 *tp,
- 	if (!(tp->tg3_flags & TG3_FLAG_JUMBO_CAPABLE))
- 		goto done;
- 
--	memset(tpr->rx_jmb, 0, TG3_RX_JUMBO_RING_BYTES);
-+	memset(tpr->rx_jmb, 0, TG3_RX_JMB_RING_BYTES(tp));
- 
- 	if (!(tp->tg3_flags & TG3_FLAG_JUMBO_RING_ENABLE))
- 		goto done;
- 
--	for (i = 0; i < TG3_RX_JUMBO_RING_SIZE; i++) {
-+	for (i = 0; i <= tp->rx_jmb_ring_mask; i++) {
- 		struct tg3_rx_buffer_desc *rxd;
- 
- 		rxd = &tpr->rx_jmb[i].std;
-@@ -6196,12 +6202,12 @@ static void tg3_rx_prodring_fini(struct tg3 *tp,
- 	kfree(tpr->rx_jmb_buffers);
- 	tpr->rx_jmb_buffers = NULL;
- 	if (tpr->rx_std) {
--		pci_free_consistent(tp->pdev, TG3_RX_RING_BYTES,
-+		pci_free_consistent(tp->pdev, TG3_RX_STD_RING_BYTES(tp),
- 				    tpr->rx_std, tpr->rx_std_mapping);
- 		tpr->rx_std = NULL;
- 	}
- 	if (tpr->rx_jmb) {
--		pci_free_consistent(tp->pdev, TG3_RX_JUMBO_RING_BYTES,
-+		pci_free_consistent(tp->pdev, TG3_RX_JMB_RING_BYTES(tp),
- 				    tpr->rx_jmb, tpr->rx_jmb_mapping);
- 		tpr->rx_jmb = NULL;
- 	}
-@@ -6210,23 +6216,24 @@ static void tg3_rx_prodring_fini(struct tg3 *tp,
- static int tg3_rx_prodring_init(struct tg3 *tp,
- 				struct tg3_rx_prodring_set *tpr)
- {
--	tpr->rx_std_buffers = kzalloc(TG3_RX_STD_BUFF_RING_SIZE, GFP_KERNEL);
-+	tpr->rx_std_buffers = kzalloc(TG3_RX_STD_BUFF_RING_SIZE(tp),
-+				      GFP_KERNEL);
- 	if (!tpr->rx_std_buffers)
- 		return -ENOMEM;
- 
--	tpr->rx_std = pci_alloc_consistent(tp->pdev, TG3_RX_RING_BYTES,
-+	tpr->rx_std = pci_alloc_consistent(tp->pdev, TG3_RX_STD_RING_BYTES(tp),
- 					   &tpr->rx_std_mapping);
- 	if (!tpr->rx_std)
- 		goto err_out;
- 
- 	if (tp->tg3_flags & TG3_FLAG_JUMBO_CAPABLE) {
--		tpr->rx_jmb_buffers = kzalloc(TG3_RX_JMB_BUFF_RING_SIZE,
-+		tpr->rx_jmb_buffers = kzalloc(TG3_RX_JMB_BUFF_RING_SIZE(tp),
- 					      GFP_KERNEL);
- 		if (!tpr->rx_jmb_buffers)
- 			goto err_out;
- 
- 		tpr->rx_jmb = pci_alloc_consistent(tp->pdev,
--						   TG3_RX_JUMBO_RING_BYTES,
-+						   TG3_RX_JMB_RING_BYTES(tp),
- 						   &tpr->rx_jmb_mapping);
- 		if (!tpr->rx_jmb)
- 			goto err_out;
-@@ -9849,10 +9856,10 @@ static void tg3_get_ringparam(struct net_device *dev, struct ethtool_ringparam *
- {
- 	struct tg3 *tp = netdev_priv(dev);
- 
--	ering->rx_max_pending = TG3_RX_RING_SIZE - 1;
-+	ering->rx_max_pending = tp->rx_std_ring_mask;
- 	ering->rx_mini_max_pending = 0;
- 	if (tp->tg3_flags & TG3_FLAG_JUMBO_RING_ENABLE)
--		ering->rx_jumbo_max_pending = TG3_RX_JUMBO_RING_SIZE - 1;
-+		ering->rx_jumbo_max_pending = tp->rx_jmb_ring_mask;
- 	else
- 		ering->rx_jumbo_max_pending = 0;
- 
-@@ -9873,8 +9880,8 @@ static int tg3_set_ringparam(struct net_device *dev, struct ethtool_ringparam *e
- 	struct tg3 *tp = netdev_priv(dev);
- 	int i, irq_sync = 0, err = 0;
- 
--	if ((ering->rx_pending > TG3_RX_RING_SIZE - 1) ||
--	    (ering->rx_jumbo_pending > TG3_RX_JUMBO_RING_SIZE - 1) ||
-+	if ((ering->rx_pending > tp->rx_std_ring_mask) ||
-+	    (ering->rx_jumbo_pending > tp->rx_jmb_ring_mask) ||
- 	    (ering->tx_pending > TG3_TX_RING_SIZE - 1) ||
- 	    (ering->tx_pending <= MAX_SKB_FRAGS) ||
- 	    ((tp->tg3_flags2 & TG3_FLG2_TSO_BUG) &&
-@@ -13592,7 +13599,9 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
+ /*
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index c6fdd85..308ed10 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -223,6 +223,7 @@ struct bonding {
+ 	struct   delayed_work arp_work;
+ 	struct   delayed_work alb_work;
+ 	struct   delayed_work ad_work;
++	struct   delayed_work mcast_work;
+ #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+ 	struct   in6_addr master_ipv6;
  #endif
- 	}
- 
--	tp->rx_std_max_post = TG3_RX_RING_SIZE;
-+	tp->rx_std_ring_mask = TG3_RX_STD_RING_SIZE(tp) - 1;
-+	tp->rx_jmb_ring_mask = TG3_RX_JMB_RING_SIZE(tp) - 1;
-+	tp->rx_std_max_post = tp->rx_std_ring_mask + 1;
- 
- 	/* Increment the rx prod index on the rx std ring by at most
- 	 * 8 for these chips to workaround hw errata.
-diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
-index 241e314..9763298 100644
---- a/drivers/net/tg3.h
-+++ b/drivers/net/tg3.h
-@@ -2762,6 +2762,8 @@ struct tg3 {
- 	void				(*write32_rx_mbox) (struct tg3 *, u32,
- 							    u32);
- 	u32				rx_copy_thresh;
-+	u32				rx_std_ring_mask;
-+	u32				rx_jmb_ring_mask;
- 	u32				rx_pending;
- 	u32				rx_jumbo_pending;
- 	u32				rx_std_max_post;
 -- 
-1.7.2.2
-
+1.7.3
 
