@@ -1,189 +1,25 @@
-From: Flavio Leitner <fleitner@redhat.com>
-Subject: [PATCH] bonding: add retransmit membership reports tunable
-Date: Thu, 30 Sep 2010 17:46:55 -0300
-Message-ID: <1285879615-7158-1-git-send-email-fleitner@redhat.com>
-References: <20100929131713.GB2857@redhat.com>
-Cc: Andy Gospodarek <andy@greyhouse.net>,
-	bonding-devel@lists.sourceforge.net,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Flavio Leitner <fleitner@redhat.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:6466 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932122Ab0I3UrM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Sep 2010 16:47:12 -0400
-In-Reply-To: <20100929131713.GB2857@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: [RFC 0/2] generic netlink doit generalisation
+Date: Thu, 30 Sep 2010 23:10:13 +0200
+Message-ID: <20100930211013.472957770@sipsolutions.net>
+Mime-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Cc: tgraf-G/eBtMaohhA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Allow admins to adjust the number of multicast membership
-reports sent on a link failure.
+nl80211 does a lot of boilerplate work
+for each generic netlink doit() operation,
+this is an attempt to reduce it.
 
-Signed-off-by: Flavio Leitner <fleitner@redhat.com>
----
- drivers/net/bonding/bond_main.c  |   14 ++++++++++++
- drivers/net/bonding/bond_sysfs.c |   44 ++++++++++++++++++++++++++++++++++++++
- drivers/net/bonding/bonding.h    |    2 +
- include/linux/if_bonding.h       |    3 ++
- 4 files changed, 63 insertions(+), 0 deletions(-)
+If you think this looks good, I'd like to
+merge it through John's wireless tree.
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 1016c09..60bfd33 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -109,6 +109,7 @@ static char *arp_validate;
- static char *fail_over_mac;
- static int all_slaves_active = 0;
- static struct bond_params bonding_defaults;
-+static int resend_igmp = BOND_DEFAULT_RESEND_IGMP;
- 
- module_param(max_bonds, int, 0);
- MODULE_PARM_DESC(max_bonds, "Max number of bonded devices");
-@@ -163,6 +164,8 @@ module_param(all_slaves_active, int, 0);
- MODULE_PARM_DESC(all_slaves_active, "Keep all frames received on an interface"
- 				     "by setting active flag for all slaves.  "
- 				     "0 for never (default), 1 for always.");
-+module_param(resend_igmp, int, 0);
-+MODULE_PARM_DESC(resend_igmp, "Number of IGMP membership reports to send on link failure");
- 
- /*----------------------------- Global variables ----------------------------*/
- 
-@@ -909,6 +912,9 @@ static void bond_resend_igmp_join_requests(struct bonding *bond)
- 		}
- 	}
- 
-+	if (--bond->igmp_retrans > 0)
-+		queue_delayed_work(bond->wq, &bond->mcast_work, HZ/5);
-+
- out:
- 	read_unlock(&bond->lock);
- }
-@@ -981,6 +987,7 @@ static void bond_mc_swap(struct bonding *bond, struct slave *new_active,
- 			dev_mc_add(new_active->dev, ha->addr);
- 
- 		/* rejoin multicast groups */
-+		bond->igmp_retrans = bond->params.resend_igmp;
- 		queue_delayed_work(bond->wq, &bond->mcast_work, 0);
- 	}
- }
-@@ -4936,6 +4943,12 @@ static int bond_check_params(struct bond_params *params)
- 		all_slaves_active = 0;
- 	}
- 
-+	if (resend_igmp < 0 || resend_igmp > 255) {
-+		pr_warning("Warning: resend_igmp (%d) should be between "
-+			   "0 and 255, resetting to %d\n",
-+			   resend_igmp, BOND_DEFAULT_RESEND_IGMP);
-+		resend_igmp = BOND_DEFAULT_RESEND_IGMP;
-+	}
- 	/* reset values for TLB/ALB */
- 	if ((bond_mode == BOND_MODE_TLB) ||
- 	    (bond_mode == BOND_MODE_ALB)) {
-@@ -5108,6 +5121,7 @@ static int bond_check_params(struct bond_params *params)
- 	params->fail_over_mac = fail_over_mac_value;
- 	params->tx_queues = tx_queues;
- 	params->all_slaves_active = all_slaves_active;
-+	params->resend_igmp = resend_igmp;
- 
- 	if (primary) {
- 		strncpy(params->primary, primary, IFNAMSIZ);
-diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index c311aed..a676a28 100644
---- a/drivers/net/bonding/bond_sysfs.c
-+++ b/drivers/net/bonding/bond_sysfs.c
-@@ -1592,6 +1592,49 @@ out:
- static DEVICE_ATTR(all_slaves_active, S_IRUGO | S_IWUSR,
- 		   bonding_show_slaves_active, bonding_store_slaves_active);
- 
-+/*
-+ * Show and set the number of IGMP membership reports to send on link failure
-+ */
-+static ssize_t bonding_show_resend_igmp(struct device *d,
-+					 struct device_attribute *attr,
-+					 char *buf)
-+{
-+	struct bonding *bond = to_bond(d);
-+
-+	return sprintf(buf, "%d\n", bond->params.resend_igmp);
-+}
-+
-+static ssize_t bonding_store_resend_igmp(struct device *d,
-+					  struct device_attribute *attr,
-+					  const char *buf, size_t count)
-+{
-+	int new_value, ret = count;
-+	struct bonding *bond = to_bond(d);
-+
-+	if (sscanf(buf, "%d", &new_value) != 1) {
-+		pr_err("%s: no resend_igmp value specified.\n",
-+		       bond->dev->name);
-+		ret = -EINVAL;
-+		goto out;
-+	}
-+
-+	if (new_value < 0) {
-+		pr_err("%s: Invalid resend_igmp value %d not in range 1-%d; rejected.\n",
-+		       bond->dev->name, new_value, INT_MAX);
-+		ret = -EINVAL;
-+		goto out;
-+	}
-+
-+	pr_info("%s: Setting resend_igmp to %d.\n",
-+		bond->dev->name, new_value);
-+	bond->params.resend_igmp = new_value;
-+out:
-+	return ret;
-+}
-+
-+static DEVICE_ATTR(resend_igmp, S_IRUGO | S_IWUSR,
-+		   bonding_show_resend_igmp, bonding_store_resend_igmp);
-+
- static struct attribute *per_bond_attrs[] = {
- 	&dev_attr_slaves.attr,
- 	&dev_attr_mode.attr,
-@@ -1619,6 +1662,7 @@ static struct attribute *per_bond_attrs[] = {
- 	&dev_attr_ad_partner_mac.attr,
- 	&dev_attr_queue_id.attr,
- 	&dev_attr_all_slaves_active.attr,
-+	&dev_attr_resend_igmp.attr,
- 	NULL,
- };
- 
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 308ed10..c49bdb0 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -136,6 +136,7 @@ struct bond_params {
- 	__be32 arp_targets[BOND_MAX_ARP_TARGETS];
- 	int tx_queues;
- 	int all_slaves_active;
-+	int resend_igmp;
- };
- 
- struct bond_parm_tbl {
-@@ -198,6 +199,7 @@ struct bonding {
- 	s32      slave_cnt; /* never change this value outside the attach/detach wrappers */
- 	rwlock_t lock;
- 	rwlock_t curr_slave_lock;
-+	s8       igmp_retrans;
- 	s8       kill_timers;
- 	s8	 send_grat_arp;
- 	s8	 send_unsol_na;
-diff --git a/include/linux/if_bonding.h b/include/linux/if_bonding.h
-index 2c799437..d2f78b7 100644
---- a/include/linux/if_bonding.h
-+++ b/include/linux/if_bonding.h
-@@ -84,6 +84,9 @@
- #define BOND_DEFAULT_MAX_BONDS  1   /* Default maximum number of devices to support */
- 
- #define BOND_DEFAULT_TX_QUEUES 16   /* Default number of tx queues per device */
-+
-+#define BOND_DEFAULT_RESEND_IGMP	1 /* Default number of IGMP membership reports
-+					     to resend on link failure. */
- /* hashing types */
- #define BOND_XMIT_POLICY_LAYER2		0 /* layer 2 (MAC only), default */
- #define BOND_XMIT_POLICY_LAYER34	1 /* layer 3+4 (IP ^ (TCP || UDP)) */
--- 
-1.7.3
+johannes
 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
