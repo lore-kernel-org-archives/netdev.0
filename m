@@ -1,69 +1,98 @@
-From: David L Stevens <dlstevens@us.ibm.com>
-Subject: [PATCH] correct IGMP behavior on v3 query during v2-compatibility
- mode
-Date: Thu, 30 Sep 2010 17:29:40 -0700
-Message-ID: <1285892980.21804.7.camel@w-dls.beaverton.ibm.com>
-Reply-To: dlstevens@us.ibm.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e32.co.us.ibm.com ([32.97.110.150]:50060 "EHLO
-	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751823Ab0JAA3m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Sep 2010 20:29:42 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e32.co.us.ibm.com (8.14.4/8.13.1) with ESMTP id o910Ku7P011112
-	for <netdev@vger.kernel.org>; Thu, 30 Sep 2010 18:20:56 -0600
-Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o910TfVu102730
-	for <netdev@vger.kernel.org>; Thu, 30 Sep 2010 18:29:42 -0600
-Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av02.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o910TfUV027180
-	for <netdev@vger.kernel.org>; Thu, 30 Sep 2010 18:29:41 -0600
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: [PATCH 4/9] isdn/gigaset: drop obsolete debug option
+Date: Fri,  1 Oct 2010 01:35:01 +0200 (CEST)
+Message-ID: <20100930-patch-gigaset-04.tilman@imap.cc>
+References: <20100930-patch-gigaset-00.tilman@imap.cc>
+Cc: Hansjoerg Lipp <hjlipp@web.de>, Karsten Keil <keil@b1-systems.de>,
+	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Karsten Keil <isdn@linux-pingi.de>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100930-patch-gigaset-00.tilman@imap.cc>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-A recent patch to allow IGMPv2 responses to IGMPv3 queries
-bypasses length checks for valid query lengths, incorrectly
-resets the v2_seen timer, and does not support IGMPv1.
+Remove the debug flag DEBUG_DRIVER and associated code.
+It doesn't serve any useful purpose anymore.
 
-The following patch responds with a v2 report as required
-by IGMPv2 while correcting the other problems introduced
-by the patch.
+Signed-off-by: Tilman Schmidt <tilman@imap.cc>
+---
+ drivers/isdn/gigaset/common.c  |   26 --------------------------
+ drivers/isdn/gigaset/gigaset.h |    3 +--
+ drivers/isdn/gigaset/i4l.c     |    2 --
+ 3 files changed, 1 insertions(+), 30 deletions(-)
 
-Signed-Off-By: David L Stevens <dlstevens@us.ibm.com>
-
---- linux-2.6.36-rc5/net/ipv4/igmp.c	2010-09-20 16:56:53.000000000 -0700
-+++ linux-2.6.36-rc5-dls/net/ipv4/igmp.c	2010-09-28 12:09:03.000000000 -0700
-@@ -834,7 +834,7 @@ static void igmp_heard_query(struct in_d
- 	int			mark = 0;
+diff --git a/drivers/isdn/gigaset/common.c b/drivers/isdn/gigaset/common.c
+index 3ca561e..db621db 100644
+--- a/drivers/isdn/gigaset/common.c
++++ b/drivers/isdn/gigaset/common.c
+@@ -1026,32 +1026,6 @@ struct cardstate *gigaset_get_cs_by_id(int id)
+ 	return ret;
+ }
  
+-void gigaset_debugdrivers(void)
+-{
+-	unsigned long flags;
+-	static struct cardstate *cs;
+-	struct gigaset_driver *drv;
+-	unsigned i;
+-
+-	spin_lock_irqsave(&driver_lock, flags);
+-	list_for_each_entry(drv, &drivers, list) {
+-		gig_dbg(DEBUG_DRIVER, "driver %p", drv);
+-		spin_lock(&drv->lock);
+-		for (i = 0; i < drv->minors; ++i) {
+-			gig_dbg(DEBUG_DRIVER, "  index %u", i);
+-			cs = drv->cs + i;
+-			gig_dbg(DEBUG_DRIVER, "    cardstate %p", cs);
+-			gig_dbg(DEBUG_DRIVER, "    flags 0x%02x", cs->flags);
+-			gig_dbg(DEBUG_DRIVER, "    minor_index %u",
+-				cs->minor_index);
+-			gig_dbg(DEBUG_DRIVER, "    driver %p", cs->driver);
+-			gig_dbg(DEBUG_DRIVER, "    i4l id %d", cs->myid);
+-		}
+-		spin_unlock(&drv->lock);
+-	}
+-	spin_unlock_irqrestore(&driver_lock, flags);
+-}
+-
+ static struct cardstate *gigaset_get_cs_by_minor(unsigned minor)
+ {
+ 	unsigned long flags;
+diff --git a/drivers/isdn/gigaset/gigaset.h b/drivers/isdn/gigaset/gigaset.h
+index a69512f..6dd3607 100644
+--- a/drivers/isdn/gigaset/gigaset.h
++++ b/drivers/isdn/gigaset/gigaset.h
+@@ -70,7 +70,6 @@ enum debuglevel {
+ 	DEBUG_STREAM_DUMP = 0x00080, /* application data stream content */
+ 	DEBUG_LLDATA	  = 0x00100, /* sent/received LL data */
+ 	DEBUG_EVENT	  = 0x00200, /* event processing */
+-	DEBUG_DRIVER	  = 0x00400, /* driver structure */
+ 	DEBUG_HDLC	  = 0x00800, /* M10x HDLC processing */
+ 	DEBUG_CHANNEL	  = 0x01000, /* channel allocation/deallocation */
+ 	DEBUG_TRANSCMD	  = 0x02000, /* AT-COMMANDS+RESPONSES */
+@@ -727,7 +726,7 @@ struct gigaset_driver *gigaset_initdriver(unsigned minor, unsigned minors,
  
--	if (len == 8 || IGMP_V2_SEEN(in_dev)) {
-+	if (len == 8) {
- 		if (ih->code == 0) {
- 			/* Alas, old v1 router presents here. */
+ /* Deallocate driver structure. */
+ void gigaset_freedriver(struct gigaset_driver *drv);
+-void gigaset_debugdrivers(void);
++
+ struct cardstate *gigaset_get_cs_by_tty(struct tty_struct *tty);
+ struct cardstate *gigaset_get_cs_by_id(int id);
+ void gigaset_blockdriver(struct gigaset_driver *drv);
+diff --git a/drivers/isdn/gigaset/i4l.c b/drivers/isdn/gigaset/i4l.c
+index 34bca37..9bec8b9 100644
+--- a/drivers/isdn/gigaset/i4l.c
++++ b/drivers/isdn/gigaset/i4l.c
+@@ -201,8 +201,6 @@ static int command_from_LL(isdn_ctrl *cntrl)
+ 	int i;
+ 	size_t l;
  
-@@ -856,6 +856,18 @@ static void igmp_heard_query(struct in_d
- 		igmpv3_clear_delrec(in_dev);
- 	} else if (len < 12) {
- 		return;	/* ignore bogus packet; freed by caller */
-+	} else if (IGMP_V1_SEEN(in_dev)) {
-+		/* This is a v3 query with v1 queriers present */
-+		max_delay = IGMP_Query_Response_Interval;
-+		group = 0;
-+	} else if (IGMP_V2_SEEN(in_dev)) {
-+		/* this is a v3 query with v2 queriers present;
-+		 * Interpretation of the max_delay code is problematic here.
-+		 * A real v2 host would use ih_code directly, while v3 has a
-+		 * different encoding. We use the v3 encoding as more likely
-+		 * to be intended in a v3 query.
-+		 */
-+		max_delay = IGMPV3_MRC(ih3->code)*(HZ/IGMP_TIMER_SCALE);
- 	} else { /* v3 */
- 		if (!pskb_may_pull(skb, sizeof(struct igmpv3_query)))
- 			return;
-
-
+-	gigaset_debugdrivers();
+-
+ 	gig_dbg(DEBUG_CMD, "driver: %d, command: %d, arg: 0x%lx",
+ 		cntrl->driver, cntrl->command, cntrl->arg);
+ 
+-- 
+1.7.3.15.g442cb
