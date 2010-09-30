@@ -1,79 +1,189 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH V3] fs: allow for more than 2^31 files
-Date: Thu, 30 Sep 2010 22:45:45 +0200
-Message-ID: <1285879545.2705.4.camel@edumazet-laptop>
-References: <20100923121704.GR14064@sgi.com>
-	 <1285246384.362.3.camel@edumazet-laptop> <20100923141037.GA3811@in.ibm.com>
-	 <20100927.153639.212415479.davem@davemloft.net>
-	 <1285645611.10438.27.camel@edumazet-laptop>
-	 <20100930202612.GM14068@sgi.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, dipankar@in.ibm.com,
-	viro@zeniv.linux.org.uk, bcrl@kvack.org, den@openvz.org,
-	mingo@elte.hu, mszeredi@suse.cz, cmm@us.ibm.com, npiggin@kernel.dk,
-	xemul@openvz.org, linux-kernel@vger.kernel.org,
-	netdev <netdev@vger.kernel.org>
-To: Robin Holt <holt@sgi.com>
+From: Flavio Leitner <fleitner@redhat.com>
+Subject: [PATCH] bonding: add retransmit membership reports tunable
+Date: Thu, 30 Sep 2010 17:46:55 -0300
+Message-ID: <1285879615-7158-1-git-send-email-fleitner@redhat.com>
+References: <20100929131713.GB2857@redhat.com>
+Cc: Andy Gospodarek <andy@greyhouse.net>,
+	bonding-devel@lists.sourceforge.net,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Flavio Leitner <fleitner@redhat.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:43764 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754788Ab0I3Upw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Sep 2010 16:45:52 -0400
-In-Reply-To: <20100930202612.GM14068@sgi.com>
+Received: from mx1.redhat.com ([209.132.183.28]:6466 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932122Ab0I3UrM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Sep 2010 16:47:12 -0400
+In-Reply-To: <20100929131713.GB2857@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 30 septembre 2010 =C3=A0 15:26 -0500, Robin Holt a =C3=A9crit =
-:
-> On Tue, Sep 28, 2010 at 05:46:51AM +0200, Eric Dumazet wrote:
-> > Le lundi 27 septembre 2010 =C3=A0 15:36 -0700, David Miller a =C3=A9=
-crit :
-> ...
->=20
-> > Fix is to let /proc/sys/fs/file-nr & /proc/sys/fs/file-max use long
-> > integers, and change af_unix to use an atomic_long_t instead of
-> > atomic_t.
-> >=20
-> > get_max_files() is changed to return an unsigned long.
->=20
-> I _THINK_ we actually want get_max_files to return a long and have
-> the files_stat_struct definitions be longs.  If we do not have it tha=
-t
-> way, we could theoretically open enough files on a single cpu to make
-> get_nr_files return a negative without overflowing max_files.  That,
-> of course, would require an insane amount of memory, but I think it i=
-s
-> technically more correct.
->=20
+Allow admins to adjust the number of multicast membership
+reports sent on a link failure.
 
-Number of opened file is technically a positive (or null) value, I have
-no idea why you want it being signed.
+Signed-off-by: Flavio Leitner <fleitner@redhat.com>
+---
+ drivers/net/bonding/bond_main.c  |   14 ++++++++++++
+ drivers/net/bonding/bond_sysfs.c |   44 ++++++++++++++++++++++++++++++++++++++
+ drivers/net/bonding/bonding.h    |    2 +
+ include/linux/if_bonding.h       |    3 ++
+ 4 files changed, 63 insertions(+), 0 deletions(-)
 
->=20
-> > --- a/kernel/sysctl.c
-> > +++ b/kernel/sysctl.c
-> > @@ -1352,16 +1352,16 @@ static struct ctl_table fs_table[] =3D {
-> >  	{
-> >  		.procname	=3D "file-nr",
-> >  		.data		=3D &files_stat,
-> > -		.maxlen		=3D 3*sizeof(int),
-> > +		.maxlen		=3D sizeof(files_stat),
-> >  		.mode		=3D 0444,
-> > -		.proc_handler	=3D proc_nr_files,
-> > +		.proc_handler	=3D proc_doulongvec_minmax,
->=20
-> With this change, don't we lose the current nr_files value?  I think
-> you need proc_nr_files to stay as it was.  If you disagree, we should
-> probably eliminate the definitions for proc_nr_files as I don't belie=
-ve
-> they are used anywhere else.
->=20
-
-I have no idea why you think I changed something. I only made the value
-use 64bit on 64bit arches, so that we are not anymore limited to 2^31
-files.
-
-
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 1016c09..60bfd33 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -109,6 +109,7 @@ static char *arp_validate;
+ static char *fail_over_mac;
+ static int all_slaves_active = 0;
+ static struct bond_params bonding_defaults;
++static int resend_igmp = BOND_DEFAULT_RESEND_IGMP;
+ 
+ module_param(max_bonds, int, 0);
+ MODULE_PARM_DESC(max_bonds, "Max number of bonded devices");
+@@ -163,6 +164,8 @@ module_param(all_slaves_active, int, 0);
+ MODULE_PARM_DESC(all_slaves_active, "Keep all frames received on an interface"
+ 				     "by setting active flag for all slaves.  "
+ 				     "0 for never (default), 1 for always.");
++module_param(resend_igmp, int, 0);
++MODULE_PARM_DESC(resend_igmp, "Number of IGMP membership reports to send on link failure");
+ 
+ /*----------------------------- Global variables ----------------------------*/
+ 
+@@ -909,6 +912,9 @@ static void bond_resend_igmp_join_requests(struct bonding *bond)
+ 		}
+ 	}
+ 
++	if (--bond->igmp_retrans > 0)
++		queue_delayed_work(bond->wq, &bond->mcast_work, HZ/5);
++
+ out:
+ 	read_unlock(&bond->lock);
+ }
+@@ -981,6 +987,7 @@ static void bond_mc_swap(struct bonding *bond, struct slave *new_active,
+ 			dev_mc_add(new_active->dev, ha->addr);
+ 
+ 		/* rejoin multicast groups */
++		bond->igmp_retrans = bond->params.resend_igmp;
+ 		queue_delayed_work(bond->wq, &bond->mcast_work, 0);
+ 	}
+ }
+@@ -4936,6 +4943,12 @@ static int bond_check_params(struct bond_params *params)
+ 		all_slaves_active = 0;
+ 	}
+ 
++	if (resend_igmp < 0 || resend_igmp > 255) {
++		pr_warning("Warning: resend_igmp (%d) should be between "
++			   "0 and 255, resetting to %d\n",
++			   resend_igmp, BOND_DEFAULT_RESEND_IGMP);
++		resend_igmp = BOND_DEFAULT_RESEND_IGMP;
++	}
+ 	/* reset values for TLB/ALB */
+ 	if ((bond_mode == BOND_MODE_TLB) ||
+ 	    (bond_mode == BOND_MODE_ALB)) {
+@@ -5108,6 +5121,7 @@ static int bond_check_params(struct bond_params *params)
+ 	params->fail_over_mac = fail_over_mac_value;
+ 	params->tx_queues = tx_queues;
+ 	params->all_slaves_active = all_slaves_active;
++	params->resend_igmp = resend_igmp;
+ 
+ 	if (primary) {
+ 		strncpy(params->primary, primary, IFNAMSIZ);
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index c311aed..a676a28 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -1592,6 +1592,49 @@ out:
+ static DEVICE_ATTR(all_slaves_active, S_IRUGO | S_IWUSR,
+ 		   bonding_show_slaves_active, bonding_store_slaves_active);
+ 
++/*
++ * Show and set the number of IGMP membership reports to send on link failure
++ */
++static ssize_t bonding_show_resend_igmp(struct device *d,
++					 struct device_attribute *attr,
++					 char *buf)
++{
++	struct bonding *bond = to_bond(d);
++
++	return sprintf(buf, "%d\n", bond->params.resend_igmp);
++}
++
++static ssize_t bonding_store_resend_igmp(struct device *d,
++					  struct device_attribute *attr,
++					  const char *buf, size_t count)
++{
++	int new_value, ret = count;
++	struct bonding *bond = to_bond(d);
++
++	if (sscanf(buf, "%d", &new_value) != 1) {
++		pr_err("%s: no resend_igmp value specified.\n",
++		       bond->dev->name);
++		ret = -EINVAL;
++		goto out;
++	}
++
++	if (new_value < 0) {
++		pr_err("%s: Invalid resend_igmp value %d not in range 1-%d; rejected.\n",
++		       bond->dev->name, new_value, INT_MAX);
++		ret = -EINVAL;
++		goto out;
++	}
++
++	pr_info("%s: Setting resend_igmp to %d.\n",
++		bond->dev->name, new_value);
++	bond->params.resend_igmp = new_value;
++out:
++	return ret;
++}
++
++static DEVICE_ATTR(resend_igmp, S_IRUGO | S_IWUSR,
++		   bonding_show_resend_igmp, bonding_store_resend_igmp);
++
+ static struct attribute *per_bond_attrs[] = {
+ 	&dev_attr_slaves.attr,
+ 	&dev_attr_mode.attr,
+@@ -1619,6 +1662,7 @@ static struct attribute *per_bond_attrs[] = {
+ 	&dev_attr_ad_partner_mac.attr,
+ 	&dev_attr_queue_id.attr,
+ 	&dev_attr_all_slaves_active.attr,
++	&dev_attr_resend_igmp.attr,
+ 	NULL,
+ };
+ 
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index 308ed10..c49bdb0 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -136,6 +136,7 @@ struct bond_params {
+ 	__be32 arp_targets[BOND_MAX_ARP_TARGETS];
+ 	int tx_queues;
+ 	int all_slaves_active;
++	int resend_igmp;
+ };
+ 
+ struct bond_parm_tbl {
+@@ -198,6 +199,7 @@ struct bonding {
+ 	s32      slave_cnt; /* never change this value outside the attach/detach wrappers */
+ 	rwlock_t lock;
+ 	rwlock_t curr_slave_lock;
++	s8       igmp_retrans;
+ 	s8       kill_timers;
+ 	s8	 send_grat_arp;
+ 	s8	 send_unsol_na;
+diff --git a/include/linux/if_bonding.h b/include/linux/if_bonding.h
+index 2c799437..d2f78b7 100644
+--- a/include/linux/if_bonding.h
++++ b/include/linux/if_bonding.h
+@@ -84,6 +84,9 @@
+ #define BOND_DEFAULT_MAX_BONDS  1   /* Default maximum number of devices to support */
+ 
+ #define BOND_DEFAULT_TX_QUEUES 16   /* Default number of tx queues per device */
++
++#define BOND_DEFAULT_RESEND_IGMP	1 /* Default number of IGMP membership reports
++					     to resend on link failure. */
+ /* hashing types */
+ #define BOND_XMIT_POLICY_LAYER2		0 /* layer 2 (MAC only), default */
+ #define BOND_XMIT_POLICY_LAYER34	1 /* layer 3+4 (IP ^ (TCP || UDP)) */
+-- 
+1.7.3
 
