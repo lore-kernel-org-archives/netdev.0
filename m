@@ -1,179 +1,46 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 2/3] e1000e: reset PHY after errors detected on
-	82574 Si
-Date: Thu, 30 Sep 2010 00:39:12 -0700
-Message-ID: <20100930073909.13378.34776.stgit@localhost.localdomain>
-References: <20100930073814.13378.4212.stgit@localhost.localdomain>
+From: Roger Luethi <rl@hellgate.ch>
+Subject: Re: VLAN packets silently dropped in promiscuous mode
+Date: Thu, 30 Sep 2010 10:07:04 +0200
+Message-ID: <20100930080703.GA10827@core.hellgate.ch>
+References: <20100929113757.GA23755@core.hellgate.ch>
+ <AANLkTi=QAoVH9KU8FAH6iscWt_mKnZpU3P9QqgFRLqXM@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta13.emeryville.ca.mail.comcast.net ([76.96.27.243]:45756
-	"EHLO qmta13.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754925Ab0I3HpT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Sep 2010 03:45:19 -0400
-In-Reply-To: <20100930073814.13378.4212.stgit@localhost.localdomain>
+Received: from mail14.bluewin.ch ([195.186.19.62]:48664 "EHLO
+	mail14.bluewin.ch" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751781Ab0I3IOJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Sep 2010 04:14:09 -0400
+Content-Disposition: inline
+In-Reply-To: <AANLkTi=QAoVH9KU8FAH6iscWt_mKnZpU3P9QqgFRLqXM@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+On Wed, 29 Sep 2010 10:44:26 -0700, Jesse Gross wrote:
+> On Wed, Sep 29, 2010 at 4:37 AM, Roger Luethi <rl@hellgate.ch> wrote:
+> > I noticed packets for unknown VLANs getting silently dropped even in
+> > promiscuous mode (this is true only for the hardware accelerated path).
+> > netif_nit_deliver was introduced specifically to prevent that, but the
+> > function gets called only _after_ packets from unknown VLANs have been
+> > dropped.
+> 
+> Some drivers are fixing this on a case by case basis by disabling
+> hardware accelerated VLAN stripping when in promiscuous mode, i.e.:
+> http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=5f6c01819979afbfec7e0b15fe52371b8eed87e8
+> 
+> However, at this point it is more or less random which drivers do
+> this.  It would obviously be much better if it were consistent.
 
-Some errors can be induced in the PHY via environmental testing
-(specifically extreme temperature changes and electro static
-discharge testing), and in the case of the PHY hanging due to
-this input, this detects the problem and resets to continue.
-This issue only applies to 82574 silicon.
+My understanding is this. Hardware VLAN tagging and stripping can always be
+enabled. The kernel passes 802.1Q information along with the stripped
+header to libpcap which reassembles the original header where necessary.
+Works for me.
 
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
-Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+Hardware VLAN filtering, on the other hand, must be disabled in promiscuous
+mode. But doing that in the driver makes no difference now as the current
+VLAN code drops the packets so preserved before they are passed to the pcap
+interface. That appears to be a bug.
 
- drivers/net/e1000e/82571.c  |   40 +++++++++++++++++++++++++++++++++++++++-
- drivers/net/e1000e/e1000.h  |    3 +++
- drivers/net/e1000e/netdev.c |   25 +++++++++++++++++++++++++
- 3 files changed, 67 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
-index ca663f1..db5ef6e 100644
---- a/drivers/net/e1000e/82571.c
-+++ b/drivers/net/e1000e/82571.c
-@@ -52,6 +52,10 @@
- 			      (ID_LED_DEF1_DEF2))
- 
- #define E1000_GCR_L1_ACT_WITHOUT_L0S_RX 0x08000000
-+#define E1000_BASE1000T_STATUS          10
-+#define E1000_IDLE_ERROR_COUNT_MASK     0xFF
-+#define E1000_RECEIVE_ERROR_COUNTER     21
-+#define E1000_RECEIVE_ERROR_MAX         0xFFFF
- 
- #define E1000_NVM_INIT_CTRL2_MNGM 0x6000 /* Manageability Operation Mode mask */
- 
-@@ -1243,6 +1247,39 @@ static s32 e1000_led_on_82574(struct e1000_hw *hw)
- }
- 
- /**
-+ *  e1000_check_phy_82574 - check 82574 phy hung state
-+ *  @hw: pointer to the HW structure
-+ *
-+ *  Returns whether phy is hung or not
-+ **/
-+bool e1000_check_phy_82574(struct e1000_hw *hw)
-+{
-+	u16 status_1kbt = 0;
-+	u16 receive_errors = 0;
-+	bool phy_hung = false;
-+	s32 ret_val = 0;
-+
-+	/*
-+	 * Read PHY Receive Error counter first, if its is max - all F's then
-+	 * read the Base1000T status register If both are max then PHY is hung.
-+	 */
-+	ret_val = e1e_rphy(hw, E1000_RECEIVE_ERROR_COUNTER, &receive_errors);
-+
-+	if (ret_val)
-+		goto out;
-+	if (receive_errors == E1000_RECEIVE_ERROR_MAX)  {
-+		ret_val = e1e_rphy(hw, E1000_BASE1000T_STATUS, &status_1kbt);
-+		if (ret_val)
-+			goto out;
-+		if ((status_1kbt & E1000_IDLE_ERROR_COUNT_MASK) ==
-+		    E1000_IDLE_ERROR_COUNT_MASK)
-+			phy_hung = true;
-+	}
-+out:
-+	return phy_hung;
-+}
-+
-+/**
-  *  e1000_setup_link_82571 - Setup flow control and link settings
-  *  @hw: pointer to the HW structure
-  *
-@@ -1858,7 +1895,8 @@ struct e1000_info e1000_82574_info = {
- 				  | FLAG_RX_CSUM_ENABLED
- 				  | FLAG_HAS_SMART_POWER_DOWN
- 				  | FLAG_HAS_AMT
--				  | FLAG_HAS_CTRLEXT_ON_LOAD,
-+				  | FLAG_HAS_CTRLEXT_ON_LOAD
-+				  | FLAG2_CHECK_PHY_HANG,
- 	.pba			= 36,
- 	.max_hw_frame_size	= DEFAULT_JUMBO,
- 	.get_variants		= e1000_get_variants_82571,
-diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
-index 5ec0af5..da3b82f 100644
---- a/drivers/net/e1000e/e1000.h
-+++ b/drivers/net/e1000e/e1000.h
-@@ -397,6 +397,7 @@ struct e1000_adapter {
- 	struct work_struct print_hang_task;
- 
- 	bool idle_check;
-+	int phy_hang_count;
- };
- 
- struct e1000_info {
-@@ -453,6 +454,7 @@ struct e1000_info {
- #define FLAG2_HAS_PHY_STATS               (1 << 4)
- #define FLAG2_HAS_EEE                     (1 << 5)
- #define FLAG2_DMA_BURST                   (1 << 6)
-+#define FLAG2_CHECK_PHY_HANG              (1 << 7)
- 
- #define E1000_RX_DESC_PS(R, i)	    \
- 	(&(((union e1000_rx_desc_packet_split *)((R).desc))[i]))
-@@ -630,6 +632,7 @@ extern s32 e1000_get_phy_info_ife(struct e1000_hw *hw);
- extern s32 e1000_check_polarity_ife(struct e1000_hw *hw);
- extern s32 e1000_phy_force_speed_duplex_ife(struct e1000_hw *hw);
- extern s32 e1000_check_polarity_igp(struct e1000_hw *hw);
-+extern bool e1000_check_phy_82574(struct e1000_hw *hw);
- 
- static inline s32 e1000_phy_hw_reset(struct e1000_hw *hw)
- {
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index 1aa4228..a8b55ab 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -4060,6 +4060,28 @@ static void e1000e_enable_receives(struct e1000_adapter *adapter)
- 	}
- }
- 
-+static void e1000e_check_82574_phy_workaround(struct e1000_adapter *adapter)
-+{
-+	struct e1000_hw *hw = &adapter->hw;
-+
-+	if (!(adapter->flags2 & FLAG2_CHECK_PHY_HANG))
-+		return;
-+
-+	/*
-+	 * With 82574 controllers, PHY needs to be checked periodically
-+	 * for hung state and reset, if two calls return true
-+	 */
-+	if (e1000_check_phy_82574(hw))
-+		adapter->phy_hang_count++;
-+	else
-+		adapter->phy_hang_count = 0;
-+
-+	if (adapter->phy_hang_count > 1) {
-+		adapter->phy_hang_count = 0;
-+		schedule_work(&adapter->reset_task);
-+	}
-+}
-+
- /**
-  * e1000_watchdog - Timer Call-back
-  * @data: pointer to adapter cast into an unsigned long
-@@ -4295,6 +4317,9 @@ link_up:
- 	if (e1000e_get_laa_state_82571(hw))
- 		e1000e_rar_set(hw, adapter->hw.mac.addr, 0);
- 
-+	if (adapter->flags2 & FLAG2_CHECK_PHY_HANG)
-+		e1000e_check_82574_phy_workaround(adapter);
-+
- 	/* Reset the timer */
- 	if (!test_bit(__E1000_DOWN, &adapter->state))
- 		mod_timer(&adapter->watchdog_timer,
-
+Roger
