@@ -1,81 +1,53 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: VLAN packets silently dropped in promiscuous mode
-Date: Thu, 30 Sep 2010 14:21:15 -0700
-Message-ID: <AANLkTikrfx1T3ay0AGWkS6Ab28J4O_er2TsbRinBSGen@mail.gmail.com>
-References: <20100929113757.GA23755@core.hellgate.ch>
-	<AANLkTi=QAoVH9KU8FAH6iscWt_mKnZpU3P9QqgFRLqXM@mail.gmail.com>
-	<20100930080703.GA10827@core.hellgate.ch>
+From: "Mr. Berkley Shands" <berkley@seas.wustl.edu>
+Subject: IGMP when multiple interfaces share a subnet (2.6.32-2.6.35+)
+Date: Thu, 30 Sep 2010 16:24:36 -0500
+Message-ID: <4CA50014.6040307@seas.wustl.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
-To: Roger Luethi <rl@hellgate.ch>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Net Dev <netdev@vger.kernel.org>, Dave Lloyd <dlloyd@exegy.com>,
+	Ed Spitznagel <espitznagel@exegy.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f174.google.com ([209.85.214.174]:46818 "EHLO
-	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932218Ab0I3VVQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Sep 2010 17:21:16 -0400
-Received: by iwn5 with SMTP id 5so2910985iwn.19
-        for <netdev@vger.kernel.org>; Thu, 30 Sep 2010 14:21:16 -0700 (PDT)
-In-Reply-To: <20100930080703.GA10827@core.hellgate.ch>
+Received: from mail1.seas.wustl.edu ([128.252.21.108]:58265 "EHLO
+	POSTOFFICE.seas.wustl.edu" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751515Ab0I3Vjt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Sep 2010 17:39:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 30, 2010 at 1:07 AM, Roger Luethi <rl@hellgate.ch> wrote:
-> On Wed, 29 Sep 2010 10:44:26 -0700, Jesse Gross wrote:
->> On Wed, Sep 29, 2010 at 4:37 AM, Roger Luethi <rl@hellgate.ch> wrote=
-:
->> > I noticed packets for unknown VLANs getting silently dropped even =
-in
->> > promiscuous mode (this is true only for the hardware accelerated p=
-ath).
->> > netif_nit_deliver was introduced specifically to prevent that, but=
- the
->> > function gets called only _after_ packets from unknown VLANs have =
-been
->> > dropped.
->>
->> Some drivers are fixing this on a case by case basis by disabling
->> hardware accelerated VLAN stripping when in promiscuous mode, i.e.:
->> http://git.kernel.org/?p=3Dlinux/kernel/git/torvalds/linux-2.6.git;a=
-=3Dcommit;h=3D5f6c01819979afbfec7e0b15fe52371b8eed87e8
->>
->> However, at this point it is more or less random which drivers do
->> this. =A0It would obviously be much better if it were consistent.
->
-> My understanding is this. Hardware VLAN tagging and stripping can alw=
-ays be
-> enabled. The kernel passes 802.1Q information along with the stripped
-> header to libpcap which reassembles the original header where necessa=
-ry.
-> Works for me.
+When there are multiple interfaces on the same subnet
+(I.E. 10.19.20.21 on eth1, 10.19.20.22 on eth2, ...)
+and the subnet mask is 255.255.255.0
+The Cicso Layer 3 sends out IGMP queries, both eth1, eth2 see them.
+If a multicast group is subscribed on eth1, all is fine.
+But if another multicast group is subscribed off eth2 at the same time,
+then the IGMP reports for eth2 go back out eth1, or don't go out at all.
+Worse, if you ifdown eth1, eth2 and then ifup them (service network 
+restart)
+then neither interface will respond to IGMP reports/requests.
 
-Sorry, I misread your original post as saying that the VLAN header
-gets dropped, rather than the entire packet.  I agree that this is how
-it should work but not necessarily how it does work (again, depending
-on the driver).  Here's the problem that I was talking about:
+We tried forcing all the IGMP traffic to V2, no luck.
+the kernel's responses go out the lowest interface index, or not at all
+once the second interface does a multicast join.
+Hacking the kernel to continuously send IGMP reports works
+until the window of the report times overlaps the routers pings.
+then the router assumes a drop.
 
-Most drivers have a snippet of code that looks something like this
-(taken from ixgbe):
+This did not happen under 2.6.22 (centos-5.2 through centos 5.5 on X86_64)
+with Intel igb based nics.
 
-if (adapter->vlgrp && is_vlan && (tag & VLAN_VID_MASK))
-	vlan_gro_receive(napi, adapter->vlgrp, tag, skb);
-else
-	napi_gro_receive(napi, skb);
+We do not control the IP addresses.
+We see this with VLANs as well. tcpdump sees the request come in
+every 60 seconds or so, but nothing responds back.
 
-At this point the VLAN has already been stripped in hardware.  If
-there is no VLAN group configured on the device then we hit the second
-case.  The VLAN header was removed from the SKB and the tag variable
-is unused.  It is no longer possible for libpcap to reconstruct the
-header because the information was thrown away (even the fact that
-there was a VLAN tag at all).
+Would using a 32-bit netmask on those ports force the kernel to
+respond on the correct interface?
 
-There are a couple ways to fix this:
+Why does bouncing an interface completely disable IGMP reports?
+We currently have 2.5.35.2 running. Did the setsockopt() code
+change from "struct ip_mreq" to "struct ip_mreqn" to throw in an 
+interface index?
 
-* Turn off VLAN stripping when in promiscuous mode (as done by the ixgb=
-e driver)
-* Reconstruct the VLAN header when there is no VLAN group (as done by
-the tg3 driver)
+Any suggestions as to what to poke?
 
-A bunch of drivers do neither (bnx2x, for example) and exhibit this
-problem.  It's getting better but it seems like a common issue.
+Berkley Shands
