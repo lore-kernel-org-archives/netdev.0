@@ -1,40 +1,58 @@
 From: Tilman Schmidt <tilman@imap.cc>
-Subject: [PATCH 0/9] Gigaset patches for net-next
-Date: Fri,  1 Oct 2010 01:34:20 +0200 (CEST)
-Message-ID: <20100930-patch-gigaset-00.tilman@imap.cc>
+Subject: [PATCH 3/9] isdn/gigaset: correct bas_gigaset rx buffer handling
+Date: Fri,  1 Oct 2010 01:34:51 +0200 (CEST)
+Message-ID: <20100930-patch-gigaset-03.tilman@imap.cc>
+References: <20100930-patch-gigaset-00.tilman@imap.cc>
 Cc: Hansjoerg Lipp <hjlipp@web.de>, Karsten Keil <keil@b1-systems.de>,
 	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 To: Karsten Keil <isdn@linux-pingi.de>,
 	David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100930-patch-gigaset-00.tilman@imap.cc>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Karsten, David,
+In transparent data reception, avoid a NULL pointer dereference
+in case an skbuff cannot be allocated, remove an inappropriate
+call to the HDLC flush routine, and correct the accounting of
+received bytes for continued buffers.
 
-here's a series of nine patches to the Gigaset driver.
-Please consider for application to net-next-2.6.
-The first three should also go into -stable and are
-tagged "CC: stable" accordingly.
+Signed-off-by: Tilman Schmidt <tilman@imap.cc>
+CC: stable <stable@kernel.org>
+---
+ drivers/isdn/gigaset/isocdata.c |    8 +++++---
+ 1 files changed, 5 insertions(+), 3 deletions(-)
 
-Thanks,
-Tilman
-
-Tilman Schmidt (9):
-      isdn/gigaset: bas_gigaset locking fix
-      isdn/gigaset: fix bas_gigaset AT read error handling
-      isdn/gigaset: correct oom handling in data receive path
-      isdn/gigaset: drop obsolete debug option
-      isdn/gigaset: bas_gigaset timer cleanup
-      isdn/gigaset: try USB reset for bas_gigaset error recovery
-      isdn/gigaset: unclog bas_gigaset AT response pipe
-      isdn/gigaset: fix bas_gigaset interrupt read error handling
-      isdn/gigaset: improve USB error reporting
-
- drivers/isdn/gigaset/bas-gigaset.c |  400 ++++++++++++++++++++++--------------
- drivers/isdn/gigaset/common.c      |   26 ---
- drivers/isdn/gigaset/gigaset.h     |    3 +-
- drivers/isdn/gigaset/i4l.c         |    2 -
- drivers/isdn/gigaset/isocdata.c    |    8 +-
- 5 files changed, 254 insertions(+), 185 deletions(-)
+diff --git a/drivers/isdn/gigaset/isocdata.c b/drivers/isdn/gigaset/isocdata.c
+index 2dfd346..f39ccdf 100644
+--- a/drivers/isdn/gigaset/isocdata.c
++++ b/drivers/isdn/gigaset/isocdata.c
+@@ -842,13 +842,14 @@ static inline void trans_receive(unsigned char *src, unsigned count,
+ 
+ 	if (unlikely(bcs->ignore)) {
+ 		bcs->ignore--;
+-		hdlc_flush(bcs);
+ 		return;
+ 	}
+ 	skb = bcs->rx_skb;
+-	if (skb == NULL)
++	if (skb == NULL) {
+ 		skb = gigaset_new_rx_skb(bcs);
+-	bcs->hw.bas->goodbytes += skb->len;
++		if (skb == NULL)
++			return;
++	}
+ 	dobytes = bcs->rx_bufsize - skb->len;
+ 	while (count > 0) {
+ 		dst = skb_put(skb, count < dobytes ? count : dobytes);
+@@ -860,6 +861,7 @@ static inline void trans_receive(unsigned char *src, unsigned count,
+ 		if (dobytes == 0) {
+ 			dump_bytes(DEBUG_STREAM_DUMP,
+ 				   "rcv data", skb->data, skb->len);
++			bcs->hw.bas->goodbytes += skb->len;
+ 			gigaset_skb_rcvd(bcs, skb);
+ 			skb = gigaset_new_rx_skb(bcs);
+ 			if (skb == NULL)
+-- 
+1.7.3.15.g442cb
