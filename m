@@ -1,66 +1,117 @@
-From: Robin Holt <holt@sgi.com>
-Subject: Re: [PATCH V3] fs: allow for more than 2^31 files
-Date: Thu, 30 Sep 2010 15:26:12 -0500
-Message-ID: <20100930202612.GM14068@sgi.com>
-References: <20100923121704.GR14064@sgi.com>
- <1285246384.362.3.camel@edumazet-laptop>
- <20100923141037.GA3811@in.ibm.com>
- <20100927.153639.212415479.davem@davemloft.net>
- <1285645611.10438.27.camel@edumazet-laptop>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: [PATCH net-next 4/8] tg3: Cleanup missing VPD partno section
+Date: Thu, 30 Sep 2010 13:34:33 -0700
+Message-ID: <1285878877-12148-5-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, dipankar@in.ibm.com,
-	holt@sgi.com, viro@zeniv.linux.org.uk, bcrl@kvack.org,
-	den@openvz.org, mingo@elte.hu, mszeredi@suse.cz, cmm@us.ibm.com,
-	npiggin@kernel.dk, xemul@openvz.org, linux-kernel@vger.kernel.org,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, andy@greyhouse.net, mcarlson@broadcom.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay1.sgi.com ([192.48.179.29]:56793 "EHLO relay.sgi.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:2220 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932116Ab0I3U0S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Sep 2010 16:26:18 -0400
-Content-Disposition: inline
-In-Reply-To: <1285645611.10438.27.camel@edumazet-laptop>
+	id S1756619Ab0I3Uey (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Sep 2010 16:34:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 28, 2010 at 05:46:51AM +0200, Eric Dumazet wrote:
-> Le lundi 27 septembre 2010 =E0 15:36 -0700, David Miller a =E9crit :
-=2E..
+This patch cleans up the default VPD partno section.  New entries for
+5717 asic rev devices were also added.
 
-> Fix is to let /proc/sys/fs/file-nr & /proc/sys/fs/file-max use long
-> integers, and change af_unix to use an atomic_long_t instead of
-> atomic_t.
->=20
-> get_max_files() is changed to return an unsigned long.
+Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+Reviewed-by: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/tg3.c |   71 ++++++++++++++++++++++++++++------------------------
+ 1 files changed, 38 insertions(+), 33 deletions(-)
 
-I _THINK_ we actually want get_max_files to return a long and have
-the files_stat_struct definitions be longs.  If we do not have it that
-way, we could theoretically open enough files on a single cpu to make
-get_nr_files return a negative without overflowing max_files.  That,
-of course, would require an insane amount of memory, but I think it is
-technically more correct.
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index 93228aa..d76e718 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -12527,44 +12527,49 @@ partno:
+ 
+ out_not_found:
+ 	kfree(vpd_data);
+-	if (!tp->board_part_number[0])
++	if (tp->board_part_number[0])
+ 		return;
+ 
+ out_no_vpd:
+-	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5906)
++	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717) {
++		if (tp->pdev->device == TG3PCI_DEVICE_TIGON3_5717)
++			strcpy(tp->board_part_number, "BCM5717");
++		else if (tp->pdev->device == TG3PCI_DEVICE_TIGON3_5718)
++			strcpy(tp->board_part_number, "BCM5718");
++		else
++			goto nomatch;
++	} else if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57780) {
++		if (tp->pdev->device == TG3PCI_DEVICE_TIGON3_57780)
++			strcpy(tp->board_part_number, "BCM57780");
++		else if (tp->pdev->device == TG3PCI_DEVICE_TIGON3_57760)
++			strcpy(tp->board_part_number, "BCM57760");
++		else if (tp->pdev->device == TG3PCI_DEVICE_TIGON3_57790)
++			strcpy(tp->board_part_number, "BCM57790");
++		else if (tp->pdev->device == TG3PCI_DEVICE_TIGON3_57788)
++			strcpy(tp->board_part_number, "BCM57788");
++		else
++			goto nomatch;
++	} else if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57765) {
++		if (tp->pdev->device == TG3PCI_DEVICE_TIGON3_57761)
++			strcpy(tp->board_part_number, "BCM57761");
++		else if (tp->pdev->device == TG3PCI_DEVICE_TIGON3_57765)
++			strcpy(tp->board_part_number, "BCM57765");
++		else if (tp->pdev->device == TG3PCI_DEVICE_TIGON3_57781)
++			strcpy(tp->board_part_number, "BCM57781");
++		else if (tp->pdev->device == TG3PCI_DEVICE_TIGON3_57785)
++			strcpy(tp->board_part_number, "BCM57785");
++		else if (tp->pdev->device == TG3PCI_DEVICE_TIGON3_57791)
++			strcpy(tp->board_part_number, "BCM57791");
++		else if (tp->pdev->device == TG3PCI_DEVICE_TIGON3_57795)
++			strcpy(tp->board_part_number, "BCM57795");
++		else
++			goto nomatch;
++	} else if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5906) {
+ 		strcpy(tp->board_part_number, "BCM95906");
+-	else if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57780 &&
+-		 tp->pdev->device == TG3PCI_DEVICE_TIGON3_57780)
+-		strcpy(tp->board_part_number, "BCM57780");
+-	else if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57780 &&
+-		 tp->pdev->device == TG3PCI_DEVICE_TIGON3_57760)
+-		strcpy(tp->board_part_number, "BCM57760");
+-	else if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57780 &&
+-		 tp->pdev->device == TG3PCI_DEVICE_TIGON3_57790)
+-		strcpy(tp->board_part_number, "BCM57790");
+-	else if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57780 &&
+-		 tp->pdev->device == TG3PCI_DEVICE_TIGON3_57788)
+-		strcpy(tp->board_part_number, "BCM57788");
+-	else if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57765 &&
+-		 tp->pdev->device == TG3PCI_DEVICE_TIGON3_57761)
+-		strcpy(tp->board_part_number, "BCM57761");
+-	else if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57765 &&
+-		 tp->pdev->device == TG3PCI_DEVICE_TIGON3_57765)
+-		strcpy(tp->board_part_number, "BCM57765");
+-	else if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57765 &&
+-		 tp->pdev->device == TG3PCI_DEVICE_TIGON3_57781)
+-		strcpy(tp->board_part_number, "BCM57781");
+-	else if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57765 &&
+-		 tp->pdev->device == TG3PCI_DEVICE_TIGON3_57785)
+-		strcpy(tp->board_part_number, "BCM57785");
+-	else if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57765 &&
+-		 tp->pdev->device == TG3PCI_DEVICE_TIGON3_57791)
+-		strcpy(tp->board_part_number, "BCM57791");
+-	else if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57765 &&
+-		 tp->pdev->device == TG3PCI_DEVICE_TIGON3_57795)
+-		strcpy(tp->board_part_number, "BCM57795");
+-	else
++	} else {
++nomatch:
+ 		strcpy(tp->board_part_number, "none");
++	}
+ }
+ 
+ static int __devinit tg3_fw_img_is_valid(struct tg3 *tp, u32 offset)
+-- 
+1.7.2.2
 
 
-> --- a/kernel/sysctl.c
-> +++ b/kernel/sysctl.c
-> @@ -1352,16 +1352,16 @@ static struct ctl_table fs_table[] =3D {
->  	{
->  		.procname	=3D "file-nr",
->  		.data		=3D &files_stat,
-> -		.maxlen		=3D 3*sizeof(int),
-> +		.maxlen		=3D sizeof(files_stat),
->  		.mode		=3D 0444,
-> -		.proc_handler	=3D proc_nr_files,
-> +		.proc_handler	=3D proc_doulongvec_minmax,
-
-With this change, don't we lose the current nr_files value?  I think
-you need proc_nr_files to stay as it was.  If you disagree, we should
-probably eliminate the definitions for proc_nr_files as I don't believe
-they are used anywhere else.
-
-
-Thanks,
-Robin
