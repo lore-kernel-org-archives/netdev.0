@@ -1,47 +1,63 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] net: code cleanups
-Date: Wed, 29 Sep 2010 20:13:49 -0700
-Message-ID: <1285816429.1866.233.camel@Joe-Laptop>
-References: <1285813497-7384-1-git-send-email-xiaosuo@gmail.com>
-	 <1285814979.1866.229.camel@Joe-Laptop>
-	 <AANLkTinRm7dB=n7KG8+TU0_=gf-19LUPV+40_m2YxbU2@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv3 net-next-2.6 3/5] XFRM,IPv6: Add IRO src/dst address
+ remapping XFRM types and i/o handlers
+Date: Wed, 29 Sep 2010 20:16:18 -0700 (PDT)
+Message-ID: <20100929.201618.241458205.davem@davemloft.net>
+References: <cover.1285749610.git.arno@natisbad.org>
+	<fd4eec3c9486c46b535e89ceed479c7536f51fb9.1285749610.git.arno@natisbad.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
+Cc: eric.dumazet@gmail.com, herbert@gondor.apana.org.au,
+	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+To: arno@natisbad.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:2563 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752672Ab0I3DNv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Sep 2010 23:13:51 -0400
-In-Reply-To: <AANLkTinRm7dB=n7KG8+TU0_=gf-19LUPV+40_m2YxbU2@mail.gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34420
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751348Ab0I3DP5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Sep 2010 23:15:57 -0400
+In-Reply-To: <fd4eec3c9486c46b535e89ceed479c7536f51fb9.1285749610.git.arno@natisbad.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-09-30 at 11:07 +0800, Changli Gao wrote:
-> On Thu, Sep 30, 2010 at 10:49 AM, Joe Perches <joe@perches.com> wrote:
-> > On Thu, 2010-09-30 at 10:24 +0800, Changli Gao wrote:
-> >> Compare operations are more readable, and compilers generate the same code
-> >> for the both.
-> > As far as I know, not all supported versions of gcc
-> > generate the same code.
-> Is the former better for the compilers?
+From: Arnaud Ebalard <arno@natisbad.org>
+Date: Wed, 29 Sep 2010 11:05:47 +0200
 
-Yes.  I don't know how much it matters though.
+> +static int mip6_iro_src_reject(struct xfrm_state *x, struct sk_buff *skb, struct flowi *fl)
+> +{
+> +	int err = 0;
+> +
+> +	/* XXX We may need some reject handler at some point but it is not
+> +	 * critical yet: see xfrm_secpath_reject() in net/xfrm/xfrm_policy.c
+> +	 * and aslo what mip6_destopt_reject() implements */
+> +
+> +	printk("XXX FIXME: mip6_iro_src_reject() called\n");
 
-> > Also, you could probably now remove the (__force u32) casts.
-> Maybe Eric doesn't think so.
+pr_debug() or pr_err() or get rid of it altogher and use WARN_ON() or
+similar.
 
-Comparisons of equal types don't need (__force u32) casts. 
+> +	spin_lock(&x->lock);
+> +	if (!ipv6_addr_equal(&iph->daddr, (struct in6_addr *)x->coaddr) &&
+> +	    !ipv6_addr_any((struct in6_addr *)x->coaddr))
+> +		err = -ENOENT;
+> +	spin_unlock(&x->lock);
 
-They needed to be cast to u32 for the bitwise or's to avoid
-compiler warnings.
+What are you actually protecting with this lock?  The moment you drop
+it the x->coaddr can change which changes the result you should return
+here.
 
+I suspect you either don't need the lock, or you need to lock at a higher
+level.
 
+> +		printk(KERN_INFO "%s: spi is not 0: %u\n", __func__,
+
+pr_info()
+
+> +		printk(KERN_INFO "%s: state's mode is not %u: %u\n",
+
+pr_info()
+
+> +		       __func__, XFRM_MODE_ROUTEOPTIMIZATION,
+
+Printing decimal values for CPP macro constants does not make log
+messages very readable.
