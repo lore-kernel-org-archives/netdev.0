@@ -1,241 +1,173 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 1/3] e1000e: use hardware writeback batching
-Date: Thu, 30 Sep 2010 00:38:49 -0700
-Message-ID: <20100930073814.13378.4212.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 3/3] e1000e: 82579 performance improvements
+Date: Thu, 30 Sep 2010 00:39:37 -0700
+Message-ID: <20100930073934.13378.44230.stgit@localhost.localdomain>
+References: <20100930073814.13378.4212.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta12.emeryville.ca.mail.comcast.net ([76.96.27.227]:33675
-	"EHLO qmta12.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754912Ab0I3HjJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Sep 2010 03:39:09 -0400
+Received: from qmta07.emeryville.ca.mail.comcast.net ([76.96.30.64]:35705 "EHLO
+	qmta07.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754818Ab0I3Hj4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Sep 2010 03:39:56 -0400
+In-Reply-To: <20100930073814.13378.4212.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: Bruce Allan <bruce.w.allan@intel.com>
 
-Most e1000e parts support batching writebacks.  The problem with this is
-that when some of the TADV or TIDV timers are not set, Tx can sit forever.
+The initial support for 82579 was tuned poorly for performance.  Adjust the
+packet buffer allocation appropriately for both standard and jumbo frames;
+and for jumbo frames increase the receive descriptor pre-fetch, disable
+adaptive interrupt moderation and set the DMA latency tolerance.
 
-This is solved in this patch with write flushes using the Flush Partial
-Descriptors (FPD) bit in TIDV and RDTR.
-
-This improves bus utilization and removes partial writes on e1000e,
-particularly from 82571 parts in S5500 chipset based machines.
-
-Only ES2LAN and 82571/2 parts are included in this optimization, to reduce
-testing load.
-
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Tested-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/e1000e/82571.c   |    6 +++--
- drivers/net/e1000e/defines.h |    2 ++
- drivers/net/e1000e/e1000.h   |   28 ++++++++++++++++++++++
- drivers/net/e1000e/es2lan.c  |    1 +
- drivers/net/e1000e/netdev.c  |   53 ++++++++++++++++++++++++++++++++++++++++++
- drivers/net/e1000e/param.c   |    2 --
- 6 files changed, 88 insertions(+), 4 deletions(-)
+ drivers/net/e1000e/e1000.h   |    1 +
+ drivers/net/e1000e/ich8lan.c |    2 +-
+ drivers/net/e1000e/netdev.c  |   50 +++++++++++++++++++++++++++++++++++++-----
+ 3 files changed, 46 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
-index d3d4a57..ca663f1 100644
---- a/drivers/net/e1000e/82571.c
-+++ b/drivers/net/e1000e/82571.c
-@@ -1801,7 +1801,8 @@ struct e1000_info e1000_82571_info = {
- 				  | FLAG_RESET_OVERWRITES_LAA /* errata */
- 				  | FLAG_TARC_SPEED_MODE_BIT /* errata */
- 				  | FLAG_APME_CHECK_PORT_B,
--	.flags2			= FLAG2_DISABLE_ASPM_L1, /* errata 13 */
-+	.flags2			= FLAG2_DISABLE_ASPM_L1 /* errata 13 */
-+				  | FLAG2_DMA_BURST,
- 	.pba			= 38,
- 	.max_hw_frame_size	= DEFAULT_JUMBO,
- 	.get_variants		= e1000_get_variants_82571,
-@@ -1819,7 +1820,8 @@ struct e1000_info e1000_82572_info = {
- 				  | FLAG_RX_CSUM_ENABLED
- 				  | FLAG_HAS_CTRLEXT_ON_LOAD
- 				  | FLAG_TARC_SPEED_MODE_BIT, /* errata */
--	.flags2			= FLAG2_DISABLE_ASPM_L1, /* errata 13 */
-+	.flags2			= FLAG2_DISABLE_ASPM_L1 /* errata 13 */
-+				  | FLAG2_DMA_BURST,
- 	.pba			= 38,
- 	.max_hw_frame_size	= DEFAULT_JUMBO,
- 	.get_variants		= e1000_get_variants_82571,
-diff --git a/drivers/net/e1000e/defines.h b/drivers/net/e1000e/defines.h
-index 93b3bed..d3f7a9c 100644
---- a/drivers/net/e1000e/defines.h
-+++ b/drivers/net/e1000e/defines.h
-@@ -446,7 +446,9 @@
- 
- /* Transmit Descriptor Control */
- #define E1000_TXDCTL_PTHRESH 0x0000003F /* TXDCTL Prefetch Threshold */
-+#define E1000_TXDCTL_HTHRESH 0x00003F00 /* TXDCTL Host Threshold */
- #define E1000_TXDCTL_WTHRESH 0x003F0000 /* TXDCTL Writeback Threshold */
-+#define E1000_TXDCTL_GRAN    0x01000000 /* TXDCTL Granularity */
- #define E1000_TXDCTL_FULL_TX_DESC_WB 0x01010000 /* GRAN=1, WTHRESH=1 */
- #define E1000_TXDCTL_MAX_TX_DESC_PREFETCH 0x0100001F /* GRAN=1, PTHRESH=31 */
- /* Enable the counting of desc. still to be processed. */
 diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
-index f9a31c8..5ec0af5 100644
+index da3b82f..8a79bbd 100644
 --- a/drivers/net/e1000e/e1000.h
 +++ b/drivers/net/e1000e/e1000.h
-@@ -153,6 +153,33 @@ struct e1000_info;
- /* Time to wait before putting the device into D3 if there's no link (in ms). */
- #define LINK_TIMEOUT		100
- 
-+#define DEFAULT_RDTR			0
-+#define DEFAULT_RADV			8
-+#define BURST_RDTR			0x20
-+#define BURST_RADV			0x20
-+
-+/*
-+ * in the case of WTHRESH, it appears at least the 82571/2 hardware
-+ * writes back 4 descriptors when WTHRESH=5, and 3 descriptors when
-+ * WTHRESH=4, and since we want 64 bytes at a time written back, set
-+ * it to 5
-+ */
-+#define E1000_TXDCTL_DMA_BURST_ENABLE                          \
-+	(E1000_TXDCTL_GRAN | /* set descriptor granularity */  \
-+	 E1000_TXDCTL_COUNT_DESC |                             \
-+	 (5 << 16) | /* wthresh must be +1 more than desired */\
-+	 (1 << 8)  | /* hthresh */                             \
-+	 0x1f)       /* pthresh */
-+
-+#define E1000_RXDCTL_DMA_BURST_ENABLE                          \
-+	(0x01000000 | /* set descriptor granularity */         \
-+	 (4 << 16)  | /* set writeback threshold    */         \
-+	 (4 << 8)   | /* set prefetch threshold     */         \
-+	 0x20)        /* set hthresh                */
-+
-+#define E1000_TIDV_FPD (1 << 31)
-+#define E1000_RDTR_FPD (1 << 31)
-+
- enum e1000_boards {
- 	board_82571,
- 	board_82572,
-@@ -425,6 +452,7 @@ struct e1000_info {
- #define FLAG2_DISABLE_ASPM_L1             (1 << 3)
- #define FLAG2_HAS_PHY_STATS               (1 << 4)
+@@ -455,6 +455,7 @@ struct e1000_info {
  #define FLAG2_HAS_EEE                     (1 << 5)
-+#define FLAG2_DMA_BURST                   (1 << 6)
+ #define FLAG2_DMA_BURST                   (1 << 6)
+ #define FLAG2_CHECK_PHY_HANG              (1 << 7)
++#define FLAG2_DISABLE_AIM                 (1 << 8)
  
  #define E1000_RX_DESC_PS(R, i)	    \
  	(&(((union e1000_rx_desc_packet_split *)((R).desc))[i]))
-diff --git a/drivers/net/e1000e/es2lan.c b/drivers/net/e1000e/es2lan.c
-index 45aebb4..24f8ac9 100644
---- a/drivers/net/e1000e/es2lan.c
-+++ b/drivers/net/e1000e/es2lan.c
-@@ -1494,6 +1494,7 @@ struct e1000_info e1000_es2_info = {
- 				  | FLAG_APME_CHECK_PORT_B
- 				  | FLAG_DISABLE_FC_PAUSE_TIME /* errata */
- 				  | FLAG_TIPG_MEDIUM_FOR_80003ESLAN,
-+	.flags2			= FLAG2_DMA_BURST,
- 	.pba			= 38,
+diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
+index 57b5435..e3374d9 100644
+--- a/drivers/net/e1000e/ich8lan.c
++++ b/drivers/net/e1000e/ich8lan.c
+@@ -3986,7 +3986,7 @@ struct e1000_info e1000_pch2_info = {
+ 				  | FLAG_APME_IN_WUC,
+ 	.flags2			= FLAG2_HAS_PHY_STATS
+ 				  | FLAG2_HAS_EEE,
+-	.pba			= 18,
++	.pba			= 26,
  	.max_hw_frame_size	= DEFAULT_JUMBO,
- 	.get_variants		= e1000_get_variants_80003es2lan,
+ 	.get_variants		= e1000_get_variants_ich8lan,
+ 	.mac_ops		= &ich8_mac_ops,
 diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index c69563c..1aa4228 100644
+index a8b55ab..c194804 100644
 --- a/drivers/net/e1000e/netdev.c
 +++ b/drivers/net/e1000e/netdev.c
-@@ -2650,6 +2650,26 @@ static void e1000_configure_tx(struct e1000_adapter *adapter)
- 	/* Tx irq moderation */
- 	ew32(TADV, adapter->tx_abs_int_delay);
+@@ -2290,6 +2290,11 @@ static void e1000_set_itr(struct e1000_adapter *adapter)
+ 		goto set_itr_now;
+ 	}
  
-+	if (adapter->flags2 & FLAG2_DMA_BURST) {
-+		u32 txdctl = er32(TXDCTL(0));
-+		txdctl &= ~(E1000_TXDCTL_PTHRESH | E1000_TXDCTL_HTHRESH |
-+			    E1000_TXDCTL_WTHRESH);
-+		/*
-+		 * set up some performance related parameters to encourage the
-+		 * hardware to use the bus more efficiently in bursts, depends
-+		 * on the tx_int_delay to be enabled,
-+		 * wthresh = 5 ==> burst write a cacheline (64 bytes) at a time
-+		 * hthresh = 1 ==> prefetch when one or more available
-+		 * pthresh = 0x1f ==> prefetch if internal cache 31 or less
-+		 * BEWARE: this seems to work but should be considered first if
-+		 * there are tx hangs or other tx related bugs
-+		 */
-+		txdctl |= E1000_TXDCTL_DMA_BURST_ENABLE;
-+		ew32(TXDCTL(0), txdctl);
-+		/* erratum work around: set txdctl the same for both queues */
-+		ew32(TXDCTL(1), txdctl);
++	if (adapter->flags2 & FLAG2_DISABLE_AIM) {
++		new_itr = 0;
++		goto set_itr_now;
 +	}
 +
- 	/* Program the Transmit Control Register */
- 	tctl = er32(TCTL);
- 	tctl &= ~E1000_TCTL_CT;
-@@ -2872,6 +2892,29 @@ static void e1000_configure_rx(struct e1000_adapter *adapter)
- 	e1e_flush();
- 	msleep(10);
+ 	adapter->tx_itr = e1000_update_itr(adapter,
+ 				    adapter->tx_itr,
+ 				    adapter->total_tx_packets,
+@@ -2338,7 +2343,10 @@ set_itr_now:
+ 		if (adapter->msix_entries)
+ 			adapter->rx_ring->set_itr = 1;
+ 		else
+-			ew32(ITR, 1000000000 / (new_itr * 256));
++			if (new_itr)
++				ew32(ITR, 1000000000 / (new_itr * 256));
++			else
++				ew32(ITR, 0);
+ 	}
+ }
  
-+	if (adapter->flags2 & FLAG2_DMA_BURST) {
-+		/*
-+		 * set the writeback threshold (only takes effect if the RDTR
-+		 * is set). set GRAN=1 and write back up to 0x4 worth, and
-+		 * enable prefetching of 0x20 rx descriptors
-+		 * granularity = 01
-+		 * wthresh = 04,
-+		 * hthresh = 04,
-+		 * pthresh = 0x20
-+		 */
-+		ew32(RXDCTL(0), E1000_RXDCTL_DMA_BURST_ENABLE);
-+		ew32(RXDCTL(1), E1000_RXDCTL_DMA_BURST_ENABLE);
-+
-+		/*
-+		 * override the delay timers for enabling bursting, only if
-+		 * the value was not set by the user via module options
-+		 */
-+		if (adapter->rx_int_delay == DEFAULT_RDTR)
-+			adapter->rx_int_delay = BURST_RDTR;
-+		if (adapter->rx_abs_int_delay == DEFAULT_RADV)
-+			adapter->rx_abs_int_delay = BURST_RADV;
+@@ -2920,7 +2928,7 @@ static void e1000_configure_rx(struct e1000_adapter *adapter)
+ 
+ 	/* irq moderation */
+ 	ew32(RADV, adapter->rx_abs_int_delay);
+-	if (adapter->itr_setting != 0)
++	if ((adapter->itr_setting != 0) && (adapter->itr != 0))
+ 		ew32(ITR, 1000000000 / (adapter->itr * 256));
+ 
+ 	ctrl_ext = er32(CTRL_EXT);
+@@ -2965,11 +2973,13 @@ static void e1000_configure_rx(struct e1000_adapter *adapter)
+ 	 * packet size is equal or larger than the specified value (in 8 byte
+ 	 * units), e.g. using jumbo frames when setting to E1000_ERT_2048
+ 	 */
+-	if (adapter->flags & FLAG_HAS_ERT) {
++	if ((adapter->flags & FLAG_HAS_ERT) ||
++	    (adapter->hw.mac.type == e1000_pch2lan)) {
+ 		if (adapter->netdev->mtu > ETH_DATA_LEN) {
+ 			u32 rxdctl = er32(RXDCTL(0));
+ 			ew32(RXDCTL(0), rxdctl | 0x3);
+-			ew32(ERT, E1000_ERT_2048 | (1 << 13));
++			if (adapter->flags & FLAG_HAS_ERT)
++				ew32(ERT, E1000_ERT_2048 | (1 << 13));
+ 			/*
+ 			 * With jumbo frames and early-receive enabled,
+ 			 * excessive C-state transition latencies result in
+@@ -3232,9 +3242,35 @@ void e1000e_reset(struct e1000_adapter *adapter)
+ 		fc->low_water = 0x05048;
+ 		fc->pause_time = 0x0650;
+ 		fc->refresh_time = 0x0400;
++		if (adapter->netdev->mtu > ETH_DATA_LEN) {
++			pba = 14;
++			ew32(PBA, pba);
++		}
+ 		break;
+ 	}
+ 
++	/*
++	 * Disable Adaptive Interrupt Moderation if 2 full packets cannot
++	 * fit in receive buffer and early-receive not supported.
++	 */
++	if (adapter->itr_setting & 0x3) {
++		if (((adapter->max_frame_size * 2) > (pba << 10)) &&
++		    !(adapter->flags & FLAG_HAS_ERT)) {
++			if (!(adapter->flags2 & FLAG2_DISABLE_AIM)) {
++				dev_info(&adapter->pdev->dev,
++					"Interrupt Throttle Rate turned off\n");
++				adapter->flags2 |= FLAG2_DISABLE_AIM;
++				ew32(ITR, 0);
++			}
++		} else if (adapter->flags2 & FLAG2_DISABLE_AIM) {
++			dev_info(&adapter->pdev->dev,
++				 "Interrupt Throttle Rate turned on\n");
++			adapter->flags2 &= ~FLAG2_DISABLE_AIM;
++			adapter->itr = 20000;
++			ew32(ITR, 1000000000 / (adapter->itr * 256));
++		}
 +	}
 +
- 	/* set the Receive Delay Timer Register */
- 	ew32(RDTR, adapter->rx_int_delay);
+ 	/* Allow time for pending master requests to run */
+ 	mac->ops.reset_hw(hw);
  
-@@ -4235,6 +4278,16 @@ link_up:
- 	/* Force detection of hung controller every watchdog period */
- 	adapter->detect_tx_hung = 1;
+@@ -3553,7 +3589,8 @@ static int e1000_open(struct net_device *netdev)
+ 		e1000_update_mng_vlan(adapter);
  
-+	/* flush partial descriptors to memory before detecting tx hang */
-+	if (adapter->flags2 & FLAG2_DMA_BURST) {
-+		ew32(TIDV, adapter->tx_int_delay | E1000_TIDV_FPD);
-+		ew32(RDTR, adapter->rx_int_delay | E1000_RDTR_FPD);
-+		/*
-+		 * no need to flush the writes because the timeout code does
-+		 * an er32 first thing
-+		 */
-+	}
-+
- 	/*
- 	 * With 82571 controllers, LAA may be overwritten due to controller
- 	 * reset from the other port. Set the appropriate LAA in RAR[0]
-diff --git a/drivers/net/e1000e/param.c b/drivers/net/e1000e/param.c
-index 34aeec1..3d36911 100644
---- a/drivers/net/e1000e/param.c
-+++ b/drivers/net/e1000e/param.c
-@@ -91,7 +91,6 @@ E1000_PARAM(TxAbsIntDelay, "Transmit Absolute Interrupt Delay");
-  * Valid Range: 0-65535
-  */
- E1000_PARAM(RxIntDelay, "Receive Interrupt Delay");
--#define DEFAULT_RDTR 0
- #define MAX_RXDELAY 0xFFFF
- #define MIN_RXDELAY 0
+ 	/* DMA latency requirement to workaround early-receive/jumbo issue */
+-	if (adapter->flags & FLAG_HAS_ERT)
++	if ((adapter->flags & FLAG_HAS_ERT) ||
++	    (adapter->hw.mac.type == e1000_pch2lan))
+ 		pm_qos_add_request(&adapter->netdev->pm_qos_req,
+ 				   PM_QOS_CPU_DMA_LATENCY,
+ 				   PM_QOS_DEFAULT_VALUE);
+@@ -3662,7 +3699,8 @@ static int e1000_close(struct net_device *netdev)
+ 	if (adapter->flags & FLAG_HAS_AMT)
+ 		e1000_release_hw_control(adapter);
  
-@@ -101,7 +100,6 @@ E1000_PARAM(RxIntDelay, "Receive Interrupt Delay");
-  * Valid Range: 0-65535
-  */
- E1000_PARAM(RxAbsIntDelay, "Receive Absolute Interrupt Delay");
--#define DEFAULT_RADV 8
- #define MAX_RXABSDELAY 0xFFFF
- #define MIN_RXABSDELAY 0
+-	if (adapter->flags & FLAG_HAS_ERT)
++	if ((adapter->flags & FLAG_HAS_ERT) ||
++	    (adapter->hw.mac.type == e1000_pch2lan))
+ 		pm_qos_remove_request(&adapter->netdev->pm_qos_req);
  
+ 	pm_runtime_put_sync(&pdev->dev);
 
