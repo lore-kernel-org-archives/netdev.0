@@ -1,47 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] de2104x: remove experimental status
-Date: Wed, 29 Sep 2010 19:48:05 -0700 (PDT)
-Message-ID: <20100929.194805.68142212.davem@davemloft.net>
-References: <201009282046.21279.linux@rainbow-software.org>
-	<4CA23963.8040409@pobox.com>
+Subject: Re: [PATCH net-next] bnx2x: Moved enabling of MSI to the
+ bnx2x_set_num_queues()
+Date: Wed, 29 Sep 2010 19:48:39 -0700 (PDT)
+Message-ID: <20100929.194839.27796665.davem@davemloft.net>
+References: <1285758337.7908.7.camel@lb-tlvb-dmitry>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux@rainbow-software.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: jgarzik@pobox.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4CA23963.8040409@pobox.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, vladz@broadcom.com, eilong@broadcom.com
+To: dmitry@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34996
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752796Ab0I3CsS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Sep 2010 22:48:18 -0400
+In-Reply-To: <1285758337.7908.7.camel@lb-tlvb-dmitry>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Garzik <jgarzik@pobox.com>
-Date: Tue, 28 Sep 2010 14:52:19 -0400
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Date: Wed, 29 Sep 2010 13:05:37 +0200
 
-> On 09/28/2010 02:46 PM, Ondrej Zary wrote:
->> It should be ready after 8 years...remove the experimental dependency.
->>
->> Signed-off-by: Ondrej Zary<linux@rainbow-software.org>
->>
->> --- linux-2.6.36-rc3-/drivers/net/tulip/Kconfig 2010-08-29
->> --- 17:36:04.000000000 +0200
->> +++ linux-2.6.36-rc3/drivers/net/tulip/Kconfig 2010-09-28
->> 19:49:46.000000000 +0200
->> @@ -11,8 +11,8 @@ menuconfig NET_TULIP
->>   if NET_TULIP
->>
->>   config DE2104X
->> -	tristate "Early DECchip Tulip (dc2104x) PCI support (EXPERIMENTAL)"
->> -	depends on PCI&&  EXPERIMENTAL
->> +	tristate "Early DECchip Tulip (dc2104x) PCI support"
->> +	depends on PCI
->>   	select CRC32
->>   	---help---
->>   	  This driver is developed for the SMC EtherPower series Ethernet
+>  Moved enabling of MSI to the bnx2x_set_num_queues() - the same functions that
+>  handles the initialization of the MSI-X.
 > 
-> Well...  it's not the years, it's the quality...  which I think has
-> been sufficiently increased.
-> 
-> Acked-by: Jeff Garzik <jgarzik@redhat.com>
+> From: Vladislav Zolotarov <vladz@broadcom.com>
+> Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+> Signed-off-by: Vladislav Zolotarov <vladz@broadcom.com>
+> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+> ---
+> Respin of the patch originally prepared by Vladislav Zolotarov.
+> This patch is required for the integration of Ben Hutchings bnx2x patch from
+> the "netif_set_real_num_{rx,tx}_queues" patch series. Since falling from MSI-X
+> to MSI mode due to lack of memory is broken.
 
-Also applied to net-next-2.6, thanks.
+Applied, thanks.
