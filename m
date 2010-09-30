@@ -1,78 +1,111 @@
 From: xiaohui.xin@intel.com
-Subject: [PATCH v12 02/17] Add a new struct for device to manipulate external buffer.
-Date: Thu, 30 Sep 2010 22:04:19 +0800
-Message-ID: <f66051069519bbf129b2712db52c27f243a6b971.1285853725.git.xiaohui.xin@intel.com>
+Subject: [PATCH v12 04/17] Add a function make external buffer owner to query capability.
+Date: Thu, 30 Sep 2010 22:04:21 +0800
+Message-ID: <70ab1be92cf869690d009c0f45ac8988bca60386.1285853725.git.xiaohui.xin@intel.com>
 References: <1285855474-12110-1-git-send-email-xiaohui.xin@intel.com>
 Cc: Xin Xiaohui <xiaohui.xin@intel.com>
 To: netdev@vger.kernel.org, kvm@vger.kernel.org,
 	linux-kernel@vger.kernel.org, mst@redhat.com, mingo@elte.hu,
 	davem@davemloft.net, herbert@gondor.apana.org.au,
 	jdike@linux.intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([143.182.124.21]:30013 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756200Ab0I3Nq4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Sep 2010 09:46:56 -0400
 In-Reply-To: <1285855474-12110-1-git-send-email-xiaohui.xin@intel.com>
 In-Reply-To: <59d8a50047ee01e26658fd676d26c0162b79e5fd.1285853725.git.xiaohui.xin@intel.com>
 References: <59d8a50047ee01e26658fd676d26c0162b79e5fd.1285853725.git.xiaohui.xin@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Xin Xiaohui <xiaohui.xin@intel.com>
 
-Add a structure in structure net_device, the new field is
-named as mp_port. It's for mediate passthru (zero-copy).
-It contains the capability for the net device driver,
-a socket, and an external buffer creator, external means
-skb buffer belongs to the device may not be allocated from
-kernel space.
+The external buffer owner can use the functions to get
+the capability of the underlying NIC driver.
 
 Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
-Signed-off-by: Zhao Yu <yzhao81new@gmail.com>
+Signed-off-by: Zhao Yu <yzhaonew@gmail.com>
 Reviewed-by: Jeff Dike <jdike@linux.intel.com>
+
 ---
- include/linux/netdevice.h |   25 ++++++++++++++++++++++++-
- 1 files changed, 24 insertions(+), 1 deletions(-)
+ include/linux/netdevice.h |    2 +
+ net/core/dev.c            |   49 +++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 51 insertions(+), 0 deletions(-)
 
 diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index fa8b476..9ef9bf1 100644
+index 24a31e7..27f5024 100644
 --- a/include/linux/netdevice.h
 +++ b/include/linux/netdevice.h
-@@ -530,6 +530,28 @@ struct netdev_queue {
- 	unsigned long		tx_dropped;
- } ____cacheline_aligned_in_smp;
+@@ -1608,6 +1608,8 @@ extern gro_result_t	napi_frags_finish(struct napi_struct *napi,
+ 					  gro_result_t ret);
+ extern struct sk_buff *	napi_frags_skb(struct napi_struct *napi);
+ extern gro_result_t	napi_gro_frags(struct napi_struct *napi);
++extern int netdev_mp_port_prep(struct net_device *dev,
++				struct mp_port *port);
  
-+/*The structure for mediate passthru(zero-copy). */
-+struct mp_port	{
-+	/* the header len */
-+	int		hdr_len;
-+	/* the max payload len for one descriptor */
-+	int		data_len;
-+	/* the pages for DMA in one time */
-+	int		npages;
-+	/* the socket bind to */
-+	struct socket	*sock;
-+	/* the header len for virtio-net */
-+	int		vnet_hlen;
-+	/* the external buffer page creator */
-+	struct skb_ext_page *(*ctor)(struct mp_port *,
-+				struct sk_buff *, int);
-+	/* the hash function attached to find according
-+	 * backend ring descriptor info for one external
-+	 * buffer page.
-+	 */
-+	struct skb_ext_page *(*hash)(struct net_device *,
-+				struct page *);
-+};
+ static inline void napi_free_frags(struct napi_struct *napi)
+ {
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 264137f..c11e32c 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2468,6 +2468,55 @@ void netif_nit_deliver(struct sk_buff *skb)
+ 	rcu_read_unlock();
+ }
  
- /*
-  * This structure defines the management hooks for network devices.
-@@ -952,7 +974,8 @@ struct net_device {
- 	struct macvlan_port	*macvlan_port;
- 	/* GARP */
- 	struct garp_port	*garp_port;
--
-+	/* mpassthru */
-+	struct mp_port		*mp_port;
- 	/* class/net/name entry */
- 	struct device		dev;
- 	/* space for optional device, statistics, and wireless sysfs groups */
++/* To support meidate passthru(zero-copy) with NIC driver,
++ * we'd better query NIC driver for the capability it can
++ * provide, especially for packet split mode, now we only
++ * query for the header size, and the payload a descriptor
++ * may carry. If a driver does not use the API to export,
++ * then we may try to use a default value, currently,
++ * we use the default value from an IGB driver. Now,
++ * it's only called by mpassthru device.
++ */
++#if defined(CONFIG_MEDIATE_PASSTHRU) || defined(CONFIG_MEDIATE_PASSTHRU_MODULE)
++int netdev_mp_port_prep(struct net_device *dev,
++		struct mp_port *port)
++{
++	int rc;
++	int npages, data_len;
++	const struct net_device_ops *ops = dev->netdev_ops;
++
++	if (ops->ndo_mp_port_prep) {
++		rc = ops->ndo_mp_port_prep(dev, port);
++		if (rc)
++			return rc;
++	} else {
++		/* If the NIC driver did not report this,
++		 * then we try to use default value.
++		 */
++		port->hdr_len = 128;
++		port->data_len = 2048;
++		port->npages = 1;
++	}
++
++	if (port->hdr_len <= 0)
++		goto err;
++
++	npages = port->npages;
++	data_len = port->data_len;
++	if (npages <= 0 || npages > MAX_SKB_FRAGS ||
++			(data_len < PAGE_SIZE * (npages - 1) ||
++			 data_len > PAGE_SIZE * npages))
++		goto err;
++
++	return 0;
++err:
++	dev_warn(&dev->dev, "invalid page constructor parameters\n");
++
++	return -EINVAL;
++}
++EXPORT_SYMBOL(netdev_mp_port_prep);
++#endif
++
+ /**
+  *	netif_receive_skb - process receive buffer from network
+  *	@skb: buffer to process
 -- 
 1.7.3
+
