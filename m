@@ -1,57 +1,93 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH] ipv4: remove all rt cache entries on UNREGISTER event
-Date: Thu, 30 Sep 2010 13:49:37 +0200
-Message-ID: <4CA47951.3050006@6wind.com>
-References: <4CA208C9.1020800@6wind.com>	 <1285691629.3154.80.camel@edumazet-laptop>  <4CA21BC6.5070300@6wind.com>	 <1285692969.3154.86.camel@edumazet-laptop>  <4CA2EF9C.9040909@6wind.com>	 <1285749349.2615.27.camel@edumazet-laptop> <1285751929.2615.30.camel@edumazet-laptop>
-Reply-To: nicolas.dichtel@6wind.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: VLAN packets silently dropped in promiscuous mode
+Date: Thu, 30 Sep 2010 14:16:44 +0200
+Message-ID: <1285849004.2615.394.camel@edumazet-laptop>
+References: <20100929113757.GA23755@core.hellgate.ch>
+	 <AANLkTi=QAoVH9KU8FAH6iscWt_mKnZpU3P9QqgFRLqXM@mail.gmail.com>
+	 <20100930080703.GA10827@core.hellgate.ch>
+	 <1285838215.2615.126.camel@edumazet-laptop>
+	 <1285840532.2615.196.camel@edumazet-laptop>
+	 <1285843234.2615.278.camel@edumazet-laptop>  <4CA46B72.2090100@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Octavian Purdila <opurdila@ixiacom.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Roger Luethi <rl@hellgate.ch>, David Miller <davem@davemloft.net>,
+	Jesse Gross <jesse@nicira.com>, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:54333 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753687Ab0I3Lto (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Sep 2010 07:49:44 -0400
-Received: by wyb28 with SMTP id 28so1751228wyb.19
-        for <netdev@vger.kernel.org>; Thu, 30 Sep 2010 04:49:43 -0700 (PDT)
-In-Reply-To: <1285751929.2615.30.camel@edumazet-laptop>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:49250 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751857Ab0I3MQx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Sep 2010 08:16:53 -0400
+Received: by fxm4 with SMTP id 4so602532fxm.19
+        for <netdev@vger.kernel.org>; Thu, 30 Sep 2010 05:16:51 -0700 (PDT)
+In-Reply-To: <4CA46B72.2090100@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patch works well with my case.
-In fact, it's more proper to returns an error to the daemon to let it 
-knows that packet was not sent.
+Le jeudi 30 septembre 2010 =C3=A0 12:50 +0200, Patrick McHardy a =C3=A9=
+crit :
 
-Acked-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> This should be fine as long as the packets are properly marked
+> with PACKET_OTHERHOST.
 
-Regards,
-Nicolas
+Ah thanks Patrick for the tip !
 
-Eric Dumazet wrote:
-> I found following patch was enough to avoid route being created if
-> device is down. This is still racy and needs more thinking.
-> 
-> 
-> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> index ac6559c..1ee0b1a 100644
-> --- a/net/ipv4/route.c
-> +++ b/net/ipv4/route.c
-> @@ -2586,9 +2586,10 @@ static int ip_route_output_slow(struct net *net, struct rtable **rp,
->  			goto out;
->  
->  		/* RACE: Check return value of inet_select_addr instead. */
-> -		if (__in_dev_get_rtnl(dev_out) == NULL) {
-> +		if (!(dev_out->flags & IFF_UP) || __in_dev_get_rtnl(dev_out) == NULL) {
->  			dev_put(dev_out);
-> -			goto out;	/* Wrong error code */
-> +			err = -ENETUNREACH;
-> +			goto out;
->  		}
->  
->  		if (ipv4_is_local_multicast(oldflp->fl4_dst) ||
-> 
-> 
+I tested following patch on tg3 and it is doing the right thing this
+time.
+
+
+[PATCH] vlan: dont drop packets from unknown vlans in promiscuous mode
+
+Roger Luethi noticed packets for unknown VLANs getting silently dropped
+even in promiscuous mode.
+
+Check for promiscuous mode in __vlan_hwaccel_rx() and vlan_gro_common()
+before drops.
+
+As suggested by Patrick, mark such packets to have skb->pkt_type set to
+PACKET_OTHERHOST to make sure they are dropped by IP stack.
+
+Reported-by: Roger Luethi <rl@hellgate.ch>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Patrick McHardy <kaber@trash.net>
+---
+ net/8021q/vlan_core.c |   14 ++++++++++----
+ 1 file changed, 10 insertions(+), 4 deletions(-)
+
+diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
+index 01ddb04..0eb96f7 100644
+--- a/net/8021q/vlan_core.c
++++ b/net/8021q/vlan_core.c
+@@ -24,8 +24,11 @@ int __vlan_hwaccel_rx(struct sk_buff *skb, struct vl=
+an_group *grp,
+=20
+ 	if (vlan_dev)
+ 		skb->dev =3D vlan_dev;
+-	else if (vlan_id)
+-		goto drop;
++	else if (vlan_id) {
++		if (!(skb->dev->flags & IFF_PROMISC))
++			goto drop;
++		skb->pkt_type =3D PACKET_OTHERHOST;
++	}
+=20
+ 	return (polling ? netif_receive_skb(skb) : netif_rx(skb));
+=20
+@@ -102,8 +105,11 @@ vlan_gro_common(struct napi_struct *napi, struct v=
+lan_group *grp,
+=20
+ 	if (vlan_dev)
+ 		skb->dev =3D vlan_dev;
+-	else if (vlan_id)
+-		goto drop;
++	else if (vlan_id) {
++		if (!(skb->dev->flags & IFF_PROMISC))
++			goto drop;
++		skb->pkt_type =3D PACKET_OTHERHOST;
++	}
+=20
+ 	for (p =3D napi->gro_list; p; p =3D p->next) {
+ 		NAPI_GRO_CB(p)->same_flow =3D
+
 
