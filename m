@@ -1,55 +1,72 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next-2.6 PATCH 2/3] e1000e: reset PHY after errors detected
- on 82574 Si
-Date: Thu, 30 Sep 2010 16:00:47 -0700
-Message-ID: <AANLkTimfkdS0EoK9PkkNghV8ws_YUS+46D2Vu1ke-fP2@mail.gmail.com>
-References: <20100930073814.13378.4212.stgit@localhost.localdomain>
-	<20100930073909.13378.34776.stgit@localhost.localdomain>
+From: Julian Calaby <julian.calaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC 1/2] genetlink: introduce pre_doit/post_doit hooks
+Date: Fri, 1 Oct 2010 09:14:22 +1000
+Message-ID: <AANLkTinTZG9U9AKXSgGK8GVLuweaBb48Gm9STOs40OQp@mail.gmail.com>
+References: <20100930211013.472957770@sipsolutions.net> <20100930211131.021309930@sipsolutions.net>
+ <AANLkTik9+zA4PPPx=q6CRM-sgOjjECJdtJTgkCG9pGAY@mail.gmail.com>
+ <1285886690.5137.28.camel@jlt3.sipsolutions.net> <1285886821.5137.29.camel@jlt3.sipsolutions.net>
+ <1285886955.5137.31.camel@jlt3.sipsolutions.net> <AANLkTimVMGHNkK=o650qzZfvUp3mWRAG_=60etVbEBxh@mail.gmail.com>
+ <1285887352.5137.34.camel@jlt3.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f174.google.com ([209.85.214.174]:52986 "EHLO
-	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751759Ab0I3XAs convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Sep 2010 19:00:48 -0400
-Received: by iwn5 with SMTP id 5so3005803iwn.19
-        for <netdev@vger.kernel.org>; Thu, 30 Sep 2010 16:00:48 -0700 (PDT)
-In-Reply-To: <20100930073909.13378.34776.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	tgraf-G/eBtMaohhA@public.gmane.org
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1285887352.5137.34.camel-8upI4CBIZJIJvtFkdXX2HixXY32XiHfO@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 30, 2010 at 00:39, Jeff Kirsher <jeffrey.t.kirsher@intel.co=
-m> wrote:
-> From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+On Fri, Oct 1, 2010 at 08:55, Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> wrote:
+> On Fri, 2010-10-01 at 08:51 +1000, Julian Calaby wrote:
 >
-> Some errors can be induced in the PHY via environmental testing
-> (specifically extreme temperature changes and electro static
-> discharge testing), and in the case of the PHY hanging due to
-> this input, this detects the problem and resets to continue.
-> This issue only applies to 82574 silicon.
+>> > Come to think of it -- I could get away with a single pointer, since, if
+>> > both are assigned,
+>> >
+>> > user_ptr[0] == wiphy_to_rdev(((netdev *)user_ptr[1])->ieee80211_ptr->wiphy)
+>> >
+>> > but that's a lot of pointy things, and some functions only have the rdev
+>> > so it gets more complex. I think allowing two private pointers is a
+>> > decent compromise.
+>>
+>> Come to think of it -- if someone wanted to have a massive structure
+>> with 10 pointers and a set of random data structures, then they could
+>> easily create their priv struct and assign it to user_ptr[0], hence
+>> rendering my argument null and void.
 >
-> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
-> Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->
-> =C2=A0drivers/net/e1000e/82571.c =C2=A0| =C2=A0 40 ++++++++++++++++++=
-+++++++++++++++++++++-
-> =C2=A0drivers/net/e1000e/e1000.h =C2=A0| =C2=A0 =C2=A03 +++
-> =C2=A0drivers/net/e1000e/netdev.c | =C2=A0 25 +++++++++++++++++++++++=
-++
-> =C2=A03 files changed, 67 insertions(+), 1 deletions(-)
->
+> Oh, well, I thought your argument was that it was arbitrary and not
+> really necessary :-)
 
-Dave - please ignore this patch.  An issue was found with this patch.
+My argument was more that someone's likely to come up with a scheme
+that requires more than 2 pointers, so why not accommodate them from
+start with an element for a priv struct - but that requires a new
+struct, allocating and freeing it, as well as heap space for it, and a
+pointer on the stack to it. (though I'm sure there'll be some sensible
+way to make them persistent, but that's another issue)
 
---=20
-Cheers,
-Jeff
+> Also, this rather cheap, it just needs a bit more stack space in a place
+> that isn't typically deeply nested. So if some protocol came around and
+> needed three pointers, I'd probably advocate just bumping it to three.
+> At some point I might draw a line (10 is probably too much).
+
+I was considering pointing out that a compromise might need to be
+made, but I figured you'd already thought of that =)
+
+> But you're right, of course, they can just use the first one and put
+> something dynamically allocated into that, if really needed.
+
+Exactly.
+
+Thanks,
+
+-- 
+
+Julian Calaby
+
+Email: julian.calaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Profile: http://www.google.com/profiles/julian.calaby/
+.Plan: http://sites.google.com/site/juliancalaby/
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
