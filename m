@@ -1,82 +1,88 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: VLAN packets silently dropped in promiscuous mode
-Date: Thu, 30 Sep 2010 11:16:55 +0200
-Message-ID: <1285838215.2615.126.camel@edumazet-laptop>
-References: <20100929113757.GA23755@core.hellgate.ch>
-	 <AANLkTi=QAoVH9KU8FAH6iscWt_mKnZpU3P9QqgFRLqXM@mail.gmail.com>
-	 <20100930080703.GA10827@core.hellgate.ch>
+From: Sami Farin <hvtaifwkbgefbaei@gmail.com>
+Subject: Re: Something wrong with tx/rx/sg/gso with dhclient
+ etc (Was: Linux 2.6.35.6/e1000e does not receive replies from DHCP server,
+ 2.6.33 works)
+Date: Thu, 30 Sep 2010 12:44:17 +0300
+Message-ID: <20100930094417.r6jgrljaer2opekv@m.safari.iki.fi>
+References: <20100927131935.d5f2ghpfaufiq6yx@m.safari.iki.fi>
+	<20100927160731.ehcljyewa5b5wrbm@m.safari.iki.fi>
+	<EA929A9653AAE14F841771FB1DE5A13660222E867B@rrsmsx501.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jesse Gross <jesse@nicira.com>, netdev@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>
-To: Roger Luethi <rl@hellgate.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:48280 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750840Ab0I3JRG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Sep 2010 05:17:06 -0400
-Received: by fxm4 with SMTP id 4so538347fxm.19
-        for <netdev@vger.kernel.org>; Thu, 30 Sep 2010 02:17:05 -0700 (PDT)
-In-Reply-To: <20100930080703.GA10827@core.hellgate.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Sami Farin <hvtaifwkbgefbaei@gmail.com>, e1000-devel@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-Disposition: inline
+In-Reply-To: <EA929A9653AAE14F841771FB1DE5A13660222E867B@rrsmsx501.amr.corp.intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Le jeudi 30 septembre 2010 =C3=A0 10:07 +0200, Roger Luethi a =C3=A9cri=
-t :
-> On Wed, 29 Sep 2010 10:44:26 -0700, Jesse Gross wrote:
-> > On Wed, Sep 29, 2010 at 4:37 AM, Roger Luethi <rl@hellgate.ch> wrot=
-e:
-> > > I noticed packets for unknown VLANs getting silently dropped even=
- in
-> > > promiscuous mode (this is true only for the hardware accelerated =
-path).
-> > > netif_nit_deliver was introduced specifically to prevent that, bu=
-t the
-> > > function gets called only _after_ packets from unknown VLANs have=
- been
-> > > dropped.
-> >=20
-> > Some drivers are fixing this on a case by case basis by disabling
-> > hardware accelerated VLAN stripping when in promiscuous mode, i.e.:
-> > http://git.kernel.org/?p=3Dlinux/kernel/git/torvalds/linux-2.6.git;=
-a=3Dcommit;h=3D5f6c01819979afbfec7e0b15fe52371b8eed87e8
-> >=20
-> > However, at this point it is more or less random which drivers do
-> > this.  It would obviously be much better if it were consistent.
->=20
-> My understanding is this. Hardware VLAN tagging and stripping can alw=
-ays be
-> enabled. The kernel passes 802.1Q information along with the stripped
-> header to libpcap which reassembles the original header where necessa=
-ry.
-> Works for me.
->=20
-> Hardware VLAN filtering, on the other hand, must be disabled in promi=
-scuous
-> mode. But doing that in the driver makes no difference now as the cur=
-rent
-> VLAN code drops the packets so preserved before they are passed to th=
-e pcap
-> interface. That appears to be a bug.
-
-Agreed
-
-Could you try following patch, based on net-next-2.6 ?
-
-diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
-index 0eb486d..fabdedb 100644
---- a/net/8021q/vlan_core.c
-+++ b/net/8021q/vlan_core.c
-@@ -101,7 +101,7 @@ vlan_gro_common(struct napi_struct *napi, struct vl=
-an_group *grp,
-=20
- 	if (vlan_dev)
- 		skb->dev =3D vlan_dev;
--	else if (vlan_id)
-+	else if (vlan_id && !(skb->dev->flags & IFF_PROMISC))
- 		goto drop;
-=20
- 	for (p =3D napi->gro_list; p; p =3D p->next) {
-
-
+T24gV2VkLCBTZXAgMjksIDIwMTAgYXQgMTc6NDA6MDggLTA2MDAsIFRhbnRpbG92LCBFbWlsIFMg
+d3JvdGU6Cj4gU2FtaSBGYXJpbiB3cm90ZToKPiA+IEZhbHNlIGFsYXJtLCAyLjYuMzUuNitsYXRl
+c3QgZ2l0IGUxMDAwZSBkb2VzIG5vdCB3b3JrIGFueSBiZXR0ZXIuCj4gPiBJIHdhcyBqdXN0IGx1
+Y2t5Lgo+IAo+IElzIHlvdXIgYGxhdGVzdCBnaXRgIGZyb20gTGludXMgb3IgbmV0LW5leHQgdHJl
+ZT8gCgpMaW51cy4KCj5BbGwgb2Ygb3VyIGxhdGVzdCBwYXRjaGVzIGdvIGludG8gbmV0LW5leHQs
+IHNvIGlmIHlvdSBoYXZlbid0IGFscmVhZHkgLSBnaXZlIGl0IGEgdHJ5IGFuZCBzZWUgaWYgaXQg
+cmVzb2x2ZXMgeW91ciBpc3N1ZS4KCk1heWJlIGxhdGVyID0pCgo+ID4gCj4gPiBPbmUgdGhpbmcg
+d2hhdCB3YXMgY29tbW9uLCB3aGVuIGl0IHdvcmtzLCBJIGdldCB0aGlzIGxpbmUgYSBsaXR0bGUK
+PiA+IHRpbWUgYmVmb3JlIGRoY2xpZW50IHN0YXJ0IHdvcmtpbmc6Cj4gPiAKPiA+IGV0aDA6IElQ
+djYgZHVwbGljYXRlIGFkZHJlc3MgZmU4MDo6MjE5OmQxZmY6ZmUwMDo1ZjAxIGRldGVjdGVkIQo+
+IAo+IEkgaGF2ZSBhIHN5c3RlbSB3aXRoIHRoZSBzYW1lIGRldmljZSBJRCAoaXQgaXMgbm90IHRo
+ZSBzYW1lIGJvYXJkKSBhbmQgY291bGQgbm90IHJlcHJvZHVjZSBhbnkgaXNzdWVzIHdpdGggREhD
+UCBvbiAyLjYuMzUuNiBrZXJuZWwuIAoKT2theSwgdGhhbmtzIGZvciB0cnlpbmcuCiAKPiBBc2lk
+ZSBmcm9tIGNoZWNraW5nIHRoZSBsYXRlc3QgbmV0LW5leHQgdHJlZSwgdGhlcmUgYXJlIHNvbWUg
+b3RoZXIgdGhpbmdzIHRvIGxvb2sgaW50bzoKPiAKPiAxLiBJcyBBTVQgZW5hYmxlZCAtIHRoZXJl
+IGlzIHVzdWFsbHkgYSBtYW5hZ2VhYmlsaXR5IHRhYi9vcHRpb24gaW4gdGhlIEJJT1MuIElmIHlv
+dSBoYXZlIHRoYXQgb3B0aW9uIHRyeSBlbmFibGluZy9kaXNhYmxpbmcgaXQgYW5kIHNlZSBpZiBp
+dCBtYWtlcyBhIGRpZmZlcmVuY2UuCgpJIGJlbGlldmUgSSBoYXZlbid0IHVzZWQgQU1ULCBidXQg
+SSBjaGVjayB0aGF0IG9wdGlvbi4KCj4gMi4gTWFrZSBzdXJlIHlvdXIgQklPUyBpcyB1cCB0byBk
+YXRlLgoKTGF0ZXN0IC5JU08gdXBkYXRlIHdoaWNoIHdvcmtlZCB3YXMgQ082MDc5UCBmcm9tIEF1
+ZyAyMDA4LCBtYXliZSBJIGNhbgpnZXQgdGhlIFVTQiBib290IHRvIHdvcmsuLgoKPiBJZiBhbnkg
+b2YgdGhlIGFib3ZlIGRvZXMgbm90IGhlbHAgeW91ciBzaXR1YXRpb24gcGxlYXNlIGZpbGUgYSBi
+dWcgYXQgZTEwMDAuc2YubmV0IGFuZCBpbmNsdWRlIHRoZSBmb2xsb3dpbmcgaW5mb3JtYXRpb246
+CgpJIGZpbmQgaXQgb2RkIEkgc3RvcCBzZWVpbmcgdGhlIHJlcGx5IHBhY2tldHMganVzdCBsaWtl
+IHRoYXQuLgpDYW4gdGhpcyBiZSBlMTAwMGUgYnVnL2ZlYXR1cmUgb3Igc29tZXRoaW5nIGVsc2U/
+CkZvciBleGFtcGxlLCBJIGRpZCAibWFrZSBvbGRjb25maWciIGluIG5ldC1uZXh0LCBhbmQ6Cgot
+LS0tLS0tLS0tLS0tLS0tCkNPTkZJR19ORVRGSUxURVJfWFRfVEFSR0VUX0NIRUNLU1VNOgoKVGhp
+cyBvcHRpb24gYWRkcyBhIGBDSEVDS1NVTScgdGFyZ2V0LCB3aGljaCBjYW4gYmUgdXNlZCBpbiB0
+aGUgaXB0YWJsZXMgbWFuZ2xlIHRhYmxlLgoKWW91IGNhbiB1c2UgdGhpcyB0YXJnZXQgdG8gY29t
+cHV0ZSBhbmQgZmlsbCBpbiB0aGUgY2hlY2tzdW0gaW4KYSBwYWNrZXQgdGhhdCBsYWNrcyBhIGNo
+ZWNrc3VtLiAgVGhpcyBpcyBwYXJ0aWN1bGFybHkgdXNlZnVsLAppZiB5b3UgbmVlZCB0byB3b3Jr
+IGFyb3VuZCBvbGQgYXBwbGljYXRpb25zIHN1Y2ggYXMgZGhjcCBjbGllbnRzLCAgICAgICA8PD09
+PSBoZXJlCnRoYXQgZG8gbm90IHdvcmsgd2VsbCB3aXRoIGNoZWNrc3VtIG9mZmxvYWRzLCBidXQg
+ZG9uJ3Qgd2FudCB0byBkaXNhYmxlCmNoZWNrc3VtIG9mZmxvYWQgaW4geW91ciBkZXZpY2UuCi0t
+LS0tLS0tLS0tLS0tLS0KCkJ1dCBub3QgZXZlbiB0Y3BkdW1wIHNlZXMgdGhlIHBhY2tldHMuLiAg
+c2hvdWxkbid0IGl0IHNlZSB0aGVtIGRlc3BpdGUKcngvdHggc2V0dGluZ3M/ICBXaGF0IGNvdWxk
+IGJlIGVhdGluZyB0aGUgcGFja2V0cz8KCkZZSSwgSSBqdXN0IHBsYXllZCB3aXRoICJyeCBvZmYg
+dHggb2ZmIHNnIG9mZiBnc28gb2ZmIiBhbmQKInJ4IG9uIHR4IG9uIHNnIG9uIGdzbyBvbiIsIHdo
+ZW4gdGhlIG9wdGlvbnMgd2VyZSBhbGwgb24sIEkgY291bGQgbm90CmV2ZW4gZ2V0IEFSUCByZXBs
+eSBmcm9tIG15IHJvdXRlciEgIFR3byBzZWNvbmRzIGFmdGVyIEkgdHVybmVkIHRoZW0gb2ZmLAph
+bGwgc3RhcnQgd29ya2luZy4gIEFsc28gZGhjbGllbnQgd29ya2Vk4oCUbm93IHRoYXQgSSB0cmll
+ZOKAlHdpdGggYWxsIG9mZi4KSSBiZWxpZXZlIHRoZXJlIGlzIHNvbWV0aGluZyBmaXNoeSBpbiBy
+eCwgdHgsIHNnIGFuZC9vciBnc28gZmVhdHVyZXMsCndoaWNoIHdvcmtlZCBpbiAyLjYuMzMgQUZB
+SUNULiAgQW0gSSBzb3VuZGluZyBhbWJpZ3VlPyA7KQoKPiAxLiBsc3BjaSAtdnZ2Cj4gMi4gZXRo
+dG9vbCAtZSBldGgwCj4gMy4gdGhlcmUgaXMgYSB0b29sIGNhbGwgZXRocmVncyB3aGljaCB5b3Ug
+Y2FuIGRvd25sb2FkIGZyb20gdGhpcyBzaXRlLiBJZiB5b3UgY2FuIGluY2x1ZGUgdGhlIG91dHB1
+dCBvZiBldGhyZWdzIC1zIDAwOjE5LjAgCj4gNC4ga2VybmVsIGNvbmZpZwo+IDUuIGFueXRoaW5n
+IHRoYXQgeW91IHRoaW5rIG1heSBiZSByZWxhdGVkIC0gbGlrZSBzZXR1cCwgdHlwZSBvZiB0cmFm
+ZmljIGV0Yy4KPiAKPiBUaGFua3MsCj4gRW1pbAoKLS0gCkRvIHdoYXQgeW91IGxvdmUgYmVjYXVz
+ZSBsaWZlIGlzIHRvbyBzaG9ydCBmb3IgYW55dGhpbmcgZWxzZS4KCgotLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0KU3RhcnQgdW5jb3ZlcmluZyB0aGUgbWFueSBhZHZhbnRhZ2VzIG9mIHZpcnR1YWwgYXBw
+bGlhbmNlcwphbmQgc3RhcnQgdXNpbmcgdGhlbSB0byBzaW1wbGlmeSBhcHBsaWNhdGlvbiBkZXBs
+b3ltZW50IGFuZAphY2NlbGVyYXRlIHlvdXIgc2hpZnQgdG8gY2xvdWQgY29tcHV0aW5nLgpodHRw
+Oi8vcC5zZi5uZXQvc2Z1L25vdmVsbC1zZmRldjJkZXYKX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX18KRTEwMDAtZGV2ZWwgbWFpbGluZyBsaXN0CkUxMDAwLWRl
+dmVsQGxpc3RzLnNvdXJjZWZvcmdlLm5ldApodHRwczovL2xpc3RzLnNvdXJjZWZvcmdlLm5ldC9s
+aXN0cy9saXN0aW5mby9lMTAwMC1kZXZlbApUbyBsZWFybiBtb3JlIGFib3V0IEludGVsJiMxNzQ7
+IEV0aGVybmV0LCB2aXNpdCBodHRwOi8vY29tbXVuaXRpZXMuaW50ZWwuY29tL2NvbW11bml0eS93
+aXJlZAo=
