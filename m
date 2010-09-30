@@ -1,86 +1,124 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH] net: code cleanups
-Date: Thu, 30 Sep 2010 14:09:19 +0800
-Message-ID: <AANLkTimVngrNU+PLbaf8r42J3HrvURpY8KUPa+--KvLC@mail.gmail.com>
-References: <1285813497-7384-1-git-send-email-xiaosuo@gmail.com> <1285823808.5211.627.camel@edumazet-laptop>
+From: Alexey Vlasov <renton@renton.name>
+Subject: Re: Packet time delays on multi-core systems
+Date: Thu, 30 Sep 2010 10:24:19 +0400
+Message-ID: <20100930062419.GD86786@beaver.vrungel.ru>
+References: <20100929191851.GC86786@beaver.vrungel.ru> <1285796721.5211.156.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
 To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:57723 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753788Ab0I3GJk convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Sep 2010 02:09:40 -0400
-Received: by wwi17 with SMTP id 17so15098wwi.1
-        for <netdev@vger.kernel.org>; Wed, 29 Sep 2010 23:09:39 -0700 (PDT)
-In-Reply-To: <1285823808.5211.627.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1285796721.5211.156.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 30, 2010 at 1:16 PM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
-> Le jeudi 30 septembre 2010 =E0 10:24 +0800, Changli Gao a =E9crit :
->> Compare operations are more readable, and compilers generate the sam=
-e code
->> for the both.
->>
->
-> You have a buggy compiler then.
+Here I found some dude with the same problem:
+http://lkml.org/lkml/2010/7/9/340
 
-gcc version 4.4.3 (Gentoo 4.4.3-r2 p1.2)
+On Wed, Sep 29, 2010 at 11:45:21PM +0200, Eric Dumazet wrote:
+> Le mercredi 29 septembre 2010 ?? 23:18 +0400, Alexey Vlasov a ??crit : 
+> > Hi.
+> > 
+> > I'm not sure actually that I should write here, may be I should ask in
+> > netfilter maillist, but if is something wrong please correct me.
+> > 
+> 
+> CC netdev
+> 
+> 
+> > I've got rather large linux shared hosting, and on my new servers I
+> > noticed some strange singularity, that this simple rule:
+> > 
+> > # iptables -A OUTPUT -p tcp -m tcp --dport 80 --tcp-flags
+> > FIN,SYN,RST,ACK SYN -j LOG --log-prefix "ipsec:SYN-OUTPUT "
+> > --log-uid
+> > 
+> > gives essential time delays simply at ping from the adjacent server
+> > on a local area network. I don't know precisely what's wrong whether the
+> > reason is in the bad support by a kernel of new hardware, or it concerns
+> > generally the new kernel, but now it leads to the situation that even at simple
+> > DDOS attacks to client sites, it becomes difficult to make something, and in
+> > general all works only worse.
+> > 
+> > It seems to me that with the increase of CPU cores' amount, it only becomes
+> > worse and worse, and, obviously, iptables uses resources of only one processor,
+> > which resources to it for any reason doesn't suffice.
+> > 
+> 
+> Its not true. iptables can run on all cpus in //
+> 
+> > newbox # iptables -F
+> > otherbox # ping -c 100 newbox
+> > ...
+> > 100 packets transmitted, 100 received, 0% packet loss, time 100044ms
+> > rtt min/avg/max/mdev = 0.133/2.637/17.172/3.736 ms
+> > 
+> > OK.
+> > 
+> > newbox # iptables -A OUTPUT -p tcp -m tcp --dport 80 --tcp-flags FIN,SYN,RST,ACK SYN
+> > -j LOG --log-prefix "ipsec:SYN-OUTPUT " --log-uid
+> > otherbox # ping -c 100 newbox
+> > ...
+> > 64 bytes from (newbox): icmp_seq=3 ttl=64 time=1.58 ms
+> > 64 bytes from (newbox): icmp_seq=4 ttl=64 time=98.7 ms
+> > 64 bytes from (newbox): icmp_seq=5 ttl=64 time=18.2 ms
+> > 64 bytes from (newbox): icmp_seq=6 ttl=64 time=6.13 ms
+> > 64 bytes from (newbox): icmp_seq=7 ttl=64 time=108 ms
+> > ...
+> > 64 bytes from (newbox): icmp_seq=55 ttl=64 time=2.30 ms
+> > 64 bytes from (newbox): icmp_seq=56 ttl=64 time=59.9 ms
+> > 64 bytes from (newbox): icmp_seq=57 ttl=64 time=0.155 ms
+> > ...
+> > 64 bytes from (newbox): icmp_seq=61 ttl=64 time=13.4 ms
+> > 64 bytes from (newbox): icmp_seq=62 ttl=64 time=55.0 ms
+> > 64 bytes from (newbox): icmp_seq=63 ttl=64 time=0.233 ms
+> > ...
+> > 100 packets transmitted, 100 received, 0% packet loss, time 99957ms
+> > rtt min/avg/max/mdev = 0.111/7.519/108.061/18.478 ms
+> > 
+> > newbox # iptables -L -v -n
+> > Chain INPUT (policy ACCEPT 346K packets, 213M bytes)
+> >  pkts bytes target     prot opt in     out     source               destination
+> > 
+> > Chain FORWARD (policy ACCEPT 0 packets, 0 bytes)
+> >  pkts bytes target     prot opt in     out     source               destination
+> > 
+> > Chain OUTPUT (policy ACCEPT 296K packets, 290M bytes)
+> >  pkts bytes target     prot opt in     out     source               destination
+> >   234 14040 LOG        tcp  --  *      *       0.0.0.0/0            0.0.0.0/0    
+> > tcp dpt:80 flags:0x17/0x02 LOG flags 8 level 4 prefix `ipsec:SYN-OUTPUT- '
+> > 
+> > My old server: Intel SR1500, Xeon 5430, kernel 2.6.24 - 2.6.28
+> > Newbox: SR1620UR, 5650, kernel 2.6.32
+> > 
+> > Thanks in advance.
+> > 
+> 
+> Seems strange indeed, since the LOG you add should not slowdown icmp
+> trafic that much.
+> 
+> But if you send SYN packets in the same time, (logged), this might slow
+> down the reception (and answers) of ICMP frames. LOG target can be quite
+> expensive... 
+> 
+> Is using other rules gives same problem ?
+> 
+> iptables -A OUTPUT -p tcp -m tcp --dport 80 --tcp-flags FIN,SYN,RST,ACK SYN
+> iptables -A OUTPUT -p tcp -m tcp --dport 80 --tcp-flags FIN,SYN,RST,ACK SYN
+> iptables -A OUTPUT -p tcp -m tcp --dport 80 --tcp-flags FIN,SYN,RST,ACK SYN
+> iptables -A OUTPUT -p tcp -m tcp --dport 80 --tcp-flags FIN,SYN,RST,ACK SYN
+> 
+> 
+> 
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
 
-             rth =3D rcu_dereference(rth->dst.rt_next)) {
-                if ((((__force u32)rth->fl.fl4_dst ^ (__force u32)daddr=
-) |
-                     ((__force u32)rth->fl.fl4_src ^ (__force u32)saddr=
-) |
-                     (rth->fl.iif ^ iif) |
-    2f12:       44 3b 80 dc 00 00 00    cmp    0xdc(%rax),%r8d
-    2f19:       0f 85 a2 00 00 00       jne    2fc1 <ip_route_input_com=
-mon+0x145
->
-                     rth->fl.oif |
-    2f1f:       83 b8 d8 00 00 00 00    cmpl   $0x0,0xd8(%rax)
-    2f26:       0f 85 95 00 00 00       jne    2fc1 <ip_route_input_com=
-mon+0x145
->
-        tos &=3D IPTOS_RT_MASK;
-        hash =3D rt_hash(daddr, saddr, iif, rt_genid(net));
-
-        for (rth =3D rcu_dereference(rt_hash_table[hash].chain); rth;
-             rth =3D rcu_dereference(rth->dst.rt_next)) {
-                if ((((__force u32)rth->fl.fl4_dst ^ (__force u32)daddr=
-) |
-    2f2c:       44 3b b8 e4 00 00 00    cmp    0xe4(%rax),%r15d
-    2f33:       0f 85 88 00 00 00       jne    2fc1
-<ip_route_input_common+0x145>
-                     ((__force u32)rth->fl.fl4_src ^ (__force u32)saddr=
-) |
-    2f39:       44 3b b0 e8 00 00 00    cmp    0xe8(%rax),%r14d
-    2f40:       75 7f                   jne    2fc1
-<ip_route_input_common+0x145>
-
-
->
-> I know this code is ugly, but please keep it as is, dont add conditio=
-nal
-> branches on hot paths.
->
-
-If the compiler doesn't generate conditional branches, we have to
-touch every necessary field of all the cache entries in one hash
-bucket. Is it better than condition branch? I think the compiler
-developers know it better.
-
-And the compiler reorders the conditional branches, is it expected?
-
---=20
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+-- 
+BRGDS. Alexey Vlasov.
