@@ -1,40 +1,51 @@
-From: Alexey Vlasov <renton@renton.name>
-Subject: Re: Packet time delays on multi-core systems
-Date: Thu, 30 Sep 2010 22:15:56 +0400
-Message-ID: <20100930181556.GC4094@beaver.vrungel.ru>
-References: <20100929191851.GC86786@beaver.vrungel.ru> <1285796721.5211.156.camel@edumazet-laptop> <20100930062419.GD86786@beaver.vrungel.ru> <1285828432.5211.812.camel@edumazet-laptop> <20100930122321.GA1575@beaver.vrungel.ru> <1285850669.2615.426.camel@edumazet-laptop> <20100930173732.GB4094@beaver.vrungel.ru> <1285869782.2615.920.camel@edumazet-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: how to use secure_tcp_sequence_number
+Date: Thu, 30 Sep 2010 20:21:01 +0200
+Message-ID: <1285870861.2615.946.camel@edumazet-laptop>
+References: <AANLkTimA6jJbCvtxFi41JbH_XSJtKo0FrDE=fQ2OiafY@mail.gmail.com>
+	 <AANLkTikWop213k7cBXAaoCMw_8LouX-qauYEbHD=d1Vh@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.df.ru ([195.42.160.16]:59728 "EHLO smtp.df.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755589Ab0I3SRx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Sep 2010 14:17:53 -0400
-Content-Disposition: inline
-In-Reply-To: <1285869782.2615.920.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netfilter-devel <netfilter-devel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Nicola Padovano <nicola.padovano@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <AANLkTikWop213k7cBXAaoCMw_8LouX-qauYEbHD=d1Vh@mail.gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 30, 2010 at 08:03:02PM +0200, Eric Dumazet wrote:
-> >  
-> > The last test were made already concerning such rx queue binding:
-> > # cat /proc/irq/60/smp_affinity
-> > 001000
-> > # cat /proc/irq/61/smp_affinity
-> > 010000
-> > # cat /proc/irq/62/smp_affinity
-> > 080000
-> > # cat /proc/irq/63/smp_affinity
-> > 800000
-> > 
-> 
-> Why 60, 61, 62, 63 ? This should be 753, 754, 755, 756
+Le jeudi 30 septembre 2010 =C3=A0 19:01 +0200, Nicola Padovano a =C3=A9=
+crit :
+> If i attempt to insert the module that uses the
+> secure_tcp_sequence_number i get this error message:
+>=20
+> from insmod:  -1 Invalid module format
+> and from dmesg: version magic '2.6.35.4 SMP mod_unload 586 ' should b=
+e
+> '2.6.35.4 SMP mod_unload modversions 586 '
+>=20
+> what's the matter?
 
-I've got several similar servers, the interrups 60-63 are on
-that one that I can test now, so this isn't a mistake.
+diff --git a/drivers/char/random.c b/drivers/char/random.c
+index caef35a..f5ef7ba 100644
+--- a/drivers/char/random.c
++++ b/drivers/char/random.c
+@@ -1550,6 +1550,7 @@ __u32 secure_tcp_sequence_number(__be32 saddr, __=
+be32 daddr,
+=20
+ 	return seq;
+ }
++EXPORT_SYMBOL(secure_tcp_sequence_number);
+=20
+ /* Generate secure starting point for ephemeral IPV4 transport port se=
+arch */
+ u32 secure_ipv4_port_ephemeral(__be32 saddr, __be32 daddr, __be16 dpor=
+t)
 
--- 
-BRGDS. Alexey Vlasov.
+
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
