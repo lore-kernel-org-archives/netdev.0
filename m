@@ -1,88 +1,189 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 2/8] tg3: 5719: Prevent tx data corruption
-Date: Thu, 30 Sep 2010 13:34:31 -0700
-Message-ID: <1285878877-12148-3-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH net-next 7/8] tg3: Add extend rx ring sizes for 5717 and
+ 5719
+Date: Thu, 30 Sep 2010 13:34:36 -0700
+Message-ID: <1285878877-12148-8-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, andy@greyhouse.net, mcarlson@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2217 "EHLO MMS3.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:2236 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756626Ab0I3Uey (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1756652Ab0I3Uey (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 30 Sep 2010 16:34:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch enables a bit that prevents read DMA overflows and adjusts
-the txmbuf margin from the hardware default.  The combination of these
-modifications prevents a tx data corruption issue we were seeing on the
-5719.
+This patch increases the rx ring sizes for those asic revs that support
+them.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Reviewed-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/tg3.c |   12 +++++++++++-
- drivers/net/tg3.h |    8 +++++++-
- 2 files changed, 18 insertions(+), 2 deletions(-)
+ drivers/net/tg3.c |   55 ++++++++++++++++++++++++++++++++++++++--------------
+ drivers/net/tg3.h |    3 ++
+ 2 files changed, 43 insertions(+), 15 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index d64fec1..4f35a5c 100644
+index 16848a9..98f7158 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -7857,7 +7857,10 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
- 	tw32(BUFMGR_DMA_HIGH_WATER,
- 	     tp->bufmgr_config.dma_high_water);
+@@ -101,9 +101,15 @@
+  * You can't change the ring sizes, but you can change where you place
+  * them in the NIC onboard memory.
+  */
+-#define TG3_RX_STD_RING_SIZE(tp)	512
++#define TG3_RX_STD_RING_SIZE(tp) \
++	((GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717 || \
++	  GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719) ? \
++	 RX_STD_MAX_SIZE_5717 : 512)
+ #define TG3_DEF_RX_RING_PENDING		200
+-#define TG3_RX_JMB_RING_SIZE(tp)	256
++#define TG3_RX_JMB_RING_SIZE(tp) \
++	((GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717 || \
++	  GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719) ? \
++	 1024 : 256)
+ #define TG3_DEF_RX_JUMBO_RING_PENDING	100
+ #define TG3_RSS_INDIR_TBL_SIZE		128
  
--	tw32(BUFMGR_MODE, BUFMGR_MODE_ENABLE | BUFMGR_MODE_ATTN_ENABLE);
-+	val = BUFMGR_MODE_ENABLE | BUFMGR_MODE_ATTN_ENABLE;
-+	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719)
-+		val |= BUFMGR_MODE_NO_TX_UNDERRUN;
-+	tw32(BUFMGR_MODE, val);
- 	for (i = 0; i < 2000; i++) {
- 		if (tr32(BUFMGR_MODE) & BUFMGR_MODE_ENABLE)
- 			break;
-@@ -8037,6 +8040,13 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
- 		     val | TG3_RDMA_RSRVCTRL_FIFO_OFLW_FIX);
+@@ -113,9 +119,6 @@
+  * hw multiply/modulo instructions.  Another solution would be to
+  * replace things like '% foo' with '& (foo - 1)'.
+  */
+-#define TG3_RX_RCB_RING_SIZE(tp)	\
+-	(((tp->tg3_flags & TG3_FLAG_JUMBO_CAPABLE) && \
+-	  !(tp->tg3_flags2 & TG3_FLG2_5780_CLASS)) ? 1024 : 512)
+ 
+ #define TG3_TX_RING_SIZE		512
+ #define TG3_DEF_TX_RING_PENDING		(TG3_TX_RING_SIZE - 1)
+@@ -125,7 +128,7 @@
+ #define TG3_RX_JMB_RING_BYTES(tp) \
+ 	(sizeof(struct tg3_ext_rx_buffer_desc) * TG3_RX_JMB_RING_SIZE(tp))
+ #define TG3_RX_RCB_RING_BYTES(tp) \
+-	(sizeof(struct tg3_rx_buffer_desc) * TG3_RX_RCB_RING_SIZE(tp))
++	(sizeof(struct tg3_rx_buffer_desc) * (tp->rx_ret_ring_mask + 1))
+ #define TG3_TX_RING_BYTES	(sizeof(struct tg3_tx_buffer_desc) * \
+ 				 TG3_TX_RING_SIZE)
+ #define NEXT_TX(N)		(((N) + 1) & (TG3_TX_RING_SIZE - 1))
+@@ -4724,7 +4727,7 @@ next_pkt:
+ 		}
+ next_pkt_nopost:
+ 		sw_idx++;
+-		sw_idx &= (TG3_RX_RCB_RING_SIZE(tp) - 1);
++		sw_idx &= tp->rx_ret_ring_mask;
+ 
+ 		/* Refresh hw_idx to see if there is new work */
+ 		if (sw_idx == hw_idx) {
+@@ -7612,8 +7615,8 @@ static void tg3_rings_reset(struct tg3 *tp)
+ 
+ 	if (tnapi->rx_rcb) {
+ 		tg3_set_bdinfo(tp, rxrcb, tnapi->rx_rcb_mapping,
+-			       (TG3_RX_RCB_RING_SIZE(tp) <<
+-				BDINFO_FLAGS_MAXLEN_SHIFT), 0);
++			       (tp->rx_ret_ring_mask + 1) <<
++				BDINFO_FLAGS_MAXLEN_SHIFT, 0);
+ 		rxrcb += TG3_BDINFO_SIZE;
  	}
  
-+	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719) {
-+		val = tr32(TG3_LSO_RD_DMA_CRPTEN_CTRL);
-+		tw32(TG3_LSO_RD_DMA_CRPTEN_CTRL, val |
-+		     TG3_LSO_RD_DMA_CRPTEN_CTRL_BLEN_BD_4K |
-+		     TG3_LSO_RD_DMA_CRPTEN_CTRL_BLEN_LSO_4K);
-+	}
+@@ -7636,7 +7639,7 @@ static void tg3_rings_reset(struct tg3 *tp)
+ 		}
+ 
+ 		tg3_set_bdinfo(tp, rxrcb, tnapi->rx_rcb_mapping,
+-			       (TG3_RX_RCB_RING_SIZE(tp) <<
++			       ((tp->rx_ret_ring_mask + 1) <<
+ 				BDINFO_FLAGS_MAXLEN_SHIFT), 0);
+ 
+ 		stblk += 8;
+@@ -7949,10 +7952,14 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
+ 			     BDINFO_FLAGS_DISABLED);
+ 		}
+ 
+-		if (tp->tg3_flags3 & TG3_FLG3_5717_PLUS)
+-			val = (RX_STD_MAX_SIZE_5705 << BDINFO_FLAGS_MAXLEN_SHIFT) |
+-			      (TG3_RX_STD_DMA_SZ << 2);
+-		else
++		if (tp->tg3_flags3 & TG3_FLG3_5717_PLUS) {
++			if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57765)
++				val = RX_STD_MAX_SIZE_5705;
++			else
++				val = RX_STD_MAX_SIZE_5717;
++			val <<= BDINFO_FLAGS_MAXLEN_SHIFT;
++			val |= (TG3_RX_STD_DMA_SZ << 2);
++		} else
+ 			val = TG3_RX_STD_DMA_SZ << BDINFO_FLAGS_MAXLEN_SHIFT;
+ 	} else
+ 		val = RX_STD_MAX_SIZE_5705 << BDINFO_FLAGS_MAXLEN_SHIFT;
+@@ -8235,7 +8242,11 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
+ 
+ 	tw32(SNDBDC_MODE, SNDBDC_MODE_ENABLE | SNDBDC_MODE_ATTN_ENABLE);
+ 	tw32(RCVBDI_MODE, RCVBDI_MODE_ENABLE | RCVBDI_MODE_RCB_ATTN_ENAB);
+-	tw32(RCVDBDI_MODE, RCVDBDI_MODE_ENABLE | RCVDBDI_MODE_INV_RING_SZ);
++	val = RCVDBDI_MODE_ENABLE | RCVDBDI_MODE_INV_RING_SZ;
++	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717 ||
++	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719)
++		val |= RCVDBDI_MODE_LRG_RING_SZ;
++	tw32(RCVDBDI_MODE, val);
+ 	tw32(SNDDATAI_MODE, SNDDATAI_MODE_ENABLE);
+ 	if (tp->tg3_flags2 & TG3_FLG2_HW_TSO)
+ 		tw32(SNDDATAI_MODE, SNDDATAI_MODE_ENABLE | 0x8);
+@@ -12846,6 +12857,18 @@ static void inline vlan_features_add(struct net_device *dev, unsigned long flags
+ #endif
+ }
+ 
++static inline u32 tg3_rx_ret_ring_size(struct tg3 *tp)
++{
++	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717 ||
++	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719)
++		return 4096;
++	else if ((tp->tg3_flags & TG3_FLAG_JUMBO_CAPABLE) &&
++		 !(tp->tg3_flags2 & TG3_FLG2_5780_CLASS))
++		return 1024;
++	else
++		return 512;
++}
 +
- 	/* Receive/send statistics. */
- 	if (tp->tg3_flags2 & TG3_FLG2_5750_PLUS) {
- 		val = tr32(RCVLPC_STATS_ENABLE);
+ static int __devinit tg3_get_invariants(struct tg3 *tp)
+ {
+ 	static struct pci_device_id write_reorder_chipsets[] = {
+@@ -13601,6 +13624,8 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
+ 
+ 	tp->rx_std_ring_mask = TG3_RX_STD_RING_SIZE(tp) - 1;
+ 	tp->rx_jmb_ring_mask = TG3_RX_JMB_RING_SIZE(tp) - 1;
++	tp->rx_ret_ring_mask = tg3_rx_ret_ring_size(tp) - 1;
++
+ 	tp->rx_std_max_post = tp->rx_std_ring_mask + 1;
+ 
+ 	/* Increment the rx prod index on the rx std ring by at most
 diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
-index 44733e4..ec62f05 100644
+index 9763298..f6b709a 100644
 --- a/drivers/net/tg3.h
 +++ b/drivers/net/tg3.h
-@@ -1225,6 +1225,7 @@
- #define  BUFMGR_MODE_ATTN_ENABLE	 0x00000004
- #define  BUFMGR_MODE_BM_TEST		 0x00000008
- #define  BUFMGR_MODE_MBLOW_ATTN_ENAB	 0x00000010
-+#define  BUFMGR_MODE_NO_TX_UNDERRUN	 0x80000000
- #define BUFMGR_STATUS			0x00004404
- #define  BUFMGR_STATUS_ERROR		 0x00000004
- #define  BUFMGR_STATUS_MBLOW		 0x00000010
-@@ -1306,7 +1307,12 @@
+@@ -26,6 +26,7 @@
+ #define TG3_RX_INTERNAL_RING_SZ_5906	32
  
- #define TG3_RDMA_RSRVCTRL_REG		0x00004900
- #define TG3_RDMA_RSRVCTRL_FIFO_OFLW_FIX	 0x00000004
--/* 0x4904 --> 0x4c00 unused */
-+/* 0x4904 --> 0x4910 unused */
-+
-+#define TG3_LSO_RD_DMA_CRPTEN_CTRL	0x00004910
-+#define TG3_LSO_RD_DMA_CRPTEN_CTRL_BLEN_BD_4K	 0x00030000
-+#define TG3_LSO_RD_DMA_CRPTEN_CTRL_BLEN_LSO_4K	 0x000c0000
-+/* 0x4914 --> 0x4c00 unused */
+ #define RX_STD_MAX_SIZE_5705		512
++#define RX_STD_MAX_SIZE_5717		2048
+ #define RX_JUMBO_MAX_SIZE		0xdeadbeef /* XXX */
  
- /* Write DMA control registers */
- #define WDMAC_MODE			0x00004c00
+ /* First 256 bytes are a mirror of PCI config space. */
+@@ -972,6 +973,7 @@
+ #define  RCVDBDI_MODE_JUMBOBD_NEEDED	 0x00000004
+ #define  RCVDBDI_MODE_FRM_TOO_BIG	 0x00000008
+ #define  RCVDBDI_MODE_INV_RING_SZ	 0x00000010
++#define  RCVDBDI_MODE_LRG_RING_SZ	 0x00010000
+ #define RCVDBDI_STATUS			0x00002404
+ #define  RCVDBDI_STATUS_JUMBOBD_NEEDED	 0x00000004
+ #define  RCVDBDI_STATUS_FRM_TOO_BIG	 0x00000008
+@@ -2764,6 +2766,7 @@ struct tg3 {
+ 	u32				rx_copy_thresh;
+ 	u32				rx_std_ring_mask;
+ 	u32				rx_jmb_ring_mask;
++	u32				rx_ret_ring_mask;
+ 	u32				rx_pending;
+ 	u32				rx_jumbo_pending;
+ 	u32				rx_std_max_post;
 -- 
 1.7.2.2
 
