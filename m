@@ -1,61 +1,116 @@
-From: xiaohui.xin@intel.com
-Subject: [PATCH v12 03/17] Add a ndo_mp_port_prep pointer to net_device_ops.
-Date: Thu, 30 Sep 2010 22:04:20 +0800
-Message-ID: <71d822c4ef96c404f21fce724549c0ba9f71bd36.1285853725.git.xiaohui.xin@intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v12 10/17] Add a hook to intercept external buffers
+ from NIC driver.
+Date: Thu, 30 Sep 2010 16:22:13 +0200
+Message-ID: <1285856533.2615.573.camel@edumazet-laptop>
 References: <1285855474-12110-1-git-send-email-xiaohui.xin@intel.com>
-Cc: Xin Xiaohui <xiaohui.xin@intel.com>
-To: netdev@vger.kernel.org, kvm@vger.kernel.org,
+	 <fda262fa746dfc1feb8543cf88d5ecf60001c186.1285853725.git.xiaohui.xin@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
 	linux-kernel@vger.kernel.org, mst@redhat.com, mingo@elte.hu,
 	davem@davemloft.net, herbert@gondor.apana.org.au,
 	jdike@linux.intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1285855474-12110-1-git-send-email-xiaohui.xin@intel.com>
-In-Reply-To: <59d8a50047ee01e26658fd676d26c0162b79e5fd.1285853725.git.xiaohui.xin@intel.com>
-References: <59d8a50047ee01e26658fd676d26c0162b79e5fd.1285853725.git.xiaohui.xin@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+To: xiaohui.xin@intel.com
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <fda262fa746dfc1feb8543cf88d5ecf60001c186.1285853725.git.xiaohui.xin@intel.com>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Xin Xiaohui <xiaohui.xin@intel.com>
+Le jeudi 30 septembre 2010 =C3=A0 22:04 +0800, xiaohui.xin@intel.com a
+=C3=A9crit :
+> From: Xin Xiaohui <xiaohui.xin@intel.com>
+>=20
+> The hook is called in netif_receive_skb().
+> Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
+> Signed-off-by: Zhao Yu <yzhao81new@gmail.com>
+> Reviewed-by: Jeff Dike <jdike@linux.intel.com>
+> ---
+>  net/core/dev.c |   35 +++++++++++++++++++++++++++++++++++
+>  1 files changed, 35 insertions(+), 0 deletions(-)
+>=20
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index c11e32c..83172b8 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -2517,6 +2517,37 @@ err:
+>  EXPORT_SYMBOL(netdev_mp_port_prep);
+>  #endif
+> =20
+> +#if defined(CONFIG_MEDIATE_PASSTHRU) || defined(CONFIG_MEDIATE_PASST=
+HRU_MODULE)
+> +/* Add a hook to intercept mediate passthru(zero-copy) packets,
+> + * and insert it to the socket queue owned by mp_port specially.
+> + */
+> +static inline struct sk_buff *handle_mpassthru(struct sk_buff *skb,
+> +					       struct packet_type **pt_prev,
+> +					       int *ret,
+> +					       struct net_device *orig_dev)
+> +{
+> +	struct mp_port *mp_port =3D NULL;
+> +	struct sock *sk =3D NULL;
+> +
+> +	if (!dev_is_mpassthru(skb->dev))
+> +		return skb;
+> +	mp_port =3D skb->dev->mp_port;
+> +
+> +	if (*pt_prev) {
+> +		*ret =3D deliver_skb(skb, *pt_prev, orig_dev);
+> +		*pt_prev =3D NULL;
+> +	}
+> +
+> +	sk =3D mp_port->sock->sk;
+> +	skb_queue_tail(&sk->sk_receive_queue, skb);
+> +	sk->sk_state_change(sk);
+> +
+> +	return NULL;
+> +}
+> +#else
+> +#define handle_mpassthru(skb, pt_prev, ret, orig_dev)     (skb)
+> +#endif
+> +
+>  /**
+>   *	netif_receive_skb - process receive buffer from network
+>   *	@skb: buffer to process
+> @@ -2598,6 +2629,10 @@ int netif_receive_skb(struct sk_buff *skb)
+>  ncls:
+>  #endif
+> =20
+> +	/* To intercept mediate passthru(zero-copy) packets here */
+> +	skb =3D handle_mpassthru(skb, &pt_prev, &ret, orig_dev);
+> +	if (!skb)
+> +		goto out;
+>  	skb =3D handle_bridge(skb, &pt_prev, &ret, orig_dev);
+>  	if (!skb)
+>  		goto out;
 
-If the driver want to allocate external buffers,
-then it can export it's capability, as the skb
-buffer header length, the page length can be DMA, etc.
-The external buffers owner may utilize this.
+This does not apply to current net-next-2.6
 
-Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
-Signed-off-by: Zhao Yu <yzhao81new@gmail.com>
-Reviewed-by: Jeff Dike <jdike@linux.intel.com>
----
- include/linux/netdevice.h |   10 ++++++++++
- 1 files changed, 10 insertions(+), 0 deletions(-)
+We now have dev->rx_handler (currently for bridge or macvlan)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 9ef9bf1..24a31e7 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -651,6 +651,12 @@ struct mp_port	{
-  * int (*ndo_set_vf_tx_rate)(struct net_device *dev, int vf, int rate);
-  * int (*ndo_get_vf_config)(struct net_device *dev,
-  *			    int vf, struct ifla_vf_info *ivf);
-+ *
-+ * int (*ndo_mp_port_prep)(struct net_device *dev, struct mp_port *port);
-+ *	If the driver want to allocate external buffers,
-+ *	then it can export it's capability, as the skb
-+ *	buffer header length, the page length can be DMA, etc.
-+ *	The external buffers owner may utilize this.
-  */
- #define HAVE_NET_DEVICE_OPS
- struct net_device_ops {
-@@ -713,6 +719,10 @@ struct net_device_ops {
- 	int			(*ndo_fcoe_get_wwn)(struct net_device *dev,
- 						    u64 *wwn, int type);
- #endif
-+#if defined(CONFIG_MEDIATE_PASSTHRU) || defined(CONFIG_MEDIATE_PASSTHRU_MODULE)
-+	int			(*ndo_mp_port_prep)(struct net_device *dev,
-+						struct mp_port *port);
-+#endif
- };
- 
- /*
--- 
-1.7.3
+
+commit ab95bfe01f9872459c8678572ccadbf646badad0
+Author: Jiri Pirko <jpirko@redhat.com>
+Date:   Tue Jun 1 21:52:08 2010 +0000
+
+    net: replace hooks in __netif_receive_skb V5
+   =20
+    What this patch does is it removes two receive frame hooks (for bri=
+dge and for
+    macvlan) from __netif_receive_skb. These are replaced them with a s=
+ingle
+    hook for both. It only supports one hook per device because it make=
+s no
+    sense to do bridging and macvlan on the same device.
+   =20
+    Then a network driver (of virtual netdev like macvlan or bridge) ca=
+n register
+    an rx_handler for needed net device.
+   =20
+    Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+    Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+
+
