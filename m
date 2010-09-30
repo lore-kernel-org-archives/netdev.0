@@ -1,88 +1,49 @@
-From: Sami Farin <hvtaifwkbgefbaei@gmail.com>
-Subject: Re: Something wrong with tx/rx/sg/gso with dhclient
- etc (Was: Linux 2.6.35.6/e1000e does not receive replies from DHCP server,
- 2.6.33 works)
-Date: Thu, 30 Sep 2010 12:44:17 +0300
-Message-ID: <20100930094417.r6jgrljaer2opekv@m.safari.iki.fi>
-References: <20100927131935.d5f2ghpfaufiq6yx@m.safari.iki.fi>
-	<20100927160731.ehcljyewa5b5wrbm@m.safari.iki.fi>
-	<EA929A9653AAE14F841771FB1DE5A13660222E867B@rrsmsx501.amr.corp.intel.com>
+From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Subject: Re: [PATCH] de2104x: disable media debug messages by default
+Date: Thu, 30 Sep 2010 11:46:49 +0200
+Message-ID: <AANLkTi=rzhb2bNpHe=Wu=57t5FAiYWhynQNLOnQxDAJm@mail.gmail.com>
+References: <201009282018.57547.linux@rainbow-software.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Sami Farin <hvtaifwkbgefbaei@gmail.com>, e1000-devel@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-In-Reply-To: <EA929A9653AAE14F841771FB1DE5A13660222E867B@rrsmsx501.amr.corp.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
+	Kernel development list <linux-kernel@vger.kernel.org>
+To: Ondrej Zary <linux@rainbow-software.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201009282018.57547.linux@rainbow-software.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gV2VkLCBTZXAgMjksIDIwMTAgYXQgMTc6NDA6MDggLTA2MDAsIFRhbnRpbG92LCBFbWlsIFMg
-d3JvdGU6Cj4gU2FtaSBGYXJpbiB3cm90ZToKPiA+IEZhbHNlIGFsYXJtLCAyLjYuMzUuNitsYXRl
-c3QgZ2l0IGUxMDAwZSBkb2VzIG5vdCB3b3JrIGFueSBiZXR0ZXIuCj4gPiBJIHdhcyBqdXN0IGx1
-Y2t5Lgo+IAo+IElzIHlvdXIgYGxhdGVzdCBnaXRgIGZyb20gTGludXMgb3IgbmV0LW5leHQgdHJl
-ZT8gCgpMaW51cy4KCj5BbGwgb2Ygb3VyIGxhdGVzdCBwYXRjaGVzIGdvIGludG8gbmV0LW5leHQs
-IHNvIGlmIHlvdSBoYXZlbid0IGFscmVhZHkgLSBnaXZlIGl0IGEgdHJ5IGFuZCBzZWUgaWYgaXQg
-cmVzb2x2ZXMgeW91ciBpc3N1ZS4KCk1heWJlIGxhdGVyID0pCgo+ID4gCj4gPiBPbmUgdGhpbmcg
-d2hhdCB3YXMgY29tbW9uLCB3aGVuIGl0IHdvcmtzLCBJIGdldCB0aGlzIGxpbmUgYSBsaXR0bGUK
-PiA+IHRpbWUgYmVmb3JlIGRoY2xpZW50IHN0YXJ0IHdvcmtpbmc6Cj4gPiAKPiA+IGV0aDA6IElQ
-djYgZHVwbGljYXRlIGFkZHJlc3MgZmU4MDo6MjE5OmQxZmY6ZmUwMDo1ZjAxIGRldGVjdGVkIQo+
-IAo+IEkgaGF2ZSBhIHN5c3RlbSB3aXRoIHRoZSBzYW1lIGRldmljZSBJRCAoaXQgaXMgbm90IHRo
-ZSBzYW1lIGJvYXJkKSBhbmQgY291bGQgbm90IHJlcHJvZHVjZSBhbnkgaXNzdWVzIHdpdGggREhD
-UCBvbiAyLjYuMzUuNiBrZXJuZWwuIAoKT2theSwgdGhhbmtzIGZvciB0cnlpbmcuCiAKPiBBc2lk
-ZSBmcm9tIGNoZWNraW5nIHRoZSBsYXRlc3QgbmV0LW5leHQgdHJlZSwgdGhlcmUgYXJlIHNvbWUg
-b3RoZXIgdGhpbmdzIHRvIGxvb2sgaW50bzoKPiAKPiAxLiBJcyBBTVQgZW5hYmxlZCAtIHRoZXJl
-IGlzIHVzdWFsbHkgYSBtYW5hZ2VhYmlsaXR5IHRhYi9vcHRpb24gaW4gdGhlIEJJT1MuIElmIHlv
-dSBoYXZlIHRoYXQgb3B0aW9uIHRyeSBlbmFibGluZy9kaXNhYmxpbmcgaXQgYW5kIHNlZSBpZiBp
-dCBtYWtlcyBhIGRpZmZlcmVuY2UuCgpJIGJlbGlldmUgSSBoYXZlbid0IHVzZWQgQU1ULCBidXQg
-SSBjaGVjayB0aGF0IG9wdGlvbi4KCj4gMi4gTWFrZSBzdXJlIHlvdXIgQklPUyBpcyB1cCB0byBk
-YXRlLgoKTGF0ZXN0IC5JU08gdXBkYXRlIHdoaWNoIHdvcmtlZCB3YXMgQ082MDc5UCBmcm9tIEF1
-ZyAyMDA4LCBtYXliZSBJIGNhbgpnZXQgdGhlIFVTQiBib290IHRvIHdvcmsuLgoKPiBJZiBhbnkg
-b2YgdGhlIGFib3ZlIGRvZXMgbm90IGhlbHAgeW91ciBzaXR1YXRpb24gcGxlYXNlIGZpbGUgYSBi
-dWcgYXQgZTEwMDAuc2YubmV0IGFuZCBpbmNsdWRlIHRoZSBmb2xsb3dpbmcgaW5mb3JtYXRpb246
-CgpJIGZpbmQgaXQgb2RkIEkgc3RvcCBzZWVpbmcgdGhlIHJlcGx5IHBhY2tldHMganVzdCBsaWtl
-IHRoYXQuLgpDYW4gdGhpcyBiZSBlMTAwMGUgYnVnL2ZlYXR1cmUgb3Igc29tZXRoaW5nIGVsc2U/
-CkZvciBleGFtcGxlLCBJIGRpZCAibWFrZSBvbGRjb25maWciIGluIG5ldC1uZXh0LCBhbmQ6Cgot
-LS0tLS0tLS0tLS0tLS0tCkNPTkZJR19ORVRGSUxURVJfWFRfVEFSR0VUX0NIRUNLU1VNOgoKVGhp
-cyBvcHRpb24gYWRkcyBhIGBDSEVDS1NVTScgdGFyZ2V0LCB3aGljaCBjYW4gYmUgdXNlZCBpbiB0
-aGUgaXB0YWJsZXMgbWFuZ2xlIHRhYmxlLgoKWW91IGNhbiB1c2UgdGhpcyB0YXJnZXQgdG8gY29t
-cHV0ZSBhbmQgZmlsbCBpbiB0aGUgY2hlY2tzdW0gaW4KYSBwYWNrZXQgdGhhdCBsYWNrcyBhIGNo
-ZWNrc3VtLiAgVGhpcyBpcyBwYXJ0aWN1bGFybHkgdXNlZnVsLAppZiB5b3UgbmVlZCB0byB3b3Jr
-IGFyb3VuZCBvbGQgYXBwbGljYXRpb25zIHN1Y2ggYXMgZGhjcCBjbGllbnRzLCAgICAgICA8PD09
-PSBoZXJlCnRoYXQgZG8gbm90IHdvcmsgd2VsbCB3aXRoIGNoZWNrc3VtIG9mZmxvYWRzLCBidXQg
-ZG9uJ3Qgd2FudCB0byBkaXNhYmxlCmNoZWNrc3VtIG9mZmxvYWQgaW4geW91ciBkZXZpY2UuCi0t
-LS0tLS0tLS0tLS0tLS0KCkJ1dCBub3QgZXZlbiB0Y3BkdW1wIHNlZXMgdGhlIHBhY2tldHMuLiAg
-c2hvdWxkbid0IGl0IHNlZSB0aGVtIGRlc3BpdGUKcngvdHggc2V0dGluZ3M/ICBXaGF0IGNvdWxk
-IGJlIGVhdGluZyB0aGUgcGFja2V0cz8KCkZZSSwgSSBqdXN0IHBsYXllZCB3aXRoICJyeCBvZmYg
-dHggb2ZmIHNnIG9mZiBnc28gb2ZmIiBhbmQKInJ4IG9uIHR4IG9uIHNnIG9uIGdzbyBvbiIsIHdo
-ZW4gdGhlIG9wdGlvbnMgd2VyZSBhbGwgb24sIEkgY291bGQgbm90CmV2ZW4gZ2V0IEFSUCByZXBs
-eSBmcm9tIG15IHJvdXRlciEgIFR3byBzZWNvbmRzIGFmdGVyIEkgdHVybmVkIHRoZW0gb2ZmLAph
-bGwgc3RhcnQgd29ya2luZy4gIEFsc28gZGhjbGllbnQgd29ya2Vk4oCUbm93IHRoYXQgSSB0cmll
-ZOKAlHdpdGggYWxsIG9mZi4KSSBiZWxpZXZlIHRoZXJlIGlzIHNvbWV0aGluZyBmaXNoeSBpbiBy
-eCwgdHgsIHNnIGFuZC9vciBnc28gZmVhdHVyZXMsCndoaWNoIHdvcmtlZCBpbiAyLjYuMzMgQUZB
-SUNULiAgQW0gSSBzb3VuZGluZyBhbWJpZ3VlPyA7KQoKPiAxLiBsc3BjaSAtdnZ2Cj4gMi4gZXRo
-dG9vbCAtZSBldGgwCj4gMy4gdGhlcmUgaXMgYSB0b29sIGNhbGwgZXRocmVncyB3aGljaCB5b3Ug
-Y2FuIGRvd25sb2FkIGZyb20gdGhpcyBzaXRlLiBJZiB5b3UgY2FuIGluY2x1ZGUgdGhlIG91dHB1
-dCBvZiBldGhyZWdzIC1zIDAwOjE5LjAgCj4gNC4ga2VybmVsIGNvbmZpZwo+IDUuIGFueXRoaW5n
-IHRoYXQgeW91IHRoaW5rIG1heSBiZSByZWxhdGVkIC0gbGlrZSBzZXR1cCwgdHlwZSBvZiB0cmFm
-ZmljIGV0Yy4KPiAKPiBUaGFua3MsCj4gRW1pbAoKLS0gCkRvIHdoYXQgeW91IGxvdmUgYmVjYXVz
-ZSBsaWZlIGlzIHRvbyBzaG9ydCBmb3IgYW55dGhpbmcgZWxzZS4KCgotLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0KU3RhcnQgdW5jb3ZlcmluZyB0aGUgbWFueSBhZHZhbnRhZ2VzIG9mIHZpcnR1YWwgYXBw
-bGlhbmNlcwphbmQgc3RhcnQgdXNpbmcgdGhlbSB0byBzaW1wbGlmeSBhcHBsaWNhdGlvbiBkZXBs
-b3ltZW50IGFuZAphY2NlbGVyYXRlIHlvdXIgc2hpZnQgdG8gY2xvdWQgY29tcHV0aW5nLgpodHRw
-Oi8vcC5zZi5uZXQvc2Z1L25vdmVsbC1zZmRldjJkZXYKX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX18KRTEwMDAtZGV2ZWwgbWFpbGluZyBsaXN0CkUxMDAwLWRl
-dmVsQGxpc3RzLnNvdXJjZWZvcmdlLm5ldApodHRwczovL2xpc3RzLnNvdXJjZWZvcmdlLm5ldC9s
-aXN0cy9saXN0aW5mby9lMTAwMC1kZXZlbApUbyBsZWFybiBtb3JlIGFib3V0IEludGVsJiMxNzQ7
-IEV0aGVybmV0LCB2aXNpdCBodHRwOi8vY29tbXVuaXRpZXMuaW50ZWwuY29tL2NvbW11bml0eS93
-aXJlZAo=
+2010/9/28 Ondrej Zary <linux@rainbow-software.org>:
+> Print media debug messages only when HW debug is enabled.
+>
+> Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
+>
+> --- linux-2.6.36-rc3-/drivers/net/tulip/de2104x.c =A0 =A0 =A0 2010-09=
+-28 19:50:51.000000000 +0200
+> +++ linux-2.6.36-rc3/drivers/net/tulip/de2104x.c =A0 =A0 =A0 =A02010-=
+09-28 20:05:34.000000000 +0200
+> @@ -948,8 +948,9 @@ static void de_set_media (struct de_priv
+> =A0 =A0 =A0 =A0else
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0macmode &=3D ~FullDuplex;
+>
+> - =A0 =A0 =A0 if (netif_msg_link(de)) {
+> + =A0 =A0 =A0 if (netif_msg_link(de))
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0dev_info(&de->dev->dev, "set link %s\n=
+", media_name[media]);
+
+You can use netif_info(de, link, de->dev, ...) instead and get 'ethX:
+' prefix for free.
+
+> + =A0 =A0 =A0 if (netif_msg_hw(de)) {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0dev_info(&de->dev->dev, "mode 0x%x, si=
+a 0x%x,0x%x,0x%x,0x%x\n",
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 dr32(MacMode), dr32(S=
+IAStatus),
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 dr32(CSR13), dr32(CSR=
+14), dr32(CSR15));
+
+Same here.
+
+Best Regards,
+Micha=B3 Miros=B3aw
