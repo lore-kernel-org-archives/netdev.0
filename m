@@ -1,102 +1,179 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Fix IPv6 PMTU disc. w/ asymmetric routes
-Date: Thu, 30 Sep 2010 00:41:36 -0700 (PDT)
-Message-ID: <20100930.004136.91329579.davem@davemloft.net>
-References: <1285581957-30694-1-git-send-email-zenczykowski@gmail.com>
-	<20100928.135800.39205209.davem@davemloft.net>
-	<AANLkTi=9THOcD9FieK3uy635C1kNDc=uEdtDe4qm1WU6@mail.gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 PATCH 2/3] e1000e: reset PHY after errors detected on
+	82574 Si
+Date: Thu, 30 Sep 2010 00:39:12 -0700
+Message-ID: <20100930073909.13378.34776.stgit@localhost.localdomain>
+References: <20100930073814.13378.4212.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: zenczykowski@gmail.com
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40689
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754587Ab0I3HlQ convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Sep 2010 03:41:16 -0400
-In-Reply-To: <AANLkTi=9THOcD9FieK3uy635C1kNDc=uEdtDe4qm1WU6@mail.gmail.com>
+Received: from qmta13.emeryville.ca.mail.comcast.net ([76.96.27.243]:45756
+	"EHLO qmta13.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754925Ab0I3HpT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Sep 2010 03:45:19 -0400
+In-Reply-To: <20100930073814.13378.4212.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Maciej =AFenczykowski <zenczykowski@gmail.com>
-Date: Tue, 28 Sep 2010 15:37:26 -0700
+From: Carolyn Wyborny <carolyn.wyborny@intel.com>
 
-> * I still think that handling the saddr =3D=3D NULL ie. INADDR_ANY ca=
-se is
-> entirely superfluous, since it doesn't actually iterate through all
-> possible source addresses.  With IPv6 there can be many, many possibl=
-e
-> source addresses (just think of link local vs global public vs privac=
-y
-> addresses and then tack on 6to4 and mobility, etc... for example I se=
-e
-> 13 ipv6 addresses on eth0 on my desktop at home, 12 of them globally
-> reachable).
+Some errors can be induced in the PHY via environmental testing
+(specifically extreme temperature changes and electro static
+discharge testing), and in the case of the PHY hanging due to
+this input, this detects the problem and resets to continue.
+This issue only applies to 82574 silicon.
 
-I only have %100 confidence in the reasoning behind why ipv4 handles
-things this way, so I'll discuss this in those terms and then try
-to tie it into the ipv6 side.
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
-When we are looking up an ipv4 output route, there are 2 "source
-address" objects.
+ drivers/net/e1000e/82571.c  |   40 +++++++++++++++++++++++++++++++++++++++-
+ drivers/net/e1000e/e1000.h  |    3 +++
+ drivers/net/e1000e/netdev.c |   25 +++++++++++++++++++++++++
+ 3 files changed, 67 insertions(+), 1 deletions(-)
 
-1) The one specified in the "struct flowi" for the lookup
-   (the flp->fl4_src passed into ip_route_output_flow) which
-   is also the one that ends up in the routing cache entry's
-   ->fl.fl4_src member.
+diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
+index ca663f1..db5ef6e 100644
+--- a/drivers/net/e1000e/82571.c
++++ b/drivers/net/e1000e/82571.c
+@@ -52,6 +52,10 @@
+ 			      (ID_LED_DEF1_DEF2))
+ 
+ #define E1000_GCR_L1_ACT_WITHOUT_L0S_RX 0x08000000
++#define E1000_BASE1000T_STATUS          10
++#define E1000_IDLE_ERROR_COUNT_MASK     0xFF
++#define E1000_RECEIVE_ERROR_COUNTER     21
++#define E1000_RECEIVE_ERROR_MAX         0xFFFF
+ 
+ #define E1000_NVM_INIT_CTRL2_MNGM 0x6000 /* Manageability Operation Mode mask */
+ 
+@@ -1243,6 +1247,39 @@ static s32 e1000_led_on_82574(struct e1000_hw *hw)
+ }
+ 
+ /**
++ *  e1000_check_phy_82574 - check 82574 phy hung state
++ *  @hw: pointer to the HW structure
++ *
++ *  Returns whether phy is hung or not
++ **/
++bool e1000_check_phy_82574(struct e1000_hw *hw)
++{
++	u16 status_1kbt = 0;
++	u16 receive_errors = 0;
++	bool phy_hung = false;
++	s32 ret_val = 0;
++
++	/*
++	 * Read PHY Receive Error counter first, if its is max - all F's then
++	 * read the Base1000T status register If both are max then PHY is hung.
++	 */
++	ret_val = e1e_rphy(hw, E1000_RECEIVE_ERROR_COUNTER, &receive_errors);
++
++	if (ret_val)
++		goto out;
++	if (receive_errors == E1000_RECEIVE_ERROR_MAX)  {
++		ret_val = e1e_rphy(hw, E1000_BASE1000T_STATUS, &status_1kbt);
++		if (ret_val)
++			goto out;
++		if ((status_1kbt & E1000_IDLE_ERROR_COUNT_MASK) ==
++		    E1000_IDLE_ERROR_COUNT_MASK)
++			phy_hung = true;
++	}
++out:
++	return phy_hung;
++}
++
++/**
+  *  e1000_setup_link_82571 - Setup flow control and link settings
+  *  @hw: pointer to the HW structure
+  *
+@@ -1858,7 +1895,8 @@ struct e1000_info e1000_82574_info = {
+ 				  | FLAG_RX_CSUM_ENABLED
+ 				  | FLAG_HAS_SMART_POWER_DOWN
+ 				  | FLAG_HAS_AMT
+-				  | FLAG_HAS_CTRLEXT_ON_LOAD,
++				  | FLAG_HAS_CTRLEXT_ON_LOAD
++				  | FLAG2_CHECK_PHY_HANG,
+ 	.pba			= 36,
+ 	.max_hw_frame_size	= DEFAULT_JUMBO,
+ 	.get_variants		= e1000_get_variants_82571,
+diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
+index 5ec0af5..da3b82f 100644
+--- a/drivers/net/e1000e/e1000.h
++++ b/drivers/net/e1000e/e1000.h
+@@ -397,6 +397,7 @@ struct e1000_adapter {
+ 	struct work_struct print_hang_task;
+ 
+ 	bool idle_check;
++	int phy_hang_count;
+ };
+ 
+ struct e1000_info {
+@@ -453,6 +454,7 @@ struct e1000_info {
+ #define FLAG2_HAS_PHY_STATS               (1 << 4)
+ #define FLAG2_HAS_EEE                     (1 << 5)
+ #define FLAG2_DMA_BURST                   (1 << 6)
++#define FLAG2_CHECK_PHY_HANG              (1 << 7)
+ 
+ #define E1000_RX_DESC_PS(R, i)	    \
+ 	(&(((union e1000_rx_desc_packet_split *)((R).desc))[i]))
+@@ -630,6 +632,7 @@ extern s32 e1000_get_phy_info_ife(struct e1000_hw *hw);
+ extern s32 e1000_check_polarity_ife(struct e1000_hw *hw);
+ extern s32 e1000_phy_force_speed_duplex_ife(struct e1000_hw *hw);
+ extern s32 e1000_check_polarity_igp(struct e1000_hw *hw);
++extern bool e1000_check_phy_82574(struct e1000_hw *hw);
+ 
+ static inline s32 e1000_phy_hw_reset(struct e1000_hw *hw)
+ {
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index 1aa4228..a8b55ab 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -4060,6 +4060,28 @@ static void e1000e_enable_receives(struct e1000_adapter *adapter)
+ 	}
+ }
+ 
++static void e1000e_check_82574_phy_workaround(struct e1000_adapter *adapter)
++{
++	struct e1000_hw *hw = &adapter->hw;
++
++	if (!(adapter->flags2 & FLAG2_CHECK_PHY_HANG))
++		return;
++
++	/*
++	 * With 82574 controllers, PHY needs to be checked periodically
++	 * for hung state and reset, if two calls return true
++	 */
++	if (e1000_check_phy_82574(hw))
++		adapter->phy_hang_count++;
++	else
++		adapter->phy_hang_count = 0;
++
++	if (adapter->phy_hang_count > 1) {
++		adapter->phy_hang_count = 0;
++		schedule_work(&adapter->reset_task);
++	}
++}
++
+ /**
+  * e1000_watchdog - Timer Call-back
+  * @data: pointer to adapter cast into an unsigned long
+@@ -4295,6 +4317,9 @@ link_up:
+ 	if (e1000e_get_laa_state_82571(hw))
+ 		e1000e_rar_set(hw, adapter->hw.mac.addr, 0);
+ 
++	if (adapter->flags2 & FLAG2_CHECK_PHY_HANG)
++		e1000e_check_82574_phy_workaround(adapter);
++
+ 	/* Reset the timer */
+ 	if (!test_bit(__E1000_DOWN, &adapter->state))
+ 		mod_timer(&adapter->watchdog_timer,
 
-2) The one contained in the routing cache entry's specification.
-   Ie. rth->rt_src
-
-These are distinct.  #1 is what is used to hash and find a matching
-routing cache entry.
-
-Since a source address of INADDR_ANY is allowed for routing lookups,
-routing cache entries for the same daddr/saddr pair can exist in more
-than one hash chains.
-
-Therefore, if we didn't iterate over INADDR_ANY and the specific
-address in the icmp PMTU message, we'd miss some routing cache
-entries.
-
-Look at the PMTU loops in ipv4 ip_rt_frag_needed():
-
-	for (k =3D 0; k < 2; k++) {
-		for (i =3D 0; i < 2; i++) {
-			unsigned hash =3D rt_hash(daddr, skeys[i], ikeys[k],
-						rt_genid(net));
-
-("ANY vs. specific" ifindex and saddr are used for the hash
- computation)
-
-				if (rth->fl.fl4_dst !=3D daddr ||
-				    rth->fl.fl4_src !=3D skeys[i] ||
-				    rth->rt_dst !=3D daddr ||
-				    rth->rt_src !=3D iph->saddr ||
-				    rth->fl.oif !=3D ikeys[k] ||
-				    rth->fl.iif !=3D 0 ||
-
-(and for the routing cache entry flow member comparisons)
-
-But the routing cache entry "rt_src" member is compared always to
-"iph->saddr", it doesn't use the "ANY vs. specific" skey[] value.
-
-Unless ipv6 does not allow INADDR_ANY source address specifications
-during route lookups, it ought to have the same issue too.
-
-My understanding is that ipv6 uses a two-layered tree based scheme,
-one layer to key off of the source address and one layer to key off
-of the destination address.
-
-So it seems to me that the lookups would have the same aliasing issue
-that ipv4 does, and thus require checking both the specific saddr
-and also the saddr INADDR_ANY.
-
-Maybe the problem is that the ipv6 side uses the same saddr for both
-the lookup and the entry comparison in these PMTU code paths?  Does it
-not allow specifying them seperately as the ipv4 PMTU (and incidently
-the RT redirect) code paths do?
-
-Or is this not an issue on the ipv6 side for some reason?
