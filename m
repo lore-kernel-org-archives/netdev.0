@@ -1,93 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: VLAN packets silently dropped in promiscuous mode
-Date: Thu, 30 Sep 2010 14:16:44 +0200
-Message-ID: <1285849004.2615.394.camel@edumazet-laptop>
-References: <20100929113757.GA23755@core.hellgate.ch>
-	 <AANLkTi=QAoVH9KU8FAH6iscWt_mKnZpU3P9QqgFRLqXM@mail.gmail.com>
-	 <20100930080703.GA10827@core.hellgate.ch>
-	 <1285838215.2615.126.camel@edumazet-laptop>
-	 <1285840532.2615.196.camel@edumazet-laptop>
-	 <1285843234.2615.278.camel@edumazet-laptop>  <4CA46B72.2090100@trash.net>
+From: Alexey Vlasov <renton@renton.name>
+Subject: Re: Packet time delays on multi-core systems
+Date: Thu, 30 Sep 2010 16:23:21 +0400
+Message-ID: <20100930122321.GA1575@beaver.vrungel.ru>
+References: <20100929191851.GC86786@beaver.vrungel.ru> <1285796721.5211.156.camel@edumazet-laptop> <20100930062419.GD86786@beaver.vrungel.ru> <1285828432.5211.812.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Roger Luethi <rl@hellgate.ch>, David Miller <davem@davemloft.net>,
-	Jesse Gross <jesse@nicira.com>, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:49250 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751857Ab0I3MQx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Sep 2010 08:16:53 -0400
-Received: by fxm4 with SMTP id 4so602532fxm.19
-        for <netdev@vger.kernel.org>; Thu, 30 Sep 2010 05:16:51 -0700 (PDT)
-In-Reply-To: <4CA46B72.2090100@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=koi8-r
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1285828432.5211.812.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le jeudi 30 septembre 2010 =C3=A0 12:50 +0200, Patrick McHardy a =C3=A9=
-crit :
+On Thu, Sep 30, 2010 at 08:33:52AM +0200, Eric Dumazet wrote:
+> Le jeudi 30 septembre 2010 ?? 10:24 +0400, Alexey Vlasov a ??crit :
+> > Here I found some dude with the same problem:
+> > http://lkml.org/lkml/2010/7/9/340
+> > 
+> 
+> In your opinion its the same problem.
+> 
+> But the description you gave is completely different.
+> 
+> You have time skew only when activating a particular iptables rule.
+ 
+Well I put interrups from NIC, namely tx/rx query, to different
+processors and got normal pings by adding LOG rule.
 
-> This should be fine as long as the packets are properly marked
-> with PACKET_OTHERHOST.
+I also found that overruns is constantly growing, I don't know if these are connected.
+RX packets:2831439546 errors:0 dropped:134726 overruns:947671733 frame:0
+TX packets:2880849825 errors:0 dropped:0 overruns:0 carrier:0
 
-Ah thanks Patrick for the tip !
+Rather strange that only one processor was involved, even in top was
+clear that ksoftirqd eats the first processor up to 100%. 
 
-I tested following patch on tg3 and it is doing the right thing this
-time.
+Here goes the typical distribution of interrups on new servers:
+           CPU0    CPU1    CPU2    CPU3 ... CPU23
+752:         11       0       0       0 ...     0 PCI-MSI-edge eth0
+753: 2799366721       0       0       0 ...     0 PCI-MSI-edge eth0-rx3
+754: 2821840553       0       0       0 ...     0 PCI-MSI-edge eth0-rx2
+755: 2786117044       0       0       0 ...     0 PCI-MSI-edge eth0-rx1
+756: 2896099336       0       0       0 ...     0 PCI-MSI-edge eth0-rx0
+757: 1808404680       0       0       0 ...     0 PCI-MSI-edge eth0-tx3
+758: 1797855130       0       0       0 ...     0 PCI-MSI-edge eth0-tx2
+759: 1807222032       0       0       0 ...     0 PCI-MSI-edge eth0-tx1
+760: 1820309360       0       0       0 ...     0 PCI-MSI-edge eth0-tx0
 
+On the old ones:
+           CPU0       CPU1       CPU2  ...      CPU8
+502:  522320256  522384039  522327386  ... 522380267 PCI-MSI-edge eth0
 
-[PATCH] vlan: dont drop packets from unknown vlans in promiscuous mode
-
-Roger Luethi noticed packets for unknown VLANs getting silently dropped
-even in promiscuous mode.
-
-Check for promiscuous mode in __vlan_hwaccel_rx() and vlan_gro_common()
-before drops.
-
-As suggested by Patrick, mark such packets to have skb->pkt_type set to
-PACKET_OTHERHOST to make sure they are dropped by IP stack.
-
-Reported-by: Roger Luethi <rl@hellgate.ch>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-CC: Patrick McHardy <kaber@trash.net>
----
- net/8021q/vlan_core.c |   14 ++++++++++----
- 1 file changed, 10 insertions(+), 4 deletions(-)
-
-diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
-index 01ddb04..0eb96f7 100644
---- a/net/8021q/vlan_core.c
-+++ b/net/8021q/vlan_core.c
-@@ -24,8 +24,11 @@ int __vlan_hwaccel_rx(struct sk_buff *skb, struct vl=
-an_group *grp,
-=20
- 	if (vlan_dev)
- 		skb->dev =3D vlan_dev;
--	else if (vlan_id)
--		goto drop;
-+	else if (vlan_id) {
-+		if (!(skb->dev->flags & IFF_PROMISC))
-+			goto drop;
-+		skb->pkt_type =3D PACKET_OTHERHOST;
-+	}
-=20
- 	return (polling ? netif_receive_skb(skb) : netif_rx(skb));
-=20
-@@ -102,8 +105,11 @@ vlan_gro_common(struct napi_struct *napi, struct v=
-lan_group *grp,
-=20
- 	if (vlan_dev)
- 		skb->dev =3D vlan_dev;
--	else if (vlan_id)
--		goto drop;
-+	else if (vlan_id) {
-+		if (!(skb->dev->flags & IFF_PROMISC))
-+			goto drop;
-+		skb->pkt_type =3D PACKET_OTHERHOST;
-+	}
-=20
- 	for (p =3D napi->gro_list; p; p =3D p->next) {
- 		NAPI_GRO_CB(p)->same_flow =3D
-
-
+-- 
+BRGDS. Alexey Vlasov.
