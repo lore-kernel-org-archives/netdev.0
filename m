@@ -1,52 +1,45 @@
-From: Krzysztof Piotr Oledzki <ole@ans.pl>
-Subject: [net-next-2.6 PATCH 2/3] bonding: add Speed/Duplex information to /proc/net/bonding/bond
-Date: Thu, 30 Sep 2010 18:19:04 +0200
-Message-ID: <4ca4b878.KGc4gLtXHLSFlAdV%ole@ans.pl>
+From: Nicola Padovano <nicola.padovano@gmail.com>
+Subject: Re: how to use secure_tcp_sequence_number
+Date: Thu, 30 Sep 2010 19:01:25 +0200
+Message-ID: <AANLkTikWop213k7cBXAaoCMw_8LouX-qauYEbHD=d1Vh@mail.gmail.com>
+References: <AANLkTimA6jJbCvtxFi41JbH_XSJtKo0FrDE=fQ2OiafY@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: fubar@us.ibm.com, bonding-devel@lists.sourceforge.net,
+Content-Type: text/plain; charset=ISO-8859-1
+To: netfilter-devel <netfilter-devel@vger.kernel.org>,
 	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bizon.gios.gov.pl ([195.187.34.71]:52187 "EHLO
-	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756684Ab0I3QTR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Sep 2010 12:19:17 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <AANLkTimA6jJbCvtxFi41JbH_XSJtKo0FrDE=fQ2OiafY@mail.gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->From b340edd6763b52a2d0f1e0ae256748a21bd19005 Mon Sep 17 00:00:00 2001
-From: Krzysztof Piotr Oledzki <ole@ans.pl>
-Date: Thu, 30 Sep 2010 17:54:15 +0200
-Subject: bonding: add Speed/Duplex information to /proc/net/bonding/bond*
+If i attempt to insert the module that uses the
+secure_tcp_sequence_number i get this error message:
 
-Effect:
- Slave Interface: eth5
- MII Status: up
- Speed: 10000 Mbps
- Duplex: full
- Link Failure Count: 0
- Permanent HW addr: XX:XX:XX:XX:XX:XX
- Slave queue ID: 0
+from insmod:  -1 Invalid module format
+and from dmesg: version magic '2.6.35.4 SMP mod_unload 586 ' should be
+'2.6.35.4 SMP mod_unload modversions 586 '
 
-Signed-off-by: Krzysztof Piotr Oledzki <ole@ans.pl>
----
- drivers/net/bonding/bond_main.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+what's the matter?
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index e409c14..61c8971 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -3315,6 +3315,8 @@ static void bond_info_show_slave(struct seq_file *seq,
- 	seq_printf(seq, "\nSlave Interface: %s\n", slave->dev->name);
- 	seq_printf(seq, "MII Status: %s\n",
- 		   (slave->link == BOND_LINK_UP) ?  "up" : "down");
-+	seq_printf(seq, "Speed: %d Mbps\n", slave->speed);
-+	seq_printf(seq, "Duplex: %s\n", slave->duplex ? "full" : "half");
- 	seq_printf(seq, "Link Failure Count: %u\n",
- 		   slave->link_failure_count);
- 
+On Wed, Sep 29, 2010 at 6:46 PM, Nicola Padovano
+<nicola.padovano@gmail.com> wrote:
+> Hi all. How can I export the secure_tcp_sequence_number to use it in my modules?
+>
+> --
+> Nicola Padovano
+> e-mail: nicola.padovano@gmail.com
+> web: http://npadovano.altervista.org
+>
+> "My only ambition is not be anything at all; it seems the most
+> sensible thing" (C. Bukowski)
+>
+
+
+
 -- 
-1.7.1
+Nicola Padovano
+e-mail: nicola.padovano@gmail.com
+web: http://npadovano.altervista.org
 
+"My only ambition is not be anything at all; it seems the most
+sensible thing" (C. Bukowski)
