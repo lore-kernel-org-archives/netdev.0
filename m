@@ -1,41 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: VLAN packets silently dropped in promiscuous mode
-Date: Thu, 30 Sep 2010 18:04:50 -0700 (PDT)
-Message-ID: <20100930.180450.212395413.davem@davemloft.net>
-References: <1285843234.2615.278.camel@edumazet-laptop>
-	<4CA46B72.2090100@trash.net>
-	<1285849004.2615.394.camel@edumazet-laptop>
+Subject: Re: Regression (ancient), bisected: TCP hangs with certain ESP6 SA.
+Date: Thu, 30 Sep 2010 18:17:16 -0700 (PDT)
+Message-ID: <20100930.181716.43034538.davem@davemloft.net>
+References: <20100929142213.GA26031@elliptictech.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, rl@hellgate.ch, jesse@nicira.com,
-	netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41145
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750954Ab0JABE3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Sep 2010 21:04:29 -0400
-In-Reply-To: <1285849004.2615.394.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	herbert@gondor.apana.org.au, eric.dumazet@gmail.com
+To: nbowler@elliptictech.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100929142213.GA26031@elliptictech.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 30 Sep 2010 14:16:44 +0200
+From: Nick Bowler <nbowler@elliptictech.com>
+Date: Wed, 29 Sep 2010 10:22:13 -0400
 
-> [PATCH] vlan: dont drop packets from unknown vlans in promiscuous mode
+> b5c15fc004ac83b7ad280acbe0fd4bbed7e2c8d4 is the first bad commit
+> commit b5c15fc004ac83b7ad280acbe0fd4bbed7e2c8d4
+> Author: Herbert Xu <herbert@gondor.apana.org.au>
+> Date:   Thu Feb 14 23:49:37 2008 -0800
 > 
-> Roger Luethi noticed packets for unknown VLANs getting silently dropped
-> even in promiscuous mode.
-> 
-> Check for promiscuous mode in __vlan_hwaccel_rx() and vlan_gro_common()
-> before drops.
-> 
-> As suggested by Patrick, mark such packets to have skb->pkt_type set to
-> PACKET_OTHERHOST to make sure they are dropped by IP stack.
-> 
-> Reported-by: Roger Luethi <rl@hellgate.ch>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> CC: Patrick McHardy <kaber@trash.net>
+>     [IPV6]: Fix reversed local_df test in ip6_fragment
+>     
+>     I managed to reverse the local_df test when forward-porting this
+>     patch so it actually makes things worse by never fragmenting at
+>     all.
+>     
+>     Thanks to David Stevens for testing and reporting this bug.
+>     
+>     Bill Fink pointed out that the local_df setting is also the wrong
+>     way around.
+>     
+>     Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
 
-Applied and queued up for -stable, thanks everyone!
+I suspect that Herbert's change is correct, it's just that for some
+reason PMTU doesn't work correctly with IPV6 for whatever reason.
+
+That matches with your observed behavior that ping and UDP stuff
+works just fine, and it's just TCP with certain ESP6 transport mode
+settings.
