@@ -1,38 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v12 06/17] Use callback to deal with skb_release_data()
- specially.
-Date: Fri, 01 Oct 2010 00:14:39 -0700 (PDT)
-Message-ID: <20101001.001439.85411154.davem@davemloft.net>
-References: <1285855474-12110-1-git-send-email-xiaohui.xin@intel.com>
-	<59d8a50047ee01e26658fd676d26c0162b79e5fd.1285853725.git.xiaohui.xin@intel.com>
-	<f2bf65a8a7676bbd3e8a749ae93d99e88671d35d.1285853725.git.xiaohui.xin@intel.com>
+Subject: Re: [PATCH net-next 0/8] tg3: Bugfixes and updates
+Date: Fri, 01 Oct 2010 00:26:28 -0700 (PDT)
+Message-ID: <20101001.002628.267960834.davem@davemloft.net>
+References: <1285878877-12148-1-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mst@redhat.com, mingo@elte.hu,
-	herbert@gondor.apana.org.au, jdike@linux.intel.com
-To: xiaohui.xin@intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <f2bf65a8a7676bbd3e8a749ae93d99e88671d35d.1285853725.git.xiaohui.xin@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, andy@greyhouse.net
+To: mcarlson@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39454
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751799Ab0JAH0H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Oct 2010 03:26:07 -0400
+In-Reply-To: <1285878877-12148-1-git-send-email-mcarlson@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: xiaohui.xin@intel.com
-Date: Thu, 30 Sep 2010 22:04:23 +0800
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Date: Thu, 30 Sep 2010 13:34:29 -0700
 
-> @@ -197,10 +197,11 @@ struct skb_shared_info {
->  	union skb_shared_tx tx_flags;
->  	struct sk_buff	*frag_list;
->  	struct skb_shared_hwtstamps hwtstamps;
-> -	skb_frag_t	frags[MAX_SKB_FRAGS];
->  	/* Intermediate layers must ensure that destructor_arg
->  	 * remains valid until skb destructor */
->  	void *		destructor_arg;
-> +
-> +	skb_frag_t	frags[MAX_SKB_FRAGS];
->  };
->  
->  /* The structure is for a skb which pages may point to
+> This patchset implements some bugfixes, removes the 5724 device
+> ID and introduces extended rx buffer rings.
 
-Why are you moving frags[] to the end like this?
+All applied....
+
+But really, I want to hear some real justification for a 2048 entry RX
+ring at gigabit speeds.  I even think 512 is way too large for gigabit
+parts.
+
+Any machine that gets one of these newer 5717 parts does not need that
+much queueing, and too deep queues tend to hurt locality and thus
+performance.
