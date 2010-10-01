@@ -1,44 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Regression (ancient), bisected: TCP hangs with certain ESP6 SA.
-Date: Thu, 30 Sep 2010 18:17:16 -0700 (PDT)
-Message-ID: <20100930.181716.43034538.davem@davemloft.net>
-References: <20100929142213.GA26031@elliptictech.com>
+From: "Gustavo F. Padovan" <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
+Subject: Re: pull-request: bluetooth-2.6 2010-09-27
+Date: Thu, 30 Sep 2010 22:22:03 -0300
+Message-ID: <20101001012203.GE3048@vigoh>
+References: <20100928023035.GA3033@vigoh>
+ <20100927.200016.226762808.davem@davemloft.net>
+ <20100928224941.GA19409@vigoh>
+ <20100930.172657.123994559.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	herbert@gondor.apana.org.au, eric.dumazet@gmail.com
-To: nbowler@elliptictech.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100929142213.GA26031@elliptictech.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20100930.172657.123994559.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Nick Bowler <nbowler@elliptictech.com>
-Date: Wed, 29 Sep 2010 10:22:13 -0400
+Hi Dave,
 
-> b5c15fc004ac83b7ad280acbe0fd4bbed7e2c8d4 is the first bad commit
-> commit b5c15fc004ac83b7ad280acbe0fd4bbed7e2c8d4
-> Author: Herbert Xu <herbert@gondor.apana.org.au>
-> Date:   Thu Feb 14 23:49:37 2008 -0800
+* David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> [2010-09-30 17:26:57 -0700]:
+
+> From: "Gustavo F. Padovan" <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
+> Date: Tue, 28 Sep 2010 19:49:41 -0300
 > 
->     [IPV6]: Fix reversed local_df test in ip6_fragment
->     
->     I managed to reverse the local_df test when forward-porting this
->     patch so it actually makes things worse by never fragmenting at
->     all.
->     
->     Thanks to David Stevens for testing and reporting this bug.
->     
->     Bill Fink pointed out that the local_df setting is also the wrong
->     way around.
->     
->     Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
->     Signed-off-by: David S. Miller <davem@davemloft.net>
+> > Actually sk_stream_wait_memory is another point why it's safe to release
+> > the lock and block waiting for memory. We've been doing that safely in
+> > protocols like TCP, SCTP and DCCP for a long time.
+> 
+> Do you notice what TCP does when sk_stream_wait_memory() returns?
+> 
+> It reloads all volatile state that might have changed in the socket
+> while the lock was dropped.
+> 
+> For example, TCP will reload the current MSS that can change
+> asynchronously while we don't have the socket lock.
 
-I suspect that Herbert's change is correct, it's just that for some
-reason PMTU doesn't work correctly with IPV6 for whatever reason.
+I got your point. And what I tried to say in the last e-mail is that
+ERTM doesn't have such volatile states that need to restore after get
+the lock back. The others code path it affect are very simple and also
+doesn't have such problem. So we are safe against asynchronous changes.
+We obvious have volatiles states, but the code paths where
+bt_skb_send_alloc() is used doesn't rely on that states. I'm seeing no
+problem on release the lock, alloc memory, and lock it again.
 
-That matches with your observed behavior that ping and UDP stuff
-works just fine, and it's just TCP with certain ESP6 transport mode
-settings.
+-- 
+Gustavo F. Padovan
+ProFUSION embedded systems - http://profusion.mobi
