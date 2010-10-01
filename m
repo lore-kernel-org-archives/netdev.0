@@ -1,36 +1,33 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [PATCH] netfilter: unregister nf hooks, matches and targets in
- the reverse order
-Date: Sat, 2 Oct 2010 01:57:16 +0200 (CEST)
-Message-ID: <alpine.LNX.2.01.1010020157010.26371@obet.zrqbmnf.qr>
-References: <1283436908-10744-1-git-send-email-xiaosuo@gmail.com> <4C91033B.6070902@trash.net> <AANLkTi=AhK0jDM8WEf5tHhervKUpB6f4MR+mNx2moYuC@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH net-next] gre: protocol table can be static
+Date: Sat, 2 Oct 2010 08:58:00 +0900
+Message-ID: <20101002085800.4cd06561@s6510>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from borg.medozas.de ([188.40.89.202]:56681 "EHLO borg.medozas.de"
+Received: from mail.vyatta.com ([76.74.103.46]:38913 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752363Ab0JAX5S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Oct 2010 19:57:18 -0400
-In-Reply-To: <AANLkTi=AhK0jDM8WEf5tHhervKUpB6f4MR+mNx2moYuC@mail.gmail.com>
+	id S1752172Ab0JAX6H (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Oct 2010 19:58:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sunday 2010-09-19 07:58, Changli Gao wrote:
+This table is only used in gre.c
 
->On Thu, Sep 16, 2010 at 1:32 AM, Patrick McHardy <kaber@trash.net> wrote:
->> Am 02.09.2010 16:15, schrieb Changli Gao:
->>> Since we register nf hooks, matches and targets in order, we'd better
->>> unregister them in the reverse order.
->>
->> Why? Is there a specific bug you've noticed?
->>
->
->No, there isn't any bug. I just think unregistering them in the
->reverse order is more resonable, like the rollback when failing. And
->the code patched generates less object:
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-I support this.
+--- a/net/ipv4/gre.c	2010-09-29 10:41:46.895895032 +0900
++++ b/net/ipv4/gre.c	2010-09-29 10:41:56.265898132 +0900
+@@ -22,7 +22,7 @@
+ #include <net/gre.h>
+ 
+ 
+-const struct gre_protocol *gre_proto[GREPROTO_MAX] __read_mostly;
++static const struct gre_protocol *gre_proto[GREPROTO_MAX] __read_mostly;
+ static DEFINE_SPINLOCK(gre_proto_lock);
+ 
+ int gre_add_protocol(const struct gre_protocol *proto, u8 version)
+[
