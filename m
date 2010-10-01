@@ -1,82 +1,89 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: VLAN packets silently dropped in promiscuous mode
-Date: Fri, 01 Oct 2010 10:41:09 +0200
-Message-ID: <1285922469.2641.1.camel@edumazet-laptop>
-References: <20100929113757.GA23755@core.hellgate.ch>
-	 <AANLkTi=QAoVH9KU8FAH6iscWt_mKnZpU3P9QqgFRLqXM@mail.gmail.com>
-	 <20100930080703.GA10827@core.hellgate.ch>
-	 <AANLkTikrfx1T3ay0AGWkS6Ab28J4O_er2TsbRinBSGen@mail.gmail.com>
-	 <1285884253.2705.25.camel@edumazet-laptop>
-	 <AANLkTi=Vdcn7xzJMPxkugvEVy32N7Bp=KVtir6NESnDF@mail.gmail.com>
-	 <1285909831.2705.41.camel@edumazet-laptop>
+From: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont" <remi@remlab.net>
+Subject: Re: [PATCH v2 1/2] Phonet: Implement Pipe Controller to support Nokia Slim Modems
+Date: Fri, 1 Oct 2010 11:42:44 +0300
+Message-ID: <201010011142.45767.remi@remlab.net>
+References: <1285564079-23066-1-git-send-email-kumar.sanghvi@stericsson.com> <201009292121.18274.remi.denis-courmont@nokia.com> <20100930071952.GA21859@bnru01.bnr.st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Roger Luethi <rl@hellgate.ch>, netdev@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>
-To: Jesse Gross <jesse@nicira.com>
+Cc: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont"
+	<remi.denis-courmont@nokia.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"STEricsson_nomadik_linux" <STEricsson_nomadik_linux@list.st.com>,
+	Sudeep DIVAKARAN <sudeep.divakaran@stericsson.com>,
+	Gulshan KARMANI <gulshan.karmani@stericsson.com>,
+	Linus WALLEIJ <linus.walleij@stericsson.com>
+To: Kumar SANGHVI <kumar.sanghvi@stericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:50585 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751899Ab0JAIlQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Oct 2010 04:41:16 -0400
-Received: by fxm14 with SMTP id 14so454447fxm.19
-        for <netdev@vger.kernel.org>; Fri, 01 Oct 2010 01:41:14 -0700 (PDT)
-In-Reply-To: <1285909831.2705.41.camel@edumazet-laptop>
+Received: from yop.chewa.net ([91.121.105.214]:54250 "EHLO yop.chewa.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752295Ab0JAIm5 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Oct 2010 04:42:57 -0400
+In-Reply-To: <20100930071952.GA21859@bnru01.bnr.st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 01 octobre 2010 =C3=A0 07:10 +0200, Eric Dumazet a =C3=A9cr=
-it :
-> Le jeudi 30 septembre 2010 =C3=A0 19:37 -0700, Jesse Gross a =C3=A9cr=
-it :
+   Hello,
+
+On Thursday 30 September 2010, Kumar SANGHVI wrote:
+> Hi R=E9mi Denis-Courmont,
 >=20
-> > That's true.  Dropping here seems roughly equivalent to the effects=
- of
-> > a hardware VLAN filter, which will also not be tracked by a counter=
-,
-> > so that seems not too bad to me.
-> >=20
-> > The thing that concerns me though is why so many drivers seem to ha=
-ve
-> > this problem with completely dropping the VLAN header.  I know that
-> > even several of the ones that work now were broken initially and ha=
+> On Wed, Sep 29, 2010 at 20:21:17 +0200, R=E9mi Denis-Courmont wrote:
+> > It seems to me that you really want to implement the connect() sock=
+et
+> > call, so that one of the two endpoints will stand up for the missin=
+g
+> > controller.
+>=20
+> Yes, implementing connect() socket call would be nice.
+>=20
+> > That's
+> > still much cleaner than CREATE and DESTROY ioctl()'s.
+>=20
+> I have not introduced any new ioctl()'s as part of Pipe controller
+> implementation.
+
+Sure. What you did is basically worse than ioctl()'s. You've implemente=
+d them=20
+as socket options. Socket options are meant to configure parameters wit=
+h=20
+setsockopt and read paramters with getsockopt. They are not meant for '=
+doing'=20
+things - that's what ioctl()'s are for.
+
+> The PIPE_CREATE/PIPE_DESTROY/PIPE_ENABLE/PIPE_DISABLE are all provide=
 d
-> > to be fixed.  Seeing as the driver drops the VLAN information befor=
-e
-> > it gets to the general networking code I don't see a generic fix to
-> > this as it is currently setup.  However, perhaps we could make it s=
-o
-> > that it is harder to get wrong.  Something like this:
-> >=20
-> > * Allow vlan_gro_receive() to take a NULL VLAN group and a tag of 0
-> > (and do the same thing for vlan_hwaccel_rx())
-> > * Now that the vlan functions can deal with non-VLAN packets, merge
-> > them into their non-VLAN counterparts.
-> > * We can now demultiplex between the VLAN/non-VLAN case in core
-> > networking.  This is done anyways, it just prevents every driver fr=
-om
-> > needing that code block I copied above and allows us to fix these
-> > types of problems centrally.
-> > * Dump the VLAN tag into the SKB and hand off the packet to the
-> > various consumers: VLAN devices, libpcap, bridge hook (not currentl=
-y
-> > done but should be for trunking).
-> >=20
-> > I see a number of advantages of this:
-> > * Fixes all the problems with cards dropping VLAN headers at once.
-> > * Avoids having to disable VLAN acceleration when in promiscuous mo=
-de
-> > (good for bridging since it always puts devices in promiscuous mode=
-).
-> > * Keeps VLAN tag separate until given to ultimate consumer, which
-> > avoids needing to do header reconstruction as in tg3 unless absolut=
-ely
-> > necessary.
-> > * Consolidates common driver code in core networking.
+> as socket options.
+> So, user-space can call setsockopt for creating/enabling or
+> disabling/destroying pipe.
+
+That makes absolutely no sense if you consider how setsockopt and getso=
+ckopt=20
+are supposed to work.
+
+> Regarding implementing connect() socket call, few queries:
+> 1. It should carry out all the same steps which I am currently doing =
+as
+> part of PIPE_CREATE socket option, right?
+> 2. Currently, as part of Pipe controller implementation, user-space
+>    follows below sequence:-
+> 	socket()
+> 	bind()
+> 	listen()
+> 	setsockopt(PIPE_CREATE)
+> 	accept()'
 >=20
-> This seems very reasonable ;)
+>    In the phonet stack pipe controller logic, we wait for PEP_CONNECT=
+_RESP
+>    from host-pep (GPRS socket or video telephony socket is a host-pep=
+=2E
+>    pep_reply sends out the PEP_CONNECT_RESP) and remote-pep (modem),
+>    negotiate the best flow-control to be used, and then send
+>    PIPE_CREATED_IND, with selected flow-control to both pipe end-poin=
+ts.
 
-Jesse, do you plan to work on this stuff yourself in a near future ?
+connect() should replace listen(), PIPE_CREATE and accept().
 
-
+--=20
+R=E9mi Denis-Courmont
+http://www.remlab.net/
