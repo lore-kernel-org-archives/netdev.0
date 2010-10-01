@@ -1,56 +1,55 @@
 From: akpm@linux-foundation.org
-Subject: [patch 1/2] drivers-net-tulip-de4x5c-fix-copy-length-in-de4x5_ioctl-checkpatch-fixes
-Date: Fri, 01 Oct 2010 14:17:12 -0700
-Message-ID: <201010012117.o91LHCJt021158@imap1.linux-foundation.org>
+Subject: [patch 2/2] drivers/net/stmmac/: add HAS_IOMEM dependency
+Date: Fri, 01 Oct 2010 14:17:13 -0700
+Message-ID: <201010012117.o91LHDCF021161@imap1.linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ANSI_X3.4-1968
 Content-Transfer-Encoding: 8bit
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	dan.j.rosenberg@gmail.com, grundler@parisc-linux.org,
-	jeffm@suse.com
+	schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
+	peppe.cavallaro@st.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:55983 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:52013 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754851Ab0JAVRt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Oct 2010 17:17:49 -0400
+	by vger.kernel.org with ESMTP id S1756506Ab0JAVR5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Oct 2010 17:17:57 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Morton <akpm@linux-foundation.org>
+From: Martin Schwidefsky <schwidefsky@de.ibm.com>
 
-ERROR: trailing statements should be on next line
-#23: FILE: drivers/net/tulip/de4x5.c:5477:
-+	if (copy_to_user(ioc->data, tmp.lval, ioc->len)) return -EFAULT;
+The stmmac driver does not compile on s390:
 
-total: 1 errors, 0 warnings, 8 lines checked
+drivers/net/stmmac/stmmac_main.c: In function 'stmmac_adjust_link':
+drivers/net/stmmac/stmmac_main.c:210: error: implicit declaration of function 'readl'
+drivers/net/stmmac/stmmac_main.c:263: error: implicit declaration of function 'writel'
+drivers/net/stmmac/stmmac_main.c: In function 'stmmac_dvr_probe':
+drivers/net/stmmac/stmmac_main.c:1674: error: implicit declaration of function 'ioremap'
+drivers/net/stmmac/stmmac_main.c:1674: warning: assignment makes pointer from integer without a cast
+drivers/net/stmmac/stmmac_main.c:1761: error: implicit declaration of function 'iounmap'
+make[3]: *** [drivers/net/stmmac/stmmac_main.o] Error 1
 
-./patches/drivers-net-tulip-de4x5c-fix-copy-length-in-de4x5_ioctl.patch has style problems, please review.  If any of these errors
-are false positives report them to the maintainer, see
-CHECKPATCH in MAINTAINERS.
-
-Please run checkpatch prior to sending patches
-
-Cc: Dan Rosenberg <dan.j.rosenberg@gmail.com>
-Cc: Grant Grundler <grundler@parisc-linux.org>
-Cc: Jeff Mahoney <jeffm@suse.com>
+Signed-off-by: Martin Schwidefsky <schwidefsky@de.ibm.com>
+Cc: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/tulip/de4x5.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/stmmac/Kconfig |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff -puN drivers/net/tulip/de4x5.c~drivers-net-tulip-de4x5c-fix-copy-length-in-de4x5_ioctl-checkpatch-fixes drivers/net/tulip/de4x5.c
---- a/drivers/net/tulip/de4x5.c~drivers-net-tulip-de4x5c-fix-copy-length-in-de4x5_ioctl-checkpatch-fixes
-+++ a/drivers/net/tulip/de4x5.c
-@@ -5474,7 +5474,8 @@ de4x5_ioctl(struct net_device *dev, stru
- 	tmp.lval[6] = inl(DE4X5_STRR); j+=4;
- 	tmp.lval[7] = inl(DE4X5_SIGR); j+=4;
- 	ioc->len = j;
--	if (copy_to_user(ioc->data, tmp.lval, ioc->len)) return -EFAULT;
-+	if (copy_to_user(ioc->data, tmp.lval, ioc->len))
-+		return -EFAULT;
- 	break;
- 
- #define DE4X5_DUMP              0x0f /* Dump the DE4X5 Status */
+diff -puN drivers/net/stmmac/Kconfig~drivers-net-stmmac-add-has_iomem-dependency drivers/net/stmmac/Kconfig
+--- a/drivers/net/stmmac/Kconfig~drivers-net-stmmac-add-has_iomem-dependency
++++ a/drivers/net/stmmac/Kconfig
+@@ -3,7 +3,7 @@ config STMMAC_ETH
+ 	select MII
+ 	select PHYLIB
+ 	select CRC32
+-	depends on NETDEVICES
++	depends on NETDEVICES && HAS_IOMEM
+ 	help
+ 	  This is the driver for the Ethernet IPs are built around a
+ 	  Synopsys IP Core and only tested on the STMicroelectronics
 _
