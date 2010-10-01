@@ -1,167 +1,76 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [patch v2 04/12] [PATCH 04/12] IPVS: Add struct
- ip_vs_conn_param
-Date: Fri, 1 Oct 2010 23:58:04 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1010012347290.2194@ja.ssi.bg>
-References: <20101001143517.645421976@akiko.akashicho.tokyo.vergenet.net> <20101001143942.035496196@akiko.akashicho.tokyo.vergenet.net>
+From: akpm@linux-foundation.org
+Subject: [patch 1/1] sctp: prevent reading out-of-bounds memory
+Date: Fri, 01 Oct 2010 14:16:58 -0700
+Message-ID: <201010012116.o91LGwS5021150@imap1.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Jan Engelhardt <jengelh@medozas.de>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20101001143942.035496196@akiko.akashicho.tokyo.vergenet.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ANSI_X3.4-1968
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
+	dan.j.rosenberg@gmail.com, vladislav.yasevich@hp.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:39355 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754045Ab0JAVRc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Oct 2010 17:17:32 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Dan Rosenberg <dan.j.rosenberg@gmail.com>
 
- 	Hello,
+Two user-controlled allocations in SCTP are subsequently dereferenced as
+sockaddr structs, without checking if the dereferenced struct members fall
+beyond the end of the allocated chunk.  There doesn't appear to be any
+information leakage here based on how these members are used and
+additional checking, but it's still worth fixing.
 
-On Fri, 1 Oct 2010, Simon Horman wrote:
+[akpm@linux-foundation.org: remove unfashionable newlines, fix gmail tab->space conversion]
+Signed-off-by: Dan Rosenberg <dan.j.rosenberg@gmail.com>
+Acked-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+Cc: David Miller <davem@davemloft.net>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+---
 
-> +static int
-> +ip_vs_conn_fill_param_proto(int af, const struct sk_buff *skb,
-> +			    const struct ip_vs_iphdr *iph,
-> +			    unsigned int proto_off, int inverse,
-> +			    struct ip_vs_conn_param *p)
-> +{
-> +	__be16 _ports[2], *pptr;
-> +
-> +	pptr = skb_header_pointer(skb, proto_off, sizeof(_ports), _ports);
-> +	if (pptr == NULL)
-> +		return 1;
-> +
-> +	if (likely(!inverse))
-> +		ip_vs_conn_fill_param(af, iph->protocol, &iph->saddr, pptr[0],
-> +				      &iph->daddr, pptr[1], p);
-> +	else
+ net/sctp/socket.c |   13 ++++++++++++-
+ 1 file changed, 12 insertions(+), 1 deletion(-)
 
- 	Next line is wrong for inverse=1, must be
- 	&iph->daddr, pptr[1], &iph->saddr, pptr[0]
-
-> +		ip_vs_conn_fill_param(af, iph->protocol, &iph->saddr, pptr[0],
-> +				      &iph->daddr, pptr[1], p);
-> +	return 0;
-> +}
-> +
-
- 	May be comments before ip_vs_conn_out_get should be
-changed:
-
-> @@ -341,9 +351,7 @@ struct ip_vs_conn *ip_vs_ct_in_get
->  *	s_addr, s_port: pkt source address (inside host)
->  *	d_addr, d_port: pkt dest address (foreign host)
->  */
-> -struct ip_vs_conn *ip_vs_conn_out_get
-> -(int af, int protocol, const union nf_inet_addr *s_addr, __be16 s_port,
-> - const union nf_inet_addr *d_addr, __be16 d_port)
-> +struct ip_vs_conn *ip_vs_conn_out_get(const struct ip_vs_conn_param *p)
-
-
-> ===================================================================
-> --- lvs-test-2.6.orig/net/netfilter/ipvs/ip_vs_core.c	2010-10-01 22:06:23.000000000 +0900
-> +++ lvs-test-2.6/net/netfilter/ipvs/ip_vs_core.c	2010-10-01 22:10:46.000000000 +0900
-> @@ -193,14 +193,11 @@ ip_vs_sched_persist(struct ip_vs_service
-> 	struct ip_vs_iphdr iph;
-> 	struct ip_vs_dest *dest;
-> 	struct ip_vs_conn *ct;
-> -	int protocol = iph.protocol;
-> 	__be16 dport = 0;		/* destination port to forward */
-> -	__be16 vport = 0;		/* virtual service port */
-> 	unsigned int flags;
-> 	union nf_inet_addr snet;	/* source network of the client,
-> 					   after masking */
-> -	const union nf_inet_addr fwmark = { .ip = htonl(svc->fwmark) };
-> -	const union nf_inet_addr *vaddr = &iph.daddr;
-> +	struct ip_vs_conn_param param;
->
-> 	ip_vs_fill_iphdr(svc->af, skb_network_header(skb), &iph);
->
-> @@ -232,6 +229,11 @@ ip_vs_sched_persist(struct ip_vs_service
-> 	 * is created for other persistent services.
-> 	 */
-> 	{
-> +		int protocol = iph.protocol;
-> +		const union nf_inet_addr *vaddr = &iph.daddr;
-> +		const union nf_inet_addr fwmark = { .ip = htonl(svc->fwmark) };
-> +		__be16 vport = 0;
-> +
-> 		if (ports[1] == svc->port) {
-> 			/* non-FTP template:
-> 			 * <protocol, caddr, 0, vaddr, vport, daddr, dport>
-> @@ -253,11 +255,12 @@ ip_vs_sched_persist(struct ip_vs_service
-> 				vaddr = &fwmark;
-> 			}
-> 		}
-> +		ip_vs_conn_fill_param(svc->af, protocol, &snet, 0,
-> +				      vaddr, vport, &param);
-> 	}
->
-> 	/* Check if a template already exists */
-> -	ct = ip_vs_ct_in_get(svc->af, protocol, &snet, 0, vaddr, vport);
-> -
-> +	ct = ip_vs_ct_in_get(&param);
-> 	if (!ct || !ip_vs_check_template(ct)) {
-> 		/* No template found or the dest of the connection
-> 		 * template is not available.
-> @@ -272,8 +275,7 @@ ip_vs_sched_persist(struct ip_vs_service
-> 			dport = dest->port;
->
-> 		/* Create a template */
-> -		ct = ip_vs_conn_new(svc->af, protocol, &snet, 0,vaddr, vport,
-> -				    &dest->addr, dport,
-> +		ct = ip_vs_conn_new(&param, &dest->addr, dport,
-> 				    IP_VS_CONN_F_TEMPLATE, dest);
-> 		if (ct == NULL)
-> 			return NULL;
-> @@ -291,12 +293,7 @@ ip_vs_sched_persist(struct ip_vs_service
-> 	/*
-> 	 *    Create a new connection according to the template
-> 	 */
-
- 	Missing ip_vs_conn_fill_param here?
-
-> -	cp = ip_vs_conn_new(svc->af, iph.protocol,
-> -			    &iph.saddr, ports[0],
-> -			    &iph.daddr, ports[1],
-> -			    &dest->addr, dport,
-> -			    flags,
-> -			    dest);
-> +	cp = ip_vs_conn_new(&param, &dest->addr, dport, flags, dest);
-> 	if (cp == NULL) {
-> 		ip_vs_conn_put(ct);
-> 		return NULL;
-
-> ===================================================================
-> --- lvs-test-2.6.orig/net/netfilter/ipvs/ip_vs_proto_ah_esp.c	2010-10-01 21:55:19.000000000 +0900
-> +++ lvs-test-2.6/net/netfilter/ipvs/ip_vs_proto_ah_esp.c	2010-10-01 22:23:33.000000000 +0900
-> @@ -40,6 +40,19 @@ struct isakmp_hdr {
->
-> #define PORT_ISAKMP	500
->
-> +static void
-> +ah_esp_conn_fill_param_proto(int af, const struct ip_vs_iphdr *iph,
-> +			     int inverse, struct ip_vs_conn_param *p)
-> +{
-> +	if (likely(!inverse))
-> +		ip_vs_conn_fill_param(af, IPPROTO_UDP,
-> +				      &iph->saddr, htons(PORT_ISAKMP),
-> +				      &iph->daddr, htons(PORT_ISAKMP), p);
-> +	else
-
- 	For inverse=1 iph->protocol must be IPPROTO_UDP
-and &iph->daddr before &iph->saddr:
-
-> +		ip_vs_conn_fill_param(af, iph->protocol,
-> +				      &iph->saddr, htons(PORT_ISAKMP),
-> +				      &iph->daddr, htons(PORT_ISAKMP), p);
-> +}
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+diff -puN net/sctp/socket.c~sctp-prevent-reading-out-of-bounds-memory net/sctp/socket.c
+--- a/net/sctp/socket.c~sctp-prevent-reading-out-of-bounds-memory
++++ a/net/sctp/socket.c
+@@ -918,6 +918,11 @@ SCTP_STATIC int sctp_setsockopt_bindx(st
+ 	/* Walk through the addrs buffer and count the number of addresses. */
+ 	addr_buf = kaddrs;
+ 	while (walk_size < addrs_size) {
++		if (walk_size + sizeof(sa_family_t) > addrs_size) {
++			kfree(kaddrs);
++			return -EINVAL;
++		}
++
+ 		sa_addr = (struct sockaddr *)addr_buf;
+ 		af = sctp_get_af_specific(sa_addr->sa_family);
+ 
+@@ -1004,9 +1009,13 @@ static int __sctp_connect(struct sock* s
+ 	/* Walk through the addrs buffer and count the number of addresses. */
+ 	addr_buf = kaddrs;
+ 	while (walk_size < addrs_size) {
++		if (walk_size + sizeof(sa_family_t) > addrs_size) {
++			err = -EINVAL;
++			goto out_free;
++		}
++
+ 		sa_addr = (union sctp_addr *)addr_buf;
+ 		af = sctp_get_af_specific(sa_addr->sa.sa_family);
+-		port = ntohs(sa_addr->v4.sin_port);
+ 
+ 		/* If the address family is not supported or if this address
+ 		 * causes the address buffer to overflow return EINVAL.
+@@ -1016,6 +1025,8 @@ static int __sctp_connect(struct sock* s
+ 			goto out_free;
+ 		}
+ 
++		port = ntohs(sa_addr->v4.sin_port);
++
+ 		/* Save current address so we can work with it */
+ 		memcpy(&to, sa_addr, af->sockaddr_len);
+ 
+_
