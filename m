@@ -1,59 +1,26 @@
-From: Meelis Roos <mroos@linux.ee>
-Subject: [PATCH] ibmtr: fix tr%d in dmesg
-Date: Sat, 2 Oct 2010 21:35:15 +0300 (EEST)
-Message-ID: <alpine.SOC.1.00.1010022056000.27121@math.ut.ee>
+From: "kunihira barbara" <sam.pk01@gmail.com>
+Subject: =?iso-8859-1?Q?INVESTMENT_PROJECT_IN_YOUR_COUNTRY=2E_=28HOW_CAN_I?=
+	=?iso-8859-1?Q?_INVEST_IN_YOUR_COUNTRY=29=3F?=
+Date: Fri, 01 Oct 2010 10:59:03 +0300
+Message-ID: <20101001105903.7ec4a729__8354.0981090211$1286048216$gmane$org@mail.veco-eastafrica.org>
+Reply-To: sam.pk01@gmail.com
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: netdev@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.it.da.ut.ee ([193.40.5.66]:34400 "EHLO smtp1.it.da.ut.ee"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751374Ab0JBSfR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 2 Oct 2010 14:35:17 -0400
-Received: from math.ut.ee (math.ut.ee [193.40.36.2])
-	by smtp1.it.da.ut.ee (Postfix) with ESMTP id 7810A6E4D55
-	for <netdev@vger.kernel.org>; Sat,  2 Oct 2010 21:35:15 +0300 (EEST)
-Received: from localhost (localhost [127.0.0.1])
-	by math.ut.ee (Postfix) with ESMTP id 5563ADAF80
-	for <netdev@vger.kernel.org>; Sat,  2 Oct 2010 21:35:15 +0300 (EEST)
+Received: from mail.veco-eastafrica.org ([41.191.79.86]:34822 "EHLO
+	mail.veco-eastafrica.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751332Ab0JBTg1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Oct 2010 15:36:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ibmtr and ibmtr_cs show tr%d in dmesg after alloc_netdev() but before 
-register_netdev(). Fix it like e100 does - put a different name into 
-dev->name until the device gets registered. I/O port seems to be unique
-enough and is available for the time of printk messages. With the fix, 
-dmesg shows
-
-ibmtr@0a20: ISA P&P 16/4 Adapter/A (short) | 16/4 ISA-16 Adapter found
-ibmtr@0a20: using irq 3, PIOaddr a20, 64K shared RAM.
-ibmtr@0a20: Hardware address : 00:40:aa:a9:03:98
-ibmtr@0a20: Shared RAM paging disabled. ti->page_mask 0
-ibmtr@0a20: Maximum Receive Internet Protocol MTU 16Mbps: 16344, 4Mbps: 6104
-tr0: port 0xa20, irq 3,  mmio 0xd4850000, sram 0xd0000, hwaddr=00:40:aa:a9:03:98
-
-Signed-off-by: Meelis Roos <mroos@linux.ee>
-
-diff --git a/drivers/net/tokenring/ibmtr.c b/drivers/net/tokenring/ibmtr.c
-index 91e6c78..5de281f 100644
---- a/drivers/net/tokenring/ibmtr.c
-+++ b/drivers/net/tokenring/ibmtr.c
-@@ -368,6 +368,7 @@ int __devinit ibmtr_probe_card(struct net_device *dev)
- {
- 	int err = ibmtr_probe(dev);
- 	if (!err) {
-+		strcpy(dev->name, "tr%d");
- 		err = register_netdev(dev);
- 		if (err)
- 			ibmtr_cleanup_card(dev);
-@@ -699,6 +700,7 @@ static int __devinit ibmtr_probe1(struct net_device *dev, int PIOaddr)
- 		printk(version);
- 	}
- #endif /* !PCMCIA */
-+	sprintf(dev->name, "ibmtr@%04x", PIOaddr);
- 	DPRINTK("%s %s found\n",
- 		channel_def[cardpresent - 1], adapter_def(ti->adapter_type));
- 	DPRINTK("using irq %d, PIOaddr %hx, %dK shared RAM.\n",
-
--- 
-Meelis Roos (mroos@linux.ee)
+Dear Sir, 
+ 
+I am Mr.Sam Gapke, The Managing Director of the REA. I am interested in investing the sum of US $20M (Twenty Million US Dollars) in any Lucrative Business in the area related to your Business line. Thanks for anticipate cooperation, your urgent response will be highly appreciated. 
+Feel free to contact me with this my personal email address:sam.pk01@gmail.com
+Best regards, 
+ 
+Mr. Sam Gapke
