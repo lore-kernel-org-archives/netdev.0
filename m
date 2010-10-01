@@ -1,113 +1,111 @@
-From: frank.blaschka@de.ibm.com
-Subject: [patch 1/1] [PATCH] qeth: tagging with VLAN-ID 0
-Date: Fri, 01 Oct 2010 14:51:13 +0200
-Message-ID: <20101001125142.037089467@de.ibm.com>
-References: <20101001125112.459999476@de.ibm.com>
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	Ursula Braun <ursula.braun@de.ibm.com>
-To: davem@davemloft.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Packet time delays on multi-core systems
+Date: Fri, 01 Oct 2010 14:59:26 +0200
+Message-ID: <1285937966.2641.117.camel@edumazet-laptop>
+References: <20100929191851.GC86786@beaver.vrungel.ru>
+	 <1285796721.5211.156.camel@edumazet-laptop>
+	 <20100930062419.GD86786@beaver.vrungel.ru>
+	 <1285828432.5211.812.camel@edumazet-laptop>
+	 <20100930122321.GA1575@beaver.vrungel.ru>
+	 <1285850669.2615.426.camel@edumazet-laptop>
+	 <20100930173732.GB4094@beaver.vrungel.ru>
+	 <1285869782.2615.920.camel@edumazet-laptop>
+	 <20100930181556.GC4094@beaver.vrungel.ru>
+	 <1285872765.2615.1008.camel@edumazet-laptop>
+	 <20101001101650.GD4094@beaver.vrungel.ru>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Alexey Vlasov <renton@renton.name>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate3.de.ibm.com ([195.212.17.163]:58561 "EHLO
-	mtagate3.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932311Ab0JAMvq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Oct 2010 08:51:46 -0400
-Content-Disposition: inline; filename=vlan0.patch
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:53558 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932466Ab0JAM7d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Oct 2010 08:59:33 -0400
+In-Reply-To: <20101001101650.GD4094@beaver.vrungel.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ursula Braun <ursula.braun@de.ibm.com>
+Le vendredi 01 octobre 2010 =C3=A0 14:16 +0400, Alexey Vlasov a =C3=A9c=
+rit :
 
-This patch adapts qeth to handle tagged frames with VLAN-ID 0 and
-with or without priority information in the tag. It enables qeth to
-receive priority-tagged frames on a base interface, for example from
-z/OS, without configuring an additional VLAN interface.
+> I have also found that:
+> 1. rx overruns is increasing.
+> 2. rx_queue_drop_packet_count is increasing.
 
-Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
-Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
----
- drivers/s390/net/qeth_l2_main.c |    2 ++
- drivers/s390/net/qeth_l3_main.c |   27 +++++++++++++--------------
- 2 files changed, 15 insertions(+), 14 deletions(-)
+So you flood machine with packets, its not an idle one ?
 
---- a/drivers/s390/net/qeth_l2_main.c
-+++ b/drivers/s390/net/qeth_l2_main.c
-@@ -310,6 +310,8 @@ static void qeth_l2_vlan_rx_add_vid(stru
- 	struct qeth_vlan_vid *id;
- 
- 	QETH_CARD_TEXT_(card, 4, "aid:%d", vid);
-+	if (!vid)
-+		return;
- 	if (card->info.type == QETH_CARD_TYPE_OSM) {
- 		QETH_CARD_TEXT(card, 3, "aidOSM");
- 		return;
---- a/drivers/s390/net/qeth_l3_main.c
-+++ b/drivers/s390/net/qeth_l3_main.c
-@@ -2013,13 +2013,14 @@ static void qeth_l3_vlan_rx_kill_vid(str
- 	qeth_l3_set_multicast_list(card->dev);
- }
- 
--static inline __u16 qeth_l3_rebuild_skb(struct qeth_card *card,
--			struct sk_buff *skb, struct qeth_hdr *hdr)
-+static inline int qeth_l3_rebuild_skb(struct qeth_card *card,
-+			struct sk_buff *skb, struct qeth_hdr *hdr,
-+			unsigned short *vlan_id)
- {
--	unsigned short vlan_id = 0;
- 	__be16 prot;
- 	struct iphdr *ip_hdr;
- 	unsigned char tg_addr[MAX_ADDR_LEN];
-+	int is_vlan = 0;
- 
- 	if (!(hdr->hdr.l3.flags & QETH_HDR_PASSTHRU)) {
- 		prot = htons((hdr->hdr.l3.flags & QETH_HDR_IPV6)? ETH_P_IPV6 :
-@@ -2082,8 +2083,9 @@ static inline __u16 qeth_l3_rebuild_skb(
- 
- 	if (hdr->hdr.l3.ext_flags &
- 	    (QETH_HDR_EXT_VLAN_FRAME | QETH_HDR_EXT_INCLUDE_VLAN_TAG)) {
--		vlan_id = (hdr->hdr.l3.ext_flags & QETH_HDR_EXT_VLAN_FRAME)?
-+		*vlan_id = (hdr->hdr.l3.ext_flags & QETH_HDR_EXT_VLAN_FRAME) ?
- 		 hdr->hdr.l3.vlan_id : *((u16 *)&hdr->hdr.l3.dest_addr[12]);
-+		is_vlan = 1;
- 	}
- 
- 	switch (card->options.checksum_type) {
-@@ -2104,7 +2106,7 @@ static inline __u16 qeth_l3_rebuild_skb(
- 			skb->ip_summed = CHECKSUM_NONE;
- 	}
- 
--	return vlan_id;
-+	return is_vlan;
- }
- 
- static int qeth_l3_process_inbound_buffer(struct qeth_card *card,
-@@ -2114,6 +2116,7 @@ static int qeth_l3_process_inbound_buffe
- 	struct sk_buff *skb;
- 	struct qeth_hdr *hdr;
- 	__u16 vlan_tag = 0;
-+	int is_vlan;
- 	unsigned int len;
- 
- 	*done = 0;
-@@ -2129,16 +2132,12 @@ static int qeth_l3_process_inbound_buffe
- 		skb->dev = card->dev;
- 		switch (hdr->hdr.l3.id) {
- 		case QETH_HEADER_TYPE_LAYER3:
--			vlan_tag = qeth_l3_rebuild_skb(card, skb, hdr);
-+			is_vlan = qeth_l3_rebuild_skb(card, skb, hdr,
-+						      &vlan_tag);
- 			len = skb->len;
--			if (vlan_tag && !card->options.sniffer)
--				if (card->vlangrp)
--					vlan_gro_receive(&card->napi,
--						card->vlangrp, vlan_tag, skb);
--				else {
--					dev_kfree_skb_any(skb);
--					continue;
--				}
-+			if (is_vlan && !card->options.sniffer)
-+				vlan_gro_receive(&card->napi, card->vlangrp,
-+					vlan_tag, skb);
- 			else
- 				napi_gro_receive(&card->napi, skb);
- 			break;
+I thought you were doing experiments with light trafic.
+
+
+> # ethtool -S eth0 | grep drop
+>      tx_dropped: 0
+>      rx_queue_drop_packet_count: 1260743751
+>      dropped_smbus: 0
+>      rx_queue_0_drops: 0
+>      rx_queue_1_drops: 0
+>      rx_queue_2_drops: 0
+>      rx_queue_3_drops: 0
+>=20
+
+
+ethtool -S eth0   (full output, not small parts)
+
+
+> 3. By sending SYN-packets by hping, RST packet doesn't send, but I do=
+n't know may=20
+> be it is just some feature in 2.6.32.
+> newbox # hping -c 1 -S -p 80 111.111.111.111
+> HPING 111.111.111.111 (eth0 111.111.111.111): S set, 40 headers + 0 d=
+ata bytes
+> len=3D46 ip=3D111.111.111.111 ttl=3D58 DF id=3D11471 sport=3D80 flags=
+=3DSA seq=3D0 win=3D65535 rtt=3D99.0 ms
+>=20
+> --- 111.111.111.111 hping statistic ---
+> 1 packets tramitted, 1 packets received, 0% packet loss
+> round-trip min/avg/max =3D 99.0/99.0/99.0 ms
+>=20
+> 13:59:07.439528 IP newbox.2777 > 111.111.111.111.80: S 345595033:3455=
+95033(0) win 512
+> 13:59:07.439626 IP 111.111.111.111.80 > newbox.2777: S 1178827395:117=
+8827395(0) ack 345595034 win 65535 <mss 1460>
+> 13:59:10.439368 IP 111.111.111.111.80 > newbox.2777: S 1178827395:117=
+8827395(0) ack 345595034 win 65535 <mss 1460>
+> 13:59:16.439313 IP 111.111.111.111.80 > newbox.2777: S 1178827395:117=
+8827395(0) ack 345595034 win 65535 <mss 1460>
+> 13:59:28.439206 IP 111.111.111.111.80 > newbox.2777: S 1178827395:117=
+8827395(0) ack 345595034 win 65535 <mss 1460>
+>=20
+> As a result I got doubles:
+
+Are you playing with trafic shaping ?
+
+tc -s -d qdisc
+
+
+
+> DUP! len=3D46 ip=3D111.111.111.111 ttl=3D58 DF id=3D27454 sport=3D80 =
+flags=3DSA seq=3D0 win=3D65535 rtt=3D3137.8 ms
+>=20
+> Example of another TCP-session from 2.6.28 kernel:
+> oldbox # hping -c 1 -S -p 80 111.111.111.111
+> HPING 111.111.111.111 (eth0 111.111.111.111): S set, 40 headers + 0 d=
+ata bytes
+> len=3D46 ip=3D111.111.111.111 ttl=3D58 DF id=3D53180 sport=3D80 flags=
+=3DSA seq=3D0 win=3D65535 rtt=3D2.9 ms
+>=20
+> --- 111.111.111.111 hping statistic ---
+> 1 packets tramitted, 1 packets received, 0% packet loss
+> round-trip min/avg/max =3D 2.9/2.9/2.9 ms
+>=20
+> 14:01:45.225136 IP oldbox.2776 > 111.111.111.111.80: S 1983626200:198=
+3626200(0) win 512
+> 14:01:45.225288 IP 111.111.111.111.80 > oldbox.2776: S 3796385036:379=
+6385036(0) ack 1983626201 win 65535 <mss 1460>
+> 14:01:45.227990 IP oldbox.2776 > 111.111.111.111.80: R 1983626201:198=
+3626201(0) win 0
+>=20
+
 
