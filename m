@@ -1,62 +1,38 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Regression (ancient), bisected: TCP hangs with certain ESP6 SA.
-Date: Fri, 1 Oct 2010 18:28:14 +0900
-Message-ID: <20101001092814.GA26722@gondor.apana.org.au>
-References: <20100929142213.GA26031@elliptictech.com> <20100930.181716.43034538.davem@davemloft.net>
+From: Diego Elio =?ISO-8859-1?Q?Petten=F2?= <flameeyes@gmail.com>
+Subject: Re: [PATCH] sctp: implement SIOCINQ ioctl() (take 3)
+Date: Fri, 01 Oct 2010 11:35:48 +0200
+Message-ID: <1285925748.6591.569.camel@yamato.local>
+References: <1285725095-9860-1-git-send-email-flameeyes@gmail.com>
+	 <20100930.173557.108787840.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: nbowler@elliptictech.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, eric.dumazet@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:48194 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751578Ab0JAJ20 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Oct 2010 05:28:26 -0400
-Content-Disposition: inline
-In-Reply-To: <20100930.181716.43034538.davem@davemloft.net>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:43762 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754536Ab0JAJgB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Oct 2010 05:36:01 -0400
+In-Reply-To: <20100930.173557.108787840.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 30, 2010 at 06:17:16PM -0700, David Miller wrote:
-> From: Nick Bowler <nbowler@elliptictech.com>
-> Date: Wed, 29 Sep 2010 10:22:13 -0400
-> 
-> > b5c15fc004ac83b7ad280acbe0fd4bbed7e2c8d4 is the first bad commit
-> > commit b5c15fc004ac83b7ad280acbe0fd4bbed7e2c8d4
-> > Author: Herbert Xu <herbert@gondor.apana.org.au>
-> > Date:   Thu Feb 14 23:49:37 2008 -0800
-> > 
-> >     [IPV6]: Fix reversed local_df test in ip6_fragment
-> >     
-> >     I managed to reverse the local_df test when forward-porting this
-> >     patch so it actually makes things worse by never fragmenting at
-> >     all.
-> >     
-> >     Thanks to David Stevens for testing and reporting this bug.
-> >     
-> >     Bill Fink pointed out that the local_df setting is also the wrong
-> >     way around.
-> >     
-> >     Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-> >     Signed-off-by: David S. Miller <davem@davemloft.net>
-> 
-> I suspect that Herbert's change is correct, it's just that for some
-> reason PMTU doesn't work correctly with IPV6 for whatever reason.
-> 
-> That matches with your observed behavior that ping and UDP stuff
-> works just fine, and it's just TCP with certain ESP6 transport mode
-> settings.
+Il giorno gio, 30/09/2010 alle 17.35 -0700, David Miller ha scritto:
+>=20
+>=20
+> Please put the break statement inside of the basic block.
+>=20
+> The way you have it here the indentation looks not so nice.=20
 
-Yeah I suspect if you go back even further (before the patch with
-the reversed logic referred to above) that you'll find it to be
-broken again.
+Okay will resend; please do note that I copied the style (and most of
+the code) from dccp anyway.
 
-I'll try to reproduce this but I may not be able to get to it until
-November.
+--=20
+Diego Elio Petten=C3=B2 =E2=80=94 =E2=80=9CFlameeyes=E2=80=9D
+http://blog.flameeyes.eu/
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+If you found a .asc file in this mail and know not what it is,
+it's a GnuPG digital signature: http://www.gnupg.org/
+
+
