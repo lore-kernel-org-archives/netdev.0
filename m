@@ -1,38 +1,44 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 1/2] drivers/net/usb/qcusbnet: Checkpatch cleanups
-Date: Fri, 01 Oct 2010 06:41:59 -0700
-Message-ID: <1285940519.752.10.camel@Joe-Laptop>
-References: <20100928171026.GB6083@google.com>
-	 <cover.1285727642.git.joe@perches.com>
-	 <0aa502d0e385f2333f8bc12dafdcde88e5ca0262.1285727642.git.joe@perches.com>
-	 <4CA5E185.3090902@gmail.com>
+From: Matthew Garrett <mjg59@srcf.ucam.org>
+Subject: Re: [PATCH] Add Qualcomm Gobi 2000 driver.
+Date: Fri, 1 Oct 2010 14:50:52 +0100
+Message-ID: <20101001135052.GA4209@srcf.ucam.org>
+References: <20100928171026.GB6083@google.com> <4CA5E40D.4080507@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: Elly Jones <ellyjones@google.com>, netdev@vger.kernel.org,
-	dbrownell@users.sourceforge.net, mjg59@srcf.ucam.org,
-	jglasgow@google.com, msb@google.com, olofj@google.com
+	dbrownell@users.sourceforge.net, jglasgow@google.com,
+	msb@google.com, olofj@google.com
 To: Paulius Zaleckas <paulius.zaleckas@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:2607 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751210Ab0JANmD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Oct 2010 09:42:03 -0400
-In-Reply-To: <4CA5E185.3090902@gmail.com>
+Received: from cavan.codon.org.uk ([93.93.128.6]:51239 "EHLO
+	cavan.codon.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752635Ab0JANvB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Oct 2010 09:51:01 -0400
+Content-Disposition: inline
+In-Reply-To: <4CA5E40D.4080507@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2010-10-01 at 16:26 +0300, Paulius Zaleckas wrote:
-> On 09/29/2010 05:39 AM, Joe Perches wrote:
-> > Whitespace and removal of KERNEL_VERSION tests
-> > Neaten DBG macro
-> 
-> Why not use dev_dbg istead of this ugly DBG macro?
+On Fri, Oct 01, 2010 at 04:37:17PM +0300, Paulius Zaleckas wrote:
+> On 09/28/2010 08:10 PM, Elly Jones wrote:
+>> From: Elizabeth Jones<ellyjones@google.com>
+>>
+>> This driver is a rewrite of the original Qualcomm GPL driver, released as part
+>> of Qualcomm's "Code Aurora" initiative. The driver has been transformed into
+>> Linux kernel style and made to use kernel APIs where appropriate; some bugs have
+>> also been fixed. Note that the device in question requires firmware and a
+>> firmware loader; the latter has been written by mjg (see
+>> http://www.codon.org.uk/~mjg59/gobi_loader/).
+>
+> Why not use already existing in kernel firmware upload API?
 
-Currently, like a lot of other macros
-in the tree, it uses a runtime flag to
-control output.
+Because chosing the correct firmware requires making a runtime policy 
+decision, the firmware is of variable size (anywhere from 12MB to 16MB) 
+and it needs to be reencoded with something resembling PPP framing 
+before it gets dumped to the device. It's certainly possible to do it 
+in-kernel, but it'd be rather a lot more code and allocating that much 
+unswappable space sounds like something that would make some usecases 
+impossible.
 
-dev_dbg doesn't have that capability.
-
-
+-- 
+Matthew Garrett | mjg59@srcf.ucam.org
