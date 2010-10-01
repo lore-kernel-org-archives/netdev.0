@@ -1,63 +1,57 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: wireless-testing (2.6.36-rc6):  inconsistent {IN-SOFTIRQ-W} ->
- {SOFTIRQ-ON-W} usage.
-Date: Fri, 01 Oct 2010 13:49:49 +0200
-Message-ID: <1285933789.3739.34.camel@jlt3.sipsolutions.net>
-References: <4CA4F000.2060509@candelatech.com>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [MeeGo-Dev][PATCH v3] Topcliff: Update PCH_CAN driver to 2.6.35
+Date: Fri, 01 Oct 2010 14:40:55 +0200
+Message-ID: <4CA5D6D7.3010608@grandegger.com>
+References: <4C9C7C6F.1000003@dsn.okisemi.com>	<4CA4541F.5040804@grandegger.com>
+	<000401cb614f$c932c750$66f8800a@maildom.okisemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	NetDev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4CA4F000.2060509-my8/4N5VtI7c+919tysfdA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	Tomoya MORINAGA <morinaga526-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>,
+	meego-dev-WXzIur8shnEAvxtiuMwx3w@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>,
+	Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+To: Masayuki Ohtake <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <000401cb614f$c932c750$66f8800a-a06+6cuVnkTSQfdrb5gaxUEOCMrvLtNR@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2010-09-30 at 13:16 -0700, Ben Greear wrote:
-> We saw this on a system that has two ath9k APs, some extra routing tables
-> and rules to use them, and a user-space 'bridge' that uses packet-sockets.
+On 10/01/2010 12:02 PM, Masayuki Ohtake wrote:
+> Hi Wolfgang Grandegger,
 > 
-> Aside from a few patches to help virtualize wireless devices (and none directly to ath9k),
-> this is today's wireless-testing tree.
+> Thank you for your comments.
 > 
-> =================================
-> [ INFO: inconsistent lock state ]
-> 2.6.36-rc6-wl+ #20
-> ---------------------------------
-> inconsistent {IN-SOFTIRQ-W} -> {SOFTIRQ-ON-W} usage.
-> kworker/u:0/5 [HC0[0]:SC0[0]:HE1:SE1] takes:
->   (&(&list->lock)->rlock){+.?...}, at: [<c0741066>] packet_rcv+0x1f3/0x27a
+> We will modify and re-post ASAP.
+> 
+> I have a comment about below.
+>> In this driver you are using just *one* RX object. This means that the
+>> CPU must handle new messages as quickly as possible otherwise message
+>> losses will happen, right?. For sure, this will not make user's happy.
+>> Any chance to use more RX objects in FIFO mode?
+> 
+> In case implementing with FIFO mode,
+> received packets may be our of order.
 
-I think this is due to
+Hm, FIFO means "First in First out"! It might be tricky to implement,
+though.
 
-commit 5ed3bc7288487bd4f891f420a07319e0b538b4fe
-Author: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date:   Thu Jun 24 14:38:30 2010 -0400
+> Because our CAN register access is slow.
+> 
+> I am confirming our CAN HW spec and the possibility of our-of-order.
 
-    mac80211: use netif_receive_skb in ieee80211_tx_status callpath
+I don't understand?
 
-
-since
-
-/**
- *      netif_receive_skb - process receive buffer from network
- *      @skb: buffer to process
- *
- *      netif_receive_skb() is the main receive data processing function.
- *      It always succeeds. The buffer may be dropped during processing   
- *      for congestion control or by the protocol layers.
- *
- *      This function may only be called from softirq context and interrupts
- *      should be enabled.
-
-but we don't explicitly disable BHs. I suppose we should impose the same
-on drivers calling ieee80211_tx_status().
-
-johannes
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Wolfgang.
