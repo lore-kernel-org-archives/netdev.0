@@ -1,60 +1,47 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH net-next] nf_nat: make find/put static
-Date: Sat, 2 Oct 2010 14:17:36 +0900
-Message-ID: <20101002141736.0a31bcd7@s6510>
+From: "Mr. Peter Lee" <infovan2@aol.com>
+Subject: Hello Friend
+Date: Sat, 02 Oct 2010 07:33:10 +0800
+Message-ID: <20101002073310.58891eteddty1mt4@webmail.stpeter.com.ph>
+Reply-To: peterlee333@aol.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+	charset=ISO-8859-1;
+	DelSp="Yes";
+	format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>,
-	David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pmx.stpeter.com.ph ([122.52.208.90]:59360 "EHLO
+	pmx.stpeter.com.ph" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751698Ab0JBGu4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Oct 2010 02:50:56 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The functions nf_nat_proto_find_get and nf_nat_proto_put are
-only used internally in nf_nat_core. This might break some out
-of tree NAT module.
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Dear Friend,
 
---- a/include/net/netfilter/nf_nat_protocol.h	2010-10-02 09:01:09.153396885 +0900
-+++ b/include/net/netfilter/nf_nat_protocol.h	2010-10-02 09:01:55.340910304 +0900
-@@ -45,9 +45,6 @@ struct nf_nat_protocol {
- extern int nf_nat_protocol_register(const struct nf_nat_protocol *proto);
- extern void nf_nat_protocol_unregister(const struct nf_nat_protocol *proto);
- 
--extern const struct nf_nat_protocol *nf_nat_proto_find_get(u_int8_t protocol);
--extern void nf_nat_proto_put(const struct nf_nat_protocol *proto);
--
- /* Built-in protocols. */
- extern const struct nf_nat_protocol nf_nat_protocol_tcp;
- extern const struct nf_nat_protocol nf_nat_protocol_udp;
---- a/net/ipv4/netfilter/nf_nat_core.c	2010-10-02 09:01:09.183396507 +0900
-+++ b/net/ipv4/netfilter/nf_nat_core.c	2010-10-02 09:01:55.340910304 +0900
-@@ -47,7 +47,7 @@ __nf_nat_proto_find(u_int8_t protonum)
- 	return rcu_dereference(nf_nat_protos[protonum]);
- }
- 
--const struct nf_nat_protocol *
-+static const struct nf_nat_protocol *
- nf_nat_proto_find_get(u_int8_t protonum)
- {
- 	const struct nf_nat_protocol *p;
-@@ -60,14 +60,12 @@ nf_nat_proto_find_get(u_int8_t protonum)
- 
- 	return p;
- }
--EXPORT_SYMBOL_GPL(nf_nat_proto_find_get);
- 
--void
-+static void
- nf_nat_proto_put(const struct nf_nat_protocol *p)
- {
- 	module_put(p->me);
- }
--EXPORT_SYMBOL_GPL(nf_nat_proto_put);
- 
- /* We keep an extra hash for each conntrack, for fast searching. */
- static inline unsigned int
+I am Mr. Peter Lee a South Korean, happily married with children, and  
+i am a Director of Hang Seng Bank Ltd, in charge of the International  
+Remittance department. I have a confidential business suggestion for  
+you. I will need you to assist me in executing a business project from  
+Hong Kong to your country.
+
+It involves the transfer of a large sum of money. Everything  
+concerning this transaction shall be legally done without hitch.  
+Please endeavour to reply me if interested. Here is my private  
+Email:(peterlee333@aol.com)
+
+Thanks,
+Best Regard,
+Mr. Peter Lee
+
+
+
+
+
+----------------------------------------------------------------
+This message was sent using IMP, the Internet Messaging Program.
+
 
