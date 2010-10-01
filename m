@@ -1,55 +1,79 @@
-From: akpm@linux-foundation.org
-Subject: [patch 2/2] drivers/net/stmmac/: add HAS_IOMEM dependency
-Date: Fri, 01 Oct 2010 14:17:13 -0700
-Message-ID: <201010012117.o91LHDCF021161@imap1.linux-foundation.org>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [patch v2 07/12] [PATCH 07/12] IPVS: Add struct ip_vs_pe
+Date: Sat, 2 Oct 2010 00:45:52 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1010020030590.2320@ja.ssi.bg>
+References: <20101001143517.645421976@akiko.akashicho.tokyo.vergenet.net> <20101001143942.297844368@akiko.akashicho.tokyo.vergenet.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ANSI_X3.4-1968
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
-	peppe.cavallaro@st.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:52013 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756506Ab0JAVR5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Oct 2010 17:17:57 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Jan Engelhardt <jengelh@medozas.de>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20101001143942.297844368@akiko.akashicho.tokyo.vergenet.net>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Martin Schwidefsky <schwidefsky@de.ibm.com>
 
-The stmmac driver does not compile on s390:
+ 	Hello,
 
-drivers/net/stmmac/stmmac_main.c: In function 'stmmac_adjust_link':
-drivers/net/stmmac/stmmac_main.c:210: error: implicit declaration of function 'readl'
-drivers/net/stmmac/stmmac_main.c:263: error: implicit declaration of function 'writel'
-drivers/net/stmmac/stmmac_main.c: In function 'stmmac_dvr_probe':
-drivers/net/stmmac/stmmac_main.c:1674: error: implicit declaration of function 'ioremap'
-drivers/net/stmmac/stmmac_main.c:1674: warning: assignment makes pointer from integer without a cast
-drivers/net/stmmac/stmmac_main.c:1761: error: implicit declaration of function 'iounmap'
-make[3]: *** [drivers/net/stmmac/stmmac_main.o] Error 1
+On Fri, 1 Oct 2010, Simon Horman wrote:
 
-Signed-off-by: Martin Schwidefsky <schwidefsky@de.ibm.com>
-Cc: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Cc: David S. Miller <davem@davemloft.net>
-Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
----
+> ===================================================================
+> --- lvs-test-2.6.orig/net/netfilter/ipvs/ip_vs_conn.c	2010-10-01 22:48:42.000000000 +0900
+> +++ lvs-test-2.6/net/netfilter/ipvs/ip_vs_conn.c	2010-10-01 22:49:15.000000000 +0900
+> @@ -148,6 +148,29 @@ static unsigned int ip_vs_conn_hashkey(i
+> 		& ip_vs_conn_tab_mask;
+> }
+>
+> +static unsigned int ip_vs_conn_hashkey_param(const struct ip_vs_conn_param *p)
+> +{
+> +	if (p->pe && p->pe->hashkey_raw)
+> +		return p->pe->hashkey_raw(p, ip_vs_conn_rnd) &
+> +			ip_vs_conn_tab_mask;
+> +	return ip_vs_conn_hashkey(p->af, p->protocol, p->caddr, p->cport);
+> +}
+> +
+> +static unsigned int ip_vs_conn_hashkey_conn(const struct ip_vs_conn *cp)
+> +{
+> +	struct ip_vs_conn_param p;
+> +
+> +	ip_vs_conn_fill_param(cp->af, cp->protocol, &cp->caddr, cp->cport,
+> +			      NULL, 0, &p);
+> +
 
- drivers/net/stmmac/Kconfig |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ 	cp->dest is optional, line should be
+'if (cp->dest && cp->dest->svc->pe) {':
 
-diff -puN drivers/net/stmmac/Kconfig~drivers-net-stmmac-add-has_iomem-dependency drivers/net/stmmac/Kconfig
---- a/drivers/net/stmmac/Kconfig~drivers-net-stmmac-add-has_iomem-dependency
-+++ a/drivers/net/stmmac/Kconfig
-@@ -3,7 +3,7 @@ config STMMAC_ETH
- 	select MII
- 	select PHYLIB
- 	select CRC32
--	depends on NETDEVICES
-+	depends on NETDEVICES && HAS_IOMEM
- 	help
- 	  This is the driver for the Ethernet IPs are built around a
- 	  Synopsys IP Core and only tested on the STMicroelectronics
-_
+> +	if (cp->dest->svc->pe) {
+> +		p.pe = cp->dest->svc->pe;
+> +		p.pe_data = cp->pe_data;
+> +		p.pe_data_len = cp->pe_data_len;
+> +	}
+> +
+> +	return ip_vs_conn_hashkey_param(&p);
+> +}
+>
+
+
+> @@ -359,7 +387,7 @@ struct ip_vs_conn *ip_vs_conn_out_get(co
+> 	/*
+> 	 *	Check for "full" addressed entries
+> 	 */
+
+ 	Here ip_vs_conn_out_get expects client data in
+p->vaddr and p->vport (was daddr before) but ip_vs_conn_hashkey_param 
+hashes client data from p->caddr and p->cport:
+
+> -	hash = ip_vs_conn_hashkey(p->af, p->protocol, p->vaddr, p->vport);
+> +	hash = ip_vs_conn_hashkey_param(p);
+>
+> 	ct_read_lock(hash);
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
