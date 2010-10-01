@@ -1,26 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/9] Gigaset patches for net-next
-Date: Fri, 01 Oct 2010 00:35:21 -0700 (PDT)
-Message-ID: <20101001.003521.84372356.davem@davemloft.net>
-References: <20100930-patch-gigaset-00.tilman@imap.cc>
+Subject: Re: [PATCH net-next] neigh: reorder fields in struct neighbour
+Date: Fri, 01 Oct 2010 00:37:08 -0700 (PDT)
+Message-ID: <20101001.003708.133896102.davem@davemloft.net>
+References: <1285860989.2615.650.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: isdn@linux-pingi.de, hjlipp@web.de, keil@b1-systems.de,
-	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: tilman@imap.cc
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100930-patch-gigaset-00.tilman@imap.cc>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38997
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752801Ab0JAHgr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Oct 2010 03:36:47 -0400
+In-Reply-To: <1285860989.2615.650.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Tilman Schmidt <tilman@imap.cc>
-Date: Fri,  1 Oct 2010 01:34:20 +0200 (CEST)
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 30 Sep 2010 17:36:29 +0200
 
-> here's a series of nine patches to the Gigaset driver.
-> Please consider for application to net-next-2.6.
-> The first three should also go into -stable and are
-> tagged "CC: stable" accordingly.
+> On 64bit arches, there are two 32bit holes that we can remove.
+> 
+> sizeof(struct neighbour) shrinks from 0xf8 to 0xf0 bytes
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-All applied, thanks Tilman.
+Applied.
