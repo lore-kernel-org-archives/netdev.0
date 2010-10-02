@@ -1,53 +1,33 @@
-From: Nicola Padovano <nicola.padovano@gmail.com>
-Subject: checkentry function
-Date: Sat, 2 Oct 2010 13:59:30 +0200
-Message-ID: <AANLkTimeoRTBMY0OH5sDtVEfqFCx9F3go1qGKy5cJpWS@mail.gmail.com>
+From: Nagendra Tomar <tomer_iisc@yahoo.com>
+Subject: Re: [PATCH 1/2] net: Fix the condition passed to sk_wait_event()
+Date: Sat, 2 Oct 2010 05:08:13 -0700 (PDT)
+Message-ID: <590816.4455.qm@web53707.mail.re2.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netfilter-devel <netfilter-devel@vger.kernel.org>,
-	netdev@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: linux-kernel@vger.kernel.org, davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello there.
-I've written checkentry function to check my new target, in this way:
+This is the first part of the split up patch submitted in http://www.spinics.net/lists/netdev/msg142617.html
 
-[CHECK_ENTRY_CODE]
-static bool xt_tarpit_check(const char *tablename, const void *entry,
-                            const struct xt_target *target, void *targi=
-nfo,
-                            unsigned int hook_mask)
-{
- if (strcmp(tablename, "filter"))   {
-    printk(KERN_INFO "DEBUG: the tablename (not FILTER) is %s\n",tablen=
-ame);
-    return false;
-  }
-return true;
-}
-[/CHECK_ENTRY_CODE]
+This patch fixes the sk_wait_event() condition in the sk_stream_wait_connect() function. With this change, we correctly check for the TCPF_ESTABLISHED and TCPF_CLOSE_WAIT states and avoid potentially returning success when there is an error on the socket.
 
-but it doesn't work.
-In fact if I do:
-
-iptables -A INPUT -t filter -s 192.168.0.1 -p tcp -j TAR
-
-the printk prints this message: DEBUG: the tablename (not FILTER) is: =EF=
-=BF=BD%H =EF=BF=BD
-
-so: in the tablename i haven't the string "filter"...what' the matter?
-
---=20
-Nicola Padovano
-e-mail: nicola.padovano@gmail.com
-web: http://npadovano.altervista.org
-
-"My only ambition is not be anything at all; it seems the most
-sensible thing" (C. Bukowski)
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Nagendra Singh Tomar <tomer_iisc@yahoo.com>
+---
+--- linux-2.6.35.7/net/core/stream.c.orig	2010-03-24 09:30:00.000000000 +0530
++++ linux-2.6.35.7/net/core/stream.c	2010-03-24 09:30:17.000000000 +0530
+@@ -73,9 +73,8 @@ int sk_stream_wait_connect(struct sock *
+ 		prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
+ 		sk->sk_write_pending++;
+ 		done = sk_wait_event(sk, timeo_p,
+-				     !sk->sk_err &&
+-				     !((1 << sk->sk_state) &
+-				       ~(TCPF_ESTABLISHED | TCPF_CLOSE_WAIT)));
++				     ((1 << sk->sk_state) &
++				       (TCPF_ESTABLISHED | TCPF_CLOSE_WAIT)));
+ 		finish_wait(sk_sleep(sk), &wait);
+ 		sk->sk_write_pending--;
+ 	} while (!done);
