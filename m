@@ -1,68 +1,72 @@
-From: "M. Warner Losh" <imp@bsdimp.com>
-Subject: Re: [PATCH v6 0/8] ptp: IEEE 1588 hardware clock support
-Date: Fri, 01 Oct 2010 19:44:50 -0600 (MDT)
-Message-ID: <20101001.194450.1113329769525619655.imp@bsdimp.com>
-References: <20100923223417.4ed62e5b@lxorguk.ukuu.org.uk>
-	<4C9BC7CE.8020400@riesch.at>
-	<alpine.DEB.2.00.1009271035110.9258@router.home>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next 1/4] ipmr: __pim_rcv() is called under
+ rcu_read_lock
+Date: Sat, 02 Oct 2010 04:14:55 +0200
+Message-ID: <1285985695.2582.521.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: christian@riesch.at, giometti@linux.it, peterz@infradead.org,
-	johnstul@us.ibm.com, devicetree-discuss@lists.ozlabs.org,
-	linux-kernel@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-api@vger.kernel.org, tglx@linutronix.de,
-	linuxppc-dev@lists.ozlabs.org, richardcochran@gmail.com,
-	alan@lxorguk.ukuu.org.uk, khc@pm.waw.pl
-To: cl@linux.com
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bsdimp.com ([199.45.160.85]:51185 "EHLO harmony.bsdimp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752396Ab0JBB7U (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Oct 2010 21:59:20 -0400
-In-Reply-To: <alpine.DEB.2.00.1009271035110.9258@router.home>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:54582 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751375Ab0JBCPA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Oct 2010 22:15:00 -0400
+Received: by fxm14 with SMTP id 14so992146fxm.19
+        for <netdev@vger.kernel.org>; Fri, 01 Oct 2010 19:14:59 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In message: <alpine.DEB.2.00.1009271035110.9258@router.home>
-            Christoph Lameter <cl@linux.com> writes:
-: On Thu, 23 Sep 2010, Christian Riesch wrote:
-: 
-: > > > It implies clock tuning in userspace for a potential sub microsecond
-: > > > accurate clock. The clock accuracy will be limited by user space
-: > > > latencies and noise. You wont be able to discipline the system clock
-: > > > accurately.
-: > >
-: > > Noise matters, latency doesn't.
-: >
-: > Well put! That's why we need hardware support for PTP timestamping to reduce
-: > the noise, but get along well with the clock servo that is steering the PHC in
-: > user space.
-: 
-: Even if I buy into the catch phrase above: User space is subject to noise
-: that the in kernel code is not. If you do the tuning over long intervals
-: then it hopefully averages out but it still causes jitter effects that
-: affects the degree of accuracy (or sync) that you can reach. And the noise
-: varies with the load on the system.
+No need to get a reference on reg_dev and release it, we are in a
+rcu_read_lock() protected section.
 
-Please see the earlier posts in this thread about why this doesn't
-matter as much as you might think.  What matters is the measurements
-(which are done in hardware and the results buffered), not the latency
-in processing those messages through your servo.  This is due to the
-fact that the errors that even long latencies introduce are
-proportional to the change in fractional frequency[*] of the clock being
-steered.  This change is usually on the order of a part per million.
-Even with 10ms of latency would mean that you're introducing on the
-order of sub-nanoseconds of phase error that will be measured in the
-next cycle and steered out.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/ipv4/ipmr.c |   10 ++++------
+ 1 file changed, 4 insertions(+), 6 deletions(-)
 
-That's why latency doesn't matter.  Do you have other math to show
-that it does?
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index 10b24c0..1a92ebd 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -1805,6 +1805,7 @@ dont_forward:
+ }
+ 
+ #ifdef CONFIG_IP_PIMSM
++/* called with rcu_read_lock() */
+ static int __pim_rcv(struct mr_table *mrt, struct sk_buff *skb,
+ 		     unsigned int pimlen)
+ {
+@@ -1826,26 +1827,23 @@ static int __pim_rcv(struct mr_table *mrt, struct sk_buff *skb,
+ 	read_lock(&mrt_lock);
+ 	if (mrt->mroute_reg_vif_num >= 0)
+ 		reg_dev = mrt->vif_table[mrt->mroute_reg_vif_num].dev;
+-	if (reg_dev)
+-		dev_hold(reg_dev);
+ 	read_unlock(&mrt_lock);
+ 
+ 	if (reg_dev == NULL)
+ 		return 1;
+ 
+ 	skb->mac_header = skb->network_header;
+-	skb_pull(skb, (u8*)encap - skb->data);
++	skb_pull(skb, (u8 *)encap - skb->data);
+ 	skb_reset_network_header(skb);
+ 	skb->protocol = htons(ETH_P_IP);
+-	skb->ip_summed = 0;
++	skb->ip_summed = CHECKSUM_NONE;
+ 	skb->pkt_type = PACKET_HOST;
+ 
+ 	skb_tunnel_rx(skb, reg_dev);
+ 
+ 	netif_rx(skb);
+-	dev_put(reg_dev);
+ 
+-	return 0;
++	return NET_RX_SUCCESS;
+ }
+ #endif
+ 
 
-Warner
 
-[*] abs(1 - (clock_freq_old / clock_freq_new)) where clock_freq_old is
-the old estimate of the clock and clock_freq_new is the new frequency
-estimate of the clock.  Second to second, these change on the order of
-a part per million or less...
