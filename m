@@ -1,63 +1,87 @@
-From: Nicola Padovano <nicola.padovano@gmail.com>
-Subject: Re: problem with flowi structure
-Date: Sat, 2 Oct 2010 10:08:56 +0200
-Message-ID: <AANLkTinObV+176prSdCL0RoVx7a74quUM5H58xR2_WLG@mail.gmail.com>
-References: <AANLkTi=bGsvMqnTSanA73FhDH_DashmXTcA1sddtj0P6@mail.gmail.com>
- <1284650768.3352.37.camel@edumazet-laptop> <AANLkTimo1AeBS3rpQj0KtZL15Ct-DGTQMBUsL8hrVNOL@mail.gmail.com>
- <1284652453.3352.38.camel@edumazet-laptop> <AANLkTi=Y7beG4vPDx5eNg-gTN1CVg_G=1+dWwi2Xd2-R@mail.gmail.com>
- <AANLkTim7TeMCG9RQyrrk8WS4+S_y1q06+8FG2-X=1cB-@mail.gmail.com>
- <AANLkTimpnqNSE21u=2qjb5VGJrn_3_--Bqp4veCNXMPE@mail.gmail.com>
- <1284714533.3391.53.camel@edumazet-laptop> <AANLkTi=r__RA=5UfNnhsKizDF6OFVYXcSe9KOPx1zW0u@mail.gmail.com>
- <1284741295.3391.100.camel@edumazet-laptop> <AANLkTi=t2=jqu3XCC-3LK7x1_icke168Bqt-kmds6eOt@mail.gmail.com>
- <1284745887.2235.7.camel@edumazet-laptop> <AANLkTinx_18cVq52tmC0-g0qLYXJ5c_u9aad_rz_p2ND@mail.gmail.com>
- <1284746879.2235.9.camel@edumazet-laptop> <AANLkTi=hXc_ijNgxW+Q6jkRP_T1zjyy2mvKAdTSgeh7w@mail.gmail.com>
- <alpine.LNX.2.01.1010020146440.26371@obet.zrqbmnf.qr>
+From: Nagendra Tomar <tomer_iisc@yahoo.com>
+Subject: Re: [PATCH 2.6.35.7] net: Fix the condition passed to sk_wait_event()
+Date: Sat, 2 Oct 2010 01:22:16 -0700 (PDT)
+Message-ID: <667106.4951.qm@web53706.mail.re2.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	AIJAZ BAIG <aijazbaig1@gmail.com>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.01.1010020146440.26371@obet.zrqbmnf.qr>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: davem@davemloft.net, linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from web53706.mail.re2.yahoo.com ([206.190.37.27]:34218 "HELO
+	web53706.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751507Ab0JBIWR convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 2 Oct 2010 04:22:17 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-i.e. like a wildcard?
-
-On Sat, Oct 2, 2010 at 1:46 AM, Jan Engelhardt <jengelh@medozas.de> wro=
-te:
->
-> On Friday 2010-09-17 20:25, Nicola Padovano wrote:
->>
->>[CODE]
->>if (hooknumber =3D=3D NF_INET_LOCAL_IN) fl.nl_u.ip4_u.saddr =3D niph-=
->saddr;
->> =A0//niph is the pointer to ip header of the packet to send
->>if (hooknumber =3D=3D NF_INET_FORWARD) fl.nl_u.ip4_u.saddr =3D 0;
->>[/CODE]
->>
->>so, i don't understand why saddr =3D 0 when the hooknumber is NF_INET=
-_FORWARD....
->>
->>this is the real problem.
->
-> 0 is automatic address selection.
->
+Resending ...
 
 
+The condition (3rd arg) passed to sk_wait_event() in sk_stream_wait_memory() and sk_stream_wait_connect() are incorrect.
+The incorrect check in sk_stream_wait_memory() causes the following soft lockup in tcp_sendmsg() when the global tcp memory pool has exhausted. The check in sk_stream_wait_connect() was found by code audit.
+   
 
---=20
-Nicola Padovano
-e-mail: nicola.padovano@gmail.com
-web: http://npadovano.altervista.org
+>>> snip <<<
 
-"My only ambition is not be anything at all; it seems the most
-sensible thing" (C. Bukowski)
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+localhost kernel: BUG: soft lockup - CPU#3 stuck for 11s! [sshd:6429]
+localhost kernel: CPU 3:
+localhost kernel: RIP: 0010:[sk_stream_wait_memory+0xcd/0x200]  [sk_stream_wait_memory+0xcd/0x200] sk_stream_wait_memory+0xcd/0x200
+localhost kernel: Call Trace:
+localhost kernel:  [sk_stream_wait_memory+0x1b1/0x200] sk_stream_wait_memory+0x1b1/0x200
+localhost kernel:  [<ffffffff802557c0>] autoremove_wake_function+0x0/0x40
+localhost kernel:  [ipv6:tcp_sendmsg+0x6e6/0xe90] tcp_sendmsg+0x6e6/0xce0
+localhost kernel:  [sock_aio_write+0x126/0x140] sock_aio_write+0x126/0x140
+localhost kernel:  [xfs:do_sync_write+0xf1/0x130] do_sync_write+0xf1/0x130
+localhost kernel:  [<ffffffff802557c0>] autoremove_wake_function+0x0/0x40
+localhost kernel:  [hrtimer_start+0xe3/0x170] hrtimer_start+0xe3/0x170
+localhost kernel:  [vfs_write+0x185/0x190] vfs_write+0x185/0x190
+localhost kernel:  [sys_write+0x50/0x90] sys_write+0x50/0x90
+localhost kernel:  [system_call+0x7e/0x83] system_call+0x7e/0x83
+
+>>> snip <<<
+
+What is happening is, that the sk_wait_event() condition passed from
+sk_stream_wait_memory() evaluates to true for the case of tcp global memory
+exhaustion. This is because both sk_stream_memory_free() and vm_wait are true which causes sk_wait_event() to *not* call schedule_timeout(). 
+Hence sk_stream_wait_memory() returns immediately to the caller w/o sleeping.
+This causes the caller to again try allocation, which again fails and again
+calls sk_stream_wait_memory(), and so on.
+
+
+Signed-off-by: Nagendra Singh Tomar <tomer_iisc@yahoo.com>
+---
+--- linux-2.6.35.7/net/core/stream.c.orig	2010-03-23 23:46:45.000000000 +0530
++++ linux-2.6.35.7/net/core/stream.c	2010-03-24 00:21:09.000000000 +0530
+@@ -73,9 +73,8 @@ int sk_stream_wait_connect(struct sock *
+ 		prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
+ 		sk->sk_write_pending++;
+ 		done = sk_wait_event(sk, timeo_p,
+-				     !sk->sk_err &&
+-				     !((1 << sk->sk_state) &
+-				       ~(TCPF_ESTABLISHED | TCPF_CLOSE_WAIT)));
++				     ((1 << sk->sk_state) &
++				       (TCPF_ESTABLISHED | TCPF_CLOSE_WAIT)));
+ 		finish_wait(sk_sleep(sk), &wait);
+ 		sk->sk_write_pending--;
+ 	} while (!done);
+@@ -144,10 +143,9 @@ int sk_stream_wait_memory(struct sock *s
+ 
+ 		set_bit(SOCK_NOSPACE, &sk->sk_socket->flags);
+ 		sk->sk_write_pending++;
+-		sk_wait_event(sk, &current_timeo, !sk->sk_err &&
+-						  !(sk->sk_shutdown & SEND_SHUTDOWN) &&
+-						  sk_stream_memory_free(sk) &&
+-						  vm_wait);
++		sk_wait_event(sk, &current_timeo, sk->sk_err ||
++						  (sk->sk_shutdown & SEND_SHUTDOWN) ||
++						  (sk_stream_memory_free(sk) && !vm_wait));
+ 		sk->sk_write_pending--;
+ 
+ 		if (vm_wait) {
+
+
+
+
+      
