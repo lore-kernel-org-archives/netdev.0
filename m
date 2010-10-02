@@ -1,17 +1,17 @@
 From: "Dr. Raymond Kuo Fung CH'IEN." <kabirefl@epylliongroup.com>
 Subject: Urgent Write Back
-Date: Sat, 2 Oct 2010 22:12:21 +0600 (BDT)
-Message-ID: <50805.174.143.202.39.1286035941.squirrel__16240.0842913941$1286037411$gmane$org@mail.epylliongroup.com>
+Date: Sat, 2 Oct 2010 23:02:55 +0600 (BDT)
+Message-ID: <58449.174.143.202.39.1286038975.squirrel__31111.5886005156$1286040338$gmane$org@mail.epylliongroup.com>
 Reply-To: drraymondkuochien@w.cn
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7BIT
 To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.epylliongroup.com ([202.4.122.34]:54268 "EHLO
+Received: from mail.epylliongroup.com ([202.4.122.34]:60235 "EHLO
 	mail.epylliongroup.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752682Ab0JBQg0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Oct 2010 12:36:26 -0400
+	with ESMTP id S1750902Ab0JBRZH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Oct 2010 13:25:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
