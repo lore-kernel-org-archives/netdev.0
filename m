@@ -1,47 +1,51 @@
-From: "Mr. Peter Lee" <infovan2@aol.com>
-Subject: Hello Friend
-Date: Sat, 02 Oct 2010 07:33:10 +0800
-Message-ID: <20101002073310.58891eteddty1mt4@webmail.stpeter.com.ph>
-Reply-To: peterlee333@aol.com
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [patch v2 03/12] [PATCH 03/12] IPVS: compact
+ ip_vs_sched_persist()
+Date: Sat, 2 Oct 2010 10:56:19 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1010021048260.1814@ja.ssi.bg>
+References: <20101001143517.645421976@akiko.akashicho.tokyo.vergenet.net> <20101001143941.949669349@akiko.akashicho.tokyo.vergenet.net> <alpine.LFD.2.00.1010020129400.2462@ja.ssi.bg> <20101002022050.GA16593@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=ISO-8859-1;
-	DelSp="Yes";
-	format="flowed"
-Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pmx.stpeter.com.ph ([122.52.208.90]:59360 "EHLO
-	pmx.stpeter.com.ph" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751698Ab0JBGu4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Oct 2010 02:50:56 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Jan Engelhardt <jengelh@medozas.de>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20101002022050.GA16593@verge.net.au>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-Dear Friend,
+ 	Hello,
 
-I am Mr. Peter Lee a South Korean, happily married with children, and  
-i am a Director of Hang Seng Bank Ltd, in charge of the International  
-Remittance department. I have a confidential business suggestion for  
-you. I will need you to assist me in executing a business project from  
-Hong Kong to your country.
+On Sat, 2 Oct 2010, Simon Horman wrote:
 
-It involves the transfer of a large sum of money. Everything  
-concerning this transaction shall be legally done without hitch.  
-Please endeavour to reply me if interested. Here is my private  
-Email:(peterlee333@aol.com)
+>> 	Here dport:
+>>
+>>> +	dport = dest->port;
+>>
+>> 	should be:
+>>
+>> 	dport = ports[1];
+>> 	if (dport == svc->port && dest->port)
+>> 		dport = dest->port;
+>
+> Thanks, fixed.
 
-Thanks,
-Best Regard,
-Mr. Peter Lee
+ 	I'm still wondering, may be it needs separate patch
+but we do not support NAT to different dest->port in the
+case for fwmark. May be the above logic can be changed to
+support it. By this way web to different VIPs and VPORTs
+in a single virtual service (fwmark) can use single NAT
+real server for name-based virtual hosting. But such change
+can create compatibility problems for setups that used
+different vports for the fwmark service and still expect
+it in that way (vport to same dport).
 
+Regards
 
-
-
-
-----------------------------------------------------------------
-This message was sent using IMP, the Internet Messaging Program.
-
-
+--
+Julian Anastasov <ja@ssi.bg>
