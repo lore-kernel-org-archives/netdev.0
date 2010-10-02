@@ -1,72 +1,56 @@
 From: Nagendra Tomar <tomer_iisc@yahoo.com>
-Subject: [PATCH 2/2] net: Fix the condition passed to sk_wait_event()
-Date: Sat, 2 Oct 2010 16:51:13 -0700 (PDT)
-Message-ID: <380276.68827.qm@web53703.mail.re2.yahoo.com>
+Subject: Re: [PATCH 1/2] net: Fix the condition passed to sk_wait_event()
+Date: Sat, 2 Oct 2010 16:54:23 -0700 (PDT)
+Message-ID: <970819.25375.qm@web53706.mail.re2.yahoo.com>
+References: <20101002.132659.71124680.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-Cc: linux-kernel@vger.kernel.org, davem@davemloft.net
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20101002.132659.71124680.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch fixes the condition (3rd arg) passed to sk_wait_event() in 
-sk_stream_wait_memory(). The incorrect check in sk_stream_wait_memory() 
-causes the following soft lockup in tcp_sendmsg() when the global tcp 
-memory pool has exhausted. 
+Dave,
+     I had done the exercise of sending the patch to myself and applyin=
+g it (copy-pasting just the patch). One thing that I see is the long li=
+ne in the description. If you are referring to that, I've fixed it and =
+submitted it again. If not this, I'm at loss.
 
->>> snip <<<
+Thanks,
+Tomar
 
-localhost kernel: BUG: soft lockup - CPU#3 stuck for 11s! [sshd:6429]
-localhost kernel: CPU 3:
-localhost kernel: RIP: 0010:[sk_stream_wait_memory+0xcd/0x200]  [sk_stream_wait_memory+0xcd/0x200] sk_stream_wait_memory+0xcd/0x200
-localhost kernel: 
-localhost kernel: Call Trace:
-localhost kernel:  [sk_stream_wait_memory+0x1b1/0x200] sk_stream_wait_memory+0x1b1/0x200
-localhost kernel:  [<ffffffff802557c0>] autoremove_wake_function+0x0/0x40
-localhost kernel:  [ipv6:tcp_sendmsg+0x6e6/0xe90] tcp_sendmsg+0x6e6/0xce0
-localhost kernel:  [sock_aio_write+0x126/0x140] sock_aio_write+0x126/0x140
-localhost kernel:  [xfs:do_sync_write+0xf1/0x130] do_sync_write+0xf1/0x130
-localhost kernel:  [<ffffffff802557c0>] autoremove_wake_function+0x0/0x40
-localhost kernel:  [hrtimer_start+0xe3/0x170] hrtimer_start+0xe3/0x170
-localhost kernel:  [vfs_write+0x185/0x190] vfs_write+0x185/0x190
-localhost kernel:  [sys_write+0x50/0x90] sys_write+0x50/0x90
-localhost kernel:  [system_call+0x7e/0x83] system_call+0x7e/0x83
+--- On Sun, 3/10/10, David Miller <davem@davemloft.net> wrote:
 
->>> snip <<<
-
-
-What is happening is, that the sk_wait_event() condition passed from
-sk_stream_wait_memory() evaluates to true for the case of tcp global memory
-exhaustion. This is because both sk_stream_memory_free() and vm_wait are true
-which causes sk_wait_event() to *not* call schedule_timeout(). 
-Hence sk_stream_wait_memory() returns immediately to the caller w/o sleeping.
-This causes the caller to again try allocation, which again fails and again
-calls sk_stream_wait_memory(), and so on.
-
-
-Signed-off-by: Nagendra Singh Tomar <tomer_iisc@xxxxxxxxx>
----
---- linux-2.6.35.7/net/core/stream.c.orig	2010-03-24 09:31:00.000000000 +0530
-+++ linux-2.6.35.7/net/core/stream.c	2010-03-24 09:31:08.000000000 +0530
-@@ -143,10 +143,9 @@ int sk_stream_wait_memory(struct sock *s
- 
- 		set_bit(SOCK_NOSPACE, &sk->sk_socket->flags);
- 		sk->sk_write_pending++;
--		sk_wait_event(sk, &current_timeo, !sk->sk_err &&
--						  !(sk->sk_shutdown & SEND_SHUTDOWN) &&
--						  sk_stream_memory_free(sk) &&
--						  vm_wait);
-+		sk_wait_event(sk, &current_timeo, sk->sk_err ||
-+						  (sk->sk_shutdown & SEND_SHUTDOWN) ||
-+						  (sk_stream_memory_free(sk) && !vm_wait));
- 		sk->sk_write_pending--;
- 
- 		if (vm_wait) {
-
----
+> From: David Miller <davem@davemloft.net>
+> Subject: Re: [PATCH 1/2] net: Fix the condition passed to sk_wait_eve=
+nt()
+> To: tomer_iisc@yahoo.com
+> Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+> Date: Sunday, 3 October, 2010, 1:56
+>=20
+> Your patch is still corrupted, your email client is
+> splitting up
+> long lines.
+>=20
+> Please, save us a lot of time by test emailing the patch to
+> yourself,
+> and then trying to apply the patch as you receive it.=A0
+> Do this until
+> you're fixed all of the formatting problems and then you
+> can send it
+> here.
+>=20
+> Do not resend the patch by simply replying again to this
+> thread,
+> send a fresh posting so that "Re: " doesn't show up in the
+> subject
+> and this way I can apply it directly without any editing.
+>=20
+> Thank you.
+>=20
 
 
-
-      
+     =20
