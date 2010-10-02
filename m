@@ -1,31 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: problem with flowi structure
-Date: Sat, 02 Oct 2010 13:18:29 -0700 (PDT)
-Message-ID: <20101002.131829.193723323.davem@davemloft.net>
-References: <AANLkTi=hXc_ijNgxW+Q6jkRP_T1zjyy2mvKAdTSgeh7w@mail.gmail.com>
-	<alpine.LNX.2.01.1010020146440.26371@obet.zrqbmnf.qr>
-	<AANLkTinObV+176prSdCL0RoVx7a74quUM5H58xR2_WLG@mail.gmail.com>
+Subject: Re: [PATCH 1/2] net: Fix the condition passed to sk_wait_event()
+Date: Sat, 02 Oct 2010 13:26:59 -0700 (PDT)
+Message-ID: <20101002.132659.71124680.davem@davemloft.net>
+References: <590816.4455.qm@web53707.mail.re2.yahoo.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jengelh@medozas.de, eric.dumazet@gmail.com, aijazbaig1@gmail.com,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: nicola.padovano@gmail.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTinObV+176prSdCL0RoVx7a74quUM5H58xR2_WLG@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: tomer_iisc@yahoo.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52662
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751362Ab0JBU0i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Oct 2010 16:26:38 -0400
+In-Reply-To: <590816.4455.qm@web53707.mail.re2.yahoo.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Nicola Padovano <nicola.padovano@gmail.com>
-Date: Sat, 2 Oct 2010 10:08:56 +0200
 
-> i.e. like a wildcard?
+Your patch is still corrupted, your email client is splitting up
+long lines.
 
-Please do not top-post, because when you top-post people need
-to scroll down and read the context you're replying to, then
-scroll back up to read your reply.
+Please, save us a lot of time by test emailing the patch to yourself,
+and then trying to apply the patch as you receive it.  Do this until
+you're fixed all of the formatting problems and then you can send it
+here.
 
-If, instead of top-posting, you reply after the context you're
-replying to, people need to do less work to read your email.
+Do not resend the patch by simply replying again to this thread,
+send a fresh posting so that "Re: " doesn't show up in the subject
+and this way I can apply it directly without any editing.
 
-Thanks.
+Thank you.
