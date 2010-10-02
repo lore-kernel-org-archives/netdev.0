@@ -1,162 +1,68 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [patch v2 08/12] [PATCH 08/12] IPVS: Add persistence engine
- data to /proc/net/ip_vs_conn
-Date: Sat, 2 Oct 2010 10:58:57 +0900
-Message-ID: <20101002015857.GF2235@verge.net.au>
-References: <20101001143517.645421976@akiko.akashicho.tokyo.vergenet.net>
- <20101001143942.382352880@akiko.akashicho.tokyo.vergenet.net>
- <alpine.LFD.2.00.1010020048030.2462@ja.ssi.bg>
+From: "M. Warner Losh" <imp@bsdimp.com>
+Subject: Re: [PATCH v6 0/8] ptp: IEEE 1588 hardware clock support
+Date: Fri, 01 Oct 2010 19:44:50 -0600 (MDT)
+Message-ID: <20101001.194450.1113329769525619655.imp@bsdimp.com>
+References: <20100923223417.4ed62e5b@lxorguk.ukuu.org.uk>
+	<4C9BC7CE.8020400@riesch.at>
+	<alpine.DEB.2.00.1009271035110.9258@router.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Jan Engelhardt <jengelh@medozas.de>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Julian Anastasov <ja@ssi.bg>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: christian@riesch.at, giometti@linux.it, peterz@infradead.org,
+	johnstul@us.ibm.com, devicetree-discuss@lists.ozlabs.org,
+	linux-kernel@vger.kernel.org, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-api@vger.kernel.org, tglx@linutronix.de,
+	linuxppc-dev@lists.ozlabs.org, richardcochran@gmail.com,
+	alan@lxorguk.ukuu.org.uk, khc@pm.waw.pl
+To: cl@linux.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:55532 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751939Ab0JBB7B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Oct 2010 21:59:01 -0400
-Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.00.1010020048030.2462@ja.ssi.bg>
+Received: from bsdimp.com ([199.45.160.85]:51185 "EHLO harmony.bsdimp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752396Ab0JBB7U (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Oct 2010 21:59:20 -0400
+In-Reply-To: <alpine.DEB.2.00.1009271035110.9258@router.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Oct 02, 2010 at 12:50:09AM +0300, Julian Anastasov wrote:
-> 
-> 	Hello,
-> 
-> On Fri, 1 Oct 2010, Simon Horman wrote:
-> 
-> >Index: lvs-test-2.6/net/netfilter/ipvs/ip_vs_conn.c
-> >===================================================================
-> >--- lvs-test-2.6.orig/net/netfilter/ipvs/ip_vs_conn.c	2010-10-01 22:27:17.000000000 +0900
-> >+++ lvs-test-2.6/net/netfilter/ipvs/ip_vs_conn.c	2010-10-01 22:27:32.000000000 +0900
-> >@@ -938,30 +938,44 @@ static int ip_vs_conn_seq_show(struct se
-> >
-> >	if (v == SEQ_START_TOKEN)
-> >		seq_puts(seq,
-> >-   "Pro FromIP   FPrt ToIP     TPrt DestIP   DPrt State       Expires\n");
-> >+   "Pro FromIP   FPrt ToIP     TPrt DestIP   DPrt State       Expires PEName PEData\n");
-> >	else {
-> >		const struct ip_vs_conn *cp = v;
-> >+		char pe_data[IP_VS_PENAME_MAXLEN + IP_VS_PEDATA_MAXLEN + 3];
-> >+		size_t len = 0;
-> >+
-> 
-> 	Add check for cp->dest, it is optional:
+In message: <alpine.DEB.2.00.1009271035110.9258@router.home>
+            Christoph Lameter <cl@linux.com> writes:
+: On Thu, 23 Sep 2010, Christian Riesch wrote:
+: 
+: > > > It implies clock tuning in userspace for a potential sub microsecond
+: > > > accurate clock. The clock accuracy will be limited by user space
+: > > > latencies and noise. You wont be able to discipline the system clock
+: > > > accurately.
+: > >
+: > > Noise matters, latency doesn't.
+: >
+: > Well put! That's why we need hardware support for PTP timestamping to reduce
+: > the noise, but get along well with the clock servo that is steering the PHC in
+: > user space.
+: 
+: Even if I buy into the catch phrase above: User space is subject to noise
+: that the in kernel code is not. If you do the tuning over long intervals
+: then it hopefully averages out but it still causes jitter effects that
+: affects the degree of accuracy (or sync) that you can reach. And the noise
+: varies with the load on the system.
 
-Done.
+Please see the earlier posts in this thread about why this doesn't
+matter as much as you might think.  What matters is the measurements
+(which are done in hardware and the results buffered), not the latency
+in processing those messages through your servo.  This is due to the
+fact that the errors that even long latencies introduce are
+proportional to the change in fractional frequency[*] of the clock being
+steered.  This change is usually on the order of a part per million.
+Even with 10ms of latency would mean that you're introducing on the
+order of sub-nanoseconds of phase error that will be measured in the
+next cycle and steered out.
 
-> >+		if (cp->dest->svc->pe && cp->dest->svc->pe->show_pe_data) {
-> >+			pe_data[0] = ' ';
-> >+			len = strlen(cp->dest->svc->pe->name);
-> >+			memcpy(pe_data + 1, cp->dest->svc->pe->name, len);
-> >+			pe_data[len + 1] = ' ';
-> >+			len += 2;
-> >+			len += cp->dest->svc->pe->show_pe_data(cp,
-> >+							       pe_data + len);
-> >+		}
-> >+		pe_data[len] = '\0';
-> 
+That's why latency doesn't matter.  Do you have other math to show
+that it does?
 
-I will repost the entire series a little later.
-For reference here is the updated patch.
+Warner
 
->From bee0c73040b632723ff7a058f61a79063b18e882 Mon Sep 17 00:00:00 2001
-From: Simon Horman <horms@verge.net.au>
-Date: Sun, 22 Aug 2010 21:37:53 +0900
-Subject: [patch v2.1 08/12] IPVS: Add persistence engine data to /proc/net/ip_vs_conn
-
-This shouldn't break compatibility with userspace as the new data
-is at the end of the line.
-
-I have confirmed that this doesn't break ipvsadm, the main (only?)
-user-space user of this data.
-
-Signed-off-by: Simon Horman <horms@verge.net.au>
-
----
-
-* Jan Engelhardt suggested using netlink to do this, but it seems like
-  overkill to me. I'm willing to be convinced otherwise.
-
-v2
-* Trivial rediff
-
-v2.1
-* As suggested by Julian Anastasov
-  - ip_vs_conn_seq_show(): cp->dest is optional
-    so test for its presence accordingly
-  - Re-diff for addition of inverse parameter to ip_vs_conn_hashkey_param()
-
-Index: lvs-test-2.6/include/net/ip_vs.h
-===================================================================
---- lvs-test-2.6.orig/include/net/ip_vs.h	2010-10-02 10:55:43.000000000 +0900
-+++ lvs-test-2.6/include/net/ip_vs.h	2010-10-02 10:55:49.000000000 +0900
-@@ -572,6 +572,7 @@ struct ip_vs_pe {
- 			 struct ip_vs_conn *ct);
- 	u32 (*hashkey_raw)(const struct ip_vs_conn_param *p, u32 initval,
- 			   bool inverse);
-+	int (*show_pe_data)(const struct ip_vs_conn *cp, char *buf);
- };
- 
- /*
-Index: lvs-test-2.6/net/netfilter/ipvs/ip_vs_conn.c
-===================================================================
---- lvs-test-2.6.orig/net/netfilter/ipvs/ip_vs_conn.c	2010-10-02 10:55:43.000000000 +0900
-+++ lvs-test-2.6/net/netfilter/ipvs/ip_vs_conn.c	2010-10-02 10:57:00.000000000 +0900
-@@ -950,30 +950,45 @@ static int ip_vs_conn_seq_show(struct se
- 
- 	if (v == SEQ_START_TOKEN)
- 		seq_puts(seq,
--   "Pro FromIP   FPrt ToIP     TPrt DestIP   DPrt State       Expires\n");
-+   "Pro FromIP   FPrt ToIP     TPrt DestIP   DPrt State       Expires PEName PEData\n");
- 	else {
- 		const struct ip_vs_conn *cp = v;
-+		char pe_data[IP_VS_PENAME_MAXLEN + IP_VS_PEDATA_MAXLEN + 3];
-+		size_t len = 0;
-+
-+		if (cp->dest && cp->dest->svc->pe &&
-+		    cp->dest->svc->pe->show_pe_data) {
-+			pe_data[0] = ' ';
-+			len = strlen(cp->dest->svc->pe->name);
-+			memcpy(pe_data + 1, cp->dest->svc->pe->name, len);
-+			pe_data[len + 1] = ' ';
-+			len += 2;
-+			len += cp->dest->svc->pe->show_pe_data(cp,
-+							       pe_data + len);
-+		}
-+		pe_data[len] = '\0';
- 
- #ifdef CONFIG_IP_VS_IPV6
- 		if (cp->af == AF_INET6)
--			seq_printf(seq, "%-3s %pI6 %04X %pI6 %04X %pI6 %04X %-11s %7lu\n",
-+			seq_printf(seq, "%-3s %pI6 %04X %pI6 %04X "
-+				"%pI6 %04X %-11s %7lu%s\n",
- 				ip_vs_proto_name(cp->protocol),
- 				&cp->caddr.in6, ntohs(cp->cport),
- 				&cp->vaddr.in6, ntohs(cp->vport),
- 				&cp->daddr.in6, ntohs(cp->dport),
- 				ip_vs_state_name(cp->protocol, cp->state),
--				(cp->timer.expires-jiffies)/HZ);
-+				(cp->timer.expires-jiffies)/HZ, pe_data);
- 		else
- #endif
- 			seq_printf(seq,
- 				"%-3s %08X %04X %08X %04X"
--				" %08X %04X %-11s %7lu\n",
-+				" %08X %04X %-11s %7lu%s\n",
- 				ip_vs_proto_name(cp->protocol),
- 				ntohl(cp->caddr.ip), ntohs(cp->cport),
- 				ntohl(cp->vaddr.ip), ntohs(cp->vport),
- 				ntohl(cp->daddr.ip), ntohs(cp->dport),
- 				ip_vs_state_name(cp->protocol, cp->state),
--				(cp->timer.expires-jiffies)/HZ);
-+				(cp->timer.expires-jiffies)/HZ, pe_data);
- 	}
- 	return 0;
- }
+[*] abs(1 - (clock_freq_old / clock_freq_new)) where clock_freq_old is
+the old estimate of the clock and clock_freq_new is the new frequency
+estimate of the clock.  Second to second, these change on the order of
+a part per million or less...
