@@ -1,261 +1,102 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [patch v3 12/12] IPVS: sip persistence engine
-Date: Sat, 02 Oct 2010 11:31:08 +0900
-Message-ID: <20101002023315.588381563@akiko.akashicho.tokyo.vergenet.net>
-References: <20101002023056.536217499@akiko.akashicho.tokyo.vergenet.net>
-Cc: Jan Engelhardt <jengelh@medozas.de>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>, Patrick McHardy <kaber@trash.net>
-To: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter@vger.kernel.org, netfilter-devel@vger.kernel.org
+From: Nagendra Tomar <tomer_iisc@yahoo.com>
+Subject: [PATCH 2.6.35.7] net: Fix the condition passed to sk_wait_event()
+Date: Fri, 1 Oct 2010 19:55:42 -0700 (PDT)
+Message-ID: <563428.39597.qm@web53703.mail.re2.yahoo.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:53602 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752126Ab0JBCp4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Oct 2010 22:45:56 -0400
-Content-Disposition: inline; filename=0012-IPVS-sip-persistence-engine.patch
+Received: from web53703.mail.re2.yahoo.com ([206.190.37.24]:41912 "HELO
+	web53703.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753002Ab0JBDCW convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Oct 2010 23:02:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add the SIP callid as a key for persistence.
 
-This allows multiple connections from the same IP address to be
-differentiated on the basis of the callid.
 
-When used in conjunction with the persistence mask, it allows connections
-from different  IP addresses to be aggregated on the basis of the callid.
+The condition (3rd arg) passed to sk_wait_event() in sk_stream_wait_mem=
+ory() and=20
+sk_stream_wait_connect() are incorrect.
+The incorrect check in sk_stream_wait_memory() causes the following sof=
+t lockup=20
+in tcp_sendmsg() when the global tcp memory pool has exhausted. The che=
+ck in=20
+sk_stream_wait_connect() was found by code audit.
+=A0=A0=20
+>>> snip <<<
+localhost kernel: BUG: soft lockup - CPU#3 stuck for 11s! [sshd:6429]
+localhost kernel: CPU 3:
+localhost kernel:=20
+localhost kernel: Call Trace:
+localhost kernel:=A0 [sk_stream_wait_memory+0x1b1/0x200]=20
+sk_stream_wait_memory+0x1b1/0x200
+localhost kernel:=A0 [<ffffffff802557c0>] autoremove_wake_function+0x0/=
+0x40
+localhost kernel:=A0 [ipv6:tcp_sendmsg+0x6e6/0xe90] tcp_sendmsg+0x6e6/0=
+xce0
+localhost kernel:=A0 [sock_aio_write+0x126/0x140] sock_aio_write+0x126/=
+0x140
+localhost kernel:=A0 [xfs:do_sync_write+0xf1/0x130] do_sync_write+0xf1/=
+0x130
+localhost kernel:=A0 [<ffffffff802557c0>] autoremove_wake_function+0x0/=
+0x40
+localhost kernel:=A0 [hrtimer_start+0xe3/0x170] hrtimer_start+0xe3/0x17=
+0
+localhost kernel:=A0 [vfs_write+0x185/0x190] vfs_write+0x185/0x190
+localhost kernel:=A0 [sys_write+0x50/0x90] sys_write+0x50/0x90
+localhost kernel:=A0 [system_call+0x7e/0x83] system_call+0x7e/0x83
+>>> snip <<<
 
-It is envisaged that a persistence mask of 0.0.0.0 will be a useful
-setting.  That is, ignore the source IP address when checking for
-persistence.
+What is happening is, that the sk_wait_event() condition passed from
+sk_stream_wait_memory() evaluates to true for the case of tcp global me=
+mory
+exhaustion. This is because both sk_stream_memory_free() and vm_wait ar=
+e true
+which causes sk_wait_event() to *not* call schedule_timeout().=20
+Hence sk_stream_wait_memory() returns immediately to the caller w/o sle=
+eping.
+This causes the caller to again try allocation, which again fails and a=
+gain
+calls sk_stream_wait_memory(), and so on.
 
-It is envisaged that this option will be used in conjunction with
-one-packet scheduling.
-
-This only works with UDP and cannot be made to work with TCP
-within the current framework.
-
-Signed-off-by: Simon Horman <horms@verge.net.au>
-
+Signed-off-by: Nagendra Singh Tomar <tomer_iisc@yahoo.com>
 ---
+--- linux-2.6.35.7/net/core/stream.c.orig=A02010-03-23 23:46:45.0000000=
+00 +0530
++++ linux-2.6.35.7/net/core/stream.c=A02010-03-24 00:21:09.000000000 +0=
+530
+@@ -73,9 +73,8 @@ int sk_stream_wait_connect(struct sock *
+=A0=A0=A0prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
+=A0=A0=A0sk->sk_write_pending++;
+=A0=A0=A0done =3D sk_wait_event(sk, timeo_p,
+-=A0=A0=A0=A0=A0=A0=A0=A0 !sk->sk_err &&
+-=A0=A0=A0=A0=A0=A0=A0=A0 !((1 << sk->sk_state) &
+-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 ~(TCPF_ESTABLISHED | TCPF_CLOSE_WAIT)))=
+;
++=A0=A0=A0=A0=A0=A0=A0=A0 ((1 << sk->sk_state) &
++=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 (TCPF_ESTABLISHED | TCPF_CLOSE_WAIT)));
+=A0=A0=A0finish_wait(sk_sleep(sk), &wait);
+=A0=A0=A0sk->sk_write_pending--;
+=A0=A0} while (!done);
+@@ -144,10 +143,9 @@ int sk_stream_wait_memory(struct sock *s
+=A0
+=A0=A0=A0set_bit(SOCK_NOSPACE, &sk->sk_socket->flags);
+=A0=A0=A0sk->sk_write_pending++;
+-=A0=A0sk_wait_event(sk, &current_timeo, !sk->sk_err &&
+-=A0=A0=A0=A0=A0=A0=A0 !(sk->sk_shutdown & SEND_SHUTDOWN) &&
+-=A0=A0=A0=A0=A0=A0=A0 sk_stream_memory_free(sk) &&
+-=A0=A0=A0=A0=A0=A0=A0 vm_wait);
++=A0=A0sk_wait_event(sk, &current_timeo, sk->sk_err ||
++=A0=A0=A0=A0=A0=A0=A0 (sk->sk_shutdown & SEND_SHUTDOWN) ||
++=A0=A0=A0=A0=A0=A0=A0 (sk_stream_memory_free(sk) && !vm_wait));
+=A0=A0=A0sk->sk_write_pending--;
+=A0
+=A0=A0=A0if (vm_wait) {
 
-v1
-* Use buf[] instead of poiter arithmetic in ip_vs_dbg_callid()
-  As suggested by Jan Engelhardt
 
-v2
-* Use GFP_ATOMIC for allocations inside of ip_vs_sip_fill_param()
-  which is called in an atomic context. This resolves the
-  "scheduling while atomic" problem.
-* As noted by Julian Anastasov RFC 3261 section 8.1.1.4 says
-  "Call-IDs are case-sensitive and are simply compared byte-by-byte",
-  so may be memcmp should be used instead of strnicmp() in
-  ip_vs_sip_ct_match().
-* Spelling fix in comment: persistance -> persistence
-* Trivial rediff
 
-v3
-* Trivial whitespace fixes
-* Update for addition of inverse parameter to ip_vs_conn_hashkey_param()
-
-Index: lvs-test-2.6/net/netfilter/ipvs/Kconfig
-===================================================================
---- lvs-test-2.6.orig/net/netfilter/ipvs/Kconfig	2010-10-02 10:49:37.000000000 +0900
-+++ lvs-test-2.6/net/netfilter/ipvs/Kconfig	2010-10-02 10:50:16.000000000 +0900
-@@ -256,4 +256,11 @@ config	IP_VS_NFCT
- 	  connection state to be exported to the Netfilter framework
- 	  for filtering purposes.
- 
-+config	IP_VS_PE_SIP
-+	tristate "SIP persistence engine"
-+        depends on IP_VS_PROTO_UDP
-+	depends on NF_CONNTRACK_SIP
-+	---help---
-+	  Allow persistence based on the SIP Call-ID
-+
- endif # IP_VS
-Index: lvs-test-2.6/net/netfilter/ipvs/Makefile
-===================================================================
---- lvs-test-2.6.orig/net/netfilter/ipvs/Makefile	2010-10-02 10:50:16.000000000 +0900
-+++ lvs-test-2.6/net/netfilter/ipvs/Makefile	2010-10-02 10:50:16.000000000 +0900
-@@ -35,3 +35,6 @@ obj-$(CONFIG_IP_VS_NQ) += ip_vs_nq.o
- 
- # IPVS application helpers
- obj-$(CONFIG_IP_VS_FTP) += ip_vs_ftp.o
-+
-+# IPVS connection template retrievers
-+obj-$(CONFIG_IP_VS_PE_SIP) += ip_vs_pe_sip.o
-Index: lvs-test-2.6/net/netfilter/ipvs/ip_vs_pe_sip.c
-===================================================================
---- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ lvs-test-2.6/net/netfilter/ipvs/ip_vs_pe_sip.c	2010-10-02 10:52:08.000000000 +0900
-@@ -0,0 +1,167 @@
-+#define KMSG_COMPONENT "IPVS"
-+#define pr_fmt(fmt) KMSG_COMPONENT ": " fmt
-+
-+#include <linux/module.h>
-+#include <linux/kernel.h>
-+
-+#include <net/ip_vs.h>
-+#include <net/netfilter/nf_conntrack.h>
-+#include <linux/netfilter/nf_conntrack_sip.h>
-+
-+static const char *ip_vs_dbg_callid(char *buf, size_t buf_len,
-+				    const char *callid, size_t callid_len,
-+				    int *idx)
-+{
-+	size_t len = min(min(callid_len, (size_t)64), buf_len - *idx - 1);
-+	memcpy(buf + *idx, callid, len);
-+	buf[*idx+len] = '\0';
-+	*idx += len + 1;
-+	return buf + *idx - len;
-+}
-+
-+#define IP_VS_DEBUG_CALLID(callid, len)					\
-+	ip_vs_dbg_callid(ip_vs_dbg_buf, sizeof(ip_vs_dbg_buf),		\
-+			 callid, len, &ip_vs_dbg_idx)
-+
-+static int get_callid(const char *dptr, unsigned int dataoff,
-+		      unsigned int datalen,
-+		      unsigned int *matchoff, unsigned int *matchlen)
-+{
-+	/* Find callid */
-+	while (1) {
-+		int ret = ct_sip_get_header(NULL, dptr, dataoff, datalen,
-+					    SIP_HDR_CALL_ID, matchoff,
-+					    matchlen);
-+		if (ret > 0)
-+			break;
-+		if (!ret)
-+			return 0;
-+		dataoff += *matchoff;
-+	}
-+
-+	/* Empty callid is useless */
-+	if (!*matchlen)
-+		return -EINVAL;
-+
-+	/* Too large is useless */
-+	if (*matchlen > IP_VS_PEDATA_MAXLEN)
-+		return -EINVAL;
-+
-+	/* SIP headers are always followed by a line terminator */
-+	if (*matchoff + *matchlen == datalen)
-+		return -EINVAL;
-+
-+	/* RFC 2543 allows lines to be terminated with CR, LF or CRLF,
-+	 * RFC 3261 allows only CRLF, we support both. */
-+	if (*(dptr + *matchoff + *matchlen) != '\r' &&
-+	    *(dptr + *matchoff + *matchlen) != '\n')
-+		return -EINVAL;
-+
-+	IP_VS_DBG_BUF(9, "SIP callid %s (%d bytes)\n",
-+		      IP_VS_DEBUG_CALLID(dptr + *matchoff, *matchlen),
-+		      *matchlen);
-+	return 0;
-+}
-+
-+static int
-+ip_vs_sip_fill_param(struct ip_vs_conn_param *p, struct sk_buff *skb)
-+{
-+	struct ip_vs_iphdr iph;
-+	unsigned int dataoff, datalen, matchoff, matchlen;
-+	const char *dptr;
-+
-+	ip_vs_fill_iphdr(p->af, skb_network_header(skb), &iph);
-+
-+	/* Only useful with UDP */
-+	if (iph.protocol != IPPROTO_UDP)
-+		return -EINVAL;
-+
-+	/* No Data ? */
-+	dataoff = iph.len + sizeof(struct udphdr);
-+	if (dataoff >= skb->len)
-+		return -EINVAL;
-+
-+	dptr = skb->data + dataoff;
-+	datalen = skb->len - dataoff;
-+
-+	if (get_callid(dptr, dataoff, datalen, &matchoff, &matchlen))
-+		return -EINVAL;
-+
-+	p->pe_data = kmalloc(matchlen, GFP_ATOMIC);
-+	if (!p->pe_data)
-+		return -ENOMEM;
-+
-+	/* N.B: pe_data is only set on success,
-+	 * this allows fallback to the default persistence logic on failure
-+	 */
-+	memcpy(p->pe_data, dptr + matchoff, matchlen);
-+	p->pe_data_len = matchlen;
-+
-+	return 0;
-+}
-+
-+static bool ip_vs_sip_ct_match(const struct ip_vs_conn_param *p,
-+				  struct ip_vs_conn *ct)
-+
-+{
-+	bool ret = 0;
-+
-+	if (ct->af == p->af &&
-+	    ip_vs_addr_equal(p->af, p->caddr, &ct->caddr) &&
-+	    /* protocol should only be IPPROTO_IP if
-+	     * d_addr is a fwmark */
-+	    ip_vs_addr_equal(p->protocol == IPPROTO_IP ? AF_UNSPEC : p->af,
-+			     p->vaddr, &ct->vaddr) &&
-+	    ct->vport == p->vport &&
-+	    ct->flags & IP_VS_CONN_F_TEMPLATE &&
-+	    ct->protocol == p->protocol &&
-+	    ct->pe_data && ct->pe_data_len == p->pe_data_len &&
-+	    !memcmp(ct->pe_data, p->pe_data, p->pe_data_len))
-+		ret = 1;
-+
-+	IP_VS_DBG_BUF(9, "SIP template match %s %s->%s:%d %s\n",
-+		      ip_vs_proto_name(p->protocol),
-+		      IP_VS_DEBUG_CALLID(p->pe_data, p->pe_data_len),
-+		      IP_VS_DBG_ADDR(p->af, p->vaddr), ntohs(p->vport),
-+		      ret ? "hit" : "not hit");
-+
-+	return ret;
-+}
-+
-+static u32 ip_vs_sip_hashkey_raw(const struct ip_vs_conn_param *p,
-+				 u32 initval, bool inverse)
-+{
-+	return jhash(p->pe_data, p->pe_data_len, initval);
-+}
-+
-+static int ip_vs_sip_show_pe_data(const struct ip_vs_conn *cp, char *buf)
-+{
-+	memcpy(buf, cp->pe_data, cp->pe_data_len);
-+	return cp->pe_data_len;
-+}
-+
-+static struct ip_vs_pe ip_vs_sip_pe =
-+{
-+	.name =			"sip",
-+	.refcnt =		ATOMIC_INIT(0),
-+	.module =		THIS_MODULE,
-+	.n_list =		LIST_HEAD_INIT(ip_vs_sip_pe.n_list),
-+	.fill_param =		ip_vs_sip_fill_param,
-+	.ct_match =		ip_vs_sip_ct_match,
-+	.hashkey_raw =		ip_vs_sip_hashkey_raw,
-+	.show_pe_data =		ip_vs_sip_show_pe_data,
-+};
-+
-+static int __init ip_vs_sip_init(void)
-+{
-+	return register_ip_vs_pe(&ip_vs_sip_pe);
-+}
-+
-+static void __exit ip_vs_sip_cleanup(void)
-+{
-+	unregister_ip_vs_pe(&ip_vs_sip_pe);
-+}
-+
-+module_init(ip_vs_sip_init);
-+module_exit(ip_vs_sip_cleanup);
-+MODULE_LICENSE("GPL");
-
+     =20
