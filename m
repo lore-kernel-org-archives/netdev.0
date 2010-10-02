@@ -1,41 +1,81 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCHv3 net-next-2.6 3/5] XFRM,IPv6: Add IRO src/dst address
-	remapping XFRM types and i/o handlers
-Date: Sat, 2 Oct 2010 18:32:05 +0800
-Message-ID: <20101002103205.GA3879@gondor.apana.org.au>
-References: <cover.1285749610.git.arno@natisbad.org> <fd4eec3c9486c46b535e89ceed479c7536f51fb9.1285749610.git.arno@natisbad.org> <20100929.201618.241458205.davem@davemloft.net> <87iq1k99vk.fsf@small.ssi.corp>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-To: Arnaud Ebalard <arno@natisbad.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:39216 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752005Ab0JBKcT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Oct 2010 06:32:19 -0400
-Content-Disposition: inline
-In-Reply-To: <87iq1k99vk.fsf@small.ssi.corp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Robin Holt <holt@sgi.com>
+Subject: [Patch] Limit sysctl_tcp_mem and sysctl_udp_mem initializers to prevent integer overflows.
+Date: Sat, 02 Oct 2010 06:24:06 -0500
+Message-ID: <20101002112419.248437367@gulag1.americas.sgi.com>
+References: <20101002112405.951704198@gulag1.americas.sgi.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Willy Tarreau <w@1wt.eu>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline; filename=sysctl_tcp_udp_mem_max_overflows
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Oct 02, 2010 at 12:17:35PM +0200, Arnaud Ebalard wrote:
->
-> and I see no reason not to keep the lock we have on the state until the
-> end of the function when the state is valid (when we break), instead of
-> releasing it to get it again later. Something like the following would
-> allow removing the spin_lock()/spin_unlock() calls from all mip6 input
-> handlers (mip6_{destopt,rthdr,iro_src,iro_dst}_input()):
+Subject: [Patch] Limit sysctl_tcp_mem and sysctl_udp_mem initializers to prevent integer overflows.
 
-No I moved the state lock down precisely because it should not
-be taken at a higher level as that breaks asynchronous IPsec
-processing and the fact that it isn't needed in most places.
+On a 16TB x86_64 machine, sysctl_tcp_mem[2], sysctl_udp_mem[2], and
+sysctl_sctp_mem[2] can integer overflow.  Set limit such that they are
+maximized without overflowing.
 
-If your code needs it then you should take it rather than impose
-it on real IPsec users.
+Signed-off-by: Robin Holt <holt@sgi.com>
+To: Willy Tarreau <w@1wt.eu>
+To: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: "Pekka Savola (ipv6)" <pekkas@netcore.fi>
+Cc: James Morris <jmorris@namei.org>
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Cc: Patrick McHardy <kaber@trash.net>
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+---
+
+ net/ipv4/tcp.c |    4 +++-
+ net/ipv4/udp.c |    4 +++-
+ 2 files changed, 6 insertions(+), 2 deletions(-)
+
+Index: pv1010932/net/ipv4/tcp.c
+===================================================================
+--- pv1010932.orig/net/ipv4/tcp.c	2010-10-02 06:11:59.737449853 -0500
++++ pv1010932/net/ipv4/tcp.c	2010-10-02 06:12:35.445454593 -0500
+@@ -3271,12 +3271,14 @@ void __init tcp_init(void)
+ 
+ 	/* Set the pressure threshold to be a fraction of global memory that
+ 	 * is up to 1/2 at 256 MB, decreasing toward zero with the amount of
+-	 * memory, with a floor of 128 pages.
++	 * memory, with a floor of 128 pages, and a ceiling that prevents an
++	 * integer overflow.
+ 	 */
+ 	nr_pages = totalram_pages - totalhigh_pages;
+ 	limit = min(nr_pages, 1UL<<(28-PAGE_SHIFT)) >> (20-PAGE_SHIFT);
+ 	limit = (limit * (nr_pages >> (20-PAGE_SHIFT))) >> (PAGE_SHIFT-11);
+ 	limit = max(limit, 128UL);
++	limit = min(limit, INT_MAX * 4UL / 3 / 2);
+ 	sysctl_tcp_mem[0] = limit / 4 * 3;
+ 	sysctl_tcp_mem[1] = limit;
+ 	sysctl_tcp_mem[2] = sysctl_tcp_mem[0] * 2;
+Index: pv1010932/net/ipv4/udp.c
+===================================================================
+--- pv1010932.orig/net/ipv4/udp.c	2010-10-02 06:11:59.737449853 -0500
++++ pv1010932/net/ipv4/udp.c	2010-10-02 06:12:35.453453784 -0500
+@@ -2167,12 +2167,14 @@ void __init udp_init(void)
+ 	udp_table_init(&udp_table, "UDP");
+ 	/* Set the pressure threshold up by the same strategy of TCP. It is a
+ 	 * fraction of global memory that is up to 1/2 at 256 MB, decreasing
+-	 * toward zero with the amount of memory, with a floor of 128 pages.
++	 * toward zero with the amount of memory, with a floor of 128 pages,
++	 * and a ceiling that prevents an integer overflow.
+ 	 */
+ 	nr_pages = totalram_pages - totalhigh_pages;
+ 	limit = min(nr_pages, 1UL<<(28-PAGE_SHIFT)) >> (20-PAGE_SHIFT);
+ 	limit = (limit * (nr_pages >> (20-PAGE_SHIFT))) >> (PAGE_SHIFT-11);
+ 	limit = max(limit, 128UL);
++	limit = min(limit, INT_MAX * 4UL / 3 / 2);
+ 	sysctl_udp_mem[0] = limit / 4 * 3;
+ 	sysctl_udp_mem[1] = limit;
+ 	sysctl_udp_mem[2] = sysctl_udp_mem[0] * 2;
