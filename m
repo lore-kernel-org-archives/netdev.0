@@ -1,26 +1,31 @@
-From: "kunihira barbara" <sam.pk01@gmail.com>
-Subject: =?iso-8859-1?Q?INVESTMENT_PROJECT_IN_YOUR_COUNTRY=2E_=28HOW_CAN_I?=
-	=?iso-8859-1?Q?_INVEST_IN_YOUR_COUNTRY=29=3F?=
-Date: Fri, 01 Oct 2010 10:59:03 +0300
-Message-ID: <20101001105903.7ec4a729__8354.0981090211$1286048216$gmane$org@mail.veco-eastafrica.org>
-Reply-To: sam.pk01@gmail.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: problem with flowi structure
+Date: Sat, 02 Oct 2010 13:18:29 -0700 (PDT)
+Message-ID: <20101002.131829.193723323.davem@davemloft.net>
+References: <AANLkTi=hXc_ijNgxW+Q6jkRP_T1zjyy2mvKAdTSgeh7w@mail.gmail.com>
+	<alpine.LNX.2.01.1010020146440.26371@obet.zrqbmnf.qr>
+	<AANLkTinObV+176prSdCL0RoVx7a74quUM5H58xR2_WLG@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.veco-eastafrica.org ([41.191.79.86]:34822 "EHLO
-	mail.veco-eastafrica.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751332Ab0JBTg1 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Oct 2010 15:36:27 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jengelh@medozas.de, eric.dumazet@gmail.com, aijazbaig1@gmail.com,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: nicola.padovano@gmail.com
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <AANLkTinObV+176prSdCL0RoVx7a74quUM5H58xR2_WLG@mail.gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dear Sir, 
- 
-I am Mr.Sam Gapke, The Managing Director of the REA. I am interested in investing the sum of US $20M (Twenty Million US Dollars) in any Lucrative Business in the area related to your Business line. Thanks for anticipate cooperation, your urgent response will be highly appreciated. 
-Feel free to contact me with this my personal email address:sam.pk01@gmail.com
-Best regards, 
- 
-Mr. Sam Gapke
+From: Nicola Padovano <nicola.padovano@gmail.com>
+Date: Sat, 2 Oct 2010 10:08:56 +0200
+
+> i.e. like a wildcard?
+
+Please do not top-post, because when you top-post people need
+to scroll down and read the context you're replying to, then
+scroll back up to read your reply.
+
+If, instead of top-posting, you reply after the context you're
+replying to, people need to do less work to read your email.
+
+Thanks.
