@@ -1,80 +1,47 @@
-From: Nagendra Tomar <tomer_iisc@yahoo.com>
-Subject: [PATCH] net: Fix the condition passed to sk_wait_event()
-Date: Sun, 3 Oct 2010 02:45:06 -0700 (PDT)
-Message-ID: <316201.7438.qm@web53706.mail.re2.yahoo.com>
+From: Robin Holt <holt@sgi.com>
+Subject: Re: [Patch] Limit sysctl_tcp_mem and sysctl_udp_mem initializers
+ to prevent integer overflows.
+Date: Sun, 3 Oct 2010 06:16:16 -0500
+Message-ID: <20101003111616.GS14064@sgi.com>
+References: <20101002112405.951704198@gulag1.americas.sgi.com>
+ <20101002112419.248437367@gulag1.americas.sgi.com>
+ <1286025736.2582.1827.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-Cc: linux-kernel@vger.kernel.org, davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Robin Holt <holt@sgi.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Willy Tarreau <w@1wt.eu>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay3.sgi.com ([192.48.152.1]:56034 "EHLO relay.sgi.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753056Ab0JCLQT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 Oct 2010 07:16:19 -0400
+Content-Disposition: inline
+In-Reply-To: <1286025736.2582.1827.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Resending, since this is the only patch now. Thanks.
+On Sat, Oct 02, 2010 at 03:22:16PM +0200, Eric Dumazet wrote:
+> Le samedi 02 octobre 2010 =E0 06:24 -0500, Robin Holt a =E9crit :
+=2E..
+> Strange, you mention sctp in changelog but I cant see the patch.
 
----
-This patch fixes the condition (3rd arg) passed to sk_wait_event() in 
-sk_stream_wait_memory(). The incorrect check in sk_stream_wait_memory() 
-causes the following soft lockup in tcp_sendmsg() when the global tcp 
-memory pool has exhausted. 
+After looking at the patch, I realized it really belonged in a separate
+change and sent that to the sctp mailing list without noticing I forgot
+to Cc: lkml.
 
->>> snip <<<
+> We can switch infrastructure to use long "instead" of "int", now
+> atomic_long_t primitives are available for free.
+>=20
+> Reported-by: Robin Holt <holt@sgi.com>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-localhost kernel: BUG: soft lockup - CPU#3 stuck for 11s! [sshd:6429]
-localhost kernel: CPU 3:
-localhost kernel: RIP: 0010:[sk_stream_wait_memory+0xcd/0x200]  [sk_stream_wait_memory+0xcd/0x200] sk_stream_wait_memory+0xcd/0x200
-localhost kernel: 
-localhost kernel: Call Trace:
-localhost kernel:  [sk_stream_wait_memory+0x1b1/0x200] sk_stream_wait_memory+0x1b1/0x200
-localhost kernel:  [<ffffffff802557c0>] autoremove_wake_function+0x0/0x40
-localhost kernel:  [ipv6:tcp_sendmsg+0x6e6/0xe90] tcp_sendmsg+0x6e6/0xce0
-localhost kernel:  [sock_aio_write+0x126/0x140] sock_aio_write+0x126/0x140
-localhost kernel:  [xfs:do_sync_write+0xf1/0x130] do_sync_write+0xf1/0x130
-localhost kernel:  [<ffffffff802557c0>] autoremove_wake_function+0x0/0x40
-localhost kernel:  [hrtimer_start+0xe3/0x170] hrtimer_start+0xe3/0x170
-localhost kernel:  [vfs_write+0x185/0x190] vfs_write+0x185/0x190
-localhost kernel:  [sys_write+0x50/0x90] sys_write+0x50/0x90
-localhost kernel:  [system_call+0x7e/0x83] system_call+0x7e/0x83
-
->>> snip <<<
-
-
-What is happening is, that the sk_wait_event() condition passed from
-sk_stream_wait_memory() evaluates to true for the case of tcp global memory
-exhaustion. This is because both sk_stream_memory_free() and vm_wait are true
-which causes sk_wait_event() to *not* call schedule_timeout(). 
-Hence sk_stream_wait_memory() returns immediately to the caller w/o sleeping.
-This causes the caller to again try allocation, which again fails and again
-calls sk_stream_wait_memory(), and so on.
-
-
-Signed-off-by: Nagendra Singh Tomar <tomer_iisc@yahoo.com>
----
---- linux-2.6.35.7/net/core/stream.c.orig	2010-03-25 07:37:58.000000000 +0530
-+++ linux-2.6.35.7/net/core/stream.c	2010-03-25 07:42:16.000000000 +0530
-@@ -144,10 +144,10 @@ int sk_stream_wait_memory(struct sock *s
- 
- 		set_bit(SOCK_NOSPACE, &sk->sk_socket->flags);
- 		sk->sk_write_pending++;
--		sk_wait_event(sk, &current_timeo, !sk->sk_err &&
--						  !(sk->sk_shutdown & SEND_SHUTDOWN) &&
--						  sk_stream_memory_free(sk) &&
--						  vm_wait);
-+		sk_wait_event(sk, &current_timeo, sk->sk_err ||
-+						  (sk->sk_shutdown & SEND_SHUTDOWN) ||
-+						  (sk_stream_memory_free(sk) &&
-+						  !vm_wait));
- 		sk->sk_write_pending--;
- 
- 		if (vm_wait) {
----
-
-
-
-
-
-
-
-
-      
+Reviewed-by: Robin Holt <holt@sgi.com>
