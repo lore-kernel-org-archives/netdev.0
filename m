@@ -1,40 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/2] net: Fix the condition passed to sk_wait_event()
-Date: Sun, 03 Oct 2010 06:53:33 +0200
-Message-ID: <1286081613.2582.3235.camel@edumazet-laptop>
-References: <20101002.132659.71124680.davem@davemloft.net>
-	 <970819.25375.qm@web53706.mail.re2.yahoo.com>
-	 <20101002.170654.193719563.davem@davemloft.net>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [patch v3 00/12] IPVS: SIP Persistence Engine
+Date: Sun, 3 Oct 2010 14:07:27 +0900
+Message-ID: <20101003050725.GA5817@verge.net.au>
+References: <20101002023056.536217499@akiko.akashicho.tokyo.vergenet.net>
+ <alpine.LFD.2.00.1010021155520.2055@ja.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: tomer_iisc@yahoo.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:34139 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751069Ab0JCExm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Oct 2010 00:53:42 -0400
-In-Reply-To: <20101002.170654.193719563.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Jan Engelhardt <jengelh@medozas.de>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.2.00.1010021155520.2055@ja.ssi.bg>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le samedi 02 octobre 2010 =C3=A0 17:06 -0700, David Miller a =C3=A9crit=
- :
-> From: Nagendra Tomar <tomer_iisc@yahoo.com>
-> Date: Sat, 2 Oct 2010 16:54:23 -0700 (PDT)
->=20
-> >      I had done the exercise of sending the patch to myself and
-> >      applying it (copy-pasting just the patch). One thing that I se=
-e
-> >      is the long line in the description. If you are referring to
-> >      that, I've fixed it and submitted it again. If not this, I'm a=
-t
-> >      loss.
->=20
-> This new submission looks good, thank you.
+On Sat, Oct 02, 2010 at 12:00:14PM +0300, Julian Anastasov wrote:
+> 
+> 	Hello,
+> 
+> On Sat, 2 Oct 2010, Simon Horman wrote:
+> 
+> >This patch series adds load-balancing of UDP SIP based on Call-ID to
+> >IPVS as well as a frame-work for extending IPVS to handle alternate
+> >persistence requirements.
+> >
+> >REVISIONS
+> >
+> >This is v3 of the patch series with addresses serveral problems
+> >raised by Julian Anastasov on the lvs-devel mailing list.
+> 
+> 	No other obvious problems in v3 1-12. So,
+> Acked-by: Julian Anastasov <ja@ssi.bg>
 
-Yes, but the email address in the "Signed-odd-by: ...." is mangled :(
+Thanks.
 
 
+> 	May be next days I'll test my changes on top of PE v3
+
+I think that could save a bit of porting work later
+and perhaps you might notice some more bugs too :-)
