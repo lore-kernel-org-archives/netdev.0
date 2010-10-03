@@ -1,32 +1,74 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: sysctl_{tcp,udp,sctp}_mem overflow on 16TB system.
-Date: Sun, 3 Oct 2010 18:43:24 +0200
-Message-ID: <20101003164324.GC3711@1wt.eu>
-References: <20101001193958.GP14068@sgi.com> <20101001203022.GA28486@1wt.eu> <AANLkTin5wPvFQDFrupqGs_Jbh1rgrTjMupbPUFnvrBrv@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT] Networking
+Date: Sun, 03 Oct 2010 11:41:13 -0700 (PDT)
+Message-ID: <20101003.114113.193724410.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Robin Holt <holt@sgi.com>, "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Vlad Yasevich <vladislav.yasevich@hp.com>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-decnet-user@lists.sourceforge.net, linux-sctp@vger.kernel.org
-To: Maciej ??enczykowski <zenczykowski@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <AANLkTin5wPvFQDFrupqGs_Jbh1rgrTjMupbPUFnvrBrv@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Oct 03, 2010 at 01:20:32AM -0700, Maciej ??enczykowski wrote:
-> Isn't INT_MAX/2 just 1GB, which is only ~0.9 seconds at 10 Gbps?
 
-no, the size is in pages (and is often wrong when people change it
-from the default value).
+1) The UM duplicate field regression fix, from Boaz Harrosh.
 
-Regards,
-Willy
+2) Max SYN retry sysctl doesn't end up generating the right number of
+   SYN retransmits due to bad calculations in retransmits_timed_out().
+   Fix from Damian Lukowski.
+
+3) We erroneously drop VLAN packets when device is in promiscuous mode,
+   fix from Eric Dumazet.
+
+4) Fix ip_gre Kconfig dependenices wrt. ipv6.
+
+5) Phone uses stale protocol header pointer after pskb_may_pull() call,
+   fix from Kumar Sanghvi.
+
+6) Use after free fix in mac80211 from Johannes Berg.
+
+7) Fix work queueing in Intel wireless, from Florian Mickler.
+
+Please pull, thanks a lot!
+
+The following changes since commit c6ea21e35bf3691cad59647c771e6606067f627d:
+
+  Merge git://git.kernel.org/pub/scm/linux/kernel/git/sfrench/cifs-2.6 (2010-10-01 15:03:37 -0700)
+
+are available in the git repository at:
+
+  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
+
+Boaz Harrosh (1):
+      um: Proper Fix for f25c80a4: remove duplicate structure field initialization
+
+Damian Lukowski (1):
+      net-2.6: SYN retransmits: Add new parameter to retransmits_timed_out()
+
+David S. Miller (2):
+      ip_gre: Fix dependencies wrt. ipv6.
+      Merge branch 'master' of git://git.kernel.org/.../linville/wireless-2.6
+
+Eric Dumazet (1):
+      vlan: dont drop packets from unknown vlans in promiscuous mode
+
+Florian Mickler (1):
+      iwl3945: queue the right work if the scan needs to be aborted
+
+Johannes Berg (1):
+      mac80211: fix use-after-free
+
+Kumar Sanghvi (1):
+      Phonet: Correct header retrieval after pskb_may_pull
+
+ arch/um/drivers/net_kern.c                  |   17 +++--------------
+ drivers/net/wireless/iwlwifi/iwl-agn-lib.c  |    2 +-
+ drivers/net/wireless/iwlwifi/iwl3945-base.c |    2 +-
+ net/8021q/vlan_core.c                       |   14 ++++++++++----
+ net/ipv4/Kconfig                            |    1 +
+ net/ipv4/tcp_timer.c                        |   24 ++++++++++++++----------
+ net/mac80211/rx.c                           |    4 ----
+ net/phonet/pep.c                            |    3 ++-
+ 8 files changed, 32 insertions(+), 35 deletions(-)
