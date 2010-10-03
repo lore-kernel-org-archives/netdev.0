@@ -1,161 +1,121 @@
-From: arno@natisbad.org (Arnaud Ebalard)
-Subject: Re: [PATCHv3 net-next-2.6 3/5] XFRM,IPv6: Add IRO src/dst address remapping XFRM types and i/o handlers
-Date: Sun, 03 Oct 2010 15:41:04 +0200
-Message-ID: <87iq1j5r7z.fsf@small.ssi.corp>
-References: <cover.1285749610.git.arno@natisbad.org>
-	<fd4eec3c9486c46b535e89ceed479c7536f51fb9.1285749610.git.arno@natisbad.org>
-	<20100929.201618.241458205.davem@davemloft.net>
-	<87iq1k99vk.fsf@small.ssi.corp>
-	<20101002103205.GA3879@gondor.apana.org.au>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 8/8] net: Implement socketat.
+Date: Sun, 03 Oct 2010 09:44:01 -0400
+Message-ID: <1286113441.3812.229.camel@bigi>
+References: <m1ocborgq7.fsf@fess.ebiederm.org>
+	 <m1bp7oq1u8.fsf@fess.ebiederm.org>  <4C9B162E.7040201@parallels.com>
+	 <1285240797.5036.5.camel@bigi>  <4C9B3B06.900@parallels.com>
+	 <1285242055.5036.9.camel@bigi> <4C9B3F9C.8080506@parallels.com>
+	 <4CA7A07C.5030504@free.fr>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from copper.chdir.org ([88.191.97.87]:44213 "EHLO copper.chdir.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753696Ab0JCNlK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 3 Oct 2010 09:41:10 -0400
-In-Reply-To: <20101002103205.GA3879@gondor.apana.org.au> (Herbert Xu's message
-	of "Sat, 2 Oct 2010 18:32:05 +0800")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Pavel Emelyanov <xemul@parallels.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	linux-kernel@vger.kernel.org,
+	Linux Containers <containers@lists.osdl.org>,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Michael Kerrisk <mtk.manpages@gmail.com>,
+	Ulrich Drepper <drepper@gmail.com>,
+	Al Viro <viro@ZenIV.linux.org.uk>,
+	David Miller <davem@davemloft.net>,
+	"Serge E. Hallyn" <serge@hallyn.com>,
+	Pavel Emelyanov <xemul@openvz.org>,
+	Ben Greear <greearb@candelatech.com>,
+	Matt Helsley <matthltc@us.ibm.com>,
+	Jonathan Corbet <corbet@lwn.net>,
+	Sukadev Bhattiprolu <sukadev@linux.vnet.ibm.com>,
+	Jan Engelhardt <jengelh@medozas.de>,
+	Patrick McHardy <kaber@trash.net>
+To: Daniel Lezcano <daniel.lezcano@free.fr>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <4CA7A07C.5030504@free.fr>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Herbert,
+Hi Daniel,
 
-Herbert Xu <herbert@gondor.apana.org.au> writes:
+Thanks for clarifying this ..
 
-> On Sat, Oct 02, 2010 at 12:17:35PM +0200, Arnaud Ebalard wrote:
->>
->> and I see no reason not to keep the lock we have on the state until the
->> end of the function when the state is valid (when we break), instead of
->> releasing it to get it again later. Something like the following would
->> allow removing the spin_lock()/spin_unlock() calls from all mip6 input
->> handlers (mip6_{destopt,rthdr,iro_src,iro_dst}_input()):
+On Sat, 2010-10-02 at 23:13 +0200, Daniel Lezcano wrote:
+> Just to clarify this point. You enter the namespace, create the socket
+> and go back to the initial namespace (or create a new one). Further 
+> operations can be made against this fd because it is the network 
+> namespace stored in the sock struct which is used, not the current 
+> process network namespace which is used at the socket creation only.
+> 
+> We can actually already do that by unsharing and then create a
+> socket. 
+> This socket will pin the namespace and can be used as a control socket
+> for the namespace (assuming the socket domain will be ok for all the 
+> operations).
 >
-> No I moved the state lock down precisely because it should not
-> be taken at a higher level as that breaks asynchronous IPsec
-> processing and the fact that it isn't needed in most places.
->
-> If your code needs it then you should take it rather than impose
-> it on real IPsec users.
+> Jamal, I don't know what kind of application you want to use but if I 
+> assume you want to create a process controlling 1024 netns, 
 
-Understood. Note that I am on your side with this: my primary concern
-while pushing the feature is *to not break or slow down standard IPsec*.
-I do not expect my code to be accepted or even read otherwise.
+At the moment i am looking at 8K on a Nehalem with lots of RAM. They
+will mostly be created at startup but some could be created afterwards.
+Each will have its own netdevs etc. also created at startup (and some
+other config that may happen later). 
+Because startup time may accumulate, it is clearly important to me
+to pick whatever scheme that reduces the number of calls...
 
-As for the current point raised by David on the position of the locks in
-my input handlers, they are based on the position of the locks in the
-*existing* RH2 (mip6_rthdr_input()) and HAO (mip6_destopt_input())
-handlers. As they serve the same purpose (src/dst address check against
-state's address) and the code is basically the same, I have no reason to
-do things differently as what is currently upstream.
+> let's try to identificate what happen with setns and with socketat :
+> 
+> With setns:
+> 
+>      * open /proc/self/ns/net (1)
+>      * unshare the netns
+>      * open /proc/self/ns/net (2)
+>      * setns (1)
+>      * create a virtual network device
+>      * move the virtual device to (2) (using the set netns by fd)
+>      * unshare the netns
+>      ...
+> 
+> With socketat:
+> 
+>      * open a socket (1)
+>      * unshare the netns
+>      * open a netlink with socketat(1) => (2)
+>      * create a virtual device using (2) (at this point it is
+> init_net_ns)
+>      * move the virtual device to the current netns (using the set
+> netns 
+> by pid)
+>      * open a socket (3)
+>      * unshare the netns
+>      ...
+> 
+> We have the same number of file descriptors kept opened. Except, with 
+> setns we can bind mount the directory somewhere, that will pin the 
+> namespace and then we can close the /proc/self/ns/net file descriptors
+> and reopen them later.
+> 
 
-After your reply, I took a (too long) look at the history of
-xfrm6_input_addr() to understand why it is as it is. If it can spare you
-some time, here is what I think happened:
+Ok, so a wrapper such as: create_socket_on(namespaceid)
+will have generally less system calls with socketat()
 
- - Initially (commit fbd9a5b4, Aug 23 2006), the checks on the status of
-   state, the call to x->type->input() and the changes on state's
-   processing stats (x->curlft changes) were *globally* protected by a
-   call to spin_lock(). The same day, a related commit (3d126890) added
-   support for RH2/HAO input handler. No lock inside the handler. The
-   content of xfrm6_input_addr() was:
+> If your application has to do a lot of specific network processing, 
+> during its life cycle, in different namespaces, the socketat syscall 
+> will be better because it will reduce the number of syscalls but at
+> the cost of keeping the file descriptors opened (potentially a big
+> number). Otherwise, setns should fit your needs.
 
-		spin_lock(&x->lock);
+Makes sense. 
 
-                <...snip...>
+One thing still confuses me...
+The app control point is in namespace0. I still want to be able to
+"boot" namespaces first and maybe a few seconds later do a socketat()...
+and create devices, tcp sockets etc. I suspect create_ns(namespace-name)
+would involve:
+     * open /proc/self/ns/net (namespace-name)
+     * unshare the netns
+Is this correct?
 
-		nh = x->type->input(x, skb);
-		if (nh <= 0) {
-			spin_unlock(&x->lock);
-			xfrm_state_put(x);
-			x = NULL;
-			continue;
-		}
+cheers,
+jamal
 
-		x->curlft.bytes += skb->len;
-		x->curlft.packets++;
-
-		spin_unlock(&x->lock);
-
- - Then, as you wrote, the state lock was moved in all input handlers
-   (commit 0ebea8ef, Nov 13 2007), including RH2/HAO ones:
-
-   @@ -128,12 +128,15 @@ static int mip6_destopt_input(struct xfrm_state *x, struct sk_buff *skb)
-    {
-           struct ipv6hdr *iph = ipv6_hdr(skb);
-           struct ipv6_destopt_hdr *destopt = (struct ipv6_destopt_hdr *)skb->data;
-   +       int err = destopt->nexthdr;
-    
-   +       spin_lock(&x->lock);
-           if (!ipv6_addr_equal(&iph->saddr, (struct in6_addr *)x->coaddr) &&
-               !ipv6_addr_any((struct in6_addr *)x->coaddr))
-   -               return -ENOENT;
-   +               err = -ENOENT;
-   +       spin_unlock(&x->lock);
-    
-   -       return destopt->nexthdr;
-   +       return err;
-    }
-
-   With that commit, I think a deadlock was introduced in MIPv6 code
-   because xfm6_input_addr() was left unchanged, i.e. x->type->input()
-   was called with the lock held. Am I correct?
-
- - The code of xfrm6_input_addr() was then optimized by commit a002c6fd
-   in such a way that x->type->input() was then put outside the
-   protection of the lock, which (if I am not mistaken) removed the
-   deadlock: 
-
-	spin_lock(&x->lock);
-
-	if ((!i || (x->props.flags & XFRM_STATE_WILDRECV)) &&
-	    likely(x->km.state == XFRM_STATE_VALID) &&
-	    !xfrm_state_check_expire(x)) {
-		spin_unlock(&x->lock);
-		if (x->type->input(x, skb) > 0) {
-			/* found a valid state */
-			break;
-		}
-	} else
-		spin_unlock(&x->lock);
-
-   I don't know if this is was intentional.
-
-   But the main question remains on the position of the lock. Here,
-   checks are done on the status of the state, lock is released,
-   reacquired in the input handler to do additional check and then
-   released again, to be reacquired later in the function to act on
-   statistics. Is my reading of the code correct?
-
-
-Herbert, you certainly have a better understanding of XFRM code than I
-have and can probably tell if the locking behavior above is valid or
-buggy. Yoshifuji-san, David or Eric may also have good ideas on that.
-
-
-As a side note (I think I was not explicit enough in my previous email),
-I think the possible changes to xfrm_input_addr() and MIPv6 handlers we
-are discussing are not expected to impact standard IPsec code because
-there are 2 different cases in which states input handlers are called 
-(i.e. x->type->input()):
-
- - xfrm_input(): for standard IPsec case (incl. async resumption). This 
-   is only for esp, ah, ipcomp and tunneling.
- - xfrm6_input_addr(): for MIPv6 extension header, i.e. RH2 and HAO in
-   destopt.
-
-and we are discussing the second.
-
-
-David, as for my patches, if this is ok for you, I will keep the code of
-my input handlers aligned on the code of RH2/HAO handlers and will modify
-it later based on the possible corrections made on those upstream.
-
-Don't hesitate to slap me if I made some mistakes in my analysis ;-)
-
-Cheers,
-
-a+
