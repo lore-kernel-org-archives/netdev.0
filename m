@@ -1,1425 +1,161 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v12 12/17] Add mp(mediate passthru) device.
-Date: Sun, 3 Oct 2010 15:12:54 +0200
-Message-ID: <20101003131254.GB19184@redhat.com>
-References: <59d8a50047ee01e26658fd676d26c0162b79e5fd.1285853725.git.xiaohui.xin@intel.com>
- <c898c79a9a73f531d790d9983bf01b9aa05752b1.1285853725.git.xiaohui.xin@intel.com>
+From: arno@natisbad.org (Arnaud Ebalard)
+Subject: Re: [PATCHv3 net-next-2.6 3/5] XFRM,IPv6: Add IRO src/dst address remapping XFRM types and i/o handlers
+Date: Sun, 03 Oct 2010 15:41:04 +0200
+Message-ID: <87iq1j5r7z.fsf@small.ssi.corp>
+References: <cover.1285749610.git.arno@natisbad.org>
+	<fd4eec3c9486c46b535e89ceed479c7536f51fb9.1285749610.git.arno@natisbad.org>
+	<20100929.201618.241458205.davem@davemloft.net>
+	<87iq1k99vk.fsf@small.ssi.corp>
+	<20101002103205.GA3879@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mingo@elte.hu, davem@davemloft.net,
-	herbert@gondor.hengli.com.au, jdike@linux.intel.com
-To: xiaohui.xin@intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <c898c79a9a73f531d790d9983bf01b9aa05752b1.1285853725.git.xiaohui.xin@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
+	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from copper.chdir.org ([88.191.97.87]:44213 "EHLO copper.chdir.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753696Ab0JCNlK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 Oct 2010 09:41:10 -0400
+In-Reply-To: <20101002103205.GA3879@gondor.apana.org.au> (Herbert Xu's message
+	of "Sat, 2 Oct 2010 18:32:05 +0800")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 30, 2010 at 10:04:30PM +0800, xiaohui.xin@intel.com wrote:
-> From: Xin Xiaohui <xiaohui.xin@intel.com>
-> 
-> The patch add mp(mediate passthru) device, which now
-> based on vhost-net backend driver and provides proto_ops
-> to send/receive guest buffers data from/to guest vitio-net
-> driver.
-> 
-> Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
-> Signed-off-by: Zhao Yu <yzhao81new@gmail.com>
-> Reviewed-by: Jeff Dike <jdike@linux.intel.com>
+Hi Herbert,
 
-So you plan to rewrite all this to make this code part of macvtap?
+Herbert Xu <herbert@gondor.apana.org.au> writes:
 
-> ---
->  drivers/vhost/mpassthru.c | 1380 +++++++++++++++++++++++++++++++++++++++++++++
->  1 files changed, 1380 insertions(+), 0 deletions(-)
->  create mode 100644 drivers/vhost/mpassthru.c
-> 
-> diff --git a/drivers/vhost/mpassthru.c b/drivers/vhost/mpassthru.c
-> new file mode 100644
-> index 0000000..1a114d1
-> --- /dev/null
-> +++ b/drivers/vhost/mpassthru.c
-> @@ -0,0 +1,1380 @@
-> +/*
-> + *  MPASSTHRU - Mediate passthrough device.
-> + *  Copyright (C) 2009 ZhaoYu, XinXiaohui, Dike, Jeffery G
-> + *
-> + *  This program is free software; you can redistribute it and/or modify
-> + *  it under the terms of the GNU General Public License as published by
-> + *  the Free Software Foundation; either version 2 of the License, or
-> + *  (at your option) any later version.
-> + *
-> + *  This program is distributed in the hope that it will be useful,
-> + *  but WITHOUT ANY WARRANTY; without even the implied warranty of
-> + *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-> + *  GNU General Public License for more details.
-> + *
-> + */
-> +
-> +#define DRV_NAME        "mpassthru"
-> +#define DRV_DESCRIPTION "Mediate passthru device driver"
-> +#define DRV_COPYRIGHT   "(C) 2009 ZhaoYu, XinXiaohui, Dike, Jeffery G"
-> +
-> +#include <linux/compat.h>
-> +#include <linux/module.h>
-> +#include <linux/errno.h>
-> +#include <linux/kernel.h>
-> +#include <linux/major.h>
-> +#include <linux/slab.h>
-> +#include <linux/smp_lock.h>
-> +#include <linux/poll.h>
-> +#include <linux/fcntl.h>
-> +#include <linux/init.h>
-> +#include <linux/aio.h>
-> +
-> +#include <linux/skbuff.h>
-> +#include <linux/netdevice.h>
-> +#include <linux/etherdevice.h>
-> +#include <linux/miscdevice.h>
-> +#include <linux/ethtool.h>
-> +#include <linux/rtnetlink.h>
-> +#include <linux/if.h>
-> +#include <linux/if_arp.h>
-> +#include <linux/if_ether.h>
-> +#include <linux/crc32.h>
-> +#include <linux/nsproxy.h>
-> +#include <linux/uaccess.h>
-> +#include <linux/virtio_net.h>
-> +#include <linux/mpassthru.h>
-> +#include <net/net_namespace.h>
-> +#include <net/netns/generic.h>
-> +#include <net/rtnetlink.h>
-> +#include <net/sock.h>
-> +
-> +#include <asm/system.h>
-> +
-> +#define COPY_THRESHOLD (L1_CACHE_BYTES * 4)
-> +#define COPY_HDR_LEN   (L1_CACHE_BYTES < 64 ? 64 : L1_CACHE_BYTES)
-> +
-> +struct frag {
-> +	u16     offset;
-> +	u16     size;
-> +};
-> +
-> +#define	HASH_BUCKETS	(8192*2)
-> +
-> +struct page_info {
-> +	struct list_head        list;
-> +	struct page_info	*next;
-> +	struct page_info	*prev;
-> +	struct page             *pages[MAX_SKB_FRAGS];
-> +	struct sk_buff          *skb;
-> +	struct page_pool        *pool;
-> +
-> +	/* The pointer relayed to skb, to indicate
-> +	 * it's a external allocated skb or kernel
-> +	 */
-> +	struct skb_ext_page    ext_page;
-> +	/* flag to indicate read or write */
-> +#define INFO_READ                      0
-> +#define INFO_WRITE                     1
-> +	unsigned                flags;
-> +	/* exact number of locked pages */
-> +	unsigned                pnum;
-> +
-> +	/* The fields after that is for backend
-> +	 * driver, now for vhost-net.
-> +	 */
-> +	/* the kiocb structure related to */
-> +	struct kiocb            *iocb;
-> +	/* the ring descriptor index */
-> +	unsigned int            desc_pos;
-> +	/* the iovec coming from backend, we only
-> +	* need few of them */
-> +	struct iovec            hdr[2];
-> +	struct iovec            iov[2];
-> +};
-> +
-> +static struct kmem_cache *ext_page_info_cache;
-> +
-> +struct page_pool {
-> +	/* the queue for rx side */
-> +	struct list_head        readq;
-> +	/* the lock to protect readq */
-> +	spinlock_t		read_lock;
-> +	/* record the orignal rlimit */
-> +	struct rlimit		o_rlim;
-> +	/* record the locked pages */
-> +	int			lock_pages;
-> +	/* the device according to */
-> +	struct net_device	*dev;
-> +	/* the mp_port according to dev */
-> +	struct mp_port		port;
-> +	/* the hash_table list to find each locked page */
-> +	struct page_info	**hash_table;
-> +};
-> +
-> +struct mp_struct {
-> +	struct mp_file		*mfile;
-> +	struct net_device       *dev;
-> +	struct page_pool	*pool;
-> +	struct socket           socket;
-> +};
-> +
-> +struct mp_file {
-> +	atomic_t count;
-> +	struct mp_struct *mp;
-> +	struct net *net;
-> +};
-> +
-> +struct mp_sock {
-> +	struct sock		sk;
-> +	struct mp_struct	*mp;
-> +};
-> +
-> +/* The main function to allocate external buffers */
-> +static struct skb_ext_page *page_ctor(struct mp_port *port,
-> +				      struct sk_buff *skb,
-> +				      int npages)
-> +{
-> +	int i;
-> +	unsigned long flags;
-> +	struct page_pool *pool;
-> +	struct page_info *info = NULL;
-> +
-> +	if (npages != 1)
-> +		BUG();
-> +	pool = container_of(port, struct page_pool, port);
-> +
-> +	spin_lock_irqsave(&pool->read_lock, flags);
-> +	if (!list_empty(&pool->readq)) {
-> +		info = list_first_entry(&pool->readq, struct page_info, list);
-> +		list_del(&info->list);
-> +	}
-> +	spin_unlock_irqrestore(&pool->read_lock, flags);
-> +	if (!info)
-> +		return NULL;
-> +
-> +	for (i = 0; i < info->pnum; i++)
-> +		get_page(info->pages[i]);
-> +	info->skb = skb;
-> +	return &info->ext_page;
-> +}
-> +
-> +static struct page_info *mp_hash_lookup(struct page_pool *pool,
-> +					struct page *page);
-> +static struct page_info *mp_hash_delete(struct page_pool *pool,
-> +					struct page_info *info);
-> +
-> +static struct skb_ext_page *mp_lookup(struct net_device *dev,
-> +				      struct page *page)
-> +{
-> +	struct mp_struct *mp =
-> +		container_of(dev->mp_port->sock->sk, struct mp_sock, sk)->mp;
-> +	struct page_pool *pool = mp->pool;
-> +	struct page_info *info;
-> +
-> +	info = mp_hash_lookup(pool, page);
-> +	if (!info)
-> +		return NULL;
-> +	return &info->ext_page;
-> +}
-> +
-> +static int page_pool_attach(struct mp_struct *mp)
-> +{
-> +	int rc;
-> +	struct page_pool *pool;
-> +	struct net_device *dev = mp->dev;
-> +
-> +	/* locked by mp_mutex */
-> +	if (mp->pool)
-> +		return -EBUSY;
-> +
-> +	pool = kzalloc(sizeof(*pool), GFP_KERNEL);
-> +	if (!pool)
-> +		return -ENOMEM;
-> +	rc = netdev_mp_port_prep(dev, &pool->port);
-> +	if (rc)
-> +		goto fail;
-> +
-> +	INIT_LIST_HEAD(&pool->readq);
-> +	spin_lock_init(&pool->read_lock);
-> +	pool->hash_table = kzalloc(sizeof(struct page_info *) * HASH_BUCKETS,
-> +			GFP_KERNEL);
-> +	if (!pool->hash_table)
-> +		goto fail;
-> +
-> +	dev_hold(dev);
-> +	pool->dev = dev;
-> +	pool->port.ctor = page_ctor;
-> +	pool->port.sock = &mp->socket;
-> +	pool->port.hash = mp_lookup;
-> +	pool->lock_pages = 0;
-> +
-> +	/* locked by mp_mutex */
-> +	dev->mp_port = &pool->port;
-> +	mp->pool = pool;
-> +
-> +	return 0;
-> +
-> +fail:
-> +	kfree(pool);
-> +	dev_put(dev);
-> +
-> +	return rc;
-> +}
-> +
-> +struct page_info *info_dequeue(struct page_pool *pool)
-> +{
-> +	unsigned long flags;
-> +	struct page_info *info = NULL;
-> +	spin_lock_irqsave(&pool->read_lock, flags);
-> +	if (!list_empty(&pool->readq)) {
-> +		info = list_first_entry(&pool->readq,
-> +				struct page_info, list);
-> +		list_del(&info->list);
-> +	}
-> +	spin_unlock_irqrestore(&pool->read_lock, flags);
-> +	return info;
-> +}
-> +
-> +static int set_memlock_rlimit(struct page_pool *pool, int resource,
-> +			      unsigned long cur, unsigned long max)
-> +{
-> +	struct rlimit new_rlim, *old_rlim;
-> +	int retval;
-> +
-> +	if (resource != RLIMIT_MEMLOCK)
-> +		return -EINVAL;
-> +	new_rlim.rlim_cur = cur;
-> +	new_rlim.rlim_max = max;
-> +
-> +	old_rlim = current->signal->rlim + resource;
-> +
-> +	/* remember the old rlimit value when backend enabled */
-> +	pool->o_rlim.rlim_cur = old_rlim->rlim_cur;
-> +	pool->o_rlim.rlim_max = old_rlim->rlim_max;
-> +
-> +	if ((new_rlim.rlim_max > old_rlim->rlim_max) &&
-> +			!capable(CAP_SYS_RESOURCE))
-> +		return -EPERM;
-> +
-> +	retval = security_task_setrlimit(resource, &new_rlim);
-> +	if (retval)
-> +		return retval;
-> +
-> +	task_lock(current->group_leader);
-> +	*old_rlim = new_rlim;
-> +	task_unlock(current->group_leader);
-> +	return 0;
-> +}
-> +
-> +static void mp_ki_dtor(struct kiocb *iocb)
-> +{
-> +	struct page_info *info = (struct page_info *)(iocb->private);
-> +	int i;
-> +
-> +	if (info->flags == INFO_READ) {
-> +		for (i = 0; i < info->pnum; i++) {
-> +			if (info->pages[i]) {
-> +				set_page_dirty_lock(info->pages[i]);
-> +				put_page(info->pages[i]);
-> +			}
-> +		}
-> +		mp_hash_delete(info->pool, info);
-> +		if (info->skb) {
-> +			info->skb->destructor = NULL;
-> +			kfree_skb(info->skb);
-> +		}
-> +	}
-> +	/* Decrement the number of locked pages */
-> +	info->pool->lock_pages -= info->pnum;
-> +	kmem_cache_free(ext_page_info_cache, info);
-> +
-> +	return;
-> +}
-> +
-> +static struct kiocb *create_iocb(struct page_info *info, int size)
-> +{
-> +	struct kiocb *iocb = NULL;
-> +
-> +	iocb = info->iocb;
-> +	if (!iocb)
-> +		return iocb;
-> +	iocb->ki_flags = 0;
-> +	iocb->ki_users = 1;
-> +	iocb->ki_key = 0;
-> +	iocb->ki_ctx = NULL;
-> +	iocb->ki_cancel = NULL;
-> +	iocb->ki_retry = NULL;
-> +	iocb->ki_eventfd = NULL;
-> +	iocb->ki_pos = info->desc_pos;
-> +	iocb->ki_nbytes = size;
-> +	iocb->ki_dtor(iocb);
-> +	iocb->private = (void *)info;
-> +	iocb->ki_dtor = mp_ki_dtor;
-> +
-> +	return iocb;
-> +}
-> +
-> +static int page_pool_detach(struct mp_struct *mp)
-> +{
-> +	struct page_pool *pool;
-> +	struct page_info *info;
-> +	int i;
-> +
-> +	/* locked by mp_mutex */
-> +	pool = mp->pool;
-> +	if (!pool)
-> +		return -ENODEV;
-> +
-> +	while ((info = info_dequeue(pool))) {
-> +		for (i = 0; i < info->pnum; i++)
-> +			if (info->pages[i])
-> +				put_page(info->pages[i]);
-> +		create_iocb(info, 0);
-> +		kmem_cache_free(ext_page_info_cache, info);
-> +	}
-> +
-> +	set_memlock_rlimit(pool, RLIMIT_MEMLOCK,
-> +			   pool->o_rlim.rlim_cur,
-> +			   pool->o_rlim.rlim_max);
-> +
-> +	/* locked by mp_mutex */
-> +	pool->dev->mp_port = NULL;
-> +	dev_put(pool->dev);
-> +
-> +	mp->pool = NULL;
-> +	kfree(pool->hash_table);
-> +	kfree(pool);
-> +	return 0;
-> +}
-> +
-> +static void __mp_detach(struct mp_struct *mp)
-> +{
-> +	mp->mfile = NULL;
-> +
-> +	dev_change_flags(mp->dev, mp->dev->flags & ~IFF_UP);
-> +	page_pool_detach(mp);
-> +	dev_change_flags(mp->dev, mp->dev->flags | IFF_UP);
-> +
-> +	/* Drop the extra count on the net device */
-> +	dev_put(mp->dev);
-> +}
-> +
-> +static DEFINE_MUTEX(mp_mutex);
-> +
-> +static void mp_detach(struct mp_struct *mp)
-> +{
-> +	mutex_lock(&mp_mutex);
-> +	__mp_detach(mp);
-> +	mutex_unlock(&mp_mutex);
-> +}
-> +
-> +static struct mp_struct *mp_get(struct mp_file *mfile)
-> +{
-> +	struct mp_struct *mp = NULL;
-> +	if (atomic_inc_not_zero(&mfile->count))
-> +		mp = mfile->mp;
-> +
-> +	return mp;
-> +}
-> +
-> +static void mp_put(struct mp_file *mfile)
-> +{
-> +	if (atomic_dec_and_test(&mfile->count)) {
-> +		if (!rtnl_is_locked()) {
-> +			rtnl_lock();
-> +			mp_detach(mfile->mp);
-> +			rtnl_unlock();
-> +		} else
-> +			mp_detach(mfile->mp);
-> +	}
-> +}
-> +
-> +static void iocb_tag(struct kiocb *iocb)
-> +{
-> +	iocb->ki_flags = 1;
-> +}
-> +
-> +/* The callback to destruct the external buffers or skb */
-> +static void page_dtor(struct skb_ext_page *ext_page)
-> +{
-> +	struct page_info *info;
-> +	struct page_pool *pool;
-> +	struct sock *sk;
-> +	struct sk_buff *skb;
-> +
-> +	if (!ext_page)
-> +		return;
-> +	info = container_of(ext_page, struct page_info, ext_page);
-> +	if (!info)
-> +		return;
-> +	pool = info->pool;
-> +	skb = info->skb;
-> +
-> +	if (info->flags == INFO_READ) {
-> +		create_iocb(info, 0);
-> +		return;
-> +	}
-> +
-> +	/* For transmit, we should wait for the DMA finish by hardware.
-> +	 * Queue the notifier to wake up the backend driver
-> +	 */
-> +
-> +	iocb_tag(info->iocb);
-> +	sk = pool->port.sock->sk;
-> +	sk->sk_write_space(sk);
-> +
-> +	return;
-> +}
-> +
-> +/* For small exteranl buffers transmit, we don't need to call
-> + * get_user_pages().
-> + */
-> +static struct page_info *alloc_small_page_info(struct page_pool *pool,
-> +		struct kiocb *iocb, int total)
-> +{
-> +	struct page_info *info =
-> +		kmem_cache_alloc(ext_page_info_cache, GFP_KERNEL);
-> +
-> +	if (!info)
-> +		return NULL;
-> +	info->ext_page.dtor = page_dtor;
-> +	info->pool = pool;
-> +	info->flags = INFO_WRITE;
-> +	info->iocb = iocb;
-> +	info->pnum = 0;
-> +	return info;
-> +}
-> +
-> +typedef u32 key_mp_t;
-> +static inline key_mp_t mp_hash(struct page *page, int buckets)
-> +{
-> +	key_mp_t k;
-> +#if BITS_PER_LONG == 64
-> +	k = ((((unsigned long)page << 32UL) >> 32UL) /
-> +			sizeof(struct page)) % buckets ;
-> +#elif BITS_PER_LONG == 32
-> +	k = ((unsigned long)page / sizeof(struct page)) % buckets;
-> +#endif
-> +
-> +	return k;
-> +}
-> +
-> +static void mp_hash_insert(struct page_pool *pool,
-> +		struct page *page, struct page_info *page_info)
-> +{
-> +	struct page_info *tmp;
-> +	key_mp_t key = mp_hash(page, HASH_BUCKETS);
-> +	if (!pool->hash_table[key]) {
-> +		pool->hash_table[key] = page_info;
-> +		return;
-> +	}
-> +
-> +	tmp = pool->hash_table[key];
-> +	while (tmp->next)
-> +		tmp = tmp->next;
-> +
-> +	tmp->next = page_info;
-> +	page_info->prev = tmp;
-> +	return;
-> +}
-> +
-> +static struct page_info *mp_hash_delete(struct page_pool *pool,
-> +					struct page_info *info)
-> +{
-> +	key_mp_t key = mp_hash(info->pages[0], HASH_BUCKETS);
-> +	struct page_info *tmp = NULL;
-> +
-> +	tmp = pool->hash_table[key];
-> +	while (tmp) {
-> +		if (tmp == info) {
-> +			if (!tmp->prev) {
-> +				pool->hash_table[key] = tmp->next;
-> +				if (tmp->next)
-> +					tmp->next->prev = NULL;
-> +			} else {
-> +				tmp->prev->next = tmp->next;
-> +				if (tmp->next)
-> +					tmp->next->prev = tmp->prev;
-> +			}
-> +			return tmp;
-> +		}
-> +		tmp = tmp->next;
-> +	}
-> +	return tmp;
-> +}
-> +
-> +static struct page_info *mp_hash_lookup(struct page_pool *pool,
-> +					struct page *page)
-> +{
-> +	key_mp_t key = mp_hash(page, HASH_BUCKETS);
-> +	struct page_info *tmp = NULL;
-> +
-> +	int i;
-> +	tmp = pool->hash_table[key];
-> +	while (tmp) {
-> +		for (i = 0; i < tmp->pnum; i++) {
-> +			if (tmp->pages[i] == page)
-> +				return tmp;
-> +		}
-> +		tmp = tmp->next;
-> +	}
-> +	return tmp;
-> +}
-> +
-> +/* The main function to transform the guest user space address
-> + * to host kernel address via get_user_pages(). Thus the hardware
-> + * can do DMA directly to the external buffer address.
-> + */
-> +static struct page_info *alloc_page_info(struct page_pool *pool,
-> +		struct kiocb *iocb, struct iovec *iov,
-> +		int count, struct frag *frags,
-> +		int npages, int total)
-> +{
-> +	int rc;
-> +	int i, j, n = 0;
-> +	int len;
-> +	unsigned long base, lock_limit;
-> +	struct page_info *info = NULL;
-> +
-> +	lock_limit = current->signal->rlim[RLIMIT_MEMLOCK].rlim_cur;
-> +	lock_limit >>= PAGE_SHIFT;
-> +
-> +	if (pool->lock_pages + count > lock_limit && npages) {
-> +		printk(KERN_INFO "exceed the locked memory rlimit.");
-> +		return NULL;
-> +	}
-> +
-> +	info = kmem_cache_alloc(ext_page_info_cache, GFP_KERNEL);
-> +	
-> +	if (!info)
-> +		return NULL;
-> +	info->skb = NULL;
-> +	info->next = info->prev = NULL;
-> +
-> +	for (i = j = 0; i < count; i++) {
-> +		base = (unsigned long)iov[i].iov_base;
-> +		len = iov[i].iov_len;
-> +
-> +		if (!len)
-> +			continue;
-> +		n = ((base & ~PAGE_MASK) + len + ~PAGE_MASK) >> PAGE_SHIFT;
-> +
-> +		rc = get_user_pages_fast(base, n, npages ? 1 : 0,
-> +				&info->pages[j]);
-> +		if (rc != n)
-> +			goto failed;
-> +
-> +		while (n--) {
-> +			frags[j].offset = base & ~PAGE_MASK;
-> +			frags[j].size = min_t(int, len,
-> +					PAGE_SIZE - frags[j].offset);
-> +			len -= frags[j].size;
-> +			base += frags[j].size;
-> +			j++;
-> +		}
-> +	}
-> +
-> +#ifdef CONFIG_HIGHMEM
-> +	if (npages && !(dev->features & NETIF_F_HIGHDMA)) {
-> +		for (i = 0; i < j; i++) {
-> +			if (PageHighMem(info->pages[i]))
-> +				goto failed;
-> +		}
-> +	}
-> +#endif
-> +
-> +	info->ext_page.dtor = page_dtor;
-> +	info->ext_page.page = info->pages[0];
-> +	info->pool = pool;
-> +	info->pnum = j;
-> +	info->iocb = iocb;
-> +	if (!npages)
-> +		info->flags = INFO_WRITE;
-> +	else
-> +		info->flags = INFO_READ;
-> +
-> +	if (info->flags == INFO_READ) {
-> +		if (frags[0].offset == 0 && iocb->ki_iovec[0].iov_len) {
-> +			frags[0].offset = iocb->ki_iovec[0].iov_len;
-> +			pool->port.vnet_hlen = iocb->ki_iovec[0].iov_len;
-> +		}
-> +		for (i = 0; i < j; i++)
-> +			mp_hash_insert(pool, info->pages[i], info);
-> +	}
-> +	/* increment the number of locked pages */
-> +	pool->lock_pages += j;
-> +	return info;
-> +
-> +failed:
-> +	for (i = 0; i < j; i++)
-> +		put_page(info->pages[i]);
-> +
-> +	kmem_cache_free(ext_page_info_cache, info);
-> +
-> +	return NULL;
-> +}
-> +
-> +static void mp_sock_destruct(struct sock *sk)
-> +{
-> +	struct mp_struct *mp = container_of(sk, struct mp_sock, sk)->mp;
-> +	kfree(mp);
-> +}
-> +
-> +static void mp_sock_state_change(struct sock *sk)
-> +{
-> +	if (sk_has_sleeper(sk))
-> +		wake_up_interruptible_sync_poll(sk->sk_sleep, POLLIN);
-> +}
-> +
-> +static void mp_sock_write_space(struct sock *sk)
-> +{
-> +	if (sk_has_sleeper(sk))
-> +		wake_up_interruptible_sync_poll(sk->sk_sleep, POLLOUT);
-> +}
-> +
-> +static void mp_sock_data_ready(struct sock *sk, int coming)
-> +{
-> +	struct mp_struct *mp = container_of(sk, struct mp_sock, sk)->mp;
-> +	struct page_pool *pool = NULL;
-> +	struct sk_buff *skb = NULL;
-> +	struct page_info *info = NULL;
-> +	int len;
-> +
-> +	pool = mp->pool;
-> +	if (!pool)
-> +		return;
-> +
-> +	while ((skb = skb_dequeue(&sk->sk_receive_queue)) != NULL) {
-> +		struct page *page;
-> +		int off;
-> +		int size = 0, i = 0;
-> +		struct skb_shared_info *shinfo = skb_shinfo(skb);
-> +		struct skb_ext_page *ext_page =
-> +			(struct skb_ext_page *)(shinfo->destructor_arg);
-> +		struct virtio_net_hdr_mrg_rxbuf hdr = {
-> +			.hdr.flags = 0,
-> +			.hdr.gso_type = VIRTIO_NET_HDR_GSO_NONE
-> +		};
-> +
-> +		if (skb->ip_summed == CHECKSUM_COMPLETE)
-> +			printk(KERN_INFO "Complete checksum occurs\n");
-> +
-> +		if (shinfo->frags[0].page == ext_page->page) {
-> +			info = container_of(ext_page,
-> +					    struct page_info,
-> +					    ext_page);
-> +			if (shinfo->nr_frags)
-> +				hdr.num_buffers = shinfo->nr_frags;
-> +			else
-> +				hdr.num_buffers = shinfo->nr_frags + 1;
-> +		} else {
-> +			info = container_of(ext_page,
-> +					    struct page_info,
-> +					    ext_page);
-> +			hdr.num_buffers = shinfo->nr_frags + 1;
-> +		}
-> +		skb_push(skb, ETH_HLEN);
-> +
-> +		if (skb_is_gso(skb)) {
-> +			hdr.hdr.hdr_len = skb_headlen(skb);
-> +			hdr.hdr.gso_size = shinfo->gso_size;
-> +			if (shinfo->gso_type & SKB_GSO_TCPV4)
-> +				hdr.hdr.gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
-> +			else if (shinfo->gso_type & SKB_GSO_TCPV6)
-> +				hdr.hdr.gso_type = VIRTIO_NET_HDR_GSO_TCPV6;
-> +			else if (shinfo->gso_type & SKB_GSO_UDP)
-> +				hdr.hdr.gso_type = VIRTIO_NET_HDR_GSO_UDP;
-> +			else
-> +				BUG();
-> +			if (shinfo->gso_type & SKB_GSO_TCP_ECN)
-> +				hdr.hdr.gso_type |= VIRTIO_NET_HDR_GSO_ECN;
-> +
-> +		} else
-> +			hdr.hdr.gso_type = VIRTIO_NET_HDR_GSO_NONE;
-> +
-> +		if (skb->ip_summed == CHECKSUM_PARTIAL) {
-> +			hdr.hdr.flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
-> +			hdr.hdr.csum_start =
-> +				skb->csum_start - skb_headroom(skb);
-> +			hdr.hdr.csum_offset = skb->csum_offset;
-> +		}
-> +
-> +		off = info->hdr[0].iov_len;
-> +		len = memcpy_toiovec(info->iov, (unsigned char *)&hdr, off);
-> +		if (len) {
-> +			pr_debug("Unable to write vnet_hdr at addr '%p': '%d'\n",
-> +				info->iov, len);
-> +			goto clean;
-> +		}
-> +
-> +		memcpy_toiovec(info->iov, skb->data, skb_headlen(skb));
-> +
-> +		info->iocb->ki_left = hdr.num_buffers;
-> +		if (shinfo->frags[0].page == ext_page->page) {
-> +			size = shinfo->frags[0].size +
-> +				shinfo->frags[0].page_offset - off;
-> +			i = 1;
-> +		} else {
-> +			size = skb_headlen(skb);
-> +			i = 0;
-> +		}
-> +		create_iocb(info, off + size);
-> +		for (i = i; i < shinfo->nr_frags; i++) {
-> +			page = shinfo->frags[i].page;
-> +			info = mp_hash_lookup(pool, shinfo->frags[i].page);
-> +			create_iocb(info, shinfo->frags[i].size);
-> +		}
-> +		info->skb = skb;
-> +		shinfo->nr_frags = 0;
-> +		shinfo->destructor_arg = NULL;
-> +		continue;
-> +clean:
-> +		kfree_skb(skb);
-> +		for (i = 0; i < info->pnum; i++)
-> +			put_page(info->pages[i]);
-> +		kmem_cache_free(ext_page_info_cache, info);
-> +	}
-> +	return;
-> +}
-> +
-> +static inline struct sk_buff *mp_alloc_skb(struct sock *sk, size_t prepad,
-> +					   size_t len, size_t linear,
-> +					   int noblock, int *err)
-> +{
-> +	struct sk_buff *skb;
-> +
-> +	/* Under a page?  Don't bother with paged skb. */
-> +	if (prepad + len < PAGE_SIZE || !linear)
-> +		linear = len;
-> +
-> +	skb = sock_alloc_send_pskb(sk, prepad + linear, len - linear, noblock,
-> +			err);
-> +	if (!skb)
-> +		return NULL;
-> +
-> +	skb_reserve(skb, prepad);
-> +	skb_put(skb, linear);
-> +	skb->data_len = len - linear;
-> +	skb->len += len - linear;
-> +
-> +	return skb;
-> +}
-> +
-> +static int mp_skb_from_vnet_hdr(struct sk_buff *skb,
-> +		struct virtio_net_hdr *vnet_hdr)
-> +{
-> +	unsigned short gso_type = 0;
-> +	if (vnet_hdr->gso_type != VIRTIO_NET_HDR_GSO_NONE) {
-> +		switch (vnet_hdr->gso_type & ~VIRTIO_NET_HDR_GSO_ECN) {
-> +		case VIRTIO_NET_HDR_GSO_TCPV4:
-> +			gso_type = SKB_GSO_TCPV4;
-> +			break;
-> +		case VIRTIO_NET_HDR_GSO_TCPV6:
-> +			gso_type = SKB_GSO_TCPV6;
-> +			break;
-> +		case VIRTIO_NET_HDR_GSO_UDP:
-> +			gso_type = SKB_GSO_UDP;
-> +			break;
-> +		default:
-> +			return -EINVAL;
-> +		}
-> +
-> +		if (vnet_hdr->gso_type & VIRTIO_NET_HDR_GSO_ECN)
-> +			gso_type |= SKB_GSO_TCP_ECN;
-> +
-> +		if (vnet_hdr->gso_size == 0)
-> +			return -EINVAL;
-> +	}
-> +
-> +	if (vnet_hdr->flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) {
-> +		if (!skb_partial_csum_set(skb, vnet_hdr->csum_start,
-> +					vnet_hdr->csum_offset))
-> +			return -EINVAL;
-> +	}
-> +
-> +	if (vnet_hdr->gso_type != VIRTIO_NET_HDR_GSO_NONE) {
-> +		skb_shinfo(skb)->gso_size = vnet_hdr->gso_size;
-> +		skb_shinfo(skb)->gso_type = gso_type;
-> +
-> +		/* Header must be checked, and gso_segs computed. */
-> +		skb_shinfo(skb)->gso_type |= SKB_GSO_DODGY;
-> +		skb_shinfo(skb)->gso_segs = 0;
-> +	}
-> +	return 0;
-> +}
-> +
-> +static int mp_sendmsg(struct kiocb *iocb, struct socket *sock,
-> +		struct msghdr *m, size_t total_len)
-> +{
-> +	struct mp_struct *mp = container_of(sock->sk, struct mp_sock, sk)->mp;
-> +	struct virtio_net_hdr vnet_hdr = {0};
-> +	int hdr_len = 0;
-> +	struct page_pool *pool;
-> +	struct iovec *iov = m->msg_iov;
-> +	struct page_info *info = NULL;
-> +	struct frag frags[MAX_SKB_FRAGS];
-> +	struct sk_buff *skb;
-> +	int count = m->msg_iovlen;
-> +	int total = 0, header, n, i, len, rc;
-> +	unsigned long base;
-> +
-> +	pool = mp->pool;
-> +	if (!pool)
-> +		return -ENODEV;
-> +
-> +	total = iov_length(iov, count);
-> +
-> +	if (total < ETH_HLEN)
-> +		return -EINVAL;
-> +
-> +	if (total <= COPY_THRESHOLD)
-> +		goto copy;
-> +
-> +	n = 0;
-> +	for (i = 0; i < count; i++) {
-> +		base = (unsigned long)iov[i].iov_base;
-> +		len = iov[i].iov_len;
-> +		if (!len)
-> +			continue;
-> +		n += ((base & ~PAGE_MASK) + len + ~PAGE_MASK) >> PAGE_SHIFT;
-> +		if (n > MAX_SKB_FRAGS)
-> +			return -EINVAL;
-> +	}
-> +
-> +copy:
-> +	hdr_len = sizeof(vnet_hdr);
-> +	if ((total - iocb->ki_iovec[0].iov_len) < 0)
-> +		return -EINVAL;
-> +
-> +	rc = memcpy_fromiovecend((void *)&vnet_hdr, iocb->ki_iovec, 0, hdr_len);
-> +	if (rc < 0)
-> +		return -EINVAL;
-> +
-> +	if ((vnet_hdr.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) &&
-> +			vnet_hdr.csum_start + vnet_hdr.csum_offset + 2 >
-> +			vnet_hdr.hdr_len)
-> +		vnet_hdr.hdr_len = vnet_hdr.csum_start +
-> +			vnet_hdr.csum_offset + 2;
-> +
-> +	if (vnet_hdr.hdr_len > total)
-> +		return -EINVAL;
-> +
-> +	header = total > COPY_THRESHOLD ? COPY_HDR_LEN : total;
-> +
-> +	skb = mp_alloc_skb(sock->sk, NET_IP_ALIGN, header,
-> +			   iocb->ki_iovec[0].iov_len, 1, &rc);
-> +
-> +	if (!skb)
-> +		goto drop;
-> +
-> +	skb_set_network_header(skb, ETH_HLEN);
-> +	memcpy_fromiovec(skb->data, iov, header);
-> +
-> +	skb_reset_mac_header(skb);
-> +	skb->protocol = eth_hdr(skb)->h_proto;
-> +
-> +	rc = mp_skb_from_vnet_hdr(skb, &vnet_hdr);
-> +	if (rc)
-> +		goto drop;
-> +
-> +	if (header == total) {
-> +		rc = total;
-> +		info = alloc_small_page_info(pool, iocb, total);
-> +	} else {
-> +		info = alloc_page_info(pool, iocb, iov, count, frags, 0, total);
-> +		if (info)
-> +			for (i = 0; i < info->pnum; i++) {
-> +				skb_add_rx_frag(skb, i, info->pages[i],
-> +						frags[i].offset, frags[i].size);
-> +				info->pages[i] = NULL;
-> +			}
-> +	}
-> +	if (!pool->lock_pages)
-> +		sock->sk->sk_state_change(sock->sk);
-> +
-> +	if (info != NULL) {
-> +		info->desc_pos = iocb->ki_pos;
-> +		info->skb = skb;
-> +		skb_shinfo(skb)->destructor_arg = &info->ext_page;
-> +		skb->dev = mp->dev;
-> +		create_iocb(info, total);
-> +		dev_queue_xmit(skb);
-> +		return 0;
-> +	}
-> +drop:
-> +	kfree_skb(skb);
-> +	if (info) {
-> +		for (i = 0; i < info->pnum; i++)
-> +			put_page(info->pages[i]);
-> +		kmem_cache_free(ext_page_info_cache, info);
-> +	}
-> +	mp->dev->stats.tx_dropped++;
-> +	return -ENOMEM;
-> +}
-> +
-> +static int mp_recvmsg(struct kiocb *iocb, struct socket *sock,
-> +		struct msghdr *m, size_t total_len,
-> +		int flags)
-> +{
-> +	struct mp_struct *mp = container_of(sock->sk, struct mp_sock, sk)->mp;
-> +	struct page_pool *pool;
-> +	struct iovec *iov = m->msg_iov;
-> +	int count = m->msg_iovlen;
-> +	int npages, payload;
-> +	struct page_info *info;
-> +	struct frag frags[MAX_SKB_FRAGS];
-> +	unsigned long base;
-> +	int i, len;
-> +	unsigned long flag;
-> +
-> +	if (!(flags & MSG_DONTWAIT))
-> +		return -EINVAL;
-> +
-> +	pool = mp->pool;
-> +	if (!pool)
-> +		return -EINVAL;
-> +
-> +	/* Error detections in case invalid external buffer */
-> +	if (count > 2 && iov[1].iov_len < pool->port.hdr_len &&
-> +			mp->dev->features & NETIF_F_SG) {
-> +		return -EINVAL;
-> +	}
-> +
-> +	npages = pool->port.npages;
-> +	payload = pool->port.data_len;
-> +
-> +	/* If KVM guest virtio-net FE driver use SG feature */
-> +	if (count > 2) {
-> +		for (i = 2; i < count; i++) {
-> +			base = (unsigned long)iov[i].iov_base & ~PAGE_MASK;
-> +			len = iov[i].iov_len;
-> +			if (npages == 1)
-> +				len = min_t(int, len, PAGE_SIZE - base);
-> +			else if (base)
-> +				break;
-> +			payload -= len;
-> +			if (payload <= 0)
-> +				goto proceed;
-> +			if (npages == 1 || (len & ~PAGE_MASK))
-> +				break;
-> +		}
-> +	}
-> +
-> +	if ((((unsigned long)iov[1].iov_base & ~PAGE_MASK)
-> +				- NET_SKB_PAD - NET_IP_ALIGN) >= 0)
-> +		goto proceed;
-> +
-> +	return -EINVAL;
-> +
-> +proceed:
-> +	/* skip the virtnet head */
-> +	if (count > 1) {
-> +		iov++;
-> +		count--;
-> +	}
-> +
-> +	if (!pool->lock_pages) {
-> +		set_memlock_rlimit(pool, RLIMIT_MEMLOCK,
-> +				iocb->ki_user_data * 4096 * 2,
-> +				iocb->ki_user_data * 4096 * 2);
-> +	}
-> +
-> +	/* Translate address to kernel */
-> +	info = alloc_page_info(pool, iocb, iov, count, frags, npages, 0);
-> +	if (!info)
-> +		return -ENOMEM;
-> +	info->hdr[0].iov_base = iocb->ki_iovec[0].iov_base;
-> +	info->hdr[0].iov_len = iocb->ki_iovec[0].iov_len;
-> +	iocb->ki_iovec[0].iov_len = 0;
-> +	iocb->ki_left = 0;
-> +	info->desc_pos = iocb->ki_pos;
-> +
-> +	if (count > 1) {
-> +		iov--;
-> +		count++;
-> +	}
-> +
-> +	memcpy(info->iov, iov, sizeof(struct iovec) * count);
-> +
-> +	spin_lock_irqsave(&pool->read_lock, flag);
-> +	list_add_tail(&info->list, &pool->readq);
-> +	spin_unlock_irqrestore(&pool->read_lock, flag);
-> +
-> +	return 0;
-> +}
-> +
-> +/* Ops structure to mimic raw sockets with mp device */
-> +static const struct proto_ops mp_socket_ops = {
-> +	.sendmsg = mp_sendmsg,
-> +	.recvmsg = mp_recvmsg,
-> +};
-> +
-> +static struct proto mp_proto = {
-> +	.name           = "mp",
-> +	.owner          = THIS_MODULE,
-> +	.obj_size       = sizeof(struct mp_sock),
-> +};
-> +
-> +static int mp_chr_open(struct inode *inode, struct file * file)
-> +{
-> +	struct mp_file *mfile;
-> +	cycle_kernel_lock();
-> +
-> +	pr_debug("mp: mp_chr_open\n");
-> +	mfile = kzalloc(sizeof(*mfile), GFP_KERNEL);
-> +	if (!mfile)
-> +		return -ENOMEM;
-> +	atomic_set(&mfile->count, 0);
-> +	mfile->mp = NULL;
-> +	mfile->net = get_net(current->nsproxy->net_ns);
-> +	file->private_data = mfile;
-> +	return 0;
-> +}
-> +
-> +static int mp_attach(struct mp_struct *mp, struct file *file)
-> +{
-> +	struct mp_file *mfile = file->private_data;
-> +	int err;
-> +
-> +	netif_tx_lock_bh(mp->dev);
-> +
-> +	err = -EINVAL;
-> +
-> +	if (mfile->mp)
-> +		goto out;
-> +
-> +	err = -EBUSY;
-> +	if (mp->mfile)
-> +		goto out;
-> +
-> +	err = 0;
-> +	mfile->mp = mp;
-> +	mp->mfile = mfile;
-> +	mp->socket.file = file;
-> +	dev_hold(mp->dev);
-> +	sock_hold(mp->socket.sk);
-> +	atomic_inc(&mfile->count);
-> +
-> +out:
-> +	netif_tx_unlock_bh(mp->dev);
-> +	return err;
-> +}
-> +
-> +static int do_unbind(struct mp_file *mfile)
-> +{
-> +	struct mp_struct *mp = mp_get(mfile);
-> +
-> +	if (!mp)
-> +		return -EINVAL;
-> +
-> +	mp_detach(mp);
-> +	sock_put(mp->socket.sk);
-> +	mp_put(mfile);
-> +	return 0;
-> +}
-> +
-> +static long mp_chr_ioctl(struct file *file, unsigned int cmd,
-> +		unsigned long arg)
-> +{
-> +	struct mp_file *mfile = file->private_data;
-> +	struct mp_struct *mp;
-> +	struct net_device *dev;
-> +	void __user* argp = (void __user *)arg;
-> +	struct ifreq ifr;
-> +	struct sock *sk;
-> +	int ret;
-> +
-> +	ret = -EINVAL;
-> +
-> +	switch (cmd) {
-> +	case MPASSTHRU_BINDDEV:
-> +		ret = -EFAULT;
-> +		if (copy_from_user(&ifr, argp, sizeof ifr))
-> +			break;
-> +
-> +		ifr.ifr_name[IFNAMSIZ-1] = '\0';
-> +
-> +		ret = -ENODEV;
-> +
-> +		rtnl_lock();
-> +		dev = dev_get_by_name(mfile->net, ifr.ifr_name);
-> +		if (!dev) {
-> +			rtnl_unlock();
-> +			break;
-> +		}
-> +
-> +		mutex_lock(&mp_mutex);
-> +
-> +		ret = -EBUSY;
-> +
-> +		/* the device can be only bind once */
-> +		if (dev_is_mpassthru(dev))
-> +			goto err_dev_put;
-> +
-> +		mp = mfile->mp;
-> +		if (mp)
-> +			goto err_dev_put;
-> +
-> +		mp = kzalloc(sizeof(*mp), GFP_KERNEL);
-> +		if (!mp) {
-> +			ret = -ENOMEM;
-> +			goto err_dev_put;
-> +		}
-> +		mp->dev = dev;
-> +		ret = -ENOMEM;
-> +
-> +		sk = sk_alloc(mfile->net, AF_UNSPEC, GFP_KERNEL, &mp_proto);
-> +		if (!sk)
-> +			goto err_free_mp;
-> +
-> +		init_waitqueue_head(&mp->socket.wait);
-> +		mp->socket.ops = &mp_socket_ops;
-> +		sock_init_data(&mp->socket, sk);
-> +		sk->sk_sndbuf = INT_MAX;
-> +		container_of(sk, struct mp_sock, sk)->mp = mp;
-> +
-> +		sk->sk_destruct = mp_sock_destruct;
-> +		sk->sk_data_ready = mp_sock_data_ready;
-> +		sk->sk_write_space = mp_sock_write_space;
-> +		sk->sk_state_change = mp_sock_state_change;
-> +		ret = mp_attach(mp, file);
-> +		if (ret < 0)
-> +			goto err_free_sk;
-> +
-> +		ret = page_pool_attach(mp);
-> +		if (ret < 0)
-> +			goto err_free_sk;
-> +		dev_change_flags(mp->dev, mp->dev->flags & (~IFF_UP));
-> +		dev_change_flags(mp->dev, mp->dev->flags | IFF_UP);
-> +		sk->sk_state_change(sk);
-> +out:
-> +		mutex_unlock(&mp_mutex);
-> +		rtnl_unlock();
-> +		break;
-> +err_free_sk:
-> +		sk_free(sk);
-> +err_free_mp:
-> +		kfree(mp);
-> +err_dev_put:
-> +		dev_put(dev);
-> +		goto out;
-> +
-> +	case MPASSTHRU_UNBINDDEV:
-> +		rtnl_lock();
-> +		ret = do_unbind(mfile);
-> +		rtnl_unlock();
-> +		break;
-> +
-> +	default:
-> +		break;
-> +	}
-> +	return ret;
-> +}
-> +
-> +static unsigned int mp_chr_poll(struct file *file, poll_table * wait)
-> +{
-> +	struct mp_file *mfile = file->private_data;
-> +	struct mp_struct *mp = mp_get(mfile);
-> +	struct sock *sk;
-> +	unsigned int mask = 0;
-> +
-> +	if (!mp)
-> +		return POLLERR;
-> +
-> +	sk = mp->socket.sk;
-> +
-> +	poll_wait(file, &mp->socket.wait, wait);
-> +
-> +	if (!skb_queue_empty(&sk->sk_receive_queue))
-> +		mask |= POLLIN | POLLRDNORM;
-> +
-> +	if (sock_writeable(sk) ||
-> +		(!test_and_set_bit(SOCK_ASYNC_NOSPACE, &sk->sk_socket->flags) &&
-> +			 sock_writeable(sk)))
-> +		mask |= POLLOUT | POLLWRNORM;
-> +
-> +	if (mp->dev->reg_state != NETREG_REGISTERED)
-> +		mask = POLLERR;
-> +
-> +	mp_put(mfile);
-> +	return mask;
-> +}
-> +
-> +static ssize_t mp_chr_aio_write(struct kiocb *iocb, const struct iovec *iov,
-> +				unsigned long count, loff_t pos)
-> +{
-> +	struct file *file = iocb->ki_filp;
-> +	struct mp_struct *mp = mp_get(file->private_data);
-> +	struct sock *sk = mp->socket.sk;
-> +	struct sk_buff *skb;
-> +	int len, err;
-> +	ssize_t result = 0;
-> +
-> +	if (!mp)
-> +		return -EBADFD;
-> +
-> +	/* currently, async is not supported.
-> +	 * but we may support real async aio from user application,
-> +	 * maybe qemu virtio-net backend.
-> +	 */
-> +	if (!is_sync_kiocb(iocb))
-> +		return -EFAULT;
-> +
-> +	len = iov_length(iov, count);
-> +
-> +	if (unlikely(len < ETH_HLEN))
-> +		return -EINVAL;
-> +
-> +	skb = sock_alloc_send_skb(sk, len + NET_IP_ALIGN,
-> +				  file->f_flags & O_NONBLOCK, &err);
-> +
-> +	if (!skb)
-> +		return -ENOMEM;
-> +
-> +	skb_reserve(skb, NET_IP_ALIGN);
-> +	skb_put(skb, len);
-> +
-> +	if (skb_copy_datagram_from_iovec(skb, 0, iov, 0, len)) {
-> +		kfree_skb(skb);
-> +		return -EAGAIN;
-> +	}
-> +
-> +	skb->protocol = eth_type_trans(skb, mp->dev);
-> +	skb->dev = mp->dev;
-> +
-> +	dev_queue_xmit(skb);
-> +
-> +	mp_put(file->private_data);
-> +	return result;
-> +}
-> +
-> +static int mp_chr_close(struct inode *inode, struct file *file)
-> +{
-> +	struct mp_file *mfile = file->private_data;
-> +
-> +	/*
-> +	 * Ignore return value since an error only means there was nothing to
-> +	 * do
-> +	 */
-> +	do_unbind(mfile);
-> +
-> +	put_net(mfile->net);
-> +	kfree(mfile);
-> +
-> +	return 0;
-> +}
-> +
-> +#ifdef CONFIG_COMPAT
-> +static long mp_chr_compat_ioctl(struct file *f, unsigned int ioctl,
-> +				unsigned long arg)
-> +{
-> +	return mp_chr_ioctl(f, ioctl, (unsigned long)compat_ptr(arg));
-> +}
-> +#endif
-> +
-> +static const struct file_operations mp_fops = {
-> +	.owner  = THIS_MODULE,
-> +	.llseek = no_llseek,
-> +	.write  = do_sync_write,
-> +	.aio_write = mp_chr_aio_write,
-> +	.poll   = mp_chr_poll,
-> +	.unlocked_ioctl = mp_chr_ioctl,
-> +#ifdef CONFIG_COMPAT
-> +	.compat_ioctl = mp_chr_compat_ioctl,
-> +#endif
-> +	.open   = mp_chr_open,
-> +	.release = mp_chr_close,
-> +};
-> +
-> +static struct miscdevice mp_miscdev = {
-> +	.minor = MISC_DYNAMIC_MINOR,
-> +	.name = "mp",
-> +	.nodename = "net/mp",
-> +	.fops = &mp_fops,
-> +};
-> +
-> +static int mp_device_event(struct notifier_block *unused,
-> +		unsigned long event, void *ptr)
-> +{
-> +	struct net_device *dev = ptr;
-> +	struct mp_port *port;
-> +	struct mp_struct *mp = NULL;
-> +	struct socket *sock = NULL;
-> +	struct sock *sk;
-> +
-> +	port = dev->mp_port;
-> +	if (port == NULL)
-> +		return NOTIFY_DONE;
-> +
-> +	switch (event) {
-> +	case NETDEV_UNREGISTER:
-> +		sock = dev->mp_port->sock;
-> +		mp = container_of(sock->sk, struct mp_sock, sk)->mp;
-> +		do_unbind(mp->mfile);
-> +		break;
-> +	case NETDEV_CHANGE:
-> +		sk = dev->mp_port->sock->sk;
-> +		sk->sk_state_change(sk);
-> +		break;
-> +	}
-> +	return NOTIFY_DONE;
-> +}
-> +
-> +static struct notifier_block mp_notifier_block __read_mostly = {
-> +	.notifier_call  = mp_device_event,
-> +};
-> +
-> +static int mp_init(void)
-> +{
-> +	int err = 0;
-> +
-> +	ext_page_info_cache = kmem_cache_create("skb_page_info",
-> +						sizeof(struct page_info),
-> +						0, SLAB_HWCACHE_ALIGN, NULL);
-> +	if (!ext_page_info_cache)
-> +		return -ENOMEM;
-> +
-> +	err = misc_register(&mp_miscdev);
-> +	if (err) {
-> +		printk(KERN_ERR "mp: Can't register misc device\n");
-> +		kmem_cache_destroy(ext_page_info_cache);
-> +	} else {
-> +		printk(KERN_INFO "Registering mp misc device - minor = %d\n",
-> +				mp_miscdev.minor);
-> +		register_netdevice_notifier(&mp_notifier_block);
-> +	}
-> +	return err;
-> +}
-> +
-> +void mp_exit(void)
-> +{
-> +	unregister_netdevice_notifier(&mp_notifier_block);
-> +	misc_deregister(&mp_miscdev);
-> +	kmem_cache_destroy(ext_page_info_cache);
-> +}
-> +
-> +/* Get an underlying socket object from mp file.  Returns error unless file is
-> + * attached to a device.  The returned object works like a packet socket, it
-> + * can be used for sock_sendmsg/sock_recvmsg.  The caller is responsible for
-> + * holding a reference to the file for as long as the socket is in use. */
-> +struct socket *mp_get_socket(struct file *file)
-> +{
-> +	struct mp_file *mfile = file->private_data;
-> +	struct mp_struct *mp;
-> +
-> +	if (file->f_op != &mp_fops)
-> +		return ERR_PTR(-EINVAL);
-> +	mp = mp_get(mfile);
-> +	if (!mp)
-> +		return ERR_PTR(-EBADFD);
-> +	mp_put(mfile);
-> +	return &mp->socket;
-> +}
-> +EXPORT_SYMBOL_GPL(mp_get_socket);
-> +
-> +module_init(mp_init);
-> +module_exit(mp_exit);
-> +MODULE_AUTHOR(DRV_COPYRIGHT);
-> +MODULE_DESCRIPTION(DRV_DESCRIPTION);
-> +MODULE_LICENSE("GPL v2");
-> -- 
-> 1.7.3
+> On Sat, Oct 02, 2010 at 12:17:35PM +0200, Arnaud Ebalard wrote:
+>>
+>> and I see no reason not to keep the lock we have on the state until the
+>> end of the function when the state is valid (when we break), instead of
+>> releasing it to get it again later. Something like the following would
+>> allow removing the spin_lock()/spin_unlock() calls from all mip6 input
+>> handlers (mip6_{destopt,rthdr,iro_src,iro_dst}_input()):
+>
+> No I moved the state lock down precisely because it should not
+> be taken at a higher level as that breaks asynchronous IPsec
+> processing and the fact that it isn't needed in most places.
+>
+> If your code needs it then you should take it rather than impose
+> it on real IPsec users.
+
+Understood. Note that I am on your side with this: my primary concern
+while pushing the feature is *to not break or slow down standard IPsec*.
+I do not expect my code to be accepted or even read otherwise.
+
+As for the current point raised by David on the position of the locks in
+my input handlers, they are based on the position of the locks in the
+*existing* RH2 (mip6_rthdr_input()) and HAO (mip6_destopt_input())
+handlers. As they serve the same purpose (src/dst address check against
+state's address) and the code is basically the same, I have no reason to
+do things differently as what is currently upstream.
+
+After your reply, I took a (too long) look at the history of
+xfrm6_input_addr() to understand why it is as it is. If it can spare you
+some time, here is what I think happened:
+
+ - Initially (commit fbd9a5b4, Aug 23 2006), the checks on the status of
+   state, the call to x->type->input() and the changes on state's
+   processing stats (x->curlft changes) were *globally* protected by a
+   call to spin_lock(). The same day, a related commit (3d126890) added
+   support for RH2/HAO input handler. No lock inside the handler. The
+   content of xfrm6_input_addr() was:
+
+		spin_lock(&x->lock);
+
+                <...snip...>
+
+		nh = x->type->input(x, skb);
+		if (nh <= 0) {
+			spin_unlock(&x->lock);
+			xfrm_state_put(x);
+			x = NULL;
+			continue;
+		}
+
+		x->curlft.bytes += skb->len;
+		x->curlft.packets++;
+
+		spin_unlock(&x->lock);
+
+ - Then, as you wrote, the state lock was moved in all input handlers
+   (commit 0ebea8ef, Nov 13 2007), including RH2/HAO ones:
+
+   @@ -128,12 +128,15 @@ static int mip6_destopt_input(struct xfrm_state *x, struct sk_buff *skb)
+    {
+           struct ipv6hdr *iph = ipv6_hdr(skb);
+           struct ipv6_destopt_hdr *destopt = (struct ipv6_destopt_hdr *)skb->data;
+   +       int err = destopt->nexthdr;
+    
+   +       spin_lock(&x->lock);
+           if (!ipv6_addr_equal(&iph->saddr, (struct in6_addr *)x->coaddr) &&
+               !ipv6_addr_any((struct in6_addr *)x->coaddr))
+   -               return -ENOENT;
+   +               err = -ENOENT;
+   +       spin_unlock(&x->lock);
+    
+   -       return destopt->nexthdr;
+   +       return err;
+    }
+
+   With that commit, I think a deadlock was introduced in MIPv6 code
+   because xfm6_input_addr() was left unchanged, i.e. x->type->input()
+   was called with the lock held. Am I correct?
+
+ - The code of xfrm6_input_addr() was then optimized by commit a002c6fd
+   in such a way that x->type->input() was then put outside the
+   protection of the lock, which (if I am not mistaken) removed the
+   deadlock: 
+
+	spin_lock(&x->lock);
+
+	if ((!i || (x->props.flags & XFRM_STATE_WILDRECV)) &&
+	    likely(x->km.state == XFRM_STATE_VALID) &&
+	    !xfrm_state_check_expire(x)) {
+		spin_unlock(&x->lock);
+		if (x->type->input(x, skb) > 0) {
+			/* found a valid state */
+			break;
+		}
+	} else
+		spin_unlock(&x->lock);
+
+   I don't know if this is was intentional.
+
+   But the main question remains on the position of the lock. Here,
+   checks are done on the status of the state, lock is released,
+   reacquired in the input handler to do additional check and then
+   released again, to be reacquired later in the function to act on
+   statistics. Is my reading of the code correct?
+
+
+Herbert, you certainly have a better understanding of XFRM code than I
+have and can probably tell if the locking behavior above is valid or
+buggy. Yoshifuji-san, David or Eric may also have good ideas on that.
+
+
+As a side note (I think I was not explicit enough in my previous email),
+I think the possible changes to xfrm_input_addr() and MIPv6 handlers we
+are discussing are not expected to impact standard IPsec code because
+there are 2 different cases in which states input handlers are called 
+(i.e. x->type->input()):
+
+ - xfrm_input(): for standard IPsec case (incl. async resumption). This 
+   is only for esp, ah, ipcomp and tunneling.
+ - xfrm6_input_addr(): for MIPv6 extension header, i.e. RH2 and HAO in
+   destopt.
+
+and we are discussing the second.
+
+
+David, as for my patches, if this is ok for you, I will keep the code of
+my input handlers aligned on the code of RH2/HAO handlers and will modify
+it later based on the possible corrections made on those upstream.
+
+Don't hesitate to slap me if I made some mistakes in my analysis ;-)
+
+Cheers,
+
+a+
