@@ -1,39 +1,30 @@
-From: Robin Holt <holt@sgi.com>
-Subject: Re: sysctl_{tcp,udp,sctp}_mem overflow on 16TB system.
-Date: Sun, 3 Oct 2010 06:54:19 -0500
-Message-ID: <20101003115419.GQ14068@sgi.com>
-References: <20101001193958.GP14068@sgi.com>
- <20101001203022.GA28486@1wt.eu>
- <AANLkTin5wPvFQDFrupqGs_Jbh1rgrTjMupbPUFnvrBrv@mail.gmail.com>
+From: "Mrs Irina Gutavo" <mrsgutavo@tranphu.com>
+Subject: PROPOSAL..
+Date: Sun, 3 Oct 2010 08:40:45 -0300 (BRT)
+Message-ID: <23320.41.206.15.2.1286106045.squirrel__35284.7919603393$1286108784$gmane$org@webmail.feg.unesp.br>
+Reply-To: msirinagutavo@info.al
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Willy Tarreau <w@1wt.eu>, Robin Holt <holt@sgi.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Vlad Yasevich <vladislav.yasevich@hp.com>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-decnet-user@lists.sourceforge.net, linux-sctp@vger.kernel.org
-To: Maciej =?utf-8?Q?=C5=BBenczykowski?= <zenczykowski@gmail.com>
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay1.sgi.com ([192.48.179.29]:50705 "EHLO relay.sgi.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751872Ab0JCLyY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 3 Oct 2010 07:54:24 -0400
-Content-Disposition: inline
-In-Reply-To: <AANLkTin5wPvFQDFrupqGs_Jbh1rgrTjMupbPUFnvrBrv@mail.gmail.com>
+Received: from newton.feg.unesp.br ([200.145.11.2]:58869 "EHLO
+	newton.feg.unesp.br" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751866Ab0JCM0C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Oct 2010 08:26:02 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Oct 03, 2010 at 01:20:32AM -0700, Maciej =C5=BBenczykowski wrot=
-e:
-> Isn't INT_MAX/2 just 1GB, which is only ~0.9 seconds at 10 Gbps?
+I am Mrs Irina Gutavo a Cancer Patient,i hereby donate to you my =A320
+Million Pounds to set up a Charity foundation for my doctor recently
+informed me that i have few weeks to live.
 
-Units matter.  1GB pages.  We can limit to 2GB pages or 8TB.
+Please respond so i can have my Lawyer contact you with further details=
+ to
+receive this inheritance.
 
-Robin
+Sincerely.
+Mrs. Irina Gutavo.
+
+
+
