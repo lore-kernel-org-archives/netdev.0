@@ -1,200 +1,94 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: 2.6.36-rc6-git2: Reported regressions from 2.6.35
-Date: Sun,  3 Oct 2010 23:15:32 +0200 (CEST)
-Message-ID: <-jYMINoCtaK.A.F5.8CPqMB@chimera>
+From: arno@natisbad.org (Arnaud Ebalard)
+Subject: Re: [PATCHv3 net-next-2.6 3/5] XFRM,IPv6: Add IRO src/dst address remapping XFRM types and i/o handlers
+Date: Sun, 03 Oct 2010 23:25:44 +0200
+Message-ID: <87lj6fvuhz.fsf@small.ssi.corp>
+References: <cover.1285749610.git.arno@natisbad.org>
+	<fd4eec3c9486c46b535e89ceed479c7536f51fb9.1285749610.git.arno@natisbad.org>
+	<20100929.201618.241458205.davem@davemloft.net>
+	<87iq1k99vk.fsf@small.ssi.corp>
+	<20101002103205.GA3879@gondor.apana.org.au>
+	<87iq1j5r7z.fsf@small.ssi.corp>
+	<20101003151202.GA11963@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Linux SCSI List <linux-scsi@vger.kernel.org>,
-        Linux ACPI <linux-acpi@vger.kernel.org>,
-        Network Development <netdev@vger.kernel.org>,
-        Linux Wireless List <linux-wireless@vger.kernel.org>,
-        DRI <dri-devel@lists.freedesktop.org>,
-        Florian Mickler <florian@mickler.org>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Kernel Testers List <kernel-testers@vger.kernel.org>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
-        Linux PM List <linux-pm@lists.linux-foundation.org>,
-        Maciej Rutecki <maciej.rutecki@gmail.com>
-To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-Return-path: <linux-pm-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
-	<mailto:linux-pm-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/linux-pm>
-List-Post: <mailto:linux-pm@lists.linux-foundation.org>
-List-Help: <mailto:linux-pm-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
-	<mailto:linux-pm-request@lists.linux-foundation.org?subject=subscribe>
-Sender: linux-pm-bounces@lists.linux-foundation.org
-Errors-To: linux-pm-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
+	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from copper.chdir.org ([88.191.97.87]:36941 "EHLO copper.chdir.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755106Ab0JCVZs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 Oct 2010 17:25:48 -0400
+In-Reply-To: <20101003151202.GA11963@gondor.apana.org.au> (Herbert Xu's
+	message of "Sun, 3 Oct 2010 23:12:02 +0800")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This message contains a list of some regressions from 2.6.35,
-for which there are no fixes in the mainline known to the tracking team.
-If any of them have been fixed already, please let us know.
+Hello,
 
-If you know of any other unresolved regressions from 2.6.35, please let us
-know either and we'll add them to the list.  Also, please let us know
-if any of the entries below are invalid.
+Herbert Xu <herbert@gondor.apana.org.au> writes:
 
-Each entry from the list will be sent additionally in an automatic reply
-to this message with CCs to the people involved in reporting and handling
-the issue.
+> On Sun, Oct 03, 2010 at 03:41:04PM +0200, Arnaud Ebalard wrote:
+>>
+>> After your reply, I took a (too long) look at the history of
+>> xfrm6_input_addr() to understand why it is as it is. If it can spare you
+>> some time, here is what I think happened:
+>
+> ...
+>
+>>  - Then, as you wrote, the state lock was moved in all input handlers
+>>    (commit 0ebea8ef, Nov 13 2007), including RH2/HAO ones:
+>
+> ...
+>
+>>    With that commit, I think a deadlock was introduced in MIPv6 code
+>>    because xfm6_input_addr() was left unchanged, i.e. x->type->input()
+>>    was called with the lock held. Am I correct?
+>> 
+>>  - The code of xfrm6_input_addr() was then optimized by commit a002c6fd
+>>    in such a way that x->type->input() was then put outside the
+>>    protection of the lock, which (if I am not mistaken) removed the
+>>    deadlock: 
+>
+> ...
+>
+>>    I don't know if this is was intentional.
+>
+> Indeed MIPv6 was completely out of action for three months and
+> nobody noticed :)
 
+hehe ;-) Just to correct a missing waypoint in my history, which is in
+fact the real fix for the deadlock:
 
-Listed regressions statistics:
+   commit 9473e1f631de339c50bde1e3bd09e1045fe90fd5
+   Author: Masahide NAKAMURA <nakam@linux-ipv6.org>
+   Date:   Thu Dec 20 20:41:57 2007 -0800
+   
+       [XFRM] MIPv6: Fix to input RO state correctly.
+       
+       Disable spin_lock during xfrm_type.input() function.
+       Follow design as IPsec inbound does.
+    
+       Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
+       Signed-off-by: David S. Miller <davem@davemloft.net>
 
-  Date          Total  Pending  Unresolved
-  ----------------------------------------
-  2010-10-03       52       16          14
-  2010-09-26       46       15          13
-  2010-09-20       38       15          15
-  2010-09-12       28       14          13
-  2010-08-30       21       16          15
+>>    But the main question remains on the position of the lock. Here,
+>>    checks are done on the status of the state, lock is released,
+>>    reacquired in the input handler to do additional check and then
+>>    released again, to be reacquired later in the function to act on
+>>    statistics. Is my reading of the code correct?
+>
+> When I moved the lock down I chose the safest option and added
+> it to every single input function.  So it may well be the case
+> that the lock isn't needed at all on the MIPv6 path.
 
+I don't have any technical argument to support the removal of the locks,
+i.e. don't see what would prevent changes during the check. I will try
+and spend more time on it, but meanwhile I think it's safe to keep
+things the way they are.
 
-Unresolved regressions
-----------------------
+Thanks for your time, Herbert.
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=19642
-Subject		: 2.6.36-rc6 BUG at drivers/scsi/scsi_lib.c:1113
-Submitter	: George Spelvin <linux@horizon.com>
-Date		: 2010-09-30 21:10 (4 days old)
-Message-ID	: <20100930211006.27449.qmail@science.horizon.com>
-References	: http://marc.info/?l=linux-kernel&m=128588102620299&w=2
+Cheers,
 
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=19632
-Subject		: 2.6.36-rc6: modprobe Not tainted warning
-Submitter	: Heinz Diehl <htd@fritha.org>
-Date		: 2010-09-30 18:25 (4 days old)
-Message-ID	: <20100930182516.GA15089@fritha.org>
-References	: http://marc.info/?l=linux-kernel&m=128587114004680&w=2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=19392
-Subject		: WARNING: at drivers/net/wireless/ath/ath5k/base.c:3475 ath5k_bss_info_changed+0x44/0x168 [ath5k]()
-Submitter	: Justin Mattock <justinmattock@gmail.com>
-Date		: 2010-09-28 22:30 (6 days old)
-Message-ID	: <AANLkTim5WCGKPvEkOkO_YnMF9pg8mvLfQoFBNUFpfa_k@mail.gmail.com>
-References	: http://marc.info/?l=linux-kernel&m=128571307018635&w=2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=19372
-Subject		: 2.6.36-rc6: WARNING: at drivers/gpu/drm/radeon/radeon_fence.c:235 radeon_fence_wait+0x35a/0x3c0
-Submitter	: Alexey Dobriyan <adobriyan@gmail.com>
-Date		: 2010-09-29 21:29 (5 days old)
-Message-ID	: <20100929212923.GA5578@core2.telecom.by>
-References	: http://marc.info/?l=linux-kernel&m=128579579400315&w=2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=19142
-Subject		: Screen flickers when switching from the console to X
-Submitter	: Andrey Rahmatullin <wrar@altlinux.org>
-Date		: 2010-09-27 12:05 (7 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=19072
-Subject		: [2.6.36-rc regression] occasional complete system hangs on sparc64 SMP
-Submitter	: Mikael Pettersson <mikpe@it.uu.se>
-Date		: 2010-09-23 17:02 (11 days old)
-Message-ID	: <19611.34846.813757.309183@pilspetsen.it.uu.se>
-References	: http://marc.info/?l=linux-kernel&m=128526136531048&w=2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=19062
-Subject		: Dirtiable inode bdi default != sb bdi btrfs
-Submitter	: Cesar Eduardo Barros <cesarb@cesarb.net>
-Date		: 2010-09-23 0:54 (11 days old)
-Message-ID	: <<4C9AA546.6050201@cesarb.net>>
-References	: http://marc.info/?l=linux-kernel&m=128520328929595&w=2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=19052
-Subject		: 2.6.36-rc5-git1 -- [drm:i915_report_and_clear_eir] *ERROR* EIR stuck: 0x00000010, masking
-Submitter	: Miles Lane <miles.lane@gmail.com>
-Date		: 2010-09-22 23:47 (12 days old)
-Message-ID	: <AANLkTikWQjUQjFJU9MO1+XbSLAEE-GARz+S+Dz2Fgu4h@mail.gmail.com>
-References	: http://marc.info/?l=linux-kernel&m=128519926626322&w=2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=19002
-Subject		: Radeon rv730 AGP/KMS/DRM kernel lockup
-Submitter	: Duncan <1i5t5.duncan@cox.net>
-Date		: 2010-09-23 16:48 (11 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=17361
-Subject		: Watchdog detected hard LOCKUP in jbd2_journal_get_write_access
-Submitter	: Christian Casteyde <casteyde.christian@free.fr>
-Date		: 2010-08-29 19:59 (36 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=17121
-Subject		: Two blank rectangles more than 10 cm long when booting
-Submitter	: Eric Valette <eric.valette@free.fr>
-Date		: 2010-08-26 17:24 (39 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=17061
-Subject		: 2.6.36-rc1 on zaurus: bluetooth regression
-Submitter	: Pavel Machek <pavel@ucw.cz>
-Date		: 2010-08-21 15:24 (44 days old)
-Message-ID	: <20100821152445.GA1536@ucw.cz>
-References	: http://marc.info/?l=linux-kernel&m=128240433828087&w=2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16971
-Subject		: qla4xxx compile failure on 32-bit PowerPC: missing readq and writeq
-Submitter	: Meelis Roos <mroos@linux.ee>
-Date		: 2010-08-19 21:03 (46 days old)
-Message-ID	: <alpine.SOC.1.00.1008192359310.19654@math.ut.ee>
-References	: http://marc.info/?l=linux-kernel&m=128225184900892&w=2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16951
-Subject		: hackbench regression with 2.6.36-rc1
-Submitter	: Zhang, Yanmin <yanmin_zhang@linux.intel.com>
-Date		: 2010-08-18 6:18 (47 days old)
-Message-ID	: <1282112318.21202.8.camel@ymzhang.sh.intel.com>
-References	: http://marc.info/?l=linux-kernel&m=128211235904910&w=2
-
-
-Regressions with patches
-------------------------
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=18742
-Subject		: PROBLEM: Kernel panic on 2.6.36-rc4 when loading intel_ips on Core i3 laptop
-Submitter	: infernix <infernix@infernix.net>
-Date		: 2010-09-15 14:35 (19 days old)
-Message-ID	: <4C90D998.6050103@infernix.net>
-References	: http://marc.info/?l=linux-kernel&m=128456187928496&w=2
-Handled-By	: Jesse Barnes <jbarnes@virtuousgeek.org>
-Patch		: https://bugzilla.kernel.org/attachment.cgi?id=31112
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=17722
-Subject		: 2.6.36-rc3: WARNING: at net/mac80211/scan.c:269 ieee80211_scan_completed
-Submitter	: Thomas Meyer <thomas@m3y3r.de>
-Date		: 2010-08-31 20:14 (34 days old)
-Message-ID	: <201008312214.52473.thomas@m3y3r.de>
-References	: http://marc.info/?l=linux-kernel&m=128328580504227&w=2
-		  http://www.spinics.net/lists/netdev/msg140769.html
-Handled-By	: Florian Mickler <florian@mickler.org>
-Patch		: https://bugzilla.kernel.org/attachment.cgi?id=31671
-
-
-For details, please visit the bug entries and follow the links given in
-references.
-
-As you can see, there is a Bugzilla entry for each of the listed regressions.
-There also is a Bugzilla entry used for tracking the regressions from 2.6.35,
-unresolved as well as resolved, at:
-
-http://bugzilla.kernel.org/show_bug.cgi?id=16444
-
-Please let the tracking team know if there are any Bugzilla entries that
-should be added to the list in there.
-
-Thanks!
+a+
