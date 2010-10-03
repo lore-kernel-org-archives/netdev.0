@@ -1,30 +1,87 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] net: Fix the condition passed to sk_wait_event()
-Date: Sat, 02 Oct 2010 17:06:54 -0700 (PDT)
-Message-ID: <20101002.170654.193719563.davem@davemloft.net>
-References: <20101002.132659.71124680.davem@davemloft.net>
-	<970819.25375.qm@web53706.mail.re2.yahoo.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: tomer_iisc@yahoo.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36313
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751915Ab0JCAGd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Oct 2010 20:06:33 -0400
-In-Reply-To: <970819.25375.qm@web53706.mail.re2.yahoo.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
 From: Nagendra Tomar <tomer_iisc@yahoo.com>
-Date: Sat, 2 Oct 2010 16:54:23 -0700 (PDT)
+Subject: Re: [PATCH 1/2] net: Fix the condition passed to sk_wait_event()
+Date: Sat, 2 Oct 2010 18:30:04 -0700 (PDT)
+Message-ID: <326156.76745.qm@web53706.mail.re2.yahoo.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->      I had done the exercise of sending the patch to myself and
->      applying it (copy-pasting just the patch). One thing that I see
->      is the long line in the description. If you are referring to
->      that, I've fixed it and submitted it again. If not this, I'm at
->      loss.
+Dave,
+     Thinking more about it, we need to check for sk->sk_err, thus the=20
+existing code behaves fine. Just that we might incur an additional slee=
+p
+even while we know that the socket already has an error, but that shoul=
+d
+be ok.
+We only need the other patch. Pls ignore this, and sorry for the confus=
+ion.
 
-This new submission looks good, thank you.
+Thanks,
+Tomar
+
+--- On Sun, 3/10/10, Nagendra Tomar <tomer_iisc@yahoo.com> wrote:
+
+> From: Nagendra Tomar <tomer_iisc@yahoo.com>
+> Subject: [PATCH 1/2] net: Fix the condition passed to sk_wait_event()
+> To: netdev@vger.kernel.org
+> Cc: linux-kernel@vger.kernel.org, davem@davemloft.net
+> Date: Sunday, 3 October, 2010, 5:19
+> This patch fixes the sk_wait_event()
+> condition in the sk_stream_wait_connect()=20
+> function. With this change, we correctly check for the
+> TCPF_ESTABLISHED and=20
+> TCPF_CLOSE_WAIT states and avoid potentially returning
+> success when there
+> might be an error on the socket.
+>=20
+> Signed-off-by: Nagendra Singh Tomar
+> <tomer_iisc@xxxxxxxxx>
+> ---
+> --- linux-2.6.35.7/net/core/stream.c.orig=A0=A0=A0
+> 2010-03-24 09:30:00.000000000 +0530
+> +++ linux-2.6.35.7/net/core/stream.c=A0=A0=A0
+> 2010-03-24 09:30:17.000000000 +0530
+> @@ -73,9 +73,8 @@ int sk_stream_wait_connect(struct sock *
+>  =A0=A0=A0 =A0=A0=A0
+> prepare_to_wait(sk_sleep(sk), &wait,
+> TASK_INTERRUPTIBLE);
+>  =A0=A0=A0 =A0=A0=A0
+> sk->sk_write_pending++;
+>  =A0=A0=A0 =A0=A0=A0 done =3D
+> sk_wait_event(sk, timeo_p,
+> -=A0=A0=A0 =A0=A0=A0 =A0=A0=A0
+> =A0=A0=A0 =A0 =A0=A0=A0!sk->sk_err
+> &&
+> -=A0=A0=A0 =A0=A0=A0 =A0=A0=A0
+> =A0=A0=A0 =A0 =A0=A0=A0!((1 <<
+> sk->sk_state) &
+> -=A0=A0=A0 =A0=A0=A0 =A0=A0=A0
+> =A0=A0=A0 =A0 =A0
+> =A0=A0=A0~(TCPF_ESTABLISHED | TCPF_CLOSE_WAIT)));
+> +=A0=A0=A0 =A0=A0=A0 =A0=A0=A0
+> =A0=A0=A0 =A0 =A0=A0=A0((1 <<
+> sk->sk_state) &
+> +=A0=A0=A0 =A0=A0=A0 =A0=A0=A0
+> =A0=A0=A0 =A0 =A0
+> =A0=A0=A0(TCPF_ESTABLISHED | TCPF_CLOSE_WAIT)));
+>  =A0=A0=A0 =A0=A0=A0
+> finish_wait(sk_sleep(sk), &wait);
+>  =A0=A0=A0 =A0=A0=A0
+> sk->sk_write_pending--;
+>  =A0=A0=A0 } while (!done);
+>=20
+> ---
+>=20
+>=20
+>=20
+>=20
+>=20
+
+
+
+     =20
