@@ -1,7 +1,8 @@
 From: Arnaud Ebalard <arno@natisbad.org>
-Subject: [PATCHv4 net-next-2.6 0/5] Removal of RH2/HAO from IPsec-protected MIPv6 traffic
-Date: Mon, 04 Oct 2010 08:24:51 +0200
-Message-ID: <cover.1286139128.git.arno@natisbad.org>
+Subject: [PATCHv4 net-next-2.6 1/5] XFRM,IPv6: Remove xfrm_spi_hash() dependency on destination address
+Date: Mon, 04 Oct 2010 08:25:07 +0200
+Message-ID: <5a0e320544e253cc903cfd3292600b6bec044a5f.1286139129.git.arno@natisbad.org>
+References: <cover.1286139128.git.arno@natisbad.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
@@ -10,33 +11,160 @@ To: "David S. Miller" <davem@davemloft.net>,
 	Herbert Xu <herbert@gondor.apana.org.au>,
 	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from copper.chdir.org ([88.191.97.87]:57146 "EHLO copper.chdir.org"
+Received: from copper.chdir.org ([88.191.97.87]:57151 "EHLO copper.chdir.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752253Ab0JDGYz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Oct 2010 02:24:55 -0400
+	id S1752304Ab0JDGZI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Oct 2010 02:25:08 -0400
+In-Reply-To: <cover.1286139128.git.arno@natisbad.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+In the new IPsec architecture [RFC4301], "for an SA used to carry
+unicast traffic, the Security Parameters Index (SPI) by itself
+suffices to specify an SA".  Section 4.1 of [RFC4301] provides
+additional guidance on the topic.
 
-This is version 4 of the patches. Compared to previous version:
+In the old IPsec architecture [RFC2401], a SA "is uniquely identified
+by a triple consisting of a Security Parameter Index (SPI), an IP
+Destination Address and a security protocol (AH or ESP) identifier".
 
- - symbols which need not be exported are no more exported
- - s/printk(KERNINFO, ...)/pr_info()/ in net/ipv6/mip6.c (my code
-   and existing one)
- - I also refactored some initialization code for mip6 states
-   (by introduced mip6_state_init_sanity_check())
+If an IPsec stack only supports the behavior mandated by the old
+IPsec architecture, SAD lookup on inbound packets require the use of
+both the SPI and the destination address of the SA.
 
-After the discussion with Herbert, I decided to leave input handlers
-as they are at the moment until I have some additional time to dig on
-it. At least, it's safe.
+For inbound IPsec traffic, IRO remapping rules may exist on the MN to
+remap the destination address (CoA) into the HoA.  In that case, by
+design, the address found in the destination address field of the
+packet (CoA) does not match the one in the SA (HoA).
 
-Regarding reject handler() (to warn user space so that a Binding Error
-can be sent), it still does nothing yet.
+At the moment, Linux XFRM stack includes the address when computing
+the hash to perform state lookup by SPI. This patch changes XFRM
+state hash computation to prevent destination address to be
+used. This will later allow finding states for packets w/ mangled
+destination addresses.
 
-Herbert, if you read this, can you take a quick look at patches 1/5 and
-4/5 to tell if the changes are acceptable for IPsec users.
+Signed-off-by: Arnaud Ebalard <arno@natisbad.org>
+---
+ net/xfrm/xfrm_hash.h  |   21 +--------------------
+ net/xfrm/xfrm_state.c |   20 ++++++++------------
+ 2 files changed, 9 insertions(+), 32 deletions(-)
 
-Cheers,
+diff --git a/net/xfrm/xfrm_hash.h b/net/xfrm/xfrm_hash.h
+index 8e69533..19eeee7 100644
+--- a/net/xfrm/xfrm_hash.h
++++ b/net/xfrm/xfrm_hash.h
+@@ -4,16 +4,6 @@
+ #include <linux/xfrm.h>
+ #include <linux/socket.h>
+ 
+-static inline unsigned int __xfrm4_addr_hash(xfrm_address_t *addr)
+-{
+-	return ntohl(addr->a4);
+-}
+-
+-static inline unsigned int __xfrm6_addr_hash(xfrm_address_t *addr)
+-{
+-	return ntohl(addr->a6[2] ^ addr->a6[3]);
+-}
+-
+ static inline unsigned int __xfrm4_daddr_saddr_hash(xfrm_address_t *daddr, xfrm_address_t *saddr)
+ {
+ 	u32 sum = (__force u32)daddr->a4 + (__force u32)saddr->a4;
+@@ -60,18 +50,9 @@ static inline unsigned __xfrm_src_hash(xfrm_address_t *daddr,
+ }
+ 
+ static inline unsigned int
+-__xfrm_spi_hash(xfrm_address_t *daddr, __be32 spi, u8 proto, unsigned short family,
+-		unsigned int hmask)
++__xfrm_spi_hash(__be32 spi, u8 proto, unsigned int hmask)
+ {
+ 	unsigned int h = (__force u32)spi ^ proto;
+-	switch (family) {
+-	case AF_INET:
+-		h ^= __xfrm4_addr_hash(daddr);
+-		break;
+-	case AF_INET6:
+-		h ^= __xfrm6_addr_hash(daddr);
+-		break;
+-	}
+ 	return (h ^ (h >> 10) ^ (h >> 20)) & hmask;
+ }
+ 
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index eb96ce5..b6a4d8d 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -30,7 +30,7 @@
+ 
+ /* Each xfrm_state may be linked to two tables:
+ 
+-   1. Hash table by (spi,daddr,ah/esp) to find SA by SPI. (input,ctl)
++   1. Hash table by (spi,ah/esp) to find SA by SPI. (input,ctl)
+    2. Hash table by (daddr,family,reqid) to find what SAs exist for given
+       destination/tunnel endpoint. (output)
+  */
+@@ -67,9 +67,9 @@ static inline unsigned int xfrm_src_hash(struct net *net,
+ }
+ 
+ static inline unsigned int
+-xfrm_spi_hash(struct net *net, xfrm_address_t *daddr, __be32 spi, u8 proto, unsigned short family)
++xfrm_spi_hash(struct net *net, __be32 spi, u8 proto)
+ {
+-	return __xfrm_spi_hash(daddr, spi, proto, family, net->xfrm.state_hmask);
++	return __xfrm_spi_hash(spi, proto, net->xfrm.state_hmask);
+ }
+ 
+ static void xfrm_hash_transfer(struct hlist_head *list,
+@@ -95,9 +95,7 @@ static void xfrm_hash_transfer(struct hlist_head *list,
+ 		hlist_add_head(&x->bysrc, nsrctable+h);
+ 
+ 		if (x->id.spi) {
+-			h = __xfrm_spi_hash(&x->id.daddr, x->id.spi,
+-					    x->id.proto, x->props.family,
+-					    nhashmask);
++			h = __xfrm_spi_hash(x->id.spi, x->id.proto, nhashmask);
+ 			hlist_add_head(&x->byspi, nspitable+h);
+ 		}
+ 	}
+@@ -679,7 +677,7 @@ xfrm_init_tempstate(struct xfrm_state *x, struct flowi *fl,
+ 
+ static struct xfrm_state *__xfrm_state_lookup(struct net *net, u32 mark, xfrm_address_t *daddr, __be32 spi, u8 proto, unsigned short family)
+ {
+-	unsigned int h = xfrm_spi_hash(net, daddr, spi, proto, family);
++	unsigned int h = xfrm_spi_hash(net, spi, proto);
+ 	struct xfrm_state *x;
+ 	struct hlist_node *entry;
+ 
+@@ -868,7 +866,7 @@ found:
+ 			h = xfrm_src_hash(net, daddr, saddr, encap_family);
+ 			hlist_add_head(&x->bysrc, net->xfrm.state_bysrc+h);
+ 			if (x->id.spi) {
+-				h = xfrm_spi_hash(net, &x->id.daddr, x->id.spi, x->id.proto, encap_family);
++				h = xfrm_spi_hash(net, x->id.spi, x->id.proto);
+ 				hlist_add_head(&x->byspi, net->xfrm.state_byspi+h);
+ 			}
+ 			x->lft.hard_add_expires_seconds = net->xfrm.sysctl_acq_expires;
+@@ -942,9 +940,7 @@ static void __xfrm_state_insert(struct xfrm_state *x)
+ 	hlist_add_head(&x->bysrc, net->xfrm.state_bysrc+h);
+ 
+ 	if (x->id.spi) {
+-		h = xfrm_spi_hash(net, &x->id.daddr, x->id.spi, x->id.proto,
+-				  x->props.family);
+-
++		h = xfrm_spi_hash(net, x->id.spi, x->id.proto);
+ 		hlist_add_head(&x->byspi, net->xfrm.state_byspi+h);
+ 	}
+ 
+@@ -1535,7 +1531,7 @@ int xfrm_alloc_spi(struct xfrm_state *x, u32 low, u32 high)
+ 	}
+ 	if (x->id.spi) {
+ 		spin_lock_bh(&xfrm_state_lock);
+-		h = xfrm_spi_hash(net, &x->id.daddr, x->id.spi, x->id.proto, x->props.family);
++		h = xfrm_spi_hash(net, x->id.spi, x->id.proto);
+ 		hlist_add_head(&x->byspi, net->xfrm.state_byspi+h);
+ 		spin_unlock_bh(&xfrm_state_lock);
+ 
+-- 
+1.7.1
 
-a+
+
