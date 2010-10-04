@@ -1,56 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next V3] net: dynamic ingress_queue allocation
-Date: Mon, 04 Oct 2010 14:52:00 +0200
-Message-ID: <1286196720.18293.196.camel@edumazet-laptop>
-References: <1285689517.3154.76.camel@edumazet-laptop>
-	 <20100928180447.GA1880@del.dom.local> <1285757817.3561.2.camel@bigi>
-	 <1285887509.2705.33.camel@edumazet-laptop> <1285933506.3553.176.camel@bigi>
-	 <1285941388.2641.175.camel@edumazet-laptop>
-	 <20101002093255.GA2049@del.dom.local>
-	 <1286035915.2582.2472.camel@edumazet-laptop>
-	 <20101003094221.GA2028@del.dom.local>
-	 <1286181729.18293.8.camel@edumazet-laptop>
-	 <20101004120626.GA2022@del.dom.local>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [PATCH v2] bonding: rejoin multicast groups on VLANs
+Date: Mon, 4 Oct 2010 09:24:10 -0400
+Message-ID: <20101004132409.GA7497@gospo.rdu.redhat.com>
+References: <20100929131713.GB2857@redhat.com> <1285879524-7046-1-git-send-email-fleitner@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: hadi@cyberus.ca, David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Andy Gospodarek <andy@greyhouse.net>,
+	bonding-devel@lists.sourceforge.net,
+	Jay Vosburgh <fubar@us.ibm.com>
+To: Flavio Leitner <fleitner@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:63496 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755803Ab0JDMwH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Oct 2010 08:52:07 -0400
-Received: by fxm14 with SMTP id 14so1655758fxm.19
-        for <netdev@vger.kernel.org>; Mon, 04 Oct 2010 05:52:05 -0700 (PDT)
-In-Reply-To: <20101004120626.GA2022@del.dom.local>
+Received: from mx1.redhat.com ([209.132.183.28]:5892 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755157Ab0JDNYV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Oct 2010 09:24:21 -0400
+Content-Disposition: inline
+In-Reply-To: <1285879524-7046-1-git-send-email-fleitner@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 04 octobre 2010 =C3=A0 14:06 +0200, Jarek Poplawski a =C3=A9cr=
-it :
+On Thu, Sep 30, 2010 at 05:45:24PM -0300, Flavio Leitner wrote:
+> It fixes bonding to rejoin multicast groups added
+> to VLAN devices on top of bonding when a failover
+> happens.
+> 
+> Signed-off-by: Flavio Leitner <fleitner@redhat.com>
+> ---
+>  drivers/net/bonding/bond_main.c |   61 +++++++++++++++++++++++++++++++++-----
+>  drivers/net/bonding/bonding.h   |    1 +
+>  2 files changed, 54 insertions(+), 8 deletions(-)
+> 
+[...]
+> @@ -944,7 +979,9 @@ static void bond_mc_swap(struct bonding *bond, struct slave *new_active,
+>  
+>  		netdev_for_each_mc_addr(ha, bond->dev)
+>  			dev_mc_add(new_active->dev, ha->addr);
+> -		bond_resend_igmp_join_requests(bond);
+> +
+> +		/* rejoin multicast groups */
+> +		queue_delayed_work(bond->wq, &bond->mcast_work, 0);
+>  	}
+>  }
+>  
 
-> Right, but then at least in qdisc_lookup():
->=20
-> if (dev_ingress_queue(dev))
-> 	q =3D qdisc_match_from_root(dev_ingress_queue(dev), handle);
->=20
-> you should use a variable instead of the second dereference (rtnl isn=
-'t
-> mandatory here).
+I was hoping that one patch would just make the changes so
+retransmission was supported on VLANs and the second patch would queue
+the work and add the tunable for multiple retransmissions, but I guess
+it wasn't clear enough.
 
-I am lost.
+I felt like that would divide the patches up into the bug-fix (VLANs +
+multicast not working) and the new feature (multiple retransmissions
+from the workqueue).
 
-If rntl is not mandatory, what is the lock that protects us ?
-
-qdisc_lookup() _is_ called under the protection of a lock.
-Or as soon as we return from it, result could change under us.
-
-Please name it, and I'll use it :
-
-rcu_dereference_protected(dev->ingress_queue, lockdep_is_held(THISLOCK)=
-)
-
-
+I will test these out this morning and make sure things look good.
 
