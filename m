@@ -1,39 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: ixgbe: normalize frag_list usage
-Date: Mon, 04 Oct 2010 11:32:58 -0700 (PDT)
-Message-ID: <20101004.113258.212671454.davem@davemloft.net>
-References: <20101003.235400.229759758.davem@davemloft.net>
-	<4CAA1722.7070405@intel.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [patch v5 00/12] IPVS: SIP Persistence Engine
+Date: Mon, 04 Oct 2010 20:47:56 +0200
+Message-ID: <4CAA215C.8040605@trash.net>
+References: <20101004134624.963907470@akiko.akashicho.tokyo.vergenet.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	bruce.w.allan@intel.com, netdev@vger.kernel.org
-To: alexander.h.duyck@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53615
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932178Ab0JDSch (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Oct 2010 14:32:37 -0400
-In-Reply-To: <4CAA1722.7070405@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Jan Engelhardt <jengelh@medozas.de>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20101004134624.963907470@akiko.akashicho.tokyo.vergenet.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Date: Mon, 04 Oct 2010 11:04:18 -0700
+Am 04.10.2010 15:46, schrieb Simon Horman:
+> CODE AVAILABILITY
+> 
+> The kernel patches (12) are available in git as the pe-5 branch of
+> git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-test-2.6.git
 
-> This will not work for RSC due to the fact that it assumes only one
-> RSC context is active per ring and that is not the case.  There can be
-> multiple RSC combined flows interlaced on the ring.
+Pulled, thanks Simon. I get a warning in ip_vs_pe_sip.c however,
+please send a fix for this on top.
 
-Thanks for looking at this Alexander.
+net/netfilter/ipvs/ip_vs_pe_sip.c:11: warning: 'ip_vs_dbg_callid'
+defined but not used
 
-I must have mis-understood what the current code is doing.
-
-It looked like RSC packets always show up in-order in the RX ring.
-
-And that they are scanned for by simply combining any sequence of
-non-EOP packets up to and including the final EOP one into a frag
-list.
-
-Are the RSC packets are identified via something else entirely?
+Thanks!
