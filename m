@@ -1,65 +1,102 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] sysctl: fix min/max handling in
- __do_proc_doulongvec_minmax()
-Date: Mon, 04 Oct 2010 11:04:18 +0200
-Message-ID: <1286183058.18293.26.camel@edumazet-laptop>
-References: <1286025469.2582.1806.camel@edumazet-laptop>
-	 <20101004085913.GR14068@sgi.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Willy Tarreau <w@1wt.eu>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	Patrick McHardy <kaber@trash.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-To: Robin Holt <holt@sgi.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20101004085913.GR14068@sgi.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Simon Horman <horms@verge.net.au>
+Subject: [patch v4 00/12] IPVS: SIP Persistence Engine
+Date: Mon, 04 Oct 2010 18:03:52 +0900
+Message-ID: <20101004090352.966809749@akiko.akashicho.tokyo.vergenet.net>
+Cc: Jan Engelhardt <jengelh@medozas.de>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>, Patrick McHardy <kaber@trash.net>
+To: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter@vger.kernel.org, netfilter-devel@vger.kernel.org
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le lundi 04 octobre 2010 =C3=A0 03:59 -0500, Robin Holt a =C3=A9crit :
-> On Sat, Oct 02, 2010 at 03:17:49PM +0200, Eric Dumazet wrote:
-> > When proc_doulongvec_minmax() is used with an array of longs,
-> > and no min/max check requested (.extra1 or .extra2 being NULL), we
-> > dereference a NULL pointer for the second element of the array.
-> >=20
-> > Noticed while doing some changes in network stack for the "16TB pro=
-blem"
-> >=20
-> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> > ---
-> >  kernel/sysctl.c |    3 ++-
-> >  1 file changed, 2 insertions(+), 1 deletion(-)
-> >=20
-> > diff --git a/kernel/sysctl.c b/kernel/sysctl.c
-> > index f88552c..4fba86d 100644
-> > --- a/kernel/sysctl.c
-> > +++ b/kernel/sysctl.c
-> > @@ -2500,7 +2500,8 @@ static int __do_proc_doulongvec_minmax(void *=
-data, struct ctl_table *table, int
-> >  				break;
-> >  			if (neg)
-> >  				continue;
-> > -			if ((min && val < *min) || (max && val > *max))
-> > +			if ((table->extra1 && val < *min) ||
-> > +			    (table->extra2 && val > *max))
->=20
-> How about changing:
->         for (; left && vleft--; i++, min++, max++, first=3D0) {
-> into:
->         for (; left && vleft--; i++, min =3D min ? min + 1 : NULL, ma=
-x =3D max ? max + 1: NULL, first=3D0) {
->=20
-> That would make min and max correct and reduce the chances somebody i=
-n
-> the future overlooks the fact they are currently filled with garbage.
+This patch series adds load-balancing of UDP SIP based on Call-ID to
+IPVS as well as a frame-work for extending IPVS to handle alternate
+persistence requirements.
 
-I prefer my solution, because the check is done only in the 'write'
-case, while its done also for 'read' in your solution, not counting the
-for (;;) is really ugly...
+REVISIONS
+
+This is v4 of the patch series which addresses the following concerns
+raised by Julian Anastasov:
+ - initialize compat structures to avoid crash in
+   ip_vs_add_service for pe_name
+ - fix ip_vs_conn_out_get_proto to properly check the
+   ip_vs_conn_fill_param_proto result
+
+These changes and changes from previous revisions of this patch series
+are noted on a per-patch basis.
+
+I have taken the liberty of including Acked-by: Julian Anastasov <ja@ssi.bg>
+although the ack was provided before the two problems above were discovered.
+
+OVERVIEW
+
+The approach that I have taken is what I call persistence engines.
+The basic idea being that you can provide a module to LVS that alters
+the way that it handles connection templates, which are at the core
+of persistence. In particular, an additional key can be added, and
+any of the normal IP address, port and protocol information can either
+be used or ignored.
+
+In the case of the SIP persistence engine, the only persistence engine, all
+the keys used by the default persistence behaviour are used and the callid
+is added as an extra key. I originally intended to ignore the cip, but this
+can optionally be done by setting the persistence mask (-M) to 0.0.0.0
+while allowing the flexibility of other mask values.
+
+It is envisaged that the SIP persistence engine will be used in conjunction
+with one-packet scheduling. I'm interested to hear if that doesn't fit your
+needs.
+
+
+CONFIGURATION
+
+A persistence engine is associated with a virtual service
+(as are schedulers). I have added the --pe option to the
+ivpsadm -A and -E commands to allow the persistence engine
+of a virtual service to be added, changed, or deleted.
+
+e.g. ipvsadm -A -u 10.4.3.192:5060 -p 60 -M 0.0.0.0 -o --pe sip
+
+There are no other configuration parameters at this time.
+
+
+RUNNING
+
+When a connection template is created, if its virtual service
+has a persistence engine, then the persistence engine can add
+an extra key to the connection template. For the SIP module this
+is the callid. More generically, it is known as "pe data". And
+both the name of the persistence engine, "pe name", and "pe data"
+can be viewed in /proc/net/ip_vs_conn and by passing the
+--persistent-conn option to ipvsadm -Lc.
+
+e.g.
+# ipvsadm -Lcn --persistent-conn
+UDP 00:38  UDP         10.4.3.0:0         10.4.3.192:5060    127.0.0.1:5060 sip 193373839
+
+Here we see a single persistence template (cport is 0), which has been
+handled by the sip persistence engine. The pe data (callid) is 193373839.
+
+In the case where the persistence engine can't match a packet for some
+reason, the connection will fall back to the normal persistence handling.
+This seems reasonable, as that if the packet ought to be dropped, iptables
+could be used.
+
+A limited amount of debugging information has been added which
+can be enabled using a value of 9 or greater in
+/proc/sys/net/ipv4/vs/debug_level
+
+CODE AVAILABILITY
+
+The kernel patches (12) are available in git as the pe-3 branch of
+git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-test-2.6.git
+
+The ipvsadm patches (2) are available in git as the pe-3 branch of
+git://github.com/horms/ipvsadm-test.git
+
+There is no change to the ipvsadm patches since the v2 series
+so I will not repost them.
+
