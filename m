@@ -1,102 +1,84 @@
 From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCHv2 NEXT 2/8] qlcnic: fix eswitch stats
-Date: Mon,  4 Oct 2010 07:20:10 -0700
-Message-ID: <1286202016-18026-3-git-send-email-amit.salecha@qlogic.com>
+Subject: [PATCHv2 NEXT 4/8] qlcnic: fix endianess for lro
+Date: Mon,  4 Oct 2010 07:20:12 -0700
+Message-ID: <1286202016-18026-5-git-send-email-amit.salecha@qlogic.com>
 References: <1286202016-18026-1-git-send-email-amit.salecha@qlogic.com>
 Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
-	anirban.chakraborty@qlogic.com
+	anirban.chakraborty@qlogic.com,
+	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:8624 "HELO unm84.unmin.com"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:63897 "HELO unm84.unmin.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1754066Ab0JDOUR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Oct 2010 10:20:17 -0400
+	id S1754312Ab0JDOUS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Oct 2010 10:20:18 -0400
 In-Reply-To: <1286202016-18026-1-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some of the counters are not implemented in fw.
-Fw return NOT AVAILABLE VALUE as (0xffffffffffffffff).
-Adding these counters, result in invalid value.
+From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
 
+ipaddress in ifa->ifa_address field are in big endian format.
+Also device requires ip address in big endian only.
+
+Signed-off-by: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
 Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
 ---
- drivers/net/qlcnic/qlcnic.h     |   12 ++++++++++++
- drivers/net/qlcnic/qlcnic_ctx.c |   31 ++++++++++++++++++++++---------
- 2 files changed, 34 insertions(+), 9 deletions(-)
+ drivers/net/qlcnic/qlcnic.h    |    7 ++++++-
+ drivers/net/qlcnic/qlcnic_hw.c |    6 ++++--
+ 2 files changed, 10 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/qlcnic/qlcnic.h b/drivers/net/qlcnic/qlcnic.h
-index 714ddf4..4667463 100644
+index 4667463..7af3c6c 100644
 --- a/drivers/net/qlcnic/qlcnic.h
 +++ b/drivers/net/qlcnic/qlcnic.h
-@@ -1169,6 +1169,18 @@ struct qlcnic_esw_func_cfg {
- #define QLCNIC_STATS_ESWITCH		2
- #define QLCNIC_QUERY_RX_COUNTER		0
- #define QLCNIC_QUERY_TX_COUNTER		1
-+#define QLCNIC_ESW_STATS_NOT_AVAIL	0xffffffffffffffffULL
+@@ -898,6 +898,11 @@ struct qlcnic_mac_req {
+ 	u8 mac_addr[6];
+ };
+ 
++struct qlcnic_ipaddr {
++	__be32 ipv4;
++	__be32 ipv6[4];
++};
 +
-+#define QLCNIC_ADD_ESW_STATS(VAL1, VAL2)\
-+do {	\
-+	if (((VAL1) == QLCNIC_ESW_STATS_NOT_AVAIL) && \
-+	    ((VAL2) != QLCNIC_ESW_STATS_NOT_AVAIL)) \
-+		(VAL1) = (VAL2); \
-+	else if (((VAL1) != QLCNIC_ESW_STATS_NOT_AVAIL) && \
-+		 ((VAL2) != QLCNIC_ESW_STATS_NOT_AVAIL)) \
-+			(VAL1) += (VAL2); \
-+} while (0)
-+
- struct __qlcnic_esw_statistics {
- 	__le16 context_id;
- 	__le16 version;
-diff --git a/drivers/net/qlcnic/qlcnic_ctx.c b/drivers/net/qlcnic/qlcnic_ctx.c
-index 95a821e..a4c4d09 100644
---- a/drivers/net/qlcnic/qlcnic_ctx.c
-+++ b/drivers/net/qlcnic/qlcnic_ctx.c
-@@ -1016,7 +1016,14 @@ int qlcnic_get_eswitch_stats(struct qlcnic_adapter *adapter, const u8 eswitch,
- 	if (adapter->npars == NULL)
- 		return -EIO;
+ #define QLCNIC_MSI_ENABLED		0x02
+ #define QLCNIC_MSIX_ENABLED		0x04
+ #define QLCNIC_LRO_ENABLED		0x08
+@@ -1286,7 +1291,7 @@ void qlcnic_free_mac_list(struct qlcnic_adapter *adapter);
+ int qlcnic_nic_set_promisc(struct qlcnic_adapter *adapter, u32);
+ int qlcnic_config_intr_coalesce(struct qlcnic_adapter *adapter);
+ int qlcnic_config_rss(struct qlcnic_adapter *adapter, int enable);
+-int qlcnic_config_ipaddr(struct qlcnic_adapter *adapter, u32 ip, int cmd);
++int qlcnic_config_ipaddr(struct qlcnic_adapter *adapter, __be32 ip, int cmd);
+ int qlcnic_linkevent_request(struct qlcnic_adapter *adapter, int enable);
+ void qlcnic_advert_link_change(struct qlcnic_adapter *adapter, int linkup);
  
--	memset(esw_stats, 0, sizeof(struct __qlcnic_esw_statistics));
-+	memset(esw_stats, 0, sizeof(u64));
-+	esw_stats->unicast_frames = QLCNIC_ESW_STATS_NOT_AVAIL;
-+	esw_stats->multicast_frames = QLCNIC_ESW_STATS_NOT_AVAIL;
-+	esw_stats->broadcast_frames = QLCNIC_ESW_STATS_NOT_AVAIL;
-+	esw_stats->dropped_frames = QLCNIC_ESW_STATS_NOT_AVAIL;
-+	esw_stats->errors = QLCNIC_ESW_STATS_NOT_AVAIL;
-+	esw_stats->local_frames = QLCNIC_ESW_STATS_NOT_AVAIL;
-+	esw_stats->numbytes = QLCNIC_ESW_STATS_NOT_AVAIL;
- 	esw_stats->context_id = eswitch;
+diff --git a/drivers/net/qlcnic/qlcnic_hw.c b/drivers/net/qlcnic/qlcnic_hw.c
+index c198df9..68d5693 100644
+--- a/drivers/net/qlcnic/qlcnic_hw.c
++++ b/drivers/net/qlcnic/qlcnic_hw.c
+@@ -676,9 +676,10 @@ int qlcnic_config_rss(struct qlcnic_adapter *adapter, int enable)
+ 	return rv;
+ }
  
- 	for (i = 0; i < QLCNIC_MAX_PCI_FUNC; i++) {
-@@ -1029,14 +1036,20 @@ int qlcnic_get_eswitch_stats(struct qlcnic_adapter *adapter, const u8 eswitch,
+-int qlcnic_config_ipaddr(struct qlcnic_adapter *adapter, u32 ip, int cmd)
++int qlcnic_config_ipaddr(struct qlcnic_adapter *adapter, __be32 ip, int cmd)
+ {
+ 	struct qlcnic_nic_req req;
++	struct qlcnic_ipaddr *ipa;
+ 	u64 word;
+ 	int rv;
  
- 		esw_stats->size = port_stats.size;
- 		esw_stats->version = port_stats.version;
--		esw_stats->unicast_frames += port_stats.unicast_frames;
--		esw_stats->multicast_frames += port_stats.multicast_frames;
--		esw_stats->broadcast_frames += port_stats.broadcast_frames;
--		esw_stats->dropped_frames += port_stats.dropped_frames;
--		esw_stats->errors += port_stats.errors;
--		esw_stats->local_frames += port_stats.local_frames;
--		esw_stats->numbytes += port_stats.numbytes;
--
-+		QLCNIC_ADD_ESW_STATS(esw_stats->unicast_frames,
-+						port_stats.unicast_frames);
-+		QLCNIC_ADD_ESW_STATS(esw_stats->multicast_frames,
-+						port_stats.multicast_frames);
-+		QLCNIC_ADD_ESW_STATS(esw_stats->broadcast_frames,
-+						port_stats.broadcast_frames);
-+		QLCNIC_ADD_ESW_STATS(esw_stats->dropped_frames,
-+						port_stats.dropped_frames);
-+		QLCNIC_ADD_ESW_STATS(esw_stats->errors,
-+						port_stats.errors);
-+		QLCNIC_ADD_ESW_STATS(esw_stats->local_frames,
-+						port_stats.local_frames);
-+		QLCNIC_ADD_ESW_STATS(esw_stats->numbytes,
-+						port_stats.numbytes);
- 		ret = 0;
- 	}
- 	return ret;
+@@ -689,7 +690,8 @@ int qlcnic_config_ipaddr(struct qlcnic_adapter *adapter, u32 ip, int cmd)
+ 	req.req_hdr = cpu_to_le64(word);
+ 
+ 	req.words[0] = cpu_to_le64(cmd);
+-	req.words[1] = cpu_to_le64(ip);
++	ipa = (struct qlcnic_ipaddr *)&req.words[1];
++	ipa->ipv4 = ip;
+ 
+ 	rv = qlcnic_send_cmd_descs(adapter, (struct cmd_desc_type0 *)&req, 1);
+ 	if (rv != 0)
 -- 
 1.6.3.3
 
