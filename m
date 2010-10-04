@@ -1,43 +1,37 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCHv4 net-next-2.6 1/5] XFRM,IPv6: Remove xfrm_spi_hash()
-	dependency on destination address
-Date: Mon, 4 Oct 2010 16:33:06 +0800
-Message-ID: <20101004083306.GA17939@gondor.apana.org.au>
-References: <cover.1286139128.git.arno@natisbad.org> <5a0e320544e253cc903cfd3292600b6bec044a5f.1286139129.git.arno@natisbad.org>
+From: Meelis Roos <mroos@linux.ee>
+Subject: Re: [PATCH] tms380tr: fix long delays in initialization
+Date: Mon, 4 Oct 2010 11:39:02 +0300 (EEST)
+Message-ID: <alpine.SOC.1.00.1010041135060.12325@math.ut.ee>
+References: <alpine.SOC.1.00.1010032228450.28867@math.ut.ee> <20101003.200109.226763463.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	netdev@vger.kernel.org
-To: Arnaud Ebalard <arno@natisbad.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:59993 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753038Ab0JDIdW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Oct 2010 04:33:22 -0400
-Content-Disposition: inline
-In-Reply-To: <5a0e320544e253cc903cfd3292600b6bec044a5f.1286139129.git.arno@natisbad.org>
+Received: from smtp1.it.da.ut.ee ([193.40.5.66]:60790 "EHLO smtp1.it.da.ut.ee"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753038Ab0JDIjE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Oct 2010 04:39:04 -0400
+In-Reply-To: <20101003.200109.226763463.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 04, 2010 at 08:25:07AM +0200, Arnaud Ebalard wrote:
->
-> At the moment, Linux XFRM stack includes the address when computing
-> the hash to perform state lookup by SPI. This patch changes XFRM
-> state hash computation to prevent destination address to be
-> used. This will later allow finding states for packets w/ mangled
-> destination addresses.
+> > tms380tr driver tries to use udelay (meaning busy loop) for several half 
+> > second delays during hardware initialization. Crazy overly long busy 
+> > wait delays mean no delay at all so driver initialization fails without 
+> > waiting. Fix it by using msleep() for long delays and leave it to 
+> > udelay() for short delays.
+> > 
+> > Signed-off-by: Meelis Roos <mroos@linux.ee>
+> 
+> You can't use msleep() here because this code can be invoked
+> from interrupts and thus cannot sleep.
 
-I'm fine with doing this for inbound SAs.  However, I can't see
-how we can do this for outbound SAs where the SPI is chosen by
-the remote end.
+I checked these two functions that contain long delays that I changed - 
+tms380tr_bringup_diags() and tms380tr_init_adapter() - to be called only 
+from tms380tr_chipset_init() that is only called from tms380tr_open() so 
+no call paths from interrupts AFAICS. Short delyas from interrupt 
+context are not changed in any way, they still use udelay().
 
-Incidentally, it appears that our hash could do with some
-strengthening.
-
-Cheers,
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Meelis Roos (mroos@linux.ee)
