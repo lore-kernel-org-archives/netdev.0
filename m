@@ -1,97 +1,37 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH] bonding: fix WARN_ON when writing to bond_master sysfs file
-Date: Mon, 4 Oct 2010 16:21:12 -0400
-Message-ID: <20101004202112.GA27897@hmsreliant.think-freely.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] netfilter: unregister nf hooks, matches and targets in
+ the reverse order
+Date: Mon, 04 Oct 2010 22:26:33 +0200
+Message-ID: <4CAA3879.1020406@trash.net>
+References: <1283436908-10744-1-git-send-email-xiaosuo@gmail.com> <4C91033B.6070902@trash.net> <AANLkTi=AhK0jDM8WEf5tHhervKUpB6f4MR+mNx2moYuC@mail.gmail.com> <alpine.LNX.2.01.1010020157010.26371@obet.zrqbmnf.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: bonding-devel@lists.sourceforge.net, fubar@us.ibm.com,
-	davem@davemloft.net, nhorman@tuxdriver.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:53534 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932075Ab0JDUZV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Oct 2010 16:25:21 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Changli Gao <xiaosuo@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Jan Engelhardt <jengelh@medozas.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.01.1010020157010.26371@obet.zrqbmnf.qr>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Fix a WARN_ON failure in bond_masters sysfs file
+Am 02.10.2010 01:57, schrieb Jan Engelhardt:
+> On Sunday 2010-09-19 07:58, Changli Gao wrote:
+> 
+>> On Thu, Sep 16, 2010 at 1:32 AM, Patrick McHardy <kaber@trash.net> wrote:
+>>> Am 02.09.2010 16:15, schrieb Changli Gao:
+>>>> Since we register nf hooks, matches and targets in order, we'd better
+>>>> unregister them in the reverse order.
+>>>
+>>> Why? Is there a specific bug you've noticed?
+>>>
+>>
+>> No, there isn't any bug. I just think unregistering them in the
+>> reverse order is more resonable, like the rollback when failing. And
+>> the code patched generates less object:
+> 
+> I support this.
 
-Got a report of this warning recently
-
-bonding: bond0 is being created...
-------------[ cut here ]------------
-WARNING: at fs/proc/generic.c:590 proc_register+0x14d/0x185()
-Hardware name: ProLiant BL465c G1
-proc_dir_entry 'bonding/bond0' already registered
-Modules linked in: bonding ipv6 tg3 bnx2 shpchp amd64_edac_mod edac_core
-ipmi_si
-ipmi_msghandler serio_raw i2c_piix4 k8temp edac_mce_amd hpwdt microcode hpsa
-cc
-iss radeon ttm drm_kms_helper drm i2c_algo_bit i2c_core [last unloaded:
-scsi_wai
-t_scan]
-Pid: 935, comm: ifup-eth Not tainted 2.6.33.5-124.fc13.x86_64 #1
-Call Trace:
-[<ffffffff8104b54c>] warn_slowpath_common+0x77/0x8f
-[<ffffffff8104b5b1>] warn_slowpath_fmt+0x3c/0x3e
-[<ffffffff8114bf0b>] proc_register+0x14d/0x185
-[<ffffffff8114c20c>] proc_create_data+0x87/0xa1
-[<ffffffffa0211e9b>] bond_create_proc_entry+0x55/0x95 [bonding]
-[<ffffffffa0215e5d>] bond_init+0x95/0xd0 [bonding]
-[<ffffffff8138cd97>] register_netdevice+0xdd/0x29e
-[<ffffffffa021240b>] bond_create+0x8e/0xb8 [bonding]
-[<ffffffffa021c4be>] bonding_store_bonds+0xb3/0x1c1 [bonding]
-[<ffffffff812aec85>] class_attr_store+0x27/0x29
-[<ffffffff8115423d>] sysfs_write_file+0x10f/0x14b
-[<ffffffff81101acf>] vfs_write+0xa9/0x106
-[<ffffffff81101be2>] sys_write+0x45/0x69
-[<ffffffff81009b02>] system_call_fastpath+0x16/0x1b
----[ end trace a677c3f7f8b16b1e ]---
-bonding: Bond creation failed.
-
-It happens because a user space writer to bond_master can try to register and
-already existing bond interface name.  Fix it by teaching bond_create to check
-for the existance of devices with that name first in cases where a non-NULL name
-parameter has been passed in
-
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-
-bond_main.c |   16 +++++++++++++++-
-1 file changed, 15 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index fb70c3e..10e4ffe 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -5148,7 +5148,7 @@ static struct rtnl_link_ops bond_link_ops __read_mostly = {
-  */
- int bond_create(struct net *net, const char *name)
- {
--	struct net_device *bond_dev;
-+	struct net_device *bond_dev, *check_dev;
- 	int res;
- 
- 	rtnl_lock();
-@@ -5168,6 +5168,20 @@ int bond_create(struct net *net, const char *name)
- 		res = dev_alloc_name(bond_dev, "bond%d");
- 		if (res < 0)
- 			goto out;
-+	} else {
-+		/*
-+		 * If we're given a name to register
-+		 * we need to ensure that its not already
-+		 * registered
-+		 */
-+		check_dev = dev_get_by_name(net, name);
-+
-+		res = (check_dev) ? 0 : -EEXIST;
-+
-+		dev_put(check_dev);
-+
-+		if (res)
-+			goto out;
- 	}
- 
- 	res = register_netdevice(bond_dev);
+Yeah, it seems reasonable, although I don't like changing things
+without a concrete reason. Anyways, applied, thanks everyone.
