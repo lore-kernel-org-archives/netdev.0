@@ -1,33 +1,66 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [patch v5 00/12] IPVS: SIP Persistence Engine
-Date: Mon, 04 Oct 2010 20:47:56 +0200
-Message-ID: <4CAA215C.8040605@trash.net>
-References: <20101004134624.963907470@akiko.akashicho.tokyo.vergenet.net>
+From: Alban Crequy <alban.crequy@collabora.co.uk>
+Subject: Re: [PATCH] AF_UNIX: Implement SO_TIMESTAMP and SO_TIMETAMPNS on
+ Unix sockets
+Date: Mon, 4 Oct 2010 19:47:34 +0100
+Message-ID: <20101004194734.6a1caf3e@chocolatine.cbg.collabora.co.uk>
+References: <20101004190049.783f14ab@chocolatine.cbg.collabora.co.uk>
+	<1286215294-29166-1-git-send-email-alban.crequy@collabora.co.uk>
+	<1286215789.2381.2.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Jan Engelhardt <jengelh@medozas.de>,
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Lennart Poettering <lennart@poettering.net>,
+	"David S. Miller" <davem@davemloft.net>,
 	Stephen Hemminger <shemminger@vyatta.com>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20101004134624.963907470@akiko.akashicho.tokyo.vergenet.net>
-Sender: netfilter-devel-owner@vger.kernel.org
+	Cyrill Gorcunov <gorcunov@openvz.org>,
+	Alexey Dobriyan <adobriyan@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Alban Crequy <alban.crequy@collabora.co.uk>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1286215789.2381.2.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am 04.10.2010 15:46, schrieb Simon Horman:
-> CODE AVAILABILITY
-> 
-> The kernel patches (12) are available in git as the pe-5 branch of
-> git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-test-2.6.git
+Le Mon, 04 Oct 2010 20:09:49 +0200,
+Eric Dumazet <eric.dumazet@gmail.com> a =C3=A9crit :
 
-Pulled, thanks Simon. I get a warning in ip_vs_pe_sip.c however,
-please send a fix for this on top.
+> Le lundi 04 octobre 2010 =C3=A0 19:01 +0100, Alban Crequy a =C3=A9cri=
+t :
+> > Userspace applications can already request to receive timestamps
+> > with: setsockopt(sockfd, SOL_SOCKET, SO_TIMESTAMP, ...)
+> >=20
+> > Although setsockopt() returns zero (success), timestamps are not
+> > added to the ancillary data. This patch fixes that on SOCK_DGRAM
+> > and SOCK_SEQPACKET Unix sockets.
+> >=20
+> > Signed-off-by: Alban Crequy <alban.crequy@collabora.co.uk>
+> > ---
+> >  net/unix/af_unix.c |    3 +++
+> >  1 files changed, 3 insertions(+), 0 deletions(-)
+> >=20
+> > diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+> > index 617bea4..bca0c1e 100644
+> > --- a/net/unix/af_unix.c
+> > +++ b/net/unix/af_unix.c
+> > @@ -1697,6 +1697,9 @@ static int unix_dgram_recvmsg(struct kiocb
+> > *iocb, struct socket *sock, if (err)
+> >  		goto out_free;
+> > =20
+> > +	if (sock_flag(sk, SOCK_RCVTSTAMP))
+> > +		__sock_recv_timestamp(msg, sk, skb);
+> > +
+> >  	if (!siocb->scm) {
+> >  		siocb->scm =3D &tmp_scm;
+> >  		memset(&tmp_scm, 0, sizeof(tmp_scm));
+>=20
+> Hmm, but how is set skb->tstamp ?
+>=20
+> I think its zero at this point, so __sock_recv_timestamp() use curren=
+t
+> time, not time of send().
+>=20
+> gettimeofday() might be better/cheaper :)
 
-net/netfilter/ipvs/ip_vs_pe_sip.c:11: warning: 'ip_vs_dbg_callid'
-defined but not used
-
-Thanks!
+You're right, I just tested it and it was the time of reception. Thanks
+for the review.
