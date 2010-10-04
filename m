@@ -1,34 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] correct IGMP behavior on v3 query during
- v2-compatibility mode
-Date: Sun, 03 Oct 2010 22:01:05 -0700 (PDT)
-Message-ID: <20101003.220105.115939978.davem@davemloft.net>
-References: <1285892980.21804.7.camel@w-dls.beaverton.ibm.com>
+Subject: Re: [PATCH] Fix out-of-bounds reading in sctp_asoc_get_hmac()
+Date: Sun, 03 Oct 2010 22:00:57 -0700 (PDT)
+Message-ID: <20101003.220057.59686624.davem@davemloft.net>
+References: <1285969907.2814.49.camel@Dan>
+	<4CA65D0E.6080604@hp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dlstevens@us.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44026
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751771Ab0JDFAo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Oct 2010 01:00:44 -0400
-In-Reply-To: <1285892980.21804.7.camel@w-dls.beaverton.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: drosenberg@vsecurity.com, sri@us.ibm.com,
+	linux-sctp@vger.kernel.org, linux-kernel@vger.kernel.org,
+	security@kernel.org, stable@kernel.org, netdev@vger.kernel.org
+To: vladislav.yasevich@hp.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4CA65D0E.6080604@hp.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David L Stevens <dlstevens@us.ibm.com>
-Date: Thu, 30 Sep 2010 17:29:40 -0700
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Date: Fri, 01 Oct 2010 18:13:34 -0400
 
-> A recent patch to allow IGMPv2 responses to IGMPv3 queries
-> bypasses length checks for valid query lengths, incorrectly
-> resets the v2_seen timer, and does not support IGMPv1.
+> On 10/01/2010 05:51 PM, Dan Rosenberg wrote:
+>> The sctp_asoc_get_hmac() function iterates through a peer's hmac_ids
+>> array and attempts to ensure that only a supported hmac entry is
+>> returned.  The current code fails to do this properly - if the last id
+>> in the array is out of range (greater than SCTP_AUTH_HMAC_ID_MAX), the
+>> id integer remains set after exiting the loop, and the address of an
+>> out-of-bounds entry will be returned and subsequently used in the
+>> parent
+>> function, causing potentially ugly memory corruption.  This patch
+>> resets
+>> the id integer to 0 on encountering an invalid id so that NULL will be
+>> returned after finishing the loop if no valid ids are found.
+>>
+>> Signed-off-by: Dan Rosenberg<drosenberg@vsecurity.com>
 > 
-> The following patch responds with a v2 report as required
-> by IGMPv2 while correcting the other problems introduced
-> by the patch.
+> Good catch.
 > 
-> Signed-Off-By: David L Stevens <dlstevens@us.ibm.com>
+> Acked-by: Vlad Yasevich <vladislav.yasevich@hp.com>
 
-Applied, thanks David.
+Applied.
