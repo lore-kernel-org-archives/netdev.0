@@ -1,90 +1,97 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: VLAN packets silently dropped in promiscuous mode
-Date: Mon, 4 Oct 2010 13:21:44 -0700
-Message-ID: <AANLkTiku7A01cROWezyrcSNaLA=hh8hNoW-D2c=fq_qU@mail.gmail.com>
-References: <20100929113757.GA23755@core.hellgate.ch>
-	<AANLkTi=QAoVH9KU8FAH6iscWt_mKnZpU3P9QqgFRLqXM@mail.gmail.com>
-	<20100930080703.GA10827@core.hellgate.ch>
-	<AANLkTikrfx1T3ay0AGWkS6Ab28J4O_er2TsbRinBSGen@mail.gmail.com>
-	<1285884253.2705.25.camel@edumazet-laptop>
-	<AANLkTi=Vdcn7xzJMPxkugvEVy32N7Bp=KVtir6NESnDF@mail.gmail.com>
-	<1285909831.2705.41.camel@edumazet-laptop>
-	<1285922469.2641.1.camel@edumazet-laptop>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH] bonding: fix WARN_ON when writing to bond_master sysfs file
+Date: Mon, 4 Oct 2010 16:21:12 -0400
+Message-ID: <20101004202112.GA27897@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Roger Luethi <rl@hellgate.ch>, netdev@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: bonding-devel@lists.sourceforge.net, fubar@us.ibm.com,
+	davem@davemloft.net, nhorman@tuxdriver.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gy0-f174.google.com ([209.85.160.174]:35213 "EHLO
-	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932232Ab0JDUVp convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Oct 2010 16:21:45 -0400
-Received: by gye5 with SMTP id 5so1685130gye.19
-        for <netdev@vger.kernel.org>; Mon, 04 Oct 2010 13:21:45 -0700 (PDT)
-In-Reply-To: <1285922469.2641.1.camel@edumazet-laptop>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:53534 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932075Ab0JDUZV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Oct 2010 16:25:21 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 1, 2010 at 1:41 AM, Eric Dumazet <eric.dumazet@gmail.com> w=
-rote:
-> Le vendredi 01 octobre 2010 =E0 07:10 +0200, Eric Dumazet a =E9crit :
->> Le jeudi 30 septembre 2010 =E0 19:37 -0700, Jesse Gross a =E9crit :
->>
->> > That's true. =A0Dropping here seems roughly equivalent to the effe=
-cts of
->> > a hardware VLAN filter, which will also not be tracked by a counte=
-r,
->> > so that seems not too bad to me.
->> >
->> > The thing that concerns me though is why so many drivers seem to h=
-ave
->> > this problem with completely dropping the VLAN header. =A0I know t=
-hat
->> > even several of the ones that work now were broken initially and h=
-ad
->> > to be fixed. =A0Seeing as the driver drops the VLAN information be=
-fore
->> > it gets to the general networking code I don't see a generic fix t=
-o
->> > this as it is currently setup. =A0However, perhaps we could make i=
-t so
->> > that it is harder to get wrong. =A0Something like this:
->> >
->> > * Allow vlan_gro_receive() to take a NULL VLAN group and a tag of =
-0
->> > (and do the same thing for vlan_hwaccel_rx())
->> > * Now that the vlan functions can deal with non-VLAN packets, merg=
-e
->> > them into their non-VLAN counterparts.
->> > * We can now demultiplex between the VLAN/non-VLAN case in core
->> > networking. =A0This is done anyways, it just prevents every driver=
- from
->> > needing that code block I copied above and allows us to fix these
->> > types of problems centrally.
->> > * Dump the VLAN tag into the SKB and hand off the packet to the
->> > various consumers: VLAN devices, libpcap, bridge hook (not current=
-ly
->> > done but should be for trunking).
->> >
->> > I see a number of advantages of this:
->> > * Fixes all the problems with cards dropping VLAN headers at once.
->> > * Avoids having to disable VLAN acceleration when in promiscuous m=
-ode
->> > (good for bridging since it always puts devices in promiscuous mod=
-e).
->> > * Keeps VLAN tag separate until given to ultimate consumer, which
->> > avoids needing to do header reconstruction as in tg3 unless absolu=
-tely
->> > necessary.
->> > * Consolidates common driver code in core networking.
->>
->> This seems very reasonable ;)
->
-> Jesse, do you plan to work on this stuff yourself in a near future ?
+Fix a WARN_ON failure in bond_masters sysfs file
 
-I'm a little bit busy at the moment but I'm hoping to have some time
-to work on it towards the end of this week/beginning of next week.
+Got a report of this warning recently
 
-Thanks for looking over the idea.
+bonding: bond0 is being created...
+------------[ cut here ]------------
+WARNING: at fs/proc/generic.c:590 proc_register+0x14d/0x185()
+Hardware name: ProLiant BL465c G1
+proc_dir_entry 'bonding/bond0' already registered
+Modules linked in: bonding ipv6 tg3 bnx2 shpchp amd64_edac_mod edac_core
+ipmi_si
+ipmi_msghandler serio_raw i2c_piix4 k8temp edac_mce_amd hpwdt microcode hpsa
+cc
+iss radeon ttm drm_kms_helper drm i2c_algo_bit i2c_core [last unloaded:
+scsi_wai
+t_scan]
+Pid: 935, comm: ifup-eth Not tainted 2.6.33.5-124.fc13.x86_64 #1
+Call Trace:
+[<ffffffff8104b54c>] warn_slowpath_common+0x77/0x8f
+[<ffffffff8104b5b1>] warn_slowpath_fmt+0x3c/0x3e
+[<ffffffff8114bf0b>] proc_register+0x14d/0x185
+[<ffffffff8114c20c>] proc_create_data+0x87/0xa1
+[<ffffffffa0211e9b>] bond_create_proc_entry+0x55/0x95 [bonding]
+[<ffffffffa0215e5d>] bond_init+0x95/0xd0 [bonding]
+[<ffffffff8138cd97>] register_netdevice+0xdd/0x29e
+[<ffffffffa021240b>] bond_create+0x8e/0xb8 [bonding]
+[<ffffffffa021c4be>] bonding_store_bonds+0xb3/0x1c1 [bonding]
+[<ffffffff812aec85>] class_attr_store+0x27/0x29
+[<ffffffff8115423d>] sysfs_write_file+0x10f/0x14b
+[<ffffffff81101acf>] vfs_write+0xa9/0x106
+[<ffffffff81101be2>] sys_write+0x45/0x69
+[<ffffffff81009b02>] system_call_fastpath+0x16/0x1b
+---[ end trace a677c3f7f8b16b1e ]---
+bonding: Bond creation failed.
+
+It happens because a user space writer to bond_master can try to register and
+already existing bond interface name.  Fix it by teaching bond_create to check
+for the existance of devices with that name first in cases where a non-NULL name
+parameter has been passed in
+
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+
+bond_main.c |   16 +++++++++++++++-
+1 file changed, 15 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index fb70c3e..10e4ffe 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -5148,7 +5148,7 @@ static struct rtnl_link_ops bond_link_ops __read_mostly = {
+  */
+ int bond_create(struct net *net, const char *name)
+ {
+-	struct net_device *bond_dev;
++	struct net_device *bond_dev, *check_dev;
+ 	int res;
+ 
+ 	rtnl_lock();
+@@ -5168,6 +5168,20 @@ int bond_create(struct net *net, const char *name)
+ 		res = dev_alloc_name(bond_dev, "bond%d");
+ 		if (res < 0)
+ 			goto out;
++	} else {
++		/*
++		 * If we're given a name to register
++		 * we need to ensure that its not already
++		 * registered
++		 */
++		check_dev = dev_get_by_name(net, name);
++
++		res = (check_dev) ? 0 : -EEXIST;
++
++		dev_put(check_dev);
++
++		if (res)
++			goto out;
+ 	}
+ 
+ 	res = register_netdevice(bond_dev);
