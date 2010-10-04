@@ -1,61 +1,62 @@
-From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCHv2 NEXT 8/8] qlcnic: set mtu lower limit
-Date: Mon,  4 Oct 2010 07:20:16 -0700
-Message-ID: <1286202016-18026-9-git-send-email-amit.salecha@qlogic.com>
-References: <1286202016-18026-1-git-send-email-amit.salecha@qlogic.com>
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
-	anirban.chakraborty@qlogic.com,
-	Sritej Velaga <sritej.velaga@qlogic.com>
-To: davem@davemloft.net
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH net-next V3] net: dynamic ingress_queue allocation
+Date: Mon, 4 Oct 2010 16:24:15 +0200
+Message-ID: <20101004142415.GA2049@del.dom.local>
+References: <1285757817.3561.2.camel@bigi>
+ <1285887509.2705.33.camel@edumazet-laptop>
+ <1285933506.3553.176.camel@bigi>
+ <1285941388.2641.175.camel@edumazet-laptop>
+ <20101002093255.GA2049@del.dom.local>
+ <1286035915.2582.2472.camel@edumazet-laptop>
+ <20101003094221.GA2028@del.dom.local>
+ <1286181729.18293.8.camel@edumazet-laptop>
+ <20101004120626.GA2022@del.dom.local>
+ <1286196720.18293.196.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: hadi@cyberus.ca, David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:26251 "HELO unm84.unmin.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1755861Ab0JDOUS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Oct 2010 10:20:18 -0400
-In-Reply-To: <1286202016-18026-1-git-send-email-amit.salecha@qlogic.com>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:61748 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751181Ab0JDOYV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Oct 2010 10:24:21 -0400
+Received: by wwj40 with SMTP id 40so4165790wwj.1
+        for <netdev@vger.kernel.org>; Mon, 04 Oct 2010 07:24:20 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1286196720.18293.196.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sritej Velaga <sritej.velaga@qlogic.com>
+On Mon, Oct 04, 2010 at 02:52:00PM +0200, Eric Dumazet wrote:
+> Le lundi 04 octobre 2010 ?? 14:06 +0200, Jarek Poplawski a =E9crit :
+>=20
+> > Right, but then at least in qdisc_lookup():
+> >=20
+> > if (dev_ingress_queue(dev))
+> > 	q =3D qdisc_match_from_root(dev_ingress_queue(dev), handle);
+> >=20
+> > you should use a variable instead of the second dereference (rtnl i=
+sn't
+> > mandatory here).
+>=20
+> I am lost.
+>=20
+> If rntl is not mandatory, what is the lock that protects us ?
+>=20
+> qdisc_lookup() _is_ called under the protection of a lock.
+> Or as soon as we return from it, result could change under us.
+>=20
+> Please name it, and I'll use it :
+>=20
+> rcu_dereference_protected(dev->ingress_queue, lockdep_is_held(THISLOC=
+K))
+>=20
 
-Setting mtu < 68 is not supported.
+You are right! There is no other lock. (I forgot I removed
+qdisc_list_lock already ;-)
 
-Signed-off-by: Sritej Velaga <sritej.velaga@qlogic.com>
-Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
----
- drivers/net/qlcnic/qlcnic.h    |    1 +
- drivers/net/qlcnic/qlcnic_hw.c |    6 +++---
- 2 files changed, 4 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/qlcnic/qlcnic.h b/drivers/net/qlcnic/qlcnic.h
-index 9d80171..42a2883 100644
---- a/drivers/net/qlcnic/qlcnic.h
-+++ b/drivers/net/qlcnic/qlcnic.h
-@@ -95,6 +95,7 @@
- #define FIRST_PAGE_GROUP_END	0x100000
- 
- #define P3_MAX_MTU                     (9600)
-+#define P3_MIN_MTU                     (68)
- #define QLCNIC_MAX_ETHERHDR                32 /* This contains some padding */
- 
- #define QLCNIC_P3_RX_BUF_MAX_LEN         (QLCNIC_MAX_ETHERHDR + ETH_DATA_LEN)
-diff --git a/drivers/net/qlcnic/qlcnic_hw.c b/drivers/net/qlcnic/qlcnic_hw.c
-index 712cfab..9d3e16d 100644
---- a/drivers/net/qlcnic/qlcnic_hw.c
-+++ b/drivers/net/qlcnic/qlcnic_hw.c
-@@ -758,9 +758,9 @@ int qlcnic_change_mtu(struct net_device *netdev, int mtu)
- 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
- 	int rc = 0;
- 
--	if (mtu > P3_MAX_MTU) {
--		dev_err(&adapter->netdev->dev, "mtu > %d bytes unsupported\n",
--						P3_MAX_MTU);
-+	if (mtu < P3_MIN_MTU || mtu > P3_MAX_MTU) {
-+		dev_err(&adapter->netdev->dev, "%d bytes < mtu < %d bytes"
-+			" not supported\n", P3_MAX_MTU, P3_MIN_MTU);
- 		return -EINVAL;
- 	}
- 
--- 
-1.6.3.3
-
+Sorry,
+Jarek P.
