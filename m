@@ -1,24 +1,24 @@
 From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCH NEXT 8/9] qlcnic: cleanup port mode setting
-Date: Mon,  4 Oct 2010 06:45:37 -0700
-Message-ID: <1286199938-17367-10-git-send-email-amit.salecha@qlogic.com>
+Subject: [PATCH NEXT 8/9] qlcnic: cleanup port mode
+Date: Mon,  4 Oct 2010 06:45:36 -0700
+Message-ID: <1286199938-17367-9-git-send-email-amit.salecha@qlogic.com>
 References: <1286199938-17367-1-git-send-email-amit.salecha@qlogic.com>
 Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
 	anirban.chakraborty@qlogic.com,
 	Sritej Velaga <sritej.velaga@qlogic.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:61434 "HELO unm84.unmin.com"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:48545 "HELO unm84.unmin.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1755881Ab0JDNpo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Oct 2010 09:45:44 -0400
+	id S1755941Ab0JDNpp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Oct 2010 09:45:45 -0400
 In-Reply-To: <1286199938-17367-1-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Sritej Velaga <sritej.velaga@qlogic.com>
 
-Port mode setting is not required for Qlogic CNA adapters.
+Note:Port mode is set by default to Auto neg in firmware.
 
 Signed-off-by: Sritej Velaga <sritej.velaga@qlogic.com>
 Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
