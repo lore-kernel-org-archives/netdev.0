@@ -1,61 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] AF_UNIX: Implement SO_TIMESTAMP and SO_TIMETAMPNS on
- Unix sockets
-Date: Mon, 04 Oct 2010 20:09:49 +0200
-Message-ID: <1286215789.2381.2.camel@edumazet-laptop>
-References: <20101004190049.783f14ab@chocolatine.cbg.collabora.co.uk>
-	 <1286215294-29166-1-git-send-email-alban.crequy@collabora.co.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: ixgbe: normalize frag_list usage
+Date: Mon, 04 Oct 2010 11:32:58 -0700 (PDT)
+Message-ID: <20101004.113258.212671454.davem@davemloft.net>
+References: <20101003.235400.229759758.davem@davemloft.net>
+	<4CAA1722.7070405@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Lennart Poettering <lennart@poettering.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Cyrill Gorcunov <gorcunov@openvz.org>,
-	Alexey Dobriyan <adobriyan@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Alban Crequy <alban.crequy@collabora.co.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1286215294-29166-1-git-send-email-alban.crequy@collabora.co.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	bruce.w.allan@intel.com, netdev@vger.kernel.org
+To: alexander.h.duyck@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53615
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932178Ab0JDSch (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Oct 2010 14:32:37 -0400
+In-Reply-To: <4CAA1722.7070405@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le lundi 04 octobre 2010 =C3=A0 19:01 +0100, Alban Crequy a =C3=A9crit =
-:
-> Userspace applications can already request to receive timestamps with=
-:
-> setsockopt(sockfd, SOL_SOCKET, SO_TIMESTAMP, ...)
->=20
-> Although setsockopt() returns zero (success), timestamps are not adde=
-d to the
-> ancillary data. This patch fixes that on SOCK_DGRAM and SOCK_SEQPACKE=
-T Unix
-> sockets.
->=20
-> Signed-off-by: Alban Crequy <alban.crequy@collabora.co.uk>
-> ---
->  net/unix/af_unix.c |    3 +++
->  1 files changed, 3 insertions(+), 0 deletions(-)
->=20
-> diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-> index 617bea4..bca0c1e 100644
-> --- a/net/unix/af_unix.c
-> +++ b/net/unix/af_unix.c
-> @@ -1697,6 +1697,9 @@ static int unix_dgram_recvmsg(struct kiocb *ioc=
-b, struct socket *sock,
->  	if (err)
->  		goto out_free;
-> =20
-> +	if (sock_flag(sk, SOCK_RCVTSTAMP))
-> +		__sock_recv_timestamp(msg, sk, skb);
-> +
->  	if (!siocb->scm) {
->  		siocb->scm =3D &tmp_scm;
->  		memset(&tmp_scm, 0, sizeof(tmp_scm));
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Date: Mon, 04 Oct 2010 11:04:18 -0700
 
-Hmm, but how is set skb->tstamp ?
+> This will not work for RSC due to the fact that it assumes only one
+> RSC context is active per ring and that is not the case.  There can be
+> multiple RSC combined flows interlaced on the ring.
 
-I think its zero at this point, so __sock_recv_timestamp() use current
-time, not time of send().
+Thanks for looking at this Alexander.
 
-gettimeofday() might be better/cheaper :)
+I must have mis-understood what the current code is doing.
+
+It looked like RSC packets always show up in-order in the RX ring.
+
+And that they are scanned for by simply combining any sequence of
+non-EOP packets up to and including the final EOP one into a frag
+list.
+
+Are the RSC packets are identified via something else entirely?
