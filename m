@@ -1,77 +1,35 @@
-From: "Linux \"Kernel\" Explorer" <mylinuxlab@gmail.com>
-Subject: Linux Kernel Development - A Practical Approach
-Date: Tue, 5 Oct 2010 00:20:55 +0530
-Message-ID: <AANLkTim9RFG799GVEkA0GjU_th_vTv_Y8SqYb1WLBUYp@mail.gmail.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH nf-next] ipt_LOG: add bufferisation to call printk() once
+Date: Mon, 04 Oct 2010 20:58:23 +0200
+Message-ID: <4CAA23CF.80904@trash.net>
+References: <1286032059.2582.2338.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: multipart/alternative; boundary=001636e0b43437213e0491cf06da
-To: kernelnewbies@nl.linux.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org
-Return-path: <kernelnewbies-bounce@nl.linux.org>
-Sender: kernelnewbies-bounce@nl.linux.org
-Errors-to: kernelnewbies-bounce@nl.linux.org
-List-help: <mailto:ecartis@nl.linux.org?Subject=help>
-List-unsubscribe: <mailto:kernelnewbies-request@nl.linux.org?Subject=unsubscribe>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:kernelnewbies-request@nl.linux.org?Subject=subscribe>
-List-owner: <mailto:ecartis-owner@nl.linux.org>
-List-post: <mailto:kernelnewbies@nl.linux.org>
-List-archive: <http://mail.nl.linux.org/kernelnewbies/>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1286032059.2582.2338.camel@edumazet-laptop>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---001636e0b43437213e0491cf06da
-Content-Type: text/plain; charset=ISO-8859-1
+Am 02.10.2010 17:07, schrieb Eric Dumazet:
+> ipt_LOG & ip6t_LOG use lot of calls to printk() and use a lock in a hope
+> several cpus wont mix their output in syslog.
+> 
+> printk() being very expensive [1], its better to call it once, on a
+> prebuilt and complete line. Also, with mixed IPv4 and IPv6 trafic,
+> separate IPv4/IPv6 locks dont avoid garbage.
+> 
+> I used an allocation of a 1024 bytes structure, sort of seq_printf() but
+> with a fixed size limit.
+> Use a static buffer if dynamic allocation failed.
+> 
+> Emit a once time alert if buffer size happens to be too short.
+> 
+> [1]: printk() has various features like printk_delay()...
 
-Hello Everyone,
+Nice work, applied, thanks Eric.
 
-I am reading 'Linux Kernel Development' by Robert Love these days.
-
-This book takes you on a theoretical journey of the linux kernel
-world.Though the book is good but I do have my share of concerns.
-
-   - I Understand theory is important but how to gain some practical
-   experience.How to learn to apply the rules you have learnt in the book. I
-   have got no clue.
-   - Trying to dive into the kernel code and expecting things to make sense
-   would be a little to premature.I will have to jump into the code ...but I
-   guess its too early.
-   - Should I be trying my hand at System programming first / Kernel user
-   side to get a hand of things.Would it be a good idea ?
-
-Would really appreciate your suggestion & Advice.
-
-Thanks in advance,
-
-Linux "Kernel" Explorer.
-
---001636e0b43437213e0491cf06da
-Content-Type: text/html; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-
-<div>Hello Everyone,</div>
-<div>=A0</div>
-<div>I am reading &#39;Linux Kernel Development&#39; by Robert Love these d=
-ays. </div>
-<div>=A0</div>
-<div>This book takes you on a theoretical journey of the linux kernel world=
-.Though the book is good but I do have my share of concerns.</div>
-<ul>
-<li>I Understand theory is important but how to gain some practical experie=
-nce.How to learn to apply the rules you have learnt in the book. I have got=
- no clue.</li>
-<li>Trying to dive into the kernel code and expecting things to make sense =
-would be a little to premature.I will have to jump into the code ...but I g=
-uess its too early.</li>
-<li>Should I be trying my hand at System programming first / Kernel user si=
-de to get a hand of things.Would it be a good idea ?</li></ul>
-<div>Would really appreciate your suggestion &amp; Advice.</div>
-<div>=A0</div>
-<div>Thanks in advance,</div>
-<div>=A0</div>
-<div>Linux &quot;Kernel&quot; Explorer.</div>
-
---001636e0b43437213e0491cf06da--
-
---
-To unsubscribe from this list: send an email with
-"unsubscribe kernelnewbies" to ecartis@nl.linux.org
-Please read the FAQ at http://kernelnewbies.org/FAQ
