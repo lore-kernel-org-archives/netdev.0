@@ -1,47 +1,97 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: 2.6.36-rc6-git2: Reported regressions 2.6.34 -> 2.6.35
-Date: Mon, 4 Oct 2010 20:01:00 +0200
-Message-ID: <AANLkTi=ZwaH6ZL1g4d1jhfSXtQJGMGu-=YN+vTm+=UgS@mail.gmail.com>
-References: <OjxVjYbf_EJ.A.ReC.pTPqMB@chimera>
+From: Alban Crequy <alban.crequy@collabora.co.uk>
+Subject: Re: [PATCH] AF_UNIX: Implement SO_TIMESTAMP and SO_TIMETAMPNS on
+ Unix sockets
+Date: Mon, 4 Oct 2010 19:00:49 +0100
+Message-ID: <20101004190049.783f14ab@chocolatine.cbg.collabora.co.uk>
+References: <1286206706-25733-1-git-send-email-alban.crequy@collabora.co.uk>
+	<1286210504.18293.370.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Maciej Rutecki <maciej.rutecki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Florian Mickler <florian-sVu6HhrpSfRAfugRpC6u6w@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	DRI <dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org>
-To: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <OjxVjYbf_EJ.A.ReC.pTPqMB@chimera>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Lennart Poettering <lennart@poettering.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Cyrill Gorcunov <gorcunov@openvz.org>,
+	Alexey Dobriyan <adobriyan@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Alban Crequy <alban.crequy@collabora.co.uk>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1286210504.18293.370.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2010/10/3 Rafael J. Wysocki <rjw-KKrjLPT3xs0@public.gmane.org>:
-> Bug-Entry =C2=A0 =C2=A0 =C2=A0 : http://bugzilla.kernel.org/show_bug.=
-cgi?id=3D19302
-> Subject =C2=A0 =C2=A0 =C2=A0 =C2=A0 : PROBLEM: kernel crash on USB-mo=
-dem (Huawei E1750) hangup.
-> Submitter =C2=A0 =C2=A0 =C2=A0 : O01eg <O01eg-o+MxOtu4lMCHXe+LvDLADg@public.gmane.org>
-> Date =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0: 2010-09-26 19:50 (8 d=
-ays old)
-> Message-ID =C2=A0 =C2=A0 =C2=A0: <op.vjnn1up1yohvy1@localhost>
-> References =C2=A0 =C2=A0 =C2=A0: http://marc.info/?l=3Dlinux-kernel&m=
-=3D128553111709569&w=3D2
+Le Mon, 04 Oct 2010 18:41:44 +0200,
+Eric Dumazet <eric.dumazet@gmail.com> a =C3=A9crit :
 
-Comment from bugzilla:
-> I got this bug at 2.6.34-gentoo-r6 and 2.6.36-rc5. Other kernels were=
- not
-> checked.
+> Le lundi 04 octobre 2010 =C3=A0 16:38 +0100, Alban Crequy a =C3=A9cri=
+t :
+> > Userspace applications can already request to receive timestamps
+> > with: setsockopt(sockfd, SOL_SOCKET, SO_TIMESTAMP, ...)
+> >=20
+> > Although setsockopt() returns zero (success), timestamps are not
+> > added to the ancillary data. This patch fixes that.
+> >=20
+> > Signed-off-by: Alban Crequy <alban.crequy@collabora.co.uk>
+> > ---
+> >  net/unix/af_unix.c |    4 ++++
+> >  1 files changed, 4 insertions(+), 0 deletions(-)
+> >=20
+> > diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+> > index 617bea4..142ccea 100644
+> > --- a/net/unix/af_unix.c
+> > +++ b/net/unix/af_unix.c
+> > @@ -1697,6 +1697,8 @@ static int unix_dgram_recvmsg(struct kiocb
+> > *iocb, struct socket *sock, if (err)
+> >  		goto out_free;
+> > =20
+> > +	sock_recv_timestamp(msg, sk, skb);
+> > +
+> >  	if (!siocb->scm) {
+> >  		siocb->scm =3D &tmp_scm;
+> >  		memset(&tmp_scm, 0, sizeof(tmp_scm));
+> > @@ -1877,6 +1879,8 @@ static int unix_stream_recvmsg(struct kiocb
+> > *iocb, struct socket *sock, copied +=3D chunk;
+> >  		size -=3D chunk;
+> > =20
+> > +		sock_recv_timestamp(msg, sk, skb);
+> > +
+> >  		/* Mark read part of skb as used */
+> >  		if (!(flags & MSG_PEEK)) {
+> >  			skb_pull(skb, chunk);
+>=20
+> Are you sure its needed for unix_stream case ?
 
-Doesn't sound like regression.
+I was about to say it does not cost anything to add it...
+
+> We dont do this for TCP for example, only for datagrams.
+>=20
+> As shown in the past, sock_recv_timestamp() is a bit expensive becaus=
+e
+> it takes care of many possible options.
+
+Is it really expensive? It looks like a few flag checks in an inline
+function to me.
+
+> It would be better to use in AF_UNIX case (only software timestamps) =
+:
+>=20
+> Solution 1)=20
+> if (sock_flag(sk, SOCK_RCVTSTAMP))
+> 	__sock_recv_timestamp(msg, sk, skb);
+>=20
+> Solution 2)=20
+> Or something already used elsewhere since 2.6.35 and commit
+> 767dd03369ac1 (net: speedup sock_recv_ts_and_drops()) :
+>=20
+> sock_recv_ts_and_drops(msg, sk, skb);
+>=20
+>=20
+> I would vote for the 1) solution
+
+The patch in the next email implements the 1) solution on SOCK_DGRAM an=
+d
+SOCK_SEQPACKET (without SOCK_STREAM).
 
 --=20
-Rafa=C5=82
+Alban
