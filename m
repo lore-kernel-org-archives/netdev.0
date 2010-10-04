@@ -1,51 +1,61 @@
-From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
-Subject: Re: [PATCH] net: Fix IPv6 PMTU disc. w/ asymmetric routes
-Date: Sun, 3 Oct 2010 17:21:46 -0700
-Message-ID: <AANLkTi=spyusBeETGxf92ZsfNSSadhNocggjRnEeF5X+@mail.gmail.com>
-References: <20100928.135800.39205209.davem@davemloft.net>
-	<AANLkTi=9THOcD9FieK3uy635C1kNDc=uEdtDe4qm1WU6@mail.gmail.com>
-	<20100930.004136.91329579.davem@davemloft.net>
-	<20101003.144931.71122620.davem@davemloft.net>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: [PATCH 1/2] Revert "ipv4: Make INET_LRO a bool instead of
+ tristate."
+Date: Mon, 04 Oct 2010 02:37:42 +0100
+Message-ID: <1286156262.3916.213.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:53857 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751425Ab0JDAVr convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Oct 2010 20:21:47 -0400
-Received: by wyb28 with SMTP id 28so4450995wyb.19
-        for <netdev@vger.kernel.org>; Sun, 03 Oct 2010 17:21:46 -0700 (PDT)
-In-Reply-To: <20101003.144931.71122620.davem@davemloft.net>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:41014 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750931Ab0JDBhs convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 Oct 2010 21:37:48 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Ok, meanwhile I did the research.
->
-> What ipv6 does is that when you lookup a route, it clones or copies
-> the prefixes route into one that is fully specified for a specific
-> SADDR/DADDR pair, and then inserts that specific route into the FIB6
-> tree.
->
-> Therefore the only cases we should lookup for PMTU discovery for ipv6
-> are:
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0{ daddr, saddr, ifindex =3D=3D 0 }
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0{ daddr, saddr, ifindex =3D=3D dev->ifinde=
-x }
->
-> This achieves the same effect as what ipv4 is doing.
->
-> So Maciej your original attempt was correct all along, and as a resul=
-t
-> I'll commit the following.
->
-> Thanks!
+This reverts commit e81963b180ac502fda0326edf059b1e29cdef1a2.
 
-Awesome.  I've been trying to convince myself of this and come up with
-a concise explanation - but it sounds like you got there first.
+LRO is now deprecated in favour of GRO, and only a few drivers use it,
+so it is desirable to build it as a module in distribution kernels.
 
-[I ran into SUBTREES and got stuck in trying to understand exactly how
-they work and whether they affect this at all.]
+The original change to prevent building it as a module was made in an
+attempt to avoid the case where some dependents are set to y and some
+to m, and INET_LRO can be set to m rather than y.  However, the
+Kconfig system will reliably set INET_LRO=y in this case.
+
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+---
+Dave,
+
+You made the change I want to revert in response to
+<http://article.gmane.org/gmane.linux.kernel/825646>.  The real problem
+with its configuration is actually that CONFIG_INET is not set but
+CONFIG_INET_LRO=m, and the fix is to make CONFIG_PASEMI_MAC depend on
+CONFIG_INET.
+
+Ben.
+
+ net/ipv4/Kconfig |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
+index 94e0b51..704a0cf 100644
+--- a/net/ipv4/Kconfig
++++ b/net/ipv4/Kconfig
+@@ -420,7 +420,7 @@ config INET_XFRM_MODE_BEET
+ 	  If unsure, say Y.
+ 
+ config INET_LRO
+-	bool "Large Receive Offload (ipv4/tcp)"
++	tristate "Large Receive Offload (ipv4/tcp)"
+ 	default y
+ 	---help---
+ 	  Support for Large Receive Offload (ipv4/tcp).
+-- 
+1.7.1
+
+
