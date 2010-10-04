@@ -1,56 +1,26 @@
-From: Alban Crequy <alban.crequy@collabora.co.uk>
-Subject: [PATCH] AF_UNIX: Implement SO_TIMESTAMP and SO_TIMETAMPNS on Unix sockets
-Date: Mon,  4 Oct 2010 19:48:28 +0100
-Message-ID: <1286218109-30771-1-git-send-email-alban.crequy@collabora.co.uk>
-References: <20101004194734.6a1caf3e@chocolatine.cbg.collabora.co.uk>
-Cc: Lennart Poettering <lennart@poettering.net>,
-	Alban Crequy <alban.crequy@collabora.co.uk>,
-	"David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Cyrill Gorcunov <gorcunov@openvz.org>,
-	Alexey Dobriyan <adobriyan@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20101004194734.6a1caf3e@chocolatine.cbg.collabora.co.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH net-next] nf_nat: make find/put static
+Date: Mon, 04 Oct 2010 20:54:12 +0200
+Message-ID: <4CAA22D4.9040106@trash.net>
+References: <20101002141736.0a31bcd7@s6510>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:64756 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755333Ab0JDSyP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Oct 2010 14:54:15 -0400
+In-Reply-To: <20101002141736.0a31bcd7@s6510>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Userspace applications can already request to receive timestamps with:
-setsockopt(sockfd, SOL_SOCKET, SO_TIMESTAMP, ...)
+Am 02.10.2010 07:17, schrieb Stephen Hemminger:
+> The functions nf_nat_proto_find_get and nf_nat_proto_put are
+> only used internally in nf_nat_core. This might break some out
+> of tree NAT module.
 
-Although setsockopt() returns zero (success), timestamps are not added to the
-ancillary data. This patch fixes that on SOCK_DGRAM and SOCK_SEQPACKET Unix
-sockets.
-
-Signed-off-by: Alban Crequy <alban.crequy@collabora.co.uk>
----
- net/unix/af_unix.c |    5 +++++
- 1 files changed, 5 insertions(+), 0 deletions(-)
-
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 617bea4..b03baa8 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -1484,6 +1484,8 @@ restart:
- 		goto restart;
- 	}
- 
-+	if (sock_flag(other, SOCK_RCVTSTAMP))
-+		__net_timestamp(skb);
- 	skb_queue_tail(&other->sk_receive_queue, skb);
- 	unix_state_unlock(other);
- 	other->sk_data_ready(other, len);
-@@ -1697,6 +1699,9 @@ static int unix_dgram_recvmsg(struct kiocb *iocb, struct socket *sock,
- 	if (err)
- 		goto out_free;
- 
-+	if (sock_flag(sk, SOCK_RCVTSTAMP))
-+		__sock_recv_timestamp(msg, sk, skb);
-+
- 	if (!siocb->scm) {
- 		siocb->scm = &tmp_scm;
- 		memset(&tmp_scm, 0, sizeof(tmp_scm));
--- 
-1.7.1
+Applied, thanks Stephen.
