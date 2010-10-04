@@ -1,7 +1,7 @@
 From: Arnaud Ebalard <arno@natisbad.org>
-Subject: [PATCHv4 net-next-2.6 1/5] XFRM,IPv6: Remove xfrm_spi_hash() dependency on destination address
-Date: Mon, 04 Oct 2010 08:25:07 +0200
-Message-ID: <5a0e320544e253cc903cfd3292600b6bec044a5f.1286139129.git.arno@natisbad.org>
+Subject: [PATCHv4 net-next-2.6 2/5] XFRM,IPv6: Introduce receive sockopts to access IRO remapped src/dst addresses
+Date: Mon, 04 Oct 2010 08:25:13 +0200
+Message-ID: <fde2dbcadef762cdd0893565a897172a2707d97d.1286139129.git.arno@natisbad.org>
 References: <cover.1286139128.git.arno@natisbad.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -11,159 +11,172 @@ To: "David S. Miller" <davem@davemloft.net>,
 	Herbert Xu <herbert@gondor.apana.org.au>,
 	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from copper.chdir.org ([88.191.97.87]:57151 "EHLO copper.chdir.org"
+Received: from copper.chdir.org ([88.191.97.87]:57156 "EHLO copper.chdir.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752304Ab0JDGZI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Oct 2010 02:25:08 -0400
+	id S1752382Ab0JDGZO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Oct 2010 02:25:14 -0400
 In-Reply-To: <cover.1286139128.git.arno@natisbad.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In the new IPsec architecture [RFC4301], "for an SA used to carry
-unicast traffic, the Security Parameters Index (SPI) by itself
-suffices to specify an SA".  Section 4.1 of [RFC4301] provides
-additional guidance on the topic.
+This patch introduces IRO recv sockopts, in order for userland processes
+(e.g. UMIP) to access on-wire source or destination addresses found in
+incoming (IPsec-protected) packets as they were before remapping by IRO.
+The socket options are respectively IPV6_RECVIROSRC and IPV6_RECVIRODST.
 
-In the old IPsec architecture [RFC2401], a SA "is uniquely identified
-by a triple consisting of a Security Parameter Index (SPI), an IP
-Destination Address and a security protocol (AH or ESP) identifier".
+Basically, the two recv socket options are similar in their purpose to
+their generic RH2/HAO counterparts defined in RFC 3542 (IPV6_RECVIROSRC
+<->  IPV6_RECVDSTOPTS, IPV6_RECVIRODST <-> IPV6_RECVRTHDR). They differ
+on the following aspects:
 
-If an IPsec stack only supports the behavior mandated by the old
-IPsec architecture, SAD lookup on inbound packets require the use of
-both the SPI and the destination address of the SA.
+ - IRO reporting sockopts only work on incoming IPsec-protected packets
+   Userspace will never get IRO remapped address report for common
+   (non protected) packets.
+ - The receiver gets the original source/desination address (IRO
+   remapping) from its IPsec stack.
+ - as IRO sockopts only deal with addresses, no specific structure is
+   defined, i.e. struct in6_addr is used to pass info.
 
-For inbound IPsec traffic, IRO remapping rules may exist on the MN to
-remap the destination address (CoA) into the HoA.  In that case, by
-design, the address found in the destination address field of the
-packet (CoA) does not match the one in the SA (HoA).
-
-At the moment, Linux XFRM stack includes the address when computing
-the hash to perform state lookup by SPI. This patch changes XFRM
-state hash computation to prevent destination address to be
-used. This will later allow finding states for packets w/ mangled
-destination addresses.
+As we only interact with IPsec protected packets, struct sec_path is
+used to carry information (addresses) for incoming packets that have
+undergone remapping process.
 
 Signed-off-by: Arnaud Ebalard <arno@natisbad.org>
 ---
- net/xfrm/xfrm_hash.h  |   21 +--------------------
- net/xfrm/xfrm_state.c |   20 ++++++++------------
- 2 files changed, 9 insertions(+), 32 deletions(-)
+ include/linux/in6.h      |    7 +++++++
+ include/linux/ipv6.h     |    4 +++-
+ include/net/xfrm.h       |    5 +++++
+ net/ipv6/datagram.c      |   18 ++++++++++++++++++
+ net/ipv6/ipv6_sockglue.c |   26 ++++++++++++++++++++++++++
+ 5 files changed, 59 insertions(+), 1 deletions(-)
 
-diff --git a/net/xfrm/xfrm_hash.h b/net/xfrm/xfrm_hash.h
-index 8e69533..19eeee7 100644
---- a/net/xfrm/xfrm_hash.h
-+++ b/net/xfrm/xfrm_hash.h
-@@ -4,16 +4,6 @@
- #include <linux/xfrm.h>
- #include <linux/socket.h>
- 
--static inline unsigned int __xfrm4_addr_hash(xfrm_address_t *addr)
--{
--	return ntohl(addr->a4);
--}
--
--static inline unsigned int __xfrm6_addr_hash(xfrm_address_t *addr)
--{
--	return ntohl(addr->a6[2] ^ addr->a6[3]);
--}
--
- static inline unsigned int __xfrm4_daddr_saddr_hash(xfrm_address_t *daddr, xfrm_address_t *saddr)
- {
- 	u32 sum = (__force u32)daddr->a4 + (__force u32)saddr->a4;
-@@ -60,18 +50,9 @@ static inline unsigned __xfrm_src_hash(xfrm_address_t *daddr,
- }
- 
- static inline unsigned int
--__xfrm_spi_hash(xfrm_address_t *daddr, __be32 spi, u8 proto, unsigned short family,
--		unsigned int hmask)
-+__xfrm_spi_hash(__be32 spi, u8 proto, unsigned int hmask)
- {
- 	unsigned int h = (__force u32)spi ^ proto;
--	switch (family) {
--	case AF_INET:
--		h ^= __xfrm4_addr_hash(daddr);
--		break;
--	case AF_INET6:
--		h ^= __xfrm6_addr_hash(daddr);
--		break;
--	}
- 	return (h ^ (h >> 10) ^ (h >> 20)) & hmask;
- }
- 
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index eb96ce5..b6a4d8d 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -30,7 +30,7 @@
- 
- /* Each xfrm_state may be linked to two tables:
- 
--   1. Hash table by (spi,daddr,ah/esp) to find SA by SPI. (input,ctl)
-+   1. Hash table by (spi,ah/esp) to find SA by SPI. (input,ctl)
-    2. Hash table by (daddr,family,reqid) to find what SAs exist for given
-       destination/tunnel endpoint. (output)
+diff --git a/include/linux/in6.h b/include/linux/in6.h
+index c4bf46f..52a98ab 100644
+--- a/include/linux/in6.h
++++ b/include/linux/in6.h
+@@ -283,4 +283,11 @@ struct in6_flowlabel_req {
+  * MRT6_PIM			208
+  * (reserved)			209
   */
-@@ -67,9 +67,9 @@ static inline unsigned int xfrm_src_hash(struct net *net,
- }
++
++/* IRO (IPsec Route Optimization) sockopts */
++#define IPV6_RECVIROSRC         74
++#define IPV6_IROSRC		75
++#define IPV6_RECVIRODST         76
++#define IPV6_IRODST		77
++
+ #endif
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index e62683b..55289ee 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -341,7 +341,9 @@ struct ipv6_pinfo {
+ 				odstopts:1,
+                                 rxflow:1,
+ 				rxtclass:1,
+-				rxpmtu:1;
++				rxpmtu:1,
++				irosrc:1,
++				irodst:1;
+ 		} bits;
+ 		__u16		all;
+ 	} rxopt;
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 4f53532..e6a753c 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -909,6 +909,11 @@ struct sec_path {
+ 	atomic_t		refcnt;
+ 	int			len;
+ 	struct xfrm_state	*xvec[XFRM_MAX_DEPTH];
++
++#ifdef CONFIG_XFRM_SUB_POLICY
++	struct in6_addr         irosrc;
++	struct in6_addr         irodst;
++#endif
+ };
  
- static inline unsigned int
--xfrm_spi_hash(struct net *net, xfrm_address_t *daddr, __be32 spi, u8 proto, unsigned short family)
-+xfrm_spi_hash(struct net *net, __be32 spi, u8 proto)
- {
--	return __xfrm_spi_hash(daddr, spi, proto, family, net->xfrm.state_hmask);
-+	return __xfrm_spi_hash(spi, proto, net->xfrm.state_hmask);
- }
+ static inline struct sec_path *
+diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
+index ef371aa..2952c9e 100644
+--- a/net/ipv6/datagram.c
++++ b/net/ipv6/datagram.c
+@@ -29,6 +29,7 @@
+ #include <net/transp_v6.h>
+ #include <net/ip6_route.h>
+ #include <net/tcp_states.h>
++#include <net/xfrm.h>
  
- static void xfrm_hash_transfer(struct hlist_head *list,
-@@ -95,9 +95,7 @@ static void xfrm_hash_transfer(struct hlist_head *list,
- 		hlist_add_head(&x->bysrc, nsrctable+h);
- 
- 		if (x->id.spi) {
--			h = __xfrm_spi_hash(&x->id.daddr, x->id.spi,
--					    x->id.proto, x->props.family,
--					    nhashmask);
-+			h = __xfrm_spi_hash(x->id.spi, x->id.proto, nhashmask);
- 			hlist_add_head(&x->byspi, nspitable+h);
- 		}
+ #include <linux/errqueue.h>
+ #include <asm/uaccess.h>
+@@ -504,6 +505,23 @@ int datagram_recv_ctl(struct sock *sk, struct msghdr *msg, struct sk_buff *skb)
+ 		put_cmsg(msg, SOL_IPV6, IPV6_HOPOPTS, (ptr[1]+1)<<3, ptr);
  	}
-@@ -679,7 +677,7 @@ xfrm_init_tempstate(struct xfrm_state *x, struct flowi *fl,
  
- static struct xfrm_state *__xfrm_state_lookup(struct net *net, u32 mark, xfrm_address_t *daddr, __be32 spi, u8 proto, unsigned short family)
- {
--	unsigned int h = xfrm_spi_hash(net, daddr, spi, proto, family);
-+	unsigned int h = xfrm_spi_hash(net, spi, proto);
- 	struct xfrm_state *x;
- 	struct hlist_node *entry;
++#ifdef CONFIG_XFRM_SUB_POLICY
++	/* If access to IRO-remapped source or destination address has been
++	 * requested and it has indeed been remapped, provide the on-wire
++	 * address to userland */
++	if (skb_sec_path(skb)) {
++		struct sec_path *sp = skb_sec_path(skb);
++
++		if (np->rxopt.bits.irosrc && !ipv6_addr_any(&sp->irosrc))
++			put_cmsg(msg, SOL_IPV6, IPV6_IROSRC,
++				 sizeof(sp->irosrc), &sp->irosrc);
++
++		if (np->rxopt.bits.irodst && !ipv6_addr_any(&sp->irodst))
++			put_cmsg(msg, SOL_IPV6, IPV6_IRODST,
++				 sizeof(sp->irodst), &sp->irodst);
++	}
++#endif
++
+ 	if (opt->lastopt &&
+ 	    (np->rxopt.bits.dstopts || np->rxopt.bits.srcrt)) {
+ 		/*
+diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+index a7f66bc..722a49f 100644
+--- a/net/ipv6/ipv6_sockglue.c
++++ b/net/ipv6/ipv6_sockglue.c
+@@ -302,6 +302,22 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
+ 		retv = 0;
+ 		break;
  
-@@ -868,7 +866,7 @@ found:
- 			h = xfrm_src_hash(net, daddr, saddr, encap_family);
- 			hlist_add_head(&x->bysrc, net->xfrm.state_bysrc+h);
- 			if (x->id.spi) {
--				h = xfrm_spi_hash(net, &x->id.daddr, x->id.spi, x->id.proto, encap_family);
-+				h = xfrm_spi_hash(net, x->id.spi, x->id.proto);
- 				hlist_add_head(&x->byspi, net->xfrm.state_byspi+h);
- 			}
- 			x->lft.hard_add_expires_seconds = net->xfrm.sysctl_acq_expires;
-@@ -942,9 +940,7 @@ static void __xfrm_state_insert(struct xfrm_state *x)
- 	hlist_add_head(&x->bysrc, net->xfrm.state_bysrc+h);
++#ifdef CONFIG_XFRM_SUB_POLICY
++	case IPV6_RECVIROSRC:
++		if (optlen < sizeof(int))
++			goto e_inval;
++		np->rxopt.bits.irosrc = valbool;
++		retv = 0;
++		break;
++
++	case IPV6_RECVIRODST:
++		if (optlen < sizeof(int))
++			goto e_inval;
++		np->rxopt.bits.irodst = valbool;
++		retv = 0;
++		break;
++#endif
++
+ 	case IPV6_2292DSTOPTS:
+ 		if (optlen < sizeof(int))
+ 			goto e_inval;
+@@ -1056,6 +1072,16 @@ static int do_ipv6_getsockopt(struct sock *sk, int level, int optname,
+ 		val = np->rxopt.bits.dstopts;
+ 		break;
  
- 	if (x->id.spi) {
--		h = xfrm_spi_hash(net, &x->id.daddr, x->id.spi, x->id.proto,
--				  x->props.family);
--
-+		h = xfrm_spi_hash(net, x->id.spi, x->id.proto);
- 		hlist_add_head(&x->byspi, net->xfrm.state_byspi+h);
- 	}
- 
-@@ -1535,7 +1531,7 @@ int xfrm_alloc_spi(struct xfrm_state *x, u32 low, u32 high)
- 	}
- 	if (x->id.spi) {
- 		spin_lock_bh(&xfrm_state_lock);
--		h = xfrm_spi_hash(net, &x->id.daddr, x->id.spi, x->id.proto, x->props.family);
-+		h = xfrm_spi_hash(net, x->id.spi, x->id.proto);
- 		hlist_add_head(&x->byspi, net->xfrm.state_byspi+h);
- 		spin_unlock_bh(&xfrm_state_lock);
- 
++#ifdef CONFIG_XFRM_SUB_POLICY
++	case IPV6_RECVIROSRC:
++		val = np->rxopt.bits.irosrc;
++		break;
++
++	case IPV6_RECVIRODST:
++		val = np->rxopt.bits.irodst;
++		break;
++#endif
++
+ 	case IPV6_2292DSTOPTS:
+ 		val = np->rxopt.bits.odstopts;
+ 		break;
 -- 
 1.7.1
 
