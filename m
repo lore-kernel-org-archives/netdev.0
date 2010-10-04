@@ -1,56 +1,49 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [PATCH v2] bonding: rejoin multicast groups on VLANs
-Date: Mon, 4 Oct 2010 09:24:10 -0400
-Message-ID: <20101004132409.GA7497@gospo.rdu.redhat.com>
-References: <20100929131713.GB2857@redhat.com> <1285879524-7046-1-git-send-email-fleitner@redhat.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [patch v4 10/12] IPVS: Allow configuration of persistence
+ engines
+Date: Mon, 4 Oct 2010 22:41:54 +0900
+Message-ID: <20101004134154.GA5469@verge.net.au>
+References: <20101004090352.966809749@akiko.akashicho.tokyo.vergenet.net>
+ <20101004090818.882956490@akiko.akashicho.tokyo.vergenet.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Andy Gospodarek <andy@greyhouse.net>,
-	bonding-devel@lists.sourceforge.net,
-	Jay Vosburgh <fubar@us.ibm.com>
-To: Flavio Leitner <fleitner@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:5892 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755157Ab0JDNYV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Oct 2010 09:24:21 -0400
+Cc: Jan Engelhardt <jengelh@medozas.de>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>, Patrick McHardy <kaber@trash.net>
+To: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter@vger.kernel.org, netfilter-devel@vger.kernel.org
+Return-path: <lvs-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1285879524-7046-1-git-send-email-fleitner@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20101004090818.882956490@akiko.akashicho.tokyo.vergenet.net>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 30, 2010 at 05:45:24PM -0300, Flavio Leitner wrote:
-> It fixes bonding to rejoin multicast groups added
-> to VLAN devices on top of bonding when a failover
-> happens.
+On Mon, Oct 04, 2010 at 06:04:02PM +0900, Simon Horman wrote:
+> Allow the persistence engine of a virtual service to be set, edited
+> and unset.
 > 
-> Signed-off-by: Flavio Leitner <fleitner@redhat.com>
+> This feature only works with the netlink user-space interface.
+> 
+> Signed-off-by: Simon Horman <horms@verge.net.au>
+> Acked-by: Julian Anastasov <ja@ssi.bg>
+> 
 > ---
->  drivers/net/bonding/bond_main.c |   61 +++++++++++++++++++++++++++++++++-----
->  drivers/net/bonding/bonding.h   |    1 +
->  2 files changed, 54 insertions(+), 8 deletions(-)
 > 
-[...]
-> @@ -944,7 +979,9 @@ static void bond_mc_swap(struct bonding *bond, struct slave *new_active,
->  
->  		netdev_for_each_mc_addr(ha, bond->dev)
->  			dev_mc_add(new_active->dev, ha->addr);
-> -		bond_resend_igmp_join_requests(bond);
-> +
-> +		/* rejoin multicast groups */
-> +		queue_delayed_work(bond->wq, &bond->mcast_work, 0);
->  	}
->  }
->  
+> v2
+> * Dereference persistence engine when a service is deleted.
+>   This allows persistence modules to be removed from the kernel
+>   once they are no longer used.
+> * Update for the recent "ipvs: changes related to service usecnt" change
+> * Trivial rediff
+> 
+> v4
+> * As suggested by  Julian Anastasov <ja@ssi.bg>
+>   - Initialise ip_vs_service_user_kern to zero in ip_vs_copy_usvc_compat()
+>     to avoid a crash caused by the pe_name element being uninitialised.
 
-I was hoping that one patch would just make the changes so
-retransmission was supported on VLANs and the second patch would queue
-the work and add the tunable for multiple retransmissions, but I guess
-it wasn't clear enough.
+*Red Face*
 
-I felt like that would divide the patches up into the bug-fix (VLANs +
-multicast not working) and the new feature (multiple retransmissions
-from the workqueue).
-
-I will test these out this morning and make sure things look good.
+I forgot to test this change and I had made a typo.
+I will repost.
 
