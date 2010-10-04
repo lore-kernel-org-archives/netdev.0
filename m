@@ -1,31 +1,60 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [patch v2] ipvs: IPv6 tunnel mode
-Date: Mon, 04 Oct 2010 21:06:44 +0200
-Message-ID: <4CAA25C4.1040301@trash.net>
-References: <20100927135913.GA21785@verge.net.au> <20100930012239.GA18392@verge.net.au>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 8/8] net: Implement socketat.
+Date: Mon, 04 Oct 2010 12:07:58 -0700
+Message-ID: <m1bp797p4h.fsf@fess.ebiederm.org>
+References: <m1ocborgq7.fsf@fess.ebiederm.org>
+	<m1bp7oq1u8.fsf@fess.ebiederm.org> <4C9B162E.7040201@parallels.com>
+	<1285240797.5036.5.camel@bigi> <4C9B3B06.900@parallels.com>
+	<1285242055.5036.9.camel@bigi> <4C9B3F9C.8080506@parallels.com>
+	<4CA7A07C.5030504@free.fr> <1286113441.3812.229.camel@bigi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>,
-	Julian Anastasov <ja@ssi.bg>, Julius Volz <juliusv@google.com>,
-	Wensong Zhang <wensong@linux-vs.org>
-To: Simon Horman <horms@verge.net.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: Daniel Lezcano <daniel.lezcano@free.fr>,
+	Pavel Emelyanov <xemul@parallels.com>,
+	linux-kernel@vger.kernel.org,
+	Linux Containers <containers@lists.osdl.org>,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Michael Kerrisk <mtk.manpages@gmail.com>,
+	Ulrich Drepper <drepper@gmail.com>,
+	Al Viro <viro@ZenIV.linux.org.uk>,
+	David Miller <davem@davemloft.net>,
+	"Serge E. Hallyn" <serge@hallyn.com>,
+	Pavel Emelyanov <xemul@openvz.org>,
+	Ben Greear <greearb@candelatech.com>,
+	Matt Helsley <matthltc@us.ibm.com>,
+	Jonathan Corbet <corbet@lwn.net>,
+	Sukadev Bhattiprolu <sukadev@linux.vnet.ibm.com>,
+	Jan Engelhardt <jengelh@medozas.de>,
+	Patrick McHardy <kaber@trash.net>
+To: hadi@cyberus.ca
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20100930012239.GA18392@verge.net.au>
+In-Reply-To: <1286113441.3812.229.camel@bigi> (jamal's message of "Sun, 03 Oct
+	2010 09:44:01 -0400")
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am 30.09.2010 03:22, schrieb Simon Horman:
-> On Mon, Sep 27, 2010 at 10:59:14PM +0900, Simon Horman wrote:
->> From: Julian Anastasov <ja@ssi.bg>
->>
->> Tunnel mode for IPv6 doesn't work.
-> 
-> Patrick, can you please drop this patch for now.
-> Hans has found some problems with it.
-> 
-> http://archive.linuxvirtualserver.org/html/lvs-devel/2010-09/msg00073.html
+jamal <hadi@cyberus.ca> writes:
 
-Sure, just resend once you consider it ready for inclusion.
+> One thing still confuses me...
+> The app control point is in namespace0. I still want to be able to
+> "boot" namespaces first and maybe a few seconds later do a socketat()...
+> and create devices, tcp sockets etc. I suspect create_ns(namespace-name)
+> would involve:
+>      * open /proc/self/ns/net (namespace-name)
+>      * unshare the netns
+> Is this correct?
+
+Almost.
+
+create should be:
+        * verify namespace-name is not already in use
+        * mkdir -p /var/run/netns/<namespace-name>
+	* unshare the netns
+        * mount --bind /proc/self/ns/net /var/run/netns/<namespace-name>
+
+Are you talking about an replacing something that used to use the linux
+vrf patches that are floating around?
+
+Eric
