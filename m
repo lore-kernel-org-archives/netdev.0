@@ -1,61 +1,89 @@
-From: Robin Holt <holt@sgi.com>
-Subject: Re: [PATCH] sysctl: fix min/max handling in
- __do_proc_doulongvec_minmax()
-Date: Mon, 4 Oct 2010 03:59:13 -0500
-Message-ID: <20101004085913.GR14068@sgi.com>
-References: <1286025469.2582.1806.camel@edumazet-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: relax rtnl_dereference()
+Date: Mon, 04 Oct 2010 11:00:12 +0200
+Message-ID: <1286182812.18293.22.camel@edumazet-laptop>
+References: <1285689517.3154.76.camel@edumazet-laptop>
+	 <20100928180447.GA1880@del.dom.local> <1285757817.3561.2.camel@bigi>
+	 <1285887509.2705.33.camel@edumazet-laptop> <1285933506.3553.176.camel@bigi>
+	 <1285941388.2641.175.camel@edumazet-laptop>
+	 <20101002093255.GA2049@del.dom.local>
+	 <1286035915.2582.2472.camel@edumazet-laptop>
+	 <20101003094221.GA2028@del.dom.local>
+	 <1286181729.18293.8.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Robin Holt <holt@sgi.com>, Willy Tarreau <w@1wt.eu>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	Patrick McHardy <kaber@trash.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: hadi@cyberus.ca, netdev <netdev@vger.kernel.org>,
+	Jarek Poplawski <jarkao2@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay1.sgi.com ([192.48.179.29]:44307 "EHLO relay.sgi.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753630Ab0JDI7S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Oct 2010 04:59:18 -0400
-Content-Disposition: inline
-In-Reply-To: <1286025469.2582.1806.camel@edumazet-laptop>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:40975 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753757Ab0JDJAR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Oct 2010 05:00:17 -0400
+Received: by mail-fx0-f46.google.com with SMTP id 14so1554478fxm.19
+        for <netdev@vger.kernel.org>; Mon, 04 Oct 2010 02:00:16 -0700 (PDT)
+In-Reply-To: <1286181729.18293.8.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Oct 02, 2010 at 03:17:49PM +0200, Eric Dumazet wrote:
-> When proc_doulongvec_minmax() is used with an array of longs,
-> and no min/max check requested (.extra1 or .extra2 being NULL), we
-> dereference a NULL pointer for the second element of the array.
-> 
-> Noticed while doing some changes in network stack for the "16TB problem"
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> ---
->  kernel/sysctl.c |    3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/kernel/sysctl.c b/kernel/sysctl.c
-> index f88552c..4fba86d 100644
-> --- a/kernel/sysctl.c
-> +++ b/kernel/sysctl.c
-> @@ -2500,7 +2500,8 @@ static int __do_proc_doulongvec_minmax(void *data, struct ctl_table *table, int
->  				break;
->  			if (neg)
->  				continue;
-> -			if ((min && val < *min) || (max && val > *max))
-> +			if ((table->extra1 && val < *min) ||
-> +			    (table->extra2 && val > *max))
+Le lundi 04 octobre 2010 =C3=A0 10:42 +0200, Eric Dumazet a =C3=A9crit =
+:
 
-How about changing:
-        for (; left && vleft--; i++, min++, max++, first=0) {
-into:
-        for (; left && vleft--; i++, min = min ? min + 1 : NULL, max = max ? max + 1: NULL, first=0) {
+> BTW, rtnl_dereference() should be changed to use
+> rcu_dereference_protected() instead of rcu_dereference_check() :
+> If RTBL is held, there is no need to force a barrier.
+>=20
 
-That would make min and max correct and reduce the chances somebody in
-the future overlooks the fact they are currently filled with garbage.
+[PATCH net-next] net: relax rtnl_dereference()
 
-Robin
+rtnl_dereference() is used in contexts where RTNL is held, to fetch an
+RCU protected pointer.
+=20
+Updates to this pointer are prevented by RTNL, so we dont need
+smp_read_barrier_depends() and the ACCESS_ONCE() provided in
+rcu_dereference_check().
+
+rtnl_dereference() is mainly a macro to document the locking invariant.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ include/linux/rtnetlink.h |   10 ++++++----
+ 1 files changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
+index 68c436b..d3c4efa 100644
+--- a/include/linux/rtnetlink.h
++++ b/include/linux/rtnetlink.h
+@@ -754,20 +754,22 @@ extern int lockdep_rtnl_is_held(void);
+  * @p: The pointer to read, prior to dereferencing
+  *
+  * Do an rcu_dereference(p), but check caller either holds rcu_read_lo=
+ck()
+- * or RTNL
++ * or RTNL. Note : Please prefer rtnl_dereference() or rcu_dereference=
+()
+  */
+ #define rcu_dereference_rtnl(p)					\
+ 	rcu_dereference_check(p, rcu_read_lock_held() ||	\
+ 				 lockdep_rtnl_is_held())
+=20
+ /**
+- * rtnl_dereference - rcu_dereference with debug checking
++ * rtnl_dereference - fetch RCU pointer when updates are prevented by =
+RTNL
+  * @p: The pointer to read, prior to dereferencing
+  *
+- * Do an rcu_dereference(p), but check caller holds RTNL
++ * Return the value of the specified RCU-protected pointer, but omit
++ * both the smp_read_barrier_depends() and the ACCESS_ONCE(), because
++ * caller holds RTNL.
+  */
+ #define rtnl_dereference(p)					\
+-	rcu_dereference_check(p, lockdep_rtnl_is_held())
++	rcu_dereference_protected(p, lockdep_rtnl_is_held())
+=20
+ extern void rtnetlink_init(void);
+ extern void __rtnl_unlock(void);
+
+
