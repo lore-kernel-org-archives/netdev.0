@@ -1,66 +1,47 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: RE: To GRO or not to GRO...
-Date: Mon, 4 Oct 2010 11:48:46 -0600
-Message-ID: <EA929A9653AAE14F841771FB1DE5A136602570A01D@rrsmsx501.amr.corp.intel.com>
-References: <4CA7BD60.3010501@sauce.co.nz>	<152341286090326@web67.yandex.ru>
- <20101003.003129.193711520.davem@davemloft.net>
+From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: 2.6.36-rc6-git2: Reported regressions 2.6.34 -> 2.6.35
+Date: Mon, 4 Oct 2010 20:01:00 +0200
+Message-ID: <AANLkTi=ZwaH6ZL1g4d1jhfSXtQJGMGu-=YN+vTm+=UgS@mail.gmail.com>
+References: <OjxVjYbf_EJ.A.ReC.pTPqMB@chimera>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "richard@sauce.co.nz" <richard@sauce.co.nz>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-	"sysoleg@yandex.ru" <sysoleg@yandex.ru>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:59744 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753798Ab0JDRtE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Oct 2010 13:49:04 -0400
-In-Reply-To: <20101003.003129.193711520.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Maciej Rutecki <maciej.rutecki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Florian Mickler <florian-sVu6HhrpSfRAfugRpC6u6w@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	DRI <dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org>
+To: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <OjxVjYbf_EJ.A.ReC.pTPqMB@chimera>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
->-----Original Message-----
->From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.or=
-g] On
->Behalf Of David Miller
->Sent: Sunday, October 03, 2010 12:31 AM
->To: sysoleg@yandex.ru
->Cc: richard@sauce.co.nz; netdev@vger.kernel.org
->Subject: Re: To GRO or not to GRO...
->
->From: "\"Oleg A. Arkhangelsky\"" <sysoleg@yandex.ru>
->Date: Sun, 03 Oct 2010 11:18:46 +0400
->
->>
->>
->> 03.10.2010, 03:17, "Richard Scobie" <richard@sauce.co.nz>:
->>
->>> In the README for ixgbe-2.1.4, is says:
->>>
->>> " Disable GRO when routing/bridging
->>> =A0=A0=A0---------------------------------
->>> =A0=A0=A0Due to a known kernel issue, GRO must be turned off when
->>> routing/bridging.
->>> =A0=A0=A0GRO can be turned off via ethtool."
->>>
->>
->> This information is true for LRO, not GRO.
->
->Right.
->
->> I believe that this appeared when ixgbe was converted from LRO
->> to GRO and all occurrences of LRO was blindly replaced by GRO
->> everywhere.
->
->Someome please submit a patch to fix this, thanks.
+2010/10/3 Rafael J. Wysocki <rjw-KKrjLPT3xs0@public.gmane.org>:
+> Bug-Entry =C2=A0 =C2=A0 =C2=A0 : http://bugzilla.kernel.org/show_bug.=
+cgi?id=3D19302
+> Subject =C2=A0 =C2=A0 =C2=A0 =C2=A0 : PROBLEM: kernel crash on USB-mo=
+dem (Huawei E1750) hangup.
+> Submitter =C2=A0 =C2=A0 =C2=A0 : O01eg <O01eg-o+MxOtu4lMCHXe+LvDLADg@public.gmane.org>
+> Date =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0: 2010-09-26 19:50 (8 d=
+ays old)
+> Message-ID =C2=A0 =C2=A0 =C2=A0: <op.vjnn1up1yohvy1@localhost>
+> References =C2=A0 =C2=A0 =C2=A0: http://marc.info/?l=3Dlinux-kernel&m=
+=3D128553111709569&w=3D2
 
-The information referenced above is from the README included with the o=
-ut-of-tree ixgbe driver which we provide for download at e1000.sf.net.=20
+Comment from bugzilla:
+> I got this bug at 2.6.34-gentoo-r6 and 2.6.36-rc5. Other kernels were=
+ not
+> checked.
 
-The in-kernel docs are accurate AFAICT.
+Doesn't sound like regression.
 
-Thanks,
-Emil
-
+--=20
+Rafa=C5=82
