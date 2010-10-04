@@ -1,96 +1,102 @@
 From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCHv2 NEXT 7/8] qlcnic: cleanup port mode setting
-Date: Mon,  4 Oct 2010 07:20:15 -0700
-Message-ID: <1286202016-18026-8-git-send-email-amit.salecha@qlogic.com>
+Subject: [PATCHv2 NEXT 2/8] qlcnic: fix eswitch stats
+Date: Mon,  4 Oct 2010 07:20:10 -0700
+Message-ID: <1286202016-18026-3-git-send-email-amit.salecha@qlogic.com>
 References: <1286202016-18026-1-git-send-email-amit.salecha@qlogic.com>
 Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
-	anirban.chakraborty@qlogic.com,
-	Sritej Velaga <sritej.velaga@qlogic.com>
+	anirban.chakraborty@qlogic.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:22290 "HELO unm84.unmin.com"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:8624 "HELO unm84.unmin.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1754338Ab0JDOUS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Oct 2010 10:20:18 -0400
+	id S1754066Ab0JDOUR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Oct 2010 10:20:17 -0400
 In-Reply-To: <1286202016-18026-1-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sritej Velaga <sritej.velaga@qlogic.com>
+Some of the counters are not implemented in fw.
+Fw return NOT AVAILABLE VALUE as (0xffffffffffffffff).
+Adding these counters, result in invalid value.
 
-Port mode setting is not required for Qlogic CNA adapters.
-
-Signed-off-by: Sritej Velaga <sritej.velaga@qlogic.com>
 Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
 ---
- drivers/net/qlcnic/qlcnic_main.c |   40 --------------------------------------
- 1 files changed, 0 insertions(+), 40 deletions(-)
+ drivers/net/qlcnic/qlcnic.h     |   12 ++++++++++++
+ drivers/net/qlcnic/qlcnic_ctx.c |   31 ++++++++++++++++++++++---------
+ 2 files changed, 34 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
-index 59a2138..4757908 100644
---- a/drivers/net/qlcnic/qlcnic_main.c
-+++ b/drivers/net/qlcnic/qlcnic_main.c
-@@ -46,11 +46,6 @@ char qlcnic_driver_name[] = "qlcnic";
- static const char qlcnic_driver_string[] = "QLogic 1/10 GbE "
- 	"Converged/Intelligent Ethernet Driver v" QLCNIC_LINUX_VERSIONID;
+diff --git a/drivers/net/qlcnic/qlcnic.h b/drivers/net/qlcnic/qlcnic.h
+index 714ddf4..4667463 100644
+--- a/drivers/net/qlcnic/qlcnic.h
++++ b/drivers/net/qlcnic/qlcnic.h
+@@ -1169,6 +1169,18 @@ struct qlcnic_esw_func_cfg {
+ #define QLCNIC_STATS_ESWITCH		2
+ #define QLCNIC_QUERY_RX_COUNTER		0
+ #define QLCNIC_QUERY_TX_COUNTER		1
++#define QLCNIC_ESW_STATS_NOT_AVAIL	0xffffffffffffffffULL
++
++#define QLCNIC_ADD_ESW_STATS(VAL1, VAL2)\
++do {	\
++	if (((VAL1) == QLCNIC_ESW_STATS_NOT_AVAIL) && \
++	    ((VAL2) != QLCNIC_ESW_STATS_NOT_AVAIL)) \
++		(VAL1) = (VAL2); \
++	else if (((VAL1) != QLCNIC_ESW_STATS_NOT_AVAIL) && \
++		 ((VAL2) != QLCNIC_ESW_STATS_NOT_AVAIL)) \
++			(VAL1) += (VAL2); \
++} while (0)
++
+ struct __qlcnic_esw_statistics {
+ 	__le16 context_id;
+ 	__le16 version;
+diff --git a/drivers/net/qlcnic/qlcnic_ctx.c b/drivers/net/qlcnic/qlcnic_ctx.c
+index 95a821e..a4c4d09 100644
+--- a/drivers/net/qlcnic/qlcnic_ctx.c
++++ b/drivers/net/qlcnic/qlcnic_ctx.c
+@@ -1016,7 +1016,14 @@ int qlcnic_get_eswitch_stats(struct qlcnic_adapter *adapter, const u8 eswitch,
+ 	if (adapter->npars == NULL)
+ 		return -EIO;
  
--static int port_mode = QLCNIC_PORT_MODE_AUTO_NEG;
--
--/* Default to restricted 1G auto-neg mode */
--static int wol_port_mode = 5;
--
- static int qlcnic_mac_learn;
- module_param(qlcnic_mac_learn, int, 0644);
- MODULE_PARM_DESC(qlcnic_mac_learn, "Mac Filter (0=disabled, 1=enabled)");
-@@ -264,40 +259,6 @@ static void qlcnic_clear_stats(struct qlcnic_adapter *adapter)
- 	memset(&adapter->stats, 0, sizeof(adapter->stats));
- }
+-	memset(esw_stats, 0, sizeof(struct __qlcnic_esw_statistics));
++	memset(esw_stats, 0, sizeof(u64));
++	esw_stats->unicast_frames = QLCNIC_ESW_STATS_NOT_AVAIL;
++	esw_stats->multicast_frames = QLCNIC_ESW_STATS_NOT_AVAIL;
++	esw_stats->broadcast_frames = QLCNIC_ESW_STATS_NOT_AVAIL;
++	esw_stats->dropped_frames = QLCNIC_ESW_STATS_NOT_AVAIL;
++	esw_stats->errors = QLCNIC_ESW_STATS_NOT_AVAIL;
++	esw_stats->local_frames = QLCNIC_ESW_STATS_NOT_AVAIL;
++	esw_stats->numbytes = QLCNIC_ESW_STATS_NOT_AVAIL;
+ 	esw_stats->context_id = eswitch;
  
--static void qlcnic_set_port_mode(struct qlcnic_adapter *adapter)
--{
--	u32 val, data;
--
--	val = adapter->ahw.board_type;
--	if ((val == QLCNIC_BRDTYPE_P3_HMEZ) ||
--		(val == QLCNIC_BRDTYPE_P3_XG_LOM)) {
--		if (port_mode == QLCNIC_PORT_MODE_802_3_AP) {
--			data = QLCNIC_PORT_MODE_802_3_AP;
--			QLCWR32(adapter, QLCNIC_PORT_MODE_ADDR, data);
--		} else if (port_mode == QLCNIC_PORT_MODE_XG) {
--			data = QLCNIC_PORT_MODE_XG;
--			QLCWR32(adapter, QLCNIC_PORT_MODE_ADDR, data);
--		} else if (port_mode == QLCNIC_PORT_MODE_AUTO_NEG_1G) {
--			data = QLCNIC_PORT_MODE_AUTO_NEG_1G;
--			QLCWR32(adapter, QLCNIC_PORT_MODE_ADDR, data);
--		} else if (port_mode == QLCNIC_PORT_MODE_AUTO_NEG_XG) {
--			data = QLCNIC_PORT_MODE_AUTO_NEG_XG;
--			QLCWR32(adapter, QLCNIC_PORT_MODE_ADDR, data);
--		} else {
--			data = QLCNIC_PORT_MODE_AUTO_NEG;
--			QLCWR32(adapter, QLCNIC_PORT_MODE_ADDR, data);
--		}
--
--		if ((wol_port_mode != QLCNIC_PORT_MODE_802_3_AP) &&
--			(wol_port_mode != QLCNIC_PORT_MODE_XG) &&
--			(wol_port_mode != QLCNIC_PORT_MODE_AUTO_NEG_1G) &&
--			(wol_port_mode != QLCNIC_PORT_MODE_AUTO_NEG_XG)) {
--			wol_port_mode = QLCNIC_PORT_MODE_AUTO_NEG;
--		}
--		QLCWR32(adapter, QLCNIC_WOL_PORT_MODE, wol_port_mode);
--	}
--}
--
- static void qlcnic_set_msix_bit(struct pci_dev *pdev, int enable)
- {
- 	u32 control;
-@@ -1032,7 +993,6 @@ qlcnic_start_firmware(struct qlcnic_adapter *adapter)
- 	err = qlcnic_pinit_from_rom(adapter);
- 	if (err)
- 		goto err_out;
--	qlcnic_set_port_mode(adapter);
+ 	for (i = 0; i < QLCNIC_MAX_PCI_FUNC; i++) {
+@@ -1029,14 +1036,20 @@ int qlcnic_get_eswitch_stats(struct qlcnic_adapter *adapter, const u8 eswitch,
  
- 	err = qlcnic_load_firmware(adapter);
- 	if (err)
+ 		esw_stats->size = port_stats.size;
+ 		esw_stats->version = port_stats.version;
+-		esw_stats->unicast_frames += port_stats.unicast_frames;
+-		esw_stats->multicast_frames += port_stats.multicast_frames;
+-		esw_stats->broadcast_frames += port_stats.broadcast_frames;
+-		esw_stats->dropped_frames += port_stats.dropped_frames;
+-		esw_stats->errors += port_stats.errors;
+-		esw_stats->local_frames += port_stats.local_frames;
+-		esw_stats->numbytes += port_stats.numbytes;
+-
++		QLCNIC_ADD_ESW_STATS(esw_stats->unicast_frames,
++						port_stats.unicast_frames);
++		QLCNIC_ADD_ESW_STATS(esw_stats->multicast_frames,
++						port_stats.multicast_frames);
++		QLCNIC_ADD_ESW_STATS(esw_stats->broadcast_frames,
++						port_stats.broadcast_frames);
++		QLCNIC_ADD_ESW_STATS(esw_stats->dropped_frames,
++						port_stats.dropped_frames);
++		QLCNIC_ADD_ESW_STATS(esw_stats->errors,
++						port_stats.errors);
++		QLCNIC_ADD_ESW_STATS(esw_stats->local_frames,
++						port_stats.local_frames);
++		QLCNIC_ADD_ESW_STATS(esw_stats->numbytes,
++						port_stats.numbytes);
+ 		ret = 0;
+ 	}
+ 	return ret;
 -- 
 1.6.3.3
 
