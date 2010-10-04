@@ -1,75 +1,46 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH 1/2] Revert "ipv4: Make INET_LRO a bool instead of
- tristate."
-Date: Mon, 04 Oct 2010 04:54:55 +0100
-Message-ID: <1286164495.3916.316.camel@localhost>
-References: <1286156262.3916.213.camel@localhost>
-	 <20101003.195618.193723845.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ibmtr: fix tr%d in dmesg
+Date: Sun, 03 Oct 2010 20:56:32 -0700 (PDT)
+Message-ID: <20101003.205632.104074109.davem@davemloft.net>
+References: <alpine.SOC.1.00.1010022056000.27121@math.ut.ee>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-3MwMJQLQQpW7ba2teS1v"
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: mroos@linux.ee
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:58822 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751630Ab0JDDy7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Oct 2010 23:54:59 -0400
-In-Reply-To: <20101003.195618.193723845.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44235
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751810Ab0JDD4L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Oct 2010 23:56:11 -0400
+In-Reply-To: <alpine.SOC.1.00.1010022056000.27121@math.ut.ee>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Meelis Roos <mroos@linux.ee>
+Date: Sat, 2 Oct 2010 21:35:15 +0300 (EEST)
 
---=-3MwMJQLQQpW7ba2teS1v
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+> ibmtr and ibmtr_cs show tr%d in dmesg after alloc_netdev() but before 
+> register_netdev(). Fix it like e100 does - put a different name into 
+> dev->name until the device gets registered. I/O port seems to be unique
+> enough and is available for the time of printk messages. With the fix, 
+> dmesg shows
+> 
+> ibmtr@0a20: ISA P&P 16/4 Adapter/A (short) | 16/4 ISA-16 Adapter found
+> ibmtr@0a20: using irq 3, PIOaddr a20, 64K shared RAM.
+> ibmtr@0a20: Hardware address : 00:40:aa:a9:03:98
+> ibmtr@0a20: Shared RAM paging disabled. ti->page_mask 0
+> ibmtr@0a20: Maximum Receive Internet Protocol MTU 16Mbps: 16344, 4Mbps: 6104
+> tr0: port 0xa20, irq 3,  mmio 0xd4850000, sram 0xd0000, hwaddr=00:40:aa:a9:03:98
+> 
+> Signed-off-by: Meelis Roos <mroos@linux.ee>
 
-On Sun, 2010-10-03 at 19:56 -0700, David Miller wrote:
-> From: Ben Hutchings <ben@decadent.org.uk>
-> Date: Mon, 04 Oct 2010 02:37:42 +0100
->=20
-> > You made the change I want to revert in response to
-> > <http://article.gmane.org/gmane.linux.kernel/825646>.  The real problem
-> > with its configuration is actually that CONFIG_INET is not set but
-> > CONFIG_INET_LRO=3Dm, and the fix is to make CONFIG_PASEMI_MAC depend on
-> > CONFIG_INET.
->=20
-> Ben, you can't just revert this by itself.
->=20
-> That knowingly breaks the build.
->=20
-> If you want the tristate back, you must do it after or at the
-> same time as fixing the driver deps.
+That may be how e100 does it, but this is a very ugly hack and
+an abuse of netdev->name
 
-The fact that the driver dependencies are broken has nothing to do with
-whether CONFIG_INET_LRO is boolean or tristate.  You fixed a problem
-that didn't exist rather than the problem that did.
+Instead, the more correct way to fit this is to use dev_info(),
+dev_err(), and friends.  It will both print the correct stuff,
+and also document the probing path messages that occur before
+the net device is registered.
 
-Ben.
-
---=20
-Ben Hutchings
-Once a job is fouled up, anything done to improve it makes it worse.
-
---=-3MwMJQLQQpW7ba2teS1v
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iQIVAwUATKlQDue/yOyVhhEJAQKtuw/+M8ku/H9wOm+VcG8S9g1pc7D4l3K2UgHV
-rUILMAHB3BsjUFZjw1rGWDAP3ovZRGRGedNyexMcwGAQOXdcd3Naz/rNaoR0WKnW
-iTxtcl73xysjTed951B8IWm/AkqwUYCu4BRWNnm9lISCiGSobC6be6lO8z2LhQM9
-pSAu18sTCjZHcTTY1LjLYZFA+RrpF9KjjgDjk95QkhZXAiP4R6kgAJBazxvAVzq7
-fVxK5Bq8b5yO45lwCHbCAX014YUoIiSn1qaaBZjOkHqr0MhnnQKGW53USgKzVbtj
-fvVHlsi2+SKCWA7vkdw4Js/++eemX6ak1UWbptmYzdncPei0mTjORepmvQpcWhPG
-6PA4QHG6TmyJCmw8J9GZF3jxWJyP2CMe29C+vQrVJJVD/CyOgpqJhSa3Q3fUgyrX
-8k42LKwC4DRUd5jY6cthkz/MbEP4CkVjDXZxzHjMNibgRw/lVJAPlulVpbaCPegx
-NbZWai8EySiBmD1q0onq7bCPh+soh91f9JUeNHBMo4Ts1S3CcZCl5XXw/LJkkiyY
-DrQciJjkiy8p70iM+ssxqfgLltaiDzbhRZ4ynfNEx9ilYeipMkqZiVS5Z6jF1dTb
-sSg/gLXvpAl2VXAqBZx7tlvXrNLKPqL3DCeXI5UYyyAX3bA0LOnpuEHPUPqB5CWz
-b6x0Ukyp7YQ=
-=2+Pt
------END PGP SIGNATURE-----
-
---=-3MwMJQLQQpW7ba2teS1v--
+So please correct the prolem that way, thank you.
