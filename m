@@ -1,43 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tms380tr: fix long delays in initialization
-Date: Mon, 04 Oct 2010 09:42:54 -0700 (PDT)
-Message-ID: <20101004.094254.35052481.davem@davemloft.net>
-References: <alpine.SOC.1.00.1010032228450.28867@math.ut.ee>
-	<20101003.200109.226763463.davem@davemloft.net>
-	<alpine.SOC.1.00.1010041135060.12325@math.ut.ee>
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: RE: To GRO or not to GRO...
+Date: Mon, 4 Oct 2010 11:48:46 -0600
+Message-ID: <EA929A9653AAE14F841771FB1DE5A136602570A01D@rrsmsx501.amr.corp.intel.com>
+References: <4CA7BD60.3010501@sauce.co.nz>	<152341286090326@web67.yandex.ru>
+ <20101003.003129.193711520.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mroos@linux.ee
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "richard@sauce.co.nz" <richard@sauce.co.nz>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+	"sysoleg@yandex.ru" <sysoleg@yandex.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47480
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756630Ab0JDQmd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Oct 2010 12:42:33 -0400
-In-Reply-To: <alpine.SOC.1.00.1010041135060.12325@math.ut.ee>
+Received: from mga14.intel.com ([143.182.124.37]:59744 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753798Ab0JDRtE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Oct 2010 13:49:04 -0400
+In-Reply-To: <20101003.003129.193711520.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Meelis Roos <mroos@linux.ee>
-Date: Mon, 4 Oct 2010 11:39:02 +0300 (EEST)
+>-----Original Message-----
+>From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.or=
+g] On
+>Behalf Of David Miller
+>Sent: Sunday, October 03, 2010 12:31 AM
+>To: sysoleg@yandex.ru
+>Cc: richard@sauce.co.nz; netdev@vger.kernel.org
+>Subject: Re: To GRO or not to GRO...
+>
+>From: "\"Oleg A. Arkhangelsky\"" <sysoleg@yandex.ru>
+>Date: Sun, 03 Oct 2010 11:18:46 +0400
+>
+>>
+>>
+>> 03.10.2010, 03:17, "Richard Scobie" <richard@sauce.co.nz>:
+>>
+>>> In the README for ixgbe-2.1.4, is says:
+>>>
+>>> " Disable GRO when routing/bridging
+>>> =A0=A0=A0---------------------------------
+>>> =A0=A0=A0Due to a known kernel issue, GRO must be turned off when
+>>> routing/bridging.
+>>> =A0=A0=A0GRO can be turned off via ethtool."
+>>>
+>>
+>> This information is true for LRO, not GRO.
+>
+>Right.
+>
+>> I believe that this appeared when ixgbe was converted from LRO
+>> to GRO and all occurrences of LRO was blindly replaced by GRO
+>> everywhere.
+>
+>Someome please submit a patch to fix this, thanks.
 
->> > tms380tr driver tries to use udelay (meaning busy loop) for several half 
->> > second delays during hardware initialization. Crazy overly long busy 
->> > wait delays mean no delay at all so driver initialization fails without 
->> > waiting. Fix it by using msleep() for long delays and leave it to 
->> > udelay() for short delays.
->> > 
->> > Signed-off-by: Meelis Roos <mroos@linux.ee>
->> 
->> You can't use msleep() here because this code can be invoked
->> from interrupts and thus cannot sleep.
-> 
-> I checked these two functions that contain long delays that I changed - 
-> tms380tr_bringup_diags() and tms380tr_init_adapter() - to be called only 
-> from tms380tr_chipset_init() that is only called from tms380tr_open() so 
-> no call paths from interrupts AFAICS. Short delyas from interrupt 
-> context are not changed in any way, they still use udelay().
+The information referenced above is from the README included with the o=
+ut-of-tree ixgbe driver which we provide for download at e1000.sf.net.=20
 
-tms380tr_init_adapter() gets called from tms380tr_chk_irq() which is
-invoked from the interrupt handler.
+The in-kernel docs are accurate AFAICT.
+
+Thanks,
+Emil
+
