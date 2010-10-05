@@ -1,92 +1,45 @@
-From: leitao@linux.vnet.ibm.com
-Subject: [PATCH 1/2] ehea: using wait queues instead of msleep on ehea_flush_sq
-Date: Tue,  5 Oct 2010 19:16:22 -0400
-Message-ID: <1286320583-5594-1-git-send-email-leitao@linux.vnet.ibm.com>
-Cc: netdev@vger.kernel.org, Breno Leitao <leitao@linux.vnet.ibm.com>
-To: davem@davemloft.net
+From: Greg KH <greg@kroah.com>
+Subject: Re: [stable-2.6.32 PATCH] igb: rx_fifo_errors counter fix
+Date: Tue, 5 Oct 2010 16:19:48 -0700
+Message-ID: <20101005231948.GA21504@kroah.com>
+References: <20101005230407.24172.84596.stgit@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: stable@kernel.org, netdev@vger.kernel.org, gospo@redhat.com,
+	bphilips@novell.com, Eric Dumazet <eric.dumazet@gmail.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e24smtp04.br.ibm.com ([32.104.18.25]:39718 "EHLO
-	e24smtp04.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757835Ab0JEXQh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Oct 2010 19:16:37 -0400
-Received: from mailhub1.br.ibm.com (mailhub1.br.ibm.com [9.18.232.109])
-	by e24smtp04.br.ibm.com (8.14.4/8.13.1) with ESMTP id o95NB9AQ029160
-	for <netdev@vger.kernel.org>; Tue, 5 Oct 2010 20:11:09 -0300
-Received: from d24av04.br.ibm.com (d24av04.br.ibm.com [9.8.31.97])
-	by mailhub1.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o95NMhQ01146954
-	for <netdev@vger.kernel.org>; Tue, 5 Oct 2010 20:22:44 -0300
-Received: from d24av04.br.ibm.com (loopback [127.0.0.1])
-	by d24av04.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o95NGY58007926
-	for <netdev@vger.kernel.org>; Tue, 5 Oct 2010 20:16:34 -0300
+Received: from kroah.org ([198.145.64.141]:46870 "EHLO coco.kroah.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758062Ab0JEXV7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Oct 2010 19:21:59 -0400
+Content-Disposition: inline
+In-Reply-To: <20101005230407.24172.84596.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch just remove a msleep loop and change to wait queue,
-making the code cleaner.
+On Tue, Oct 05, 2010 at 04:04:09PM -0700, Jeff Kirsher wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> 
+> Alexey Vlasov reported insane rx_queue_drop_packet_count
+> (rx_fifo_errors) values.
+> 
+> IGB drivers is doing an accumulation for 82575, instead using a zero
+> value for rqdpc_total.
+> 
+> Reported-by: Alexey Vlasov <renton@renton.name>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Tested-by: Emil Tantilov <emil.s.tantilov@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
+> 
+>  drivers/net/igb/igb_main.c |    5 ++---
 
-Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
-Acked-by: David Howells <dhowells@redhat.com>
----
- drivers/net/ehea/ehea.h      |    1 +
- drivers/net/ehea/ehea_main.c |   19 ++++++++++++-------
- 2 files changed, 13 insertions(+), 7 deletions(-)
+Why isn't this needed in Linus's tree?  If it is in Linus's tree, what
+is the git commit id?
 
-diff --git a/drivers/net/ehea/ehea.h b/drivers/net/ehea/ehea.h
-index 1846623..5bae7da 100644
---- a/drivers/net/ehea/ehea.h
-+++ b/drivers/net/ehea/ehea.h
-@@ -491,6 +491,7 @@ struct ehea_port {
- 	u8 full_duplex;
- 	u8 autoneg;
- 	u8 num_def_qps;
-+	wait_queue_head_t swqe_avail_wq;
- };
- 
- struct port_res_cfg {
-diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.c
-index a333b42..4a3d33b 100644
---- a/drivers/net/ehea/ehea_main.c
-+++ b/drivers/net/ehea/ehea_main.c
-@@ -890,6 +890,7 @@ static struct ehea_cqe *ehea_proc_cqes(struct ehea_port_res *pr, int my_quota)
- 		pr->queue_stopped = 0;
- 	}
- 	spin_unlock_irqrestore(&pr->netif_queue, flags);
-+	wake_up(&pr->port->swqe_avail_wq);
- 
- 	return cqe;
- }
-@@ -2654,6 +2655,8 @@ static int ehea_open(struct net_device *dev)
- 		netif_start_queue(dev);
- 	}
- 
-+	init_waitqueue_head(&port->swqe_avail_wq);
-+
- 	mutex_unlock(&port->port_lock);
- 
- 	return ret;
-@@ -2726,13 +2729,15 @@ static void ehea_flush_sq(struct ehea_port *port)
- 	for (i = 0; i < port->num_def_qps + port->num_add_tx_qps; i++) {
- 		struct ehea_port_res *pr = &port->port_res[i];
- 		int swqe_max = pr->sq_skba_size - 2 - pr->swqe_ll_count;
--		int k = 0;
--		while (atomic_read(&pr->swqe_avail) < swqe_max) {
--			msleep(5);
--			if (++k == 20) {
--				ehea_error("WARNING: sq not flushed completely");
--				break;
--			}
-+		int ret;
-+
-+		ret = wait_event_timeout(port->swqe_avail_wq,
-+			 atomic_read(&pr->swqe_avail) >= swqe_max,
-+			 msecs_to_jiffies(100));
-+
-+		if (!ret) {
-+			ehea_error("WARNING: sq not flushed completely");
-+			break;
- 		}
- 	}
- }
--- 
-1.6.5
+Is it needed in .35?  Please, more context...
 
+thanks,
+
+greg k-h
