@@ -1,82 +1,122 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [patch v2 03/12] [PATCH 03/12] IPVS: compact
- ip_vs_sched_persist()
-Date: Tue, 5 Oct 2010 01:36:53 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1010050010080.1856@ja.ssi.bg>
-References: <20101001143517.645421976@akiko.akashicho.tokyo.vergenet.net> <20101001143941.949669349@akiko.akashicho.tokyo.vergenet.net> <alpine.LFD.2.00.1010020129400.2462@ja.ssi.bg> <20101002022050.GA16593@verge.net.au> <alpine.LFD.2.00.1010021048260.1814@ja.ssi.bg>
- <20101002080850.GC2248@verge.net.au>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [Bugme-new] [Bug 19492] New: sky2 wake on line stopped working
+ in 2.6.34/2.6.35
+Date: Tue, 5 Oct 2010 09:10:21 +0900
+Message-ID: <20101005091021.2da6cd1d@s6510>
+References: <bug-19492-10286@https.bugzilla.kernel.org/>
+	<20101004151404.df90d70b.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Jan Engelhardt <jengelh@medozas.de>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20101002080850.GC2248@verge.net.au>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: arekm@maven.pl, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:42757 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751005Ab0JEALH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Oct 2010 20:11:07 -0400
+In-Reply-To: <20101004151404.df90d70b.akpm@linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Mon, 4 Oct 2010 15:14:04 -0700
+Andrew Morton <akpm@linux-foundation.org> wrote:
 
- 	Hello,
+> 
+> (switched to email.  Please respond via emailed reply-to-all, not via the
+> bugzilla web interface).
+> 
+> On Sat, 2 Oct 2010 08:30:14 GMT
+> bugzilla-daemon@bugzilla.kernel.org wrote:
+> 
+> > https://bugzilla.kernel.org/show_bug.cgi?id=19492
+> > 
+> >            Summary: sky2 wake on line stopped working in 2.6.34/2.6.35
+> >            Product: Drivers
+> >            Version: 2.5
+> >     Kernel Version: 2.6.34, 2.6.35
+> >           Platform: All
+> >         OS/Version: Linux
+> >               Tree: Mainline
+> >             Status: NEW
+> >           Severity: normal
+> >           Priority: P1
+> >          Component: Network
+> >         AssignedTo: drivers_network@kernel-bugs.osdl.org
+> >         ReportedBy: arekm@maven.pl
+> >         Regression: Yes
+> > 
+> 
+> A regression.
+> 
+> > sky2 WOL feature stopped working in 2.6.34 kernel. It was working fine in
+> > 2.6.33. ethtool 2.6.35 (and some earlier version before).
+> > 
+> > # ethtool -s eth0 wol g
+> > # ethtool eth0|grep Wake
+> >         Supports Wake-on: pg
+> >         Wake-on: g
+> > # ethtool -i eth0
+> > driver: sky2
+> > version: 1.28
+> > firmware-version: N/A
+> > bus-info: 0000:05:00.0
+> > # poweroff
+> > 
+> > When googling for solution I found /sys/class/net/eth0/device/power/wakeup
+> > which contains "disabled" before AND after I run ethtool. So I echoed "enabled"
+> > there, too but it didn't help. The machine doesn't wake up on magick packet.
+> > 
+> > ...
+> >
+> 
+> I can't immediately see any recent changes to the driver in that area
+> apart from "ethtool: Change ethtool_op_set_flags to validate flags". 
+> Perhaps you could run
+> 
+> 	strace -f ethtool -s eth0 wol g
+> 
+> and see if it's getting an error when setting WOL mode.  If so, ethtool
+> is broken ;)
+> 
 
-On Sat, 2 Oct 2010, Simon Horman wrote:
+There have been changes in the core power management layer, that is
+where I would look. Usually the problem is the incorrectly BIOS marks the device
+as unable to do PM. Probably the old kernel ignored the BIOS, and newer
+kernels look at it more closely?
 
->> 	I'm still wondering, may be it needs separate patch
->> but we do not support NAT to different dest->port in the
->> case for fwmark. May be the above logic can be changed to
->> support it. By this way web to different VIPs and VPORTs
->> in a single virtual service (fwmark) can use single NAT
->> real server for name-based virtual hosting. But such change
->> can create compatibility problems for setups that used
->> different vports for the fwmark service and still expect
->> it in that way (vport to same dport).
->
-> Hi Julian,
->
-> I think that this sounds line a new flavour of fwmark virtual services to me.
-> Perhaps yet another flag is in order?
->
-> To be clear, what you have in mind is essentially to nat *:* (as matched by
-> a fwmark) to x:y, where as at this time *:y may be natted to x:y.
+Last WoL changes were to make driver follow vendor driver which happened
+between 2.6.33 and 2.6.34
 
- 	Yes, the difference is here, persistent services with fwmark 
-ignore dest->port while non-persistent services with fwmark prefer
-dest->port:
+commit 5f8ae5c537d937bab9cfeb83a30a9b670c3cfb35
+Author: stephen hemminger <shemminger@vyatta.com>
+Date:   Fri Feb 12 06:57:59 2010 +0000
 
-ip_vs_sched_persist:
-         dport = ports[1];
-         if (dport == svc->port && dest->port)
-                 dport = dest->port;
- 	- before the PE changes even dest->port=0 was selected
- 	for non-fwmark
+    sky2: WoL changes
+    
+    Change Wake On Lan code to be similar to vendor driver. The definition
+    of Y2_HW_WOL_ON is confusing; what it means is transition to firmware SPI
+    setting when doing power change.
+    
+    Since same code is done for both shutdown and suspend, use common
+    code path.
+    
+    Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
 
-ip_vs_schedule:
- 	dport set as: dest->port ? dest->port : pptr[1]
+commit 87b09f1f25cd1e01d7c50bf423c7fe33027d7511
+Author: stephen hemminger <shemminger@vyatta.com>
+Date:   Fri Feb 12 06:58:00 2010 +0000
 
- 	It is inconsistent. If we add new option for dest
-it should have 3 states:
+    sky2: dont enable PME legacy mode
+    
+    This bit is not changed by vendor driver, and should be left alone.
+    The documentation implies this a debug bit.
+      0 = WAKE# only asserted when VMAIN not available
+      1 = WAKE# is depend on wake events and independent of VMAIN.
+    
+    Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
 
-0: default (current, compatible)
-1: prefer real server port
-2: keep dport in packet
-
- 	But the same can be done with rport or that was the
-goal before:
-
-- rport=0 (zero port) - keep dport from packet
-- rport>0 - use this real server port
-
- 	It works perfectly for ip_vs_schedule but not for
-ip_vs_sched_persist, rport>0 is ignored for persistent
-fwmark and this is wrong for NAT. Persistence should just
-select dest but now it changes the rport semantic. The
-right thing is ip_vs_sched_persist to work as ip_vs_schedule
-but it can break some setups with persistence and fwmark.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
