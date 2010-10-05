@@ -1,67 +1,122 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCHv4 net-next-2.6 1/5] XFRM,IPv6: Remove xfrm_spi_hash()
-	dependency on destination address
-Date: Tue, 5 Oct 2010 10:11:14 +0800
-Message-ID: <20101005021114.GA25681@gondor.apana.org.au>
-References: <cover.1286139128.git.arno@natisbad.org> <5a0e320544e253cc903cfd3292600b6bec044a5f.1286139129.git.arno@natisbad.org> <20101004083306.GA17939@gondor.apana.org.au> <8739sl8yw5.fsf@small.ssi.corp>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [Bonding-devel] [PATCH] bonding: fix WARN_ON when writing to
+ bond_master sysfs file
+Date: Mon, 4 Oct 2010 22:26:17 -0400
+Message-ID: <20101005022617.GA10809@hmsreliant.think-freely.org>
+References: <20101004202112.GA27897@hmsreliant.think-freely.org>
+ <20101005095713.624ca320@s6510>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	netdev@vger.kernel.org
-To: Arnaud Ebalard <arno@natisbad.org>
+Cc: netdev@vger.kernel.org, fubar@us.ibm.com,
+	bonding-devel@lists.sourceforge.net, davem@davemloft.net
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:39517 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753244Ab0JECL3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Oct 2010 22:11:29 -0400
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:36929 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757227Ab0JECa1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Oct 2010 22:30:27 -0400
 Content-Disposition: inline
-In-Reply-To: <8739sl8yw5.fsf@small.ssi.corp>
+In-Reply-To: <20101005095713.624ca320@s6510>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 04, 2010 at 10:51:38PM +0200, Arnaud Ebalard wrote:
+On Tue, Oct 05, 2010 at 09:57:13AM +0900, Stephen Hemminger wrote:
+> On Mon, 4 Oct 2010 16:21:12 -0400
+> Neil Horman <nhorman@tuxdriver.com> wrote:
 > 
-> Herbert Xu <herbert@gondor.apana.org.au> writes:
->
-> > I'm fine with doing this for inbound SAs.  However, I can't see
-> > how we can do this for outbound SAs where the SPI is chosen by
-> > the remote end.
+> > Fix a WARN_ON failure in bond_masters sysfs file
+> > 
+> > Got a report of this warning recently
+> > 
+> > bonding: bond0 is being created...
+> > ------------[ cut here ]------------
+> > WARNING: at fs/proc/generic.c:590 proc_register+0x14d/0x185()
+> > Hardware name: ProLiant BL465c G1
+> > proc_dir_entry 'bonding/bond0' already registered
+> > Modules linked in: bonding ipv6 tg3 bnx2 shpchp amd64_edac_mod edac_core
+> > ipmi_si
+> > ipmi_msghandler serio_raw i2c_piix4 k8temp edac_mce_amd hpwdt microcode hpsa
+> > cc
+> > iss radeon ttm drm_kms_helper drm i2c_algo_bit i2c_core [last unloaded:
+> > scsi_wai
+> > t_scan]
+> > Pid: 935, comm: ifup-eth Not tainted 2.6.33.5-124.fc13.x86_64 #1
+> > Call Trace:
+> > [<ffffffff8104b54c>] warn_slowpath_common+0x77/0x8f
+> > [<ffffffff8104b5b1>] warn_slowpath_fmt+0x3c/0x3e
+> > [<ffffffff8114bf0b>] proc_register+0x14d/0x185
+> > [<ffffffff8114c20c>] proc_create_data+0x87/0xa1
+> > [<ffffffffa0211e9b>] bond_create_proc_entry+0x55/0x95 [bonding]
+> > [<ffffffffa0215e5d>] bond_init+0x95/0xd0 [bonding]
+> > [<ffffffff8138cd97>] register_netdevice+0xdd/0x29e
+> > [<ffffffffa021240b>] bond_create+0x8e/0xb8 [bonding]
+> > [<ffffffffa021c4be>] bonding_store_bonds+0xb3/0x1c1 [bonding]
+> > [<ffffffff812aec85>] class_attr_store+0x27/0x29
+> > [<ffffffff8115423d>] sysfs_write_file+0x10f/0x14b
+> > [<ffffffff81101acf>] vfs_write+0xa9/0x106
+> > [<ffffffff81101be2>] sys_write+0x45/0x69
+> > [<ffffffff81009b02>] system_call_fastpath+0x16/0x1b
+> > ---[ end trace a677c3f7f8b16b1e ]---
+> > bonding: Bond creation failed.
+> > 
+> > It happens because a user space writer to bond_master can try to register and
+> > already existing bond interface name.  Fix it by teaching bond_create to check
+> > for the existance of devices with that name first in cases where a non-NULL name
+> > parameter has been passed in
+> > 
+> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> > 
+> > bond_main.c |   16 +++++++++++++++-
+> > 1 file changed, 15 insertions(+), 1 deletion(-)
+> > 
+> > diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> > index fb70c3e..10e4ffe 100644
+> > --- a/drivers/net/bonding/bond_main.c
+> > +++ b/drivers/net/bonding/bond_main.c
+> > @@ -5148,7 +5148,7 @@ static struct rtnl_link_ops bond_link_ops __read_mostly = {
+> >   */
+> >  int bond_create(struct net *net, const char *name)
+> >  {
+> > -	struct net_device *bond_dev;
+> > +	struct net_device *bond_dev, *check_dev;
+> >  	int res;
+> >  
+> >  	rtnl_lock();
+> > @@ -5168,6 +5168,20 @@ int bond_create(struct net *net, const char *name)
+> >  		res = dev_alloc_name(bond_dev, "bond%d");
+> >  		if (res < 0)
+> >  			goto out;
+> > +	} else {
+> > +		/*
+> > +		 * If we're given a name to register
+> > +		 * we need to ensure that its not already
+> > +		 * registered
+> > +		 */
+> > +		check_dev = dev_get_by_name(net, name);
+> > +
+> > +		res = (check_dev) ? 0 : -EEXIST;
+> > +
+> > +		dev_put(check_dev);
+> > +
+> > +		if (res)
+> > +			goto out;
+> >  	}
+> >  
+> >  	res = register_netdevice(bond_dev);
 > 
-> The change *does not* make the lookup in the hash table rely only on the
-> spi, i.e. __xfrm_state_lookup() is still passed the address. It only
-> removes the destination address from the computation of the hash. This
-> allows passing NULL to __xfrm_state_lookup() specifically for input path
-> and make the lookup only based on the SPI. The destination address check
-> is done later (possibly after IRO remapping).
+> Why is this necessary?
+> register_netdevice does already check for duplicate name so please
+> use it's return value instead
 > 
-> Except if I really missed something, this has no impact on outbound SA
-> (other hashtables are used in that case). 
+No, its the call to register_netdev that causes the WARN_ON.  Check the stack
+trace, register_netdev call bond_init which in turn registers a proc interface
+by an existing name, which causes the WARN_ON
 
-I'm thinking about the case where each remote end (or one remote
-end with many IP addresses) chooses to use a single SPI which then
-all gets hashed to the same bucket.
-
-Outbound SAs are hashed into the same SPI hash table as inbound SAs.
-
-> > Incidentally, it appears that our hash could do with some
-> > strengthening.
+> If that doesn't work then use __dev_get_by_name to avoid
+> ref count (ie dev_put).
 > 
-> After the change, xfrm_spi_hash() would contain:
-> 
->  	unsigned int h = (__force u32)spi ^ proto;
->         return  ((h ^ (h >> 10) ^ (h >> 20)) & hmask)
-> 
-> which seems to spread the bits h correctly into hmask bits (I mean for
-> the effort ;-) ). Are you thinking about something like changing the
-> shifts based on the length of the mask?
+Yeah, thats a good idea.  I'll respin this in the AM.  Thanks!
 
-What I meant here is that even without your change, it is relatively
-easy to cause many SAs to be hashed to the same bucket.
+Regards
+Neil
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
