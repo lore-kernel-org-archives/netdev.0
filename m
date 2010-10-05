@@ -1,57 +1,43 @@
-From: Leszek Urbanski <tygrys-4cL5GMJPxME@public.gmane.org>
-Subject: Re: BUG - qdev - partial loss of network connectivity
-Date: Tue, 5 Oct 2010 23:29:13 +0200
-Message-ID: <20101005212913.GA27869@moo.pl>
-References: <20100922171832.GA28721@moo.pl> <4C9A3FAF.9090503@codemonkey.ws> <20100922182049.GA29263@moo.pl> <4C9A4C77.2080806@codemonkey.ws> <20100923140437.GA9256@moo.pl> <20100926154324.GD21843@redhat.com> <20100927213203.GA28089@moo.pl>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: add a core netdev->rx_dropped counter
+Date: Tue, 05 Oct 2010 14:48:13 -0700 (PDT)
+Message-ID: <20101005.144813.135535619.davem@davemloft.net>
+References: <AANLkTi=Vdcn7xzJMPxkugvEVy32N7Bp=KVtir6NESnDF@mail.gmail.com>
+	<1285909831.2705.41.camel@edumazet-laptop>
+	<1285916815.2705.152.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Cc: Anthony Liguori <anthony-rdkfGonbjUSkNkDKm+mE6A@public.gmane.org>, qemu-devel-qX2TKyscuCcdnm+yROfE0A@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-To: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20100927213203.GA28089-4cL5GMJPxME@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jesse@nicira.com, rl@hellgate.ch, netdev@vger.kernel.org,
+	kaber@trash.net
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58334
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751486Ab0JEVrx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Oct 2010 17:47:53 -0400
+In-Reply-To: <1285916815.2705.152.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-<20100927213203.GA28089-4cL5GMJPxME@public.gmane.org>; from Leszek Urbanski on Mon, Sep 27, 2010 at 23:32:03 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 01 Oct 2010 09:06:55 +0200
 
-> > > > >It's vanilla 2.6.32.22, but I also reproduced this on Debian's 2.6.32-23
-> > > > >(based on 2.6.32.21).
-> > > > >
-> > > > >If offload is the only difference, I'll play with different offload
-> > > > >options and check which one causes it.
-> > > > >   
-> > > > 
-> > > > It's not technically the only difference but it's the most likely 
-> > > > culprit IMHO.
-> > > 
-> > > udp fragmentation offload is definitely the culprit.
-> > 
-> > I see. Most likely guest bug - won't be the first bug around UFO.
-> > If so pls copy netdev linux-nfs and virtualization.
-> > Do you see anything in dmesg? Can try 2.6.36-rc5?
+> [PATCH net-next] net: add a core netdev->rx_dropped counter
 > 
-> (for reference: first post is at:
-> http://lists.nongnu.org/archive/html/qemu-devel/2010-09/msg01685.html )
+> In various situations, a device provides a packet to our stack and we
+> drop it before it enters protocol stack :
+> - softnet backlog full (accounted in /proc/net/softnet_stat)
+> - bad vlan tag (not accounted)
+> - unknown/unregistered protocol (not accounted)
 > 
-> I can't reproduce it on 2.6.36-rc5. Do you have an idea which patch may have
+> We can handle a per-device counter of such dropped frames at core level,
+> and automatically adds it to the device provided stats (rx_dropped), so
+> that standard tools can be used (ifconfig, ip link, cat /proc/net/dev)
+> 
+> This is a generalization of commit 8990f468a (net: rx_dropped
+> accounting), thus reverting it.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-This one definitely fixes it: http://patchwork.ozlabs.org/patch/55643/
-
-(Herbert Xu: udp: Fix bogus UFO packet generation)
-
-The patch works with 2.6.32.24 too - it should probably be backported to
-2.6.32.x.
-
-
--- 
-Leszek "Tygrys" Urbanski, SCSA, SCNA
- "Unix-to-Unix Copy Program;" said PDP-1. "You will never find a more
-  wretched hive of bugs and flamers. We must be cautious." -- DECWARS
-     http://cygnus.moo.pl/ -- Cygnus High Altitude Balloon
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Looks good to me, applied, thanks.
