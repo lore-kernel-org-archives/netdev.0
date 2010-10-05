@@ -1,68 +1,51 @@
-From: =?UTF-8?B?Q2h1bmctWWloIFdhbmcgKOeOi+W0h+aHvyk=?=
-	<cywang@google.com>
-Subject: Fwd: Regarding to your linux kernel CL
-Date: Tue, 5 Oct 2010 09:42:37 -0700
-Message-ID: <AANLkTinoAh=MOOnPM1nJhq+tXAxFC2zia0YH49UwN9+b@mail.gmail.com>
-References: <AANLkTikdcL0JQgkR6u0qtmDu-phMZ6-Juq91B1N5GfiY@mail.gmail.com>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: [patch] isdn: strcpy() => strlcpy()
+Date: Tue, 5 Oct 2010 17:43:06 +0100
+Message-ID: <20101005164306.GP19804@ZenIV.linux.org.uk>
+References: <20101005163448.GH5692@bicker>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Dan Carpenter <error27@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.35]:17924 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754420Ab0JEQnB convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Oct 2010 12:43:01 -0400
-Received: from hpaq3.eem.corp.google.com (hpaq3.eem.corp.google.com [172.25.149.3])
-	by smtp-out.google.com with ESMTP id o95GgxRT018454
-	for <netdev@vger.kernel.org>; Tue, 5 Oct 2010 09:42:59 -0700
-Received: from qyk8 (qyk8.prod.google.com [10.241.83.136])
-	by hpaq3.eem.corp.google.com with ESMTP id o95GfnfC019284
-	for <netdev@vger.kernel.org>; Tue, 5 Oct 2010 09:42:58 -0700
-Received: by qyk8 with SMTP id 8so5079621qyk.6
-        for <netdev@vger.kernel.org>; Tue, 05 Oct 2010 09:42:58 -0700 (PDT)
-In-Reply-To: <AANLkTikdcL0JQgkR6u0qtmDu-phMZ6-Juq91B1N5GfiY@mail.gmail.com>
+Received: from zeniv.linux.org.uk ([195.92.253.2]:49966 "EHLO
+	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754842Ab0JEQnK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Oct 2010 12:43:10 -0400
+Content-Disposition: inline
+In-Reply-To: <20101005163448.GH5692@bicker>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Tue, Oct 05, 2010 at 06:34:48PM +0200, Dan Carpenter wrote:
+> setup.phone and setup.eazmsn are 32 character buffers.
+> rcvmsg.msg_data.byte_array is a 48 character buffer.
+> sc_adapter[card]->channel[rcvmsg.phy_link_no - 1].dn is 50 chars.
+> 
+> I changed the strcpy() so strlcpy() because that's safest.
 
-We have an issue with the CL
-http://git.kernel.org/?p=3Dlinux/kernel/git/torvalds/linux-2.6.git;a=3D=
-commit;h=3Dd11a4dc18bf41719c9f0d7ed494d295dd2973b92.
-Please see the original mail below. Any comment?
+ITYM "I papered it over, so potentially broken behaviour is harder to
+find now"...
 
-Thanks,
-Chung-yih
+> -				strcpy(setup.phone,&(rcvmsg.msg_data.byte_array[4]));
+> -				strcpy(setup.eazmsn,
+> -					sc_adapter[card]->channel[rcvmsg.phy_link_no-1].dn);
+> +				strlcpy(setup.phone, &(rcvmsg.msg_data.byte_array[4]),
+> +					sizeof(setup.phone));
 
+OK, so what should be done if the damn array contents _is_ longer than that?
 
----------- Forwarded message ----------
-=46rom: Chung-Yih Wang (=E7=8E=8B=E5=B4=87=E6=87=BF) <cywang@google.com=
->
-Date: Mon, Oct 4, 2010 at 6:23 PM
-Subject: Regarding to your linux kernel CL
-To: timo.teras@iki.fi
-Cc: herbert@gondor.apana.org.au, davem@davemloft.net
+> +				strlcpy(setup.eazmsn,
+> +					sc_adapter[card]->channel[rcvmsg.phy_link_no - 1].dn,
+> +					sizeof(setup.eazmsn));
 
+Ditto.
 
-Hi Timo,
+> -			strcpy(sc_adapter[card]->channel[rcvmsg.phy_link_no-1].dn,rcvmsg.msg_data.byte_array);
+> +			strlcpy(sc_adapter[card]->channel[rcvmsg.phy_link_no - 1].dn,
+> +				rcvmsg.msg_data.byte_array,
+> +				sizeof(rcvmsg.msg_data.byte_array));
 
-=C2=A0 =C2=A0I encountered an issue with your CL
-http://git.kernel.org/?p=3Dlinux/kernel/git/torvalds/linux-2.6.git;a=3D=
-commit;h=3Dd11a4dc18bf41719c9f0d7ed494d295dd2973b92.
-The cause is that we use a connected UDP socket for building the
-l2tp/ipsec vpn connection. However, when the ipsec tunnel is built,
-your CL made the sk_dst_check useless(since it always return the
-'freed' dst_entry and can not reset the dst entry for the socket).
-What is your comment to conquer this issue?
-
-Solution 1. We could add a CL to change it to (dst && dst->obsolete &&
-(dst->obsolete>0 =C2=A0|| dst->ops->check(...)=3D=3DNULL) in sk_dst_che=
-ck()) ?
-
-Solution 2. Revert the change?
-
-Any comment?
-
-Thanks,
-Chung-yih
+Huh?  Is it or is it not NUL-terminated?  If it is, then change is pure
+cargo-culting; if it is not, you are asking for nasal daemons to fly.
