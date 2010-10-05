@@ -1,65 +1,71 @@
-From: Jesper Dangaard Brouer <hawk@comx.dk>
-Subject: [net-next PATCH] igb: update adapter stats when reading /proc/net/dev.
-Date: Tue, 05 Oct 2010 16:18:33 +0200
-Message-ID: <20101005141833.20929.10943.stgit@localhost>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: Re: [PATCH] SIW: Object management
+Date: Tue, 05 Oct 2010 09:26:48 -0500
+Message-ID: <4CAB35A8.6080906@opengridcomputing.com>
+References: <1286261665-5175-1-git-send-email-bmt@zurich.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: "David S. Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org
+To: Bernard Metzler <bmt@zurich.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from albpd42.cxnet.dk ([87.72.130.6]:46116 "EHLO albpd42.cxnet.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753553Ab0JEOYv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Oct 2010 10:24:51 -0400
+Received: from smtp.opengridcomputing.com ([209.198.142.2]:46906 "EHLO
+	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753311Ab0JEO0x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Oct 2010 10:26:53 -0400
+In-Reply-To: <1286261665-5175-1-git-send-email-bmt@zurich.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Network driver igb: Improve the accuracy of stats in /proc/net/dev, by
-updating the adapter stats when reading /proc/net/dev.  Currently the
-stats are updated by the watchdog timer every 2 sec, or when getting
-stats via ethtool -S.
+On 10/05/2010 01:54 AM, Bernard Metzler wrote:
 
-A number of userspace apps read these /proc/net/dev stats every second,
-e.g. ifstat, which then gives a perceived very bursty traffic pattern,
-which is actually false.
+<snip>+
+> +
+> +/***** routines for WQE handling ***/
+> +
+> +/*
+> + * siw_wqe_get()
+> + *
+> + * Get new WQE. For READ RESPONSE, take it from the free list which
+> + * has a maximum size of maximum inbound READs. All other WQE are
+> + * malloc'ed which creates some overhead. Consider change to
+> + *
+> + * 1. malloc WR only if it cannot be synchonously completed, or
+> + * 2. operate own cache of reuseable WQE's.
+> + *
+> + * Current code trusts on malloc efficiency.
+> + */
+> +inline struct siw_wqe *siw_wqe_get(struct siw_qp *qp, enum siw_wr_opcode op)
+> +{
+> +	struct siw_wqe *wqe;
+> +
+> +	if (op == SIW_WR_RDMA_READ_RESP) {
+> +		spin_lock(&qp->freelist_lock);
+> +		if (!(list_empty(&qp->wqe_freelist))) {
+> +			wqe = list_entry(qp->wqe_freelist.next,
+> +					 struct siw_wqe, list);
+> +			list_del(&wqe->list);
+> +			spin_unlock(&qp->freelist_lock);
+> +			wqe->processed = 0;
+> +			dprint(DBG_OBJ|DBG_WR,
+> +				"(QP%d): WQE from FreeList p: %p\n",
+> +				QP_ID(qp), wqe);
+> +		} else {
+> +			spin_unlock(&qp->freelist_lock);
+> +			wqe = NULL;
+> +			dprint(DBG_ON|DBG_OBJ|DBG_WR,
+> +				"(QP%d): FreeList empty!\n", QP_ID(qp));
+> +		}
+> +	} else {
+> +		wqe = kzalloc(sizeof(struct siw_wqe), GFP_KERNEL);
+> +		dprint(DBG_OBJ|DBG_WR, "(QP%d): New WQE p: %p\n",
+> +			QP_ID(qp), wqe);
+> +	}
+>    
 
-Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
----
- drivers/net/igb/igb_main.c |   12 +++++++++---
- 1 files changed, 9 insertions(+), 3 deletions(-)
+I think you can't allocate at GFP_KERNEL here if this is called from the 
+post_ functions.  I think you might want to pre-allocate these when you 
+create the QP...
 
-diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index 55edcb7..6cec297 100644
---- a/drivers/net/igb/igb_main.c
-+++ b/drivers/net/igb/igb_main.c
-@@ -4218,11 +4218,17 @@ static void igb_reset_task(struct work_struct *work)
-  * @netdev: network interface device structure
-  *
-  * Returns the address of the device statistics structure.
-- * The statistics are actually updated from the timer callback.
-+ * The statistics are also updated from the timer callback
-+ * igb_watchdog_task().
-  **/
- static struct net_device_stats *igb_get_stats(struct net_device *netdev)
- {
--	/* only return the current stats */
-+	struct igb_adapter *adapter = netdev_priv(netdev);
-+
-+	/* update stats */
-+	igb_update_stats(adapter);
-+
-+	/* return the current stats */
- 	return &netdev->stats;
- }
- 
-@@ -4307,7 +4313,7 @@ static int igb_change_mtu(struct net_device *netdev, int new_mtu)
- 
- void igb_update_stats(struct igb_adapter *adapter)
- {
--	struct net_device_stats *net_stats = igb_get_stats(adapter->netdev);
-+	struct net_device_stats *net_stats = &adapter->netdev->stats;
- 	struct e1000_hw *hw = &adapter->hw;
- 	struct pci_dev *pdev = adapter->pdev;
- 	u32 reg, mpc;
 
+Steve.
