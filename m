@@ -1,71 +1,82 @@
 From: Flavio Leitner <fbl@redhat.com>
-Subject: Re: [PATCH] bonding: fix to rejoin multicast groups immediately
-Date: Tue, 5 Oct 2010 19:04:36 -0300
-Message-ID: <20101005220436.GA19931@redhat.com>
-References: <1285744327-1194-1-git-send-email-fleitner@redhat.com>
- <20101005.001338.52208103.davem@davemloft.net>
- <20101005143430.GA13811@redhat.com>
- <20101005.132525.186293128.davem@davemloft.net>
+Subject: Re: [PATCH v2] bonding: rejoin multicast groups on VLANs
+Date: Tue, 5 Oct 2010 19:07:57 -0300
+Message-ID: <20101005220757.GB19931@redhat.com>
+References: <20100929131713.GB2857@redhat.com>
+ <1285879524-7046-1-git-send-email-fleitner@redhat.com>
+ <20101004132409.GA7497@gospo.rdu.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net,
+	Jay Vosburgh <fubar@us.ibm.com>
+To: Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37049 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:29244 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757111Ab0JEWEk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Oct 2010 18:04:40 -0400
+	id S1755052Ab0JEWIK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Oct 2010 18:08:10 -0400
 Content-Disposition: inline
-In-Reply-To: <20101005.132525.186293128.davem@davemloft.net>
+In-Reply-To: <20101004132409.GA7497@gospo.rdu.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 05, 2010 at 01:25:25PM -0700, David Miller wrote:
-> From: Flavio Leitner <fbl@redhat.com>
-> Date: Tue, 5 Oct 2010 11:34:30 -0300
-> 
-> > On Tue, Oct 05, 2010 at 12:13:38AM -0700, David Miller wrote:
-> >> From: Flavio Leitner <fleitner@redhat.com>
-> >> Date: Wed, 29 Sep 2010 04:12:07 -0300
-> >> 
-> >> > It should rejoin multicast groups immediately when
-> >> > the failover happens to restore the multicast traffic.
-> >> > 
-> >> > Signed-off-by: Flavio Leitner <fleitner@redhat.com>
-> >> 
-> >> I suspect the IGMPv3 handling via a delayed action, as is currently
-> >> implemented, is on purpose and is done so to follow the specification
-> >> of the IGMPv3 RFCs.
-> >> 
-> >> Therefore you have to explain why your new behavior is so desirable
-> >> and in particular why something as undesirable as violating the RFCs
-> >> is therefore warranted.
+On Mon, Oct 04, 2010 at 09:24:10AM -0400, Andy Gospodarek wrote:
+> On Thu, Sep 30, 2010 at 05:45:24PM -0300, Flavio Leitner wrote:
+> > It fixes bonding to rejoin multicast groups added
+> > to VLAN devices on top of bonding when a failover
+> > happens.
 > > 
-> > That patch only changes the behavior for bonding during a link
-> > failure, so if we have a bonding in active-backup or any other mode
-> > with current-active-slave, the initialization will happen just fine
-> > following IGMP specs.
+> > Signed-off-by: Flavio Leitner <fleitner@redhat.com>
+> > ---
+> >  drivers/net/bonding/bond_main.c |   61 +++++++++++++++++++++++++++++++++-----
+> >  drivers/net/bonding/bonding.h   |    1 +
+> >  2 files changed, 54 insertions(+), 8 deletions(-)
 > > 
-> > However, neither the backup slave interface nor the backup switch
-> > connected to backup slave knows about mcast. Thus when a link failure
-> > happens, we shouldn't rely on timers to not stay out of the mcast
-> > group losing traffic.
-> > 
-> > E.g. The V1 specs says that we shouldn't send any membership report
-> > if it has been one in the last minute because that means the switch
-> > is notified and the system will receive mcast traffic for that group. 
-> > Therefore, if it sees one and a link failure happens right after that,
-> > the backup slave will send another membership report only one minute
-> > later. During this time the system loses traffic.
+> [...]
+> > @@ -944,7 +979,9 @@ static void bond_mc_swap(struct bonding *bond, struct slave *new_active,
+> >  
+> >  		netdev_for_each_mc_addr(ha, bond->dev)
+> >  			dev_mc_add(new_active->dev, ha->addr);
+> > -		bond_resend_igmp_join_requests(bond);
+> > +
+> > +		/* rejoin multicast groups */
+> > +		queue_delayed_work(bond->wq, &bond->mcast_work, 0);
+> >  	}
+> >  }
+> >  
 > 
-> All of this valuable information belongs in the commit log message.
+> I was hoping that one patch would just make the changes so
+> retransmission was supported on VLANs and the second patch would queue
+> the work and add the tunable for multiple retransmissions, but I guess
+> it wasn't clear enough.
 > 
-> Please resubmit your patch with all of the necessary contextual
-> information and reasoning explaining in the commit message.
+> I felt like that would divide the patches up into the bug-fix (VLANs +
+> multicast not working) and the new feature (multiple retransmissions
+> from the workqueue).
 
-Sure. I'll post replying to another thread so that the patch
-can be applied in correct order.
+I'm not seeing how to that because the first patch changes to send
+the membership directly and not using timers anymore, so the call
+trace usually is:
 
-thanks for reviewing it
--- 
+ write_lock_bh(&bond->curr_slave_lock); <-- hold lock
+ bond_select_active_slave() 
+  ->bond_change_active_slave()
+     ->bond_mc_swap()
+        ->tx membership reports
+ 
+
+then trying to send the IGMP packet directly, it will end up at:
+  bond_start_xmit()
+   ->bond_xmit_activebackup() (mode=1, for example)
+      ->read_lock(&bond->lock);
+      ->read_lock(&bond->curr_slave_lock); <-- deadlock
+
+
+> I will test these out this morning and make sure things look good.
+
+I have a better patch sequence which I'm planning post replying to
+this thread as soon as I finish up testing them. It is still using
+workqueue though.
+
+--
 Flavio
