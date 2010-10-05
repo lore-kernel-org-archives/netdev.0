@@ -1,74 +1,77 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [stable-2.6.32 PATCH] igb: rx_fifo_errors counter fix
-Date: Tue, 05 Oct 2010 16:04:09 -0700
-Message-ID: <20101005230407.24172.84596.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH] ixgbevf: declare functions as static
+Date: Tue, 05 Oct 2010 16:11:30 -0700
+Message-ID: <20101005231030.24410.47680.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: stable@kernel.org, netdev@vger.kernel.org, gospo@redhat.com,
-	bphilips@novell.com, Eric Dumazet <eric.dumazet@gmail.com>,
+Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Emil Tantilov <emil.s.tantilov@intel.com>,
+	Greg Rose <greg.v.rose@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: greg@kroah.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta14.emeryville.ca.mail.comcast.net ([76.96.27.212]:49476
-	"EHLO qmta14.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753225Ab0JEXEb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Oct 2010 19:04:31 -0400
+Received: from qmta05.westchester.pa.mail.comcast.net ([76.96.62.48]:59077
+	"EHLO qmta05.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756357Ab0JEXLy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Oct 2010 19:11:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-Alexey Vlasov reported insane rx_queue_drop_packet_count
-(rx_fifo_errors) values.
+Following patch fixes warnings reported by `make namespacecheck`
 
-IGB drivers is doing an accumulation for 82575, instead using a zero
-value for rqdpc_total.
+Reported by Stephen Hemminger
 
-Reported-by: Alexey Vlasov <renton@renton.name>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-Tested-by: Emil Tantilov <emil.s.tantilov@intel.com>
+CC: Stephen Hemminger <shemminger@vyatta.com>
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Acked-by: Greg Rose <greg.v.rose@intel.com>
+Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/igb/igb_main.c |    5 ++---
- 1 files changed, 2 insertions(+), 3 deletions(-)
+ drivers/net/ixgbevf/mbx.c |    2 +-
+ drivers/net/ixgbevf/mbx.h |    2 --
+ drivers/net/ixgbevf/vf.c  |    2 +-
+ 3 files changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index 8111776..a13705b 100644
---- a/drivers/net/igb/igb_main.c
-+++ b/drivers/net/igb/igb_main.c
-@@ -3552,6 +3552,7 @@ void igb_update_stats(struct igb_adapter *adapter)
- 	struct e1000_hw *hw = &adapter->hw;
- 	struct pci_dev *pdev = adapter->pdev;
- 	u16 phy_tmp;
-+	unsigned long rqdpc_total = 0;
+diff --git a/drivers/net/ixgbevf/mbx.c b/drivers/net/ixgbevf/mbx.c
+index b814350..84ac486 100644
+--- a/drivers/net/ixgbevf/mbx.c
++++ b/drivers/net/ixgbevf/mbx.c
+@@ -308,7 +308,7 @@ out_no_read:
+  *
+  *  Initializes the hw->mbx struct to correct values for vf mailbox
+  */
+-s32 ixgbevf_init_mbx_params_vf(struct ixgbe_hw *hw)
++static s32 ixgbevf_init_mbx_params_vf(struct ixgbe_hw *hw)
+ {
+ 	struct ixgbe_mbx_info *mbx = &hw->mbx;
  
- #define PHY_IDLE_ERROR_COUNT_MASK 0x00FF
+diff --git a/drivers/net/ixgbevf/mbx.h b/drivers/net/ixgbevf/mbx.h
+index 1b0e0bf..8c063be 100644
+--- a/drivers/net/ixgbevf/mbx.h
++++ b/drivers/net/ixgbevf/mbx.h
+@@ -95,6 +95,4 @@
+ /* forward declaration of the HW struct */
+ struct ixgbe_hw;
  
-@@ -3645,7 +3646,6 @@ void igb_update_stats(struct igb_adapter *adapter)
+-s32 ixgbevf_init_mbx_params_vf(struct ixgbe_hw *);
+-
+ #endif /* _IXGBE_MBX_H_ */
+diff --git a/drivers/net/ixgbevf/vf.c b/drivers/net/ixgbevf/vf.c
+index f6f9299..bfe42c1 100644
+--- a/drivers/net/ixgbevf/vf.c
++++ b/drivers/net/ixgbevf/vf.c
+@@ -368,7 +368,7 @@ static s32 ixgbevf_check_mac_link_vf(struct ixgbe_hw *hw,
+ 	return 0;
+ }
  
- 	if (hw->mac.type != e1000_82575) {
- 		u32 rqdpc_tmp;
--		u64 rqdpc_total = 0;
- 		int i;
- 		/* Read out drops stats per RX queue.  Notice RQDPC (Receive
- 		 * Queue Drop Packet Count) stats only gets incremented, if
-@@ -3660,7 +3660,6 @@ void igb_update_stats(struct igb_adapter *adapter)
- 			adapter->rx_ring[i].rx_stats.drops += rqdpc_tmp;
- 			rqdpc_total += adapter->rx_ring[i].rx_stats.drops;
- 		}
--		adapter->net_stats.rx_fifo_errors = rqdpc_total;
- 	}
- 
- 	/* Note RNBC (Receive No Buffers Count) is an not an exact
-@@ -3668,7 +3667,7 @@ void igb_update_stats(struct igb_adapter *adapter)
- 	 * one of the reason for saving it in rx_fifo_errors, as its
- 	 * potentially not a true drop.
- 	 */
--	adapter->net_stats.rx_fifo_errors += adapter->stats.rnbc;
-+	adapter->net_stats.rx_fifo_errors = rqdpc_total + adapter->stats.rnbc;
- 
- 	/* RLEC on some newer hardware can be incorrect so build
- 	 * our own version based on RUC and ROC */
+-struct ixgbe_mac_operations ixgbevf_mac_ops = {
++static struct ixgbe_mac_operations ixgbevf_mac_ops = {
+ 	.init_hw             = ixgbevf_init_hw_vf,
+ 	.reset_hw            = ixgbevf_reset_hw_vf,
+ 	.start_hw            = ixgbevf_start_hw_vf,
 
