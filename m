@@ -1,63 +1,102 @@
-From: Nicola Padovano <nicola.padovano@gmail.com>
-Subject: Re: checkentry function
-Date: Tue, 5 Oct 2010 13:16:40 +0200
-Message-ID: <AANLkTinVtz0VuLkOY5d8QjdvLMXOFD2EaWp_kSBbMJBW@mail.gmail.com>
-References: <AANLkTimeoRTBMY0OH5sDtVEfqFCx9F3go1qGKy5cJpWS@mail.gmail.com>
- <20101005144615.0f84d53a@s6510> <AANLkTikDi3ziyH9eJbEhjOBwjFVHrtsMzYEJes4=eiJF@mail.gmail.com>
- <20101005150147.62226282@s6510> <AANLkTinTd5FjJ-6WeAGwintAS9aHdFYnS7--TLMSDEkn@mail.gmail.com>
- <1286259838.2457.11.camel@edumazet-laptop>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [PATCH 1/3] ixgbevf.txt: Update ixgbevf documentation
+Date: Tue, 05 Oct 2010 04:16:44 -0700
+Message-ID: <20101005111643.23000.38976.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1286259838.2457.11.camel@edumazet-laptop>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-doc@vger.kernel.org,
+	gospo@redhat.com, bphilips@novell.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: rdunlap@xenotime.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from qmta14.westchester.pa.mail.comcast.net ([76.96.59.212]:36939
+	"EHLO qmta14.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758137Ab0JELRE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Oct 2010 07:17:04 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->
-> Because xxx_check() signature is not the one you use.
->
-> Could you read source code of _current_ existing modules , and use
-> copy/paste ?
->
-> static int hashlimit_mt_check(const struct xt_mtchk_param *par)
-> {
-> ...
-> }
+Update the documentation for the ixgbevf (ixgbe virtual
+function driver).
 
-as i've written in a previously mail this is the checkentry function
-that i use in my source code to check if the iptables command line is
-a right line.
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
-[CHECK_ENTRY_CODE]
-static bool xt_tarpit_check(const char *tablename, const void *entry,
-                           const struct xt_target *target, void *targinfo,
-                           unsigned int hook_mask)
-{
- if (strcmp(tablename, "filter"))   {
-   printk(KERN_INFO "DEBUG: the tablename (not FILTER) is %s\n",tablename);
-   return false;
- }
-return true;
-}
-[/CHECK_ENTRY_CODE]
+ Documentation/networking/ixgbevf.txt |   40 +++-------------------------------
+ 1 files changed, 3 insertions(+), 37 deletions(-)
+ mode change 100755 => 100644 Documentation/networking/ixgbevf.txt
 
-but it doesn't work...NOTE: the module goes inside the function but
-the tablename value is a wrong one (also if I set "-t filter" option
-in the iptables command line)
+diff --git a/Documentation/networking/ixgbevf.txt b/Documentation/networking/ixgbevf.txt
+old mode 100755
+new mode 100644
+index 19015de..21dd5d1
+--- a/Documentation/networking/ixgbevf.txt
++++ b/Documentation/networking/ixgbevf.txt
+@@ -1,19 +1,16 @@
+ Linux* Base Driver for Intel(R) Network Connection
+ ==================================================
+ 
+-November 24, 2009
++Intel Gigabit Linux driver.
++Copyright(c) 1999 - 2010 Intel Corporation.
+ 
+ Contents
+ ========
+ 
+-- In This Release
+ - Identifying Your Adapter
+ - Known Issues/Troubleshooting
+ - Support
+ 
+-In This Release
+-===============
+-
+ This file describes the ixgbevf Linux* Base Driver for Intel Network
+ Connection.
+ 
+@@ -33,7 +30,7 @@ Identifying Your Adapter
+ For more information on how to identify your adapter, go to the Adapter &
+ Driver ID Guide at:
+ 
+-    http://support.intel.com/support/network/sb/CS-008441.htm
++    http://support.intel.com/support/go/network/adapter/idguide.htm
+ 
+ Known Issues/Troubleshooting
+ ============================
+@@ -57,34 +54,3 @@ or the Intel Wired Networking project hosted by Sourceforge at:
+ If an issue is identified with the released source code on the supported
+ kernel with a supported adapter, email the specific information related
+ to the issue to e1000-devel@lists.sf.net
+-
+-License
+-=======
+-
+-Intel 10 Gigabit Linux driver.
+-Copyright(c) 1999 - 2009 Intel Corporation.
+-
+-This program is free software; you can redistribute it and/or modify it
+-under the terms and conditions of the GNU General Public License,
+-version 2, as published by the Free Software Foundation.
+-
+-This program is distributed in the hope it will be useful, but WITHOUT
+-ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+-FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+-more details.
+-
+-You should have received a copy of the GNU General Public License along with
+-this program; if not, write to the Free Software Foundation, Inc.,
+-51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
+-
+-The full GNU General Public License is included in this distribution in
+-the file called "COPYING".
+-
+-Trademarks
+-==========
+-
+-Intel, Itanium, and Pentium are trademarks or registered trademarks of
+-Intel Corporation or its subsidiaries in the United States and other
+-countries.
+-
+-* Other names and brands may be claimed as the property of others.
 
-i don't know what "static int hashlimit_mt_check(const struct
-xt_mtchk_param *par)" is...
-
-thank you
-
--- 
-Nicola Padovano
-e-mail: nicola.padovano@gmail.com
-web: http://npadovano.altervista.org
-
-"My only ambition is not be anything at all; it seems the most
-sensible thing" (C. Bukowski)
