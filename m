@@ -1,35 +1,105 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [patch v5 00/12] IPVS: SIP Persistence Engine
-Date: Tue, 5 Oct 2010 19:00:23 +0900
-Message-ID: <20101005100023.GC18737@verge.net.au>
-References: <20101004134624.963907470@akiko.akashicho.tokyo.vergenet.net>
- <4CAA215C.8040605@trash.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 PATCH] ixgbe: Use affinity_hint when Flow Director is
+	enabled
+Date: Tue, 05 Oct 2010 04:27:49 -0700
+Message-ID: <20101005112511.23263.64121.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Jan Engelhardt <jengelh@medozas.de>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4CAA215C.8040605@trash.net>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from qmta10.westchester.pa.mail.comcast.net ([76.96.62.17]:56895
+	"EHLO qmta10.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758143Ab0JEL2J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Oct 2010 07:28:09 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 04, 2010 at 08:47:56PM +0200, Patrick McHardy wrote:
-> Am 04.10.2010 15:46, schrieb Simon Horman:
-> > CODE AVAILABILITY
-> > 
-> > The kernel patches (12) are available in git as the pe-5 branch of
-> > git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-test-2.6.git
-> 
-> Pulled, thanks Simon. I get a warning in ip_vs_pe_sip.c however,
-> please send a fix for this on top.
-> 
-> net/netfilter/ipvs/ip_vs_pe_sip.c:11: warning: 'ip_vs_dbg_callid'
-> defined but not used
+From: Peter Waskiewicz <peter.p.waskiewicz.jr@intel.com>
 
-Sorry about that, I will investigate and send a fix.
+Use the new infrastructure to balance interrupts for flow
+alignment when ATR or Flow Director are enabled.
+
+Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Tested-by: Stephen Ko <stephen.s.ko@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+
+ drivers/net/ixgbe/ixgbe.h      |    2 ++
+ drivers/net/ixgbe/ixgbe_main.c |   25 +++++++++++++++++++++++++
+ 2 files changed, 27 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
+index 5cebc37..a8c47b0 100644
+--- a/drivers/net/ixgbe/ixgbe.h
++++ b/drivers/net/ixgbe/ixgbe.h
+@@ -31,6 +31,7 @@
+ #include <linux/types.h>
+ #include <linux/pci.h>
+ #include <linux/netdevice.h>
++#include <linux/cpumask.h>
+ #include <linux/aer.h>
+ 
+ #include "ixgbe_type.h"
+@@ -241,6 +242,7 @@ struct ixgbe_q_vector {
+ 	u8 tx_itr;
+ 	u8 rx_itr;
+ 	u32 eitr;
++	cpumask_var_t affinity_mask;
+ };
+ 
+ /* Helper macros to switch between ints/sec and what the register uses.
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index c35e13c..95dbf60 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -1433,6 +1433,21 @@ static void ixgbe_configure_msix(struct ixgbe_adapter *adapter)
+ 			q_vector->eitr = adapter->rx_eitr_param;
+ 
+ 		ixgbe_write_eitr(q_vector);
++		/* If Flow Director is enabled, set interrupt affinity */
++		if ((adapter->flags & IXGBE_FLAG_FDIR_HASH_CAPABLE) ||
++		    (adapter->flags & IXGBE_FLAG_FDIR_PERFECT_CAPABLE)) {
++			/*
++			 * Allocate the affinity_hint cpumask, assign the mask
++			 * for this vector, and set our affinity_hint for
++			 * this irq.
++			 */
++			if (!alloc_cpumask_var(&q_vector->affinity_mask,
++			                       GFP_KERNEL))
++				return;
++			cpumask_set_cpu(v_idx, q_vector->affinity_mask);
++			irq_set_affinity_hint(adapter->msix_entries[v_idx].vector,
++			                      q_vector->affinity_mask);
++		}
+ 	}
+ 
+ 	if (adapter->hw.mac.type == ixgbe_mac_82598EB)
+@@ -3816,6 +3831,7 @@ void ixgbe_down(struct ixgbe_adapter *adapter)
+ 	u32 rxctrl;
+ 	u32 txdctl;
+ 	int i, j;
++	int num_q_vectors = adapter->num_msix_vectors - NON_Q_VECTORS;
+ 
+ 	/* signal that we are down to the interrupt handler */
+ 	set_bit(__IXGBE_DOWN, &adapter->state);
+@@ -3854,6 +3870,15 @@ void ixgbe_down(struct ixgbe_adapter *adapter)
+ 
+ 	ixgbe_napi_disable_all(adapter);
+ 
++	/* Cleanup the affinity_hint CPU mask memory and callback */
++	for (i = 0; i < num_q_vectors; i++) {
++		struct ixgbe_q_vector *q_vector = adapter->q_vector[i];
++		/* clear the affinity_mask in the IRQ descriptor */
++		irq_set_affinity_hint(adapter->msix_entries[i]. vector, NULL);
++		/* release the CPU mask memory */
++		free_cpumask_var(q_vector->affinity_mask);
++	}
++
+ 	if (adapter->flags & IXGBE_FLAG_FDIR_HASH_CAPABLE ||
+ 	    adapter->flags & IXGBE_FLAG_FDIR_PERFECT_CAPABLE)
+ 		cancel_work_sync(&adapter->fdir_reinit_task);
+
