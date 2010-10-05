@@ -1,35 +1,71 @@
-From: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] SIW: Module initialization
-Date: Wed, 6 Oct 2010 07:02:42 +0900
-Message-ID: <20101006070242.3ca5a6d9@s6510>
-References: <1286261640-5121-1-git-send-email-bmt@zurich.ibm.com>
-	<AANLkTik5=i+A5_OpU0rVyfYi=ibgS9UWMu82vMCmM=PN@mail.gmail.com>
+From: Flavio Leitner <fbl@redhat.com>
+Subject: Re: [PATCH] bonding: fix to rejoin multicast groups immediately
+Date: Tue, 5 Oct 2010 19:04:36 -0300
+Message-ID: <20101005220436.GA19931@redhat.com>
+References: <1285744327-1194-1-git-send-email-fleitner@redhat.com>
+ <20101005.001338.52208103.davem@davemloft.net>
+ <20101005143430.GA13811@redhat.com>
+ <20101005.132525.186293128.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Bernard Metzler <bmt-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <AANLkTik5=i+A5_OpU0rVyfYi=ibgS9UWMu82vMCmM=PN-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:37049 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757111Ab0JEWEk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Oct 2010 18:04:40 -0400
+Content-Disposition: inline
+In-Reply-To: <20101005.132525.186293128.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 5 Oct 2010 12:57:21 +0200
-Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org> wrote:
-
-> > + * TODO: Dynamic device management (network device registration/removal).  
+On Tue, Oct 05, 2010 at 01:25:25PM -0700, David Miller wrote:
+> From: Flavio Leitner <fbl@redhat.com>
+> Date: Tue, 5 Oct 2010 11:34:30 -0300
 > 
-> The current implementation is such that one siw device is created for
-> each network device found at kernel module load time. That means that
-> you force the user to load the siw kernel module after all other
-> kernel modules that register a network device. I'm not sure that's a
-> good idea.
+> > On Tue, Oct 05, 2010 at 12:13:38AM -0700, David Miller wrote:
+> >> From: Flavio Leitner <fleitner@redhat.com>
+> >> Date: Wed, 29 Sep 2010 04:12:07 -0300
+> >> 
+> >> > It should rejoin multicast groups immediately when
+> >> > the failover happens to restore the multicast traffic.
+> >> > 
+> >> > Signed-off-by: Flavio Leitner <fleitner@redhat.com>
+> >> 
+> >> I suspect the IGMPv3 handling via a delayed action, as is currently
+> >> implemented, is on purpose and is done so to follow the specification
+> >> of the IGMPv3 RFCs.
+> >> 
+> >> Therefore you have to explain why your new behavior is so desirable
+> >> and in particular why something as undesirable as violating the RFCs
+> >> is therefore warranted.
+> > 
+> > That patch only changes the behavior for bonding during a link
+> > failure, so if we have a bonding in active-backup or any other mode
+> > with current-active-slave, the initialization will happen just fine
+> > following IGMP specs.
+> > 
+> > However, neither the backup slave interface nor the backup switch
+> > connected to backup slave knows about mcast. Thus when a link failure
+> > happens, we shouldn't rely on timers to not stay out of the mcast
+> > group losing traffic.
+> > 
+> > E.g. The V1 specs says that we shouldn't send any membership report
+> > if it has been one in the last minute because that means the switch
+> > is notified and the system will receive mcast traffic for that group. 
+> > Therefore, if it sees one and a link failure happens right after that,
+> > the backup slave will send another membership report only one minute
+> > later. During this time the system loses traffic.
+> 
+> All of this valuable information belongs in the commit log message.
+> 
+> Please resubmit your patch with all of the necessary contextual
+> information and reasoning explaining in the commit message.
 
-Then device should be controlled by a netlink (rtnl_link_ops) style
-interface see vlan_netlink.c. Using netlink is extensible and provides
-a cleaner interface than all these other parameterization methods.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Sure. I'll post replying to another thread so that the patch
+can be applied in correct order.
+
+thanks for reviewing it
+-- 
+Flavio
