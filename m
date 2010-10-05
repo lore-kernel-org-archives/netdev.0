@@ -1,38 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 2/2] drivers/net/stmmac/: add HAS_IOMEM dependency
-Date: Tue, 05 Oct 2010 11:41:14 -0700 (PDT)
-Message-ID: <20101005.114114.55873887.davem@davemloft.net>
-References: <201010012117.o91LHDCF021161@imap1.linux-foundation.org>
-	<20101003.220035.183055886.davem@davemloft.net>
-	<4CAB0219.40007@st.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [MeeGo-Dev][PATCH v3] Topcliff: Update PCH_CAN driver to 2.6.35
+Date: Tue, 05 Oct 2010 11:45:06 -0700 (PDT)
+Message-ID: <20101005.114506.184852374.davem@davemloft.net>
+References: <000401cb6477$25a0eba0$66f8800a@maildom.okisemi.com>
+	<4CAB0732.3010400@pengutronix.de>
+	<002e01cb6486$2ed72cc0$66f8800a@maildom.okisemi.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com
-To: peppe.cavallaro@st.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57135
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751563Ab0JESky (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Oct 2010 14:40:54 -0400
-In-Reply-To: <4CAB0219.40007@st.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
+	margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org, yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, chripell-VaTbYqLCNhc@public.gmane.org,
+	morinaga526-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org, meego-dev-WXzIur8shnEAvxtiuMwx3w@public.gmane.org,
+	kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+To: masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <002e01cb6486$2ed72cc0$66f8800a-a06+6cuVnkTSQfdrb5gaxUEOCMrvLtNR@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Peppe CAVALLARO <peppe.cavallaro@st.com>
-Date: Tue, 5 Oct 2010 12:46:49 +0200
+From: "Masayuki Ohtake" <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Date: Tue, 5 Oct 2010 21:09:30 +0900
 
-> This dependency was removed in driver included in net-next Git (because
-> the CPU_SUBTYPE_ST40 is a dead option).
+> On Tuesday, October 05, 2010 8:08 PM, Marc Kleine-Budde wrote:
+>> If FIFO is working you might also think about NAPI.
+> 
+> I think NAPI isn't necessary for our CAN driver.
+> NAPI is for high-speed networking.
+> CAN is NOT high-speed.
+> 
+> In fact, some accepted CAN drivers don't have NAPI.
 
-Oh yes, I missed that.  Thanks for noticing.
+NAPI is not just for performance concerns.
 
-> I've seen that other drivers depend on HAS_IOMEM that is always  defined
-> for STM and ARM targets (where the I know the stmmac is used); No
-> problem for me to add this new dependency to in HAS_IOMEM the stmmac's
-> Kconfig if actually needed.
+It greatly simplifies the locking since all packet processing paths
+run only in software interrupt context, never in hardware interrupt
+context.
 
-I'll add the patch Andrew posted, it is needed now.
-
-Thanks again.
+We encourage all new drivers that can use NAPI to do so, just because
+recent driver submissions do not do this doesn't mean we should
+continue such a mistake ;-)
