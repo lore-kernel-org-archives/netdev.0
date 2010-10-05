@@ -1,66 +1,30 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: checkentry function
-Date: Tue, 05 Oct 2010 08:23:58 +0200
-Message-ID: <1286259838.2457.11.camel@edumazet-laptop>
-References: <AANLkTimeoRTBMY0OH5sDtVEfqFCx9F3go1qGKy5cJpWS@mail.gmail.com>
-	 <20101005144615.0f84d53a@s6510>
-	 <AANLkTikDi3ziyH9eJbEhjOBwjFVHrtsMzYEJes4=eiJF@mail.gmail.com>
-	 <20101005150147.62226282@s6510>
-	 <AANLkTinTd5FjJ-6WeAGwintAS9aHdFYnS7--TLMSDEkn@mail.gmail.com>
+Subject: Re: [PATCH net-next] ipv6: make __ipv6_isatap_ifid static
+Date: Tue, 05 Oct 2010 08:25:00 +0200
+Message-ID: <1286259900.2457.12.camel@edumazet-laptop>
+References: <20101005151753.363121b8@s6510>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Nicola Padovano <nicola.padovano@gmail.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:38486 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757565Ab0JEGYE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Oct 2010 02:24:04 -0400
-In-Reply-To: <AANLkTinTd5FjJ-6WeAGwintAS9aHdFYnS7--TLMSDEkn@mail.gmail.com>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:44782 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753967Ab0JEGZE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Oct 2010 02:25:04 -0400
+Received: by wwj40 with SMTP id 40so5187680wwj.1
+        for <netdev@vger.kernel.org>; Mon, 04 Oct 2010 23:25:03 -0700 (PDT)
+In-Reply-To: <20101005151753.363121b8@s6510>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 05 octobre 2010 =C3=A0 08:11 +0200, Nicola Padovano a =C3=A9cr=
-it :
-> >
-> > Negative (ie < 0) is used for error numbers. This is confusing
-> > because in older kernels the checkentry returned a bool which
-> > is defined as 1 okay and 0 for error.
-> >
-> ok i see.
+Le mardi 05 octobre 2010 =C3=A0 15:17 +0900, Stephen Hemminger a =C3=A9=
+crit :
+> Another exported symbol only used in one file
 >=20
-> and why i have this output?
-> DEBUG: the tablename (not FILTER) is: =EF=BF=BD%H =EF=BF=BD
->=20
-> I want block my target if the table name is NOT filter...so i write:
->=20
-> [CODE]
-> ...
->  if (strcmp(tablename, "filter"))   {
->    printk(KERN_INFO "DEBUG: the tablename (not FILTER) is %s\n",table=
-name);
->    return ERROR_VALUE; // < 0
->  }
-> [/CODE]
->=20
-> but in the tablename variable i haven't the table's right value (but =
-i
-> have: =EF=BF=BD%H =EF=BF=BD a wrong value)...what's the problem?
->=20
->=20
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Because xxx_check() signature is not the one you use.
-
-Could you read source code of _current_ existing modules , and use
-copy/paste ?
-
-static int hashlimit_mt_check(const struct xt_mtchk_param *par)
-{
-=2E..
-}
-
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
 
 
