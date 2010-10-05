@@ -1,57 +1,35 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: checkentry function
-Date: Tue, 5 Oct 2010 14:46:15 +0900
-Message-ID: <20101005144615.0f84d53a@s6510>
-References: <AANLkTimeoRTBMY0OH5sDtVEfqFCx9F3go1qGKy5cJpWS@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: linux-next: manual merge of the net tree with the net-current
+ tree
+Date: Mon, 04 Oct 2010 22:47:35 -0700 (PDT)
+Message-ID: <20101004.224735.191411120.davem@davemloft.net>
+References: <20101001124830.9c35d36f.sfr@canb.auug.org.au>
+	<AANLkTinsNEeTK=SrGpqEjF8VtZZWpiWydgSc+3M854pD@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netfilter-devel <netfilter-devel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Nicola Padovano <nicola.padovano@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTimeoRTBMY0OH5sDtVEfqFCx9F3go1qGKy5cJpWS@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	damian@tvk.rwth-aachen.de
+To: hkchu@google.com
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <AANLkTinsNEeTK=SrGpqEjF8VtZZWpiWydgSc+3M854pD@mail.gmail.com>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2 Oct 2010 13:59:30 +0200
-Nicola Padovano <nicola.padovano@gmail.com> wrote:
+From: Jerry Chu <hkchu@google.com>
+Date: Thu, 30 Sep 2010 20:27:05 -0700
 
-> Hello there.
-> I've written checkentry function to check my new target, in this way:
->=20
-> [CHECK_ENTRY_CODE]
-> static bool xt_tarpit_check(const char *tablename, const void *entry,
->                             const struct xt_target *target, void *tar=
-ginfo,
->                             unsigned int hook_mask)
-> {
->  if (strcmp(tablename, "filter"))   {
->     printk(KERN_INFO "DEBUG: the tablename (not FILTER) is %s\n",tabl=
-ename);
->     return false;
->   }
-> return true;
-> }
-> [/CHECK_ENTRY_CODE]
->=20
-> but it doesn't work.
-> In fact if I do:
->=20
-> iptables -A INPUT -t filter -s 192.168.0.1 -p tcp -j TAR
->=20
-> the printk prints this message: DEBUG: the tablename (not FILTER) is:=
- =EF=BF=BD%H =EF=BF=BD
->=20
-> so: in the tablename i haven't the string "filter"...what' the matter=
-?
->=20
+> In tcp_write_timeout():
+> 
+> if (retransmits_timed_out(sk, retry_until,
+>             (1 << sk->sk_state) & (TCPF_SYN_SENT | TCPF_SYN_RECV) ? 0 :
+>             icsk->icsk_user_timeout, syn_set)) {
+> 
+> should be simplified to
+> 
+> if (retransmits_timed_out(sk, retry_until,
+>     syn_set ? 0 : icsk->icsk_user_timeout, syn_set)) {
 
-In current kernels, checkentry returns errno values.
-0 =3D okay
-<0 is error (example -EINVAL).
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I've merged net-2.6 into net-next-2.6 and integrated this simplification
+while doing so.
