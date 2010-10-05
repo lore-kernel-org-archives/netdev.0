@@ -1,50 +1,56 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH net-next] fib: fib_rules_cleanup can be static
-Date: Tue, 5 Oct 2010 15:14:17 +0900
-Message-ID: <20101005151417.57eae0b0@s6510>
+Subject: [PATCH net-next] ipv6: make __ipv6_isatap_ifid static
+Date: Tue, 5 Oct 2010 15:17:53 +0900
+Message-ID: <20101005151753.363121b8@s6510>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:47697 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:47810 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754548Ab0JEGOW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Oct 2010 02:14:22 -0400
+	id S1753967Ab0JEGR6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Oct 2010 02:17:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-fib_rules_cleanup_ups is only defined and used in one place.
+Another exported symbol only used in one file
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
---- a/include/net/fib_rules.h	2010-10-02 14:31:52.528341728 +0900
-+++ b/include/net/fib_rules.h	2010-10-02 14:31:59.890839969 +0900
-@@ -106,7 +106,6 @@ static inline u32 frh_get_table(struct f
- 
- extern struct fib_rules_ops *fib_rules_register(const struct fib_rules_ops *, struct net *);
- extern void fib_rules_unregister(struct fib_rules_ops *);
--extern void                     fib_rules_cleanup_ops(struct fib_rules_ops *);
- 
- extern int			fib_rules_lookup(struct fib_rules_ops *,
- 						 struct flowi *, int flags,
---- a/net/core/fib_rules.c	2010-10-02 14:31:52.578341727 +0900
-+++ b/net/core/fib_rules.c	2010-10-02 14:32:09.850842358 +0900
-@@ -144,7 +144,7 @@ fib_rules_register(const struct fib_rule
+---
+ include/net/addrconf.h |    2 --
+ net/ipv6/addrconf.c    |    3 +--
+ 2 files changed, 1 insertion(+), 4 deletions(-)
+
+--- a/include/net/addrconf.h	2010-10-02 09:04:22.700929104 +0900
++++ b/include/net/addrconf.h	2010-10-02 09:11:00.651004530 +0900
+@@ -276,8 +276,6 @@ static inline int ipv6_addr_is_ll_all_ro
+ 		(addr->s6_addr32[3] ^ htonl(0x00000002))) == 0;
  }
- EXPORT_SYMBOL_GPL(fib_rules_register);
  
--void fib_rules_cleanup_ops(struct fib_rules_ops *ops)
-+static void fib_rules_cleanup_ops(struct fib_rules_ops *ops)
+-extern int __ipv6_isatap_ifid(u8 *eui, __be32 addr);
+-
+ static inline int ipv6_addr_is_isatap(const struct in6_addr *addr)
  {
- 	struct fib_rule *rule, *tmp;
- 
-@@ -153,7 +153,6 @@ void fib_rules_cleanup_ops(struct fib_ru
- 		fib_rule_put(rule);
- 	}
+ 	return (addr->s6_addr32[2] | htonl(0x02000000)) == htonl(0x02005EFE);
+--- a/net/ipv6/addrconf.c	2010-10-02 09:04:22.720901336 +0900
++++ b/net/ipv6/addrconf.c	2010-10-02 09:05:09.031021195 +0900
+@@ -1544,7 +1544,7 @@ static int addrconf_ifid_infiniband(u8 *
+ 	return 0;
  }
--EXPORT_SYMBOL_GPL(fib_rules_cleanup_ops);
  
- static void fib_rules_put_rcu(struct rcu_head *head)
+-int __ipv6_isatap_ifid(u8 *eui, __be32 addr)
++static int __ipv6_isatap_ifid(u8 *eui, __be32 addr)
+ {
+ 	if (addr == 0)
+ 		return -1;
+@@ -1560,7 +1560,6 @@ int __ipv6_isatap_ifid(u8 *eui, __be32 a
+ 	memcpy(eui + 4, &addr, 4);
+ 	return 0;
+ }
+-EXPORT_SYMBOL(__ipv6_isatap_ifid);
+ 
+ static int addrconf_ifid_sit(u8 *eui, struct net_device *dev)
  {
