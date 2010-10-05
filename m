@@ -1,66 +1,38 @@
-From: Peppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [patch 2/2] drivers/net/stmmac/: add HAS_IOMEM dependency
-Date: Tue, 5 Oct 2010 12:46:49 +0200
-Message-ID: <4CAB0219.40007@st.com>
-References: <201010012117.o91LHDCF021161@imap1.linux-foundation.org>
- <20101003.220035.183055886.davem@davemloft.net>
+From: Tapas Mishra <mightydreams@gmail.com>
+Subject: Re: Linux Kernel Development - A Practical Approach
+Date: Tue, 5 Oct 2010 16:19:52 +0530
+Message-ID: <AANLkTikptHb7wJh+zLM+QH-N63vgvkw3LqX596m0Kx+_@mail.gmail.com>
+References: <AANLkTim9RFG799GVEkA0GjU_th_vTv_Y8SqYb1WLBUYp@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "akpm@linux-foundation.org" <akpm@linux-foundation.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"schwidefsky@de.ibm.com" <schwidefsky@de.ibm.com>,
-	"heiko.carstens@de.ibm.com" <heiko.carstens@de.ibm.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog109.obsmtp.com ([207.126.144.127]:47617 "EHLO
-	eu1sys200aog109.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752108Ab0JEKtA convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Oct 2010 06:49:00 -0400
-In-Reply-To: <20101003.220035.183055886.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: kernelnewbies@nl.linux.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org
+To: Linux Kernel Explorer <mylinuxlab@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AANLkTim9RFG799GVEkA0GjU_th_vTv_Y8SqYb1WLBUYp@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello
-
-On 10/04/2010 07:00 AM, David Miller wrote:
-> From: akpm@linux-foundation.org
-> Date: Fri, 01 Oct 2010 14:17:13 -0700
-> 
->  > From: Martin Schwidefsky <schwidefsky@de.ibm.com>
->  >
->  > The stmmac driver does not compile on s390:
->  >
->  > drivers/net/stmmac/stmmac_main.c: In function 'stmmac_adjust_link':
->  > drivers/net/stmmac/stmmac_main.c:210: error: implicit declaration of function 
-> 'readl'
->  > drivers/net/stmmac/stmmac_main.c:263: error: implicit declaration of function 
-> 'writel'
->  > drivers/net/stmmac/stmmac_main.c: In function 'stmmac_dvr_probe':
->  > drivers/net/stmmac/stmmac_main.c:1674: error: implicit declaration of 
-> function 'ioremap'
->  > drivers/net/stmmac/stmmac_main.c:1674: warning: assignment makes pointer from 
-> integer without a cast
->  > drivers/net/stmmac/stmmac_main.c:1761: error: implicit declaration of 
-> function 'iounmap'
->  > make[3]: *** [drivers/net/stmmac/stmmac_main.o] Error 1
->  >
->  > Signed-off-by: Martin Schwidefsky <schwidefsky@de.ibm.com>
->  > Cc: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
->  > Cc: David S. Miller <davem@davemloft.net>
->  > Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
->  > Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-> 
-> This got fixed by adding a dependency on CPU_SUBTYPE_ST40.
-
-This dependency was removed in driver included in net-next Git (because
-the CPU_SUBTYPE_ST40 is a dead option).
-
-I've seen that other drivers depend on HAS_IOMEM that is always  defined
-for STM and ARM targets (where the I know the stmmac is used); No
-problem for me to add this new dependency to in HAS_IOMEM the stmmac's
-Kconfig if actually needed.
-
-Regards
-Peppe
+On Tue, Oct 5, 2010 at 12:20 AM, Linux "Kernel" Explorer
+<mylinuxlab@gmail.com> wrote:
+> Hello Everyone,
+>
+> I am reading 'Linux Kernel Development' by Robert Love these days.
+>
+> This book takes you on a theoretical journey of the linux kernel
+> world.Though the book is good but I do have my share of concerns.
+Exactly even I do have same concerns.
+www.crashcourse.ca
+check the above website till today this is the only most relevant
+thing which I find easy to begin with.
+You can then go to understand some more howtos on internet that will help.
+LKD is no doubt good book but even I do not appreciate that.
+Jumping directly to code in your or even  mine type of situation is
+not easy having said that I would say you not to
+indulge into books.If possible get some one who can easily give you a
+hands on experience.
+Then you will be able to understand what the text books talk.
+A good advice I got from some one who works with processors is rather
+than going in manuals
+jump into the code you play with it and then you will gradually understand.
+There may be different views but I would suggest you not to read books.
