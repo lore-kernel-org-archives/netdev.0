@@ -1,70 +1,57 @@
-From: Jesper Dangaard Brouer <hawk@diku.dk>
-Subject: Re: [net-next PATCH] igb: update adapter stats when reading
- /proc/net/dev.
-Date: Tue, 5 Oct 2010 23:16:37 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.1010052313370.30765@ask.diku.dk>
-References: <20101005141833.20929.10943.stgit@localhost>
- <1286289703.2796.292.camel@edumazet-laptop>  <1286290393.7071.38.camel@firesoul.comx.local>
-  <1286291947.2796.387.camel@edumazet-laptop> <1286312479.2593.35.camel@edumazet-laptop>
+From: Leszek Urbanski <tygrys-4cL5GMJPxME@public.gmane.org>
+Subject: Re: BUG - qdev - partial loss of network connectivity
+Date: Tue, 5 Oct 2010 23:29:13 +0200
+Message-ID: <20101005212913.GA27869@moo.pl>
+References: <20100922171832.GA28721@moo.pl> <4C9A3FAF.9090503@codemonkey.ws> <20100922182049.GA29263@moo.pl> <4C9A4C77.2080806@codemonkey.ws> <20100923140437.GA9256@moo.pl> <20100926154324.GD21843@redhat.com> <20100927213203.GA28089@moo.pl>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-511516320-309378348-1286313397=:30765"
-Cc: Jesper Dangaard Brouer <hawk@comx.dk>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw2.diku.dk ([130.225.96.92]:50442 "EHLO mgw2.diku.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755351Ab0JEVQk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Oct 2010 17:16:40 -0400
-In-Reply-To: <1286312479.2593.35.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-2
+Cc: Anthony Liguori <anthony-rdkfGonbjUSkNkDKm+mE6A@public.gmane.org>, qemu-devel-qX2TKyscuCcdnm+yROfE0A@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+To: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20100927213203.GA28089-4cL5GMJPxME@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+<20100927213203.GA28089-4cL5GMJPxME@public.gmane.org>; from Leszek Urbanski on Mon, Sep 27, 2010 at 23:32:03 +0200
 
----511516320-309378348-1286313397=:30765
-Content-Type: TEXT/PLAIN; charset=iso-8859-1; format=flowed
-Content-Transfer-Encoding: 8BIT
+> > > > >It's vanilla 2.6.32.22, but I also reproduced this on Debian's 2.6.32-23
+> > > > >(based on 2.6.32.21).
+> > > > >
+> > > > >If offload is the only difference, I'll play with different offload
+> > > > >options and check which one causes it.
+> > > > >   
+> > > > 
+> > > > It's not technically the only difference but it's the most likely 
+> > > > culprit IMHO.
+> > > 
+> > > udp fragmentation offload is definitely the culprit.
+> > 
+> > I see. Most likely guest bug - won't be the first bug around UFO.
+> > If so pls copy netdev linux-nfs and virtualization.
+> > Do you see anything in dmesg? Can try 2.6.36-rc5?
+> 
+> (for reference: first post is at:
+> http://lists.nongnu.org/archive/html/qemu-devel/2010-09/msg01685.html )
+> 
+> I can't reproduce it on 2.6.36-rc5. Do you have an idea which patch may have
 
-On Tue, 5 Oct 2010, Eric Dumazet wrote:
+This one definitely fixes it: http://patchwork.ozlabs.org/patch/55643/
 
-> Le mardi 05 octobre 2010 à 17:19 +0200, Eric Dumazet a écrit :
->> Le mardi 05 octobre 2010 à 16:53 +0200, Jesper Dangaard Brouer a écrit :
->>
->>> Its already racy, because "ethtool -S" reads out the stats immediately,
->>> and thus races with the timer.
->>>
->>> See: igb_ethtool.c
->>>  igb_get_ethtool_stats() invoke igb_update_stats(adapter);
->>>
->>
->> You would be surprised how many bugs are waiting to be found and
->> fixed ;)
->
-> I took a look at igb stats, and it appears they also are racy on 32bit
-> arches. igb uses u64 counters, with no synchronization between
-> producers(writers) and consumers(readers).
+(Herbert Xu: udp: Fix bogus UFO packet generation)
 
-Are you saying, that we need more than a simple mutex in 
-igb_update_stats()?
+The patch works with 2.6.32.24 too - it should probably be backported to
+2.6.32.x.
 
 
-> Some fixes are needed ;)
-
-The question is then if Intel wants to fix it, or let it be up to you or 
-me?
-
-Cheers,
-   Jesper Brouer
-
+-- 
+Leszek "Tygrys" Urbanski, SCSA, SCNA
+ "Unix-to-Unix Copy Program;" said PDP-1. "You will never find a more
+  wretched hive of bugs and flamers. We must be cautious." -- DECWARS
+     http://cygnus.moo.pl/ -- Cygnus High Altitude Balloon
 --
--------------------------------------------------------------------
-MSc. Master of Computer Science
-Dept. of Computer Science, University of Copenhagen
-Author of http://www.adsl-optimizer.dk
--------------------------------------------------------------------
----511516320-309378348-1286313397=:30765--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
