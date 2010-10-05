@@ -1,25 +1,17 @@
-From: "Andrias Ewat" <sandro.consoli@fastwebnet.it>
-Subject: Letter To You.
-Date: Tue, 5 Oct 2010 05:03:54 +0200
-Message-ID: <!v=0.00-UQS=bHlvcmcA-T=EM-NT=0-A=3576.4604-S=05102010050354.576890328-H=__41091.4722284817$1286248466$gmane$org@WIS4!>
-Reply-To: <andrias5mb@gmx.com>
+From: 7parks@sbcglobal.net
+Subject: (unknown)
+Date: Mon, 4 Oct 2010 20:31:00 -0700 (PDT)
+Message-ID: <312415.94355.qm__31532.2255170488$1286249868$gmane$org@web83407.mail.sp1.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset=us-ascii
+To: undisclosed recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aa011msr.fastwebnet.it ([85.18.95.71]:47630 "EHLO
-	aa011msr.fastwebnet.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932094Ab0JEDN6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Oct 2010 23:13:58 -0400
+Received: from web83407.mail.sp1.yahoo.com ([69.147.64.55]:28697 "HELO
+	web83407.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753709Ab0JEDhl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Oct 2010 23:37:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Attn,
 
-               I am  Andrias Ewat,a trained  external auditor working for MayBank Malaysia.I am contacting you to assist in regrads of the money left behind by one of our investor who shares the same last name as yours before it is confiscated or declared unserviceable by Maybank where this deposit valued at US$10 Million is lodged
-
-Best regards,
-Andrias Ewat
-
+Your Email ID has been awarded 1,000,000.00 Pounds in the British Promo send your:Names...Address...Tel...
