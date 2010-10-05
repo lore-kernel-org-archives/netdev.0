@@ -1,91 +1,365 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] bonding: fix WARN_ON when writing to bond_master sysfs
- file (v2)
-Date: Tue, 5 Oct 2010 09:39:21 -0400
-Message-ID: <20101005133921.GA18071@hmsreliant.think-freely.org>
-References: <20101004202112.GA27897@hmsreliant.think-freely.org>
+From: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+Subject: Re: [PATCH] SIW: iWARP Protocol headers
+Date: Tue, 05 Oct 2010 08:53:30 -0500
+Message-ID: <4CAB2DDA.1020207@opengridcomputing.com>
+References: <1286261630-5085-1-git-send-email-bmt@zurich.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: bonding-devel@lists.sourceforge.net, fubar@us.ibm.com,
-	davem@davemloft.net, shemminger@vyatta.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:40311 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752937Ab0JENj3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Oct 2010 09:39:29 -0400
-Content-Disposition: inline
-In-Reply-To: <20101004202112.GA27897@hmsreliant.think-freely.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Bernard Metzler <bmt-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1286261630-5085-1-git-send-email-bmt-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Ok, V2 of this patch, taking Stephens notes into account.  Switched to using
-__dev_get_by_name to avoid reference count inc/dec.
+On 10/05/2010 01:53 AM, Bernard Metzler wrote:
+> ---
+>   drivers/infiniband/hw/siw/iwarp.h |  324 +++++++++++++++++++++++++++++++++++++
+>   1 files changed, 324 insertions(+), 0 deletions(-)
+>   create mode 100644 drivers/infiniband/hw/siw/iwarp.h
+>
+> diff --git a/drivers/infiniband/hw/siw/iwarp.h b/drivers/infiniband/hw/siw/iwarp.h
+> new file mode 100644
+> index 0000000..762c1d3
+> --- /dev/null
+> +++ b/drivers/infiniband/hw/siw/iwarp.h
+> @@ -0,0 +1,324 @@
+> +/*
+> + * Software iWARP device driver for Linux
+> + *
+> + * Authors: Bernard Metzler<bmt-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>
+> + *          Fredy Neeser<nfd-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>
+> + *
+> + * Copyright (c) 2008-2010, IBM Corporation
+> + *
+> + * This software is available to you under a choice of one of two
+> + * licenses.  You may choose to be licensed under the terms of the GNU
+> + * General Public License (GPL) Version 2, available from the file
+> + * COPYING in the main directory of this source tree, or the
+> + * BSD license below:
+> + *
+> + *   Redistribution and use in source and binary forms, with or
+> + *   without modification, are permitted provided that the following
+> + *   conditions are met:
+> + *
+> + *   - Redistributions of source code must retain the above copyright notice,
+> + *     this list of conditions and the following disclaimer.
+> + *
+> + *   - Redistributions in binary form must reproduce the above copyright
+> + *     notice, this list of conditions and the following disclaimer in the
+> + *     documentation and/or other materials provided with the distribution.
+> + *
+> + *   - Neither the name of IBM nor the names of its contributors may be
+> + *     used to endorse or promote products derived from this software without
+> + *     specific prior written permission.
+> + *
+> + * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+> + * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+> + * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+> + * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+> + * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+> + * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+> + * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+> + * SOFTWARE.
+> + */
+> +
+> +#ifndef _IWARP_H
+> +#define _IWARP_H
+> +
+> +#include<rdma/rdma_user_cm.h>	/* RDMA_MAX_PRIVATE_DATA */
+> +#include<linux/types.h>
+> +#include<asm/byteorder.h>
+> +
+> +
+> +#define RDMAP_VERSION		1
+> +#define DDP_VERSION		1
+> +#define MPA_REVISION_1		1
+> +#define MPA_MAX_PRIVDATA	RDMA_MAX_PRIVATE_DATA
+> +#define MPA_KEY_REQ		"MPA ID Req Frame"
+> +#define MPA_KEY_REP		"MPA ID Rep Frame"
+> +
+> +struct mpa_rr_params {
+> +#if defined(__LITTLE_ENDIAN_BITFIELD)
+> +	__u16	res:5,
+> +		r:1,
+> +		c:1,
+> +		m:1,
+> +		rev:8;
+> +#elif defined(__BIG_ENDIAN_BITFIELD)
+> +	__u16	m:1,
+> +		c:1,
+> +		r:1,
+> +		res:5,
+> +		rev:8;
+> +#else
+> +#error "Adjust your<asm/byteorder.h>  defines"
+> +#endif
+> +	__u16	pd_len;
+> +};
+> +
+> +/*
+> + * MPA request/reply header
+> + */
+> +struct mpa_rr {
+> +	__u8	key[16];
+> +	struct mpa_rr_params params;
+> +};
+> +
+> +/*
+> + * Don't change the layout/size of this struct!
+> + */
+> +struct mpa_marker {
+> +	__u16	rsvd;
+> +	__u16	fpdu_hmd; /* FPDU header-marker distance (= MPA's FPDUPTR) */
+> +};
+> +
+> +#define MPA_MARKER_SPACING	512
+> +#define MPA_HDR_SIZE		2
+> +
+> +/*
+> + * MPA marker size:
+> + * - Standards-compliant marker insertion: Use sizeof(struct mpa_marker)
+> + * - "Invisible markers" for testing sender's marker insertion
+> + *   without affecting receiver: Use 0
+> + */
+> +#define MPA_MARKER_SIZE		sizeof(struct mpa_marker)
+> +
+> +
+> +/*
+> + * maximum MPA trailer
+> + */
+> +struct mpa_trailer {
+> +	char	pad[4];
+> +	__u32	crc;
+> +};
+> +
+> +#define MPA_CRC_SIZE	4
+> +
+> +
+> +/*
+> + * Common portion of iWARP headers (MPA, DDP, RDMAP)
+> + * for any FPDU
+> + */
+> +struct iwarp_ctrl {
+> +	__u16	mpa_len;
+> +#if defined(__LITTLE_ENDIAN_BITFIELD)
+> +	__u16	dv:2,		/* DDP Version */
+> +		rsvd:4,		/* DDP reserved, MBZ */
+> +		l:1,		/* DDP Last flag */
+> +		t:1,		/* DDP Tagged flag */
+> +		opcode:4,	/* RDMAP opcode */
+> +		rsv:2,		/* RDMAP reserved, MBZ */
+> +		rv:2;		/* RDMAP Version, 01 for IETF, 00 for RDMAC */
+> +#elif defined(__BIG_ENDIAN_BITFIELD)
+> +	__u16	t:1,		/* DDP Tagged flag */
+> +		l:1,		/* DDP Last flag */
+> +		rsvd:4,		/* DDP reserved, MBZ */
+> +		dv:2,		/* DDP Version */
+> +		rv:2,		/* RDMAP Version, 01 for IETF, 00 for RDMAC */
+> +		rsv:2,		/* RDMAP reserved, MBZ */
+> +		opcode:4;	/* RDMAP opcode */
+> +#else
+> +#error "Adjust your<asm/byteorder.h>  defines"
+> +#endif
+> +};
+> +
+> +
+> +struct rdmap_terminate_ctrl {
+> +#if defined(__LITTLE_ENDIAN_BITFIELD)
+> +	__u32	etype:4,
+> +		layer:4,
+> +		ecode:8,
+> +		rsvd1:5,
+> +		r:1,
+> +		d:1,
+> +		m:1,
+> +		rsvd2:8;
+> +#elif defined(__BIG_ENDIAN_BITFIELD)
+> +	__u32	layer:4,
+> +		etype:4,
+> +		ecode:8,
+> +		m:1,
+> +		d:1,
+> +		r:1,
+> +		rsvd1:5,
+> +		rsvd2:8;
+> +#else
+> +#error "Adjust your<asm/byteorder.h>  defines"
+> +#endif
+> +};
+> +
+> +
+> +struct iwarp_rdma_write {
+> +	struct iwarp_ctrl	ctrl;
+> +	__u32			sink_stag;
+> +	__u64			sink_to;
+> +} __attribute__((__packed__));
+> +
+> +struct iwarp_rdma_rreq {
+> +	struct iwarp_ctrl	ctrl;
+> +	__u32			rsvd;
+> +	__u32			ddp_qn;
+> +	__u32			ddp_msn;
+> +	__u32			ddp_mo;
+> +	__u32			sink_stag;
+> +	__u64			sink_to;
+> +	__u32			read_size;
+> +	__u32			source_stag;
+> +	__u64			source_to;
+> +} __attribute__((__packed__));
+> +
+> +struct iwarp_rdma_rresp {
+> +	struct iwarp_ctrl	ctrl;
+> +	__u32			sink_stag;
+> +	__u64			sink_to;
+> +} __attribute__((__packed__));
+> +
+> +struct iwarp_send {
+> +	struct iwarp_ctrl	ctrl;
+> +	__u32			rsvd;
+> +	__u32			ddp_qn;
+> +	__u32			ddp_msn;
+> +	__u32			ddp_mo;
+> +} __attribute__((__packed__));
+> +
+> +struct iwarp_send_inv {
+> +	struct iwarp_ctrl	ctrl;
+> +	__u32			inval_stag;
+> +	__u32			ddp_qn;
+> +	__u32			ddp_msn;
+> +	__u32			ddp_mo;
+> +} __attribute__((__packed__));
+> +
+> +struct iwarp_terminate {
+> +	struct iwarp_ctrl	ctrl;
+> +	__u32				rsvd;
+> +	__u32				ddp_qn;
+> +	__u32				ddp_msn;
+> +	__u32				ddp_mo;
+> +	struct rdmap_terminate_ctrl	term_ctrl;
+> +} __attribute__((__packed__));
+> +
+> +
+> +/*
+> + * Common portion of iWARP headers (MPA, DDP, RDMAP)
+> + * for an FPDU carrying an untagged DDP segment
+> + */
+> +struct iwarp_ctrl_untagged {
+> +	struct iwarp_ctrl	ctrl;
+> +	__u32			rsvd;
+> +	__u32			ddp_qn;
+> +	__u32			ddp_msn;
+> +	__u32			ddp_mo;
+> +} __attribute__((__packed__));
+> +
+> +/*
+> + * Common portion of iWARP headers (MPA, DDP, RDMAP)
+> + * for an FPDU carrying a tagged DDP segment
+> + */
+> +struct iwarp_ctrl_tagged {
+> +	struct iwarp_ctrl	ctrl;
+> +	__u32			ddp_stag;
+> +	__u64			ddp_to;
+> +} __attribute__((__packed__));
+> +
+>    
+
+All of the above header structures should use __beXX types since the 
+fields are all in Network Byte Order.
+
+Also, did you run sparse on the patches (Documentation/sparse.txt)?
 
 
-Fix a WARN_ON failure in bond_masters sysfs file
+> +union iwarp_hdrs {
+> +	struct iwarp_ctrl		ctrl;
+> +	struct iwarp_ctrl_untagged	c_untagged;
+> +	struct iwarp_ctrl_tagged	c_tagged;
+> +	struct iwarp_rdma_write		rwrite;
+> +	struct iwarp_rdma_rreq		rreq;
+> +	struct iwarp_rdma_rresp		rresp;
+> +	struct iwarp_terminate		terminate;
+> +	struct iwarp_send		send;
+> +	struct iwarp_send_inv		send_inv;
+> +};
+> +
+> +
+> +#define MPA_MIN_FRAG ((sizeof(union iwarp_hdrs) + MPA_CRC_SIZE))
+> +
+> +enum ddp_etype {
+> +	DDP_ETYPE_CATASTROPHIC	= 0x0,
+> +	DDP_ETYPE_TAGGED_BUF	= 0x1,
+> +	DDP_ETYPE_UNTAGGED_BUF	= 0x2,
+> +	DDP_ETYPE_RSVD		= 0x3
+> +};
+> +
+> +enum ddp_ecode {
+> +	DDP_ECODE_CATASTROPHIC		= 0x00,
+> +	/* Tagged Buffer Errors */
+> +	DDP_ECODE_T_INVALID_STAG	= 0x00,
+> +	DDP_ECODE_T_BASE_BOUNDS		= 0x01,
+> +	DDP_ECODE_T_STAG_NOT_ASSOC	= 0x02,
+> +	DDP_ECODE_T_TO_WRAP		= 0x03,
+> +	DDP_ECODE_T_DDP_VERSION		= 0x04,
+> +	/* Untagged Buffer Errors */
+> +	DDP_ECODE_UT_INVALID_QN		= 0x01,
+> +	DDP_ECODE_UT_INVALID_MSN_NOBUF	= 0x02,
+> +	DDP_ECODE_UT_INVALID_MSN_RANGE	= 0x03,
+> +	DDP_ECODE_UT_INVALID_MO		= 0x04,
+> +	DDP_ECODE_UT_MSG_TOOLONG	= 0x05,
+> +	DDP_ECODE_UT_DDP_VERSION	= 0x06
+> +};
+> +
+> +
+> +enum rdmap_untagged_qn {
+> +	RDMAP_UNTAGGED_QN_SEND		= 0,
+> +	RDMAP_UNTAGGED_QN_RDMA_READ	= 1,
+> +	RDMAP_UNTAGGED_QN_TERMINATE	= 2,
+> +	RDMAP_UNTAGGED_QN_COUNT		= 3
+> +};
+> +
+> +enum rdmap_etype {
+> +	RDMAP_ETYPE_CATASTROPHIC	= 0x0,
+> +	RDMAP_ETYPE_REMOTE_PROTECTION	= 0x1,
+> +	RDMAP_ETYPE_REMOTE_OPERATION	= 0x2
+> +};
+> +
+> +enum rdmap_ecode {
+> +	RDMAP_ECODE_INVALID_STAG	= 0x00,
+> +	RDMAP_ECODE_BASE_BOUNDS		= 0x01,
+> +	RDMAP_ECODE_ACCESS_RIGHTS	= 0x02,
+> +	RDMAP_ECODE_STAG_NOT_ASSOC	= 0x03,
+> +	RDMAP_ECODE_TO_WRAP		= 0x04,
+> +	RDMAP_ECODE_RDMAP_VERSION	= 0x05,
+> +	RDMAP_ECODE_UNEXPECTED_OPCODE	= 0x06,
+> +	RDMAP_ECODE_CATASTROPHIC_STREAM	= 0x07,
+> +	RDMAP_ECODE_CATASTROPHIC_GLOBAL	= 0x08,
+> +	RDMAP_ECODE_STAG_NOT_INVALIDATE	= 0x09,
+> +	RDMAP_ECODE_UNSPECIFIED		= 0xff
+> +};
+> +
+> +enum rdmap_elayer {
+> +	RDMAP_ERROR_LAYER_RDMA	= 0x00,
+> +	RDMAP_ERROR_LAYER_DDP	= 0x01,
+> +	RDMAP_ERROR_LAYER_LLP	= 0x02	/* eg., MPA */
+> +};
+> +
+> +enum rdma_opcode {
+> +	RDMAP_RDMA_WRITE	= 0x0,
+> +	RDMAP_RDMA_READ_REQ	= 0x1,
+> +	RDMAP_RDMA_READ_RESP	= 0x2,
+> +	RDMAP_SEND		= 0x3,
+> +	RDMAP_SEND_INVAL	= 0x4,
+> +	RDMAP_SEND_SE		= 0x5,
+> +	RDMAP_SEND_SE_INVAL	= 0x6,
+> +	RDMAP_TERMINATE		= 0x7,
+> +	RDMAP_NOT_SUPPORTED	= RDMAP_TERMINATE + 1
+> +};
+> +
+> +#endif
+>    
 
-Got a report of this warning recently
-
-bonding: bond0 is being created...
-------------[ cut here ]------------
-WARNING: at fs/proc/generic.c:590 proc_register+0x14d/0x185()
-Hardware name: ProLiant BL465c G1
-proc_dir_entry 'bonding/bond0' already registered
-Modules linked in: bonding ipv6 tg3 bnx2 shpchp amd64_edac_mod edac_core
-ipmi_si
-ipmi_msghandler serio_raw i2c_piix4 k8temp edac_mce_amd hpwdt microcode hpsa
-cc
-iss radeon ttm drm_kms_helper drm i2c_algo_bit i2c_core [last unloaded:
-scsi_wai
-t_scan]
-Pid: 935, comm: ifup-eth Not tainted 2.6.33.5-124.fc13.x86_64 #1
-Call Trace:
-[<ffffffff8104b54c>] warn_slowpath_common+0x77/0x8f
-[<ffffffff8104b5b1>] warn_slowpath_fmt+0x3c/0x3e
-[<ffffffff8114bf0b>] proc_register+0x14d/0x185
-[<ffffffff8114c20c>] proc_create_data+0x87/0xa1
-[<ffffffffa0211e9b>] bond_create_proc_entry+0x55/0x95 [bonding]
-[<ffffffffa0215e5d>] bond_init+0x95/0xd0 [bonding]
-[<ffffffff8138cd97>] register_netdevice+0xdd/0x29e
-[<ffffffffa021240b>] bond_create+0x8e/0xb8 [bonding]
-[<ffffffffa021c4be>] bonding_store_bonds+0xb3/0x1c1 [bonding]
-[<ffffffff812aec85>] class_attr_store+0x27/0x29
-[<ffffffff8115423d>] sysfs_write_file+0x10f/0x14b
-[<ffffffff81101acf>] vfs_write+0xa9/0x106
-[<ffffffff81101be2>] sys_write+0x45/0x69
-[<ffffffff81009b02>] system_call_fastpath+0x16/0x1b
----[ end trace a677c3f7f8b16b1e ]---
-bonding: Bond creation failed.
-
-It happens because a user space writer to bond_master can try to register and
-already existing bond interface name.  Fix it by teaching bond_create to check
-for the existance of devices with that name first in cases where a non-NULL name
-parameter has been passed in
-
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-
-
- bond_main.c |    9 +++++++++
- 1 file changed, 9 insertions(+)
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index fb70c3e..985cbc1 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -5168,6 +5168,15 @@ int bond_create(struct net *net, const char *name)
- 		res = dev_alloc_name(bond_dev, "bond%d");
- 		if (res < 0)
- 			goto out;
-+	} else {
-+		/*
-+		 * If we're given a name to register
-+		 * we need to ensure that its not already
-+		 * registered
-+		 */
-+		res = -EEXIST;
-+		if (__dev_get_by_name(net, name) != NULL)
-+			goto out;
- 	}
- 
- 	res = register_netdevice(bond_dev);
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
