@@ -1,51 +1,54 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [patch] isdn: strcpy() => strlcpy()
-Date: Tue, 5 Oct 2010 17:43:06 +0100
-Message-ID: <20101005164306.GP19804@ZenIV.linux.org.uk>
-References: <20101005163448.GH5692@bicker>
+From: "Gustavo F. Padovan" <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
+Subject: pull-request: bluetooth-2.6 2010-10-05
+Date: Tue, 5 Oct 2010 14:13:49 -0300
+Message-ID: <20101005171349.GA16520@vigoh>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Dan Carpenter <error27@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:49966 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754842Ab0JEQnK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Oct 2010 12:43:10 -0400
+Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20101005163448.GH5692@bicker>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 05, 2010 at 06:34:48PM +0200, Dan Carpenter wrote:
-> setup.phone and setup.eazmsn are 32 character buffers.
-> rcvmsg.msg_data.byte_array is a 48 character buffer.
-> sc_adapter[card]->channel[rcvmsg.phy_link_no - 1].dn is 50 chars.
-> 
-> I changed the strcpy() so strlcpy() because that's safest.
+Hi Dave,
 
-ITYM "I papered it over, so potentially broken behaviour is harder to
-find now"...
+In this patch set we have two fixes for regressions in L2CAP due to ERTM code
+we added in L2CAP for 2.6.36, a bugfix in the L2CAP Streaming Mode that was
+making the kernel crash. And a fix for a deadlock issue between the sk_sndbuf
+and the backlog queue in ERTM. The rest are also needed bug fixes.
 
-> -				strcpy(setup.phone,&(rcvmsg.msg_data.byte_array[4]));
-> -				strcpy(setup.eazmsn,
-> -					sc_adapter[card]->channel[rcvmsg.phy_link_no-1].dn);
-> +				strlcpy(setup.phone, &(rcvmsg.msg_data.byte_array[4]),
-> +					sizeof(setup.phone));
+For -next pull request things go back to normal and patches go through John.
 
-OK, so what should be done if the damn array contents _is_ longer than that?
+Thanks!
 
-> +				strlcpy(setup.eazmsn,
-> +					sc_adapter[card]->channel[rcvmsg.phy_link_no - 1].dn,
-> +					sizeof(setup.eazmsn));
 
-Ditto.
+The following changes since commit 899611ee7d373e5eeda08e9a8632684e1ebbbf00:
 
-> -			strcpy(sc_adapter[card]->channel[rcvmsg.phy_link_no-1].dn,rcvmsg.msg_data.byte_array);
-> +			strlcpy(sc_adapter[card]->channel[rcvmsg.phy_link_no - 1].dn,
-> +				rcvmsg.msg_data.byte_array,
-> +				sizeof(rcvmsg.msg_data.byte_array));
+  Linux 2.6.36-rc6 (2010-09-28 18:01:22 -0700)
 
-Huh?  Is it or is it not NUL-terminated?  If it is, then change is pure
-cargo-culting; if it is not, you are asking for nasal daemons to fly.
+are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/padovan/bluetooth-2.6.git master
+
+Andrei Emeltchenko (1):
+      Bluetooth: fix MTU L2CAP configuration parameter
+
+Gustavo F. Padovan (5):
+      Bluetooth: Simplify L2CAP Streaming mode sending
+      Bluetooth: Fix inconsistent lock state with RFCOMM
+      Revert "Bluetooth: Don't accept ConfigReq if we aren't in the BT_CONFIG state"
+      Bluetooth: Fix deadlock in the ERTM logic
+      Bluetooth: Disallow to change L2CAP_OPTIONS values when connected
+
+Mat Martineau (1):
+      Bluetooth: Only enable L2CAP FCS for ERTM or streaming
+
+ include/net/bluetooth/bluetooth.h |   18 +++++++++++
+ net/bluetooth/l2cap.c             |   62 +++++++++++++++++-------------------
+ net/bluetooth/rfcomm/sock.c       |    4 ++
+ 3 files changed, 51 insertions(+), 33 deletions(-)
+
+-- 
+Gustavo F. Padovan
+ProFUSION embedded systems - http://profusion.mobi
