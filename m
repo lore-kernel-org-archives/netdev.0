@@ -1,111 +1,236 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [Bonding-devel] [PATCH] bonding: fix WARN_ON when writing to
- bond_master sysfs file
-Date: Tue, 5 Oct 2010 09:57:13 +0900
-Message-ID: <20101005095713.624ca320@s6510>
-References: <20101004202112.GA27897@hmsreliant.think-freely.org>
+Subject: [PATCH net-next] qlcnic: remove dead code
+Date: Tue, 5 Oct 2010 10:44:30 +0900
+Message-ID: <20101005104430.554c03e6@s6510>
+References: <1286202016-18026-1-git-send-email-amit.salecha@qlogic.com>
+	<1286202016-18026-9-git-send-email-amit.salecha@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fubar@us.ibm.com,
-	bonding-devel@lists.sourceforge.net, davem@davemloft.net
-To: Neil Horman <nhorman@tuxdriver.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	ameen.rahman@qlogic.com, anirban.chakraborty@qlogic.com,
+	Sritej Velaga <sritej.velaga@qlogic.com>
+To: Amit Kumar Salecha <amit.salecha@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:40700 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:35698 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751922Ab0JEA5d (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Oct 2010 20:57:33 -0400
-In-Reply-To: <20101004202112.GA27897@hmsreliant.think-freely.org>
+	id S1752556Ab0JEBpQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Oct 2010 21:45:16 -0400
+In-Reply-To: <1286202016-18026-9-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 4 Oct 2010 16:21:12 -0400
-Neil Horman <nhorman@tuxdriver.com> wrote:
+This driver has several pieces of dead code (found by running
+make namespacecheck). This patch removes them.
 
-> Fix a WARN_ON failure in bond_masters sysfs file
-> 
-> Got a report of this warning recently
-> 
-> bonding: bond0 is being created...
-> ------------[ cut here ]------------
-> WARNING: at fs/proc/generic.c:590 proc_register+0x14d/0x185()
-> Hardware name: ProLiant BL465c G1
-> proc_dir_entry 'bonding/bond0' already registered
-> Modules linked in: bonding ipv6 tg3 bnx2 shpchp amd64_edac_mod edac_core
-> ipmi_si
-> ipmi_msghandler serio_raw i2c_piix4 k8temp edac_mce_amd hpwdt microcode hpsa
-> cc
-> iss radeon ttm drm_kms_helper drm i2c_algo_bit i2c_core [last unloaded:
-> scsi_wai
-> t_scan]
-> Pid: 935, comm: ifup-eth Not tainted 2.6.33.5-124.fc13.x86_64 #1
-> Call Trace:
-> [<ffffffff8104b54c>] warn_slowpath_common+0x77/0x8f
-> [<ffffffff8104b5b1>] warn_slowpath_fmt+0x3c/0x3e
-> [<ffffffff8114bf0b>] proc_register+0x14d/0x185
-> [<ffffffff8114c20c>] proc_create_data+0x87/0xa1
-> [<ffffffffa0211e9b>] bond_create_proc_entry+0x55/0x95 [bonding]
-> [<ffffffffa0215e5d>] bond_init+0x95/0xd0 [bonding]
-> [<ffffffff8138cd97>] register_netdevice+0xdd/0x29e
-> [<ffffffffa021240b>] bond_create+0x8e/0xb8 [bonding]
-> [<ffffffffa021c4be>] bonding_store_bonds+0xb3/0x1c1 [bonding]
-> [<ffffffff812aec85>] class_attr_store+0x27/0x29
-> [<ffffffff8115423d>] sysfs_write_file+0x10f/0x14b
-> [<ffffffff81101acf>] vfs_write+0xa9/0x106
-> [<ffffffff81101be2>] sys_write+0x45/0x69
-> [<ffffffff81009b02>] system_call_fastpath+0x16/0x1b
-> ---[ end trace a677c3f7f8b16b1e ]---
-> bonding: Bond creation failed.
-> 
-> It happens because a user space writer to bond_master can try to register and
-> already existing bond interface name.  Fix it by teaching bond_create to check
-> for the existance of devices with that name first in cases where a non-NULL name
-> parameter has been passed in
-> 
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> 
-> bond_main.c |   16 +++++++++++++++-
-> 1 file changed, 15 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index fb70c3e..10e4ffe 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -5148,7 +5148,7 @@ static struct rtnl_link_ops bond_link_ops __read_mostly = {
->   */
->  int bond_create(struct net *net, const char *name)
->  {
-> -	struct net_device *bond_dev;
-> +	struct net_device *bond_dev, *check_dev;
->  	int res;
->  
->  	rtnl_lock();
-> @@ -5168,6 +5168,20 @@ int bond_create(struct net *net, const char *name)
->  		res = dev_alloc_name(bond_dev, "bond%d");
->  		if (res < 0)
->  			goto out;
-> +	} else {
-> +		/*
-> +		 * If we're given a name to register
-> +		 * we need to ensure that its not already
-> +		 * registered
-> +		 */
-> +		check_dev = dev_get_by_name(net, name);
-> +
-> +		res = (check_dev) ? 0 : -EEXIST;
-> +
-> +		dev_put(check_dev);
-> +
-> +		if (res)
-> +			goto out;
->  	}
->  
->  	res = register_netdevice(bond_dev);
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+---
+Applies after Amit's earlier patches.
 
-Why is this necessary?
-register_netdevice does already check for duplicate name so please
-use it's return value instead
-
-If that doesn't work then use __dev_get_by_name to avoid
-ref count (ie dev_put).
-
+--- a/drivers/net/qlcnic/qlcnic.h	2010-10-05 10:37:07.442332958 +0900
++++ b/drivers/net/qlcnic/qlcnic.h	2010-10-05 10:38:04.459818979 +0900
+@@ -1323,19 +1323,12 @@ netdev_tx_t qlcnic_xmit_frame(struct sk_
+ void qlcnic_process_rcv_ring_diag(struct qlcnic_host_sds_ring *sds_ring);
+ 
+ /* Management functions */
+-int qlcnic_set_mac_address(struct qlcnic_adapter *, u8*);
+ int qlcnic_get_mac_address(struct qlcnic_adapter *, u8*);
+ int qlcnic_get_nic_info(struct qlcnic_adapter *, struct qlcnic_info *, u8);
+ int qlcnic_set_nic_info(struct qlcnic_adapter *, struct qlcnic_info *);
+ int qlcnic_get_pci_info(struct qlcnic_adapter *, struct qlcnic_pci_info*);
+-int qlcnic_reset_partition(struct qlcnic_adapter *, u8);
+ 
+ /*  eSwitch management functions */
+-int qlcnic_get_eswitch_capabilities(struct qlcnic_adapter *, u8,
+-				struct qlcnic_eswitch *);
+-int qlcnic_get_eswitch_status(struct qlcnic_adapter *, u8,
+-				struct qlcnic_eswitch *);
+-int qlcnic_toggle_eswitch(struct qlcnic_adapter *, u8, u8);
+ int qlcnic_config_switch_port(struct qlcnic_adapter *,
+ 				struct qlcnic_esw_func_cfg *);
+ int qlcnic_get_eswitch_port_config(struct qlcnic_adapter *,
+--- a/drivers/net/qlcnic/qlcnic_ctx.c	2010-10-05 10:37:00.492317319 +0900
++++ b/drivers/net/qlcnic/qlcnic_ctx.c	2010-10-05 10:38:04.459818979 +0900
+@@ -556,32 +556,6 @@ void qlcnic_free_hw_resources(struct qlc
+ 	}
+ }
+ 
+-/* Set MAC address of a NIC partition */
+-int qlcnic_set_mac_address(struct qlcnic_adapter *adapter, u8* mac)
+-{
+-	int err = 0;
+-	u32 arg1, arg2, arg3;
+-
+-	arg1 = adapter->ahw.pci_func | BIT_9;
+-	arg2 = mac[0] | (mac[1] << 8) | (mac[2] << 16) | (mac[3] << 24);
+-	arg3 = mac[4] | (mac[5] << 16);
+-
+-	err = qlcnic_issue_cmd(adapter,
+-			adapter->ahw.pci_func,
+-			adapter->fw_hal_version,
+-			arg1,
+-			arg2,
+-			arg3,
+-			QLCNIC_CDRP_CMD_MAC_ADDRESS);
+-
+-	if (err != QLCNIC_RCODE_SUCCESS) {
+-		dev_err(&adapter->pdev->dev,
+-			"Failed to set mac address%d\n", err);
+-		err = -EIO;
+-	}
+-
+-	return err;
+-}
+ 
+ /* Get MAC address of a NIC partition */
+ int qlcnic_get_mac_address(struct qlcnic_adapter *adapter, u8 *mac)
+@@ -764,149 +738,6 @@ int qlcnic_get_pci_info(struct qlcnic_ad
+ 	return err;
+ }
+ 
+-/* Reset a NIC partition */
+-
+-int qlcnic_reset_partition(struct qlcnic_adapter *adapter, u8 func_no)
+-{
+-	int err = -EIO;
+-
+-	if (adapter->op_mode != QLCNIC_MGMT_FUNC)
+-		return err;
+-
+-	err = qlcnic_issue_cmd(adapter,
+-			adapter->ahw.pci_func,
+-			adapter->fw_hal_version,
+-			func_no,
+-			0,
+-			0,
+-			QLCNIC_CDRP_CMD_RESET_NPAR);
+-
+-	if (err != QLCNIC_RCODE_SUCCESS) {
+-		dev_err(&adapter->pdev->dev,
+-			"Failed to issue reset partition%d\n", err);
+-		err = -EIO;
+-	}
+-
+-	return err;
+-}
+-
+-/* Get eSwitch Capabilities */
+-int qlcnic_get_eswitch_capabilities(struct qlcnic_adapter *adapter, u8 port,
+-					struct qlcnic_eswitch *eswitch)
+-{
+-	int err = -EIO;
+-	u32 arg1, arg2;
+-
+-	if (adapter->op_mode == QLCNIC_NON_PRIV_FUNC)
+-		return err;
+-
+-	err = qlcnic_issue_cmd(adapter,
+-			adapter->ahw.pci_func,
+-			adapter->fw_hal_version,
+-			port,
+-			0,
+-			0,
+-			QLCNIC_CDRP_CMD_GET_ESWITCH_CAPABILITY);
+-
+-	if (err == QLCNIC_RCODE_SUCCESS) {
+-		arg1 = QLCRD32(adapter, QLCNIC_ARG1_CRB_OFFSET);
+-		arg2 = QLCRD32(adapter, QLCNIC_ARG2_CRB_OFFSET);
+-
+-		eswitch->port = arg1 & 0xf;
+-		eswitch->max_ucast_filters = LSW(arg2);
+-		eswitch->max_active_vlans = MSW(arg2) & 0xfff;
+-		if (arg1 & BIT_6)
+-			eswitch->flags |= QLCNIC_SWITCH_VLAN_FILTERING;
+-		if (arg1 & BIT_7)
+-			eswitch->flags |= QLCNIC_SWITCH_PROMISC_MODE;
+-		if (arg1 & BIT_8)
+-			eswitch->flags |= QLCNIC_SWITCH_PORT_MIRRORING;
+-	} else {
+-		dev_err(&adapter->pdev->dev,
+-			"Failed to get eswitch capabilities%d\n", err);
+-	}
+-
+-	return err;
+-}
+-
+-/* Get current status of eswitch */
+-int qlcnic_get_eswitch_status(struct qlcnic_adapter *adapter, u8 port,
+-				struct qlcnic_eswitch *eswitch)
+-{
+-	int err = -EIO;
+-	u32 arg1, arg2;
+-
+-	if (adapter->op_mode != QLCNIC_MGMT_FUNC)
+-		return err;
+-
+-	err = qlcnic_issue_cmd(adapter,
+-			adapter->ahw.pci_func,
+-			adapter->fw_hal_version,
+-			port,
+-			0,
+-			0,
+-			QLCNIC_CDRP_CMD_GET_ESWITCH_STATUS);
+-
+-	if (err == QLCNIC_RCODE_SUCCESS) {
+-		arg1 = QLCRD32(adapter, QLCNIC_ARG1_CRB_OFFSET);
+-		arg2 = QLCRD32(adapter, QLCNIC_ARG2_CRB_OFFSET);
+-
+-		eswitch->port = arg1 & 0xf;
+-		eswitch->active_vports = LSB(arg2);
+-		eswitch->active_ucast_filters = MSB(arg2);
+-		eswitch->active_vlans = LSB(MSW(arg2));
+-		if (arg1 & BIT_6)
+-			eswitch->flags |= QLCNIC_SWITCH_VLAN_FILTERING;
+-		if (arg1 & BIT_8)
+-			eswitch->flags |= QLCNIC_SWITCH_PORT_MIRRORING;
+-
+-	} else {
+-		dev_err(&adapter->pdev->dev,
+-			"Failed to get eswitch status%d\n", err);
+-	}
+-
+-	return err;
+-}
+-
+-/* Enable/Disable eSwitch */
+-int qlcnic_toggle_eswitch(struct qlcnic_adapter *adapter, u8 id, u8 enable)
+-{
+-	int err = -EIO;
+-	u32 arg1, arg2;
+-	struct qlcnic_eswitch *eswitch;
+-
+-	if (adapter->op_mode != QLCNIC_MGMT_FUNC)
+-		return err;
+-
+-	eswitch = &adapter->eswitch[id];
+-	if (!eswitch)
+-		return err;
+-
+-	arg1 = eswitch->port | (enable ? BIT_4 : 0);
+-	arg2 = eswitch->active_vports | (eswitch->max_ucast_filters << 8) |
+-		(eswitch->max_active_vlans << 16);
+-	err = qlcnic_issue_cmd(adapter,
+-			adapter->ahw.pci_func,
+-			adapter->fw_hal_version,
+-			arg1,
+-			arg2,
+-			0,
+-			QLCNIC_CDRP_CMD_TOGGLE_ESWITCH);
+-
+-	if (err != QLCNIC_RCODE_SUCCESS) {
+-		dev_err(&adapter->pdev->dev,
+-			"Failed to enable eswitch%d\n", eswitch->port);
+-		eswitch->flags &= ~QLCNIC_SWITCH_ENABLE;
+-		err = -EIO;
+-	} else {
+-		eswitch->flags |= QLCNIC_SWITCH_ENABLE;
+-		dev_info(&adapter->pdev->dev,
+-			"Enabled eSwitch for port %d\n", eswitch->port);
+-	}
+-
+-	return err;
+-}
+-
+ /* Configure eSwitch for port mirroring */
+ int qlcnic_config_port_mirroring(struct qlcnic_adapter *adapter, u8 id,
+ 				u8 enable_mirroring, u8 pci_func)
