@@ -1,55 +1,50 @@
-From: Nicola Padovano <nicola.padovano@gmail.com>
-Subject: Re: checkentry function
-Date: Tue, 5 Oct 2010 08:11:09 +0200
-Message-ID: <AANLkTinTd5FjJ-6WeAGwintAS9aHdFYnS7--TLMSDEkn@mail.gmail.com>
-References: <AANLkTimeoRTBMY0OH5sDtVEfqFCx9F3go1qGKy5cJpWS@mail.gmail.com>
- <20101005144615.0f84d53a@s6510> <AANLkTikDi3ziyH9eJbEhjOBwjFVHrtsMzYEJes4=eiJF@mail.gmail.com>
- <20101005150147.62226282@s6510>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH net-next] fib: fib_rules_cleanup can be static
+Date: Tue, 5 Oct 2010 15:14:17 +0900
+Message-ID: <20101005151417.57eae0b0@s6510>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netfilter-devel <netfilter-devel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20101005150147.62226282@s6510>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:47697 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754548Ab0JEGOW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Oct 2010 02:14:22 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->
-> Negative (ie < 0) is used for error numbers. This is confusing
-> because in older kernels the checkentry returned a bool which
-> is defined as 1 okay and 0 for error.
->
-ok i see.
+fib_rules_cleanup_ups is only defined and used in one place.
 
-and why i have this output?
-DEBUG: the tablename (not FILTER) is: =EF=BF=BD%H =EF=BF=BD
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-I want block my target if the table name is NOT filter...so i write:
-
-[CODE]
-=2E..
- if (strcmp(tablename, "filter"))   {
-   printk(KERN_INFO "DEBUG: the tablename (not FILTER) is %s\n",tablena=
-me);
-   return ERROR_VALUE; // < 0
+--- a/include/net/fib_rules.h	2010-10-02 14:31:52.528341728 +0900
++++ b/include/net/fib_rules.h	2010-10-02 14:31:59.890839969 +0900
+@@ -106,7 +106,6 @@ static inline u32 frh_get_table(struct f
+ 
+ extern struct fib_rules_ops *fib_rules_register(const struct fib_rules_ops *, struct net *);
+ extern void fib_rules_unregister(struct fib_rules_ops *);
+-extern void                     fib_rules_cleanup_ops(struct fib_rules_ops *);
+ 
+ extern int			fib_rules_lookup(struct fib_rules_ops *,
+ 						 struct flowi *, int flags,
+--- a/net/core/fib_rules.c	2010-10-02 14:31:52.578341727 +0900
++++ b/net/core/fib_rules.c	2010-10-02 14:32:09.850842358 +0900
+@@ -144,7 +144,7 @@ fib_rules_register(const struct fib_rule
  }
-[/CODE]
-
-but in the tablename variable i haven't the table's right value (but i
-have: =EF=BF=BD%H =EF=BF=BD a wrong value)...what's the problem?
-
-
---=20
-Nicola Padovano
-e-mail: nicola.padovano@gmail.com
-web: http://npadovano.altervista.org
-
-"My only ambition is not be anything at all; it seems the most
-sensible thing" (C. Bukowski)
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ EXPORT_SYMBOL_GPL(fib_rules_register);
+ 
+-void fib_rules_cleanup_ops(struct fib_rules_ops *ops)
++static void fib_rules_cleanup_ops(struct fib_rules_ops *ops)
+ {
+ 	struct fib_rule *rule, *tmp;
+ 
+@@ -153,7 +153,6 @@ void fib_rules_cleanup_ops(struct fib_ru
+ 		fib_rule_put(rule);
+ 	}
+ }
+-EXPORT_SYMBOL_GPL(fib_rules_cleanup_ops);
+ 
+ static void fib_rules_put_rcu(struct rcu_head *head)
+ {
