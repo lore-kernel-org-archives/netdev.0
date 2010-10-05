@@ -1,43 +1,91 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCHv4 net-next-2.6 1/5] XFRM,IPv6: Remove xfrm_spi_hash()
-	dependency on destination address
-Date: Tue, 5 Oct 2010 12:17:07 +0800
-Message-ID: <20101005041707.GA26458@gondor.apana.org.au>
-References: <cover.1286139128.git.arno@natisbad.org> <5a0e320544e253cc903cfd3292600b6bec044a5f.1286139129.git.arno@natisbad.org> <20101004083306.GA17939@gondor.apana.org.au> <8739sl8yw5.fsf@small.ssi.corp> <20101005021114.GA25681@gondor.apana.org.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next-2.6 PATCH] net: netif_set_real_num_rx_queues may cap
+ num_rx_queues at init time
+Date: Tue, 05 Oct 2010 07:35:26 +0200
+Message-ID: <1286256926.2457.2.camel@edumazet-laptop>
+References: <20101004220042.3471.92774.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	netdev@vger.kernel.org
-To: Arnaud Ebalard <arno@natisbad.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: bhutchings@solarflare.com, netdev@vger.kernel.org,
+	therbert@google.com
+To: John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:34816 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750826Ab0JEERV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Oct 2010 00:17:21 -0400
-Content-Disposition: inline
-In-Reply-To: <20101005021114.GA25681@gondor.apana.org.au>
+Received: from mail-ww0-f42.google.com ([74.125.82.42]:35464 "EHLO
+	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753476Ab0JEFfl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Oct 2010 01:35:41 -0400
+Received: by wwe15 with SMTP id 15so89621wwe.1
+        for <netdev@vger.kernel.org>; Mon, 04 Oct 2010 22:35:40 -0700 (PDT)
+In-Reply-To: <20101004220042.3471.92774.stgit@jf-dev1-dcblab>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 05, 2010 at 10:11:14AM +0800, Herbert Xu wrote:
->
-> I'm thinking about the case where each remote end (or one remote
-> end with many IP addresses) chooses to use a single SPI which then
-> all gets hashed to the same bucket.
-> 
-> Outbound SAs are hashed into the same SPI hash table as inbound SAs.
+Le lundi 04 octobre 2010 =C3=A0 15:00 -0700, John Fastabend a =C3=A9cri=
+t :
+> The logic for netif_set_real_num_rx_queues is the following,
+>=20
+> netif_set_real_num_rx_queues(dev, rxq)
+> {
+> 	...
+> 	if (dev->reg_state =3D=3D NETREG_REGISTERED) {
+> 		...
+> 	} else {
+> 		dev->num_rx_queues =3D rxq;
+> 	}
+>=20
+> 	dev->real_num_rx_queues =3D rxq;
+> 	return 0;
+> }
+>=20
+> Some drivers init path looks like the following,
+>=20
+> alloc_etherdev_mq(priv_sz, max_num_queues_ever);
+> ...
+> netif_set_real_num_rx_queues(dev, queues_to_use_now);
+> ...
+> register_netdev(dev);
+> ...
+>=20
+> Because netif_set_real_num_rx_queues sets num_rx_queues if the
+> reg state is not NETREG_REGISTERED we end up with the incorrect
+> max number of rx queues. This patch proposes to remove the else
+> clause above so this does not occur.  Also just reading the
+> function set_real_num it seems a bit unexpected that num_rx_queues
+> gets set.
+>=20
 
-Another solution would be to create a hash table for inbound SAs
-only.  Unfortunately I don't think we have anything in our current
-user-interface to indicate whether an SA is inbound or outbound.
+You dont tell why its "incorrect".
 
-So to do this you'll need to use a heuristic such as doing a
-lookup on the source/destination address at insertion time.
+Why should we keep num_rx_queues > real_num_rx_queues ?
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+It creates /sys files, and Qdisc stuff for nothing...
+
+
+
+> CC: Ben Hutchings <bhutchings@solarflare.com>
+>=20
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> ---
+>=20
+>  net/core/dev.c |    2 --
+>  1 files changed, 0 insertions(+), 2 deletions(-)
+>=20
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index a313bab..f78d996 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -1592,8 +1592,6 @@ int netif_set_real_num_rx_queues(struct net_dev=
+ice *dev, unsigned int rxq)
+>  						  rxq);
+>  		if (rc)
+>  			return rc;
+> -	} else {
+> -		dev->num_rx_queues =3D rxq;
+>  	}
+> =20
+>  	dev->real_num_rx_queues =3D rxq;
+>=20
+> --
+
+
