@@ -1,88 +1,55 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next-2.6 PATCH] net: netif_set_real_num_rx_queues may cap
- num_rx_queues at init time
-Date: Tue, 05 Oct 2010 17:34:36 +0100
-Message-ID: <1286296476.2307.5.camel@achroite.uk.solarflarecom.com>
-References: <20101004220042.3471.92774.stgit@jf-dev1-dcblab>
-	 <1286256926.2457.2.camel@edumazet-laptop>  <4CAB4D8F.8080108@intel.com>
+From: Dan Carpenter <error27@gmail.com>
+Subject: [patch] isdn: strcpy() => strlcpy()
+Date: Tue, 5 Oct 2010 18:34:48 +0200
+Message-ID: <20101005163448.GH5692@bicker>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"therbert@google.com" <therbert@google.com>
-To: John Fastabend <john.r.fastabend@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Karsten Keil <isdn@linux-pingi.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:2346 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752387Ab0JEQek convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Oct 2010 12:34:40 -0400
-In-Reply-To: <4CAB4D8F.8080108@intel.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:43992 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751872Ab0JEQfL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Oct 2010 12:35:11 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2010-10-05 at 09:08 -0700, John Fastabend wrote:
-> On 10/4/2010 10:35 PM, Eric Dumazet wrote:
-> > Le lundi 04 octobre 2010 =C3=A0 15:00 -0700, John Fastabend a =C3=A9=
-crit :
-> >> The logic for netif_set_real_num_rx_queues is the following,
-> >>
-> >> netif_set_real_num_rx_queues(dev, rxq)
-> >> {
-> >> 	...
-> >> 	if (dev->reg_state =3D=3D NETREG_REGISTERED) {
-> >> 		...
-> >> 	} else {
-> >> 		dev->num_rx_queues =3D rxq;
-> >> 	}
-> >>
-> >> 	dev->real_num_rx_queues =3D rxq;
-> >> 	return 0;
-> >> }
-> >>
-> >> Some drivers init path looks like the following,
-> >>
-> >> alloc_etherdev_mq(priv_sz, max_num_queues_ever);
-> >> ...
-> >> netif_set_real_num_rx_queues(dev, queues_to_use_now);
-> >> ...
-> >> register_netdev(dev);
-> >> ...
-> >>
-> >> Because netif_set_real_num_rx_queues sets num_rx_queues if the
-> >> reg state is not NETREG_REGISTERED we end up with the incorrect
-> >> max number of rx queues. This patch proposes to remove the else
-> >> clause above so this does not occur.  Also just reading the
-> >> function set_real_num it seems a bit unexpected that num_rx_queues
-> >> gets set.
-> >>
-> >=20
-> > You dont tell why its "incorrect".
-> >=20
->=20
-> OK that is a poor description.
->=20
-> > Why should we keep num_rx_queues > real_num_rx_queues ?
-> >=20
->=20
-> If we do not ever need them then we should not keep them I agree.
-> But having netif_set_real_num_rx_queues set something other then
-> 'real_num_rx_queues' does not seem right to me at least. Also
-> netif_set_real_num_tx_queues and netif_set_real_num_rx_queues have
-> different behavior. It would be nice if this weren't the case but
-> they allocate queues in two places.
-[...]
+setup.phone and setup.eazmsn are 32 character buffers.
+rcvmsg.msg_data.byte_array is a 48 character buffer.
+sc_adapter[card]->channel[rcvmsg.phy_link_no - 1].dn is 50 chars.
 
-I only did this to satisfy Eric's desire to reduce memory usage.
-However, I believe that there are currently no drivers that dynamically
-increase numbers of RX or TX queues.  Until there are, there is not muc=
-h
-point in removing this assignment to num_rx_queues.
+I changed the strcpy() so strlcpy() because that's safest.
 
-Ben.
+Signed-off-by: Dan Carpenter <error27@gmail.com>
 
---=20
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+diff --git a/drivers/isdn/sc/interrupt.c b/drivers/isdn/sc/interrupt.c
+index 485be8b..288073e 100644
+--- a/drivers/isdn/sc/interrupt.c
++++ b/drivers/isdn/sc/interrupt.c
+@@ -114,9 +114,11 @@ irqreturn_t interrupt_handler(int dummy, void *card_inst)
+ 			{
+ 				pr_debug("%s: Got Incoming Call\n",
+ 						sc_adapter[card]->devicename);
+-				strcpy(setup.phone,&(rcvmsg.msg_data.byte_array[4]));
+-				strcpy(setup.eazmsn,
+-					sc_adapter[card]->channel[rcvmsg.phy_link_no-1].dn);
++				strlcpy(setup.phone, &(rcvmsg.msg_data.byte_array[4]),
++					sizeof(setup.phone));
++				strlcpy(setup.eazmsn,
++					sc_adapter[card]->channel[rcvmsg.phy_link_no - 1].dn,
++					sizeof(setup.eazmsn));
+ 				setup.si1 = 7;
+ 				setup.si2 = 0;
+ 				setup.plan = 0;
+@@ -176,7 +178,9 @@ irqreturn_t interrupt_handler(int dummy, void *card_inst)
+ 		 * Handle a GetMyNumber Rsp
+ 		 */
+ 		if (IS_CE_MESSAGE(rcvmsg,Call,0,GetMyNumber)){
+-			strcpy(sc_adapter[card]->channel[rcvmsg.phy_link_no-1].dn,rcvmsg.msg_data.byte_array);
++			strlcpy(sc_adapter[card]->channel[rcvmsg.phy_link_no - 1].dn,
++				rcvmsg.msg_data.byte_array,
++				sizeof(rcvmsg.msg_data.byte_array));
+ 			continue;
+ 		}
+ 			
