@@ -1,39 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] AF_UNIX: Implement SO_TIMESTAMP and SO_TIMETAMPNS on
- Unix sockets
-Date: Tue, 05 Oct 2010 14:55:24 -0700 (PDT)
-Message-ID: <20101005.145524.35829931.davem@davemloft.net>
-References: <20101004194734.6a1caf3e@chocolatine.cbg.collabora.co.uk>
-	<1286218109-30771-1-git-send-email-alban.crequy@collabora.co.uk>
-	<1286220052.2381.70.camel@edumazet-laptop>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] skge: add quirk to limit DMA
+Date: Wed, 6 Oct 2010 06:58:45 +0900
+Message-ID: <20101006065845.5759dbeb@s6510>
+References: <20100929092515.GA6804@redhat.com>
+ <20101005.001800.13732127.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: alban.crequy@collabora.co.uk, lennart@poettering.net,
-	shemminger@vyatta.com, gorcunov@openvz.org, adobriyan@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1286220052.2381.70.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: sgruszka@redhat.com, netdev@vger.kernel.org, luya@fedoraproject.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:59821 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753529Ab0JEV6u (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Oct 2010 17:58:50 -0400
+In-Reply-To: <20101005.001800.13732127.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 04 Oct 2010 21:20:52 +0200
+On Tue, 05 Oct 2010 00:18:00 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-> Le lundi 04 octobre 2010 =E0 19:48 +0100, Alban Crequy a =E9crit :
->> Userspace applications can already request to receive timestamps wit=
-h:
->> setsockopt(sockfd, SOL_SOCKET, SO_TIMESTAMP, ...)
->>=20
->> Although setsockopt() returns zero (success), timestamps are not add=
-ed to the
->> ancillary data. This patch fixes that on SOCK_DGRAM and SOCK_SEQPACK=
-ET Unix
->> sockets.
->>=20
->> Signed-off-by: Alban Crequy <alban.crequy@collabora.co.uk>
->=20
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> From: Stanislaw Gruszka <sgruszka@redhat.com>
+> Date: Wed, 29 Sep 2010 11:33:23 +0200
+> 
+> > Skge devices installed on some Gigabyte motherboards are not able to
+> > perform 64 dma correctly due to board PCI implementation, so limit
+> > DMA to 32bit if such boards are detected.
+> > 
+> > Bug was reported here:
+> > https://bugzilla.redhat.com/show_bug.cgi?id=447489
+> > 
+> > Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
+> > Tested-by: Luya Tshimbalanga <luya@fedoraproject.org>
+> 
+> Stephen?  Can I get an ACK or some kind of other status on this?
 
-Applied.
+I was hoping to find the hardware somewhere to dig deeper into
+this. But until I know more please apply the patch. There are
+two possibilities that still exist, 1) it is true for all devices
+on this motherboard (in which cases it should be a PCI quirk),
+2) it is a driver bug. The test was going to be putting a skge
+pci card in a slot on the MB.
+
