@@ -1,35 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: manual merge of the net tree with the net-current
- tree
-Date: Mon, 04 Oct 2010 22:47:35 -0700 (PDT)
-Message-ID: <20101004.224735.191411120.davem@davemloft.net>
-References: <20101001124830.9c35d36f.sfr@canb.auug.org.au>
-	<AANLkTinsNEeTK=SrGpqEjF8VtZZWpiWydgSc+3M854pD@mail.gmail.com>
+Subject: Re: [PATCHv2 NEXT 0/8]qlcnic: miscellaneous fixes
+Date: Mon, 04 Oct 2010 22:48:27 -0700 (PDT)
+Message-ID: <20101004.224827.241923134.davem@davemloft.net>
+References: <1286202016-18026-1-git-send-email-amit.salecha@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	damian@tvk.rwth-aachen.de
-To: hkchu@google.com
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <AANLkTinsNEeTK=SrGpqEjF8VtZZWpiWydgSc+3M854pD@mail.gmail.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
+	anirban.chakraborty@qlogic.com
+To: amit.salecha@qlogic.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40176
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757446Ab0JEFsG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Oct 2010 01:48:06 -0400
+In-Reply-To: <1286202016-18026-1-git-send-email-amit.salecha@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jerry Chu <hkchu@google.com>
-Date: Thu, 30 Sep 2010 20:27:05 -0700
+From: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Date: Mon,  4 Oct 2010 07:20:08 -0700
 
-> In tcp_write_timeout():
-> 
-> if (retransmits_timed_out(sk, retry_until,
->             (1 << sk->sk_state) & (TCPF_SYN_SENT | TCPF_SYN_RECV) ? 0 :
->             icsk->icsk_user_timeout, syn_set)) {
-> 
-> should be simplified to
-> 
-> if (retransmits_timed_out(sk, retry_until,
->     syn_set ? 0 : icsk->icsk_user_timeout, syn_set)) {
+>  Series v2 of 8 patches to fix endianesses for PPC, internal loopback test
+>  and etc. Accidentally, earlier patch series had a garbage patch.
 
-I've merged net-2.6 into net-next-2.6 and integrated this simplification
-while doing so.
+All applied, thank you.
