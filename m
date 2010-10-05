@@ -1,7 +1,7 @@
 From: Bernard Metzler <bmt-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>
-Subject: [PATCH] SIW: Connection management
-Date: Tue,  5 Oct 2010 08:54:20 +0200
-Message-ID: <1286261660-5157-1-git-send-email-bmt@zurich.ibm.com>
+Subject: [PATCH] SIW: User interface
+Date: Tue,  5 Oct 2010 08:54:07 +0200
+Message-ID: <1286261647-5139-1-git-send-email-bmt@zurich.ibm.com>
 Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bernard Metzler <bmt-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>
 To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
@@ -9,23 +9,26 @@ Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 ---
- drivers/infiniband/hw/siw/siw_cm.c | 1939 ++++++++++++++++++++++++++++++++++++
- drivers/infiniband/hw/siw/siw_cm.h |  155 +++
- 2 files changed, 2094 insertions(+), 0 deletions(-)
- create mode 100644 drivers/infiniband/hw/siw/siw_cm.c
- create mode 100644 drivers/infiniband/hw/siw/siw_cm.h
+ drivers/infiniband/hw/siw/siw_ae.c    |   96 ++
+ drivers/infiniband/hw/siw/siw_user.h  |   66 ++
+ drivers/infiniband/hw/siw/siw_verbs.c | 1564 +++++++++++++++++++++++++++++++++
+ drivers/infiniband/hw/siw/siw_verbs.h |   96 ++
+ 4 files changed, 1822 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/infiniband/hw/siw/siw_ae.c
+ create mode 100644 drivers/infiniband/hw/siw/siw_user.h
+ create mode 100644 drivers/infiniband/hw/siw/siw_verbs.c
+ create mode 100644 drivers/infiniband/hw/siw/siw_verbs.h
 
-diff --git a/drivers/infiniband/hw/siw/siw_cm.c b/drivers/infiniband/hw/siw/siw_cm.c
+diff --git a/drivers/infiniband/hw/siw/siw_ae.c b/drivers/infiniband/hw/siw/siw_ae.c
 new file mode 100644
-index 0000000..628b3b1
+index 0000000..7e9ab3f
 --- /dev/null
-+++ b/drivers/infiniband/hw/siw/siw_cm.c
-@@ -0,0 +1,1939 @@
++++ b/drivers/infiniband/hw/siw/siw_ae.c
+@@ -0,0 +1,96 @@
 +/*
 + * Software iWARP device driver for Linux
 + *
 + * Authors: Bernard Metzler <bmt-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>
-+ *          Fredy Neeser <nfd-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>
 + *
 + * Copyright (c) 2008-2010, IBM Corporation
 + *
@@ -60,15 +63,1754 @@ index 0000000..628b3b1
 + * SOFTWARE.
 + */
 +
-+#include <linux/module.h>
 +#include <linux/errno.h>
 +#include <linux/types.h>
 +#include <linux/net.h>
-+#include <linux/inetdevice.h>
-+#include <linux/workqueue.h>
++#include <linux/scatterlist.h>
++#include <linux/highmem.h>
 +#include <net/sock.h>
-+#include <linux/tcp.h>
++#include <net/tcp_states.h>
++#include <net/tcp.h>
 +
++#include <rdma/iw_cm.h>
++#include <rdma/ib_verbs.h>
++#include <rdma/ib_smi.h>
++#include <rdma/ib_user_verbs.h>
++#include <rdma/ib_umem.h>
++
++#include "siw.h"
++#include "siw_obj.h"
++#include "siw_cm.h"
++
++/*
++ * siw_async_ev()
++ *
++ * Report Asynchonous event to user.
++ */
++void siw_async_ev(struct siw_qp *qp, struct siw_cq *cq,
++		  enum ib_event_type etype)
++{
++	static struct ib_event	event;
++
++	dprint(DBG_EH, "(QP%d): AE type %d\n", QP_ID(qp), etype);
++
++	event.event = etype;
++	event.device = qp->ofa_qp.device;
++	if (cq)
++		event.element.cq = &cq->ofa_cq;
++	else
++		event.element.qp = &qp->ofa_qp;
++
++	if (!(qp->attrs.flags & SIW_QP_IN_DESTROY) &&
++	    qp->ofa_qp.event_handler) {
++		dprint(DBG_EH, "(QP%d): Call AEH\n", QP_ID(qp));
++		(*qp->ofa_qp.event_handler)(&event, qp->ofa_qp.qp_context);
++	}
++}
++
++void siw_async_srq_ev(struct siw_srq *srq, enum ib_event_type etype)
++{
++	static struct ib_event 	event;
++
++	dprint(DBG_EH, "(SRQ%p): AE type %d\n", srq, etype);
++
++	event.event = etype;
++	event.device = srq->ofa_srq.device;
++	event.element.srq = &srq->ofa_srq;
++
++	if (srq->ofa_srq.event_handler)
++		(*srq->ofa_srq.event_handler)(&event, srq->ofa_srq.srq_context);
++}
+diff --git a/drivers/infiniband/hw/siw/siw_user.h b/drivers/infiniband/hw/siw/siw_user.h
+new file mode 100644
+index 0000000..ce7857d
+--- /dev/null
++++ b/drivers/infiniband/hw/siw/siw_user.h
+@@ -0,0 +1,66 @@
++/*
++ * Software iWARP device driver for Linux
++ *
++ * Authors: Bernard Metzler <bmt-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>
++ *
++ * Copyright (c) 2008-2010, IBM Corporation
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * BSD license below:
++ *
++ *   Redistribution and use in source and binary forms, with or
++ *   without modification, are permitted provided that the following
++ *   conditions are met:
++ *
++ *   - Redistributions of source code must retain the above copyright notice,
++ *     this list of conditions and the following disclaimer.
++ *
++ *   - Redistributions in binary form must reproduce the above copyright
++ *     notice, this list of conditions and the following disclaimer in the
++ *     documentation and/or other materials provided with the distribution.
++ *
++ *   - Neither the name of IBM nor the names of its contributors may be
++ *     used to endorse or promote products derived from this software without
++ *     specific prior written permission.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++#ifndef _SIW_USER_H
++#define _SIW_USER_H
++
++/*
++ * user commands/command responses must correlate with the siw_abi
++ * in user land.
++ */
++
++struct siw_uresp_create_cq {
++	__u32	cq_id;
++};
++
++struct siw_uresp_create_qp {
++	__u32	qp_id;
++	__u32	sq_size;
++	__u32	rq_size;
++};
++
++struct siw_uresp_reg_mr {
++	__u32	stag;
++};
++
++struct siw_ureq_reg_mr {
++	__u8	stag_key;
++	__u8	reserved[3];
++};
++
++#endif
+diff --git a/drivers/infiniband/hw/siw/siw_verbs.c b/drivers/infiniband/hw/siw/siw_verbs.c
+new file mode 100644
+index 0000000..8633b0f
+--- /dev/null
++++ b/drivers/infiniband/hw/siw/siw_verbs.c
+@@ -0,0 +1,1564 @@
++/*
++ * Software iWARP device driver for Linux
++ *
++ * Authors: Bernard Metzler <bmt-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>
++ *
++ * Copyright (c) 2008-2010, IBM Corporation
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * BSD license below:
++ *
++ *   Redistribution and use in source and binary forms, with or
++ *   without modification, are permitted provided that the following
++ *   conditions are met:
++ *
++ *   - Redistributions of source code must retain the above copyright notice,
++ *     this list of conditions and the following disclaimer.
++ *
++ *   - Redistributions in binary form must reproduce the above copyright
++ *     notice, this list of conditions and the following disclaimer in the
++ *     documentation and/or other materials provided with the distribution.
++ *
++ *   - Neither the name of IBM nor the names of its contributors may be
++ *     used to endorse or promote products derived from this software without
++ *     specific prior written permission.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++#include <linux/errno.h>
++#include <linux/types.h>
++#include <linux/uaccess.h>
++
++#include <rdma/iw_cm.h>
++#include <rdma/ib_verbs.h>
++#include <rdma/ib_smi.h>
++#include <rdma/ib_user_verbs.h>
++#include <rdma/ib_umem.h>
++
++#include "siw.h"
++#include "siw_obj.h"
++#include "siw_cm.h"
++
++static int ib_qp_state_to_siw_qp_state[IB_QPS_ERR+1] = {
++	[IB_QPS_RESET]	= SIW_QP_STATE_IDLE,
++	[IB_QPS_INIT]	= SIW_QP_STATE_IDLE,
++	[IB_QPS_RTR]	= SIW_QP_STATE_RTR,
++	[IB_QPS_RTS]	= SIW_QP_STATE_RTS,
++	[IB_QPS_SQD]	= SIW_QP_STATE_CLOSING,
++	[IB_QPS_SQE]	= SIW_QP_STATE_TERMINATE,
++	[IB_QPS_ERR]	= SIW_QP_STATE_ERROR
++};
++
++static inline struct siw_mr *siw_mr_ofa2siw(struct ib_mr *ofa_mr)
++{
++	return container_of(ofa_mr, struct siw_mr, ofa_mr);
++}
++
++static inline struct siw_pd *siw_pd_ofa2siw(struct ib_pd *ofa_pd)
++{
++	return container_of(ofa_pd, struct siw_pd, ofa_pd);
++}
++
++static inline struct siw_ucontext *siw_ctx_ofa2siw(
++	struct ib_ucontext *ofa_ctx)
++{
++	return container_of(ofa_ctx, struct siw_ucontext, ib_ucontext);
++}
++
++static inline struct siw_qp *siw_qp_ofa2siw(struct ib_qp *ofa_qp)
++{
++	return container_of(ofa_qp, struct siw_qp, ofa_qp);
++}
++
++static inline struct siw_cq *siw_cq_ofa2siw(struct ib_cq *ofa_cq)
++{
++	return container_of(ofa_cq, struct siw_cq, ofa_cq);
++}
++
++static inline struct siw_srq *siw_srq_ofa2siw(struct ib_srq *ofa_srq)
++{
++	return container_of(ofa_srq, struct siw_srq, ofa_srq);
++}
++
++struct ib_ucontext *siw_alloc_ucontext(struct ib_device *ofa_dev,
++				       struct ib_udata *udata)
++{
++	struct siw_ucontext *ctx;
++
++	dprint(DBG_CM, "(device=%s)\n", ofa_dev->name);
++
++	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
++	if (!ctx) {
++		dprint(DBG_ON, " kzalloc\n");
++		return ERR_PTR(-ENOMEM);
++	}
++	return &ctx->ib_ucontext;
++}
++
++int siw_dealloc_ucontext(struct ib_ucontext *ctx)
++{
++	struct siw_ucontext *ucontext;
++
++	ucontext = siw_ctx_ofa2siw(ctx);
++
++	kfree(ucontext);
++
++	return 0;
++}
++
++int siw_query_device(struct ib_device *ofa_dev, struct ib_device_attr *attr)
++{
++	struct siw_dev *dev = siw_dev_ofa2siw(ofa_dev);
++
++	memset(attr, 0, sizeof *attr);
++
++	attr->max_mr_size = dev->attrs.max_mr_size;
++	attr->vendor_id = dev->attrs.vendor_id;
++	attr->vendor_part_id = dev->attrs.vendor_part_id;
++	attr->max_qp = dev->attrs.max_qp;
++	attr->max_qp_wr = dev->attrs.max_qp_wr;
++
++	/*
++	 * RDMA Read parameters:
++	 * Max. ORD (Outbound Read queue Depth), a.k.a. max_initiator_depth
++	 * Max. IRD (Inbound Read queue Depth), a.k.a. max_responder_resources
++	 */
++	attr->max_qp_rd_atom = dev->attrs.max_ord;
++	attr->max_qp_init_rd_atom = dev->attrs.max_ird;
++	attr->max_res_rd_atom = dev->attrs.max_qp * dev->attrs.max_ird;
++	attr->device_cap_flags = dev->attrs.cap_flags;
++	attr->max_sge = dev->attrs.max_sge;
++	attr->max_sge_rd = dev->attrs.max_sge_rd;
++	attr->max_cq = dev->attrs.max_cq;
++	attr->max_cqe = dev->attrs.max_cqe;
++	attr->max_mr = dev->attrs.max_mr;
++	attr->max_pd = dev->attrs.max_pd;
++	attr->max_mw = dev->attrs.max_mw;
++	attr->max_fmr = dev->attrs.max_fmr;
++	attr->max_srq = dev->attrs.max_srq;
++	attr->max_srq_wr = dev->attrs.max_srq_wr;
++	attr->max_srq_sge = dev->attrs.max_srq_sge;
++
++	memcpy(&attr->sys_image_guid, dev->l2dev->dev_addr, 6);
++
++	/*
++	 * TODO: understand what of the following should
++	 * get useful information
++	 *
++	 * attr->fw_ver;
++	 * attr->max_ah
++	 * attr->max_map_per_fmr
++	 * attr->max_ee
++	 * attr->max_rdd
++	 * attr->max_ee_rd_atom;
++	 * attr->max_ee_init_rd_atom;
++	 * attr->max_raw_ipv6_qp
++	 * attr->max_raw_ethy_qp
++	 * attr->max_mcast_grp
++	 * attr->max_mcast_qp_attach
++	 * attr->max_total_mcast_qp_attach
++	 * attr->max_pkeys
++	 * attr->atomic_cap;
++	 * attr->page_size_cap;
++	 * attr->hw_ver;
++	 * attr->local_ca_ack_delay;
++	 */
++	return 0;
++}
++
++/*
++ * Approximate translation of real MTU for IB.
++ *
++ * TODO: is that needed for RNIC's? We may have a medium
++ *       which reports MTU of 64kb and have to degrade to 4k??
++ */
++static inline enum ib_mtu siw_mtu_net2ofa(unsigned short mtu)
++{
++	if (mtu >= 4096)
++		return IB_MTU_4096;
++	if (mtu >= 2048)
++		return IB_MTU_2048;
++	if (mtu >= 1024)
++		return IB_MTU_1024;
++	if (mtu >= 512)
++		return IB_MTU_512;
++	if (mtu >= 256)
++		return IB_MTU_256;
++	return -1;
++}
++
++int siw_query_port(struct ib_device *ofa_dev, u8 port,
++		     struct ib_port_attr *attr)
++{
++	struct siw_dev *dev = siw_dev_ofa2siw(ofa_dev);
++
++	memset(attr, 0, sizeof *attr);
++	/*
++	 * TODO: fully understand what to do here
++	 */
++	attr->state = IB_PORT_ACTIVE;	/* ?? */
++	attr->max_mtu = siw_mtu_net2ofa(dev->l2dev->mtu);
++	attr->active_mtu = attr->max_mtu;
++	attr->gid_tbl_len = 1;
++	attr->port_cap_flags = IB_PORT_CM_SUP;	/* ?? */
++	attr->port_cap_flags |= IB_PORT_DEVICE_MGMT_SUP;
++	attr->max_msg_sz = -1;
++	attr->pkey_tbl_len = 1;
++	attr->active_width = 2;
++	attr->active_speed = 2;
++	/*
++	 * All zero
++	 *
++	 * attr->lid = 0;
++	 * attr->bad_pkey_cntr = 0;
++	 * attr->qkey_viol_cntr = 0;
++	 * attr->sm_lid = 0;
++	 * attr->lmc = 0;
++	 * attr->max_vl_num = 0;
++	 * attr->sm_sl = 0;
++	 * attr->subnet_timeout = 0;
++	 * attr->init_type_repy = 0;
++	 * attr->phys_state = 0;
++	 */
++	return 0;
++}
++
++int siw_query_pkey(struct ib_device *ofa_dev, u8 port, u16 idx, u16 *pkey)
++{
++	*pkey = 0;
++	return 0;
++}
++
++int siw_query_gid(struct ib_device *ofa_dev, u8 port, int idx,
++		   union ib_gid *gid)
++{
++	struct siw_dev *dev = siw_dev_ofa2siw(ofa_dev);
++
++	/* subnet_prefix == interface_id == 0; */
++	memset(gid, 0, sizeof *gid);
++	memcpy(&gid->raw[0], dev->l2dev->dev_addr, 6);
++
++	return 0;
++}
++
++struct ib_pd *siw_alloc_pd(struct ib_device *ofa_dev,
++			   struct ib_ucontext *context, struct ib_udata *udata)
++{
++	struct siw_pd	*pd = NULL;
++	struct siw_dev	*dev   = siw_dev_ofa2siw(ofa_dev);
++	int rv;
++
++	if (atomic_inc_return(&dev->num_pd) > SIW_MAX_PD) {
++		dprint(DBG_ON, ": Out of PD's\n");
++		rv = -ENOMEM;
++		goto err_out;
++	}
++	pd = kmalloc(sizeof *pd, GFP_KERNEL);
++	if (!pd) {
++		dprint(DBG_ON, ": malloc\n");
++		rv = -ENOMEM;
++		goto err_out;
++	}
++	rv = siw_pd_add(dev, pd);
++	if (rv) {
++		dprint(DBG_ON, ": siw_pd_add\n");
++		rv = -ENOMEM;
++		goto err_out;
++	}
++	if (context) {
++		if (ib_copy_to_udata(udata, &pd->hdr.id, sizeof pd->hdr.id)) {
++			rv = -EFAULT;
++			goto err_out_idr;
++		}
++	}
++	return &pd->ofa_pd;
++
++err_out_idr:
++	siw_remove_obj(&dev->idr_lock, &dev->pd_idr, &pd->hdr);
++err_out:
++	kfree(pd);
++	atomic_dec(&dev->num_pd);
++
++	return ERR_PTR(rv);
++}
++
++int siw_dealloc_pd(struct ib_pd *ofa_pd)
++{
++	struct siw_pd	*pd = siw_pd_ofa2siw(ofa_pd);
++	struct siw_dev	*dev = siw_dev_ofa2siw(ofa_pd->device);
++
++	siw_remove_obj(&dev->idr_lock, &dev->pd_idr, &pd->hdr);
++	siw_pd_put(pd);
++
++	atomic_dec(&dev->num_pd);
++	return 0;
++}
++
++struct ib_ah *siw_create_ah(struct ib_pd *pd, struct ib_ah_attr *attr)
++{
++	return ERR_PTR(-ENOSYS);
++}
++
++int siw_destroy_ah(struct ib_ah *ah)
++{
++	return -ENOSYS;
++}
++
++
++void siw_qp_get_ref(struct ib_qp *ofa_qp)
++{
++	struct siw_qp	*qp = siw_qp_ofa2siw(ofa_qp);
++
++	dprint(DBG_OBJ|DBG_CM, "(QP%d): Get Reference\n", QP_ID(qp));
++	siw_qp_get(qp);
++}
++
++
++void siw_qp_put_ref(struct ib_qp *ofa_qp)
++{
++	struct siw_qp	*qp = siw_qp_ofa2siw(ofa_qp);
++
++	dprint(DBG_OBJ|DBG_CM, "(QP%d): Put Reference\n", QP_ID(qp));
++	siw_qp_put(qp);
++}
++
++int siw_no_mad(struct ib_device *ofa_dev, int flags, u8 port,
++			    struct ib_wc *wc, struct ib_grh *grh,
++			    struct ib_mad *in_mad, struct ib_mad *out_mad)
++{
++	return -ENOSYS;
++}
++
++
++/*
++ * siw_create_qp()
++ *
++ * Create QP of requested size on given device.
++ *
++ * @ofa_pd:	OFA PD contained in siw PD
++ * @attrs:	Initial QP attributes.
++ * @udata:	used to provide QP ID, SQ and RQ size back to user.
++ */
++
++struct ib_qp *siw_create_qp(struct ib_pd *ofa_pd, struct ib_qp_init_attr *attrs,
++			    struct ib_udata *udata)
++{
++	struct siw_qp	 		*qp = NULL;
++	struct siw_pd	 		*pd = siw_pd_ofa2siw(ofa_pd);
++	struct ib_device	 	*ofa_dev = ofa_pd->device;
++	struct siw_dev 			*dev = siw_dev_ofa2siw(ofa_dev);
++	struct siw_cq  			*scq = NULL, *rcq = NULL;
++	struct siw_iwarp_tx		*c_tx;
++	struct siw_iwarp_rx		*c_rx;
++	struct siw_uresp_create_qp	uresp;
++
++	int rv = 0;
++
++	dprint(DBG_OBJ|DBG_CM, ": new QP on device %s\n",
++		ofa_dev->name);
++
++	if (atomic_inc_return(&dev->num_qp) > SIW_MAX_QP) {
++		dprint(DBG_ON, ": Out of QP's\n");
++		rv = -ENOMEM;
++		goto err_out;
++	}
++	if (attrs->qp_type != IB_QPT_RC) {
++		dprint(DBG_ON, ": Only RC QP's supported\n");
++		rv = -EINVAL;
++		goto err_out;
++	}
++	if ((attrs->cap.max_send_wr > SIW_MAX_QP_WR) ||
++	    (attrs->cap.max_recv_wr > SIW_MAX_QP_WR) ||
++	    (attrs->cap.max_send_sge > SIW_MAX_SGE)  ||
++	    (attrs->cap.max_recv_sge > SIW_MAX_SGE)) {
++		dprint(DBG_ON, ": QP Size!\n");
++		rv = -EINVAL;
++		goto err_out;
++	}
++	/*
++	 * NOTE: we allow for zero element SQ and RQ WQE's SGL's
++	 * but not for a QP unable to hold any WQE (SQ + RQ)
++	 */
++	if (attrs->cap.max_send_wr + attrs->cap.max_recv_wr == 0) {
++		rv = -EINVAL;
++		goto err_out;
++	}
++
++	scq = siw_cq_id2obj(dev, ((struct siw_cq *)attrs->send_cq)->hdr.id);
++	rcq = siw_cq_id2obj(dev, ((struct siw_cq *)attrs->recv_cq)->hdr.id);
++
++	if (!scq || !rcq) {
++		dprint(DBG_OBJ, ": Fail: SCQ: 0x%p, RCQ: 0x%p\n",
++			scq, rcq);
++		rv = -EINVAL;
++		goto err_out;
++	}
++	qp = kzalloc(sizeof(*qp), GFP_KERNEL);
++	if (!qp) {
++		dprint(DBG_ON, ": kzalloc\n");
++		rv = -ENOMEM;
++		goto err_out;
++	}
++
++	rv = siw_qp_add(dev, qp);
++	if (rv)
++		goto err_out;
++
++	INIT_LIST_HEAD(&qp->wqe_freelist);
++	INIT_LIST_HEAD(&qp->sq);
++	INIT_LIST_HEAD(&qp->rq);
++	INIT_LIST_HEAD(&qp->orq);
++	INIT_LIST_HEAD(&qp->irq);
++
++	init_rwsem(&qp->state_lock);
++	spin_lock_init(&qp->freelist_lock);
++	spin_lock_init(&qp->sq_lock);
++	spin_lock_init(&qp->rq_lock);
++	spin_lock_init(&qp->orq_lock);
++
++	init_waitqueue_head(&qp->tx_ctx.waitq);
++
++	qp->pd  = pd;
++	qp->scq = scq;
++	qp->rcq = rcq;
++
++	if (attrs->srq) {
++		/*
++		 * SRQ support.
++		 * Verbs 6.3.7: ignore RQ size, if SRQ present
++		 * Verbs 6.3.5: do not check PD of SRQ against PD of QP
++		 */
++		qp->srq = siw_srq_ofa2siw(attrs->srq);
++		qp->attrs.rq_size = 0;
++		atomic_set(&qp->rq_space, 0);
++		dprint(DBG_OBJ, " QP(%d): SRQ(%p) attached\n",
++			QP_ID(qp), qp->srq);
++	} else {
++		qp->srq = NULL;
++		qp->attrs.rq_size = attrs->cap.max_recv_wr;
++		atomic_set(&qp->rq_space, qp->attrs.rq_size);
++	}
++	qp->attrs.sq_size = attrs->cap.max_send_wr;
++	atomic_set(&qp->sq_space, qp->attrs.sq_size);
++	qp->attrs.sq_max_sges = attrs->cap.max_send_sge;
++	/*
++	 * ofed has no max_send_sge_rdmawrite
++	 */
++	qp->attrs.sq_max_sges_rdmaw = attrs->cap.max_send_sge;
++	qp->attrs.rq_max_sges = attrs->cap.max_recv_sge;
++	/*
++	 * while not part of attrs we init ord/ird here
++	 */
++	qp->attrs.ord = dev->attrs.max_ord;
++	qp->attrs.ird = dev->attrs.max_ird;
++
++	qp->attrs.state = SIW_QP_STATE_IDLE;
++
++	if (udata) {
++		uresp.sq_size = qp->attrs.sq_size;
++		uresp.rq_size = qp->attrs.rq_size;
++		uresp.qp_id = QP_ID(qp);
++
++		rv = ib_copy_to_udata(udata, &uresp, sizeof uresp);
++		if (rv)
++			goto err_out_idr;
++	}
++	c_tx = &qp->tx_ctx;
++	c_rx = &qp->rx_ctx;
++
++	c_tx->crc_enabled = c_rx->crc_enabled = CONFIG_RDMA_SIW_CRC_ENFORCED;
++
++	if (c_tx->crc_enabled) {
++		c_tx->mpa_crc_hd.tfm =
++			crypto_alloc_hash("crc32c", 0, CRYPTO_ALG_ASYNC);
++		if (IS_ERR(c_tx->mpa_crc_hd.tfm)) {
++			rv = -PTR_ERR(c_tx->mpa_crc_hd.tfm);
++			dprint(DBG_ON, "(QP%d): Failed loading crc32c"
++				" with error %d. ", QP_ID(qp), rv);
++			goto err_out_idr;
++		}
++	}
++	if (c_rx->crc_enabled) {
++		c_rx->mpa_crc_hd.tfm =
++			crypto_alloc_hash("crc32c", 0, CRYPTO_ALG_ASYNC);
++		if (IS_ERR(c_rx->mpa_crc_hd.tfm)) {
++			rv = -PTR_ERR(c_rx->mpa_crc_hd.tfm);
++			crypto_free_hash(c_tx->mpa_crc_hd.tfm);
++			goto err_out_idr;
++		}
++	}
++	atomic_set(&qp->tx_ctx.in_use, 0);
++
++	qp->ofa_qp.qp_num = QP_ID(qp);
++
++	siw_pd_get(pd);
++
++	return &qp->ofa_qp;
++
++err_out_idr:
++	siw_remove_obj(&dev->idr_lock, &dev->qp_idr, &qp->hdr);
++err_out:
++	if (scq)
++		siw_cq_put(scq);
++	if (rcq)
++		siw_cq_put(rcq);
++
++	kfree(qp);
++	atomic_dec(&dev->num_qp);
++
++	return ERR_PTR(rv);
++}
++
++/*
++ * Minimum siw_query_qp() verb interface to allow for qperf application
++ * to run on siw.
++ *
++ * TODO: all.
++ */
++int siw_query_qp(struct ib_qp *qp, struct ib_qp_attr *qp_attr,
++		 int qp_attr_mask, struct ib_qp_init_attr *qp_init_attr)
++{
++	qp_attr->cap.max_inline_data = SIW_MAX_INLINE;
++	qp_init_attr->cap.max_inline_data = 0;
++
++	return 0;
++}
++
++int siw_ofed_modify_qp(struct ib_qp *ofa_qp, struct ib_qp_attr *attr,
++			 int attr_mask, struct ib_udata *udata)
++{
++	struct siw_qp_attrs	new_attrs;
++	enum siw_qp_attr_mask	siw_attr_mask = 0;
++	struct siw_qp		*qp = siw_qp_ofa2siw(ofa_qp);
++	int			rv;
++
++	if (!attr_mask) {
++		dprint(DBG_CM, "(QP%d): attr_mask==0 ignored\n", QP_ID(qp));
++		return 0;
++	}
++	siw_dprint_qp_attr_mask(attr_mask);
++
++	memset(&new_attrs, 0, sizeof new_attrs);
++
++	if (attr_mask & IB_QP_ACCESS_FLAGS) {
++
++		siw_attr_mask |= SIW_QP_ATTR_ACCESS_FLAGS;
++
++		if (attr->qp_access_flags & IB_ACCESS_REMOTE_READ)
++			new_attrs.flags |= SIW_RDMA_READ_ENABLED;
++		if (attr->qp_access_flags & IB_ACCESS_REMOTE_WRITE)
++			new_attrs.flags |= SIW_RDMA_WRITE_ENABLED;
++		if (attr->qp_access_flags & IB_ACCESS_MW_BIND)
++			new_attrs.flags |= SIW_RDMA_BIND_ENABLED;
++	}
++	if (attr_mask & IB_QP_STATE) {
++		dprint(DBG_CM, "(QP%d): Desired IB QP state: %s\n",
++			   QP_ID(qp), ib_qp_state_to_string[attr->qp_state]);
++
++		new_attrs.state = ib_qp_state_to_siw_qp_state[attr->qp_state];
++
++		if (new_attrs.state > SIW_QP_STATE_RTS)
++			qp->tx_ctx.tx_suspend = 1;
++
++		/* TODO: SIW_QP_STATE_UNDEF is currently not possible ... */
++		if (new_attrs.state == SIW_QP_STATE_UNDEF)
++			return -EINVAL;
++
++		siw_attr_mask |= SIW_QP_ATTR_STATE;
++	}
++	if (!attr_mask)
++		return 0;
++
++	down_write(&qp->state_lock);
++
++	rv = siw_qp_modify(qp, &new_attrs, siw_attr_mask);
++
++	up_write(&qp->state_lock);
++	return rv;
++}
++
++int siw_destroy_qp(struct ib_qp *ofa_qp)
++{
++	struct ib_device	*ofa_dev = ofa_qp->device;
++	struct siw_dev		*dev = siw_dev_ofa2siw(ofa_dev);
++	struct siw_qp		*qp = siw_qp_ofa2siw(ofa_qp);
++	struct siw_cep		*cep;
++	struct siw_qp_attrs	qp_attrs;
++
++	dprint(DBG_CM, "(QP%d): SIW QP state=%d, cep=0x%p\n",
++		QP_ID(qp), qp->attrs.state, qp->cep);
++
++	/*
++	 * Mark QP as in process of destruction to prevent from eventual async
++	 * callbacks to OFA core
++	 */
++	qp->attrs.flags |= SIW_QP_IN_DESTROY;
++	qp->rx_ctx.rx_suspend = 1;
++
++	down_write(&qp->state_lock);
++
++	qp_attrs.state = SIW_QP_STATE_ERROR;
++	(void)siw_qp_modify(qp, &qp_attrs, SIW_QP_ATTR_STATE);
++
++	up_write(&qp->state_lock);
++
++	cep = qp->cep;
++	if (cep) {
++		/*
++		 * Wait if CM work is scheduled. calling siw_qp_modify()
++		 * already dropped the network connection.
++		 */
++		dprint(DBG_CM, " (QP%d) (CEP 0x%p): %s (%d)\n",
++			QP_ID(qp), cep, atomic_read(&cep->ref.refcount) > 1 ?
++			"Wait for CM" : "CM done",
++			atomic_read(&cep->ref.refcount));
++
++		wait_event(cep->waitq, atomic_read(&cep->ref.refcount) == 1);
++		dprint(DBG_CM, "(QP%d): CM done 2\n", QP_ID(qp));
++		qp->cep = 0;
++		siw_cep_put(cep);
++	}
++
++	if (qp->rx_ctx.crc_enabled)
++		crypto_free_hash(qp->rx_ctx.mpa_crc_hd.tfm);
++	if (qp->tx_ctx.crc_enabled)
++		crypto_free_hash(qp->tx_ctx.mpa_crc_hd.tfm);
++
++	siw_remove_obj(&dev->idr_lock, &dev->qp_idr, &qp->hdr);
++
++	/* Drop references */
++	siw_cq_put(qp->scq);
++	siw_cq_put(qp->rcq);
++	siw_pd_put(qp->pd);
++	qp->scq = qp->rcq = NULL;
++
++	siw_qp_freeq_flush(qp);
++
++	siw_qp_put(qp);
++
++	atomic_dec(&dev->num_qp);
++	return 0;
++}
++
++/*
++ * siw_copy_sgl()
++ *
++ * Copy SGL from user (OFA) representation to local
++ * representation.
++ * Memory lookup and base+bounds checks must
++ * be deferred until wqe gets executed
++ */
++static int siw_copy_sgl(struct ib_sge *ofa_sge, struct siw_sge *si_sge,
++			int num_sge)
++{
++	int bytes = 0;
++
++	while (num_sge--) {
++		si_sge->addr = ofa_sge->addr;
++		si_sge->len  = ofa_sge->length;
++		si_sge->lkey = ofa_sge->lkey;
++		/*
++		 * defer memory lookup to WQE processing
++		 */
++		si_sge->mem.obj = NULL;
++
++		bytes += si_sge->len;
++		si_sge++; ofa_sge++;
++	}
++	return bytes;
++}
++
++/*
++ * siw_copy_inline_sgl()
++ *
++ * Prepare sgl of inlined data for sending.
++ * User provided sgl with unregistered user buffers. The function checks
++ * if the given buffer addresses and len's are within process context
++ * bounds and copies data into one kernel buffer. This implies dual copy
++ * operation in the tx path since TCP will make another copy for
++ * retransmission. There is room for efficiency improvement.
++ */
++static int siw_copy_inline_sgl(struct ib_sge *ofa_sge, struct siw_sge *si_sge,
++			       int num_sge)
++{
++	char	*kbuf;
++	int 	i, bytes = 0;
++
++	if (unlikely(num_sge == 0))
++		return 0;
++
++	for (i = 0; i < num_sge; i++) {
++		struct ib_sge *sge = &ofa_sge[i];
++
++		if (unlikely(!access_ok(VERIFY_READ, sge->addr, sge->length)))
++			return -EFAULT;
++
++		bytes += sge->length;
++
++		if (bytes > SIW_MAX_INLINE)
++			return -EINVAL;
++	}
++	if (unlikely(!bytes))
++		return 0;
++
++	kbuf = kmalloc(bytes, GFP_KERNEL);
++	if (unlikely(!kbuf)) {
++		dprint(DBG_ON, " kmalloc\n");
++		return -ENOMEM;
++	}
++	si_sge->mem.buf = kbuf;
++
++	while (num_sge--) {
++		if (__copy_from_user(kbuf,
++				     (void *)(unsigned long)ofa_sge->addr,
++				     ofa_sge->length)) {
++			kfree(si_sge->mem.buf);
++			return -EFAULT;
++		}
++		kbuf += ofa_sge->length;
++		ofa_sge++;
++	}
++	si_sge->len = bytes;
++	si_sge->lkey = 0;
++	si_sge->addr = 0; /* don't need the user addr */
++	return bytes;
++}
++
++
++/*
++ * siw_post_send()
++ *
++ * Post a list of S-WR's to a SQ.
++ *
++ * @ofa_qp:	OFA QP contained in siw QP
++ * @wr:		Null terminated list of user WR's
++ * @bad_wr:	Points to failing WR in case of synchronous failure.
++ */
++int siw_post_send(struct ib_qp *ofa_qp, struct ib_send_wr *wr,
++		  struct ib_send_wr **bad_wr)
++{
++	struct siw_wqe	*wqe = NULL;
++	struct siw_qp	*qp = siw_qp_ofa2siw(ofa_qp);
++
++	unsigned long flags;
++	int rv = 0;
++
++	dprint(DBG_WR|DBG_TX, "(QP%d): state=%d\n",
++		QP_ID(qp), qp->attrs.state);
++
++	/*
++	 * Acquire QP state lock for reading. The idea is that a
++	 * user cannot move the QP out of RTS during TX/RX processing.
++	 */
++	down_read(&qp->state_lock);
++
++	if (qp->attrs.state != SIW_QP_STATE_RTS) {
++		dprint(DBG_WR|DBG_ON, "(QP%d): state=%d\n",
++			QP_ID(qp), qp->attrs.state);
++		up_read(&qp->state_lock);
++		*bad_wr = wr;
++		return -ENOTCONN;
++	}
++	dprint(DBG_WR|DBG_TX, "(QP%d): sq_space(#1)=%d\n",
++		QP_ID(qp), atomic_read(&qp->sq_space));
++
++	while (wr) {
++		if (!atomic_read(&qp->sq_space)) {
++			dprint(DBG_ON, " sq_space\n");
++			wqe = NULL;
++			rv = -ENOMEM;
++			break;
++		}
++		wqe = siw_wqe_get(qp, wr->opcode);
++		if (!wqe) {
++			dprint(DBG_ON, " siw_wqe_get\n");
++			rv = -ENOMEM;
++			break;
++		}
++		if (wr->num_sge > qp->attrs.sq_max_sges) {
++			/*
++			 * NOTE: we allow for zero length wr's here.
++			 */
++			dprint(DBG_WR, "(QP%d): Num SGE: %d\n",
++				QP_ID(qp), wr->num_sge);
++			rv = -EINVAL;
++			break;
++		}
++		wr_type(wqe) = wr->opcode;
++		wr_flags(wqe) = wr->send_flags;
++		wr_id(wqe) = wr->wr_id;
++
++		if (SIW_INLINED_DATA(wqe))
++			dprint(DBG_WR, "(QP%d): INLINE DATA\n", QP_ID(qp));
++
++		switch (wr->opcode) {
++
++		case IB_WR_SEND:
++			if (!SIW_INLINED_DATA(wqe)) {
++				rv = siw_copy_sgl(wr->sg_list, wqe->wr.send.sge,
++						  wr->num_sge);
++				wqe->wr.send.num_sge = wr->num_sge;
++			} else {
++				rv = siw_copy_inline_sgl(wr->sg_list,
++							 wqe->wr.send.sge,
++							 wr->num_sge);
++				wqe->wr.send.num_sge = 1;
++			}
++			if (rv <= 0) {
++				rv = -EINVAL;
++				break;
++			}
++			wqe->bytes = rv;
++			break;
++
++		case IB_WR_RDMA_READ:
++			/*
++			 * OFED WR restricts RREAD sink to SGL containing
++			 * 1 SGE only. we could relax to SGL with multiple
++			 * elements referring the SAME ltag or even sending
++			 * a private per-rreq tag referring to a checked
++			 * local sgl with MULTIPLE ltag's. would be easy
++			 * to do...
++			 */
++			if (wr->num_sge != 1) {
++				rv = -EINVAL;
++				break;
++			}
++			rv = siw_copy_sgl(wr->sg_list, wqe->wr.rread.sge, 1);
++			/*
++			 * NOTE: zero length RREAD is allowed!
++			 */
++			wqe->wr.rread.raddr = wr->wr.rdma.remote_addr;
++			wqe->wr.rread.rtag = wr->wr.rdma.rkey;
++			wqe->wr.rread.num_sge = 1;
++			wqe->bytes = rv;
++			break;
++
++		case IB_WR_RDMA_WRITE:
++			if (!SIW_INLINED_DATA(wqe)) {
++				rv = siw_copy_sgl(wr->sg_list, wqe->wr.send.sge,
++						  wr->num_sge);
++				wqe->wr.write.num_sge = wr->num_sge;
++			} else {
++				rv = siw_copy_inline_sgl(wr->sg_list,
++							 wqe->wr.send.sge,
++							 wr->num_sge);
++				wqe->wr.write.num_sge = min(1, wr->num_sge);
++			}
++			/*
++			 * NOTE: zero length WRITE is allowed!
++			 */
++			if (rv < 0) {
++				rv = -EINVAL;
++				break;
++			}
++			wqe->wr.write.raddr = wr->wr.rdma.remote_addr;
++			wqe->wr.write.rtag = wr->wr.rdma.rkey;
++			wqe->bytes = rv;
++			break;
++
++		default:
++			dprint(DBG_WR|DBG_TX,
++				"(QP%d): Opcode %d not yet implemented\n",
++				QP_ID(qp), wr->opcode);
++			rv = -EINVAL;
++			break;
++		}
++		dprint(DBG_WR|DBG_TX, "(QP%d): opcode %d, bytes %d, "
++				"flags 0x%x\n",
++				QP_ID(qp), wr_type(wqe), wqe->bytes,
++				wr_flags(wqe));
++		if (rv < 0)
++			break;
++
++		wqe->wr_status = SR_WR_QUEUED;
++
++		lock_sq_rxsave(qp, flags);
++		list_add_tail(&wqe->list, &qp->sq);
++		atomic_dec(&qp->sq_space);
++		unlock_sq_rxsave(qp, flags);
++
++		wr = wr->next;
++	}
++	/*
++	 * Send directly if SQ processing is not in progress.
++	 * Eventual immediate errors (rv < 0) do not affect the involved
++	 * RI resources (Verbs, 8.3.1) and thus do not prevent from SQ
++	 * processing, if new work is already pending. But rv must be passed
++	 * to caller.
++	 */
++	lock_sq_rxsave(qp, flags);
++
++	if (tx_wqe(qp) == NULL) {
++		struct siw_wqe	*next = siw_next_tx_wqe(qp);
++		if (next != NULL) {
++			if (wr_type(next) != SIW_WR_RDMA_READ_REQ ||
++			    !ORD_SUSPEND_SQ(qp)) {
++				tx_wqe(qp) = next;
++				if (wr_type(next) != SIW_WR_RDMA_READ_REQ)
++					list_del_init(&next->list);
++				else
++					siw_rreq_queue(next, qp);
++
++				unlock_sq_rxsave(qp, flags);
++
++				dprint(DBG_WR|DBG_TX,
++					"(QP%d): Direct sending...\n",
++					QP_ID(qp));
++
++				if (siw_qp_sq_process(qp, 1) != 0 &&
++				    !(qp->tx_ctx.tx_suspend))
++					siw_qp_cm_drop(qp, 0);
++			} else
++				unlock_sq_rxsave(qp, flags);
++		} else
++			unlock_sq_rxsave(qp, flags);
++	} else
++		unlock_sq_rxsave(qp, flags);
++
++	up_read(&qp->state_lock);
++
++	dprint(DBG_WR|DBG_TX, "(QP%d): sq_space(#2)=%d\n", QP_ID(qp),
++		atomic_read(&qp->sq_space));
++	if (rv >= 0)
++		return 0;
++	/*
++	 * Immediate error
++	 */
++	dprint(DBG_WR|DBG_ON, "(QP%d): error=%d\n", QP_ID(qp), rv);
++
++	if (wqe != NULL)
++		siw_wqe_put(wqe);
++	*bad_wr = wr;
++	return rv;
++}
++
++/*
++ * siw_post_receive()
++ *
++ * Post a list of R-WR's to a RQ.
++ *
++ * @ofa_qp:	OFA QP contained in siw QP
++ * @wr:		Null terminated list of user WR's
++ * @bad_wr:	Points to failing WR in case of synchronous failure.
++ */
++int siw_post_receive(struct ib_qp *ofa_qp, struct ib_recv_wr *wr,
++		     struct ib_recv_wr **bad_wr)
++{
++	struct siw_wqe	*wqe = NULL;
++	struct siw_qp	*qp = siw_qp_ofa2siw(ofa_qp);
++	unsigned long	flags;
++	int rv = 0;
++
++	dprint(DBG_WR|DBG_TX, "(QP%d): state=%d\n", QP_ID(qp),
++		qp->attrs.state);
++
++	if (qp->srq)
++		return -EOPNOTSUPP; /* what else from errno.h? */
++	/*
++	 * Acquire a QP state lock for reading. The idea is that a
++	 * user cannot move the QP out of RTS during TX/RX processing.
++	 */
++	down_read(&qp->state_lock);
++
++	if (qp->attrs.state > SIW_QP_STATE_RTS) {
++		up_read(&qp->state_lock);
++		dprint(DBG_ON, " (QP%d): state=%d\n", QP_ID(qp),
++			qp->attrs.state);
++		return -EINVAL;
++	}
++	while (wr) {
++		/*
++		 * NOTE: siw_wqe_get() calls kzalloc(), which may sleep.
++		 */
++		if (!atomic_read(&qp->rq_space) ||
++			!(wqe = siw_wqe_get(qp, SIW_WR_RECEIVE))) {
++			dprint(DBG_ON, " siw_wqe_get? (%d)\n",
++			       atomic_read(&qp->rq_space));
++			rv = -ENOMEM;
++			break;
++		}
++		if (wr->num_sge > qp->attrs.rq_max_sges) {
++			dprint(DBG_WR|DBG_ON, "(QP%d): Num SGE: %d\n",
++				QP_ID(qp), wr->num_sge);
++			rv = -EINVAL;
++			break;
++		}
++		wr_type(wqe) = SIW_WR_RECEIVE;
++		wr_id(wqe) = wr->wr_id;
++
++		rv = siw_copy_sgl(wr->sg_list, wqe->wr.recv.sge, wr->num_sge);
++		if (rv < 0) {
++			/*
++			 * XXX tentatively allow zero length receive
++			 */
++			rv = -EINVAL;
++			break;
++		}
++		wqe->wr.recv.num_sge = wr->num_sge;
++		wqe->bytes = rv;
++
++		lock_rq_rxsave(qp, flags);
++
++		list_add_tail(&wqe->list, &qp->rq);
++		wqe->wr_status = SR_WR_QUEUED;
++		atomic_dec(&qp->rq_space);
++
++		unlock_rq_rxsave(qp, flags);
++
++		wr = wr->next;
++	}
++	if (rv <= 0) {
++		dprint(DBG_WR|DBG_ON, "(QP%d): error=%d\n", QP_ID(qp), rv);
++		if (wqe != NULL)
++			siw_wqe_put(wqe);
++		*bad_wr = wr;
++	}
++	dprint(DBG_WR|DBG_RX, "(QP%d): rq_space=%d\n", QP_ID(qp),
++		atomic_read(&qp->rq_space));
++
++	up_read(&qp->state_lock);
++
++	return rv > 0 ? 0 : rv;
++}
++
++int siw_destroy_cq(struct ib_cq *ofa_cq)
++{
++	struct siw_cq	 	*cq  = siw_cq_ofa2siw(ofa_cq);
++	struct ib_device	*ofa_dev = ofa_cq->device;
++	struct siw_dev		*dev = siw_dev_ofa2siw(ofa_dev);
++
++	siw_cq_flush(cq);
++
++	siw_remove_obj(&dev->idr_lock, &dev->cq_idr, &cq->hdr);
++	siw_cq_put(cq);
++	atomic_dec(&dev->num_cq);
++	return 0;
++}
++
++/*
++ * siw_create_cq()
++ *
++ * Create CQ of requested size on given device.
++ *
++ * @ofa_dev:	OFA device contained in siw device
++ * @size:	maximum number of CQE's allowed.
++ * @ib_context: user context.
++ * @udata:	used to provide CQ ID back to user.
++ */
++
++struct ib_cq *siw_create_cq(struct ib_device *ofa_dev, int size,
++			    int vec /* unused */,
++			    struct ib_ucontext *ib_context,
++			    struct ib_udata *udata)
++{
++	struct siw_cq	 		*cq = NULL;
++	struct siw_dev 			*dev = siw_dev_ofa2siw(ofa_dev);
++	struct siw_uresp_create_cq	uresp;
++	int		 		rv;
++
++	if (atomic_inc_return(&dev->num_cq) > SIW_MAX_CQ) {
++		dprint(DBG_ON, ": Out of CQ's\n");
++		rv = -ENOMEM;
++		goto err_out;
++	}
++	if (size < 1 || size > SIW_MAX_CQE) {
++		dprint(DBG_ON, ": CQE: %d\n", size);
++		rv = -EINVAL;
++		goto err_out;
++	}
++	cq = kmalloc(sizeof *cq, GFP_KERNEL);
++	if (!cq) {
++		dprint(DBG_ON, ":  kmalloc\n");
++		rv = -ENOMEM;
++		goto err_out;
++	}
++	cq->ofa_cq.cqe = size - 1;
++
++	rv = siw_cq_add(dev, cq);
++	if (rv)
++		goto err_out_idr;
++
++	INIT_LIST_HEAD(&cq->queue);
++	spin_lock_init(&cq->lock);
++	atomic_set(&cq->qlen, 0);
++
++	if (ib_context) {
++		uresp.cq_id = OBJ_ID(cq);
++
++		rv = ib_copy_to_udata(udata, &uresp, sizeof uresp);
++		if (rv)
++			goto err_out_idr;
++	}
++	return &cq->ofa_cq;
++
++err_out_idr:
++	siw_remove_obj(&dev->idr_lock, &dev->cq_idr, &cq->hdr);
++err_out:
++	dprint(DBG_OBJ, ": CQ creation failed\n");
++
++	kfree(cq);
++	atomic_dec(&dev->num_cq);
++
++	return ERR_PTR(rv);
++}
++
++/*
++ * siw_poll_cq()
++ *
++ * Reap CQ entries if available and copy work completion status into
++ * array of WC's provided by caller. Returns number of reaped CQE's.
++ *
++ * @ofa_cq:	OFA CQ contained in siw CQ.
++ * @num_cqe:	Maximum number of CQE's to reap.
++ * @wc:		Array of work completions to be filled by siw.
++ */
++int siw_poll_cq(struct ib_cq *ofa_cq, int num_cqe, struct ib_wc *wc)
++{
++	struct siw_cq		*cq  = siw_cq_ofa2siw(ofa_cq);
++	int			i;
++
++	for (i = 0; i < num_cqe; i++) {
++		if (!(siw_reap_cqe(cq, wc)))
++			break;
++		wc++;
++	}
++	dprint(DBG_WR, " CQ%d: reap %d comletions (%d left)\n",
++		OBJ_ID(cq), i, atomic_read(&cq->qlen));
++
++	return i;
++}
++
++/*
++ * siw_req_notify_cq()
++ *
++ * Request notification for new CQE's added to that CQ.
++ * Defined flags:
++ * o SIW_CQ_NOTIFY_SOLICITED lets siw trigger a notification
++ *   event if a WQE with notification flag set enters the CQ
++ * o SIW_CQ_NOTIFY_NEXT_COMP lets siw trigger a notification
++ *   event if a WQE enters the CQ.
++ * o IB_CQ_REPORT_MISSED_EVENTS: return value will provide the
++ *   number of not reaped CQE's regardless of its notification
++ *   type and current or new CQ notification settings.
++ *
++ * @ofa_cq:	OFA CQ contained in siw CQ.
++ * @flags:	Requested notification flags.
++ */
++int siw_req_notify_cq(struct ib_cq *ofa_cq, enum ib_cq_notify_flags flags)
++{
++	struct siw_cq	 *cq  = siw_cq_ofa2siw(ofa_cq);
++
++	dprint(DBG_EH, "(CQ%d:) flags: 0x%8x\n", OBJ_ID(cq), flags);
++
++	if ((flags & IB_CQ_SOLICITED_MASK) == IB_CQ_SOLICITED)
++		cq->notify = SIW_CQ_NOTIFY_SOLICITED;
++	else
++		cq->notify = SIW_CQ_NOTIFY_ALL;
++
++	if (flags & IB_CQ_REPORT_MISSED_EVENTS)
++		return atomic_read(&cq->qlen);
++
++	return 0;
++}
++
++/*
++ * siw_dereg_mr()
++ *
++ * Release Memory Region.
++ *
++ * TODO: Update function if Memory Windows are supported by siw:
++ *       Is OFED core checking for MW dependencies for current
++ *       MR before calling MR deregistration?.
++ *
++ * @ofa_mr:     OFA MR contained in siw MR.
++ */
++int siw_dereg_mr(struct ib_mr *ofa_mr)
++{
++	struct siw_mr	*mr;
++	struct siw_dev	*dev = siw_dev_ofa2siw(ofa_mr->device);
++
++	mr = siw_mr_ofa2siw(ofa_mr);
++
++	dprint(DBG_OBJ|DBG_MM, "(MEM%d): Release UMem %p, #ref's: %d\n",
++		mr->mem.hdr.id, mr->umem,
++		atomic_read(&mr->mem.hdr.ref.refcount));
++
++	mr->mem.stag_state = STAG_INVALID;
++
++	siw_pd_put(mr->pd);
++	siw_remove_obj(&dev->idr_lock, &dev->mem_idr, &mr->mem.hdr);
++	siw_mem_put(&mr->mem);
++
++	atomic_dec(&dev->num_mem);
++	return 0;
++}
++
++/*
++ * siw_reg_user_mr()
++ *
++ * Register Memory Region.
++ *
++ * @ofa_pd:	OFA PD contained in siw PD.
++ * @start:	starting address of MR (virtual address)
++ * @len:	len of MR
++ * @rnic_va:	not used by siw
++ * @rights:	MR access rights
++ * @udata:	user buffer to communicate STag and Key.
++ */
++struct ib_mr *siw_reg_user_mr(struct ib_pd *ofa_pd, u64 start, u64 len,
++			      u64 rnic_va, int rights, struct ib_udata *udata)
++{
++	struct siw_mr		*mr = NULL;
++	struct siw_pd		*pd = siw_pd_ofa2siw(ofa_pd);
++	struct ib_umem		*umem = NULL;
++	struct siw_ureq_reg_mr	ureq;
++	struct siw_uresp_reg_mr	uresp;
++	struct siw_dev		*dev = pd->hdr.dev;
++	int rv;
++
++	dprint(DBG_MM|DBG_OBJ, " start: 0x%016llx, "
++		"va: 0x%016llx, len: %llu, ctx: %p\n",
++		(unsigned long long)start,
++		(unsigned long long)rnic_va,
++		(unsigned long long)len,
++		ofa_pd->uobject->context);
++
++	if (atomic_inc_return(&dev->num_mem) > SIW_MAX_MR) {
++		dprint(DBG_ON, ": Out of MRs: %d\n",
++			atomic_read(&dev->num_mem));
++		rv = -ENOMEM;
++		goto err_out;
++	}
++	if (!len) {
++		rv = -EINVAL;
++		goto err_out;
++	}
++
++	umem = ib_umem_get(ofa_pd->uobject->context, start, len, rights, 0);
++	if (IS_ERR(umem)) {
++		dprint(DBG_MM, " ib_umem_get:%ld LOCKED:%lu, LIMIT:%lu\n",
++			PTR_ERR(umem), current->mm->locked_vm,
++			current->signal->rlim[RLIMIT_MEMLOCK].rlim_cur >>
++			PAGE_SHIFT);
++		rv = -PTR_ERR(umem);
++		umem = NULL;
++		goto err_out;
++	}
++	mr = kmalloc(sizeof *mr, GFP_KERNEL);
++	if (!mr) {
++		dprint(DBG_ON, ": malloc\n");
++		rv = -ENOMEM;
++		goto err_out;
++	}
++	mr->mem.stag_state = STAG_INVALID;
++
++	if (siw_mem_add(dev, &mr->mem) < 0) {
++		dprint(DBG_ON, ": siw_mem_add\n");
++		rv = -ENOMEM;
++		goto err_out;
++	}
++	dprint(DBG_OBJ|DBG_MM, "(MEM%d): New Object, UMEM %p\n",
++		mr->mem.hdr.id, umem);
++
++	mr->ofa_mr.lkey = mr->ofa_mr.rkey = mr->mem.hdr.id << 8;
++
++	mr->mem.va  = start;
++	mr->mem.len = len;
++	mr->mem.fbo = 0 ;
++	mr->mem.mr  = NULL;
++	mr->mem.perms = SR_MEM_LREAD | /* not selectable in OFA */
++			(rights & IB_ACCESS_REMOTE_READ  ? SR_MEM_RREAD  : 0) |
++			(rights & IB_ACCESS_LOCAL_WRITE  ? SR_MEM_LWRITE : 0) |
++			(rights & IB_ACCESS_REMOTE_WRITE ? SR_MEM_RWRITE : 0);
++
++	mr->umem = umem;
++
++	if (udata) {
++		rv = ib_copy_from_udata(&ureq, udata, sizeof ureq);
++		if (rv)
++			goto err_out_idr;
++
++		mr->ofa_mr.lkey |= ureq.stag_key;
++		mr->ofa_mr.rkey |= ureq.stag_key; /* XXX ??? */
++		uresp.stag = mr->ofa_mr.lkey;
++
++		rv = ib_copy_to_udata(udata, &uresp, sizeof uresp);
++		if (rv)
++			goto err_out_idr;
++	}
++	mr->pd = pd;
++	siw_pd_get(pd);
++
++	mr->mem.stag_state = STAG_VALID;
++
++	return &mr->ofa_mr;
++
++err_out_idr:
++	siw_remove_obj(&dev->idr_lock, &dev->mem_idr, &mr->mem.hdr);
++err_out:
++	if (umem)
++		ib_umem_release(umem);
++
++	kfree(mr);
++
++	atomic_dec(&dev->num_mem);
++
++	return ERR_PTR(rv);
++}
++
++/*
++ * siw_create_srq()
++ *
++ * Create Shared Receive Queue of attributes @init_attrs
++ * within protection domain given by @ofa_pd.
++ *
++ * @ofa_pd:	OFA PD contained in siw PD.
++ * @init_attrs:	SRQ init attributes.
++ * @udata:	not used by siw.
++ */
++struct ib_srq *siw_create_srq(struct ib_pd *ofa_pd,
++			      struct ib_srq_init_attr *init_attrs,
++			      struct ib_udata *udata)
++{
++	struct siw_srq		*srq = NULL;
++	struct ib_srq_attr	*attrs = &init_attrs->attr;
++	struct siw_pd		*pd = siw_pd_ofa2siw(ofa_pd);
++	struct siw_dev		*dev = pd->hdr.dev;
++	int rv;
++
++	if (atomic_inc_return(&dev->num_srq) > SIW_MAX_SRQ) {
++		dprint(DBG_ON, " Out of SRQ's\n");
++		rv = -ENOMEM;
++		goto err_out;
++	}
++	if (attrs->max_wr > SIW_MAX_SRQ_WR || attrs->max_sge > SIW_MAX_SGE ||
++	    attrs->srq_limit > attrs->max_wr) {
++		rv = -EINVAL;
++		goto err_out;
++	}
++
++	srq = kmalloc(sizeof *srq, GFP_KERNEL);
++	if (!srq) {
++		dprint(DBG_ON, " malloc\n");
++		rv = -ENOMEM;
++		goto err_out;
++	}
++	INIT_LIST_HEAD(&srq->rq);
++	srq->max_sge = attrs->max_sge;
++	atomic_set(&srq->space, attrs->max_wr);
++	srq->limit = attrs->srq_limit;
++	if (srq->limit)
++		srq->armed = 1;
++
++	srq->pd	= pd;
++	siw_pd_get(pd);
++
++	spin_lock_init(&srq->lock);
++
++	return &srq->ofa_srq;
++
++err_out:
++	kfree(srq);
++	atomic_dec(&dev->num_srq);
++
++	return ERR_PTR(rv);
++}
++
++/*
++ * siw_modify_srq()
++ *
++ * Modify SRQ. The caller may resize SRQ and/or set/reset notification
++ * limit and (re)arm IB_EVENT_SRQ_LIMIT_REACHED notification.
++ *
++ * NOTE: it is unclear if OFA allows for changing the MAX_SGE
++ * parameter. siw_modify_srq() does not check the attrs->max_sge param.
++ */
++int siw_modify_srq(struct ib_srq *ofa_srq, struct ib_srq_attr *attrs,
++		   enum ib_srq_attr_mask attr_mask, struct ib_udata *udata)
++{
++	struct siw_srq 	*srq = siw_srq_ofa2siw(ofa_srq);
++	unsigned long	flags;
++	int rv = 0;
++
++	lock_srq_rxsave(srq, flags);
++
++	if (attr_mask & IB_SRQ_MAX_WR) {
++		/* resize request */
++		if (attrs->max_wr > SIW_MAX_SRQ_WR) {
++			rv =  -EINVAL;
++			goto out;
++		}
++		if (attrs->max_wr < srq->max_wr) { /* shrink */
++			if (attrs->max_wr <
++			    srq->max_wr - atomic_read(&srq->space)) {
++				rv = -EBUSY;
++				goto out;
++			}
++			atomic_sub(srq->max_wr - attrs->max_wr, &srq->space);
++		} else /* grow */
++			atomic_add(attrs->max_wr - srq->max_wr, &srq->space);
++		srq->max_wr = attrs->max_wr;
++	}
++	if (attr_mask & IB_SRQ_LIMIT) {
++		if (attrs->srq_limit) {
++			if (attrs->srq_limit > srq->max_wr) {
++				rv = -EINVAL;
++				/* FIXME: restore old space & max_wr?? */
++				goto out;
++			}
++			srq->armed = 1;
++		} else
++			srq->armed = 0;
++
++		srq->limit = attrs->srq_limit;
++	}
++out:
++	unlock_srq_rxsave(srq, flags);
++	return rv;
++}
++
++/*
++ * siw_query_srq()
++ *
++ * Query SRQ attributes.
++ */
++int siw_query_srq(struct ib_srq *ofa_srq, struct ib_srq_attr *attrs)
++{
++	struct siw_srq 	*srq = siw_srq_ofa2siw(ofa_srq);
++	unsigned long	flags;
++
++	lock_srq_rxsave(srq, flags);
++
++	attrs->max_wr = srq->max_wr;
++	attrs->max_sge = srq->max_sge;
++	attrs->srq_limit = srq->limit;
++
++	unlock_srq_rxsave(srq, flags);
++
++	return 0;
++}
++
++/*
++ * siw_destroy_srq()
++ *
++ * Destroy SRQ.
++ * SRQ WQE's are silently destroyed, since not belonging to any QP.
++ * Furthermore, it is assumed that the SRQ is not referenced by any
++ * QP anymore - the code trusts the OFA environment to keep track
++ * of QP references.
++ */
++int siw_destroy_srq(struct ib_srq *ofa_srq)
++{
++	struct list_head	*listp, *tmp;
++	struct siw_srq		*srq = siw_srq_ofa2siw(ofa_srq);
++	struct siw_dev		*dev = srq->pd->hdr.dev;
++	unsigned long flags;
++
++	lock_srq_rxsave(srq, flags); /* probably not necessary */
++	list_for_each_safe(listp, tmp, &srq->rq) {
++		list_del(listp);
++		siw_wqe_put(list_entry(listp, struct siw_wqe, list));
++	}
++	unlock_srq_rxsave(srq, flags);
++
++	siw_pd_put(srq->pd);
++	kfree(srq);
++	atomic_dec(&dev->num_srq);
++
++	return 0;
++}
++
++/*
++ * siw_post_srq_recv()
++ *
++ * Post a list of receive queue elements to SRQ.
++ * NOTE: The function does not check or lock a certain SRQ state
++ *       during the post operation. The code simply trusts the
++ *       OFA environment.
++ *
++ * @ofa_srq:	OFA SRQ contained in siw SRQ
++ * @wr:		List of R-WR's
++ * @bad_wr:	Updated to failing WR if posting fails.
++ */
++int siw_post_srq_recv(struct ib_srq *ofa_srq, struct ib_recv_wr *wr,
++		      struct ib_recv_wr **bad_wr)
++{
++	struct siw_srq	*srq = siw_srq_ofa2siw(ofa_srq);
++	struct siw_wqe	*wqe = NULL;
++	unsigned long flags;
++	int rv = 0;
++
++	while (wr) {
++		if (!atomic_read(&srq->space) ||
++		    !(wqe = siw_srq_wqe_get(srq))) {
++			dprint(DBG_ON, " siw_srq_wqe_get\n");
++			rv = -ENOMEM;
++			break;
++		}
++		if (!wr->num_sge || wr->num_sge > srq->max_sge) {
++			dprint(DBG_WR|DBG_ON,
++				"(SRQ%p): Num SGE: %d\n", srq, wr->num_sge);
++			rv = -EINVAL;
++			break;
++		}
++		wr_type(wqe) = SIW_WR_RECEIVE;
++		wr_id(wqe) = wr->wr_id;
++		wqe->wr_status = SR_WR_QUEUED;
++
++		rv = siw_copy_sgl(wr->sg_list, wqe->wr.recv.sge, wr->num_sge);
++		if (rv == 0) {
++			/*
++			 * do not allow zero length receive
++			 * XXX correct?
++			 */
++			rv = -EINVAL;
++			break;
++		}
++		wqe->wr.recv.num_sge = wr->num_sge;
++		wqe->bytes = rv;
++
++		lock_srq_rxsave(srq, flags);
++
++		list_add_tail(&wqe->list, &srq->rq);
++		atomic_dec(&srq->space);
++
++		unlock_srq_rxsave(srq, flags);
++
++		wr = wr->next;
++	}
++	if (rv <= 0) {
++		dprint(DBG_WR|DBG_ON, "(SRQ %p): error=%d\n",
++			srq, rv);
++
++		if (wqe != NULL)
++			siw_wqe_put(wqe);
++		*bad_wr = wr;
++	}
++	dprint(DBG_WR|DBG_RX, "(SRQ%p): space=%d\n",
++		srq, atomic_read(&srq->space));
++
++	return rv > 0 ? 0 : rv;
++}
++
++
++struct ib_mr *siw_get_dma_mr(struct ib_pd *pd, int rights)
++{
++	return ERR_PTR(-EOPNOTSUPP);
++}
++
++int siw_mmap(struct ib_ucontext *ctx, struct vm_area_struct *vma)
++{
++	return -ENOSYS;
++}
+diff --git a/drivers/infiniband/hw/siw/siw_verbs.h b/drivers/infiniband/hw/siw/siw_verbs.h
+new file mode 100644
+index 0000000..53eac4f
+--- /dev/null
++++ b/drivers/infiniband/hw/siw/siw_verbs.h
+@@ -0,0 +1,96 @@
++/*
++ * Software iWARP device driver for Linux
++ *
++ * Authors: Bernard Metzler <bmt-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>
++ *
++ * Copyright (c) 2008-2010, IBM Corporation
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * BSD license below:
++ *
++ *   Redistribution and use in source and binary forms, with or
++ *   without modification, are permitted provided that the following
++ *   conditions are met:
++ *
++ *   - Redistributions of source code must retain the above copyright notice,
++ *     this list of conditions and the following disclaimer.
++ *
++ *   - Redistributions in binary form must reproduce the above copyright
++ *     notice, this list of conditions and the following disclaimer in the
++ *     documentation and/or other materials provided with the distribution.
++ *
++ *   - Neither the name of IBM nor the names of its contributors may be
++ *     used to endorse or promote products derived from this software without
++ *     specific prior written permission.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++#ifndef _SIW_VERBS_H
++#define _SIW_VERBS_H
++
++#include <linux/errno.h>
 +
 +#include <rdma/iw_cm.h>
 +#include <rdma/ib_verbs.h>
@@ -77,2048 +1819,50 @@ index 0000000..628b3b1
 +
 +#include "siw.h"
 +#include "siw_cm.h"
-+#include "siw_obj.h"
 +
-+static int mpa_crc_enabled;
-+module_param(mpa_crc_enabled, int, 0644);
-+MODULE_PARM_DESC(mpa_crc_enabled, "MPA CRC enabled");
-+
-+static int mpa_revision = 1;
-+
-+
-+/*
-+ * siw_sock_nodelay() - Disable Nagle algorithm
-+ *
-+ * See also fs/ocfs2/cluster/tcp.c, o2net_set_nodelay()
-+ */
-+static int siw_sock_nodelay(struct socket *sock)
-+{
-+	int ret, val = 1;
-+	mm_segment_t oldfs;
-+	oldfs = get_fs();
-+	set_fs(KERNEL_DS);
-+
-+	/*
-+	 * Don't use sock_setsockopt() for SOL_TCP. It doesn't check its level
-+	 * argument and assumes SOL_SOCKET so, say, your TCP_NODELAY will
-+	 * silently turn into SO_DEBUG.
-+	 */
-+	ret = sock->ops->setsockopt(sock, SOL_TCP, TCP_NODELAY,
-+				    (char __user *)&val, sizeof(val));
-+	set_fs(oldfs);
-+	return ret;
-+}
-+
-+static void siw_cm_llp_state_change(struct sock *);
-+static void siw_cm_llp_data_ready(struct sock *, int);
-+static void siw_cm_llp_write_space(struct sock *);
-+static void siw_cm_llp_error_report(struct sock *);
-+static void siw_sk_assign_cm_upcalls(struct sock *sk)
-+
-+{
-+	write_lock_bh(&sk->sk_callback_lock);
-+	sk->sk_state_change = siw_cm_llp_state_change;
-+	sk->sk_data_ready   = siw_cm_llp_data_ready;
-+	sk->sk_write_space  = siw_cm_llp_write_space;
-+	sk->sk_error_report = siw_cm_llp_error_report;
-+	write_unlock_bh(&sk->sk_callback_lock);
-+}
-+
-+static void siw_sk_save_upcalls(struct sock *sk)
-+{
-+	struct siw_cep *cep = sk_to_cep(sk);
-+	BUG_ON(!cep);
-+
-+	write_lock_bh(&sk->sk_callback_lock);
-+	cep->sk_state_change = sk->sk_state_change;
-+	cep->sk_data_ready   = sk->sk_data_ready;
-+	cep->sk_write_space  = sk->sk_write_space;
-+	cep->sk_error_report = sk->sk_error_report;
-+	write_unlock_bh(&sk->sk_callback_lock);
-+}
-+
-+static void siw_sk_restore_upcalls(struct sock *sk, struct siw_cep *cep)
-+{
-+	sk->sk_state_change	= cep->sk_state_change;
-+	sk->sk_data_ready	= cep->sk_data_ready;
-+	sk->sk_write_space	= cep->sk_write_space;
-+	sk->sk_error_report	= cep->sk_error_report;
-+	sk->sk_user_data 	= NULL;
-+	sk->sk_no_check 	= 0;
-+}
-+
-+static void siw_socket_disassoc(struct socket *s)
-+{
-+	struct sock	*sk = s->sk;
-+	struct siw_cep	*cep;
-+
-+	if (sk) {
-+		write_lock_bh(&sk->sk_callback_lock);
-+		cep = sk_to_cep(sk);
-+		if (cep) {
-+			siw_sk_restore_upcalls(sk, cep);
-+			siw_cep_put(cep);
-+		}
-+		write_unlock_bh(&sk->sk_callback_lock);
-+	}
-+}
-+
-+
-+static inline int kernel_peername(struct socket *s, struct sockaddr_in *addr)
-+{
-+	int unused;
-+	return s->ops->getname(s, (struct sockaddr *)addr, &unused, 1);
-+}
-+
-+static inline int kernel_localname(struct socket *s, struct sockaddr_in *addr)
-+{
-+	int unused;
-+	return s->ops->getname(s, (struct sockaddr *)addr, &unused, 0);
-+}
-+
-+static void siw_cep_socket_assoc(struct siw_cep *cep, struct socket *s)
-+{
-+	cep->llp.sock = s;
-+	siw_cep_get(cep);
-+	s->sk->sk_user_data = cep;
-+
-+	siw_sk_save_upcalls(s->sk);
-+	siw_sk_assign_cm_upcalls(s->sk);
-+}
-+
-+
-+static struct siw_cep *siw_cep_alloc(void)
-+{
-+	struct siw_cep *cep = kzalloc(sizeof *cep, GFP_KERNEL);
-+	if (cep) {
-+		INIT_LIST_HEAD(&cep->list);
-+		INIT_LIST_HEAD(&cep->work_freelist);
-+
-+		cep->mpa.hdr.params.c = mpa_crc_enabled ? 1 : 0;
-+		cep->mpa.hdr.params.m = 0;
-+		cep->mpa.hdr.params.rev = mpa_revision ? 1 : 0;
-+		kref_init(&cep->ref);
-+		cep->state = SIW_EPSTATE_IDLE;
-+		init_waitqueue_head(&cep->waitq);
-+		spin_lock_init(&cep->lock);
-+		dprint(DBG_OBJ|DBG_CM, "(CEP 0x%p): New Object\n", cep);
-+	}
-+	return cep;
-+}
-+
-+static void siw_cm_free_work(struct siw_cep *cep)
-+{
-+	struct list_head	*w, *tmp;
-+	struct siw_cm_work	*work;
-+
-+	list_for_each_safe(w, tmp, &cep->work_freelist) {
-+		work = list_entry(w, struct siw_cm_work, list);
-+		list_del(&work->list);
-+		kfree(work);
-+	}
-+}
-+
-+static void siw_put_work(struct siw_cm_work *work)
-+{
-+	INIT_LIST_HEAD(&work->list);
-+	spin_lock_bh(&work->cep->lock);
-+	list_add(&work->list, &work->cep->work_freelist);
-+	spin_unlock_bh(&work->cep->lock);
-+}
-+
-+
-+static void __siw_cep_dealloc(struct kref *ref)
-+{
-+	struct siw_cep *cep = container_of(ref, struct siw_cep, ref);
-+
-+	dprint(DBG_OBJ|DBG_CM, "(CEP 0x%p): Free Object\n", cep);
-+
-+	if (cep->listen_cep)
-+		siw_cep_put(cep->listen_cep);
-+
-+	/* kfree(NULL) is save */
-+	kfree(cep->mpa.pdata);
-+	spin_lock_bh(&cep->lock);
-+	if (!list_empty(&cep->work_freelist))
-+		siw_cm_free_work(cep);
-+	spin_unlock_bh(&cep->lock);
-+
-+	kfree(cep);
-+}
-+
-+static struct siw_cm_work *siw_get_work(struct siw_cep *cep)
-+{
-+	struct siw_cm_work	*work = NULL;
-+
-+	spin_lock_bh(&cep->lock);
-+	if (!list_empty(&cep->work_freelist)) {
-+		work = list_entry(cep->work_freelist.next, struct siw_cm_work,
-+				  list);
-+		list_del_init(&work->list);
-+	}
-+	spin_unlock_bh(&cep->lock);
-+	return work;
-+}
-+
-+static int siw_cm_alloc_work(struct siw_cep *cep, int num)
-+{
-+	struct siw_cm_work	*work;
-+
-+	BUG_ON(!list_empty(&cep->work_freelist));
-+
-+	while (num--) {
-+		work = kmalloc(sizeof *work, GFP_KERNEL);
-+		if (!work) {
-+			if (!(list_empty(&cep->work_freelist)))
-+				siw_cm_free_work(cep);
-+			dprint(DBG_ON, " Failed\n");
-+			return -ENOMEM;
-+		}
-+		work->cep = cep;
-+		INIT_LIST_HEAD(&work->list);
-+		list_add(&work->list, &cep->work_freelist);
-+	}
-+	return 0;
-+}
-+
-+static void siw_cm_release(struct siw_cep *cep)
-+{
-+	if (cep->llp.sock) {
-+		siw_socket_disassoc(cep->llp.sock);
-+		sock_release(cep->llp.sock);
-+		cep->llp.sock = NULL;
-+	}
-+	if (cep->qp) {
-+		struct siw_qp *qp = cep->qp;
-+		cep->qp = NULL;
-+		siw_qp_put(qp);
-+	}
-+	if (cep->cm_id) {
-+		cep->cm_id->rem_ref(cep->cm_id);
-+		cep->cm_id = NULL;
-+		siw_cep_put(cep);
-+	}
-+	cep->state = SIW_EPSTATE_CLOSED;
-+}
-+
-+/*
-+ * Test and set CEP into CLOSE pending. After calling
-+ * this function, the CEP conn_close flag is set. Returns:
-+ *
-+ *  1, if CEP is currently in use,
-+ *  0, if CEP is not in use and not already in CLOSE,
-+ * -1, if CEP is not in use and already in CLOSE.
-+ */
-+int siw_cep_in_close(struct siw_cep *cep)
-+{
-+	int rv;
-+
-+	spin_lock_bh(&cep->lock);
-+
-+	dprint(DBG_CM, " (CEP 0x%p): close %d, use %d\n",
-+		cep, cep->conn_close, cep->in_use);
-+
-+	rv = cep->in_use ? 1 : (cep->conn_close ? -1 : 0);
-+	cep->conn_close = 1; /* may be redundant */
-+
-+	spin_unlock_bh(&cep->lock);
-+
-+	return rv;
-+}
-+
-+/*
-+ * siw_qp_cm_drop()
-+ *
-+ * Drops established LLP connection if present and not already
-+ * scheduled for dropping. Called from user context, SQ workqueue
-+ * or receive IRQ. Caller signals if socket can be immediately
-+ * closed (basically, if not in IRQ) and if IWCM should get
-+ * informed of LLP state change.
-+ */
-+void siw_qp_cm_drop(struct siw_qp *qp, int schedule)
-+{
-+	struct siw_cep *cep = qp->cep;
-+
-+	qp->rx_ctx.rx_suspend = 1;
-+	qp->tx_ctx.tx_suspend = 1;
-+
-+	if (cep && !siw_cep_in_close(cep)) {
-+		if (schedule) {
-+			siw_cm_queue_work(cep, SIW_CM_WORK_CLOSE_LLP);
-+			return;
-+		}
-+		/*
-+		 * Immediately close socket
-+		 */
-+		dprint(DBG_CM, "(): immediate close, cep->state=%d\n",
-+			cep->state);
-+
-+		if (cep->cm_id) {
-+			switch (cep->state) {
-+
-+			case SIW_EPSTATE_AWAIT_MPAREP:
-+				siw_cm_upcall(cep, IW_CM_EVENT_CONNECT_REPLY,
-+					      IW_CM_EVENT_STATUS_EINVAL);
-+				break;
-+
-+			case SIW_EPSTATE_RDMA_MODE:
-+				siw_cm_upcall(cep, IW_CM_EVENT_CLOSE,
-+					      IW_CM_EVENT_STATUS_OK);
-+
-+				break;
-+
-+			case SIW_EPSTATE_IDLE:
-+			case SIW_EPSTATE_LISTENING:
-+			case SIW_EPSTATE_CONNECTING:
-+			case SIW_EPSTATE_AWAIT_MPAREQ:
-+			case SIW_EPSTATE_RECVD_MPAREQ:
-+			case SIW_EPSTATE_CLOSED:
-+			default:
-+
-+				break;
-+			}
-+			cep->cm_id->rem_ref(cep->cm_id);
-+			cep->cm_id = NULL;
-+			siw_cep_put(cep);
-+		}
-+		cep->state = SIW_EPSTATE_CLOSED;
-+
-+		if (cep->llp.sock) {
-+			siw_socket_disassoc(cep->llp.sock);
-+			sock_release(cep->llp.sock);
-+			cep->llp.sock = NULL;
-+		}
-+		cep->qp = NULL;
-+		siw_qp_put(qp);
-+	}
-+}
-+
-+
-+/*
-+ * Set CEP in_use flag. Returns:
-+ *
-+ *  1, if CEP was not in use and not scheduled for closing,
-+ *  0, if CEP was not in use but scheduled for closing,
-+ * -1, if CEP is currently in use.
-+ */
-+static int siw_cep_set_inuse(struct siw_cep *cep)
-+{
-+	int rv;
-+
-+	spin_lock_bh(&cep->lock);
-+
-+	dprint(DBG_CM, " (CEP 0x%p): close %d, use %d\n",
-+		cep, cep->conn_close, cep->in_use);
-+
-+	rv = cep->in_use ? -1 : (cep->conn_close ? 0 : 1);
-+	cep->in_use = 1; /* may be redundant */
-+
-+	spin_unlock_bh(&cep->lock);
-+
-+	return rv;
-+}
-+
-+/*
-+ * Clear CEP in_use flag. Returns:
-+ *
-+ *  1, if CEP is not scheduled for closing,
-+ *  0, else.
-+ */
-+static int siw_cep_set_free(struct siw_cep *cep)
-+{
-+	int rv;
-+
-+	spin_lock_bh(&cep->lock);
-+
-+	dprint(DBG_CM, " (CEP 0x%p): close %d, use %d\n",
-+		cep, cep->conn_close, cep->in_use);
-+
-+	cep->in_use = 0;
-+	rv = cep->conn_close ? 0 : 1;
-+
-+	spin_unlock_bh(&cep->lock);
-+
-+	wake_up(&cep->waitq);
-+
-+	return rv;
-+}
-+
-+
-+void siw_cep_put(struct siw_cep *cep)
-+{
-+	dprint(DBG_OBJ|DBG_CM, "(CEP 0x%p): New refcount: %d\n",
-+		cep, atomic_read(&cep->ref.refcount) - 1);
-+
-+	if (!kref_put(&cep->ref, __siw_cep_dealloc))
-+		wake_up(&cep->waitq);
-+}
-+
-+void siw_cep_get(struct siw_cep *cep)
-+{
-+	kref_get(&cep->ref);
-+	dprint(DBG_OBJ|DBG_CM, "(CEP 0x%p): New refcount: %d\n",
-+		cep, atomic_read(&cep->ref.refcount));
-+}
-+
-+
-+
-+static inline int ksock_recv(struct socket *sock, char *buf, size_t size,
-+			     int flags)
-+{
-+	struct kvec iov = {buf, size};
-+	struct msghdr msg = {.msg_name = NULL, .msg_flags = flags};
-+
-+	return kernel_recvmsg(sock, &msg, &iov, 1, size, flags);
-+}
-+
-+/*
-+ * Receive MPA Request/Reply heder.
-+ *
-+ * Returns 0 if complete MPA Request/Reply haeder including
-+ * eventual private data was received. Returns -EAGAIN if
-+ * header was partially received or negative error code otherwise.
-+ *
-+ * Context: May be called in process context only
-+ */
-+static int siw_recv_mpa_rr(struct siw_cep *cep)
-+{
-+	struct mpa_rr	*hdr = &cep->mpa.hdr;
-+	struct socket	*s = cep->llp.sock;
-+	int		rcvd, to_rcv;
-+
-+	if (cep->mpa.bytes_rcvd < sizeof(struct mpa_rr)) {
-+
-+		rcvd = ksock_recv(s, (char *)hdr + cep->mpa.bytes_rcvd,
-+				  sizeof(struct mpa_rr) -
-+				  cep->mpa.bytes_rcvd, 0);
-+
-+		if (rcvd <= 0)
-+			return -ECONNABORTED;
-+
-+		cep->mpa.bytes_rcvd += rcvd;
-+
-+		if (cep->mpa.bytes_rcvd < sizeof(struct mpa_rr))
-+			return -EAGAIN;
-+
-+		hdr->params.pd_len = ntohs(hdr->params.pd_len);
-+
-+		if (hdr->params.pd_len > MPA_MAX_PRIVDATA)
-+			return -EPROTO;
-+	}
-+
-+	/*
-+	 * At least the MPA Request/Reply header (frame not including
-+	 * private data) has been received.
-+	 * Receive (or continue receiving) any private data.
-+	 */
-+	to_rcv = hdr->params.pd_len -
-+		 (cep->mpa.bytes_rcvd - sizeof(struct mpa_rr));
-+
-+	if (!to_rcv) {
-+		/*
-+		 * We must have hdr->params.pd_len == 0 and thus received a
-+		 * complete MPA Request/Reply frame.
-+		 * Check against peer protocol violation.
-+		 */
-+		__u32 word;
-+
-+		rcvd = ksock_recv(s, (char *)&word, sizeof word, MSG_DONTWAIT);
-+		if (rcvd == -EAGAIN)
-+			return 0;
-+
-+		if (rcvd == 0) {
-+			dprint(DBG_CM, " peer EOF\n");
-+			return -EPIPE;
-+		}
-+		if (rcvd < 0) {
-+			dprint(DBG_CM, " ERROR: %d: \n", rcvd);
-+			return rcvd;
-+		}
-+		dprint(DBG_CM, " peer sent extra data: %d\n", rcvd);
-+		return -EPROTO;
-+	}
-+
-+	/*
-+	 * At this point, we must have hdr->params.pd_len != 0.
-+	 * A private data buffer gets allocated iff hdr->params.pd_len != 0.
-+	 * Ownership of this buffer will be transferred to the IWCM
-+	 * when calling siw_cm_upcall().
-+	 */
-+	if (!cep->mpa.pdata &&
-+	    !(cep->mpa.pdata = kmalloc(hdr->params.pd_len + 4, GFP_KERNEL)))
-+		return -ENOMEM;
-+
-+	rcvd = ksock_recv(s, cep->mpa.pdata + cep->mpa.bytes_rcvd
-+			  - sizeof(struct mpa_rr), to_rcv + 4, MSG_DONTWAIT);
-+
-+	if (rcvd < 0)
-+		return rcvd;
-+
-+	if (rcvd > to_rcv)
-+		return -EPROTO;
-+
-+	cep->mpa.bytes_rcvd += rcvd;
-+
-+	if (to_rcv == rcvd) {
-+		dprint(DBG_CM, "%d bytes private_data received",
-+			hdr->params.pd_len);
-+		return 0;
-+	}
-+	return -EAGAIN;
-+}
-+
-+
-+static void siw_proc_mpareq(struct siw_cep *cep)
-+{
-+	int err = siw_recv_mpa_rr(cep);
-+
-+	if (err)
-+		goto out;
-+
-+	if (cep->mpa.hdr.params.rev > MPA_REVISION_1) {
-+		/* allow for 0 and 1 only */
-+		err = -EPROTO;
-+		goto out;
-+	}
-+
-+	if (memcmp(cep->mpa.hdr.key, MPA_KEY_REQ, sizeof cep->mpa.hdr.key)) {
-+		err = -EPROTO;
-+		goto out;
-+	}
-+	cep->state = SIW_EPSTATE_RECVD_MPAREQ;
-+
-+	if (cep->listen_cep->state == SIW_EPSTATE_LISTENING) {
-+		/*
-+		 * Since siw_cm_upcall() called with success, iwcm must hold
-+		 * a reference to the CEP until the IW_CM_EVENT_CONNECT_REQUEST
-+		 * has been accepted or rejected.
-+		 * NOTE: If the iwcm never calls back with accept/reject,
-+		 * (e.g., the user types ^C instead), the CEP can never be
-+		 * free'd. It results in a memory hole which should be
-+		 * fixed by calling siw_reject() in case of application
-+		 * termination..
-+		 */
-+		siw_cep_get(cep);
-+
-+		err = siw_cm_upcall(cep, IW_CM_EVENT_CONNECT_REQUEST,
-+				    IW_CM_EVENT_STATUS_OK);
-+		if (err)
-+			siw_cep_put(cep);
-+	} else {
-+		/*
-+		 * listener lost: new connection cannot be signalled
-+		 */
-+		dprint(DBG_CM|DBG_ON, "(cep=0x%p): Listener lost:!\n", cep);
-+		err = -EINVAL;
-+	}
-+out:
-+	if (err) {
-+		dprint(DBG_CM|DBG_ON, "(cep=0x%p): error %d\n", cep, err);
-+
-+		if (!siw_cep_in_close(cep)) {
-+			/*
-+			 * remove reference from listening cep and clear
-+			 * information on related listener.
-+			 */
-+			siw_cep_put(cep->listen_cep);
-+			cep->listen_cep = NULL;
-+
-+			siw_socket_disassoc(cep->llp.sock);
-+			sock_release(cep->llp.sock);
-+			cep->llp.sock = NULL;
-+
-+			cep->state = SIW_EPSTATE_CLOSED;
-+			siw_cep_put(cep);
-+		}
-+	}
-+}
-+
-+
-+static void siw_proc_mpareply(struct siw_cep *cep)
-+{
-+	struct siw_qp_attrs	qp_attrs;
-+	struct siw_qp		*qp = cep->qp;
-+	int			rv;
-+
-+	rv = siw_recv_mpa_rr(cep);
-+	if (rv == -EAGAIN)
-+		/* incomplete mpa reply */
-+		return;
-+
-+	if (rv)
-+		goto error;
-+
-+	if (cep->mpa.hdr.params.rev > MPA_REVISION_1) {
-+		/* allow for 0 and 1 only */
-+		rv = -EPROTO;
-+		goto error;
-+	}
-+	if (memcmp(cep->mpa.hdr.key, MPA_KEY_REP, sizeof cep->mpa.hdr.key)) {
-+		rv = -EPROTO;
-+		goto error;
-+	}
-+	/*
-+	 * TODO: 1. handle eventual MPA reject (upcall with ECONNREFUSED)
-+	 *       2. finish mpa parameter check/negotiation
-+	 */
-+	memset(&qp_attrs, 0, sizeof qp_attrs);
-+	qp_attrs.mpa.marker_rcv = 0;
-+	qp_attrs.mpa.marker_snd = 0;
-+	qp_attrs.mpa.crc = CONFIG_RDMA_SIW_CRC_ENFORCED;
-+	qp_attrs.mpa.version = 1;
-+	qp_attrs.ird = cep->ird;
-+	qp_attrs.ord = cep->ord;
-+	qp_attrs.llp_stream_handle = cep->llp.sock;
-+	qp_attrs.state = SIW_QP_STATE_RTS;
-+
-+	/* Move socket RX/TX under QP control */
-+	down_write(&qp->state_lock);
-+	if (qp->attrs.state > SIW_QP_STATE_RTR) {
-+		rv = -EINVAL;
-+		up_write(&qp->state_lock);
-+		goto error;
-+	}
-+	rv = siw_qp_modify(qp, &qp_attrs, SIW_QP_ATTR_STATE|
-+					       SIW_QP_ATTR_LLP_HANDLE|
-+					       SIW_QP_ATTR_ORD|
-+					       SIW_QP_ATTR_IRD|
-+					       SIW_QP_ATTR_MPA);
-+
-+	if (!rv) {
-+		cep->state = SIW_EPSTATE_RDMA_MODE;
-+		siw_cm_upcall(cep, IW_CM_EVENT_CONNECT_REPLY,
-+			      IW_CM_EVENT_STATUS_OK);
-+
-+		up_write(&qp->state_lock);
-+		return;
-+	}
-+	up_write(&qp->state_lock);
-+error:
-+	/*
-+	 * failed socket handover returns responsibility:
-+	 * inform iwcm and drop connection
-+	 * TODO: 1. send MPA reject for MPA rev==1
-+	 *	    if rv != ECONNREFUSED
-+	 */
-+	siw_cm_upcall(cep, IW_CM_EVENT_CONNECT_REPLY, rv);
-+
-+	if (!siw_cep_in_close(cep)) {
-+
-+		cep->cm_id->rem_ref(cep->cm_id);
-+		cep->cm_id = NULL;
-+		siw_cep_put(cep);
-+
-+		siw_socket_disassoc(cep->llp.sock);
-+		sock_release(cep->llp.sock);
-+		cep->llp.sock = NULL;
-+
-+		cep->qp = NULL;
-+		siw_qp_put(cep->qp);
-+	}
-+	cep->state = SIW_EPSTATE_CLOSED;
-+}
-+
-+/*
-+ * siw_accept_newconn - accept an incoming pending connection
-+ *
-+ */
-+static void siw_accept_newconn(struct siw_cep *cep)
-+{
-+	struct socket		*s = cep->llp.sock;
-+	struct socket		*new_s = NULL;
-+	struct siw_cep		*new_cep = NULL;
-+	int			rv = 0; /* debug only. should disappear */
-+
-+	new_cep = siw_cep_alloc();
-+	if (!new_cep)
-+		goto error;
-+
-+	if (siw_cm_alloc_work(new_cep, 4) != 0)
-+		goto error;
-+
-+	/*
-+	 * Copy saved socket callbacks from listening CEP
-+	 * and assign new socket with new CEP
-+	 */
-+	new_cep->sk_state_change = cep->sk_state_change;
-+	new_cep->sk_data_ready   = cep->sk_data_ready;
-+	new_cep->sk_write_space  = cep->sk_write_space;
-+	new_cep->sk_error_report = cep->sk_error_report;
-+
-+	rv = kernel_accept(s, &new_s, O_NONBLOCK);
-+	if (rv != 0) {
-+		/*
-+		 * TODO: Already aborted by peer?
-+		 * Is there anything we should do?
-+		 */
-+		dprint(DBG_CM|DBG_ON, "(cep=0x%p): ERROR: "
-+			"kernel_accept(): rv=%d\n", cep, rv);
-+		goto error;
-+	}
-+	new_cep->llp.sock = new_s;
-+	siw_cep_get(new_cep);
-+	new_s->sk->sk_user_data = new_cep;
-+
-+	dprint(DBG_CM, "(cep=0x%p, s=0x%p, new_s=0x%p): "
-+		"New LLP connection accepted\n", cep, s, new_s);
-+
-+	rv = siw_sock_nodelay(new_s);
-+	if (rv != 0) {
-+		dprint(DBG_CM|DBG_ON, "(cep=0x%p): ERROR: "
-+			"siw_sock_nodelay(): rv=%d\n", cep, rv);
-+		goto error;
-+	}
-+
-+	rv = kernel_peername(new_s, &new_cep->llp.raddr);
-+	if (rv != 0) {
-+		dprint(DBG_CM|DBG_ON, "(cep=0x%p): ERROR: "
-+			"kernel_peername(): rv=%d\n", cep, rv);
-+		goto error;
-+	}
-+	rv = kernel_localname(new_s, &new_cep->llp.laddr);
-+	if (rv != 0) {
-+		dprint(DBG_CM|DBG_ON, "(cep=0x%p): ERROR: "
-+			"kernel_localname(): rv=%d\n", cep, rv);
-+		goto error;
-+	}
-+
-+	/*
-+	 * See siw_proc_mpareq() etc. for the use of new_cep->listen_cep.
-+	 */
-+	new_cep->listen_cep = cep;
-+	siw_cep_get(cep);
-+
-+	new_cep->state = SIW_EPSTATE_AWAIT_MPAREQ;
-+
-+	if (atomic_read(&new_s->sk->sk_rmem_alloc)) {
-+		/*
-+		 * MPA REQ already queued
-+		 */
-+		dprint(DBG_CM, "(cep=0x%p): Immediate MPA req.\n", cep);
-+
-+		siw_proc_mpareq(new_cep);
-+	}
-+	return;
-+
-+error:
-+	if (new_cep)
-+		siw_cep_put(new_cep);
-+
-+	if (new_s) {
-+		siw_socket_disassoc(new_s);
-+		sock_release(new_s);
-+	}
-+	dprint(DBG_CM|DBG_ON, "(cep=0x%p): ERROR: rv=%d\n", cep, rv);
-+}
-+
-+/*
-+ * Expects params->pd_len in host byte order
-+ *
-+ * TODO: We might want to combine the arguments params and pdata to a single
-+ * pointer to a struct siw_mpa_info as defined in siw_cm.h.
-+ * This way, all private data parameters would be in a common struct.
-+ */
-+static int siw_send_mpareqrep(struct socket *s, struct mpa_rr_params *params,
-+				char *key, char *pdata)
-+{
-+	struct mpa_rr	hdr;
-+	struct kvec	iov[2];
-+	struct msghdr	msg;
-+
-+	int		rv;
-+	unsigned short 	pd_len = params->pd_len;
-+
-+	memset(&msg, 0, sizeof(msg));
-+	memset(&hdr, 0, sizeof hdr);
-+	memcpy(hdr.key, key, 16);
-+
-+	/*
-+	 * TODO: By adding a union to struct mpa_rr_params, it should be
-+	 * possible to replace the next 4 statements by one
-+	 */
-+	hdr.params.r = params->r;
-+	hdr.params.c = params->c;
-+	hdr.params.m = params->m;
-+	hdr.params.rev = params->rev;
-+
-+	if (pd_len > MPA_MAX_PRIVDATA)
-+		return -EINVAL;
-+
-+	hdr.params.pd_len = htons(pd_len);
-+
-+	iov[0].iov_base = &hdr;
-+	iov[0].iov_len = sizeof hdr;
-+
-+	if (pd_len) {
-+		iov[1].iov_base = pdata;
-+		iov[1].iov_len = pd_len;
-+
-+		rv =  kernel_sendmsg(s, &msg, iov, 2, pd_len + sizeof hdr);
-+	} else
-+		rv =  kernel_sendmsg(s, &msg, iov, 1, sizeof hdr);
-+
-+	return rv < 0 ? rv : 0;
-+}
-+
-+/*
-+ * siw_cm_upcall()
-+ *
-+ * Upcall to IWCM to inform about async connection events
-+ */
-+int siw_cm_upcall(struct siw_cep *cep, enum iw_cm_event_type reason,
-+			    enum iw_cm_event_status status)
-+{
-+	struct iw_cm_event	event;
-+	struct iw_cm_id 	*cm_id;
-+
-+	memset(&event, 0, sizeof event);
-+	event.status = status;
-+	event.event = reason;
-+
-+	if (cep->mpa.hdr.params.pd_len != 0) {
-+		/*
-+		 * hand over MPA private data
-+		 */
-+		event.private_data_len = cep->mpa.hdr.params.pd_len;
-+		event.private_data = cep->mpa.pdata;
-+		cep->mpa.hdr.params.pd_len = 0;
-+	}
-+	if (reason == IW_CM_EVENT_CONNECT_REQUEST ||
-+	    reason == IW_CM_EVENT_CONNECT_REPLY) {
-+		event.local_addr = cep->llp.laddr;
-+		event.remote_addr = cep->llp.raddr;
-+	}
-+	if (reason == IW_CM_EVENT_CONNECT_REQUEST) {
-+		event.provider_data = cep;
-+		cm_id = cep->listen_cep->cm_id;
-+	} else
-+		cm_id = cep->cm_id;
-+
-+	dprint(DBG_CM, " (QP%d): cep=0x%p, id=0x%p, dev(id)=%s, "
-+		"reason=%d, status=%d\n",
-+		cep->qp ? QP_ID(cep->qp) : -1, cep, cm_id,
-+		cm_id->device->name, reason, status);
-+
-+	return cm_id->event_handler(cm_id, &event);
-+}
-+
-+static void siw_cm_work_handler(struct work_struct *w)
-+{
-+	struct siw_cm_work	*work;
-+	struct siw_cep		*cep;
-+	int rv;
-+
-+	work = container_of(w, struct siw_cm_work, work);
-+	cep = work->cep;
-+
-+	dprint(DBG_CM, " (QP%d): WORK type: %d, CEP: 0x%p\n",
-+		cep->qp ? QP_ID(cep->qp) : -1, work->type, cep);
-+
-+	switch (work->type) {
-+
-+	case SIW_CM_WORK_ACCEPT:
-+
-+		rv = siw_cep_set_inuse(cep);
-+		if (rv > 0) {
-+			if (cep->state == SIW_EPSTATE_LISTENING)
-+				siw_accept_newconn(cep);
-+
-+			if (!siw_cep_set_free(cep)) {
-+				siw_cm_release(cep);
-+				siw_cep_put(cep);
-+			}
-+			break;
-+		}
-+		/*
-+		 * CEP already scheduled for closing
-+		 */
-+		if (!rv) {
-+			siw_cm_release(cep);
-+			(void) siw_cep_set_free(cep);
-+		}
-+		break;
-+
-+	case SIW_CM_WORK_READ_MPAHDR:
-+
-+		rv = siw_cep_set_inuse(cep);
-+		if (rv > 0) {
-+			switch (cep->state) {
-+
-+			case SIW_EPSTATE_AWAIT_MPAREQ:
-+
-+				siw_proc_mpareq(cep);
-+				break;
-+
-+			case SIW_EPSTATE_AWAIT_MPAREP:
-+
-+				siw_proc_mpareply(cep);
-+				break;
-+
-+			default:
-+				/*
-+				 * CEP already moved out of MPA handshake.
-+				 * any connection management already done.
-+				 * silently ignore the mpa packet.
-+				 */
-+				dprint(DBG_CM, "(): CEP not in MPA "
-+					"handshake state: %d\n", cep->state);
-+			}
-+			if (!siw_cep_set_free(cep))
-+				siw_cm_release(cep);
-+
-+			break;
-+		}
-+		/*
-+		 * CEP already scheduled for closing
-+		 */
-+		if (!rv) {
-+			siw_cm_release(cep);
-+			(void) siw_cep_set_free(cep);
-+		}
-+		break;
-+
-+	case SIW_CM_WORK_CLOSE_LLP:
-+		/*
-+		 * QP scheduled LLP close
-+		 */
-+		dprint(DBG_CM, "(): SIW_CM_WORK_CLOSE_LLP, cep->state=%d\n",
-+			cep->state);
-+
-+		cep->state = SIW_EPSTATE_CLOSED;
-+
-+		if (cep->llp.sock) {
-+			siw_socket_disassoc(cep->llp.sock);
-+			sock_release(cep->llp.sock);
-+			cep->llp.sock = NULL;
-+		}
-+		if (cep->qp) {
-+			siw_qp_llp_close(cep->qp);
-+			siw_qp_put(cep->qp);
-+			cep->qp = NULL;
-+		}
-+		if (cep->cm_id) {
-+			siw_cm_upcall(cep, IW_CM_EVENT_CLOSE,
-+				      IW_CM_EVENT_STATUS_OK);
-+
-+			cep->cm_id->rem_ref(cep->cm_id);
-+			cep->cm_id = NULL;
-+			siw_cep_put(cep);
-+		}
-+		break;
-+
-+	case SIW_CM_WORK_PEER_CLOSE:
-+
-+		dprint(DBG_CM, "(): SIW_CM_WORK_PEER_CLOSE, "
-+			"cep->state=%d\n", cep->state);
-+
-+		if (cep->cm_id) {
-+			switch (cep->state) {
-+
-+			case SIW_EPSTATE_AWAIT_MPAREP:
-+				/*
-+				 * MPA reply not received, but connection drop
-+				 */
-+				siw_cm_upcall(cep, IW_CM_EVENT_CONNECT_REPLY,
-+						-ECONNRESET);
-+				break;
-+
-+			case SIW_EPSTATE_RDMA_MODE:
-+				/*
-+				 * NOTE: IW_CM_EVENT_DISCONNECT is given just
-+				 *       to transition IWCM into CLOSING.
-+				 *       FIXME: is that needed?
-+				 */
-+				siw_cm_upcall(cep, IW_CM_EVENT_DISCONNECT,
-+					      IW_CM_EVENT_STATUS_OK);
-+				siw_cm_upcall(cep, IW_CM_EVENT_CLOSE,
-+					      IW_CM_EVENT_STATUS_OK);
-+
-+				break;
-+
-+			default:
-+
-+				break;
-+				/*
-+				 * for these states there is no connection
-+				 * known to the IWCM. Even not for
-+				 * SIW_EPSTATE_RECVD_MPAREQ.
-+				 */
-+			}
-+			cep->cm_id->rem_ref(cep->cm_id);
-+			cep->cm_id = NULL;
-+			siw_cep_put(cep);
-+		}
-+		if (cep->qp) {
-+			siw_qp_llp_close(cep->qp);
-+			siw_qp_put(cep->qp);
-+			cep->qp = NULL;
-+		}
-+		if (cep->state != SIW_EPSTATE_CLOSED) {
-+			cep->state = SIW_EPSTATE_CLOSED;
-+			siw_socket_disassoc(cep->llp.sock);
-+			sock_release(cep->llp.sock);
-+			cep->llp.sock = NULL;
-+		}
-+
-+		break;
-+
-+	default:
-+		BUG();
-+	}
-+	dprint(DBG_CM, " (Exit): WORK type: %d, CEP: 0x%p\n", work->type, cep);
-+	siw_put_work(work);
-+	siw_cep_put(cep);
-+}
-+
-+static struct workqueue_struct *siw_cm_wq;
-+
-+int siw_cm_queue_work(struct siw_cep *cep, enum siw_work_type type)
-+{
-+	struct siw_cm_work *work = siw_get_work(cep);
-+
-+	dprint(DBG_CM, " (QP%d): WORK type: %d, CEP: 0x%p\n",
-+		cep->qp ? QP_ID(cep->qp) : -1, type, cep);
-+
-+	if (!work) {
-+		dprint(DBG_ON, " Failed\n");
-+		return -ENOMEM;
-+	}
-+	work->type = type;
-+	work->cep = cep;
-+
-+	siw_cep_get(cep);
-+
-+	INIT_WORK(&work->work, siw_cm_work_handler);
-+	queue_work(siw_cm_wq, &work->work);
-+
-+	return 0;
-+}
-+
-+
-+static void siw_cm_llp_data_ready(struct sock *sk, int flags)
-+{
-+	struct siw_cep	*cep;
-+
-+	read_lock(&sk->sk_callback_lock);
-+
-+	cep = sk_to_cep(sk);
-+	if (!cep) {
-+		WARN_ON(1);
-+		goto out;
-+	}
-+
-+	if (cep->conn_close)
-+		goto out;
-+
-+	dprint(DBG_CM, "(): cep 0x%p, state: %d, flags %x\n", cep,
-+		cep->state, flags);
-+
-+	switch (cep->state) {
-+
-+	case SIW_EPSTATE_RDMA_MODE:
-+	case SIW_EPSTATE_LISTENING:
-+
-+		break;
-+
-+	case SIW_EPSTATE_AWAIT_MPAREQ:
-+	case SIW_EPSTATE_AWAIT_MPAREP:
-+
-+		siw_cm_queue_work(cep, SIW_CM_WORK_READ_MPAHDR);
-+		break;
-+
-+	default:
-+		dprint(DBG_CM, "(): Unexpected DATA, state %d\n", cep->state);
-+		break;
-+	}
-+out:
-+	read_unlock(&sk->sk_callback_lock);
-+}
-+
-+static void siw_cm_llp_write_space(struct sock *sk)
-+{
-+	struct siw_cep	*cep = sk_to_cep(sk);
-+
-+	if (cep)
-+		dprint(DBG_CM, "(): cep: 0x%p, state: %d\n", cep, cep->state);
-+}
-+
-+static void siw_cm_llp_error_report(struct sock *sk)
-+{
-+	struct siw_cep	*cep = sk_to_cep(sk);
-+
-+	dprint(DBG_CM, "(): error: %d, state: %d\n", sk->sk_err, sk->sk_state);
-+
-+	if (cep) {
-+		cep->sk_error = sk->sk_err;
-+		dprint(DBG_CM, "(): cep->state: %d\n", cep->state);
-+		cep->sk_error_report(sk);
-+	}
-+}
-+
-+static void siw_cm_llp_state_change(struct sock *sk)
-+{
-+	struct siw_cep	*cep;
-+	struct socket 	*s;
-+	void (*orig_state_change)(struct sock *);
-+
-+
-+	read_lock(&sk->sk_callback_lock);
-+
-+	cep = sk_to_cep(sk);
-+	if (!cep) {
-+		WARN_ON(1);
-+		read_unlock(&sk->sk_callback_lock);
-+		return;
-+	}
-+	orig_state_change = cep->sk_state_change;
-+
-+	s = sk->sk_socket;
-+
-+	dprint(DBG_CM, "(): cep: 0x%p, state: %d\n", cep, cep->state);
-+
-+	switch (sk->sk_state) {
-+
-+	case TCP_ESTABLISHED:
-+		/*
-+		 * handle accepting socket as special case where only
-+		 * new connection is possible
-+		 */
-+		if (cep->conn_close)
-+			break;
-+
-+		if (cep->state == SIW_EPSTATE_LISTENING &&
-+			siw_cm_queue_work(cep, SIW_CM_WORK_ACCEPT) != 0) {
-+				dprint(DBG_ON, "Cannot accept\n");
-+		}
-+		break;
-+
-+	case TCP_CLOSE:
-+	case TCP_CLOSE_WAIT:
-+		if (cep->state <= SIW_EPSTATE_LISTENING) {
-+			dprint(DBG_CM, "() Close before accept()\n");
-+			break;
-+		}
-+		if (cep->qp)
-+			cep->qp->tx_ctx.tx_suspend = 1;
-+
-+		if (!siw_cep_in_close(cep))
-+			siw_cm_queue_work(cep, SIW_CM_WORK_PEER_CLOSE);
-+
-+		break;
-+
-+	default:
-+		dprint(DBG_CM, "Unexpected sock state %d\n", sk->sk_state);
-+	}
-+	read_unlock(&sk->sk_callback_lock);
-+	orig_state_change(sk);
-+}
-+
-+
-+static int kernel_bindconnect(struct socket *s,
-+			      struct sockaddr *laddr, int laddrlen,
-+			      struct sockaddr *raddr, int raddrlen, int flags)
-+{
-+	int err, s_val = 1;
-+	/*
-+	 * XXX
-+	 * Tentative fix. Should not be needed but sometimes iwcm
-+	 * chooses ports in use
-+	 */
-+	err = kernel_setsockopt(s, SOL_SOCKET, SO_REUSEADDR, (char *)&s_val,
-+				sizeof s_val);
-+	if (err < 0)
-+		goto done;
-+
-+	err = s->ops->bind(s, laddr, laddrlen);
-+	if (err < 0)
-+		goto done;
-+
-+	err = s->ops->connect(s, raddr, raddrlen, flags);
-+	if (err < 0)
-+		goto done;
-+
-+	err = s->ops->getname(s, laddr, &s_val, 0);
-+
-+done:
-+	return err;
-+}
-+
-+
-+int siw_connect(struct iw_cm_id *id, struct iw_cm_conn_param *params)
-+{
-+	struct siw_dev	*dev = siw_dev_ofa2siw(id->device);
-+	struct siw_qp	*qp;
-+	struct siw_cep	*cep = NULL;
-+	struct socket 	*s = NULL;
-+	struct sockaddr	*laddr, *raddr;
-+
-+	u16		pd_len = params->private_data_len;
-+	int 		rv, size;
-+
-+	if (pd_len > MPA_MAX_PRIVDATA)
-+		return -EINVAL;
-+
-+	qp = siw_qp_id2obj(dev, params->qpn);
-+	BUG_ON(!qp);
-+
-+	dprint(DBG_CM, "(id=0x%p, QP%d): dev(id)=%s, l2dev=%s\n",
-+		id, QP_ID(qp), dev->ofa_dev.name, dev->l2dev->name);
-+	dprint(DBG_CM, "(id=0x%p, QP%d): laddr=(0x%x,%d), raddr=(0x%x,%d)\n",
-+		id, QP_ID(qp),
-+		ntohl(id->local_addr.sin_addr.s_addr),
-+		ntohs(id->local_addr.sin_port),
-+		ntohl(id->remote_addr.sin_addr.s_addr),
-+		ntohs(id->remote_addr.sin_port));
-+
-+	down_write(&qp->state_lock);
-+	if (qp->attrs.state > SIW_QP_STATE_RTR) {
-+		rv = -EINVAL;
-+		goto error;
-+	}
-+
-+	laddr = (struct sockaddr *)&id->local_addr;
-+	raddr = (struct sockaddr *)&id->remote_addr;
-+
-+	rv = sock_create(AF_INET, SOCK_STREAM, IPPROTO_TCP, &s);
-+	if (rv < 0)
-+		goto error;
-+
-+	size = SOCKBUFSIZE;
-+	rv = kernel_setsockopt(s, SOL_SOCKET, SO_SNDBUF, (char *)&size,
-+			       sizeof size);
-+	if (rv < 0)
-+		goto error;
-+
-+	rv = kernel_setsockopt(s, SOL_SOCKET, SO_RCVBUF, (char *)&size,
-+			       sizeof size);
-+	if (rv < 0)
-+		goto error;
-+
-+	/*
-+	 * NOTE: For simplification, connect() is called in blocking
-+	 * mode. Might be reconsidered for async connection setup at
-+	 * TCP level.
-+	 */
-+	rv = kernel_bindconnect(s, laddr, sizeof *laddr, raddr,
-+				sizeof *raddr, 0);
-+	if (rv != 0) {
-+		dprint(DBG_CM, "(id=0x%p, QP%d): kernel_bindconnect: rv=%d\n",
-+			id, QP_ID(qp), rv);
-+		goto error;
-+	}
-+	rv = siw_sock_nodelay(s);
-+	if (rv != 0) {
-+		dprint(DBG_CM, "(id=0x%p, QP%d): siw_sock_nodelay(): rv=%d\n",
-+			id, QP_ID(qp), rv);
-+		goto error;
-+	}
-+	cep = siw_cep_alloc();
-+	if (!cep) {
-+		rv =  -ENOMEM;
-+		goto error;
-+	}
-+
-+	/* Associate QP with CEP */
-+	siw_cep_get(cep);
-+	qp->cep = cep;
-+
-+	/* siw_qp_get(qp) already done by QP lookup */
-+	cep->qp = qp;
-+
-+	id->add_ref(id);
-+	cep->cm_id = id;
-+
-+	rv = siw_cm_alloc_work(cep, 4);
-+	if (rv != 0) {
-+		rv = -ENOMEM;
-+		goto error;
-+	}
-+	cep->mpa.hdr.params.pd_len = pd_len;
-+	cep->ird = params->ird;
-+	cep->ord = params->ord;
-+	cep->state = SIW_EPSTATE_CONNECTING;
-+
-+	rv = kernel_peername(s, &cep->llp.raddr);
-+	if (rv)
-+		goto error;
-+
-+	rv = kernel_localname(s, &cep->llp.laddr);
-+	if (rv)
-+		goto error;
-+
-+	dprint(DBG_CM, "(id=0x%p, QP%d): pd_len = %u\n", id, QP_ID(qp), pd_len);
-+	if (pd_len)
-+		dprint(DBG_CM, "%d bytes private_data\n", pd_len);
-+	/*
-+	 * Associate CEP with socket
-+	 */
-+	siw_cep_socket_assoc(cep, s);
-+
-+	cep->state = SIW_EPSTATE_AWAIT_MPAREP;
-+
-+	rv = siw_send_mpareqrep(cep->llp.sock, &cep->mpa.hdr.params,
-+				MPA_KEY_REQ, (char *)params->private_data);
-+
-+	/*
-+	 * Reset private data len: in case connection drops w/o peer
-+	 * sending MPA reply we would report stale data pointer during
-+	 * IW_CM_EVENT_CONNECT_REPLY.
-+	 */
-+	cep->mpa.hdr.params.pd_len = 0;
-+
-+	if (rv >= 0) {
-+		dprint(DBG_CM, "(id=0x%p, QP%d): Exit\n", id, QP_ID(qp));
-+		up_write(&qp->state_lock);
-+		return 0;
-+	}
-+error:
-+	up_write(&qp->state_lock);
-+
-+	dprint(DBG_ON, " Failed: %d\n", rv);
-+
-+	if (cep && !siw_cep_in_close(cep)) {
-+
-+		siw_socket_disassoc(s);
-+		sock_release(s);
-+		cep->llp.sock = NULL;
-+
-+		cep->qp = NULL;
-+
-+		cep->cm_id = NULL;
-+		id->rem_ref(id);
-+		siw_cep_put(cep);
-+
-+		qp->cep = NULL;
-+		siw_cep_put(cep);
-+
-+		cep->state = SIW_EPSTATE_CLOSED;
-+	} else if (!cep && s)
-+		sock_release(s);
-+
-+	siw_qp_put(qp);
-+
-+	return rv;
-+}
-+
-+/*
-+ * siw_accept - Let SoftiWARP accept an RDMA connection request
-+ *
-+ * @id:		New connection management id to be used for accepted
-+ *		connection request
-+ * @params:	Connection parameters provided by ULP for accepting connection
-+ *
-+ * Transition QP to RTS state, associate new CM id @id with accepted CEP
-+ * and get prepared for TCP input by installing socket callbacks.
-+ * Then send MPA Reply and generate the "connection established" event.
-+ * Socket callbacks must be installed before sending MPA Reply, because
-+ * the latter may cause a first RDMA message to arrive from the RDMA Initiator
-+ * side very quickly, at which time the socket callbacks must be ready.
-+ */
-+int siw_accept(struct iw_cm_id *id, struct iw_cm_conn_param *params)
-+{
-+	struct siw_dev		*dev = siw_dev_ofa2siw(id->device);
-+	struct siw_cep		*cep = (struct siw_cep *)id->provider_data;
-+	struct siw_qp		*qp;
-+	struct siw_qp_attrs	qp_attrs;
-+	char			*pdata = NULL;
-+	int 			rv;
-+
-+retry:
-+	rv = siw_cep_set_inuse(cep);
-+	if (rv < 0) {
-+		dprint(DBG_CM, "(id=0x%p, cep=0x%p): CEP in use\n", id, cep);
-+		wait_event(cep->waitq, !cep->in_use);
-+		goto retry;
-+	}
-+	if (!rv) {
-+		dprint(DBG_CM, "(id=0x%p, cep=0x%p): CEP in close\n", id, cep);
-+		(void) siw_cep_set_free(cep);
-+		return -EINVAL;
-+	}
-+	if (cep->state != SIW_EPSTATE_RECVD_MPAREQ) {
-+		if (cep->state == SIW_EPSTATE_CLOSED) {
-+
-+			dprint(DBG_CM, "(id=0x%p): Out of State\n", id);
-+			(void) siw_cep_set_free(cep);
-+
-+			siw_cep_put(cep);
-+			return -ECONNRESET;
-+		}
-+		BUG();
-+	}
-+	/* clear iwcm reference to CEP from IW_CM_EVENT_CONNECT_REQUEST */
-+	siw_cep_put(cep);
-+
-+	qp = siw_qp_id2obj(dev, params->qpn);
-+	BUG_ON(!qp); /* The OFA core should prevent this */
-+
-+	down_write(&qp->state_lock);
-+	if (qp->attrs.state > SIW_QP_STATE_RTR) {
-+		rv = -EINVAL;
-+		goto unlock;
-+	}
-+
-+	dprint(DBG_CM, "(id=0x%p, QP%d): dev(id)=%s\n",
-+		id, QP_ID(qp), dev->ofa_dev.name);
-+
-+	if (params->ord > qp->attrs.ord || params->ird > qp->attrs.ird) {
-+		dprint(DBG_CM|DBG_ON, "(id=0x%p, QP%d): "
-+			"ORD: %d (max: %d), IRD: %d (max: %d)\n",
-+			id, QP_ID(qp),
-+			params->ord, qp->attrs.ord,
-+			params->ird, qp->attrs.ird);
-+		rv = -EINVAL;
-+		goto unlock;
-+	}
-+	if (params->private_data_len > MPA_MAX_PRIVDATA) {
-+		dprint(DBG_CM|DBG_ON, "(id=0x%p, QP%d): "
-+			"Private data too long: %d (max: %d)\n",
-+			id, QP_ID(qp),
-+			params->private_data_len, MPA_MAX_PRIVDATA);
-+		rv =  -EINVAL;
-+		goto unlock;
-+	}
-+	cep->cm_id = id;
-+	id->add_ref(id);
-+
-+	memset(&qp_attrs, 0, sizeof qp_attrs);
-+	qp_attrs.ord = params->ord;
-+	qp_attrs.ird = params->ird;
-+	qp_attrs.llp_stream_handle = cep->llp.sock;
-+
-+	/*
-+	 * TODO: Add MPA negotiation
-+	 */
-+	qp_attrs.mpa.marker_rcv = 0;
-+	qp_attrs.mpa.marker_snd = 0;
-+	qp_attrs.mpa.crc = CONFIG_RDMA_SIW_CRC_ENFORCED;
-+	qp_attrs.mpa.version = 0;
-+	qp_attrs.state = SIW_QP_STATE_RTS;
-+
-+	dprint(DBG_CM, "(id=0x%p, QP%d): Moving to RTS\n", id, QP_ID(qp));
-+
-+	/* Associate QP with CEP */
-+	siw_cep_get(cep);
-+	qp->cep = cep;
-+
-+	/* siw_qp_get(qp) already done by QP lookup */
-+	cep->qp = qp;
-+
-+	cep->state = SIW_EPSTATE_RDMA_MODE;
-+
-+	/* Move socket RX/TX under QP control */
-+	rv = siw_qp_modify(qp, &qp_attrs, SIW_QP_ATTR_STATE|
-+					  SIW_QP_ATTR_LLP_HANDLE|
-+					  SIW_QP_ATTR_ORD|
-+					  SIW_QP_ATTR_IRD|
-+					  SIW_QP_ATTR_MPA);
-+	up_write(&qp->state_lock);
-+
-+	if (rv)
-+		goto error;
-+
-+
-+	/*
-+	 * TODO: It might be more elegant and concise to check the
-+	 * private data length cep->mpa.hdr.params.pd_len
-+	 * inside siw_send_mpareqrep().
-+	 */
-+	if (params->private_data_len) {
-+		pdata = (char *)params->private_data;
-+
-+		dprint(DBG_CM, "(id=0x%p, QP%d): %d bytes private_data\n",
-+				id, QP_ID(qp), params->private_data_len);
-+	}
-+	cep->mpa.hdr.params.pd_len = params->private_data_len;
-+
-+	dprint(DBG_CM, "(id=0x%p, QP%d): Sending MPA Reply\n", id, QP_ID(qp));
-+
-+	rv = siw_send_mpareqrep(cep->llp.sock, &cep->mpa.hdr.params,
-+				MPA_KEY_REP, pdata);
-+	if (!rv) {
-+		/*
-+		 * FIXME: In order to ensure that the first FPDU will be sent
-+		 * from the RDMA Initiator side, the "connection established"
-+		 * event should be delayed until Softiwarp has received the
-+		 * first FPDU from the RDMA Initiator side.
-+		 * Alternatively, Softiwarp could prevent this side to
-+		 * send a first FPDU until a first FPDU has been received.
-+		 *
-+		 * The two alternatives above will work if
-+		 * (1) the RDMA application is iWARP standards compliant
-+		 *     by sending its first RDMA payload from the
-+		 *     RDMA Initiator side, or
-+		 * (2) the RDMA Initiator side RNIC inserts an under-cover
-+		 *     zero-length RDMA operation (negotiated through an
-+		 *     extended MPA Request/Reply handshake) such as a
-+		 *     zero-length RDMA Write or Read.
-+		 * Note that (2) would require an extension of the MPA RFC.
-+		 *
-+		 * A third alternative (which may be the easiest for now) is to
-+		 * return an error to an RDMA application that attempts to send
-+		 * the first RDMA payload from the RDMA Responder side.
-+		 */
-+		siw_cm_upcall(cep, IW_CM_EVENT_ESTABLISHED,
-+				IW_CM_EVENT_STATUS_OK);
-+
-+		if (!siw_cep_set_free(cep))
-+			siw_cm_release(cep);
-+
-+		dprint(DBG_CM, "(id=0x%p, QP%d): Exit\n", id, QP_ID(qp));
-+		return 0;
-+	}
-+
-+error:
-+	if (siw_cep_set_free(cep)) {
-+
-+		siw_socket_disassoc(cep->llp.sock);
-+		sock_release(cep->llp.sock);
-+		cep->llp.sock = NULL;
-+
-+		cep->state = SIW_EPSTATE_CLOSED;
-+
-+		cep->cm_id->rem_ref(id);
-+		cep->cm_id = NULL;
-+
-+		if (qp->cep) {
-+			siw_cep_put(cep);
-+			qp->cep = NULL;
-+		}
-+		cep->qp = NULL;
-+		siw_qp_put(qp);
-+	}
-+	return rv;
-+unlock:
-+	up_write(&qp->state_lock);
-+	goto error;
-+}
-+
-+/*
-+ * siw_reject()
-+ *
-+ * Local connection reject case. Send private data back to peer,
-+ * close connection and dereference connection id.
-+ */
-+int siw_reject(struct iw_cm_id *id, const void *pdata, u8 plen)
-+{
-+	struct siw_cep	*cep = (struct siw_cep *)id->provider_data;
-+
-+	dprint(DBG_CM, "(id=0x%p): cep->state=%d\n", id, cep->state);
-+	dprint(DBG_CM, " Reject: %s\n", plen ? (char *)pdata:"(no data)");
-+
-+	if (!siw_cep_in_close(cep)) {
-+
-+		dprint(DBG_ON, " Sending REJECT not yet implemented\n");
-+
-+		siw_socket_disassoc(cep->llp.sock);
-+		sock_release(cep->llp.sock);
-+		cep->llp.sock = NULL;
-+
-+		siw_cep_put(cep);
-+		cep->state = SIW_EPSTATE_CLOSED;
-+	} else {
-+		dprint(DBG_CM, " (id=0x%p): Connection lost\n", id);
-+	}
-+
-+	/*
-+	 * clear iwcm reference to CEP from
-+	 * IW_CM_EVENT_CONNECT_REQUEST
-+	 */
-+	siw_cep_put(cep);
-+
-+	return 0;
-+}
-+
-+int siw_listen_address(struct iw_cm_id *id, int backlog, struct sockaddr *laddr)
-+{
-+	struct socket 		*s;
-+	struct siw_cep		*cep = NULL;
-+	int 			rv = 0, s_val;
-+
-+	rv = sock_create(AF_INET, SOCK_STREAM, IPPROTO_TCP, &s);
-+	if (rv < 0) {
-+		dprint(DBG_CM|DBG_ON, "(id=0x%p): ERROR: "
-+			"sock_create(): rv=%d\n", id, rv);
-+		return rv;
-+	}
-+
-+	s_val = SOCKBUFSIZE;
-+	rv = kernel_setsockopt(s, SOL_SOCKET, SO_SNDBUF, (char *)&s_val,
-+			       sizeof s_val);
-+	if (rv)
-+		goto error;
-+
-+	rv = kernel_setsockopt(s, SOL_SOCKET, SO_RCVBUF, (char *)&s_val,
-+			       sizeof s_val);
-+	if (rv)
-+		goto error;
-+
-+	/*
-+	 * Probably to be removed later. Allows binding
-+	 * local port when still in TIME_WAIT from last close.
-+	 */
-+	s_val = 1;
-+	rv = kernel_setsockopt(s, SOL_SOCKET, SO_REUSEADDR, (char *)&s_val,
-+			       sizeof s_val);
-+	if (rv != 0) {
-+		dprint(DBG_CM|DBG_ON, "(id=0x%p): ERROR: "
-+			"kernel_setsockopt(): rv=%d\n", id, rv);
-+		goto error;
-+	}
-+
-+	rv = s->ops->bind(s, laddr, sizeof *laddr);
-+	if (rv != 0) {
-+		dprint(DBG_CM|DBG_ON, "(id=0x%p): ERROR: bind(): rv=%d\n",
-+			id, rv);
-+		goto error;
-+	}
-+
-+	cep = siw_cep_alloc();
-+	if (!cep) {
-+		rv = -ENOMEM;
-+		goto error;
-+	}
-+	siw_cep_socket_assoc(cep, s);
-+
-+	rv = siw_cm_alloc_work(cep, backlog);
-+	if (rv != 0) {
-+		dprint(DBG_CM|DBG_ON, "(id=0x%p): ERROR: "
-+			"siw_cm_alloc_work(backlog=%d): rv=%d\n",
-+			id, backlog, rv);
-+		goto error;
-+	}
-+
-+	rv = s->ops->listen(s, backlog);
-+	if (rv != 0) {
-+		dprint(DBG_CM|DBG_ON, "(id=0x%p): ERROR: listen() rv=%d\n",
-+			id, rv);
-+		goto error;
-+	}
-+
-+	/*
-+	 * TODO: Do we really need the copies of local_addr and remote_addr
-+	 *	 in CEP ???
-+	 */
-+	memcpy(&cep->llp.laddr, &id->local_addr, sizeof cep->llp.laddr);
-+	memcpy(&cep->llp.raddr, &id->remote_addr, sizeof cep->llp.raddr);
-+
-+	cep->cm_id = id;
-+	id->add_ref(id);
-+
-+	/*
-+	 * In case of a wildcard rdma_listen on a multi-homed device,
-+	 * a listener's IWCM id is associated with more than one listening CEP.
-+	 *
-+	 * We currently use id->provider_data in three different ways:
-+	 *
-+	 * o For a listener's IWCM id, id->provider_data points to
-+	 *   the list_head of the list of listening CEPs.
-+	 *   Uses: siw_create_listen(), siw_destroy_listen()
-+	 *
-+	 * o For a passive-side IWCM id, id->provider_data points to
-+	 *   the CEP itself. This is a consequence of
-+	 *   - siw_cm_upcall() setting event.provider_data = cep and
-+	 *   - the IWCM's cm_conn_req_handler() setting provider_data of the
-+	 *     new passive-side IWCM id equal to event.provider_data
-+	 *   Uses: siw_accept(), siw_reject()
-+	 *
-+	 * o For an active-side IWCM id, id->provider_data is not used at all.
-+	 *
-+	 */
-+	if (!id->provider_data) {
-+		id->provider_data = kmalloc(sizeof(struct list_head),
-+					    GFP_KERNEL);
-+		if (!id->provider_data) {
-+			rv = -ENOMEM;
-+			goto error;
-+		}
-+		INIT_LIST_HEAD((struct list_head *)id->provider_data);
-+	}
-+
-+	dprint(DBG_CM, "(id=0x%p): dev(id)=%s, l2dev=%s, "
-+		"id->provider_data=0x%p, cep=0x%p\n",
-+		id, id->device->name,
-+		siw_dev_ofa2siw(id->device)->l2dev->name,
-+		id->provider_data, cep);
-+
-+	list_add_tail(&cep->list, (struct list_head *)id->provider_data);
-+	cep->state = SIW_EPSTATE_LISTENING;
-+	return 0;
-+
-+error:
-+	dprint(DBG_ON, " Failed: %d\n", rv);
-+
-+	if (cep) {
-+		cep->llp.sock = NULL;
-+		siw_socket_disassoc(s);
-+		cep->state = SIW_EPSTATE_CLOSED;
-+		siw_cep_put(cep);
-+	}
-+	sock_release(s);
-+	return rv;
-+}
-+
-+
-+/*
-+ * siw_create_listen - Create resources for a listener's IWCM ID @id
-+ *
-+ * Listens on the socket addresses id->local_addr and id->remote_addr.
-+ * We support listening on multi-homed devices, i.e., Softiwarp devices
-+ * whose underlying net_device is associated with multiple IP addresses.
-+ * Wildcard listening (listening with zero IP address) is also supported.
-+ *
-+ * There are three design options for Softiwarp device management supporting
-+ * - multiple physical Ethernet ports, i.e., multiple net_device instances, and
-+ * - multiple IP addresses associated with net_device,
-+ * as follows:
-+ *
-+ *    Option 1: One Softiwarp device per net_device and
-+ *              IP address associated with the net_device
-+ *    Option 2: One Softiwarp device per net_device
-+ *              (and all IP addresses associated with the net_device)
-+ *    Option 3: Single Softiwarp device for all net_device instances
-+ *              (and all IP addresses associated with these instances)
-+ *
-+ * We currently use Option 2, registering a separate siw_dev for
-+ * each net_device. Consequently, siw_create_listen() (called separately
-+ * by the IWCM for each Softiwarp device) handles the associated IP address(es)
-+ * as follows:
-+ *
-+ * - If the listener's @id provides a specific local IP address, at most one
-+ *   listening socket is created and associated with @id.
-+ *
-+ * - If the listener's @id provides the wildcard (zero) local IP address,
-+ *   a separate listen is performed for each local IP address of the device
-+ *   by creating a listening socket and binding to that local IP address.
-+ *   This avoids attempts to bind to the wildcard (zero) IP address
-+ *   on multiple devices, which fails with -EADDRINUSE on the second and
-+ *   all subsequent devices.
-+ *
-+ *   For the given IWCM and Option 2 above, the alternative approach of doing
-+ *   a single wildcard listen by creating one listening socket and binding it
-+ *   to the wildcard IP address is not a good idea if
-+ *   - there is more than one Softiwarp device (e.g., for lo and eth0), or
-+ *   - there are non-Softiwarp iWARP devices that cannot cooperate.
-+ */
-+int siw_create_listen(struct iw_cm_id *id, int backlog)
-+{
-+	struct ib_device	*ofa_dev = id->device;
-+	struct siw_dev		*dev = siw_dev_ofa2siw(ofa_dev);
-+	int			rv = 0;
-+
-+	dprint(DBG_CM, "(id=0x%p): dev(id)=%s, l2dev=%s backlog=%d\n",
-+		id, ofa_dev->name, dev->l2dev->name, backlog);
-+
-+	/*
-+	 * IPv4/v6 design differences regarding multi-homing
-+	 * propagate up to iWARP:
-+	 * o For IPv4, use dev->l2dev->ip_ptr
-+	 * o For IPv6, use dev->l2dev->ipv6_ptr
-+	 */
-+	if (id->local_addr.sin_family == AF_INET) {
-+		/* IPv4 */
-+		struct sockaddr_in	laddr = id->local_addr;
-+		u8			*l_ip, *r_ip;
-+		struct in_device 	*in_dev;
-+
-+		l_ip = (u8 *) &id->local_addr.sin_addr.s_addr;
-+		r_ip = (u8 *) &id->remote_addr.sin_addr.s_addr;
-+		dprint(DBG_CM, "(id=0x%p): "
-+			"laddr(id)  : ipv4=%d.%d.%d.%d, port=%d; "
-+			"raddr(id)  : ipv4=%d.%d.%d.%d, port=%d\n",
-+			id,
-+			l_ip[0], l_ip[1], l_ip[2], l_ip[3],
-+			ntohs(id->local_addr.sin_port),
-+			r_ip[0], r_ip[1], r_ip[2], r_ip[3],
-+			ntohs(id->remote_addr.sin_port));
-+
-+		in_dev = in_dev_get(dev->l2dev);
-+		if (!in_dev) {
-+			dprint(DBG_CM|DBG_ON, "(id=0x%p): "
-+				"l2dev has no in_device\n", id);
-+			return -ENODEV;
-+		}
-+
-+		/*
-+		 * If in_dev is not configured, in_dev->ifa_list may be empty
-+		 */
-+		for_ifa(in_dev) {
-+			/*
-+			 * Create a listening socket if id->local_addr
-+			 * contains the wildcard IP address OR
-+			 * the IP address of the interface.
-+			 */
-+			if (ipv4_is_zeronet(id->local_addr.sin_addr.s_addr) ||
-+					id->local_addr.sin_addr.s_addr ==
-+					ifa->ifa_address) {
-+				laddr.sin_addr.s_addr = ifa->ifa_address;
-+
-+				l_ip = (u8 *) &laddr.sin_addr.s_addr;
-+				dprint(DBG_CM, "(id=0x%p): "
-+					"laddr(bind): ipv4=%d.%d.%d.%d,"
-+					" port=%d\n", id,
-+					l_ip[0], l_ip[1], l_ip[2],
-+					l_ip[3], ntohs(laddr.sin_port));
-+
-+				rv = siw_listen_address(id, backlog,
-+						(struct sockaddr *)&laddr);
-+				if (rv)
-+					break;
-+			}
-+		}
-+		endfor_ifa(in_dev);
-+		in_dev_put(in_dev);
-+
-+		if (rv) {
-+			/*
-+			 * TODO: Cleanup resources already associated with
-+			 *	 id->provider_data
-+			 */
-+			dprint(DBG_CM|DBG_ON, "(id=0x%p): "
-+				"TODO: Cleanup resources\n", id);
-+		}
-+
-+	} else {
-+		/* IPv6 */
-+		dprint(DBG_CM|DBG_ON, "(id=0x%p): TODO: IPv6 support\n", id);
-+	}
-+	if (!rv)
-+		dprint(DBG_CM, "(id=0x%p): Success\n", id);
-+
-+	return rv;
-+}
-+
-+
-+int siw_destroy_listen(struct iw_cm_id *id)
-+{
-+	struct list_head	*p, *tmp;
-+	struct siw_cep		*cep;
-+
-+	dprint(DBG_CM, "(id=0x%p): dev(id)=%s, l2dev=%s\n",
-+		id, id->device->name,
-+		siw_dev_ofa2siw(id->device)->l2dev->name);
-+
-+	if (!id->provider_data) {
-+		/*
-+		 * TODO: See if there's a way to avoid getting any
-+		 *       listener ids without a list of CEPs
-+		 */
-+		dprint(DBG_CM, "(id=0x%p): Listener id: no CEP(s)\n", id);
-+		return 0;
-+	}
-+
-+	/*
-+	 * In case of a wildcard rdma_listen on a multi-homed device,
-+	 * a listener's IWCM id is associated with more than one listening CEP.
-+	 */
-+	list_for_each_safe(p, tmp, (struct list_head *)id->provider_data) {
-+
-+		cep = list_entry(p, struct siw_cep, list);
-+		list_del(p);
-+
-+		if (siw_cep_set_inuse(cep) > 0) {
-+
-+			cep->conn_close = 1;
-+
-+			siw_socket_disassoc(cep->llp.sock);
-+			sock_release(cep->llp.sock);
-+			cep->llp.sock = NULL;
-+			id->rem_ref(id);
-+
-+			cep->state = SIW_EPSTATE_CLOSED;
-+			/*
-+			 * Do not set the CEP free again. The CEP is dead.
-+			 * (void) siw_cep_set_free(cep);
-+			 */
-+		} else
-+			cep->state = SIW_EPSTATE_CLOSED;
-+
-+		siw_cep_put(cep);
-+	}
-+	kfree(id->provider_data);
-+	id->provider_data = NULL;
-+
-+	return 0;
-+}
-+
-+int __init siw_cm_init(void)
-+{
-+	/*
-+	 * create_single_workqueue for strict ordering
-+	 */
-+	siw_cm_wq = create_singlethread_workqueue("siw_cm_wq");
-+	if (!siw_cm_wq)
-+		return -ENOMEM;
-+
-+	return 0;
-+}
-+
-+void __exit siw_cm_exit(void)
-+{
-+	if (siw_cm_wq) {
-+		flush_workqueue(siw_cm_wq);
-+		destroy_workqueue(siw_cm_wq);
-+	}
-+}
-diff --git a/drivers/infiniband/hw/siw/siw_cm.h b/drivers/infiniband/hw/siw/siw_cm.h
-new file mode 100644
-index 0000000..fcb4544
---- /dev/null
-+++ b/drivers/infiniband/hw/siw/siw_cm.h
-@@ -0,0 +1,155 @@
-+/*
-+ * Software iWARP device driver for Linux
-+ *
-+ * Authors: Bernard Metzler <bmt-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>
-+ *
-+ * Copyright (c) 2008-2010, IBM Corporation
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * BSD license below:
-+ *
-+ *   Redistribution and use in source and binary forms, with or
-+ *   without modification, are permitted provided that the following
-+ *   conditions are met:
-+ *
-+ *   - Redistributions of source code must retain the above copyright notice,
-+ *     this list of conditions and the following disclaimer.
-+ *
-+ *   - Redistributions in binary form must reproduce the above copyright
-+ *     notice, this list of conditions and the following disclaimer in the
-+ *     documentation and/or other materials provided with the distribution.
-+ *
-+ *   - Neither the name of IBM nor the names of its contributors may be
-+ *     used to endorse or promote products derived from this software without
-+ *     specific prior written permission.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+
-+#ifndef _SIW_CM_H
-+#define _SIW_CM_H
-+
-+#include <net/sock.h>
-+#include <linux/tcp.h>
-+
-+#include <rdma/iw_cm.h>
-+
-+
-+enum siw_cep_state {
-+	SIW_EPSTATE_IDLE = 1,
-+	SIW_EPSTATE_LISTENING,
-+	SIW_EPSTATE_CONNECTING,
-+	SIW_EPSTATE_AWAIT_MPAREQ,
-+	SIW_EPSTATE_RECVD_MPAREQ,
-+	SIW_EPSTATE_AWAIT_MPAREP,
-+	SIW_EPSTATE_RDMA_MODE,
-+	SIW_EPSTATE_CLOSED
-+};
-+
-+struct siw_mpa_info {
-+	struct mpa_rr	hdr; 	/* peer mpa hdr in host byte order */
-+	char		*pdata;
-+	int		bytes_rcvd;
-+};
-+
-+struct siw_llp_info {
-+	struct socket		*sock;
-+	struct sockaddr_in	laddr;	/* redundant with socket info above */
-+	struct sockaddr_in	raddr;	/* dito, consider removal */
-+	struct siw_sk_upcalls	sk_def_upcalls;
-+};
-+
-+struct siw_cep {
-+	struct iw_cm_id		*cm_id;
-+
-+	/*
-+	 * The provider_data element of a listener IWCM ID
-+	 * refers to a list of one or more listener CEPs
-+	 */
-+	struct list_head	list;
-+
-+	struct siw_cep		*listen_cep;
-+	struct siw_qp		*qp;
-+	spinlock_t		lock;
-+	wait_queue_head_t	waitq;
-+	struct kref		ref;
-+	enum siw_cep_state	state;
-+	short			conn_close; /* sched. for closing or closed */
-+	short			in_use;
-+	struct siw_cm_work	*mpa_timer;
-+	struct list_head	work_freelist;
-+	struct siw_llp_info	llp;
-+	struct siw_mpa_info	mpa;
-+	int			ord;
-+	int			ird;
-+	int			sk_error; /* not (yet) used XXX */
-+
-+	/* Saved upcalls of socket llp.sock */
-+	void    (*sk_state_change)(struct sock *sk);
-+	void    (*sk_data_ready)(struct sock *sk, int bytes);
-+	void    (*sk_write_space)(struct sock *sk);
-+	void    (*sk_error_report)(struct sock *sk);
-+};
-+
-+enum siw_work_type {
-+	SIW_CM_WORK_ACCEPT 	= 1,
-+	SIW_CM_WORK_READ_MPAHDR,
-+	SIW_CM_WORK_CLOSE_LLP,		/* close socket */
-+	SIW_CM_WORK_PEER_CLOSE,		/* socket indicated peer close */
-+	SIW_CM_WORK_MPATIMEOUT		/* to be done ! */
-+};
-+
-+struct siw_cm_work {
-+	struct work_struct	work;
-+	struct list_head	list;
-+	enum siw_work_type	type;
-+	struct siw_cep	*cep;
-+};
-+
-+extern int siw_connect(struct iw_cm_id *, struct iw_cm_conn_param *);
-+extern int siw_accept(struct iw_cm_id *, struct iw_cm_conn_param *);
-+extern int siw_reject(struct iw_cm_id *, const void *, u8);
-+extern int siw_create_listen(struct iw_cm_id *, int);
-+extern int siw_destroy_listen(struct iw_cm_id *);
-+
-+extern int siw_cm_upcall(struct siw_cep *, enum iw_cm_event_type,
-+			    enum iw_cm_event_status);
-+
-+extern void siw_cep_upcall(struct siw_cep *, enum iw_cm_event_type);
-+
-+extern void siw_cep_put(struct siw_cep *);
-+extern void siw_cep_get(struct siw_cep *);
-+extern int siw_cep_in_close(struct siw_cep *);
-+
-+extern int siw_cm_queue_work(struct siw_cep *, enum siw_work_type);
-+
-+extern int siw_cm_init(void);
-+extern void siw_cm_exit(void);
-+
-+/*
-+ * TCP socket interface
-+ */
-+#define sk_to_qp(sk)	(((struct siw_cep *)((sk)->sk_user_data))->qp)
-+#define sk_to_cep(sk)	((struct siw_cep *)((sk)->sk_user_data))
-+
-+/*
-+ * Should we use tcp_current_mss()?
-+ * But its not exported by kernel.
-+ */
-+static inline unsigned int get_tcp_mss(struct sock *sk)
-+{
-+	return ((struct tcp_sock *)sk)->xmit_size_goal_segs *
-+			((struct tcp_sock *)sk)->mss_cache;
-+}
++extern int siw_query_device(struct ib_device *, struct ib_device_attr *);
++
++extern struct ib_ucontext *siw_alloc_ucontext(struct ib_device *,
++					      struct ib_udata *);
++extern int siw_dealloc_ucontext(struct ib_ucontext *);
++extern int siw_query_port(struct ib_device *, u8, struct ib_port_attr *);
++extern int siw_query_pkey(struct ib_device *, u8, u16, u16 *);
++extern int siw_query_gid(struct ib_device *, u8, int, union ib_gid *);
++
++extern struct ib_pd *siw_alloc_pd(struct ib_device *, struct ib_ucontext *,
++				  struct ib_udata *);
++extern int siw_dealloc_pd(struct ib_pd *);
++extern struct ib_ah *siw_create_ah(struct ib_pd *, struct ib_ah_attr *);
++extern int siw_destroy_ah(struct ib_ah *);
++extern struct ib_qp *siw_create_qp(struct ib_pd *, struct ib_qp_init_attr *,
++				   struct ib_udata *);
++extern int siw_query_qp(struct ib_qp *, struct ib_qp_attr *, int,
++			struct ib_qp_init_attr *);
++extern int siw_ofed_modify_qp(struct ib_qp *, struct ib_qp_attr *, int,
++			      struct ib_udata *);
++extern int siw_destroy_qp(struct ib_qp *);
++extern int siw_post_send(struct ib_qp *, struct ib_send_wr *,
++			 struct ib_send_wr **);
++extern int siw_post_receive(struct ib_qp *, struct ib_recv_wr *,
++			    struct ib_recv_wr **);
++extern struct ib_cq *siw_create_cq(struct ib_device *, int, int,
++				   struct ib_ucontext *, struct ib_udata *);
++extern int siw_destroy_cq(struct ib_cq *);
++extern int siw_poll_cq(struct ib_cq *, int num_entries, struct ib_wc *);
++extern int siw_req_notify_cq(struct ib_cq *, enum ib_cq_notify_flags);
++extern struct ib_mr *siw_reg_user_mr(struct ib_pd *, u64, u64, u64, int,
++				     struct ib_udata *);
++extern struct ib_mr *siw_get_dma_mr(struct ib_pd *, int);
++extern int siw_dereg_mr(struct ib_mr *);
++extern struct ib_srq *siw_create_srq(struct ib_pd *, struct ib_srq_init_attr *,
++				     struct ib_udata *);
++extern int siw_modify_srq(struct ib_srq *, struct ib_srq_attr *,
++			  enum ib_srq_attr_mask, struct ib_udata *);
++extern int siw_query_srq(struct ib_srq *, struct ib_srq_attr *);
++extern int siw_destroy_srq(struct ib_srq *);
++extern int siw_post_srq_recv(struct ib_srq *, struct ib_recv_wr *,
++			     struct ib_recv_wr **);
++extern int siw_mmap(struct ib_ucontext *, struct vm_area_struct *);
 +
 +#endif
 -- 
