@@ -1,68 +1,78 @@
-From: Armin Schindler <armin@melware.de>
-Subject: Re: [patch] eicon: make buffer larger
-Date: Wed, 6 Oct 2010 10:44:47 +0200 (CEST)
-Message-ID: <alpine.DEB.2.00.1010061043550.29582@justus.melware.de>
-References: <20101004192459.GE5692@bicker> <alpine.DEB.2.00.1010060923120.29107@justus.melware.de> <20101006074714.GE5409@bicker> <alpine.DEB.2.00.1010061019480.29404@justus.melware.de> <20101006083117.GF5409@bicker>
+From: Jack Stone <jwjstone@fastmail.fm>
+Subject: Re: [PATCH] Documentation/networking/ip-sysctl.txt tcp_tw_recycle
+ & tcp_tw_reuse
+Date: Wed, 06 Oct 2010 10:09:45 +0100
+Message-ID: <4CAC3CD9.9040102@fastmail.fm>
+References: <1286213524-4659-1-git-send-email-kerolasa@iki.fi>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Dan Carpenter <error27@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.melware.net ([78.47.171.162]:59904 "EHLO mx1.melware.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752873Ab0JFIot (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Oct 2010 04:44:49 -0400
-In-Reply-To: <20101006083117.GF5409@bicker>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: Sami Kerola <kerolasa@iki.fi>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <1286213524-4659-1-git-send-email-kerolasa@iki.fi>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 6 Oct 2010, Dan Carpenter wrote:
-> On Wed, Oct 06, 2010 at 10:21:02AM +0200, Armin Schindler wrote:
->> On Wed, 6 Oct 2010, Dan Carpenter wrote:
->>> On Wed, Oct 06, 2010 at 09:25:44AM +0200, Armin Schindler wrote:
->>>> On Mon, 4 Oct 2010, Dan Carpenter wrote:
->>>>> In diva_mnt_add_xdi_adapter() we do this:
->>>>>  strcpy (clients[id].drvName,     tmp);
->>>>>  strcpy (clients[id].Dbg.drvName, tmp);
->>>>>
->>>>> The "clients[id].drvName" is a 128 character buffer and
->>>>> "clients[id].Dbg.drvName" was originally a 16 character buffer but I've
->>>>> changed it to 128 as well.  We don't actually use 128 characters but we
->>>>> do use more than 16.
->>>>
->>>> I don't see any reason for that change. The driver names here do not use
->>>> more than 16 characters and when filled, the length is checked anyway.
->>>> Please avoid changing the size of that structure.
->>>>
->>>
->>> drivers/isdn/hardware/eicon/debug.c diva_mnt_add_xdi_adapter()
->>>   874      sprintf (tmp, "ADAPTER:%d SN:%u-%d",
->>>                           12345678 90123 45 67
->>>
->>> 	That's a minimum 17 characters.
->>>
->>>   875               (int)logical,
->>>   876               serial & 0x00ffffff,
->>>   877               (byte)(((serial & 0xff000000) >> 24) + 1));
->>>   878    } else {
->>>   879      sprintf (tmp, "ADAPTER:%d SN:%u", (int)logical, serial);
->>>   880    }
->>
->> this is tmp with a bigger size. It seems you are mixing the sizes of
->> drvName and tmp.
->>
+ On 04/10/2010 18:32, Sami Kerola wrote:
+> From: Sami Kerola <kerolasa@iki.fi>
 >
-> What I mean is that later on we use strcpy() to copy "tmp" into
-> "clients[id].Dbg.drvName"
+> Instead of saying 'consult your technical export' the
+> documentation needs to assist an export to decide whether to keep
+> these settings off or set them on.
 >
->   927    strcpy (clients[id].drvName,     tmp);
->   928    strcpy (clients[id].Dbg.drvName, tmp);
->                               ^
->                    this buffer is only 16 chars
+> Signed-off-by: Sami Kerola <kerolasa@iki.fi>
+I think the idea of this patch is still valuable. I've included possible
+rewordings inline below. I can't guarentee the english is correct but
+hopefully we can iterate to something acceptable to all.
+> ---
+>  Documentation/networking/ip-sysctl.txt |   20 +++++++++++++-------
+>  1 files changed, 13 insertions(+), 7 deletions(-)
+>
+> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+> index f350c69..01e2948 100644
+> --- a/Documentation/networking/ip-sysctl.txt
+> +++ b/Documentation/networking/ip-sysctl.txt
+> @@ -444,15 +444,21 @@ tcp_tso_win_divisor - INTEGER
+>  	Default: 3
+>  
+>  tcp_tw_recycle - BOOLEAN
+> -	Enable fast recycling TIME-WAIT sockets. Default value is 0.
+> -	It should not be changed without advice/request of technical
+> -	experts.
+> +	Enable fast recycling TIME-WAIT sockets. See also caution
+> +	wrote to tcp_tw_reuse. Default value is 0.
+Enable fast recycling TIME-WAIT sockets. This option can be dangerous.
+See the warning
+under tcp_tw-reuse for more information. Default value is 0.
+>  
+>  tcp_tw_reuse - BOOLEAN
+> -	Allow to reuse TIME-WAIT sockets for new connections when it is
+> -	safe from protocol viewpoint. Default value is 0.
+> -	It should not be changed without advice/request of technical
+> -	experts.
+> +	Allow to reuse TIME-WAIT sockets for new connections when it is safe
+> +	from protocol viewpoint. One should enable also tcp_timestamps when
+> +	this is enabled. Default value is 0.
+> +
+> +	Caution. Both tcp_tw_recycle and tcp_tw_reuse can cause problems. You
+> +	should not enable either without being sure about network topology in
+> +	between node(s) which are using, or used by, the node(s) where the
+> +	parameter is enabled. Connections that go via TCP state aware nodes,
+> +	such as firewalls, NAT devices or load balancers may start drop frames
+> +	because of the setting. The more there are connections the greater is
+> +	the likelyhood you will see this issue.
+The above paragraph reads oddly to me. How about:
+Neither of these options should be enabled unless the network topology
+is known. Connections
+that go via TCP state aware nodes, such as firewalls, NAT devices or
+load balancers may experience
+dropped frames. The larger the number of connections the greater the
+likelihood of this issue occuring.
+>  
+>  tcp_window_scaling - BOOLEAN
+>  	Enable window scaling as defined in RFC1323.
+Hope this helps,
 
-Now I understand. You are right. So the fix would be to change these 
-strcpy() to e.g. strncpy() or similar.
-
-Armin
-
+Jack
