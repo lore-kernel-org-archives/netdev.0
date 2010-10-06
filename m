@@ -1,45 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH 2/3] bonding: add Speed/Duplex information
- to /proc/net/bonding/bond
-Date: Wed, 06 Oct 2010 14:24:24 -0700 (PDT)
-Message-ID: <20101006.142424.246555203.davem@davemloft.net>
-References: <4ca4b878.KGc4gLtXHLSFlAdV%ole@ans.pl>
+From: =?UTF-8?B?Q2h1bmctWWloIFdhbmcgKOeOi+W0h+aHvyk=?=
+	<cywang@google.com>
+Subject: Re: Regarding to your linux kernel CL
+Date: Wed, 6 Oct 2010 14:23:44 -0700
+Message-ID: <AANLkTin3o_83kz1OxsN1Pme=0wv0g1zJ2F+FQ+U--u5e@mail.gmail.com>
+References: <AANLkTikdcL0JQgkR6u0qtmDu-phMZ6-Juq91B1N5GfiY@mail.gmail.com>
+ <4CAC1F20.6070009@iki.fi> <20101006075946.GA5311@gondor.apana.org.au> <20101006.011448.112578977.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: fubar@us.ibm.com, bonding-devel@lists.sourceforge.net,
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: herbert@gondor.hengli.com.au, timo.teras@iki.fi,
 	netdev@vger.kernel.org
-To: ole@ans.pl
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45586
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933092Ab0JFVYD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Oct 2010 17:24:03 -0400
-In-Reply-To: <4ca4b878.KGc4gLtXHLSFlAdV%ole@ans.pl>
+Received: from smtp-out.google.com ([74.125.121.35]:12349 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933140Ab0JFVYI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Oct 2010 17:24:08 -0400
+Received: from wpaz21.hot.corp.google.com (wpaz21.hot.corp.google.com [172.24.198.85])
+	by smtp-out.google.com with ESMTP id o96LO6gF001842
+	for <netdev@vger.kernel.org>; Wed, 6 Oct 2010 14:24:06 -0700
+Received: from vws19 (vws19.prod.google.com [10.241.21.147])
+	by wpaz21.hot.corp.google.com with ESMTP id o96LMVKJ014944
+	for <netdev@vger.kernel.org>; Wed, 6 Oct 2010 14:24:05 -0700
+Received: by vws19 with SMTP id 19so22014vws.18
+        for <netdev@vger.kernel.org>; Wed, 06 Oct 2010 14:24:05 -0700 (PDT)
+In-Reply-To: <20101006.011448.112578977.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Krzysztof Piotr Oledzki <ole@ans.pl>
-Date: Thu, 30 Sep 2010 18:19:04 +0200
+Do you mean if we should move the genid/cookie logic into sk_dst_check
+and remove the dst->ops->check()? If so, I dont think it will be a
+good idea to remove 'dst->ops->check' since it is per dst entry's
+check not just for ipv4 entry. At least, the fact of obsolete=2
+reveals that the entry is freed and is ready for being released. That
+will be weird if we still use the obsolete entry for routing the
+socket's traffic(for sure, that's why the packets of the socket goes
+nowhere but dropped).
 
-> Subject: bonding: add Speed/Duplex information to /proc/net/bonding/bond*
-> 
-> Effect:
->  Slave Interface: eth5
->  MII Status: up
->  Speed: 10000 Mbps
->  Duplex: full
->  Link Failure Count: 0
->  Permanent HW addr: XX:XX:XX:XX:XX:XX
->  Slave queue ID: 0
-> 
-> Signed-off-by: Krzysztof Piotr Oledzki <ole@ans.pl>
-
-Changing the layout of a procfs file is pretty much always unsafe.
-
-Some useland program somewhere depends upon the current layout, and
-therefore very likely could break if we change the contents.
-
-We really can't apply a patch like this.  A most portable and
-extensible interface (netlink, ethtool) should be used to provide this
-information to userspace.
+On Wed, Oct 6, 2010 at 1:14 AM, David Miller <davem@davemloft.net> wrote:
+> From: Herbert Xu <herbert@gondor.apana.org.au>
+> Date: Wed, 6 Oct 2010 15:59:46 +0800
+>
+>> Perhaps we should move the genid/cookie logic into the dst so that
+>> we can eliminate the dst->check call or at least make it a lot less
+>> frequent.
+>
+> That sounds like a good idea.
+>
