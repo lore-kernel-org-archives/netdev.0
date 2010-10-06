@@ -1,156 +1,249 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: [v2 RFC PATCH 0/4] Implement multiqueue virtio-net
-Date: Wed, 6 Oct 2010 23:13:31 +0530
-Message-ID: <OF806283F6.38268772-ON652577B4.005E805A-652577B4.00611B1C@in.ibm.com>
-References: <20100917100307.21276.79185.sendpatchset@krkumar2.in.ibm.com> <20100919124443.GJ7350@redhat.com> <OF13594229.1A55A20C-ON652577B3.00393C8D-652577B3.003A54C9@in.ibm.com> <20101005182323.GA25852@redhat.com>
+From: Florian Mickler <florian-sVu6HhrpSfRAfugRpC6u6w@public.gmane.org>
+Subject: Re: [PATCH wireless-2.6 or stable] iwlwifi: return error when fail
+ to start scanning
+Date: Wed, 6 Oct 2010 19:45:37 +0200
+Message-ID: <20101006194537.35e8b00e@schatten.dmk.lab>
+References: <20101005085717.GA18012@redhat.com>
+	<1286317292-10679-1-git-send-email-florian@mickler.org>
+	<20101006090228.GA2523@redhat.com>
+	<20101006160434.GB24581@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Cc: anthony@codemonkey.ws, arnd@arndb.de, avi@redhat.com,
-	davem@davemloft.net, kvm@vger.kernel.org, netdev@vger.kernel.org,
-	rusty@rustcorp.com.au
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20101005182323.GA25852@redhat.com>
-Sender: kvm-owner@vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	reinette.chatre-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
+	johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, ben.m.cahill-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20101006160434.GB24581-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-"Michael S. Tsirkin" <mst@redhat.com> wrote on 10/05/2010 11:53:23 PM:
+Hi Stanislaw!
 
-> > > Any idea where does this come from?
-> > > Do you see more TX interrupts? RX interrupts? Exits?
-> > > Do interrupts bounce more between guest CPUs?
-> > > 4. Identify reasons for single netperf BW regression.
-> >
-> > After testing various combinations of #txqs, #vhosts, #netperf
-> > sessions, I think the drop for 1 stream is due to TX and RX for
-> > a flow being processed on different cpus.
->
-> Right. Can we fix it?
+On Wed, 6 Oct 2010 18:04:35 +0200
+Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
 
-I am not sure how to. My initial patch had one thread but gave
-small gains and ran into limitations once number of sessions
-became large.
+> This is stable friendly backport of wireless-testing commit
+> 3eecce527c7434dfd16517ce08b49632c8a26717 "iwlwifi: unify scan start
+> checks". Wireless-testing version include also a lot of cleanups.
+> 
+> On error case in {iwl3945,iwlagn}_request_scan we queue abort_scan work,
+> which in a fact do nothing, so we never complete the scan. Thats gives
+> "WARNING: at net/wireless/core.c:614 wdev_cleanup_work" and stopped
+> network connection until reload iwlwifi modules. Return of -EIO, and
+> stopping queuing any work is a fix.
+> 
+> Note there are still many cases when we can get: 
+> 
+> WARNING: at net/wireless/core.c:614 wdev_cleanup_work  
+> WARNING: at net/mac80211/scan.c:266 ieee80211_scan_completed
+> WARNING: at net/mac80211/scan.c:269 ieee80211_scan_complete
+> 
+> which are not fixed. Unfortunately does not exist single, small fix
+> for that problems, and we probably will see some more bug reports
+> with scan warnings. As solution we rewrite iwl-scan.c code to avoid
+> all possible race conditions. That quite big patch set is queued
+> for 2.6.37 .
+> 
+> Signed-off-by: Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> ---
 
-> >  I did two more tests:
-> >     1. Pin vhosts to same CPU:
-> >         - BW drop is much lower for 1 stream case (- 5 to -8% range)
-> >         - But performance is not so high for more sessions.
-> >     2. Changed vhost to be single threaded:
-> >           - No degradation for 1 session, and improvement for upto
-> >          8, sometimes 16 streams (5-12%).
-> >           - BW degrades after that, all the way till 128 netperf
-sessions.
-> >           - But overall CPU utilization improves.
-> >             Summary of the entire run (for 1-128 sessions):
-> >                 txq=4:  BW: (-2.3)      CPU: (-16.5)    RCPU: (-5.3)
-> >                 txq=16: BW: (-1.9)      CPU: (-24.9)    RCPU: (-9.6)
-> >
-> > I don't see any reasons mentioned above.  However, for higher
-> > number of netperf sessions, I see a big increase in retransmissions:
->
-> Hmm, ok, and do you see any errors?
+Not that it matters much, but I've looked through it and couldn't find
+anything wrong with it.
 
-I haven't seen any in any statistics, messages, etc. Also no
-retranmissions for txq=1.
+ Reviewed-by: Florian Mickler <florian-sVu6HhrpSfRAfugRpC6u6w@public.gmane.org>
 
-> > Single netperf case didn't have any retransmissions so that is not
-> > the cause for drop.  I tested ixgbe (MQ):
-> > ___________________________________________________________
-> > #netperf      ixgbe             ixgbe (pin intrs to cpu#0 on
-> >                                        both server/client)
-> >             BW (#retr)          BW (#retr)
-> > ___________________________________________________________
-> > 1           3567 (117)          6000 (251)
-> > 2           4406 (477)          6298 (725)
-> > 4           6119 (1085)         7208 (3387)
-> > 8           6595 (4276)         7381 (15296)
-> > 16          6651 (11651)        6856 (30394)
->
-> Interesting.
-> You are saying we get much more retransmissions with physical nic as
-> well?
+Regards,
+Flo
 
-Yes, with ixgbe. I re-ran with 16 netperfs running for 15 secs on
-both ixgbe and cxgb3 just now to reconfirm:
-
-ixgbe: BW: 6186.85  SD/Remote: 135.711, 339.376  CPU/Remote: 79.99, 200.00,
-Retrans: 545
-cxgb3: BW: 8051.07  SD/Remote: 144.416, 260.487  CPU/Remote: 110.88,
-200.00, Retrans: 0
-
-However 64 netperfs for 30 secs gave:
-
-ixgbe: BW: 6691.12  SD/Remote: 8046.617, 5259.992  CPU/Remote: 1223.86,
-799.97, Retrans: 1424
-cxgb3: BW: 7799.16  SD/Remote: 2589.875, 4317.013  CPU/Remote: 480.39
-800.64, Retrans: 649
-
-# ethtool -i eth4
-driver: ixgbe
-version: 2.0.84-k2
-firmware-version: 0.9-3
-bus-info: 0000:1f:00.1
-
-# ifconfig output:
-       RX packets:783241 errors:0 dropped:0 overruns:0 frame:0
-       TX packets:689533 errors:0 dropped:0 overruns:0 carrier:0
-       collisions:0 txqueuelen:1000
-
-# lspci output:
-1f:00.0 Ethernet controller: Intel Corporation 82599EB 10-Gigabit Network
-Connec
-tion (rev 01)
-        Subsystem: Intel Corporation Ethernet Server Adapter X520-2
-        Flags: bus master, fast devsel, latency 0, IRQ 30
-        Memory at 98900000 (64-bit, prefetchable) [size=512K]
-        I/O ports at 2020 [size=32]
-        Memory at 98a00000 (64-bit, prefetchable) [size=16K]
-        Capabilities: [40] Power Management version 3
-        Capabilities: [50] MSI: Enable- Count=1/1 Maskable+ 64bit+
-        Capabilities: [70] MSI-X: Enable+ Count=64 Masked-
-        Capabilities: [a0] Express Endpoint, MSI 00
-        Capabilities: [100] Advanced Error Reporting
-        Capabilities: [140] Device Serial Number 00-1b-21-ff-ff-40-4a-b4
-        Capabilities: [150] Alternative Routing-ID Interpretation (ARI)
-        Capabilities: [160] Single Root I/O Virtualization (SR-IOV)
-        Kernel driver in use: ixgbe
-        Kernel modules: ixgbe
-
-> > I haven't done this right now since I don't have a setup.  I guess
-> > it would be limited by wire speed and gains may not be there.  I
-> > will try to do this later when I get the setup.
->
-> OK but at least need to check that it does not hurt things.
-
-Yes, sure.
-
-> > Summary:
-> >
-> > 1. Average BW increase for regular I/O is best for #txq=16 with the
-> >    least CPU utilization increase.
-> > 2. The average BW for 512 byte I/O is best for lower #txq=2. For higher
-> >    #txqs, BW increased only after a particular #netperf sessions - in
-> >    my testing that limit was 32 netperf sessions.
-> > 3. Multiple txq for guest by itself doesn't seem to have any issues.
-> >    Guest CPU% increase is slightly higher than BW improvement.  I
-> >    think it is true for all mq drivers since more paths run in parallel
-> >    upto the device instead of sleeping and allowing one thread to send
-> >    all packets via qdisc_restart.
-> > 4. Having high number of txqs gives better gains and reduces cpu util
-> >    on the guest and the host.
-> > 5. MQ is intended for server loads.  MQ should probably not be
-explicitly
-> >    specified for client systems.
-> > 6. No regression with numtxqs=1 (or if mq option is not used) in any
-> >    testing scenario.
->
-> Of course txq=1 can be considered a kind of fix, but if we know the
-> issue is TX/RX flows getting bounced between CPUs, can we fix this?
-> Workload-specific optimizations can only get us this far.
-
-I will test with your patch tomorrow night once I am back.
-
-Thanks,
-
-- KK
-
+> Patch is intended for wireless-2.6, or in case when it does not
+> make 2.6.36 release, for -stable 2.6.36.y 
+> 
+>  drivers/net/wireless/iwlwifi/iwl-3945.h     |    2 +-
+>  drivers/net/wireless/iwlwifi/iwl-agn-lib.c  |   18 ++++++------------
+>  drivers/net/wireless/iwlwifi/iwl-agn.h      |    2 +-
+>  drivers/net/wireless/iwlwifi/iwl-core.h     |    2 +-
+>  drivers/net/wireless/iwlwifi/iwl-scan.c     |   14 +++++++++++---
+>  drivers/net/wireless/iwlwifi/iwl3945-base.c |   19 ++++++-------------
+>  6 files changed, 26 insertions(+), 31 deletions(-)
+> 
+> diff --git a/drivers/net/wireless/iwlwifi/iwl-3945.h b/drivers/net/wireless/iwlwifi/iwl-3945.h
+> index bb2aeeb..98509c5 100644
+> --- a/drivers/net/wireless/iwlwifi/iwl-3945.h
+> +++ b/drivers/net/wireless/iwlwifi/iwl-3945.h
+> @@ -295,7 +295,7 @@ extern const struct iwl_channel_info *iwl3945_get_channel_info(
+>  extern int iwl3945_rs_next_rate(struct iwl_priv *priv, int rate);
+>  
+>  /* scanning */
+> -void iwl3945_request_scan(struct iwl_priv *priv, struct ieee80211_vif *vif);
+> +int iwl3945_request_scan(struct iwl_priv *priv, struct ieee80211_vif *vif);
+>  
+>  /* Requires full declaration of iwl_priv before including */
+>  #include "iwl-io.h"
+> diff --git a/drivers/net/wireless/iwlwifi/iwl-agn-lib.c b/drivers/net/wireless/iwlwifi/iwl-agn-lib.c
+> index 8fd00a6..2be8faa 100644
+> --- a/drivers/net/wireless/iwlwifi/iwl-agn-lib.c
+> +++ b/drivers/net/wireless/iwlwifi/iwl-agn-lib.c
+> @@ -1147,7 +1147,7 @@ static int iwl_get_channels_for_scan(struct iwl_priv *priv,
+>  	return added;
+>  }
+>  
+> -void iwlagn_request_scan(struct iwl_priv *priv, struct ieee80211_vif *vif)
+> +int iwlagn_request_scan(struct iwl_priv *priv, struct ieee80211_vif *vif)
+>  {
+>  	struct iwl_host_cmd cmd = {
+>  		.id = REPLY_SCAN_CMD,
+> @@ -1394,24 +1394,18 @@ void iwlagn_request_scan(struct iwl_priv *priv, struct ieee80211_vif *vif)
+>  	scan->len = cpu_to_le16(cmd.len);
+>  
+>  	set_bit(STATUS_SCAN_HW, &priv->status);
+> -	if (iwl_send_cmd_sync(priv, &cmd))
+> +	if (iwl_send_cmd_sync(priv, &cmd)) {
+> +		clear_bit(STATUS_SCAN_HW, &priv->status);
+>  		goto done;
+> +	}
+>  
+>  	queue_delayed_work(priv->workqueue, &priv->scan_check,
+>  			   IWL_SCAN_CHECK_WATCHDOG);
+>  
+> -	return;
+> +	return 0;
+>  
+>   done:
+> -	/* Cannot perform scan. Make sure we clear scanning
+> -	* bits from status so next scan request can be performed.
+> -	* If we don't clear scanning status bit here all next scan
+> -	* will fail
+> -	*/
+> -	clear_bit(STATUS_SCAN_HW, &priv->status);
+> -	clear_bit(STATUS_SCANNING, &priv->status);
+> -	/* inform mac80211 scan aborted */
+> -	queue_work(priv->workqueue, &priv->abort_scan);
+> +	return -EIO;
+>  }
+>  
+>  int iwlagn_manage_ibss_station(struct iwl_priv *priv,
+> diff --git a/drivers/net/wireless/iwlwifi/iwl-agn.h b/drivers/net/wireless/iwlwifi/iwl-agn.h
+> index cc6464d..015da26 100644
+> --- a/drivers/net/wireless/iwlwifi/iwl-agn.h
+> +++ b/drivers/net/wireless/iwlwifi/iwl-agn.h
+> @@ -216,7 +216,7 @@ void iwl_reply_statistics(struct iwl_priv *priv,
+>  			  struct iwl_rx_mem_buffer *rxb);
+>  
+>  /* scan */
+> -void iwlagn_request_scan(struct iwl_priv *priv, struct ieee80211_vif *vif);
+> +int iwlagn_request_scan(struct iwl_priv *priv, struct ieee80211_vif *vif);
+>  
+>  /* station mgmt */
+>  int iwlagn_manage_ibss_station(struct iwl_priv *priv,
+> diff --git a/drivers/net/wireless/iwlwifi/iwl-core.h b/drivers/net/wireless/iwlwifi/iwl-core.h
+> index 5e6ee3d..110de0f 100644
+> --- a/drivers/net/wireless/iwlwifi/iwl-core.h
+> +++ b/drivers/net/wireless/iwlwifi/iwl-core.h
+> @@ -109,7 +109,7 @@ struct iwl_hcmd_utils_ops {
+>  				  __le16 fc, __le32 *tx_flags);
+>  	int  (*calc_rssi)(struct iwl_priv *priv,
+>  			  struct iwl_rx_phy_res *rx_resp);
+> -	void (*request_scan)(struct iwl_priv *priv, struct ieee80211_vif *vif);
+> +	int (*request_scan)(struct iwl_priv *priv, struct ieee80211_vif *vif);
+>  };
+>  
+>  struct iwl_apm_ops {
+> diff --git a/drivers/net/wireless/iwlwifi/iwl-scan.c b/drivers/net/wireless/iwlwifi/iwl-scan.c
+> index a4b3663..290140a 100644
+> --- a/drivers/net/wireless/iwlwifi/iwl-scan.c
+> +++ b/drivers/net/wireless/iwlwifi/iwl-scan.c
+> @@ -298,6 +298,7 @@ EXPORT_SYMBOL(iwl_init_scan_params);
+>  
+>  static int iwl_scan_initiate(struct iwl_priv *priv, struct ieee80211_vif *vif)
+>  {
+> +	int ret;
+>  	lockdep_assert_held(&priv->mutex);
+>  
+>  	IWL_DEBUG_INFO(priv, "Starting scan...\n");
+> @@ -308,9 +309,11 @@ static int iwl_scan_initiate(struct iwl_priv *priv, struct ieee80211_vif *vif)
+>  	if (WARN_ON(!priv->cfg->ops->utils->request_scan))
+>  		return -EOPNOTSUPP;
+>  
+> -	priv->cfg->ops->utils->request_scan(priv, vif);
+> +	ret = priv->cfg->ops->utils->request_scan(priv, vif);
+> +	if (ret)
+> +		clear_bit(STATUS_SCANNING, &priv->status);
+> +	return ret;
+>  
+> -	return 0;
+>  }
+>  
+>  int iwl_mac_hw_scan(struct ieee80211_hw *hw,
+> @@ -380,6 +383,7 @@ void iwl_internal_short_hw_scan(struct iwl_priv *priv)
+>  
+>  void iwl_bg_start_internal_scan(struct work_struct *work)
+>  {
+> +	int ret;
+>  	struct iwl_priv *priv =
+>  		container_of(work, struct iwl_priv, start_internal_scan);
+>  
+> @@ -414,7 +418,11 @@ void iwl_bg_start_internal_scan(struct work_struct *work)
+>  	if (WARN_ON(!priv->cfg->ops->utils->request_scan))
+>  		goto unlock;
+>  
+> -	priv->cfg->ops->utils->request_scan(priv, NULL);
+> +	ret = priv->cfg->ops->utils->request_scan(priv, NULL);
+> +	if (ret) {
+> +		clear_bit(STATUS_SCANNING, &priv->status);
+> +		priv->is_internal_short_scan = false;
+> +	}
+>   unlock:
+>  	mutex_unlock(&priv->mutex);
+>  }
+> diff --git a/drivers/net/wireless/iwlwifi/iwl3945-base.c b/drivers/net/wireless/iwlwifi/iwl3945-base.c
+> index d31661c..fc82da0 100644
+> --- a/drivers/net/wireless/iwlwifi/iwl3945-base.c
+> +++ b/drivers/net/wireless/iwlwifi/iwl3945-base.c
+> @@ -2799,7 +2799,7 @@ static void iwl3945_rfkill_poll(struct work_struct *data)
+>  
+>  }
+>  
+> -void iwl3945_request_scan(struct iwl_priv *priv, struct ieee80211_vif *vif)
+> +int iwl3945_request_scan(struct iwl_priv *priv, struct ieee80211_vif *vif)
+>  {
+>  	struct iwl_host_cmd cmd = {
+>  		.id = REPLY_SCAN_CMD,
+> @@ -3000,25 +3000,18 @@ void iwl3945_request_scan(struct iwl_priv *priv, struct ieee80211_vif *vif)
+>  	scan->len = cpu_to_le16(cmd.len);
+>  
+>  	set_bit(STATUS_SCAN_HW, &priv->status);
+> -	if (iwl_send_cmd_sync(priv, &cmd))
+> +	if (iwl_send_cmd_sync(priv, &cmd)) {
+> +		clear_bit(STATUS_SCAN_HW, &priv->status);
+>  		goto done;
+> +	}
+>  
+>  	queue_delayed_work(priv->workqueue, &priv->scan_check,
+>  			   IWL_SCAN_CHECK_WATCHDOG);
+>  
+> -	return;
+> +	return 0;
+>  
+>   done:
+> -	/* can not perform scan make sure we clear scanning
+> -	 * bits from status so next scan request can be performed.
+> -	 * if we dont clear scanning status bit here all next scan
+> -	 * will fail
+> -	*/
+> -	clear_bit(STATUS_SCAN_HW, &priv->status);
+> -	clear_bit(STATUS_SCANNING, &priv->status);
+> -
+> -	/* inform mac80211 scan aborted */
+> -	queue_work(priv->workqueue, &priv->abort_scan);
+> +	return -EIO;
+>  }
+>  
+>  static void iwl3945_bg_restart(struct work_struct *data)
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
