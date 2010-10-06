@@ -1,87 +1,57 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net-next] igb: fix stats handling
-Date: Tue, 5 Oct 2010 22:49:39 -0700
-Message-ID: <AANLkTinbYu9cY9+=Z4MQU69mm+QsozbWsPp6YZOft_Cb@mail.gmail.com>
-References: <20101005141833.20929.10943.stgit@localhost>
-	<1286289703.2796.292.camel@edumazet-laptop>
-	<1286290393.7071.38.camel@firesoul.comx.local>
-	<1286291947.2796.387.camel@edumazet-laptop>
-	<1286312479.2593.35.camel@edumazet-laptop>
-	<Pine.LNX.4.64.1010052313370.30765@ask.diku.dk>
-	<AANLkTi=+rkietX9jAMy5BRVwAENf-mK15py7y+LYQ-XJ@mail.gmail.com>
-	<1286335729.4861.13.camel@edumazet-laptop>
-	<1286339791.4861.26.camel@edumazet-laptop>
+From: =?UTF-8?B?VGltbyBUZXLDpHM=?= <timo.teras@iki.fi>
+Subject: Re: Regarding to your linux kernel CL
+Date: Wed, 06 Oct 2010 10:02:56 +0300
+Message-ID: <4CAC1F20.6070009@iki.fi>
+References: <AANLkTikdcL0JQgkR6u0qtmDu-phMZ6-Juq91B1N5GfiY@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jesper Dangaard Brouer <hawk@diku.dk>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Jesper Dangaard Brouer <hawk@comx.dk>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: herbert@gondor.hengli.com.au, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: =?UTF-8?B?IkNodW5nLVlpaCBXYW5nICjnjovltIfmh78pIg==?=
+	<cywang@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f174.google.com ([209.85.214.174]:52078 "EHLO
-	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753974Ab0JFFtk convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Oct 2010 01:49:40 -0400
-Received: by iwn5 with SMTP id 5so9296763iwn.19
-        for <netdev@vger.kernel.org>; Tue, 05 Oct 2010 22:49:39 -0700 (PDT)
-In-Reply-To: <1286339791.4861.26.camel@edumazet-laptop>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:46016 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756906Ab0JFHDF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Oct 2010 03:03:05 -0400
+Received: by eyb6 with SMTP id 6so2737023eyb.19
+        for <netdev@vger.kernel.org>; Wed, 06 Oct 2010 00:03:03 -0700 (PDT)
+In-Reply-To: <AANLkTikdcL0JQgkR6u0qtmDu-phMZ6-Juq91B1N5GfiY@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 5, 2010 at 21:36, Eric Dumazet <eric.dumazet@gmail.com> wro=
-te:
-> Le mercredi 06 octobre 2010 =C3=A0 05:28 +0200, Eric Dumazet a =C3=A9=
-crit :
->
->> I'll let Intel guys doing the backporting work, but for old kernels,
->> you'll probably need to use "unsigned long" instead of "u64"
->>
->> My plan is :
->>
->> - Provide 64bit counters even on 32bit arch
->> - with proper synchro (include/linux/u64_stats_sync.h)
->> - Add a spinlock so we can apply Jesper patch.
->
-> Here is the net-next-2.6 patch, I am currently enable to test it, the
-> dev machine with IGB NIC cannot be restarted until tomorrow, my son
-> Nicolas is currently using it ;)
->
-> Could you and/or Jesper test it, possibly on 32 and 64 bit kernels ?
->
-> Thanks !
->
-> [PATCH net-next] igb: fix stats handling
->
-> There are currently some problems with igb.
->
-> - On 32bit arches, maintaining 64bit counters without proper
-> synchronization between writers and readers.
->
-> - Stats updated every two seconds, as reported by Jesper.
-> =C2=A0 (Jesper provided a patch for this)
->
-> - Potential problem between worker thread and ethtool -S
->
-> This patch uses u64_stats_sync, and convert everything to be 64bit sa=
-fe,
-> SMP safe, even on 32bit arches.
->
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> ---
-> =C2=A0drivers/net/igb/igb.h =C2=A0 =C2=A0 =C2=A0 =C2=A0 | =C2=A0 =C2=A0=
-7 +-
-> =C2=A0drivers/net/igb/igb_ethtool.c | =C2=A0 10 +-
-> =C2=A0drivers/net/igb/igb_main.c =C2=A0 =C2=A0| =C2=A0111 +++++++++++=
-++++++++++++---------
-> =C2=A03 files changed, 94 insertions(+), 34 deletions(-)
->
+On 10/05/2010 04:23 AM, Chung-Yih Wang (=E7=8E=8B=E5=B4=87=E6=87=BF) wr=
+ote:
+>     I encountered an issue with your CL
+> http://git.kernel.org/?p=3Dlinux/kernel/git/torvalds/linux-2.6.git;a=3D=
+commit;h=3Dd11a4dc18bf41719c9f0d7ed494d295dd2973b92.
+> The cause is that we use a connected UDP socket for building the
+> l2tp/ipsec vpn connection. However, when the ipsec tunnel is built,
+> your CL made the sk_dst_check useless(since it always return the
+> 'freed' dst_entry and can not reset the dst entry for the socket).
+> What is your comment to conquer this issue?
+>=20
+> Solution 1. We could add a CL to change it to (dst && dst->obsolete &=
+&
+> (dst->obsolete>0  || dst->ops->check(...)=3D=3DNULL) in sk_dst_check(=
+)) ?
+>=20
+> Solution 2. Revert the change?
+>=20
+> Any comment?
 
-Thanks again Eric!  I will add your patch to my queue.
+What's the problem here? sk_dst_check not honoring if dst->obsolete>0 ?
+Sounds like the sk_dst_check was buggy in the first place.
 
---=20
-Cheers,
-Jeff
+Looks like there's still some code around that does not do what the
+obsolete field has been used for a long time.
+  obsolete =3D  0, dst entry is ok
+  obsolete =3D -1, you need to call ops->check for this entry
+  obsolete >  0, this entry is invalid
+
+So net/core/sock.c needs fixing. Just if we should change dst_check()
+too, I'm not sure.
+
+Should we fix sk_dst_check to use dst_check(), and dst_check() to check
+for dst->obsolete>0 ?
