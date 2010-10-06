@@ -1,64 +1,37 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: [PATCH wireless-2.6 or stable] iwlwifi: return error when fail
- to start scanning
-Date: Wed, 6 Oct 2010 16:01:50 -0400
-Message-ID: <20101006200150.GJ2472@tuxdriver.com>
-References: <20101005085717.GA18012@redhat.com>
- <1286317292-10679-1-git-send-email-florian@mickler.org>
- <20101006090228.GA2523@redhat.com>
- <20101006160434.GB24581@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: drivers/net/Makefile - question about link order comment
+ introduced in 2.3.43
+Date: Wed, 06 Oct 2010 13:15:45 -0700 (PDT)
+Message-ID: <20101006.131545.59698295.davem@davemloft.net>
+References: <1286363049.2156.113.camel@Joe-Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Mickler <florian-sVu6HhrpSfRAfugRpC6u6w@public.gmane.org>, stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	reinette.chatre-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
-	johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, ben.m.cahill-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20101006160434.GB24581-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, sam@ravnborg.org
+To: joe@perches.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50401
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759939Ab0JFUPY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Oct 2010 16:15:24 -0400
+In-Reply-To: <1286363049.2156.113.camel@Joe-Laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 06, 2010 at 06:04:35PM +0200, Stanislaw Gruszka wrote:
-> This is stable friendly backport of wireless-testing commit
-> 3eecce527c7434dfd16517ce08b49632c8a26717 "iwlwifi: unify scan start
-> checks". Wireless-testing version include also a lot of cleanups.
-> 
-> On error case in {iwl3945,iwlagn}_request_scan we queue abort_scan work,
-> which in a fact do nothing, so we never complete the scan. Thats gives
-> "WARNING: at net/wireless/core.c:614 wdev_cleanup_work" and stopped
-> network connection until reload iwlwifi modules. Return of -EIO, and
-> stopping queuing any work is a fix.
-> 
-> Note there are still many cases when we can get: 
-> 
-> WARNING: at net/wireless/core.c:614 wdev_cleanup_work  
-> WARNING: at net/mac80211/scan.c:266 ieee80211_scan_completed
-> WARNING: at net/mac80211/scan.c:269 ieee80211_scan_complete
-> 
-> which are not fixed. Unfortunately does not exist single, small fix
-> for that problems, and we probably will see some more bug reports
-> with scan warnings. As solution we rewrite iwl-scan.c code to avoid
-> all possible race conditions. That quite big patch set is queued
-> for 2.6.37 .
-> 
-> Signed-off-by: Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> ---
-> Patch is intended for wireless-2.6, or in case when it does not
-> make 2.6.36 release, for -stable 2.6.36.y 
+From: Joe Perches <joe@perches.com>
+Date: Wed, 06 Oct 2010 04:04:09 -0700
 
-I'm fine with this patch for -stable, but I'm not sure it is worthwhile
-to rush it into 2.6.36.  The problem it fixes is intermittent and
-not always very severe, and we've already been living with it for
-4 releases.
+> It wasn't that way in 2.3.43-pre7 , but it is in 2.3.43
+> and has remained there since.  There's nothing in lkml
+> history as far as I can find to describe a reason for it.
+> 
+> http://lkml.org/lkml/2000/2/10
+> (or thereabout)
+> 
+> Anyone know why it's like that or if that Makefile link
+> ordering is still needed?
 
-John
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I suspect it's not needed any more.
+
+I also suspect it's an obsolete sparc specific hack to get the primary
+ethernet interface to always show up as eth0.
