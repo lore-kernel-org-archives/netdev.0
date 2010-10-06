@@ -1,50 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/fec: fix link/queue interaction, wake queue iff
- link is up
-Date: Wed, 06 Oct 2010 14:15:40 -0700 (PDT)
-Message-ID: <20101006.141540.260064338.davem@davemloft.net>
-References: <1286364718-20070-1-git-send-email-oskar@linutronix.de>
+Subject: Re: [net-next-2.6 PATCH 2/3] bonding: add Speed/Duplex information
+ to /proc/net/bonding/bond
+Date: Wed, 06 Oct 2010 14:24:24 -0700 (PDT)
+Message-ID: <20101006.142424.246555203.davem@davemloft.net>
+References: <4ca4b878.KGc4gLtXHLSFlAdV%ole@ans.pl>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dan@embeddedalley.com,
-	bigeasy@linutronix.de, hjk@linutronix.de
-To: oskar@linutronix.de
+Cc: fubar@us.ibm.com, bonding-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org
+To: ole@ans.pl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43081
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45586
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933101Ab0JFVPT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Oct 2010 17:15:19 -0400
-In-Reply-To: <1286364718-20070-1-git-send-email-oskar@linutronix.de>
+	by vger.kernel.org with ESMTP id S933092Ab0JFVYD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Oct 2010 17:24:03 -0400
+In-Reply-To: <4ca4b878.KGc4gLtXHLSFlAdV%ole@ans.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Oskar Schirmer <oskar@linutronix.de>
-Date: Wed,  6 Oct 2010 13:31:58 +0200
+From: Krzysztof Piotr Oledzki <ole@ans.pl>
+Date: Thu, 30 Sep 2010 18:19:04 +0200
 
-> with hardware slow in negotiation, the system did freeze
-> while trying to mount root on nfs at boot time.
+> Subject: bonding: add Speed/Duplex information to /proc/net/bonding/bond*
 > 
-> while the driver did report being busy when the link is down
-> or no transmission buffers are available, it did not stop the
-> queue, causing instant retries. furthermore, transmission being
-> triggered with link down was caused by unconditional queue
-> wakes, especially on timeouts.
+> Effect:
+>  Slave Interface: eth5
+>  MII Status: up
+>  Speed: 10000 Mbps
+>  Duplex: full
+>  Link Failure Count: 0
+>  Permanent HW addr: XX:XX:XX:XX:XX:XX
+>  Slave queue ID: 0
 > 
-> now, wake queue only iff link is up and transmission
-> buffers are available, and dont forget to wake queue
-> when link has been adjusted. next, add stop queue notification
-> upon driver induced transmission problems, so network stack has
-> a chance to handle the situation.
-> 
-> Signed-off-by: Oskar Schirmer <oskar@linutronix.de>
+> Signed-off-by: Krzysztof Piotr Oledzki <ole@ans.pl>
 
-You should never have to do this.
+Changing the layout of a procfs file is pretty much always unsafe.
 
-As long as netif_carrier_on() and netif_carrier_off() are invoked
-properly by the driver, the core networking will never send you
-packets when netif_carrier_ok() is false.
+Some useland program somewhere depends upon the current layout, and
+therefore very likely could break if we change the contents.
 
-I am not applying this patch, drivers should not manage tx queue
-state using link status as a condition, that's the job of the
-core networking.
+We really can't apply a patch like this.  A most portable and
+extensible interface (netlink, ethtool) should be used to provide this
+information to userspace.
