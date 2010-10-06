@@ -1,29 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Regarding to your linux kernel CL
-Date: Wed, 06 Oct 2010 01:14:48 -0700 (PDT)
-Message-ID: <20101006.011448.112578977.davem@davemloft.net>
-References: <AANLkTikdcL0JQgkR6u0qtmDu-phMZ6-Juq91B1N5GfiY@mail.gmail.com>
-	<4CAC1F20.6070009@iki.fi>
-	<20101006075946.GA5311@gondor.apana.org.au>
+From: walter harms <wharms@bfs.de>
+Subject: Re: [patch] eicon: make buffer larger
+Date: Wed, 06 Oct 2010 10:16:10 +0200
+Message-ID: <4CAC304A.8040306@bfs.de>
+References: <20101004192459.GE5692@bicker> <alpine.DEB.2.00.1010060923120.29107@justus.melware.de> <20101006074714.GE5409@bicker>
+Reply-To: wharms@bfs.de
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: timo.teras@iki.fi, cywang@google.com, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49247
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757240Ab0JFIO1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Oct 2010 04:14:27 -0400
-In-Reply-To: <20101006075946.GA5311@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Dan Carpenter <error27@gmail.com>,
+	Armin Schindler <armin@melware.de>,
+	Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20101006074714.GE5409@bicker>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Wed, 6 Oct 2010 15:59:46 +0800
 
-> Perhaps we should move the genid/cookie logic into the dst so that
-> we can eliminate the dst->check call or at least make it a lot less
-> frequent.
 
-That sounds like a good idea.
+Dan Carpenter schrieb:
+> On Wed, Oct 06, 2010 at 09:25:44AM +0200, Armin Schindler wrote:
+>> On Mon, 4 Oct 2010, Dan Carpenter wrote:
+>>> In diva_mnt_add_xdi_adapter() we do this:
+>>>  strcpy (clients[id].drvName,     tmp);
+>>>  strcpy (clients[id].Dbg.drvName, tmp);
+>>>
+>>> The "clients[id].drvName" is a 128 character buffer and
+>>> "clients[id].Dbg.drvName" was originally a 16 character buffer but I've
+>>> changed it to 128 as well.  We don't actually use 128 characters but we
+>>> do use more than 16.
+>> I don't see any reason for that change. The driver names here do not use  
+>> more than 16 characters and when filled, the length is checked anyway.
+>> Please avoid changing the size of that structure.
+>>
+> 
+> drivers/isdn/hardware/eicon/debug.c diva_mnt_add_xdi_adapter()
+>    874      sprintf (tmp, "ADAPTER:%d SN:%u-%d",
+>                            12345678 90123 45 67
+> 
+> 	That's a minimum 17 characters.
+> 
+>    875               (int)logical,
+>    876               serial & 0x00ffffff,
+>    877               (byte)(((serial & 0xff000000) >> 24) + 1));
+>    878    } else {
+>    879      sprintf (tmp, "ADAPTER:%d SN:%u", (int)logical, serial);
+>    880    }
+> 
+
+
+for that reason i am a fan of kasprintf().
+Maybe this a solution here also ? samething like:
+
+kasprintf (&buf, "ADAPTER:%d SN:%u-%d",12345678,90123,45,67):
+...
+kstrncpy(tmp,buf,sizeof(buf));
+....
+free(buf);
+
+that would keep overflows away until the changes in the structure are ready.
+
+re,
+ wh
