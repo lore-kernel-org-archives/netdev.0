@@ -1,52 +1,55 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: [v2 RFC PATCH 0/4] Implement multiqueue virtio-net
-Date: Wed, 6 Oct 2010 22:44:42 +0530
-Message-ID: <OFB5315194.76E80A8A-ON652577B4.005DBA77-652577B4.005E77C6@in.ibm.com>
-References: <20100917100307.21276.79185.sendpatchset@krkumar2.in.ibm.com> <20100919124443.GJ7350@redhat.com> <OF13594229.1A55A20C-ON652577B3.00393C8D-652577B3.003A54C9@in.ibm.com> <201010061419.00257.arnd@arndb.de>
+From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Subject: Re: [PATCH] SIW: iWARP Protocol headers
+Date: Wed, 6 Oct 2010 11:25:18 -0600
+Message-ID: <20101006172518.GI24268@obsidianresearch.com>
+References: <AANLkTimkJHntzqL5fs+6kTTq-3kzwmoDtWyVq=qGe6vj@mail.gmail.com> <OFC70D3F8A.C5D69C2F-ONC12577B4.0044CFB7-C12577B4.0046C012@ch.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: anthony@codemonkey.ws, avi@redhat.com, davem@davemloft.net,
-	Ben Greear <greearb@candelatech.com>, kvm@vger.kernel.org,
-	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	rusty@rustcorp.com.au
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <201010061419.00257.arnd@arndb.de>
-Sender: kvm-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Bernard Metzler <BMT-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <OFC70D3F8A.C5D69C2F-ONC12577B4.0044CFB7-C12577B4.0046C012-Xeyd2O9EBijQT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Arnd Bergmann <arnd@arndb.de> wrote on 10/06/2010 05:49:00 PM:
+On Wed, Oct 06, 2010 at 02:52:46PM +0200, Bernard Metzler wrote:
+> 
+> 
+> linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org wrote on 10/05/2010 06:10:45 PM:
+> 
+> > On Tue, Oct 5, 2010 at 8:53 AM, Bernard Metzler <bmt-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>
+> wrote:
+> > > +} __attribute__((__packed__));
+> >
+> > Apparently you make extensive use of the packed attribute. Please read
+> > this blog entry, in which it is explained why this is harmful:
+> >
+> > http://digitalvampire.org/blog/index.php/2006/07/31/why-you-
+> > shouldnt-use-__attribute__packed/
+> >
+> right, thanks, i was not aware of that
+> big overhead.
+> but...there are reasons why we may need it _packed_:
+> (1) to get the size of the packet hdr
+> (2) to read/write the hdr content
 
-> > I don't see any reasons mentioned above.  However, for higher
-> > number of netperf sessions, I see a big increase in retransmissions:
-> > _______________________________________
-> > #netperf      ORG           NEW
-> >             BW (#retr)    BW (#retr)
-> > _______________________________________
-> > 1          70244 (0)     64102 (0)
-> > 4          21421 (0)     36570 (416)
-> > 8          21746 (0)     38604 (148)
-> > 16         21783 (0)     40632 (464)
-> > 32         22677 (0)     37163 (1053)
-> > 64         23648 (4)     36449 (2197)
-> > 128        23251 (2)     31676 (3185)
-> > _______________________________________
->
->
-> This smells like it could be related to a problem that Ben Greear found
-> recently (see "macvlan:  Enable qdisc backoff logic"). When the hardware
-> is busy, used to just drop the packet. With Ben's patch, we return
--EAGAIN
-> to qemu (or vhost-net) to trigger a resend.
->
-> I suppose what we really should do is feed that condition back to the
-> guest network stack and implement the backoff in there.
+It is actually a little more complicated than just this. I assume you
+are casting the structures over packet payloads? In this case you
+have to guarentee alignment (or used packed everywhere). Does iwarp
+have provisions for alignment? If so you can construct your bitfields
+using the alignment type, ie if iWarp guarantees 4 bytes then the
+biggest type you can use is u32 - then you can avoid using packed.
 
-Thanks for the pointer. I will take a look at this as I hadn't seen
-this patch earlier. Is there any way to figure out if this is the
-issue?
+Mind you, I'm not sure how to guarentee alignment when you consider
+all the possible sources of unalignment in the stack: TCP, IP, L2 stack ?
 
-Thanks,
+Otherwise you need a strategy for dealing with unaligned data for
+portability. :(
 
-- KK
-
+Jason
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
