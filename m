@@ -1,57 +1,41 @@
-From: Bernard Metzler <BMT-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>
-Subject: Re: [PATCH] SIW: iWARP Protocol headers
-Date: Wed, 6 Oct 2010 14:52:46 +0200
-Message-ID: <OFC70D3F8A.C5D69C2F-ONC12577B4.0044CFB7-C12577B4.0046C012@ch.ibm.com>
-References: <AANLkTimkJHntzqL5fs+6kTTq-3kzwmoDtWyVq=qGe6vj@mail.gmail.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: linux-next: manual merge of the net tree with the wireless tree
+Date: Wed, 6 Oct 2010 09:27:08 -0400
+Message-ID: <20101006132708.GC2472@tuxdriver.com>
+References: <20101006120908.ffe99876.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <AANLkTimkJHntzqL5fs+6kTTq-3kzwmoDtWyVq=qGe6vj-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Dan Carpenter <error27@gmail.com>,
+	Joe Perches <joe@perches.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:44314 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932240Ab0JFNaI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Oct 2010 09:30:08 -0400
+Content-Disposition: inline
+In-Reply-To: <20101006120908.ffe99876.sfr@canb.auug.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Wed, Oct 06, 2010 at 12:09:08PM +1100, Stephen Rothwell wrote:
+> Hi all,
+> 
+> Today's linux-next merge of the net tree got a conflict in
+> drivers/net/wireless/ipw2x00/ipw2200.c between commit
+> 2ee4e27cf25ab647137713ca16377d8d9e138ea2 ("ipw2200: check for allocation
+> failures") from the wireless tree and commit
+> baeb2ffab4e67bb9174e6166e070a9a8ec94b0f6 ("drivers/net: Convert unbounded
+> kzalloc calls to kcalloc") from the net tree.
+> 
+> Just context changes.  I fixed it up (see below) and can carry the fix as
+> necessary.
 
+That looks correct to me -- thanks!
 
-linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org wrote on 10/05/2010 06:10:45 PM:
-
-> On Tue, Oct 5, 2010 at 8:53 AM, Bernard Metzler <bmt-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>
-wrote:
-> > +} __attribute__((__packed__));
->
-> Apparently you make extensive use of the packed attribute. Please read
-> this blog entry, in which it is explained why this is harmful:
->
-> http://digitalvampire.org/blog/index.php/2006/07/31/why-you-
-> shouldnt-use-__attribute__packed/
->
-right, thanks, i was not aware of that
-big overhead.
-but...there are reasons why we may need it _packed_:
-(1) to get the size of the packet hdr
-(2) to read/write the hdr content
-
-(1) is not harmful. (2) could be limited to
-just one read/write operation per rx/tx path
-and all other access could be done on a
-structure which contains the host representation
-of the hdr content. both structures could coexist
-in a union, part of the rx or tx context.
-would that satisfy your complain?
-
-many thanks,
-bernard.
-
-
-> Bart.
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+John
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
