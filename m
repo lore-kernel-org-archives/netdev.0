@@ -1,7 +1,8 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [v2 RFC PATCH 0/4] Implement multiqueue virtio-net
-Date: Wed, 6 Oct 2010 15:34:31 +0200
-Message-ID: <cover.1286372004.git.mst@redhat.com>
+Subject: [PATCH 1/2] vhost: put mm after thread stop
+Date: Wed, 6 Oct 2010 15:34:38 +0200
+Message-ID: <81ac3f9b6277cad646ec19815259a5376cdfd636.1286372006.git.mst@redhat.com>
+References: <cover.1286372004.git.mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: rusty@rustcorp.com.au, davem@davemloft.net, kvm@vger.kernel.org,
@@ -10,27 +11,49 @@ Cc: rusty@rustcorp.com.au, davem@davemloft.net, kvm@vger.kernel.org,
 To: Krishna Kumar <krkumar2@in.ibm.com>
 Return-path: <kvm-owner@vger.kernel.org>
 Content-Disposition: inline
+In-Reply-To: <cover.1286372004.git.mst@redhat.com>
 Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 17, 2010 at 03:33:07PM +0530, Krishna Kumar wrote:
-> For 1 TCP netperf, I ran 7 iterations and summed it. Explanation
-> for degradation for 1 stream case:
+makes it possible to batch use/unuse mm
 
-I thought about possible RX/TX contention reasons, and I realized that
-we get/put the mm counter all the time.  So I write the following: I
-haven't seen any performance gain from this in a single queue case, but
-maybe this will help multiqueue?
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
+ drivers/vhost/vhost.c |    9 ++++-----
+ 1 files changed, 4 insertions(+), 5 deletions(-)
 
-Thanks,
-
-Michael S. Tsirkin (2):
-  vhost: put mm after thread stop
-  vhost-net: batch use/unuse mm
-
- drivers/vhost/net.c   |    7 -------
- drivers/vhost/vhost.c |   16 ++++++++++------
- 2 files changed, 10 insertions(+), 13 deletions(-)
-
+diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+index 677d112..8b9d474 100644
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -207,7 +207,7 @@ static int vhost_worker(void *data)
+ 		if (work) {
+ 			__set_current_state(TASK_RUNNING);
+ 			work->fn(work);
+-			if (n++) {
++			if (dev->nvqs <= ++n) {
+ 				__set_current_state(TASK_RUNNING);
+ 				schedule();
+ 				n = 0;
+@@ -409,15 +409,14 @@ void vhost_dev_cleanup(struct vhost_dev *dev)
+ 	/* No one will access memory at this point */
+ 	kfree(dev->memory);
+ 	dev->memory = NULL;
+-	if (dev->mm)
+-		mmput(dev->mm);
+-	dev->mm = NULL;
+-
+ 	WARN_ON(!list_empty(&dev->work_list));
+ 	if (dev->worker) {
+ 		kthread_stop(dev->worker);
+ 		dev->worker = NULL;
+ 	}
++	if (dev->mm)
++		mmput(dev->mm);
++	dev->mm = NULL;
+ }
+ 
+ static int log_access_ok(void __user *log_base, u64 addr, unsigned long sz)
 -- 
 1.7.3-rc1
+
