@@ -1,113 +1,74 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: powerpc, fs_enet: scanning PHY after Linux is up
-Date: Wed, 6 Oct 2010 11:30:19 -0600
-Message-ID: <AANLkTinWGw5AR8KSSdCyOWqCaMVL-wZH+2uB7zh404_i@mail.gmail.com>
-References: <4CA9830A.2030605@denx.de> <AANLkTinSersREjDnvg=8Gvpa6YmLuzgF1H8eEXRyCpW0@mail.gmail.com>
- <4CAC472F.5070001@denx.de> <4CAC7EB0.6080502@keymile.com>
+From: Florian Mickler <florian@mickler.org>
+Subject: Re: [PATCH wireless-2.6 or stable] iwlwifi: return error when fail
+ to start scanning
+Date: Wed, 6 Oct 2010 19:32:45 +0200
+Message-ID: <20101006193245.698957cc@schatten.dmk.lab>
+References: <20101005085717.GA18012@redhat.com>
+	<1286317292-10679-1-git-send-email-florian@mickler.org>
+	<20101006090228.GA2523@redhat.com>
+	<20101006160434.GB24581@redhat.com>
+	<1286381578.12594.18.camel@wwguy-ubuntu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: hs@denx.de, linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
-	devicetree-discuss@lists.ozlabs.org, Detlev Zundel <dzu@denx.de>
-To: Holger brunck <holger.brunck@keymile.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f174.google.com ([209.85.214.174]:52386 "EHLO
-	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753181Ab0JFRal convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Oct 2010 13:30:41 -0400
-Received: by iwn5 with SMTP id 5so9995814iwn.19
-        for <netdev@vger.kernel.org>; Wed, 06 Oct 2010 10:30:40 -0700 (PDT)
-In-Reply-To: <4CAC7EB0.6080502@keymile.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Stanislaw Gruszka <sgruszka@redhat.com>,
+	"linville@tuxdriver.com" <linville@tuxdriver.com>,
+	"stable@kernel.org" <stable@kernel.org>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"Chatre, Reinette" <reinette.chatre@intel.com>,
+	"ilw@linux.intel.com" <ilw@linux.intel.com>,
+	"Berg, Johannes" <johannes.berg@intel.com>,
+	"Cahill, Ben M" <ben.m.cahill@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Guy, Wey-Yi" <wey-yi.w.guy@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1286381578.12594.18.camel@wwguy-ubuntu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 6, 2010 at 7:50 AM, Holger brunck <holger.brunck@keymile.co=
-m> wrote:
-> Hello Heiko,
->
-> On 10/06/2010 11:53 AM, Heiko Schocher wrote:
->>>> So, the question is, is there a possibility to solve this problem?
->>>>
->>>> If there is no standard option, what would be with adding a
->>>> "scan_phy" file in
->>>>
->>>> /proc/device-tree/soc\@f0000000/cpm\@119c0/mdio\@10d40
->>>> (or better destination?)
->>>>
->>>> which with we could rescan a PHY with
->>>> "echo addr > /proc/device-tree/soc\@f0000000/cpm\@119c0/mdio\@10d4=
-0/scan_phy"
->>>> (so there is no need for using of_find_node_by_path(), as we shoul=
-d
->>>> =A0have the associated device node here, and can step through the =
-child
->>>> =A0nodes with "for_each_child_of_node(np, child)" and check if reg=
- =3D=3D addr)
->>>>
->>>> or shouldn;t be at least, if the phy couldn;t be found when openin=
-g
->>>> the port, retrigger a scanning, if the phy now is accessible?
->>>
->>> One option would be to still register a phy_device for each phy
->>> described in the device tree, but defer binding a driver to each ph=
-y
->>> that doesn't respond. =A0Then at of_phy_find_device() time, if it
->>
->> Maybe I din;t get the trick, but the problem is, that
->> you can;t register a phy_device in drivers/of/of_mdio.c
->> of_mdiobus_register(), if the phy didn;t respond with the
->> phy_id ... and of_phy_find_device() is not (yet) used in fs_enet
->>
->>> matches with a phy_device that isn't bound to a driver yet, then
->>> re-trigger the binding operation. =A0At which point the phy id can =
-be
->>> probed and the correct driver can be chosen. =A0If binding succeeds=
-,
->>> then return the phy_device handle. =A0If not, then fail as it curre=
-ntly
->>> does.
->>
->> Wouldn;t it be good, just if we need a PHY (on calling fs_enet_open)
->> to look if there is one?
->>
->> Something like that (not tested):
->>
->> in drivers/net/fs_enet/fs_enet-main.c in fs_init_phy()
->> called from fs_enet_open():
->>
->> Do first:
->> phydev =3D =A0of_phy_find_device(fep->fpi->phy_node);
->>
->> Look if there is a driver (phy_dev->drv =3D=3D NULL ?)
->>
->> If not, call new function
->> of_mdiobus_register_phy(mii_bus, fep->fpi->phy_node)
->> see below patch for it.
->>
->> If this succeeds, all is OK, and we can use this phy,
->> else ethernet not work.
->>
->> !!just no idea, how to get mii_bus pointer ...
->>
->
-> in my understanding it should be posssible to get this pointer via th=
-e parent of
-> the device_node you got via the private data of the fs_enet:
-> fep->fpi->phy_node->parent should point you to the device_node for th=
-e mdio_bus.
+On Wed, 06 Oct 2010 09:12:58 -0700
+"Guy, Wey-Yi" <wey-yi.w.guy@intel.com> wrote:
 
-Yes, this will give you the mdio bus node pointer.
+> Hi Gruszka,
+> 
+> On Wed, 2010-10-06 at 09:04 -0700, Stanislaw Gruszka wrote:
+> > This is stable friendly backport of wireless-testing commit
+> > 3eecce527c7434dfd16517ce08b49632c8a26717 "iwlwifi: unify scan start
+> > checks". Wireless-testing version include also a lot of cleanups.
+> > 
+> > On error case in {iwl3945,iwlagn}_request_scan we queue abort_scan work,
+> > which in a fact do nothing, so we never complete the scan. Thats gives
+> > "WARNING: at net/wireless/core.c:614 wdev_cleanup_work" and stopped
+> > network connection until reload iwlwifi modules. Return of -EIO, and
+> > stopping queuing any work is a fix.
+> > 
+> > Note there are still many cases when we can get: 
+> > 
+> > WARNING: at net/wireless/core.c:614 wdev_cleanup_work  
+> > WARNING: at net/mac80211/scan.c:266 ieee80211_scan_completed
+> > WARNING: at net/mac80211/scan.c:269 ieee80211_scan_complete
+> > 
+> > which are not fixed. Unfortunately does not exist single, small fix
+> > for that problems, and we probably will see some more bug reports
+> > with scan warnings. As solution we rewrite iwl-scan.c code to avoid
+> > all possible race conditions. That quite big patch set is queued
+> > for 2.6.37 .
+> > 
+> > Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
+> > ---
+> > Patch is intended for wireless-2.6, or in case when it does not
+> > make 2.6.36 release, for -stable 2.6.36.y 
+> > 
+> 
+> Is this the replacement for Mickler's patch?
+> 
+> Thanks
+> Wey
+> 
 
-> In the next step you should be able to get the pointer of of_device f=
-or the
-> mdio_bus:
-> ofdevice* ofdev =3D to_of_device(fep->fpi->phy_node->parent);
+This is on top of current mainline, as far as I see. (And it replaces
+the patch I sent few hours ago)
 
-of_device is just an alias for platform_device now, and not all mdio
-busses will be instantiated by a platform device.  This method won't
-always work.  What is really needed is the pointer to the mii_bus
-structure.  That can be obtained by looping over the members of the
-mdio_bus_class and comparing the mii_bus->device.parent->of_node to
-the parent node from above.
-
-g.
+Regards,
+Flo
