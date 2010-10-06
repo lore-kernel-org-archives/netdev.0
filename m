@@ -1,58 +1,172 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCHv4 net-next-2.6 4/5] XFRM,IPv6: Add IRO remapping hook
-	in xfrm_input()
-Date: Wed, 6 Oct 2010 09:25:09 +0800
-Message-ID: <20101006012509.GA3540@gondor.apana.org.au>
-References: <cover.1286139128.git.arno@natisbad.org> <db067c0a2ab679dfb16c84e8509e671fa6c5cb01.1286139129.git.arno@natisbad.org> <20101004084041.GB17939@gondor.apana.org.au> <87vd5h7kbh.fsf@small.ssi.corp> <20101005062732.GA27337@gondor.apana.org.au> <878w2cfcd1.fsf@small.ssi.corp>
+From: Rasesh Mody <rmody@brocade.com>
+Subject: [PATCH 1/2] bna: fix interrupt handling
+Date: Tue, 5 Oct 2010 18:46:04 -0700
+Message-ID: <1286329565-20234-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	netdev@vger.kernel.org
-To: Arnaud Ebalard <arno@natisbad.org>
+Content-Type: text/plain
+Cc: <shemminger@vyatta.com>, Rasesh Mody <rmody@brocade.com>,
+	Debashis Dutt <ddutt@brocade.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:44671 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750719Ab0JFBZX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Oct 2010 21:25:23 -0400
-Content-Disposition: inline
-In-Reply-To: <878w2cfcd1.fsf@small.ssi.corp>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:37186 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750954Ab0JFBqZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Oct 2010 21:46:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 06, 2010 at 01:28:42AM +0200, Arnaud Ebalard wrote:
->
->  1) First, current net-next-2.6 (no patches applied)
->  2) then, with my patches applied and CONFIG_XFRM_SUB_POLICY enabled
->  3) then, with my patches applied and CONFIG_XFRM_SUB_POLICY disabled
+This fix handles the case when IRQ handler is called (for shared IRQs)
+even before the driver is ready to handle interrupts.
 
-To measure the effect of this properly you should use null
-encryption/hashing and look at the CPU utilisation with minimum
-packet sizes.
+Signed-off-by: Debashis Dutt <ddutt@brocade.com>
+Signed-off-by: Rasesh Mody <rmody@brocade.com>
+---
+ drivers/net/bna/bnad.c |   48 +++++++++++++++++++++++++++---------------------
+ 1 files changed, 27 insertions(+), 21 deletions(-)
+
+diff --git a/drivers/net/bna/bnad.c b/drivers/net/bna/bnad.c
+index e380c0e..7210c34 100644
+--- a/drivers/net/bna/bnad.c
++++ b/drivers/net/bna/bnad.c
+@@ -564,9 +564,11 @@ bnad_disable_rx_irq(struct bnad *bnad, struct bna_ccb *ccb)
+ static void
+ bnad_enable_rx_irq(struct bnad *bnad, struct bna_ccb *ccb)
+ {
+-	spin_lock_irq(&bnad->bna_lock); /* Because of polling context */
++	unsigned long flags;
++
++	spin_lock_irqsave(&bnad->bna_lock, flags); /* Because of polling context */
+ 	bnad_enable_rx_irq_unsafe(ccb);
+-	spin_unlock_irq(&bnad->bna_lock);
++	spin_unlock_irqrestore(&bnad->bna_lock, flags);
+ }
  
-> > With your remapping, would it be possible to add dummy xfrm_state
-> > objects with the remapped destination address that could then call
-> > xfrm6_input_addr?
-> >
-> > That way normal IPsec users would not be affected at all while
-> > preserving your new functionality.
-> 
-> I don't think I can do that easily (at all?) with what XFRM provides,
-> can I? Or at least I don't see how it is possible because I would need
-> some kind of policy for the state to be applied and the only trigger I
-> see is the src/dst address mismatch when processing the IPsec packet.
-
-So do you know the remapped destination addresses a priori?
-
-If not then then other possibility would be to add the code hook
-in case of xfrm_state_lookup failure.
-
-But more importantly you need to solve the hash collission issue
-that I mentioned earlier.  Without that it won't work at all.
-
-Cheers,
+ static void
+@@ -599,7 +601,7 @@ static irqreturn_t
+ bnad_msix_mbox_handler(int irq, void *data)
+ {
+ 	u32 intr_status;
+-	unsigned long  flags;
++	unsigned long flags;
+ 	struct net_device *netdev = data;
+ 	struct bnad *bnad;
+ 
+@@ -630,13 +632,15 @@ bnad_isr(int irq, void *data)
+ 	struct bnad_rx_info *rx_info;
+ 	struct bnad_rx_ctrl *rx_ctrl;
+ 
+-	spin_lock_irqsave(&bnad->bna_lock, flags);
++	if (unlikely(test_bit(BNAD_RF_MBOX_IRQ_DISABLED, &bnad->run_flags)))
++		return IRQ_NONE;
+ 
+ 	bna_intr_status_get(&bnad->bna, intr_status);
+-	if (!intr_status) {
+-		spin_unlock_irqrestore(&bnad->bna_lock, flags);
++
++	if (unlikely(!intr_status))
+ 		return IRQ_NONE;
+-	}
++
++	spin_lock_irqsave(&bnad->bna_lock, flags);
+ 
+ 	if (BNA_IS_MBOX_ERR_INTR(intr_status)) {
+ 		bna_mbox_handler(&bnad->bna, intr_status);
+@@ -672,11 +676,10 @@ bnad_enable_mbox_irq(struct bnad *bnad)
+ {
+ 	int irq = BNAD_GET_MBOX_IRQ(bnad);
+ 
+-	if (!(bnad->cfg_flags & BNAD_CF_MSIX))
+-		return;
+-
+ 	if (test_and_clear_bit(BNAD_RF_MBOX_IRQ_DISABLED, &bnad->run_flags))
+-		enable_irq(irq);
++		if (bnad->cfg_flags & BNAD_CF_MSIX)
++			enable_irq(irq);
++
+ 	BNAD_UPDATE_CTR(bnad, mbox_intr_enabled);
+ }
+ 
+@@ -689,11 +692,11 @@ bnad_disable_mbox_irq(struct bnad *bnad)
+ {
+ 	int irq = BNAD_GET_MBOX_IRQ(bnad);
+ 
+-	if (!(bnad->cfg_flags & BNAD_CF_MSIX))
+-		return;
+ 
+ 	if (!test_and_set_bit(BNAD_RF_MBOX_IRQ_DISABLED, &bnad->run_flags))
+-		disable_irq_nosync(irq);
++		if (bnad->cfg_flags & BNAD_CF_MSIX)
++			disable_irq_nosync(irq);
++
+ 	BNAD_UPDATE_CTR(bnad, mbox_intr_disabled);
+ }
+ 
+@@ -1045,14 +1048,12 @@ bnad_mbox_irq_free(struct bnad *bnad,
+ 		return;
+ 
+ 	spin_lock_irqsave(&bnad->bna_lock, flags);
+-
+ 	bnad_disable_mbox_irq(bnad);
++	spin_unlock_irqrestore(&bnad->bna_lock, flags);
+ 
+ 	irq = BNAD_GET_MBOX_IRQ(bnad);
+ 	free_irq(irq, bnad->netdev);
+ 
+-	spin_unlock_irqrestore(&bnad->bna_lock, flags);
+-
+ 	kfree(intr_info->idl);
+ }
+ 
+@@ -1094,8 +1095,15 @@ bnad_mbox_irq_alloc(struct bnad *bnad,
+ 
+ 	sprintf(bnad->mbox_irq_name, "%s", BNAD_NAME);
+ 
++	/*
++	 * Set the Mbox IRQ disable flag, so that the IRQ handler
++	 * called from request_irq() for SHARED IRQs do not execute
++	 */
++	set_bit(BNAD_RF_MBOX_IRQ_DISABLED, &bnad->run_flags);
++
+ 	err = request_irq(irq, irq_handler, flags,
+ 			  bnad->mbox_irq_name, bnad->netdev);
++
+ 	if (err) {
+ 		kfree(intr_info->idl);
+ 		intr_info->idl = NULL;
+@@ -1103,7 +1111,8 @@ bnad_mbox_irq_alloc(struct bnad *bnad,
+ 	}
+ 
+ 	spin_lock_irqsave(&bnad->bna_lock, flags);
+-	bnad_disable_mbox_irq(bnad);
++	if (bnad->cfg_flags & BNAD_CF_MSIX)
++		disable_irq_nosync(irq);
+ 	spin_unlock_irqrestore(&bnad->bna_lock, flags);
+ 	return 0;
+ }
+@@ -1485,7 +1494,6 @@ bnad_stats_timer_start(struct bnad *bnad)
+ 			  jiffies + msecs_to_jiffies(BNAD_STATS_TIMER_FREQ));
+ 	}
+ 	spin_unlock_irqrestore(&bnad->bna_lock, flags);
+-
+ }
+ 
+ /*
+@@ -2170,7 +2178,6 @@ bnad_device_disable(struct bnad *bnad)
+ 	spin_unlock_irqrestore(&bnad->bna_lock, flags);
+ 
+ 	wait_for_completion(&bnad->bnad_completions.ioc_comp);
+-
+ }
+ 
+ static int
+@@ -3108,7 +3115,6 @@ bnad_pci_probe(struct pci_dev *pdev,
+ 
+ 	spin_lock_irqsave(&bnad->bna_lock, flags);
+ 	bna_init(bna, bnad, &pcidev_info, &bnad->res_info[0]);
+-
+ 	spin_unlock_irqrestore(&bnad->bna_lock, flags);
+ 
+ 	bnad->stats.bna_stats = &bna->stats;
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.7.1
+
