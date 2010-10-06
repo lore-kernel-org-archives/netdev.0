@@ -1,88 +1,79 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [v2 RFC PATCH 0/4] Implement multiqueue virtio-net
-Date: Wed, 6 Oct 2010 21:03:16 +0200
-Message-ID: <20101006190316.GB14825@redhat.com>
-References: <20100917100307.21276.79185.sendpatchset@krkumar2.in.ibm.com>
- <20100919124443.GJ7350@redhat.com>
- <OF13594229.1A55A20C-ON652577B3.00393C8D-652577B3.003A54C9@in.ibm.com>
- <20101005182323.GA25852@redhat.com>
- <OF806283F6.38268772-ON652577B4.005E805A-652577B4.00611B1C@in.ibm.com>
+From: David Dillow <dave-i1Mk8JYDVaaSihdK6806/g@public.gmane.org>
+Subject: Re: [PATCH] SIW: iWARP Protocol headers
+Date: Wed, 06 Oct 2010 15:31:44 -0400
+Message-ID: <1286393504.26136.31.camel@lap75545.ornl.gov>
+References: <AANLkTimkJHntzqL5fs+6kTTq-3kzwmoDtWyVq=qGe6vj@mail.gmail.com>
+ <OFC70D3F8A.C5D69C2F-ONC12577B4.0044CFB7-C12577B4.0046C012@ch.ibm.com>
+ <20101006172518.GI24268@obsidianresearch.com>
+ <1286389375.26136.24.camel@lap75545.ornl.gov>
+ <20101006183734.GK24268@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: anthony@codemonkey.ws, arnd@arndb.de, avi@redhat.com,
-	davem@davemloft.net, kvm@vger.kernel.org, netdev@vger.kernel.org,
-	rusty@rustcorp.com.au, herbert@gondor.hengli.com.au
-To: Krishna Kumar2 <krkumar2@in.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <OF806283F6.38268772-ON652577B4.005E805A-652577B4.00611B1C@in.ibm.com>
-Sender: kvm-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
+Cc: Bernard Metzler <BMT-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>,
+	Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-reply-to: <20101006183734.GK24268-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 06, 2010 at 11:13:31PM +0530, Krishna Kumar2 wrote:
-> "Michael S. Tsirkin" <mst@redhat.com> wrote on 10/05/2010 11:53:23 PM:
+On Wed, 2010-10-06 at 12:37 -0600, Jason Gunthorpe wrote:
+> On Wed, Oct 06, 2010 at 02:22:55PM -0400, David Dillow wrote:
+> > On Wed, 2010-10-06 at 11:25 -0600, Jason Gunthorpe wrote:
+> > > On Wed, Oct 06, 2010 at 02:52:46PM +0200, Bernard Metzler wrote:
+> > > It is actually a little more complicated than just this. I assume you
+> > > are casting the structures over packet payloads? In this case you
+> > > have to guarentee alignment (or used packed everywhere). Does iwarp
+> > > have provisions for alignment? If so you can construct your bitfields
+> > > using the alignment type, ie if iWarp guarantees 4 bytes then the
+> > > biggest type you can use is u32 - then you can avoid using packed.
+> > > 
+> > > Mind you, I'm not sure how to guarentee alignment when you consider
+> > > all the possible sources of unalignment in the stack: TCP, IP, L2 stack ?
+> > 
+> > You don't have to. The TCP stack, IIRC, requires the architecture to fix
+> > up misaligned accesses, or at least it used to. It will try to keep
+> > things aligned if possible -- see the comment above NET_IP_ALIGN in
+> > include/linux/skbuff.h.
 > 
-> > > > Any idea where does this come from?
-> > > > Do you see more TX interrupts? RX interrupts? Exits?
-> > > > Do interrupts bounce more between guest CPUs?
-> > > > 4. Identify reasons for single netperf BW regression.
-> > >
-> > > After testing various combinations of #txqs, #vhosts, #netperf
-> > > sessions, I think the drop for 1 stream is due to TX and RX for
-> > > a flow being processed on different cpus.
-> >
-> > Right. Can we fix it?
+> I was under the impression that this was just to align the IP
+> header.
+
+It is, and it assumes an ethernet header of 14 bytes. As you note, VLANs
+and everything else can mess with that, which is why the TCP stack
+requires the architecture to handle unaligned accesses. It's a bonus if
+iWarp can guarantee an alignment WRT the IP or TCP header, but not
+required.
+
+> > The structures in Bernard's header have all fields naturally
+> > aligned, so no need for the packed attribute and its baggage.
 > 
-> I am not sure how to. My initial patch had one thread but gave
-> small gains and ran into limitations once number of sessions
-> became large.
-
-Sure. We will need multiple RX queues, and have a single
-thread handle a TX and RX pair. Then we need to make sure packets
-from a given flow on TX land on the same thread on RX.
-As flows can be hashed differently, for this to work we'll have to
-expose this info in host/guest interface.
-But since multiqueue implies host/guest ABI changes anyway,
-this point is moot.
-
-BTW, an interesting approach could be using bonding
-and multiple virtio-net interfaces.
-What are the disadvantages of such a setup?  One advantage
-is it can be made to work in existing guests.
-
-> > >  I did two more tests:
-> > >     1. Pin vhosts to same CPU:
-> > >         - BW drop is much lower for 1 stream case (- 5 to -8% range)
-> > >         - But performance is not so high for more sessions.
-> > >     2. Changed vhost to be single threaded:
-> > >           - No degradation for 1 session, and improvement for upto
-> > >          8, sometimes 16 streams (5-12%).
-> > >           - BW degrades after that, all the way till 128 netperf
-> sessions.
-> > >           - But overall CPU utilization improves.
-> > >             Summary of the entire run (for 1-128 sessions):
-> > >                 txq=4:  BW: (-2.3)      CPU: (-16.5)    RCPU: (-5.3)
-> > >                 txq=16: BW: (-1.9)      CPU: (-24.9)    RCPU: (-9.6)
-> > >
-> > > I don't see any reasons mentioned above.  However, for higher
-> > > number of netperf sessions, I see a big increase in retransmissions:
-> >
-> > Hmm, ok, and do you see any errors?
+> No, they arent:
 > 
-> I haven't seen any in any statistics, messages, etc.
+> > +struct iwarp_rdma_write {
+> > +	struct iwarp_ctrl	ctrl;
+> > +	__u32			sink_stag;
+> > +	__u64			sink_to;
+> > +} __attribute__((__packed__));
+> 
+> For instance has sink_to unaligned if the maximum aligment of the
+> payload is only guarenteed to be 4. The proper thing to do in this
+> case is probably __attribute__((__packed__, __aligned__(4))) if that
+> works the way I think.. :)
 
-Herbert, could you help out debugging this increase in retransmissions
-please?  Older mail on netdev in this thread has some numbers that seem
-to imply that we start hitting retransmissions much more as # of flows
-goes up.
+struct iwarp_ctrl consists of 2 u16s, so sink_stag is aligned to 4 bytes
+from the start of the struct iwarp_rdma_write, and sink_to is at 8 bytes
+-- so they are naturally aligned with respect to the structure. The
+compiler will not add padding, so no need for the packed attribute.
 
-> Also no
-> retranmissions for txq=1.
-
-While it's nice that we have this parameter, the need to choose between
-single stream and multi stream performance when you start the vm makes
-this patch much less interesting IMHO.
-
-
--- 
-MST
+Note I'm not talking about alignment in memory -- that'll depend on
+where the data starts, and as I mentioned, the stack doesn't make any
+guarantees about that, relying on the architecture to fixup any
+misaligned accesses.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
