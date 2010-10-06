@@ -1,87 +1,65 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: Re: [net-next-2.6 PATCH] net: netif_set_real_num_rx_queues may
- cap num_rx_queues at init time
-Date: Wed, 6 Oct 2010 11:14:58 -0700
-Message-ID: <20101006181458.GA6817@mcarlson.broadcom.com>
-References: <20101004220042.3471.92774.stgit@jf-dev1-dcblab>
- <1286256926.2457.2.camel@edumazet-laptop> <4CAB4D8F.8080108@intel.com>
- <1286296476.2307.5.camel@achroite.uk.solarflarecom.com>
- <4CAB6447.6040407@intel.com> <4CAC8D11.2060604@intel.com>
- <1286377633.2371.11.camel@achroite.uk.solarflarecom.com>
- <1286378626.9417.24.camel@edumazet-laptop>
- <1286379105.2371.15.camel@achroite.uk.solarflarecom.com>
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: Re: [PATCH] SIW: iWARP Protocol headers
+Date: Wed, 6 Oct 2010 12:37:34 -0600
+Message-ID: <20101006183734.GK24268@obsidianresearch.com>
+References: <AANLkTimkJHntzqL5fs+6kTTq-3kzwmoDtWyVq=qGe6vj@mail.gmail.com> <OFC70D3F8A.C5D69C2F-ONC12577B4.0044CFB7-C12577B4.0046C012@ch.ibm.com> <20101006172518.GI24268@obsidianresearch.com> <1286389375.26136.24.camel@lap75545.ornl.gov>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "Eric Dumazet" <eric.dumazet@gmail.com>,
-	"Matthew Carlson" <mcarlson@broadcom.com>,
-	"John Fastabend" <john.r.fastabend@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"therbert@google.com" <therbert@google.com>
-To: "Ben Hutchings" <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Bernard Metzler <BMT@zurich.ibm.com>,
+	Bart Van Assche <bvanassche@acm.org>,
+	linux-rdma@vger.kernel.org, linux-rdma-owner@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Dillow <dave@thedillows.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3058 "EHLO mms1.broadcom.com"
+Received: from quartz.orcorp.ca ([139.142.54.143]:36234 "EHLO quartz.orcorp.ca"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759526Ab0JFSPH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Oct 2010 14:15:07 -0400
-In-Reply-To: <1286379105.2371.15.camel@achroite.uk.solarflarecom.com>
+	id S1759732Ab0JFShk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Oct 2010 14:37:40 -0400
 Content-Disposition: inline
+In-Reply-To: <1286389375.26136.24.camel@lap75545.ornl.gov>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 06, 2010 at 08:31:45AM -0700, Ben Hutchings wrote:
-> On Wed, 2010-10-06 at 17:23 +0200, Eric Dumazet wrote:
-> > Le mercredi 06 octobre 2010 ?? 16:07 +0100, Ben Hutchings a ??crit :
+On Wed, Oct 06, 2010 at 02:22:55PM -0400, David Dillow wrote:
+> On Wed, 2010-10-06 at 11:25 -0600, Jason Gunthorpe wrote:
+> > On Wed, Oct 06, 2010 at 02:52:46PM +0200, Bernard Metzler wrote:
+> > It is actually a little more complicated than just this. I assume you
+> > are casting the structures over packet payloads? In this case you
+> > have to guarentee alignment (or used packed everywhere). Does iwarp
+> > have provisions for alignment? If so you can construct your bitfields
+> > using the alignment type, ie if iWarp guarantees 4 bytes then the
+> > biggest type you can use is u32 - then you can avoid using packed.
 > > 
-> > > The waste of memory is minimal now that we only allocate kobjects for
-> > > real_num_rx_queues.
-> > 
-> > Thats strange, here with tg3 (and mono queue device) :
-> > 
-> > 0a:04.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5715S
-> > Gigabit Ethernet (rev a3)
-> > 
-> > grep . /sys/class/net/eth2/queues/rx-*/rps_cpus
-> > /sys/class/net/eth2/queues/rx-0/rps_cpus:00000000
-> > /sys/class/net/eth2/queues/rx-1/rps_cpus:00000000
-> > /sys/class/net/eth2/queues/rx-2/rps_cpus:00000000
-> > /sys/class/net/eth2/queues/rx-3/rps_cpus:00000000
-> > /sys/class/net/eth2/queues/rx-4/rps_cpus:00000000
+> > Mind you, I'm not sure how to guarentee alignment when you consider
+> > all the possible sources of unalignment in the stack: TCP, IP, L2 stack ?
 > 
-> It looks like I missed a necessary call to
-> netif_set_real_num_rx_queues() in tg3.  I suggest that Matt should check
-> and correct this since I got the numbers wrong last time.
+> You don't have to. The TCP stack, IIRC, requires the architecture to fix
+> up misaligned accesses, or at least it used to. It will try to keep
+> things aligned if possible -- see the comment above NET_IP_ALIGN in
+> include/linux/skbuff.h.
 
-Yes.  We were missing a call to this function in the legacy case.
+I was under the impression that this was just to align the IP
+header. There are quite a variety of options and additional stuff that
+can be inserted at each layer, VLAN for ethernet, IP option/extension
+headers, TCP option headers, etc, etc. I seem to remember that because
+of all this there are cases where processing unaligned payloads is
+unavoidable? Hence my question if iWarp has restrictions (particularly
+on TCP) that might guarentee alignment.
 
+> The structures in Bernard's header have all fields naturally
+> aligned, so no need for the packed attribute and its baggage.
 
-[PATCH net-next] tg3: Set real_num_rx_queues for non-multiq devs
+No, they arent:
 
-Commit 2ddaad397c47de012dfb956b0c05540da1a0dde5 entitled "tg3: Use
-netif_set_real_num_{rx,tx}_queues()" added a new call to
-netif_set_real_num_rx_queues in tg3_enable_msix().  This call also needs
-to be added to the legacy path to correctly reflect the actual number of
-rx queues.
+> +struct iwarp_rdma_write {
+> +	struct iwarp_ctrl	ctrl;
+> +	__u32			sink_stag;
+> +	__u64			sink_to;
+> +} __attribute__((__packed__));
 
-Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
----
- drivers/net/tg3.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+For instance has sink_to unaligned if the maximum aligment of the
+payload is only guarenteed to be 4. The proper thing to do in this
+case is probably __attribute__((__packed__, __aligned__(4))) if that
+works the way I think.. :)
 
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 16e1a95..e5b9ec5 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -8906,6 +8906,7 @@ defcfg:
- 		tp->irq_cnt = 1;
- 		tp->napi[0].irq_vec = tp->pdev->irq;
- 		netif_set_real_num_tx_queues(tp->dev, 1);
-+		netif_set_real_num_rx_queues(tp->dev, 1);
- 	}
- }
- 
--- 
-1.7.2.2
-
-
+Jason
