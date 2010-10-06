@@ -1,7 +1,8 @@
 From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: [PATCH net-next 16/19] bnx2x, cnic: Fix SPQ return credit
-Date: Wed, 6 Oct 2010 15:33:18 +0200
-Message-ID: <1286371998.30552.58.camel@lb-tlvb-dmitry>
+Subject: [PATCH net-next 15/19] bnx2x: move msix table initialization to
+ probe()
+Date: Wed, 6 Oct 2010 15:32:10 +0200
+Message-ID: <1286371930.30552.55.camel@lb-tlvb-dmitry>
 Mime-Version: 1.0
 Content-Type: text/plain;
  charset=utf-8
@@ -11,345 +12,678 @@ To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mms3.broadcom.com ([216.31.210.19]:4218 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932325Ab0JFNki (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Oct 2010 09:40:38 -0400
+	id S1758933Ab0JFNkd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Oct 2010 09:40:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Return proper L2 and L5 SPQ (slow path queue) credits.  Previously, all
-SPQ events were counted as L5 types.
+Decide which interrupt mode to use (MSI-X, MSI, INTa) only once in probe() and
+initialize appropriate structures.
 
 Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
-Signed-off-by: Michael Chan <mchan@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x/bnx2x_cmn.c  |   13 ------
- drivers/net/bnx2x/bnx2x_main.c |   86 ++++++++++++++++++++++++++++++++--------
- drivers/net/cnic.c             |   18 +++++----
- drivers/net/cnic_if.h          |   21 ++++++----
- 4 files changed, 91 insertions(+), 47 deletions(-)
+ drivers/net/bnx2x/bnx2x.h      |    3 +
+ drivers/net/bnx2x/bnx2x_cmn.c  |  206 ++++++++++++++++++----------------------
+ drivers/net/bnx2x/bnx2x_cmn.h  |   75 ++++++++++++++-
+ drivers/net/bnx2x/bnx2x_main.c |   78 ++++++++++++----
+ 4 files changed, 228 insertions(+), 134 deletions(-)
 
+diff --git a/drivers/net/bnx2x/bnx2x.h b/drivers/net/bnx2x/bnx2x.h
+index 9b78a04..d80809f 100644
+--- a/drivers/net/bnx2x/bnx2x.h
++++ b/drivers/net/bnx2x/bnx2x.h
+@@ -308,6 +308,7 @@ union host_hc_status_block {
+ 
+ struct bnx2x_fastpath {
+ 
++#define BNX2X_NAPI_WEIGHT       128
+ 	struct napi_struct	napi;
+ 	union host_hc_status_block status_blk;
+ 	/* chip independed shortcuts into sb structure */
+@@ -920,8 +921,10 @@ struct bnx2x {
+ #define USING_DAC_FLAG			0x10
+ #define USING_MSIX_FLAG			0x20
+ #define USING_MSI_FLAG			0x40
++
+ #define TPA_ENABLE_FLAG			0x80
+ #define NO_MCP_FLAG			0x100
++#define DISABLE_MSI_FLAG		0x200
+ #define BP_NOMCP(bp)			(bp->flags & NO_MCP_FLAG)
+ #define HW_VLAN_TX_FLAG			0x400
+ #define HW_VLAN_RX_FLAG			0x800
 diff --git a/drivers/net/bnx2x/bnx2x_cmn.c b/drivers/net/bnx2x/bnx2x_cmn.c
-index a0c5655..a43cbc4 100644
+index da46309..2998969 100644
 --- a/drivers/net/bnx2x/bnx2x_cmn.c
 +++ b/drivers/net/bnx2x/bnx2x_cmn.c
-@@ -1362,19 +1362,6 @@ int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
+@@ -29,7 +29,6 @@
  
- 	bnx2x_set_eth_mac(bp, 1);
+ #include "bnx2x_init.h"
  
--#ifdef BCM_CNIC
--	/* Set iSCSI L2 MAC */
--	mutex_lock(&bp->cnic_mutex);
--	if (bp->cnic_eth_dev.drv_state & CNIC_DRV_STATE_REGD) {
--		bnx2x_set_iscsi_eth_mac_addr(bp, 1);
--		bp->cnic_flags |= BNX2X_CNIC_FLAG_MAC_SET;
--		bnx2x_init_sb(bp, bp->cnic_sb_mapping,
--			      BNX2X_VF_ID_INVALID, false,
--			      CNIC_SB_ID(bp), CNIC_IGU_SB_ID(bp));
--	}
--	mutex_unlock(&bp->cnic_mutex);
--#endif
+-static int bnx2x_poll(struct napi_struct *napi, int budget);
+ 
+ /* free skb in the packet ring at pos idx
+  * return idx of last bd freed
+@@ -989,55 +988,49 @@ static void bnx2x_free_msix_irqs(struct bnx2x *bp)
+ 	}
+ }
+ 
+-void bnx2x_free_irq(struct bnx2x *bp, bool disable_only)
++void bnx2x_free_irq(struct bnx2x *bp)
+ {
+-	if (bp->flags & USING_MSIX_FLAG) {
+-		if (!disable_only)
+-			bnx2x_free_msix_irqs(bp);
+-		pci_disable_msix(bp->pdev);
+-		bp->flags &= ~USING_MSIX_FLAG;
 -
- 	if (bp->port.pmf)
- 		bnx2x_initial_phy_init(bp, load_mode);
+-	} else if (bp->flags & USING_MSI_FLAG) {
+-		if (!disable_only)
+-			free_irq(bp->pdev->irq, bp->dev);
+-		pci_disable_msi(bp->pdev);
+-		bp->flags &= ~USING_MSI_FLAG;
+-
+-	} else if (!disable_only)
++	if (bp->flags & USING_MSIX_FLAG)
++		bnx2x_free_msix_irqs(bp);
++	else if (bp->flags & USING_MSI_FLAG)
++		free_irq(bp->pdev->irq, bp->dev);
++	else
+ 		free_irq(bp->pdev->irq, bp->dev);
+ }
  
+-static int bnx2x_enable_msix(struct bnx2x *bp)
++int bnx2x_enable_msix(struct bnx2x *bp)
+ {
+-	int i, rc, offset = 1;
+-	int igu_vec = 0;
++	int msix_vec = 0, i, rc, req_cnt;
+ 
+-	bp->msix_table[0].entry = igu_vec;
+-	DP(NETIF_MSG_IFUP, "msix_table[0].entry = %d (slowpath)\n", igu_vec);
++	bp->msix_table[msix_vec].entry = msix_vec;
++	DP(NETIF_MSG_IFUP, "msix_table[0].entry = %d (slowpath)\n",
++	   bp->msix_table[0].entry);
++	msix_vec++;
+ 
+ #ifdef BCM_CNIC
+-	igu_vec = BP_L_ID(bp) + offset;
+-	bp->msix_table[1].entry = igu_vec;
+-	DP(NETIF_MSG_IFUP, "msix_table[1].entry = %d (CNIC)\n", igu_vec);
+-	offset++;
++	bp->msix_table[msix_vec].entry = msix_vec;
++	DP(NETIF_MSG_IFUP, "msix_table[%d].entry = %d (CNIC)\n",
++	   bp->msix_table[msix_vec].entry, bp->msix_table[msix_vec].entry);
++	msix_vec++;
+ #endif
+ 	for_each_queue(bp, i) {
+-		igu_vec = BP_L_ID(bp) + offset + i;
+-		bp->msix_table[i + offset].entry = igu_vec;
++		bp->msix_table[msix_vec].entry = msix_vec;
+ 		DP(NETIF_MSG_IFUP, "msix_table[%d].entry = %d "
+-		   "(fastpath #%u)\n", i + offset, igu_vec, i);
++		   "(fastpath #%u)\n", msix_vec, msix_vec, i);
++		msix_vec++;
+ 	}
+ 
+-	rc = pci_enable_msix(bp->pdev, &bp->msix_table[0],
+-			     BNX2X_NUM_QUEUES(bp) + offset);
++	req_cnt = BNX2X_NUM_QUEUES(bp) + CNIC_CONTEXT_USE + 1;
++
++	rc = pci_enable_msix(bp->pdev, &bp->msix_table[0], req_cnt);
+ 
+ 	/*
+ 	 * reconfigure number of tx/rx queues according to available
+ 	 * MSI-X vectors
+ 	 */
+ 	if (rc >= BNX2X_MIN_MSIX_VEC_CNT) {
+-		/* vectors available for FP */
+-		int fp_vec = rc - BNX2X_MSIX_VEC_FP_START;
++		/* how less vectors we will have? */
++		int diff = req_cnt - rc;
+ 
+ 		DP(NETIF_MSG_IFUP,
+ 		   "Trying to use less MSI-X vectors: %d\n", rc);
+@@ -1049,12 +1042,17 @@ static int bnx2x_enable_msix(struct bnx2x *bp)
+ 			   "MSI-X is not attainable  rc %d\n", rc);
+ 			return rc;
+ 		}
+-
+-		bp->num_queues = min(bp->num_queues, fp_vec);
++		/*
++		 * decrease number of queues by number of unallocated entries
++		 */
++		bp->num_queues -= diff;
+ 
+ 		DP(NETIF_MSG_IFUP, "New queue configuration set: %d\n",
+ 				  bp->num_queues);
+ 	} else if (rc) {
++		/* fall to INTx if not enough memory */
++		if (rc == -ENOMEM)
++			bp->flags |= DISABLE_MSI_FLAG;
+ 		DP(NETIF_MSG_IFUP, "MSI-X is not attainable  rc %d\n", rc);
+ 		return rc;
+ 	}
+@@ -1083,7 +1081,7 @@ static int bnx2x_req_msix_irqs(struct bnx2x *bp)
+ 		snprintf(fp->name, sizeof(fp->name), "%s-fp-%d",
+ 			 bp->dev->name, i);
+ 
+-		rc = request_irq(bp->msix_table[i + offset].vector,
++		rc = request_irq(bp->msix_table[offset].vector,
+ 				 bnx2x_msix_fp_int, 0, fp->name, fp);
+ 		if (rc) {
+ 			BNX2X_ERR("request fp #%d irq failed  rc %d\n", i, rc);
+@@ -1091,10 +1089,12 @@ static int bnx2x_req_msix_irqs(struct bnx2x *bp)
+ 			return -EBUSY;
+ 		}
+ 
++		offset++;
+ 		fp->state = BNX2X_FP_STATE_IRQ;
+ 	}
+ 
+ 	i = BNX2X_NUM_QUEUES(bp);
++	offset = 1 + CNIC_CONTEXT_USE;
+ 	netdev_info(bp->dev, "using MSI-X  IRQs: sp %d  fp[%d] %d"
+ 	       " ... fp[%d] %d\n",
+ 	       bp->msix_table[0].vector,
+@@ -1104,7 +1104,7 @@ static int bnx2x_req_msix_irqs(struct bnx2x *bp)
+ 	return 0;
+ }
+ 
+-static int bnx2x_enable_msi(struct bnx2x *bp)
++int bnx2x_enable_msi(struct bnx2x *bp)
+ {
+ 	int rc;
+ 
+@@ -1175,44 +1175,20 @@ void bnx2x_netif_stop(struct bnx2x *bp, int disable_hw)
+ 	bnx2x_napi_disable(bp);
+ 	netif_tx_disable(bp->dev);
+ }
+-static int bnx2x_set_num_queues(struct bnx2x *bp)
+-{
+-	int rc = 0;
+ 
+-	switch (bp->int_mode) {
+-	case INT_MODE_MSI:
+-		bnx2x_enable_msi(bp);
+-		/* falling through... */
+-	case INT_MODE_INTx:
++void bnx2x_set_num_queues(struct bnx2x *bp)
++{
++	switch (bp->multi_mode) {
++	case ETH_RSS_MODE_DISABLED:
+ 		bp->num_queues = 1;
+-		DP(NETIF_MSG_IFUP, "set number of queues to 1\n");
++		break;
++	case ETH_RSS_MODE_REGULAR:
++		bp->num_queues = bnx2x_calc_num_queues(bp);
+ 		break;
+ 	default:
+-		/* Set number of queues according to bp->multi_mode value */
+-		bnx2x_set_num_queues_msix(bp);
+-
+-		DP(NETIF_MSG_IFUP, "set number of queues to %d\n",
+-		   bp->num_queues);
+-
+-		/* if we can't use MSI-X we only need one fp,
+-		 * so try to enable MSI-X with the requested number of fp's
+-		 * and fallback to MSI or legacy INTx with one fp
+-		 */
+-		rc = bnx2x_enable_msix(bp);
+-		if (rc) {
+-			/* failed to enable MSI-X */
+-			bp->num_queues = 1;
+-
+-			/* Fall to INTx if failed to enable MSI-X due to lack of
+-			 * memory (in bnx2x_set_num_queues()) */
+-			if ((rc != -ENOMEM) && (bp->int_mode != INT_MODE_INTx))
+-				bnx2x_enable_msi(bp);
+-		}
+-
++		bp->num_queues = 1;
+ 		break;
+ 	}
+-	netif_set_real_num_tx_queues(bp->dev, bp->num_queues);
+-	return netif_set_real_num_rx_queues(bp->dev, bp->num_queues);
+ }
+ 
+ static void bnx2x_release_firmware(struct bnx2x *bp)
+@@ -1243,49 +1219,25 @@ int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
+ 
+ 	bp->state = BNX2X_STATE_OPENING_WAIT4_LOAD;
+ 
+-	rc = bnx2x_set_num_queues(bp);
+-	if (rc)
+-		return rc;
+-
+ 	/* must be called before memory allocation and HW init */
+ 	bnx2x_ilt_set_info(bp);
+ 
+-	if (bnx2x_alloc_mem(bp)) {
+-		bnx2x_free_irq(bp, true);
++	if (bnx2x_alloc_mem(bp))
+ 		return -ENOMEM;
++
++	netif_set_real_num_tx_queues(bp->dev, bp->num_queues);
++	rc = netif_set_real_num_rx_queues(bp->dev, bp->num_queues);
++	if (rc) {
++		BNX2X_ERR("Unable to update real_num_rx_queues\n");
++		goto load_error0;
+ 	}
+ 
+ 	for_each_queue(bp, i)
+ 		bnx2x_fp(bp, i, disable_tpa) =
+ 					((bp->flags & TPA_ENABLE_FLAG) == 0);
+ 
+-	for_each_queue(bp, i)
+-		netif_napi_add(bp->dev, &bnx2x_fp(bp, i, napi),
+-			       bnx2x_poll, 128);
+-
+ 	bnx2x_napi_enable(bp);
+ 
+-	if (bp->flags & USING_MSIX_FLAG) {
+-		rc = bnx2x_req_msix_irqs(bp);
+-		if (rc) {
+-			bnx2x_free_irq(bp, true);
+-			goto load_error1;
+-		}
+-	} else {
+-		bnx2x_ack_int(bp);
+-		rc = bnx2x_req_irq(bp);
+-		if (rc) {
+-			BNX2X_ERR("IRQ request failed  rc %d, aborting\n", rc);
+-			bnx2x_free_irq(bp, true);
+-			goto load_error1;
+-		}
+-		if (bp->flags & USING_MSI_FLAG) {
+-			bp->dev->irq = bp->pdev->irq;
+-			netdev_info(bp->dev, "using MSI  IRQ %d\n",
+-				    bp->pdev->irq);
+-		}
+-	}
+-
+ 	/* Send LOAD_REQUEST command to MCP
+ 	   Returns the type of LOAD command:
+ 	   if it is the first port to be initialized
+@@ -1296,11 +1248,11 @@ int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
+ 		if (!load_code) {
+ 			BNX2X_ERR("MCP response failure, aborting\n");
+ 			rc = -EBUSY;
+-			goto load_error2;
++			goto load_error1;
+ 		}
+ 		if (load_code == FW_MSG_CODE_DRV_LOAD_REFUSED) {
+ 			rc = -EBUSY; /* other port in diagnostic mode */
+-			goto load_error2;
++			goto load_error1;
+ 		}
+ 
+ 	} else {
+@@ -1341,6 +1293,8 @@ int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
+ 		goto load_error2;
+ 	}
+ 
++	/* Connect to IRQs */
++	rc = bnx2x_setup_irqs(bp);
+ 	if (rc) {
+ 		bnx2x_fw_command(bp, DRV_MSG_CODE_LOAD_DONE, 0);
+ 		goto load_error2;
+@@ -1481,22 +1435,24 @@ load_error4:
+ #endif
+ load_error3:
+ 	bnx2x_int_disable_sync(bp, 1);
+-	if (!BP_NOMCP(bp)) {
+-		bnx2x_fw_command(bp, DRV_MSG_CODE_UNLOAD_REQ_WOL_MCP, 0);
+-		bnx2x_fw_command(bp, DRV_MSG_CODE_UNLOAD_DONE, 0);
+-	}
+-	bp->port.pmf = 0;
++
+ 	/* Free SKBs, SGEs, TPA pool and driver internals */
+ 	bnx2x_free_skbs(bp);
+ 	for_each_queue(bp, i)
+ 		bnx2x_free_rx_sge_range(bp, bp->fp + i, NUM_RX_SGE);
+-load_error2:
++
+ 	/* Release IRQs */
+-	bnx2x_free_irq(bp, false);
++	bnx2x_free_irq(bp);
++load_error2:
++	if (!BP_NOMCP(bp)) {
++		bnx2x_fw_command(bp, DRV_MSG_CODE_UNLOAD_REQ_WOL_MCP, 0);
++		bnx2x_fw_command(bp, DRV_MSG_CODE_UNLOAD_DONE, 0);
++	}
++
++	bp->port.pmf = 0;
+ load_error1:
+ 	bnx2x_napi_disable(bp);
+-	for_each_queue(bp, i)
+-		netif_napi_del(&bnx2x_fp(bp, i, napi));
++load_error0:
+ 	bnx2x_free_mem(bp);
+ 
+ 	bnx2x_release_firmware(bp);
+@@ -1544,7 +1500,7 @@ int bnx2x_nic_unload(struct bnx2x *bp, int unload_mode)
+ 		bnx2x_netif_stop(bp, 1);
+ 
+ 		/* Release IRQs */
+-		bnx2x_free_irq(bp, false);
++		bnx2x_free_irq(bp);
+ 	}
+ 
+ 	bp->port.pmf = 0;
+@@ -1553,8 +1509,7 @@ int bnx2x_nic_unload(struct bnx2x *bp, int unload_mode)
+ 	bnx2x_free_skbs(bp);
+ 	for_each_queue(bp, i)
+ 		bnx2x_free_rx_sge_range(bp, bp->fp + i, NUM_RX_SGE);
+-	for_each_queue(bp, i)
+-		netif_napi_del(&bnx2x_fp(bp, i, napi));
++
+ 	bnx2x_free_mem(bp);
+ 
+ 	bp->state = BNX2X_STATE_CLOSED;
+@@ -1624,7 +1579,7 @@ int bnx2x_set_power_state(struct bnx2x *bp, pci_power_t state)
+  * net_device service functions
+  */
+ 
+-static int bnx2x_poll(struct napi_struct *napi, int budget)
++int bnx2x_poll(struct napi_struct *napi, int budget)
+ {
+ 	int work_done = 0;
+ 	struct bnx2x_fastpath *fp = container_of(napi, struct bnx2x_fastpath,
+@@ -2261,6 +2216,31 @@ int bnx2x_change_mac_addr(struct net_device *dev, void *p)
+ 	return 0;
+ }
+ 
++
++int bnx2x_setup_irqs(struct bnx2x *bp)
++{
++	int rc = 0;
++	if (bp->flags & USING_MSIX_FLAG) {
++		rc = bnx2x_req_msix_irqs(bp);
++		if (rc)
++			return rc;
++	} else {
++		bnx2x_ack_int(bp);
++		rc = bnx2x_req_irq(bp);
++		if (rc) {
++			BNX2X_ERR("IRQ request failed  rc %d, aborting\n", rc);
++			return rc;
++		}
++		if (bp->flags & USING_MSI_FLAG) {
++			bp->dev->irq = bp->pdev->irq;
++			netdev_info(bp->dev, "using MSI  IRQ %d\n",
++			       bp->pdev->irq);
++		}
++	}
++
++	return 0;
++}
++
+ void bnx2x_free_mem_bp(struct bnx2x *bp)
+ {
+ 	kfree(bp->fp);
+diff --git a/drivers/net/bnx2x/bnx2x_cmn.h b/drivers/net/bnx2x/bnx2x_cmn.h
+index f08a42a..1d9686e 100644
+--- a/drivers/net/bnx2x/bnx2x_cmn.h
++++ b/drivers/net/bnx2x/bnx2x_cmn.h
+@@ -23,6 +23,7 @@
+ 
+ #include "bnx2x.h"
+ 
++extern int num_queues;
+ 
+ /*********************** Interfaces ****************************
+  *  Functions that need to be implemented by each driver version
+@@ -193,12 +194,12 @@ int bnx2x_stop_fw_client(struct bnx2x *bp,
+ 			 struct bnx2x_client_ramrod_params *p);
+ 
+ /**
+- * Set number of quueus according to mode
++ * Set number of queues according to mode
+  *
+  * @param bp
+  *
+  */
+-void bnx2x_set_num_queues_msix(struct bnx2x *bp);
++void bnx2x_set_num_queues(struct bnx2x *bp);
+ 
+ /**
+  * Cleanup chip internals:
+@@ -325,6 +326,42 @@ int bnx2x_func_stop(struct bnx2x *bp);
+  */
+ void bnx2x_ilt_set_info(struct bnx2x *bp);
+ 
++/**
++ * Fill msix_table, request vectors, update num_queues according
++ * to number of available vectors
++ *
++ * @param bp
++ *
++ * @return int
++ */
++int bnx2x_enable_msix(struct bnx2x *bp);
++
++/**
++ * Request msi mode from OS, updated internals accordingly
++ *
++ * @param bp
++ *
++ * @return int
++ */
++int bnx2x_enable_msi(struct bnx2x *bp);
++
++/**
++ * Request IRQ vectors from OS.
++ *
++ * @param bp
++ *
++ * @return int
++ */
++int bnx2x_setup_irqs(struct bnx2x *bp);
++/**
++ * NAPI callback
++ *
++ * @param napi
++ * @param budget
++ *
++ * @return int
++ */
++int bnx2x_poll(struct napi_struct *napi, int budget);
+ static inline void bnx2x_update_fpsb_idx(struct bnx2x_fastpath *fp)
+ {
+ 	barrier(); /* status block is written to by the chip */
+@@ -605,9 +642,41 @@ static inline void bnx2x_free_rx_sge(struct bnx2x *bp,
+ 	sge->addr_lo = 0;
+ }
+ 
++static inline void bnx2x_add_all_napi(struct bnx2x *bp)
++{
++	int i;
+ 
++	/* Add NAPI objects */
++	for_each_queue(bp, i)
++		netif_napi_add(bp->dev, &bnx2x_fp(bp, i, napi),
++			       bnx2x_poll, BNX2X_NAPI_WEIGHT);
++}
+ 
++static inline void bnx2x_del_all_napi(struct bnx2x *bp)
++{
++	int i;
++
++	for_each_queue(bp, i)
++		netif_napi_del(&bnx2x_fp(bp, i, napi));
++}
+ 
++static inline void bnx2x_disable_msi(struct bnx2x *bp)
++{
++	if (bp->flags & USING_MSIX_FLAG) {
++		pci_disable_msix(bp->pdev);
++		bp->flags &= ~USING_MSIX_FLAG;
++	} else if (bp->flags & USING_MSI_FLAG) {
++		pci_disable_msi(bp->pdev);
++		bp->flags &= ~USING_MSI_FLAG;
++	}
++}
++
++static inline int bnx2x_calc_num_queues(struct bnx2x *bp)
++{
++	return  num_queues ?
++		 min_t(int, num_queues, BNX2X_MAX_QUEUES(bp)) :
++		 min_t(int, num_online_cpus(), BNX2X_MAX_QUEUES(bp));
++}
+ 
+ static inline void bnx2x_clear_sge_mask_next_elems(struct bnx2x_fastpath *fp)
+ {
+@@ -877,7 +946,7 @@ void bnx2x_tx_timeout(struct net_device *dev);
+ void bnx2x_vlan_rx_register(struct net_device *dev, struct vlan_group *vlgrp);
+ void bnx2x_netif_start(struct bnx2x *bp);
+ void bnx2x_netif_stop(struct bnx2x *bp, int disable_hw);
+-void bnx2x_free_irq(struct bnx2x *bp, bool disable_only);
++void bnx2x_free_irq(struct bnx2x *bp);
+ int bnx2x_suspend(struct pci_dev *pdev, pm_message_t state);
+ int bnx2x_resume(struct pci_dev *pdev);
+ void bnx2x_free_skbs(struct bnx2x *bp);
 diff --git a/drivers/net/bnx2x/bnx2x_main.c b/drivers/net/bnx2x/bnx2x_main.c
-index 34ed5db..dcc4900 100644
+index 0ac416a..2572eb4 100644
 --- a/drivers/net/bnx2x/bnx2x_main.c
 +++ b/drivers/net/bnx2x/bnx2x_main.c
-@@ -6465,6 +6465,12 @@ static int __devinit bnx2x_set_int_mode(struct bnx2x *bp)
+@@ -90,7 +90,7 @@ module_param(multi_mode, int, 0);
+ MODULE_PARM_DESC(multi_mode, " Multi queue mode "
+ 			     "(0 Disable; 1 Enable (default))");
+ 
+-static int num_queues;
++int num_queues;
+ module_param(num_queues, int, 0);
+ MODULE_PARM_DESC(num_queues, " Number of queues for multi_mode=1"
+ 				" (default is as a number of CPUs)");
+@@ -6409,28 +6409,57 @@ int bnx2x_setup_fw_client(struct bnx2x *bp,
  	return rc;
  }
  
-+/* must be called prioir to any HW initializations */
-+static inline u16 bnx2x_cid_ilt_lines(struct bnx2x *bp)
-+{
-+	return L2_ILT_LINES(bp);
-+}
+-void bnx2x_set_num_queues_msix(struct bnx2x *bp)
++/**
++ * Configure interrupt mode according to current configuration.
++ * In case of MSI-X it will also try to enable MSI-X.
++ *
++ * @param bp
++ *
++ * @return int
++ */
++static int __devinit bnx2x_set_int_mode(struct bnx2x *bp)
+ {
++	int rc = 0;
+ 
+-	switch (bp->multi_mode) {
+-	case ETH_RSS_MODE_DISABLED:
++	switch (bp->int_mode) {
++	case INT_MODE_MSI:
++		bnx2x_enable_msi(bp);
++		/* falling through... */
++	case INT_MODE_INTx:
+ 		bp->num_queues = 1;
++		DP(NETIF_MSG_IFUP, "set number of queues to 1\n");
+ 		break;
++	default:
++		/* Set number of queues according to bp->multi_mode value */
++		bnx2x_set_num_queues(bp);
+ 
+-	case ETH_RSS_MODE_REGULAR:
+-		if (num_queues)
+-			bp->num_queues = min_t(u32, num_queues,
+-						  BNX2X_MAX_QUEUES(bp));
+-		else
+-			bp->num_queues = min_t(u32, num_online_cpus(),
+-						  BNX2X_MAX_QUEUES(bp));
+-		break;
++		DP(NETIF_MSG_IFUP, "set number of queues to %d\n",
++		   bp->num_queues);
+ 
++		/* if we can't use MSI-X we only need one fp,
++		 * so try to enable MSI-X with the requested number of fp's
++		 * and fallback to MSI or legacy INTx with one fp
++		 */
++		rc = bnx2x_enable_msix(bp);
++		if (rc) {
++			/* failed to enable MSI-X */
++			if (bp->multi_mode)
++				DP(NETIF_MSG_IFUP,
++					  "Multi requested but failed to "
++					  "enable MSI-X (%d), "
++					  "set number of queues to %d\n",
++				   bp->num_queues,
++				   1);
++			bp->num_queues = 1;
 +
++			if (!(bp->flags & DISABLE_MSI_FLAG))
++				bnx2x_enable_msi(bp);
++		}
+ 
+-	default:
+-		bp->num_queues = 1;
+ 		break;
+ 	}
++
++	return rc;
+ }
+ 
  void bnx2x_ilt_set_info(struct bnx2x *bp)
- {
- 	struct ilt_client_info *ilt_client;
-@@ -9350,19 +9356,53 @@ static void bnx2x_cnic_sp_post(struct bnx2x *bp, int count)
- #endif
+@@ -6881,7 +6910,7 @@ unload_error:
+ 	bnx2x_netif_stop(bp, 1);
  
- 	spin_lock_bh(&bp->spq_lock);
-+	BUG_ON(bp->cnic_spq_pending < count);
- 	bp->cnic_spq_pending -= count;
+ 	/* Release IRQs */
+-	bnx2x_free_irq(bp, false);
++	bnx2x_free_irq(bp);
  
--	for (; bp->cnic_spq_pending < bp->cnic_eth_dev.max_kwqe_pending;
--	     bp->cnic_spq_pending++) {
- 
--		if (!bp->cnic_kwq_pending)
-+	for (; bp->cnic_kwq_pending; bp->cnic_kwq_pending--) {
-+		u16 type =  (le16_to_cpu(bp->cnic_kwq_cons->hdr.type)
-+				& SPE_HDR_CONN_TYPE) >>
-+				SPE_HDR_CONN_TYPE_SHIFT;
-+
-+		/* Set validation for iSCSI L2 client before sending SETUP
-+		 *  ramrod
-+		 */
-+		if (type == ETH_CONNECTION_TYPE) {
-+			u8 cmd = (le32_to_cpu(bp->cnic_kwq_cons->
-+					     hdr.conn_and_cmd_data) >>
-+				SPE_HDR_CMD_ID_SHIFT) & 0xff;
-+
-+			if (cmd == RAMROD_CMD_ID_ETH_CLIENT_SETUP)
-+				bnx2x_set_ctx_validation(&bp->context.
-+						vcxt[BNX2X_ISCSI_ETH_CID].eth,
-+					HW_CID(bp, BNX2X_ISCSI_ETH_CID));
-+		}
-+
-+		/* There may be not more than 8 L2 and COMMON SPEs and not more
-+		 * than 8 L5 SPEs in the air.
-+		 */
-+		if ((type == NONE_CONNECTION_TYPE) ||
-+		    (type == ETH_CONNECTION_TYPE)) {
-+			if (!atomic_read(&bp->spq_left))
-+				break;
-+			else
-+				atomic_dec(&bp->spq_left);
-+		} else if (type == ISCSI_CONNECTION_TYPE) {
-+			if (bp->cnic_spq_pending >=
-+			    bp->cnic_eth_dev.max_kwqe_pending)
-+				break;
-+			else
-+				bp->cnic_spq_pending++;
-+		} else {
-+			BNX2X_ERR("Unknown SPE type: %d\n", type);
-+			bnx2x_panic();
- 			break;
-+		}
- 
- 		spe = bnx2x_sp_get_next(bp);
- 		*spe = *bp->cnic_kwq_cons;
- 
--		bp->cnic_kwq_pending--;
--
- 		DP(NETIF_MSG_TIMER, "pending on SPQ %d, on KWQ %d count %d\n",
- 		   bp->cnic_spq_pending, bp->cnic_kwq_pending, count);
- 
-@@ -9467,7 +9507,7 @@ static void bnx2x_cnic_cfc_comp(struct bnx2x *bp, int cid)
- 	ctl.data.comp.cid = cid;
- 
- 	bnx2x_cnic_ctl_send_bh(bp, &ctl);
--	bnx2x_cnic_sp_post(bp, 1);
-+	bnx2x_cnic_sp_post(bp, 0);
- }
- 
- static int bnx2x_drv_ctl(struct net_device *dev, struct drv_ctl_info *ctl)
-@@ -9484,8 +9524,8 @@ static int bnx2x_drv_ctl(struct net_device *dev, struct drv_ctl_info *ctl)
- 		break;
+ 	/* Reset the chip */
+ 	bnx2x_reset_chip(bp, reset_code);
+@@ -9024,7 +9053,16 @@ static int __devinit bnx2x_init_one(struct pci_dev *pdev,
+ 		goto init_one_exit;
  	}
  
--	case DRV_CTL_COMPLETION_CMD: {
--		int count = ctl->data.comp.comp_count;
-+	case DRV_CTL_RET_L5_SPQ_CREDIT_CMD: {
-+		int count = ctl->data.credit.credit_count;
- 
- 		bnx2x_cnic_sp_post(bp, count);
- 		break;
-@@ -9531,6 +9571,14 @@ static int bnx2x_drv_ctl(struct net_device *dev, struct drv_ctl_info *ctl)
- 		bnx2x_set_iscsi_eth_mac_addr(bp, 0);
- 		break;
- 	}
-+	case DRV_CTL_RET_L2_SPQ_CREDIT_CMD: {
-+		int count = ctl->data.credit.credit_count;
++	/* Configure interupt mode: try to enable MSI-X/MSI if
++	 * needed, set bp->num_queues appropriately.
++	 */
++	bnx2x_set_int_mode(bp);
 +
-+		smp_mb__before_atomic_inc();
-+		atomic_add(count, &bp->spq_left);
-+		smp_mb__after_atomic_inc();
-+		break;
-+	}
- 
- 	default:
- 		BNX2X_ERR("unknown command %x\n", ctl->cmd);
-@@ -9595,13 +9643,8 @@ static int bnx2x_register_cnic(struct net_device *dev, struct cnic_ops *ops,
- 	cp->drv_state = CNIC_DRV_STATE_REGD;
- 	cp->iro_arr = bp->iro_arr;
- 
--	bnx2x_init_sb(bp, bp->cnic_sb_mapping,
--		      BNX2X_VF_ID_INVALID, false,
--		      CNIC_SB_ID(bp), CNIC_IGU_SB_ID(bp));
--
- 	bnx2x_setup_cnic_irq_info(bp);
--	bnx2x_set_iscsi_eth_mac_addr(bp, 1);
--	bp->cnic_flags |= BNX2X_CNIC_FLAG_MAC_SET;
++	/* Add all NAPI objects */
++	bnx2x_add_all_napi(bp);
 +
- 	rcu_assign_pointer(bp->cnic_ops, ops);
- 
- 	return 0;
-@@ -9639,14 +9682,23 @@ struct cnic_eth_dev *bnx2x_cnic_probe(struct net_device *dev)
- 	cp->io_base2 = bp->doorbells;
- 	cp->max_kwqe_pending = 8;
- 	cp->ctx_blk_size = CDU_ILT_PAGE_SZ;
--	cp->ctx_tbl_offset = FUNC_ILT_BASE(BP_FUNC(bp)) + 1;
-+	cp->ctx_tbl_offset = FUNC_ILT_BASE(BP_FUNC(bp)) +
-+			     bnx2x_cid_ilt_lines(bp);
- 	cp->ctx_tbl_len = CNIC_ILT_LINES;
--	cp->starting_cid = BCM_CNIC_CID_START;
-+	cp->starting_cid = bnx2x_cid_ilt_lines(bp) * ILT_PAGE_CIDS;
- 	cp->drv_submit_kwqes_16 = bnx2x_cnic_sp_queue;
- 	cp->drv_ctl = bnx2x_drv_ctl;
- 	cp->drv_register_cnic = bnx2x_register_cnic;
- 	cp->drv_unregister_cnic = bnx2x_unregister_cnic;
--
-+	cp->iscsi_l2_client_id = BNX2X_ISCSI_ETH_CL_ID;
-+	cp->iscsi_l2_cid = BNX2X_ISCSI_ETH_CID;
+ 	bnx2x_get_pcie_width_speed(bp, &pcie_width, &pcie_speed);
 +
-+	DP(BNX2X_MSG_SP, "page_size %d, tbl_offset %d, tbl_lines %d, "
-+			 "starting cid %d\n",
-+	   cp->ctx_blk_size,
-+	   cp->ctx_tbl_offset,
-+	   cp->ctx_tbl_len,
-+	   cp->starting_cid);
- 	return cp;
- }
- EXPORT_SYMBOL(bnx2x_cnic_probe);
-diff --git a/drivers/net/cnic.c b/drivers/net/cnic.c
-index 8025981..27449bf 100644
---- a/drivers/net/cnic.c
-+++ b/drivers/net/cnic.c
-@@ -242,14 +242,14 @@ static int cnic_in_use(struct cnic_sock *csk)
- 	return test_bit(SK_F_INUSE, &csk->flags);
- }
+ 	netdev_info(dev, "%s (%c%d) PCI-E x%d %s found at mem %lx,"
+ 	       " IRQ %d, ", board_info[ent->driver_data].name,
+ 	       (CHIP_REV(bp) >> 12) + 'A', (CHIP_METAL(bp) >> 4),
+@@ -9068,6 +9106,11 @@ static void __devexit bnx2x_remove_one(struct pci_dev *pdev)
  
--static void cnic_kwq_completion(struct cnic_dev *dev, u32 count)
-+static void cnic_spq_completion(struct cnic_dev *dev, int cmd, u32 count)
- {
- 	struct cnic_local *cp = dev->cnic_priv;
- 	struct cnic_eth_dev *ethdev = cp->ethdev;
- 	struct drv_ctl_info info;
+ 	unregister_netdev(dev);
  
--	info.cmd = DRV_CTL_COMPLETION_CMD;
--	info.data.comp.comp_count = count;
-+	info.cmd = cmd;
-+	info.data.credit.credit_count = count;
- 	ethdev->drv_ctl(dev->netdev, &info);
- }
- 
-@@ -2069,7 +2069,7 @@ static int cnic_submit_bnx2x_kwqes(struct cnic_dev *dev, struct kwqe *wqes[],
- static void service_kcqes(struct cnic_dev *dev, int num_cqes)
- {
- 	struct cnic_local *cp = dev->cnic_priv;
--	int i, j;
-+	int i, j, comp = 0;
- 
- 	i = 0;
- 	j = 1;
-@@ -2080,7 +2080,7 @@ static void service_kcqes(struct cnic_dev *dev, int num_cqes)
- 		u32 kcqe_layer = kcqe_op_flag & KCQE_FLAGS_LAYER_MASK;
- 
- 		if (unlikely(kcqe_op_flag & KCQE_RAMROD_COMPLETION))
--			cnic_kwq_completion(dev, 1);
-+			comp++;
- 
- 		while (j < num_cqes) {
- 			u32 next_op = cp->completed_kcq[i + j]->kcqe_op_flag;
-@@ -2089,7 +2089,7 @@ static void service_kcqes(struct cnic_dev *dev, int num_cqes)
- 				break;
- 
- 			if (unlikely(next_op & KCQE_RAMROD_COMPLETION))
--				cnic_kwq_completion(dev, 1);
-+				comp++;
- 			j++;
- 		}
- 
-@@ -2119,6 +2119,8 @@ end:
- 		i += j;
- 		j = 1;
- 	}
-+	if (unlikely(comp))
-+		cnic_spq_completion(dev, DRV_CTL_RET_L5_SPQ_CREDIT_CMD, comp);
- }
- 
- static u16 cnic_bnx2_next_idx(u16 idx)
-@@ -4246,7 +4248,7 @@ static void cnic_init_rings(struct cnic_dev *dev)
- 		if (test_bit(CNIC_LCL_FL_L2_WAIT, &cp->cnic_local_flags))
- 			netdev_err(dev->netdev,
- 				"iSCSI CLIENT_SETUP did not complete\n");
--		cnic_kwq_completion(dev, 1);
-+		cnic_spq_completion(dev, DRV_CTL_RET_L2_SPQ_CREDIT_CMD, 1);
- 		cnic_ring_ctl(dev, BNX2X_ISCSI_L2_CID, cli, 1);
- 	}
- }
-@@ -4283,7 +4285,7 @@ static void cnic_shutdown_rings(struct cnic_dev *dev)
- 		if (test_bit(CNIC_LCL_FL_L2_WAIT, &cp->cnic_local_flags))
- 			netdev_err(dev->netdev,
- 				"iSCSI CLIENT_HALT did not complete\n");
--		cnic_kwq_completion(dev, 1);
-+		cnic_spq_completion(dev, DRV_CTL_RET_L2_SPQ_CREDIT_CMD, 1);
- 
- 		memset(&l5_data, 0, sizeof(l5_data));
- 		type = (NONE_CONNECTION_TYPE << SPE_HDR_CONN_TYPE_SHIFT)
-diff --git a/drivers/net/cnic_if.h b/drivers/net/cnic_if.h
-index 4018de1..98ebac5 100644
---- a/drivers/net/cnic_if.h
-+++ b/drivers/net/cnic_if.h
-@@ -12,8 +12,8 @@
- #ifndef CNIC_IF_H
- #define CNIC_IF_H
- 
--#define CNIC_MODULE_VERSION	"2.1.3"
--#define CNIC_MODULE_RELDATE	"June 24, 2010"
-+#define CNIC_MODULE_VERSION	"2.2.5"
-+#define CNIC_MODULE_RELDATE	"September 29, 2010"
- 
- #define CNIC_ULP_RDMA		0
- #define CNIC_ULP_ISCSI		1
-@@ -80,18 +80,15 @@ struct kcqe {
- #define DRV_CTL_IO_RD_CMD		0x102
- #define DRV_CTL_CTX_WR_CMD		0x103
- #define DRV_CTL_CTXTBL_WR_CMD		0x104
--#define DRV_CTL_COMPLETION_CMD		0x105
-+#define DRV_CTL_RET_L5_SPQ_CREDIT_CMD	0x105
- #define DRV_CTL_START_L2_CMD		0x106
- #define DRV_CTL_STOP_L2_CMD		0x107
-+#define DRV_CTL_RET_L2_SPQ_CREDIT_CMD	0x10c
- 
- struct cnic_ctl_completion {
- 	u32	cid;
- };
- 
--struct drv_ctl_completion {
--	u32	comp_count;
--};
--
- struct cnic_ctl_info {
- 	int	cmd;
- 	union {
-@@ -100,6 +97,10 @@ struct cnic_ctl_info {
- 	} data;
- };
- 
-+struct drv_ctl_spq_credit {
-+	u32	credit_count;
-+};
++	/* Delete all NAPI objects */
++	bnx2x_del_all_napi(bp);
 +
- struct drv_ctl_io {
- 	u32		cid_addr;
- 	u32		offset;
-@@ -115,7 +116,7 @@ struct drv_ctl_l2_ring {
- struct drv_ctl_info {
- 	int	cmd;
- 	union {
--		struct drv_ctl_completion comp;
-+		struct drv_ctl_spq_credit credit;
- 		struct drv_ctl_io io;
- 		struct drv_ctl_l2_ring ring;
- 		char bytes[MAX_DRV_CTL_DATA];
-@@ -162,7 +163,9 @@ struct cnic_eth_dev {
- 	u32		max_iscsi_conn;
- 	u32		max_fcoe_conn;
- 	u32		max_rdma_conn;
--	u32		reserved0[2];
-+	u32		fcoe_init_cid;
-+	u16		iscsi_l2_client_id;
-+	u16		iscsi_l2_cid;
++	/* Disable MSI/MSI-X */
++	bnx2x_disable_msi(bp);
+ 	/* Make sure RESET task is not scheduled before continuing */
+ 	cancel_delayed_work_sync(&bp->reset_task);
  
- 	int		num_irq;
- 	struct cnic_irq	irq_arr[MAX_CNIC_VEC];
+@@ -9104,15 +9147,14 @@ static int bnx2x_eeh_nic_unload(struct bnx2x *bp)
+ 	DP(BNX2X_MSG_STATS, "stats_state - DISABLED\n");
+ 
+ 	/* Release IRQs */
+-	bnx2x_free_irq(bp, false);
++	bnx2x_free_irq(bp);
+ 
+ 	/* Free SKBs, SGEs, TPA pool and driver internals */
+ 	bnx2x_free_skbs(bp);
+ 
+ 	for_each_queue(bp, i)
+ 		bnx2x_free_rx_sge_range(bp, bp->fp + i, NUM_RX_SGE);
+-	for_each_queue(bp, i)
+-		netif_napi_del(&bnx2x_fp(bp, i, napi));
++
+ 	bnx2x_free_mem(bp);
+ 
+ 	bp->state = BNX2X_STATE_CLOSED;
 -- 
 1.7.1
 
