@@ -1,53 +1,42 @@
-From: Bart Van Assche <bvanassche@acm.org>
-Subject: Re: [PATCH] SIW: iWARP Protocol headers
-Date: Wed, 6 Oct 2010 18:02:39 +0200
-Message-ID: <AANLkTikGqsnXJpnifdKEZr6PoJafZ1N+5zNNaUVMeuQu@mail.gmail.com>
-References: <AANLkTimkJHntzqL5fs+6kTTq-3kzwmoDtWyVq=qGe6vj@mail.gmail.com> <OFC70D3F8A.C5D69C2F-ONC12577B4.0044CFB7-C12577B4.0046C012@ch.ibm.com>
+From: Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>
+Subject: Re: [PATCH] SIW: Module initialization
+Date: Wed, 6 Oct 2010 18:06:52 +0200
+Message-ID: <AANLkTikL6u4Kzd1jibp77GMZfMebxusoDX39dPsNK3RW@mail.gmail.com>
+References: <1286261640-5121-1-git-send-email-bmt@zurich.ibm.com>
+ <AANLkTik5=i+A5_OpU0rVyfYi=ibgS9UWMu82vMCmM=PN@mail.gmail.com> <20101006070242.3ca5a6d9@s6510>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: linux-rdma@vger.kernel.org, linux-rdma-owner@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Bernard Metzler <BMT@zurich.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f174.google.com ([209.85.214.174]:49294 "EHLO
-	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752114Ab0JFQDC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Oct 2010 12:03:02 -0400
-In-Reply-To: <OFC70D3F8A.C5D69C2F-ONC12577B4.0044CFB7-C12577B4.0046C012@ch.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Bernard Metzler <bmt-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20101006070242.3ca5a6d9@s6510>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 6, 2010 at 2:52 PM, Bernard Metzler <BMT@zurich.ibm.com> wrote:
+On Wed, Oct 6, 2010 at 12:02 AM, Stephen Hemminger
+<shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org> wrote:
+> On Tue, 5 Oct 2010 12:57:21 +0200
+> Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org> wrote:
 >
+>> > + * TODO: Dynamic device management (network device registration/removal).
+>>
+>> The current implementation is such that one siw device is created for
+>> each network device found at kernel module load time. That means that
+>> you force the user to load the siw kernel module after all other
+>> kernel modules that register a network device. I'm not sure that's a
+>> good idea.
 >
-> linux-rdma-owner@vger.kernel.org wrote on 10/05/2010 06:10:45 PM:
->
-> > On Tue, Oct 5, 2010 at 8:53 AM, Bernard Metzler <bmt@zurich.ibm.com>
-> wrote:
-> > > +} __attribute__((__packed__));
-> >
-> > Apparently you make extensive use of the packed attribute. Please read
-> > this blog entry, in which it is explained why this is harmful:
-> >
-> > http://digitalvampire.org/blog/index.php/2006/07/31/why-you-
-> > shouldnt-use-__attribute__packed/
-> >
-> right, thanks, i was not aware of that
-> big overhead.
-> but...there are reasons why we may need it _packed_:
-> (1) to get the size of the packet hdr
-> (2) to read/write the hdr content
->
-> (1) is not harmful. (2) could be limited to
-> just one read/write operation per rx/tx path
-> and all other access could be done on a
-> structure which contains the host representation
-> of the hdr content. both structures could coexist
-> in a union, part of the rx or tx context.
-> would that satisfy your complain?
+> Then device should be controlled by a netlink (rtnl_link_ops) style
+> interface see vlan_netlink.c. Using netlink is extensible and provides
+> a cleaner interface than all these other parameterization methods.
 
-Please have a look at e.g. the header file <scsi/srp.h>. As you can
-see in that header file, __attribute__((__packed__)) is only specified
-when absolutely necessary.
+That will be a lot more work to implement than what Jason proposed:
+adding a sysfs variable per Ethernet driver, e.g.
+/sys/class/net/eth0/enable_iwarp.
 
 Bart.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
