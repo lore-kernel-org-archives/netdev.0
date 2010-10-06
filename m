@@ -1,55 +1,113 @@
-From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Subject: Re: [PATCH] SIW: iWARP Protocol headers
-Date: Wed, 6 Oct 2010 11:25:18 -0600
-Message-ID: <20101006172518.GI24268@obsidianresearch.com>
-References: <AANLkTimkJHntzqL5fs+6kTTq-3kzwmoDtWyVq=qGe6vj@mail.gmail.com> <OFC70D3F8A.C5D69C2F-ONC12577B4.0044CFB7-C12577B4.0046C012@ch.ibm.com>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: Re: powerpc, fs_enet: scanning PHY after Linux is up
+Date: Wed, 6 Oct 2010 11:30:19 -0600
+Message-ID: <AANLkTinWGw5AR8KSSdCyOWqCaMVL-wZH+2uB7zh404_i@mail.gmail.com>
+References: <4CA9830A.2030605@denx.de> <AANLkTinSersREjDnvg=8Gvpa6YmLuzgF1H8eEXRyCpW0@mail.gmail.com>
+ <4CAC472F.5070001@denx.de> <4CAC7EB0.6080502@keymile.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Bernard Metzler <BMT-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <OFC70D3F8A.C5D69C2F-ONC12577B4.0044CFB7-C12577B4.0046C012-Xeyd2O9EBijQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: hs@denx.de, linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
+	devicetree-discuss@lists.ozlabs.org, Detlev Zundel <dzu@denx.de>
+To: Holger brunck <holger.brunck@keymile.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:52386 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753181Ab0JFRal convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Oct 2010 13:30:41 -0400
+Received: by iwn5 with SMTP id 5so9995814iwn.19
+        for <netdev@vger.kernel.org>; Wed, 06 Oct 2010 10:30:40 -0700 (PDT)
+In-Reply-To: <4CAC7EB0.6080502@keymile.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 06, 2010 at 02:52:46PM +0200, Bernard Metzler wrote:
-> 
-> 
-> linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org wrote on 10/05/2010 06:10:45 PM:
-> 
-> > On Tue, Oct 5, 2010 at 8:53 AM, Bernard Metzler <bmt-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>
-> wrote:
-> > > +} __attribute__((__packed__));
-> >
-> > Apparently you make extensive use of the packed attribute. Please read
-> > this blog entry, in which it is explained why this is harmful:
-> >
-> > http://digitalvampire.org/blog/index.php/2006/07/31/why-you-
-> > shouldnt-use-__attribute__packed/
-> >
-> right, thanks, i was not aware of that
-> big overhead.
-> but...there are reasons why we may need it _packed_:
-> (1) to get the size of the packet hdr
-> (2) to read/write the hdr content
+On Wed, Oct 6, 2010 at 7:50 AM, Holger brunck <holger.brunck@keymile.co=
+m> wrote:
+> Hello Heiko,
+>
+> On 10/06/2010 11:53 AM, Heiko Schocher wrote:
+>>>> So, the question is, is there a possibility to solve this problem?
+>>>>
+>>>> If there is no standard option, what would be with adding a
+>>>> "scan_phy" file in
+>>>>
+>>>> /proc/device-tree/soc\@f0000000/cpm\@119c0/mdio\@10d40
+>>>> (or better destination?)
+>>>>
+>>>> which with we could rescan a PHY with
+>>>> "echo addr > /proc/device-tree/soc\@f0000000/cpm\@119c0/mdio\@10d4=
+0/scan_phy"
+>>>> (so there is no need for using of_find_node_by_path(), as we shoul=
+d
+>>>> =A0have the associated device node here, and can step through the =
+child
+>>>> =A0nodes with "for_each_child_of_node(np, child)" and check if reg=
+ =3D=3D addr)
+>>>>
+>>>> or shouldn;t be at least, if the phy couldn;t be found when openin=
+g
+>>>> the port, retrigger a scanning, if the phy now is accessible?
+>>>
+>>> One option would be to still register a phy_device for each phy
+>>> described in the device tree, but defer binding a driver to each ph=
+y
+>>> that doesn't respond. =A0Then at of_phy_find_device() time, if it
+>>
+>> Maybe I din;t get the trick, but the problem is, that
+>> you can;t register a phy_device in drivers/of/of_mdio.c
+>> of_mdiobus_register(), if the phy didn;t respond with the
+>> phy_id ... and of_phy_find_device() is not (yet) used in fs_enet
+>>
+>>> matches with a phy_device that isn't bound to a driver yet, then
+>>> re-trigger the binding operation. =A0At which point the phy id can =
+be
+>>> probed and the correct driver can be chosen. =A0If binding succeeds=
+,
+>>> then return the phy_device handle. =A0If not, then fail as it curre=
+ntly
+>>> does.
+>>
+>> Wouldn;t it be good, just if we need a PHY (on calling fs_enet_open)
+>> to look if there is one?
+>>
+>> Something like that (not tested):
+>>
+>> in drivers/net/fs_enet/fs_enet-main.c in fs_init_phy()
+>> called from fs_enet_open():
+>>
+>> Do first:
+>> phydev =3D =A0of_phy_find_device(fep->fpi->phy_node);
+>>
+>> Look if there is a driver (phy_dev->drv =3D=3D NULL ?)
+>>
+>> If not, call new function
+>> of_mdiobus_register_phy(mii_bus, fep->fpi->phy_node)
+>> see below patch for it.
+>>
+>> If this succeeds, all is OK, and we can use this phy,
+>> else ethernet not work.
+>>
+>> !!just no idea, how to get mii_bus pointer ...
+>>
+>
+> in my understanding it should be posssible to get this pointer via th=
+e parent of
+> the device_node you got via the private data of the fs_enet:
+> fep->fpi->phy_node->parent should point you to the device_node for th=
+e mdio_bus.
 
-It is actually a little more complicated than just this. I assume you
-are casting the structures over packet payloads? In this case you
-have to guarentee alignment (or used packed everywhere). Does iwarp
-have provisions for alignment? If so you can construct your bitfields
-using the alignment type, ie if iWarp guarantees 4 bytes then the
-biggest type you can use is u32 - then you can avoid using packed.
+Yes, this will give you the mdio bus node pointer.
 
-Mind you, I'm not sure how to guarentee alignment when you consider
-all the possible sources of unalignment in the stack: TCP, IP, L2 stack ?
+> In the next step you should be able to get the pointer of of_device f=
+or the
+> mdio_bus:
+> ofdevice* ofdev =3D to_of_device(fep->fpi->phy_node->parent);
 
-Otherwise you need a strategy for dealing with unaligned data for
-portability. :(
+of_device is just an alias for platform_device now, and not all mdio
+busses will be instantiated by a platform device.  This method won't
+always work.  What is really needed is the pointer to the mii_bus
+structure.  That can be obtained by looping over the members of the
+mdio_bus_class and comparing the mii_bus->device.parent->of_node to
+the parent node from above.
 
-Jason
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+g.
