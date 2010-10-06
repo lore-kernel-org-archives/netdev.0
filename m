@@ -1,72 +1,48 @@
-From: John Fastabend <john.r.fastabend@intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [net-next-2.6 PATCH] net: netif_set_real_num_rx_queues may cap
  num_rx_queues at init time
-Date: Wed, 06 Oct 2010 08:20:10 -0700
-Message-ID: <4CAC93AA.8060207@intel.com>
-References: <20101004220042.3471.92774.stgit@jf-dev1-dcblab>	 <1286256926.2457.2.camel@edumazet-laptop>  <4CAB4D8F.8080108@intel.com>	 <1286296476.2307.5.camel@achroite.uk.solarflarecom.com>	 <4CAB6447.6040407@intel.com>  <4CAC8D11.2060604@intel.com> <1286377633.2371.11.camel@achroite.uk.solarflarecom.com>
+Date: Wed, 06 Oct 2010 17:23:46 +0200
+Message-ID: <1286378626.9417.24.camel@edumazet-laptop>
+References: <20101004220042.3471.92774.stgit@jf-dev1-dcblab>
+	 <1286256926.2457.2.camel@edumazet-laptop>  <4CAB4D8F.8080108@intel.com>
+	 <1286296476.2307.5.camel@achroite.uk.solarflarecom.com>
+	 <4CAB6447.6040407@intel.com>  <4CAC8D11.2060604@intel.com>
+	 <1286377633.2371.11.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: John Fastabend <john.r.fastabend@intel.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"therbert@google.com" <therbert@google.com>
 To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:55501 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932744Ab0JFPUL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Oct 2010 11:20:11 -0400
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:39247 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759143Ab0JFPXx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Oct 2010 11:23:53 -0400
+Received: by fxm4 with SMTP id 4so1216332fxm.19
+        for <netdev@vger.kernel.org>; Wed, 06 Oct 2010 08:23:52 -0700 (PDT)
 In-Reply-To: <1286377633.2371.11.camel@achroite.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/6/2010 8:07 AM, Ben Hutchings wrote:
-> On Wed, 2010-10-06 at 07:52 -0700, John Fastabend wrote:
->> On 10/5/2010 10:45 AM, John Fastabend wrote:
->>> On 10/5/2010 9:34 AM, Ben Hutchings wrote:
->>>> On Tue, 2010-10-05 at 09:08 -0700, John Fastabend wrote:
->>>>> On 10/4/2010 10:35 PM, Eric Dumazet wrote:
-> [...]
->>>>>> Why should we keep num_rx_queues > real_num_rx_queues ?
->>>>>>
->>>>>
->>>>> If we do not ever need them then we should not keep them I agree.
->>>>> But having netif_set_real_num_rx_queues set something other then
->>>>> 'real_num_rx_queues' does not seem right to me at least. Also
->>>>> netif_set_real_num_tx_queues and netif_set_real_num_rx_queues have
->>>>> different behavior. It would be nice if this weren't the case but
->>>>> they allocate queues in two places.
->>>> [...]
->>>>
->>>> I only did this to satisfy Eric's desire to reduce memory usage.
->>>> However, I believe that there are currently no drivers that dynamically
->>>> increase numbers of RX or TX queues.  Until there are, there is not much
->>>> point in removing this assignment to num_rx_queues.
->>>>
->>>> Ben.
->>>>
->>>
->>> ixgbe increases the real_num_[rx|tx]_queues when FCoE or DCB is enabled.
->>> Also many of the drivers could increase the number of queues if they were
->>> given more interrupt vectors at some point.
->>
->>
->> If I update the handful drivers that use netif_set_real_num_rx_queues()
->> before the netdevice is registered to explicitly set num_rx_queues this
->> would address Eric's concerns and fix drivers that really only want to set
->> real_num_rx_queue.
->>
->> Any thoughts?
-> 
-> Don't add assignments to num_rx_queues.  If it's useful to increase the
-> number of RX queues later then just remove the assignment to
-> num_rx_queues from netif_set_real_num_rx_queues() and be done with it.
+Le mercredi 06 octobre 2010 =C3=A0 16:07 +0100, Ben Hutchings a =C3=A9c=
+rit :
+
 > The waste of memory is minimal now that we only allocate kobjects for
 > real_num_rx_queues.
-> 
-> Ben.
-> 
 
-OK Thanks Ben. I will get a better description on this and resend it.
+Thats strange, here with tg3 (and mono queue device) :
 
-John.
+0a:04.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5715S
+Gigabit Ethernet (rev a3)
+
+grep . /sys/class/net/eth2/queues/rx-*/rps_cpus
+/sys/class/net/eth2/queues/rx-0/rps_cpus:00000000
+/sys/class/net/eth2/queues/rx-1/rps_cpus:00000000
+/sys/class/net/eth2/queues/rx-2/rps_cpus:00000000
+/sys/class/net/eth2/queues/rx-3/rps_cpus:00000000
+/sys/class/net/eth2/queues/rx-4/rps_cpus:00000000
+
+
+
