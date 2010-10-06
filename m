@@ -1,60 +1,37 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [v2 RFC PATCH 0/4] Implement multiqueue virtio-net
-Date: Wed, 6 Oct 2010 14:19:00 +0200
-Message-ID: <201010061419.00257.arnd@arndb.de>
-References: <20100917100307.21276.79185.sendpatchset@krkumar2.in.ibm.com> <20100919124443.GJ7350@redhat.com> <OF13594229.1A55A20C-ON652577B3.00393C8D-652577B3.003A54C9@in.ibm.com>
+From: Armin Schindler <armin@melware.de>
+Subject: Re: [patch] eicon: make buffer larger
+Date: Wed, 6 Oct 2010 14:49:52 +0200 (CEST)
+Message-ID: <alpine.DEB.2.00.1010061443480.30674@justus.melware.de>
+References: <20101004192459.GE5692@bicker> <alpine.DEB.2.00.1010060923120.29107@justus.melware.de> <20101006074714.GE5409@bicker> <alpine.DEB.2.00.1010061019480.29404@justus.melware.de> <20101006083117.GF5409@bicker> <alpine.DEB.2.00.1010061043550.29582@justus.melware.de>
+ <20101006121119.GA11681@bicker>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, anthony@codemonkey.ws,
-	avi@redhat.com, davem@davemloft.net, kvm@vger.kernel.org,
-	netdev@vger.kernel.org, rusty@rustcorp.com.au
-To: Krishna Kumar2 <krkumar2@in.ibm.com>,
-	Ben Greear <greearb@candelatech.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <OF13594229.1A55A20C-ON652577B3.00393C8D-652577B3.003A54C9@in.ibm.com>
-Sender: kvm-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
+Cc: Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Dan Carpenter <error27@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20101006121119.GA11681@bicker>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 05 October 2010, Krishna Kumar2 wrote:
-> After testing various combinations of #txqs, #vhosts, #netperf
-> sessions, I think the drop for 1 stream is due to TX and RX for
-> a flow being processed on different cpus.  I did two more tests:
->     1. Pin vhosts to same CPU:
->         - BW drop is much lower for 1 stream case (- 5 to -8% range)
->         - But performance is not so high for more sessions.
->     2. Changed vhost to be single threaded:
->           - No degradation for 1 session, and improvement for upto
->               8, sometimes 16 streams (5-12%).
->           - BW degrades after that, all the way till 128 netperf sessions.
->           - But overall CPU utilization improves.
->             Summary of the entire run (for 1-128 sessions):
->                 txq=4:  BW: (-2.3)      CPU: (-16.5)    RCPU: (-5.3)
->                 txq=16: BW: (-1.9)      CPU: (-24.9)    RCPU: (-9.6)
-> 
-> I don't see any reasons mentioned above.  However, for higher
-> number of netperf sessions, I see a big increase in retransmissions:
-> _______________________________________
-> #netperf      ORG           NEW
->             BW (#retr)    BW (#retr)
-> _______________________________________
-> 1          70244 (0)     64102 (0)
-> 4          21421 (0)     36570 (416)
-> 8          21746 (0)     38604 (148)
-> 16         21783 (0)     40632 (464)
-> 32         22677 (0)     37163 (1053)
-> 64         23648 (4)     36449 (2197)
-> 128        23251 (2)     31676 (3185)
-> _______________________________________
+On Wed, 6 Oct 2010, Dan Carpenter wrote:
+> On Wed, Oct 06, 2010 at 10:44:47AM +0200, Armin Schindler wrote:
+>>>   927    strcpy (clients[id].drvName,     tmp);
+>>>   928    strcpy (clients[id].Dbg.drvName, tmp);
+>>>                               ^
+>>>                    this buffer is only 16 chars
+>>
+>> Now I understand. You are right. So the fix would be to change these
+>> strcpy() to e.g. strncpy() or similar.
+>>
+>
+> We need more than 16 characters to store the information.  What is the
+> problem with just making the buffer larger?
 
+The larger buffer is not really needed. Later versions of the driver will 
+use the strcpy/memcpy with checked size anyway.
+I just want to avoid a change in the debug structure which is used in more than one module/tool.
 
-This smells like it could be related to a problem that Ben Greear found
-recently (see "macvlan:  Enable qdisc backoff logic"). When the hardware
-is busy, used to just drop the packet. With Ben's patch, we return -EAGAIN
-to qemu (or vhost-net) to trigger a resend.
+But it shouldn't be a real problem.
 
-I suppose what we really should do is feed that condition back to the
-guest network stack and implement the backoff in there.
-
-	Arnd
+Armin
