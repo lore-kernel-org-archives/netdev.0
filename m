@@ -1,73 +1,58 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net tree with the wireless tree
-Date: Wed, 6 Oct 2010 12:09:08 +1100
-Message-ID: <20101006120908.ffe99876.sfr@canb.auug.org.au>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCHv4 net-next-2.6 4/5] XFRM,IPv6: Add IRO remapping hook
+	in xfrm_input()
+Date: Wed, 6 Oct 2010 09:25:09 +0800
+Message-ID: <20101006012509.GA3540@gondor.apana.org.au>
+References: <cover.1286139128.git.arno@natisbad.org> <db067c0a2ab679dfb16c84e8509e671fa6c5cb01.1286139129.git.arno@natisbad.org> <20101004084041.GB17939@gondor.apana.org.au> <87vd5h7kbh.fsf@small.ssi.corp> <20101005062732.GA27337@gondor.apana.org.au> <878w2cfcd1.fsf@small.ssi.corp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Dan Carpenter <error27@gmail.com>,
-	Joe Perches <joe@perches.com>,
-	"John W. Linville" <linville@tuxdriver.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	netdev@vger.kernel.org
+To: Arnaud Ebalard <arno@natisbad.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from chilli.pcug.org.au ([203.10.76.44]:34451 "EHLO smtps.tip.net.au"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757002Ab0JFBJO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Oct 2010 21:09:14 -0400
+Received: from helcar.apana.org.au ([209.40.204.226]:44671 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750719Ab0JFBZX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Oct 2010 21:25:23 -0400
+Content-Disposition: inline
+In-Reply-To: <878w2cfcd1.fsf@small.ssi.corp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+On Wed, Oct 06, 2010 at 01:28:42AM +0200, Arnaud Ebalard wrote:
+>
+>  1) First, current net-next-2.6 (no patches applied)
+>  2) then, with my patches applied and CONFIG_XFRM_SUB_POLICY enabled
+>  3) then, with my patches applied and CONFIG_XFRM_SUB_POLICY disabled
 
-Today's linux-next merge of the net tree got a conflict in
-drivers/net/wireless/ipw2x00/ipw2200.c between commit
-2ee4e27cf25ab647137713ca16377d8d9e138ea2 ("ipw2200: check for allocation
-failures") from the wireless tree and commit
-baeb2ffab4e67bb9174e6166e070a9a8ec94b0f6 ("drivers/net: Convert unbounded
-kzalloc calls to kcalloc") from the net tree.
+To measure the effect of this properly you should use null
+encryption/hashing and look at the CPU utilisation with minimum
+packet sizes.
+ 
+> > With your remapping, would it be possible to add dummy xfrm_state
+> > objects with the remapped destination address that could then call
+> > xfrm6_input_addr?
+> >
+> > That way normal IPsec users would not be affected at all while
+> > preserving your new functionality.
+> 
+> I don't think I can do that easily (at all?) with what XFRM provides,
+> can I? Or at least I don't see how it is possible because I would need
+> some kind of policy for the state to be applied and the only trigger I
+> see is the src/dst address mismatch when processing the IPsec packet.
 
-Just context changes.  I fixed it up (see below) and can carry the fix as
-necessary.
--- 
+So do you know the remapped destination addresses a priori?
+
+If not then then other possibility would be to add the code hook
+in case of xfrm_state_lookup failure.
+
+But more importantly you need to solve the hash collission issue
+that I mentioned earlier.  Without that it won't work at all.
+
 Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
-diff --cc drivers/net/wireless/ipw2x00/ipw2200.c
-index d04d760,0f25083..0000000
---- a/drivers/net/wireless/ipw2x00/ipw2200.c
-+++ b/drivers/net/wireless/ipw2x00/ipw2200.c
-@@@ -11467,13 -11467,9 +11467,13 @@@ static int ipw_net_init(struct net_devi
-  
-  		bg_band->band = IEEE80211_BAND_2GHZ;
-  		bg_band->n_channels = geo->bg_channels;
-- 		bg_band->channels =
-- 			kzalloc(geo->bg_channels *
-- 				sizeof(struct ieee80211_channel), GFP_KERNEL);
-+ 		bg_band->channels = kcalloc(geo->bg_channels,
-+ 					    sizeof(struct ieee80211_channel),
-+ 					    GFP_KERNEL);
- +		if (!bg_band->channels) {
- +			rc = -ENOMEM;
- +			goto out;
- +		}
-  		/* translate geo->bg to bg_band.channels */
-  		for (i = 0; i < geo->bg_channels; i++) {
-  			bg_band->channels[i].band = IEEE80211_BAND_2GHZ;
-@@@ -11506,13 -11502,9 +11506,13 @@@
-  
-  		a_band->band = IEEE80211_BAND_5GHZ;
-  		a_band->n_channels = geo->a_channels;
-- 		a_band->channels =
-- 			kzalloc(geo->a_channels *
-- 				sizeof(struct ieee80211_channel), GFP_KERNEL);
-+ 		a_band->channels = kcalloc(geo->a_channels,
-+ 					   sizeof(struct ieee80211_channel),
-+ 					   GFP_KERNEL);
- +		if (!a_band->channels) {
- +			rc = -ENOMEM;
- +			goto out;
- +		}
-  		/* translate geo->bg to a_band.channels */
-  		for (i = 0; i < geo->a_channels; i++) {
-  			a_band->channels[i].band = IEEE80211_BAND_2GHZ;
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
