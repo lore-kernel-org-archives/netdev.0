@@ -1,41 +1,62 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: linux-next: manual merge of the net tree with the wireless tree
-Date: Wed, 6 Oct 2010 09:27:08 -0400
-Message-ID: <20101006132708.GC2472@tuxdriver.com>
-References: <20101006120908.ffe99876.sfr@canb.auug.org.au>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: [PATCH net-next 00/19] bnx2x, cnic, bnx2i: Supporting 57712
+ device
+Date: Wed, 6 Oct 2010 15:13:33 +0200
+Message-ID: <1286370813.30552.7.camel@lb-tlvb-dmitry>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Dan Carpenter <error27@gmail.com>,
-	Joe Perches <joe@perches.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: eilong@broadcom.com, mchan@broadcom.com
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:44314 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932240Ab0JFNaI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Oct 2010 09:30:08 -0400
-Content-Disposition: inline
-In-Reply-To: <20101006120908.ffe99876.sfr@canb.auug.org.au>
+Received: from mms3.broadcom.com ([216.31.210.19]:4218 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755497Ab0JFNjI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Oct 2010 09:39:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 06, 2010 at 12:09:08PM +1100, Stephen Rothwell wrote:
-> Hi all,
-> 
-> Today's linux-next merge of the net tree got a conflict in
-> drivers/net/wireless/ipw2x00/ipw2200.c between commit
-> 2ee4e27cf25ab647137713ca16377d8d9e138ea2 ("ipw2200: check for allocation
-> failures") from the wireless tree and commit
-> baeb2ffab4e67bb9174e6166e070a9a8ec94b0f6 ("drivers/net: Convert unbounded
-> kzalloc calls to kcalloc") from the net tree.
-> 
-> Just context changes.  I fixed it up (see below) and can carry the fix as
-> necessary.
+Hi Dave,
 
-That looks correct to me -- thanks!
+This patch series is aimed to add support for the 57712 device. To support it,
+the drivers needs to adopts the new FW interfaces and therefore the support for
+the 57710 and 57711 changed as well (together with new FW for those devices).
+Mostly it replaces the FW with new one that supports new HW, but also it moves
+firmware files to bnx2x folder and includes some minor changes discovered
+during FW/HW integration.
 
-John
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+The new device has VF and FCoE capabilities - those are not enabled in this
+patch series.
+
+Since the FW files are too big and will not pass through the mailing list, it is
+also located at:
+http://linux.broadcom.com/eilong/1.60.00-1
+
+01 cnic: Pass cp pointer to BNX2X_HW_CID.
+02 cnic: Use pfid for internal memory offsets.
+03 cnic: Fine-tune ring init code.
+04 bnx2x: create folder for bnx2x firmware files
+05 bnx2x: add 6.0.34 fw files
+06 bnx2x, cnic, bnx2i: use new FW/HSI
+07 bnx2x: remove old FW files 
+08 bnx2x: rename MF related fields
+09 bnx2x: change type of spq_left to atomic
+10 bnx2x: Add 57712 support
+11 bnx2x: remove unused parameter in reuse_rx_skb()
+12 bnx2x: remove unused fields in main driver structure
+13 bnx2x: use proper constants for dma_unmap* calls
+14 bnx2x: use L1_CACHE_BYTES instead of magic number
+15 bnx2x: move msix table initialization to probe()
+16 bnx2x, cnic: Fix SPQ return credit
+17 bnx2x: code beautify
+18 bnx2x: properly initialize FW stats
+19 bnx2x: update version to 1.60.00-1
+
+Please consider applying to net-next.
+
+Thanks,
+Dmitry
+
+
+
