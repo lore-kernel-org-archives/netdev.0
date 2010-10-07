@@ -1,60 +1,62 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] net: clear heap allocation for ETHTOOL_GRXCLSRLALL
-Date: Thu, 07 Oct 2010 21:28:58 +0100
-Message-ID: <1286483338.2271.34.camel@achroite.uk.solarflarecom.com>
-References: <20101007200348.GA6038@outflux.net>
+From: Matt Domsch <Matt_Domsch@Dell.com>
+Subject: Re: [PATCH V2] Use firmware provided index to register a network
+ interface
+Date: Thu, 7 Oct 2010 15:42:35 -0500
+Message-ID: <20101007204235.GB18035@pws490.domsch.com>
+References: <20101007142319.GB2641@libnet-test.oslab.blr.amer.dell.com>
+ <20101007151134.GA25713@kroah.com>
+ <20101007163113.GA14260@auslistsprd01.us.dell.com>
+ <20101007164835.GA27339@kroah.com>
+ <AANLkTinP5WPDPvk+kq8vsyP=xC9qcoe+c=1EBp0XJNPk@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Jeff Garzik <jgarzik@redhat.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	netdev@vger.kernel.org
-To: Kees Cook <kees.cook@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20101007200348.GA6038@outflux.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Greg KH <greg@kroah.com>, "K, Narendra" <Narendra_K@Dell.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-hotplug@vger.kernel.org" <linux-hotplug@vger.kernel.org>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	"Hargrave, Jordan" <Jordan_Hargrave@Dell.com>,
+	"Nijhawan, Vijay" <Vijay_Nijhawan@Dell.com>,
+	"Rose, Charles" <Charles_Rose@Dell.com>
+To: Kay Sievers <kay.sievers@vrfy.org>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <AANLkTinP5WPDPvk+kq8vsyP=xC9qcoe+c=1EBp0XJNPk@mail.gmail.com>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2010-10-07 at 13:03 -0700, Kees Cook wrote:
-> Calling ETHTOOL_GRXCLSRLALL with a large rule_cnt will allocate kernel
-> heap without clearing it. For the one driver (niu) that implements it,
-> it will leave the unused portion of heap unchanged and copy the full
-> contents back to userspace.
-> 
-> Cc: stable@kernel.org
-> Signed-off-by: Kees Cook <kees.cook@canonical.com>
+On Thu, Oct 07, 2010 at 10:05:14AM -0700, Kay Sievers wrote:
+> On Thu, Oct 7, 2010 at 18:48, Greg KH <greg@kroah.com> wrote:
+> > On Thu, Oct 07, 2010 at 11:31:13AM -0500, Matt Domsch wrote:
+> >> 1) SMBIOS type 41 method. =A0Windows does not use this today, and =
+I
+> >> =A0 =A0can't speak to their future plans. =A0Narendra's kernel pat=
+ch does,
+> >> =A0 =A0as has biosdevname, the udev helper we first wrote for this
+> >> =A0 =A0purpose, for several years.
+> >
+> > Then stick with that udev helper please :)
+>=20
+> What about just exporting this information in sysfs, and not touch th=
+e naming?
 
-Acked-by: Ben Hutchings <bhutchings@solarflare.com>
+The config tools all take a netdevice name as their argument.  What
+would it look like then?
 
-Should have spotted this myself. :-(
 
-Ben.
+$ ifconfig $(netdevname 'Embedded NIC 1')
 
-> ---
->  net/core/ethtool.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-> index 7a85367..4016ac6 100644
-> --- a/net/core/ethtool.c
-> +++ b/net/core/ethtool.c
-> @@ -348,7 +348,7 @@ static noinline_for_stack int ethtool_get_rxnfc(struct net_device *dev,
->  	if (info.cmd == ETHTOOL_GRXCLSRLALL) {
->  		if (info.rule_cnt > 0) {
->  			if (info.rule_cnt <= KMALLOC_MAX_SIZE / sizeof(u32))
-> -				rule_buf = kmalloc(info.rule_cnt * sizeof(u32),
-> +				rule_buf = kzalloc(info.rule_cnt * sizeof(u32),
->  						   GFP_USER);
->  			if (!rule_buf)
->  				return -ENOMEM;
-> -- 
-> 1.7.1
-> 
+repeat for each tool that's called?  This is similar to what we
+proposed with the userspace patch and libnetdevname, so the lookup can
+happen inside each app, rather than the system admin having to do the
+translation themselves.  That was rejected too...
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+otherwise, it's up to a human to do the translation in their head,
+which isn't script-friendly.
+
+-Matt
+
+--
+Matt Domsch
+Technology Strategist
+Dell | Office of the CTO
