@@ -1,48 +1,56 @@
-From: Kees Cook <kees.cook@canonical.com>
-Subject: [PATCH] net: clear heap allocation for ETHTOOL_GRXCLSRLALL
-Date: Thu, 7 Oct 2010 13:03:48 -0700
-Message-ID: <20101007200348.GA6038@outflux.net>
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH net-next-2.6] net: Fix rxq ref counting
+Date: Thu, 7 Oct 2010 13:09:10 -0700 (PDT)
+Message-ID: <alpine.DEB.1.00.1010071304240.4792@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Jeff Garzik <jgarzik@redhat.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out.google.com ([216.239.44.51]:11855 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751151Ab0JGUJN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Oct 2010 16:09:13 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Calling ETHTOOL_GRXCLSRLALL with a large rule_cnt will allocate kernel
-heap without clearing it. For the one driver (niu) that implements it,
-it will leave the unused portion of heap unchanged and copy the full
-contents back to userspace.
+The rx->count reference is used to track reference counts to the
+number of rx-queue kobjects created for the device.  This patch
+eliminates initialization of the counter in netif_alloc_rx_queues
+and instead increments the counter each time a kobject is created.
+This is now symmetric with the decrement that is done when an object is
+released.
 
-Cc: stable@kernel.org
-Signed-off-by: Kees Cook <kees.cook@canonical.com>
+Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- net/core/ethtool.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 7a85367..4016ac6 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -348,7 +348,7 @@ static noinline_for_stack int ethtool_get_rxnfc(struct net_device *dev,
- 	if (info.cmd == ETHTOOL_GRXCLSRLALL) {
- 		if (info.rule_cnt > 0) {
- 			if (info.rule_cnt <= KMALLOC_MAX_SIZE / sizeof(u32))
--				rule_buf = kmalloc(info.rule_cnt * sizeof(u32),
-+				rule_buf = kzalloc(info.rule_cnt * sizeof(u32),
- 						   GFP_USER);
- 			if (!rule_buf)
- 				return -ENOMEM;
--- 
-1.7.1
-
--- 
-Kees Cook
-Ubuntu Security Team
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 7d14955..58b31d1 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5026,7 +5026,6 @@ static int netif_alloc_rx_queues(struct net_device *dev)
+ 			return -ENOMEM;
+ 		}
+ 		dev->_rx = rx;
+-		atomic_set(&rx->count, count);
+ 
+ 		/*
+ 		 * Set a pointer to first element in the array which holds the
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index fa81fd0..b143173 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -726,6 +726,7 @@ static struct kobj_type rx_queue_ktype = {
+ static int rx_queue_add_kobject(struct net_device *net, int index)
+ {
+ 	struct netdev_rx_queue *queue = net->_rx + index;
++	struct netdev_rx_queue *first = queue->first;
+ 	struct kobject *kobj = &queue->kobj;
+ 	int error = 0;
+ 
+@@ -738,6 +739,7 @@ static int rx_queue_add_kobject(struct net_device *net, int index)
+ 	}
+ 
+ 	kobject_uevent(kobj, KOBJ_ADD);
++	atomic_inc(&first->count);
+ 
+ 	return error;
+ }
