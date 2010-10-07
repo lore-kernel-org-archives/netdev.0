@@ -1,34 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH] ixgbe: Use affinity_hint when Flow
- Director is enabled
-Date: Wed, 06 Oct 2010 23:48:23 -0700 (PDT)
-Message-ID: <20101006.234823.241942525.davem@davemloft.net>
-References: <20101005112511.23263.64121.stgit@localhost.localdomain>
+Subject: Re: sending VLAN packets via packet_mmap
+Date: Wed, 06 Oct 2010 23:53:43 -0700 (PDT)
+Message-ID: <20101006.235343.98903661.davem@davemloft.net>
+References: <20100930192414.GD26509@orbit.nwl.cc>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
-	peter.p.waskiewicz.jr@intel.com
-To: jeffrey.t.kirsher@intel.com
+Cc: netdev@vger.kernel.org, johann.baudy@gnu-log.net,
+	eric.dumazet@gmail.com
+To: phil@nwl.cc
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40423
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50571
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751799Ab0JGGsC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Oct 2010 02:48:02 -0400
-In-Reply-To: <20101005112511.23263.64121.stgit@localhost.localdomain>
+	by vger.kernel.org with ESMTP id S1751816Ab0JGGxW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Oct 2010 02:53:22 -0400
+In-Reply-To: <20100930192414.GD26509@orbit.nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Tue, 05 Oct 2010 04:27:49 -0700
+From: Phil Sutter <phil@nwl.cc>
+Date: Thu, 30 Sep 2010 21:24:14 +0200
 
-> From: Peter Waskiewicz <peter.p.waskiewicz.jr@intel.com>
+> The actual problem in tpacket_snd() is this:
 > 
-> Use the new infrastructure to balance interrupts for flow
-> alignment when ATR or Flow Director are enabled.
+> | reserve = dev->hard_header_len;
+> | [...]
+> | if (size_max > dev->mtu + reserve)
+> | 	size_max = dev->mtu + reserve;
 > 
-> Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-> Tested-by: Stephen Ko <stephen.s.ko@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> I guess the check is there to avoid skb overflows on malicious data
+> input. Is this correct? Are there other reasons for it's existence?
 
-Applied, thanks.
+We can add a special allowance of 4 extra bytes in this size check
+_iff_ the device is ethernet and the NETIF_F_VLAN_CHALLENGED netdev
+feature bit is not set.
+
