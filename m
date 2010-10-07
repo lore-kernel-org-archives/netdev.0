@@ -1,83 +1,103 @@
-From: Kees Cook <kees.cook@canonical.com>
-Subject: Re: [PATCH] net: clear heap allocations for privileged ethtool
- actions
-Date: Thu, 7 Oct 2010 14:40:21 -0700
-Message-ID: <20101007214021.GL14666@outflux.net>
-References: <20101007211004.GA20267@outflux.net>
- <1286487085.3745.99.camel@edumazet-laptop>
+From: Jiri Slaby <jirislaby@gmail.com>
+Subject: IPv4: sysctl table check failed [was: mmotm 2010-10-07-14-08 uploaded]
+Date: Fri, 08 Oct 2010 00:06:49 +0200
+Message-ID: <4CAE4479.6010606@gmail.com>
+References: <201010072140.o97Le69i025659@imap1.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Jeff Garzik <jgarzik@redhat.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1286487085.3745.99.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, mm-commits@vger.kernel.org,
+	ML netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:54387 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751521Ab0JGWJh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Oct 2010 18:09:37 -0400
+In-Reply-To: <201010072140.o97Le69i025659@imap1.linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
+On 10/07/2010 11:08 PM, akpm@linux-foundation.org wrote:
+> The mm-of-the-moment snapshot 2010-10-07-14-08 has been uploaded to
 
-On Thu, Oct 07, 2010 at 11:31:25PM +0200, Eric Dumazet wrote:
-> Le jeudi 07 octobre 2010 =E0 14:10 -0700, Kees Cook a =E9crit :
-> > Several other ethtool functions leave heap uncleared (potentially) =
-by
-> > drivers. Some interfaces appear safe (eeprom, etc), in that the siz=
-es
-> > are well controlled. In some situations (e.g. unchecked error condi=
-tions),
-> > the heap will remain unchanged in areas before copying back to user=
-space.
-> > Note that these are less of an issue since these all require CAP_NE=
-T_ADMIN.
->=20
-> > @@ -775,7 +775,7 @@ static int ethtool_get_regs(struct net_device *=
-dev, char __user *useraddr)
-> >  	if (regs.len > reglen)
-> >  		regs.len =3D reglen;
-> > =20
-> > -	regbuf =3D kmalloc(reglen, GFP_USER);
-> > +	regbuf =3D kzalloc(reglen, GFP_USER);
-> >  	if (!regbuf)
-> >  		return -ENOMEM;
-> > =20
-> > --=20
-> > 1.7.1
-> >=20
->=20
-> Are you sure this is not hiding a more problematic problem ?
->=20
-> Code does :
->=20
-> reglen =3D ops->get_regs_len(dev);
-> if (regs.len > reglen)
-> 	regs.len =3D reglen;
-> regbuf =3D kmalloc(reglen, GFP_USER);
->=20
-> So we can not copy back kernel memory.
->=20
-> However, what happens if user provides regs.len =3D 1 byte, and drive=
-r
-> get_regs() doesnt properly checks regs.len and write past end of regb=
-uf
-> -> We probably write on other parts of kernel memory
+Hi, I got bunch of "sysctl table check failed" below. All seem to be
+related to ipv4:
 
-This code is basically a max() call from what I see.
+sysctl table check failed: /net/ipv4/tcp_mem  No min
+Pid: 1, comm: swapper Not tainted 2.6.36-rc7-mm1_64+ #1285
+Call Trace:
+ [<ffffffff8108d444>] set_fail+0xa4/0xf0
+ [<ffffffff8108d736>] sysctl_check_table+0x2a6/0x310
+ [<ffffffff8108d4eb>] sysctl_check_table+0x5b/0x310
+ [<ffffffff8108d4eb>] sysctl_check_table+0x5b/0x310
+ [<ffffffff81072204>] __register_sysctl_paths+0xf4/0x320
+ [<ffffffff815c1232>] ? printk+0x3c/0x42
+ [<ffffffff8115d3bc>] ? sysfs_add_file+0xc/0x10
+ [<ffffffff818b18bd>] ? sysctl_ipv4_init+0x0/0x87
+ [<ffffffff81072456>] register_sysctl_paths+0x26/0x30
+ [<ffffffff818b18fd>] sysctl_ipv4_init+0x40/0x87
+ [<ffffffff810002df>] do_one_initcall+0x3f/0x170
+ [<ffffffff81884d44>] kernel_init+0x158/0x1e2
+ [<ffffffff8102fb54>] kernel_thread_helper+0x4/0x10
+ [<ffffffff81884bec>] ? kernel_init+0x0/0x1e2
+ [<ffffffff8102fb50>] ? kernel_thread_helper+0x0/0x10
+sysctl table check failed: /net/ipv4/tcp_mem  No max
+Pid: 1, comm: swapper Not tainted 2.6.36-rc7-mm1_64+ #1285
+Call Trace:
+ [<ffffffff8108d444>] set_fail+0xa4/0xf0
+ [<ffffffff8108d4da>] sysctl_check_table+0x4a/0x310
+ [<ffffffff8108d4eb>] sysctl_check_table+0x5b/0x310
+ [<ffffffff8108d4eb>] sysctl_check_table+0x5b/0x310
+ [<ffffffff81072204>] __register_sysctl_paths+0xf4/0x320
+ [<ffffffff815c1232>] ? printk+0x3c/0x42
+ [<ffffffff8115d3bc>] ? sysfs_add_file+0xc/0x10
+ [<ffffffff818b18bd>] ? sysctl_ipv4_init+0x0/0x87
+ [<ffffffff81072456>] register_sysctl_paths+0x26/0x30
+ [<ffffffff818b18fd>] sysctl_ipv4_init+0x40/0x87
+ [<ffffffff810002df>] do_one_initcall+0x3f/0x170
+ [<ffffffff81884d44>] kernel_init+0x158/0x1e2
+ [<ffffffff8102fb54>] kernel_thread_helper+0x4/0x10
+ [<ffffffff81884bec>] ? kernel_init+0x0/0x1e2
+ [<ffffffff8102fb50>] ? kernel_thread_helper+0x0/0x10
+sysctl table check failed: /net/ipv4/udp_mem  No min
+Pid: 1, comm: swapper Not tainted 2.6.36-rc7-mm1_64+ #1285
+Call Trace:
+ [<ffffffff8108d444>] set_fail+0xa4/0xf0
+ [<ffffffff8108d736>] sysctl_check_table+0x2a6/0x310
+ [<ffffffff8108d4eb>] sysctl_check_table+0x5b/0x310
+ [<ffffffff8108d4eb>] sysctl_check_table+0x5b/0x310
+ [<ffffffff81072204>] __register_sysctl_paths+0xf4/0x320
+ [<ffffffff815c1232>] ? printk+0x3c/0x42
+ [<ffffffff8115d3bc>] ? sysfs_add_file+0xc/0x10
+ [<ffffffff818b18bd>] ? sysctl_ipv4_init+0x0/0x87
+ [<ffffffff81072456>] register_sysctl_paths+0x26/0x30
+ [<ffffffff818b18fd>] sysctl_ipv4_init+0x40/0x87
+ [<ffffffff810002df>] do_one_initcall+0x3f/0x170
+ [<ffffffff81884d44>] kernel_init+0x158/0x1e2
+ [<ffffffff8102fb54>] kernel_thread_helper+0x4/0x10
+ [<ffffffff81884bec>] ? kernel_init+0x0/0x1e2
+ [<ffffffff8102fb50>] ? kernel_thread_helper+0x0/0x10
+sysctl table check failed: /net/ipv4/udp_mem  No max
+Pid: 1, comm: swapper Not tainted 2.6.36-rc7-mm1_64+ #1285
+Call Trace:
+ [<ffffffff8108d444>] set_fail+0xa4/0xf0
+ [<ffffffff8108d4da>] sysctl_check_table+0x4a/0x310
+ [<ffffffff8108d4eb>] sysctl_check_table+0x5b/0x310
+ [<ffffffff8108d4eb>] sysctl_check_table+0x5b/0x310
+ [<ffffffff81072204>] __register_sysctl_paths+0xf4/0x320
+ [<ffffffff815c1232>] ? printk+0x3c/0x42
+ [<ffffffff8115d3bc>] ? sysfs_add_file+0xc/0x10
+ [<ffffffff818b18bd>] ? sysctl_ipv4_init+0x0/0x87
+ [<ffffffff81072456>] register_sysctl_paths+0x26/0x30
+ [<ffffffff818b18fd>] sysctl_ipv4_init+0x40/0x87
+ [<ffffffff810002df>] do_one_initcall+0x3f/0x170
+ [<ffffffff81884d44>] kernel_init+0x158/0x1e2
+ [<ffffffff8102fb54>] kernel_thread_helper+0x4/0x10
+ [<ffffffff81884bec>] ? kernel_init+0x0/0x1e2
+ [<ffffffff8102fb50>] ? kernel_thread_helper+0x0/0x10
 
-regbuf =3D kmalloc(max(regs.len, ops->get_regs_len(dev)), GFP_USER);
-
-If the user passes regs.len =3D 1, it will be ignored in favor of regle=
-n,
-so we'll not write past the end of regbuf, unless I'm misunderstanding.
-
--Kees
-
---=20
-Kees Cook
-Ubuntu Security Team
+regards,
+-- 
+js
