@@ -1,83 +1,50 @@
-From: "George G. Davis" <gdavis@mvista.com>
-Subject: Re: Segmentation fault when using ping6
-Date: Thu, 7 Oct 2010 09:04:28 -0400
-Message-ID: <20101007130428.GA22471@mvista.com>
-References: <4CADBC7A.6060908@freescale.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH net-next-2.6] net: Update kernel-doc for
+ netif_set_real_num_rx_queues()
+Date: Thu, 07 Oct 2010 14:08:11 +0100
+Message-ID: <1286456891.2271.1.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
-To: Rogerio Pimentel <rogerio.pimentel@freescale.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, john.r.fastabend@intel.com,
+	therbert@google.com, Eric Dumazet <eric.dumazet@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f181.google.com ([209.85.216.181]:48772 "EHLO
-	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760503Ab0JGNEc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Oct 2010 09:04:32 -0400
-Received: by qyk10 with SMTP id 10so773069qyk.19
-        for <netdev@vger.kernel.org>; Thu, 07 Oct 2010 06:04:32 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <4CADBC7A.6060908@freescale.com>
+Received: from mail.solarflare.com ([216.237.3.220]:8148 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753953Ab0JGNIP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Oct 2010 09:08:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 07, 2010 at 09:26:34AM -0300, Rogerio Pimentel wrote:
-> Hi,
-> 
-> I'm having a "segmentation fault" problem when using ping6.
-> 
-> When testing on ARM9 platforms (i.MX25 and i.MX27), it returns the error:
-> 
-> root@freescale ~$ ping6 ::1
-> PING ::1 (::1): 56 data bytes
-> Segmentation fault
-> 
-> When testing on ARM11 and ARM Cortex A8 platforms (i.MX31 and
-> i.MX51), it works:
-> 
-> root@freescale ~$ ping6 ::1
-> PING ::1 (::1): 56 data bytes
-> 64 bytes from ::1: seq=0 ttl=64 time=0.331 ms
-> 64 bytes from ::1: seq=1 ttl=64 time=0.214 ms
-> 64 bytes from ::1: seq=2 ttl=64 time=0.176 ms
-> 64 bytes from ::1: seq=3 ttl=64 time=0.155 ms
-> 
-> On all cases, I'm using Linux Kernel 2.6.35 (from Mainline) and
-> Busybox 1.15.0
-> 
-> Does anybody have any idea?
+Synchronise the comment with the preceding implementation change.
 
-Random guess is that you may be using a userland tuned for ARMv6 or later
-but trying to run that on <ARMv6 machines.
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ net/core/dev.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-You can enable this to see what's going wrong:
+diff --git a/net/core/dev.c b/net/core/dev.c
+index f78d996..599a1fa 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1575,8 +1575,8 @@ EXPORT_SYMBOL(netif_set_real_num_tx_queues);
+  *
+  *	This must be called either with the rtnl_lock held or before
+  *	registration of the net device.  Returns 0 on success, or a
+- *	negative error code.  If called before registration, it also
+- *	sets the maximum number of queues, and always succeeds.
++ *	negative error code.  If called before registration, it always
++ *	succeeds.
+  */
+ int netif_set_real_num_rx_queues(struct net_device *dev, unsigned int rxq)
+ {
+-- 
+1.7.2.1
 
-config DEBUG_USER
-        bool "Verbose user fault messages"
-        help
-          When a user program crashes due to an exception, the kernel can
-          print a brief message explaining what the problem was. This is
-          sometimes helpful for debugging but serves no purpose on a
-          production system. Most people should say N here.
 
-          In addition, you need to pass user_debug=N on the kernel command
-          line to enable this feature.  N consists of the sum of:
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
-              1 - undefined instruction events
-              2 - system calls
-              4 - invalid data aborts
-              8 - SIGSEGV faults
-             16 - SIGBUS faults
-
---
-Regards,
-George
-
-> 
-> Thanks in advance,
-> 
-> Rogerio Pimentel
-> 
-> 
-> _______________________________________________
-> linux-arm-kernel mailing list
-> linux-arm-kernel@lists.infradead.org
-> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
