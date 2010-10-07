@@ -1,23 +1,25 @@
-From: Greg KH <greg@kroah.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
 Subject: Re: [PATCH V2] Use firmware provided index to register a network
  interface
-Date: Thu, 7 Oct 2010 08:11:34 -0700
-Message-ID: <20101007151134.GA25713@kroah.com>
+Date: Thu, 7 Oct 2010 09:14:44 -0700
+Message-ID: <20101007091444.7a2e95d4@nehalam>
 References: <20101007142319.GB2641@libnet-test.oslab.blr.amer.dell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-hotplug@vger.kernel.org,
-	linux-pci@vger.kernel.org, Matt_Domsch@Dell.com,
-	Jordan_Hargrave@Dell.com, Vijay_Nijhawan@Dell.com,
-	Charles_Rose@Dell.com
-To: Narendra_K@Dell.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-hotplug@vger.kernel.org>,
+	<linux-pci@vger.kernel.org>, <Matt_Domsch@Dell.com>,
+	<Jordan_Hargrave@Dell.com>, <Vijay_Nijhawan@Dell.com>,
+	<Charles_Rose@Dell.com>
+To: <Narendra_K@Dell.com>
 Return-path: <linux-pci-owner@vger.kernel.org>
-Content-Disposition: inline
 In-Reply-To: <20101007142319.GB2641@libnet-test.oslab.blr.amer.dell.com>
 Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 07, 2010 at 07:23:35AM -0700, Narendra_K@Dell.com wrote:
+On Thu, 7 Oct 2010 07:23:35 -0700
+<Narendra_K@Dell.com> wrote:
+
 > Hello,
 > 
 > V1 -> V2:
@@ -36,13 +38,15 @@ On Thu, Oct 07, 2010 at 07:23:35AM -0700, Narendra_K@Dell.com wrote:
 > This patch uses the firmware provided index to derive the ethN name.
 > If the firmware provides an index for the corresponding pdev, the N
 > is derived from the index.
+> 
+> As an example, consider a PowerEdge R710 which has 4 BCM5709
+> Lan-On-Motherboard ports,1 Intel 82572EI port and 4 82575GB ports.
+> The system firmware communicates the order of the 4 Lan-On-Motherboard
+> ports by assigning indexes to each one of them. This is available to
+> the OS as the SMBIOS type 41 record(for onboard devices), in the field
+> 'device type index'. It looks like below -
 
-No, this has the very big chance to reorder existing network names and
-should all be done in userspace with the firmware information exported
-in sysfs, if the user so desires.
-
-So consider this patch rejected from me.
-
-thanks,
-
-greg k-h
+I agree with Greg. Provide the firmware index in sysfs for use
+in udev userspace and let udev do the policy on the naming.
+The firmware index could be missing, wrong, or interesting on only
+some devices.
