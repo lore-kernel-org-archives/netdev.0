@@ -1,27 +1,31 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
+From: Kees Cook <kees.cook@canonical.com>
 Subject: Re: [PATCH] net: clear heap allocations for privileged ethtool
  actions
-Date: Thu, 07 Oct 2010 22:40:07 +0100
-Message-ID: <1286487607.2271.42.camel@achroite.uk.solarflarecom.com>
+Date: Thu, 7 Oct 2010 14:40:21 -0700
+Message-ID: <20101007214021.GL14666@outflux.net>
 References: <20101007211004.GA20267@outflux.net>
-	 <1286487085.3745.99.camel@edumazet-laptop>
+ <1286487085.3745.99.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Kees Cook <kees.cook@canonical.com>, linux-kernel@vger.kernel.org,
+Cc: linux-kernel@vger.kernel.org,
 	"David S. Miller" <davem@davemloft.net>,
+	Ben Hutchings <bhutchings@solarflare.com>,
 	Jeff Garzik <jgarzik@redhat.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
 	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
 	netdev@vger.kernel.org
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
 In-Reply-To: <1286487085.3745.99.camel@edumazet-laptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2010-10-07 at 23:31 +0200, Eric Dumazet wrote:
-> Le jeudi 07 octobre 2010 =C3=A0 14:10 -0700, Kees Cook a =C3=A9crit :
+Hi Eric,
+
+On Thu, Oct 07, 2010 at 11:31:25PM +0200, Eric Dumazet wrote:
+> Le jeudi 07 octobre 2010 =E0 14:10 -0700, Kees Cook a =E9crit :
 > > Several other ethtool functions leave heap uncleared (potentially) =
 by
 > > drivers. Some interfaces appear safe (eeprom, etc), in that the siz=
@@ -40,10 +44,6 @@ dev, char __user *useraddr)
 > > =20
 > > -	regbuf =3D kmalloc(reglen, GFP_USER);
 > > +	regbuf =3D kzalloc(reglen, GFP_USER);
-
-Actually, I recently changed this to vmalloc() so your patch won't
-apply.
-
 > >  	if (!regbuf)
 > >  		return -ENOMEM;
 > > =20
@@ -67,20 +67,17 @@ r
 > get_regs() doesnt properly checks regs.len and write past end of regb=
 uf
 > -> We probably write on other parts of kernel memory
-[...]
 
-Why should the driver's get_regs() check regs.len?  The buffer is
-allocated based on reglen which is provided by the driver, not the user=
-=2E
+This code is basically a max() call from what I see.
 
-reglen (length of the kernel buffer) is not reduced; regs.len (length o=
-f
-the user buffer) is.  That lets the user know how much of the user
-buffer was actually used.
+regbuf =3D kmalloc(max(regs.len, ops->get_regs_len(dev)), GFP_USER);
 
-Ben.
+If the user passes regs.len =3D 1, it will be ignored in favor of regle=
+n,
+so we'll not write past the end of regbuf, unless I'm misunderstanding.
+
+-Kees
 
 --=20
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Kees Cook
+Ubuntu Security Team
