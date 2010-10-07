@@ -1,46 +1,41 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [RFC] net: allow FEC driver to not have attached PHY
-Date: Thu, 07 Oct 2010 14:11:11 +0100
-Message-ID: <1286457071.2271.4.camel@achroite.uk.solarflarecom.com>
-References: <201010070350.o973oGFE026910@goober.internal.moreton.com.au>
+Subject: Re: [PATCH] ethtool: add the stmmac support
+Date: Thu, 07 Oct 2010 14:13:31 +0100
+Message-ID: <1286457211.2271.7.camel@achroite.uk.solarflarecom.com>
+References: <1285667519-4621-1-git-send-email-peppe.cavallaro@st.com>
+	 <4CAC0AE8.2060808@st.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gerg@uclinux.org
-To: Greg Ungerer <gerg@snapgear.com>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Peppe CAVALLARO <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:8383 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:8568 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760537Ab0JGNLO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Oct 2010 09:11:14 -0400
-In-Reply-To: <201010070350.o973oGFE026910@goober.internal.moreton.com.au>
+	with ESMTP id S1754100Ab0JGNNe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Oct 2010 09:13:34 -0400
+In-Reply-To: <4CAC0AE8.2060808@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-10-07 at 13:50 +1000, Greg Ungerer wrote:
-> Hi All,
+On Wed, 2010-10-06 at 07:36 +0200, Peppe CAVALLARO wrote:
+> Hello,
 > 
-> I have a board with a ColdFire SoC on it with the built-in FEC
-> ethernet module. On this hardware the FEC eth output is directly
-> attached to a RTL8305 4-port 10/100 switch. There is no conventional
-> PHY, the FEC output is direct into the uplink port of the switch
-> chip.
+> On 09/28/2010 11:51 AM, Giuseppe CAVALLARO wrote:
+> > Add the stmmac support into the ethtool to
+> > dump both the Mac Core and Dma registers.
 > 
-> This setup doesn't work after the FEC code was switch to using
-> phylib. The driver used to have code to bypass phy detection/setup
-> for this particular board. The phylib probe finds nothing, and of
-> course sets a no-link condition.
+> Any news for this patch?
 > 
-> So, what is the cleanest way to support this?
+> The stmmac is now working on several platforms (not only on STM ST40
+> based boxes). I think it's worth having the ethtool support for the driver.
 > 
-> The attached patch adds a config option to do this sort of generically
-> for the FEC driver. But I am wondering if there isn't a better way?
+> Welcome review and advice as usual.
 [...]
 
-Perhaps there could be a null PHY driver which does no MDIO and always
-reports link-up at the expected speed and duplex.  We used something
-like that in the sfc driver for some PHY-less boards (though we use our
-own PHY abstraction, not phylib).
+You need to send ethtool patches to the ethtool maintainer, Jeff Garzik
+<jgarzik@pobox.com>.  I expect he'll make an ethtool release shortly
+after Linux 2.6.36, and will apply patches then.
 
 Ben.
 
