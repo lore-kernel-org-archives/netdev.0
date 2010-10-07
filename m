@@ -1,72 +1,60 @@
-From: arno@natisbad.org (Arnaud Ebalard)
-Subject: Re: [PATCHv4 net-next-2.6 1/5] XFRM,IPv6: Remove xfrm_spi_hash() dependency on destination address
-Date: Thu, 07 Oct 2010 22:13:04 +0200
-Message-ID: <87fwwhoj73.fsf@small.ssi.corp>
-References: <cover.1286139128.git.arno@natisbad.org>
-	<5a0e320544e253cc903cfd3292600b6bec044a5f.1286139129.git.arno@natisbad.org>
-	<20101004083306.GA17939@gondor.apana.org.au>
-	<8739sl8yw5.fsf@small.ssi.corp>
-	<20101005021114.GA25681@gondor.apana.org.au>
-	<20101005041707.GA26458@gondor.apana.org.au>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] net: clear heap allocation for ETHTOOL_GRXCLSRLALL
+Date: Thu, 07 Oct 2010 21:28:58 +0100
+Message-ID: <1286483338.2271.34.camel@achroite.uk.solarflarecom.com>
+References: <20101007200348.GA6038@outflux.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Jeff Garzik <jgarzik@redhat.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
 	netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from copper.chdir.org ([88.191.97.87]:57835 "EHLO copper.chdir.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754900Ab0JGUMS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Oct 2010 16:12:18 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Kees Cook <kees.cook@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20101007200348.GA6038@outflux.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Thu, 2010-10-07 at 13:03 -0700, Kees Cook wrote:
+> Calling ETHTOOL_GRXCLSRLALL with a large rule_cnt will allocate kernel
+> heap without clearing it. For the one driver (niu) that implements it,
+> it will leave the unused portion of heap unchanged and copy the full
+> contents back to userspace.
+> 
+> Cc: stable@kernel.org
+> Signed-off-by: Kees Cook <kees.cook@canonical.com>
 
-Herbert Xu <herbert@gondor.apana.org.au> writes:
+Acked-by: Ben Hutchings <bhutchings@solarflare.com>
 
-> On Tue, Oct 05, 2010 at 10:11:14AM +0800, Herbert Xu wrote:
->>
->> I'm thinking about the case where each remote end (or one remote
->> end with many IP addresses) chooses to use a single SPI which then
->> all gets hashed to the same bucket.
->> 
->> Outbound SAs are hashed into the same SPI hash table as inbound SAs.
->
-> Another solution would be to create a hash table for inbound SAs
-> only.  Unfortunately I don't think we have anything in our current
-> user-interface to indicate whether an SA is inbound or outbound.
->
-> So to do this you'll need to use a heuristic such as doing a
-> lookup on the source/destination address at insertion time.
+Should have spotted this myself. :-(
 
-I spent some time scratching my head trying to find a good solution. It
-would indeed be perfect to have a specific hash table for inbound
-SA. But as you point, this would only be via a heuristic at insertion
-time and there are various cases which would not work: a SA can be
-installed w/o any of the addresses being configured on the system.
+Ben.
 
-I think I will try the following alternative approach based on your
-comments and proposals:
+> ---
+>  net/core/ethtool.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+> index 7a85367..4016ac6 100644
+> --- a/net/core/ethtool.c
+> +++ b/net/core/ethtool.c
+> @@ -348,7 +348,7 @@ static noinline_for_stack int ethtool_get_rxnfc(struct net_device *dev,
+>  	if (info.cmd == ETHTOOL_GRXCLSRLALL) {
+>  		if (info.rule_cnt > 0) {
+>  			if (info.rule_cnt <= KMALLOC_MAX_SIZE / sizeof(u32))
+> -				rule_buf = kmalloc(info.rule_cnt * sizeof(u32),
+> +				rule_buf = kzalloc(info.rule_cnt * sizeof(u32),
+>  						   GFP_USER);
+>  			if (!rule_buf)
+>  				return -ENOMEM;
+> -- 
+> 1.7.1
+> 
 
- - drop my patch to change spi hash computation
- - handle destination address remapping during input upon failure of
-   xfrm_state_lookup()
- - handle source address remapping as it is currently done in the patch,
-   i.e. by comparing received one against x->props.saddr once the
-   state found and do 
-
-To support the destination address remapping, I will have to reverse the
-logic I currently have for destination remapping states, to allow the
-lookup to be done based on the on-wire address (CoA) instead of the
-address in the SA (HoA). If a remapping state is found for the on-wire
-address, then a new lookup is done using the associated HoA this time.
-
-I think it would make the feature easier less intrusive for the IPsec
-stack.
-
-Thanks for your support and patience, Herbert.
-
-a+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
