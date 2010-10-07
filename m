@@ -1,47 +1,48 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next-2.6] net: Update kernel-doc for
- netif_set_real_num_rx_queues()
-Date: Thu, 07 Oct 2010 14:08:11 +0100
-Message-ID: <1286456891.2271.1.camel@achroite.uk.solarflarecom.com>
+Subject: Re: [RFC] net: allow FEC driver to not have attached PHY
+Date: Thu, 07 Oct 2010 14:11:11 +0100
+Message-ID: <1286457071.2271.4.camel@achroite.uk.solarflarecom.com>
+References: <201010070350.o973oGFE026910@goober.internal.moreton.com.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, john.r.fastabend@intel.com,
-	therbert@google.com, Eric Dumazet <eric.dumazet@gmail.com>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, gerg@uclinux.org
+To: Greg Ungerer <gerg@snapgear.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:8148 "EHLO
+Received: from exchange.solarflare.com ([216.237.3.220]:8383 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753953Ab0JGNIP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Oct 2010 09:08:15 -0400
+	with ESMTP id S1760537Ab0JGNLO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Oct 2010 09:11:14 -0400
+In-Reply-To: <201010070350.o973oGFE026910@goober.internal.moreton.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Synchronise the comment with the preceding implementation change.
+On Thu, 2010-10-07 at 13:50 +1000, Greg Ungerer wrote:
+> Hi All,
+> 
+> I have a board with a ColdFire SoC on it with the built-in FEC
+> ethernet module. On this hardware the FEC eth output is directly
+> attached to a RTL8305 4-port 10/100 switch. There is no conventional
+> PHY, the FEC output is direct into the uplink port of the switch
+> chip.
+> 
+> This setup doesn't work after the FEC code was switch to using
+> phylib. The driver used to have code to bypass phy detection/setup
+> for this particular board. The phylib probe finds nothing, and of
+> course sets a no-link condition.
+> 
+> So, what is the cleanest way to support this?
+> 
+> The attached patch adds a config option to do this sort of generically
+> for the FEC driver. But I am wondering if there isn't a better way?
+[...]
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- net/core/dev.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+Perhaps there could be a null PHY driver which does no MDIO and always
+reports link-up at the expected speed and duplex.  We used something
+like that in the sfc driver for some PHY-less boards (though we use our
+own PHY abstraction, not phylib).
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index f78d996..599a1fa 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1575,8 +1575,8 @@ EXPORT_SYMBOL(netif_set_real_num_tx_queues);
-  *
-  *	This must be called either with the rtnl_lock held or before
-  *	registration of the net device.  Returns 0 on success, or a
-- *	negative error code.  If called before registration, it also
-- *	sets the maximum number of queues, and always succeeds.
-+ *	negative error code.  If called before registration, it always
-+ *	succeeds.
-  */
- int netif_set_real_num_rx_queues(struct net_device *dev, unsigned int rxq)
- {
--- 
-1.7.2.1
-
+Ben.
 
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
