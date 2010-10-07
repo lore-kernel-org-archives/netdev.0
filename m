@@ -1,108 +1,96 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: pull request: wireless-2.6 2010-10-07
-Date: Thu, 7 Oct 2010 14:58:59 -0400
-Message-ID: <20101007185859.GD20950@tuxdriver.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH] sysctl: fix min/max handling in
+ __do_proc_doulongvec_minmax()
+Date: Thu, 7 Oct 2010 12:18:40 -0700
+Message-ID: <20101007121840.ca49e2ac.akpm@linux-foundation.org>
+References: <1286025469.2582.1806.camel@edumazet-laptop>
+	<20101004085913.GR14068@sgi.com>
+	<1286183058.18293.26.camel@edumazet-laptop>
+	<20101004093439.GG5189@cr0.nay.redhat.com>
+	<1286187030.18293.33.camel@edumazet-laptop>
+	<20101004103545.GJ5189@cr0.nay.redhat.com>
+	<1286188701.18293.57.camel@edumazet-laptop>
+	<20101005130117.GK5170@cr0.nay.redhat.com>
+	<20101007071859.GD5471@cr0.nay.redhat.com>
+	<20101007092538.GE5471@cr0.nay.redhat.com>
+	<1286445081.2912.15.camel@edumazet-laptop>
+	<m1iq1e3qnn.fsf@fess.ebiederm.org>
+	<1286470743.2912.276.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:58320 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753050Ab0JGTAF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Oct 2010 15:00:05 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	=?ISO-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>,
+	Robin Holt <holt@sgi.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Willy Tarreau <w@1wt.eu>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	James Morris <jmorris@namei.org>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	Patrick McHardy <kaber@trash.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1286470743.2912.276.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dave,
+On Thu, 07 Oct 2010 18:59:03 +0200
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-Here are a few more more-or-less-one-liner fixes intended for 2.6.36.
-The one from Felix fixes a regression introduced in the 2.6.36 cycle.
-The one from Johannes fixes a crash reported by Ben Greear (as
-documented in the changelog).  The one from me reverts and earlier patch
-from me that can result in stuff in dmesg from not calling
-netif_receive_skb in the proper context.
+> Le jeudi 07 octobre 2010 __ 09:37 -0700, Eric W. Biederman a __crit :
+> 
+> > The difference between long handling and int handling is a
+> > usability issue.  I don't expect we will be exporting new
+> > vectors via sysctl, so the conversion of a handful of vectors
+> > from int to long is where this is most likely to be used.
+> > 
+> > I skimmed through all of what I presume are the current users
+> > aka linux-2.6.36-rcX and there don't appear to be any users
+> > of proc_dounlongvec_minmax that use it's vector properties there.
+> > 
+> > Which doubly tells me that incrementing the min and max pointers
+> > is not what we want to do.
+> > 
+> 
+> Thats fine by me, thanks Eric.
+> 
+> Andrew, please remove previous patch from your tree and replace it by
+> following one :
+> 
+> [PATCH v2] sysctl: fix min/max handling in __do_proc_doulongvec_minmax()
+> 
+> When proc_doulongvec_minmax() is used with an array of longs,
+> and no min/max check requested (.extra1 or .extra2 being NULL), we
+> dereference a NULL pointer for the second element of the array.
+> 
+> Noticed while doing some changes in network stack for the "16TB problem"
+> 
+> Fix is to not change min & max pointers in
+> __do_proc_doulongvec_minmax(), so that all elements of the vector share
+> an unique min/max limit, like proc_dointvec_minmax().
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> ---
+>  kernel/sysctl.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/kernel/sysctl.c b/kernel/sysctl.c
+> index f88552c..8e45451 100644
+> --- a/kernel/sysctl.c
+> +++ b/kernel/sysctl.c
+> @@ -2485,7 +2485,7 @@ static int __do_proc_doulongvec_minmax(void *data, struct ctl_table *table, int
+>  		kbuf[left] = 0;
+>  	}
+>  
+> -	for (; left && vleft--; i++, min++, max++, first=0) {
+> +	for (; left && vleft--; i++, first=0) {
+>  		unsigned long val;
+>  
+>  		if (write) {
 
-Please let me know if there are problems!
+Did we check to see whether any present callers are passing in pointers
+to arrays of min/max values?
 
-Thanks,
-
-John
-
----
-
-The following changes since commit fb3dbece264a50ab4373f3af0bbbd9175d3ad4d7:
-
-  Merge branch 'master' of git://git.kernel.org/pub/scm/linux/kernel/git/padovan/bluetooth-2.6 (2010-10-07 00:59:39 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git master
-
-Felix Fietkau (1):
-      ath9k_hw: fix regression in ANI listen time calculation
-
-Johannes Berg (1):
-      mac80211: delete AddBA response timer
-
-John W. Linville (1):
-      Revert "mac80211: use netif_receive_skb in ieee80211_tx_status callpath"
-
- drivers/net/wireless/ath/ath9k/ani.c |    2 +-
- net/mac80211/agg-tx.c                |    2 ++
- net/mac80211/status.c                |    4 ++--
- 3 files changed, 5 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/wireless/ath/ath9k/ani.c b/drivers/net/wireless/ath/ath9k/ani.c
-index cc648b6..a3d95cc 100644
---- a/drivers/net/wireless/ath/ath9k/ani.c
-+++ b/drivers/net/wireless/ath/ath9k/ani.c
-@@ -543,7 +543,7 @@ static u8 ath9k_hw_chan_2_clockrate_mhz(struct ath_hw *ah)
- 	if (conf_is_ht40(conf))
- 		return clockrate * 2;
- 
--	return clockrate * 2;
-+	return clockrate;
- }
- 
- static int32_t ath9k_hw_ani_get_listen_time(struct ath_hw *ah)
-diff --git a/net/mac80211/agg-tx.c b/net/mac80211/agg-tx.c
-index c893f23..8f23401 100644
---- a/net/mac80211/agg-tx.c
-+++ b/net/mac80211/agg-tx.c
-@@ -175,6 +175,8 @@ int ___ieee80211_stop_tx_ba_session(struct sta_info *sta, u16 tid,
- 
- 	set_bit(HT_AGG_STATE_STOPPING, &tid_tx->state);
- 
-+	del_timer_sync(&tid_tx->addba_resp_timer);
-+
- 	/*
- 	 * After this packets are no longer handed right through
- 	 * to the driver but are put onto tid_tx->pending instead,
-diff --git a/net/mac80211/status.c b/net/mac80211/status.c
-index 10caec5..34da679 100644
---- a/net/mac80211/status.c
-+++ b/net/mac80211/status.c
-@@ -377,7 +377,7 @@ void ieee80211_tx_status(struct ieee80211_hw *hw, struct sk_buff *skb)
- 				skb2 = skb_clone(skb, GFP_ATOMIC);
- 				if (skb2) {
- 					skb2->dev = prev_dev;
--					netif_receive_skb(skb2);
-+					netif_rx(skb2);
- 				}
- 			}
- 
-@@ -386,7 +386,7 @@ void ieee80211_tx_status(struct ieee80211_hw *hw, struct sk_buff *skb)
- 	}
- 	if (prev_dev) {
- 		skb->dev = prev_dev;
--		netif_receive_skb(skb);
-+		netif_rx(skb);
- 		skb = NULL;
- 	}
- 	rcu_read_unlock();
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+I wonder if there's any documentation for this interface which just
+became wrong.
