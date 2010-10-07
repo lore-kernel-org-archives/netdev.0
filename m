@@ -1,92 +1,86 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH] sysctl: fix min/max handling in __do_proc_doulongvec_minmax()
-Date: Thu, 07 Oct 2010 12:38:22 -0700
-Message-ID: <m1vd5d3ia9.fsf@fess.ebiederm.org>
-References: <1286025469.2582.1806.camel@edumazet-laptop>
-	<20101004085913.GR14068@sgi.com>
-	<1286183058.18293.26.camel@edumazet-laptop>
-	<20101004093439.GG5189@cr0.nay.redhat.com>
-	<1286187030.18293.33.camel@edumazet-laptop>
-	<20101004103545.GJ5189@cr0.nay.redhat.com>
-	<1286188701.18293.57.camel@edumazet-laptop>
-	<20101005130117.GK5170@cr0.nay.redhat.com>
-	<20101007071859.GD5471@cr0.nay.redhat.com>
-	<20101007092538.GE5471@cr0.nay.redhat.com>
-	<1286445081.2912.15.camel@edumazet-laptop>
-	<m1iq1e3qnn.fsf@fess.ebiederm.org>
-	<1286470743.2912.276.camel@edumazet-laptop>
-	<20101007121840.ca49e2ac.akpm@linux-foundation.org>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: ixgbe: normalize frag_list usage
+Date: Thu, 07 Oct 2010 12:59:14 -0700
+Message-ID: <4CAE2692.8020401@intel.com>
+References: <4CAA1722.7070405@intel.com>	<20101004.113258.212671454.davem@davemloft.net>	<80769D7B14936844A23C0C43D9FBCF0F25B97A24B5@orsmsx501.amr.corp.intel.com> <20101006.235837.241424681.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	=?utf-8?Q?Am=C3=A9rico?= Wang <xiyou.wangcong@gmail.com>,
-	Robin Holt <holt@sgi.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Willy Tarreau <w@1wt.eu>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	James Morris <jmorris@namei.org>,
-	"Pekka Savola \(ipv6\)" <pekkas@netcore.fi>,
-	Patrick McHardy <kaber@trash.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20101007121840.ca49e2ac.akpm@linux-foundation.org> (Andrew
-	Morton's message of "Thu, 7 Oct 2010 12:18:40 -0700")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:44629 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754684Ab0JGT7U (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Oct 2010 15:59:20 -0400
+In-Reply-To: <20101006.235837.241424681.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Andrew Morton <akpm@linux-foundation.org> writes:
-
-> On Thu, 07 Oct 2010 18:59:03 +0200
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
-
->> Thats fine by me, thanks Eric.
->> 
->> Andrew, please remove previous patch from your tree and replace it by
->> following one :
->> 
->> [PATCH v2] sysctl: fix min/max handling in __do_proc_doulongvec_minmax()
->> 
->> When proc_doulongvec_minmax() is used with an array of longs,
->> and no min/max check requested (.extra1 or .extra2 being NULL), we
->> dereference a NULL pointer for the second element of the array.
->> 
->> Noticed while doing some changes in network stack for the "16TB problem"
->> 
->> Fix is to not change min & max pointers in
->> __do_proc_doulongvec_minmax(), so that all elements of the vector share
->> an unique min/max limit, like proc_dointvec_minmax().
->> 
->> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
->> ---
->>  kernel/sysctl.c |    2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
->> 
->> diff --git a/kernel/sysctl.c b/kernel/sysctl.c
->> index f88552c..8e45451 100644
->> --- a/kernel/sysctl.c
->> +++ b/kernel/sysctl.c
->> @@ -2485,7 +2485,7 @@ static int __do_proc_doulongvec_minmax(void *data, struct ctl_table *table, int
->>  		kbuf[left] = 0;
->>  	}
->>  
->> -	for (; left && vleft--; i++, min++, max++, first=0) {
->> +	for (; left && vleft--; i++, first=0) {
->>  		unsigned long val;
->>  
->>  		if (write) {
+On 10/6/2010 11:58 PM, David Miller wrote:
+> From: "Duyck, Alexander H"<alexander.h.duyck@intel.com>
+> Date: Tue, 5 Oct 2010 15:45:32 -0700
 >
-> Did we check to see whether any present callers are passing in pointers
-> to arrays of min/max values?
+>> The patch below is kind of what I had in mind for a way to do RSC and maintain
+>> the pointer scheme you are looking for.  Consider this patch an RFC for now
+>> since I based this off of Jeff's internal testing tree and so it would need
+>> some modification to apply cleanly to net-next.
+>
+> Can you really not remember the head somewhere?
 
-In 2.6.36 there are not any callers that pass in a vector of anything, I
-don't know about linux-next.  It looks to me like incrementing min and
-max was simply a bug.
+I can track it in the RSC_CB if that works for you.  Right now though I 
+guess I am not seeing the difference between tracking this in 
+skb->frag_next vs IXGBE_RSC_CB(skb)->frag_head.  I think it might help 
+if you were to provide some functions that demonstrate exactly what you 
+had in mind for frag list handling.  Specifically if you were to add a 
+function for merging a frag into the frag list, and for how you want to 
+approach cleaning up the skb->prev/frag_tail_tracker pointer when you 
+are cleaning up an active frag_list.
 
-> I wonder if there's any documentation for this interface which just
-> became wrong.
+> What I wanted is for everyone to build their frag list SKBs from head to tail,
+> always.  So that I could, as I mentioned in my original posting, do something
+> like:
 
-Or it just became right.  Clearly no one has been expecting min
-and max to be vectors.
+My change is doing just that.  It is building from head to tail.  The 
+only difference is that tail is tracking head since it has to be updated 
+after the tail is added, and then I can drop next/frag_next back to NULL.
 
-Eric
+> struct sk_buff {
+> 	union {
+> 		struct list_head list;
+> 		struct {
+> 			struct sk_buff	*frag_next;
+> 			struct sk_buff	*frag_tail_tracker;
+> 		};
+> 	};
+> };
+>
+> The ->frag_tail_tracker is only used in the head SKB to maintain where the
+> last SKB in the frag list is.
+
+That is what I was doing in the head skb.
+
+> You're tracking the head from the inner SKBs, such that my intended
+> conventions are not being followed.
+
+What I am doing is tracking the head from the tail skb.  The reason for 
+this is that I need some way to update the len, data_len, and truesize 
+after I have placed data in the tail via skb_put.  All of the other SKBs 
+in the frag list are just tracking the next like any other SKB in the 
+frag_list.
+
+Now that I think about it I guess the issue is that I am adding the SKB 
+to the frag_list before it is complete.  I will send another patch out 
+in the next couple of hours that should address most of the issues.
+
+Thanks,
+
+Alex
+
+
+
+
+
