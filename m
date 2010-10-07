@@ -1,50 +1,64 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [patch] IPVS: ip_vs_dbg_callid() is only needed for debugging
-Date: Thu, 7 Oct 2010 10:23:25 +0900
-Message-ID: <20101007012325.GA32392@verge.net.au>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net tree with the net-current tree
+Date: Thu, 7 Oct 2010 12:31:04 +1100
+Message-ID: <20101007123104.bf7a9808.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Wensong Zhang <wensong@linux-vs.org>, Julian Anastasov <ja@ssi.bg>,
-	Patrick McHardy <kaber@trash.net>
-To: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:55414 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756371Ab0JGBXd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Oct 2010 21:23:33 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Joe Perches <joe@perches.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-ip_vs_dbg_callid() and IP_VS_DEBUG_CALLID() are only needed
-it CONFIG_IP_VS_DEBUG is defined.
+Hi all,
 
-This resolves the following build warning when CONFIG_IP_VS_DEBUG is
-not defined.
+Today's linux-next merge of the net tree got a conflict in
+net/caif/caif_socket.c between commit
+79315068f4560f3f7bd6e9790190dcb43059770c ("caif: fix two caif_connect()
+bugs") from the net-current tree and commit
+b31fa5bad576cd8180a5ad70c648333b44320d44 ("net/caif: Use pr_fmt") from
+the net tree.
 
-net/netfilter/ipvs/ip_vs_pe_sip.c:11: warning: 'ip_vs_dbg_callid' defined but not used
+I fixed it up (see below) and can carry the fix as necessary.
+-- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-Reported-by: Patrick McHardy <kaber@trash.net>
-Signed-off-by: Simon Horman <horms@verge.net.au>
-
-Index: nf-next-2.6/net/netfilter/ipvs/ip_vs_pe_sip.c
-===================================================================
---- nf-next-2.6.orig/net/netfilter/ipvs/ip_vs_pe_sip.c	2010-10-07 10:17:54.000000000 +0900
-+++ nf-next-2.6/net/netfilter/ipvs/ip_vs_pe_sip.c	2010-10-07 10:18:33.000000000 +0900
-@@ -8,6 +8,7 @@
- #include <net/netfilter/nf_conntrack.h>
- #include <linux/netfilter/nf_conntrack_sip.h>
- 
-+#ifdef CONFIG_IP_VS_DEBUG
- static const char *ip_vs_dbg_callid(char *buf, size_t buf_len,
- 				    const char *callid, size_t callid_len,
- 				    int *idx)
-@@ -22,6 +23,7 @@ static const char *ip_vs_dbg_callid(char
- #define IP_VS_DEBUG_CALLID(callid, len)					\
- 	ip_vs_dbg_callid(ip_vs_dbg_buf, sizeof(ip_vs_dbg_buf),		\
- 			 callid, len, &ip_vs_dbg_idx)
-+#endif
- 
- static int get_callid(const char *dptr, unsigned int dataoff,
- 		      unsigned int datalen,
+diff --cc net/caif/caif_socket.c
+index 4bf28f2,abcba53..0000000
+--- a/net/caif/caif_socket.c
++++ b/net/caif/caif_socket.c
+@@@ -897,23 -888,14 +889,22 @@@ static int caif_connect(struct socket *
+  		cf_sk->sk.sk_state = CAIF_DISCONNECTED;
+  		goto out;
+  	}
+ -	dev = dev_get_by_index(sock_net(sk), ifindex);
+ +
+ +	err = -ENODEV;
+ +	rcu_read_lock();
+ +	dev = dev_get_by_index_rcu(sock_net(sk), ifindex);
+ +	if (!dev) {
+ +		rcu_read_unlock();
+ +		goto out;
+ +	}
+  	cf_sk->headroom = LL_RESERVED_SPACE_EXTRA(dev, headroom);
+ +	mtu = dev->mtu;
+ +	rcu_read_unlock();
+ +
+  	cf_sk->tailroom = tailroom;
+ -	cf_sk->maxframe = dev->mtu - (headroom + tailroom);
+ -	dev_put(dev);
+ +	cf_sk->maxframe = mtu - (headroom + tailroom);
+  	if (cf_sk->maxframe < 1) {
+- 		pr_warning("CAIF: %s(): CAIF Interface MTU too small (%u)\n",
+- 			   __func__, mtu);
+ -		pr_warn("CAIF Interface MTU too small (%d)\n", dev->mtu);
+ -		err = -ENODEV;
+++		pr_warn("CAIF Interface MTU too small (%d)\n", mtu);
+  		goto out;
+  	}
+  
