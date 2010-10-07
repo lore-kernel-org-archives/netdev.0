@@ -1,36 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: manual merge of the net tree with the net-current
- tree
-Date: Wed, 06 Oct 2010 19:35:27 -0700 (PDT)
-Message-ID: <20101006.193527.116390808.davem@davemloft.net>
-References: <20101007123104.bf7a9808.sfr@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, eric.dumazet@gmail.com,
-	joe@perches.com
-To: sfr@canb.auug.org.au
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20101007123104.bf7a9808.sfr@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: John Heffner <johnwheffner@gmail.com>
+Subject: [PATCH] TCP: Fix setting of snd_ssthresh in tcp_mtu_probe_success
+Date: Wed,  6 Oct 2010 23:41:53 -0400
+Message-ID: <1286422913-30034-1-git-send-email-johnwheffner@gmail.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:40775 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752430Ab0JGDl5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Oct 2010 23:41:57 -0400
+Received: by qwf7 with SMTP id 7so123400qwf.19
+        for <netdev@vger.kernel.org>; Wed, 06 Oct 2010 20:41:57 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Thu, 7 Oct 2010 12:31:04 +1100
+This looks like a simple typo that has gone unnoticed for some time.  The
+impact is relatively low but it's clearly wrong.
 
-> Hi all,
-> 
-> Today's linux-next merge of the net tree got a conflict in
-> net/caif/caif_socket.c between commit
-> 79315068f4560f3f7bd6e9790190dcb43059770c ("caif: fix two caif_connect()
-> bugs") from the net-current tree and commit
-> b31fa5bad576cd8180a5ad70c648333b44320d44 ("net/caif: Use pr_fmt") from
-> the net tree.
-> 
-> I fixed it up (see below) and can carry the fix as necessary.
+Signed-off-by: John Heffner <johnwheffner@gmail.com>
+---
+ net/ipv4/tcp_input.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Thanks Stephen, I'm merging net-2.6 into net-next-2.6 right now
-to resolve this.
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index f6fdd72..e4fbdae 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2874,7 +2874,7 @@ static void tcp_mtup_probe_success(struct sock *sk)
+ 		       icsk->icsk_mtup.probe_size;
+ 	tp->snd_cwnd_cnt = 0;
+ 	tp->snd_cwnd_stamp = tcp_time_stamp;
+-	tp->rcv_ssthresh = tcp_current_ssthresh(sk);
++	tp->snd_ssthresh = tcp_current_ssthresh(sk);
+ 
+ 	icsk->icsk_mtup.search_low = icsk->icsk_mtup.probe_size;
+ 	icsk->icsk_mtup.probe_size = 0;
+-- 
+1.7.0.4
 
-Thanks!
