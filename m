@@ -1,69 +1,89 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH] Use firmware provided index to register a network
-	interface
-Date: Thu, 7 Oct 2010 07:31:58 -0700
-Message-ID: <20101007143158.GA14913@kroah.com>
-References: <20100922183137.GA7607@auslistsprd01.us.dell.com> <20100922192228.GB29899@kroah.com> <EDA0A4495861324DA2618B4C45DCB3EE6A0AF8@blrx3m08.blr.amer.dell.com> <20100923152730.GA1261@kroah.com> <EDA0A4495861324DA2618B4C45DCB3EE6A0AFD@blrx3m08.blr.amer.dell.com> <20100923163336.GA15603@kroah.com> <20101007141433.GA2641@libnet-test.oslab.blr.amer.dell.com>
+From: Bernard Metzler <BMT-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>
+Subject: Re: [PATCH] SIW: iWARP Protocol headers
+Date: Thu, 7 Oct 2010 16:55:03 +0200
+Message-ID: <OF471D7C3A.9D0876D0-ONC12577B5.004CACAE-C12577B5.0051F207@ch.ibm.com>
+References: <1286393504.26136.31.camel@lap75545.ornl.gov>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-hotplug@vger.kernel.org,
-	linux-pci@vger.kernel.org, Matt_Domsch@Dell.com,
-	Charles_Rose@Dell.com, Jordan_Hargrave@Dell.com,
-	Vijay_Nijhawan@Dell.com
-To: Narendra_K@Dell.com
-Return-path: <linux-pci-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20101007141433.GA2641@libnet-test.oslab.blr.amer.dell.com>
-Sender: linux-pci-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Cc: Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>,
+	Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Dillow <dave-i1Mk8JYDVaaSihdK6806/g@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1286393504.26136.31.camel-FqX9LgGZnHWDB2HL1qBt2PIbXMQ5te18@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 07, 2010 at 07:44:57PM +0530, Narendra_K@Dell.com wrote:
-> On Thu, Sep 23, 2010 at 10:03:36PM +0530, Greg KH wrote:
-> >    On Thu, Sep 23, 2010 at 09:20:57PM +0530, Narendra_K@Dell.com wrote:
-> >    > > Now trying to change the kernel namespace itself seems like a bad hack
-> >    > > around this fact.
-> >    > >
-> >    >
-> >    > The patch does not change the existing kernel name space.
-> > 
-> >    You are "reordering it", right?
-> > 
-> >    > It adheres to the existing ethN name space with IFNAMSIZ length
-> >    > requirements. The patch only makes sure that eth0 always corresponds
-> >    > to what is labeled as 'Gb1' on server chassis, on systems where SMBIOS
-> >    > type 41 record is available. And removes the need for any renames for
-> >    > the interfaces which have a firmware index assigned by system
-> >    > firmware, as the very first name assigned by the kernel will be as
-> >    > expected and deterministic.
-> > 
-> >    And on systems with buggy firmware, what is going to happen here?  And
-> >    yes, there will be buggy BIOS tables, we can guarantee that, as this is
-> >    not something that Windows supports, right?
-> > 
-> 
-> It took some time to find out the details asked above. Right, windows
-> does not use SMBIOS type 41 record to derive names. But as a datapoint,
-> windows also has the same problem.
 
-If windows does not use this field, then you can guarantee it will show
-up incorrectly in BIOSes and never be tested by manufacturers before
-they ship their machines.
 
-> Yes, firmware and BIOS tables can be buggy. How about a command line
-> parameter 'no_netfwindex', passing which firmware index will not be
-> used to derive ethN names ? That would handle the scenario of buggy
-> firmware and names will be derived in the now existing way.
+David Dillow <dave-i1Mk8JYDVaaSihdK6806/g@public.gmane.org> wrote on 10/06/2010 09:31:44 PM:
 
-I'd prefer the option never be added in the first place as you are
-placing a big burden on people whose machines were working properly on
-old kernels, to suddenly have to add a command line option to get their
-box to now work again.
+> On Wed, 2010-10-06 at 12:37 -0600, Jason Gunthorpe wrote:
+> > On Wed, Oct 06, 2010 at 02:22:55PM -0400, David Dillow wrote:
+> > > On Wed, 2010-10-06 at 11:25 -0600, Jason Gunthorpe wrote:
+> > > > On Wed, Oct 06, 2010 at 02:52:46PM +0200, Bernard Metzler wrote:
+> > > > It is actually a little more complicated than just this. I assume
+you
+> > > > are casting the structures over packet payloads? In this case you
+> > > > have to guarentee alignment (or used packed everywhere). Does iwarp
+> > > > have provisions for alignment? If so you can construct your
+bitfields
+> > > > using the alignment type, ie if iWarp guarantees 4 bytes then the
+> > > > biggest type you can use is u32 - then you can avoid using packed.
+> > > >
+> > > > Mind you, I'm not sure how to guarentee alignment when you consider
+> > > > all the possible sources of unalignment in the stack: TCP, IP,L2
+stack ?
+> > >
+> > > You don't have to. The TCP stack, IIRC, requires the architecture to
+fix
+> > > up misaligned accesses, or at least it used to. It will try to keep
+> > > things aligned if possible -- see the comment above NET_IP_ALIGN in
+> > > include/linux/skbuff.h.
+> >
+> > I was under the impression that this was just to align the IP
+> > header.
+>
+> It is, and it assumes an ethernet header of 14 bytes. As you note, VLANs
+> and everything else can mess with that, which is why the TCP stack
+> requires the architecture to handle unaligned accesses. It's a bonus if
+> iWarp can guarantee an alignment WRT the IP or TCP header, but not
+> required.
+>
+> > > The structures in Bernard's header have all fields naturally
+> > > aligned, so no need for the packed attribute and its baggage.
+> >
+> > No, they arent:
+> >
+> > > +struct iwarp_rdma_write {
+> > > +   struct iwarp_ctrl   ctrl;
+> > > +   __u32         sink_stag;
+> > > +   __u64         sink_to;
+> > > +} __attribute__((__packed__));
+> >
+> > For instance has sink_to unaligned if the maximum aligment of the
+> > payload is only guarenteed to be 4. The proper thing to do in this
+> > case is probably __attribute__((__packed__, __aligned__(4))) if that
+> > works the way I think.. :)
+>
+> struct iwarp_ctrl consists of 2 u16s, so sink_stag is aligned to 4 bytes
+> from the start of the struct iwarp_rdma_write, and sink_to is at 8 bytes
+> -- so they are naturally aligned with respect to the structure. The
+> compiler will not add padding, so no need for the packed attribute.
+>
+> Note I'm not talking about alignment in memory -- that'll depend on
+> where the data starts, and as I mentioned, the stack doesn't make any
+> guarantees about that, relying on the architecture to fixup any
+> misaligned accesses.
 
-And again, as this is a "simple" rename type operation, I still don't
-see why you can't just do this from a udev rule, especially if the
-firmware information is exported to userspace.  That is where such
-"policy" should be added, not within the kernel itself.
+agreed. all n-bytes are starting on a multipe of n-byte offset
+relative to the start of the structure.
 
-thanks,
+many thanks,
+bernard.
 
-greg k-h
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
