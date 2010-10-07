@@ -1,71 +1,67 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next-2.6] net: Fix rxq ref counting
-Date: Thu, 07 Oct 2010 22:59:09 +0200
-Message-ID: <1286485149.3745.93.camel@edumazet-laptop>
-References: <alpine.DEB.1.00.1010071304240.4792@pokey.mtv.corp.google.com>
+From: Kees Cook <kees.cook@canonical.com>
+Subject: [PATCH] net: clear heap allocations for privileged ethtool actions
+Date: Thu, 7 Oct 2010 14:10:04 -0700
+Message-ID: <20101007211004.GA20267@outflux.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:53224 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755907Ab0JGU7R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Oct 2010 16:59:17 -0400
-Received: by mail-wy0-f174.google.com with SMTP id 28so511407wyb.19
-        for <netdev@vger.kernel.org>; Thu, 07 Oct 2010 13:59:16 -0700 (PDT)
-In-Reply-To: <alpine.DEB.1.00.1010071304240.4792@pokey.mtv.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Jeff Garzik <jgarzik@redhat.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le jeudi 07 octobre 2010 =C3=A0 13:09 -0700, Tom Herbert a =C3=A9crit :
-> The rx->count reference is used to track reference counts to the
-> number of rx-queue kobjects created for the device.  This patch
-> eliminates initialization of the counter in netif_alloc_rx_queues
-> and instead increments the counter each time a kobject is created.
-> This is now symmetric with the decrement that is done when an object =
-is
-> released.
->=20
-> Signed-off-by: Tom Herbert <therbert@google.com>
-> ---
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 7d14955..58b31d1 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -5026,7 +5026,6 @@ static int netif_alloc_rx_queues(struct net_dev=
-ice *dev)
->  			return -ENOMEM;
->  		}
->  		dev->_rx =3D rx;
-> -		atomic_set(&rx->count, count);
-> =20
->  		/*
->  		 * Set a pointer to first element in the array which holds the
-> diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-> index fa81fd0..b143173 100644
-> --- a/net/core/net-sysfs.c
-> +++ b/net/core/net-sysfs.c
-> @@ -726,6 +726,7 @@ static struct kobj_type rx_queue_ktype =3D {
->  static int rx_queue_add_kobject(struct net_device *net, int index)
->  {
->  	struct netdev_rx_queue *queue =3D net->_rx + index;
-> +	struct netdev_rx_queue *first =3D queue->first;
->  	struct kobject *kobj =3D &queue->kobj;
->  	int error =3D 0;
-> =20
-> @@ -738,6 +739,7 @@ static int rx_queue_add_kobject(struct net_device=
- *net, int index)
->  	}
-> =20
->  	kobject_uevent(kobj, KOBJ_ADD);
-> +	atomic_inc(&first->count);
-> =20
->  	return error;
->  }
+Several other ethtool functions leave heap uncleared (potentially) by
+drivers. Some interfaces appear safe (eeprom, etc), in that the sizes
+are well controlled. In some situations (e.g. unchecked error conditions),
+the heap will remain unchanged in areas before copying back to userspace.
+Note that these are less of an issue since these all require CAP_NET_ADMIN.
 
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: stable@kernel.org
+Signed-off-by: Kees Cook <kees.cook@canonical.com>
+---
+ net/core/ethtool.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 7a85367..fb9cf30 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -397,7 +397,7 @@ static noinline_for_stack int ethtool_get_rxfh_indir(struct net_device *dev,
+ 	    (KMALLOC_MAX_SIZE - sizeof(*indir)) / sizeof(*indir->ring_index))
+ 		return -ENOMEM;
+ 	full_size = sizeof(*indir) + sizeof(*indir->ring_index) * table_size;
+-	indir = kmalloc(full_size, GFP_USER);
++	indir = kzalloc(full_size, GFP_USER);
+ 	if (!indir)
+ 		return -ENOMEM;
+ 
+@@ -538,7 +538,7 @@ static int ethtool_get_rx_ntuple(struct net_device *dev, void __user *useraddr)
+ 
+ 	gstrings.len = ret;
+ 
+-	data = kmalloc(gstrings.len * ETH_GSTRING_LEN, GFP_USER);
++	data = kzalloc(gstrings.len * ETH_GSTRING_LEN, GFP_USER);
+ 	if (!data)
+ 		return -ENOMEM;
+ 
+@@ -775,7 +775,7 @@ static int ethtool_get_regs(struct net_device *dev, char __user *useraddr)
+ 	if (regs.len > reglen)
+ 		regs.len = reglen;
+ 
+-	regbuf = kmalloc(reglen, GFP_USER);
++	regbuf = kzalloc(reglen, GFP_USER);
+ 	if (!regbuf)
+ 		return -ENOMEM;
+ 
+-- 
+1.7.1
 
-
+-- 
+Kees Cook
+Ubuntu Security Team
