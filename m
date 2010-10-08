@@ -1,27 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-2.6 2010-10-07
-Date: Fri, 08 Oct 2010 10:38:42 -0700 (PDT)
-Message-ID: <20101008.103842.39184623.davem@davemloft.net>
-References: <20101007185859.GD20950@tuxdriver.com>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: Re: [PATCH] net/tg3: simplify conditional
+Date: Fri, 8 Oct 2010 10:43:12 -0700
+Message-ID: <20101008174312.GA3562@mcarlson.broadcom.com>
+References: <20101008112927.0ca949cf@absol.kitzblitz>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+ charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
+Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
+	"Michael Chan" <mchan@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Nicolas Kaiser" <nikai@nikai.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20101007185859.GD20950@tuxdriver.com>
+In-Reply-To: <20101008112927.0ca949cf@absol.kitzblitz>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Thu, 7 Oct 2010 14:58:59 -0400
+On Fri, Oct 08, 2010 at 02:29:27AM -0700, Nicolas Kaiser wrote:
+> Simplify: ((a && !b) || (!a && b)) => (a != b)
+> 
+> Signed-off-by: Nicolas Kaiser <nikai@nikai.net>
+> ---
+>  drivers/net/tg3.c |    3 +--
+>  1 files changed, 1 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+> index 16e1a95..714f0fb 100644
+> --- a/drivers/net/tg3.c
+> +++ b/drivers/net/tg3.c
+> @@ -9967,8 +9967,7 @@ static int tg3_set_pauseparam(struct net_device *dev, struct ethtool_pauseparam
+>  
+>  		if (!(phydev->supported & SUPPORTED_Pause) ||
+>  		    (!(phydev->supported & SUPPORTED_Asym_Pause) &&
+> -		     ((epause->rx_pause && !epause->tx_pause) ||
+> -		      (!epause->rx_pause && epause->tx_pause))))
+> +		     (epause->rx_pause != epause->tx_pause)))
+>  			return -EINVAL;
+>  
+>  		tp->link_config.flowctrl = 0;
 
-> Here are a few more more-or-less-one-liner fixes intended for 2.6.36.
-> The one from Felix fixes a regression introduced in the 2.6.36 cycle.
-> The one from Johannes fixes a crash reported by Ben Greear (as
-> documented in the changelog).  The one from me reverts and earlier patch
-> from me that can result in stuff in dmesg from not calling
-> netif_receive_skb in the proper context.
-
-Pulled, thanks John.
+Looks good to me.
