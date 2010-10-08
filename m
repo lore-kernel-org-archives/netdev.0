@@ -1,87 +1,73 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: IPv4: sysctl table check failed [was: mmotm 2010-10-07-14-08 uploaded]
-Date: Thu, 07 Oct 2010 17:54:48 -0700
-Message-ID: <m1y6a95wrr.fsf@fess.ebiederm.org>
-References: <201010072140.o97Le69i025659@imap1.linux-foundation.org>
-	<4CAE4479.6010606@gmail.com>
-	<1286490135.6536.75.camel@edumazet-laptop>
-	<20101007152806.119d1522.akpm@linux-foundation.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] ehea: Fix a checksum issue on the receive path
+Date: Fri, 08 Oct 2010 06:45:30 +0200
+Message-ID: <1286513130.6536.467.camel@edumazet-laptop>
+References: <1286493453-21784-1-git-send-email-leitao@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Jiri Slaby <jirislaby@gmail.com>, linux-kernel@vger.kernel.org,
-	mm-commits@vger.kernel.org, ML netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20101007152806.119d1522.akpm@linux-foundation.org> (Andrew
-	Morton's message of "Thu, 7 Oct 2010 15:28:06 -0700")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Jay Vosburgh <fubar@us.ibm.com>
+To: leitao@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:57865 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750960Ab0JHEpg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Oct 2010 00:45:36 -0400
+Received: by wyb28 with SMTP id 28so764776wyb.19
+        for <netdev@vger.kernel.org>; Thu, 07 Oct 2010 21:45:35 -0700 (PDT)
+In-Reply-To: <1286493453-21784-1-git-send-email-leitao@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Andrew Morton <akpm@linux-foundation.org> writes:
+Le jeudi 07 octobre 2010 =C3=A0 19:17 -0400, leitao@linux.vnet.ibm.com =
+a
+=C3=A9crit :
+> Currently we set all skbs with CHECKSUM_UNNECESSARY, even
+> those whose protocol we don't know. This patch just
+> add the CHECKSUM_COMPLETE tag for non TCP/UDP packets.
+>=20
+> Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
+> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+> ---
+>  drivers/net/ehea/ehea_main.c |    9 ++++++++-
+>  drivers/net/ehea/ehea_qmr.h  |    1 +
+>  2 files changed, 9 insertions(+), 1 deletions(-)
+>=20
+> diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_mai=
+n.c
+> index 0471cae..45fd045 100644
+> --- a/drivers/net/ehea/ehea_main.c
+> +++ b/drivers/net/ehea/ehea_main.c
+> @@ -533,8 +533,15 @@ static inline void ehea_fill_skb(struct net_devi=
+ce *dev,
+>  	int length =3D cqe->num_bytes_transfered - 4;	/*remove CRC */
+> =20
+>  	skb_put(skb, length);
+> -	skb->ip_summed =3D CHECKSUM_UNNECESSARY;
+>  	skb->protocol =3D eth_type_trans(skb, dev);
+> +
+> +	/* The packet was not an IPV4 packet so a complemented checksum was
+> +	   calculated. The value is found in the Internet Checksum field. *=
+/
+> +	if (cqe->status & EHEA_CQE_BLIND_CKSUM) {
+> +		skb->ip_summed =3D CHECKSUM_COMPLETE;
+> +		skb->csum =3D csum_unfold(~cqe->inet_checksum_value);
+> +	} else
+> +		skb->ip_summed =3D CHECKSUM_UNNECESSARY;
+>  }
+> =20
 
-> On Fri, 08 Oct 2010 00:22:15 +0200
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
->
->> Le vendredi 08 octobre 2010 __ 00:06 +0200, Jiri Slaby a __crit :
->> > On 10/07/2010 11:08 PM, akpm@linux-foundation.org wrote:
->> > > The mm-of-the-moment snapshot 2010-10-07-14-08 has been uploaded to
->> > 
->> > Hi, I got bunch of "sysctl table check failed" below. All seem to be
->> > related to ipv4:
->> 
->> I would say, sysctl check is buggy :(
->> 
->> min/max are optional
->> 
->> [PATCH] sysctl: min/max bounds are optional
->> 
->> sysctl check complains when proc_doulongvec_minmax or
->> proc_doulongvec_ms_jiffies_minmax are used by a vector of longs (with
->> more than one element), with no min or max value specified.
->> 
->> This is unexpected, given we had a bug on this min/max handling :)
->> 
->> Reported-by: Jiri Slaby <jirislaby@gmail.com>
->> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
->> ---
->>  kernel/sysctl_check.c |    9 ---------
->>  1 file changed, 9 deletions(-)
->> 
->> diff --git a/kernel/sysctl_check.c b/kernel/sysctl_check.c
->> index 04cdcf7..10b90d8 100644
->> --- a/kernel/sysctl_check.c
->> +++ b/kernel/sysctl_check.c
->> @@ -143,15 +143,6 @@ int sysctl_check_table(struct nsproxy *namespaces, struct ctl_table *table)
->>  				if (!table->maxlen)
->>  					set_fail(&fail, table, "No maxlen");
->>  			}
->> -			if ((table->proc_handler == proc_doulongvec_minmax) ||
->> -			    (table->proc_handler == proc_doulongvec_ms_jiffies_minmax)) {
->> -				if (table->maxlen > sizeof (unsigned long)) {
->> -					if (!table->extra1)
->> -						set_fail(&fail, table, "No min");
->> -					if (!table->extra2)
->> -						set_fail(&fail, table, "No max");
->> -				}
->> -			}
->>  #ifdef CONFIG_PROC_SYSCTL
->>  			if (table->procname && !table->proc_handler)
->>  				set_fail(&fail, table, "No proc_handler");
->
-> That will probably fix it ;)
->
-> net-avoid-limits-overflow.patch is dependent on this patch.  Unless
-> Eric B squeaks I'll plan on sending this patch in for 2.6.37.
+Hi Breno
 
-Oh.  I see. I actually had a sanity check for the case that was failing.
-I probably spotted the buggy code and wanted to see if there was
-anything that cared.
+Just to be clear : packets with wrong checksums are not given to upper
+stack, so a tcpdump can not display them ? I am not sure many drivers d=
+o
+that.
 
-So sysctl_check was perfectly correct until the bug was removed from
-proc_doulongvec_minmax.  Which also means we have been auditing the
-kernel for quite a while to make certain that it is safe not to
-increment min and max.
+(EHEA_CQE_STAT_ERR_TCP, EHEA_CQE_STAT_ERR_IP)
 
-Eric
+Thanks !
+
+
