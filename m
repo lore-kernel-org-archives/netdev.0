@@ -1,107 +1,66 @@
-From: Stanislaw Gruszka <sgruszka@redhat.com>
-Subject: [RFC PATCH 2/2] r8169: reduce number of functions arguments
-Date: Fri,  8 Oct 2010 16:30:03 +0200
-Message-ID: <1286548203-10831-2-git-send-email-sgruszka@redhat.com>
-References: <1286548203-10831-1-git-send-email-sgruszka@redhat.com>
-Cc: Denis Kirjanov <kirjanov@gmail.com>,
-	Stanislaw Gruszka <sgruszka@redhat.com>
-To: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] ehea: Fix a checksum issue on the receive path
+Date: Fri, 08 Oct 2010 16:36:17 +0200
+Message-ID: <1286548577.2959.412.camel@edumazet-laptop>
+References: <1286493453-21784-1-git-send-email-leitao@linux.vnet.ibm.com>
+	 <1286513130.6536.467.camel@edumazet-laptop>
+	 <4CAF2732.90703@linux.vnet.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Jay Vosburgh <fubar@us.ibm.com>
+To: Breno Leitao <leitao@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36204 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757342Ab0JHO2J (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Oct 2010 10:28:09 -0400
-In-Reply-To: <1286548203-10831-1-git-send-email-sgruszka@redhat.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:47733 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757503Ab0JHOgX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Oct 2010 10:36:23 -0400
+Received: by wyb28 with SMTP id 28so1147386wyb.19
+        for <netdev@vger.kernel.org>; Fri, 08 Oct 2010 07:36:22 -0700 (PDT)
+In-Reply-To: <4CAF2732.90703@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We don't need to pass arguments on stack since we have them in per
-device private structure. Patch was not tested.
----
- drivers/net/r8169.c |   30 ++++++++++++------------------
- 1 files changed, 12 insertions(+), 18 deletions(-)
+Le vendredi 08 octobre 2010 =C3=A0 11:14 -0300, Breno Leitao a =C3=A9cr=
+it :
+> Hi Eric
+>=20
+> On 10/08/2010 01:45 AM, Eric Dumazet wrote:
+> > Just to be clear : packets with wrong checksums are not given to up=
+per
+> > stack, so a tcpdump can not display them ? I am not sure many drive=
+rs do
+> > that.
+> Well, what my code does is: 1) if the current packet is a UDP/TCP, th=
+en=20
+> the checksum is not necessary, since we would check the checksum on=20
+> ehea_proc_rwqes(), specific at this part of the code:
+>=20
+>                 if (!ehea_check_cqe(cqe, &rq)) {
+> 			// Send the packet to the up layers
+>=20
+> And ehea_check_cqe() checks for wrong checksumed packets on:
+> =09
+>          if ((cqe->status & EHEA_CQE_STAT_ERR_MASK) =3D=3D 0)
+>                  return 0;
+>=20
+>=20
+> Botton line, TCP/UDP packets with wrong checksums are dropped by=20
+> ehea_proc_rwqes(), others go to the up layer.
+>=20
+> So, back to your question, you are saying that we shouldn't do that,=20
+> meaning that we should send to the upper layers all packets ? even th=
+ose=20
+> that have the wrong checksum ?
+>=20
 
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index b3b28b1..65d4219 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -4005,29 +4005,26 @@ static inline void rtl8169_map_to_asic(struct RxDesc *desc, dma_addr_t mapping,
- 	rtl8169_mark_to_asic(desc, rx_buf_sz);
- }
- 
--static struct sk_buff *rtl8169_alloc_rx_skb(struct pci_dev *pdev,
--					    struct net_device *dev,
--					    struct RxDesc *desc, int rx_buf_sz,
--					    unsigned int align, gfp_t gfp)
-+static struct sk_buff *rtl8169_alloc_rx_skb(struct rtl8169_private *tp,
-+					    struct RxDesc *desc, gfp_t gfp)
- {
- 	struct sk_buff *skb;
- 	dma_addr_t mapping;
--	unsigned int pad;
-+	unsigned int align = tp->align;
-+	unsigned int pad = align ? align : NET_IP_ALIGN;
- 
--	pad = align ? align : NET_IP_ALIGN;
--
--	skb = __netdev_alloc_skb(dev, rx_buf_sz + pad, gfp);
-+	skb = __netdev_alloc_skb(tp->dev, tp->rx_buf_sz + pad, gfp);
- 	if (!skb)
- 		goto err0;
- 
- 	skb_reserve(skb, align ? ((pad - 1) & (unsigned long)skb->data) : pad);
- 
--	mapping = dma_map_single(&pdev->dev, skb->data, rx_buf_sz,
-+	mapping = dma_map_single(&tp->pci_dev->dev, skb->data, tp->rx_buf_sz,
- 				 PCI_DMA_FROMDEVICE);
--	if (dma_mapping_error(&pdev->dev, mapping))
-+	if (dma_mapping_error(&tp->pci_dev->dev, mapping))
- 		goto err1;
- 
--	rtl8169_map_to_asic(desc, mapping, rx_buf_sz);
-+	rtl8169_map_to_asic(desc, mapping, tp->rx_buf_sz);
- 
- 	return skb;
- 
-@@ -4050,8 +4047,7 @@ static void rtl8169_rx_clear(struct rtl8169_private *tp)
- 	}
- }
- 
--static u32 rtl8169_rx_fill(struct rtl8169_private *tp, struct net_device *dev,
--			   u32 start, u32 end, gfp_t gfp)
-+static u32 rtl8169_rx_fill(struct rtl8169_private *tp, u32 start, u32 end, gfp_t gfp)
- {
- 	u32 cur;
- 
-@@ -4064,9 +4060,7 @@ static u32 rtl8169_rx_fill(struct rtl8169_private *tp, struct net_device *dev,
- 		if (tp->Rx_skbuff[i])
- 			continue;
- 
--		skb = rtl8169_alloc_rx_skb(tp->pci_dev, dev,
--					   tp->RxDescArray + i,
--					   tp->rx_buf_sz, tp->align, gfp);
-+		skb = rtl8169_alloc_rx_skb(tp, tp->RxDescArray + i, gfp);
- 		if (!skb)
- 			break;
- 
-@@ -4094,7 +4088,7 @@ static int rtl8169_init_ring(struct net_device *dev)
- 	memset(tp->tx_skb, 0x0, NUM_TX_DESC * sizeof(struct ring_info));
- 	memset(tp->Rx_skbuff, 0x0, NUM_RX_DESC * sizeof(struct sk_buff *));
- 
--	if (rtl8169_rx_fill(tp, dev, 0, NUM_RX_DESC, GFP_KERNEL) != NUM_RX_DESC)
-+	if (rtl8169_rx_fill(tp, 0, NUM_RX_DESC, GFP_KERNEL) != NUM_RX_DESC)
- 		goto err_out;
- 
- 	rtl8169_mark_as_last_descriptor(tp->RxDescArray + NUM_RX_DESC - 1);
-@@ -4612,7 +4606,7 @@ static int rtl8169_rx_interrupt(struct net_device *dev,
- 	count = cur_rx - tp->cur_rx;
- 	tp->cur_rx = cur_rx;
- 
--	delta = rtl8169_rx_fill(tp, dev, tp->dirty_rx, tp->cur_rx, GFP_ATOMIC);
-+	delta = rtl8169_rx_fill(tp, tp->dirty_rx, tp->cur_rx, GFP_ATOMIC);
- 	if (!delta && count)
- 		netif_info(tp, intr, dev, "no Rx buffer allocated\n");
- 	tp->dirty_rx += delta;
--- 
-1.7.1
+I am pretty sure most (if not all) netdev drivers pass the packet with
+invalid checksum to upper stack, so that we can increment appropriate
+SNMP counters, in IP stack or UDP/TCP/whatever stack.
+
+tg3, bnx2, e1000, skge, sky2, bnx2x, niu, r8169, igb, ... seems to do
+that.
+
+
 
