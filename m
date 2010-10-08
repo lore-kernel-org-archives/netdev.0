@@ -1,58 +1,94 @@
-From: Daniel Lezcano <daniel.lezcano@free.fr>
-Subject: Re: BUG ? ipip unregister_netdevice_many()
-Date: Fri, 08 Oct 2010 18:17:12 +0200
-Message-ID: <4CAF4408.6070001@free.fr>
-References: <201010071048.12817.hans.schillstrom@ericsson.com> <4CAEFE2C.3010007@free.fr> <201010081353.28056.hans.schillstrom@ericsson.com> <201010081428.37639.hans.schillstrom@ericsson.com> <4CAF3E78.8030202@free.fr>
+From: =?utf-8?Q?Am=C3=A9rico?= Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH] sysctl: fix min/max handling in
+	__do_proc_doulongvec_minmax()
+Date: Sat, 9 Oct 2010 00:22:26 +0800
+Message-ID: <20101008162226.GA5724@hack>
+References: <20101004103545.GJ5189@cr0.nay.redhat.com> <1286188701.18293.57.camel@edumazet-laptop> <20101005130117.GK5170@cr0.nay.redhat.com> <20101007071859.GD5471@cr0.nay.redhat.com> <20101007092538.GE5471@cr0.nay.redhat.com> <1286445081.2912.15.camel@edumazet-laptop> <m1iq1e3qnn.fsf@fess.ebiederm.org> <1286470743.2912.276.camel@edumazet-laptop> <20101007121840.ca49e2ac.akpm@linux-foundation.org> <m1vd5d3ia9.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Hans Schillstrom <hans.schillstrom@ericsson.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	=?utf-8?Q?Am=C3=A9rico?= Wang <xiyou.wangcong@gmail.com>,
+	Robin Holt <holt@sgi.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Willy Tarreau <w@1wt.eu>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	James Morris <jmorris@namei.org>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	Patrick McHardy <kaber@trash.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate6.uk.ibm.com ([194.196.100.166]:48993 "EHLO
-	mtagate6.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753683Ab0JHQRS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Oct 2010 12:17:18 -0400
-Received: from d06nrmr1806.portsmouth.uk.ibm.com (d06nrmr1806.portsmouth.uk.ibm.com [9.149.39.193])
-	by mtagate6.uk.ibm.com (8.13.1/8.13.1) with ESMTP id o98GHGeF031964
-	for <netdev@vger.kernel.org>; Fri, 8 Oct 2010 16:17:16 GMT
-Received: from d06av02.portsmouth.uk.ibm.com (d06av02.portsmouth.uk.ibm.com [9.149.37.228])
-	by d06nrmr1806.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o98GHHTC3903630
-	for <netdev@vger.kernel.org>; Fri, 8 Oct 2010 17:17:17 +0100
-Received: from d06av02.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av02.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id o98GHGvf004352
-	for <netdev@vger.kernel.org>; Fri, 8 Oct 2010 17:17:16 +0100
-In-Reply-To: <4CAF3E78.8030202@free.fr>
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:52872 "EHLO
+	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753378Ab0JHQUh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Oct 2010 12:20:37 -0400
+Content-Disposition: inline
+In-Reply-To: <m1vd5d3ia9.fsf@fess.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/08/2010 05:53 PM, Daniel Lezcano wrote:
-> On 10/08/2010 02:28 PM, Hans Schillstrom wrote:
->> Hi Eric,
->> Any advice how to trace this down ?
->> This rollback_registered_many() seems to have on the lists before...
->> All IPv4 and IPv6 tunnels causes this crash, all you have to do is
->> load the tunnel module(s)
->> enter a new ns and exit from it.
+On Thu, Oct 07, 2010 at 12:38:22PM -0700, Eric W. Biederman wrote:
+>Andrew Morton <akpm@linux-foundation.org> writes:
+>
+>> On Thu, 07 Oct 2010 18:59:03 +0200
+>> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>
+>>> Thats fine by me, thanks Eric.
+>>> 
+>>> Andrew, please remove previous patch from your tree and replace it by
+>>> following one :
+>>> 
+>>> [PATCH v2] sysctl: fix min/max handling in __do_proc_doulongvec_minmax()
+>>> 
+>>> When proc_doulongvec_minmax() is used with an array of longs,
+>>> and no min/max check requested (.extra1 or .extra2 being NULL), we
+>>> dereference a NULL pointer for the second element of the array.
+>>> 
+>>> Noticed while doing some changes in network stack for the "16TB problem"
+>>> 
+>>> Fix is to not change min & max pointers in
+>>> __do_proc_doulongvec_minmax(), so that all elements of the vector share
+>>> an unique min/max limit, like proc_dointvec_minmax().
+>>> 
+>>> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+>>> ---
+>>>  kernel/sysctl.c |    2 +-
+>>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>> 
+>>> diff --git a/kernel/sysctl.c b/kernel/sysctl.c
+>>> index f88552c..8e45451 100644
+>>> --- a/kernel/sysctl.c
+>>> +++ b/kernel/sysctl.c
+>>> @@ -2485,7 +2485,7 @@ static int __do_proc_doulongvec_minmax(void *data, struct ctl_table *table, int
+>>>  		kbuf[left] = 0;
+>>>  	}
+>>>  
+>>> -	for (; left && vleft--; i++, min++, max++, first=0) {
+>>> +	for (; left && vleft--; i++, first=0) {
+>>>  		unsigned long val;
+>>>  
+>>>  		if (write) {
 >>
->> Have not tested any more devices than tunnels,
->> I did an "ip link delete" on my macvlans before exiting the ns.
+>> Did we check to see whether any present callers are passing in pointers
+>> to arrays of min/max values?
 >
-> Ah ! I succeed to reproduce it.
-> It does not appear immediately in fact.
+>In 2.6.36 there are not any callers that pass in a vector of anything, I
+>don't know about linux-next.  It looks to me like incrementing min and
+>max was simply a bug.
 >
-> I am trying to simplify the configuration but I am falling in the bug I
-> talked about in the previous email.
 
-Ok, so after investigating, we just need a macvlan and specify an ipv6 
-address for it (inside a new netns of course), and the loopback is not 
-released. I compiled out the tunnels, so they are not related to this 
-problem I think.
+Agreed, I checked them too.
 
-That reduces the scope of investigation :)
+>> I wonder if there's any documentation for this interface which just
+>> became wrong.
+>
+>Or it just became right.  Clearly no one has been expecting min
+>and max to be vectors.
+>
 
-Looking forward ...
+I think we need to document this before we rewrite the code.
 
-   -- Daniel
+-- 
+Live like a child, think like the god.
+ 
