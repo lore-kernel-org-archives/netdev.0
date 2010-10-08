@@ -1,78 +1,52 @@
-From: Akinobu Mita <akinobu.mita@gmail.com>
-Subject: [PATCH 4/5] rds: stop including asm-generic/bitops/le.h directly
-Date: Fri,  8 Oct 2010 19:03:12 +0900
-Message-ID: <1286532193-29814-4-git-send-email-akinobu.mita@gmail.com>
-References: <1286532193-29814-1-git-send-email-akinobu.mita@gmail.com>
-Cc: Akinobu Mita <akinobu.mita@gmail.com>,
-	Andy Grover <andy.grover@oracle.com>, rds-devel@oss.oracle.com,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
-	Arnd Bergmann <arnd@arndb.de>,
-	Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1286532193-29814-1-git-send-email-akinobu.mita@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: =?UTF-8?Q?R=C3=A9mi_Denis-Courmont?= <remi@remlab.net>
+Subject: Re: Query on usage of Netlink
+Date: Fri, 08 Oct 2010 12:14:44 +0200
+Message-ID: <1b4c783a02b46d7da4e308699a41856c@chewa.net>
+References: <20101008085056.GA13091@bnru01.bnr.st.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, srinidhi.kasagar@stericsson.com,
+	linus.walleij@stericsson.com, sudeep.divakaran@stericsson.com,
+	gulshan.karmani@stericsson.com
+To: Kumar SANGHVI <kumar.sanghvi@stericsson.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from yop.chewa.net ([91.121.105.214]:51994 "EHLO yop.chewa.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757074Ab0JHKOp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Oct 2010 06:14:45 -0400
+In-Reply-To: <20101008085056.GA13091@bnru01.bnr.st.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-asm-generic/bitops/le.h is only intended to be included directly from
-asm-generic/bitops/ext2-non-atomic.h or asm-generic/bitops/minix-le.h
-which implements generic ext2 or minix bit operations.
 
-This stops including asm-generic/bitops/le.h directly and use ext2
-non-atomic bit operations instead.
+On Fri, 8 Oct 2010 14:21:28 +0530, Kumar SANGHVI=0D
+<kumar.sanghvi@stericsson.com> wrote:=0D
+> We have a requirement where-in we want to communicate the status of=0D
+> modem (whether modem is online or offline) from linux driver to=0D
+> user-space components. So that user-space components stop sending dat=
+a=0D
+> to linux driver for communicating with modem, in case modem goes=0D
+> offline.=0D
+=0D
+Is the modem control state machine in kernel space, as for say, 802.11=0D
+devices?=0D
+=0D
+> We have decided to use the netlink mechanism to achieve this. We inte=
+nd=0D
+> to send an integer value, defined in enum, to user-space indicating t=
+he=0D
+> current modem status.=0D
+(...)=0D
+> Or should we define a custom Netlink type in include/linux/netlink.h?=
+=0D
+=0D
+Did you consider using kobject and uevents (which are internally runnin=
+g on=0D
+top of Netlink)?=0D
+=0D
+-- =0D
+R=C3=A9mi Denis-Courmont=0D
+http://www.remlab.net=0D
+http://fi.linkedin.com/in/remidenis
 
-An alternative approach is introducing little endian bit operations
-in linux/bitops.h. But it needs to touch more files than this change does.
-
-Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
-Cc: Andy Grover <andy.grover@oracle.com>
-Cc: rds-devel@oss.oracle.com
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: netdev@vger.kernel.org
----
- net/rds/cong.c |    9 ++++-----
- 1 files changed, 4 insertions(+), 5 deletions(-)
-
-diff --git a/net/rds/cong.c b/net/rds/cong.c
-index 0871a29..5bd0f36 100644
---- a/net/rds/cong.c
-+++ b/net/rds/cong.c
-@@ -33,8 +33,7 @@
- #include <linux/slab.h>
- #include <linux/types.h>
- #include <linux/rbtree.h>
--
--#include <asm-generic/bitops/le.h>
-+#include <linux/bitops.h>
- 
- #include "rds.h"
- 
-@@ -285,7 +284,7 @@ void rds_cong_set_bit(struct rds_cong_map *map, __be16 port)
- 	i = be16_to_cpu(port) / RDS_CONG_MAP_PAGE_BITS;
- 	off = be16_to_cpu(port) % RDS_CONG_MAP_PAGE_BITS;
- 
--	generic___set_le_bit(off, (void *)map->m_page_addrs[i]);
-+	ext2_set_bit(off, (void *)map->m_page_addrs[i]);
- }
- 
- void rds_cong_clear_bit(struct rds_cong_map *map, __be16 port)
-@@ -299,7 +298,7 @@ void rds_cong_clear_bit(struct rds_cong_map *map, __be16 port)
- 	i = be16_to_cpu(port) / RDS_CONG_MAP_PAGE_BITS;
- 	off = be16_to_cpu(port) % RDS_CONG_MAP_PAGE_BITS;
- 
--	generic___clear_le_bit(off, (void *)map->m_page_addrs[i]);
-+	ext2_clear_bit(off, (void *)map->m_page_addrs[i]);
- }
- 
- static int rds_cong_test_bit(struct rds_cong_map *map, __be16 port)
-@@ -310,7 +309,7 @@ static int rds_cong_test_bit(struct rds_cong_map *map, __be16 port)
- 	i = be16_to_cpu(port) / RDS_CONG_MAP_PAGE_BITS;
- 	off = be16_to_cpu(port) % RDS_CONG_MAP_PAGE_BITS;
- 
--	return generic_test_le_bit(off, (void *)map->m_page_addrs[i]);
-+	return ext2_test_bit(off, (void *)map->m_page_addrs[i]);
- }
- 
- void rds_cong_add_socket(struct rds_sock *rs)
--- 
-1.7.1.231.gd0b16
