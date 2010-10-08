@@ -1,91 +1,58 @@
-From: =?utf-8?Q?Am=C3=A9rico?= Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH] sysctl: fix min/max handling in
-	__do_proc_doulongvec_minmax()
-Date: Sat, 9 Oct 2010 00:13:44 +0800
-Message-ID: <20101008161344.GG4088@hack>
-References: <20101004085913.GR14068@sgi.com> <1286183058.18293.26.camel@edumazet-laptop> <20101004093439.GG5189@cr0.nay.redhat.com> <1286187030.18293.33.camel@edumazet-laptop> <20101004103545.GJ5189@cr0.nay.redhat.com> <1286188701.18293.57.camel@edumazet-laptop> <20101005130117.GK5170@cr0.nay.redhat.com> <20101007071859.GD5471@cr0.nay.redhat.com> <20101007092538.GE5471@cr0.nay.redhat.com> <1286445081.2912.15.camel@edumazet-laptop>
+From: Daniel Lezcano <daniel.lezcano@free.fr>
+Subject: Re: BUG ? ipip unregister_netdevice_many()
+Date: Fri, 08 Oct 2010 18:17:12 +0200
+Message-ID: <4CAF4408.6070001@free.fr>
+References: <201010071048.12817.hans.schillstrom@ericsson.com> <4CAEFE2C.3010007@free.fr> <201010081353.28056.hans.schillstrom@ericsson.com> <201010081428.37639.hans.schillstrom@ericsson.com> <4CAF3E78.8030202@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?utf-8?Q?Am=C3=A9rico?= Wang <xiyou.wangcong@gmail.com>,
-	Robin Holt <holt@sgi.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Willy Tarreau <w@1wt.eu>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	James Morris <jmorris@namei.org>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	Patrick McHardy <kaber@trash.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, ebiederm@xmission.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1286445081.2912.15.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Hans Schillstrom <hans.schillstrom@ericsson.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtagate6.uk.ibm.com ([194.196.100.166]:48993 "EHLO
+	mtagate6.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753683Ab0JHQRS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Oct 2010 12:17:18 -0400
+Received: from d06nrmr1806.portsmouth.uk.ibm.com (d06nrmr1806.portsmouth.uk.ibm.com [9.149.39.193])
+	by mtagate6.uk.ibm.com (8.13.1/8.13.1) with ESMTP id o98GHGeF031964
+	for <netdev@vger.kernel.org>; Fri, 8 Oct 2010 16:17:16 GMT
+Received: from d06av02.portsmouth.uk.ibm.com (d06av02.portsmouth.uk.ibm.com [9.149.37.228])
+	by d06nrmr1806.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o98GHHTC3903630
+	for <netdev@vger.kernel.org>; Fri, 8 Oct 2010 17:17:17 +0100
+Received: from d06av02.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av02.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id o98GHGvf004352
+	for <netdev@vger.kernel.org>; Fri, 8 Oct 2010 17:17:16 +0100
+In-Reply-To: <4CAF3E78.8030202@free.fr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 07, 2010 at 11:51:21AM +0200, Eric Dumazet wrote:
->Le jeudi 07 octobre 2010 =C3=A0 17:25 +0800, Am=C3=A9rico Wang a =C3=A9=
-crit :
->> >>
->> >
->> >Here is the final one.
->>=20
->> Oops, that one is not correct. Hopefully this one
->> is correct.
->>=20
->> --------------->
->>=20
->> Eric D. noticed that we may trigger an OOPS if we leave ->extra{1,2}
->> to NULL when we use proc_doulongvec_minmax().
->>=20
->> Actually, we don't need to store min/max values in a vector,
->> because all the elements in the vector should share the same min/max
->> value, like what proc_dointvec_minmax() does.
->>=20
+On 10/08/2010 05:53 PM, Daniel Lezcano wrote:
+> On 10/08/2010 02:28 PM, Hans Schillstrom wrote:
+>> Hi Eric,
+>> Any advice how to trace this down ?
+>> This rollback_registered_many() seems to have on the lists before...
+>> All IPv4 and IPv6 tunnels causes this crash, all you have to do is
+>> load the tunnel module(s)
+>> enter a new ns and exit from it.
+>>
+>> Have not tested any more devices than tunnels,
+>> I did an "ip link delete" on my macvlans before exiting the ns.
 >
->If we assert same min/max limits are to be applied to all elements,
->a much simpler fix than yours would be :
+> Ah ! I succeed to reproduce it.
+> It does not appear immediately in fact.
 >
->diff --git a/kernel/sysctl.c b/kernel/sysctl.c
->index f88552c..8e45451 100644
->--- a/kernel/sysctl.c
->+++ b/kernel/sysctl.c
->@@ -2485,7 +2485,7 @@ static int __do_proc_doulongvec_minmax(void *dat=
-a, struct ctl_table *table, int
-> 		kbuf[left] =3D 0;
-> 	}
->=20
->-	for (; left && vleft--; i++, min++, max++, first=3D0) {
->+	for (; left && vleft--; i++, first=3D0) {
-> 		unsigned long val;
->=20
-> 		if (write) {
->
->
->Please dont send huge patches like this to 'fix' a bug,
->especially on slow path.
+> I am trying to simplify the configuration but I am falling in the bug I
+> talked about in the previous email.
 
-Well, my patch makes that horrible code a little better. :)
+Ok, so after investigating, we just need a macvlan and specify an ipv6 
+address for it (inside a new netns of course), and the loopback is not 
+released. I compiled out the tunnels, so they are not related to this 
+problem I think.
 
->
->First we fix the bug, _then_ we can try to make code more=20
->efficient or more pretty or shorter.
->
->So the _real_ question is :
->
->Should the min/max limits should be a single pair,
->shared by all elements, or a vector of limits.
->
+That reduces the scope of investigation :)
 
-Yes, actually I talked with Eric W. about this before
-sending the patch.
+Looking forward ...
 
-I also checked the users of proc_doulongvec_minmax(),
-none of them are using more than one limit, so it is
-safe to remove that.
-
-
---=20
-Live like a child, think like the god.
-=20
+   -- Daniel
