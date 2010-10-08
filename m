@@ -1,46 +1,87 @@
-From: Dimitris Michailidis <dm@chelsio.com>
-Subject: [PATCH] remove leftover rcu_read_unlock calls from __mkroute_output
-Date: Thu,  7 Oct 2010 17:48:38 -0700
-Message-ID: <1286498918-30636-1-git-send-email-dm@chelsio.com>
-To: eric.dumazet@gmail.com, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:18594 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752162Ab0JHAwi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Oct 2010 20:52:38 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: IPv4: sysctl table check failed [was: mmotm 2010-10-07-14-08 uploaded]
+Date: Thu, 07 Oct 2010 17:54:48 -0700
+Message-ID: <m1y6a95wrr.fsf@fess.ebiederm.org>
+References: <201010072140.o97Le69i025659@imap1.linux-foundation.org>
+	<4CAE4479.6010606@gmail.com>
+	<1286490135.6536.75.camel@edumazet-laptop>
+	<20101007152806.119d1522.akpm@linux-foundation.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Jiri Slaby <jirislaby@gmail.com>, linux-kernel@vger.kernel.org,
+	mm-commits@vger.kernel.org, ML netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20101007152806.119d1522.akpm@linux-foundation.org> (Andrew
+	Morton's message of "Thu, 7 Oct 2010 15:28:06 -0700")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Commit "fib: RCU conversion of fib_lookup()" removed rcu_read_lock() from
-__mkroute_output but left a couple of calls to rcu_read_unlock() in there.
-This causes lockdep to complain that the rcu_read_unlock() call in
-__ip_route_output_key causes a lock inbalance and quickly crashes the
-kernel. The below fixes this for me.
+Andrew Morton <akpm@linux-foundation.org> writes:
 
-Signed-off-by: Dimitris Michailidis <dm@chelsio.com>
----
- net/ipv4/route.c |    6 ++----
- 1 files changed, 2 insertions(+), 4 deletions(-)
+> On Fri, 08 Oct 2010 00:22:15 +0200
+> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>
+>> Le vendredi 08 octobre 2010 __ 00:06 +0200, Jiri Slaby a __crit :
+>> > On 10/07/2010 11:08 PM, akpm@linux-foundation.org wrote:
+>> > > The mm-of-the-moment snapshot 2010-10-07-14-08 has been uploaded to
+>> > 
+>> > Hi, I got bunch of "sysctl table check failed" below. All seem to be
+>> > related to ipv4:
+>> 
+>> I would say, sysctl check is buggy :(
+>> 
+>> min/max are optional
+>> 
+>> [PATCH] sysctl: min/max bounds are optional
+>> 
+>> sysctl check complains when proc_doulongvec_minmax or
+>> proc_doulongvec_ms_jiffies_minmax are used by a vector of longs (with
+>> more than one element), with no min or max value specified.
+>> 
+>> This is unexpected, given we had a bug on this min/max handling :)
+>> 
+>> Reported-by: Jiri Slaby <jirislaby@gmail.com>
+>> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+>> ---
+>>  kernel/sysctl_check.c |    9 ---------
+>>  1 file changed, 9 deletions(-)
+>> 
+>> diff --git a/kernel/sysctl_check.c b/kernel/sysctl_check.c
+>> index 04cdcf7..10b90d8 100644
+>> --- a/kernel/sysctl_check.c
+>> +++ b/kernel/sysctl_check.c
+>> @@ -143,15 +143,6 @@ int sysctl_check_table(struct nsproxy *namespaces, struct ctl_table *table)
+>>  				if (!table->maxlen)
+>>  					set_fail(&fail, table, "No maxlen");
+>>  			}
+>> -			if ((table->proc_handler == proc_doulongvec_minmax) ||
+>> -			    (table->proc_handler == proc_doulongvec_ms_jiffies_minmax)) {
+>> -				if (table->maxlen > sizeof (unsigned long)) {
+>> -					if (!table->extra1)
+>> -						set_fail(&fail, table, "No min");
+>> -					if (!table->extra2)
+>> -						set_fail(&fail, table, "No max");
+>> -				}
+>> -			}
+>>  #ifdef CONFIG_PROC_SYSCTL
+>>  			if (table->procname && !table->proc_handler)
+>>  				set_fail(&fail, table, "No proc_handler");
+>
+> That will probably fix it ;)
+>
+> net-avoid-limits-overflow.patch is dependent on this patch.  Unless
+> Eric B squeaks I'll plan on sending this patch in for 2.6.37.
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 7864d0c..3888f6b 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -2396,12 +2396,10 @@ static int __mkroute_output(struct rtable **result,
- 
- 
- 	rth = dst_alloc(&ipv4_dst_ops);
--	if (!rth) {
--		rcu_read_unlock();
-+	if (!rth)
- 		return -ENOBUFS;
--	}
-+
- 	in_dev_hold(in_dev);
--	rcu_read_unlock();
- 	rth->idev = in_dev;
- 
- 	atomic_set(&rth->dst.__refcnt, 1);
--- 
-1.5.4
+Oh.  I see. I actually had a sanity check for the case that was failing.
+I probably spotted the buggy code and wanted to see if there was
+anything that cared.
 
+So sysctl_check was perfectly correct until the bug was removed from
+proc_doulongvec_minmax.  Which also means we have been auditing the
+kernel for quite a while to make certain that it is safe not to
+increment min and max.
+
+Eric
