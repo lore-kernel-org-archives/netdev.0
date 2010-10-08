@@ -1,57 +1,87 @@
-From: Breno Leitao <leitao@linux.vnet.ibm.com>
-Subject: Re: [PATCH] ehea: Fix a checksum issue on the receive path
-Date: Fri, 08 Oct 2010 11:14:10 -0300
-Message-ID: <4CAF2732.90703@linux.vnet.ibm.com>
-References: <1286493453-21784-1-git-send-email-leitao@linux.vnet.ibm.com> <1286513130.6536.467.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Jay Vosburgh <fubar@us.ibm.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Stanislaw Gruszka <sgruszka@redhat.com>
+Subject: [PATCH 1/2] r8169: allocate with GFP_KERNEL flag when able to sleep
+Date: Fri,  8 Oct 2010 16:25:00 +0200
+Message-ID: <1286547901-10782-1-git-send-email-sgruszka@redhat.com>
+Cc: Stanislaw Gruszka <sgruszka@redhat.com>
+To: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e24smtp05.br.ibm.com ([32.104.18.26]:41586 "EHLO
-	e24smtp05.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752942Ab0JHOOU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Oct 2010 10:14:20 -0400
-Received: from mailhub1.br.ibm.com (mailhub1.br.ibm.com [9.18.232.109])
-	by e24smtp05.br.ibm.com (8.14.4/8.13.1) with ESMTP id o98E8NUI021596
-	for <netdev@vger.kernel.org>; Fri, 8 Oct 2010 11:08:23 -0300
-Received: from d24av03.br.ibm.com (d24av03.br.ibm.com [9.8.31.95])
-	by mailhub1.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o98EKSqN1069372
-	for <netdev@vger.kernel.org>; Fri, 8 Oct 2010 11:20:28 -0300
-Received: from d24av03.br.ibm.com (loopback [127.0.0.1])
-	by d24av03.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o98EEGd2018265
-	for <netdev@vger.kernel.org>; Fri, 8 Oct 2010 11:14:16 -0300
-In-Reply-To: <1286513130.6536.467.camel@edumazet-laptop>
+Received: from mx1.redhat.com ([209.132.183.28]:26952 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752417Ab0JHOXF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Oct 2010 10:23:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Eric
+We have fedora bug report where driver fail to initialize after
+suspend/resume because of memory allocation errors:
+https://bugzilla.redhat.com/show_bug.cgi?id=629158
 
-On 10/08/2010 01:45 AM, Eric Dumazet wrote:
-> Just to be clear : packets with wrong checksums are not given to upper
-> stack, so a tcpdump can not display them ? I am not sure many drivers do
-> that.
-Well, what my code does is: 1) if the current packet is a UDP/TCP, then 
-the checksum is not necessary, since we would check the checksum on 
-ehea_proc_rwqes(), specific at this part of the code:
+To fix use GFP_KERNEL allocation where possible.
 
-                if (!ehea_check_cqe(cqe, &rq)) {
-			// Send the packet to the up layers
+Tested-by: Neal Becker <ndbecker2@gmail.com>
+Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
+---
+ drivers/net/r8169.c |   12 ++++++------
+ 1 files changed, 6 insertions(+), 6 deletions(-)
 
-And ehea_check_cqe() checks for wrong checksumed packets on:
-	
-         if ((cqe->status & EHEA_CQE_STAT_ERR_MASK) == 0)
-                 return 0;
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index fe3b762..a7fb044 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -4006,7 +4006,7 @@ static inline void rtl8169_map_to_asic(struct RxDesc *desc, dma_addr_t mapping,
+ static struct sk_buff *rtl8169_alloc_rx_skb(struct pci_dev *pdev,
+ 					    struct net_device *dev,
+ 					    struct RxDesc *desc, int rx_buf_sz,
+-					    unsigned int align)
++					    unsigned int align, gfp_t gfp)
+ {
+ 	struct sk_buff *skb;
+ 	dma_addr_t mapping;
+@@ -4014,7 +4014,7 @@ static struct sk_buff *rtl8169_alloc_rx_skb(struct pci_dev *pdev,
+ 
+ 	pad = align ? align : NET_IP_ALIGN;
+ 
+-	skb = netdev_alloc_skb(dev, rx_buf_sz + pad);
++	skb = __netdev_alloc_skb(dev, rx_buf_sz + pad, gfp);
+ 	if (!skb)
+ 		goto err_out;
+ 
+@@ -4045,7 +4045,7 @@ static void rtl8169_rx_clear(struct rtl8169_private *tp)
+ }
+ 
+ static u32 rtl8169_rx_fill(struct rtl8169_private *tp, struct net_device *dev,
+-			   u32 start, u32 end)
++			   u32 start, u32 end, gfp_t gfp)
+ {
+ 	u32 cur;
+ 
+@@ -4060,7 +4060,7 @@ static u32 rtl8169_rx_fill(struct rtl8169_private *tp, struct net_device *dev,
+ 
+ 		skb = rtl8169_alloc_rx_skb(tp->pci_dev, dev,
+ 					   tp->RxDescArray + i,
+-					   tp->rx_buf_sz, tp->align);
++					   tp->rx_buf_sz, tp->align, gfp);
+ 		if (!skb)
+ 			break;
+ 
+@@ -4088,7 +4088,7 @@ static int rtl8169_init_ring(struct net_device *dev)
+ 	memset(tp->tx_skb, 0x0, NUM_TX_DESC * sizeof(struct ring_info));
+ 	memset(tp->Rx_skbuff, 0x0, NUM_RX_DESC * sizeof(struct sk_buff *));
+ 
+-	if (rtl8169_rx_fill(tp, dev, 0, NUM_RX_DESC) != NUM_RX_DESC)
++	if (rtl8169_rx_fill(tp, dev, 0, NUM_RX_DESC, GFP_KERNEL) != NUM_RX_DESC)
+ 		goto err_out;
+ 
+ 	rtl8169_mark_as_last_descriptor(tp->RxDescArray + NUM_RX_DESC - 1);
+@@ -4587,7 +4587,7 @@ static int rtl8169_rx_interrupt(struct net_device *dev,
+ 	count = cur_rx - tp->cur_rx;
+ 	tp->cur_rx = cur_rx;
+ 
+-	delta = rtl8169_rx_fill(tp, dev, tp->dirty_rx, tp->cur_rx);
++	delta = rtl8169_rx_fill(tp, dev, tp->dirty_rx, tp->cur_rx, GFP_ATOMIC);
+ 	if (!delta && count)
+ 		netif_info(tp, intr, dev, "no Rx buffer allocated\n");
+ 	tp->dirty_rx += delta;
+-- 
+1.7.1
 
-
-Botton line, TCP/UDP packets with wrong checksums are dropped by 
-ehea_proc_rwqes(), others go to the up layer.
-
-So, back to your question, you are saying that we shouldn't do that, 
-meaning that we should send to the upper layers all packets ? even those 
-that have the wrong checksum ?
-
-Thanks
-Breno
