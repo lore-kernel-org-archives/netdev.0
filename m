@@ -1,46 +1,46 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCHv4 net-next-2.6 1/5] XFRM,IPv6: Remove xfrm_spi_hash()
-	dependency on destination address
-Date: Fri, 8 Oct 2010 08:42:35 +0800
-Message-ID: <20101008004235.GA25283@gondor.apana.org.au>
-References: <cover.1286139128.git.arno@natisbad.org> <5a0e320544e253cc903cfd3292600b6bec044a5f.1286139129.git.arno@natisbad.org> <20101004083306.GA17939@gondor.apana.org.au> <8739sl8yw5.fsf@small.ssi.corp> <20101005021114.GA25681@gondor.apana.org.au> <20101005041707.GA26458@gondor.apana.org.au> <87fwwhoj73.fsf@small.ssi.corp>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	netdev@vger.kernel.org
-To: Arnaud Ebalard <arno@natisbad.org>
+From: Dimitris Michailidis <dm@chelsio.com>
+Subject: [PATCH] remove leftover rcu_read_unlock calls from __mkroute_output
+Date: Thu,  7 Oct 2010 17:48:38 -0700
+Message-ID: <1286498918-30636-1-git-send-email-dm@chelsio.com>
+To: eric.dumazet@gmail.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:50397 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754046Ab0JHAms (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Oct 2010 20:42:48 -0400
-Content-Disposition: inline
-In-Reply-To: <87fwwhoj73.fsf@small.ssi.corp>
+Received: from stargate.chelsio.com ([67.207.112.58]:18594 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752162Ab0JHAwi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Oct 2010 20:52:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 07, 2010 at 10:13:04PM +0200, Arnaud Ebalard wrote:
-> 
-> I think I will try the following alternative approach based on your
-> comments and proposals:
-> 
->  - drop my patch to change spi hash computation
->  - handle destination address remapping during input upon failure of
->    xfrm_state_lookup()
->  - handle source address remapping as it is currently done in the patch,
->    i.e. by comparing received one against x->props.saddr once the
->    state found and do 
+Commit "fib: RCU conversion of fib_lookup()" removed rcu_read_lock() from
+__mkroute_output but left a couple of calls to rcu_read_unlock() in there.
+This causes lockdep to complain that the rcu_read_unlock() call in
+__ip_route_output_key causes a lock inbalance and quickly crashes the
+kernel. The below fixes this for me.
 
-I'm fine with this from IPsec's point-of-view.
+Signed-off-by: Dimitris Michailidis <dm@chelsio.com>
+---
+ net/ipv4/route.c |    6 ++----
+ 1 files changed, 2 insertions(+), 4 deletions(-)
 
-On the other hand, if it is at all possible to setup these remapping
-entries in the SADB beforehand, that would definitely be my
-preferred solution.
-
-Cheers,
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 7864d0c..3888f6b 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -2396,12 +2396,10 @@ static int __mkroute_output(struct rtable **result,
+ 
+ 
+ 	rth = dst_alloc(&ipv4_dst_ops);
+-	if (!rth) {
+-		rcu_read_unlock();
++	if (!rth)
+ 		return -ENOBUFS;
+-	}
++
+ 	in_dev_hold(in_dev);
+-	rcu_read_unlock();
+ 	rth->idev = in_dev;
+ 
+ 	atomic_set(&rth->dst.__refcnt, 1);
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.5.4
+
