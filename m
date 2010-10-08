@@ -1,53 +1,29 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: BUG ? ipip unregister_netdevice_many()
-Date: Fri, 08 Oct 2010 10:32:40 -0700
-Message-ID: <m11v801tfr.fsf@fess.ebiederm.org>
-References: <201010081353.28056.hans.schillstrom@ericsson.com>
-	<201010081428.37639.hans.schillstrom@ericsson.com>
-	<m1y6a81vms.fsf@fess.ebiederm.org>
-	<20101008.102012.226761665.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6] net: Update kernel-doc for
+ netif_set_real_num_rx_queues()
+Date: Fri, 08 Oct 2010 10:34:01 -0700 (PDT)
+Message-ID: <20101008.103401.112592398.davem@davemloft.net>
+References: <1286456891.2271.1.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: hans.schillstrom@ericsson.com, daniel.lezcano@free.fr,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, john.r.fastabend@intel.com,
+	therbert@google.com, eric.dumazet@gmail.com
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:47962 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754231Ab0JHRcq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Oct 2010 13:32:46 -0400
-In-Reply-To: <20101008.102012.226761665.davem@davemloft.net> (David Miller's
-	message of "Fri, 08 Oct 2010 10:20:12 -0700 (PDT)")
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55887
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759070Ab0JHRdk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Oct 2010 13:33:40 -0400
+In-Reply-To: <1286456891.2271.1.camel@achroite.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> writes:
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Thu, 07 Oct 2010 14:08:11 +0100
 
-> From: ebiederm@xmission.com (Eric W. Biederman)
-> Date: Fri, 08 Oct 2010 09:45:15 -0700
->
->> My hunch is that we have dst entry problems, as I know those hop network
->> interfaces when we destroy network devices, but I have seen weird issues
->> with the route cache as well.
->
-> While we're on this topic, can someone explain to me what the special
-> CONFIG_NET_NS code in net/ipv4/route.c:rt_do_flush() is trying to
-> accomplish?
->
-> If the issue is that there is an implicit ordering of releasing of
-> 'dst' entries that must be maintained, we really ought to formalize
-> it (f.e. with dependency pointers or something like that).
+> Synchronise the comment with the preceding implementation change.
+> 
+> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 
-It is just dealing with not flushing the entire routing cache, just the
-routes that have expired.  Which prevents one network namespace from
-flushing it's routes and DOS'ing another.
-
-The practical consequence is that the hash chains have to be picked
-apart with some entries kept and some released based upon
-rt_is_expired().
-
-I went through it a year or so ago with a fine tooth comb and it made
-sense and seems correct, but it does seem overly convoluted.
-
-Eric
-
+Applied, thanks Ben.
