@@ -1,32 +1,36 @@
-From: Matthew Garrett <mjg59@srcf.ucam.org>
-Subject: Re: [PATCH v2] Add Qualcomm Gobi 2000 driver.
-Date: Fri, 8 Oct 2010 20:05:34 +0100
-Message-ID: <20101008190534.GA29052@srcf.ucam.org>
-References: <20101008180310.GA27126@srcf.ucam.org> <20101008.111406.246542521.davem@davemloft.net> <20101008181851.GA27756@srcf.ucam.org> <20101008.115050.28825457.davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] Tarpit target for the last stable (2.6.35.7): right
+ version
+Date: Fri, 08 Oct 2010 20:10:42 +0100
+Message-ID: <1286565042.2282.6.camel@achroite.uk.solarflarecom.com>
+References: <4CAF6A83.6090004@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ellyjones@google.com, netdev@vger.kernel.org, jglasgow@google.com,
-	msb@google.com, olofj@google.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cavan.codon.org.uk ([93.93.128.6]:40964 "EHLO
-	cavan.codon.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932352Ab0JHTFn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Oct 2010 15:05:43 -0400
-Content-Disposition: inline
-In-Reply-To: <20101008.115050.28825457.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Nicola <nicola.padovano@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4CAF6A83.6090004@gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 08, 2010 at 11:50:50AM -0700, David Miller wrote:
+On Fri, 2010-10-08 at 21:01 +0200, Nicola wrote:
+> [Sorry for the inconvenience: I just noticed that Gmail has a bad 
+> formatting. I resend the patch hoping that now things are right.]
+[...]
 
-> I don't see how any distribution can properly support this device
-> if it cannot work without non-distributable firmware.
+It's still word-wrapped.  You may have to make the patch an attachment,
+but see Documentation/email-clients.txt for configuration hints.
 
-Individual vendors may negotiate redistribution agreements with 
-Qualcomm. We've carried drivers without redistributable firmware in the 
-past (b43 had none for some time), so I don't see that we have any clear 
-and established position on this.
+It is also not based on the right version; networking patches adding new
+features should be based on David Miller's net-next-2.6 tree.
+
+You should also read and follow Documentation/SubmittingPatches.
+
+Ben.
 
 -- 
-Matthew Garrett | mjg59@srcf.ucam.org
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
