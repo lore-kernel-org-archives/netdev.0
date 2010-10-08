@@ -1,38 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] net: Fix rxq ref counting
-Date: Fri, 08 Oct 2010 14:35:12 -0700 (PDT)
-Message-ID: <20101008.143512.191408386.davem@davemloft.net>
-References: <alpine.DEB.1.00.1010071304240.4792@pokey.mtv.corp.google.com>
-	<1286485149.3745.93.camel@edumazet-laptop>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH net-next] net: percpu net_device refcount
+Date: Fri, 8 Oct 2010 14:56:04 -0700
+Message-ID: <20101008215604.GF2408@linux.vnet.ibm.com>
+References: <1286471555.2912.291.camel@edumazet-laptop>
+ <20101007103051.63b5177c@nehalam>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: therbert@google.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42103
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750806Ab0JHVev convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Oct 2010 17:34:51 -0400
-In-Reply-To: <1286485149.3745.93.camel@edumazet-laptop>
+Received: from e2.ny.us.ibm.com ([32.97.182.142]:48566 "EHLO e2.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759919Ab0JHV4G (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Oct 2010 17:56:06 -0400
+Received: from d01relay03.pok.ibm.com (d01relay03.pok.ibm.com [9.56.227.235])
+	by e2.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id o98Lem1T005612
+	for <netdev@vger.kernel.org>; Fri, 8 Oct 2010 17:40:48 -0400
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay03.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o98Lu5Zq344162
+	for <netdev@vger.kernel.org>; Fri, 8 Oct 2010 17:56:05 -0400
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o98Lu43W021834
+	for <netdev@vger.kernel.org>; Fri, 8 Oct 2010 17:56:05 -0400
+Content-Disposition: inline
+In-Reply-To: <20101007103051.63b5177c@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 07 Oct 2010 22:59:09 +0200
+On Thu, Oct 07, 2010 at 10:30:51AM -0700, Stephen Hemminger wrote:
+> On Thu, 07 Oct 2010 19:12:35 +0200
+> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> 
+> > We tried very hard to remove all possible dev_hold()/dev_put() pairs in
+> > network stack, using RCU conversions.
+> > 
+> > There is still an unavoidable device refcount change for every dst we
+> > create/destroy, and this can slow down some workloads (routers or some
+> > app servers)
+> > 
+> > We can switch to a percpu refcount implementation, now dynamic per_cpu
+> > infrastructure is mature. On a 64 cpus machine, this consumes 256 bytes
+> > per device.
+> 
+> It makes sense, but what about 256 cores and 1024 Vlans?
+> That adds up to 4M of memory which is might be noticeable.
 
-> Le jeudi 07 octobre 2010 =E0 13:09 -0700, Tom Herbert a =E9crit :
->> The rx->count reference is used to track reference counts to the
->> number of rx-queue kobjects created for the device.  This patch
->> eliminates initialization of the counter in netif_alloc_rx_queues
->> and instead increments the counter each time a kobject is created.
->> This is now symmetric with the decrement that is done when an object=
- is
->> released.
->>=20
->> Signed-off-by: Tom Herbert <therbert@google.com>
- ...
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+I bet that systems that have 256 cores have >100GB of memory, at which
+point 4MB is way down in the noise.
 
-Applied, thanks.
+							Thanx, Paul
