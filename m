@@ -1,46 +1,74 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: BUG ? ipip unregister_netdevice_many()
-Date: Fri, 08 Oct 2010 09:45:15 -0700
-Message-ID: <m1y6a81vms.fsf@fess.ebiederm.org>
-References: <201010071048.12817.hans.schillstrom@ericsson.com>
-	<4CAEFE2C.3010007@free.fr>
-	<201010081353.28056.hans.schillstrom@ericsson.com>
-	<201010081428.37639.hans.schillstrom@ericsson.com>
+From: "United Nation" <info@un.org>
+Subject: Find Attached Document For Information
+Date: Fri, 8 Oct 2010 16:34:15 +0100
+Message-ID: <20101008153401.3B752D4A7@smtp.enter.net>
+Reply-To: <mkeellis5@aol.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Lezcano <daniel.lezcano@free.fr>,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>
-To: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Content-Type: multipart/mixed;
+	boundary="----=_NextPart_000_0125_01C2A9A6.032764CA"
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:49323 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754121Ab0JHQpU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Oct 2010 12:45:20 -0400
-In-Reply-To: <201010081428.37639.hans.schillstrom@ericsson.com> (Hans
-	Schillstrom's message of "Fri, 8 Oct 2010 14:28:37 +0200")
+Received: from smtp.enter.net ([216.193.128.24]:2076 "EHLO smtp.enter.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932144Ab0JHQtk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Oct 2010 12:49:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hans Schillstrom <hans.schillstrom@ericsson.com> writes:
+This is a multi-part message in MIME format.
 
-> Hi Eric,
-> Any advice how to trace this down ?
-> This rollback_registered_many() seems to have on the lists before...
+------=_NextPart_000_0125_01C2A9A6.032764CA
+Content-Type: text/plain;
+	charset="Windows-1251"
+Content-Transfer-Encoding: 7bit
 
-That is just the core piece that does device registration.
+Find Attached Document For Information
 
-> All IPv4 and IPv6 tunnels causes this crash, all you have to do is load the tunnel module(s)
-> enter a new ns and exit from it.
+------=_NextPart_000_0125_01C2A9A6.032764CA
+Content-Type: application/octet-stream;
+	name="UN.txt"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+	filename="UN.txt"
 
-Ouch.  
+QXR0ZW50aW9uOg0KDQpHb29kbW9ybmluZyBhbmQgaG93IGFyZSB5b3UgdG9k
+YXk/IEhvcGUgYWxsIGlzIHdlbGwgd2l0aCB5b3UgYW5kIHlvdXIgZmFtaWx5
+PyBZb3UgbWF5IG5vdCB1bmRlcnN0YW5kIHdoeSB0aGlzIG1haWwgY2FtZSB0
+byB5b3UuIFdlIGhhdmUgYmVlbiBoYXZpbmcgYSBtZWV0aW5nIGZvciB0aGUg
+cGFzc2VkIDQgbW9udGhzIHdoaWNoIGVuZGVkIDIgZGF5cyBhZ28gd2l0aCB0
+aGUgdGhlbiBzZWNyZXRhcnkgdG8gdGhlIFVOSVRFRCBOQVRJT05TLg0KDQpU
+aGlzIGVtYWlsIGlzIHRvIGFsbCB0aGUgcGVvcGxlIHRoYXQgaGF2ZSBiZWVu
+IHNjYW1tZWQgaW4gYW55IHBhcnQgb2YgdGhlIHdvcmxkIG9yIGJlZW4gcmVj
+ZWl2ZWQgZmFsc2UgaW5mb3JtYXRpb24gYW5kIGFza2VkIHRvIHBheSBmZWVz
+LCB0aGUgVU5JVEVEIE5BVElPTlMgaGF2ZSBhZ3JlZWQgdG8gY29tcGVuc2F0
+ZSB0aGVtIHdpdGggdGhlIHN1bSBvZiBPbmUgSHVuZHJlZCBhbmQgRmlmdHkg
+VGhvdXNhbmQgVW5pdGVkIFN0YXRlcyBEb2xsYXJzIChVUyQgMTUwLjAwMC4w
+MCksIHRoaXMgaXMgYmVlbiBtYWRlIHRvIHBlb3BsZSB0aGF0IGhhdmUgYmVl
+biBjaGVhdGVkIGZyb20gTG90dGVyeSBTY2FtLCBJbnZlc3RtZW50LCBBVE0s
+IGV0YyBhbmQgdGhpcyBpbmNsdWRlcyBhbHNvIGV2ZXJ5IGZvcmVpZ24gY29u
+dHJhY3RvcnMgdGhhdCBtYXkgaGF2ZSBub3QgcmVjZWl2ZWQgdGhlaXIgY29u
+dHJhY3Qgc3VtLCBhbmQgcGVvcGxlIHRoYXQgaGF2ZSBoYWQgYW4gdW5maW5p
+c2hlZCB0cmFuc2FjdGlvbiBvciBpbnRlcm5hdGlvbmFsIGJ1c2luZXNzZXMg
+dGhhdCBmYWlsZWQgZHVlIHRvIEdvdmVybm1lbnQgcG9saWNpZXMgb3IgcHJv
+YmxlbXMgZXRjLg0KDQpXZSBmb3VuZCB5b3VyIG5hbWUgb24gb3VyIGxpc3Qs
+IGF0IHNvbWUgcmVnaXN0ZXJlZCBidXNpbmVzcyBzaXRlIGFuZCB0aGF0IGlz
+IHdoeSB3ZSBhcmUgY29udGFjdGluZyB5b3UsIHRoaXMgaGF2ZSBiZWVuIGFn
+cmVlZCB1cG9uIGFuZCBoYXZlIGJlZW4gc2lnbmVkLg0KDQpZb3UgYXJlIGFk
+dmlzZWQgdG8gY29udGFjdCBNci4gTWlrZSBFbGxpcyBvciBKb2huIEJyb3du
+IG9mIElFUE8sIGFzIHRoZXkgYXJlIG91ciByZXByZXNlbnRhdGl2ZSBpbiB0
+aGF0IFJlZ2lvbiwgY29udGFjdCBoaW0gaW1tZWRpYXRlbHkgZm9yIHlvdXIg
+aW1tZWRpYXRlIHBheW1lbnQuIEluIGNvbnRhY3Qgd2l0aCBoaW0sIHlvdSB3
+aWxsIGJlIHJlcXVpcmVkIHRvIHByb3ZpZGUgYW5kIGluZm9ybSB0aGVtIHRo
+ZSBvcHRpb24gcHJlZmVyYWJsZSB0byByZWNlaXZlIHRoZSBmdW5kcy4NCg0K
+VGhlcmVmb3JlLCB5b3Ugc2hvdWxkIHNlbmQgaGltIHRoZSBmb2xsb3dpbmcg
+aW5mb3JtYXRpb24gYmVsb3c6DQoqKkZ1bGwgTmFtZQ0KKipUZWxlcGhvbmUg
+bnVtYmVyDQoqKkNvbnRhY3QgQWRkcmVzcyBhbmQgU2Nhbm5lZCBDb3B5IG9m
+IHlvdXIgSUQgZm9yIGlkZW50aWZpY2F0aW9uLg0KDQpDb250YWN0IE1yLiBN
+aWtlIEVsbGlzDQpFbWFpbDogbWtlZWxsaXM1QGFvbC5jb20NCg0KVGhhbmtz
+IGFuZCBHb2QgYmxlc3MgeW91IGFuZCB5b3VyIGZhbWlseS5Ib3BpbmcgdG8g
+aGVhciBmcm9tIHlvdSBhcyBzb29uIGFzIHlvdSBjYXNoIHlvdXIgQmFuayBE
+cmFmdC4NCg0KTWFraW5nIHRoZSB3b3JsZCBhIGJldHRlciBwbGFjZQ0KDQpS
+ZWdhcmRzLA0KTXIuIFNhYW5pIEpvaG4gRS4NCkluZm9ybWF0aW9uL05vdGlm
+aWNhdGlvbiBEZXBhcnRtZW50IChVTklURUQgTkFUSU9OUyk=
 
-> Have not tested any more devices than tunnels, 
-> I did an "ip link delete" on my macvlans before exiting the ns.
-
-My hunch is that we have dst entry problems, as I know those hop network
-interfaces when we destroy network devices, but I have seen weird issues
-with the route cache as well.
-
-Grumble.
-
-Eric
+------=_NextPart_000_0125_01C2A9A6.032764CA--
