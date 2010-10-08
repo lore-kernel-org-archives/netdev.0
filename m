@@ -1,83 +1,91 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/2] r8169: allocate with GFP_KERNEL flag when able to
- sleep
-Date: Fri, 08 Oct 2010 18:27:47 +0200
-Message-ID: <1286555267.2959.594.camel@edumazet-laptop>
-References: <1286547901-10782-1-git-send-email-sgruszka@redhat.com>
-	 <20101008145256.GB10393@redhat.com>
-	 <1286550247.2959.444.camel@edumazet-laptop>
-	 <20101008160341.GC10393@redhat.com>
+From: =?utf-8?Q?Am=C3=A9rico?= Wang <xiyou.wangcong@gmail.com>
+Subject: Re: IPv4: sysctl table check failed [was: mmotm 2010-10-07-14-08
+	uploaded]
+Date: Sat, 9 Oct 2010 00:30:15 +0800
+Message-ID: <20101008163015.GB5724@hack>
+References: <201010072140.o97Le69i025659@imap1.linux-foundation.org> <4CAE4479.6010606@gmail.com> <1286490135.6536.75.camel@edumazet-laptop> <20101007152806.119d1522.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
-To: Stanislaw Gruszka <sgruszka@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Jiri Slaby <jirislaby@gmail.com>, linux-kernel@vger.kernel.org,
+	mm-commits@vger.kernel.org, ML netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:50309 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752427Ab0JHQ1x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Oct 2010 12:27:53 -0400
-Received: by wwj40 with SMTP id 40so1416952wwj.1
-        for <netdev@vger.kernel.org>; Fri, 08 Oct 2010 09:27:52 -0700 (PDT)
-In-Reply-To: <20101008160341.GC10393@redhat.com>
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:42335 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753264Ab0JHQ2L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Oct 2010 12:28:11 -0400
+Content-Disposition: inline
+In-Reply-To: <20101007152806.119d1522.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 08 octobre 2010 =C3=A0 18:03 +0200, Stanislaw Gruszka a =C3=
-=A9crit :
-> On Fri, Oct 08, 2010 at 05:04:07PM +0200, Eric Dumazet wrote:
-> > Le vendredi 08 octobre 2010 =C3=A0 16:52 +0200, Stanislaw Gruszka a=
- =C3=A9crit :
-> > > On Fri, Oct 08, 2010 at 04:25:00PM +0200, Stanislaw Gruszka wrote=
-:
-> > > > We have fedora bug report where driver fail to initialize after
-> > > > suspend/resume because of memory allocation errors:
-> > > > https://bugzilla.redhat.com/show_bug.cgi?id=3D629158
-> > >=20
-> > > There is also one more thing to do regarding above. Calltraces fr=
-om bug
-> > > reports, shows that order 3 allocation fail. On arch with 4kB pag=
-es,
-> > > order 3 mean 32kB allocation. We want to alloc 16kB, but there is=
- also
-> > > internal sk_buff data what make that we exceed the boundary and t=
-ake
-> > > 32kB from allocator, getting almost 50% wastage.
-> > >=20
-> >=20
-> > Or its only an 1460+overhead allocation, and SLUB uses order-3 page=
-s to
-> > satisfy 2048 bytes allocations.
->=20
-> Rather not, trace show failure in rtl8169_rx_fill, where we allocate =
-rx
-> buffers and these are 16kB big by default.
->=20
-
-Only when gfp_t is GFP_KERNEL to fill rx buffers. (after your patch
-applied of course). This should succeed. If not, driver cannot load and
-function, since this NIC really needs 16KB buffers in order to avoid a
-hardware bug.
-
-Once allocated for RX rings, we never free them (never give this skb to
-upper stack) : When we receive a frame, we copybreak it, (using
-GFP_ATOMIC) so it depends on MTU.
-
-With MTU=3D1500, I am pretty sure we allocate 2048 bytes chunks, not mo=
-re.
-
-
-> I think, only on these drivers which do alloc_skb(n*PAGE_SIZE).
-> As alternative we can be smarter in alloc_skb.
-
-Only if MTU is non standard, then.
-
-I repeat : With standard MTU=3D1500, we dont allocate huge skbs in rx
-path, only small (<2048 bytes) ones.
-
-=46or bigger frames, then you might allocate fragments, using pages, an=
-d
-dont care if PAGE_SIZE is 64Kbytes.
+On Thu, Oct 07, 2010 at 03:28:06PM -0700, Andrew Morton wrote:
+>On Fri, 08 Oct 2010 00:22:15 +0200
+>Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>
+>> Le vendredi 08 octobre 2010 __ 00:06 +0200, Jiri Slaby a __crit :
+>> > On 10/07/2010 11:08 PM, akpm@linux-foundation.org wrote:
+>> > > The mm-of-the-moment snapshot 2010-10-07-14-08 has been uploaded to
+>> > 
+>> > Hi, I got bunch of "sysctl table check failed" below. All seem to be
+>> > related to ipv4:
+>> 
+>> I would say, sysctl check is buggy :(
+>> 
+>> min/max are optional
+>> 
+>> [PATCH] sysctl: min/max bounds are optional
+>> 
+>> sysctl check complains when proc_doulongvec_minmax or
+>> proc_doulongvec_ms_jiffies_minmax are used by a vector of longs (with
+>> more than one element), with no min or max value specified.
+>> 
+>> This is unexpected, given we had a bug on this min/max handling :)
+>> 
+>> Reported-by: Jiri Slaby <jirislaby@gmail.com>
+>> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+>> ---
+>>  kernel/sysctl_check.c |    9 ---------
+>>  1 file changed, 9 deletions(-)
+>> 
+>> diff --git a/kernel/sysctl_check.c b/kernel/sysctl_check.c
+>> index 04cdcf7..10b90d8 100644
+>> --- a/kernel/sysctl_check.c
+>> +++ b/kernel/sysctl_check.c
+>> @@ -143,15 +143,6 @@ int sysctl_check_table(struct nsproxy *namespaces, struct ctl_table *table)
+>>  				if (!table->maxlen)
+>>  					set_fail(&fail, table, "No maxlen");
+>>  			}
+>> -			if ((table->proc_handler == proc_doulongvec_minmax) ||
+>> -			    (table->proc_handler == proc_doulongvec_ms_jiffies_minmax)) {
+>> -				if (table->maxlen > sizeof (unsigned long)) {
+>> -					if (!table->extra1)
+>> -						set_fail(&fail, table, "No min");
+>> -					if (!table->extra2)
+>> -						set_fail(&fail, table, "No max");
+>> -				}
+>> -			}
+>>  #ifdef CONFIG_PROC_SYSCTL
+>>  			if (table->procname && !table->proc_handler)
+>>  				set_fail(&fail, table, "No proc_handler");
+>
+>That will probably fix it ;)
 
 
+Yeah, it looks good for me too,
+
+Acked-by: WANG Cong <xiyou.wangcong@gmail.com>
+
+>
+>net-avoid-limits-overflow.patch is dependent on this patch.  Unless
+>Eric B squeaks I'll plan on sending this patch in for 2.6.37.
+>
+
+Eirc B reminded me we should check the code in sysctl_check.c,
+but I forgot. The patch from Eric D is exactly what we need here.
+
+Thanks.
 
