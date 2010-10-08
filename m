@@ -1,74 +1,49 @@
-From: "United Nation" <info@un.org>
-Subject: Find Attached Document For Information
-Date: Fri, 8 Oct 2010 16:34:15 +0100
-Message-ID: <20101008153401.3B752D4A7@smtp.enter.net>
-Reply-To: <mkeellis5@aol.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: BUG ? ipip unregister_netdevice_many()
+Date: Fri, 08 Oct 2010 09:51:14 -0700
+Message-ID: <m1ocb41vct.fsf@fess.ebiederm.org>
+References: <201010071048.12817.hans.schillstrom@ericsson.com>
+	<4CAEFE2C.3010007@free.fr>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_NextPart_000_0125_01C2A9A6.032764CA"
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset=us-ascii
+Cc: Hans Schillstrom <hans.schillstrom@ericsson.com>,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>
+To: Daniel Lezcano <daniel.lezcano@free.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.enter.net ([216.193.128.24]:2076 "EHLO smtp.enter.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932144Ab0JHQtk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Oct 2010 12:49:40 -0400
+Received: from out02.mta.xmission.com ([166.70.13.232]:51560 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757940Ab0JHQvT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Oct 2010 12:51:19 -0400
+In-Reply-To: <4CAEFE2C.3010007@free.fr> (Daniel Lezcano's message of "Fri, 08
+	Oct 2010 13:19:08 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
+Daniel Lezcano <daniel.lezcano@free.fr> writes:
 
-------=_NextPart_000_0125_01C2A9A6.032764CA
-Content-Type: text/plain;
-	charset="Windows-1251"
-Content-Transfer-Encoding: 7bit
+> On 10/07/2010 10:48 AM, Hans Schillstrom wrote:
+>> Hello
+>> I'm trying to exit a network name space and it doesn't work (or am I doing something wrong?)
+>> The only netdevices left are lo and the tunnels ip6tnl0, sit0 and tunl0 when exiting netns.
+>>
+>> A netns is created by lxc-execute with two interfaces eth0 eth1 (macvlan)
+>> (see conf file at the end)
+>>
+>> Kernel: net-next-2.6 top from 4 october 2010
+>>    
+>
+> Hi Hans,
+>
+> I tried to reproduce your problem but I just get a big kernel crash when exiting
+> the container :/
+>
+> The stack is different but it may be related to the same problem.
 
-Find Attached Document For Information
+Double ouch.  My guess that this is more related to the recent macvlan
+changes.
 
-------=_NextPart_000_0125_01C2A9A6.032764CA
-Content-Type: application/octet-stream;
-	name="UN.txt"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment;
-	filename="UN.txt"
+It looks like there is plenty of debugging work to do :(
 
-QXR0ZW50aW9uOg0KDQpHb29kbW9ybmluZyBhbmQgaG93IGFyZSB5b3UgdG9k
-YXk/IEhvcGUgYWxsIGlzIHdlbGwgd2l0aCB5b3UgYW5kIHlvdXIgZmFtaWx5
-PyBZb3UgbWF5IG5vdCB1bmRlcnN0YW5kIHdoeSB0aGlzIG1haWwgY2FtZSB0
-byB5b3UuIFdlIGhhdmUgYmVlbiBoYXZpbmcgYSBtZWV0aW5nIGZvciB0aGUg
-cGFzc2VkIDQgbW9udGhzIHdoaWNoIGVuZGVkIDIgZGF5cyBhZ28gd2l0aCB0
-aGUgdGhlbiBzZWNyZXRhcnkgdG8gdGhlIFVOSVRFRCBOQVRJT05TLg0KDQpU
-aGlzIGVtYWlsIGlzIHRvIGFsbCB0aGUgcGVvcGxlIHRoYXQgaGF2ZSBiZWVu
-IHNjYW1tZWQgaW4gYW55IHBhcnQgb2YgdGhlIHdvcmxkIG9yIGJlZW4gcmVj
-ZWl2ZWQgZmFsc2UgaW5mb3JtYXRpb24gYW5kIGFza2VkIHRvIHBheSBmZWVz
-LCB0aGUgVU5JVEVEIE5BVElPTlMgaGF2ZSBhZ3JlZWQgdG8gY29tcGVuc2F0
-ZSB0aGVtIHdpdGggdGhlIHN1bSBvZiBPbmUgSHVuZHJlZCBhbmQgRmlmdHkg
-VGhvdXNhbmQgVW5pdGVkIFN0YXRlcyBEb2xsYXJzIChVUyQgMTUwLjAwMC4w
-MCksIHRoaXMgaXMgYmVlbiBtYWRlIHRvIHBlb3BsZSB0aGF0IGhhdmUgYmVl
-biBjaGVhdGVkIGZyb20gTG90dGVyeSBTY2FtLCBJbnZlc3RtZW50LCBBVE0s
-IGV0YyBhbmQgdGhpcyBpbmNsdWRlcyBhbHNvIGV2ZXJ5IGZvcmVpZ24gY29u
-dHJhY3RvcnMgdGhhdCBtYXkgaGF2ZSBub3QgcmVjZWl2ZWQgdGhlaXIgY29u
-dHJhY3Qgc3VtLCBhbmQgcGVvcGxlIHRoYXQgaGF2ZSBoYWQgYW4gdW5maW5p
-c2hlZCB0cmFuc2FjdGlvbiBvciBpbnRlcm5hdGlvbmFsIGJ1c2luZXNzZXMg
-dGhhdCBmYWlsZWQgZHVlIHRvIEdvdmVybm1lbnQgcG9saWNpZXMgb3IgcHJv
-YmxlbXMgZXRjLg0KDQpXZSBmb3VuZCB5b3VyIG5hbWUgb24gb3VyIGxpc3Qs
-IGF0IHNvbWUgcmVnaXN0ZXJlZCBidXNpbmVzcyBzaXRlIGFuZCB0aGF0IGlz
-IHdoeSB3ZSBhcmUgY29udGFjdGluZyB5b3UsIHRoaXMgaGF2ZSBiZWVuIGFn
-cmVlZCB1cG9uIGFuZCBoYXZlIGJlZW4gc2lnbmVkLg0KDQpZb3UgYXJlIGFk
-dmlzZWQgdG8gY29udGFjdCBNci4gTWlrZSBFbGxpcyBvciBKb2huIEJyb3du
-IG9mIElFUE8sIGFzIHRoZXkgYXJlIG91ciByZXByZXNlbnRhdGl2ZSBpbiB0
-aGF0IFJlZ2lvbiwgY29udGFjdCBoaW0gaW1tZWRpYXRlbHkgZm9yIHlvdXIg
-aW1tZWRpYXRlIHBheW1lbnQuIEluIGNvbnRhY3Qgd2l0aCBoaW0sIHlvdSB3
-aWxsIGJlIHJlcXVpcmVkIHRvIHByb3ZpZGUgYW5kIGluZm9ybSB0aGVtIHRo
-ZSBvcHRpb24gcHJlZmVyYWJsZSB0byByZWNlaXZlIHRoZSBmdW5kcy4NCg0K
-VGhlcmVmb3JlLCB5b3Ugc2hvdWxkIHNlbmQgaGltIHRoZSBmb2xsb3dpbmcg
-aW5mb3JtYXRpb24gYmVsb3c6DQoqKkZ1bGwgTmFtZQ0KKipUZWxlcGhvbmUg
-bnVtYmVyDQoqKkNvbnRhY3QgQWRkcmVzcyBhbmQgU2Nhbm5lZCBDb3B5IG9m
-IHlvdXIgSUQgZm9yIGlkZW50aWZpY2F0aW9uLg0KDQpDb250YWN0IE1yLiBN
-aWtlIEVsbGlzDQpFbWFpbDogbWtlZWxsaXM1QGFvbC5jb20NCg0KVGhhbmtz
-IGFuZCBHb2QgYmxlc3MgeW91IGFuZCB5b3VyIGZhbWlseS5Ib3BpbmcgdG8g
-aGVhciBmcm9tIHlvdSBhcyBzb29uIGFzIHlvdSBjYXNoIHlvdXIgQmFuayBE
-cmFmdC4NCg0KTWFraW5nIHRoZSB3b3JsZCBhIGJldHRlciBwbGFjZQ0KDQpS
-ZWdhcmRzLA0KTXIuIFNhYW5pIEpvaG4gRS4NCkluZm9ybWF0aW9uL05vdGlm
-aWNhdGlvbiBEZXBhcnRtZW50IChVTklURUQgTkFUSU9OUyk=
+Ouch Ouch Ouch!
 
-------=_NextPart_000_0125_01C2A9A6.032764CA--
+Eric
