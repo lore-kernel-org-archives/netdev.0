@@ -1,37 +1,98 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 2/2] r8169: use device model DMA API
-Date: Sat, 09 Oct 2010 09:57:35 +0200
-Message-ID: <1286611056.2692.12.camel@edumazet-laptop>
-References: <1286547901-10782-1-git-send-email-sgruszka@redhat.com>
-	 <1286547901-10782-2-git-send-email-sgruszka@redhat.com>
+From: Denis Kirjanov <dkirjanov@kernel.org>
+Subject: [PATCH -next] sundance: Add initial ethtool stats support
+Date: Sat, 9 Oct 2010 09:53:46 +0000
+Message-ID: <20101009095346.GA12951@hera.kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
-To: Stanislaw Gruszka <sgruszka@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:50324 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753233Ab0JIH54 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Oct 2010 03:57:56 -0400
-Received: by wyb28 with SMTP id 28so1727506wyb.19
-        for <netdev@vger.kernel.org>; Sat, 09 Oct 2010 00:57:55 -0700 (PDT)
-In-Reply-To: <1286547901-10782-2-git-send-email-sgruszka@redhat.com>
+Received: from hera.kernel.org ([140.211.167.34]:41844 "EHLO hera.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754497Ab0JIJxs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 9 Oct 2010 05:53:48 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 08 octobre 2010 =C3=A0 16:25 +0200, Stanislaw Gruszka a =C3=
-=A9crit :
-> Use DMA API as PCI equivalents will be deprecated. This change also
-> allow to allocate with GFP_KERNEL where possible.
->=20
-> Tested-by: Neal Becker <ndbecker2@gmail.com>
-> Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
-> ---
->  drivers/net/r8169.c |   53 +++++++++++++++++++++++++++--------------=
----------
->  1 files changed, 29 insertions(+), 24 deletions(-)
+Add initial ethtool statistics support 
 
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Denis Kirjanov <dkirjanov@kernel.org>
+---
+ drivers/net/sundance.c |   46 ++++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 46 insertions(+), 0 deletions(-)
 
+diff --git a/drivers/net/sundance.c b/drivers/net/sundance.c
+index 27d69aa..685845b 100644
+--- a/drivers/net/sundance.c
++++ b/drivers/net/sundance.c
+@@ -1564,6 +1564,18 @@ static int __set_mac_addr(struct net_device *dev)
+ 	return 0;
+ }
+ 
++static const struct {
++	const char name[ETH_GSTRING_LEN];
++} sundance_stats[] = {
++	{ "tx_packets" },
++	{ "tx_bytes" },
++	{ "rx_packets" },
++	{ "rx_bytes" },
++	{ "tx_errors" },
++	{ "tx_dropped" },
++	{ "rx_errors" },
++};
++
+ static int check_if_running(struct net_device *dev)
+ {
+ 	if (!netif_running(dev))
+@@ -1622,6 +1634,37 @@ static void set_msglevel(struct net_device *dev, u32 val)
+ 	np->msg_enable = val;
+ }
+ 
++static void get_strings(struct net_device *dev, u32 stringset,
++		u8 *data)
++{
++	memcpy(data, sundance_stats, sizeof(sundance_stats));
++}
++
++static int get_sset_count(struct net_device *dev, int sset)
++{
++	switch (sset) {
++	case ETH_SS_STATS:
++		return ARRAY_SIZE(sundance_stats);
++	default:
++		return -EOPNOTSUPP;
++	}
++}
++
++static void get_ethtool_stats(struct net_device *dev,
++		struct ethtool_stats *stats, u64 *data)
++{
++	struct net_device_stats *netdev_stats = get_stats(dev);
++	int i = 0;
++
++	data[i++] = netdev_stats->tx_packets;
++	data[i++] = netdev_stats->tx_bytes;
++	data[i++] = netdev_stats->rx_packets;
++	data[i++] = netdev_stats->rx_bytes;
++	data[i++] = netdev_stats->tx_errors;
++	data[i++] = netdev_stats->tx_dropped;
++	data[i++] = netdev_stats->rx_errors;
++}
++
+ static const struct ethtool_ops ethtool_ops = {
+ 	.begin = check_if_running,
+ 	.get_drvinfo = get_drvinfo,
+@@ -1631,6 +1674,9 @@ static const struct ethtool_ops ethtool_ops = {
+ 	.get_link = get_link,
+ 	.get_msglevel = get_msglevel,
+ 	.set_msglevel = set_msglevel,
++	.get_strings = get_strings,
++	.get_sset_count = get_sset_count,
++	.get_ethtool_stats = get_ethtool_stats,
+ };
+ 
+ static int netdev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+-- 
+1.7.0
 
