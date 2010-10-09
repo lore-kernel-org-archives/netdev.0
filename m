@@ -1,25 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net_sched: use __TCA_HTB_MAX and TCA_HTB_MAX
-Date: Sat, 09 Oct 2010 09:23:10 -0700 (PDT)
-Message-ID: <20101009.092310.45907244.davem@davemloft.net>
-References: <1285863464-5299-1-git-send-email-xiaosuo@gmail.com>
+Subject: Re: [PATCH] net/tg3: simplify conditional
+Date: Sat, 09 Oct 2010 09:23:53 -0700 (PDT)
+Message-ID: <20101009.092353.57476425.davem@davemloft.net>
+References: <20101008112927.0ca949cf@absol.kitzblitz>
+	<20101008174312.GA3562@mcarlson.broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, netdev@vger.kernel.org
-To: xiaosuo@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47522
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756600Ab0JIQWt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Oct 2010 12:22:49 -0400
-In-Reply-To: <1285863464-5299-1-git-send-email-xiaosuo@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: nikai@nikai.net, mchan@broadcom.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: mcarlson@broadcom.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20101008174312.GA3562@mcarlson.broadcom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Changli Gao <xiaosuo@gmail.com>
-Date: Fri,  1 Oct 2010 00:17:44 +0800
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Date: Fri, 8 Oct 2010 10:43:12 -0700
 
-> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+> On Fri, Oct 08, 2010 at 02:29:27AM -0700, Nicolas Kaiser wrote:
+>> Simplify: ((a && !b) || (!a && b)) => (a != b)
+>> 
+>> Signed-off-by: Nicolas Kaiser <nikai@nikai.net>
+ ...
+> Looks good to me.
 
 Applied.
+
+Matt, you can give an "Acked-by: " tag to indicate your approval
+of a patch in the future :-)
+
+Thanks.
