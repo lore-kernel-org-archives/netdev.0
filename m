@@ -1,27 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ehea: simplify conditional
-Date: Sat, 09 Oct 2010 09:21:03 -0700 (PDT)
-Message-ID: <20101009.092103.91350825.davem@davemloft.net>
-References: <20101008011450.0126ffc0@absol.kitzblitz>
-	<4CAE5C71.50304@linux.vnet.ibm.com>
+Subject: Re: [PATCH] net_sched: use __TCA_HTB_MAX and TCA_HTB_MAX
+Date: Sat, 09 Oct 2010 09:23:10 -0700 (PDT)
+Message-ID: <20101009.092310.45907244.davem@davemloft.net>
+References: <1285863464-5299-1-git-send-email-xiaosuo@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nikai@nikai.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: leitao@linux.vnet.ibm.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4CAE5C71.50304@linux.vnet.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: hadi@cyberus.ca, netdev@vger.kernel.org
+To: xiaosuo@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47522
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756600Ab0JIQWt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Oct 2010 12:22:49 -0400
+In-Reply-To: <1285863464-5299-1-git-send-email-xiaosuo@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Breno Leitao <leitao@linux.vnet.ibm.com>
-Date: Thu, 07 Oct 2010 20:49:05 -0300
+From: Changli Gao <xiaosuo@gmail.com>
+Date: Fri,  1 Oct 2010 00:17:44 +0800
 
-> On 10/07/2010 08:14 PM, Nicolas Kaiser wrote:
->> Simplify: ((a&&  b) || (!a&&  !b)) =>  (a == b)
->>
->> Signed-off-by: Nicolas Kaiser<nikai@nikai.net>
-> Acked-by: Breno Leitao <leitao@linux.vnet.ibm.com>
+> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
 
 Applied.
