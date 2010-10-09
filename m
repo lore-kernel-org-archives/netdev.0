@@ -1,55 +1,87 @@
-From: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont" <remi@remlab.net>
-Subject: Re: [PATCH 2/4] Phonet: advise against enabling the pipe controller
-Date: Sat, 9 Oct 2010 13:20:36 +0300
-Message-ID: <201010091320.36351.remi@remlab.net>
-References: <1286546523-3340-1-git-send-email-remi@remlab.net> <1286546523-3340-2-git-send-email-remi@remlab.net> <20101008.141730.258104062.davem@davemloft.net>
+From: =?ISO-8859-2?Q?Jind=F8ich_Makovi=E8ka?= <makovick@gmail.com>
+Subject: Fwd: [PATCH] forcedeth: reconfigure multicast packet filter only when needed
+Date: Sat, 9 Oct 2010 13:26:05 +0200
+Message-ID: <AANLkTinbgud9enM1XDQrdZVBtGnTFaUeoEL-D8Z2FmJh@mail.gmail.com>
+References: <20100812115430.2b5d8683@starbug.prg01.itonis.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: multipart/mixed; boundary=001636e1ea8499364504922d64a8
+Cc: davem@davemloft.net, shemminger@vyatta.com, aabdulla@nvidia.com,
+	ditto@google.com, makovick@gmail.com
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yop.chewa.net ([91.121.105.214]:33413 "EHLO yop.chewa.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753380Ab0JIKUj convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Oct 2010 06:20:39 -0400
-Received: from basile.remlab.net (cs27069010.pp.htv.fi [89.27.69.10])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	(Authenticated sender: remi)
-	by yop.chewa.net (Postfix) with ESMTPSA id 9E333483
-	for <netdev@vger.kernel.org>; Sat,  9 Oct 2010 12:20:37 +0200 (CEST)
-In-Reply-To: <20101008.141730.258104062.davem@davemloft.net>
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:51895 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754694Ab0JIL0H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Oct 2010 07:26:07 -0400
+In-Reply-To: <20100812115430.2b5d8683@starbug.prg01.itonis.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le samedi 9 octobre 2010 00:17:30 David Miller, vous avez =E9crit :
-> From: R=E9mi Denis-Courmont <remi@remlab.net>
-> Date: Fri,  8 Oct 2010 17:02:01 +0300
->=20
-> > From: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
-> >=20
-> > As it currently is, the new code path is not compatible with existi=
-ng
-> > Nokia modems. This would break existing userspace for Nokia modem, =
-such
-> > as the existing oFono ISI driver.
-> >=20
-> > Signed-off-by: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com=
->
->=20
-> This really needs to be designed such that it can co-exist with curre=
-nt
-> userland technology.
+--001636e1ea8499364504922d64a8
+Content-Type: text/plain; charset=ISO-8859-1
 
-Yeah, don't tell me. This kinda static option works for Linux kernel on=
- an=20
-embedded device like my employer. But it does not fly on the desktop.
+Currently, the forcedeth driver reconfigures the packet filter every
+time a multicast stream is (un-)subscribed. As the receiving has to be
+stopped and started in this case, any multicast subscription can cause
+packet loss, allowing userspace applications to disrupt incoming
+traffic.
 
-This big patch came as a surprise, so did its merging. I don't when it =
-can be=20
-improved.
+With the following patch, nv_set_multicast first checks the cached
+state of the packet filter, and skips the reconfiguration if the state
+does not change. With the default settings, this can reduce some
+useless reconfiguration attempts. When switched to promiscuous mode,
+all reconfigurations are skipped with the patch, which can be used to
+mitigate packet loss problems when receiving and re-subscribing many
+multicasts simultaneously on a single machine.
 
---=20
-R=E9mi Denis-Courmont
-http://www.remlab.net/
-http://fi.linkedin.com/in/remidenis
+Signed-off-by: Jindrich Makovicka <makovick@gmail.com>
+
+-- 
+Jindrich Makovicka
+
+--001636e1ea8499364504922d64a8
+Content-Type: text/x-patch; charset=US-ASCII; name="forcedeth.c.diff"
+Content-Disposition: attachment; filename="forcedeth.c.diff"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: 8695f0aba989faad_0.1
+
+LS0tIGZvcmNlZGV0aC5jLm9yaWcJMjAxMC0wNC0yNiAxNjo0ODozMC4wMDAwMDAwMDAgKzAyMDAK
+KysrIGZvcmNlZGV0aC5jCTIwMTAtMDUtMjEgMTM6MjI6MjUuNzA1OTA3Mjk0ICswMjAwCkBAIC04
+MzcsNiArODM3LDExIEBACiAJY2hhciBuYW1lX3J4W0lGTkFNU0laICsgM107ICAgICAgIC8qIC1y
+eCAgICAqLwogCWNoYXIgbmFtZV90eFtJRk5BTVNJWiArIDNdOyAgICAgICAvKiAtdHggICAgKi8K
+IAljaGFyIG5hbWVfb3RoZXJbSUZOQU1TSVogKyA2XTsgICAgLyogLW90aGVyICovCisKKwkvKiBj
+dXJyZW50IHBhY2tldCBmaWx0ZXIgc3RhdGUgKi8KKwl1MzIgY3VyX3BmZjsKKwl1MzIgY3VyX2Fk
+ZHJbMl07CisJdTMyIGN1cl9tYXNrWzJdOwogfTsKIAogLyoKQEAgLTMxMjgsMTcgKzMxMzMsMjgg
+QEAKIAl9CiAJYWRkclswXSB8PSBOVlJFR19NQ0FTVEFERFJBX0ZPUkNFOwogCXBmZiB8PSBOVlJF
+R19QRkZfQUxXQVlTOwotCXNwaW5fbG9ja19pcnEoJm5wLT5sb2NrKTsKLQludl9zdG9wX3J4KGRl
+dik7Ci0Jd3JpdGVsKGFkZHJbMF0sIGJhc2UgKyBOdlJlZ011bHRpY2FzdEFkZHJBKTsKLQl3cml0
+ZWwoYWRkclsxXSwgYmFzZSArIE52UmVnTXVsdGljYXN0QWRkckIpOwotCXdyaXRlbChtYXNrWzBd
+LCBiYXNlICsgTnZSZWdNdWx0aWNhc3RNYXNrQSk7Ci0Jd3JpdGVsKG1hc2tbMV0sIGJhc2UgKyBO
+dlJlZ011bHRpY2FzdE1hc2tCKTsKLQl3cml0ZWwocGZmLCBiYXNlICsgTnZSZWdQYWNrZXRGaWx0
+ZXJGbGFncyk7Ci0JZHByaW50ayhLRVJOX0lORk8gIiVzOiByZWNvbmZpZ3VyYXRpb24gZm9yIG11
+bHRpY2FzdCBsaXN0cy5cbiIsCi0JCWRldi0+bmFtZSk7Ci0JbnZfc3RhcnRfcngoZGV2KTsKLQlz
+cGluX3VubG9ja19pcnEoJm5wLT5sb2NrKTsKKwlpZiAobnAtPmN1cl9wZmYgIT0gKHBmZiAmIH5O
+VlJFR19QRkZfUEFVU0VfUlgpCisJICAgIHx8IG1lbWNtcChucC0+Y3VyX2FkZHIsIGFkZHIsIHNp
+emVvZihucC0+Y3VyX2FkZHIpKSAhPSAwCisJICAgIHx8IG1lbWNtcChucC0+Y3VyX21hc2ssIG1h
+c2ssIHNpemVvZihucC0+Y3VyX21hc2spKSAhPSAwKQorCXsKKwkJZHByaW50ayhLRVJOX0lORk8g
+IiVzOiByZWNvbmZpZ3VyYXRpb24gZm9yIG11bHRpY2FzdCBsaXN0cy5cbiIsCisJCQlkZXYtPm5h
+bWUpOworCQlzcGluX2xvY2tfaXJxKCZucC0+bG9jayk7CisJCW52X3N0b3BfcngoZGV2KTsKKwkJ
+d3JpdGVsKGFkZHJbMF0sIGJhc2UgKyBOdlJlZ011bHRpY2FzdEFkZHJBKTsKKwkJd3JpdGVsKGFk
+ZHJbMV0sIGJhc2UgKyBOdlJlZ011bHRpY2FzdEFkZHJCKTsKKwkJd3JpdGVsKG1hc2tbMF0sIGJh
+c2UgKyBOdlJlZ011bHRpY2FzdE1hc2tBKTsKKwkJd3JpdGVsKG1hc2tbMV0sIGJhc2UgKyBOdlJl
+Z011bHRpY2FzdE1hc2tCKTsKKwkJd3JpdGVsKHBmZiwgYmFzZSArIE52UmVnUGFja2V0RmlsdGVy
+RmxhZ3MpOworCQludl9zdGFydF9yeChkZXYpOworCQlzcGluX3VubG9ja19pcnEoJm5wLT5sb2Nr
+KTsKKwkJbWVtY3B5KG5wLT5jdXJfYWRkciwgYWRkciwgc2l6ZW9mKG5wLT5jdXJfYWRkcikpOwor
+CQltZW1jcHkobnAtPmN1cl9tYXNrLCBtYXNrLCBzaXplb2YobnAtPmN1cl9tYXNrKSk7CisJCW5w
+LT5jdXJfcGZmID0gcGZmICYgfk5WUkVHX1BGRl9QQVVTRV9SWDsKKwl9IGVsc2UgeworCQlkcHJp
+bnRrKEtFUk5fSU5GTyAiJXM6IHBmZiBzdGF0ZSB1bmNoYW5nZWQgLSBza2lwcGluZyByZWNvbmZp
+Z3VyYXRpb24uXG4iLAorCQkJZGV2LT5uYW1lKTsKKwl9CiB9CiAKIHN0YXRpYyB2b2lkIG52X3Vw
+ZGF0ZV9wYXVzZShzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCB1MzIgcGF1c2VfZmxhZ3MpCkBAIC01
+MzY5LDYgKzUzODUsMTIgQEAKIAl3cml0ZWwoTlZSRUdfTUNBU1RNQVNLQl9OT05FLCBiYXNlICsg
+TnZSZWdNdWx0aWNhc3RNYXNrQik7CiAJd3JpdGVsKDAsIGJhc2UgKyBOdlJlZ1BhY2tldEZpbHRl
+ckZsYWdzKTsKIAorCW5wLT5jdXJfcGZmID0gMDsKKwlucC0+Y3VyX2FkZHJbMF0gPSBOVlJFR19N
+Q0FTVEFERFJBX0ZPUkNFOworCW5wLT5jdXJfYWRkclsxXSA9IDA7CisJbnAtPmN1cl9tYXNrWzBd
+ID0gTlZSRUdfTUNBU1RNQVNLQV9OT05FOworCW5wLT5jdXJfbWFza1sxXSA9IE5WUkVHX01DQVNU
+TUFTS0JfTk9ORTsKKwogCXdyaXRlbCgwLCBiYXNlICsgTnZSZWdUcmFuc21pdHRlckNvbnRyb2wp
+OwogCXdyaXRlbCgwLCBiYXNlICsgTnZSZWdSZWNlaXZlckNvbnRyb2wpOwogCg==
+--001636e1ea8499364504922d64a8--
