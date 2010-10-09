@@ -1,199 +1,90 @@
-From: Denis Kirjanov <dkirjanov@kernel.org>
-Subject: Re: [PATCH -next] sundance: Add initial ethtool stats support
-Date: Sat, 09 Oct 2010 23:41:32 +0400
-Message-ID: <4CB0C56C.2000106@kernel.org>
-References: <20101009095346.GA12951@hera.kernel.org> <20101009132749.GA15074@solarflare.com>
+From: =?ISO-8859-2?Q?Jind=F8ich_Makovi=E8ka?= <makovick@gmail.com>
+Subject: Re: [PATCH] forcedeth: reconfigure multicast packet filter only when needed
+Date: Sat, 9 Oct 2010 22:46:44 +0200
+Message-ID: <AANLkTimMRQ+cmoCJTjWeSga+YrGDCGiBOCp5rJK+vF3Q@mail.gmail.com>
+References: <20100812115430.2b5d8683@starbug.prg01.itonis.net>
+	<AANLkTinbgud9enM1XDQrdZVBtGnTFaUeoEL-D8Z2FmJh@mail.gmail.com>
+	<20101009113213.62c2f131@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, Eric Dumazet <eric.dumazet@gmail.com>,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: netdev@vger.kernel.org
+Content-Type: multipart/mixed; boundary=00032557497e9ad9de04923539c8
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net, aabdulla@nvidia.com, mditto@google.com
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hera.kernel.org ([140.211.167.34]:48937 "EHLO hera.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760464Ab0JITl3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 9 Oct 2010 15:41:29 -0400
-In-Reply-To: <20101009132749.GA15074@solarflare.com>
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:61067 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760545Ab0JIUqo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Oct 2010 16:46:44 -0400
+In-Reply-To: <20101009113213.62c2f131@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/09/2010 05:27 PM, Ben Hutchings wrote:
-> Denis Kirjanov wrote:
->> Add initial ethtool statistics support 
-> [...]
->> +static void get_ethtool_stats(struct net_device *dev,
->> +		struct ethtool_stats *stats, u64 *data)
->> +{
->> +	struct net_device_stats *netdev_stats = get_stats(dev);
->> +	int i = 0;
+--00032557497e9ad9de04923539c8
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: quoted-printable
+
+2010/10/9 Stephen Hemminger <shemminger@vyatta.com>:
+> On Sat, 9 Oct 2010 13:26:05 +0200
+> Jind=F8ich Makovi=E8ka <makovick@gmail.com> wrote:
+>
 >> +
->> +	data[i++] = netdev_stats->tx_packets;
->> +	data[i++] = netdev_stats->tx_bytes;
->> +	data[i++] = netdev_stats->rx_packets;
->> +	data[i++] = netdev_stats->rx_bytes;
->> +	data[i++] = netdev_stats->tx_errors;
->> +	data[i++] = netdev_stats->tx_dropped;
->> +	data[i++] = netdev_stats->rx_errors;
->> +}
-> [...]
-> 
-> There is no point in adding ethtool stats that merely mirror the baseline
-> net device stats.
-> 
-> Ben.
-> 
+>> + =A0 =A0 /* current packet filter state */
+>> + =A0 =A0 u32 cur_pff;
+>> + =A0 =A0 u32 cur_addr[2];
+>> + =A0 =A0 u32 cur_mask[2];
+>> =A0};
+>
+> No big deal, but couldn't you just put those temporary variables
+> on the stack. and reread the current value before stopping.
 
-[PATCH -next v2] sundance: Add ethtool stats support
+Sure, this version should do the same (still untested, I don't have a
+machine with nForce here at the moment). I just wanted to avoid more
+NIC register accesses, but it's probably a premature optimization.
 
-Add ethtool stats support
+Regards,
+--=20
+Jindrich Makovicka
 
-Signed-off-by: Denis Kirjanov <dkirjanov@kernel.org>
----
-V2: 
- check for the ETH_SS_STATS in get_string()
- use xstats struct for ethtool stats
+--00032557497e9ad9de04923539c8
+Content-Type: text/x-patch; charset=US-ASCII; name="forcedeth2.diff"
+Content-Disposition: attachment; filename="forcedeth2.diff"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_gf2y5ky80
 
-drivers/net/sundance.c |   90 ++++++++++++++++++++++++++++++++++++++++++++----
- 1 files changed, 83 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/sundance.c b/drivers/net/sundance.c
-index 4283cc5..4e3ff71 100644
---- a/drivers/net/sundance.c
-+++ b/drivers/net/sundance.c
-@@ -363,6 +363,19 @@ struct netdev_private {
-         dma_addr_t tx_ring_dma;
-         dma_addr_t rx_ring_dma;
- 	struct timer_list timer;		/* Media monitoring timer. */
-+	/* ethtool extra stats */
-+	struct {
-+		unsigned long tx_multiple_collisions;
-+		unsigned long tx_single_collisions;
-+		unsigned long tx_late_collisions;
-+		unsigned long tx_deffered;
-+		unsigned long tx_deffered_excessive;
-+		unsigned long tx_aborted;
-+		unsigned long tx_bcasts;
-+		unsigned long rx_bcasts;
-+		unsigned long tx_mcasts;
-+		unsigned long rx_mcasts;
-+	} xstats;
- 	/* Frequently used values: keep some adjacent for cache effect. */
- 	spinlock_t lock;
- 	int msg_enable;
-@@ -1486,7 +1499,6 @@ static struct net_device_stats *get_stats(struct net_device *dev)
- {
- 	struct netdev_private *np = netdev_priv(dev);
- 	void __iomem *ioaddr = np->base;
--	int i;
- 	unsigned long flags;
- 
- 	spin_lock_irqsave(&np->statlock, flags);
-@@ -1494,13 +1506,23 @@ static struct net_device_stats *get_stats(struct net_device *dev)
- 	dev->stats.rx_missed_errors	+= ioread8(ioaddr + RxMissed);
- 	dev->stats.tx_packets += ioread16(ioaddr + TxFramesOK);
- 	dev->stats.rx_packets += ioread16(ioaddr + RxFramesOK);
--	dev->stats.collisions += ioread8(ioaddr + StatsLateColl);
--	dev->stats.collisions += ioread8(ioaddr + StatsMultiColl);
--	dev->stats.collisions += ioread8(ioaddr + StatsOneColl);
- 	dev->stats.tx_carrier_errors += ioread8(ioaddr + StatsCarrierError);
--	ioread8(ioaddr + StatsTxDefer);
--	for (i = StatsTxDefer; i <= StatsMcastRx; i++)
--		ioread8(ioaddr + i);
-+
-+	np->xstats.tx_multiple_collisions += ioread8(ioaddr + StatsMultiColl);
-+	np->xstats.tx_single_collisions += ioread8(ioaddr + StatsOneColl);
-+	np->xstats.tx_late_collisions += ioread8(ioaddr + StatsLateColl);
-+	dev->stats.collisions += np->xstats.tx_multiple_collisions
-+		+ np->xstats.tx_single_collisions
-+		+ np->xstats.tx_late_collisions;
-+
-+	np->xstats.tx_deffered += ioread8(ioaddr + StatsTxDefer);
-+	np->xstats.tx_deffered_excessive += ioread8(ioaddr + StatsTxXSDefer);
-+	np->xstats.tx_aborted += ioread8(ioaddr + StatsTxAbort);
-+	np->xstats.tx_bcasts += ioread8(ioaddr + StatsBcastTx);
-+	np->xstats.rx_bcasts += ioread8(ioaddr + StatsBcastRx);
-+	np->xstats.tx_mcasts += ioread8(ioaddr + StatsMcastTx);
-+	np->xstats.rx_mcasts += ioread8(ioaddr + StatsMcastRx);
-+
- 	dev->stats.tx_bytes += ioread16(ioaddr + TxOctetsLow);
- 	dev->stats.tx_bytes += ioread16(ioaddr + TxOctetsHigh) << 16;
- 	dev->stats.rx_bytes += ioread16(ioaddr + RxOctetsLow);
-@@ -1566,6 +1588,21 @@ static int __set_mac_addr(struct net_device *dev)
- 	return 0;
- }
- 
-+static const struct {
-+	const char name[ETH_GSTRING_LEN];
-+} sundance_stats[] = {
-+	{ "tx_multiple_collisions" },
-+	{ "tx_single_collisions" },
-+	{ "tx_late_collisions" },
-+	{ "tx_deffered" },
-+	{ "tx_deffered_excessive" },
-+	{ "tx_aborted" },
-+	{ "tx_bcasts" },
-+	{ "rx_bcasts" },
-+	{ "tx_mcasts" },
-+	{ "rx_mcasts" },
-+};
-+
- static int check_if_running(struct net_device *dev)
- {
- 	if (!netif_running(dev))
-@@ -1624,6 +1661,42 @@ static void set_msglevel(struct net_device *dev, u32 val)
- 	np->msg_enable = val;
- }
- 
-+static void get_strings(struct net_device *dev, u32 stringset,
-+		u8 *data)
-+{
-+	if (stringset == ETH_SS_STATS)
-+		memcpy(data, sundance_stats, sizeof(sundance_stats));
-+}
-+
-+static int get_sset_count(struct net_device *dev, int sset)
-+{
-+	switch (sset) {
-+	case ETH_SS_STATS:
-+		return ARRAY_SIZE(sundance_stats);
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+}
-+
-+static void get_ethtool_stats(struct net_device *dev,
-+		struct ethtool_stats *stats, u64 *data)
-+{
-+	struct netdev_private *np = netdev_priv(dev);
-+	int i = 0;
-+
-+	get_stats(dev);
-+	data[i++] = np->xstats.tx_multiple_collisions;
-+	data[i++] = np->xstats.tx_single_collisions;
-+	data[i++] = np->xstats.tx_late_collisions;
-+	data[i++] = np->xstats.tx_deffered;
-+	data[i++] = np->xstats.tx_deffered_excessive;
-+	data[i++] = np->xstats.tx_aborted;
-+	data[i++] = np->xstats.tx_bcasts;
-+	data[i++] = np->xstats.rx_bcasts;
-+	data[i++] = np->xstats.tx_mcasts;
-+	data[i++] = np->xstats.rx_mcasts;
-+}
-+
- static const struct ethtool_ops ethtool_ops = {
- 	.begin = check_if_running,
- 	.get_drvinfo = get_drvinfo,
-@@ -1633,6 +1706,9 @@ static const struct ethtool_ops ethtool_ops = {
- 	.get_link = get_link,
- 	.get_msglevel = get_msglevel,
- 	.set_msglevel = set_msglevel,
-+	.get_strings = get_strings,
-+	.get_sset_count = get_sset_count,
-+	.get_ethtool_stats = get_ethtool_stats,
- };
- 
- static int netdev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
--- 
-1.7.0
-
+LS0tIGZvcmNlZGV0aC5jLm9yaWcJMjAxMC0xMC0wNyAwODo1Njo1NS41NjQ1MTExNTMgKzAyMDAK
+KysrIGZvcmNlZGV0aC5jCTIwMTAtMTAtMDkgMjI6MzQ6NTMuMTUxNTIzNTExICswMjAwCkBAIC0z
+MDI3LDkgKzMwMjcsMTUgQEAKIHsKIAlzdHJ1Y3QgZmVfcHJpdiAqbnAgPSBuZXRkZXZfcHJpdihk
+ZXYpOwogCXU4IF9faW9tZW0gKmJhc2UgPSBnZXRfaHdiYXNlKGRldik7Ci0JdTMyIGFkZHJbMl07
+Ci0JdTMyIG1hc2tbMl07Ci0JdTMyIHBmZiA9IHJlYWRsKGJhc2UgKyBOdlJlZ1BhY2tldEZpbHRl
+ckZsYWdzKSAmIE5WUkVHX1BGRl9QQVVTRV9SWDsKKwl1MzIgYWRkclsyXSwgcHJldl9hZGRyWzJd
+OworCXUzMiBtYXNrWzJdLCBwcmV2X21hc2tbMl07CisJdTMyIHByZXZfcGZmID0gcmVhZGwoYmFz
+ZSArIE52UmVnUGFja2V0RmlsdGVyRmxhZ3MpOworCXUzMiBwZmYgPSBwcmV2X3BmZiAmIE5WUkVH
+X1BGRl9QQVVTRV9SWDsKKworCXByZXZfYWRkclswXSA9IHJlYWRsKGJhc2UgKyBOdlJlZ011bHRp
+Y2FzdEFkZHJBKTsKKwlwcmV2X2FkZHJbMV0gPSByZWFkbChiYXNlICsgTnZSZWdNdWx0aWNhc3RB
+ZGRyQik7CisJcHJldl9tYXNrWzBdID0gcmVhZGwoYmFzZSArIE52UmVnTXVsdGljYXN0TWFza0Ep
+OworCXByZXZfbWFza1sxXSA9IHJlYWRsKGJhc2UgKyBOdlJlZ011bHRpY2FzdE1hc2tCKTsKIAog
+CW1lbXNldChhZGRyLCAwLCBzaXplb2YoYWRkcikpOwogCW1lbXNldChtYXNrLCAwLCBzaXplb2Yo
+bWFzaykpOwpAQCAtMzA3MiwxNyArMzA3OCwyNSBAQAogCX0KIAlhZGRyWzBdIHw9IE5WUkVHX01D
+QVNUQUREUkFfRk9SQ0U7CiAJcGZmIHw9IE5WUkVHX1BGRl9BTFdBWVM7Ci0Jc3Bpbl9sb2NrX2ly
+cSgmbnAtPmxvY2spOwotCW52X3N0b3BfcngoZGV2KTsKLQl3cml0ZWwoYWRkclswXSwgYmFzZSAr
+IE52UmVnTXVsdGljYXN0QWRkckEpOwotCXdyaXRlbChhZGRyWzFdLCBiYXNlICsgTnZSZWdNdWx0
+aWNhc3RBZGRyQik7Ci0Jd3JpdGVsKG1hc2tbMF0sIGJhc2UgKyBOdlJlZ011bHRpY2FzdE1hc2tB
+KTsKLQl3cml0ZWwobWFza1sxXSwgYmFzZSArIE52UmVnTXVsdGljYXN0TWFza0IpOwotCXdyaXRl
+bChwZmYsIGJhc2UgKyBOdlJlZ1BhY2tldEZpbHRlckZsYWdzKTsKLQlkcHJpbnRrKEtFUk5fSU5G
+TyAiJXM6IHJlY29uZmlndXJhdGlvbiBmb3IgbXVsdGljYXN0IGxpc3RzLlxuIiwKLQkJZGV2LT5u
+YW1lKTsKLQludl9zdGFydF9yeChkZXYpOwotCXNwaW5fdW5sb2NrX2lycSgmbnAtPmxvY2spOwor
+CWlmIChwcmV2X3BmZiAhPSBwZmYKKwkgICAgfHwgbWVtY21wKHByZXZfYWRkciwgYWRkciwgc2l6
+ZW9mKHByZXZfYWRkcikpICE9IDAKKwkgICAgfHwgbWVtY21wKHByZXZfbWFzaywgbWFzaywgc2l6
+ZW9mKHByZXZfbWFzaykpICE9IDApCisJeworCQlkcHJpbnRrKEtFUk5fSU5GTyAiJXM6IHJlY29u
+ZmlndXJhdGlvbiBmb3IgbXVsdGljYXN0IGxpc3RzLlxuIiwKKwkJCWRldi0+bmFtZSk7CisJCXNw
+aW5fbG9ja19pcnEoJm5wLT5sb2NrKTsKKwkJbnZfc3RvcF9yeChkZXYpOworCQl3cml0ZWwoYWRk
+clswXSwgYmFzZSArIE52UmVnTXVsdGljYXN0QWRkckEpOworCQl3cml0ZWwoYWRkclsxXSwgYmFz
+ZSArIE52UmVnTXVsdGljYXN0QWRkckIpOworCQl3cml0ZWwobWFza1swXSwgYmFzZSArIE52UmVn
+TXVsdGljYXN0TWFza0EpOworCQl3cml0ZWwobWFza1sxXSwgYmFzZSArIE52UmVnTXVsdGljYXN0
+TWFza0IpOworCQl3cml0ZWwocGZmLCBiYXNlICsgTnZSZWdQYWNrZXRGaWx0ZXJGbGFncyk7CisJ
+CW52X3N0YXJ0X3J4KGRldik7CisJCXNwaW5fdW5sb2NrX2lycSgmbnAtPmxvY2spOworCX0gZWxz
+ZSB7CisJCWRwcmludGsoS0VSTl9JTkZPICIlczogcGZmIHN0YXRlIHVuY2hhbmdlZCAtIHNraXBw
+aW5nIHJlY29uZmlndXJhdGlvbi5cbiIsCisJCQlkZXYtPm5hbWUpOworCX0KIH0KIAogc3RhdGlj
+IHZvaWQgbnZfdXBkYXRlX3BhdXNlKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsIHUzMiBwYXVzZV9m
+bGFncykK
+--00032557497e9ad9de04923539c8--
