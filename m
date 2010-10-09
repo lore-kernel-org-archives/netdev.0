@@ -1,87 +1,53 @@
-From: =?ISO-8859-2?Q?Jind=F8ich_Makovi=E8ka?= <makovick@gmail.com>
-Subject: Fwd: [PATCH] forcedeth: reconfigure multicast packet filter only when needed
-Date: Sat, 9 Oct 2010 13:26:05 +0200
-Message-ID: <AANLkTinbgud9enM1XDQrdZVBtGnTFaUeoEL-D8Z2FmJh@mail.gmail.com>
-References: <20100812115430.2b5d8683@starbug.prg01.itonis.net>
+From: emin ak <eminak71@gmail.com>
+Subject: Re: [Bugme-new] [Bug 19692] New: linux-2.6.36-rc5 crash with gianfar
+ ethernet at full line rate traffic
+Date: Sat, 9 Oct 2010 15:10:25 +0300
+Message-ID: <AANLkTi=EsfQbkt-YycXfuVpBDviCxKFuUdz4qZTXV+eG@mail.gmail.com>
+References: <20101004135310.6a5f8e93.akpm@linux-foundation.org>
+	<20101008092427.GA2327@del.dom.local>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=001636e1ea8499364504922d64a8
-Cc: davem@davemloft.net, shemminger@vyatta.com, aabdulla@nvidia.com,
-	ditto@google.com, makovick@gmail.com
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org,
+	Anton Vorontsov <avorontsov@mvista.com>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f174.google.com ([209.85.214.174]:51895 "EHLO
-	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754694Ab0JIL0H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Oct 2010 07:26:07 -0400
-In-Reply-To: <20100812115430.2b5d8683@starbug.prg01.itonis.net>
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:59231 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755285Ab0JIMK0 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Oct 2010 08:10:26 -0400
+Received: by qwf7 with SMTP id 7so1090689qwf.19
+        for <netdev@vger.kernel.org>; Sat, 09 Oct 2010 05:10:25 -0700 (PDT)
+In-Reply-To: <20101008092427.GA2327@del.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---001636e1ea8499364504922d64a8
-Content-Type: text/plain; charset=ISO-8859-1
+> Andrew Morton wrote:
+>> (switched to email. =A0Please respond via emailed reply-to-all, not =
+via the
+>> bugzilla web interface).
+>>
+>> On Mon, 4 Oct 2010 06:25:14 GMT
+>> bugzilla-daemon@bugzilla.kernel.org wrote:
+>>
+>>> https://bugzilla.kernel.org/show_bug.cgi?id=3D19692
+>>>
+>>> =A0 =A0 =A0 =A0 =A0 =A0Summary: linux-2.6.36-rc5 crash with gianfar=
+ ethernet at full
+>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 line rate traffic
+> ...
+>
+> Emin, until there is something better I hope you could try this patch=
+=2E
+> (not tested nor compiled)
+>
+> Thanks,
+> Jarek P.
 
-Currently, the forcedeth driver reconfigures the packet filter every
-time a multicast stream is (un-)subscribed. As the receiving has to be
-stopped and started in this case, any multicast subscription can cause
-packet loss, allowing userspace applications to disrupt incoming
-traffic.
-
-With the following patch, nv_set_multicast first checks the cached
-state of the packet filter, and skips the reconfiguration if the state
-does not change. With the default settings, this can reduce some
-useless reconfiguration attempts. When switched to promiscuous mode,
-all reconfigurations are skipped with the patch, which can be used to
-mitigate packet loss problems when receiving and re-subscribing many
-multicasts simultaneously on a single machine.
-
-Signed-off-by: Jindrich Makovicka <makovick@gmail.com>
-
--- 
-Jindrich Makovicka
-
---001636e1ea8499364504922d64a8
-Content-Type: text/x-patch; charset=US-ASCII; name="forcedeth.c.diff"
-Content-Disposition: attachment; filename="forcedeth.c.diff"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: 8695f0aba989faad_0.1
-
-LS0tIGZvcmNlZGV0aC5jLm9yaWcJMjAxMC0wNC0yNiAxNjo0ODozMC4wMDAwMDAwMDAgKzAyMDAK
-KysrIGZvcmNlZGV0aC5jCTIwMTAtMDUtMjEgMTM6MjI6MjUuNzA1OTA3Mjk0ICswMjAwCkBAIC04
-MzcsNiArODM3LDExIEBACiAJY2hhciBuYW1lX3J4W0lGTkFNU0laICsgM107ICAgICAgIC8qIC1y
-eCAgICAqLwogCWNoYXIgbmFtZV90eFtJRk5BTVNJWiArIDNdOyAgICAgICAvKiAtdHggICAgKi8K
-IAljaGFyIG5hbWVfb3RoZXJbSUZOQU1TSVogKyA2XTsgICAgLyogLW90aGVyICovCisKKwkvKiBj
-dXJyZW50IHBhY2tldCBmaWx0ZXIgc3RhdGUgKi8KKwl1MzIgY3VyX3BmZjsKKwl1MzIgY3VyX2Fk
-ZHJbMl07CisJdTMyIGN1cl9tYXNrWzJdOwogfTsKIAogLyoKQEAgLTMxMjgsMTcgKzMxMzMsMjgg
-QEAKIAl9CiAJYWRkclswXSB8PSBOVlJFR19NQ0FTVEFERFJBX0ZPUkNFOwogCXBmZiB8PSBOVlJF
-R19QRkZfQUxXQVlTOwotCXNwaW5fbG9ja19pcnEoJm5wLT5sb2NrKTsKLQludl9zdG9wX3J4KGRl
-dik7Ci0Jd3JpdGVsKGFkZHJbMF0sIGJhc2UgKyBOdlJlZ011bHRpY2FzdEFkZHJBKTsKLQl3cml0
-ZWwoYWRkclsxXSwgYmFzZSArIE52UmVnTXVsdGljYXN0QWRkckIpOwotCXdyaXRlbChtYXNrWzBd
-LCBiYXNlICsgTnZSZWdNdWx0aWNhc3RNYXNrQSk7Ci0Jd3JpdGVsKG1hc2tbMV0sIGJhc2UgKyBO
-dlJlZ011bHRpY2FzdE1hc2tCKTsKLQl3cml0ZWwocGZmLCBiYXNlICsgTnZSZWdQYWNrZXRGaWx0
-ZXJGbGFncyk7Ci0JZHByaW50ayhLRVJOX0lORk8gIiVzOiByZWNvbmZpZ3VyYXRpb24gZm9yIG11
-bHRpY2FzdCBsaXN0cy5cbiIsCi0JCWRldi0+bmFtZSk7Ci0JbnZfc3RhcnRfcngoZGV2KTsKLQlz
-cGluX3VubG9ja19pcnEoJm5wLT5sb2NrKTsKKwlpZiAobnAtPmN1cl9wZmYgIT0gKHBmZiAmIH5O
-VlJFR19QRkZfUEFVU0VfUlgpCisJICAgIHx8IG1lbWNtcChucC0+Y3VyX2FkZHIsIGFkZHIsIHNp
-emVvZihucC0+Y3VyX2FkZHIpKSAhPSAwCisJICAgIHx8IG1lbWNtcChucC0+Y3VyX21hc2ssIG1h
-c2ssIHNpemVvZihucC0+Y3VyX21hc2spKSAhPSAwKQorCXsKKwkJZHByaW50ayhLRVJOX0lORk8g
-IiVzOiByZWNvbmZpZ3VyYXRpb24gZm9yIG11bHRpY2FzdCBsaXN0cy5cbiIsCisJCQlkZXYtPm5h
-bWUpOworCQlzcGluX2xvY2tfaXJxKCZucC0+bG9jayk7CisJCW52X3N0b3BfcngoZGV2KTsKKwkJ
-d3JpdGVsKGFkZHJbMF0sIGJhc2UgKyBOdlJlZ011bHRpY2FzdEFkZHJBKTsKKwkJd3JpdGVsKGFk
-ZHJbMV0sIGJhc2UgKyBOdlJlZ011bHRpY2FzdEFkZHJCKTsKKwkJd3JpdGVsKG1hc2tbMF0sIGJh
-c2UgKyBOdlJlZ011bHRpY2FzdE1hc2tBKTsKKwkJd3JpdGVsKG1hc2tbMV0sIGJhc2UgKyBOdlJl
-Z011bHRpY2FzdE1hc2tCKTsKKwkJd3JpdGVsKHBmZiwgYmFzZSArIE52UmVnUGFja2V0RmlsdGVy
-RmxhZ3MpOworCQludl9zdGFydF9yeChkZXYpOworCQlzcGluX3VubG9ja19pcnEoJm5wLT5sb2Nr
-KTsKKwkJbWVtY3B5KG5wLT5jdXJfYWRkciwgYWRkciwgc2l6ZW9mKG5wLT5jdXJfYWRkcikpOwor
-CQltZW1jcHkobnAtPmN1cl9tYXNrLCBtYXNrLCBzaXplb2YobnAtPmN1cl9tYXNrKSk7CisJCW5w
-LT5jdXJfcGZmID0gcGZmICYgfk5WUkVHX1BGRl9QQVVTRV9SWDsKKwl9IGVsc2UgeworCQlkcHJp
-bnRrKEtFUk5fSU5GTyAiJXM6IHBmZiBzdGF0ZSB1bmNoYW5nZWQgLSBza2lwcGluZyByZWNvbmZp
-Z3VyYXRpb24uXG4iLAorCQkJZGV2LT5uYW1lKTsKKwl9CiB9CiAKIHN0YXRpYyB2b2lkIG52X3Vw
-ZGF0ZV9wYXVzZShzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCB1MzIgcGF1c2VfZmxhZ3MpCkBAIC01
-MzY5LDYgKzUzODUsMTIgQEAKIAl3cml0ZWwoTlZSRUdfTUNBU1RNQVNLQl9OT05FLCBiYXNlICsg
-TnZSZWdNdWx0aWNhc3RNYXNrQik7CiAJd3JpdGVsKDAsIGJhc2UgKyBOdlJlZ1BhY2tldEZpbHRl
-ckZsYWdzKTsKIAorCW5wLT5jdXJfcGZmID0gMDsKKwlucC0+Y3VyX2FkZHJbMF0gPSBOVlJFR19N
-Q0FTVEFERFJBX0ZPUkNFOworCW5wLT5jdXJfYWRkclsxXSA9IDA7CisJbnAtPmN1cl9tYXNrWzBd
-ID0gTlZSRUdfTUNBU1RNQVNLQV9OT05FOworCW5wLT5jdXJfbWFza1sxXSA9IE5WUkVHX01DQVNU
-TUFTS0JfTk9ORTsKKwogCXdyaXRlbCgwLCBiYXNlICsgTnZSZWdUcmFuc21pdHRlckNvbnRyb2wp
-OwogCXdyaXRlbCgwLCBiYXNlICsgTnZSZWdSZWNlaXZlckNvbnRyb2wpOwogCg==
---001636e1ea8499364504922d64a8--
+Hi Jarek,
+My test setup is at my office so that I will try your patch on Monday
+immediately and turn you the results.
+Thanks.
+Emin
