@@ -1,216 +1,201 @@
-From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
-Subject: [RFC] ixgbe: v3 normalize frag_list usage
-Date: Fri, 8 Oct 2010 16:57:40 -0700
-Message-ID: <80769D7B14936844A23C0C43D9FBCF0F25BC8DEC85@orsmsx501.amr.corp.intel.com>
-References: <4CAA1722.7070405@intel.com>
-	<20101004.113258.212671454.davem@davemloft.net>
-	<80769D7B14936844A23C0C43D9FBCF0F25B97A24B5@orsmsx501.amr.corp.intel.com>
- <20101006.235837.241424681.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT] Networking
+Date: Fri, 08 Oct 2010 20:30:34 -0700 (PDT)
+Message-ID: <20101008.203034.241431376.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:43130 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759496Ab0JHX5p convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Oct 2010 19:57:45 -0400
-In-Reply-To: <20101006.235837.241424681.davem@davemloft.net>
-Content-Language: en-US
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44368
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751814Ab0JIDaN convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Oct 2010 23:30:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dave,
 
-Below is the new and improved version of the RSC chaining approach.  Basically
-I am holding off on merging the SKB into the frame until the SKB has data in
-order to make it take a more standard approach.
+1) Memory out-of-bounds accesses in SCTP, from Dan Rosenberg.
 
-Let me know if this will work with the new pointer structure.
+2) We accidently handle v3 queries imporperly when in IGMP v2 compat mo=
+de.
+   Fix from David Stevens.
 
-Thanks,
+3) Ref-after-put bug, and lack of dev_get_by_index() failure checking
+   in caif_connect(), from Eric Dumazet.
 
-Alex
+4) Bluetooh can deadlock on writes when socket send buffer fills us,
+   but the packets that would release that space are in the backlog,
+   because we hold the socket lock while sleeping and therefore can't
+   process those backlog packets.
 
----
+   Fix from Gustavo F. Padovan.
 
-This change drops the RSC queue approach and instead creates a normalized
-frag_list skb but the tail is kept active and regularly merged into the
-host SKB every time it is completed.  In order to identify the tail skb
-as a tail we set the head pointer in the RSC CB block of the skb. To locate
-the head we just need to check to see if skb->prev is set and make sure to
-clean up the pointer before we pass it up to the stack.
+5) IPV6 doesn't check all of the necessary routes when updating the
+   PMTU in response to an ICMP.  Fix from Maciej =AFenczykowski.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
----
+6) When global TCP memory hit is hit, we hang because the sk_wait_event=
+()
+   third argument is wrong in sk_stream_wait_memory().
 
- drivers/net/ixgbe/ixgbe.h      |    3 +
- drivers/net/ixgbe/ixgbe_main.c |   96 +++++++++++++++++++++++-----------------
- 2 files changed, 58 insertions(+), 41 deletions(-)
+   This is a very very old bug, I am very surprised nobody else has hit
+   this problem.
 
+   Fix by Nagendra Singh Tomar.
 
-diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
-index a62d19c..397f9e1 100644
---- a/drivers/net/ixgbe/ixgbe.h
-+++ b/drivers/net/ixgbe/ixgbe.h
-@@ -469,8 +469,9 @@ enum ixbge_state_t {
- };
- 
- struct ixgbe_rsc_cb {
-+	struct sk_buff *head;
- 	dma_addr_t dma;
--	u16 skb_cnt;
-+	u16 append_cnt;
- 	bool delay_unmap;
- };
- #define IXGBE_RSC_CB(skb) ((struct ixgbe_rsc_cb *)(skb)->cb)
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 8edce66..104a833 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -1251,34 +1251,51 @@ static inline u16 ixgbe_get_hlen(union ixgbe_adv_rx_desc *rx_desc)
- }
- 
- /**
-- * ixgbe_transform_rsc_queue - change rsc queue into a full packet
-- * @skb: pointer to the last skb in the rsc queue
-+ * ixgbe_merge_active_tail - merge active tail into frag_list skb
-+ * @tail: pointer to active tail in frag_list
-  *
-- * This function changes a queue full of hw rsc buffers into a completed
-- * packet.  It uses the ->prev pointers to find the first packet and then
-- * turns it into the frag list owner.
-+ * This function merges the length and data of an active tail into the
-+ * skb containing the frag_list.  It resets the tail's pointer to the head,
-+ * but it leaves the heads pointer to tail intact.
-  **/
--static inline struct sk_buff *ixgbe_transform_rsc_queue(struct sk_buff *skb)
-+static inline struct sk_buff *ixgbe_merge_active_tail(struct sk_buff *tail)
- {
--	unsigned int frag_list_size = 0;
--	unsigned int skb_cnt = 1;
-+	struct sk_buff *head = IXGBE_RSC_CB(tail)->head;
- 
--	while (skb->prev) {
--		struct sk_buff *prev = skb->prev;
--		frag_list_size += skb->len;
--		skb->prev = NULL;
--		skb = prev;
--		skb_cnt++;
--	}
-+	if (!head)
-+		return tail;
+7) An old commit I made to fix a build failure with some drivers
+   was wrong, and didn't fix the INET_LRO dependency problems at
+   all.
+
+   So revert that and Ben Hutchings fixes it right by adding the
+   necessary "INET" dependencies to drivers which need "INET_LRO".
+
+8) Signedness overflow in offset check of cls_u32 packet scheduler
+   classifier module, from Dan Carpenter.
+
+9) Update Intel ethernet driver docs and MAINTAINERS netry, from Jeff K=
+irsher.
+
+10) SKGE on some motherboards can't do 64-bit DMA properly, fix from
+    Stanislaw Gruszka.
+
+11) bond_masters sysfs file gives bogus WARN_ON, fix from Neil HOrman
+
+12) Fix ath9k clock rate calcuation regression, from Felix Fietkau.
+
+13) Kill AddBA timer, otherwise we reference a freed object.  Fix
+    from Johannes Berg.
+
+14) Revert mac80211 change to use netif_receive_skb() instead of netif_=
+rx()
+    since sometimes this ends up executing in the wrong context, from
+    John W. Linville.
+
+15) Use strlcpy() in isdn to avoid going past the end of a buffer.  Fro=
+m
+    Dan Carpenter.
+
+16) ETHTOOL_GRXCLSRLALL exposes kernel heap to userspace.  Fix from
+    Kees Cook.
+
+17) Revert ConfigReq rejection commit that causes failures in bluetooth
+    validation suite.  From Gustavo F. Padovan.
+
+18) rfcomm_sk_state_change() needs to disable local interrupts to avoid
+    illegal lock state, also from Gustavo F. Padovan.
+
+Please pull, thanks a lot!
+
+The following changes since commit 6b0cd00bc396daf5c2dcf17a8d8205533534=
+1f46:
+
+  Merge branch 'hwpoison-fixes' of git://git.kernel.org/pub/scm/linux/k=
+ernel/git/ak/linux-mce-2.6 (2010-10-07 13:59:32 -0700)
+
+are available in the git repository at:
+
+  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
+
+Andrei Emeltchenko (1):
+      Bluetooth: fix MTU L2CAP configuration parameter
+
+Ben Hutchings (2):
+      Revert "ipv4: Make INET_LRO a bool instead of tristate."
+      netdev: Depend on INET before selecting INET_LRO
+
+Dan Carpenter (2):
+      cls_u32: signedness bug
+      isdn: strcpy() =3D> strlcpy()
+
+Dan Rosenberg (2):
+      sctp: prevent reading out-of-bounds memory
+      sctp: Fix out-of-bounds reading in sctp_asoc_get_hmac()
+
+David S. Miller (3):
+      Merge branch 'master' of master.kernel.org:/.../torvalds/linux-2.=
+6
+      Merge branch 'master' of git://git.kernel.org/.../padovan/bluetoo=
+th-2.6
+      Merge branch 'master' of git://git.kernel.org/.../linville/wirele=
+ss-2.6
+
+David Stevens (1):
+      ipv4: correct IGMP behavior on v3 query during v2-compatibility m=
+ode
+
+Eric Dumazet (1):
+      caif: fix two caif_connect() bugs
+
+=46elix Fietkau (1):
+      ath9k_hw: fix regression in ANI listen time calculation
+
+Gustavo F. Padovan (5):
+      Bluetooth: Simplify L2CAP Streaming mode sending
+      Bluetooth: Fix inconsistent lock state with RFCOMM
+      Revert "Bluetooth: Don't accept ConfigReq if we aren't in the BT_=
+CONFIG state"
+      Bluetooth: Fix deadlock in the ERTM logic
+      Bluetooth: Disallow to change L2CAP_OPTIONS values when connected
+
+Jeff Kirsher (4):
+      ixgbevf.txt: Update ixgbevf documentation
+      e1000.txt: Update e1000 documentation
+      e1000e.txt: Add e1000e documentation
+      MAINTAINERS: update Intel LAN Ethernet info
+
+Johannes Berg (1):
+      mac80211: delete AddBA response timer
+
+John W. Linville (1):
+      Revert "mac80211: use netif_receive_skb in ieee80211_tx_status ca=
+llpath"
+
+Kees Cook (1):
+      net: clear heap allocation for ETHTOOL_GRXCLSRLALL
+
+Maciej =AFenczykowski (1):
+      net: Fix IPv6 PMTU disc. w/ asymmetric routes
+
+Mat Martineau (1):
+      Bluetooth: Only enable L2CAP FCS for ERTM or streaming
+
+Nagendra Tomar (1):
+      net: Fix the condition passed to sk_wait_event()
+
+Neil Horman (1):
+      bonding: fix WARN_ON when writing to bond_master sysfs file
+
+Stanislaw Gruszka (1):
+      skge: add quirk to limit DMA
+
+ Documentation/networking/e1000.txt   |  373 +++++++++-----------------=
+--------
+ Documentation/networking/e1000e.txt  |  302 ++++++++++++++++++++++++++=
 +
-+	IXGBE_RSC_CB(tail)->head = NULL;
-+
-+	if (head->prev)
-+		head->prev->next = tail;
-+	else
-+		skb_shinfo(head)->frag_list = tail;
-+
-+	head->len += tail->len;
-+	head->data_len += tail->len;
-+	head->truesize += tail->len;
- 
--	skb_shinfo(skb)->frag_list = skb->next;
--	skb->next = NULL;
--	skb->len += frag_list_size;
--	skb->data_len += frag_list_size;
--	skb->truesize += frag_list_size;
--	IXGBE_RSC_CB(skb)->skb_cnt = skb_cnt;
-+	head->prev = tail;
-+	IXGBE_RSC_CB(head)->append_cnt++;
- 
--	return skb;
-+	return head;
-+}
-+
-+/**
-+ * ixgbe_close_active_frag_list - cleanup pointers on a frag_list skb
-+ * @head: pointer to head of an active frag list
-+ *
-+ * This function will clear the frag_tail_tracker pointer on an active
-+ * frag_list and returns true if the pointer was actually set
-+ **/
-+static inline bool ixgbe_close_active_frag_list(struct sk_buff *head)
-+{
-+	if (head->prev) {
-+		head->prev = NULL;
-+		return true;
-+	}
-+	return false;
- }
- 
- static inline bool ixgbe_get_rsc_state(union ixgbe_adv_rx_desc *rx_desc)
-@@ -1397,6 +1414,8 @@ static void ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
- 			next_buffer = &rx_ring->rx_buffer_info[i];
- 		}
- 
-+		skb = ixgbe_merge_active_tail(skb);
-+
- 		if (!(staterr & IXGBE_RXD_STAT_EOP)) {
- 			if (ring_is_ps_enabled(rx_ring)) {
- 				rx_buffer_info->skb = next_buffer->skb;
-@@ -1404,15 +1423,13 @@ static void ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
- 				next_buffer->skb = skb;
- 				next_buffer->dma = 0;
- 			} else {
--				skb->next = next_buffer->skb;
--				skb->next->prev = skb;
-+				IXGBE_RSC_CB(next_buffer->skb)->head = skb;
- 			}
- 			rx_ring->rx_stats.non_eop_descs++;
- 			goto next_desc;
- 		}
- 
--		if (skb->prev) {
--			skb = ixgbe_transform_rsc_queue(skb);
-+		if (ixgbe_close_active_frag_list(skb)) {
- 			/* if we got here without RSC the packet is invalid */
- 			if (!pkt_is_rsc) {
- 				__pskb_trim(skb, 0);
-@@ -1437,7 +1454,7 @@ static void ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
- 					skb_shinfo(skb)->nr_frags;
- 			else
- 				rx_ring->rx_stats.rsc_count +=
--					IXGBE_RSC_CB(skb)->skb_cnt;
-+					IXGBE_RSC_CB(skb)->append_cnt;
- 			rx_ring->rx_stats.rsc_flush++;
- 		}
- 
-@@ -3907,19 +3924,18 @@ static void ixgbe_clean_rx_ring(struct ixgbe_ring *rx_ring)
- 		if (rx_buffer_info->skb) {
- 			struct sk_buff *skb = rx_buffer_info->skb;
- 			rx_buffer_info->skb = NULL;
--			do {
--				struct sk_buff *this = skb;
--				if (IXGBE_RSC_CB(this)->delay_unmap) {
--					dma_unmap_single(dev,
--							 IXGBE_RSC_CB(this)->dma,
--							 rx_ring->rx_buf_len,
--							 DMA_FROM_DEVICE);
--					IXGBE_RSC_CB(this)->dma = 0;
--					IXGBE_RSC_CB(skb)->delay_unmap = false;
--				}
--				skb = skb->prev;
--				dev_kfree_skb(this);
--			} while (skb);
-+			/* We need to clean up RSC frag lists */
-+			skb = ixgbe_merge_active_tail(skb);
-+			ixgbe_close_active_frag_list(skb);
-+			if (IXGBE_RSC_CB(skb)->delay_unmap) {
-+				dma_unmap_single(dev,
-+						 IXGBE_RSC_CB(skb)->dma,
-+						 rx_ring->rx_buf_len,
-+						 DMA_FROM_DEVICE);
-+				IXGBE_RSC_CB(skb)->dma = 0;
-+				IXGBE_RSC_CB(skb)->delay_unmap = false;
-+			}
-+			dev_kfree_skb(skb);
- 		}
- 		if (!rx_buffer_info->page)
- 			continue;
+ Documentation/networking/ixgbevf.txt |   40 +----
+ MAINTAINERS                          |   16 ++-
+ drivers/isdn/sc/interrupt.c          |   18 ++-
+ drivers/net/Kconfig                  |    4 +-
+ drivers/net/bonding/bond_main.c      |    9 +
+ drivers/net/skge.c                   |   18 ++-
+ drivers/net/wireless/ath/ath9k/ani.c |    2 +-
+ include/net/bluetooth/bluetooth.h    |   18 ++
+ net/bluetooth/l2cap.c                |   62 +++---
+ net/bluetooth/rfcomm/sock.c          |    4 +
+ net/caif/caif_socket.c               |   21 ++-
+ net/core/ethtool.c                   |    2 +-
+ net/core/stream.c                    |    8 +-
+ net/ipv4/Kconfig                     |    2 +-
+ net/ipv4/igmp.c                      |   14 ++-
+ net/ipv6/route.c                     |   28 +++-
+ net/mac80211/agg-tx.c                |    2 +
+ net/mac80211/status.c                |    4 +-
+ net/sched/cls_u32.c                  |    2 +-
+ net/sctp/auth.c                      |    8 +-
+ net/sctp/socket.c                    |   13 +-
+ 23 files changed, 590 insertions(+), 380 deletions(-)
+ create mode 100644 Documentation/networking/e1000e.txt
+ mode change 100755 =3D> 100644 Documentation/networking/ixgbevf.txt
