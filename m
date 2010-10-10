@@ -1,97 +1,39 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: RE: [PATCH net-next] igb: fix stats handling
-Date: Sat, 9 Oct 2010 17:57:19 -0600
-Message-ID: <EA929A9653AAE14F841771FB1DE5A1366027AC5DB5@rrsmsx501.amr.corp.intel.com>
-References: <20101005141833.20929.10943.stgit@localhost>
-	 <1286289703.2796.292.camel@edumazet-laptop>
-	 <1286290393.7071.38.camel@firesoul.comx.local>
-	 <1286291947.2796.387.camel@edumazet-laptop>
-	 <1286312479.2593.35.camel@edumazet-laptop>
-	 <Pine.LNX.4.64.1010052313370.30765@ask.diku.dk>
-	 <AANLkTi=+rkietX9jAMy5BRVwAENf-mK15py7y+LYQ-XJ@mail.gmail.com>
-	 <1286335729.4861.13.camel@edumazet-laptop>
- <1286339791.4861.26.camel@edumazet-laptop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] Add IRQF_SAMPLE_RANDOM Flag to forcedeth
+Date: Sun, 10 Oct 2010 02:09:24 +0100
+Message-ID: <20101010010924.GB15074@solarflare.com>
+References: <4CB0FEA6.3030206@netscape.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Jesper Dangaard Brouer <hawk@diku.dk>,
-	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-	Jesper Dangaard Brouer <hawk@comx.dk>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Patrick Simmons <linuxrocks123@netscape.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:26967 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752479Ab0JIX5V (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 9 Oct 2010 19:57:21 -0400
-In-Reply-To: <1286339791.4861.26.camel@edumazet-laptop>
-Content-Language: en-US
+Received: from exchange.solarflare.com ([216.237.3.220]:58167 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754806Ab0JJBJ1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Oct 2010 21:09:27 -0400
+Content-Disposition: inline
+In-Reply-To: <4CB0FEA6.3030206@netscape.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RXJpYyBEdW1hemV0IHdyb3RlOg0KPiBMZSBtZXJjcmVkaSAwNiBvY3RvYnJlIDIwMTAgw6AgMDU6
-MjggKzAyMDAsIEVyaWMgRHVtYXpldCBhIMOpY3JpdCA6DQo+IA0KPj4gSSdsbCBsZXQgSW50ZWwg
-Z3V5cyBkb2luZyB0aGUgYmFja3BvcnRpbmcgd29yaywgYnV0IGZvciBvbGQga2VybmVscywNCj4+
-IHlvdSdsbCBwcm9iYWJseSBuZWVkIHRvIHVzZSAidW5zaWduZWQgbG9uZyIgaW5zdGVhZCBvZiAi
-dTY0Ig0KPj4gDQo+PiBNeSBwbGFuIGlzIDoNCj4+IA0KPj4gLSBQcm92aWRlIDY0Yml0IGNvdW50
-ZXJzIGV2ZW4gb24gMzJiaXQgYXJjaA0KPj4gLSB3aXRoIHByb3BlciBzeW5jaHJvIChpbmNsdWRl
-L2xpbnV4L3U2NF9zdGF0c19zeW5jLmgpDQo+PiAtIEFkZCBhIHNwaW5sb2NrIHNvIHdlIGNhbiBh
-cHBseSBKZXNwZXIgcGF0Y2guDQo+IA0KPiBIZXJlIGlzIHRoZSBuZXQtbmV4dC0yLjYgcGF0Y2gs
-IEkgYW0gY3VycmVudGx5IGVuYWJsZSB0byB0ZXN0IGl0LCB0aGUNCj4gZGV2IG1hY2hpbmUgd2l0
-aCBJR0IgTklDIGNhbm5vdCBiZSByZXN0YXJ0ZWQgdW50aWwgdG9tb3Jyb3csIG15IHNvbg0KPiBO
-aWNvbGFzIGlzIGN1cnJlbnRseSB1c2luZyBpdCA7KQ0KPiANCj4gQ291bGQgeW91IGFuZC9vciBK
-ZXNwZXIgdGVzdCBpdCwgcG9zc2libHkgb24gMzIgYW5kIDY0IGJpdCBrZXJuZWxzID8NCj4gDQo+
-IFRoYW5rcyAhDQo+IA0KPiBbUEFUQ0ggbmV0LW5leHRdIGlnYjogZml4IHN0YXRzIGhhbmRsaW5n
-DQo+IA0KPiBUaGVyZSBhcmUgY3VycmVudGx5IHNvbWUgcHJvYmxlbXMgd2l0aCBpZ2IuDQo+IA0K
-PiAtIE9uIDMyYml0IGFyY2hlcywgbWFpbnRhaW5pbmcgNjRiaXQgY291bnRlcnMgd2l0aG91dCBw
-cm9wZXINCj4gc3luY2hyb25pemF0aW9uIGJldHdlZW4gd3JpdGVycyBhbmQgcmVhZGVycy4NCj4g
-DQo+IC0gU3RhdHMgdXBkYXRlZCBldmVyeSB0d28gc2Vjb25kcywgYXMgcmVwb3J0ZWQgYnkgSmVz
-cGVyLg0KPiAgICAoSmVzcGVyIHByb3ZpZGVkIGEgcGF0Y2ggZm9yIHRoaXMpDQo+IA0KPiAtIFBv
-dGVudGlhbCBwcm9ibGVtIGJldHdlZW4gd29ya2VyIHRocmVhZCBhbmQgZXRodG9vbCAtUw0KPiAN
-Cj4gVGhpcyBwYXRjaCB1c2VzIHU2NF9zdGF0c19zeW5jLCBhbmQgY29udmVydCBldmVyeXRoaW5n
-IHRvIGJlIDY0Yml0DQo+IHNhZmUsIA0KPiBTTVAgc2FmZSwgZXZlbiBvbiAzMmJpdCBhcmNoZXMu
-DQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBFcmljIER1bWF6ZXQgPGVyaWMuZHVtYXpldEBnbWFpbC5j
-b20+DQo+IC0tLQ0KPiAgZHJpdmVycy9uZXQvaWdiL2lnYi5oICAgICAgICAgfCAgICA3ICstDQo+
-ICBkcml2ZXJzL25ldC9pZ2IvaWdiX2V0aHRvb2wuYyB8ICAgMTAgKy0NCj4gIGRyaXZlcnMvbmV0
-L2lnYi9pZ2JfbWFpbi5jICAgIHwgIDExMSArKysrKysrKysrKysrKysrKysrKysrKy0tLS0tLS0t
-LQ0KPiAgMyBmaWxlcyBjaGFuZ2VkLCA5NCBpbnNlcnRpb25zKCspLCAzNCBkZWxldGlvbnMoLSkN
-Cg0KVGhpcyBwYXRjaCBpcyBjYXVzaW5nIGEgaGFuZyB3aGVuIHRlc3Rpbmcgd2l0aCAyIHNlc3Np
-b25zIGluIGEgd2hpbGUgbG9vcCByZWFkaW5nIC9wcm9jL25ldC9kZXYvIGFuZCBldGh0b29sIC1T
-LiBJIHRoaW5rIGV2ZW4ganVzdCByZWFkaW5nIC9wcm9jL25ldC9kZXYvIGlzIHN1ZmZpY2llbnQs
-IGJ1dCBoYXZlIG5vdCBjb25maXJtZWQgaXQgeWV0LiBJIGhhdmUgc2VlbiB0aGUgaGFuZyBzb21l
-d2hlcmUgYmV0d2VlbiAxNSBtaW4gdG8gYW4gaG91ci4gV2l0aG91dCB0aGUgcGF0Y2ggc2FtZSB0
-ZXN0IHJhbiAyNCsgaG91cnMgd2l0aG91dCBpc3N1ZXMuDQoNClRoZXJlIHdhcyBubyB0cmFjZSBv
-biB0aGUgc2NyZWVuLCBJIGdvdCB0aGlzIHdpdGggbWFnaWMgc3lzcnE6DQoNClsxNTM4OC4zOTM1
-NzldIFN5c1JxIDogU2hvdyBSZWdzIA0KWzE1Mzg4LjM5NzM0MV0gTW9kdWxlcyBsaW5rZWQgaW46
-IGlnYiBbbGFzdCB1bmxvYWRlZDogc2NzaV93YWl0X3NjYW5dIFsxNTM4OC40MDQ4NDZdICANClsx
-NTM4OC40MDY4ODldIFBpZDogMTYyMTgsIGNvbW06IGt3b3JrZXIvNDoxIE5vdCB0YWludGVkIDIu
-Ni4zNi1yYzMtbmV0LW5leHQtaWdiLTEwMDgxMCsgIzIgUzU1MjBIQy9TNTUyMEhDIA0KWzE1Mzg4
-LjQxODM5M10gRUlQOiAwMDYwOls8YzEzZmVhZDI+XSBFRkxBR1M6IDAwMDAwMjk3IENQVTogNCAN
-ClsxNTM4OC40MjQ5MDhdIEVJUCBpcyBhdCBfcmF3X3NwaW5fbG9jaysweDEzLzB4MTkgDQpbMTUz
-ODguNDMwMjU3XSBFQVg6IGY2ZWFiNTVjIEVCWDogZjZlYWIzODAgRUNYOiAwMDAwMDAwMSBFRFg6
-IDAwMDA0ZTRhIFsxNTM4OC40Mzc2MjldIEVTSTogZjZlYWIwMDAgRURJOiBmNmVhYjQxYyBFQlA6
-IGYzZDliZjRjIEVTUDogZjNkOWJmNGMgWzE1Mzg4LjQ0NTAxMV0gIERTOiAwMDdiIEVTOiAwMDdi
-IEZTOiAwMGQ4IEdTOiAwMDAwIFNTOiAwMDY4IA0KWzE1Mzg4LjQ1MTQyMl0gUHJvY2VzcyBrd29y
-a2VyLzQ6MSAocGlkOiAxNjIxOCwgdGk9ZjNkOWEwMDAgdGFzaz1mNWNlMGVkMCB0YXNrLnRpPWYz
-ZDlhMDAwKSANClsxNTM4OC40NjExNzNdIFN0YWNrOiANClsxNTM4OC40NjM3OTZdICBmM2Q5YmY2
-NCBmODU4NmM1NyBmM2Q5YmY1YyBmNmVhYjQxYyBmNjkwMWUwMCBjODcwM2NjMCBmM2Q5YmY5MCBj
-MTA0MTM3OSANClsxNTM4OC40NzMxMTZdIDwwPiAwMDAwMDAwNCAwMDAwMDAwMCBmODU4NmIxNiAw
-MDAwMDAwMCBjODcwN2IwNSBjODcwN2IwMCBmNjkwMWUwMCBjODcwM2NjNCANClsxNTM4OC40ODMz
-NzldIDwwPiBjODcwM2NjMCBmM2Q5YmZiOCBjMTA0Mjg3OSBjMTZiYjY0MCBjODcwM2NjNCAwMDAw
-MGM1NCBjMTZiYjY0MCBmNjkwMWUxMCANClsxNTM4OC40OTQyMTldIENhbGwgVHJhY2U6IA0KWzE1
-Mzg4LjQ5NzMzNl0gIFs8Zjg1ODZjNTc+XSA/IGlnYl93YXRjaGRvZ190YXNrKzB4MTQxLzB4MjFh
-IFtpZ2JdIA0KWzE1Mzg4LjUwNDMzNl0gIFs8YzEwNDEzNzk+XSA/IHByb2Nlc3Nfb25lX3dvcmsr
-MHgxOGUvMHgyNjUgDQpbMTUzODguNTEwNjQzXSAgWzxmODU4NmIxNj5dID8gaWdiX3dhdGNoZG9n
-X3Rhc2srMHgwLzB4MjFhIFtpZ2JdIA0KWzE1Mzg4LjUxNzQ1NV0gIFs8YzEwNDI4Nzk+XSA/IHdv
-cmtlcl90aHJlYWQrMHhmMy8weDFlZiANClsxNTM4OC41MjMzODRdICBbPGMxMDQyNzg2Pl0gPyB3
-b3JrZXJfdGhyZWFkKzB4MC8weDFlZiANClsxNTM4OC41MjkyMjJdICBbPGMxMDQ1MDZiPl0gPyBr
-dGhyZWFkKzB4NjIvMHg2NyANClsxNTM4OC41MzQ0NzVdICBbPGMxMDQ1MDA5Pl0gPyBrdGhyZWFk
-KzB4MC8weDY3IA0KWzE1Mzg4LjUzOTYyM10gIFs8YzEwMDJkMzY+XSA/IGtlcm5lbF90aHJlYWRf
-aGVscGVyKzB4Ni8weDEwIA0KWzE1Mzg4LjU0NjAzNF0gQ29kZTogMDAgNzUgMDUgZjAgNjYgMGYg
-YjEgMGEgMGYgOTQgYzEgMGYgYjYgYzEgODUgYzAgMGYgOTUgYzAgMGYgYjYgYzAgNWQgYzMgNTUg
-YmEgMDAgMDEgMDAgMDAgODkgZTUgZjAgNjYgMGYgYzEgMTAgMzggZjIgNzQgMDYgZjMgOTAgPDhh
-PiAxMCBlYiBmNiA1ZCBjMyA1NSA4OSBlNSA5YyA1OSBmYSBiYSAwMCAwMSAwMCAwMCBmMCA2NiAw
-ZiBjMQ0KDQpUaGFua3MsDQpFbWlsDQoNCg==
+Patrick Simmons wrote:
+> This patch adds the IRQF_SAMPLE_RANDOM flag to the forcedeth driver, 
+> allowing the interrupt timing for forcedeth to be used for entropy 
+> generation.  This should help /dev/random generate more secure random 
+> numbers on machines using this driver.
+[...]
+
+We don't enable this for network drivers any more because:
+
+1. At high packet rates, interrupt moderation makes interrupts very
+regular.
+2. At low packet rates, a malicious sender can control the interrupt
+timing.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
