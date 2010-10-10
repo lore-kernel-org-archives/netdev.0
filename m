@@ -1,7 +1,8 @@
 From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: [PATCH net-next 2/5] bnx2x: save cycles in setting gso_size
-Date: Mon, 11 Oct 2010 00:27:55 +0200
-Message-ID: <1286749675.4669.24.camel@lb-tlvb-dmitry>
+Subject: [PATCH net-next 4/5] bnx2x: do not deal with power if no
+ capability
+Date: Mon, 11 Oct 2010 00:30:32 +0200
+Message-ID: <1286749832.4669.30.camel@lb-tlvb-dmitry>
 Mime-Version: 1.0
 Content-Type: text/plain;
  charset=utf-8
@@ -11,36 +12,36 @@ To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mms1.broadcom.com ([216.31.210.17]:2918 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752259Ab0JJWcS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 10 Oct 2010 18:32:18 -0400
+	id S1752245Ab0JJWcd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 10 Oct 2010 18:32:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vladislav Zolotarov <vladz@broadcom.com>
-
-the field needs to be set to ANY non-zero value in order to enable forwarding.
 
 Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
 Signed-off-by: Vladislav Zolotarov <vladz@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x/bnx2x_cmn.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+ drivers/net/bnx2x/bnx2x_cmn.c |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/bnx2x/bnx2x_cmn.c b/drivers/net/bnx2x/bnx2x_cmn.c
-index cb2a3d6..ddf90e1 100644
+index 3f0540c..9a3208e 100644
 --- a/drivers/net/bnx2x/bnx2x_cmn.c
 +++ b/drivers/net/bnx2x/bnx2x_cmn.c
-@@ -277,8 +277,7 @@ static int bnx2x_fill_frag_skb(struct bnx2x *bp, struct bnx2x_fastpath *fp,
+@@ -1520,6 +1520,12 @@ int bnx2x_set_power_state(struct bnx2x *bp, pci_power_t state)
+ {
+ 	u16 pmcsr;
  
- 	/* This is needed in order to enable forwarding support */
- 	if (frag_size)
--		skb_shinfo(skb)->gso_size = min((u32)SGE_PAGE_SIZE,
--					       max(frag_size, (u32)len_on_bd));
-+		skb_shinfo(skb)->gso_size = 1;
++	/* If there is no power capability, silently succeed */
++	if (!bp->pm_cap) {
++		DP(NETIF_MSG_HW, "No power capability. Breaking.\n");
++		return 0;
++	}
++
+ 	pci_read_config_word(bp->pdev, bp->pm_cap + PCI_PM_CTRL, &pmcsr);
  
- #ifdef BNX2X_STOP_ON_ERROR
- 	if (pages > min_t(u32, 8, MAX_SKB_FRAGS)*SGE_PAGE_SIZE*PAGES_PER_SGE) {
+ 	switch (state) {
 -- 
 1.7.1
 
