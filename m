@@ -1,50 +1,56 @@
-From: Akinobu Mita <akinobu.mita@gmail.com>
-Subject: Re: [PATCH 4/5] rds: stop including asm-generic/bitops/le.h directly
-Date: Mon, 11 Oct 2010 00:09:36 +0900
-Message-ID: <AANLkTikM35ovGdikDQ6nHs6_GUDF6KTqjjEM20oymOhL@mail.gmail.com>
-References: <1286532193-29814-1-git-send-email-akinobu.mita@gmail.com>
-	<1286532193-29814-4-git-send-email-akinobu.mita@gmail.com>
-	<4CAF693B.9030706@oracle.com>
-	<20101008.115900.245387221.davem@davemloft.net>
+From: Andy Walls <awalls@md.metrocast.net>
+Subject: [PATCH] IPv4: Remove check for ipv4_is_lbcast() that will always
+ return false
+Date: Sun, 10 Oct 2010 12:10:21 -0400
+Message-ID: <1286727021.2435.17.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: andy.grover@oracle.com, linux-kernel@vger.kernel.org,
-	linux-arch@vger.kernel.org, arnd@arndb.de,
-	akpm@linux-foundation.org, rds-devel@oss.oracle.com,
-	netdev@vger.kernel.org, Alexander Graf <agraf@suse.de>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20101008.115900.245387221.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Patrick McHardy <kaber@trash.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from proofpoint-cluster.metrocast.net ([65.175.128.136]:31760 "EHLO
+	proofpoint-cluster.metrocast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752455Ab0JJQJc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Oct 2010 12:09:32 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2010/10/9 David Miller <davem@davemloft.net>:
-> From: Andy Grover <andy.grover@oracle.com>
-> Date: Fri, 08 Oct 2010 11:55:55 -0700
->
->> On 10/08/2010 03:03 AM, Akinobu Mita wrote:
->>> asm-generic/bitops/le.h is only intended to be included directly fr=
-om
->>> asm-generic/bitops/ext2-non-atomic.h or asm-generic/bitops/minix-le=
-=2Eh
->>> which implements generic ext2 or minix bit operations.
->>>
->>> This stops including asm-generic/bitops/le.h directly and use ext2
->>> non-atomic bit operations instead.
->>>
->>> An alternative approach is introducing little endian bit operations
->>> in linux/bitops.h. But it needs to touch more files than this chang=
-e
->>> does.
->>
->>> - =A0 =A0generic___set_le_bit(off, (void *)map->m_page_addrs[i]);
->>> + =A0 =A0ext2_set_bit(off, (void *)map->m_page_addrs[i]);
->>
->> I'd like a solution that doesn't have rds calling a function startin=
-g
->> with ext2_. Seems wrong.
->
-> Agreed.
+In making an IPv4 routing decision, packets with an all 1's broadcast
+destination are accepted as input packets, before being checked for being a
+martian.  Remove the martian check for the all 1's broadcast destination
+address.  Make the initial check for the all 1's broadcast destination
+address easier to read.
 
-OK, I'll rewrite the patch series to take the alternative approach.
+Signed-off-by: Andy Walls <awalls@md.metrocast.net>
+
+
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index ac6559c..2b8c071 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -2124,7 +2124,7 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32
+            ipv4_is_loopback(saddr))
+                goto martian_source;
+ 
+-       if (daddr == htonl(0xFFFFFFFF) || (saddr == 0 && daddr == 0))
++       if (ipv4_is_lbcast(daddr) || (saddr == 0 && daddr == 0))
+                goto brd_input;
+ 
+        /* Accept zero addresses only to limited broadcast;
+@@ -2133,8 +2133,7 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32
+        if (ipv4_is_zeronet(saddr))
+                goto martian_source;
+ 
+-       if (ipv4_is_lbcast(daddr) || ipv4_is_zeronet(daddr) ||
+-           ipv4_is_loopback(daddr))
++       if (ipv4_is_zeronet(daddr) || ipv4_is_loopback(daddr))
+                goto martian_destination;
+ 
+        /*
+
+
