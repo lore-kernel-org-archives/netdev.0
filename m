@@ -1,48 +1,50 @@
-From: Patrick Simmons <linuxrocks123@netscape.net>
-Subject: Re: [PATCH] Add IRQF_SAMPLE_RANDOM Flag to forcedeth
-Date: Sat, 09 Oct 2010 21:23:01 -0600
-Message-ID: <4CB13195.2070007@netscape.net>
-References: <4CB0FEA6.3030206@netscape.net>	<20101010010924.GB15074@solarflare.com> <20101009.201501.214209347.davem@davemloft.net>
+From: Michael Kerrisk <mtk.manpages@gmail.com>
+Subject: Documenting UNIX domain autobind
+Date: Sun, 10 Oct 2010 07:48:37 +0200
+Message-ID: <AANLkTimtTazMmDvQFgASsVGa=AYvPZqUaUmyg5p7VVY1@mail.gmail.com>
+Reply-To: mtk.manpages@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, mzxreary@0pointer.de
+To: Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from imr-da01.mx.aol.com ([205.188.105.143]:51010 "EHLO
-	imr-da01.mx.aol.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756724Ab0JJDXL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Oct 2010 23:23:11 -0400
-In-Reply-To: <20101009.201501.214209347.davem@davemloft.net>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:64029 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750933Ab0JJFtB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Oct 2010 01:49:01 -0400
+Received: by vws2 with SMTP id 2so354535vws.19
+        for <netdev@vger.kernel.org>; Sat, 09 Oct 2010 22:49:00 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/09/10 21:15, David Miller wrote:
-> From: Ben Hutchings<bhutchings@solarflare.com>
-> Date: Sun, 10 Oct 2010 02:09:24 +0100
->
->> Patrick Simmons wrote:
->>> This patch adds the IRQF_SAMPLE_RANDOM flag to the forcedeth driver,
->>> allowing the interrupt timing for forcedeth to be used for entropy
->>> generation.  This should help /dev/random generate more secure random
->>> numbers on machines using this driver.
->> [...]
->>
->> We don't enable this for network drivers any more because:
->>
->> 1. At high packet rates, interrupt moderation makes interrupts very
->> regular.
->> 2. At low packet rates, a malicious sender can control the interrupt
->> timing.
->
-> Agreed on all counts, I'm not applying this patch.
+Hello Tetsuo,
 
-It's enabled for other network drivers, which is where I got the idea 
-from.  Has anyone actually done an experiment to see whether these two 
-concerns are valid?
+I'm the Linux man-pages mainatiner. I write to you because I see that
+you recently (http://kerneltrap.org/mailarchive/linux-netdev/2010/8/30/6284106/thread#mid-6284106)
+did some work patchiing Linux unix_autobind(), so you may know the
+answer to this question. But, also others on the CC may know.
 
---Patrick
+I recently noticed this feature in the kernel, and so added some
+documentation to the unix(7) man page. That text reads as follows:
+
+   Autobind Feature
+       If a bind() call specifies addrlen as  sizeof(sa_family_t),  or
+       the  SO_PASSCRED  socket option was specified for a socket that
+       was not explicitly bound to an  address,  then  the  socket  is
+       autobound  to  an  abstract address.  The address consists of a
+       null byte followed by 5 bytes in the  character  set  [0-9a-f].
+       (Thus, there is a limit of 2^20 autobind addresses.)
+
+I think this text correctly documents the technical details (but let
+me know if you see errors). What is lacking is an explanation of why
+this feature exists. Is someone able to explain where this feature is
+used and why?
+
+thanks,
+
+Michael
 
 -- 
-If I'm not here, I've gone out to find myself.  If I get back before I 
-return, please keep me here.
+Michael Kerrisk
+Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
+Author of "The Linux Programming Interface"; http://man7.org/tlpi/
