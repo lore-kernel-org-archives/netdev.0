@@ -1,51 +1,54 @@
-From: Samuel Ortiz <samuel@sortiz.org>
-Subject: [PATCH net-next 4/5] irda: Fix parameter extraction stack overflow
-Date: Mon, 11 Oct 2010 02:25:01 +0200
-Message-ID: <efc463eb508798da4243625b08c7396462cabf9f.1286756123.git.sameo@linux.intel.com>
-References: <cover.1286756123.git.sameo@linux.intel.com>
-Cc: netdev@vger.kernel.org, Samuel Ortiz <samuel@sortiz.org>,
-	stable@kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:9991 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751042Ab0JKA0I (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 10 Oct 2010 20:26:08 -0400
-In-Reply-To: <cover.1286756123.git.sameo@linux.intel.com>
-In-Reply-To: <cover.1286756123.git.sameo@linux.intel.com>
-References: <cover.1286756123.git.sameo@linux.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [RFC PATCH net-next] drivers/net
+ Documentation/networking: Create directory intel_wired_lan
+Date: Sun, 10 Oct 2010 17:41:27 -0700
+Message-ID: <1286757687.11039.173.camel@Joe-Laptop>
+References: <1286743352.11039.165.camel@Joe-Laptop>
+	<20101010144440.0d7a69f9@nehalam>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel <e1000-devel@lists.sourceforge.net>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	linux-kernel@vger.kernel.org, Greg Rose <gregory.v.rose@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org, PJ
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20101010144440.0d7a69f9@nehalam>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Cc: stable@kernel.org
-Reported-by: Ilja Van Sprundel <ivansprundel@ioactive.com>
-Signed-off-by: Samuel Ortiz <samuel@sortiz.org>
----
- net/irda/parameters.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
+On Sun, 2010-10-10 at 14:44 -0700, Stephen Hemminger wrote:
+> On Sun, 10 Oct 2010 13:42:32 -0700
+> Joe Perches <joe@perches.com> wrote:
+> > Perhaps it's better to move drivers from the very populated
+> > drivers/net directory into vendor specific directories similar
+> > to the Atheros approach used for drivers/net/wireless/ath/
+> > Move intel drivers and Documentation to separate directories
+> Seems like it would introduce more confusion and trouble.
 
-diff --git a/net/irda/parameters.c b/net/irda/parameters.c
-index fc1a205..71cd38c 100644
---- a/net/irda/parameters.c
-+++ b/net/irda/parameters.c
-@@ -298,6 +298,8 @@ static int irda_extract_string(void *self, __u8 *buf, int len, __u8 pi,
- 
- 	p.pi = pi;     /* In case handler needs to know */
- 	p.pl = buf[1]; /* Extract length of value */
-+	if (p.pl > 32)
-+		p.pl = 32;
- 
- 	IRDA_DEBUG(2, "%s(), pi=%#x, pl=%d\n", __func__,
- 		   p.pi, p.pl);
-@@ -318,7 +320,7 @@ static int irda_extract_string(void *self, __u8 *buf, int len, __u8 pi,
- 		   (__u8) str[0], (__u8) str[1]);
- 
- 	/* Null terminate string */
--	str[p.pl+1] = '\0';
-+	str[p.pl] = '\0';
- 
- 	p.pv.c = str; /* Handler will need to take a copy */
- 
--- 
-1.7.1
+It would also allow common code to be consolidated from the
+various drivers.
 
+
+
+------------------------------------------------------------------------------
+Beautiful is writing same markup. Internet Explorer 9 supports
+standards for HTML5, CSS3, SVG 1.1,  ECMAScript5, and DOM L2 & L3.
+Spend less time writing and  rewriting code and more time creating great
+experiences on the web. Be a part of the beta today.
+http://p.sf.net/sfu/beautyoftheweb
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
