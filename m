@@ -1,58 +1,86 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/fec: carrier off initially to avoid root mount
- failure
-Date: Sun, 10 Oct 2010 21:19:56 -0700 (PDT)
-Message-ID: <20101010.211956.112597497.davem@davemloft.net>
-References: <1286454630-7396-1-git-send-email-oskar@linutronix.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-2.6] tg3: restore rx_dropped accounting
+Date: Mon, 11 Oct 2010 07:55:52 +0200
+Message-ID: <1286776552.2692.232.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dan@embeddedalley.com,
-	bigeasy@linutronix.de, hjk@linutronix.de
-To: oskar@linutronix.de
+Cc: netdev <netdev@vger.kernel.org>,
+	Matt Carlson <mcarlson@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48808
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750713Ab0JKETe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Oct 2010 00:19:34 -0400
-In-Reply-To: <1286454630-7396-1-git-send-email-oskar@linutronix.de>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:39407 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751662Ab0JKF4D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Oct 2010 01:56:03 -0400
+Received: by wwj40 with SMTP id 40so3353464wwj.1
+        for <netdev@vger.kernel.org>; Sun, 10 Oct 2010 22:56:01 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Oskar Schirmer <oskar@linutronix.de>
-Date: Thu,  7 Oct 2010 14:30:30 +0200
+commit 511d22247be7 (tg3: 64 bit stats on all arches), overlooked the
+rx_dropped accounting.
 
-> with hardware slow in negotiation, the system did freeze
-> while trying to mount root on nfs at boot time.
-> 
-> the link state has not been initialised so network stack
-> tried to start transmission right away. this caused instant
-> retries, as the driver solely stated business upon link down,
-> rendering the system unusable.
-> 
-> notify carrier off initially to prevent transmission until
-> phylib will report link up.
-> 
-> Signed-off-by: Oskar Schirmer <oskar@linutronix.de>
+We use a full "struct rtnl_link_stats64" to hold rx_dropped value, but
+forgot to report it in tg3_get_stats64().
 
-I did some more investigation into this situation, and for now I'm
-going to apply your patch.  It is correct, and it also matches what
-the only other seemingly correct driver I could find using phylib does
-(gianfar) :-) Actually, although I didn't check, bi-modal drivers
-(those that only use phylib for some phy types) like tg3 probably do
-the right thing here too.
+Use an "unsigned long" instead to shrink "struct tg3" by 176 bytes, and
+report this value to stats readers.
 
-Longer term I think the right thing to do might be:
+Increment rx_dropped counter for oversized frames.
 
-1) Create some notion of "network device has managed carrier"
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Michael Chan <mchan@broadcom.com>
+CC: Matt Carlson <mcarlson@broadcom.com>
+---
+ drivers/net/tg3.c |    6 ++++--
+ drivers/net/tg3.h |    2 +-
+ 2 files changed, 5 insertions(+), 3 deletions(-)
 
-   This could simply be a flag bit in the netdev or netdev_ops,
-   or some other kind of attribute.
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index bc3af78..1ec4b9e 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -4666,7 +4666,7 @@ static int tg3_rx(struct tg3_napi *tnapi, int budget)
+ 				       desc_idx, *post_ptr);
+ 		drop_it_no_recycle:
+ 			/* Other statistics kept track of by card. */
+-			tp->net_stats.rx_dropped++;
++			tp->rx_dropped++;
+ 			goto next_pkt;
+ 		}
+ 
+@@ -4726,7 +4726,7 @@ static int tg3_rx(struct tg3_napi *tnapi, int budget)
+ 		if (len > (tp->dev->mtu + ETH_HLEN) &&
+ 		    skb->protocol != htons(ETH_P_8021Q)) {
+ 			dev_kfree_skb(skb);
+-			goto next_pkt;
++			goto drop_it_no_recycle;
+ 		}
+ 
+ 		if (desc->type_flags & RXD_FLAG_VLAN &&
+@@ -9240,6 +9240,8 @@ static struct rtnl_link_stats64 *tg3_get_stats64(struct net_device *dev,
+ 	stats->rx_missed_errors = old_stats->rx_missed_errors +
+ 		get_stat64(&hw_stats->rx_discards);
+ 
++	stats->rx_dropped = tp->rx_dropped;
++
+ 	return stats;
+ }
+ 
+diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
+index 4937bd1..be7ff13 100644
+--- a/drivers/net/tg3.h
++++ b/drivers/net/tg3.h
+@@ -2759,7 +2759,7 @@ struct tg3 {
+ 
+ 
+ 	/* begin "everything else" cacheline(s) section */
+-	struct rtnl_link_stats64	net_stats;
++	unsigned long			rx_dropped;
+ 	struct rtnl_link_stats64	net_stats_prev;
+ 	struct tg3_ethtool_stats	estats;
+ 	struct tg3_ethtool_stats	estats_prev;
 
-2) Managed carrier devices start with netif_carrier_off(), otherwise
-   the device starts with netif_carrier_on().
 
-Then we gut all of the probe time netif_carrir_*() calls in all
-of the drivers.
-
-And hopefully it's less error prone than it is right now.
