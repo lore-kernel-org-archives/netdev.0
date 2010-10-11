@@ -1,40 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6] tg3: restore rx_dropped accounting
-Date: Mon, 11 Oct 2010 16:06:41 -0700 (PDT)
-Message-ID: <20101011.160641.71122025.davem@davemloft.net>
-References: <1286776552.2692.232.camel@edumazet-laptop>
-	<20101011222657.GA7307@mcarlson.broadcom.com>
+Subject: Re: [PATCH net-next] neigh: reorder struct neighbour fields
+Date: Mon, 11 Oct 2010 16:09:29 -0700 (PDT)
+Message-ID: <20101011.160929.104057570.davem@davemloft.net>
+References: <20101011.130128.245392712.davem@davemloft.net>
+	<1286834567.30423.102.camel@edumazet-laptop>
+	<1286835654.30423.107.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, mchan@broadcom.com
-To: mcarlson@broadcom.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52723
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52729
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751328Ab0JKXGT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Oct 2010 19:06:19 -0400
-In-Reply-To: <20101011222657.GA7307@mcarlson.broadcom.com>
+	by vger.kernel.org with ESMTP id S1751426Ab0JKXJH convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Oct 2010 19:09:07 -0400
+In-Reply-To: <1286835654.30423.107.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Date: Mon, 11 Oct 2010 15:26:57 -0700
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 12 Oct 2010 00:20:54 +0200
 
-> On Sun, Oct 10, 2010 at 10:55:52PM -0700, Eric Dumazet wrote:
->> commit 511d22247be7 (tg3: 64 bit stats on all arches), overlooked the
->> rx_dropped accounting.
->> 
->> We use a full "struct rtnl_link_stats64" to hold rx_dropped value, but
->> forgot to report it in tg3_get_stats64().
->> 
->> Use an "unsigned long" instead to shrink "struct tg3" by 176 bytes, and
->> report this value to stats readers.
->> 
->> Increment rx_dropped counter for oversized frames.
->> 
->> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> 
-> Acked-by: Matt Carlson <mcarlson@broadcom.com>
+> Le mardi 12 octobre 2010 =E0 00:02 +0200, Eric Dumazet a =E9crit :
+>> Here is the followup patch.
+>>=20
+>> Thanks !
+>>=20
+>=20
+> Oops, this was an old version, the up2date ones also took care of "us=
+ed"
+> field.
+=2E..
+> [PATCH net-next V2] neigh: reorder struct neighbour fields
 
-Applied, thanks Matt.
+Applied, thanks.
