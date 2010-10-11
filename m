@@ -1,76 +1,106 @@
 From: Jiri Slaby <jslaby@suse.cz>
-Subject: [PATCH 2/3] ATM: iphase, remove sleep-inside-atomic
-Date: Mon, 11 Oct 2010 11:26:57 +0200
-Message-ID: <1286789218-13976-2-git-send-email-jslaby@suse.cz>
+Subject: [PATCH 3/3] NET: wimax, fix use after free
+Date: Mon, 11 Oct 2010 11:26:58 +0200
+Message-ID: <1286789218-13976-3-git-send-email-jslaby@suse.cz>
 References: <1286789218-13976-1-git-send-email-jslaby@suse.cz>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jirislaby@gmail.com, Chas Williams <chas@cmf.nrl.navy.mil>
+	jirislaby@gmail.com,
+	Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>,
+	linux-wimax@intel.com
 To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.pripojeni.net ([217.66.174.14]:54182 "EHLO
+	smtp.pripojeni.net" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1753483Ab0JKJ1H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Oct 2010 05:27:07 -0400
 In-Reply-To: <1286789218-13976-1-git-send-email-jslaby@suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Stanse found that ia_init_one locks a spinlock and inside of that it
-calls ia_start which calls:
-* request_irq
-* tx_init which does kmalloc(GFP_KERNEL)
+Stanse found that i2400m_rx frees skb, but still uses skb->len even
+though it has skb_len defined. So use skb_len properly in the code.
 
-Both of them can thus sleep and result in a deadlock. I don't see a
-reason to have a per-device spinlock there which is used only there
-and inited right before the lock location. So remove it completely.
+And also define it unsinged int rather than size_t to solve
+compilation warnings.
 
 Signed-off-by: Jiri Slaby <jslaby@suse.cz>
-Cc: Chas Williams <chas@cmf.nrl.navy.mil>
+Cc: Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
+Cc: linux-wimax@intel.com
 ---
- drivers/atm/iphase.c |    6 ------
- drivers/atm/iphase.h |    2 +-
- 2 files changed, 1 insertions(+), 7 deletions(-)
+ drivers/net/wimax/i2400m/rx.c |   26 +++++++++++++-------------
+ 1 files changed, 13 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/atm/iphase.c b/drivers/atm/iphase.c
-index 8b358d7..9309d47 100644
---- a/drivers/atm/iphase.c
-+++ b/drivers/atm/iphase.c
-@@ -3156,7 +3156,6 @@ static int __devinit ia_init_one(struct pci_dev *pdev,
- {  
- 	struct atm_dev *dev;  
- 	IADEV *iadev;  
--        unsigned long flags;
- 	int ret;
+diff --git a/drivers/net/wimax/i2400m/rx.c b/drivers/net/wimax/i2400m/rx.c
+index c4876d0..844133b 100644
+--- a/drivers/net/wimax/i2400m/rx.c
++++ b/drivers/net/wimax/i2400m/rx.c
+@@ -1244,16 +1244,16 @@ int i2400m_rx(struct i2400m *i2400m, struct sk_buff *skb)
+ 	int i, result;
+ 	struct device *dev = i2400m_dev(i2400m);
+ 	const struct i2400m_msg_hdr *msg_hdr;
+-	size_t pl_itr, pl_size, skb_len;
++	size_t pl_itr, pl_size;
+ 	unsigned long flags;
+-	unsigned num_pls, single_last;
++	unsigned num_pls, single_last, skb_len;
  
- 	iadev = kzalloc(sizeof(*iadev), GFP_KERNEL);
-@@ -3188,19 +3187,14 @@ static int __devinit ia_init_one(struct pci_dev *pdev,
- 	ia_dev[iadev_count] = iadev;
- 	_ia_dev[iadev_count] = dev;
- 	iadev_count++;
--	spin_lock_init(&iadev->misc_lock);
--	/* First fixes first. I don't want to think about this now. */
--	spin_lock_irqsave(&iadev->misc_lock, flags); 
- 	if (ia_init(dev) || ia_start(dev)) {  
- 		IF_INIT(printk("IA register failed!\n");)
- 		iadev_count--;
- 		ia_dev[iadev_count] = NULL;
- 		_ia_dev[iadev_count] = NULL;
--		spin_unlock_irqrestore(&iadev->misc_lock, flags); 
- 		ret = -EINVAL;
- 		goto err_out_deregister_dev;
+ 	skb_len = skb->len;
+-	d_fnstart(4, dev, "(i2400m %p skb %p [size %zu])\n",
++	d_fnstart(4, dev, "(i2400m %p skb %p [size %u])\n",
+ 		  i2400m, skb, skb_len);
+ 	result = -EIO;
+ 	msg_hdr = (void *) skb->data;
+-	result = i2400m_rx_msg_hdr_check(i2400m, msg_hdr, skb->len);
++	result = i2400m_rx_msg_hdr_check(i2400m, msg_hdr, skb_len);
+ 	if (result < 0)
+ 		goto error_msg_hdr_check;
+ 	result = -EIO;
+@@ -1261,10 +1261,10 @@ int i2400m_rx(struct i2400m *i2400m, struct sk_buff *skb)
+ 	pl_itr = sizeof(*msg_hdr) +	/* Check payload descriptor(s) */
+ 		num_pls * sizeof(msg_hdr->pld[0]);
+ 	pl_itr = ALIGN(pl_itr, I2400M_PL_ALIGN);
+-	if (pl_itr > skb->len) {	/* got all the payload descriptors? */
++	if (pl_itr > skb_len) {	/* got all the payload descriptors? */
+ 		dev_err(dev, "RX: HW BUG? message too short (%u bytes) for "
+ 			"%u payload descriptors (%zu each, total %zu)\n",
+-			skb->len, num_pls, sizeof(msg_hdr->pld[0]), pl_itr);
++			skb_len, num_pls, sizeof(msg_hdr->pld[0]), pl_itr);
+ 		goto error_pl_descr_short;
  	}
--	spin_unlock_irqrestore(&iadev->misc_lock, flags); 
- 	IF_EVENT(printk("iadev_count = %d\n", iadev_count);)
- 
- 	iadev->next_board = ia_boards;  
-diff --git a/drivers/atm/iphase.h b/drivers/atm/iphase.h
-index b2cd20f..077735e 100644
---- a/drivers/atm/iphase.h
-+++ b/drivers/atm/iphase.h
-@@ -1022,7 +1022,7 @@ typedef struct iadev_t {
- 	struct dle_q rx_dle_q;  
- 	struct free_desc_q *rx_free_desc_qhead;  
- 	struct sk_buff_head rx_dma_q;  
--        spinlock_t rx_lock, misc_lock;
-+	spinlock_t rx_lock;
- 	struct atm_vcc **rx_open;	/* list of all open VCs */  
-         u16 num_rx_desc, rx_buf_sz, rxing;
-         u32 rx_pkt_ram, rx_tmp_cnt;
+ 	/* Walk each payload payload--check we really got it */
+@@ -1272,7 +1272,7 @@ int i2400m_rx(struct i2400m *i2400m, struct sk_buff *skb)
+ 		/* work around old gcc warnings */
+ 		pl_size = i2400m_pld_size(&msg_hdr->pld[i]);
+ 		result = i2400m_rx_pl_descr_check(i2400m, &msg_hdr->pld[i],
+-						  pl_itr, skb->len);
++						  pl_itr, skb_len);
+ 		if (result < 0)
+ 			goto error_pl_descr_check;
+ 		single_last = num_pls == 1 || i == num_pls - 1;
+@@ -1290,16 +1290,16 @@ int i2400m_rx(struct i2400m *i2400m, struct sk_buff *skb)
+ 	if (i < i2400m->rx_pl_min)
+ 		i2400m->rx_pl_min = i;
+ 	i2400m->rx_num++;
+-	i2400m->rx_size_acc += skb->len;
+-	if (skb->len < i2400m->rx_size_min)
+-		i2400m->rx_size_min = skb->len;
+-	if (skb->len > i2400m->rx_size_max)
+-		i2400m->rx_size_max = skb->len;
++	i2400m->rx_size_acc += skb_len;
++	if (skb_len < i2400m->rx_size_min)
++		i2400m->rx_size_min = skb_len;
++	if (skb_len > i2400m->rx_size_max)
++		i2400m->rx_size_max = skb_len;
+ 	spin_unlock_irqrestore(&i2400m->rx_lock, flags);
+ error_pl_descr_check:
+ error_pl_descr_short:
+ error_msg_hdr_check:
+-	d_fnend(4, dev, "(i2400m %p skb %p [size %zu]) = %d\n",
++	d_fnend(4, dev, "(i2400m %p skb %p [size %u]) = %d\n",
+ 		i2400m, skb, skb_len, result);
+ 	return result;
+ }
 -- 
 1.7.3.1
+
+
