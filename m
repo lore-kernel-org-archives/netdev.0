@@ -1,66 +1,77 @@
-From: "Vladislav Zolotarov" <vladz@broadcom.com>
-Subject: RE: [PATCH net-next 2/5] bnx2x: save cycles in setting gso_size
-Date: Mon, 11 Oct 2010 10:06:19 -0700
-Message-ID: <8628FE4E7912BF47A96AE7DD7BAC0AADDDEE428246@SJEXCHCCR02.corp.ad.broadcom.com>
-References: <1286749675.4669.24.camel@lb-tlvb-dmitry>
- <20101010.205254.193716921.davem@davemloft.net>
- <8628FE4E7912BF47A96AE7DD7BAC0AADDDEE4281D8@SJEXCHCCR02.corp.ad.broadcom.com>
- <1286805633.2349.64.camel@achroite.uk.solarflarecom.com>
+From: Dan Carpenter <error27@gmail.com>
+Subject: [patch 1/2] vhost: potential integer overflows
+Date: Mon, 11 Oct 2010 19:22:57 +0200
+Message-ID: <20101011172256.GF5851@bicker>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: "David Miller" <davem@davemloft.net>,
-	"Dmitry Kravkov" <dmitry@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: "Ben Hutchings" <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Juan Quintela <quintela@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Rusty Russell <rusty@rustcorp.com.au>, kvm@vger.kernel.org,
+	virtualization@lists.osdl.org, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1774 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755352Ab0JKRGh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Oct 2010 13:06:37 -0400
-In-Reply-To: <1286805633.2349.64.camel@achroite.uk.solarflarecom.com>
-Content-Language: en-US
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:48079 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755355Ab0JKRXl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Oct 2010 13:23:41 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQmVuIEh1dGNoaW5ncyBb
-bWFpbHRvOmJodXRjaGluZ3NAc29sYXJmbGFyZS5jb21dDQo+IFNlbnQ6IE1vbmRheSwgT2N0b2Jl
-ciAxMSwgMjAxMCA0OjAxIFBNDQo+IFRvOiBWbGFkaXNsYXYgWm9sb3Rhcm92DQo+IENjOiBEYXZp
-ZCBNaWxsZXI7IERtaXRyeSBLcmF2a292OyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBFaWxvbg0K
-PiBHcmVlbnN0ZWluDQo+IFN1YmplY3Q6IFJFOiBbUEFUQ0ggbmV0LW5leHQgMi81XSBibngyeDog
-c2F2ZSBjeWNsZXMgaW4gc2V0dGluZw0KPiBnc29fc2l6ZQ0KPiANCj4gT24gTW9uLCAyMDEwLTEw
-LTExIGF0IDAxOjUzIC0wNzAwLCBWbGFkaXNsYXYgWm9sb3Rhcm92IHdyb3RlOg0KPiBbLi4uXQ0K
-PiA+IERhdmUsIGl0J3MgYSBnU29fc2l6ZSwgbm90IGEgZ1JvX3NpemUgYW5kIHdlIGFyZSBoYW5k
-bGluZyBhbiBMUk8gc2tiDQo+ID4gaGVyZS4gSXQncyBxdWl0ZSBjb25mdXNpbmcsIEkgYWdyZWUu
-Li4gOykgVGhpcyBpcyBjdXJyZW50bHkgdGhlIHdheQ0KPiA+IHRvIG1hcmsgYW4gTFJPIHNrYiBp
-biBvcmRlciB0byBwcm9wZXJseSBoYW5kbGUgdGhlIExSTyBza2JzIHRoYXQNCj4gPiBtaWdodCBz
-dGlsbCBiZSBmb3J3YXJkZWQgdG8gdGhlIHN0YWNrIHNob3J0IHRpbWUgYWZ0ZXIgdGhlIExSTyBo
-YXMNCj4gPiBiZWVuIGRpc2FibGVkIGR1ZSB0byBlbmFibGluZyB0aGUgSVAgZm9yd2FyZGluZyAo
-b3IgaWYgdGhlcmUgaXMgYQ0KPiA+IGJ1ZyBpbiBhIGRyaXZlcikuDQo+ID4gU2VlIHRoZSBza2Jf
-d2Fybl9pZl9scm8oKSBiZWxvdzoNCj4gPg0KPiA+IHN0YXRpYyBpbmxpbmUgYm9vbCBza2Jfd2Fy
-bl9pZl9scm8oY29uc3Qgc3RydWN0IHNrX2J1ZmYgKnNrYikNCj4gPiB7DQo+ID4gCS8qIExSTyBz
-ZXRzIGdzb19zaXplIGJ1dCBub3QgZ3NvX3R5cGUsIHdoZXJlYXMgaWYgR1NPIGlzIHJlYWxseQ0K
-PiA+IAkgKiB3YW50ZWQgdGhlbiBnc29fdHlwZSB3aWxsIGJlIHNldC4gKi8NCj4gPiAJc3RydWN0
-IHNrYl9zaGFyZWRfaW5mbyAqc2hpbmZvID0gc2tiX3NoaW5mbyhza2IpOw0KPiA+IAlpZiAoc2ti
-X2lzX25vbmxpbmVhcihza2IpICYmIHNoaW5mby0+Z3NvX3NpemUgIT0gMCAmJg0KPiA+IAkgICAg
-dW5saWtlbHkoc2hpbmZvLT5nc29fdHlwZSA9PSAwKSkgew0KPiA+IAkJX19za2Jfd2Fybl9scm9f
-Zm9yd2FyZGluZyhza2IpOw0KPiA+IAkJcmV0dXJuIHRydWU7DQo+ID4gCX0NCj4gPiAJcmV0dXJu
-IGZhbHNlOw0KPiA+IH0NCj4gPg0KPiA+IFNvLCB0aGUgY29udmVudGlvbiBpcyB0byBzZXQgdGhl
-IGdTb19zaXplIHRvIGEgbm9uZS16ZXJvIHZhbHVlDQo+IGxlYXZpbmcNCj4gPiB0aGUgZ1NvX3R5
-cGUgemVybyBmb3IgYW4gTFJPIHNrYnMuIEl0J3MgcXVpdGUgaGFja3kgYnV0IHRoaXMgaXMgd2hh
-dA0KPiA+IHdlIGhhdmUgZm9yIHF1aXRlIGEgd2hpbGUgYW5kIGl0IHF1aXRlIHdvcmtlZCBzbyBm
-YXIuIDspIFRvIG1ha2UgaXQNCj4gPiBjbGVhbmVyIHdlIG1pZ2h0IGhhdmUgZG9uZSB0aGUgZm9s
-bG93aW5nOg0KPiBbLi4uXQ0KPiANCj4gVGhlIHJlcXVpcmVtZW50IChvciBhcyB5b3UgY2FsbCBp
-dCwgImNvbnZlbnRpb24iKSBpcyB0byBzZXQgZ3NvX3NpemUgdG8NCj4gdGhlIG9ic2VydmVkIE1T
-UyBvZiB0aGUgcGFja2V0cyB0aGF0IGhhdmUgYmVlbiBjb21iaW5lZC4gIElmIHlvdSBkb24ndA0K
-PiBkbyB0aGF0IHRoZW4gVENQIHdpbGwgbm90IGtub3cgdGhlIHRydWUgbnVtYmVyIG9mIHBhY2tl
-dHMgZm9yIHB1cnBvc2VzDQo+IG9mIGRlbGF5ZWQtQUNLIGV0Yy4NCg0KVGhhbmtzLCBCZW4uIEkg
-c2VlIHRoYXQgbm93LiANCkRhdmUsIHdlIHdpbGwgcmVzcGluIHRoaXMgcGF0Y2ggc2VyaWVzLg0K
-DQpUaGFua3MsDQp2bGFkDQoNCj4gDQo+IEJlbi4NCj4gDQo+IC0tDQo+IEJlbiBIdXRjaGluZ3Ms
-IFNlbmlvciBTb2Z0d2FyZSBFbmdpbmVlciwgU29sYXJmbGFyZSBDb21tdW5pY2F0aW9ucw0KPiBO
-b3Qgc3BlYWtpbmcgZm9yIG15IGVtcGxveWVyOyB0aGF0J3MgdGhlIG1hcmtldGluZyBkZXBhcnRt
-ZW50J3Mgam9iLg0KPiBUaGV5IGFza2VkIHVzIHRvIG5vdGUgdGhhdCBTb2xhcmZsYXJlIHByb2R1
-Y3QgbmFtZXMgYXJlIHRyYWRlbWFya2VkLg0KPiANCg0K
+I did an audit for potential integer overflows of values which get passed
+to access_ok() and here are the results.
 
+Signed-off-by: Dan Carpenter <error27@gmail.com>
+
+diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+index dd3d6f7..c2aa12c 100644
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -429,6 +429,14 @@ static int vq_access_ok(unsigned int num,
+ 			struct vring_avail __user *avail,
+ 			struct vring_used __user *used)
+ {
++
++	if (num > UINT_MAX / sizeof *desc)
++		return 0;
++	if (num > UINT_MAX / sizeof *avail->ring - sizeof *avail)
++		return 0;
++	if (num > UINT_MAX / sizeof *used->ring - sizeof *used)
++		return 0;
++
+ 	return access_ok(VERIFY_READ, desc, num * sizeof *desc) &&
+ 	       access_ok(VERIFY_READ, avail,
+ 			 sizeof *avail + num * sizeof *avail->ring) &&
+@@ -447,6 +455,9 @@ int vhost_log_access_ok(struct vhost_dev *dev)
+ /* Caller should have vq mutex and device mutex */
+ static int vq_log_access_ok(struct vhost_virtqueue *vq, void __user *log_base)
+ {
++	if (vq->num > UINT_MAX / sizeof *vq->used->ring - sizeof *vq->used)
++		return 0;
++
+ 	return vq_memory_access_ok(log_base, vq->dev->memory,
+ 			    vhost_has_feature(vq->dev, VHOST_F_LOG_ALL)) &&
+ 		(!vq->log_used || log_access_ok(log_base, vq->log_addr,
+@@ -606,12 +617,17 @@ static long vhost_set_vring(struct vhost_dev *d, int ioctl, void __user *argp)
+ 			}
+ 
+ 			/* Also validate log access for used ring if enabled. */
+-			if ((a.flags & (0x1 << VHOST_VRING_F_LOG)) &&
+-			    !log_access_ok(vq->log_base, a.log_guest_addr,
++			if (a.flags & (0x1 << VHOST_VRING_F_LOG)) {
++				if (vq->num > UINT_MAX / sizeof *vq->used->ring - sizeof *vq->used) {
++					r = -EINVAL;
++					break;
++				}
++				if (!log_access_ok(vq->log_base, a.log_guest_addr,
+ 					   sizeof *vq->used +
+ 					   vq->num * sizeof *vq->used->ring)) {
+-				r = -EINVAL;
+-				break;
++					r = -EINVAL;
++					break;
++				}
+ 			}
+ 		}
+ 
