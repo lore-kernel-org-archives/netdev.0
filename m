@@ -1,63 +1,51 @@
-From: Oskar Schirmer <oskar@linutronix.de>
-Subject: Re: [PATCH] net/fec: carrier off initially to avoid root mount failure
-Date: Mon, 11 Oct 2010 09:54:20 +0200
-Message-ID: <20101011075420.GA17320@www.tglx.de>
-References: <1286454630-7396-1-git-send-email-oskar@linutronix.de> <20101010.211956.112597497.davem@davemloft.net>
+From: Jiri Slaby <jirislaby@gmail.com>
+Subject: [HELP] ATM: mpc, use-after-free
+Date: Mon, 11 Oct 2010 09:56:44 +0200
+Message-ID: <4CB2C33C.8080109@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: oskar@linutronix.de, netdev@vger.kernel.org, dan@embeddedalley.com,
-	bigeasy@linutronix.de, hjk@linutronix.de, gerg@uclinux.org,
-	bhutchings@solarflare.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.tglx.de ([62.245.132.106]:40189 "EHLO www.tglx.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753149Ab0JKHyj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Oct 2010 03:54:39 -0400
-Content-Disposition: inline
-In-Reply-To: <20101010.211956.112597497.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: 7bit
+Cc: ML netdev <netdev@vger.kernel.org>,
+	linux-atm-general@lists.sourceforge.net,
+	LKML <linux-kernel@vger.kernel.org>, chas@cmf.nrl.navy.mil
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Oct 10, 2010 at 21:19:56 -0700, David Miller wrote:
-> From: Oskar Schirmer <oskar@linutronix.de>
-> Date: Thu,  7 Oct 2010 14:30:30 +0200
-> 
-> > with hardware slow in negotiation, the system did freeze
-> > while trying to mount root on nfs at boot time.
-> > 
-> > the link state has not been initialised so network stack
-> > tried to start transmission right away. this caused instant
-> > retries, as the driver solely stated business upon link down,
-> > rendering the system unusable.
-> > 
-> > notify carrier off initially to prevent transmission until
-> > phylib will report link up.
-> > 
-> > Signed-off-by: Oskar Schirmer <oskar@linutronix.de>
-> 
-> I did some more investigation into this situation, and for now I'm
-> going to apply your patch.  It is correct, and it also matches what
-> the only other seemingly correct driver I could find using phylib does
-> (gianfar) :-) Actually, although I didn't check, bi-modal drivers
-> (those that only use phylib for some phy types) like tg3 probably do
-> the right thing here too.
-> 
-> Longer term I think the right thing to do might be:
-> 
-> 1) Create some notion of "network device has managed carrier"
-> 
->    This could simply be a flag bit in the netdev or netdev_ops,
->    or some other kind of attribute.
-> 
-> 2) Managed carrier devices start with netif_carrier_off(), otherwise
->    the device starts with netif_carrier_on().
+Hi,
 
-This last conditional (managed vs otherwise) would be implicit
-with a null PHY driver as Ben Hutchings proposes it to Greg Ungerers
-"allow FEC driver to not have attached PHY", 2010/10/07,
-with the null PHY simply switching to netif_carrier_on right after
-machine start.
+Stanse found this use-after-free:
 
-Otherwise my patch would need another #ifdef to live in
-peace with Gregs patch.
+static void mpc_push(struct atm_vcc *vcc, struct sk_buff *skb)
+{
+...
+        new_skb = skb_realloc_headroom(skb, eg->ctrl_info.DH_length);
+
+        dev_kfree_skb_any(skb);
+
+FREE    ^^^^^^^^^^^^^^^^^^^^^^^
+
+        if (new_skb == NULL) {
+                mpc->eg_ops->put(eg);
+                return;
+        }
+        skb_push(new_skb, eg->ctrl_info.DH_length);
+        skb_copy_to_linear_data(new_skb, eg->ctrl_info.DLL_header,
+                                eg->ctrl_info.DH_length);
+ ...
+        memset(ATM_SKB(skb), 0, sizeof(struct atm_skb_data));
+
+USE            ^^^^^^^^^^^^
+
+        netif_rx(new_skb);
+
+I guess it should be ATM_SKB(new_skb), right?
+
+The two problems are:
+1) obvious use-after-free
+2) ?data leak, since we don't erase the right memory?
+
+thanks,
+-- 
+js
