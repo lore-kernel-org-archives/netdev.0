@@ -1,66 +1,59 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] af_packet: account for VLAN when checking packet size
-Date: Mon, 11 Oct 2010 16:03:02 +0200
-Message-ID: <1286805782.2737.25.camel@edumazet-laptop>
-References: <20101011131500.GA12342@orbit.nwl.cc>
-	 <1286803522-16478-1-git-send-email-phil@nwl.cc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	johann.baudy@gnu-log.net
-To: Phil Sutter <phil@nwl.cc>
+From: Andrey Vagin <avagin@openvz.org>
+Subject: [STABLE 2.6.32 PATCH] net: release dst entry while cache-hot for GSO case too
+Date: Mon, 11 Oct 2010 19:20:13 +0400
+Message-ID: <1286810413-30238-1-git-send-email-avagin@openvz.org>
+Cc: netdev@vger.kernel.org, Krishna Kumar <krkumar2@in.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrey Vagin <avagin@openvz.org>
+To: stable@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:34682 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754787Ab0JKODM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Oct 2010 10:03:12 -0400
-Received: by wwj40 with SMTP id 40so3781400wwj.1
-        for <netdev@vger.kernel.org>; Mon, 11 Oct 2010 07:03:10 -0700 (PDT)
-In-Reply-To: <1286803522-16478-1-git-send-email-phil@nwl.cc>
+Received: from mailhub.sw.ru ([195.214.232.25]:9665 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755133Ab0JKPYD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Oct 2010 11:24:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 11 octobre 2010 =C3=A0 15:25 +0200, Phil Sutter a =C3=A9crit :
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
-> ---
->  net/packet/af_packet.c |    6 ++++++
->  1 files changed, 6 insertions(+), 0 deletions(-)
->=20
-> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-> index 9a17f28..ad37754 100644
-> --- a/net/packet/af_packet.c
-> +++ b/net/packet/af_packet.c
-> @@ -56,6 +56,7 @@
->  #include <linux/in.h>
->  #include <linux/inet.h>
->  #include <linux/netdevice.h>
-> +#include <linux/if_arp.h>
->  #include <linux/if_packet.h>
->  #include <linux/wireless.h>
->  #include <linux/kernel.h>
-> @@ -983,6 +984,11 @@ static int tpacket_snd(struct packet_sock *po, s=
-truct msghdr *msg)
-> =20
->  	reserve =3D dev->hard_header_len;
-> =20
-> +	/* allow VLAN packets when device supports them */
-> +	if (likely(dev->type =3D=3D ARPHRD_ETHER) &&
-> +	    likely(!(dev->features & NETIF_F_VLAN_CHALLENGED)))
-> +		reserve +=3D VLAN_HLEN;
-> +
->  	err =3D -ENETDOWN;
->  	if (unlikely(!(dev->flags & IFF_UP)))
->  		goto out_put;
+From: Krishna Kumar <krkumar2@in.ibm.com>
 
-If we dont test ETH_P_8021Q protocol here, we allow sending 1504 bytes
-frames for MTU=3D1500
+commit 068a2de57ddf4f472e32e7af868613c574ad1d88 upstream.
 
-Should we really care ?
+Non-GSO code drops dst entry for performance reasons, but
+the same is missing for GSO code. Drop dst while cache-hot
+for GSO case too.
 
-If not, just do
+Note: Without this patch the kernel may oops if used bridged veth
+devices. A bridge set skb->dst = fake_dst_ops, veth transfers this skb
+to netif_receive_skb...ip_rcv_finish and it calls dst_input(skb), but
+fake_dst_ops->input = NULL -> Oops
 
-reserve =3D dev->hard_header_len + VLAN_HLEN;
+Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Andrey Vagin <avagin@openvz.org>
+---
+ net/core/dev.c |    8 ++++++++
+ 1 files changed, 8 insertions(+), 0 deletions(-)
 
-
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 915d0ae..c325ab6 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1747,6 +1747,14 @@ gso:
+ 
+ 		skb->next = nskb->next;
+ 		nskb->next = NULL;
++
++		/*
++		 * If device doesnt need nskb->dst, release it right now while
++		 * its hot in this cpu cache
++		 */
++		if (dev->priv_flags & IFF_XMIT_DST_RELEASE)
++			skb_dst_drop(nskb);
++
+ 		rc = ops->ndo_start_xmit(nskb, dev);
+ 		if (unlikely(rc != NETDEV_TX_OK)) {
+ 			nskb->next = skb->next;
+-- 
+1.7.2.1
 
