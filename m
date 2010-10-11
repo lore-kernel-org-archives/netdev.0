@@ -1,59 +1,32 @@
-From: Andrey Vagin <avagin@openvz.org>
-Subject: [STABLE 2.6.32 PATCH] net: release dst entry while cache-hot for GSO case too
-Date: Mon, 11 Oct 2010 19:20:13 +0400
-Message-ID: <1286810413-30238-1-git-send-email-avagin@openvz.org>
-Cc: netdev@vger.kernel.org, Krishna Kumar <krkumar2@in.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrey Vagin <avagin@openvz.org>
-To: stable@kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v12 06/17] Use callback to deal with skb_release_data()
+ specially.
+Date: Mon, 11 Oct 2010 08:27:28 -0700 (PDT)
+Message-ID: <20101011.082728.193709462.davem@davemloft.net>
+References: <f2bf65a8a7676bbd3e8a749ae93d99e88671d35d.1285853725.git.xiaohui.xin@intel.com>
+	<20101001.001439.85411154.davem@davemloft.net>
+	<F2E9EB7348B8264F86B6AB8151CE2D793064B2A9D8@shsmsx502.ccr.corp.intel.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mst@redhat.com, mingo@elte.hu,
+	herbert@gondor.apana.org.au, jdike@linux.intel.com
+To: xiaohui.xin@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:9665 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755133Ab0JKPYD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Oct 2010 11:24:03 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33138
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754980Ab0JKP1G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Oct 2010 11:27:06 -0400
+In-Reply-To: <F2E9EB7348B8264F86B6AB8151CE2D793064B2A9D8@shsmsx502.ccr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Krishna Kumar <krkumar2@in.ibm.com>
+From: "Xin, Xiaohui" <xiaohui.xin@intel.com>
+Date: Mon, 11 Oct 2010 15:06:05 +0800
 
-commit 068a2de57ddf4f472e32e7af868613c574ad1d88 upstream.
+> That's to avoid the new cache miss caused by using destructor_arg in data path
+> like skb_release_data().
+> That's based on the comment from Eric Dumazet on v7 patches.
 
-Non-GSO code drops dst entry for performance reasons, but
-the same is missing for GSO code. Drop dst while cache-hot
-for GSO case too.
-
-Note: Without this patch the kernel may oops if used bridged veth
-devices. A bridge set skb->dst = fake_dst_ops, veth transfers this skb
-to netif_receive_skb...ip_rcv_finish and it calls dst_input(skb), but
-fake_dst_ops->input = NULL -> Oops
-
-Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Andrey Vagin <avagin@openvz.org>
----
- net/core/dev.c |    8 ++++++++
- 1 files changed, 8 insertions(+), 0 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 915d0ae..c325ab6 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1747,6 +1747,14 @@ gso:
- 
- 		skb->next = nskb->next;
- 		nskb->next = NULL;
-+
-+		/*
-+		 * If device doesnt need nskb->dst, release it right now while
-+		 * its hot in this cpu cache
-+		 */
-+		if (dev->priv_flags & IFF_XMIT_DST_RELEASE)
-+			skb_dst_drop(nskb);
-+
- 		rc = ops->ndo_start_xmit(nskb, dev);
- 		if (unlikely(rc != NETDEV_TX_OK)) {
- 			nskb->next = skb->next;
--- 
-1.7.2.1
-
+Thanks for the explanation.
