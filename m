@@ -1,68 +1,58 @@
-From: Kumar SANGHVI <kumar.sanghvi@stericsson.com>
-Subject: Re: [PATCH 3/4] Phonet: cleanup pipe enable socket option
-Date: Mon, 11 Oct 2010 12:20:28 +0530
-Message-ID: <20101011065027.GB31124@bnru01.bnr.st.com>
-References: <1286546523-3340-1-git-send-email-remi@remlab.net>
- <1286546523-3340-2-git-send-email-remi@remlab.net>
- <1286546523-3340-3-git-send-email-remi@remlab.net>
+From: "Xin, Xiaohui" <xiaohui.xin@intel.com>
+Subject: RE: [PATCH v12 06/17] Use callback to deal with skb_release_data()
+ specially.
+Date: Mon, 11 Oct 2010 15:06:05 +0800
+Message-ID: <F2E9EB7348B8264F86B6AB8151CE2D793064B2A9D8@shsmsx502.ccr.corp.intel.com>
+References: <1285855474-12110-1-git-send-email-xiaohui.xin@intel.com>
+	<59d8a50047ee01e26658fd676d26c0162b79e5fd.1285853725.git.xiaohui.xin@intel.com>
+	<f2bf65a8a7676bbd3e8a749ae93d99e88671d35d.1285853725.git.xiaohui.xin@intel.com>
+ <20101001.001439.85411154.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	=?iso-8859-1?Q?R=E9mi?= Denis-Courmont
-	<remi.denis-courmont@nokia.com>
-To: =?iso-8859-1?Q?R=E9mi?= Denis-Courmont <remi@remlab.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog114.obsmtp.com ([207.126.144.137]:48239 "EHLO
-	eu1sys200aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752809Ab0JKGui (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Oct 2010 02:50:38 -0400
-Content-Disposition: inline
-In-Reply-To: <1286546523-3340-3-git-send-email-remi@remlab.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"mst@redhat.com" <mst@redhat.com>, "mingo@elte.hu" <mingo@elte.hu>,
+	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
+	"jdike@linux.intel.com" <jdike@linux.intel.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20101001.001439.85411154.davem@davemloft.net>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+>-----Original Message-----
+>From: David Miller [mailto:davem@davemloft.net]
+>Sent: Friday, October 01, 2010 3:15 PM
+>To: Xin, Xiaohui
+>Cc: netdev@vger.kernel.org; kvm@vger.kernel.org; linux-kernel@vger.kernel.org;
+>mst@redhat.com; mingo@elte.hu; herbert@gondor.apana.org.au; jdike@linux.intel.com
+>Subject: Re: [PATCH v12 06/17] Use callback to deal with skb_release_data() specially.
+>
+>From: xiaohui.xin@intel.com
+>Date: Thu, 30 Sep 2010 22:04:23 +0800
+>
+>> @@ -197,10 +197,11 @@ struct skb_shared_info {
+>>  	union skb_shared_tx tx_flags;
+>>  	struct sk_buff	*frag_list;
+>>  	struct skb_shared_hwtstamps hwtstamps;
+>> -	skb_frag_t	frags[MAX_SKB_FRAGS];
+>>  	/* Intermediate layers must ensure that destructor_arg
+>>  	 * remains valid until skb destructor */
+>>  	void *		destructor_arg;
+>> +
+>> +	skb_frag_t	frags[MAX_SKB_FRAGS];
+>>  };
+>>
+>>  /* The structure is for a skb which pages may point to
+>
+>Why are you moving frags[] to the end like this?
 
-On Fri, Oct 08, 2010 at 16:02:02 +0200, R=E9mi Denis-Courmont wrote:
-> From: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
->=20
-> The current code works like this:
->=20
->   int garbage, status;
->   socklen_t len =3D sizeof(status);
->=20
->   /* enable pipe */
->   setsockopt(fd, SOL_PNPIPE, PNPIPE_ENABLE, &garbage, sizeof(garbage)=
-);
->   /* disable pipe */
->   setsockopt(fd, SOL_PNPIPE, PNPIPE_DISABLE, &garbage, sizeof(garbage=
-));
->   /* get status */
->   getsockopt(fd, SOL_PNPIPE, PNPIPE_INQ, &status, &len);
->=20
-> ...which does not follow the usual socket option pattern. This patch
-> merges all three "options" into a single gettable&settable option,
-> before Linux 2.6.37 gets out:
->=20
->   int status;
->   socklen_t len =3D sizeof(status);
->=20
->   /* enable pipe */
->   status =3D 1;
->   setsockopt(fd, SOL_PNPIPE, PNPIPE_ENABLE, &status, sizeof(status));
->   /* disable pipe */
->   status =3D 0;
->   setsockopt(fd, SOL_PNPIPE, PNPIPE_ENABLE, &status, sizeof(status));
->   /* get status */
->   getsockopt(fd, SOL_PNPIPE, PNPIPE_ENABLE, &status, &len);
->=20
-> This also fixes the error code from EFAULT to ENOTCONN.
->=20
-> Signed-off-by: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
-> Cc: Kumar Sanghvi <kumar.sanghvi@stericsson.com>
-=20
-Thank you!
+That's to avoid the new cache miss caused by using destructor_arg in data path
+like skb_release_data().
+That's based on the comment from Eric Dumazet on v7 patches.
 
-BR,
-Kumar.
+Thanks
+Xiaohui
