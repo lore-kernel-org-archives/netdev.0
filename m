@@ -1,49 +1,28 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [PATCH] af_packet: account for VLAN when checking packet size
-Date: Mon, 11 Oct 2010 19:29:32 +0200
-Message-ID: <20101011172932.GB12342@orbit.nwl.cc>
-References: <20101011131500.GA12342@orbit.nwl.cc>
- <1286803522-16478-1-git-send-email-phil@nwl.cc>
- <1286805782.2737.25.camel@edumazet-laptop>
- <20101011.090153.226774563.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 2/5] bnx2x: save cycles in setting gso_size
+Date: Mon, 11 Oct 2010 10:48:57 -0700 (PDT)
+Message-ID: <20101011.104857.189696458.davem@davemloft.net>
+References: <8628FE4E7912BF47A96AE7DD7BAC0AADDDEE4281D8@SJEXCHCCR02.corp.ad.broadcom.com>
+	<1286805633.2349.64.camel@achroite.uk.solarflarecom.com>
+	<8628FE4E7912BF47A96AE7DD7BAC0AADDDEE428246@SJEXCHCCR02.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	johann.baudy@gnu-log.net
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: bhutchings@solarflare.com, dmitry@broadcom.com,
+	netdev@vger.kernel.org, eilong@broadcom.com
+To: vladz@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([91.121.169.95]:58493 "EHLO orbit.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755454Ab0JKR3d (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Oct 2010 13:29:33 -0400
-Content-Disposition: inline
-In-Reply-To: <20101011.090153.226774563.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34093
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755696Ab0JKRsf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Oct 2010 13:48:35 -0400
+In-Reply-To: <8628FE4E7912BF47A96AE7DD7BAC0AADDDEE428246@SJEXCHCCR02.corp.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 11, 2010 at 09:01:53AM -0700, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Mon, 11 Oct 2010 16:03:02 +0200
-> 
-> > If we dont test ETH_P_8021Q protocol here, we allow sending 1504 bytes
-> > frames for MTU=1500
-> > 
-> > Should we really care ?
-> > 
-> > If not, just do
-> > 
-> > reserve = dev->hard_header_len + VLAN_HLEN;
-> 
-> Thats a good point, I think we need to validate the SKB protocol
-> field.
+From: "Vladislav Zolotarov" <vladz@broadcom.com>
+Date: Mon, 11 Oct 2010 10:06:19 -0700
 
-Which is set to the value of the passed struct sockaddr_ll field
-sll_protocol. At least in the two userspace code samples I have here,
-the later field is set to htons(ETH_P_ALL). So unless one changes the
-API, the only way to find out the packet type is to actually parse the
-given ethernet header.
+> Dave, we will respin this patch series.
 
-Since tpacket_rcv() just interprets the vlan_tci skb field, such
-detailed packet inspection is otherwise not done in af_packet.c.
-
-Greetings, Phil
+Ok, thanks guys.
