@@ -1,99 +1,141 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: Re: [PATCH net-2.6] tg3: restore rx_dropped accounting
-Date: Mon, 11 Oct 2010 15:26:57 -0700
-Message-ID: <20101011222657.GA7307@mcarlson.broadcom.com>
-References: <1286776552.2692.232.camel@edumazet-laptop>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [RFC PATCH 1/2] r8169: check dma mapping failures
+Date: Tue, 12 Oct 2010 00:08:27 +0200
+Message-ID: <20101011220827.GA11340@electric-eye.fr.zoreil.com>
+References: <1286548203-10831-1-git-send-email-sgruszka@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	"Matthew Carlson" <mcarlson@broadcom.com>,
-	"Michael Chan" <mchan@broadcom.com>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Denis Kirjanov <kirjanov@gmail.com>
+To: Stanislaw Gruszka <sgruszka@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2432 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756875Ab0JKW2c (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Oct 2010 18:28:32 -0400
-In-Reply-To: <1286776552.2692.232.camel@edumazet-laptop>
+Received: from 88-139-115-126.adslgp.cegetel.net ([88.139.115.126]:46925 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1756914Ab0JKWbP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Oct 2010 18:31:15 -0400
 Content-Disposition: inline
+In-Reply-To: <1286548203-10831-1-git-send-email-sgruszka@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Oct 10, 2010 at 10:55:52PM -0700, Eric Dumazet wrote:
-> commit 511d22247be7 (tg3: 64 bit stats on all arches), overlooked the
-> rx_dropped accounting.
-> 
-> We use a full "struct rtnl_link_stats64" to hold rx_dropped value, but
-> forgot to report it in tg3_get_stats64().
-> 
-> Use an "unsigned long" instead to shrink "struct tg3" by 176 bytes, and
-> report this value to stats readers.
-> 
-> Increment rx_dropped counter for oversized frames.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Stanislaw Gruszka <sgruszka@redhat.com> :
+[...]
+> diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+> index bc669a4..b3b28b1 100644
+> --- a/drivers/net/r8169.c
+> +++ b/drivers/net/r8169.c
+> @@ -4018,20 +4018,24 @@ static struct sk_buff *rtl8169_alloc_rx_skb(struct pci_dev *pdev,
 
-Acked-by: Matt Carlson <mcarlson@broadcom.com>
+You can replace the pci_dev parameter with pdev->dev
 
-> CC: Michael Chan <mchan@broadcom.com>
-> CC: Matt Carlson <mcarlson@broadcom.com>
-> ---
->  drivers/net/tg3.c |    6 ++++--
->  drivers/net/tg3.h |    2 +-
->  2 files changed, 5 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-> index bc3af78..1ec4b9e 100644
-> --- a/drivers/net/tg3.c
-> +++ b/drivers/net/tg3.c
-> @@ -4666,7 +4666,7 @@ static int tg3_rx(struct tg3_napi *tnapi, int budget)
->  				       desc_idx, *post_ptr);
->  		drop_it_no_recycle:
->  			/* Other statistics kept track of by card. */
-> -			tp->net_stats.rx_dropped++;
-> +			tp->rx_dropped++;
->  			goto next_pkt;
->  		}
 >  
-> @@ -4726,7 +4726,7 @@ static int tg3_rx(struct tg3_napi *tnapi, int budget)
->  		if (len > (tp->dev->mtu + ETH_HLEN) &&
->  		    skb->protocol != htons(ETH_P_8021Q)) {
->  			dev_kfree_skb(skb);
-> -			goto next_pkt;
-> +			goto drop_it_no_recycle;
->  		}
+>  	skb = __netdev_alloc_skb(dev, rx_buf_sz + pad, gfp);
+>  	if (!skb)
+> -		goto err_out;
+> +		goto err0;
+
+err_out_0 (with a big please)
+
+>  	skb_reserve(skb, align ? ((pad - 1) & (unsigned long)skb->data) : pad);
 >  
->  		if (desc->type_flags & RXD_FLAG_VLAN &&
-> @@ -9240,6 +9240,8 @@ static struct rtnl_link_stats64 *tg3_get_stats64(struct net_device *dev,
->  	stats->rx_missed_errors = old_stats->rx_missed_errors +
->  		get_stat64(&hw_stats->rx_discards);
->  
-> +	stats->rx_dropped = tp->rx_dropped;
+>  	mapping = dma_map_single(&pdev->dev, skb->data, rx_buf_sz,
+>  				 PCI_DMA_FROMDEVICE);
+> +	if (dma_mapping_error(&pdev->dev, mapping))
+> +		goto err1;
+
+err_free_skb_1
+
+>  	rtl8169_map_to_asic(desc, mapping, rx_buf_sz);
+> -out:
 > +
->  	return stats;
+>  	return skb;
+>  
+> -err_out:
+> +err1:
+> +	dev_kfree_skb(skb);
+> +err0:
+>  	rtl8169_make_unusable_by_asic(desc);
+> -	goto out;
+> +	return NULL;
+
+I'd keep the 'goto out' and NULL the skb after the dev_kfree_skb but
+it's up to you.
+
 >  }
 >  
-> diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
-> index 4937bd1..be7ff13 100644
-> --- a/drivers/net/tg3.h
-> +++ b/drivers/net/tg3.h
-> @@ -2759,7 +2759,7 @@ struct tg3 {
+>  static void rtl8169_rx_clear(struct rtl8169_private *tp)
+> @@ -4115,11 +4119,11 @@ static void rtl8169_unmap_tx_skb(struct pci_dev *pdev, struct ring_info *tx_skb,
+>  	tx_skb->len = 0;
+>  }
 >  
+> -static void rtl8169_tx_clear(struct rtl8169_private *tp)
+> +static void rtl8169_tx_clear_range(struct rtl8169_private *tp, u32 start, u32 end)
+>  {
+> -	unsigned int i;
+> +	u32 i;
 >  
->  	/* begin "everything else" cacheline(s) section */
-> -	struct rtnl_link_stats64	net_stats;
-> +	unsigned long			rx_dropped;
->  	struct rtnl_link_stats64	net_stats_prev;
->  	struct tg3_ethtool_stats	estats;
->  	struct tg3_ethtool_stats	estats_prev;
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+> -	for (i = tp->dirty_tx; i < tp->dirty_tx + NUM_TX_DESC; i++) {
+> +	for (i = start; i < end; i++) {
 
+Feel free to fix the (existing) wraparound bug.
+
+>  		unsigned int entry = i % NUM_TX_DESC;
+>  		struct ring_info *tx_skb = tp->tx_skb + entry;
+>  		unsigned int len = tx_skb->len;
+> @@ -4136,6 +4140,11 @@ static void rtl8169_tx_clear(struct rtl8169_private *tp)
+>  			tp->dev->stats.tx_dropped++;
+>  		}
+>  	}
+> +}
+> +
+> +static inline void rtl8169_tx_clear(struct rtl8169_private *tp)
+
+Though used several times, it's hardly time critical : drop the inline.
+
+> +{
+> +	rtl8169_tx_clear_range(tp, tp->dirty_tx, tp->dirty_tx + NUM_TX_DESC);
+>  	tp->cur_tx = tp->dirty_tx = 0;
+>  }
+>  
+> @@ -4254,6 +4263,8 @@ static int rtl8169_xmit_frags(struct rtl8169_private *tp, struct sk_buff *skb,
+
+Please add a local &tp->pci_dev->dev variable.
+
+>  		addr = ((void *) page_address(frag->page)) + frag->page_offset;
+>  		mapping = dma_map_single(&tp->pci_dev->dev, addr, len,
+>  					 PCI_DMA_TODEVICE);
+> +		if (dma_mapping_error(&tp->pci_dev->dev, mapping))
+> +			return -cur_frag;
+
+I ponder adding an 'unlikely', goto some cleaning statement and return a
+signification deprieved "I failed" value. The caller does it anyway but
+I am not sure if it really is its business.
+
+>  
+>  		/* anti gcc 2.95.3 bugware (sic) */
+>  		status = opts1 | len | (RingEnd * !((entry + 1) % NUM_TX_DESC));
+> @@ -4314,7 +4325,10 @@ static netdev_tx_t rtl8169_start_xmit(struct sk_buff *skb,
+>  	opts1 = DescOwn | rtl8169_tso_csum(skb, dev);
+>  
+>  	frags = rtl8169_xmit_frags(tp, skb, opts1);
+> -	if (frags) {
+> +	if (frags < 0) {
+
+'unsigned int frags' problem.
+
+[...]
+> @@ -4355,6 +4371,10 @@ err_stop:
+>  	netif_stop_queue(dev);
+>  	dev->stats.tx_dropped++;
+>  	return NETDEV_TX_BUSY;
+> +
+> +err_dma:
+> +	rtl8169_tx_clear_range(tp, entry, entry + frags + 1);
+> +	return NETDEV_TX_OK;
+
+Third return statement, second NETDEV_TX_OK, no tx_dropped increase. May be
+a bit heavy handed.
+
+Otherwise it's cool.
+
+-- 
+Ueimor
