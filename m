@@ -1,53 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] neigh: speedup neigh_hh_init()
-Date: Mon, 11 Oct 2010 09:18:56 -0700 (PDT)
-Message-ID: <20101011.091856.71123383.davem@davemloft.net>
-References: <1286456008.2912.171.camel@edumazet-laptop>
+From: Andrew Vagin <avagin@gmail.com>
+Subject: Re: [STABLE 2.6.32 PATCH] net: release dst entry while cache-hot
+ for GSO case too
+Date: Mon, 11 Oct 2010 20:19:19 +0400
+Message-ID: <4CB33907.5060803@gmail.com>
+References: <1286810413-30238-1-git-send-email-avagin@openvz.org>	<4CB32FDB.4090001@msgid.tls.msk.ru>	<1286812009.2737.30.camel@edumazet-laptop> <20101011.085952.193718228.davem@davemloft.net>
+Reply-To: avagin@gmail.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=KOI8-R; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: eric.dumazet@gmail.com, mjt@tls.msk.ru, avagin@openvz.org,
+	stable@kernel.org, netdev@vger.kernel.org, krkumar2@in.ibm.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46642
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755313Ab0JKQSe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Oct 2010 12:18:34 -0400
-In-Reply-To: <1286456008.2912.171.camel@edumazet-laptop>
+Received: from mailhub.sw.ru ([195.214.232.25]:17746 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755105Ab0JKQWp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Oct 2010 12:22:45 -0400
+In-Reply-To: <20101011.085952.193718228.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 07 Oct 2010 14:53:28 +0200
+  On 10/11/2010 07:59 PM, David Miller wrote:
+> From: Eric Dumazet<eric.dumazet@gmail.com>
+> Date: Mon, 11 Oct 2010 17:46:49 +0200
+>
+>> This patch was an optimization, not a bug fix.
+> Right, this has no business going into 2.6.32-stable at all.
+This is bug fix. Now nobody drops dst in case gso and veth, because the 
+commit 60df914e295a21a223e43a7ee01e0c73c64dd111 deletes skb_dst_drop 
+from the veth.c. We should commit my patch or revert commit 60df914e.
 
-> When a new dst is used to send a frame, neigh_resolve_output() tries to
-> associate an struct hh_cache to this dst, calling neigh_hh_init() with
-> the neigh rwlock write locked.
-> 
-> Most of the time, hh_cache is already known and linked into neighbour,
-> so we find it and increment its refcount.
-> 
-> This patch changes the logic so that we call neigh_hh_init() with
-> neighbour lock read locked only, so that fast path can be run in
-> parallel by concurrent cpus.
-> 
-> This brings part of the speedup we got with commit c7d4426a98a5f
-> (introduce DST_NOCACHE flag) for non cached dsts, even for cached ones,
-> removing one of the contention point that routers hit on multiqueue
-> enabled machines.
-> 
-> Further improvements would need to use a seqlock instead of an rwlock to
-> protect neigh->ha[], to not dirty neigh too often and remove two atomic
-> ops.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+We have two bug reports:
 
-Ok this patch assumes that neighbours are highly shared, which
-is a reasonable thing to optimize for.
+http://www.spinics.net/lists/netdev/msg142104.html
 
-So, applied, thanks a lot!
+http://bugzilla.openvz.org/show_bug.cgi?id=1634
 
-BTW, I think you can RCU this thing.  Require that every change
-to the 'hh' entry be done in a newly allocated entry.
-
-Then the cmpxchg() on the hh pointer interlocks.
+Taylan verified that the patch really fix his bug.
