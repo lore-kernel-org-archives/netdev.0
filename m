@@ -1,36 +1,80 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net dst: use a percpu_counter to track entries
-Date: Mon, 11 Oct 2010 13:07:58 -0700 (PDT)
-Message-ID: <20101011.130758.70192030.davem@davemloft.net>
-References: <1286555854.2959.605.camel@edumazet-laptop>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 19992] New: b44 + CONFIG_DEBUG_SHIRQ (=y on
+ fedora) fails to resume
+Date: Mon, 11 Oct 2010 13:15:39 -0700
+Message-ID: <20101011131539.bbb99afe.akpm@linux-foundation.org>
+References: <bug-19992-10286@https.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
+	Gary Zambrano <zambrano@broadcom.com>
+To: james@albanarts.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44532
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755105Ab0JKUHg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Oct 2010 16:07:36 -0400
-In-Reply-To: <1286555854.2959.605.camel@edumazet-laptop>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:40138 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755981Ab0JKUQg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Oct 2010 16:16:36 -0400
+In-Reply-To: <bug-19992-10286@https.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 08 Oct 2010 18:37:34 +0200
 
-> struct dst_ops tracks number of allocated dst in an atomic_t field,
-> subject to high cache line contention in stress workload.
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
+
+On Sun, 10 Oct 2010 16:57:11 GMT
+bugzilla-daemon@bugzilla.kernel.org wrote:
+
+> https://bugzilla.kernel.org/show_bug.cgi?id=19992
 > 
-> Switch to a percpu_counter, to reduce number of time we need to dirty a
-> central location. Place it on a separate cache line to avoid dirtying
-> read only fields.
- ...
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+>            Summary: b44 + CONFIG_DEBUG_SHIRQ (=y on fedora) fails to
+>                     resume
+>            Product: Drivers
+>            Version: 2.5
+>     Kernel Version: 2.6.36-rc7
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: high
+>           Priority: P1
+>          Component: Network
+>         AssignedTo: drivers_network@kernel-bugs.osdl.org
+>         ReportedBy: james@albanarts.com
+>         Regression: Yes
+> 
+> 
+> b44 network driver causes system to hang on resume when CONFIG_DEBUG_SHIRQ=y.
+> I've done some TRACE_RESUME'ing and the following happens:
+> * b44_resume() (drivers/net/b44.c) calls request_irq with IRQF_SHARED (after
+> freeing it in the suspend function)
+> * request_irq() (kernel/irq/manage.c) calls the interrupt handler directly if
+> IRQF_SHARED and CONFIG_DEBUG_SHIRQ=y. It says "It's a shared IRQ -- the driver
+> ought to be prepared for it to happen immediately, so let's make sure...."
+> * b44_interrupt() gets as far as the first br32 and no further:
+>   istat = br32(bp, B44_ISTAT);
+> 
+> I presume it hasn't yet woken the device up so reading a register somehow fails
+> and hangs the system.
+> 
+> If I comment out the code in request_irq() to test the shared irq handler all
+> works fine.
+> 
+> I'm guessing either the b44 driver shouldn't be freeing/requesting irqs in
+> suspend/resume functions, or should be resetting the hardware first so that the
+> test handler call doesn't fail, but I don't know enough about why it is freeing
+> the irq across suspend to be confident fixing it.
+> 
+> This has been like this for a while (2.6.34 at least). Suspend used to work on
+> fedora with this hardware so I think this is a regression. I'm happy to test
+> any patches.
 
-When I first read the subject line for this patch, I was
-scared, because I thought you were using a percpu counter
-for dst entry refcounts :-)
+Thanks.  Yup, if the driver/device isn't ready to accept an IRQ when
+request_irq() is called then there might be a problem should a real
+interrupt happen very shortly after request_irq() is called.
 
-Anyways this is fine, applied, thanks!
+The code looks OK to me so perhaps it is indeed some weird hardware
+problem.  Maybe a little delay after the ssb_bus_powerup() is needed?
+
