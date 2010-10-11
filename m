@@ -1,236 +1,499 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 19942] New: Not a intel bug:
- kernel BUG at drivers/pci/intel-iommu.c:1656
-Date: Mon, 11 Oct 2010 13:45:26 -0700
-Message-ID: <20101011134526.8823a1a3.akpm@linux-foundation.org>
-References: <bug-19942-10286@https.bugzilla.kernel.org/>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH RFC] tun: dma engine support
+Date: Mon, 11 Oct 2010 22:52:08 +0200
+Message-ID: <20101011205208.GA8527@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	bugzilla-daemon@bugzilla.kernel.org,
-	Jesse Barnes <jbarnes@virtuousgeek.org>, bugme-daemon@bugzilla.kernel.org,
-	David Woodhouse <dwmw2@infradead.org>
-To: gronslet@gmail.com
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <bug-19942-10286@https.bugzilla.kernel.org/>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Dan Williams <dan.j.williams@intel.com>,
+	Linus Walleij <linus.walleij@stericsson.com>,
+	Anatolij Gustschin <agust@denx.de>,
+	Magnus Damm <damm@opensource.se>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"Michael S. Tsirkin" <mst@redhat.com>, Tejun Heo <tj@kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.hengli.com.au>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Joe Perches <joe@perches.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, kvm@vger.kernel.org
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Simple hack to use dma engine for tun RX.
+Only one skb in flight at the moment.
 
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
+I am still looking at handling multiple skbs, but
+sending this out for early flames and improvement suggestions.
 
+Loopback testing seems to show only minor performance gains:
+this is not really suprising as data is hot in cache already.
+Where I would expect this to help more is with incoming
+traffic from an external NIC. This still needs to be tested.
 
-On Sat, 9 Oct 2010 10:07:15 GMT
-bugzilla-daemon@bugzilla.kernel.org wrote:
+ drivers/dma/Kconfig   |    2 +-
+ drivers/dma/iovlock.c |    2 +-
+ drivers/net/tun.c     |  389 ++++++++++++++++++++++++++++++++++++++++++++++++-
+ 3 files changed, 390 insertions(+), 3 deletions(-)
 
-> https://bugzilla.kernel.org/show_bug.cgi?id=19942
-> 
->            Summary: Not a intel bug: kernel BUG at
->                     drivers/pci/intel-iommu.c:1656
->            Product: Drivers
->            Version: 2.5
->     Kernel Version: 2.6.36-0.35.rc7.git0.fc15.x86_64
->           Platform: All
->         OS/Version: Linux
->               Tree: Fedora
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: Network
->         AssignedTo: drivers_network@kernel-bugs.osdl.org
->         ReportedBy: gronslet@gmail.com
->         Regression: No
-> 
-> 
-> On my Fedora Rawhide system, I keep getting these errors, which kills my wifi
-> and require me to reboot my Lenovo Thinkpad T400. Please also see
-> https://bugzilla.redhat.com/show_bug.cgi?id=637554
-> https://bugs.freedesktop.org/show_bug.cgi?id=30722
-> 
-> In the latter, I was asked to file the bug here, as it isn't a intel bug.
-> Fedora Rawhide, kernel-2.6.36-0.35.rc7.git0.fc15.x86_64,
-> xorg-x11-drv-intel-2.12.0-6.fc14.1.x86_64, xorg-x11-drivers-7.4-1.fc14.x86_64
-> xorg-x11-server-utils-7.4-20.fc15.x86_64,
-> NetworkManager-0.8.1-7.git20100831.fc15.x86_64
-> 
-> This happens when I resume my laptop after suspend to ram:
-> 
-> [24572.218077] PM: resume devices took 0.987 seconds
-> [24572.239068] PM: Finishing wakeup.
-> [24572.239216] Restarting tasks ... 
-> [24572.239332] usb 2-4: USB disconnect, address 2
-> [24572.245520] done.
-> [24572.245702] video LNXVIDEO:00: Restoring backlight state
-> [24572.249109] ehci_hcd 0000:00:1d.7: dma_pool_free buffer-2048,
-> ffff880134f9d000/ffffb000 (bad dma)
-> [24572.249631] ehci_hcd 0000:00:1d.7: dma_pool_free buffer-2048,
-> ffff880134f9d080/ffffb080 (bad dma)
-> [24572.249977] cdc_ether 2-4:1.7: wwan0: unregister 'cdc_ether'
-> usb-0000:00:1d.7-4, Mobile Broadband Network Device
-> [24573.685674] ------------[ cut here ]------------
-> [24573.685709] kernel BUG at drivers/pci/intel-iommu.c:1656!
-> [24573.685734] invalid opcode: 0000 [#1] SMP 
-> [24573.685761] last sysfs file: /sys/devices/system/cpu/sched_mc_power_savings
-> [24573.685791] CPU 0 
-> [24573.685803] Modules linked in: rfcomm sunrpc sco bnep l2cap cpufreq_ondemand
-> acpi_cpufreq freq_table mperf ip6t_REJECT xt_physdev nf_conntrack_ipv6
-> ip6table_filter ipt_MASQUERADE iptable_nat ip6_tables nf_nat sha256_generic
-> cryptd aes_x86_64 aes_generic cbc dm_crypt uinput arc4 ecb
-> snd_hda_codec_conexant snd_hda_intel iwlagn snd_hda_codec snd_hwdep zaurus
-> iwlcore snd_seq snd_seq_device r852 sm_common cdc_ether nand nand_ids nand_ecc
-> microcode mac80211 uvcvideo usbnet mtd mii cdc_acm snd_pcm btusb cdc_wdm
-> bluetooth videodev iTCO_wdt i2c_i801 iTCO_vendor_support joydev cfg80211
-> thinkpad_acpi v4l1_compat v4l2_compat_ioctl32 e1000e snd_timer rfkill
-> snd_page_alloc wmi snd soundcore ipv6 sdhci_pci sdhci firewire_ohci mmc_core
-> firewire_core yenta_socket crc_itu_t i915 drm_kms_helper drm i2c_algo_bit
-> i2c_core video output [last unloaded: scsi_wait_scan]
-> [24573.686007] 
-> [24573.686007] Pid: 8321, comm: NetworkManager Not tainted
-> 2.6.36-0.35.rc7.git0.fc15.x86_64 #1 6474AR4/6474AR4
-> [24573.686007] RIP: 0010:[<ffffffff8126ea48>]  [<ffffffff8126ea48>]
-> __domain_mapping+0x43/0x1ce
-> [24573.686007] RSP: 0018:ffff880133727648  EFLAGS: 00010206
-> [24573.694051] RAX: 0000000001ffffff RBX: ffff8800b4687400 RCX:
-> 000000000000001b
-> [24573.694051] RDX: 000000000008b621 RSI: 000ffffffffffdff RDI:
-> ffff8801320f6dc0
-> [24573.694051] RBP: ffff880133727698 R08: 0000000000000001 R09:
-> 0000000000000003
-> [24573.694051] R10: ffff8801320f6df8 R11: 0000000000000000 R12:
-> 0000000000000000
-> [24573.694051] R13: ffff8801320f6dc0 R14: ffff88013bc04ff8 R15:
-> 0000000000000001
-> [24573.694051] FS:  00007fb24c872800(0000) GS:ffff880002c00000(0000)
-> knlGS:0000000000000000
-> [24573.694051] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> [24573.694051] CR2: 000000000042da00 CR3: 000000012fbc2000 CR4:
-> 00000000000006f0
-> [24573.694051] DR0: 0000000000000000 DR1: 0000000000000000 DR2:
-> 0000000000000000
-> [24573.694051] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7:
-> 0000000000000400
-> [24573.694051] Process NetworkManager (pid: 8321, threadinfo ffff880133726000,
-> task ffff88012f8f0000)
-> [24573.694051] Stack:
-> [24573.694051]  ffff88013707e240 ffff8801320f6dc0 ffff880133727698
-> 000ffffffffffdff
-> [24573.694051] <0> 0000000000000000 ffff8800b4687400 000000008b621000
-> ffff8801320f6dc0
-> [24573.694051] <0> ffff88013bc04ff8 0000000000000000 ffff8801337276f8
-> ffffffff8126f710
-> [24573.694051] Call Trace:
-> [24573.694051]  [<ffffffff8126f710>] __intel_map_single.clone.25+0xdc/0x16b
-> [24573.694051]  [<ffffffff8126f88c>] intel_alloc_coherent+0xae/0xd5
-> [24573.694051]  [<ffffffffa018c128>] e1000_alloc_ring_dma.clone.28+0x94/0xc0
-> [e1000e]
-> [24573.694051]  [<ffffffffa018e359>] e1000e_setup_tx_resources+0x65/0xaa
-> [e1000e]
-> [24573.694051]  [<ffffffffa018e891>] e1000_open+0x64/0x41e [e1000e]
-> [24573.694051]  [<ffffffff813eeb45>] __dev_open+0x9b/0xd2
-> [24573.694051]  [<ffffffff813eed87>] __dev_change_flags+0xad/0x130
-> [24573.694051]  [<ffffffff813eee8b>] dev_change_flags+0x21/0x56
-> [24573.694051]  [<ffffffff813f90f9>] do_setlink+0x2ba/0x61f
-> [24573.694051]  [<ffffffff8107d8c7>] ? print_lock_contention_bug+0x1b/0xd5
-> [24573.694051]  [<ffffffff81249f7f>] ? debug_check_no_obj_freed+0x65/0x18a
-> [24573.694051]  [<ffffffff8107d8c7>] ? print_lock_contention_bug+0x1b/0xd5
-> [24573.694051]  [<ffffffff813f96be>] rtnl_setlink+0xd0/0xf2
-> [24573.694051]  [<ffffffff813f99ac>] rtnetlink_rcv_msg+0x1eb/0x201
-> [24573.694051]  [<ffffffff813f97c1>] ? rtnetlink_rcv_msg+0x0/0x201
-> [24573.694051]  [<ffffffff8140d3e5>] netlink_rcv_skb+0x45/0x90
-> [24573.694051]  [<ffffffff813f8d29>] rtnetlink_rcv+0x26/0x2d
-> [24573.694051]  [<ffffffff8140cec0>] netlink_unicast+0xee/0x157
-> [24573.694051]  [<ffffffff8140d1e1>] netlink_sendmsg+0x2b8/0x2d6
-> [24573.694051]  [<ffffffff813da64e>] __sock_sendmsg+0x6b/0x77
-> [24573.694051]  [<ffffffff813da9a8>] sock_sendmsg+0xa8/0xc1
-> [24573.694051]  [<ffffffff8107ff07>] ? lock_acquire+0xee/0xfd
-> [24573.694051]  [<ffffffff810fb080>] ? might_fault+0x5c/0xac
-> [24573.694051]  [<ffffffff8107fe0d>] ? lock_release+0x19a/0x1a6
-> [24573.694051]  [<ffffffff810fb0c9>] ? might_fault+0xa5/0xac
-> [24573.694051]  [<ffffffff813e4dbb>] ? copy_from_user+0x2f/0x31
-> [24573.694051]  [<ffffffff813e51ae>] ? verify_iovec+0x57/0x99
-> [24573.694051]  [<ffffffff813dc971>] sys_sendmsg+0x235/0x2b3
-> [24573.694051]  [<ffffffff8112bb26>] ? rcu_read_lock+0x0/0x35
-> [24573.694051]  [<ffffffff8107ff07>] ? lock_acquire+0xee/0xfd
-> [24573.694051]  [<ffffffff8112bb26>] ? rcu_read_lock+0x0/0x35
-> [24573.694051]  [<ffffffff813dc405>] ? sys_sendto+0x125/0x152
-> [24573.694051]  [<ffffffff8112c5a2>] ? fput+0x22/0x1d6
-> [24573.694051]  [<ffffffff8112c4ae>] ? fget_light+0x79/0x83
-> [24573.694051]  [<ffffffff81133e5b>] ? path_put+0x22/0x27
-> [24573.694051]  [<ffffffff810a8443>] ? audit_syscall_entry+0x11c/0x148
-> [24573.694051]  [<ffffffff8149da45>] ? trace_hardirqs_on_thunk+0x3a/0x3f
-> [24573.694051]  [<ffffffff81009cf2>] system_call_fastpath+0x16/0x1b
-> [24573.694051] Code: d4 48 89 ca 48 89 7d b8 6b 8f 84 00 00 00 09 48 89 75 c8
-> 4d 89 c7 83 c1 12 83 f9 3f 7f 0f 4a 8d 44 06 ff 48 d3 e8 48 85 c0 74 02 <0f> 0b
-> 41 f6 c1 03 b8 ea ff ff ff 0f 84 6b 01 00 00 41 81 e1 03 
-> [24573.694051] RIP  [<ffffffff8126ea48>] __domain_mapping+0x43/0x1ce
-> [24573.694051]  RSP <ffff880133727648>
-> [24573.821392] ---[ end trace 391efc8948e1496b ]---
-> [24573.832050] NetworkManager used greatest stack depth: 2064 bytes left
-> [24574.026042] usb 4-2: new full speed USB device using uhci_hcd and address 3
-> [24574.187102] usb 4-2: New USB device found, idVendor=0a5c, idProduct=2145
-> [24574.188244] usb 4-2: New USB device strings: Mfr=1, Product=2,
-> SerialNumber=0
-> [24574.189418] usb 4-2: Product: ThinkPad Bluetooth with Enhanced Data Rate II
-> [24574.190567] usb 4-2: Manufacturer: Lenovo Computer Corp
-> [24576.230085] usb 2-4: new high speed USB device using ehci_hcd and address 3
-> [24577.080715] usb 2-4: New USB device found, idVendor=0bdb, idProduct=1900
-> [24577.081862] usb 2-4: New USB device strings: Mfr=1, Product=2,
-> SerialNumber=3
-> [24577.083009] usb 2-4: Product: Ericsson F3507g Mobile Broadband Minicard
-> Composite Device
-> [24577.084140] usb 2-4: Manufacturer: Ericsson
-> [24577.085263] usb 2-4: SerialNumber: 3541430207407750
-> [24577.144202] cdc_acm 2-4:1.1: ttyACM0: USB ACM device
-> [24577.163044] cdc_acm 2-4:1.3: ttyACM1: USB ACM device
-> [24577.174389] cdc_wdm 2-4:1.5: cdc-wdm0: USB WDM device
-> [24577.183588] cdc_wdm 2-4:1.6: cdc-wdm1: USB WDM device
-> [26974.894966] thinkpad_acpi: EC reports that Thermal Table has changed
-> 
-> 
-> Note that I explicitly have disabled iommu for intel:
-> # cat /proc/cmdline 
-> ro root=/dev/VolGroup00/lv_root rhgb quiet selinux=0 vga=0x318
-> SYSFONT=latarcyrheb-sun16 LANG=en_US.UTF-8 KEYTABLE=no intel_iommu=igfx_off
-> 
-> I've seen this on 2.6.36-0.35.rc7.git0.fc15.x86_64,
-> 2.6.36-0.27.rc5.git6.fc15.x86_64,2.6.36-0.32.rc6.git2.fc15.x86_64.
-
-I don't have any of those kernel versions here, but I'm guessing that
-this test is triggering:
-
-	BUG_ON(addr_width < BITS_PER_LONG && (iov_pfn + nr_pages - 1) >> addr_width);
-
-It could be that e1000e is feeding in garbage, or it could be that
-intel-iommu is screwed up.
-
-
-It's a bit hard to tell what's happening because that BUG_ON was quite
-poorly thought out.  It tests three different variables, doesn't tell
-us their values and even though it _could_ cleanly recover and allow
-the machine to continue to operate it simply whacks the box.
-
-So we now have a pickle on our hands, because you use prebuilt kernels
-and are probably not in a position to test patches.  
-
-
-------------------------------------------------------------------------------
-Beautiful is writing same markup. Internet Explorer 9 supports
-standards for HTML5, CSS3, SVG 1.1,  ECMAScript5, and DOM L2 & L3.
-Spend less time writing and  rewriting code and more time creating great
-experiences on the web. Be a part of the beta today.
-http://p.sf.net/sfu/beautyoftheweb
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+diff --git a/drivers/dma/Kconfig b/drivers/dma/Kconfig
+index 9520cf0..7e82c00 100644
+--- a/drivers/dma/Kconfig
++++ b/drivers/dma/Kconfig
+@@ -202,7 +202,7 @@ comment "DMA Clients"
+ 	depends on DMA_ENGINE
+ 
+ config NET_DMA
+-	bool "Network: TCP receive copy offload"
++	bool "Network: TCP/TUN receive copy offload"
+ 	depends on DMA_ENGINE && NET
+ 	default (INTEL_IOATDMA || FSL_DMA)
+ 	help
+diff --git a/drivers/dma/iovlock.c b/drivers/dma/iovlock.c
+index c6917e8..121d7fd 100644
+--- a/drivers/dma/iovlock.c
++++ b/drivers/dma/iovlock.c
+@@ -138,7 +138,7 @@ void dma_unpin_iovec_pages(struct dma_pinned_list *pinned_list)
+ 
+ 	kfree(pinned_list);
+ }
+-
++EXPORT_SYMBOL_GPL(dma_unpin_iovec_pages);
+ 
+ /*
+  * We have already pinned down the pages we will be using in the iovecs.
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 55f3a3e..ddbfbc8 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -62,6 +62,8 @@
+ #include <linux/nsproxy.h>
+ #include <linux/virtio_net.h>
+ #include <linux/rcupdate.h>
++#include <linux/dmaengine.h>
++#include <linux/pagemap.h>
+ #include <net/net_namespace.h>
+ #include <net/netns/generic.h>
+ #include <net/rtnetlink.h>
+@@ -70,6 +72,9 @@
+ #include <asm/system.h>
+ #include <asm/uaccess.h>
+ 
++int tun_dma_copybreak = 0x10000;
++module_param_named(dma_copybreak, tun_dma_copybreak, int, 0644);
++MODULE_PARM_DESC(debug_level, "Use DMA engine for messages of this length and up");
+ /* Uncomment to enable debugging */
+ /* #define TUN_DEBUG 1 */
+ 
+@@ -547,6 +552,364 @@ static inline struct sk_buff *tun_alloc_skb(struct tun_struct *tun,
+ 	return skb;
+ }
+ 
++#ifdef CONFIG_NET_DMA
++/* The below duplicates code from net/core and drivers/dma
++ * with the minor twist that these functions work on a const
++ * iovec with an offset. TODO: move it there? */
++static int num_pages_spanned(void __user * iov_base, size_t iov_len)
++{
++	return
++	((PAGE_ALIGN((unsigned long)iov_base + iov_len) -
++	((unsigned long)iov_base & PAGE_MASK)) >> PAGE_SHIFT);
++}
++
++/*
++ * Pin down all the iovec pages needed for len bytes.
++ * Return a struct dma_pinned_list to keep track of pages pinned down.
++ *
++ * We are allocating a single chunk of memory, and then carving it up into
++ * 3 sections, the latter 2 whose size depends on the number of iovecs and the
++ * total number of pages, respectively.
++ */
++static struct dma_pinned_list *dma_pin_const_iovec_pages(const struct iovec *iov,
++						       size_t iov_offset, size_t len)
++{
++	struct dma_pinned_list *local_list;
++	struct page **pages;
++	int i;
++	int ret;
++	int nr_iovecs = 0;
++	int iovec_len_used = 0;
++	int iovec_pages_used = 0;
++	void __user *iov_base;
++	size_t iov_len;
++
++	/* determine how many iovecs/pages there are, up front */
++	do {
++		/* Skip offset as required. */
++		iov_len = iov[nr_iovecs].iov_len;
++		if (iov_offset >= iovec_len_used + iov_len) {
++			iov_offset -= iov_len;
++			++iov;
++			continue;
++		}
++		iov_base = iov[nr_iovecs].iov_base;
++		if (!iovec_len_used) {
++			iov_base += iov_offset;
++			iov_len -= iov_offset;
++		}
++		iovec_len_used += iov_len;
++		iovec_pages_used += num_pages_spanned(iov_base, iov_len);
++		nr_iovecs++;
++	} while (iovec_len_used < len);
++
++	/* single kmalloc for pinned list, page_list[], and the page arrays */
++	local_list = kmalloc(sizeof(*local_list)
++		+ (nr_iovecs * sizeof (struct dma_page_list))
++		+ (iovec_pages_used * sizeof (struct page*)), GFP_KERNEL);
++	if (!local_list)
++		goto out;
++
++	/* list of pages starts right after the page list array */
++	pages = (struct page **) &local_list->page_list[nr_iovecs];
++
++	local_list->nr_iovecs = 0;
++
++	for (i = 0; i < nr_iovecs; i++) {
++		struct dma_page_list *page_list = &local_list->page_list[i];
++
++		iov_len = iov[i].iov_len + iov_offset;
++		iov_base = iov[i].iov_base + iov_offset;
++		iov_offset = 0;
++		len -= iov_len;
++
++		page_list->nr_pages = num_pages_spanned(iov_base, iov_len);
++		page_list->base_address = iov_base;
++
++		page_list->pages = pages;
++		pages += page_list->nr_pages;
++
++		/* pin pages down */
++		ret = get_user_pages_fast(
++			(unsigned long)iov_base,
++			page_list->nr_pages,
++			1,	/* write */
++			page_list->pages);
++
++		if (unlikely(ret < 0))
++			goto unpin;
++
++		local_list->nr_iovecs = i + 1;
++
++		if (unlikely(ret != page_list->nr_pages)) {
++			page_list->nr_pages = ret;
++			goto unpin;
++		}
++
++	}
++
++	return local_list;
++
++unpin:
++	dma_unpin_iovec_pages(local_list);
++out:
++	return NULL;
++}
++
++/*
++ * We have already pinned down the pages we will be using in the iovecs.
++ * Each entry in iov array has corresponding entry in pinned_list->page_list.
++ * Using array indexing to keep iov[] and page_list[] in sync.
++ * Initial elements in iov array's iov->iov_len will be 0 if already copied into
++ *   by another call.
++ * iov array length remaining guaranteed to be bigger than len.
++ */
++dma_cookie_t dma_memcpy_to_iovecend(struct dma_chan *chan, const struct iovec *iov,
++	struct dma_pinned_list *pinned_list, unsigned char *kdata,
++	size_t iov_offset, size_t len)
++{
++	int iov_byte_offset;
++	int copy;
++	dma_cookie_t dma_cookie = 0;
++	int iovec_idx;
++	int page_idx;
++	size_t iov_len;
++	unsigned long iov_base;
++
++	if (!chan)
++		return memcpy_toiovecend(iov, kdata, iov_offset, len);
++
++	iovec_idx = 0;
++	for (iovec_idx = 0; iovec_idx < pinned_list->nr_iovecs; ++iovec_idx) {
++		struct dma_page_list *page_list;
++
++		iov_len = iov[iovec_idx].iov_len;
++		/* skip already used-up iovecs */
++		if (iov_len <= iov_offset) {
++			iov_offset -= iov_len;
++			continue;
++		}
++
++		page_list = &pinned_list->page_list[iovec_idx];
++
++		iov_base = (unsigned long)iov[iovec_idx].iov_base + iov_offset;
++		iov_len -= iov_offset;
++		iov_offset = 0;
++		iov_byte_offset = iov_base & ~PAGE_MASK;
++		page_idx = ((iov_base & PAGE_MASK)
++			 - ((unsigned long)page_list->base_address & PAGE_MASK)) >> PAGE_SHIFT;
++
++		/* break up copies to not cross page boundary */
++		while (iov_len) {
++			copy = min_t(int, PAGE_SIZE - iov_byte_offset, len);
++			copy = min_t(int, copy, iov_len);
++
++			dma_cookie = dma_async_memcpy_buf_to_pg(chan,
++					page_list->pages[page_idx],
++					iov_byte_offset,
++					kdata,
++					copy);
++			/* poll for a descriptor slot */
++			if (unlikely(dma_cookie < 0)) {
++				dma_async_issue_pending(chan);
++				continue;
++			}
++
++			len -= copy;
++			iov_len -= copy;
++			iov_base += copy;
++
++			if (!len)
++				return dma_cookie;
++
++			kdata += copy;
++			iov_byte_offset = 0;
++			page_idx++;
++		}
++	}
++
++	/* really bad if we ever run out of iovecs */
++	BUG();
++	return -EFAULT;
++}
++
++dma_cookie_t dma_memcpy_pg_to_const_iovec(struct dma_chan *chan, const struct iovec *iov,
++	struct dma_pinned_list *pinned_list, struct page *page,
++	unsigned int offset, size_t iov_offset, size_t len)
++{
++	int iov_byte_offset;
++	int copy;
++	dma_cookie_t dma_cookie = 0;
++	int iovec_idx;
++	int page_idx;
++	int err;
++	size_t iov_len;
++	unsigned long iov_base;
++
++	/* this needs as-yet-unimplemented buf-to-buff, so punt. */
++	/* TODO: use dma for this */
++	if (!chan || !pinned_list) {
++		u8 *vaddr = kmap(page);
++		err = memcpy_toiovecend(iov, vaddr + offset, iov_offset, len);
++		kunmap(page);
++		return err;
++	}
++
++	for (iovec_idx = 0; iovec_idx < pinned_list->nr_iovecs; ++iovec_idx) {
++		struct dma_page_list *page_list;
++
++		iov_len = iov[iovec_idx].iov_len;
++		/* skip already used-up iovecs */
++		if (iov_len <= iov_offset) {
++			iov_offset -= iov_len;
++			continue;
++		}
++
++		page_list = &pinned_list->page_list[iovec_idx];
++		iov_base = (unsigned long)iov[iovec_idx].iov_base + iov_offset;
++		iov_len -= iov_offset;
++		iov_offset = 0;
++
++		iov_byte_offset = iov_base & ~PAGE_MASK;
++		page_idx = ((iov_base & PAGE_MASK)
++			 - ((unsigned long)page_list->base_address & PAGE_MASK)) >> PAGE_SHIFT;
++
++		/* break up copies to not cross page boundary */
++		while (iov_len) {
++			copy = min_t(int, PAGE_SIZE - iov_byte_offset, len);
++			copy = min_t(int, copy, iov_len);
++
++			dma_cookie = dma_async_memcpy_pg_to_pg(chan,
++					page_list->pages[page_idx],
++					iov_byte_offset,
++					page,
++					offset,
++					copy);
++			/* poll for a descriptor slot */
++			if (unlikely(dma_cookie < 0)) {
++				dma_async_issue_pending(chan);
++				continue;
++			}
++
++			len -= copy;
++			iov_len -= copy;
++			iov_base += copy;
++
++			if (!len)
++				return dma_cookie;
++
++			offset += copy;
++			iov_byte_offset = 0;
++			page_idx++;
++		}
++	}
++
++	/* really bad if we ever run out of iovecs */
++	BUG();
++	return -EFAULT;
++}
++
++/**
++ *	dma_skb_copy_datagram_iovec - Copy a datagram to an iovec.
++ *	@skb - buffer to copy
++ *	@offset - offset in the buffer to start copying from
++ *	@iovec - io vector to copy to
++ *	@len - amount of data to copy from buffer to iovec
++ *	@pinned_list - locked iovec buffer data
++ *
++ *	Note: the iovec is not modified during the copy.
++ *	Note: pinned_list is assumed pinned with the same offset.
++ */
++dma_cookie_t dma_skb_copy_datagram_const_iovec(struct dma_chan *chan,
++			struct sk_buff *skb, int offset, const struct iovec *to,
++			size_t iov_offset, 
++			size_t len, struct dma_pinned_list *pinned_list)
++{
++	int start = skb_headlen(skb);
++	int i, copy = start - offset;
++	struct sk_buff *frag_iter;
++	dma_cookie_t cookie = 0;
++
++	/* Copy header. */
++	if (copy > 0) {
++		if (copy > len)
++			copy = len;
++		cookie = dma_memcpy_to_iovecend(chan, to, pinned_list,
++						skb->data + offset, iov_offset,
++						copy);
++		if (cookie < 0)
++			goto fault;
++		len -= copy;
++		if (len == 0)
++			goto end;
++		offset += copy;
++		iov_offset += copy;
++	}
++
++	/* Copy paged appendix. Hmm... why does this look so complicated? */
++	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
++		int end;
++
++		WARN_ON(start > offset + len);
++
++		end = start + skb_shinfo(skb)->frags[i].size;
++		copy = end - offset;
++		if (copy > 0) {
++			skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
++			struct page *page = frag->page;
++
++			if (copy > len)
++				copy = len;
++
++			cookie = dma_memcpy_pg_to_const_iovec(chan, to, pinned_list, page,
++					frag->page_offset + offset - start, iov_offset, copy);
++			if (cookie < 0)
++				goto fault;
++			len -= copy;
++			if (len == 0)
++				goto end;
++			offset += copy;
++			iov_offset += copy;
++		}
++		start = end;
++	}
++
++	skb_walk_frags(skb, frag_iter) {
++		int end;
++
++		WARN_ON(start > offset + len);
++
++		end = start + frag_iter->len;
++		copy = end - offset;
++		if (copy > 0) {
++			if (copy > len)
++				copy = len;
++			cookie = dma_skb_copy_datagram_const_iovec(chan, frag_iter,
++							     offset - start,
++							     to, iov_offset, copy,
++							     pinned_list);
++			if (cookie < 0)
++				goto fault;
++			len -= copy;
++			if (len == 0)
++				goto end;
++			offset += copy;
++			iov_offset += copy;
++		}
++		start = end;
++	}
++
++end:
++	if (!len) {
++		skb->dma_cookie = cookie;
++		return cookie;
++	}
++
++fault:
++	return -EFAULT;
++}
++#endif
++
+ /* Get packet from user space buffer */
+ static __inline__ ssize_t tun_get_user(struct tun_struct *tun,
+ 				       const struct iovec *iv, size_t count,
+@@ -706,6 +1069,9 @@ static __inline__ ssize_t tun_put_user(struct tun_struct *tun,
+ {
+ 	struct tun_pi pi = { 0, skb->protocol };
+ 	ssize_t total = 0;
++	struct dma_chan *dma_chan;
++	struct dma_pinned_list *pinned_list;
++	int dma_cookie;
+ 
+ 	if (!(tun->flags & TUN_NO_PI)) {
+ 		if ((len -= sizeof(pi)) < 0)
+@@ -768,8 +1134,29 @@ static __inline__ ssize_t tun_put_user(struct tun_struct *tun,
+ 	}
+ 
+ 	len = min_t(int, skb->len, len);
+-
++#ifdef CONFIG_NET_DMA
++
++	if (len < tun_dma_copybreak)
++		goto copy;
++
++	dma_chan = dma_find_channel(DMA_MEMCPY);
++	if (!dma_chan)
++		goto copy;
++	pinned_list = dma_pin_const_iovec_pages(iv, total, len);
++	if (!pinned_list)
++		goto copy;
++	dma_cookie = dma_skb_copy_datagram_const_iovec(dma_chan, skb, 0, iv,
++						       total, len, pinned_list);
++	if (dma_cookie >= 0) {
++		dma_async_memcpy_issue_pending(dma_chan);
++		dma_sync_wait(dma_chan, dma_cookie);
++	}
++	dma_unpin_iovec_pages(pinned_list);
++	goto done;
++#endif
++copy:
+ 	skb_copy_datagram_const_iovec(skb, 0, iv, total, len);
++done:
+ 	total += skb->len;
+ 
+ 	tun->dev->stats.tx_packets++;
+-- 
+1.7.3-rc1
