@@ -1,46 +1,53 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: [PATCH 1/2] r8169: allocate with GFP_KERNEL flag when able to
- sleep
-Date: Mon, 11 Oct 2010 11:14:32 -0500 (CDT)
-Message-ID: <alpine.DEB.2.00.1010111114180.11247@router.home>
-References: <1286547901-10782-1-git-send-email-sgruszka@redhat.com>  <20101008145256.GB10393@redhat.com>  <1286550247.2959.444.camel@edumazet-laptop>  <alpine.DEB.2.00.1010111102390.11247@router.home> <1286813237.2737.37.camel@edumazet-laptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] neigh: speedup neigh_hh_init()
+Date: Mon, 11 Oct 2010 09:18:56 -0700 (PDT)
+Message-ID: <20101011.091856.71123383.davem@davemloft.net>
+References: <1286456008.2912.171.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-1463811839-1728036562-1286813673=:11247"
-Cc: Stanislaw Gruszka <sgruszka@redhat.com>,
-	Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp102.prem.mail.ac4.yahoo.com ([76.13.13.41]:21394 "HELO
-	smtp102.prem.mail.ac4.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754641Ab0JKQOf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Oct 2010 12:14:35 -0400
-In-Reply-To: <1286813237.2737.37.camel@edumazet-laptop>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46642
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755313Ab0JKQSe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Oct 2010 12:18:34 -0400
+In-Reply-To: <1286456008.2912.171.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 07 Oct 2010 14:53:28 +0200
 
----1463811839-1728036562-1286813673=:11247
-Content-Type: TEXT/PLAIN; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+> When a new dst is used to send a frame, neigh_resolve_output() tries to
+> associate an struct hh_cache to this dst, calling neigh_hh_init() with
+> the neigh rwlock write locked.
+> 
+> Most of the time, hh_cache is already known and linked into neighbour,
+> so we find it and increment its refcount.
+> 
+> This patch changes the logic so that we call neigh_hh_init() with
+> neighbour lock read locked only, so that fast path can be run in
+> parallel by concurrent cpus.
+> 
+> This brings part of the speedup we got with commit c7d4426a98a5f
+> (introduce DST_NOCACHE flag) for non cached dsts, even for cached ones,
+> removing one of the contention point that routers hit on multiqueue
+> enabled machines.
+> 
+> Further improvements would need to use a seqlock instead of an rwlock to
+> protect neigh->ha[], to not dirty neigh too often and remove two atomic
+> ops.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-On Mon, 11 Oct 2010, Eric Dumazet wrote:
+Ok this patch assumes that neighbours are highly shared, which
+is a reasonable thing to optimize for.
 
-> Le lundi 11 octobre 2010 =C3=A0 11:03 -0500, Christoph Lameter a =C3=A9cr=
-it :
-> > On Fri, 8 Oct 2010, Eric Dumazet wrote:
-> >
-> > > 8 in the <pagesperslab> column just says that : order-3 pages, even f=
-or
-> > > small allocations.
-> >
-> > Those allocations will fallback to smaller allocs if the page allocator
-> > has trouble satisfying those requests.
-> >
->
-> Interesting, do you have an idea when this feature was added ?
+So, applied, thanks a lot!
 
-A couple of years ago.
+BTW, I think you can RCU this thing.  Require that every change
+to the 'hh' entry be done in a newly allocated entry.
 
----1463811839-1728036562-1286813673=:11247--
+Then the cmpxchg() on the hh pointer interlocks.
