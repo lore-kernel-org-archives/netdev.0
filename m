@@ -1,44 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] neigh: speedup neigh_resolve_output()
-Date: Mon, 11 Oct 2010 12:16:09 -0700 (PDT)
-Message-ID: <20101011.121609.246536311.davem@davemloft.net>
-References: <1286456008.2912.171.camel@edumazet-laptop>
-	<1286484247.3745.91.camel@edumazet-laptop>
+Subject: Re: [PATCH] net: clear heap allocations for privileged ethtool
+ actions
+Date: Mon, 11 Oct 2010 12:24:33 -0700 (PDT)
+Message-ID: <20101011.122433.28818013.davem@davemloft.net>
+References: <20101007211004.GA20267@outflux.net>
+	<1286487284.2271.37.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kees.cook@canonical.com, linux-kernel@vger.kernel.org,
+	jgarzik@redhat.com, jeffrey.t.kirsher@intel.com,
+	peter.p.waskiewicz.jr@intel.com, netdev@vger.kernel.org
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43519
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45932
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755847Ab0JKTPr convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Oct 2010 15:15:47 -0400
-In-Reply-To: <1286484247.3745.91.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1755233Ab0JKTYL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Oct 2010 15:24:11 -0400
+In-Reply-To: <1286487284.2271.37.camel@achroite.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 07 Oct 2010 22:44:07 +0200
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Thu, 07 Oct 2010 22:34:44 +0100
 
-> Le jeudi 07 octobre 2010 =E0 14:53 +0200, Eric Dumazet a =E9crit :
->=20
->> Further improvements would need to use a seqlock instead of an rwloc=
-k to
->> protect neigh->ha[], to not dirty neigh too often and remove two ato=
-mic
->> ops.
->>=20
->=20
-> I implemented this idea in following patch, on top on previous one.
->=20
-> [PATCH net-next] neigh: speedup neigh_resolve_output()
+> On Thu, 2010-10-07 at 14:10 -0700, Kees Cook wrote:
+>> Several other ethtool functions leave heap uncleared (potentially) by
+>> drivers. Some interfaces appear safe (eeprom, etc), in that the sizes
+>> are well controlled. In some situations (e.g. unchecked error conditions),
+>> the heap will remain unchanged in areas before copying back to userspace.
+>> Note that these are less of an issue since these all require CAP_NET_ADMIN.
+>> 
+>> Cc: stable@kernel.org
+>> Signed-off-by: Kees Cook <kees.cook@canonical.com>
+ ...
+> Acked-by: Ben Hutchings <bhutchings@solarflare.com>
 
-So Eric do you think this is more efficient than the idea I
-proposed, which is to "cmpxchg 'hh' and RCU"?
-
-If you think this seqlock thing is faster or more desirable
-for some reason, I'll add it.
+So I've applied Kees's patch to net-2.6, and I'll merge net-2.6
+into net-next-2.6 so I can resolve the vmalloc/kzalloc merge
+conflict before Stephen Rothwell and others have to deal with it
+in -next.
 
 Thanks!
