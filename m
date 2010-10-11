@@ -1,70 +1,30 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [HELP] ATM: mpc, use-after-free
-Date: Mon, 11 Oct 2010 10:18:00 +0200
-Message-ID: <1286785081.2737.2.camel@edumazet-laptop>
-References: <4CB2C33C.8080109@gmail.com>
+Subject: Re: [PATCH 1/1] ATM: solos-pci, remove use after free
+Date: Mon, 11 Oct 2010 10:19:29 +0200
+Message-ID: <1286785169.2737.3.camel@edumazet-laptop>
+References: <1286783444-7719-1-git-send-email-jslaby@suse.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	ML netdev <netdev@vger.kernel.org>,
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
 	linux-atm-general@lists.sourceforge.net,
-	LKML <linux-kernel@vger.kernel.org>, chas@cmf.nrl.navy.mil
-To: Jiri Slaby <jirislaby@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:50314 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750731Ab0JKISK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Oct 2010 04:18:10 -0400
-In-Reply-To: <4CB2C33C.8080109@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	linux-kernel@vger.kernel.org, jirislaby@gmail.com,
+	Chas Williams <chas@cmf.nrl.navy.mil>
+To: Jiri Slaby <jslaby@suse.cz>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1286783444-7719-1-git-send-email-jslaby@suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le lundi 11 octobre 2010 =C3=A0 09:56 +0200, Jiri Slaby a =C3=A9crit :
-> Hi,
+Le lundi 11 octobre 2010 =C3=A0 09:50 +0200, Jiri Slaby a =C3=A9crit :
+> Stanse found we do in console_show:
+>   kfree_skb(skb);
+>   return skb->len;
+> which is not good. Fix that by remembering the len and use it in the
+> function instead.
 >=20
-> Stanse found this use-after-free:
->=20
-> static void mpc_push(struct atm_vcc *vcc, struct sk_buff *skb)
-> {
-> ...
->         new_skb =3D skb_realloc_headroom(skb, eg->ctrl_info.DH_length=
-);
->=20
->         dev_kfree_skb_any(skb);
->=20
-> FREE    ^^^^^^^^^^^^^^^^^^^^^^^
->=20
->         if (new_skb =3D=3D NULL) {
->                 mpc->eg_ops->put(eg);
->                 return;
->         }
->         skb_push(new_skb, eg->ctrl_info.DH_length);
->         skb_copy_to_linear_data(new_skb, eg->ctrl_info.DLL_header,
->                                 eg->ctrl_info.DH_length);
->  ...
->         memset(ATM_SKB(skb), 0, sizeof(struct atm_skb_data));
->=20
-> USE            ^^^^^^^^^^^^
->=20
->         netif_rx(new_skb);
->=20
-> I guess it should be ATM_SKB(new_skb), right?
+> Signed-off-by: Jiri Slaby <jslaby@suse.cz>
+> Cc: Chas Williams <chas@cmf.nrl.navy.mil>
+> ---
 
-Yes
-
--	memset(ATM_SKB(skb), 0, sizeof(struct atm_skb_data));
-+	memset(ATM_SKB(new_skb), 0, sizeof(struct atm_skb_data));
-
->=20
-> The two problems are:
-> 1) obvious use-after-free
-> 2) ?data leak, since we don't erase the right memory?
->=20
-> thanks,
-
-Indeed, please submit a formal patch ?
-
-Thanks
-
-
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
