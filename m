@@ -1,106 +1,30 @@
-From: Jiri Slaby <jslaby@suse.cz>
-Subject: [PATCH 3/3] NET: wimax, fix use after free
-Date: Mon, 11 Oct 2010 11:26:58 +0200
-Message-ID: <1286789218-13976-3-git-send-email-jslaby@suse.cz>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/3] NET: pch, fix use after free
+Date: Mon, 11 Oct 2010 11:38:38 +0200
+Message-ID: <1286789918.2737.8.camel@edumazet-laptop>
 References: <1286789218-13976-1-git-send-email-jslaby@suse.cz>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jirislaby@gmail.com,
-	Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>,
-	linux-wimax@intel.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.pripojeni.net ([217.66.174.14]:54182 "EHLO
-	smtp.pripojeni.net" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1753483Ab0JKJ1H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Oct 2010 05:27:07 -0400
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jirislaby@gmail.com,
+	Masayuki Ohtake <masa-korg@dsn.okisemi.com>
+To: Jiri Slaby <jslaby@suse.cz>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1286789218-13976-1-git-send-email-jslaby@suse.cz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Stanse found that i2400m_rx frees skb, but still uses skb->len even
-though it has skb_len defined. So use skb_len properly in the code.
+Le lundi 11 octobre 2010 =C3=A0 11:26 +0200, Jiri Slaby a =C3=A9crit :
+> Stanse found that pch_gbe_xmit_frame uses skb after it is freed. Fix
+> that.
+>=20
+> Signed-off-by: Jiri Slaby <jslaby@suse.cz>
+> Cc: Masayuki Ohtake <masa-korg@dsn.okisemi.com>
+> ---
+>  drivers/net/pch_gbe/pch_gbe_main.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
 
-And also define it unsinged int rather than size_t to solve
-compilation warnings.
+Applicable to net-next-2.6 only, this driver is not yet in Linus tree
 
-Signed-off-by: Jiri Slaby <jslaby@suse.cz>
-Cc: Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-Cc: linux-wimax@intel.com
----
- drivers/net/wimax/i2400m/rx.c |   26 +++++++++++++-------------
- 1 files changed, 13 insertions(+), 13 deletions(-)
-
-diff --git a/drivers/net/wimax/i2400m/rx.c b/drivers/net/wimax/i2400m/rx.c
-index c4876d0..844133b 100644
---- a/drivers/net/wimax/i2400m/rx.c
-+++ b/drivers/net/wimax/i2400m/rx.c
-@@ -1244,16 +1244,16 @@ int i2400m_rx(struct i2400m *i2400m, struct sk_buff *skb)
- 	int i, result;
- 	struct device *dev = i2400m_dev(i2400m);
- 	const struct i2400m_msg_hdr *msg_hdr;
--	size_t pl_itr, pl_size, skb_len;
-+	size_t pl_itr, pl_size;
- 	unsigned long flags;
--	unsigned num_pls, single_last;
-+	unsigned num_pls, single_last, skb_len;
- 
- 	skb_len = skb->len;
--	d_fnstart(4, dev, "(i2400m %p skb %p [size %zu])\n",
-+	d_fnstart(4, dev, "(i2400m %p skb %p [size %u])\n",
- 		  i2400m, skb, skb_len);
- 	result = -EIO;
- 	msg_hdr = (void *) skb->data;
--	result = i2400m_rx_msg_hdr_check(i2400m, msg_hdr, skb->len);
-+	result = i2400m_rx_msg_hdr_check(i2400m, msg_hdr, skb_len);
- 	if (result < 0)
- 		goto error_msg_hdr_check;
- 	result = -EIO;
-@@ -1261,10 +1261,10 @@ int i2400m_rx(struct i2400m *i2400m, struct sk_buff *skb)
- 	pl_itr = sizeof(*msg_hdr) +	/* Check payload descriptor(s) */
- 		num_pls * sizeof(msg_hdr->pld[0]);
- 	pl_itr = ALIGN(pl_itr, I2400M_PL_ALIGN);
--	if (pl_itr > skb->len) {	/* got all the payload descriptors? */
-+	if (pl_itr > skb_len) {	/* got all the payload descriptors? */
- 		dev_err(dev, "RX: HW BUG? message too short (%u bytes) for "
- 			"%u payload descriptors (%zu each, total %zu)\n",
--			skb->len, num_pls, sizeof(msg_hdr->pld[0]), pl_itr);
-+			skb_len, num_pls, sizeof(msg_hdr->pld[0]), pl_itr);
- 		goto error_pl_descr_short;
- 	}
- 	/* Walk each payload payload--check we really got it */
-@@ -1272,7 +1272,7 @@ int i2400m_rx(struct i2400m *i2400m, struct sk_buff *skb)
- 		/* work around old gcc warnings */
- 		pl_size = i2400m_pld_size(&msg_hdr->pld[i]);
- 		result = i2400m_rx_pl_descr_check(i2400m, &msg_hdr->pld[i],
--						  pl_itr, skb->len);
-+						  pl_itr, skb_len);
- 		if (result < 0)
- 			goto error_pl_descr_check;
- 		single_last = num_pls == 1 || i == num_pls - 1;
-@@ -1290,16 +1290,16 @@ int i2400m_rx(struct i2400m *i2400m, struct sk_buff *skb)
- 	if (i < i2400m->rx_pl_min)
- 		i2400m->rx_pl_min = i;
- 	i2400m->rx_num++;
--	i2400m->rx_size_acc += skb->len;
--	if (skb->len < i2400m->rx_size_min)
--		i2400m->rx_size_min = skb->len;
--	if (skb->len > i2400m->rx_size_max)
--		i2400m->rx_size_max = skb->len;
-+	i2400m->rx_size_acc += skb_len;
-+	if (skb_len < i2400m->rx_size_min)
-+		i2400m->rx_size_min = skb_len;
-+	if (skb_len > i2400m->rx_size_max)
-+		i2400m->rx_size_max = skb_len;
- 	spin_unlock_irqrestore(&i2400m->rx_lock, flags);
- error_pl_descr_check:
- error_pl_descr_short:
- error_msg_hdr_check:
--	d_fnend(4, dev, "(i2400m %p skb %p [size %zu]) = %d\n",
-+	d_fnend(4, dev, "(i2400m %p skb %p [size %u]) = %d\n",
- 		i2400m, skb, skb_len, result);
- 	return result;
- }
--- 
-1.7.3.1
-
-
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
