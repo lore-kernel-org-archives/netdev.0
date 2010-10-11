@@ -1,54 +1,97 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [RFC PATCH net-next] drivers/net
- Documentation/networking: Create directory intel_wired_lan
-Date: Sun, 10 Oct 2010 17:41:27 -0700
-Message-ID: <1286757687.11039.173.camel@Joe-Laptop>
-References: <1286743352.11039.165.camel@Joe-Laptop>
-	<20101010144440.0d7a69f9@nehalam>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH] atl1c: Add support for Atheros AR8152 and AR8152
+Date: Mon, 11 Oct 2010 02:18:50 +0100
+Message-ID: <1286759930.2955.285.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel <e1000-devel@lists.sourceforge.net>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	linux-kernel@vger.kernel.org, Greg Rose <gregory.v.rose@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org, PJ
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20101010144440.0d7a69f9@nehalam>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
-
-On Sun, 2010-10-10 at 14:44 -0700, Stephen Hemminger wrote:
-> On Sun, 10 Oct 2010 13:42:32 -0700
-> Joe Perches <joe@perches.com> wrote:
-> > Perhaps it's better to move drivers from the very populated
-> > drivers/net directory into vendor specific directories similar
-> > to the Atheros approach used for drivers/net/wireless/ath/
-> > Move intel drivers and Documentation to separate directories
-> Seems like it would introduce more confusion and trouble.
-
-It would also allow common code to be consolidated from the
-various drivers.
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-2VpGs4O8J64zyfkBriUS"
+Cc: netdev <netdev@vger.kernel.org>
+To: "Luis R. Rodriguez" <lrodriguez@atheros.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:57450 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752671Ab0JKBSz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Oct 2010 21:18:55 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
+--=-2VpGs4O8J64zyfkBriUS
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-------------------------------------------------------------------------------
-Beautiful is writing same markup. Internet Explorer 9 supports
-standards for HTML5, CSS3, SVG 1.1,  ECMAScript5, and DOM L2 & L3.
-Spend less time writing and  rewriting code and more time creating great
-experiences on the web. Be a part of the beta today.
-http://p.sf.net/sfu/beautyoftheweb
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Your commit 496c185c9495629ef1c65387cb2594578393cfe0 "atl1c: Add support
+for Atheros AR8152 and AR8152" included the following changes:
+
+> --- a/drivers/net/atl1c/atl1c_hw.c
+> +++ b/drivers/net/atl1c/atl1c_hw.c
+> @@ -70,17 +70,39 @@ static int atl1c_get_permanent_address(struct atl1c_h=
+w *hw)
+[...]
+> -		/* Enable OTP CLK */
+> -		if (!(otp_ctrl_data & OTP_CTRL_CLK_EN)) {
+> -			otp_ctrl_data |=3D OTP_CTRL_CLK_EN;
+> -			AT_WRITE_REG(hw, REG_OTP_CTRL, otp_ctrl_data);
+> -			AT_WRITE_FLUSH(hw);
+> -			msleep(1);
+> +		if (hw->nic_type =3D=3D athr_l1c || hw->nic_type =3D=3D athr_l2c_b) {
+> +			/* Enable OTP CLK */
+> +			if (!(otp_ctrl_data & OTP_CTRL_CLK_EN)) {
+> +				otp_ctrl_data |=3D OTP_CTRL_CLK_EN;
+> +				AT_WRITE_REG(hw, REG_OTP_CTRL, otp_ctrl_data);
+> +				AT_WRITE_FLUSH(hw);
+> +				msleep(1);
+> +			}
+> +		}
+[...]
+> @@ -96,11 +118,31 @@ static int atl1c_get_permanent_address(struct atl1c_=
+hw *hw)
+>  			return -1;
+>  	}
+>  	/* Disable OTP_CLK */
+> -	if (otp_ctrl_data & OTP_CTRL_CLK_EN) {
+> -		otp_ctrl_data &=3D ~OTP_CTRL_CLK_EN;
+> -		AT_WRITE_REG(hw, REG_OTP_CTRL, otp_ctrl_data);
+> -		AT_WRITE_FLUSH(hw);
+> -		msleep(1);
+> +	if ((hw->nic_type =3D=3D athr_l1c || hw->nic_type =3D=3D athr_l2c)) {
+> +		if (otp_ctrl_data & OTP_CTRL_CLK_EN) {
+> +			otp_ctrl_data &=3D ~OTP_CTRL_CLK_EN;
+> +			AT_WRITE_REG(hw, REG_OTP_CTRL, otp_ctrl_data);
+> +			AT_WRITE_FLUSH(hw);
+> +			msleep(1);
+> +		}
+> +	}
+
+Shouldn't the first if-statement use the same condition as the second
+i.e. matching the previously-defined hardware types athr_l1c and
+athr_l2c?
+
+Ben.
+
+--=20
+Ben Hutchings
+Once a job is fouled up, anything done to improve it makes it worse.
+
+--=-2VpGs4O8J64zyfkBriUS
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iQIVAwUATLJl9ee/yOyVhhEJAQJ/iRAAmVZ0DOBJkG2PTp31a57ySoDeB3hNUVdJ
+mnLesn7e2NdFX6+3osingFlytGjM2q4gkPv+f1bp6HGxv7V/aLY6jq86F1kUg7hk
+Ee4CW0TL9RGkeXsf88sCnEsDjz/yDm1VxbF5y5/tt0cm1TeavCXXIlazyoHi5ex4
+KussJwzbMKMRJbeyiSsO2e1NWDWvLZaxEZpd7WMgim5Add9djObLT1Dn5VjN+yrK
+PgETw5PobMAe901YxxNXnQ3QCd/p4wVWoRy1IYJKayXMx+AYj+eFbtwXBuaExsPU
+jmIt48yfHB7BFB41fw1ApG3kMW6IfQLBtDq7BeXV6Dlz8sdv2PZFrVfoT3G8YvUG
+0b1TgiPewrRjlr1upgQBA34zhFvkZoSdNgRFahi7sZ5SwZTbsoqnjdQUwprh6Gat
++jvXexRJhoFczFvMKup/CxyOVlQsBSoAJwo3SyQ7fe/aSD94CMPxYsNsjaHht7uG
+dJZCDIMHSFG95zFn3FnqVpwM44C8A3FqIIu2NNsyKNHKUI5MP+keMcVJgzB5ESN4
+hs4fXmfAqu1f14KgJ+TTNRrsUO/e3crcvzuBKtrWMUCpLfN8dFJ4MbMTG2QX+qCy
+eChRbfmYsJAdWGn+fx2orckPrAUwrdPd1wpnpeDap/WdETA9mHlnbkMU8xz29ZsK
+r4xsVx8ySBI=
+=XTT1
+-----END PGP SIGNATURE-----
+
+--=-2VpGs4O8J64zyfkBriUS--
