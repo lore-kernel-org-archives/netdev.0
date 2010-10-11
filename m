@@ -1,87 +1,49 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [patch 1/2] vhost: potential integer overflows
-Date: Mon, 11 Oct 2010 18:26:39 +0100
-Message-ID: <20101011172639.GL19804@ZenIV.linux.org.uk>
-References: <20101011172256.GF5851@bicker>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [PATCH] af_packet: account for VLAN when checking packet size
+Date: Mon, 11 Oct 2010 19:29:32 +0200
+Message-ID: <20101011172932.GB12342@orbit.nwl.cc>
+References: <20101011131500.GA12342@orbit.nwl.cc>
+ <1286803522-16478-1-git-send-email-phil@nwl.cc>
+ <1286805782.2737.25.camel@edumazet-laptop>
+ <20101011.090153.226774563.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Juan Quintela <quintela@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Rusty Russell <rusty@rustcorp.com.au>, kvm@vger.kernel.org,
-	virtualization@lists.osdl.org, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Dan Carpenter <error27@gmail.com>
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	johann.baudy@gnu-log.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:34186 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755697Ab0JKR0v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Oct 2010 13:26:51 -0400
+Received: from orbit.nwl.cc ([91.121.169.95]:58493 "EHLO orbit.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755454Ab0JKR3d (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Oct 2010 13:29:33 -0400
 Content-Disposition: inline
-In-Reply-To: <20101011172256.GF5851@bicker>
+In-Reply-To: <20101011.090153.226774563.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 11, 2010 at 07:22:57PM +0200, Dan Carpenter wrote:
-> I did an audit for potential integer overflows of values which get passed
-> to access_ok() and here are the results.
-
-FWIW, UINT_MAX is wrong here.  What you want is maximal size_t value.
-
-> Signed-off-by: Dan Carpenter <error27@gmail.com>
+On Mon, Oct 11, 2010 at 09:01:53AM -0700, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Mon, 11 Oct 2010 16:03:02 +0200
 > 
-> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-> index dd3d6f7..c2aa12c 100644
-> --- a/drivers/vhost/vhost.c
-> +++ b/drivers/vhost/vhost.c
-> @@ -429,6 +429,14 @@ static int vq_access_ok(unsigned int num,
->  			struct vring_avail __user *avail,
->  			struct vring_used __user *used)
->  {
-> +
-> +	if (num > UINT_MAX / sizeof *desc)
-> +		return 0;
-> +	if (num > UINT_MAX / sizeof *avail->ring - sizeof *avail)
-> +		return 0;
-> +	if (num > UINT_MAX / sizeof *used->ring - sizeof *used)
-> +		return 0;
-> +
->  	return access_ok(VERIFY_READ, desc, num * sizeof *desc) &&
->  	       access_ok(VERIFY_READ, avail,
->  			 sizeof *avail + num * sizeof *avail->ring) &&
-> @@ -447,6 +455,9 @@ int vhost_log_access_ok(struct vhost_dev *dev)
->  /* Caller should have vq mutex and device mutex */
->  static int vq_log_access_ok(struct vhost_virtqueue *vq, void __user *log_base)
->  {
-> +	if (vq->num > UINT_MAX / sizeof *vq->used->ring - sizeof *vq->used)
-> +		return 0;
-> +
->  	return vq_memory_access_ok(log_base, vq->dev->memory,
->  			    vhost_has_feature(vq->dev, VHOST_F_LOG_ALL)) &&
->  		(!vq->log_used || log_access_ok(log_base, vq->log_addr,
-> @@ -606,12 +617,17 @@ static long vhost_set_vring(struct vhost_dev *d, int ioctl, void __user *argp)
->  			}
->  
->  			/* Also validate log access for used ring if enabled. */
-> -			if ((a.flags & (0x1 << VHOST_VRING_F_LOG)) &&
-> -			    !log_access_ok(vq->log_base, a.log_guest_addr,
-> +			if (a.flags & (0x1 << VHOST_VRING_F_LOG)) {
-> +				if (vq->num > UINT_MAX / sizeof *vq->used->ring - sizeof *vq->used) {
-> +					r = -EINVAL;
-> +					break;
-> +				}
-> +				if (!log_access_ok(vq->log_base, a.log_guest_addr,
->  					   sizeof *vq->used +
->  					   vq->num * sizeof *vq->used->ring)) {
-> -				r = -EINVAL;
-> -				break;
-> +					r = -EINVAL;
-> +					break;
-> +				}
->  			}
->  		}
->  
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > If we dont test ETH_P_8021Q protocol here, we allow sending 1504 bytes
+> > frames for MTU=1500
+> > 
+> > Should we really care ?
+> > 
+> > If not, just do
+> > 
+> > reserve = dev->hard_header_len + VLAN_HLEN;
+> 
+> Thats a good point, I think we need to validate the SKB protocol
+> field.
+
+Which is set to the value of the passed struct sockaddr_ll field
+sll_protocol. At least in the two userspace code samples I have here,
+the later field is set to htons(ETH_P_ALL). So unless one changes the
+API, the only way to find out the packet type is to actually parse the
+given ethernet header.
+
+Since tpacket_rcv() just interprets the vlan_tci skb field, such
+detailed packet inspection is otherwise not done in af_packet.c.
+
+Greetings, Phil
