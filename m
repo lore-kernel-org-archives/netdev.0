@@ -1,499 +1,418 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH RFC] tun: dma engine support
-Date: Mon, 11 Oct 2010 22:52:08 +0200
-Message-ID: <20101011205208.GA8527@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: introduce alloc_skb_order0
+Date: Mon, 11 Oct 2010 23:17:47 +0200
+Message-ID: <1286831867.30423.80.camel@edumazet-laptop>
+References: <1286547901-10782-1-git-send-email-sgruszka@redhat.com>
+	 <20101008145256.GB10393@redhat.com>
+	 <1286550247.2959.444.camel@edumazet-laptop>
+	 <20101008160341.GC10393@redhat.com>
+	 <1286639996.2692.148.camel@edumazet-laptop>
+	 <20101011155556.GA2431@redhat.com>
+	 <1286813133.2737.36.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dan Williams <dan.j.williams@intel.com>,
-	Linus Walleij <linus.walleij@stericsson.com>,
-	Anatolij Gustschin <agust@denx.de>,
-	Magnus Damm <damm@opensource.se>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"Michael S. Tsirkin" <mst@redhat.com>, Tejun Heo <tj@kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.hengli.com.au>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Joe Perches <joe@perches.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, kvm@vger.kernel.org
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
+To: Stanislaw Gruszka <sgruszka@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:55606 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756204Ab0JKVSI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Oct 2010 17:18:08 -0400
+Received: by wye20 with SMTP id 20so818618wye.19
+        for <netdev@vger.kernel.org>; Mon, 11 Oct 2010 14:18:06 -0700 (PDT)
+In-Reply-To: <1286813133.2737.36.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Simple hack to use dma engine for tun RX.
-Only one skb in flight at the moment.
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> 1) Allocation of a physically continous 16Kbytes bloc for the rx-ring,
+> at device initialization (GFP_KERNEL OK here)
+> 
+>    Here, the only thing you could do is to not allocate real skbs but
+> only 16KB data blocs (no need for the sk_buf, only the ->data part), and
+> force copybreak for all incoming packets (remove the rx_copybreak
+> tunable)
+> 
+
+Here is the patch I cooked for net-next-2.6 to implement this idea.
+
+I tested it on a dev machine and it works well.
+
+[PATCH net-next] r8169: use 50% less ram for RX ring
+
+Using standard skb allocations in r8169 leads to order-3 allocations (if
+PAGE_SIZE=4096), because NIC needs 16383 bytes, and skb overhead makes
+this bigger than 16384 -> 32768 bytes per "skb"
+
+Using kmalloc() permits to reduce memory requirements of one r8169 nic
+by 4Mbytes. (256 frames * 16Kbytes). This is fine since a hardware bug
+requires us to copy incoming frames, so we build real skb when doing
+this copy.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 ---
+ drivers/net/r8169.c |  183 ++++++++++++++----------------------------
+ 1 file changed, 64 insertions(+), 119 deletions(-)
 
-I am still looking at handling multiple skbs, but
-sending this out for early flames and improvement suggestions.
-
-Loopback testing seems to show only minor performance gains:
-this is not really suprising as data is hot in cache already.
-Where I would expect this to help more is with incoming
-traffic from an external NIC. This still needs to be tested.
-
- drivers/dma/Kconfig   |    2 +-
- drivers/dma/iovlock.c |    2 +-
- drivers/net/tun.c     |  389 ++++++++++++++++++++++++++++++++++++++++++++++++-
- 3 files changed, 390 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/dma/Kconfig b/drivers/dma/Kconfig
-index 9520cf0..7e82c00 100644
---- a/drivers/dma/Kconfig
-+++ b/drivers/dma/Kconfig
-@@ -202,7 +202,7 @@ comment "DMA Clients"
- 	depends on DMA_ENGINE
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index bc669a4..1760533 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -187,12 +187,7 @@ static DEFINE_PCI_DEVICE_TABLE(rtl8169_pci_tbl) = {
  
- config NET_DMA
--	bool "Network: TCP receive copy offload"
-+	bool "Network: TCP/TUN receive copy offload"
- 	depends on DMA_ENGINE && NET
- 	default (INTEL_IOATDMA || FSL_DMA)
- 	help
-diff --git a/drivers/dma/iovlock.c b/drivers/dma/iovlock.c
-index c6917e8..121d7fd 100644
---- a/drivers/dma/iovlock.c
-+++ b/drivers/dma/iovlock.c
-@@ -138,7 +138,7 @@ void dma_unpin_iovec_pages(struct dma_pinned_list *pinned_list)
+ MODULE_DEVICE_TABLE(pci, rtl8169_pci_tbl);
  
- 	kfree(pinned_list);
+-/*
+- * we set our copybreak very high so that we don't have
+- * to allocate 16k frames all the time (see note in
+- * rtl8169_open()
+- */
+-static int rx_copybreak = 16383;
++static int rx_buf_sz = 16383;
+ static int use_dac;
+ static struct {
+ 	u32 msg_enable;
+@@ -484,10 +479,8 @@ struct rtl8169_private {
+ 	struct RxDesc *RxDescArray;	/* 256-aligned Rx descriptor ring */
+ 	dma_addr_t TxPhyAddr;
+ 	dma_addr_t RxPhyAddr;
+-	struct sk_buff *Rx_skbuff[NUM_RX_DESC];	/* Rx data buffers */
++	void *Rx_databuff[NUM_RX_DESC];	/* Rx data buffers */
+ 	struct ring_info tx_skb[NUM_TX_DESC];	/* Tx data buffers */
+-	unsigned align;
+-	unsigned rx_buf_sz;
+ 	struct timer_list timer;
+ 	u16 cp_cmd;
+ 	u16 intr_event;
+@@ -515,8 +508,6 @@ struct rtl8169_private {
+ 
+ MODULE_AUTHOR("Realtek and the Linux r8169 crew <netdev@vger.kernel.org>");
+ MODULE_DESCRIPTION("RealTek RTL-8169 Gigabit Ethernet driver");
+-module_param(rx_copybreak, int, 0);
+-MODULE_PARM_DESC(rx_copybreak, "Copy breakpoint for copy-only-tiny-frames");
+ module_param(use_dac, int, 0);
+ MODULE_PARM_DESC(use_dac, "Enable PCI DAC. Unsafe on 32 bit PCI slot.");
+ module_param_named(debug, debug.msg_enable, int, 0);
+@@ -3196,7 +3187,6 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	dev->features |= NETIF_F_GRO;
+ 
+ 	tp->intr_mask = 0xffff;
+-	tp->align = cfg->align;
+ 	tp->hw_start = cfg->hw_start;
+ 	tp->intr_event = cfg->intr_event;
+ 	tp->napi_event = cfg->napi_event;
+@@ -3266,18 +3256,6 @@ static void __devexit rtl8169_remove_one(struct pci_dev *pdev)
+ 	pci_set_drvdata(pdev, NULL);
  }
+ 
+-static void rtl8169_set_rxbufsize(struct rtl8169_private *tp,
+-				  unsigned int mtu)
+-{
+-	unsigned int max_frame = mtu + VLAN_ETH_HLEN + ETH_FCS_LEN;
 -
-+EXPORT_SYMBOL_GPL(dma_unpin_iovec_pages);
+-	if (max_frame != 16383)
+-		printk(KERN_WARNING PFX "WARNING! Changing of MTU on this "
+-			"NIC may lead to frame reception errors!\n");
+-
+-	tp->rx_buf_sz = (max_frame > RX_BUF_SIZE) ? max_frame : RX_BUF_SIZE;
+-}
+-
+ static int rtl8169_open(struct net_device *dev)
+ {
+ 	struct rtl8169_private *tp = netdev_priv(dev);
+@@ -3287,18 +3265,6 @@ static int rtl8169_open(struct net_device *dev)
+ 	pm_runtime_get_sync(&pdev->dev);
+ 
+ 	/*
+-	 * Note that we use a magic value here, its wierd I know
+-	 * its done because, some subset of rtl8169 hardware suffers from
+-	 * a problem in which frames received that are longer than
+-	 * the size set in RxMaxSize register return garbage sizes
+-	 * when received.  To avoid this we need to turn off filtering,
+-	 * which is done by setting a value of 16383 in the RxMaxSize register
+-	 * and allocating 16k frames to handle the largest possible rx value
+-	 * thats what the magic math below does.
+-	 */
+-	rtl8169_set_rxbufsize(tp, 16383 - VLAN_ETH_HLEN - ETH_FCS_LEN);
+-
+-	/*
+ 	 * Rx and Tx desscriptors needs 256 bytes alignment.
+ 	 * dma_alloc_coherent provides more.
+ 	 */
+@@ -3474,7 +3440,7 @@ static void rtl_hw_start_8169(struct net_device *dev)
+ 
+ 	RTL_W8(EarlyTxThres, EarlyTxThld);
+ 
+-	rtl_set_rx_max_size(ioaddr, tp->rx_buf_sz);
++	rtl_set_rx_max_size(ioaddr, rx_buf_sz);
+ 
+ 	if ((tp->mac_version == RTL_GIGA_MAC_VER_01) ||
+ 	    (tp->mac_version == RTL_GIGA_MAC_VER_02) ||
+@@ -3735,7 +3701,7 @@ static void rtl_hw_start_8168(struct net_device *dev)
+ 
+ 	RTL_W8(EarlyTxThres, EarlyTxThld);
+ 
+-	rtl_set_rx_max_size(ioaddr, tp->rx_buf_sz);
++	rtl_set_rx_max_size(ioaddr, rx_buf_sz);
+ 
+ 	tp->cp_cmd |= RTL_R16(CPlusCmd) | PktCntrDisable | INTT_1;
+ 
+@@ -3915,7 +3881,7 @@ static void rtl_hw_start_8101(struct net_device *dev)
+ 
+ 	RTL_W8(EarlyTxThres, EarlyTxThld);
+ 
+-	rtl_set_rx_max_size(ioaddr, tp->rx_buf_sz);
++	rtl_set_rx_max_size(ioaddr, rx_buf_sz);
+ 
+ 	tp->cp_cmd |= rtl_rw_cpluscmd(ioaddr) | PCIMulRW;
+ 
+@@ -3956,8 +3922,6 @@ static int rtl8169_change_mtu(struct net_device *dev, int new_mtu)
+ 
+ 	rtl8169_down(dev);
+ 
+-	rtl8169_set_rxbufsize(tp, dev->mtu);
+-
+ 	ret = rtl8169_init_ring(dev);
+ 	if (ret < 0)
+ 		goto out;
+@@ -3978,15 +3942,15 @@ static inline void rtl8169_make_unusable_by_asic(struct RxDesc *desc)
+ 	desc->opts1 &= ~cpu_to_le32(DescOwn | RsvdMask);
+ }
+ 
+-static void rtl8169_free_rx_skb(struct rtl8169_private *tp,
+-				struct sk_buff **sk_buff, struct RxDesc *desc)
++static void rtl8169_free_rx_databuff(struct rtl8169_private *tp,
++				     void **data_buff, struct RxDesc *desc)
+ {
+ 	struct pci_dev *pdev = tp->pci_dev;
+ 
+-	dma_unmap_single(&pdev->dev, le64_to_cpu(desc->addr), tp->rx_buf_sz,
++	dma_unmap_single(&pdev->dev, le64_to_cpu(desc->addr), rx_buf_sz,
+ 			 PCI_DMA_FROMDEVICE);
+-	dev_kfree_skb(*sk_buff);
+-	*sk_buff = NULL;
++	kfree(*data_buff);
++	*data_buff = NULL;
+ 	rtl8169_make_unusable_by_asic(desc);
+ }
+ 
+@@ -4005,33 +3969,34 @@ static inline void rtl8169_map_to_asic(struct RxDesc *desc, dma_addr_t mapping,
+ 	rtl8169_mark_to_asic(desc, rx_buf_sz);
+ }
+ 
+-static struct sk_buff *rtl8169_alloc_rx_skb(struct pci_dev *pdev,
++static inline void *rtl8169_align(void *data)
++{
++	return (void *)ALIGN((long)data, 16);
++}
++
++static struct sk_buff *rtl8169_alloc_rx_data(struct pci_dev *pdev,
+ 					    struct net_device *dev,
+-					    struct RxDesc *desc, int rx_buf_sz,
+-					    unsigned int align, gfp_t gfp)
++					    struct RxDesc *desc)
+ {
+-	struct sk_buff *skb;
++	void *data;
+ 	dma_addr_t mapping;
+-	unsigned int pad;
++	int node = dev->dev.parent ? dev_to_node(dev->dev.parent) : -1;
+ 
+-	pad = align ? align : NET_IP_ALIGN;
++	data = kmalloc_node(rx_buf_sz, GFP_KERNEL, node);
++	if (!data)
++		return NULL;
+ 
+-	skb = __netdev_alloc_skb(dev, rx_buf_sz + pad, gfp);
+-	if (!skb)
+-		goto err_out;
+-
+-	skb_reserve(skb, align ? ((pad - 1) & (unsigned long)skb->data) : pad);
+-
+-	mapping = dma_map_single(&pdev->dev, skb->data, rx_buf_sz,
++	if (rtl8169_align(data) != data) {
++		kfree(data);
++		data = kmalloc_node(rx_buf_sz + 15, GFP_KERNEL, node);
++		if (!data)
++			return NULL;
++	}
++	mapping = dma_map_single(&pdev->dev, rtl8169_align(data), rx_buf_sz,
+ 				 PCI_DMA_FROMDEVICE);
+ 
+ 	rtl8169_map_to_asic(desc, mapping, rx_buf_sz);
+-out:
+-	return skb;
+-
+-err_out:
+-	rtl8169_make_unusable_by_asic(desc);
+-	goto out;
++	return data;
+ }
+ 
+ static void rtl8169_rx_clear(struct rtl8169_private *tp)
+@@ -4039,8 +4004,8 @@ static void rtl8169_rx_clear(struct rtl8169_private *tp)
+ 	unsigned int i;
+ 
+ 	for (i = 0; i < NUM_RX_DESC; i++) {
+-		if (tp->Rx_skbuff[i]) {
+-			rtl8169_free_rx_skb(tp, tp->Rx_skbuff + i,
++		if (tp->Rx_databuff[i]) {
++			rtl8169_free_rx_databuff(tp, tp->Rx_databuff + i,
+ 					    tp->RxDescArray + i);
+ 		}
+ 	}
+@@ -4052,21 +4017,21 @@ static u32 rtl8169_rx_fill(struct rtl8169_private *tp, struct net_device *dev,
+ 	u32 cur;
+ 
+ 	for (cur = start; end - cur != 0; cur++) {
+-		struct sk_buff *skb;
++		void *data;
+ 		unsigned int i = cur % NUM_RX_DESC;
+ 
+ 		WARN_ON((s32)(end - cur) < 0);
+ 
+-		if (tp->Rx_skbuff[i])
++		if (tp->Rx_databuff[i])
+ 			continue;
+ 
+-		skb = rtl8169_alloc_rx_skb(tp->pci_dev, dev,
+-					   tp->RxDescArray + i,
+-					   tp->rx_buf_sz, tp->align, gfp);
+-		if (!skb)
++		data = rtl8169_alloc_rx_data(tp->pci_dev, dev,
++					     tp->RxDescArray + i);
++		if (!data) {
++			rtl8169_make_unusable_by_asic(tp->RxDescArray + i);
+ 			break;
+-
+-		tp->Rx_skbuff[i] = skb;
++		}
++		tp->Rx_databuff[i] = data;
+ 	}
+ 	return cur - start;
+ }
+@@ -4088,7 +4053,7 @@ static int rtl8169_init_ring(struct net_device *dev)
+ 	rtl8169_init_ring_indexes(tp);
+ 
+ 	memset(tp->tx_skb, 0x0, NUM_TX_DESC * sizeof(struct ring_info));
+-	memset(tp->Rx_skbuff, 0x0, NUM_RX_DESC * sizeof(struct sk_buff *));
++	memset(tp->Rx_databuff, 0x0, NUM_RX_DESC * sizeof(void *));
+ 
+ 	if (rtl8169_rx_fill(tp, dev, 0, NUM_RX_DESC, GFP_KERNEL) != NUM_RX_DESC)
+ 		goto err_out;
+@@ -4473,27 +4438,23 @@ static inline void rtl8169_rx_csum(struct sk_buff *skb, u32 opts1)
+ 		skb_checksum_none_assert(skb);
+ }
+ 
+-static inline bool rtl8169_try_rx_copy(struct sk_buff **sk_buff,
+-				       struct rtl8169_private *tp, int pkt_size,
+-				       dma_addr_t addr)
++static struct sk_buff *rtl8169_try_rx_copy(void *data,
++					   struct rtl8169_private *tp,
++					   int pkt_size,
++					   dma_addr_t addr)
+ {
+ 	struct sk_buff *skb;
+-	bool done = false;
+-
+-	if (pkt_size >= rx_copybreak)
+-		goto out;
+-
+-	skb = netdev_alloc_skb_ip_align(tp->dev, pkt_size);
+-	if (!skb)
+-		goto out;
+ 
++	data = rtl8169_align(data);
+ 	dma_sync_single_for_cpu(&tp->pci_dev->dev, addr, pkt_size,
+ 				PCI_DMA_FROMDEVICE);
+-	skb_copy_from_linear_data(*sk_buff, skb->data, pkt_size);
+-	*sk_buff = skb;
+-	done = true;
+-out:
+-	return done;
++	prefetch(data);
++	skb = netdev_alloc_skb_ip_align(tp->dev, pkt_size);
++	if (skb)
++		memcpy(skb->data, data, pkt_size);
++	dma_sync_single_for_device(&tp->pci_dev->dev, addr, pkt_size,
++				   PCI_DMA_FROMDEVICE);
++	return skb;
+ }
  
  /*
-  * We have already pinned down the pages we will be using in the iovecs.
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 55f3a3e..ddbfbc8 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -62,6 +62,8 @@
- #include <linux/nsproxy.h>
- #include <linux/virtio_net.h>
- #include <linux/rcupdate.h>
-+#include <linux/dmaengine.h>
-+#include <linux/pagemap.h>
- #include <net/net_namespace.h>
- #include <net/netns/generic.h>
- #include <net/rtnetlink.h>
-@@ -70,6 +72,9 @@
- #include <asm/system.h>
- #include <asm/uaccess.h>
- 
-+int tun_dma_copybreak = 0x10000;
-+module_param_named(dma_copybreak, tun_dma_copybreak, int, 0644);
-+MODULE_PARM_DESC(debug_level, "Use DMA engine for messages of this length and up");
- /* Uncomment to enable debugging */
- /* #define TUN_DEBUG 1 */
- 
-@@ -547,6 +552,364 @@ static inline struct sk_buff *tun_alloc_skb(struct tun_struct *tun,
- 	return skb;
- }
- 
-+#ifdef CONFIG_NET_DMA
-+/* The below duplicates code from net/core and drivers/dma
-+ * with the minor twist that these functions work on a const
-+ * iovec with an offset. TODO: move it there? */
-+static int num_pages_spanned(void __user * iov_base, size_t iov_len)
-+{
-+	return
-+	((PAGE_ALIGN((unsigned long)iov_base + iov_len) -
-+	((unsigned long)iov_base & PAGE_MASK)) >> PAGE_SHIFT);
-+}
-+
-+/*
-+ * Pin down all the iovec pages needed for len bytes.
-+ * Return a struct dma_pinned_list to keep track of pages pinned down.
-+ *
-+ * We are allocating a single chunk of memory, and then carving it up into
-+ * 3 sections, the latter 2 whose size depends on the number of iovecs and the
-+ * total number of pages, respectively.
-+ */
-+static struct dma_pinned_list *dma_pin_const_iovec_pages(const struct iovec *iov,
-+						       size_t iov_offset, size_t len)
-+{
-+	struct dma_pinned_list *local_list;
-+	struct page **pages;
-+	int i;
-+	int ret;
-+	int nr_iovecs = 0;
-+	int iovec_len_used = 0;
-+	int iovec_pages_used = 0;
-+	void __user *iov_base;
-+	size_t iov_len;
-+
-+	/* determine how many iovecs/pages there are, up front */
-+	do {
-+		/* Skip offset as required. */
-+		iov_len = iov[nr_iovecs].iov_len;
-+		if (iov_offset >= iovec_len_used + iov_len) {
-+			iov_offset -= iov_len;
-+			++iov;
-+			continue;
-+		}
-+		iov_base = iov[nr_iovecs].iov_base;
-+		if (!iovec_len_used) {
-+			iov_base += iov_offset;
-+			iov_len -= iov_offset;
-+		}
-+		iovec_len_used += iov_len;
-+		iovec_pages_used += num_pages_spanned(iov_base, iov_len);
-+		nr_iovecs++;
-+	} while (iovec_len_used < len);
-+
-+	/* single kmalloc for pinned list, page_list[], and the page arrays */
-+	local_list = kmalloc(sizeof(*local_list)
-+		+ (nr_iovecs * sizeof (struct dma_page_list))
-+		+ (iovec_pages_used * sizeof (struct page*)), GFP_KERNEL);
-+	if (!local_list)
-+		goto out;
-+
-+	/* list of pages starts right after the page list array */
-+	pages = (struct page **) &local_list->page_list[nr_iovecs];
-+
-+	local_list->nr_iovecs = 0;
-+
-+	for (i = 0; i < nr_iovecs; i++) {
-+		struct dma_page_list *page_list = &local_list->page_list[i];
-+
-+		iov_len = iov[i].iov_len + iov_offset;
-+		iov_base = iov[i].iov_base + iov_offset;
-+		iov_offset = 0;
-+		len -= iov_len;
-+
-+		page_list->nr_pages = num_pages_spanned(iov_base, iov_len);
-+		page_list->base_address = iov_base;
-+
-+		page_list->pages = pages;
-+		pages += page_list->nr_pages;
-+
-+		/* pin pages down */
-+		ret = get_user_pages_fast(
-+			(unsigned long)iov_base,
-+			page_list->nr_pages,
-+			1,	/* write */
-+			page_list->pages);
-+
-+		if (unlikely(ret < 0))
-+			goto unpin;
-+
-+		local_list->nr_iovecs = i + 1;
-+
-+		if (unlikely(ret != page_list->nr_pages)) {
-+			page_list->nr_pages = ret;
-+			goto unpin;
-+		}
-+
-+	}
-+
-+	return local_list;
-+
-+unpin:
-+	dma_unpin_iovec_pages(local_list);
-+out:
-+	return NULL;
-+}
-+
-+/*
-+ * We have already pinned down the pages we will be using in the iovecs.
-+ * Each entry in iov array has corresponding entry in pinned_list->page_list.
-+ * Using array indexing to keep iov[] and page_list[] in sync.
-+ * Initial elements in iov array's iov->iov_len will be 0 if already copied into
-+ *   by another call.
-+ * iov array length remaining guaranteed to be bigger than len.
-+ */
-+dma_cookie_t dma_memcpy_to_iovecend(struct dma_chan *chan, const struct iovec *iov,
-+	struct dma_pinned_list *pinned_list, unsigned char *kdata,
-+	size_t iov_offset, size_t len)
-+{
-+	int iov_byte_offset;
-+	int copy;
-+	dma_cookie_t dma_cookie = 0;
-+	int iovec_idx;
-+	int page_idx;
-+	size_t iov_len;
-+	unsigned long iov_base;
-+
-+	if (!chan)
-+		return memcpy_toiovecend(iov, kdata, iov_offset, len);
-+
-+	iovec_idx = 0;
-+	for (iovec_idx = 0; iovec_idx < pinned_list->nr_iovecs; ++iovec_idx) {
-+		struct dma_page_list *page_list;
-+
-+		iov_len = iov[iovec_idx].iov_len;
-+		/* skip already used-up iovecs */
-+		if (iov_len <= iov_offset) {
-+			iov_offset -= iov_len;
-+			continue;
-+		}
-+
-+		page_list = &pinned_list->page_list[iovec_idx];
-+
-+		iov_base = (unsigned long)iov[iovec_idx].iov_base + iov_offset;
-+		iov_len -= iov_offset;
-+		iov_offset = 0;
-+		iov_byte_offset = iov_base & ~PAGE_MASK;
-+		page_idx = ((iov_base & PAGE_MASK)
-+			 - ((unsigned long)page_list->base_address & PAGE_MASK)) >> PAGE_SHIFT;
-+
-+		/* break up copies to not cross page boundary */
-+		while (iov_len) {
-+			copy = min_t(int, PAGE_SIZE - iov_byte_offset, len);
-+			copy = min_t(int, copy, iov_len);
-+
-+			dma_cookie = dma_async_memcpy_buf_to_pg(chan,
-+					page_list->pages[page_idx],
-+					iov_byte_offset,
-+					kdata,
-+					copy);
-+			/* poll for a descriptor slot */
-+			if (unlikely(dma_cookie < 0)) {
-+				dma_async_issue_pending(chan);
-+				continue;
-+			}
-+
-+			len -= copy;
-+			iov_len -= copy;
-+			iov_base += copy;
-+
-+			if (!len)
-+				return dma_cookie;
-+
-+			kdata += copy;
-+			iov_byte_offset = 0;
-+			page_idx++;
-+		}
-+	}
-+
-+	/* really bad if we ever run out of iovecs */
-+	BUG();
-+	return -EFAULT;
-+}
-+
-+dma_cookie_t dma_memcpy_pg_to_const_iovec(struct dma_chan *chan, const struct iovec *iov,
-+	struct dma_pinned_list *pinned_list, struct page *page,
-+	unsigned int offset, size_t iov_offset, size_t len)
-+{
-+	int iov_byte_offset;
-+	int copy;
-+	dma_cookie_t dma_cookie = 0;
-+	int iovec_idx;
-+	int page_idx;
-+	int err;
-+	size_t iov_len;
-+	unsigned long iov_base;
-+
-+	/* this needs as-yet-unimplemented buf-to-buff, so punt. */
-+	/* TODO: use dma for this */
-+	if (!chan || !pinned_list) {
-+		u8 *vaddr = kmap(page);
-+		err = memcpy_toiovecend(iov, vaddr + offset, iov_offset, len);
-+		kunmap(page);
-+		return err;
-+	}
-+
-+	for (iovec_idx = 0; iovec_idx < pinned_list->nr_iovecs; ++iovec_idx) {
-+		struct dma_page_list *page_list;
-+
-+		iov_len = iov[iovec_idx].iov_len;
-+		/* skip already used-up iovecs */
-+		if (iov_len <= iov_offset) {
-+			iov_offset -= iov_len;
-+			continue;
-+		}
-+
-+		page_list = &pinned_list->page_list[iovec_idx];
-+		iov_base = (unsigned long)iov[iovec_idx].iov_base + iov_offset;
-+		iov_len -= iov_offset;
-+		iov_offset = 0;
-+
-+		iov_byte_offset = iov_base & ~PAGE_MASK;
-+		page_idx = ((iov_base & PAGE_MASK)
-+			 - ((unsigned long)page_list->base_address & PAGE_MASK)) >> PAGE_SHIFT;
-+
-+		/* break up copies to not cross page boundary */
-+		while (iov_len) {
-+			copy = min_t(int, PAGE_SIZE - iov_byte_offset, len);
-+			copy = min_t(int, copy, iov_len);
-+
-+			dma_cookie = dma_async_memcpy_pg_to_pg(chan,
-+					page_list->pages[page_idx],
-+					iov_byte_offset,
-+					page,
-+					offset,
-+					copy);
-+			/* poll for a descriptor slot */
-+			if (unlikely(dma_cookie < 0)) {
-+				dma_async_issue_pending(chan);
-+				continue;
-+			}
-+
-+			len -= copy;
-+			iov_len -= copy;
-+			iov_base += copy;
-+
-+			if (!len)
-+				return dma_cookie;
-+
-+			offset += copy;
-+			iov_byte_offset = 0;
-+			page_idx++;
-+		}
-+	}
-+
-+	/* really bad if we ever run out of iovecs */
-+	BUG();
-+	return -EFAULT;
-+}
-+
-+/**
-+ *	dma_skb_copy_datagram_iovec - Copy a datagram to an iovec.
-+ *	@skb - buffer to copy
-+ *	@offset - offset in the buffer to start copying from
-+ *	@iovec - io vector to copy to
-+ *	@len - amount of data to copy from buffer to iovec
-+ *	@pinned_list - locked iovec buffer data
-+ *
-+ *	Note: the iovec is not modified during the copy.
-+ *	Note: pinned_list is assumed pinned with the same offset.
-+ */
-+dma_cookie_t dma_skb_copy_datagram_const_iovec(struct dma_chan *chan,
-+			struct sk_buff *skb, int offset, const struct iovec *to,
-+			size_t iov_offset, 
-+			size_t len, struct dma_pinned_list *pinned_list)
-+{
-+	int start = skb_headlen(skb);
-+	int i, copy = start - offset;
-+	struct sk_buff *frag_iter;
-+	dma_cookie_t cookie = 0;
-+
-+	/* Copy header. */
-+	if (copy > 0) {
-+		if (copy > len)
-+			copy = len;
-+		cookie = dma_memcpy_to_iovecend(chan, to, pinned_list,
-+						skb->data + offset, iov_offset,
-+						copy);
-+		if (cookie < 0)
-+			goto fault;
-+		len -= copy;
-+		if (len == 0)
-+			goto end;
-+		offset += copy;
-+		iov_offset += copy;
-+	}
-+
-+	/* Copy paged appendix. Hmm... why does this look so complicated? */
-+	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
-+		int end;
-+
-+		WARN_ON(start > offset + len);
-+
-+		end = start + skb_shinfo(skb)->frags[i].size;
-+		copy = end - offset;
-+		if (copy > 0) {
-+			skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
-+			struct page *page = frag->page;
-+
-+			if (copy > len)
-+				copy = len;
-+
-+			cookie = dma_memcpy_pg_to_const_iovec(chan, to, pinned_list, page,
-+					frag->page_offset + offset - start, iov_offset, copy);
-+			if (cookie < 0)
-+				goto fault;
-+			len -= copy;
-+			if (len == 0)
-+				goto end;
-+			offset += copy;
-+			iov_offset += copy;
-+		}
-+		start = end;
-+	}
-+
-+	skb_walk_frags(skb, frag_iter) {
-+		int end;
-+
-+		WARN_ON(start > offset + len);
-+
-+		end = start + frag_iter->len;
-+		copy = end - offset;
-+		if (copy > 0) {
-+			if (copy > len)
-+				copy = len;
-+			cookie = dma_skb_copy_datagram_const_iovec(chan, frag_iter,
-+							     offset - start,
-+							     to, iov_offset, copy,
-+							     pinned_list);
-+			if (cookie < 0)
-+				goto fault;
-+			len -= copy;
-+			if (len == 0)
-+				goto end;
-+			offset += copy;
-+			iov_offset += copy;
-+		}
-+		start = end;
-+	}
-+
-+end:
-+	if (!len) {
-+		skb->dma_cookie = cookie;
-+		return cookie;
-+	}
-+
-+fault:
-+	return -EFAULT;
-+}
-+#endif
-+
- /* Get packet from user space buffer */
- static __inline__ ssize_t tun_get_user(struct tun_struct *tun,
- 				       const struct iovec *iv, size_t count,
-@@ -706,6 +1069,9 @@ static __inline__ ssize_t tun_put_user(struct tun_struct *tun,
+@@ -4508,7 +4469,7 @@ static int rtl8169_rx_interrupt(struct net_device *dev,
+ 				void __iomem *ioaddr, u32 budget)
  {
- 	struct tun_pi pi = { 0, skb->protocol };
- 	ssize_t total = 0;
-+	struct dma_chan *dma_chan;
-+	struct dma_pinned_list *pinned_list;
-+	int dma_cookie;
+ 	unsigned int cur_rx, rx_left;
+-	unsigned int delta, count;
++	unsigned int count;
+ 	int polling = (budget != ~(u32)0) ? 1 : 0;
  
- 	if (!(tun->flags & TUN_NO_PI)) {
- 		if ((len -= sizeof(pi)) < 0)
-@@ -768,8 +1134,29 @@ static __inline__ ssize_t tun_put_user(struct tun_struct *tun,
- 	}
+ 	cur_rx = tp->cur_rx;
+@@ -4537,12 +4498,11 @@ static int rtl8169_rx_interrupt(struct net_device *dev,
+ 				rtl8169_schedule_work(dev, rtl8169_reset_task);
+ 				dev->stats.rx_fifo_errors++;
+ 			}
+-			rtl8169_mark_to_asic(desc, tp->rx_buf_sz);
++			rtl8169_mark_to_asic(desc, rx_buf_sz);
+ 		} else {
+-			struct sk_buff *skb = tp->Rx_skbuff[entry];
++			struct sk_buff *skb;
+ 			dma_addr_t addr = le64_to_cpu(desc->addr);
+ 			int pkt_size = (status & 0x00001FFF) - 4;
+-			struct pci_dev *pdev = tp->pci_dev;
  
- 	len = min_t(int, skb->len, len);
+ 			/*
+ 			 * The driver does not support incoming fragmented
+@@ -4552,18 +4512,16 @@ static int rtl8169_rx_interrupt(struct net_device *dev,
+ 			if (unlikely(rtl8169_fragmented_frame(status))) {
+ 				dev->stats.rx_dropped++;
+ 				dev->stats.rx_length_errors++;
+-				rtl8169_mark_to_asic(desc, tp->rx_buf_sz);
++				rtl8169_mark_to_asic(desc, rx_buf_sz);
+ 				continue;
+ 			}
+ 
+-			if (rtl8169_try_rx_copy(&skb, tp, pkt_size, addr)) {
+-				dma_sync_single_for_device(&pdev->dev, addr,
+-					pkt_size, PCI_DMA_FROMDEVICE);
+-				rtl8169_mark_to_asic(desc, tp->rx_buf_sz);
+-			} else {
+-				dma_unmap_single(&pdev->dev, addr, tp->rx_buf_sz,
+-						 PCI_DMA_FROMDEVICE);
+-				tp->Rx_skbuff[entry] = NULL;
++			skb = rtl8169_try_rx_copy(tp->Rx_databuff[entry],
++						  tp, pkt_size, addr);
++			rtl8169_mark_to_asic(desc, rx_buf_sz);
++			if (!skb) {
++				dev->stats.rx_dropped++;
++				continue;
+ 			}
+ 
+ 			rtl8169_rx_csum(skb, status);
+@@ -4592,20 +4550,7 @@ static int rtl8169_rx_interrupt(struct net_device *dev,
+ 	count = cur_rx - tp->cur_rx;
+ 	tp->cur_rx = cur_rx;
+ 
+-	delta = rtl8169_rx_fill(tp, dev, tp->dirty_rx, tp->cur_rx, GFP_ATOMIC);
+-	if (!delta && count)
+-		netif_info(tp, intr, dev, "no Rx buffer allocated\n");
+-	tp->dirty_rx += delta;
 -
-+#ifdef CONFIG_NET_DMA
-+
-+	if (len < tun_dma_copybreak)
-+		goto copy;
-+
-+	dma_chan = dma_find_channel(DMA_MEMCPY);
-+	if (!dma_chan)
-+		goto copy;
-+	pinned_list = dma_pin_const_iovec_pages(iv, total, len);
-+	if (!pinned_list)
-+		goto copy;
-+	dma_cookie = dma_skb_copy_datagram_const_iovec(dma_chan, skb, 0, iv,
-+						       total, len, pinned_list);
-+	if (dma_cookie >= 0) {
-+		dma_async_memcpy_issue_pending(dma_chan);
-+		dma_sync_wait(dma_chan, dma_cookie);
-+	}
-+	dma_unpin_iovec_pages(pinned_list);
-+	goto done;
-+#endif
-+copy:
- 	skb_copy_datagram_const_iovec(skb, 0, iv, total, len);
-+done:
- 	total += skb->len;
+-	/*
+-	 * FIXME: until there is periodic timer to try and refill the ring,
+-	 * a temporary shortage may definitely kill the Rx process.
+-	 * - disable the asic to try and avoid an overflow and kick it again
+-	 *   after refill ?
+-	 * - how do others driver handle this condition (Uh oh...).
+-	 */
+-	if (tp->dirty_rx + NUM_RX_DESC == tp->cur_rx)
+-		netif_emerg(tp, intr, dev, "Rx buffers exhausted\n");
++	tp->dirty_rx += count;
  
- 	tun->dev->stats.tx_packets++;
--- 
-1.7.3-rc1
+ 	return count;
+ }
+
+
