@@ -1,99 +1,104 @@
-From: Steven Brudenell <steven.brudenell@gmail.com>
-Subject: Re: tbf/htb qdisc limitations
-Date: Mon, 11 Oct 2010 18:27:25 -0400
-Message-ID: <AANLkTin_jPp+WEkyJkD_KZyrJ4WX_6dM5wtFNw_ixuzv@mail.gmail.com>
-References: <AANLkTik6_C5pzx=yS=C0VQR2xfg0S57AZAn9WYiGvxe5@mail.gmail.com>
-	<4CB1A22B.9090701@gmail.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH] atl1c: Add support for Atheros AR8152 and AR8152
+Date: Mon, 11 Oct 2010 23:28:21 +0100
+Message-ID: <1286836101.2955.293.camel@localhost>
+References: <1286759930.2955.285.camel@localhost>
+	 <20101010.210304.71107535.davem@davemloft.net> <20101011184835.GA10049@tux>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-lYbZfGWx2ePVt3uLExZ5"
+Cc: David Miller <davem@davemloft.net>,
+	Luis Rodriguez <Luis.Rodriguez@Atheros.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jie Yang <Jie.Yang@atheros.com>, linux-team@atheros.com
+To: "Luis R. Rodriguez" <lrodriguez@atheros.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f46.google.com ([209.85.216.46]:58985 "EHLO
-	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756732Ab0JKW12 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Oct 2010 18:27:28 -0400
-Received: by qwa26 with SMTP id 26so57454qwa.19
-        for <netdev@vger.kernel.org>; Mon, 11 Oct 2010 15:27:28 -0700 (PDT)
-In-Reply-To: <4CB1A22B.9090701@gmail.com>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:52154 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756824Ab0JKW21 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Oct 2010 18:28:27 -0400
+In-Reply-To: <20101011184835.GA10049@tux>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> I'm not sure you checked how the "burst" works, and doubt it could
-> help you here. Anyway, do you think: rate 2KB/s with burst 5GB
-> config would be useful for you?
 
-i actually really do want something like 2KB/s with 5GB burst
-(modifying parameters such that burst + rate * 30 days <= 5GB, but you
-get the idea). but this isn't possible given the implementation:
+--=-lYbZfGWx2ePVt3uLExZ5
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-i see that overall, virtual "tokens" map to "scheduler ticks", where a
-"scheduler tick" is 64ns. (net/sched/sch_{tbf,htb}.c,
-include/net/pkt_sched.h -- these 64ns units are called "ticks" despite
-being unrelated to HZ). the "burst" parameter is also stored and
-passed from userspace as a u32. so, the maximum configurable burst in
-both cases is rate * 275s, since we can only track 275s worth of
-"scheduler ticks" in a u32 ( (1<<32) / NSEC_PER_SEC * 64 =~ 275s ).
+On Mon, 2010-10-11 at 11:48 -0700, Luis R. Rodriguez wrote:
+> On Sun, Oct 10, 2010 at 09:03:04PM -0700, David Miller wrote:
+> > From: Ben Hutchings <ben@decadent.org.uk>
+> > Date: Mon, 11 Oct 2010 02:18:50 +0100
+> >=20
+> > > Your commit 496c185c9495629ef1c65387cb2594578393cfe0 "atl1c: Add supp=
+ort
+> > > for Atheros AR8152 and AR8152" included the following changes:
+> >  ...
+> > >> +		if (hw->nic_type =3D=3D athr_l1c || hw->nic_type =3D=3D athr_l2c_=
+b) {
+> >  ...
+> > >> +	if ((hw->nic_type =3D=3D athr_l1c || hw->nic_type =3D=3D athr_l2c)=
+) {
+> >  ...
+> > > Shouldn't the first if-statement use the same condition as the second
+> > > i.e. matching the previously-defined hardware types athr_l1c and
+> > > athr_l2c?
+> >=20
+> > Yeah that definitely looks like a bug to me.
+>=20
+> Good catch, unfortunatley I don't have the source code I used to port
+> this work the day I did this anymore locally, so adding=20
+> Jie Yang who is actually our maintainer for this driver.
+>=20
+> Jie, can you please confirm if this patch is correct?
 
-> My proposal is you don't bother with 1) and 2), but first do the
-> hack in tbf or htb directly, using or omitting rate tables, how
-> you like, and test this idea.
+I was suggesting that the first condition was wrong and the second was
+right.
 
-i'll give it a shot, though given that i hate writing the same code
-twice, i would prefer to know the right way to change netlink before i
-write a functional test.
+Ben.
 
-due to the implementation coupling i don't see any way to make any
-permanent change *without* changing the netlink interface -- even
-changing that u32 to a u64, which would only need to be a u64 in
-userspace because userspace does the munging today!
+> diff --git a/drivers/net/atl1c/atl1c_hw.c b/drivers/net/atl1c/atl1c_hw.c
+> index d8501f0..0a7b786 100644
+> --- a/drivers/net/atl1c/atl1c_hw.c
+> +++ b/drivers/net/atl1c/atl1c_hw.c
+> @@ -132,7 +132,7 @@ static int atl1c_get_permanent_address(struct atl1c_h=
+w *hw)
+>  			return -1;
+>  	}
+>  	/* Disable OTP_CLK */
+> -	if ((hw->nic_type =3D=3D athr_l1c || hw->nic_type =3D=3D athr_l2c)) {
+> +	if ((hw->nic_type =3D=3D athr_l1c || hw->nic_type =3D=3D athr_l2c_b)) {
+>  		otp_ctrl_data &=3D ~OTP_CTRL_CLK_EN;
+>  		AT_WRITE_REG(hw, REG_OTP_CTRL, otp_ctrl_data);
+>  		msleep(1);
+>=20
+>   Luis
+>=20
 
-(what's worse, today userspace has to specify the full rate table over
-netlink, instead of just specifying the rate and having the kernel
-driver compute the table or whatever other data structure it deems
-necessary. i think decoupling interface from implementation is a
-worthy goal by itself. if they were decoupled, i could have just coded
-a patch and not bothered y'all in the first place....)
+--=20
+Ben Hutchings
+Once a job is fouled up, anything done to improve it makes it worse.
 
-> But it seems the right way is to collect monthly stats with some
-> userspace tool and change qdisc config dynamically. You might
-> look at network admins' lists for small ISPs exemplary scripts
-> doing such nasty things to their users, or have a look at ppp
-> accounting tools.
+--=-lYbZfGWx2ePVt3uLExZ5
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 
-<non technical sidetrack>
-i disagree outright that a userspace tool is the "right" way to solve
-my constraints.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
 
-my constraints are:
-1) i need to guarantee i never ever go over the monthly transfer limit
-(bad experiences with Comcast... you can check out of Red Tape Hotel
-any time you like, but you can never leave).
-2) i want to be able to transfer short bursts at top speed whenever
-possible (that's what i'm paying for in the first place).
-3) i need to ration transfer usage so i am never stuck in a situation
-of being limited to snail speeds until the end of the month (on a
-Comcast connection in my area, i can reasonably sustain 2MB/sec
-downstream, which eats 250GB in ~36 hours, so this constraint becomes
-important).
+iQIVAwUATLOPgOe/yOyVhhEJAQLlHBAA093Dc5EYMFxAyqS8bI8fLHhR3OcsSS4D
+WJmc0+lJjsjPHDmZaoOdG2b59/9XqQH5/Zt90OHYKOq3eOGywwoHmZmkGy0ZeJcU
+bs4foQAvkideg1pJAKa5JksgJRBQM9z33fkRba6rRsW3ScTUBPnbTTy1u64WGqtQ
+pwzUFH7pfSuM9VoKYlbmW7SCEC9pguOMJNwhEd+gEwrX5E5k7+z2PS929FwBfX7k
+loSh7JmuQ5aXkVMqIeYhJ9OlyEjOSGqq9EDDnu05KqFga+N+wvmJZwtLtzldjR2T
+fbcx/us+ECi7q9OnUJqv/K/aeqnzVtJ3qt5DklSGeCq+iGLRN/vKtfqW+H+OcGY7
+E5ZX1K5bTUP4hGitplV3UDCu9erotHkD3PBHUP6o089eeBr4uc3hsmdILR39qbr6
+C8YFrGIyHwYa/c/z+7J0QCqo1BFJqqun/Gx8CXw6xfnAvDdmASdSQuxEf+SVwAVA
+TGedNPS3xTS+q5PmZ+cAqg14hRZFtoiyln+/WR5A1zD+USvsWrqtstwMsTWgTtAu
+z9TDBQScnGQHDOhd2nPn00NI9Ob4q6jkLg4mNFKOrJrlGu92mG/GwmSSAu+Ah3pk
+e7MFQN9cRh0F5adV78Gg3TjOYETOL1Zk7xJfovrqpPvQY4S/bIwk3vpNOVBvC0cC
+2ipHhQ9K1zs=
+=ijSh
+-----END PGP SIGNATURE-----
 
-tbf with a large burst size seems ideal for my constraints. i can't
-quantify this, but it seems like no simpler strategy satisfies the
-constraints well and no more complex strategy is necessary. i think
-any userspace solution i could write would end up trying to emulate
-tbf with large burst.
-
-a userspace tool updating qdisc parameters, even if run in an infinite
-loop, would always have a big chunky time resolution compared to an
-inline packet shaper (which is important for #2, and for #1 to a
-degree). i could write a packet shaper in userspace, but this does not
-make sense to given that kernel qos already exists, and already has a
-tbf implementation that just needs a little love.
-</non technical sidetrack>
-
-given all that, i'd just like to know
-
-1) whether it's forbidden or bad to do floating point math in a packet
-scheduler, and
-
-2) the best way to go about making breaking changes to netlink.
+--=-lYbZfGWx2ePVt3uLExZ5--
