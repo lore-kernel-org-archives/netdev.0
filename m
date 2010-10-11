@@ -1,98 +1,99 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] neigh: reorder struct neighbour fields
-Date: Tue, 12 Oct 2010 00:20:54 +0200
-Message-ID: <1286835654.30423.107.camel@edumazet-laptop>
-References: <1286484247.3745.91.camel@edumazet-laptop>
-	 <20101011.121609.246536311.davem@davemloft.net>
-	 <1286826361.3218.14.camel@edumazet-laptop>
-	 <20101011.130128.245392712.davem@davemloft.net>
-	 <1286834567.30423.102.camel@edumazet-laptop>
+From: Steven Brudenell <steven.brudenell@gmail.com>
+Subject: Re: tbf/htb qdisc limitations
+Date: Mon, 11 Oct 2010 18:27:25 -0400
+Message-ID: <AANLkTin_jPp+WEkyJkD_KZyrJ4WX_6dM5wtFNw_ixuzv@mail.gmail.com>
+References: <AANLkTik6_C5pzx=yS=C0VQR2xfg0S57AZAn9WYiGvxe5@mail.gmail.com>
+	<4CB1A22B.9090701@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:35090 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756732Ab0JKWVO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Oct 2010 18:21:14 -0400
-Received: by wye20 with SMTP id 20so857759wye.19
-        for <netdev@vger.kernel.org>; Mon, 11 Oct 2010 15:21:13 -0700 (PDT)
-In-Reply-To: <1286834567.30423.102.camel@edumazet-laptop>
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:58985 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756732Ab0JKW12 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Oct 2010 18:27:28 -0400
+Received: by qwa26 with SMTP id 26so57454qwa.19
+        for <netdev@vger.kernel.org>; Mon, 11 Oct 2010 15:27:28 -0700 (PDT)
+In-Reply-To: <4CB1A22B.9090701@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 12 octobre 2010 =C3=A0 00:02 +0200, Eric Dumazet a =C3=A9crit =
-:
-> Here is the followup patch.
->=20
-> Thanks !
->=20
+> I'm not sure you checked how the "burst" works, and doubt it could
+> help you here. Anyway, do you think: rate 2KB/s with burst 5GB
+> config would be useful for you?
 
-Oops, this was an old version, the up2date ones also took care of "used=
-"
-field.
+i actually really do want something like 2KB/s with 5GB burst
+(modifying parameters such that burst + rate * 30 days <= 5GB, but you
+get the idea). but this isn't possible given the implementation:
 
-I guess its time for a sleep, sorry again.
+i see that overall, virtual "tokens" map to "scheduler ticks", where a
+"scheduler tick" is 64ns. (net/sched/sch_{tbf,htb}.c,
+include/net/pkt_sched.h -- these 64ns units are called "ticks" despite
+being unrelated to HZ). the "burst" parameter is also stored and
+passed from userspace as a u32. so, the maximum configurable burst in
+both cases is rate * 275s, since we can only track 275s worth of
+"scheduler ticks" in a u32 ( (1<<32) / NSEC_PER_SEC * 64 =~ 275s ).
 
+> My proposal is you don't bother with 1) and 2), but first do the
+> hack in tbf or htb directly, using or omitting rate tables, how
+> you like, and test this idea.
 
-[PATCH net-next V2] neigh: reorder struct neighbour fields
+i'll give it a shot, though given that i hate writing the same code
+twice, i would prefer to know the right way to change netlink before i
+write a functional test.
 
-(refcnt) and (ha_lock, ha, used, dev, output, ops, primary_key) should
-be placed on a separate cache lines.
+due to the implementation coupling i don't see any way to make any
+permanent change *without* changing the netlink interface -- even
+changing that u32 to a u64, which would only need to be a u64 in
+userspace because userspace does the munging today!
 
-refcnt can be often written, while other fields are mostly read.
+(what's worse, today userspace has to specify the full rate table over
+netlink, instead of just specifying the rate and having the kernel
+driver compute the table or whatever other data structure it deems
+necessary. i think decoupling interface from implementation is a
+worthy goal by itself. if they were decoupled, i could have just coded
+a patch and not bothered y'all in the first place....)
 
-This gave me good result on stress test :
+> But it seems the right way is to collect monthly stats with some
+> userspace tool and change qdisc config dynamically. You might
+> look at network admins' lists for small ISPs exemplary scripts
+> doing such nasty things to their users, or have a look at ppp
+> accounting tools.
 
-before:
+<non technical sidetrack>
+i disagree outright that a userspace tool is the "right" way to solve
+my constraints.
 
-real    0m45.570s
-user    0m15.525s
-sys     9m56.669s
+my constraints are:
+1) i need to guarantee i never ever go over the monthly transfer limit
+(bad experiences with Comcast... you can check out of Red Tape Hotel
+any time you like, but you can never leave).
+2) i want to be able to transfer short bursts at top speed whenever
+possible (that's what i'm paying for in the first place).
+3) i need to ration transfer usage so i am never stuck in a situation
+of being limited to snail speeds until the end of the month (on a
+Comcast connection in my area, i can reasonably sustain 2MB/sec
+downstream, which eats 250GB in ~36 hours, so this constraint becomes
+important).
 
-After:
+tbf with a large burst size seems ideal for my constraints. i can't
+quantify this, but it seems like no simpler strategy satisfies the
+constraints well and no more complex strategy is necessary. i think
+any userspace solution i could write would end up trying to emulate
+tbf with large burst.
 
-real    0m41.841s
-user    0m15.261s
-sys     8m45.949s
+a userspace tool updating qdisc parameters, even if run in an infinite
+loop, would always have a big chunky time resolution compared to an
+inline packet shaper (which is important for #2, and for #1 to a
+degree). i could write a packet shaper in userspace, but this does not
+make sense to given that kernel qos already exists, and already has a
+tbf implementation that just needs a little love.
+</non technical sidetrack>
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
-diff --git a/include/net/neighbour.h b/include/net/neighbour.h
-index f04e7a2..55590ab 100644
---- a/include/net/neighbour.h
-+++ b/include/net/neighbour.h
-@@ -94,8 +94,6 @@ struct neighbour {
- 	struct neighbour __rcu	*next;
- 	struct neigh_table	*tbl;
- 	struct neigh_parms	*parms;
--	struct net_device	*dev;
--	unsigned long		used;
- 	unsigned long		confirmed;
- 	unsigned long		updated;
- 	__u8			flags;
-@@ -103,16 +101,18 @@ struct neighbour {
- 	__u8			type;
- 	__u8			dead;
- 	atomic_t		refcnt;
-+	struct sk_buff_head	arp_queue;
-+	struct timer_list	timer;
-+	unsigned long		used;
- 	atomic_t		probes;
- 	rwlock_t		lock;
- 	seqlock_t		ha_lock;
- 	unsigned char		ha[ALIGN(MAX_ADDR_LEN, sizeof(unsigned long))];
- 	struct hh_cache		*hh;
- 	int			(*output)(struct sk_buff *skb);
--	struct sk_buff_head	arp_queue;
--	struct timer_list	timer;
- 	const struct neigh_ops	*ops;
- 	struct rcu_head		rcu;
-+	struct net_device	*dev;
- 	u8			primary_key[0];
- };
-=20
+given all that, i'd just like to know
 
+1) whether it's forbidden or bad to do floating point math in a packet
+scheduler, and
 
+2) the best way to go about making breaking changes to netlink.
