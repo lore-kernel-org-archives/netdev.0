@@ -1,103 +1,74 @@
-From: James Hogan <james@albanarts.com>
-Subject: Re: [Bugme-new] [Bug 19992] New: b44 + CONFIG_DEBUG_SHIRQ (=y on fedora) fails to resume
-Date: Tue, 12 Oct 2010 00:26:20 +0100
-Message-ID: <201010120026.20746.james@albanarts.com>
-References: <bug-19992-10286@https.bugzilla.kernel.org/> <20101011131539.bbb99afe.akpm@linux-foundation.org>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH] b44: fix resume, request_irq after hw reset
+Date: Mon, 11 Oct 2010 16:34:40 -0700
+Message-ID: <20101011163440.072e0227.akpm@linux-foundation.org>
+References: <201010120022.13171.james@albanarts.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
-	Gary Zambrano <zambrano@broadcom.com>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:63470 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751108Ab0JKX00 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Oct 2010 19:26:26 -0400
-Received: by wye20 with SMTP id 20so894605wye.19
-        for <netdev@vger.kernel.org>; Mon, 11 Oct 2010 16:26:25 -0700 (PDT)
-In-Reply-To: <20101011131539.bbb99afe.akpm@linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Gary Zambrano <zambrano@broadcom.com>,
+	Jiri Pirko <jpirko@redhat.com>,
+	FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>,
+	Hauke Mehrtens <hauke@hauke-m.de>,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: James Hogan <james@albanarts.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201010120022.13171.james@albanarts.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Monday 11 October 2010 21:15:39 Andrew Morton wrote:
-> (switched to email.  Please respond via emailed reply-to-all, not via the
-> bugzilla web interface).
-> 
-> On Sun, 10 Oct 2010 16:57:11 GMT
-> 
-> bugzilla-daemon@bugzilla.kernel.org wrote:
-> > https://bugzilla.kernel.org/show_bug.cgi?id=19992
-> > 
-> >            Summary: b44 + CONFIG_DEBUG_SHIRQ (=y on fedora) fails to
-> >            
-> >                     resume
-> >            
-> >            Product: Drivers
-> >            Version: 2.5
-> >     
-> >     Kernel Version: 2.6.36-rc7
-> >     
-> >           Platform: All
-> >         
-> >         OS/Version: Linux
-> >         
-> >               Tree: Mainline
-> >             
-> >             Status: NEW
-> >           
-> >           Severity: high
-> >           Priority: P1
-> >          
-> >          Component: Network
-> >         
-> >         AssignedTo: drivers_network@kernel-bugs.osdl.org
-> >         ReportedBy: james@albanarts.com
-> >         Regression: Yes
-> > 
-> > b44 network driver causes system to hang on resume when
-> > CONFIG_DEBUG_SHIRQ=y. I've done some TRACE_RESUME'ing and the following
-> > happens:
-> > * b44_resume() (drivers/net/b44.c) calls request_irq with IRQF_SHARED
-> > (after freeing it in the suspend function)
-> > * request_irq() (kernel/irq/manage.c) calls the interrupt handler
-> > directly if IRQF_SHARED and CONFIG_DEBUG_SHIRQ=y. It says "It's a shared
-> > IRQ -- the driver ought to be prepared for it to happen immediately, so
-> > let's make sure...."
-> > 
-> > * b44_interrupt() gets as far as the first br32 and no further:
-> >   istat = br32(bp, B44_ISTAT);
-> > 
-> > I presume it hasn't yet woken the device up so reading a register somehow
-> > fails and hangs the system.
-> > 
-> > If I comment out the code in request_irq() to test the shared irq handler
-> > all works fine.
-> > 
-> > I'm guessing either the b44 driver shouldn't be freeing/requesting irqs
-> > in suspend/resume functions, or should be resetting the hardware first
-> > so that the test handler call doesn't fail, but I don't know enough
-> > about why it is freeing the irq across suspend to be confident fixing
-> > it.
-> > 
-> > This has been like this for a while (2.6.34 at least). Suspend used to
-> > work on fedora with this hardware so I think this is a regression. I'm
-> > happy to test any patches.
-> 
-> Thanks.  Yup, if the driver/device isn't ready to accept an IRQ when
-> request_irq() is called then there might be a problem should a real
-> interrupt happen very shortly after request_irq() is called.
-> 
-> The code looks OK to me so perhaps it is indeed some weird hardware
-> problem.  Maybe a little delay after the ssb_bus_powerup() is needed?
+On Tue, 12 Oct 2010 00:22:12 +0100
+James Hogan <james@albanarts.com> wrote:
 
-Thanks for the ideas. I tried a delay and it didn't work, but when I moved the 
-request_irq after the spinlocked code which appears to reset the hardware, all 
-was fine, which kind of makes sense.
+> This driver was hanging on resume because it was requesting a shared irq
+> that it wasn't ready to immediately handle, which was tested in
+> request_irq because of the CONFIG_DEBUG_SHIRQ config option. The
+> interrupt handler tried to read the interrupt status register but for
+> some reason it hung the system.
+> 
+> The request_irq is now moved a bit later after resetting the hardware
+> which seems to fix it.
+> 
+> Signed-off-by: James Hogan <james@albanarts.com>
+> ---
+>  drivers/net/b44.c |   12 ++++++------
+>  1 files changed, 6 insertions(+), 6 deletions(-)
+> 
+> diff --git a/drivers/net/b44.c b/drivers/net/b44.c
+> index 1e620e2..dbba981 100644
+> --- a/drivers/net/b44.c
+> +++ b/drivers/net/b44.c
+> @@ -2296,12 +2296,6 @@ static int b44_resume(struct ssb_device *sdev)
+>  	if (!netif_running(dev))
+>  		return 0;
+>  
+> -	rc = request_irq(dev->irq, b44_interrupt, IRQF_SHARED, dev->name, dev);
+> -	if (rc) {
+> -		netdev_err(dev, "request_irq failed\n");
+> -		return rc;
+> -	}
+> -
+>  	spin_lock_irq(&bp->lock);
+>  
+>  	b44_init_rings(bp);
+> @@ -2309,6 +2303,12 @@ static int b44_resume(struct ssb_device *sdev)
+>  	netif_device_attach(bp->dev);
+>  	spin_unlock_irq(&bp->lock);
+>  
+> +	rc = request_irq(dev->irq, b44_interrupt, IRQF_SHARED, dev->name, dev);
+> +	if (rc) {
+> +		netdev_err(dev, "request_irq failed\n");
+> +		return rc;
+> +	}
+> +
+>  	b44_enable_ints(bp);
+>  	netif_wake_queue(dev);
 
-See patch "b44: fix resume, request_irq after hw reset"
+OK, running the interrupt handler before b44_init_hw() is presumably
+the problem here.
 
-Cheers
-James
+The hardware surely won't be generating interrupts until we've run
+b44_init_hw() and b44_enable_ints(), so this patch really is only to
+keep CONFIG_DEBUG_SHIRQ happy.
