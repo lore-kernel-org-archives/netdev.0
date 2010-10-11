@@ -1,62 +1,114 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [STABLE 2.6.32 PATCH] net: release dst entry while cache-hot
- for GSO case too
-Date: Mon, 11 Oct 2010 17:46:49 +0200
-Message-ID: <1286812009.2737.30.camel@edumazet-laptop>
-References: <1286810413-30238-1-git-send-email-avagin@openvz.org>
-	 <4CB32FDB.4090001@msgid.tls.msk.ru>
+From: Stanislaw Gruszka <sgruszka@redhat.com>
+Subject: Re: [PATCH] net: introduce alloc_skb_order0
+Date: Mon, 11 Oct 2010 17:55:57 +0200
+Message-ID: <20101011155556.GA2431@redhat.com>
+References: <1286547901-10782-1-git-send-email-sgruszka@redhat.com>
+ <20101008145256.GB10393@redhat.com>
+ <1286550247.2959.444.camel@edumazet-laptop>
+ <20101008160341.GC10393@redhat.com>
+ <1286639996.2692.148.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrey Vagin <avagin@openvz.org>, stable@kernel.org,
-	netdev@vger.kernel.org, Krishna Kumar <krkumar2@in.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Michael Tokarev <mjt@tls.msk.ru>
+Cc: David Miller <davem@davemloft.net>,
+	Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:53383 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755280Ab0JKPrB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Oct 2010 11:47:01 -0400
-Received: by wye20 with SMTP id 20so565589wye.19
-        for <netdev@vger.kernel.org>; Mon, 11 Oct 2010 08:47:00 -0700 (PDT)
-In-Reply-To: <4CB32FDB.4090001@msgid.tls.msk.ru>
+Received: from mx1.redhat.com ([209.132.183.28]:63022 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754111Ab0JKPx6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Oct 2010 11:53:58 -0400
+Content-Disposition: inline
+In-Reply-To: <1286639996.2692.148.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 11 octobre 2010 =C3=A0 19:40 +0400, Michael Tokarev a =C3=A9cr=
-it :
-> Andrey Vagin wrote:
-> > From: Krishna Kumar <krkumar2@in.ibm.com>
-> >=20
-> > commit 068a2de57ddf4f472e32e7af868613c574ad1d88 upstream.
-> >=20
-> > Non-GSO code drops dst entry for performance reasons, but
-> > the same is missing for GSO code. Drop dst while cache-hot
-> > for GSO case too.
-> >=20
-> > Note: Without this patch the kernel may oops if used bridged veth
-> > devices. A bridge set skb->dst =3D fake_dst_ops, veth transfers thi=
-s skb
-> > to netif_receive_skb...ip_rcv_finish and it calls dst_input(skb), b=
-ut
-> > fake_dst_ops->input =3D NULL -> Oops
+On Sat, Oct 09, 2010 at 05:59:56PM +0200, Eric Dumazet wrote:
+> Le vendredi 08 octobre 2010 =E0 18:03 +0200, Stanislaw Gruszka a =E9c=
+rit :
+> > On Fri, Oct 08, 2010 at 05:04:07PM +0200, Eric Dumazet wrote:
 >=20
-> Hmm.  Isn't this the reason for my mysterious OOPSes (jump to
-> NULL) which I concluded are due to stack overflow?  See f.e.
-> http://www.spinics.net/lists/netdev/msg142104.html
+> > > Switch to SLAB -> no more problem ;)
+> >=20
+> > yeh, I wish to, but fedora use SLUB because of some debugging
+> > capabilities.=20
 >=20
-> This started happening when I updated virtio drivers in a windows
-> virtual machne to the ones which supports GSO, and my config
-> involves bridging veth devices, and this is where the prob
-> actually occurs - when doing guest =3D> virtio =3D> tap =3D> bridge =3D=
-> veth
-> route....
+> Yes, of course, I was kidding :)
 >=20
-> Thanks!
+> echo 0 >/sys/kernel/slab/kmalloc-2048/order
+> echo 0 >/sys/kernel/slab/kmalloc-1024/order
+> echo 0 >/sys/kernel/slab/kmalloc-512/order
+>=20
+> Should do the trick : No more high order allocations for MTU=3D1500
+> frames.
 
-This patch was an optimization, not a bug fix.
+So the SLUB is great, but we need a patch to avoid using it :-)
 
-If something gets better, then a bug is somewhere else ?
+> For MTU=3D9000 frames, we probably need something like this patch :
+>
+> Reception of big frames hit a memory allocation problem, because of h=
+igh
+> order pages allocations (order-3 sometimes for MTU=3D9000). This patc=
+h
+> introduces alloc_skb_order0(), to build skbs with order-0 pages only.
 
+I had never seen allocation problems in rtl8169_try_rx_copy or in any
+other driver rx path (except iwlwifi, but now this is solved by using
+skb_add_rx_frag), so I'm not sure if need this patch.
 
+However I see other benefit of that patch. We save memory. Allocating
+for MTU 9000 gives something like skb->data =3D kmalloc(9000 + 32 + 2
++ 334). So we take data from kmalloc-16384 cache, we waste about 7kB on
+every allocation. With patch wastage would be about 2k per allocation
+(assuming 4kB and 8kB page size)
 
+However I started this thread thinking about other memory wastage,
+in rtl8169_alloc_rx_skb, skb->data =3D kmalloc(16383 + 32 + 2 + 334), t=
+aken
+from kmalloc-32768, almost 50% wastage.
+=20
+> +struct sk_buff *alloc_skb_order0(int pkt_size)
+> +{
+> +	int head =3D min_t(int, pkt_size, SKB_MAX_HEAD(NET_SKB_PAD + NET_IP=
+_ALIGN));
+> +	struct sk_buff *skb;
+> +
+> +	skb =3D alloc_skb(head + NET_SKB_PAD + NET_IP_ALIGN,
+> +			GFP_ATOMIC | __GFP_NOWARN);
+> +	if (!skb)
+> +		return NULL;
+> +	skb_reserve(skb, NET_SKB_PAD + NET_IP_ALIGN);
+> +	skb_put(skb, head);
+> +	pkt_size -=3D head;
+> +
+> +	skb->len +=3D pkt_size;
+> +	skb->data_len +=3D pkt_size;
+> +	skb->truesize +=3D pkt_size;
+> +	while (pkt_size) {
+
+if (skb_shinfo(skb)->nr_frags =3D=3D MAX_SKB_FRAGS - 1)
+	goto error;
+
+> +		int i =3D skb_shinfo(skb)->nr_frags++;
+> +		skb_frag_t *frag =3D &skb_shinfo(skb)->frags[i];
+> +		int fragsize =3D min_t(int, pkt_size, PAGE_SIZE);
+> +		struct page *page =3D alloc_page(GFP_NOWAIT | __GFP_NOWARN);
+> +
+> +		if (!page)
+> +			goto error;
+> +		frag->page =3D page;
+> +		frag->size =3D fragsize;
+> +		frag->page_offset =3D 0;
+> +		pkt_size -=3D fragsize;
+> +	}
+> +	return skb;
+> +
+> +error:
+> +	kfree_skb(skb);
+> +	return NULL;=09
+> +}
+> +EXPORT_SYMBOL(alloc_skb_order0);
+> +
+>  /* Checksum skb data. */
+> =20
+>  __wsum skb_checksum(const struct sk_buff *skb, int offset,
