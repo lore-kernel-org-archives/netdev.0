@@ -1,41 +1,54 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: [v2 RFC PATCH 0/4] Implement multiqueue virtio-net
-Date: Mon, 11 Oct 2010 12:51:27 +0530
-Message-ID: <OF6C412DBC.EA03FC24-ON652577B9.00228DCA-652577B9.0028232D@in.ibm.com>
-References: <cover.1286372004.git.mst@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: anthony@codemonkey.ws, arnd@arndb.de, avi@redhat.com,
-	davem@davemloft.net, kvm@vger.kernel.org, netdev@vger.kernel.org,
-	rusty@rustcorp.com.au
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <cover.1286372004.git.mst@redhat.com>
-Sender: kvm-owner@vger.kernel.org
+From: Jiri Slaby <jslaby@suse.cz>
+Subject: [PATCH 1/1] ATM: solos-pci, remove use after free
+Date: Mon, 11 Oct 2010 09:50:44 +0200
+Message-ID: <1286783444-7719-1-git-send-email-jslaby@suse.cz>
+Cc: netdev@vger.kernel.org, linux-atm-general@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org, jirislaby@gmail.com,
+	Chas Williams <chas@cmf.nrl.navy.mil>
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-"Michael S. Tsirkin" <mst@redhat.com> wrote on 10/06/2010 07:04:31 PM:
+Stanse found we do in console_show:
+  kfree_skb(skb);
+  return skb->len;
+which is not good. Fix that by remembering the len and use it in the
+function instead.
 
-> On Fri, Sep 17, 2010 at 03:33:07PM +0530, Krishna Kumar wrote:
-> > For 1 TCP netperf, I ran 7 iterations and summed it. Explanation
-> > for degradation for 1 stream case:
->
-> I thought about possible RX/TX contention reasons, and I realized that
-> we get/put the mm counter all the time.  So I write the following: I
-> haven't seen any performance gain from this in a single queue case, but
-> maybe this will help multiqueue?
+Signed-off-by: Jiri Slaby <jslaby@suse.cz>
+Cc: Chas Williams <chas@cmf.nrl.navy.mil>
+---
+ drivers/atm/solos-pci.c |    8 +++++---
+ 1 files changed, 5 insertions(+), 3 deletions(-)
 
-Sorry for the delay, I was sick last couple of days. The results
-with your patch are (%'s over original code):
-
-Code               BW%       CPU%       RemoteCPU
-MQ     (#txq=16)   31.4%     38.42%     6.41%
-MQ+MST (#txq=16)   28.3%     18.9%      -10.77%
-
-The patch helps CPU utilization but didn't help single stream
-drop.
-
-Thanks,
-
-- KK
-
+diff --git a/drivers/atm/solos-pci.c b/drivers/atm/solos-pci.c
+index f916ddf..f46138a 100644
+--- a/drivers/atm/solos-pci.c
++++ b/drivers/atm/solos-pci.c
+@@ -444,6 +444,7 @@ static ssize_t console_show(struct device *dev, struct device_attribute *attr,
+ 	struct atm_dev *atmdev = container_of(dev, struct atm_dev, class_dev);
+ 	struct solos_card *card = atmdev->dev_data;
+ 	struct sk_buff *skb;
++	unsigned int len;
+ 
+ 	spin_lock(&card->cli_queue_lock);
+ 	skb = skb_dequeue(&card->cli_queue[SOLOS_CHAN(atmdev)]);
+@@ -451,11 +452,12 @@ static ssize_t console_show(struct device *dev, struct device_attribute *attr,
+ 	if(skb == NULL)
+ 		return sprintf(buf, "No data.\n");
+ 
+-	memcpy(buf, skb->data, skb->len);
+-	dev_dbg(&card->dev->dev, "len: %d\n", skb->len);
++	len = skb->len;
++	memcpy(buf, skb->data, len);
++	dev_dbg(&card->dev->dev, "len: %d\n", len);
+ 
+ 	kfree_skb(skb);
+-	return skb->len;
++	return len;
+ }
+ 
+ static int send_command(struct solos_card *card, int dev, const char *buf, size_t size)
+-- 
+1.7.3.1
