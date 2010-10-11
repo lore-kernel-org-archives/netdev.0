@@ -1,59 +1,41 @@
-From: Kumar SANGHVI <kumar.sanghvi@stericsson.com>
-Subject: Re: [PATCH 4/4] Phonet: mark the pipe controller as EXPERIMENTAL
-Date: Mon, 11 Oct 2010 12:39:29 +0530
-Message-ID: <20101011070928.GC31124@bnru01.bnr.st.com>
-References: <1286546523-3340-1-git-send-email-remi@remlab.net>
- <1286546523-3340-2-git-send-email-remi@remlab.net>
- <1286546523-3340-3-git-send-email-remi@remlab.net>
- <1286546523-3340-4-git-send-email-remi@remlab.net>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: [v2 RFC PATCH 0/4] Implement multiqueue virtio-net
+Date: Mon, 11 Oct 2010 12:51:27 +0530
+Message-ID: <OF6C412DBC.EA03FC24-ON652577B9.00228DCA-652577B9.0028232D@in.ibm.com>
+References: <cover.1286372004.git.mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	=?iso-8859-1?Q?R=E9mi?= Denis-Courmont
-	<remi.denis-courmont@nokia.com>
-To: =?iso-8859-1?Q?R=E9mi?= Denis-Courmont <remi@remlab.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog118.obsmtp.com ([207.126.144.145]:60156 "EHLO
-	eu1sys200aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752745Ab0JKHJu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Oct 2010 03:09:50 -0400
-Content-Disposition: inline
-In-Reply-To: <1286546523-3340-4-git-send-email-remi@remlab.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Cc: anthony@codemonkey.ws, arnd@arndb.de, avi@redhat.com,
+	davem@davemloft.net, kvm@vger.kernel.org, netdev@vger.kernel.org,
+	rusty@rustcorp.com.au
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <cover.1286372004.git.mst@redhat.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 08, 2010 at 16:02:03 +0200, R=E9mi Denis-Courmont wrote:
-> From: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
->=20
-> There are a bunch of issues that need to be fixed, including:
->  - GFP_KERNEL allocations from atomic context
->    (and GFP_ATOMIC in process context),
->  - abuse of the setsockopt() call convention,
->  - unprotected/unlocked static variables...
->=20
-> IMHO, we will need to alter the userspace ABI when we fix it. So mark
-> the configuration option as EXPERIMENTAL for the time being (or shoul=
-d
-> it be BROKEN instead?).
->=20
-> Signed-off-by: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+"Michael S. Tsirkin" <mst@redhat.com> wrote on 10/06/2010 07:04:31 PM:
 
-Thank you for this patch.
-I have already started implementing 'connect()' socket call for Pipe
-controller logic, as per advise of R=E9mi Denis-Courmontt. I will uploa=
-d
-this patch for review once I have validated GPRS/3G path (control/data)
-to be working fine.
+> On Fri, Sep 17, 2010 at 03:33:07PM +0530, Krishna Kumar wrote:
+> > For 1 TCP netperf, I ran 7 iterations and summed it. Explanation
+> > for degradation for 1 stream case:
+>
+> I thought about possible RX/TX contention reasons, and I realized that
+> we get/put the mm counter all the time.  So I write the following: I
+> haven't seen any performance gain from this in a single queue case, but
+> maybe this will help multiqueue?
 
-Hopefully, with all the reviews and suggestions shared on the mailing
-list, existing abuse can be removed and new abuses can be avoided.
+Sorry for the delay, I was sick last couple of days. The results
+with your patch are (%'s over original code):
 
-The only intention of submitting is to make Linux work smoothly with
-newer devices. If there is some improper code getting introduced
-unknowingly, then I will surely work on the review comments to fix it.
+Code               BW%       CPU%       RemoteCPU
+MQ     (#txq=16)   31.4%     38.42%     6.41%
+MQ+MST (#txq=16)   28.3%     18.9%      -10.77%
 
-Thank you all!
+The patch helps CPU utilization but didn't help single stream
+drop.
 
-Best regards,
-Kumar.
+Thanks,
+
+- KK
+
