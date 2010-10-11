@@ -1,35 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] af_packet: account for VLAN when checking packet size
-Date: Mon, 11 Oct 2010 09:01:53 -0700 (PDT)
-Message-ID: <20101011.090153.226774563.davem@davemloft.net>
-References: <20101011131500.GA12342@orbit.nwl.cc>
-	<1286803522-16478-1-git-send-email-phil@nwl.cc>
-	<1286805782.2737.25.camel@edumazet-laptop>
+From: Christoph Lameter <cl@linux.com>
+Subject: Re: [PATCH 1/2] r8169: allocate with GFP_KERNEL flag when able to
+ sleep
+Date: Mon, 11 Oct 2010 11:03:17 -0500 (CDT)
+Message-ID: <alpine.DEB.2.00.1010111102390.11247@router.home>
+References: <1286547901-10782-1-git-send-email-sgruszka@redhat.com>  <20101008145256.GB10393@redhat.com> <1286550247.2959.444.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: phil@nwl.cc, netdev@vger.kernel.org, johann.baudy@gnu-log.net
-To: eric.dumazet@gmail.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Stanislaw Gruszka <sgruszka@redhat.com>,
+	Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47790
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754562Ab0JKQBb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Oct 2010 12:01:31 -0400
-In-Reply-To: <1286805782.2737.25.camel@edumazet-laptop>
+Received: from smtp101.prem.mail.ac4.yahoo.com ([76.13.13.40]:36583 "HELO
+	smtp101.prem.mail.ac4.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754977Ab0JKQDU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Oct 2010 12:03:20 -0400
+In-Reply-To: <1286550247.2959.444.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 11 Oct 2010 16:03:02 +0200
+On Fri, 8 Oct 2010, Eric Dumazet wrote:
 
-> If we dont test ETH_P_8021Q protocol here, we allow sending 1504 bytes
-> frames for MTU=1500
-> 
-> Should we really care ?
-> 
-> If not, just do
-> 
-> reserve = dev->hard_header_len + VLAN_HLEN;
+> 8 in the <pagesperslab> column just says that : order-3 pages, even for
+> small allocations.
 
-Thats a good point, I think we need to validate the SKB protocol
-field.
+Those allocations will fallback to smaller allocs if the page allocator
+has trouble satisfying those requests.
+
