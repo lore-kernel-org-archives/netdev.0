@@ -1,44 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/1] ATM: mpc, fix use after free
-Date: Mon, 11 Oct 2010 10:59:40 +0200
-Message-ID: <1286787580.2737.4.camel@edumazet-laptop>
-References: <1286785081.2737.2.camel@edumazet-laptop>
-	 <1286786794-10410-1-git-send-email-jslaby@suse.cz>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-atm-general@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org, jirislaby@gmail.com
-To: Jiri Slaby <jslaby@suse.cz>
+From: Jiri Slaby <jslaby@suse.cz>
+Subject: [PATCH 1/3] NET: pch, fix use after free
+Date: Mon, 11 Oct 2010 11:26:56 +0200
+Message-ID: <1286789218-13976-1-git-send-email-jslaby@suse.cz>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jirislaby@gmail.com, Masayuki Ohtake <masa-korg@dsn.okisemi.com>
+To: davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1286786794-10410-1-git-send-email-jslaby@suse.cz>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le lundi 11 octobre 2010 =C3=A0 10:46 +0200, Jiri Slaby a =C3=A9crit :
-> Stanse found that mpc_push frees skb and then it dereferences it. It
-> is a typo, new_skb should be dereferenced there.
->=20
-> Signed-off-by: Jiri Slaby <jslaby@suse.cz>
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> ---
->  net/atm/mpc.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
->=20
-> diff --git a/net/atm/mpc.c b/net/atm/mpc.c
-> index 622b471..74bcc66 100644
-> --- a/net/atm/mpc.c
-> +++ b/net/atm/mpc.c
-> @@ -778,7 +778,7 @@ static void mpc_push(struct atm_vcc *vcc, struct =
-sk_buff *skb)
->  	eg->packets_rcvd++;
->  	mpc->eg_ops->put(eg);
-> =20
-> -	memset(ATM_SKB(skb), 0, sizeof(struct atm_skb_data));
-> +	memset(ATM_SKB(new_skb), 0, sizeof(struct atm_skb_data));
->  	netif_rx(new_skb);
->  }
-> =20
+Stanse found that pch_gbe_xmit_frame uses skb after it is freed. Fix
+that.
 
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Jiri Slaby <jslaby@suse.cz>
+Cc: Masayuki Ohtake <masa-korg@dsn.okisemi.com>
+---
+ drivers/net/pch_gbe/pch_gbe_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/pch_gbe/pch_gbe_main.c b/drivers/net/pch_gbe/pch_gbe_main.c
+index 53c56cf..e44644f 100644
+--- a/drivers/net/pch_gbe/pch_gbe_main.c
++++ b/drivers/net/pch_gbe/pch_gbe_main.c
+@@ -1847,9 +1847,9 @@ static int pch_gbe_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+ 	unsigned long flags;
+ 
+ 	if (unlikely(skb->len > (adapter->hw.mac.max_frame_size - 4))) {
+-		dev_kfree_skb_any(skb);
+ 		pr_err("Transfer length Error: skb len: %d > max: %d\n",
+ 		       skb->len, adapter->hw.mac.max_frame_size);
++		dev_kfree_skb_any(skb);
+ 		adapter->stats.tx_length_errors++;
+ 		return NETDEV_TX_OK;
+ 	}
+-- 
+1.7.3.1
