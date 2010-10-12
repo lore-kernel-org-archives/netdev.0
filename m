@@ -1,59 +1,73 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [RFC PATCH net-next] drivers/net
- Documentation/networking: Create directory intel_wired_lan
-Date: Mon, 11 Oct 2010 17:00:48 -0700
-Message-ID: <1286841648.26045.17.camel@Joe-Laptop>
-References: <1286743352.11039.165.camel@Joe-Laptop>
-	<AANLkTikVKufQRuMGd=cdig7ff4k2aw9Q1FWwMz3pgon-@mail.gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next] ixgbe: fix stats handling
+Date: Mon, 11 Oct 2010 17:13:06 -0700
+Message-ID: <AANLkTi=iWq40SX7nqM-SUwvkOSBQAp_2EFgSkc6WHGEy@mail.gmail.com>
+References: <1286799439.2737.21.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Don, e1000-devel <e1000-devel@lists.sourceforge.net>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	linux-kernel@vger.kernel.org, Greg Rose <gregory.v.rose@intel.com>,
-	John Ronciak <john.ronciak@intel.com>, netdev@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <AANLkTikVKufQRuMGd=cdig7ff4k2aw9Q1FWwMz3pgon-@mail.gmail.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Peter Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
+	Emil Tantilov <emil.s.tantilov@intel.com>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:39991 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754778Ab0JLANI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Oct 2010 20:13:08 -0400
+Received: by iwn7 with SMTP id 7so344iwn.19
+        for <netdev@vger.kernel.org>; Mon, 11 Oct 2010 17:13:08 -0700 (PDT)
+In-Reply-To: <1286799439.2737.21.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2010-10-11 at 16:52 -0700, Jeff Kirsher wrote:
-> On Sun, Oct 10, 2010 at 13:42, Joe Perches <joe@perches.com> wrote:
-> > Perhaps it's better to move drivers from the very populated
-> > drivers/net directory into vendor specific directories similar
-> > to the Atheros approach used for drivers/net/wireless/ath/
-> NAK
-> First, I think we need to keep the documentation in /Documentation/networking.
-> Second, the changes are extensive and would create a lot of regression testing.
+On Mon, Oct 11, 2010 at 05:17, Eric Dumazet <eric.dumazet@gmail.com> wr=
+ote:
+> Hi
+>
+> I am sending this patch for Intel people review/test and acknowledge.
+>
+> Thanks !
+>
+> [PATCH net-next] ixgbe: fix stats handling
+>
+> Current ixgbe stats have following problems :
+>
+> - Not 64 bit safe (on 32bit arches)
+>
+> - Not safe in ixgbe_clean_rx_irq() :
+> =C2=A0 All cpus dirty a common location (netdev->stats.rx_bytes &
+> netdev->stats.rx_packets) without proper synchronization.
+> =C2=A0 This slow down a bit multiqueue operations, and possibly miss =
+some
+> updates.
+>
+> Fixes :
+>
+> Implement ndo_get_stats64() method to provide accurate 64bit rx|tx
+> bytes/packets counters, using 64bit safe infrastructure.
+>
+> ixgbe_get_ethtool_stats() also use this infrastructure to provide 64b=
+it
+> safe counters.
+>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> CC: Peter Waskiewicz <peter.p.waskiewicz.jr@intel.com>
+> CC: Emil Tantilov <emil.s.tantilov@intel.com>
+> CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
+> =C2=A0drivers/net/ixgbe/ixgbe.h =C2=A0 =C2=A0 =C2=A0 =C2=A0 | =C2=A0 =
+=C2=A03 +-
+> =C2=A0drivers/net/ixgbe/ixgbe_ethtool.c | =C2=A0 29 +++++++++++------=
+---
+> =C2=A0drivers/net/ixgbe/ixgbe_main.c =C2=A0 =C2=A0| =C2=A0 40 +++++++=
+++++++++++++++++++---
+> =C2=A03 files changed, 56 insertions(+), 16 deletions(-)
+>
 
-I don't see any actual changes here other than layout.
-What kind of regression testing do you think necessary?
+Thanks Eric, I have added the patch to my queue.
 
-> We have been looking at solutions like this for future
-> drivers/hardware and is on the list of items we are currently working
-> on, but feel it should not be made retroactively due to the regression
-> testing and massive changes that would need to be made.
-
-Might as well start somewhere.
-
-
-------------------------------------------------------------------------------
-Beautiful is writing same markup. Internet Explorer 9 supports
-standards for HTML5, CSS3, SVG 1.1,  ECMAScript5, and DOM L2 & L3.
-Spend less time writing and  rewriting code and more time creating great
-experiences on the web. Be a part of the beta today.
-http://p.sf.net/sfu/beautyoftheweb
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+--=20
+Cheers,
+Jeff
