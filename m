@@ -1,245 +1,64 @@
-From: nhorman@tuxdriver.com
-Subject: [PATCH 2/5] Fix deadlock in bonding driver resulting from internal locking when using netpoll
-Date: Tue, 12 Oct 2010 17:55:49 -0400
-Message-ID: <1286920552-2173-3-git-send-email-nhorman@tuxdriver.com>
-References: <1286920552-2173-1-git-send-email-nhorman@tuxdriver.com>
-Cc: bonding-devel@lists.sourceforge.net, fubar@us.ibm.com,
-	davem@davemloft.net, andy@greyhouse.net, amwang@redhat.com,
-	nhorman@tuxdriver.com
-To: netdev@vger.kernel.org
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: tbf/htb qdisc limitations
+Date: Tue, 12 Oct 2010 23:59:32 +0200
+Message-ID: <20101012215932.GA1945@del.dom.local>
+References: <AANLkTik6_C5pzx=yS=C0VQR2xfg0S57AZAn9WYiGvxe5@mail.gmail.com>
+ <4CB1A22B.9090701@gmail.com>
+ <AANLkTin_jPp+WEkyJkD_KZyrJ4WX_6dM5wtFNw_ixuzv@mail.gmail.com>
+ <20101012101022.GA8578@ff.dom.local>
+ <AANLkTikQkCcPXtRQGp=MQrjrWtae84VzbENn5x+1yC47@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Steven Brudenell <steven.brudenell@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:56576 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751428Ab0JLV4L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Oct 2010 17:56:11 -0400
-In-Reply-To: <1286920552-2173-1-git-send-email-nhorman@tuxdriver.com>
+Received: from mail-ww0-f42.google.com ([74.125.82.42]:38116 "EHLO
+	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751611Ab0JLV7i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Oct 2010 17:59:38 -0400
+Received: by wwb24 with SMTP id 24so11011wwb.1
+        for <netdev@vger.kernel.org>; Tue, 12 Oct 2010 14:59:37 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <AANLkTikQkCcPXtRQGp=MQrjrWtae84VzbENn5x+1yC47@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman <nhorman@tuxdriver.com>
+On Tue, Oct 12, 2010 at 03:31:48PM -0400, Steven Brudenell wrote:
+> > Yes, it's not allowed according to Documentation/HOWTO. Btw, as you
+> > can see e.g. in sch_hfsc comments, 64-bit division is avoided too.
+> 
+> i see sch_hfsc avoids do_div in critical areas for performance
+> reasons, but uses it other places. it should still be alright to
+> do_div in tbf_change and htb_change_class, right? it would be nice to
+> compute the rtabs in those functions instead of having userspace do
+> it.
 
-The monitoring paths in the bonding driver take write locks that are shared by
-the tx path.  If netconsole is in use, these paths can call printk which puts us
-in the netpoll tx path, which, if netconsole is attached to the bonding driver,
-result in deadlock (the xmit_lock guards are useless in netpoll_send_skb, as the
-monitor paths in the bonding driver don't claim the xmit_lock, nor should they).
-The solution is to use a per cpu flag internal to the driver to indicate when a
-cpu is holding the lock in a path that might recusrse into the tx path for the
-driver via netconsole.  By checking this flag on transmit, we can defer the
-sending of the netconsole frames until a later time using the retransmit feature
-of netpoll_send_skb that is triggered on the return code NETDEV_TX_BUSY.  I've
-tested this and am able to transmit via netconsole while causing failover
-conditions on the bond slave links.
+Right, tbf_change or htb_change_class are on the "slow path". But
+to compute these rtabs you need passing more parameters than rate.
+And userspace would still do most of it for backward compatibility.
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
----
- drivers/net/bonding/bond_main.c |   67 ++++++++++++++++++++++++++++++++++++--
- 1 files changed, 63 insertions(+), 4 deletions(-)
+> 
+> > I can only say there is no versioning, but backward compatibility
+> > is crucial, so you need to do some tricks or data duplication.
+> > You could probably try to get opinions about it with an RFC on
+> > moving tbf and htb schedulers to 64 bits if you're interested
+> > (decoupling it from your specific burst problem).
+> 
+> my burst problem is the only semi-legitimate motivation i can think
+> of. the only other possible motivations i can imagine are setting
+> "limit" to buffer more than 4GB of packets and setting "rate" to
+> something more than 32 gigabit; both of these seem kind of dubious. is
+> there something else you had in mind?
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index eb7d089..1d0d8c5 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -76,6 +76,7 @@
- #include <linux/if_vlan.h>
- #include <linux/if_bonding.h>
- #include <linux/jiffies.h>
-+#include <linux/preempt.h>
- #include <net/route.h>
- #include <net/net_namespace.h>
- #include <net/netns/generic.h>
-@@ -169,6 +170,35 @@ MODULE_PARM_DESC(resend_igmp, "Number of IGMP membership reports to send on link
- 
- /*----------------------------- Global variables ----------------------------*/
- 
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+static cpumask_var_t netpoll_block_tx;
-+
-+static inline void block_netpoll_tx(void
-+{
-+	preempt_disable();
-+	BUG_ON(cpumask_test_and_set_cpu(smp_processor_id(),
-+					netpoll_block_tx));
-+}
-+
-+static inline void unblock_netpoll_tx(void)
-+{
-+	BUG_ON(!cpumask_test_and_clear_cpu(smp_processor_id(),
-+					  netpoll_block_tx));
-+	preempt_enable();
-+}
-+
-+static inline int is_netpoll_tx_blocked(struct net_device *dev)
-+{
-+	if (unlikely(dev->priv_flags & IFF_IN_NETPOLL))
-+		return cpumask_test_cpu(smp_processor_id(), netpoll_block_tx);
-+	return 0;
-+}
-+#else
-+#define block_netpoll_tx()
-+#define unblock_netpoll_tx()
-+#define is_netpoll_tx_blocked(dev)
-+#endif
-+
- static const char * const version =
- 	DRV_DESCRIPTION ": v" DRV_VERSION " (" DRV_RELDATE ")\n";
- 
-@@ -310,6 +340,7 @@ static int bond_del_vlan(struct bonding *bond, unsigned short vlan_id)
- 
- 	pr_debug("bond: %s, vlan id %d\n", bond->dev->name, vlan_id);
- 
-+	block_netpoll_tx();
- 	write_lock_bh(&bond->lock);
- 
- 	list_for_each_entry(vlan, &bond->vlan_list, vlan_list) {
-@@ -344,6 +375,7 @@ static int bond_del_vlan(struct bonding *bond, unsigned short vlan_id)
- 
- out:
- 	write_unlock_bh(&bond->lock);
-+	unblock_netpoll_tx();
- 	return res;
- }
- 
-@@ -1804,10 +1836,6 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 	bond_set_carrier(bond);
- 
- #ifdef CONFIG_NET_POLL_CONTROLLER
--	/*
--	 * Netpoll and bonding is broken, make sure it is not initialized
--	 * until it is fixed.
--	 */
- 	if (disable_netpoll) {
- 		bond_dev->priv_flags |= IFF_DISABLE_NETPOLL;
- 	} else {
-@@ -1892,6 +1920,7 @@ int bond_release(struct net_device *bond_dev, struct net_device *slave_dev)
- 		return -EINVAL;
- 	}
- 
-+	block_netpoll_tx();
- 	netdev_bonding_change(bond_dev, NETDEV_BONDING_DESLAVE);
- 	write_lock_bh(&bond->lock);
- 
-@@ -1901,6 +1930,7 @@ int bond_release(struct net_device *bond_dev, struct net_device *slave_dev)
- 		pr_info("%s: %s not enslaved\n",
- 			bond_dev->name, slave_dev->name);
- 		write_unlock_bh(&bond->lock);
-+		unblock_netpoll_tx();
- 		return -EINVAL;
- 	}
- 
-@@ -1994,6 +2024,7 @@ int bond_release(struct net_device *bond_dev, struct net_device *slave_dev)
- 	}
- 
- 	write_unlock_bh(&bond->lock);
-+	unblock_netpoll_tx();
- 
- 	/* must do this from outside any spinlocks */
- 	bond_destroy_slave_symlinks(bond_dev, slave_dev);
-@@ -2085,6 +2116,7 @@ static int bond_release_all(struct net_device *bond_dev)
- 	struct net_device *slave_dev;
- 	struct sockaddr addr;
- 
-+	block_netpoll_tx();
- 	write_lock_bh(&bond->lock);
- 
- 	netif_carrier_off(bond_dev);
-@@ -2183,6 +2215,7 @@ static int bond_release_all(struct net_device *bond_dev)
- 
- out:
- 	write_unlock_bh(&bond->lock);
-+	unblock_netpoll_tx();
- 
- 	return 0;
- }
-@@ -2232,9 +2265,11 @@ static int bond_ioctl_change_active(struct net_device *bond_dev, struct net_devi
- 	    (old_active) &&
- 	    (new_active->link == BOND_LINK_UP) &&
- 	    IS_UP(new_active->dev)) {
-+		block_netpoll_tx();
- 		write_lock_bh(&bond->curr_slave_lock);
- 		bond_change_active_slave(bond, new_active);
- 		write_unlock_bh(&bond->curr_slave_lock);
-+		unblock_netpoll_tx();
- 	} else
- 		res = -EINVAL;
- 
-@@ -2466,9 +2501,11 @@ static void bond_miimon_commit(struct bonding *bond)
- 
- do_failover:
- 		ASSERT_RTNL();
-+		block_netpoll_tx();
- 		write_lock_bh(&bond->curr_slave_lock);
- 		bond_select_active_slave(bond);
- 		write_unlock_bh(&bond->curr_slave_lock);
-+		unblock_netpoll_tx();
- 	}
- 
- 	bond_set_carrier(bond);
-@@ -2911,11 +2948,13 @@ void bond_loadbalance_arp_mon(struct work_struct *work)
- 	}
- 
- 	if (do_failover) {
-+		block_netpoll_tx();
- 		write_lock_bh(&bond->curr_slave_lock);
- 
- 		bond_select_active_slave(bond);
- 
- 		write_unlock_bh(&bond->curr_slave_lock);
-+		unblock_netpoll_tx();
- 	}
- 
- re_arm:
-@@ -3074,9 +3113,11 @@ static void bond_ab_arp_commit(struct bonding *bond, int delta_in_ticks)
- 
- do_failover:
- 		ASSERT_RTNL();
-+		block_netpoll_tx();
- 		write_lock_bh(&bond->curr_slave_lock);
- 		bond_select_active_slave(bond);
- 		write_unlock_bh(&bond->curr_slave_lock);
-+		unblock_netpoll_tx();
- 	}
- 
- 	bond_set_carrier(bond);
-@@ -4564,6 +4605,13 @@ static netdev_tx_t bond_start_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct bonding *bond = netdev_priv(dev);
- 
-+	/*
-+	 * If we risk deadlock from transmitting this in the
-+	 * netpoll path, tell netpoll to queue the frame for later tx
-+	 */
-+	if (is_netpoll_tx_blocked(dev))
-+		return NETDEV_TX_BUSY;
-+
- 	if (TX_QUEUE_OVERRIDE(bond->params.mode)) {
- 		if (!bond_slave_override(bond, skb))
- 			return NETDEV_TX_OK;
-@@ -5295,6 +5343,13 @@ static int __init bonding_init(void)
- 	if (res)
- 		goto err;
- 
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	if (!alloc_cpumask_var(&netpoll_block_tx, GFP_KERNEL)) {
-+		res = -ENOMEM;
-+		bond_destroy_sysfs();
-+		goto err;
-+	}
-+#endif
- 	register_netdevice_notifier(&bond_netdev_notifier);
- 	register_inetaddr_notifier(&bond_inetaddr_notifier);
- 	bond_register_ipv6_notifier();
-@@ -5316,6 +5371,10 @@ static void __exit bonding_exit(void)
- 
- 	bond_destroy_sysfs();
- 
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	free_cpumask_var(netpoll_block_tx);
-+#endif
-+
- 	rtnl_link_unregister(&bond_link_ops);
- 	unregister_pernet_subsys(&bond_net_ops);
- }
--- 
-1.7.2.3
+No, mainly 10 gigabit rates and additionally 64-bit stats.
 
+> looking more at the netlink tc interface: why is it that the interface
+> for so many qdiscs consists of passing a big options struct as a
+> single netlink attr, instead of a bunch of individual attrs? this kind
+> of seems contrary to the extensibility / flexibility spirit of
+> netlink, and seems to be getting in the way of changing the interface.
+> maybe i should RFC about this instead ;)
+
+Sure, you can (I'm not the netlink expert).
+
+Jarek P.
