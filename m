@@ -1,99 +1,103 @@
-From: James Hogan <james@albanarts.com>
-Subject: Re: [PATCH] b44: fix resume, request_irq after hw reset
-Date: Tue, 12 Oct 2010 08:08:05 +0100
-Message-ID: <201010120808.05713.james@albanarts.com>
-References: <201010120022.13171.james@albanarts.com> <20101011163440.072e0227.akpm@linux-foundation.org>
+From: "Masayuki Ohtake" <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Subject: Re: [MeeGo-Dev][PATCH v3] Topcliff: Update PCH_CAN driver to 2.6.35
+Date: Tue, 12 Oct 2010 16:09:04 +0900
+Message-ID: <000c01cb69dc$5d2aaab0$66f8800a@maildom.okisemi.com>
+References: <002e01cb6486$2ed72cc0$66f8800a@maildom.okisemi.com>	<20101005.114506.184852374.davem@davemloft.net>	<000b01cb6503$962bc7f0$66f8800a@maildom.okisemi.com>
+	<20101005.200904.71120150.davem@davemloft.net>
+	<4CAC3D94.9010408@grandegger.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Gary Zambrano <zambrano@broadcom.com>,
-	Jiri Pirko <jpirko@redhat.com>,
-	FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>,
-	Hauke Mehrtens <hauke@hauke-m.de>,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20101011163440.072e0227.akpm@linux-foundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
+	margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org,
+	joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, morinaga526-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org,
+	kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, chripell-VaTbYqLCNhc@public.gmane.org, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+To: "Wolfgang Grandegger" <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
+	"David Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 12 October 2010 00:34:40 Andrew Morton wrote:
-> On Tue, 12 Oct 2010 00:22:12 +0100
-> 
-> James Hogan <james@albanarts.com> wrote:
-> > This driver was hanging on resume because it was requesting a shared irq
-> > that it wasn't ready to immediately handle, which was tested in
-> > request_irq because of the CONFIG_DEBUG_SHIRQ config option. The
-> > interrupt handler tried to read the interrupt status register but for
-> > some reason it hung the system.
-> > 
-> > The request_irq is now moved a bit later after resetting the hardware
-> > which seems to fix it.
-> > 
-> > Signed-off-by: James Hogan <james@albanarts.com>
-> > ---
-> > 
-> >  drivers/net/b44.c |   12 ++++++------
-> >  1 files changed, 6 insertions(+), 6 deletions(-)
-> > 
-> > diff --git a/drivers/net/b44.c b/drivers/net/b44.c
-> > index 1e620e2..dbba981 100644
-> > --- a/drivers/net/b44.c
-> > +++ b/drivers/net/b44.c
-> > @@ -2296,12 +2296,6 @@ static int b44_resume(struct ssb_device *sdev)
-> > 
-> >  	if (!netif_running(dev))
-> >  	
-> >  		return 0;
-> > 
-> > -	rc = request_irq(dev->irq, b44_interrupt, IRQF_SHARED, dev->name, 
-dev);
-> > -	if (rc) {
-> > -		netdev_err(dev, "request_irq failed\n");
-> > -		return rc;
-> > -	}
-> > -
-> > 
-> >  	spin_lock_irq(&bp->lock);
-> >  	
-> >  	b44_init_rings(bp);
-> > 
-> > @@ -2309,6 +2303,12 @@ static int b44_resume(struct ssb_device *sdev)
-> > 
-> >  	netif_device_attach(bp->dev);
-> >  	spin_unlock_irq(&bp->lock);
-> > 
-> > +	rc = request_irq(dev->irq, b44_interrupt, IRQF_SHARED, dev->name, 
-dev);
-> > +	if (rc) {
-> > +		netdev_err(dev, "request_irq failed\n");
-> > +		return rc;
-> > +	}
-> > +
-> > 
-> >  	b44_enable_ints(bp);
-> >  	netif_wake_queue(dev);
-> 
-> OK, running the interrupt handler before b44_init_hw() is presumably
-> the problem here.
-> 
-> The hardware surely won't be generating interrupts until we've run
-> b44_init_hw() and b44_enable_ints(), so this patch really is only to
-> keep CONFIG_DEBUG_SHIRQ happy.
+Hi Wolfgang,
 
-For me it's mainly to keep CONFIG_DEBUG_SHIRQ happy (Fedora has this switched 
-on), but since it's a shared IRQ, there is still a chance it could be 
-called before enabling it's own interrupts by a different device on the same 
-IRQ.
+We have implemented our CAN driver with FIFO mode, and
+We are testing our CAN driver with FIFO mode.
+However, we have found Our CAN hardware spec is different from our anticipated.
+Our CAN HW FIFO is not common FIFO.
+Using  FIFO mode, there is possibility received packets are out-of-order.
 
-It makes sense to me why it's disabling the IRQ now, in case another device 
-triggers it when it cannot handle it safely. I also tried calling the 
-interrupt directly before the free_irq in the suspend function to check that 
-it wasn't being done too late, and it didn't fail, so possibly it is the core 
-suspension that makes it start failing until it is brought back up properly.
+e.g.
+Recv packet-A from NW and set to FIFO.
+  |A|
 
-Cheers
-James
+Recv packet-B from NW and set to FIFO.
+  |A|B|
+
+Recv packet-C is about to set to FIFO
+  |A|B|(C)|
+
+Userspace Copies A from Driver
+Userspace Copies B from Driver
+  |   |   |(C)|
+
+packet-C set to FIFO (C is not head.)
+Recv packet-D from NW(Next packet is set to head)
+  |D|   |C|
+
+Userspace Copies D from Driver
+Userspace Copies C from Driver
+Userspace raceived packet order is like below
+A-B-D-C
+
+So, I think normal-mode is better than FIFO-mode.
+
+I will revert like the following spec.
+  Rx 1 Message Object
+  Tx 1 Message Object
+
+Could you agree the above ?
+
+Thanks, Ohtake(OKISemi)
+----- Original Message ----- 
+From: "Wolfgang Grandegger" <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+To: "David Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Cc: <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>; <andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>; <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>; <margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>;
+<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>; <yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>; <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>; <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>;
+<mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>; <chripell-VaTbYqLCNhc@public.gmane.org>; <morinaga526-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>; <meego-dev-WXzIur8shnEAvxtiuMwx3w@public.gmane.org>;
+<kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>; <joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>; <qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Sent: Wednesday, October 06, 2010 6:12 PM
+Subject: Re: [MeeGo-Dev][PATCH v3] Topcliff: Update PCH_CAN driver to 2.6.35
+
+
+> On 10/06/2010 05:09 AM, David Miller wrote:
+> > From: "Masayuki Ohtake" <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+> > Date: Wed, 6 Oct 2010 12:07:15 +0900
+> >
+> >> Does your mail mean, for accepting upstream, NAPI is essential for
+> >> CAN driver ?
+> >
+> > It is up to the CAN maintainers :-)
+>
+> Well, our SJA1000 reference driver does still not use NAPI. But NAPI is
+> for CAN especially useful to avoid the infamous *bus error irq
+> flooding*, which may hang low end systems if the interrupts are handled
+> in the IRQ context. Ohtake, if your system can handle well such CAN bus
+> error irq storms at 1MB/s, then NAPI is *not* a must to have. Anyway, as
+> you are at it, I also suggest to use NAPI right from the beginning.
+>
+> Wolfgang.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
