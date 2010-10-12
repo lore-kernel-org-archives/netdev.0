@@ -1,195 +1,155 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net:  allocate skbs on local node
-Date: Tue, 12 Oct 2010 07:05:25 +0200
-Message-ID: <1286859925.30423.184.camel@edumazet-laptop>
-References: <1286838210.30423.128.camel@edumazet-laptop>
-	 <1286839363.30423.130.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>, Michael Chan <mchan@broadcom.com>,
-	Eilon Greenstein <eilong@broadcom.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Christoph Hellwig <hch@lst.de>,
-	Christoph Lameter <cl@linux-foundation.org>
-To: David Miller <davem@davemloft.net>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 1/6] dccp: fix the adjustments to AWL and SWL
+Date: Tue, 12 Oct 2010 07:15:46 +0200
+Message-ID: <1286860551-6809-2-git-send-email-gerrit@erg.abdn.ac.uk>
+References: <dccp_misc_fixes_and_helper_functions___a_set_of_six_patches_sent_today>
+ <1286860551-6809-1-git-send-email-gerrit@erg.abdn.ac.uk>
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
+	Gerrit Renker <gerrit@erg.abdn.ac.uk>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:60901 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750999Ab0JLFFr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Oct 2010 01:05:47 -0400
-Received: by wwj40 with SMTP id 40so4570403wwj.1
-        for <netdev@vger.kernel.org>; Mon, 11 Oct 2010 22:05:46 -0700 (PDT)
-In-Reply-To: <1286839363.30423.130.camel@edumazet-laptop>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:43506 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752134Ab0JLFQI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Oct 2010 01:16:08 -0400
+In-Reply-To: <1286860551-6809-1-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 12 octobre 2010 =C3=A0 01:22 +0200, Eric Dumazet a =C3=A9crit =
-:
-> Le mardi 12 octobre 2010 =C3=A0 01:03 +0200, Eric Dumazet a =C3=A9cri=
-t :
-> >=20
-> > For multi queue devices, it makes more sense to allocate skb on loc=
-al
-> > node of the cpu handling RX interrupts. This allow each cpu to
-> > manipulate its own slub/slab queues/structures without doing expens=
-ive
-> > cross-node business.
-> >=20
-> > For non multi queue devices, IRQ affinity should be set so that a c=
-pu
-> > close to the device services interrupts. Even if not set, using
-> > dev_alloc_skb() is faster.
-> >=20
-> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
->=20
-> Or maybe revert :
->=20
-> commit b30973f877fea1a3fb84e05599890fcc082a88e5
-> Author: Christoph Hellwig <hch@lst.de>
-> Date:   Wed Dec 6 20:32:36 2006 -0800
->=20
->     [PATCH] node-aware skb allocation
->    =20
->     Node-aware allocation of skbs for the receive path.
->    =20
->     Details:
->    =20
->       - __alloc_skb gets a new node argument and cals the node-aware
->         slab functions with it.
->       - netdev_alloc_skb passed the node number it gets from dev_to_n=
-ode
->         to it, everyone else passes -1 (any node)
->    =20
->     Signed-off-by: Christoph Hellwig <hch@lst.de>
->     Cc: Christoph Lameter <clameter@engr.sgi.com>
->     Cc: "David S. Miller" <davem@davemloft.net>
->     Signed-off-by: Andrew Morton <akpm@osdl.org>
->=20
->=20
-> Apparently, only Christoph and Andrew signed it.
->=20
->=20
+This fixes a problem and a potential loophole with regard to seqno/ackno
+validity: currently the initial adjustments to AWL/SWL are only performed
+once at the begin of the connection, during the handshake.
 
-[PATCH net-next] net: allocate skbs on local node
+Since the Sequence Window feature is always greater than Wmin=32 (7.5.2),
+it is however necessary to perform these adjustments at least for the first
+W/W' (variables as per 7.5.1) packets in the lifetime of a connection.
 
-commit b30973f877 (node-aware skb allocation) spread a wrong habit of
-allocating net drivers skbs on a given memory node : The one closest to
-the NIC hardware. This is wrong because as soon as we try to scale
-network stack, we need to use many cpus to handle traffic and hit
-slub/slab management on cross-node allocations/frees when these cpus
-have to alloc/free skbs bound to a central node.
+This requirement is complicated by the fact that W/W' can change at any time
+during the lifetime of a connection.
 
-skb allocated in RX path are ephemeral, they have a very short
-lifetime : Extra cost to maintain NUMA affinity is too expensive. What
-appeared as a nice idea four years ago is in fact a bad one.
+Therefore it is better to perform that safety check each time SWL/AWL are
+updated, as implemented by the patch.
 
-In 2010, NIC hardwares are multiqueue, or we use RPS to spread the load=
-,
-and two 10Gb NIC might deliver more than 28 million packets per second,
-needing all the available cpus.
+A second problem solved by this patch is that the remote/local Sequence Window
+feature values (which set the bounds for AWL/SWL/SWH) are undefined until the
+feature negotiation has completed.
 
-Cost of cross-node handling in network and vm stacks outperforms the
-small benefit hardware had when doing its DMA transfert in its 'local'
-memory node at RX time. Even trying to differentiate the two allocation=
-s
-done for one skb (the sk_buff on local node, the data part on NIC
-hardware node) is not enough to bring good performance.
+During the initial handshake we have more stringent sequence number protection;
+the changes added by this patch effect that {A,S}W{L,H} are within the correct
+bounds at the instant that feature negotiation completes (since the SeqWin
+feature activation handlers call dccp_update_gsr/gss()).
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- include/linux/skbuff.h |   20 ++++++++++++++++----
- net/core/skbuff.c      |   13 +------------
- 2 files changed, 17 insertions(+), 16 deletions(-)
+ net/dccp/dccp.h      |   20 ++++++++++++++++++++
+ net/dccp/input.c     |   18 ++++++------------
+ net/dccp/minisocks.c |   30 +++++++++---------------------
+ 3 files changed, 35 insertions(+), 33 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 0b53c43..05a358f 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -496,13 +496,13 @@ extern struct sk_buff *__alloc_skb(unsigned int s=
-ize,
- static inline struct sk_buff *alloc_skb(unsigned int size,
- 					gfp_t priority)
- {
--	return __alloc_skb(size, priority, 0, -1);
-+	return __alloc_skb(size, priority, 0, NUMA_NO_NODE);
+--- a/net/dccp/dccp.h
++++ b/net/dccp/dccp.h
+@@ -414,6 +414,23 @@ static inline void dccp_update_gsr(struct sock *sk, u64 seq)
+ 	dp->dccps_gsr = seq;
+ 	/* Sequence validity window depends on remote Sequence Window (7.5.1) */
+ 	dp->dccps_swl = SUB48(ADD48(dp->dccps_gsr, 1), dp->dccps_r_seq_win / 4);
++	/*
++	 * Adjust SWL so that it is not below ISR. In contrast to RFC 4340,
++	 * 7.5.1 we perform this check beyond the initial handshake: W/W' are
++	 * always > 32, so for the first W/W' packets in the lifetime of a
++	 * connection we always have to adjust SWL.
++	 * A second reason why we are doing this is that the window depends on
++	 * the feature-remote value of Sequence Window: nothing stops the peer
++	 * from updating this value while we are busy adjusting SWL for the
++	 * first W packets (we would have to count from scratch again then).
++	 * Therefore it is safer to always make sure that the Sequence Window
++	 * is not artificially extended by a peer who grows SWL downwards by
++	 * continually updating the feature-remote Sequence-Window.
++	 * If sequence numbers wrap it is bad luck. But that will take a while
++	 * (48 bit), and this measure prevents Sequence-number attacks.
++	 */
++	if (before48(dp->dccps_swl, dp->dccps_isr))
++		dp->dccps_swl = dp->dccps_isr;
+ 	dp->dccps_swh = ADD48(dp->dccps_gsr, (3 * dp->dccps_r_seq_win) / 4);
  }
-=20
- static inline struct sk_buff *alloc_skb_fclone(unsigned int size,
- 					       gfp_t priority)
- {
--	return __alloc_skb(size, priority, 1, -1);
-+	return __alloc_skb(size, priority, 1, NUMA_NO_NODE);
+ 
+@@ -424,6 +441,9 @@ static inline void dccp_update_gss(struct sock *sk, u64 seq)
+ 	dp->dccps_gss = seq;
+ 	/* Ack validity window depends on local Sequence Window value (7.5.1) */
+ 	dp->dccps_awl = SUB48(ADD48(dp->dccps_gss, 1), dp->dccps_l_seq_win);
++	/* Adjust AWL so that it is not below ISS - see comment above for SWL */
++	if (before48(dp->dccps_awl, dp->dccps_iss))
++		dp->dccps_awl = dp->dccps_iss;
+ 	dp->dccps_awh = dp->dccps_gss;
  }
-=20
- extern bool skb_recycle_check(struct sk_buff *skb, int skb_size);
-@@ -1563,13 +1563,25 @@ static inline struct sk_buff *netdev_alloc_skb_=
-ip_align(struct net_device *dev,
- 	return skb;
- }
-=20
--extern struct page *__netdev_alloc_page(struct net_device *dev, gfp_t =
-gfp_mask);
-+/**
-+ *	__netdev_alloc_page - allocate a page for ps-rx on a specific devic=
-e
-+ *	@dev: network device to receive on
-+ *	@gfp_mask: alloc_pages_node mask
-+ *
-+ * 	Allocate a new page. dev currently unused.
-+ *
-+ * 	%NULL is returned if there is no free memory.
-+ */
-+static inline struct page *__netdev_alloc_page(struct net_device *dev,=
- gfp_t gfp_mask)
-+{
-+	return alloc_pages_node(NUMA_NO_NODE, gfp_mask, 0);
-+}
-=20
- /**
-  *	netdev_alloc_page - allocate a page for ps-rx on a specific device
-  *	@dev: network device to receive on
-  *
-- * 	Allocate a new page node local to the specified device.
-+ * 	Allocate a new page. dev currently unused.
-  *
-  * 	%NULL is returned if there is no free memory.
-  */
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 752c197..4e8b82e 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -247,10 +247,9 @@ EXPORT_SYMBOL(__alloc_skb);
- struct sk_buff *__netdev_alloc_skb(struct net_device *dev,
- 		unsigned int length, gfp_t gfp_mask)
- {
--	int node =3D dev->dev.parent ? dev_to_node(dev->dev.parent) : -1;
- 	struct sk_buff *skb;
-=20
--	skb =3D __alloc_skb(length + NET_SKB_PAD, gfp_mask, 0, node);
-+	skb =3D __alloc_skb(length + NET_SKB_PAD, gfp_mask, 0, NUMA_NO_NODE);
- 	if (likely(skb)) {
- 		skb_reserve(skb, NET_SKB_PAD);
- 		skb->dev =3D dev;
-@@ -259,16 +258,6 @@ struct sk_buff *__netdev_alloc_skb(struct net_devi=
-ce *dev,
- }
- EXPORT_SYMBOL(__netdev_alloc_skb);
-=20
--struct page *__netdev_alloc_page(struct net_device *dev, gfp_t gfp_mas=
-k)
--{
--	int node =3D dev->dev.parent ? dev_to_node(dev->dev.parent) : -1;
--	struct page *page;
+ 
+--- a/net/dccp/input.c
++++ b/net/dccp/input.c
+@@ -441,20 +441,14 @@ static int dccp_rcv_request_sent_state_process(struct sock *sk,
+ 		kfree_skb(sk->sk_send_head);
+ 		sk->sk_send_head = NULL;
+ 
+-		dp->dccps_isr = DCCP_SKB_CB(skb)->dccpd_seq;
+-		dccp_update_gsr(sk, dp->dccps_isr);
+ 		/*
+-		 * SWL and AWL are initially adjusted so that they are not less than
+-		 * the initial Sequence Numbers received and sent, respectively:
+-		 *	SWL := max(GSR + 1 - floor(W/4), ISR),
+-		 *	AWL := max(GSS - W' + 1, ISS).
+-		 * These adjustments MUST be applied only at the beginning of the
+-		 * connection.
+-		 *
+-		 * AWL was adjusted in dccp_v4_connect -acme
++		 * Set ISR, GSR from packet. ISS was set in dccp_v{4,6}_connect
++		 * and GSS in dccp_transmit_skb(). Setting AWL/AWH and SWL/SWH
++		 * is done as part of activating the feature values below, since
++		 * these settings depend on the local/remote Sequence Window
++		 * features, which were undefined or not confirmed until now.
+ 		 */
+-		dccp_set_seqno(&dp->dccps_swl,
+-			       max48(dp->dccps_swl, dp->dccps_isr));
++		dp->dccps_gsr = dp->dccps_isr = DCCP_SKB_CB(skb)->dccpd_seq;
+ 
+ 		dccp_sync_mss(sk, icsk->icsk_pmtu_cookie);
+ 
+--- a/net/dccp/minisocks.c
++++ b/net/dccp/minisocks.c
+@@ -121,30 +121,18 @@ struct sock *dccp_create_openreq_child(struct sock *sk,
+ 		 *
+ 		 *    Choose S.ISS (initial seqno) or set from Init Cookies
+ 		 *    Initialize S.GAR := S.ISS
+-		 *    Set S.ISR, S.GSR, S.SWL, S.SWH from packet or Init Cookies
+-		 */
+-		newdp->dccps_gar = newdp->dccps_iss = dreq->dreq_iss;
+-		dccp_update_gss(newsk, dreq->dreq_iss);
 -
--	page =3D alloc_pages_node(node, gfp_mask, 0);
--	return page;
--}
--EXPORT_SYMBOL(__netdev_alloc_page);
+-		newdp->dccps_isr = dreq->dreq_isr;
+-		dccp_update_gsr(newsk, dreq->dreq_isr);
 -
- void skb_add_rx_frag(struct sk_buff *skb, int i, struct page *page, in=
-t off,
- 		int size)
- {
-
-
+-		/*
+-		 * SWL and AWL are initially adjusted so that they are not less than
+-		 * the initial Sequence Numbers received and sent, respectively:
+-		 *	SWL := max(GSR + 1 - floor(W/4), ISR),
+-		 *	AWL := max(GSS - W' + 1, ISS).
+-		 * These adjustments MUST be applied only at the beginning of the
+-		 * connection.
++		 *    Set S.ISR, S.GSR from packet (or Init Cookies)
++		 *
++		 *    Setting AWL/AWH and SWL/SWH happens as part of the feature
++		 *    activation below, as these windows all depend on the local
++		 *    and remote Sequence Window feature values (7.5.2).
+ 		 */
+-		dccp_set_seqno(&newdp->dccps_swl,
+-			       max48(newdp->dccps_swl, newdp->dccps_isr));
+-		dccp_set_seqno(&newdp->dccps_awl,
+-			       max48(newdp->dccps_awl, newdp->dccps_iss));
++		newdp->dccps_gss = newdp->dccps_iss = dreq->dreq_iss;
++		newdp->dccps_gar = newdp->dccps_iss;
++		newdp->dccps_gsr = newdp->dccps_isr = dreq->dreq_isr;
+ 
+ 		/*
+-		 * Activate features after initialising the sequence numbers,
+-		 * since CCID initialisation may depend on GSS, ISR, ISS etc.
++		 * Activate features: initialise CCIDs, sequence windows etc.
+ 		 */
+ 		if (dccp_feat_activate_values(newsk, &dreq->dreq_featneg)) {
+ 			/* It is still raw copy of parent, so invalidate
