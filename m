@@ -1,92 +1,37 @@
-From: "Vladislav Zolotarov" <vladz@broadcom.com>
-Subject: RE: [BUG net-next] bnx2x: all traffic comes to RX queue 0
-Date: Tue, 12 Oct 2010 11:18:23 -0700
-Message-ID: <8628FE4E7912BF47A96AE7DD7BAC0AADDDEE42838F@SJEXCHCCR02.corp.ad.broadcom.com>
-References: <1286838210.30423.128.camel@edumazet-laptop>
- <1286899657.2732.93.camel@edumazet-laptop>
- <2DFD360E328B3941911E6D28B085D990129FC2028B@SJEXCHCCR01.corp.ad.broadcom.com>
- <1286907103.2703.6.camel@edumazet-laptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: net-next-2.6 [PATCH 0/6] dccp: miscellaneous fixes and helper
+ functions
+Date: Tue, 12 Oct 2010 11:45:48 -0700 (PDT)
+Message-ID: <20101012.114548.189717363.davem@davemloft.net>
+References: <dccp_misc_fixes_and_helper_functions___a_set_of_six_patches_sent_today>
+	<1286860551-6809-1-git-send-email-gerrit@erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: netdev <netdev@vger.kernel.org>,
-	"Michael Chan" <mchan@broadcom.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>,
-	"David Miller" <davem@davemloft.net>,
-	"Yaniv Rosner" <yaniv.rosner@broadcom.com>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>,
-	"Dmitry Kravkov" <dmitry@broadcom.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: gerrit@erg.abdn.ac.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4511 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753527Ab0JLSSd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Oct 2010 14:18:33 -0400
-In-Reply-To: <1286907103.2703.6.camel@edumazet-laptop>
-Content-Language: en-US
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38805
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757362Ab0JLSp0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Oct 2010 14:45:26 -0400
+In-Reply-To: <1286860551-6809-1-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-VGhhbmtzLCBFcmljLiBEaW1hIGhhcyBhbHJlYWR5IGZvdW5kIGEgcHJvYmxlbSBhbmQgd2UgYXJl
-IHJ1bm5pbmcgDQphIHJlZ3Jlc3Npb24gdG8gdmVyaWZ5IG5vdGhpbmcgZWxzZSBpcyBicm9rZW4g
-YWZ0ZXIgdGhlIFJTUyBpcyANCmJyb3VnaHQgYmFjayB0byBsaWZlLg0KDQpJZiBub3RoaW5nIGdv
-ZXMgd3JvbmcgRGltYSB3aWxsIHNlbmQgYSBwYXRjaCBpbiBhbiBob3VyIG9yIHNvLi4uDQoNClRo
-YW5rcyBhZ2FpbiBmb3IgdGhlIGNhdGNoLg0KdmxhZA0KDQo+IC0tLS0tT3JpZ2luYWwgTWVzc2Fn
-ZS0tLS0tDQo+IEZyb206IG5ldGRldi1vd25lckB2Z2VyLmtlcm5lbC5vcmcgW21haWx0bzpuZXRk
-ZXYtDQo+IG93bmVyQHZnZXIua2VybmVsLm9yZ10gT24gQmVoYWxmIE9mIEVyaWMgRHVtYXpldA0K
-PiBTZW50OiBUdWVzZGF5LCBPY3RvYmVyIDEyLCAyMDEwIDg6MTIgUE0NCj4gVG86IERtaXRyeSBL
-cmF2a292DQo+IENjOiBuZXRkZXY7IE1pY2hhZWwgQ2hhbjsgRWlsb24gR3JlZW5zdGVpbjsgRGF2
-aWQgTWlsbGVyOyBWbGFkaXNsYXYNCj4gWm9sb3Rhcm92OyBZYW5pdiBSb3NuZXINCj4gU3ViamVj
-dDogUkU6IFtCVUcgbmV0LW5leHRdIGJueDJ4OiBhbGwgdHJhZmZpYyBjb21lcyB0byBSWCBxdWV1
-ZSAwDQo+IA0KPiBMZSBtYXJkaSAxMiBvY3RvYnJlIDIwMTAgw6AgMDk6MjAgLTA3MDAsIERtaXRy
-eSBLcmF2a292IGEgw6ljcml0IDoNCj4gPiBFcmljLA0KPiA+DQo+ID4gSSB3aWxsIHRha2UgYSBs
-b29rDQo+ID4NCj4gDQo+IFRoYW5rcyAhIEhlcmUgaXMgdGhlIGJpc2VjdGlvbiByZXN1bHQNCj4g
-DQo+ICMgZ2l0IGJpc2VjdCBiYWQNCj4gNTIzMjI0YTNiM2NkNDA3Y2U0ZTY3MzFhMDg3MTk0ZTEz
-YTkwZGIxOCBpcyB0aGUgZmlyc3QgYmFkIGNvbW1pdA0KPiBjb21taXQgNTIzMjI0YTNiM2NkNDA3
-Y2U0ZTY3MzFhMDg3MTk0ZTEzYTkwZGIxOA0KPiBBdXRob3I6IERtaXRyeSBLcmF2a292IDxkbWl0
-cnlAYnJvYWRjb20uY29tPg0KPiBEYXRlOiAgIFdlZCBPY3QgNiAwMzoyMzoyNiAyMDEwICswMDAw
-DQo+IA0KPiAgICAgYm54MngsIGNuaWMsIGJueDJpOiB1c2UgbmV3IEZXL0hTSQ0KPiANCj4gICAg
-IFRoaXMgaXMgdGhlIG5ldyBGVyBIU0kgYmxvYiBhbmQgdGhlIHJlbGV2YW50IGRlZmluaXRpb25z
-IHdpdGhvdXQNCj4gbG9naWMgY2hhbmdlcy4NCj4gICAgIEl0IGFsc28gaW5jbHVkZWQgY29kZSBh
-ZGFwdGF0aW9uIGZvciBuZXcgSFNJLiBOZXcgZmVhdHVyZXMgYXJlIG5vdA0KPiBlbmFibGVkLg0K
-PiANCj4gICAgIE5ldyBGVy9IU0kgaW5jbHVkZXM6DQo+ICAgICAtIFN1cHBvcnQgZm9yIDU3NzEy
-IEhXDQo+ICAgICAtIEZ1dHVyZSBzdXBwb3J0IGZvciBWRiAobm90IHVzZWQpDQo+ICAgICAtIElt
-cHJvdmVtZW50cyBpbiBGVyBpbnRlcnJ1cHRzIHNjaGVtZQ0KPiAgICAgLSBGVyBGQ29FIGhvb2tz
-IChzdHVicyBmb3IgZnV0dXJlIHVzYWdlKQ0KPiANCj4gICAgIFNpZ25lZC1vZmYtYnk6IERtaXRy
-eSBLcmF2a292IDxkbWl0cnlAYnJvYWRjb20uY29tPg0KPiAgICAgU2lnbmVkLW9mZi1ieTogTWlj
-aGFlbCBDaGFuIDxtY2hhbkBicm9hZGNvbS5jb20+DQo+ICAgICBTaWduZWQtb2ZmLWJ5OiBFaWxv
-biBHcmVlbnN0ZWluIDxlaWxvbmdAYnJvYWRjb20uY29tPg0KPiAgICAgU2lnbmVkLW9mZi1ieTog
-RGF2aWQgUy4gTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KPiANCj4gOjA0MDAwMCAwNDAw
-MDAgODkzMWE3NDhhZTg5NDg3NDY2ZDk5ZTYxMjFhMzk2NTEzMWUzYTIwMQ0KPiBmZWQyYmU0OTU2
-NWNhMjkxMjAzYTg2NTU1NGEwZTA3MWEyYTljM2ZiIE0JZHJpdmVycw0KPiA6MDQwMDAwIDA0MDAw
-MCAyZmY2YTVjMjkwY2E3ZTlkYzMzOWI3MjEzZjQ5YzM0MWY0ZmM1ODIyDQo+IDgyYzBhNzExN2I1
-OGY1MzhhOGI0OTg5MWM1NTI0ZTM1MzdjNWFlNjYgTQlmaXJtd2FyZQ0KPiANCj4gDQo+ICMgZ2l0
-IGJpc2VjdCBsb2cNCj4gZ2l0IGJpc2VjdCBzdGFydCAnLS0nICdkcml2ZXJzL25ldC9ibngyeCcN
-Cj4gIyBiYWQ6IFtiOWU5YjE1OTY2ZTM1ZjNiNGE4ZDM4MjBjYWM0NjA1MDU1NTJmNzJjXSBNZXJn
-ZSBicmFuY2ggJ21hc3RlcicNCj4gb2YgZ2l0Oi8vZ2l0Lmtlcm5lbC5vcmcvcHViL3NjbS9saW51
-eC9rZXJuZWwvZ2l0L2RhdmVtL25ldC1uZXh0LTIuNg0KPiBnaXQgYmlzZWN0IGJhZCBiOWU5YjE1
-OTY2ZTM1ZjNiNGE4ZDM4MjBjYWM0NjA1MDU1NTJmNzJjDQo+ICMgZ29vZDogWzlmZTYyMDZmNDAw
-NjQ2YTIzMjIwOTZiNTZjNTk4OTFkNTMwZThkNTFdIExpbnV4IDIuNi4zNQ0KPiBnaXQgYmlzZWN0
-IGdvb2QgOWZlNjIwNmY0MDA2NDZhMjMyMjA5NmI1NmM1OTg5MWQ1MzBlOGQ1MQ0KPiAjIGdvb2Q6
-IFtiNzczN2M5YmU5ZDNlODk0ZDFhNDM3NWM1MmY1ZjQ3Nzg5NDc1ZjI2XSBibngyeDogU3BsaXQg
-UEhZDQo+IGZ1bmN0aW9ucw0KPiBnaXQgYmlzZWN0IGdvb2QgYjc3MzdjOWJlOWQzZTg5NGQxYTQz
-NzVjNTJmNWY0Nzc4OTQ3NWYyNg0KPiAjIGdvb2Q6IFs4NjgxZGMzYWJkNTRlODQ1YTJlZmZhYjQ0
-MTkyMWI0YzQ0NTdjMjQxXSBibngyeDogTW92ZWQNCj4gZW5hYmxpbmcgb2YgTVNJIHRvIHRoZSBi
-bngyeF9zZXRfbnVtX3F1ZXVlcygpDQo+IGdpdCBiaXNlY3QgZ29vZCA4NjgxZGMzYWJkNTRlODQ1
-YTJlZmZhYjQ0MTkyMWI0YzQ0NTdjMjQxDQo+ICMgYmFkOiBbYzUxOGNkMWM3YWNhMmUyYTY1ZWRj
-ZjRmYTVjZTQxNjBkNTk4NzhjMl0gYm54Mng6IHJlbW92ZSB1bnVzZWQNCj4gZmllbGRzIGluIG1h
-aW4gZHJpdmVyIHN0cnVjdHVyZQ0KPiBnaXQgYmlzZWN0IGJhZCBjNTE4Y2QxYzdhY2EyZTJhNjVl
-ZGNmNGZhNWNlNDE2MGQ1OTg3OGMyDQo+ICMgYmFkOiBbZmIzYmZmMTc4ZTcyMmZlODhiNWFiMDIz
-MTljOTYzNmRhMDk4MGUyNV0gYm54Mng6IHJlbmFtZSBNRg0KPiByZWxhdGVkIGZpZWxkcw0KPiBn
-aXQgYmlzZWN0IGJhZCBmYjNiZmYxNzhlNzIyZmU4OGI1YWIwMjMxOWM5NjM2ZGEwOTgwZTI1DQo+
-ICMgZ29vZDogWzU2MDEzMWYzMTNlYTliOTQzOTc0MjEzODI4OWI2ZjY4ZDYxNTMxZWNdIGJueDJ4
-OiBjcmVhdGUgZm9sZGVyDQo+IGZvciBibngyeCBmaXJtd2FyZSBmaWxlcw0KPiBnaXQgYmlzZWN0
-IGdvb2QgNTYwMTMxZjMxM2VhOWI5NDM5NzQyMTM4Mjg5YjZmNjhkNjE1MzFlYw0KPiAjIGJhZDog
-WzUyMzIyNGEzYjNjZDQwN2NlNGU2NzMxYTA4NzE5NGUxM2E5MGRiMThdIGJueDJ4LCBjbmljLCBi
-bngyaToNCj4gdXNlIG5ldyBGVy9IU0kNCj4gZ2l0IGJpc2VjdCBiYWQgNTIzMjI0YTNiM2NkNDA3
-Y2U0ZTY3MzFhMDg3MTk0ZTEzYTkwZGIxOA0KPiANCj4gDQo+IC0tDQo+IFRvIHVuc3Vic2NyaWJl
-IGZyb20gdGhpcyBsaXN0OiBzZW5kIHRoZSBsaW5lICJ1bnN1YnNjcmliZSBuZXRkZXYiIGluDQo+
-IHRoZSBib2R5IG9mIGEgbWVzc2FnZSB0byBtYWpvcmRvbW9Admdlci5rZXJuZWwub3JnDQo+IE1v
-cmUgbWFqb3Jkb21vIGluZm8gYXQgIGh0dHA6Ly92Z2VyLmtlcm5lbC5vcmcvbWFqb3Jkb21vLWlu
-Zm8uaHRtbA0KDQo=
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Date: Tue, 12 Oct 2010 07:15:45 +0200
 
+>  Patch #1: fixes two problems in the DCCP  (AWL/SWL) window-size adjustment.
+>  Patch #2: refactors the connect_init() function by combining related code.
+>  Patch #3: removes an never-user argument from the CCID tx function.
+>  Patch #4: provides a function to generalize the data-loss condition 
+>            (patch originally came from the ccid-4 subtree).
+>  Patch #5: schedules an Ack as carrier for a pending timestamp echo.
+>  Patch #6: tidies up the format of DCCP per-connection warnings.
+> 
+> The set has also been placed into a fresh (today's) copy of net-next-2.6, on
+> 
+>     git://eden-feed.erg.abdn.ac.uk/net-next-2.6        [subtree 'dccp']
+
+Looks good, pulled, thanks!
