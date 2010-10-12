@@ -1,31 +1,54 @@
 From: nhorman@tuxdriver.com
-Subject: [PATCH] bonding: various fixes for bonding, netpoll & netconsole
-Date: Tue, 12 Oct 2010 17:55:47 -0400
-Message-ID: <1286920552-2173-1-git-send-email-nhorman@tuxdriver.com>
+Subject: [PATCH 4/5] Fix netconsole to not deadlock on rmmod
+Date: Tue, 12 Oct 2010 17:55:51 -0400
+Message-ID: <1286920552-2173-5-git-send-email-nhorman@tuxdriver.com>
+References: <1286920552-2173-1-git-send-email-nhorman@tuxdriver.com>
 Cc: bonding-devel@lists.sourceforge.net, fubar@us.ibm.com,
 	davem@davemloft.net, andy@greyhouse.net, amwang@redhat.com,
 	nhorman@tuxdriver.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:56558 "EHLO
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:56603 "EHLO
 	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751390Ab0JLV4G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Oct 2010 17:56:06 -0400
+	with ESMTP id S1751485Ab0JLV4Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Oct 2010 17:56:16 -0400
+In-Reply-To: <1286920552-2173-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Grr, really sorry guys, 3rd times the charm.  netdev greylisted this and several
-others pitched it because of a bad mail header.  I'm resending through tuxdriver
-like I should have done before
+From: Neil Horman <nhorman@tuxdriver.com>
 
-A while ago we tried to enable netpoll on the bonding driver to enable
-netconsole.  That worked well in a steady state, but deadlocked frequently in
-failover conditions due to some recursive lock-taking (as well as a few other
-problems).  I've gone through the driver, netconsole and netpoll code, fixed up
-those deadlocks, and confirmed that, with this patch series, we can use
-netconsole on bonding without deadlock in all bonding modes with all slaves,
-even accross failovers.  I've also fixed up some incidental bugs that I ran
-across while looking through this code, as described in individual patches
+Netconsole calls netpoll_cleanup on receipt of a NETDEVICE_UNREGISTER event.
+The notifier subsystem calls these event handlers with rtnl_lock held, which
+netpoll_cleanup also takes, resulting in deadlock.  Fix this by calling the
+__netpoll_cleanup interior function instead, and fixing up the additional
+pointers.
 
 Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+---
+ drivers/net/netconsole.c |    9 ++++++++-
+ 1 files changed, 8 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
+index ca142c4..94255f0 100644
+--- a/drivers/net/netconsole.c
++++ b/drivers/net/netconsole.c
+@@ -678,7 +678,14 @@ static int netconsole_netdev_event(struct notifier_block *this,
+ 				strlcpy(nt->np.dev_name, dev->name, IFNAMSIZ);
+ 				break;
+ 			case NETDEV_UNREGISTER:
+-				netpoll_cleanup(&nt->np);
++				/*
++				 * rtnl_lock already held
++				 */
++				if (nt->np.dev) {
++					__netpoll_cleanup(&nt->np);
++					dev_put(nt->np.dev);
++					nt->np.dev = NULL;
++				}
+ 				/* Fall through */
+ 			case NETDEV_GOING_DOWN:
+ 			case NETDEV_BONDING_DESLAVE:
+-- 
+1.7.2.3
 
