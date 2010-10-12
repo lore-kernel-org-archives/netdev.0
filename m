@@ -1,67 +1,89 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH net-next] net:  allocate skbs on local node
-Date: Tue, 12 Oct 2010 00:58:56 -0700
-Message-ID: <20101012005856.994bea6d.akpm@linux-foundation.org>
-References: <1286838210.30423.128.camel@edumazet-laptop>
-	<1286839363.30423.130.camel@edumazet-laptop>
-	<1286859925.30423.184.camel@edumazet-laptop>
-	<20101011230322.f0f6dd47.akpm@linux-foundation.org>
-	<1286866699.30423.234.camel@edumazet-laptop>
-	<20101012002435.f51f2c0e.akpm@linux-foundation.org>
-	<1286869793.2732.24.camel@edumazet-laptop>
+From: James Hogan <james@albanarts.com>
+Subject: Re: [PATCH] b44: fix resume, request_irq after hw reset
+Date: Tue, 12 Oct 2010 09:40:20 +0100
+Message-ID: <AANLkTimdasN2xF71DbueQyv0sWNQicu79==VfuW6BTKM@mail.gmail.com>
+References: <201010120022.13171.james@albanarts.com>
+	<20101011163440.072e0227.akpm@linux-foundation.org>
+	<201010120808.05713.james@albanarts.com>
+	<20101012002715.fd0e3371.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Michael Chan <mchan@broadcom.com>,
-	Eilon Greenstein <eilong@broadcom.com>,
-	Christoph Hellwig <hch@lst.de>,
-	Christoph Lameter <cl@linux-foundation.org>,
-	Pekka Enberg <penberg@cs.helsinki.fi>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:51567 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756709Ab0JLH6Z convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Oct 2010 03:58:25 -0400
-In-Reply-To: <1286869793.2732.24.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Gary Zambrano <zambrano@broadcom.com>,
+	Jiri Pirko <jpirko@redhat.com>,
+	FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>,
+	Hauke Mehrtens <hauke@hauke-m.de>,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20101012002715.fd0e3371.akpm@linux-foundation.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 12 Oct 2010 09:49:53 +0200 Eric Dumazet <eric.dumazet@gmail.com=
-> wrote:
+On 12 October 2010 08:27, Andrew Morton <akpm@linux-foundation.org> wro=
+te:
+> On Tue, 12 Oct 2010 08:08:05 +0100 James Hogan <james@albanarts.com> =
+wrote:
+>
+>> > > @@ -2309,6 +2303,12 @@ static int b44_resume(struct ssb_device *=
+sdev)
+>> > >
+>> > > =A0 netif_device_attach(bp->dev);
+>> > > =A0 spin_unlock_irq(&bp->lock);
+>> > >
+>> > > + rc =3D request_irq(dev->irq, b44_interrupt, IRQF_SHARED, dev->=
+name,
+>> dev);
+>> > > + if (rc) {
+>> > > + =A0 =A0 =A0 =A0 netdev_err(dev, "request_irq failed\n");
+>> > > + =A0 =A0 =A0 =A0 return rc;
+>> > > + }
+>> > > +
+>> > >
+>> > > =A0 b44_enable_ints(bp);
+>> > > =A0 netif_wake_queue(dev);
+>> >
+>> > OK, running the interrupt handler before b44_init_hw() is presumab=
+ly
+>> > the problem here.
+>> >
+>> > The hardware surely won't be generating interrupts until we've run
+>> > b44_init_hw() and b44_enable_ints(), so this patch really is only =
+to
+>> > keep CONFIG_DEBUG_SHIRQ happy.
+>>
+>> For me it's mainly to keep CONFIG_DEBUG_SHIRQ happy (Fedora has this=
+ switched
+>> on), but since it's a shared IRQ, there is still a chance it could b=
+e
+>> called before enabling it's own interrupts by a different device on =
+the same
+>> IRQ.
+>
+> ooh, yes, you're right, I forgot about that. =A0It's indeed a bug.
+>
+>> It makes sense to me why it's disabling the IRQ now, in case another=
+ device
+>> triggers it when it cannot handle it safely.
+>
+> What code are you referring to here? =A0There's no disable_irq() in t=
+hat area?
 
-> Le mardi 12 octobre 2010 =E0 00:24 -0700, Andrew Morton a =E9crit :
->=20
-> > I'd love to forget it, but it's faster for some things (I forget
-> > which).  Which is why it's still around.
->=20
-> Yes, two years ago it was true on pathological/obscure cases.
-> Every time I did the comparison, SLUB won.
-> You asked me, I did yet another test this morning, and 40% is pretty
-> serious, I believe.
->=20
-> >=20
-> > And the ghastly thing about this is that you're forced to care abou=
-t it
-> > too because some people are, apparently, still using it.
-> >=20
->=20
-> Yes, some people (in my company) still use linux 2.6.9 32bit on HP G6=
-/G7
-> machines, I know...
->=20
-> I am not saying we should not care, but for any serious network workl=
-oad
-> on NUMA arches, SLUB is the best, and seeing Christoph recent work, i=
-t
-> might even get better.
->=20
-> BTW, I believe all modern distros ship SLUB, dont they ?
->=20
+Sorry, I meant freeing the irq (free_irq() in b44_suspend).
 
-Dunno.
+Thinking about it this should also go in stable too.
 
-Pekka, why haven't we deleted slab yet??
+Cheers
+James
+
+>
+>> I also tried calling the
+>> interrupt directly before the free_irq in the suspend function to ch=
+eck that
+>> it wasn't being done too late, and it didn't fail, so possibly it is=
+ the core
+>> suspension that makes it start failing until it is brought back up p=
+roperly.
+>
