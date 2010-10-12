@@ -1,117 +1,76 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: tbf/htb qdisc limitations
-Date: Tue, 12 Oct 2010 10:10:22 +0000
-Message-ID: <20101012101022.GA8578@ff.dom.local>
-References: <AANLkTik6_C5pzx=yS=C0VQR2xfg0S57AZAn9WYiGvxe5@mail.gmail.com> <4CB1A22B.9090701@gmail.com> <AANLkTin_jPp+WEkyJkD_KZyrJ4WX_6dM5wtFNw_ixuzv@mail.gmail.com>
+From: Pekka Enberg <penberg@cs.helsinki.fi>
+Subject: Re: [PATCH net-next] net:  allocate skbs on local node
+Date: Tue, 12 Oct 2010 14:08:59 +0300
+Message-ID: <4CB441CB.2000708@cs.helsinki.fi>
+References: <1286838210.30423.128.camel@edumazet-laptop>	<1286839363.30423.130.camel@edumazet-laptop>	<1286859925.30423.184.camel@edumazet-laptop>	<20101011230322.f0f6dd47.akpm@linux-foundation.org>	<1286866699.30423.234.camel@edumazet-laptop>	<20101012002435.f51f2c0e.akpm@linux-foundation.org>	<1286869793.2732.24.camel@edumazet-laptop> <20101012005856.994bea6d.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Steven Brudenell <steven.brudenell@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:38122 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754126Ab0JLKLT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Oct 2010 06:11:19 -0400
-Received: by bwz15 with SMTP id 15so2278912bwz.19
-        for <netdev@vger.kernel.org>; Tue, 12 Oct 2010 03:10:53 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <AANLkTin_jPp+WEkyJkD_KZyrJ4WX_6dM5wtFNw_ixuzv@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Michael Chan <mchan@broadcom.com>,
+	Eilon Greenstein <eilong@broadcom.com>,
+	Christoph Hellwig <hch@lst.de>,
+	Christoph Lameter <cl@linux-foundation.org>,
+	David Rientjes <rientjes@google.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Nick Piggin <npiggin@kernel.dk>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20101012005856.994bea6d.akpm@linux-foundation.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 11, 2010 at 06:27:25PM -0400, Steven Brudenell wrote:
-> > I'm not sure you checked how the "burst" works, and doubt it could
-> > help you here. Anyway, do you think: rate 2KB/s with burst 5GB
-> > config would be useful for you?
-> 
-> i actually really do want something like 2KB/s with 5GB burst
-> (modifying parameters such that burst + rate * 30 days <= 5GB, but you
-> get the idea). but this isn't possible given the implementation:
-> 
-> i see that overall, virtual "tokens" map to "scheduler ticks", where a
-> "scheduler tick" is 64ns. (net/sched/sch_{tbf,htb}.c,
-> include/net/pkt_sched.h -- these 64ns units are called "ticks" despite
-> being unrelated to HZ). the "burst" parameter is also stored and
-> passed from userspace as a u32. so, the maximum configurable burst in
-> both cases is rate * 275s, since we can only track 275s worth of
-> "scheduler ticks" in a u32 ( (1<<32) / NSEC_PER_SEC * 64 =~ 275s ).
+On 10/12/10 10:58 AM, Andrew Morton wrote:
+> On Tue, 12 Oct 2010 09:49:53 +0200 Eric Dumazet<eric.dumazet@gmail.co=
+m>  wrote:
+>
+>> Le mardi 12 octobre 2010 =E0 00:24 -0700, Andrew Morton a =E9crit :
+>>
+>>> I'd love to forget it, but it's faster for some things (I forget
+>>> which).  Which is why it's still around.
+>>
+>> Yes, two years ago it was true on pathological/obscure cases.
+>> Every time I did the comparison, SLUB won.
+>> You asked me, I did yet another test this morning, and 40% is pretty
+>> serious, I believe.
+>>
+>>> And the ghastly thing about this is that you're forced to care abou=
+t it
+>>> too because some people are, apparently, still using it.
+>>
+>> Yes, some people (in my company) still use linux 2.6.9 32bit on HP G=
+6/G7
+>> machines, I know...
+>>
+>> I am not saying we should not care, but for any serious network work=
+load
+>> on NUMA arches, SLUB is the best, and seeing Christoph recent work, =
+it
+>> might even get better.
+>>
+>> BTW, I believe all modern distros ship SLUB, dont they ?
+>
+> Dunno.
+>
+> Pekka, why haven't we deleted slab yet??
 
-Right. It was a compromise to allow higher rates for "common" use
-without u64 changes. It can be tuned with PSCHED_SHIFT yet to give you
-more burst, but I doubt tbf/htb authors expected monthly values here.
+To make a long story short, we still have relevant performance=20
+regressions that need to be taken care of. The most interesting one is =
+a=20
+regression in netperf TCP_RR that's been reported by David Rientjes a=20
+while back. There's bunch of SLUB cleanups queued for 2.6.37 that pave=20
+the way for Christoph's SLUB queueing work that should hopefully fix=20
+that particular issue for 2.6.38.
 
-> 
-> > My proposal is you don't bother with 1) and 2), but first do the
-> > hack in tbf or htb directly, using or omitting rate tables, how
-> > you like, and test this idea.
-> 
-> i'll give it a shot, though given that i hate writing the same code
-> twice, i would prefer to know the right way to change netlink before i
-> write a functional test.
-> 
-> due to the implementation coupling i don't see any way to make any
-> permanent change *without* changing the netlink interface -- even
-> changing that u32 to a u64, which would only need to be a u64 in
-> userspace because userspace does the munging today!
-> 
-> (what's worse, today userspace has to specify the full rate table over
-> netlink, instead of just specifying the rate and having the kernel
-> driver compute the table or whatever other data structure it deems
-> necessary. i think decoupling interface from implementation is a
-> worthy goal by itself. if they were decoupled, i could have just coded
-> a patch and not bothered y'all in the first place....)
-> 
-> > But it seems the right way is to collect monthly stats with some
-> > userspace tool and change qdisc config dynamically. You might
-> > look at network admins' lists for small ISPs exemplary scripts
-> > doing such nasty things to their users, or have a look at ppp
-> > accounting tools.
-> 
-> <non technical sidetrack>
-> i disagree outright that a userspace tool is the "right" way to solve
-> my constraints.
-> 
-> my constraints are:
-> 1) i need to guarantee i never ever go over the monthly transfer limit
-> (bad experiences with Comcast... you can check out of Red Tape Hotel
-> any time you like, but you can never leave).
-> 2) i want to be able to transfer short bursts at top speed whenever
-> possible (that's what i'm paying for in the first place).
-> 3) i need to ration transfer usage so i am never stuck in a situation
-> of being limited to snail speeds until the end of the month (on a
-> Comcast connection in my area, i can reasonably sustain 2MB/sec
-> downstream, which eats 250GB in ~36 hours, so this constraint becomes
-> important).
-> 
-> tbf with a large burst size seems ideal for my constraints. i can't
-> quantify this, but it seems like no simpler strategy satisfies the
-> constraints well and no more complex strategy is necessary. i think
-> any userspace solution i could write would end up trying to emulate
-> tbf with large burst.
-> 
-> a userspace tool updating qdisc parameters, even if run in an infinite
-> loop, would always have a big chunky time resolution compared to an
-> inline packet shaper (which is important for #2, and for #1 to a
-> degree). i could write a packet shaper in userspace, but this does not
-> make sense to given that kernel qos already exists, and already has a
-> tbf implementation that just needs a little love.
-> </non technical sidetrack>
-> 
-> given all that, i'd just like to know
-> 
-> 1) whether it's forbidden or bad to do floating point math in a packet
-> scheduler, and
+There's little point in discussing the removal of SLAB as long as there=
+=20
+are performance regressions for real workloads from people who are=20
+willing to share results and test patches. I'm optimistic that we'll be=
+=20
+able to try removing SLAB some time next year unless something=20
+interesting pops up...
 
-Yes, it's not allowed according to Documentation/HOWTO. Btw, as you
-can see e.g. in sch_hfsc comments, 64-bit division is avoided too.
-
-> 
-> 2) the best way to go about making breaking changes to netlink.
-
-I can only say there is no versioning, but backward compatibility
-is crucial, so you need to do some tricks or data duplication.
-You could probably try to get opinions about it with an RFC on
-moving tbf and htb schedulers to 64 bits if you're interested
-(decoupling it from your specific burst problem).
-
-Jarek P.
+			Pekka
