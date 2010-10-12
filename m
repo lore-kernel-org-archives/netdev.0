@@ -1,40 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next] sundance: Add initial ethtool stats support
-Date: Tue, 12 Oct 2010 11:51:38 -0700 (PDT)
-Message-ID: <20101012.115138.112614145.davem@davemloft.net>
-References: <20101009095346.GA12951@hera.kernel.org>
-	<20101009132749.GA15074@solarflare.com>
-	<4CB0C56C.2000106@kernel.org>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: [PATCH net-next] bnx2x: Fixing a typo: added a missing RSS
+ enablement
+Date: Tue, 12 Oct 2010 21:02:21 +0200
+Message-ID: <1286910141.16797.23.camel@lb-tlvb-dmitry>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+ charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	bhutchings@solarflare.com
-To: dkirjanov@kernel.org
+Cc: vladz@broadcom.com, eilong@broadcom.com
+To: davem@davemloft.net, netdev@vger.kernel.org, eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36675
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753104Ab0JLSvQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Oct 2010 14:51:16 -0400
-In-Reply-To: <4CB0C56C.2000106@kernel.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:3219 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758164Ab0JLTCf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Oct 2010 15:02:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Denis Kirjanov <dkirjanov@kernel.org>
-Date: Sat, 09 Oct 2010 23:41:32 +0400
+Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-> +	/* ethtool extra stats */
-> +	struct {
-> +		unsigned long tx_multiple_collisions;
-> +		unsigned long tx_single_collisions;
-> +		unsigned long tx_late_collisions;
-> +		unsigned long tx_deffered;
-> +		unsigned long tx_deffered_excessive;
-> +		unsigned long tx_aborted;
-> +		unsigned long tx_bcasts;
-> +		unsigned long rx_bcasts;
-> +		unsigned long tx_mcasts;
-> +		unsigned long rx_mcasts;
-> +	} xstats;
+Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+Signed-off-by: Vladislav Zolotarov <vladz@broadcom.com>
+---
+ drivers/net/bnx2x/bnx2x_main.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-I think these should be "u64".
+diff --git a/drivers/net/bnx2x/bnx2x_main.c b/drivers/net/bnx2x/bnx2x_main.c
+index 7a9556b..ead524b 100644
+--- a/drivers/net/bnx2x/bnx2x_main.c
++++ b/drivers/net/bnx2x/bnx2x_main.c
+@@ -2486,6 +2486,7 @@ void bnx2x_pf_init(struct bnx2x *bp)
+ 	 * if (is_eth_multi(bp))
+ 	 *	flags |= FUNC_FLG_RSS;
+ 	 */
++	flags |= FUNC_FLG_RSS;
+ 
+ 	/* function setup */
+ 	if (flags & FUNC_FLG_RSS) {
+-- 
+1.7.1
+
+
+
+
