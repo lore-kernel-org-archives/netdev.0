@@ -1,89 +1,69 @@
-From: James Hogan <james@albanarts.com>
-Subject: Re: [PATCH] b44: fix resume, request_irq after hw reset
-Date: Tue, 12 Oct 2010 09:40:20 +0100
-Message-ID: <AANLkTimdasN2xF71DbueQyv0sWNQicu79==VfuW6BTKM@mail.gmail.com>
-References: <201010120022.13171.james@albanarts.com>
-	<20101011163440.072e0227.akpm@linux-foundation.org>
-	<201010120808.05713.james@albanarts.com>
-	<20101012002715.fd0e3371.akpm@linux-foundation.org>
+From: "Vladislav Zolotarov" <vladz@broadcom.com>
+Subject: RE: [PATCH net-next] bnx2x: dont use netdev_alloc_skb()
+Date: Tue, 12 Oct 2010 02:12:41 -0700
+Message-ID: <8628FE4E7912BF47A96AE7DD7BAC0AADDDEE4282DD@SJEXCHCCR02.corp.ad.broadcom.com>
+References: <1286838210.30423.128.camel@edumazet-laptop>
+ <1286839363.30423.130.camel@edumazet-laptop>
+ <AANLkTi=NvnPov_=KQJz2uXt1R-ep4oahDF0J=3HwhGzG@mail.gmail.com>
+ <1286860560.30423.186.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Gary Zambrano <zambrano@broadcom.com>,
-	Jiri Pirko <jpirko@redhat.com>,
-	FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>,
-	Hauke Mehrtens <hauke@hauke-m.de>,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20101012002715.fd0e3371.akpm@linux-foundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: "David Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"Michael Chan" <mchan@broadcom.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>,
+	"Tom Herbert" <therbert@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:4266 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754914Ab0JLJMy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Oct 2010 05:12:54 -0400
+In-Reply-To: <1286860560.30423.186.camel@edumazet-laptop>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12 October 2010 08:27, Andrew Morton <akpm@linux-foundation.org> wro=
-te:
-> On Tue, 12 Oct 2010 08:08:05 +0100 James Hogan <james@albanarts.com> =
-wrote:
->
->> > > @@ -2309,6 +2303,12 @@ static int b44_resume(struct ssb_device *=
-sdev)
->> > >
->> > > =A0 netif_device_attach(bp->dev);
->> > > =A0 spin_unlock_irq(&bp->lock);
->> > >
->> > > + rc =3D request_irq(dev->irq, b44_interrupt, IRQF_SHARED, dev->=
-name,
->> dev);
->> > > + if (rc) {
->> > > + =A0 =A0 =A0 =A0 netdev_err(dev, "request_irq failed\n");
->> > > + =A0 =A0 =A0 =A0 return rc;
->> > > + }
->> > > +
->> > >
->> > > =A0 b44_enable_ints(bp);
->> > > =A0 netif_wake_queue(dev);
->> >
->> > OK, running the interrupt handler before b44_init_hw() is presumab=
-ly
->> > the problem here.
->> >
->> > The hardware surely won't be generating interrupts until we've run
->> > b44_init_hw() and b44_enable_ints(), so this patch really is only =
-to
->> > keep CONFIG_DEBUG_SHIRQ happy.
->>
->> For me it's mainly to keep CONFIG_DEBUG_SHIRQ happy (Fedora has this=
- switched
->> on), but since it's a shared IRQ, there is still a chance it could b=
-e
->> called before enabling it's own interrupts by a different device on =
-the same
->> IRQ.
->
-> ooh, yes, you're right, I forgot about that. =A0It's indeed a bug.
->
->> It makes sense to me why it's disabling the IRQ now, in case another=
- device
->> triggers it when it cannot handle it safely.
->
-> What code are you referring to here? =A0There's no disable_irq() in t=
-hat area?
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogbmV0ZGV2LW93bmVyQHZn
+ZXIua2VybmVsLm9yZyBbbWFpbHRvOm5ldGRldi0NCj4gb3duZXJAdmdlci5rZXJuZWwub3JnXSBP
+biBCZWhhbGYgT2YgRXJpYyBEdW1hemV0DQo+IFNlbnQ6IFR1ZXNkYXksIE9jdG9iZXIgMTIsIDIw
+MTAgNzoxNiBBTQ0KPiBUbzogVG9tIEhlcmJlcnQNCj4gQ2M6IERhdmlkIE1pbGxlcjsgbmV0ZGV2
+OyBNaWNoYWVsIENoYW47IEVpbG9uIEdyZWVuc3RlaW4NCj4gU3ViamVjdDogUmU6IFtQQVRDSCBu
+ZXQtbmV4dF0gYm54Mng6IGRvbnQgdXNlIG5ldGRldl9hbGxvY19za2IoKQ0KPiANCj4gTGUgbHVu
+ZGkgMTEgb2N0b2JyZSAyMDEwIMOgIDIyOjAzIC0wNzAwLCBUb20gSGVyYmVydCBhIMOpY3JpdCA6
+DQo+ID4gT24gTW9uLCBPY3QgMTEsIDIwMTAgYXQgNDoyMiBQTSwgRXJpYyBEdW1hemV0DQo+IDxl
+cmljLmR1bWF6ZXRAZ21haWwuY29tPiB3cm90ZToNCj4gPiA+IExlIG1hcmRpIDEyIG9jdG9icmUg
+MjAxMCDDoCAwMTowMyArMDIwMCwgRXJpYyBEdW1hemV0IGEgw6ljcml0IDoNCj4gPiA+PiBuZXRk
+ZXZfYWxsb2Nfc2tiKCkgaXMgYSB2ZXJ5IHdyb25nIGludGVyZmFjZSwgcmVhbGx5Lg0KPiA+ID4+
+DQo+ID4gPj4gV2Ugc2hvdWxkIHJlbW92ZS9kZXByZWNhdGUgaXQuDQo+ID4gPj4NCj4gPiA+PiBG
+b3IgbXVsdGkgcXVldWUgZGV2aWNlcywgaXQgbWFrZXMgbW9yZSBzZW5zZSB0byBhbGxvY2F0ZSBz
+a2Igb24NCj4gbG9jYWwNCj4gPiA+PiBub2RlIG9mIHRoZSBjcHUgaGFuZGxpbmcgUlggaW50ZXJy
+dXB0cy4gVGhpcyBhbGxvdyBlYWNoIGNwdSB0bw0KPiA+ID4+IG1hbmlwdWxhdGUgaXRzIG93biBz
+bHViL3NsYWIgcXVldWVzL3N0cnVjdHVyZXMgd2l0aG91dCBkb2luZw0KPiBleHBlbnNpdmUNCj4g
+PiA+PiBjcm9zcy1ub2RlIGJ1c2luZXNzLg0KPiA+ID4+DQo+ID4gPj4gRm9yIG5vbiBtdWx0aSBx
+dWV1ZSBkZXZpY2VzLCBJUlEgYWZmaW5pdHkgc2hvdWxkIGJlIHNldCBzbyB0aGF0IGENCj4gY3B1
+DQo+ID4gPj4gY2xvc2UgdG8gdGhlIGRldmljZSBzZXJ2aWNlcyBpbnRlcnJ1cHRzLiBFdmVuIGlm
+IG5vdCBzZXQsIHVzaW5nDQo+ID4gPj4gZGV2X2FsbG9jX3NrYigpIGlzIGZhc3Rlci4NCj4gPiA+
+Pg0KPiA+ID4+IFNpZ25lZC1vZmYtYnk6IEVyaWMgRHVtYXpldCA8ZXJpYy5kdW1hemV0QGdtYWls
+LmNvbT4NCj4gPiA+DQo+ID4gPiBPciBtYXliZSByZXZlcnQgOg0KPiA+ID4NCj4gPiA+IGNvbW1p
+dCBiMzA5NzNmODc3ZmVhMWEzZmI4NGUwNTU5OTg5MGZjYzA4MmE4OGU1DQo+ID4gPiBBdXRob3I6
+IENocmlzdG9waCBIZWxsd2lnIDxoY2hAbHN0LmRlPg0KPiA+ID4gRGF0ZTogICBXZWQgRGVjIDYg
+MjA6MzI6MzYgMjAwNiAtMDgwMA0KPiA+ID4NCj4gPg0KPiA+IEkgc2Vjb25kIHRoaXMgcmV2ZXJ0
+LiAgTm9kZSBhd2FyZSBhbGxvY2F0aW9uIGJ5IGRldmljZSdzIG5vZGUgbWFrZXMNCj4gPiBsaXR0
+bGUgc2Vuc2Ugb24gYSBtdWx0aS1xdWV1ZSBkZXZpY2UgYW5kIGxlYWRzIHRvIG1lZGlvY3JlDQo+
+ID4gcGVyZm9ybWFuY2UuDQo+IA0KPiBZZXMsIEkgc2FpZCB0aGlzIHNldmVyYWwgdGltZSBpbiB0
+aGUgcGFzdCwgSSBiZWxpZXZlIHRpbWUgaGFzIGNvbWUgdG8NCj4gZ2V0IHJpZCBvZiBpdC4NCj4g
+DQo+IEkgcG9zdGVkIGEgcGF0Y2ggc29tZSBtaW51dGVzIGFnbywgc28geW91IGNhbiByZXZpZXcg
+aXQgYW5kIGFjayBpdCA7KQ0KPiANCj4gVGhhbmtzICENCg0KRXJpYywgdmVyeSBuaWNlIHBhdGNo
+LCB0aGFua3MuIEhvd2V2ZXIgRWlsb24gaXMgb24gdmFjYXRpb24gdGlsbCB0b21vcnJvdw0KYW5k
+IGhlIGlzIGEgcmVzcG9uc2libGUgbWFpbnRhaW5lciBvZiB0aGUgYm54MngsIHRodXMgdGhlIGZp
+bmFsIEFDSyBzaG91bGQNCmJlIGhpcy4NCg0KRGF2ZSwgaWYgaXQgY2FuIHdhaXQgdGlsbCB0b21v
+cnJvdywgSSdkIGxpa2UgdG8gYXNrIHUgdG8gd2FpdCBmb3IgRWlsb24ncw0KZmluYWwgQUNLLg0K
+DQpUaGFua3MsDQp2bGFkDQoNCj4gDQo+IA0KPiAtLQ0KPiBUbyB1bnN1YnNjcmliZSBmcm9tIHRo
+aXMgbGlzdDogc2VuZCB0aGUgbGluZSAidW5zdWJzY3JpYmUgbmV0ZGV2IiBpbg0KPiB0aGUgYm9k
+eSBvZiBhIG1lc3NhZ2UgdG8gbWFqb3Jkb21vQHZnZXIua2VybmVsLm9yZw0KPiBNb3JlIG1ham9y
+ZG9tbyBpbmZvIGF0ICBodHRwOi8vdmdlci5rZXJuZWwub3JnL21ham9yZG9tby1pbmZvLmh0bWwN
+Cg0K
 
-Sorry, I meant freeing the irq (free_irq() in b44_suspend).
-
-Thinking about it this should also go in stable too.
-
-Cheers
-James
-
->
->> I also tried calling the
->> interrupt directly before the free_irq in the suspend function to ch=
-eck that
->> it wasn't being done too late, and it didn't fail, so possibly it is=
- the core
->> suspension that makes it start failing until it is brought back up p=
-roperly.
->
