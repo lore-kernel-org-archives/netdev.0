@@ -1,58 +1,57 @@
-From: "Xin, Xiaohui" <xiaohui.xin@intel.com>
-Subject: RE: [PATCH v12 06/17] Use callback to deal with skb_release_data()
- specially.
-Date: Tue, 12 Oct 2010 09:24:48 +0800
-Message-ID: <F2E9EB7348B8264F86B6AB8151CE2D793064B2AC43@shsmsx502.ccr.corp.intel.com>
-References: <f2bf65a8a7676bbd3e8a749ae93d99e88671d35d.1285853725.git.xiaohui.xin@intel.com>
-	 <20101001.001439.85411154.davem@davemloft.net>
-	 <F2E9EB7348B8264F86B6AB8151CE2D793064B2A9D8@shsmsx502.ccr.corp.intel.com>
-	 <20101011.082728.193709462.davem@davemloft.net>
- <1286811731.2737.28.camel@edumazet-laptop>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: manual merge of the net tree with the  tree
+Date: Tue, 12 Oct 2010 14:51:35 +1100
+Message-ID: <20101012145135.9697fe21.sfr@canb.auug.org.au>
+References: <20101012111716.0c54b093.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"mst@redhat.com" <mst@redhat.com>, "mingo@elte.hu" <mingo@elte.hu>,
-	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
-	"jdike@linux.intel.com" <jdike@linux.intel.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Tue__12_Oct_2010_14_51_35_+1100_7QyErKK=1Hkmr6+8"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	<linux1394-devel@lists.sourceforge.net>,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1286811731.2737.28.camel@edumazet-laptop>
-Content-Language: en-US
+In-Reply-To: <20101012111716.0c54b093.sfr@canb.auug.org.au>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->-----Original Message-----
->From: Eric Dumazet [mailto:eric.dumazet@gmail.com]
->Sent: Monday, October 11, 2010 11:42 PM
->To: David Miller
->Cc: Xin, Xiaohui; netdev@vger.kernel.org; kvm@vger.kernel.org;
->linux-kernel@vger.kernel.org; mst@redhat.com; mingo@elte.hu;
->herbert@gondor.apana.org.au; jdike@linux.intel.com
->Subject: Re: [PATCH v12 06/17] Use callback to deal with skb_release_d=
-ata() specially.
->
->Le lundi 11 octobre 2010 =E0 08:27 -0700, David Miller a =E9crit :
->> From: "Xin, Xiaohui" <xiaohui.xin@intel.com>
->> Date: Mon, 11 Oct 2010 15:06:05 +0800
->>
->> > That's to avoid the new cache miss caused by using destructor_arg =
-in data path
->> > like skb_release_data().
->> > That's based on the comment from Eric Dumazet on v7 patches.
->>
->> Thanks for the explanation.
->
->Anyway, frags[] must be the last field of "struct skb_shared_info"
->since commit fed66381 (net: pskb_expand_head() optimization)
->
->It seems Xin worked on a quite old tree.
->
->
-I will rebase soon.
+--Signature=_Tue__12_Oct_2010_14_51_35_+1100_7QyErKK=1Hkmr6+8
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Thanks
-Xiaohui
+Hi all,
+
+On Tue, 12 Oct 2010 11:17:16 +1100 Stephen Rothwell <sfr@canb.auug.org.au> =
+wrote:
+>
+> Today's linux-next merge of the net tree got a conflict in
+> drivers/ieee1394/eth1394.c between commit
+> 66fa12c571d35e3cd62574c65f1785a460105397 ("ieee1394: remove the old IEEE
+> 1394 driver stack") from the  tree and commit
+                               ^
+I meant to say "the ieee1394 tree".
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Tue__12_Oct_2010_14_51_35_+1100_7QyErKK=1Hkmr6+8
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iQEcBAEBAgAGBQJMs9tHAAoJEDMEi1NhKgbsopsIAJnOTsi3Emd4EQAE8cox++70
+XOVPE+BVeTSbUrKVwAVJFqAJIfGZ1hrnKlZJQmTKJovhI/DlUb1asUhgeUhfry20
+7+3V0pLWFwQbnyfwdxmsLZ0GOwEQ8tOJBWx7eXaHe+1FVpZ3JlxgRekCeoQ8x43t
+tZDBH+6XyH5rZh6zf5yGv1PIKQGdI54lmycv5C4pF+ZspmzHIxPRLhWK4gpGaAWZ
+8z9oIaMosPO31P04aRqtDx2c7OvSuuaB10b3v/nFoTg7Il2IhEubjemUsIpL1GKH
+2pnTYccVjCBqW9uKRaZ5ug5qAyI56iyMivXnZ7NVtwM47gZRotJuLE6DtPgyhJY=
+=tWBJ
+-----END PGP SIGNATURE-----
+
+--Signature=_Tue__12_Oct_2010_14_51_35_+1100_7QyErKK=1Hkmr6+8--
