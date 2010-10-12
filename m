@@ -1,93 +1,92 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: "Vladislav Zolotarov" <vladz@broadcom.com>
 Subject: RE: [BUG net-next] bnx2x: all traffic comes to RX queue 0
-Date: Tue, 12 Oct 2010 20:11:43 +0200
-Message-ID: <1286907103.2703.6.camel@edumazet-laptop>
+Date: Tue, 12 Oct 2010 11:18:23 -0700
+Message-ID: <8628FE4E7912BF47A96AE7DD7BAC0AADDDEE42838F@SJEXCHCCR02.corp.ad.broadcom.com>
 References: <1286838210.30423.128.camel@edumazet-laptop>
-	 <1286899657.2732.93.camel@edumazet-laptop>
-	 <2DFD360E328B3941911E6D28B085D990129FC2028B@SJEXCHCCR01.corp.ad.broadcom.com>
+ <1286899657.2732.93.camel@edumazet-laptop>
+ <2DFD360E328B3941911E6D28B085D990129FC2028B@SJEXCHCCR01.corp.ad.broadcom.com>
+ <1286907103.2703.6.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>, Michael Chan <mchan@broadcom.com>,
-	Eilon Greenstein <eilong@broadcom.com>,
-	David Miller <davem@davemloft.net>,
-	Vladislav Zolotarov <vladz@broadcom.com>,
-	Yaniv Rosner <yaniv.rosner@broadcom.com>
-To: Dmitry Kravkov <dmitry@broadcom.com>
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: netdev <netdev@vger.kernel.org>,
+	"Michael Chan" <mchan@broadcom.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>,
+	"David Miller" <davem@davemloft.net>,
+	"Yaniv Rosner" <yaniv.rosner@broadcom.com>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>,
+	"Dmitry Kravkov" <dmitry@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:37010 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753612Ab0JLSMF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Oct 2010 14:12:05 -0400
-Received: by wwj40 with SMTP id 40so5392964wwj.1
-        for <netdev@vger.kernel.org>; Tue, 12 Oct 2010 11:12:03 -0700 (PDT)
-In-Reply-To: <2DFD360E328B3941911E6D28B085D990129FC2028B@SJEXCHCCR01.corp.ad.broadcom.com>
+Received: from mms1.broadcom.com ([216.31.210.17]:4511 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753527Ab0JLSSd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Oct 2010 14:18:33 -0400
+In-Reply-To: <1286907103.2703.6.camel@edumazet-laptop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 12 octobre 2010 =C3=A0 09:20 -0700, Dmitry Kravkov a =C3=A9cri=
-t :
-> Eric,
->=20
-> I will take a look
->=20
-
-Thanks ! Here is the bisection result
-
-# git bisect bad
-523224a3b3cd407ce4e6731a087194e13a90db18 is the first bad commit
-commit 523224a3b3cd407ce4e6731a087194e13a90db18
-Author: Dmitry Kravkov <dmitry@broadcom.com>
-Date:   Wed Oct 6 03:23:26 2010 +0000
-
-    bnx2x, cnic, bnx2i: use new FW/HSI
-   =20
-    This is the new FW HSI blob and the relevant definitions without lo=
-gic changes.
-    It also included code adaptation for new HSI. New features are not =
-enabled.
-   =20
-    New FW/HSI includes:
-    - Support for 57712 HW
-    - Future support for VF (not used)
-    - Improvements in FW interrupts scheme
-    - FW FCoE hooks (stubs for future usage)
-   =20
-    Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
-    Signed-off-by: Michael Chan <mchan@broadcom.com>
-    Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-:040000 040000 8931a748ae89487466d99e6121a3965131e3a201 fed2be49565ca29=
-1203a865554a0e071a2a9c3fb M	drivers
-:040000 040000 2ff6a5c290ca7e9dc339b7213f49c341f4fc5822 82c0a7117b58f53=
-8a8b49891c5524e3537c5ae66 M	firmware
-
-
-# git bisect log
-git bisect start '--' 'drivers/net/bnx2x'
-# bad: [b9e9b15966e35f3b4a8d3820cac460505552f72c] Merge branch 'master'=
- of git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next-2.6
-git bisect bad b9e9b15966e35f3b4a8d3820cac460505552f72c
-# good: [9fe6206f400646a2322096b56c59891d530e8d51] Linux 2.6.35
-git bisect good 9fe6206f400646a2322096b56c59891d530e8d51
-# good: [b7737c9be9d3e894d1a4375c52f5f47789475f26] bnx2x: Split PHY fun=
-ctions
-git bisect good b7737c9be9d3e894d1a4375c52f5f47789475f26
-# good: [8681dc3abd54e845a2effab441921b4c4457c241] bnx2x: Moved enablin=
-g of MSI to the bnx2x_set_num_queues()
-git bisect good 8681dc3abd54e845a2effab441921b4c4457c241
-# bad: [c518cd1c7aca2e2a65edcf4fa5ce4160d59878c2] bnx2x: remove unused =
-fields in main driver structure
-git bisect bad c518cd1c7aca2e2a65edcf4fa5ce4160d59878c2
-# bad: [fb3bff178e722fe88b5ab02319c9636da0980e25] bnx2x: rename MF rela=
-ted fields
-git bisect bad fb3bff178e722fe88b5ab02319c9636da0980e25
-# good: [560131f313ea9b9439742138289b6f68d61531ec] bnx2x: create folder=
- for bnx2x firmware files
-git bisect good 560131f313ea9b9439742138289b6f68d61531ec
-# bad: [523224a3b3cd407ce4e6731a087194e13a90db18] bnx2x, cnic, bnx2i: u=
-se new FW/HSI
-git bisect bad 523224a3b3cd407ce4e6731a087194e13a90db18
-
+VGhhbmtzLCBFcmljLiBEaW1hIGhhcyBhbHJlYWR5IGZvdW5kIGEgcHJvYmxlbSBhbmQgd2UgYXJl
+IHJ1bm5pbmcgDQphIHJlZ3Jlc3Npb24gdG8gdmVyaWZ5IG5vdGhpbmcgZWxzZSBpcyBicm9rZW4g
+YWZ0ZXIgdGhlIFJTUyBpcyANCmJyb3VnaHQgYmFjayB0byBsaWZlLg0KDQpJZiBub3RoaW5nIGdv
+ZXMgd3JvbmcgRGltYSB3aWxsIHNlbmQgYSBwYXRjaCBpbiBhbiBob3VyIG9yIHNvLi4uDQoNClRo
+YW5rcyBhZ2FpbiBmb3IgdGhlIGNhdGNoLg0KdmxhZA0KDQo+IC0tLS0tT3JpZ2luYWwgTWVzc2Fn
+ZS0tLS0tDQo+IEZyb206IG5ldGRldi1vd25lckB2Z2VyLmtlcm5lbC5vcmcgW21haWx0bzpuZXRk
+ZXYtDQo+IG93bmVyQHZnZXIua2VybmVsLm9yZ10gT24gQmVoYWxmIE9mIEVyaWMgRHVtYXpldA0K
+PiBTZW50OiBUdWVzZGF5LCBPY3RvYmVyIDEyLCAyMDEwIDg6MTIgUE0NCj4gVG86IERtaXRyeSBL
+cmF2a292DQo+IENjOiBuZXRkZXY7IE1pY2hhZWwgQ2hhbjsgRWlsb24gR3JlZW5zdGVpbjsgRGF2
+aWQgTWlsbGVyOyBWbGFkaXNsYXYNCj4gWm9sb3Rhcm92OyBZYW5pdiBSb3NuZXINCj4gU3ViamVj
+dDogUkU6IFtCVUcgbmV0LW5leHRdIGJueDJ4OiBhbGwgdHJhZmZpYyBjb21lcyB0byBSWCBxdWV1
+ZSAwDQo+IA0KPiBMZSBtYXJkaSAxMiBvY3RvYnJlIDIwMTAgw6AgMDk6MjAgLTA3MDAsIERtaXRy
+eSBLcmF2a292IGEgw6ljcml0IDoNCj4gPiBFcmljLA0KPiA+DQo+ID4gSSB3aWxsIHRha2UgYSBs
+b29rDQo+ID4NCj4gDQo+IFRoYW5rcyAhIEhlcmUgaXMgdGhlIGJpc2VjdGlvbiByZXN1bHQNCj4g
+DQo+ICMgZ2l0IGJpc2VjdCBiYWQNCj4gNTIzMjI0YTNiM2NkNDA3Y2U0ZTY3MzFhMDg3MTk0ZTEz
+YTkwZGIxOCBpcyB0aGUgZmlyc3QgYmFkIGNvbW1pdA0KPiBjb21taXQgNTIzMjI0YTNiM2NkNDA3
+Y2U0ZTY3MzFhMDg3MTk0ZTEzYTkwZGIxOA0KPiBBdXRob3I6IERtaXRyeSBLcmF2a292IDxkbWl0
+cnlAYnJvYWRjb20uY29tPg0KPiBEYXRlOiAgIFdlZCBPY3QgNiAwMzoyMzoyNiAyMDEwICswMDAw
+DQo+IA0KPiAgICAgYm54MngsIGNuaWMsIGJueDJpOiB1c2UgbmV3IEZXL0hTSQ0KPiANCj4gICAg
+IFRoaXMgaXMgdGhlIG5ldyBGVyBIU0kgYmxvYiBhbmQgdGhlIHJlbGV2YW50IGRlZmluaXRpb25z
+IHdpdGhvdXQNCj4gbG9naWMgY2hhbmdlcy4NCj4gICAgIEl0IGFsc28gaW5jbHVkZWQgY29kZSBh
+ZGFwdGF0aW9uIGZvciBuZXcgSFNJLiBOZXcgZmVhdHVyZXMgYXJlIG5vdA0KPiBlbmFibGVkLg0K
+PiANCj4gICAgIE5ldyBGVy9IU0kgaW5jbHVkZXM6DQo+ICAgICAtIFN1cHBvcnQgZm9yIDU3NzEy
+IEhXDQo+ICAgICAtIEZ1dHVyZSBzdXBwb3J0IGZvciBWRiAobm90IHVzZWQpDQo+ICAgICAtIElt
+cHJvdmVtZW50cyBpbiBGVyBpbnRlcnJ1cHRzIHNjaGVtZQ0KPiAgICAgLSBGVyBGQ29FIGhvb2tz
+IChzdHVicyBmb3IgZnV0dXJlIHVzYWdlKQ0KPiANCj4gICAgIFNpZ25lZC1vZmYtYnk6IERtaXRy
+eSBLcmF2a292IDxkbWl0cnlAYnJvYWRjb20uY29tPg0KPiAgICAgU2lnbmVkLW9mZi1ieTogTWlj
+aGFlbCBDaGFuIDxtY2hhbkBicm9hZGNvbS5jb20+DQo+ICAgICBTaWduZWQtb2ZmLWJ5OiBFaWxv
+biBHcmVlbnN0ZWluIDxlaWxvbmdAYnJvYWRjb20uY29tPg0KPiAgICAgU2lnbmVkLW9mZi1ieTog
+RGF2aWQgUy4gTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KPiANCj4gOjA0MDAwMCAwNDAw
+MDAgODkzMWE3NDhhZTg5NDg3NDY2ZDk5ZTYxMjFhMzk2NTEzMWUzYTIwMQ0KPiBmZWQyYmU0OTU2
+NWNhMjkxMjAzYTg2NTU1NGEwZTA3MWEyYTljM2ZiIE0JZHJpdmVycw0KPiA6MDQwMDAwIDA0MDAw
+MCAyZmY2YTVjMjkwY2E3ZTlkYzMzOWI3MjEzZjQ5YzM0MWY0ZmM1ODIyDQo+IDgyYzBhNzExN2I1
+OGY1MzhhOGI0OTg5MWM1NTI0ZTM1MzdjNWFlNjYgTQlmaXJtd2FyZQ0KPiANCj4gDQo+ICMgZ2l0
+IGJpc2VjdCBsb2cNCj4gZ2l0IGJpc2VjdCBzdGFydCAnLS0nICdkcml2ZXJzL25ldC9ibngyeCcN
+Cj4gIyBiYWQ6IFtiOWU5YjE1OTY2ZTM1ZjNiNGE4ZDM4MjBjYWM0NjA1MDU1NTJmNzJjXSBNZXJn
+ZSBicmFuY2ggJ21hc3RlcicNCj4gb2YgZ2l0Oi8vZ2l0Lmtlcm5lbC5vcmcvcHViL3NjbS9saW51
+eC9rZXJuZWwvZ2l0L2RhdmVtL25ldC1uZXh0LTIuNg0KPiBnaXQgYmlzZWN0IGJhZCBiOWU5YjE1
+OTY2ZTM1ZjNiNGE4ZDM4MjBjYWM0NjA1MDU1NTJmNzJjDQo+ICMgZ29vZDogWzlmZTYyMDZmNDAw
+NjQ2YTIzMjIwOTZiNTZjNTk4OTFkNTMwZThkNTFdIExpbnV4IDIuNi4zNQ0KPiBnaXQgYmlzZWN0
+IGdvb2QgOWZlNjIwNmY0MDA2NDZhMjMyMjA5NmI1NmM1OTg5MWQ1MzBlOGQ1MQ0KPiAjIGdvb2Q6
+IFtiNzczN2M5YmU5ZDNlODk0ZDFhNDM3NWM1MmY1ZjQ3Nzg5NDc1ZjI2XSBibngyeDogU3BsaXQg
+UEhZDQo+IGZ1bmN0aW9ucw0KPiBnaXQgYmlzZWN0IGdvb2QgYjc3MzdjOWJlOWQzZTg5NGQxYTQz
+NzVjNTJmNWY0Nzc4OTQ3NWYyNg0KPiAjIGdvb2Q6IFs4NjgxZGMzYWJkNTRlODQ1YTJlZmZhYjQ0
+MTkyMWI0YzQ0NTdjMjQxXSBibngyeDogTW92ZWQNCj4gZW5hYmxpbmcgb2YgTVNJIHRvIHRoZSBi
+bngyeF9zZXRfbnVtX3F1ZXVlcygpDQo+IGdpdCBiaXNlY3QgZ29vZCA4NjgxZGMzYWJkNTRlODQ1
+YTJlZmZhYjQ0MTkyMWI0YzQ0NTdjMjQxDQo+ICMgYmFkOiBbYzUxOGNkMWM3YWNhMmUyYTY1ZWRj
+ZjRmYTVjZTQxNjBkNTk4NzhjMl0gYm54Mng6IHJlbW92ZSB1bnVzZWQNCj4gZmllbGRzIGluIG1h
+aW4gZHJpdmVyIHN0cnVjdHVyZQ0KPiBnaXQgYmlzZWN0IGJhZCBjNTE4Y2QxYzdhY2EyZTJhNjVl
+ZGNmNGZhNWNlNDE2MGQ1OTg3OGMyDQo+ICMgYmFkOiBbZmIzYmZmMTc4ZTcyMmZlODhiNWFiMDIz
+MTljOTYzNmRhMDk4MGUyNV0gYm54Mng6IHJlbmFtZSBNRg0KPiByZWxhdGVkIGZpZWxkcw0KPiBn
+aXQgYmlzZWN0IGJhZCBmYjNiZmYxNzhlNzIyZmU4OGI1YWIwMjMxOWM5NjM2ZGEwOTgwZTI1DQo+
+ICMgZ29vZDogWzU2MDEzMWYzMTNlYTliOTQzOTc0MjEzODI4OWI2ZjY4ZDYxNTMxZWNdIGJueDJ4
+OiBjcmVhdGUgZm9sZGVyDQo+IGZvciBibngyeCBmaXJtd2FyZSBmaWxlcw0KPiBnaXQgYmlzZWN0
+IGdvb2QgNTYwMTMxZjMxM2VhOWI5NDM5NzQyMTM4Mjg5YjZmNjhkNjE1MzFlYw0KPiAjIGJhZDog
+WzUyMzIyNGEzYjNjZDQwN2NlNGU2NzMxYTA4NzE5NGUxM2E5MGRiMThdIGJueDJ4LCBjbmljLCBi
+bngyaToNCj4gdXNlIG5ldyBGVy9IU0kNCj4gZ2l0IGJpc2VjdCBiYWQgNTIzMjI0YTNiM2NkNDA3
+Y2U0ZTY3MzFhMDg3MTk0ZTEzYTkwZGIxOA0KPiANCj4gDQo+IC0tDQo+IFRvIHVuc3Vic2NyaWJl
+IGZyb20gdGhpcyBsaXN0OiBzZW5kIHRoZSBsaW5lICJ1bnN1YnNjcmliZSBuZXRkZXYiIGluDQo+
+IHRoZSBib2R5IG9mIGEgbWVzc2FnZSB0byBtYWpvcmRvbW9Admdlci5rZXJuZWwub3JnDQo+IE1v
+cmUgbWFqb3Jkb21vIGluZm8gYXQgIGh0dHA6Ly92Z2VyLmtlcm5lbC5vcmcvbWFqb3Jkb21vLWlu
+Zm8uaHRtbA0KDQo=
 
