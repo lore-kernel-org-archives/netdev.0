@@ -1,69 +1,117 @@
-From: "Vladislav Zolotarov" <vladz@broadcom.com>
-Subject: RE: [PATCH net-next] bnx2x: dont use netdev_alloc_skb()
-Date: Tue, 12 Oct 2010 02:12:41 -0700
-Message-ID: <8628FE4E7912BF47A96AE7DD7BAC0AADDDEE4282DD@SJEXCHCCR02.corp.ad.broadcom.com>
-References: <1286838210.30423.128.camel@edumazet-laptop>
- <1286839363.30423.130.camel@edumazet-laptop>
- <AANLkTi=NvnPov_=KQJz2uXt1R-ep4oahDF0J=3HwhGzG@mail.gmail.com>
- <1286860560.30423.186.camel@edumazet-laptop>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: tbf/htb qdisc limitations
+Date: Tue, 12 Oct 2010 10:10:22 +0000
+Message-ID: <20101012101022.GA8578@ff.dom.local>
+References: <AANLkTik6_C5pzx=yS=C0VQR2xfg0S57AZAn9WYiGvxe5@mail.gmail.com> <4CB1A22B.9090701@gmail.com> <AANLkTin_jPp+WEkyJkD_KZyrJ4WX_6dM5wtFNw_ixuzv@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: "David Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	"Michael Chan" <mchan@broadcom.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>,
-	"Tom Herbert" <therbert@google.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Steven Brudenell <steven.brudenell@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4266 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754914Ab0JLJMy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Oct 2010 05:12:54 -0400
-In-Reply-To: <1286860560.30423.186.camel@edumazet-laptop>
-Content-Language: en-US
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:38122 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754126Ab0JLKLT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Oct 2010 06:11:19 -0400
+Received: by bwz15 with SMTP id 15so2278912bwz.19
+        for <netdev@vger.kernel.org>; Tue, 12 Oct 2010 03:10:53 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <AANLkTin_jPp+WEkyJkD_KZyrJ4WX_6dM5wtFNw_ixuzv@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogbmV0ZGV2LW93bmVyQHZn
-ZXIua2VybmVsLm9yZyBbbWFpbHRvOm5ldGRldi0NCj4gb3duZXJAdmdlci5rZXJuZWwub3JnXSBP
-biBCZWhhbGYgT2YgRXJpYyBEdW1hemV0DQo+IFNlbnQ6IFR1ZXNkYXksIE9jdG9iZXIgMTIsIDIw
-MTAgNzoxNiBBTQ0KPiBUbzogVG9tIEhlcmJlcnQNCj4gQ2M6IERhdmlkIE1pbGxlcjsgbmV0ZGV2
-OyBNaWNoYWVsIENoYW47IEVpbG9uIEdyZWVuc3RlaW4NCj4gU3ViamVjdDogUmU6IFtQQVRDSCBu
-ZXQtbmV4dF0gYm54Mng6IGRvbnQgdXNlIG5ldGRldl9hbGxvY19za2IoKQ0KPiANCj4gTGUgbHVu
-ZGkgMTEgb2N0b2JyZSAyMDEwIMOgIDIyOjAzIC0wNzAwLCBUb20gSGVyYmVydCBhIMOpY3JpdCA6
-DQo+ID4gT24gTW9uLCBPY3QgMTEsIDIwMTAgYXQgNDoyMiBQTSwgRXJpYyBEdW1hemV0DQo+IDxl
-cmljLmR1bWF6ZXRAZ21haWwuY29tPiB3cm90ZToNCj4gPiA+IExlIG1hcmRpIDEyIG9jdG9icmUg
-MjAxMCDDoCAwMTowMyArMDIwMCwgRXJpYyBEdW1hemV0IGEgw6ljcml0IDoNCj4gPiA+PiBuZXRk
-ZXZfYWxsb2Nfc2tiKCkgaXMgYSB2ZXJ5IHdyb25nIGludGVyZmFjZSwgcmVhbGx5Lg0KPiA+ID4+
-DQo+ID4gPj4gV2Ugc2hvdWxkIHJlbW92ZS9kZXByZWNhdGUgaXQuDQo+ID4gPj4NCj4gPiA+PiBG
-b3IgbXVsdGkgcXVldWUgZGV2aWNlcywgaXQgbWFrZXMgbW9yZSBzZW5zZSB0byBhbGxvY2F0ZSBz
-a2Igb24NCj4gbG9jYWwNCj4gPiA+PiBub2RlIG9mIHRoZSBjcHUgaGFuZGxpbmcgUlggaW50ZXJy
-dXB0cy4gVGhpcyBhbGxvdyBlYWNoIGNwdSB0bw0KPiA+ID4+IG1hbmlwdWxhdGUgaXRzIG93biBz
-bHViL3NsYWIgcXVldWVzL3N0cnVjdHVyZXMgd2l0aG91dCBkb2luZw0KPiBleHBlbnNpdmUNCj4g
-PiA+PiBjcm9zcy1ub2RlIGJ1c2luZXNzLg0KPiA+ID4+DQo+ID4gPj4gRm9yIG5vbiBtdWx0aSBx
-dWV1ZSBkZXZpY2VzLCBJUlEgYWZmaW5pdHkgc2hvdWxkIGJlIHNldCBzbyB0aGF0IGENCj4gY3B1
-DQo+ID4gPj4gY2xvc2UgdG8gdGhlIGRldmljZSBzZXJ2aWNlcyBpbnRlcnJ1cHRzLiBFdmVuIGlm
-IG5vdCBzZXQsIHVzaW5nDQo+ID4gPj4gZGV2X2FsbG9jX3NrYigpIGlzIGZhc3Rlci4NCj4gPiA+
-Pg0KPiA+ID4+IFNpZ25lZC1vZmYtYnk6IEVyaWMgRHVtYXpldCA8ZXJpYy5kdW1hemV0QGdtYWls
-LmNvbT4NCj4gPiA+DQo+ID4gPiBPciBtYXliZSByZXZlcnQgOg0KPiA+ID4NCj4gPiA+IGNvbW1p
-dCBiMzA5NzNmODc3ZmVhMWEzZmI4NGUwNTU5OTg5MGZjYzA4MmE4OGU1DQo+ID4gPiBBdXRob3I6
-IENocmlzdG9waCBIZWxsd2lnIDxoY2hAbHN0LmRlPg0KPiA+ID4gRGF0ZTogICBXZWQgRGVjIDYg
-MjA6MzI6MzYgMjAwNiAtMDgwMA0KPiA+ID4NCj4gPg0KPiA+IEkgc2Vjb25kIHRoaXMgcmV2ZXJ0
-LiAgTm9kZSBhd2FyZSBhbGxvY2F0aW9uIGJ5IGRldmljZSdzIG5vZGUgbWFrZXMNCj4gPiBsaXR0
-bGUgc2Vuc2Ugb24gYSBtdWx0aS1xdWV1ZSBkZXZpY2UgYW5kIGxlYWRzIHRvIG1lZGlvY3JlDQo+
-ID4gcGVyZm9ybWFuY2UuDQo+IA0KPiBZZXMsIEkgc2FpZCB0aGlzIHNldmVyYWwgdGltZSBpbiB0
-aGUgcGFzdCwgSSBiZWxpZXZlIHRpbWUgaGFzIGNvbWUgdG8NCj4gZ2V0IHJpZCBvZiBpdC4NCj4g
-DQo+IEkgcG9zdGVkIGEgcGF0Y2ggc29tZSBtaW51dGVzIGFnbywgc28geW91IGNhbiByZXZpZXcg
-aXQgYW5kIGFjayBpdCA7KQ0KPiANCj4gVGhhbmtzICENCg0KRXJpYywgdmVyeSBuaWNlIHBhdGNo
-LCB0aGFua3MuIEhvd2V2ZXIgRWlsb24gaXMgb24gdmFjYXRpb24gdGlsbCB0b21vcnJvdw0KYW5k
-IGhlIGlzIGEgcmVzcG9uc2libGUgbWFpbnRhaW5lciBvZiB0aGUgYm54MngsIHRodXMgdGhlIGZp
-bmFsIEFDSyBzaG91bGQNCmJlIGhpcy4NCg0KRGF2ZSwgaWYgaXQgY2FuIHdhaXQgdGlsbCB0b21v
-cnJvdywgSSdkIGxpa2UgdG8gYXNrIHUgdG8gd2FpdCBmb3IgRWlsb24ncw0KZmluYWwgQUNLLg0K
-DQpUaGFua3MsDQp2bGFkDQoNCj4gDQo+IA0KPiAtLQ0KPiBUbyB1bnN1YnNjcmliZSBmcm9tIHRo
-aXMgbGlzdDogc2VuZCB0aGUgbGluZSAidW5zdWJzY3JpYmUgbmV0ZGV2IiBpbg0KPiB0aGUgYm9k
-eSBvZiBhIG1lc3NhZ2UgdG8gbWFqb3Jkb21vQHZnZXIua2VybmVsLm9yZw0KPiBNb3JlIG1ham9y
-ZG9tbyBpbmZvIGF0ICBodHRwOi8vdmdlci5rZXJuZWwub3JnL21ham9yZG9tby1pbmZvLmh0bWwN
-Cg0K
+On Mon, Oct 11, 2010 at 06:27:25PM -0400, Steven Brudenell wrote:
+> > I'm not sure you checked how the "burst" works, and doubt it could
+> > help you here. Anyway, do you think: rate 2KB/s with burst 5GB
+> > config would be useful for you?
+> 
+> i actually really do want something like 2KB/s with 5GB burst
+> (modifying parameters such that burst + rate * 30 days <= 5GB, but you
+> get the idea). but this isn't possible given the implementation:
+> 
+> i see that overall, virtual "tokens" map to "scheduler ticks", where a
+> "scheduler tick" is 64ns. (net/sched/sch_{tbf,htb}.c,
+> include/net/pkt_sched.h -- these 64ns units are called "ticks" despite
+> being unrelated to HZ). the "burst" parameter is also stored and
+> passed from userspace as a u32. so, the maximum configurable burst in
+> both cases is rate * 275s, since we can only track 275s worth of
+> "scheduler ticks" in a u32 ( (1<<32) / NSEC_PER_SEC * 64 =~ 275s ).
 
+Right. It was a compromise to allow higher rates for "common" use
+without u64 changes. It can be tuned with PSCHED_SHIFT yet to give you
+more burst, but I doubt tbf/htb authors expected monthly values here.
+
+> 
+> > My proposal is you don't bother with 1) and 2), but first do the
+> > hack in tbf or htb directly, using or omitting rate tables, how
+> > you like, and test this idea.
+> 
+> i'll give it a shot, though given that i hate writing the same code
+> twice, i would prefer to know the right way to change netlink before i
+> write a functional test.
+> 
+> due to the implementation coupling i don't see any way to make any
+> permanent change *without* changing the netlink interface -- even
+> changing that u32 to a u64, which would only need to be a u64 in
+> userspace because userspace does the munging today!
+> 
+> (what's worse, today userspace has to specify the full rate table over
+> netlink, instead of just specifying the rate and having the kernel
+> driver compute the table or whatever other data structure it deems
+> necessary. i think decoupling interface from implementation is a
+> worthy goal by itself. if they were decoupled, i could have just coded
+> a patch and not bothered y'all in the first place....)
+> 
+> > But it seems the right way is to collect monthly stats with some
+> > userspace tool and change qdisc config dynamically. You might
+> > look at network admins' lists for small ISPs exemplary scripts
+> > doing such nasty things to their users, or have a look at ppp
+> > accounting tools.
+> 
+> <non technical sidetrack>
+> i disagree outright that a userspace tool is the "right" way to solve
+> my constraints.
+> 
+> my constraints are:
+> 1) i need to guarantee i never ever go over the monthly transfer limit
+> (bad experiences with Comcast... you can check out of Red Tape Hotel
+> any time you like, but you can never leave).
+> 2) i want to be able to transfer short bursts at top speed whenever
+> possible (that's what i'm paying for in the first place).
+> 3) i need to ration transfer usage so i am never stuck in a situation
+> of being limited to snail speeds until the end of the month (on a
+> Comcast connection in my area, i can reasonably sustain 2MB/sec
+> downstream, which eats 250GB in ~36 hours, so this constraint becomes
+> important).
+> 
+> tbf with a large burst size seems ideal for my constraints. i can't
+> quantify this, but it seems like no simpler strategy satisfies the
+> constraints well and no more complex strategy is necessary. i think
+> any userspace solution i could write would end up trying to emulate
+> tbf with large burst.
+> 
+> a userspace tool updating qdisc parameters, even if run in an infinite
+> loop, would always have a big chunky time resolution compared to an
+> inline packet shaper (which is important for #2, and for #1 to a
+> degree). i could write a packet shaper in userspace, but this does not
+> make sense to given that kernel qos already exists, and already has a
+> tbf implementation that just needs a little love.
+> </non technical sidetrack>
+> 
+> given all that, i'd just like to know
+> 
+> 1) whether it's forbidden or bad to do floating point math in a packet
+> scheduler, and
+
+Yes, it's not allowed according to Documentation/HOWTO. Btw, as you
+can see e.g. in sch_hfsc comments, 64-bit division is avoided too.
+
+> 
+> 2) the best way to go about making breaking changes to netlink.
+
+I can only say there is no versioning, but backward compatibility
+is crucial, so you need to do some tricks or data duplication.
+You could probably try to get opinions about it with an RFC on
+moving tbf and htb schedulers to 64 bits if you're interested
+(decoupling it from your specific burst problem).
+
+Jarek P.
