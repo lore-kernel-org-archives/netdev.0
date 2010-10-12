@@ -1,40 +1,40 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: [PATCH net-next] net:  allocate skbs on local node
-Date: Tue, 12 Oct 2010 07:50:27 -0500 (CDT)
-Message-ID: <alpine.DEB.2.00.1010120745360.31832@router.home>
-References: <1286838210.30423.128.camel@edumazet-laptop> <1286839363.30423.130.camel@edumazet-laptop> <1286859925.30423.184.camel@edumazet-laptop> <20101011230322.f0f6dd47.akpm@linux-foundation.org> <1286866699.30423.234.camel@edumazet-laptop>
- <20101012002435.f51f2c0e.akpm@linux-foundation.org> <1286869793.2732.24.camel@edumazet-laptop> <20101012005856.994bea6d.akpm@linux-foundation.org> <4CB441CB.2000708@cs.helsinki.fi>
+From: Peppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH] ethtool: add the stmmac support
+Date: Tue, 12 Oct 2010 15:26:17 +0200
+Message-ID: <4CB461F9.8060900@st.com>
+References: <1285667519-4621-1-git-send-email-peppe.cavallaro@st.com>
+	 <4CAC0AE8.2060808@st.com>
+ <1286457211.2271.7.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Michael Chan <mchan@broadcom.com>,
-	Eilon Greenstein <eilong@broadcom.com>,
-	Christoph Hellwig <hch@lst.de>,
-	David Rientjes <rientjes@google.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Nick Piggin <npiggin@kernel.dk>
-To: Pekka Enberg <penberg@cs.helsinki.fi>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4CB441CB.2000708@cs.helsinki.fi>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog114.obsmtp.com ([207.126.144.137]:46404 "EHLO
+	eu1sys200aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932400Ab0JLN07 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Oct 2010 09:26:59 -0400
+In-Reply-To: <1286457211.2271.7.camel@achroite.uk.solarflarecom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 12 Oct 2010, Pekka Enberg wrote:
-
-> There's little point in discussing the removal of SLAB as long as there are
-> performance regressions for real workloads from people who are willing to
-> share results and test patches. I'm optimistic that we'll be able to try
-> removing SLAB some time next year unless something interesting pops up...
-
-Hmmm. Given these effects I think we should be more cautious regarding the
-unification work. May be the "unified allocator" should replace SLAB
-instead and SLUB can stay unchanged? The unification patches go back to
-the one lock per node SLAB thing because the queue maintenance overhead is
-otherwise causing large regressions in hackbench because of lots of atomic
-ops. The per node lock seem to be causing problems here in the network
-stack,. Take the unified as a SLAB cleanup instead? Then at least we have
-a large common code base and just differentiate through the locking
-mechanism?
+IE9uIDEwLzcvMjAxMCAzOjEzIFBNLCBCZW4gSHV0Y2hpbmdzIHdyb3RlOg0KPg0KPiBPbiBXZWQs
+IDIwMTAtMTAtMDYgYXQgMDc6MzYgKzAyMDAsIFBlcHBlIENBVkFMTEFSTyB3cm90ZToNCj4gPiBI
+ZWxsbywNCj4gPg0KPiA+IE9uIDA5LzI4LzIwMTAgMTE6NTEgQU0sIEdpdXNlcHBlIENBVkFMTEFS
+TyB3cm90ZToNCj4gPiA+IEFkZCB0aGUgc3RtbWFjIHN1cHBvcnQgaW50byB0aGUgZXRodG9vbCB0
+bw0KPiA+ID4gZHVtcCBib3RoIHRoZSBNYWMgQ29yZSBhbmQgRG1hIHJlZ2lzdGVycy4NCj4gPg0K
+PiA+IEFueSBuZXdzIGZvciB0aGlzIHBhdGNoPw0KPiA+DQo+ID4gVGhlIHN0bW1hYyBpcyBub3cg
+d29ya2luZyBvbiBzZXZlcmFsIHBsYXRmb3JtcyAobm90IG9ubHkgb24gU1RNIFNUNDANCj4gPiBi
+YXNlZCBib3hlcykuIEkgdGhpbmsgaXQncyB3b3J0aCBoYXZpbmcgdGhlIGV0aHRvb2wgc3VwcG9y
+dCBmb3IgdGhlDQo+IGRyaXZlci4NCj4gPg0KPiA+IFdlbGNvbWUgcmV2aWV3IGFuZCBhZHZpY2Ug
+YXMgdXN1YWwuDQo+IFsuLi5dDQo+DQo+IFlvdSBuZWVkIHRvIHNlbmQgZXRodG9vbCBwYXRjaGVz
+IHRvIHRoZSBldGh0b29sIG1haW50YWluZXIsIEplZmYgR2FyemlrDQo+IDxqZ2FyemlrQHBvYm94
+LmNvbT4uICBJIGV4cGVjdCBoZSdsbCBtYWtlIGFuIGV0aHRvb2wgcmVsZWFzZSBzaG9ydGx5DQo+
+IGFmdGVyIExpbnV4IDIuNi4zNiwgYW5kIHdpbGwgYXBwbHkgcGF0Y2hlcyB0aGVuLg0KPg0KSGkg
+QmVuDQptYW55IHRoYW5rcy4NCkknbGwgc2VudCB0aGUgcGF0Y2ggYWdhaW4gYWRkaW5nIGluIGNv
+cHkgdGhlIEplZmYgR2FyemlrLg0KDQpSZWdhcmRzDQpQZXBwZQ0KDQo+IEJlbi4NCj4NCj4gLS0N
+Cj4gQmVuIEh1dGNoaW5ncywgU2VuaW9yIFNvZnR3YXJlIEVuZ2luZWVyLCBTb2xhcmZsYXJlIENv
+bW11bmljYXRpb25zDQo+IE5vdCBzcGVha2luZyBmb3IgbXkgZW1wbG95ZXI7IHRoYXQncyB0aGUg
+bWFya2V0aW5nIGRlcGFydG1lbnQncyBqb2IuDQo+IFRoZXkgYXNrZWQgdXMgdG8gbm90ZSB0aGF0
+IFNvbGFyZmxhcmUgcHJvZHVjdCBuYW1lcyBhcmUgdHJhZGVtYXJrZWQuDQo+DQo=
