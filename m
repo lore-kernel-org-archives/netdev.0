@@ -1,64 +1,95 @@
-From: Sjur Braendeland <sjur.brandeland@stericsson.com>
-Subject: [RFC arm-kernel 4/4] caif-u5500: Build config for CAIF shared mem driver
-Date: Tue, 12 Oct 2010 13:10:21 +0200
-Message-ID: <1286881821-2916-5-git-send-email-sjur.brandeland@stericsson.com>
-References: <1286881821-2916-1-git-send-email-sjur.brandeland@stericsson.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [patch 1/2] vhost: potential integer overflows
+Date: Tue, 12 Oct 2010 14:25:48 +0200
+Message-ID: <20101012122548.GA25446@redhat.com>
+References: <20101011172256.GF5851@bicker>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: stefan.xk.nilsson@stericsson.com, linus.walleij@stericsson.com,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	kim.lilliestierna@stericsson.com, daniel.martensson@stericsson.com,
-	Amarnath Revanna <amarnath.bangalore.revanna@stericsson.com>,
-	=?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>
-To: davem@davemloft.net, Russell King <linux@arm.linux.org.uk>
+Content-Type: text/plain; charset=us-ascii
+Cc: Juan Quintela <quintela@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Rusty Russell <rusty@rustcorp.com.au>, kvm@vger.kernel.org,
+	virtualization@lists.osdl.org, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Dan Carpenter <error27@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f46.google.com ([209.85.215.46]:33946 "EHLO
-	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932183Ab0JLLK6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Oct 2010 07:10:58 -0400
-Received: by mail-ew0-f46.google.com with SMTP id 20so1136102ewy.19
-        for <netdev@vger.kernel.org>; Tue, 12 Oct 2010 04:10:58 -0700 (PDT)
-In-Reply-To: <1286881821-2916-1-git-send-email-sjur.brandeland@stericsson.com>
+Received: from mx1.redhat.com ([209.132.183.28]:32259 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932169Ab0JLMcR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Oct 2010 08:32:17 -0400
+Content-Disposition: inline
+In-Reply-To: <20101011172256.GF5851@bicker>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Amarnath Revanna <amarnath.bangalore.revanna@stericsson.com>
+On Mon, Oct 11, 2010 at 07:22:57PM +0200, Dan Carpenter wrote:
+> I did an audit for potential integer overflows of values which get passed
+> to access_ok() and here are the results.
+> 
+> Signed-off-by: Dan Carpenter <error27@gmail.com>
+> 
+> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+> index dd3d6f7..c2aa12c 100644
+> --- a/drivers/vhost/vhost.c
+> +++ b/drivers/vhost/vhost.c
+> @@ -429,6 +429,14 @@ static int vq_access_ok(unsigned int num,
+>  			struct vring_avail __user *avail,
+>  			struct vring_used __user *used)
+>  {
+> +
+> +	if (num > UINT_MAX / sizeof *desc)
+> +		return 0;
+> +	if (num > UINT_MAX / sizeof *avail->ring - sizeof *avail)
+> +		return 0;
+> +	if (num > UINT_MAX / sizeof *used->ring - sizeof *used)
+> +		return 0;
+> +
+>  	return access_ok(VERIFY_READ, desc, num * sizeof *desc) &&
+>  	       access_ok(VERIFY_READ, avail,
+>  			 sizeof *avail + num * sizeof *avail->ring) &&
+> @@ -447,6 +455,9 @@ int vhost_log_access_ok(struct vhost_dev *dev)
+>  /* Caller should have vq mutex and device mutex */
+>  static int vq_log_access_ok(struct vhost_virtqueue *vq, void __user *log_base)
+>  {
+> +	if (vq->num > UINT_MAX / sizeof *vq->used->ring - sizeof *vq->used)
+> +		return 0;
+> +
+>  	return vq_memory_access_ok(log_base, vq->dev->memory,
+>  			    vhost_has_feature(vq->dev, VHOST_F_LOG_ALL)) &&
+>  		(!vq->log_used || log_access_ok(log_base, vq->log_addr,
+> @@ -606,12 +617,17 @@ static long vhost_set_vring(struct vhost_dev *d, int ioctl, void __user *argp)
+>  			}
+>  
+>  			/* Also validate log access for used ring if enabled. */
+> -			if ((a.flags & (0x1 << VHOST_VRING_F_LOG)) &&
+> -			    !log_access_ok(vq->log_base, a.log_guest_addr,
+> +			if (a.flags & (0x1 << VHOST_VRING_F_LOG)) {
+> +				if (vq->num > UINT_MAX / sizeof *vq->used->ring - sizeof *vq->used) {
+> +					r = -EINVAL;
+> +					break;
+> +				}
+> +				if (!log_access_ok(vq->log_base, a.log_guest_addr,
+>  					   sizeof *vq->used +
+>  					   vq->num * sizeof *vq->used->ring)) {
+> -				r = -EINVAL;
+> -				break;
+> +					r = -EINVAL;
+> +					break;
+> +				}
+>  			}
+>  		}
+>  
 
-Signed-off-by: Sjur Br=C3=A6ndeland <sjur.brandeland@stericsson.com>
----
- drivers/net/caif/Kconfig  |    7 +++++++
- drivers/net/caif/Makefile |    4 ++++
- 2 files changed, 11 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/caif/Kconfig b/drivers/net/caif/Kconfig
-index 75bfc3a..09ed3f4 100644
---- a/drivers/net/caif/Kconfig
-+++ b/drivers/net/caif/Kconfig
-@@ -31,3 +31,10 @@ config CAIF_SPI_SYNC
- 	Putting the next command and length in the start of the frame can
- 	help to synchronize to the next transfer in case of over or under-run=
-s.
- 	This option also needs to be enabled on the modem.
-+
-+config CAIF_SHM
-+	tristate "CAIF shared memory protocol driver"
-+	depends on CAIF && U5500_MBOX
-+	default n
-+	---help---
-+	The CAIF shared memory protocol driver for the STE UX5500 platform.
-diff --git a/drivers/net/caif/Makefile b/drivers/net/caif/Makefile
-index 3a11d61..b38d987 100644
---- a/drivers/net/caif/Makefile
-+++ b/drivers/net/caif/Makefile
-@@ -8,3 +8,7 @@ obj-$(CONFIG_CAIF_TTY) +=3D caif_serial.o
- # SPI slave physical interfaces module
- cfspi_slave-objs :=3D caif_spi.o caif_spi_slave.o
- obj-$(CONFIG_CAIF_SPI_SLAVE) +=3D cfspi_slave.o
-+
-+# Shared memory
-+caif_shm-objs :=3D caif_shmcore.o caif_shm_u5500.o
-+obj-$(CONFIG_CAIF_SHM) +=3D caif_shm.o
---=20
-1.7.0.4
+As far as I can see, maximum value for num is 64K - 1:
 
+                if (!s.num || s.num > 0xffff || (s.num & (s.num - 1))) {
+                        r = -EINVAL;
+                        break;
+                }
+
+How can any of the above two trigger?
+It seems easier to check value for sanity at a single place where it's
+passed from userspace to kernel.
+
+-- 
+MST
