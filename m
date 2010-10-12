@@ -1,73 +1,53 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net-next] ixgbe: fix stats handling
-Date: Mon, 11 Oct 2010 17:13:06 -0700
-Message-ID: <AANLkTi=iWq40SX7nqM-SUwvkOSBQAp_2EFgSkc6WHGEy@mail.gmail.com>
-References: <1286799439.2737.21.camel@edumazet-laptop>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net tree with the  tree
+Date: Tue, 12 Oct 2010 11:17:16 +1100
+Message-ID: <20101012111716.0c54b093.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Peter Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
-	Emil Tantilov <emil.s.tantilov@intel.com>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f174.google.com ([209.85.214.174]:39991 "EHLO
-	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754778Ab0JLANI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Oct 2010 20:13:08 -0400
-Received: by iwn7 with SMTP id 7so344iwn.19
-        for <netdev@vger.kernel.org>; Mon, 11 Oct 2010 17:13:08 -0700 (PDT)
-In-Reply-To: <1286799439.2737.21.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Tue__12_Oct_2010_11_17_16_+1100_+C5LqZvz0+wtXK6S"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	<linux1394-devel@lists.sourceforge.net>,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 11, 2010 at 05:17, Eric Dumazet <eric.dumazet@gmail.com> wr=
-ote:
-> Hi
->
-> I am sending this patch for Intel people review/test and acknowledge.
->
-> Thanks !
->
-> [PATCH net-next] ixgbe: fix stats handling
->
-> Current ixgbe stats have following problems :
->
-> - Not 64 bit safe (on 32bit arches)
->
-> - Not safe in ixgbe_clean_rx_irq() :
-> =C2=A0 All cpus dirty a common location (netdev->stats.rx_bytes &
-> netdev->stats.rx_packets) without proper synchronization.
-> =C2=A0 This slow down a bit multiqueue operations, and possibly miss =
-some
-> updates.
->
-> Fixes :
->
-> Implement ndo_get_stats64() method to provide accurate 64bit rx|tx
-> bytes/packets counters, using 64bit safe infrastructure.
->
-> ixgbe_get_ethtool_stats() also use this infrastructure to provide 64b=
-it
-> safe counters.
->
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> CC: Peter Waskiewicz <peter.p.waskiewicz.jr@intel.com>
-> CC: Emil Tantilov <emil.s.tantilov@intel.com>
-> CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
-> =C2=A0drivers/net/ixgbe/ixgbe.h =C2=A0 =C2=A0 =C2=A0 =C2=A0 | =C2=A0 =
-=C2=A03 +-
-> =C2=A0drivers/net/ixgbe/ixgbe_ethtool.c | =C2=A0 29 +++++++++++------=
----
-> =C2=A0drivers/net/ixgbe/ixgbe_main.c =C2=A0 =C2=A0| =C2=A0 40 +++++++=
-++++++++++++++++++---
-> =C2=A03 files changed, 56 insertions(+), 16 deletions(-)
->
+--Signature=_Tue__12_Oct_2010_11_17_16_+1100_+C5LqZvz0+wtXK6S
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Thanks Eric, I have added the patch to my queue.
+Hi all,
 
+Today's linux-next merge of the net tree got a conflict in
+drivers/ieee1394/eth1394.c between commit
+66fa12c571d35e3cd62574c65f1785a460105397 ("ieee1394: remove the old IEEE
+1394 driver stack") from the  tree and commit
+01414802054c382072b6cb9a1bdc6e243c74b2d5 ("ethtool: Provide a default
+implementation of ethtool_ops::get_drvinfo") from the net tree.
+
+The former removes the file.  I just did that.
 --=20
 Cheers,
-Jeff
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Tue__12_Oct_2010_11_17_16_+1100_+C5LqZvz0+wtXK6S
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iQEcBAEBAgAGBQJMs6kMAAoJEDMEi1NhKgbsSbgH/RFadt+4RXVZ2xAzo7abYeuc
+jwoMssEU8pGw8BDzu5p3o1cWn6bde6TotWByod6stT1qoh77dkzFc9D7HG+rPXE+
+rsfwaRAy/zK49XwFg1VbO5M++iwXH8tEYSHeP6E/sKmAYIcclNRbI4Szna/Yyd8N
+vm7rLh5+AYLkjSCneZY6EaFW5ukAEVabOe/oXU8zEjw+5UBbqAUOy7VQPB1YDfF1
+nwqvpC8c2qDv/5WCJeWeSZ0XPS6zbWzgCq770x2IcXLDMzkiKBBjSKDKqNWXyGoD
+EVaNKlC5W15vg6UZlIFlAedPCS2e4ZS68yIDv7gBhvU+lbSMQvsU8Q0RiDpwpEQ=
+=xyoH
+-----END PGP SIGNATURE-----
+
+--Signature=_Tue__12_Oct_2010_11_17_16_+1100_+C5LqZvz0+wtXK6S--
