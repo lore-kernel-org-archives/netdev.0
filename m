@@ -1,130 +1,70 @@
-From: nhorman@tuxdriver.com
-Subject: [PATCH 1/5] Fix bonding drivers improper modification of netpoll structure
-Date: Tue, 12 Oct 2010 16:29:33 -0400
-Message-ID: <1286915377-1612-2-git-send-email-nhorman@tuxdriver.com>
-References: <1286915377-1612-1-git-send-email-nhorman@tuxdriver.com>
-Cc: bonding-devel@lists.sourceforge.net, fubar@us.ibm.com,
-	davem@davemloft.net, andy@greyhouse.net, amwang@redhat.com,
-	nhorman@tuxdriver.com
-To: netdev@vger.kernel.org
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH -next] sundance: Add initial ethtool stats support
+Date: Tue, 12 Oct 2010 13:57:19 -0700
+Message-ID: <1286917039.1117.101.camel@Joe-Laptop>
+References: <20101009095346.GA12951@hera.kernel.org>
+	 <20101009132749.GA15074@solarflare.com>	<4CB0C56C.2000106@kernel.org>
+	 <20101012.115138.112614145.davem@davemloft.net>
+	 <4CB4C6E6.9090805@kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	eric.dumazet@gmail.com, Ben Hutchings <bhutchings@solarflare.com>,
+	Jeff Garzik <jgarzik@redhat.com>
+To: Denis Kirjanov <dkirjanov@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cpe-076-182-075-229.nc.res.rr.com ([76.182.75.229]:50234 "EHLO
-	localhost.localdomain" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750927Ab0JLVXJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Oct 2010 17:23:09 -0400
-In-Reply-To: <1286915377-1612-1-git-send-email-nhorman@tuxdriver.com>
+Received: from mail.perches.com ([173.55.12.10]:2819 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751106Ab0JLVda (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Oct 2010 17:33:30 -0400
+In-Reply-To: <4CB4C6E6.9090805@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman <nhorman@tuxdriver.com>
+On Wed, 2010-10-13 at 00:36 +0400, Denis Kirjanov wrote:
 
-The bonding driver currently modifies the netpoll structure in its xmit path
-while sending frames from netpoll.  This is racy, as other cpus can access the
-netpoll structure in parallel. Since the bonding driver points np->dev to a
-slave device, other cpus can inadvertently attempt to send data directly to
-slave devices, leading to improper locking with the bonding master, lost frames,
-and deadlocks.  This patch fixes that up.
+> diff --git a/drivers/net/sundance.c b/drivers/net/sundance.c
 
-This patch also removes the real_dev pointer from the netpoll structure as that
-data is really only used by bonding in the poll_controller, and we can emulate
-its behavior by check each slave for IS_UP.
+Hi Denis.
+ 
+Just a few trivial misspellings of deffered -> deferred
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
----
- drivers/net/bonding/bond_main.c |   15 +++++++++------
- include/linux/netpoll.h         |    9 +++++++--
- net/core/netpoll.c              |    6 +++---
- 3 files changed, 19 insertions(+), 11 deletions(-)
+> index 4283cc5..159f7e7 100644
+> --- a/drivers/net/sundance.c
+> +++ b/drivers/net/sundance.c
+> @@ -363,6 +363,19 @@ struct netdev_private {
+>          dma_addr_t tx_ring_dma;
+>          dma_addr_t rx_ring_dma;
+>  	struct timer_list timer;		/* Media monitoring timer. */
+> +	/* ethtool extra stats */
+> +	struct {
+> +		u64 tx_multiple_collisions;
+> +		u64 tx_single_collisions;
+> +		u64 tx_late_collisions;
+> +		u64 tx_deffered;
+> +		u64 tx_deffered_excessive;
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index a0bf35d..eb7d089 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -449,11 +449,9 @@ int bond_dev_queue_xmit(struct bonding *bond, struct sk_buff *skb,
- 	if (unlikely(bond->dev->priv_flags & IFF_IN_NETPOLL)) {
- 		struct netpoll *np = bond->dev->npinfo->netpoll;
- 		slave_dev->npinfo = bond->dev->npinfo;
--		np->real_dev = np->dev = skb->dev;
- 		slave_dev->priv_flags |= IFF_IN_NETPOLL;
--		netpoll_send_skb(np, skb);
-+		netpoll_send_skb_on_dev(np, skb, slave_dev);
- 		slave_dev->priv_flags &= ~IFF_IN_NETPOLL;
--		np->dev = bond->dev;
- 	} else
- #endif
- 		dev_queue_xmit(skb);
-@@ -1332,9 +1330,14 @@ static bool slaves_support_netpoll(struct net_device *bond_dev)
- 
- static void bond_poll_controller(struct net_device *bond_dev)
- {
--	struct net_device *dev = bond_dev->npinfo->netpoll->real_dev;
--	if (dev != bond_dev)
--		netpoll_poll_dev(dev);
-+	struct bonding *bond = netdev_priv(bond_dev);
-+	struct slave *slave;
-+	int i;
-+
-+	bond_for_each_slave(bond, slave, i) {
-+		if (slave->dev && IS_UP(slave->dev))
-+			netpoll_poll_dev(slave->dev);
-+	}
- }
- 
- static void bond_netpoll_cleanup(struct net_device *bond_dev)
-diff --git a/include/linux/netpoll.h b/include/linux/netpoll.h
-index 50d8009..79358bb 100644
---- a/include/linux/netpoll.h
-+++ b/include/linux/netpoll.h
-@@ -14,7 +14,6 @@
- 
- struct netpoll {
- 	struct net_device *dev;
--	struct net_device *real_dev;
- 	char dev_name[IFNAMSIZ];
- 	const char *name;
- 	void (*rx_hook)(struct netpoll *, int, char *, int);
-@@ -53,7 +52,13 @@ void netpoll_set_trap(int trap);
- void __netpoll_cleanup(struct netpoll *np);
- void netpoll_cleanup(struct netpoll *np);
- int __netpoll_rx(struct sk_buff *skb);
--void netpoll_send_skb(struct netpoll *np, struct sk_buff *skb);
-+void netpoll_send_skb_on_dev(struct netpoll *np, struct sk_buff *skb,
-+			     struct net_device *dev);
-+static inline void netpoll_send_skb(struct netpoll *np, struct sk_buff *skb)
-+{
-+	netpoll_send_skb_on_dev(np, skb, np->dev);
-+}
-+
- 
- 
- #ifdef CONFIG_NETPOLL
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index 537e01a..4e98ffa 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -288,11 +288,11 @@ static int netpoll_owner_active(struct net_device *dev)
- 	return 0;
- }
- 
--void netpoll_send_skb(struct netpoll *np, struct sk_buff *skb)
-+void netpoll_send_skb_on_dev(struct netpoll *np, struct sk_buff *skb,
-+			     struct net_device *dev)
- {
- 	int status = NETDEV_TX_BUSY;
- 	unsigned long tries;
--	struct net_device *dev = np->dev;
- 	const struct net_device_ops *ops = dev->netdev_ops;
- 	/* It is up to the caller to keep npinfo alive. */
- 	struct netpoll_info *npinfo = np->dev->npinfo;
-@@ -346,7 +346,7 @@ void netpoll_send_skb(struct netpoll *np, struct sk_buff *skb)
- 		schedule_delayed_work(&npinfo->tx_work,0);
- 	}
- }
--EXPORT_SYMBOL(netpoll_send_skb);
-+EXPORT_SYMBOL(netpoll_send_skb_on_dev);
- 
- void netpoll_send_udp(struct netpoll *np, const char *msg, int len)
- {
--- 
-1.7.2.3
+1
+
+> +	np->xstats.tx_deffered += ioread8(ioaddr + StatsTxDefer);
+> +	np->xstats.tx_deffered_excessive += ioread8(ioaddr + StatsTxXSDefer);
+
+2
+
+> +static const struct {
+> +	const char name[ETH_GSTRING_LEN];
+> +} sundance_stats[] = {
+> +	{ "tx_multiple_collisions" },
+> +	{ "tx_single_collisions" },
+> +	{ "tx_late_collisions" },
+> +	{ "tx_deffered" },
+> +	{ "tx_deffered_excessive" },
+
+3
+
+> +	data[i++] = np->xstats.tx_deffered;
+> +	data[i++] = np->xstats.tx_deffered_excessive;
+
+4
 
