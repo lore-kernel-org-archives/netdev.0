@@ -1,96 +1,76 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [BUG net-next] bnx2x: all traffic comes to RX queue 0
-Date: Tue, 12 Oct 2010 18:07:37 +0200
-Message-ID: <1286899657.2732.93.camel@edumazet-laptop>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: RE: [BUG net-next] bnx2x: all traffic comes to RX queue 0
+Date: Tue, 12 Oct 2010 09:20:02 -0700
+Message-ID: <2DFD360E328B3941911E6D28B085D990129FC2028B@SJEXCHCCR01.corp.ad.broadcom.com>
 References: <1286838210.30423.128.camel@edumazet-laptop>
+ <1286899657.2732.93.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Michael Chan <mchan@broadcom.com>,
-	Eilon Greenstein <eilong@broadcom.com>
-To: David Miller <davem@davemloft.net>,
-	Dmitry Kravkov <dmitry@broadcom.com>,
-	Vladislav Zolotarov <vladz@broadcom.com>,
-	Yaniv Rosner <yanivr@broadcom.com>
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: netdev <netdev@vger.kernel.org>,
+	"Michael Chan" <mchan@broadcom.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>,
+	"David Miller" <davem@davemloft.net>,
+	"Vladislav Zolotarov" <vladz@broadcom.com>,
+	"Yaniv Rosner" <yaniv.rosner@broadcom.com>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:64610 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757425Ab0JLQHm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Oct 2010 12:07:42 -0400
-Received: by wyb28 with SMTP id 28so154140wyb.19
-        for <netdev@vger.kernel.org>; Tue, 12 Oct 2010 09:07:41 -0700 (PDT)
-In-Reply-To: <1286838210.30423.128.camel@edumazet-laptop>
+Received: from mms3.broadcom.com ([216.31.210.19]:1810 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751760Ab0JLQUP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Oct 2010 12:20:15 -0400
+In-Reply-To: <1286899657.2732.93.camel@edumazet-laptop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hmm, while doing tests for the netdev_alloc_skb() problem, I found
-current net-next tree is not really multi queue enabled...
-
-ethtool -S eth1|grep _ucast
-     [0]: rx_ucast_packets: 3507786
-     [0]: tx_ucast_packets: 416925
-     [1]: rx_ucast_packets: 0
-     [1]: tx_ucast_packets: 4
-     [2]: rx_ucast_packets: 0
-     [2]: tx_ucast_packets: 397467
-     [3]: rx_ucast_packets: 0
-     [3]: tx_ucast_packets: 75832
-     [4]: rx_ucast_packets: 0
-     [4]: tx_ucast_packets: 171025
-     [5]: rx_ucast_packets: 0
-     [5]: tx_ucast_packets: 233025
-     [6]: rx_ucast_packets: 0
-     [6]: tx_ucast_packets: 250358
-     [7]: rx_ucast_packets: 0
-     [7]: tx_ucast_packets: 240792
-     [8]: rx_ucast_packets: 0
-     [8]: tx_ucast_packets: 216366
-     [9]: rx_ucast_packets: 0
-     [9]: tx_ucast_packets: 1
-     [10]: rx_ucast_packets: 0
-     [10]: tx_ucast_packets: 350324
-     [11]: rx_ucast_packets: 0
-     [11]: tx_ucast_packets: 92403
-     [12]: rx_ucast_packets: 0
-     [12]: tx_ucast_packets: 307678
-     [13]: rx_ucast_packets: 0
-     [13]: tx_ucast_packets: 314315
-     [14]: rx_ucast_packets: 0
-     [14]: tx_ucast_packets: 256767
-     [15]: rx_ucast_packets: 0
-     [15]: tx_ucast_packets: 185105
-     rx_ucast_packets: 3507786
-     tx_ucast_packets: 3508387
-
-# ethtool -i eth1
-driver: bnx2x
-version: 1.60.00-1
-firmware-version: bc 4.8.0 phy baa0.105
-bus-info: 0000:02:00.1
-
-02:00.1 Ethernet controller: Broadcom Corporation NetXtreme II BCM57711E
-10Gigabit PCIe
-	Subsystem: Hewlett-Packard Company NC532i Dual Port 10GbE Multifunction
-BL-C Adapter
-	Flags: bus master, fast devsel, latency 0, IRQ 47
-	Memory at fa000000 (64-bit, non-prefetchable) [size=8M]
-	Memory at f9800000 (64-bit, non-prefetchable) [size=8M]
-	[virtual] Expansion ROM at e7010000 [disabled] [size=64K]
-	Capabilities: [48] Power Management version 3
-	Capabilities: [50] Vital Product Data
-	Capabilities: [58] MSI: Enable- Count=1/8 Maskable- 64bit+
-	Capabilities: [a0] MSI-X: Enable+ Count=17 Masked-
-	Capabilities: [ac] Express Endpoint, MSI 00
-	Capabilities: [100] Device Serial Number f4-ce-46-ff-fe-bb-32-d4
-	Capabilities: [110] Advanced Error Reporting
-	Capabilities: [150] Power Budgeting <?>
-	Capabilities: [160] Virtual Channel <?>
-	Kernel driver in use: bnx2x
-	Kernel modules: bnx2x
-
-
-Any idea before a biscection ?
-
-Thanks !
-
+RXJpYywNCg0KSSB3aWxsIHRha2UgYSBsb29rDQoNClRoYW5rcw0KDQotLS0tLU9yaWdpbmFsIE1l
+c3NhZ2UtLS0tLQ0KRnJvbTogRXJpYyBEdW1hemV0IFttYWlsdG86ZXJpYy5kdW1hemV0QGdtYWls
+LmNvbV0gDQpTZW50OiBUdWVzZGF5LCBPY3RvYmVyIDEyLCAyMDEwIDY6MDggUE0NClRvOiBEYXZp
+ZCBNaWxsZXI7IERtaXRyeSBLcmF2a292OyBWbGFkaXNsYXYgWm9sb3Rhcm92OyBZYW5pdiBSb3Nu
+ZXINCkNjOiBuZXRkZXY7IE1pY2hhZWwgQ2hhbjsgRWlsb24gR3JlZW5zdGVpbg0KU3ViamVjdDog
+W0JVRyBuZXQtbmV4dF0gYm54Mng6IGFsbCB0cmFmZmljIGNvbWVzIHRvIFJYIHF1ZXVlIDANCg0K
+SG1tLCB3aGlsZSBkb2luZyB0ZXN0cyBmb3IgdGhlIG5ldGRldl9hbGxvY19za2IoKSBwcm9ibGVt
+LCBJIGZvdW5kDQpjdXJyZW50IG5ldC1uZXh0IHRyZWUgaXMgbm90IHJlYWxseSBtdWx0aSBxdWV1
+ZSBlbmFibGVkLi4uDQoNCmV0aHRvb2wgLVMgZXRoMXxncmVwIF91Y2FzdA0KICAgICBbMF06IHJ4
+X3VjYXN0X3BhY2tldHM6IDM1MDc3ODYNCiAgICAgWzBdOiB0eF91Y2FzdF9wYWNrZXRzOiA0MTY5
+MjUNCiAgICAgWzFdOiByeF91Y2FzdF9wYWNrZXRzOiAwDQogICAgIFsxXTogdHhfdWNhc3RfcGFj
+a2V0czogNA0KICAgICBbMl06IHJ4X3VjYXN0X3BhY2tldHM6IDANCiAgICAgWzJdOiB0eF91Y2Fz
+dF9wYWNrZXRzOiAzOTc0NjcNCiAgICAgWzNdOiByeF91Y2FzdF9wYWNrZXRzOiAwDQogICAgIFsz
+XTogdHhfdWNhc3RfcGFja2V0czogNzU4MzINCiAgICAgWzRdOiByeF91Y2FzdF9wYWNrZXRzOiAw
+DQogICAgIFs0XTogdHhfdWNhc3RfcGFja2V0czogMTcxMDI1DQogICAgIFs1XTogcnhfdWNhc3Rf
+cGFja2V0czogMA0KICAgICBbNV06IHR4X3VjYXN0X3BhY2tldHM6IDIzMzAyNQ0KICAgICBbNl06
+IHJ4X3VjYXN0X3BhY2tldHM6IDANCiAgICAgWzZdOiB0eF91Y2FzdF9wYWNrZXRzOiAyNTAzNTgN
+CiAgICAgWzddOiByeF91Y2FzdF9wYWNrZXRzOiAwDQogICAgIFs3XTogdHhfdWNhc3RfcGFja2V0
+czogMjQwNzkyDQogICAgIFs4XTogcnhfdWNhc3RfcGFja2V0czogMA0KICAgICBbOF06IHR4X3Vj
+YXN0X3BhY2tldHM6IDIxNjM2Ng0KICAgICBbOV06IHJ4X3VjYXN0X3BhY2tldHM6IDANCiAgICAg
+WzldOiB0eF91Y2FzdF9wYWNrZXRzOiAxDQogICAgIFsxMF06IHJ4X3VjYXN0X3BhY2tldHM6IDAN
+CiAgICAgWzEwXTogdHhfdWNhc3RfcGFja2V0czogMzUwMzI0DQogICAgIFsxMV06IHJ4X3VjYXN0
+X3BhY2tldHM6IDANCiAgICAgWzExXTogdHhfdWNhc3RfcGFja2V0czogOTI0MDMNCiAgICAgWzEy
+XTogcnhfdWNhc3RfcGFja2V0czogMA0KICAgICBbMTJdOiB0eF91Y2FzdF9wYWNrZXRzOiAzMDc2
+NzgNCiAgICAgWzEzXTogcnhfdWNhc3RfcGFja2V0czogMA0KICAgICBbMTNdOiB0eF91Y2FzdF9w
+YWNrZXRzOiAzMTQzMTUNCiAgICAgWzE0XTogcnhfdWNhc3RfcGFja2V0czogMA0KICAgICBbMTRd
+OiB0eF91Y2FzdF9wYWNrZXRzOiAyNTY3NjcNCiAgICAgWzE1XTogcnhfdWNhc3RfcGFja2V0czog
+MA0KICAgICBbMTVdOiB0eF91Y2FzdF9wYWNrZXRzOiAxODUxMDUNCiAgICAgcnhfdWNhc3RfcGFj
+a2V0czogMzUwNzc4Ng0KICAgICB0eF91Y2FzdF9wYWNrZXRzOiAzNTA4Mzg3DQoNCiMgZXRodG9v
+bCAtaSBldGgxDQpkcml2ZXI6IGJueDJ4DQp2ZXJzaW9uOiAxLjYwLjAwLTENCmZpcm13YXJlLXZl
+cnNpb246IGJjIDQuOC4wIHBoeSBiYWEwLjEwNQ0KYnVzLWluZm86IDAwMDA6MDI6MDAuMQ0KDQow
+MjowMC4xIEV0aGVybmV0IGNvbnRyb2xsZXI6IEJyb2FkY29tIENvcnBvcmF0aW9uIE5ldFh0cmVt
+ZSBJSSBCQ001NzcxMUUNCjEwR2lnYWJpdCBQQ0llDQoJU3Vic3lzdGVtOiBIZXdsZXR0LVBhY2th
+cmQgQ29tcGFueSBOQzUzMmkgRHVhbCBQb3J0IDEwR2JFIE11bHRpZnVuY3Rpb24NCkJMLUMgQWRh
+cHRlcg0KCUZsYWdzOiBidXMgbWFzdGVyLCBmYXN0IGRldnNlbCwgbGF0ZW5jeSAwLCBJUlEgNDcN
+CglNZW1vcnkgYXQgZmEwMDAwMDAgKDY0LWJpdCwgbm9uLXByZWZldGNoYWJsZSkgW3NpemU9OE1d
+DQoJTWVtb3J5IGF0IGY5ODAwMDAwICg2NC1iaXQsIG5vbi1wcmVmZXRjaGFibGUpIFtzaXplPThN
+XQ0KCVt2aXJ0dWFsXSBFeHBhbnNpb24gUk9NIGF0IGU3MDEwMDAwIFtkaXNhYmxlZF0gW3NpemU9
+NjRLXQ0KCUNhcGFiaWxpdGllczogWzQ4XSBQb3dlciBNYW5hZ2VtZW50IHZlcnNpb24gMw0KCUNh
+cGFiaWxpdGllczogWzUwXSBWaXRhbCBQcm9kdWN0IERhdGENCglDYXBhYmlsaXRpZXM6IFs1OF0g
+TVNJOiBFbmFibGUtIENvdW50PTEvOCBNYXNrYWJsZS0gNjRiaXQrDQoJQ2FwYWJpbGl0aWVzOiBb
+YTBdIE1TSS1YOiBFbmFibGUrIENvdW50PTE3IE1hc2tlZC0NCglDYXBhYmlsaXRpZXM6IFthY10g
+RXhwcmVzcyBFbmRwb2ludCwgTVNJIDAwDQoJQ2FwYWJpbGl0aWVzOiBbMTAwXSBEZXZpY2UgU2Vy
+aWFsIE51bWJlciBmNC1jZS00Ni1mZi1mZS1iYi0zMi1kNA0KCUNhcGFiaWxpdGllczogWzExMF0g
+QWR2YW5jZWQgRXJyb3IgUmVwb3J0aW5nDQoJQ2FwYWJpbGl0aWVzOiBbMTUwXSBQb3dlciBCdWRn
+ZXRpbmcgPD8+DQoJQ2FwYWJpbGl0aWVzOiBbMTYwXSBWaXJ0dWFsIENoYW5uZWwgPD8+DQoJS2Vy
+bmVsIGRyaXZlciBpbiB1c2U6IGJueDJ4DQoJS2VybmVsIG1vZHVsZXM6IGJueDJ4DQoNCg0KQW55
+IGlkZWEgYmVmb3JlIGEgYmlzY2VjdGlvbiA/DQoNClRoYW5rcyAhDQoNCg0KDQo=
 
