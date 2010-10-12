@@ -1,196 +1,54 @@
-From: Denis Kirjanov <dkirjanov@kernel.org>
-Subject: Re: [PATCH -next] sundance: Add initial ethtool stats support
-Date: Wed, 13 Oct 2010 00:36:54 +0400
-Message-ID: <4CB4C6E6.9090805@kernel.org>
-References: <20101009095346.GA12951@hera.kernel.org>	<20101009132749.GA15074@solarflare.com>	<4CB0C56C.2000106@kernel.org> <20101012.115138.112614145.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Jeff Garzik <jgarzik@redhat.com>
-To: David Miller <davem@davemloft.net>
+From: nhorman@tuxdriver.com
+Subject: [PATCH 4/5] Fix netconsole to not deadlock on rmmod
+Date: Tue, 12 Oct 2010 16:29:36 -0400
+Message-ID: <1286915377-1612-5-git-send-email-nhorman@tuxdriver.com>
+References: <1286915377-1612-1-git-send-email-nhorman@tuxdriver.com>
+Cc: bonding-devel@lists.sourceforge.net, fubar@us.ibm.com,
+	davem@davemloft.net, andy@greyhouse.net, amwang@redhat.com,
+	nhorman@tuxdriver.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hera.kernel.org ([140.211.167.34]:41066 "EHLO hera.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755180Ab0JLUhN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Oct 2010 16:37:13 -0400
-In-Reply-To: <20101012.115138.112614145.davem@davemloft.net>
+Received: from cpe-076-182-075-229.nc.res.rr.com ([76.182.75.229]:50229 "EHLO
+	localhost.localdomain" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750757Ab0JLVWq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Oct 2010 17:22:46 -0400
+In-Reply-To: <1286915377-1612-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/12/2010 10:51 PM, David Miller wrote:
-> From: Denis Kirjanov <dkirjanov@kernel.org>
-> Date: Sat, 09 Oct 2010 23:41:32 +0400
-> 
->> +	/* ethtool extra stats */
->> +	struct {
->> +		unsigned long tx_multiple_collisions;
->> +		unsigned long tx_single_collisions;
->> +		unsigned long tx_late_collisions;
->> +		unsigned long tx_deffered;
->> +		unsigned long tx_deffered_excessive;
->> +		unsigned long tx_aborted;
->> +		unsigned long tx_bcasts;
->> +		unsigned long rx_bcasts;
->> +		unsigned long tx_mcasts;
->> +		unsigned long rx_mcasts;
->> +	} xstats;
-> 
-> I think these should be "u64".
-> 
+From: Neil Horman <nhorman@tuxdriver.com>
 
-[PATCH -next v3] sundance: Add ethtool stats support
-Add ethtool stats support
+Netconsole calls netpoll_cleanup on receipt of a NETDEVICE_UNREGISTER event.
+The notifier subsystem calls these event handlers with rtnl_lock held, which
+netpoll_cleanup also takes, resulting in deadlock.  Fix this by calling the
+__netpoll_cleanup interior function instead, and fixing up the additional
+pointers.
 
-Signed-off-by: Denis Kirjanov <dkirjanov@kernel.org>
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 ---
-V2: 
- check for the ETH_SS_STATS in get_string()
- use xstats struct for ethtool stats
-V3:
- make counters 64-bits wide
- 
- drivers/net/sundance.c |   90 ++++++++++++++++++++++++++++++++++++++++++++----
- 1 files changed, 83 insertions(+), 7 deletions(-)
+ drivers/net/netconsole.c |    9 ++++++++-
+ 1 files changed, 8 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/sundance.c b/drivers/net/sundance.c
-index 4283cc5..159f7e7 100644
---- a/drivers/net/sundance.c
-+++ b/drivers/net/sundance.c
-@@ -363,6 +363,19 @@ struct netdev_private {
-         dma_addr_t tx_ring_dma;
-         dma_addr_t rx_ring_dma;
- 	struct timer_list timer;		/* Media monitoring timer. */
-+	/* ethtool extra stats */
-+	struct {
-+		u64 tx_multiple_collisions;
-+		u64 tx_single_collisions;
-+		u64 tx_late_collisions;
-+		u64 tx_deffered;
-+		u64 tx_deffered_excessive;
-+		u64 tx_aborted;
-+		u64 tx_bcasts;
-+		u64 rx_bcasts;
-+		u64 tx_mcasts;
-+		u64 rx_mcasts;
-+	} xstats;
- 	/* Frequently used values: keep some adjacent for cache effect. */
- 	spinlock_t lock;
- 	int msg_enable;
-@@ -1486,7 +1499,6 @@ static struct net_device_stats *get_stats(struct net_device *dev)
- {
- 	struct netdev_private *np = netdev_priv(dev);
- 	void __iomem *ioaddr = np->base;
--	int i;
- 	unsigned long flags;
- 
- 	spin_lock_irqsave(&np->statlock, flags);
-@@ -1494,13 +1506,23 @@ static struct net_device_stats *get_stats(struct net_device *dev)
- 	dev->stats.rx_missed_errors	+= ioread8(ioaddr + RxMissed);
- 	dev->stats.tx_packets += ioread16(ioaddr + TxFramesOK);
- 	dev->stats.rx_packets += ioread16(ioaddr + RxFramesOK);
--	dev->stats.collisions += ioread8(ioaddr + StatsLateColl);
--	dev->stats.collisions += ioread8(ioaddr + StatsMultiColl);
--	dev->stats.collisions += ioread8(ioaddr + StatsOneColl);
- 	dev->stats.tx_carrier_errors += ioread8(ioaddr + StatsCarrierError);
--	ioread8(ioaddr + StatsTxDefer);
--	for (i = StatsTxDefer; i <= StatsMcastRx; i++)
--		ioread8(ioaddr + i);
-+
-+	np->xstats.tx_multiple_collisions += ioread8(ioaddr + StatsMultiColl);
-+	np->xstats.tx_single_collisions += ioread8(ioaddr + StatsOneColl);
-+	np->xstats.tx_late_collisions += ioread8(ioaddr + StatsLateColl);
-+	dev->stats.collisions += np->xstats.tx_multiple_collisions
-+		+ np->xstats.tx_single_collisions
-+		+ np->xstats.tx_late_collisions;
-+
-+	np->xstats.tx_deffered += ioread8(ioaddr + StatsTxDefer);
-+	np->xstats.tx_deffered_excessive += ioread8(ioaddr + StatsTxXSDefer);
-+	np->xstats.tx_aborted += ioread8(ioaddr + StatsTxAbort);
-+	np->xstats.tx_bcasts += ioread8(ioaddr + StatsBcastTx);
-+	np->xstats.rx_bcasts += ioread8(ioaddr + StatsBcastRx);
-+	np->xstats.tx_mcasts += ioread8(ioaddr + StatsMcastTx);
-+	np->xstats.rx_mcasts += ioread8(ioaddr + StatsMcastRx);
-+
- 	dev->stats.tx_bytes += ioread16(ioaddr + TxOctetsLow);
- 	dev->stats.tx_bytes += ioread16(ioaddr + TxOctetsHigh) << 16;
- 	dev->stats.rx_bytes += ioread16(ioaddr + RxOctetsLow);
-@@ -1566,6 +1588,21 @@ static int __set_mac_addr(struct net_device *dev)
- 	return 0;
- }
- 
-+static const struct {
-+	const char name[ETH_GSTRING_LEN];
-+} sundance_stats[] = {
-+	{ "tx_multiple_collisions" },
-+	{ "tx_single_collisions" },
-+	{ "tx_late_collisions" },
-+	{ "tx_deffered" },
-+	{ "tx_deffered_excessive" },
-+	{ "tx_aborted" },
-+	{ "tx_bcasts" },
-+	{ "rx_bcasts" },
-+	{ "tx_mcasts" },
-+	{ "rx_mcasts" },
-+};
-+
- static int check_if_running(struct net_device *dev)
- {
- 	if (!netif_running(dev))
-@@ -1624,6 +1661,42 @@ static void set_msglevel(struct net_device *dev, u32 val)
- 	np->msg_enable = val;
- }
- 
-+static void get_strings(struct net_device *dev, u32 stringset,
-+		u8 *data)
-+{
-+	if (stringset == ETH_SS_STATS)
-+		memcpy(data, sundance_stats, sizeof(sundance_stats));
-+}
-+
-+static int get_sset_count(struct net_device *dev, int sset)
-+{
-+	switch (sset) {
-+	case ETH_SS_STATS:
-+		return ARRAY_SIZE(sundance_stats);
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+}
-+
-+static void get_ethtool_stats(struct net_device *dev,
-+		struct ethtool_stats *stats, u64 *data)
-+{
-+	struct netdev_private *np = netdev_priv(dev);
-+	int i = 0;
-+
-+	get_stats(dev);
-+	data[i++] = np->xstats.tx_multiple_collisions;
-+	data[i++] = np->xstats.tx_single_collisions;
-+	data[i++] = np->xstats.tx_late_collisions;
-+	data[i++] = np->xstats.tx_deffered;
-+	data[i++] = np->xstats.tx_deffered_excessive;
-+	data[i++] = np->xstats.tx_aborted;
-+	data[i++] = np->xstats.tx_bcasts;
-+	data[i++] = np->xstats.rx_bcasts;
-+	data[i++] = np->xstats.tx_mcasts;
-+	data[i++] = np->xstats.rx_mcasts;
-+}
-+
- static const struct ethtool_ops ethtool_ops = {
- 	.begin = check_if_running,
- 	.get_drvinfo = get_drvinfo,
-@@ -1633,6 +1706,9 @@ static const struct ethtool_ops ethtool_ops = {
- 	.get_link = get_link,
- 	.get_msglevel = get_msglevel,
- 	.set_msglevel = set_msglevel,
-+	.get_strings = get_strings,
-+	.get_sset_count = get_sset_count,
-+	.get_ethtool_stats = get_ethtool_stats,
- };
- 
- static int netdev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
+index ca142c4..94255f0 100644
+--- a/drivers/net/netconsole.c
++++ b/drivers/net/netconsole.c
+@@ -678,7 +678,14 @@ static int netconsole_netdev_event(struct notifier_block *this,
+ 				strlcpy(nt->np.dev_name, dev->name, IFNAMSIZ);
+ 				break;
+ 			case NETDEV_UNREGISTER:
+-				netpoll_cleanup(&nt->np);
++				/*
++				 * rtnl_lock already held
++				 */
++				if (nt->np.dev) {
++					__netpoll_cleanup(&nt->np);
++					dev_put(nt->np.dev);
++					nt->np.dev = NULL;
++				}
+ 				/* Fall through */
+ 			case NETDEV_GOING_DOWN:
+ 			case NETDEV_BONDING_DESLAVE:
 -- 
-1.7.0
+1.7.2.3
 
