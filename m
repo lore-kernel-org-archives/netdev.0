@@ -1,55 +1,68 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 5/6] dccp: schedule an Ack when receiving timestamps
-Date: Tue, 12 Oct 2010 07:15:50 +0200
-Message-ID: <1286860551-6809-6-git-send-email-gerrit@erg.abdn.ac.uk>
-References: <dccp_misc_fixes_and_helper_functions___a_set_of_six_patches_sent_today>
- <1286860551-6809-1-git-send-email-gerrit@erg.abdn.ac.uk>
- <1286860551-6809-2-git-send-email-gerrit@erg.abdn.ac.uk>
- <1286860551-6809-3-git-send-email-gerrit@erg.abdn.ac.uk>
- <1286860551-6809-4-git-send-email-gerrit@erg.abdn.ac.uk>
- <1286860551-6809-5-git-send-email-gerrit@erg.abdn.ac.uk>
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
-	Gerrit Renker <gerrit@erg.abdn.ac.uk>
-To: davem@davemloft.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] bnx2x: dont use netdev_alloc_skb()
+Date: Tue, 12 Oct 2010 07:16:00 +0200
+Message-ID: <1286860560.30423.186.camel@edumazet-laptop>
+References: <1286838210.30423.128.camel@edumazet-laptop>
+	 <1286839363.30423.130.camel@edumazet-laptop>
+	 <AANLkTi=NvnPov_=KQJz2uXt1R-ep4oahDF0J=3HwhGzG@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Michael Chan <mchan@broadcom.com>,
+	Eilon Greenstein <eilong@broadcom.com>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:43506 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751758Ab0JLFP7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Oct 2010 01:15:59 -0400
-In-Reply-To: <1286860551-6809-5-git-send-email-gerrit@erg.abdn.ac.uk>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:54573 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751758Ab0JLFQW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Oct 2010 01:16:22 -0400
+Received: by wye20 with SMTP id 20so1066761wye.19
+        for <netdev@vger.kernel.org>; Mon, 11 Oct 2010 22:16:20 -0700 (PDT)
+In-Reply-To: <AANLkTi=NvnPov_=KQJz2uXt1R-ep4oahDF0J=3HwhGzG@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This schedules an Ack when receiving a timestamp, exploiting the
-existing inet_csk_schedule_ack() function, saving one case in the
-`dccp_ack_pending()' function.
+Le lundi 11 octobre 2010 =C3=A0 22:03 -0700, Tom Herbert a =C3=A9crit :
+> On Mon, Oct 11, 2010 at 4:22 PM, Eric Dumazet <eric.dumazet@gmail.com=
+> wrote:
+> > Le mardi 12 octobre 2010 =C3=A0 01:03 +0200, Eric Dumazet a =C3=A9c=
+rit :
+> >> netdev_alloc_skb() is a very wrong interface, really.
+> >>
+> >> We should remove/deprecate it.
+> >>
+> >> For multi queue devices, it makes more sense to allocate skb on lo=
+cal
+> >> node of the cpu handling RX interrupts. This allow each cpu to
+> >> manipulate its own slub/slab queues/structures without doing expen=
+sive
+> >> cross-node business.
+> >>
+> >> For non multi queue devices, IRQ affinity should be set so that a =
+cpu
+> >> close to the device services interrupts. Even if not set, using
+> >> dev_alloc_skb() is faster.
+> >>
+> >> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> >
+> > Or maybe revert :
+> >
+> > commit b30973f877fea1a3fb84e05599890fcc082a88e5
+> > Author: Christoph Hellwig <hch@lst.de>
+> > Date:   Wed Dec 6 20:32:36 2006 -0800
+> >
+>=20
+> I second this revert.  Node aware allocation by device's node makes
+> little sense on a multi-queue device and leads to mediocre
+> performance.
 
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
----
- net/dccp/dccp.h    |    3 +--
- net/dccp/options.c |    2 ++
- 2 files changed, 3 insertions(+), 2 deletions(-)
+Yes, I said this several time in the past, I believe time has come to
+get rid of it.
 
---- a/net/dccp/dccp.h
-+++ b/net/dccp/dccp.h
-@@ -459,8 +459,7 @@ static inline void dccp_update_gss(struct sock *sk, u64 seq)
- static inline int dccp_ack_pending(const struct sock *sk)
- {
- 	const struct dccp_sock *dp = dccp_sk(sk);
--	return dp->dccps_timestamp_echo != 0 ||
--	       (dp->dccps_hc_rx_ackvec != NULL &&
-+	return (dp->dccps_hc_rx_ackvec != NULL &&
- 		dccp_ackvec_pending(dp->dccps_hc_rx_ackvec)) ||
- 	       inet_csk_ack_scheduled(sk);
- }
---- a/net/dccp/options.c
-+++ b/net/dccp/options.c
-@@ -163,6 +163,8 @@ int dccp_parse_options(struct sock *sk, struct dccp_request_sock *dreq,
- 				      dccp_role(sk), ntohl(opt_val),
- 				      (unsigned long long)
- 				      DCCP_SKB_CB(skb)->dccpd_ack_seq);
-+			/* schedule an Ack in case this sender is quiescent */
-+			inet_csk_schedule_ack(sk);
- 			break;
- 		case DCCPO_TIMESTAMP_ECHO:
- 			if (len != 4 && len != 6 && len != 8)
+I posted a patch some minutes ago, so you can review it and ack it ;)
+
+Thanks !
+
+
