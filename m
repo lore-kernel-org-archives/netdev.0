@@ -1,52 +1,97 @@
-From: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Subject: Re: linux-next: manual merge of the net tree with the  tree
-Date: Tue, 12 Oct 2010 07:56:42 +0200
-Message-ID: <4CB3F89A.2010005@s5r6.in-berlin.de>
-References: <20101012111716.0c54b093.sfr@canb.auug.org.au>
-	<20101012145135.9697fe21.sfr@canb.auug.org.au>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH net-next] net:  allocate skbs on local node
+Date: Mon, 11 Oct 2010 23:03:22 -0700
+Message-ID: <20101011230322.f0f6dd47.akpm@linux-foundation.org>
+References: <1286838210.30423.128.camel@edumazet-laptop>
+	<1286839363.30423.130.camel@edumazet-laptop>
+	<1286859925.30423.184.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-next@vger.kernel.org, Ben Hutchings <bhutchings@solarflare.com>,
-	linux1394-devel@lists.sourceforge.net, David Miller <davem@davemloft.net>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux1394-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20101012145135.9697fe21.sfr@canb.auug.org.au>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
-	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux1394-devel>
-List-Post: <mailto:linux1394-devel@lists.sourceforge.net>
-List-Help: <mailto:linux1394-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
-	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: linux1394-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Michael Chan <mchan@broadcom.com>,
+	Eilon Greenstein <eilong@broadcom.com>,
+	Christoph Hellwig <hch@lst.de>,
+	Christoph Lameter <cl@linux-foundation.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:58378 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752995Ab0JLGCk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Oct 2010 02:02:40 -0400
+In-Reply-To: <1286859925.30423.184.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Stephen Rothwell wrote:
-> Hi all,
+On Tue, 12 Oct 2010 07:05:25 +0200 Eric Dumazet <eric.dumazet@gmail.com> wrote:
+
+> Le mardi 12 octobre 2010 __ 01:22 +0200, Eric Dumazet a __crit :
+> > Le mardi 12 octobre 2010 __ 01:03 +0200, Eric Dumazet a __crit :
+> > > 
+> > > For multi queue devices, it makes more sense to allocate skb on local
+> > > node of the cpu handling RX interrupts. This allow each cpu to
+> > > manipulate its own slub/slab queues/structures without doing expensive
+> > > cross-node business.
+> > > 
+> > > For non multi queue devices, IRQ affinity should be set so that a cpu
+> > > close to the device services interrupts. Even if not set, using
+> > > dev_alloc_skb() is faster.
+> > > 
+> > > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> > 
+> > Or maybe revert :
+> > 
+> > commit b30973f877fea1a3fb84e05599890fcc082a88e5
+> > Author: Christoph Hellwig <hch@lst.de>
+> > Date:   Wed Dec 6 20:32:36 2006 -0800
+> > 
+> >     [PATCH] node-aware skb allocation
+> >     
+> >     Node-aware allocation of skbs for the receive path.
+> >     
+> >     Details:
+> >     
+> >       - __alloc_skb gets a new node argument and cals the node-aware
+> >         slab functions with it.
+> >       - netdev_alloc_skb passed the node number it gets from dev_to_node
+> >         to it, everyone else passes -1 (any node)
+> >     
+> >     Signed-off-by: Christoph Hellwig <hch@lst.de>
+> >     Cc: Christoph Lameter <clameter@engr.sgi.com>
+> >     Cc: "David S. Miller" <davem@davemloft.net>
+> >     Signed-off-by: Andrew Morton <akpm@osdl.org>
+> > 
+> > 
+> > Apparently, only Christoph and Andrew signed it.
+> > 
+> > 
 > 
-> On Tue, 12 Oct 2010 11:17:16 +1100 Stephen Rothwell <sfr@canb.auug.org.au> wrote:
->> Today's linux-next merge of the net tree got a conflict in
->> drivers/ieee1394/eth1394.c between commit
->> 66fa12c571d35e3cd62574c65f1785a460105397 ("ieee1394: remove the old IEEE
->> 1394 driver stack") from the  tree and commit
->                                ^
-> I meant to say "the ieee1394 tree".
+> [PATCH net-next] net: allocate skbs on local node
+> 
+> commit b30973f877 (node-aware skb allocation) spread a wrong habit of
+> allocating net drivers skbs on a given memory node : The one closest to
+> the NIC hardware. This is wrong because as soon as we try to scale
+> network stack, we need to use many cpus to handle traffic and hit
+> slub/slab management on cross-node allocations/frees when these cpus
+> have to alloc/free skbs bound to a central node.
+> 
+> skb allocated in RX path are ephemeral, they have a very short
+> lifetime : Extra cost to maintain NUMA affinity is too expensive. What
+> appeared as a nice idea four years ago is in fact a bad one.
+> 
+> In 2010, NIC hardwares are multiqueue, or we use RPS to spread the load,
+> and two 10Gb NIC might deliver more than 28 million packets per second,
+> needing all the available cpus.
+> 
+> Cost of cross-node handling in network and vm stacks outperforms the
+> small benefit hardware had when doing its DMA transfert in its 'local'
+> memory node at RX time. Even trying to differentiate the two allocations
+> done for one skb (the sk_buff on local node, the data part on NIC
+> hardware node) is not enough to bring good performance.
+> 
 
-(I should have put the ieee1394 removal into -next much earlier.  OTOH the
-conflicting commit is from August 17 already...)
+This is all conspicuously hand-wavy and unquantified.  (IOW: prove it!)
 
-Would it be useful if I rebase this small ieee1394 removal branch of mine onto
-net?
--- 
-Stefan Richter
--=====-==-=- =-=- -==--
-http://arcgraph.de/sr/
-
-------------------------------------------------------------------------------
-Beautiful is writing same markup. Internet Explorer 9 supports
-standards for HTML5, CSS3, SVG 1.1,  ECMAScript5, and DOM L2 & L3.
-Spend less time writing and  rewriting code and more time creating great
-experiences on the web. Be a part of the beta today.
-http://p.sf.net/sfu/beautyoftheweb
+The mooted effects should be tested for on both slab and slub, I
+suggest.  They're pretty different beasts.
