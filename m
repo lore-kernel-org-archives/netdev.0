@@ -1,99 +1,99 @@
-From: Greg Ungerer <gerg@snapgear.com>
-Subject: [PATCH] net: allow FEC driver to use fixed PHY support
-Date: Tue, 12 Oct 2010 17:03:05 +1000
-Message-ID: <201010120703.o9C735Jd026818@goober.internal.moreton.com.au>
+From: James Hogan <james@albanarts.com>
+Subject: Re: [PATCH] b44: fix resume, request_irq after hw reset
+Date: Tue, 12 Oct 2010 08:08:05 +0100
+Message-ID: <201010120808.05713.james@albanarts.com>
+References: <201010120022.13171.james@albanarts.com> <20101011163440.072e0227.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <gerg@uclinux.org>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dalsmrelay2.nai.com ([205.227.136.216]:64482 "HELO
-	dalsmrelay2.nai.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1751825Ab0JLHE1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Oct 2010 03:04:27 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Gary Zambrano <zambrano@broadcom.com>,
+	Jiri Pirko <jpirko@redhat.com>,
+	FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>,
+	Hauke Mehrtens <hauke@hauke-m.de>,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20101011163440.072e0227.akpm@linux-foundation.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-At least one board using the FEC driver does not have a conventional
-PHY attached to it, it is directly connected to a somewhat simple
-ethernet switch (the board is the SnapGear/LITE, and the attached
-4-port ethernet switch is a RealTek RTL8305). This switch does not
-present the usual register interface of a PHY, it presents nothing.
-So a PHY scan will find nothing - it finds ID's of 0 for each PHY
-on the attached MII bus.
+On Tuesday 12 October 2010 00:34:40 Andrew Morton wrote:
+> On Tue, 12 Oct 2010 00:22:12 +0100
+> 
+> James Hogan <james@albanarts.com> wrote:
+> > This driver was hanging on resume because it was requesting a shared irq
+> > that it wasn't ready to immediately handle, which was tested in
+> > request_irq because of the CONFIG_DEBUG_SHIRQ config option. The
+> > interrupt handler tried to read the interrupt status register but for
+> > some reason it hung the system.
+> > 
+> > The request_irq is now moved a bit later after resetting the hardware
+> > which seems to fix it.
+> > 
+> > Signed-off-by: James Hogan <james@albanarts.com>
+> > ---
+> > 
+> >  drivers/net/b44.c |   12 ++++++------
+> >  1 files changed, 6 insertions(+), 6 deletions(-)
+> > 
+> > diff --git a/drivers/net/b44.c b/drivers/net/b44.c
+> > index 1e620e2..dbba981 100644
+> > --- a/drivers/net/b44.c
+> > +++ b/drivers/net/b44.c
+> > @@ -2296,12 +2296,6 @@ static int b44_resume(struct ssb_device *sdev)
+> > 
+> >  	if (!netif_running(dev))
+> >  	
+> >  		return 0;
+> > 
+> > -	rc = request_irq(dev->irq, b44_interrupt, IRQF_SHARED, dev->name, 
+dev);
+> > -	if (rc) {
+> > -		netdev_err(dev, "request_irq failed\n");
+> > -		return rc;
+> > -	}
+> > -
+> > 
+> >  	spin_lock_irq(&bp->lock);
+> >  	
+> >  	b44_init_rings(bp);
+> > 
+> > @@ -2309,6 +2303,12 @@ static int b44_resume(struct ssb_device *sdev)
+> > 
+> >  	netif_device_attach(bp->dev);
+> >  	spin_unlock_irq(&bp->lock);
+> > 
+> > +	rc = request_irq(dev->irq, b44_interrupt, IRQF_SHARED, dev->name, 
+dev);
+> > +	if (rc) {
+> > +		netdev_err(dev, "request_irq failed\n");
+> > +		return rc;
+> > +	}
+> > +
+> > 
+> >  	b44_enable_ints(bp);
+> >  	netif_wake_queue(dev);
+> 
+> OK, running the interrupt handler before b44_init_hw() is presumably
+> the problem here.
+> 
+> The hardware surely won't be generating interrupts until we've run
+> b44_init_hw() and b44_enable_ints(), so this patch really is only to
+> keep CONFIG_DEBUG_SHIRQ happy.
 
-After the FEC driver was changed to use phylib for supporting PHYs
-it no longer works on this particular board/switch setup.
+For me it's mainly to keep CONFIG_DEBUG_SHIRQ happy (Fedora has this switched 
+on), but since it's a shared IRQ, there is still a chance it could be 
+called before enabling it's own interrupts by a different device on the same 
+IRQ.
 
-Add code support to use a fixed phy if no PHY is found on the MII bus.
-This is based on the way the cpmac.c driver solved this same problem.
+It makes sense to me why it's disabling the IRQ now, in case another device 
+triggers it when it cannot handle it safely. I also tried calling the 
+interrupt directly before the free_irq in the suspend function to check that 
+it wasn't being done too late, and it didn't fail, so possibly it is the core 
+suspension that makes it start failing until it is brought back up properly.
 
-Signed-off-by: Greg Ungerer <gerg@uclinux.org>
----
- drivers/net/fec.c |   41 +++++++++++++++++++++++++++--------------
- 1 files changed, 27 insertions(+), 14 deletions(-)
-
-diff --git a/drivers/net/fec.c b/drivers/net/fec.c
-index 768b840..f45dc63 100644
---- a/drivers/net/fec.c
-+++ b/drivers/net/fec.c
-@@ -678,24 +678,37 @@ static int fec_enet_mii_probe(struct net_device *dev)
- {
- 	struct fec_enet_private *fep = netdev_priv(dev);
- 	struct phy_device *phy_dev = NULL;
--	int ret;
-+	char mdio_bus_id[MII_BUS_ID_SIZE];
-+	char phy_name[MII_BUS_ID_SIZE + 3];
-+	int phy_id;
- 
- 	fep->phy_dev = NULL;
- 
--	/* find the first phy */
--	phy_dev = phy_find_first(fep->mii_bus);
--	if (!phy_dev) {
--		printk(KERN_ERR "%s: no PHY found\n", dev->name);
--		return -ENODEV;
-+	/* check for attached phy */
-+	for (phy_id = 0; (phy_id < PHY_MAX_ADDR); phy_id++) {
-+		if ((fep->mii_bus->phy_mask & (1 << phy_id)))
-+			continue;
-+		if (fep->mii_bus->phy_map[phy_id] == NULL)
-+			continue;
-+		if (fep->mii_bus->phy_map[phy_id]->phy_id == 0)
-+			continue;
-+		strncpy(mdio_bus_id, fep->mii_bus->id, MII_BUS_ID_SIZE);
-+		break;
- 	}
- 
--	/* attach the mac to the phy */
--	ret = phy_connect_direct(dev, phy_dev,
--			     &fec_enet_adjust_link, 0,
--			     PHY_INTERFACE_MODE_MII);
--	if (ret) {
--		printk(KERN_ERR "%s: Could not attach to PHY\n", dev->name);
--		return ret;
-+	if (phy_id >= PHY_MAX_ADDR) {
-+		printk(KERN_INFO "%s: no PHY, assuming direct connection "
-+			"to switch\n", dev->name);
-+		strncpy(mdio_bus_id, "0", MII_BUS_ID_SIZE);
-+		phy_id = 0;
-+	}
-+
-+	snprintf(phy_name, MII_BUS_ID_SIZE, PHY_ID_FMT, mdio_bus_id, phy_id);
-+	phy_dev = phy_connect(dev, phy_name, &fec_enet_adjust_link, 0,
-+		PHY_INTERFACE_MODE_MII);
-+	if (IS_ERR(phy_dev)) {
-+		printk(KERN_ERR "%s: could not attach to PHY\n", dev->name);
-+		return PTR_ERR(phy_dev);
- 	}
- 
- 	/* mask with MAC supported features */
-@@ -738,7 +751,7 @@ static int fec_enet_mii_init(struct platform_device *pdev)
- 	fep->mii_bus->read = fec_enet_mdio_read;
- 	fep->mii_bus->write = fec_enet_mdio_write;
- 	fep->mii_bus->reset = fec_enet_mdio_reset;
--	snprintf(fep->mii_bus->id, MII_BUS_ID_SIZE, "%x", pdev->id);
-+	snprintf(fep->mii_bus->id, MII_BUS_ID_SIZE, "%x", pdev->id + 1);
- 	fep->mii_bus->priv = fep;
- 	fep->mii_bus->parent = &pdev->dev;
- 
+Cheers
+James
