@@ -1,103 +1,86 @@
-From: "Masayuki Ohtake" <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Subject: Re: [MeeGo-Dev][PATCH v3] Topcliff: Update PCH_CAN driver to 2.6.35
-Date: Tue, 12 Oct 2010 16:09:04 +0900
-Message-ID: <000c01cb69dc$5d2aaab0$66f8800a@maildom.okisemi.com>
-References: <002e01cb6486$2ed72cc0$66f8800a@maildom.okisemi.com>	<20101005.114506.184852374.davem@davemloft.net>	<000b01cb6503$962bc7f0$66f8800a@maildom.okisemi.com>
-	<20101005.200904.71120150.davem@davemloft.net>
-	<4CAC3D94.9010408@grandegger.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH net-next] net:  allocate skbs on local node
+Date: Tue, 12 Oct 2010 00:24:35 -0700
+Message-ID: <20101012002435.f51f2c0e.akpm@linux-foundation.org>
+References: <1286838210.30423.128.camel@edumazet-laptop>
+	<1286839363.30423.130.camel@edumazet-laptop>
+	<1286859925.30423.184.camel@edumazet-laptop>
+	<20101011230322.f0f6dd47.akpm@linux-foundation.org>
+	<1286866699.30423.234.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
-	margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org,
-	joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, morinaga526-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org,
-	kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, chripell-VaTbYqLCNhc@public.gmane.org, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-To: "Wolfgang Grandegger" <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
-	"David Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Michael Chan <mchan@broadcom.com>,
+	Eilon Greenstein <eilong@broadcom.com>,
+	Christoph Hellwig <hch@lst.de>,
+	Christoph Lameter <cl@linux-foundation.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:54337 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754163Ab0JLHXz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Oct 2010 03:23:55 -0400
+In-Reply-To: <1286866699.30423.234.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Wolfgang,
+On Tue, 12 Oct 2010 08:58:19 +0200 Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-We have implemented our CAN driver with FIFO mode, and
-We are testing our CAN driver with FIFO mode.
-However, we have found Our CAN hardware spec is different from our anticipated.
-Our CAN HW FIFO is not common FIFO.
-Using  FIFO mode, there is possibility received packets are out-of-order.
+> Le lundi 11 octobre 2010 __ 23:03 -0700, Andrew Morton a __crit :
+> > On Tue, 12 Oct 2010 07:05:25 +0200 Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> 
+> > > [PATCH net-next] net: allocate skbs on local node
+> > > 
+> > > commit b30973f877 (node-aware skb allocation) spread a wrong habit of
+> > > allocating net drivers skbs on a given memory node : The one closest to
+> > > the NIC hardware. This is wrong because as soon as we try to scale
+> > > network stack, we need to use many cpus to handle traffic and hit
+> > > slub/slab management on cross-node allocations/frees when these cpus
+> > > have to alloc/free skbs bound to a central node.
+> > > 
+> > > skb allocated in RX path are ephemeral, they have a very short
+> > > lifetime : Extra cost to maintain NUMA affinity is too expensive. What
+> > > appeared as a nice idea four years ago is in fact a bad one.
+> > > 
+> > > In 2010, NIC hardwares are multiqueue, or we use RPS to spread the load,
+> > > and two 10Gb NIC might deliver more than 28 million packets per second,
+> > > needing all the available cpus.
+> > > 
+> > > Cost of cross-node handling in network and vm stacks outperforms the
+> > > small benefit hardware had when doing its DMA transfert in its 'local'
+> > > memory node at RX time. Even trying to differentiate the two allocations
+> > > done for one skb (the sk_buff on local node, the data part on NIC
+> > > hardware node) is not enough to bring good performance.
+> > > 
+> > 
+> > This is all conspicuously hand-wavy and unquantified.  (IOW: prove it!)
+> > 
+> 
+> I would say, _you_ should prove that original patch was good. It seems
+> no network guy was really in the discussion ?
 
-e.g.
-Recv packet-A from NW and set to FIFO.
-  |A|
+Two wrongs and all that.  The 2006 patch has nothing to do with it,
+apart from demonstrating the importance of including performance
+measurements in a performance patch.
 
-Recv packet-B from NW and set to FIFO.
-  |A|B|
+> Just run a test on a bnx2x or ixgbe multiqueue 10Gb adapter, and see the
+> difference. Thats about a 40% slowdown on high packet rates, on a dual
+> socket machine (dual X5570  @2.93GHz). You can expect higher values on
+> four nodes (I dont have such hardware to do the test)
 
-Recv packet-C is about to set to FIFO
-  |A|B|(C)|
+Like that.  Please flesh it out and stick it in the changelog.
 
-Userspace Copies A from Driver
-Userspace Copies B from Driver
-  |   |   |(C)|
+> 
+> > The mooted effects should be tested for on both slab and slub, I
+> > suggest.  They're pretty different beasts.
+> 
+> SLAB is so slow on NUMA these days, you can forget it for good.
 
-packet-C set to FIFO (C is not head.)
-Recv packet-D from NW(Next packet is set to head)
-  |D|   |C|
+I'd love to forget it, but it's faster for some things (I forget
+which).  Which is why it's still around.
 
-Userspace Copies D from Driver
-Userspace Copies C from Driver
-Userspace raceived packet order is like below
-A-B-D-C
+And the ghastly thing about this is that you're forced to care about it
+too because some people are, apparently, still using it.
 
-So, I think normal-mode is better than FIFO-mode.
-
-I will revert like the following spec.
-  Rx 1 Message Object
-  Tx 1 Message Object
-
-Could you agree the above ?
-
-Thanks, Ohtake(OKISemi)
------ Original Message ----- 
-From: "Wolfgang Grandegger" <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-To: "David Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Cc: <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>; <andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>; <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>; <margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>;
-<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>; <yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>; <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>; <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>;
-<mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>; <chripell-VaTbYqLCNhc@public.gmane.org>; <morinaga526-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>; <meego-dev-WXzIur8shnEAvxtiuMwx3w@public.gmane.org>;
-<kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>; <joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>; <qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Sent: Wednesday, October 06, 2010 6:12 PM
-Subject: Re: [MeeGo-Dev][PATCH v3] Topcliff: Update PCH_CAN driver to 2.6.35
-
-
-> On 10/06/2010 05:09 AM, David Miller wrote:
-> > From: "Masayuki Ohtake" <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-> > Date: Wed, 6 Oct 2010 12:07:15 +0900
-> >
-> >> Does your mail mean, for accepting upstream, NAPI is essential for
-> >> CAN driver ?
-> >
-> > It is up to the CAN maintainers :-)
->
-> Well, our SJA1000 reference driver does still not use NAPI. But NAPI is
-> for CAN especially useful to avoid the infamous *bus error irq
-> flooding*, which may hang low end systems if the interrupts are handled
-> in the IRQ context. Ohtake, if your system can handle well such CAN bus
-> error irq storms at 1MB/s, then NAPI is *not* a must to have. Anyway, as
-> you are at it, I also suggest to use NAPI right from the beginning.
->
-> Wolfgang.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
