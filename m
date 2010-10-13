@@ -1,38 +1,77 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH -next] sundance: Add initial ethtool stats support
-Date: Wed, 13 Oct 2010 12:36:26 +0200
-Message-ID: <1286966186.3876.246.camel@edumazet-laptop>
-References: <20101009095346.GA12951@hera.kernel.org>
-	 <20101009132749.GA15074@solarflare.com>	<4CB0C56C.2000106@kernel.org>
-	 <20101012.115138.112614145.davem@davemloft.net>
-	 <4CB4C6E6.9090805@kernel.org> <1286917039.1117.101.camel@Joe-Laptop>
-	 <4CB54C4F.5070205@kernel.org> <1286951637.2703.141.camel@edumazet-laptop>
-	 <4CB589B2.50907@kernel.org>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH 2/5] Fix deadlock in bonding driver resulting from
+ internal locking when using netpoll
+Date: Wed, 13 Oct 2010 06:51:25 -0400
+Message-ID: <20101013105125.GA31379@hmsreliant.think-freely.org>
+References: <1286920552-2173-1-git-send-email-nhorman@tuxdriver.com>
+ <1286920552-2173-3-git-send-email-nhorman@tuxdriver.com>
+ <4CB51D27.8030703@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Jeff Garzik <jgarzik@redhat.com>
-To: Denis Kirjanov <dkirjanov@kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net,
+	fubar@us.ibm.com, davem@davemloft.net, andy@greyhouse.net
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:61819 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750937Ab0JMKgc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Oct 2010 06:36:32 -0400
-Received: by wwj40 with SMTP id 40so6273545wwj.1
-        for <netdev@vger.kernel.org>; Wed, 13 Oct 2010 03:36:31 -0700 (PDT)
-In-Reply-To: <4CB589B2.50907@kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:40864 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751175Ab0JMKve (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Oct 2010 06:51:34 -0400
+Content-Disposition: inline
+In-Reply-To: <4CB51D27.8030703@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 13 octobre 2010 =C3=A0 14:28 +0400, Denis Kirjanov a =C3=A9=
-crit :
+On Wed, Oct 13, 2010 at 10:44:55AM +0800, Cong Wang wrote:
+> On 10/13/10 05:55, nhorman@tuxdriver.com wrote:
+> >--- a/drivers/net/bonding/bond_main.c
+> >+++ b/drivers/net/bonding/bond_main.c
+> >@@ -76,6 +76,7 @@
+> >  #include<linux/if_vlan.h>
+> >  #include<linux/if_bonding.h>
+> >  #include<linux/jiffies.h>
+> >+#include<linux/preempt.h>
+> >  #include<net/route.h>
+> >  #include<net/net_namespace.h>
+> >  #include<net/netns/generic.h>
+> >@@ -169,6 +170,35 @@ MODULE_PARM_DESC(resend_igmp, "Number of IGMP membership reports to send on link
+> >
+> >  /*----------------------------- Global variables ----------------------------*/
+> >
+> >+#ifdef CONFIG_NET_POLL_CONTROLLER
+> >+static cpumask_var_t netpoll_block_tx;
+> >+
+> >+static inline void block_netpoll_tx(void
+> >+{
+> >+	preempt_disable();
+> >+	BUG_ON(cpumask_test_and_set_cpu(smp_processor_id(),
+> >+					netpoll_block_tx));
+> >+}
+> >+
+> >+static inline void unblock_netpoll_tx(void)
+> >+{
+> >+	BUG_ON(!cpumask_test_and_clear_cpu(smp_processor_id(),
+> >+					  netpoll_block_tx));
+> >+	preempt_enable();
+> >+}
+> >+
+> >+static inline int is_netpoll_tx_blocked(struct net_device *dev)
+> >+{
+> >+	if (unlikely(dev->priv_flags&  IFF_IN_NETPOLL))
+> >+		return cpumask_test_cpu(smp_processor_id(), netpoll_block_tx);
+> >+	return 0;
+> >+}
+> >+#else
+> >+#define block_netpoll_tx()
+> >+#define unblock_netpoll_tx()
+> >+#define is_netpoll_tx_blocked(dev)
+> >+#endif
+> >+
+> 
+> These should go to netpoll.h, IMHO.
+> 
 
-> +		u64 tx_defered;
-> +		u64 tx_defered_excessive;
-
-Joe said correct english word is "deferred", not "defered"
-
-
+Doh, you're right, they should.  Particularly because I just noticed there are
+a few paths through sysfs for bonding that can recurse the same way the
+monitoring code can.  I'll respin this shortly, thanks.
+Neil
 
