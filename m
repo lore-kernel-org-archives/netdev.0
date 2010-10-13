@@ -1,385 +1,234 @@
 From: Jesse Gross <jesse@nicira.com>
-Subject: [RFC PATCH 6/7] bonding: Update bonding for new vlan model.
-Date: Wed, 13 Oct 2010 13:02:56 -0700
-Message-ID: <1287000177-7126-7-git-send-email-jesse@nicira.com>
+Subject: [RFC PATCH 7/7] vlan: Remove accleration legacy functions.
+Date: Wed, 13 Oct 2010 13:02:57 -0700
+Message-ID: <1287000177-7126-8-git-send-email-jesse@nicira.com>
 References: <1287000177-7126-1-git-send-email-jesse@nicira.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:65497 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752876Ab0JMUDK (ORCPT
+Received: from mail-px0-f174.google.com ([209.85.212.174]:47432 "EHLO
+	mail-px0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752277Ab0JMUDK (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 13 Oct 2010 16:03:10 -0400
-Received: by mail-pw0-f46.google.com with SMTP id 4so251540pwi.19
-        for <netdev@vger.kernel.org>; Wed, 13 Oct 2010 13:03:09 -0700 (PDT)
+Received: by mail-px0-f174.google.com with SMTP id 16so842013pxi.19
+        for <netdev@vger.kernel.org>; Wed, 13 Oct 2010 13:03:10 -0700 (PDT)
 In-Reply-To: <1287000177-7126-1-git-send-email-jesse@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It is no longer necessary to register vlan groups, so update bonding
-to not do that on its slaves.  Although the new vlan accleration
-model allows additional flexibility, bonding continues to require vlan
-devices since it needs addtional system state to handle ARP/IGMP.  This
-also removes fallback code for non-vlan acclerated slaves since core
-networking now handles that.
+This removes the explicit vlan accleration functions that acted
+as shims in favor of the main receive functions that can now
+handle vlans.
 
 Signed-off-by: Jesse Gross <jesse@nicira.com>
 --
 This patch can only be applied once all drivers that use vlan acceleration
 have been converted over to the new model.
 ---
- drivers/net/bonding/bond_alb.c  |    8 +--
- drivers/net/bonding/bond_ipv6.c |    5 +-
- drivers/net/bonding/bond_main.c |  134 ++++++++-------------------------------
- drivers/net/bonding/bonding.h   |    1 -
- 4 files changed, 30 insertions(+), 118 deletions(-)
+ include/linux/if_vlan.h   |   66 +++-----------------------------------------
+ include/linux/netdevice.h |    8 -----
+ net/8021q/vlan.c          |    8 +-----
+ net/8021q/vlan_core.c     |   25 -----------------
+ 4 files changed, 6 insertions(+), 101 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index 26bb118..c911456 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -685,10 +685,8 @@ static struct slave *rlb_choose_channel(struct sk_buff *skb, struct bonding *bon
- 			client_info->ntt = 0;
- 		}
+diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+index e21028b..c6952af 100644
+--- a/include/linux/if_vlan.h
++++ b/include/linux/if_vlan.h
+@@ -73,13 +73,16 @@ static inline struct vlan_ethhdr *vlan_eth_hdr(const struct sk_buff *skb)
+ /* found in socket.c */
+ extern void vlan_ioctl_set(int (*hook)(struct net *, void __user *));
  
--		if (bond->vlgrp) {
--			if (!vlan_get_tag(skb, &client_info->vlan_id))
--				client_info->tag = 1;
--		}
-+		if (!vlan_get_tag(skb, &client_info->vlan_id))
-+			client_info->tag = 1;
- 
- 		if (!client_info->assigned) {
- 			u32 prev_tbl_head = bond_info->rx_hashtbl_head;
-@@ -907,7 +905,7 @@ static void alb_send_learning_packets(struct slave *slave, u8 mac_addr[])
- 		skb->priority = TC_PRIO_CONTROL;
- 		skb->dev = slave->dev;
- 
--		if (bond->vlgrp) {
-+		if (!list_empty(&bond->vlan_list)) {
- 			struct vlan_entry *vlan;
- 
- 			vlan = bond_next_vlan(bond,
-diff --git a/drivers/net/bonding/bond_ipv6.c b/drivers/net/bonding/bond_ipv6.c
-index 121b073..c276b5a 100644
---- a/drivers/net/bonding/bond_ipv6.c
-+++ b/drivers/net/bonding/bond_ipv6.c
-@@ -178,10 +178,7 @@ static int bond_inet6addr_event(struct notifier_block *this,
- 		}
- 
- 		list_for_each_entry(vlan, &bond->vlan_list, vlan_list) {
--			if (!bond->vlgrp)
--				continue;
--			vlan_dev = vlan_group_get_device(bond->vlgrp,
--							 vlan->vlan_id);
-+			vlan_dev = vlan_find_dev(bond->dev, vlan->vlan_id);
- 			if (vlan_dev == event_dev) {
- 				switch (event) {
- 				case NETDEV_UP:
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 7703d35..5600946 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -414,36 +414,11 @@ struct vlan_entry *bond_next_vlan(struct bonding *bond, struct vlan_entry *curr)
-  * @bond: bond device that got this skb for tx.
-  * @skb: hw accel VLAN tagged skb to transmit
-  * @slave_dev: slave that is supposed to xmit this skbuff
-- *
-- * When the bond gets an skb to transmit that is
-- * already hardware accelerated VLAN tagged, and it
-- * needs to relay this skb to a slave that is not
-- * hw accel capable, the skb needs to be "unaccelerated",
-- * i.e. strip the hwaccel tag and re-insert it as part
-- * of the payload.
++#define vlan_tx_tag_present(__skb)	((__skb)->vlan_tci & VLAN_TAG_PRESENT)
++#define vlan_tx_tag_get(__skb)		((__skb)->vlan_tci & ~VLAN_TAG_PRESENT)
++
++#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
+ /* if this changes, algorithm will have to be reworked because this
+  * depends on completely exhausting the VLAN identifier space.  Thus
+  * it gives constant time look-up, but in many cases it wastes memory.
   */
- int bond_dev_queue_xmit(struct bonding *bond, struct sk_buff *skb,
- 			struct net_device *slave_dev)
- {
--	unsigned short uninitialized_var(vlan_id);
--
--	/* Test vlan_list not vlgrp to catch and handle 802.1p tags */
--	if (!list_empty(&bond->vlan_list) &&
--	    !(slave_dev->features & NETIF_F_HW_VLAN_TX) &&
--	    vlan_get_tag(skb, &vlan_id) == 0) {
--		skb->dev = slave_dev;
--		skb = vlan_put_tag(skb, vlan_id);
--		if (!skb) {
--			/* vlan_put_tag() frees the skb in case of error,
--			 * so return success here so the calling functions
--			 * won't attempt to free is again.
--			 */
--			return 0;
--		}
--	} else {
--		skb->dev = slave_dev;
--	}
--
-+	skb->dev = slave_dev;
- 	skb->priority = 1;
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	if (unlikely(bond->dev->priv_flags & IFF_IN_NETPOLL)) {
-@@ -462,8 +437,8 @@ int bond_dev_queue_xmit(struct bonding *bond, struct sk_buff *skb,
+-#define VLAN_GROUP_ARRAY_LEN          VLAN_N_VID
+ #define VLAN_GROUP_ARRAY_SPLIT_PARTS  8
+-#define VLAN_GROUP_ARRAY_PART_LEN     (VLAN_GROUP_ARRAY_LEN/VLAN_GROUP_ARRAY_SPLIT_PARTS)
++#define VLAN_GROUP_ARRAY_PART_LEN     (VLAN_N_VID/VLAN_GROUP_ARRAY_SPLIT_PARTS)
+ 
+ struct vlan_group {
+ 	struct net_device	*real_dev; /* The ethernet(like) device
+@@ -111,10 +114,6 @@ static inline void vlan_group_set_device(struct vlan_group *vg,
+ 	array[vlan_id % VLAN_GROUP_ARRAY_PART_LEN] = dev;
  }
  
- /*
-- * In the following 3 functions, bond_vlan_rx_register(), bond_vlan_rx_add_vid
-- * and bond_vlan_rx_kill_vid, We don't protect the slave list iteration with a
-+ * In the following 2 functions, bond_vlan_rx_add_vid and
-+ * bond_vlan_rx_kill_vid, We don't protect the slave list iteration with a
-  * lock because:
-  * a. This operation is performed in IOCTL context,
-  * b. The operation is protected by the RTNL semaphore in the 8021q code,
-@@ -480,33 +455,6 @@ int bond_dev_queue_xmit(struct bonding *bond, struct sk_buff *skb,
- */
+-#define vlan_tx_tag_present(__skb)	((__skb)->vlan_tci & VLAN_TAG_PRESENT)
+-#define vlan_tx_tag_get(__skb)		((__skb)->vlan_tci & ~VLAN_TAG_PRESENT)
+-
+-#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
+ /* Must be invoked with rcu_read_lock or with RTNL. */
+ static inline struct net_device *vlan_find_dev(struct net_device *real_dev,
+ 					       u16 vlan_id)
+@@ -130,15 +129,7 @@ static inline struct net_device *vlan_find_dev(struct net_device *real_dev,
+ extern struct net_device *vlan_dev_real_dev(const struct net_device *dev);
+ extern u16 vlan_dev_vlan_id(const struct net_device *dev);
+ 
+-extern int __vlan_hwaccel_rx(struct sk_buff *skb, struct vlan_group *grp,
+-			     u16 vlan_tci, int polling);
+ extern int vlan_hwaccel_do_receive(struct sk_buff *skb);
+-extern gro_result_t
+-vlan_gro_receive(struct napi_struct *napi, struct vlan_group *grp,
+-		 unsigned int vlan_tci, struct sk_buff *skb);
+-extern gro_result_t
+-vlan_gro_frags(struct napi_struct *napi, struct vlan_group *grp,
+-	       unsigned int vlan_tci);
+ 
+ #else
+ static inline struct net_device *vlan_find_dev(struct net_device *real_dev,
+@@ -159,61 +150,14 @@ static inline u16 vlan_dev_vlan_id(const struct net_device *dev)
+ 	return 0;
+ }
+ 
+-static inline int __vlan_hwaccel_rx(struct sk_buff *skb, struct vlan_group *grp,
+-				    u16 vlan_tci, int polling)
+-{
+-	BUG();
+-	return NET_XMIT_SUCCESS;
+-}
+-
+ static inline int vlan_hwaccel_do_receive(struct sk_buff *skb)
+ {
+ 	BUG();
+ 	return 0;
+ }
+-
+-static inline gro_result_t
+-vlan_gro_receive(struct napi_struct *napi, struct vlan_group *grp,
+-		 unsigned int vlan_tci, struct sk_buff *skb)
+-{
+-	return GRO_DROP;
+-}
+-
+-static inline gro_result_t
+-vlan_gro_frags(struct napi_struct *napi, struct vlan_group *grp,
+-	       unsigned int vlan_tci)
+-{
+-	return GRO_DROP;
+-}
+ #endif
  
  /**
-- * bond_vlan_rx_register - Propagates registration to slaves
-- * @bond_dev: bonding net device that got called
-- * @grp: vlan group being registered
+- * vlan_hwaccel_rx - netif_rx wrapper for VLAN RX acceleration
+- * @skb: buffer
+- * @grp: vlan group
+- * @vlan_tci: VLAN TCI as received from the card
 - */
--static void bond_vlan_rx_register(struct net_device *bond_dev,
--				  struct vlan_group *grp)
+-static inline int vlan_hwaccel_rx(struct sk_buff *skb,
+-				  struct vlan_group *grp,
+-				  u16 vlan_tci)
 -{
--	struct bonding *bond = netdev_priv(bond_dev);
--	struct slave *slave;
--	int i;
--
--	write_lock(&bond->lock);
--	bond->vlgrp = grp;
--	write_unlock(&bond->lock);
--
--	bond_for_each_slave(bond, slave, i) {
--		struct net_device *slave_dev = slave->dev;
--		const struct net_device_ops *slave_ops = slave_dev->netdev_ops;
--
--		if ((slave_dev->features & NETIF_F_HW_VLAN_RX) &&
--		    slave_ops->ndo_vlan_rx_register) {
--			slave_ops->ndo_vlan_rx_register(slave_dev, grp);
--		}
--	}
+-	return __vlan_hwaccel_rx(skb, grp, vlan_tci, 0);
 -}
 -
 -/**
-  * bond_vlan_rx_add_vid - Propagates adding an id to slaves
-  * @bond_dev: bonding net device that got called
-  * @vid: vlan id being added
-@@ -543,7 +491,6 @@ static void bond_vlan_rx_kill_vid(struct net_device *bond_dev, uint16_t vid)
- {
- 	struct bonding *bond = netdev_priv(bond_dev);
- 	struct slave *slave;
--	struct net_device *vlan_dev;
- 	int i, res;
- 
- 	bond_for_each_slave(bond, slave, i) {
-@@ -551,14 +498,8 @@ static void bond_vlan_rx_kill_vid(struct net_device *bond_dev, uint16_t vid)
- 		const struct net_device_ops *slave_ops = slave_dev->netdev_ops;
- 
- 		if ((slave_dev->features & NETIF_F_HW_VLAN_FILTER) &&
--		    slave_ops->ndo_vlan_rx_kill_vid) {
--			/* Save and then restore vlan_dev in the grp array,
--			 * since the slave's driver might clear it.
--			 */
--			vlan_dev = vlan_group_get_device(bond->vlgrp, vid);
-+		    slave_ops->ndo_vlan_rx_kill_vid)
- 			slave_ops->ndo_vlan_rx_kill_vid(slave_dev, vid);
--			vlan_group_set_device(bond->vlgrp, vid, vlan_dev);
--		}
- 	}
- 
- 	res = bond_del_vlan(bond, vid);
-@@ -573,13 +514,6 @@ static void bond_add_vlans_on_slave(struct bonding *bond, struct net_device *sla
- 	struct vlan_entry *vlan;
- 	const struct net_device_ops *slave_ops = slave_dev->netdev_ops;
- 
--	if (!bond->vlgrp)
--		return;
+- * vlan_hwaccel_receive_skb - netif_receive_skb wrapper for VLAN RX acceleration
+- * @skb: buffer
+- * @grp: vlan group
+- * @vlan_tci: VLAN TCI as received from the card
+- */
+-static inline int vlan_hwaccel_receive_skb(struct sk_buff *skb,
+-					   struct vlan_group *grp,
+-					   u16 vlan_tci)
+-{
+-	return __vlan_hwaccel_rx(skb, grp, vlan_tci, 1);
+-}
 -
--	if ((slave_dev->features & NETIF_F_HW_VLAN_RX) &&
--	    slave_ops->ndo_vlan_rx_register)
--		slave_ops->ndo_vlan_rx_register(slave_dev, bond->vlgrp);
+-/**
+  * __vlan_put_tag - regular VLAN tag inserting
+  * @skb: skbuff to tag
+  * @vlan_tci: VLAN TCI to insert
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index ef4bbcb..0444994 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -682,12 +682,6 @@ struct netdev_rx_queue {
+  *	3. Update dev->stats asynchronously and atomically, and define
+  *	   neither operation.
+  *
+- * void (*ndo_vlan_rx_register)(struct net_device *dev, struct vlan_group *grp);
+- *	If device support VLAN receive accleration
+- *	(ie. dev->features & NETIF_F_HW_VLAN_RX), then this function is called
+- *	when vlan groups for the device changes.  Note: grp is NULL
+- *	if no vlan's groups are being used.
+- *
+  * void (*ndo_vlan_rx_add_vid)(struct net_device *dev, unsigned short vid);
+  *	If device support VLAN filtering (dev->features & NETIF_F_HW_VLAN_FILTER)
+  *	this function is called when a VLAN id is registered.
+@@ -739,8 +733,6 @@ struct net_device_ops {
+ 						     struct rtnl_link_stats64 *storage);
+ 	struct net_device_stats* (*ndo_get_stats)(struct net_device *dev);
+ 
+-	void			(*ndo_vlan_rx_register)(struct net_device *dev,
+-						        struct vlan_group *grp);
+ 	void			(*ndo_vlan_rx_add_vid)(struct net_device *dev,
+ 						       unsigned short vid);
+ 	void			(*ndo_vlan_rx_kill_vid)(struct net_device *dev,
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index 77634b9..5b26ca9 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -132,9 +132,6 @@ void unregister_vlan_dev(struct net_device *dev, struct list_head *head)
+ 		struct vlan_group *vlgrp = real_dev->vlgrp;
+ 
+ 		rcu_assign_pointer(real_dev->vlgrp, NULL);
+-		if (ops->ndo_vlan_rx_register)
+-			ops->ndo_vlan_rx_register(real_dev, NULL);
 -
- 	if (!(slave_dev->features & NETIF_F_HW_VLAN_FILTER) ||
- 	    !(slave_ops->ndo_vlan_rx_add_vid))
- 		return;
-@@ -593,30 +527,17 @@ static void bond_del_vlans_from_slave(struct bonding *bond,
- {
- 	const struct net_device_ops *slave_ops = slave_dev->netdev_ops;
- 	struct vlan_entry *vlan;
--	struct net_device *vlan_dev;
+ 		vlan_gvrp_uninit_applicant(real_dev);
+ 
+ 		/* Free the group, after all cpu's are done. */
+@@ -206,11 +203,8 @@ int register_vlan_dev(struct net_device *dev)
+ 	vlan_group_set_device(grp, vlan_id, dev);
+ 	grp->nr_vlans++;
+ 
+-	if (ngrp) {
+-		if (ops->ndo_vlan_rx_register)
+-			ops->ndo_vlan_rx_register(real_dev, ngrp);
++	if (ngrp)
+ 		rcu_assign_pointer(real_dev->vlgrp, ngrp);
+-	}
+ 	if (real_dev->features & NETIF_F_HW_VLAN_FILTER)
+ 		ops->ndo_vlan_rx_add_vid(real_dev, vlan_id);
+ 
+diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
+index df90412..ac8fcc5 100644
+--- a/net/8021q/vlan_core.c
++++ b/net/8021q/vlan_core.c
+@@ -67,28 +67,3 @@ u16 vlan_dev_vlan_id(const struct net_device *dev)
+ 	return vlan_dev_info(dev)->vlan_id;
+ }
+ EXPORT_SYMBOL(vlan_dev_vlan_id);
 -
--	if (!bond->vlgrp)
--		return;
- 
- 	if (!(slave_dev->features & NETIF_F_HW_VLAN_FILTER) ||
- 	    !(slave_ops->ndo_vlan_rx_kill_vid))
--		goto unreg;
-+		return;
- 
- 	list_for_each_entry(vlan, &bond->vlan_list, vlan_list) {
- 		if (!vlan->vlan_id)
- 			continue;
--		/* Save and then restore vlan_dev in the grp array,
--		 * since the slave's driver might clear it.
--		 */
--		vlan_dev = vlan_group_get_device(bond->vlgrp, vlan->vlan_id);
-+
- 		slave_ops->ndo_vlan_rx_kill_vid(slave_dev, vlan->vlan_id);
--		vlan_group_set_device(bond->vlgrp, vlan->vlan_id, vlan_dev);
- 	}
+-/* VLAN rx hw acceleration helper.  This acts like netif_{rx,receive_skb}(). */
+-int __vlan_hwaccel_rx(struct sk_buff *skb, struct vlan_group *grp,
+-		      u16 vlan_tci, int polling)
+-{
+-	__vlan_hwaccel_put_tag(skb, vlan_tci);
+-	return polling ? netif_receive_skb(skb) : netif_rx(skb);
+-}
+-EXPORT_SYMBOL(__vlan_hwaccel_rx);
 -
--unreg:
--	if ((slave_dev->features & NETIF_F_HW_VLAN_RX) &&
--	    slave_ops->ndo_vlan_rx_register)
--		slave_ops->ndo_vlan_rx_register(slave_dev, NULL);
- }
- 
- /*------------------------------- Link status -------------------------------*/
-@@ -894,23 +815,22 @@ static void bond_resend_igmp_join_requests(struct bonding *bond)
- 	struct vlan_entry *vlan;
- 
- 	read_lock(&bond->lock);
-+	rcu_read_lock();
- 
- 	/* rejoin all groups on bond device */
- 	__bond_resend_igmp_join_requests(bond->dev);
- 
- 	/* rejoin all groups on vlan devices */
--	if (bond->vlgrp) {
--		list_for_each_entry(vlan, &bond->vlan_list, vlan_list) {
--			vlan_dev = vlan_group_get_device(bond->vlgrp,
--							 vlan->vlan_id);
--			if (vlan_dev)
--				__bond_resend_igmp_join_requests(vlan_dev);
--		}
-+	list_for_each_entry(vlan, &bond->vlan_list, vlan_list) {
-+		vlan_dev = vlan_find_dev(bond->dev, vlan->vlan_id);
-+		if (vlan_dev)
-+			__bond_resend_igmp_join_requests(vlan_dev);
- 	}
- 
- 	if (--bond->igmp_retrans > 0)
- 		queue_delayed_work(bond->wq, &bond->mcast_work, HZ/5);
- 
-+	rcu_read_unlock();
- 	read_unlock(&bond->lock);
- }
- 
-@@ -1476,7 +1396,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 	/* no need to lock since we're protected by rtnl_lock */
- 	if (slave_dev->features & NETIF_F_VLAN_CHALLENGED) {
- 		pr_debug("%s: NETIF_F_VLAN_CHALLENGED\n", slave_dev->name);
--		if (bond->vlgrp) {
-+		if (!list_empty(&bond->vlan_list)) {
- 			pr_err("%s: Error: cannot enslave VLAN challenged slave %s on VLAN enabled bond %s\n",
- 			       bond_dev->name, slave_dev->name, bond_dev->name);
- 			return -EPERM;
-@@ -1975,9 +1895,7 @@ int bond_release(struct net_device *bond_dev, struct net_device *slave_dev)
- 		 */
- 		memset(bond_dev->dev_addr, 0, bond_dev->addr_len);
- 
--		if (!bond->vlgrp) {
--			bond_dev->features |= NETIF_F_VLAN_CHALLENGED;
--		} else {
-+		if (!list_empty(&bond->vlan_list)) {
- 			pr_warning("%s: Warning: clearing HW address of %s while it still has VLANs.\n",
- 				   bond_dev->name, bond_dev->name);
- 			pr_warning("%s: When re-adding slaves, make sure the bond's HW address matches its VLANs'.\n",
-@@ -2167,9 +2085,7 @@ static int bond_release_all(struct net_device *bond_dev)
- 	 */
- 	memset(bond_dev->dev_addr, 0, bond_dev->addr_len);
- 
--	if (!bond->vlgrp) {
--		bond_dev->features |= NETIF_F_VLAN_CHALLENGED;
--	} else {
-+	if (!list_empty(&bond->vlan_list)) {
- 		pr_warning("%s: Warning: clearing HW address of %s while it still has VLANs.\n",
- 			   bond_dev->name, bond_dev->name);
- 		pr_warning("%s: When re-adding slaves, make sure the bond's HW address matches its VLANs'.\n",
-@@ -2601,11 +2517,13 @@ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
- 	struct flowi fl;
- 	struct rtable *rt;
- 
-+	rcu_read_lock();
-+
- 	for (i = 0; (i < BOND_MAX_ARP_TARGETS); i++) {
- 		if (!targets[i])
- 			break;
- 		pr_debug("basa: target %x\n", targets[i]);
--		if (!bond->vlgrp) {
-+		if (list_empty(&bond->vlan_list)) {
- 			pr_debug("basa: empty vlan: arp_send\n");
- 			bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i],
- 				      bond->master_ip, 0);
-@@ -2643,7 +2561,7 @@ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
- 
- 		vlan_id = 0;
- 		list_for_each_entry(vlan, &bond->vlan_list, vlan_list) {
--			vlan_dev = vlan_group_get_device(bond->vlgrp, vlan->vlan_id);
-+			vlan_dev = vlan_find_dev(bond->dev, vlan->vlan_id);
- 			if (vlan_dev == rt->dst.dev) {
- 				vlan_id = vlan->vlan_id;
- 				pr_debug("basa: vlan match on %s %d\n",
-@@ -2666,6 +2584,8 @@ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
- 		}
- 		ip_rt_put(rt);
- 	}
-+
-+	rcu_read_unlock();
- }
- 
- /*
-@@ -2694,16 +2614,17 @@ static void bond_send_gratuitous_arp(struct bonding *bond)
- 				bond->master_ip, 0);
- 	}
- 
--	if (!bond->vlgrp)
--		return;
-+	rcu_read_lock();
- 
- 	list_for_each_entry(vlan, &bond->vlan_list, vlan_list) {
--		vlan_dev = vlan_group_get_device(bond->vlgrp, vlan->vlan_id);
-+		vlan_dev = vlan_find_dev(bond->dev, vlan->vlan_id);
- 		if (vlan->vlan_ip) {
- 			bond_arp_send(slave->dev, ARPOP_REPLY, vlan->vlan_ip,
- 				      vlan->vlan_ip, vlan->vlan_id);
- 		}
- 	}
-+
-+	rcu_read_unlock();
- }
- 
- static void bond_validate_arp(struct bonding *bond, struct slave *slave, __be32 sip, __be32 tip)
-@@ -3653,9 +3574,7 @@ static int bond_inetaddr_event(struct notifier_block *this, unsigned long event,
- 		}
- 
- 		list_for_each_entry(vlan, &bond->vlan_list, vlan_list) {
--			if (!bond->vlgrp)
--				continue;
--			vlan_dev = vlan_group_get_device(bond->vlgrp, vlan->vlan_id);
-+			vlan_dev = vlan_find_dev(bond->dev, vlan->vlan_id);
- 			if (vlan_dev == event_dev) {
- 				switch (event) {
- 				case NETDEV_UP:
-@@ -4656,7 +4575,6 @@ static const struct net_device_ops bond_netdev_ops = {
- 	.ndo_change_mtu		= bond_change_mtu,
- 	.ndo_set_mac_address 	= bond_set_mac_address,
- 	.ndo_neigh_setup	= bond_neigh_setup,
--	.ndo_vlan_rx_register	= bond_vlan_rx_register,
- 	.ndo_vlan_rx_add_vid 	= bond_vlan_rx_add_vid,
- 	.ndo_vlan_rx_kill_vid	= bond_vlan_rx_kill_vid,
- #ifdef CONFIG_NET_POLL_CONTROLLER
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index c15f213..999746b 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -218,7 +218,6 @@ struct bonding {
- 	struct   alb_bond_info alb_info;
- 	struct   bond_params params;
- 	struct   list_head vlan_list;
--	struct   vlan_group *vlgrp;
- 	struct   packet_type arp_mon_pt;
- 	struct   workqueue_struct *wq;
- 	struct   delayed_work mii_work;
+-gro_result_t vlan_gro_receive(struct napi_struct *napi, struct vlan_group *grp,
+-			      unsigned int vlan_tci, struct sk_buff *skb)
+-{
+-	__vlan_hwaccel_put_tag(skb, vlan_tci);
+-	return napi_gro_receive(napi, skb);
+-}
+-EXPORT_SYMBOL(vlan_gro_receive);
+-
+-gro_result_t vlan_gro_frags(struct napi_struct *napi, struct vlan_group *grp,
+-			    unsigned int vlan_tci)
+-{
+-	__vlan_hwaccel_put_tag(napi->skb, vlan_tci);
+-	return napi_gro_frags(napi);
+-}
+-EXPORT_SYMBOL(vlan_gro_frags);
 -- 
 1.7.0.4
 
