@@ -1,289 +1,50 @@
-From: gvs@zemos.net
-Subject: Re: [Bugme-new] [Bug 20292] New: unable to handle kernel NULL pointer
- dereference in skb_dequeue
-Date: Wed, 13 Oct 2010 18:36:04 -0400
-Message-ID: <20101013223604.GA28978@zemos.net>
-References: <bug-20292-10286@https.bugzilla.kernel.org/>
- <20101013123332.72cf90f8.akpm@linux-foundation.org>
+From: David Rientjes <rientjes@google.com>
+Subject: Re: [PATCH net-next] net:  allocate skbs on local node
+Date: Wed, 13 Oct 2010 15:41:23 -0700 (PDT)
+Message-ID: <alpine.DEB.2.00.1010131539440.27839@chino.kir.corp.google.com>
+References: <1286838210.30423.128.camel@edumazet-laptop> <1286839363.30423.130.camel@edumazet-laptop> <1286859925.30423.184.camel@edumazet-laptop> <20101011230322.f0f6dd47.akpm@linux-foundation.org> <1286866699.30423.234.camel@edumazet-laptop>
+ <20101012002435.f51f2c0e.akpm@linux-foundation.org> <1286869793.2732.24.camel@edumazet-laptop> <20101012005856.994bea6d.akpm@linux-foundation.org> <4CB441CB.2000708@cs.helsinki.fi> <alpine.DEB.2.00.1010120745360.31832@router.home>
+ <alpine.DEB.2.00.1010121234380.10165@chino.kir.corp.google.com> <alpine.DEB.2.00.1010131056180.29099@router.home> <alpine.DEB.2.00.1010131342310.15185@chino.kir.corp.google.com> <alpine.DEB.2.00.1010131642220.8351@router.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org,
-	Michal Ostrowski <mostrows@earthlink.net>
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Pekka Enberg <penberg@cs.helsinki.fi>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Michael Chan <mchan@broadcom.com>,
+	Eilon Greenstein <eilong@broadcom.com>,
+	Christoph Hellwig <hch@lst.de>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Nick Piggin <npiggin@kernel.dk>
+To: Christoph Lameter <cl@linux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vms173013pub.verizon.net ([206.46.173.13]:40766 "EHLO
-	vms173013pub.verizon.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750825Ab0JMWiY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Oct 2010 18:38:24 -0400
-Received: from DEA.zemos.net ([unknown] [96.242.37.152])
- by vms173013.mailsrvcs.net
- (Sun Java(tm) System Messaging Server 7u2-7.02 32bit (built Apr 16 2009))
- with ESMTPA id <0LA900MNP2VJSXX2@vms173013.mailsrvcs.net> for
- netdev@vger.kernel.org; Wed, 13 Oct 2010 17:38:13 -0500 (CDT)
-Content-disposition: inline
-In-reply-to: <20101013123332.72cf90f8.akpm@linux-foundation.org>
+Received: from smtp-out.google.com ([216.239.44.51]:34652 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753425Ab0JMWlc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Oct 2010 18:41:32 -0400
+Received: from wpaz24.hot.corp.google.com (wpaz24.hot.corp.google.com [172.24.198.88])
+	by smtp-out.google.com with ESMTP id o9DMfUl9013354
+	for <netdev@vger.kernel.org>; Wed, 13 Oct 2010 15:41:30 -0700
+Received: from pzk3 (pzk3.prod.google.com [10.243.19.131])
+	by wpaz24.hot.corp.google.com with ESMTP id o9DMfTAh002534
+	for <netdev@vger.kernel.org>; Wed, 13 Oct 2010 15:41:29 -0700
+Received: by pzk3 with SMTP id 3so423874pzk.39
+        for <netdev@vger.kernel.org>; Wed, 13 Oct 2010 15:41:28 -0700 (PDT)
+In-Reply-To: <alpine.DEB.2.00.1010131642220.8351@router.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I had no problems getting it to work properly in 2.6.35.7. However, when
-I booted back into rc7 I was unable to reproduce the problem. I believe
-I was running multiple pppd's that failed to authenticate at the time
-the bug occured.
+On Wed, 13 Oct 2010, Christoph Lameter wrote:
 
-I'll leave it running rc7 and see if everything stays stable.
+> > I was going to mention that as an idea, but I thought storing the metadata
+> > for certain debugging features might differ from the two allocators so
+> > substantially that it would be even more convoluted and difficult to
+> > maintain?
+> 
+> We could have some callbacks to store allocator specific metadata?
+> 
 
-gvs
-
-On Wed, Oct 13, 2010 at 12:33:32PM -0700, Andrew Morton wrote:
-> 
-> (switched to email.  Please respond via emailed reply-to-all, not via the
-> bugzilla web interface).
-> 
-> On Wed, 13 Oct 2010 19:24:53 GMT
-> bugzilla-daemon@bugzilla.kernel.org wrote:
-> 
-> > https://bugzilla.kernel.org/show_bug.cgi?id=20292
-> > 
-> >            Summary: unable to handle kernel NULL pointer dereference in
-> >                     skb_dequeue
-> >            Product: Networking
-> >            Version: 2.5
-> >     Kernel Version: 2.6.36-rc7
-> 
-> Thanks.  Do you know if this is a regression?  Did it work OK on 2.6.35?
-> 
-> >           Platform: All
-> >         OS/Version: Linux
-> >               Tree: Mainline
-> >             Status: NEW
-> >           Severity: blocking
-> >           Priority: P1
-> >          Component: Other
-> >         AssignedTo: acme@ghostprotocols.net
-> >         ReportedBy: gvs@zemos.net
-> >         Regression: No
-> > 
-> > 
-> > Created an attachment (id=33512)
-> >  --> (https://bugzilla.kernel.org/attachment.cgi?id=33512)
-> > Kernel config (gzipped)
-> > 
-> > I was trying to get pppoe working (the 'pon' command seemed to hang) and then
-> > this happened:
-> > 
-> > Oct 13 20:57:07 bes kernel: BUG: unable to handle kernel NULL pointer
-> > dereference at (null)
-> > Oct 13 20:57:07 bes kernel: IP: [<c1241674>] skb_dequeue+0x24/0x40
-> > Oct 13 20:57:07 bes kernel: *pde = 00000000
-> > Oct 13 20:57:07 bes kernel: Oops: 0002 [#1]
-> > Oct 13 20:57:07 bes kernel: last sysfs file:
-> > /sys/devices/virtual/net/ppp0/uevent
-> > Oct 13 20:57:07 bes kernel: Modules linked in: xt_TCPMSS xt_tcpmss xt_tcpudp
-> > iptable_mangle pppoe pppox ppp_generic slhc cpufreq_conservative
-> > cpufreq_userspace cpufreq_powersave fuse ipt_MASQUERADE iptable_nat nf_nat
-> > nf_conntrack_ipv4 nf_defrag_ipv4 xt_state nf_conntrack iptable_filter ip_tables
-> > x_tables loop sd_mod usb_storage usblp i2c_viapro uhci_hcd fan ehci_hcd button
-> > i2c_core
-> > Oct 13 20:57:07 bes kernel:
-> > Oct 13 20:57:07 bes kernel: Pid: 5495, comm: pppd Not tainted 2.6.36-rc7 #12
-> > VX800 /VX800
-> > Oct 13 20:57:07 bes kernel: EIP: 0060:[<c1241674>] EFLAGS: 00010046 CPU: 0
-> > Oct 13 20:57:07 bes kernel: EIP is at skb_dequeue+0x24/0x40
-> > Oct 13 20:57:07 bes kernel: EAX: 00000000 EBX: 00000202 ECX: f6ba4cc0 EDX:
-> > 00000000
-> > Oct 13 20:57:07 bes kernel: ESI: f6c93bc0 EDI: f6adfee4 EBP: f6ade000 ESP:
-> > f6adfe68
-> > Oct 13 20:57:07 bes kernel: DS: 007b ES: 007b FS: 0000 GS: 0033 SS: 0068
-> > Oct 13 20:57:07 bes kernel: Process pppd (pid: 5495, ti=f6ade000 task=f70f2200
-> > task.ti=f6ade000)
-> > Oct 13 20:57:07 bes kernel: Stack:
-> > Oct 13 20:57:07 bes kernel: f68836c4 c1243a94 f68836c0 f866825b 00000000
-> > f72e4a00 f72e4a00 f86761cb
-> > Oct 13 20:57:07 bes kernel: <0> f72e4a00 f8683c97 c143ea14 ffffffea c12ba92d
-> > 00000286 f68f7d7c f6adfee4
-> > Oct 13 20:57:07 bes kernel: <0> f68f7bfc 00000286 00000000 00000000 00000000
-> > f68f7b9c f6adff68 f6adff64
-> > Oct 13 20:57:07 bes kernel: Call Trace:
-> > Oct 13 20:57:07 bes kernel: [<c1243a94>] ? skb_queue_purge+0x14/0x30
-> > Oct 13 20:57:07 bes kernel: [<f866825b>] ? ppp_destroy_channel+0x1b/0x50
-> > [ppp_generic]
-> > Oct 13 20:57:07 bes kernel: [<f86761cb>] ? pppox_unbind_sock+0x1b/0x24 [pppox]
-> > Oct 13 20:57:07 bes kernel: [<f8683c97>] ? pppoe_connect+0x87/0x4b0 [pppoe]
-> > Oct 13 20:57:07 bes kernel: [<c12ba92d>] ? schedule_timeout+0xfd/0x150
-> > Oct 13 20:57:07 bes kernel: [<c123d4d4>] ? sys_connect+0x84/0xd0
-> > Oct 13 20:57:07 bes kernel: [<c10ba730>] ? do_lock_file_wait+0x30/0xf0
-> > Oct 13 20:57:07 bes kernel: [<c10ba9f9>] ? fcntl_setlk+0x59/0x1b0
-> > Oct 13 20:57:07 bes kernel: [<c123e5a4>] ? sys_socketcall+0x294/0x2c0
-> > Oct 13 20:57:07 bes kernel: [<c1002a10>] ? sysenter_do_call+0x12/0x26
-> > Oct 13 20:57:07 bes kernel: Code: 81 a8 00 00 00 5b c3 53 9c 5b fa 8b 08 39 c8
-> > 74 25 85 c9 74 1b 83 68 08 01 8b 11 8b 41 04 c7 01 00 00 00 00 c7 41 04 00 00
-> > 00 00 <89> 10 89 42 04 53 9d 89 c8 5b c3 31 c9 eb f6 8d b6 00 00 00 00
-> > Oct 13 20:57:07 bes kernel: EIP: [<c1241674>] skb_dequeue+0x24/0x40 SS:ESP
-> > 0068:f6adfe68
-> > Oct 13 20:57:07 bes kernel: CR2: 0000000000000000
-> > Oct 13 20:57:07 bes kernel: ---[ end trace 4914adf67d1ace25 ]---
-> > 
-> > Oct 13 20:57:30 bes kernel: BUG: unable to handle kernel NULL pointer
-> > dereference at (null)
-> > Oct 13 20:57:30 bes kernel: IP: [<c1241674>] skb_dequeue+0x24/0x40
-> > Oct 13 20:57:30 bes kernel: *pde = 00000000
-> > Oct 13 20:57:30 bes kernel: Oops: 0002 [#2]
-> > Oct 13 20:57:30 bes kernel: last sysfs file:
-> > /sys/devices/virtual/net/ppp0/uevent
-> > Oct 13 20:57:30 bes kernel: Modules linked in: xt_TCPMSS xt_tcpmss xt_tcpudp
-> > iptable_mangle pppoe pppox ppp_generic slhc cpufreq_conservative
-> > cpufreq_userspace cpufreq_powersave fuse ipt_MASQUERADE iptable_nat nf_nat
-> > nf_conntrack_ipv4 nf_defrag_ipv4 xt_state nf_conntrack iptable_filter ip_tables
-> > x_tables loop sd_mod usb_storage usblp i2c_viapro uhci_hcd fan ehci_hcd button
-> > i2c_core
-> > Oct 13 20:57:30 bes kernel:
-> > Oct 13 20:57:30 bes kernel: Pid: 5445, comm: pppd Tainted: G      D    
-> > 2.6.36-rc7 #12 VX800 /VX800
-> > Oct 13 20:57:30 bes kernel: EIP: 0060:[<c1241674>] EFLAGS: 00010046 CPU: 0
-> > Oct 13 20:57:30 bes kernel: EIP is at skb_dequeue+0x24/0x40
-> > Oct 13 20:57:30 bes kernel: EAX: 00000000 EBX: 00000202 ECX: f6ae7200 EDX:
-> > 00000000
-> > Oct 13 20:57:30 bes kernel: ESI: f6c99080 EDI: f7161ee4 EBP: f7160000 ESP:
-> > f7161e68
-> > Oct 13 20:57:30 bes kernel: DS: 007b ES: 007b FS: 0000 GS: 0033 SS: 0068
-> > Oct 13 20:57:30 bes kernel: Process pppd (pid: 5445, ti=f7160000 task=f7107280
-> > task.ti=f7160000)
-> > Oct 13 20:57:30 bes kernel: Stack:
-> > Oct 13 20:57:30 bes kernel: f6883344 c1243a94 f6883340 f866825b 00000000
-> > f72e4c00 f72e4c00 f86761cb
-> > Oct 13 20:57:30 bes kernel: <0> f72e4c00 f8683c97 c143ea14 ffffffea c12ba92d
-> > 00000286 f68f73bc f7161ee4
-> > Oct 13 20:57:30 bes kernel: <0> f68f753c 00000286 00000000 00000000 00000000
-> > f68f759c f7161f68 f7161f64
-> > Oct 13 20:57:30 bes kernel: [<c1243a94>] ? skb_queue_purge+0x14/0x30
-> > Oct 13 20:57:30 bes kernel: [<f866825b>] ? ppp_destroy_channel+0x1b/0x50
-> > [ppp_generic]
-> > Oct 13 20:57:30 bes kernel: [<f86761cb>] ? pppox_unbind_sock+0x1b/0x24 [pppox]
-> > Oct 13 20:57:30 bes kernel: [<f8683c97>] ? pppoe_connect+0x87/0x4b0 [pppoe]
-> > Oct 13 20:57:30 bes kernel: [<c12ba92d>] ? schedule_timeout+0xfd/0x150
-> > Oct 13 20:57:30 bes kernel: [<c123d4d4>] ? sys_connect+0x84/0xd0
-> > Oct 13 20:57:30 bes kernel: [<c10ba730>] ? do_lock_file_wait+0x30/0xf0
-> > Oct 13 20:57:30 bes kernel: [<c10ba9f9>] ? fcntl_setlk+0x59/0x1b0
-> > Oct 13 20:57:30 bes kernel: [<c123e5a4>] ? sys_socketcall+0x294/0x2c0
-> > Oct 13 20:57:30 bes kernel: [<c1002a10>] ? sysenter_do_call+0x12/0x26
-> > Oct 13 20:57:30 bes kernel: Code: 81 a8 00 00 00 5b c3 53 9c 5b fa 8b 08 39 c8
-> > 74 25 85 c9 74 1b 83 68 08 01 8b 11 8b 41 04 c7 01 00 00 00 00 c7 41 04 00 00
-> > 00 00 <89> 10 89 42 04 53 9d 89 c8 5b c3 31 c9 eb f6 8d b6 00 00 00 00
-> > Oct 13 20:57:30 bes kernel: EIP: [<c1241674>] skb_dequeue+0x24/0x40 SS:ESP
-> > 0068:f7161e68
-> > Oct 13 20:57:30 bes kernel: CR2: 0000000000000000
-> > Oct 13 20:57:30 bes kernel: ---[ end trace 4914adf67d1ace26 ]---
-> > Oct 13 20:57:30 bes kernel: ------------[ cut here ]------------
-> > Oct 13 20:57:30 bes kernel: WARNING: at kernel/softirq.c:143
-> > local_bh_enable+0x60/0x90()
-> > Oct 13 20:57:30 bes kernel: Hardware name: VX800
-> > Oct 13 20:57:30 bes kernel: Modules linked in: xt_TCPMSS xt_tcpmss xt_tcpudp
-> > iptable_mangle pppoe pppox ppp_generic slhc cpufreq_conservative
-> > cpufreq_userspace cpufreq_powersave fuse ipt_MASQUERADE iptable_nat nf_nat
-> > nf_conntrack_ipv4 nf_defrag_ipv4 xt_state nf_conntrack iptable_filter ip_tables
-> > x_tables loop sd_mod usb_storage usblp i2c_viapro uhci_hcd fan ehci_hcd button
-> > i2c_core
-> > Oct 13 20:57:30 bes kernel: Pid: 5445, comm: pppd Tainted: G      D    
-> > 2.6.36-rc7 #12
-> > Oct 13 20:57:30 bes kernel: Call Trace:
-> > Oct 13 20:57:30 bes kernel: [<c1028640>] ? local_bh_enable+0x60/0x90
-> > Oct 13 20:57:30 bes kernel: [<c1028640>] ? local_bh_enable+0x60/0x90
-> > Oct 13 20:57:30 bes kernel: [<c1023a1e>] ? warn_slowpath_common+0x7e/0xc0
-> > Oct 13 20:57:30 bes kernel: [<c1028640>] ? local_bh_enable+0x60/0x90
-> > Oct 13 20:57:30 bes kernel: [<c1023a7b>] ? warn_slowpath_null+0x1b/0x20
-> > Oct 13 20:57:30 bes kernel: [<c1028640>] ? local_bh_enable+0x60/0x90
-> > Oct 13 20:57:30 bes kernel: [<c12a5bb5>] ? unix_release_sock+0x45/0x1f0
-> > Oct 13 20:57:30 bes kernel: [<c123dc4a>] ? sock_release+0x1a/0x80
-> > Oct 13 20:57:30 bes kernel: [<c123dcbf>] ? sock_close+0xf/0x30
-> > Oct 13 20:57:30 bes kernel: [<c1089cd9>] ? fput+0xb9/0x200
-> > Oct 13 20:57:30 bes kernel: [<c1086f7e>] ? filp_close+0x3e/0x70
-> > Oct 13 20:57:30 bes kernel: [<c10254b2>] ? put_files_struct+0x62/0xb0
-> > Oct 13 20:57:30 bes kernel: [<c1026c47>] ? do_exit+0x567/0x630
-> > Oct 13 20:57:30 bes kernel: [<c12ba037>] ? printk+0x17/0x20
-> > Oct 13 20:57:30 bes kernel: [<c1005477>] ? oops_end+0x87/0x90
-> > Oct 13 20:57:30 bes kernel: [<c12ba037>] ? printk+0x17/0x20
-> > Oct 13 20:57:30 bes kernel: [<c10194a2>] ? no_context+0xc2/0x160
-> > Oct 13 20:57:30 bes kernel: [<c10195a5>] ? __bad_area_nosemaphore+0x65/0x180
-> > Oct 13 20:57:30 bes kernel: [<c1249a3b>] ? dev_txq_stats_fold+0x8b/0xf0
-> > Oct 13 20:57:30 bes kernel: [<c117dc80>] ? __nla_reserve+0x40/0x60
-> > Oct 13 20:57:30 bes kernel: [<c1255c33>] ? rtnl_fill_ifinfo+0x413/0x8d0
-> > Oct 13 20:57:30 bes kernel: [<c101971a>] ? bad_area+0x3a/0x50
-> > Oct 13 20:57:30 bes kernel: [<c1019b8e>] ? do_page_fault+0x33e/0x390
-> > Oct 13 20:57:30 bes kernel: [<c101e6ab>] ? wakeup_preempt_entity+0x3b/0xa0
-> > Oct 13 20:57:30 bes kernel: [<c101e79a>] ? check_preempt_wakeup+0x8a/0xe0
-> > Oct 13 20:57:30 bes kernel: [<c1097675>] ? pollwake+0x65/0x80
-> > Oct 13 20:57:30 bes kernel: [<c1021170>] ? default_wake_function+0x0/0x10
-> > Oct 13 20:57:30 bes kernel: [<c1019850>] ? do_page_fault+0x0/0x390
-> > Oct 13 20:57:30 bes kernel: [<c12bbcf0>] ? error_code+0x58/0x60
-> > Oct 13 20:57:30 bes kernel: [<c1019850>] ? do_page_fault+0x0/0x390
-> > Oct 13 20:57:30 bes kernel: [<c1241674>] ? skb_dequeue+0x24/0x40
-> > Oct 13 20:57:30 bes kernel: [<c1243a94>] ? skb_queue_purge+0x14/0x30
-> > Oct 13 20:57:30 bes kernel: [<f866825b>] ? ppp_destroy_channel+0x1b/0x50
-> > [ppp_generic]
-> > Oct 13 20:57:30 bes kernel: [<f86761cb>] ? pppox_unbind_sock+0x1b/0x24 [pppox]
-> > Oct 13 20:57:30 bes kernel: [<f8683c97>] ? pppoe_connect+0x87/0x4b0 [pppoe]
-> > Oct 13 20:57:30 bes kernel: [<c12ba92d>] ? schedule_timeout+0xfd/0x150
-> > Oct 13 20:57:30 bes kernel: [<c123d4d4>] ? sys_connect+0x84/0xd0
-> > Oct 13 20:57:30 bes kernel: [<c10ba730>] ? do_lock_file_wait+0x30/0xf0
-> > Oct 13 20:57:30 bes kernel: [<c10ba9f9>] ? fcntl_setlk+0x59/0x1b0
-> > Oct 13 20:57:30 bes kernel: [<c123e5a4>] ? sys_socketcall+0x294/0x2c0
-> > Oct 13 20:57:30 bes kernel: [<c1002a10>] ? sysenter_do_call+0x12/0x26
-> > Oct 13 20:57:30 bes kernel: ---[ end trace 4914adf67d1ace27 ]---
-> > 
-> > Some other information:
-> > /proc/version:
-> > Linux version 2.6.36-rc7 (root@bes) (gcc version 4.3.2 (Debian 4.3.2-1.1) ) #12
-> > Sun Oct 10 21:12:58 CEST 2010
-> > 
-> > ver_linux:
-> > Linux bes 2.6.36-rc7 #12 Sun Oct 10 21:12:58 CEST 2010 i686 GNU/Linux
-> > 
-> > Gnu C                  4.4.5
-> > Gnu make               3.81
-> > binutils               2.20.1
-> > util-linux             2.17.2
-> > mount                  support
-> > module-init-tools      3.12
-> > e2fsprogs              1.41.12
-> > PPP                    2.4.5
-> > Linux C Library        2.11.2
-> > Dynamic linker (ldd)   2.11.2
-> > Procps                 3.2.8
-> > Net-tools              1.60
-> > Console-tools          0.2.3
-> > Sh-utils               8.5
-> > Modules Loaded         cpufreq_conservative cpufreq_userspace cpufreq_powersave
-> > fuse ppp_generic slhc ipt_MASQUERADE iptable_nat nf_nat nf_conntrack_ipv4
-> > nf_defrag_ipv4 xt_state nf_conntrack iptable_filter ip_tables x_tables loop
-> > sd_mod usb_storage usblp i2c_viapro uhci_hcd fan i2c_core ehci_hcd button
-> > 
-> > cpuinfo:
-> > processor       : 0
-> > vendor_id       : CentaurHauls
-> > cpu family      : 6
-> > model           : 13
-> > model name      : VIA Eden Processor 1600MHz
-> > stepping        : 0
-> > cpu MHz         : 800.000
-> > cache size      : 128 KB
-> > fdiv_bug        : no
-> > hlt_bug         : no
-> > f00f_bug        : no
-> > coma_bug        : no
-> > fpu             : yes
-> > fpu_exception   : yes
-> > cpuid level     : 1
-> > wp              : yes
-> > flags           : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge cmov pat
-> > clflush acpi mmx fxsr sse sse2 tm nx pni est tm2 xtpr rng rng_en ace ace_en
-> > ace2 ace2_en phe phe_en pmm pmm_en
-> > bogomips        : 1599.76
-> > clflush size    : 64
-> > cache_alignment : 64
-> > address sizes   : 36 bits physical, 32 bits virtual
-> > power management:
-> > 
-> > If anything else is needed I'd be happy to assist.
-> > 
-> 
+It depends on whether we could share the same base for both slab (unified 
+allocator) and slub, which you snipped from your reply, that would make 
+this cleaner.
