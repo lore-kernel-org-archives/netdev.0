@@ -1,75 +1,43 @@
-From: "Gerd v. Egidy" <lists@egidy.de>
-Subject: xfrm by MARK: tcp problems when mark for in and
-	out differ
-Date: Wed, 13 Oct 2010 15:57:06 +0200
-Message-ID: <201010131557.06588.lists@egidy.de>
+From: Breno Leitao <leitao@linux.vnet.ibm.com>
+Subject: Re: [PATCH] ehea: Fix a checksum issue on the receive path
+Date: Wed, 13 Oct 2010 11:06:14 -0300
+Message-ID: <4CB5BCD6.4000906@linux.vnet.ibm.com>
+References: <1286513130.6536.467.camel@edumazet-laptop> <4CAF2732.90703@linux.vnet.ibm.com> <1286548577.2959.412.camel@edumazet-laptop> <20101009.092043.58419374.davem@davemloft.net> <20101009103136.341104c5@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dev@lists.strongswan.org
-To: jamal <hadi@cyberus.ca>
-Return-path: <dev-bounces+gnvsd-dev=m.gmane.org@lists.strongswan.org>
-List-Unsubscribe: <https://lists.strongswan.org/mailman/listinfo/dev>,
-	<mailto:dev-request@lists.strongswan.org?subject=unsubscribe>
-List-Archive: <http://lists.strongswan.org/pipermail/dev>
-List-Post: <mailto:dev@lists.strongswan.org>
-List-Help: <mailto:dev-request@lists.strongswan.org?subject=help>
-List-Subscribe: <https://lists.strongswan.org/mailman/listinfo/dev>,
-	<mailto:dev-request@lists.strongswan.org?subject=subscribe>
-Sender: dev-bounces+gnvsd-dev=m.gmane.org@lists.strongswan.org
-Errors-To: dev-bounces+gnvsd-dev=m.gmane.org@lists.strongswan.org
-List-Id: netdev.vger.kernel.org
+Cc: Stephen Hemminger <shemminger@vyatta.com>, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, fubar@us.ibm.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e24smtp02.br.ibm.com ([32.104.18.86]:35876 "EHLO
+	e24smtp02.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752525Ab0JMOGV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Oct 2010 10:06:21 -0400
+Received: from mailhub1.br.ibm.com (mailhub1.br.ibm.com [9.18.232.109])
+	by e24smtp02.br.ibm.com (8.14.4/8.13.1) with ESMTP id o9DEDXNr013911
+	for <netdev@vger.kernel.org>; Wed, 13 Oct 2010 11:13:33 -0300
+Received: from d24av05.br.ibm.com (d24av05.br.ibm.com [9.18.232.44])
+	by mailhub1.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o9DECWtf1028272
+	for <netdev@vger.kernel.org>; Wed, 13 Oct 2010 11:12:33 -0300
+Received: from d24av05.br.ibm.com (loopback [127.0.0.1])
+	by d24av05.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o9DE6FtG025782
+	for <netdev@vger.kernel.org>; Wed, 13 Oct 2010 11:06:16 -0300
+In-Reply-To: <20101009103136.341104c5@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On 10/09/2010 02:31 PM, Stephen Hemminger wrote:
+> Also hardware checksum can be wrong/broken. By passing up a packet
+> which the driver thinks is bad, the software can still work.
+I see. Unfortunately ehea driver is dropping the packets that have a 
+wrong checksum. I will work on the fix, and soon I will send the patch.
 
-I use current strongswan git to set up ipsec connections with the xfrm by MARK 
-feature. When I configure xfrm policies with different marks for incoming and 
-outgoing packets, incoming tcp connections can't be established anymore. The 
-SYN-ACK packet is never sent through the tunnel.
+David,
 
-An example policy looks like this:
+Just to clarify, this patch that started this thead is not invalidated 
+by this "problem". So, I'd like to see this patch committed on your 
+tree. Does it make sense?
 
-src 192.168.5.0/24 dst 192.168.1.0/24
-        dir out priority 1760
-        mark 5/0xffffffff
-        tmpl src 172.16.1.131 dst 172.16.1.130
-                proto esp reqid 16384 mode tunnel
-src 192.168.1.0/24 dst 192.168.5.0/24
-        dir fwd priority 1760
-        tmpl src 172.16.1.130 dst 172.16.1.131
-                proto esp reqid 16384 mode tunnel
-src 192.168.1.0/24 dst 192.168.5.0/24
-        dir in priority 1760
-        tmpl src 172.16.1.130 dst 172.16.1.131
-                proto esp reqid 16384 mode tunnel
-
--> incoming packets are without mark, outgoing packets are marked with 5
-
-I traced the packet in the xfrm code and found out that the problem is in the 
-flow data. When the SYN-ACK hits __xfrm_lookup, the value in fl->mark is 0 
-(more precisely: the mark value used in the incoming packet). This means that 
-xfrm_policy_match will not match on the correct policy because the mark values 
-differ.
-
-I'm not too familiar with the kernel networking code. But I guess that the 
-flow for the SYN-ACK is set up based on the data used for the SYN and is not 
-updated when my iptables rule changes the mark of the packet:
-
-iptables -t raw -A OUTPUT -s 192.168.5.0/255.255.255.0 -d 
-192.168.1.0/255.255.255.0 -j MARK --set-mark 5
-
-I guess that the flow data should be updated somewhere. But I don't know what 
-the correct place for that code would be.
-
-Can somebody more familiar with the network stack help me with this please?
-
-Thank you very much.
-
-Kind regards,
-
-Gerd
-
-
--- 
-Address (better: trap) for people I really don't want to get mail from:
-jonas@cactusamerica.com
+Thanks
+Breno
