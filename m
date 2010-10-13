@@ -1,45 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] b44: fix resume, request_irq after hw reset
-Date: Wed, 13 Oct 2010 09:46:59 -0700 (PDT)
-Message-ID: <20101013.094659.226765041.davem@davemloft.net>
-References: <201010120022.13171.james@albanarts.com>
+Subject: Re: linux-next: Tree for October 13 (net/3c59x)
+Date: Wed, 13 Oct 2010 09:54:32 -0700 (PDT)
+Message-ID: <20101013.095432.71126747.davem@davemloft.net>
+References: <20101013154522.7b087a20.sfr@canb.auug.org.au>
+	<20101013093836.1ee6f2f9.randy.dunlap@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: zambrano@broadcom.com, jpirko@redhat.com,
-	fujita.tomonori@lab.ntt.co.jp, hauke@hauke-m.de,
-	Larry.Finger@lwfinger.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: james@albanarts.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201010120022.13171.james@albanarts.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
+To: randy.dunlap@oracle.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45829
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750933Ab0JMQyK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Oct 2010 12:54:10 -0400
+In-Reply-To: <20101013093836.1ee6f2f9.randy.dunlap@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: James Hogan <james@albanarts.com>
-Date: Tue, 12 Oct 2010 00:22:12 +0100
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Date: Wed, 13 Oct 2010 09:38:36 -0700
 
-> @@ -2309,6 +2303,12 @@ static int b44_resume(struct ssb_device *sdev)
->  	netif_device_attach(bp->dev);
->  	spin_unlock_irq(&bp->lock);
->  
-> +	rc = request_irq(dev->irq, b44_interrupt, IRQF_SHARED, dev->name, dev);
-> +	if (rc) {
-> +		netdev_err(dev, "request_irq failed\n");
-> +		return rc;
-> +	}
-> +
->  	b44_enable_ints(bp);
->  	netif_wake_queue(dev);
+> On Wed, 13 Oct 2010 15:45:22 +1100 Stephen Rothwell wrote:
+> 
+>> Hi all,
+>> 
+>> Changes since 20101012:
+> 
+> 
+> when CONFIG_PCI is not enabled:
+> 
+> drivers/net/3c59x.c:3211: error:request for member 'current_state' in something not a structure or union
 
-Since you've moved the request_irq() down, you'll need to adjust
-the error handling so that it undoes side effects made by this
-function up until this point.
-
-F.e. netif_device_attach() has to be undone for one thing.
-
-Next, b44_init_rings() allocates memory that you must now free.
-
-Etc. etc. etc.
-
-This change is not so simple. :-)
+Like all the other PCI interfaces that NOP out into empty inlines when
+CONFIG_PCI is not enabled, it would be nice to have an interface that
+provides pci_dev->current_state in a similar fashion so we don't have
+to add a bunch of ifdefs here.
