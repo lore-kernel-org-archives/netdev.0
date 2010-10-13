@@ -1,44 +1,108 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] fib: remove a useless synchronize_rcu() call
-Date: Wed, 13 Oct 2010 16:43:04 +0200
-Message-ID: <1286980984.3876.679.camel@edumazet-laptop>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net-next 3/5] tipc: Optimizations to bearer enabling logic
+Date: Wed, 13 Oct 2010 10:58:43 -0400
+Message-ID: <20101013145843.GD31379@hmsreliant.think-freely.org>
+References: <1286929558-2954-1-git-send-email-paul.gortmaker@windriver.com>
+ <1286929558-2954-3-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	allan.stephens@windriver.com
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:42565 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752817Ab0JMOnJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Oct 2010 10:43:09 -0400
-Received: by wyb28 with SMTP id 28so1113238wyb.19
-        for <netdev@vger.kernel.org>; Wed, 13 Oct 2010 07:43:08 -0700 (PDT)
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:48116 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753493Ab0JMO6v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Oct 2010 10:58:51 -0400
+Content-Disposition: inline
+In-Reply-To: <1286929558-2954-3-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-fib_nl_delrule() calls synchronize_rcu() for no apparent reason,
-while rtnl is held.
-
-I suspect it was done to avoid an atomic_inc_not_zero() in
-fib_rules_lookup(), which commit 7fa7cb7109d07 added anyway.
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/core/fib_rules.c |    1 -
- 1 file changed, 1 deletion(-)
-
-diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
-index 21698f8..1bc3f25 100644
---- a/net/core/fib_rules.c
-+++ b/net/core/fib_rules.c
-@@ -494,7 +494,6 @@ static int fib_nl_delrule(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
- 			}
- 		}
- 
--		synchronize_rcu();
- 		notify_rule_change(RTM_DELRULE, rule, ops, nlh,
- 				   NETLINK_CB(skb).pid);
- 		fib_rule_put(rule);
-
-
+On Tue, Oct 12, 2010 at 08:25:56PM -0400, Paul Gortmaker wrote:
+> From: Allan Stephens <allan.stephens@windriver.com>
+> 
+> Introduces "enabling" state during activation of a new TIPC bearer,
+> which supplements the existing "disabled" and "enabled" states.
+> This change allows the new bearer to be added without having to
+> temporarily block the processing of incoming packets on existing
+> bearers during the binding of the new bearer to its associated
+> interface. It also makes it unnecessary to zero out the entire
+> bearer structure at the start of activation.
+> 
+> Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
+> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+> ---
+>  net/tipc/bcast.c  |    2 +-
+>  net/tipc/bearer.c |   27 +++++++++++++++++----------
+>  net/tipc/bearer.h |    8 ++++++--
+>  net/tipc/link.c   |    2 +-
+>  4 files changed, 25 insertions(+), 14 deletions(-)
+> 
+> diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
+> index ecfaac1..ba6dcb2 100644
+> --- a/net/tipc/bcast.c
+> +++ b/net/tipc/bcast.c
+> @@ -645,7 +645,7 @@ void tipc_bcbearer_sort(void)
+>  	for (b_index = 0; b_index < MAX_BEARERS; b_index++) {
+>  		struct bearer *b = &tipc_bearers[b_index];
+>  
+> -		if (!b->active || !b->nodes.count)
+> +		if ((b->state != BEARER_ENABLED) || !b->nodes.count)
+>  			continue;
+>  
+>  		if (!bp_temp[b->priority].primary)
+> diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
+> index 9969ec6..379338f 100644
+> --- a/net/tipc/bearer.c
+> +++ b/net/tipc/bearer.c
+> @@ -290,7 +290,7 @@ struct bearer *tipc_bearer_find_interface(const char *if_name)
+>  	u32 i;
+>  
+>  	for (i = 0, b_ptr = tipc_bearers; i < MAX_BEARERS; i++, b_ptr++) {
+> -		if (!b_ptr->active)
+> +		if (b_ptr->state != BEARER_ENABLED)
+>  			continue;
+>  		b_if_name = strchr(b_ptr->publ.name, ':') + 1;
+>  		if (!strcmp(b_if_name, if_name))
+> @@ -312,7 +312,8 @@ static struct bearer *bearer_find(const char *name)
+>  		return NULL;
+>  
+>  	for (i = 0, b_ptr = tipc_bearers; i < MAX_BEARERS; i++, b_ptr++) {
+> -		if (b_ptr->active && (!strcmp(b_ptr->publ.name, name)))
+> +		if ((b_ptr->state == BEARER_ENABLED) &&
+> +		    (!strcmp(b_ptr->publ.name, name)))
+>  			return b_ptr;
+>  	}
+>  	return NULL;
+> @@ -337,7 +338,8 @@ struct sk_buff *tipc_bearer_get_names(void)
+>  	for (i = 0, m_ptr = media_list; i < media_count; i++, m_ptr++) {
+>  		for (j = 0; j < MAX_BEARERS; j++) {
+>  			b_ptr = &tipc_bearers[j];
+> -			if (b_ptr->active && (b_ptr->media == m_ptr)) {
+> +			if ((b_ptr->state == BEARER_ENABLED) &&
+> +			    (b_ptr->media == m_ptr)) {
+>  				tipc_cfg_append_tlv(buf, TIPC_TLV_BEARER_NAME,
+>  						    b_ptr->publ.name,
+>  						    strlen(b_ptr->publ.name) + 1);
+> @@ -532,7 +534,7 @@ restart:
+>  	bearer_id = MAX_BEARERS;
+>  	with_this_prio = 1;
+>  	for (i = MAX_BEARERS; i-- != 0; ) {
+> -		if (!tipc_bearers[i].active) {
+> +		if (tipc_bearers[i].state != BEARER_ENABLED) {
+>  			bearer_id = i;
+>  			continue;
+>  		}
+> @@ -559,21 +561,23 @@ restart:
+>  	}
+>  
+>  	b_ptr = &tipc_bearers[bearer_id];
+> -	memset(b_ptr, 0, sizeof(struct bearer));
+> -
+> +	b_ptr->state = BEARER_ENABLING;
+>  	strcpy(b_ptr->publ.name, name);
+> +	b_ptr->priority = priority;
+> +
+> +	write_unlock_bh(&tipc_net_lock);
+Why the 3rd state?  Doesn't seem needed. 
