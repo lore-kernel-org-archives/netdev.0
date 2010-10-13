@@ -1,49 +1,140 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH] igb: add check for fiber/serdes devices to
-	igb_set_spd_dplx;
-Date: Wed, 13 Oct 2010 01:27:02 -0700
-Message-ID: <20101013082611.24740.80297.stgit@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: [PATCH RESENT] ethtool: add stmmac support
+Date: Wed, 13 Oct 2010 10:52:25 +0200
+Message-ID: <1286959945-15007-1-git-send-email-peppe.cavallaro@st.com>
+Cc: jgarzik@pobox.com, Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta03.emeryville.ca.mail.comcast.net ([76.96.30.32]:60988 "EHLO
-	qmta03.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753133Ab0JMI1V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Oct 2010 04:27:21 -0400
+Received: from eu1sys200aog103.obsmtp.com ([207.126.144.115]:50972 "EHLO
+	eu1sys200aog103.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753203Ab0JMIwm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Oct 2010 04:52:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+Add the stmmac support into the ethtool to
+dump both the Mac Core and Dma registers.
 
-Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
-Tested-by: Emil Tantilov <emil.s.tantilov@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
+ Makefile.am    |    2 +-
+ ethtool-util.h |    4 +++
+ ethtool.c      |    2 +
+ stmmac.c       |   66 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 73 insertions(+), 1 deletions(-)
+ create mode 100644 stmmac.c
 
- drivers/net/igb/igb_main.c |    7 +++++++
- 1 files changed, 7 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index 55edcb7..5b04eff 100644
---- a/drivers/net/igb/igb_main.c
-+++ b/drivers/net/igb/igb_main.c
-@@ -6115,6 +6115,13 @@ int igb_set_spd_dplx(struct igb_adapter *adapter, u16 spddplx)
+diff --git a/Makefile.am b/Makefile.am
+index 632f054..a0d2116 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -8,7 +8,7 @@ ethtool_SOURCES = ethtool.c ethtool-copy.h ethtool-util.h	\
+ 		  amd8111e.c de2104x.c e100.c e1000.c igb.c	\
+ 		  fec_8xx.c ibm_emac.c ixgb.c ixgbe.c natsemi.c	\
+ 		  pcnet32.c realtek.c tg3.c marvell.c vioc.c	\
+-		  smsc911x.c at76c50x-usb.c sfc.c
++		  smsc911x.c at76c50x-usb.c sfc.c stmmac.c
  
- 	mac->autoneg = 0;
+ dist-hook:
+ 	cp $(top_srcdir)/ethtool.spec $(distdir)
+diff --git a/ethtool-util.h b/ethtool-util.h
+index 01b1d03..4ef3a9f 100644
+--- a/ethtool-util.h
++++ b/ethtool-util.h
+@@ -93,4 +93,8 @@ int at76c50x_usb_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *re
+ /* Solarflare Solarstorm controllers */
+ int sfc_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs);
  
-+	/* Fiber NIC's only allow 1000 Gbps Full duplex */
-+	if ((adapter->hw.phy.media_type == e1000_media_type_internal_serdes) &&
-+		spddplx != (SPEED_1000 + DUPLEX_FULL)) {
-+		dev_err(&pdev->dev, "Unsupported Speed/Duplex configuration\n");
-+		return -EINVAL;
-+	}
++/* STMMAC embedded ethernet controller */
++int st_mac100_dump_regs(struct ethtool_drvinfo *info,
++			struct ethtool_regs *regs);
++int st_gmac_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs);
+ #endif
+diff --git a/ethtool.c b/ethtool.c
+index 6b2b7c8..ab69b95 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -1539,6 +1539,8 @@ static struct {
+         { "smsc911x", smsc911x_dump_regs },
+         { "at76c50x-usb", at76c50x_usb_dump_regs },
+         { "sfc", sfc_dump_regs },
++	{ "st_mac100", st_mac100_dump_regs },
++	{ "st_gmac", st_gmac_dump_regs },
+ };
+ 
+ static int dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
+diff --git a/stmmac.c b/stmmac.c
+new file mode 100644
+index 0000000..ad4311c
+--- /dev/null
++++ b/stmmac.c
+@@ -0,0 +1,66 @@
++/****************************************************************************
++ * Support for the Synopsys MAC 10/100/1000 on-chip Ethernet controllers
++ *
++ * Copyright (C) 2007-2009  STMicroelectronics Ltd
++ *
++ * Author: Giuseppe Cavallaro <peppe.cavallaro@st.com>
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 as published
++ * by the Free Software Foundation, incorporated herein by reference.
++ */
 +
- 	switch (spddplx) {
- 	case SPEED_10 + DUPLEX_HALF:
- 		mac->forced_speed_duplex = ADVERTISE_10_HALF;
++#include <stdio.h>
++#include <string.h>
++#include "ethtool-util.h"
++
++int st_mac100_dump_regs(struct ethtool_drvinfo *info,
++			struct ethtool_regs *regs)
++{
++	int i;
++	unsigned int *stmmac_reg = (unsigned int *)regs->data;
++
++	fprintf(stdout, "ST MAC 10/100 Registers\n");
++	fprintf(stdout, "control reg  0x%08X\n", *stmmac_reg++);
++	fprintf(stdout, "addr HI 0x%08X\n", *stmmac_reg++);
++	fprintf(stdout, "addr LO 0x%08X\n", *stmmac_reg++);
++	fprintf(stdout, "multicast hash HI 0x%08X\n", *stmmac_reg++);
++	fprintf(stdout, "multicast hash LO 0x%08X\n", *stmmac_reg++);
++	fprintf(stdout, "MII addr 0x%08X\n", *stmmac_reg++);
++	fprintf(stdout, "MII data %08X\n", *stmmac_reg++);
++	fprintf(stdout, "flow control 0x%08X\n", *stmmac_reg++);
++	fprintf(stdout, "VLAN1 tag 0x%08X\n", *stmmac_reg++);
++	fprintf(stdout, "VLAN2 tag 0x%08X\n", *stmmac_reg++);
++	fprintf(stdout, "mac wakeup frame 0x%08X\n", *stmmac_reg++);
++	fprintf(stdout, "mac wakeup crtl 0x%08X\n", *stmmac_reg++);
++
++	fprintf(stdout, "\n");
++	fprintf(stdout, "DMA Registers\n");
++	for (i = 0; i < 9; i++)
++		fprintf(stdout, "CSR%d  0x%08X\n", i, *stmmac_reg++);
++
++	fprintf(stdout, "DMA cur tx buf addr 0x%08X\n", *stmmac_reg++);
++	fprintf(stdout, "DMA cur rx buf addr 0x%08X\n", *stmmac_reg++);
++
++	fprintf(stdout, "\n");
++
++	return 0;
++}
++
++int st_gmac_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
++{
++	int i;
++	unsigned int *stmmac_reg = (unsigned int *)regs->data;
++
++	fprintf(stdout, "ST GMAC Registers\n");
++	fprintf(stdout, "GMAC Registers\n");
++	for (i = 0; i < 55; i++)
++		fprintf(stdout, "Reg%d  0x%08X\n", i, *stmmac_reg++);
++
++	fprintf(stdout, "\n");
++	fprintf(stdout, "DMA Registers\n");
++	for (i = 0; i < 22; i++)
++		fprintf(stdout, "Reg%d  0x%08X\n", i, *stmmac_reg++);
++
++	return 0;
++}
+-- 
+1.5.5.6
 
