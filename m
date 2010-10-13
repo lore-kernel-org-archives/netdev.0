@@ -1,48 +1,167 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH -next] sundance: Add initial ethtool stats support
-Date: Wed, 13 Oct 2010 21:44:51 +0200
-Message-ID: <1286999091.2649.1.camel@edumazet-laptop>
-References: <20101009095346.GA12951@hera.kernel.org>
-	 <20101009132749.GA15074@solarflare.com>	<4CB0C56C.2000106@kernel.org>
-	 <20101012.115138.112614145.davem@davemloft.net>
-	 <4CB4C6E6.9090805@kernel.org> <1286917039.1117.101.camel@Joe-Laptop>
-	 <4CB54C4F.5070205@kernel.org> <1286951637.2703.141.camel@edumazet-laptop>
-	 <4CB589B2.50907@kernel.org> <1286966186.3876.246.camel@edumazet-laptop>
-	 <4CB59049.6060405@kernel.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Jeff Garzik <jgarzik@redhat.com>
-To: Denis Kirjanov <dkirjanov@kernel.org>
+From: Jesse Gross <jesse@nicira.com>
+Subject: [RFC PATCH 1/7] ebtables: Allow filtering of hardware accelerated vlan frames.
+Date: Wed, 13 Oct 2010 13:02:51 -0700
+Message-ID: <1287000177-7126-2-git-send-email-jesse@nicira.com>
+References: <1287000177-7126-1-git-send-email-jesse@nicira.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:56220 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750868Ab0JMTpN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Oct 2010 15:45:13 -0400
-Received: by wyb28 with SMTP id 28so1421645wyb.19
-        for <netdev@vger.kernel.org>; Wed, 13 Oct 2010 12:45:12 -0700 (PDT)
-In-Reply-To: <4CB59049.6060405@kernel.org>
+Received: from mail-pz0-f46.google.com ([209.85.210.46]:60390 "EHLO
+	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751788Ab0JMUDF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Oct 2010 16:03:05 -0400
+Received: by pzk33 with SMTP id 33so49025pzk.19
+        for <netdev@vger.kernel.org>; Wed, 13 Oct 2010 13:03:04 -0700 (PDT)
+In-Reply-To: <1287000177-7126-1-git-send-email-jesse@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 13 octobre 2010 =C3=A0 14:56 +0400, Denis Kirjanov a =C3=A9=
-crit :
-> On 10/13/2010 02:36 PM, Eric Dumazet wrote:
-> > Le mercredi 13 octobre 2010 =C3=A0 14:28 +0400, Denis Kirjanov a =C3=
-=A9crit :
-> >=20
-> >> +		u64 tx_defered;
-> >> +		u64 tx_defered_excessive;
-> >=20
-> PATCH -next v5] sundance: Add ethtool stats support
->=20
-> Add ethtool stats support.
->=20
-> Signed-off-by: Denis Kirjanov <dkirjanov@kernel.org>
-> ---
+An upcoming commit will allow packets with hardware vlan acceleration
+information to be passed though more parts of the network stack, including
+packets trunked through the bridge.  This adds support for matching and
+filtering those packets through ebtables.
 
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Jesse Gross <jesse@nicira.com>
+---
+ net/bridge/br_netfilter.c       |   16 +++++++++-------
+ net/bridge/netfilter/ebt_vlan.c |   38 +++++++++++++++++++++++---------------
+ net/bridge/netfilter/ebtables.c |   15 +++++++++++----
+ 3 files changed, 43 insertions(+), 26 deletions(-)
 
+diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
+index 7f9ce96..d6a4fec 100644
+--- a/net/bridge/br_netfilter.c
++++ b/net/bridge/br_netfilter.c
+@@ -64,22 +64,24 @@ static int brnf_filter_pppoe_tagged __read_mostly = 0;
+ 
+ static inline __be16 vlan_proto(const struct sk_buff *skb)
+ {
+-	return vlan_eth_hdr(skb)->h_vlan_encapsulated_proto;
++	if (skb->protocol == htons(ETH_P_8021Q))
++		return vlan_eth_hdr(skb)->h_vlan_encapsulated_proto;
++	else if (vlan_tx_tag_present(skb))
++		return skb->protocol;
++	else
++		return 0;
+ }
+ 
+ #define IS_VLAN_IP(skb) \
+-	(skb->protocol == htons(ETH_P_8021Q) && \
+-	 vlan_proto(skb) == htons(ETH_P_IP) && 	\
++	(vlan_proto(skb) == htons(ETH_P_IP) && 	\
+ 	 brnf_filter_vlan_tagged)
+ 
+ #define IS_VLAN_IPV6(skb) \
+-	(skb->protocol == htons(ETH_P_8021Q) && \
+-	 vlan_proto(skb) == htons(ETH_P_IPV6) &&\
++	(vlan_proto(skb) == htons(ETH_P_IPV6) &&\
+ 	 brnf_filter_vlan_tagged)
+ 
+ #define IS_VLAN_ARP(skb) \
+-	(skb->protocol == htons(ETH_P_8021Q) &&	\
+-	 vlan_proto(skb) == htons(ETH_P_ARP) &&	\
++	(vlan_proto(skb) == htons(ETH_P_ARP) &&	\
+ 	 brnf_filter_vlan_tagged)
+ 
+ static inline __be16 pppoe_proto(const struct sk_buff *skb)
+diff --git a/net/bridge/netfilter/ebt_vlan.c b/net/bridge/netfilter/ebt_vlan.c
+index 87b53b3..a39d92d 100644
+--- a/net/bridge/netfilter/ebt_vlan.c
++++ b/net/bridge/netfilter/ebt_vlan.c
+@@ -39,8 +39,6 @@ static bool
+ ebt_vlan_mt(const struct sk_buff *skb, struct xt_action_param *par)
+ {
+ 	const struct ebt_vlan_info *info = par->matchinfo;
+-	const struct vlan_hdr *fp;
+-	struct vlan_hdr _frame;
+ 
+ 	unsigned short TCI;	/* Whole TCI, given from parsed frame */
+ 	unsigned short id;	/* VLAN ID, given from frame TCI */
+@@ -48,21 +46,31 @@ ebt_vlan_mt(const struct sk_buff *skb, struct xt_action_param *par)
+ 	/* VLAN encapsulated Type/Length field, given from orig frame */
+ 	__be16 encap;
+ 
+-	fp = skb_header_pointer(skb, 0, sizeof(_frame), &_frame);
+-	if (fp == NULL)
+-		return false;
+-
+-	/* Tag Control Information (TCI) consists of the following elements:
+-	 * - User_priority. The user_priority field is three bits in length,
+-	 * interpreted as a binary number.
+-	 * - Canonical Format Indicator (CFI). The Canonical Format Indicator
+-	 * (CFI) is a single bit flag value. Currently ignored.
+-	 * - VLAN Identifier (VID). The VID is encoded as
+-	 * an unsigned binary number. */
+-	TCI = ntohs(fp->h_vlan_TCI);
++	if (skb->protocol == htons(ETH_P_8021Q)) {
++		const struct vlan_hdr *fp;
++		struct vlan_hdr _frame;
++
++		fp = skb_header_pointer(skb, 0, sizeof(_frame), &_frame);
++		if (fp == NULL)
++			return false;
++
++		/* Tag Control Information (TCI) consists of the following elements:
++		 * - User_priority. The user_priority field is three bits in length,
++		 * interpreted as a binary number.
++		 * - Canonical Format Indicator (CFI). The Canonical Format Indicator
++		 * (CFI) is a single bit flag value. Currently ignored.
++		 * - VLAN Identifier (VID). The VID is encoded as
++		 * an unsigned binary number. */
++		TCI = ntohs(fp->h_vlan_TCI);
++
++		encap = fp->h_vlan_encapsulated_proto;
++	} else {
++		TCI = vlan_tx_tag_get(skb);
++		encap = skb->protocol;
++	}
++
+ 	id = TCI & VLAN_VID_MASK;
+ 	prio = (TCI >> 13) & 0x7;
+-	encap = fp->h_vlan_encapsulated_proto;
+ 
+ 	/* Checking VLAN Identifier (VID) */
+ 	if (GET_BITMASK(EBT_VLAN_ID))
+diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
+index bcc102e..a1dcf83 100644
+--- a/net/bridge/netfilter/ebtables.c
++++ b/net/bridge/netfilter/ebtables.c
+@@ -124,16 +124,23 @@ ebt_dev_check(const char *entry, const struct net_device *device)
+ #define FWINV2(bool,invflg) ((bool) ^ !!(e->invflags & invflg))
+ /* process standard matches */
+ static inline int
+-ebt_basic_match(const struct ebt_entry *e, const struct ethhdr *h,
++ebt_basic_match(const struct ebt_entry *e, const struct sk_buff *skb,
+                 const struct net_device *in, const struct net_device *out)
+ {
++	const struct ethhdr *h = eth_hdr(skb);
++	__be16 ethproto;
+ 	int verdict, i;
+ 
++	if (vlan_tx_tag_present(skb))
++		ethproto = htons(ETH_P_8021Q);
++	else
++		ethproto = h->h_proto;
++
+ 	if (e->bitmask & EBT_802_3) {
+-		if (FWINV2(ntohs(h->h_proto) >= 1536, EBT_IPROTO))
++		if (FWINV2(ntohs(ethproto) >= 1536, EBT_IPROTO))
+ 			return 1;
+ 	} else if (!(e->bitmask & EBT_NOPROTO) &&
+-	   FWINV2(e->ethproto != h->h_proto, EBT_IPROTO))
++	   FWINV2(e->ethproto != ethproto, EBT_IPROTO))
+ 		return 1;
+ 
+ 	if (FWINV2(ebt_dev_check(e->in, in), EBT_IIN))
+@@ -213,7 +220,7 @@ unsigned int ebt_do_table (unsigned int hook, struct sk_buff *skb,
+ 	base = private->entries;
+ 	i = 0;
+ 	while (i < nentries) {
+-		if (ebt_basic_match(point, eth_hdr(skb), in, out))
++		if (ebt_basic_match(point, skb, in, out))
+ 			goto letscontinue;
+ 
+ 		if (EBT_MATCH_ITERATE(point, ebt_do_match, skb, &acpar) != 0)
+-- 
+1.7.0.4
 
