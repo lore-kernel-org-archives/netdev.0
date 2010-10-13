@@ -1,72 +1,190 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] xps-mp: Transmit Packet Steering for multiqueue
-Date: Wed, 13 Oct 2010 07:48:13 +0200
-Message-ID: <1286948893.2703.88.camel@edumazet-laptop>
-References: <alpine.DEB.1.00.1010121705500.15786@pokey.mtv.corp.google.com>
+From: Denis Kirjanov <dkirjanov@kernel.org>
+Subject: Re: [PATCH -next] sundance: Add initial ethtool stats support
+Date: Wed, 13 Oct 2010 10:06:07 +0400
+Message-ID: <4CB54C4F.5070205@kernel.org>
+References: <20101009095346.GA12951@hera.kernel.org>	 <20101009132749.GA15074@solarflare.com>	<4CB0C56C.2000106@kernel.org>	 <20101012.115138.112614145.davem@davemloft.net>	 <4CB4C6E6.9090805@kernel.org> <1286917039.1117.101.camel@Joe-Laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, Joe Perches <joe@perches.com>,
+	eric.dumazet@gmail.com, Ben Hutchings <bhutchings@solarflare.com>,
+	Jeff Garzik <jgarzik@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:51682 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751878Ab0JMFsg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Oct 2010 01:48:36 -0400
-Received: by wwj40 with SMTP id 40so6016818wwj.1
-        for <netdev@vger.kernel.org>; Tue, 12 Oct 2010 22:48:35 -0700 (PDT)
-In-Reply-To: <alpine.DEB.1.00.1010121705500.15786@pokey.mtv.corp.google.com>
+Received: from hera.kernel.org ([140.211.167.34]:53172 "EHLO hera.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752432Ab0JMGG3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Oct 2010 02:06:29 -0400
+In-Reply-To: <1286917039.1117.101.camel@Joe-Laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 12 octobre 2010 =C3=A0 17:20 -0700, Tom Herbert a =C3=A9crit :
-> +#ifdef CONFIG_RPS
-> +       struct kobject          kobj;
-> +       struct netdev_queue     *first;
-> +       atomic_t                count;
-> +       struct xps_map          *xps_maps;
-> +#endif=20
+On 10/13/2010 12:57 AM, Joe Perches wrote:
+> On Wed, 2010-10-13 at 00:36 +0400, Denis Kirjanov wrote:
+> 
+>> diff --git a/drivers/net/sundance.c b/drivers/net/sundance.c
+> 
+> Hi Denis.
+>  
+> Just a few trivial misspellings of deffered -> deferred
 
-Please put kobj at the end of this block, because its a big object (64
-bytes)
+Hi Joe,
+thanks for pointing that out.
 
-+#ifdef CONFIG_RPS
-> +       struct xps_map          *xps_maps;
-> +       struct netdev_queue     *first;
-> +       atomic_t                count;
-> +       struct kobject          kobj;
-> +#endif=20
->=20
+[PATCH -next v4] sundance: Add ethtool stats support
 
-This way, we only use one cache line to access hot path fields, instead
-of two cache lines.
+Add ethtool stats support
 
+Signed-off-by: Denis Kirjanov <dkirjanov@kernel.org>
+---
+V2:
+ check for the ETH_SS_STATS in get_string()
+ use xstats struct for ethtool stats
+V3:
+ make counters 64-bits wide
+V4:
+ fixed some misspellings 
 
+ drivers/net/sundance.c |   90 ++++++++++++++++++++++++++++++++++++++++++++----
+ 1 files changed, 83 insertions(+), 7 deletions(-)
 
-Tom, I believe you should split your patch in several parts, its really
-too hard to review.
-
-
-=46or example the netif_alloc_netdev_queues() stuff should be a patch o=
-n
-its own, as this stuff was already discussed on netdev some days ago, s=
-o
-that you could copy Ben and me on this one ;)
-
-(Ie not allocating _tx in alloc_netdev_mq() but in register_netdevice()=
-)
-
-
-
-Its also a good thing to give diffstat output :
-
- include/linux/netdevice.h |   28 +++
- include/linux/skbuff.h    |    1=20
- net/core/dev.c            |  191 ++++++++++++++++------
- net/core/net-sysfs.c      |  305 +++++++++++++++++++++++++++++++++++-
- net/core/net-sysfs.h      |    3=20
- net/ipv4/tcp_output.c     |    4=20
- 6 files changed, 471 insertions(+), 61 deletions(-)
-
-
+diff --git a/drivers/net/sundance.c b/drivers/net/sundance.c
+index 4283cc5..406ca45 100644
+--- a/drivers/net/sundance.c
++++ b/drivers/net/sundance.c
+@@ -363,6 +363,19 @@ struct netdev_private {
+         dma_addr_t tx_ring_dma;
+         dma_addr_t rx_ring_dma;
+ 	struct timer_list timer;		/* Media monitoring timer. */
++	/* ethtool extra stats */
++	struct {
++		u64 tx_multiple_collisions;
++		u64 tx_single_collisions;
++		u64 tx_late_collisions;
++		u64 tx_defered;
++		u64 tx_defered_excessive;
++		u64 tx_aborted;
++		u64 tx_bcasts;
++		u64 rx_bcasts;
++		u64 tx_mcasts;
++		u64 rx_mcasts;
++	} xstats;
+ 	/* Frequently used values: keep some adjacent for cache effect. */
+ 	spinlock_t lock;
+ 	int msg_enable;
+@@ -1486,7 +1499,6 @@ static struct net_device_stats *get_stats(struct net_device *dev)
+ {
+ 	struct netdev_private *np = netdev_priv(dev);
+ 	void __iomem *ioaddr = np->base;
+-	int i;
+ 	unsigned long flags;
+ 
+ 	spin_lock_irqsave(&np->statlock, flags);
+@@ -1494,13 +1506,23 @@ static struct net_device_stats *get_stats(struct net_device *dev)
+ 	dev->stats.rx_missed_errors	+= ioread8(ioaddr + RxMissed);
+ 	dev->stats.tx_packets += ioread16(ioaddr + TxFramesOK);
+ 	dev->stats.rx_packets += ioread16(ioaddr + RxFramesOK);
+-	dev->stats.collisions += ioread8(ioaddr + StatsLateColl);
+-	dev->stats.collisions += ioread8(ioaddr + StatsMultiColl);
+-	dev->stats.collisions += ioread8(ioaddr + StatsOneColl);
+ 	dev->stats.tx_carrier_errors += ioread8(ioaddr + StatsCarrierError);
+-	ioread8(ioaddr + StatsTxDefer);
+-	for (i = StatsTxDefer; i <= StatsMcastRx; i++)
+-		ioread8(ioaddr + i);
++
++	np->xstats.tx_multiple_collisions += ioread8(ioaddr + StatsMultiColl);
++	np->xstats.tx_single_collisions += ioread8(ioaddr + StatsOneColl);
++	np->xstats.tx_late_collisions += ioread8(ioaddr + StatsLateColl);
++	dev->stats.collisions += np->xstats.tx_multiple_collisions
++		+ np->xstats.tx_single_collisions
++		+ np->xstats.tx_late_collisions;
++
++	np->xstats.tx_defered += ioread8(ioaddr + StatsTxDefer);
++	np->xstats.tx_defered_excessive += ioread8(ioaddr + StatsTxXSDefer);
++	np->xstats.tx_aborted += ioread8(ioaddr + StatsTxAbort);
++	np->xstats.tx_bcasts += ioread8(ioaddr + StatsBcastTx);
++	np->xstats.rx_bcasts += ioread8(ioaddr + StatsBcastRx);
++	np->xstats.tx_mcasts += ioread8(ioaddr + StatsMcastTx);
++	np->xstats.rx_mcasts += ioread8(ioaddr + StatsMcastRx);
++
+ 	dev->stats.tx_bytes += ioread16(ioaddr + TxOctetsLow);
+ 	dev->stats.tx_bytes += ioread16(ioaddr + TxOctetsHigh) << 16;
+ 	dev->stats.rx_bytes += ioread16(ioaddr + RxOctetsLow);
+@@ -1566,6 +1588,21 @@ static int __set_mac_addr(struct net_device *dev)
+ 	return 0;
+ }
+ 
++static const struct {
++	const char name[ETH_GSTRING_LEN];
++} sundance_stats[] = {
++	{ "tx_multiple_collisions" },
++	{ "tx_single_collisions" },
++	{ "tx_late_collisions" },
++	{ "tx_defered" },
++	{ "tx_defered_excessive" },
++	{ "tx_aborted" },
++	{ "tx_bcasts" },
++	{ "rx_bcasts" },
++	{ "tx_mcasts" },
++	{ "rx_mcasts" },
++};
++
+ static int check_if_running(struct net_device *dev)
+ {
+ 	if (!netif_running(dev))
+@@ -1624,6 +1661,42 @@ static void set_msglevel(struct net_device *dev, u32 val)
+ 	np->msg_enable = val;
+ }
+ 
++static void get_strings(struct net_device *dev, u32 stringset,
++		u8 *data)
++{
++	if (stringset == ETH_SS_STATS)
++		memcpy(data, sundance_stats, sizeof(sundance_stats));
++}
++
++static int get_sset_count(struct net_device *dev, int sset)
++{
++	switch (sset) {
++	case ETH_SS_STATS:
++		return ARRAY_SIZE(sundance_stats);
++	default:
++		return -EOPNOTSUPP;
++	}
++}
++
++static void get_ethtool_stats(struct net_device *dev,
++		struct ethtool_stats *stats, u64 *data)
++{
++	struct netdev_private *np = netdev_priv(dev);
++	int i = 0;
++
++	get_stats(dev);
++	data[i++] = np->xstats.tx_multiple_collisions;
++	data[i++] = np->xstats.tx_single_collisions;
++	data[i++] = np->xstats.tx_late_collisions;
++	data[i++] = np->xstats.tx_defered;
++	data[i++] = np->xstats.tx_defered_excessive;
++	data[i++] = np->xstats.tx_aborted;
++	data[i++] = np->xstats.tx_bcasts;
++	data[i++] = np->xstats.rx_bcasts;
++	data[i++] = np->xstats.tx_mcasts;
++	data[i++] = np->xstats.rx_mcasts;
++}
++
+ static const struct ethtool_ops ethtool_ops = {
+ 	.begin = check_if_running,
+ 	.get_drvinfo = get_drvinfo,
+@@ -1633,6 +1706,9 @@ static const struct ethtool_ops ethtool_ops = {
+ 	.get_link = get_link,
+ 	.get_msglevel = get_msglevel,
+ 	.set_msglevel = set_msglevel,
++	.get_strings = get_strings,
++	.get_sset_count = get_sset_count,
++	.get_ethtool_stats = get_ethtool_stats,
+ };
+ 
+ static int netdev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+-- 
+1.7.0
 
