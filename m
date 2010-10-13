@@ -1,96 +1,62 @@
-From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: Re: [MeeGo-Dev][PATCH v3] Topcliff: Update PCH_CAN driver to 2.6.35
-Date: Wed, 13 Oct 2010 09:38:05 +0200
-Message-ID: <4CB561DD.2030304@pengutronix.de>
-References: <002e01cb6486$2ed72cc0$66f8800a@maildom.okisemi.com>	<20101005.114506.184852374.davem@davemloft.net>	<000b01cb6503$962bc7f0$66f8800a@maildom.okisemi.com>	<20101005.200904.71120150.davem@davemloft.net>	<4CAC3D94.9010408@grandegger.com>
-	<000c01cb69dc$5d2aaab0$66f8800a@maildom.okisemi.com>
-	<4CB414A2.8020202@pengutronix.de>
-	<000701cb6a8e$60de6900$66f8800a@maildom.okisemi.com>
+From: Stefano Salsano <stefano.salsano@uniroma2.it>
+Subject: Re: Question on DHCP
+Date: Wed, 13 Oct 2010 09:31:34 +0200
+Message-ID: <4CB56056.2040704@uniroma2.it>
+References: <AANLkTikTKL2JzmHKUrraOoNdqV1=0e_r+EuvBTgURjUz@mail.gmail.com> <20101012184543.55ebf503@nehalam>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============4664177505634185278=="
-Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
-	yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	chripell-VaTbYqLCNhc@public.gmane.org, morinaga526-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org
-To: Masayuki Ohtake <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <000701cb6a8e$60de6900$66f8800a-a06+6cuVnkTSQfdrb5gaxUEOCMrvLtNR@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---===============4664177505634185278==
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigAB261C5061DAF079BE82C155"
-
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigAB261C5061DAF079BE82C155
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-
-On 10/13/2010 06:23 AM, Masayuki Ohtake wrote:
-> On Tuesday, October 12, 2010 4:56 PM, Marc Kleine-Budde wrote :
->> I just had a small peak at the datasheet. It seems you can implement t=
-he
->> same scheme for rx as on the at91, if you enough rx buffers. In the at=
-91
->> driver I use 8+4 =3D 12 buffers for rx. Have a look at the driver, the=
- rx
->> path is documented.
->=20
-> Thank you for your suggestion.
-> This is valuable for us.
-> It seems the at91's Hw benabior similar to ours.
-> Using this method, we will implement and test.
-
-Feel free to ask if you have questions regarding the algorithm or the
-code or have some code to review.
-
-cheers, Marc
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---------------enigAB261C5061DAF079BE82C155
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAky1YeEACgkQjTAFq1RaXHP3UgCeIF/iojFe/jKvr/KdcEsOn4vV
-/+IAnRjFtweclJronxQedEdt5TA3xCfS
-=hSIz
------END PGP SIGNATURE-----
-
---------------enigAB261C5061DAF079BE82C155--
-
---===============4664177505634185278==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Cc: linux-netdev <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>,
+	Sri Ram Vemulpali <sri.ram.gmu06@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.uniroma2.it ([160.80.6.16]:46157 "EHLO smtp.uniroma2.it"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753148Ab0JMHlz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Oct 2010 03:41:55 -0400
+In-Reply-To: <20101012184543.55ebf503@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-_______________________________________________
-Socketcan-core mailing list
-Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-https://lists.berlios.de/mailman/listinfo/socketcan-core
+Stephen Hemminger wrote:
+> On Tue, 12 Oct 2010 21:33:25 -0400
+> Sri Ram Vemulpali <sri.ram.gmu06@gmail.com> wrote:
+> 
+>> Hi All,
+>>
+>>    I have very basic stupid doubt. Can anyone help to resolve this.
+>>
+>> DHCP, is used for dynamically configuring IP address, mask, MTU, DNS
+>> domain, .... for a host. DHCP is a application layer protocol, but the
+>> values it configures are related to IP layer. How come DHCP can
+>> configure when its data packet in embedded in to IP datagram, which
+>> are disparate layers. I am little confused. Please clarify. Thanks.
+>>
+> 
+> DHCP client uses UDP to send broadcast packet and find the nearest
+> server.  The Linux DHCP client ends up using a AF_PACKET socket because
+> it wants to seem MAC address of server.
 
---===============4664177505634185278==--
+you may also want to refer to RFC 2131 (Dynamic Host Configuration 
+Protocol), in section 2 it states:
+
+In the case of a client using DHCP for initial configuration (before
+    the client's TCP/IP software has been completely configured), DHCP
+    requires creative use of the client's TCP/IP software and liberal
+    interpretation of RFC 1122.  The TCP/IP software SHOULD accept and
+    forward to the IP layer any IP packets delivered to the client's
+    hardware address before the IP address is configured;
+
+-- 
+*******************************************************************
+Stefano Salsano
+Dipartimento Ingegneria Elettronica
+Universita' di Roma "Tor Vergata"
+Via del Politecnico, 1 - 00133 Roma - ITALY
+
+http://netgroup.uniroma2.it/Stefano_Salsano/
+
+E-mail  : stefano.salsano@uniroma2.it
+Cell.   : +39 320 4307310
+Office  : (Tel.) +39 06 72597770  (Fax.) +39 06 72597435
+*******************************************************************
