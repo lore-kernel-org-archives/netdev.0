@@ -1,190 +1,130 @@
-From: "Masayuki Ohtake" <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Subject: Re: [MeeGo-Dev][PATCH v3] Topcliff: Update PCH_CAN driver to 2.6.35
-Date: Wed, 13 Oct 2010 21:05:33 +0900
-Message-ID: <000801cb6ace$f4e3d410$66f8800a@maildom.okisemi.com>
-References: <4C9C7C6F.1000003@dsn.okisemi.com>
-	<4CA4541F.5040804@grandegger.com>
-	<004a01cb6abe$c41a9cc0$66f8800a@maildom.okisemi.com>
-	<4CB5931E.8030103@grandegger.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	Tomoya MORINAGA <morinaga526-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-To: "Wolfgang Grandegger" <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: nhorman@tuxdriver.com
+Subject: [PATCH 1/5] Fix bonding drivers improper modification of netpoll structure
+Date: Wed, 13 Oct 2010 08:35:30 -0400
+Message-ID: <1286973334-4339-2-git-send-email-nhorman@tuxdriver.com>
+References: <1286973334-4339-1-git-send-email-nhorman@tuxdriver.com>
+Cc: bonding-devel@lists.sourceforge.net, fubar@us.ibm.com,
+	davem@davemloft.net, andy@greyhouse.net, amwang@redhat.com,
+	nhorman@tuxdriver.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:38051 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754221Ab0JMMfz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Oct 2010 08:35:55 -0400
+In-Reply-To: <1286973334-4339-1-git-send-email-nhorman@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Wolfgang,
+From: Neil Horman <nhorman@tuxdriver.com>
 
-On Wednesday, October 13, 2010 8:08 PM, Wolfgang Grandegger wrote:
-> I disagree.
+The bonding driver currently modifies the netpoll structure in its xmit path
+while sending frames from netpoll.  This is racy, as other cpus can access the
+netpoll structure in parallel. Since the bonding driver points np->dev to a
+slave device, other cpus can inadvertently attempt to send data directly to
+slave devices, leading to improper locking with the bonding master, lost frames,
+and deadlocks.  This patch fixes that up.
 
-> I think it can be avoided easily.
-> I disagree.
-I will modify like you are saying.
+This patch also removes the real_dev pointer from the netpoll structure as that
+data is really only used by bonding in the poll_controller, and we can emulate
+its behavior by check each slave for IS_UP.
 
-> I don't understand! The Last Error Code (LEC) can have values from 0 to
-> 7. A "switch" statement is therefore the right choice. Or have I missed
-> something.
-Yes, you are right.
-I miss-understood.
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+---
+ drivers/net/bonding/bond_main.c |   15 +++++++++------
+ include/linux/netpoll.h         |    9 +++++++--
+ net/core/netpoll.c              |    6 +++---
+ 3 files changed, 19 insertions(+), 11 deletions(-)
 
-Thanks, Ohtake(OKISemi)
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index a0bf35d..eb7d089 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -449,11 +449,9 @@ int bond_dev_queue_xmit(struct bonding *bond, struct sk_buff *skb,
+ 	if (unlikely(bond->dev->priv_flags & IFF_IN_NETPOLL)) {
+ 		struct netpoll *np = bond->dev->npinfo->netpoll;
+ 		slave_dev->npinfo = bond->dev->npinfo;
+-		np->real_dev = np->dev = skb->dev;
+ 		slave_dev->priv_flags |= IFF_IN_NETPOLL;
+-		netpoll_send_skb(np, skb);
++		netpoll_send_skb_on_dev(np, skb, slave_dev);
+ 		slave_dev->priv_flags &= ~IFF_IN_NETPOLL;
+-		np->dev = bond->dev;
+ 	} else
+ #endif
+ 		dev_queue_xmit(skb);
+@@ -1332,9 +1330,14 @@ static bool slaves_support_netpoll(struct net_device *bond_dev)
+ 
+ static void bond_poll_controller(struct net_device *bond_dev)
+ {
+-	struct net_device *dev = bond_dev->npinfo->netpoll->real_dev;
+-	if (dev != bond_dev)
+-		netpoll_poll_dev(dev);
++	struct bonding *bond = netdev_priv(bond_dev);
++	struct slave *slave;
++	int i;
++
++	bond_for_each_slave(bond, slave, i) {
++		if (slave->dev && IS_UP(slave->dev))
++			netpoll_poll_dev(slave->dev);
++	}
+ }
+ 
+ static void bond_netpoll_cleanup(struct net_device *bond_dev)
+diff --git a/include/linux/netpoll.h b/include/linux/netpoll.h
+index 50d8009..79358bb 100644
+--- a/include/linux/netpoll.h
++++ b/include/linux/netpoll.h
+@@ -14,7 +14,6 @@
+ 
+ struct netpoll {
+ 	struct net_device *dev;
+-	struct net_device *real_dev;
+ 	char dev_name[IFNAMSIZ];
+ 	const char *name;
+ 	void (*rx_hook)(struct netpoll *, int, char *, int);
+@@ -53,7 +52,13 @@ void netpoll_set_trap(int trap);
+ void __netpoll_cleanup(struct netpoll *np);
+ void netpoll_cleanup(struct netpoll *np);
+ int __netpoll_rx(struct sk_buff *skb);
+-void netpoll_send_skb(struct netpoll *np, struct sk_buff *skb);
++void netpoll_send_skb_on_dev(struct netpoll *np, struct sk_buff *skb,
++			     struct net_device *dev);
++static inline void netpoll_send_skb(struct netpoll *np, struct sk_buff *skb)
++{
++	netpoll_send_skb_on_dev(np, skb, np->dev);
++}
++
+ 
+ 
+ #ifdef CONFIG_NETPOLL
+diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+index 537e01a..4e98ffa 100644
+--- a/net/core/netpoll.c
++++ b/net/core/netpoll.c
+@@ -288,11 +288,11 @@ static int netpoll_owner_active(struct net_device *dev)
+ 	return 0;
+ }
+ 
+-void netpoll_send_skb(struct netpoll *np, struct sk_buff *skb)
++void netpoll_send_skb_on_dev(struct netpoll *np, struct sk_buff *skb,
++			     struct net_device *dev)
+ {
+ 	int status = NETDEV_TX_BUSY;
+ 	unsigned long tries;
+-	struct net_device *dev = np->dev;
+ 	const struct net_device_ops *ops = dev->netdev_ops;
+ 	/* It is up to the caller to keep npinfo alive. */
+ 	struct netpoll_info *npinfo = np->dev->npinfo;
+@@ -346,7 +346,7 @@ void netpoll_send_skb(struct netpoll *np, struct sk_buff *skb)
+ 		schedule_delayed_work(&npinfo->tx_work,0);
+ 	}
+ }
+-EXPORT_SYMBOL(netpoll_send_skb);
++EXPORT_SYMBOL(netpoll_send_skb_on_dev);
+ 
+ void netpoll_send_udp(struct netpoll *np, const char *msg, int len)
+ {
+-- 
+1.7.2.3
 
------ Original Message ----- 
-From: "Wolfgang Grandegger" <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-To: "Masayuki Ohtake" <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Cc: <joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>; "Tomoya MORINAGA" <morinaga526-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>; <kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>;
-<yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>; <margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>; <qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>; <andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>;
-<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>; <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>; <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>; "Samuel Ortiz"
-<sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>; "Barry Song" <21cnbao-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>; "Christian Pellegrin" <chripell-VaTbYqLCNhc@public.gmane.org>; "Wolfram Sang"
-<w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>; "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sent: Wednesday, October 13, 2010 8:08 PM
-Subject: Re: [MeeGo-Dev][PATCH v3] Topcliff: Update PCH_CAN driver to 2.6.35
-
-
-> On 10/13/2010 12:09 PM, Masayuki Ohtake wrote:
-> > On Thursday, September 30, 2010 6:10 PM, Wolfgang Grandegger wrote:
-> >
-> >>
-> >> + iowrite32(num, &(priv->regs)->if2_creq);
-> >> + while (counter) {
-> >>> + if2_creq = (ioread32(&(priv->regs)->if2_creq)) &
-> >>> +      CAN_IF_CREQ_BUSY;
-> >>> + if (!if2_creq)
-> >>> + break;
-> >>> + counter--;
-> >>> + }
-> >>> + if (!counter)
-> >>> + dev_err(&priv->ndev->dev, "IF2 BUSY Flag is set forever.\n");
-> >>> +}
-> >>
-> >> Duplicated code!
-> >
-> > No.
-> > These are not the same.
->
-> Of course they are not the same. The only difference is the register
-> offset (of if1 or if2). A common function with a pointer to the if
-> register as argument makes sense.
->
-> > Though it is possible to integrate to one function by adding parameter,
-> > I think, current two function method is more easily to read.
->
-> I disagree.
->
-> >>
-> >>
-> >>
-> >>> + if (status & PCH_STUF_ERR)
-> >>> + cf->data[2] |= CAN_ERR_PROT_STUFF;
-> >>> +
-> >>> + if (status & PCH_FORM_ERR)
-> >>> + cf->data[2] |= CAN_ERR_PROT_FORM;
-> >> +
-> >> + if (status & PCH_ACK_ERR)
-> >> + cf->data[2] |= CAN_ERR_PROT_LOC_ACK | CAN_ERR_PROT_LOC_ACK_DEL;
-> >> +
-> >> + if ((status & PCH_BIT1_ERR) || (status & PCH_BIT0_ERR))
-> >> + cf->data[2] |= CAN_ERR_PROT_BIT;
-> >> +
-> >> + if (status & PCH_CRC_ERR)
-> >> + cf->data[2] |= CAN_ERR_PROT_LOC_CRC_SEQ |
-> >> + CAN_ERR_PROT_LOC_CRC_DEL;
-> >> +
-> >> + if (status & PCH_LEC_ALL)
-> >> + iowrite32(status | PCH_LEC_ALL,
-> >> +   &(priv->regs)->stat);
->
-> Well, if status==7 (PCH_LEC_ALL), all of the above conditions are true
-> as well... convinced now?
->
-> >> A bit-wise test of the above values is wrong, I believe. Please use the
-> >> switch statement instead.
-> >
-> > The above conditions are not only one time.
-> > I think "switch" is not suitable for the above.
-> > Thus, current "if" processing is better.
->
-> I don't understand! The Last Error Code (LEC) can have values from 0 to
-> 7. A "switch" statement is therefore the right choice. Or have I missed
-> something.
->
-> >>
-> >>
-> >> + u32 brp;
-> >> +
-> >> + pch_can_get_run_mode(priv, &curr_mode);
-> >> + if (curr_mode == PCH_CAN_RUN)
-> >> + pch_can_set_run_mode(priv, PCH_CAN_STOP);
-> >>
-> >> The device is stopped when this function is called. Please remove.
-> >
-> > No.
-> > The above is necessary.
->
-> Yes, because you started the device *too early* in pch_can_open() called
-> by pch_open(). See my other related comments of my previous mail.
->
-> > Because this is our HW specification.
-> > Before setting bitrate, run-mode must be "STOP".
->
-> I think it can be avoided easily.
->
-> >>
-> >>
-> >> +static netdev_tx_t pch_xmit(struct sk_buff *skb, struct net_device *ndev)
-> >> +{
-> >> + canid_t id;
-> >> + u32 id1 = 0;
-> >> + u32 id2 = 0;
-> >>
-> >> Need these values to be preset?
-> >
-> > These values are not essential.
-> > But these help a engineer to read this code.
->
-> I disagree.
->
-> >> + /* Enable CAN Interrupts */
-> >> + pch_can_set_int_custom(priv);
-> >> +
-> >> + /* Restore Run Mode */
-> >> + pch_can_set_run_mode(priv, PCH_CAN_RUN);
-> >> +
-> >> + return retval;
-> >> +}
-> >>
-> >> Are the suspend and resume functions tested?
-> >>
-> > Yes, we tested before.
-> >
-> > =========================================
-> >
-> > Except the above, we are modifying for your indications.
-> >
-> > I will resubmit soon.
->
-> Thanks,
->
-> Wolfgang.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
