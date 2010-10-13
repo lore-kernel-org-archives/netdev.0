@@ -1,72 +1,132 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] xps-mp: Transmit Packet Steering for multiqueue
-Date: Wed, 13 Oct 2010 11:39:59 +0200
-Message-ID: <1286962799.3876.132.camel@edumazet-laptop>
-References: <alpine.DEB.1.00.1010121705500.15786@pokey.mtv.corp.google.com>
+From: "Masayuki Ohtake" <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Subject: Re: [MeeGo-Dev][PATCH v3] Topcliff: Update PCH_CAN driver to 2.6.35
+Date: Wed, 13 Oct 2010 19:09:42 +0900
+Message-ID: <004a01cb6abe$c41a9cc0$66f8800a@maildom.okisemi.com>
+References: <4C9C7C6F.1000003@dsn.okisemi.com>
+	<4CA4541F.5040804@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:58240 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750730Ab0JMJkG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Oct 2010 05:40:06 -0400
-Received: by wwj40 with SMTP id 40so6217548wwj.1
-        for <netdev@vger.kernel.org>; Wed, 13 Oct 2010 02:40:05 -0700 (PDT)
-In-Reply-To: <alpine.DEB.1.00.1010121705500.15786@pokey.mtv.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>,
+	Tomoya MORINAGA <morinaga526-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+To: "Wolfgang Grandegger" <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le mardi 12 octobre 2010 =C3=A0 17:20 -0700, Tom Herbert a =C3=A9crit :
+On Thursday, September 30, 2010 6:10 PM, Wolfgang Grandegger wrote:
 
+>
+> + iowrite32(num, &(priv->regs)->if2_creq);
+> + while (counter) {
+>> + if2_creq = (ioread32(&(priv->regs)->if2_creq)) &
+>> +      CAN_IF_CREQ_BUSY;
+>> + if (!if2_creq)
+>> + break;
+>> + counter--;
+>> + }
+>> + if (!counter)
+>> + dev_err(&priv->ndev->dev, "IF2 BUSY Flag is set forever.\n");
+>> +}
+>
+>Duplicated code!
 
-+#define netdev_get_xps_maps(dev) ((dev)->_tx[0].xps_maps)
+No.
+These are not the same.
 
-Why is xps_maps stored on all struct netdev_queue and not in net_device
-itself ?
+Though it is possible to integrate to one function by adding parameter,
+I think, current two function method is more easily to read.
 
-> +#define QUEUE_MASK_SIZE(dev) (BITS_TO_LONGS(dev->num_tx_queues))
-> +#define XPS_MAP_SIZE(dev) (sizeof(struct xps_map) + (num_possible_cp=
-us() * \
-> +    QUEUE_MASK_SIZE(dev) * sizeof(unsigned long)))
-> +#define XPS_ENTRY(map, offset, dev) \
-> +    (&map->queues[offset * QUEUE_MASK_SIZE(dev)])
-> +#define netdev_get_xps_maps(dev) ((dev)->_tx[0].xps_maps)
+>
+>
+>
+>> + if (status & PCH_STUF_ERR)
+>> + cf->data[2] |= CAN_ERR_PROT_STUFF;
+>> +
+>> + if (status & PCH_FORM_ERR)
+>> + cf->data[2] |= CAN_ERR_PROT_FORM;
 > +
+> + if (status & PCH_ACK_ERR)
+> + cf->data[2] |= CAN_ERR_PROT_LOC_ACK | CAN_ERR_PROT_LOC_ACK_DEL;
 > +
+> + if ((status & PCH_BIT1_ERR) || (status & PCH_BIT0_ERR))
+> + cf->data[2] |= CAN_ERR_PROT_BIT;
+> +
+> + if (status & PCH_CRC_ERR)
+> + cf->data[2] |= CAN_ERR_PROT_LOC_CRC_SEQ |
+> + CAN_ERR_PROT_LOC_CRC_DEL;
+> +
+> + if (status & PCH_LEC_ALL)
+> + iowrite32(status | PCH_LEC_ALL,
+> +   &(priv->regs)->stat);
+>
+>A bit-wise test of the above values is wrong, I believe. Please use the
+>switch statement instead.
 
-num_possible_cpus() is a bit too expensive on some machines
-(NR_CPUS=3D4096), please find a way to cache its result in XPS structs.
+The above conditions are not only one time.
+I think "switch" is not suitable for the above.
+Thus, current "if" processing is better.
 
-+       queues =3D XPS_ENTRY(maps, cpu, dev);
-+
-+       if (queue_index >=3D 0) {
-+               if (test_bit(queue_index, queues)) {
-+                       rcu_read_unlock();
-+                       return queue_index;
-+               }
-+       }
-+
-+       weight =3D bitmap_weight(queues, dev->real_num_tx_queues);
+>
+>
+> + u32 brp;
+> +
+> + pch_can_get_run_mode(priv, &curr_mode);
+> + if (curr_mode == PCH_CAN_RUN)
+> + pch_can_set_run_mode(priv, PCH_CAN_STOP);
+>
+>The device is stopped when this function is called. Please remove.
 
+No.
+The above is necessary.
+Because this is our HW specification.
+Before setting bitrate, run-mode must be "STOP".
 
-Same here : Cant you store bitmap_weight() somewhere ?
+>
+>
+> +static netdev_tx_t pch_xmit(struct sk_buff *skb, struct net_device *ndev)
+> +{
+> + canid_t id;
+> + u32 id1 = 0;
+> + u32 id2 = 0;
+>
+>Need these values to be preset?
 
-+               select =3D ((u64) hash * weight) >> 32;
-+               queue_index =3D
-+                   find_first_bit(queues, dev->real_num_tx_queues);
-+               while (select--)
-+                       queue_index =3D find_next_bit(queues,
-+                           dev->real_num_tx_queues, queue_index + 1);
-+               break;
+These values are not essential.
+But these help a engineer to read this code.
 
-Ouch, thats pretty expensive and not scalable (say device has 64 virtua=
-l
-queues, on a 1024 cores machine), I think an array would be better
+>
+>
+> + /* Enable CAN Interrupts */
+> + pch_can_set_int_custom(priv);
+> +
+> + /* Restore Run Mode */
+> + pch_can_set_run_mode(priv, PCH_CAN_RUN);
+> +
+> + return retval;
+> +}
+>
+>Are the suspend and resume functions tested?
+>
+Yes, we tested before.
 
-	queue_index =3D array[select];
+=========================================
 
+Except the above, we are modifying for your indications.
 
+I will resubmit soon.
 
+Thanks, Ohtake(OKISemi)
