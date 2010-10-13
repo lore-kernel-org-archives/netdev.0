@@ -1,109 +1,72 @@
-From: Michael Kerrisk <mtk.manpages@gmail.com>
-Subject: Re: Documentation for IP_TRANSPARENT?
-Date: Wed, 13 Oct 2010 07:16:42 +0200
-Message-ID: <AANLkTika83PJ_KkmE+3Rhi4JgTjEZHTDzV-hcyz_UCWB@mail.gmail.com>
-References: <cfd18e0f0811240806w541c85e9gafbcc80e8101f2b2@mail.gmail.com> <1228828648.7631.75.camel@bzorp.balabit>
-Reply-To: mtk.manpages@gmail.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2] xps-mp: Transmit Packet Steering for multiqueue
+Date: Wed, 13 Oct 2010 07:48:13 +0200
+Message-ID: <1286948893.2703.88.camel@edumazet-laptop>
+References: <alpine.DEB.1.00.1010121705500.15786@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: KOVACS Krisztian <hidden@sch.bme.hu>,
-	David Miller <davem@davemloft.net>, linux-net@vger.kernel.org,
-	netdev <netdev@vger.kernel.org>
-To: Balazs Scheidler <bazsi@balabit.hu>
-Return-path: <linux-net-owner@vger.kernel.org>
-In-Reply-To: <1228828648.7631.75.camel@bzorp.balabit>
-Sender: linux-net-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Tom Herbert <therbert@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:51682 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751878Ab0JMFsg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Oct 2010 01:48:36 -0400
+Received: by wwj40 with SMTP id 40so6016818wwj.1
+        for <netdev@vger.kernel.org>; Tue, 12 Oct 2010 22:48:35 -0700 (PDT)
+In-Reply-To: <alpine.DEB.1.00.1010121705500.15786@pokey.mtv.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Bazsi
+Le mardi 12 octobre 2010 =C3=A0 17:20 -0700, Tom Herbert a =C3=A9crit :
+> +#ifdef CONFIG_RPS
+> +       struct kobject          kobj;
+> +       struct netdev_queue     *first;
+> +       atomic_t                count;
+> +       struct xps_map          *xps_maps;
+> +#endif=20
 
-A long time after your mail, I've now added the text you supplied
-below. The changes are now available via git, and will be in
-man-pages-3.29. However, I have a few small questions that you can
-maybe clarify. See below.
+Please put kobj at the end of this block, because its a big object (64
+bytes)
 
-On Tue, Dec 9, 2008 at 2:17 PM, Balazs Scheidler <bazsi@balabit.hu> wro=
-te:
-> Hi,
->
-> On Mon, 2008-11-24 at 11:06 -0500, Michael Kerrisk wrote:
->> Hello Krisztian,
->>
->> Your 2.6.27 patch adds =A0the IP_TRANSPARENT socket option. =A0Could=
- you
->> please supply some documentation (plain text is fine) suitable for
->> inclusion in the ip(7) man page.
->
-> Although it was Krisztian who originally submitted the patches, but I
-> also did some things about them, so here I gave the documentation par=
-t a
-> spin.
->
-> There are some other related options, that are undocumented right now=
-,
-> so I tried to give documentation on those as well.
->
-> IP_FREEBIND
-> =A0 =A0 =A0 =A0Enable binding to IP addresses that do not currently e=
-xist. When
-> =A0 =A0 =A0 =A0enabled on a TCP or UDP socket, the bind(2) call refer=
-encing a
-> =A0 =A0 =A0 =A0non-existing IP address will succeed. This functionali=
-ty is useful
-> =A0 =A0 =A0 =A0if the specified IP address is dynamic (e.g. assigned =
-to a PPP device)
-> =A0 =A0 =A0 =A0and is down at the time when the application is trying=
- to bind to it.
-> =A0 =A0 =A0 =A0This setsockopt is the per-socket equivalent to ip_non=
-local_bind sysctl.
->
-> IP_TRANSPARENT
-> =A0 =A0 =A0 =A0Enable transparent proxying on this socket. This socke=
-t option allows
-> =A0 =A0 =A0 =A0the calling application to bind to a non-local IP addr=
-ess and operate
-> =A0 =A0 =A0 =A0both as a client and a server with the foreign address=
- as the local
-> =A0 =A0 =A0 =A0endpoint. NOTE: this requires that routing be set up i=
-n a way that
-> =A0 =A0 =A0 =A0packets going to the foreign address are routed throug=
-h the tproxy box.
++#ifdef CONFIG_RPS
+> +       struct xps_map          *xps_maps;
+> +       struct netdev_queue     *first;
+> +       atomic_t                count;
+> +       struct kobject          kobj;
+> +#endif=20
+>=20
 
-Can you say a few words explaining what is meant by "tproxy box".
+This way, we only use one cache line to access hot path fields, instead
+of two cache lines.
 
-Also, should one write "TProxy" here, analogous with "TProxy" below?
 
-> =A0 =A0 =A0 =A0Enabling this socket option requires superuser privile=
-ges
-> =A0 =A0 =A0 =A0(more specifically the CAP_NET_ADMIN capability).
->
-> =A0 =A0 =A0 =A0TProxy redirection with the iptables TPROXY target als=
-o requires that
-> =A0 =A0 =A0 =A0this option be set on the redirected socket.
 
-In iptables(8), I find no mention of TPROXY. Is it just that the
-iptables(8) man page is not up to date?
+Tom, I believe you should split your patch in several parts, its really
+too hard to review.
 
-> IP_RECVORIGDSTADDR
-> =A0 =A0 =A0 =A0Enables the IP_ORIGDSTADDR ancillary message in recvms=
-g(2) in which
-> =A0 =A0 =A0 =A0the kernel returns the original destination address of=
- a datagram. The
-> =A0 =A0 =A0 =A0ancillary message contains a "struct sockaddr_in" inst=
-ance.
 
-Do you happen to know of any userspace test code that demonstrates the
-use of IP_RECVORIGDSTADDR?
+=46or example the netif_alloc_netdev_queues() stuff should be a patch o=
+n
+its own, as this stuff was already discussed on netdev some days ago, s=
+o
+that you could copy Ben and me on this one ;)
 
-Thanks for this documentation, and sorry it took so long to make its
-way into man-pages.
+(Ie not allocating _tx in alloc_netdev_mq() but in register_netdevice()=
+)
 
-Cheers,
 
-Michael
 
---=20
-Michael Kerrisk
-Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
-Author of "The Linux Programming Interface"; http://man7.org/tlpi/
+Its also a good thing to give diffstat output :
+
+ include/linux/netdevice.h |   28 +++
+ include/linux/skbuff.h    |    1=20
+ net/core/dev.c            |  191 ++++++++++++++++------
+ net/core/net-sysfs.c      |  305 +++++++++++++++++++++++++++++++++++-
+ net/core/net-sysfs.h      |    3=20
+ net/ipv4/tcp_output.c     |    4=20
+ 6 files changed, 471 insertions(+), 61 deletions(-)
+
+
+
