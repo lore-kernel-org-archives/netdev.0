@@ -1,54 +1,45 @@
-From: nhorman@tuxdriver.com
-Subject: [PATCH 4/5] Fix netconsole to not deadlock on rmmod
-Date: Wed, 13 Oct 2010 08:35:33 -0400
-Message-ID: <1286973334-4339-5-git-send-email-nhorman@tuxdriver.com>
-References: <1286973334-4339-1-git-send-email-nhorman@tuxdriver.com>
-Cc: bonding-devel@lists.sourceforge.net, fubar@us.ibm.com,
-	davem@davemloft.net, andy@greyhouse.net, amwang@redhat.com,
-	nhorman@tuxdriver.com
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] fib6: use FIB_LOOKUP_NOREF in fib6_rule_lookup()
+Date: Wed, 13 Oct 2010 14:45:40 +0200
+Message-ID: <1286973940.3876.423.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:38088 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754105Ab0JMMgD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Oct 2010 08:36:03 -0400
-In-Reply-To: <1286973334-4339-1-git-send-email-nhorman@tuxdriver.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:49430 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750765Ab0JMMpp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Oct 2010 08:45:45 -0400
+Received: by wyb28 with SMTP id 28so985620wyb.19
+        for <netdev@vger.kernel.org>; Wed, 13 Oct 2010 05:45:44 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman <nhorman@tuxdriver.com>
+Avoid two atomic ops on found rule in fib6_rule_lookup()
 
-Netconsole calls netpoll_cleanup on receipt of a NETDEVICE_UNREGISTER event.
-The notifier subsystem calls these event handlers with rtnl_lock held, which
-netpoll_cleanup also takes, resulting in deadlock.  Fix this by calling the
-__netpoll_cleanup interior function instead, and fixing up the additional
-pointers.
-
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 ---
- drivers/net/netconsole.c |    9 ++++++++-
- 1 files changed, 8 insertions(+), 1 deletions(-)
+ net/ipv6/fib6_rules.c |    3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
-index ca142c4..94255f0 100644
---- a/drivers/net/netconsole.c
-+++ b/drivers/net/netconsole.c
-@@ -678,7 +678,14 @@ static int netconsole_netdev_event(struct notifier_block *this,
- 				strlcpy(nt->np.dev_name, dev->name, IFNAMSIZ);
- 				break;
- 			case NETDEV_UNREGISTER:
--				netpoll_cleanup(&nt->np);
-+				/*
-+				 * rtnl_lock already held
-+				 */
-+				if (nt->np.dev) {
-+					__netpoll_cleanup(&nt->np);
-+					dev_put(nt->np.dev);
-+					nt->np.dev = NULL;
-+				}
- 				/* Fall through */
- 			case NETDEV_GOING_DOWN:
- 			case NETDEV_BONDING_DESLAVE:
--- 
-1.7.2.3
+diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
+index b1108ed..d829874 100644
+--- a/net/ipv6/fib6_rules.c
++++ b/net/ipv6/fib6_rules.c
+@@ -34,11 +34,10 @@ struct dst_entry *fib6_rule_lookup(struct net *net, struct flowi *fl,
+ {
+ 	struct fib_lookup_arg arg = {
+ 		.lookup_ptr = lookup,
++		.flags = FIB_LOOKUP_NOREF,
+ 	};
+ 
+ 	fib_rules_lookup(net->ipv6.fib6_rules_ops, fl, flags, &arg);
+-	if (arg.rule)
+-		fib_rule_put(arg.rule);
+ 
+ 	if (arg.result)
+ 		return arg.result;
+
 
