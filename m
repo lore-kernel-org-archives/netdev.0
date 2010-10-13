@@ -1,140 +1,42 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [PATCH RESENT] ethtool: add stmmac support
-Date: Wed, 13 Oct 2010 10:52:25 +0200
-Message-ID: <1286959945-15007-1-git-send-email-peppe.cavallaro@st.com>
-Cc: jgarzik@pobox.com, Giuseppe Cavallaro <peppe.cavallaro@st.com>
-To: netdev@vger.kernel.org
+From: jamal <hadi@cyberus.ca>
+Subject: Re: SCTP AUTO-ASCONF patch
+Date: Wed, 13 Oct 2010 05:21:37 -0400
+Message-ID: <1286961697.3967.6.camel@bigi>
+References: <EB46A57B-530A-4F52-8A29-120192604816@sfc.wide.ad.jp>
+Reply-To: hadi@cyberus.ca
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Vlad Yasevich <vladislav.yasevich@hp.com>, netdev@vger.kernel.org
+To: Michio Honda <micchie@sfc.wide.ad.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog103.obsmtp.com ([207.126.144.115]:50972 "EHLO
-	eu1sys200aog103.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753203Ab0JMIwm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Oct 2010 04:52:42 -0400
+Received: from mail-gx0-f174.google.com ([209.85.161.174]:50456 "EHLO
+	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753505Ab0JMJVk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Oct 2010 05:21:40 -0400
+Received: by gxk6 with SMTP id 6so840823gxk.19
+        for <netdev@vger.kernel.org>; Wed, 13 Oct 2010 02:21:40 -0700 (PDT)
+In-Reply-To: <EB46A57B-530A-4F52-8A29-120192604816@sfc.wide.ad.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add the stmmac support into the ethtool to
-dump both the Mac Core and Dma registers.
+Hi Michio,
 
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
----
- Makefile.am    |    2 +-
- ethtool-util.h |    4 +++
- ethtool.c      |    2 +
- stmmac.c       |   66 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 73 insertions(+), 1 deletions(-)
- create mode 100644 stmmac.c
+I think your description is sufficient (at least i understand it and I
+am sure Vlad does), but the rest of the world may not. Maybe mention a
+document which describes auto-asconf. Also a signed-off-by entry is
+needed - and lastly even the email subject line is important.
+Good idea to follow the output described in docs:
+kernel-sources/Documentation/SubmitChecklist and  SubmittingPatches
 
-diff --git a/Makefile.am b/Makefile.am
-index 632f054..a0d2116 100644
---- a/Makefile.am
-+++ b/Makefile.am
-@@ -8,7 +8,7 @@ ethtool_SOURCES = ethtool.c ethtool-copy.h ethtool-util.h	\
- 		  amd8111e.c de2104x.c e100.c e1000.c igb.c	\
- 		  fec_8xx.c ibm_emac.c ixgb.c ixgbe.c natsemi.c	\
- 		  pcnet32.c realtek.c tg3.c marvell.c vioc.c	\
--		  smsc911x.c at76c50x-usb.c sfc.c
-+		  smsc911x.c at76c50x-usb.c sfc.c stmmac.c
- 
- dist-hook:
- 	cp $(top_srcdir)/ethtool.spec $(distdir)
-diff --git a/ethtool-util.h b/ethtool-util.h
-index 01b1d03..4ef3a9f 100644
---- a/ethtool-util.h
-+++ b/ethtool-util.h
-@@ -93,4 +93,8 @@ int at76c50x_usb_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *re
- /* Solarflare Solarstorm controllers */
- int sfc_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs);
- 
-+/* STMMAC embedded ethernet controller */
-+int st_mac100_dump_regs(struct ethtool_drvinfo *info,
-+			struct ethtool_regs *regs);
-+int st_gmac_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs);
- #endif
-diff --git a/ethtool.c b/ethtool.c
-index 6b2b7c8..ab69b95 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -1539,6 +1539,8 @@ static struct {
-         { "smsc911x", smsc911x_dump_regs },
-         { "at76c50x-usb", at76c50x_usb_dump_regs },
-         { "sfc", sfc_dump_regs },
-+	{ "st_mac100", st_mac100_dump_regs },
-+	{ "st_gmac", st_gmac_dump_regs },
- };
- 
- static int dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
-diff --git a/stmmac.c b/stmmac.c
-new file mode 100644
-index 0000000..ad4311c
---- /dev/null
-+++ b/stmmac.c
-@@ -0,0 +1,66 @@
-+/****************************************************************************
-+ * Support for the Synopsys MAC 10/100/1000 on-chip Ethernet controllers
-+ *
-+ * Copyright (C) 2007-2009  STMicroelectronics Ltd
-+ *
-+ * Author: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of the GNU General Public License version 2 as published
-+ * by the Free Software Foundation, incorporated herein by reference.
-+ */
-+
-+#include <stdio.h>
-+#include <string.h>
-+#include "ethtool-util.h"
-+
-+int st_mac100_dump_regs(struct ethtool_drvinfo *info,
-+			struct ethtool_regs *regs)
-+{
-+	int i;
-+	unsigned int *stmmac_reg = (unsigned int *)regs->data;
-+
-+	fprintf(stdout, "ST MAC 10/100 Registers\n");
-+	fprintf(stdout, "control reg  0x%08X\n", *stmmac_reg++);
-+	fprintf(stdout, "addr HI 0x%08X\n", *stmmac_reg++);
-+	fprintf(stdout, "addr LO 0x%08X\n", *stmmac_reg++);
-+	fprintf(stdout, "multicast hash HI 0x%08X\n", *stmmac_reg++);
-+	fprintf(stdout, "multicast hash LO 0x%08X\n", *stmmac_reg++);
-+	fprintf(stdout, "MII addr 0x%08X\n", *stmmac_reg++);
-+	fprintf(stdout, "MII data %08X\n", *stmmac_reg++);
-+	fprintf(stdout, "flow control 0x%08X\n", *stmmac_reg++);
-+	fprintf(stdout, "VLAN1 tag 0x%08X\n", *stmmac_reg++);
-+	fprintf(stdout, "VLAN2 tag 0x%08X\n", *stmmac_reg++);
-+	fprintf(stdout, "mac wakeup frame 0x%08X\n", *stmmac_reg++);
-+	fprintf(stdout, "mac wakeup crtl 0x%08X\n", *stmmac_reg++);
-+
-+	fprintf(stdout, "\n");
-+	fprintf(stdout, "DMA Registers\n");
-+	for (i = 0; i < 9; i++)
-+		fprintf(stdout, "CSR%d  0x%08X\n", i, *stmmac_reg++);
-+
-+	fprintf(stdout, "DMA cur tx buf addr 0x%08X\n", *stmmac_reg++);
-+	fprintf(stdout, "DMA cur rx buf addr 0x%08X\n", *stmmac_reg++);
-+
-+	fprintf(stdout, "\n");
-+
-+	return 0;
-+}
-+
-+int st_gmac_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
-+{
-+	int i;
-+	unsigned int *stmmac_reg = (unsigned int *)regs->data;
-+
-+	fprintf(stdout, "ST GMAC Registers\n");
-+	fprintf(stdout, "GMAC Registers\n");
-+	for (i = 0; i < 55; i++)
-+		fprintf(stdout, "Reg%d  0x%08X\n", i, *stmmac_reg++);
-+
-+	fprintf(stdout, "\n");
-+	fprintf(stdout, "DMA Registers\n");
-+	for (i = 0; i < 22; i++)
-+		fprintf(stdout, "Reg%d  0x%08X\n", i, *stmmac_reg++);
-+
-+	return 0;
-+}
--- 
-1.5.5.6
+cheers,
+jamal
+
+On Tue, 2010-10-12 at 13:27 +0100, Michio Honda wrote:
+> Hi, 
+> 
+> I'm resubmitting a patch to enable AUTO_ASCONF for Linux SCTP. (version is for 2.6.36-rc7).  
+> 
+> Thanks,
+> - Michio
 
