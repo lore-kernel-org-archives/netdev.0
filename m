@@ -1,112 +1,69 @@
-From: Shreyas Bhatewara <sbhatewara@vmware.com>
-Subject: RE: [PATCH 2.6.35-rc6] net-next: Add multiqueue support to vmxnet3
- driver
-Date: Wed, 13 Oct 2010 15:26:36 -0700
-Message-ID: <89E2752CFA8EC044846EB8499819134102BF077DAC@EXCH-MBX-4.vmware.com>
-References: <alpine.LRH.2.00.1009290104130.464@sbhatewara-dev1.eng.vmware.com>
-	<alpine.LRH.2.00.1010131445080.25989@sbhatewara-dev1.eng.vmware.com>
- <20101013145732.7d69d0f3@nehalam>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [RFC PATCH net-next] drivers/net
+ Documentation/networking: Create directory intel_wired_lan
+Date: Wed, 13 Oct 2010 15:28:26 -0700
+Message-ID: <1287008906.1117.428.camel@Joe-Laptop>
+References: <1286743352.11039.165.camel@Joe-Laptop>
+	<AANLkTikVKufQRuMGd=cdig7ff4k2aw9Q1FWwMz3pgon-@mail.gmail.com>
+	<1286841648.26045.17.camel@Joe-Laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"pv-drivers@vmware.com" <pv-drivers@vmware.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-outbound-1.vmware.com ([65.115.85.69]:62590 "EHLO
-	smtp-outbound-1.vmware.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750825Ab0JMW0i convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Oct 2010 18:26:38 -0400
-In-Reply-To: <20101013145732.7d69d0f3@nehalam>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: Don, e1000-devel <e1000-devel@lists.sourceforge.net>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	linux-kernel@vger.kernel.org, Greg Rose <gregory.v.rose@intel.com>,
+	John Ronciak <john.ronciak@intel.com>, netdev@vger.kernel.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1286841648.26045.17.camel@Joe-Laptop>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
+On Mon, 2010-10-11 at 17:00 -0700, Joe Perches wrote:
+> On Mon, 2010-10-11 at 16:52 -0700, Jeff Kirsher wrote:
+> > On Sun, Oct 10, 2010 at 13:42, Joe Perches <joe@perches.com> wrote:
+> > > Perhaps it's better to move drivers from the very populated
+> > > drivers/net directory into vendor specific directories similar
+> > > to the Atheros approach used for drivers/net/wireless/ath/
+> > NAK
+> > First, I think we need to keep the documentation in /Documentation/networking.
+> > Second, the changes are extensive and would create a lot of regression testing.
+> I don't see any actual changes here other than layout.
+> What kind of regression testing do you think necessary?
 
+Jeff?
 
-> -----Original Message-----
-> From: Stephen Hemminger [mailto:shemminger@vyatta.com]
-> Sent: Wednesday, October 13, 2010 2:58 PM
-> To: Shreyas Bhatewara
-> Cc: netdev@vger.kernel.org; pv-drivers@vmware.com; linux-
-> kernel@vger.kernel.org
-> Subject: Re: [PATCH 2.6.35-rc6] net-next: Add multiqueue support to
-> vmxnet3 driver
+What regression testing would actually be done?
+
+Any new objects are trivially validated against existing
+objects.
+
+> > We have been looking at solutions like this for future
+> > drivers/hardware and is on the list of items we are currently working
+> > on, but feel it should not be made retroactively due to the regression
+> > testing and massive changes that would need to be made.
 > 
-> On Wed, 13 Oct 2010 14:47:05 -0700 (PDT)
-> Shreyas Bhatewara <sbhatewara@vmware.com> wrote:
-> 
-> > #ifdef VMXNET3_RSS
-> > +static unsigned int num_rss_entries;
-> > +#define VMXNET3_MAX_DEVICES 10
-> > +
-> > +static int rss_ind_table[VMXNET3_MAX_DEVICES *
-> > +			 VMXNET3_RSS_IND_TABLE_SIZE + 1] = {
-> > +	[0 ... VMXNET3_MAX_DEVICES * VMXNET3_RSS_IND_TABLE_SIZE] = -1 };
-> > +#endif
-> > +static int num_tqs[VMXNET3_MAX_DEVICES + 1] = {
-> > +	[0 ... VMXNET3_MAX_DEVICES] = 1 };
-> > +static int num_rqs[VMXNET3_MAX_DEVICES + 1] = {
-> > +	[0 ... VMXNET3_MAX_DEVICES] = 1 };
-> > +static int share_tx_intr[VMXNET3_MAX_DEVICES + 1] = {
-> > +	[0 ... VMXNET3_MAX_DEVICES] = 0 };
-> > +static int buddy_intr[VMXNET3_MAX_DEVICES + 1] = {
-> > +	[0 ... VMXNET3_MAX_DEVICES] = 1 };
-> > +
-> > +static unsigned int num_adapters;
-> > +module_param_array(share_tx_intr, int, &num_adapters, 0400);
-> > +MODULE_PARM_DESC(share_tx_intr, "Share one IRQ among all tx queue
-> completions. "
-> > +		 "Comma separated list of 1s and 0s - one for each NIC. "
-> > +		 "1 to share, 0 to not, default is 0");
-> > +module_param_array(buddy_intr, int, &num_adapters, 0400);
-> > +MODULE_PARM_DESC(buddy_intr, "Share one IRQ among corresponding tx
-> and rx "
-> > +		 "queues. Comma separated list of 1s and 0s - one for each
-> "
-> > +		 "NIC. 1 to share, 0 to not, default is 1");
-> > +module_param_array(num_tqs, int, &num_adapters, 0400);
-> > +MODULE_PARM_DESC(num_tqs, "Number of transmit queues in each
-> adapter. Comma "
-> > +		 "separated list of integers. Setting this to 0 makes
-> number"
-> > +		 " of queues same as number of CPUs. Default is 1.");
-> > +
-> > +#ifdef VMXNET3_RSS
-> > +module_param_array(rss_ind_table, int, &num_rss_entries, 0400);
-> > +MODULE_PARM_DESC(rss_ind_table, "RSS Indirection table. Number of
-> entries "
-> > +		 "per NIC should be 32. Each integer in a comma separated
-> list"
-> > +		 " is an rx queue number starting with 0. Repeat the same
-> for"
-> > +		 " all NICs.");
-> > +module_param_array(num_rqs, int, &num_adapters, 0400);
-> > +MODULE_PARM_DESC(num_rqs, "Number of receive queues in each adapter.
-> Comma "
-> > +		 " separated list of integers. Setting this to 0 makes
-> number"
-> > +		 " of queues same as number of CPUs. Default is 1.");
-> 
-> Module parameters are not right for this. They lead to different API
-> for interacting with each driver vendor. Is there a another better API?
-
-
-AFAIK, ethtool does not offer any API to program number of rx/tx queues. I saw a patch sent to netdev (http://www.mail-archive.com/netdev@vger.kernel.org/msg43923.html) to support multiqueue in ethtool but do not see it making into the mailine kernel. 
-
-
-> Does it have to be this tweakable in a production environment.
-
-rss_ind_table, share_tx_intr, buddy_intr can probably be done away with. They offer flexibility to users to tune performance to their needs though. It would be better to have them and not be used than not have them and be needed. (They are ordered in increasing order of preference/usability according to me). Would you rather have them removed ?
+> Might as well start somewhere.
 
 
 
-Thanks.
-->Shreyas
 
-
-
-> 
-> --
+------------------------------------------------------------------------------
+Beautiful is writing same markup. Internet Explorer 9 supports
+standards for HTML5, CSS3, SVG 1.1,  ECMAScript5, and DOM L2 & L3.
+Spend less time writing and  rewriting code and more time creating great
+experiences on the web. Be a part of the beta today.
+http://p.sf.net/sfu/beautyoftheweb
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
