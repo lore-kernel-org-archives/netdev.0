@@ -1,44 +1,72 @@
-From: Dan Carpenter <error27@gmail.com>
-Subject: [patch -next] pch_gbe: fix if condition in set_settings()
-Date: Wed, 13 Oct 2010 11:36:19 +0200
-Message-ID: <20101013093619.GC6060@bicker>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2] xps-mp: Transmit Packet Steering for multiqueue
+Date: Wed, 13 Oct 2010 11:39:59 +0200
+Message-ID: <1286962799.3876.132.camel@edumazet-laptop>
+References: <alpine.DEB.1.00.1010121705500.15786@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Masayuki Ohtake <masa-korg@dsn.okisemi.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	kernel-janitors@vger.kernel.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:55073 "EHLO
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:58240 "EHLO
 	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750730Ab0JMJgb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Oct 2010 05:36:31 -0400
-Content-Disposition: inline
+	with ESMTP id S1750730Ab0JMJkG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Oct 2010 05:40:06 -0400
+Received: by wwj40 with SMTP id 40so6217548wwj.1
+        for <netdev@vger.kernel.org>; Wed, 13 Oct 2010 02:40:05 -0700 (PDT)
+In-Reply-To: <alpine.DEB.1.00.1010121705500.15786@pokey.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There were no curly braces in this if condition so it always enabled full
-duplex.
+Le mardi 12 octobre 2010 =C3=A0 17:20 -0700, Tom Herbert a =C3=A9crit :
 
-And ecmd->speed is an unsigned short so it is never equal to -1.  The
-effect is that mii_ethtool_sset() fails with -EINVAL and an error is
-printed to dmesg.
 
-Signed-off-by: Dan Carpenter <error27@gmail.com>
++#define netdev_get_xps_maps(dev) ((dev)->_tx[0].xps_maps)
 
-diff --git a/drivers/net/pch_gbe/pch_gbe_ethtool.c b/drivers/net/pch_gbe/pch_gbe_ethtool.c
-index e06c6ae..c8cc32c 100644
---- a/drivers/net/pch_gbe/pch_gbe_ethtool.c
-+++ b/drivers/net/pch_gbe/pch_gbe_ethtool.c
-@@ -113,9 +113,10 @@ static int pch_gbe_set_settings(struct net_device *netdev,
- 
- 	pch_gbe_hal_write_phy_reg(hw, MII_BMCR, BMCR_RESET);
- 
--	if (ecmd->speed == -1)
-+	if (ecmd->speed == USHRT_MAX) {
- 		ecmd->speed = SPEED_1000;
- 		ecmd->duplex = DUPLEX_FULL;
-+	}
- 	ret = mii_ethtool_sset(&adapter->mii, ecmd);
- 	if (ret) {
- 		pr_err("Error: mii_ethtool_sset\n");
+Why is xps_maps stored on all struct netdev_queue and not in net_device
+itself ?
+
+> +#define QUEUE_MASK_SIZE(dev) (BITS_TO_LONGS(dev->num_tx_queues))
+> +#define XPS_MAP_SIZE(dev) (sizeof(struct xps_map) + (num_possible_cp=
+us() * \
+> +    QUEUE_MASK_SIZE(dev) * sizeof(unsigned long)))
+> +#define XPS_ENTRY(map, offset, dev) \
+> +    (&map->queues[offset * QUEUE_MASK_SIZE(dev)])
+> +#define netdev_get_xps_maps(dev) ((dev)->_tx[0].xps_maps)
+> +
+> +
+
+num_possible_cpus() is a bit too expensive on some machines
+(NR_CPUS=3D4096), please find a way to cache its result in XPS structs.
+
++       queues =3D XPS_ENTRY(maps, cpu, dev);
++
++       if (queue_index >=3D 0) {
++               if (test_bit(queue_index, queues)) {
++                       rcu_read_unlock();
++                       return queue_index;
++               }
++       }
++
++       weight =3D bitmap_weight(queues, dev->real_num_tx_queues);
+
+
+Same here : Cant you store bitmap_weight() somewhere ?
+
++               select =3D ((u64) hash * weight) >> 32;
++               queue_index =3D
++                   find_first_bit(queues, dev->real_num_tx_queues);
++               while (select--)
++                       queue_index =3D find_next_bit(queues,
++                           dev->real_num_tx_queues, queue_index + 1);
++               break;
+
+Ouch, thats pretty expensive and not scalable (say device has 64 virtua=
+l
+queues, on a 1024 cores machine), I think an array would be better
+
+	queue_index =3D array[select];
+
+
+
