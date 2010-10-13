@@ -1,32 +1,30 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net-next 5/5] tipc: clean out all instances of #if 0'd
- unused code
-Date: Wed, 13 Oct 2010 12:26:52 -0400
-Message-ID: <20101013162652.GF31379@hmsreliant.think-freely.org>
-References: <1286929558-2954-1-git-send-email-paul.gortmaker@windriver.com>
- <1286929558-2954-5-git-send-email-paul.gortmaker@windriver.com>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: linux-next: Tree for October 13 (net/3c59x)
+Date: Wed, 13 Oct 2010 09:38:36 -0700
+Message-ID: <20101013093836.1ee6f2f9.randy.dunlap@oracle.com>
+References: <20101013154522.7b087a20.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	allan.stephens@windriver.com
-To: Paul Gortmaker <paul.gortmaker@windriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:54885 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750963Ab0JMQ04 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Oct 2010 12:26:56 -0400
-Content-Disposition: inline
-In-Reply-To: <1286929558-2954-5-git-send-email-paul.gortmaker@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
+To: Stephen Rothwell <sfr@canb.auug.org.au>,
+	netdev <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20101013154522.7b087a20.sfr@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 12, 2010 at 08:25:58PM -0400, Paul Gortmaker wrote:
-> Remove all instances of legacy, or as yet to be implemented code
-> that is currently living within an #if 0 ... #endif block.
-> In the rare instance that some of it be needed in the future,
-> it can still be dragged out of history, but there is no need
-> for it to sit in mainline.
+On Wed, 13 Oct 2010 15:45:22 +1100 Stephen Rothwell wrote:
+
+> Hi all,
 > 
-> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+> Changes since 20101012:
 
+
+when CONFIG_PCI is not enabled:
+
+drivers/net/3c59x.c:3211: error:request for member 'current_state' in something not a structure or union
+
+---
+~Randy
+*** Remember to use Documentation/SubmitChecklist when testing your code ***
