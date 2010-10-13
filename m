@@ -1,167 +1,241 @@
 From: Jesse Gross <jesse@nicira.com>
-Subject: [RFC PATCH 1/7] ebtables: Allow filtering of hardware accelerated vlan frames.
-Date: Wed, 13 Oct 2010 13:02:51 -0700
-Message-ID: <1287000177-7126-2-git-send-email-jesse@nicira.com>
+Subject: [RFC PATCH 5/7] lro: Remove explicit vlan support.
+Date: Wed, 13 Oct 2010 13:02:55 -0700
+Message-ID: <1287000177-7126-6-git-send-email-jesse@nicira.com>
 References: <1287000177-7126-1-git-send-email-jesse@nicira.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f46.google.com ([209.85.210.46]:60390 "EHLO
-	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751788Ab0JMUDF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Oct 2010 16:03:05 -0400
-Received: by pzk33 with SMTP id 33so49025pzk.19
-        for <netdev@vger.kernel.org>; Wed, 13 Oct 2010 13:03:04 -0700 (PDT)
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:65497 "EHLO
+	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751788Ab0JMUDI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Oct 2010 16:03:08 -0400
+Received: by pwi4 with SMTP id 4so251540pwi.19
+        for <netdev@vger.kernel.org>; Wed, 13 Oct 2010 13:03:07 -0700 (PDT)
 In-Reply-To: <1287000177-7126-1-git-send-email-jesse@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-An upcoming commit will allow packets with hardware vlan acceleration
-information to be passed though more parts of the network stack, including
-packets trunked through the bridge.  This adds support for matching and
-filtering those packets through ebtables.
+Using the new vlan accleration model, LRO no longer needs to be
+explicitly passed the vlan information because it is contained in
+the skb.  Since all LRO did was pass the vlan through, this removes
+that knowledge.
 
 Signed-off-by: Jesse Gross <jesse@nicira.com>
+--
+This patch can only be applied once all drivers that use LRO and vlan acceleration
+have been converted over to the new model.
 ---
- net/bridge/br_netfilter.c       |   16 +++++++++-------
- net/bridge/netfilter/ebt_vlan.c |   38 +++++++++++++++++++++++---------------
- net/bridge/netfilter/ebtables.c |   15 +++++++++++----
- 3 files changed, 43 insertions(+), 26 deletions(-)
+ include/linux/inet_lro.h |   20 ------------
+ net/ipv4/inet_lro.c      |   74 +++++++---------------------------------------
+ 2 files changed, 11 insertions(+), 83 deletions(-)
 
-diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-index 7f9ce96..d6a4fec 100644
---- a/net/bridge/br_netfilter.c
-+++ b/net/bridge/br_netfilter.c
-@@ -64,22 +64,24 @@ static int brnf_filter_pppoe_tagged __read_mostly = 0;
+diff --git a/include/linux/inet_lro.h b/include/linux/inet_lro.h
+index c4335fa..667281a 100644
+--- a/include/linux/inet_lro.h
++++ b/include/linux/inet_lro.h
+@@ -50,7 +50,6 @@ struct net_lro_desc {
+ 	struct skb_frag_struct *next_frag;
+ 	struct iphdr *iph;
+ 	struct tcphdr *tcph;
+-	struct vlan_group *vgrp;
+ 	__wsum  data_csum;
+ 	__be32 tcp_rcv_tsecr;
+ 	__be32 tcp_rcv_tsval;
+@@ -60,9 +59,7 @@ struct net_lro_desc {
+ 	u16 ip_tot_len;
+ 	u16 tcp_saw_tstamp; 		/* timestamps enabled */
+ 	__be16 tcp_window;
+-	u16 vlan_tag;
+ 	int pkt_aggr_cnt;		/* counts aggregated packets */
+-	int vlan_packet;
+ 	int mss;
+ 	int active;
+ };
+@@ -137,16 +134,6 @@ void lro_receive_skb(struct net_lro_mgr *lro_mgr,
+ 		     void *priv);
  
- static inline __be16 vlan_proto(const struct sk_buff *skb)
- {
--	return vlan_eth_hdr(skb)->h_vlan_encapsulated_proto;
-+	if (skb->protocol == htons(ETH_P_8021Q))
-+		return vlan_eth_hdr(skb)->h_vlan_encapsulated_proto;
-+	else if (vlan_tx_tag_present(skb))
-+		return skb->protocol;
-+	else
-+		return 0;
+ /*
+- * Processes a SKB with VLAN HW acceleration support
+- */
+-
+-void lro_vlan_hwaccel_receive_skb(struct net_lro_mgr *lro_mgr,
+-				  struct sk_buff *skb,
+-				  struct vlan_group *vgrp,
+-				  u16 vlan_tag,
+-				  void *priv);
+-
+-/*
+  * Processes a fragment list
+  *
+  * This functions aggregate fragments and generate SKBs do pass
+@@ -165,13 +152,6 @@ void lro_receive_frags(struct net_lro_mgr *lro_mgr,
+ 		       struct skb_frag_struct *frags,
+ 		       int len, int true_size, void *priv, __wsum sum);
+ 
+-void lro_vlan_hwaccel_receive_frags(struct net_lro_mgr *lro_mgr,
+-				    struct skb_frag_struct *frags,
+-				    int len, int true_size,
+-				    struct vlan_group *vgrp,
+-				    u16 vlan_tag,
+-				    void *priv, __wsum sum);
+-
+ /*
+  * Forward all aggregated SKBs held by lro_mgr to network stack
+  */
+diff --git a/net/ipv4/inet_lro.c b/net/ipv4/inet_lro.c
+index 47038cb..8945a1d 100644
+--- a/net/ipv4/inet_lro.c
++++ b/net/ipv4/inet_lro.c
+@@ -146,8 +146,7 @@ static __wsum lro_tcp_data_csum(struct iphdr *iph, struct tcphdr *tcph, int len)
  }
  
- #define IS_VLAN_IP(skb) \
--	(skb->protocol == htons(ETH_P_8021Q) && \
--	 vlan_proto(skb) == htons(ETH_P_IP) && 	\
-+	(vlan_proto(skb) == htons(ETH_P_IP) && 	\
- 	 brnf_filter_vlan_tagged)
- 
- #define IS_VLAN_IPV6(skb) \
--	(skb->protocol == htons(ETH_P_8021Q) && \
--	 vlan_proto(skb) == htons(ETH_P_IPV6) &&\
-+	(vlan_proto(skb) == htons(ETH_P_IPV6) &&\
- 	 brnf_filter_vlan_tagged)
- 
- #define IS_VLAN_ARP(skb) \
--	(skb->protocol == htons(ETH_P_8021Q) &&	\
--	 vlan_proto(skb) == htons(ETH_P_ARP) &&	\
-+	(vlan_proto(skb) == htons(ETH_P_ARP) &&	\
- 	 brnf_filter_vlan_tagged)
- 
- static inline __be16 pppoe_proto(const struct sk_buff *skb)
-diff --git a/net/bridge/netfilter/ebt_vlan.c b/net/bridge/netfilter/ebt_vlan.c
-index 87b53b3..a39d92d 100644
---- a/net/bridge/netfilter/ebt_vlan.c
-+++ b/net/bridge/netfilter/ebt_vlan.c
-@@ -39,8 +39,6 @@ static bool
- ebt_vlan_mt(const struct sk_buff *skb, struct xt_action_param *par)
+ static void lro_init_desc(struct net_lro_desc *lro_desc, struct sk_buff *skb,
+-			  struct iphdr *iph, struct tcphdr *tcph,
+-			  u16 vlan_tag, struct vlan_group *vgrp)
++			  struct iphdr *iph, struct tcphdr *tcph)
  {
- 	const struct ebt_vlan_info *info = par->matchinfo;
--	const struct vlan_hdr *fp;
--	struct vlan_hdr _frame;
+ 	int nr_frags;
+ 	__be32 *ptr;
+@@ -173,8 +172,6 @@ static void lro_init_desc(struct net_lro_desc *lro_desc, struct sk_buff *skb,
+ 	}
  
- 	unsigned short TCI;	/* Whole TCI, given from parsed frame */
- 	unsigned short id;	/* VLAN ID, given from frame TCI */
-@@ -48,21 +46,31 @@ ebt_vlan_mt(const struct sk_buff *skb, struct xt_action_param *par)
- 	/* VLAN encapsulated Type/Length field, given from orig frame */
- 	__be16 encap;
+ 	lro_desc->mss = tcp_data_len;
+-	lro_desc->vgrp = vgrp;
+-	lro_desc->vlan_tag = vlan_tag;
+ 	lro_desc->active = 1;
  
--	fp = skb_header_pointer(skb, 0, sizeof(_frame), &_frame);
--	if (fp == NULL)
--		return false;
+ 	lro_desc->data_csum = lro_tcp_data_csum(iph, tcph,
+@@ -309,29 +306,17 @@ static void lro_flush(struct net_lro_mgr *lro_mgr,
+ 
+ 	skb_shinfo(lro_desc->parent)->gso_size = lro_desc->mss;
+ 
+-	if (lro_desc->vgrp) {
+-		if (lro_mgr->features & LRO_F_NAPI)
+-			vlan_hwaccel_receive_skb(lro_desc->parent,
+-						 lro_desc->vgrp,
+-						 lro_desc->vlan_tag);
+-		else
+-			vlan_hwaccel_rx(lro_desc->parent,
+-					lro_desc->vgrp,
+-					lro_desc->vlan_tag);
 -
--	/* Tag Control Information (TCI) consists of the following elements:
--	 * - User_priority. The user_priority field is three bits in length,
--	 * interpreted as a binary number.
--	 * - Canonical Format Indicator (CFI). The Canonical Format Indicator
--	 * (CFI) is a single bit flag value. Currently ignored.
--	 * - VLAN Identifier (VID). The VID is encoded as
--	 * an unsigned binary number. */
--	TCI = ntohs(fp->h_vlan_TCI);
-+	if (skb->protocol == htons(ETH_P_8021Q)) {
-+		const struct vlan_hdr *fp;
-+		struct vlan_hdr _frame;
-+
-+		fp = skb_header_pointer(skb, 0, sizeof(_frame), &_frame);
-+		if (fp == NULL)
-+			return false;
-+
-+		/* Tag Control Information (TCI) consists of the following elements:
-+		 * - User_priority. The user_priority field is three bits in length,
-+		 * interpreted as a binary number.
-+		 * - Canonical Format Indicator (CFI). The Canonical Format Indicator
-+		 * (CFI) is a single bit flag value. Currently ignored.
-+		 * - VLAN Identifier (VID). The VID is encoded as
-+		 * an unsigned binary number. */
-+		TCI = ntohs(fp->h_vlan_TCI);
-+
-+		encap = fp->h_vlan_encapsulated_proto;
-+	} else {
-+		TCI = vlan_tx_tag_get(skb);
-+		encap = skb->protocol;
-+	}
-+
- 	id = TCI & VLAN_VID_MASK;
- 	prio = (TCI >> 13) & 0x7;
--	encap = fp->h_vlan_encapsulated_proto;
- 
- 	/* Checking VLAN Identifier (VID) */
- 	if (GET_BITMASK(EBT_VLAN_ID))
-diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
-index bcc102e..a1dcf83 100644
---- a/net/bridge/netfilter/ebtables.c
-+++ b/net/bridge/netfilter/ebtables.c
-@@ -124,16 +124,23 @@ ebt_dev_check(const char *entry, const struct net_device *device)
- #define FWINV2(bool,invflg) ((bool) ^ !!(e->invflags & invflg))
- /* process standard matches */
- static inline int
--ebt_basic_match(const struct ebt_entry *e, const struct ethhdr *h,
-+ebt_basic_match(const struct ebt_entry *e, const struct sk_buff *skb,
-                 const struct net_device *in, const struct net_device *out)
- {
-+	const struct ethhdr *h = eth_hdr(skb);
-+	__be16 ethproto;
- 	int verdict, i;
- 
-+	if (vlan_tx_tag_present(skb))
-+		ethproto = htons(ETH_P_8021Q);
+-	} else {
+-		if (lro_mgr->features & LRO_F_NAPI)
+-			netif_receive_skb(lro_desc->parent);
+-		else
+-			netif_rx(lro_desc->parent);
+-	}
++	if (lro_mgr->features & LRO_F_NAPI)
++		netif_receive_skb(lro_desc->parent);
 +	else
-+		ethproto = h->h_proto;
-+
- 	if (e->bitmask & EBT_802_3) {
--		if (FWINV2(ntohs(h->h_proto) >= 1536, EBT_IPROTO))
-+		if (FWINV2(ntohs(ethproto) >= 1536, EBT_IPROTO))
- 			return 1;
- 	} else if (!(e->bitmask & EBT_NOPROTO) &&
--	   FWINV2(e->ethproto != h->h_proto, EBT_IPROTO))
-+	   FWINV2(e->ethproto != ethproto, EBT_IPROTO))
- 		return 1;
++		netif_rx(lro_desc->parent);
  
- 	if (FWINV2(ebt_dev_check(e->in, in), EBT_IIN))
-@@ -213,7 +220,7 @@ unsigned int ebt_do_table (unsigned int hook, struct sk_buff *skb,
- 	base = private->entries;
- 	i = 0;
- 	while (i < nentries) {
--		if (ebt_basic_match(point, eth_hdr(skb), in, out))
-+		if (ebt_basic_match(point, skb, in, out))
- 			goto letscontinue;
+ 	LRO_INC_STATS(lro_mgr, flushed);
+ 	lro_clear_desc(lro_desc);
+ }
  
- 		if (EBT_MATCH_ITERATE(point, ebt_do_match, skb, &acpar) != 0)
+ static int __lro_proc_skb(struct net_lro_mgr *lro_mgr, struct sk_buff *skb,
+-			  struct vlan_group *vgrp, u16 vlan_tag, void *priv)
++			  void *priv)
+ {
+ 	struct net_lro_desc *lro_desc;
+ 	struct iphdr *iph;
+@@ -360,7 +345,7 @@ static int __lro_proc_skb(struct net_lro_mgr *lro_mgr, struct sk_buff *skb,
+ 			goto out;
+ 
+ 		skb->ip_summed = lro_mgr->ip_summed_aggr;
+-		lro_init_desc(lro_desc, skb, iph, tcph, vlan_tag, vgrp);
++		lro_init_desc(lro_desc, skb, iph, tcph);
+ 		LRO_INC_STATS(lro_mgr, aggregated);
+ 		return 0;
+ 	}
+@@ -433,8 +418,7 @@ static struct sk_buff *lro_gen_skb(struct net_lro_mgr *lro_mgr,
+ static struct sk_buff *__lro_proc_segment(struct net_lro_mgr *lro_mgr,
+ 					  struct skb_frag_struct *frags,
+ 					  int len, int true_size,
+-					  struct vlan_group *vgrp,
+-					  u16 vlan_tag, void *priv, __wsum sum)
++					  void *priv, __wsum sum)
+ {
+ 	struct net_lro_desc *lro_desc;
+ 	struct iphdr *iph;
+@@ -480,7 +464,7 @@ static struct sk_buff *__lro_proc_segment(struct net_lro_mgr *lro_mgr,
+ 		tcph = (void *)((u8 *)skb->data + vlan_hdr_len
+ 				+ IP_HDR_LEN(iph));
+ 
+-		lro_init_desc(lro_desc, skb, iph, tcph, 0, NULL);
++		lro_init_desc(lro_desc, skb, iph, tcph);
+ 		LRO_INC_STATS(lro_mgr, aggregated);
+ 		return NULL;
+ 	}
+@@ -514,7 +498,7 @@ void lro_receive_skb(struct net_lro_mgr *lro_mgr,
+ 		     struct sk_buff *skb,
+ 		     void *priv)
+ {
+-	if (__lro_proc_skb(lro_mgr, skb, NULL, 0, priv)) {
++	if (__lro_proc_skb(lro_mgr, skb, priv)) {
+ 		if (lro_mgr->features & LRO_F_NAPI)
+ 			netif_receive_skb(skb);
+ 		else
+@@ -523,29 +507,13 @@ void lro_receive_skb(struct net_lro_mgr *lro_mgr,
+ }
+ EXPORT_SYMBOL(lro_receive_skb);
+ 
+-void lro_vlan_hwaccel_receive_skb(struct net_lro_mgr *lro_mgr,
+-				  struct sk_buff *skb,
+-				  struct vlan_group *vgrp,
+-				  u16 vlan_tag,
+-				  void *priv)
+-{
+-	if (__lro_proc_skb(lro_mgr, skb, vgrp, vlan_tag, priv)) {
+-		if (lro_mgr->features & LRO_F_NAPI)
+-			vlan_hwaccel_receive_skb(skb, vgrp, vlan_tag);
+-		else
+-			vlan_hwaccel_rx(skb, vgrp, vlan_tag);
+-	}
+-}
+-EXPORT_SYMBOL(lro_vlan_hwaccel_receive_skb);
+-
+ void lro_receive_frags(struct net_lro_mgr *lro_mgr,
+ 		       struct skb_frag_struct *frags,
+ 		       int len, int true_size, void *priv, __wsum sum)
+ {
+ 	struct sk_buff *skb;
+ 
+-	skb = __lro_proc_segment(lro_mgr, frags, len, true_size, NULL, 0,
+-				 priv, sum);
++	skb = __lro_proc_segment(lro_mgr, frags, len, true_size, priv, sum);
+ 	if (!skb)
+ 		return;
+ 
+@@ -556,26 +524,6 @@ void lro_receive_frags(struct net_lro_mgr *lro_mgr,
+ }
+ EXPORT_SYMBOL(lro_receive_frags);
+ 
+-void lro_vlan_hwaccel_receive_frags(struct net_lro_mgr *lro_mgr,
+-				    struct skb_frag_struct *frags,
+-				    int len, int true_size,
+-				    struct vlan_group *vgrp,
+-				    u16 vlan_tag, void *priv, __wsum sum)
+-{
+-	struct sk_buff *skb;
+-
+-	skb = __lro_proc_segment(lro_mgr, frags, len, true_size, vgrp,
+-				 vlan_tag, priv, sum);
+-	if (!skb)
+-		return;
+-
+-	if (lro_mgr->features & LRO_F_NAPI)
+-		vlan_hwaccel_receive_skb(skb, vgrp, vlan_tag);
+-	else
+-		vlan_hwaccel_rx(skb, vgrp, vlan_tag);
+-}
+-EXPORT_SYMBOL(lro_vlan_hwaccel_receive_frags);
+-
+ void lro_flush_all(struct net_lro_mgr *lro_mgr)
+ {
+ 	int i;
 -- 
 1.7.0.4
 
