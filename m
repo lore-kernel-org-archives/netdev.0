@@ -1,198 +1,156 @@
-From: Denis Kirjanov <dkirjanov@kernel.org>
-Subject: Re: [PATCH -next] sundance: Add initial ethtool stats support
-Date: Wed, 13 Oct 2010 14:56:09 +0400
-Message-ID: <4CB59049.6060405@kernel.org>
-References: <20101009095346.GA12951@hera.kernel.org>	 <20101009132749.GA15074@solarflare.com>	<4CB0C56C.2000106@kernel.org>	 <20101012.115138.112614145.davem@davemloft.net>	 <4CB4C6E6.9090805@kernel.org> <1286917039.1117.101.camel@Joe-Laptop>	 <4CB54C4F.5070205@kernel.org> <1286951637.2703.141.camel@edumazet-laptop>	 <4CB589B2.50907@kernel.org> <1286966186.3876.246.camel@edumazet-laptop>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [MeeGo-Dev][PATCH v3] Topcliff: Update PCH_CAN driver to 2.6.35
+Date: Wed, 13 Oct 2010 13:08:14 +0200
+Message-ID: <4CB5931E.8030103@grandegger.com>
+References: <4C9C7C6F.1000003@dsn.okisemi.com>
+	<4CA4541F.5040804@grandegger.com>
+	<004a01cb6abe$c41a9cc0$66f8800a@maildom.okisemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Jeff Garzik <jgarzik@redhat.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hera.kernel.org ([140.211.167.34]:37494 "EHLO hera.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751179Ab0JMK4M (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Oct 2010 06:56:12 -0400
-In-Reply-To: <1286966186.3876.246.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>,
+	Tomoya MORINAGA <morinaga526-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+To: Masayuki Ohtake <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <004a01cb6abe$c41a9cc0$66f8800a-a06+6cuVnkTSQfdrb5gaxUEOCMrvLtNR@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 10/13/2010 02:36 PM, Eric Dumazet wrote:
-> Le mercredi 13 octobre 2010 =C3=A0 14:28 +0400, Denis Kirjanov a =C3=A9=
-crit :
->=20
->> +		u64 tx_defered;
->> +		u64 tx_defered_excessive;
->=20
-PATCH -next v5] sundance: Add ethtool stats support
+On 10/13/2010 12:09 PM, Masayuki Ohtake wrote:
+> On Thursday, September 30, 2010 6:10 PM, Wolfgang Grandegger wrote:
+> 
+>>
+>> + iowrite32(num, &(priv->regs)->if2_creq);
+>> + while (counter) {
+>>> + if2_creq = (ioread32(&(priv->regs)->if2_creq)) &
+>>> +      CAN_IF_CREQ_BUSY;
+>>> + if (!if2_creq)
+>>> + break;
+>>> + counter--;
+>>> + }
+>>> + if (!counter)
+>>> + dev_err(&priv->ndev->dev, "IF2 BUSY Flag is set forever.\n");
+>>> +}
+>>
+>> Duplicated code!
+> 
+> No.
+> These are not the same.
 
-Add ethtool stats support.
+Of course they are not the same. The only difference is the register
+offset (of if1 or if2). A common function with a pointer to the if
+register as argument makes sense.
 
-Signed-off-by: Denis Kirjanov <dkirjanov@kernel.org>
----
-V2:
- check for the ETH_SS_STATS in get_string()
- use xstats struct for ethtool stats
-V3:
- make counters 64-bits wide
-V4:
- fixed some misspellings
-V5:
- fixed issue with collisions counting
+> Though it is possible to integrate to one function by adding parameter,
+> I think, current two function method is more easily to read.
 
-drivers/net/sundance.c |   94 +++++++++++++++++++++++++++++++++++++++++=
-+++----
- 1 files changed, 87 insertions(+), 7 deletions(-)
+I disagree.
 
-diff --git a/drivers/net/sundance.c b/drivers/net/sundance.c
-index 4283cc5..3ed2a67 100644
---- a/drivers/net/sundance.c
-+++ b/drivers/net/sundance.c
-@@ -363,6 +363,19 @@ struct netdev_private {
-         dma_addr_t tx_ring_dma;
-         dma_addr_t rx_ring_dma;
- 	struct timer_list timer;		/* Media monitoring timer. */
-+	/* ethtool extra stats */
-+	struct {
-+		u64 tx_multiple_collisions;
-+		u64 tx_single_collisions;
-+		u64 tx_late_collisions;
-+		u64 tx_deferred;
-+		u64 tx_deferred_excessive;
-+		u64 tx_aborted;
-+		u64 tx_bcasts;
-+		u64 rx_bcasts;
-+		u64 tx_mcasts;
-+		u64 rx_mcasts;
-+	} xstats;
- 	/* Frequently used values: keep some adjacent for cache effect. */
- 	spinlock_t lock;
- 	int msg_enable;
-@@ -1486,21 +1499,34 @@ static struct net_device_stats *get_stats(struc=
-t net_device *dev)
- {
- 	struct netdev_private *np =3D netdev_priv(dev);
- 	void __iomem *ioaddr =3D np->base;
--	int i;
- 	unsigned long flags;
-+	u8 late_coll, single_coll, mult_coll;
-=20
- 	spin_lock_irqsave(&np->statlock, flags);
- 	/* The chip only need report frame silently dropped. */
- 	dev->stats.rx_missed_errors	+=3D ioread8(ioaddr + RxMissed);
- 	dev->stats.tx_packets +=3D ioread16(ioaddr + TxFramesOK);
- 	dev->stats.rx_packets +=3D ioread16(ioaddr + RxFramesOK);
--	dev->stats.collisions +=3D ioread8(ioaddr + StatsLateColl);
--	dev->stats.collisions +=3D ioread8(ioaddr + StatsMultiColl);
--	dev->stats.collisions +=3D ioread8(ioaddr + StatsOneColl);
- 	dev->stats.tx_carrier_errors +=3D ioread8(ioaddr + StatsCarrierError)=
-;
--	ioread8(ioaddr + StatsTxDefer);
--	for (i =3D StatsTxDefer; i <=3D StatsMcastRx; i++)
--		ioread8(ioaddr + i);
-+
-+	mult_coll =3D ioread8(ioaddr + StatsMultiColl);
-+	np->xstats.tx_multiple_collisions +=3D mult_coll;
-+	single_coll =3D ioread8(ioaddr + StatsOneColl);
-+	np->xstats.tx_single_collisions +=3D single_coll;
-+	late_coll =3D ioread8(ioaddr + StatsLateColl);
-+	np->xstats.tx_late_collisions +=3D late_coll;
-+	dev->stats.collisions +=3D mult_coll
-+		+ single_coll
-+		+ late_coll;
-+
-+	np->xstats.tx_deferred +=3D ioread8(ioaddr + StatsTxDefer);
-+	np->xstats.tx_deferred_excessive +=3D ioread8(ioaddr + StatsTxXSDefer=
-);
-+	np->xstats.tx_aborted +=3D ioread8(ioaddr + StatsTxAbort);
-+	np->xstats.tx_bcasts +=3D ioread8(ioaddr + StatsBcastTx);
-+	np->xstats.rx_bcasts +=3D ioread8(ioaddr + StatsBcastRx);
-+	np->xstats.tx_mcasts +=3D ioread8(ioaddr + StatsMcastTx);
-+	np->xstats.rx_mcasts +=3D ioread8(ioaddr + StatsMcastRx);
-+
- 	dev->stats.tx_bytes +=3D ioread16(ioaddr + TxOctetsLow);
- 	dev->stats.tx_bytes +=3D ioread16(ioaddr + TxOctetsHigh) << 16;
- 	dev->stats.rx_bytes +=3D ioread16(ioaddr + RxOctetsLow);
-@@ -1566,6 +1592,21 @@ static int __set_mac_addr(struct net_device *dev=
-)
- 	return 0;
- }
-=20
-+static const struct {
-+	const char name[ETH_GSTRING_LEN];
-+} sundance_stats[] =3D {
-+	{ "tx_multiple_collisions" },
-+	{ "tx_single_collisions" },
-+	{ "tx_late_collisions" },
-+	{ "tx_deferred" },
-+	{ "tx_deferred_excessive" },
-+	{ "tx_aborted" },
-+	{ "tx_bcasts" },
-+	{ "rx_bcasts" },
-+	{ "tx_mcasts" },
-+	{ "rx_mcasts" },
-+};
-+
- static int check_if_running(struct net_device *dev)
- {
- 	if (!netif_running(dev))
-@@ -1624,6 +1665,42 @@ static void set_msglevel(struct net_device *dev,=
- u32 val)
- 	np->msg_enable =3D val;
- }
-=20
-+static void get_strings(struct net_device *dev, u32 stringset,
-+		u8 *data)
-+{
-+	if (stringset =3D=3D ETH_SS_STATS)
-+		memcpy(data, sundance_stats, sizeof(sundance_stats));
-+}
-+
-+static int get_sset_count(struct net_device *dev, int sset)
-+{
-+	switch (sset) {
-+	case ETH_SS_STATS:
-+		return ARRAY_SIZE(sundance_stats);
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+}
-+
-+static void get_ethtool_stats(struct net_device *dev,
-+		struct ethtool_stats *stats, u64 *data)
-+{
-+	struct netdev_private *np =3D netdev_priv(dev);
-+	int i =3D 0;
-+
-+	get_stats(dev);
-+	data[i++] =3D np->xstats.tx_multiple_collisions;
-+	data[i++] =3D np->xstats.tx_single_collisions;
-+	data[i++] =3D np->xstats.tx_late_collisions;
-+	data[i++] =3D np->xstats.tx_deferred;
-+	data[i++] =3D np->xstats.tx_deferred_excessive;
-+	data[i++] =3D np->xstats.tx_aborted;
-+	data[i++] =3D np->xstats.tx_bcasts;
-+	data[i++] =3D np->xstats.rx_bcasts;
-+	data[i++] =3D np->xstats.tx_mcasts;
-+	data[i++] =3D np->xstats.rx_mcasts;
-+}
-+
- static const struct ethtool_ops ethtool_ops =3D {
- 	.begin =3D check_if_running,
- 	.get_drvinfo =3D get_drvinfo,
-@@ -1633,6 +1710,9 @@ static const struct ethtool_ops ethtool_ops =3D {
- 	.get_link =3D get_link,
- 	.get_msglevel =3D get_msglevel,
- 	.set_msglevel =3D set_msglevel,
-+	.get_strings =3D get_strings,
-+	.get_sset_count =3D get_sset_count,
-+	.get_ethtool_stats =3D get_ethtool_stats,
- };
-=20
- static int netdev_ioctl(struct net_device *dev, struct ifreq *rq, int =
-cmd)
---=20
-1.7.0
+>>
+>>
+>>
+>>> + if (status & PCH_STUF_ERR)
+>>> + cf->data[2] |= CAN_ERR_PROT_STUFF;
+>>> +
+>>> + if (status & PCH_FORM_ERR)
+>>> + cf->data[2] |= CAN_ERR_PROT_FORM;
+>> +
+>> + if (status & PCH_ACK_ERR)
+>> + cf->data[2] |= CAN_ERR_PROT_LOC_ACK | CAN_ERR_PROT_LOC_ACK_DEL;
+>> +
+>> + if ((status & PCH_BIT1_ERR) || (status & PCH_BIT0_ERR))
+>> + cf->data[2] |= CAN_ERR_PROT_BIT;
+>> +
+>> + if (status & PCH_CRC_ERR)
+>> + cf->data[2] |= CAN_ERR_PROT_LOC_CRC_SEQ |
+>> + CAN_ERR_PROT_LOC_CRC_DEL;
+>> +
+>> + if (status & PCH_LEC_ALL)
+>> + iowrite32(status | PCH_LEC_ALL,
+>> +   &(priv->regs)->stat);
 
+Well, if status==7 (PCH_LEC_ALL), all of the above conditions are true
+as well... convinced now?
+
+>> A bit-wise test of the above values is wrong, I believe. Please use the
+>> switch statement instead.
+> 
+> The above conditions are not only one time.
+> I think "switch" is not suitable for the above.
+> Thus, current "if" processing is better.
+
+I don't understand! The Last Error Code (LEC) can have values from 0 to
+7. A "switch" statement is therefore the right choice. Or have I missed
+something.
+
+>>
+>>
+>> + u32 brp;
+>> +
+>> + pch_can_get_run_mode(priv, &curr_mode);
+>> + if (curr_mode == PCH_CAN_RUN)
+>> + pch_can_set_run_mode(priv, PCH_CAN_STOP);
+>>
+>> The device is stopped when this function is called. Please remove.
+> 
+> No.
+> The above is necessary.
+
+Yes, because you started the device *too early* in pch_can_open() called
+by pch_open(). See my other related comments of my previous mail.
+
+> Because this is our HW specification.
+> Before setting bitrate, run-mode must be "STOP".
+
+I think it can be avoided easily.
+
+>>
+>>
+>> +static netdev_tx_t pch_xmit(struct sk_buff *skb, struct net_device *ndev)
+>> +{
+>> + canid_t id;
+>> + u32 id1 = 0;
+>> + u32 id2 = 0;
+>>
+>> Need these values to be preset?
+> 
+> These values are not essential.
+> But these help a engineer to read this code.
+
+I disagree.
+
+>> + /* Enable CAN Interrupts */
+>> + pch_can_set_int_custom(priv);
+>> +
+>> + /* Restore Run Mode */
+>> + pch_can_set_run_mode(priv, PCH_CAN_RUN);
+>> +
+>> + return retval;
+>> +}
+>>
+>> Are the suspend and resume functions tested?
+>>
+> Yes, we tested before.
+> 
+> =========================================
+> 
+> Except the above, we are modifying for your indications.
+> 
+> I will resubmit soon.
+
+Thanks,
+
+Wolfgang.
