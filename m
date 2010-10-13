@@ -1,115 +1,44 @@
-From: Grant Edwards <grant.b.edwards@gmail.com>
-Subject: Question about PHY-less board and "fixed_phy"
-Date: Wed, 13 Oct 2010 16:55:44 +0000 (UTC)
-Message-ID: <i94oag$epv$1@dough.gmane.org>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: Re: [PATCH net-next 5/5] tipc: clean out all instances of #if 0'd
+ unused code
+Date: Wed, 13 Oct 2010 13:08:43 -0400
+Message-ID: <4CB5E79B.4060507@windriver.com>
+References: <1286929558-2954-1-git-send-email-paul.gortmaker@windriver.com> <1286929558-2954-5-git-send-email-paul.gortmaker@windriver.com> <20101013162652.GF31379@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	allan.stephens@windriver.com
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lo.gmane.org ([80.91.229.12]:39661 "EHLO lo.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751699Ab0JMRAH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Oct 2010 13:00:07 -0400
-Received: from list by lo.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1P64gP-00035u-8N
-	for netdev@vger.kernel.org; Wed, 13 Oct 2010 19:00:05 +0200
-Received: from dsl.comtrol.com ([64.122.56.22])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 13 Oct 2010 19:00:05 +0200
-Received: from grant.b.edwards by dsl.comtrol.com with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 13 Oct 2010 19:00:05 +0200
+Received: from mail.windriver.com ([147.11.1.11]:45309 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750796Ab0JMRI5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Oct 2010 13:08:57 -0400
+In-Reply-To: <20101013162652.GF31379@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 10-10-13 12:26 PM, Neil Horman wrote:
+> On Tue, Oct 12, 2010 at 08:25:58PM -0400, Paul Gortmaker wrote:
+>> Remove all instances of legacy, or as yet to be implemented code
+>> that is currently living within an #if 0 ... #endif block.
+>> In the rare instance that some of it be needed in the future,
+>> it can still be dragged out of history, but there is no need
+>> for it to sit in mainline.
+>>
+>> Signed-off-by: Paul Gortmaker<paul.gortmaker@windriver.com>
+> Acked-by: Neil Horman<nhorman@tuxdriver.com>
+> 
 
-I'm working with an Atmel ARM9 board (macb driver), that doesn't have
-a PHY.
+Thanks for all the reviews.  As I'd indicated a while back, I
+am by far no TIPC expert, so it may take me a bit to digest
+it and rework things on 1 --> 4. That will probably put them
+into the "for-38" net-next timeframe, as I'm guessing net-next
+that is destined for 2.6.37 will close in a day or two.
 
-The MAC is connected to a switch via MII.  That MII link is hard-wired
-to be 100M full-duplex.
+This cleanup patch (patch #5) doesn't explicitly depend on
+the other 4 bearer related patches, so it can be applied
+at whatever time is most convenient for Dave.
 
->From what I've been able to google, the "fixed_phy" driver is intended
-for this situation.  But from looking at the fixed.c source code it
-appears to provide an emulated MDIO bus.
-
-I don't want an emulated MDIO bus.
-
-I have a real, working MDIO bus.
-
-What I don't have is a PHY.
-
-The switch presents a bunch of logical slave devices (23, IIRC)
-attached to the MDIO bus, and I need use the MDIO bus to access those
-"devices" (mainly from user-space via ioctl() calls).  If I use the
-fixed_phy driver, it appears that it will hide the real MDIO bus and
-replace it with a fake one that's connected to a fake set of PHY
-registers.  That means I won't be able to access the the registers in
-the switch to which my MAC is connected.
-
-The ethernet/phy architecture seems to be based on several assumptions
-that aren't true in my case:
-
- 1) Every MAC is connected to a PHY.
-
- 2) An MDIO bus is a point-to-point link between the MAC and the PHY.
-
- 3) The MDIO bus belongs to the PHY.
-
- 4) It's OK to go out and read arbitrary registers from every device
-    on the MDIO bus when that bus is registered using mdiobus_register().
- 
-[Hmm, #4 may be true in my case, but it seems like a dangerous assumption.]
-    
-Anyway, I'm confused on how the MAC/PHY architecture is meant to deal
-with the case where there is no PHY, but there are real devices
-attached to a real MDIO bus which needs to be accessed both from the
-Ethernet driver and from userspace using the normal user-space ioctl()
-call.  
-
-Do I need to write my own "fixed_phy" driver that presents a virtual
-PHY without putting a fake MDIO bus in place?  
-
-How _do_ you present a virtual PHY without faking an MDIO bus?
-
-Do I need _two_ MDIO buses, the real one that is used to communicate
-with the switch chip and a fake one that's used to talk to a fake PHY?
-If so, how do I associate two MDIO buses with a single Ethernet
-interface?
-
-How do you register an mdio bus without having every device on the bus
-accessed?
-
-Can anybody loan me a clue?
-
-Another thing I don't understand is that it looks to me like the
-ioctl() to access devices on the mdio bus is handled by the PHY driver
-when it should be handled by the Ethernet driver: the MDIO bus belongs
-to the MAC, not the PHY.
-
-The PHY driver apparently ignores the device ID specified by the user
-and forces the device ID to that of the PHY, thus cutting of access to
-any other devices on the bus.  [I've worked around that by kludging
-the Ethernet driver's mdio_read/write routines so that I can specify
-the device ID by placing it in the upper 8 bits of the 16-bit register
-number (which is left unchanged as it passes through the PHY driver).]
-
-This doesn't make sense to me.  Why provide a device ID in the ioctl()
-API, and then overwrite it as the request passes through the PHY
-driver to the Ethernet driver.  Why are ioctl() MDIO register
-read/write requests that are done on an Ethernet interface passed
-through the PHY driver?
-
-I've read and re-read the phy.txt file under Documentation, and I've
-looked at the fixed_phy source and sources of drivers where it is
-used, but I'm still in the dark...
-
--- 
-Grant Edwards               grant.b.edwards        Yow! Somewhere in Tenafly,
-                                  at               New Jersey, a chiropractor
-                              gmail.com            is viewing "Leave it to
-                                                   Beaver"!
-
+Paul.
