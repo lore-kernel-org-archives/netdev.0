@@ -1,73 +1,55 @@
-From: Denis Kirjanov <dkirjanov@kernel.org>
-Subject: Re: [PATCH -next] sundance: Add initial ethtool stats support
-Date: Wed, 13 Oct 2010 11:02:13 +0400
-Message-ID: <4CB55975.4080109@kernel.org>
-References: <20101009095346.GA12951@hera.kernel.org>	 <20101009132749.GA15074@solarflare.com>	<4CB0C56C.2000106@kernel.org>	 <20101012.115138.112614145.davem@davemloft.net>	 <4CB4C6E6.9090805@kernel.org> <1286917039.1117.101.camel@Joe-Laptop>	 <4CB54C4F.5070205@kernel.org> <1286951637.2703.141.camel@edumazet-laptop>
+From: =?UTF-8?Q?R=C3=A9mi_Denis-Courmont?= <remi@remlab.net>
+Subject: Re: [PATCH V2] Phonet: 'connect' socket implementation for Pipe controller
+Date: Wed, 13 Oct 2010 09:18:51 +0200
+Message-ID: <ec51036a9c6fbbb550fa5ef7ae7f13e3@chewa.net>
+References: <1286950483-18804-1-git-send-email-kumar.sanghvi@stericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Joe Perches <joe@perches.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Jeff Garzik <jgarzik@redhat.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: remi.denis-courmont@nokia.com, davem@davemloft.net,
+	netdev@vger.kernel.org, linus.walleij@stericsson.com,
+	gulshan.karmani@stericsson.com, sudeep.divakaran@stericssonc.com
+To: Kumar A Sanghvi <kumar.sanghvi@stericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hera.kernel.org ([140.211.167.34]:54942 "EHLO hera.kernel.org"
+Received: from yop.chewa.net ([91.121.105.214]:38667 "EHLO yop.chewa.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752858Ab0JMHC2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Oct 2010 03:02:28 -0400
-In-Reply-To: <1286951637.2703.141.camel@edumazet-laptop>
+	id S1752909Ab0JMHSx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Oct 2010 03:18:53 -0400
+In-Reply-To: <1286950483-18804-1-git-send-email-kumar.sanghvi@stericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/13/2010 10:33 AM, Eric Dumazet wrote:
-> Le mercredi 13 octobre 2010 =C3=A0 10:06 +0400, Denis Kirjanov a =C3=A9=
-crit :
->=20
->> @@ -1494,13 +1506,23 @@ static struct net_device_stats *get_stats(st=
-ruct net_device *dev)
->>  	dev->stats.rx_missed_errors	+=3D ioread8(ioaddr + RxMissed);
->>  	dev->stats.tx_packets +=3D ioread16(ioaddr + TxFramesOK);
->>  	dev->stats.rx_packets +=3D ioread16(ioaddr + RxFramesOK);
->> -	dev->stats.collisions +=3D ioread8(ioaddr + StatsLateColl);
->> -	dev->stats.collisions +=3D ioread8(ioaddr + StatsMultiColl);
->> -	dev->stats.collisions +=3D ioread8(ioaddr + StatsOneColl);
->>  	dev->stats.tx_carrier_errors +=3D ioread8(ioaddr + StatsCarrierErr=
-or);
->> -	ioread8(ioaddr + StatsTxDefer);
->> -	for (i =3D StatsTxDefer; i <=3D StatsMcastRx; i++)
->> -		ioread8(ioaddr + i);
->> +
->> +	np->xstats.tx_multiple_collisions +=3D ioread8(ioaddr + StatsMulti=
-Coll);
->> +	np->xstats.tx_single_collisions +=3D ioread8(ioaddr + StatsOneColl=
-);
->> +	np->xstats.tx_late_collisions +=3D ioread8(ioaddr + StatsLateColl)=
-;
->> +	dev->stats.collisions +=3D np->xstats.tx_multiple_collisions
->> +		+ np->xstats.tx_single_collisions
->> +		+ np->xstats.tx_late_collisions;
->=20
->=20
-> Oh well..., really ?
->=20
-> Each time we are calling get_stats(), you do
->=20
-> dev->stats.collisions +=3D (number of accumulated collisions since de=
-vice
-> is up)
->=20
-> instead of
->=20
-> dev->stats.collisions +=3D (number of accumulated collisions since la=
-st
-> time we read counters)
->=20
->=20
-> Can you see the problem ?
 
-Oops, thanks Eric!
-I'll fix it up and resend
->=20
->=20
+On Wed, 13 Oct 2010 11:44:43 +0530, Kumar A Sanghvi=0D
+<kumar.sanghvi@stericsson.com> wrote:=0D
+> From: Kumar Sanghvi <kumar.sanghvi@stericsson.com>=0D
+> =0D
+> Based on suggestion by R=C3=A9mi Denis-Courmont to implement 'connect=
+'=0D
+> for Pipe controller logic,  this patch implements 'connect' socket=0D
+> call for the Pipe controller logic.=0D
+> The patch does following:-=0D
+> - Removes setsockopts for PNPIPE_CREATE and PNPIPE_DESTROY=0D
+> - Adds setsockopt for setting the Pipe handle value=0D
+> - Implements connect socket call=0D
+> - Updates the Pipe controller logic=0D
+> =0D
+> User-space should now follow below sequence with Pipe controller:-=0D
+> -socket=0D
+> -bind=0D
+> -setsockopt for PNPIPE_PIPE_HANDLE=0D
+> -connect=0D
+> -setsockopt for PNPIPE_ENCAP_IP=0D
+> -setsockopt for PNPIPE_ENABLE=0D
+> =0D
+> GPRS/3G data has been tested working fine with this.=0D
+> =0D
+> Signed-off-by: Kumar Sanghvi <kumar.sanghvi@stericsson.com>=0D
+=0D
+Acked-by: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>=0D
+=0D
+-- =0D
+R=C3=A9mi Denis-Courmont=0D
+http://www.remlab.net=0D
+http://fi.linkedin.com/in/remidenis
 
