@@ -1,188 +1,259 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 3/5] tipc: Optimizations to bearer enabling logic
-Date: Tue, 12 Oct 2010 20:25:56 -0400
-Message-ID: <1286929558-2954-3-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 4/5] tipc: Rework data structures that track neighboring nodes and links
+Date: Tue, 12 Oct 2010 20:25:57 -0400
+Message-ID: <1286929558-2954-4-git-send-email-paul.gortmaker@windriver.com>
 References: <1286929558-2954-1-git-send-email-paul.gortmaker@windriver.com>
 Cc: netdev@vger.kernel.org, allan.stephens@windriver.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:61686 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:61690 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751204Ab0JMA0C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Oct 2010 20:26:02 -0400
+	with ESMTP id S1751379Ab0JMA0D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Oct 2010 20:26:03 -0400
 In-Reply-To: <1286929558-2954-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Allan Stephens <allan.stephens@windriver.com>
 
-Introduces "enabling" state during activation of a new TIPC bearer,
-which supplements the existing "disabled" and "enabled" states.
-This change allows the new bearer to be added without having to
-temporarily block the processing of incoming packets on existing
-bearers during the binding of the new bearer to its associated
-interface. It also makes it unnecessary to zero out the entire
-bearer structure at the start of activation.
+Convert existing linked list of neighboring nodes to a standard
+doubly-linked list. Add counters that track total number of nodes
+in list and total number of links to these nodes, thereby allowing
+configuration message replies to allocate only space based on
+the actual number of nodes and links rather than the worst case.
 
 Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/tipc/bcast.c  |    2 +-
- net/tipc/bearer.c |   27 +++++++++++++++++----------
- net/tipc/bearer.h |    8 ++++++--
- net/tipc/link.c   |    2 +-
- 4 files changed, 25 insertions(+), 14 deletions(-)
+ net/tipc/bcast.c |    5 ++-
+ net/tipc/link.c  |    3 +-
+ net/tipc/node.c  |   60 ++++++++++++++++++++++++++---------------------------
+ net/tipc/node.h  |    5 +--
+ 4 files changed, 36 insertions(+), 37 deletions(-)
 
 diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
-index ecfaac1..ba6dcb2 100644
+index ba6dcb2..e006678 100644
 --- a/net/tipc/bcast.c
 +++ b/net/tipc/bcast.c
-@@ -645,7 +645,7 @@ void tipc_bcbearer_sort(void)
- 	for (b_index = 0; b_index < MAX_BEARERS; b_index++) {
- 		struct bearer *b = &tipc_bearers[b_index];
- 
--		if (!b->active || !b->nodes.count)
-+		if ((b->state != BEARER_ENABLED) || !b->nodes.count)
- 			continue;
- 
- 		if (!bp_temp[b->priority].primary)
-diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
-index 9969ec6..379338f 100644
---- a/net/tipc/bearer.c
-+++ b/net/tipc/bearer.c
-@@ -290,7 +290,7 @@ struct bearer *tipc_bearer_find_interface(const char *if_name)
- 	u32 i;
- 
- 	for (i = 0, b_ptr = tipc_bearers; i < MAX_BEARERS; i++, b_ptr++) {
--		if (!b_ptr->active)
-+		if (b_ptr->state != BEARER_ENABLED)
- 			continue;
- 		b_if_name = strchr(b_ptr->publ.name, ':') + 1;
- 		if (!strcmp(b_if_name, if_name))
-@@ -312,7 +312,8 @@ static struct bearer *bearer_find(const char *name)
- 		return NULL;
- 
- 	for (i = 0, b_ptr = tipc_bearers; i < MAX_BEARERS; i++, b_ptr++) {
--		if (b_ptr->active && (!strcmp(b_ptr->publ.name, name)))
-+		if ((b_ptr->state == BEARER_ENABLED) &&
-+		    (!strcmp(b_ptr->publ.name, name)))
- 			return b_ptr;
- 	}
- 	return NULL;
-@@ -337,7 +338,8 @@ struct sk_buff *tipc_bearer_get_names(void)
- 	for (i = 0, m_ptr = media_list; i < media_count; i++, m_ptr++) {
- 		for (j = 0; j < MAX_BEARERS; j++) {
- 			b_ptr = &tipc_bearers[j];
--			if (b_ptr->active && (b_ptr->media == m_ptr)) {
-+			if ((b_ptr->state == BEARER_ENABLED) &&
-+			    (b_ptr->media == m_ptr)) {
- 				tipc_cfg_append_tlv(buf, TIPC_TLV_BEARER_NAME,
- 						    b_ptr->publ.name,
- 						    strlen(b_ptr->publ.name) + 1);
-@@ -532,7 +534,7 @@ restart:
- 	bearer_id = MAX_BEARERS;
- 	with_this_prio = 1;
- 	for (i = MAX_BEARERS; i-- != 0; ) {
--		if (!tipc_bearers[i].active) {
-+		if (tipc_bearers[i].state != BEARER_ENABLED) {
- 			bearer_id = i;
- 			continue;
- 		}
-@@ -559,21 +561,23 @@ restart:
- 	}
- 
- 	b_ptr = &tipc_bearers[bearer_id];
--	memset(b_ptr, 0, sizeof(struct bearer));
--
-+	b_ptr->state = BEARER_ENABLING;
- 	strcpy(b_ptr->publ.name, name);
-+	b_ptr->priority = priority;
-+
-+	write_unlock_bh(&tipc_net_lock);
- 	res = m_ptr->enable_bearer(&b_ptr->publ);
- 	if (res) {
-+		b_ptr->state = BEARER_DISABLED;
- 		warn("Bearer <%s> rejected, enable failure (%d)\n", name, -res);
--		goto failed;
-+		return res;
- 	}
-+	write_lock_bh(&tipc_net_lock);
- 
- 	b_ptr->identity = bearer_id;
- 	b_ptr->media = m_ptr;
- 	b_ptr->net_plane = bearer_id + 'A';
--	b_ptr->active = 1;
- 	b_ptr->detect_scope = bcast_scope;
--	b_ptr->priority = priority;
- 	INIT_LIST_HEAD(&b_ptr->cong_links);
- 	INIT_LIST_HEAD(&b_ptr->links);
- 	if (m_ptr->bcast) {
-@@ -581,7 +585,10 @@ restart:
- 							  bcast_scope, 2);
- 	}
- 	spin_lock_init(&b_ptr->publ.lock);
-+	b_ptr->state = BEARER_ENABLED;
-+
- 	write_unlock_bh(&tipc_net_lock);
-+
- 	info("Enabled bearer <%s>, discovery domain %s, priority %u\n",
- 	     name, tipc_addr_string_fill(addr_string, bcast_scope), priority);
- 	return 0;
-@@ -672,7 +679,7 @@ void tipc_bearer_stop(void)
- 	u32 i;
- 
- 	for (i = 0; i < MAX_BEARERS; i++) {
--		if (tipc_bearers[i].active)
-+		if (tipc_bearers[i].state == BEARER_ENABLED)
- 			bearer_disable(&tipc_bearers[i]);
- 	}
- 	media_count = 0;
-diff --git a/net/tipc/bearer.h b/net/tipc/bearer.h
-index a850b38..134c6cb 100644
---- a/net/tipc/bearer.h
-+++ b/net/tipc/bearer.h
-@@ -43,6 +43,10 @@
- #define MAX_BEARERS 8
- #define MAX_MEDIA 4
- 
-+/* Bearer state */
-+#define BEARER_DISABLED	0
-+#define BEARER_ENABLING	1
-+#define BEARER_ENABLED		2
- 
- /**
-  * struct media - TIPC media information available to internal users
-@@ -87,7 +91,7 @@ struct media {
-  * @links: list of non-congested links associated with bearer
-  * @cong_links: list of congested links associated with bearer
-  * @continue_count: # of times bearer has resumed after congestion or blocking
-- * @active: non-zero if bearer structure is represents a bearer
-+ * @state: bearer state (disabled, enabling, enabled)
-  * @net_plane: network plane ('A' through 'H') currently associated with bearer
-  * @nodes: indicates which nodes in cluster can be reached through bearer
-  */
-@@ -102,7 +106,7 @@ struct bearer {
- 	struct list_head links;
- 	struct list_head cong_links;
- 	u32 continue_count;
--	int active;
-+	unsigned char state;
- 	char net_plane;
- 	struct tipc_node_map nodes;
- };
+@@ -454,10 +454,11 @@ void tipc_bclink_recv_pkt(struct sk_buff *buf)
+ 			tipc_node_unlock(node);
+ 			spin_lock_bh(&bc_lock);
+ 			bcl->stats.recv_nacks++;
+-			bcl->owner->next = node;   /* remember requestor */
++			/* remember retransmit requester */
++			bcl->owner->node_list.next =
++				(struct list_head *)node;
+ 			bclink_retransmit_pkt(msg_bcgap_after(msg),
+ 					      msg_bcgap_to(msg));
+-			bcl->owner->next = NULL;
+ 			spin_unlock_bh(&bc_lock);
+ 		} else {
+ 			tipc_bclink_peek_nack(msg_destnode(msg),
 diff --git a/net/tipc/link.c b/net/tipc/link.c
-index b8cf1e9..54bd99d 100644
+index 54bd99d..13bc0b6 100644
 --- a/net/tipc/link.c
 +++ b/net/tipc/link.c
-@@ -1830,7 +1830,7 @@ void tipc_recv_msg(struct sk_buff *head, struct tipc_bearer *tb_ptr)
+@@ -1652,7 +1652,8 @@ static void link_retransmit_failure(struct link *l_ptr, struct sk_buff *buf)
+ 		tipc_printf(TIPC_OUTPUT, "Outstanding acks: %lu\n",
+ 				     (unsigned long) TIPC_SKB_CB(buf)->handle);
  
- 		/* Ensure bearer is still enabled */
+-		n_ptr = l_ptr->owner->next;
++		/* recover retransmit requester */
++		n_ptr = (struct tipc_node *)l_ptr->owner->node_list.next;
+ 		tipc_node_lock(n_ptr);
  
--		if (unlikely(!b_ptr->active))
-+		if (unlikely(b_ptr->state != BEARER_ENABLED))
- 			goto cont;
+ 		tipc_addr_string_fill(addr_string, n_ptr->addr);
+diff --git a/net/tipc/node.c b/net/tipc/node.c
+index 7c49cd0..944b480 100644
+--- a/net/tipc/node.c
++++ b/net/tipc/node.c
+@@ -50,7 +50,9 @@ void node_print(struct print_buf *buf, struct tipc_node *n_ptr, char *str);
+ static void node_lost_contact(struct tipc_node *n_ptr);
+ static void node_established_contact(struct tipc_node *n_ptr);
  
- 		/* Ensure message is well-formed */
+-struct tipc_node *tipc_nodes = NULL;	/* sorted list of nodes within cluster */
++static LIST_HEAD(nodes_list);	/* sorted list of neighboring nodes */
++static int node_count;	/* number of neighboring nodes that exist */
++static int link_count;	/* number of unicast links node currently has */
+ 
+ static DEFINE_SPINLOCK(node_create_lock);
+ 
+@@ -70,11 +72,11 @@ struct tipc_node *tipc_node_create(u32 addr)
+ {
+ 	struct cluster *c_ptr;
+ 	struct tipc_node *n_ptr;
+-	struct tipc_node **curr_node;
++	struct tipc_node *new_n_ptr;
+ 
+ 	spin_lock_bh(&node_create_lock);
+ 
+-	for (n_ptr = tipc_nodes; n_ptr; n_ptr = n_ptr->next) {
++	list_for_each_entry(n_ptr, &nodes_list, node_list) {
+ 		if (addr < n_ptr->addr)
+ 			break;
+ 		if (addr == n_ptr->addr) {
+@@ -83,8 +85,8 @@ struct tipc_node *tipc_node_create(u32 addr)
+ 		}
+ 	}
+ 
+-	n_ptr = kzalloc(sizeof(*n_ptr),GFP_ATOMIC);
+-	if (!n_ptr) {
++	new_n_ptr = kzalloc(sizeof(*new_n_ptr), GFP_ATOMIC);
++	if (!new_n_ptr) {
+ 		spin_unlock_bh(&node_create_lock);
+ 		warn("Node creation failed, no memory\n");
+ 		return NULL;
+@@ -96,28 +98,22 @@ struct tipc_node *tipc_node_create(u32 addr)
+ 	}
+ 	if (!c_ptr) {
+ 		spin_unlock_bh(&node_create_lock);
+-		kfree(n_ptr);
++		kfree(new_n_ptr);
+ 		return NULL;
+ 	}
+ 
+-	n_ptr->addr = addr;
+-		spin_lock_init(&n_ptr->lock);
+-	INIT_LIST_HEAD(&n_ptr->nsub);
+-	n_ptr->owner = c_ptr;
+-	tipc_cltr_attach_node(c_ptr, n_ptr);
+-	n_ptr->last_router = -1;
++	new_n_ptr->addr = addr;
++	spin_lock_init(&new_n_ptr->lock);
++	INIT_LIST_HEAD(&new_n_ptr->nsub);
++	new_n_ptr->owner = c_ptr;
++	tipc_cltr_attach_node(c_ptr, new_n_ptr);
++	new_n_ptr->last_router = -1;
++
++	list_add_tail(&new_n_ptr->node_list, &n_ptr->node_list);
++	node_count++;
+ 
+-	/* Insert node into ordered list */
+-	for (curr_node = &tipc_nodes; *curr_node;
+-	     curr_node = &(*curr_node)->next) {
+-		if (addr < (*curr_node)->addr) {
+-			n_ptr->next = *curr_node;
+-			break;
+-		}
+-	}
+-	(*curr_node) = n_ptr;
+ 	spin_unlock_bh(&node_create_lock);
+-	return n_ptr;
++	return new_n_ptr;
+ }
+ 
+ void tipc_node_delete(struct tipc_node *n_ptr)
+@@ -136,6 +132,8 @@ void tipc_node_delete(struct tipc_node *n_ptr)
+ #endif
+ 
+ 	dbg("node %x deleted\n", n_ptr->addr);
++	node_count--;
++	list_del(&n_ptr->node_list);
+ 	kfree(n_ptr);
+ }
+ 
+@@ -275,6 +273,7 @@ struct tipc_node *tipc_node_attach_link(struct link *l_ptr)
+ 			n_ptr->links[bearer_id] = l_ptr;
+ 			tipc_net.zones[tipc_zone(l_ptr->addr)]->links++;
+ 			n_ptr->link_cnt++;
++			link_count++;
+ 			return n_ptr;
+ 		}
+ 		err("Attempt to establish second link on <%s> to %s\n",
+@@ -289,6 +288,7 @@ void tipc_node_detach_link(struct tipc_node *n_ptr, struct link *l_ptr)
+ 	n_ptr->links[l_ptr->b_ptr->identity] = NULL;
+ 	tipc_net.zones[tipc_zone(l_ptr->addr)]->links--;
+ 	n_ptr->link_cnt--;
++	link_count--;
+ }
+ 
+ /*
+@@ -619,7 +619,7 @@ u32 tipc_available_nodes(const u32 domain)
+ 	u32 cnt = 0;
+ 
+ 	read_lock_bh(&tipc_net_lock);
+-	for (n_ptr = tipc_nodes; n_ptr; n_ptr = n_ptr->next) {
++	list_for_each_entry(n_ptr, &nodes_list, node_list) {
+ 		if (!tipc_in_scope(domain, n_ptr->addr))
+ 			continue;
+ 		if (tipc_node_is_up(n_ptr))
+@@ -646,15 +646,14 @@ struct sk_buff *tipc_node_get_nodes(const void *req_tlv_area, int req_tlv_space)
+ 						   " (network address)");
+ 
+ 	read_lock_bh(&tipc_net_lock);
+-	if (!tipc_nodes) {
++	if (!node_count) {
+ 		read_unlock_bh(&tipc_net_lock);
+ 		return tipc_cfg_reply_none();
+ 	}
+ 
+-	/* For now, get space for all other nodes
+-	   (will need to modify this when slave nodes are supported */
++	/* Get space for all neighboring nodes */
+ 
+-	payload_size = TLV_SPACE(sizeof(node_info)) * (tipc_max_nodes - 1);
++	payload_size = TLV_SPACE(sizeof(node_info)) * node_count;
+ 	if (payload_size > 32768u) {
+ 		read_unlock_bh(&tipc_net_lock);
+ 		return tipc_cfg_reply_error_string(TIPC_CFG_NOT_SUPPORTED
+@@ -668,7 +667,7 @@ struct sk_buff *tipc_node_get_nodes(const void *req_tlv_area, int req_tlv_space)
+ 
+ 	/* Add TLVs for all nodes in scope */
+ 
+-	for (n_ptr = tipc_nodes; n_ptr; n_ptr = n_ptr->next) {
++	list_for_each_entry(n_ptr, &nodes_list, node_list) {
+ 		if (!tipc_in_scope(domain, n_ptr->addr))
+ 			continue;
+ 		node_info.addr = htonl(n_ptr->addr);
+@@ -704,8 +703,7 @@ struct sk_buff *tipc_node_get_links(const void *req_tlv_area, int req_tlv_space)
+ 
+ 	/* Get space for all unicast links + multicast link */
+ 
+-	payload_size = TLV_SPACE(sizeof(link_info)) *
+-		(tipc_net.zones[tipc_zone(tipc_own_addr)]->links + 1);
++	payload_size = TLV_SPACE(sizeof(link_info)) * (link_count + 1);
+ 	if (payload_size > 32768u) {
+ 		read_unlock_bh(&tipc_net_lock);
+ 		return tipc_cfg_reply_error_string(TIPC_CFG_NOT_SUPPORTED
+@@ -726,7 +724,7 @@ struct sk_buff *tipc_node_get_links(const void *req_tlv_area, int req_tlv_space)
+ 
+ 	/* Add TLVs for any other links in scope */
+ 
+-	for (n_ptr = tipc_nodes; n_ptr; n_ptr = n_ptr->next) {
++	list_for_each_entry(n_ptr, &nodes_list, node_list) {
+ 		u32 i;
+ 
+ 		if (!tipc_in_scope(domain, n_ptr->addr))
+diff --git a/net/tipc/node.h b/net/tipc/node.h
+index 45f3db3..26715dc 100644
+--- a/net/tipc/node.h
++++ b/net/tipc/node.h
+@@ -47,7 +47,7 @@
+  * @addr: network address of node
+  * @lock: spinlock governing access to structure
+  * @owner: pointer to cluster that node belongs to
+- * @next: pointer to next node in sorted list of cluster's nodes
++ * @node_list: adjacent entries in sorted list of nodes
+  * @nsub: list of "node down" subscriptions monitoring node
+  * @active_links: pointers to active links to node
+  * @links: pointers to all links to node
+@@ -73,7 +73,7 @@ struct tipc_node {
+ 	u32 addr;
+ 	spinlock_t lock;
+ 	struct cluster *owner;
+-	struct tipc_node *next;
++	struct list_head node_list;
+ 	struct list_head nsub;
+ 	struct link *active_links[2];
+ 	struct link *links[MAX_BEARERS];
+@@ -96,7 +96,6 @@ struct tipc_node {
+ 	} bclink;
+ };
+ 
+-extern struct tipc_node *tipc_nodes;
+ extern u32 tipc_own_tag;
+ 
+ struct tipc_node *tipc_node_create(u32 addr);
 -- 
 1.7.0.4
 
