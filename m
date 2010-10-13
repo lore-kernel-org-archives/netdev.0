@@ -1,84 +1,39 @@
-From: Kumar A Sanghvi <kumar.sanghvi@stericsson.com>
-Subject: [PATCH] Documentation: Update Phonet doc for Pipe controller changes
-Date: Wed, 13 Oct 2010 11:47:25 +0530
-Message-ID: <1286950645-21902-1-git-send-email-kumar.sanghvi@stericsson.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: tbf/htb qdisc limitations
+Date: Wed, 13 Oct 2010 06:26:49 +0000
+Message-ID: <20101013062649.GA6915@ff.dom.local>
+References: <AANLkTik6_C5pzx=yS=C0VQR2xfg0S57AZAn9WYiGvxe5@mail.gmail.com> <4CB1A22B.9090701@gmail.com> <AANLkTin_jPp+WEkyJkD_KZyrJ4WX_6dM5wtFNw_ixuzv@mail.gmail.com> <20101012101022.GA8578@ff.dom.local> <AANLkTikQkCcPXtRQGp=MQrjrWtae84VzbENn5x+1yC47@mail.gmail.com> <20101012215932.GA1945@del.dom.local> <4CB4DE6E.7030802@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linus.walleij@stericsson.com>, <gulshan.karmani@stericsson.com>,
-	<sudeep.divakaran@stericssonc.com>,
-	Kumar Sanghvi <kumar.sanghvi@stericsson.com>
-To: <remi.denis-courmont@nokia.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Steven Brudenell <steven.brudenell@gmail.com>,
+	netdev@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog104.obsmtp.com ([207.126.144.117]:36984 "EHLO
-	eu1sys200aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752840Ab0JMGSD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Oct 2010 02:18:03 -0400
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:39766 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751354Ab0JMG1U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Oct 2010 02:27:20 -0400
+Received: by bwz15 with SMTP id 15so2965925bwz.19
+        for <netdev@vger.kernel.org>; Tue, 12 Oct 2010 23:27:18 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <4CB4DE6E.7030802@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kumar Sanghvi <kumar.sanghvi@stericsson.com>
+On Tue, Oct 12, 2010 at 03:17:18PM -0700, Rick Jones wrote:
+>>> my burst problem is the only semi-legitimate motivation i can think
+>>> of. the only other possible motivations i can imagine are setting
+>>> "limit" to buffer more than 4GB of packets and setting "rate" to
+>>> something more than 32 gigabit; both of these seem kind of dubious. is
+>>> there something else you had in mind?
+>>
+>>
+>> No, mainly 10 gigabit rates and additionally 64-bit stats.
+>
+> Any issue for bonded 10 GbE interfaces?  Now that the IEEE have ratified 
+> (June) how far out are 40 GbE interfaces?  Or 100 GbE for that matter.
 
-Updates to Phonet doc for Pipe controller 'connect' socket
-implementation and changes related to socket options.
+Alas packet schedulers using rate tables are still around 1G. Above 2G
+they get less and less accurate, so hfsc is recommended.
 
-Signed-off-by: Kumar Sanghvi <kumar.sanghvi@stericsson.com>
----
- Documentation/networking/phonet.txt |   32 ++++++++++++++------------------
- 1 files changed, 14 insertions(+), 18 deletions(-)
-
-diff --git a/Documentation/networking/phonet.txt b/Documentation/networking/phonet.txt
-index 2d9bc2b..24ad2ad 100644
---- a/Documentation/networking/phonet.txt
-+++ b/Documentation/networking/phonet.txt
-@@ -199,33 +199,29 @@ between itself and a remote pipe-end point (e.g. modem).
- 
- The implementation adds socket options at SOL_PNPIPE level:
- 
-- PNPIPE_CREATE
--	It accepts an integer argument where-in
--		lower order 16 bits: pn_dev and pn_port pair for remote pep.
--		higher order 16 bits: 8 bit pipe-handle
--
--	It sends a PNS_PEP_CONNECT_REQ on sequenced socket itself. On getting
--	PNS_PEP_CONNECT_RESP, it sends PNS_PEP_CONNECT_REQ to remote pep. On
--	getting response from remote pep, it selects the best possible Flow
--	control mechanism supported by remote-pep (modem) and then it sends
--	PNS_PEP_CREATED_IND to the sequenced socket and to the remote pep.
--
--	It then updates the pipe state associated with the sequenced socket to
--	be PIPE_DISABLED.
-+ PNPIPE_PIPE_HANDLE
-+	It accepts an integer argument for setting value of pipe handle.
- 
-   PNPIPE_ENABLE accepts one integer value (int). If set to zero, the pipe
-     is disabled. If the value is non-zero, the pipe is enabled. If the pipe
-     is not (yet) connected, ENOTCONN is error is returned.
- 
--   PNPIPE_DESTROY
--	This will send out PNS_PEP_DISCONNECT_REQ on the sequenced socket and
--	the remote pep.
--	It will also update the pipe state associated with the sequenced socket
--	to PIPE_IDLE
-+The implementation also adds socket 'connect'. On calling the 'connect', pipe
-+will be created between the source socket and the destination, and the pipe
-+state will be set to PIPE_DISABLED.
- 
- After a pipe has been created and enabled successfully, the Pipe data can be
- exchanged between the host-pep and remote-pep (modem).
- 
-+User-space would typically follow below sequence with Pipe controller:-
-+-socket
-+-bind
-+-setsockopt for PNPIPE_PIPE_HANDLE
-+-connect
-+-setsockopt for PNPIPE_ENCAP_IP
-+-setsockopt for PNPIPE_ENABLE
-+
-+
- Authors
- -------
- 
--- 
-1.7.2.dirty
-
+Jarek P.
