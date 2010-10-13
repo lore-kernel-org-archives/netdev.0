@@ -1,62 +1,83 @@
-From: Stefano Salsano <stefano.salsano@uniroma2.it>
-Subject: Re: Question on DHCP
-Date: Wed, 13 Oct 2010 09:31:34 +0200
-Message-ID: <4CB56056.2040704@uniroma2.it>
-References: <AANLkTikTKL2JzmHKUrraOoNdqV1=0e_r+EuvBTgURjUz@mail.gmail.com> <20101012184543.55ebf503@nehalam>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>,
-	Sri Ram Vemulpali <sri.ram.gmu06@gmail.com>
+From: Harvey Harrison <harvey.harrison@gmail.com>
+Subject: [PATCH] cxgb4vf: make single bit signed bitfields unsigned
+Date: Wed, 13 Oct 2010 00:52:26 -0700
+Message-ID: <1286956346-17147-1-git-send-email-harvey.harrison@gmail.com>
+Cc: Harvey Harrison <harvey.harrison@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.uniroma2.it ([160.80.6.16]:46157 "EHLO smtp.uniroma2.it"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753148Ab0JMHlz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Oct 2010 03:41:55 -0400
-In-Reply-To: <20101012184543.55ebf503@nehalam>
+Received: from mail-pz0-f46.google.com ([209.85.210.46]:36438 "EHLO
+	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753148Ab0JMHwd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Oct 2010 03:52:33 -0400
+Received: by pzk34 with SMTP id 34so1427029pzk.19
+        for <netdev@vger.kernel.org>; Wed, 13 Oct 2010 00:52:32 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger wrote:
-> On Tue, 12 Oct 2010 21:33:25 -0400
-> Sri Ram Vemulpali <sri.ram.gmu06@gmail.com> wrote:
-> 
->> Hi All,
->>
->>    I have very basic stupid doubt. Can anyone help to resolve this.
->>
->> DHCP, is used for dynamically configuring IP address, mask, MTU, DNS
->> domain, .... for a host. DHCP is a application layer protocol, but the
->> values it configures are related to IP layer. How come DHCP can
->> configure when its data packet in embedded in to IP datagram, which
->> are disparate layers. I am little confused. Please clarify. Thanks.
->>
-> 
-> DHCP client uses UDP to send broadcast packet and find the nearest
-> server.  The Linux DHCP client ends up using a AF_PACKET socket because
-> it wants to seem MAC address of server.
+Single bit signed bitfields don't make a lot of sense, noticed by sparse:
+drivers/net/cxgb4vf/t4vf_common.h:135:31: error: dubious one-bit signed bitfield
+drivers/net/cxgb4vf/t4vf_common.h:136:36: error: dubious one-bit signed bitfield
+drivers/net/cxgb4vf/t4vf_common.h:137:36: error: dubious one-bit signed bitfield
+drivers/net/cxgb4vf/t4vf_common.h:138:36: error: dubious one-bit signed bitfield
+drivers/net/cxgb4vf/t4vf_common.h:139:36: error: dubious one-bit signed bitfield
+drivers/net/cxgb4vf/t4vf_common.h:140:31: error: dubious one-bit signed bitfield
+drivers/net/cxgb4vf/t4vf_common.h:141:31: error: dubious one-bit signed bitfield
+drivers/net/cxgb4vf/t4vf_common.h:142:35: error: dubious one-bit signed bitfield
+drivers/net/cxgb4vf/t4vf_common.h:143:35: error: dubious one-bit signed bitfield
+drivers/net/cxgb4vf/t4vf_common.h:154:27: error: dubious one-bit signed bitfield
+drivers/net/cxgb4vf/t4vf_common.h:155:26: error: dubious one-bit signed bitfield
+drivers/net/cxgb4vf/t4vf_common.h:156:27: error: dubious one-bit signed bitfield
+drivers/net/cxgb4vf/t4vf_common.h:157:26: error: dubious one-bit signed bitfield
 
-you may also want to refer to RFC 2131 (Dynamic Host Configuration 
-Protocol), in section 2 it states:
+Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+---
+ drivers/net/cxgb4vf/t4vf_common.h |   26 +++++++++++++-------------
+ 1 files changed, 13 insertions(+), 13 deletions(-)
 
-In the case of a client using DHCP for initial configuration (before
-    the client's TCP/IP software has been completely configured), DHCP
-    requires creative use of the client's TCP/IP software and liberal
-    interpretation of RFC 1122.  The TCP/IP software SHOULD accept and
-    forward to the IP layer any IP packets delivered to the client's
-    hardware address before the IP address is configured;
-
+diff --git a/drivers/net/cxgb4vf/t4vf_common.h b/drivers/net/cxgb4vf/t4vf_common.h
+index 5c7bde7..873cb7d 100644
+--- a/drivers/net/cxgb4vf/t4vf_common.h
++++ b/drivers/net/cxgb4vf/t4vf_common.h
+@@ -132,15 +132,15 @@ struct rss_params {
+ 	unsigned int mode;		/* RSS mode */
+ 	union {
+ 	    struct {
+-		int synmapen:1;		/* SYN Map Enable */
+-		int syn4tupenipv6:1;	/* enable hashing 4-tuple IPv6 SYNs */
+-		int syn2tupenipv6:1;	/* enable hashing 2-tuple IPv6 SYNs */
+-		int syn4tupenipv4:1;	/* enable hashing 4-tuple IPv4 SYNs */
+-		int syn2tupenipv4:1;	/* enable hashing 2-tuple IPv4 SYNs */
+-		int ofdmapen:1;		/* Offload Map Enable */
+-		int tnlmapen:1;		/* Tunnel Map Enable */
+-		int tnlalllookup:1;	/* Tunnel All Lookup */
+-		int hashtoeplitz:1;	/* use Toeplitz hash */
++		unsigned int synmapen:1;	/* SYN Map Enable */
++		unsigned int syn4tupenipv6:1;	/* enable hashing 4-tuple IPv6 SYNs */
++		unsigned int syn2tupenipv6:1;	/* enable hashing 2-tuple IPv6 SYNs */
++		unsigned int syn4tupenipv4:1;	/* enable hashing 4-tuple IPv4 SYNs */
++		unsigned int syn2tupenipv4:1;	/* enable hashing 2-tuple IPv4 SYNs */
++		unsigned int ofdmapen:1;	/* Offload Map Enable */
++		unsigned int tnlmapen:1;	/* Tunnel Map Enable */
++		unsigned int tnlalllookup:1;	/* Tunnel All Lookup */
++		unsigned int hashtoeplitz:1;	/* use Toeplitz hash */
+ 	    } basicvirtual;
+ 	} u;
+ };
+@@ -151,10 +151,10 @@ struct rss_params {
+ union rss_vi_config {
+     struct {
+ 	u16 defaultq;			/* Ingress Queue ID for !tnlalllookup */
+-	int ip6fourtupen:1;		/* hash 4-tuple IPv6 ingress packets */
+-	int ip6twotupen:1;		/* hash 2-tuple IPv6 ingress packets */
+-	int ip4fourtupen:1;		/* hash 4-tuple IPv4 ingress packets */
+-	int ip4twotupen:1;		/* hash 2-tuple IPv4 ingress packets */
++	unsigned int ip6fourtupen:1;	/* hash 4-tuple IPv6 ingress packets */
++	unsigned int ip6twotupen:1;	/* hash 2-tuple IPv6 ingress packets */
++	unsigned int ip4fourtupen:1;	/* hash 4-tuple IPv4 ingress packets */
++	unsigned int ip4twotupen:1;	/* hash 2-tuple IPv4 ingress packets */
+ 	int udpen;			/* hash 4-tuple UDP ingress packets */
+     } basicvirtual;
+ };
 -- 
-*******************************************************************
-Stefano Salsano
-Dipartimento Ingegneria Elettronica
-Universita' di Roma "Tor Vergata"
-Via del Politecnico, 1 - 00133 Roma - ITALY
+1.7.1
 
-http://netgroup.uniroma2.it/Stefano_Salsano/
-
-E-mail  : stefano.salsano@uniroma2.it
-Cell.   : +39 320 4307310
-Office  : (Tel.) +39 06 72597770  (Fax.) +39 06 72597435
-*******************************************************************
