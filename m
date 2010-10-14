@@ -1,154 +1,126 @@
-From: Harvey Harrison <harvey.harrison@gmail.com>
-Subject: [PATCH] niu: introduce temp variables to avoid sparse warnings when swapping in-situ
-Date: Wed, 13 Oct 2010 21:59:13 -0700
-Message-ID: <1287032353-30314-1-git-send-email-harvey.harrison@gmail.com>
-Cc: Harvey Harrison <harvey.harrison@gmail.com>
-To: netdev@vger.kernel.org
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: BUG ? ipip unregister_netdevice_many()
+Date: Wed, 13 Oct 2010 22:20:28 -0700
+Message-ID: <m162x5492h.fsf@fess.ebiederm.org>
+References: <m11v801tfr.fsf@fess.ebiederm.org>
+	<20101012.130520.48517464.davem@davemloft.net>
+	<m1fww94ca6.fsf@fess.ebiederm.org>
+	<20101013.215013.104074480.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: hans.schillstrom@ericsson.com, daniel.lezcano@free.fr,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pv0-f174.google.com ([74.125.83.174]:56505 "EHLO
-	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754259Ab0JNE7T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Oct 2010 00:59:19 -0400
-Received: by pvc7 with SMTP id 7so494978pvc.19
-        for <netdev@vger.kernel.org>; Wed, 13 Oct 2010 21:59:19 -0700 (PDT)
+Received: from out02.mta.xmission.com ([166.70.13.232]:60583 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754578Ab0JNFuW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Oct 2010 01:50:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Suppress a large block of warnings like:
-drivers/net/niu.c:7094:38: warning: incorrect type in assignment (different base types)
-drivers/net/niu.c:7094:38:    expected restricted __be32 [usertype] ip4src
-drivers/net/niu.c:7094:38:    got unsigned long long
-drivers/net/niu.c:7104:17: warning: cast from restricted __be32
-...
+David Miller <davem@davemloft.net> writes:
 
-Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
----
-This could be done without the temp variables, but they do make it a bit clearer.
+> From: ebiederm@xmission.com (Eric W. Biederman)
+> Date: Wed, 13 Oct 2010 21:40:49 -0700
+>
+>> However I think the test should still be rt_is_expired(), because
+>> that is what rt_do_flush() is doing removing the expired entries
+>> from the list.
+>
+> I can't see a reason for that test.
+>
+> Everything calling into this code path has created a condition
+> that requires that all routing cache entries for that namespace
+> be deleted.
+>
+> This function is meant to unconditionally flush the entire table.
+>
+> I believe you added that extraneous test, and it never existed there
+> before.
 
- drivers/net/niu.c |   92 +++++++++++++++++++++-------------------------------
- 1 files changed, 37 insertions(+), 55 deletions(-)
+At the point network namespaces entered the picture the logic was:
 
-diff --git a/drivers/net/niu.c b/drivers/net/niu.c
-index c0437fd..781e368 100644
---- a/drivers/net/niu.c
-+++ b/drivers/net/niu.c
-@@ -7090,24 +7090,20 @@ static int niu_get_hash_opts(struct niu *np, struct ethtool_rxnfc *nfc)
- static void niu_get_ip4fs_from_tcam_key(struct niu_tcam_entry *tp,
- 					struct ethtool_rx_flow_spec *fsp)
- {
-+	u32 tmp;
-+	u16 prt;
- 
--	fsp->h_u.tcp_ip4_spec.ip4src = (tp->key[3] & TCAM_V4KEY3_SADDR) >>
--		TCAM_V4KEY3_SADDR_SHIFT;
--	fsp->h_u.tcp_ip4_spec.ip4dst = (tp->key[3] & TCAM_V4KEY3_DADDR) >>
--		TCAM_V4KEY3_DADDR_SHIFT;
--	fsp->m_u.tcp_ip4_spec.ip4src = (tp->key_mask[3] & TCAM_V4KEY3_SADDR) >>
--		TCAM_V4KEY3_SADDR_SHIFT;
--	fsp->m_u.tcp_ip4_spec.ip4dst = (tp->key_mask[3] & TCAM_V4KEY3_DADDR) >>
--		TCAM_V4KEY3_DADDR_SHIFT;
--
--	fsp->h_u.tcp_ip4_spec.ip4src =
--		cpu_to_be32(fsp->h_u.tcp_ip4_spec.ip4src);
--	fsp->m_u.tcp_ip4_spec.ip4src =
--		cpu_to_be32(fsp->m_u.tcp_ip4_spec.ip4src);
--	fsp->h_u.tcp_ip4_spec.ip4dst =
--		cpu_to_be32(fsp->h_u.tcp_ip4_spec.ip4dst);
--	fsp->m_u.tcp_ip4_spec.ip4dst =
--		cpu_to_be32(fsp->m_u.tcp_ip4_spec.ip4dst);
-+	tmp = (tp->key[3] & TCAM_V4KEY3_SADDR) >> TCAM_V4KEY3_SADDR_SHIFT;
-+	fsp->h_u.tcp_ip4_spec.ip4src = cpu_to_be32(tmp);
-+
-+	tmp = (tp->key[3] & TCAM_V4KEY3_DADDR) >> TCAM_V4KEY3_DADDR_SHIFT;
-+	fsp->h_u.tcp_ip4_spec.ip4dst = cpu_to_be32(tmp);
-+
-+	tmp = (tp->key_mask[3] & TCAM_V4KEY3_SADDR) >> TCAM_V4KEY3_SADDR_SHIFT;
-+	fsp->m_u.tcp_ip4_spec.ip4src = cpu_to_be32(tmp);
-+
-+	tmp = (tp->key_mask[3] & TCAM_V4KEY3_DADDR) >> TCAM_V4KEY3_DADDR_SHIFT;
-+	fsp->m_u.tcp_ip4_spec.ip4dst = cpu_to_be32(tmp);
- 
- 	fsp->h_u.tcp_ip4_spec.tos = (tp->key[2] & TCAM_V4KEY2_TOS) >>
- 		TCAM_V4KEY2_TOS_SHIFT;
-@@ -7118,54 +7114,40 @@ static void niu_get_ip4fs_from_tcam_key(struct niu_tcam_entry *tp,
- 	case TCP_V4_FLOW:
- 	case UDP_V4_FLOW:
- 	case SCTP_V4_FLOW:
--		fsp->h_u.tcp_ip4_spec.psrc =
--			((tp->key[2] & TCAM_V4KEY2_PORT_SPI) >>
--			 TCAM_V4KEY2_PORT_SPI_SHIFT) >> 16;
--		fsp->h_u.tcp_ip4_spec.pdst =
--			((tp->key[2] & TCAM_V4KEY2_PORT_SPI) >>
--			 TCAM_V4KEY2_PORT_SPI_SHIFT) & 0xffff;
--		fsp->m_u.tcp_ip4_spec.psrc =
--			((tp->key_mask[2] & TCAM_V4KEY2_PORT_SPI) >>
--			 TCAM_V4KEY2_PORT_SPI_SHIFT) >> 16;
--		fsp->m_u.tcp_ip4_spec.pdst =
--			((tp->key_mask[2] & TCAM_V4KEY2_PORT_SPI) >>
--			 TCAM_V4KEY2_PORT_SPI_SHIFT) & 0xffff;
-+		prt = ((tp->key[2] & TCAM_V4KEY2_PORT_SPI) >>
-+			TCAM_V4KEY2_PORT_SPI_SHIFT) >> 16;
-+		fsp->h_u.tcp_ip4_spec.psrc = cpu_to_be16(prt);
-+
-+		prt = ((tp->key[2] & TCAM_V4KEY2_PORT_SPI) >>
-+			TCAM_V4KEY2_PORT_SPI_SHIFT) & 0xffff;
-+		fsp->h_u.tcp_ip4_spec.pdst = cpu_to_be16(prt);
- 
--		fsp->h_u.tcp_ip4_spec.psrc =
--			cpu_to_be16(fsp->h_u.tcp_ip4_spec.psrc);
--		fsp->h_u.tcp_ip4_spec.pdst =
--			cpu_to_be16(fsp->h_u.tcp_ip4_spec.pdst);
--		fsp->m_u.tcp_ip4_spec.psrc =
--			cpu_to_be16(fsp->m_u.tcp_ip4_spec.psrc);
--		fsp->m_u.tcp_ip4_spec.pdst =
--			cpu_to_be16(fsp->m_u.tcp_ip4_spec.pdst);
-+		prt = ((tp->key_mask[2] & TCAM_V4KEY2_PORT_SPI) >>
-+			TCAM_V4KEY2_PORT_SPI_SHIFT) >> 16;
-+		fsp->m_u.tcp_ip4_spec.psrc = cpu_to_be16(prt);
-+
-+		prt = ((tp->key_mask[2] & TCAM_V4KEY2_PORT_SPI) >>
-+			 TCAM_V4KEY2_PORT_SPI_SHIFT) & 0xffff;
-+		fsp->m_u.tcp_ip4_spec.pdst = cpu_to_be16(prt);
- 		break;
- 	case AH_V4_FLOW:
- 	case ESP_V4_FLOW:
--		fsp->h_u.ah_ip4_spec.spi =
--			(tp->key[2] & TCAM_V4KEY2_PORT_SPI) >>
--			TCAM_V4KEY2_PORT_SPI_SHIFT;
--		fsp->m_u.ah_ip4_spec.spi =
--			(tp->key_mask[2] & TCAM_V4KEY2_PORT_SPI) >>
-+		tmp = (tp->key[2] & TCAM_V4KEY2_PORT_SPI) >>
- 			TCAM_V4KEY2_PORT_SPI_SHIFT;
-+		fsp->h_u.ah_ip4_spec.spi = cpu_to_be32(tmp);
- 
--		fsp->h_u.ah_ip4_spec.spi =
--			cpu_to_be32(fsp->h_u.ah_ip4_spec.spi);
--		fsp->m_u.ah_ip4_spec.spi =
--			cpu_to_be32(fsp->m_u.ah_ip4_spec.spi);
-+		tmp = (tp->key_mask[2] & TCAM_V4KEY2_PORT_SPI) >>
-+			TCAM_V4KEY2_PORT_SPI_SHIFT;
-+		fsp->m_u.ah_ip4_spec.spi = cpu_to_be32(tmp);
- 		break;
- 	case IP_USER_FLOW:
--		fsp->h_u.usr_ip4_spec.l4_4_bytes =
--			(tp->key[2] & TCAM_V4KEY2_PORT_SPI) >>
--			TCAM_V4KEY2_PORT_SPI_SHIFT;
--		fsp->m_u.usr_ip4_spec.l4_4_bytes =
--			(tp->key_mask[2] & TCAM_V4KEY2_PORT_SPI) >>
-+		tmp = (tp->key[2] & TCAM_V4KEY2_PORT_SPI) >>
- 			TCAM_V4KEY2_PORT_SPI_SHIFT;
-+		fsp->h_u.usr_ip4_spec.l4_4_bytes = cpu_to_be32(tmp);
- 
--		fsp->h_u.usr_ip4_spec.l4_4_bytes =
--			cpu_to_be32(fsp->h_u.usr_ip4_spec.l4_4_bytes);
--		fsp->m_u.usr_ip4_spec.l4_4_bytes =
--			cpu_to_be32(fsp->m_u.usr_ip4_spec.l4_4_bytes);
-+		tmp = (tp->key_mask[2] & TCAM_V4KEY2_PORT_SPI) >>
-+			TCAM_V4KEY2_PORT_SPI_SHIFT;
-+		fsp->m_u.usr_ip4_spec.l4_4_bytes = cpu_to_be32(tmp);
- 
- 		fsp->h_u.usr_ip4_spec.proto =
- 			(tp->key[2] & TCAM_V4KEY2_PROTO) >>
--- 
-1.7.1
+	void rt_cache_flush(struct net *net, int delay)
+	{
+		rt_cache_invalidate();
+		if (delay >= 0)
+			rt_do_flush(!in_softirq());
+	}
+	
+	/* Strictly speaking rt_is_expired was just open coded in
+	 * rt_check_expire. But this is the check that was used.
+	 */
+	static inline int rt_is_expired(struct rtable *rth)
+	{
+		return rth->rt_genid != atomic_read(&rt_genid);
+	}
+	
+	static void rt_cache_invalidate(void)
+	{
+	        unsigned char shuffle;
+	 
+		get_random_bytes(&shuffle, sizeof(shuffle));
+		atomic_add(shuffle + 1U, &rt_genid);
+	}
+	
+	static void rt_do_flush(int process_context)
+	{
+	        unsigned int i;
+	        struct rtable *rth, *next;
+	
+	        for (i = 0; i <= rt_hash_mask; i++) {
+			if (process_context && need_resched())
+				cond_resched();
+			rth = rt_hash_table[i].chain;
+			if (!rth)
+				continue;
+			
+			spin_lock_bh(rt_hash_lock_addr(i));
+			rth = rt_hash_table[i].chain;
+			rt_hash_table[i].chain = NULL;
+			tail = NULL;
+			spin_unlock_bh(rt_hash_lock_addr(i));
+			
+			for(; rth != tail; rth = next)
+			{
+				next = rth->dst.rt_next;
+				rt_free(rth);
+			}
+		}
+	}
+
+Because of the rt_cache_invalidate() in rt_cache_flush() this
+guaranteed that rt_is_expired() was true for every route cache entry,
+and this also guaranteed that every routing cache entry we were flush
+atomically became inaccessible.
+
+So rt_is_expired() has always been valid, but in practice it was just
+always optimized out as being redundant.
+
+With the network namespace support we limit the scope of the test of
+the invalidate to just a single network namespace, and as such
+rt_is_expired stops being true for every cache entry.  So we cannot
+unconditionally throw away entire chains.
+
+All of which can be either done by network namespace equality or by
+rt_is_expired().  Although Denis picked rt_is_expired() when he made
+his change.
+
+The only place it makes a noticable difference in practice is what
+happens when we do batched deleletes of lots of network devices in
+different network namespaces.
+
+During batched network device deletes in fib_netdev_event we do
+rt_cache_flush(dev_net(dev), -1) for each network device.  and then a
+final rt_cache_flush_batch() to remove the invalidated entries.  These
+devices can be from multiple network namespaces, so I suspect that is
+a savings worth having.
+
+So if we are going to change the tests we need to do something with
+rt_cache_flush_batch().  Further I do not see what is confusing about
+a test that asks if the routing cache entry is unusable.  Is
+rt_cache_expired() a bad name?
+
+Eric
 
