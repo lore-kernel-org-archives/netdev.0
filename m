@@ -1,22 +1,18 @@
 From: "Gerd v. Egidy" <lists@egidy.de>
 Subject: -j MARK in raw vs. mangle (was Re: xfrm by MARK: tcp problems when mark for in and out differ)
-Date: Thu, 14 Oct 2010 16:14:12 +0200
-Message-ID: <201010141614.12940.lists@egidy.de>
-References: <201010131557.06588.lists@egidy.de> <201010141501.59145.lists@egidy.de> <1287062098.3756.9.camel@bigi>
+Date: Thu, 14 Oct 2010 16:16:58 +0200
+Message-ID: <201010141616.58795.lists@egidy.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain;
   charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Netfilter Development Mailinglist
-	<netfilter-devel@lists.netfilter.org>
-To: hadi@cyberus.ca
+Cc: netdev@vger.kernel.org
+To: hadi@cyberus.ca, netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from re01.intra2net.com ([82.165.28.202]:43147 "EHLO
-	re01.intra2net.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754790Ab0JNOOW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Oct 2010 10:14:22 -0400
-In-Reply-To: <1287062098.3756.9.camel@bigi>
+Received: from rs02.intra2net.com ([81.169.173.116]:45643 "EHLO
+	rs02.intra2net.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753747Ab0JNORJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Oct 2010 10:17:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -59,6 +55,9 @@ supported or has known deficiencies?
 Kind regards,
 
 Gerd
+
+PS: sorry for the double post, had an old netfilter-devel address in my 
+mailer.
 
 -- 
 Address (better: trap) for people I really don't want to get mail from:
