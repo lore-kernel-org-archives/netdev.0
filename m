@@ -1,139 +1,110 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH net-next] tipc: cleanup function namespace
-Date: Thu, 14 Oct 2010 15:13:33 -0700
-Message-ID: <20101014151333.1446a90c@nehalam>
-References: <1286929558-2954-5-git-send-email-paul.gortmaker@windriver.com>
-	<20101013162652.GF31379@hmsreliant.think-freely.org>
-	<4CB5E79B.4060507@windriver.com>
-	<20101013.142834.226768662.davem@davemloft.net>
-	<20101013162035.0c2e8123@nehalam>
-	<4CB64D7C.1080004@windriver.com>
-	<20101014012951.GA2186@localhost.localdomain>
-	<4CB74391.9020400@windriver.com>
-	<20101014113320.7720828f@nehalam>
-	<20101014214426.GA9236@windriver.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [RFC PATCH net-next] drivers/net Documentation/networking:
+ Create directory intel_wired_lan
+Date: Thu, 14 Oct 2010 15:20:38 -0700
+Message-ID: <1287094838.8235.32.camel@jtkirshe-MOBL1>
+References: <1286743352.11039.165.camel@Joe-Laptop>
+	 <AANLkTikVKufQRuMGd=cdig7ff4k2aw9Q1FWwMz3pgon-@mail.gmail.com>
+	 <1286841648.26045.17.camel@Joe-Laptop>
+	 <1287008906.1117.428.camel@Joe-Laptop>
+	 <1287032255.4113.14.camel@jtkirshe-MOBL1>
+	 <1287035857.1117.528.camel@Joe-Laptop>
+	 <1287048849.3319.20.camel@jtkirshe-MOBL1>
+	 <1287084643.1117.602.camel@Joe-Laptop>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	allan.stephens@windriver.com, Jon Maloy <jon.maloy@ericsson.com>
-To: Paul Gortmaker <paul.gortmaker@windriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:49802 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756130Ab0JNWNi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Oct 2010 18:13:38 -0400
-In-Reply-To: <20101014214426.GA9236@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-B22xvyGqAD1NvT+4/x4f"
+Cc: Michal Marek <mmarek@suse.cz>, Sam Ravnborg <sam@ravnborg.org>,
+	"linux-kbuild@vger.kernel.org" <linux-kbuild@vger.kernel.org>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Rose, Gregory V" <gregory.v.rose@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	e1000-devel <e1000-devel@lists.sourceforge.net>
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1287084643.1117.602.camel@Joe-Laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 14 Oct 2010 17:44:27 -0400
-Paul Gortmaker <paul.gortmaker@windriver.com> wrote:
 
-> [Re: [PATCH net-next] tipc: cleanup function namespace] On 14/10/2010 (Thu 11:33) Stephen Hemminger wrote:
-> 
-> > On Thu, 14 Oct 2010 13:53:21 -0400
-> > Paul Gortmaker <paul.gortmaker@windriver.com> wrote:
-> > 
-> > > On 10-10-13 09:29 PM, Neil Horman wrote:
-> > > > On Wed, Oct 13, 2010 at 08:23:24PM -0400, Paul Gortmaker wrote:
-> > > >> On 10-10-13 07:20 PM, Stephen Hemminger wrote:
-> > > >>> Do some cleanups of TIPC based on make namespacecheck
-> > > >>>     1. Don't export unused symbols
-> > > >>>     2. Eliminate dead code
-> > > >>>     3. Make functions and variables local
-> > > >>>     4. Rename buf_acquire to tipc_buf_acquire since it is used in several files
-> > > >>>
-> > > >>> Compile tested only.
-> > > >>> This make break out of tree kernel modules that depend on TIPC routines.
-> > > >>
-> > > >> Hi Stephen,
-> > > >>
-> > > >> When I first started looking at TIPC code, I too came to the
-> > > >> same conclusion as you did and was about to do #1,2,3 -- but
-> > > >> then I was told that the exported symbols were part of an API
-> > > >> and might be in use by folks here and there as per this thread:
-> > > >>
-> > > >> http://www.mail-archive.com/netdev@vger.kernel.org/msg30208.html
-> > > >>
-> > > > I think its telling the the argument in the above thread for keeping the API
-> > > > were that users of it were out there and 'likely to contribute' in the future.
-> > > > That thread was 3 years ago.  They might be using the API from outside the
-> > > > kernel tree, but they're not planning on contributing.  As Christoph noted,
-> > > > they're freeloaders.  The community really doesn't need or want to maintain an
-> > > > API like that.  If these users are your customers, and removing the API is
-> > > > unacceptable, perhaps its time to move the entire TIPC module out of tree.
-> > > 
-> > > As I'd said -- I don't know what the use cases of these API users are,
-> > > and so as far as I know they aren't customers either.  For what it is
-> > > worth, know that I personally wouldn't try and use a business case to
-> > > justify a technically wrong decision here on netdev anyway.
-> > > 
-> > > I was just describing the history of the situation, and suggesting
-> > > one possible slower approach of phasing it out as a courtesy to those
-> > > users, in the same way that the kernel community has extended that
-> > > same courtesy with other things in feature-removal.txt
-> > > 
-> > > In the end, since Jon is OK with the removal, and is in the process of
-> > > communicating this to the API users he is aware of, I sure don't have
-> > > any reason to try and save the API.  If folks are good with having it
-> > > just go away overnight, then great -- I'll be just as happy to see it
-> > > disappear as you and Stephen.  So, a long winded way of saying...
-> > > 
-> > > Acked-by: Paul Gortmaker <paul.gortmaker@windriver.com>
-> > 
-> > How about putting an entry in feature-removal.txt with a short (6 month)
-> > window?
-> 
-> I'm fine with that too.
-> 
-> P.
-> 
-> From 5a15a26de63a29fcb6cb7a7fb83b6d2fc63cbadb Mon Sep 17 00:00:00 2001
-> From: Paul Gortmaker <paul.gortmaker@windriver.com>
-> Date: Thu, 14 Oct 2010 17:29:08 -0400
-> Subject: [PATCH] TIPC: Document the demise of the Native API for March 2011
-> 
-> The native API in the TIPC code exists as a bunch of functions
-> and exported symbols that aren't actually used by any currently
-> in-tree kernel code/modules.
-> 
-> Since this code is anomalous to the general guiding principle that
-> the kernel should not be libc, coverage tools and people intending
-> to do general cleanups keep finding this code and suggesting that
-> it be removed.
-> 
-> It seems the right thing to do is to just finally delete it once
-> and for all, after giving a reasonable window for any existing
-> users to find alternative solutions to their custom use case(s).
-> 
-> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
-> ---
->  Documentation/feature-removal-schedule.txt |   12 ++++++++++++
->  1 files changed, 12 insertions(+), 0 deletions(-)
-> 
-> diff --git a/Documentation/feature-removal-schedule.txt b/Documentation/feature-removal-schedule.txt
-> index f456389..1def37e 100644
-> --- a/Documentation/feature-removal-schedule.txt
-> +++ b/Documentation/feature-removal-schedule.txt
-> @@ -573,3 +573,15 @@ Why:	Hareware scan is the prefer method for iwlwifi devices for
->  Who:	Wey-Yi Guy <wey-yi.w.guy@intel.com>
->  
->  ----------------------------
-> +
-> +What:	TIPC: Delete all code and exported symbols specific to Native API
-> +When:	March 2011
-> +Why:	The TIPC Native API, as described here:
-> +	http://tipc.sourceforge.net/doc/tipc_1.7_prog_guide.html#native_api
-> +	is implemented by exporting a bunch of otherwise unused functions
-> +	for possible modular linkage by custom end-user code.  This goes
-> +	against the general concept that the kernel should not be libc.
-> +
-> +Who:	Paul Gortmaker <paul.gortmaker@windriver.com>
-> +	
-> +----------------------------
+--=-B22xvyGqAD1NvT+4/x4f
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+On Thu, 2010-10-14 at 12:30 -0700, Joe Perches wrote:
+> On Thu, 2010-10-14 at 02:34 -0700, Jeff Kirsher wrote:
+> > On Wed, 2010-10-13 at 22:57 -0700, Joe Perches wrote:
+> > > On Wed, 2010-10-13 at 21:57 -0700, Jeff Kirsher wrote:
+> > > > On Wed, 2010-10-13 at 15:28 -0700, Joe Perches wrote:
+> > > > Sorry I am not ignoring you, I was taking a closer look at your pat=
+ch.
+> > > > > What regression testing would actually be done?
+> > > > The Makefile and Kconfig needs more work.  I applied your patch and=
+ none
+> > > > of the Intel Wired drivers build.
+> > > Care to describe the Makefile/Kconfig issues you have seen?
+> > > I built it allyesconfig, defconfig, allmodconfig and allnoconfig.
+> > Yeah, I found all of those built without errors, but if you build the
+> > Intel Wired LAN drivers as modules, you will not find the *.ko files
+> > after the build.  The Kconfig files look fine, the problem was with the
+> > Makefiles.  Instead of creating a drivers/net/intel_wired_lan/Makefile,
+> > I simply changed the path in drivers/net/Makefile to the updated path
+> > and that resolved the issue.
+>=20
+> (adding a few cc's and a link for history)
+>=20
+> http://lkml.org/lkml/2010/10/10/207
+>=20
+> That's the way I had done it originally as well, but I found
+> you couldn't build the directory with:
+>=20
+> 	make drivers/net/intel_wired_lan/
+>=20
+> so I created a Makefile in the new directory below with
+> the elements necessary.
+>=20
+> Perhaps there's some missing functionality in the build system
+> when the Kconfig file resides in a higher directory and the
+> directory being built doesn't have a Kconfig file?
+>=20
+> I think it'd wrong to duplicate the makefile components in
+> 2 places to allow "make subdir/" and I wonder if there's a
+> good solution for this.
+>=20
+> > As far as the sub-directory name "intel_wired_lan", what about "intel"
+> > or "intel_wired"?  Just a thought...
+>=20
+> Using "intel" seemed too sweeping because of the wireless drivers.
+> I think intel_wired_lan isn't overly long, but your choice...
+>=20
+> Should the new (OKI?/intel) pch_gbe directory be moved as well?
+> It's using a PCI_VENDOR_ID_INTEL.
+>=20
+>=20
 
--- 
+No, the pch_gbe is not our driver.
+
+--=-B22xvyGqAD1NvT+4/x4f
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iQEcBAABAgAGBQJMt4I1AAoJECTsCADr/EWU2oYIAI/6FT0RFq/UrjAypW2l5WjU
+cOyHiPHau7NTorQ8OFU1Ac1vjNbheLxK8CDa8jbBn9oNfssu1pq6tmv3cFmtK0qr
+Dh+8IWYwBWIYhV0KOEBIlb60sI3ef3kgTR/tX6iVGBuSD4udOgMYhkqGHl3p869a
+IRQbRpHa1M8LADUYkd4c8xZXmL8YLPZGpnyLlndgqEwyLytBnxp89mZeDu13lbBE
+TzCXI9f4d6g+b9+qfZ8G1wM8wFeHPKBd/cqHOl/1ExsxYYNugb8uOdKV0rhU3uwX
+bp/HKtLwNi7EBBwqejS44fhz1p6iG4IpaIkvZpMQlSUNcVMMizp7/mv8v2pg310=
+=wjiw
+-----END PGP SIGNATURE-----
+
+--=-B22xvyGqAD1NvT+4/x4f--
