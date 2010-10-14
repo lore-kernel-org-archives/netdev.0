@@ -1,26 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/8 net-next] cnic: Bug fixes and 57712 support
-Date: Thu, 14 Oct 2010 10:46:44 -0700 (PDT)
-Message-ID: <20101014.104644.226766444.davem@davemloft.net>
-References: <1287014811-10979-1-git-send-email-mchan@broadcom.com>
+Subject: Re: [net-next-2.6 PATCH 1/2] ixgbe: remove unused functions
+Date: Thu, 14 Oct 2010 10:49:59 -0700 (PDT)
+Message-ID: <20101014.104959.71124768.davem@davemloft.net>
+References: <20101013081759.24491.46846.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mchan@broadcom.com
+Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
+	shemminger@vyatta.com, emil.s.tantilov@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41979
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41987
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755774Ab0JNRqX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Oct 2010 13:46:23 -0400
-In-Reply-To: <1287014811-10979-1-git-send-email-mchan@broadcom.com>
+	by vger.kernel.org with ESMTP id S1755378Ab0JNRth (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Oct 2010 13:49:37 -0400
+In-Reply-To: <20101013081759.24491.46846.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Wed, 13 Oct 2010 17:06:43 -0700
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Wed, 13 Oct 2010 01:20:34 -0700
 
+> From: Emil Tantilov <emil.s.tantilov@intel.com>
 > 
-> David, please consider applying these patches to net-next.
+> Remove functions that are declared, but not used in the driver.
+> This patch fixes warnings reported by `make namespacecheck`
+> 
+> Reported by Stephen Hemminger
+> 
+> CC: Stephen Hemminger <shemminger@vyatta.com>
+> Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+> Tested-by: Stephen Ko <stephen.s.ko@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Looks good, applied, thanks.
+Applied.
