@@ -1,46 +1,80 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] fib_hash: embed initial hash table in fn_zone
-Date: Thu, 14 Oct 2010 21:22:39 +0200
-Message-ID: <1287084159.2659.0.camel@edumazet-laptop>
-References: <1287073458.2712.100.camel@edumazet-laptop>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [RFC PATCH net-next] drivers/net Documentation/networking:
+ Create directory intel_wired_lan
+Date: Thu, 14 Oct 2010 12:30:43 -0700
+Message-ID: <1287084643.1117.602.camel@Joe-Laptop>
+References: <1286743352.11039.165.camel@Joe-Laptop>
+	 <AANLkTikVKufQRuMGd=cdig7ff4k2aw9Q1FWwMz3pgon-@mail.gmail.com>
+	 <1286841648.26045.17.camel@Joe-Laptop>
+	 <1287008906.1117.428.camel@Joe-Laptop>
+	 <1287032255.4113.14.camel@jtkirshe-MOBL1>
+	 <1287035857.1117.528.camel@Joe-Laptop>
+	 <1287048849.3319.20.camel@jtkirshe-MOBL1>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:64543 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754434Ab0JNT37 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Oct 2010 15:29:59 -0400
-Received: by wwj40 with SMTP id 40so17489wwj.1
-        for <netdev@vger.kernel.org>; Thu, 14 Oct 2010 12:29:58 -0700 (PDT)
-In-Reply-To: <1287073458.2712.100.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Rose, Gregory V" <gregory.v.rose@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	e1000-devel <e1000-devel@lists.sourceforge.net>
+To: jeffrey.t.kirsher@intel.com, Michal Marek <mmarek@suse.cz>,
+	Sam Ravnborg <sam@ravnborg.org>, linux-kbuild@vger.kernel.org
+Return-path: <linux-kbuild-owner@vger.kernel.org>
+In-Reply-To: <1287048849.3319.20.camel@jtkirshe-MOBL1>
+Sender: linux-kbuild-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le jeudi 14 octobre 2010 =C3=A0 18:24 +0200, Eric Dumazet a =C3=A9crit =
-:
-> While looking for false sharing problems, I noticed=20
-> sizeof(struct fn_zone) was small (28 bytes) and possibly sharing a ca=
-che
-> line with an often written kernel structure.
->=20
-> Most of the time, fn_zone uses its initial hash table of 16 slots.
->=20
-> We can avoid the false sharing problem by embedding this initial hash
-> table in fn_zone itself, so that sizeof(fn_zone) > L1_CACHE_BYTES
->=20
-> We did a similar optimization in commit a6501e080c (Reduce memory nee=
-ds
-> and speedup lookups)
->=20
-> Add a fz_revorder field to speedup fn_hash() a bit.
->=20
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+On Thu, 2010-10-14 at 02:34 -0700, Jeff Kirsher wrote:
+> On Wed, 2010-10-13 at 22:57 -0700, Joe Perches wrote:
+> > On Wed, 2010-10-13 at 21:57 -0700, Jeff Kirsher wrote:
+> > > On Wed, 2010-10-13 at 15:28 -0700, Joe Perches wrote:
+> > > Sorry I am not ignoring you, I was taking a closer look at your patch.
+> > > > What regression testing would actually be done?
+> > > The Makefile and Kconfig needs more work.  I applied your patch and none
+> > > of the Intel Wired drivers build.
+> > Care to describe the Makefile/Kconfig issues you have seen?
+> > I built it allyesconfig, defconfig, allmodconfig and allnoconfig.
+> Yeah, I found all of those built without errors, but if you build the
+> Intel Wired LAN drivers as modules, you will not find the *.ko files
+> after the build.  The Kconfig files look fine, the problem was with the
+> Makefiles.  Instead of creating a drivers/net/intel_wired_lan/Makefile,
+> I simply changed the path in drivers/net/Makefile to the updated path
+> and that resolved the issue.
 
-Oops, a last minute change was wrong, I'll resend a V2.
+(adding a few cc's and a link for history)
 
-Thanks
+http://lkml.org/lkml/2010/10/10/207
+
+That's the way I had done it originally as well, but I found
+you couldn't build the directory with:
+
+	make drivers/net/intel_wired_lan/
+
+so I created a Makefile in the new directory below with
+the elements necessary.
+
+Perhaps there's some missing functionality in the build system
+when the Kconfig file resides in a higher directory and the
+directory being built doesn't have a Kconfig file?
+
+I think it'd wrong to duplicate the makefile components in
+2 places to allow "make subdir/" and I wonder if there's a
+good solution for this.
+
+> As far as the sub-directory name "intel_wired_lan", what about "intel"
+> or "intel_wired"?  Just a thought...
+
+Using "intel" seemed too sweeping because of the wireless drivers.
+I think intel_wired_lan isn't overly long, but your choice...
+
+Should the new (OKI?/intel) pch_gbe directory be moved as well?
+It's using a PCI_VENDOR_ID_INTEL.
 
 
