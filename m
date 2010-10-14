@@ -1,38 +1,64 @@
-From: "Octavian Purdila" <opurdila@ixiacom.com>
-Subject: Re: BUG ? ipip unregister_netdevice_many()
-Date: Thu, 14 Oct 2010 22:21:02 +0300
-Message-ID: <1287084062.1601.36.camel@Nokia-N900-42-11>
-Reply-To: <opurdila@ixiacom.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH net-next] net: allocate skbs on local node
+Date: Thu, 14 Oct 2010 12:27:52 -0700
+Message-ID: <20101014122752.21dd4eaf.akpm@linux-foundation.org>
+References: <1286838210.30423.128.camel@edumazet-laptop>
+	<1286839363.30423.130.camel@edumazet-laptop>
+	<1286859925.30423.184.camel@edumazet-laptop>
+	<20101011230322.f0f6dd47.akpm@linux-foundation.org>
+	<AANLkTin8FczYpPvi79w7iuKOZz3uZtYFfTPitAgQFxzD@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <hans.schillstrom@ericsson.com>, <daniel.lezcano@free.fr>,
-	<netdev@vger.kernel.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>,
-	"David Miller" <davem@davemloft.net>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Michael Chan <mchan@broadcom.com>,
+	Eilon Greenstein <eilong@broadcom.com>,
+	Christoph Hellwig <hch@lst.de>,
+	Christoph Lameter <cl@linux-foundation.org>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:23918 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752167Ab0JNTU7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Oct 2010 15:20:59 -0400
-Content-ID: <1287084061.1601.35.camel@Nokia-N900-42-11>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:35482 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753146Ab0JNT2h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Oct 2010 15:28:37 -0400
+In-Reply-To: <AANLkTin8FczYpPvi79w7iuKOZz3uZtYFfTPitAgQFxzD@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, 14 Oct 2010 08:31:01 -0700
+Tom Herbert <therbert@google.com> wrote:
 
-> > How can it make a real difference even in this case? We'll obliterate
-> > all the entries, and then on subsequent passes we'll find nothing
-> > matching that namespace any more.
-> > 
-> > Show me performance tests that show it makes any difference, please.
+> > This is all conspicuously hand-wavy and unquantified. __(IOW: prove it!)
+> >
+> > The mooted effects should be tested for on both slab and slub, I
+> > suggest. __They're pretty different beasts.
+> > --
 > 
-> Octavian did you happen to measure the performance difference when you
-> added batching of routing table flushes?
+> Some results running netper TCP_RR test with 200 instances, 1 byte
+> request and response on 16 core AMD using bnx2x with one 16 queues,
+> one for each CPU.
+> 
+> SLAB
+> 
+> Without patch 553570 tps at 86% CPU
+> With patch 791883 tps at 93% CPU
+> 
+> SLUB
+> 
+> Without patch 704879 tps at 95% CPU
+> With patch 775278 tps at 92% CPU
+> 
+> I believe both show good benfits with patch, and it actually looks
+> like the impact is more pronounced for SLAB.  I would also note, that
+> we have actually already internally patched __netdev_alloc_skb to do
+> local node allocation which we have been running in production for
+> quite some time.
 > 
 
-Unfortunatelly I dont't have the numbers anymore, but I remember it was noticeable when using a large number of interfaces (10K) - if I remember correctly around 1 second out of 10 for the whole unregister process.
+Yes, that's a solid gain.
 
-BTW, another bottleneck for mass unregister while interfaces are up is dev_deactivate / dev_close. I experimented with "batchifying" it and for 32K interfaces the time went down from 5mins to 30s.
+Can we think of any hardware configuration for which the change would
+be harmful?  Something with really expensive cross-node DMA maybe?
 
-The patch I have is not pretty, it basically creates another 2 functions for each of dev_close and dev_deactivate for pre and post synchronise_rcu barrier.
