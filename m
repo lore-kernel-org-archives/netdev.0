@@ -1,80 +1,66 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [RFC PATCH net-next] drivers/net Documentation/networking:
- Create directory intel_wired_lan
-Date: Thu, 14 Oct 2010 12:30:43 -0700
-Message-ID: <1287084643.1117.602.camel@Joe-Laptop>
-References: <1286743352.11039.165.camel@Joe-Laptop>
-	 <AANLkTikVKufQRuMGd=cdig7ff4k2aw9Q1FWwMz3pgon-@mail.gmail.com>
-	 <1286841648.26045.17.camel@Joe-Laptop>
-	 <1287008906.1117.428.camel@Joe-Laptop>
-	 <1287032255.4113.14.camel@jtkirshe-MOBL1>
-	 <1287035857.1117.528.camel@Joe-Laptop>
-	 <1287048849.3319.20.camel@jtkirshe-MOBL1>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: RE: [PATCH net-next] tipc: cleanup function namespace
+Date: Thu, 14 Oct 2010 15:49:52 -0400
+Message-ID: <0434463FDA60A94FA978ACA44617682DEE845A60EE@EUSAACMS0702.eamcs.ericsson.se>
+References: <1286929558-2954-5-git-send-email-paul.gortmaker@windriver.com>
+	<20101013162652.GF31379@hmsreliant.think-freely.org>
+	<4CB5E79B.4060507@windriver.com>
+	<20101013.142834.226768662.davem@davemloft.net>
+	<20101013162035.0c2e8123@nehalam>	<4CB64D7C.1080004@windriver.com>
+	<20101014012951.GA2186@localhost.localdomain>
+	<4CB74391.9020400@windriver.com> <20101014113320.7720828f@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"Rose, Gregory V" <gregory.v.rose@intel.com>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	David Miller <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	e1000-devel <e1000-devel@lists.sourceforge.net>
-To: jeffrey.t.kirsher@intel.com, Michal Marek <mmarek@suse.cz>,
-	Sam Ravnborg <sam@ravnborg.org>, linux-kbuild@vger.kernel.org
-Return-path: <linux-kbuild-owner@vger.kernel.org>
-In-Reply-To: <1287048849.3319.20.camel@jtkirshe-MOBL1>
-Sender: linux-kbuild-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-On Thu, 2010-10-14 at 02:34 -0700, Jeff Kirsher wrote:
-> On Wed, 2010-10-13 at 22:57 -0700, Joe Perches wrote:
-> > On Wed, 2010-10-13 at 21:57 -0700, Jeff Kirsher wrote:
-> > > On Wed, 2010-10-13 at 15:28 -0700, Joe Perches wrote:
-> > > Sorry I am not ignoring you, I was taking a closer look at your patch.
-> > > > What regression testing would actually be done?
-> > > The Makefile and Kconfig needs more work.  I applied your patch and none
-> > > of the Intel Wired drivers build.
-> > Care to describe the Makefile/Kconfig issues you have seen?
-> > I built it allyesconfig, defconfig, allmodconfig and allnoconfig.
-> Yeah, I found all of those built without errors, but if you build the
-> Intel Wired LAN drivers as modules, you will not find the *.ko files
-> after the build.  The Kconfig files look fine, the problem was with the
-> Makefiles.  Instead of creating a drivers/net/intel_wired_lan/Makefile,
-> I simply changed the path in drivers/net/Makefile to the updated path
-> and that resolved the issue.
-
-(adding a few cc's and a link for history)
-
-http://lkml.org/lkml/2010/10/10/207
-
-That's the way I had done it originally as well, but I found
-you couldn't build the directory with:
-
-	make drivers/net/intel_wired_lan/
-
-so I created a Makefile in the new directory below with
-the elements necessary.
-
-Perhaps there's some missing functionality in the build system
-when the Kconfig file resides in a higher directory and the
-directory being built doesn't have a Kconfig file?
-
-I think it'd wrong to duplicate the makefile components in
-2 places to allow "make subdir/" and I wonder if there's a
-good solution for this.
-
-> As far as the sub-directory name "intel_wired_lan", what about "intel"
-> or "intel_wired"?  Just a thought...
-
-Using "intel" seemed too sweeping because of the wireless drivers.
-I think intel_wired_lan isn't overly long, but your choice...
-
-Should the new (OKI?/intel) pch_gbe directory be moved as well?
-It's using a PCI_VENDOR_ID_INTEL.
+	"allan.stephens@windriver.com" <allan.stephens@windriver.com>
+To: Stephen Hemminger <shemminger@vyatta.com>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from imr4.ericy.com ([198.24.6.8]:37837 "EHLO imr4.ericy.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755262Ab0JNTuK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Oct 2010 15:50:10 -0400
+In-Reply-To: <20101014113320.7720828f@nehalam>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
+<...> 
+> > justify a technically wrong decision here on netdev anyway.
+> > 
+> > I was just describing the history of the situation, and 
+> suggesting one 
+> > possible slower approach of phasing it out as a courtesy to those 
+> > users, in the same way that the kernel community has extended that 
+> > same courtesy with other things in feature-removal.txt
+> > 
+> > In the end, since Jon is OK with the removal, and is in the 
+> process of 
+> > communicating this to the API users he is aware of, I sure 
+> don't have 
+> > any reason to try and save the API.  If folks are good with 
+> having it 
+> > just go away overnight, then great -- I'll be just as happy 
+> to see it 
+> > disappear as you and Stephen.  So, a long winded way of saying...
+> > 
+> > Acked-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+> 
+> How about putting an entry in feature-removal.txt with a 
+> short (6 month) window?
+
+I think that is a very good idea. That would give the users a reasonable time
+to find other solutions.
+
+> 
+> 
+> --
+> --
+> To unsubscribe from this list: send the line "unsubscribe 
+> netdev" in the body of a message to majordomo@vger.kernel.org 
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
