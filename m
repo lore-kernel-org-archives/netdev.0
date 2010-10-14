@@ -1,56 +1,47 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [RFC PATCH net-next] drivers/net Documentation/networking:
- Create directory intel_wired_lan
-Date: Wed, 13 Oct 2010 22:57:37 -0700
-Message-ID: <1287035857.1117.528.camel@Joe-Laptop>
-References: <1286743352.11039.165.camel@Joe-Laptop>
-	 <AANLkTikVKufQRuMGd=cdig7ff4k2aw9Q1FWwMz3pgon-@mail.gmail.com>
-	 <1286841648.26045.17.camel@Joe-Laptop>
-	 <1287008906.1117.428.camel@Joe-Laptop>
-	 <1287032255.4113.14.camel@jtkirshe-MOBL1>
+From: Pekka Enberg <penberg@cs.helsinki.fi>
+Subject: Re: [PATCH net-next] net:  allocate skbs on local node
+Date: Thu, 14 Oct 2010 09:22:35 +0300
+Message-ID: <4CB6A1AB.4030800@cs.helsinki.fi>
+References: <1286838210.30423.128.camel@edumazet-laptop> <1286839363.30423.130.camel@edumazet-laptop> <1286859925.30423.184.camel@edumazet-laptop> <20101011230322.f0f6dd47.akpm@linux-foundation.org> <1286866699.30423.234.camel@edumazet-laptop> <20101012002435.f51f2c0e.akpm@linux-foundation.org> <1286869793.2732.24.camel@edumazet-laptop> <20101012005856.994bea6d.akpm@linux-foundation.org> <4CB441CB.2000708@cs.helsinki.fi> <alpine.DEB.2.00.1010120745360.31832@router.home> <alpine.DEB.2.00.1010121234380.10165@chino.kir.corp.google.com> <alpine.DEB.2.00.1010131056180.29099@router.home> <alpine.DEB.2.00.1010131342310.15185@chino.kir.corp.google.com> <alpine.DEB.2.00.1010131642220.8351@router.home> <alpine.DEB.2.00.1010131539440.27839@chino.kir.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"Rose, Gregory V" <gregory.v.rose@intel.com>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	e1000-devel <e1000-devel@lists.sourceforge.net>
-To: jeffrey.t.kirsher@intel.com
+Cc: Christoph Lameter <cl@linux.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Michael Chan <mchan@broadcom.com>,
+	Eilon Greenstein <eilong@broadcom.com>,
+	Christoph Hellwig <hch@lst.de>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Nick Piggin <npiggin@kernel.dk>
+To: David Rientjes <rientjes@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:2962 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754709Ab0JNF5k (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Oct 2010 01:57:40 -0400
-In-Reply-To: <1287032255.4113.14.camel@jtkirshe-MOBL1>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:57315 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754702Ab0JNGWh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Oct 2010 02:22:37 -0400
+In-Reply-To: <alpine.DEB.2.00.1010131539440.27839@chino.kir.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-10-13 at 21:57 -0700, Jeff Kirsher wrote:
-> On Wed, 2010-10-13 at 15:28 -0700, Joe Perches wrote:
-> Sorry I am not ignoring you, I was taking a closer look at your patch.
-> > What regression testing would actually be done?
-> The Makefile and Kconfig needs more work.  I applied your patch and none
-> of the Intel Wired drivers build.
+On Wed, 13 Oct 2010, Christoph Lameter wrote:
+>>> I was going to mention that as an idea, but I thought storing the metadata
+>>> for certain debugging features might differ from the two allocators so
+>>> substantially that it would be even more convoluted and difficult to
+>>> maintain?
+>>
+>> We could have some callbacks to store allocator specific metadata?
 
-Care to describe the Makefile/Kconfig issues you have seen?
+On 10/14/10 1:41 AM, David Rientjes wrote:
+> It depends on whether we could share the same base for both slab (unified
+> allocator) and slub, which you snipped from your reply, that would make
+> this cleaner.
 
-I built it allyesconfig, defconfig, allmodconfig and allnoconfig.
+Argh. Why would we want to introduce something that's effectively a new 
+allocator based on SLUB? If there's something controversial in the 
+current patch series, lets just keep it out of mainline. A "rewrite" is 
+the reason we're in this mess so lets not repeat the same mistake again!
 
-Perhaps you need to use "git am foo" in a test branch instead
-of "patch -p1 < foo" ?
-
-> I am working on providing an updated RFC patch to resolve the
-> Makefile/Kconfig issues I found and few other minor issues I have
-> found. 
-
-Oh good.
-
-cheers, Joe
-
+			Pekka
