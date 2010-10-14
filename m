@@ -1,165 +1,209 @@
-From: Randy Dunlap <randy.dunlap-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] SIW: Documentation (initial)
-Date: Thu, 14 Oct 2010 15:57:03 -0700
-Message-ID: <20101014155703.3d4b5d71.randy.dunlap@oracle.com>
-References: <1286261747-5288-1-git-send-email-bmt@zurich.ibm.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [RFC PATCH 3/7] bnx2: Update bnx2 to use new vlan
+ accleration.
+Date: Thu, 14 Oct 2010 15:56:00 -0700
+Message-ID: <1287096960.14523.31.camel@nseg_linux_HP1.broadcom.com>
+References: <1287000177-7126-1-git-send-email-jesse@nicira.com>
+ <1287000177-7126-4-git-send-email-jesse@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Bernard Metzler <bmt-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1286261747-5288-1-git-send-email-bmt-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Jesse Gross" <jesse@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:2549 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753506Ab0JNW6r (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Oct 2010 18:58:47 -0400
+In-Reply-To: <1287000177-7126-4-git-send-email-jesse@nicira.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue,  5 Oct 2010 08:55:47 +0200 Bernard Metzler wrote:
 
-> ---
->  Documentation/networking/siw.txt |   91 ++++++++++++++++++++++++++++++++++++++
->  1 files changed, 91 insertions(+), 0 deletions(-)
->  create mode 100644 Documentation/networking/siw.txt
+On Wed, 2010-10-13 at 13:02 -0700, Jesse Gross wrote:
+> Make the bnx2 driver use the new vlan accleration model.
 > 
-> diff --git a/Documentation/networking/siw.txt b/Documentation/networking/siw.txt
-> new file mode 100644
-> index 0000000..f051d8b
-> --- /dev/null
-> +++ b/Documentation/networking/siw.txt
-> @@ -0,0 +1,91 @@
-> +SoftiWARP: Software iWARP kernel driver module.
+> Signed-off-by: Jesse Gross <jesse@nicira.com>
+> CC: Michael Chan <mchan@broadcom.com>
+> ---
+>  drivers/net/bnx2.c |   75 +++------------------------------------------------
+>  drivers/net/bnx2.h |    4 ---
+>  2 files changed, 5 insertions(+), 74 deletions(-)
+> 
+> diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+> index ae894bc..2d306f4 100644
+> --- a/drivers/net/bnx2.c
+> +++ b/drivers/net/bnx2.c
+> @@ -37,9 +37,6 @@
+>  #include <linux/ethtool.h>
+>  #include <linux/mii.h>
+>  #include <linux/if_vlan.h>
+> -#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
+> -#define BCM_VLAN 1
+> -#endif
+>  #include <net/ip.h>
+>  #include <net/tcp.h>
+>  #include <net/checksum.h>
+> @@ -3087,8 +3084,6 @@ bnx2_rx_int(struct bnx2 *bp, struct bnx2_napi *bnapi, int budget)
+>  		struct sw_bd *rx_buf, *next_rx_buf;
+>  		struct sk_buff *skb;
+>  		dma_addr_t dma_addr;
+> -		u16 vtag = 0;
+> -		int hw_vlan __maybe_unused = 0;
+>  
+>  		sw_ring_cons = RX_RING_IDX(sw_cons);
+>  		sw_ring_prod = RX_RING_IDX(sw_prod);
+> @@ -3168,23 +3163,8 @@ bnx2_rx_int(struct bnx2 *bp, struct bnx2_napi *bnapi, int budget)
+>  			goto next_rx;
+>  
+>  		if ((status & L2_FHDR_STATUS_L2_VLAN_TAG) &&
+> -		    !(bp->rx_mode & BNX2_EMAC_RX_MODE_KEEP_VLAN_TAG)) {
+> -			vtag = rx_hdr->l2_fhdr_vlan_tag;
+> -#ifdef BCM_VLAN
+> -			if (bp->vlgrp)
+> -				hw_vlan = 1;
+> -			else
+> -#endif
+> -			{
+> -				struct vlan_ethhdr *ve = (struct vlan_ethhdr *)
+> -					__skb_push(skb, 4);
+> -
+> -				memmove(ve, skb->data + 4, ETH_ALEN * 2);
+> -				ve->h_vlan_proto = htons(ETH_P_8021Q);
+> -				ve->h_vlan_TCI = htons(vtag);
+> -				len += 4;
+> -			}
+> -		}
+> +		    !(bp->rx_mode & BNX2_EMAC_RX_MODE_KEEP_VLAN_TAG))
+
+This check for the rx_mode bit is no longer necessary if we always
+configure the chip to strip out the vlan tag.
+
+
+> +			__vlan_hwaccel_put_tag(skb, rx_hdr->l2_fhdr_vlan_tag);
+>  
+>  		skb->protocol = eth_type_trans(skb, bp->dev);
+>  
+> @@ -3211,14 +3191,7 @@ bnx2_rx_int(struct bnx2 *bp, struct bnx2_napi *bnapi, int budget)
+>  			skb->rxhash = rx_hdr->l2_fhdr_hash;
+>  
+>  		skb_record_rx_queue(skb, bnapi - &bp->bnx2_napi[0]);
+> -
+> -#ifdef BCM_VLAN
+> -		if (hw_vlan)
+> -			vlan_gro_receive(&bnapi->napi, bp->vlgrp, vtag, skb);
+> -		else
+> -#endif
+> -			napi_gro_receive(&bnapi->napi, skb);
+> -
+> +		napi_gro_receive(&bnapi->napi, skb);
+>  		rx_pkt++;
+>  
+>  next_rx:
+> @@ -3533,13 +3506,6 @@ bnx2_set_rx_mode(struct net_device *dev)
+>  	rx_mode = bp->rx_mode & ~(BNX2_EMAC_RX_MODE_PROMISCUOUS |
+>  				  BNX2_EMAC_RX_MODE_KEEP_VLAN_TAG);
+>  	sort_mode = 1 | BNX2_RPM_SORT_USER0_BC_EN;
+> -#ifdef BCM_VLAN
+> -	if (!bp->vlgrp && (bp->flags & BNX2_FLAG_CAN_KEEP_VLAN))
+> -		rx_mode |= BNX2_EMAC_RX_MODE_KEEP_VLAN_TAG;
+> -#else
+> -	if (bp->flags & BNX2_FLAG_CAN_KEEP_VLAN)
+> -		rx_mode |= BNX2_EMAC_RX_MODE_KEEP_VLAN_TAG;
+> -#endif
+>  	if (dev->flags & IFF_PROMISC) {
+>  		/* Promiscuous mode. */
+>  		rx_mode |= BNX2_EMAC_RX_MODE_PROMISCUOUS;
+> @@ -6365,29 +6331,6 @@ bnx2_tx_timeout(struct net_device *dev)
+>  	schedule_work(&bp->reset_task);
+>  }
+>  
+> -#ifdef BCM_VLAN
+> -/* Called with rtnl_lock */
+> -static void
+> -bnx2_vlan_rx_register(struct net_device *dev, struct vlan_group *vlgrp)
+> -{
+> -	struct bnx2 *bp = netdev_priv(dev);
+> -
+> -	if (netif_running(dev))
+> -		bnx2_netif_stop(bp, false);
+> -
+> -	bp->vlgrp = vlgrp;
+> -
+> -	if (!netif_running(dev))
+> -		return;
+> -
+> -	bnx2_set_rx_mode(dev);
+> -	if (bp->flags & BNX2_FLAG_CAN_KEEP_VLAN)
+> -		bnx2_fw_sync(bp, BNX2_DRV_MSG_CODE_KEEP_VLAN_UPDATE, 0, 1);
+> -
+> -	bnx2_netif_start(bp, false);
+> -}
+> -#endif
+> -
+>  /* Called with netif_tx_lock.
+>   * bnx2_tx_int() runs without netif_tx_lock unless it needs to call
+>   * netif_wake_queue().
+> @@ -6428,12 +6371,11 @@ bnx2_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>  		vlan_tag_flags |= TX_BD_FLAGS_TCP_UDP_CKSUM;
+>  	}
+>  
+> -#ifdef BCM_VLAN
+> -	if (bp->vlgrp && vlan_tx_tag_present(skb)) {
+> +	if (vlan_tx_tag_present(skb)) {
+>  		vlan_tag_flags |=
+>  			(TX_BD_FLAGS_VLAN_TAG | (vlan_tx_tag_get(skb) << 16));
+>  	}
+> -#endif
 > +
-> +General
-> +-------
-> +SoftiWARP (siw) implements the iWARP protocol suite (MPA/DDP/RDMAP,
-> +IETF-RFC 5044/5041/5040) completely in software as a Linux kernel module.
-> +siw runs on top of TCP kernel sockets and exports the Linux kernel ibvers
-                                                                      ^^^^^^
-Is that "ibverbs"?  (just checking)
-
-> +RDMA interface. siw interfaces with the iwcm connection manager.
-> +
-> +
-> +Transmit Path
-> +-------------
-> +If a send queue (SQ) work queue element gets posted, siw tries to send
-> +it directly out of the application context. If the SQ was non-empty,
-> +SQ processing is done asynchronously by a kernel worker thread. This
-> +thread gets scheduled, if the TCP socket signals new write space to
-
-drop the comma.
-
-> +be available. If during send operation the socket send space get
-
-                                                                becomes
-(or "is")
-
-> +exhausted, SQ processing is abandoned until new socket write space
-> +becomes available.
-> +
-> +
-> +Receive Path
-> +------------
-> +All application data is placed into target buffers within softirq
-> +socket callback. Application notification is asynchronous.
-> +
-> +
-> +User Interface
-> +--------------
-> +All fast path operations such as posting of work requests and
-> +reaping of work completions currently involve a system call into
-> +the siw module. Kernel/user-mapped send and receive as well as 
-
-I didn't find the system call(s).  Are they new syscalls or just
-(socket) reads/writes?  (I was probably looking for new syscalls.)
-
-> +completion queues are not part of the current code. In
-> +particular, mapped completion queues may improve performance,
-> +since reaping completion queue entries as well as re-arming
-> +the completion queue could be done more efficiently.
-> +
-> +
-> +Memory Management
-> +-----------------
-> +siw currently uses kernels ib_umem_get() function to pin memory for later
-
-                      the kernel's
-
-> +use in data transfer operations. Transmit and receive memory is checked
-
-                                                                are checked
-(or change "and" to "or")
-
-> +against correct access permissions only in the moment of access by the
-> +network input path or before pushing it to the socket for transmission.
-> +ib_umem_get() provides DMA mappings for the requested address space which
-> +is not used by siw.
-> +
-> +
-> +Module Parameters
-> +-----------------
-> +The following siw module parameters are recognized.
-> +loopback_enabled:
-> +	If set, siw attaches also to the looback device. Checked only
-> +	during module insertion.
-> +
-> +mpa_crc_enabled:
-> +	If set, the MPA CRC gets generated and checked both in tx and rx
-> +	path. Without hardware support, setting this flag will severely
-> +	hurt throughput. 
-> +
-> +zcopy_tx:
-> +	If set, payload of non signalled work requests
-
-	                   non-signalled
-
-> +	(such as non signalled WRITE or SEND as well as all READ
-
-	         non-signalled
-
-> +	responses) are transferred using the TCP sockets
-
-	                                         socket's
-
-> +	sendpage interface. This parameter can be switched on and
-> +	off dynamically (echo 1 >> /sys/module/siw/parameters/zcopy_tx
-> +	for enablement, 0 for disabling). System load may benefits from
-
-	                                                  benefit
-
-> +	using 0copy data transmission. 0copy is not enabled if
-> +	mpa_crc_enabled is set.
-> +
-> +
-> +Compile Time Flags:
-> +-DCHECK_DMA_CAPABILITIES
-> +	Checks if the device siw wants to attach to provides
-> +	DMA capabilities. While DMA capabilities are currently not
-> +	needed (siw works on top of a kernel TCP socket), siw
-> +	uses ib_umem_get() which performs a (not used) DMA address
-> +	translation. Writing a siw private memory reservation and
-> +	pinning routine would solve the issue.
-> +
-> +-DSIW_TX_FULLSEGS
-> +	Experimental, not enabled by default. If set,
-> +	siw tries not to overrun the socket (not sending until
-> +	-EAGAIN retrun), but stops sending if the current segment
-
-	        return),
-
-> +	would not fit into the socket's estimated tx buffer. With that,
-> +	wire FPDUs may get truncated by the TCP stack far less often.
-> +	Since this feature manipulates the sock's SOCK_NOSPACE
-> +	bit, it violates strict layering and is therefore considered
-> +	proprietary.
-> +	Since TCP is a byte stream protocol, no guarantee can be given
-> +	if FPDU's are not fragmented.
-> -- 
+>  	if ((mss = skb_shinfo(skb)->gso_size)) {
+>  		u32 tcp_opt_len;
+>  		struct iphdr *iph;
+> @@ -8318,9 +8260,6 @@ static const struct net_device_ops bnx2_netdev_ops = {
+>  	.ndo_set_mac_address	= bnx2_change_mac_addr,
+>  	.ndo_change_mtu		= bnx2_change_mtu,
+>  	.ndo_tx_timeout		= bnx2_tx_timeout,
+> -#ifdef BCM_VLAN
+> -	.ndo_vlan_rx_register	= bnx2_vlan_rx_register,
+> -#endif
+>  #ifdef CONFIG_NET_POLL_CONTROLLER
+>  	.ndo_poll_controller	= poll_bnx2,
+>  #endif
+> @@ -8328,9 +8267,7 @@ static const struct net_device_ops bnx2_netdev_ops = {
+>  
+>  static void inline vlan_features_add(struct net_device *dev, unsigned long flags)
+>  {
+> -#ifdef BCM_VLAN
+>  	dev->vlan_features |= flags;
+> -#endif
+>  }
+>  
+>  static int __devinit
+> @@ -8379,9 +8316,7 @@ bnx2_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+>  		dev->features |= NETIF_F_IPV6_CSUM;
+>  		vlan_features_add(dev, NETIF_F_IPV6_CSUM);
+>  	}
+> -#ifdef BCM_VLAN
+>  	dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
+> -#endif
+>  	dev->features |= NETIF_F_TSO | NETIF_F_TSO_ECN;
+>  	vlan_features_add(dev, NETIF_F_TSO | NETIF_F_TSO_ECN);
+>  	if (CHIP_NUM(bp) == CHIP_NUM_5709) {
+> diff --git a/drivers/net/bnx2.h b/drivers/net/bnx2.h
+> index efdfbc2..4f44db6 100644
+> --- a/drivers/net/bnx2.h
+> +++ b/drivers/net/bnx2.h
+> @@ -6742,10 +6742,6 @@ struct bnx2 {
+>  
+>  	struct bnx2_napi	bnx2_napi[BNX2_MAX_MSIX_VEC];
+>  
+> -#ifdef BCM_VLAN
+> -	struct			vlan_group *vlgrp;
+> -#endif
+> -
+>  	u32			rx_buf_use_size;	/* useable size */
+>  	u32			rx_buf_size;		/* with alignment */
+>  	u32			rx_copy_thresh;
 
 
----
-~Randy
-*** Remember to use Documentation/SubmitChecklist when testing your code ***
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
