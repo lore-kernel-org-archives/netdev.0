@@ -1,141 +1,90 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] fib_hash: embed initial hash table in fn_zone
-Date: Thu, 14 Oct 2010 18:24:18 +0200
-Message-ID: <1287073458.2712.100.camel@edumazet-laptop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 2.6.35-rc6] net-next: Add multiqueue support to vmxnet3
+ driver
+Date: Thu, 14 Oct 2010 17:31:08 +0100
+Message-ID: <1287073868.2258.13.camel@achroite.uk.solarflarecom.com>
+References: <alpine.LRH.2.00.1009290104130.464@sbhatewara-dev1.eng.vmware.com>
+	 <alpine.LRH.2.00.1010131445080.25989@sbhatewara-dev1.eng.vmware.com>
+	 <20101013145732.7d69d0f3@nehalam>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:48099 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752677Ab0JNQYX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Oct 2010 12:24:23 -0400
-Received: by wyb28 with SMTP id 28so2282973wyb.19
-        for <netdev@vger.kernel.org>; Thu, 14 Oct 2010 09:24:22 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, pv-drivers@vmware.com,
+	linux-kernel@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>,
+	Shreyas Bhatewara <sbhatewara@vmware.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20101013145732.7d69d0f3@nehalam>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-While looking for false sharing problems, I noticed 
-sizeof(struct fn_zone) was small (28 bytes) and possibly sharing a cache
-line with an often written kernel structure.
+On Wed, 2010-10-13 at 14:57 -0700, Stephen Hemminger wrote:
+> On Wed, 13 Oct 2010 14:47:05 -0700 (PDT)
+> Shreyas Bhatewara <sbhatewara@vmware.com> wrote:
+> 
+> > #ifdef VMXNET3_RSS
+> > +static unsigned int num_rss_entries;
+> > +#define VMXNET3_MAX_DEVICES 10
+> > +
+> > +static int rss_ind_table[VMXNET3_MAX_DEVICES *
+> > +			 VMXNET3_RSS_IND_TABLE_SIZE + 1] = {
+> > +	[0 ... VMXNET3_MAX_DEVICES * VMXNET3_RSS_IND_TABLE_SIZE] = -1 };
+> > +#endif
+> > +static int num_tqs[VMXNET3_MAX_DEVICES + 1] = {
+> > +	[0 ... VMXNET3_MAX_DEVICES] = 1 };
+> > +static int num_rqs[VMXNET3_MAX_DEVICES + 1] = {
+> > +	[0 ... VMXNET3_MAX_DEVICES] = 1 };
+> > +static int share_tx_intr[VMXNET3_MAX_DEVICES + 1] = {
+> > +	[0 ... VMXNET3_MAX_DEVICES] = 0 };
+> > +static int buddy_intr[VMXNET3_MAX_DEVICES + 1] = {
+> > +	[0 ... VMXNET3_MAX_DEVICES] = 1 };
+> > +
+> > +static unsigned int num_adapters;
+> > +module_param_array(share_tx_intr, int, &num_adapters, 0400);
+> > +MODULE_PARM_DESC(share_tx_intr, "Share one IRQ among all tx queue completions. "
+> > +		 "Comma separated list of 1s and 0s - one for each NIC. "
+> > +		 "1 to share, 0 to not, default is 0");
+> > +module_param_array(buddy_intr, int, &num_adapters, 0400);
+> > +MODULE_PARM_DESC(buddy_intr, "Share one IRQ among corresponding tx and rx "
+> > +		 "queues. Comma separated list of 1s and 0s - one for each "
+> > +		 "NIC. 1 to share, 0 to not, default is 1");
+> > +module_param_array(num_tqs, int, &num_adapters, 0400);
+> > +MODULE_PARM_DESC(num_tqs, "Number of transmit queues in each adapter. Comma "
+> > +		 "separated list of integers. Setting this to 0 makes number"
+> > +		 " of queues same as number of CPUs. Default is 1.");
+> > +
+> > +#ifdef VMXNET3_RSS
+> > +module_param_array(rss_ind_table, int, &num_rss_entries, 0400);
+> > +MODULE_PARM_DESC(rss_ind_table, "RSS Indirection table. Number of entries "
+> > +		 "per NIC should be 32. Each integer in a comma separated list"
+> > +		 " is an rx queue number starting with 0. Repeat the same for"
+> > +		 " all NICs.");
+> > +module_param_array(num_rqs, int, &num_adapters, 0400);
+> > +MODULE_PARM_DESC(num_rqs, "Number of receive queues in each adapter. Comma "
+> > +		 " separated list of integers. Setting this to 0 makes number"
+> > +		 " of queues same as number of CPUs. Default is 1.");
+> 
+> Module parameters are not right for this. They lead to different API
+> for interacting with each driver vendor. Is there a another better API?
+> Does it have to be this tweakable in a production environment.
 
-Most of the time, fn_zone uses its initial hash table of 16 slots.
+The ethtool commands ETHTOOL_{G,S}RXFHINDIR cover the RSS indirection
+table.  These are new in 2.6.36 but already supported in the ethtool
+utility.
 
-We can avoid the false sharing problem by embedding this initial hash
-table in fn_zone itself, so that sizeof(fn_zone) > L1_CACHE_BYTES
+As for numbers of queues and association of their completions with
+interrupts, we currently have nothing except ETHTOOL_GRXRINGS to get the
+number of RX queues.  I did post a tentative definition of an ethtool
+interface for this in
+<http://article.gmane.org/gmane.linux.network/172386> though it wouldn't
+provide quite as much control as these module parameters.  It is also
+significantly more difficult to support changing numbers of queues after
+an interface has been created, and I have not yet attempted to implement
+the 'set' command myself.
 
-We did a similar optimization in commit a6501e080c (Reduce memory needs
-and speedup lookups)
+Ben.
 
-Add a fz_revorder field to speedup fn_hash() a bit.
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/ipv4/fib_hash.c |   50 ++++++++++++++++++------------------------
- 1 files changed, 22 insertions(+), 28 deletions(-)
-
-diff --git a/net/ipv4/fib_hash.c b/net/ipv4/fib_hash.c
-index 83cca68..0e14dbd 100644
---- a/net/ipv4/fib_hash.c
-+++ b/net/ipv4/fib_hash.c
-@@ -54,23 +54,23 @@ struct fib_node {
- 	struct fib_alias        fn_embedded_alias;
- };
- 
-+#define EMBEDDED_HASH_SIZE (L1_CACHE_BYTES / sizeof(struct hlist_head))
-+
- struct fn_zone {
- 	struct fn_zone		*fz_next;	/* Next not empty zone	*/
- 	struct hlist_head	*fz_hash;	/* Hash table pointer	*/
--	int			fz_nent;	/* Number of entries	*/
--
--	int			fz_divisor;	/* Hash divisor		*/
- 	u32			fz_hashmask;	/* (fz_divisor - 1)	*/
--#define FZ_HASHMASK(fz)		((fz)->fz_hashmask)
- 
--	int			fz_order;	/* Zone order		*/
--	__be32			fz_mask;
-+	u8			fz_order;	/* Zone order (0..32)	*/
-+	u8			fz_revorder;	/* 32 - fz_order	*/
-+	__be32			fz_mask;	/* inet_make_mask(order) */
- #define FZ_MASK(fz)		((fz)->fz_mask)
--};
- 
--/* NOTE. On fast computers evaluation of fz_hashmask and fz_mask
-- * can be cheaper than memory lookup, so that FZ_* macros are used.
-- */
-+	struct hlist_head	fz_embedded_hash[EMBEDDED_HASH_SIZE];
-+
-+	int			fz_nent;	/* Number of entries	*/
-+	int			fz_divisor;	/* Hash size (mask+1)	*/
-+};
- 
- struct fn_hash {
- 	struct fn_zone	*fn_zones[33];
-@@ -79,11 +79,11 @@ struct fn_hash {
- 
- static inline u32 fn_hash(__be32 key, struct fn_zone *fz)
- {
--	u32 h = ntohl(key)>>(32 - fz->fz_order);
-+	u32 h = ntohl(key) >> fz->fz_revorder;
- 	h ^= (h>>20);
- 	h ^= (h>>10);
- 	h ^= (h>>5);
--	h &= FZ_HASHMASK(fz);
-+	h &= fz->fz_hashmask;
- 	return h;
- }
- 
-@@ -150,11 +150,11 @@ static void fn_rehash_zone(struct fn_zone *fz)
- 	old_divisor = fz->fz_divisor;
- 
- 	switch (old_divisor) {
--	case 16:
--		new_divisor = 256;
-+	case EMBEDDED_HASH_SIZE:
-+		new_divisor *= EMBEDDED_HASH_SIZE;
- 		break;
--	case 256:
--		new_divisor = 1024;
-+	case EMBEDDED_HASH_SIZE*EMBEDDED_HASH_SIZE:
-+		new_divisor *= (EMBEDDED_HASH_SIZE/2);
- 		break;
- 	default:
- 		if ((old_divisor << 1) > FZ_MAX_DIVISOR) {
-@@ -184,7 +184,8 @@ static void fn_rehash_zone(struct fn_zone *fz)
- 		fib_hash_genid++;
- 		write_unlock_bh(&fib_hash_lock);
- 
--		fz_hash_free(old_ht, old_divisor);
-+		if (old_ht != fz->fz_embedded_hash)
-+			fz_hash_free(old_ht, old_divisor);
- 	}
- }
- 
-@@ -210,18 +211,11 @@ fn_new_zone(struct fn_hash *table, int z)
- 	if (!fz)
- 		return NULL;
- 
--	if (z) {
--		fz->fz_divisor = 16;
--	} else {
--		fz->fz_divisor = 1;
--	}
--	fz->fz_hashmask = (fz->fz_divisor - 1);
--	fz->fz_hash = fz_hash_alloc(fz->fz_divisor);
--	if (!fz->fz_hash) {
--		kfree(fz);
--		return NULL;
--	}
-+	fz->fz_divisor = z ? EMBEDDED_HASH_SIZE : 1;
-+	fz->fz_hashmask = fz->fz_divisor - 1;
-+	fz->fz_hash = fz->fz_embedded_hash;
- 	fz->fz_order = z;
-+	fz->fz_revorder = 32 - z;
- 	fz->fz_mask = inet_make_mask(z);
- 
- 	/* Find the first not empty zone with more specific mask */
-
-
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
