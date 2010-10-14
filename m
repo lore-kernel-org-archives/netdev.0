@@ -1,83 +1,81 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH net-next] tipc: cleanup function namespace
-Date: Thu, 14 Oct 2010 11:33:20 -0700
-Message-ID: <20101014113320.7720828f@nehalam>
-References: <1286929558-2954-5-git-send-email-paul.gortmaker@windriver.com>
-	<20101013162652.GF31379@hmsreliant.think-freely.org>
-	<4CB5E79B.4060507@windriver.com>
-	<20101013.142834.226768662.davem@davemloft.net>
-	<20101013162035.0c2e8123@nehalam>
-	<4CB64D7C.1080004@windriver.com>
-	<20101014012951.GA2186@localhost.localdomain>
-	<4CB74391.9020400@windriver.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: BUG ? ipip unregister_netdevice_many()
+Date: Thu, 14 Oct 2010 11:35:31 -0700
+Message-ID: <m1lj60oc5o.fsf@fess.ebiederm.org>
+References: <m1fww94ca6.fsf@fess.ebiederm.org>
+	<20101013.215013.104074480.davem@davemloft.net>
+	<m162x5492h.fsf@fess.ebiederm.org>
+	<20101014.080907.189690627.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	allan.stephens@windriver.com, Jon Maloy <jon.maloy@ericsson.com>
-To: Paul Gortmaker <paul.gortmaker@windriver.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: hans.schillstrom@ericsson.com, daniel.lezcano@free.fr,
+	netdev@vger.kernel.org, Octavian Purdila <opurdila@ixiacom.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:48302 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754807Ab0JNSdZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Oct 2010 14:33:25 -0400
-In-Reply-To: <4CB74391.9020400@windriver.com>
+Received: from out02.mta.xmission.com ([166.70.13.232]:50239 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755942Ab0JNSfj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Oct 2010 14:35:39 -0400
+In-Reply-To: <20101014.080907.189690627.davem@davemloft.net> (David Miller's
+	message of "Thu, 14 Oct 2010 08:09:07 -0700 (PDT)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 14 Oct 2010 13:53:21 -0400
-Paul Gortmaker <paul.gortmaker@windriver.com> wrote:
+David Miller <davem@davemloft.net> writes:
 
-> On 10-10-13 09:29 PM, Neil Horman wrote:
-> > On Wed, Oct 13, 2010 at 08:23:24PM -0400, Paul Gortmaker wrote:
-> >> On 10-10-13 07:20 PM, Stephen Hemminger wrote:
-> >>> Do some cleanups of TIPC based on make namespacecheck
-> >>>     1. Don't export unused symbols
-> >>>     2. Eliminate dead code
-> >>>     3. Make functions and variables local
-> >>>     4. Rename buf_acquire to tipc_buf_acquire since it is used in several files
-> >>>
-> >>> Compile tested only.
-> >>> This make break out of tree kernel modules that depend on TIPC routines.
-> >>
-> >> Hi Stephen,
-> >>
-> >> When I first started looking at TIPC code, I too came to the
-> >> same conclusion as you did and was about to do #1,2,3 -- but
-> >> then I was told that the exported symbols were part of an API
-> >> and might be in use by folks here and there as per this thread:
-> >>
-> >> http://www.mail-archive.com/netdev@vger.kernel.org/msg30208.html
-> >>
-> > I think its telling the the argument in the above thread for keeping the API
-> > were that users of it were out there and 'likely to contribute' in the future.
-> > That thread was 3 years ago.  They might be using the API from outside the
-> > kernel tree, but they're not planning on contributing.  As Christoph noted,
-> > they're freeloaders.  The community really doesn't need or want to maintain an
-> > API like that.  If these users are your customers, and removing the API is
-> > unacceptable, perhaps its time to move the entire TIPC module out of tree.
-> 
-> As I'd said -- I don't know what the use cases of these API users are,
-> and so as far as I know they aren't customers either.  For what it is
-> worth, know that I personally wouldn't try and use a business case to
-> justify a technically wrong decision here on netdev anyway.
-> 
-> I was just describing the history of the situation, and suggesting
-> one possible slower approach of phasing it out as a courtesy to those
-> users, in the same way that the kernel community has extended that
-> same courtesy with other things in feature-removal.txt
-> 
-> In the end, since Jon is OK with the removal, and is in the process of
-> communicating this to the API users he is aware of, I sure don't have
-> any reason to try and save the API.  If folks are good with having it
-> just go away overnight, then great -- I'll be just as happy to see it
-> disappear as you and Stephen.  So, a long winded way of saying...
-> 
-> Acked-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+> From: ebiederm@xmission.com (Eric W. Biederman)
+> Date: Wed, 13 Oct 2010 22:20:28 -0700
+>
+>> With the network namespace support we limit the scope of the test of
+>> the invalidate to just a single network namespace, and as such
+>> rt_is_expired stops being true for every cache entry.  So we cannot
+>> unconditionally throw away entire chains.
+>> 
+>> All of which can be either done by network namespace equality or by
+>> rt_is_expired().  Although Denis picked rt_is_expired() when he made
+>> his change.
+>
+> Right, and I choose to use namespace equality which will completely
+> compile into no code at all when namespace support is not in the
+> kernel.
+>
+> Therefore, making the non-namespace case equivalent and as efficient
+> as it always was.
 
-How about putting an entry in feature-removal.txt with a short (6 month)
-window?
+Almost you still have the hash list inversion, which means you have
+to at look at the rtable entry even on a one list long hash chain.
+Perhaps I am looking at it wrong but once you look at the entries
+I don't see the difference in the number of cache line faults
+between one variant of the code and the other.
 
+>> The only place it makes a noticable difference in practice is what
+>> happens when we do batched deleletes of lots of network devices in
+>> different network namespaces.
+>> 
+>> During batched network device deletes in fib_netdev_event we do
+>> rt_cache_flush(dev_net(dev), -1) for each network device.  and then a
+>> final rt_cache_flush_batch() to remove the invalidated entries.  These
+>> devices can be from multiple network namespaces, so I suspect that is
+>> a savings worth having.
+>
+> How can it make a real difference even in this case?  We'll obliterate
+> all the entries, and then on subsequent passes we'll find nothing
+> matching that namespace any more.
+>
+> Show me performance tests that show it makes any difference, please.
 
--- 
+Octavian did you happen to measure the performance difference when you
+added batching of routing table flushes?
+
+>> So if we are going to change the tests we need to do something with
+>> rt_cache_flush_batch().  Further I do not see what is confusing about
+>> a test that asks if the routing cache entry is unusable.  Is
+>> rt_cache_expired() a bad name?
+>
+> It's not a bad name, it's just an unnecessary test that we don't need
+> to even make in this specific place.
+
+As long as we do something that is correct in the batched flush case
+I am happy either way.
+
+Eric
