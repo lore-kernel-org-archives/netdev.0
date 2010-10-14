@@ -1,138 +1,64 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
 Subject: Re: [v2 RFC PATCH 0/4] Implement multiqueue virtio-net
-Date: Thu, 14 Oct 2010 13:28:58 +0530
-Message-ID: <OFA7630B83.BFDFF71D-ON652577BC.0026D199-652577BC.002B9158@in.ibm.com>
-References: <cover.1286372004.git.mst@redhat.com> <OF6C412DBC.EA03FC24-ON652577B9.00228DCA-652577B9.0028232D@in.ibm.com> <20101012170907.GA30613@redhat.com>
+Date: Thu, 14 Oct 2010 10:17:23 +0200
+Message-ID: <20101014081723.GC11095@redhat.com>
+References: <cover.1286372004.git.mst@redhat.com>
+ <OF6C412DBC.EA03FC24-ON652577B9.00228DCA-652577B9.0028232D@in.ibm.com>
+ <20101012170907.GA30613@redhat.com>
+ <OFA7630B83.BFDFF71D-ON652577BC.0026D199-652577BC.002B9158@in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Cc: anthony@codemonkey.ws, arnd@arndb.de, avi@redhat.com,
 	davem@davemloft.net, kvm@vger.kernel.org, netdev@vger.kernel.org,
 	rusty@rustcorp.com.au
-To: "Michael S. Tsirkin" <mst@redhat.com>
+To: Krishna Kumar2 <krkumar2@in.ibm.com>
 Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20101012170907.GA30613@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <OFA7630B83.BFDFF71D-ON652577BC.0026D199-652577BC.002B9158@in.ibm.com>
 Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-"Michael S. Tsirkin" <mst@redhat.com> wrote on 10/12/2010 10:39:07 PM:
-
-> > Sorry for the delay, I was sick last couple of days. The results
-> > with your patch are (%'s over original code):
+On Thu, Oct 14, 2010 at 01:28:58PM +0530, Krishna Kumar2 wrote:
+> "Michael S. Tsirkin" <mst@redhat.com> wrote on 10/12/2010 10:39:07 PM:
+> 
+> > > Sorry for the delay, I was sick last couple of days. The results
+> > > with your patch are (%'s over original code):
+> > >
+> > > Code               BW%       CPU%       RemoteCPU
+> > > MQ     (#txq=16)   31.4%     38.42%     6.41%
+> > > MQ+MST (#txq=16)   28.3%     18.9%      -10.77%
+> > >
+> > > The patch helps CPU utilization but didn't help single stream
+> > > drop.
+> > >
+> > > Thanks,
 > >
-> > Code               BW%       CPU%       RemoteCPU
-> > MQ     (#txq=16)   31.4%     38.42%     6.41%
-> > MQ+MST (#txq=16)   28.3%     18.9%      -10.77%
-> >
-> > The patch helps CPU utilization but didn't help single stream
-> > drop.
-> >
-> > Thanks,
->
-> What other shared TX/RX locks are there?  In your setup, is the same
-> macvtap socket structure used for RX and TX?  If yes this will create
-> cacheline bounces as sk_wmem_alloc/sk_rmem_alloc share a cache line,
-> there might also be contention on the lock in sk_sleep waitqueue.
-> Anything else?
+> > What other shared TX/RX locks are there?  In your setup, is the same
+> > macvtap socket structure used for RX and TX?  If yes this will create
+> > cacheline bounces as sk_wmem_alloc/sk_rmem_alloc share a cache line,
+> > there might also be contention on the lock in sk_sleep waitqueue.
+> > Anything else?
+> 
+> The patch is not introducing any locking (both vhost and virtio-net).
+> The single stream drop is due to different vhost threads handling the
+> RX/TX traffic.
+> 
+> I added a heuristic (fuzzy) to determine if more than one flow
+> is being used on the device, and if not, use vhost[0] for both
+> tx and rx (vhost_poll_queue figures this out before waking up
+> the suitable vhost thread).  Testing shows that single stream
+> performance is as good as the original code.
 
-The patch is not introducing any locking (both vhost and virtio-net).
-The single stream drop is due to different vhost threads handling the
-RX/TX traffic.
+...
 
-I added a heuristic (fuzzy) to determine if more than one flow
-is being used on the device, and if not, use vhost[0] for both
-tx and rx (vhost_poll_queue figures this out before waking up
-the suitable vhost thread).  Testing shows that single stream
-performance is as good as the original code.
+> This approach works nicely for both single and multiple stream.
+> Does this look good?
+> 
+> Thanks,
+> 
+> - KK
 
-__________________________________________________________________________
-		       #txqs = 2 (#vhosts = 3)
-#     BW1     BW2   (%)       CPU1    CPU2 (%)       RCPU1   RCPU2 (%)
-__________________________________________________________________________
-1     77344   74973 (-3.06)   172     143 (-16.86)   358     324 (-9.49)
-2     20924   21107 (.87)     107     103 (-3.73)    220     217 (-1.36)
-4     21629   32911 (52.16)   214     391 (82.71)    446     616 (38.11)
-8     21678   34359 (58.49)   428     845 (97.42)    892     1286 (44.17)
-16    22046   34401 (56.04)   841     1677 (99.40)   1785    2585 (44.81)
-24    22396   35117 (56.80)   1272    2447 (92.37)   2667    3863 (44.84)
-32    22750   35158 (54.54)   1719    3233 (88.07)   3569    5143 (44.10)
-40    23041   35345 (53.40)   2219    3970 (78.90)   4478    6410 (43.14)
-48    23209   35219 (51.74)   2707    4685 (73.06)   5386    7684 (42.66)
-64    23215   35209 (51.66)   3639    6195 (70.23)   7206    10218 (41.79)
-80    23443   35179 (50.06)   4633    7625 (64.58)   9051    12745 (40.81)
-96    24006   36108 (50.41)   5635    9096 (61.41)   10864   15283 (40.67)
-128   23601   35744 (51.45)   7475    12104 (61.92)  14495   20405 (40.77)
-__________________________________________________________________________
-SUM:     BW: (37.6)     CPU: (69.0)     RCPU: (41.2)
+Yes, but I guess it depends on the heuristic :) What's the logic?
 
-__________________________________________________________________________
-		       #txqs = 8 (#vhosts = 5)
-#     BW1     BW2    (%)      CPU1     CPU2 (%)      RCPU1     RCPU2 (%)
-__________________________________________________________________________
-1     77344   75341 (-2.58)   172     171 (-.58)     358     356 (-.55)
-2     20924   26872 (28.42)   107     135 (26.16)    220     262 (19.09)
-4     21629   33594 (55.31)   214     394 (84.11)    446     615 (37.89)
-8     21678   39714 (83.19)   428     949 (121.72)   892     1358 (52.24)
-16    22046   39879 (80.88)   841     1791 (112.96)  1785    2737 (53.33)
-24    22396   38436 (71.61)   1272    2111 (65.95)   2667    3453 (29.47)
-32    22750   38776 (70.44)   1719    3594 (109.07)  3569    5421 (51.89)
-40    23041   38023 (65.02)   2219    4358 (96.39)   4478    6507 (45.31)
-48    23209   33811 (45.68)   2707    4047 (49.50)   5386    6222 (15.52)
-64    23215   30212 (30.13)   3639    3858 (6.01)    7206    5819 (-19.24)
-80    23443   34497 (47.15)   4633    7214 (55.70)   9051    10776 (19.05)
-96    24006   30990 (29.09)   5635    5731 (1.70)    10864   8799 (-19.00)
-128   23601   29413 (24.62)   7475    7804 (4.40)    14495   11638 (-19.71)
-__________________________________________________________________________
-SUM:     BW: (40.1)     CPU: (35.7)     RCPU: (4.1)
-_______________________________________________________________________________
-
-
-The SD numbers are also good (same table as before, but SD
-instead of CPU:
-
-__________________________________________________________________________
-		       #txqs = 2 (#vhosts = 3)
-#     BW%       SD1     SD2 (%)        RSD1     RSD2 (%)
-__________________________________________________________________________
-1     -3.06)    5       4 (-20.00)     21       19 (-9.52)
-2     .87       6       6 (0)          27       27 (0)
-4     52.16     26      32 (23.07)     108      103 (-4.62)
-8     58.49     103     146 (41.74)    431      445 (3.24)
-16    56.04     407     514 (26.28)    1729     1586 (-8.27)
-24    56.80     934     1161 (24.30)   3916     3665 (-6.40)
-32    54.54     1668    2160 (29.49)   6925     6872 (-.76)
-40    53.40     2655    3317 (24.93)   10712    10707 (-.04)
-48    51.74     3920    4486 (14.43)   15598    14715 (-5.66)
-64    51.66     7096    8250 (16.26)   28099    27211 (-3.16)
-80    50.06     11240   12586 (11.97)  43913    42070 (-4.19)
-96    50.41     16342   16976 (3.87)   63017    57048 (-9.47)
-128   51.45     29254   32069 (9.62)   113451   108113 (-4.70)
-__________________________________________________________________________
-SUM:     BW: (37.6)     SD: (10.9)     RSD: (-5.3)
-
-__________________________________________________________________________
-		       #txqs = 8 (#vhosts = 5)
-#     BW%       SD1     SD2 (%)         RSD1     RSD2 (%)
-__________________________________________________________________________
-1     -2.58     5       5 (0)           21       21 (0)
-2     28.42     6       6 (0)           27       25 (-7.40)
-4     55.31     26      32 (23.07)      108      102 (-5.55)
-8     83.19     103     128 (24.27)     431      368 (-14.61)
-16    80.88     407     593 (45.70)     1729     1814 (4.91)
-24    71.61     934     965 (3.31)      3916     3156 (-19.40)
-32    70.44     1668    3232 (93.76)    6925     9752 (40.82)
-40    65.02     2655    5134 (93.37)    10712    15340 (43.20)
-48    45.68     3920    4592 (17.14)    15598    14122 (-9.46)
-64    30.13     7096    3928 (-44.64)   28099    11880 (-57.72)
-80    47.15     11240   18389 (63.60)   43913    55154 (25.59)
-96    29.09     16342   21695 (32.75)   63017    66892 (6.14)
-128   24.62     29254   36371 (24.32)   113451   109219 (-3.73)
-__________________________________________________________________________
-SUM:     BW: (40.1)     SD: (29.0)     RSD: (0)
-
-This approach works nicely for both single and multiple stream.
-Does this look good?
-
-Thanks,
-
-- KK
-
+-- 
+MST
