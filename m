@@ -1,42 +1,43 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: RE: [PATCH net-next] tipc: cleanup function namespace
-Date: Thu, 14 Oct 2010 09:31:08 -0400
-Message-ID: <0434463FDA60A94FA978ACA44617682DEE845A5D2A@EUSAACMS0702.eamcs.ericsson.se>
-References: <1286929558-2954-5-git-send-email-paul.gortmaker@windriver.com>
-	<20101013162652.GF31379@hmsreliant.think-freely.org>
-	<4CB5E79B.4060507@windriver.com>
-	<20101013.142834.226768662.davem@davemloft.net>
- <20101013162035.0c2e8123@nehalam>
+From: Lennart Schulte <lennart.schulte@nets.rwth-aachen.de>
+Subject: Re: [PATCH] tcp: sack lost marking fixes
+Date: Thu, 14 Oct 2010 15:36:59 +0200
+Message-ID: <4CB7077B.2080007@nets.rwth-aachen.de>
+References: <alpine.DEB.2.00.1010141429150.26447@wel-95.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"allan.stephens@windriver.com" <allan.stephens@windriver.com>
-To: Stephen Hemminger <shemminger@vyatta.com>,
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Netdev <netdev@vger.kernel.org>,
 	David Miller <davem@davemloft.net>,
-	"paul.gortmaker@windriver.com" <paul.gortmaker@windriver.com>
+	Yuchung Cheng <ycheng@google.com>
+To: =?ISO-8859-15?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from imr4.ericy.com ([198.24.6.8]:49387 "EHLO imr4.ericy.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754665Ab0JNNbc convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Oct 2010 09:31:32 -0400
-In-Reply-To: <20101013162035.0c2e8123@nehalam>
-Content-Language: en-US
+Received: from mail-i4.nets.RWTH-Aachen.DE ([137.226.12.21]:43880 "EHLO
+	MAIL-i4.nets.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754558Ab0JNNn1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Oct 2010 09:43:27 -0400
+In-Reply-To: <alpine.DEB.2.00.1010141429150.26447@wel-95.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+At the moment I don't have any time to spare to look into this since my
+master thesis has to be ready in about 2 weeks. Sorry for that!
 
-> Do some cleanups of TIPC based on make namespacecheck
->   1. Don't export unused symbols
->   2. Eliminate dead code
->   3. Make functions and variables local
->   4. Rename buf_acquire to tipc_buf_acquire since it is used 
-> in several files
-> 
-> Compile tested only.
-> This make break out of tree kernel modules that depend on 
-> TIPC routines.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-Acked-by: Jon Maloy <jon.maloy@ericsson.com>
+On 14.10.2010 13:42, Ilpo J=E4rvinen wrote:
+> When only fast rexmit should be done, tcp_mark_head_lost marks
+> L too far. Also, sacked_upto below 1 is perfectly valid number,
+> the packets =3D=3D 0 then needs to be trapped elsewhere.
+>=20
+> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+> ---
+> I think 6830c25b7d08fbbd922959425193791bc42079f2 that added the
+> packets =3D=3D 0 check is mostly wrong but I cc'ed Lennart if he has =
+some=20
+> particular case I'm missing that wouldn't work after this patch.
+>=20
+> Dave, no particular "bad regression" fixed here, so no absolute need =
+to=20
+> have this in net-2.6 but I leave it up to you whether there or net-ne=
+xt.
+>=20
+>  ...
+
