@@ -1,105 +1,188 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Nested GRE locking bug
-Date: Thu, 14 Oct 2010 06:11:59 +0200
-Message-ID: <1287029519.2649.108.camel@edumazet-laptop>
-References: <1287028842.11178.68.camel@localhost>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: BUG ? ipip unregister_netdevice_many()
+Date: Wed, 13 Oct 2010 21:40:49 -0700
+Message-ID: <m1fww94ca6.fsf@fess.ebiederm.org>
+References: <m1y6a81vms.fsf@fess.ebiederm.org>
+	<20101008.102012.226761665.davem@davemloft.net>
+	<m11v801tfr.fsf@fess.ebiederm.org>
+	<20101012.130520.48517464.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Beatrice Barbe <beatrice.barbe@gmail.com>,
-	599816@bugs.debian.org
-To: Ben Hutchings <ben@decadent.org.uk>
+Content-Type: text/plain; charset=us-ascii
+Cc: hans.schillstrom@ericsson.com, daniel.lezcano@free.fr,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:51022 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750732Ab0JNEMV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Oct 2010 00:12:21 -0400
-Received: by wyb28 with SMTP id 28so1740523wyb.19
-        for <netdev@vger.kernel.org>; Wed, 13 Oct 2010 21:12:20 -0700 (PDT)
-In-Reply-To: <1287028842.11178.68.camel@localhost>
+Received: from out02.mta.xmission.com ([166.70.13.232]:40665 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754502Ab0JNElA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Oct 2010 00:41:00 -0400
+In-Reply-To: <20101012.130520.48517464.davem@davemloft.net> (David Miller's
+	message of "Tue, 12 Oct 2010 13:05:20 -0700 (PDT)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 14 octobre 2010 =C3=A0 05:00 +0100, Ben Hutchings a =C3=A9crit=
- :
-> Beatrice Barbe reported a reproducible crash after creating large
-> numbers of nested GRE tunnels and then pinging with the source addres=
-s
-> forced.  I was able to reproduce this using net-2.6.  I'm attaching t=
-he
-> kernel config I used and a script to reproduce this based on the scri=
-pt
-> she provided.  The magic number of tunnels to create is apparently 37=
-=2E
->=20
-> With lockdep enabled, I get the following output:
->=20
+David Miller <davem@davemloft.net> writes:
 
-Thats a known problem, actually, called stack exhaustion :)
+> From: ebiederm@xmission.com (Eric W. Biederman)
+> Date: Fri, 08 Oct 2010 10:32:40 -0700
+>
+>> It is just dealing with not flushing the entire routing cache, just the
+>> routes that have expired.  Which prevents one network namespace from
+>> flushing it's routes and DOS'ing another.
+>
+> That's a very indirect and obfuscated way of handling it.
+>
+> And I still don't know why we let the first contiguous set of expired
+> entries in the chain get freed outside of the lock, and the rest
+> inside the lock.  That really isn't explained by anything I've read.
+>
+> How about we just do exactly what's intended, and with no ifdefs?
 
-net-next-2.6 contains a fix for this, adding the perc_cpu xmit_recursio=
-n
-limit. We might push it to net-2.6
+I'm all for no ifdefs.
 
-Thanks
+And reading the code your version looks much simpler and easier
+to read and I am all for that.
 
-commit 745e20f1b626b1be4b100af5d4bf7b3439392f8f
-Author: Eric Dumazet <eric.dumazet@gmail.com>
-Date:   Wed Sep 29 13:23:09 2010 -0700
+However I think the test should still be rt_is_expired(), because
+that is what rt_do_flush() is doing removing the expired entries
+from the list.
 
-    net: add a recursion limit in xmit path
-   =20
-    As tunnel devices are going to be lockless, we need to make sure a
-    misconfigured machine wont enter an infinite loop.
-   =20
-    Add a percpu variable, and limit to three the number of stacked xmi=
-ts.
-   =20
-    Reported-by: Jesse Gross <jesse@nicira.com>
-    Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+The only difference being that we remove the assumption that all hash
+table entries must be expired at this point.
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 48ad47f..50dacca 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2177,6 +2177,9 @@ static inline int __dev_xmit_skb(struct sk_buff *=
-skb, struct Qdisc *q,
- 	return rc;
- }
-=20
-+static DEFINE_PER_CPU(int, xmit_recursion);
-+#define RECURSION_LIMIT 3
-+
- /**
-  *	dev_queue_xmit - transmit a buffer
-  *	@skb: buffer to transmit
-@@ -2242,10 +2245,15 @@ int dev_queue_xmit(struct sk_buff *skb)
-=20
- 		if (txq->xmit_lock_owner !=3D cpu) {
-=20
-+			if (__this_cpu_read(xmit_recursion) > RECURSION_LIMIT)
-+				goto recursion_alert;
-+
- 			HARD_TX_LOCK(dev, txq, cpu);
-=20
- 			if (!netif_tx_queue_stopped(txq)) {
-+				__this_cpu_inc(xmit_recursion);
- 				rc =3D dev_hard_start_xmit(skb, dev, txq);
-+				__this_cpu_dec(xmit_recursion);
- 				if (dev_xmit_complete(rc)) {
- 					HARD_TX_UNLOCK(dev, txq);
- 					goto out;
-@@ -2257,7 +2265,9 @@ int dev_queue_xmit(struct sk_buff *skb)
- 				       "queue packet!\n", dev->name);
- 		} else {
- 			/* Recursion is detected! It is possible,
--			 * unfortunately */
-+			 * unfortunately
-+			 */
-+recursion_alert:
- 			if (net_ratelimit())
- 				printk(KERN_CRIT "Dead loop on virtual device "
- 				       "%s, fix it urgently!\n", dev->name);
+We have very straight forwardly expired all of the route table entries
+for the namespace that go this going earlier.
 
 
+Eric
+
+
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+>
+> diff --git a/include/net/route.h b/include/net/route.h
+> index 7e5e73b..8d24761 100644
+> --- a/include/net/route.h
+> +++ b/include/net/route.h
+> @@ -106,7 +106,7 @@ extern int		ip_rt_init(void);
+>  extern void		ip_rt_redirect(__be32 old_gw, __be32 dst, __be32 new_gw,
+>  				       __be32 src, struct net_device *dev);
+>  extern void		rt_cache_flush(struct net *net, int how);
+> -extern void		rt_cache_flush_batch(void);
+> +extern void		rt_cache_flush_batch(struct net *net);
+>  extern int		__ip_route_output_key(struct net *, struct rtable **, const struct flowi *flp);
+>  extern int		ip_route_output_key(struct net *, struct rtable **, struct flowi *flp);
+>  extern int		ip_route_output_flow(struct net *, struct rtable **rp, struct flowi *flp, struct sock *sk, int flags);
+> diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+> index 919f2ad..4039f56 100644
+> --- a/net/ipv4/fib_frontend.c
+> +++ b/net/ipv4/fib_frontend.c
+> @@ -999,7 +999,7 @@ static int fib_netdev_event(struct notifier_block *this, unsigned long event, vo
+>  		rt_cache_flush(dev_net(dev), 0);
+>  		break;
+>  	case NETDEV_UNREGISTER_BATCH:
+> -		rt_cache_flush_batch();
+> +		rt_cache_flush_batch(dev_net(dev));
+
+I believe this change is actually wrong.  dev here is the first
+element of a list of network devices, and that list may span multiple
+network namespaces.
+
+>  		break;
+>  	}
+>  	return NOTIFY_DONE;
+> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> index 0755aa4..6ad730c 100644
+> --- a/net/ipv4/route.c
+> +++ b/net/ipv4/route.c
+> @@ -712,13 +712,14 @@ static inline int rt_is_expired(struct rtable *rth)
+>   * Can be called by a softirq or a process.
+>   * In the later case, we want to be reschedule if necessary
+>   */
+> -static void rt_do_flush(int process_context)
+> +static void rt_do_flush(struct net *net, int process_context)
+>  {
+>  	unsigned int i;
+>  	struct rtable *rth, *next;
+> -	struct rtable * tail;
+>  
+>  	for (i = 0; i <= rt_hash_mask; i++) {
+> +		struct rtable *list, **pprev;
+> +
+>  		if (process_context && need_resched())
+>  			cond_resched();
+>  		rth = rt_hash_table[i].chain;
+> @@ -726,41 +727,27 @@ static void rt_do_flush(int process_context)
+>  			continue;
+>  
+>  		spin_lock_bh(rt_hash_lock_addr(i));
+> -#ifdef CONFIG_NET_NS
+> -		{
+> -		struct rtable ** prev, * p;
+>  
+> -		rth = rt_hash_table[i].chain;
+> +		pprev = &rt_hash_table[i].chain;
+> +		rth = *pprev;
+> +		while (rth) {
+> +			next = rth->dst.rt_next;
+> +			if (dev_net(rth->dst.dev) == net) {
+> +				*pprev = next;
+>  
+> -		/* defer releasing the head of the list after spin_unlock */
+> -		for (tail = rth; tail; tail = tail->dst.rt_next)
+> -			if (!rt_is_expired(tail))
+> -				break;
+> -		if (rth != tail)
+> -			rt_hash_table[i].chain = tail;
+> -
+> -		/* call rt_free on entries after the tail requiring flush */
+> -		prev = &rt_hash_table[i].chain;
+> -		for (p = *prev; p; p = next) {
+> -			next = p->dst.rt_next;
+> -			if (!rt_is_expired(p)) {
+> -				prev = &p->dst.rt_next;
+> -			} else {
+> -				*prev = next;
+> -				rt_free(p);
+> -			}
+> -		}
+> +				rth->dst.rt_next = list;
+> +				list = rth;
+> +			} else
+> +				pprev = &rth->dst.rt_next;
+> +
+> +			rth = next;
+>  		}
+> -#else
+> -		rth = rt_hash_table[i].chain;
+> -		rt_hash_table[i].chain = NULL;
+> -		tail = NULL;
+> -#endif
+> +
+>  		spin_unlock_bh(rt_hash_lock_addr(i));
+>  
+> -		for (; rth != tail; rth = next) {
+> -			next = rth->dst.rt_next;
+> -			rt_free(rth);
+> +		for (; list; list = next) {
+> +			next = list->dst.rt_next;
+> +			rt_free(list);
+>  		}
+>  	}
+>  }
+> @@ -906,13 +893,13 @@ void rt_cache_flush(struct net *net, int delay)
+>  {
+>  	rt_cache_invalidate(net);
+>  	if (delay >= 0)
+> -		rt_do_flush(!in_softirq());
+> +		rt_do_flush(net, !in_softirq());
+>  }
+>  
+>  /* Flush previous cache invalidated entries from the cache */
+> -void rt_cache_flush_batch(void)
+> +void rt_cache_flush_batch(struct net *net)
+>  {
+> -	rt_do_flush(!in_softirq());
+> +	rt_do_flush(net, !in_softirq());
+>  }
+>  
+>  static void rt_emergency_hash_rebuild(struct net *net)
