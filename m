@@ -1,53 +1,42 @@
-From: "Gerd v. Egidy" <lists@egidy.de>
-Subject: xfrm by MARK: expected behavior of masking
-Date: Thu, 14 Oct 2010 15:15:41 +0200
-Message-ID: <201010141515.41654.lists@egidy.de>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: RE: [PATCH net-next] tipc: cleanup function namespace
+Date: Thu, 14 Oct 2010 09:31:08 -0400
+Message-ID: <0434463FDA60A94FA978ACA44617682DEE845A5D2A@EUSAACMS0702.eamcs.ericsson.se>
+References: <1286929558-2954-5-git-send-email-paul.gortmaker@windriver.com>
+	<20101013162652.GF31379@hmsreliant.think-freely.org>
+	<4CB5E79B.4060507@windriver.com>
+	<20101013.142834.226768662.davem@davemloft.net>
+ <20101013162035.0c2e8123@nehalam>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jamal <hadi@cyberus.ca>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"allan.stephens@windriver.com" <allan.stephens@windriver.com>
+To: Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>,
+	"paul.gortmaker@windriver.com" <paul.gortmaker@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from re01.intra2net.com ([82.165.28.202]:39574 "EHLO
-	re01.intra2net.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754502Ab0JNN15 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Oct 2010 09:27:57 -0400
+Received: from imr4.ericy.com ([198.24.6.8]:49387 "EHLO imr4.ericy.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754665Ab0JNNbc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Oct 2010 09:31:32 -0400
+In-Reply-To: <20101013162035.0c2e8123@nehalam>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
 
-while looking at the xfrm by MARK code I found a case where the masking of 
-marks does not work as I would it expect to work.
-
-Take for example a mark value of 5 and a mask of 0xfffffffe
-->
-src 192.168.5.0/24 dst 192.168.1.0/24 
-        dir out priority 1760 ptype main 
-        mark 5/0xfffffffe
-        tmpl src 172.16.1.131 dst 172.16.1.130
-                proto esp reqid 16384 mode tunnel
-
-The code to check the marks always (e.g. in xfrm_policy.c, but several other 
-places too) looks like this:
-
-(fl->mark & pol->mark.m) != pol->mark.v
-
-This means that a flow marked with 5 will actually never match. You have to 
-use the first number in the mask (4 in this case) to make the policy work.
-
-Is this expected behavior?
-
-I'd expect that the kernel would either
-a) still match those packets
-or
-b) refuse to configure such a policy
-
-Kind regards,
-
-Gerd
-
--- 
-Address (better: trap) for people I really don't want to get mail from:
-jonas@cactusamerica.com
+> Do some cleanups of TIPC based on make namespacecheck
+>   1. Don't export unused symbols
+>   2. Eliminate dead code
+>   3. Make functions and variables local
+>   4. Rename buf_acquire to tipc_buf_acquire since it is used 
+> in several files
+> 
+> Compile tested only.
+> This make break out of tree kernel modules that depend on 
+> TIPC routines.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Acked-by: Jon Maloy <jon.maloy@ericsson.com>
