@@ -1,29 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bnx2x: dont use netdev_alloc_skb()
-Date: Thu, 14 Oct 2010 10:39:14 -0700 (PDT)
-Message-ID: <20101014.103914.193713537.davem@davemloft.net>
-References: <AANLkTi=NvnPov_=KQJz2uXt1R-ep4oahDF0J=3HwhGzG@mail.gmail.com>
-	<1286860560.30423.186.camel@edumazet-laptop>
-	<8628FE4E7912BF47A96AE7DD7BAC0AADDDEE4282DD@SJEXCHCCR02.corp.ad.broadcom.com>
+Subject: Re: [PATCH 0/8 net-next] cnic: Bug fixes and 57712 support
+Date: Thu, 14 Oct 2010 10:46:44 -0700 (PDT)
+Message-ID: <20101014.104644.226766444.davem@davemloft.net>
+References: <1287014811-10979-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, therbert@google.com,
-	netdev@vger.kernel.org, mchan@broadcom.com, eilong@broadcom.com
-To: vladz@broadcom.com
+Cc: netdev@vger.kernel.org
+To: mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44422
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41979
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754010Ab0JNRiw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Oct 2010 13:38:52 -0400
-In-Reply-To: <8628FE4E7912BF47A96AE7DD7BAC0AADDDEE4282DD@SJEXCHCCR02.corp.ad.broadcom.com>
+	by vger.kernel.org with ESMTP id S1755774Ab0JNRqX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Oct 2010 13:46:23 -0400
+In-Reply-To: <1287014811-10979-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Vladislav Zolotarov" <vladz@broadcom.com>
-Date: Tue, 12 Oct 2010 02:12:41 -0700
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Wed, 13 Oct 2010 17:06:43 -0700
 
-> Dave, if it can wait till tomorrow, I'd like to ask u to wait for Eilon's
-> final ACK.
+> 
+> David, please consider applying these patches to net-next.
 
-Ok, but it is two days later now :-)
+Looks good, applied, thanks.
