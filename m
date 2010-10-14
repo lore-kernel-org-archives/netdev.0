@@ -1,88 +1,50 @@
-From: nhorman@tuxdriver.com
-Subject: [PATCH 5/5] Re-enable netpoll over bonding
-Date: Wed, 13 Oct 2010 22:01:53 -0400
-Message-ID: <1287021713-1750-6-git-send-email-nhorman@tuxdriver.com>
-References: <1287021713-1750-1-git-send-email-nhorman@tuxdriver.com>
-Cc: bonding-devel@lists.sourceforge.net, fubar@us.ibm.com,
-	davem@davemloft.net, andy@greyhouse.net, amwang@redhat.com,
-	nhorman@tuxdriver.com
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: ixgbe: normalize frag_list usage
+Date: Wed, 13 Oct 2010 19:17:02 -0700 (PDT)
+Message-ID: <20101013.191702.71129064.davem@davemloft.net>
+References: <80769D7B14936844A23C0C43D9FBCF0F25B97A24B5@orsmsx501.amr.corp.intel.com>
+	<20101006.235837.241424681.davem@davemloft.net>
+	<4CAE2692.8020401@intel.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	bruce.w.allan@intel.com, netdev@vger.kernel.org
+To: alexander.h.duyck@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:39936 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754166Ab0JNCCW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Oct 2010 22:02:22 -0400
-In-Reply-To: <1287021713-1750-1-git-send-email-nhorman@tuxdriver.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34821
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754157Ab0JNCQk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Oct 2010 22:16:40 -0400
+In-Reply-To: <4CAE2692.8020401@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman <nhorman@tuxdriver.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Date: Thu, 07 Oct 2010 12:59:14 -0700
 
-With the inclusion of previous fixup patches, netpoll over bonding apears to
-work reliably with failover conditions.  This reverts Gospos previous commit
-c22d7ac844f1cb9c6a5fd20f89ebadc2feef891b, and allows access again to the netpoll
-functionality in the bonding driver.
+> I can track it in the RSC_CB if that works for you.  Right now though
+> I guess I am not seeing the difference between tracking this in
+> skb->frag_next vs IXGBE_RSC_CB(skb)->frag_head.  I think it might help
+> if you were to provide some functions that demonstrate exactly what
+> you had in mind for frag list handling.  Specifically if you were to
+> add a function for merging a frag into the frag list, and for how you
+> want to approach cleaning up the skb->prev/frag_tail_tracker pointer
+> when you are cleaning up an active frag_list.
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
----
- drivers/net/bonding/bond_main.c |   29 ++++++++++-------------------
- 1 files changed, 10 insertions(+), 19 deletions(-)
+Basically the one helper function will look like this.
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 8868a51..38d4ca0 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -184,9 +184,6 @@ static int arp_ip_count;
- static int bond_mode	= BOND_MODE_ROUNDROBIN;
- static int xmit_hashtype = BOND_XMIT_POLICY_LAYER2;
- static int lacp_fast;
--#ifdef CONFIG_NET_POLL_CONTROLLER
--static int disable_netpoll = 1;
--#endif
- 
- const struct bond_parm_tbl bond_lacp_tbl[] = {
- {	"slow",		AD_LACP_SLOW},
-@@ -1811,19 +1808,15 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 	bond_set_carrier(bond);
- 
- #ifdef CONFIG_NET_POLL_CONTROLLER
--	if (disable_netpoll) {
-+	if (slaves_support_netpoll(bond_dev)) {
-+		bond_dev->priv_flags &= ~IFF_DISABLE_NETPOLL;
-+		if (bond_dev->npinfo)
-+			slave_dev->npinfo = bond_dev->npinfo;
-+	} else if (!(bond_dev->priv_flags & IFF_DISABLE_NETPOLL)) {
- 		bond_dev->priv_flags |= IFF_DISABLE_NETPOLL;
--	} else {
--		if (slaves_support_netpoll(bond_dev)) {
--			bond_dev->priv_flags &= ~IFF_DISABLE_NETPOLL;
--			if (bond_dev->npinfo)
--				slave_dev->npinfo = bond_dev->npinfo;
--		} else if (!(bond_dev->priv_flags & IFF_DISABLE_NETPOLL)) {
--			bond_dev->priv_flags |= IFF_DISABLE_NETPOLL;
--			pr_info("New slave device %s does not support netpoll\n",
--				slave_dev->name);
--			pr_info("Disabling netpoll support for %s\n", bond_dev->name);
--		}
-+		pr_info("New slave device %s does not support netpoll\n",
-+			slave_dev->name);
-+		pr_info("Disabling netpoll support for %s\n", bond_dev->name);
- 	}
- #endif
- 	read_unlock(&bond->lock);
-@@ -2030,10 +2023,8 @@ int bond_release(struct net_device *bond_dev, struct net_device *slave_dev)
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	read_lock_bh(&bond->lock);
- 
--	 /* Make sure netpoll over stays disabled until fixed. */
--	if (!disable_netpoll)
--		if (slaves_support_netpoll(bond_dev))
--				bond_dev->priv_flags &= ~IFF_DISABLE_NETPOLL;
-+	if (slaves_support_netpoll(bond_dev))
-+		bond_dev->priv_flags &= ~IFF_DISABLE_NETPOLL;
- 	read_unlock_bh(&bond->lock);
- 	if (slave_dev->netdev_ops->ndo_netpoll_cleanup)
- 		slave_dev->netdev_ops->ndo_netpoll_cleanup(slave_dev);
--- 
-1.7.2.3
+static inline void skb_frag_list_add(struct sk_buff *head,
+				     struct sk_buff *new)
+{
+	if (!skb_shinfo(skb)->frag_list) {
+		skb_shinfo(skb)->frag_list = new;
+		skb->frag_list_tail = new;
+	} else {
+		skb->frag_list_tail->frag_list_next = new;
+		skb->frag_list_tail = new;
+	}
+}
 
+If you have to track the head from the tail packets, please do
+so in a private control block.
