@@ -1,42 +1,58 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next] drivers/net/pch_gbe: Use DEFINE_PCI_DEVICE_TABLE
-Date: Thu, 14 Oct 2010 12:55:50 -0700
-Message-ID: <1287086150.1117.608.camel@Joe-Laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] net: allocate skbs on local node
+Date: Thu, 14 Oct 2010 21:59:38 +0200
+Message-ID: <1287086378.2659.26.camel@edumazet-laptop>
+References: <1286838210.30423.128.camel@edumazet-laptop>
+	 <1286839363.30423.130.camel@edumazet-laptop>
+	 <1286859925.30423.184.camel@edumazet-laptop>
+	 <20101011230322.f0f6dd47.akpm@linux-foundation.org>
+	 <AANLkTin8FczYpPvi79w7iuKOZz3uZtYFfTPitAgQFxzD@mail.gmail.com>
+	 <20101014122752.21dd4eaf.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Masayuki Ohtake <masa-korg@dsn.okisemi.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Tom Herbert <therbert@google.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Michael Chan <mchan@broadcom.com>,
+	Eilon Greenstein <eilong@broadcom.com>,
+	Christoph Hellwig <hch@lst.de>,
+	Christoph Lameter <cl@linux-foundation.org>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:2970 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755925Ab0JNTzw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Oct 2010 15:55:52 -0400
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:43426 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755202Ab0JNUAB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Oct 2010 16:00:01 -0400
+Received: by wyb28 with SMTP id 28so2500414wyb.19
+        for <netdev@vger.kernel.org>; Thu, 14 Oct 2010 12:59:59 -0700 (PDT)
+In-Reply-To: <20101014122752.21dd4eaf.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use the standard macro to put this table in __devinitconst.
+Le jeudi 14 octobre 2010 =C3=A0 12:27 -0700, Andrew Morton a =C3=A9crit=
+ :
 
-Compiled, untested.
+> Can we think of any hardware configuration for which the change would
+> be harmful?  Something with really expensive cross-node DMA maybe?
+>=20
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- drivers/net/pch_gbe/pch_gbe_main.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+If such hardware exists (yes it does, but not close my hands...), then
+NIC IRQS probably should be handled by cpus close to the device, or it
+might be very slow. This has nothing to do with skb allocation layer.
 
-diff --git a/drivers/net/pch_gbe/pch_gbe_main.c b/drivers/net/pch_gbe/pch_gbe_main.c
-index e44644f..cf4b49d 100644
---- a/drivers/net/pch_gbe/pch_gbe_main.c
-+++ b/drivers/net/pch_gbe/pch_gbe_main.c
-@@ -2394,7 +2394,7 @@ err_disable_device:
- 	return ret;
- }
- 
--static const struct pci_device_id pch_gbe_pcidev_id[] = {
-+static DEFINE_PCI_DEVICE_TABLE(pch_gbe_pcidev_id) = {
- 	{.vendor = PCI_VENDOR_ID_INTEL,
- 	 .device = PCI_DEVICE_ID_INTEL_IOH1_GBE,
- 	 .subvendor = PCI_ANY_ID,
+I believe we should not try to correct wrong IRQ affinities with NUMA
+games. Network stack will wakeup threads and scheduler will run them on
+same cpu, if possible.
+
+If skb stay long enough on socket receive queue, application will need
+to fetch again remote numa node when reading socket a few milliseconds
+later, because cache will be cold : Total : two cross node transferts
+per incoming frame.
+
+The more node distances are big, the more speedup we can expect from
+this patch.
+
+Thanks
 
 
