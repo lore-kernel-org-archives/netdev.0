@@ -1,146 +1,209 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH net-next 2/2] stmmac: make function tables const
-Date: Wed, 13 Oct 2010 17:51:25 -0700
-Message-ID: <20101013175125.6f6a64db@nehalam>
-References: <20101013175031.41c29349@nehalam>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH 7/8 net-next] cnic: Decouple uio close from cnic
+ shutdown
+Date: Wed, 13 Oct 2010 17:06:50 -0700
+Message-ID: <1287014811-10979-8-git-send-email-mchan@broadcom.com>
+References: <1287014811-10979-1-git-send-email-mchan@broadcom.com>
+ <1287014811-10979-2-git-send-email-mchan@broadcom.com>
+ <1287014811-10979-3-git-send-email-mchan@broadcom.com>
+ <1287014811-10979-4-git-send-email-mchan@broadcom.com>
+ <1287014811-10979-5-git-send-email-mchan@broadcom.com>
+ <1287014811-10979-6-git-send-email-mchan@broadcom.com>
+ <1287014811-10979-7-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	Deepak SIKRI <deepak.sikri@st.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:38178 "EHLO mail.vyatta.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:1647 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754062Ab0JNAvj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Oct 2010 20:51:39 -0400
-In-Reply-To: <20101013175031.41c29349@nehalam>
+	id S1752974Ab0JNBEB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Oct 2010 21:04:01 -0400
+In-Reply-To: <1287014811-10979-7-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-These tables only contain function pointers.
+During cnic shutdown, the original driver code requires userspace to
+close the uio device within a few seconds.  This doesn't always happen
+as the userapp may be hung or otherwise take a long time to close.  The
+system may crash when this happens.
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+We fix the problem by decoupling the uio structures from the cnic
+structures during cnic shutdown.  We do not unregister the uio device
+until the cnic driver is unloaded.  This eliminates the unreliable wait
+loop for uio to close.
 
+All uio structures are kept in a linked list.  If the device is shutdown
+and later brought back up again, the uio strcture will be found in the
+linked list and coupled back to the cnic structures.
 
+Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/stmmac/common.h         |    6 +++---
- drivers/net/stmmac/dwmac100.h       |    2 +-
- drivers/net/stmmac/dwmac1000.h      |    2 +-
- drivers/net/stmmac/dwmac1000_core.c |    2 +-
- drivers/net/stmmac/dwmac1000_dma.c  |    2 +-
- drivers/net/stmmac/dwmac100_core.c  |    2 +-
- drivers/net/stmmac/dwmac100_dma.c   |    2 +-
- drivers/net/stmmac/enh_desc.c       |    2 +-
- drivers/net/stmmac/norm_desc.c      |    2 +-
- drivers/net/stmmac/stmmac.h         |    4 ++--
- 10 files changed, 13 insertions(+), 13 deletions(-)
+ drivers/net/cnic.c |   56 +++++++++++++++++++++++++++++++++++++++-------------
+ 1 files changed, 42 insertions(+), 14 deletions(-)
 
---- a/drivers/net/stmmac/common.h	2010-10-13 17:42:30.599219840 -0700
-+++ b/drivers/net/stmmac/common.h	2010-10-13 17:43:28.068306957 -0700
-@@ -235,9 +235,9 @@ struct mii_regs {
- };
+diff --git a/drivers/net/cnic.c b/drivers/net/cnic.c
+index e8f2836..3f923a7 100644
+--- a/drivers/net/cnic.c
++++ b/drivers/net/cnic.c
+@@ -60,6 +60,7 @@ MODULE_LICENSE("GPL");
+ MODULE_VERSION(CNIC_MODULE_VERSION);
  
- struct mac_device_info {
--	struct stmmac_ops	*mac;
--	struct stmmac_desc_ops	*desc;
--	struct stmmac_dma_ops	*dma;
-+	const struct stmmac_ops		*mac;
-+	const struct stmmac_desc_ops	*desc;
-+	const struct stmmac_dma_ops	*dma;
- 	struct mii_regs mii;	/* MII register Addresses */
- 	struct mac_link link;
- };
---- a/drivers/net/stmmac/dwmac1000_core.c	2010-10-13 17:42:30.615217915 -0700
-+++ b/drivers/net/stmmac/dwmac1000_core.c	2010-10-13 17:43:05.115068037 -0700
-@@ -212,7 +212,7 @@ static void dwmac1000_irq_status(void __
+ static LIST_HEAD(cnic_dev_list);
++static LIST_HEAD(cnic_udev_list);
+ static DEFINE_RWLOCK(cnic_dev_lock);
+ static DEFINE_MUTEX(cnic_lock);
+ 
+@@ -101,13 +102,14 @@ static int cnic_uio_open(struct uio_info *uinfo, struct inode *inode)
+ 	rtnl_lock();
+ 	dev = udev->dev;
+ 
+-	if (!test_bit(CNIC_F_CNIC_UP, &dev->flags)) {
++	if (!dev || !test_bit(CNIC_F_CNIC_UP, &dev->flags)) {
+ 		rtnl_unlock();
+ 		return -ENODEV;
  	}
- }
  
--struct stmmac_ops dwmac1000_ops = {
-+static const struct stmmac_ops dwmac1000_ops = {
- 	.core_init = dwmac1000_core_init,
- 	.rx_coe = dwmac1000_rx_coe_supported,
- 	.dump_regs = dwmac1000_dump_regs,
---- a/drivers/net/stmmac/dwmac1000_dma.c	2010-10-13 17:44:34.880269557 -0700
-+++ b/drivers/net/stmmac/dwmac1000_dma.c	2010-10-13 17:45:54.670669930 -0700
-@@ -138,7 +138,7 @@ static void dwmac1000_dump_dma_regs(void
+ 	udev->uio_dev = iminor(inode);
+ 
++	cnic_shutdown_rings(dev);
+ 	cnic_init_rings(dev);
+ 	rtnl_unlock();
+ 
+@@ -117,9 +119,6 @@ static int cnic_uio_open(struct uio_info *uinfo, struct inode *inode)
+ static int cnic_uio_close(struct uio_info *uinfo, struct inode *inode)
+ {
+ 	struct cnic_uio_dev *udev = uinfo->priv;
+-	struct cnic_dev *dev = udev->dev;
+-
+-	cnic_shutdown_rings(dev);
+ 
+ 	udev->uio_dev = -1;
+ 	return 0;
+@@ -787,6 +786,9 @@ static void __cnic_free_uio(struct cnic_uio_dev *udev)
+ 				  udev->l2_ring, udev->l2_ring_map);
+ 		udev->l2_ring = NULL;
  	}
++
++	pci_dev_put(udev->pdev);
++	kfree(udev);
  }
  
--struct stmmac_dma_ops dwmac1000_dma_ops = {
-+const struct stmmac_dma_ops dwmac1000_dma_ops = {
- 	.init = dwmac1000_dma_init,
- 	.dump_regs = dwmac1000_dump_dma_regs,
- 	.dma_mode = dwmac1000_dma_operation_mode,
---- a/drivers/net/stmmac/dwmac100_core.c	2010-10-13 17:42:30.631215991 -0700
-+++ b/drivers/net/stmmac/dwmac100_core.c	2010-10-13 17:42:45.377442238 -0700
-@@ -168,7 +168,7 @@ static void dwmac100_pmt(void __iomem *i
- 	return;
+ static void cnic_free_uio(struct cnic_uio_dev *udev)
+@@ -794,6 +796,9 @@ static void cnic_free_uio(struct cnic_uio_dev *udev)
+ 	if (!udev)
+ 		return;
+ 
++	write_lock(&cnic_dev_lock);
++	list_del_init(&udev->list);
++	write_unlock(&cnic_dev_lock);
+ 	__cnic_free_uio(udev);
  }
  
--struct stmmac_ops dwmac100_ops = {
-+static const struct stmmac_ops dwmac100_ops = {
- 	.core_init = dwmac100_core_init,
- 	.rx_coe = dwmac100_rx_coe_supported,
- 	.dump_regs = dwmac100_dump_mac_regs,
---- a/drivers/net/stmmac/dwmac100_dma.c	2010-10-13 17:44:45.351009875 -0700
-+++ b/drivers/net/stmmac/dwmac100_dma.c	2010-10-13 17:45:26.334079236 -0700
-@@ -126,7 +126,7 @@ static void dwmac100_dma_diagnostic_fr(v
+@@ -801,14 +806,9 @@ static void cnic_free_resc(struct cnic_dev *dev)
+ {
+ 	struct cnic_local *cp = dev->cnic_priv;
+ 	struct cnic_uio_dev *udev = cp->udev;
+-	int i = 0;
+ 
+ 	if (udev) {
+-		while (udev->uio_dev != -1 && i < 15) {
+-			msleep(100);
+-			i++;
+-		}
+-		cnic_free_uio(udev);
++		udev->dev = NULL;
+ 		cp->udev = NULL;
  	}
+ 
+@@ -916,6 +916,17 @@ static int cnic_alloc_uio_rings(struct cnic_dev *dev, int pages)
+ 	struct cnic_local *cp = dev->cnic_priv;
+ 	struct cnic_uio_dev *udev;
+ 
++	read_lock(&cnic_dev_lock);
++	list_for_each_entry(udev, &cnic_udev_list, list) {
++		if (udev->pdev == dev->pcidev) {
++			udev->dev = dev;
++			cp->udev = udev;
++			read_unlock(&cnic_dev_lock);
++			return 0;
++		}
++	}
++	read_unlock(&cnic_dev_lock);
++
+ 	udev = kzalloc(sizeof(struct cnic_uio_dev), GFP_ATOMIC);
+ 	if (!udev)
+ 		return -ENOMEM;
+@@ -939,6 +950,12 @@ static int cnic_alloc_uio_rings(struct cnic_dev *dev, int pages)
+ 	if (!udev->l2_buf)
+ 		return -ENOMEM;
+ 
++	write_lock(&cnic_dev_lock);
++	list_add(&udev->list, &cnic_udev_list);
++	write_unlock(&cnic_dev_lock);
++
++	pci_dev_get(udev->pdev);
++
+ 	cp->udev = udev;
+ 
+ 	return 0;
+@@ -954,8 +971,6 @@ static int cnic_init_uio(struct cnic_dev *dev)
+ 	if (!udev)
+ 		return -ENOMEM;
+ 
+-	udev->uio_dev = -1;
+-
+ 	uinfo = &udev->cnic_uinfo;
+ 
+ 	uinfo->mem[0].addr = dev->netdev->base_addr;
+@@ -996,9 +1011,15 @@ static int cnic_init_uio(struct cnic_dev *dev)
+ 	uinfo->open = cnic_uio_open;
+ 	uinfo->release = cnic_uio_close;
+ 
+-	uinfo->priv = udev;
++	if (udev->uio_dev == -1) {
++		if (!uinfo->priv) {
++			uinfo->priv = udev;
+ 
+-	ret = uio_register_device(&udev->pdev->dev, uinfo);
++			ret = uio_register_device(&udev->pdev->dev, uinfo);
++		}
++	} else {
++		cnic_init_rings(dev);
++	}
+ 
+ 	return ret;
+ }
+@@ -4559,6 +4580,7 @@ static void cnic_stop_hw(struct cnic_dev *dev)
+ 			msleep(100);
+ 			i++;
+ 		}
++		cnic_shutdown_rings(dev);
+ 		clear_bit(CNIC_F_CNIC_UP, &dev->flags);
+ 		rcu_assign_pointer(cp->ulp_ops[CNIC_ULP_L4], NULL);
+ 		synchronize_rcu();
+@@ -4834,6 +4856,7 @@ static struct notifier_block cnic_netdev_notifier = {
+ static void cnic_release(void)
+ {
+ 	struct cnic_dev *dev;
++	struct cnic_uio_dev *udev;
+ 
+ 	while (!list_empty(&cnic_dev_list)) {
+ 		dev = list_entry(cnic_dev_list.next, struct cnic_dev, list);
+@@ -4847,6 +4870,11 @@ static void cnic_release(void)
+ 		list_del_init(&dev->list);
+ 		cnic_free_dev(dev);
+ 	}
++	while (!list_empty(&cnic_udev_list)) {
++		udev = list_entry(cnic_udev_list.next, struct cnic_uio_dev,
++				  list);
++		cnic_free_uio(udev);
++	}
  }
  
--struct stmmac_dma_ops dwmac100_dma_ops = {
-+const struct stmmac_dma_ops dwmac100_dma_ops = {
- 	.init = dwmac100_dma_init,
- 	.dump_regs = dwmac100_dump_dma_regs,
- 	.dma_mode = dwmac100_dma_operation_mode,
---- a/drivers/net/stmmac/enh_desc.c	2010-10-13 17:43:40.150853494 -0700
-+++ b/drivers/net/stmmac/enh_desc.c	2010-10-13 17:46:25.390973687 -0700
-@@ -318,7 +318,7 @@ static int enh_desc_get_rx_frame_len(str
- 	return p->des01.erx.frame_length;
- }
- 
--struct stmmac_desc_ops enh_desc_ops = {
-+const struct stmmac_desc_ops enh_desc_ops = {
- 	.tx_status = enh_desc_get_tx_status,
- 	.rx_status = enh_desc_get_rx_status,
- 	.get_tx_len = enh_desc_get_tx_len,
---- a/drivers/net/stmmac/norm_desc.c	2010-10-13 17:44:05.363820440 -0700
-+++ b/drivers/net/stmmac/norm_desc.c	2010-10-13 17:46:28.978542024 -0700
-@@ -202,7 +202,7 @@ static int ndesc_get_rx_frame_len(struct
- 	return p->des01.rx.frame_length;
- }
- 
--struct stmmac_desc_ops ndesc_ops = {
-+const struct stmmac_desc_ops ndesc_ops = {
- 	.tx_status = ndesc_get_tx_status,
- 	.rx_status = ndesc_get_rx_status,
- 	.get_tx_len = ndesc_get_tx_len,
---- a/drivers/net/stmmac/dwmac100.h	2010-10-13 17:47:08.289811886 -0700
-+++ b/drivers/net/stmmac/dwmac100.h	2010-10-13 17:47:14.477067381 -0700
-@@ -118,4 +118,4 @@ enum ttc_control {
- #define DMA_MISSED_FRAME_OVE_M	0x00010000	/* Missed Frame Overflow */
- #define DMA_MISSED_FRAME_M_CNTR	0x0000ffff	/* Missed Frame Couinter */
- 
--extern struct stmmac_dma_ops dwmac100_dma_ops;
-+extern const struct stmmac_dma_ops dwmac100_dma_ops;
---- a/drivers/net/stmmac/dwmac1000.h	2010-10-13 17:46:53.607578558 -0700
-+++ b/drivers/net/stmmac/dwmac1000.h	2010-10-13 17:46:59.630853799 -0700
-@@ -205,4 +205,4 @@ enum rtc_control {
- #define GMAC_MMC_TX_INTR   0x108
- #define GMAC_MMC_RX_CSUM_OFFLOAD   0x208
- 
--extern struct stmmac_dma_ops dwmac1000_dma_ops;
-+extern const struct stmmac_dma_ops dwmac1000_dma_ops;
---- a/drivers/net/stmmac/stmmac.h	2010-10-13 17:47:30.415149545 -0700
-+++ b/drivers/net/stmmac/stmmac.h	2010-10-13 17:47:40.497936258 -0700
-@@ -121,5 +121,5 @@ static inline int stmmac_claim_resource(
- extern int stmmac_mdio_unregister(struct net_device *ndev);
- extern int stmmac_mdio_register(struct net_device *ndev);
- extern void stmmac_set_ethtool_ops(struct net_device *netdev);
--extern struct stmmac_desc_ops enh_desc_ops;
--extern struct stmmac_desc_ops ndesc_ops;
-+extern const struct stmmac_desc_ops enh_desc_ops;
-+extern const struct stmmac_desc_ops ndesc_ops;
+ static int __init cnic_init(void)
+-- 
+1.6.4.GIT
+
+
