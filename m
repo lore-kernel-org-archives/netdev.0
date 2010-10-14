@@ -1,123 +1,101 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: BUG ? ipip unregister_netdevice_many()
-Date: Thu, 14 Oct 2010 16:28:04 -0700
-Message-ID: <20101014232804.GI2447@linux.vnet.ibm.com>
-References: <m11v801tfr.fsf@fess.ebiederm.org>
- <20101012.130520.48517464.davem@davemloft.net>
- <4CB62FAF.1030009@free.fr>
- <20101013.162321.183058542.davem@davemloft.net>
- <1287028631.2649.100.camel@edumazet-laptop>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Shreyas Bhatewara <sbhatewara@vmware.com>
+Subject: RE: [PATCH 2.6.35-rc6] net-next: Add multiqueue support to vmxnet3
+ driver
+Date: Thu, 14 Oct 2010 16:31:35 -0700
+Message-ID: <89E2752CFA8EC044846EB8499819134102BF0F3B1D@EXCH-MBX-4.vmware.com>
+References: <alpine.LRH.2.00.1009290104130.464@sbhatewara-dev1.eng.vmware.com>
+	 <alpine.LRH.2.00.1010131445080.25989@sbhatewara-dev1.eng.vmware.com>
+	 <20101013145732.7d69d0f3@nehalam>
+ <1287073868.2258.13.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, daniel.lezcano@free.fr,
-	ebiederm@xmission.com, hans.schillstrom@ericsson.com,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e7.ny.us.ibm.com ([32.97.182.137]:58198 "EHLO e7.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753139Ab0JNX2G (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Oct 2010 19:28:06 -0400
-Received: from d01relay03.pok.ibm.com (d01relay03.pok.ibm.com [9.56.227.235])
-	by e7.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id o9ENCPjt025035
-	for <netdev@vger.kernel.org>; Thu, 14 Oct 2010 19:12:25 -0400
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay03.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o9ENS5sj317606
-	for <netdev@vger.kernel.org>; Thu, 14 Oct 2010 19:28:05 -0400
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o9ENS433010497
-	for <netdev@vger.kernel.org>; Thu, 14 Oct 2010 19:28:05 -0400
-Content-Disposition: inline
-In-Reply-To: <1287028631.2649.100.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"pv-drivers@vmware.com" <pv-drivers@vmware.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>,
+	Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1287073868.2258.13.camel@achroite.uk.solarflarecom.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 14, 2010 at 05:57:11AM +0200, Eric Dumazet wrote:
-> Le mercredi 13 octobre 2010 =E0 16:23 -0700, David Miller a =E9crit :
-> > From: Daniel Lezcano <daniel.lezcano@free.fr>
-
-[ . . . ]
-
-> >  	for (i =3D 0; i <=3D rt_hash_mask; i++) {
-> > +		struct rtable *list =3D NULL, **pprev;
-> > +
-> >  		if (process_context && need_resched())
-> >  			cond_resched();
-> >  		rth =3D rt_hash_table[i].chain;
-> > @@ -726,41 +727,27 @@ static void rt_do_flush(int process_context)
-> >  			continue;
-> > =20
-> >  		spin_lock_bh(rt_hash_lock_addr(i));
-> > -#ifdef CONFIG_NET_NS
-> > -		{
-> > -		struct rtable ** prev, * p;
-> > =20
-> > -		rth =3D rt_hash_table[i].chain;
-> > +		pprev =3D &rt_hash_table[i].chain;
-> > +		rth =3D *pprev;
-> > +		while (rth) {
-> > +			next =3D rth->dst.rt_next;
-> > +			if (dev_net(rth->dst.dev) =3D=3D net) {
->=20
-> 		if (net_eq(dev_net(rth->dst.dev), net)) {
->=20
->=20
-> > +				*pprev =3D next;
-> > =20
-> > -		/* defer releasing the head of the list after spin_unlock */
-> > -		for (tail =3D rth; tail; tail =3D tail->dst.rt_next)
-> > -			if (!rt_is_expired(tail))
-> > -				break;
-> > -		if (rth !=3D tail)
-> > -			rt_hash_table[i].chain =3D tail;
-> > -
-> > -		/* call rt_free on entries after the tail requiring flush */
-> > -		prev =3D &rt_hash_table[i].chain;
-> > -		for (p =3D *prev; p; p =3D next) {
-> > -			next =3D p->dst.rt_next;
-> > -			if (!rt_is_expired(p)) {
-> > -				prev =3D &p->dst.rt_next;
-> > -			} else {
-> > -				*prev =3D next;
-> > -				rt_free(p);
-> > -			}
-> > -		}
-> > +				rth->dst.rt_next =3D list;
-> > +				list =3D rth;
->=20
-> I was wondering about RCU rules here.
-> We change pointers while a reader might enter in a loop.
-> It seems fine : At soon as we spin_unlock(), the loop should be close=
-d.
-
-I don't see where the structure pointed to by list came from, but
-especially if it is newly allocated, we do need an rcu_assign_pointer()=
-=2E
-
-							Thanx, Paul
-
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
->=20
-> minor coding style : You should add a brace in the else clause :
->=20
-> pprev =3D &rt_hash_table[i].chain;
-> for (rth =3D *pprev; rth !=3D NULL; rth =3D next) {
-> 	next =3D rth->dst.rt_next;
-> 	if (net_eq(dev_net(rth->dst.dev), net)) {
-> 		*pprev =3D next;
-> 		rth->dst.rt_next =3D list;
-> 		list =3D rth;
-> 	} else {
-> 		pprev =3D &rth->dst.rt_next;
-> 	}
-> }
->=20
-> Thanks !
->=20
->=20
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQmVuIEh1dGNoaW5ncyBb
+bWFpbHRvOmJodXRjaGluZ3NAc29sYXJmbGFyZS5jb21dDQo+IFNlbnQ6IFRodXJzZGF5LCBPY3Rv
+YmVyIDE0LCAyMDEwIDk6MzEgQU0NCj4gVG86IFN0ZXBoZW4gSGVtbWluZ2VyOyBTaHJleWFzIEJo
+YXRld2FyYQ0KPiBDYzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgcHYtZHJpdmVyc0B2bXdhcmUu
+Y29tOyBsaW51eC0NCj4ga2VybmVsQHZnZXIua2VybmVsLm9yZw0KPiBTdWJqZWN0OiBSZTogW1BB
+VENIIDIuNi4zNS1yYzZdIG5ldC1uZXh0OiBBZGQgbXVsdGlxdWV1ZSBzdXBwb3J0IHRvDQo+IHZt
+eG5ldDMgZHJpdmVyDQo+IA0KPiBPbiBXZWQsIDIwMTAtMTAtMTMgYXQgMTQ6NTcgLTA3MDAsIFN0
+ZXBoZW4gSGVtbWluZ2VyIHdyb3RlOg0KPiA+IE9uIFdlZCwgMTMgT2N0IDIwMTAgMTQ6NDc6MDUg
+LTA3MDAgKFBEVCkNCj4gPiBTaHJleWFzIEJoYXRld2FyYSA8c2JoYXRld2FyYUB2bXdhcmUuY29t
+PiB3cm90ZToNCj4gPg0KPiA+ID4gI2lmZGVmIFZNWE5FVDNfUlNTDQo+ID4gPiArc3RhdGljIHVu
+c2lnbmVkIGludCBudW1fcnNzX2VudHJpZXM7DQo+ID4gPiArI2RlZmluZSBWTVhORVQzX01BWF9E
+RVZJQ0VTIDEwDQo+ID4gPiArDQo+ID4gPiArc3RhdGljIGludCByc3NfaW5kX3RhYmxlW1ZNWE5F
+VDNfTUFYX0RFVklDRVMgKg0KPiA+ID4gKwkJCSBWTVhORVQzX1JTU19JTkRfVEFCTEVfU0laRSAr
+IDFdID0gew0KPiA+ID4gKwlbMCAuLi4gVk1YTkVUM19NQVhfREVWSUNFUyAqIFZNWE5FVDNfUlNT
+X0lORF9UQUJMRV9TSVpFXSA9IC0xIH07DQo+ID4gPiArI2VuZGlmDQo+ID4gPiArc3RhdGljIGlu
+dCBudW1fdHFzW1ZNWE5FVDNfTUFYX0RFVklDRVMgKyAxXSA9IHsNCj4gPiA+ICsJWzAgLi4uIFZN
+WE5FVDNfTUFYX0RFVklDRVNdID0gMSB9Ow0KPiA+ID4gK3N0YXRpYyBpbnQgbnVtX3Jxc1tWTVhO
+RVQzX01BWF9ERVZJQ0VTICsgMV0gPSB7DQo+ID4gPiArCVswIC4uLiBWTVhORVQzX01BWF9ERVZJ
+Q0VTXSA9IDEgfTsNCj4gPiA+ICtzdGF0aWMgaW50IHNoYXJlX3R4X2ludHJbVk1YTkVUM19NQVhf
+REVWSUNFUyArIDFdID0gew0KPiA+ID4gKwlbMCAuLi4gVk1YTkVUM19NQVhfREVWSUNFU10gPSAw
+IH07DQo+ID4gPiArc3RhdGljIGludCBidWRkeV9pbnRyW1ZNWE5FVDNfTUFYX0RFVklDRVMgKyAx
+XSA9IHsNCj4gPiA+ICsJWzAgLi4uIFZNWE5FVDNfTUFYX0RFVklDRVNdID0gMSB9Ow0KPiA+ID4g
+Kw0KPiA+ID4gK3N0YXRpYyB1bnNpZ25lZCBpbnQgbnVtX2FkYXB0ZXJzOw0KPiA+ID4gK21vZHVs
+ZV9wYXJhbV9hcnJheShzaGFyZV90eF9pbnRyLCBpbnQsICZudW1fYWRhcHRlcnMsIDA0MDApOw0K
+PiA+ID4gK01PRFVMRV9QQVJNX0RFU0Moc2hhcmVfdHhfaW50ciwgIlNoYXJlIG9uZSBJUlEgYW1v
+bmcgYWxsIHR4IHF1ZXVlDQo+IGNvbXBsZXRpb25zLiAiDQo+ID4gPiArCQkgIkNvbW1hIHNlcGFy
+YXRlZCBsaXN0IG9mIDFzIGFuZCAwcyAtIG9uZSBmb3IgZWFjaCBOSUMuICINCj4gPiA+ICsJCSAi
+MSB0byBzaGFyZSwgMCB0byBub3QsIGRlZmF1bHQgaXMgMCIpOw0KPiA+ID4gK21vZHVsZV9wYXJh
+bV9hcnJheShidWRkeV9pbnRyLCBpbnQsICZudW1fYWRhcHRlcnMsIDA0MDApOw0KPiA+ID4gK01P
+RFVMRV9QQVJNX0RFU0MoYnVkZHlfaW50ciwgIlNoYXJlIG9uZSBJUlEgYW1vbmcgY29ycmVzcG9u
+ZGluZyB0eA0KPiBhbmQgcnggIg0KPiA+ID4gKwkJICJxdWV1ZXMuIENvbW1hIHNlcGFyYXRlZCBs
+aXN0IG9mIDFzIGFuZCAwcyAtIG9uZSBmb3IgZWFjaA0KPiAiDQo+ID4gPiArCQkgIk5JQy4gMSB0
+byBzaGFyZSwgMCB0byBub3QsIGRlZmF1bHQgaXMgMSIpOw0KPiA+ID4gK21vZHVsZV9wYXJhbV9h
+cnJheShudW1fdHFzLCBpbnQsICZudW1fYWRhcHRlcnMsIDA0MDApOw0KPiA+ID4gK01PRFVMRV9Q
+QVJNX0RFU0MobnVtX3RxcywgIk51bWJlciBvZiB0cmFuc21pdCBxdWV1ZXMgaW4gZWFjaA0KPiBh
+ZGFwdGVyLiBDb21tYSAiDQo+ID4gPiArCQkgInNlcGFyYXRlZCBsaXN0IG9mIGludGVnZXJzLiBT
+ZXR0aW5nIHRoaXMgdG8gMCBtYWtlcw0KPiBudW1iZXIiDQo+ID4gPiArCQkgIiBvZiBxdWV1ZXMg
+c2FtZSBhcyBudW1iZXIgb2YgQ1BVcy4gRGVmYXVsdCBpcyAxLiIpOw0KPiA+ID4gKw0KPiA+ID4g
+KyNpZmRlZiBWTVhORVQzX1JTUw0KPiA+ID4gK21vZHVsZV9wYXJhbV9hcnJheShyc3NfaW5kX3Rh
+YmxlLCBpbnQsICZudW1fcnNzX2VudHJpZXMsIDA0MDApOw0KPiA+ID4gK01PRFVMRV9QQVJNX0RF
+U0MocnNzX2luZF90YWJsZSwgIlJTUyBJbmRpcmVjdGlvbiB0YWJsZS4gTnVtYmVyIG9mDQo+IGVu
+dHJpZXMgIg0KPiA+ID4gKwkJICJwZXIgTklDIHNob3VsZCBiZSAzMi4gRWFjaCBpbnRlZ2VyIGlu
+IGEgY29tbWEgc2VwYXJhdGVkDQo+IGxpc3QiDQo+ID4gPiArCQkgIiBpcyBhbiByeCBxdWV1ZSBu
+dW1iZXIgc3RhcnRpbmcgd2l0aCAwLiBSZXBlYXQgdGhlIHNhbWUNCj4gZm9yIg0KPiA+ID4gKwkJ
+ICIgYWxsIE5JQ3MuIik7DQo+ID4gPiArbW9kdWxlX3BhcmFtX2FycmF5KG51bV9ycXMsIGludCwg
+Jm51bV9hZGFwdGVycywgMDQwMCk7DQo+ID4gPiArTU9EVUxFX1BBUk1fREVTQyhudW1fcnFzLCAi
+TnVtYmVyIG9mIHJlY2VpdmUgcXVldWVzIGluIGVhY2gNCj4gYWRhcHRlci4gQ29tbWEgIg0KPiA+
+ID4gKwkJICIgc2VwYXJhdGVkIGxpc3Qgb2YgaW50ZWdlcnMuIFNldHRpbmcgdGhpcyB0byAwIG1h
+a2VzDQo+IG51bWJlciINCj4gPiA+ICsJCSAiIG9mIHF1ZXVlcyBzYW1lIGFzIG51bWJlciBvZiBD
+UFVzLiBEZWZhdWx0IGlzIDEuIik7DQo+ID4NCj4gPiBNb2R1bGUgcGFyYW1ldGVycyBhcmUgbm90
+IHJpZ2h0IGZvciB0aGlzLiBUaGV5IGxlYWQgdG8gZGlmZmVyZW50IEFQSQ0KPiA+IGZvciBpbnRl
+cmFjdGluZyB3aXRoIGVhY2ggZHJpdmVyIHZlbmRvci4gSXMgdGhlcmUgYSBhbm90aGVyIGJldHRl
+cg0KPiBBUEk/DQo+ID4gRG9lcyBpdCBoYXZlIHRvIGJlIHRoaXMgdHdlYWthYmxlIGluIGEgcHJv
+ZHVjdGlvbiBlbnZpcm9ubWVudC4NCj4gDQo+IFRoZSBldGh0b29sIGNvbW1hbmRzIEVUSFRPT0xf
+e0csU31SWEZISU5ESVIgY292ZXIgdGhlIFJTUyBpbmRpcmVjdGlvbg0KPiB0YWJsZS4gIFRoZXNl
+IGFyZSBuZXcgaW4gMi42LjM2IGJ1dCBhbHJlYWR5IHN1cHBvcnRlZCBpbiB0aGUgZXRodG9vbA0K
+PiB1dGlsaXR5Lg0KDQpUaGFua3MgQmVuLA0KDQpHb29kIHRvIGtub3cuIEkgd2lsbCB0cnkgYW5k
+IHJlcGxhY2UgdGhlIG1vZHVsZSBwYXJhbWV0ZXIgZm9yIFJTUyBpbmRpcmVjdGlvbiB0YWJsZSB3
+aXRoIGhhbmRsZXJzIGZvciB0aGVzZSBldGh0b29sIGNvbW1hbmRzLg0KDQoNCj4gDQo+IEFzIGZv
+ciBudW1iZXJzIG9mIHF1ZXVlcyBhbmQgYXNzb2NpYXRpb24gb2YgdGhlaXIgY29tcGxldGlvbnMg
+d2l0aA0KPiBpbnRlcnJ1cHRzLCB3ZSBjdXJyZW50bHkgaGF2ZSBub3RoaW5nIGV4Y2VwdCBFVEhU
+T09MX0dSWFJJTkdTIHRvIGdldA0KPiB0aGUNCj4gbnVtYmVyIG9mIFJYIHF1ZXVlcy4gIEkgZGlk
+IHBvc3QgYSB0ZW50YXRpdmUgZGVmaW5pdGlvbiBvZiBhbiBldGh0b29sDQo+IGludGVyZmFjZSBm
+b3IgdGhpcyBpbg0KPiA8aHR0cDovL2FydGljbGUuZ21hbmUub3JnL2dtYW5lLmxpbnV4Lm5ldHdv
+cmsvMTcyMzg2PiB0aG91Z2ggaXQNCj4gd291bGRuJ3QNCj4gcHJvdmlkZSBxdWl0ZSBhcyBtdWNo
+IGNvbnRyb2wgYXMgdGhlc2UgbW9kdWxlIHBhcmFtZXRlcnMuICBJdCBpcyBhbHNvDQo+IHNpZ25p
+ZmljYW50bHkgbW9yZSBkaWZmaWN1bHQgdG8gc3VwcG9ydCBjaGFuZ2luZyBudW1iZXJzIG9mIHF1
+ZXVlcw0KPiBhZnRlcg0KPiBhbiBpbnRlcmZhY2UgaGFzIGJlZW4gY3JlYXRlZCwgYW5kIEkgaGF2
+ZSBub3QgeWV0IGF0dGVtcHRlZCB0bw0KPiBpbXBsZW1lbnQNCj4gdGhlICdzZXQnIGNvbW1hbmQg
+bXlzZWxmLg0KDQoNCk9rYXkuIEl0IHdvdWxkIGJlIGJlc3QgdG8ga2VlcCBtb2R1bGUgcGFyYW1l
+dGVycyB0byBkaWN0YXRlIG51bWJlciBvZiBxdWV1ZXMgdGlsbCBldGh0b29sIGNvbW1hbmRzIHRv
+IGRvIHNvIGJlY29tZSBhdmFpbGFibGUvZWFzeSB0byB1c2UgKGNvbW1hbmQgdG8gY2hhbmdlIG51
+bWJlciBvZiB0eCBxdWV1ZXMgZG8gbm90IGV4aXN0KS4NCg0KUmVnYXJkcy4NClNocmV5YXMNCg0K
+DQo+IA0KPiBCZW4uDQo+IA0KPiAtLQ0KPiBCZW4gSHV0Y2hpbmdzLCBTZW5pb3IgU29mdHdhcmUg
+RW5naW5lZXIsIFNvbGFyZmxhcmUgQ29tbXVuaWNhdGlvbnMNCj4gTm90IHNwZWFraW5nIGZvciBt
+eSBlbXBsb3llcjsgdGhhdCdzIHRoZSBtYXJrZXRpbmcgZGVwYXJ0bWVudCdzIGpvYi4NCj4gVGhl
+eSBhc2tlZCB1cyB0byBub3RlIHRoYXQgU29sYXJmbGFyZSBwcm9kdWN0IG5hbWVzIGFyZSB0cmFk
+ZW1hcmtlZC4NCg0K
