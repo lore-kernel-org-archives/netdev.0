@@ -1,101 +1,36 @@
-From: Shreyas Bhatewara <sbhatewara@vmware.com>
-Subject: RE: [PATCH 2.6.35-rc6] net-next: Add multiqueue support to vmxnet3
- driver
-Date: Thu, 14 Oct 2010 16:31:35 -0700
-Message-ID: <89E2752CFA8EC044846EB8499819134102BF0F3B1D@EXCH-MBX-4.vmware.com>
-References: <alpine.LRH.2.00.1009290104130.464@sbhatewara-dev1.eng.vmware.com>
-	 <alpine.LRH.2.00.1010131445080.25989@sbhatewara-dev1.eng.vmware.com>
-	 <20101013145732.7d69d0f3@nehalam>
- <1287073868.2258.13.camel@achroite.uk.solarflarecom.com>
+From: Jonathan Thibault <jonathan@navigue.com>
+Subject: Couple tc filter questions.
+Date: Thu, 14 Oct 2010 19:31:44 -0400
+Message-ID: <4CB792E0.5030704@navigue.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"pv-drivers@vmware.com" <pv-drivers@vmware.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>,
-	Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1287073868.2258.13.camel@achroite.uk.solarflarecom.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.navigue.com ([74.117.40.3]:38343 "EHLO mail.navigue.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751061Ab0JNXjS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Oct 2010 19:39:18 -0400
+Received: from [192.168.34.187] (unknown [74.117.40.9])
+	(using TLSv1 with cipher DHE-RSA-CAMELLIA256-SHA (256/256 bits))
+	(No client certificate requested)
+	by mail.navigue.com (Postfix) with ESMTPSA id 6C3305298F5
+	for <netdev@vger.kernel.org>; Thu, 14 Oct 2010 19:32:05 -0400 (EDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQmVuIEh1dGNoaW5ncyBb
-bWFpbHRvOmJodXRjaGluZ3NAc29sYXJmbGFyZS5jb21dDQo+IFNlbnQ6IFRodXJzZGF5LCBPY3Rv
-YmVyIDE0LCAyMDEwIDk6MzEgQU0NCj4gVG86IFN0ZXBoZW4gSGVtbWluZ2VyOyBTaHJleWFzIEJo
-YXRld2FyYQ0KPiBDYzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgcHYtZHJpdmVyc0B2bXdhcmUu
-Y29tOyBsaW51eC0NCj4ga2VybmVsQHZnZXIua2VybmVsLm9yZw0KPiBTdWJqZWN0OiBSZTogW1BB
-VENIIDIuNi4zNS1yYzZdIG5ldC1uZXh0OiBBZGQgbXVsdGlxdWV1ZSBzdXBwb3J0IHRvDQo+IHZt
-eG5ldDMgZHJpdmVyDQo+IA0KPiBPbiBXZWQsIDIwMTAtMTAtMTMgYXQgMTQ6NTcgLTA3MDAsIFN0
-ZXBoZW4gSGVtbWluZ2VyIHdyb3RlOg0KPiA+IE9uIFdlZCwgMTMgT2N0IDIwMTAgMTQ6NDc6MDUg
-LTA3MDAgKFBEVCkNCj4gPiBTaHJleWFzIEJoYXRld2FyYSA8c2JoYXRld2FyYUB2bXdhcmUuY29t
-PiB3cm90ZToNCj4gPg0KPiA+ID4gI2lmZGVmIFZNWE5FVDNfUlNTDQo+ID4gPiArc3RhdGljIHVu
-c2lnbmVkIGludCBudW1fcnNzX2VudHJpZXM7DQo+ID4gPiArI2RlZmluZSBWTVhORVQzX01BWF9E
-RVZJQ0VTIDEwDQo+ID4gPiArDQo+ID4gPiArc3RhdGljIGludCByc3NfaW5kX3RhYmxlW1ZNWE5F
-VDNfTUFYX0RFVklDRVMgKg0KPiA+ID4gKwkJCSBWTVhORVQzX1JTU19JTkRfVEFCTEVfU0laRSAr
-IDFdID0gew0KPiA+ID4gKwlbMCAuLi4gVk1YTkVUM19NQVhfREVWSUNFUyAqIFZNWE5FVDNfUlNT
-X0lORF9UQUJMRV9TSVpFXSA9IC0xIH07DQo+ID4gPiArI2VuZGlmDQo+ID4gPiArc3RhdGljIGlu
-dCBudW1fdHFzW1ZNWE5FVDNfTUFYX0RFVklDRVMgKyAxXSA9IHsNCj4gPiA+ICsJWzAgLi4uIFZN
-WE5FVDNfTUFYX0RFVklDRVNdID0gMSB9Ow0KPiA+ID4gK3N0YXRpYyBpbnQgbnVtX3Jxc1tWTVhO
-RVQzX01BWF9ERVZJQ0VTICsgMV0gPSB7DQo+ID4gPiArCVswIC4uLiBWTVhORVQzX01BWF9ERVZJ
-Q0VTXSA9IDEgfTsNCj4gPiA+ICtzdGF0aWMgaW50IHNoYXJlX3R4X2ludHJbVk1YTkVUM19NQVhf
-REVWSUNFUyArIDFdID0gew0KPiA+ID4gKwlbMCAuLi4gVk1YTkVUM19NQVhfREVWSUNFU10gPSAw
-IH07DQo+ID4gPiArc3RhdGljIGludCBidWRkeV9pbnRyW1ZNWE5FVDNfTUFYX0RFVklDRVMgKyAx
-XSA9IHsNCj4gPiA+ICsJWzAgLi4uIFZNWE5FVDNfTUFYX0RFVklDRVNdID0gMSB9Ow0KPiA+ID4g
-Kw0KPiA+ID4gK3N0YXRpYyB1bnNpZ25lZCBpbnQgbnVtX2FkYXB0ZXJzOw0KPiA+ID4gK21vZHVs
-ZV9wYXJhbV9hcnJheShzaGFyZV90eF9pbnRyLCBpbnQsICZudW1fYWRhcHRlcnMsIDA0MDApOw0K
-PiA+ID4gK01PRFVMRV9QQVJNX0RFU0Moc2hhcmVfdHhfaW50ciwgIlNoYXJlIG9uZSBJUlEgYW1v
-bmcgYWxsIHR4IHF1ZXVlDQo+IGNvbXBsZXRpb25zLiAiDQo+ID4gPiArCQkgIkNvbW1hIHNlcGFy
-YXRlZCBsaXN0IG9mIDFzIGFuZCAwcyAtIG9uZSBmb3IgZWFjaCBOSUMuICINCj4gPiA+ICsJCSAi
-MSB0byBzaGFyZSwgMCB0byBub3QsIGRlZmF1bHQgaXMgMCIpOw0KPiA+ID4gK21vZHVsZV9wYXJh
-bV9hcnJheShidWRkeV9pbnRyLCBpbnQsICZudW1fYWRhcHRlcnMsIDA0MDApOw0KPiA+ID4gK01P
-RFVMRV9QQVJNX0RFU0MoYnVkZHlfaW50ciwgIlNoYXJlIG9uZSBJUlEgYW1vbmcgY29ycmVzcG9u
-ZGluZyB0eA0KPiBhbmQgcnggIg0KPiA+ID4gKwkJICJxdWV1ZXMuIENvbW1hIHNlcGFyYXRlZCBs
-aXN0IG9mIDFzIGFuZCAwcyAtIG9uZSBmb3IgZWFjaA0KPiAiDQo+ID4gPiArCQkgIk5JQy4gMSB0
-byBzaGFyZSwgMCB0byBub3QsIGRlZmF1bHQgaXMgMSIpOw0KPiA+ID4gK21vZHVsZV9wYXJhbV9h
-cnJheShudW1fdHFzLCBpbnQsICZudW1fYWRhcHRlcnMsIDA0MDApOw0KPiA+ID4gK01PRFVMRV9Q
-QVJNX0RFU0MobnVtX3RxcywgIk51bWJlciBvZiB0cmFuc21pdCBxdWV1ZXMgaW4gZWFjaA0KPiBh
-ZGFwdGVyLiBDb21tYSAiDQo+ID4gPiArCQkgInNlcGFyYXRlZCBsaXN0IG9mIGludGVnZXJzLiBT
-ZXR0aW5nIHRoaXMgdG8gMCBtYWtlcw0KPiBudW1iZXIiDQo+ID4gPiArCQkgIiBvZiBxdWV1ZXMg
-c2FtZSBhcyBudW1iZXIgb2YgQ1BVcy4gRGVmYXVsdCBpcyAxLiIpOw0KPiA+ID4gKw0KPiA+ID4g
-KyNpZmRlZiBWTVhORVQzX1JTUw0KPiA+ID4gK21vZHVsZV9wYXJhbV9hcnJheShyc3NfaW5kX3Rh
-YmxlLCBpbnQsICZudW1fcnNzX2VudHJpZXMsIDA0MDApOw0KPiA+ID4gK01PRFVMRV9QQVJNX0RF
-U0MocnNzX2luZF90YWJsZSwgIlJTUyBJbmRpcmVjdGlvbiB0YWJsZS4gTnVtYmVyIG9mDQo+IGVu
-dHJpZXMgIg0KPiA+ID4gKwkJICJwZXIgTklDIHNob3VsZCBiZSAzMi4gRWFjaCBpbnRlZ2VyIGlu
-IGEgY29tbWEgc2VwYXJhdGVkDQo+IGxpc3QiDQo+ID4gPiArCQkgIiBpcyBhbiByeCBxdWV1ZSBu
-dW1iZXIgc3RhcnRpbmcgd2l0aCAwLiBSZXBlYXQgdGhlIHNhbWUNCj4gZm9yIg0KPiA+ID4gKwkJ
-ICIgYWxsIE5JQ3MuIik7DQo+ID4gPiArbW9kdWxlX3BhcmFtX2FycmF5KG51bV9ycXMsIGludCwg
-Jm51bV9hZGFwdGVycywgMDQwMCk7DQo+ID4gPiArTU9EVUxFX1BBUk1fREVTQyhudW1fcnFzLCAi
-TnVtYmVyIG9mIHJlY2VpdmUgcXVldWVzIGluIGVhY2gNCj4gYWRhcHRlci4gQ29tbWEgIg0KPiA+
-ID4gKwkJICIgc2VwYXJhdGVkIGxpc3Qgb2YgaW50ZWdlcnMuIFNldHRpbmcgdGhpcyB0byAwIG1h
-a2VzDQo+IG51bWJlciINCj4gPiA+ICsJCSAiIG9mIHF1ZXVlcyBzYW1lIGFzIG51bWJlciBvZiBD
-UFVzLiBEZWZhdWx0IGlzIDEuIik7DQo+ID4NCj4gPiBNb2R1bGUgcGFyYW1ldGVycyBhcmUgbm90
-IHJpZ2h0IGZvciB0aGlzLiBUaGV5IGxlYWQgdG8gZGlmZmVyZW50IEFQSQ0KPiA+IGZvciBpbnRl
-cmFjdGluZyB3aXRoIGVhY2ggZHJpdmVyIHZlbmRvci4gSXMgdGhlcmUgYSBhbm90aGVyIGJldHRl
-cg0KPiBBUEk/DQo+ID4gRG9lcyBpdCBoYXZlIHRvIGJlIHRoaXMgdHdlYWthYmxlIGluIGEgcHJv
-ZHVjdGlvbiBlbnZpcm9ubWVudC4NCj4gDQo+IFRoZSBldGh0b29sIGNvbW1hbmRzIEVUSFRPT0xf
-e0csU31SWEZISU5ESVIgY292ZXIgdGhlIFJTUyBpbmRpcmVjdGlvbg0KPiB0YWJsZS4gIFRoZXNl
-IGFyZSBuZXcgaW4gMi42LjM2IGJ1dCBhbHJlYWR5IHN1cHBvcnRlZCBpbiB0aGUgZXRodG9vbA0K
-PiB1dGlsaXR5Lg0KDQpUaGFua3MgQmVuLA0KDQpHb29kIHRvIGtub3cuIEkgd2lsbCB0cnkgYW5k
-IHJlcGxhY2UgdGhlIG1vZHVsZSBwYXJhbWV0ZXIgZm9yIFJTUyBpbmRpcmVjdGlvbiB0YWJsZSB3
-aXRoIGhhbmRsZXJzIGZvciB0aGVzZSBldGh0b29sIGNvbW1hbmRzLg0KDQoNCj4gDQo+IEFzIGZv
-ciBudW1iZXJzIG9mIHF1ZXVlcyBhbmQgYXNzb2NpYXRpb24gb2YgdGhlaXIgY29tcGxldGlvbnMg
-d2l0aA0KPiBpbnRlcnJ1cHRzLCB3ZSBjdXJyZW50bHkgaGF2ZSBub3RoaW5nIGV4Y2VwdCBFVEhU
-T09MX0dSWFJJTkdTIHRvIGdldA0KPiB0aGUNCj4gbnVtYmVyIG9mIFJYIHF1ZXVlcy4gIEkgZGlk
-IHBvc3QgYSB0ZW50YXRpdmUgZGVmaW5pdGlvbiBvZiBhbiBldGh0b29sDQo+IGludGVyZmFjZSBm
-b3IgdGhpcyBpbg0KPiA8aHR0cDovL2FydGljbGUuZ21hbmUub3JnL2dtYW5lLmxpbnV4Lm5ldHdv
-cmsvMTcyMzg2PiB0aG91Z2ggaXQNCj4gd291bGRuJ3QNCj4gcHJvdmlkZSBxdWl0ZSBhcyBtdWNo
-IGNvbnRyb2wgYXMgdGhlc2UgbW9kdWxlIHBhcmFtZXRlcnMuICBJdCBpcyBhbHNvDQo+IHNpZ25p
-ZmljYW50bHkgbW9yZSBkaWZmaWN1bHQgdG8gc3VwcG9ydCBjaGFuZ2luZyBudW1iZXJzIG9mIHF1
-ZXVlcw0KPiBhZnRlcg0KPiBhbiBpbnRlcmZhY2UgaGFzIGJlZW4gY3JlYXRlZCwgYW5kIEkgaGF2
-ZSBub3QgeWV0IGF0dGVtcHRlZCB0bw0KPiBpbXBsZW1lbnQNCj4gdGhlICdzZXQnIGNvbW1hbmQg
-bXlzZWxmLg0KDQoNCk9rYXkuIEl0IHdvdWxkIGJlIGJlc3QgdG8ga2VlcCBtb2R1bGUgcGFyYW1l
-dGVycyB0byBkaWN0YXRlIG51bWJlciBvZiBxdWV1ZXMgdGlsbCBldGh0b29sIGNvbW1hbmRzIHRv
-IGRvIHNvIGJlY29tZSBhdmFpbGFibGUvZWFzeSB0byB1c2UgKGNvbW1hbmQgdG8gY2hhbmdlIG51
-bWJlciBvZiB0eCBxdWV1ZXMgZG8gbm90IGV4aXN0KS4NCg0KUmVnYXJkcy4NClNocmV5YXMNCg0K
-DQo+IA0KPiBCZW4uDQo+IA0KPiAtLQ0KPiBCZW4gSHV0Y2hpbmdzLCBTZW5pb3IgU29mdHdhcmUg
-RW5naW5lZXIsIFNvbGFyZmxhcmUgQ29tbXVuaWNhdGlvbnMNCj4gTm90IHNwZWFraW5nIGZvciBt
-eSBlbXBsb3llcjsgdGhhdCdzIHRoZSBtYXJrZXRpbmcgZGVwYXJ0bWVudCdzIGpvYi4NCj4gVGhl
-eSBhc2tlZCB1cyB0byBub3RlIHRoYXQgU29sYXJmbGFyZSBwcm9kdWN0IG5hbWVzIGFyZSB0cmFk
-ZW1hcmtlZC4NCg0K
+Since the lartc mailing list appears to be dead, I'll ask here and hope not to offend anyone.
+
+1- This page:
+  http://lartc.org/howto/lartc.qdisc.filters.html
+States: "Also, with HTB, you should attach all filters to the root!"
+
+Why?  Is it still true?  My setup would be a lot easier with cascading filters.  If it's just a matter of there not being any efficiency gains from cascading filters, that's fine.  If there is a risk of things exploding randomly and without notice, I'd be keen to know.  Testing shows that cascading works okay, but I haven't tried under any serious load.
+
+2- Are filter flowid (classify) actions terminating?  Meaning if two consecutive filters would match the same packet, only the first match would ever apply and no further filter is evaluated?  Are there actions for which this isn't the case?  Intuitively and experimentally, I'd answer no but if anyone knowledgeable in the matter would care to expand on that topic I'd be grateful.  Especially considering cascading classes/filters.
+
+Another area where termination isn't entirely clear is when using mirred and ifb devices.  I might want to send a copy of all my traffic to an ifb device, but then I would still want subsequent filters to match in the current qdisc.  In such a case, a filter that matches all traffic with a mirred action should probably not be terminating.
+
+Maybe I'm thinking too much in terms of iptables here :P
+
+Jonathan
