@@ -1,66 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: BUG ? ipip unregister_netdevice_many()
-Date: Thu, 14 Oct 2010 08:09:07 -0700 (PDT)
-Message-ID: <20101014.080907.189690627.davem@davemloft.net>
-References: <m1fww94ca6.fsf@fess.ebiederm.org>
-	<20101013.215013.104074480.davem@davemloft.net>
-	<m162x5492h.fsf@fess.ebiederm.org>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH net-next] net: allocate skbs on local node
+Date: Thu, 14 Oct 2010 08:31:01 -0700
+Message-ID: <AANLkTin8FczYpPvi79w7iuKOZz3uZtYFfTPitAgQFxzD@mail.gmail.com>
+References: <1286838210.30423.128.camel@edumazet-laptop>
+	<1286839363.30423.130.camel@edumazet-laptop>
+	<1286859925.30423.184.camel@edumazet-laptop>
+	<20101011230322.f0f6dd47.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: hans.schillstrom@ericsson.com, daniel.lezcano@free.fr,
-	netdev@vger.kernel.org
-To: ebiederm@xmission.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Michael Chan <mchan@broadcom.com>,
+	Eilon Greenstein <eilong@broadcom.com>,
+	Christoph Hellwig <hch@lst.de>,
+	Christoph Lameter <cl@linux-foundation.org>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46989
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754181Ab0JNPIp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Oct 2010 11:08:45 -0400
-In-Reply-To: <m162x5492h.fsf@fess.ebiederm.org>
+Received: from smtp-out.google.com ([74.125.121.35]:17893 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754949Ab0JNPbG convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Oct 2010 11:31:06 -0400
+Received: from wpaz29.hot.corp.google.com (wpaz29.hot.corp.google.com [172.24.198.93])
+	by smtp-out.google.com with ESMTP id o9EFV34I000810
+	for <netdev@vger.kernel.org>; Thu, 14 Oct 2010 08:31:03 -0700
+Received: from pzk28 (pzk28.prod.google.com [10.243.19.156])
+	by wpaz29.hot.corp.google.com with ESMTP id o9EFV1ea030646
+	for <netdev@vger.kernel.org>; Thu, 14 Oct 2010 08:31:02 -0700
+Received: by pzk28 with SMTP id 28so1187890pzk.20
+        for <netdev@vger.kernel.org>; Thu, 14 Oct 2010 08:31:01 -0700 (PDT)
+In-Reply-To: <20101011230322.f0f6dd47.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Wed, 13 Oct 2010 22:20:28 -0700
+> This is all conspicuously hand-wavy and unquantified. =A0(IOW: prove =
+it!)
+>
+> The mooted effects should be tested for on both slab and slub, I
+> suggest. =A0They're pretty different beasts.
+> --
 
-> With the network namespace support we limit the scope of the test of
-> the invalidate to just a single network namespace, and as such
-> rt_is_expired stops being true for every cache entry.  So we cannot
-> unconditionally throw away entire chains.
-> 
-> All of which can be either done by network namespace equality or by
-> rt_is_expired().  Although Denis picked rt_is_expired() when he made
-> his change.
+Some results running netper TCP_RR test with 200 instances, 1 byte
+request and response on 16 core AMD using bnx2x with one 16 queues,
+one for each CPU.
 
-Right, and I choose to use namespace equality which will completely
-compile into no code at all when namespace support is not in the
-kernel.
+SLAB
 
-Therefore, making the non-namespace case equivalent and as efficient
-as it always was.
+Without patch 553570 tps at 86% CPU
+With patch 791883 tps at 93% CPU
 
-> The only place it makes a noticable difference in practice is what
-> happens when we do batched deleletes of lots of network devices in
-> different network namespaces.
-> 
-> During batched network device deletes in fib_netdev_event we do
-> rt_cache_flush(dev_net(dev), -1) for each network device.  and then a
-> final rt_cache_flush_batch() to remove the invalidated entries.  These
-> devices can be from multiple network namespaces, so I suspect that is
-> a savings worth having.
+SLUB
 
-How can it make a real difference even in this case?  We'll obliterate
-all the entries, and then on subsequent passes we'll find nothing
-matching that namespace any more.
+Without patch 704879 tps at 95% CPU
+With patch 775278 tps at 92% CPU
 
-Show me performance tests that show it makes any difference, please.
+I believe both show good benfits with patch, and it actually looks
+like the impact is more pronounced for SLAB.  I would also note, that
+we have actually already internally patched __netdev_alloc_skb to do
+local node allocation which we have been running in production for
+quite some time.
 
-> So if we are going to change the tests we need to do something with
-> rt_cache_flush_batch().  Further I do not see what is confusing about
-> a test that asks if the routing cache entry is unusable.  Is
-> rt_cache_expired() a bad name?
-
-It's not a bad name, it's just an unnecessary test that we don't need
-to even make in this specific place.
-
-Redundancy tends to accumulate.
+Tom
