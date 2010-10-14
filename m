@@ -1,110 +1,126 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [RFC PATCH net-next] drivers/net Documentation/networking:
- Create directory intel_wired_lan
-Date: Thu, 14 Oct 2010 15:20:38 -0700
-Message-ID: <1287094838.8235.32.camel@jtkirshe-MOBL1>
-References: <1286743352.11039.165.camel@Joe-Laptop>
-	 <AANLkTikVKufQRuMGd=cdig7ff4k2aw9Q1FWwMz3pgon-@mail.gmail.com>
-	 <1286841648.26045.17.camel@Joe-Laptop>
-	 <1287008906.1117.428.camel@Joe-Laptop>
-	 <1287032255.4113.14.camel@jtkirshe-MOBL1>
-	 <1287035857.1117.528.camel@Joe-Laptop>
-	 <1287048849.3319.20.camel@jtkirshe-MOBL1>
-	 <1287084643.1117.602.camel@Joe-Laptop>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [RFC PATCH 2/7] vlan: Centralize handling of hardware acceleration.
+Date: Thu, 14 Oct 2010 15:23:31 -0700
+Message-ID: <AANLkTikDymb5OGkmxZkAZwvr-uUPK64jcmxsV1sFOfEX@mail.gmail.com>
+References: <1287000177-7126-1-git-send-email-jesse@nicira.com>
+	<1287000177-7126-3-git-send-email-jesse@nicira.com>
+	<1287004334.2649.43.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-B22xvyGqAD1NvT+4/x4f"
-Cc: Michal Marek <mmarek@suse.cz>, Sam Ravnborg <sam@ravnborg.org>,
-	"linux-kbuild@vger.kernel.org" <linux-kbuild@vger.kernel.org>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"Rose, Gregory V" <gregory.v.rose@intel.com>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	e1000-devel <e1000-devel@lists.sourceforge.net>
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1287084643.1117.602.camel@Joe-Laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:58838 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753060Ab0JNWXf convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Oct 2010 18:23:35 -0400
+Received: by iwn35 with SMTP id 35so105129iwn.19
+        for <netdev@vger.kernel.org>; Thu, 14 Oct 2010 15:23:35 -0700 (PDT)
+In-Reply-To: <1287004334.2649.43.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Wed, Oct 13, 2010 at 2:12 PM, Eric Dumazet <eric.dumazet@gmail.com> =
+wrote:
+> Le mercredi 13 octobre 2010 =E0 13:02 -0700, Jesse Gross a =E9crit :
+>> +#define VLAN_N_VID =A0 =A0 =A0 =A0 =A0 4096
+>>
+>
+> This should be a patch on its own (change VLAN_GROUP_ARRAY_LEN to
+> VLAN_N_ID), because this patch is too big.
 
---=-B22xvyGqAD1NvT+4/x4f
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+That's fine, I separated it out.
 
-On Thu, 2010-10-14 at 12:30 -0700, Joe Perches wrote:
-> On Thu, 2010-10-14 at 02:34 -0700, Jeff Kirsher wrote:
-> > On Wed, 2010-10-13 at 22:57 -0700, Joe Perches wrote:
-> > > On Wed, 2010-10-13 at 21:57 -0700, Jeff Kirsher wrote:
-> > > > On Wed, 2010-10-13 at 15:28 -0700, Joe Perches wrote:
-> > > > Sorry I am not ignoring you, I was taking a closer look at your pat=
-ch.
-> > > > > What regression testing would actually be done?
-> > > > The Makefile and Kconfig needs more work.  I applied your patch and=
- none
-> > > > of the Intel Wired drivers build.
-> > > Care to describe the Makefile/Kconfig issues you have seen?
-> > > I built it allyesconfig, defconfig, allmodconfig and allnoconfig.
-> > Yeah, I found all of those built without errors, but if you build the
-> > Intel Wired LAN drivers as modules, you will not find the *.ko files
-> > after the build.  The Kconfig files look fine, the problem was with the
-> > Makefiles.  Instead of creating a drivers/net/intel_wired_lan/Makefile,
-> > I simply changed the path in drivers/net/Makefile to the updated path
-> > and that resolved the issue.
->=20
-> (adding a few cc's and a link for history)
->=20
-> http://lkml.org/lkml/2010/10/10/207
->=20
-> That's the way I had done it originally as well, but I found
-> you couldn't build the directory with:
->=20
-> 	make drivers/net/intel_wired_lan/
->=20
-> so I created a Makefile in the new directory below with
-> the elements necessary.
->=20
-> Perhaps there's some missing functionality in the build system
-> when the Kconfig file resides in a higher directory and the
-> directory being built doesn't have a Kconfig file?
->=20
-> I think it'd wrong to duplicate the makefile components in
-> 2 places to allow "make subdir/" and I wonder if there's a
-> good solution for this.
->=20
-> > As far as the sub-directory name "intel_wired_lan", what about "intel"
-> > or "intel_wired"?  Just a thought...
->=20
-> Using "intel" seemed too sweeping because of the wireless drivers.
-> I think intel_wired_lan isn't overly long, but your choice...
->=20
-> Should the new (OKI?/intel) pch_gbe directory be moved as well?
-> It's using a PCI_VENDOR_ID_INTEL.
->=20
->=20
+>
+> Please try to not change too many things at once, you remove many
+> temporary variables and this only makes review very time consuming.
 
-No, the pch_gbe is not our driver.
+=46or what's worth, it used to be worse: originally all seven of these
+patches were one...
 
---=-B22xvyGqAD1NvT+4/x4f
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+>> =A0#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODUL=
+E)
+>> +/* Must be invoked with rcu_read_lock or with RTNL. */
+>> +static inline struct net_device *vlan_find_dev(struct net_device *r=
+eal_dev,
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0 =A0 =A0u16 vlan_id)
+>> +{
+>> + =A0 =A0 struct vlan_group *grp =3D rcu_dereference(real_dev->vlgrp=
+);
+>> +
+>
+> This rcu_dereference() doesnt match the comment.
+>
+> You might want rcu_dereference_rtnl() instead and use CONFIG_PROVE_RC=
+U
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
+Sure, I changed it to use rcu_dereference_rtnl().
 
-iQEcBAABAgAGBQJMt4I1AAoJECTsCADr/EWU2oYIAI/6FT0RFq/UrjAypW2l5WjU
-cOyHiPHau7NTorQ8OFU1Ac1vjNbheLxK8CDa8jbBn9oNfssu1pq6tmv3cFmtK0qr
-Dh+8IWYwBWIYhV0KOEBIlb60sI3ef3kgTR/tX6iVGBuSD4udOgMYhkqGHl3p869a
-IRQbRpHa1M8LADUYkd4c8xZXmL8YLPZGpnyLlndgqEwyLytBnxp89mZeDu13lbBE
-TzCXI9f4d6g+b9+qfZ8G1wM8wFeHPKBd/cqHOl/1ExsxYYNugb8uOdKV0rhU3uwX
-bp/HKtLwNi7EBBwqejS44fhz1p6iG4IpaIkvZpMQlSUNcVMMizp7/mv8v2pg310=
-=wjiw
------END PGP SIGNATURE-----
+>> =A0static inline int netif_needs_gso(struct net_device *dev, struct =
+sk_buff *skb)
+>> =A0{
+>> + =A0 =A0 int features =3D dev->features;
+>> +
+>> + =A0 =A0 if (skb->protocol =3D=3D htons(ETH_P_8021Q) || skb->vlan_t=
+ci)
+>> + =A0 =A0 =A0 =A0 =A0 =A0 features &=3D dev->vlan_features;
+>> +
+>> =A0 =A0 =A0 return skb_is_gso(skb) &&
+>> - =A0 =A0 =A0 =A0 =A0 =A0(!skb_gso_ok(skb, dev->features) ||
+>> + =A0 =A0 =A0 =A0 =A0 =A0(!skb_gso_ok(skb, features) ||
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 unlikely(skb->ip_summed !=3D CHECKSUM_PA=
+RTIAL));
+>
+>
+> Maybe reorder tests to common case, avoiding some uneeded computation=
+s
+> if !skb_is_gso()
 
---=-B22xvyGqAD1NvT+4/x4f--
+That's a good idea, thanks.
+
+>> -void vlan_hwaccel_do_receive(struct sk_buff *skb)
+>> -{
+>> - =A0 =A0 struct net_device *dev =3D skb->dev;
+>
+> this temporary variable was nice for a better code readability
+
+I changed all these references to use vlan_dev.
+
+>
+>> - =A0 =A0 struct vlan_rx_stats =A0 =A0 *rx_stats;
+>> + =A0 =A0 if (netpoll_receive_skb(skb))
+>> + =A0 =A0 =A0 =A0 =A0 =A0 return NET_RX_DROP;
+>>
+>> - =A0 =A0 skb->dev =3D vlan_dev_real_dev(dev);
+>
+>> =A0 =A0 =A0 netif_nit_deliver(skb);
+> Strange you dont change netif_nit_deliver() ?
+
+netif_nit_deliver() is used in pretty much the same manner that it was
+before, which is why I didn't change it.  Specifically, it can already
+handle pulling the tag out of skb->vlan_tci on the underlying device.
+tcpdump works as expected after my changes.  Is there something that
+you think I'm missing?
+
+> I believe this stuff is a great idea, but you should take more time t=
+o
+> make your patches more understandable.
+>
+> Given 2.6.36 is about to be released, and Netfilter Workshop 2010 beg=
+ins
+> in few days, there is no hurry, because there is no chance we add so
+> many fundamental changes before three weeks at least.
+>
+> I believe this patch (2/7), should be split in small units, maybe 3 o=
+r 4
+> different patches.
+
+Thanks for the review Eric.  I made the above changes plus broke this
+patch down into 4 separate components (and you're right, it is much
+easier to look through).  I'll hold onto the series until things open
+up again.  In the meantime I'll also try to convert over more of the
+drivers.
+
+Thanks again.
