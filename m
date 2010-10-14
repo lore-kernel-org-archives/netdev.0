@@ -1,98 +1,134 @@
-From: Michal Marek <mmarek@suse.cz>
-Subject: Re: [RFC PATCH net-next] drivers/net
- Documentation/networking: Create directory intel_wired_lan
-Date: Thu, 14 Oct 2010 23:37:33 +0200
-Message-ID: <4CB7781D.80103@suse.cz>
-References: <1286743352.11039.165.camel@Joe-Laptop>	
-	<AANLkTikVKufQRuMGd=cdig7ff4k2aw9Q1FWwMz3pgon-@mail.gmail.com>	
-	<1286841648.26045.17.camel@Joe-Laptop>	
-	<1287008906.1117.428.camel@Joe-Laptop>	
-	<1287032255.4113.14.camel@jtkirshe-MOBL1>	
-	<1287035857.1117.528.camel@Joe-Laptop>	
-	<1287048849.3319.20.camel@jtkirshe-MOBL1>
-	<1287084643.1117.602.camel@Joe-Laptop>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: Re: [PATCH net-next] tipc: cleanup function namespace
+Date: Thu, 14 Oct 2010 17:44:27 -0400
+Message-ID: <20101014214426.GA9236@windriver.com>
+References: <1286929558-2954-5-git-send-email-paul.gortmaker@windriver.com>
+ <20101013162652.GF31379@hmsreliant.think-freely.org>
+ <4CB5E79B.4060507@windriver.com>
+ <20101013.142834.226768662.davem@davemloft.net>
+ <20101013162035.0c2e8123@nehalam>
+ <4CB64D7C.1080004@windriver.com>
+ <20101014012951.GA2186@localhost.localdomain>
+ <4CB74391.9020400@windriver.com>
+ <20101014113320.7720828f@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kbuild@vger.kernel.org,
-	e1000-devel <e1000-devel@lists.sourceforge.net>, "Allan,
-	Bruce W" <bruce.w.allan@intel.com>, "Brandeburg,
-	Jesse" <jesse.brandeburg@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Rose, Gregory V" <gregory.v.rose@intel.com>, "Ronciak,
-	John" <john.ronciak@intel.com>, jeffrey.t.kirsher@intel.com,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Sam Ravnborg <sam@ravnborg.org>
-To: Joe Perches <joe@perches.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1287084643.1117.602.camel@Joe-Laptop>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	allan.stephens@windriver.com, Jon Maloy <jon.maloy@ericsson.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.windriver.com ([147.11.1.11]:36903 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932109Ab0JNVor (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Oct 2010 17:44:47 -0400
+Content-Disposition: inline
+In-Reply-To: <20101014113320.7720828f@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 14.10.2010 21:30, Joe Perches wrote:
-> On Thu, 2010-10-14 at 02:34 -0700, Jeff Kirsher wrote:
->> On Wed, 2010-10-13 at 22:57 -0700, Joe Perches wrote:
->>> On Wed, 2010-10-13 at 21:57 -0700, Jeff Kirsher wrote:
->>>> On Wed, 2010-10-13 at 15:28 -0700, Joe Perches wrote:
->>>> Sorry I am not ignoring you, I was taking a closer look at your patch.
->>>>> What regression testing would actually be done?
->>>> The Makefile and Kconfig needs more work.  I applied your patch and none
->>>> of the Intel Wired drivers build.
->>> Care to describe the Makefile/Kconfig issues you have seen?
->>> I built it allyesconfig, defconfig, allmodconfig and allnoconfig.
->> Yeah, I found all of those built without errors, but if you build the
->> Intel Wired LAN drivers as modules, you will not find the *.ko files
->> after the build.  The Kconfig files look fine, the problem was with the
->> Makefiles.  Instead of creating a drivers/net/intel_wired_lan/Makefile,
->> I simply changed the path in drivers/net/Makefile to the updated path
->> and that resolved the issue.
+[Re: [PATCH net-next] tipc: cleanup function namespace] On 14/10/2010 (Thu 11:33) Stephen Hemminger wrote:
+
+> On Thu, 14 Oct 2010 13:53:21 -0400
+> Paul Gortmaker <paul.gortmaker@windriver.com> wrote:
 > 
-> (adding a few cc's and a link for history)
+> > On 10-10-13 09:29 PM, Neil Horman wrote:
+> > > On Wed, Oct 13, 2010 at 08:23:24PM -0400, Paul Gortmaker wrote:
+> > >> On 10-10-13 07:20 PM, Stephen Hemminger wrote:
+> > >>> Do some cleanups of TIPC based on make namespacecheck
+> > >>>     1. Don't export unused symbols
+> > >>>     2. Eliminate dead code
+> > >>>     3. Make functions and variables local
+> > >>>     4. Rename buf_acquire to tipc_buf_acquire since it is used in several files
+> > >>>
+> > >>> Compile tested only.
+> > >>> This make break out of tree kernel modules that depend on TIPC routines.
+> > >>
+> > >> Hi Stephen,
+> > >>
+> > >> When I first started looking at TIPC code, I too came to the
+> > >> same conclusion as you did and was about to do #1,2,3 -- but
+> > >> then I was told that the exported symbols were part of an API
+> > >> and might be in use by folks here and there as per this thread:
+> > >>
+> > >> http://www.mail-archive.com/netdev@vger.kernel.org/msg30208.html
+> > >>
+> > > I think its telling the the argument in the above thread for keeping the API
+> > > were that users of it were out there and 'likely to contribute' in the future.
+> > > That thread was 3 years ago.  They might be using the API from outside the
+> > > kernel tree, but they're not planning on contributing.  As Christoph noted,
+> > > they're freeloaders.  The community really doesn't need or want to maintain an
+> > > API like that.  If these users are your customers, and removing the API is
+> > > unacceptable, perhaps its time to move the entire TIPC module out of tree.
+> > 
+> > As I'd said -- I don't know what the use cases of these API users are,
+> > and so as far as I know they aren't customers either.  For what it is
+> > worth, know that I personally wouldn't try and use a business case to
+> > justify a technically wrong decision here on netdev anyway.
+> > 
+> > I was just describing the history of the situation, and suggesting
+> > one possible slower approach of phasing it out as a courtesy to those
+> > users, in the same way that the kernel community has extended that
+> > same courtesy with other things in feature-removal.txt
+> > 
+> > In the end, since Jon is OK with the removal, and is in the process of
+> > communicating this to the API users he is aware of, I sure don't have
+> > any reason to try and save the API.  If folks are good with having it
+> > just go away overnight, then great -- I'll be just as happy to see it
+> > disappear as you and Stephen.  So, a long winded way of saying...
+> > 
+> > Acked-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 > 
-> http://lkml.org/lkml/2010/10/10/207
-> 
-> That's the way I had done it originally as well, but I found
-> you couldn't build the directory with:
-> 
-> 	make drivers/net/intel_wired_lan/
-> 
-> so I created a Makefile in the new directory below with
-> the elements necessary.
-> 
-> Perhaps there's some missing functionality in the build system
-> when the Kconfig file resides in a higher directory and the
-> directory being built doesn't have a Kconfig file?
+> How about putting an entry in feature-removal.txt with a short (6 month)
+> window?
 
-This has nothing to do with Kconfig files, I assume you meant Makefiles.
+I'm fine with that too.
 
+P.
 
-> I think it'd wrong to duplicate the makefile components in
-> 2 places to allow "make subdir/" and I wonder if there's a
-> good solution for this.
+>From 5a15a26de63a29fcb6cb7a7fb83b6d2fc63cbadb Mon Sep 17 00:00:00 2001
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Date: Thu, 14 Oct 2010 17:29:08 -0400
+Subject: [PATCH] TIPC: Document the demise of the Native API for March 2011
 
-There is no duplication needed, drivers/net/Makefile needs to contain
-obj-y += intel_wired_lan/ and drivers/net/intel_wired_lan/Makefile
-similar lines for its subdirs. I see your original patch was lacking an
-entry in drivers/net/Makefile, so perhaps that was the problem Jeff was
-seeing?
+The native API in the TIPC code exists as a bunch of functions
+and exported symbols that aren't actually used by any currently
+in-tree kernel code/modules.
 
-Michal
+Since this code is anomalous to the general guiding principle that
+the kernel should not be libc, coverage tools and people intending
+to do general cleanups keep finding this code and suggesting that
+it be removed.
 
-------------------------------------------------------------------------------
-Download new Adobe(R) Flash(R) Builder(TM) 4
-The new Adobe(R) Flex(R) 4 and Flash(R) Builder(TM) 4 (formerly 
-Flex(R) Builder(TM)) enable the development of rich applications that run
-across multiple browsers and platforms. Download your free trials today!
-http://p.sf.net/sfu/adobe-dev2dev
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+It seems the right thing to do is to just finally delete it once
+and for all, after giving a reasonable window for any existing
+users to find alternative solutions to their custom use case(s).
+
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+---
+ Documentation/feature-removal-schedule.txt |   12 ++++++++++++
+ 1 files changed, 12 insertions(+), 0 deletions(-)
+
+diff --git a/Documentation/feature-removal-schedule.txt b/Documentation/feature-removal-schedule.txt
+index f456389..1def37e 100644
+--- a/Documentation/feature-removal-schedule.txt
++++ b/Documentation/feature-removal-schedule.txt
+@@ -573,3 +573,15 @@ Why:	Hareware scan is the prefer method for iwlwifi devices for
+ Who:	Wey-Yi Guy <wey-yi.w.guy@intel.com>
+ 
+ ----------------------------
++
++What:	TIPC: Delete all code and exported symbols specific to Native API
++When:	March 2011
++Why:	The TIPC Native API, as described here:
++	http://tipc.sourceforge.net/doc/tipc_1.7_prog_guide.html#native_api
++	is implemented by exporting a bunch of otherwise unused functions
++	for possible modular linkage by custom end-user code.  This goes
++	against the general concept that the kernel should not be libc.
++
++Who:	Paul Gortmaker <paul.gortmaker@windriver.com>
++	
++----------------------------
+-- 
+1.7.2.1
+
