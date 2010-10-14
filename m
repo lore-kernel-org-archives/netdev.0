@@ -1,126 +1,165 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [RFC PATCH 2/7] vlan: Centralize handling of hardware acceleration.
-Date: Thu, 14 Oct 2010 15:23:31 -0700
-Message-ID: <AANLkTikDymb5OGkmxZkAZwvr-uUPK64jcmxsV1sFOfEX@mail.gmail.com>
-References: <1287000177-7126-1-git-send-email-jesse@nicira.com>
-	<1287000177-7126-3-git-send-email-jesse@nicira.com>
-	<1287004334.2649.43.camel@edumazet-laptop>
+From: Randy Dunlap <randy.dunlap-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] SIW: Documentation (initial)
+Date: Thu, 14 Oct 2010 15:57:03 -0700
+Message-ID: <20101014155703.3d4b5d71.randy.dunlap@oracle.com>
+References: <1286261747-5288-1-git-send-email-bmt@zurich.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f174.google.com ([209.85.214.174]:58838 "EHLO
-	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753060Ab0JNWXf convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Oct 2010 18:23:35 -0400
-Received: by iwn35 with SMTP id 35so105129iwn.19
-        for <netdev@vger.kernel.org>; Thu, 14 Oct 2010 15:23:35 -0700 (PDT)
-In-Reply-To: <1287004334.2649.43.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Bernard Metzler <bmt-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1286261747-5288-1-git-send-email-bmt-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 13, 2010 at 2:12 PM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
-> Le mercredi 13 octobre 2010 =E0 13:02 -0700, Jesse Gross a =E9crit :
->> +#define VLAN_N_VID =A0 =A0 =A0 =A0 =A0 4096
->>
->
-> This should be a patch on its own (change VLAN_GROUP_ARRAY_LEN to
-> VLAN_N_ID), because this patch is too big.
+On Tue,  5 Oct 2010 08:55:47 +0200 Bernard Metzler wrote:
 
-That's fine, I separated it out.
+> ---
+>  Documentation/networking/siw.txt |   91 ++++++++++++++++++++++++++++++++++++++
+>  1 files changed, 91 insertions(+), 0 deletions(-)
+>  create mode 100644 Documentation/networking/siw.txt
+> 
+> diff --git a/Documentation/networking/siw.txt b/Documentation/networking/siw.txt
+> new file mode 100644
+> index 0000000..f051d8b
+> --- /dev/null
+> +++ b/Documentation/networking/siw.txt
+> @@ -0,0 +1,91 @@
+> +SoftiWARP: Software iWARP kernel driver module.
+> +
+> +General
+> +-------
+> +SoftiWARP (siw) implements the iWARP protocol suite (MPA/DDP/RDMAP,
+> +IETF-RFC 5044/5041/5040) completely in software as a Linux kernel module.
+> +siw runs on top of TCP kernel sockets and exports the Linux kernel ibvers
+                                                                      ^^^^^^
+Is that "ibverbs"?  (just checking)
 
->
-> Please try to not change too many things at once, you remove many
-> temporary variables and this only makes review very time consuming.
+> +RDMA interface. siw interfaces with the iwcm connection manager.
+> +
+> +
+> +Transmit Path
+> +-------------
+> +If a send queue (SQ) work queue element gets posted, siw tries to send
+> +it directly out of the application context. If the SQ was non-empty,
+> +SQ processing is done asynchronously by a kernel worker thread. This
+> +thread gets scheduled, if the TCP socket signals new write space to
 
-=46or what's worth, it used to be worse: originally all seven of these
-patches were one...
+drop the comma.
 
->> =A0#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODUL=
-E)
->> +/* Must be invoked with rcu_read_lock or with RTNL. */
->> +static inline struct net_device *vlan_find_dev(struct net_device *r=
-eal_dev,
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 =A0 =A0u16 vlan_id)
->> +{
->> + =A0 =A0 struct vlan_group *grp =3D rcu_dereference(real_dev->vlgrp=
-);
->> +
->
-> This rcu_dereference() doesnt match the comment.
->
-> You might want rcu_dereference_rtnl() instead and use CONFIG_PROVE_RC=
-U
+> +be available. If during send operation the socket send space get
 
-Sure, I changed it to use rcu_dereference_rtnl().
+                                                                becomes
+(or "is")
 
->> =A0static inline int netif_needs_gso(struct net_device *dev, struct =
-sk_buff *skb)
->> =A0{
->> + =A0 =A0 int features =3D dev->features;
->> +
->> + =A0 =A0 if (skb->protocol =3D=3D htons(ETH_P_8021Q) || skb->vlan_t=
-ci)
->> + =A0 =A0 =A0 =A0 =A0 =A0 features &=3D dev->vlan_features;
->> +
->> =A0 =A0 =A0 return skb_is_gso(skb) &&
->> - =A0 =A0 =A0 =A0 =A0 =A0(!skb_gso_ok(skb, dev->features) ||
->> + =A0 =A0 =A0 =A0 =A0 =A0(!skb_gso_ok(skb, features) ||
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 unlikely(skb->ip_summed !=3D CHECKSUM_PA=
-RTIAL));
->
->
-> Maybe reorder tests to common case, avoiding some uneeded computation=
-s
-> if !skb_is_gso()
+> +exhausted, SQ processing is abandoned until new socket write space
+> +becomes available.
+> +
+> +
+> +Receive Path
+> +------------
+> +All application data is placed into target buffers within softirq
+> +socket callback. Application notification is asynchronous.
+> +
+> +
+> +User Interface
+> +--------------
+> +All fast path operations such as posting of work requests and
+> +reaping of work completions currently involve a system call into
+> +the siw module. Kernel/user-mapped send and receive as well as 
 
-That's a good idea, thanks.
+I didn't find the system call(s).  Are they new syscalls or just
+(socket) reads/writes?  (I was probably looking for new syscalls.)
 
->> -void vlan_hwaccel_do_receive(struct sk_buff *skb)
->> -{
->> - =A0 =A0 struct net_device *dev =3D skb->dev;
->
-> this temporary variable was nice for a better code readability
+> +completion queues are not part of the current code. In
+> +particular, mapped completion queues may improve performance,
+> +since reaping completion queue entries as well as re-arming
+> +the completion queue could be done more efficiently.
+> +
+> +
+> +Memory Management
+> +-----------------
+> +siw currently uses kernels ib_umem_get() function to pin memory for later
 
-I changed all these references to use vlan_dev.
+                      the kernel's
 
->
->> - =A0 =A0 struct vlan_rx_stats =A0 =A0 *rx_stats;
->> + =A0 =A0 if (netpoll_receive_skb(skb))
->> + =A0 =A0 =A0 =A0 =A0 =A0 return NET_RX_DROP;
->>
->> - =A0 =A0 skb->dev =3D vlan_dev_real_dev(dev);
->
->> =A0 =A0 =A0 netif_nit_deliver(skb);
-> Strange you dont change netif_nit_deliver() ?
+> +use in data transfer operations. Transmit and receive memory is checked
 
-netif_nit_deliver() is used in pretty much the same manner that it was
-before, which is why I didn't change it.  Specifically, it can already
-handle pulling the tag out of skb->vlan_tci on the underlying device.
-tcpdump works as expected after my changes.  Is there something that
-you think I'm missing?
+                                                                are checked
+(or change "and" to "or")
 
-> I believe this stuff is a great idea, but you should take more time t=
-o
-> make your patches more understandable.
->
-> Given 2.6.36 is about to be released, and Netfilter Workshop 2010 beg=
-ins
-> in few days, there is no hurry, because there is no chance we add so
-> many fundamental changes before three weeks at least.
->
-> I believe this patch (2/7), should be split in small units, maybe 3 o=
-r 4
-> different patches.
+> +against correct access permissions only in the moment of access by the
+> +network input path or before pushing it to the socket for transmission.
+> +ib_umem_get() provides DMA mappings for the requested address space which
+> +is not used by siw.
+> +
+> +
+> +Module Parameters
+> +-----------------
+> +The following siw module parameters are recognized.
+> +loopback_enabled:
+> +	If set, siw attaches also to the looback device. Checked only
+> +	during module insertion.
+> +
+> +mpa_crc_enabled:
+> +	If set, the MPA CRC gets generated and checked both in tx and rx
+> +	path. Without hardware support, setting this flag will severely
+> +	hurt throughput. 
+> +
+> +zcopy_tx:
+> +	If set, payload of non signalled work requests
 
-Thanks for the review Eric.  I made the above changes plus broke this
-patch down into 4 separate components (and you're right, it is much
-easier to look through).  I'll hold onto the series until things open
-up again.  In the meantime I'll also try to convert over more of the
-drivers.
+	                   non-signalled
 
-Thanks again.
+> +	(such as non signalled WRITE or SEND as well as all READ
+
+	         non-signalled
+
+> +	responses) are transferred using the TCP sockets
+
+	                                         socket's
+
+> +	sendpage interface. This parameter can be switched on and
+> +	off dynamically (echo 1 >> /sys/module/siw/parameters/zcopy_tx
+> +	for enablement, 0 for disabling). System load may benefits from
+
+	                                                  benefit
+
+> +	using 0copy data transmission. 0copy is not enabled if
+> +	mpa_crc_enabled is set.
+> +
+> +
+> +Compile Time Flags:
+> +-DCHECK_DMA_CAPABILITIES
+> +	Checks if the device siw wants to attach to provides
+> +	DMA capabilities. While DMA capabilities are currently not
+> +	needed (siw works on top of a kernel TCP socket), siw
+> +	uses ib_umem_get() which performs a (not used) DMA address
+> +	translation. Writing a siw private memory reservation and
+> +	pinning routine would solve the issue.
+> +
+> +-DSIW_TX_FULLSEGS
+> +	Experimental, not enabled by default. If set,
+> +	siw tries not to overrun the socket (not sending until
+> +	-EAGAIN retrun), but stops sending if the current segment
+
+	        return),
+
+> +	would not fit into the socket's estimated tx buffer. With that,
+> +	wire FPDUs may get truncated by the TCP stack far less often.
+> +	Since this feature manipulates the sock's SOCK_NOSPACE
+> +	bit, it violates strict layering and is therefore considered
+> +	proprietary.
+> +	Since TCP is a byte stream protocol, no guarantee can be given
+> +	if FPDU's are not fragmented.
+> -- 
+
+
+---
+~Randy
+*** Remember to use Documentation/SubmitChecklist when testing your code ***
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
