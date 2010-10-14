@@ -1,53 +1,55 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: tbf/htb qdisc limitations
-Date: Thu, 14 Oct 2010 02:34:07 -0400
-Message-ID: <20101014023407.80ccef7e.billfink@mindspring.com>
-References: <AANLkTik6_C5pzx=yS=C0VQR2xfg0S57AZAn9WYiGvxe5@mail.gmail.com>
-	<4CB1A22B.9090701@gmail.com>
-	<AANLkTin_jPp+WEkyJkD_KZyrJ4WX_6dM5wtFNw_ixuzv@mail.gmail.com>
-	<20101012101022.GA8578@ff.dom.local>
-	<AANLkTikQkCcPXtRQGp=MQrjrWtae84VzbENn5x+1yC47@mail.gmail.com>
-	<20101012215932.GA1945@del.dom.local>
-	<4CB4DE6E.7030802@hp.com>
-	<20101013062649.GA6915@ff.dom.local>
-	<20101013233653.1e363692.billfink@mindspring.com>
-	<1287028881.2649.103.camel@edumazet-laptop>
+From: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Subject: Re: BUG ? ipip unregister_netdevice_many()
+Date: Thu, 14 Oct 2010 08:41:45 +0200
+Message-ID: <201010140841.45736.hans.schillstrom@ericsson.com>
+References: <20101012.130520.48517464.davem@davemloft.net> <20101013111946.GA9529@ff.dom.local> <20101013.145856.112590240.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jarek Poplawski <jarkao2@gmail.com>,
-	Rick Jones <rick.jones2@hp.com>,
-	Steven Brudenell <steven.brudenell@gmail.com>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "jarkao2@gmail.com" <jarkao2@gmail.com>,
+	"ebiederm@xmission.com" <ebiederm@xmission.com>,
+	"daniel.lezcano@free.fr" <daniel.lezcano@free.fr>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-junco.atl.sa.earthlink.net ([209.86.89.63]:33112 "EHLO
-	elasmtp-junco.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752400Ab0JNGeJ convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Oct 2010 02:34:09 -0400
-In-Reply-To: <1287028881.2649.103.camel@edumazet-laptop>
+Received: from mailgw9.se.ericsson.net ([193.180.251.57]:49185 "EHLO
+	mailgw9.se.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752756Ab0JNGlt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Oct 2010 02:41:49 -0400
+In-Reply-To: <20101013.145856.112590240.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 14 Oct 2010, Eric Dumazet wrote:
+On Wednesday 13 October 2010 23:58:56 David Miller wrote:
+> From: Jarek Poplawski <jarkao2@gmail.com>
+> Date: Wed, 13 Oct 2010 11:19:47 +0000
+>
+> >> -static void rt_do_flush(int process_context)
+> >> +static void rt_do_flush(struct net *net, int process_context)
+> >>  {
+> >>  	unsigned int i;
+> >>  	struct rtable *rth, *next;
+> >> -	struct rtable * tail;
+> >>
+> >>  	for (i = 0; i <= rt_hash_mask; i++) {
+> >> +		struct rtable *list, **pprev;
+> >
+> > Isn't "list = NULL" needed here?
+>
+> Yes it is, thanks for catching that.
+>
+It solves the crach but....
 
-> Le mercredi 13 octobre 2010 =E0 23:36 -0400, Bill Fink a =E9crit :
->=20
-> > I was just trying to do an 8 Gbps rate limit on a 10-GigE path,
-> > and couldn't get it to work with either htb or tbf.  Are you
-> > saying this currently isn't possible?  Or are you saying to use
-> > this hfsc mechanism, which there doesn't seem to be a man page
-> > for?
->=20
-> man pages ? Oh well...
->=20
-> 8Gbps rate limit sounds very optimistic with a central lock and one
-> queue...
->=20
-> Maybe its possible to split this into 8 x 1Gbps, using 8 queues...
-> or 16 x 500 Mbps
+ #
+Slab corruption: size-4096 start=ffff88000f950000, len=4096
+010: 00 00 00 00 00 00 00 00 6b 6b 6b 6b 6b 6b 6b 6b
+unregister_netdevice: waiting for lo to become free. Usage count = 4
+Slab corruption: size-4096 start=ffff88000f9af000, len=4096
+010: 00 00 00 00 00 00 00 00 6b 6b 6b 6b 6b 6b 6b 6b
+unregister_netdevice: waiting for lo to become free. Usage count = 4
+unregister_netdevice: waiting for lo to become free. Usage count = 4
+unregister_netdevice: waiting for lo to become free. Usage count = 4
 
-Not when I'm trying to rate limit a single flow.
-
-				-Bill
+Regards
+Hans Schillstrom <hans.schillstrom@ericsson.com>
