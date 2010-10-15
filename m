@@ -1,7 +1,8 @@
 From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: [PATCH 4/7] can: mcp251x: read-modify-write eflag only when needed
-Date: Fri, 15 Oct 2010 12:49:19 +0200
-Message-ID: <1287139762-23356-5-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH 6/7] can: mcp251x: define helper functions mcp251x_is_2510,
+	mcp251x_is_2515
+Date: Fri, 15 Oct 2010 12:49:21 +0200
+Message-ID: <1287139762-23356-7-git-send-email-mkl@pengutronix.de>
 References: <1287139762-23356-1-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -21,31 +22,54 @@ Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Sascha Hauer <s.hauer-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-
-Use read-modify-write instead of a simple write to change the register
-contents, to close existing the race window between the original manual
-read and write.
-
-Signed-off-by: Sascha Hauer <s.hauer-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
 Signed-off-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
 ---
- drivers/net/can/mcp251x.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+ drivers/net/can/mcp251x.c |   16 ++++++++++++----
+ 1 files changed, 12 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/can/mcp251x.c b/drivers/net/can/mcp251x.c
-index 9b3466a..7e2f951 100644
+index f5e2edd..28281f9 100644
 --- a/drivers/net/can/mcp251x.c
 +++ b/drivers/net/can/mcp251x.c
-@@ -785,7 +785,8 @@ static irqreturn_t mcp251x_can_ist(int irq, void *dev_id)
+@@ -252,6 +252,16 @@ struct mcp251x_priv {
+ 	int restart_tx;
+ };
  
- 		mcp251x_write_bits(spi, CANINTF, intf, 0x00);
++#define MCP251X_IS(_model) \
++static inline int mcp251x_is_##_model(struct spi_device *spi) \
++{ \
++	struct mcp251x_platform_data *pdata = spi->dev.platform_data; \
++	return pdata->model == CAN_MCP251X_MCP##_model; \
++}
++
++MCP251X_IS(2510);
++MCP251X_IS(2515);
++
+ static void mcp251x_clean(struct net_device *net)
+ {
+ 	struct mcp251x_priv *priv = netdev_priv(net);
+@@ -362,10 +372,9 @@ static void mcp251x_write_bits(struct spi_device *spi, u8 reg,
+ static void mcp251x_hw_tx_frame(struct spi_device *spi, u8 *buf,
+ 				int len, int tx_buf_idx)
+ {
+-	struct mcp251x_platform_data *pdata = spi->dev.platform_data;
+ 	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
  
--		mcp251x_write_reg(spi, EFLG, 0x00);
-+		if (eflag)
-+			mcp251x_write_bits(spi, EFLG, eflag, 0x00);
+-	if (pdata->model == CAN_MCP251X_MCP2510) {
++	if (mcp251x_is_2510(spi)) {
+ 		int i;
  
- 		/* Update can state */
- 		if (eflag & EFLG_TXBO) {
+ 		for (i = 1; i < TXBDAT_OFF + len; i++)
+@@ -408,9 +417,8 @@ static void mcp251x_hw_rx_frame(struct spi_device *spi, u8 *buf,
+ 				int buf_idx)
+ {
+ 	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
+-	struct mcp251x_platform_data *pdata = spi->dev.platform_data;
+ 
+-	if (pdata->model == CAN_MCP251X_MCP2510) {
++	if (mcp251x_is_2510(spi)) {
+ 		int i, len;
+ 
+ 		for (i = 1; i < RXBDAT_OFF; i++)
 -- 
 1.7.0.4
