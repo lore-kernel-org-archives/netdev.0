@@ -1,35 +1,42 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH] connector: remove lazy workqueue creation
-Date: Fri, 15 Oct 2010 15:50:56 +0200
-Message-ID: <4CB85C40.6070403@kernel.org>
-References: <4CB8250A.7040902@kernel.org> <20101015130604.GA1751@ioremap.net> <4CB85945.8040801@kernel.org> <20101015134942.GA4422@ioremap.net>
+From: Stanislaw Gruszka <sgruszka@redhat.com>
+Subject: Re: [PATCH 1/6] r8169: check dma mapping failures
+Date: Fri, 15 Oct 2010 16:11:07 +0200
+Message-ID: <20101015141106.GB2291@redhat.com>
+References: <1287144922-3297-1-git-send-email-sgruszka@redhat.com>
+ <20101015134158.GA4417@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Frederic Weisbecker <fweisbec@gmail.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Denis Kirjanov <kirjanov@gmail.com>
+To: Francois Romieu <romieu@fr.zoreil.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
 	"David S. Miller" <davem@davemloft.net>
-To: Evgeniy Polyakov <zbr@ioremap.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hera.kernel.org ([140.211.167.34]:35678 "EHLO hera.kernel.org"
+Received: from mx1.redhat.com ([209.132.183.28]:17285 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754968Ab0JONvD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Oct 2010 09:51:03 -0400
-In-Reply-To: <20101015134942.GA4422@ioremap.net>
+	id S1754456Ab0JOOIr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Oct 2010 10:08:47 -0400
+Content-Disposition: inline
+In-Reply-To: <20101015134158.GA4417@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/15/2010 03:49 PM, Evgeniy Polyakov wrote:
-> On Fri, Oct 15, 2010 at 03:38:13PM +0200, Tejun Heo (tj@kernel.org) wrote:
->> Are you gonna route this patch?  If not, I can route it through
->> workqueue tree.
+On Fri, Oct 15, 2010 at 03:41:58PM +0200, Francois Romieu wrote:
+> Stanislaw Gruszka <sgruszka@redhat.com> :
+> > Check possible dma mapping errors and do clean up if it happens,
+> > when sending frames stop the tx queue.
 > 
-> If it does not depend on other work, I believe Dave will pull into
-> network tree.
+> Almost ok: NETDEV_TX_BUSY can not be used like that. Afaik the DMA
+> failure path in the driver really wants a NETDEV_TX_OK (and a device
+> stats update, though missing in tg3 ?).
 
-Nope, there's no dependency, so network tree then.
+I'm not sure if any driver handle that in the right way. Returning
+"TX OK" when the transmission was not "OK", doesn't look correctly
+to me.
 
-Thank you.
+Eric, David, what you think?
 
--- 
-tejun
+> Actually the former NETDEV_TX_BUSY condition mostly checks for a bug.
+
+Driver handling code from net/core/*.c does not give me such impression.
+
+Stanislaw
