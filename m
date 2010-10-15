@@ -1,47 +1,42 @@
-From: "Dr. Paul Blair" <info@paul.net>
-Subject: Message From Dr. Paul Blair
-Date: Sat, 16 Oct 2010 00:40:20 +0200
-Message-ID: <20101016004020.85961msuj4xyi9uc@email.ee.ethz.ch>
-Reply-To: pau1957@gncn.net
+From: Patrick Ringl <patrick_@freenet.de>
+Subject: 2.6.36-rc7: net/bridge causes temporary network I/O lockups
+Date: Sat, 16 Oct 2010 01:13:21 +0200
+Message-ID: <4CB8E011.8050401@freenet.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
-	DelSp=Yes	format=flowed
-Content-Transfer-Encoding: 7BIT
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ee.ethz.ch ([129.132.2.219]:33333 "EHLO smtp.ee.ethz.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751338Ab0JOWuj convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Oct 2010 18:50:39 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
--- 
-Greetings,
+Hi,
 
-This message may come to you as a surprise, because we have never met  
-before now.
+after I recently switched from 2.6.32 to 2.6.35 (and for testing to 
+2.6.36-rc7) I had massive issues with temporarily occurring freezes 
+regarding the whole network stack.
+The freezes are occurring randomly and usually take 20-30 seconds until 
+the system is responsive again (in addition locally thus with a screen 
+and keyboard attached the system is still fully functional).
 
-I am Dr. Paul Blair, I am a Senior Director with the Royal Bank of  
-Scotland. There is the sum of $20,600,000.00 in my Bank {Royal Bank of  
-Scotland} United Kingdom, But, there were no beneficiaries stated  
-concerning these funds which means no one would ever come forward to  
-claim it.
+I noticed that this behavior only occurs once I have a bridge set up for 
+KVM (with one local interface configured as port, fd and maxwait set to 
+0). If I disable the bridge and configure the interfaces with an IP, 
+things are back to normal and thus everything works fine.
 
-This is why i am requesting for your Partnership, so we can have this  
-sum transfered out of my Royal Bank of Scotland into your Bank Account  
-or any other account of your choice.I will be pleased to see if you  
-can help me and also be a good and Trusted person. Once the funds have  
-been transferred to your Nominated Bank Account we shall then share in  
-the ratio of 60% for me, 40% for you.
+The network hardware in question was an nforce onboard controller (using 
+dethforce) and the 2nd interface I have the exact same issue with is a 
+realtek using r8169.
 
-Send me an email to my private email address: pau1957@gncn.net if you  
-are interested in assisting me, so i can give you more details.
-
-This is a great Life time opportunity for both of us. IT IS 100% RISK FREE.
-
-Regards
-Dr. Paul Blair
+So here it is: Could commit 573201f36fd9c7c6d5218cdcd9948cee700b277d ( 
+partially disabling netpoll support) be the issue for the problem I am 
+currently facing? If not, what could it be then?
 
 
+Please CC to me since I am not subscribed! :-)
+
+
+
+regards,
+Patrick
