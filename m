@@ -1,68 +1,125 @@
-From: Matt Domsch <Matt_Domsch@dell.com>
-Subject: Re: Linux Plumbers Conference: User-visible Network Issues Mini-Conf
-Date: Fri, 15 Oct 2010 14:50:44 -0500
-Message-ID: <20101015195044.GA4416@auslistsprd01.us.dell.com>
-References: <1B9798A3396AB0429545ADFEA207931510536C7C8E@AUSX7MCPS302.AMER.DELL.COM>
+From: Balazs Scheidler <bazsi@balabit.hu>
+Subject: Re: Documentation for IP_TRANSPARENT?
+Date: Fri, 15 Oct 2010 21:40:19 +0200
+Message-ID: <1287171619.32458.60.camel@bzorp.lan>
+References: <cfd18e0f0811240806w541c85e9gafbcc80e8101f2b2@mail.gmail.com>
+	 <1228828648.7631.75.camel@bzorp.balabit>
+	 <AANLkTika83PJ_KkmE+3Rhi4JgTjEZHTDzV-hcyz_UCWB@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausc60pc101.us.dell.com ([143.166.85.206]:25519 "EHLO
-	ausc60pc101.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756557Ab0JOTup (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Oct 2010 15:50:45 -0400
-Content-Disposition: inline
-In-Reply-To: <1B9798A3396AB0429545ADFEA207931510536C7C8E@AUSX7MCPS302.AMER.DELL.COM>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: KOVACS Krisztian <hidden@sch.bme.hu>,
+	David Miller <davem@davemloft.net>, linux-net@vger.kernel.org,
+	netdev <netdev@vger.kernel.org>
+To: mtk.manpages@gmail.com
+Return-path: <linux-net-owner@vger.kernel.org>
+In-Reply-To: <AANLkTika83PJ_KkmE+3Rhi4JgTjEZHTDzV-hcyz_UCWB@mail.gmail.com>
+Sender: linux-net-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-At the Linux Plumbers Conference [1] November 3-5, 2010 in Cambridge,
-MA, we have a half-day mini-conference [2] set aside on Thursday
-morning (so as to follow immediately, but not conflict with netconf)
-to discuss "User-visible Network Issues" - challenges that users face,
-that could benefit from both userspace and kernel enhancements to make
-their lives easier.
+On Wed, 2010-10-13 at 07:16 +0200, Michael Kerrisk wrote:
+> Hello Bazsi
+> 
+> A long time after your mail, I've now added the text you supplied
+> below. The changes are now available via git, and will be in
+> man-pages-3.29. However, I have a few small questions that you can
+> maybe clarify. See below.
+> 
+> On Tue, Dec 9, 2008 at 2:17 PM, Balazs Scheidler <bazsi@balabit.hu> wrote:
+> > Hi,
+> >
+> > On Mon, 2008-11-24 at 11:06 -0500, Michael Kerrisk wrote:
+> >> Hello Krisztian,
+> >>
+> >> Your 2.6.27 patch adds  the IP_TRANSPARENT socket option.  Could you
+> >> please supply some documentation (plain text is fine) suitable for
+> >> inclusion in the ip(7) man page.
+> >
+> > Although it was Krisztian who originally submitted the patches, but I
+> > also did some things about them, so here I gave the documentation part a
+> > spin.
+> >
+> > There are some other related options, that are undocumented right now,
+> > so I tried to give documentation on those as well.
+> >
+> > IP_FREEBIND
+> >        Enable binding to IP addresses that do not currently exist. When
+> >        enabled on a TCP or UDP socket, the bind(2) call referencing a
+> >        non-existing IP address will succeed. This functionality is useful
+> >        if the specified IP address is dynamic (e.g. assigned to a PPP device)
+> >        and is down at the time when the application is trying to bind to it.
+> >        This setsockopt is the per-socket equivalent to ip_nonlocal_bind sysctl.
+> >
+> > IP_TRANSPARENT
+> >        Enable transparent proxying on this socket. This socket option allows
+> >        the calling application to bind to a non-local IP address and operate
+> >        both as a client and a server with the foreign address as the local
+> >        endpoint. NOTE: this requires that routing be set up in a way that
+> >        packets going to the foreign address are routed through the tproxy box.
+> 
+> Can you say a few words explaining what is meant by "tproxy box".
 
-Accepted topics are:
+tproxy box is the computer running the transparent proxy application,
+ie. the one calling the IP_TRANSPARENT socket option.
 
-* Challenges in Mobile Networking 
-Challenges that we have with networking in the mobile space.
-Led by Dan Williams
+> 
+> Also, should one write "TProxy" here, analogous with "TProxy" below?
 
-* Network Device Naming 
-Which of my NICs is eth0? 
-Led by Matt Domsch 
- 
-* Scaling techniques in the stack for servers with high connection rates 
-This talk will describe some techniques for scaling front end
-servers. In particular, we will describe the the use of SO_REUSEPORT
-in scaling servers for high connection rates with a single listening
-port.
-Led by Ying Cai
+yes.
 
-* Simplifying network configuration for VMs by harmonizing multiple Bridging, QOS, DCB and CNA implementations 
-Led by Shyam Iyer
+> 
+> >        Enabling this socket option requires superuser privileges
+> >        (more specifically the CAP_NET_ADMIN capability).
+> >
+> >        TProxy redirection with the iptables TPROXY target also requires that
+> >        this option be set on the redirected socket.
+> 
+> In iptables(8), I find no mention of TPROXY. Is it just that the
+> iptables(8) man page is not up to date?
 
-While I'm sure the individual topics will generate great discussion,
-it will be vital that members of the netdev community be present to
-represent the kernel developers' perspectives on the problems and to
-help brainstorm solutions.  Most of these topics have significant
-kernel components to them, and without additional kernel developer
-participation, I fear we would just be talking to ourselves, but no
-real progress made.  I invite you to attend LPC, and this
-mini-conf in particular, and lend your expertise.
+AFAIR in iptables the man page is automatically generated from snippets
+supplied with extensions.
 
-If you would attend LPC, except that the conference fee is a burden,
-please let me know.  I have at least one pass available for mini-conf
-participants.
+Checking the iptables git tree, there's such a man page snippet for the
+TPROXY target here:
 
-Thanks,
-Matt
+http://git.netfilter.org/cgi-bin/gitweb.cgi?p=iptables.git;a=blob;f=extensions/libxt_TPROXY.man;hb=HEAD
 
-[1] http://www.linuxplumbersconf.org/2010/
-[2] http://www.linuxplumbersconf.org/2010/ocw/events/LPC2010MC/tracks/63
+I'm not 100% percent sure why it doesn't get into the iptables manual
+page in your case. On my system, it seems to be included though:
+
+$ man iptables | grep TPROXY
+   TPROXY
+
+
+> 
+> > IP_RECVORIGDSTADDR
+> >        Enables the IP_ORIGDSTADDR ancillary message in recvmsg(2) in which
+> >        the kernel returns the original destination address of a datagram. The
+> >        ancillary message contains a "struct sockaddr_in" instance.
+> 
+> Do you happen to know of any userspace test code that demonstrates the
+> use of IP_RECVORIGDSTADDR?
+
+Well, the one I have has too much cruft around it and many layers of
+indirection, not really good for a sample code.
+
+Pattern-wise it is the same as IP_RECVTTL, e.g. you set
+IP_RECVORIGDSTADDR via setsockopt and then you get an ancillary message
+with recvmsg() with the cmsg_level == IPPROTO_IP and cmsg_type ==
+IP_ORIGDSTADDR
+
+There's a similar sample in cmsg(3)
+
+If you still need a sample, let me know and I'll cook something up.
+
+> 
+> Thanks for this documentation, and sorry it took so long to make its
+> way into man-pages.
+
+No problem :) I could use these interfaces ever since :)
 
 -- 
-Matt Domsch
-Technology Strategist
-Dell | Office of the CTO
+Bazsi
+
+
