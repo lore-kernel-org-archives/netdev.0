@@ -1,119 +1,141 @@
 From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net-next 3/5] tipc: Optimizations to bearer enabling logic
-Date: Fri, 15 Oct 2010 07:00:33 -0400
-Message-ID: <20101015110033.GC22294@hmsreliant.think-freely.org>
-References: <1286929558-2954-1-git-send-email-paul.gortmaker@windriver.com>
- <1286929558-2954-3-git-send-email-paul.gortmaker@windriver.com>
- <20101013145843.GD31379@hmsreliant.think-freely.org>
- <20101015011139.GB5048@windriver.com>
+Subject: Re: [PATCH net-next] tipc: cleanup function namespace
+Date: Fri, 15 Oct 2010 07:01:22 -0400
+Message-ID: <20101015110122.GD22294@hmsreliant.think-freely.org>
+References: <20101013162652.GF31379@hmsreliant.think-freely.org>
+ <4CB5E79B.4060507@windriver.com>
+ <20101013.142834.226768662.davem@davemloft.net>
+ <20101013162035.0c2e8123@nehalam>
+ <4CB64D7C.1080004@windriver.com>
+ <20101014012951.GA2186@localhost.localdomain>
+ <4CB74391.9020400@windriver.com>
+ <20101014113320.7720828f@nehalam>
+ <20101014214426.GA9236@windriver.com>
+ <20101014151333.1446a90c@nehalam>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	allan.stephens@windriver.com
-To: Paul Gortmaker <paul.gortmaker@windriver.com>
+Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	allan.stephens@windriver.com, Jon Maloy <jon.maloy@ericsson.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:48745 "EHLO
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:48763 "EHLO
 	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753198Ab0JOLAj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Oct 2010 07:00:39 -0400
+	with ESMTP id S1753198Ab0JOLBb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Oct 2010 07:01:31 -0400
 Content-Disposition: inline
-In-Reply-To: <20101015011139.GB5048@windriver.com>
+In-Reply-To: <20101014151333.1446a90c@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 14, 2010 at 09:11:51PM -0400, Paul Gortmaker wrote:
-> [Re: [PATCH net-next 3/5] tipc: Optimizations to bearer enabling logic] On 13/10/2010 (Wed 10:58) Neil Horman wrote:
+On Thu, Oct 14, 2010 at 03:13:33PM -0700, Stephen Hemminger wrote:
+> On Thu, 14 Oct 2010 17:44:27 -0400
+> Paul Gortmaker <paul.gortmaker@windriver.com> wrote:
 > 
-> > On Tue, Oct 12, 2010 at 08:25:56PM -0400, Paul Gortmaker wrote:
-> > > From: Allan Stephens <allan.stephens@windriver.com>
+> > [Re: [PATCH net-next] tipc: cleanup function namespace] On 14/10/2010 (Thu 11:33) Stephen Hemminger wrote:
+> > 
+> > > On Thu, 14 Oct 2010 13:53:21 -0400
+> > > Paul Gortmaker <paul.gortmaker@windriver.com> wrote:
 > > > 
-> > > Introduces "enabling" state during activation of a new TIPC bearer,
-> > > which supplements the existing "disabled" and "enabled" states.
-> > > This change allows the new bearer to be added without having to
-> > > temporarily block the processing of incoming packets on existing
-> > > bearers during the binding of the new bearer to its associated
-> > > interface. It also makes it unnecessary to zero out the entire
-> > > bearer structure at the start of activation.
+> > > > On 10-10-13 09:29 PM, Neil Horman wrote:
+> > > > > On Wed, Oct 13, 2010 at 08:23:24PM -0400, Paul Gortmaker wrote:
+> > > > >> On 10-10-13 07:20 PM, Stephen Hemminger wrote:
+> > > > >>> Do some cleanups of TIPC based on make namespacecheck
+> > > > >>>     1. Don't export unused symbols
+> > > > >>>     2. Eliminate dead code
+> > > > >>>     3. Make functions and variables local
+> > > > >>>     4. Rename buf_acquire to tipc_buf_acquire since it is used in several files
+> > > > >>>
+> > > > >>> Compile tested only.
+> > > > >>> This make break out of tree kernel modules that depend on TIPC routines.
+> > > > >>
+> > > > >> Hi Stephen,
+> > > > >>
+> > > > >> When I first started looking at TIPC code, I too came to the
+> > > > >> same conclusion as you did and was about to do #1,2,3 -- but
+> > > > >> then I was told that the exported symbols were part of an API
+> > > > >> and might be in use by folks here and there as per this thread:
+> > > > >>
+> > > > >> http://www.mail-archive.com/netdev@vger.kernel.org/msg30208.html
+> > > > >>
+> > > > > I think its telling the the argument in the above thread for keeping the API
+> > > > > were that users of it were out there and 'likely to contribute' in the future.
+> > > > > That thread was 3 years ago.  They might be using the API from outside the
+> > > > > kernel tree, but they're not planning on contributing.  As Christoph noted,
+> > > > > they're freeloaders.  The community really doesn't need or want to maintain an
+> > > > > API like that.  If these users are your customers, and removing the API is
+> > > > > unacceptable, perhaps its time to move the entire TIPC module out of tree.
+> > > > 
+> > > > As I'd said -- I don't know what the use cases of these API users are,
+> > > > and so as far as I know they aren't customers either.  For what it is
+> > > > worth, know that I personally wouldn't try and use a business case to
+> > > > justify a technically wrong decision here on netdev anyway.
+> > > > 
+> > > > I was just describing the history of the situation, and suggesting
+> > > > one possible slower approach of phasing it out as a courtesy to those
+> > > > users, in the same way that the kernel community has extended that
+> > > > same courtesy with other things in feature-removal.txt
+> > > > 
+> > > > In the end, since Jon is OK with the removal, and is in the process of
+> > > > communicating this to the API users he is aware of, I sure don't have
+> > > > any reason to try and save the API.  If folks are good with having it
+> > > > just go away overnight, then great -- I'll be just as happy to see it
+> > > > disappear as you and Stephen.  So, a long winded way of saying...
+> > > > 
+> > > > Acked-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 > > > 
+> > > How about putting an entry in feature-removal.txt with a short (6 month)
+> > > window?
+> > 
+> > I'm fine with that too.
+> > 
+> > P.
+> > 
+> > From 5a15a26de63a29fcb6cb7a7fb83b6d2fc63cbadb Mon Sep 17 00:00:00 2001
+> > From: Paul Gortmaker <paul.gortmaker@windriver.com>
+> > Date: Thu, 14 Oct 2010 17:29:08 -0400
+> > Subject: [PATCH] TIPC: Document the demise of the Native API for March 2011
+> > 
+> > The native API in the TIPC code exists as a bunch of functions
+> > and exported symbols that aren't actually used by any currently
+> > in-tree kernel code/modules.
+> > 
+> > Since this code is anomalous to the general guiding principle that
+> > the kernel should not be libc, coverage tools and people intending
+> > to do general cleanups keep finding this code and suggesting that
+> > it be removed.
+> > 
+> > It seems the right thing to do is to just finally delete it once
+> > and for all, after giving a reasonable window for any existing
+> > users to find alternative solutions to their custom use case(s).
+> > 
+> > Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+> > ---
+> >  Documentation/feature-removal-schedule.txt |   12 ++++++++++++
+> >  1 files changed, 12 insertions(+), 0 deletions(-)
+> > 
+> > diff --git a/Documentation/feature-removal-schedule.txt b/Documentation/feature-removal-schedule.txt
+> > index f456389..1def37e 100644
+> > --- a/Documentation/feature-removal-schedule.txt
+> > +++ b/Documentation/feature-removal-schedule.txt
+> > @@ -573,3 +573,15 @@ Why:	Hareware scan is the prefer method for iwlwifi devices for
+> >  Who:	Wey-Yi Guy <wey-yi.w.guy@intel.com>
+> >  
+> >  ----------------------------
+> > +
+> > +What:	TIPC: Delete all code and exported symbols specific to Native API
+> > +When:	March 2011
+> > +Why:	The TIPC Native API, as described here:
+> > +	http://tipc.sourceforge.net/doc/tipc_1.7_prog_guide.html#native_api
+> > +	is implemented by exporting a bunch of otherwise unused functions
+> > +	for possible modular linkage by custom end-user code.  This goes
+> > +	against the general concept that the kernel should not be libc.
+> > +
+> > +Who:	Paul Gortmaker <paul.gortmaker@windriver.com>
+> > +	
+> > +----------------------------
 > 
-> [...]
+> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
 > 
-> > > +	b_ptr->state = BEARER_ENABLING;
-> > >  	strcpy(b_ptr->publ.name, name);
-> > > +	b_ptr->priority = priority;
-> > > +
-> > > +	write_unlock_bh(&tipc_net_lock);
-> > Why the 3rd state?  Doesn't seem needed. 
-> 
-> I'm a bit disappointed in myself for also not noticing that it
-> was set but never tested for.  The following should give the
-> same end result but without the obfuscation of an extra state.
-> 
-> This one also doesn't explicitly depend on any other changes,
-> so if it is now OK, the option is there for it to be applied
-> independently of the others that haven't been reworked yet.
-> 
-> Thanks,
-> Paul.
-> 
-> 
-> From 86d0d5c92439d0a3f5a0f165aa8bd842d377dae9 Mon Sep 17 00:00:00 2001
-> From: Allan Stephens <allan.stephens@windriver.com>
-> Date: Thu, 14 Oct 2010 16:09:23 -0400
-> Subject: [PATCH] tipc: Optimizations to bearer enabling logic
-> 
-> Allow new bearers to be added without having to temporarily block
-> the processing of incoming packets on existing bearers during the
-> binding of the new bearer to its associated interface. Eliminates
-> zeroing out of the new bearer structure at the start of activation,
-> since it is already in that state.
-> 
-> Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
-> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
-> ---
->  net/tipc/bearer.c |    7 ++++---
->  1 files changed, 4 insertions(+), 3 deletions(-)
-> 
-> diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
-> index fd9c06c..2ff8181 100644
-> --- a/net/tipc/bearer.c
-> +++ b/net/tipc/bearer.c
-> @@ -556,14 +556,15 @@ restart:
->  	}
->  
->  	b_ptr = &tipc_bearers[bearer_id];
-> -	memset(b_ptr, 0, sizeof(struct bearer));
-> -
->  	strcpy(b_ptr->publ.name, name);
-> +
-> +	write_unlock_bh(&tipc_net_lock);
->  	res = m_ptr->enable_bearer(&b_ptr->publ);
->  	if (res) {
->  		warn("Bearer <%s> rejected, enable failure (%d)\n", name, -res);
-> -		goto failed;
-> +		return res;
->  	}
-> +	write_lock_bh(&tipc_net_lock);
->  
-This definately looks more concise, but I don't see why its necessecary to drop
-the tipc_net_lock around the call to enable_bearer.  The only caler of
-tipc_register_media sets the enable_bearer pointer to the enable_bearer
-function, and  I' don't see any path through that function which would
-potentially retake that lock.  In fact it seems dropping it might be dangerous,
-if other paths (like from cfg_named_msg_event), tried to enable a bearer in
-parallel with a user space directive from the netlink socket).  With out the
-protection of tipc_net_lock, you could use the same eth_bearer twice, and
-corrupt that array.
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
 
-Neil
-
->  	b_ptr->identity = bearer_id;
->  	b_ptr->media = m_ptr;
-> -- 
-> 1.7.2.1
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
