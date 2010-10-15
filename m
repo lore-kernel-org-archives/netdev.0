@@ -1,16 +1,14 @@
 From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: [PATCH 2/7] can: mcp251x: increase rx_errors on overflow,
-	not only rx_over_errors
-Date: Fri, 15 Oct 2010 12:34:00 +0200
-Message-ID: <1287138845-20561-3-git-send-email-mkl@pengutronix.de>
-References: <1287138845-20561-1-git-send-email-mkl@pengutronix.de>
+Subject: (unknown)
+Date: Fri, 15 Oct 2010 12:33:58 +0200
+Message-ID: <1287138845-20561-1-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 To: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <1287138845-20561-1-git-send-email-mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: 
 List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
 	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
 List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
@@ -22,34 +20,36 @@ Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Sascha Hauer <s.hauer-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Moin,
 
-Signed-off-by: Sascha Hauer <s.hauer-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Signed-off-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
----
- drivers/net/can/mcp251x.c |    8 ++++++--
- 1 files changed, 6 insertions(+), 2 deletions(-)
+this series of patches improves the mcp251x driver. It first fixes the
+local_softirq_pending problem. Then the amount of SPI transfers is reduced
+in order to optimise the driver.
 
-diff --git a/drivers/net/can/mcp251x.c b/drivers/net/can/mcp251x.c
-index c06e023..fdea752 100644
---- a/drivers/net/can/mcp251x.c
-+++ b/drivers/net/can/mcp251x.c
-@@ -816,10 +816,14 @@ static irqreturn_t mcp251x_can_ist(int irq, void *dev_id)
- 		if (intf & CANINTF_ERRIF) {
- 			/* Handle overflow counters */
- 			if (eflag & (EFLG_RX0OVR | EFLG_RX1OVR)) {
--				if (eflag & EFLG_RX0OVR)
-+				if (eflag & EFLG_RX0OVR) {
- 					net->stats.rx_over_errors++;
--				if (eflag & EFLG_RX1OVR)
-+					net->stats.rx_errors++;
-+				}
-+				if (eflag & EFLG_RX1OVR) {
- 					net->stats.rx_over_errors++;
-+					net->stats.rx_errors++;
-+				}
- 				can_id |= CAN_ERR_CRTL;
- 				data1 |= CAN_ERR_CRTL_RX_OVERFLOW;
- 			}
--- 
-1.7.0.4
+This series has been tested with a mcp2515 on i.MX35.
+
+Please review and test,
+cheers, Marc
+
+
+The following changes since commit cd2638a86c7b90e77ce623c09de2a26177f2a5c1:
+  Carolyn Wyborny (1):
+        igb: add check for fiber/serdes devices to igb_set_spd_dplx;
+
+are available in the git repository at:
+
+  git://git.pengutronix.de/git/mkl/linux-2.6.git can/mcp251x-for-net-next
+
+Marc Kleine-Budde (4):
+      can: mcp251x: fix NOHZ local_softirq_pending 08 warning
+      can: mcp251x: write intf only when needed
+      can: mcp251x: define helper functions mcp251x_is_2510, mcp251x_is_2515
+      can: mcp251x: optimize 2515, rx int gets cleared automatically
+
+Sascha Hauer (3):
+      can: mcp251x: increase rx_errors on overflow, not only rx_over_errors
+      can: mcp251x: allow to read two registers in one spi transfer
+      can: mcp251x: read-modify-write eflag only when needed
+
+ drivers/net/can/mcp251x.c |   77 +++++++++++++++++++++++++++++++++++----------
+ 1 files changed, 60 insertions(+), 17 deletions(-)
