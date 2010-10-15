@@ -1,44 +1,49 @@
-From: Harvey Harrison <harvey.harrison@gmail.com>
-Subject: Re: [PATCH net-next] vmxnet3: make bit twiddle routines inline
-Date: Fri, 15 Oct 2010 14:22:03 -0700
-Message-ID: <AANLkTin_w2geQjW-nF4qjiPyD0=KXYswhGQE2cR-KJax@mail.gmail.com>
-References: <20101015140620.63d0a615@nehalam>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: Re: [PATCH net-next 3/5] tipc: Optimizations to bearer enabling logic
+Date: Fri, 15 Oct 2010 17:31:16 -0400
+Message-ID: <4CB8C824.7090800@windriver.com>
+References: <1286929558-2954-1-git-send-email-paul.gortmaker@windriver.com> <1286929558-2954-3-git-send-email-paul.gortmaker@windriver.com> <20101013145843.GD31379@hmsreliant.think-freely.org> <20101015011139.GB5048@windriver.com> <20101015110033.GC22294@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Shreyas Bhatewara <sbhatewara@vmware.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"VMware, Inc." <pv-drivers@vmware.com>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	allan.stephens@windriver.com
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f46.google.com ([209.85.216.46]:38577 "EHLO
-	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932336Ab0JOVWE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Oct 2010 17:22:04 -0400
-Received: by qwa26 with SMTP id 26so578733qwa.19
-        for <netdev@vger.kernel.org>; Fri, 15 Oct 2010 14:22:04 -0700 (PDT)
-In-Reply-To: <20101015140620.63d0a615@nehalam>
+Received: from mail.windriver.com ([147.11.1.11]:38336 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756363Ab0JOVba (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Oct 2010 17:31:30 -0400
+In-Reply-To: <20101015110033.GC22294@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 15, 2010 at 2:06 PM, Stephen Hemminger
-<shemminger@vyatta.com> wrote:
-> +static inline void set_flag_le16(__le16 *data, u16 flag)
-> +{
-> + =C2=A0 =C2=A0 =C2=A0 *data =3D cpu_to_le16(le16_to_cpu(*data) | fla=
-g);
-> +}
-> +
+On 10-10-15 07:00 AM, Neil Horman wrote:
 
-Instead of swapping twice on BE machines, why not:
+[...]
 
-*data |=3D cpu_to_le16(flag);
+> This definately looks more concise, but I don't see why its necessecary to drop
+> the tipc_net_lock around the call to enable_bearer.  The only caler of
+> tipc_register_media sets the enable_bearer pointer to the enable_bearer
+> function, and  I' don't see any path through that function which would
+> potentially retake that lock.  In fact it seems dropping it might be dangerous,
+> if other paths (like from cfg_named_msg_event), tried to enable a bearer in
+> parallel with a user space directive from the netlink socket).  With out the
+> protection of tipc_net_lock, you could use the same eth_bearer twice, and
+> corrupt that array.
 
-Which may even get done away with at compile time if flag is a constant=
-=2E
+I think it would be protected by config_lock. but in the end if it is
+just an academic optimization that really isn't in a hot code path
+anyway, and if it just adds more confusion than real world value, then
+I'm fine with just dropping this on the floor (and deleting the extra
+memset in a cleanup patch) -- it won't be the 1st time doing this with
+these carry forward patches, and I'm sure it won't be the last.
 
-Similarly for the others.
+Thanks,
+Paul.
 
-Cheers,
+> 
+> Neil
+> 
 
-Harvey
+
