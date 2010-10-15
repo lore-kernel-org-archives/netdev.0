@@ -1,63 +1,56 @@
-From: David Daney <ddaney@caviumnetworks.com>
-Subject: RFD: OF device tree vs. PHY flags.
-Date: Fri, 15 Oct 2010 11:18:00 -0700
-Message-ID: <4CB89AD8.7020200@caviumnetworks.com>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: Re: [PATCH net-next 4/8] tg3: Add EEE support
+Date: Fri, 15 Oct 2010 11:19:04 -0700
+Message-ID: <20101015181904.GA1389@mcarlson.broadcom.com>
+References: <1287088665-22135-5-git-send-email-mcarlson@broadcom.com>
+ <1287152246.2267.14.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+ charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: Grant Likely <grant.likely@secretlab.ca>,
-	devicetree-discuss@lists.ozlabs.org,
-	Netdev <netdev@vger.kernel.org>
+Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"andy@greyhouse.net" <andy@greyhouse.net>
+To: "Ben Hutchings" <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail3.caviumnetworks.com ([12.108.191.235]:5600 "EHLO
-	mail3.caviumnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932310Ab0JOSSB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Oct 2010 14:18:01 -0400
+Received: from mms2.broadcom.com ([216.31.210.18]:2669 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756375Ab0JOSTv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Oct 2010 14:19:51 -0400
+In-Reply-To: <1287152246.2267.14.camel@achroite.uk.solarflarecom.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I am in the process of planning a conversion of Octeon SOC platform code 
-to use the OF device tree in the Linux kernel.
+On Fri, Oct 15, 2010 at 07:17:26AM -0700, Ben Hutchings wrote:
+> On Thu, 2010-10-14 at 13:37 -0700, Matt Carlson wrote:
+> > This patch adds Energy Efficient Ethernet (EEE) support for the 5718
+> > device ID and the 57765 B0 asic revision.
+> [...]
+> > +/* Clause 45 expansion registers */
+> > +#define TG3_CL45_D7_EEEADV_CAP		0x003c
+> > +#define TG3_CL45_D7_EEEADV_CAP_100TX	0x0002
+> > +#define TG3_CL45_D7_EEEADV_CAP_1000T	0x0004
+> 
+> I assume this is going to be a standard register, so I think it should
+> be defined in <linux/mdio.h>.
 
-One issue that I have encountered, is that for some boards, we need to 
-pass a non-zero flags argument to the phy_attach_direct() method.  The 
-value of the flags is board dependent, so it would make some sense to 
-encode its value in the device tree itself.  The flags I am interested 
-in control the configuration of clocking modes and status LED connections.
+O.K.  I'll make the change and respin this patch.
 
-I would suggest the following:
+> > +#define TG3_CL45_D7_EEERES_STAT                0x803e
+> > +#define TG3_CL45_D7_EEERES_STAT_LP_100TX	0x0002
+> > +#define TG3_CL45_D7_EEERES_STAT_LP_1000T	0x0004
+> 
+> 0x803e not 0x003e?
 
-o Add a new property to "ethernet-phy" dts bindings called 
-"linux,flags".  It would contain a comma separated string of flag names. 
-  Something like "led-mode1,clock-mode2".  The semantics of the flag 
-names would be interpreted by the PHY driver...
+I'm checking on this one.  EEE works with this patch in place.  Maybe I
+can make this a definition that takes a standard clause 45 register as
+an input though.
 
-o Add a new function pointer to struct phy_driver: u32 
-(*of_parse_flags)(struct phy_device *phydev).  This would parse and 
-return the flags value for the "linux,flags" property from the 
-device_node associated with the particular PHY device in question.
+> Also Dave suggested there should be an ethtool interface to control EEE
+> <http://thread.gmane.org/gmane.linux.network/164141/focus=165143>.
 
-o Modify of_phy_connect() to do something like the following:
+I don't see any ETH_FLAG definition for this in ethtool.h yet.  Is this
+the way everyone wanted to go?
 
-.
-.
-.
-	if (phy->driver && phy->driver->of_parse_flags)
-		flags |= phy->driver->of_parse_flags(phy);
-.
-.
-.
-
-o Perhaps add some helper functions to of_mdio.c to assist in parsing 
-the "linux,flags" properties string.
-
-o Any extra code in the PHY drivers and struct phy_driver would be 
-protected by #ifdef CONFIG_OF
-
-How does this sound?
-
-Any suggestions as for improvements, or better names for things?
-
-
-Thanks,
-David Daney
