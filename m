@@ -1,50 +1,66 @@
-From: jamal <hadi@cyberus.ca>
-Subject: netns patches WAS( Re: [PATCH 8/8] net: Implement socketat.
-Date: Fri, 15 Oct 2010 08:30:55 -0400
-Message-ID: <1287145855.3642.30.camel@bigi>
-References: <m1ocborgq7.fsf@fess.ebiederm.org>
-	 <m1bp7oq1u8.fsf@fess.ebiederm.org>  <4C9B162E.7040201@parallels.com>
-	 <1285240797.5036.5.camel@bigi>  <4C9B3B06.900@parallels.com>
-	 <1285242055.5036.9.camel@bigi> <4C9B3F9C.8080506@parallels.com>
-	 <4CA7A07C.5030504@free.fr>  <1286113441.3812.229.camel@bigi>
-Reply-To: hadi@cyberus.ca
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Pavel Emelyanov <xemul@parallels.com>,
-	linux-kernel@vger.kernel.org,
-	Linux Containers <containers@lists.osdl.org>,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Michael Kerrisk <mtk.manpages@gmail.com>,
-	Ulrich Drepper <drepper@gmail.com>,
-	Al Viro <viro@ZenIV.linux.org.uk>,
-	David Miller <davem@davemloft.net>,
-	"Serge E. Hallyn" <serge@hallyn.com>,
-	Pavel Emelyanov <xemul@openvz.org>,
-	Ben Greear <greearb@candelatech.com>,
-	Matt Helsley <matthltc@us.ibm.com>,
-	Jonathan Corbet <corbet@lwn.net>,
-	Sukadev Bhattiprolu <sukadev@linux.vnet.ibm.com>,
-	Jan Engelhardt <jengelh@medozas.de>,
-	Patrick McHardy <kaber@trash.net>
-To: Daniel Lezcano <daniel.lezcano@free.fr>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f174.google.com ([209.85.161.174]:40128 "EHLO
-	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753672Ab0JOMbD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Oct 2010 08:31:03 -0400
-In-Reply-To: <1286113441.3812.229.camel@bigi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Julia Lawall <julia@diku.dk>
+Subject: [PATCH 1/7] drivers/net/irda/irtty-sir.c: Return -ENOMEM on memory allocation failure
+Date: Fri, 15 Oct 2010 15:00:04 +0200
+Message-ID: <1287147610-8041-1-git-send-email-julia@diku.dk>
+Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Samuel Ortiz <samuel@sortiz.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Eric et al,
+From: Julia Lawall <julia@diku.dk>
 
-Did these patches make it in? I was looking at
-two Davem net trees and i dont see them.
+In this code, 0 is returned on memory allocation failure, even though other
+failures return -ENOMEM or other similar values.
 
-cheers,
-jamal
+The initial value of ret as 0 is never used, so drop the initialization.
 
+A simplified version of the semantic match that finds the first problem is as
+follows: (http://coccinelle.lip6.fr/)
+
+// <smpl>
+@@
+expression ret;
+expression x,e1,e2,e3;
+@@
+
+ret = 0
+... when != ret = e1
+*x = \(kmalloc\|kcalloc\|kzalloc\)(...)
+... when != ret = e2
+if (x == NULL) { ... when != ret = e3
+  return ret;
+}
+// </smpl>
+
+Signed-off-by: Julia Lawall <julia@diku.dk>
+
+---
+ drivers/net/irda/irtty-sir.c |    6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff -u -p a/drivers/net/irda/irtty-sir.c b/drivers/net/irda/irtty-sir.c
+--- a/drivers/net/irda/irtty-sir.c
++++ b/drivers/net/irda/irtty-sir.c
+@@ -426,7 +426,7 @@ static int irtty_open(struct tty_struct 
+ {
+ 	struct sir_dev *dev;
+ 	struct sirtty_cb *priv;
+-	int ret = 0;
++	int ret;
+ 
+ 	/* Module stuff handled via irda_ldisc.owner - Jean II */
+ 
+@@ -459,8 +459,10 @@ static int irtty_open(struct tty_struct 
+ 
+ 	/* allocate private device info block */
+ 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
+-	if (!priv)
++	if (!priv) {
++		ret = -ENOMEM;
+ 		goto out_put;
++	}
+ 
+ 	priv->magic = IRTTY_MAGIC;
+ 	priv->tty = tty;
