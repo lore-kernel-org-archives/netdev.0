@@ -1,47 +1,64 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next 4/8] tg3: Add EEE support
-Date: Fri, 15 Oct 2010 15:17:26 +0100
-Message-ID: <1287152246.2267.14.camel@achroite.uk.solarflarecom.com>
-References: <1287088665-22135-5-git-send-email-mcarlson@broadcom.com>
+From: Diego Elio =?ISO-8859-1?Q?Petten=F2?= <flameeyes@gmail.com>
+Subject: Re: [PATCH] sctp: implement SIOCINQ ioctl() (take 3 bis)
+Date: Fri, 15 Oct 2010 16:22:37 +0200
+Message-ID: <1287152557.465.24.camel@yamato.local>
+References: <20100930.173557.108787840.davem@davemloft.net>
+	 <1285926965-5130-1-git-send-email-flameeyes@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, andy@greyhouse.net
-To: Matt Carlson <mcarlson@broadcom.com>
+Content-Type: multipart/signed; micalg="pgp-sha256"; protocol="application/pgp-signature"; boundary="=-mHFZpbMbZu3nu9dPPiue"
+Cc: linux-sctp@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:53983 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755497Ab0JOORa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Oct 2010 10:17:30 -0400
-In-Reply-To: <1287088665-22135-5-git-send-email-mcarlson@broadcom.com>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:62447 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755083Ab0JOOXf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Oct 2010 10:23:35 -0400
+In-Reply-To: <1285926965-5130-1-git-send-email-flameeyes@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-10-14 at 13:37 -0700, Matt Carlson wrote:
-> This patch adds Energy Efficient Ethernet (EEE) support for the 5718
-> device ID and the 57765 B0 asic revision.
-[...]
-> +/* Clause 45 expansion registers */
-> +#define TG3_CL45_D7_EEEADV_CAP		0x003c
-> +#define TG3_CL45_D7_EEEADV_CAP_100TX	0x0002
-> +#define TG3_CL45_D7_EEEADV_CAP_1000T	0x0004
 
-I assume this is going to be a standard register, so I think it should
-be defined in <linux/mdio.h>.
+--=-mHFZpbMbZu3nu9dPPiue
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-> +#define TG3_CL45_D7_EEERES_STAT                0x803e
-> +#define TG3_CL45_D7_EEERES_STAT_LP_100TX	0x0002
-> +#define TG3_CL45_D7_EEERES_STAT_LP_1000T	0x0004
+Il giorno ven, 01/10/2010 alle 11.56 +0200, Diego Elio Petten=C3=B2 ha
+scritto:
+>=20
+>=20
+> This simple patch copies the current approach for SIOCINQ ioctl() from
+> DCCP
+> into SCTP so that the userland code working with SCTP can use a
+> similar
+> interface across different protocols to know how much space to
+> allocate for
+> a buffer.=20
 
-0x803e not 0x003e?
+Any news on getting this one in? Pretty please? :)
 
-Also Dave suggested there should be an ethtool interface to control EEE
-<http://thread.gmane.org/gmane.linux.network/164141/focus=165143>.
+--=20
+Diego Elio Petten=C3=B2 =E2=80=94 =E2=80=9CFlameeyes=E2=80=9D
+http://blog.flameeyes.eu/
 
-Ben.
+If you found a .asc file in this mail and know not what it is,
+it's a GnuPG digital signature: http://www.gnupg.org/
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+
+--=-mHFZpbMbZu3nu9dPPiue
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.16 (GNU/Linux)
+
+iQEcBAABCAAGBQJMuGOqAAoJEBqCrVe7WSRDit4H/0eDt0wl126654WuRIyUDUbk
+w/y8FYmHRfc/WnigmVBmeGoTD4q6+dz/rkNAeHqIoOUnKH3p548krhIg+fAZLtFu
+7Ndg1q65JD632j0QpqskReqnjB6M3V2Qp4xhql0w0WZ2NubWyqYUxiCq3FlsUlwq
+07qhiZEPjxaUDo5G3jte9+6xtSw9cH15BRYAjEzM7GZNdt03FOlENpCRSNg0sKld
+Ef7S++5uOUyYYiVErsiN5uoSTPtd17+tgxBg0OsC62+vwoJZwbxy3rQMikHQ7yBc
+JeiXNGMMqLbt5fupeniVA1THyMB44IIgSHmmshg4IZjBN6qMeHFIoX4uaG+YGI4=
+=jDST
+-----END PGP SIGNATURE-----
+
+--=-mHFZpbMbZu3nu9dPPiue--
 
