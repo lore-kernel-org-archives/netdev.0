@@ -1,166 +1,125 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [v2] Remaining BKL users, what to do
-Date: Mon, 18 Oct 2010 17:42:06 +0200
-Message-ID: <201010181742.06678.arnd@arndb.de>
-References: <201009161632.59210.arnd@arndb.de>
+From: Patrick Ringl <patrick_@freenet.de>
+Subject: 2.6.36-rc7: net/bridge causes temporary network I/O lockups
+Date: Sat, 16 Oct 2010 01:04:07 +0200
+Message-ID: <4CB8DDE7.9080501@freenet.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: autofs@linux.kernel.org, linux-media@vger.kernel.org,
-	dri-devel@lists.freedesktop.org,
-	Christoph Hellwig <hch@infradead.org>,
-	Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>,
-	Trond Myklebust <Trond.Myklebust@netapp.com>,
-	Petr Vandrovec <vandrove@vc.cvut.cz>,
-	Anders Larsen <al@alarsen.net>, Jan Kara <jack@suse.cz>,
-	Evgeniy Dushistov <dushistov@mail.ru>,
-	Ingo Molnar <mingo@elte.hu>, netdev@vger.kernel.org,
-	Samuel Ortiz <samuel@sortiz.org>,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	Andrew Hendry <andrew.hendry@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Jan Harkes <jaharkes@cs.cmu.edu>,
-	Bryan Schumaker <bjschuma@netapp.com>
-To: codalist@coda.cs.cmu.edu,
-	ksummit-2010-discuss@lists.linux-foundation.org
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <201009161632.59210.arnd@arndb.de>
-Sender: linux-fsdevel-owner@vger.kernel.org
+Content-Type: multipart/mixed; boundary="===============4499131260005349203=="
+Cc: herbert@gondor.hengli.com.au, bridge@lists.linux-foundation.org,
+        linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/bridge>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Mime-version: 1.0
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-This is a update on the current progress for the BKL removal, reflecting
-what is currently in linux-next.
+This is a multi-part message in MIME format.
+--===============4499131260005349203==
+Content-Type: multipart/alternative;
+ boundary="------------030607070400000506030901"
 
-Maybe we can briefly discuss this at the kernel summit to decide if we
-want a quick death of the BKL, i.e. fixing/disabling/staging-out the
-remaining users in 2.6.38 or rather leave them there indefinitely.
+This is a multi-part message in MIME format.
+--------------030607070400000506030901
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-On Thursday 16 September 2010, Arnd Bergmann wrote:
-> The big kernel lock is gone from almost all code in linux-next, this is
-> the status of what I think will happen to the remaining users:
-> 
-> drivers/gpu/drm/i810/{i810,i830}_dma.c:
-> 	Fixable, but needs someone with the hardware to test. Can probably be
-> 	marked CONFIG_BROKEN_ON_SMP if nobody cares.
+Hi,
 
-Still open, no good solution for this.
+after I recently switched from 2.6.32 to 2.6.35 (and for testing to 
+2.6.36-rc7) I had massive issues with temporarily occurring freezes 
+regarding the whole network stack.
+The freezes are occurring randomly and usually take 20-30 seconds until 
+the system is responsive again (in addition locally thus with a screen 
+and keyboard attached the system is still fully functional).
 
-> drivers/media/video (V4L):
-> 	Mauro is working on it, some drivers get moved to staging while the
-> 	others get fixed. An easy workaround would be possible by adding
-> 	per-driver mutexes, but Mauro wants to it properly by locking all
-> 	the right places.
+I noticed that this behavior only occurs once I have a bridge set up for 
+KVM (with one local interface configured as port, fd and maxwait set to 
+0). If I disable the bridge and configure the interfaces with an IP, 
+things are back to normal and thus everything works fine.
 
-Progressing well, patches are being worked on.
+The network hardware in question was an nforce onboard controller (using 
+dethforce) and the 2nd interface I have the exact same issue with is a 
+realtek using r8169.
 
-> fs/adfs:
-> 	Probably not hard to fix, but needs someone to test it.
-> 	adfs has only seen janitorial fixes for the last 5 years.
-> 	Do we know of any users?
+So here it is: Could commit 573201f36fd9c7c6d5218cdcd9948cee700b277d ( 
+partially disabling netpoll support) be the issue for the problem I am 
+currently facing? If not, what could it be then?
 
-Nobody replied.
 
-> fs/autofs:
-> 	Pretty much dead, replaced by autofs4. I'd suggest moving this
-> 	to drivers/staging in 2.6.37 and letting it die there.
+Please CC to me since I am not subscribed! :-)
 
-Now in staging.
 
-> fs/coda:
-> 	Coda seems to have an active community, but not all of their
-> 	code is actually part of linux (pioctl!), while the last official
-> 	release is missing many of the cleanups that were don in Linux.
-> 	Not sure what to do, if someone is interested, the best way might
-> 	be a fresh start with a merger of the mainline linux and the
-> 	coda.cs.cmu.edu	codebase in drivers/staging.
-> 	Just removing the BKL without the Coda community seems like a heap
-> 	of pointless work.
 
-Jan Harkes showed interest, looks like this will get fixed eventually,
-but probably not in time for 2.6.37.
+regards,
+Patrick
 
-> fs/freevxfs:
-> 	Uses the BKL in readdir and lookup, should be easy to fix. Christoph?
+--------------030607070400000506030901
+Content-Type: text/html; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 
-Still waiting for confirmation from Christoph Hellwig that the BKL
-is not needed here. I can do the patch to remove it then.
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
 
-> fs/hpfs:
-> 	Looks fixable, if anyone cares. Maybe it's time for retirement in
-> 	drivers/staging though. The web page only has a Link to the
-> 	linux-2.2 version.
+<meta http-equiv="content-type" content="text/html; charset=ISO-8859-1">
+</head>
+<body text="#000000" bgcolor="#ffffff">
+Hi,<br>
+<br>
+after I recently switched from 2.6.32 to 2.6.35 (and for testing to
+2.6.36-rc7) I had massive issues with temporarily occurring freezes
+regarding the whole network stack.<br>
+The freezes are occurring randomly and usually take 20-30 seconds until
+the system is responsive again (in addition locally thus with a screen
+and keyboard attached the system is still fully functional).<br>
+<br>
+I noticed that this behavior only occurs once I have a bridge set up
+for KVM (with one local interface configured as port, fd and maxwait
+set to 0). If I disable the bridge and configure the interfaces with an
+IP, things are back to normal and thus everything works fine.<br>
+<br>
+The network hardware in question was an nforce onboard controller
+(using dethforce) and the 2nd interface I have the exact same issue
+with is a realtek using r8169.<br>
+<br>
+So here it is: Could commit 573201f36fd9c7c6d5218cdcd9948cee700b277d (
+<meta http-equiv="content-type" content="text/html; charset=ISO-8859-1">
+<span class="Apple-style-span"
+ style="border-collapse: separate; color: rgb(0, 0, 0); font-family: 'Times New Roman'; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; line-height: normal; orphans: 2; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; font-size: medium;">partially
+disabling netpoll support) </span>be the issue for the problem I am
+currently facing? If not, what could it be then? <br>
+<br>
+<br>
+Please CC to me since I am not subscribed! :-)<br>
+<br>
+<br>
+<br>
+regards,<br>
+Patrick<br>
+<span class="Apple-style-span"
+ style="border-collapse: separate; color: rgb(0, 0, 0); font-family: 'Times New Roman'; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; line-height: normal; orphans: 2; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; font-size: medium;"><span
+ class="Apple-style-span"
+ style="font-family: monospace; font-size: 12px;"></span></span>
+</body>
+</html>
 
-No replies.
+--------------030607070400000506030901--
 
-> fs/lockd:
-> 	Trond writes that he has someone working on BKL removal here.
+--===============4499131260005349203==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-Bryan Schumaker took care of this, looks like the locking is independent
-of the fs/locks.c locking now, although it still uses the BKL internally.
-
-I assume that this will get fixed as well, doesn't seem hard. As long
-as lockd uses the BKL, both nfs and nfsd depend on the BKL implicitly.
-
-> fs/locks.c:
-> 	Patch is under discussion, blocked by work on fs/lockd currently.
-
-No longer blocked now, both lockd and ceph can deal with this converted
-to spinlocks. I will follow up with the final patch once they hit mainline.
-
-> fs/ncpfs:
-> 	Should be fixable if Petr still cares about it. Otherwise suggest
-> 	moving to drivers/staging if there are no users left.
-
-Fixed by Petr Vandrovec.
-
-> fs/qnx4:
-> 	Should be easy to fix, there are only a few places in the code that
-> 	use the BKL. Anders?
-
-Anders Larsen volunteered.
-
-> fs/smbfs:
-> 	Last I heard this was considered obsolete. Should be move it to
-> 	drivers/staging now?
-
-Now in staging.
-
-> fs/udf:
-> 	Not completely trivial, but probably necessary to fix. Project web
-> 	site is dead, I hope that Jan Kara can be motivated to fix it though.
-
-Jan Kara volunteered to do it.
-
-> fs/ufs:
-> 	Evgeniy Dushistov is maintaining this, I hope he can take care of
-> 	getting rid of the BKL in UFS.
-
-No replies.
-
-> kernel/trace/blktrace.c:
-> 	Should be easy. Ingo? Steven?
-
-Done.
-
-> net/appletalk:
-> net/ipx/af_ipx.c:
-> net/irda/af_irda.c:
-> 	Can probably be saved from retirement in drivers/staging if the
-> 	maintainers still care.
-
-Samuel Ortiz fixed irda.
-
-David Miller volunteered to do appletalk and ipx.
-
-> net/x25:
-> 	Andrew Hendry has started working on it.
-
-Patches have shown up in -next now, I suppose Andrew will finish it soon.
-
-Out of the remaining modules, I guess i810/i830, adfs, hpfs and ufs might end
-up not getting fixed at all, we can either mark them non-SMP or move them
-to drivers/staging once all the others are done.
-
-	Arnd
+_______________________________________________
+Bridge mailing list
+Bridge@lists.linux-foundation.org
+https://lists.linux-foundation.org/mailman/listinfo/bridge
+--===============4499131260005349203==--
