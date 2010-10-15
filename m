@@ -1,43 +1,31 @@
-From: Flavio Leitner <fleitner@redhat.com>
-Subject: Re: [PATCH net-next] bonding: make
- bond_resend_igmp_join_requests_delayed static
-Date: Fri, 15 Oct 2010 18:40:36 -0300
-Message-ID: <20101015214036.GA2747@redhat.com>
-References: <20101015140256.4192fd34@nehalam>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: large divisor for flow classifier
+Date: Fri, 15 Oct 2010 23:45:15 +0200
+Message-ID: <4CB8CB6B.7080503@gmail.com>
+References: <4CB899F7.0@navigue.com> <1287172905.2799.8.camel@edumazet-laptop> <4CB8C341.40000@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org,
-	bonding-devel@lists.sourceforge.net
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Jonathan Thibault <jonathan@navigue.com>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:1026 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750779Ab0JOVkr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Oct 2010 17:40:47 -0400
-Content-Disposition: inline
-In-Reply-To: <20101015140256.4192fd34@nehalam>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:37076 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750799Ab0JOVpV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Oct 2010 17:45:21 -0400
+Received: by wyb28 with SMTP id 28so1094100wyb.19
+        for <netdev@vger.kernel.org>; Fri, 15 Oct 2010 14:45:19 -0700 (PDT)
+In-Reply-To: <4CB8C341.40000@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 15, 2010 at 02:02:56PM -0700, Stephen Hemminger wrote:
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> 
-> --- a/drivers/net/bonding/bond_main.c	2010-10-15 13:52:01.747192520 -0700
-> +++ b/drivers/net/bonding/bond_main.c	2010-10-15 13:52:39.004286643 -0700
-> @@ -914,7 +914,7 @@ static void bond_resend_igmp_join_reques
->  	read_unlock(&bond->lock);
->  }
->  
-> -void bond_resend_igmp_join_requests_delayed(struct work_struct *work)
-> +static void bond_resend_igmp_join_requests_delayed(struct work_struct *work)
->  {
->  	struct bonding *bond = container_of(work, struct bonding,
->  							mcast_work.work);
+Jarek Poplawski wrote:
+> Because of low SFQ_DEPTH, which limits its queue to 127 packets,
+> SFQ isn't suitable for serving so many users. There is sch_drr as
+> a replacement, alas more complex and undocumented [...]
 
-Indeed, thanks.
-Acked-by: Flavio Leitner <fleitner@redhat.com>
+Sorry! Actually there is a man page already!
 
--- 
-Flavio
+Kudos to Florian!
+Jarek P.
