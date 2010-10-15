@@ -1,125 +1,84 @@
-From: Balazs Scheidler <bazsi@balabit.hu>
-Subject: Re: Documentation for IP_TRANSPARENT?
-Date: Fri, 15 Oct 2010 21:40:19 +0200
-Message-ID: <1287171619.32458.60.camel@bzorp.lan>
-References: <cfd18e0f0811240806w541c85e9gafbcc80e8101f2b2@mail.gmail.com>
-	 <1228828648.7631.75.camel@bzorp.balabit>
-	 <AANLkTika83PJ_KkmE+3Rhi4JgTjEZHTDzV-hcyz_UCWB@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: large divisor for flow classifier
+Date: Fri, 15 Oct 2010 22:01:45 +0200
+Message-ID: <1287172905.2799.8.camel@edumazet-laptop>
+References: <4CB899F7.0@navigue.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: KOVACS Krisztian <hidden@sch.bme.hu>,
-	David Miller <davem@davemloft.net>, linux-net@vger.kernel.org,
-	netdev <netdev@vger.kernel.org>
-To: mtk.manpages@gmail.com
-Return-path: <linux-net-owner@vger.kernel.org>
-In-Reply-To: <AANLkTika83PJ_KkmE+3Rhi4JgTjEZHTDzV-hcyz_UCWB@mail.gmail.com>
-Sender: linux-net-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: Jonathan Thibault <jonathan@navigue.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:44291 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756791Ab0JOUBu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Oct 2010 16:01:50 -0400
+Received: by wwj40 with SMTP id 40so1498559wwj.1
+        for <netdev@vger.kernel.org>; Fri, 15 Oct 2010 13:01:49 -0700 (PDT)
+In-Reply-To: <4CB899F7.0@navigue.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-10-13 at 07:16 +0200, Michael Kerrisk wrote:
-> Hello Bazsi
-> 
-> A long time after your mail, I've now added the text you supplied
-> below. The changes are now available via git, and will be in
-> man-pages-3.29. However, I have a few small questions that you can
-> maybe clarify. See below.
-> 
-> On Tue, Dec 9, 2008 at 2:17 PM, Balazs Scheidler <bazsi@balabit.hu> wrote:
-> > Hi,
-> >
-> > On Mon, 2008-11-24 at 11:06 -0500, Michael Kerrisk wrote:
-> >> Hello Krisztian,
-> >>
-> >> Your 2.6.27 patch adds  the IP_TRANSPARENT socket option.  Could you
-> >> please supply some documentation (plain text is fine) suitable for
-> >> inclusion in the ip(7) man page.
-> >
-> > Although it was Krisztian who originally submitted the patches, but I
-> > also did some things about them, so here I gave the documentation part a
-> > spin.
-> >
-> > There are some other related options, that are undocumented right now,
-> > so I tried to give documentation on those as well.
-> >
-> > IP_FREEBIND
-> >        Enable binding to IP addresses that do not currently exist. When
-> >        enabled on a TCP or UDP socket, the bind(2) call referencing a
-> >        non-existing IP address will succeed. This functionality is useful
-> >        if the specified IP address is dynamic (e.g. assigned to a PPP device)
-> >        and is down at the time when the application is trying to bind to it.
-> >        This setsockopt is the per-socket equivalent to ip_nonlocal_bind sysctl.
-> >
-> > IP_TRANSPARENT
-> >        Enable transparent proxying on this socket. This socket option allows
-> >        the calling application to bind to a non-local IP address and operate
-> >        both as a client and a server with the foreign address as the local
-> >        endpoint. NOTE: this requires that routing be set up in a way that
-> >        packets going to the foreign address are routed through the tproxy box.
-> 
-> Can you say a few words explaining what is meant by "tproxy box".
+Le vendredi 15 octobre 2010 =C3=A0 14:14 -0400, Jonathan Thibault a =C3=
+=A9crit :
+> It appears that when setting a fairly large divisor on the flow class=
+ifier for sfq, traffic stops altogether.
+>=20
+> On my machine, anything above divisor 2200 seems to stop all traffic.=
+  If I want to be fair between hosts (but not flows) for a large networ=
+k (say 6000 hosts), I run into problems.  Obviously the rates here are =
+quite low but this is just an example.
+>=20
+> I also tested on a real interface with the same results.
+>=20
+> Example that works:
+>=20
+> tc qdisc add dev ifb0 root handle 3: htb default 10
+>   tc class add dev ifb0 parent 3: classid 3:1 htb rate 80kbit
+>     tc class add dev ifb0 parent 3:1 classid 3:10 htb rate 80kbit
+>       tc qdisc add dev ifb0 parent 3:10 handle 310: sfq perturb 10
+>       tc filter add dev ifb0 parent 3: protocol all prio 1 u32 match =
+mark 0x000 0xf00 flowid 3:10
+>       tc filter add dev ifb0 parent 310: protocol all handle 0x310 fl=
+ow hash keys dst divisor 1024
+>=20
+> Example that doesn't work:
+>=20
+> tc qdisc add dev ifb0 root handle 3: htb default 10
+>   tc class add dev ifb0 parent 3: classid 3:1 htb rate 80kbit
+>     tc class add dev ifb0 parent 3:1 classid 3:10 htb rate 80kbit
+>       tc qdisc add dev ifb0 parent 3:10 handle 310: sfq perturb 10
+>       tc filter add dev ifb0 parent 3: protocol all prio 1 u32 match =
+mark 0x000 0xf00 flowid 3:10
+>       tc filter add dev ifb0 parent 310: protocol all handle 0x310 fl=
+ow hash keys dst divisor 6144
+>=20
 
-tproxy box is the computer running the transparent proxy application,
-ie. the one calling the IP_TRANSPARENT socket option.
+SFQ is limited to a 1024 divisor
 
-> 
-> Also, should one write "TProxy" here, analogous with "TProxy" below?
+You might try following patch :
 
-yes.
+(8192 is the smallest power of two greater than 6144)
 
-> 
-> >        Enabling this socket option requires superuser privileges
-> >        (more specifically the CAP_NET_ADMIN capability).
-> >
-> >        TProxy redirection with the iptables TPROXY target also requires that
-> >        this option be set on the redirected socket.
-> 
-> In iptables(8), I find no mention of TPROXY. Is it just that the
-> iptables(8) man page is not up to date?
+sizeof(struct sfq_sched_data) becomes 0x2ccc instead of 0x10cc
 
-AFAIR in iptables the man page is automatically generated from snippets
-supplied with extensions.
+keep in mind hash distribution is not perfect.
 
-Checking the iptables git tree, there's such a man page snippet for the
-TPROXY target here:
-
-http://git.netfilter.org/cgi-bin/gitweb.cgi?p=iptables.git;a=blob;f=extensions/libxt_TPROXY.man;hb=HEAD
-
-I'm not 100% percent sure why it doesn't get into the iptables manual
-page in your case. On my system, it seems to be included though:
-
-$ man iptables | grep TPROXY
-   TPROXY
+What would be the real rate ?
 
 
-> 
-> > IP_RECVORIGDSTADDR
-> >        Enables the IP_ORIGDSTADDR ancillary message in recvmsg(2) in which
-> >        the kernel returns the original destination address of a datagram. The
-> >        ancillary message contains a "struct sockaddr_in" instance.
-> 
-> Do you happen to know of any userspace test code that demonstrates the
-> use of IP_RECVORIGDSTADDR?
-
-Well, the one I have has too much cruft around it and many layers of
-indirection, not really good for a sample code.
-
-Pattern-wise it is the same as IP_RECVTTL, e.g. you set
-IP_RECVORIGDSTADDR via setsockopt and then you get an ancillary message
-with recvmsg() with the cmsg_level == IPPROTO_IP and cmsg_type ==
-IP_ORIGDSTADDR
-
-There's a similar sample in cmsg(3)
-
-If you still need a sample, let me know and I'll cook something up.
-
-> 
-> Thanks for this documentation, and sorry it took so long to make its
-> way into man-pages.
-
-No problem :) I could use these interfaces ever since :)
-
--- 
-Bazsi
+diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
+index 3cf478d..c4a53d6 100644
+--- a/net/sched/sch_sfq.c
++++ b/net/sched/sch_sfq.c
+@@ -77,7 +77,7 @@
+ 	It is easy to increase these values, but not in flight.  */
+=20
+ #define SFQ_DEPTH		128
+-#define SFQ_HASH_DIVISOR	1024
++#define SFQ_HASH_DIVISOR	8192
+=20
+ /* This type should contain at least SFQ_DEPTH*2 values */
+ typedef unsigned char sfq_index;
 
 
