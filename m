@@ -1,63 +1,50 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: linux-next: build failure after merge of the net tree
-Date: Thu, 14 Oct 2010 15:07:33 -0700
-Message-ID: <1287094053.5247.1.camel@jtkirshe-MOBL1>
-References: <20101015113854.ae080284.sfr@canb.auug.org.au>
-Reply-To: jeffrey.t.kirsher@intel.com
+Subject: [net-next-2.6 PATCH] ixgbe: DCB: remove DCB check config
+Date: Thu, 14 Oct 2010 22:21:22 -0700
+Message-ID: <20101015051846.32242.1734.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-cjIwwdzThmyfIp30ji47"
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Tantilov, Emil S" <emil.s.tantilov@intel.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>,
-	Harvey Harrison <harvey.harrison@gmail.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20101015113854.ae080284.sfr@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from qmta13.westchester.pa.mail.comcast.net ([76.96.59.243]:36686
+	"EHLO qmta13.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753232Ab0JOFVn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Oct 2010 01:21:43 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: John Fastabend <john.r.fastabend@intel.com>
 
---=-cjIwwdzThmyfIp30ji47
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Remove a DCB check config from DCB configuration we
+continue to configure DCB even if it fails so don't
+even bother to check.  Plus user space (lldpad) checks
+this before programming the hw anyways.
 
-On Thu, 2010-10-14 at 17:38 -0700, Stephen Rothwell wrote:
-> Hi all,
->=20
-> After merging the net tree, today's linux-next build (x86_64 allmodconfig=
-)
-> failed like this:
->=20
-> drivers/net/ixgbe/ixgbe_main.c: In function 'ixgbe_configure_dcb':
-> drivers/net/ixgbe/ixgbe_main.c:3377: error: implicit declaration of funct=
-ion 'ixgbe_dcb_check_config'
->=20
-> Caused by commit f32f837b75233588cd4f8542214a30915ab7847b ("ixgbe: remove
-> unused functions").
->=20
-> Grep is your friend :-)
->=20
-> I have used the net tree from next-20101014 for today.
+Worse case is we program some values into the hw that
+don't make total sense resulting in incorrect bandwidth
+allocation.
 
-I apologize, this is my fault.  I have a patch coming to resolved the
-issue.
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
---=-cjIwwdzThmyfIp30ji47
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+ drivers/net/ixgbe/ixgbe_main.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 95dbf60..790a0da 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -3374,7 +3374,6 @@ static void ixgbe_configure_dcb(struct ixgbe_adapter *adapter)
+ 	if (hw->mac.type == ixgbe_mac_82598EB)
+ 		netif_set_gso_max_size(adapter->netdev, 32768);
+ 
+-	ixgbe_dcb_check_config(&adapter->dcb_cfg);
+ 	ixgbe_dcb_calculate_tc_credits(&adapter->dcb_cfg, DCB_TX_CONFIG);
+ 	ixgbe_dcb_calculate_tc_credits(&adapter->dcb_cfg, DCB_RX_CONFIG);
+ 
 
-iQEcBAABAgAGBQJMt38dAAoJECTsCADr/EWUaAAH/A+X2zA4OdKtgb3Y4Ocyyl4/
-yQyDcebF2hQOtgCRIuZ9Qyxne6tDqjwjO6Us7RBO4EO4DB7ctgYWHivWAVCQI4DY
-0VN9XpobwI0pD9vo0tRZgNzck2cqZdqYeQg7AjPq2ZFizHE9bDCOZA/JsHk5Iakk
-btK2po6YbetKWvP86JdiBa8K0OPhCA+0OWAN7k/ApXkYhzZNMb1RZyk3n0SYrexi
-uh7mSdCj8RMyrqthuScLIVzmykrPc/HqhqyUq+qN6nE0FDAvnK60QGzens3SAwoo
-/OmS7nrrUlrsiZd7hCV3DOe44SocpuCJ/MLCXAmPpRNb9eifti4IoXNspJl4UKY=
-=exus
------END PGP SIGNATURE-----
-
---=-cjIwwdzThmyfIp30ji47--
