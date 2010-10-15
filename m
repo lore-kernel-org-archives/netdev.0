@@ -1,45 +1,51 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: [PATCH net-next] net:  allocate skbs on local node
-Date: Fri, 15 Oct 2010 09:23:33 -0500 (CDT)
-Message-ID: <alpine.DEB.2.00.1010150922440.22598@router.home>
-References: <1286838210.30423.128.camel@edumazet-laptop> <1286839363.30423.130.camel@edumazet-laptop> <1286859925.30423.184.camel@edumazet-laptop> <20101011230322.f0f6dd47.akpm@linux-foundation.org> <1286866699.30423.234.camel@edumazet-laptop>
- <20101012002435.f51f2c0e.akpm@linux-foundation.org> <1286869793.2732.24.camel@edumazet-laptop> <20101012005856.994bea6d.akpm@linux-foundation.org> <4CB441CB.2000708@cs.helsinki.fi> <alpine.DEB.2.00.1010120745360.31832@router.home>
- <alpine.DEB.2.00.1010121234380.10165@chino.kir.corp.google.com> <alpine.DEB.2.00.1010131056180.29099@router.home> <alpine.DEB.2.00.1010131342310.15185@chino.kir.corp.google.com> <alpine.DEB.2.00.1010131642220.8351@router.home>
- <alpine.DEB.2.00.1010131539440.27839@chino.kir.corp.google.com>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: netlink versus pid namespaces
+Date: Fri, 15 Oct 2010 16:23:57 +0200
+Message-ID: <20101015142357.GA29321@basil.fritz.box>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Pekka Enberg <penberg@cs.helsinki.fi>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Michael Chan <mchan@broadcom.com>,
-	Eilon Greenstein <eilong@broadcom.com>,
-	Christoph Hellwig <hch@lst.de>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Nick Piggin <npiggin@kernel.dk>
-To: David Rientjes <rientjes@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.00.1010131539440.27839@chino.kir.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org, xemul@openvz.org, kuznet@ms2.inr.ac.ru,
+	virtualization@lists.linux-foundation.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from one.firstfloor.org ([213.235.205.2]:40162 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756168Ab0JOOYD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Oct 2010 10:24:03 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hi,
 
-On Wed, 13 Oct 2010, David Rientjes wrote:
+I have been trying to figure out how pid namespaces interact
+with netlink.
 
-> On Wed, 13 Oct 2010, Christoph Lameter wrote:
->
-> > > I was going to mention that as an idea, but I thought storing the metadata
-> > > for certain debugging features might differ from the two allocators so
-> > > substantially that it would be even more convoluted and difficult to
-> > > maintain?
-> >
-> > We could have some callbacks to store allocator specific metadata?
-> >
->
-> It depends on whether we could share the same base for both slab (unified
-> allocator) and slub, which you snipped from your reply, that would make
-> this cleaner.
+netlink uses pids (or really tids I hope?) to address sockets
+associated with processes.
 
-I already said before that we should consider having a common base so I
-thought that was not necessary.
+The netlink code passes around pids without caring much about 
+the pid namespace.  It does pass around some information about the 
+network namespace, but that doesn't help here because the pid
+namespace is not necessarily related to the net namespace.
+
+When the netlink consumer runs in kernel (like rtnetlink) and
+happens to run in the same process context while receiving
+and processing the data it should do the right thing because
+it has the same pid namespace.
+
+If it runs in some other process that is not guaranteed and
+it may actually send the reply back to the wrong pid.
+
+When a process receives netlink in user space and it isn't
+in the same pid space as the sender it is unlikely that
+the reply gets back.
+
+Anything I'm missing here? 
+
+Does netlink need to be extended? 
+Or perhaps forbid passing netlink between name spaces?
+
+Thanks,
+-Andi
+-- 
+ak@linux.intel.com -- Speaking for myself only.
