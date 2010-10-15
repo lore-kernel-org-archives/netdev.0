@@ -1,148 +1,60 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next 1/3] fib_hash: embed initial hash table in fn_zone
-Date: Fri, 15 Oct 2010 08:53:04 +0200
-Message-ID: <1287125584.2659.1840.camel@edumazet-laptop>
-References: <1287073458.2712.100.camel@edumazet-laptop>
-	 <1287084159.2659.0.camel@edumazet-laptop>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: -j MARK in raw vs. mangle (was Re: xfrm by MARK: tcp problems
+ when mark for in and out differ)
+Date: Fri, 15 Oct 2010 09:04:11 +0200
+Message-ID: <4CB7FCEB.5070804@trash.net>
+References: <201010141616.58795.lists@egidy.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:45420 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755977Ab0JOHBl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Oct 2010 03:01:41 -0400
-Received: by wyb28 with SMTP id 28so357968wyb.19
-        for <netdev@vger.kernel.org>; Fri, 15 Oct 2010 00:01:40 -0700 (PDT)
-In-Reply-To: <1287084159.2659.0.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: hadi@cyberus.ca, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: "Gerd v. Egidy" <lists@egidy.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <201010141616.58795.lists@egidy.de>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-While looking for false sharing problems, I noticed 
-sizeof(struct fn_zone) was small (28 bytes) and possibly sharing a cache
-line with an often written kernel structure.
+On 14.10.2010 16:16, Gerd v. Egidy wrote:
+> Hi Jamal,
+> 
+> thanks for your help.
+> 
+>>> So it seems like the fl->mark is never initialized with the packet mark
+>>> in the first place. What would be the correct stage in the kernel
+>>> network stack to do that?
+>>
+>> Can you try a simple setup without xfrm/ipsec and see if this reverse
+>> path works? Was there a kernel where it worked?
+> 
+> I just tried opening a simple tcp connection without any xfrm or other weird 
+> stuff. I just had one iptables rule in place:
+> 
+> -t raw -A OUTPUT -d 192.168.5.200 -j MARK --set-mark 99
+> 
+> 192.168.5.200 is the other system I open the tcp connection from. So this 
+> should mark all response packets to the client.
+> 
+> But the moment __xfrm_lookup is called (this is where my debug printk sits), 
+> fl->mark is always 0.
+> 
+> By chance I changed the rule over to the mangle table:
+> 
+> -t mangle -A OUTPUT -d 192.168.5.200 -j MARK --set-mark 99
+> 
+> Now it works, the mark in the flow is 99!
+> 
+> So it seems this has nothing to do with xfrm, but that the MARK target has 
+> different effects when used in raw than in mangle. I was using raw because I 
+> had to set conntrack zones too and it was more conveniant to do both in one 
+> place.
+> 
+> Can one of the netfilter guys comment on this? Is using MARK in raw not fully 
+> supported or has known deficiencies?
 
-Most of the time, fn_zone uses its initial hash table of 16 slots.
-
-We can avoid the false sharing problem by embedding this initial hash
-table in fn_zone itself, so that sizeof(fn_zone) > L1_CACHE_BYTES
-
-We did a similar optimization in commit a6501e080c (Reduce memory needs
-and speedup lookups)
-
-Add a fz_revorder field to speedup fn_hash() a bit.
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/ipv4/fib_hash.c |   52 ++++++++++++++++++------------------------
- 1 file changed, 23 insertions(+), 29 deletions(-)
-
-diff --git a/net/ipv4/fib_hash.c b/net/ipv4/fib_hash.c
-index 83cca68..10001aa 100644
---- a/net/ipv4/fib_hash.c
-+++ b/net/ipv4/fib_hash.c
-@@ -54,23 +54,23 @@ struct fib_node {
- 	struct fib_alias        fn_embedded_alias;
- };
- 
-+#define EMBEDDED_HASH_SIZE (L1_CACHE_BYTES / sizeof(struct hlist_head))
-+
- struct fn_zone {
- 	struct fn_zone		*fz_next;	/* Next not empty zone	*/
- 	struct hlist_head	*fz_hash;	/* Hash table pointer	*/
--	int			fz_nent;	/* Number of entries	*/
--
--	int			fz_divisor;	/* Hash divisor		*/
- 	u32			fz_hashmask;	/* (fz_divisor - 1)	*/
--#define FZ_HASHMASK(fz)		((fz)->fz_hashmask)
- 
--	int			fz_order;	/* Zone order		*/
--	__be32			fz_mask;
-+	u8			fz_order;	/* Zone order (0..32)	*/
-+	u8			fz_revorder;	/* 32 - fz_order	*/
-+	__be32			fz_mask;	/* inet_make_mask(order) */
- #define FZ_MASK(fz)		((fz)->fz_mask)
--};
- 
--/* NOTE. On fast computers evaluation of fz_hashmask and fz_mask
-- * can be cheaper than memory lookup, so that FZ_* macros are used.
-- */
-+	struct hlist_head	fz_embedded_hash[EMBEDDED_HASH_SIZE];
-+
-+	int			fz_nent;	/* Number of entries	*/
-+	int			fz_divisor;	/* Hash size (mask+1)	*/
-+};
- 
- struct fn_hash {
- 	struct fn_zone	*fn_zones[33];
-@@ -79,11 +79,11 @@ struct fn_hash {
- 
- static inline u32 fn_hash(__be32 key, struct fn_zone *fz)
- {
--	u32 h = ntohl(key)>>(32 - fz->fz_order);
-+	u32 h = ntohl(key) >> fz->fz_revorder;
- 	h ^= (h>>20);
- 	h ^= (h>>10);
- 	h ^= (h>>5);
--	h &= FZ_HASHMASK(fz);
-+	h &= fz->fz_hashmask;
- 	return h;
- }
- 
-@@ -147,14 +147,14 @@ static void fn_rehash_zone(struct fn_zone *fz)
- 	int old_divisor, new_divisor;
- 	u32 new_hashmask;
- 
--	old_divisor = fz->fz_divisor;
-+	new_divisor = old_divisor = fz->fz_divisor;
- 
- 	switch (old_divisor) {
--	case 16:
--		new_divisor = 256;
-+	case EMBEDDED_HASH_SIZE:
-+		new_divisor *= EMBEDDED_HASH_SIZE;
- 		break;
--	case 256:
--		new_divisor = 1024;
-+	case EMBEDDED_HASH_SIZE*EMBEDDED_HASH_SIZE:
-+		new_divisor *= (EMBEDDED_HASH_SIZE/2);
- 		break;
- 	default:
- 		if ((old_divisor << 1) > FZ_MAX_DIVISOR) {
-@@ -184,7 +184,8 @@ static void fn_rehash_zone(struct fn_zone *fz)
- 		fib_hash_genid++;
- 		write_unlock_bh(&fib_hash_lock);
- 
--		fz_hash_free(old_ht, old_divisor);
-+		if (old_ht != fz->fz_embedded_hash)
-+			fz_hash_free(old_ht, old_divisor);
- 	}
- }
- 
-@@ -210,18 +211,11 @@ fn_new_zone(struct fn_hash *table, int z)
- 	if (!fz)
- 		return NULL;
- 
--	if (z) {
--		fz->fz_divisor = 16;
--	} else {
--		fz->fz_divisor = 1;
--	}
--	fz->fz_hashmask = (fz->fz_divisor - 1);
--	fz->fz_hash = fz_hash_alloc(fz->fz_divisor);
--	if (!fz->fz_hash) {
--		kfree(fz);
--		return NULL;
--	}
-+	fz->fz_divisor = z ? EMBEDDED_HASH_SIZE : 1;
-+	fz->fz_hashmask = fz->fz_divisor - 1;
-+	fz->fz_hash = fz->fz_embedded_hash;
- 	fz->fz_order = z;
-+	fz->fz_revorder = 32 - z;
- 	fz->fz_mask = inet_make_mask(z);
- 
- 	/* Find the first not empty zone with more specific mask */
-
+No, the problem is most likely that for outgoing packets, the XFRM
+lookup is done with the route lookup before the packet is even sent,
+so once it hits the raw or mangle table, it is too late. mangle however
+performs rerouting when the mark value changes, at which point a new
+XFRM lookup is performed.
 
