@@ -1,46 +1,37 @@
-From: xiaohui.xin@intel.com
-Subject: [PATCH v13 01/16] Add a new structure for skb buffer from external.
-Date: Fri, 15 Oct 2010 17:12:02 +0800
-Message-ID: <fc6e95d63a2c62aaf77f8ded22fc43ccefcdbbff.1287132437.git.xiaohui.xin@intel.com>
-References: <1287133937-5538-1-git-send-email-xiaohui.xin@intel.com>
-Cc: Xin Xiaohui <xiaohui.xin@intel.com>
-To: netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mst@redhat.com, mingo@elte.hu,
-	davem@davemloft.net, herbert@gondor.apana.org.au,
-	jdike@linux.intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1287133937-5538-1-git-send-email-xiaohui.xin@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [Bugme-new] [Bug 19692] New: linux-2.6.36-rc5 crash with
+	gianfar ethernet at full line rate traffic
+Date: Fri, 15 Oct 2010 08:58:53 +0000
+Message-ID: <20101015085853.GA8091@ff.dom.local>
+References: <20101010103236.GA1919@del.dom.local>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org,
+	Anton Vorontsov <avorontsov@mvista.com>
+To: emin ak <eminak71@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw0-f46.google.com ([74.125.83.46]:40528 "EHLO
+	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752901Ab0JOI7C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Oct 2010 04:59:02 -0400
+Received: by gwj17 with SMTP id 17so224421gwj.19
+        for <netdev@vger.kernel.org>; Fri, 15 Oct 2010 01:59:01 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20101010103236.GA1919@del.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Xin Xiaohui <xiaohui.xin@intel.com>
+On 2010-10-10 12:32, Jarek Poplawski wrote:
+> On Sat, Oct 09, 2010 at 03:10:25PM +0300, emin ak wrote:
+>> Hi Jarek,
+>> My test setup is at my office so that I will try your patch on Monday
+>> immediately and turn you the results.
+> 
+> No need to hurry, especially on Mondays, but thanks for the info.
 
-Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
-Signed-off-by: Zhao Yu <yzhao81new@gmail.com>
-Reviewed-by: Jeff Dike <jdike@linux.intel.com>
----
- include/linux/skbuff.h |    9 +++++++++
- 1 files changed, 9 insertions(+), 0 deletions(-)
+Hi Emin,
+Are there any problems with this testing?
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 77eb60d..696e690 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -211,6 +211,15 @@ struct skb_shared_info {
- 	skb_frag_t	frags[MAX_SKB_FRAGS];
- };
- 
-+/* The structure is for a skb which pages may point to
-+ * an external buffer, which is not allocated from kernel space.
-+ * It also contains a destructor for itself.
-+ */
-+struct skb_ext_page {
-+	struct		page *page;
-+	void		(*dtor)(struct skb_ext_page *);
-+};
-+
- /* We divide dataref into two halves.  The higher 16 bits hold references
-  * to the payload part of skb->data.  The lower 16 bits hold references to
-  * the entire skb->data.  A clone of a headerless skb holds the length of
--- 
-1.7.3
+Jarek P.
