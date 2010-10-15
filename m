@@ -1,13 +1,15 @@
 From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: [PATCH V2 0/7] can: mcp251x: fix and optimize driver
-Date: Fri, 15 Oct 2010 12:49:15 +0200
-Message-ID: <1287139762-23356-1-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH 1/7] can: mcp251x: fix NOHZ local_softirq_pending 08 warning
+Date: Fri, 15 Oct 2010 12:49:16 +0200
+Message-ID: <1287139762-23356-2-git-send-email-mkl@pengutronix.de>
+References: <1287139762-23356-1-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
 To: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <1287139762-23356-1-git-send-email-mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
 List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
 	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
 List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
@@ -19,41 +21,38 @@ Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Moin,
+This patch replaces netif_rx() with netif_rx_ni() which has to be used
+from the threaded interrupt i.e. process context context.
 
-this series of patches improves the mcp251x driver. It first fixes the
-local_softirq_pending problem. Then the amount of SPI transfers is reduced
-in order to optimise the driver.
+Thanks to Christian Pellegrin for pointing at the right fix:
+481a8199142c050b72bff8a1956a49fd0a75bbe0 by Oliver Hartkopp.
 
-This series has been tested with a mcp2515 on i.MX35.
-
-Changes since V1:
-- Fix broken encoding in S-o-b
-
-Please review, test and consider to apply.
-
-regards, Marc
-
+Signed-off-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
 ---
+ drivers/net/can/mcp251x.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-The following changes since commit cd2638a86c7b90e77ce623c09de2a26177f2a5c1:
-  Carolyn Wyborny (1):
-        igb: add check for fiber/serdes devices to igb_set_spd_dplx;
-
-are available in the git repository at:
-
-  git://git.pengutronix.de/git/mkl/linux-2.6.git can/mcp251x-for-net-next
-
-Marc Kleine-Budde (4):
-      can: mcp251x: fix NOHZ local_softirq_pending 08 warning
-      can: mcp251x: write intf only when needed
-      can: mcp251x: define helper functions mcp251x_is_2510, mcp251x_is_2515
-      can: mcp251x: optimize 2515, rx int gets cleared automatically
-
-Sascha Hauer (3):
-      can: mcp251x: increase rx_errors on overflow, not only rx_over_errors
-      can: mcp251x: allow to read two registers in one spi transfer
-      can: mcp251x: read-modify-write eflag only when needed
-
- drivers/net/can/mcp251x.c |   77 +++++++++++++++++++++++++++++++++++----------
- 1 files changed, 60 insertions(+), 17 deletions(-)
+diff --git a/drivers/net/can/mcp251x.c b/drivers/net/can/mcp251x.c
+index b11a0cb..c06e023 100644
+--- a/drivers/net/can/mcp251x.c
++++ b/drivers/net/can/mcp251x.c
+@@ -451,7 +451,7 @@ static void mcp251x_hw_rx(struct spi_device *spi, int buf_idx)
+ 
+ 	priv->net->stats.rx_packets++;
+ 	priv->net->stats.rx_bytes += frame->can_dlc;
+-	netif_rx(skb);
++	netif_rx_ni(skb);
+ }
+ 
+ static void mcp251x_hw_sleep(struct spi_device *spi)
+@@ -676,7 +676,7 @@ static void mcp251x_error_skb(struct net_device *net, int can_id, int data1)
+ 	if (skb) {
+ 		frame->can_id = can_id;
+ 		frame->data[1] = data1;
+-		netif_rx(skb);
++		netif_rx_ni(skb);
+ 	} else {
+ 		dev_err(&net->dev,
+ 			"cannot allocate error skb\n");
+-- 
+1.7.0.4
