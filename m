@@ -1,42 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.35-rc6] net-next: Add multiqueue support to vmxnet3
- driver
-Date: Fri, 15 Oct 2010 09:23:27 -0700 (PDT)
-Message-ID: <20101015.092327.193701886.davem@davemloft.net>
-References: <20101013145732.7d69d0f3@nehalam>
-	<1287073868.2258.13.camel@achroite.uk.solarflarecom.com>
-	<89E2752CFA8EC044846EB8499819134102BF0F3B1D@EXCH-MBX-4.vmware.com>
+Subject: Re: [net-next-2.6 PATCH] ixgbe: DCB: remove DCB check config
+Date: Fri, 15 Oct 2010 09:27:56 -0700 (PDT)
+Message-ID: <20101015.092756.71096200.davem@davemloft.net>
+References: <20101015051846.32242.1734.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, shemminger@vyatta.com,
-	netdev@vger.kernel.org, pv-drivers@vmware.com,
-	linux-kernel@vger.kernel.org
-To: sbhatewara@vmware.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <89E2752CFA8EC044846EB8499819134102BF0F3B1D@EXCH-MBX-4.vmware.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
+	john.r.fastabend@intel.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58779
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754545Ab0JOQ1e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Oct 2010 12:27:34 -0400
+In-Reply-To: <20101015051846.32242.1734.stgit@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Shreyas Bhatewara <sbhatewara@vmware.com>
-Date: Thu, 14 Oct 2010 16:31:35 -0700
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu, 14 Oct 2010 22:21:22 -0700
 
-> Okay. It would be best to keep module parameters to dictate number
-> of queues till ethtool commands to do so become available/easy to
-> use (command to change number of tx queues do not exist).
+> From: John Fastabend <john.r.fastabend@intel.com>
+> 
+> Remove a DCB check config from DCB configuration we
+> continue to configure DCB even if it fails so don't
+> even bother to check.  Plus user space (lldpad) checks
+> this before programming the hw anyways.
+> 
+> Worse case is we program some values into the hw that
+> don't make total sense resulting in incorrect bandwidth
+> allocation.
+> 
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-No, because then you can never remove these knobs, they must stay
-forever.
-
-And also then every other driver developer can make the same
-argument.  And then we have private knobs in every driver and
-the user experience is a complete disaster.
-
-Instead, the onus is on you to help get the ethtool interfaces
-completed so your driver can provide the functionality it
-wants.
-
-Not the other way around (add crap first, use the proper interface
-later whenever someone else gets around to it).
-
-Thanks.
+Applied, thanks.
