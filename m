@@ -1,58 +1,57 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next] 3c52x: remove IRQF_SAMPLE_RANDOM from legacy MCA drivers.
-Date: Thu, 14 Oct 2010 20:21:51 -0400
-Message-ID: <1287102111-5482-1-git-send-email-paul.gortmaker@windriver.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:63277 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750839Ab0JOAVx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Oct 2010 20:21:53 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the net tree
+Date: Fri, 15 Oct 2010 11:38:54 +1100
+Message-ID: <20101015113854.ae080284.sfr@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Fri__15_Oct_2010_11_38_54_+1100_PC7O/14KhnYCC3Kf"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Emil Tantilov <emil.s.tantilov@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If you are genuinely using one of these legacy MCA drivers
-then you are tragically on hardware where you really don't
-have the extra CPU cycles to be wasting on this.
+--Signature=_Fri__15_Oct_2010_11_38_54_+1100_PC7O/14KhnYCC3Kf
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-In addition, it makes two less cases for people to inadvertently
-blindly copy flags from without explicitly thinking whether it
-makes sense -- see the addition to feature-removal.txt as per
-commit 9d9b8fb0e5ebf4b0398e579f6061d4451fea3242.
+Hi all,
 
-Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
----
- drivers/net/3c523.c |    2 +-
- drivers/net/3c527.c |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+After merging the net tree, today's linux-next build (x86_64 allmodconfig)
+failed like this:
 
-diff --git a/drivers/net/3c523.c b/drivers/net/3c523.c
-index 1719079..3aa9baa 100644
---- a/drivers/net/3c523.c
-+++ b/drivers/net/3c523.c
-@@ -287,7 +287,7 @@ static int elmc_open(struct net_device *dev)
- 
- 	elmc_id_attn586();	/* disable interrupts */
- 
--	ret = request_irq(dev->irq, elmc_interrupt, IRQF_SHARED | IRQF_SAMPLE_RANDOM,
-+	ret = request_irq(dev->irq, elmc_interrupt, IRQF_SHARED,
- 			  dev->name, dev);
- 	if (ret) {
- 		pr_err("%s: couldn't get irq %d\n", dev->name, dev->irq);
-diff --git a/drivers/net/3c527.c b/drivers/net/3c527.c
-index 5c07b14..cf4cfd3 100644
---- a/drivers/net/3c527.c
-+++ b/drivers/net/3c527.c
-@@ -443,7 +443,7 @@ static int __init mc32_probe1(struct net_device *dev, int slot)
- 	 *	Grab the IRQ
- 	 */
- 
--	err = request_irq(dev->irq, mc32_interrupt, IRQF_SHARED | IRQF_SAMPLE_RANDOM, DRV_NAME, dev);
-+	err = request_irq(dev->irq, mc32_interrupt, IRQF_SHARED, DRV_NAME, dev);
- 	if (err) {
- 		release_region(dev->base_addr, MC32_IO_EXTENT);
- 		pr_err("%s: unable to get IRQ %d.\n", DRV_NAME, dev->irq);
--- 
-1.7.2.1
+drivers/net/ixgbe/ixgbe_main.c: In function 'ixgbe_configure_dcb':
+drivers/net/ixgbe/ixgbe_main.c:3377: error: implicit declaration of functio=
+n 'ixgbe_dcb_check_config'
 
+Caused by commit f32f837b75233588cd4f8542214a30915ab7847b ("ixgbe: remove
+unused functions").
+
+Grep is your friend :-)
+
+I have used the net tree from next-20101014 for today.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Fri__15_Oct_2010_11_38_54_+1100_PC7O/14KhnYCC3Kf
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iQEcBAEBAgAGBQJMt6KeAAoJEDMEi1NhKgbscFoH/0aZ35n2FM6LdZKC5CHCCEcL
+1kb//TFxADVYW3gwoAx7YbEXtccslfSEmKmVzKZsy8stTYWIcRE/jpyjkjwJH7Pl
+Q419TlSHYEMhFTTikRhzVesZh3HCe5WpOVOBssdzBBUDxGsO2kxgfaB0wsk+5W2r
+qivwFf7gTYKZQqGKxbxC5NxOH9PpgWykMQcfoZyp/RRl8fpWyyrWmbz8EO4vP1Ub
+OpIGhIkabqqkCWxchJFBW9y4+bNbPEAvZguoVuvSKU1iEPhPRZ+ySNOwOid5hy04
+vbYsZ7PzS97cdzIN/n9UWUl0rYcRCwk86+k+wfGMW9Gek1c9ojTrsB8mgF1n5BU=
+=ItxM
+-----END PGP SIGNATURE-----
+
+--Signature=_Fri__15_Oct_2010_11_38_54_+1100_PC7O/14KhnYCC3Kf--
