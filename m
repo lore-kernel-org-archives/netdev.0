@@ -1,13 +1,14 @@
 From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: [PATCH 2/7] can: mcp251x: increase rx_errors on overflow,
-	not only rx_over_errors
-Date: Fri, 15 Oct 2010 12:49:17 +0200
-Message-ID: <1287139762-23356-3-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH 3/7] can: mcp251x: allow to read two registers in one spi
+	transfer
+Date: Fri, 15 Oct 2010 12:49:18 +0200
+Message-ID: <1287139762-23356-4-git-send-email-mkl@pengutronix.de>
 References: <1287139762-23356-1-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	=?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?= <u.kleine-koenig-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
 To: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
 In-Reply-To: <1287139762-23356-1-git-send-email-mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
@@ -22,34 +23,39 @@ Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Sascha Hauer <s.hauer-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-
-Signed-off-by: Sascha Hauer <s.hauer-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Signed-off-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
----
- drivers/net/can/mcp251x.c |    8 ++++++--
- 1 files changed, 6 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/can/mcp251x.c b/drivers/net/can/mcp251x.c
-index c06e023..fdea752 100644
---- a/drivers/net/can/mcp251x.c
-+++ b/drivers/net/can/mcp251x.c
-@@ -816,10 +816,14 @@ static irqreturn_t mcp251x_can_ist(int irq, void *dev_id)
- 		if (intf & CANINTF_ERRIF) {
- 			/* Handle overflow counters */
- 			if (eflag & (EFLG_RX0OVR | EFLG_RX1OVR)) {
--				if (eflag & EFLG_RX0OVR)
-+				if (eflag & EFLG_RX0OVR) {
- 					net->stats.rx_over_errors++;
--				if (eflag & EFLG_RX1OVR)
-+					net->stats.rx_errors++;
-+				}
-+				if (eflag & EFLG_RX1OVR) {
- 					net->stats.rx_over_errors++;
-+					net->stats.rx_errors++;
-+				}
- 				can_id |= CAN_ERR_CRTL;
- 				data1 |= CAN_ERR_CRTL_RX_OVERFLOW;
- 			}
--- 
-1.7.0.4
+RnJvbTogU2FzY2hhIEhhdWVyIDxzLmhhdWVyQHBlbmd1dHJvbml4LmRlPgoKVGhpcyBwYXRjaCBi
+YXNlcyBvbiB3b3JrIGRvbmUgZWFybGllciBieSBEYXZpZCBKYW5kZXIuCgpTaWduZWQtb2ZmLWJ5
+OiBTYXNjaGEgSGF1ZXIgPHMuaGF1ZXJAcGVuZ3V0cm9uaXguZGU+CkFja2VkLWJ5OiBEYXZpZCBK
+YW5kZXIgPGRhdmlkQHByb3RvbmljLm5sPgpTaWduZWQtb2ZmLWJ5OiBVd2UgS2xlaW5lLUvDtm5p
+ZyA8dS5rbGVpbmUta29lbmlnQHBlbmd1dHJvbml4LmRlPgpTaWduZWQtb2ZmLWJ5OiBNYXJjIEts
+ZWluZS1CdWRkZSA8bWtsQHBlbmd1dHJvbml4LmRlPgotLS0KIGRyaXZlcnMvbmV0L2Nhbi9tY3Ay
+NTF4LmMgfCAgIDIwICsrKysrKysrKysrKysrKysrLS0tCiAxIGZpbGVzIGNoYW5nZWQsIDE3IGlu
+c2VydGlvbnMoKyksIDMgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvY2Fu
+L21jcDI1MXguYyBiL2RyaXZlcnMvbmV0L2Nhbi9tY3AyNTF4LmMKaW5kZXggZmRlYTc1Mi4uOWIz
+NDY2YSAxMDA2NDQKLS0tIGEvZHJpdmVycy9uZXQvY2FuL21jcDI1MXguYworKysgYi9kcml2ZXJz
+L25ldC9jYW4vbWNwMjUxeC5jCkBAIC0zMTksNiArMzE5LDIwIEBAIHN0YXRpYyB1OCBtY3AyNTF4
+X3JlYWRfcmVnKHN0cnVjdCBzcGlfZGV2aWNlICpzcGksIHVpbnQ4X3QgcmVnKQogCXJldHVybiB2
+YWw7CiB9CiAKK3N0YXRpYyB2b2lkIG1jcDI1MXhfcmVhZF8ycmVncyhzdHJ1Y3Qgc3BpX2Rldmlj
+ZSAqc3BpLCB1aW50OF90IHJlZywKKwkJdWludDhfdCAqdjEsIHVpbnQ4X3QgKnYyKQoreworCXN0
+cnVjdCBtY3AyNTF4X3ByaXYgKnByaXYgPSBkZXZfZ2V0X2RydmRhdGEoJnNwaS0+ZGV2KTsKKwor
+CXByaXYtPnNwaV90eF9idWZbMF0gPSBJTlNUUlVDVElPTl9SRUFEOworCXByaXYtPnNwaV90eF9i
+dWZbMV0gPSByZWc7CisKKwltY3AyNTF4X3NwaV90cmFucyhzcGksIDQpOworCisJKnYxID0gcHJp
+di0+c3BpX3J4X2J1ZlsyXTsKKwkqdjIgPSBwcml2LT5zcGlfcnhfYnVmWzNdOworfQorCiBzdGF0
+aWMgdm9pZCBtY3AyNTF4X3dyaXRlX3JlZyhzdHJ1Y3Qgc3BpX2RldmljZSAqc3BpLCB1OCByZWcs
+IHVpbnQ4X3QgdmFsKQogewogCXN0cnVjdCBtY3AyNTF4X3ByaXYgKnByaXYgPSBkZXZfZ2V0X2Ry
+dmRhdGEoJnNwaS0+ZGV2KTsKQEAgLTc1NCwxMCArNzY4LDExIEBAIHN0YXRpYyBpcnFyZXR1cm5f
+dCBtY3AyNTF4X2Nhbl9pc3QoaW50IGlycSwgdm9pZCAqZGV2X2lkKQogCW11dGV4X2xvY2soJnBy
+aXYtPm1jcF9sb2NrKTsKIAl3aGlsZSAoIXByaXYtPmZvcmNlX3F1aXQpIHsKIAkJZW51bSBjYW5f
+c3RhdGUgbmV3X3N0YXRlOwotCQl1OCBpbnRmID0gbWNwMjUxeF9yZWFkX3JlZyhzcGksIENBTklO
+VEYpOwotCQl1OCBlZmxhZzsKKwkJdTggaW50ZiwgZWZsYWc7CiAJCWludCBjYW5faWQgPSAwLCBk
+YXRhMSA9IDA7CiAKKwkJbWNwMjUxeF9yZWFkXzJyZWdzKHNwaSwgQ0FOSU5URiwgJmludGYsICZl
+ZmxhZyk7CisKIAkJaWYgKGludGYgJiBDQU5JTlRGX1JYMElGKSB7CiAJCQltY3AyNTF4X2h3X3J4
+KHNwaSwgMCk7CiAJCQkvKiBGcmVlIG9uZSBidWZmZXIgQVNBUCAqLwpAQCAtNzcwLDcgKzc4NSw2
+IEBAIHN0YXRpYyBpcnFyZXR1cm5fdCBtY3AyNTF4X2Nhbl9pc3QoaW50IGlycSwgdm9pZCAqZGV2
+X2lkKQogCiAJCW1jcDI1MXhfd3JpdGVfYml0cyhzcGksIENBTklOVEYsIGludGYsIDB4MDApOwog
+Ci0JCWVmbGFnID0gbWNwMjUxeF9yZWFkX3JlZyhzcGksIEVGTEcpOwogCQltY3AyNTF4X3dyaXRl
+X3JlZyhzcGksIEVGTEcsIDB4MDApOwogCiAJCS8qIFVwZGF0ZSBjYW4gc3RhdGUgKi8KLS0gCjEu
+Ny4wLjQKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fClNv
+Y2tldGNhbi1jb3JlIG1haWxpbmcgbGlzdApTb2NrZXRjYW4tY29yZUBsaXN0cy5iZXJsaW9zLmRl
+Cmh0dHBzOi8vbGlzdHMuYmVybGlvcy5kZS9tYWlsbWFuL2xpc3RpbmZvL3NvY2tldGNhbi1jb3Jl
+Cg==
