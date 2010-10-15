@@ -1,44 +1,51 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: [PATCH] net/core:  Allow tagged VLAN packets to flow through VETH devices.
-Date: Fri, 15 Oct 2010 11:35:05 -0700
-Message-ID: <1287167705-28583-1-git-send-email-greearb@candelatech.com>
-Cc: Ben Greear <greearb@candelatech.com>
-To: netdev@vger.kernel.org
+From: "WESTERN UNION OFFICE." <info@westernunion.com>
+Subject: (unknown)
+Date: Fri, 15 Oct 2010 20:15:22 +0100
+Message-ID: <20101015201522.15586y79qk9mb544@webmail.gumutindocoffee.co.ug>
+Reply-To: mr.garrymoore009@gmail.com
+Mime-Version: 1.0
+Content-Type: text/plain;
+ charset=ISO-8859-1;
+ DelSp="Yes";
+ format="flowed"
+Content-Transfer-Encoding: 7bit
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:52443 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932153Ab0JOSfI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Oct 2010 14:35:08 -0400
+Received: from loft6039.germanservers.com ([188.138.56.43]:45378 "EHLO
+	loft6039.germanservers.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756579Ab0JOTgR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Oct 2010 15:36:17 -0400
+Subject: 
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When there are VLANs on a VETH device, the packets being transmitted
-through the VETH device may be 4 bytes bigger than MTU.  A check
-in dev_forward_skb did not take this into account and so dropped
-these packets.
+We have been trying to reach you since the past few days,
+as my associate has helped me to send your first payment
+of $7,500 USD to you as instructed by Mr. David Cameron
+the United Kingdom prime minister after the last G20
+meeting that was held in United Kingdom, making you one
+of the beneficiaries. Here is the information below.
 
-This patch is needed at least as far back as 2.6.34.7 and should
-be considered for -stable.
+MONEY TRANSFER CONTROL NUMBER: 0224873876
+SENDER NAME: Jame w. Barry
+AMOUNT: $7,500 USD
 
-Signed-off-by: Ben Greear <greearb@candelatech.com>
----
-:100644 100644 7f52603... 9fa308b... M	net/core/dev.c
- net/core/dev.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+I told him to keep sending you $7,500 USD twice a week
+until the FULL payment of ($820000.00 United State Dollars)
+is completed.
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 7f52603..9fa308b 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1485,7 +1485,7 @@ int dev_forward_skb(struct net_device *dev, struct sk_buff *skb)
- 	nf_reset(skb);
- 
- 	if (!(dev->flags & IFF_UP) ||
--	    (skb->len > (dev->mtu + dev->hard_header_len))) {
-+	    (skb->len > (dev->mtu + dev->hard_header_len + VLAN_HLEN))) {
- 		kfree_skb(skb);
- 		return NET_RX_DROP;
- 	}
--- 
-1.6.2.5
+A certificate will be made to change the Receiver Name as
+stated by the British prime minister, send your Full Names
+and address via Email to: Mr Garry Moore
+Mail:mr.garrymoore009@gmail.com
+The money will not reflect until the clearance certificate is
+issue to you by the G20 committee.
+
+Click your reply botton to contact Mr. Garry Moore for your
+clearance certificate.
+
+
+
+
 
