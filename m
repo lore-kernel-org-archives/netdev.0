@@ -1,37 +1,144 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [Bugme-new] [Bug 19692] New: linux-2.6.36-rc5 crash with
-	gianfar ethernet at full line rate traffic
-Date: Fri, 15 Oct 2010 08:58:53 +0000
-Message-ID: <20101015085853.GA8091@ff.dom.local>
-References: <20101010103236.GA1919@del.dom.local>
+From: Guillaume Gaudonville <guillaume.gaudonville@6wind.com>
+Subject: Re: VLAN packets silently dropped in promiscuous mode
+Date: Fri, 15 Oct 2010 11:16:33 +0200
+Message-ID: <4CB81BF1.1050906@6wind.com>
+References: <20100929113757.GA23755@core.hellgate.ch>	<AANLkTi=QAoVH9KU8FAH6iscWt_mKnZpU3P9QqgFRLqXM@mail.gmail.com>	<20100930080703.GA10827@core.hellgate.ch> <AANLkTikrfx1T3ay0AGWkS6Ab28J4O_er2TsbRinBSGen@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org,
-	Anton Vorontsov <avorontsov@mvista.com>
-To: emin ak <eminak71@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Roger Luethi <rl@hellgate.ch>, netdev@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw0-f46.google.com ([74.125.83.46]:40528 "EHLO
-	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752901Ab0JOI7C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Oct 2010 04:59:02 -0400
-Received: by gwj17 with SMTP id 17so224421gwj.19
-        for <netdev@vger.kernel.org>; Fri, 15 Oct 2010 01:59:01 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20101010103236.GA1919@del.dom.local>
+Received: from mail-ew0-f46.google.com ([209.85.215.46]:42272 "EHLO
+	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753200Ab0JOJII (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Oct 2010 05:08:08 -0400
+Received: by ewy20 with SMTP id 20so552783ewy.19
+        for <netdev@vger.kernel.org>; Fri, 15 Oct 2010 02:08:06 -0700 (PDT)
+In-Reply-To: <AANLkTikrfx1T3ay0AGWkS6Ab28J4O_er2TsbRinBSGen@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2010-10-10 12:32, Jarek Poplawski wrote:
-> On Sat, Oct 09, 2010 at 03:10:25PM +0300, emin ak wrote:
->> Hi Jarek,
->> My test setup is at my office so that I will try your patch on Monday
->> immediately and turn you the results.
-> 
-> No need to hurry, especially on Mondays, but thanks for the info.
+Jesse Gross wrote:
+> On Thu, Sep 30, 2010 at 1:07 AM, Roger Luethi <rl@hellgate.ch> wrote:
+>  =20
+>> On Wed, 29 Sep 2010 10:44:26 -0700, Jesse Gross wrote:
+>>    =20
+>>> On Wed, Sep 29, 2010 at 4:37 AM, Roger Luethi <rl@hellgate.ch> wrot=
+e:
+>>>      =20
+>>>> I noticed packets for unknown VLANs getting silently dropped even =
+in
+>>>> promiscuous mode (this is true only for the hardware accelerated p=
+ath).
+>>>> netif_nit_deliver was introduced specifically to prevent that, but=
+ the
+>>>> function gets called only _after_ packets from unknown VLANs have =
+been
+>>>> dropped.
+>>>>        =20
+>>> Some drivers are fixing this on a case by case basis by disabling
+>>> hardware accelerated VLAN stripping when in promiscuous mode, i.e.:
+>>> http://git.kernel.org/?p=3Dlinux/kernel/git/torvalds/linux-2.6.git;=
+a=3Dcommit;h=3D5f6c01819979afbfec7e0b15fe52371b8eed87e8
+>>>
+>>> However, at this point it is more or less random which drivers do
+>>> this.  It would obviously be much better if it were consistent.
+>>>      =20
+>> My understanding is this. Hardware VLAN tagging and stripping can al=
+ways be
+>> enabled. The kernel passes 802.1Q information along with the strippe=
+d
+>> header to libpcap which reassembles the original header where necess=
+ary.
+>> Works for me.
+>>    =20
+>
+> Sorry, I misread your original post as saying that the VLAN header
+> gets dropped, rather than the entire packet.  I agree that this is ho=
+w
+> it should work but not necessarily how it does work (again, depending
+> on the driver).  Here's the problem that I was talking about:
+>
+> Most drivers have a snippet of code that looks something like this
+> (taken from ixgbe):
+>
+> if (adapter->vlgrp && is_vlan && (tag & VLAN_VID_MASK))
+> 	vlan_gro_receive(napi, adapter->vlgrp, tag, skb);
+> else
+> 	napi_gro_receive(napi, skb);
+>
+> At this point the VLAN has already been stripped in hardware.  If
+> there is no VLAN group configured on the device then we hit the secon=
+d
+> case.  The VLAN header was removed from the SKB and the tag variable
+> is unused.  It is no longer possible for libpcap to reconstruct the
+> header because the information was thrown away (even the fact that
+> there was a VLAN tag at all).
+>
+> There are a couple ways to fix this:
+>
+> * Turn off VLAN stripping when in promiscuous mode (as done by the ix=
+gbe driver)
+>  =20
+This is not totally true: if changing the MTU ixgbe_change_mtu will cal=
+l:
+ ixgbe_reinit_locked--> ixgbe_up --> ixgbe_configure:
+                 --> ixgbe_set_rx_mode: flag IFF_PROMISC is tested=20
+ixgbe_vlan_filter_enable is not called
+                 --> ixgbe_restore_vlan --> ixgbe_vlan_rx_register: fla=
+g=20
+IFF_PROMISC is not tested ixgbe_vlan_filter_enable
+                      will be called.
 
-Hi Emin,
-Are there any problems with this testing?
+In fact it should happen each time we configure something which needs a=
+=20
+reset of the device. Why don't add a test
+on flag promiscuous directly in ixgbe_vlan_filter_enable? Or do it on=20
+each call, if we want to allow a device in promiscuous
+mode to enable this feature.
 
-Jarek P.
+What do you think?
+
+> * Reconstruct the VLAN header when there is no VLAN group (as done by
+> the tg3 driver)
+>  =20
+> A bunch of drivers do neither (bnx2x, for example) and exhibit this
+> problem.  It's getting better but it seems like a common issue.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>  =20
+
+
+--=20
+Guillaume Gaudonville
+6WIND
+Software Engineer
+
+Tel: +33 1 39 30 92 63
+Mob: +33 6 47 85 34 33
+=46ax: +33 1 39 30 92 11
+guillaume.gaudonville@6wind.com
+www.6wind.com
+Join the Multicore Packet Processing Forum: www.multicorepacketprocessi=
+ng.com
+
+Ce courriel ainsi que toutes les pi=E8ces jointes, est uniquement desti=
+n=E9 =E0 son ou ses destinataires. Il contient des informations confide=
+ntielles qui sont la propri=E9t=E9 de 6WIND. Toute r=E9v=E9lation, dist=
+ribution ou copie des informations qu'il contient est strictement inter=
+dite. Si vous avez re=E7u ce message par erreur, veuillez imm=E9diateme=
+nt le signaler =E0 l'=E9metteur et d=E9truire toutes les donn=E9es re=E7=
+ues
+
+This e-mail message, including any attachments, is for the sole use of =
+the intended recipient(s) and contains information that is confidential=
+ and proprietary to 6WIND. All unauthorized review, use, disclosure or =
+distribution is prohibited. If you are not the intended recipient, plea=
+se contact the sender by reply e-mail and destroy all copies of the ori=
+ginal message.
+
