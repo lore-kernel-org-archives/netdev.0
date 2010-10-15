@@ -1,69 +1,78 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: tbf/htb qdisc limitations
-Date: Fri, 15 Oct 2010 08:18:26 +0000
-Message-ID: <20101015081826.GA7205@ff.dom.local>
-References: <AANLkTikQkCcPXtRQGp=MQrjrWtae84VzbENn5x+1yC47@mail.gmail.com> <20101012215932.GA1945@del.dom.local> <4CB4DE6E.7030802@hp.com> <20101013062649.GA6915@ff.dom.local> <20101013233653.1e363692.billfink@mindspring.com> <20101014064404.GA6219@ff.dom.local> <20101014031354.e172d737.billfink@mindspring.com> <20101014080939.GA7710@ff.dom.local> <20101014085005.GA8349@ff.dom.local> <20101015023749.f085006b.billfink@mindspring.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rick Jones <rick.jones2@hp.com>,
-	Steven Brudenell <steven.brudenell@gmail.com>,
-	netdev@vger.kernel.org
-To: Bill Fink <billfink@mindspring.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:58533 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751417Ab0JOITX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Oct 2010 04:19:23 -0400
-Received: by bwz15 with SMTP id 15so782501bwz.19
-        for <netdev@vger.kernel.org>; Fri, 15 Oct 2010 01:18:58 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20101015023749.f085006b.billfink@mindspring.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: xiaohui.xin@intel.com
+Subject: [PATCH v13 02/16] Add a new struct for device to manipulate external buffer.
+Date: Fri, 15 Oct 2010 17:12:03 +0800
+Message-ID: <38fbf05a450b34e939aa1b0f3a5126711990f0cc.1287132437.git.xiaohui.xin@intel.com>
+References: <1287133937-5538-1-git-send-email-xiaohui.xin@intel.com>
+Cc: Xin Xiaohui <xiaohui.xin@intel.com>
+To: netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mst@redhat.com, mingo@elte.hu,
+	davem@davemloft.net, herbert@gondor.apana.org.au,
+	jdike@linux.intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1287133937-5538-1-git-send-email-xiaohui.xin@intel.com>
+In-Reply-To: <fc6e95d63a2c62aaf77f8ded22fc43ccefcdbbff.1287132437.git.xiaohui.xin@intel.com>
+References: <fc6e95d63a2c62aaf77f8ded22fc43ccefcdbbff.1287132437.git.xiaohui.xin@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 15, 2010 at 02:37:49AM -0400, Bill Fink wrote:
-> On Thu, 14 Oct 2010, Jarek Poplawski wrote:
-> 
-> > On Thu, Oct 14, 2010 at 08:09:39AM +0000, Jarek Poplawski wrote:
-> > > On Thu, Oct 14, 2010 at 03:13:54AM -0400, Bill Fink wrote:
-> > > > TSO/GSO was disabled and was using 9000-byte jumbo frames
-> > > > (and specified mtu 9000 to tc command).
-> > > > 
-> > > > Here was one attempt I made using tbf:
-> > > > 
-> > > > tc qdisc add dev eth2 root handle 1: prio
-> > > > tc qdisc add dev eth2 parent 1:1 handle 10: tbf rate 8900mbit buffer 1112500 limit 10000 mtu 9000
-> > > > tc filter add dev eth2 protocol ip parent 1: prio 1 u32 match ip dst 192.168.1.23 flowid 10:1
-> > > > 
-> > > > I tried many variations of the above, all without success.
-> > > 
-> > > The main problem are smaller packets. If you had (almost) only 9000b
-> > > frames this probably could work. [...]
-> > 
-> > On the other hand, e.g. the limit above seems too low wrt mtu & rate.
-> 
-> Actually, I discovered my commands above work just fine on
-> a 2.6.35 box:
-> 
-> i7test7% nuttcp -T10 -i1 192.168.1.17
->  1045.3125 MB /   1.00 sec = 8768.3573 Mbps     0 retrans
->  1045.6875 MB /   1.00 sec = 8772.0292 Mbps     0 retrans
->  1049.5625 MB /   1.00 sec = 8804.2627 Mbps     0 retrans
->  1043.1875 MB /   1.00 sec = 8750.9960 Mbps     0 retrans
->  1048.6875 MB /   1.00 sec = 8796.3246 Mbps     0 retrans
->  1033.4375 MB /   1.00 sec = 8669.3188 Mbps     0 retrans
->  1040.7500 MB /   1.00 sec = 8730.7057 Mbps     0 retrans
->  1047.0000 MB /   1.00 sec = 8783.2063 Mbps     0 retrans
->  1040.0000 MB /   1.00 sec = 8724.0564 Mbps     0 retrans
->  1037.4375 MB /   1.00 sec = 8702.5434 Mbps     0 retrans
-> 
-> 10431.5608 MB /  10.00 sec = 8749.7542 Mbps 25 %TX 35 %RX 0 retrans 0.11 msRTT
-> 
-> The problems I encountered were on a field system running
-> 2.6.30.10.  I will investigate upgrading the field system
-> to 2.6.35.
+From: Xin Xiaohui <xiaohui.xin@intel.com>
 
-This change from 2.6.31 should matter here:
-http://git.kernel.org/?p=linux/kernel/git/stable/linux-2.6.35.y.git;a=commit;h=a4a710c4a7490587406462bf1d54504b7783d7d7
+    Add a structure in structure net_device, the new field is
+    named as mp_port. It's for mediate passthru (zero-copy).
+    It contains the capability for the net device driver,
+    a socket, and an external buffer creator, external means
+    skb buffer belongs to the device may not be allocated from
+    kernel space.
 
-Jarek P.
+    Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
+    Signed-off-by: Zhao Yu <yzhao81new@gmail.com>
+    Reviewed-by: Jeff Dike <jdike@linux.intel.com>
+---
+ include/linux/netdevice.h |   25 ++++++++++++++++++++++++-
+ 1 files changed, 24 insertions(+), 1 deletions(-)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 46c36ff..f6b1870 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -325,6 +325,28 @@ enum netdev_state_t {
+ 	__LINK_STATE_DORMANT,
+ };
+ 
++/*The structure for mediate passthru(zero-copy). */
++struct mp_port	{
++	/* the header len */
++	int		hdr_len;
++	/* the max payload len for one descriptor */
++	int		data_len;
++	/* the pages for DMA in one time */
++	int		npages;
++	/* the socket bind to */
++	struct socket	*sock;
++	/* the header len for virtio-net */
++	int		vnet_hlen;
++	/* the external buffer page creator */
++	struct skb_ext_page *(*ctor)(struct mp_port *,
++				struct sk_buff *, int);
++	/* the hash function attached to find according
++	 * backend ring descriptor info for one external
++	 * buffer page.
++	 */
++	struct skb_ext_page *(*hash)(struct net_device *,
++				struct page *);
++};
+ 
+ /*
+  * This structure holds at boot time configured netdevice settings. They
+@@ -1045,7 +1067,8 @@ struct net_device {
+ 
+ 	/* GARP */
+ 	struct garp_port	*garp_port;
+-
++	/* mpassthru */
++	struct mp_port		*mp_port;
+ 	/* class/net/name entry */
+ 	struct device		dev;
+ 	/* space for optional device, statistics, and wireless sysfs groups */
+-- 
+1.7.3
