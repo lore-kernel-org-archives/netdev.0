@@ -1,89 +1,216 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: tbf/htb qdisc limitations
-Date: Fri, 15 Oct 2010 08:44:19 +0200
-Message-ID: <1287125059.2659.1812.camel@edumazet-laptop>
-References: <AANLkTin_jPp+WEkyJkD_KZyrJ4WX_6dM5wtFNw_ixuzv@mail.gmail.com>
-	 <20101012101022.GA8578@ff.dom.local>
-	 <AANLkTikQkCcPXtRQGp=MQrjrWtae84VzbENn5x+1yC47@mail.gmail.com>
-	 <20101012215932.GA1945@del.dom.local> <4CB4DE6E.7030802@hp.com>
-	 <20101013062649.GA6915@ff.dom.local>
-	 <20101013233653.1e363692.billfink@mindspring.com>
-	 <20101014064404.GA6219@ff.dom.local>
-	 <20101014031354.e172d737.billfink@mindspring.com>
-	 <20101014080939.GA7710@ff.dom.local> <20101014085005.GA8349@ff.dom.local>
-	 <20101015023749.f085006b.billfink@mindspring.com>
+Subject: [PATCH net-next 2/3] fib_hash: RCU conversion phase 1
+Date: Fri, 15 Oct 2010 08:53:34 +0200
+Message-ID: <1287125614.2659.1841.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jarek Poplawski <jarkao2@gmail.com>,
-	Rick Jones <rick.jones2@hp.com>,
-	Steven Brudenell <steven.brudenell@gmail.com>,
-	netdev@vger.kernel.org
-To: Bill Fink <billfink@mindspring.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:36333 "EHLO
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:60939 "EHLO
 	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756086Ab0JOGpK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Oct 2010 02:45:10 -0400
-Received: by wyb28 with SMTP id 28so349222wyb.19
-        for <netdev@vger.kernel.org>; Thu, 14 Oct 2010 23:45:09 -0700 (PDT)
-In-Reply-To: <20101015023749.f085006b.billfink@mindspring.com>
+	with ESMTP id S1753232Ab0JOGx4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Oct 2010 02:53:56 -0400
+Received: by wyb28 with SMTP id 28so353778wyb.19
+        for <netdev@vger.kernel.org>; Thu, 14 Oct 2010 23:53:54 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 15 octobre 2010 =C3=A0 02:37 -0400, Bill Fink a =C3=A9crit =
-:
-> On Thu, 14 Oct 2010, Jarek Poplawski wrote:
->=20
-> > On Thu, Oct 14, 2010 at 08:09:39AM +0000, Jarek Poplawski wrote:
-> > > On Thu, Oct 14, 2010 at 03:13:54AM -0400, Bill Fink wrote:
-> > > > TSO/GSO was disabled and was using 9000-byte jumbo frames
-> > > > (and specified mtu 9000 to tc command).
-> > > >=20
-> > > > Here was one attempt I made using tbf:
-> > > >=20
-> > > > tc qdisc add dev eth2 root handle 1: prio
-> > > > tc qdisc add dev eth2 parent 1:1 handle 10: tbf rate 8900mbit b=
-uffer 1112500 limit 10000 mtu 9000
-> > > > tc filter add dev eth2 protocol ip parent 1: prio 1 u32 match i=
-p dst 192.168.1.23 flowid 10:1
-> > > >=20
-> > > > I tried many variations of the above, all without success.
-> > >=20
-> > > The main problem are smaller packets. If you had (almost) only 90=
-00b
-> > > frames this probably could work. [...]
-> >=20
-> > On the other hand, e.g. the limit above seems too low wrt mtu & rat=
-e.
->=20
-> Actually, I discovered my commands above work just fine on
-> a 2.6.35 box:
->=20
-> i7test7% nuttcp -T10 -i1 192.168.1.17
->  1045.3125 MB /   1.00 sec =3D 8768.3573 Mbps     0 retrans
->  1045.6875 MB /   1.00 sec =3D 8772.0292 Mbps     0 retrans
->  1049.5625 MB /   1.00 sec =3D 8804.2627 Mbps     0 retrans
->  1043.1875 MB /   1.00 sec =3D 8750.9960 Mbps     0 retrans
->  1048.6875 MB /   1.00 sec =3D 8796.3246 Mbps     0 retrans
->  1033.4375 MB /   1.00 sec =3D 8669.3188 Mbps     0 retrans
->  1040.7500 MB /   1.00 sec =3D 8730.7057 Mbps     0 retrans
->  1047.0000 MB /   1.00 sec =3D 8783.2063 Mbps     0 retrans
->  1040.0000 MB /   1.00 sec =3D 8724.0564 Mbps     0 retrans
->  1037.4375 MB /   1.00 sec =3D 8702.5434 Mbps     0 retrans
->=20
-> 10431.5608 MB /  10.00 sec =3D 8749.7542 Mbps 25 %TX 35 %RX 0 retrans=
- 0.11 msRTT
->=20
-> The problems I encountered were on a field system running
-> 2.6.30.10.  I will investigate upgrading the field system
-> to 2.6.35.
->=20
+First step for RCU conversion of fib_hash :
 
-Yes, I noticed same thing for me on net-next-2.6=20
+struct fn_zone are created and never deleted.
 
-Please report :
+Very classic conversion, using rcu_assign_pointer(), rcu_dereference()
+and rtnl_dereference() verbs.
 
-tc -s -d qdisc
+__rcu markers on fz_next and fn_zone_list
+
+They are created under RTNL, we dont need fib_hash_lock anymore in
+fn_new_zone().
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/ipv4/fib_hash.c |   57 ++++++++++++++++++++++++++++--------------
+ 1 files changed, 38 insertions(+), 19 deletions(-)
+
+diff --git a/net/ipv4/fib_hash.c b/net/ipv4/fib_hash.c
+index 10001aa..04f05a9 100644
+--- a/net/ipv4/fib_hash.c
++++ b/net/ipv4/fib_hash.c
+@@ -57,7 +57,7 @@ struct fib_node {
+ #define EMBEDDED_HASH_SIZE (L1_CACHE_BYTES / sizeof(struct hlist_head))
+ 
+ struct fn_zone {
+-	struct fn_zone		*fz_next;	/* Next not empty zone	*/
++	struct fn_zone __rcu	*fz_next;	/* Next not empty zone	*/
+ 	struct hlist_head	*fz_hash;	/* Hash table pointer	*/
+ 	u32			fz_hashmask;	/* (fz_divisor - 1)	*/
+ 
+@@ -73,8 +73,8 @@ struct fn_zone {
+ };
+ 
+ struct fn_hash {
+-	struct fn_zone	*fn_zones[33];
+-	struct fn_zone	*fn_zone_list;
++	struct fn_zone		*fn_zones[33];
++	struct fn_zone __rcu	*fn_zone_list;
+ };
+ 
+ static inline u32 fn_hash(__be32 key, struct fn_zone *fz)
+@@ -219,21 +219,21 @@ fn_new_zone(struct fn_hash *table, int z)
+ 	fz->fz_mask = inet_make_mask(z);
+ 
+ 	/* Find the first not empty zone with more specific mask */
+-	for (i=z+1; i<=32; i++)
++	for (i = z + 1; i <= 32; i++)
+ 		if (table->fn_zones[i])
+ 			break;
+-	write_lock_bh(&fib_hash_lock);
+-	if (i>32) {
++	if (i > 32) {
+ 		/* No more specific masks, we are the first. */
+-		fz->fz_next = table->fn_zone_list;
+-		table->fn_zone_list = fz;
++		rcu_assign_pointer(fz->fz_next,
++				   rtnl_dereference(table->fn_zone_list));
++		rcu_assign_pointer(table->fn_zone_list, fz);
+ 	} else {
+-		fz->fz_next = table->fn_zones[i]->fz_next;
+-		table->fn_zones[i]->fz_next = fz;
++		rcu_assign_pointer(fz->fz_next,
++				   rtnl_dereference(table->fn_zones[i]->fz_next));
++		rcu_assign_pointer(table->fn_zones[i]->fz_next, fz);
+ 	}
+ 	table->fn_zones[z] = fz;
+ 	fib_hash_genid++;
+-	write_unlock_bh(&fib_hash_lock);
+ 	return fz;
+ }
+ 
+@@ -245,8 +245,11 @@ int fib_table_lookup(struct fib_table *tb,
+ 	struct fn_zone *fz;
+ 	struct fn_hash *t = (struct fn_hash *)tb->tb_data;
+ 
++	rcu_read_lock();
+ 	read_lock(&fib_hash_lock);
+-	for (fz = t->fn_zone_list; fz; fz = fz->fz_next) {
++	for (fz = rcu_dereference(t->fn_zone_list);
++	     fz != NULL;
++	     fz = rcu_dereference(fz->fz_next)) {
+ 		struct hlist_head *head;
+ 		struct hlist_node *node;
+ 		struct fib_node *f;
+@@ -267,6 +270,7 @@ int fib_table_lookup(struct fib_table *tb,
+ 	err = 1;
+ out:
+ 	read_unlock(&fib_hash_lock);
++	rcu_read_unlock();
+ 	return err;
+ }
+ 
+@@ -362,6 +366,7 @@ static struct fib_node *fib_find_node(struct fn_zone *fz, __be32 key)
+ 	return NULL;
+ }
+ 
++/* Caller must hold RTNL. */
+ int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
+ {
+ 	struct fn_hash *table = (struct fn_hash *) tb->tb_data;
+@@ -657,13 +662,16 @@ static int fn_flush_list(struct fn_zone *fz, int idx)
+ 	return found;
+ }
+ 
++/* caller must hold RTNL. */
+ int fib_table_flush(struct fib_table *tb)
+ {
+ 	struct fn_hash *table = (struct fn_hash *) tb->tb_data;
+ 	struct fn_zone *fz;
+ 	int found = 0;
+ 
+-	for (fz = table->fn_zone_list; fz; fz = fz->fz_next) {
++	for (fz = rtnl_dereference(table->fn_zone_list);
++	     fz != NULL;
++	     fz = rtnl_dereference(fz->fz_next)) {
+ 		int i;
+ 
+ 		for (i = fz->fz_divisor - 1; i >= 0; i--)
+@@ -741,23 +749,29 @@ fn_hash_dump_zone(struct sk_buff *skb, struct netlink_callback *cb,
+ int fib_table_dump(struct fib_table *tb, struct sk_buff *skb,
+ 		   struct netlink_callback *cb)
+ {
+-	int m, s_m;
++	int m = 0, s_m;
+ 	struct fn_zone *fz;
+ 	struct fn_hash *table = (struct fn_hash *)tb->tb_data;
+ 
+ 	s_m = cb->args[2];
++	rcu_read_lock();
+ 	read_lock(&fib_hash_lock);
+-	for (fz = table->fn_zone_list, m=0; fz; fz = fz->fz_next, m++) {
+-		if (m < s_m) continue;
++	for (fz = rcu_dereference(table->fn_zone_list);
++	     fz != NULL;
++	     fz = rcu_dereference(fz->fz_next), m++) {
++		if (m < s_m)
++			continue;
+ 		if (fn_hash_dump_zone(skb, cb, tb, fz) < 0) {
+ 			cb->args[2] = m;
+ 			read_unlock(&fib_hash_lock);
++			rcu_read_unlock();
+ 			return -1;
+ 		}
+ 		memset(&cb->args[3], 0,
+ 		       sizeof(cb->args) - 3*sizeof(cb->args[0]));
+ 	}
+ 	read_unlock(&fib_hash_lock);
++	rcu_read_unlock();
+ 	cb->args[2] = m;
+ 	return skb->len;
+ }
+@@ -820,8 +834,9 @@ static struct fib_alias *fib_get_first(struct seq_file *seq)
+ 	iter->genid	= fib_hash_genid;
+ 	iter->valid	= 1;
+ 
+-	for (iter->zone = table->fn_zone_list; iter->zone;
+-	     iter->zone = iter->zone->fz_next) {
++	for (iter->zone = rcu_dereference(table->fn_zone_list);
++	     iter->zone != NULL;
++	     iter->zone = rcu_dereference(iter->zone->fz_next)) {
+ 		int maxslot;
+ 
+ 		if (!iter->zone->fz_nent)
+@@ -906,7 +921,7 @@ static struct fib_alias *fib_get_next(struct seq_file *seq)
+ 			}
+ 		}
+ 
+-		iter->zone = iter->zone->fz_next;
++		iter->zone = rcu_dereference(iter->zone->fz_next);
+ 
+ 		if (!iter->zone)
+ 			goto out;
+@@ -946,9 +961,11 @@ static struct fib_alias *fib_get_idx(struct seq_file *seq, loff_t pos)
+ 
+ static void *fib_seq_start(struct seq_file *seq, loff_t *pos)
+ 	__acquires(fib_hash_lock)
++	__acquires(RCU)
+ {
+ 	void *v = NULL;
+ 
++	rcu_read_lock();
+ 	read_lock(&fib_hash_lock);
+ 	if (fib_get_table(seq_file_net(seq), RT_TABLE_MAIN))
+ 		v = *pos ? fib_get_idx(seq, *pos - 1) : SEQ_START_TOKEN;
+@@ -963,8 +980,10 @@ static void *fib_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+ 
+ static void fib_seq_stop(struct seq_file *seq, void *v)
+ 	__releases(fib_hash_lock)
++	__releases(RCU)
+ {
+ 	read_unlock(&fib_hash_lock);
++	rcu_read_unlock();
+ }
+ 
+ static unsigned fib_flag_trans(int type, __be32 mask, struct fib_info *fi)
 
 
