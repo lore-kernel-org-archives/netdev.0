@@ -1,147 +1,166 @@
-From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
-Subject: [PATCH V2 net-next] can-raw: add msg_flags to distinguish local
-	traffic
-Date: Fri, 15 Oct 2010 17:38:30 +0200
-Message-ID: <20101015153829.GA317@e-circ.dyndns.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: avoid RCU for NOCACHE dst
+Date: Fri, 15 Oct 2010 17:44:11 +0200
+Message-ID: <1287157451.2647.126.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-To: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:47243 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755275Ab0JOPoP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Oct 2010 11:44:15 -0400
+Received: by wyb28 with SMTP id 28so773380wyb.19
+        for <netdev@vger.kernel.org>; Fri, 15 Oct 2010 08:44:14 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-differences in V2:
-1) use 'unsigned int' for flags, conform to the msg_flags
-   in the kernel headers (glibc uses 'int')
-2) fixed typo in comments
-3) Add description in Documentation
-4) correct email address in Signed-off-by
+There is no point using RCU for dst we allocate for a very short time
+(used once).
 
-CAN has no addressing scheme. It is currently impossible
-for userspace to tell is a received CAN frame comes from
-another process on the local host, or from a remote CAN
-device.
-This patch add support for userspace applications to distinguish
-between 'own', 'local' and 'remote' CAN traffic.
-Distinction is made by returning flags in msg->msg_flags
-in the call to recvmsg.
-The Documentation/...  explains the flags.
+Change dst_release() to take DST_NOCACHE into account, but also change
+skb_dst_set_noref() to force a refcount increment for such dst.
 
-Signed-off-by: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
+This is a _huge_ gain, because we dont waste memory to store xx thousand
+of dsts. Instead of queueing them to RCU, we can free them instantly. 
+
+CPU caches can stay hot, re-using same memory blocks to hold temporary
+dsts.
+
+Note : remove unneeded smp_mb__before_atomic_dec(); in dst_release(),
+since atomic_dec_return() implies a full memory barrier.
+
+Stress test, 160.000.000 udp frames sent, IP route cache disabled
+(DDOS).
+
+Before:
+
+real    0m38.091s
+user    0m13.189s
+sys     7m53.018s
+
+After:
+
+real	0m29.946s
+user	0m12.157s
+sys	7m40.605s
+
+For reference, if IP route cache was enabled :
+
+real	0m32.030s
+user	0m10.521s
+sys	8m15.243s
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 ---
- Documentation/networking/can.txt |   11 +++++++++++
- net/can/raw.c                    |   33 ++++++++++++++++++++++++++++++---
- 2 files changed, 41 insertions(+), 3 deletions(-)
+ include/linux/skbuff.h |   14 +-------------
+ net/core/dst.c         |   29 ++++++++++++++++++++++++++++-
+ net/ipv4/route.c       |    9 ++++-----
+ 3 files changed, 33 insertions(+), 19 deletions(-)
 
-diff --git a/Documentation/networking/can.txt b/Documentation/networking/can.txt
-index cd79735..95341aa 100644
---- a/Documentation/networking/can.txt
-+++ b/Documentation/networking/can.txt
-@@ -22,6 +22,7 @@ This file contains
-       4.1.2 RAW socket option CAN_RAW_ERR_FILTER
-       4.1.3 RAW socket option CAN_RAW_LOOPBACK
-       4.1.4 RAW socket option CAN_RAW_RECV_OWN_MSGS
-+      4.1.5 RAW socket returned flags
-     4.2 Broadcast Manager protocol sockets (SOCK_DGRAM)
-     4.3 connected transport protocols (SOCK_SEQPACKET)
-     4.4 unconnected transport protocols (SOCK_DGRAM)
-@@ -471,6 +472,16 @@ solution for a couple of reasons:
-     setsockopt(s, SOL_CAN_RAW, CAN_RAW_RECV_OWN_MSGS,
-                &recv_own_msgs, sizeof(recv_own_msgs));
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 0b53c43..9ccbbbd 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -460,19 +460,7 @@ static inline void skb_dst_set(struct sk_buff *skb, struct dst_entry *dst)
+ 	skb->_skb_refdst = (unsigned long)dst;
+ }
  
-+  4.1.5 RAW socket returned flags
-+
-+  When using recvmsg() call, the msg->msg_flags may contain following flags:
-+
-+    MSG_DONTROUTE: set when the frame was sent via the same physical device,
-+	ie. a loopback frame.
-+    MSG_CONFIRM: set when the frame was sent via the socket it is received on.
-+	This flag acts as a 'transmission confirmation'.
-+	In order to receive such messages, CAN_RAW_RECV_OWN_MSGS must be set.
-+
-   4.2 Broadcast Manager protocol sockets (SOCK_DGRAM)
-   4.3 connected transport protocols (SOCK_SEQPACKET)
-   4.4 unconnected transport protocols (SOCK_DGRAM)
-diff --git a/net/can/raw.c b/net/can/raw.c
-index 7d77e67..9020c4f 100644
---- a/net/can/raw.c
-+++ b/net/can/raw.c
-@@ -90,23 +90,39 @@ struct raw_sock {
- 	can_err_mask_t err_mask;
- };
+-/**
+- * skb_dst_set_noref - sets skb dst, without a reference
+- * @skb: buffer
+- * @dst: dst entry
+- *
+- * Sets skb dst, assuming a reference was not taken on dst
+- * skb_dst_drop() should not dst_release() this dst
+- */
+-static inline void skb_dst_set_noref(struct sk_buff *skb, struct dst_entry *dst)
+-{
+-	WARN_ON(!rcu_read_lock_held() && !rcu_read_lock_bh_held());
+-	skb->_skb_refdst = (unsigned long)dst | SKB_DST_NOREF;
+-}
++extern void skb_dst_set_noref(struct sk_buff *skb, struct dst_entry *dst);
  
-+/*
-+ * return some space to store extra msg flags in.
-+ * We use 1 int beyond the 'struct sockaddr_can' in skb->cb
-+ * to store those.
-+ * These flags will be use in raw_recvmsg()
+ /**
+  * skb_dst_is_noref - Test if skb dst isnt refcounted
+diff --git a/net/core/dst.c b/net/core/dst.c
+index 32e542d..8abe628 100644
+--- a/net/core/dst.c
++++ b/net/core/dst.c
+@@ -271,13 +271,40 @@ void dst_release(struct dst_entry *dst)
+ 	if (dst) {
+ 		int newrefcnt;
+ 
+-		smp_mb__before_atomic_dec();
+ 		newrefcnt = atomic_dec_return(&dst->__refcnt);
+ 		WARN_ON(newrefcnt < 0);
++		if (unlikely(dst->flags & DST_NOCACHE) && !newrefcnt) {
++			dst = dst_destroy(dst);
++			if (dst)
++				__dst_free(dst);
++		}
+ 	}
+ }
+ EXPORT_SYMBOL(dst_release);
+ 
++/**
++ * skb_dst_set_noref - sets skb dst, without a reference
++ * @skb: buffer
++ * @dst: dst entry
++ *
++ * Sets skb dst, assuming a reference was not taken on dst
++ * skb_dst_drop() should not dst_release() this dst
 + */
-+static inline unsigned int *raw_flags(struct sk_buff *skb)
++void skb_dst_set_noref(struct sk_buff *skb, struct dst_entry *dst)
 +{
-+	BUILD_BUG_ON(sizeof(skb->cb) <= (sizeof(struct sockaddr_can)
-+				+ sizeof(unsigned int)));
-+	/* return pointer after struct sockaddr_can */
-+	return (unsigned int *)(&((struct sockaddr_can *)skb->cb)[1]);
++	WARN_ON(!rcu_read_lock_held() && !rcu_read_lock_bh_held());
++	/* If dst not in cache, we must take a reference, because
++	 * dst_release() will destroy dst as soon as its refcount becomes zero
++	 */
++	if (unlikely(dst->flags & DST_NOCACHE)) {
++		dst_hold(dst);
++		skb_dst_set(skb, dst);
++	} else {
++		skb->_skb_refdst = (unsigned long)dst | SKB_DST_NOREF;
++	}
 +}
++EXPORT_SYMBOL(skb_dst_set_noref);
 +
- static inline struct raw_sock *raw_sk(const struct sock *sk)
- {
- 	return (struct raw_sock *)sk;
- }
+ /* Dirty hack. We did it in 2.2 (in __dst_free),
+  * we have _very_ good reasons not to repeat
+  * this mistake in 2.3, but we have no choice
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 0755aa4..f2ce07b 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1105,9 +1105,9 @@ restart:
+ 		 * Note that we do rt_free on this new route entry, so that
+ 		 * once its refcount hits zero, we are still able to reap it
+ 		 * (Thanks Alexey)
+-		 * Note also the rt_free uses call_rcu.  We don't actually
+-		 * need rcu protection here, this is just our path to get
+-		 * on the route gc list.
++		 * Note: To avoid expensive rcu stuff for this uncached dst,
++		 * we set DST_NOCACHE so that dst_release() can free dst without
++		 * waiting a grace period.
+ 		 */
  
--static void raw_rcv(struct sk_buff *skb, void *data)
-+static void raw_rcv(struct sk_buff *oskb, void *data)
- {
- 	struct sock *sk = (struct sock *)data;
- 	struct raw_sock *ro = raw_sk(sk);
- 	struct sockaddr_can *addr;
-+	struct sk_buff *skb;
-+	unsigned int *pflags;
+ 		rt->dst.flags |= DST_NOCACHE;
+@@ -1117,12 +1117,11 @@ restart:
+ 				if (net_ratelimit())
+ 					printk(KERN_WARNING
+ 					    "Neighbour table failure & not caching routes.\n");
+-				rt_drop(rt);
++				ip_rt_put(rt);
+ 				return err;
+ 			}
+ 		}
  
- 	/* check the received tx sock reference */
--	if (!ro->recv_own_msgs && skb->sk == sk)
-+	if (!ro->recv_own_msgs && oskb->sk == sk)
- 		return;
- 
- 	/* clone the given skb to be able to enqueue it into the rcv queue */
--	skb = skb_clone(skb, GFP_ATOMIC);
-+	skb = skb_clone(oskb, GFP_ATOMIC);
- 	if (!skb)
- 		return;
- 
-@@ -123,6 +139,14 @@ static void raw_rcv(struct sk_buff *skb, void *data)
- 	addr->can_family  = AF_CAN;
- 	addr->can_ifindex = skb->dev->ifindex;
- 
-+	/* prepare the flags for raw_recvmsg() */
-+	pflags = raw_flags(skb);
-+	*pflags = 0;
-+	if (oskb->sk)
-+		*pflags |= MSG_DONTROUTE;
-+	if (oskb->sk == sk)
-+		*pflags |= MSG_CONFIRM;
-+
- 	if (sock_queue_rcv_skb(sk, skb) < 0)
- 		kfree_skb(skb);
- }
-@@ -707,6 +731,9 @@ static int raw_recvmsg(struct kiocb *iocb, struct socket *sock,
- 		memcpy(msg->msg_name, skb->cb, msg->msg_namelen);
+-		rt_free(rt);
+ 		goto skip_hashing;
  	}
  
-+	/* assign the flags that have been recorded in raw_rcv() */
-+	msg->msg_flags |= *(raw_flags(skb));
-+
- 	skb_free_datagram(sk, skb);
- 
- 	return size;
+
+
