@@ -1,19 +1,21 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH net-2.6] r6040: Fix multicast filter some more
-Date: Fri, 15 Oct 2010 04:17:16 +0100
-Message-ID: <1287112636.20865.13.camel@localhost>
+Subject: [PATCHv2 net-2.6] r6040: Fix multicast filter some more
+Date: Fri, 15 Oct 2010 04:41:53 +0100
+Message-ID: <1287114113.20865.23.camel@localhost>
+References: <1287112636.20865.13.camel@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-	Florian Fainelli <florian@openwrt.org>
+Cc: Florian Fainelli <florian@openwrt.org>,
+	netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:33120 "EHLO
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:44818 "EHLO
 	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755523Ab0JODR1 convert rfc822-to-8bit
+	by vger.kernel.org with ESMTP id S1755719Ab0JODmc convert rfc822-to-8bit
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Oct 2010 23:17:27 -0400
+	Thu, 14 Oct 2010 23:42:32 -0400
+In-Reply-To: <1287112636.20865.13.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -28,7 +30,8 @@ address, plus a 64-entry hash-based filter for multicast addresses
 The original version of this code would write the first 4 multicast
 addresses as exact-match entries from offset 1 (bug #1: there is no
 entry 4 so this could write to some PHY registers).  It would fill the
-remainder of the exact-match entries with the broadcast address (bug
+remainder of the exact-match entries with the broadcast address (bug #2:
+this would overwrite the last used entry).  If more than 4 multicast
 addresses were configured, it would set up the hash table, write some
 random crap to the MAC control register (bug #3) and finally walk off
 the end of the list when filling the exact-match entries (bug #4).
@@ -53,7 +56,7 @@ That commit fixes the most important current bug #6.
 Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 Cc: stable@kernel.org [2.6.35 only]
 ---
-Compile-tested only.
+Commit message was slightly mangled in the previous message.
 
 Ben.
 
@@ -95,5 +98,6 @@ index 142c381..80666f0 100644
  }
 -- 
 1.7.1
+
 
 
