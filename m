@@ -1,45 +1,39 @@
-From: Denis Kirjanov <kirjanov@gmail.com>
-Subject: Re: [PATCH 1/6] r8169: check dma mapping failures
-Date: Fri, 15 Oct 2010 18:23:55 +0400
-Message-ID: <AANLkTimwwhBJdoXcvSt-wdTGv5biHJj094s0TutFM66N@mail.gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 6/6] r8169: print errors when dma mapping fail
+Date: Fri, 15 Oct 2010 16:52:01 +0200
+Message-ID: <20101015145201.GB4417@electric-eye.fr.zoreil.com>
 References: <1287144922-3297-1-git-send-email-sgruszka@redhat.com>
-	<20101015134158.GA4417@electric-eye.fr.zoreil.com>
+ <1287144922-3297-6-git-send-email-sgruszka@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Stanislaw Gruszka <sgruszka@redhat.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Denis Kirjanov <kirjanov@gmail.com>
+To: Stanislaw Gruszka <sgruszka@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:49921 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756168Ab0JOOYF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Oct 2010 10:24:05 -0400
-Received: by vws2 with SMTP id 2so386881vws.19
-        for <netdev@vger.kernel.org>; Fri, 15 Oct 2010 07:24:05 -0700 (PDT)
-In-Reply-To: <20101015134158.GA4417@electric-eye.fr.zoreil.com>
+Received: from 88-139-115-126.adslgp.cegetel.net ([88.139.115.126]:54796 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755837Ab0JOOwr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Oct 2010 10:52:47 -0400
+Content-Disposition: inline
+In-Reply-To: <1287144922-3297-6-git-send-email-sgruszka@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Right, we should pass TX_BUSY to upper layers only when the device hw
-queue is full
+Stanislaw Gruszka <sgruszka@redhat.com> :
+> Print errors because dma mapping failures can cause device to stop
+> working and will need user intervention to recover.
 
-On Fri, Oct 15, 2010 at 5:41 PM, Francois Romieu <romieu@fr.zoreil.com> wrote:
-> Stanislaw Gruszka <sgruszka@redhat.com> :
->> Check possible dma mapping errors and do clean up if it happens,
->> when sending frames stop the tx queue.
->
-> Almost ok: NETDEV_TX_BUSY can not be used like that. Afaik the DMA
-> failure path in the driver really wants a NETDEV_TX_OK (and a device
-> stats update, though missing in tg3 ?).
->
-> Actually the former NETDEV_TX_BUSY condition mostly checks for a bug.
->
-> --
-> Ueimor
->
+I am hesitating (overengineered ? bloaty ? not the right place ?).
 
+The Tx stats are kept up-to-date : Tx failure will go along a Tx drop
+stat increase.
 
+Regarding a mapping failure in the Rx path, either it will behave as
+an allocation failure at open / resume time - and I have no idea how
+the user will recover - or it will happen during a Rx ring refill.
+
+...
+
+Ok, something could have gone unnoticed. Let's try it.
 
 -- 
-Regards,
-Denis
+Ueimor
