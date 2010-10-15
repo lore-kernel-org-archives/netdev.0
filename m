@@ -1,103 +1,42 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCHv2 net-2.6] r6040: Fix multicast filter some more
-Date: Fri, 15 Oct 2010 04:41:53 +0100
-Message-ID: <1287114113.20865.23.camel@localhost>
-References: <1287112636.20865.13.camel@localhost>
+From: Harvey Harrison <harvey.harrison@gmail.com>
+Subject: ixgbe: net-next build breakage
+Date: Thu, 14 Oct 2010 21:33:33 -0700
+Message-ID: <AANLkTin8he7aexkL+mpbXen_odu4upo5buJWd7iGW-He@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: Florian Fainelli <florian@openwrt.org>,
-	netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jeffrey.t.kirsher@intel.com, stephen.s.ko@intel.com,
+	shemminger@vyatta.com, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org
+To: emil.s.tantilov@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:44818 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755719Ab0JODmc convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Oct 2010 23:42:32 -0400
-In-Reply-To: <1287112636.20865.13.camel@localhost>
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:47766 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750856Ab0JOEde convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Oct 2010 00:33:34 -0400
+Received: by iwn35 with SMTP id 35so437705iwn.19
+        for <netdev@vger.kernel.org>; Thu, 14 Oct 2010 21:33:33 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This code has been broken forever, but in several different and
-creative ways.
+commit f32f837b75233588cd4f8542214a30915ab7847b
+Author: Emil Tantilov <emil.s.tantilov@intel.com>
+Date:   Tue Oct 12 22:20:34 2010 +0000
 
-So far as I can work out, the R6040 MAC filter has 4 exact-match
-entries, the first of which the driver uses for its assigned unicast
-address, plus a 64-entry hash-based filter for multicast addresses
-(maybe unicast as well?).
-
-The original version of this code would write the first 4 multicast
-addresses as exact-match entries from offset 1 (bug #1: there is no
-entry 4 so this could write to some PHY registers).  It would fill the
-remainder of the exact-match entries with the broadcast address (bug #2:
-this would overwrite the last used entry).  If more than 4 multicast
-addresses were configured, it would set up the hash table, write some
-random crap to the MAC control register (bug #3) and finally walk off
-the end of the list when filling the exact-match entries (bug #4).
-
-All of this seems to be pointless, since it sets the promiscuous bit
-when the interface is made promiscuous or if >4 multicast addresses
-are enabled, and never clears it (bug #5, masking bug #2).
-
-The recent(ish) changes to the multicast list fixed bug #4, but
-completely removed the limit on iteration over the exact-match entries
-(bug #6).
-
-Bug #4 was reported as
-<https://bugzilla.kernel.org/show_bug.cgi?id=15355> and more recently
-as <http://bugs.debian.org/600155>.  Florian Fainelli attempted to fix
-these in commit 3bcf8229a8c49769e48d3e0bd1e20d8e003f8106, but that
-actually dealt with bugs #1-3, bug #4 having been fixed in mainline at
-that point.
-
-That commit fixes the most important current bug #6.
-
-Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
-Cc: stable@kernel.org [2.6.35 only]
----
-Commit message was slightly mangled in the previous message.
-
-Ben.
-
- drivers/net/r6040.c |   22 ++++++++++++----------
- 1 files changed, 12 insertions(+), 10 deletions(-)
-
-diff --git a/drivers/net/r6040.c b/drivers/net/r6040.c
-index 142c381..80666f0 100644
---- a/drivers/net/r6040.c
-+++ b/drivers/net/r6040.c
-@@ -893,16 +893,18 @@ static void r6040_multicast_list(struct net_device *dev)
- 	/* Multicast Address 1~4 case */
- 	i = 0;
- 	netdev_for_each_mc_addr(ha, dev) {
--		if (i < MCAST_MAX) {
--			adrp = (u16 *) ha->addr;
--			iowrite16(adrp[0], ioaddr + MID_1L + 8 * i);
--			iowrite16(adrp[1], ioaddr + MID_1M + 8 * i);
--			iowrite16(adrp[2], ioaddr + MID_1H + 8 * i);
--		} else {
--			iowrite16(0xffff, ioaddr + MID_1L + 8 * i);
--			iowrite16(0xffff, ioaddr + MID_1M + 8 * i);
--			iowrite16(0xffff, ioaddr + MID_1H + 8 * i);
--		}
-+		if (i >= MCAST_MAX)
-+			break;
-+		adrp = (u16 *) ha->addr;
-+		iowrite16(adrp[0], ioaddr + MID_1L + 8 * i);
-+		iowrite16(adrp[1], ioaddr + MID_1M + 8 * i);
-+		iowrite16(adrp[2], ioaddr + MID_1H + 8 * i);
-+		i++;
-+	}
-+	while (i < MCAST_MAX) {
-+		iowrite16(0xffff, ioaddr + MID_1L + 8 * i);
-+		iowrite16(0xffff, ioaddr + MID_1M + 8 * i);
-+		iowrite16(0xffff, ioaddr + MID_1H + 8 * i);
- 		i++;
- 	}
- }
--- 
-1.7.1
+    ixgbe: remove unused functions
 
 
+Breaks the build:
+drivers/net/ixgbe/ixgbe_main.c: In function =E2=80=98ixgbe_configure_dc=
+b=E2=80=99:
+drivers/net/ixgbe/ixgbe_main.c:3377: error: implicit declaration of
+function =E2=80=98ixgbe_dcb_check_config=E2=80=99
+make[2]: *** [drivers/net/ixgbe/ixgbe_main.o] Error 1
+make[1]: *** [drivers/net/ixgbe] Error 2
+make: *** [drivers/net/] Error 2
 
+As ixgbe_dcb_check_config no longer exists in the tree.
+
+Cheers,
+
+Harvey
