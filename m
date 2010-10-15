@@ -1,50 +1,49 @@
-From: emin ak <eminak71@gmail.com>
-Subject: Re: [Bugme-new] [Bug 19692] New: linux-2.6.36-rc5 crash with gianfar
- ethernet at full line rate traffic
-Date: Sat, 16 Oct 2010 02:14:01 +0300
-Message-ID: <AANLkTinAj=9-RqNA6xKc_5ONz2hPMRGM8uJ2Xy7XJVdr@mail.gmail.com>
-References: <20101010103236.GA1919@del.dom.local>
-	<20101015085853.GA8091@ff.dom.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org,
-	Anton Vorontsov <avorontsov@mvista.com>
-To: Jarek Poplawski <jarkao2@gmail.com>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH net-next] bonding: make bond_resend_igmp_join_requests_delayed static
+Date: Fri, 15 Oct 2010 16:15:31 -0700
+Message-ID: <24262.1287184531@death>
+References: <20101015140256.4192fd34@nehalam>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	bonding-devel@lists.sourceforge.net
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:63030 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751257Ab0JOXOD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Oct 2010 19:14:03 -0400
-Received: by vws2 with SMTP id 2so557002vws.19
-        for <netdev@vger.kernel.org>; Fri, 15 Oct 2010 16:14:01 -0700 (PDT)
-In-Reply-To: <20101015085853.GA8091@ff.dom.local>
+Received: from e37.co.us.ibm.com ([32.97.110.158]:48448 "EHLO
+	e37.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751674Ab0JOXPe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Oct 2010 19:15:34 -0400
+Received: from d03relay05.boulder.ibm.com (d03relay05.boulder.ibm.com [9.17.195.107])
+	by e37.co.us.ibm.com (8.14.4/8.13.1) with ESMTP id o9FNDP9Z018206
+	for <netdev@vger.kernel.org>; Fri, 15 Oct 2010 17:13:25 -0600
+Received: from d03av05.boulder.ibm.com (d03av05.boulder.ibm.com [9.17.195.85])
+	by d03relay05.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o9FNFXRR128754
+	for <netdev@vger.kernel.org>; Fri, 15 Oct 2010 17:15:33 -0600
+Received: from d03av05.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av05.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o9FNFX4A019155
+	for <netdev@vger.kernel.org>; Fri, 15 Oct 2010 17:15:33 -0600
+In-reply-to: <20101015140256.4192fd34@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Hi Emin,
-> Are there any problems with this testing?
+Stephen Hemminger <shemminger@vyatta.com> wrote:
+
+
+>Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 >
-> Jarek P.
+>--- a/drivers/net/bonding/bond_main.c	2010-10-15 13:52:01.747192520 -0700
+>+++ b/drivers/net/bonding/bond_main.c	2010-10-15 13:52:39.004286643 -0700
+>@@ -914,7 +914,7 @@ static void bond_resend_igmp_join_reques
+> 	read_unlock(&bond->lock);
+> }
 >
-Hi Jarek.
-Sorry for delayed answer. As I promised, I have started the tests on
-Monday (in spite of dealing with The Monday Syndrome:)  I had applied
-your patch and after two billions packet (and approximatly four hours)
-passed kernel crashed with skb_over_panic error similar with first
-type. To ensure the patch is failed or not, I rerun the same test
-again. That time, surprisingly,  it did'nt crashed again for two days
-with same kernel. But this situation had occured before, I think
-sometimes because of randomness of the applied ethernet traffic and
-mostly because I cant apply all full line rate random traffic to my
-target device because of wrong test setup (switch / hardware packet
-generator settings etc..), it takes three or more day to crash the
-kernel and sometimes it never crashes. My device only and only crashes
-when I can apply full line rate random traffic. Before informing you
-and the list with (official) test results, I want to be sure with the
-truth of them. So that please let me apply more test to the target
-device for  a fews day more. After that I wish I'll came with good
-news!
-Thanks for your time and care alot.
-Emin
+>-void bond_resend_igmp_join_requests_delayed(struct work_struct *work)
+>+static void bond_resend_igmp_join_requests_delayed(struct work_struct *work)
+> {
+> 	struct bonding *bond = container_of(work, struct bonding,
+> 							mcast_work.work);
+
+Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
