@@ -1,66 +1,105 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: large divisor for flow classifier
-Date: Fri, 15 Oct 2010 23:10:25 +0200
-Message-ID: <4CB8C341.40000@gmail.com>
-References: <4CB899F7.0@navigue.com> <1287172905.2799.8.camel@edumazet-laptop>
+From: Shreyas Bhatewara <sbhatewara@vmware.com>
+Subject: RE: [PATCH net-next] vmxnet3: make bit twiddle routines inline
+Date: Fri, 15 Oct 2010 14:14:44 -0700
+Message-ID: <89E2752CFA8EC044846EB8499819134102BF0F41F0@EXCH-MBX-4.vmware.com>
+References: <20101015140620.63d0a615@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jonathan Thibault <jonathan@navigue.com>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "VMware, Inc." <pv-drivers@vmware.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f46.google.com ([209.85.215.46]:64937 "EHLO
-	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932539Ab0JOVKa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Oct 2010 17:10:30 -0400
-Received: by ewy20 with SMTP id 20so1610325ewy.19
-        for <netdev@vger.kernel.org>; Fri, 15 Oct 2010 14:10:29 -0700 (PDT)
-In-Reply-To: <1287172905.2799.8.camel@edumazet-laptop>
+Received: from smtp-outbound-1.vmware.com ([65.115.85.69]:62480 "EHLO
+	smtp-outbound-1.vmware.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750826Ab0JOVOp convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Oct 2010 17:14:45 -0400
+In-Reply-To: <20101015140620.63d0a615@nehalam>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> Le vendredi 15 octobre 2010 =C3=A0 14:14 -0400, Jonathan Thibault a =C3=
-=A9crit :
->> It appears that when setting a fairly large divisor on the flow clas=
-sifier for sfq, traffic stops altogether.
->>
->> On my machine, anything above divisor 2200 seems to stop all traffic=
-=2E  If I want to be fair between hosts (but not flows) for a large net=
-work (say 6000 hosts), I run into problems.  Obviously the rates here a=
-re quite low but this is just an example.
-=2E..
-> SFQ is limited to a 1024 divisor
->=20
-> You might try following patch :
->=20
-> (8192 is the smallest power of two greater than 6144)
->=20
-> sizeof(struct sfq_sched_data) becomes 0x2ccc instead of 0x10cc
->=20
-> keep in mind hash distribution is not perfect.
->=20
-> What would be the real rate ?
->=20
->=20
-> diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
-> index 3cf478d..c4a53d6 100644
-> --- a/net/sched/sch_sfq.c
-> +++ b/net/sched/sch_sfq.c
-> @@ -77,7 +77,7 @@
->  	It is easy to increase these values, but not in flight.  */
-> =20
->  #define SFQ_DEPTH		128
-> -#define SFQ_HASH_DIVISOR	1024
-> +#define SFQ_HASH_DIVISOR	8192
+Thanks for the change Stephen. Looks good.
 
-Because of low SFQ_DEPTH, which limits its queue to 127 packets,
-SFQ isn't suitable for serving so many users. There is sch_drr as
-a replacement, alas more complex and undocumented, but google should
-help you enough.
 
-http://git.kernel.org/?p=3Dlinux/kernel/git/torvalds/linux-2.6.git;a=3D=
-commit;h=3D13d2a1d2b032de08d7dcab6a1edcd47802681f96
+Acked-by: Shreyas Bhatewara <sbhatewara@vmware.com>
 
-Jarek P.
+
+
+> -----Original Message-----
+> From: Stephen Hemminger [mailto:shemminger@vyatta.com]
+> Sent: Friday, October 15, 2010 2:06 PM
+> To: Shreyas Bhatewara; David S. Miller
+> Cc: VMware, Inc.; netdev@vger.kernel.org
+> Subject: [PATCH net-next] vmxnet3: make bit twiddle routines inline
+> 
+> Gcc doesn't usually handle inline across compilation units, and the
+> functions don't have to be global in scope. Move the set/reset flag
+> functions int the existing vmxnet3 header.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> 
+> ---
+>  drivers/net/vmxnet3/vmxnet3_drv.c |   17 -----------------
+>  drivers/net/vmxnet3/vmxnet3_int.h |   17 ++++++++++++++---
+>  2 files changed, 14 insertions(+), 20 deletions(-)
+> 
+> --- a/drivers/net/vmxnet3/vmxnet3_drv.c	2010-10-15 13:58:23.378722695
+> -0700
+> +++ b/drivers/net/vmxnet3/vmxnet3_drv.c	2010-10-15 13:59:32.724873755
+> -0700
+> @@ -1548,23 +1548,6 @@ vmxnet3_free_irqs(struct vmxnet3_adapter
+>  	}
+>  }
+> 
+> -
+> -inline void set_flag_le16(__le16 *data, u16 flag)
+> -{
+> -	*data = cpu_to_le16(le16_to_cpu(*data) | flag);
+> -}
+> -
+> -inline void set_flag_le64(__le64 *data, u64 flag)
+> -{
+> -	*data = cpu_to_le64(le64_to_cpu(*data) | flag);
+> -}
+> -
+> -inline void reset_flag_le64(__le64 *data, u64 flag)
+> -{
+> -	*data = cpu_to_le64(le64_to_cpu(*data) & ~flag);
+> -}
+> -
+> -
+>  static void
+>  vmxnet3_vlan_rx_register(struct net_device *netdev, struct vlan_group
+> *grp)
+>  {
+> --- a/drivers/net/vmxnet3/vmxnet3_int.h	2010-10-15 13:58:23.390723065
+> -0700
+> +++ b/drivers/net/vmxnet3/vmxnet3_int.h	2010-10-15 13:59:46.329296549
+> -0700
+> @@ -353,9 +353,20 @@ struct vmxnet3_adapter {
+>  #define VMXNET3_MAX_ETH_HDR_SIZE    22
+>  #define VMXNET3_MAX_SKB_BUF_SIZE    (3*1024)
+> 
+> -void set_flag_le16(__le16 *data, u16 flag);
+> -void set_flag_le64(__le64 *data, u64 flag);
+> -void reset_flag_le64(__le64 *data, u64 flag);
+> +static inline void set_flag_le16(__le16 *data, u16 flag)
+> +{
+> +	*data = cpu_to_le16(le16_to_cpu(*data) | flag);
+> +}
+> +
+> +static inline void set_flag_le64(__le64 *data, u64 flag)
+> +{
+> +	*data = cpu_to_le64(le64_to_cpu(*data) | flag);
+> +}
+> +
+> +static inline void reset_flag_le64(__le64 *data, u64 flag)
+> +{
+> +	*data = cpu_to_le64(le64_to_cpu(*data) & ~flag);
+> +}
+> 
+>  int
+>  vmxnet3_quiesce_dev(struct vmxnet3_adapter *adapter);
