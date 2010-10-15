@@ -1,48 +1,63 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH net-next] rtnetlink: remove rtnl_kill_links
-Date: Fri, 15 Oct 2010 08:12:01 -0700
-Message-ID: <20101015081201.55eae031@nehalam>
+Subject: [PATCH net-next] xfrm: make xfrm_bundle_ok local
+Date: Fri, 15 Oct 2010 08:14:19 -0700
+Message-ID: <20101015081419.79252990@nehalam>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:34414 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:43038 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754659Ab0JOPMD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Oct 2010 11:12:03 -0400
+	id S1755703Ab0JOPOV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Oct 2010 11:14:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The function rtnl_kill_links is defined but never used.
+Only used in one place.
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
---- a/include/net/rtnetlink.h	2010-10-02 15:28:38.350854857 +0900
-+++ b/include/net/rtnetlink.h	2010-10-02 15:29:42.650840398 +0900
-@@ -79,7 +79,6 @@ struct rtnl_link_ops {
+--- a/include/net/xfrm.h	2010-10-05 23:27:43.971148720 +0900
++++ b/include/net/xfrm.h	2010-10-05 23:27:54.631127801 +0900
+@@ -1466,8 +1466,6 @@ struct xfrm_state *xfrm_find_acq(struct 
+ 				 xfrm_address_t *saddr, int create,
+ 				 unsigned short family);
+ extern int xfrm_sk_policy_insert(struct sock *sk, int dir, struct xfrm_policy *pol);
+-extern int xfrm_bundle_ok(struct xfrm_policy *pol, struct xfrm_dst *xdst,
+-			  struct flowi *fl, int family, int strict);
  
- extern int	__rtnl_link_register(struct rtnl_link_ops *ops);
- extern void	__rtnl_link_unregister(struct rtnl_link_ops *ops);
--extern void	rtnl_kill_links(struct net *net, struct rtnl_link_ops *ops);
+ #ifdef CONFIG_XFRM_MIGRATE
+ extern int km_migrate(struct xfrm_selector *sel, u8 dir, u8 type,
+--- a/net/xfrm/xfrm_policy.c	2010-10-05 23:27:43.995125930 +0900
++++ b/net/xfrm/xfrm_policy.c	2010-10-05 23:28:27.244135115 +0900
+@@ -50,6 +50,9 @@ static struct xfrm_policy_afinfo *xfrm_p
+ static void xfrm_policy_put_afinfo(struct xfrm_policy_afinfo *afinfo);
+ static void xfrm_init_pmtu(struct dst_entry *dst);
+ static int stale_bundle(struct dst_entry *dst);
++static int xfrm_bundle_ok(struct xfrm_policy *pol, struct xfrm_dst *xdst,
++			  struct flowi *fl, int family, int strict);
++
  
- extern int	rtnl_link_register(struct rtnl_link_ops *ops);
- extern void	rtnl_link_unregister(struct rtnl_link_ops *ops);
---- a/net/core/rtnetlink.c	2010-10-02 15:28:38.370839030 +0900
-+++ b/net/core/rtnetlink.c	2010-10-02 15:29:42.660839574 +0900
-@@ -299,14 +299,6 @@ static void __rtnl_kill_links(struct net
- 	unregister_netdevice_many(&list_kill);
+ static struct xfrm_policy *__xfrm_policy_unlink(struct xfrm_policy *pol,
+ 						int dir);
+@@ -2276,7 +2279,7 @@ static void xfrm_init_pmtu(struct dst_en
+  * still valid.
+  */
+ 
+-int xfrm_bundle_ok(struct xfrm_policy *pol, struct xfrm_dst *first,
++static int xfrm_bundle_ok(struct xfrm_policy *pol, struct xfrm_dst *first,
+ 		struct flowi *fl, int family, int strict)
+ {
+ 	struct dst_entry *dst = &first->u.dst;
+@@ -2358,8 +2361,6 @@ int xfrm_bundle_ok(struct xfrm_policy *p
+ 	return 1;
  }
  
--void rtnl_kill_links(struct net *net, struct rtnl_link_ops *ops)
--{
--	rtnl_lock();
--	__rtnl_kill_links(net, ops);
--	rtnl_unlock();
--}
--EXPORT_SYMBOL_GPL(rtnl_kill_links);
+-EXPORT_SYMBOL(xfrm_bundle_ok);
 -
- /**
-  * __rtnl_link_unregister - Unregister rtnl_link_ops from rtnetlink.
-  * @ops: struct rtnl_link_ops * to unregister
+ int xfrm_policy_register_afinfo(struct xfrm_policy_afinfo *afinfo)
+ {
+ 	struct net *net;
