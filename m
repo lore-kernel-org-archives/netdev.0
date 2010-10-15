@@ -1,45 +1,109 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Couple tc filter questions.
-Date: Fri, 15 Oct 2010 11:44:16 +0000
-Message-ID: <20101015114416.GA9303@ff.dom.local>
-References: <4CB792E0.5030704@navigue.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Jonathan Thibault <jonathan@navigue.com>
+From: Stanislaw Gruszka <sgruszka@redhat.com>
+Subject: [PATCH 2/6] r8169: reduce number of functions arguments
+Date: Fri, 15 Oct 2010 14:15:18 +0200
+Message-ID: <1287144922-3297-2-git-send-email-sgruszka@redhat.com>
+References: <1287144922-3297-1-git-send-email-sgruszka@redhat.com>
+Cc: Denis Kirjanov <kirjanov@gmail.com>,
+	Stanislaw Gruszka <sgruszka@redhat.com>
+To: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:63977 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751608Ab0JOLoZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Oct 2010 07:44:25 -0400
-Received: by bwz15 with SMTP id 15so854263bwz.19
-        for <netdev@vger.kernel.org>; Fri, 15 Oct 2010 04:44:23 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <4CB792E0.5030704@navigue.com>
+Received: from mx1.redhat.com ([209.132.183.28]:59576 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754676Ab0JOMNH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Oct 2010 08:13:07 -0400
+In-Reply-To: <1287144922-3297-1-git-send-email-sgruszka@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2010-10-15 01:31, Jonathan Thibault wrote:
-> Since the lartc mailing list appears to be dead, I'll ask here and hope not to offend anyone.
-> 
-> 1- This page:
->   http://lartc.org/howto/lartc.qdisc.filters.html
-> States: "Also, with HTB, you should attach all filters to the root!"
-> 
-> Why?  Is it still true?  My setup would be a lot easier with cascading filters.  If it's just a matter of there not being any efficiency gains from cascading filters, that's fine.  If there is a risk of things exploding randomly and without notice, I'd be keen to know.  Testing shows that cascading works okay, but I haven't tried under any serious load.
+We don't need to pass arguments on stack since we have them in per
+device private structure.
 
-It's not true.
+Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
+---
+ drivers/net/r8169.c |   30 ++++++++++++------------------
+ 1 files changed, 12 insertions(+), 18 deletions(-)
 
-> 
-> 2- Are filter flowid (classify) actions terminating?  Meaning if two consecutive filters would match the same packet, only the first match would ever apply and no further filter is evaluated?  Are there actions for which this isn't the case?  Intuitively and experimentally, I'd answer no but if anyone knowledgeable in the matter would care to expand on that topic I'd be grateful.  Especially considering cascading classes/filters.
-> 
-> Another area where termination isn't entirely clear is when using mirred and ifb devices.  I might want to send a copy of all my traffic to an ifb device, but then I would still want subsequent filters to match in the current qdisc.  In such a case, a filter that matches all traffic with a mirred action should probably not be terminating.
-> 
-> Maybe I'm thinking too much in terms of iptables here :P
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index a6c4f90..86be06c 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -4005,29 +4005,26 @@ static inline void rtl8169_map_to_asic(struct RxDesc *desc, dma_addr_t mapping,
+ 	rtl8169_mark_to_asic(desc, rx_buf_sz);
+ }
+ 
+-static struct sk_buff *rtl8169_alloc_rx_skb(struct pci_dev *pdev,
+-					    struct net_device *dev,
+-					    struct RxDesc *desc, int rx_buf_sz,
+-					    unsigned int align, gfp_t gfp)
++static struct sk_buff *rtl8169_alloc_rx_skb(struct rtl8169_private *tp,
++					    struct RxDesc *desc, gfp_t gfp)
+ {
+ 	struct sk_buff *skb;
+ 	dma_addr_t mapping;
+-	unsigned int pad;
++	unsigned int align = tp->align;
++	unsigned int pad = align ? align : NET_IP_ALIGN;
+ 
+-	pad = align ? align : NET_IP_ALIGN;
+-
+-	skb = __netdev_alloc_skb(dev, rx_buf_sz + pad, gfp);
++	skb = __netdev_alloc_skb(tp->dev, tp->rx_buf_sz + pad, gfp);
+ 	if (!skb)
+ 		goto err_out_0;
+ 
+ 	skb_reserve(skb, align ? ((pad - 1) & (unsigned long)skb->data) : pad);
+ 
+-	mapping = dma_map_single(&pdev->dev, skb->data, rx_buf_sz,
++	mapping = dma_map_single(&tp->pci_dev->dev, skb->data, tp->rx_buf_sz,
+ 				 PCI_DMA_FROMDEVICE);
+-	if (dma_mapping_error(&pdev->dev, mapping))
++	if (dma_mapping_error(&tp->pci_dev->dev, mapping))
+ 		goto err_free_skb_1;
+ 
+-	rtl8169_map_to_asic(desc, mapping, rx_buf_sz);
++	rtl8169_map_to_asic(desc, mapping, tp->rx_buf_sz);
+ 
+ 	return skb;
+ 
+@@ -4051,8 +4048,7 @@ static void rtl8169_rx_clear(struct rtl8169_private *tp)
+ 	}
+ }
+ 
+-static u32 rtl8169_rx_fill(struct rtl8169_private *tp, struct net_device *dev,
+-			   u32 start, u32 end, gfp_t gfp)
++static u32 rtl8169_rx_fill(struct rtl8169_private *tp, u32 start, u32 end, gfp_t gfp)
+ {
+ 	u32 cur;
+ 
+@@ -4065,9 +4061,7 @@ static u32 rtl8169_rx_fill(struct rtl8169_private *tp, struct net_device *dev,
+ 		if (tp->Rx_skbuff[i])
+ 			continue;
+ 
+-		skb = rtl8169_alloc_rx_skb(tp->pci_dev, dev,
+-					   tp->RxDescArray + i,
+-					   tp->rx_buf_sz, tp->align, gfp);
++		skb = rtl8169_alloc_rx_skb(tp, tp->RxDescArray + i, gfp);
+ 		if (!skb)
+ 			break;
+ 
+@@ -4095,7 +4089,7 @@ static int rtl8169_init_ring(struct net_device *dev)
+ 	memset(tp->tx_skb, 0x0, NUM_TX_DESC * sizeof(struct ring_info));
+ 	memset(tp->Rx_skbuff, 0x0, NUM_RX_DESC * sizeof(struct sk_buff *));
+ 
+-	if (rtl8169_rx_fill(tp, dev, 0, NUM_RX_DESC, GFP_KERNEL) != NUM_RX_DESC)
++	if (rtl8169_rx_fill(tp, 0, NUM_RX_DESC, GFP_KERNEL) != NUM_RX_DESC)
+ 		goto err_out;
+ 
+ 	rtl8169_mark_as_last_descriptor(tp->RxDescArray + NUM_RX_DESC - 1);
+@@ -4615,7 +4609,7 @@ static int rtl8169_rx_interrupt(struct net_device *dev,
+ 	count = cur_rx - tp->cur_rx;
+ 	tp->cur_rx = cur_rx;
+ 
+-	delta = rtl8169_rx_fill(tp, dev, tp->dirty_rx, tp->cur_rx, GFP_ATOMIC);
++	delta = rtl8169_rx_fill(tp, tp->dirty_rx, tp->cur_rx, GFP_ATOMIC);
+ 	if (!delta && count)
+ 		netif_info(tp, intr, dev, "no Rx buffer allocated\n");
+ 	tp->dirty_rx += delta;
+-- 
+1.7.1
 
-Could you try doc/actions from iproute2 sources? Generally, anything
-reasonable, not forbidden and working in tests is allowed. If still
-problems please CC Jamal, the maintainer of tc classifiers (according
-to linux MAINTAINERS).
-
-Jarek P.
