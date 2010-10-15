@@ -1,68 +1,84 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [Bonding-devel] [PATCH net-next] bonding: make release_and_destroy static
-Date: Fri, 15 Oct 2010 16:16:33 -0700
-Message-ID: <24308.1287184593@death>
-References: <20101015080934.6dc28388@nehalam> <20101015153725.GC7497@gospo.rdu.redhat.com>
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	bonding-devel@lists.sourceforge.net
-To: Andy Gospodarek <andy@greyhouse.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH 3/3] cxgb4vf: function namespace cleanup
+Date: Fri, 15 Oct 2010 15:43:12 -0700
+Message-ID: <20101015224523.727651263@vyatta.com>
+References: <20101015224309.179898823@vyatta.com>
+Cc: netdev@vger.kernel.org
+To: Divy Le Ray <divy@chelsio.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Casey Leedom <leedom@chelsio.com>,
+	Dimitris Michailidis <dm@chelsio.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e34.co.us.ibm.com ([32.97.110.152]:45723 "EHLO
-	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751787Ab0JOXQg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Oct 2010 19:16:36 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e34.co.us.ibm.com (8.14.4/8.13.1) with ESMTP id o9FN6u3I002713
-	for <netdev@vger.kernel.org>; Fri, 15 Oct 2010 17:06:56 -0600
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o9FNGZVY127120
-	for <netdev@vger.kernel.org>; Fri, 15 Oct 2010 17:16:35 -0600
-Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o9FNGYKP023118
-	for <netdev@vger.kernel.org>; Fri, 15 Oct 2010 17:16:35 -0600
-In-reply-to: <20101015153725.GC7497@gospo.rdu.redhat.com>
+Received: from suva.vyatta.com ([76.74.103.44]:60763 "EHLO suva.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751826Ab0JOXXm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Oct 2010 19:23:42 -0400
+Content-Disposition: inline; filename=cxgb4vf-local.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andy Gospodarek <andy@greyhouse.net> wrote:
+Where possible make functions local.
+Compile tested only
 
->On Fri, Oct 15, 2010 at 08:09:34AM -0700, Stephen Hemminger wrote:
->> Only used in main file.
->> 
->> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
->> 
->> --- a/drivers/net/bonding/bond_main.c	2010-10-15 08:07:14.163898236 -0700
->> +++ b/drivers/net/bonding/bond_main.c	2010-10-15 08:07:31.956373660 -0700
->> @@ -2057,8 +2057,8 @@ int bond_release(struct net_device *bond
->>  * First release a slave and than destroy the bond if no more slaves are left.
->>  * Must be under rtnl_lock when this function is called.
->>  */
->> -int  bond_release_and_destroy(struct net_device *bond_dev,
->> -			      struct net_device *slave_dev)
->> +static int  bond_release_and_destroy(struct net_device *bond_dev,
->> +				     struct net_device *slave_dev)
->>  {
->>  	struct bonding *bond = netdev_priv(bond_dev);
->>  	int ret;
->> --- a/drivers/net/bonding/bonding.h	2010-10-15 08:07:14.179898632 -0700
->> +++ b/drivers/net/bonding/bonding.h	2010-10-15 08:07:31.956373660 -0700
->> @@ -334,7 +334,6 @@ static inline void bond_unset_master_alb
->>  struct vlan_entry *bond_next_vlan(struct bonding *bond, struct vlan_entry *curr);
->>  int bond_dev_queue_xmit(struct bonding *bond, struct sk_buff *skb, struct net_device *slave_dev);
->>  int bond_create(struct net *net, const char *name);
->> -int  bond_release_and_destroy(struct net_device *bond_dev, struct net_device *slave_dev);
->>  int bond_create_sysfs(void);
->>  void bond_destroy_sysfs(void);
->>  void bond_prepare_sysfs_group(struct bonding *bond);
->
->Seems fine.
->
->Acked-by: Andy Gospodarek <andy@greyhouse.net>
-
-Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
-
-	-J
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
 ---
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+ drivers/net/cxgb4vf/sge.c         |    6 +++---
+ drivers/net/cxgb4vf/t4vf_common.h |    1 -
+ drivers/net/cxgb4vf/t4vf_hw.c     |    4 ++--
+ 3 files changed, 5 insertions(+), 6 deletions(-)
+
+--- a/drivers/net/cxgb4vf/sge.c	2010-10-15 13:35:37.841741143 -0700
++++ b/drivers/net/cxgb4vf/sge.c	2010-10-15 13:37:26.753998981 -0700
+@@ -1361,7 +1361,7 @@ out_free:
+  *	Releases the pages of a packet gather list.  We do not own the last
+  *	page on the list and do not free it.
+  */
+-void t4vf_pktgl_free(const struct pkt_gl *gl)
++static void t4vf_pktgl_free(const struct pkt_gl *gl)
+ {
+ 	int frag;
+ 
+@@ -1636,7 +1636,7 @@ static inline void rspq_next(struct sge_
+  *	on this queue.  If the system is under memory shortage use a fairly
+  *	long delay to help recovery.
+  */
+-int process_responses(struct sge_rspq *rspq, int budget)
++static int process_responses(struct sge_rspq *rspq, int budget)
+ {
+ 	struct sge_eth_rxq *rxq = container_of(rspq, struct sge_eth_rxq, rspq);
+ 	int budget_left = budget;
+@@ -1888,7 +1888,7 @@ static unsigned int process_intrq(struct
+  * The MSI interrupt handler handles data events from SGE response queues as
+  * well as error and other async events as they all use the same MSI vector.
+  */
+-irqreturn_t t4vf_intr_msi(int irq, void *cookie)
++static irqreturn_t t4vf_intr_msi(int irq, void *cookie)
+ {
+ 	struct adapter *adapter = cookie;
+ 
+--- a/drivers/net/cxgb4vf/t4vf_common.h	2010-10-15 13:38:12.555553059 -0700
++++ b/drivers/net/cxgb4vf/t4vf_common.h	2010-10-15 13:38:30.716055176 -0700
+@@ -235,7 +235,6 @@ static inline int t4vf_wr_mbox_ns(struct
+ int __devinit t4vf_wait_dev_ready(struct adapter *);
+ int __devinit t4vf_port_init(struct adapter *, int);
+ 
+-int t4vf_query_params(struct adapter *, unsigned int, const u32 *, u32 *);
+ int t4vf_set_params(struct adapter *, unsigned int, const u32 *, const u32 *);
+ 
+ int t4vf_get_sge_params(struct adapter *);
+--- a/drivers/net/cxgb4vf/t4vf_hw.c	2010-10-15 13:35:44.638006598 -0700
++++ b/drivers/net/cxgb4vf/t4vf_hw.c	2010-10-15 13:38:04.503330665 -0700
+@@ -335,8 +335,8 @@ int __devinit t4vf_port_init(struct adap
+  *	Reads the values of firmware or device parameters.  Up to 7 parameters
+  *	can be queried at once.
+  */
+-int t4vf_query_params(struct adapter *adapter, unsigned int nparams,
+-		      const u32 *params, u32 *vals)
++static int t4vf_query_params(struct adapter *adapter, unsigned int nparams,
++			     const u32 *params, u32 *vals)
+ {
+ 	int i, ret;
+ 	struct fw_params_cmd cmd, rpl;
+
+
