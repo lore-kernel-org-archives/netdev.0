@@ -1,101 +1,63 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: Re: [PATCH net-next 3/5] tipc: Optimizations to bearer enabling
- logic
-Date: Thu, 14 Oct 2010 21:11:51 -0400
-Message-ID: <20101015011139.GB5048@windriver.com>
-References: <1286929558-2954-1-git-send-email-paul.gortmaker@windriver.com>
- <1286929558-2954-3-git-send-email-paul.gortmaker@windriver.com>
- <20101013145843.GD31379@hmsreliant.think-freely.org>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [RFC PATCH 3/7] bnx2: Update bnx2 to use new vlan accleration.
+Date: Thu, 14 Oct 2010 18:36:21 -0700
+Message-ID: <AANLkTikBVhCkyX2JVmgd2FXHs_OnV=sy5P9dh3tL8odB@mail.gmail.com>
+References: <1287000177-7126-1-git-send-email-jesse@nicira.com>
+	<1287000177-7126-4-git-send-email-jesse@nicira.com>
+	<1287096960.14523.31.camel@nseg_linux_HP1.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	allan.stephens@windriver.com
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:36441 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755195Ab0JOBMH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Oct 2010 21:12:07 -0400
-Content-Disposition: inline
-In-Reply-To: <20101013145843.GD31379@hmsreliant.think-freely.org>
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:41423 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753506Ab0JOBgW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Oct 2010 21:36:22 -0400
+Received: by iwn35 with SMTP id 35so281358iwn.19
+        for <netdev@vger.kernel.org>; Thu, 14 Oct 2010 18:36:21 -0700 (PDT)
+In-Reply-To: <1287096960.14523.31.camel@nseg_linux_HP1.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[Re: [PATCH net-next 3/5] tipc: Optimizations to bearer enabling logic] On 13/10/2010 (Wed 10:58) Neil Horman wrote:
+On Thu, Oct 14, 2010 at 3:56 PM, Michael Chan <mchan@broadcom.com> wrot=
+e:
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 if ((status & L2_FHDR_STATUS_L2_VLAN_TAG=
+) &&
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 !(bp->rx_mode & BNX2_EMAC_RX_MODE_=
+KEEP_VLAN_TAG)) {
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 vtag =3D rx_hdr->l2_fhdr_v=
+lan_tag;
+>> -#ifdef BCM_VLAN
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (bp->vlgrp)
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 hw_vlan =3D=
+ 1;
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 else
+>> -#endif
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 {
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 struct vla=
+n_ethhdr *ve =3D (struct vlan_ethhdr *)
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 __skb_push(skb, 4);
+>> -
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 memmove(ve=
+, skb->data + 4, ETH_ALEN * 2);
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 ve->h_vlan=
+_proto =3D htons(ETH_P_8021Q);
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 ve->h_vlan=
+_TCI =3D htons(vtag);
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 len +=3D 4=
+;
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+>> - =A0 =A0 =A0 =A0 =A0 =A0 }
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 !(bp->rx_mode & BNX2_EMAC_RX_MODE_=
+KEEP_VLAN_TAG))
+>
+> This check for the rx_mode bit is no longer necessary if we always
+> configure the chip to strip out the vlan tag.
 
-> On Tue, Oct 12, 2010 at 08:25:56PM -0400, Paul Gortmaker wrote:
-> > From: Allan Stephens <allan.stephens@windriver.com>
-> > 
-> > Introduces "enabling" state during activation of a new TIPC bearer,
-> > which supplements the existing "disabled" and "enabled" states.
-> > This change allows the new bearer to be added without having to
-> > temporarily block the processing of incoming packets on existing
-> > bearers during the binding of the new bearer to its associated
-> > interface. It also makes it unnecessary to zero out the entire
-> > bearer structure at the start of activation.
-> > 
-
-[...]
-
-> > +	b_ptr->state = BEARER_ENABLING;
-> >  	strcpy(b_ptr->publ.name, name);
-> > +	b_ptr->priority = priority;
-> > +
-> > +	write_unlock_bh(&tipc_net_lock);
-> Why the 3rd state?  Doesn't seem needed. 
-
-I'm a bit disappointed in myself for also not noticing that it
-was set but never tested for.  The following should give the
-same end result but without the obfuscation of an extra state.
-
-This one also doesn't explicitly depend on any other changes,
-so if it is now OK, the option is there for it to be applied
-independently of the others that haven't been reworked yet.
-
-Thanks,
-Paul.
-
-
->From 86d0d5c92439d0a3f5a0f165aa8bd842d377dae9 Mon Sep 17 00:00:00 2001
-From: Allan Stephens <allan.stephens@windriver.com>
-Date: Thu, 14 Oct 2010 16:09:23 -0400
-Subject: [PATCH] tipc: Optimizations to bearer enabling logic
-
-Allow new bearers to be added without having to temporarily block
-the processing of incoming packets on existing bearers during the
-binding of the new bearer to its associated interface. Eliminates
-zeroing out of the new bearer structure at the start of activation,
-since it is already in that state.
-
-Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
-Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
----
- net/tipc/bearer.c |    7 ++++---
- 1 files changed, 4 insertions(+), 3 deletions(-)
-
-diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
-index fd9c06c..2ff8181 100644
---- a/net/tipc/bearer.c
-+++ b/net/tipc/bearer.c
-@@ -556,14 +556,15 @@ restart:
- 	}
- 
- 	b_ptr = &tipc_bearers[bearer_id];
--	memset(b_ptr, 0, sizeof(struct bearer));
--
- 	strcpy(b_ptr->publ.name, name);
-+
-+	write_unlock_bh(&tipc_net_lock);
- 	res = m_ptr->enable_bearer(&b_ptr->publ);
- 	if (res) {
- 		warn("Bearer <%s> rejected, enable failure (%d)\n", name, -res);
--		goto failed;
-+		return res;
- 	}
-+	write_lock_bh(&tipc_net_lock);
- 
- 	b_ptr->identity = bearer_id;
- 	b_ptr->media = m_ptr;
--- 
-1.7.2.1
-
+Thanks, I've dropped it from my local tree.  I may add support for
+ethtool to disable vlan stripping in the future, so I might have to
+add it back.
