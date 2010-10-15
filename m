@@ -1,54 +1,147 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [PATCH net-next] bonding: make release_and_destroy static
-Date: Fri, 15 Oct 2010 11:37:25 -0400
-Message-ID: <20101015153725.GC7497@gospo.rdu.redhat.com>
-References: <20101015080934.6dc28388@nehalam>
+From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
+Subject: [PATCH V2 net-next] can-raw: add msg_flags to distinguish local
+	traffic
+Date: Fri, 15 Oct 2010 17:38:30 +0200
+Message-ID: <20101015153829.GA317@e-circ.dyndns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	David Miller <davem@davemloft.net>,
-	bonding-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55853 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755828Ab0JOPhf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Oct 2010 11:37:35 -0400
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+To: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20101015080934.6dc28388@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 15, 2010 at 08:09:34AM -0700, Stephen Hemminger wrote:
-> Only used in main file.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> 
-> --- a/drivers/net/bonding/bond_main.c	2010-10-15 08:07:14.163898236 -0700
-> +++ b/drivers/net/bonding/bond_main.c	2010-10-15 08:07:31.956373660 -0700
-> @@ -2057,8 +2057,8 @@ int bond_release(struct net_device *bond
->  * First release a slave and than destroy the bond if no more slaves are left.
->  * Must be under rtnl_lock when this function is called.
->  */
-> -int  bond_release_and_destroy(struct net_device *bond_dev,
-> -			      struct net_device *slave_dev)
-> +static int  bond_release_and_destroy(struct net_device *bond_dev,
-> +				     struct net_device *slave_dev)
->  {
->  	struct bonding *bond = netdev_priv(bond_dev);
->  	int ret;
-> --- a/drivers/net/bonding/bonding.h	2010-10-15 08:07:14.179898632 -0700
-> +++ b/drivers/net/bonding/bonding.h	2010-10-15 08:07:31.956373660 -0700
-> @@ -334,7 +334,6 @@ static inline void bond_unset_master_alb
->  struct vlan_entry *bond_next_vlan(struct bonding *bond, struct vlan_entry *curr);
->  int bond_dev_queue_xmit(struct bonding *bond, struct sk_buff *skb, struct net_device *slave_dev);
->  int bond_create(struct net *net, const char *name);
-> -int  bond_release_and_destroy(struct net_device *bond_dev, struct net_device *slave_dev);
->  int bond_create_sysfs(void);
->  void bond_destroy_sysfs(void);
->  void bond_prepare_sysfs_group(struct bonding *bond);
+differences in V2:
+1) use 'unsigned int' for flags, conform to the msg_flags
+   in the kernel headers (glibc uses 'int')
+2) fixed typo in comments
+3) Add description in Documentation
+4) correct email address in Signed-off-by
 
-Seems fine.
+CAN has no addressing scheme. It is currently impossible
+for userspace to tell is a received CAN frame comes from
+another process on the local host, or from a remote CAN
+device.
+This patch add support for userspace applications to distinguish
+between 'own', 'local' and 'remote' CAN traffic.
+Distinction is made by returning flags in msg->msg_flags
+in the call to recvmsg.
+The Documentation/...  explains the flags.
 
-Acked-by: Andy Gospodarek <andy@greyhouse.net>
+Signed-off-by: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
+---
+ Documentation/networking/can.txt |   11 +++++++++++
+ net/can/raw.c                    |   33 ++++++++++++++++++++++++++++++---
+ 2 files changed, 41 insertions(+), 3 deletions(-)
 
+diff --git a/Documentation/networking/can.txt b/Documentation/networking/can.txt
+index cd79735..95341aa 100644
+--- a/Documentation/networking/can.txt
++++ b/Documentation/networking/can.txt
+@@ -22,6 +22,7 @@ This file contains
+       4.1.2 RAW socket option CAN_RAW_ERR_FILTER
+       4.1.3 RAW socket option CAN_RAW_LOOPBACK
+       4.1.4 RAW socket option CAN_RAW_RECV_OWN_MSGS
++      4.1.5 RAW socket returned flags
+     4.2 Broadcast Manager protocol sockets (SOCK_DGRAM)
+     4.3 connected transport protocols (SOCK_SEQPACKET)
+     4.4 unconnected transport protocols (SOCK_DGRAM)
+@@ -471,6 +472,16 @@ solution for a couple of reasons:
+     setsockopt(s, SOL_CAN_RAW, CAN_RAW_RECV_OWN_MSGS,
+                &recv_own_msgs, sizeof(recv_own_msgs));
+ 
++  4.1.5 RAW socket returned flags
++
++  When using recvmsg() call, the msg->msg_flags may contain following flags:
++
++    MSG_DONTROUTE: set when the frame was sent via the same physical device,
++	ie. a loopback frame.
++    MSG_CONFIRM: set when the frame was sent via the socket it is received on.
++	This flag acts as a 'transmission confirmation'.
++	In order to receive such messages, CAN_RAW_RECV_OWN_MSGS must be set.
++
+   4.2 Broadcast Manager protocol sockets (SOCK_DGRAM)
+   4.3 connected transport protocols (SOCK_SEQPACKET)
+   4.4 unconnected transport protocols (SOCK_DGRAM)
+diff --git a/net/can/raw.c b/net/can/raw.c
+index 7d77e67..9020c4f 100644
+--- a/net/can/raw.c
++++ b/net/can/raw.c
+@@ -90,23 +90,39 @@ struct raw_sock {
+ 	can_err_mask_t err_mask;
+ };
+ 
++/*
++ * return some space to store extra msg flags in.
++ * We use 1 int beyond the 'struct sockaddr_can' in skb->cb
++ * to store those.
++ * These flags will be use in raw_recvmsg()
++ */
++static inline unsigned int *raw_flags(struct sk_buff *skb)
++{
++	BUILD_BUG_ON(sizeof(skb->cb) <= (sizeof(struct sockaddr_can)
++				+ sizeof(unsigned int)));
++	/* return pointer after struct sockaddr_can */
++	return (unsigned int *)(&((struct sockaddr_can *)skb->cb)[1]);
++}
++
+ static inline struct raw_sock *raw_sk(const struct sock *sk)
+ {
+ 	return (struct raw_sock *)sk;
+ }
+ 
+-static void raw_rcv(struct sk_buff *skb, void *data)
++static void raw_rcv(struct sk_buff *oskb, void *data)
+ {
+ 	struct sock *sk = (struct sock *)data;
+ 	struct raw_sock *ro = raw_sk(sk);
+ 	struct sockaddr_can *addr;
++	struct sk_buff *skb;
++	unsigned int *pflags;
+ 
+ 	/* check the received tx sock reference */
+-	if (!ro->recv_own_msgs && skb->sk == sk)
++	if (!ro->recv_own_msgs && oskb->sk == sk)
+ 		return;
+ 
+ 	/* clone the given skb to be able to enqueue it into the rcv queue */
+-	skb = skb_clone(skb, GFP_ATOMIC);
++	skb = skb_clone(oskb, GFP_ATOMIC);
+ 	if (!skb)
+ 		return;
+ 
+@@ -123,6 +139,14 @@ static void raw_rcv(struct sk_buff *skb, void *data)
+ 	addr->can_family  = AF_CAN;
+ 	addr->can_ifindex = skb->dev->ifindex;
+ 
++	/* prepare the flags for raw_recvmsg() */
++	pflags = raw_flags(skb);
++	*pflags = 0;
++	if (oskb->sk)
++		*pflags |= MSG_DONTROUTE;
++	if (oskb->sk == sk)
++		*pflags |= MSG_CONFIRM;
++
+ 	if (sock_queue_rcv_skb(sk, skb) < 0)
+ 		kfree_skb(skb);
+ }
+@@ -707,6 +731,9 @@ static int raw_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 		memcpy(msg->msg_name, skb->cb, msg->msg_namelen);
+ 	}
+ 
++	/* assign the flags that have been recorded in raw_rcv() */
++	msg->msg_flags |= *(raw_flags(skb));
++
+ 	skb_free_datagram(sk, skb);
+ 
+ 	return size;
