@@ -1,109 +1,70 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: tbf/htb qdisc limitations
-Date: Sat, 16 Oct 2010 00:51:06 -0400
-Message-ID: <20101016005106.35e4cc8d.billfink@mindspring.com>
-References: <4CB4DE6E.7030802@hp.com>
-	<20101013062649.GA6915@ff.dom.local>
-	<20101013233653.1e363692.billfink@mindspring.com>
-	<20101014064404.GA6219@ff.dom.local>
-	<20101014031354.e172d737.billfink@mindspring.com>
-	<20101014080939.GA7710@ff.dom.local>
-	<20101014085005.GA8349@ff.dom.local>
-	<20101015023749.f085006b.billfink@mindspring.com>
-	<1287125059.2659.1812.camel@edumazet-laptop>
-	<20101015173746.12c7c40a.billfink@mindspring.com>
-	<20101015220535.GA1997@del.dom.local>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-2.6] net/sched: fix missing spinlock init
+Date: Sat, 16 Oct 2010 07:22:34 +0200
+Message-ID: <1287206554.2799.32.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Rick Jones <rick.jones2@hp.com>,
-	Steven Brudenell <steven.brudenell@gmail.com>,
-	netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-galgo.atl.sa.earthlink.net ([209.86.89.61]:42504 "EHLO
-	elasmtp-galgo.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751234Ab0JPExa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Oct 2010 00:53:30 -0400
-In-Reply-To: <20101015220535.GA1997@del.dom.local>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:47445 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751891Ab0JPFWl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Oct 2010 01:22:41 -0400
+Received: by wwj40 with SMTP id 40so1857945wwj.1
+        for <netdev@vger.kernel.org>; Fri, 15 Oct 2010 22:22:40 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 16 Oct 2010, Jarek Poplawski wrote:
+Under network load, doing :
 
-> On Fri, Oct 15, 2010 at 05:37:46PM -0400, Bill Fink wrote:
-> ...
-> > i7test7% tc -s -d qdisc show dev eth2
-> > qdisc prio 1: root refcnt 33 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
-> >  Sent 11028687119 bytes 1223828 pkt (dropped 293, overlimits 0 requeues 0) 
-> >  backlog 0b 0p requeues 0 
-> > qdisc tbf 10: parent 1:1 rate 8900Mbit burst 1112500b/64 mpu 0b lat 4295.0s 
-> >  Sent 11028687077 bytes 1223827 pkt (dropped 293, overlimits 593 requeues 0) 
-> >  backlog 0b 0p requeues 0 
-> > 
-> > I'm not sure how you can have so many dropped but not have
-> > any TCP retransmissions (or not show up as requeues).  But
-> > there's probably something basic I just don't understand
-> > about how all this stuff works.
-> 
-> Me either, but it seems higher "limit" might help with these drops.
+tc qdisc del dev eth0 root
 
-You were of course correct about the higher limit helping.
-I finally upgraded the field system to 2.6.35, and did some
-testing on the real data path of interest, which has an RTT
-of about 29 ms.  I set up a rate limit of 8 Gbps using the
-following commands:
+triggers :
 
-tc qdisc add dev eth2 root handle 1: prio
-tc qdisc add dev eth2 parent 1:1 handle 10: tbf rate 8000mbit limit 35000000 burst 20000 mtu 9000
-tc filter add dev eth2 protocol ip parent 1: prio 1 u32 match ip protocol 6 0xff match ip dst 192.168.1.23 flowid 10:1
+[  167.193087] BUG: spinlock bad magic on CPU#3, udpflood/4928
+[  167.193139]  lock: c15bc324, .magic: 00000000, .owner:
+<none>/-1, .owner_cpu: -1
+[  167.193193] Pid: 4928, comm: udpflood Not tainted
+2.6.36-rc7-11417-g215340c-dirty #323
+[  167.193245] Call Trace:
+[  167.193292]  [<c13abaa0>] ? printk+0x18/0x20
+[  167.193342]  [<c11afb53>] spin_bug+0xa3/0xf0
+[  167.193389]  [<c11afcdd>] do_raw_spin_lock+0x7d/0x160
+[  167.193440]  [<c1313d4e>] ? __dev_xmit_skb+0x27e/0x2b0
+[  167.193496]  [<c107382b>] ? trace_hardirqs_on+0xb/0x10
+[  167.193545]  [<c13ae99a>] _raw_spin_lock+0x3a/0x40
+[  167.193593]  [<c1313d4e>] ? __dev_xmit_skb+0x27e/0x2b0
+[  167.193641]  [<c1313d4e>] __dev_xmit_skb+0x27e/0x2b0
 
-hecn-i7sl1% nuttcp -T10 -i1 -w50m 192.168.1.23
-  676.3750 MB /   1.00 sec = 5673.4646 Mbps     0 retrans
-  948.5625 MB /   1.00 sec = 7957.1508 Mbps     0 retrans
-  948.8125 MB /   1.00 sec = 7959.5902 Mbps     0 retrans
-  948.3750 MB /   1.00 sec = 7955.5382 Mbps     0 retrans
-  949.0000 MB /   1.00 sec = 7960.6696 Mbps     0 retrans
-  948.7500 MB /   1.00 sec = 7958.7873 Mbps     0 retrans
-  948.6875 MB /   1.00 sec = 7958.0959 Mbps     0 retrans
-  948.6250 MB /   1.00 sec = 7957.4205 Mbps     0 retrans
-  948.7500 MB /   1.00 sec = 7958.7237 Mbps     0 retrans
-  948.4375 MB /   1.00 sec = 7956.3648 Mbps     0 retrans
+commit 79640a4ca695 (add additional lock to qdisc to increase
+throughput) forgot to initialize  noop_qdisc and noqueue_qdisc busylock 
 
- 9270.5625 MB /  10.09 sec = 7707.7457 Mbps 24 %TX 36 %RX 0 retrans 29.38 msRTT
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/sched/sch_generic.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
-hecn-i7sl1% tc -s -d qdisc show dev eth2
-qdisc prio 1: root refcnt 33 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
- Sent 9779476756 bytes 1084943 pkt (dropped 0, overlimits 0 requeues 0) 
- backlog 0b 0p requeues 0 
-qdisc tbf 10: parent 1:1 rate 8000Mbit burst 19000b/64 mpu 0b lat 35.0ms 
- Sent 9779476756 bytes 1084943 pkt (dropped 0, overlimits 1831360 requeues 0) 
- backlog 0b 0p requeues 0 
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 3d57681..0abcc49 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -383,6 +383,7 @@ struct Qdisc noop_qdisc = {
+ 	.list		=	LIST_HEAD_INIT(noop_qdisc.list),
+ 	.q.lock		=	__SPIN_LOCK_UNLOCKED(noop_qdisc.q.lock),
+ 	.dev_queue	=	&noop_netdev_queue,
++	.busylock	=	__SPIN_LOCK_UNLOCKED(noop_qdisc.busylock),
+ };
+ EXPORT_SYMBOL(noop_qdisc);
+ 
+@@ -409,6 +410,7 @@ static struct Qdisc noqueue_qdisc = {
+ 	.list		=	LIST_HEAD_INIT(noqueue_qdisc.list),
+ 	.q.lock		=	__SPIN_LOCK_UNLOCKED(noqueue_qdisc.q.lock),
+ 	.dev_queue	=	&noqueue_netdev_queue,
++	.busylock	=	__SPIN_LOCK_UNLOCKED(noqueue_qdisc.busylock),
+ };
+ 
+ 
 
-No drops!
 
-BTW the effective rate limit seems to be a very coarse adjustment
-at these speeds.  I was seeing some data path issues at 8.9 Gbps
-so I tried setting slightly lower rates such as 8.8 Gbps, 8.7 Gbps,
-etc, but they still gave me an effective rate limit of about 8.9 Gbps.
-It wasn't until I got down to a setting of 8 Gbps that I actually
-got an effective rate limit of 8 Gbps.
-
-Also the man page for tbf seems to be wrong/misleading about
-the burst parameter.  It states:
-
-	"If your buffer is too small, packets may be dropped because more
-	tokens arrive per timer tick than fit in your bucket.  The minimum
-	buffer size can be calculated by dividing the rate by HZ.
-
-According to that, with a rate of 8 Gbps and HZ=1000, the minimum
-burst should be 1000000 bytes.  But my testing shows that a burst
-of just 20000 works just fine.  That's only 2 9000-byte packets
-or about 20 usec of traffic at the 8 Gbps rate.  Using too large
-a value for burst can actually be harmful as it allows the traffic
-to temporarily exceed the desired rate limit.
-
-						-Thanks
-
-						-Bill
