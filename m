@@ -1,39 +1,41 @@
-From: Tracey Dent <tdent48227@gmail.com>
-Subject: [PATCH] Drivers: atm: Makefile: replace the use of <module>-objs with <module>-y
-Date: Fri, 15 Oct 2010 23:53:29 -0400
-Message-ID: <1287201209-2101-1-git-send-email-tdent48227@gmail.com>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-atm-general@lists.sourceforge.net,
-	Tracey Dent <tdent48227@gmail.com>
-To: chas@cmf.nrl.navy.mil
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 2/3] cxgb4: function namespace cleanup (v2)
+Date: Fri, 15 Oct 2010 21:23:10 -0700
+Message-ID: <20101015212310.47a74d86@nehalam>
+References: <20101015224309.179898823@vyatta.com>
+	<20101015224523.633775810@vyatta.com>
+	<20101015171057.409db0f2@nehalam>
+	<4CB8FBCE.3090401@chelsio.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Divy Le Ray <divy@chelsio.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Casey Leedom <leedom@chelsio.com>, netdev@vger.kernel.org,
+	Steve Wise <swise@opengridcomputing.com>
+To: Dimitris Michailidis <dm@chelsio.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f174.google.com ([209.85.214.174]:59566 "EHLO
-	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752787Ab0JPDxq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Oct 2010 23:53:46 -0400
+Received: from mail.vyatta.com ([76.74.103.46]:42725 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750768Ab0JPEXP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 16 Oct 2010 00:23:15 -0400
+In-Reply-To: <4CB8FBCE.3090401@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Changed <module>-objs to <module>-y in Makefile.
+On Fri, 15 Oct 2010 18:11:42 -0700
+Dimitris Michailidis <dm@chelsio.com> wrote:
 
-Signed-off-by: Tracey Dent <tdent48227@gmail.com>
----
- drivers/atm/Makefile |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+> Stephen Hemminger wrote:
+> > Make functions only used in one file local.
+> > Remove lots of dead code, relating to unsupported functions
+> > in mainline driver like RSS, IPv6, and TCP offload.
+> 
+> Thanks, this looks OK.  One exception, cxgb4_get_tcp_stats was intended to 
+> be used by the rdma driver.  I see that driver doesn't call it presently but 
+> if you don't mind can we give Steve a few hours to tell us if he has any 
+> imminent plans to use it.  If he doesn't offer to do something to use it for 
+> .37 it goes.
 
-diff --git a/drivers/atm/Makefile b/drivers/atm/Makefile
-index 62c3cc1..c6c9ee9 100644
---- a/drivers/atm/Makefile
-+++ b/drivers/atm/Makefile
-@@ -2,7 +2,7 @@
- # Makefile for the Linux network (ATM) device drivers.
- #
- 
--fore_200e-objs	:= fore200e.o
-+fore_200e-y	:= fore200e.o
- 
- obj-$(CONFIG_ATM_ZATM)		+= zatm.o uPD98402.o
- obj-$(CONFIG_ATM_NICSTAR)	+= nicstar.o
--- 
-1.7.3.1.104.gc752e
-
+The kernel source tree is not your development place holder tree.
+At least #ifdef the code out for now.
