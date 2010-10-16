@@ -1,91 +1,81 @@
-From: Patrick Ringl <patrick_@freenet.de>
-Subject: 2.6.36-rc7: net/bridge causes temporary network I/O lockups [2]
-Date: Sat, 16 Oct 2010 20:15:31 +0200
-Message-ID: <4CB9EBC3.4070905@freenet.de>
+From: Glenn Wurster <gwurster@scs.carleton.ca>
+Subject: Re: [PATCH linux-2.6 v2] IPv6: Temp addresses are immediately deleted.
+Date: Sat, 16 Oct 2010 14:42:17 -0400
+Message-ID: <201010161442.18748.gwurster@scs.carleton.ca>
+References: <20100927171010.GB7106@adams.ccsl.carleton.ca> <20100928.233028.112599117.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, herbert@gondor.apana.org.au,
-	bridge@lists.linux-foundation.org
-To: netdev@vger.kernel.org
+Cc: kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, shemminger@vyatta.com,
+	eric.dumazet@gmail.com, herbert@gondor.hengli.com.au,
+	ebiederm@xmission.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout6.freenet.de ([195.4.92.96]:35338 "EHLO mout6.freenet.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753030Ab0JPSPn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 16 Oct 2010 14:15:43 -0400
+Received: from 69-55-236-88.in-addr.arpa.johncompanies.com ([69.55.236.88]:60436
+	"EHLO external.dropship.ath.cx" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753429Ab0JPSnQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Oct 2010 14:43:16 -0400
+In-Reply-To: <20100928.233028.112599117.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On September 29, 2010 02:30:28 am David Miller wrote:
+> From: Glenn Wurster <gwurster@scs.carleton.ca>
+> Date: Mon, 27 Sep 2010 13:10:10 -0400
+> 
+> > There is a bug in the interaction between ipv6_create_tempaddr and
+> > addrconf_verify.  Because ipv6_create_tempaddr uses the cstamp and tstamp
+> > from the public address in creating a private address, if we have not
+> > received a router advertisement in a while, tstamp + temp_valid_lft might
+> > be < now.  If this happens, the new address is created inside
+> > ipv6_create_tempaddr, then the loop within addrconf_verify starts again
+> > and the address is immediately deleted.  We are left with no temporary
+> > addresses on the interface, and no more will be created until the public
+> > IP address is updated.  To avoid this, set the expiry time to be the
+> > minimum of the time left on the public address or the config option PLUS
+> > the current age of the public interface.
+> > 
+> > Version 2, now with 100% fewer line wraps.  Thanks to David Miller for
+> > pointing out the line wrapping issue.
+> > 
+> > Signed-off-by: Glenn Wurster <gwurster@scs.carleton.ca>
+> 
+> This can only happen if we apply your other patch, which I showed
+> was incorrect as per RFCs.
+> 
+> We only create temporary address when public addresses are created,
+> and this is the point where we are handling a router advertisement
+> with non-zero Valid Lifetime.
+> 
+> Therefore I'm not applying this patch either.
 
-okay I narrowed down the issue. I watched all function calls of the 
-'bridge' module with the help of a small systemtap probe of mine. I 
-first traced a timespan where the issue did not occur, then one where it 
-did and composed an intersection of these two:
+No, the first patch was to create a temporary address if none exists.  Like 
+Brian Haley pointed out, that patch accommodates the case where we set 
+use_tempaddr to a non-zero value after the interface had been brought up.
 
-br_fdb_cleanup
-br_flood
-br_flood_forward
-br_ip4_multicast_add_group
-br_ip4_multicast_alloc_query
-br_ip4_multicast_leave_group
-br_ip6_multicast_alloc_query
-br_mdb_get
-br_multicast_alloc_query
-br_multicast_flood
-br_multicast_forward
-br_multicast_ipv4_rcv
-br_multicast_port_query_expired
-br_multicast_query_expired
-br_multicast_rcv
-__br_multicast_send_query
-br_multicast_send_query
+This patch accommodates the case where the router is only broadcasting 
+advertisements every x seconds, and yet the user has set the valid_lft to be 
+something less than x.  In this setup, the condition I mentioned in the patch 
+description happens, where the new temporary address is created, but the last 
+modification time on that temporary address is set to the time of the last 
+router advertisement, which was more than valid_lft seconds ago.  In this 
+case, the temporary address is immediately deleted, and we are left with no 
+temporary address on the interface.  Furthermore, because all temporary 
+addresses get deleted by the time the next router advertisement arrives, we 
+are left with not being able to use temporary addresses until we move 
+networks.
 
-igmp_hdr
-ip_hdrlen
-ipv6_addr_copy
-ipv6_addr_set
-ipv6_eth_mc_map
-ipv6_hdr
+I tested this patch alone, and it works as intended, allowing temporary 
+addresses to continue to be created and deleted between received router 
+advertisements.
 
-maybe_deliver
-netdev_alloc_skb
-netdev_alloc_skb_ip_align
+You can easily test the bug by setting tmp_valid_lft to 60 and then running 
+radvd.  The defaults for radvd seem to be a minimum retransmit on unsolicited 
+router advertisements of 200 seconds (http://linux.die.net/man/5/radvd.conf), 
+much higher than the 60 seconds it is going to take for the temporary address 
+to expire. 
 
-skb_checksum_complete
-__skb_pull
-__skb_push
-skb_reserve
-skb_reset_transport_header
-skb_set_network_header
-skb_set_transport_header
-
-These are the function calls that are exclusively called during the 
-'nonfunctional'-timespan.
-
-This again gave me the idea to use tcpdump and watch out for igmp and 
-v6. Well, and that is also where the issue is coming from.
-
-Once a multicast membership query (igmp) arrives, A multicast listener 
-query (icmpv6) is sent.
-  From my understanding of the bridge code br_flood will propgate the 
-packet to all nodes (simple multicast) and this is also where things 
-stop working. Systemtap itself and thus in my case function calls of the 
-bridge module are not delayed, but something needs to be wrong in the 
-multicast handling of the bridge interface, since as pointed out in my 
-previous email with 2.6.32 everything is working fine.
-
-Can anyone reconfirm this issue, or give a helping hand in how to 
-proceed further?
-
-PS: Herbert, I've seen your changes for 2.6.34 which I think are 
-responsible for this behavior (even 2.6.33 here works fine. Anything 
-containing your multicast-related fixed breaks here).
-Could you specifically take a look into it and/or tell me how I can help 
-you?
-
-PPS: Again please CC back to me, since I am not subscribed
-
-regards,
-Patrick
-
+Glenn.
