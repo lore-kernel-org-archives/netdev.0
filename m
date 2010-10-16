@@ -1,24 +1,35 @@
-From: Mrs Amanda Collins <yjsc@zzuli.edu.cn>
-Subject: Certified Winner (Ref: XYL /26510460037/05}
-Date: Sat, 16 Oct 2010 22:03:22 +0800 (CST)
-Message-ID: <332853970.208932.1287237802691.JavaMail.root@mail2.zzuli.edu.cn>
-Reply-To: Mrs Amanda Collins <mrharrycook2@hotmail.co.uk>
+From: Matt Domsch <Matt_Domsch@dell.com>
+Subject: Re: Linux Plumbers Conference: User-visible Network Issues Mini-Conf
+Date: Sat, 16 Oct 2010 09:04:39 -0500
+Message-ID: <20101016140439.GA4472@auslistsprd01.us.dell.com>
+References: <1B9798A3396AB0429545ADFEA207931510536C7C8E@AUSX7MCPS302.AMER.DELL.COM> <20101015195044.GA4416@auslistsprd01.us.dell.com> <20101016.011834.59671697.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.zzuli.edu.cn ([202.196.0.17]:40405 "EHLO
-	mail2.zzuli.edu.cn" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755225Ab0JPOD3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Oct 2010 10:03:29 -0400
+Received: from ausc60ps301.us.dell.com ([143.166.148.206]:63625 "EHLO
+	ausc60ps301.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755225Ab0JPOEk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Oct 2010 10:04:40 -0400
+Content-Disposition: inline
+In-Reply-To: <20101016.011834.59671697.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Sat, Oct 16, 2010 at 01:18:34AM -0700, David Miller wrote:
+> Half a month before the event is not the time to be making
+> this kind of formal plea with core networking people.
+> 
+> If someone isn't already attending LPC, at this point there is next to
+> zero chance they are going to be able to make plans to do so in time.
 
+Indeed, and I apologize for the tardiness.  The list of topics is,
+with the exception of one which was dropped, the same as in my note of
+Sept 17, when I made the same plea, but I fully admit I should have
+finalized this list earlier.
 
-Contact Mr Harry Cook for the claims of =C2=A31,000,000.00 in the UK Aw=
-ard 2010.Claims=20
-information:Fullname,Occupation,Nationality,Residential Address, Phone=20
-no.Congratulations=20
-
+-- 
+Matt Domsch
+Technology Strategist
+Dell | Office of the CTO
