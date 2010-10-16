@@ -1,38 +1,77 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Linux Plumbers Conference: User-visible Network Issues
- Mini-Conf
-Date: Sat, 16 Oct 2010 01:18:34 -0700 (PDT)
-Message-ID: <20101016.011834.59671697.davem@davemloft.net>
-References: <1B9798A3396AB0429545ADFEA207931510536C7C8E@AUSX7MCPS302.AMER.DELL.COM>
-	<20101015195044.GA4416@auslistsprd01.us.dell.com>
+From: Jan Kiszka <jan.kiszka@web.de>
+Subject: [PATCH] CAPI: Silence lockdep warning on get_capi_appl_by_nr usage
+Date: Sat, 16 Oct 2010 13:14:35 +0200
+Message-ID: <4CB9891B.4060606@web.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Matt_Domsch@dell.com
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	i4ldeveloper@listserv.isdn4linux.de,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Karsten Keil <isdn@linux-pingi.de>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38781
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753988Ab0JPISM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Oct 2010 04:18:12 -0400
-In-Reply-To: <20101015195044.GA4416@auslistsprd01.us.dell.com>
+Received: from fmmailgate03.web.de ([217.72.192.234]:45090 "EHLO
+	fmmailgate03.web.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753800Ab0JPLOh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Oct 2010 07:14:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matt Domsch <Matt_Domsch@dell.com>
-Date: Fri, 15 Oct 2010 14:50:44 -0500
+As long as we hold capi_controller_lock, we can safely access
+capi_applications without RCU protection as no one can modify the
+application list underneath us. Introduce an RCU-free
+__get_capi_appl_by_nr for this purpose. This silences lockdep warnings
+on suspicious rcu_dereference usage.
 
-> While I'm sure the individual topics will generate great discussion,
-> it will be vital that members of the netdev community be present to
-> represent the kernel developers' perspectives on the problems and to
-> help brainstorm solutions.  Most of these topics have significant
-> kernel components to them, and without additional kernel developer
-> participation, I fear we would just be talking to ourselves, but no
-> real progress made.  I invite you to attend LPC, and this mini-conf
-> in particular, and lend your expertise.
+Signed-off-by: Jan Kiszka <jan.kiszka@web.de>
+---
+ drivers/isdn/capi/kcapi.c |   19 ++++++++++++++-----
+ 1 files changed, 14 insertions(+), 5 deletions(-)
 
-Half a month before the event is not the time to be making
-this kind of formal plea with core networking people.
-
-If someone isn't already attending LPC, at this point there is next to
-zero chance they are going to be able to make plans to do so in time.
+diff --git a/drivers/isdn/capi/kcapi.c b/drivers/isdn/capi/kcapi.c
+index 2648d39..2c535d8 100644
+--- a/drivers/isdn/capi/kcapi.c
++++ b/drivers/isdn/capi/kcapi.c
+@@ -99,6 +99,16 @@ static inline struct capi_ctr *get_capi_ctr_by_nr(u16 contr)
+ 	return capi_controller[contr - 1];
+ }
+ 
++static inline struct capi20_appl *__get_capi_appl_by_nr(u16 applid)
++{
++	WARN_ON_ONCE(!mutex_is_locked(&capi_controller_lock));
++
++	if (applid - 1 >= CAPI_MAXAPPL)
++		return NULL;
++
++	return capi_applications[applid - 1];
++}
++
+ static inline struct capi20_appl *get_capi_appl_by_nr(u16 applid)
+ {
+ 	if (applid - 1 >= CAPI_MAXAPPL)
+@@ -186,10 +196,9 @@ static void notify_up(u32 contr)
+ 		ctr->state = CAPI_CTR_RUNNING;
+ 
+ 		for (applid = 1; applid <= CAPI_MAXAPPL; applid++) {
+-			ap = get_capi_appl_by_nr(applid);
+-			if (!ap)
+-				continue;
+-			register_appl(ctr, applid, &ap->rparam);
++			ap = __get_capi_appl_by_nr(applid);
++			if (ap)
++				register_appl(ctr, applid, &ap->rparam);
+ 		}
+ 
+ 		wake_up_interruptible_all(&ctr->state_wait_queue);
+@@ -216,7 +225,7 @@ static void ctr_down(struct capi_ctr *ctr, int new_state)
+ 	memset(ctr->serial, 0, sizeof(ctr->serial));
+ 
+ 	for (applid = 1; applid <= CAPI_MAXAPPL; applid++) {
+-		ap = get_capi_appl_by_nr(applid);
++		ap = __get_capi_appl_by_nr(applid);
+ 		if (ap)
+ 			capi_ctr_put(ctr);
+ 	}
+-- 
+1.7.1
