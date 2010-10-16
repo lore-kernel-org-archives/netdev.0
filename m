@@ -1,334 +1,326 @@
-From: Joe Perches <joe@perches.com>
-Subject: [RFC PATCH net-next] drivers/net/bonding/bond_3ad: Remove struct
- mac_addr and typedef
-Date: Sun, 17 Oct 2010 00:38:17 -0700
-Message-ID: <1287301097.20968.19.camel@Joe-Laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: bonding-devel@lists.sourceforge.net,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Jay Vosburgh <fubar@us.ibm.com>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH] net_sched: remove the unused parameter of qdisc_create_dflt()
+Date: Sun, 17 Oct 2010 07:04:08 +0800
+Message-ID: <1287270248-13190-1-git-send-email-xiaosuo@gmail.com>
+Cc: Jamal Hadi Salim <hadi@cyberus.ca>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org, netem@lists.linux-foundation.org,
+	Changli Gao <xiaosuo@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:2984 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754494Ab0JQHiT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 17 Oct 2010 03:38:19 -0400
+Received: from mail-pv0-f174.google.com ([74.125.83.174]:44700 "EHLO
+	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755169Ab0JQI2f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Oct 2010 04:28:35 -0400
+Received: by pva18 with SMTP id 18so172774pva.19
+        for <netdev@vger.kernel.org>; Sun, 17 Oct 2010 01:28:35 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use more standard u8 name[ETH_ALEN];
-Remove MAC_ADDRESS_COMPARE and use compare_ether_addr
-Remove null_mac_addr and use is_zero_ether_addr and memset
-Use memcpy for copying ether addresses
+The first parameter dev isn't in use in qdisc_create_dflt().
 
-Size increases ~200 bytes so it's not great,
-but it might be better for style consistency.
-
-$ size drivers/net/bonding/*.o.*
-   text	   data	    bss	    dec	    hex	filename
-  25580	    776	   5800	  32156	   7d9c	drivers/net/bonding/bond_3ad.o.new
-  25396	    776	   5808	  31980	   7cec	drivers/net/bonding/bond_3ad.o.old
-
-Signed-off-by: Joe Perches <joe@perches.com>
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
 ---
- drivers/net/bonding/bond_3ad.c |   50 ++++++++++++++++++---------------------
- drivers/net/bonding/bond_3ad.h |   20 ++++++---------
- 2 files changed, 31 insertions(+), 39 deletions(-)
-
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index 079b9d1..5a38eef 100644
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -90,10 +90,6 @@
- #define     AD_LINK_SPEED_BITMASK_10000MBPS   0x10
- //endalloun
+ include/net/sch_generic.h |    3 +--
+ net/sched/sch_atm.c       |    5 ++---
+ net/sched/sch_cbq.c       |   12 ++++++------
+ net/sched/sch_drr.c       |    4 ++--
+ net/sched/sch_dsmark.c    |    6 ++----
+ net/sched/sch_fifo.c      |    3 +--
+ net/sched/sch_generic.c   |   10 ++++------
+ net/sched/sch_hfsc.c      |    8 +++-----
+ net/sched/sch_htb.c       |    8 +++-----
+ net/sched/sch_mq.c        |    2 +-
+ net/sched/sch_multiq.c    |    3 +--
+ net/sched/sch_netem.c     |    3 +--
+ net/sched/sch_prio.c      |    2 +-
+ 13 files changed, 28 insertions(+), 41 deletions(-)
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index eda8808..ea1f8a8 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -328,8 +328,7 @@ extern void qdisc_destroy(struct Qdisc *qdisc);
+ extern void qdisc_tree_decrease_qlen(struct Qdisc *qdisc, unsigned int n);
+ extern struct Qdisc *qdisc_alloc(struct netdev_queue *dev_queue,
+ 				 struct Qdisc_ops *ops);
+-extern struct Qdisc *qdisc_create_dflt(struct net_device *dev,
+-				       struct netdev_queue *dev_queue,
++extern struct Qdisc *qdisc_create_dflt(struct netdev_queue *dev_queue,
+ 				       struct Qdisc_ops *ops, u32 parentid);
+ extern void qdisc_calculate_pkt_len(struct sk_buff *skb,
+ 				   struct qdisc_size_table *stab);
+diff --git a/net/sched/sch_atm.c b/net/sched/sch_atm.c
+index 6318e11..2825407 100644
+--- a/net/sched/sch_atm.c
++++ b/net/sched/sch_atm.c
+@@ -275,8 +275,7 @@ static int atm_tc_change(struct Qdisc *sch, u32 classid, u32 parent,
+ 		goto err_out;
+ 	}
+ 	flow->filter_list = NULL;
+-	flow->q = qdisc_create_dflt(qdisc_dev(sch), sch->dev_queue,
+-				    &pfifo_qdisc_ops, classid);
++	flow->q = qdisc_create_dflt(sch->dev_queue, &pfifo_qdisc_ops, classid);
+ 	if (!flow->q)
+ 		flow->q = &noop_qdisc;
+ 	pr_debug("atm_tc_change: qdisc %p\n", flow->q);
+@@ -543,7 +542,7 @@ static int atm_tc_init(struct Qdisc *sch, struct nlattr *opt)
+ 	INIT_LIST_HEAD(&p->flows);
+ 	INIT_LIST_HEAD(&p->link.list);
+ 	list_add(&p->link.list, &p->flows);
+-	p->link.q = qdisc_create_dflt(qdisc_dev(sch), sch->dev_queue,
++	p->link.q = qdisc_create_dflt(sch->dev_queue,
+ 				      &pfifo_qdisc_ops, sch->handle);
+ 	if (!p->link.q)
+ 		p->link.q = &noop_qdisc;
+diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
+index 28c01ef..eb76315 100644
+--- a/net/sched/sch_cbq.c
++++ b/net/sched/sch_cbq.c
+@@ -1379,9 +1379,9 @@ static int cbq_init(struct Qdisc *sch, struct nlattr *opt)
+ 	q->link.sibling = &q->link;
+ 	q->link.common.classid = sch->handle;
+ 	q->link.qdisc = sch;
+-	if (!(q->link.q = qdisc_create_dflt(qdisc_dev(sch), sch->dev_queue,
+-					    &pfifo_qdisc_ops,
+-					    sch->handle)))
++	q->link.q = qdisc_create_dflt(sch->dev_queue, &pfifo_qdisc_ops,
++				      sch->handle);
++	if (!q->link.q)
+ 		q->link.q = &noop_qdisc;
  
--// compare MAC addresses
--#define MAC_ADDRESS_COMPARE(A, B) memcmp(A, B, ETH_ALEN)
--
--static struct mac_addr null_mac_addr = {{0, 0, 0, 0, 0, 0}};
- static u16 ad_ticks_per_sec;
- static const int ad_delta_in_ticks = (AD_TIMER_INTERVAL * HZ) / 1000;
+ 	q->link.priority = TC_CBQ_MAXPRIO-1;
+@@ -1623,7 +1623,7 @@ static int cbq_graft(struct Qdisc *sch, unsigned long arg, struct Qdisc *new,
+ 	struct cbq_class *cl = (struct cbq_class*)arg;
  
-@@ -218,7 +214,7 @@ static inline struct aggregator *__get_next_agg(struct aggregator *aggregator)
-  */
- static inline int __agg_has_partner(struct aggregator *agg)
- {
--	return !is_zero_ether_addr(agg->partner_system.mac_addr_value);
-+	return !is_zero_ether_addr(agg->partner_system);
+ 	if (new == NULL) {
+-		new = qdisc_create_dflt(qdisc_dev(sch), sch->dev_queue,
++		new = qdisc_create_dflt(sch->dev_queue,
+ 					&pfifo_qdisc_ops, cl->common.classid);
+ 		if (new == NULL)
+ 			return -ENOBUFS;
+@@ -1874,8 +1874,8 @@ cbq_change_class(struct Qdisc *sch, u32 classid, u32 parentid, struct nlattr **t
+ 	cl->R_tab = rtab;
+ 	rtab = NULL;
+ 	cl->refcnt = 1;
+-	if (!(cl->q = qdisc_create_dflt(qdisc_dev(sch), sch->dev_queue,
+-					&pfifo_qdisc_ops, classid)))
++	cl->q = qdisc_create_dflt(sch->dev_queue, &pfifo_qdisc_ops, classid);
++	if (!cl->q)
+ 		cl->q = &noop_qdisc;
+ 	cl->common.classid = classid;
+ 	cl->tparent = parent;
+diff --git a/net/sched/sch_drr.c b/net/sched/sch_drr.c
+index b74046a..aa8b531 100644
+--- a/net/sched/sch_drr.c
++++ b/net/sched/sch_drr.c
+@@ -110,7 +110,7 @@ static int drr_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
+ 	cl->refcnt	   = 1;
+ 	cl->common.classid = classid;
+ 	cl->quantum	   = quantum;
+-	cl->qdisc	   = qdisc_create_dflt(qdisc_dev(sch), sch->dev_queue,
++	cl->qdisc	   = qdisc_create_dflt(sch->dev_queue,
+ 					       &pfifo_qdisc_ops, classid);
+ 	if (cl->qdisc == NULL)
+ 		cl->qdisc = &noop_qdisc;
+@@ -218,7 +218,7 @@ static int drr_graft_class(struct Qdisc *sch, unsigned long arg,
+ 	struct drr_class *cl = (struct drr_class *)arg;
+ 
+ 	if (new == NULL) {
+-		new = qdisc_create_dflt(qdisc_dev(sch), sch->dev_queue,
++		new = qdisc_create_dflt(sch->dev_queue,
+ 					&pfifo_qdisc_ops, cl->common.classid);
+ 		if (new == NULL)
+ 			new = &noop_qdisc;
+diff --git a/net/sched/sch_dsmark.c b/net/sched/sch_dsmark.c
+index 63d41f8..1d295d6 100644
+--- a/net/sched/sch_dsmark.c
++++ b/net/sched/sch_dsmark.c
+@@ -61,8 +61,7 @@ static int dsmark_graft(struct Qdisc *sch, unsigned long arg,
+ 		sch, p, new, old);
+ 
+ 	if (new == NULL) {
+-		new = qdisc_create_dflt(qdisc_dev(sch), sch->dev_queue,
+-					&pfifo_qdisc_ops,
++		new = qdisc_create_dflt(sch->dev_queue, &pfifo_qdisc_ops,
+ 					sch->handle);
+ 		if (new == NULL)
+ 			new = &noop_qdisc;
+@@ -384,8 +383,7 @@ static int dsmark_init(struct Qdisc *sch, struct nlattr *opt)
+ 	p->default_index = default_index;
+ 	p->set_tc_index = nla_get_flag(tb[TCA_DSMARK_SET_TC_INDEX]);
+ 
+-	p->q = qdisc_create_dflt(qdisc_dev(sch), sch->dev_queue,
+-				 &pfifo_qdisc_ops, sch->handle);
++	p->q = qdisc_create_dflt(sch->dev_queue, &pfifo_qdisc_ops, sch->handle);
+ 	if (p->q == NULL)
+ 		p->q = &noop_qdisc;
+ 
+diff --git a/net/sched/sch_fifo.c b/net/sched/sch_fifo.c
+index 5948baf..4dfecb0 100644
+--- a/net/sched/sch_fifo.c
++++ b/net/sched/sch_fifo.c
+@@ -172,8 +172,7 @@ struct Qdisc *fifo_create_dflt(struct Qdisc *sch, struct Qdisc_ops *ops,
+ 	struct Qdisc *q;
+ 	int err = -ENOMEM;
+ 
+-	q = qdisc_create_dflt(qdisc_dev(sch), sch->dev_queue,
+-			      ops, TC_H_MAKE(sch->handle, 1));
++	q = qdisc_create_dflt(sch->dev_queue, ops, TC_H_MAKE(sch->handle, 1));
+ 	if (q) {
+ 		err = fifo_set_limit(q, limit);
+ 		if (err < 0) {
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 3d57681..2a95272 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -574,10 +574,8 @@ errout:
+ 	return ERR_PTR(err);
  }
  
- /**
-@@ -478,7 +474,7 @@ static void __choose_matched(struct lacpdu *lacpdu, struct port *port)
- 	// check if all parameters are alike
- 	if (((ntohs(lacpdu->partner_port) == port->actor_port_number) &&
- 	     (ntohs(lacpdu->partner_port_priority) == port->actor_port_priority) &&
--	     !MAC_ADDRESS_COMPARE(&(lacpdu->partner_system), &(port->actor_system)) &&
-+	     !compare_ether_addr(lacpdu->partner_system, port->actor_system) &&
- 	     (ntohs(lacpdu->partner_system_priority) == port->actor_system_priority) &&
- 	     (ntohs(lacpdu->partner_key) == port->actor_oper_port_key) &&
- 	     ((lacpdu->partner_state & AD_STATE_AGGREGATION) == (port->actor_oper_port_state & AD_STATE_AGGREGATION))) ||
-@@ -510,7 +506,7 @@ static void __record_pdu(struct lacpdu *lacpdu, struct port *port)
- 		// record the new parameter values for the partner operational
- 		partner->port_number = ntohs(lacpdu->actor_port);
- 		partner->port_priority = ntohs(lacpdu->actor_port_priority);
--		partner->system = lacpdu->actor_system;
-+		memcpy(partner->system, lacpdu->actor_system, ETH_ALEN);
- 		partner->system_priority = ntohs(lacpdu->actor_system_priority);
- 		partner->key = ntohs(lacpdu->actor_key);
- 		partner->port_state = lacpdu->actor_state;
-@@ -568,7 +564,7 @@ static void __update_selected(struct lacpdu *lacpdu, struct port *port)
- 		// check if any parameter is different
- 		if (ntohs(lacpdu->actor_port) != partner->port_number ||
- 		    ntohs(lacpdu->actor_port_priority) != partner->port_priority ||
--		    MAC_ADDRESS_COMPARE(&lacpdu->actor_system, &partner->system) ||
-+		    compare_ether_addr(lacpdu->actor_system, partner->system) ||
- 		    ntohs(lacpdu->actor_system_priority) != partner->system_priority ||
- 		    ntohs(lacpdu->actor_key) != partner->key ||
- 		    (lacpdu->actor_state & AD_STATE_AGGREGATION) != (partner->port_state & AD_STATE_AGGREGATION)) {
-@@ -599,7 +595,7 @@ static void __update_default_selected(struct port *port)
- 		// check if any parameter is different
- 		if (admin->port_number != oper->port_number ||
- 		    admin->port_priority != oper->port_priority ||
--		    MAC_ADDRESS_COMPARE(&admin->system, &oper->system) ||
-+		    compare_ether_addr(admin->system, oper->system) ||
- 		    admin->system_priority != oper->system_priority ||
- 		    admin->key != oper->key ||
- 		    (admin->port_state & AD_STATE_AGGREGATION)
-@@ -629,7 +625,7 @@ static void __update_ntt(struct lacpdu *lacpdu, struct port *port)
- 		// check if any parameter is different
- 		if ((ntohs(lacpdu->partner_port) != port->actor_port_number) ||
- 		    (ntohs(lacpdu->partner_port_priority) != port->actor_port_priority) ||
--		    MAC_ADDRESS_COMPARE(&(lacpdu->partner_system), &(port->actor_system)) ||
-+		    compare_ether_addr(lacpdu->partner_system, port->actor_system) ||
- 		    (ntohs(lacpdu->partner_system_priority) != port->actor_system_priority) ||
- 		    (ntohs(lacpdu->partner_key) != port->actor_oper_port_key) ||
- 		    ((lacpdu->partner_state & AD_STATE_LACP_ACTIVITY) != (port->actor_oper_port_state & AD_STATE_LACP_ACTIVITY)) ||
-@@ -787,7 +783,7 @@ static inline void __update_lacpdu_from_port(struct port *port)
- 	 */
- 
- 	lacpdu->actor_system_priority = htons(port->actor_system_priority);
--	lacpdu->actor_system = port->actor_system;
-+	memcpy(lacpdu->actor_system, port->actor_system, ETH_ALEN);
- 	lacpdu->actor_key = htons(port->actor_oper_port_key);
- 	lacpdu->actor_port_priority = htons(port->actor_port_priority);
- 	lacpdu->actor_port = htons(port->actor_port_number);
-@@ -799,7 +795,7 @@ static inline void __update_lacpdu_from_port(struct port *port)
- 	 */
- 
- 	lacpdu->partner_system_priority = htons(partner->system_priority);
--	lacpdu->partner_system = partner->system;
-+	memcpy(lacpdu->partner_system, partner->system, ETH_ALEN);
- 	lacpdu->partner_key = htons(partner->key);
- 	lacpdu->partner_port_priority = htons(partner->port_priority);
- 	lacpdu->partner_port = htons(partner->port_number);
-@@ -1133,7 +1129,7 @@ static void ad_rx_machine(struct lacpdu *lacpdu, struct port *port)
- 			break;
- 		case AD_RX_CURRENT:
- 			// detect loopback situation
--			if (!MAC_ADDRESS_COMPARE(&(lacpdu->actor_system), &(port->actor_system))) {
-+			if (!compare_ether_addr(lacpdu->actor_system, port->actor_system)) {
- 				// INFO_RECEIVED_LOOPBACK_FRAMES
- 				pr_err("%s: An illegal loopback occurred on adapter (%s).\n"
- 				       "Check the configuration to verify that all adapters are connected to 802.3ad compliant switch ports\n",
-@@ -1340,11 +1336,11 @@ static void ad_port_selection_logic(struct port *port)
- 		}
- 		// check if current aggregator suits us
- 		if (((aggregator->actor_oper_aggregator_key == port->actor_oper_port_key) && // if all parameters match AND
--		     !MAC_ADDRESS_COMPARE(&(aggregator->partner_system), &(port->partner_oper.system)) &&
-+		     !compare_ether_addr(aggregator->partner_system, port->partner_oper.system) &&
- 		     (aggregator->partner_system_priority == port->partner_oper.system_priority) &&
- 		     (aggregator->partner_oper_aggregator_key == port->partner_oper.key)
- 		    ) &&
--		    ((MAC_ADDRESS_COMPARE(&(port->partner_oper.system), &(null_mac_addr)) && // partner answers
-+		    ((is_zero_ether_addr(port->partner_oper.system) && // partner answers
- 		      !aggregator->is_individual)  // but is not individual OR
- 		    )
- 		   ) {
-@@ -1382,7 +1378,7 @@ static void ad_port_selection_logic(struct port *port)
- 
- 			port->aggregator->actor_admin_aggregator_key = port->actor_admin_port_key;
- 			port->aggregator->actor_oper_aggregator_key = port->actor_oper_port_key;
--			port->aggregator->partner_system=port->partner_oper.system;
-+			memcpy(port->aggregator->partner_system, port->partner_oper.system, ETH_ALEN);
- 			port->aggregator->partner_system_priority = port->partner_oper.system_priority;
- 			port->aggregator->partner_oper_aggregator_key = port->partner_oper.key;
- 			port->aggregator->receive_state = 1;
-@@ -1636,7 +1632,7 @@ static void ad_clear_agg(struct aggregator *aggregator)
- 		aggregator->is_individual = false;
- 		aggregator->actor_admin_aggregator_key = 0;
- 		aggregator->actor_oper_aggregator_key = 0;
--		aggregator->partner_system = null_mac_addr;
-+		memset(aggregator->partner_system, 0, ETH_ALEN);
- 		aggregator->partner_system_priority = 0;
- 		aggregator->partner_oper_aggregator_key = 0;
- 		aggregator->receive_state = 0;
-@@ -1659,7 +1655,7 @@ static void ad_initialize_agg(struct aggregator *aggregator)
- 	if (aggregator) {
- 		ad_clear_agg(aggregator);
- 
--		aggregator->aggregator_mac_address = null_mac_addr;
-+		memset(aggregator->aggregator_mac_address, 0, ETH_ALEN);
- 		aggregator->aggregator_identifier = 0;
- 		aggregator->slave = NULL;
- 	}
-@@ -1695,7 +1691,7 @@ static void ad_initialize_port(struct port *port, int lacp_fast)
- 	if (port) {
- 		port->actor_port_number = 1;
- 		port->actor_port_priority = 0xff;
--		port->actor_system = null_mac_addr;
-+		memset(port->actor_system, 0, ETH_ALEN);
- 		port->actor_system_priority = 0xffff;
- 		port->actor_port_aggregator_identifier = 0;
- 		port->ntt = false;
-@@ -1754,7 +1750,7 @@ static void ad_enable_collecting_distributing(struct port *port)
-  */
- static void ad_disable_collecting_distributing(struct port *port)
+-struct Qdisc * qdisc_create_dflt(struct net_device *dev,
+-				 struct netdev_queue *dev_queue,
+-				 struct Qdisc_ops *ops,
+-				 unsigned int parentid)
++struct Qdisc *qdisc_create_dflt(struct netdev_queue *dev_queue,
++				struct Qdisc_ops *ops, unsigned int parentid)
  {
--	if (port->aggregator && MAC_ADDRESS_COMPARE(&(port->aggregator->partner_system), &(null_mac_addr))) {
-+	if (port->aggregator && is_zero_ether_addr(port->aggregator->partner_system)) {
- 		pr_debug("Disabling port %d(LAG %d)\n",
- 			 port->actor_port_number,
- 			 port->aggregator->aggregator_identifier);
-@@ -1875,14 +1871,14 @@ static u16 aggregator_identifier;
- void bond_3ad_initialize(struct bonding *bond, u16 tick_resolution, int lacp_fast)
- {
- 	// check that the bond is not initialized yet
--	if (MAC_ADDRESS_COMPARE(&(BOND_AD_INFO(bond).system.sys_mac_addr),
--				bond->dev->dev_addr)) {
-+	if (compare_ether_addr(BOND_AD_INFO(bond).system.sys_mac_addr,
-+			       bond->dev->dev_addr)) {
+ 	struct Qdisc *sch;
  
- 		aggregator_identifier = 0;
+@@ -682,7 +680,7 @@ static void attach_one_default_qdisc(struct net_device *dev,
+ 	struct Qdisc *qdisc;
  
- 		BOND_AD_INFO(bond).lacp_fast = lacp_fast;
- 		BOND_AD_INFO(bond).system.sys_priority = 0xFFFF;
--		BOND_AD_INFO(bond).system.sys_mac_addr = *((struct mac_addr *)bond->dev->dev_addr);
-+		memcpy(BOND_AD_INFO(bond).system.sys_mac_addr, bond->dev->dev_addr, ETH_ALEN);
+ 	if (dev->tx_queue_len) {
+-		qdisc = qdisc_create_dflt(dev, dev_queue,
++		qdisc = qdisc_create_dflt(dev_queue,
+ 					  &pfifo_fast_ops, TC_H_ROOT);
+ 		if (!qdisc) {
+ 			printk(KERN_INFO "%s: activation failed\n", dev->name);
+@@ -709,7 +707,7 @@ static void attach_default_qdiscs(struct net_device *dev)
+ 		dev->qdisc = txq->qdisc_sleeping;
+ 		atomic_inc(&dev->qdisc->refcnt);
+ 	} else {
+-		qdisc = qdisc_create_dflt(dev, txq, &mq_qdisc_ops, TC_H_ROOT);
++		qdisc = qdisc_create_dflt(txq, &mq_qdisc_ops, TC_H_ROOT);
+ 		if (qdisc) {
+ 			qdisc->ops->attach(qdisc);
+ 			dev->qdisc = qdisc;
+diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
+index 4749609..069c62b 100644
+--- a/net/sched/sch_hfsc.c
++++ b/net/sched/sch_hfsc.c
+@@ -1088,7 +1088,7 @@ hfsc_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
+ 	cl->refcnt    = 1;
+ 	cl->sched     = q;
+ 	cl->cl_parent = parent;
+-	cl->qdisc = qdisc_create_dflt(qdisc_dev(sch), sch->dev_queue,
++	cl->qdisc = qdisc_create_dflt(sch->dev_queue,
+ 				      &pfifo_qdisc_ops, classid);
+ 	if (cl->qdisc == NULL)
+ 		cl->qdisc = &noop_qdisc;
+@@ -1209,8 +1209,7 @@ hfsc_graft_class(struct Qdisc *sch, unsigned long arg, struct Qdisc *new,
+ 	if (cl->level > 0)
+ 		return -EINVAL;
+ 	if (new == NULL) {
+-		new = qdisc_create_dflt(qdisc_dev(sch), sch->dev_queue,
+-					&pfifo_qdisc_ops,
++		new = qdisc_create_dflt(sch->dev_queue, &pfifo_qdisc_ops,
+ 					cl->cl_common.classid);
+ 		if (new == NULL)
+ 			new = &noop_qdisc;
+@@ -1452,8 +1451,7 @@ hfsc_init_qdisc(struct Qdisc *sch, struct nlattr *opt)
+ 	q->root.cl_common.classid = sch->handle;
+ 	q->root.refcnt  = 1;
+ 	q->root.sched   = q;
+-	q->root.qdisc = qdisc_create_dflt(qdisc_dev(sch), sch->dev_queue,
+-					  &pfifo_qdisc_ops,
++	q->root.qdisc = qdisc_create_dflt(sch->dev_queue, &pfifo_qdisc_ops,
+ 					  sch->handle);
+ 	if (q->root.qdisc == NULL)
+ 		q->root.qdisc = &noop_qdisc;
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index 87d9449..01b519d 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -1121,8 +1121,7 @@ static int htb_graft(struct Qdisc *sch, unsigned long arg, struct Qdisc *new,
+ 	if (cl->level)
+ 		return -EINVAL;
+ 	if (new == NULL &&
+-	    (new = qdisc_create_dflt(qdisc_dev(sch), sch->dev_queue,
+-				     &pfifo_qdisc_ops,
++	    (new = qdisc_create_dflt(sch->dev_queue, &pfifo_qdisc_ops,
+ 				     cl->common.classid)) == NULL)
+ 		return -ENOBUFS;
  
- 		// initialize how many times this module is called in one second(should be about every 100ms)
- 		ad_ticks_per_sec = tick_resolution;
-@@ -1936,7 +1932,7 @@ int bond_3ad_bind_slave(struct slave *slave)
- 			port->sm_vars &= ~AD_PORT_LACP_ENABLED;
- 		}
- 		// actor system is the bond's system
--		port->actor_system = BOND_AD_INFO(bond).system.sys_mac_addr;
-+		memcpy(port->actor_system, BOND_AD_INFO(bond).system.sys_mac_addr, ETH_ALEN);
- 		// tx timer(to verify that no more than MAX_TX_IN_SECOND lacpdu's are sent in one second)
- 		port->sm_tx_timer_counter = ad_ticks_per_sec/AD_MAX_TX_IN_SECOND;
- 		port->aggregator = NULL;
-@@ -1951,7 +1947,7 @@ int bond_3ad_bind_slave(struct slave *slave)
+@@ -1247,8 +1246,7 @@ static int htb_delete(struct Qdisc *sch, unsigned long arg)
+ 		return -EBUSY;
  
- 		ad_initialize_agg(aggregator);
- 
--		aggregator->aggregator_mac_address = *((struct mac_addr *)bond->dev->dev_addr);
-+		memcpy(aggregator->aggregator_mac_address, bond->dev->dev_addr, ETH_ALEN);
- 		aggregator->aggregator_identifier = (++aggregator_identifier);
- 		aggregator->slave = slave;
- 		aggregator->is_active = 0;
-@@ -2027,7 +2023,7 @@ void bond_3ad_unbind_slave(struct slave *slave)
- 				new_aggregator->is_individual = aggregator->is_individual;
- 				new_aggregator->actor_admin_aggregator_key = aggregator->actor_admin_aggregator_key;
- 				new_aggregator->actor_oper_aggregator_key = aggregator->actor_oper_aggregator_key;
--				new_aggregator->partner_system = aggregator->partner_system;
-+				memcpy(new_aggregator->partner_system, aggregator->partner_system, ETH_ALEN);
- 				new_aggregator->partner_system_priority = aggregator->partner_system_priority;
- 				new_aggregator->partner_oper_aggregator_key = aggregator->partner_oper_aggregator_key;
- 				new_aggregator->receive_state = aggregator->receive_state;
-@@ -2371,7 +2367,7 @@ int bond_3ad_get_active_agg_info(struct bonding *bond, struct ad_info *ad_info)
- 		ad_info->ports = aggregator->num_of_ports;
- 		ad_info->actor_key = aggregator->actor_oper_aggregator_key;
- 		ad_info->partner_key = aggregator->partner_oper_aggregator_key;
--		memcpy(ad_info->partner_system, aggregator->partner_system.mac_addr_value, ETH_ALEN);
-+		memcpy(ad_info->partner_system, aggregator->partner_system, ETH_ALEN);
- 		return 0;
+ 	if (!cl->level && htb_parent_last_child(cl)) {
+-		new_q = qdisc_create_dflt(qdisc_dev(sch), sch->dev_queue,
+-					  &pfifo_qdisc_ops,
++		new_q = qdisc_create_dflt(sch->dev_queue, &pfifo_qdisc_ops,
+ 					  cl->parent->common.classid);
+ 		last_child = 1;
  	}
+@@ -1377,7 +1375,7 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
+ 		/* create leaf qdisc early because it uses kmalloc(GFP_KERNEL)
+ 		   so that can't be used inside of sch_tree_lock
+ 		   -- thanks to Karlis Peisenieks */
+-		new_q = qdisc_create_dflt(qdisc_dev(sch), sch->dev_queue,
++		new_q = qdisc_create_dflt(sch->dev_queue,
+ 					  &pfifo_qdisc_ops, classid);
+ 		sch_tree_lock(sch);
+ 		if (parent && !parent->level) {
+diff --git a/net/sched/sch_mq.c b/net/sched/sch_mq.c
+index fe91e50..ecc302f 100644
+--- a/net/sched/sch_mq.c
++++ b/net/sched/sch_mq.c
+@@ -56,7 +56,7 @@ static int mq_init(struct Qdisc *sch, struct nlattr *opt)
  
-diff --git a/drivers/net/bonding/bond_3ad.h b/drivers/net/bonding/bond_3ad.h
-index 2c46a154..648792c 100644
---- a/drivers/net/bonding/bond_3ad.h
-+++ b/drivers/net/bonding/bond_3ad.h
-@@ -37,10 +37,6 @@
- #define AD_LACP_SLOW 0
- #define AD_LACP_FAST 1
+ 	for (ntx = 0; ntx < dev->num_tx_queues; ntx++) {
+ 		dev_queue = netdev_get_tx_queue(dev, ntx);
+-		qdisc = qdisc_create_dflt(dev, dev_queue, &pfifo_fast_ops,
++		qdisc = qdisc_create_dflt(dev_queue, &pfifo_fast_ops,
+ 					  TC_H_MAKE(TC_H_MAJ(sch->handle),
+ 						    TC_H_MIN(ntx + 1)));
+ 		if (qdisc == NULL)
+diff --git a/net/sched/sch_multiq.c b/net/sched/sch_multiq.c
+index 6ae2512..32690de 100644
+--- a/net/sched/sch_multiq.c
++++ b/net/sched/sch_multiq.c
+@@ -227,8 +227,7 @@ static int multiq_tune(struct Qdisc *sch, struct nlattr *opt)
+ 	for (i = 0; i < q->bands; i++) {
+ 		if (q->queues[i] == &noop_qdisc) {
+ 			struct Qdisc *child, *old;
+-			child = qdisc_create_dflt(qdisc_dev(sch),
+-						  sch->dev_queue,
++			child = qdisc_create_dflt(sch->dev_queue,
+ 						  &pfifo_qdisc_ops,
+ 						  TC_H_MAKE(sch->handle,
+ 							    i + 1));
+diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
+index 4714ff1..e5593c0 100644
+--- a/net/sched/sch_netem.c
++++ b/net/sched/sch_netem.c
+@@ -538,8 +538,7 @@ static int netem_init(struct Qdisc *sch, struct nlattr *opt)
  
--typedef struct mac_addr {
--	u8 mac_addr_value[ETH_ALEN];
--} mac_addr_t;
--
- enum {
- 	BOND_AD_STABLE = 0,
- 	BOND_AD_BANDWIDTH = 1,
-@@ -112,7 +108,7 @@ typedef struct lacpdu {
- 	u8 tlv_type_actor_info;	      // = actor information(type/length/value)
- 	u8 actor_information_length; // = 20
- 	__be16 actor_system_priority;
--	struct mac_addr actor_system;
-+	u8 actor_system[ETH_ALEN];
- 	__be16 actor_key;
- 	__be16 actor_port_priority;
- 	__be16 actor_port;
-@@ -121,7 +117,7 @@ typedef struct lacpdu {
- 	u8 tlv_type_partner_info;     // = partner information
- 	u8 partner_information_length;	 // = 20
- 	__be16 partner_system_priority;
--	struct mac_addr partner_system;
-+	u8 partner_system[ETH_ALEN];
- 	__be16 partner_key;
- 	__be16 partner_port_priority;
- 	__be16 partner_port;
-@@ -149,7 +145,7 @@ typedef struct bond_marker {
- 	//  = 0x02  (marker response information)
- 	u8 marker_length;	 //  = 0x16
- 	u16 requester_port;	 //   The number assigned to the port by the requester
--	struct mac_addr requester_system;      //   The requester's system id
-+	u8 requester_system[ETH_ALEN];      //   The requester's system id
- 	u32 requester_transaction_id;	//   The transaction id allocated by the requester,
- 	u16 pad;		 //  = 0
- 	u8 tlv_type_terminator;	     //  = 0x00
-@@ -175,12 +171,12 @@ struct port;
+ 	qdisc_watchdog_init(&q->watchdog, sch);
  
- // aggregator structure(43.4.5 in the 802.3ad standard)
- typedef struct aggregator {
--	struct mac_addr aggregator_mac_address;
-+	u8 aggregator_mac_address[ETH_ALEN];
- 	u16 aggregator_identifier;
- 	bool is_individual;
- 	u16 actor_admin_aggregator_key;
- 	u16 actor_oper_aggregator_key;
--	struct mac_addr partner_system;
-+	u8 partner_system[ETH_ALEN];
- 	u16 partner_system_priority;
- 	u16 partner_oper_aggregator_key;
- 	u16 receive_state;		// BOOLEAN
-@@ -193,7 +189,7 @@ typedef struct aggregator {
- } aggregator_t;
- 
- struct port_params {
--	struct mac_addr system;
-+	u8 system[ETH_ALEN];
- 	u16 system_priority;
- 	u16 key;
- 	u16 port_number;
-@@ -205,7 +201,7 @@ struct port_params {
- typedef struct port {
- 	u16 actor_port_number;
- 	u16 actor_port_priority;
--	struct mac_addr actor_system;	       // This parameter is added here although it is not specified in the standard, just for simplification
-+	u8 actor_system[ETH_ALEN];       // This parameter is added here although it is not specified in the standard, just for simplification
- 	u16 actor_system_priority;	 // This parameter is added here although it is not specified in the standard, just for simplification
- 	u16 actor_port_aggregator_identifier;
- 	bool ntt;
-@@ -239,7 +235,7 @@ typedef struct port {
- // system structure
- struct ad_system {
- 	u16 sys_priority;
--	struct mac_addr sys_mac_addr;
-+	u8 sys_mac_addr[ETH_ALEN];
- };
- 
- #ifdef __ia64__
-
-
+-	q->qdisc = qdisc_create_dflt(qdisc_dev(sch), sch->dev_queue,
+-				     &tfifo_qdisc_ops,
++	q->qdisc = qdisc_create_dflt(sch->dev_queue, &tfifo_qdisc_ops,
+ 				     TC_H_MAKE(sch->handle, 1));
+ 	if (!q->qdisc) {
+ 		pr_debug("netem: qdisc create failed\n");
+diff --git a/net/sched/sch_prio.c b/net/sched/sch_prio.c
+index 0748fb1..b1c95bc 100644
+--- a/net/sched/sch_prio.c
++++ b/net/sched/sch_prio.c
+@@ -200,7 +200,7 @@ static int prio_tune(struct Qdisc *sch, struct nlattr *opt)
+ 	for (i=0; i<q->bands; i++) {
+ 		if (q->queues[i] == &noop_qdisc) {
+ 			struct Qdisc *child, *old;
+-			child = qdisc_create_dflt(qdisc_dev(sch), sch->dev_queue,
++			child = qdisc_create_dflt(sch->dev_queue,
+ 						  &pfifo_qdisc_ops,
+ 						  TC_H_MAKE(sch->handle, i + 1));
+ 			if (child) {
