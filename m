@@ -1,34 +1,38 @@
-From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
-Subject: Re: [PATCH V2 net-next] can-raw: add msg_flags to distinguish
-	local traffic
-Date: Sat, 16 Oct 2010 09:37:00 +0200
-Message-ID: <20101016073700.GA318@e-circ.dyndns.org>
-References: <20101015153829.GA317@e-circ.dyndns.org>
-	<4CB87E37.4070908@hartkopp.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Linux Plumbers Conference: User-visible Network Issues
+ Mini-Conf
+Date: Sat, 16 Oct 2010 01:18:34 -0700 (PDT)
+Message-ID: <20101016.011834.59671697.davem@davemloft.net>
+References: <1B9798A3396AB0429545ADFEA207931510536C7C8E@AUSX7MCPS302.AMER.DELL.COM>
+	<20101015195044.GA4416@auslistsprd01.us.dell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <4CB87E37.4070908-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Matt_Domsch@dell.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38781
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753988Ab0JPISM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Oct 2010 04:18:12 -0400
+In-Reply-To: <20101015195044.GA4416@auslistsprd01.us.dell.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Oliver,
+From: Matt Domsch <Matt_Domsch@dell.com>
+Date: Fri, 15 Oct 2010 14:50:44 -0500
 
-I see my mistake in documenting the use MSG_DONTROUTE.
+> While I'm sure the individual topics will generate great discussion,
+> it will be vital that members of the netdev community be present to
+> represent the kernel developers' perspectives on the problems and to
+> help brainstorm solutions.  Most of these topics have significant
+> kernel components to them, and without additional kernel developer
+> participation, I fear we would just be talking to ourselves, but no
+> real progress made.  I invite you to attend LPC, and this mini-conf
+> in particular, and lend your expertise.
 
-I'll take over your other remarks too.
+Half a month before the event is not the time to be making
+this kind of formal plea with core networking people.
 
-Thanks for the review,
-Kurt
+If someone isn't already attending LPC, at this point there is next to
+zero chance they are going to be able to make plans to do so in time.
