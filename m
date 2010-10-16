@@ -1,35 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] fib: avoid false sharing on fib_table_hash
-Date: Sat, 16 Oct 2010 11:56:10 -0700 (PDT)
-Message-ID: <20101016.115610.48524281.davem@davemloft.net>
-References: <1286994123.3876.1137.camel@edumazet-laptop>
+Subject: Re: [PATCH] via-velocity: forced 1000 Mbps mode support.
+Date: Sat, 16 Oct 2010 11:56:27 -0700 (PDT)
+Message-ID: <20101016.115627.260106347.davem@davemloft.net>
+References: <AANLkTinn8UQfOoPgf=13jfvD5Ld6p4GhT7jpyYmXKT9X@mail.gmail.com>
+	<20101013192605.GA5157@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: davidlv.linux@gmail.com, netdev@vger.kernel.org,
+	DavidLv@viatech.com.cn, ShirleyHu@viatech.com.cn,
+	AndersMa@viatech.com.cn, rseguier@e-teleport.net
+To: romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35260
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35265
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753879Ab0JPSzr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Oct 2010 14:55:47 -0400
-In-Reply-To: <1286994123.3876.1137.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1753879Ab0JPS4F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Oct 2010 14:56:05 -0400
+In-Reply-To: <20101013192605.GA5157@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 13 Oct 2010 20:22:03 +0200
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Wed, 13 Oct 2010 21:26:05 +0200
 
-> While doing profile analysis, I found fib_hash_table was sometime in a
-> cache line shared by a possibly often written kernel structure.
+> Full duplex only. Half duplex 1000 Mbps is not supported.
 > 
-> (CONFIG_IP_ROUTE_MULTIPATH || !CONFIG_IPV6_MULTIPLE_TABLES)
-> 
-> It's hard to detect because not easily reproductible.
-> 
-> Make sure we allocate a full cache line to keep this shared in all cpus
-> caches.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: David Lv <DavidLv@viatech.com.cn>
+> Acked-by: Francois Romieu <romieu@fr.zoreil.com>
+> Tested-by: Seguier Regis <rseguier@e-teleport.net>
 
 Applied.
