@@ -1,79 +1,83 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH] e1000e: Fix for offline diag test failure at
-	first call
-Date: Fri, 15 Oct 2010 20:35:31 -0700
-Message-ID: <20101016033452.2174.51928.stgit@localhost.localdomain>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: Re: RFD: OF device tree vs. PHY flags.
+Date: Fri, 15 Oct 2010 21:39:49 -0600
+Message-ID: <20101016033949.GA21170@angua.secretlab.ca>
+References: <4CB89AD8.7020200@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: devicetree-discuss@lists.ozlabs.org,
+	Netdev <netdev@vger.kernel.org>
+To: David Daney <ddaney@caviumnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta10.emeryville.ca.mail.comcast.net ([76.96.30.17]:34537 "EHLO
-	qmta10.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752663Ab0JPDfw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Oct 2010 23:35:52 -0400
+Received: from mail-px0-f174.google.com ([209.85.212.174]:34653 "EHLO
+	mail-px0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752689Ab0JPDjw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Oct 2010 23:39:52 -0400
+Received: by pxi16 with SMTP id 16so214142pxi.19
+        for <netdev@vger.kernel.org>; Fri, 15 Oct 2010 20:39:51 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <4CB89AD8.7020200@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+Hi David,
 
-Move link test call to later in the offline sequence, move the
-restore settings block to afterwards and add another reset to ensure
-the hardware is in a known state afterwards.
+On Fri, Oct 15, 2010 at 11:18:00AM -0700, David Daney wrote:
+> I am in the process of planning a conversion of Octeon SOC platform
+> code to use the OF device tree in the Linux kernel.
+> 
+> One issue that I have encountered, is that for some boards, we need
+> to pass a non-zero flags argument to the phy_attach_direct() method.
+> The value of the flags is board dependent, so it would make some
+> sense to encode its value in the device tree itself.  The flags I am
+> interested in control the configuration of clocking modes and status
+> LED connections.
+> 
+> I would suggest the following:
+> 
+> o Add a new property to "ethernet-phy" dts bindings called
+> "linux,flags".  It would contain a comma separated string of flag
+> names.  Something like "led-mode1,clock-mode2".  The semantics of
+> the flag names would be interpreted by the PHY driver...
 
-Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
-Acked-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+It does make sense to encode board-specific properties into the device
+tree.  However, it is a very bad idea to do it in this form because it
+encodes Linux-specific implementation details into the hardware
+description.  Instead, figure out what needs to be described about the
+*hardware* and write a binding that encodes that information.  Let the
+driver take care of translating the hardware description into the set
+of flags that it needs to use.
 
- drivers/net/e1000e/ethtool.c |   19 ++++++++-----------
- 1 files changed, 8 insertions(+), 11 deletions(-)
+Otherwise you'll end up in the situation where the phylib
+implementation changes and the data in the device tree will no longer
+make sense.  That is the path of pain.
 
-diff --git a/drivers/net/e1000e/ethtool.c b/drivers/net/e1000e/ethtool.c
-index b7f15b3..8984d16 100644
---- a/drivers/net/e1000e/ethtool.c
-+++ b/drivers/net/e1000e/ethtool.c
-@@ -1717,13 +1717,6 @@ static void e1000_diag_test(struct net_device *netdev,
- 
- 		e_info("offline testing starting\n");
- 
--		/*
--		 * Link test performed before hardware reset so autoneg doesn't
--		 * interfere with test result
--		 */
--		if (e1000_link_test(adapter, &data[4]))
--			eth_test->flags |= ETH_TEST_FL_FAILED;
--
- 		if (if_running)
- 			/* indicate we're in test mode */
- 			dev_close(netdev);
-@@ -1747,15 +1740,19 @@ static void e1000_diag_test(struct net_device *netdev,
- 		if (e1000_loopback_test(adapter, &data[3]))
- 			eth_test->flags |= ETH_TEST_FL_FAILED;
- 
-+		/* force this routine to wait until autoneg complete/timeout */
-+		adapter->hw.phy.autoneg_wait_to_complete = 1;
-+		e1000e_reset(adapter);
-+		adapter->hw.phy.autoneg_wait_to_complete = 0;
-+
-+		if (e1000_link_test(adapter, &data[4]))
-+			eth_test->flags |= ETH_TEST_FL_FAILED;
-+
- 		/* restore speed, duplex, autoneg settings */
- 		adapter->hw.phy.autoneg_advertised = autoneg_advertised;
- 		adapter->hw.mac.forced_speed_duplex = forced_speed_duplex;
- 		adapter->hw.mac.autoneg = autoneg;
--
--		/* force this routine to wait until autoneg complete/timeout */
--		adapter->hw.phy.autoneg_wait_to_complete = 1;
- 		e1000e_reset(adapter);
--		adapter->hw.phy.autoneg_wait_to_complete = 0;
- 
- 		clear_bit(__E1000_TESTING, &adapter->state);
- 		if (if_running)
+> o Add a new function pointer to struct phy_driver: u32
+> (*of_parse_flags)(struct phy_device *phydev).  This would parse and
+> return the flags value for the "linux,flags" property from the
+> device_node associated with the particular PHY device in question.
+
+I'm not clear why a new hook is needed.  What prevents the phy driver
+from parsing the device tree data at .probe() time?  The caller of
+phy_attach_direct() would then never need to be exposed to the parsing
+of the tree data.
+
+> o Modify of_phy_connect() to do something like the following:
+> 
+> .
+> .
+> .
+> 	if (phy->driver && phy->driver->of_parse_flags)
+> 		flags |= phy->driver->of_parse_flags(phy);
+> .
+> .
+> .
+> 
+> o Perhaps add some helper functions to of_mdio.c to assist in
+> parsing the "linux,flags" properties string.
+> 
+> o Any extra code in the PHY drivers and struct phy_driver would be
+> protected by #ifdef CONFIG_OF
+
+Yes.
 
