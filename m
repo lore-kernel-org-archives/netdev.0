@@ -1,59 +1,123 @@
 From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [Bugme-new] [Bug 19692] New: linux-2.6.36-rc5 crash with
- gianfar ethernet at full line rate traffic
-Date: Sat, 16 Oct 2010 21:48:15 +0200
-Message-ID: <20101016194815.GA1894@del.dom.local>
-References: <20101010103236.GA1919@del.dom.local>
- <20101015085853.GA8091@ff.dom.local>
- <AANLkTinAj=9-RqNA6xKc_5ONz2hPMRGM8uJ2Xy7XJVdr@mail.gmail.com>
+Subject: Re: tbf/htb qdisc limitations
+Date: Sat, 16 Oct 2010 22:58:24 +0200
+Message-ID: <20101016205824.GA2113@del.dom.local>
+References: <20101013233653.1e363692.billfink@mindspring.com>
+ <20101014064404.GA6219@ff.dom.local>
+ <20101014031354.e172d737.billfink@mindspring.com>
+ <20101014080939.GA7710@ff.dom.local>
+ <20101014085005.GA8349@ff.dom.local>
+ <20101015023749.f085006b.billfink@mindspring.com>
+ <1287125059.2659.1812.camel@edumazet-laptop>
+ <20101015173746.12c7c40a.billfink@mindspring.com>
+ <20101015220535.GA1997@del.dom.local>
+ <20101016005106.35e4cc8d.billfink@mindspring.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org,
-	Anton Vorontsov <avorontsov@mvista.com>
-To: emin ak <eminak71@gmail.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Rick Jones <rick.jones2@hp.com>,
+	Steven Brudenell <steven.brudenell@gmail.com>,
+	netdev@vger.kernel.org
+To: Bill Fink <billfink@mindspring.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:39275 "EHLO
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:37644 "EHLO
 	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754079Ab0JPTsV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Oct 2010 15:48:21 -0400
-Received: by wyb28 with SMTP id 28so1764478wyb.19
-        for <netdev@vger.kernel.org>; Sat, 16 Oct 2010 12:48:20 -0700 (PDT)
+	with ESMTP id S1754278Ab0JPU6a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Oct 2010 16:58:30 -0400
+Received: by wyb28 with SMTP id 28so1799116wyb.19
+        for <netdev@vger.kernel.org>; Sat, 16 Oct 2010 13:58:29 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <AANLkTinAj=9-RqNA6xKc_5ONz2hPMRGM8uJ2Xy7XJVdr@mail.gmail.com>
+In-Reply-To: <20101016005106.35e4cc8d.billfink@mindspring.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Oct 16, 2010 at 02:14:01AM +0300, emin ak wrote:
-> Hi Jarek.
-> Sorry for delayed answer. As I promised, I have started the tests on
-> Monday (in spite of dealing with The Monday Syndrome:)  I had applied
-> your patch and after two billions packet (and approximatly four hours)
-> passed kernel crashed with skb_over_panic error similar with first
-> type. To ensure the patch is failed or not, I rerun the same test
-> again. That time, surprisingly,  it did'nt crashed again for two days
-> with same kernel. But this situation had occured before, I think
-> sometimes because of randomness of the applied ethernet traffic and
-> mostly because I cant apply all full line rate random traffic to my
-> target device because of wrong test setup (switch / hardware packet
-> generator settings etc..), it takes three or more day to crash the
-> kernel and sometimes it never crashes. My device only and only crashes
-> when I can apply full line rate random traffic. Before informing you
-> and the list with (official) test results, I want to be sure with the
-> truth of them. So that please let me apply more test to the target
-> device for  a fews day more. After that I wish I'll came with good
-> news!
+On Sat, Oct 16, 2010 at 12:51:06AM -0400, Bill Fink wrote:
+> On Sat, 16 Oct 2010, Jarek Poplawski wrote:
+> 
+> > On Fri, Oct 15, 2010 at 05:37:46PM -0400, Bill Fink wrote:
+> > ...
+> > > i7test7% tc -s -d qdisc show dev eth2
+> > > qdisc prio 1: root refcnt 33 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
+> > >  Sent 11028687119 bytes 1223828 pkt (dropped 293, overlimits 0 requeues 0) 
+> > >  backlog 0b 0p requeues 0 
+> > > qdisc tbf 10: parent 1:1 rate 8900Mbit burst 1112500b/64 mpu 0b lat 4295.0s 
+> > >  Sent 11028687077 bytes 1223827 pkt (dropped 293, overlimits 593 requeues 0) 
+> > >  backlog 0b 0p requeues 0 
+> > > 
+> > > I'm not sure how you can have so many dropped but not have
+> > > any TCP retransmissions (or not show up as requeues).  But
+> > > there's probably something basic I just don't understand
+> > > about how all this stuff works.
+> > 
+> > Me either, but it seems higher "limit" might help with these drops.
+> 
+> You were of course correct about the higher limit helping.
+> I finally upgraded the field system to 2.6.35, and did some
+> testing on the real data path of interest, which has an RTT
+> of about 29 ms.  I set up a rate limit of 8 Gbps using the
+> following commands:
+> 
+> tc qdisc add dev eth2 root handle 1: prio
+> tc qdisc add dev eth2 parent 1:1 handle 10: tbf rate 8000mbit limit 35000000 burst 20000 mtu 9000
+> tc filter add dev eth2 protocol ip parent 1: prio 1 u32 match ip protocol 6 0xff match ip dst 192.168.1.23 flowid 10:1
+> 
+> hecn-i7sl1% nuttcp -T10 -i1 -w50m 192.168.1.23
+>   676.3750 MB /   1.00 sec = 5673.4646 Mbps     0 retrans
+>   948.5625 MB /   1.00 sec = 7957.1508 Mbps     0 retrans
+>   948.8125 MB /   1.00 sec = 7959.5902 Mbps     0 retrans
+>   948.3750 MB /   1.00 sec = 7955.5382 Mbps     0 retrans
+>   949.0000 MB /   1.00 sec = 7960.6696 Mbps     0 retrans
+>   948.7500 MB /   1.00 sec = 7958.7873 Mbps     0 retrans
+>   948.6875 MB /   1.00 sec = 7958.0959 Mbps     0 retrans
+>   948.6250 MB /   1.00 sec = 7957.4205 Mbps     0 retrans
+>   948.7500 MB /   1.00 sec = 7958.7237 Mbps     0 retrans
+>   948.4375 MB /   1.00 sec = 7956.3648 Mbps     0 retrans
+> 
+>  9270.5625 MB /  10.09 sec = 7707.7457 Mbps 24 %TX 36 %RX 0 retrans 29.38 msRTT
+> 
+> hecn-i7sl1% tc -s -d qdisc show dev eth2
+> qdisc prio 1: root refcnt 33 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
+>  Sent 9779476756 bytes 1084943 pkt (dropped 0, overlimits 0 requeues 0) 
+>  backlog 0b 0p requeues 0 
+> qdisc tbf 10: parent 1:1 rate 8000Mbit burst 19000b/64 mpu 0b lat 35.0ms 
+>  Sent 9779476756 bytes 1084943 pkt (dropped 0, overlimits 1831360 requeues 0) 
+>  backlog 0b 0p requeues 0 
+> 
+> No drops!
+> 
+> BTW the effective rate limit seems to be a very coarse adjustment
+> at these speeds.  I was seeing some data path issues at 8.9 Gbps
+> so I tried setting slightly lower rates such as 8.8 Gbps, 8.7 Gbps,
+> etc, but they still gave me an effective rate limit of about 8.9 Gbps.
+> It wasn't until I got down to a setting of 8 Gbps that I actually
+> got an effective rate limit of 8 Gbps.
+> 
+> Also the man page for tbf seems to be wrong/misleading about
+> the burst parameter.  It states:
+> 
+> 	"If your buffer is too small, packets may be dropped because more
+> 	tokens arrive per timer tick than fit in your bucket.  The minimum
+> 	buffer size can be calculated by dividing the rate by HZ.
+> 
+> According to that, with a rate of 8 Gbps and HZ=1000, the minimum
+> burst should be 1000000 bytes.  But my testing shows that a burst
+> of just 20000 works just fine.  That's only 2 9000-byte packets
+> or about 20 usec of traffic at the 8 Gbps rate.  Using too large
+> a value for burst can actually be harmful as it allows the traffic
+> to temporarily exceed the desired rate limit.
 
-Hi Emin,
-Sorry for being impatient. Actually, waiting is no problem for me. I
-simply didn't know how much this bug is reproducible, and was a bit
-mislead by your forecast of one day result (and terrified btw seeing
-words Monday and immediately side by side ;-) So, a few days or weeks,
-no problem, it's all up to you.
+As I mentioned before, it could work, but your config is really on
+the edge. Anyway, if lower than minimum buffer size is needed
+something else is definitely wrong. (Btw, this size can matter less
+with high resolution timers.) You could try if my iproute patch:
+"tc_core: Use double in tc_core_time2tick()" (not merged) can help
+here. While googling for this patch I found this page, which might be
+interesting to you (besides the link to the thread with the patch at
+the end, take 1 or 2, shouldn't matter):
 
-On the other hand, it looks like there might be something else/more,
-so I'd suggest to add this last skb_over_panic to bugzilla too.
+http://code.google.com/p/pspacer/wiki/HTBon10GbE
+ 
+If it doesn't help reconsider hfsc.
 
 Thanks,
 Jarek P.
