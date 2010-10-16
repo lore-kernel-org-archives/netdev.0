@@ -1,35 +1,52 @@
-From: Matt Domsch <Matt_Domsch@dell.com>
-Subject: Re: Linux Plumbers Conference: User-visible Network Issues Mini-Conf
-Date: Sat, 16 Oct 2010 09:04:39 -0500
-Message-ID: <20101016140439.GA4472@auslistsprd01.us.dell.com>
-References: <1B9798A3396AB0429545ADFEA207931510536C7C8E@AUSX7MCPS302.AMER.DELL.COM> <20101015195044.GA4416@auslistsprd01.us.dell.com> <20101016.011834.59671697.davem@davemloft.net>
+From: Shreyas Bhatewara <sbhatewara@vmware.com>
+Subject: RE: [PATCH] vmxnet3: remove set_flag_le{16,64} functions
+Date: Sat, 16 Oct 2010 08:57:37 -0700
+Message-ID: <89E2752CFA8EC044846EB8499819134102BD7E1856@EXCH-MBX-4.vmware.com>
+References: <1287214392-8963-1-git-send-email-harvey.harrison@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"shemminger@vyatta.com" <shemminger@vyatta.com>
+To: Harvey Harrison <harvey.harrison@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausc60ps301.us.dell.com ([143.166.148.206]:63625 "EHLO
-	ausc60ps301.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755225Ab0JPOEk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Oct 2010 10:04:40 -0400
-Content-Disposition: inline
-In-Reply-To: <20101016.011834.59671697.davem@davemloft.net>
+Received: from smtp-outbound-2.vmware.com ([65.115.85.73]:32348 "EHLO
+	smtp-outbound-2.vmware.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752107Ab0JPP5i convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 16 Oct 2010 11:57:38 -0400
+In-Reply-To: <1287214392-8963-1-git-send-email-harvey.harrison@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Oct 16, 2010 at 01:18:34AM -0700, David Miller wrote:
-> Half a month before the event is not the time to be making
-> this kind of formal plea with core networking people.
-> 
-> If someone isn't already attending LPC, at this point there is next to
-> zero chance they are going to be able to make plans to do so in time.
+________________________________________
+From: Harvey Harrison [harvey.harrison@gmail.com]
+Sent: Saturday, October 16, 2010 12:33 AM
+To: Shreyas Bhatewara
+Cc: netdev@vger.kernel.org; shemminger@vyatta.com
+Subject: [PATCH] vmxnet3: remove set_flag_le{16,64} functions
 
-Indeed, and I apologize for the tardiness.  The list of topics is,
-with the exception of one which was dropped, the same as in my note of
-Sept 17, when I made the same plea, but I fully admit I should have
-finalized this list earlier.
+Opencode the flag setting in the few places it was being done.
 
--- 
-Matt Domsch
-Technology Strategist
-Dell | Office of the CTO
+Signed-off-by: Harvey Harrison harvey.harrison@gmail.com
+---
+@@ -1617,8 +1599,7 @@ vmxnet3_vlan_rx_register(struct net_device *netdev, struct vlan_group *grp)
+                                               VMXNET3_CMD_UPDATE_VLAN_FILTERS);
+
+                        /* update FEATURES to device */
+-                       reset_flag_le64(&devRead->misc.uptFeatures,
+-                                       UPT1_F_RXVLAN);
++                       devRead->misc.uptFeatures |= cpu_to_le64(UPT1_F_RXVLAN);
+                        VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
+                                               VMXNET3_CMD_UPDATE_FEATURE);
+                }
+
+
+This hunk is wrong, UPT1_F_RXVLAN should be reset here.
+
+I fail to understand why set/reset functions were not good enough and why this opencoding is required. I agree with your earlier suggestion about replacing two conversions with *data |= cpu_to_le16(flag); though.
+
+
+Regards.
+Shreyas
