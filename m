@@ -1,57 +1,33 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: tbf/htb qdisc limitations
-Date: Sun, 17 Oct 2010 22:36:18 +0200
-Message-ID: <20101017203618.GA1889@del.dom.local>
-References: <20101014031354.e172d737.billfink@mindspring.com>
- <20101014080939.GA7710@ff.dom.local>
- <20101014085005.GA8349@ff.dom.local>
- <20101015023749.f085006b.billfink@mindspring.com>
- <1287125059.2659.1812.camel@edumazet-laptop>
- <20101015173746.12c7c40a.billfink@mindspring.com>
- <20101015220535.GA1997@del.dom.local>
- <20101016005106.35e4cc8d.billfink@mindspring.com>
- <20101016205824.GA2113@del.dom.local>
- <20101016212434.72ae5250.billfink@mindspring.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] niu: introduce temp variables to avoid sparse warnings
+ when swapping in-situ
+Date: Sun, 17 Oct 2010 13:43:05 -0700 (PDT)
+Message-ID: <20101017.134305.71116012.davem@davemloft.net>
+References: <1287032353-30314-1-git-send-email-harvey.harrison@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Rick Jones <rick.jones2@hp.com>,
-	Steven Brudenell <steven.brudenell@gmail.com>,
-	netdev@vger.kernel.org
-To: Bill Fink <billfink@mindspring.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: harvey.harrison@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:40339 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932735Ab0JQUg3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Oct 2010 16:36:29 -0400
-Received: by wyb28 with SMTP id 28so317740wyb.19
-        for <netdev@vger.kernel.org>; Sun, 17 Oct 2010 13:36:28 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20101016212434.72ae5250.billfink@mindspring.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36662
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932733Ab0JQUmn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Oct 2010 16:42:43 -0400
+In-Reply-To: <1287032353-30314-1-git-send-email-harvey.harrison@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Oct 16, 2010 at 09:24:34PM -0400, Bill Fink wrote:
-> On Sat, 16 Oct 2010, Jarek Poplawski wrote:
-...
-> > http://code.google.com/p/pspacer/wiki/HTBon10GbE
-> >  
-> > If it doesn't help reconsider hfsc.
+From: Harvey Harrison <harvey.harrison@gmail.com>
+Date: Wed, 13 Oct 2010 21:59:13 -0700
+
+> Suppress a large block of warnings like:
+> drivers/net/niu.c:7094:38: warning: incorrect type in assignment (different base types)
+> drivers/net/niu.c:7094:38:    expected restricted __be32 [usertype] ip4src
+> drivers/net/niu.c:7094:38:    got unsigned long long
+> drivers/net/niu.c:7104:17: warning: cast from restricted __be32
+> ...
 > 
-> Thanks for the link.  From his results, it appears you can
-> get better accuracy by keeping TSO/GSO enabled and upping
-> the tc mtu parameter to 64000.  I will have to try that out.
+> Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
 
-Sure, but you have to remember that scheduler doesn't know real packet
-sizes and rate tables are less accurate especially for smaller packets,
-so it depends on conditions.
-
-> For the very high bandwidth cases I tend to deal with, would
-> there be any advantage to further reducing the PSCHED_SHIFT
-> from its current value of 6?
-
-If you don't use low rates and/or large buffers it might be a good
-idea, especially on x64 (for 32-bit longs htb needs some change for
-this value below 5).
-
-Jarek P.
+Applied, thanks.
