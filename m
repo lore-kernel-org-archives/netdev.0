@@ -1,60 +1,53 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: [PATCH resend] netfilter: fix kconfig unmet dependency warning
-Date: Sat, 16 Oct 2010 19:11:03 -0700
-Message-ID: <20101016191103.ba9b2e7e.randy.dunlap@oracle.com>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: Re: [PATCH 2/3] cxgb4: function namespace cleanup (v2)
+Date: Sat, 16 Oct 2010 22:30:16 -0500
+Message-ID: <4CBA6DC8.4010104@opengridcomputing.com>
+References: <20101015224309.179898823@vyatta.com>	<20101015224523.633775810@vyatta.com>	<20101015171057.409db0f2@nehalam>	<4CB8FBCE.3090401@chelsio.com> <20101015212310.47a74d86@nehalam> <4CB9434D.1060702@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netfilter-devel@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Divy Le Ray <divy@chelsio.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Casey Leedom <leedom@chelsio.com>, netdev@vger.kernel.org
+To: Dimitris Michailidis <dm@chelsio.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.opengridcomputing.com ([209.198.142.2]:59079 "EHLO
+	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751260Ab0JQDaL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Oct 2010 23:30:11 -0400
+In-Reply-To: <4CB9434D.1060702@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
 
-Fix netfilter kconfig unmet dependencies warning & spell out
-"compatible" while there.
+On 10/16/2010 1:16 AM, Dimitris Michailidis wrote:
+> Stephen Hemminger wrote:
+>> On Fri, 15 Oct 2010 18:11:42 -0700
+>> Dimitris Michailidis <dm@chelsio.com> wrote:
+>>
+>>> Stephen Hemminger wrote:
+>>>> Make functions only used in one file local.
+>>>> Remove lots of dead code, relating to unsupported functions
+>>>> in mainline driver like RSS, IPv6, and TCP offload.
+>>> Thanks, this looks OK.  One exception, cxgb4_get_tcp_stats was 
+>>> intended to be used by the rdma driver.  I see that driver doesn't 
+>>> call it presently but if you don't mind can we give Steve a few 
+>>> hours to tell us if he has any imminent plans to use it.  If he 
+>>> doesn't offer to do something to use it for .37 it goes.
+>>
+>> The kernel source tree is not your development place holder tree.
+>> At least #ifdef the code out for now.
+>
+> I am trying to protect Stephen Rothwell's time by checking that the IB 
+> folks don't plan to add a call to this in their tree while we remove 
+> the function in net-next.  There's supposed to be a call in the IB 
+> driver.  I don't know why there isn't one or whether they are planning 
+> to fix it for .37.  I see the potential for a linux-next conflict and 
+> I am trying to avoid it.  #ifdef doesn't help, if it's not needed we 
+> can remove it for good.
 
-warning: (IP_NF_TARGET_TTL && NET && INET && NETFILTER && IP_NF_IPTABLES && NETFILTER_ADVANCED || IP6_NF_TARGET_HL && NET && INET && IPV6 && NETFILTER && IP6_NF_IPTABLES && NETFILTER_ADVANCED) selects NETFILTER_XT_TARGET_HL which has unmet direct dependencies ((IP_NF_MANGLE || IP6_NF_MANGLE) && NETFILTER_ADVANCED)
+I'll add a patch this week to utilize the tcp stats.
 
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
----
- net/ipv4/netfilter/Kconfig |    4 ++--
- net/ipv6/netfilter/Kconfig |    4 ++--
- 2 files changed, 4 insertions(+), 4 deletions(-)
+Steve.
 
-[orig. sent 2010-SEP-23]
-
---- linux-next-20100921.orig/net/ipv4/netfilter/Kconfig
-+++ linux-next-20100921/net/ipv4/netfilter/Kconfig
-@@ -324,10 +324,10 @@ config IP_NF_TARGET_ECN
- 
- config IP_NF_TARGET_TTL
- 	tristate '"TTL" target support'
--	depends on NETFILTER_ADVANCED
-+	depends on NETFILTER_ADVANCED && IP_NF_MANGLE
- 	select NETFILTER_XT_TARGET_HL
- 	---help---
--	This is a backwards-compat option for the user's convenience
-+	This is a backwards-compatible option for the user's convenience
- 	(e.g. when running oldconfig). It selects
- 	CONFIG_NETFILTER_XT_TARGET_HL.
- 
---- linux-next-20100921.orig/net/ipv6/netfilter/Kconfig
-+++ linux-next-20100921/net/ipv6/netfilter/Kconfig
-@@ -132,10 +132,10 @@ config IP6_NF_MATCH_RT
- # The targets
- config IP6_NF_TARGET_HL
- 	tristate '"HL" hoplimit target support'
--	depends on NETFILTER_ADVANCED
-+	depends on NETFILTER_ADVANCED && IP6_NF_MANGLE
- 	select NETFILTER_XT_TARGET_HL
- 	---help---
--	This is a backwards-compat option for the user's convenience
-+	This is a backwards-compatible option for the user's convenience
- 	(e.g. when running oldconfig). It selects
- 	CONFIG_NETFILTER_XT_TARGET_HL.
- 
---
