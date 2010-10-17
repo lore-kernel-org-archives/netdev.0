@@ -1,53 +1,52 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: Re: [PATCH 2/3] cxgb4: function namespace cleanup (v2)
-Date: Sat, 16 Oct 2010 22:30:16 -0500
-Message-ID: <4CBA6DC8.4010104@opengridcomputing.com>
-References: <20101015224309.179898823@vyatta.com>	<20101015224523.633775810@vyatta.com>	<20101015171057.409db0f2@nehalam>	<4CB8FBCE.3090401@chelsio.com> <20101015212310.47a74d86@nehalam> <4CB9434D.1060702@chelsio.com>
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Subject: Re: Documenting UNIX domain autobind
+Date: Sun, 17 Oct 2010 14:28:58 +0900
+Message-ID: <201010171428.DDC17187.FFFJSLtOOHOMQV@I-love.SAKURA.ne.jp>
+References: <AANLkTimtTazMmDvQFgASsVGa=AYvPZqUaUmyg5p7VVY1@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Divy Le Ray <divy@chelsio.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Casey Leedom <leedom@chelsio.com>, netdev@vger.kernel.org
-To: Dimitris Michailidis <dm@chelsio.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, mzxreary@0pointer.de
+To: mtk.manpages@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.opengridcomputing.com ([209.198.142.2]:59079 "EHLO
-	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751260Ab0JQDaL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Oct 2010 23:30:11 -0400
-In-Reply-To: <4CB9434D.1060702@chelsio.com>
+Received: from wine.ocn.ne.jp ([122.1.235.145]:59017 "EHLO smtp.wine.ocn.ne.jp"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752092Ab0JQF3G (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 17 Oct 2010 01:29:06 -0400
+In-Reply-To: <AANLkTimtTazMmDvQFgASsVGa=AYvPZqUaUmyg5p7VVY1@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Michael Kerrisk wrote:
+> I think this text correctly documents the technical details (but let
+> me know if you see errors). What is lacking is an explanation of why
+> this feature exists. Is someone able to explain where this feature is
+> used and why?
 
-On 10/16/2010 1:16 AM, Dimitris Michailidis wrote:
-> Stephen Hemminger wrote:
->> On Fri, 15 Oct 2010 18:11:42 -0700
->> Dimitris Michailidis <dm@chelsio.com> wrote:
->>
->>> Stephen Hemminger wrote:
->>>> Make functions only used in one file local.
->>>> Remove lots of dead code, relating to unsupported functions
->>>> in mainline driver like RSS, IPv6, and TCP offload.
->>> Thanks, this looks OK.  One exception, cxgb4_get_tcp_stats was 
->>> intended to be used by the rdma driver.  I see that driver doesn't 
->>> call it presently but if you don't mind can we give Steve a few 
->>> hours to tell us if he has any imminent plans to use it.  If he 
->>> doesn't offer to do something to use it for .37 it goes.
->>
->> The kernel source tree is not your development place holder tree.
->> At least #ifdef the code out for now.
->
-> I am trying to protect Stephen Rothwell's time by checking that the IB 
-> folks don't plan to add a call to this in their tree while we remove 
-> the function in net-next.  There's supposed to be a call in the IB 
-> driver.  I don't know why there isn't one or whether they are planning 
-> to fix it for .37.  I see the potential for a linux-next conflict and 
-> I am trying to avoid it.  #ifdef doesn't help, if it's not needed we 
-> can remove it for good.
+What we can see is that unix_autobind() was added in Linux 2.1.15
 
-I'll add a patch this week to utilize the tcp stats.
+  http://lxr.linux.no/linux-old+v2.1.15/net/unix/af_unix.c#L464
+  addr->len = sprintf(addr->name->sun_path+1, "%08x", ordernum) + 1 + sizeof(short);
 
-Steve.
+  49 * Differences from 2.0.0-11-... (ANK)
+  50 *      Bug fixes and improvements.
+  51 *              - client shutdown killed server socket.
+  52 *              - removed all useless cli/sti pairs.
+  53 *              - (suspicious!) not allow connect/send to connected not to us
+  54 *                socket, return EPERM.
+  55 *
+  56 *      Semantic changes/extensions.
+  57 *              - generic control message passing.
+  58 *              - SCM_CREDENTIALS control message.
+  59 *              - "Abstract" (not FS based) socket bindings.
+  60 *                Abstract names are sequences of bytes (not zero terminated)
+  61 *                started by 0, so that this name space does not intersect
+  62 *                with BSD names.
 
+and was changed to allow from 2^32 names to 2^20 names in Linux 2.3.15.
+
+  http://lxr.linux.no/linux-old+v2.3.15/net/unix/af_unix.c#L514
+  addr->len = sprintf(addr->name->sun_path+1, "%05x", ordernum) + 1 + sizeof(short);
+
+I don't know the reason.
+
+Regards.
