@@ -1,76 +1,42 @@
-From: James Hogan <james@albanarts.com>
-Subject: [PATCH v2] b44: fix resume, request_irq after hw reset
-Date: Sun, 17 Oct 2010 12:48:59 +0100
-Message-ID: <201010171249.00485.james@albanarts.com>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [PATCH V2 0/7] can: mcp251x: fix and optimize driver
+Date: Sun, 17 Oct 2010 16:29:37 +0200
+Message-ID: <4CBB0851.9060601@grandegger.com>
+References: <1287139762-23356-1-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jiri Pirko <jpirko@redhat.com>,
-	FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>,
-	Hauke Mehrtens <hauke@hauke-m.de>,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Gary Zambrano <zambrano@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:45120 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750896Ab0JQLtL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Oct 2010 07:49:11 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <1287139762-23356-1-git-send-email-mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On resume, call request_irq() after resetting the hardware rather than
-before. It's a shared interrupt so the handler could be called
-immediately if another device on the same irq interrupts (and will be
-called immediately if CONFIG_DEBUG_SHIRQ=y), but unless the hardware is
-reinitialised with b44_init_hw() the read of the interrupt status
-register will hang the system.
+On 10/15/2010 12:49 PM, Marc Kleine-Budde wrote:
+> Moin,
+> 
+> this series of patches improves the mcp251x driver. It first fixes the
+> local_softirq_pending problem. Then the amount of SPI transfers is reduced
+> in order to optimise the driver.
+> 
+> This series has been tested with a mcp2515 on i.MX35.
+> 
+> Changes since V1:
+> - Fix broken encoding in S-o-b
+> 
+> Please review, test and consider to apply.
 
-Signed-off-by: James Hogan <james@albanarts.com>
----
- drivers/net/b44.c |   19 ++++++++++++++-----
- 1 files changed, 14 insertions(+), 5 deletions(-)
+You can add to all patches my
 
-diff --git a/drivers/net/b44.c b/drivers/net/b44.c
-index efeffdf..f950505 100644
---- a/drivers/net/b44.c
-+++ b/drivers/net/b44.c
-@@ -2296,18 +2296,27 @@ static int b44_resume(struct ssb_device *sdev)
- 	if (!netif_running(dev))
- 		return 0;
- 
-+	spin_lock_irq(&bp->lock);
-+	b44_init_rings(bp);
-+	b44_init_hw(bp, B44_FULL_RESET);
-+	spin_unlock_irq(&bp->lock);
-+
-+	/*
-+	 * As a shared interrupt, the handler can be called immediately. To be
-+	 * able to check the interrupt status the hardware must already be
-+	 * powered back on (b44_init_hw).
-+	 */
- 	rc = request_irq(dev->irq, b44_interrupt, IRQF_SHARED, dev->name, dev);
- 	if (rc) {
- 		netdev_err(dev, "request_irq failed\n");
-+		spin_lock_irq(&bp->lock);
-+		b44_halt(bp);
-+		b44_free_rings(bp);
-+		spin_unlock_irq(&bp->lock);
- 		return rc;
- 	}
- 
--	spin_lock_irq(&bp->lock);
--
--	b44_init_rings(bp);
--	b44_init_hw(bp, B44_FULL_RESET);
- 	netif_device_attach(bp->dev);
--	spin_unlock_irq(&bp->lock);
- 
- 	b44_enable_ints(bp);
- 	netif_wake_queue(dev);
--- 
-1.7.2.3
+Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
 
+Wolfgang.
