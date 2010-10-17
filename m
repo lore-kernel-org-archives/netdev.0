@@ -1,354 +1,334 @@
-From: Bandan Das <bandan.das@stratus.com>
-Subject: [PATCH 1/2] bonding: cleanup : add space around operators
-Date: Sun, 17 Oct 2010 02:19:58 -0400
-Message-ID: <1287296399-25142-2-git-send-email-bandan.das@stratus.com>
-References: <1287296399-25142-1-git-send-email-bandan.das@stratus.com>
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	NetDev <netdev@vger.kernel.org>, joe@perches.com,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Bandan Das <bandan.das@stratus.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1287296399-25142-1-git-send-email-bandan.das@stratus.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Joe Perches <joe@perches.com>
+Subject: [RFC PATCH net-next] drivers/net/bonding/bond_3ad: Remove struct
+ mac_addr and typedef
+Date: Sun, 17 Oct 2010 00:38:17 -0700
+Message-ID: <1287301097.20968.19.camel@Joe-Laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: bonding-devel@lists.sourceforge.net,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Jay Vosburgh <fubar@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.perches.com ([173.55.12.10]:2984 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754494Ab0JQHiT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 17 Oct 2010 03:38:19 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-checkpatch.pl cleanup: Added spaces around operators at various places.
-Also fixed some c99 style comments that I came across.
+Use more standard u8 name[ETH_ALEN];
+Remove MAC_ADDRESS_COMPARE and use compare_ether_addr
+Remove null_mac_addr and use is_zero_ether_addr and memset
+Use memcpy for copying ether addresses
 
-Signed-off-by: Bandan Das <bandan.das@stratus.com>
+Size increases ~200 bytes so it's not great,
+but it might be better for style consistency.
+
+$ size drivers/net/bonding/*.o.*
+   text	   data	    bss	    dec	    hex	filename
+  25580	    776	   5800	  32156	   7d9c	drivers/net/bonding/bond_3ad.o.new
+  25396	    776	   5808	  31980	   7cec	drivers/net/bonding/bond_3ad.o.old
+
+Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/bonding/bond_3ad.c |  111 ++++++++++++++++++++++++----------------
- 1 files changed, 67 insertions(+), 44 deletions(-)
+ drivers/net/bonding/bond_3ad.c |   50 ++++++++++++++++++---------------------
+ drivers/net/bonding/bond_3ad.h |   20 ++++++---------
+ 2 files changed, 31 insertions(+), 39 deletions(-)
 
 diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index 079b9d1..6b06b00 100644
+index 079b9d1..5a38eef 100644
 --- a/drivers/net/bonding/bond_3ad.c
 +++ b/drivers/net/bonding/bond_3ad.c
-@@ -93,7 +93,7 @@
- // compare MAC addresses
- #define MAC_ADDRESS_COMPARE(A, B) memcmp(A, B, ETH_ALEN)
+@@ -90,10 +90,6 @@
+ #define     AD_LINK_SPEED_BITMASK_10000MBPS   0x10
+ //endalloun
  
+-// compare MAC addresses
+-#define MAC_ADDRESS_COMPARE(A, B) memcmp(A, B, ETH_ALEN)
+-
 -static struct mac_addr null_mac_addr = {{0, 0, 0, 0, 0, 0}};
-+static struct mac_addr null_mac_addr = { { 0, 0, 0, 0, 0, 0 } };
  static u16 ad_ticks_per_sec;
  static const int ad_delta_in_ticks = (AD_TIMER_INTERVAL * HZ) / 1000;
  
-@@ -329,7 +329,7 @@ static u16 __get_link_speed(struct port *port)
- 	 * This is done in spite of the fact that the e100 driver reports 0 to be
- 	 * compatible with MVT in the future.*/
- 	if (slave->link != BOND_LINK_UP) {
--		speed=0;
-+		speed = 0;
- 	} else {
- 		switch (slave->speed) {
- 		case SPEED_10:
-@@ -376,17 +376,17 @@ static u8 __get_duplex(struct port *port)
- 	//  handling a special case: when the configuration starts with
- 	// link down, it sets the duplex to 0.
- 	if (slave->link != BOND_LINK_UP) {
--		retval=0x0;
-+		retval = 0x0;
- 	} else {
- 		switch (slave->duplex) {
- 		case DUPLEX_FULL:
--			retval=0x1;
-+			retval = 0x1;
- 			pr_debug("Port %d Received status full duplex update from adapter\n",
- 				 port->actor_port_number);
- 			break;
- 		case DUPLEX_HALF:
- 		default:
--			retval=0x0;
-+			retval = 0x0;
- 			pr_debug("Port %d Received status NOT full duplex update from adapter\n",
- 				 port->actor_port_number);
- 			break;
-@@ -419,7 +419,7 @@ static inline void __initialize_port_locks(struct port *port)
+@@ -218,7 +214,7 @@ static inline struct aggregator *__get_next_agg(struct aggregator *aggregator)
   */
- static u16 __ad_timer_to_ticks(u16 timer_type, u16 par)
+ static inline int __agg_has_partner(struct aggregator *agg)
  {
--	u16 retval=0;	 //to silence the compiler
-+	u16 retval = 0; /* to silence the compiler */
- 
- 	switch (timer_type) {
- 	case AD_CURRENT_WHILE_TIMER:   // for rx machine usage
-@@ -653,7 +653,7 @@ static void __update_ntt(struct lacpdu *lacpdu, struct port *port)
-  */
- static void __attach_bond_to_agg(struct port *port)
- {
--	port=NULL; // just to satisfy the compiler
-+	port = NULL; /* just to satisfy the compiler */
- 	// This function does nothing since the parser/multiplexer of the receive
- 	// and the parser/multiplexer of the aggregator are already combined
- }
-@@ -668,7 +668,7 @@ static void __attach_bond_to_agg(struct port *port)
-  */
- static void __detach_bond_from_agg(struct port *port)
- {
--	port=NULL; // just to satisfy the compiler
-+	port = NULL; /* just to satisfy the compiler */
- 	// This function does nothing sience the parser/multiplexer of the receive
- 	// and the parser/multiplexer of the aggregator are already combined
- }
-@@ -685,7 +685,9 @@ static int __agg_ports_are_ready(struct aggregator *aggregator)
- 
- 	if (aggregator) {
- 		// scan all ports in this aggregator to verfy if they are all ready
--		for (port=aggregator->lag_ports; port; port=port->next_port_in_aggregator) {
-+		for (port = aggregator->lag_ports;
-+		     port;
-+		     port = port->next_port_in_aggregator) {
- 			if (!(port->sm_vars & AD_PORT_READY_N)) {
- 				retval = 0;
- 				break;
-@@ -706,7 +708,8 @@ static void __set_agg_ports_ready(struct aggregator *aggregator, int val)
- {
- 	struct port *port;
- 
--	for (port=aggregator->lag_ports; port; port=port->next_port_in_aggregator) {
-+	for (port = aggregator->lag_ports; port;
-+	     port = port->next_port_in_aggregator) {
- 		if (val) {
- 			port->sm_vars |= AD_PORT_READY;
- 		} else {
-@@ -722,7 +725,7 @@ static void __set_agg_ports_ready(struct aggregator *aggregator, int val)
-  */
- static u32 __get_agg_bandwidth(struct aggregator *aggregator)
- {
--	u32 bandwidth=0;
-+	u32 bandwidth = 0;
- 	u32 basic_speed;
- 
- 	if (aggregator->num_of_ports) {
-@@ -744,7 +747,7 @@ static u32 __get_agg_bandwidth(struct aggregator *aggregator)
- 			bandwidth = aggregator->num_of_ports * 10000;
- 			break;
- 		default:
--			bandwidth=0; // to silent the compilor ....
-+			bandwidth = 0; /*to silence the compiler ....*/
- 		}
- 	}
- 	return bandwidth;
-@@ -1183,7 +1186,8 @@ static void ad_tx_machine(struct port *port)
- 			}
- 		}
- 		// restart tx timer(to verify that we will not exceed AD_MAX_TX_IN_SECOND
--		port->sm_tx_timer_counter=ad_ticks_per_sec/AD_MAX_TX_IN_SECOND;
-+		port->sm_tx_timer_counter =
-+			ad_ticks_per_sec/AD_MAX_TX_IN_SECOND;
- 	}
+-	return !is_zero_ether_addr(agg->partner_system.mac_addr_value);
++	return !is_zero_ether_addr(agg->partner_system);
  }
  
-@@ -1294,20 +1298,24 @@ static void ad_port_selection_logic(struct port *port)
- 	// if the port is connected to other aggregator, detach it
- 	if (port->aggregator) {
- 		// detach the port from its former aggregator
--		temp_aggregator=port->aggregator;
--		for (curr_port=temp_aggregator->lag_ports; curr_port; last_port=curr_port, curr_port=curr_port->next_port_in_aggregator) {
-+		temp_aggregator = port->aggregator;
-+		for (curr_port = temp_aggregator->lag_ports; curr_port;
-+		     last_port = curr_port,
-+			     curr_port = curr_port->next_port_in_aggregator) {
- 			if (curr_port == port) {
- 				temp_aggregator->num_of_ports--;
- 				if (!last_port) {// if it is the first port attached to the aggregator
--					temp_aggregator->lag_ports=port->next_port_in_aggregator;
-+					temp_aggregator->lag_ports =
-+						port->next_port_in_aggregator;
- 				} else {// not the first port attached to the aggregator
--					last_port->next_port_in_aggregator=port->next_port_in_aggregator;
-+					last_port->next_port_in_aggregator =
-+						port->next_port_in_aggregator;
- 				}
+ /**
+@@ -478,7 +474,7 @@ static void __choose_matched(struct lacpdu *lacpdu, struct port *port)
+ 	// check if all parameters are alike
+ 	if (((ntohs(lacpdu->partner_port) == port->actor_port_number) &&
+ 	     (ntohs(lacpdu->partner_port_priority) == port->actor_port_priority) &&
+-	     !MAC_ADDRESS_COMPARE(&(lacpdu->partner_system), &(port->actor_system)) &&
++	     !compare_ether_addr(lacpdu->partner_system, port->actor_system) &&
+ 	     (ntohs(lacpdu->partner_system_priority) == port->actor_system_priority) &&
+ 	     (ntohs(lacpdu->partner_key) == port->actor_oper_port_key) &&
+ 	     ((lacpdu->partner_state & AD_STATE_AGGREGATION) == (port->actor_oper_port_state & AD_STATE_AGGREGATION))) ||
+@@ -510,7 +506,7 @@ static void __record_pdu(struct lacpdu *lacpdu, struct port *port)
+ 		// record the new parameter values for the partner operational
+ 		partner->port_number = ntohs(lacpdu->actor_port);
+ 		partner->port_priority = ntohs(lacpdu->actor_port_priority);
+-		partner->system = lacpdu->actor_system;
++		memcpy(partner->system, lacpdu->actor_system, ETH_ALEN);
+ 		partner->system_priority = ntohs(lacpdu->actor_system_priority);
+ 		partner->key = ntohs(lacpdu->actor_key);
+ 		partner->port_state = lacpdu->actor_state;
+@@ -568,7 +564,7 @@ static void __update_selected(struct lacpdu *lacpdu, struct port *port)
+ 		// check if any parameter is different
+ 		if (ntohs(lacpdu->actor_port) != partner->port_number ||
+ 		    ntohs(lacpdu->actor_port_priority) != partner->port_priority ||
+-		    MAC_ADDRESS_COMPARE(&lacpdu->actor_system, &partner->system) ||
++		    compare_ether_addr(lacpdu->actor_system, partner->system) ||
+ 		    ntohs(lacpdu->actor_system_priority) != partner->system_priority ||
+ 		    ntohs(lacpdu->actor_key) != partner->key ||
+ 		    (lacpdu->actor_state & AD_STATE_AGGREGATION) != (partner->port_state & AD_STATE_AGGREGATION)) {
+@@ -599,7 +595,7 @@ static void __update_default_selected(struct port *port)
+ 		// check if any parameter is different
+ 		if (admin->port_number != oper->port_number ||
+ 		    admin->port_priority != oper->port_priority ||
+-		    MAC_ADDRESS_COMPARE(&admin->system, &oper->system) ||
++		    compare_ether_addr(admin->system, oper->system) ||
+ 		    admin->system_priority != oper->system_priority ||
+ 		    admin->key != oper->key ||
+ 		    (admin->port_state & AD_STATE_AGGREGATION)
+@@ -629,7 +625,7 @@ static void __update_ntt(struct lacpdu *lacpdu, struct port *port)
+ 		// check if any parameter is different
+ 		if ((ntohs(lacpdu->partner_port) != port->actor_port_number) ||
+ 		    (ntohs(lacpdu->partner_port_priority) != port->actor_port_priority) ||
+-		    MAC_ADDRESS_COMPARE(&(lacpdu->partner_system), &(port->actor_system)) ||
++		    compare_ether_addr(lacpdu->partner_system, port->actor_system) ||
+ 		    (ntohs(lacpdu->partner_system_priority) != port->actor_system_priority) ||
+ 		    (ntohs(lacpdu->partner_key) != port->actor_oper_port_key) ||
+ 		    ((lacpdu->partner_state & AD_STATE_LACP_ACTIVITY) != (port->actor_oper_port_state & AD_STATE_LACP_ACTIVITY)) ||
+@@ -787,7 +783,7 @@ static inline void __update_lacpdu_from_port(struct port *port)
+ 	 */
  
- 				// clear the port's relations to this aggregator
- 				port->aggregator = NULL;
--				port->next_port_in_aggregator=NULL;
--				port->actor_port_aggregator_identifier=0;
-+				port->next_port_in_aggregator = NULL;
-+				port->actor_port_aggregator_identifier = 0;
+ 	lacpdu->actor_system_priority = htons(port->actor_system_priority);
+-	lacpdu->actor_system = port->actor_system;
++	memcpy(lacpdu->actor_system, port->actor_system, ETH_ALEN);
+ 	lacpdu->actor_key = htons(port->actor_oper_port_key);
+ 	lacpdu->actor_port_priority = htons(port->actor_port_priority);
+ 	lacpdu->actor_port = htons(port->actor_port_number);
+@@ -799,7 +795,7 @@ static inline void __update_lacpdu_from_port(struct port *port)
+ 	 */
  
- 				pr_debug("Port %d left LAG %d\n",
- 					 port->actor_port_number,
-@@ -1334,7 +1342,7 @@ static void ad_port_selection_logic(struct port *port)
- 		// keep a free aggregator for later use(if needed)
- 		if (!aggregator->lag_ports) {
- 			if (!free_aggregator) {
--				free_aggregator=aggregator;
-+				free_aggregator = aggregator;
- 			}
- 			continue;
+ 	lacpdu->partner_system_priority = htons(partner->system_priority);
+-	lacpdu->partner_system = partner->system;
++	memcpy(lacpdu->partner_system, partner->system, ETH_ALEN);
+ 	lacpdu->partner_key = htons(partner->key);
+ 	lacpdu->partner_port_priority = htons(partner->port_priority);
+ 	lacpdu->partner_port = htons(partner->port_number);
+@@ -1133,7 +1129,7 @@ static void ad_rx_machine(struct lacpdu *lacpdu, struct port *port)
+ 			break;
+ 		case AD_RX_CURRENT:
+ 			// detect loopback situation
+-			if (!MAC_ADDRESS_COMPARE(&(lacpdu->actor_system), &(port->actor_system))) {
++			if (!compare_ether_addr(lacpdu->actor_system, port->actor_system)) {
+ 				// INFO_RECEIVED_LOOPBACK_FRAMES
+ 				pr_err("%s: An illegal loopback occurred on adapter (%s).\n"
+ 				       "Check the configuration to verify that all adapters are connected to 802.3ad compliant switch ports\n",
+@@ -1340,11 +1336,11 @@ static void ad_port_selection_logic(struct port *port)
  		}
-@@ -1350,10 +1358,11 @@ static void ad_port_selection_logic(struct port *port)
+ 		// check if current aggregator suits us
+ 		if (((aggregator->actor_oper_aggregator_key == port->actor_oper_port_key) && // if all parameters match AND
+-		     !MAC_ADDRESS_COMPARE(&(aggregator->partner_system), &(port->partner_oper.system)) &&
++		     !compare_ether_addr(aggregator->partner_system, port->partner_oper.system) &&
+ 		     (aggregator->partner_system_priority == port->partner_oper.system_priority) &&
+ 		     (aggregator->partner_oper_aggregator_key == port->partner_oper.key)
+ 		    ) &&
+-		    ((MAC_ADDRESS_COMPARE(&(port->partner_oper.system), &(null_mac_addr)) && // partner answers
++		    ((is_zero_ether_addr(port->partner_oper.system) && // partner answers
+ 		      !aggregator->is_individual)  // but is not individual OR
+ 		    )
  		   ) {
- 			// attach to the founded aggregator
- 			port->aggregator = aggregator;
--			port->actor_port_aggregator_identifier=port->aggregator->aggregator_identifier;
--			port->next_port_in_aggregator=aggregator->lag_ports;
-+			port->actor_port_aggregator_identifier =
-+				port->aggregator->aggregator_identifier;
-+			port->next_port_in_aggregator = aggregator->lag_ports;
- 			port->aggregator->num_of_ports++;
--			aggregator->lag_ports=port;
-+			aggregator->lag_ports = port;
- 			pr_debug("Port %d joined LAG %d(existing LAG)\n",
- 				 port->actor_port_number,
- 				 port->aggregator->aggregator_identifier);
-@@ -1370,7 +1379,8 @@ static void ad_port_selection_logic(struct port *port)
- 		if (free_aggregator) {
- 			// assign port a new aggregator
- 			port->aggregator = free_aggregator;
--			port->actor_port_aggregator_identifier=port->aggregator->aggregator_identifier;
-+			port->actor_port_aggregator_identifier =
-+				port->aggregator->aggregator_identifier;
- 
- 			// update the new aggregator's parameters
- 			// if port was responsed from the end-user
-@@ -1382,8 +1392,10 @@ static void ad_port_selection_logic(struct port *port)
+@@ -1382,7 +1378,7 @@ static void ad_port_selection_logic(struct port *port)
  
  			port->aggregator->actor_admin_aggregator_key = port->actor_admin_port_key;
  			port->aggregator->actor_oper_aggregator_key = port->actor_oper_port_key;
 -			port->aggregator->partner_system=port->partner_oper.system;
--			port->aggregator->partner_system_priority = port->partner_oper.system_priority;
-+			port->aggregator->partner_system =
-+				port->partner_oper.system;
-+			port->aggregator->partner_system_priority =
-+				port->partner_oper.system_priority;
++			memcpy(port->aggregator->partner_system, port->partner_oper.system, ETH_ALEN);
+ 			port->aggregator->partner_system_priority = port->partner_oper.system_priority;
  			port->aggregator->partner_oper_aggregator_key = port->partner_oper.key;
  			port->aggregator->receive_state = 1;
- 			port->aggregator->transmit_state = 1;
-@@ -1785,13 +1797,16 @@ static void ad_marker_info_send(struct port *port)
- 	marker.requester_port = (((port->actor_port_number & 0xFF) << 8) |((u16)(port->actor_port_number & 0xFF00) >> 8));
- 	marker.requester_system = port->actor_system;
- 	// convert requester_port(u32) to Big Endian
--	marker.requester_transaction_id = (((++port->transaction_id & 0xFF) << 24) |((port->transaction_id & 0xFF00) << 8) |((port->transaction_id & 0xFF0000) >> 8) |((port->transaction_id & 0xFF000000) >> 24));
-+	marker.requester_transaction_id =
-+		(((++port->transaction_id & 0xFF) << 24)
-+		 | ((port->transaction_id & 0xFF00) << 8)
-+		 | ((port->transaction_id & 0xFF0000) >> 8)
-+		 | ((port->transaction_id & 0xFF000000) >> 24));
- 	marker.pad = 0;
- 	marker.tlv_type_terminator = 0x00;
- 	marker.terminator_length = 0x00;
--	for (index=0; index<90; index++) {
--		marker.reserved_90[index]=0;
--	}
-+	for (index = 0; index < 90; index++)
-+		marker.reserved_90[index] = 0;
+@@ -1636,7 +1632,7 @@ static void ad_clear_agg(struct aggregator *aggregator)
+ 		aggregator->is_individual = false;
+ 		aggregator->actor_admin_aggregator_key = 0;
+ 		aggregator->actor_oper_aggregator_key = 0;
+-		aggregator->partner_system = null_mac_addr;
++		memset(aggregator->partner_system, 0, ETH_ALEN);
+ 		aggregator->partner_system_priority = 0;
+ 		aggregator->partner_oper_aggregator_key = 0;
+ 		aggregator->receive_state = 0;
+@@ -1659,7 +1655,7 @@ static void ad_initialize_agg(struct aggregator *aggregator)
+ 	if (aggregator) {
+ 		ad_clear_agg(aggregator);
  
- 	// send the marker information
- 	if (ad_marker_send(port, &marker) >= 0) {
-@@ -1816,7 +1831,7 @@ static void ad_marker_info_received(struct bond_marker *marker_info,
- 	//marker = *marker_info;
- 	memcpy(&marker, marker_info, sizeof(struct bond_marker));
- 	// change the marker subtype to marker response
--	marker.tlv_type=AD_MARKER_RESPONSE_SUBTYPE;
-+	marker.tlv_type = AD_MARKER_RESPONSE_SUBTYPE;
- 	// send the marker response
- 
- 	if (ad_marker_send(port, &marker) >= 0) {
-@@ -1837,8 +1852,8 @@ static void ad_marker_info_received(struct bond_marker *marker_info,
- static void ad_marker_response_received(struct bond_marker *marker,
- 	struct port *port)
+-		aggregator->aggregator_mac_address = null_mac_addr;
++		memset(aggregator->aggregator_mac_address, 0, ETH_ALEN);
+ 		aggregator->aggregator_identifier = 0;
+ 		aggregator->slave = NULL;
+ 	}
+@@ -1695,7 +1691,7 @@ static void ad_initialize_port(struct port *port, int lacp_fast)
+ 	if (port) {
+ 		port->actor_port_number = 1;
+ 		port->actor_port_priority = 0xff;
+-		port->actor_system = null_mac_addr;
++		memset(port->actor_system, 0, ETH_ALEN);
+ 		port->actor_system_priority = 0xffff;
+ 		port->actor_port_aggregator_identifier = 0;
+ 		port->ntt = false;
+@@ -1754,7 +1750,7 @@ static void ad_enable_collecting_distributing(struct port *port)
+  */
+ static void ad_disable_collecting_distributing(struct port *port)
  {
--	marker=NULL; // just to satisfy the compiler
--	port=NULL;  // just to satisfy the compiler
-+	marker = NULL; /* just to satisfy the compiler */
-+	port = NULL;  /* just to satisfy the compiler */
- 	// DO NOTHING, SINCE WE DECIDED NOT TO IMPLEMENT THIS FEATURE FOR NOW
- }
+-	if (port->aggregator && MAC_ADDRESS_COMPARE(&(port->aggregator->partner_system), &(null_mac_addr))) {
++	if (port->aggregator && is_zero_ether_addr(port->aggregator->partner_system)) {
+ 		pr_debug("Disabling port %d(LAG %d)\n",
+ 			 port->actor_port_number,
+ 			 port->aggregator->aggregator_identifier);
+@@ -1875,14 +1871,14 @@ static u16 aggregator_identifier;
+ void bond_3ad_initialize(struct bonding *bond, u16 tick_resolution, int lacp_fast)
+ {
+ 	// check that the bond is not initialized yet
+-	if (MAC_ADDRESS_COMPARE(&(BOND_AD_INFO(bond).system.sys_mac_addr),
+-				bond->dev->dev_addr)) {
++	if (compare_ether_addr(BOND_AD_INFO(bond).system.sys_mac_addr,
++			       bond->dev->dev_addr)) {
  
-@@ -2037,8 +2052,9 @@ void bond_3ad_unbind_slave(struct slave *slave)
- 				new_aggregator->num_of_ports = aggregator->num_of_ports;
+ 		aggregator_identifier = 0;
  
- 				// update the information that is written on the ports about the aggregator
--				for (temp_port=aggregator->lag_ports; temp_port; temp_port=temp_port->next_port_in_aggregator) {
--					temp_port->aggregator=new_aggregator;
-+				for (temp_port = aggregator->lag_ports; temp_port;
-+				     temp_port = temp_port->next_port_in_aggregator) {
-+					temp_port->aggregator = new_aggregator;
- 					temp_port->actor_port_aggregator_identifier = new_aggregator->aggregator_identifier;
- 				}
+ 		BOND_AD_INFO(bond).lacp_fast = lacp_fast;
+ 		BOND_AD_INFO(bond).system.sys_priority = 0xFFFF;
+-		BOND_AD_INFO(bond).system.sys_mac_addr = *((struct mac_addr *)bond->dev->dev_addr);
++		memcpy(BOND_AD_INFO(bond).system.sys_mac_addr, bond->dev->dev_addr, ETH_ALEN);
  
-@@ -2071,7 +2087,9 @@ void bond_3ad_unbind_slave(struct slave *slave)
- 	for (; temp_aggregator; temp_aggregator = __get_next_agg(temp_aggregator)) {
- 		prev_port = NULL;
- 		// search the port in the aggregator's related ports
--		for (temp_port=temp_aggregator->lag_ports; temp_port; prev_port=temp_port, temp_port=temp_port->next_port_in_aggregator) {
-+		for (temp_port = temp_aggregator->lag_ports; temp_port;
-+		     prev_port = temp_port,
-+			     temp_port = temp_port->next_port_in_aggregator) {
- 			if (temp_port == port) { // the aggregator found - detach the port from this aggregator
- 				if (prev_port) {
- 					prev_port->next_port_in_aggregator = temp_port->next_port_in_aggregator;
-@@ -2079,7 +2097,7 @@ void bond_3ad_unbind_slave(struct slave *slave)
- 					temp_aggregator->lag_ports = temp_port->next_port_in_aggregator;
- 				}
- 				temp_aggregator->num_of_ports--;
--				if (temp_aggregator->num_of_ports==0) {
-+				if (temp_aggregator->num_of_ports == 0) {
- 					select_new_active_agg = temp_aggregator->is_active;
- 					// clear the aggregator
- 					ad_clear_agg(temp_aggregator);
-@@ -2094,7 +2112,7 @@ void bond_3ad_unbind_slave(struct slave *slave)
- 			}
+ 		// initialize how many times this module is called in one second(should be about every 100ms)
+ 		ad_ticks_per_sec = tick_resolution;
+@@ -1936,7 +1932,7 @@ int bond_3ad_bind_slave(struct slave *slave)
+ 			port->sm_vars &= ~AD_PORT_LACP_ENABLED;
  		}
+ 		// actor system is the bond's system
+-		port->actor_system = BOND_AD_INFO(bond).system.sys_mac_addr;
++		memcpy(port->actor_system, BOND_AD_INFO(bond).system.sys_mac_addr, ETH_ALEN);
+ 		// tx timer(to verify that no more than MAX_TX_IN_SECOND lacpdu's are sent in one second)
+ 		port->sm_tx_timer_counter = ad_ticks_per_sec/AD_MAX_TX_IN_SECOND;
+ 		port->aggregator = NULL;
+@@ -1951,7 +1947,7 @@ int bond_3ad_bind_slave(struct slave *slave)
+ 
+ 		ad_initialize_agg(aggregator);
+ 
+-		aggregator->aggregator_mac_address = *((struct mac_addr *)bond->dev->dev_addr);
++		memcpy(aggregator->aggregator_mac_address, bond->dev->dev_addr, ETH_ALEN);
+ 		aggregator->aggregator_identifier = (++aggregator_identifier);
+ 		aggregator->slave = slave;
+ 		aggregator->is_active = 0;
+@@ -2027,7 +2023,7 @@ void bond_3ad_unbind_slave(struct slave *slave)
+ 				new_aggregator->is_individual = aggregator->is_individual;
+ 				new_aggregator->actor_admin_aggregator_key = aggregator->actor_admin_aggregator_key;
+ 				new_aggregator->actor_oper_aggregator_key = aggregator->actor_oper_aggregator_key;
+-				new_aggregator->partner_system = aggregator->partner_system;
++				memcpy(new_aggregator->partner_system, aggregator->partner_system, ETH_ALEN);
+ 				new_aggregator->partner_system_priority = aggregator->partner_system_priority;
+ 				new_aggregator->partner_oper_aggregator_key = aggregator->partner_oper_aggregator_key;
+ 				new_aggregator->receive_state = aggregator->receive_state;
+@@ -2371,7 +2367,7 @@ int bond_3ad_get_active_agg_info(struct bonding *bond, struct ad_info *ad_info)
+ 		ad_info->ports = aggregator->num_of_ports;
+ 		ad_info->actor_key = aggregator->actor_oper_aggregator_key;
+ 		ad_info->partner_key = aggregator->partner_oper_aggregator_key;
+-		memcpy(ad_info->partner_system, aggregator->partner_system.mac_addr_value, ETH_ALEN);
++		memcpy(ad_info->partner_system, aggregator->partner_system, ETH_ALEN);
+ 		return 0;
  	}
--	port->slave=NULL;
-+	port->slave = NULL;
- }
  
- /**
-@@ -2245,7 +2263,8 @@ void bond_3ad_adapter_speed_changed(struct slave *slave)
- 	}
+diff --git a/drivers/net/bonding/bond_3ad.h b/drivers/net/bonding/bond_3ad.h
+index 2c46a154..648792c 100644
+--- a/drivers/net/bonding/bond_3ad.h
++++ b/drivers/net/bonding/bond_3ad.h
+@@ -37,10 +37,6 @@
+ #define AD_LACP_SLOW 0
+ #define AD_LACP_FAST 1
  
- 	port->actor_admin_port_key &= ~AD_SPEED_KEY_BITS;
--	port->actor_oper_port_key=port->actor_admin_port_key |= (__get_link_speed(port) << 1);
-+	port->actor_oper_port_key = port->actor_admin_port_key |=
-+		(__get_link_speed(port) << 1);
- 	pr_debug("Port %d changed speed\n", port->actor_port_number);
- 	// there is no need to reselect a new aggregator, just signal the
- 	// state machines to reinitialize
-@@ -2262,7 +2281,7 @@ void bond_3ad_adapter_duplex_changed(struct slave *slave)
- {
- 	struct port *port;
+-typedef struct mac_addr {
+-	u8 mac_addr_value[ETH_ALEN];
+-} mac_addr_t;
+-
+ enum {
+ 	BOND_AD_STABLE = 0,
+ 	BOND_AD_BANDWIDTH = 1,
+@@ -112,7 +108,7 @@ typedef struct lacpdu {
+ 	u8 tlv_type_actor_info;	      // = actor information(type/length/value)
+ 	u8 actor_information_length; // = 20
+ 	__be16 actor_system_priority;
+-	struct mac_addr actor_system;
++	u8 actor_system[ETH_ALEN];
+ 	__be16 actor_key;
+ 	__be16 actor_port_priority;
+ 	__be16 actor_port;
+@@ -121,7 +117,7 @@ typedef struct lacpdu {
+ 	u8 tlv_type_partner_info;     // = partner information
+ 	u8 partner_information_length;	 // = 20
+ 	__be16 partner_system_priority;
+-	struct mac_addr partner_system;
++	u8 partner_system[ETH_ALEN];
+ 	__be16 partner_key;
+ 	__be16 partner_port_priority;
+ 	__be16 partner_port;
+@@ -149,7 +145,7 @@ typedef struct bond_marker {
+ 	//  = 0x02  (marker response information)
+ 	u8 marker_length;	 //  = 0x16
+ 	u16 requester_port;	 //   The number assigned to the port by the requester
+-	struct mac_addr requester_system;      //   The requester's system id
++	u8 requester_system[ETH_ALEN];      //   The requester's system id
+ 	u32 requester_transaction_id;	//   The transaction id allocated by the requester,
+ 	u16 pad;		 //  = 0
+ 	u8 tlv_type_terminator;	     //  = 0x00
+@@ -175,12 +171,12 @@ struct port;
  
--	port=&(SLAVE_AD_INFO(slave).port);
-+	port = &(SLAVE_AD_INFO(slave).port);
+ // aggregator structure(43.4.5 in the 802.3ad standard)
+ typedef struct aggregator {
+-	struct mac_addr aggregator_mac_address;
++	u8 aggregator_mac_address[ETH_ALEN];
+ 	u16 aggregator_identifier;
+ 	bool is_individual;
+ 	u16 actor_admin_aggregator_key;
+ 	u16 actor_oper_aggregator_key;
+-	struct mac_addr partner_system;
++	u8 partner_system[ETH_ALEN];
+ 	u16 partner_system_priority;
+ 	u16 partner_oper_aggregator_key;
+ 	u16 receive_state;		// BOOLEAN
+@@ -193,7 +189,7 @@ typedef struct aggregator {
+ } aggregator_t;
  
- 	// if slave is null, the whole port is not initialized
- 	if (!port->slave) {
-@@ -2272,7 +2291,8 @@ void bond_3ad_adapter_duplex_changed(struct slave *slave)
- 	}
+ struct port_params {
+-	struct mac_addr system;
++	u8 system[ETH_ALEN];
+ 	u16 system_priority;
+ 	u16 key;
+ 	u16 port_number;
+@@ -205,7 +201,7 @@ struct port_params {
+ typedef struct port {
+ 	u16 actor_port_number;
+ 	u16 actor_port_priority;
+-	struct mac_addr actor_system;	       // This parameter is added here although it is not specified in the standard, just for simplification
++	u8 actor_system[ETH_ALEN];       // This parameter is added here although it is not specified in the standard, just for simplification
+ 	u16 actor_system_priority;	 // This parameter is added here although it is not specified in the standard, just for simplification
+ 	u16 actor_port_aggregator_identifier;
+ 	bool ntt;
+@@ -239,7 +235,7 @@ typedef struct port {
+ // system structure
+ struct ad_system {
+ 	u16 sys_priority;
+-	struct mac_addr sys_mac_addr;
++	u8 sys_mac_addr[ETH_ALEN];
+ };
  
- 	port->actor_admin_port_key &= ~AD_DUPLEX_KEY_BITS;
--	port->actor_oper_port_key=port->actor_admin_port_key |= __get_duplex(port);
-+	port->actor_oper_port_key = port->actor_admin_port_key |=
-+		__get_duplex(port);
- 	pr_debug("Port %d changed duplex\n", port->actor_port_number);
- 	// there is no need to reselect a new aggregator, just signal the
- 	// state machines to reinitialize
-@@ -2304,14 +2324,17 @@ void bond_3ad_handle_link_change(struct slave *slave, char link)
- 	if (link == BOND_LINK_UP) {
- 		port->is_enabled = true;
- 		port->actor_admin_port_key &= ~AD_DUPLEX_KEY_BITS;
--		port->actor_oper_port_key=port->actor_admin_port_key |= __get_duplex(port);
-+		port->actor_oper_port_key = port->actor_admin_port_key |=
-+			__get_duplex(port);
- 		port->actor_admin_port_key &= ~AD_SPEED_KEY_BITS;
--		port->actor_oper_port_key=port->actor_admin_port_key |= (__get_link_speed(port) << 1);
-+		port->actor_oper_port_key = port->actor_admin_port_key |=
-+			(__get_link_speed(port) << 1);
- 	} else {
- 		/* link has failed */
- 		port->is_enabled = false;
- 		port->actor_admin_port_key &= ~AD_DUPLEX_KEY_BITS;
--		port->actor_oper_port_key= (port->actor_admin_port_key &= ~AD_SPEED_KEY_BITS);
-+		port->actor_oper_port_key = (port->actor_admin_port_key &=
-+					     ~AD_SPEED_KEY_BITS);
- 	}
- 	//BOND_PRINT_DBG(("Port %d changed link status to %s", port->actor_port_number, ((link == BOND_LINK_UP)?"UP":"DOWN")));
- 	// there is no need to reselect a new aggregator, just signal the
--- 
-1.7.2.3
+ #ifdef __ia64__
+
+
