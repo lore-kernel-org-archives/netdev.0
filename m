@@ -1,34 +1,127 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: __bad_udelay in network driver breaks build
-Date: Mon, 18 Oct 2010 13:52:30 +0200
-Message-ID: <20101018115230.GA27565@basil.fritz.box>
+From: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Subject: Re: [RFC PATCH 0/9] ipvs network name space (netns) aware
+Date: Mon, 18 Oct 2010 13:55:58 +0200
+Message-ID: <201010181355.59763.hans.schillstrom@ericsson.com>
+References: <201010081316.38317.hans.schillstrom@ericsson.com> <20101017064731.GA8152@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "lvs-devel@vger.kernel.org" <lvs-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"ja@ssi.bg" <ja@ssi.bg>,
+	"wensong@linux-vs.org" <wensong@linux-vs.org>,
+	"daniel.lezcano@free.fr" <daniel.lezcano@free.fr>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:54051 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750777Ab0JRLwi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Oct 2010 07:52:38 -0400
-Received: from basil.firstfloor.org (p5B3C94F2.dip0.t-ipconnect.de [91.60.148.242])
-	by one.firstfloor.org (Postfix) with ESMTP id 11A951A9804F
-	for <netdev@vger.kernel.org>; Mon, 18 Oct 2010 13:52:31 +0200 (CEST)
+Received: from mailgw9.se.ericsson.net ([193.180.251.57]:61257 "EHLO
+	mailgw9.se.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750910Ab0JRL4E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Oct 2010 07:56:04 -0400
+In-Reply-To: <20101017064731.GA8152@verge.net.au>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Sunday 17 October 2010 08:47:31 Simon Horman wrote:
+> On Fri, Oct 08, 2010 at 01:16:36PM +0200, Hans Schillstrom wrote:
+> > This patch series adds network name space (netns) support to the LVS.
+> > 
+> > REVISION
+> > 
+> > This is version 1
+> > 
+> > OVERVIEW
+> > 
+> > The patch doesn't remove or add any functionality except for netns.
+> > For users that don't use network name space (netns) this patch is
+> > completely transparent.
+> > 
+> > No it's possible to run LVS in a Linux container (see lxc-tools)
+> > i.e.  a light weight virtualization. For example it's possible to run
+> > one or several lvs on a real server in their own network name spaces.
+> > >From the LVS point of view it looks like it runs on it's own machine.
+> > 
+> > IMPLEMENTATION
+> > Basic requirements for netns awareness
+> >  - Global variables has to be moved to dyn. allocated memory.
+> > 
+> > Most global variables now resides in a struct ipvs { } in netns/ip_vs.h.
+> > What is moved and what is not ?
+> > 
+> > Some cache aligned locks are still in global, module init params and some debug_level.
+> > 
+> > Algorithm files they are untouched.
+> > 
+> > QUESTIONS
+> > Drop rate in ip_vs_ctl per netns or grand total ?
 
-Current Linus master x86-64 allyesconfig fails with
+This is a tricky one (I think), 
+if the interface is shared with root name-space and/or other name-spaces
+ - use grand total
+if it's an "own interface"  
+ - drop rate can/should be in netns...
 
-drivers/built-in.o: In function `tms380tr_chipset_init':
-tms380tr.c:(.text+0x10f02de): undefined reference to `__bad_udelay'
-tms380tr.c:(.text+0x10f03ab): undefined reference to `__bad_udelay'
-tms380tr.c:(.text+0x10f0400): undefined reference to `__bad_udelay'
-tms380tr.c:(.text+0x10f07b2): undefined reference to `__bad_udelay'
-tms380tr.c:(.text+0x10f08ed): undefined reference to `__bad_udelay'
-make[2]: *** [.tmp_vmlinux1] Error 1
+> 
+> My gut-feeling is that per netns makes more sense.
+> 
+> > Should more lock variables be moved (or less) ?
+> 
+> I'm unsure what you are asking here but I will make a general statement
+> about locking in IPVS: it needs work.
 
--Andi
+Some locks still resides as global variables, and others in netns_ipvs struct.
+Since you have a lot of experience with IPVS locks, 
+you might have ideas what to move and what to not move.
+
+> 
+> > 
+> > PATCH SET
+> > This patch set is based upon net-next-2.6 (2.6.36-rc3) from 4 oct 2010
+> > and [patch v4] ipvs: IPv6 tunnel mode
+> > 
+> > Note: ip_vs_xmit.c will not work without "[patch v4] ipvs: IPv6 tunnel mode"
+> 
+> Unfortunately the patches don't apply with the persistence engine
+> patches which were recently merged into nf-next-2.6 (although
+> "[patch v4.1 ]ipvs: IPv6 tunnel mode" is still unmerged).
+> 
+I do have a patch based on the nf-next without the SIP/PE patch
+
+> I'm happy to work with you to make the required changes there.
+
+I would appreciate that.
+
+> 
+> (I realise those patches weren't merged when you made your post.
+>  But regardless, either your or me will need to update the patches).
+> 
+> Another issue is that your patches seem to be split in a way
+> where the build breaks along the way. E.g. after applying
+> patch 1, the build breaks. Could you please split things up
+> in a manner such that this doesn't happen. The reason being
+> that it breaks bisection.
+> 
+Hmm, Daniel also pointed at this,
+The Patch is quite large, and will become even larger with pe and sip.
+My Idea was to review the patch in pieces and put it together in one or two large patches when submitting it.
+I don't know that might be a stupid ?
+It's hard to break it up, making the code reentrant causes changes every where.
+
+Daniel L, had another approach break it into many many tiny patches.
+
+> Lastly, could you provide a unique subject for each patch.
+> I know its a bit tedious, but it does make a difference when
+> browsing the changelog.
+> 
+Yepp, no problem
+
+> --
+> To unsubscribe from this list: send the line "unsubscribe lvs-devel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
 -- 
-ak@linux.intel.com -- Speaking for myself only.
+Regards
+Hans Schillstrom <hans.schillstrom@ericsson.com>
