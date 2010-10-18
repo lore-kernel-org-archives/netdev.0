@@ -1,30 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/6] bnx2x: patch series
-Date: Mon, 18 Oct 2010 07:01:39 -0700 (PDT)
-Message-ID: <20101018.070139.193700419.davem@davemloft.net>
-References: <1287392355.11597.16.camel@lb-tlvb-dmitry>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eilong@broadcom.com, vladz@broadcom.com
-To: dmitry@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52446
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755888Ab0JROBR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Oct 2010 10:01:17 -0400
-In-Reply-To: <1287392355.11597.16.camel@lb-tlvb-dmitry>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Julia Lawall <julia@diku.dk>
+Subject: [PATCH 2/2] drivers/net/ax88796.c: Return error code in failure
+Date: Mon, 18 Oct 2010 16:11:14 +0200
+Message-ID: <1287411074-19825-2-git-send-email-julia@diku.dk>
+Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Paul Gortmaker <p_gortmaker@yahoo.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Date: Mon, 18 Oct 2010 10:59:15 +0200
+In this code, 0 is returned on failure, even though other
+failures return -ENOMEM or other similar values.
 
-> This is the respin of previous series with following changes:
-> 	1. removed patch with gso_size
-> 	2. removed FUNC_FLG_RSS flag and appropriate "if"s (as suggested by Joe Perches)
-> 	3. update version
-> 
-> Please, consider applying to net-next
+A simplified version of the semantic match that finds this problem is as
+follows: (http://coccinelle.lip6.fr/)
 
-All applied, thanks.
+// <smpl>
+@a@
+identifier alloc;
+identifier ret;
+constant C;
+expression x;
+@@
+
+x = alloc(...);
+if (x == NULL) { <+... \(ret = -C; \| return -C; \) ...+> }
+
+@@
+identifier f, a.alloc;
+expression ret;
+expression x,e1,e2,e3;
+@@
+
+ret = 0
+... when != ret = e1
+*x = alloc(...)
+... when != ret = e2
+if (x == NULL) { ... when != ret = e3
+  return ret;
+}
+// </smpl>
+
+Signed-off-by: Julia Lawall <julia@diku.dk>
+
+---
+Another call to platform_get_resource in the same function uses -ENXIO, so
+I have used the same value here.
+
+ drivers/net/ax88796.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/ax88796.c b/drivers/net/ax88796.c
+index 20e946b..b6da4cf 100644
+--- a/drivers/net/ax88796.c
++++ b/drivers/net/ax88796.c
+@@ -864,6 +864,7 @@ static int ax_probe(struct platform_device *pdev)
+ 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+ 	if (res == NULL) {
+ 		dev_err(&pdev->dev, "no IRQ specified\n");
++		ret = -ENXIO;
+ 		goto exit_mem;
+ 	}
+ 
