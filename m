@@ -1,52 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Patch] Limit sysctl_tcp_mem and sysctl_udp_mem initializers
- to prevent integer overflows.
-Date: Mon, 18 Oct 2010 19:52:28 +0200
-Message-ID: <1287424348.2359.1.camel@edumazet-laptop>
-References: <20101002112405.951704198@gulag1.americas.sgi.com>
-	 <20101002112419.248437367@gulag1.americas.sgi.com>
-	 <20101005.145032.25126909.davem@davemloft.net>
-	 <20101018174339.GC14068@sgi.com>
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH 1/3] net: fail alloc_netdev_mq if queue count < 1
+Date: Mon, 18 Oct 2010 11:02:07 -0700 (PDT)
+Message-ID: <alpine.DEB.1.00.1010181055300.16090@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, w@1wt.eu,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net
-To: Robin Holt <holt@sgi.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20101018174339.GC14068@sgi.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: eric.dumazet@gmail.com, bhutchings@solarflare.com
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out.google.com ([216.239.44.51]:42788 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757609Ab0JRSCO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Oct 2010 14:02:14 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le lundi 18 octobre 2010 =C3=A0 12:43 -0500, Robin Holt a =C3=A9crit :
-> On Tue, Oct 05, 2010 at 02:50:32PM -0700, David Miller wrote:
-> > From: Robin Holt <holt@sgi.com>
-> > Date: Sat, 02 Oct 2010 06:24:06 -0500
-> >=20
-> > > Subject: [Patch] Limit sysctl_tcp_mem and sysctl_udp_mem initiali=
-zers to prevent integer overflows.
-> > >=20
-> > > On a 16TB x86_64 machine, sysctl_tcp_mem[2], sysctl_udp_mem[2], a=
-nd
-> > > sysctl_sctp_mem[2] can integer overflow.  Set limit such that the=
-y are
-> > > maximized without overflowing.
-> > >=20
-> > > Signed-off-by: Robin Holt <holt@sgi.com>
-> >=20
-> > Robin please resubmit this with the SCTP bits included.
->=20
-> David,
->=20
-> I did not mean to blow you off.  I was not going to resubmit because
-> Eric's patch is the preferred direction.  I had been given an indicat=
-ion
-> that my patch was preferred, but that indicator changed.
->=20
+In alloc_netdev_mq fail if requested queue_count < 1.
 
-Maybe there is some misunderstanding.
+Signed-off-by: Tom Herbert <therbert@google.com>
+---
+ net/core/dev.c |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
 
-My patch was for net-next kernels (not before 2.6.37), while yours was
-applicable to previous kernels.
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 04972a4..76db105 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5511,6 +5511,12 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
+ 
+ 	BUG_ON(strlen(name) >= sizeof(dev->name));
+ 
++	if (queue_count < 0) {
++		printk(KERN_ERR "alloc_netdev: Unable to allocate device "
++		       "with zero queues.\n");
++		return NULL;
++	}
++
+ 	alloc_size = sizeof(struct net_device);
+ 	if (sizeof_priv) {
+ 		/* ensure 32-byte alignment of private area */
+-- 
+1.7.1
+
