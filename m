@@ -1,43 +1,76 @@
-From: Harvey Harrison <harvey.harrison@gmail.com>
-Subject: Re: [PATCH] vmxnet3: remove set_flag_le{16,64} functions
-Date: Mon, 18 Oct 2010 11:44:55 -0700
-Message-ID: <AANLkTikC3KorhkWBkRPE_UQ8H_M=gWm3QnpPvYOVeTxM@mail.gmail.com>
-References: <1287214392-8963-1-git-send-email-harvey.harrison@gmail.com>
-	<89E2752CFA8EC044846EB8499819134102BD7E1856@EXCH-MBX-4.vmware.com>
+From: Leandro Lucarella <luca@llucax.com.ar>
+Subject: Re: Linux 2.6.35/TIPC 2.0 ABI breaking changes
+ [was: TIPC 2.0 and TIPC_SUB_SERVICE]
+Date: Mon, 18 Oct 2010 15:46:28 -0300
+Message-ID: <20101018184628.GX8781@llucax.com.ar>
+References: <20100927163823.GD2834@integratech.com.ar>
+	<29C1DC0826876849BDD9F1C67ABA2943090B67EC@ala-mail09.corp.ad.wrs.com>
+	<20100929153805.GG2834@integratech.com.ar>
+	<29C1DC0826876849BDD9F1C67ABA29430914AC18@ala-mail09.corp.ad.wrs.com>
+	<20101001150034.GS8781@llucax.com.ar>
+	<0434463FDA60A94FA978ACA44617682DEE843EDD79@EUSAACMS0702.eamcs.ericsson.se>
+	<20101001162346.GV8781@llucax.com.ar> <4CA69F18.7000005@amln.net>
+	<0434463FDA60A94FA978ACA44617682DEE8446A03B@EUSAACMS0702.eamcs.ericsson.se>
+	<20101018150422.GV8781@llucax.com.ar>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"shemminger@vyatta.com" <shemminger@vyatta.com>
-To: Shreyas Bhatewara <sbhatewara@vmware.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:64975 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755214Ab0JRSo4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Oct 2010 14:44:56 -0400
-Received: by pwj4 with SMTP id 4so253451pwj.19
-        for <netdev@vger.kernel.org>; Mon, 18 Oct 2010 11:44:55 -0700 (PDT)
-In-Reply-To: <89E2752CFA8EC044846EB8499819134102BD7E1856@EXCH-MBX-4.vmware.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: davem@redhat.com, netdev@vger.kernel.org,
+	"tipc-discussion@lists.sourceforge.net"
+	<tipc-discussion@lists.sourceforge.net>, linux-kernel@vger.kernel.org
+To: Jon Maloy <jon.maloy@ericsson.com>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+Content-Disposition: inline
+In-Reply-To: <20101018150422.GV8781@llucax.com.ar>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Sat, Oct 16, 2010 at 8:57 AM, Shreyas Bhatewara
-<sbhatewara@vmware.com> wrote:
-> This hunk is wrong, UPT1_F_RXVLAN should be reset here.
->
-> I fail to understand why set/reset functions were not good enough and why this opencoding is required. I agree with your earlier suggestion about replacing two conversions with *data |= cpu_to_le16(flag); though.
->
->
+Leandro Lucarella, el 18 de octubre a las 12:04 me escribiste:
+> This means D can't be used to write code that uses TIPC if you target
+> kernels >= 2.6.35 (unless they write their own bindings, or at least use
+> a custom TIPC_SUB_SERVICE constant). I could change the TIPC_SUB_SERVICE
+> value, but then people using older kernels will be screwed. Another
+> option is to use the version statement (kind of like C's #ifdef):
+> 
+> 	version (TIPC_2_0)
+> 		const TIPC_SUB_SERVICE = 0x00;
+> 	else
+> 		const TIPC_SUB_SERVICE = 0x02;
 
-There's nothing really _wrong_ with them, they are a bit special-case,
-and they are incomplete in that there is only 16/64 and
-no 32 bit version.  And the naming is usually set/clear rather than set/reset.
+I keep finding problems with this change. Another, no D-related, problem
+with this change is old code could be silently (and very subtly) broken
+if they check for TIPC_SUB_SERVICE as a flag with something like:
 
-That, and they are used so infrequently, why not just define the
-constants as little endian and then it's just
-use regular bitwise math which is common everywhere in networking?
-Then others reading your driver don't have
-to go look at a special-case set/reset function...it's just or'ing a flag.
+	if (s.filter & TIPC_SUB_SERVICE)
+		/* do something */
 
-I'll send a patch this evening so you can see what it would look like.
+Because TIPC_SUB_SERVICE has changed its semantics, not just its value,
+and the new value (0x00) will give you always 0 in that test. This one
+is really tricky, because the application code will fail silently, there
+will be no dmesg indication of a failure, nor the connection to the
+topology service be closed. You might get a compiler warning if you're
+lucky.
 
-Harvey
+-- 
+Leandro Lucarella (AKA luca)                     http://llucax.com.ar/
+----------------------------------------------------------------------
+GPG Key: 5F5A8D05 (F8CD F9A7 BF00 5431 4145  104C 949E BFB6 5F5A 8D05)
+----------------------------------------------------------------------
+Novocaine for the soul
+you better give me something
+to fill the hole
+before I sputter out
+
+------------------------------------------------------------------------------
+Download new Adobe(R) Flash(R) Builder(TM) 4
+The new Adobe(R) Flex(R) 4 and Flash(R) Builder(TM) 4 (formerly 
+Flex(R) Builder(TM)) enable the development of rich applications that run
+across multiple browsers and platforms. Download your free trials today!
+http://p.sf.net/sfu/adobe-dev2dev
