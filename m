@@ -1,94 +1,52 @@
-From: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Subject: Re: [RFC PATCH 1/9] ipvs network name space aware
-Date: Mon, 18 Oct 2010 11:54:34 +0200
-Message-ID: <201010181154.35792.hans.schillstrom@ericsson.com>
-References: <201010081316.46690.hans.schillstrom@ericsson.com> <4CBC0C6D.1080303@free.fr>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net-next 3/5] tipc: Optimizations to bearer enabling logic
+Date: Mon, 18 Oct 2010 06:50:17 -0400
+Message-ID: <20101018105017.GA16326@hmsreliant.think-freely.org>
+References: <1286929558-2954-1-git-send-email-paul.gortmaker@windriver.com>
+ <1286929558-2954-3-git-send-email-paul.gortmaker@windriver.com>
+ <20101013145843.GD31379@hmsreliant.think-freely.org>
+ <20101015011139.GB5048@windriver.com>
+ <20101015110033.GC22294@hmsreliant.think-freely.org>
+ <4CB8C824.7090800@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "lvs-devel@vger.kernel.org" <lvs-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"horms@verge.net.au" <horms@verge.net.au>, "ja@ssi.bg" <ja@ssi.bg>,
-	"wensong@linux-vs.org" <wensong@linux-vs.org>
-To: Daniel Lezcano <daniel.lezcano@free.fr>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4CBC0C6D.1080303@free.fr>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	allan.stephens@windriver.com
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:41708 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753507Ab0JRKuj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Oct 2010 06:50:39 -0400
 Content-Disposition: inline
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <4CB8C824.7090800@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday 18 October 2010 10:59:25 Daniel Lezcano wrote:
-> On 10/08/2010 01:16 PM, Hans Schillstrom wrote:
-> > This part contains the include files
-> > where include/net/netns/ip_vs.h is new and contains all moved vars.
-> >
-> > SUMMARY
-> >
-> >   include/net/ip_vs.h                     |  136 ++++---
-> >   include/net/net_namespace.h             |    2 +
-> >   include/net/netns/ip_vs.h               |  112 +++++
-> >
-> > Signed-off-by:Hans Schillstrom<hans.schillstrom@ericsson.com>
-> > ---
-> >
-> >    
+On Fri, Oct 15, 2010 at 05:31:16PM -0400, Paul Gortmaker wrote:
+> On 10-10-15 07:00 AM, Neil Horman wrote:
 > 
-> [ ... ]
+> [...]
 > 
-> >   #ifdef CONFIG_IP_VS_IPV6
-> > diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
-> > index bd10a79..b59cdc5 100644
-> > --- a/include/net/net_namespace.h
-> > +++ b/include/net/net_namespace.h
-> > @@ -15,6 +15,7 @@
-> >   #include<net/netns/ipv4.h>
-> >   #include<net/netns/ipv6.h>
-> >   #include<net/netns/dccp.h>
-> > +#include<net/netns/ip_vs.h>
-> >   #include<net/netns/x_tables.h>
-> >   #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
-> >   #include<net/netns/conntrack.h>
-> > @@ -91,6 +92,7 @@ struct net {
-> >   	struct sk_buff_head	wext_nlevents;
-> >   #endif
-> >   	struct net_generic	*gen;
-> > +	struct netns_ipvs       *ipvs;
-> >   };
-> >    
+> > This definately looks more concise, but I don't see why its necessecary to drop
+> > the tipc_net_lock around the call to enable_bearer.  The only caler of
+> > tipc_register_media sets the enable_bearer pointer to the enable_bearer
+> > function, and  I' don't see any path through that function which would
+> > potentially retake that lock.  In fact it seems dropping it might be dangerous,
+> > if other paths (like from cfg_named_msg_event), tried to enable a bearer in
+> > parallel with a user space directive from the netlink socket).  With out the
+> > protection of tipc_net_lock, you could use the same eth_bearer twice, and
+> > corrupt that array.
 > 
-> IMHO, it would be better to use the net_generic infra-structure instead 
-> of adding a new field in the netns structure.
+> I think it would be protected by config_lock. but in the end if it is
+> just an academic optimization that really isn't in a hot code path
+> anyway, and if it just adds more confusion than real world value, then
+> I'm fine with just dropping this on the floor (and deleting the extra
+> memset in a cleanup patch) -- it won't be the 1st time doing this with
+> these carry forward patches, and I'm sure it won't be the last.
 > 
+
+Copy that.
+
+
 > 
-I realized that to, but the performance penalty is quite high with net_generic :-(
-But on the other hand if you are going to backport it, (without recompiling the kernel)
-you gonna need it!
-
-My sugestion, take both with a configuration switch like:
-(i.e. avoid the rcu locking)
-
---- net/ip_vs.h ---
-...
-extern int ip_vs_net_id;		/* net id for ip_vs */
-
-
-static inline struct netns_ipvs * net_ipvs(struct net* net, int id) {
-#ifdef CONFIG_IP_VS_FAST_NETNS
-	return net->ipvs;
-#else
-	return (struct netns_ipvs *)net_generic(net, id);
-#endif
-}
-...
-
-and where you need the netns_ipvs struct ptr,
-[snip]
-struct ip_vs_conn *ip_vs_conn_in_get(struct net *net, ....
-{
-	struct netns_ipvs *ipvs = net_ipvs(net, ip_vs_net_id);
-...
-
--- 
-Regards
-Hans Schillstrom <hans.schillstrom@ericsson.com>
