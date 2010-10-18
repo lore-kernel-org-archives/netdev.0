@@ -1,75 +1,89 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 3/3] net: allocate tx queues in register_netdevice
-Date: Mon, 18 Oct 2010 22:41:20 +0100
-Message-ID: <1287438080.2252.792.camel@achroite.uk.solarflarecom.com>
-References: <alpine.DEB.1.00.1010181057580.16304@pokey.mtv.corp.google.com>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: Re: [PATCH net-next 3/5] tipc: Optimizations to bearer enabling
+ logic
+Date: Mon, 18 Oct 2010 17:43:56 -0400
+Message-ID: <20101018214356.GA27204@windriver.com>
+References: <1286929558-2954-1-git-send-email-paul.gortmaker@windriver.com>
+ <1286929558-2954-3-git-send-email-paul.gortmaker@windriver.com>
+ <20101013145843.GD31379@hmsreliant.think-freely.org>
+ <20101015011139.GB5048@windriver.com>
+ <20101015110033.GC22294@hmsreliant.think-freely.org>
+ <4CB8C824.7090800@windriver.com>
+ <20101018105017.GA16326@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	eric.dumazet@gmail.com, John Fastabend <john.r.fastabend@intel.com>
-To: Tom Herbert <therbert@google.com>
+	allan.stephens@windriver.com
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:57672 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750806Ab0JRVlX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Oct 2010 17:41:23 -0400
-In-Reply-To: <alpine.DEB.1.00.1010181057580.16304@pokey.mtv.corp.google.com>
+Received: from mail.windriver.com ([147.11.1.11]:33310 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754126Ab0JRVoL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Oct 2010 17:44:11 -0400
+Content-Disposition: inline
+In-Reply-To: <20101018105017.GA16326@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2010-10-18 at 11:02 -0700, Tom Herbert wrote:
-> This patch introduces netif_alloc_netdev_queues which is called from
-> register_device instead of alloc_netdev_mq.  This makes TX queue
-> allocation symmetric with RX allocation similarly allows drivers to
-> change dev->num_tx_queues after allocating netdev and before
-> registering it.
+[Re: [PATCH net-next 3/5] tipc: Optimizations to bearer enabling logic] On 18/10/2010 (Mon 06:50) Neil Horman wrote:
 
-Changing num_tx_queues is probably *not* desirable, same as for
-num_rx_queues.
+> On Fri, Oct 15, 2010 at 05:31:16PM -0400, Paul Gortmaker wrote:
+> > On 10-10-15 07:00 AM, Neil Horman wrote:
+> > 
+> > [...]
+> > 
+> > > This definately looks more concise, but I don't see why its necessecary to drop
+> > > the tipc_net_lock around the call to enable_bearer.  The only caler of
+> > > tipc_register_media sets the enable_bearer pointer to the enable_bearer
+> > > function, and  I' don't see any path through that function which would
+> > > potentially retake that lock.  In fact it seems dropping it might be dangerous,
+> > > if other paths (like from cfg_named_msg_event), tried to enable a bearer in
+> > > parallel with a user space directive from the netlink socket).  With out the
+> > > protection of tipc_net_lock, you could use the same eth_bearer twice, and
+> > > corrupt that array.
+> > 
+> > I think it would be protected by config_lock. but in the end if it is
+> > just an academic optimization that really isn't in a hot code path
+> > anyway, and if it just adds more confusion than real world value, then
+> > I'm fine with just dropping this on the floor (and deleting the extra
+> > memset in a cleanup patch) -- it won't be the 1st time doing this with
+> > these carry forward patches, and I'm sure it won't be the last.
+> > 
+> 
+> Copy that.
 
-[...]
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -1553,18 +1553,24 @@ static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
->   * Routine to help set real_num_tx_queues. To avoid skbs mapped to queues
->   * greater then real_num_tx_queues stale skbs on the qdisc must be flushed.
->   */
-> -void netif_set_real_num_tx_queues(struct net_device *dev, unsigned int txq)
-> +int netif_set_real_num_tx_queues(struct net_device *dev, unsigned int txq)
->  {
-> -	unsigned int real_num = dev->real_num_tx_queues;
-> +	if (txq < 1)
-> +		return -EINVAL;
->  
-> -	if (unlikely(txq > dev->num_tx_queues))
-> -		;
-> -	else if (txq > real_num)
-> -		dev->real_num_tx_queues = txq;
-> -	else if (txq < real_num) {
-> -		dev->real_num_tx_queues = txq;
-> -		qdisc_reset_all_tx_gt(dev, txq);
-> -	}
-> +	if (dev->reg_state == NETREG_REGISTERED) {
-> +		ASSERT_RTNL();
-> +
-> +		if (txq > dev->num_tx_queues)
-> +			return -EINVAL;
-> +
-> +		if (txq < dev->real_num_tx_queues)
-> +			qdisc_reset_all_tx_gt(dev, txq);
-> +	} else
-> +		dev->num_tx_queues = txq;
-[...]
+And here is all that is left once I drop all the above.  Not much. :)
 
-The kernel-doc comment should be updated to reflect the locking
-requirement and the possibility of failure when called after
-registration.
+Thanks again,
+Paul.
 
-Ben.
+>From 35b078621c4ca6e6f5a5aed80c34594e00f08c8e Mon Sep 17 00:00:00 2001
+From: Allan Stephens <allan.stephens@windriver.com>
+Date: Thu, 14 Oct 2010 16:09:23 -0400
+Subject: [PATCH] tipc: delete needless memset from bearer enabling.
 
+Eliminates zeroing out of the new bearer structure at the start of
+activation, since it is already in that state.
+
+Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+---
+ net/tipc/bearer.c |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
+
+diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
+index fd9c06c..9927d1d 100644
+--- a/net/tipc/bearer.c
++++ b/net/tipc/bearer.c
+@@ -556,8 +556,6 @@ restart:
+ 	}
+ 
+ 	b_ptr = &tipc_bearers[bearer_id];
+-	memset(b_ptr, 0, sizeof(struct bearer));
+-
+ 	strcpy(b_ptr->publ.name, name);
+ 	res = m_ptr->enable_bearer(&b_ptr->publ);
+ 	if (res) {
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.2.1
 
