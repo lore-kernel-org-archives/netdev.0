@@ -1,77 +1,94 @@
-From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: Re: [PATCH V2 0/7] can: mcp251x: fix and optimize driver
-Date: Mon, 18 Oct 2010 11:19:51 +0200
-Message-ID: <4CBC1137.30008@pengutronix.de>
-References: <1287139762-23356-1-git-send-email-mkl@pengutronix.de>
-	<4CBB0851.9060601@grandegger.com>
+From: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Subject: Re: [RFC PATCH 1/9] ipvs network name space aware
+Date: Mon, 18 Oct 2010 11:54:34 +0200
+Message-ID: <201010181154.35792.hans.schillstrom@ericsson.com>
+References: <201010081316.46690.hans.schillstrom@ericsson.com> <4CBC0C6D.1080303@free.fr>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============4687199057302951090=="
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4CBB0851.9060601-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "lvs-devel@vger.kernel.org" <lvs-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"horms@verge.net.au" <horms@verge.net.au>, "ja@ssi.bg" <ja@ssi.bg>,
+	"wensong@linux-vs.org" <wensong@linux-vs.org>
+To: Daniel Lezcano <daniel.lezcano@free.fr>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4CBC0C6D.1080303@free.fr>
+Content-Disposition: inline
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---===============4687199057302951090==
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig23754B9CEC9DCC34C98867A5"
+On Monday 18 October 2010 10:59:25 Daniel Lezcano wrote:
+> On 10/08/2010 01:16 PM, Hans Schillstrom wrote:
+> > This part contains the include files
+> > where include/net/netns/ip_vs.h is new and contains all moved vars.
+> >
+> > SUMMARY
+> >
+> >   include/net/ip_vs.h                     |  136 ++++---
+> >   include/net/net_namespace.h             |    2 +
+> >   include/net/netns/ip_vs.h               |  112 +++++
+> >
+> > Signed-off-by:Hans Schillstrom<hans.schillstrom@ericsson.com>
+> > ---
+> >
+> >    
+> 
+> [ ... ]
+> 
+> >   #ifdef CONFIG_IP_VS_IPV6
+> > diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
+> > index bd10a79..b59cdc5 100644
+> > --- a/include/net/net_namespace.h
+> > +++ b/include/net/net_namespace.h
+> > @@ -15,6 +15,7 @@
+> >   #include<net/netns/ipv4.h>
+> >   #include<net/netns/ipv6.h>
+> >   #include<net/netns/dccp.h>
+> > +#include<net/netns/ip_vs.h>
+> >   #include<net/netns/x_tables.h>
+> >   #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+> >   #include<net/netns/conntrack.h>
+> > @@ -91,6 +92,7 @@ struct net {
+> >   	struct sk_buff_head	wext_nlevents;
+> >   #endif
+> >   	struct net_generic	*gen;
+> > +	struct netns_ipvs       *ipvs;
+> >   };
+> >    
+> 
+> IMHO, it would be better to use the net_generic infra-structure instead 
+> of adding a new field in the netns structure.
+> 
+> 
+I realized that to, but the performance penalty is quite high with net_generic :-(
+But on the other hand if you are going to backport it, (without recompiling the kernel)
+you gonna need it!
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig23754B9CEC9DCC34C98867A5
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+My sugestion, take both with a configuration switch like:
+(i.e. avoid the rcu locking)
 
-On 10/17/2010 04:29 PM, Wolfgang Grandegger wrote:
-> Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-
-tnx, I'm going to repost the series with you Ack and ask David to pull
-it to net-next-2.6.
-
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+--- net/ip_vs.h ---
+...
+extern int ip_vs_net_id;		/* net id for ip_vs */
 
 
---------------enig23754B9CEC9DCC34C98867A5
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+static inline struct netns_ipvs * net_ipvs(struct net* net, int id) {
+#ifdef CONFIG_IP_VS_FAST_NETNS
+	return net->ipvs;
+#else
+	return (struct netns_ipvs *)net_generic(net, id);
+#endif
+}
+...
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+and where you need the netns_ipvs struct ptr,
+[snip]
+struct ip_vs_conn *ip_vs_conn_in_get(struct net *net, ....
+{
+	struct netns_ipvs *ipvs = net_ipvs(net, ip_vs_net_id);
+...
 
-iEYEARECAAYFAky8ET8ACgkQjTAFq1RaXHP6ZQCfY5o5C6ITAq+Jg8ZX+9vvID8Y
-SZ8An1bYpjn2XPcqMnTmrLdlBbq8GoQD
-=Cwk8
------END PGP SIGNATURE-----
-
---------------enig23754B9CEC9DCC34C98867A5--
-
---===============4687199057302951090==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Socketcan-core mailing list
-Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-https://lists.berlios.de/mailman/listinfo/socketcan-core
-
---===============4687199057302951090==--
+-- 
+Regards
+Hans Schillstrom <hans.schillstrom@ericsson.com>
