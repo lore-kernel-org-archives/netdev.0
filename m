@@ -1,54 +1,30 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 8/8] can: mcp251x: optimize 2515, rx int gets cleared automatically
-Date: Mon, 18 Oct 2010 15:31:14 +0200
-Message-ID: <1287408674-15412-9-git-send-email-mkl@pengutronix.de>
-References: <1287408674-15412-1-git-send-email-mkl@pengutronix.de>
-Cc: netdev@vger.kernel.org, Marc Kleine-Budde <mkl@pengutronix.de>
-To: socketcan-core@lists.berlios.de
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/6] bnx2x: patch series
+Date: Mon, 18 Oct 2010 07:01:39 -0700 (PDT)
+Message-ID: <20101018.070139.193700419.davem@davemloft.net>
+References: <1287392355.11597.16.camel@lb-tlvb-dmitry>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eilong@broadcom.com, vladz@broadcom.com
+To: dmitry@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:33918 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755524Ab0JRNbX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Oct 2010 09:31:23 -0400
-In-Reply-To: <1287408674-15412-1-git-send-email-mkl@pengutronix.de>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52446
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755888Ab0JROBR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Oct 2010 10:01:17 -0400
+In-Reply-To: <1287392355.11597.16.camel@lb-tlvb-dmitry>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
-Acked-by: Wolfgang Grandegger <wg@grandegger.com>
----
- drivers/net/can/mcp251x.c |   13 +++++++++----
- 1 files changed, 9 insertions(+), 4 deletions(-)
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Date: Mon, 18 Oct 2010 10:59:15 +0200
 
-diff --git a/drivers/net/can/mcp251x.c b/drivers/net/can/mcp251x.c
-index 7f8aa4c..c664be2 100644
---- a/drivers/net/can/mcp251x.c
-+++ b/drivers/net/can/mcp251x.c
-@@ -793,15 +793,20 @@ static irqreturn_t mcp251x_can_ist(int irq, void *dev_id)
- 		/* receive buffer 0 */
- 		if (intf & CANINTF_RX0IF) {
- 			mcp251x_hw_rx(spi, 0);
--			/* Free one buffer ASAP */
--			mcp251x_write_bits(spi, CANINTF, intf & CANINTF_RX0IF,
--					   0x00);
-+			/*
-+			 * Free one buffer ASAP
-+			 * (The MCP2515 does this automatically.)
-+			 */
-+			if (mcp251x_is_2510(spi))
-+				mcp251x_write_bits(spi, CANINTF, CANINTF_RX0IF, 0x00);
- 		}
- 
- 		/* receive buffer 1 */
- 		if (intf & CANINTF_RX1IF) {
- 			mcp251x_hw_rx(spi, 1);
--			clear_intf |= CANINTF_RX1IF;
-+			/* the MCP2515 does this automatically */
-+			if (mcp251x_is_2510(spi))
-+				clear_intf |= CANINTF_RX1IF;
- 		}
- 
- 		/* any error or tx interrupt we need to clear? */
--- 
-1.7.0.4
+> This is the respin of previous series with following changes:
+> 	1. removed patch with gso_size
+> 	2. removed FUNC_FLG_RSS flag and appropriate "if"s (as suggested by Joe Perches)
+> 	3. update version
+> 
+> Please, consider applying to net-next
 
+All applied, thanks.
