@@ -1,62 +1,134 @@
-From: Cyril Chemparathy <cyril@ti.com>
-Subject: Re: [patch 1/1] phy/marvell: fix 88e1121 support
-Date: Mon, 18 Oct 2010 18:02:36 -0400
-Message-ID: <4CBCC3FC.2030506@ti.com>
-References: <20101018214401.053486146@rtp-net.org> <20101018214414.375368957@rtp-net.org>
-Reply-To: cyril@ti.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Arnaud Patard <arnaud.patard@rtp-net.org>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: [PATCH] pktgen: clean up handling of local/transient counter vars
+Date: Mon, 18 Oct 2010 18:14:44 -0400
+Message-ID: <1287440084-4848-1-git-send-email-paul.gortmaker@windriver.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([192.94.94.40]:33691 "EHLO arroyo.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932114Ab0JRWCp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Oct 2010 18:02:45 -0400
-In-Reply-To: <20101018214414.375368957@rtp-net.org>
+Received: from mail.windriver.com ([147.11.1.11]:37843 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756136Ab0JRWOr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Oct 2010 18:14:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+The temporary variable "i" is needlessly initialized to zero
+in two distinct cases in this file:
 
-On 10/18/2010 05:44 PM, Arnaud Patard wrote:
-> Commit c477d0447db08068a497e7beb892b2b2a7bff64b added support for RGMII
-> rx/tx delays except that it ends up clearing rx/tx delays bit for modes
-> differents that RGMII*ID. Due to this, ethernet is not working anymore
-> on my guruplug server +. This patch is fixing that.
-> 
-> Signed-off-by: Arnaud Patard <arnaud.patard@rtp-net.org>
-> Index: linux-2.6/drivers/net/phy/marvell.c
-> ===================================================================
-> --- linux-2.6.orig/drivers/net/phy/marvell.c	2010-10-18 22:46:09.000000000 +0200
-> +++ linux-2.6/drivers/net/phy/marvell.c	2010-10-18 23:19:14.000000000 +0200
-> @@ -199,13 +199,13 @@
->  	mscr = phy_read(phydev, MII_88E1121_PHY_MSCR_REG) &
->  		MII_88E1121_PHY_MSCR_DELAY_MASK;
->  
-> -	if (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID)
-> -		mscr |= (MII_88E1121_PHY_MSCR_RX_DELAY |
-> -			 MII_88E1121_PHY_MSCR_TX_DELAY);
-> -	else if (phydev->interface == PHY_INTERFACE_MODE_RGMII_RXID)
-> +	if (phydev->interface == PHY_INTERFACE_MODE_RGMII_RXID)
->  		mscr |= MII_88E1121_PHY_MSCR_RX_DELAY;
->  	else if (phydev->interface == PHY_INTERFACE_MODE_RGMII_TXID)
->  		mscr |= MII_88E1121_PHY_MSCR_TX_DELAY;
-> +	else
-> +		mscr |= (MII_88E1121_PHY_MSCR_RX_DELAY |
-> +			 MII_88E1121_PHY_MSCR_TX_DELAY);
->  
->  	err = phy_write(phydev, MII_88E1121_PHY_MSCR_REG, mscr);
->  	if (err < 0)
+1) where it is set to zero and then used as an argument in an addition
+before being assigned a non-zero value.
 
-This doesn't look right.  This change makes it impossible to configure
-the phy without interface delays, i.e., PHY_INTERFACE_MODE_RGMII ends up
-behaving the same as PHY_INTERFACE_MODE_RGMII_ID.
+2) where it is only used in a standard/typical loop counter
 
-I think the correct fix would be to modify guruplug's interface mode to
-PHY_INTERFACE_MODE_RGMII_ID if both TX and RX side delays are desired.
+For (1), simply delete assignment to zero and usages while still
+zero; for (2) simply make the loop start at zero as per standard
+practice as seen everywhere else in the same file.
 
-Regards
-Cyril.
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+---
+ net/core/pktgen.c |   30 +++++++++++++++---------------
+ 1 files changed, 15 insertions(+), 15 deletions(-)
+
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index 2c0df0f..679b797 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -771,10 +771,10 @@ done:
+ static unsigned long num_arg(const char __user * user_buffer,
+ 			     unsigned long maxlen, unsigned long *num)
+ {
+-	int i = 0;
++	int i;
+ 	*num = 0;
+ 
+-	for (; i < maxlen; i++) {
++	for (i = 0; i < maxlen; i++) {
+ 		char c;
+ 		if (get_user(c, &user_buffer[i]))
+ 			return -EFAULT;
+@@ -789,9 +789,9 @@ static unsigned long num_arg(const char __user * user_buffer,
+ 
+ static int strn_len(const char __user * user_buffer, unsigned int maxlen)
+ {
+-	int i = 0;
++	int i;
+ 
+-	for (; i < maxlen; i++) {
++	for (i = 0; i < maxlen; i++) {
+ 		char c;
+ 		if (get_user(c, &user_buffer[i]))
+ 			return -EFAULT;
+@@ -846,7 +846,7 @@ static ssize_t pktgen_if_write(struct file *file,
+ {
+ 	struct seq_file *seq = file->private_data;
+ 	struct pktgen_dev *pkt_dev = seq->private;
+-	int i = 0, max, len;
++	int i, max, len;
+ 	char name[16], valstr[32];
+ 	unsigned long value = 0;
+ 	char *pg_result = NULL;
+@@ -860,13 +860,13 @@ static ssize_t pktgen_if_write(struct file *file,
+ 		return -EINVAL;
+ 	}
+ 
+-	max = count - i;
+-	tmp = count_trail_chars(&user_buffer[i], max);
++	max = count;
++	tmp = count_trail_chars(user_buffer, max);
+ 	if (tmp < 0) {
+ 		pr_warning("illegal format\n");
+ 		return tmp;
+ 	}
+-	i += tmp;
++	i = tmp;
+ 
+ 	/* Read variable name */
+ 
+@@ -1764,7 +1764,7 @@ static ssize_t pktgen_thread_write(struct file *file,
+ {
+ 	struct seq_file *seq = file->private_data;
+ 	struct pktgen_thread *t = seq->private;
+-	int i = 0, max, len, ret;
++	int i, max, len, ret;
+ 	char name[40];
+ 	char *pg_result;
+ 
+@@ -1773,12 +1773,12 @@ static ssize_t pktgen_thread_write(struct file *file,
+ 		return -EINVAL;
+ 	}
+ 
+-	max = count - i;
+-	len = count_trail_chars(&user_buffer[i], max);
++	max = count;
++	len = count_trail_chars(user_buffer, max);
+ 	if (len < 0)
+ 		return len;
+ 
+-	i += len;
++	i = len;
+ 
+ 	/* Read variable name */
+ 
+@@ -1975,7 +1975,7 @@ static struct net_device *pktgen_dev_get_by_name(struct pktgen_dev *pkt_dev,
+ 						 const char *ifname)
+ {
+ 	char b[IFNAMSIZ+5];
+-	int i = 0;
++	int i;
+ 
+ 	for (i = 0; ifname[i] != '@'; i++) {
+ 		if (i == IFNAMSIZ)
+@@ -2519,8 +2519,8 @@ static void free_SAs(struct pktgen_dev *pkt_dev)
+ {
+ 	if (pkt_dev->cflows) {
+ 		/* let go of the SAs if we have them */
+-		int i = 0;
+-		for (;  i < pkt_dev->cflows; i++) {
++		int i;
++		for (i = 0; i < pkt_dev->cflows; i++) {
+ 			struct xfrm_state *x = pkt_dev->flows[i].x;
+ 			if (x) {
+ 				xfrm_state_put(x);
+-- 
+1.7.2.1
+
