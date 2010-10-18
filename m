@@ -1,40 +1,41 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH V3 0/8] can: mcp251x: fix and optimize driver
-Date: Mon, 18 Oct 2010 07:12:33 -0700 (PDT)
-Message-ID: <20101018.071233.226790837.davem@davemloft.net>
-References: <1287408674-15412-1-git-send-email-mkl@pengutronix.de>
+From: Marc Zyngier <maz@misterjones.org>
+Subject: Re: [PATCH 6/8] can: mcp251x: Don't use pdata->model for chip selection
+ anymore
+Date: Mon, 18 Oct 2010 15:49:11 +0200
+Message-ID: <d4c9d3f3d2843bd9cdb4cbb6a75236ce@localhost>
+References: <1287408674-15412-1-git-send-email-mkl@pengutronix.de> <1287408674-15412-7-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <1287408674-15412-1-git-send-email-mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: <socketcan-core@lists.berlios.de>, <netdev@vger.kernel.org>,
+	Christian Pellegrin <chripell@fsfe.org>
+To: Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from inca-roads.misterjones.org ([213.251.177.50]:41110 "EHLO
+	inca-roads.misterjones.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755982Ab0JROMF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Oct 2010 10:12:05 -0400
+In-Reply-To: <1287408674-15412-7-git-send-email-mkl@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Date: Mon, 18 Oct 2010 15:31:06 +0200
 
-> Moin,
+On Mon, 18 Oct 2010 15:31:12 +0200, Marc Kleine-Budde <mkl@pengutronix.de>
+wrote:
+> Since commit e446630c960946b5c1762e4eadb618becef599e7, i.e. v2.6.35-rc1,
+> the mcp251x chip model can be selected via the modalias member in the
+> struct spi_board_info. The driver stores the actual model in the
+> struct mcp251x_platform_data.
 > 
-> this series of patches improves the mcp251x driver. It first fixes the
-> local_softirq_pending problem. Then the amount of SPI transfers is reduced
-> in order to optimise the driver. A further patch cleans up the chip model
-> selection.
+> From the driver point of view the platform_data should be read only.
+> Since all in-tree users of the mcp251x have already been converted to
+> the modalias method, this patch moves the "model" member from the
+> struct mcp251x_platform_data to the driver's private data structure.
 > 
-> This series has been tested with a mcp2515 on i.MX35.
-> 
-> Please review, test and consider to apply.
- ...
->   git://git.pengutronix.de/git/mkl/linux-2.6.git can/mcp251x-for-net-next
+> Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+> Cc: Christian Pellegrin <chripell@fsfe.org>
+> Cc: Marc Zyngier <maz@misterjones.org>
 
-Pulled, thanks.
+Acked-by: Marc Zyngier <maz@misterjones.org>
+-- 
+Who you jivin' with that Cosmik Debris?
