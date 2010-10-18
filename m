@@ -1,61 +1,75 @@
-From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: [PATCH 3/8] can: mcp251x: allow to read two registers in one spi
-	transfer
-Date: Mon, 18 Oct 2010 15:31:09 +0200
-Message-ID: <1287408674-15412-4-git-send-email-mkl@pengutronix.de>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: [PATCH 5/8] can: mcp251x: write intf only when needed
+Date: Mon, 18 Oct 2010 15:31:11 +0200
+Message-ID: <1287408674-15412-6-git-send-email-mkl@pengutronix.de>
 References: <1287408674-15412-1-git-send-email-mkl@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	=?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?= <u.kleine-koenig-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-To: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <1287408674-15412-1-git-send-email-mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Marc Kleine-Budde <mkl@pengutronix.de>
+To: socketcan-core@lists.berlios.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:33908 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755444Ab0JRNbV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Oct 2010 09:31:21 -0400
+In-Reply-To: <1287408674-15412-1-git-send-email-mkl@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogU2FzY2hhIEhhdWVyIDxzLmhhdWVyQHBlbmd1dHJvbml4LmRlPgoKVGhpcyBwYXRjaCBi
-YXNlcyBvbiB3b3JrIGRvbmUgZWFybGllciBieSBEYXZpZCBKYW5kZXIuCgpTaWduZWQtb2ZmLWJ5
-OiBTYXNjaGEgSGF1ZXIgPHMuaGF1ZXJAcGVuZ3V0cm9uaXguZGU+CkFja2VkLWJ5OiBEYXZpZCBK
-YW5kZXIgPGRhdmlkQHByb3RvbmljLm5sPgpTaWduZWQtb2ZmLWJ5OiBVd2UgS2xlaW5lLUvDtm5p
-ZyA8dS5rbGVpbmUta29lbmlnQHBlbmd1dHJvbml4LmRlPgpTaWduZWQtb2ZmLWJ5OiBNYXJjIEts
-ZWluZS1CdWRkZSA8bWtsQHBlbmd1dHJvbml4LmRlPgpBY2tlZC1ieTogV29sZmdhbmcgR3JhbmRl
-Z2dlciA8d2dAZ3JhbmRlZ2dlci5jb20+Ci0tLQogZHJpdmVycy9uZXQvY2FuL21jcDI1MXguYyB8
-ICAgMjAgKysrKysrKysrKysrKysrKystLS0KIDEgZmlsZXMgY2hhbmdlZCwgMTcgaW5zZXJ0aW9u
-cygrKSwgMyBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9jYW4vbWNwMjUx
-eC5jIGIvZHJpdmVycy9uZXQvY2FuL21jcDI1MXguYwppbmRleCBmZGVhNzUyLi45YjM0NjZhIDEw
-MDY0NAotLS0gYS9kcml2ZXJzL25ldC9jYW4vbWNwMjUxeC5jCisrKyBiL2RyaXZlcnMvbmV0L2Nh
-bi9tY3AyNTF4LmMKQEAgLTMxOSw2ICszMTksMjAgQEAgc3RhdGljIHU4IG1jcDI1MXhfcmVhZF9y
-ZWcoc3RydWN0IHNwaV9kZXZpY2UgKnNwaSwgdWludDhfdCByZWcpCiAJcmV0dXJuIHZhbDsKIH0K
-IAorc3RhdGljIHZvaWQgbWNwMjUxeF9yZWFkXzJyZWdzKHN0cnVjdCBzcGlfZGV2aWNlICpzcGks
-IHVpbnQ4X3QgcmVnLAorCQl1aW50OF90ICp2MSwgdWludDhfdCAqdjIpCit7CisJc3RydWN0IG1j
-cDI1MXhfcHJpdiAqcHJpdiA9IGRldl9nZXRfZHJ2ZGF0YSgmc3BpLT5kZXYpOworCisJcHJpdi0+
-c3BpX3R4X2J1ZlswXSA9IElOU1RSVUNUSU9OX1JFQUQ7CisJcHJpdi0+c3BpX3R4X2J1ZlsxXSA9
-IHJlZzsKKworCW1jcDI1MXhfc3BpX3RyYW5zKHNwaSwgNCk7CisKKwkqdjEgPSBwcml2LT5zcGlf
-cnhfYnVmWzJdOworCSp2MiA9IHByaXYtPnNwaV9yeF9idWZbM107Cit9CisKIHN0YXRpYyB2b2lk
-IG1jcDI1MXhfd3JpdGVfcmVnKHN0cnVjdCBzcGlfZGV2aWNlICpzcGksIHU4IHJlZywgdWludDhf
-dCB2YWwpCiB7CiAJc3RydWN0IG1jcDI1MXhfcHJpdiAqcHJpdiA9IGRldl9nZXRfZHJ2ZGF0YSgm
-c3BpLT5kZXYpOwpAQCAtNzU0LDEwICs3NjgsMTEgQEAgc3RhdGljIGlycXJldHVybl90IG1jcDI1
-MXhfY2FuX2lzdChpbnQgaXJxLCB2b2lkICpkZXZfaWQpCiAJbXV0ZXhfbG9jaygmcHJpdi0+bWNw
-X2xvY2spOwogCXdoaWxlICghcHJpdi0+Zm9yY2VfcXVpdCkgewogCQllbnVtIGNhbl9zdGF0ZSBu
-ZXdfc3RhdGU7Ci0JCXU4IGludGYgPSBtY3AyNTF4X3JlYWRfcmVnKHNwaSwgQ0FOSU5URik7Ci0J
-CXU4IGVmbGFnOworCQl1OCBpbnRmLCBlZmxhZzsKIAkJaW50IGNhbl9pZCA9IDAsIGRhdGExID0g
-MDsKIAorCQltY3AyNTF4X3JlYWRfMnJlZ3Moc3BpLCBDQU5JTlRGLCAmaW50ZiwgJmVmbGFnKTsK
-KwogCQlpZiAoaW50ZiAmIENBTklOVEZfUlgwSUYpIHsKIAkJCW1jcDI1MXhfaHdfcngoc3BpLCAw
-KTsKIAkJCS8qIEZyZWUgb25lIGJ1ZmZlciBBU0FQICovCkBAIC03NzAsNyArNzg1LDYgQEAgc3Rh
-dGljIGlycXJldHVybl90IG1jcDI1MXhfY2FuX2lzdChpbnQgaXJxLCB2b2lkICpkZXZfaWQpCiAK
-IAkJbWNwMjUxeF93cml0ZV9iaXRzKHNwaSwgQ0FOSU5URiwgaW50ZiwgMHgwMCk7CiAKLQkJZWZs
-YWcgPSBtY3AyNTF4X3JlYWRfcmVnKHNwaSwgRUZMRyk7CiAJCW1jcDI1MXhfd3JpdGVfcmVnKHNw
-aSwgRUZMRywgMHgwMCk7CiAKIAkJLyogVXBkYXRlIGNhbiBzdGF0ZSAqLwotLSAKMS43LjAuNAoK
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KU29ja2V0Y2Fu
-LWNvcmUgbWFpbGluZyBsaXN0ClNvY2tldGNhbi1jb3JlQGxpc3RzLmJlcmxpb3MuZGUKaHR0cHM6
-Ly9saXN0cy5iZXJsaW9zLmRlL21haWxtYW4vbGlzdGluZm8vc29ja2V0Y2FuLWNvcmUK
+This patch introduces a variable "clear_intf" that hold the bits that
+should be cleared. Only read-modify-write register if "clear_intf"
+is set.
+
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+Acked-by: Wolfgang Grandegger <wg@grandegger.com>
+---
+ drivers/net/can/mcp251x.c |   15 +++++++++++++--
+ 1 files changed, 13 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/can/mcp251x.c b/drivers/net/can/mcp251x.c
+index 7e2f951..f5e2edd 100644
+--- a/drivers/net/can/mcp251x.c
++++ b/drivers/net/can/mcp251x.c
+@@ -125,6 +125,8 @@
+ #  define CANINTF_TX0IF 0x04
+ #  define CANINTF_RX1IF 0x02
+ #  define CANINTF_RX0IF 0x01
++#  define CANINTF_ERR_TX \
++	(CANINTF_ERRIF | CANINTF_TX2IF | CANINTF_TX1IF | CANINTF_TX0IF)
+ #define EFLG	      0x2d
+ #  define EFLG_EWARN	0x01
+ #  define EFLG_RXWAR	0x02
+@@ -769,10 +771,12 @@ static irqreturn_t mcp251x_can_ist(int irq, void *dev_id)
+ 	while (!priv->force_quit) {
+ 		enum can_state new_state;
+ 		u8 intf, eflag;
++		u8 clear_intf = 0;
+ 		int can_id = 0, data1 = 0;
+ 
+ 		mcp251x_read_2regs(spi, CANINTF, &intf, &eflag);
+ 
++		/* receive buffer 0 */
+ 		if (intf & CANINTF_RX0IF) {
+ 			mcp251x_hw_rx(spi, 0);
+ 			/* Free one buffer ASAP */
+@@ -780,10 +784,17 @@ static irqreturn_t mcp251x_can_ist(int irq, void *dev_id)
+ 					   0x00);
+ 		}
+ 
+-		if (intf & CANINTF_RX1IF)
++		/* receive buffer 1 */
++		if (intf & CANINTF_RX1IF) {
+ 			mcp251x_hw_rx(spi, 1);
++			clear_intf |= CANINTF_RX1IF;
++		}
+ 
+-		mcp251x_write_bits(spi, CANINTF, intf, 0x00);
++		/* any error or tx interrupt we need to clear? */
++		if (intf & CANINTF_ERR_TX)
++			clear_intf |= intf & CANINTF_ERR_TX;
++		if (clear_intf)
++			mcp251x_write_bits(spi, CANINTF, clear_intf, 0x00);
+ 
+ 		if (eflag)
+ 			mcp251x_write_bits(spi, EFLG, eflag, 0x00);
+-- 
+1.7.0.4
+
