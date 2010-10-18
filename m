@@ -1,12 +1,14 @@
 From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: [PATCH 1/8] can: mcp251x: fix NOHZ local_softirq_pending 08 warning
-Date: Mon, 18 Oct 2010 15:31:07 +0200
-Message-ID: <1287408674-15412-2-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH 3/8] can: mcp251x: allow to read two registers in one spi
+	transfer
+Date: Mon, 18 Oct 2010 15:31:09 +0200
+Message-ID: <1287408674-15412-4-git-send-email-mkl@pengutronix.de>
 References: <1287408674-15412-1-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	=?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?= <u.kleine-koenig-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
 To: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
 In-Reply-To: <1287408674-15412-1-git-send-email-mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
@@ -21,39 +23,39 @@ Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patch replaces netif_rx() with netif_rx_ni() which has to be used
-from the threaded interrupt i.e. process context context.
-
-Thanks to Christian Pellegrin for pointing at the right fix:
-481a8199142c050b72bff8a1956a49fd0a75bbe0 by Oliver Hartkopp.
-
-Signed-off-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
----
- drivers/net/can/mcp251x.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/can/mcp251x.c b/drivers/net/can/mcp251x.c
-index b11a0cb..c06e023 100644
---- a/drivers/net/can/mcp251x.c
-+++ b/drivers/net/can/mcp251x.c
-@@ -451,7 +451,7 @@ static void mcp251x_hw_rx(struct spi_device *spi, int buf_idx)
- 
- 	priv->net->stats.rx_packets++;
- 	priv->net->stats.rx_bytes += frame->can_dlc;
--	netif_rx(skb);
-+	netif_rx_ni(skb);
- }
- 
- static void mcp251x_hw_sleep(struct spi_device *spi)
-@@ -676,7 +676,7 @@ static void mcp251x_error_skb(struct net_device *net, int can_id, int data1)
- 	if (skb) {
- 		frame->can_id = can_id;
- 		frame->data[1] = data1;
--		netif_rx(skb);
-+		netif_rx_ni(skb);
- 	} else {
- 		dev_err(&net->dev,
- 			"cannot allocate error skb\n");
--- 
-1.7.0.4
+RnJvbTogU2FzY2hhIEhhdWVyIDxzLmhhdWVyQHBlbmd1dHJvbml4LmRlPgoKVGhpcyBwYXRjaCBi
+YXNlcyBvbiB3b3JrIGRvbmUgZWFybGllciBieSBEYXZpZCBKYW5kZXIuCgpTaWduZWQtb2ZmLWJ5
+OiBTYXNjaGEgSGF1ZXIgPHMuaGF1ZXJAcGVuZ3V0cm9uaXguZGU+CkFja2VkLWJ5OiBEYXZpZCBK
+YW5kZXIgPGRhdmlkQHByb3RvbmljLm5sPgpTaWduZWQtb2ZmLWJ5OiBVd2UgS2xlaW5lLUvDtm5p
+ZyA8dS5rbGVpbmUta29lbmlnQHBlbmd1dHJvbml4LmRlPgpTaWduZWQtb2ZmLWJ5OiBNYXJjIEts
+ZWluZS1CdWRkZSA8bWtsQHBlbmd1dHJvbml4LmRlPgpBY2tlZC1ieTogV29sZmdhbmcgR3JhbmRl
+Z2dlciA8d2dAZ3JhbmRlZ2dlci5jb20+Ci0tLQogZHJpdmVycy9uZXQvY2FuL21jcDI1MXguYyB8
+ICAgMjAgKysrKysrKysrKysrKysrKystLS0KIDEgZmlsZXMgY2hhbmdlZCwgMTcgaW5zZXJ0aW9u
+cygrKSwgMyBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9jYW4vbWNwMjUx
+eC5jIGIvZHJpdmVycy9uZXQvY2FuL21jcDI1MXguYwppbmRleCBmZGVhNzUyLi45YjM0NjZhIDEw
+MDY0NAotLS0gYS9kcml2ZXJzL25ldC9jYW4vbWNwMjUxeC5jCisrKyBiL2RyaXZlcnMvbmV0L2Nh
+bi9tY3AyNTF4LmMKQEAgLTMxOSw2ICszMTksMjAgQEAgc3RhdGljIHU4IG1jcDI1MXhfcmVhZF9y
+ZWcoc3RydWN0IHNwaV9kZXZpY2UgKnNwaSwgdWludDhfdCByZWcpCiAJcmV0dXJuIHZhbDsKIH0K
+IAorc3RhdGljIHZvaWQgbWNwMjUxeF9yZWFkXzJyZWdzKHN0cnVjdCBzcGlfZGV2aWNlICpzcGks
+IHVpbnQ4X3QgcmVnLAorCQl1aW50OF90ICp2MSwgdWludDhfdCAqdjIpCit7CisJc3RydWN0IG1j
+cDI1MXhfcHJpdiAqcHJpdiA9IGRldl9nZXRfZHJ2ZGF0YSgmc3BpLT5kZXYpOworCisJcHJpdi0+
+c3BpX3R4X2J1ZlswXSA9IElOU1RSVUNUSU9OX1JFQUQ7CisJcHJpdi0+c3BpX3R4X2J1ZlsxXSA9
+IHJlZzsKKworCW1jcDI1MXhfc3BpX3RyYW5zKHNwaSwgNCk7CisKKwkqdjEgPSBwcml2LT5zcGlf
+cnhfYnVmWzJdOworCSp2MiA9IHByaXYtPnNwaV9yeF9idWZbM107Cit9CisKIHN0YXRpYyB2b2lk
+IG1jcDI1MXhfd3JpdGVfcmVnKHN0cnVjdCBzcGlfZGV2aWNlICpzcGksIHU4IHJlZywgdWludDhf
+dCB2YWwpCiB7CiAJc3RydWN0IG1jcDI1MXhfcHJpdiAqcHJpdiA9IGRldl9nZXRfZHJ2ZGF0YSgm
+c3BpLT5kZXYpOwpAQCAtNzU0LDEwICs3NjgsMTEgQEAgc3RhdGljIGlycXJldHVybl90IG1jcDI1
+MXhfY2FuX2lzdChpbnQgaXJxLCB2b2lkICpkZXZfaWQpCiAJbXV0ZXhfbG9jaygmcHJpdi0+bWNw
+X2xvY2spOwogCXdoaWxlICghcHJpdi0+Zm9yY2VfcXVpdCkgewogCQllbnVtIGNhbl9zdGF0ZSBu
+ZXdfc3RhdGU7Ci0JCXU4IGludGYgPSBtY3AyNTF4X3JlYWRfcmVnKHNwaSwgQ0FOSU5URik7Ci0J
+CXU4IGVmbGFnOworCQl1OCBpbnRmLCBlZmxhZzsKIAkJaW50IGNhbl9pZCA9IDAsIGRhdGExID0g
+MDsKIAorCQltY3AyNTF4X3JlYWRfMnJlZ3Moc3BpLCBDQU5JTlRGLCAmaW50ZiwgJmVmbGFnKTsK
+KwogCQlpZiAoaW50ZiAmIENBTklOVEZfUlgwSUYpIHsKIAkJCW1jcDI1MXhfaHdfcngoc3BpLCAw
+KTsKIAkJCS8qIEZyZWUgb25lIGJ1ZmZlciBBU0FQICovCkBAIC03NzAsNyArNzg1LDYgQEAgc3Rh
+dGljIGlycXJldHVybl90IG1jcDI1MXhfY2FuX2lzdChpbnQgaXJxLCB2b2lkICpkZXZfaWQpCiAK
+IAkJbWNwMjUxeF93cml0ZV9iaXRzKHNwaSwgQ0FOSU5URiwgaW50ZiwgMHgwMCk7CiAKLQkJZWZs
+YWcgPSBtY3AyNTF4X3JlYWRfcmVnKHNwaSwgRUZMRyk7CiAJCW1jcDI1MXhfd3JpdGVfcmVnKHNw
+aSwgRUZMRywgMHgwMCk7CiAKIAkJLyogVXBkYXRlIGNhbiBzdGF0ZSAqLwotLSAKMS43LjAuNAoK
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KU29ja2V0Y2Fu
+LWNvcmUgbWFpbGluZyBsaXN0ClNvY2tldGNhbi1jb3JlQGxpc3RzLmJlcmxpb3MuZGUKaHR0cHM6
+Ly9saXN0cy5iZXJsaW9zLmRlL21haWxtYW4vbGlzdGluZm8vc29ja2V0Y2FuLWNvcmUK
