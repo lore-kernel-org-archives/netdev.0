@@ -1,30 +1,58 @@
-From: Dimitris Michailidis <dm@chelsio.com>
-Subject: Re: [PATCH 2/3] cxgb4: function namespace cleanup (v3)
-Date: Mon, 18 Oct 2010 16:16:24 -0700
-Message-ID: <4CBCD548.3030005@chelsio.com>
-References: <20101015212310.47a74d86@nehalam>	<4CB9434D.1060702@chelsio.com>	<4CBA6DC8.4010104@opengridcomputing.com>	<20101018.073145.189710492.davem@davemloft.net> <20101018083918.3777a278@nehalam>
+From: Bernard Blackham <bernard@largestprime.net>
+Subject: [PATCH] smsc95xx: generate random MAC address once, not every ifup
+Date: Tue, 19 Oct 2010 10:16:39 +1100
+Message-ID: <20101018231639.GA15955@mersenne.largestprime.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, swise@opengridcomputing.com,
-	divy@chelsio.com, leedom@chelsio.com, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-omap@vger.kernel.org
+To: Steve Glendinning <steve.glendinning@smsc.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:27082 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755064Ab0JRXQc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Oct 2010 19:16:32 -0400
-In-Reply-To: <20101018083918.3777a278@nehalam>
+Received: from mersenne.largestprime.net ([203.56.168.14]:38207 "EHLO
+	mersenne.largestprime.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757482Ab0JRXXY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Oct 2010 19:23:24 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger wrote:
-> Make functions only used in one file local.
-> Remove lots of dead code, relating to unsupported functions
-> in mainline driver like RSS, IPv6, and TCP offload.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+The smsc95xx driver currently generates a new random MAC address
+every time the interface is brought up. This makes it impossible to
+override using the standard `ifconfig hw ether` approach.
 
-Acked-by: Dimitris Michailidis <dm@chelsio.com>
+Past patches tried to make the MAC address a module parameter or
+base it off the die ID, but it seems to me much simpler (and
+hopefully less controversial) to stick with the current random
+generation scheme, but allow the user to change the address.
 
-Thanks much.
+This patch does exactly that - it moves the random address
+generation from smsc95xx_reset() into smsc95xx_bind(), so that it is
+done once on module load, not on every ifup. The user can then
+override this using the standard mechanisms.
+
+Applies against 2.6.35 and linux-2.6 head.
+
+Signed-off-by: Bernard Blackham <b-omap@largestprime.net>
+
+---
+
+--- a/drivers/net/usb/smsc95xx.c	2010-10-19 00:15:35.915612223 +1100
++++ b/drivers/net/usb/smsc95xx.c	2010-10-19 00:15:55.408550929 +1100
+@@ -805,8 +805,6 @@ static int smsc95xx_reset(struct usbnet
+ 		return ret;
+ 	}
+ 
+-	smsc95xx_init_mac_address(dev);
+-
+ 	ret = smsc95xx_set_mac_address(dev);
+ 	if (ret < 0)
+ 		return ret;
+@@ -1047,6 +1045,8 @@ static int smsc95xx_bind(struct usbnet *
+ 	pdata->use_tx_csum = DEFAULT_TX_CSUM_ENABLE;
+ 	pdata->use_rx_csum = DEFAULT_RX_CSUM_ENABLE;
+ 
++	smsc95xx_init_mac_address(dev);
++
+ 	/* Init all registers */
+ 	ret = smsc95xx_reset(dev);
+ 
