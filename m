@@ -1,8 +1,8 @@
 From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: [PATCH net-next 4/6] bnx2x: Use correct FW constant for header
- padding
-Date: Mon, 18 Oct 2010 11:09:30 +0200
-Message-ID: <1287392970.11597.41.camel@lb-tlvb-dmitry>
+Subject: [PATCH net-next 3/6] bnx2x: do not deal with power if no
+ capability
+Date: Mon, 18 Oct 2010 11:10:02 +0200
+Message-ID: <1287393002.11597.42.camel@lb-tlvb-dmitry>
 Mime-Version: 1.0
 Content-Type: text/plain;
  charset=utf-8
@@ -11,47 +11,37 @@ Cc: "Eilon Greenstein" <eilong@broadcom.com>,
 	"Vladislav Zolotarov" <vladz@broadcom.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2300 "EHLO mms1.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:1978 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754626Ab0JRJM1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Oct 2010 05:12:27 -0400
+	id S1754625Ab0JRJM0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Oct 2010 05:12:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-the value of the constant is the same, but it's clearer to use original
-constant provided by HSI
-
 Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+Signed-off-by: Vladislav Zolotarov <vladz@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x/bnx2x_cmn.c |    2 +-
- drivers/net/bnx2x/bnx2x_cmn.h |    2 --
- 2 files changed, 1 insertions(+), 3 deletions(-)
+ drivers/net/bnx2x/bnx2x_cmn.c |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/bnx2x/bnx2x_cmn.c b/drivers/net/bnx2x/bnx2x_cmn.c
-index 9a3208e..29ed500 100644
+index 3f0540c..9a3208e 100644
 --- a/drivers/net/bnx2x/bnx2x_cmn.c
 +++ b/drivers/net/bnx2x/bnx2x_cmn.c
-@@ -830,7 +830,7 @@ void bnx2x_init_rx_rings(struct bnx2x *bp)
- 	int i, j;
+@@ -1520,6 +1520,12 @@ int bnx2x_set_power_state(struct bnx2x *bp, pci_power_t state)
+ {
+ 	u16 pmcsr;
  
- 	bp->rx_buf_size = bp->dev->mtu + ETH_OVREHEAD + BNX2X_RX_ALIGN +
--		BNX2X_FW_IP_HDR_ALIGN_PAD;
-+		IP_HEADER_ALIGNMENT_PADDING;
++	/* If there is no power capability, silently succeed */
++	if (!bp->pm_cap) {
++		DP(NETIF_MSG_HW, "No power capability. Breaking.\n");
++		return 0;
++	}
++
+ 	pci_read_config_word(bp->pdev, bp->pm_cap + PCI_PM_CTRL, &pmcsr);
  
- 	DP(NETIF_MSG_IFUP,
- 	   "mtu %d  rx_buf_size %d\n", bp->dev->mtu, bp->rx_buf_size);
-diff --git a/drivers/net/bnx2x/bnx2x_cmn.h b/drivers/net/bnx2x/bnx2x_cmn.h
-index 7f52cec..5bfe0ab 100644
---- a/drivers/net/bnx2x/bnx2x_cmn.h
-+++ b/drivers/net/bnx2x/bnx2x_cmn.h
-@@ -1032,6 +1032,4 @@ static inline void storm_memset_cmng(struct bnx2x *bp,
- void bnx2x_acquire_phy_lock(struct bnx2x *bp);
- void bnx2x_release_phy_lock(struct bnx2x *bp);
- 
--#define BNX2X_FW_IP_HDR_ALIGN_PAD	2 /* FW places hdr with this padding */
--
- #endif /* BNX2X_CMN_H */
+ 	switch (state) {
 -- 
 1.7.1
 
