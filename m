@@ -1,149 +1,116 @@
-From: Daniel Lezcano <daniel.lezcano@free.fr>
-Subject: Re: [RFC PATCH 0/9] ipvs network name space (netns) aware
-Date: Mon, 18 Oct 2010 14:16:38 +0200
-Message-ID: <4CBC3AA6.6040706@free.fr>
-References: <201010081316.38317.hans.schillstrom@ericsson.com> <20101017064731.GA8152@verge.net.au> <201010181355.59763.hans.schillstrom@ericsson.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: openvswitch/flow WAS ( Re: [rfc] Merging the Open vSwitch
+ datapath
+Date: Mon, 18 Oct 2010 08:16:57 -0400
+Message-ID: <1287404217.3664.182.camel@bigi>
+References: <20100830062755.GA22396@verge.net.au>
+	 <87k4n8ow1r.fsf@benpfaff.org> <1287142292.3642.19.camel@bigi>
+	 <AANLkTim2LsFUOVSVss6HqGTxuyGH6eBKQdYabjMoWiaB@mail.gmail.com>
+	 <1287228959.3664.72.camel@bigi>
+	 <AANLkTin-zmQdMC_nRvgRr5KdWQvee5xga5sjOfRN2McN@mail.gmail.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Simon Horman <horms@verge.net.au>,
-	"lvs-devel@vger.kernel.org" <lvs-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"ja@ssi.bg" <ja@ssi.bg>,
-	"wensong@linux-vs.org" <wensong@linux-vs.org>
-To: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <201010181355.59763.hans.schillstrom@ericsson.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Ben Pfaff <blp@nicira.com>, netdev@vger.kernel.org,
+	ovs-team@nicira.com
+To: Jesse Gross <jesse@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qy0-f181.google.com ([209.85.216.181]:35569 "EHLO
+	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750876Ab0JRMRA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Oct 2010 08:17:00 -0400
+Received: by qyk2 with SMTP id 2so958419qyk.19
+        for <netdev@vger.kernel.org>; Mon, 18 Oct 2010 05:17:00 -0700 (PDT)
+In-Reply-To: <AANLkTin-zmQdMC_nRvgRr5KdWQvee5xga5sjOfRN2McN@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/18/2010 01:55 PM, Hans Schillstrom wrote:
-> On Sunday 17 October 2010 08:47:31 Simon Horman wrote:
->    
->> On Fri, Oct 08, 2010 at 01:16:36PM +0200, Hans Schillstrom wrote:
->>      
->>> This patch series adds network name space (netns) support to the LVS.
->>>
->>> REVISION
->>>
->>> This is version 1
->>>
->>> OVERVIEW
->>>
->>> The patch doesn't remove or add any functionality except for netns.
->>> For users that don't use network name space (netns) this patch is
->>> completely transparent.
->>>
->>> No it's possible to run LVS in a Linux container (see lxc-tools)
->>> i.e.  a light weight virtualization. For example it's possible to run
->>> one or several lvs on a real server in their own network name spaces.
->>> > From the LVS point of view it looks like it runs on it's own machine.
->>>
->>> IMPLEMENTATION
->>> Basic requirements for netns awareness
->>>   - Global variables has to be moved to dyn. allocated memory.
->>>
->>> Most global variables now resides in a struct ipvs { } in netns/ip_vs.h.
->>> What is moved and what is not ?
->>>
->>> Some cache aligned locks are still in global, module init params and some debug_level.
->>>
->>> Algorithm files they are untouched.
->>>
->>> QUESTIONS
->>> Drop rate in ip_vs_ctl per netns or grand total ?
->>>        
-> This is a tricky one (I think),
-> if the interface is shared with root name-space and/or other name-spaces
->   - use grand total
-> if it's an "own interface"
->   - drop rate can/should be in netns...
->
->    
->> My gut-feeling is that per netns makes more sense.
->>
->>      
->>> Should more lock variables be moved (or less) ?
->>>        
->> I'm unsure what you are asking here but I will make a general statement
->> about locking in IPVS: it needs work.
->>      
-> Some locks still resides as global variables, and others in netns_ipvs struct.
-> Since you have a lot of experience with IPVS locks,
-> you might have ideas what to move and what to not move.
->
->    
->>      
->>> PATCH SET
->>> This patch set is based upon net-next-2.6 (2.6.36-rc3) from 4 oct 2010
->>> and [patch v4] ipvs: IPv6 tunnel mode
->>>
->>> Note: ip_vs_xmit.c will not work without "[patch v4] ipvs: IPv6 tunnel mode"
->>>        
->> Unfortunately the patches don't apply with the persistence engine
->> patches which were recently merged into nf-next-2.6 (although
->> "[patch v4.1 ]ipvs: IPv6 tunnel mode" is still unmerged).
->>
->>      
-> I do have a patch based on the nf-next without the SIP/PE patch
->
->    
->> I'm happy to work with you to make the required changes there.
->>      
-> I would appreciate that.
->
->    
->> (I realise those patches weren't merged when you made your post.
->>   But regardless, either your or me will need to update the patches).
->>
->> Another issue is that your patches seem to be split in a way
->> where the build breaks along the way. E.g. after applying
->> patch 1, the build breaks. Could you please split things up
->> in a manner such that this doesn't happen. The reason being
->> that it breaks bisection.
->>
->>      
-> Hmm, Daniel also pointed at this,
-> The Patch is quite large, and will become even larger with pe and sip.
-> My Idea was to review the patch in pieces and put it together in one or two large patches when submitting it.
-> I don't know that might be a stupid ?
-> It's hard to break it up, making the code reentrant causes changes every where.
->
-> Daniel L, had another approach break it into many many tiny patches.
->    
 
-These patches can be folded if the result is an acceptable patch size. 
-The more important is to not break the init_net. Introducing the 
-namespace concept step by step, from the bottom-up in the call stack is 
-good because we focus first on making the namespace available in the 
-code while keeping the init_net functional. The small patches help to 
-git bisect and spot the patch which lead to a regression. As the patches 
-are small, it is easy to quickly find the culprit and fix it, especially 
-for the people who are not author of these patches.
+On Sat, 2010-10-16 at 12:33 -0700, Jesse Gross wrote:
+> On Sat, Oct 16, 2010 at 4:35 AM, jamal <hadi@cyberus.ca> wrote:
 
-During this step of namespace introduction, we prevent  to unshare the 
-network for ipvs, with a non-op when the namespace is not init_net.
+> Yes, Open vSwitch supports the OpenFlow protocol.  However, the Open
+> vSwitch kernel portion is completely different from the OpenFlow
+> reference implementation datapath and in fact does not speak OpenFlow
+> at the kernel level. 
 
-When everything is ready and the init_net is running without problem, we 
-remove the non-op and consolidate the namespace part of ipvs.
+Excellent. 
+Sorry - I may have misread the openflow code to be openvswitch.
 
-This is how I am used to do, but that does not imply it is the best way 
-to do that :)
+>  You brought up the point of keeping the kernel
+> simple and making policy decisions in userspace.  I completely agree
+> and, in fact, that is the reason why Open vSwitch is designed the way
+> it is.
+> 
+> I think it might be helpful if I gave a high level overview of packet
+> processing:
+> 
+> When a packet is received it, the relevant fields from the packet are
+> extracted and matched against a hash table.  The most interesting part
+> is actually what happens when the packets don't match a hash entry:
+> they get sent up to userspace.  It is userspace that makes a policy
+> decision about the traffic and then pushes down a flow entry for
+> future packets to match.  Some of the things that those decisions can
+> be based on include: OpenFlow rules, wildcarded entries, normal L2
+> learning, etc.  From then on, packets in that flow can be processed on
+> the fast path in the kernel with minimal overhead, while still getting
+> the benefit of the knowledge of userspace.
 
->> Lastly, could you provide a unique subject for each patch.
->> I know its a bit tedious, but it does make a difference when
->> browsing the changelog.
->>
->>      
-> Yepp, no problem
->
->    
->> --
->> To unsubscribe from this list: send the line "unsubscribe lvs-devel" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>
->>      
->    
+Ok, pretty classical stuff - exception handling in control path, update
+policy to data path based on exception, subsequent stuff happens in data
+path.
+
+> So I think that we are actually in agreement on quite a number of
+> points: the kernel should be kept as simple as possible, the control
+> plane should be abstracted out and handled in userspace, and it should
+> be possible to map the control rules (from OpenFlow or anywhere
+> really) onto a simpler set of primitives for handling packets.
+> 
+> So with those goals in mind, here's what is needed:
+> 1. Packet field extraction and classification.  Realistically speaking
+> a new, specialized classifier would probably be needed, as you
+> mention.
+
+I think a new classifier would make life simpler here.
+
+> 2. A mechanism to send/receive packets to/from userspace.  This is an
+> important component that Open vSwitch adds to the pipeline.  This will
+> probably expand in the future to suit different applications, like the
+> security processing that I talked about.
+
+There are many ways to skin that proverbial cat. I guess it will depend
+on whether you are redirecting or merely copying a whole packet, or part
+of it (while storing a part in the kernel) etc. Example for a scheme
+that works using netlink look at the netfilter examples. You could use
+pf_packet if merely requiring copies. One simple scheme i have used is
+to have the mirred action redirect to a tun device on which a user space
+daemon is listening. If you look at the mirred action - there is an
+option to redirect to a named socket which was never implemented because
+workarounds exist.
+
+> 3. Output actions.  A few exist today, at least some new ones will
+> need to be added.
+
+Agreed.
+
+> So in reality, all of major components of Open vSwitch are actually
+> not present in the kernel today.  I know the argument could be made
+> that certains parts can be replicated in different ways but that's
+> back to the simplicity point that I was making earlier.  The u32
+> classifier isn't well suited for these types of rules and neither is
+> pedit.  If we're going to add the needed components either way, let's
+> not make everyone's lives more complicated by mixing everything
+> together.
+
+I have to say it is a pleasant suprise that we agree. When i looked at
+the openflow code i was worried. I always believe in improving what we
+have in Linux than trying to add parallel competing interfaces.
+[You'd be suprised for example on the number of vendors who put forward
+the claim that they can route faster on Linux[1] by writing a little
+barebone driver which ignores 99% of reality.]
+
+cheers,
+jamal
+[1] I am forgiving on academics 
 
