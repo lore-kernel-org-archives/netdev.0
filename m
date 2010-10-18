@@ -1,147 +1,43 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH] ethtool: add get permanent address option
-Date: Mon, 18 Oct 2010 11:41:39 -0700
-Message-ID: <20101018114139.71073a40@nehalam>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [Ksummit-2010-discuss] [v2] Remaining BKL users, what to do
+Date: Mon, 18 Oct 2010 11:43:46 -0700
+Message-ID: <20101018184346.GD27089@kroah.com>
+References: <201009161632.59210.arnd@arndb.de>
+ <201010181742.06678.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: Jeff Garzik <jeff@garzik.org>, Jeff Garzik <jeff@garzik.org>,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:42722 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755463Ab0JRSln (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Oct 2010 14:41:43 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: codalist@TELEMANN.coda.cs.cmu.edu,
+	ksummit-2010-discuss@lists.linux-foundation.org,
+	autofs@linux.kernel.org, Jan Harkes <jaharkes@cs.cmu.edu>,
+	Samuel Ortiz <samuel@sortiz.org>, Jan Kara <jack@suse.cz>,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	netdev@vger.kernel.org, Anders Larsen <al@alarsen.net>,
+	linux-kernel@vger.kernel.org, dri-devel@lists.freedesktop.org,
+	Bryan Schumaker <bjschuma@netapp.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Petr Vandrovec <vandrove@vc.cvut.cz>,
+	Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>,
+	linux-fsdevel@vger.kernel.org,
+	Evgeniy Dushistov <dushistov@mail.ru>,
+	Ingo Molnar <mingo@elte.hu>,
+	Andrew Hendry <andrew.hendry@gmail.com>,
+	linux-media@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <201010181742.06678.arnd@arndb.de>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add command level support for showing permanent address.
-The ioctl has been around for a long time but there was
-no option to display it.
+On Mon, Oct 18, 2010 at 05:42:06PM +0200, Arnd Bergmann wrote:
+> 
+> Out of the remaining modules, I guess i810/i830, adfs, hpfs and ufs might end
+> up not getting fixed at all, we can either mark them non-SMP or move them
+> to drivers/staging once all the others are done.
 
-Note: MAX_ADDR_LEN is defined in netdevice.h but including
-netdevice.h leads to multiple definition errors with if.h.
+I recommend moving them to staging, and then retire them from there if
+no one steps up to maintain them.
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+thanks,
 
----
- ethtool.8 |    6 ++++++
- ethtool.c |   36 +++++++++++++++++++++++++++++++++++-
- 2 files changed, 41 insertions(+), 1 deletions(-)
-
-diff --git a/ethtool.8 b/ethtool.8
-index 3ca403c..84d5cc0 100644
---- a/ethtool.8
-+++ b/ethtool.8
-@@ -176,6 +176,9 @@ ethtool \- Display or change ethernet card settings
- .I ethX
- .RI [ N ]
- 
-+.B ethtool \-P|\-\-show-permaddr
-+.I ethX
-+
- .B ethtool \-r|\-\-negotiate
- .I ethX
- 
-@@ -388,6 +391,9 @@ blinking one or more LEDs on the specific ethernet port.
- .B N
- Length of time to perform phys-id, in seconds.
- .TP
-+.B \-P \-\-show-permaddr
-+Queries the specified ethernet device for permanent hardware address.
-+.TP
- .B \-r \-\-negotiate
- Restarts auto-negotiation on the specified ethernet device, if
- auto-negotiation is enabled.
-diff --git a/ethtool.c b/ethtool.c
-index 6b2b7c8..845e65d 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -51,6 +51,9 @@
- #ifndef SIOCETHTOOL
- #define SIOCETHTOOL     0x8946
- #endif
-+#ifndef MAX_ADDR_LEN
-+#define MAX_ADDR_LEN	32
-+#endif
- #ifndef ARRAY_SIZE
- #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
- #endif
-@@ -107,6 +110,8 @@ static int do_srxfhindir(int fd, struct ifreq *ifr);
- static int do_srxntuple(int fd, struct ifreq *ifr);
- static int do_grxntuple(int fd, struct ifreq *ifr);
- static int do_flash(int fd, struct ifreq *ifr);
-+static int do_permaddr(int fd, struct ifreq *ifr);
-+
- static int send_ioctl(int fd, struct ifreq *ifr);
- 
- static enum {
-@@ -136,6 +141,7 @@ static enum {
- 	MODE_SNTUPLE,
- 	MODE_GNTUPLE,
- 	MODE_FLASHDEV,
-+	MODE_PERMADDR,
- } mode = MODE_GSET;
- 
- static struct option {
-@@ -247,6 +253,8 @@ static struct option {
- 		"action <queue or drop>\n" },
-     { "-u", "--show-ntuple", MODE_GNTUPLE,
- 		"Get Rx ntuple filters and actions\n" },
-+    { "-P", "--show-permaddr", MODE_PERMADDR,
-+      		"Show permanent hardware address" },
-     { "-h", "--help", MODE_HELP, "Show this help" },
-     {}
- };
-@@ -750,7 +758,8 @@ static void parse_cmdline(int argc, char **argp)
- 			    (mode == MODE_SNTUPLE) ||
- 			    (mode == MODE_GNTUPLE) ||
- 			    (mode == MODE_PHYS_ID) ||
--			    (mode == MODE_FLASHDEV)) {
-+			    (mode == MODE_FLASHDEV) |
-+			    (mode == MODE_PERMADDR)) {
- 				devname = argp[i];
- 				break;
- 			}
-@@ -1868,6 +1877,8 @@ static int doit(void)
- 		return do_grxntuple(fd, &ifr);
- 	} else if (mode == MODE_FLASHDEV) {
- 		return do_flash(fd, &ifr);
-+	} else if (mode == MODE_PERMADDR) {
-+		return do_permaddr(fd, &ifr);
- 	}
- 
- 	return 69;
-@@ -2950,6 +2961,29 @@ static int do_flash(int fd, struct ifreq *ifr)
- 	return err;
- }
- 
-+static int do_permaddr(int fd, struct ifreq *ifr)
-+{
-+	int i, err;
-+	struct ethtool_perm_addr *epaddr;
-+
-+	epaddr = malloc(sizeof(struct ethtool_perm_addr) + MAX_ADDR_LEN);
-+	epaddr->cmd = ETHTOOL_GPERMADDR;
-+	epaddr->size = MAX_ADDR_LEN;
-+	ifr->ifr_data = (caddr_t)epaddr;
-+
-+	err = send_ioctl(fd, ifr);
-+	if (err < 0)
-+		perror("Cannot read permanent address\n");
-+	else {
-+		printf("Permanent address:");
-+		for (i = 0; i < epaddr->size; i++)
-+			printf("%c%02x", (i == 0) ? ' ' : ':',
-+			       epaddr->data[i]);
-+		printf("\n");
-+	}
-+	return err;
-+}
-+
- static int do_srxntuple(int fd, struct ifreq *ifr)
- {
- 	int err;
--- 
-1.7.1
-
+greg k-h
