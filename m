@@ -1,43 +1,43 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [Ksummit-2010-discuss] [v2] Remaining BKL users, what to do
-Date: Mon, 18 Oct 2010 11:43:46 -0700
-Message-ID: <20101018184346.GD27089@kroah.com>
-References: <201009161632.59210.arnd@arndb.de>
- <201010181742.06678.arnd@arndb.de>
+From: Harvey Harrison <harvey.harrison@gmail.com>
+Subject: Re: [PATCH] vmxnet3: remove set_flag_le{16,64} functions
+Date: Mon, 18 Oct 2010 11:44:55 -0700
+Message-ID: <AANLkTikC3KorhkWBkRPE_UQ8H_M=gWm3QnpPvYOVeTxM@mail.gmail.com>
+References: <1287214392-8963-1-git-send-email-harvey.harrison@gmail.com>
+	<89E2752CFA8EC044846EB8499819134102BD7E1856@EXCH-MBX-4.vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: codalist@TELEMANN.coda.cs.cmu.edu,
-	ksummit-2010-discuss@lists.linux-foundation.org,
-	autofs@linux.kernel.org, Jan Harkes <jaharkes@cs.cmu.edu>,
-	Samuel Ortiz <samuel@sortiz.org>, Jan Kara <jack@suse.cz>,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	netdev@vger.kernel.org, Anders Larsen <al@alarsen.net>,
-	linux-kernel@vger.kernel.org, dri-devel@lists.freedesktop.org,
-	Bryan Schumaker <bjschuma@netapp.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Petr Vandrovec <vandrove@vc.cvut.cz>,
-	Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>,
-	linux-fsdevel@vger.kernel.org,
-	Evgeniy Dushistov <dushistov@mail.ru>,
-	Ingo Molnar <mingo@elte.hu>,
-	Andrew Hendry <andrew.hendry@gmail.com>,
-	linux-media@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <201010181742.06678.arnd@arndb.de>
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"shemminger@vyatta.com" <shemminger@vyatta.com>
+To: Shreyas Bhatewara <sbhatewara@vmware.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:64975 "EHLO
+	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755214Ab0JRSo4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Oct 2010 14:44:56 -0400
+Received: by pwj4 with SMTP id 4so253451pwj.19
+        for <netdev@vger.kernel.org>; Mon, 18 Oct 2010 11:44:55 -0700 (PDT)
+In-Reply-To: <89E2752CFA8EC044846EB8499819134102BD7E1856@EXCH-MBX-4.vmware.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 18, 2010 at 05:42:06PM +0200, Arnd Bergmann wrote:
-> 
-> Out of the remaining modules, I guess i810/i830, adfs, hpfs and ufs might end
-> up not getting fixed at all, we can either mark them non-SMP or move them
-> to drivers/staging once all the others are done.
+On Sat, Oct 16, 2010 at 8:57 AM, Shreyas Bhatewara
+<sbhatewara@vmware.com> wrote:
+> This hunk is wrong, UPT1_F_RXVLAN should be reset here.
+>
+> I fail to understand why set/reset functions were not good enough and why this opencoding is required. I agree with your earlier suggestion about replacing two conversions with *data |= cpu_to_le16(flag); though.
+>
+>
 
-I recommend moving them to staging, and then retire them from there if
-no one steps up to maintain them.
+There's nothing really _wrong_ with them, they are a bit special-case,
+and they are incomplete in that there is only 16/64 and
+no 32 bit version.  And the naming is usually set/clear rather than set/reset.
 
-thanks,
+That, and they are used so infrequently, why not just define the
+constants as little endian and then it's just
+use regular bitwise math which is common everywhere in networking?
+Then others reading your driver don't have
+to go look at a special-case set/reset function...it's just or'ing a flag.
 
-greg k-h
+I'll send a patch this evening so you can see what it would look like.
+
+Harvey
