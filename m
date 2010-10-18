@@ -1,7 +1,8 @@
 From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: [PATCH net-next 6/6] bnx2x: update version to 1.60.00-2
-Date: Mon, 18 Oct 2010 11:08:55 +0200
-Message-ID: <1287392935.11597.40.camel@lb-tlvb-dmitry>
+Subject: [PATCH net-next 4/6] bnx2x: Use correct FW constant for header
+ padding
+Date: Mon, 18 Oct 2010 11:09:30 +0200
+Message-ID: <1287392970.11597.41.camel@lb-tlvb-dmitry>
 Mime-Version: 1.0
 Content-Type: text/plain;
  charset=utf-8
@@ -10,37 +11,50 @@ Cc: "Eilon Greenstein" <eilong@broadcom.com>,
 	"Vladislav Zolotarov" <vladz@broadcom.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1683 "EHLO mms2.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:2300 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754626Ab0JRJMY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Oct 2010 05:12:24 -0400
+	id S1754626Ab0JRJM1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Oct 2010 05:12:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+the value of the constant is the same, but it's clearer to use original
+constant provided by HSI
 
 Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x/bnx2x.h |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/bnx2x/bnx2x_cmn.c |    2 +-
+ drivers/net/bnx2x/bnx2x_cmn.h |    2 --
+ 2 files changed, 1 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/bnx2x/bnx2x.h b/drivers/net/bnx2x/bnx2x.h
-index 7d7af10..b387717 100644
---- a/drivers/net/bnx2x/bnx2x.h
-+++ b/drivers/net/bnx2x/bnx2x.h
-@@ -20,8 +20,8 @@
-  * (you will need to reboot afterwards) */
- /* #define BNX2X_STOP_ON_ERROR */
+diff --git a/drivers/net/bnx2x/bnx2x_cmn.c b/drivers/net/bnx2x/bnx2x_cmn.c
+index 9a3208e..29ed500 100644
+--- a/drivers/net/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/bnx2x/bnx2x_cmn.c
+@@ -830,7 +830,7 @@ void bnx2x_init_rx_rings(struct bnx2x *bp)
+ 	int i, j;
  
--#define DRV_MODULE_VERSION      "1.60.00-1"
--#define DRV_MODULE_RELDATE      "2010/10/06"
-+#define DRV_MODULE_VERSION      "1.60.00-2"
-+#define DRV_MODULE_RELDATE      "2010/10/18"
- #define BNX2X_BC_VER            0x040200
+ 	bp->rx_buf_size = bp->dev->mtu + ETH_OVREHEAD + BNX2X_RX_ALIGN +
+-		BNX2X_FW_IP_HDR_ALIGN_PAD;
++		IP_HEADER_ALIGNMENT_PADDING;
  
- #if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
+ 	DP(NETIF_MSG_IFUP,
+ 	   "mtu %d  rx_buf_size %d\n", bp->dev->mtu, bp->rx_buf_size);
+diff --git a/drivers/net/bnx2x/bnx2x_cmn.h b/drivers/net/bnx2x/bnx2x_cmn.h
+index 7f52cec..5bfe0ab 100644
+--- a/drivers/net/bnx2x/bnx2x_cmn.h
++++ b/drivers/net/bnx2x/bnx2x_cmn.h
+@@ -1032,6 +1032,4 @@ static inline void storm_memset_cmng(struct bnx2x *bp,
+ void bnx2x_acquire_phy_lock(struct bnx2x *bp);
+ void bnx2x_release_phy_lock(struct bnx2x *bp);
+ 
+-#define BNX2X_FW_IP_HDR_ALIGN_PAD	2 /* FW places hdr with this padding */
+-
+ #endif /* BNX2X_CMN_H */
 -- 
-1.7.2.2
+1.7.1
+
 
 
 
