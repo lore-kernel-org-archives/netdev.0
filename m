@@ -1,94 +1,149 @@
-From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCH NEXT 2/2] netxen: mask correctable error
-Date: Mon, 18 Oct 2010 05:03:42 -0700
-Message-ID: <1287403422-10431-2-git-send-email-amit.salecha@qlogic.com>
-References: <1287403422-10431-1-git-send-email-amit.salecha@qlogic.com>
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
-	anirban.chakraborty@qlogic.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:18164 "HELO unm84.unmin.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1750777Ab0JRMDn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Oct 2010 08:03:43 -0400
-In-Reply-To: <1287403422-10431-1-git-send-email-amit.salecha@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Daniel Lezcano <daniel.lezcano@free.fr>
+Subject: Re: [RFC PATCH 0/9] ipvs network name space (netns) aware
+Date: Mon, 18 Oct 2010 14:16:38 +0200
+Message-ID: <4CBC3AA6.6040706@free.fr>
+References: <201010081316.38317.hans.schillstrom@ericsson.com> <20101017064731.GA8152@verge.net.au> <201010181355.59763.hans.schillstrom@ericsson.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Simon Horman <horms@verge.net.au>,
+	"lvs-devel@vger.kernel.org" <lvs-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"ja@ssi.bg" <ja@ssi.bg>,
+	"wensong@linux-vs.org" <wensong@linux-vs.org>
+To: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <201010181355.59763.hans.schillstrom@ericsson.com>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-HW workaround:
-Disable logging of correctable error for some NX3031 based adapter.
+On 10/18/2010 01:55 PM, Hans Schillstrom wrote:
+> On Sunday 17 October 2010 08:47:31 Simon Horman wrote:
+>    
+>> On Fri, Oct 08, 2010 at 01:16:36PM +0200, Hans Schillstrom wrote:
+>>      
+>>> This patch series adds network name space (netns) support to the LVS.
+>>>
+>>> REVISION
+>>>
+>>> This is version 1
+>>>
+>>> OVERVIEW
+>>>
+>>> The patch doesn't remove or add any functionality except for netns.
+>>> For users that don't use network name space (netns) this patch is
+>>> completely transparent.
+>>>
+>>> No it's possible to run LVS in a Linux container (see lxc-tools)
+>>> i.e.  a light weight virtualization. For example it's possible to run
+>>> one or several lvs on a real server in their own network name spaces.
+>>> > From the LVS point of view it looks like it runs on it's own machine.
+>>>
+>>> IMPLEMENTATION
+>>> Basic requirements for netns awareness
+>>>   - Global variables has to be moved to dyn. allocated memory.
+>>>
+>>> Most global variables now resides in a struct ipvs { } in netns/ip_vs.h.
+>>> What is moved and what is not ?
+>>>
+>>> Some cache aligned locks are still in global, module init params and some debug_level.
+>>>
+>>> Algorithm files they are untouched.
+>>>
+>>> QUESTIONS
+>>> Drop rate in ip_vs_ctl per netns or grand total ?
+>>>        
+> This is a tricky one (I think),
+> if the interface is shared with root name-space and/or other name-spaces
+>   - use grand total
+> if it's an "own interface"
+>   - drop rate can/should be in netns...
+>
+>    
+>> My gut-feeling is that per netns makes more sense.
+>>
+>>      
+>>> Should more lock variables be moved (or less) ?
+>>>        
+>> I'm unsure what you are asking here but I will make a general statement
+>> about locking in IPVS: it needs work.
+>>      
+> Some locks still resides as global variables, and others in netns_ipvs struct.
+> Since you have a lot of experience with IPVS locks,
+> you might have ideas what to move and what to not move.
+>
+>    
+>>      
+>>> PATCH SET
+>>> This patch set is based upon net-next-2.6 (2.6.36-rc3) from 4 oct 2010
+>>> and [patch v4] ipvs: IPv6 tunnel mode
+>>>
+>>> Note: ip_vs_xmit.c will not work without "[patch v4] ipvs: IPv6 tunnel mode"
+>>>        
+>> Unfortunately the patches don't apply with the persistence engine
+>> patches which were recently merged into nf-next-2.6 (although
+>> "[patch v4.1 ]ipvs: IPv6 tunnel mode" is still unmerged).
+>>
+>>      
+> I do have a patch based on the nf-next without the SIP/PE patch
+>
+>    
+>> I'm happy to work with you to make the required changes there.
+>>      
+> I would appreciate that.
+>
+>    
+>> (I realise those patches weren't merged when you made your post.
+>>   But regardless, either your or me will need to update the patches).
+>>
+>> Another issue is that your patches seem to be split in a way
+>> where the build breaks along the way. E.g. after applying
+>> patch 1, the build breaks. Could you please split things up
+>> in a manner such that this doesn't happen. The reason being
+>> that it breaks bisection.
+>>
+>>      
+> Hmm, Daniel also pointed at this,
+> The Patch is quite large, and will become even larger with pe and sip.
+> My Idea was to review the patch in pieces and put it together in one or two large patches when submitting it.
+> I don't know that might be a stupid ?
+> It's hard to break it up, making the code reentrant causes changes every where.
+>
+> Daniel L, had another approach break it into many many tiny patches.
+>    
 
-Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
----
- drivers/net/netxen/netxen_nic_hw.c   |    4 ++--
- drivers/net/netxen/netxen_nic_main.c |   26 ++++++++++++++++++++++++++
- 2 files changed, 28 insertions(+), 2 deletions(-)
+These patches can be folded if the result is an acceptable patch size. 
+The more important is to not break the init_net. Introducing the 
+namespace concept step by step, from the bottom-up in the call stack is 
+good because we focus first on making the namespace available in the 
+code while keeping the init_net functional. The small patches help to 
+git bisect and spot the patch which lead to a regression. As the patches 
+are small, it is easy to quickly find the culprit and fix it, especially 
+for the people who are not author of these patches.
 
-diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
-index 10e2f13..4b4ac71 100644
---- a/drivers/net/netxen/netxen_nic_hw.c
-+++ b/drivers/net/netxen/netxen_nic_hw.c
-@@ -1822,14 +1822,14 @@ int netxen_nic_get_board_info(struct netxen_adapter *adapter)
- 	if (netxen_rom_fast_read(adapter, offset, &board_type))
- 		return -EIO;
- 
--	adapter->ahw.board_type = board_type;
--
- 	if (board_type == NETXEN_BRDTYPE_P3_4_GB_MM) {
- 		u32 gpio = NXRD32(adapter, NETXEN_ROMUSB_GLB_PAD_GPIO_I);
- 		if ((gpio & 0x8000) == 0)
- 			board_type = NETXEN_BRDTYPE_P3_10G_TP;
- 	}
- 
-+	adapter->ahw.board_type = board_type;
-+
- 	switch (board_type) {
- 	case NETXEN_BRDTYPE_P2_SB35_4G:
- 		adapter->ahw.port_type = NETXEN_NIC_GBE;
-diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-index 83ee554..6f11169 100644
---- a/drivers/net/netxen/netxen_nic_main.c
-+++ b/drivers/net/netxen/netxen_nic_main.c
-@@ -1249,6 +1249,28 @@ netxen_setup_netdev(struct netxen_adapter *adapter,
- 	return 0;
- }
- 
-+#ifdef CONFIG_PCIEAER
-+static void netxen_mask_aer_correctable(struct netxen_adapter *adapter)
-+{
-+	struct pci_dev *pdev = adapter->pdev;
-+	struct pci_dev *root = pdev->bus->self;
-+	u32 aer_pos;
-+
-+	if (adapter->ahw.board_type != NETXEN_BRDTYPE_P3_4_GB_MM &&
-+		adapter->ahw.board_type != NETXEN_BRDTYPE_P3_10G_TP)
-+		return;
-+
-+	if (root->pcie_type != PCI_EXP_TYPE_ROOT_PORT)
-+		return;
-+
-+	aer_pos = pci_find_ext_capability(root, PCI_EXT_CAP_ID_ERR);
-+	if (!aer_pos)
-+		return;
-+
-+	pci_write_config_dword(root, aer_pos + PCI_ERR_COR_MASK, 0xffff);
-+}
-+#endif
-+
- static int __devinit
- netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- {
-@@ -1317,6 +1339,10 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		goto err_out_iounmap;
- 	}
- 
-+#ifdef CONFIG_PCIEAER
-+	netxen_mask_aer_correctable(adapter);
-+#endif
-+
- 	/* Mezz cards have PCI function 0,2,3 enabled */
- 	switch (adapter->ahw.board_type) {
- 	case NETXEN_BRDTYPE_P2_SB31_10G_IMEZ:
--- 
-1.6.0.2
+During this step of namespace introduction, we prevent  to unshare the 
+network for ipvs, with a non-op when the namespace is not init_net.
+
+When everything is ready and the init_net is running without problem, we 
+remove the non-op and consolidate the namespace part of ipvs.
+
+This is how I am used to do, but that does not imply it is the best way 
+to do that :)
+
+>> Lastly, could you provide a unique subject for each patch.
+>> I know its a bit tedious, but it does make a difference when
+>> browsing the changelog.
+>>
+>>      
+> Yepp, no problem
+>
+>    
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe lvs-devel" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>
+>>      
+>    
 
