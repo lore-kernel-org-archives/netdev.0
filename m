@@ -1,59 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Bug#595265: linux-image-2.6.32-5-686: Nerwork card fails to
- come up again after suspend
-Date: Tue, 19 Oct 2010 00:50:57 +0200
-Message-ID: <1287442257.2361.11.camel@edumazet-laptop>
-References: <20100902154312.12515.10390.reportbug@bird.umass.edu>
-	 <201009211624.12744.aboelens@engin.umass.edu>
-	 <1286760421.2955.287.camel@localhost>
-	 <201010171116.00514.aboelens@engin.umass.edu>
-	 <1287361431.20865.133.camel@localhost>
-	 <20101018214536.GA14344@electric-eye.fr.zoreil.com>
+From: Dave Airlie <airlied@gmail.com>
+Subject: Re: [Ksummit-2010-discuss] [v2] Remaining BKL users, what to do
+Date: Tue, 19 Oct 2010 09:00:09 +1000
+Message-ID: <AANLkTin2KPNNXvwcWphhM-5qexB14FS7M7ezkCCYCZ2H@mail.gmail.com>
+References: <201009161632.59210.arnd@arndb.de>
+	<201010181742.06678.arnd@arndb.de>
+	<20101018184346.GD27089@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ben Hutchings <ben@decadent.org.uk>,
-	Arnout Boelens <aboelens@engin.umass.edu>,
-	595265@bugs.debian.org, netdev <netdev@vger.kernel.org>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:57367 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754838Ab0JRWvN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Oct 2010 18:51:13 -0400
-Received: by wwj40 with SMTP id 40so407055wwj.1
-        for <netdev@vger.kernel.org>; Mon, 18 Oct 2010 15:51:01 -0700 (PDT)
-In-Reply-To: <20101018214536.GA14344@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Arnd Bergmann <arnd@arndb.de>, codalist@telemann.coda.cs.cmu.edu,
+	ksummit-2010-discuss@lists.linux-foundation.org,
+	autofs@linux.kernel.org, Jan Harkes <jaharkes@cs.cmu.edu>,
+	Samuel Ortiz <samuel@sortiz.org>, Jan Kara <jack@suse.cz>,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	netdev@vger.kernel.org, Anders Larsen <al@alarsen.net>,
+	linux-kernel@vger.kernel.org, dri-devel@lists.freedesktop.org,
+	Bryan Schumaker <bjschuma@netapp.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Petr Vandrovec <vandrove@vc.cvut.cz>,
+	Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>,
+	linux-fsdevel@vger.kernel.org,
+	Evgeniy Dushistov <dushistov@mail.ru>,
+	Ingo Molnar <mingo@elte.hu>,
+	Andrew Hendry <andrew.hendry@gmail.com>,
+	linux-media@vger.kernel.org
+To: Greg KH <greg@kroah.com>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <20101018184346.GD27089@kroah.com>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le lundi 18 octobre 2010 =C3=A0 23:45 +0200, Francois Romieu a =C3=A9cr=
-it :
-> Ben Hutchings <ben@decadent.org.uk> :
-> [...]
-> > Arnout Boelens reported that his RTL8111/8168B fails to link-up aft=
-er
-> > suspend and resume, both under Debian's kernel based on 2.6.32 and =
-under
-> > 2.6.36-rc6.  Full details are at <http://bugs.debian.org/595265>, t=
-hough
-> > the log isn't very informative:
-> >=20
-> > [31837.396594] PM: Finishing wakeup.
-> > [31837.396597] Restarting tasks ... done.
-> > [31840.267267] r8169: eth0: link down
-> >=20
-> > Can you suggest how to investigate this further?
->=20
-> Something like the patch made by Stanislaw at :
-> https://bugzilla.redhat.com/show_bug.cgi?id=3D502974
->=20
+On Tue, Oct 19, 2010 at 4:43 AM, Greg KH <greg@kroah.com> wrote:
+> On Mon, Oct 18, 2010 at 05:42:06PM +0200, Arnd Bergmann wrote:
+>>
+>> Out of the remaining modules, I guess i810/i830, adfs, hpfs and ufs might end
+>> up not getting fixed at all, we can either mark them non-SMP or move them
+>> to drivers/staging once all the others are done.
+>
+> I recommend moving them to staging, and then retire them from there if
+> no one steps up to maintain them.
 
-Seems to be down at this moment, patch is also here (and included in
-2.6.36-rc8 ) :
+I think this sets a bad precedent, these drivers work fine. Removing
+BKL from them is hard, and involves finding and booting hw that
+developers don't have much time/interest in at the moment. Anyone who
+has access to the i810 hw and has time to work out the locking has
+more important things to be doing with modern hw, however it doesn't
+mean we should just drop support for old drivers because they don't
+have active maintainers. Removing the BKL from the kernel is a great
+goal, but breaking userspace ABI by removing drivers isn't.
 
-http://git.kernel.org/?p=3Dlinux/kernel/git/torvalds/linux-2.6.git;a=3D=
-commitdiff;h=3Daeb19f6052b5e5c8a24aa444fbff73b84341beac
-
-
-
+Dave.
