@@ -1,64 +1,40 @@
-From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 2/2] drivers/net/ax88796.c: Return error code in failure
-Date: Mon, 18 Oct 2010 16:11:14 +0200
-Message-ID: <1287411074-19825-2-git-send-email-julia@diku.dk>
-Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Paul Gortmaker <p_gortmaker@yahoo.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH V3 0/8] can: mcp251x: fix and optimize driver
+Date: Mon, 18 Oct 2010 07:12:33 -0700 (PDT)
+Message-ID: <20101018.071233.226790837.davem@davemloft.net>
+References: <1287408674-15412-1-git-send-email-mkl@pengutronix.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <1287408674-15412-1-git-send-email-mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-In this code, 0 is returned on failure, even though other
-failures return -ENOMEM or other similar values.
+From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Date: Mon, 18 Oct 2010 15:31:06 +0200
 
-A simplified version of the semantic match that finds this problem is as
-follows: (http://coccinelle.lip6.fr/)
+> Moin,
+> 
+> this series of patches improves the mcp251x driver. It first fixes the
+> local_softirq_pending problem. Then the amount of SPI transfers is reduced
+> in order to optimise the driver. A further patch cleans up the chip model
+> selection.
+> 
+> This series has been tested with a mcp2515 on i.MX35.
+> 
+> Please review, test and consider to apply.
+ ...
+>   git://git.pengutronix.de/git/mkl/linux-2.6.git can/mcp251x-for-net-next
 
-// <smpl>
-@a@
-identifier alloc;
-identifier ret;
-constant C;
-expression x;
-@@
-
-x = alloc(...);
-if (x == NULL) { <+... \(ret = -C; \| return -C; \) ...+> }
-
-@@
-identifier f, a.alloc;
-expression ret;
-expression x,e1,e2,e3;
-@@
-
-ret = 0
-... when != ret = e1
-*x = alloc(...)
-... when != ret = e2
-if (x == NULL) { ... when != ret = e3
-  return ret;
-}
-// </smpl>
-
-Signed-off-by: Julia Lawall <julia@diku.dk>
-
----
-Another call to platform_get_resource in the same function uses -ENXIO, so
-I have used the same value here.
-
- drivers/net/ax88796.c |    1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/net/ax88796.c b/drivers/net/ax88796.c
-index 20e946b..b6da4cf 100644
---- a/drivers/net/ax88796.c
-+++ b/drivers/net/ax88796.c
-@@ -864,6 +864,7 @@ static int ax_probe(struct platform_device *pdev)
- 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
- 	if (res == NULL) {
- 		dev_err(&pdev->dev, "no IRQ specified\n");
-+		ret = -ENXIO;
- 		goto exit_mem;
- 	}
- 
+Pulled, thanks.
