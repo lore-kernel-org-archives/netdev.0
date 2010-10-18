@@ -1,258 +1,241 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH net-next] sfc: make functions static
-Date: Mon, 18 Oct 2010 08:27:31 -0700
-Message-ID: <20101018082731.36cd65e4@nehalam>
+Subject: [PATCH net-next-2.6] mlx4:  make functions local and remove dead
+ code.
+Date: Mon, 18 Oct 2010 08:30:59 -0700
+Message-ID: <20101018083059.164fc8d8@nehalam>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
-	netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Steve Hodgson <shodgson@solarflare.com>
+	Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:38671 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:41642 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755332Ab0JRP1d (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Oct 2010 11:27:33 -0400
+	id S1753388Ab0JRPbB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Oct 2010 11:31:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Make local functions and variable static. Do some rearrangement
-of the string table stuff to put it where it gets used.
+There is a whole section of code in this driver related to vlan tables
+which is not accessed from any kernel code.
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
 ---
+ drivers/net/mlx4/cq.c       |    3 +
+ drivers/net/mlx4/en_rx.c    |    3 -
+ drivers/net/mlx4/icm.c      |   28 ------------
+ drivers/net/mlx4/icm.h      |    2 
+ drivers/net/mlx4/mlx4_en.h  |    3 -
+ drivers/net/mlx4/port.c     |   97 --------------------------------------------
+ include/linux/mlx4/device.h |    3 -
+ 7 files changed, 6 insertions(+), 133 deletions(-)
 
- drivers/net/sfc/efx.c         |   16 +++-------------
- drivers/net/sfc/efx.h         |   10 +---------
- drivers/net/sfc/ethtool.c     |   10 +++++-----
- drivers/net/sfc/falcon_xmac.c |    2 +-
- drivers/net/sfc/mac.h         |    1 -
- drivers/net/sfc/mcdi.c        |    4 ++--
- drivers/net/sfc/mcdi.h        |    2 --
- drivers/net/sfc/mcdi_phy.c    |    3 ++-
- drivers/net/sfc/net_driver.h  |    5 -----
- drivers/net/sfc/nic.c         |    2 +-
- drivers/net/sfc/selftest.c    |   10 ++++++++++
- drivers/net/sfc/siena.c       |    2 +-
- 12 files changed, 26 insertions(+), 41 deletions(-)
-
---- a/drivers/net/sfc/efx.c	2010-10-15 16:26:45.752054196 -0700
-+++ b/drivers/net/sfc/efx.c	2010-10-15 16:41:10.902928754 -0700
-@@ -68,14 +68,6 @@ const char *efx_loopback_mode_names[] =
- 	[LOOPBACK_PHYXS_WS]  	= "PHYXS_WS",
- };
- 
--/* Interrupt mode names (see INT_MODE())) */
--const unsigned int efx_interrupt_mode_max = EFX_INT_MODE_MAX;
--const char *efx_interrupt_mode_names[] = {
--	[EFX_INT_MODE_MSIX]   = "MSI-X",
--	[EFX_INT_MODE_MSI]    = "MSI",
--	[EFX_INT_MODE_LEGACY] = "legacy",
--};
--
- const unsigned int efx_reset_type_max = RESET_TYPE_MAX;
- const char *efx_reset_type_names[] = {
- 	[RESET_TYPE_INVISIBLE]     = "INVISIBLE",
-@@ -128,7 +120,7 @@ static int napi_weight = 64;
-  * - Check the on-board hardware monitor;
-  * - Poll the link state and reconfigure the hardware as necessary.
-  */
--unsigned int efx_monitor_interval = 1 * HZ;
-+static unsigned int efx_monitor_interval = 1 * HZ;
- 
- /* This controls whether or not the driver will initialise devices
-  * with invalid MAC addresses stored in the EEPROM or flash.  If true,
-@@ -2180,10 +2172,8 @@ int efx_port_dummy_op_int(struct efx_nic
- 	return 0;
+--- a/drivers/net/mlx4/en_rx.c	2010-10-15 16:06:32.842275374 -0700
++++ b/drivers/net/mlx4/en_rx.c	2010-10-15 16:06:44.642682840 -0700
+@@ -524,7 +524,8 @@ out_loopback:
+ 	dev_kfree_skb_any(skb);
  }
- void efx_port_dummy_op_void(struct efx_nic *efx) {}
--void efx_port_dummy_op_set_id_led(struct efx_nic *efx, enum efx_led_mode mode)
+ 
+-int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int budget)
++static int mlx4_en_process_rx_cq(struct net_device *dev,
++				 struct mlx4_en_cq *cq, int budget)
+ {
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+ 	struct mlx4_cqe *cqe;
+--- a/drivers/net/mlx4/icm.c	2010-10-15 16:03:02.783025372 -0700
++++ b/drivers/net/mlx4/icm.c	2010-10-15 16:08:09.977629991 -0700
+@@ -210,38 +210,12 @@ static int mlx4_MAP_ICM(struct mlx4_dev
+ 	return mlx4_map_cmd(dev, MLX4_CMD_MAP_ICM, icm, virt);
+ }
+ 
+-int mlx4_UNMAP_ICM(struct mlx4_dev *dev, u64 virt, u32 page_count)
++static int mlx4_UNMAP_ICM(struct mlx4_dev *dev, u64 virt, u32 page_count)
+ {
+ 	return mlx4_cmd(dev, virt, page_count, 0, MLX4_CMD_UNMAP_ICM,
+ 			MLX4_CMD_TIME_CLASS_B);
+ }
+ 
+-int mlx4_MAP_ICM_page(struct mlx4_dev *dev, u64 dma_addr, u64 virt)
 -{
+-	struct mlx4_cmd_mailbox *mailbox;
+-	__be64 *inbox;
+-	int err;
+-
+-	mailbox = mlx4_alloc_cmd_mailbox(dev);
+-	if (IS_ERR(mailbox))
+-		return PTR_ERR(mailbox);
+-	inbox = mailbox->buf;
+-
+-	inbox[0] = cpu_to_be64(virt);
+-	inbox[1] = cpu_to_be64(dma_addr);
+-
+-	err = mlx4_cmd(dev, mailbox->dma, 1, 0, MLX4_CMD_MAP_ICM,
+-		       MLX4_CMD_TIME_CLASS_B);
+-
+-	mlx4_free_cmd_mailbox(dev, mailbox);
+-
+-	if (!err)
+-		mlx4_dbg(dev, "Mapped page at %llx to %llx for ICM.\n",
+-			  (unsigned long long) dma_addr, (unsigned long long) virt);
+-
+-	return err;
 -}
--bool efx_port_dummy_op_poll(struct efx_nic *efx)
-+
-+static bool efx_port_dummy_op_poll(struct efx_nic *efx)
- {
- 	return false;
- }
---- a/drivers/net/sfc/efx.h	2010-10-15 16:33:49.707120362 -0700
-+++ b/drivers/net/sfc/efx.h	2010-10-15 16:38:52.625979128 -0700
-@@ -88,10 +88,6 @@ extern int efx_reconfigure_port(struct e
- extern int __efx_reconfigure_port(struct efx_nic *efx);
- 
- /* Ethtool support */
--extern int efx_ethtool_get_settings(struct net_device *net_dev,
--				    struct ethtool_cmd *ecmd);
--extern int efx_ethtool_set_settings(struct net_device *net_dev,
--				    struct ethtool_cmd *ecmd);
- extern const struct ethtool_ops efx_ethtool_ops;
- 
- /* Reset handling */
-@@ -107,9 +103,7 @@ extern void efx_init_irq_moderation(stru
- /* Dummy PHY ops for PHY drivers */
- extern int efx_port_dummy_op_int(struct efx_nic *efx);
- extern void efx_port_dummy_op_void(struct efx_nic *efx);
--extern void
--efx_port_dummy_op_set_id_led(struct efx_nic *efx, enum efx_led_mode mode);
--extern bool efx_port_dummy_op_poll(struct efx_nic *efx);
-+
- 
- /* MTD */
- #ifdef CONFIG_SFC_MTD
-@@ -122,8 +116,6 @@ static inline void efx_mtd_rename(struct
- static inline void efx_mtd_remove(struct efx_nic *efx) {}
- #endif
- 
--extern unsigned int efx_monitor_interval;
 -
- static inline void efx_schedule_channel(struct efx_channel *channel)
+ int mlx4_MAP_ICM_AUX(struct mlx4_dev *dev, struct mlx4_icm *icm)
  {
- 	netif_vdbg(channel->efx, intr, channel->efx->net_dev,
---- a/drivers/net/sfc/ethtool.c	2010-10-15 16:30:43.840446292 -0700
-+++ b/drivers/net/sfc/ethtool.c	2010-10-15 16:33:11.385745045 -0700
-@@ -187,8 +187,8 @@ static int efx_ethtool_phys_id(struct ne
+ 	return mlx4_map_cmd(dev, MLX4_CMD_MAP_ICM_AUX, icm, -1);
+--- a/drivers/net/mlx4/icm.h	2010-10-15 16:05:35.580298413 -0700
++++ b/drivers/net/mlx4/icm.h	2010-10-15 16:05:54.912965820 -0700
+@@ -128,8 +128,6 @@ static inline unsigned long mlx4_icm_siz
+ 	return sg_dma_len(&iter->chunk->mem[iter->page_idx]);
  }
  
- /* This must be called with rtnl_lock held. */
--int efx_ethtool_get_settings(struct net_device *net_dev,
--			     struct ethtool_cmd *ecmd)
-+static int efx_ethtool_get_settings(struct net_device *net_dev,
-+				    struct ethtool_cmd *ecmd)
- {
- 	struct efx_nic *efx = netdev_priv(net_dev);
- 	struct efx_link_state *link_state = &efx->link_state;
-@@ -211,8 +211,8 @@ int efx_ethtool_get_settings(struct net_
+-int mlx4_UNMAP_ICM(struct mlx4_dev *dev, u64 virt, u32 page_count);
+-int mlx4_MAP_ICM_page(struct mlx4_dev *dev, u64 dma_addr, u64 virt);
+ int mlx4_MAP_ICM_AUX(struct mlx4_dev *dev, struct mlx4_icm *icm);
+ int mlx4_UNMAP_ICM_AUX(struct mlx4_dev *dev);
+ 
+--- a/drivers/net/mlx4/port.c	2010-10-15 16:03:13.639399914 -0700
++++ b/drivers/net/mlx4/port.c	2010-10-15 16:11:09.571835685 -0700
+@@ -161,103 +161,6 @@ out:
  }
+ EXPORT_SYMBOL_GPL(mlx4_unregister_mac);
  
- /* This must be called with rtnl_lock held. */
--int efx_ethtool_set_settings(struct net_device *net_dev,
--			     struct ethtool_cmd *ecmd)
-+static int efx_ethtool_set_settings(struct net_device *net_dev,
-+				    struct ethtool_cmd *ecmd)
- {
- 	struct efx_nic *efx = netdev_priv(net_dev);
- 	int rc;
-@@ -891,7 +891,7 @@ static int efx_ethtool_set_wol(struct ne
- 	return efx->type->set_wol(efx, wol->wolopts);
- }
- 
--extern int efx_ethtool_reset(struct net_device *net_dev, u32 *flags)
-+static int efx_ethtool_reset(struct net_device *net_dev, u32 *flags)
- {
- 	struct efx_nic *efx = netdev_priv(net_dev);
- 	enum reset_type method;
---- a/drivers/net/sfc/falcon_xmac.c	2010-10-15 16:31:54.590987837 -0700
-+++ b/drivers/net/sfc/falcon_xmac.c	2010-10-15 16:32:04.819355160 -0700
-@@ -143,7 +143,7 @@ static bool falcon_xmac_link_ok(struct e
- 		 efx_mdio_phyxgxs_lane_sync(efx));
- }
- 
--void falcon_reconfigure_xmac_core(struct efx_nic *efx)
-+static void falcon_reconfigure_xmac_core(struct efx_nic *efx)
- {
- 	unsigned int max_frame_len;
- 	efx_oword_t reg;
---- a/drivers/net/sfc/mcdi.c	2010-10-15 16:32:14.415699761 -0700
-+++ b/drivers/net/sfc/mcdi.c	2010-10-15 16:32:24.576064590 -0700
-@@ -1093,8 +1093,8 @@ int efx_mcdi_reset_mc(struct efx_nic *ef
- 	return rc;
- }
- 
--int efx_mcdi_wol_filter_set(struct efx_nic *efx, u32 type,
--			    const u8 *mac, int *id_out)
-+static int efx_mcdi_wol_filter_set(struct efx_nic *efx, u32 type,
-+				   const u8 *mac, int *id_out)
- {
- 	u8 inbuf[MC_CMD_WOL_FILTER_SET_IN_LEN];
- 	u8 outbuf[MC_CMD_WOL_FILTER_SET_OUT_LEN];
---- a/drivers/net/sfc/mcdi_phy.c	2010-10-15 16:32:37.700535811 -0700
-+++ b/drivers/net/sfc/mcdi_phy.c	2010-10-15 16:32:49.312952707 -0700
-@@ -713,7 +713,8 @@ static int efx_mcdi_phy_run_tests(struct
- 	return 0;
- }
- 
--const char *efx_mcdi_phy_test_name(struct efx_nic *efx, unsigned int index)
-+static const char *efx_mcdi_phy_test_name(struct efx_nic *efx,
-+					  unsigned int index)
- {
- 	struct efx_mcdi_phy_data *phy_cfg = efx->phy_data;
- 
---- a/drivers/net/sfc/net_driver.h	2010-10-15 16:28:56.320581376 -0700
-+++ b/drivers/net/sfc/net_driver.h	2010-10-15 16:36:37.289130428 -0700
-@@ -387,11 +387,6 @@ extern const unsigned int efx_loopback_m
- #define LOOPBACK_MODE(efx) \
- 	STRING_TABLE_LOOKUP((efx)->loopback_mode, efx_loopback_mode)
- 
--extern const char *efx_interrupt_mode_names[];
--extern const unsigned int efx_interrupt_mode_max;
--#define INT_MODE(efx) \
--	STRING_TABLE_LOOKUP(efx->interrupt_mode, efx_interrupt_mode)
+-static int mlx4_set_port_vlan_table(struct mlx4_dev *dev, u8 port,
+-				    __be32 *entries)
+-{
+-	struct mlx4_cmd_mailbox *mailbox;
+-	u32 in_mod;
+-	int err;
 -
- extern const char *efx_reset_type_names[];
- extern const unsigned int efx_reset_type_max;
- #define RESET_TYPE(type) \
---- a/drivers/net/sfc/nic.c	2010-10-15 16:33:00.257345589 -0700
-+++ b/drivers/net/sfc/nic.c	2010-10-15 16:33:09.229667656 -0700
-@@ -653,7 +653,7 @@ void efx_nic_eventq_read_ack(struct efx_
- }
- 
- /* Use HW to insert a SW defined event */
--void efx_generate_event(struct efx_channel *channel, efx_qword_t *event)
-+static void efx_generate_event(struct efx_channel *channel, efx_qword_t *event)
+-	mailbox = mlx4_alloc_cmd_mailbox(dev);
+-	if (IS_ERR(mailbox))
+-		return PTR_ERR(mailbox);
+-
+-	memcpy(mailbox->buf, entries, MLX4_VLAN_TABLE_SIZE);
+-	in_mod = MLX4_SET_PORT_VLAN_TABLE << 8 | port;
+-	err = mlx4_cmd(dev, mailbox->dma, in_mod, 1, MLX4_CMD_SET_PORT,
+-		       MLX4_CMD_TIME_CLASS_B);
+-
+-	mlx4_free_cmd_mailbox(dev, mailbox);
+-
+-	return err;
+-}
+-
+-int mlx4_register_vlan(struct mlx4_dev *dev, u8 port, u16 vlan, int *index)
+-{
+-	struct mlx4_vlan_table *table = &mlx4_priv(dev)->port[port].vlan_table;
+-	int i, err = 0;
+-	int free = -1;
+-
+-	mutex_lock(&table->mutex);
+-	for (i = MLX4_VLAN_REGULAR; i < MLX4_MAX_VLAN_NUM; i++) {
+-		if (free < 0 && (table->refs[i] == 0)) {
+-			free = i;
+-			continue;
+-		}
+-
+-		if (table->refs[i] &&
+-		    (vlan == (MLX4_VLAN_MASK &
+-			      be32_to_cpu(table->entries[i])))) {
+-			/* Vlan already registered, increase refernce count */
+-			*index = i;
+-			++table->refs[i];
+-			goto out;
+-		}
+-	}
+-
+-	if (table->total == table->max) {
+-		/* No free vlan entries */
+-		err = -ENOSPC;
+-		goto out;
+-	}
+-
+-	/* Register new MAC */
+-	table->refs[free] = 1;
+-	table->entries[free] = cpu_to_be32(vlan | MLX4_VLAN_VALID);
+-
+-	err = mlx4_set_port_vlan_table(dev, port, table->entries);
+-	if (unlikely(err)) {
+-		mlx4_warn(dev, "Failed adding vlan: %u\n", vlan);
+-		table->refs[free] = 0;
+-		table->entries[free] = 0;
+-		goto out;
+-	}
+-
+-	*index = free;
+-	++table->total;
+-out:
+-	mutex_unlock(&table->mutex);
+-	return err;
+-}
+-EXPORT_SYMBOL_GPL(mlx4_register_vlan);
+-
+-void mlx4_unregister_vlan(struct mlx4_dev *dev, u8 port, int index)
+-{
+-	struct mlx4_vlan_table *table = &mlx4_priv(dev)->port[port].vlan_table;
+-
+-	if (index < MLX4_VLAN_REGULAR) {
+-		mlx4_warn(dev, "Trying to free special vlan index %d\n", index);
+-		return;
+-	}
+-
+-	mutex_lock(&table->mutex);
+-	if (!table->refs[index]) {
+-		mlx4_warn(dev, "No vlan entry for index %d\n", index);
+-		goto out;
+-	}
+-	if (--table->refs[index]) {
+-		mlx4_dbg(dev, "Have more references for index %d,"
+-			 "no need to modify vlan table\n", index);
+-		goto out;
+-	}
+-	table->entries[index] = 0;
+-	mlx4_set_port_vlan_table(dev, port, table->entries);
+-	--table->total;
+-out:
+-	mutex_unlock(&table->mutex);
+-}
+-EXPORT_SYMBOL_GPL(mlx4_unregister_vlan);
+-
+ int mlx4_get_port_ib_caps(struct mlx4_dev *dev, u8 port, __be32 *caps)
  {
- 	efx_oword_t drv_ev_reg;
+ 	struct mlx4_cmd_mailbox *inmailbox, *outmailbox;
+--- a/include/linux/mlx4/device.h	2010-10-15 16:07:38.204532549 -0700
++++ b/include/linux/mlx4/device.h	2010-10-15 16:07:44.988766865 -0700
+@@ -474,9 +474,6 @@ int mlx4_multicast_detach(struct mlx4_de
+ int mlx4_register_mac(struct mlx4_dev *dev, u8 port, u64 mac, int *index);
+ void mlx4_unregister_mac(struct mlx4_dev *dev, u8 port, int index);
  
---- a/drivers/net/sfc/siena.c	2010-10-15 16:33:22.902158396 -0700
-+++ b/drivers/net/sfc/siena.c	2010-10-15 16:33:34.690581475 -0700
-@@ -129,7 +129,7 @@ static int siena_probe_port(struct efx_n
- 	return 0;
- }
+-int mlx4_register_vlan(struct mlx4_dev *dev, u8 port, u16 vlan, int *index);
+-void mlx4_unregister_vlan(struct mlx4_dev *dev, u8 port, int index);
+-
+ int mlx4_map_phys_fmr(struct mlx4_dev *dev, struct mlx4_fmr *fmr, u64 *page_list,
+ 		      int npages, u64 iova, u32 *lkey, u32 *rkey);
+ int mlx4_fmr_alloc(struct mlx4_dev *dev, u32 pd, u32 access, int max_pages,
+--- a/drivers/net/mlx4/mlx4_en.h	2010-10-15 16:08:26.146188502 -0700
++++ b/drivers/net/mlx4/mlx4_en.h	2010-10-15 16:08:31.706380578 -0700
+@@ -518,9 +518,6 @@ void mlx4_en_destroy_rx_ring(struct mlx4
+ int mlx4_en_activate_rx_rings(struct mlx4_en_priv *priv);
+ void mlx4_en_deactivate_rx_ring(struct mlx4_en_priv *priv,
+ 				struct mlx4_en_rx_ring *ring);
+-int mlx4_en_process_rx_cq(struct net_device *dev,
+-			  struct mlx4_en_cq *cq,
+-			  int budget);
+ int mlx4_en_poll_rx_cq(struct napi_struct *napi, int budget);
+ void mlx4_en_fill_qp_context(struct mlx4_en_priv *priv, int size, int stride,
+ 			     int is_tx, int rss, int qpn, int cqn,
+--- a/drivers/net/mlx4/cq.c	2010-10-15 16:02:59.774921596 -0700
++++ b/drivers/net/mlx4/cq.c	2010-10-15 16:11:49.937227452 -0700
+@@ -73,6 +73,9 @@ struct mlx4_cq_context {
+ #define MLX4_CQ_STATE_ARMED_SOL		( 6 <<  8)
+ #define MLX4_EQ_STATE_FIRED		(10 <<  8)
  
--void siena_remove_port(struct efx_nic *efx)
-+static void siena_remove_port(struct efx_nic *efx)
- {
- 	efx->phy_op->remove(efx);
- 	efx_nic_free_buffer(efx, &efx->stats_buffer);
---- a/drivers/net/sfc/mac.h	2010-10-15 16:37:35.923231638 -0700
-+++ b/drivers/net/sfc/mac.h	2010-10-15 16:38:35.625370285 -0700
-@@ -15,7 +15,6 @@
- 
- extern struct efx_mac_operations falcon_xmac_operations;
- extern struct efx_mac_operations efx_mcdi_mac_operations;
--extern void falcon_reconfigure_xmac_core(struct efx_nic *efx);
- extern int efx_mcdi_mac_stats(struct efx_nic *efx, dma_addr_t dma_addr,
- 			      u32 dma_len, int enable, int clear);
- 
---- a/drivers/net/sfc/mcdi.h	2010-10-15 16:39:01.902311312 -0700
-+++ b/drivers/net/sfc/mcdi.h	2010-10-15 16:39:14.482761784 -0700
-@@ -121,8 +121,6 @@ extern int efx_mcdi_handle_assertion(str
- extern void efx_mcdi_set_id_led(struct efx_nic *efx, enum efx_led_mode mode);
- extern int efx_mcdi_reset_port(struct efx_nic *efx);
- extern int efx_mcdi_reset_mc(struct efx_nic *efx);
--extern int efx_mcdi_wol_filter_set(struct efx_nic *efx, u32 type,
--				   const u8 *mac, int *id_out);
- extern int efx_mcdi_wol_filter_set_magic(struct efx_nic *efx,
- 					 const u8 *mac, int *id_out);
- extern int efx_mcdi_wol_filter_get_magic(struct efx_nic *efx, int *id_out);
---- a/drivers/net/sfc/selftest.c	2010-10-15 16:38:07.788373215 -0700
-+++ b/drivers/net/sfc/selftest.c	2010-10-15 16:38:32.453256674 -0700
-@@ -48,6 +48,16 @@ static const unsigned char payload_sourc
- static const char payload_msg[] =
- 	"Hello world! This is an Efx loopback test in progress!";
- 
-+/* Interrupt mode names */
-+static const unsigned int efx_interrupt_mode_max = EFX_INT_MODE_MAX;
-+static const char *efx_interrupt_mode_names[] = {
-+	[EFX_INT_MODE_MSIX]   = "MSI-X",
-+	[EFX_INT_MODE_MSI]    = "MSI",
-+	[EFX_INT_MODE_LEGACY] = "legacy",
-+};
-+#define INT_MODE(efx) \
-+	STRING_TABLE_LOOKUP(efx->interrupt_mode, efx_interrupt_mode)
++static int mlx4_ib_umem_write_mtt(struct mlx4_ib_dev *dev, struct mlx4_mtt *mtt,
++				  struct ib_umem *umem);
 +
- /**
-  * efx_loopback_state - persistent state during a loopback selftest
-  * @flush:		Drop all packets in efx_loopback_rx_packet
+ void mlx4_cq_completion(struct mlx4_dev *dev, u32 cqn)
+ {
+ 	struct mlx4_cq *cq;
