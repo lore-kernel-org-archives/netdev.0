@@ -1,125 +1,89 @@
-From: Leandro Lucarella <luca@llucax.com.ar>
-Subject: Re: Linux 2.6.35/TIPC 2.0 ABI breaking changes
-Date: Mon, 18 Oct 2010 23:16:57 -0300
-Message-ID: <20101019021657.GZ8781@llucax.com.ar>
-References: <20101018150422.GV8781@llucax.com.ar>
- <20101018184628.GX8781@llucax.com.ar>
- <AANLkTimKbOreV4Fuyw3TbCrk9aa5yBZQSuRbo3Vdx=Q1@mail.gmail.com>
- <20101018.151708.193712688.davem@davemloft.net>
- <4CBCD429.8090306@windriver.com>
- <20101018234547.GA5703@hmsreliant.think-freely.org>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [Ksummit-2010-discuss] [v2] Remaining BKL users, what to do
+Date: Mon, 18 Oct 2010 19:24:13 -0700
+Message-ID: <20101019022413.GB30307@kroah.com>
+References: <201009161632.59210.arnd@arndb.de> <201010181742.06678.arnd@arndb.de> <20101018184346.GD27089@kroah.com> <AANLkTin2KPNNXvwcWphhM-5qexB14FS7M7ezkCCYCZ2H@mail.gmail.com> <20101019004004.GB28380@kroah.com> <AANLkTi=ffaihP5-yNYFKAbAbX+XbRgWRXXfCZd4J3KwQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
-	jon.maloy@ericsson.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	tipc-discussion@lists.sourceforge.net,
-	David Miller <davem@davemloft.net>
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from alerce.vps.bitfolk.com ([212.13.194.134]:4831 "EHLO
-	alerce.vps.bitfolk.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754759Ab0JSCRt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Oct 2010 22:17:49 -0400
+Cc: Arnd Bergmann <arnd@arndb.de>, codalist@telemann.coda.cs.cmu.edu,
+	ksummit-2010-discuss@lists.linux-foundation.org,
+	autofs@linux.kernel.org, Jan Harkes <jaharkes@cs.cmu.edu>,
+	Samuel Ortiz <samuel@sortiz.org>, Jan Kara <jack@suse.cz>,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	netdev@vger.kernel.org, Anders Larsen <al@alarsen.net>,
+	linux-kernel@vger.kernel.org, dri-devel@lists.freedesktop.org,
+	Bryan Schumaker <bjschuma@netapp.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Petr Vandrovec <vandrove@vc.cvut.cz>,
+	Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>,
+	linux-fsdevel@vger.kernel.org,
+	Evgeniy Dushistov <dushistov@mail.ru>,
+	Ingo Molnar <mingo@elte.hu>,
+	Andrew Hendry <andrew.hendry@gmail.com>,
+	linux-media@vger.kernel.org
+To: Dave Airlie <airlied@gmail.com>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20101018234547.GA5703@hmsreliant.think-freely.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <AANLkTi=ffaihP5-yNYFKAbAbX+XbRgWRXXfCZd4J3KwQ@mail.gmail.com>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Neil Horman, el 18 de octubre a las 19:45 me escribiste:
-> > What I think has happened here (and I'll double check this
-> > tomorrow, since it is before I started assisting with tipc)
-> > is that a backwards incompatible change *did* inadvertently
-> > creep in via these two (related) commits:
-> > 
-> > --------------
-> > commit d88dca79d3852a3623f606f781e013d61486828a
-> > Author: Neil Horman <nhorman@tuxdriver.com>
-> > Date:   Mon Mar 8 12:20:58 2010 -0800
-> > 
-> >     tipc: fix endianness on tipc subscriber messages
-> > --------------
-> > 
-> > and
-> > 
-> > ---------------
-> > commit c6537d6742985da1fbf12ae26cde6a096fd35b5c
-> > Author: Jon Paul Maloy <jon.maloy@ericsson.com>
-> > Date:   Tue Apr 6 11:40:52 2010 +0000
-> > 
-> >     TIPC: Updated topology subscription protocol according to latest spec
-> > ---------------
-> > 
-> > Based on Leandro's info, I think it comes down to userspace
-> > not knowing exactly where to find these bits anymore:
-> > 
-> > #define TIPC_SUB_SERVICE       0x00    /* Filter for service availability    */
-> > #define TIPC_SUB_PORTS         0x01    /* Filter for port availability  */
-> > #define TIPC_SUB_CANCEL         0x04    /* Cancel a subscription         */
-> > 
-> That shouldn't be the case.  Prior to the above changes the tipc implementation
-> tracked the endianess of the hosts to which it was connected and swapped data
-> that it sent to those hosts accordingly.  With these changes the kernel client
-> simply swaps the data to network byte order on send and swaps it back to local
-> order on receive universally.  That second commit added a bit from the reserved
-> pool of one of the connection establishment messages to indicate that a peer was
-> using this new protocol.  If some non-local byte order information is making it
-> into user space, thats a bug that needs fixing.
+On Tue, Oct 19, 2010 at 10:57:43AM +1000, Dave Airlie wrote:
+> On Tue, Oct 19, 2010 at 10:40 AM, Greg KH <greg@kroah.com> wrote:
+> > On Tue, Oct 19, 2010 at 09:00:09AM +1000, Dave Airlie wrote:
+> >> On Tue, Oct 19, 2010 at 4:43 AM, Greg KH <greg@kroah.com> wrote:
+> >> > On Mon, Oct 18, 2010 at 05:42:06PM +0200, Arnd Bergmann wrote:
+> >> >>
+> >> >> Out of the remaining modules, I guess i810/i830, adfs, hpfs and ufs might end
+> >> >> up not getting fixed at all, we can either mark them non-SMP or move them
+> >> >> to drivers/staging once all the others are done.
+> >> >
+> >> > I recommend moving them to staging, and then retire them from there if
+> >> > no one steps up to maintain them.
+> >>
+> >> I think this sets a bad precedent, these drivers work fine. Removing
+> >> BKL from them is hard, and involves finding and booting hw that
+> >> developers don't have much time/interest in at the moment. Anyone who
+> >> has access to the i810 hw and has time to work out the locking has
+> >> more important things to be doing with modern hw, however it doesn't
+> >> mean we should just drop support for old drivers because they don't
+> >> have active maintainers. Removing the BKL from the kernel is a great
+> >> goal, but breaking userspace ABI by removing drivers isn't.
+> >
+> > Should we just restrict such drivers to only be able to build on UP
+> > machines with preempt disabled so that the BKL could be safely removed
+> > from them?
+> >
+> > Or what other idea do you have as to what could be done here?
+> >
+> > I do have access to this hardware, but its on an old single processor
+> > laptop, so any work that it would take to help do this development,
+> > really wouldn't be able to be tested to be valid at all.
 > 
-> What may be happening is some old client that doesn't know about the new bit
-> might be communicating with an new client that does.  IIRC the spec called for
-> clients that set bits in the reserved field to drop frames from that client, so
-> that condition shouldn't occur, but TIPC may just be ignoring reserved bits.  I
-> wouldn't be suprised.
-> 
-> Its also possible that the payload data between applications using tipc follow
-> the same broken byte swapping method that the protocol itself did, but if that
-> were the case I would expect the application to continue running normally,
-> unless user space had direct access to the protocol header in its entirety, and
-> read it directly, in which case I think I would just cry.
+> There is only very rare case where the i830 driver might get used with
+> SMP and really I think that case is in the don't care place, since if
+> you have that hw you probably should be using i915 on it anyways.
 
-I think there is some misunderstanding here. The compatibility was
-broken only for subscriptions messages. The subscriptions messages are
-not sent between tipc clients (or maybe they are, but that's not how
-tipc developers normally use them AFAIK). You send a subscription
-message to your host tipc stack and the stack reply you with event
-notifications. Even when they are message sent through a socket, they
-are used as an API.
+So, there is no need for the i830 driver?  Can it just be removed
+because i915 works instead?
 
-So, this has nothing to do with payload data transmitted by applications
-using tipc. We are talking about the tipc API, which is "masked" into
-a socket.
+> So it really only leaves the problem case of what do distros do if we
+> mark things as BROKEN_ON_SMP, since no distro builds UP kernels and
+> when you boot the SMP kernels on UP they don't run as SMP so not
+> having the driver load on those is a problem. Maybe we just need some
+> sort of warn on smp if a smp unfriendly driver is loaded and we
+> transition to SMP mode. Though this sounds like either (a) something
+> we do now and I don't about it, (b) work.
 
-Here is a small example (~150 SLOC with comments). Using TIPC 2.0 API:
-http://tipc.cslab.ericsson.net/cgi-bin/gitweb.cgi?p=people/allan/tipcutils.git;a=blob;h=efdfa3802e51d9a2a9091b3d97625de9e686b72e;hb=tipcutils2.0;f=demos/topology_subscr_demo/client_tipc.c
+So you are saying that just because distros will never build such a
+thing, we should keep it building for SMP mode?  Why not prevent it from
+being built and if a distro really cares, then they will pony up the
+development to fix the driver up?
 
-Using the "old" TIPC 1.6 API:
-http://tipc.cslab.ericsson.net/cgi-bin/gitweb.cgi?p=people/allan/tipcutils.git;a=blob;h=ac5dfc5004b482372abb7905c90fe3073fc9165d;hb=15f57f7572898959e0aaa66293895a8255d77021;f=demos/topology_subscr_demo/subscriptions.c
+In other words, if someone really cares, then they will do the work,
+otherwise why worry?  Especially as it seems that no one here is going
+to do it, right?
 
-> > ...because it doesn't know if there is the old auto endian
-> >  swap thing being done or not being done.
-> > 
-> > Assuming it is possible to do so in some non-kludgy way,
-> > it sounds like we want to be looking into an in-kernel change
-> > that ensures the older user space binaries get their
-> > functionality restored then?
-> > 
-> Lets try figure out exactly what data is getting mis-read first.  Maybe we can
-> fix it without having to go back to making a sending host figure out a receiving
-> hosts byte order.  That would be nice.  Can you describe the problem in more
-> detail?
+thanks,
 
-The problem is not between the tipc stacks in different hosts, is
-between the tipc stack and the applications using it (well, maybe there
-is a problem somewhere else too).
-
-This was a deliberate API change, not a subtle bug...
-
--- 
-Leandro Lucarella (AKA luca)                     http://llucax.com.ar/
-----------------------------------------------------------------------
-GPG Key: 5F5A8D05 (F8CD F9A7 BF00 5431 4145  104C 949E BFB6 5F5A 8D05)
-----------------------------------------------------------------------
-For me to ask a woman out, I've got to get into a mental state like the karate
-guys before they break the bricks.
-	-- George Constanza
+greg k-h
