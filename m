@@ -1,68 +1,70 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [Ksummit-2010-discuss] [v2] Remaining BKL users, what to do
-Date: Tue, 19 Oct 2010 08:39:58 -0400
-Message-ID: <1287491998.16971.360.camel@gandalf.stny.rr.com>
-References: <201009161632.59210.arnd@arndb.de>
-	 <alpine.LNX.2.00.1010182342120.31740@banach.math.auburn.edu>
-	 <AANLkTi=oAeuz8ZxcOMpf=3MVY=WMt0BwHiGCUxO7OAEV@mail.gmail.com>
-	 <201010190926.54635.arnd@arndb.de>
+From: Leandro Lucarella <luca@llucax.com.ar>
+Subject: Re: Linux 2.6.35/TIPC 2.0 ABI breaking changes
+Date: Tue, 19 Oct 2010 10:19:36 -0300
+Message-ID: <20101019131936.GB8781@llucax.com.ar>
+References: <4CBCD429.8090306@windriver.com>
+	<20101018234547.GA5703@hmsreliant.think-freely.org>
+	<20101019021657.GZ8781@llucax.com.ar>
+	<20101019.011649.71113115.davem@davemloft.net>
+	<20101019110452.GA14410@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: Dave Airlie <airlied@gmail.com>,
-	Theodore Kilgore <kilgota@banach.math.auburn.edu>,
-	Greg KH <greg@kroah.com>, codalist@telemann.coda.cs.cmu.edu,
-	autofs@linux.kernel.org, Samuel Ortiz <samuel@sortiz.org>,
-	Jan Kara <jack@suse.cz>,
-	Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>,
-	Jan Harkes <jaharkes@cs.cmu.edu>, netdev@vger.kernel.org,
-	Anders Larsen <al@alarsen.net>, linux-kernel@vger.kernel.org,
-	dri-devel@lists.freedesktop.org,
-	Bryan Schumaker <bjschuma@netapp.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	ksummit-2010-discuss@lists.linux-foundation.org,
-	Petr Vandrovec <vandrove@vc.cvut.cz>,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	linux-fsdevel@vger.kernel.org,
-	Evgeniy Dushistov <dushistov@mail.ru>,
-	Ingo Molnar <mingo@elte.hu>,
-	Andrew Hendry <andrew.hendry@gmail.com>,
-	linux-media@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201010190926.54635.arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: jon.maloy@ericsson.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, paul.gortmaker@windriver.com,
+	tipc-discussion@lists.sourceforge.net, David Miller <davem@davemloft.net>
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+Content-Disposition: inline
+In-Reply-To: <20101019110452.GA14410@hmsreliant.think-freely.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2010-10-19 at 09:26 +0200, Arnd Bergmann wrote:
-> On Tuesday 19 October 2010 06:52:32 Dave Airlie wrote:
-> > > I might be able to find some hardware still lying around here that uses an
-> > > i810. Not sure unless I go hunting it. But I get the impression that if
-> > > the kernel is a single-CPU kernel there is not any problem anyway? Don't
-> > > distros offer a non-smp kernel as an installation option in case the user
-> > > needs it? So in reality how big a problem is this?
-> > 
-> > Not anymore, which is my old point of making a fuss. Nowadays in the
-> > modern distro world, we supply a single kernel that can at runtime
-> > decide if its running on SMP or UP and rewrite the text section
-> > appropriately with locks etc. Its like magic, and something like
-> > marking drivers as BROKEN_ON_SMP at compile time is really wrong when
-> > what you want now is a runtime warning if someone tries to hotplug a
-> > CPU with a known iffy driver loaded or if someone tries to load the
-> > driver when we are already in SMP mode.
-> 
-> We could make the driver run-time non-SMP by adding
-> 
-> 	if (num_present_cpus() > 1) {
-> 		pr_err("i810 no longer supports SMP\n");
-> 		return -EINVAL;
-> 	}
-> 
-> to the init function. That would cover the vast majority of the
-> users of i810 hardware, I guess.
-
-I think we also need to cover the PREEMPT case too. But that could be a
-compile time check, since you can't boot a preempt kernel and make it
-non preempt.
-
--- Steve
+TmVpbCBIb3JtYW4sIGVsIDE5IGRlIG9jdHVicmUgYSBsYXMgMDc6MDQgbWUgZXNjcmliaXN0ZToK
+PiBPbiBUdWUsIE9jdCAxOSwgMjAxMCBhdCAwMToxNjo0OUFNIC0wNzAwLCBEYXZpZCBNaWxsZXIg
+d3JvdGU6Cj4gPiBGcm9tOiBMZWFuZHJvIEx1Y2FyZWxsYSA8bHVjYUBsbHVjYXguY29tLmFyPgo+
+ID4gRGF0ZTogTW9uLCAxOCBPY3QgMjAxMCAyMzoxNjo1NyAtMDMwMAo+ID4gCj4gPiA+IAo+ID4g
+PiBUaGUgcHJvYmxlbSBpcyBub3QgYmV0d2VlbiB0aGUgdGlwYyBzdGFja3MgaW4gZGlmZmVyZW50
+IGhvc3RzLCBpcwo+ID4gPiBiZXR3ZWVuIHRoZSB0aXBjIHN0YWNrIGFuZCB0aGUgYXBwbGljYXRp
+b25zIHVzaW5nIGl0ICh3ZWxsLCBtYXliZQo+ID4gPiB0aGVyZSBpcyBhIHByb2JsZW0gc29tZXdo
+ZXJlIGVsc2UgdG9vKS4KPiA+ID4gCj4gPiA+IFRoaXMgd2FzIGEgZGVsaWJlcmF0ZSBBUEkgY2hh
+bmdlLCBub3QgYSBzdWJ0bGUgYnVnLi4uCj4gPiAKPiA+IE5laWwgZXQgYWwuLCBpZiB0aGVzZSBw
+YWNrZXRzIGxpdmUgb25seSBiZXR3ZWVuIHRoZSBrZXJuZWwgc3RhY2sKPiA+IGFuZCB0aGUgdXNl
+cnNwYWNlIEFQSSBsYXllciwgd2Ugc2hvdWxkIG5vdCBiZSBieXRlLXN3YXBwaW5nIHRoaXMKPiA+
+IHN0dWZmIGFuZCB3ZSBuZWVkIHRvIGZpeCB0aGlzIGZhc3QuCj4gPiAKPiBDb3B5IHRoYXQgRGF2
+ZS4gIEkgdGhpbmsgSSBzZWUgdGhlIHByb2JsZW0uICBUaGUgc3Vic2NyaXB0aW9uIGNvZGUgaGFu
+ZGxlcwo+IG1lc3NhZ2VzIGJvdGggb2ZmIHRoZSB3aXJlIGFuZCBmcm9tIGxvY2FsIHVzZXIgc3Bh
+Y2UuICBUaGUgb2ZmIHRoZSB3aXJlIGNhc2UKPiBzaG91bGQgd29yayBiZWNhdXNlIHRoZSBzdWJz
+Y3JpcHRpb24gY29kZSBhc3N1bWVzIHRoYXQgYWxsIHRoZSBpbmNvbW1pbmcgZGF0YSBpcwo+IGlu
+IG5ldHdvcmsgYnl0ZSBvcmRlciwgYnV0IHVzZXIgc3BhY2UgaXMgYW4gZXhjZXB0aW9uIHRvIHRo
+YXQgcnVsZSBhcyBpdHMgaW4KPiBsb2NhbCBieXRlIG9yZGVyLiAgSSdsbCBoYXZlIGEgcGF0Y2gg
+dG9nZXRoZXIgZm9yIExlYW5kcm8gdG8gdGVzdCBzb29uLgo+IE5laWwKClRoYW5rIHlvdSB2ZXJ5
+IG11Y2guIEJhcmUgaW4gbWluZCB0aGF0IHRoZSBieXRlIG9yZGVyIGlzIGp1c3Qgb25lIG9mIHRo
+ZQpwcm9ibGVtcywgdGhlIG90aGVyIHByb2JsZW0gaXMgdGhlIGNoYW5nZSBpbiB0aGUgdmFsdWUg
+b2YKVElQQ19TVUJfU0VSVklDRSBmcm9tIDIgdG8gMC4gVGhhdCB0b28gaXMgYnJlYWtpbmcgdGhl
+IEFQSS9BQkksIGFzCmEgbWVzc2FnZSB3aXRoIGEgZmlsdGVyIHZhbHVlIG9mIDIgaXMgcmVqZWN0
+ZWQgYnkgVElQQyAyLjAvMi42LjM1Ky4KCi0tIApMZWFuZHJvIEx1Y2FyZWxsYSAoQUtBIGx1Y2Ep
+ICAgICAgICAgICAgICAgICAgICAgaHR0cDovL2xsdWNheC5jb20uYXIvCi0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0K
+R1BHIEtleTogNUY1QThEMDUgKEY4Q0QgRjlBNyBCRjAwIDU0MzEgNDE0NSAgMTA0QyA5NDlFIEJG
+QjYgNUY1QSA4RDA1KQotLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCkRlbnRybyBkZSAzMCBhw7FvcyBBcmdlbnRpbmEg
+dmEgYSBzZXIgdW4gZ3JhbiBzdXBlcm1lcmNhZG8gY29uIDE1CmNoYW5ndWl0b3MsIHBvcnF1ZSBl
+c2EgdmEgYSBzZXIgbGEgY2FudGlkYWQgZGUgZ2VudGUgcXVlIHZhIGEgcG9kZXIKY29tcHJhciBh
+bGdvLgoJLS0gU2lkaGFydGEgV2lraQoKLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCkRvd25sb2FkIG5l
+dyBBZG9iZShSKSBGbGFzaChSKSBCdWlsZGVyKFRNKSA0ClRoZSBuZXcgQWRvYmUoUikgRmxleChS
+KSA0IGFuZCBGbGFzaChSKSBCdWlsZGVyKFRNKSA0IChmb3JtZXJseSAKRmxleChSKSBCdWlsZGVy
+KFRNKSkgZW5hYmxlIHRoZSBkZXZlbG9wbWVudCBvZiByaWNoIGFwcGxpY2F0aW9ucyB0aGF0IHJ1
+bgphY3Jvc3MgbXVsdGlwbGUgYnJvd3NlcnMgYW5kIHBsYXRmb3Jtcy4gRG93bmxvYWQgeW91ciBm
+cmVlIHRyaWFscyB0b2RheSEKaHR0cDovL3Auc2YubmV0L3NmdS9hZG9iZS1kZXYyZGV2Cl9fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCnRpcGMtZGlzY3Vzc2lv
+biBtYWlsaW5nIGxpc3QKdGlwYy1kaXNjdXNzaW9uQGxpc3RzLnNvdXJjZWZvcmdlLm5ldApodHRw
+czovL2xpc3RzLnNvdXJjZWZvcmdlLm5ldC9saXN0cy9saXN0aW5mby90aXBjLWRpc2N1c3Npb24K
