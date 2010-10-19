@@ -1,50 +1,123 @@
-From: David Vrabel <david.vrabel@csr.com>
-Subject: Future of the Wimedia LLC Protocol (WLP) subsystem/drivers
-Date: Tue, 19 Oct 2010 17:30:47 +0100
-Message-ID: <4CBDC7B7.5070108@csr.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH net-next] 9p: client code cleanup
+Date: Tue, 19 Oct 2010 09:48:16 -0700
+Message-ID: <20101019094816.7898beff@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: v9fs-developer@lists.sourceforge.net, netdev@vger.kernel.org
+To: Eric Van Hensbergen <ericvh@gmail.com>,
+	Ron Minnich <rminnich@sandia.gov>,
+	Latchesar Ionkov <lucho@ionkov.net>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cluster-g.mailcontrol.com ([208.87.233.190]:46732 "EHLO
-	cluster-g.mailcontrol.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753955Ab0JSQa6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Oct 2010 12:30:58 -0400
-Received: from cameurexb01.EUROPE.ROOT.PRI ([193.128.72.68])
-	by rly16g.srv.mailcontrol.com (MailControl) with ESMTP id o9JGUrUu001347
-	for <netdev@vger.kernel.org>; Tue, 19 Oct 2010 17:30:56 +0100
+Received: from mail.vyatta.com ([76.74.103.46]:39296 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754595Ab0JSQsT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Oct 2010 12:48:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Make p9_client_version static since only used in one file.
+Remove p9_client_auth because it is defined but never used.
+Compile tested only.
 
-I've have been nominally the maintainer of the Wimedia LLC Protocol
-(WLP) subsystem and driver since it was originally submitted.  I am no
-longer in a position to even pretend to be a maintainer.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-The only usable hardware was an Intel i1480 devices with beta firmware
-that was never released as a product.  Intel have since sold all there
-UWB/WLP IP and I see little prospect of there ever being hardware
-commercially available for WLP.
+---
+ include/net/9p/client.h |    3 ---
+ net/9p/client.c         |    6 ++----
+ 2 files changed, 2 insertions(+), 7 deletions(-)
 
-Here are a number of options:
-
-1. Someone else maintains it.  Any volunteers?
-
-2. It gets labelled as Orphaned in MAINTAINERS.
-
-3. It gets moved to staging.
-
-4, It gets removed.
-
-If no one says anything I'll submit a patch to Linus to mark it as Orphaned.
-
-David
--- 
-David Vrabel, Senior Software Engineer, Drivers
-CSR, Churchill House, Cambridge Business Park,  Tel: +44 (0)1223 692562
-Cowley Road, Cambridge, CB4 0WZ                 http://www.csr.com/
-
-
-Member of the CSR plc group of companies. CSR plc registered in England and Wales, registered number 4187346, registered office Churchill House, Cambridge Business Park, Cowley Road, Cambridge, CB4 0WZ, United Kingdom
+--- a/include/net/9p/client.h	2010-10-19 09:23:32.679670429 -0700
++++ b/include/net/9p/client.h	2010-10-19 09:23:34.483850813 -0700
+@@ -212,15 +212,12 @@ struct p9_dirent {
+ 
+ int p9_client_statfs(struct p9_fid *fid, struct p9_rstatfs *sb);
+ int p9_client_rename(struct p9_fid *fid, struct p9_fid *newdirfid, char *name);
+-int p9_client_version(struct p9_client *);
+ struct p9_client *p9_client_create(const char *dev_name, char *options);
+ void p9_client_destroy(struct p9_client *clnt);
+ void p9_client_disconnect(struct p9_client *clnt);
+ void p9_client_begin_disconnect(struct p9_client *clnt);
+ struct p9_fid *p9_client_attach(struct p9_client *clnt, struct p9_fid *afid,
+ 					char *uname, u32 n_uname, char *aname);
+-struct p9_fid *p9_client_auth(struct p9_client *clnt, char *uname,
+-						u32 n_uname, char *aname);
+ struct p9_fid *p9_client_walk(struct p9_fid *oldfid, int nwname, char **wnames,
+ 								int clone);
+ int p9_client_open(struct p9_fid *fid, int mode);
+--- a/net/9p/client.c	2010-10-19 09:23:32.715674029 -0700
++++ b/net/9p/client.c	2010-10-19 09:24:16.184019417 -0700
+@@ -671,7 +671,7 @@ static void p9_fid_destroy(struct p9_fid
+ 	kfree(fid);
+ }
+ 
+-int p9_client_version(struct p9_client *c)
++static int p9_client_version(struct p9_client *c)
+ {
+ 	int err = 0;
+ 	struct p9_req_t *req;
+@@ -730,7 +730,6 @@ error:
+ 
+ 	return err;
+ }
+-EXPORT_SYMBOL(p9_client_version);
+ 
+ struct p9_client *p9_client_create(const char *dev_name, char *options)
+ {
+@@ -887,54 +886,6 @@ error:
+ }
+ EXPORT_SYMBOL(p9_client_attach);
+ 
+-struct p9_fid *
+-p9_client_auth(struct p9_client *clnt, char *uname, u32 n_uname, char *aname)
+-{
+-	int err;
+-	struct p9_req_t *req;
+-	struct p9_qid qid;
+-	struct p9_fid *afid;
+-
+-	P9_DPRINTK(P9_DEBUG_9P, ">>> TAUTH uname %s aname %s\n", uname, aname);
+-	err = 0;
+-
+-	afid = p9_fid_create(clnt);
+-	if (IS_ERR(afid)) {
+-		err = PTR_ERR(afid);
+-		afid = NULL;
+-		goto error;
+-	}
+-
+-	req = p9_client_rpc(clnt, P9_TAUTH, "dss?d",
+-			afid ? afid->fid : P9_NOFID, uname, aname, n_uname);
+-	if (IS_ERR(req)) {
+-		err = PTR_ERR(req);
+-		goto error;
+-	}
+-
+-	err = p9pdu_readf(req->rc, clnt->proto_version, "Q", &qid);
+-	if (err) {
+-		p9pdu_dump(1, req->rc);
+-		p9_free_req(clnt, req);
+-		goto error;
+-	}
+-
+-	P9_DPRINTK(P9_DEBUG_9P, "<<< RAUTH qid %x.%llx.%x\n",
+-					qid.type,
+-					(unsigned long long)qid.path,
+-					qid.version);
+-
+-	memmove(&afid->qid, &qid, sizeof(struct p9_qid));
+-	p9_free_req(clnt, req);
+-	return afid;
+-
+-error:
+-	if (afid)
+-		p9_fid_destroy(afid);
+-	return ERR_PTR(err);
+-}
+-EXPORT_SYMBOL(p9_client_auth);
+-
+ struct p9_fid *p9_client_walk(struct p9_fid *oldfid, int nwname, char **wnames,
+ 	int clone)
+ {
