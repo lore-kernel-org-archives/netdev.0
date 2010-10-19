@@ -1,78 +1,44 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH] Fixed race condition at ip_vs.ko module init.
-Date: Tue, 19 Oct 2010 17:23:11 +0200
-Message-ID: <20101019152311.GJ6193@verge.net.au>
-References: <AANLkTinVcSK0Dqx4Pkp1dZskR8YmkGYkkrSNgDqX6psW@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v13 10/16] Add a hook to intercept external buffers
+ from NIC driver.
+Date: Tue, 19 Oct 2010 08:24:01 -0700 (PDT)
+Message-ID: <20101019.082401.28817543.davem@davemloft.net>
+References: <1287133937-5538-1-git-send-email-xiaohui.xin@intel.com>
+	<fc6e95d63a2c62aaf77f8ded22fc43ccefcdbbff.1287132437.git.xiaohui.xin@intel.com>
+	<33f51c5eddec843260451eccbfa3c5fdea13b479.1287132437.git.xiaohui.xin@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>, Patrick McHardy <kaber@trash.net>
-To: Eduardo Blanco <ejblanco@google.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <AANLkTinVcSK0Dqx4Pkp1dZskR8YmkGYkkrSNgDqX6psW@mail.gmail.com>
-Sender: lvs-devel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mst@redhat.com, mingo@elte.hu,
+	herbert@gondor.apana.org.au, jdike@linux.intel.com
+To: xiaohui.xin@intel.com
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <33f51c5eddec843260451eccbfa3c5fdea13b479.1287132437.git.xiaohui.xin@intel.com>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 19, 2010 at 10:26:47AM +0100, Eduardo Blanco wrote:
-> Lists were initialized after the module was registered.  Multiple ipvsadm
-> processes at module load triggered a race condition that resulted in a null
-> pointer dereference in do_ip_vs_get_ctl(). As a result, __ip_vs_mutex
-> was left locked preventing all further ipvsadm commands.
-> 
-> Signed-off-by: Eduardo J. Blanco <ejblanco@google.com>
+From: xiaohui.xin@intel.com
+Date: Fri, 15 Oct 2010 17:12:11 +0800
 
-Thanks Eduardo.
-
-Patrick, please consider pulling
-
-git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-test-2.6.git for-patrick
-
-to get this change.
-
-> ---
->  net/netfilter/ipvs/ip_vs_ctl.c |   19 ++++++++++---------
->  1 files changed, 10 insertions(+), 9 deletions(-)
-> 
-> diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-> index 0f0c079..68624dc 100644
-> --- a/net/netfilter/ipvs/ip_vs_ctl.c
-> +++ b/net/netfilter/ipvs/ip_vs_ctl.c
-> @@ -3385,6 +3385,16 @@ int __init ip_vs_control_init(void)
-> 
->  	EnterFunction(2);
-> 
-> +	/* Initialize ip_vs_svc_table, ip_vs_svc_fwm_table, ip_vs_rtable */
-> +	for(idx = 0; idx < IP_VS_SVC_TAB_SIZE; idx++)  {
-> +		INIT_LIST_HEAD(&ip_vs_svc_table[idx]);
-> +		INIT_LIST_HEAD(&ip_vs_svc_fwm_table[idx]);
-> +	}
-> +	for(idx = 0; idx < IP_VS_RTAB_SIZE; idx++)  {
-> +		INIT_LIST_HEAD(&ip_vs_rtable[idx]);
-> +	}
-> +	smp_wmb();
+> @@ -2891,6 +2922,11 @@ static int __netif_receive_skb(struct sk_buff *skb)
+>  ncls:
+>  #endif
+>  
+> +	/* To intercept mediate passthru(zero-copy) packets here */
+> +	skb = handle_mpassthru(skb, &pt_prev, &ret, orig_dev);
+> +	if (!skb)
+> +		goto out;
 > +
->  	ret = nf_register_sockopt(&ip_vs_sockopts);
->  	if (ret) {
->  		pr_err("cannot register sockopt.\n");
-> @@ -3403,15 +3413,6 @@ int __init ip_vs_control_init(void)
-> 
->  	sysctl_header = register_sysctl_paths(net_vs_ctl_path, vs_vars);
-> 
-> -	/* Initialize ip_vs_svc_table, ip_vs_svc_fwm_table, ip_vs_rtable */
-> -	for(idx = 0; idx < IP_VS_SVC_TAB_SIZE; idx++)  {
-> -		INIT_LIST_HEAD(&ip_vs_svc_table[idx]);
-> -		INIT_LIST_HEAD(&ip_vs_svc_fwm_table[idx]);
-> -	}
-> -	for(idx = 0; idx < IP_VS_RTAB_SIZE; idx++)  {
-> -		INIT_LIST_HEAD(&ip_vs_rtable[idx]);
-> -	}
-> -
->  	ip_vs_new_estimator(&ip_vs_stats);
-> 
->  	/* Hook the defense timer */
-> -- 
-> 1.7.1
-> 
+>  	/* Handle special case of bridge or macvlan */
+>  	rx_handler = rcu_dereference(skb->dev->rx_handler);
+>  	if (rx_handler) {
+
+If you consume the packet here, devices in passthru mode cannot
+be use with bonding.
+
+But there is nothing that prevents a bond being created with such
+a device.
+
+So we have to either prevent such configurations (bad) or make
+it work somehow (good) :-)
