@@ -1,38 +1,99 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Linux 2.6.35/TIPC 2.0 ABI breaking changes
-Date: Tue, 19 Oct 2010 01:16:49 -0700 (PDT)
-Message-ID: <20101019.011649.71113115.davem@davemloft.net>
-References: <4CBCD429.8090306@windriver.com>
-	<20101018234547.GA5703@hmsreliant.think-freely.org>
-	<20101019021657.GZ8781@llucax.com.ar>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [patch v4.1] ipvs: IPv6 tunnel mode
+Date: Tue, 19 Oct 2010 10:40:24 +0200
+Message-ID: <4CBD5978.7020108@trash.net>
+References: <20101016075837.GB2027@verge.net.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: nhorman@tuxdriver.com, paul.gortmaker@windriver.com,
-	jon.maloy@ericsson.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, tipc-discussion@lists.sourceforge.net
-To: luca@llucax.com.ar
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46220
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932257Ab0JSIQ0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Oct 2010 04:16:26 -0400
-In-Reply-To: <20101019021657.GZ8781@llucax.com.ar>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, Julian Anastasov <ja@ssi.bg>,
+	Julius Volz <juliusv@google.com>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	=?ISO-8859-1?Q?Hans_Schillstr=F6?= =?ISO-8859-1?Q?m?=
+	<hans.schillstrom@ericsson.com>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20101016075837.GB2027@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Leandro Lucarella <luca@llucax.com.ar>
-Date: Mon, 18 Oct 2010 23:16:57 -0300
-
+Am 16.10.2010 09:58, schrieb Simon Horman:
+> From: Hans Schillstrom <hans.schillstrom@ericsson.com>
 > 
-> The problem is not between the tipc stacks in different hosts, is
-> between the tipc stack and the applications using it (well, maybe
-> there is a problem somewhere else too).
+> ipvs: IPv6 tunnel mode
 > 
-> This was a deliberate API change, not a subtle bug...
+> IPv6 encapsulation uses a bad source address for the tunnel.
+> i.e. VIP will be used as local-addr and encap. dst addr.
+> Decapsulation will not accept this.
+> 
+> Example
+> LVS (eth1 2003::2:0:1/96, VIP 2003::2:0:100)
+>    (eth0 2003::1:0:1/96)
+> RS  (ethX 2003::1:0:5/96)
+> 
+> tcpdump
+> 2003::2:0:100 > 2003::1:0:5:
+> IP6 (hlim 63, next-header TCP (6) payload length: 40)
+>  2003::3:0:10.50991 > 2003::2:0:100.http: Flags [S], cksum 0x7312
+> (correct), seq 3006460279, win 5760, options [mss 1440,sackOK,TS val
+> 1904932 ecr 0,nop,wscale 3], length 0
+> 
+> In Linux IPv6 impl. you can't have a tunnel with an any cast address
+> receiving packets (I have not tried to interpret RFC 2473)
+> To have receive capabilities the tunnel must have:
+>  - Local address set as multicast addr or an unicast addr
+>  - Remote address set as an unicast addr.
+>  - Loop back addres or Link local address are not allowed.
+> 
+> This causes us to setup a tunnel in the Real Server with the
+> LVS as the remote address, here you can't use the VIP address since it's
+> used inside the tunnel.
+> 
+> Solution
+> Use outgoing interface IPv6 address (match against the destination).
+> i.e. use ip6_route_output() to look up the route cache and
+> then use ipv6_dev_get_saddr(...) to set the source address of the
+> encapsulated packet.
+> 
+> Additionally, cache the results in new destination
+> fields: dst_cookie and dst_saddr and properly check the
+> returned dst from ip6_route_output. We now add xfrm_lookup
+> call only for the tunneling method where the source address
+> is a local one.
+> 
+> Signed-off-by:Hans Schillstrom <hans.schillstrom@ericsson.com>
+> 
+> ---
+> 
+> Original patch by Hans Schillstrom.
+> Check dst state and cache results for IPv6 by Julian Anastasov.
+> Subsequent revisions made by Hans Schillstrom:
+> 
+> * v1
+>     
+>   This is Julian's patch with a slightly edited version of the description
+>   from Hans's original patch.
+> 
+> * v2
+>     
+>   Updated changelog as per commends from Julian
+> 
+> * v3
+>     
+>   Flowi dest address used as destination instead of rt6_info in
+> +ip_vs_tunnel_xmit_v6()
+>   rt6_info somtimes contains a netw address insted of a tunnel
+> 
+> * v4
+>     
+>   Update destination as recommended from Julian
+>   i.e. use &cp->daddr.in6
+> 
+> * v4.1 Simon Horman
+>   Fix patch corruption
+> 
+> Patrick, please consider this for nf-next-2.6
 
-Neil et al., if these packets live only between the kernel stack
-and the userspace API layer, we should not be byte-swapping this
-stuff and we need to fix this fast.
+Applied, thanks.
 
-Thanks.
