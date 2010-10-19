@@ -1,52 +1,88 @@
-From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: [PATCH V3 net-next] can-raw: add msg_flags to distinguish local
-	traffic
-Date: Tue, 19 Oct 2010 13:33:19 +0200
-Message-ID: <4CBD81FF.5070004@hartkopp.net>
-References: <20101019090247.GB334@e-circ.dyndns.org>	<201010191113.46999.alexander.stein@systec-electronic.com>	<20101019095703.GA436@e-circ.dyndns.org>
-	<201010191228.10914.alexander.stein@systec-electronic.com>
-	<4CBD7DF8.4040204@grandegger.com>
+From: Arnaud Patard (Rtp) <arnaud.patard@rtp-net.org>
+Subject: Re: [patch 1/1] phy/marvell: fix 88e1121 support
+Date: Tue, 19 Oct 2010 13:49:20 +0200
+Message-ID: <87y69ue727.fsf@lechat.rtp-net.org>
+References: <20101018214401.053486146@rtp-net.org>
+	<20101018214414.375368957@rtp-net.org> <4CBCC3FC.2030506@ti.com>
+	<20101018222947.418028323@rtp-net.org>
+	<20101018223056.716357140@rtp-net.org> <4CBD785E.8040704@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-To: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4CBD7DF8.4040204-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: cyril@ti.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lechat.rtp-net.org ([88.191.19.38]:42682 "EHLO
+	lechat.rtp-net.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758154Ab0JSLrF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Oct 2010 07:47:05 -0400
+In-Reply-To: <4CBD785E.8040704@ti.com> (Cyril Chemparathy's message of "Tue\, 19 Oct 2010 06\:52\:14 -0400")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 19.10.2010 13:16, Wolfgang Grandegger wrote:
-> On 10/19/2010 12:28 PM, Alexander Stein wrote:
->> On Tuesday 19 October 2010, 11:57:03 Kurt Van Dijck wrote:
->>> On Tue, Oct 19, 2010 at 11:12:56AM +0200, Alexander Stein wrote:
->>>> You mixed tabs and spaces at MSG_CONFIRM entry. Dunno if that was
->>>> intended.
->>>
->>> That was not intended.
->>> Is that a problem (I never studied the code style wrt. Documentation)?
->>
->> Dunno if this is a problem, I just stumbled over it.
-> 
-> Well, I think it's not worth an extra patch but should be fixed when the
-> files need to be touched anyway (for other reasons/fixes).
+Cyril Chemparathy <cyril@ti.com> writes:
 
-But there's also no need to commit a broken indention.
+> Hi Arnaud,
 
->From my side i would prefer a V4 and you can put in my
+Hi,
 
-Acked-by: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+>
+> On 10/18/2010 06:29 PM, Arnaud Patard wrote:
+>> Commit c477d0447db08068a497e7beb892b2b2a7bff64b added support for RGMII
+>> rx/tx delays except that it ends up clearing rx/tx delays bit for modes
+>> differents that RGMII*ID. Due to this, ethernet is not working anymore
+>> on my guruplug server +. This patch is fixing that.
+>> 
+>> Signed-off-by: Arnaud Patard <arnaud.patard@rtp-net.org>
+>> Index: linux-2.6/drivers/net/phy/marvell.c
+>> ===================================================================
+>> --- linux-2.6.orig/drivers/net/phy/marvell.c	2010-10-18 22:46:09.000000000 +0200
+>> +++ linux-2.6/drivers/net/phy/marvell.c	2010-10-19 00:20:22.000000000 +0200
+>> @@ -196,20 +196,27 @@
+>>  			MII_88E1121_PHY_MSCR_PAGE);
+>>  	if (err < 0)
+>>  		return err;
+>> -	mscr = phy_read(phydev, MII_88E1121_PHY_MSCR_REG) &
+>> -		MII_88E1121_PHY_MSCR_DELAY_MASK;
+>>  
+>> -	if (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID)
+>> -		mscr |= (MII_88E1121_PHY_MSCR_RX_DELAY |
+>> -			 MII_88E1121_PHY_MSCR_TX_DELAY);
+>> -	else if (phydev->interface == PHY_INTERFACE_MODE_RGMII_RXID)
+>> -		mscr |= MII_88E1121_PHY_MSCR_RX_DELAY;
+>> -	else if (phydev->interface == PHY_INTERFACE_MODE_RGMII_TXID)
+>> -		mscr |= MII_88E1121_PHY_MSCR_TX_DELAY;
+>> +	if ((phydev->interface == PHY_INTERFACE_MODE_RGMII) ||
+>> +	    (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID) ||
+>> +	    (phydev->interface == PHY_INTERFACE_MODE_RGMII_RXID) ||
+>> +	    (phydev->interface == PHY_INTERFACE_MODE_RGMII_TXID)) {
+>>  
+>> -	err = phy_write(phydev, MII_88E1121_PHY_MSCR_REG, mscr);
+>> -	if (err < 0)
+>> -		return err;
+>> +		mscr = phy_read(phydev, MII_88E1121_PHY_MSCR_REG) &
+>> +			MII_88E1121_PHY_MSCR_DELAY_MASK;
+>> +
+>> +		if (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID)
+>> +			mscr |= (MII_88E1121_PHY_MSCR_RX_DELAY |
+>> +				 MII_88E1121_PHY_MSCR_TX_DELAY);
+>> +		else if (phydev->interface == PHY_INTERFACE_MODE_RGMII_RXID)
+>> +			mscr |= MII_88E1121_PHY_MSCR_RX_DELAY;
+>> +		else if (phydev->interface == PHY_INTERFACE_MODE_RGMII_TXID)
+>> +			mscr |= MII_88E1121_PHY_MSCR_TX_DELAY;
+>> +
+>> +		err = phy_write(phydev, MII_88E1121_PHY_MSCR_REG, mscr);
+>> +		if (err < 0)
+>> +			return err;
+>> +	}
+>>  
+>>  	phy_write(phydev, MII_88E1121_PHY_PAGE, oldpage);
+>
+> That looks more correct.  Just out of curiosity, what is the interface
+> mode on your platform?
 
-directly if you like.
+The interface is in GMII mode iirc. The device is the ethernet embedded
+in the Kirkwood SoC with a 88e1121 phy connected. It's handled by the
+mv643xx_eth driver and the marvell phy driver.
 
-Thanks,
-Oliver
+Arnaud
