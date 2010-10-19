@@ -1,47 +1,80 @@
-From: "Masayuki Ohtake" <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Subject: Re: [MeeGo-Dev] can: How to set bitrate
-Date: Tue, 19 Oct 2010 09:09:41 +0900
-Message-ID: <000c01cb6f21$f0a6ac90$66f8800a@maildom.okisemi.com>
-References: <000b01cb6eb3$1afcfd60$66f8800a@maildom.okisemi.com>
-	<4CBC29E6.3070601@grandegger.com>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [PATCH 3/3] net: allocate tx queues in register_netdevice
+Date: Mon, 18 Oct 2010 17:12:30 -0700
+Message-ID: <4CBCE26E.4020405@intel.com>
+References: <alpine.DEB.1.00.1010181057580.16304@pokey.mtv.corp.google.com> <1287438080.2252.792.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	"Foster, Margie" <margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	ML netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	ML linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, "Wang,
-	Yong Y" <yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, "Ewe, Kok Howg" <kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Intel OTC <joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Tomoya MORINAGA <morinaga526-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>, "Wang, Qi" <qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: "Wolfgang Grandegger" <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Tom Herbert <therbert@google.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:11696 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753910Ab0JSAMb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Oct 2010 20:12:31 -0400
+In-Reply-To: <1287438080.2252.792.camel@achroite.uk.solarflarecom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday, October 18, 2010 8:05 PM, Wolfgang Grandegger wrote:
+On 10/18/2010 2:41 PM, Ben Hutchings wrote:
+> On Mon, 2010-10-18 at 11:02 -0700, Tom Herbert wrote:
+>> This patch introduces netif_alloc_netdev_queues which is called from
+>> register_device instead of alloc_netdev_mq.  This makes TX queue
+>> allocation symmetric with RX allocation similarly allows drivers to
+>> change dev->num_tx_queues after allocating netdev and before
+>> registering it.
+> 
+> Changing num_tx_queues is probably *not* desirable, same as for
+> num_rx_queues.
+> 
 
-> ~$ rpm -qf /usr/include/db_185.h
-> db4-devel-4.7.25-13.fc12.i686
->
-> Which means you need db4 devel to fully build iproute2.
+Right, this will break ixgbe and other drivers that may call netif_set_real_num_{rx|tx}_queues() to increase the number of
+queues. Returning an error code seems like a good idea though.
 
-Thank you for your information.
+John.
 
-Using the following command,
-"yum install db4*"
-I could confirm building iproute2 is success and
-set bitrate.
+> [...]
+>> --- a/net/core/dev.c
+>> +++ b/net/core/dev.c
+>> @@ -1553,18 +1553,24 @@ static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
+>>   * Routine to help set real_num_tx_queues. To avoid skbs mapped to queues
+>>   * greater then real_num_tx_queues stale skbs on the qdisc must be flushed.
+>>   */
+>> -void netif_set_real_num_tx_queues(struct net_device *dev, unsigned int txq)
+>> +int netif_set_real_num_tx_queues(struct net_device *dev, unsigned int txq)
+>>  {
+>> -	unsigned int real_num = dev->real_num_tx_queues;
+>> +	if (txq < 1)
+>> +		return -EINVAL;
+>>  
+>> -	if (unlikely(txq > dev->num_tx_queues))
+>> -		;
+>> -	else if (txq > real_num)
+>> -		dev->real_num_tx_queues = txq;
+>> -	else if (txq < real_num) {
+>> -		dev->real_num_tx_queues = txq;
+>> -		qdisc_reset_all_tx_gt(dev, txq);
+>> -	}
+>> +	if (dev->reg_state == NETREG_REGISTERED) {
+>> +		ASSERT_RTNL();
+>> +
+>> +		if (txq > dev->num_tx_queues)
+>> +			return -EINVAL;
+>> +
+>> +		if (txq < dev->real_num_tx_queues)
+>> +			qdisc_reset_all_tx_gt(dev, txq);
+>> +	} else
+>> +		dev->num_tx_queues = txq;
+> [...]
+> 
+> The kernel-doc comment should be updated to reflect the locking
+> requirement and the possibility of failure when called after
+> registration.
+> 
+> Ben.
+> 
 
-Thanks, Ohtake(OKISemi)
