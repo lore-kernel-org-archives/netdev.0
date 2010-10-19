@@ -1,89 +1,79 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 3/4] crypto: algif_hash - User-space interface for hash operations
-Date: Tue, 19 Oct 2010 21:46:02 +0800
-Message-ID: <E1P8CVu-0003ZJ-43@gondolin.me.apana.org.au>
+Subject: [PATCH 2/4] crypto: af_alg - User-space interface for Crypto API
+Date: Tue, 19 Oct 2010 21:46:01 +0800
+Message-ID: <E1P8CVt-0003Z6-SN@gondolin.me.apana.org.au>
 References: <20100907084213.GA4610@gondor.apana.org.au>
 To: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
 	netdev@vger.kernel.org,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Sender: linux-crypto-owner@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-crypto: algif_hash - User-space interface for hash operations
+crypto: af_alg - User-space interface for Crypto API
 
-This patch adds the af_alg plugin for hash, corresponding to
-the ahash kernel operation type.
+This patch creates the backbone of the user-space interface for
+the Crypto API, through a new socket family AF_ALG.
 
-Keys can optionally be set through the setsockopt interface.
+Each session corresponds to one or more connections obtained from
+that socket.  The number depends on the number of inputs/outputs
+of that particular type of operation.  For most types there will
+be a s ingle connection/file descriptor that is used for both input
+and output.  AEAD is one of the few that require two inputs.
 
-Each sendmsg call will finalise the hash unless sent with a MSG_MORE
-flag.
+Each algorithm type will provide its own implementation that plugs
+into af_alg.  They're keyed using a string such as "skcipher" or
+"hash".
 
-Partial hash states can be cloned using accept(2).
-
-The interface is completely synchronous, all operations will
-complete prior to the system call returning.
-
-Both sendmsg(2) and splice(2) support reading the user-space
-data directly without copying (except that the Crypto API itself
-may copy the data if alignment is off).
-
-For now only the splice(2) interface supports performing digest
-instead of init/update/final.  In future the sendmsg(2) interface
-will also be modified to use digest/finup where possible so that
-hardware that cannot return a partial hash state can still benefit
-from this interface.
+IOW this patch only contains the boring bits that is required
+to hold everything together.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- crypto/Kconfig      |    8 +
- crypto/Makefile     |    1 
- crypto/algif_hash.c |  345 ++++++++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 354 insertions(+)
+ crypto/Kconfig          |    3 
+ crypto/Makefile         |    1 
+ crypto/af_alg.c         |  433 ++++++++++++++++++++++++++++++++++++++++++++++++
+ include/crypto/if_alg.h |   75 ++++++++
+ include/linux/if_alg.h  |   40 ++++
+ 5 files changed, 552 insertions(+)
 
 diff --git a/crypto/Kconfig b/crypto/Kconfig
-index 357e3ca..6db27d7 100644
+index e4bac29..357e3ca 100644
 --- a/crypto/Kconfig
 +++ b/crypto/Kconfig
-@@ -844,6 +844,14 @@ config CRYPTO_ANSI_CPRNG
- config CRYPTO_USER_API
- 	tristate
+@@ -841,6 +841,9 @@ config CRYPTO_ANSI_CPRNG
+ 	  ANSI X9.31 A.2.4. Note that this option must be enabled if
+ 	  CRYPTO_FIPS is selected
  
-+config CRYPTO_USER_API_HASH
-+	tristate "User-space interface for hash algorithms"
-+	select CRYPTO_HASH
-+	select CRYPTO_USER_API
-+	help
-+	  This option enables the user-spaces interface for hash
-+	  algorithms.
++config CRYPTO_USER_API
++	tristate
 +
  source "drivers/crypto/Kconfig"
  
  endif	# if CRYPTO
 diff --git a/crypto/Makefile b/crypto/Makefile
-index 0b13197..14ab405 100644
+index 423b7de..0b13197 100644
 --- a/crypto/Makefile
 +++ b/crypto/Makefile
-@@ -86,6 +86,7 @@ obj-$(CONFIG_CRYPTO_ANSI_CPRNG) += ansi_cprng.o
+@@ -85,6 +85,7 @@ obj-$(CONFIG_CRYPTO_RNG2) += krng.o
+ obj-$(CONFIG_CRYPTO_ANSI_CPRNG) += ansi_cprng.o
  obj-$(CONFIG_CRYPTO_TEST) += tcrypt.o
  obj-$(CONFIG_CRYPTO_GHASH) += ghash-generic.o
- obj-$(CONFIG_CRYPTO_USER_API) += af_alg.o
-+obj-$(CONFIG_CRYPTO_USER_API_HASH) += algif_hash.o
++obj-$(CONFIG_CRYPTO_USER_API) += af_alg.o
  
  #
  # generic algorithms and the async_tx api
-diff --git a/crypto/algif_hash.c b/crypto/algif_hash.c
+diff --git a/crypto/af_alg.c b/crypto/af_alg.c
 new file mode 100644
-index 0000000..28f29aa
+index 0000000..f816850
 --- /dev/null
-+++ b/crypto/algif_hash.c
-@@ -0,0 +1,345 @@
++++ b/crypto/af_alg.c
+@@ -0,0 +1,433 @@
 +/*
-+ * algif_hash: User-space interface for hash algorithms
++ * af_alg: User-space algorithm interface
 + *
-+ * This file provides the user-space API for hash algorithms.
++ * This file provides the user-space API for algorithms.
 + *
 + * Copyright (c) 2010 Herbert Xu <herbert@gondor.apana.org.au>
 + *
@@ -94,232 +84,248 @@ index 0000000..28f29aa
 + *
 + */
 +
-+#include <crypto/hash.h>
++#include <asm/atomic.h>
 +#include <crypto/if_alg.h>
-+#include <linux/completion.h>
 +#include <linux/init.h>
 +#include <linux/kernel.h>
-+#include <linux/mm.h>
++#include <linux/list.h>
 +#include <linux/module.h>
 +#include <linux/net.h>
-+#include <net/sock.h>
++#include <linux/rwsem.h>
 +
-+struct hash_ctx {
-+	struct af_alg_sgl sgl;
-+
-+	struct completion completion;
-+	u8 *result;
-+
-+	unsigned int len;
-+	int err;
-+	bool more;
-+
-+	struct ahash_request req;
++struct alg_type_list {
++	const struct af_alg_type *type;
++	struct list_head list;
 +};
 +
-+static void hash_done(struct crypto_async_request *req, int err)
++static atomic_t alg_memory_allocated;
++
++static struct proto alg_proto = {
++	.name			= "ALG",
++	.owner			= THIS_MODULE,
++	.memory_allocated	= &alg_memory_allocated,
++	.obj_size		= sizeof(struct alg_sock),
++};
++
++static LIST_HEAD(alg_types);
++static DECLARE_RWSEM(alg_types_sem);
++
++static const struct af_alg_type *alg_get_type(const char *name)
 +{
-+	struct sock *sk = req->data;
-+	struct alg_sock *ask = alg_sk(sk);
-+	struct hash_ctx *ctx = ask->private;
++	const struct af_alg_type *type = ERR_PTR(-ENOENT);
++	struct alg_type_list *node;
 +
-+	ctx->err = err;
-+	complete(&ctx->completion);
-+}
++	down_read(&alg_types_sem);
++	list_for_each_entry(node, &alg_types, list) {
++		if (strcmp(node->type->name, name))
++			continue;
 +
-+static int hash_sendmsg(struct kiocb *unused, struct socket *sock,
-+			struct msghdr *msg, size_t ignored)
-+{
-+	int limit = ALG_MAX_PAGES * PAGE_SIZE;
-+	struct sock *sk = sock->sk;
-+	struct alg_sock *ask = alg_sk(sk);
-+	struct hash_ctx *ctx = ask->private;
-+	unsigned long iovlen;
-+	struct iovec *iov;
-+	long copied = 0;
-+	int err;
-+
-+	if (limit > sk->sk_sndbuf)
-+		limit = sk->sk_sndbuf;
-+
-+	lock_sock(sk);
-+	if (!ctx->more) {
-+		err = crypto_ahash_init(&ctx->req);
-+		if (err)
-+			goto unlock;
-+	}
-+
-+	ctx->more = 0;
-+
-+	for (iov = msg->msg_iov, iovlen = msg->msg_iovlen; iovlen > 0;
-+	     iovlen--, iov++) {
-+		unsigned long seglen = iov->iov_len;
-+		char *from = iov->iov_base;
-+
-+		while (seglen) {
-+			int len = min_t(unsigned long, seglen, limit);
-+			int newlen;
-+
-+			newlen = af_alg_make_sg(&ctx->sgl, from, len, 0);
-+			if (newlen < 0)
-+				goto unlock;
-+
-+			ahash_request_set_crypt(&ctx->req, ctx->sgl.sg, NULL,
-+						newlen);
-+
-+			err = crypto_ahash_update(&ctx->req);
-+			switch (err) {
-+			case -EINPROGRESS:
-+			case -EBUSY:
-+				wait_for_completion(&ctx->completion);
-+				INIT_COMPLETION(ctx->completion);
-+				err = ctx->err;
-+				break;
-+			}
-+
-+			af_alg_free_sg(&ctx->sgl);
-+
-+			if (err)
-+				goto unlock;
-+
-+			seglen -= newlen;
-+			from += newlen;
-+			copied += newlen;
-+		}
-+	}
-+
-+	err = 0;
-+
-+	ctx->more = msg->msg_flags & MSG_MORE;
-+	if (!ctx->more) {
-+		ahash_request_set_crypt(&ctx->req, NULL, ctx->result, 0);
-+		err = crypto_ahash_final(&ctx->req);
-+
-+		switch (err) {
-+		case -EINPROGRESS:
-+		case -EBUSY:
-+			wait_for_completion(&ctx->completion);
-+			INIT_COMPLETION(ctx->completion);
-+			err = ctx->err;
-+			break;
-+		}
-+	}
-+
-+unlock:
-+	release_sock(sk);
-+
-+	return err ?: copied;
-+}
-+
-+static ssize_t hash_sendpage(struct socket *sock, struct page *page,
-+			     int offset, size_t size, int flags)
-+{
-+	struct sock *sk = sock->sk;
-+	struct alg_sock *ask = alg_sk(sk);
-+	struct hash_ctx *ctx = ask->private;
-+	int err;
-+
-+	lock_sock(sk);
-+	sg_init_table(ctx->sgl.sg, 1);
-+	sg_set_page(ctx->sgl.sg, page, size, offset);
-+
-+	ahash_request_set_callback(&ctx->req, CRYPTO_TFM_REQ_MAY_BACKLOG,
-+				   hash_done, sk);
-+	ahash_request_set_crypt(&ctx->req, ctx->sgl.sg, ctx->result, size);
-+
-+	if (!(flags & MSG_MORE)) {
-+		if (ctx->more)
-+			err = crypto_ahash_finup(&ctx->req);
-+		else
-+			err = crypto_ahash_digest(&ctx->req);
-+	} else {
-+		if (!ctx->more) {
-+			err = crypto_ahash_init(&ctx->req);
-+			if (err)
-+				goto unlock;
-+		}
-+
-+		err = crypto_ahash_update(&ctx->req);
-+	}
-+
-+	switch (err) {
-+	case -EINPROGRESS:
-+	case -EBUSY:
-+		wait_for_completion(&ctx->completion);
-+		INIT_COMPLETION(ctx->completion);
-+		err = ctx->err;
-+		if (err)
-+			goto unlock;
++		if (try_module_get(node->type->owner))
++			type = node->type;
 +		break;
 +	}
++	up_read(&alg_types_sem);
 +
++	return type;
++}
++
++int af_alg_register_type(const struct af_alg_type *type)
++{
++	struct alg_type_list *node;
++	int err = -EEXIST;
++
++	down_write(&alg_types_sem);
++	list_for_each_entry(node, &alg_types, list) {
++		if (!strcmp(node->type->name, type->name))
++			goto unlock;
++	}
++
++	node = kmalloc(sizeof(*node), GFP_KERNEL);
++	err = -ENOMEM;
++	if (!node)
++		goto unlock;
++
++	type->ops->owner = THIS_MODULE;
++	node->type = type;
++	list_add(&node->list, &alg_types);
 +	err = 0;
 +
-+	ctx->more = flags & MSG_MORE;
-+
 +unlock:
-+	release_sock(sk);
++	up_write(&alg_types_sem);
 +
-+	return err ?: size;
++	return err;
++}
++EXPORT_SYMBOL_GPL(af_alg_register_type);
++
++int af_alg_unregister_type(const struct af_alg_type *type)
++{
++	struct alg_type_list *node;
++	int err = -ENOENT;
++
++	down_write(&alg_types_sem);
++	list_for_each_entry(node, &alg_types, list) {
++		if (strcmp(node->type->name, type->name))
++			continue;
++
++		list_del(&node->list);
++		kfree(node);
++		err = 0;
++		break;
++	}
++	up_write(&alg_types_sem);
++
++	return err;
++}
++EXPORT_SYMBOL_GPL(af_alg_unregister_type);
++
++static void alg_do_release(const struct af_alg_type *type, void *private)
++{
++	if (!type)
++		return;
++
++	type->release(private);
++	module_put(type->owner);
 +}
 +
-+static int hash_recvmsg(struct kiocb *unused, struct socket *sock,
-+			struct msghdr *msg, size_t len, int flags)
++int af_alg_release(struct socket *sock)
++{
++	sock_put(sock->sk);
++	return 0;
++}
++EXPORT_SYMBOL_GPL(af_alg_release);
++
++static int alg_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
 +{
 +	struct sock *sk = sock->sk;
 +	struct alg_sock *ask = alg_sk(sk);
-+	struct hash_ctx *ctx = ask->private;
-+	unsigned ds = crypto_ahash_digestsize(crypto_ahash_reqtfm(&ctx->req));
-+	int err = -EINVAL;
++	struct sockaddr_alg *sa = (void *)uaddr;
++	const struct af_alg_type *type;
++	void *private;
 +
-+	if (len > ds)
-+		len = ds;
-+	else if (len < ds)
-+		msg->msg_flags |= MSG_TRUNC;
++	if (sock->state == SS_CONNECTED)
++		return -EINVAL;
++
++	if (addr_len != sizeof(*sa))
++		return -EINVAL;
++
++	sa->salg_type[sizeof(sa->salg_type) - 1] = 0;
++	sa->salg_name[sizeof(sa->salg_name) - 1] = 0;
++
++	type = alg_get_type(sa->salg_type);
++	if (IS_ERR(type) && PTR_ERR(type) == -ENOENT) {
++		request_module("algif-%s", sa->salg_type);
++		type = alg_get_type(sa->salg_type);
++	}
++
++	if (IS_ERR(type))
++		return PTR_ERR(type);
++
++	private = type->bind(sa->salg_name, sa->salg_feat, sa->salg_mask);
++	if (IS_ERR(private)) {
++		module_put(type->owner);
++		return PTR_ERR(private);
++	}
 +
 +	lock_sock(sk);
-+	if (!ctx->more)
-+		err = memcpy_toiovec(msg->msg_iov, ctx->result, len);
++
++	swap(ask->type, type);
++	swap(ask->private, private);
++
 +	release_sock(sk);
 +
-+	return err ?: len;
++	alg_do_release(type, private);
++
++	return 0;
 +}
 +
-+static int hash_accept(struct socket *sock, struct socket *newsock, int flags)
++static int alg_setkey(struct sock *sk, char __user *ukey,
++		      unsigned int keylen)
 +{
-+	struct sock *sk = sock->sk;
 +	struct alg_sock *ask = alg_sk(sk);
-+	struct hash_ctx *ctx = ask->private;
-+	struct ahash_request *req = &ctx->req;
-+	char state[crypto_ahash_statesize(crypto_ahash_reqtfm(req))];
-+	struct sock *sk2;
-+	struct alg_sock *ask2;
-+	struct hash_ctx *ctx2;
++	const struct af_alg_type *type = ask->type;
++	u8 *key;
 +	int err;
 +
-+	err = crypto_ahash_export(req, state);
-+	if (err)
-+		return err;
++	key = sock_kmalloc(sk, keylen, GFP_KERNEL);
++	if (!key)
++		return -ENOMEM;
 +
-+	err = af_alg_accept(sk, newsock);
-+	if (err)
-+		return err;
++	if (copy_from_user(key, ukey, keylen))
++		return -EFAULT;
 +
-+	sk2 = newsock->sk;
-+	ask2 = alg_sk(sk2);
-+	ctx2 = ask2->private;
++	err = type->setkey(ask->private, key, keylen);
 +
-+	err = crypto_ahash_import(&ctx2->req, state);
-+	if (err) {
-+		sock_orphan(sk2);
-+		sock_put(sk2);
-+	}
++	sock_kfree_s(sk, key, keylen);
 +
 +	return err;
 +}
 +
-+static struct proto_ops algif_hash_ops = {
++static int alg_setsockopt(struct socket *sock, int level, int optname,
++			  char __user *optval, unsigned int optlen)
++{
++	struct sock *sk = sock->sk;
++	struct alg_sock *ask = alg_sk(sk);
++	const struct af_alg_type *type = ask->type;
++
++	if (level != SOL_ALG || !type)
++		return -ENOPROTOOPT;
++
++	switch (optname) {
++	case ALG_SET_KEY:
++		if (sock->state == SS_CONNECTED)
++			return -ENOPROTOOPT;
++		if (!type->setkey)
++			return -ENOPROTOOPT;
++
++		return alg_setkey(sk, optval, optlen);
++	}
++
++	return -ENOPROTOOPT;
++}
++
++int af_alg_accept(struct sock *sk, struct socket *newsock)
++{
++	struct alg_sock *ask = alg_sk(sk);
++	const struct af_alg_type *type = ask->type;
++	struct sock *sk2;
++	int err;
++
++	if (!type)
++		return -EINVAL;
++
++	sk2 = sk_alloc(sock_net(sk), PF_ALG, GFP_KERNEL, &alg_proto);
++	if (!sk2)
++		return -ENOMEM;
++
++	sock_init_data(newsock, sk2);
++
++	err = type->accept(ask->private, sk2);
++	if (err) {
++		sk_free(sk2);
++		return err;
++	}
++
++	sk2->sk_family = PF_ALG;
++
++	sock_hold(sk);
++	alg_sk(sk2)->parent = sk;
++	alg_sk(sk2)->type = type;
++
++	newsock->ops = type->ops;
++	newsock->state = SS_CONNECTED;
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(af_alg_accept);
++
++static int alg_accept(struct socket *sock, struct socket *newsock, int flags)
++{
++	return af_alg_accept(sock->sk, newsock);
++}
++
++static const struct proto_ops alg_proto_ops = {
 +	.family		=	PF_ALG,
++	.owner		=	THIS_MODULE,
 +
 +	.connect	=	sock_no_connect,
 +	.socketpair	=	sock_no_socketpair,
@@ -329,99 +335,298 @@ index 0000000..28f29aa
 +	.shutdown	=	sock_no_shutdown,
 +	.getsockopt	=	sock_no_getsockopt,
 +	.mmap		=	sock_no_mmap,
-+	.bind		=	sock_no_bind,
-+	.setsockopt	=	sock_no_setsockopt,
++	.sendpage	=	sock_no_sendpage,
++	.sendmsg	=	sock_no_sendmsg,
++	.recvmsg	=	sock_no_recvmsg,
 +	.poll		=	sock_no_poll,
 +
++	.bind		=	alg_bind,
 +	.release	=	af_alg_release,
-+	.sendmsg	=	hash_sendmsg,
-+	.sendpage	=	hash_sendpage,
-+	.recvmsg	=	hash_recvmsg,
-+	.accept		=	hash_accept,
++	.setsockopt	=	alg_setsockopt,
++	.accept		=	alg_accept,
 +};
 +
-+static void *hash_bind(const char *name, u32 type, u32 mask)
-+{
-+	return crypto_alloc_ahash(name, type, mask);
-+}
-+
-+static void hash_release(void *private)
-+{
-+	crypto_free_ahash(private);
-+}
-+
-+static int hash_setkey(void *private, const u8 *key, unsigned int keylen)
-+{
-+	return crypto_ahash_setkey(private, key, keylen);
-+}
-+
-+static void hash_sock_destruct(struct sock *sk)
++static void alg_sock_destruct(struct sock *sk)
 +{
 +	struct alg_sock *ask = alg_sk(sk);
-+	struct hash_ctx *ctx = ask->private;
 +
-+	sock_kfree_s(sk, ctx->result,
-+		     crypto_ahash_digestsize(crypto_ahash_reqtfm(&ctx->req)));
-+	sock_kfree_s(sk, ctx, ctx->len);
-+	af_alg_release_parent(sk);
++	alg_do_release(ask->type, ask->private);
 +}
 +
-+static int hash_accept_parent(void *private, struct sock *sk)
++static int alg_create(struct net *net, struct socket *sock, int protocol,
++		      int kern)
 +{
-+	struct hash_ctx *ctx;
-+	struct alg_sock *ask = alg_sk(sk);
-+	unsigned len = sizeof(*ctx) + crypto_ahash_reqsize(private);
-+	unsigned ds = crypto_ahash_digestsize(private);
++	struct sock *sk;
++	int err;
 +
-+	ctx = sock_kmalloc(sk, len, GFP_KERNEL);
-+	if (!ctx)
-+		return -ENOMEM;
++	if (sock->type != SOCK_SEQPACKET)
++		return -ESOCKTNOSUPPORT;
++	if (protocol != 0)
++		return -EPROTONOSUPPORT;
 +
-+	ctx->result = sock_kmalloc(sk, ds, GFP_KERNEL);
-+	if (!ctx->result) {
-+		sock_kfree_s(sk, ctx, len);
-+		return -ENOMEM;
++	err = -ENOMEM;
++	sk = sk_alloc(net, PF_ALG, GFP_KERNEL, &alg_proto);
++	if (!sk)
++		goto out;
++
++	sock->ops = &alg_proto_ops;
++	sock_init_data(sock, sk);
++
++	sk->sk_family = PF_ALG;
++	sk->sk_destruct = alg_sock_destruct;
++
++	return 0;
++out:
++	return err;
++}
++
++static const struct net_proto_family alg_family = {
++	.family	=	PF_ALG,
++	.create	=	alg_create,
++	.owner	=	THIS_MODULE,
++};
++
++int af_alg_make_sg(struct af_alg_sgl *sgl, void *addr, int len, int write)
++{
++	unsigned long from = (unsigned long)addr;
++	unsigned long npages;
++	unsigned off;
++	int err;
++	int i;
++
++	err = -EFAULT;
++	if (!access_ok(write ? VERIFY_READ : VERIFY_WRITE, from, len))
++		goto out;
++
++	off = from & ~PAGE_MASK;
++	npages = (off + len + PAGE_SIZE - 1) >> PAGE_SHIFT;
++	err = get_user_pages_fast(from, npages, write, sgl->pages);
++	if (err < 0)
++		goto out;
++
++	npages = err;
++	err = -EINVAL;
++	if (WARN_ON(npages == 0))
++		goto out;
++
++	err = 0;
++
++	sg_init_table(sgl->sg, npages);
++
++	for (i = 0; i < npages; i++) {
++		int plen = min_t(int, len, PAGE_SIZE - off);
++
++		sg_set_page(sgl->sg + i, sgl->pages[i], plen, off);
++
++		off = 0;
++		len -= plen;
++		err += plen;
 +	}
 +
-+	memset(ctx->result, 0, ds);
++out:
++	return err;
++}
++EXPORT_SYMBOL_GPL(af_alg_make_sg);
 +
-+	ctx->len = len;
-+	ctx->more = 0;
-+	init_completion(&ctx->completion);
++void af_alg_free_sg(struct af_alg_sgl *sgl)
++{
++	int i;
 +
-+	ask->private = ctx;
++	i = 0;
++	do {
++		put_page(sgl->pages[i]);
++	} while (!sg_is_last(sgl->sg + (i++)));
++}
++EXPORT_SYMBOL_GPL(af_alg_free_sg);
 +
-+	ahash_request_set_tfm(&ctx->req, private);
-+	ahash_request_set_callback(&ctx->req, CRYPTO_TFM_REQ_MAY_BACKLOG,
-+				   hash_done, sk);
++int af_alg_cmsg_send(struct msghdr *msg, struct af_alg_control *con)
++{
++	struct cmsghdr *cmsg;
 +
-+	sk->sk_destruct = hash_sock_destruct;
++	for (cmsg = CMSG_FIRSTHDR(msg); cmsg; cmsg = CMSG_NXTHDR(msg, cmsg)) {
++		if (!CMSG_OK(msg, cmsg))
++			return -EINVAL;
++		if (cmsg->cmsg_level != SOL_ALG)
++			continue;
++
++		switch(cmsg->cmsg_type) {
++		case ALG_SET_IV:
++			if (cmsg->cmsg_len < sizeof(*con->iv))
++				return -EINVAL;
++			con->iv = (void *)CMSG_DATA(cmsg);
++			if (cmsg->cmsg_len < con->iv->ivlen +
++					     sizeof(con->iv->ivlen))
++				return -EINVAL;
++			break;
++
++		case ALG_SET_OP:
++			if (cmsg->cmsg_len < sizeof(u32))
++				return -EINVAL;
++			con->op = *(u32 *)CMSG_DATA(cmsg);
++			break;
++
++		default:
++			return -EINVAL;
++		}
++	}
 +
 +	return 0;
 +}
++EXPORT_SYMBOL_GPL(af_alg_cmsg_send);
 +
-+static const struct af_alg_type algif_type_hash = {
-+	.bind		=	hash_bind,
-+	.release	=	hash_release,
-+	.setkey		=	hash_setkey,
-+	.accept		=	hash_accept_parent,
-+	.ops		=	&algif_hash_ops,
-+	.name		=	"hash",
-+	.owner		=	THIS_MODULE
-+};
-+
-+static int __init algif_hash_init(void)
++static int __init af_alg_init(void)
 +{
-+	return af_alg_register_type(&algif_type_hash);
++	int err = proto_register(&alg_proto, 0);
++
++	if (err)
++		goto out;
++
++	err = sock_register(&alg_family);
++	if (err != 0)
++		goto out_unregister_proto;
++
++out:
++	return err;
++
++out_unregister_proto:
++	proto_unregister(&alg_proto);
++	goto out;
 +}
 +
-+static void __exit algif_hash_exit(void)
++static void __exit af_alg_exit(void)
 +{
-+	int err = af_alg_unregister_type(&algif_type_hash);
-+	BUG_ON(err);
++	sock_unregister(PF_ALG);
++	proto_unregister(&alg_proto);
 +}
 +
-+module_init(algif_hash_init);
-+module_exit(algif_hash_exit);
++module_init(af_alg_init);
++module_exit(af_alg_exit);
 +MODULE_LICENSE("GPL");
 +MODULE_ALIAS_NETPROTO(AF_ALG);
+diff --git a/include/crypto/if_alg.h b/include/crypto/if_alg.h
+new file mode 100644
+index 0000000..e303910
+--- /dev/null
++++ b/include/crypto/if_alg.h
+@@ -0,0 +1,75 @@
++/*
++ * if_alg: User-space algorithm interface
++ *
++ * Copyright (c) 2010 Herbert Xu <herbert@gondor.apana.org.au>
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License as published by the Free
++ * Software Foundation; either version 2 of the License, or (at your option)
++ * any later version.
++ *
++ */
++
++#ifndef _CRYPTO_IF_ALG_H
++#define _CRYPTO_IF_ALG_H
++
++#include <linux/compiler.h>
++#include <linux/if_alg.h>
++#include <linux/types.h>
++#include <net/sock.h>
++
++#define ALG_MAX_PAGES			16
++
++struct alg_sock {
++	/* struct sock must be the first member of struct alg_sock */
++	struct sock sk;
++
++	struct sock *parent;
++
++	const struct af_alg_type *type;
++	void *private;
++};
++
++struct af_alg_control {
++	struct af_alg_iv *iv;
++	int op;
++};
++
++struct af_alg_type {
++	void *(*bind)(const char *name, u32 type, u32 mask);
++	void (*release)(void *private);
++	int (*setkey)(void *private, const u8 *key, unsigned int keylen);
++	int (*accept)(void *private, struct sock *sk);
++
++	struct proto_ops *ops;
++	struct module *owner;
++	char name[14];
++};
++
++struct af_alg_sgl {
++	struct scatterlist sg[ALG_MAX_PAGES];
++	struct page *pages[ALG_MAX_PAGES];
++};
++
++int af_alg_register_type(const struct af_alg_type *type);
++int af_alg_unregister_type(const struct af_alg_type *type);
++
++int af_alg_release(struct socket *sock);
++int af_alg_accept(struct sock *sk, struct socket *newsock);
++
++int af_alg_make_sg(struct af_alg_sgl *sgl, void *addr, int len, int write);
++void af_alg_free_sg(struct af_alg_sgl *sgl);
++
++int af_alg_cmsg_send(struct msghdr *msg, struct af_alg_control *con);
++
++static inline struct alg_sock *alg_sk(struct sock *sk)
++{
++	return (struct alg_sock *)sk;
++}
++
++static inline void af_alg_release_parent(struct sock *sk)
++{
++	sock_put(alg_sk(sk)->parent);
++}
++
++#endif	/* _CRYPTO_IF_ALG_H */
+diff --git a/include/linux/if_alg.h b/include/linux/if_alg.h
+new file mode 100644
+index 0000000..0f9acce
+--- /dev/null
++++ b/include/linux/if_alg.h
+@@ -0,0 +1,40 @@
++/*
++ * if_alg: User-space algorithm interface
++ *
++ * Copyright (c) 2010 Herbert Xu <herbert@gondor.apana.org.au>
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License as published by the Free
++ * Software Foundation; either version 2 of the License, or (at your option)
++ * any later version.
++ *
++ */
++
++#ifndef _LINUX_IF_ALG_H
++#define _LINUX_IF_ALG_H
++
++#include <linux/types.h>
++
++struct sockaddr_alg {
++	__u16	salg_family;
++	__u8	salg_type[14];
++	__u32	salg_feat;
++	__u32	salg_mask;
++	__u8	salg_name[64];
++};
++
++struct af_alg_iv {
++	__u32	ivlen;
++	__u8	iv[0];
++};
++
++/* Socket options */
++#define ALG_SET_KEY			1
++#define ALG_SET_IV			2
++#define ALG_SET_OP			3
++
++/* Operations */
++#define ALG_OP_DECRYPT			0
++#define ALG_OP_ENCRYPT			1
++
++#endif	/* _LINUX_IF_ALG_H */
