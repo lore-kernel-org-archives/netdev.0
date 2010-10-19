@@ -1,46 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bnx2: Increase max rx ring size from 1K to 2K
-Date: Tue, 19 Oct 2010 01:14:34 -0700 (PDT)
-Message-ID: <20101019.011434.226774173.davem@davemloft.net>
-References: <1287448254-14173-1-git-send-email-mchan@broadcom.com>
+Subject: Re: Linux 2.6.35/TIPC 2.0 ABI breaking changes
+Date: Tue, 19 Oct 2010 01:16:49 -0700 (PDT)
+Message-ID: <20101019.011649.71113115.davem@davemloft.net>
+References: <4CBCD429.8090306@windriver.com>
+	<20101018234547.GA5703@hmsreliant.think-freely.org>
+	<20101019021657.GZ8781@llucax.com.ar>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andy@greyhouse.net, jfeeney@redhat.com, netdev@vger.kernel.org
-To: mchan@broadcom.com
+Cc: nhorman@tuxdriver.com, paul.gortmaker@windriver.com,
+	jon.maloy@ericsson.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, tipc-discussion@lists.sourceforge.net
+To: luca@llucax.com.ar
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58224
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46220
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933123Ab0JSIOL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Oct 2010 04:14:11 -0400
-In-Reply-To: <1287448254-14173-1-git-send-email-mchan@broadcom.com>
+	by vger.kernel.org with ESMTP id S932257Ab0JSIQ0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Oct 2010 04:16:26 -0400
+In-Reply-To: <20101019021657.GZ8781@llucax.com.ar>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Mon, 18 Oct 2010 17:30:54 -0700
+From: Leandro Lucarella <luca@llucax.com.ar>
+Date: Mon, 18 Oct 2010 23:16:57 -0300
 
-> A number of customers are reporting packet loss under certain workloads
-> (e.g. heavy bursts of small packets) with flow control disabled.  A larger
-> rx ring helps to prevent these losses.
 > 
-> No change in default rx ring size and memory consumption.
+> The problem is not between the tipc stacks in different hosts, is
+> between the tipc stack and the applications using it (well, maybe
+> there is a problem somewhere else too).
 > 
-> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
-> Acked-by: John Feeney <jfeeney@redhat.com>
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> This was a deliberate API change, not a subtle bug...
 
-I don't see how it's any better to queue things more deeply in
-hardware, compared to simply using hardware flow control since that's
-what it's for and makes the queuing happen in the networking stack of
-the sender, in software, which in the end performs better and gives
-better feedback to the source of the data.
-
-These huge RX queue sizes are absolutely rediculious, and I've
-complained about this before.
-
-And instead of seeing less of this, I keep seeing more of this stuff.
-Please exert some pushback on these folks who are doing such insane
-things.
+Neil et al., if these packets live only between the kernel stack
+and the userspace API layer, we should not be byte-swapping this
+stuff and we need to fix this fast.
 
 Thanks.
