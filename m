@@ -1,57 +1,35 @@
-From: Eduardo Blanco <ejblanco@google.com>
-Subject: [PATCH] Fixed race condition at ip_vs.ko module init.
-Date: Tue, 19 Oct 2010 10:26:47 +0100
-Message-ID: <AANLkTinVcSK0Dqx4Pkp1dZskR8YmkGYkkrSNgDqX6psW@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] 3c52x: remove IRQF_SAMPLE_RANDOM from legacy
+ MCA drivers.
+Date: Tue, 19 Oct 2010 02:32:27 -0700 (PDT)
+Message-ID: <20101019.023227.189701743.davem@davemloft.net>
+References: <1287102111-5482-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: paul.gortmaker@windriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50645
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752030Ab0JSJcF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Oct 2010 05:32:05 -0400
+In-Reply-To: <1287102111-5482-1-git-send-email-paul.gortmaker@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Lists were initialized after the module was registered.  Multiple ipvsadm
-processes at module load triggered a race condition that resulted in a null
-pointer dereference in do_ip_vs_get_ctl(). As a result, __ip_vs_mutex
-was left locked preventing all further ipvsadm commands.
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Date: Thu, 14 Oct 2010 20:21:51 -0400
 
-Signed-off-by: Eduardo J. Blanco <ejblanco@google.com>
----
- net/netfilter/ipvs/ip_vs_ctl.c |   19 ++++++++++---------
- 1 files changed, 10 insertions(+), 9 deletions(-)
+> If you are genuinely using one of these legacy MCA drivers
+> then you are tragically on hardware where you really don't
+> have the extra CPU cycles to be wasting on this.
+> 
+> In addition, it makes two less cases for people to inadvertently
+> blindly copy flags from without explicitly thinking whether it
+> makes sense -- see the addition to feature-removal.txt as per
+> commit 9d9b8fb0e5ebf4b0398e579f6061d4451fea3242.
+> 
+> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index 0f0c079..68624dc 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -3385,6 +3385,16 @@ int __init ip_vs_control_init(void)
-
- 	EnterFunction(2);
-
-+	/* Initialize ip_vs_svc_table, ip_vs_svc_fwm_table, ip_vs_rtable */
-+	for(idx = 0; idx < IP_VS_SVC_TAB_SIZE; idx++)  {
-+		INIT_LIST_HEAD(&ip_vs_svc_table[idx]);
-+		INIT_LIST_HEAD(&ip_vs_svc_fwm_table[idx]);
-+	}
-+	for(idx = 0; idx < IP_VS_RTAB_SIZE; idx++)  {
-+		INIT_LIST_HEAD(&ip_vs_rtable[idx]);
-+	}
-+	smp_wmb();
-+
- 	ret = nf_register_sockopt(&ip_vs_sockopts);
- 	if (ret) {
- 		pr_err("cannot register sockopt.\n");
-@@ -3403,15 +3413,6 @@ int __init ip_vs_control_init(void)
-
- 	sysctl_header = register_sysctl_paths(net_vs_ctl_path, vs_vars);
-
--	/* Initialize ip_vs_svc_table, ip_vs_svc_fwm_table, ip_vs_rtable */
--	for(idx = 0; idx < IP_VS_SVC_TAB_SIZE; idx++)  {
--		INIT_LIST_HEAD(&ip_vs_svc_table[idx]);
--		INIT_LIST_HEAD(&ip_vs_svc_fwm_table[idx]);
--	}
--	for(idx = 0; idx < IP_VS_RTAB_SIZE; idx++)  {
--		INIT_LIST_HEAD(&ip_vs_rtable[idx]);
--	}
+Applied, thank you.
