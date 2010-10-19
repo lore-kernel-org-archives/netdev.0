@@ -1,75 +1,100 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [Ksummit-2010-discuss] [v2] Remaining BKL users, what to do
-Date: Tue, 19 Oct 2010 15:26:01 +0200
-Message-ID: <201010191526.01887.arnd@arndb.de>
-References: <201009161632.59210.arnd@arndb.de> <AANLkTi=oAeuz8ZxcOMpf=3MVY=WMt0BwHiGCUxO7OAEV@mail.gmail.com> <201010190926.54635.arnd@arndb.de>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: Linux 2.6.35/TIPC 2.0 ABI breaking changes
+Date: Tue, 19 Oct 2010 09:28:44 -0400
+Message-ID: <20101019132844.GB14410@hmsreliant.think-freely.org>
+References: <4CBCD429.8090306@windriver.com>
+	<20101018234547.GA5703@hmsreliant.think-freely.org>
+	<20101019021657.GZ8781@llucax.com.ar>
+	<20101019.011649.71113115.davem@davemloft.net>
+	<20101019110452.GA14410@hmsreliant.think-freely.org>
+	<20101019131936.GB8781@llucax.com.ar>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Theodore Kilgore <kilgota@banach.math.auburn.edu>,
-	Steven Rostedt <rostedt@goodmis.org>, Greg KH <greg@kroah.com>,
-	codalist@telemann.coda.cs.cmu.edu, autofs@linux.kernel.org,
-	Samuel Ortiz <samuel@sortiz.org>, Jan Kara <jack@suse.cz>,
-	Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>,
-	Jan Harkes <jaharkes@cs.cmu.edu>, netdev@vger.kernel.org,
-	Anders Larsen <al@alarsen.net>, linux-kernel@vger.kernel.org,
-	dri-devel@lists.freedesktop.org,
-	Bryan Schumaker <bjschuma@netapp.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	ksummit-2010-discuss@lists.linux-foundation.org,
-	Petr Vandrovec <vandrove@vc.cvut.cz>,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	linux-fsdevel@vger.kernel.org,
-	Evgeniy Dushistov <dushistov@mail.ru>,
-	Ingo Molnar <mingo@elte.hu>,
-	Andrew Hendry <andrew.hendry@gmail.com>,
-	linux-media@vger.kernel.org
-To: Dave Airlie <airlied@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201010190926.54635.arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: jon.maloy@ericsson.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, paul.gortmaker@windriver.com,
+	tipc-discussion@lists.sourceforge.net, David Miller <davem@davemloft.net>
+To: Leandro Lucarella <luca@llucax.com.ar>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+Content-Disposition: inline
+In-Reply-To: <20101019131936.GB8781@llucax.com.ar>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 19 October 2010, Arnd Bergmann wrote:
-> On Tuesday 19 October 2010 06:52:32 Dave Airlie wrote:
-> > > I might be able to find some hardware still lying around here that uses an
-> > > i810. Not sure unless I go hunting it. But I get the impression that if
-> > > the kernel is a single-CPU kernel there is not any problem anyway? Don't
-> > > distros offer a non-smp kernel as an installation option in case the user
-> > > needs it? So in reality how big a problem is this?
-> > 
-> > Not anymore, which is my old point of making a fuss. Nowadays in the
-> > modern distro world, we supply a single kernel that can at runtime
-> > decide if its running on SMP or UP and rewrite the text section
-> > appropriately with locks etc. Its like magic, and something like
-> > marking drivers as BROKEN_ON_SMP at compile time is really wrong when
-> > what you want now is a runtime warning if someone tries to hotplug a
-> > CPU with a known iffy driver loaded or if someone tries to load the
-> > driver when we are already in SMP mode.
-> 
-> We could make the driver run-time non-SMP by adding
-> 
-> 	if (num_present_cpus() > 1) {
-> 		pr_err("i810 no longer supports SMP\n");
-> 		return -EINVAL;
-> 	}
-> 
-> to the init function. That would cover the vast majority of the
-> users of i810 hardware, I guess.
+On Tue, Oct 19, 2010 at 10:19:36AM -0300, Leandro Lucarella wrote:
+> Neil Horman, el 19 de octubre a las 07:04 me escribiste:
+> > On Tue, Oct 19, 2010 at 01:16:49AM -0700, David Miller wrote:
+> > > From: Leandro Lucarella <luca@llucax.com.ar>
+> > > Date: Mon, 18 Oct 2010 23:16:57 -0300
+> > > =
 
-Some research showed that Intel never support i810/i815 SMP setups,
-but there was indeed one company (http://www.acorpusa.com at the time,
-now owned by a domain squatter) that made i815E based dual Pentium-III
-boards like this one: http://cgi.ebay.com/280319795096
+> > > > =
 
-The first person that can send me an authentic log file showing the
-use of X.org with DRM on a 2.6.35 kernel with two processors on that
-mainboard dated today or earlier gets a free upgrade to an AGP graphics
-card of comparable or better 3D performance from me. Please include
-the story how why you are running this machine with a new kernel.
+> > > > The problem is not between the tipc stacks in different hosts, is
+> > > > between the tipc stack and the applications using it (well, maybe
+> > > > there is a problem somewhere else too).
+> > > > =
 
-i830 is harder, apparently some i865G boards support Pentium 4 with HT
-and even later dual-core processors.
+> > > > This was a deliberate API change, not a subtle bug...
+> > > =
 
-	Arnd
+> > > Neil et al., if these packets live only between the kernel stack
+> > > and the userspace API layer, we should not be byte-swapping this
+> > > stuff and we need to fix this fast.
+> > > =
+
+> > Copy that Dave.  I think I see the problem.  The subscription code hand=
+les
+> > messages both off the wire and from local user space.  The off the wire=
+ case
+> > should work because the subscription code assumes that all the incommin=
+g data is
+> > in network byte order, but user space is an exception to that rule as i=
+ts in
+> > local byte order.  I'll have a patch together for Leandro to test soon.
+> > Neil
+> =
+
+> Thank you very much. Bare in mind that the byte order is just one of the
+> problems, the other problem is the change in the value of
+> TIPC_SUB_SERVICE from 2 to 0. That too is breaking the API/ABI, as
+> a message with a filter value of 2 is rejected by TIPC 2.0/2.6.35+.
+> =
+
+Yeah, that was the format change.  We might just need to revert that.  Lets=
+ see
+about getting the endianess issue straight, and we'll go from there.
+Neil
+
+> -- =
+
+> Leandro Lucarella (AKA luca)                     http://llucax.com.ar/
+> ----------------------------------------------------------------------
+> GPG Key: 5F5A8D05 (F8CD F9A7 BF00 5431 4145  104C 949E BFB6 5F5A 8D05)
+> ----------------------------------------------------------------------
+> Dentro de 30 a=F1os Argentina va a ser un gran supermercado con 15
+> changuitos, porque esa va a ser la cantidad de gente que va a poder
+> comprar algo.
+> 	-- Sidharta Wiki
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> =
+
+
+---------------------------------------------------------------------------=
+---
+Download new Adobe(R) Flash(R) Builder(TM) 4
+The new Adobe(R) Flex(R) 4 and Flash(R) Builder(TM) 4 (formerly =
+
+Flex(R) Builder(TM)) enable the development of rich applications that run
+across multiple browsers and platforms. Download your free trials today!
+http://p.sf.net/sfu/adobe-dev2dev
