@@ -1,100 +1,152 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: Linux 2.6.35/TIPC 2.0 ABI breaking changes
-Date: Tue, 19 Oct 2010 09:28:44 -0400
-Message-ID: <20101019132844.GB14410@hmsreliant.think-freely.org>
-References: <4CBCD429.8090306@windriver.com>
-	<20101018234547.GA5703@hmsreliant.think-freely.org>
-	<20101019021657.GZ8781@llucax.com.ar>
-	<20101019.011649.71113115.davem@davemloft.net>
-	<20101019110452.GA14410@hmsreliant.think-freely.org>
-	<20101019131936.GB8781@llucax.com.ar>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: RFC: Crypto API User-interface
+Date: Tue, 19 Oct 2010 21:44:18 +0800
+Message-ID: <20101019134418.GA13514@gondor.apana.org.au>
+References: <20100907084213.GA4610@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: jon.maloy@ericsson.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, paul.gortmaker@windriver.com,
-	tipc-discussion@lists.sourceforge.net, David Miller <davem@davemloft.net>
-To: Leandro Lucarella <luca@llucax.com.ar>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+Content-Type: text/plain; charset=us-ascii
+To: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+	netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Return-path: <linux-crypto-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20101019131936.GB8781@llucax.com.ar>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+In-Reply-To: <20100907084213.GA4610@gondor.apana.org.au>
+Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 19, 2010 at 10:19:36AM -0300, Leandro Lucarella wrote:
-> Neil Horman, el 19 de octubre a las 07:04 me escribiste:
-> > On Tue, Oct 19, 2010 at 01:16:49AM -0700, David Miller wrote:
-> > > From: Leandro Lucarella <luca@llucax.com.ar>
-> > > Date: Mon, 18 Oct 2010 23:16:57 -0300
-> > > =
+On Tue, Sep 07, 2010 at 04:42:13PM +0800, Herbert Xu wrote:
+> 
+> This is what I am proposing for the Crypto API user-interface.
+> 
+> Note that this is the interface for operations.  There will be
+> a separate interface (most likely netlink) for configuring crypto
+> algorithms, e.g., picking a specific AES implementation as the
+> system default.
 
-> > > > =
+OK I've gone ahead and implemented the user-space API for hashes
+and ciphers.
 
-> > > > The problem is not between the tipc stacks in different hosts, is
-> > > > between the tipc stack and the applications using it (well, maybe
-> > > > there is a problem somewhere else too).
-> > > > =
+To recap this interface is designed to allow user-space programs
+to access hardware cryptographic accelerators that we have added
+to the kernel.
 
-> > > > This was a deliberate API change, not a subtle bug...
-> > > =
+The intended usage scenario is where a large amount of data needs
+to be processed where the benefits offered by hardware acceleration
+that is normally unavailable in user-space (as opposed to ones
+such as the Intel AES instruction which may be used directly from
+user-space) outweigh the overhead of going through the kernel.
 
-> > > Neil et al., if these packets live only between the kernel stack
-> > > and the userspace API layer, we should not be byte-swapping this
-> > > stuff and we need to fix this fast.
-> > > =
+In order to further minimise the overhead in these cases, this
+interface offers the option of avoiding copying data between
+user-space and the kernel where possible and appropriate.  For
+ciphers this means the use of the splice(2) interface instead of
+sendmsg(2)
 
-> > Copy that Dave.  I think I see the problem.  The subscription code hand=
-les
-> > messages both off the wire and from local user space.  The off the wire=
- case
-> > should work because the subscription code assumes that all the incommin=
-g data is
-> > in network byte order, but user space is an exception to that rule as i=
-ts in
-> > local byte order.  I'll have a patch together for Leandro to test soon.
-> > Neil
-> =
+Here is a sample hash program (note that these only illustrate
+what the interface looks like and are not meant to be good examples
+of coding :)
 
-> Thank you very much. Bare in mind that the byte order is just one of the
-> problems, the other problem is the change in the value of
-> TIPC_SUB_SERVICE from 2 to 0. That too is breaking the API/ABI, as
-> a message with a filter value of 2 is rejected by TIPC 2.0/2.6.35+.
-> =
+int main(void)
+{
+	int opfd;
+	int tfmfd;
+	struct sockaddr_alg sa = {
+		.salg_family = AF_ALG,
+		.salg_type = "hash",
+		.salg_name = "sha1"
+	};
+	char buf[20];
+	int i;
 
-Yeah, that was the format change.  We might just need to revert that.  Lets=
- see
-about getting the endianess issue straight, and we'll go from there.
-Neil
+	tfmfd = socket(AF_ALG, SOCK_SEQPACKET, 0);
 
-> -- =
+	bind(tfmfd, (struct sockaddr *)&sa, sizeof(sa));
 
-> Leandro Lucarella (AKA luca)                     http://llucax.com.ar/
-> ----------------------------------------------------------------------
-> GPG Key: 5F5A8D05 (F8CD F9A7 BF00 5431 4145  104C 949E BFB6 5F5A 8D05)
-> ----------------------------------------------------------------------
-> Dentro de 30 a=F1os Argentina va a ser un gran supermercado con 15
-> changuitos, porque esa va a ser la cantidad de gente que va a poder
-> comprar algo.
-> 	-- Sidharta Wiki
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> =
+	opfd = accept(tfmfd, NULL, 0);
 
+	write(opfd, "abc", 3);
+	read(opfd, buf, 20);
 
----------------------------------------------------------------------------=
----
-Download new Adobe(R) Flash(R) Builder(TM) 4
-The new Adobe(R) Flex(R) 4 and Flash(R) Builder(TM) 4 (formerly =
+	for (i = 0; i < 20; i++) {
+		printf("%02x", (unsigned char)buf[i]);
+	}
+	printf("\n");
 
-Flex(R) Builder(TM)) enable the development of rich applications that run
-across multiple browsers and platforms. Download your free trials today!
-http://p.sf.net/sfu/adobe-dev2dev
+	close(opfd);
+	close(tfmfd);
+
+	return 0;
+}
+
+And here is one for ciphers:
+
+int main(void)
+{
+	int opfd;
+	int tfmfd;
+	struct sockaddr_alg sa = {
+		.salg_family = AF_ALG,
+		.salg_type = "skcipher",
+		.salg_name = "cbc(aes)"
+	};
+	struct msghdr msg = {};
+	struct cmsghdr *cmsg;
+	char cbuf[CMSG_SPACE(4) + CMSG_SPACE(20)];
+	char buf[16];
+	struct af_alg_iv *iv;
+	struct iovec iov;
+	int i;
+
+	tfmfd = socket(AF_ALG, SOCK_SEQPACKET, 0);
+
+	bind(tfmfd, (struct sockaddr *)&sa, sizeof(sa));
+
+	setsockopt(tfmfd, SOL_ALG, ALG_SET_KEY,
+		   "\x06\xa9\x21\x40\x36\xb8\xa1\x5b"
+		   "\x51\x2e\x03\xd5\x34\x12\x00\x06", 16);
+
+	opfd = accept(tfmfd, NULL, 0);
+
+	msg.msg_control = cbuf;
+	msg.msg_controllen = sizeof(cbuf);
+
+	cmsg = CMSG_FIRSTHDR(&msg);
+	cmsg->cmsg_level = SOL_ALG;
+	cmsg->cmsg_type = ALG_SET_OP;
+	cmsg->cmsg_len = CMSG_LEN(4);
+	*(__u32 *)CMSG_DATA(cmsg) = ALG_OP_ENCRYPT;
+
+	cmsg = CMSG_NXTHDR(&msg, cmsg);
+	cmsg->cmsg_level = SOL_ALG;
+	cmsg->cmsg_type = ALG_SET_IV;
+	cmsg->cmsg_len = CMSG_LEN(20);
+	iv = (void *)CMSG_DATA(cmsg);
+	iv->ivlen = 16;
+	memcpy(iv->iv, "\x3d\xaf\xba\x42\x9d\x9e\xb4\x30"
+		       "\xb4\x22\xda\x80\x2c\x9f\xac\x41", 16);
+
+	iov.iov_base = "Single block msg";
+	iov.iov_len = 16;
+
+	msg.msg_iov = &iov;
+	msg.msg_iovlen = 1;
+
+	sendmsg(opfd, &msg, 0);
+	read(opfd, buf, 16);
+
+	for (i = 0; i < 16; i++) {
+		printf("%02x", (unsigned char)buf[i]);
+	}
+	printf("\n");
+
+	close(opfd);
+	close(tfmfd);
+
+	return 0;
+}
+
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
