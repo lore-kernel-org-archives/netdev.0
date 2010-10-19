@@ -1,16 +1,16 @@
 From: nhorman@tuxdriver.com
-Subject: [PATCH 2/2] Revert napi_poll fix for bonding driver
-Date: Tue, 19 Oct 2010 13:04:26 -0400
-Message-ID: <1287507866-25156-3-git-send-email-nhorman@tuxdriver.com>
+Subject: [PATCH 1/2] Remove netpoll blocking from uninit path
+Date: Tue, 19 Oct 2010 13:04:25 -0400
+Message-ID: <1287507866-25156-2-git-send-email-nhorman@tuxdriver.com>
 References: <1287507866-25156-1-git-send-email-nhorman@tuxdriver.com>
 Cc: bonding-devel@lists.sourceforge.net, fubar@us.ibm.com,
 	davem@davemloft.net, andy@greyhouse.net, amwang@redhat.com,
 	nhorman@tuxdriver.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:59539 "EHLO
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:59537 "EHLO
 	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756077Ab0JSRE7 (ORCPT
+	with ESMTP id S1754172Ab0JSRE7 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 19 Oct 2010 13:04:59 -0400
 In-Reply-To: <1287507866-25156-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,42 +18,84 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Neil Horman <nhorman@tuxdriver.com>
 
-In an erlier patch I modified napi_poll so that devices with IFF_MASTER polled
-the per_cpu list instead of the device list for napi.  I did this because the
-bonding driver has no napi instances to poll, it instead expects to check the
-slave devices napi instances, which napi_poll was unaware of.  Looking at this
-more closely however, I now see this isn't strictly needed.  As the bond driver
-poll_controller calls the slaves poll_controller via netpoll_poll_dev, which
-recursively calls poll_napi on each slave, allowing those napi instances to get
-serviced.  The earlier patch isn't at all harmfull, its just not needed, so lets
-revert it to make the code cleaner.  Sorry for the noise,
+Some recent testing in netpoll with bonding showed this backtrace
+
+ ------------[ cut here ]------------
+ kernel BUG at drivers/net/bonding/bonding.h:134!
+ invalid opcode: 0000 [#1] SMP
+ last sysfs file: /sys/devices/pci0000:00/0000:00:1d.2/usb7/devnum
+ CPU 0
+ Pid: 1876, comm: rmmod Not tainted 2.6.36-rc3+ #10 D26928/
+ RIP: 0010:[<ffffffffa0514ba4>]  [<ffffffffa0514ba4>] bond_uninit+0x6f4/0x7a0
+ RSP: 0018:ffff88003b1b5d58  EFLAGS: 00010296
+ RAX: ffff88003b9b6200 RBX: ffff8800373e8e00 RCX: 00000000000f4240
+ RDX: 00000000ffffffff RSI: 0000000000000286 RDI: 0000000000000286
+ RBP: ffff88003b1b5dc8 R08: 0000000000000000 R09: 00000001af7de920
+ R10: 0000000000000000 R11: ffff880002495e98 R12: ffff880037922700
+ R13: ffff880038c31000 R14: ffff880037922730 R15: 0000000000000286
+ FS:  00007f90e6d72700(0000) GS:ffff880002400000(0000) knlGS:0000000000000000
+ CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+ CR2: 000000346f0d9ad0 CR3: 000000003b263000 CR4: 00000000000006f0
+ DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+ DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+ Process rmmod (pid: 1876, threadinfo ffff88003b1b4000, task ffff88003b36aa80)
+ Stack:
+ 00000000ffffffff ffff88003b1b5d7a ffff8800379221e8 ffff880037922000
+ <0> ffff88003b1b5dc8 ffffffff813eb5fb ffff88003b1b5da8 0000000031b177a3
+ <0> ffff88003b1b5da8 ffff880037922000 ffff88003b1b5e48 ffff88003b1b5e48
+ Call Trace:
+ [<ffffffff813eb5fb>] ? rtmsg_ifinfo+0xcb/0xf0
+ [<ffffffff813daad8>] rollback_registered_many+0x168/0x280
+ [<ffffffff813dac09>] unregister_netdevice_many+0x19/0x80
+ [<ffffffff813e97b3>] __rtnl_kill_links+0x63/0x90
+ [<ffffffff813e980b>] __rtnl_link_unregister+0x2b/0x60
+ [<ffffffff813e9bde>] rtnl_link_unregister+0x1e/0x30
+ [<ffffffffa052124b>] bonding_exit+0x37/0x51 [bonding]
+ [<ffffffff81098b2e>] sys_delete_module+0x19e/0x270
+ [<ffffffff810bb2b2>] ? audit_syscall_entry+0x252/0x280
+ [<ffffffff8100b0b2>] system_call_fastpath+0x16/0x1b
+ RIP  [<ffffffffa0514ba4>] bond_uninit+0x6f4/0x7a0 [bonding]
+ RSP <ffff88003b1b5d58>
+ ---[ end trace 1395ad691cea24d1 ]---
+
+It occurs because of my recent netpoll blocking patches, which I added to avoid
+recursive deadlock in the bonding driver.  It relies on some per cpu bits, but
+the shutdown path forces some rescheduling as we cancel workqueues for the
+driver and wait for some device refcounts.  If after the forced reschedule, we
+wind up on a different cpu we trigger the bughalt in unblock_netpoll_tx.
+
+The fix is to remove the netpoll block/unblock calls from bond_release_all.
+This is safe to do because bond_uninit, which is called via ndo_uninit in
+rollback_registered_many, doesn't occur until we send a NETDEV_UNREGISTER event,
+which triggers netconsole to remove us as a netpoll client, so we are guaranteed
+not to recurse into our own tx path here.
 
 Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 ---
- net/core/netpoll.c |    9 +--------
- 1 files changed, 1 insertions(+), 8 deletions(-)
+ drivers/net/bonding/bond_main.c |    3 ---
+ 1 files changed, 0 insertions(+), 3 deletions(-)
 
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index d79d221..4e98ffa 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -156,15 +156,8 @@ static void poll_napi(struct net_device *dev)
- {
- 	struct napi_struct *napi;
- 	int budget = 16;
--	struct softnet_data *sd = &__get_cpu_var(softnet_data);
--	struct list_head *nlist;
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 38d4ca0..99cb891 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -2082,7 +2082,6 @@ static int bond_release_all(struct net_device *bond_dev)
+ 	struct net_device *slave_dev;
+ 	struct sockaddr addr;
  
--	if (dev->flags & IFF_MASTER)
--		nlist = &sd->poll_list;
--	else
--		nlist = &dev->napi_list;
+-	block_netpoll_tx();
+ 	write_lock_bh(&bond->lock);
+ 
+ 	netif_carrier_off(bond_dev);
+@@ -2181,8 +2180,6 @@ static int bond_release_all(struct net_device *bond_dev)
+ 
+ out:
+ 	write_unlock_bh(&bond->lock);
+-	unblock_netpoll_tx();
 -
--	list_for_each_entry(napi, nlist, dev_list) {
-+	list_for_each_entry(napi, &dev->napi_list, dev_list) {
- 		if (napi->poll_owner != smp_processor_id() &&
- 		    spin_trylock(&napi->poll_lock)) {
- 			budget = poll_one_napi(dev->npinfo, napi, budget);
+ 	return 0;
+ }
+ 
 -- 
 1.7.2.3
 
