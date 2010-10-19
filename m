@@ -1,35 +1,78 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [GIT PULL net-2.6] vhost-net: access_ok fix
-Date: Tue, 19 Oct 2010 16:59:01 +0200
-Message-ID: <20101019145901.GA16025@redhat.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH] Fixed race condition at ip_vs.ko module init.
+Date: Tue, 19 Oct 2010 17:23:11 +0200
+Message-ID: <20101019152311.GJ6193@verge.net.au>
+References: <AANLkTinVcSK0Dqx4Pkp1dZskR8YmkGYkkrSNgDqX6psW@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>, Patrick McHardy <kaber@trash.net>
+To: Eduardo Blanco <ejblanco@google.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <AANLkTinVcSK0Dqx4Pkp1dZskR8YmkGYkkrSNgDqX6psW@mail.gmail.com>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David,
-Not sure if it's too late for 2.6.36 - in case it's not, the following tree
-includes a last minute bugfix for vhost-net, found by code inspection.
-It is on top of net-2.6.
-Thanks!
+On Tue, Oct 19, 2010 at 10:26:47AM +0100, Eduardo Blanco wrote:
+> Lists were initialized after the module was registered.  Multiple ipvsadm
+> processes at module load triggered a race condition that resulted in a null
+> pointer dereference in do_ip_vs_get_ctl(). As a result, __ip_vs_mutex
+> was left locked preventing all further ipvsadm commands.
+> 
+> Signed-off-by: Eduardo J. Blanco <ejblanco@google.com>
 
-The following changes since commit b0057c51db66c5f0f38059f242c57d61c4741d89:
+Thanks Eduardo.
 
-  tg3: restore rx_dropped accounting (2010-10-11 16:06:24 -0700)
+Patrick, please consider pulling
 
-are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git vhost-net
+git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-test-2.6.git for-patrick
 
-Dan Carpenter (1):
-      vhost: fix return code for log_access_ok()
+to get this change.
 
- drivers/vhost/vhost.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
--- 
-MST
+> ---
+>  net/netfilter/ipvs/ip_vs_ctl.c |   19 ++++++++++---------
+>  1 files changed, 10 insertions(+), 9 deletions(-)
+> 
+> diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+> index 0f0c079..68624dc 100644
+> --- a/net/netfilter/ipvs/ip_vs_ctl.c
+> +++ b/net/netfilter/ipvs/ip_vs_ctl.c
+> @@ -3385,6 +3385,16 @@ int __init ip_vs_control_init(void)
+> 
+>  	EnterFunction(2);
+> 
+> +	/* Initialize ip_vs_svc_table, ip_vs_svc_fwm_table, ip_vs_rtable */
+> +	for(idx = 0; idx < IP_VS_SVC_TAB_SIZE; idx++)  {
+> +		INIT_LIST_HEAD(&ip_vs_svc_table[idx]);
+> +		INIT_LIST_HEAD(&ip_vs_svc_fwm_table[idx]);
+> +	}
+> +	for(idx = 0; idx < IP_VS_RTAB_SIZE; idx++)  {
+> +		INIT_LIST_HEAD(&ip_vs_rtable[idx]);
+> +	}
+> +	smp_wmb();
+> +
+>  	ret = nf_register_sockopt(&ip_vs_sockopts);
+>  	if (ret) {
+>  		pr_err("cannot register sockopt.\n");
+> @@ -3403,15 +3413,6 @@ int __init ip_vs_control_init(void)
+> 
+>  	sysctl_header = register_sysctl_paths(net_vs_ctl_path, vs_vars);
+> 
+> -	/* Initialize ip_vs_svc_table, ip_vs_svc_fwm_table, ip_vs_rtable */
+> -	for(idx = 0; idx < IP_VS_SVC_TAB_SIZE; idx++)  {
+> -		INIT_LIST_HEAD(&ip_vs_svc_table[idx]);
+> -		INIT_LIST_HEAD(&ip_vs_svc_fwm_table[idx]);
+> -	}
+> -	for(idx = 0; idx < IP_VS_RTAB_SIZE; idx++)  {
+> -		INIT_LIST_HEAD(&ip_vs_rtable[idx]);
+> -	}
+> -
+>  	ip_vs_new_estimator(&ip_vs_stats);
+> 
+>  	/* Hook the defense timer */
+> -- 
+> 1.7.1
+> 
