@@ -1,55 +1,63 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH net-next] socket: localize functions
-Date: Mon, 18 Oct 2010 17:27:29 -0700
-Message-ID: <20101018172729.68755c69@nehalam>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [Ksummit-2010-discuss] [v2] Remaining BKL users, what to do
+Date: Mon, 18 Oct 2010 17:40:04 -0700
+Message-ID: <20101019004004.GB28380@kroah.com>
+References: <201009161632.59210.arnd@arndb.de> <201010181742.06678.arnd@arndb.de> <20101018184346.GD27089@kroah.com> <AANLkTin2KPNNXvwcWphhM-5qexB14FS7M7ezkCCYCZ2H@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:49981 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755656Ab0JSA1b (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Oct 2010 20:27:31 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Arnd Bergmann <arnd@arndb.de>, codalist@telemann.coda.cs.cmu.edu,
+	ksummit-2010-discuss@lists.linux-foundation.org,
+	autofs@linux.kernel.org, Jan Harkes <jaharkes@cs.cmu.edu>,
+	Samuel Ortiz <samuel@sortiz.org>, Jan Kara <jack@suse.cz>,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	netdev@vger.kernel.org, Anders Larsen <al@alarsen.net>,
+	linux-kernel@vger.kernel.org, dri-devel@lists.freedesktop.org,
+	Bryan Schumaker <bjschuma@netapp.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Petr Vandrovec <vandrove@vc.cvut.cz>,
+	Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>,
+	linux-fsdevel@vger.kernel.org,
+	Evgeniy Dushistov <dushistov@mail.ru>,
+	Ingo Molnar <mingo@elte.hu>,
+	Andrew Hendry <andrew.hendry@gmail.com>,
+	linux-media@vger.kernel.org
+To: Dave Airlie <airlied@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <AANLkTin2KPNNXvwcWphhM-5qexB14FS7M7ezkCCYCZ2H@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-A couple of functions in socket.c are only used there and
-should be localized.
+On Tue, Oct 19, 2010 at 09:00:09AM +1000, Dave Airlie wrote:
+> On Tue, Oct 19, 2010 at 4:43 AM, Greg KH <greg@kroah.com> wrote:
+> > On Mon, Oct 18, 2010 at 05:42:06PM +0200, Arnd Bergmann wrote:
+> >>
+> >> Out of the remaining modules, I guess i810/i830, adfs, hpfs and ufs might end
+> >> up not getting fixed at all, we can either mark them non-SMP or move them
+> >> to drivers/staging once all the others are done.
+> >
+> > I recommend moving them to staging, and then retire them from there if
+> > no one steps up to maintain them.
+> 
+> I think this sets a bad precedent, these drivers work fine. Removing
+> BKL from them is hard, and involves finding and booting hw that
+> developers don't have much time/interest in at the moment. Anyone who
+> has access to the i810 hw and has time to work out the locking has
+> more important things to be doing with modern hw, however it doesn't
+> mean we should just drop support for old drivers because they don't
+> have active maintainers. Removing the BKL from the kernel is a great
+> goal, but breaking userspace ABI by removing drivers isn't.
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Should we just restrict such drivers to only be able to build on UP
+machines with preempt disabled so that the BKL could be safely removed
+from them?
 
---- a/include/linux/socket.h	2010-10-18 17:06:18.455644277 -0700
-+++ b/include/linux/socket.h	2010-10-18 17:06:26.763083909 -0700
-@@ -326,7 +326,6 @@ extern long verify_iovec(struct msghdr *
- extern int memcpy_toiovec(struct iovec *v, unsigned char *kdata, int len);
- extern int memcpy_toiovecend(const struct iovec *v, unsigned char *kdata,
- 			     int offset, int len);
--extern int move_addr_to_user(struct sockaddr *kaddr, int klen, void __user *uaddr, int __user *ulen);
- extern int move_addr_to_kernel(void __user *uaddr, int ulen, struct sockaddr *kaddr);
- extern int put_cmsg(struct msghdr*, int level, int type, int len, void *data);
- 
---- a/net/socket.c	2010-10-18 17:06:18.475642930 -0700
-+++ b/net/socket.c	2010-10-18 17:12:53.001522923 -0700
-@@ -209,8 +209,8 @@ int move_addr_to_kernel(void __user *uad
-  *	specified. Zero is returned for a success.
-  */
- 
--int move_addr_to_user(struct sockaddr *kaddr, int klen, void __user *uaddr,
--		      int __user *ulen)
-+static int move_addr_to_user(struct sockaddr *kaddr, int klen,
-+			     void __user *uaddr, int __user *ulen)
- {
- 	int err;
- 	int len;
-@@ -661,7 +661,8 @@ void __sock_recv_timestamp(struct msghdr
- }
- EXPORT_SYMBOL_GPL(__sock_recv_timestamp);
- 
--inline void sock_recv_drops(struct msghdr *msg, struct sock *sk, struct sk_buff *skb)
-+static inline void sock_recv_drops(struct msghdr *msg, struct sock *sk,
-+				   struct sk_buff *skb)
- {
- 	if (sock_flag(sk, SOCK_RXQ_OVFL) && skb && skb->dropcount)
- 		put_cmsg(msg, SOL_SOCKET, SO_RXQ_OVFL,
+Or what other idea do you have as to what could be done here?
+
+I do have access to this hardware, but its on an old single processor
+laptop, so any work that it would take to help do this development,
+really wouldn't be able to be tested to be valid at all.
+
+thanks,
+
+greg k-h
