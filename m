@@ -1,106 +1,50 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH] gianfar: Fix crashes on RX path (Was Re: [Bugme-new] [Bug
-	19692] New: linux-2.6.36-rc5 crash with gianfar ethernet at full
-	line rate traffic)
-Date: Tue, 19 Oct 2010 10:06:36 +0000
-Message-ID: <20101019100636.GA9246@ff.dom.local>
-References: <20101010103236.GA1919@del.dom.local> <20101015085853.GA8091@ff.dom.local> <AANLkTinAj=9-RqNA6xKc_5ONz2hPMRGM8uJ2Xy7XJVdr@mail.gmail.com> <20101016194815.GA1894@del.dom.local> <AANLkTi=08Myz1=XOHkGJWTdyC8vK+y+zf0UQhjxUi=qC@mail.gmail.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: openvswitch/flow WAS ( Re: [rfc] Merging the Open vSwitch
+ datapath
+Date: Tue, 19 Oct 2010 06:22:48 -0400
+Message-ID: <1287483768.26671.2.camel@bigi>
+References: <20100830062755.GA22396@verge.net.au>
+	 <87k4n8ow1r.fsf@benpfaff.org> <1287142292.3642.19.camel@bigi>
+	 <AANLkTim2LsFUOVSVss6HqGTxuyGH6eBKQdYabjMoWiaB@mail.gmail.com>
+	 <1287228959.3664.72.camel@bigi>
+	 <AANLkTin-zmQdMC_nRvgRr5KdWQvee5xga5sjOfRN2McN@mail.gmail.com>
+	 <1287404217.3664.182.camel@bigi>  <20101018152010.GE319@verge.net.au>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: emin ak <eminak71@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org,
-	Anton Vorontsov <avorontsov@mvista.com>,
-	Andy Fleming <afleming@freescale.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Jesse Gross <jesse@nicira.com>, Ben Pfaff <blp@nicira.com>,
+	netdev@vger.kernel.org, ovs-team@nicira.com
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:55241 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933868Ab0JSKGo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Oct 2010 06:06:44 -0400
-Received: by bwz10 with SMTP id 10so131483bwz.19
-        for <netdev@vger.kernel.org>; Tue, 19 Oct 2010 03:06:42 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <AANLkTi=08Myz1=XOHkGJWTdyC8vK+y+zf0UQhjxUi=qC@mail.gmail.com>
+Received: from mail-gx0-f174.google.com ([209.85.161.174]:44112 "EHLO
+	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754337Ab0JSKWw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Oct 2010 06:22:52 -0400
+Received: by gxk21 with SMTP id 21so603665gxk.19
+        for <netdev@vger.kernel.org>; Tue, 19 Oct 2010 03:22:52 -0700 (PDT)
+In-Reply-To: <20101018152010.GE319@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 19, 2010 at 09:44:33AM +0300, emin ak wrote:
-> Hi Jarek;
-> After 5 days and more then 20 billion packets passed without crash, it
-> seems that this patch is working for me, at least for crash type 2.
-> (For type 1, it only occured once and I can never reproduce this
-> again, but still trying. I think with this patch is also lowers the
-> risk for type 1.
+On Mon, 2010-10-18 at 17:20 +0200, Simon Horman wrote:
 
-It would be interesting to have a look if it's exactly type 1, because
-skb_over_panic can happen for different reasons, e.g. like here:
-http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=63b88b9041ceef8217f34de71a2e96f0c3f0fd3b
+> As I understand things, the packet goes from the kernel to userspace
+> and then (typically) comes back again.
 
-> For adding a new bug entry for skb_over_panic, before that I think I
-> must find a reliable way to make this type of crash reproducable,
-> otherwise I don't know how to test it if it solved or not.
+Injection back is trivial.
 
-Maybe for now let's try to get and see this type 1 again? Since the
-recycle path is suspicious a bit to me, probably limiting memory or
-slowing tx (maybe different mtus on eth0 and 1) under heavy multi cpu
-load might help.
+> I guess that it would be possible to send a copy of the headers
+> to user-sapce while the packet is quarantined in the kernel pending
+> a response from user-space. I say only the headers, as typically
+> that is all user-space needs to make a decision, though I guess it
+> may need the body to make some types of decisions. I have no idea
+> if such a scheme would be desirable in any circumstances.
 
-> Lastly, thanks a lot for your valuable help to overcome this problem
-> and also is there anything that I can do  for testing / commiting this
-> patch to mainline?
+quarantine the packet in the kernel would be trickier than sending the
+whole thing up - for a sample of how it is done i believe the netfilter
+approach (ipq?) as well as ipsec would be good samples to look at.
 
-Here it is for David to handle the rest.
+cheers,
+jamal
 
-Thanks a lot for such an intense testing,
-Jarek P.
---------------------------->
-
-The rx_recycle queue is global per device but can be accesed by many
-napi handlers at the same time, so it needs full skb_queue primitives
-(with locking). Otherwise, various crashes caused by broken skbs are
-possible.
-
-This patch resolves, at least partly, bugzilla bug 19692. (Because of
-some doubts that there could be still something around which is hard
-to reproduce my proposal is to leave this bug opened for a month.)
-
-Fixes commit: 0fd56bb5be6455d0d42241e65aed057244665e5e
-
-Reported-by: emin ak <eminak71@gmail.com>
-Tested-by: emin ak <eminak71@gmail.com>
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
-CC: Andy Fleming <afleming@freescale.com>
----
-diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
-index 4f7c3f3..db47b55 100644
---- a/drivers/net/gianfar.c
-+++ b/drivers/net/gianfar.c
-@@ -2515,7 +2515,7 @@ static int gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue)
- 				skb_recycle_check(skb, priv->rx_buffer_size +
- 					RXBUF_ALIGNMENT)) {
- 			gfar_align_skb(skb);
--			__skb_queue_head(&priv->rx_recycle, skb);
-+			skb_queue_head(&priv->rx_recycle, skb);
- 		} else
- 			dev_kfree_skb_any(skb);
- 
-@@ -2598,7 +2598,7 @@ struct sk_buff * gfar_new_skb(struct net_device *dev)
- 	struct gfar_private *priv = netdev_priv(dev);
- 	struct sk_buff *skb = NULL;
- 
--	skb = __skb_dequeue(&priv->rx_recycle);
-+	skb = skb_dequeue(&priv->rx_recycle);
- 	if (!skb)
- 		skb = gfar_alloc_skb(dev);
- 
-@@ -2754,7 +2754,7 @@ int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit)
- 			if (unlikely(!newskb))
- 				newskb = skb;
- 			else if (skb)
--				__skb_queue_head(&priv->rx_recycle, skb);
-+				skb_queue_head(&priv->rx_recycle, skb);
- 		} else {
- 			/* Increment the number of packets */
- 			rx_queue->stats.rx_packets++;
