@@ -1,33 +1,32 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH net-next-2.6 v2] can: tscan1: add driver for TS-CAN1 boards
-Date: Tue, 19 Oct 2010 10:05:21 +0200
-Message-ID: <4CBD5141.3040303@grandegger.com>
-References: <1287474447-2049-1-git-send-email-anbadeol@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] bonding: various fixes for bonding, netpoll &
+ netconsole (v3)
+Date: Tue, 19 Oct 2010 01:06:42 -0700 (PDT)
+Message-ID: <20101019.010642.193703612.davem@davemloft.net>
+References: <1287021713-1750-1-git-send-email-nhorman@tuxdriver.com>
+	<20101018.082529.115920035.davem@davemloft.net>
+	<4CBD2AE7.9010302@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "Andre B. Oliveira" <anbadeol-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <1287474447-2049-1-git-send-email-anbadeol-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org,
+	bonding-devel@lists.sourceforge.net, fubar@us.ibm.com,
+	andy@greyhouse.net
+To: amwang@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36004
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933847Ab0JSIGU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Oct 2010 04:06:20 -0400
+In-Reply-To: <4CBD2AE7.9010302@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/19/2010 09:47 AM, Andre B. Oliveira wrote:
-> Add driver for Technologic Systems TS-CAN1 PC104 peripheral boards.
-> 
-> Signed-off-by: Andre B. Oliveira <anbadeol-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+From: Cong Wang <amwang@redhat.com>
+Date: Tue, 19 Oct 2010 13:21:43 +0800
 
-Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+> Which tree do you apply this patchset to? I checked both net-2.6
+> and net-next-2.6, neither of them has these patches.
 
-Thanks for your contribution.
-
-Wolfgang.
+net-next-2.6, but I didn't push it out until just now so that
+I could do build testing first...
