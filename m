@@ -1,40 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH 0/7] Move vlan acceleration into networking core.
-Date: Tue, 19 Oct 2010 02:50:39 -0700 (PDT)
-Message-ID: <20101019.025039.112595275.davem@davemloft.net>
-References: <1287000177-7126-1-git-send-email-jesse@nicira.com>
+From: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Subject: Re: [patch v5 04/12] IPVS: Add struct ip_vs_conn_param, IPv6 forgotten No
+Date: Tue, 19 Oct 2010 11:56:43 +0200
+Message-ID: <201010191156.44757.hans.schillstrom@ericsson.com>
+References: <20101004134624.963907470@akiko.akashicho.tokyo.vergenet.net> <20101004134825.963640441@akiko.akashicho.tokyo.vergenet.net> <201010191141.22496.hans.schillstrom@ericsson.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jesse@nicira.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47807
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752498Ab0JSJuQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Oct 2010 05:50:16 -0400
-In-Reply-To: <1287000177-7126-1-git-send-email-jesse@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "lvs-devel@vger.kernel.org" <lvs-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"netfilter@vger.kernel.org" <netfilter@vger.kernel.org>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	Jan Engelhardt <jengelh@medozas.de>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>, Patrick McHardy <kaber@trash.net>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <201010191141.22496.hans.schillstrom@ericsson.com>
+Content-Disposition: inline
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jesse Gross <jesse@nicira.com>
-Date: Wed, 13 Oct 2010 13:02:50 -0700
+Hi Simon
+I'm sorry it's not a bug it works perfectly OK.
+(I didn't see that it was a pointer, It was another bug in my test code...)
+so forget about the last mail
 
-> Hardware vlan acceleration behaves fairly differently from other
-> types of offloading, which limits its usefulness.  This patch series
-> aims to bring it more in line with other common forms of
-> acceleration, such as checksum offloading and TSO.  In doing this it
-> eliminates common driver bugs, increases flexibility, and improves
-> performance, while reducing the number of lines of code.
-> 
-> The first four patches can be applied immediately, while the last
-> three need to wait until all drivers that support vlan acceleration
-> are updated.  If people agree that this patch set makes sense I will
-> go ahead and switch over the dozen or so drivers that would need to
-> change.
+On Tuesday 19 October 2010 11:41:21 Hans Schillstrom wrote:
+> Hi Simon,
+> There is a show stopper for IPv6 in this patch.
+> ip_vs_conn_fill_param() doesn't handle IPv6.
+>
+> On Monday 04 October 2010 15:46:28 Simon Horman wrote:
+> > Signed-off-by: Simon Horman <horms@verge.net.au>
+> > Acked-by: Julian Anastasov <ja@ssi.bg>
+> >
+> > ---
+> >
+> > The motivation for this is to allow persistence engine modules to
+> > fill in the parameters.
 
-These changes look great (and everyone I've asked tends to agree)
-so please submit the updated series with feedback integrated
-and I'll add at least the first 4 patches to net-next-2.6
 
-Thanks!
+--
+Regards
+Hans Schillstrom <hans.schillstrom@ericsson.com>
