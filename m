@@ -1,79 +1,59 @@
-From: Cyril Chemparathy <cyril@ti.com>
-Subject: Re: [patch 1/1] phy/marvell: fix 88e1121 support
-Date: Tue, 19 Oct 2010 06:52:14 -0400
-Message-ID: <4CBD785E.8040704@ti.com>
-References: <20101018214401.053486146@rtp-net.org> <20101018214414.375368957@rtp-net.org> <4CBCC3FC.2030506@ti.com> <20101018222947.418028323@rtp-net.org> <20101018223056.716357140@rtp-net.org>
-Reply-To: cyril@ti.com
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: Linux 2.6.35/TIPC 2.0 ABI breaking changes
+Date: Tue, 19 Oct 2010 07:04:52 -0400
+Message-ID: <20101019110452.GA14410@hmsreliant.think-freely.org>
+References: <4CBCD429.8090306@windriver.com>
+	<20101018234547.GA5703@hmsreliant.think-freely.org>
+	<20101019021657.GZ8781@llucax.com.ar>
+	<20101019.011649.71113115.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Arnaud Patard <arnaud.patard@rtp-net.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:47901 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753467Ab0JSKw3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Oct 2010 06:52:29 -0400
-In-Reply-To: <20101018223056.716357140@rtp-net.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jon.maloy@ericsson.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, luca@llucax.com.ar,
+	paul.gortmaker@windriver.com, tipc-discussion@lists.sourceforge.net
+To: David Miller <davem@davemloft.net>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+Content-Disposition: inline
+In-Reply-To: <20101019.011649.71113115.davem@davemloft.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Hi Arnaud,
-
-On 10/18/2010 06:29 PM, Arnaud Patard wrote:
-> Commit c477d0447db08068a497e7beb892b2b2a7bff64b added support for RGMII
-> rx/tx delays except that it ends up clearing rx/tx delays bit for modes
-> differents that RGMII*ID. Due to this, ethernet is not working anymore
-> on my guruplug server +. This patch is fixing that.
+On Tue, Oct 19, 2010 at 01:16:49AM -0700, David Miller wrote:
+> From: Leandro Lucarella <luca@llucax.com.ar>
+> Date: Mon, 18 Oct 2010 23:16:57 -0300
 > 
-> Signed-off-by: Arnaud Patard <arnaud.patard@rtp-net.org>
-> Index: linux-2.6/drivers/net/phy/marvell.c
-> ===================================================================
-> --- linux-2.6.orig/drivers/net/phy/marvell.c	2010-10-18 22:46:09.000000000 +0200
-> +++ linux-2.6/drivers/net/phy/marvell.c	2010-10-19 00:20:22.000000000 +0200
-> @@ -196,20 +196,27 @@
->  			MII_88E1121_PHY_MSCR_PAGE);
->  	if (err < 0)
->  		return err;
-> -	mscr = phy_read(phydev, MII_88E1121_PHY_MSCR_REG) &
-> -		MII_88E1121_PHY_MSCR_DELAY_MASK;
->  
-> -	if (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID)
-> -		mscr |= (MII_88E1121_PHY_MSCR_RX_DELAY |
-> -			 MII_88E1121_PHY_MSCR_TX_DELAY);
-> -	else if (phydev->interface == PHY_INTERFACE_MODE_RGMII_RXID)
-> -		mscr |= MII_88E1121_PHY_MSCR_RX_DELAY;
-> -	else if (phydev->interface == PHY_INTERFACE_MODE_RGMII_TXID)
-> -		mscr |= MII_88E1121_PHY_MSCR_TX_DELAY;
-> +	if ((phydev->interface == PHY_INTERFACE_MODE_RGMII) ||
-> +	    (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID) ||
-> +	    (phydev->interface == PHY_INTERFACE_MODE_RGMII_RXID) ||
-> +	    (phydev->interface == PHY_INTERFACE_MODE_RGMII_TXID)) {
->  
-> -	err = phy_write(phydev, MII_88E1121_PHY_MSCR_REG, mscr);
-> -	if (err < 0)
-> -		return err;
-> +		mscr = phy_read(phydev, MII_88E1121_PHY_MSCR_REG) &
-> +			MII_88E1121_PHY_MSCR_DELAY_MASK;
-> +
-> +		if (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID)
-> +			mscr |= (MII_88E1121_PHY_MSCR_RX_DELAY |
-> +				 MII_88E1121_PHY_MSCR_TX_DELAY);
-> +		else if (phydev->interface == PHY_INTERFACE_MODE_RGMII_RXID)
-> +			mscr |= MII_88E1121_PHY_MSCR_RX_DELAY;
-> +		else if (phydev->interface == PHY_INTERFACE_MODE_RGMII_TXID)
-> +			mscr |= MII_88E1121_PHY_MSCR_TX_DELAY;
-> +
-> +		err = phy_write(phydev, MII_88E1121_PHY_MSCR_REG, mscr);
-> +		if (err < 0)
-> +			return err;
-> +	}
->  
->  	phy_write(phydev, MII_88E1121_PHY_PAGE, oldpage);
+> > 
+> > The problem is not between the tipc stacks in different hosts, is
+> > between the tipc stack and the applications using it (well, maybe
+> > there is a problem somewhere else too).
+> > 
+> > This was a deliberate API change, not a subtle bug...
+> 
+> Neil et al., if these packets live only between the kernel stack
+> and the userspace API layer, we should not be byte-swapping this
+> stuff and we need to fix this fast.
+> 
+Copy that Dave.  I think I see the problem.  The subscription code handles
+messages both off the wire and from local user space.  The off the wire case
+should work because the subscription code assumes that all the incomming data is
+in network byte order, but user space is an exception to that rule as its in
+local byte order.  I'll have a patch together for Leandro to test soon.
+Neil
 
-That looks more correct.  Just out of curiosity, what is the interface
-mode on your platform?
+> Thanks.
+> 
 
-Thanks
-Cyril.
+------------------------------------------------------------------------------
+Download new Adobe(R) Flash(R) Builder(TM) 4
+The new Adobe(R) Flex(R) 4 and Flash(R) Builder(TM) 4 (formerly 
+Flex(R) Builder(TM)) enable the development of rich applications that run
+across multiple browsers and platforms. Download your free trials today!
+http://p.sf.net/sfu/adobe-dev2dev
