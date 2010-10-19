@@ -1,48 +1,46 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH] net: unix: make some variables constant
-Date: Tue, 19 Oct 2010 14:03:31 +0800
-Message-ID: <AANLkTi=e6ZCGNN2ZTYZ3RZ2_XtX=W74-RSNYOo7+gRk4@mail.gmail.com>
-References: <1287465842-2958-1-git-send-email-xiaosuo@gmail.com> <1287467263.2775.2.camel@edumazet-laptop>
+From: Amit Salecha <amit.salecha@qlogic.com>
+Subject: RE: [PATCH net-next] netxen: make local function static.
+Date: Tue, 19 Oct 2010 01:36:13 -0500
+Message-ID: <99737F4847ED0A48AECC9F4A1974A4B80F871A7C62@MNEXMB2.qlogic.org>
+References: <20101018204010.1dc01291@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Narender Kumar <narender.kumar@qlogic.com>,
+	Rajesh Borundia <rajesh.borundia@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:41577 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751105Ab0JSGDy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Oct 2010 02:03:54 -0400
-Received: by wwj40 with SMTP id 40so748276wwj.1
-        for <netdev@vger.kernel.org>; Mon, 18 Oct 2010 23:03:53 -0700 (PDT)
-In-Reply-To: <1287467263.2775.2.camel@edumazet-laptop>
+Received: from avexcashub1.qlogic.com ([198.70.193.61]:13165 "EHLO
+	avexcashub1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933073Ab0JSGgS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Oct 2010 02:36:18 -0400
+In-Reply-To: <20101018204010.1dc01291@nehalam>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 19, 2010 at 1:47 PM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
-> Le mardi 19 octobre 2010 =E0 13:24 +0800, Changli Gao a =E9crit :
->> And since ctl_table.data is initialized later, we don't need to init=
-ialize
->> the data member of the template variable unix_table.
->>
->
-> The init cost is nothing, since its a data blob that must be there
-> anyway.
 
-Yes. I have tried to avoid global variable unix_table and unix_path,
-then I got a bigger kernel image, so I gave it up.
 
->
-> We could even avoid the kmemdup() if CONFIG_NET_NS is not set
->
->
+> -----Original Message-----
+> From: Stephen Hemminger [mailto:shemminger@vyatta.com]
+> Sent: Tuesday, October 19, 2010 9:10 AM
+> To: Amit Salecha; David S. Miller; Narender Kumar; Rajesh Borundia
+> Cc: netdev@vger.kernel.org
+> Subject: [PATCH net-next] netxen: make local function static.
+> 
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> 
+> ---
+>  drivers/net/netxen/netxen_nic.h      |   18 +-----------------
+>  drivers/net/netxen/netxen_nic_hw.c   |   29 +++++++++++---------------
+> ---
+>  drivers/net/netxen/netxen_nic_main.c |    6 ++++--
+>  3 files changed, 16 insertions(+), 37 deletions(-)
+> 
 
-It is a good idea. We can check if the NS is init_net before kmalloc an=
-d kfree.
+Thanks for this. I always run sparse tool before submitting patches, but I never got warning about this.
 
-I'll send a update patch later. Thanks.
-
---=20
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+-Amit
