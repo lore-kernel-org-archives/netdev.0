@@ -1,46 +1,48 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
+From: Changli Gao <xiaosuo@gmail.com>
 Subject: Re: [PATCH] net: unix: make some variables constant
-Date: Mon, 18 Oct 2010 23:03:22 -0700
-Message-ID: <20101018230322.490ac710@nehalam>
-References: <1287465842-2958-1-git-send-email-xiaosuo@gmail.com>
+Date: Tue, 19 Oct 2010 14:03:31 +0800
+Message-ID: <AANLkTi=e6ZCGNN2ZTYZ3RZ2_XtX=W74-RSNYOo7+gRk4@mail.gmail.com>
+References: <1287465842-2958-1-git-send-email-xiaosuo@gmail.com> <1287467263.2775.2.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:47637 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750840Ab0JSGDY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Oct 2010 02:03:24 -0400
-In-Reply-To: <1287465842-2958-1-git-send-email-xiaosuo@gmail.com>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:41577 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751105Ab0JSGDy convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Oct 2010 02:03:54 -0400
+Received: by wwj40 with SMTP id 40so748276wwj.1
+        for <netdev@vger.kernel.org>; Mon, 18 Oct 2010 23:03:53 -0700 (PDT)
+In-Reply-To: <1287467263.2775.2.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 19 Oct 2010 13:24:02 +0800
-Changli Gao <xiaosuo@gmail.com> wrote:
+On Tue, Oct 19, 2010 at 1:47 PM, Eric Dumazet <eric.dumazet@gmail.com> =
+wrote:
+> Le mardi 19 octobre 2010 =E0 13:24 +0800, Changli Gao a =E9crit :
+>> And since ctl_table.data is initialized later, we don't need to init=
+ialize
+>> the data member of the template variable unix_table.
+>>
+>
+> The init cost is nothing, since its a data blob that must be there
+> anyway.
 
-> And since ctl_table.data is initialized later, we don't need to initialize
-> the data member of the template variable unix_table.
-> 
-> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-> ---
->  net/unix/sysctl_net_unix.c |    5 ++---
->  1 file changed, 2 insertions(+), 3 deletions(-)
-> diff --git a/net/unix/sysctl_net_unix.c b/net/unix/sysctl_net_unix.c
-> index 397cffe..1114ccc 100644
-> --- a/net/unix/sysctl_net_unix.c
-> +++ b/net/unix/sysctl_net_unix.c
-> @@ -15,10 +15,9 @@
->  
->  #include <net/af_unix.h>
->  
-> -static ctl_table unix_table[] = {
-> +const static ctl_table unix_table[] = {
+Yes. I have tried to avoid global variable unix_table and unix_path,
+then I got a bigger kernel image, so I gave it up.
 
-Typical convention is "static const" rather than "const static"
+>
+> We could even avoid the kmemdup() if CONFIG_NET_NS is not set
+>
+>
 
-git grep 'const static' | wc -l  => 5
-git grep 'static const' | wc -l  => 18589
+It is a good idea. We can check if the NS is init_net before kmalloc an=
+d kfree.
 
--- 
+I'll send a update patch later. Thanks.
+
+--=20
+Regards,
+Changli Gao(xiaosuo@gmail.com)
