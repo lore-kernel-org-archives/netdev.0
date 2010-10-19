@@ -1,39 +1,66 @@
-From: Alexander Stein <alexander.stein-93q1YBGzJSMe9JSWTWOYM3xStJ4P+DSV@public.gmane.org>
-Subject: Re: [PATCH V3 net-next] can-raw: add msg_flags to distinguish local
-	traffic
-Date: Tue, 19 Oct 2010 12:28:07 +0200
-Message-ID: <201010191228.10914.alexander.stein@systec-electronic.com>
-References: <20101019090247.GB334@e-circ.dyndns.org>
-	<201010191113.46999.alexander.stein@systec-electronic.com>
-	<20101019095703.GA436@e-circ.dyndns.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next 1/2] net: avoid a dev refcount in ip_mc_find_dev()
+Date: Tue, 19 Oct 2010 12:39:18 +0200
+Message-ID: <1287484758.2676.73.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-To: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <20101019095703.GA436-MxZ6Iy/zr/UdbCeoMzGj59i2O/JbrIOy@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:37288 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752030Ab0JSKjY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Oct 2010 06:39:24 -0400
+Received: by wyb28 with SMTP id 28so2328789wyb.19
+        for <netdev@vger.kernel.org>; Tue, 19 Oct 2010 03:39:23 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 19 October 2010, 11:57:03 Kurt Van Dijck wrote:
-> On Tue, Oct 19, 2010 at 11:12:56AM +0200, Alexander Stein wrote:
-> > You mixed tabs and spaces at MSG_CONFIRM entry. Dunno if that was
-> > intended.
-> 
-> That was not intended.
-> Is that a problem (I never studied the code style wrt. Documentation)?
+We hold RTNL in ip_mc_find_dev(), no need to touch device refcount.
 
-Dunno if this is a problem, I just stumbled over it.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/ipv4/fib_frontend.c |    2 +-
+ net/ipv4/igmp.c         |    4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-Regards,
-Alexander
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index 3df057e..36e27c2 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -153,7 +153,7 @@ static void fib_flush(struct net *net)
+  * @addr: the source address
+  * @devref: if true, take a reference on the found device
+  *
+- * If a caller uses devref=false, it should be protected by RCU
++ * If a caller uses devref=false, it should be protected by RCU, or RTNL
+  */
+ struct net_device *__ip_dev_find(struct net *net, __be32 addr, bool devref)
+ {
+diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
+index 25f3396..a525328 100644
+--- a/net/ipv4/igmp.c
++++ b/net/ipv4/igmp.c
+@@ -1418,6 +1418,7 @@ void ip_mc_destroy_dev(struct in_device *in_dev)
+ 	write_unlock_bh(&in_dev->mc_list_lock);
+ }
+ 
++/* RTNL is locked */
+ static struct in_device *ip_mc_find_dev(struct net *net, struct ip_mreqn *imr)
+ {
+ 	struct flowi fl = { .nl_u = { .ip4_u =
+@@ -1433,10 +1434,9 @@ static struct in_device *ip_mc_find_dev(struct net *net, struct ip_mreqn *imr)
+ 		return idev;
+ 	}
+ 	if (imr->imr_address.s_addr) {
+-		dev = ip_dev_find(net, imr->imr_address.s_addr);
++		dev = __ip_dev_find(net, imr->imr_address.s_addr, false);
+ 		if (!dev)
+ 			return NULL;
+-		dev_put(dev);
+ 	}
+ 
+ 	if (!dev && !ip_route_output_key(net, &rt, &fl)) {
+
+
