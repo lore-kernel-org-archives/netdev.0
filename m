@@ -1,46 +1,37 @@
-From: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Subject: Re: [patch v5 04/12] IPVS: Add struct ip_vs_conn_param, IPv6 forgotten No
-Date: Tue, 19 Oct 2010 11:56:43 +0200
-Message-ID: <201010191156.44757.hans.schillstrom@ericsson.com>
-References: <20101004134624.963907470@akiko.akashicho.tokyo.vergenet.net> <20101004134825.963640441@akiko.akashicho.tokyo.vergenet.net> <201010191141.22496.hans.schillstrom@ericsson.com>
+From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
+Subject: Re: [PATCH V3 net-next] can-raw: add msg_flags to distinguish
+	local traffic
+Date: Tue, 19 Oct 2010 11:57:03 +0200
+Message-ID: <20101019095703.GA436@e-circ.dyndns.org>
+References: <20101019090247.GB334@e-circ.dyndns.org>
+	<201010191113.46999.alexander.stein@systec-electronic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "lvs-devel@vger.kernel.org" <lvs-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"netfilter@vger.kernel.org" <netfilter@vger.kernel.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	Jan Engelhardt <jengelh@medozas.de>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>, Patrick McHardy <kaber@trash.net>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <201010191141.22496.hans.schillstrom@ericsson.com>
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+To: Alexander Stein <alexander.stein-93q1YBGzJSMe9JSWTWOYM3xStJ4P+DSV@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
 Content-Disposition: inline
-Sender: netfilter-devel-owner@vger.kernel.org
+In-Reply-To: <201010191113.46999.alexander.stein-93q1YBGzJSMe9JSWTWOYM3xStJ4P+DSV@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Simon
-I'm sorry it's not a bug it works perfectly OK.
-(I didn't see that it was a pointer, It was another bug in my test code...)
-so forget about the last mail
+On Tue, Oct 19, 2010 at 11:12:56AM +0200, Alexander Stein wrote:
+> You mixed tabs and spaces at MSG_CONFIRM entry. Dunno if that was intended.
+That was not intended.
+Is that a problem (I never studied the code style wrt. Documentation)?
+> 
+> Regards,
+> Alexander
 
-On Tuesday 19 October 2010 11:41:21 Hans Schillstrom wrote:
-> Hi Simon,
-> There is a show stopper for IPv6 in this patch.
-> ip_vs_conn_fill_param() doesn't handle IPv6.
->
-> On Monday 04 October 2010 15:46:28 Simon Horman wrote:
-> > Signed-off-by: Simon Horman <horms@verge.net.au>
-> > Acked-by: Julian Anastasov <ja@ssi.bg>
-> >
-> > ---
-> >
-> > The motivation for this is to allow persistence engine modules to
-> > fill in the parameters.
-
-
---
-Regards
-Hans Schillstrom <hans.schillstrom@ericsson.com>
+Thanks,
+Kurt
