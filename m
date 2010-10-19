@@ -1,42 +1,60 @@
-From: emin ak <eminak71@gmail.com>
-Subject: Re: [Bugme-new] [Bug 19692] New: linux-2.6.36-rc5 crash with gianfar
- ethernet at full line rate traffic
-Date: Tue, 19 Oct 2010 09:44:33 +0300
-Message-ID: <AANLkTi=08Myz1=XOHkGJWTdyC8vK+y+zf0UQhjxUi=qC@mail.gmail.com>
-References: <20101010103236.GA1919@del.dom.local>
-	<20101015085853.GA8091@ff.dom.local>
-	<AANLkTinAj=9-RqNA6xKc_5ONz2hPMRGM8uJ2Xy7XJVdr@mail.gmail.com>
-	<20101016194815.GA1894@del.dom.local>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [Ksummit-2010-discuss] [v2] Remaining BKL users, what to do
+Date: Tue, 19 Oct 2010 09:26:54 +0200
+Message-ID: <201010190926.54635.arnd@arndb.de>
+References: <201009161632.59210.arnd@arndb.de> <alpine.LNX.2.00.1010182342120.31740@banach.math.auburn.edu> <AANLkTi=oAeuz8ZxcOMpf=3MVY=WMt0BwHiGCUxO7OAEV@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org,
-	Anton Vorontsov <avorontsov@mvista.com>
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:63348 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756113Ab0JSGok (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Oct 2010 02:44:40 -0400
-Received: by vws2 with SMTP id 2so1142729vws.19
-        for <netdev@vger.kernel.org>; Mon, 18 Oct 2010 23:44:39 -0700 (PDT)
-In-Reply-To: <20101016194815.GA1894@del.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Theodore Kilgore <kilgota@banach.math.auburn.edu>,
+	Steven Rostedt <rostedt@goodmis.org>, Greg KH <greg@kroah.com>,
+	codalist@telemann.coda.cs.cmu.edu, autofs@linux.kernel.org,
+	Samuel Ortiz <samuel@sortiz.org>, Jan Kara <jack@suse.cz>,
+	Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>,
+	Jan Harkes <jaharkes@cs.cmu.edu>, netdev@vger.kernel.org,
+	Anders Larsen <al@alarsen.net>, linux-kernel@vger.kernel.org,
+	dri-devel@lists.freedesktop.org,
+	Bryan Schumaker <bjschuma@netapp.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	ksummit-2010-discuss@lists.linux-foundation.org,
+	Petr Vandrovec <vandrove@vc.cvut.cz>,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	linux-fsdevel@vger.kernel.org,
+	Evgeniy Dushistov <dushistov@mail.ru>,
+	Ingo Molnar <mingo@elte.hu>,
+	Andrew Hendry <andrew.hendry@gmail.com>,
+	linux-media@vger.kernel.org
+To: Dave Airlie <airlied@gmail.com>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <AANLkTi=oAeuz8ZxcOMpf=3MVY=WMt0BwHiGCUxO7OAEV@mail.gmail.com>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Jarek;
-After 5 days and more then 20 billion packets passed without crash, it
-seems that this patch is working for me, at least for crash type 2.
-(For type 1, it only occured once and I can never reproduce this
-again, but still trying. I think with this patch is also lowers the
-risk for type 1.
-For adding a new bug entry for skb_over_panic, before that I think I
-must find a reliable way to make this type of crash reproducable,
-otherwise I don't know how to test it if it solved or not.
-Lastly, thanks a lot for your valuable help to overcome this problem
-and also is there anything that I can do  for testing / commiting this
-patch to mainline?
+On Tuesday 19 October 2010 06:52:32 Dave Airlie wrote:
+> > I might be able to find some hardware still lying around here that uses an
+> > i810. Not sure unless I go hunting it. But I get the impression that if
+> > the kernel is a single-CPU kernel there is not any problem anyway? Don't
+> > distros offer a non-smp kernel as an installation option in case the user
+> > needs it? So in reality how big a problem is this?
+> 
+> Not anymore, which is my old point of making a fuss. Nowadays in the
+> modern distro world, we supply a single kernel that can at runtime
+> decide if its running on SMP or UP and rewrite the text section
+> appropriately with locks etc. Its like magic, and something like
+> marking drivers as BROKEN_ON_SMP at compile time is really wrong when
+> what you want now is a runtime warning if someone tries to hotplug a
+> CPU with a known iffy driver loaded or if someone tries to load the
+> driver when we are already in SMP mode.
 
-Thanks
-Emin
+We could make the driver run-time non-SMP by adding
+
+	if (num_present_cpus() > 1) {
+		pr_err("i810 no longer supports SMP\n");
+		return -EINVAL;
+	}
+
+to the init function. That would cover the vast majority of the
+users of i810 hardware, I guess.
+
+	Arnd
