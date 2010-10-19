@@ -1,101 +1,49 @@
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: [net-next 2/3] bnx2x: prevent false parity error in MSI-X
- memory of HC block
-Date: Tue, 19 Oct 2010 17:13:09 +0200
-Message-ID: <1287501189.740.42.camel@lb-tlvb-dmitry>
+From: Bernard Metzler <BMT-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>
+Subject: Re: [PATCH] SIW: Documentation (initial)
+Date: Tue, 19 Oct 2010 17:36:05 +0200
+Message-ID: <OF1E46C86F.75091985-ONC12577C1.0054327F-C12577C1.0055B3DD@ch.ibm.com>
+References: <20101014155703.3d4b5d71.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "Vladislav Zolotarov" <vladz@broadcom.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1282 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753312Ab0JSPaZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Oct 2010 11:30:25 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Randy Dunlap <randy.dunlap-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20101014155703.3d4b5d71.randy.dunlap-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Vladislav Zolotarov <vladz@broadcom.com>
+Randy,
 
-Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
-Signed-off-by: Vladislav Zolotarov <vladz@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/bnx2x/bnx2x_main.c |   28 +++++++++++++++++++++++++++-
- drivers/net/bnx2x/bnx2x_reg.h  |    6 +++++-
- 2 files changed, 32 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/bnx2x/bnx2x_main.c b/drivers/net/bnx2x/bnx2x_main.c
-index 3f49b55..f22e283 100644
---- a/drivers/net/bnx2x/bnx2x_main.c
-+++ b/drivers/net/bnx2x/bnx2x_main.c
-@@ -5457,7 +5457,8 @@ static int bnx2x_init_hw_func(struct bnx2x *bp)
- 	struct bnx2x_ilt *ilt = BP_ILT(bp);
- 	u16 cdu_ilt_start;
- 	u32 addr, val;
--	int i;
-+	u32 main_mem_base, main_mem_size, main_mem_prty_clr;
-+	int i, main_mem_width;
- 
- 	DP(BNX2X_MSG_MCP, "starting func init  func %d\n", func);
- 
-@@ -5706,6 +5707,31 @@ static int bnx2x_init_hw_func(struct bnx2x *bp)
- 	bnx2x_init_block(bp, MCP_BLOCK, FUNC0_STAGE + func);
- 	bnx2x_init_block(bp, DMAE_BLOCK, FUNC0_STAGE + func);
- 
-+	if (CHIP_IS_E1x(bp)) {
-+		main_mem_size = HC_REG_MAIN_MEMORY_SIZE / 2; /*dwords*/
-+		main_mem_base = HC_REG_MAIN_MEMORY +
-+				BP_PORT(bp) * (main_mem_size * 4);
-+		main_mem_prty_clr = HC_REG_HC_PRTY_STS_CLR;
-+		main_mem_width = 8;
-+
-+		val = REG_RD(bp, main_mem_prty_clr);
-+		if (val)
-+			DP(BNX2X_MSG_MCP, "Hmmm... Parity errors in HC "
-+					  "block during "
-+					  "function init (0x%x)!\n", val);
-+
-+		/* Clear "false" parity errors in MSI-X table */
-+		for (i = main_mem_base;
-+		     i < main_mem_base + main_mem_size * 4;
-+		     i += main_mem_width) {
-+			bnx2x_read_dmae(bp, i, main_mem_width / 4);
-+			bnx2x_write_dmae(bp, bnx2x_sp_mapping(bp, wb_data),
-+					 i, main_mem_width / 4);
-+		}
-+		/* Clear HC parity attention */
-+		REG_RD(bp, main_mem_prty_clr);
-+	}
-+
- 	bnx2x_phy_probe(&bp->link_params);
- 
- 	return 0;
-diff --git a/drivers/net/bnx2x/bnx2x_reg.h b/drivers/net/bnx2x/bnx2x_reg.h
-index 18a8628..1cefe48 100644
---- a/drivers/net/bnx2x/bnx2x_reg.h
-+++ b/drivers/net/bnx2x/bnx2x_reg.h
-@@ -800,9 +800,13 @@
- #define HC_REG_HC_PRTY_MASK					 0x1080a0
- /* [R 3] Parity register #0 read */
- #define HC_REG_HC_PRTY_STS					 0x108094
--#define HC_REG_INT_MASK 					 0x108108
-+/* [RC 3] Parity register #0 read clear */
-+#define HC_REG_HC_PRTY_STS_CLR					 0x108098
-+#define HC_REG_INT_MASK						 0x108108
- #define HC_REG_LEADING_EDGE_0					 0x108040
- #define HC_REG_LEADING_EDGE_1					 0x108048
-+#define HC_REG_MAIN_MEMORY					 0x108800
-+#define HC_REG_MAIN_MEMORY_SIZE					 152
- #define HC_REG_P0_PROD_CONS					 0x108200
- #define HC_REG_P1_PROD_CONS					 0x108400
- #define HC_REG_PBA_COMMAND					 0x108140
--- 
-1.7.1
+...back from vacation.
+Many thanks! I'll take it all over.
 
 
+Bernard.
+
+Randy Dunlap <randy.dunlap-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org> wrote on 10/15/2010 12:57:03 AM:
+
+<snip>
+
+> > +
+> > +User Interface
+> > +--------------
+> > +All fast path operations such as posting of work requests and
+> > +reaping of work completions currently involve a system call into
+> > +the siw module. Kernel/user-mapped send and receive as well as
+>
+> I didn't find the system call(s).  Are they new syscalls or just
+> (socket) reads/writes?  (I was probably looking for new syscalls.)
+>
+
+I will have to clarify. Currently all operations are using the
+infiniband/core infrastructure (e.g. via uverbs write file
+operation). There is no private interface between libsiw and
+siw kernel module in place.
 
 
+<snip>
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
