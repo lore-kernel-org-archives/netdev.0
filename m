@@ -1,43 +1,52 @@
-From: Bandan Das <bandan.das@stratus.com>
-Subject: Re: [PATCH] bridge: make br_parse_ip_options  static
-Date: Tue, 19 Oct 2010 07:22:34 -0400
-Message-ID: <20101019112234.GB12005@stratus.com>
-References: <20101018170321.2b0de4ea@nehalam>
+From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: [PATCH V3 net-next] can-raw: add msg_flags to distinguish local
+	traffic
+Date: Tue, 19 Oct 2010 13:33:19 +0200
+Message-ID: <4CBD81FF.5070004@hartkopp.net>
+References: <20101019090247.GB334@e-circ.dyndns.org>	<201010191113.46999.alexander.stein@systec-electronic.com>	<20101019095703.GA436@e-circ.dyndns.org>
+	<201010191228.10914.alexander.stein@systec-electronic.com>
+	<4CBD7DF8.4040204@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.stratus.com ([134.111.1.18]:52495 "EHLO
-	mailhub5.stratus.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758363Ab0JSLXW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Oct 2010 07:23:22 -0400
-Content-Disposition: inline
-In-Reply-To: <20101018170321.2b0de4ea@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+To: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4CBD7DF8.4040204-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On  0, Stephen Hemminger <shemminger@vyatta.com> wrote:
+On 19.10.2010 13:16, Wolfgang Grandegger wrote:
+> On 10/19/2010 12:28 PM, Alexander Stein wrote:
+>> On Tuesday 19 October 2010, 11:57:03 Kurt Van Dijck wrote:
+>>> On Tue, Oct 19, 2010 at 11:12:56AM +0200, Alexander Stein wrote:
+>>>> You mixed tabs and spaces at MSG_CONFIRM entry. Dunno if that was
+>>>> intended.
+>>>
+>>> That was not intended.
+>>> Is that a problem (I never studied the code style wrt. Documentation)?
+>>
+>> Dunno if this is a problem, I just stumbled over it.
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> 
-> --- a/net/bridge/br_netfilter.c	2010-10-18 17:01:36.903364885 -0700
-> +++ b/net/bridge/br_netfilter.c	2010-10-18 17:01:48.106569141 -0700
-> @@ -213,7 +213,7 @@ static inline void nf_bridge_update_prot
->   * expected format
->   */
->  
-> -int br_parse_ip_options(struct sk_buff *skb)
-> +static int br_parse_ip_options(struct sk_buff *skb)
->  {
->  	struct ip_options *opt;
->  	struct iphdr *iph;
-> 
+> Well, I think it's not worth an extra patch but should be fixed when the
+> files need to be touched anyway (for other reasons/fixes).
 
-My main motivation behind not making this static was that
-there would be possibly other places in the bridge code 
-(besides br_netfilter.c) where we enter the IP stack and might 
-want to call this. Not sure if it's indeed the case though..
+But there's also no need to commit a broken indention.
 
--- 
-Bandan
+>From my side i would prefer a V4 and you can put in my
+
+Acked-by: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+
+directly if you like.
+
+Thanks,
+Oliver
