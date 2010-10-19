@@ -1,56 +1,33 @@
-From: Dave Airlie <airlied@gmail.com>
-Subject: Re: [Ksummit-2010-discuss] [v2] Remaining BKL users, what to do
-Date: Tue, 19 Oct 2010 14:52:32 +1000
-Message-ID: <AANLkTi=oAeuz8ZxcOMpf=3MVY=WMt0BwHiGCUxO7OAEV@mail.gmail.com>
-References: <201009161632.59210.arnd@arndb.de>
-	<201010181742.06678.arnd@arndb.de>
-	<20101018184346.GD27089@kroah.com>
-	<AANLkTin2KPNNXvwcWphhM-5qexB14FS7M7ezkCCYCZ2H@mail.gmail.com>
-	<20101019004004.GB28380@kroah.com>
-	<AANLkTi=ffaihP5-yNYFKAbAbX+XbRgWRXXfCZd4J3KwQ@mail.gmail.com>
-	<20101019022413.GB30307@kroah.com>
-	<AANLkTinv4VFpi=Jkc_5oyFgPbdLRg0ResJx9u9Puhm-7@mail.gmail.com>
-	<1287459219.16971.352.camel@gandalf.stny.rr.com>
-	<alpine.LNX.2.00.1010182342120.31740@banach.math.auburn.edu>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/3 v2] net: fail alloc_netdev_mq if queue count < 1
+Date: Tue, 19 Oct 2010 07:02:34 +0200
+Message-ID: <1287464554.2305.0.camel@edumazet-laptop>
+References: <alpine.DEB.1.00.1010182053060.6676@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Steven Rostedt <rostedt@goodmis.org>, Greg KH <greg@kroah.com>,
-	codalist@telemann.coda.cs.cmu.edu, autofs@linux.kernel.org,
-	Samuel Ortiz <samuel@sortiz.org>, Jan Kara <jack@suse.cz>,
-	Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Jan Harkes <jaharkes@cs.cmu.edu>, netdev@vger.kernel.org,
-	Anders Larsen <al@alarsen.net>, linux-kernel@vger.kernel.org,
-	dri-devel@lists.freedesktop.org,
-	Bryan Schumaker <bjschuma@netapp.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	ksummit-2010-discuss@lists.linux-foundation.org,
-	Petr Vandrovec <vandrove@vc.cvut.cz>,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	linux-fsdevel@vger.kernel.org,
-	Evgeniy Dushistov <dushistov@mail.ru>,
-	Ingo Molnar <mingo@elte.hu>,
-	Andrew Hendry <andrew.hendry@gmail.com>,
-	linux-media@vger.kernel.org
-To: Theodore Kilgore <kilgota@banach.math.auburn.edu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.00.1010182342120.31740@banach.math.auburn.edu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	bhutchings@solarflare.com
+To: Tom Herbert <therbert@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:49929 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751501Ab0JSFCj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Oct 2010 01:02:39 -0400
+Received: by wyb28 with SMTP id 28so2081248wyb.19
+        for <netdev@vger.kernel.org>; Mon, 18 Oct 2010 22:02:37 -0700 (PDT)
+In-Reply-To: <alpine.DEB.1.00.1010182053060.6676@pokey.mtv.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> I might be able to find some hardware still lying around here that uses an
-> i810. Not sure unless I go hunting it. But I get the impression that if
-> the kernel is a single-CPU kernel there is not any problem anyway? Don't
-> distros offer a non-smp kernel as an installation option in case the user
-> needs it? So in reality how big a problem is this?
+Le lundi 18 octobre 2010 =C3=A0 20:55 -0700, Tom Herbert a =C3=A9crit :
+> In alloc_netdev_mq fail if requested queue_count < 1.
+>=20
+> Signed-off-by: Tom Herbert <therbert@google.com>
+> ---
+>  net/core/dev.c |    6 ++++++
+>  1 files changed, 6 insertions(+), 0 deletions(-)
 
-Not anymore, which is my old point of making a fuss. Nowadays in the
-modern distro world, we supply a single kernel that can at runtime
-decide if its running on SMP or UP and rewrite the text section
-appropriately with locks etc. Its like magic, and something like
-marking drivers as BROKEN_ON_SMP at compile time is really wrong when
-what you want now is a runtime warning if someone tries to hotplug a
-CPU with a known iffy driver loaded or if someone tries to load the
-driver when we are already in SMP mode.
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Dave.
+
