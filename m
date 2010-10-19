@@ -1,37 +1,34 @@
-From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
-Subject: Re: [PATCH V3 net-next] can-raw: add msg_flags to distinguish
-	local traffic
-Date: Tue, 19 Oct 2010 11:57:03 +0200
-Message-ID: <20101019095703.GA436@e-circ.dyndns.org>
-References: <20101019090247.GB334@e-circ.dyndns.org>
-	<201010191113.46999.alexander.stein@systec-electronic.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [patch v5 04/12] IPVS: Add struct ip_vs_conn_param, IPv6
+ forgotten No
+Date: Tue, 19 Oct 2010 12:03:52 +0200
+Message-ID: <20101019100352.GA22424@verge.net.au>
+References: <20101004134624.963907470@akiko.akashicho.tokyo.vergenet.net>
+ <20101004134825.963640441@akiko.akashicho.tokyo.vergenet.net>
+ <201010191141.22496.hans.schillstrom@ericsson.com>
+ <201010191156.44757.hans.schillstrom@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-To: Alexander Stein <alexander.stein-93q1YBGzJSMe9JSWTWOYM3xStJ4P+DSV@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "lvs-devel@vger.kernel.org" <lvs-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"netfilter@vger.kernel.org" <netfilter@vger.kernel.org>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	Jan Engelhardt <jengelh@medozas.de>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>, Patrick McHardy <kaber@trash.net>
+To: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <201010191113.46999.alexander.stein-93q1YBGzJSMe9JSWTWOYM3xStJ4P+DSV@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+In-Reply-To: <201010191156.44757.hans.schillstrom@ericsson.com>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 19, 2010 at 11:12:56AM +0200, Alexander Stein wrote:
-> You mixed tabs and spaces at MSG_CONFIRM entry. Dunno if that was intended.
-That was not intended.
-Is that a problem (I never studied the code style wrt. Documentation)?
-> 
-> Regards,
-> Alexander
+On Tue, Oct 19, 2010 at 11:56:43AM +0200, Hans Schillstrom wrote:
+> Hi Simon
+> I'm sorry it's not a bug it works perfectly OK.
+> (I didn't see that it was a pointer, It was another bug in my test code...)
+> so forget about the last mail
 
-Thanks,
-Kurt
+No problem, thanks for looking over things :-)
+
