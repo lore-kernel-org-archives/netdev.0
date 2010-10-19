@@ -1,43 +1,45 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH V3 net-next] can-raw: add msg_flags to distinguish local
-	traffic
-Date: Tue, 19 Oct 2010 13:16:08 +0200
-Message-ID: <4CBD7DF8.4040204@grandegger.com>
-References: <20101019090247.GB334@e-circ.dyndns.org>	<201010191113.46999.alexander.stein@systec-electronic.com>	<20101019095703.GA436@e-circ.dyndns.org>
-	<201010191228.10914.alexander.stein@systec-electronic.com>
+From: anders.franzen@ericsson.com
+Subject: (unknown)
+Date: Tue, 19 Oct 2010 13:15:39 +0200
+Message-ID: <4cbd7ddb.h2XSBQwB8NK8A+mZ%anders.franzen@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-To: Alexander Stein <alexander.stein-93q1YBGzJSMe9JSWTWOYM3xStJ4P+DSV@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <201010191228.10914.alexander.stein-93q1YBGzJSMe9JSWTWOYM3xStJ4P+DSV@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: eric.dumazet@gmail.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailgw10.se.ericsson.net ([193.180.251.61]:63895 "EHLO
+	mailgw10.se.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758326Ab0JSLPm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Oct 2010 07:15:42 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/19/2010 12:28 PM, Alexander Stein wrote:
-> On Tuesday 19 October 2010, 11:57:03 Kurt Van Dijck wrote:
->> On Tue, Oct 19, 2010 at 11:12:56AM +0200, Alexander Stein wrote:
->>> You mixed tabs and spaces at MSG_CONFIRM entry. Dunno if that was
->>> intended.
->>
->> That was not intended.
->> Is that a problem (I never studied the code style wrt. Documentation)?
-> 
-> Dunno if this is a problem, I just stumbled over it.
+>From 5f9bad2172884c192c267cdd29d7fa62b6072252 Mon Sep 17 00:00:00 2001
+From: Anders Franzen <anders.franzen@ericsson.com>
+Date: Tue, 19 Oct 2010 10:54:28 +0200
+Subject: [PATCH] ip6_tunnel dont update the mtu on the route.
 
-Well, I think it's not worth an extra patch but should be fixed when the
-files need to be touched anyway (for other reasons/fixes).
+The ip6_tunnel device did not unset the flag,
+IFF_XMIT_DST_RELEASE. This will make the dev layer
+to release the dst before calling the tunnel.
+The tunnel will not update any mtu/pmtu info, since
+it does not have a dst on the skb.
+---
+ net/ipv6/ip6_tunnel.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-Just my .02 euro.
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index c2c0f89..38b9a56 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -1371,6 +1371,7 @@ static void ip6_tnl_dev_setup(struct net_device *dev)
+ 	dev->flags |= IFF_NOARP;
+ 	dev->addr_len = sizeof(struct in6_addr);
+ 	dev->features |= NETIF_F_NETNS_LOCAL;
++	dev->priv_flags &= ~IFF_XMIT_DST_RELEASE;
+ }
+ 
+ 
+-- 
+1.7.2.3
 
-Wolfgang.
