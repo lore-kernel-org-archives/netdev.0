@@ -1,61 +1,137 @@
-From: Balazs Scheidler <bazsi@balabit.hu>
-Subject: Re: [PATCH 5/9] tproxy: allow non-local binds of IPv6 sockets if
- IP_TRANSPARENT is enabled
-Date: Wed, 20 Oct 2010 16:07:33 +0200
-Message-ID: <1287583653.29676.9.camel@bzorp.lan>
-References: <20101020112118.6260.31618.stgit@este.odu>
-	 <20101020112118.6260.93956.stgit@este.odu>
-	 <4CBEE45D.2080201@linux-ipv6.org>
+From: Denis Kirjanov <dkirjanov@kernel.org>
+Subject: [PATCH -next 1/2] ibmveth: Cleanup error handling inside
+	ibmveth_open
+Date: Wed, 20 Oct 2010 14:21:13 +0000
+Message-ID: <20101020142113.GA1026@hera.kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: KOVACS Krisztian <hidden@balabit.hu>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	David Miller <davem@davemloft.net>
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: rcj@linux.vnet.ibm.com, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from brother.balabit.com ([195.70.62.219]:43888 "EHLO
-	lists.balabit.hu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750951Ab0JTOHh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Oct 2010 10:07:37 -0400
-In-Reply-To: <4CBEE45D.2080201@linux-ipv6.org>
+Received: from hera.kernel.org ([140.211.167.34]:44172 "EHLO hera.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752943Ab0JTOVV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Oct 2010 10:21:21 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-10-20 at 21:45 +0900, YOSHIFUJI Hideaki wrote:
-> (2010/10/20 20:21), KOVACS Krisztian wrote:
-> > From: Balazs Scheidler<bazsi@balabit.hu>
-> > 
-> > Signed-off-by: Balazs Scheidler<bazsi@balabit.hu>
-> > Signed-off-by: KOVACS Krisztian<hidden@balabit.hu>
-> > ---
-> >   net/ipv6/af_inet6.c |    2 +-
-> >   1 files changed, 1 insertions(+), 1 deletions(-)
-> > 
-> > diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-> > index 6022098..9480572 100644
-> > --- a/net/ipv6/af_inet6.c
-> > +++ b/net/ipv6/af_inet6.c
-> > @@ -343,7 +343,7 @@ int inet6_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
-> >   			 */
-> >   			v4addr = LOOPBACK4_IPV6;
-> >   			if (!(addr_type&  IPV6_ADDR_MULTICAST))	{
-> > -				if (!ipv6_chk_addr(net,&addr->sin6_addr,
-> > +				if (!inet->transparent&&  !ipv6_chk_addr(net,&addr->sin6_addr,
-> >   						   dev, 0)) {
-> >   					err = -EADDRNOTAVAIL;
-> >   					goto out_unlock;
-> > 
-> > 
-> 
-> As I wrote before in other thread, this does not seem sufficient --
-> well, it is sufficient to allow non-local bind, but before we're
-> allowing this, we need add checks of source address in sending side.
+Remove duplicated code in one place.
 
-Can you please elaborate or point us to the other thread? Is it some
-kind of address-type check that we miss?
+Signed-off-by: Denis Kirjanov <dkirjanov@kernel.org>
+---
+ drivers/net/ibmveth.c |   44 ++++++++++++++++++++------------------------
+ 1 files changed, 20 insertions(+), 24 deletions(-)
 
+diff --git a/drivers/net/ibmveth.c b/drivers/net/ibmveth.c
+index b3e157e..2ae8336 100644
+--- a/drivers/net/ibmveth.c
++++ b/drivers/net/ibmveth.c
+@@ -546,9 +546,8 @@ static int ibmveth_open(struct net_device *netdev)
+ 	if (!adapter->buffer_list_addr || !adapter->filter_list_addr) {
+ 		netdev_err(netdev, "unable to allocate filter or buffer list "
+ 			   "pages\n");
+-		ibmveth_cleanup(adapter);
+-		napi_disable(&adapter->napi);
+-		return -ENOMEM;
++		rc = -ENOMEM;
++		goto err_out;
+ 	}
+ 
+ 	adapter->rx_queue.queue_len = sizeof(struct ibmveth_rx_q_entry) *
+@@ -558,9 +557,8 @@ static int ibmveth_open(struct net_device *netdev)
+ 
+ 	if (!adapter->rx_queue.queue_addr) {
+ 		netdev_err(netdev, "unable to allocate rx queue pages\n");
+-		ibmveth_cleanup(adapter);
+-		napi_disable(&adapter->napi);
+-		return -ENOMEM;
++		rc = -ENOMEM;
++		goto err_out;
+ 	}
+ 
+ 	dev = &adapter->vdev->dev;
+@@ -578,9 +576,8 @@ static int ibmveth_open(struct net_device *netdev)
+ 	    (dma_mapping_error(dev, adapter->rx_queue.queue_dma))) {
+ 		netdev_err(netdev, "unable to map filter or buffer list "
+ 			   "pages\n");
+-		ibmveth_cleanup(adapter);
+-		napi_disable(&adapter->napi);
+-		return -ENOMEM;
++		rc = -ENOMEM;
++		goto err_out;
+ 	}
+ 
+ 	adapter->rx_queue.index = 0;
+@@ -611,9 +608,8 @@ static int ibmveth_open(struct net_device *netdev)
+ 				     adapter->filter_list_dma,
+ 				     rxq_desc.desc,
+ 				     mac_address);
+-		ibmveth_cleanup(adapter);
+-		napi_disable(&adapter->napi);
+-		return -ENONET;
++		rc = -ENONET;
++		goto err_out;
+ 	}
+ 
+ 	for (i = 0; i < IBMVETH_NUM_BUFF_POOLS; i++) {
+@@ -622,9 +618,8 @@ static int ibmveth_open(struct net_device *netdev)
+ 		if (ibmveth_alloc_buffer_pool(&adapter->rx_buff_pool[i])) {
+ 			netdev_err(netdev, "unable to alloc pool\n");
+ 			adapter->rx_buff_pool[i].active = 0;
+-			ibmveth_cleanup(adapter);
+-			napi_disable(&adapter->napi);
+-			return -ENOMEM ;
++			rc = -ENOMEM;
++			goto err_out;
+ 		}
+ 	}
+ 
+@@ -638,27 +633,23 @@ static int ibmveth_open(struct net_device *netdev)
+ 			rc = h_free_logical_lan(adapter->vdev->unit_address);
+ 		} while (H_IS_LONG_BUSY(rc) || (rc == H_BUSY));
+ 
+-		ibmveth_cleanup(adapter);
+-		napi_disable(&adapter->napi);
+-		return rc;
++		goto err_out;
+ 	}
+ 
+ 	adapter->bounce_buffer =
+ 	    kmalloc(netdev->mtu + IBMVETH_BUFF_OH, GFP_KERNEL);
+ 	if (!adapter->bounce_buffer) {
+ 		netdev_err(netdev, "unable to allocate bounce buffer\n");
+-		ibmveth_cleanup(adapter);
+-		napi_disable(&adapter->napi);
+-		return -ENOMEM;
++		rc = -ENOMEM;
++		goto err_out;
+ 	}
+ 	adapter->bounce_buffer_dma =
+ 	    dma_map_single(&adapter->vdev->dev, adapter->bounce_buffer,
+ 			   netdev->mtu + IBMVETH_BUFF_OH, DMA_BIDIRECTIONAL);
+ 	if (dma_mapping_error(dev, adapter->bounce_buffer_dma)) {
+ 		netdev_err(netdev, "unable to map bounce buffer\n");
+-		ibmveth_cleanup(adapter);
+-		napi_disable(&adapter->napi);
+-		return -ENOMEM;
++		rc = -ENOMEM;
++		goto err_out;
+ 	}
+ 
+ 	netdev_dbg(netdev, "initial replenish cycle\n");
+@@ -669,6 +660,11 @@ static int ibmveth_open(struct net_device *netdev)
+ 	netdev_dbg(netdev, "open complete\n");
+ 
+ 	return 0;
++
++err_out:
++	ibmveth_cleanup(adapter);
++	napi_disable(&adapter->napi);
++	return rc;
+ }
+ 
+ static int ibmveth_close(struct net_device *netdev)
 -- 
-Bazsi
-
+1.7.2.2
 
