@@ -1,52 +1,49 @@
-From: Nikos Mavrogiannopoulos <nmav@gnutls.org>
-Subject: Re: RFC: Crypto API User-interface
-Date: Wed, 20 Oct 2010 12:24:33 +0200
-Message-ID: <AANLkTi=cmus+1fWBbqH8p=cw4G60+PF_572=5Au=TDxL@mail.gmail.com>
-References: <20100907084213.GA4610@gondor.apana.org.au>
-	<20101019134418.GA13514@gondor.apana.org.au>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH 1/2] Remove netpoll blocking from uninit path
+Date: Wed, 20 Oct 2010 06:51:30 -0400
+Message-ID: <20101020105130.GA14407@hmsreliant.think-freely.org>
+References: <1287507866-25156-1-git-send-email-nhorman@tuxdriver.com>
+ <1287507866-25156-2-git-send-email-nhorman@tuxdriver.com>
+ <4CBE9E7F.60107@redhat.com>
+ <20101020.014538.193720733.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-	netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Cryptodev-linux-devel@gna.org
-To: Herbert Xu <herbert@gondor.hengli.com.au>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <20101019134418.GA13514@gondor.apana.org.au>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: amwang@redhat.com, netdev@vger.kernel.org,
+	bonding-devel@lists.sourceforge.net, fubar@us.ibm.com,
+	andy@greyhouse.net
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:38319 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751803Ab0JTKvp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Oct 2010 06:51:45 -0400
+Content-Disposition: inline
+In-Reply-To: <20101020.014538.193720733.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 19, 2010 at 3:44 PM, Herbert Xu
-<herbert@gondor.hengli.com.au> wrote:
-> OK I've gone ahead and implemented the user-space API for hashes
-> and ciphers.
-> To recap this interface is designed to allow user-space programs
-> to access hardware cryptographic accelerators that we have added
-> to the kernel.
-> The intended usage scenario is where a large amount of data needs
-> to be processed where the benefits offered by hardware acceleration
-> that is normally unavailable in user-space (as opposed to ones
-> such as the Intel AES instruction which may be used directly from
-> user-space) outweigh the overhead of going through the kernel.
+On Wed, Oct 20, 2010 at 01:45:38AM -0700, David Miller wrote:
+> From: Cong Wang <amwang@redhat.com>
+> Date: Wed, 20 Oct 2010 15:47:11 +0800
+> 
+> > On 10/20/10 01:04, nhorman@tuxdriver.com wrote:
+> >> From: Neil Horman<nhorman@tuxdriver.com>
+> >>
+> >> Some recent testing in netpoll with bonding showed this backtrace
+> ...
+> >> Signed-off-by: Neil Horman<nhorman@tuxdriver.com>
+> > 
+> > Reviewed-by: WANG Cong <amwang@redhat.com>
+> 
+> Applied.
+> 
+> Neil, please add proper subsystem prefixes to your subject
+> lines, I've had to add them by hand as I add your patches.
+> 
+Copy that, apologies.
 
-What is the overall advantage of this API comparing to other existing
-ones that achieve similar goals[0][1]?
+Thanks!
+Neil
 
-Some observations:
-1. To perform an encryption of data 6 system calls are made (I don't
-count the 2 used for socket initialization since I suppose can be global
-for all operations) and a file descriptor is assigned. The number of
-system calls
-made has great impact to the actual speed seen by userspace (as you said this
-API is for user-space to access the high-speed peripherals that do encryption).
-2. Due to the usage of read() and write() no zero-copy can happen for
-user-space buffers[3].
-
-regards,
-Nikos
-
-[0]. http://home.gna.org/cryptodev-linux/
-[1]. http://home.gna.org/cryptodev-linux/ncr.html
-[2]. The openbsd[0] api can do it with 3 system calls and NCR[1] with one,
-and both require no file descriptor for each operation.
-[3]. The openbsd[0] api and NCR[1] do zero-copy for user-space buffers.
+> Thanks.
+> 
