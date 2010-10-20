@@ -1,62 +1,84 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [Ksummit-2010-discuss] [v2] Remaining BKL users, what to do
-Date: Wed, 20 Oct 2010 08:50:07 +0200
-Message-ID: <201010200850.07906.arnd@arndb.de>
-References: <201009161632.59210.arnd@arndb.de> <201010192244.41913.arnd@arndb.de> <AANLkTimRFxKT5p1K=Rd1MxXZymonx_t6rHKBhn=8CsW=@mail.gmail.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [PATCH 1/2] Remove netpoll blocking from uninit path
+Date: Wed, 20 Oct 2010 15:47:11 +0800
+Message-ID: <4CBE9E7F.60107@redhat.com>
+References: <1287507866-25156-1-git-send-email-nhorman@tuxdriver.com> <1287507866-25156-2-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="utf-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Greg KH <greg@kroah.com>, Oliver Neukum <oliver@neukum.org>,
-	Valdis.Kletnieks@vt.edu, Dave Airlie <airlied@gmail.com>,
-	codalist@telemann.coda.cs.cmu.edu,
-	ksummit-2010-discuss@lists.linux-foundation.org,
-	autofs@linux.kernel.org, Jan Harkes <jaharkes@cs.cmu.edu>,
-	Samuel Ortiz <samuel@sortiz.org>, Jan Kara <jack@suse.cz>,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	netdev@vger.kernel.org, Anders Larsen <al@alarsen.net>,
-	linux-kernel@vger.kernel.org, dri-devel@lists.freedesktop.org,
-	Bryan Schumaker <bjschuma@netapp.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Petr Vandrovec <vandrove@vc.cvut.cz>,
-	Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>,
-	linux-fsdevel@vger.kernel.org,
-	Evgeniy Dushistov <dushistov@mail.ru>,
-	Ingo Molnar <mingo@elte.hu>,
-	Andrew Hendry <andrew.hendry@gmail.com>,
-	linux-media@vger.kernel.org
-To: Dave Young <hidave.darkstar@gmail.com>
+Cc: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net,
+	fubar@us.ibm.com, davem@davemloft.net, andy@greyhouse.net
+To: nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.187]:64739 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758181Ab0JTGuJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Oct 2010 02:50:09 -0400
-In-Reply-To: <AANLkTimRFxKT5p1K=Rd1MxXZymonx_t6rHKBhn=8CsW=@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:18153 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932307Ab0JTHmo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Oct 2010 03:42:44 -0400
+In-Reply-To: <1287507866-25156-2-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 20 October 2010, Dave Young wrote:
-> be curious, why can't just fix the lock_kernel logic of i810? Fixing
-> is too hard?
-> 
-> Find a i810 hardware should be possible, even if the hardware does not
-> support SMP, can't we test the fix with preemption?
+On 10/20/10 01:04, nhorman@tuxdriver.com wrote:
+> From: Neil Horman<nhorman@tuxdriver.com>
+>
+> Some recent testing in netpoll with bonding showed this backtrace
+>
+>   ------------[ cut here ]------------
+>   kernel BUG at drivers/net/bonding/bonding.h:134!
+>   invalid opcode: 0000 [#1] SMP
+>   last sysfs file: /sys/devices/pci0000:00/0000:00:1d.2/usb7/devnum
+>   CPU 0
+>   Pid: 1876, comm: rmmod Not tainted 2.6.36-rc3+ #10 D26928/
+>   RIP: 0010:[<ffffffffa0514ba4>]  [<ffffffffa0514ba4>] bond_uninit+0x6f4/0x7a0
+>   RSP: 0018:ffff88003b1b5d58  EFLAGS: 00010296
+>   RAX: ffff88003b9b6200 RBX: ffff8800373e8e00 RCX: 00000000000f4240
+>   RDX: 00000000ffffffff RSI: 0000000000000286 RDI: 0000000000000286
+>   RBP: ffff88003b1b5dc8 R08: 0000000000000000 R09: 00000001af7de920
+>   R10: 0000000000000000 R11: ffff880002495e98 R12: ffff880037922700
+>   R13: ffff880038c31000 R14: ffff880037922730 R15: 0000000000000286
+>   FS:  00007f90e6d72700(0000) GS:ffff880002400000(0000) knlGS:0000000000000000
+>   CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+>   CR2: 000000346f0d9ad0 CR3: 000000003b263000 CR4: 00000000000006f0
+>   DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+>   DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+>   Process rmmod (pid: 1876, threadinfo ffff88003b1b4000, task ffff88003b36aa80)
+>   Stack:
+>   00000000ffffffff ffff88003b1b5d7a ffff8800379221e8 ffff880037922000
+>   <0>  ffff88003b1b5dc8 ffffffff813eb5fb ffff88003b1b5da8 0000000031b177a3
+>   <0>  ffff88003b1b5da8 ffff880037922000 ffff88003b1b5e48 ffff88003b1b5e48
+>   Call Trace:
+>   [<ffffffff813eb5fb>] ? rtmsg_ifinfo+0xcb/0xf0
+>   [<ffffffff813daad8>] rollback_registered_many+0x168/0x280
+>   [<ffffffff813dac09>] unregister_netdevice_many+0x19/0x80
+>   [<ffffffff813e97b3>] __rtnl_kill_links+0x63/0x90
+>   [<ffffffff813e980b>] __rtnl_link_unregister+0x2b/0x60
+>   [<ffffffff813e9bde>] rtnl_link_unregister+0x1e/0x30
+>   [<ffffffffa052124b>] bonding_exit+0x37/0x51 [bonding]
+>   [<ffffffff81098b2e>] sys_delete_module+0x19e/0x270
+>   [<ffffffff810bb2b2>] ? audit_syscall_entry+0x252/0x280
+>   [<ffffffff8100b0b2>] system_call_fastpath+0x16/0x1b
+>   RIP  [<ffffffffa0514ba4>] bond_uninit+0x6f4/0x7a0 [bonding]
+>   RSP<ffff88003b1b5d58>
+>   ---[ end trace 1395ad691cea24d1 ]---
+>
+> It occurs because of my recent netpoll blocking patches, which I added to avoid
+> recursive deadlock in the bonding driver.  It relies on some per cpu bits, but
+> the shutdown path forces some rescheduling as we cancel workqueues for the
+> driver and wait for some device refcounts.  If after the forced reschedule, we
+> wind up on a different cpu we trigger the bughalt in unblock_netpoll_tx.
+>
+> The fix is to remove the netpoll block/unblock calls from bond_release_all.
+> This is safe to do because bond_uninit, which is called via ndo_uninit in
+> rollback_registered_many, doesn't occur until we send a NETDEV_UNREGISTER event,
+> which triggers netconsole to remove us as a netpoll client, so we are guaranteed
+> not to recurse into our own tx path here.
 
-Yes, that should work too. My usual approach for removing the BKL without
-having the hardware myself was to make locking stricter, i.e. replace
-the BKL with a new spinlock or mutex. This way all the code would still
-be serialized and if I did something wrong, lockdep would complain about
-it, but there would be no risk of silent data corruption.
+Also bond_release_all() is called after bond_netpoll_cleanup()
+in bond_uninit().
 
-In case of i810, locking across DRM is rather complicated and there is no
-way of doing this without making changes to other DRM code.
+>
+> Signed-off-by: Neil Horman<nhorman@tuxdriver.com>
 
-In fact, the only critical section that is actually protected by the BKL
-are the few lines in i810_mmap_buffers. They look like they might not even
-need the BKL to start with and we can just remove it even on SMP/PREEMPT,
-except for perhaps the assignment to buf_priv->currently_mapped.
-Someone who understands more about the driver than I do can probably figure
-this out easily, but I couldn't come up with a way that doesn't risk
-breaking in corner cases.
+Reviewed-by: WANG Cong <amwang@redhat.com>
 
-	Arnd
+Thanks.
