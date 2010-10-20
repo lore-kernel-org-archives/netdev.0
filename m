@@ -1,37 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3] net: RX and TX queue allocation cleanup
-Date: Wed, 20 Oct 2010 02:38:32 -0700 (PDT)
-Message-ID: <20101020.023832.183060328.davem@davemloft.net>
-References: <alpine.DEB.1.00.1010181053200.15812@pokey.mtv.corp.google.com>
-	<20101020.023041.112586469.davem@davemloft.net>
+From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: [PATCH 0/2] can: mcp251x: fix error handling and error frames bug
+Date: Wed, 20 Oct 2010 12:02:24 +0200
+Message-ID: <1287568946-32727-1-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	bhutchings@solarflare.com
-To: therbert@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35906
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752446Ab0JTJiJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Oct 2010 05:38:09 -0400
-In-Reply-To: <20101020.023041.112586469.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net>
-Date: Wed, 20 Oct 2010 02:30:41 -0700 (PDT)
+Hello,
 
-> From: Tom Herbert <therbert@google.com>
-> Date: Mon, 18 Oct 2010 11:02:06 -0700 (PDT)
-> 
->> Move TX queue allocation to register_netdevice.  Enforce
->> alloc_netdev_mq & netif_set_real_num_[rt]x_queues netif_alloc_rx_queues
->> are called with at least one queue to allocate.
-> 
-> All applied, and I fixed the indentation issue Eric noticed
-> while integrating.
+this series of patches fixes two bugs, one introduced by me in the other 
+mcp251x series.
 
-Just to be clear, I did make sure I used the "v2" series
-of the patches, not the original. :-)
+Please test, especially the error handling, i.e. wrong bitrate, shortcut in
+CAN bus. I'm also interested in tests with non i.MX SPI can cores.
 
+cheers, Marc
