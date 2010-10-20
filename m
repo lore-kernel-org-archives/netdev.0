@@ -1,25 +1,87 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [GIT PULL net-2.6] vhost-net: access_ok fix
-Date: Thu, 21 Oct 2010 00:43:40 +0200
-Message-ID: <20101020224340.GA27820@redhat.com>
-References: <20101019145901.GA16025@redhat.com>
+From: Leandro Lucarella <luca@llucax.com.ar>
+Subject: Re: Linux 2.6.35/TIPC 2.0 ABI breaking changes
+Date: Wed, 20 Oct 2010 19:59:29 -0300
+Message-ID: <20101020225929.GT8781@llucax.com.ar>
+References: <20101019.011649.71113115.davem@davemloft.net>
+	<20101019110452.GA14410@hmsreliant.think-freely.org>
+	<20101019131936.GB8781@llucax.com.ar>
+	<20101019201841.GC14410@hmsreliant.think-freely.org>
+	<20101020172018.GN8781@llucax.com.ar>
+	<0434463FDA60A94FA978ACA44617682DEE84668199@EUSAACMS0702.eamcs.ericsson.se>
+	<20101020180454.GC14407@hmsreliant.think-freely.org>
+	<0434463FDA60A94FA978ACA44617682DEE846681B9@EUSAACMS0702.eamcs.ericsson.se>
+	<20101020182851.GP8781@llucax.com.ar>
+	<20101020192350.GR8781@llucax.com.ar>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"tipc-discussion@lists.sourceforge.net"
+	<tipc-discussion@lists.sourceforge.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Neil Horman <nhorman@tuxdriver.com>, David Miller <davem@davemloft.net>
+To: Jon Maloy <jon.maloy@ericsson.com>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
 Content-Disposition: inline
-In-Reply-To: <20101019145901.GA16025@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20101020192350.GR8781@llucax.com.ar>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 19, 2010 at 04:59:01PM +0200, Michael S. Tsirkin wrote:
-> David,
-> Not sure if it's too late for 2.6.36 - in case it's not, the following tree
-> includes a last minute bugfix for vhost-net, found by code inspection.
+Leandro Lucarella, el 20 de octubre a las 16:23 me escribiste:
+> Leandro Lucarella, el 20 de octubre a las 15:28 me escribiste:
+> > Jon Maloy, el 20 de octubre a las 14:10 me escribiste:
+> > > <...>
+> > > > > 
+> > > > > Remember, permitting both is a superset of the current one 
+> > > > (NBO only) 
+> > > > > so it is fully backwards compatible. We break absolutly nothing by 
+> > > > > permitting this.
+> > > > > 
+> > > > Thats effectively reverting both our patches though, isn't it 
+> > > > (not that I'm disagreeing with it, just looking for 
+> > > > clarification).  If we revert my patch and reintroduce the 
+> > > > htohl mechanism which tracks endianess, we might as well 
+> > > > revert the TIPC_SUB_SERVICE flag as well, yeah?
+> > > 
+> > > Absolutely. I think it was a mistake to change that value.
+> > > But I don't think we need to reintroduce the htohl(). That
+> > > was just one way of doing it. If I understood your suggestion
+> > > from yesterday correctly you converted the whole message within
+> > > one if()clause, without any htohl(). I have have no problem with 
+> > > that approach.
+> > 
+> > There is a difference between both solutions, the htohl() version
+> > tracked the need for swap as a struct subscription member (which was
+> > used when sending back events). Neils patch doesn't do that tracking.
+> > I don't really know the implications of this, but maybe it would be
+> > a wise idea to stay in the safe side and revert both patches for now.
+> 
+> BTW, I tried 2.6.37 reverting both offending patches and everything
+> seems to work well.
 
-Um, I see it was too late :) Never mind ...
+I meant 2.6.35.7.
 
 -- 
-MST
+Leandro Lucarella (AKA luca)                     http://llucax.com.ar/
+----------------------------------------------------------------------
+GPG Key: 5F5A8D05 (F8CD F9A7 BF00 5431 4145  104C 949E BFB6 5F5A 8D05)
+----------------------------------------------------------------------
+Karma police
+arrest this girl,
+her Hitler hairdo
+is making me feel ill
+and we have crashed her party.
+
+------------------------------------------------------------------------------
+Nokia and AT&T present the 2010 Calling All Innovators-North America contest
+Create new apps & games for the Nokia N8 for consumers in  U.S. and Canada
+$10 million total in prizes - $4M cash, 500 devices, nearly $6M in marketing
+Develop with Nokia Qt SDK, Web Runtime, or Java and Publish to Ovi Store 
+http://p.sf.net/sfu/nokia-dev2dev
