@@ -1,137 +1,56 @@
-From: KOVACS Krisztian <hidden@balabit.hu>
-Subject: [PATCH 4/9] tproxy: added tproxy sockopt interface in the IPV6 layer
-Date: Wed, 20 Oct 2010 13:21:18 +0200
-Message-ID: <20101020112118.6260.78508.stgit@este.odu>
-References: <20101020112118.6260.31618.stgit@este.odu>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH 5/9] tproxy: allow non-local binds of IPv6 sockets if
+ IP_TRANSPARENT is enabled
+Date: Wed, 20 Oct 2010 21:45:17 +0900
+Message-ID: <4CBEE45D.2080201@linux-ipv6.org>
+References: <20101020112118.6260.31618.stgit@este.odu> <20101020112118.6260.93956.stgit@este.odu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7BIT
-Cc: Patrick McHardy <kaber@trash.net>,
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>,
 	David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: KOVACS Krisztian <hidden@balabit.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from balu.sch.bme.hu ([152.66.208.40]:47547 "EHLO balu.sch.bme.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752909Ab0JTM0s (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Oct 2010 08:26:48 -0400
-In-reply-to: <20101020112118.6260.31618.stgit@este.odu>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:35996 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752296Ab0JTMpW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Oct 2010 08:45:22 -0400
+In-Reply-To: <20101020112118.6260.93956.stgit@este.odu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Balazs Scheidler <bazsi@balabit.hu>
+Hello.
 
-Support for IPV6_RECVORIGDSTADDR sockopt for UDP sockets were contributed by
-Harry Mason.
+(2010/10/20 20:21), KOVACS Krisztian wrote:
+> From: Balazs Scheidler<bazsi@balabit.hu>
+> 
+> Signed-off-by: Balazs Scheidler<bazsi@balabit.hu>
+> Signed-off-by: KOVACS Krisztian<hidden@balabit.hu>
+> ---
+>   net/ipv6/af_inet6.c |    2 +-
+>   1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+> index 6022098..9480572 100644
+> --- a/net/ipv6/af_inet6.c
+> +++ b/net/ipv6/af_inet6.c
+> @@ -343,7 +343,7 @@ int inet6_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
+>   			 */
+>   			v4addr = LOOPBACK4_IPV6;
+>   			if (!(addr_type&  IPV6_ADDR_MULTICAST))	{
+> -				if (!ipv6_chk_addr(net,&addr->sin6_addr,
+> +				if (!inet->transparent&&  !ipv6_chk_addr(net,&addr->sin6_addr,
+>   						   dev, 0)) {
+>   					err = -EADDRNOTAVAIL;
+>   					goto out_unlock;
+> 
+> 
 
-Signed-off-by: Balazs Scheidler <bazsi@balabit.hu>
-Signed-off-by: KOVACS Krisztian <hidden@balabit.hu>
----
- include/linux/in6.h      |    4 ++++
- include/linux/ipv6.h     |    4 +++-
- net/ipv6/datagram.c      |   19 +++++++++++++++++++
- net/ipv6/ipv6_sockglue.c |   23 +++++++++++++++++++++++
- 4 files changed, 49 insertions(+), 1 deletions(-)
+As I wrote before in other thread, this does not seem sufficient --
+well, it is sufficient to allow non-local bind, but before we're
+allowing this, we need add checks of source address in sending side.
 
-diff --git a/include/linux/in6.h b/include/linux/in6.h
-index c4bf46f..097a34b 100644
---- a/include/linux/in6.h
-+++ b/include/linux/in6.h
-@@ -268,6 +268,10 @@ struct in6_flowlabel_req {
- /* RFC5082: Generalized Ttl Security Mechanism */
- #define IPV6_MINHOPCOUNT		73
- 
-+#define IPV6_ORIGDSTADDR        74
-+#define IPV6_RECVORIGDSTADDR    IPV6_ORIGDSTADDR
-+#define IPV6_TRANSPARENT        75
-+
- /*
-  * Multicast Routing:
-  * see include/linux/mroute6.h.
-diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index e62683b..8e429d0 100644
---- a/include/linux/ipv6.h
-+++ b/include/linux/ipv6.h
-@@ -341,7 +341,9 @@ struct ipv6_pinfo {
- 				odstopts:1,
-                                 rxflow:1,
- 				rxtclass:1,
--				rxpmtu:1;
-+				rxpmtu:1,
-+				rxorigdstaddr:1;
-+				/* 2 bits hole */
- 		} bits;
- 		__u16		all;
- 	} rxopt;
-diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
-index ef371aa..320bdb8 100644
---- a/net/ipv6/datagram.c
-+++ b/net/ipv6/datagram.c
-@@ -577,6 +577,25 @@ int datagram_recv_ctl(struct sock *sk, struct msghdr *msg, struct sk_buff *skb)
- 		u8 *ptr = nh + opt->dst1;
- 		put_cmsg(msg, SOL_IPV6, IPV6_2292DSTOPTS, (ptr[1]+1)<<3, ptr);
- 	}
-+	if (np->rxopt.bits.rxorigdstaddr) {
-+		struct sockaddr_in6 sin6;
-+		u16 *ports = (u16 *) skb_transport_header(skb);
-+
-+		if (skb_transport_offset(skb) + 4 <= skb->len) {
-+			/* All current transport protocols have the port numbers in the
-+			 * first four bytes of the transport header and this function is
-+			 * written with this assumption in mind.
-+			 */
-+
-+			sin6.sin6_family = AF_INET6;
-+			ipv6_addr_copy(&sin6.sin6_addr, &ipv6_hdr(skb)->daddr);
-+			sin6.sin6_port = ports[1];
-+			sin6.sin6_flowinfo = 0;
-+			sin6.sin6_scope_id = 0;
-+
-+			put_cmsg(msg, SOL_IPV6, IPV6_ORIGDSTADDR, sizeof(sin6), &sin6);
-+		}
-+	}
- 	return 0;
- }
- 
-diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
-index a7f66bc..0553867 100644
---- a/net/ipv6/ipv6_sockglue.c
-+++ b/net/ipv6/ipv6_sockglue.c
-@@ -342,6 +342,21 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
- 		retv = 0;
- 		break;
- 
-+	case IPV6_TRANSPARENT:
-+		if (optlen < sizeof(int))
-+			goto e_inval;
-+		/* we don't have a separate transparent bit for IPV6 we use the one in the IPv4 socket */
-+		inet_sk(sk)->transparent = valbool;
-+		retv = 0;
-+		break;
-+
-+	case IPV6_RECVORIGDSTADDR:
-+		if (optlen < sizeof(int))
-+			goto e_inval;
-+		np->rxopt.bits.rxorigdstaddr = valbool;
-+		retv = 0;
-+		break;
-+
- 	case IPV6_HOPOPTS:
- 	case IPV6_RTHDRDSTOPTS:
- 	case IPV6_RTHDR:
-@@ -1104,6 +1119,14 @@ static int do_ipv6_getsockopt(struct sock *sk, int level, int optname,
- 		break;
- 	}
- 
-+	case IPV6_TRANSPARENT:
-+		val = inet_sk(sk)->transparent;
-+		break;
-+
-+	case IPV6_RECVORIGDSTADDR:
-+		val = np->rxopt.bits.rxorigdstaddr;
-+		break;
-+
- 	case IPV6_UNICAST_HOPS:
- 	case IPV6_MULTICAST_HOPS:
- 	{
+Regards,
 
-
+--yoshfuji
