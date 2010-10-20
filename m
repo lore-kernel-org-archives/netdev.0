@@ -1,60 +1,41 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] net: make ctl_path local and const
-Date: Tue, 19 Oct 2010 20:01:41 -0700
-Message-ID: <1287543701.10409.599.camel@Joe-Laptop>
-References: <1287543276-4511-1-git-send-email-xiaosuo@gmail.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [RFC PATCH 5/9] ipvs network name space aware
+Date: Wed, 20 Oct 2010 17:21:45 +0200
+Message-ID: <20101020152112.GA8502@verge.net.au>
+References: <201010081317.04167.hans.schillstrom@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Andy Grover <andy.grover@oracle.com>, James Morris <jmorris@namei.org>,
-        linux-sctp@vger.kernel.org, rds-devel@oss.oracle.com,
-        "Pekka Savola \(ipv6\)" <pekkas@netcore.fi>, linux-x25@vger.kernel.org,
-        dccp@vger.kernel.org, bridge@lists.linux-foundation.org,
-        Andrew@smtp1.linux-foundation.org, coreteam@netfilter.org,
-        Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Joerg Reuter <jreuter@yaina.de>, Sridhar Samudrala <sri@us.ibm.com>,
-        Samuel Ortiz <samuel@sortiz.org>,
-        Vlad Yasevich <vladislav.yasevich@hp.com>, netfilter@vger.kernel.org,
-        Remi Denis-Courmont <remi.denis-courmont@nokia.com>,
-        linux-hams@vger.kernel.org,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>, netdev@vger.kernel.org,
-        linux-decnet-user@lists.sourceforge.net, linux-kernel@vger.ker
-To: Changli Gao <xiaosuo@gmail.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1287543276-4511-1-git-send-email-xiaosuo@gmail.com>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/bridge>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, ja@ssi.bg, wensong@linux-vs.org,
+	daniel.lezcano@free.fr
+To: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <201010081317.04167.hans.schillstrom@ericsson.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2010-10-20 at 10:54 +0800, Changli Gao wrote:
-> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-[]
-> diff --git a/net/appletalk/sysctl_net_atalk.c b/net/appletalk/sysctl_net_atalk.c
-> index 04e9c0d..b92f269 100644
-> --- a/net/appletalk/sysctl_net_atalk.c
-> +++ b/net/appletalk/sysctl_net_atalk.c
-> @@ -42,16 +42,16 @@ static struct ctl_table atalk_table[] = {
->  	{ },
->  };
->  
-> -static struct ctl_path atalk_path[] = {
-> -	{ .procname = "net", },
-> -	{ .procname = "appletalk", },
-> -	{ }
-> -};
-> -
->  static struct ctl_table_header *atalk_table_header;
->  
->  void atalk_register_sysctl(void)
->  {
-> +	const struct ctl_path atalk_path[] = {
+On Fri, Oct 08, 2010 at 01:17:02PM +0200, Hans Schillstrom wrote:
+> This patch just contains ip_vs_ctl
+> 
+> Signed-off-by:Hans Schillstrom <hans.schillstrom@ericsson.com>
+> 
+> diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+> index ca8ec8c..7e99cbc 100644
+> --- a/net/netfilter/ipvs/ip_vs_ctl.c
+> +++ b/net/netfilter/ipvs/ip_vs_ctl.c
 
-Shouldn't all of these be static const struct ?
+[ snip ]
+
+> @@ -3377,62 +3383,131 @@ static void ip_vs_genl_unregister(void)
+>  }
+> 
+>  /* End of Generic Netlink interface definitions */
+> +/*
+> + * per netns intit/exit func.
+> + */
+> +int /*__net_init*/ __ip_vs_control_init(struct net *net)
+
+Can you describe why __net_init is commented out?
+
+[ snip ]
