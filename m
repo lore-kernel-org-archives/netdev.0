@@ -1,396 +1,59 @@
 From: Jesse Gross <jesse@nicira.com>
-Subject: [PATCH v2 06/14] vlan: Centralize handling of hardware acceleration.
-Date: Wed, 20 Oct 2010 16:56:06 -0700
-Message-ID: <1287618974-4714-7-git-send-email-jesse@nicira.com>
+Subject: [PATCH v2 07/14] ethtool: Add support for vlan accleration.
+Date: Wed, 20 Oct 2010 16:56:07 -0700
+Message-ID: <1287618974-4714-8-git-send-email-jesse@nicira.com>
 References: <1287618974-4714-1-git-send-email-jesse@nicira.com>
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f181.google.com ([209.85.216.181]:60486 "EHLO
+Received: from mail-qy0-f181.google.com ([209.85.216.181]:52033 "EHLO
 	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754079Ab0JTX4c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Oct 2010 19:56:32 -0400
-Received: by qyk9 with SMTP id 9so1826107qyk.19
-        for <netdev@vger.kernel.org>; Wed, 20 Oct 2010 16:56:31 -0700 (PDT)
+	with ESMTP id S1753022Ab0JTX4e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Oct 2010 19:56:34 -0400
+Received: by qyk9 with SMTP id 9so1826119qyk.19
+        for <netdev@vger.kernel.org>; Wed, 20 Oct 2010 16:56:33 -0700 (PDT)
 In-Reply-To: <1287618974-4714-1-git-send-email-jesse@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently each driver that is capable of vlan hardware acceleration
-must be aware of the vlan groups that are configured and then pass
-the stripped tag to a specialized receive function.  This is
-different from other types of hardware offload in that it places a
-significant amount of knowledge in the driver itself rather keeping
-it in the networking core.
-
-This makes vlan offloading function more similarly to other forms
-of offloading (such as checksum offloading or TSO) by doing the
-following:
-* On receive, stripped vlans are passed directly to the network
-core, without attempting to check for vlan groups or reconstructing
-the header if no group
-* vlans are made less special by folding the logic into the main
-receive routines
-* On transmit, the device layer will add the vlan header in software
-if the hardware doesn't support it, instead of spreading that logic
-out in upper layers, such as bonding.
-
-There are a number of advantages to this:
-* Fixes all bugs with drivers incorrectly dropping vlan headers at once.
-* Avoids having to disable VLAN acceleration when in promiscuous mode
-(good for bridging since it always puts devices in promiscuous mode).
-* Keeps VLAN tag separate until given to ultimate consumer, which
-avoids needing to do header reconstruction as in tg3 unless absolutely
-necessary.
-* Consolidates common code in core networking.
+Now that vlan acceleration is handled consistently regardless of usage,
+it is possible to enable and disable it at will.  This adds support for
+Ethtool operations that change the offloading status for debugging
+purposes, similar to other forms of hardware acceleration.
 
 Signed-off-by: Jesse Gross <jesse@nicira.com>
 ---
- include/linux/if_vlan.h   |    6 ++-
- include/linux/netdevice.h |    1 -
- net/8021q/vlan.c          |    9 +---
- net/8021q/vlan_core.c     |  125 ++++++++++-----------------------------------
- net/core/dev.c            |   47 +++++------------
- 5 files changed, 48 insertions(+), 140 deletions(-)
+ include/linux/ethtool.h |    2 ++
+ net/core/ethtool.c      |    3 ++-
+ 2 files changed, 4 insertions(+), 1 deletions(-)
 
-diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
-index 4047781..a0d9786 100644
---- a/include/linux/if_vlan.h
-+++ b/include/linux/if_vlan.h
-@@ -132,7 +132,7 @@ extern u16 vlan_dev_vlan_id(const struct net_device *dev);
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index 8a3338c..6628a50 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -309,6 +309,8 @@ struct ethtool_perm_addr {
+  * flag differs from the read-only value.
+  */
+ enum ethtool_flags {
++	ETH_FLAG_TXVLAN		= (1 << 7),	/* TX VLAN offload enabled */
++	ETH_FLAG_RXVLAN		= (1 << 8),	/* RX VLAN offload enabled */
+ 	ETH_FLAG_LRO		= (1 << 15),	/* LRO is enabled */
+ 	ETH_FLAG_NTUPLE		= (1 << 27),	/* N-tuple filters enabled */
+ 	ETH_FLAG_RXHASH		= (1 << 28),
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 685c700..956a9f4 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -132,7 +132,8 @@ EXPORT_SYMBOL(ethtool_op_set_ufo);
+  * NETIF_F_xxx values in include/linux/netdevice.h
+  */
+ static const u32 flags_dup_features =
+-	(ETH_FLAG_LRO | ETH_FLAG_NTUPLE | ETH_FLAG_RXHASH);
++	(ETH_FLAG_LRO | ETH_FLAG_RXVLAN | ETH_FLAG_TXVLAN | ETH_FLAG_NTUPLE |
++	 ETH_FLAG_RXHASH);
  
- extern int __vlan_hwaccel_rx(struct sk_buff *skb, struct vlan_group *grp,
- 			     u16 vlan_tci, int polling);
--extern void vlan_hwaccel_do_receive(struct sk_buff *skb);
-+extern bool vlan_hwaccel_do_receive(struct sk_buff **skb);
- extern gro_result_t
- vlan_gro_receive(struct napi_struct *napi, struct vlan_group *grp,
- 		 unsigned int vlan_tci, struct sk_buff *skb);
-@@ -166,8 +166,10 @@ static inline int __vlan_hwaccel_rx(struct sk_buff *skb, struct vlan_group *grp,
- 	return NET_XMIT_SUCCESS;
- }
- 
--static inline void vlan_hwaccel_do_receive(struct sk_buff *skb)
-+static inline bool vlan_hwaccel_do_receive(struct sk_buff **skb)
+ u32 ethtool_op_get_flags(struct net_device *dev)
  {
-+	BUG();
-+	return false;
- }
- 
- static inline gro_result_t
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 9c78312..ed7db7e 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1768,7 +1768,6 @@ extern int netdev_rx_handler_register(struct net_device *dev,
- 				      void *rx_handler_data);
- extern void netdev_rx_handler_unregister(struct net_device *dev);
- 
--extern void		netif_nit_deliver(struct sk_buff *skb);
- extern int		dev_valid_name(const char *name);
- extern int		dev_ioctl(struct net *net, unsigned int cmd, void __user *);
- extern int		dev_ethtool(struct net *net, struct ifreq *);
-diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index f862dcc..05b867e 100644
---- a/net/8021q/vlan.c
-+++ b/net/8021q/vlan.c
-@@ -135,7 +135,7 @@ void unregister_vlan_dev(struct net_device *dev, struct list_head *head)
- 		vlan_gvrp_uninit_applicant(real_dev);
- 
- 		rcu_assign_pointer(real_dev->vlgrp, NULL);
--		if (real_dev->features & NETIF_F_HW_VLAN_RX)
-+		if (ops->ndo_vlan_rx_register)
- 			ops->ndo_vlan_rx_register(real_dev, NULL);
- 
- 		/* Free the group, after all cpu's are done. */
-@@ -156,11 +156,6 @@ int vlan_check_real_dev(struct net_device *real_dev, u16 vlan_id)
- 		return -EOPNOTSUPP;
- 	}
- 
--	if ((real_dev->features & NETIF_F_HW_VLAN_RX) && !ops->ndo_vlan_rx_register) {
--		pr_info("8021q: device %s has buggy VLAN hw accel\n", name);
--		return -EOPNOTSUPP;
--	}
--
- 	if ((real_dev->features & NETIF_F_HW_VLAN_FILTER) &&
- 	    (!ops->ndo_vlan_rx_add_vid || !ops->ndo_vlan_rx_kill_vid)) {
- 		pr_info("8021q: Device %s has buggy VLAN hw accel\n", name);
-@@ -213,7 +208,7 @@ int register_vlan_dev(struct net_device *dev)
- 	grp->nr_vlans++;
- 
- 	if (ngrp) {
--		if (real_dev->features & NETIF_F_HW_VLAN_RX)
-+		if (ops->ndo_vlan_rx_register)
- 			ops->ndo_vlan_rx_register(real_dev, ngrp);
- 		rcu_assign_pointer(real_dev->vlgrp, ngrp);
- 	}
-diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
-index dee727c..69b2f79 100644
---- a/net/8021q/vlan_core.c
-+++ b/net/8021q/vlan_core.c
-@@ -4,54 +4,29 @@
- #include <linux/netpoll.h>
- #include "vlan.h"
- 
--/* VLAN rx hw acceleration helper.  This acts like netif_{rx,receive_skb}(). */
--int __vlan_hwaccel_rx(struct sk_buff *skb, struct vlan_group *grp,
--		      u16 vlan_tci, int polling)
-+bool vlan_hwaccel_do_receive(struct sk_buff **skbp)
- {
-+	struct sk_buff *skb = *skbp;
-+	u16 vlan_id = skb->vlan_tci & VLAN_VID_MASK;
- 	struct net_device *vlan_dev;
--	u16 vlan_id;
--
--	if (netpoll_rx(skb))
--		return NET_RX_DROP;
--
--	if (skb_bond_should_drop(skb, ACCESS_ONCE(skb->dev->master)))
--		skb->deliver_no_wcard = 1;
-+	struct vlan_rx_stats *rx_stats;
- 
--	skb->skb_iif = skb->dev->ifindex;
--	__vlan_hwaccel_put_tag(skb, vlan_tci);
--	vlan_id = vlan_tci & VLAN_VID_MASK;
--	vlan_dev = vlan_group_get_device(grp, vlan_id);
--
--	if (vlan_dev)
--		skb->dev = vlan_dev;
--	else if (vlan_id) {
--		if (!(skb->dev->flags & IFF_PROMISC))
--			goto drop;
--		skb->pkt_type = PACKET_OTHERHOST;
-+	vlan_dev = vlan_find_dev(skb->dev, vlan_id);
-+	if (!vlan_dev) {
-+		if (vlan_id)
-+			skb->pkt_type = PACKET_OTHERHOST;
-+		return false;
- 	}
- 
--	return polling ? netif_receive_skb(skb) : netif_rx(skb);
-+	skb = *skbp = skb_share_check(skb, GFP_ATOMIC);
-+	if (unlikely(!skb))
-+		return false;
- 
--drop:
--	atomic_long_inc(&skb->dev->rx_dropped);
--	dev_kfree_skb_any(skb);
--	return NET_RX_DROP;
--}
--EXPORT_SYMBOL(__vlan_hwaccel_rx);
--
--void vlan_hwaccel_do_receive(struct sk_buff *skb)
--{
--	struct net_device *dev = skb->dev;
--	struct vlan_rx_stats     *rx_stats;
--
--	skb->dev = vlan_dev_real_dev(dev);
--	netif_nit_deliver(skb);
--
--	skb->dev = dev;
--	skb->priority = vlan_get_ingress_priority(dev, skb->vlan_tci);
-+	skb->dev = vlan_dev;
-+	skb->priority = vlan_get_ingress_priority(vlan_dev, skb->vlan_tci);
- 	skb->vlan_tci = 0;
- 
--	rx_stats = this_cpu_ptr(vlan_dev_info(dev)->vlan_rx_stats);
-+	rx_stats = this_cpu_ptr(vlan_dev_info(vlan_dev)->vlan_rx_stats);
- 
- 	u64_stats_update_begin(&rx_stats->syncp);
- 	rx_stats->rx_packets++;
-@@ -68,11 +43,13 @@ void vlan_hwaccel_do_receive(struct sk_buff *skb)
- 		 * This allows the VLAN to have a different MAC than the
- 		 * underlying device, and still route correctly. */
- 		if (!compare_ether_addr(eth_hdr(skb)->h_dest,
--					dev->dev_addr))
-+					vlan_dev->dev_addr))
- 			skb->pkt_type = PACKET_HOST;
- 		break;
- 	}
- 	u64_stats_update_end(&rx_stats->syncp);
-+
-+	return true;
- }
- 
- struct net_device *vlan_dev_real_dev(const struct net_device *dev)
-@@ -87,75 +64,27 @@ u16 vlan_dev_vlan_id(const struct net_device *dev)
- }
- EXPORT_SYMBOL(vlan_dev_vlan_id);
- 
--static gro_result_t
--vlan_gro_common(struct napi_struct *napi, struct vlan_group *grp,
--		unsigned int vlan_tci, struct sk_buff *skb)
-+/* VLAN rx hw acceleration helper.  This acts like netif_{rx,receive_skb}(). */
-+int __vlan_hwaccel_rx(struct sk_buff *skb, struct vlan_group *grp,
-+		      u16 vlan_tci, int polling)
- {
--	struct sk_buff *p;
--	struct net_device *vlan_dev;
--	u16 vlan_id;
--
--	if (skb_bond_should_drop(skb, ACCESS_ONCE(skb->dev->master)))
--		skb->deliver_no_wcard = 1;
--
--	skb->skb_iif = skb->dev->ifindex;
- 	__vlan_hwaccel_put_tag(skb, vlan_tci);
--	vlan_id = vlan_tci & VLAN_VID_MASK;
--	vlan_dev = vlan_group_get_device(grp, vlan_id);
--
--	if (vlan_dev)
--		skb->dev = vlan_dev;
--	else if (vlan_id) {
--		if (!(skb->dev->flags & IFF_PROMISC))
--			goto drop;
--		skb->pkt_type = PACKET_OTHERHOST;
--	}
--
--	for (p = napi->gro_list; p; p = p->next) {
--		unsigned long diffs;
--
--		diffs = (unsigned long)p->dev ^ (unsigned long)skb->dev;
--		diffs |= compare_ether_header(skb_mac_header(p),
--					      skb_gro_mac_header(skb));
--		NAPI_GRO_CB(p)->same_flow = !diffs;
--		NAPI_GRO_CB(p)->flush = 0;
--	}
--
--	return dev_gro_receive(napi, skb);
--
--drop:
--	atomic_long_inc(&skb->dev->rx_dropped);
--	return GRO_DROP;
-+	return polling ? netif_receive_skb(skb) : netif_rx(skb);
- }
-+EXPORT_SYMBOL(__vlan_hwaccel_rx);
- 
- gro_result_t vlan_gro_receive(struct napi_struct *napi, struct vlan_group *grp,
- 			      unsigned int vlan_tci, struct sk_buff *skb)
- {
--	if (netpoll_rx_on(skb))
--		return vlan_hwaccel_receive_skb(skb, grp, vlan_tci)
--			? GRO_DROP : GRO_NORMAL;
--
--	skb_gro_reset_offset(skb);
--
--	return napi_skb_finish(vlan_gro_common(napi, grp, vlan_tci, skb), skb);
-+	__vlan_hwaccel_put_tag(skb, vlan_tci);
-+	return napi_gro_receive(napi, skb);
- }
- EXPORT_SYMBOL(vlan_gro_receive);
- 
- gro_result_t vlan_gro_frags(struct napi_struct *napi, struct vlan_group *grp,
- 			    unsigned int vlan_tci)
- {
--	struct sk_buff *skb = napi_frags_skb(napi);
--
--	if (!skb)
--		return GRO_DROP;
--
--	if (netpoll_rx_on(skb)) {
--		skb->protocol = eth_type_trans(skb, skb->dev);
--		return vlan_hwaccel_receive_skb(skb, grp, vlan_tci)
--			? GRO_DROP : GRO_NORMAL;
--	}
--
--	return napi_frags_finish(napi, skb,
--				 vlan_gro_common(napi, grp, vlan_tci, skb));
-+	__vlan_hwaccel_put_tag(napi->skb, vlan_tci);
-+	return napi_gro_frags(napi);
- }
- EXPORT_SYMBOL(vlan_gro_frags);
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 1bfd96b..97fd6bc 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2789,33 +2789,6 @@ out:
- }
- #endif
- 
--/*
-- * 	netif_nit_deliver - deliver received packets to network taps
-- * 	@skb: buffer
-- *
-- * 	This function is used to deliver incoming packets to network
-- * 	taps. It should be used when the normal netif_receive_skb path
-- * 	is bypassed, for example because of VLAN acceleration.
-- */
--void netif_nit_deliver(struct sk_buff *skb)
--{
--	struct packet_type *ptype;
--
--	if (list_empty(&ptype_all))
--		return;
--
--	skb_reset_network_header(skb);
--	skb_reset_transport_header(skb);
--	skb->mac_len = skb->network_header - skb->mac_header;
--
--	rcu_read_lock();
--	list_for_each_entry_rcu(ptype, &ptype_all, list) {
--		if (!ptype->dev || ptype->dev == skb->dev)
--			deliver_skb(skb, ptype, skb->dev);
--	}
--	rcu_read_unlock();
--}
--
- /**
-  *	netdev_rx_handler_register - register receive handler
-  *	@dev: device to register a handler for
-@@ -2925,9 +2898,6 @@ static int __netif_receive_skb(struct sk_buff *skb)
- 	if (!netdev_tstamp_prequeue)
- 		net_timestamp_check(skb);
- 
--	if (vlan_tx_tag_present(skb))
--		vlan_hwaccel_do_receive(skb);
--
- 	/* if we've gotten here through NAPI, check netpoll */
- 	if (netpoll_receive_skb(skb))
- 		return NET_RX_DROP;
-@@ -2940,8 +2910,7 @@ static int __netif_receive_skb(struct sk_buff *skb)
- 	 * be delivered to pkt handlers that are exact matches.  Also
- 	 * the deliver_no_wcard flag will be set.  If packet handlers
- 	 * are sensitive to duplicate packets these skbs will need to
--	 * be dropped at the handler.  The vlan accel path may have
--	 * already set the deliver_no_wcard flag.
-+	 * be dropped at the handler.
- 	 */
- 	null_or_orig = NULL;
- 	orig_dev = skb->dev;
-@@ -3000,6 +2969,18 @@ ncls:
- 			goto out;
- 	}
- 
-+	if (vlan_tx_tag_present(skb)) {
-+		if (pt_prev) {
-+			ret = deliver_skb(skb, pt_prev, orig_dev);
-+			pt_prev = NULL;
-+		}
-+		if (vlan_hwaccel_do_receive(&skb)) {
-+			ret = __netif_receive_skb(skb);
-+			goto out;
-+		} else if (unlikely(!skb))
-+			goto out;
-+	}
-+
- 	/*
- 	 * Make sure frames received on VLAN interfaces stacked on
- 	 * bonding interfaces still make their way to any base bonding
-@@ -3264,6 +3245,7 @@ __napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
- 		unsigned long diffs;
- 
- 		diffs = (unsigned long)p->dev ^ (unsigned long)skb->dev;
-+		diffs |= p->vlan_tci ^ skb->vlan_tci;
- 		diffs |= compare_ether_header(skb_mac_header(p),
- 					      skb_gro_mac_header(skb));
- 		NAPI_GRO_CB(p)->same_flow = !diffs;
-@@ -3323,6 +3305,7 @@ void napi_reuse_skb(struct napi_struct *napi, struct sk_buff *skb)
- {
- 	__skb_pull(skb, skb_headlen(skb));
- 	skb_reserve(skb, NET_IP_ALIGN - skb_headroom(skb));
-+	skb->vlan_tci = 0;
- 
- 	napi->skb = skb;
- }
 -- 
 1.7.1
 
