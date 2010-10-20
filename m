@@ -1,163 +1,97 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [RFC PATCH 1/9] ipvs network name space aware
-Date: Wed, 20 Oct 2010 09:02:06 -0700
-Message-ID: <20101020160205.GB2386@linux.vnet.ibm.com>
-References: <201010081316.46690.hans.schillstrom@ericsson.com>
- <201010181523.49568.hans.schillstrom@ericsson.com>
- <20101019184436.GG2362@linux.vnet.ibm.com>
- <201010201025.20950.hans.schillstrom@ericsson.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Ville =?iso-8859-1?Q?Syrj=E4l=E4?= <syrjala@sci.fi>
+Subject: Re: [Ksummit-2010-discuss] [v2] Remaining BKL users, what to do
+Date: Wed, 20 Oct 2010 19:14:55 +0300
+Message-ID: <20101020161455.GC24313@sci.fi>
+References: <201009161632.59210.arnd@arndb.de>
+ <AANLkTi=oAeuz8ZxcOMpf=3MVY=WMt0BwHiGCUxO7OAEV@mail.gmail.com>
+ <201010190926.54635.arnd@arndb.de>
+ <201010191526.01887.arnd@arndb.de>
+ <AANLkTinw=Wzh2Ucj6zKSoqC8J3Yq9xDr3mKMUB7K6Yyo@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Lezcano <daniel.lezcano@free.fr>,
-	"lvs-devel@vger.kernel.org" <lvs-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"horms@verge.net.au" <horms@verge.net.au>, "ja@ssi.bg" <ja@ssi.bg>,
-	"wensong@linux-vs.org" <wensong@linux-vs.org>
-To: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Arnd Bergmann <arnd@arndb.de>, Jan Kara <jack@suse.cz>,
+	Greg KH <greg@kroah.com>, Anders Larsen <al@alarsen.net>,
+	dri-devel@lists.freedesktop.org,
+	ksummit-2010-discuss@lists.linux-foundation.org,
+	Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>,
+	codalist@telemann.coda.cs.cmu.edu,
+	Theodore Kilgore <kilgota@banach.math.auburn.edu>,
+	Bryan Schumaker <bjschuma@netapp.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Petr Vandrovec <vandrove@vc.cvut.cz>,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	linux-media@vger.kernel.org, Samuel Ortiz <samuel@sortiz.org>,
+	Evgeniy Dushistov <dushistov@mail.ru>,
+	Steven Rostedt <rostedt@goodmis.org>, autofs@linux.kernel.org,
+	Jan Harkes <jaharkes@cs.cmu.edu>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	Andrew Hendry <andrew.hendry@gmail.com>
+To: Dave Airlie <airlied@gmail.com>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <201010201025.20950.hans.schillstrom@ericsson.com>
-Sender: lvs-devel-owner@vger.kernel.org
+In-Reply-To: <AANLkTinw=Wzh2Ucj6zKSoqC8J3Yq9xDr3mKMUB7K6Yyo@mail.gmail.com>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 20, 2010 at 10:25:19AM +0200, Hans Schillstrom wrote:
-> On Tuesday 19 October 2010 20:44:36 Paul E. McKenney wrote:
-> > On Mon, Oct 18, 2010 at 03:23:48PM +0200, Hans Schillstrom wrote:
-> > > On Monday 18 October 2010 13:37:38 Daniel Lezcano wrote:
-> > > > On 10/18/2010 11:54 AM, Hans Schillstrom wrote:
-> > > > > On Monday 18 October 2010 10:59:25 Daniel Lezcano wrote:
-> > > > >
-> > > > >> On 10/08/2010 01:16 PM, Hans Schillstrom wrote:
-> > > > >>
-> > > > >>> This part contains the include files
-> > > > >>> where include/net/netns/ip_vs.h is new and contains all moved vars.
-> > > > >>>
-> > > > >>> SUMMARY
-> > > > >>>
-> > > > >>>    include/net/ip_vs.h                     |  136 ++++---
-> > > > >>>    include/net/net_namespace.h             |    2 +
-> > > > >>>    include/net/netns/ip_vs.h               |  112 +++++
-> > > > >>>
-> > > > >>> Signed-off-by:Hans Schillstrom<hans.schillstrom@ericsson.com>
-> > > > >>> ---
-> > > > >>>
-> > > > >>>
-> > > > >>>
-> > > > >> [ ... ]
-> > > > >>
-> > > > >>
-> > > > >>>    #ifdef CONFIG_IP_VS_IPV6
-> > > > >>> diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
-> > > > >>> index bd10a79..b59cdc5 100644
-> > > > >>> --- a/include/net/net_namespace.h
-> > > > >>> +++ b/include/net/net_namespace.h
-> > > > >>> @@ -15,6 +15,7 @@
-> > > > >>>    #include<net/netns/ipv4.h>
-> > > > >>>    #include<net/netns/ipv6.h>
-> > > > >>>    #include<net/netns/dccp.h>
-> > > > >>> +#include<net/netns/ip_vs.h>
-> > > > >>>    #include<net/netns/x_tables.h>
-> > > > >>>    #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
-> > > > >>>    #include<net/netns/conntrack.h>
-> > > > >>> @@ -91,6 +92,7 @@ struct net {
-> > > > >>>    	struct sk_buff_head	wext_nlevents;
-> > > > >>>    #endif
-> > > > >>>    	struct net_generic	*gen;
-> > > > >>> +	struct netns_ipvs       *ipvs;
-> > > > >>>    };
-> > > > >>>
-> > > > >>>
-> > > > >> IMHO, it would be better to use the net_generic infra-structure instead
-> > > > >> of adding a new field in the netns structure.
-> > > > >>
-> > > > >>
-> > > > >>
-> > > > > I realized that to, but the performance penalty is quite high with net_generic :-(
-> > > > > But on the other hand if you are going to backport it, (without recompiling the kernel)
-> > > > > you gonna need it!
-> > > > >
-> > > >
-> > > > Hmm, yes. We don't want to have the init_net_ns performances to be impacted.
-> > > >
-> > > > You use here a pointer which will be dereferenced like the net_generic,
-> > > > I don't think there will be
-> > > > a big difference between using net_generic and using a pointer in the
-> > > > net namespace structure.
-> > > >
-> > > > The difference is the id usage, but this one is based on the idr which
-> > > > is quite fast.
-> > > >
-> > >
-> > > I'm not so sure about that, have a look at net_generic and rcu_read_lock
-> > > and compare
-> > >  ipvs = net->ipvs;
-> > > vs.
-> > >  ipvs = net_generic(net, id)
-> > >
-> > > static inline void *net_generic(struct net *net, int id)
-> > > {
-> > > 	struct net_generic *ng;
-> > > 	void *ptr;
-> > >
-> > > 	rcu_read_lock();
-> > > 	ng = rcu_dereference(net->gen);
-> > > 	BUG_ON(id == 0 || id > ng->len);
-> > > 	ptr = ng->ptr[id - 1];
-> > > 	rcu_read_unlock();
-> > >
-> > > 	return ptr;
-> > > }
-> > > ...
-> > > static inline void rcu_read_lock(void)
-> > > {
-> > >         __rcu_read_lock();
-> > >         __acquire(RCU);
-> > >         rcu_read_acquire();
-> > > }
-> > >
-> > > Another way of doing it is to pass the ipvs ptr instead of the net ptr,
-> > > and add *net to the ipvs struct.
-> > >
-> > > > We should experiment a bit here to compare both solutions.
-> > > Agre
-> > > >
-> > > I single stepped through the rcu_read_lock() on a x86_64
-> > > and it's quite many "stepi" that you need to enter :-(
+On Wed, Oct 20, 2010 at 06:50:58AM +1000, Dave Airlie wrote:
+> On Tue, Oct 19, 2010 at 11:26 PM, Arnd Bergmann <arnd@arndb.de> wrote=
+:
+> > On Tuesday 19 October 2010, Arnd Bergmann wrote:
+> >> On Tuesday 19 October 2010 06:52:32 Dave Airlie wrote:
+> >> > > I might be able to find some hardware still lying around here =
+that uses an
+> >> > > i810. Not sure unless I go hunting it. But I get the impressio=
+n that if
+> >> > > the kernel is a single-CPU kernel there is not any problem any=
+way? Don't
+> >> > > distros offer a non-smp kernel as an installation option in ca=
+se the user
+> >> > > needs it? So in reality how big a problem is this?
+> >> >
+> >> > Not anymore, which is my old point of making a fuss. Nowadays in=
+ the
+> >> > modern distro world, we supply a single kernel that can at runti=
+me
+> >> > decide if its running on SMP or UP and rewrite the text section
+> >> > appropriately with locks etc. Its like magic, and something like
+> >> > marking drivers as BROKEN_ON_SMP at compile time is really wrong=
+ when
+> >> > what you want now is a runtime warning if someone tries to hotpl=
+ug a
+> >> > CPU with a known iffy driver loaded or if someone tries to load =
+the
+> >> > driver when we are already in SMP mode.
+> >>
+> >> We could make the driver run-time non-SMP by adding
+> >>
+> >> =A0 =A0 =A0 if (num_present_cpus() > 1) {
+> >> =A0 =A0 =A0 =A0 =A0 =A0 =A0 pr_err("i810 no longer supports SMP\n"=
+);
+> >> =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -EINVAL;
+> >> =A0 =A0 =A0 }
+> >>
+> >> to the init function. That would cover the vast majority of the
+> >> users of i810 hardware, I guess.
 > >
-> > Was this by chance with lockdep enabled?  If not, could you please send
-> > your .config?
-> >
-> > 							Thanx, Paul
-> 
-> No lockdep, but what I ment is that net_generic is not as fast as a plain ptr->xxx.
-> IPVS has hooks in the netfilter chain, and gets a huge amount of packets .
-> 
-> I don't think IPVS is a candidate for net_generic, it should have its own part in "struct net"
-> That was my point.
-> ( No critic to locking or net_generic)
+> > Some research showed that Intel never support i810/i815 SMP setups,
+> > but there was indeed one company (http://www.acorpusa.com at the ti=
+me,
+> > now owned by a domain squatter) that made i815E based dual Pentium-=
+III
+> > boards like this one: http://cgi.ebay.com/280319795096
+>=20
+> Also that board has no on-board GPU enabled i815EP (P means no on-boa=
+rd GPU).
 
-You said that there were a lot of "stepi" commands to get through
-rcu_read_lock() on x86_64.  This is quite surprising, especially if you
-built with CONFIG_RCU_TREE.  Even if you built with CONFIG_PREEMPT_RCU_TREE,
-you should only see something like the following from rcu_read_lock():
+A quick search seems to indicate that an i815E variant also existed.
 
-000000b7 <__rcu_read_lock>:
-      b7:	55                   	push   %ebp
-      b8:	64 a1 00 00 00 00    	mov    %fs:0x0,%eax
-      be:	ff 80 80 01 00 00    	incl   0x180(%eax)
-      c4:	89 e5                	mov    %esp,%ebp
-      c6:	5d                   	pop    %ebp
-      c7:	c3                   	ret    
-
-Unless you have some sort of debugging options turned on.  Or unless
-six instructions counts for "quite many" stepi commands.  ;-)
-
-So I am quite curious, independent of whether or not IPVS is a candidate
-for net_generic.  That choice for IPVS is not mine to make, and I will
-trust the relevant developers and maintainers to make the right choice,
-whether that be RCU or something else.  Even I do not claim that RCU
-is the right tool for all jobs!  ;-)
-
-							Thanx, Paul
+--=20
+Ville Syrj=E4l=E4
+syrjala@sci.fi
+http://www.sci.fi/~syrjala/
+--
+To unsubscribe from this list: send the line "unsubscribe linux-fsdevel=
+" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
