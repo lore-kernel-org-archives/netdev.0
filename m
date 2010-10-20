@@ -1,7 +1,7 @@
 From: KOVACS Krisztian <hidden@balabit.hu>
-Subject: [PATCH 2/9] tproxy: added const specifiers to udp lookup functions
+Subject: [PATCH 3/9] tproxy: added udp6_lib_lookup function
 Date: Wed, 20 Oct 2010 13:21:18 +0200
-Message-ID: <20101020112118.6260.46933.stgit@este.odu>
+Message-ID: <20101020112118.6260.5136.stgit@este.odu>
 References: <20101020112118.6260.31618.stgit@este.odu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
@@ -16,41 +16,49 @@ List-Id: netdev.vger.kernel.org
 
 From: Balazs Scheidler <bazsi@balabit.hu>
 
-The parameters for various UDP lookup functions were non-const, even though
-they could be const. TProxy has some const references and instead of
-downcasting it, I added const specifiers along the path.
+Just like with IPv4, we need access to the UDP hash table to look up local
+sockets, but instead of exporting the global udp_table, export a lookup
+function.
 
 Signed-off-by: Balazs Scheidler <bazsi@balabit.hu>
 Signed-off-by: KOVACS Krisztian <hidden@balabit.hu>
 ---
- net/ipv6/udp.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+ include/net/udp.h |    3 +++
+ net/ipv6/udp.c    |    8 ++++++++
+ 2 files changed, 11 insertions(+), 0 deletions(-)
 
+diff --git a/include/net/udp.h b/include/net/udp.h
+index a184d34..200b828 100644
+--- a/include/net/udp.h
++++ b/include/net/udp.h
+@@ -183,6 +183,9 @@ extern int udp_lib_setsockopt(struct sock *sk, int level, int optname,
+ extern struct sock *udp4_lib_lookup(struct net *net, __be32 saddr, __be16 sport,
+ 				    __be32 daddr, __be16 dport,
+ 				    int dif);
++extern struct sock *udp6_lib_lookup(struct net *net, const struct in6_addr *saddr, __be16 sport,
++				    const struct in6_addr *daddr, __be16 dport,
++				    int dif);
+ 
+ /*
+  * 	SNMP statistics for UDP and UDP-Lite
 diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 5acb356..33e3683 100644
+index 33e3683..c84dad4 100644
 --- a/net/ipv6/udp.c
 +++ b/net/ipv6/udp.c
-@@ -122,8 +122,8 @@ static void udp_v6_rehash(struct sock *sk)
- 
- static inline int compute_score(struct sock *sk, struct net *net,
- 				unsigned short hnum,
--				struct in6_addr *saddr, __be16 sport,
--				struct in6_addr *daddr, __be16 dport,
-+				const struct in6_addr *saddr, __be16 sport,
-+				const struct in6_addr *daddr, __be16 dport,
- 				int dif)
- {
- 	int score = -1;
-@@ -239,8 +239,8 @@ exact_match:
+@@ -320,6 +320,14 @@ static struct sock *__udp6_lib_lookup_skb(struct sk_buff *skb,
+ 				 udptable);
  }
  
- static struct sock *__udp6_lib_lookup(struct net *net,
--				      struct in6_addr *saddr, __be16 sport,
--				      struct in6_addr *daddr, __be16 dport,
-+				      const struct in6_addr *saddr, __be16 sport,
-+				      const struct in6_addr *daddr, __be16 dport,
- 				      int dif, struct udp_table *udptable)
- {
- 	struct sock *sk, *result;
++struct sock *udp6_lib_lookup(struct net *net, const struct in6_addr *saddr, __be16 sport,
++			     const struct in6_addr *daddr, __be16 dport, int dif)
++{
++	return __udp6_lib_lookup(net, saddr, sport, daddr, dport, dif, &udp_table);
++}
++EXPORT_SYMBOL_GPL(udp6_lib_lookup);
++
++
+ /*
+  * 	This should be easy, if there is something there we
+  * 	return it, otherwise we block.
 
 
