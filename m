@@ -1,58 +1,56 @@
-From: Denis Kirjanov <dkirjanov@kernel.org>
-Subject: [PATCH -next 2/2] ibmveth: Free irq on error path
-Date: Wed, 20 Oct 2010 14:21:51 +0000
-Message-ID: <20101020142151.GA1846@hera.kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] net: make ctl_path local and const
+Date: Tue, 19 Oct 2010 21:59:39 -0700
+Message-ID: <1287550779.10409.620.camel@Joe-Laptop>
+References: <1287543276-4511-1-git-send-email-xiaosuo@gmail.com>
+	<1287543701.10409.599.camel@Joe-Laptop>
+	<AANLkTi=pz4zYnnUSvb9FjVvCAURruHhJTz7pBKDi8Pdw@mail.gmail.com>
+	<1287545337.10409.602.camel@Joe-Laptop>
+	<AANLkTimGUB-+TTsje1kc3q9PyoB2jJdgCK2Z7n9u7N1J@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: rcj@linux.vnet.ibm.com, netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hera.kernel.org ([140.211.167.34]:44181 "EHLO hera.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752109Ab0JTOWA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Oct 2010 10:22:00 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Andy Grover <andy.grover@oracle.com>, James Morris <jmorris@namei.org>,
+        linux-sctp@vger.kernel.org, rds-devel@oss.oracle.com,
+        "Pekka Savola \(ipv6\)" <pekkas@netcore.fi>, linux-x25@vger.kernel.org,
+        dccp@vger.kernel.org, bridge@lists.linux-foundation.org,
+        Andrew@smtp1.linux-foundation.org, coreteam@netfilter.org,
+        Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Joerg Reuter <jreuter@yaina.de>, Sridhar Samudrala <sri@us.ibm.com>,
+        Samuel Ortiz <samuel@sortiz.org>,
+        Vlad Yasevich <vladislav.yasevich@hp.com>, netfilter@vger.kernel.org,
+        Remi Denis-Courmont <remi.denis-courmont@nokia.com>,
+        linux-hams@vger.kernel.org,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>, netdev@vger.kernel.org,
+        linux-decnet-user@lists.sourceforge.net, linux-kernel@vger.ker
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <AANLkTimGUB-+TTsje1kc3q9PyoB2jJdgCK2Z7n9u7N1J@mail.gmail.com>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/bridge>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Free irq on error path.
+On Wed, 2010-10-20 at 12:52 +0800, Changli Gao wrote:
+> On Wed, Oct 20, 2010 at 11:28 AM, Joe Perches <joe@perches.com> wrote:
+> > At least some objects are smaller with static.
+> > $ size net/appletalk/sysctl_net_atalk.o.*
+> >   text    data     bss     dec     hex filename
+> >    324     236      48     608     260 net/appletalk/sysctl_net_atalk.o.withstatic
+> >    344     236      48     628     274 net/appletalk/sysctl_net_atalk.o.withoutstatic
+> I got the opposite result for the size of the whole kernel image with
+> allyesconfig.
+> original: 33531456
+> patched: 33531424
+> It seems random.
 
-Signed-off-by: Denis Kirjanov <dkirjanov@kernel.org>
----
- drivers/net/ibmveth.c |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ibmveth.c b/drivers/net/ibmveth.c
-index 2ae8336..c454b45 100644
---- a/drivers/net/ibmveth.c
-+++ b/drivers/net/ibmveth.c
-@@ -641,7 +641,7 @@ static int ibmveth_open(struct net_device *netdev)
- 	if (!adapter->bounce_buffer) {
- 		netdev_err(netdev, "unable to allocate bounce buffer\n");
- 		rc = -ENOMEM;
--		goto err_out;
-+		goto err_out_free_irq;
- 	}
- 	adapter->bounce_buffer_dma =
- 	    dma_map_single(&adapter->vdev->dev, adapter->bounce_buffer,
-@@ -649,7 +649,7 @@ static int ibmveth_open(struct net_device *netdev)
- 	if (dma_mapping_error(dev, adapter->bounce_buffer_dma)) {
- 		netdev_err(netdev, "unable to map bounce buffer\n");
- 		rc = -ENOMEM;
--		goto err_out;
-+		goto err_out_free_irq;
- 	}
- 
- 	netdev_dbg(netdev, "initial replenish cycle\n");
-@@ -661,6 +661,8 @@ static int ibmveth_open(struct net_device *netdev)
- 
- 	return 0;
- 
-+err_out_free_irq:
-+	free_irq(netdev->irq, netdev);
- err_out:
- 	ibmveth_cleanup(adapter);
- 	napi_disable(&adapter->napi);
--- 
-1.7.2.2
-
+Not using static requires the compiler to emit
+initialization code for any use of the routine
+that otherwise would only be done once.
