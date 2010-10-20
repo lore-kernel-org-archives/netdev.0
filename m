@@ -1,8 +1,8 @@
 From: KOVACS Krisztian <hidden@balabit.hu>
-Subject: [PATCH 3/3] tproxy: fix hash locking issue when using port redirection
- in __inet_inherit_port()
+Subject: [PATCH 2/3] tproxy: add lookup type checks for UDP in
+ nf_tproxy_get_sock_v4()
 Date: Wed, 20 Oct 2010 13:21:42 +0200
-Message-ID: <20101020112142.6538.40476.stgit@este.odu>
+Message-ID: <20101020112142.6538.2526.stgit@este.odu>
 References: <20101020112142.6538.25550.stgit@este.odu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
@@ -15,241 +15,206 @@ In-reply-to: <20101020112142.6538.25550.stgit@este.odu>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When __inet_inherit_port() is called on a tproxy connection the wrong locks are
-held for the inet_bind_bucket it is added to. __inet_inherit_port() made an
-implicit assumption that the listener's port number (and thus its bind bucket).
-Unfortunately, if you're using the TPROXY target to redirect skbs to a
-transparent proxy that assumption is not true anymore and things break.
+From: Balazs Scheidler <bazsi@balabit.hu>
 
-This patch adds code to __inet_inherit_port() so that it can handle this case
-by looking up or creating a new bind bucket for the child socket and updates
-callers of __inet_inherit_port() to gracefully handle __inet_inherit_port()
-failing.
+Also, inline this function as the lookup_type is always a literal
+and inlining removes branches performed at runtime.
 
-Reported by and original patch from Stephen Buck <stephen.buck@exinda.com>.
-See http://marc.info/?t=128169268200001&r=1&w=2 for the original discussion.
-
+Signed-off-by: Balazs Scheidler <bazsi@balabit.hu>
 Signed-off-by: KOVACS Krisztian <hidden@balabit.hu>
 ---
- include/net/inet_hashtables.h |    2 +-
- net/dccp/ipv4.c               |   10 +++++++---
- net/dccp/ipv6.c               |   10 +++++++---
- net/ipv4/inet_hashtables.c    |   28 ++++++++++++++++++++++++++--
- net/ipv4/tcp_ipv4.c           |   10 +++++++---
- net/ipv6/tcp_ipv6.c           |   12 ++++++++----
- 6 files changed, 56 insertions(+), 16 deletions(-)
+ include/net/netfilter/nf_tproxy_core.h |  116 +++++++++++++++++++++++++++++++-
+ net/netfilter/nf_tproxy_core.c         |   48 -------------
+ 2 files changed, 114 insertions(+), 50 deletions(-)
 
-diff --git a/include/net/inet_hashtables.h b/include/net/inet_hashtables.h
-index 74358d1..e9c2ed8 100644
---- a/include/net/inet_hashtables.h
-+++ b/include/net/inet_hashtables.h
-@@ -245,7 +245,7 @@ static inline int inet_sk_listen_hashfn(const struct sock *sk)
- }
+diff --git a/include/net/netfilter/nf_tproxy_core.h b/include/net/netfilter/nf_tproxy_core.h
+index b3a8942..1027d7f 100644
+--- a/include/net/netfilter/nf_tproxy_core.h
++++ b/include/net/netfilter/nf_tproxy_core.h
+@@ -13,11 +13,123 @@
+ #define NFT_LOOKUP_ESTABLISHED 2
  
- /* Caller must disable local BH processing. */
--extern void __inet_inherit_port(struct sock *sk, struct sock *child);
-+extern int __inet_inherit_port(struct sock *sk, struct sock *child);
- 
- extern void inet_put_port(struct sock *sk);
- 
-diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
-index d4a166f..3f69ea1 100644
---- a/net/dccp/ipv4.c
-+++ b/net/dccp/ipv4.c
-@@ -392,7 +392,7 @@ struct sock *dccp_v4_request_recv_sock(struct sock *sk, struct sk_buff *skb,
- 
- 	newsk = dccp_create_openreq_child(sk, req, skb);
- 	if (newsk == NULL)
--		goto exit;
-+		goto exit_nonewsk;
- 
- 	sk_setup_caps(newsk, dst);
- 
-@@ -409,16 +409,20 @@ struct sock *dccp_v4_request_recv_sock(struct sock *sk, struct sk_buff *skb,
- 
- 	dccp_sync_mss(newsk, dst_mtu(dst));
- 
-+	if (__inet_inherit_port(sk, newsk) < 0) {
-+		sock_put(newsk);
-+		goto exit;
-+	}
- 	__inet_hash_nolisten(newsk, NULL);
--	__inet_inherit_port(sk, newsk);
- 
- 	return newsk;
- 
- exit_overflow:
- 	NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_LISTENOVERFLOWS);
-+exit_nonewsk:
-+	dst_release(dst);
- exit:
- 	NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_LISTENDROPS);
--	dst_release(dst);
- 	return NULL;
- }
- 
-diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
-index 6e3f325..dca711d 100644
---- a/net/dccp/ipv6.c
-+++ b/net/dccp/ipv6.c
-@@ -564,7 +564,7 @@ static struct sock *dccp_v6_request_recv_sock(struct sock *sk,
- 
- 	newsk = dccp_create_openreq_child(sk, req, skb);
- 	if (newsk == NULL)
--		goto out;
-+		goto out_nonewsk;
- 
- 	/*
- 	 * No need to charge this sock to the relevant IPv6 refcnt debug socks
-@@ -632,18 +632,22 @@ static struct sock *dccp_v6_request_recv_sock(struct sock *sk,
- 	newinet->inet_daddr = newinet->inet_saddr = LOOPBACK4_IPV6;
- 	newinet->inet_rcv_saddr = LOOPBACK4_IPV6;
- 
-+	if (__inet_inherit_port(sk, newsk) < 0) {
-+		sock_put(newsk);
-+		goto out;
-+	}
- 	__inet6_hash(newsk, NULL);
--	__inet_inherit_port(sk, newsk);
- 
- 	return newsk;
- 
- out_overflow:
- 	NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_LISTENOVERFLOWS);
-+out_nonewsk:
-+	dst_release(dst);
- out:
- 	NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_LISTENDROPS);
- 	if (opt != NULL && opt != np->opt)
- 		sock_kfree_s(sk, opt, opt->tot_len);
--	dst_release(dst);
- 	return NULL;
- }
- 
-diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
-index fb7ad5a..1b344f3 100644
---- a/net/ipv4/inet_hashtables.c
-+++ b/net/ipv4/inet_hashtables.c
-@@ -101,19 +101,43 @@ void inet_put_port(struct sock *sk)
- }
- EXPORT_SYMBOL(inet_put_port);
- 
--void __inet_inherit_port(struct sock *sk, struct sock *child)
-+int __inet_inherit_port(struct sock *sk, struct sock *child)
- {
- 	struct inet_hashinfo *table = sk->sk_prot->h.hashinfo;
--	const int bhash = inet_bhashfn(sock_net(sk), inet_sk(child)->inet_num,
-+	unsigned short port = inet_sk(child)->inet_num;
-+	const int bhash = inet_bhashfn(sock_net(sk), port,
- 			table->bhash_size);
- 	struct inet_bind_hashbucket *head = &table->bhash[bhash];
- 	struct inet_bind_bucket *tb;
- 
- 	spin_lock(&head->lock);
- 	tb = inet_csk(sk)->icsk_bind_hash;
-+	if (tb->port != port) {
-+		/* NOTE: using tproxy and redirecting skbs to a proxy
-+		 * on a different listener port breaks the assumption
-+		 * that the listener socket's icsk_bind_hash is the same
-+		 * as that of the child socket. We have to look up or
-+		 * create a new bind bucket for the child here. */
-+		struct hlist_node *node;
-+		inet_bind_bucket_for_each(tb, node, &head->chain) {
-+			if (net_eq(ib_net(tb), sock_net(sk)) &&
-+			    tb->port == port)
-+				break;
+ /* look up and get a reference to a matching socket */
+-extern struct sock *
++
++
++/* This function is used by the 'TPROXY' target and the 'socket'
++ * match. The following lookups are supported:
++ *
++ * Explicit TProxy target rule
++ * ===========================
++ *
++ * This is used when the user wants to intercept a connection matching
++ * an explicit iptables rule. In this case the sockets are assumed
++ * matching in preference order:
++ *
++ *   - match: if there's a fully established connection matching the
++ *     _packet_ tuple, it is returned, assuming the redirection
++ *     already took place and we process a packet belonging to an
++ *     established connection
++ *
++ *   - match: if there's a listening socket matching the redirection
++ *     (e.g. on-port & on-ip of the connection), it is returned,
++ *     regardless if it was bound to 0.0.0.0 or an explicit
++ *     address. The reasoning is that if there's an explicit rule, it
++ *     does not really matter if the listener is bound to an interface
++ *     or to 0. The user already stated that he wants redirection
++ *     (since he added the rule).
++ *
++ * "socket" match based redirection (no specific rule)
++ * ===================================================
++ *
++ * There are connections with dynamic endpoints (e.g. FTP data
++ * connection) that the user is unable to add explicit rules
++ * for. These are taken care of by a generic "socket" rule. It is
++ * assumed that the proxy application is trusted to open such
++ * connections without explicit iptables rule (except of course the
++ * generic 'socket' rule). In this case the following sockets are
++ * matched in preference order:
++ *
++ *   - match: if there's a fully established connection matching the
++ *     _packet_ tuple
++ *
++ *   - match: if there's a non-zero bound listener (possibly with a
++ *     non-local address) We don't accept zero-bound listeners, since
++ *     then local services could intercept traffic going through the
++ *     box.
++ *
++ * Please note that there's an overlap between what a TPROXY target
++ * and a socket match will match. Normally if you have both rules the
++ * "socket" match will be the first one, effectively all packets
++ * belonging to established connections going through that one.
++ */
++static inline struct sock *
+ nf_tproxy_get_sock_v4(struct net *net, const u8 protocol,
+ 		      const __be32 saddr, const __be32 daddr,
+ 		      const __be16 sport, const __be16 dport,
+-		      const struct net_device *in, int lookup_type);
++		      const struct net_device *in, int lookup_type)
++{
++	struct sock *sk;
++
++	/* look up socket */
++	switch (protocol) {
++	case IPPROTO_TCP:
++		switch (lookup_type) {
++		case NFT_LOOKUP_ANY:
++			sk = __inet_lookup(net, &tcp_hashinfo,
++					   saddr, sport, daddr, dport,
++					   in->ifindex);
++			break;
++		case NFT_LOOKUP_LISTENER:
++			sk = inet_lookup_listener(net, &tcp_hashinfo,
++						    daddr, dport,
++						    in->ifindex);
++
++			/* NOTE: we return listeners even if bound to
++			 * 0.0.0.0, those are filtered out in
++			 * xt_socket, since xt_TPROXY needs 0 bound
++			 * listeners too */
++
++			break;
++		case NFT_LOOKUP_ESTABLISHED:
++			sk = inet_lookup_established(net, &tcp_hashinfo,
++						    saddr, sport, daddr, dport,
++						    in->ifindex);
++			break;
++		default:
++			WARN_ON(1);
++			sk = NULL;
++			break;
 +		}
-+		if (!node) {
-+			tb = inet_bind_bucket_create(table->bind_bucket_cachep,
-+						     sock_net(sk), head, port);
-+			if (!tb) {
-+				spin_unlock(&head->lock);
-+				return -ENOMEM;
++		break;
++	case IPPROTO_UDP:
++		sk = udp4_lib_lookup(net, saddr, sport, daddr, dport,
++				     in->ifindex);
++		if (sk && lookup_type != NFT_LOOKUP_ANY) {
++			int connected = (sk->sk_state == TCP_ESTABLISHED);
++			int wildcard = (inet_sk(sk)->inet_rcv_saddr == 0);
++
++			/* NOTE: we return listeners even if bound to
++			 * 0.0.0.0, those are filtered out in
++			 * xt_socket, since xt_TPROXY needs 0 bound
++			 * listeners too */
++			if ((lookup_type == NFT_LOOKUP_ESTABLISHED && (!connected || wildcard)) ||
++			    (lookup_type == NFT_LOOKUP_LISTENER && connected)) {
++				sock_put(sk);
++				sk = NULL;
 +			}
 +		}
++		break;
++	default:
++		WARN_ON(1);
++		sk = NULL;
 +	}
- 	sk_add_bind_node(child, &tb->owners);
- 	inet_csk(child)->icsk_bind_hash = tb;
- 	spin_unlock(&head->lock);
 +
-+	return 0;
- }
- EXPORT_SYMBOL_GPL(__inet_inherit_port);
++	pr_debug("tproxy socket lookup: proto %u %08x:%u -> %08x:%u, lookup type: %d, sock %p\n",
++		 protocol, ntohl(saddr), ntohs(sport), ntohl(daddr), ntohs(dport), lookup_type, sk);
++
++	return sk;
++}
++
  
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index a0232f3..8f8527d 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1422,7 +1422,7 @@ struct sock *tcp_v4_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
+ static inline void
+ nf_tproxy_put_sock(struct sock *sk)
+diff --git a/net/netfilter/nf_tproxy_core.c b/net/netfilter/nf_tproxy_core.c
+index 2ce945c..4d87bef 100644
+--- a/net/netfilter/nf_tproxy_core.c
++++ b/net/netfilter/nf_tproxy_core.c
+@@ -18,54 +18,6 @@
+ #include <net/udp.h>
+ #include <net/netfilter/nf_tproxy_core.h>
  
- 	newsk = tcp_create_openreq_child(sk, req, skb);
- 	if (!newsk)
--		goto exit;
-+		goto exit_nonewsk;
+-struct sock *
+-nf_tproxy_get_sock_v4(struct net *net, const u8 protocol,
+-		      const __be32 saddr, const __be32 daddr,
+-		      const __be16 sport, const __be16 dport,
+-		      const struct net_device *in, int lookup_type)
+-{
+-	struct sock *sk;
+-
+-	/* look up socket */
+-	switch (protocol) {
+-	case IPPROTO_TCP:
+-		switch (lookup_type) {
+-		case NFT_LOOKUP_ANY:
+-			sk = __inet_lookup(net, &tcp_hashinfo,
+-					   saddr, sport, daddr, dport,
+-					   in->ifindex);
+-			break;
+-		case NFT_LOOKUP_LISTENER:
+-			sk = inet_lookup_listener(net, &tcp_hashinfo,
+-						    daddr, dport,
+-						    in->ifindex);
+-			break;
+-		case NFT_LOOKUP_ESTABLISHED:
+-			sk = inet_lookup_established(net, &tcp_hashinfo,
+-						    saddr, sport, daddr, dport,
+-						    in->ifindex);
+-			break;
+-		default:
+-			WARN_ON(1);
+-			sk = NULL;
+-			break;
+-		}
+-		break;
+-	case IPPROTO_UDP:
+-		sk = udp4_lib_lookup(net, saddr, sport, daddr, dport,
+-				     in->ifindex);
+-		break;
+-	default:
+-		WARN_ON(1);
+-		sk = NULL;
+-	}
+-
+-	pr_debug("tproxy socket lookup: proto %u %08x:%u -> %08x:%u, lookup type: %d, sock %p\n",
+-		 protocol, ntohl(saddr), ntohs(sport), ntohl(daddr), ntohs(dport), lookup_type, sk);
+-
+-	return sk;
+-}
+-EXPORT_SYMBOL_GPL(nf_tproxy_get_sock_v4);
  
- 	newsk->sk_gso_type = SKB_GSO_TCPV4;
- 	sk_setup_caps(newsk, dst);
-@@ -1469,16 +1469,20 @@ struct sock *tcp_v4_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
- 	}
- #endif
- 
-+	if (__inet_inherit_port(sk, newsk) < 0) {
-+		sock_put(newsk);
-+		goto exit;
-+	}
- 	__inet_hash_nolisten(newsk, NULL);
--	__inet_inherit_port(sk, newsk);
- 
- 	return newsk;
- 
- exit_overflow:
- 	NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_LISTENOVERFLOWS);
-+exit_nonewsk:
-+	dst_release(dst);
- exit:
- 	NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_LISTENDROPS);
--	dst_release(dst);
- 	return NULL;
- }
- EXPORT_SYMBOL(tcp_v4_syn_recv_sock);
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 8d93f6d..7e41e2c 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1409,7 +1409,7 @@ static struct sock * tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
- 
- 	newsk = tcp_create_openreq_child(sk, req, skb);
- 	if (newsk == NULL)
--		goto out;
-+		goto out_nonewsk;
- 
- 	/*
- 	 * No need to charge this sock to the relevant IPv6 refcnt debug socks
-@@ -1497,18 +1497,22 @@ static struct sock * tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
- 	}
- #endif
- 
-+	if (__inet_inherit_port(sk, newsk) < 0) {
-+		sock_put(newsk);
-+		goto out;
-+	}
- 	__inet6_hash(newsk, NULL);
--	__inet_inherit_port(sk, newsk);
- 
- 	return newsk;
- 
- out_overflow:
- 	NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_LISTENOVERFLOWS);
--out:
--	NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_LISTENDROPS);
-+out_nonewsk:
- 	if (opt && opt != np->opt)
- 		sock_kfree_s(sk, opt, opt->tot_len);
- 	dst_release(dst);
-+out:
-+	NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_LISTENDROPS);
- 	return NULL;
- }
- 
+ static void
+ nf_tproxy_destructor(struct sk_buff *skb)
 
 
