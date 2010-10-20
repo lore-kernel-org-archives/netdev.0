@@ -1,120 +1,157 @@
 From: Jesse Gross <jesse@nicira.com>
-Subject: [PATCH v2 00/14] Move vlan acceleration into networking core.
-Date: Wed, 20 Oct 2010 16:56:00 -0700
-Message-ID: <1287618974-4714-1-git-send-email-jesse@nicira.com>
+Subject: [PATCH v2 01/14] ebtables: Allow filtering of hardware accelerated vlan frames.
+Date: Wed, 20 Oct 2010 16:56:01 -0700
+Message-ID: <1287618974-4714-2-git-send-email-jesse@nicira.com>
+References: <1287618974-4714-1-git-send-email-jesse@nicira.com>
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f174.google.com ([209.85.216.174]:59370 "EHLO
-	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752112Ab0JTX4V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Oct 2010 19:56:21 -0400
-Received: by qyk12 with SMTP id 12so1775911qyk.19
-        for <netdev@vger.kernel.org>; Wed, 20 Oct 2010 16:56:20 -0700 (PDT)
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:34344 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752112Ab0JTX4X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Oct 2010 19:56:23 -0400
+Received: by vws2 with SMTP id 2so2600261vws.19
+        for <netdev@vger.kernel.org>; Wed, 20 Oct 2010 16:56:22 -0700 (PDT)
+In-Reply-To: <1287618974-4714-1-git-send-email-jesse@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hardware vlan acceleration behaves fairly differently from other types of
-offloading, which limits its usefulness.  This patch series aims to bring
-it more in line with other common forms of acceleration, such as checksum
-offloading and TSO.  In doing this it eliminates common driver bugs, increases
-flexibility, and improves performance, while reducing the number of lines of
-code.
+An upcoming commit will allow packets with hardware vlan acceleration
+information to be passed though more parts of the network stack, including
+packets trunked through the bridge.  This adds support for matching and
+filtering those packets through ebtables.
 
-The first eleven patches can be applied immediately, while the last three need
-to wait until all drivers that support vlan acceleration are updated.  If
-people agree that this patch set makes sense I will go ahead and switch over
-the dozen or so drivers that would need to change.
+Signed-off-by: Jesse Gross <jesse@nicira.com>
+---
+ net/bridge/br_netfilter.c       |   16 +++++++++-------
+ net/bridge/netfilter/ebt_vlan.c |   21 ++++++++++++++-------
+ net/bridge/netfilter/ebtables.c |   15 +++++++++++----
+ 3 files changed, 34 insertions(+), 18 deletions(-)
 
-Changes since v1:
- * Break apart patches and use temporary variables for better readibility.
- * Use rcu_dereference_rtnl() in vlan_find_dev().
- * Restructure netif_needs_gso() for better common case performance.
- * Make ebtables consistently use the outer vlan tag if two are present.
- * Drop check for vlan group on transmit in all drivers.
- * Send vlan traffic through __netif_receive_skb both tagged and untagged for
-   consistent results between accelerated and non-acclerated traffic.
- * Add support for Ethtool.
- * Enable vlan accleration on bridge devices.
- * Convert bnx2x driver.
-
-Hao Zheng (1):
-  bnx2x: Update bnx2x to use new vlan accleration.
-
-Jesse Gross (13):
-  ebtables: Allow filtering of hardware accelerated vlan frames.
-  vlan: Rename VLAN_GROUP_ARRAY_LEN to VLAN_N_VID.
-  vlan: Don't check for vlan group before vlan_tx_tag_present.
-  vlan: Enable software emulation for vlan accleration.
-  vlan: Avoid hash table lookup to find group.
-  vlan: Centralize handling of hardware acceleration.
-  ethtool: Add support for vlan accleration.
-  bridge: Add support for TX vlan offload.
-  bnx2: Update bnx2 to use new vlan accleration.
-  ixgbe: Update ixgbe to use new vlan accleration.
-  lro: Remove explicit vlan support.
-  bonding: Update bonding for new vlan model.
-  vlan: Remove accleration legacy functions.
-
- drivers/net/8139cp.c               |    2 +-
- drivers/net/amd8111e.c             |    2 +-
- drivers/net/atl1c/atl1c_main.c     |    2 +-
- drivers/net/atl1e/atl1e_main.c     |    2 +-
- drivers/net/atlx/atl1.c            |    2 +-
- drivers/net/atlx/atl2.c            |    2 +-
- drivers/net/benet/be.h             |    2 +-
- drivers/net/benet/be_main.c        |    9 +-
- drivers/net/bna/bnad.c             |    2 +-
- drivers/net/bnx2.c                 |   99 +++++++------------------
- drivers/net/bnx2.h                 |    4 -
- drivers/net/bnx2x/bnx2x.h          |   10 ---
- drivers/net/bnx2x/bnx2x_cmn.c      |   63 +++-------------
- drivers/net/bnx2x/bnx2x_ethtool.c  |   33 ++++----
- drivers/net/bnx2x/bnx2x_main.c     |    8 --
- drivers/net/bonding/bond_alb.c     |    8 +-
- drivers/net/bonding/bond_ipv6.c    |    5 +-
- drivers/net/bonding/bond_main.c    |  143 +++++++-----------------------------
- drivers/net/bonding/bonding.h      |    1 -
- drivers/net/chelsio/sge.c          |    2 +-
- drivers/net/cxgb3/sge.c            |    4 +-
- drivers/net/e1000/e1000_main.c     |    4 +-
- drivers/net/e1000e/netdev.c        |    4 +-
- drivers/net/ehea/ehea_main.c       |    2 +-
- drivers/net/enic/enic_main.c       |    2 +-
- drivers/net/forcedeth.c            |   11 +--
- drivers/net/gianfar.c              |    4 +-
- drivers/net/igb/igb_main.c         |    4 +-
- drivers/net/igbvf/netdev.c         |    2 +-
- drivers/net/ixgb/ixgb_main.c       |    2 +-
- drivers/net/ixgbe/ixgbe.h          |    4 +-
- drivers/net/ixgbe/ixgbe_ethtool.c  |   12 +++-
- drivers/net/ixgbe/ixgbe_main.c     |  139 +++++++++++++++-------------------
- drivers/net/ixgbevf/ixgbevf_main.c |    4 +-
- drivers/net/mlx4/en_tx.c           |    4 +-
- drivers/net/qlcnic/qlcnic_main.c   |    2 +-
- drivers/net/qlge/qlge_main.c       |    2 +-
- drivers/net/r8169.c                |    2 +-
- drivers/net/s2io.c                 |    2 +-
- drivers/net/sky2.c                 |    2 +-
- drivers/net/tg3.c                  |    4 +-
- drivers/net/via-velocity.c         |    2 +-
- drivers/net/vmxnet3/vmxnet3_drv.c  |    2 +-
- drivers/net/vxge/vxge-main.c       |    4 +-
- drivers/s390/net/qeth_l3_main.c    |    6 +-
- include/linux/ethtool.h            |    2 +
- include/linux/if_vlan.h            |   88 +++++++---------------
- include/linux/inet_lro.h           |   20 -----
- include/linux/netdevice.h          |   28 ++++---
- net/8021q/vlan.c                   |   84 ++++-----------------
- net/8021q/vlan.h                   |   17 ----
- net/8021q/vlan_core.c              |  132 +++++----------------------------
- net/8021q/vlan_dev.c               |    2 +-
- net/bridge/br_device.c             |    8 ++-
- net/bridge/br_netfilter.c          |   16 ++--
- net/bridge/netfilter/ebt_vlan.c    |   25 ++++--
- net/bridge/netfilter/ebtables.c    |   15 +++-
- net/core/dev.c                     |   83 ++++++++++++---------
- net/core/ethtool.c                 |    3 +-
- net/ipv4/inet_lro.c                |   74 +++----------------
- 60 files changed, 395 insertions(+), 833 deletions(-)
+diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
+index 7f9ce96..47c2dab 100644
+--- a/net/bridge/br_netfilter.c
++++ b/net/bridge/br_netfilter.c
+@@ -64,22 +64,24 @@ static int brnf_filter_pppoe_tagged __read_mostly = 0;
+ 
+ static inline __be16 vlan_proto(const struct sk_buff *skb)
+ {
+-	return vlan_eth_hdr(skb)->h_vlan_encapsulated_proto;
++	if (vlan_tx_tag_present(skb))
++		return skb->protocol;
++	else if (skb->protocol == htons(ETH_P_8021Q))
++		return vlan_eth_hdr(skb)->h_vlan_encapsulated_proto;
++	else
++		return 0;
+ }
+ 
+ #define IS_VLAN_IP(skb) \
+-	(skb->protocol == htons(ETH_P_8021Q) && \
+-	 vlan_proto(skb) == htons(ETH_P_IP) && 	\
++	(vlan_proto(skb) == htons(ETH_P_IP) && \
+ 	 brnf_filter_vlan_tagged)
+ 
+ #define IS_VLAN_IPV6(skb) \
+-	(skb->protocol == htons(ETH_P_8021Q) && \
+-	 vlan_proto(skb) == htons(ETH_P_IPV6) &&\
++	(vlan_proto(skb) == htons(ETH_P_IPV6) && \
+ 	 brnf_filter_vlan_tagged)
+ 
+ #define IS_VLAN_ARP(skb) \
+-	(skb->protocol == htons(ETH_P_8021Q) &&	\
+-	 vlan_proto(skb) == htons(ETH_P_ARP) &&	\
++	(vlan_proto(skb) == htons(ETH_P_ARP) &&	\
+ 	 brnf_filter_vlan_tagged)
+ 
+ static inline __be16 pppoe_proto(const struct sk_buff *skb)
+diff --git a/net/bridge/netfilter/ebt_vlan.c b/net/bridge/netfilter/ebt_vlan.c
+index 87b53b3..cc11d6b 100644
+--- a/net/bridge/netfilter/ebt_vlan.c
++++ b/net/bridge/netfilter/ebt_vlan.c
+@@ -39,8 +39,6 @@ static bool
+ ebt_vlan_mt(const struct sk_buff *skb, struct xt_action_param *par)
+ {
+ 	const struct ebt_vlan_info *info = par->matchinfo;
+-	const struct vlan_hdr *fp;
+-	struct vlan_hdr _frame;
+ 
+ 	unsigned short TCI;	/* Whole TCI, given from parsed frame */
+ 	unsigned short id;	/* VLAN ID, given from frame TCI */
+@@ -48,9 +46,20 @@ ebt_vlan_mt(const struct sk_buff *skb, struct xt_action_param *par)
+ 	/* VLAN encapsulated Type/Length field, given from orig frame */
+ 	__be16 encap;
+ 
+-	fp = skb_header_pointer(skb, 0, sizeof(_frame), &_frame);
+-	if (fp == NULL)
+-		return false;
++	if (vlan_tx_tag_present(skb)) {
++		TCI = vlan_tx_tag_get(skb);
++		encap = skb->protocol;
++	} else {
++		const struct vlan_hdr *fp;
++		struct vlan_hdr _frame;
++
++		fp = skb_header_pointer(skb, 0, sizeof(_frame), &_frame);
++		if (fp == NULL)
++			return false;
++
++		TCI = ntohs(fp->h_vlan_TCI);
++		encap = fp->h_vlan_encapsulated_proto;
++	}
+ 
+ 	/* Tag Control Information (TCI) consists of the following elements:
+ 	 * - User_priority. The user_priority field is three bits in length,
+@@ -59,10 +68,8 @@ ebt_vlan_mt(const struct sk_buff *skb, struct xt_action_param *par)
+ 	 * (CFI) is a single bit flag value. Currently ignored.
+ 	 * - VLAN Identifier (VID). The VID is encoded as
+ 	 * an unsigned binary number. */
+-	TCI = ntohs(fp->h_vlan_TCI);
+ 	id = TCI & VLAN_VID_MASK;
+ 	prio = (TCI >> 13) & 0x7;
+-	encap = fp->h_vlan_encapsulated_proto;
+ 
+ 	/* Checking VLAN Identifier (VID) */
+ 	if (GET_BITMASK(EBT_VLAN_ID))
+diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
+index bcc102e..a1dcf83 100644
+--- a/net/bridge/netfilter/ebtables.c
++++ b/net/bridge/netfilter/ebtables.c
+@@ -124,16 +124,23 @@ ebt_dev_check(const char *entry, const struct net_device *device)
+ #define FWINV2(bool,invflg) ((bool) ^ !!(e->invflags & invflg))
+ /* process standard matches */
+ static inline int
+-ebt_basic_match(const struct ebt_entry *e, const struct ethhdr *h,
++ebt_basic_match(const struct ebt_entry *e, const struct sk_buff *skb,
+                 const struct net_device *in, const struct net_device *out)
+ {
++	const struct ethhdr *h = eth_hdr(skb);
++	__be16 ethproto;
+ 	int verdict, i;
+ 
++	if (vlan_tx_tag_present(skb))
++		ethproto = htons(ETH_P_8021Q);
++	else
++		ethproto = h->h_proto;
++
+ 	if (e->bitmask & EBT_802_3) {
+-		if (FWINV2(ntohs(h->h_proto) >= 1536, EBT_IPROTO))
++		if (FWINV2(ntohs(ethproto) >= 1536, EBT_IPROTO))
+ 			return 1;
+ 	} else if (!(e->bitmask & EBT_NOPROTO) &&
+-	   FWINV2(e->ethproto != h->h_proto, EBT_IPROTO))
++	   FWINV2(e->ethproto != ethproto, EBT_IPROTO))
+ 		return 1;
+ 
+ 	if (FWINV2(ebt_dev_check(e->in, in), EBT_IIN))
+@@ -213,7 +220,7 @@ unsigned int ebt_do_table (unsigned int hook, struct sk_buff *skb,
+ 	base = private->entries;
+ 	i = 0;
+ 	while (i < nentries) {
+-		if (ebt_basic_match(point, eth_hdr(skb), in, out))
++		if (ebt_basic_match(point, skb, in, out))
+ 			goto letscontinue;
+ 
+ 		if (EBT_MATCH_ITERATE(point, ebt_do_match, skb, &acpar) != 0)
+-- 
+1.7.1
 
