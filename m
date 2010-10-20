@@ -1,42 +1,34 @@
-From: Erik Schweigert <ejschweigert@gmail.com>
-Subject: Ethernet bridge not passing VLAN'd traffic
-Date: Tue, 19 Oct 2010 16:24:05 -0700
-Message-ID: <AANLkTi=RLjMq5im69dDqu133t-GYSMMymhJFAkfrs+i=@mail.gmail.com>
+From: "DIAMOND FINANCIAL SERVICE" <elecuona@malaga.uned.es>
+Subject: DIAMOND LOAN
+Date: Wed, 20 Oct 2010 02:11:02 +0200
+Message-ID: <b8afbc17d29674f9bda154d8e5a926dd.squirrel@correo.uned.es>
+Reply-To: d.financialloan1@qualityservice.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw0-f46.google.com ([74.125.83.46]:53613 "EHLO
-	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753454Ab0JSXYH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Oct 2010 19:24:07 -0400
-Received: by gwb10 with SMTP id 10so34091gwb.19
-        for <netdev@vger.kernel.org>; Tue, 19 Oct 2010 16:24:06 -0700 (PDT)
+Received: from smtp-out-seis.uned.es ([62.204.192.120]:36149 "EHLO
+	smtp-out-seis.uned.es" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752229Ab0JTAVC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Oct 2010 20:21:02 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello list,
 
-I have configured a transparent ethernet bridge containing two network
-interfaces: eth0, eth1 in br0.  IP forwarding is enabled i.e. cat
-/proc/sys/net/ipv4/ip_forward = 1.
 
-All traffic destined through my Linux machine has the 802.1Q tag
-(VLAN).  However, only ARP with the VLAN tags passes through the
-machine correctly (100% of the time) and broadcast and multicast
-appears to work.  It 'seems' IP layer and above is being dropped if it
-is unicast, or intermittently works ( +/- 1 of 10 ICMP passes
-through).
 
-All non-VLAN'd traffic passes through my machine flawlessly.
+We are Diamond Financial Loan service, we are registered and guaranteed
+loan company here in Europe, and we give out loans to individuals,
+companies, government establishments, churches and business organizations.
+Are you in need of a loan for any purpose? Are you in a financial problem?
+Do you need financial solution? Diamond loans is the solution to all your
+financial problems, our loans are easy, cheap, and quick. Contact us today
+for that loan that you desire, we can arrange any loan to suit your budget
+at only 3% interest rate,minimum of 5,000euros to maximum of 3 million
+euros If interested, contact us immediately,
 
-arptables, ebtables, and IPtables are all flushed, so there is no
-possibility of any traffic being blocked.
+Best Regards
+Mrs White Goldman
+E mail:(d.financialloan1@qualityservice.com)
 
-Is there a caveat with ethernet bridging that does not permit VLAN'd traffic?
-
-Any help or suggestions is greatly appreciated!
-
-Thanks,
-
-Erik
