@@ -1,31 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-next-2.6 2010-10-15
-Date: Wed, 20 Oct 2010 02:00:22 -0700 (PDT)
-Message-ID: <20101020.020022.104065509.davem@davemloft.net>
-References: <20101015204048.GC2438@tuxdriver.com>
+Subject: Re: [PATCH 1/4] net - Add AF_ALG macros
+Date: Wed, 20 Oct 2010 02:01:42 -0700 (PDT)
+Message-ID: <20101020.020142.189694307.davem@davemloft.net>
+References: <20100907084213.GA4610@gondor.apana.org.au>
+	<E1P8CVt-0003Yv-Ml@gondolin.me.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32884
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750982Ab0JTJAA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Oct 2010 05:00:00 -0400
-In-Reply-To: <20101015204048.GC2438@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-crypto@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: herbert@gondor.apana.org.au
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <E1P8CVt-0003Yv-Ml@gondolin.me.apana.org.au>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Fri, 15 Oct 2010 16:40:50 -0400
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Tue, 19 Oct 2010 21:46:01 +0800
 
-> Here is the latest batch of updates intended for 2.6.37.  As usual,
-> it is primarily a bunch of driver updates and fixes to code already
-> in -next.  This also includes a batch of Bluetooth updates courtesy
-> of Gustavo Padovan.  There is also the movement of the wl1251 driver
-> out of the wl12xx directory.  This is a prelude to the expansion of
-> the wl1271 code to cover some new hardware, all of which is actually
-> largely unrelated to wl1251.
+> net - Add AF_ALG macros
+> 
+> This patch adds the socket family/level macros for the yet-to-be-born
+> AF_ALG family.  The AF_ALG family provides the user-space interface
+> for the kernel crypto API.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Pulled, thanks John.
+Acked-by: David S. Miller <davem@davemloft.net>
