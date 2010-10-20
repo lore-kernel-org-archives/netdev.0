@@ -1,40 +1,33 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [PATCH 2/2] Revert napi_poll fix for bonding driver
-Date: Wed, 20 Oct 2010 15:52:00 +0800
-Message-ID: <4CBE9FA0.6010900@redhat.com>
-References: <1287507866-25156-1-git-send-email-nhorman@tuxdriver.com> <1287507866-25156-3-git-send-email-nhorman@tuxdriver.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net,
-	fubar@us.ibm.com, davem@davemloft.net, andy@greyhouse.net
-To: nhorman@tuxdriver.com
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH] phonet: remove the unused variable pn
+Date: Wed, 20 Oct 2010 15:51:03 +0800
+Message-ID: <1287561063-24548-1-git-send-email-xiaosuo@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Changli Gao <xiaosuo@gmail.com>
+To: Remi Denis-Courmont <remi.denis-courmont@nokia.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:19989 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932106Ab0JTHrl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Oct 2010 03:47:41 -0400
-In-Reply-To: <1287507866-25156-3-git-send-email-nhorman@tuxdriver.com>
+Received: from mail-qy0-f181.google.com ([209.85.216.181]:49437 "EHLO
+	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754488Ab0JTHv0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Oct 2010 03:51:26 -0400
+Received: by qyk9 with SMTP id 9so1289086qyk.19
+        for <netdev@vger.kernel.org>; Wed, 20 Oct 2010 00:51:25 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/20/10 01:04, nhorman@tuxdriver.com wrote:
-> From: Neil Horman<nhorman@tuxdriver.com>
->
-> In an erlier patch I modified napi_poll so that devices with IFF_MASTER polled
-> the per_cpu list instead of the device list for napi.  I did this because the
-> bonding driver has no napi instances to poll, it instead expects to check the
-> slave devices napi instances, which napi_poll was unaware of.  Looking at this
-> more closely however, I now see this isn't strictly needed.  As the bond driver
-> poll_controller calls the slaves poll_controller via netpoll_poll_dev, which
-> recursively calls poll_napi on each slave, allowing those napi instances to get
-> serviced.  The earlier patch isn't at all harmfull, its just not needed, so lets
-> revert it to make the code cleaner.  Sorry for the noise,
->
-> Signed-off-by: Neil Horman<nhorman@tuxdriver.com>
-
-Looks reasonable to me,
-
-Reviewed-by: WANG Cong <amwang@redhat.com>
-
-Thanks.
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+---
+ net/phonet/pep.c |    1 -
+ 1 file changed, 1 deletion(-)
+diff --git a/net/phonet/pep.c b/net/phonet/pep.c
+index 9c903f9..3e60f2e 100644
+--- a/net/phonet/pep.c
++++ b/net/phonet/pep.c
+@@ -300,7 +300,6 @@ static int pipe_handler_send_ind(struct sock *sk, u8 utid, u8 msg_id)
+ 
+ static int pipe_handler_enable_pipe(struct sock *sk, int enable)
+ {
+-	struct pep_sock *pn = pep_sk(sk);
+ 	int utid, req;
+ 
+ 	if (enable) {
