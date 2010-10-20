@@ -1,25 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] phonet: remove the unused variable pn
-Date: Wed, 20 Oct 2010 01:56:39 -0700 (PDT)
-Message-ID: <20101020.015639.71123350.davem@davemloft.net>
-References: <1287561063-24548-1-git-send-email-xiaosuo@gmail.com>
+Subject: Re: pull request: wireless-next-2.6 2010-10-15
+Date: Wed, 20 Oct 2010 02:00:22 -0700 (PDT)
+Message-ID: <20101020.020022.104065509.davem@davemloft.net>
+References: <20101015204048.GC2438@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: remi.denis-courmont@nokia.com, netdev@vger.kernel.org
-To: xiaosuo@gmail.com
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32875
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32884
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751231Ab0JTI4Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Oct 2010 04:56:16 -0400
-In-Reply-To: <1287561063-24548-1-git-send-email-xiaosuo@gmail.com>
+	by vger.kernel.org with ESMTP id S1750982Ab0JTJAA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Oct 2010 05:00:00 -0400
+In-Reply-To: <20101015204048.GC2438@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Changli Gao <xiaosuo@gmail.com>
-Date: Wed, 20 Oct 2010 15:51:03 +0800
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Fri, 15 Oct 2010 16:40:50 -0400
 
-> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+> Here is the latest batch of updates intended for 2.6.37.  As usual,
+> it is primarily a bunch of driver updates and fixes to code already
+> in -next.  This also includes a batch of Bluetooth updates courtesy
+> of Gustavo Padovan.  There is also the movement of the wl1251 driver
+> out of the wl12xx directory.  This is a prelude to the expansion of
+> the wl1271 code to cover some new hardware, all of which is actually
+> largely unrelated to wl1251.
 
-Applied, thanks.
+Pulled, thanks John.
