@@ -1,349 +1,505 @@
 From: Jesse Gross <jesse@nicira.com>
-Subject: [PATCH v2 02/14] vlan: Rename VLAN_GROUP_ARRAY_LEN to VLAN_N_VID.
-Date: Wed, 20 Oct 2010 16:56:02 -0700
-Message-ID: <1287618974-4714-3-git-send-email-jesse@nicira.com>
+Subject: [PATCH v2 03/14] vlan: Don't check for vlan group before vlan_tx_tag_present.
+Date: Wed, 20 Oct 2010 16:56:03 -0700
+Message-ID: <1287618974-4714-4-git-send-email-jesse@nicira.com>
 References: <1287618974-4714-1-git-send-email-jesse@nicira.com>
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-vw0-f46.google.com ([209.85.212.46]:34344 "EHLO
 	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753022Ab0JTX4Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Oct 2010 19:56:24 -0400
+	with ESMTP id S1753620Ab0JTX40 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Oct 2010 19:56:26 -0400
 Received: by mail-vw0-f46.google.com with SMTP id 2so2600261vws.19
-        for <netdev@vger.kernel.org>; Wed, 20 Oct 2010 16:56:23 -0700 (PDT)
+        for <netdev@vger.kernel.org>; Wed, 20 Oct 2010 16:56:25 -0700 (PDT)
 In-Reply-To: <1287618974-4714-1-git-send-email-jesse@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-VLAN_GROUP_ARRAY_LEN is simply the number of possible vlan VIDs.
-Since vlan groups will soon be more of an implementation detail
-for vlan devices, rename the constant to be descriptive of its
-actual purpose.
+Many (but not all) drivers check to see whether there is a vlan
+group configured before using a tag stored in the skb.  There's
+not much point in this check since it just throws away data that
+should only be present in the expected circumstances.  However,
+it will soon be legal and expected to get a vlan tag when no
+vlan group is configured, so remove this check from all drivers
+to avoid dropping the tags.
 
 Signed-off-by: Jesse Gross <jesse@nicira.com>
 ---
- drivers/net/benet/be.h             |    2 +-
- drivers/net/benet/be_main.c        |    2 +-
+ drivers/net/8139cp.c               |    2 +-
+ drivers/net/amd8111e.c             |    2 +-
+ drivers/net/atl1c/atl1c_main.c     |    2 +-
+ drivers/net/atl1e/atl1e_main.c     |    2 +-
+ drivers/net/atlx/atl1.c            |    2 +-
+ drivers/net/atlx/atl2.c            |    2 +-
+ drivers/net/benet/be_main.c        |    7 +++----
+ drivers/net/bna/bnad.c             |    2 +-
+ drivers/net/bnx2.c                 |    2 +-
+ drivers/net/bnx2x/bnx2x_cmn.c      |    3 +--
+ drivers/net/chelsio/sge.c          |    2 +-
+ drivers/net/cxgb3/sge.c            |    4 ++--
  drivers/net/e1000/e1000_main.c     |    2 +-
  drivers/net/e1000e/netdev.c        |    2 +-
+ drivers/net/ehea/ehea_main.c       |    2 +-
+ drivers/net/enic/enic_main.c       |    2 +-
+ drivers/net/forcedeth.c            |   11 ++++-------
+ drivers/net/gianfar.c              |    4 ++--
  drivers/net/igb/igb_main.c         |    2 +-
- drivers/net/igbvf/netdev.c         |    2 +-
- drivers/net/ixgb/ixgb_main.c       |    2 +-
  drivers/net/ixgbe/ixgbe_main.c     |    2 +-
  drivers/net/ixgbevf/ixgbevf_main.c |    2 +-
- drivers/net/qlcnic/qlcnic_main.c   |    2 +-
- drivers/net/vmxnet3/vmxnet3_drv.c  |    2 +-
+ drivers/net/mlx4/en_tx.c           |    4 ++--
+ drivers/net/qlge/qlge_main.c       |    2 +-
+ drivers/net/r8169.c                |    2 +-
+ drivers/net/s2io.c                 |    2 +-
+ drivers/net/sky2.c                 |    2 +-
+ drivers/net/tg3.c                  |    4 ++--
+ drivers/net/via-velocity.c         |    2 +-
  drivers/net/vxge/vxge-main.c       |    2 +-
- drivers/s390/net/qeth_l3_main.c    |    6 +++---
- include/linux/if_vlan.h            |    4 ++--
- net/8021q/vlan.c                   |   16 ++++++++--------
- net/bridge/netfilter/ebt_vlan.c    |    4 ++--
- 16 files changed, 27 insertions(+), 27 deletions(-)
+ 29 files changed, 38 insertions(+), 43 deletions(-)
 
-diff --git a/drivers/net/benet/be.h b/drivers/net/benet/be.h
-index 1afabb1..59a17b5 100644
---- a/drivers/net/benet/be.h
-+++ b/drivers/net/benet/be.h
-@@ -263,7 +263,7 @@ struct be_adapter {
- 	struct vlan_group *vlan_grp;
- 	u16 vlans_added;
- 	u16 max_vlans;	/* Number of vlans supported */
--	u8 vlan_tag[VLAN_GROUP_ARRAY_LEN];
-+	u8 vlan_tag[VLAN_N_VID];
- 	struct be_dma_mem mc_cmd_mem;
+diff --git a/drivers/net/8139cp.c b/drivers/net/8139cp.c
+index 237d4ea..ac422cd 100644
+--- a/drivers/net/8139cp.c
++++ b/drivers/net/8139cp.c
+@@ -754,7 +754,7 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
+ 	}
  
- 	struct be_dma_mem stats_cmd;
+ #if CP_VLAN_TAG_USED
+-	if (cp->vlgrp && vlan_tx_tag_present(skb))
++	if (vlan_tx_tag_present(skb))
+ 		vlan_tag = TxVlanTag | swab16(vlan_tx_tag_get(skb));
+ #endif
+ 
+diff --git a/drivers/net/amd8111e.c b/drivers/net/amd8111e.c
+index 58a0ab4..2ca880b 100644
+--- a/drivers/net/amd8111e.c
++++ b/drivers/net/amd8111e.c
+@@ -1315,7 +1315,7 @@ static netdev_tx_t amd8111e_start_xmit(struct sk_buff *skb,
+ 	lp->tx_ring[tx_index].tx_flags = 0;
+ 
+ #if AMD8111E_VLAN_TAG_USED
+-	if((lp->vlgrp != NULL) && vlan_tx_tag_present(skb)){
++	if (vlan_tx_tag_present(skb)) {
+ 		lp->tx_ring[tx_index].tag_ctrl_cmd |=
+ 				cpu_to_le16(TCC_VLAN_INSERT);
+ 		lp->tx_ring[tx_index].tag_ctrl_info =
+diff --git a/drivers/net/atl1c/atl1c_main.c b/drivers/net/atl1c/atl1c_main.c
+index 553230e..99ffcf6 100644
+--- a/drivers/net/atl1c/atl1c_main.c
++++ b/drivers/net/atl1c/atl1c_main.c
+@@ -2243,7 +2243,7 @@ static netdev_tx_t atl1c_xmit_frame(struct sk_buff *skb,
+ 		return NETDEV_TX_OK;
+ 	}
+ 
+-	if (unlikely(adapter->vlgrp && vlan_tx_tag_present(skb))) {
++	if (unlikely(vlan_tx_tag_present(skb))) {
+ 		u16 vlan = vlan_tx_tag_get(skb);
+ 		__le16 tag;
+ 
+diff --git a/drivers/net/atl1e/atl1e_main.c b/drivers/net/atl1e/atl1e_main.c
+index 56ace3f..ef6349b 100644
+--- a/drivers/net/atl1e/atl1e_main.c
++++ b/drivers/net/atl1e/atl1e_main.c
+@@ -1814,7 +1814,7 @@ static netdev_tx_t atl1e_xmit_frame(struct sk_buff *skb,
+ 
+ 	tpd = atl1e_get_tpd(adapter);
+ 
+-	if (unlikely(adapter->vlgrp && vlan_tx_tag_present(skb))) {
++	if (unlikely(vlan_tx_tag_present(skb))) {
+ 		u16 vlan_tag = vlan_tx_tag_get(skb);
+ 		u16 atl1e_vlan_tag;
+ 
+diff --git a/drivers/net/atlx/atl1.c b/drivers/net/atlx/atl1.c
+index b8c053f..dbd27b8 100644
+--- a/drivers/net/atlx/atl1.c
++++ b/drivers/net/atlx/atl1.c
+@@ -2408,7 +2408,7 @@ static netdev_tx_t atl1_xmit_frame(struct sk_buff *skb,
+ 		(u16) atomic_read(&tpd_ring->next_to_use));
+ 	memset(ptpd, 0, sizeof(struct tx_packet_desc));
+ 
+-	if (adapter->vlgrp && vlan_tx_tag_present(skb)) {
++	if (vlan_tx_tag_present(skb)) {
+ 		vlan_tag = vlan_tx_tag_get(skb);
+ 		vlan_tag = (vlan_tag << 4) | (vlan_tag >> 13) |
+ 			((vlan_tag >> 9) & 0x8);
+diff --git a/drivers/net/atlx/atl2.c b/drivers/net/atlx/atl2.c
+index 29c0265..35b14be 100644
+--- a/drivers/net/atlx/atl2.c
++++ b/drivers/net/atlx/atl2.c
+@@ -870,7 +870,7 @@ static netdev_tx_t atl2_xmit_frame(struct sk_buff *skb,
+ 		offset = ((u32)(skb->len-copy_len + 3) & ~3);
+ 	}
+ #ifdef NETIF_F_HW_VLAN_TX
+-	if (adapter->vlgrp && vlan_tx_tag_present(skb)) {
++	if (vlan_tx_tag_present(skb)) {
+ 		u16 vlan_tag = vlan_tx_tag_get(skb);
+ 		vlan_tag = (vlan_tag << 4) |
+ 			(vlan_tag >> 13) |
 diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
-index 9a1cd28..4b59e53 100644
+index 4b59e53..d5e7968 100644
 --- a/drivers/net/benet/be_main.c
 +++ b/drivers/net/benet/be_main.c
-@@ -626,7 +626,7 @@ static int be_vid_config(struct be_adapter *adapter, bool vf, u32 vf_num)
+@@ -430,7 +430,7 @@ static inline void wrb_fill(struct be_eth_wrb *wrb, u64 addr, int len)
+ }
  
- 	if (adapter->vlans_added <= adapter->max_vlans)  {
- 		/* Construct VLAN Table to give to HW */
--		for (i = 0; i < VLAN_GROUP_ARRAY_LEN; i++) {
-+		for (i = 0; i < VLAN_N_VID; i++) {
- 			if (adapter->vlan_tag[i]) {
- 				vtag[ntags] = cpu_to_le16(i);
- 				ntags++;
+ static void wrb_fill_hdr(struct be_eth_hdr_wrb *hdr, struct sk_buff *skb,
+-		bool vlan, u32 wrb_cnt, u32 len)
++		u32 wrb_cnt, u32 len)
+ {
+ 	memset(hdr, 0, sizeof(*hdr));
+ 
+@@ -449,7 +449,7 @@ static void wrb_fill_hdr(struct be_eth_hdr_wrb *hdr, struct sk_buff *skb,
+ 			AMAP_SET_BITS(struct amap_eth_hdr_wrb, udpcs, hdr, 1);
+ 	}
+ 
+-	if (vlan && vlan_tx_tag_present(skb)) {
++	if (vlan_tx_tag_present(skb)) {
+ 		AMAP_SET_BITS(struct amap_eth_hdr_wrb, vlan, hdr, 1);
+ 		AMAP_SET_BITS(struct amap_eth_hdr_wrb, vlan_tag,
+ 			hdr, vlan_tx_tag_get(skb));
+@@ -532,8 +532,7 @@ static int make_tx_wrbs(struct be_adapter *adapter,
+ 		queue_head_inc(txq);
+ 	}
+ 
+-	wrb_fill_hdr(hdr, first_skb, adapter->vlan_grp ? true : false,
+-		wrb_cnt, copied);
++	wrb_fill_hdr(hdr, first_skb, wrb_cnt, copied);
+ 	be_dws_cpu_to_le(hdr, sizeof(*hdr));
+ 
+ 	return copied;
+diff --git a/drivers/net/bna/bnad.c b/drivers/net/bna/bnad.c
+index 74c64d6..7e839b9 100644
+--- a/drivers/net/bna/bnad.c
++++ b/drivers/net/bna/bnad.c
+@@ -2501,7 +2501,7 @@ bnad_start_xmit(struct sk_buff *skb, struct net_device *netdev)
+ 		htons((skb_is_gso(skb) ? BNA_TXQ_WI_SEND_LSO :
+ 		       BNA_TXQ_WI_SEND));
+ 
+-	if (bnad->vlan_grp && vlan_tx_tag_present(skb)) {
++	if (vlan_tx_tag_present(skb)) {
+ 		vlan_tag = (u16) vlan_tx_tag_get(skb);
+ 		flags |= (BNA_TXQ_WI_CF_INS_PRIO | BNA_TXQ_WI_CF_INS_VLAN);
+ 	}
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index ae894bc..363ca8b 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -6429,7 +6429,7 @@ bnx2_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	}
+ 
+ #ifdef BCM_VLAN
+-	if (bp->vlgrp && vlan_tx_tag_present(skb)) {
++	if (vlan_tx_tag_present(skb)) {
+ 		vlan_tag_flags |=
+ 			(TX_BD_FLAGS_VLAN_TAG | (vlan_tx_tag_get(skb) << 16));
+ 	}
+diff --git a/drivers/net/bnx2x/bnx2x_cmn.c b/drivers/net/bnx2x/bnx2x_cmn.c
+index 1966cee..6905b2e 100644
+--- a/drivers/net/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/bnx2x/bnx2x_cmn.c
+@@ -2026,8 +2026,7 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	   pkt_prod, tx_buf, fp->tx_pkt_prod, bd_prod, tx_start_bd);
+ 
+ #ifdef BCM_VLAN
+-	if ((bp->vlgrp != NULL) && vlan_tx_tag_present(skb) &&
+-	    (bp->flags & HW_VLAN_TX_FLAG)) {
++	if (vlan_tx_tag_present(skb)) {
+ 		tx_start_bd->vlan_or_ethertype =
+ 		    cpu_to_le16(vlan_tx_tag_get(skb));
+ 		tx_start_bd->bd_flags.as_bitfield |=
+diff --git a/drivers/net/chelsio/sge.c b/drivers/net/chelsio/sge.c
+index 340b537..70221ca 100644
+--- a/drivers/net/chelsio/sge.c
++++ b/drivers/net/chelsio/sge.c
+@@ -1870,7 +1870,7 @@ netdev_tx_t t1_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	cpl->iff = dev->if_port;
+ 
+ #if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
+-	if (adapter->vlan_grp && vlan_tx_tag_present(skb)) {
++	if (vlan_tx_tag_present(skb)) {
+ 		cpl->vlan_valid = 1;
+ 		cpl->vlan = htons(vlan_tx_tag_get(skb));
+ 		st->vlan_insert++;
+diff --git a/drivers/net/cxgb3/sge.c b/drivers/net/cxgb3/sge.c
+index c5a142b..7ad4625 100644
+--- a/drivers/net/cxgb3/sge.c
++++ b/drivers/net/cxgb3/sge.c
+@@ -1145,7 +1145,7 @@ static void write_tx_pkt_wr(struct adapter *adap, struct sk_buff *skb,
+ 	cpl->len = htonl(skb->len);
+ 	cntrl = V_TXPKT_INTF(pi->port_id);
+ 
+-	if (vlan_tx_tag_present(skb) && pi->vlan_grp)
++	if (vlan_tx_tag_present(skb))
+ 		cntrl |= F_TXPKT_VLAN_VLD | V_TXPKT_VLAN(vlan_tx_tag_get(skb));
+ 
+ 	tso_info = V_LSO_MSS(skb_shinfo(skb)->gso_size);
+@@ -1279,7 +1279,7 @@ netdev_tx_t t3_eth_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		qs->port_stats[SGE_PSTAT_TX_CSUM]++;
+ 	if (skb_shinfo(skb)->gso_size)
+ 		qs->port_stats[SGE_PSTAT_TSO]++;
+-	if (vlan_tx_tag_present(skb) && pi->vlan_grp)
++	if (vlan_tx_tag_present(skb))
+ 		qs->port_stats[SGE_PSTAT_VLANINS]++;
+ 
+ 	/*
 diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index cb3f84b..232ac2d 100644
+index 232ac2d..a117f2a 100644
 --- a/drivers/net/e1000/e1000_main.c
 +++ b/drivers/net/e1000/e1000_main.c
-@@ -4541,7 +4541,7 @@ static void e1000_restore_vlan(struct e1000_adapter *adapter)
+@@ -3119,7 +3119,7 @@ static netdev_tx_t e1000_xmit_frame(struct sk_buff *skb,
+ 		}
+ 	}
  
- 	if (adapter->vlgrp) {
- 		u16 vid;
--		for (vid = 0; vid < VLAN_GROUP_ARRAY_LEN; vid++) {
-+		for (vid = 0; vid < VLAN_N_VID; vid++) {
- 			if (!vlan_group_get_device(adapter->vlgrp, vid))
- 				continue;
- 			e1000_vlan_rx_add_vid(adapter->netdev, vid);
+-	if (unlikely(adapter->vlgrp && vlan_tx_tag_present(skb))) {
++	if (unlikely(vlan_tx_tag_present(skb))) {
+ 		tx_flags |= E1000_TX_FLAGS_VLAN;
+ 		tx_flags |= (vlan_tx_tag_get(skb) << E1000_TX_FLAGS_VLAN_SHIFT);
+ 	}
 diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index 992b622..5d6cdea 100644
+index 5d6cdea..ec8cf3f 100644
 --- a/drivers/net/e1000e/netdev.c
 +++ b/drivers/net/e1000e/netdev.c
-@@ -2545,7 +2545,7 @@ static void e1000_restore_vlan(struct e1000_adapter *adapter)
- 	if (!adapter->vlgrp)
- 		return;
+@@ -4800,7 +4800,7 @@ static netdev_tx_t e1000_xmit_frame(struct sk_buff *skb,
+ 	if (e1000_maybe_stop_tx(netdev, count + 2))
+ 		return NETDEV_TX_BUSY;
  
--	for (vid = 0; vid < VLAN_GROUP_ARRAY_LEN; vid++) {
-+	for (vid = 0; vid < VLAN_N_VID; vid++) {
- 		if (!vlan_group_get_device(adapter->vlgrp, vid))
- 			continue;
- 		e1000_vlan_rx_add_vid(adapter->netdev, vid);
+-	if (adapter->vlgrp && vlan_tx_tag_present(skb)) {
++	if (vlan_tx_tag_present(skb)) {
+ 		tx_flags |= E1000_TX_FLAGS_VLAN;
+ 		tx_flags |= (vlan_tx_tag_get(skb) << E1000_TX_FLAGS_VLAN_SHIFT);
+ 	}
+diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.c
+index 6932578..a0d1170 100644
+--- a/drivers/net/ehea/ehea_main.c
++++ b/drivers/net/ehea/ehea_main.c
+@@ -2272,7 +2272,7 @@ static int ehea_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	}
+ 	pr->swqe_id_counter += 1;
+ 
+-	if (port->vgrp && vlan_tx_tag_present(skb)) {
++	if (vlan_tx_tag_present(skb)) {
+ 		swqe->tx_control |= EHEA_SWQE_VLAN_INSERT;
+ 		swqe->vlan_tag = vlan_tx_tag_get(skb);
+ 	}
+diff --git a/drivers/net/enic/enic_main.c b/drivers/net/enic/enic_main.c
+index a1f92f1..cfb6db4 100644
+--- a/drivers/net/enic/enic_main.c
++++ b/drivers/net/enic/enic_main.c
+@@ -743,7 +743,7 @@ static inline void enic_queue_wq_skb(struct enic *enic,
+ 	int vlan_tag_insert = 0;
+ 	int loopback = 0;
+ 
+-	if (enic->vlan_group && vlan_tx_tag_present(skb)) {
++	if (vlan_tx_tag_present(skb)) {
+ 		/* VLAN tag from trunking driver */
+ 		vlan_tag_insert = 1;
+ 		vlan_tag = vlan_tx_tag_get(skb);
+diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
+index ddac63c..0fa1776 100644
+--- a/drivers/net/forcedeth.c
++++ b/drivers/net/forcedeth.c
+@@ -2321,14 +2321,11 @@ static netdev_tx_t nv_start_xmit_optimized(struct sk_buff *skb,
+ 			 NV_TX2_CHECKSUM_L3 | NV_TX2_CHECKSUM_L4 : 0;
+ 
+ 	/* vlan tag */
+-	if (likely(!np->vlangrp)) {
++	if (vlan_tx_tag_present(skb))
++		start_tx->txvlan = cpu_to_le32(NV_TX3_VLAN_TAG_PRESENT |
++					vlan_tx_tag_get(skb));
++	else
+ 		start_tx->txvlan = 0;
+-	} else {
+-		if (vlan_tx_tag_present(skb))
+-			start_tx->txvlan = cpu_to_le32(NV_TX3_VLAN_TAG_PRESENT | vlan_tx_tag_get(skb));
+-		else
+-			start_tx->txvlan = 0;
+-	}
+ 
+ 	spin_lock_irqsave(&np->lock, flags);
+ 
+diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+index 6180089..4c4cc80 100644
+--- a/drivers/net/gianfar.c
++++ b/drivers/net/gianfar.c
+@@ -2075,7 +2075,7 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	/* make space for additional header when fcb is needed */
+ 	if (((skb->ip_summed == CHECKSUM_PARTIAL) ||
+-			(priv->vlgrp && vlan_tx_tag_present(skb)) ||
++			vlan_tx_tag_present(skb) ||
+ 			unlikely(do_tstamp)) &&
+ 			(skb_headroom(skb) < GMAC_FCB_LEN)) {
+ 		struct sk_buff *skb_new;
+@@ -2161,7 +2161,7 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		gfar_tx_checksum(skb, fcb);
+ 	}
+ 
+-	if (priv->vlgrp && vlan_tx_tag_present(skb)) {
++	if (vlan_tx_tag_present(skb)) {
+ 		if (unlikely(NULL == fcb)) {
+ 			fcb = gfar_add_fcb(skb);
+ 			lstatus |= BD_LFLAG(TXBD_TOE);
 diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index b8dccc0..0f0939c 100644
+index 0f0939c..75155a2 100644
 --- a/drivers/net/igb/igb_main.c
 +++ b/drivers/net/igb/igb_main.c
-@@ -6153,7 +6153,7 @@ static void igb_restore_vlan(struct igb_adapter *adapter)
+@@ -4128,7 +4128,7 @@ netdev_tx_t igb_xmit_frame_ring_adv(struct sk_buff *skb,
+ 		tx_flags |= IGB_TX_FLAGS_TSTAMP;
+ 	}
  
- 	if (adapter->vlgrp) {
- 		u16 vid;
--		for (vid = 0; vid < VLAN_GROUP_ARRAY_LEN; vid++) {
-+		for (vid = 0; vid < VLAN_N_VID; vid++) {
- 			if (!vlan_group_get_device(adapter->vlgrp, vid))
- 				continue;
- 			igb_vlan_rx_add_vid(adapter->netdev, vid);
-diff --git a/drivers/net/igbvf/netdev.c b/drivers/net/igbvf/netdev.c
-index 6693323..ebfaa68 100644
---- a/drivers/net/igbvf/netdev.c
-+++ b/drivers/net/igbvf/netdev.c
-@@ -1254,7 +1254,7 @@ static void igbvf_restore_vlan(struct igbvf_adapter *adapter)
- 	if (!adapter->vlgrp)
- 		return;
- 
--	for (vid = 0; vid < VLAN_GROUP_ARRAY_LEN; vid++) {
-+	for (vid = 0; vid < VLAN_N_VID; vid++) {
- 		if (!vlan_group_get_device(adapter->vlgrp, vid))
- 			continue;
- 		igbvf_vlan_rx_add_vid(adapter->netdev, vid);
-diff --git a/drivers/net/ixgb/ixgb_main.c b/drivers/net/ixgb/ixgb_main.c
-index 80e6257..666207a 100644
---- a/drivers/net/ixgb/ixgb_main.c
-+++ b/drivers/net/ixgb/ixgb_main.c
-@@ -2223,7 +2223,7 @@ ixgb_restore_vlan(struct ixgb_adapter *adapter)
- 
- 	if (adapter->vlgrp) {
- 		u16 vid;
--		for (vid = 0; vid < VLAN_GROUP_ARRAY_LEN; vid++) {
-+		for (vid = 0; vid < VLAN_N_VID; vid++) {
- 			if (!vlan_group_get_device(adapter->vlgrp, vid))
- 				continue;
- 			ixgb_vlan_rx_add_vid(adapter->netdev, vid);
+-	if (vlan_tx_tag_present(skb) && adapter->vlgrp) {
++	if (vlan_tx_tag_present(skb)) {
+ 		tx_flags |= IGB_TX_FLAGS_VLAN;
+ 		tx_flags |= (vlan_tx_tag_get(skb) << IGB_TX_FLAGS_VLAN_SHIFT);
+ 	}
 diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 790a0da..1d42442 100644
+index 1d42442..998debe 100644
 --- a/drivers/net/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -3185,7 +3185,7 @@ static void ixgbe_restore_vlan(struct ixgbe_adapter *adapter)
+@@ -6311,7 +6311,7 @@ netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *skb, struct net_device *netdev
+ 	int count = 0;
+ 	unsigned int f;
  
- 	if (adapter->vlgrp) {
- 		u16 vid;
--		for (vid = 0; vid < VLAN_GROUP_ARRAY_LEN; vid++) {
-+		for (vid = 0; vid < VLAN_N_VID; vid++) {
- 			if (!vlan_group_get_device(adapter->vlgrp, vid))
- 				continue;
- 			ixgbe_vlan_rx_add_vid(adapter->netdev, vid);
+-	if (adapter->vlgrp && vlan_tx_tag_present(skb)) {
++	if (vlan_tx_tag_present(skb)) {
+ 		tx_flags |= vlan_tx_tag_get(skb);
+ 		if (adapter->flags & IXGBE_FLAG_DCB_ENABLED) {
+ 			tx_flags &= ~IXGBE_TX_FLAGS_VLAN_PRIO_MASK;
 diff --git a/drivers/net/ixgbevf/ixgbevf_main.c b/drivers/net/ixgbevf/ixgbevf_main.c
-index 0866a1c..78bfbe4 100644
+index 78bfbe4..dc03c96 100644
 --- a/drivers/net/ixgbevf/ixgbevf_main.c
 +++ b/drivers/net/ixgbevf/ixgbevf_main.c
-@@ -1495,7 +1495,7 @@ static void ixgbevf_restore_vlan(struct ixgbevf_adapter *adapter)
+@@ -3134,7 +3134,7 @@ static int ixgbevf_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
  
- 	if (adapter->vlgrp) {
- 		u16 vid;
--		for (vid = 0; vid < VLAN_GROUP_ARRAY_LEN; vid++) {
-+		for (vid = 0; vid < VLAN_N_VID; vid++) {
- 			if (!vlan_group_get_device(adapter->vlgrp, vid))
- 				continue;
- 			ixgbevf_vlan_rx_add_vid(adapter->netdev, vid);
-diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
-index 4aada0b..f047c7c 100644
---- a/drivers/net/qlcnic/qlcnic_main.c
-+++ b/drivers/net/qlcnic/qlcnic_main.c
-@@ -4093,7 +4093,7 @@ qlcnic_restore_indev_addr(struct net_device *netdev, unsigned long event)
- 	if (!adapter->vlgrp)
- 		return;
+ 	tx_ring = &adapter->tx_ring[r_idx];
  
--	for (vid = 0; vid < VLAN_GROUP_ARRAY_LEN; vid++) {
-+	for (vid = 0; vid < VLAN_N_VID; vid++) {
- 		dev = vlan_group_get_device(adapter->vlgrp, vid);
- 		if (!dev)
- 			continue;
-diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
-index 198ce92..b1de73b 100644
---- a/drivers/net/vmxnet3/vmxnet3_drv.c
-+++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-@@ -1634,7 +1634,7 @@ vmxnet3_restore_vlan(struct vmxnet3_adapter *adapter)
- 		u32 *vfTable = adapter->shared->devRead.rxFilterConf.vfTable;
- 		bool activeVlan = false;
+-	if (adapter->vlgrp && vlan_tx_tag_present(skb)) {
++	if (vlan_tx_tag_present(skb)) {
+ 		tx_flags |= vlan_tx_tag_get(skb);
+ 		tx_flags <<= IXGBE_TX_FLAGS_VLAN_SHIFT;
+ 		tx_flags |= IXGBE_TX_FLAGS_VLAN;
+diff --git a/drivers/net/mlx4/en_tx.c b/drivers/net/mlx4/en_tx.c
+index 98dd620..a680cd4 100644
+--- a/drivers/net/mlx4/en_tx.c
++++ b/drivers/net/mlx4/en_tx.c
+@@ -583,7 +583,7 @@ u16 mlx4_en_select_queue(struct net_device *dev, struct sk_buff *skb)
+ 	/* If we support per priority flow control and the packet contains
+ 	 * a vlan tag, send the packet to the TX ring assigned to that priority
+ 	 */
+-	if (priv->prof->rx_ppp && priv->vlgrp && vlan_tx_tag_present(skb)) {
++	if (priv->prof->rx_ppp && vlan_tx_tag_present(skb)) {
+ 		vlan_tag = vlan_tx_tag_get(skb);
+ 		return MLX4_EN_NUM_TX_RINGS + (vlan_tag >> 13);
+ 	}
+@@ -634,7 +634,7 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
  
--		for (vid = 0; vid < VLAN_GROUP_ARRAY_LEN; vid++) {
-+		for (vid = 0; vid < VLAN_N_VID; vid++) {
- 			if (vlan_group_get_device(adapter->vlan_grp, vid)) {
- 				VMXNET3_SET_VFTABLE_ENTRY(vfTable, vid);
- 				activeVlan = true;
+ 	tx_ind = skb->queue_mapping;
+ 	ring = &priv->tx_ring[tx_ind];
+-	if (priv->vlgrp && vlan_tx_tag_present(skb))
++	if (vlan_tx_tag_present(skb))
+ 		vlan_tag = vlan_tx_tag_get(skb);
+ 
+ 	/* Check available TXBBs And 2K spare for prefetch */
+diff --git a/drivers/net/qlge/qlge_main.c b/drivers/net/qlge/qlge_main.c
+index 4ffebe8..ba0053d 100644
+--- a/drivers/net/qlge/qlge_main.c
++++ b/drivers/net/qlge/qlge_main.c
+@@ -2572,7 +2572,7 @@ static netdev_tx_t qlge_send(struct sk_buff *skb, struct net_device *ndev)
+ 
+ 	mac_iocb_ptr->frame_len = cpu_to_le16((u16) skb->len);
+ 
+-	if (qdev->vlgrp && vlan_tx_tag_present(skb)) {
++	if (vlan_tx_tag_present(skb)) {
+ 		netif_printk(qdev, tx_queued, KERN_DEBUG, qdev->ndev,
+ 			     "Adding a vlan tag %d.\n", vlan_tx_tag_get(skb));
+ 		mac_iocb_ptr->flags3 |= OB_MAC_IOCB_V;
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 1760533..242748b 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -1034,7 +1034,7 @@ static int rtl8169_set_rx_csum(struct net_device *dev, u32 data)
+ static inline u32 rtl8169_tx_vlan_tag(struct rtl8169_private *tp,
+ 				      struct sk_buff *skb)
+ {
+-	return (tp->vlgrp && vlan_tx_tag_present(skb)) ?
++	return (vlan_tx_tag_present(skb)) ?
+ 		TxVlanTag | swab16(vlan_tx_tag_get(skb)) : 0x00;
+ }
+ 
+diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
+index c70ad51..ecc25aa 100644
+--- a/drivers/net/s2io.c
++++ b/drivers/net/s2io.c
+@@ -4101,7 +4101,7 @@ static netdev_tx_t s2io_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	}
+ 
+ 	queue = 0;
+-	if (sp->vlgrp && vlan_tx_tag_present(skb))
++	if (vlan_tx_tag_present(skb))
+ 		vlan_tag = vlan_tx_tag_get(skb);
+ 	if (sp->config.tx_steering_type == TX_DEFAULT_STEERING) {
+ 		if (skb->protocol == htons(ETH_P_IP)) {
+diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
+index 3ef9b67..d657708 100644
+--- a/drivers/net/sky2.c
++++ b/drivers/net/sky2.c
+@@ -1782,7 +1782,7 @@ static netdev_tx_t sky2_xmit_frame(struct sk_buff *skb,
+ 	ctrl = 0;
+ #ifdef SKY2_VLAN_TAG_USED
+ 	/* Add VLAN tag, can piggyback on LRGLEN or ADDR64 */
+-	if (sky2->vlgrp && vlan_tx_tag_present(skb)) {
++	if (vlan_tx_tag_present(skb)) {
+ 		if (!le) {
+ 			le = get_tx_le(sky2, &slot);
+ 			le->addr = 0;
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index 5b4c510..22720ee 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -5745,7 +5745,7 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb,
+ 	}
+ 
+ #if TG3_VLAN_TAG_USED
+-	if (tp->vlgrp != NULL && vlan_tx_tag_present(skb))
++	if (vlan_tx_tag_present(skb))
+ 		base_flags |= (TXD_FLAG_VLAN |
+ 			       (vlan_tx_tag_get(skb) << 16));
+ #endif
+@@ -5991,7 +5991,7 @@ static netdev_tx_t tg3_start_xmit_dma_bug(struct sk_buff *skb,
+ 		}
+ 	}
+ #if TG3_VLAN_TAG_USED
+-	if (tp->vlgrp != NULL && vlan_tx_tag_present(skb))
++	if (vlan_tx_tag_present(skb))
+ 		base_flags |= (TXD_FLAG_VLAN |
+ 			       (vlan_tx_tag_get(skb) << 16));
+ #endif
+diff --git a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
+index f199561..cab96ad 100644
+--- a/drivers/net/via-velocity.c
++++ b/drivers/net/via-velocity.c
+@@ -2592,7 +2592,7 @@ static netdev_tx_t velocity_xmit(struct sk_buff *skb,
+ 
+ 	td_ptr->tdesc1.cmd = TCPLS_NORMAL + (tdinfo->nskb_dma + 1) * 16;
+ 
+-	if (vptr->vlgrp && vlan_tx_tag_present(skb)) {
++	if (vlan_tx_tag_present(skb)) {
+ 		td_ptr->tdesc1.vlan = cpu_to_le16(vlan_tx_tag_get(skb));
+ 		td_ptr->tdesc1.TCR |= TCR0_VETAG;
+ 	}
 diff --git a/drivers/net/vxge/vxge-main.c b/drivers/net/vxge/vxge-main.c
-index 5378b84..0bda7fe 100644
+index 0bda7fe..a69542e 100644
 --- a/drivers/net/vxge/vxge-main.c
 +++ b/drivers/net/vxge/vxge-main.c
-@@ -1862,7 +1862,7 @@ enum vxge_hw_status vxge_restore_vpath_vid_table(struct vxge_vpath *vpath)
+@@ -822,7 +822,7 @@ vxge_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		dev->name, __func__, __LINE__,
+ 		fifo_hw, dtr, dtr_priv);
  
- 	if (vdev->vlgrp && vpath->is_open) {
- 
--		for (vid = 0; vid < VLAN_GROUP_ARRAY_LEN; vid++) {
-+		for (vid = 0; vid < VLAN_N_VID; vid++) {
- 			if (!vlan_group_get_device(vdev->vlgrp, vid))
- 				continue;
- 			/* Add these vlan to the vid table */
-diff --git a/drivers/s390/net/qeth_l3_main.c b/drivers/s390/net/qeth_l3_main.c
-index c094707..74d1401 100644
---- a/drivers/s390/net/qeth_l3_main.c
-+++ b/drivers/s390/net/qeth_l3_main.c
-@@ -1820,7 +1820,7 @@ static void qeth_l3_add_vlan_mc(struct qeth_card *card)
- 		return;
- 
- 	vg = card->vlangrp;
--	for (i = 0; i < VLAN_GROUP_ARRAY_LEN; i++) {
-+	for (i = 0; i < VLAN_N_VID; i++) {
- 		struct net_device *netdev = vlan_group_get_device(vg, i);
- 		if (netdev == NULL ||
- 		    !(netdev->flags & IFF_UP))
-@@ -1883,7 +1883,7 @@ static void qeth_l3_add_vlan_mc6(struct qeth_card *card)
- 		return;
- 
- 	vg = card->vlangrp;
--	for (i = 0; i < VLAN_GROUP_ARRAY_LEN; i++) {
-+	for (i = 0; i < VLAN_N_VID; i++) {
- 		struct net_device *netdev = vlan_group_get_device(vg, i);
- 		if (netdev == NULL ||
- 		    !(netdev->flags & IFF_UP))
-@@ -2247,7 +2247,7 @@ static int qeth_l3_verify_vlan_dev(struct net_device *dev,
- 	if (!vg)
- 		return rc;
- 
--	for (i = 0; i < VLAN_GROUP_ARRAY_LEN; i++) {
-+	for (i = 0; i < VLAN_N_VID; i++) {
- 		if (vlan_group_get_device(vg, i) == dev) {
- 			rc = QETH_VLAN_CARD;
- 			break;
-diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
-index a523207..494cce8 100644
---- a/include/linux/if_vlan.h
-+++ b/include/linux/if_vlan.h
-@@ -68,6 +68,7 @@ static inline struct vlan_ethhdr *vlan_eth_hdr(const struct sk_buff *skb)
- #define VLAN_CFI_MASK		0x1000 /* Canonical Format Indicator */
- #define VLAN_TAG_PRESENT	VLAN_CFI_MASK
- #define VLAN_VID_MASK		0x0fff /* VLAN Identifier */
-+#define VLAN_N_VID		4096
- 
- /* found in socket.c */
- extern void vlan_ioctl_set(int (*hook)(struct net *, void __user *));
-@@ -76,9 +77,8 @@ extern void vlan_ioctl_set(int (*hook)(struct net *, void __user *));
-  * depends on completely exhausting the VLAN identifier space.  Thus
-  * it gives constant time look-up, but in many cases it wastes memory.
-  */
--#define VLAN_GROUP_ARRAY_LEN          4096
- #define VLAN_GROUP_ARRAY_SPLIT_PARTS  8
--#define VLAN_GROUP_ARRAY_PART_LEN     (VLAN_GROUP_ARRAY_LEN/VLAN_GROUP_ARRAY_SPLIT_PARTS)
-+#define VLAN_GROUP_ARRAY_PART_LEN     (VLAN_N_VID/VLAN_GROUP_ARRAY_SPLIT_PARTS)
- 
- struct vlan_group {
- 	struct net_device	*real_dev; /* The ethernet(like) device
-diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index 25c2133..54f22d8 100644
---- a/net/8021q/vlan.c
-+++ b/net/8021q/vlan.c
-@@ -439,7 +439,7 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
- 	switch (event) {
- 	case NETDEV_CHANGE:
- 		/* Propagate real device state to vlan devices */
--		for (i = 0; i < VLAN_GROUP_ARRAY_LEN; i++) {
-+		for (i = 0; i < VLAN_N_VID; i++) {
- 			vlandev = vlan_group_get_device(grp, i);
- 			if (!vlandev)
- 				continue;
-@@ -450,7 +450,7 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
- 
- 	case NETDEV_CHANGEADDR:
- 		/* Adjust unicast filters on underlying device */
--		for (i = 0; i < VLAN_GROUP_ARRAY_LEN; i++) {
-+		for (i = 0; i < VLAN_N_VID; i++) {
- 			vlandev = vlan_group_get_device(grp, i);
- 			if (!vlandev)
- 				continue;
-@@ -464,7 +464,7 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
- 		break;
- 
- 	case NETDEV_CHANGEMTU:
--		for (i = 0; i < VLAN_GROUP_ARRAY_LEN; i++) {
-+		for (i = 0; i < VLAN_N_VID; i++) {
- 			vlandev = vlan_group_get_device(grp, i);
- 			if (!vlandev)
- 				continue;
-@@ -478,7 +478,7 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
- 
- 	case NETDEV_FEAT_CHANGE:
- 		/* Propagate device features to underlying device */
--		for (i = 0; i < VLAN_GROUP_ARRAY_LEN; i++) {
-+		for (i = 0; i < VLAN_N_VID; i++) {
- 			vlandev = vlan_group_get_device(grp, i);
- 			if (!vlandev)
- 				continue;
-@@ -490,7 +490,7 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
- 
- 	case NETDEV_DOWN:
- 		/* Put all VLANs for this dev in the down state too.  */
--		for (i = 0; i < VLAN_GROUP_ARRAY_LEN; i++) {
-+		for (i = 0; i < VLAN_N_VID; i++) {
- 			vlandev = vlan_group_get_device(grp, i);
- 			if (!vlandev)
- 				continue;
-@@ -508,7 +508,7 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
- 
- 	case NETDEV_UP:
- 		/* Put all VLANs for this dev in the up state too.  */
--		for (i = 0; i < VLAN_GROUP_ARRAY_LEN; i++) {
-+		for (i = 0; i < VLAN_N_VID; i++) {
- 			vlandev = vlan_group_get_device(grp, i);
- 			if (!vlandev)
- 				continue;
-@@ -532,7 +532,7 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
- 		/* Delete all VLANs for this dev. */
- 		grp->killall = 1;
- 
--		for (i = 0; i < VLAN_GROUP_ARRAY_LEN; i++) {
-+		for (i = 0; i < VLAN_N_VID; i++) {
- 			vlandev = vlan_group_get_device(grp, i);
- 			if (!vlandev)
- 				continue;
-@@ -540,7 +540,7 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
- 			/* unregistration of last vlan destroys group, abort
- 			 * afterwards */
- 			if (grp->nr_vlans == 1)
--				i = VLAN_GROUP_ARRAY_LEN;
-+				i = VLAN_N_VID;
- 
- 			unregister_vlan_dev(vlandev, &list);
- 		}
-diff --git a/net/bridge/netfilter/ebt_vlan.c b/net/bridge/netfilter/ebt_vlan.c
-index cc11d6b..eae67bf 100644
---- a/net/bridge/netfilter/ebt_vlan.c
-+++ b/net/bridge/netfilter/ebt_vlan.c
-@@ -118,10 +118,10 @@ static int ebt_vlan_mt_check(const struct xt_mtchk_param *par)
- 	 * 0 - The null VLAN ID.
- 	 * 1 - The default Port VID (PVID)
- 	 * 0x0FFF - Reserved for implementation use.
--	 * if_vlan.h: VLAN_GROUP_ARRAY_LEN 4096. */
-+	 * if_vlan.h: VLAN_N_VID 4096. */
- 	if (GET_BITMASK(EBT_VLAN_ID)) {
- 		if (!!info->id) { /* if id!=0 => check vid range */
--			if (info->id > VLAN_GROUP_ARRAY_LEN) {
-+			if (info->id > VLAN_N_VID) {
- 				pr_debug("id %d is out of range (1-4096)\n",
- 					 info->id);
- 				return -EINVAL;
+-	if (vdev->vlgrp && vlan_tx_tag_present(skb)) {
++	if (vlan_tx_tag_present(skb)) {
+ 		u16 vlan_tag = vlan_tx_tag_get(skb);
+ 		vxge_hw_fifo_txdl_vlan_set(dtr, vlan_tag);
+ 	}
 -- 
 1.7.1
 
