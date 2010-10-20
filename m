@@ -1,7 +1,7 @@
 From: KOVACS Krisztian <hidden@balabit.hu>
-Subject: [PATCH 6/9] tproxy: added IPv6 socket lookup function to nf_tproxy_core
+Subject: [PATCH 4/9] tproxy: added tproxy sockopt interface in the IPV6 layer
 Date: Wed, 20 Oct 2010 13:21:18 +0200
-Message-ID: <20101020112118.6260.89471.stgit@este.odu>
+Message-ID: <20101020112118.6260.78508.stgit@este.odu>
 References: <20101020112118.6260.31618.stgit@este.odu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
@@ -9,108 +9,129 @@ Content-Transfer-Encoding: 7BIT
 Cc: Patrick McHardy <kaber@trash.net>,
 	David Miller <davem@davemloft.net>
 To: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from balu.sch.bme.hu ([152.66.208.40]:47547 "EHLO balu.sch.bme.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752909Ab0JTM0s (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Oct 2010 08:26:48 -0400
 In-reply-to: <20101020112118.6260.31618.stgit@este.odu>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Balazs Scheidler <bazsi@balabit.hu>
+
+Support for IPV6_RECVORIGDSTADDR sockopt for UDP sockets were contributed by
+Harry Mason.
 
 Signed-off-by: Balazs Scheidler <bazsi@balabit.hu>
 Signed-off-by: KOVACS Krisztian <hidden@balabit.hu>
 ---
- include/net/netfilter/nf_tproxy_core.h |   72 ++++++++++++++++++++++++++++++++
- 1 files changed, 71 insertions(+), 1 deletions(-)
+ include/linux/in6.h      |    4 ++++
+ include/linux/ipv6.h     |    4 +++-
+ net/ipv6/datagram.c      |   19 +++++++++++++++++++
+ net/ipv6/ipv6_sockglue.c |   23 +++++++++++++++++++++++
+ 4 files changed, 49 insertions(+), 1 deletions(-)
 
-diff --git a/include/net/netfilter/nf_tproxy_core.h b/include/net/netfilter/nf_tproxy_core.h
-index 1027d7f..cd85b3b 100644
---- a/include/net/netfilter/nf_tproxy_core.h
-+++ b/include/net/netfilter/nf_tproxy_core.h
-@@ -5,7 +5,8 @@
- #include <linux/in.h>
- #include <linux/skbuff.h>
- #include <net/sock.h>
--#include <net/inet_sock.h>
-+#include <net/inet_hashtables.h>
-+#include <net/inet6_hashtables.h>
- #include <net/tcp.h>
+diff --git a/include/linux/in6.h b/include/linux/in6.h
+index c4bf46f..097a34b 100644
+--- a/include/linux/in6.h
++++ b/include/linux/in6.h
+@@ -268,6 +268,10 @@ struct in6_flowlabel_req {
+ /* RFC5082: Generalized Ttl Security Mechanism */
+ #define IPV6_MINHOPCOUNT		73
  
- #define NFT_LOOKUP_ANY         0
-@@ -130,6 +131,75 @@ nf_tproxy_get_sock_v4(struct net *net, const u8 protocol,
- 	return sk;
++#define IPV6_ORIGDSTADDR        74
++#define IPV6_RECVORIGDSTADDR    IPV6_ORIGDSTADDR
++#define IPV6_TRANSPARENT        75
++
+ /*
+  * Multicast Routing:
+  * see include/linux/mroute6.h.
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index e62683b..8e429d0 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -341,7 +341,9 @@ struct ipv6_pinfo {
+ 				odstopts:1,
+                                 rxflow:1,
+ 				rxtclass:1,
+-				rxpmtu:1;
++				rxpmtu:1,
++				rxorigdstaddr:1;
++				/* 2 bits hole */
+ 		} bits;
+ 		__u16		all;
+ 	} rxopt;
+diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
+index ef371aa..320bdb8 100644
+--- a/net/ipv6/datagram.c
++++ b/net/ipv6/datagram.c
+@@ -577,6 +577,25 @@ int datagram_recv_ctl(struct sock *sk, struct msghdr *msg, struct sk_buff *skb)
+ 		u8 *ptr = nh + opt->dst1;
+ 		put_cmsg(msg, SOL_IPV6, IPV6_2292DSTOPTS, (ptr[1]+1)<<3, ptr);
+ 	}
++	if (np->rxopt.bits.rxorigdstaddr) {
++		struct sockaddr_in6 sin6;
++		u16 *ports = (u16 *) skb_transport_header(skb);
++
++		if (skb_transport_offset(skb) + 4 <= skb->len) {
++			/* All current transport protocols have the port numbers in the
++			 * first four bytes of the transport header and this function is
++			 * written with this assumption in mind.
++			 */
++
++			sin6.sin6_family = AF_INET6;
++			ipv6_addr_copy(&sin6.sin6_addr, &ipv6_hdr(skb)->daddr);
++			sin6.sin6_port = ports[1];
++			sin6.sin6_flowinfo = 0;
++			sin6.sin6_scope_id = 0;
++
++			put_cmsg(msg, SOL_IPV6, IPV6_ORIGDSTADDR, sizeof(sin6), &sin6);
++		}
++	}
+ 	return 0;
  }
  
-+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-+static inline struct sock *
-+nf_tproxy_get_sock_v6(struct net *net, const u8 protocol,
-+		      const struct in6_addr *saddr, const struct in6_addr *daddr,
-+		      const __be16 sport, const __be16 dport,
-+		      const struct net_device *in, int lookup_type)
-+{
-+	struct sock *sk;
-+
-+	/* look up socket */
-+	switch (protocol) {
-+	case IPPROTO_TCP:
-+		switch (lookup_type) {
-+		case NFT_LOOKUP_ANY:
-+			sk = inet6_lookup(net, &tcp_hashinfo,
-+					  saddr, sport, daddr, dport,
-+					  in->ifindex);
-+			break;
-+		case NFT_LOOKUP_LISTENER:
-+			sk = inet6_lookup_listener(net, &tcp_hashinfo,
-+						   daddr, ntohs(dport),
-+						   in->ifindex);
-+
-+			/* NOTE: we return listeners even if bound to
-+			 * 0.0.0.0, those are filtered out in
-+			 * xt_socket, since xt_TPROXY needs 0 bound
-+			 * listeners too */
-+
-+			break;
-+		case NFT_LOOKUP_ESTABLISHED:
-+			sk = __inet6_lookup_established(net, &tcp_hashinfo,
-+							saddr, sport, daddr, ntohs(dport),
-+							in->ifindex);
-+			break;
-+		default:
-+			WARN_ON(1);
-+			sk = NULL;
-+			break;
-+		}
-+		break;
-+	case IPPROTO_UDP:
-+		sk = udp6_lib_lookup(net, saddr, sport, daddr, dport,
-+				     in->ifindex);
-+		if (sk && lookup_type != NFT_LOOKUP_ANY) {
-+			int connected = (sk->sk_state == TCP_ESTABLISHED);
-+			int wildcard = ipv6_addr_any(&inet6_sk(sk)->rcv_saddr);
-+
-+			/* NOTE: we return listeners even if bound to
-+			 * 0.0.0.0, those are filtered out in
-+			 * xt_socket, since xt_TPROXY needs 0 bound
-+			 * listeners too */
-+			if ((lookup_type == NFT_LOOKUP_ESTABLISHED && (!connected || wildcard)) ||
-+			    (lookup_type == NFT_LOOKUP_LISTENER && connected)) {
-+				sock_put(sk);
-+				sk = NULL;
-+			}
-+		}
-+		break;
-+	default:
-+		WARN_ON(1);
-+		sk = NULL;
-+	}
-+
-+	pr_debug("tproxy socket lookup: proto %u %pI6:%u -> %pI6:%u, lookup type: %d, sock %p\n",
-+		 protocol, saddr, ntohs(sport), daddr, ntohs(dport), lookup_type, sk);
-+
-+	return sk;
-+}
-+#endif
+diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+index a7f66bc..0553867 100644
+--- a/net/ipv6/ipv6_sockglue.c
++++ b/net/ipv6/ipv6_sockglue.c
+@@ -342,6 +342,21 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
+ 		retv = 0;
+ 		break;
  
- static inline void
- nf_tproxy_put_sock(struct sock *sk)
++	case IPV6_TRANSPARENT:
++		if (optlen < sizeof(int))
++			goto e_inval;
++		/* we don't have a separate transparent bit for IPV6 we use the one in the IPv4 socket */
++		inet_sk(sk)->transparent = valbool;
++		retv = 0;
++		break;
++
++	case IPV6_RECVORIGDSTADDR:
++		if (optlen < sizeof(int))
++			goto e_inval;
++		np->rxopt.bits.rxorigdstaddr = valbool;
++		retv = 0;
++		break;
++
+ 	case IPV6_HOPOPTS:
+ 	case IPV6_RTHDRDSTOPTS:
+ 	case IPV6_RTHDR:
+@@ -1104,6 +1119,14 @@ static int do_ipv6_getsockopt(struct sock *sk, int level, int optname,
+ 		break;
+ 	}
+ 
++	case IPV6_TRANSPARENT:
++		val = inet_sk(sk)->transparent;
++		break;
++
++	case IPV6_RECVORIGDSTADDR:
++		val = np->rxopt.bits.rxorigdstaddr;
++		break;
++
+ 	case IPV6_UNICAST_HOPS:
+ 	case IPV6_MULTICAST_HOPS:
+ 	{
 
 
