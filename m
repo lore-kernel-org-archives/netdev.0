@@ -1,12 +1,10 @@
 From: Joe Perches <joe@perches.com>
 Subject: Re: [PATCH] net: make ctl_path local and const
-Date: Tue, 19 Oct 2010 21:59:39 -0700
-Message-ID: <1287550779.10409.620.camel@Joe-Laptop>
+Date: Tue, 19 Oct 2010 20:28:57 -0700
+Message-ID: <1287545337.10409.602.camel@Joe-Laptop>
 References: <1287543276-4511-1-git-send-email-xiaosuo@gmail.com>
 	<1287543701.10409.599.camel@Joe-Laptop>
 	<AANLkTi=pz4zYnnUSvb9FjVvCAURruHhJTz7pBKDi8Pdw@mail.gmail.com>
-	<1287545337.10409.602.camel@Joe-Laptop>
-	<AANLkTimGUB-+TTsje1kc3q9PyoB2jJdgCK2Z7n9u7N1J@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -26,7 +24,7 @@ Cc: Andy Grover <andy.grover@oracle.com>, James Morris <jmorris@namei.org>,
         linux-decnet-user@lists.sourceforge.net, linux-kernel@vger.ker
 To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <AANLkTimGUB-+TTsje1kc3q9PyoB2jJdgCK2Z7n9u7N1J@mail.gmail.com>
+In-Reply-To: <AANLkTi=pz4zYnnUSvb9FjVvCAURruHhJTz7pBKDi8Pdw@mail.gmail.com>
 List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/bridge>,
 	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linux-foundation.org/pipermail/bridge>
@@ -38,19 +36,35 @@ Sender: bridge-bounces@lists.linux-foundation.org
 Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2010-10-20 at 12:52 +0800, Changli Gao wrote:
-> On Wed, Oct 20, 2010 at 11:28 AM, Joe Perches <joe@perches.com> wrote:
-> > At least some objects are smaller with static.
-> > $ size net/appletalk/sysctl_net_atalk.o.*
-> >   text    data     bss     dec     hex filename
-> >    324     236      48     608     260 net/appletalk/sysctl_net_atalk.o.withstatic
-> >    344     236      48     628     274 net/appletalk/sysctl_net_atalk.o.withoutstatic
-> I got the opposite result for the size of the whole kernel image with
-> allyesconfig.
-> original: 33531456
-> patched: 33531424
-> It seems random.
+On Wed, 2010-10-20 at 11:10 +0800, Changli Gao wrote:
+> On Wed, Oct 20, 2010 at 11:01 AM, Joe Perches <joe@perches.com> wrote:
+> > On Wed, 2010-10-20 at 10:54 +0800, Changli Gao wrote:
+> >> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+> > []
+> >> diff --git a/net/appletalk/sysctl_net_atalk.c b/net/appletalk/sysctl_net_atalk.c
+> >> index 04e9c0d..b92f269 100644
+> >> --- a/net/appletalk/sysctl_net_atalk.c
+> >> +++ b/net/appletalk/sysctl_net_atalk.c
+> >> @@ -42,16 +42,16 @@ static struct ctl_table atalk_table[] = {
+> >>       { },
+> >>  };
+> >> -static struct ctl_path atalk_path[] = {
+> >> -     { .procname = "net", },
+> >> -     { .procname = "appletalk", },
+> >> -     { }
+> >> -};
+> >> -
+> >>  static struct ctl_table_header *atalk_table_header;
+> >>
+> >>  void atalk_register_sysctl(void)
+> >>  {
+> >> +     const struct ctl_path atalk_path[] = {
+> > Shouldn't all of these be static const struct ?
+> They needn't. And some variables are specified __net_initdata currently.
 
-Not using static requires the compiler to emit
-initialization code for any use of the routine
-that otherwise would only be done once.
+At least some objects are smaller with static.
+
+$ size net/appletalk/sysctl_net_atalk.o.*
+   text	   data	    bss	    dec	    hex	filename
+    324	    236	     48	    608	    260	net/appletalk/sysctl_net_atalk.o.withstatic
+    344	    236	     48	    628	    274	net/appletalk/sysctl_net_atalk.o.withoutstatic
