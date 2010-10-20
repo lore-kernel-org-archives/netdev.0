@@ -1,241 +1,324 @@
 From: Jesse Gross <jesse@nicira.com>
-Subject: [PATCH v2 12/14] lro: Remove explicit vlan support.
-Date: Wed, 20 Oct 2010 16:56:12 -0700
-Message-ID: <1287618974-4714-13-git-send-email-jesse@nicira.com>
+Subject: [PATCH v2 10/14] ixgbe: Update ixgbe to use new vlan accleration.
+Date: Wed, 20 Oct 2010 16:56:10 -0700
+Message-ID: <1287618974-4714-11-git-send-email-jesse@nicira.com>
 References: <1287618974-4714-1-git-send-email-jesse@nicira.com>
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org,
+	Peter Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
+	Emil Tantilov <emil.s.tantilov@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f174.google.com ([209.85.216.174]:56144 "EHLO
-	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755661Ab0JTX4k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Oct 2010 19:56:40 -0400
-Received: by qyk12 with SMTP id 12so1776249qyk.19
-        for <netdev@vger.kernel.org>; Wed, 20 Oct 2010 16:56:40 -0700 (PDT)
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:34344 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755492Ab0JTX4i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Oct 2010 19:56:38 -0400
+Received: by mail-vw0-f46.google.com with SMTP id 2so2600261vws.19
+        for <netdev@vger.kernel.org>; Wed, 20 Oct 2010 16:56:37 -0700 (PDT)
 In-Reply-To: <1287618974-4714-1-git-send-email-jesse@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Using the new vlan accleration model, LRO no longer needs to be
-explicitly passed the vlan information because it is contained in
-the skb.  Since all LRO did was pass the vlan through, this removes
-that knowledge.
+Make the ixgbe driver use the new vlan accleration model.
 
 Signed-off-by: Jesse Gross <jesse@nicira.com>
---
-This patch can only be applied once all drivers that use LRO and vlan acceleration
-have been converted over to the new model.
+CC: Peter Waskiewicz <peter.p.waskiewicz.jr@intel.com>
+CC: Emil Tantilov <emil.s.tantilov@intel.com>
+CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- include/linux/inet_lro.h |   20 ------------
- net/ipv4/inet_lro.c      |   74 +++++++---------------------------------------
- 2 files changed, 11 insertions(+), 83 deletions(-)
+ drivers/net/ixgbe/ixgbe.h         |    4 +-
+ drivers/net/ixgbe/ixgbe_ethtool.c |   12 +++-
+ drivers/net/ixgbe/ixgbe_main.c    |  137 ++++++++++++++++---------------------
+ 3 files changed, 74 insertions(+), 79 deletions(-)
 
-diff --git a/include/linux/inet_lro.h b/include/linux/inet_lro.h
-index c4335fa..667281a 100644
---- a/include/linux/inet_lro.h
-+++ b/include/linux/inet_lro.h
-@@ -50,7 +50,6 @@ struct net_lro_desc {
- 	struct skb_frag_struct *next_frag;
- 	struct iphdr *iph;
- 	struct tcphdr *tcph;
--	struct vlan_group *vgrp;
- 	__wsum  data_csum;
- 	__be32 tcp_rcv_tsecr;
- 	__be32 tcp_rcv_tsval;
-@@ -60,9 +59,7 @@ struct net_lro_desc {
- 	u16 ip_tot_len;
- 	u16 tcp_saw_tstamp; 		/* timestamps enabled */
- 	__be16 tcp_window;
--	u16 vlan_tag;
- 	int pkt_aggr_cnt;		/* counts aggregated packets */
--	int vlan_packet;
- 	int mss;
- 	int active;
- };
-@@ -137,16 +134,6 @@ void lro_receive_skb(struct net_lro_mgr *lro_mgr,
- 		     void *priv);
+diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
+index a8c47b0..5e38de7 100644
+--- a/drivers/net/ixgbe/ixgbe.h
++++ b/drivers/net/ixgbe/ixgbe.h
+@@ -28,11 +28,13 @@
+ #ifndef _IXGBE_H_
+ #define _IXGBE_H_
  
- /*
-- * Processes a SKB with VLAN HW acceleration support
-- */
--
--void lro_vlan_hwaccel_receive_skb(struct net_lro_mgr *lro_mgr,
--				  struct sk_buff *skb,
--				  struct vlan_group *vgrp,
--				  u16 vlan_tag,
--				  void *priv);
--
--/*
-  * Processes a fragment list
-  *
-  * This functions aggregate fragments and generate SKBs do pass
-@@ -165,13 +152,6 @@ void lro_receive_frags(struct net_lro_mgr *lro_mgr,
- 		       struct skb_frag_struct *frags,
- 		       int len, int true_size, void *priv, __wsum sum);
++#include <linux/bitops.h>
+ #include <linux/types.h>
+ #include <linux/pci.h>
+ #include <linux/netdevice.h>
+ #include <linux/cpumask.h>
+ #include <linux/aer.h>
++#include <linux/if_vlan.h>
  
--void lro_vlan_hwaccel_receive_frags(struct net_lro_mgr *lro_mgr,
--				    struct skb_frag_struct *frags,
--				    int len, int true_size,
--				    struct vlan_group *vgrp,
--				    u16 vlan_tag,
--				    void *priv, __wsum sum);
--
- /*
-  * Forward all aggregated SKBs held by lro_mgr to network stack
-  */
-diff --git a/net/ipv4/inet_lro.c b/net/ipv4/inet_lro.c
-index 47038cb..8945a1d 100644
---- a/net/ipv4/inet_lro.c
-+++ b/net/ipv4/inet_lro.c
-@@ -146,8 +146,7 @@ static __wsum lro_tcp_data_csum(struct iphdr *iph, struct tcphdr *tcph, int len)
- }
+ #include "ixgbe_type.h"
+ #include "ixgbe_common.h"
+@@ -287,7 +289,7 @@ struct ixgbe_q_vector {
+ /* board specific private data structure */
+ struct ixgbe_adapter {
+ 	struct timer_list watchdog_timer;
+-	struct vlan_group *vlgrp;
++	unsigned long active_vlans[BITS_TO_LONGS(VLAN_N_VID)];
+ 	u16 bd_number;
+ 	struct work_struct reset_task;
+ 	struct ixgbe_q_vector *q_vector[MAX_MSIX_Q_VECTORS];
+diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
+index d4ac943..dbfd62f 100644
+--- a/drivers/net/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ixgbe/ixgbe_ethtool.c
+@@ -2113,7 +2113,17 @@ static int ixgbe_set_flags(struct net_device *netdev, u32 data)
+ 	bool need_reset = false;
+ 	int rc;
  
- static void lro_init_desc(struct net_lro_desc *lro_desc, struct sk_buff *skb,
--			  struct iphdr *iph, struct tcphdr *tcph,
--			  u16 vlan_tag, struct vlan_group *vgrp)
-+			  struct iphdr *iph, struct tcphdr *tcph)
- {
- 	int nr_frags;
- 	__be32 *ptr;
-@@ -173,8 +172,6 @@ static void lro_init_desc(struct net_lro_desc *lro_desc, struct sk_buff *skb,
- 	}
+-	rc = ethtool_op_set_flags(netdev, data, ETH_FLAG_LRO | ETH_FLAG_NTUPLE);
++#ifdef CONFIG_IXGBE_DCB
++	if ((adapter->flags & IXGBE_FLAG_DCB_ENABLED) &&
++	    !(data & ETH_FLAG_RXVLAN))
++		return -EINVAL;
++#endif
++
++	need_reset = (data & ETH_FLAG_RXVLAN) !=
++		     (netdev->features & NETIF_F_HW_VLAN_RX);
++
++	rc = ethtool_op_set_flags(netdev, data, ETH_FLAG_LRO |
++					ETH_FLAG_RXVLAN | ETH_FLAG_TXVLAN);
+ 	if (rc)
+ 		return rc;
  
- 	lro_desc->mss = tcp_data_len;
--	lro_desc->vgrp = vgrp;
--	lro_desc->vlan_tag = vlan_tag;
- 	lro_desc->active = 1;
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 998debe..56f6b80 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -954,17 +954,13 @@ static void ixgbe_receive_skb(struct ixgbe_q_vector *q_vector,
+ 	bool is_vlan = (status & IXGBE_RXD_STAT_VP);
+ 	u16 tag = le16_to_cpu(rx_desc->wb.upper.vlan);
  
- 	lro_desc->data_csum = lro_tcp_data_csum(iph, tcph,
-@@ -309,29 +306,17 @@ static void lro_flush(struct net_lro_mgr *lro_mgr,
- 
- 	skb_shinfo(lro_desc->parent)->gso_size = lro_desc->mss;
- 
--	if (lro_desc->vgrp) {
--		if (lro_mgr->features & LRO_F_NAPI)
--			vlan_hwaccel_receive_skb(lro_desc->parent,
--						 lro_desc->vgrp,
--						 lro_desc->vlan_tag);
+-	if (!(adapter->flags & IXGBE_FLAG_IN_NETPOLL)) {
+-		if (adapter->vlgrp && is_vlan && (tag & VLAN_VID_MASK))
+-			vlan_gro_receive(napi, adapter->vlgrp, tag, skb);
 -		else
--			vlan_hwaccel_rx(lro_desc->parent,
--					lro_desc->vgrp,
--					lro_desc->vlan_tag);
--
+-			napi_gro_receive(napi, skb);
 -	} else {
--		if (lro_mgr->features & LRO_F_NAPI)
--			netif_receive_skb(lro_desc->parent);
+-		if (adapter->vlgrp && is_vlan && (tag & VLAN_VID_MASK))
+-			vlan_hwaccel_rx(skb, adapter->vlgrp, tag);
 -		else
--			netif_rx(lro_desc->parent);
+-			netif_rx(skb);
 -	}
-+	if (lro_mgr->features & LRO_F_NAPI)
-+		netif_receive_skb(lro_desc->parent);
++	if (is_vlan && (tag & VLAN_VID_MASK))
++		__vlan_hwaccel_put_tag(skb, tag);
++
++	if (!(adapter->flags & IXGBE_FLAG_IN_NETPOLL))
++		napi_gro_receive(napi, skb);
 +	else
-+		netif_rx(lro_desc->parent);
- 
- 	LRO_INC_STATS(lro_mgr, flushed);
- 	lro_clear_desc(lro_desc);
++		netif_rx(skb);
  }
  
- static int __lro_proc_skb(struct net_lro_mgr *lro_mgr, struct sk_buff *skb,
--			  struct vlan_group *vgrp, u16 vlan_tag, void *priv)
-+			  void *priv)
- {
- 	struct net_lro_desc *lro_desc;
- 	struct iphdr *iph;
-@@ -360,7 +345,7 @@ static int __lro_proc_skb(struct net_lro_mgr *lro_mgr, struct sk_buff *skb,
- 			goto out;
+ /**
+@@ -3065,6 +3061,7 @@ static void ixgbe_vlan_rx_add_vid(struct net_device *netdev, u16 vid)
  
- 		skb->ip_summed = lro_mgr->ip_summed_aggr;
--		lro_init_desc(lro_desc, skb, iph, tcph, vlan_tag, vgrp);
-+		lro_init_desc(lro_desc, skb, iph, tcph);
- 		LRO_INC_STATS(lro_mgr, aggregated);
- 		return 0;
- 	}
-@@ -433,8 +418,7 @@ static struct sk_buff *lro_gen_skb(struct net_lro_mgr *lro_mgr,
- static struct sk_buff *__lro_proc_segment(struct net_lro_mgr *lro_mgr,
- 					  struct skb_frag_struct *frags,
- 					  int len, int true_size,
--					  struct vlan_group *vgrp,
--					  u16 vlan_tag, void *priv, __wsum sum)
-+					  void *priv, __wsum sum)
- {
- 	struct net_lro_desc *lro_desc;
- 	struct iphdr *iph;
-@@ -480,7 +464,7 @@ static struct sk_buff *__lro_proc_segment(struct net_lro_mgr *lro_mgr,
- 		tcph = (void *)((u8 *)skb->data + vlan_hdr_len
- 				+ IP_HDR_LEN(iph));
- 
--		lro_init_desc(lro_desc, skb, iph, tcph, 0, NULL);
-+		lro_init_desc(lro_desc, skb, iph, tcph);
- 		LRO_INC_STATS(lro_mgr, aggregated);
- 		return NULL;
- 	}
-@@ -514,7 +498,7 @@ void lro_receive_skb(struct net_lro_mgr *lro_mgr,
- 		     struct sk_buff *skb,
- 		     void *priv)
- {
--	if (__lro_proc_skb(lro_mgr, skb, NULL, 0, priv)) {
-+	if (__lro_proc_skb(lro_mgr, skb, priv)) {
- 		if (lro_mgr->features & LRO_F_NAPI)
- 			netif_receive_skb(skb);
- 		else
-@@ -523,29 +507,13 @@ void lro_receive_skb(struct net_lro_mgr *lro_mgr,
+ 	/* add VID to filter table */
+ 	hw->mac.ops.set_vfta(&adapter->hw, vid, pool_ndx, true);
++	set_bit(vid, adapter->active_vlans);
  }
- EXPORT_SYMBOL(lro_receive_skb);
  
--void lro_vlan_hwaccel_receive_skb(struct net_lro_mgr *lro_mgr,
--				  struct sk_buff *skb,
--				  struct vlan_group *vgrp,
--				  u16 vlan_tag,
--				  void *priv)
+ static void ixgbe_vlan_rx_kill_vid(struct net_device *netdev, u16 vid)
+@@ -3073,16 +3070,9 @@ static void ixgbe_vlan_rx_kill_vid(struct net_device *netdev, u16 vid)
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	int pool_ndx = adapter->num_vfs;
+ 
+-	if (!test_bit(__IXGBE_DOWN, &adapter->state))
+-		ixgbe_irq_disable(adapter);
+-
+-	vlan_group_set_device(adapter->vlgrp, vid, NULL);
+-
+-	if (!test_bit(__IXGBE_DOWN, &adapter->state))
+-		ixgbe_irq_enable(adapter, true, true);
+-
+ 	/* remove VID from filter table */
+ 	hw->mac.ops.set_vfta(&adapter->hw, vid, pool_ndx, false);
++	clear_bit(vid, adapter->active_vlans);
+ }
+ 
+ /**
+@@ -3092,27 +3082,45 @@ static void ixgbe_vlan_rx_kill_vid(struct net_device *netdev, u16 vid)
+ static void ixgbe_vlan_filter_disable(struct ixgbe_adapter *adapter)
+ {
+ 	struct ixgbe_hw *hw = &adapter->hw;
+-	u32 vlnctrl = IXGBE_READ_REG(hw, IXGBE_VLNCTRL);
++	u32 vlnctrl;
++
++	vlnctrl = IXGBE_READ_REG(hw, IXGBE_VLNCTRL);
++	vlnctrl &= ~(IXGBE_VLNCTRL_VFE | IXGBE_VLNCTRL_CFIEN);
++	IXGBE_WRITE_REG(hw, IXGBE_VLNCTRL, vlnctrl);
++}
++
++/**
++ * ixgbe_vlan_filter_enable - helper to enable hw vlan filtering
++ * @adapter: driver data
++ */
++static void ixgbe_vlan_filter_enable(struct ixgbe_adapter *adapter)
++{
++	struct ixgbe_hw *hw = &adapter->hw;
++	u32 vlnctrl;
++
++	vlnctrl = IXGBE_READ_REG(hw, IXGBE_VLNCTRL);
++	vlnctrl |= IXGBE_VLNCTRL_VFE;
++	vlnctrl &= ~IXGBE_VLNCTRL_CFIEN;
++	IXGBE_WRITE_REG(hw, IXGBE_VLNCTRL, vlnctrl);
++}
++
++/**
++ * ixgbe_vlan_strip_disable - helper to disable hw vlan stripping
++ * @adapter: driver data
++ */
++static void ixgbe_vlan_strip_disable(struct ixgbe_adapter *adapter)
++{
++	struct ixgbe_hw *hw = &adapter->hw;
++	u32 vlnctrl;
+ 	int i, j;
+ 
+ 	switch (hw->mac.type) {
+ 	case ixgbe_mac_82598EB:
+-		vlnctrl &= ~IXGBE_VLNCTRL_VFE;
+-#ifdef CONFIG_IXGBE_DCB
+-		if (!(adapter->flags & IXGBE_FLAG_DCB_ENABLED))
+-			vlnctrl &= ~IXGBE_VLNCTRL_VME;
+-#endif
+-		vlnctrl &= ~IXGBE_VLNCTRL_CFIEN;
++		vlnctrl = IXGBE_READ_REG(hw, IXGBE_VLNCTRL);
++		vlnctrl &= ~IXGBE_VLNCTRL_VME;
+ 		IXGBE_WRITE_REG(hw, IXGBE_VLNCTRL, vlnctrl);
+ 		break;
+ 	case ixgbe_mac_82599EB:
+-		vlnctrl &= ~IXGBE_VLNCTRL_VFE;
+-		vlnctrl &= ~IXGBE_VLNCTRL_CFIEN;
+-		IXGBE_WRITE_REG(hw, IXGBE_VLNCTRL, vlnctrl);
+-#ifdef CONFIG_IXGBE_DCB
+-		if (adapter->flags & IXGBE_FLAG_DCB_ENABLED)
+-			break;
+-#endif
+ 		for (i = 0; i < adapter->num_rx_queues; i++) {
+ 			j = adapter->rx_ring[i]->reg_idx;
+ 			vlnctrl = IXGBE_READ_REG(hw, IXGBE_RXDCTL(j));
+@@ -3126,25 +3134,22 @@ static void ixgbe_vlan_filter_disable(struct ixgbe_adapter *adapter)
+ }
+ 
+ /**
+- * ixgbe_vlan_filter_enable - helper to enable hw vlan filtering
++ * ixgbe_vlan_strip_enable - helper to enable hw vlan stripping
+  * @adapter: driver data
+  */
+-static void ixgbe_vlan_filter_enable(struct ixgbe_adapter *adapter)
++static void ixgbe_vlan_strip_enable(struct ixgbe_adapter *adapter)
+ {
+ 	struct ixgbe_hw *hw = &adapter->hw;
+-	u32 vlnctrl = IXGBE_READ_REG(hw, IXGBE_VLNCTRL);
++	u32 vlnctrl;
+ 	int i, j;
+ 
+ 	switch (hw->mac.type) {
+ 	case ixgbe_mac_82598EB:
+-		vlnctrl |= IXGBE_VLNCTRL_VME | IXGBE_VLNCTRL_VFE;
+-		vlnctrl &= ~IXGBE_VLNCTRL_CFIEN;
++		vlnctrl = IXGBE_READ_REG(hw, IXGBE_VLNCTRL);
++		vlnctrl |= IXGBE_VLNCTRL_VME;
+ 		IXGBE_WRITE_REG(hw, IXGBE_VLNCTRL, vlnctrl);
+ 		break;
+ 	case ixgbe_mac_82599EB:
+-		vlnctrl |= IXGBE_VLNCTRL_VFE;
+-		vlnctrl &= ~IXGBE_VLNCTRL_CFIEN;
+-		IXGBE_WRITE_REG(hw, IXGBE_VLNCTRL, vlnctrl);
+ 		for (i = 0; i < adapter->num_rx_queues; i++) {
+ 			j = adapter->rx_ring[i]->reg_idx;
+ 			vlnctrl = IXGBE_READ_REG(hw, IXGBE_RXDCTL(j));
+@@ -3157,40 +3162,14 @@ static void ixgbe_vlan_filter_enable(struct ixgbe_adapter *adapter)
+ 	}
+ }
+ 
+-static void ixgbe_vlan_rx_register(struct net_device *netdev,
+-				   struct vlan_group *grp)
 -{
--	if (__lro_proc_skb(lro_mgr, skb, vgrp, vlan_tag, priv)) {
--		if (lro_mgr->features & LRO_F_NAPI)
--			vlan_hwaccel_receive_skb(skb, vgrp, vlan_tag);
--		else
--			vlan_hwaccel_rx(skb, vgrp, vlan_tag);
+-	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+-
+-	if (!test_bit(__IXGBE_DOWN, &adapter->state))
+-		ixgbe_irq_disable(adapter);
+-	adapter->vlgrp = grp;
+-
+-	/*
+-	 * For a DCB driver, always enable VLAN tag stripping so we can
+-	 * still receive traffic from a DCB-enabled host even if we're
+-	 * not in DCB mode.
+-	 */
+-	ixgbe_vlan_filter_enable(adapter);
+-
+-	ixgbe_vlan_rx_add_vid(netdev, 0);
+-
+-	if (!test_bit(__IXGBE_DOWN, &adapter->state))
+-		ixgbe_irq_enable(adapter, true, true);
+-}
+-
+ static void ixgbe_restore_vlan(struct ixgbe_adapter *adapter)
+ {
+-	ixgbe_vlan_rx_register(adapter->netdev, adapter->vlgrp);
++	u16 vid;
+ 
+-	if (adapter->vlgrp) {
+-		u16 vid;
+-		for (vid = 0; vid < VLAN_N_VID; vid++) {
+-			if (!vlan_group_get_device(adapter->vlgrp, vid))
+-				continue;
+-			ixgbe_vlan_rx_add_vid(adapter->netdev, vid);
+-		}
 -	}
--}
--EXPORT_SYMBOL(lro_vlan_hwaccel_receive_skb);
--
- void lro_receive_frags(struct net_lro_mgr *lro_mgr,
- 		       struct skb_frag_struct *frags,
- 		       int len, int true_size, void *priv, __wsum sum)
- {
- 	struct sk_buff *skb;
- 
--	skb = __lro_proc_segment(lro_mgr, frags, len, true_size, NULL, 0,
--				 priv, sum);
-+	skb = __lro_proc_segment(lro_mgr, frags, len, true_size, priv, sum);
- 	if (!skb)
- 		return;
- 
-@@ -556,26 +524,6 @@ void lro_receive_frags(struct net_lro_mgr *lro_mgr,
++	ixgbe_vlan_rx_add_vid(adapter->netdev, 0);
++
++	for_each_set_bit(vid, adapter->active_vlans, VLAN_N_VID)
++		ixgbe_vlan_rx_add_vid(adapter->netdev, vid);
  }
- EXPORT_SYMBOL(lro_receive_frags);
  
--void lro_vlan_hwaccel_receive_frags(struct net_lro_mgr *lro_mgr,
--				    struct skb_frag_struct *frags,
--				    int len, int true_size,
--				    struct vlan_group *vgrp,
--				    u16 vlan_tag, void *priv, __wsum sum)
--{
--	struct sk_buff *skb;
--
--	skb = __lro_proc_segment(lro_mgr, frags, len, true_size, vgrp,
--				 vlan_tag, priv, sum);
--	if (!skb)
--		return;
--
--	if (lro_mgr->features & LRO_F_NAPI)
--		vlan_hwaccel_receive_skb(skb, vgrp, vlan_tag);
--	else
--		vlan_hwaccel_rx(skb, vgrp, vlan_tag);
--}
--EXPORT_SYMBOL(lro_vlan_hwaccel_receive_frags);
--
- void lro_flush_all(struct net_lro_mgr *lro_mgr)
- {
+ /**
+@@ -3305,6 +3284,11 @@ void ixgbe_set_rx_mode(struct net_device *netdev)
+ 	}
+ 
+ 	IXGBE_WRITE_REG(hw, IXGBE_FCTRL, fctrl);
++
++	if (netdev->features & NETIF_F_HW_VLAN_RX)
++		ixgbe_vlan_strip_enable(adapter);
++	else
++		ixgbe_vlan_strip_disable(adapter);
+ }
+ 
+ static void ixgbe_napi_enable_all(struct ixgbe_adapter *adapter)
+@@ -3388,7 +3372,7 @@ static void ixgbe_configure_dcb(struct ixgbe_adapter *adapter)
+ 		IXGBE_WRITE_REG(hw, IXGBE_TXDCTL(j), txdctl);
+ 	}
+ 	/* Enable VLAN tag insert/strip */
+-	ixgbe_vlan_filter_enable(adapter);
++	adapter->netdev->features |= NETIF_F_HW_VLAN_RX;
+ 
+ 	hw->mac.ops.set_vfta(&adapter->hw, 0, 0, true);
+ }
+@@ -3400,13 +3384,13 @@ static void ixgbe_configure(struct ixgbe_adapter *adapter)
+ 	struct ixgbe_hw *hw = &adapter->hw;
  	int i;
+ 
+-	ixgbe_set_rx_mode(netdev);
+-
+-	ixgbe_restore_vlan(adapter);
+ #ifdef CONFIG_IXGBE_DCB
+ 	ixgbe_configure_dcb(adapter);
+ #endif
+ 
++	ixgbe_set_rx_mode(netdev);
++	ixgbe_restore_vlan(adapter);
++
+ #ifdef IXGBE_FCOE
+ 	if (adapter->flags & IXGBE_FLAG_FCOE_ENABLED)
+ 		ixgbe_configure_fcoe(adapter);
+@@ -6569,7 +6553,6 @@ static const struct net_device_ops ixgbe_netdev_ops = {
+ 	.ndo_set_mac_address	= ixgbe_set_mac,
+ 	.ndo_change_mtu		= ixgbe_change_mtu,
+ 	.ndo_tx_timeout		= ixgbe_tx_timeout,
+-	.ndo_vlan_rx_register	= ixgbe_vlan_rx_register,
+ 	.ndo_vlan_rx_add_vid	= ixgbe_vlan_rx_add_vid,
+ 	.ndo_vlan_rx_kill_vid	= ixgbe_vlan_rx_kill_vid,
+ 	.ndo_do_ioctl		= ixgbe_ioctl,
 -- 
 1.7.1
 
