@@ -1,91 +1,97 @@
-From: Joe Buehler <aspam@cox.net>
-Subject: Re: kernel panic in fib_rules_lookup [2.6.27.7 vendor-patched]
-Date: Wed, 20 Oct 2010 13:43:27 -0400
-Message-ID: <4CBF2A3F.2070108@cox.net>
-References: <loom.20101012T185411-307@post.gmane.org> <1286905245.2703.3.camel@edumazet-laptop>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: Re: Linux 2.6.35/TIPC 2.0 ABI breaking changes
+Date: Wed, 20 Oct 2010 13:57:06 -0400
+Message-ID: <0434463FDA60A94FA978ACA44617682DEE84668199@EUSAACMS0702.eamcs.ericsson.se>
+References: <4CBCD429.8090306@windriver.com>
+	<20101018234547.GA5703@hmsreliant.think-freely.org>
+	<20101019021657.GZ8781@llucax.com.ar>
+	<20101019.011649.71113115.davem@davemloft.net>
+	<20101019110452.GA14410@hmsreliant.think-freely.org>
+	<20101019131936.GB8781@llucax.com.ar>
+	<20101019201841.GC14410@hmsreliant.think-freely.org>
+	<20101020172018.GN8781@llucax.com.ar>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eastrmmtao105.cox.net ([68.230.240.47]:63097 "EHLO
-	eastrmmtao105.cox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751437Ab0JTRn3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Oct 2010 13:43:29 -0400
-In-Reply-To: <1286905245.2703.3.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: "tipc-discussion@lists.sourceforge.net"
+	<tipc-discussion@lists.sourceforge.net>,
+	David Miller <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Leandro Lucarella <luca@llucax.com.ar>, Neil Horman <nhorman@tuxdriver.com>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <20101020172018.GN8781@llucax.com.ar>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Eric Dumazet wrote:
-
-> 2.6.27 is a bit old, you might try :
-> 
-> commit 7fa7cb7109d07c29ab28bb877bc7049a0150dbe5
-> Author: Eric Dumazet <eric.dumazet@gmail.com>
-> Date:   Mon Sep 27 04:18:27 2010 +0000
-
-Alas, after more load testing I find that the panic still occurs:
-
-CPU 1 Unable to handle kernel paging request at virtual address
-0000000000000000, epc == ffffffff8146728c, ra == ffffffff81467258
-Oops[#1]:
-Cpu 1
-$ 0   : 0000000000000000 0000000000000000 0000000000000000 0000000000000000
-$ 4   : ffffffffffffffff a80000008c9d78f0 a80000009acd9880 000000000a205a7c
-$ 8   : 0000000000000000 0000000000000020 a80000009a9c49d0 0000000000000000
-$12   : ffffffff8155de00 0000000000000004 0000000000000001 0000000000000000
-$16   : 0000000000000000 a80000008c9d78f0 0000000000000002 a80000009b94ed80
-$20   : a80000009b94edf8 0000000000000000 0000000000000003 a80000008c9d78a0
-$24   : 0000000000000000 ffffffff812df388
-$28   : a80000008c9d4000 a80000008c9d7840 fffffffffffffff5 ffffffff81467258
-Hi    : 0000000000000000
-Lo    : 0000000000000000
-epc   : ffffffff8146728c fib_rules_lookup+0x11c/0x260
-    Not tainted
-ra    : ffffffff81467258 fib_rules_lookup+0xe8/0x260
-Status: 1010cce3    KX SX UX KERNEL EXL IE
-Cause : 00800008
-BadVA : 0000000000000000
-PrId  : 000d0409 (Cavium Octeon)
-Modules linked in: x_tables ip_tables iptable_filter nf_conntrack
-nf_conntrack_ipv4 nf_nat iptable_nat tun xt_tcpudp xt_state ipt_REJECT
-ipv6 ip6_tables ip6table_filter ip6t_ipv6header ip6t_REJECT
-Process qscope7500 (pid: 1343, threadinfo=a80000008c9d4000,
-task=a80000008c068ac0, tls=000000002d51e920)
-Stack : ffffffffffffffff 0000000000000003 a80000008c9d78d8 a80000008c9d79d8
-        a80000008c9d78f0 0000000000000000 ffffffff816c39c0 ffffffffffffffff
-        0000000000000003 00000000000004a6 0000000000000000 ffffffff814bd2a4
-        0000000000000000 a80000008c9d78d8 0000000000000000 ffffffffc001aa24
-        a80000008c9d78d8 ffffffff81478a38 0000000000000003 0000000000000001
-        0000000000000000 0000000000000000 0000000000000001 000000000a205a7c
-        0a2059bf00000000 0000000000000000 0000000000000000 0000000000000000
-        0000000000000000 0000000000000000 a80000008c9d79d0 0000000000000000
-        a80000008c9d79d8 a8000000994ff380 0000000000000000 0000000000000000
-        a80000008c9d79d0 ffffffff816c39c0 0000000000000003 00000000000004a6
-        ...
-Call Trace:
-[<ffffffff8146728c>] fib_rules_lookup+0x11c/0x260
-[<ffffffff814bd2a4>] fib_lookup+0x2c/0x48
-[<ffffffff81478a38>] __ip_route_output_key+0x918/0xf38
-[<ffffffff81479090>] ip_route_output_flow+0x38/0x2e8
-[<ffffffff81482c44>] ip_queue_xmit+0x38c/0x3a8
-[<ffffffff81497f5c>] tcp_transmit_skb+0x3f4/0x7d0
-[<ffffffff8149af2c>] __tcp_push_pending_frames+0x1fc/0x9e0
-[<ffffffff8148cf50>] tcp_sendmsg+0x900/0xe00
-[<ffffffff81441f7c>] sock_aio_write+0x16c/0x190
-[<ffffffff811d0424>] do_sync_write+0xbc/0x130
-[<ffffffff811d10a8>] vfs_write+0x150/0x158
-[<ffffffff811d124c>] sys_write+0x5c/0x118
-[<ffffffff8114532c>] handle_sys+0x12c/0x148
+<...>
+> subscr struct because 0x0 is a valid filter in TIPC 2.0.
+> =
 
 
-Code: 0040282d  00000000  de100000 <de020000> cc400000  1614ffce
-00000000  2405fffd  dfbf0058
-Fatal exception: panic in 5 seconds
-Kernel panic - not syncing: Fatal exception
-Rebooting in 1 seconds..
+> =
 
-I'll have a go at adding a spinlock.
+> Another option is to change the TIPC 2.0 specification to use =
 
-Joe Buehler
+> the old format (use HBO in subscriptions and keep =
+
+> TIPC_SUB_SERVICE as a separate flag with value 2) and forget =
+
+> about all this. After all, I can't see what advantages gives =
+
+> having to change the BO for internal messages between the =
+
+> applications and the stack.
+
+I agree with this. I have no problems with changing the draft =
+
+(which as Leandro already noted is "work-in-progress") to specify that =
+
+both HBO and NBO are permitted over the wire, and that it is the
+topology server's task to keep track of which one is used.
+
+Remember, permitting both is a superset of the current one (NBO only)
+so it is fully backwards compatible. We break absolutly nothing by =
+
+permitting this. =
+
+
+
+> =
+
+> [1] http://tipc.sourceforge.net/doc/draft-spec-tipc-06.html
+> [2] http://tipc.sourceforge.net/doc/draft-spec-tipc-06.html#anchor92
+> =
+
+> -- =
+
+> Leandro Lucarella (AKA luca)                     http://llucax.com.ar/
+> ----------------------------------------------------------------------
+> GPG Key: 5F5A8D05 (F8CD F9A7 BF00 5431 4145  104C 949E BFB6 5F5A 8D05)
+> ----------------------------------------------------------------------
+> CARANCHO OBNUBILADO APARECE EN PARQUE CHACABUCO!
+> 	-- Cr=F3nica TV
+> --
+> To unsubscribe from this list: send the line "unsubscribe =
+
+> netdev" in the body of a message to majordomo@vger.kernel.org =
+
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> =
+
+---------------------------------------------------------------------------=
+---
+Nokia and AT&T present the 2010 Calling All Innovators-North America contest
+Create new apps & games for the Nokia N8 for consumers in  U.S. and Canada
+$10 million total in prizes - $4M cash, 500 devices, nearly $6M in marketing
+Develop with Nokia Qt SDK, Web Runtime, or Java and Publish to Ovi Store =
+
+http://p.sf.net/sfu/nokia-dev2dev
