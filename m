@@ -1,55 +1,98 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: Future of the Wimedia LLC Protocol (WLP) subsystem/drivers
-Date: Wed, 20 Oct 2010 09:15:41 -0700
-Message-ID: <20101020091541.ec00fe96.randy.dunlap@oracle.com>
-References: <4CBDC7B7.5070108@csr.com>
+From: Leandro Lucarella <luca@llucax.com.ar>
+Subject: Re: Linux 2.6.35/TIPC 2.0 ABI breaking changes
+Date: Wed, 20 Oct 2010 14:20:18 -0300
+Message-ID: <20101020172018.GN8781@llucax.com.ar>
+References: <4CBCD429.8090306@windriver.com>
+	<20101018234547.GA5703@hmsreliant.think-freely.org>
+	<20101019021657.GZ8781@llucax.com.ar>
+	<20101019.011649.71113115.davem@davemloft.net>
+	<20101019110452.GA14410@hmsreliant.think-freely.org>
+	<20101019131936.GB8781@llucax.com.ar>
+	<20101019201841.GC14410@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gregkh <greg@kroah.com>
-To: David Vrabel <david.vrabel@csr.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet10.oracle.com ([148.87.113.121]:56831 "EHLO
-	rcsinet10.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752460Ab0JTQP6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Oct 2010 12:15:58 -0400
-In-Reply-To: <4CBDC7B7.5070108@csr.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: jon.maloy@ericsson.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, tipc-discussion@lists.sourceforge.net,
+	David Miller <davem@davemloft.net>
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+Content-Disposition: inline
+In-Reply-To: <20101019201841.GC14410@hmsreliant.think-freely.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Tue, 19 Oct 2010 17:30:47 +0100 David Vrabel wrote:
-
-> Hi,
-> 
-> I've have been nominally the maintainer of the Wimedia LLC Protocol
-> (WLP) subsystem and driver since it was originally submitted.  I am no
-> longer in a position to even pretend to be a maintainer.
-> 
-> The only usable hardware was an Intel i1480 devices with beta firmware
-> that was never released as a product.  Intel have since sold all there
-> UWB/WLP IP and I see little prospect of there ever being hardware
-> commercially available for WLP.
-> 
-> Here are a number of options:
-> 
-> 1. Someone else maintains it.  Any volunteers?
-> 
-> 2. It gets labelled as Orphaned in MAINTAINERS.
-> 
-> 3. It gets moved to staging.
-> 
-> 4, It gets removed.
-> 
-> If no one says anything I'll submit a patch to Linus to mark it as Orphaned.
-
-I'd say either 3 or 4.
-
-It could go to staging on it way to removal, but that's not really necessary.
-
-
-cc: gregkh
-
-
----
-~Randy
-*** Remember to use Documentation/SubmitChecklist when testing your code ***
+TmVpbCBIb3JtYW4sIGVsIDE5IGRlIG9jdHVicmUgYSBsYXMgMTY6MTggbWUgZXNjcmliaXN0ZToK
+PiAJSGVyZXMgd2hhdCBJIGhhdmUgc28gZmFyLiAgRGF2ZSBhcyBhIGhlYWRzIHVwIHBsZWFzZSBk
+b24ndCBhcHBseSB0aGlzCj4geWV0LiAgSSdkIGxpa2UgdG8gZ28gb3ZlciBpdCBhIGJpdCBtb3Jl
+IGFuZCBiZSBzdXJlIG9mIHRoZSBpbXBsaWNhdGlvbnMgaGVyZQo+IGJlZm9yZSBJIHBvc3QgaXQg
+Zm9yIGluY2x1c2lvbiBvZmZpY2lhbGx5LiAgSSB3YW50ZWQgTGVhbmRybyB0byBoYXZlIGEgY29w
+eQo+IHRob3VnaCBzbyBoZSBjb3VsZCBjb25maXJtIGZ1bmN0aW9uYWxpdHkgZm9yIHVzLiAgTGVh
+bmRybywgVGhpcyBwYXRjaCBsZXRzIG1lCj4gcGFzcyB0aGUgdGlwYyB0ZXN0IGNvZGUgZm9yIFRJ
+UEMgMS42IHRoYXQgeW91IHBvc3RlZCBlYXJsaWVyIHRoaXMgbW9ybmluZy4gIElmCj4geW91IGNv
+dWxkIGNvbmZpcm0gdGhhdCBpdCB3b3JrcyBmb3IgeW91IHRoYXQgd291bGQgYmUgZ3JhbmQuICBX
+aGlsZSB5b3VyIGRvaW5nCj4gdGhhdCwgSSB3YW50IHRvIHJlYWQgb3ZlciB0aGUgc3BlYyBmb3Ig
+VElQQyBhbmQgbWFrZSBzdXJlIHRoYXQgSSdtIG5vdCBicmVha2luZwo+IGFueXRoaW5nIG5ldyB3
+aXRoIHRoaXMgcGF0Y2guCgpJIHRyaWVkIHRoZSBwYXRjaCAoc3dhcHBpbmcgdGhlIHZhbHVlcyBv
+ZiBUSVBDX1NVQl9TRVJWSUNFIGFuZApUSVBDX1NVQl9QT1JUUykgYmFzZWQgb24gMi42LjM1LjQg
+YW5kIGl0IGRpZG4ndCB3b3JrZWQuIGRtZXNnIHNhaXM6Ck5PVCBTd2FwcGluZyBlbmRpYW5lc3Mg
+aW4gc3Vic2NyX3N1YnNjcmliZQpOT1QgU3dhcHBpbmcgZW5kaWFuZXNzIGluIHN1YnNjcl9zdWJz
+Y3JpYmUKVElQQzogU3Vic2NyaXB0aW9uIHJlamVjdGVkLCBpbGxlZ2FsIHJlcXVlc3QKCkkgdHJp
+ZWQgd2l0aCBhIGJpbmFyeSBjb21waWxlZCB3aXRoIGFuIG9sZGVyIHRpcGMuaCBoZWFkZXIsIEkg
+ZGlkbid0CnRyaWVkIHRvIHJlY29tcGlsZSBpdCB1c2luZyB0aGUgbmV3IHRpcGMuaCAob24gcHVy
+cG9zZSBhcyB0aGUgdGhpbmcgdGhhdApzaG91bGQgYmUgZml4ZWQgaXMgYmFja3dhcmRzIGNvbXBh
+dGliaWxpdHkpLgoKSSd2ZSByZWFkIHRoZSBUSVBDIDIuMCBzcGVjaWZpY2F0aW9uWzFdIGEgbGl0
+dGxlIG1vcmUsIGFuZCBhcyBJIHNlZSwgdGhlCnN1YnNjcmlwdGlvbiBtZXNzYWdlcyBhcmUgbm90
+IHN1cHBvc2VkIHRvIGdvIHRocm91Z2ggdGhlIHdpcmVbMl0uCgoJOC4gIFRvcG9sb2d5IFNlcnZp
+Y2UKCglUSVBDIHByb3ZpZGVzIGEgbWVzc2FnZS1iYXNlZCBtZWNoYW5pc20gZm9yIGFuIGFwcGxp
+Y2F0aW9uIHRvCglsZWFybiBhYm91dCB0aGUgcG9ydCBuYW1lcyB0aGF0IGFyZSB2aXNpYmxlIHRv
+IGl0cyBub2RlLiBUaGlzIGlzCglhY2hpZXZlZCBieSBjb21tdW5pY2F0aW5nIHdpdGggYSBUb3Bv
+bG9neSBTZXJ2aWNlIHRoYXQgaGFzCglrbm93bGVkZ2Ugb2YgdGhlIGNvbnRlbnRzIG9mIHRoZSBu
+b2RlJ3MgbmFtZSB0YWJsZS4KClNvLCBpZiB0aGUgaWRlYSBpcyB0byBjb21wbHkgd2l0aCBUSVBD
+IDIuMCwgdGhlIHRvcG9sb2d5IHNlcnZpY2Ugc2hvdWxkCmFjY2VwdCB0aGUgbmV3IFRJUENfU1VC
+X1NFUlZJQ0UgYW5kIFRJUENfU1VCX1BPUlRTIHZhbHVlcyAoMCBhbmQKMSBpbiBOQk8gcmVzcGVj
+dGl2ZWx5KSwgYW5kIGFsbCB0aGUgZmllbGRzIGluIHRoZSBzdWJzY3Igc3RydWN0IHNob3VsZApi
+ZSBmaWxsZWQgaW4gTkJPIHRvby4KCkhvd2V2ZXIsIGlmIHRoZSBpZGVhIGlzIHRvIGtlZXAgYmFj
+a3dhcmRzIGNvbXBhdGliaWxpdHkgdG9vLCBIQk8gc2hvdWxkCmJlIGFjY2VwdGVkIGFzIHdlbGwg
+YXMgdGhlIG9sZCBUSVBDX1NVQl9TRVJWSUNFIGFuZCBUSVBDX1NVQl9QT1JUUwp2YWx1ZXMgKDIg
+YW5kIDEgaW4gSEJPIHJlc3BlY3RpdmVseSkuCgpUaGUgcmVhbCBwcm9ibGVtIGlzLCB3ZSBjYW4n
+dCBmaWd1cmUgb3V0IHRoZSBlbmRpYW5lc3Mgb2YgdGhlIHN1YnNjcgpzdHJ1Y3QgYmVjYXVzZSAw
+eDAgaXMgYSB2YWxpZCBmaWx0ZXIgaW4gVElQQyAyLjAuCgpUaGUgb25seSBzb2x1dGlvbiBJIHNl
+ZSBpcyB0byBjaGFuZ2UgdGhlIFRJUEMgMi4wIHNwZWNpZmljYXRpb24gKHdoaWNoCmlzIGEgIndv
+cmstaW4tcHJvZ3Jlc3MiKSB0byBtYWtlIHRoZSB0b3BvbG9neSBzZXJ2aWNlIHVzZSB0aGUgcG9y
+dCBuYW1lCnsyLDJ9LCBsZWF2aW5nIHsxLDF9IGZvciBiYWNrd2FyZHMgY29tcGF0aWJpbGl0eS4g
+VGhlbiBhZGQgdGhlIGNvbnN0YW50cwpUSVBDX1NVQl9TRVJWSUNFMiAoMCkgYW5kIFRJUENfVE9Q
+X1NSVjIgKDIpLCBvciBzaW1pbGFyLCB0byB1c2UgdGhlIFRJUEMKMi4wIGludGVyZmFjZSBhbmQg
+bGVhdmUgVElQQ19TVUJfU0VSVklDRSBhbmQgVElQQ19UT1BfU1JWIGZvciB0aGUgVElQQwoxLngg
+aW50ZXJmYWNlLgoKQW5vdGhlciBvcHRpb24gaXMgdG8gY2hhbmdlIHRoZSBUSVBDIDIuMCBzcGVj
+aWZpY2F0aW9uIHRvIHVzZSB0aGUgb2xkCmZvcm1hdCAodXNlIEhCTyBpbiBzdWJzY3JpcHRpb25z
+IGFuZCBrZWVwIFRJUENfU1VCX1NFUlZJQ0UgYXMgYSBzZXBhcmF0ZQpmbGFnIHdpdGggdmFsdWUg
+MikgYW5kIGZvcmdldCBhYm91dCBhbGwgdGhpcy4gQWZ0ZXIgYWxsLCBJIGNhbid0IHNlZQp3aGF0
+IGFkdmFudGFnZXMgZ2l2ZXMgaGF2aW5nIHRvIGNoYW5nZSB0aGUgQk8gZm9yIGludGVybmFsIG1l
+c3NhZ2VzCmJldHdlZW4gdGhlIGFwcGxpY2F0aW9ucyBhbmQgdGhlIHN0YWNrLgoKWzFdIGh0dHA6
+Ly90aXBjLnNvdXJjZWZvcmdlLm5ldC9kb2MvZHJhZnQtc3BlYy10aXBjLTA2Lmh0bWwKWzJdIGh0
+dHA6Ly90aXBjLnNvdXJjZWZvcmdlLm5ldC9kb2MvZHJhZnQtc3BlYy10aXBjLTA2Lmh0bWwjYW5j
+aG9yOTIKCi0tIApMZWFuZHJvIEx1Y2FyZWxsYSAoQUtBIGx1Y2EpICAgICAgICAgICAgICAgICAg
+ICAgaHR0cDovL2xsdWNheC5jb20uYXIvCi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KR1BHIEtleTogNUY1QThEMDUg
+KEY4Q0QgRjlBNyBCRjAwIDU0MzEgNDE0NSAgMTA0QyA5NDlFIEJGQjYgNUY1QSA4RDA1KQotLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tCkNBUkFOQ0hPIE9CTlVCSUxBRE8gQVBBUkVDRSBFTiBQQVJRVUUgQ0hBQ0FCVUNP
+IQoJLS0gQ3LDs25pY2EgVFYKCi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQpOb2tpYSBhbmQgQVQmVCBw
+cmVzZW50IHRoZSAyMDEwIENhbGxpbmcgQWxsIElubm92YXRvcnMtTm9ydGggQW1lcmljYSBjb250
+ZXN0CkNyZWF0ZSBuZXcgYXBwcyAmIGdhbWVzIGZvciB0aGUgTm9raWEgTjggZm9yIGNvbnN1bWVy
+cyBpbiAgVS5TLiBhbmQgQ2FuYWRhCiQxMCBtaWxsaW9uIHRvdGFsIGluIHByaXplcyAtICQ0TSBj
+YXNoLCA1MDAgZGV2aWNlcywgbmVhcmx5ICQ2TSBpbiBtYXJrZXRpbmcKRGV2ZWxvcCB3aXRoIE5v
+a2lhIFF0IFNESywgV2ViIFJ1bnRpbWUsIG9yIEphdmEgYW5kIFB1Ymxpc2ggdG8gT3ZpIFN0b3Jl
+IApodHRwOi8vcC5zZi5uZXQvc2Z1L25va2lhLWRldjJkZXYKX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX18KdGlwYy1kaXNjdXNzaW9uIG1haWxpbmcgbGlzdAp0
+aXBjLWRpc2N1c3Npb25AbGlzdHMuc291cmNlZm9yZ2UubmV0Cmh0dHBzOi8vbGlzdHMuc291cmNl
+Zm9yZ2UubmV0L2xpc3RzL2xpc3RpbmZvL3RpcGMtZGlzY3Vzc2lvbgo=
