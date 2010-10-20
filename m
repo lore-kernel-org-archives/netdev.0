@@ -1,1031 +1,480 @@
 From: Krishna Kumar <krkumar2@in.ibm.com>
-Subject: [v3 RFC PATCH 3/4] Changes for vhost
-Date: Wed, 20 Oct 2010 14:25:15 +0530
-Message-ID: <20101020085515.15579.26368.sendpatchset@krkumar2.in.ibm.com>
+Subject: [v3 RFC PATCH 4/4] qemu changes
+Date: Wed, 20 Oct 2010 14:25:28 +0530
+Message-ID: <20101020085528.15579.81209.sendpatchset@krkumar2.in.ibm.com>
 References: <20101020085452.15579.76002.sendpatchset@krkumar2.in.ibm.com>
-Cc: arnd@arndb.de, eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	avi@redhat.com, anthony@codemonkey.ws, kvm@vger.kernel.org,
-	Krishna Kumar <krkumar2@in.ibm.com>
+Cc: eric.dumazet@gmail.com, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, arnd@arndb.de, avi@redhat.com,
+	anthony@codemonkey.ws, Krishna Kumar <krkumar2@in.ibm.com>
 To: rusty@rustcorp.com.au, davem@davemloft.net, mst@redhat.com
-Return-path: <kvm-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e23smtp03.au.ibm.com ([202.81.31.145]:41335 "EHLO
+	e23smtp03.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751756Ab0JTIzg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Oct 2010 04:55:36 -0400
 In-Reply-To: <20101020085452.15579.76002.sendpatchset@krkumar2.in.ibm.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Changes for mq vhost.
-
-vhost_net_open is changed to allocate a vhost_net and
-return.  The remaining initializations are delayed till
-SET_OWNER.  SET_OWNER is changed so that the argument
-is used to determine how many txqs to use.  Unmodified
-qemu's will pass NULL, so this is recognized and handled
-as numtxqs=1.
-
-Besides changing handle_tx to use 'vq', this patch also
-changes handle_rx to take vq as parameter.  The mq RX
-patch requires this change, but till then it is consistent
-(and less confusing) to make the interfaces for handling
-rx and tx similar.
-
-vhost thread handling for RX and TX is as follows.  The
-first vhost thread handles RX traffic, while the remaining
-threads handles TX.  The number of threads is <= #txqs, and
-threads handle more than one txq when #txqs is more than
-MAX_VHOST_THREADS (4).  When guest is started with >1 txqs
-and there is only one stream of traffic from the guest,
-that is recognized and handled such that vhost[0] processes
-both RX and TX.  This can change dynamically.  vhost_poll
-has a new element - find_vq(), which allows optimizing some
-code for cases where numtxqs=1 or a packet on vhost[0]
-needs processing.
+Changes in qemu to support mq TX.
 
 Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
----
- drivers/vhost/net.c   |  284 ++++++++++++++++++++++++++--------------
- drivers/vhost/vhost.c |  275 ++++++++++++++++++++++++++++----------
- drivers/vhost/vhost.h |   42 +++++
- 3 files changed, 430 insertions(+), 171 deletions(-)
+---     
+ hw/vhost.c      |    7 ++++--
+ hw/vhost.h      |    2 -
+ hw/vhost_net.c  |   16 +++++++++----
+ hw/vhost_net.h  |    2 -
+ hw/virtio-net.c |   53 ++++++++++++++++++++++++++++++++--------------
+ hw/virtio-net.h |    2 +
+ hw/virtio-pci.c |    2 +
+ net.c           |   17 ++++++++++++++
+ net.h           |    1 
+ net/tap.c       |   34 ++++++++++++++++++++++++++---
+ 10 files changed, 107 insertions(+), 29 deletions(-)
 
-diff -ruNp org/drivers/vhost/vhost.h new/drivers/vhost/vhost.h
---- org/drivers/vhost/vhost.h	2010-10-11 10:21:14.000000000 +0530
-+++ new/drivers/vhost/vhost.h	2010-10-20 14:11:23.000000000 +0530
-@@ -35,11 +35,13 @@ struct vhost_poll {
- 	wait_queue_t              wait;
- 	struct vhost_work	  work;
- 	unsigned long		  mask;
--	struct vhost_dev	 *dev;
-+	struct vhost_virtqueue	  *(*find_vq)(struct vhost_poll *poll);
-+	struct vhost_virtqueue	  *vq;  /* points back to vq */
+diff -ruNp org3/hw/vhost.c new3/hw/vhost.c
+--- org3/hw/vhost.c	2010-10-19 19:38:11.000000000 +0530
++++ new3/hw/vhost.c	2010-10-20 12:44:21.000000000 +0530
+@@ -580,7 +580,7 @@ static void vhost_virtqueue_cleanup(stru
+                               0, virtio_queue_get_desc_size(vdev, idx));
+ }
+ 
+-int vhost_dev_init(struct vhost_dev *hdev, int devfd)
++int vhost_dev_init(struct vhost_dev *hdev, int devfd, int numtxqs)
+ {
+     uint64_t features;
+     int r;
+@@ -592,11 +592,14 @@ int vhost_dev_init(struct vhost_dev *hde
+             return -errno;
+         }
+     }
+-    r = ioctl(hdev->control, VHOST_SET_OWNER, NULL);
++
++    r = ioctl(hdev->control, VHOST_SET_OWNER, numtxqs);
+     if (r < 0) {
+         goto fail;
+     }
+ 
++    hdev->nvqs = numtxqs + 1;
++
+     r = ioctl(hdev->control, VHOST_GET_FEATURES, &features);
+     if (r < 0) {
+         goto fail;
+diff -ruNp org3/hw/vhost.h new3/hw/vhost.h
+--- org3/hw/vhost.h	2010-07-01 11:42:09.000000000 +0530
++++ new3/hw/vhost.h	2010-10-20 12:47:10.000000000 +0530
+@@ -40,7 +40,7 @@ struct vhost_dev {
+     unsigned long long log_size;
  };
  
- void vhost_poll_init(struct vhost_poll *poll, vhost_work_fn_t fn,
--		     unsigned long mask, struct vhost_dev *dev);
-+		     unsigned long mask, struct vhost_virtqueue *vq,
-+		     int single_queue);
- void vhost_poll_start(struct vhost_poll *poll, struct file *file);
- void vhost_poll_stop(struct vhost_poll *poll);
- void vhost_poll_flush(struct vhost_poll *poll);
-@@ -108,6 +110,10 @@ struct vhost_virtqueue {
- 	/* Log write descriptors */
- 	void __user *log_base;
- 	struct vhost_log *log;
-+	struct task_struct *worker; /* vhost for this vq, can be shared */
-+	spinlock_t *work_lock;
-+	struct list_head *work_list;
-+	int qnum;		/* 0 for RX, 1 -> n-1 for TX */
- };
- 
- struct vhost_dev {
-@@ -119,15 +125,39 @@ struct vhost_dev {
- 	struct mutex mutex;
- 	unsigned acked_features;
- 	struct vhost_virtqueue *vqs;
-+	unsigned long *jiffies;
- 	int nvqs;
- 	struct file *log_file;
- 	struct eventfd_ctx *log_ctx;
--	spinlock_t work_lock;
--	struct list_head work_list;
--	struct task_struct *worker;
-+	spinlock_t *work_lock;
-+	struct list_head *work_list;
- };
- 
--long vhost_dev_init(struct vhost_dev *, struct vhost_virtqueue *vqs, int nvqs);
-+/*
-+ * Define maximum number of TX threads, and use that to have a maximum
-+ * number of vhost threads to handle RX & TX. First thread handles RX.
-+ * If guest is started with #txqs=1, only one vhost thread is started.
-+ * Else, upto MAX_VHOST_THREADS are started where th[0] handles RX and
-+ * remaining handles TX. However, vhost_poll_queue has an optimization
-+ * where th[0] is selected for both RX & TX if there is only one flow.
-+ */
-+#define MAX_TXQ_THREADS		4
-+#define MAX_VHOST_THREADS	(MAX_TXQ_THREADS + 1)
-+
-+static inline int get_nvhosts(int nvqs)
-+{
-+	int num_vhosts = nvqs - 1;
-+
-+	if (nvqs > 2)
-+		num_vhosts = min_t(int, nvqs, MAX_VHOST_THREADS);
-+
-+	return num_vhosts;
-+}
-+
-+int vhost_setup_vqs(struct vhost_dev *dev, int numtxqs);
-+void vhost_free_vqs(struct vhost_dev *dev);
-+long vhost_dev_init(struct vhost_dev *, struct vhost_virtqueue *vqs, int nvqs,
-+		    int nvhosts);
- long vhost_dev_check_owner(struct vhost_dev *);
- long vhost_dev_reset_owner(struct vhost_dev *);
- void vhost_dev_cleanup(struct vhost_dev *);
-diff -ruNp org/drivers/vhost/net.c new/drivers/vhost/net.c
---- org/drivers/vhost/net.c	2010-10-11 10:21:14.000000000 +0530
-+++ new/drivers/vhost/net.c	2010-10-20 14:20:10.000000000 +0530
-@@ -33,12 +33,6 @@
-  * Using this limit prevents one virtqueue from starving others. */
- #define VHOST_NET_WEIGHT 0x80000
- 
--enum {
--	VHOST_NET_VQ_RX = 0,
--	VHOST_NET_VQ_TX = 1,
--	VHOST_NET_VQ_MAX = 2,
--};
--
- enum vhost_net_poll_state {
- 	VHOST_NET_POLL_DISABLED = 0,
- 	VHOST_NET_POLL_STARTED = 1,
-@@ -47,12 +41,13 @@ enum vhost_net_poll_state {
+-int vhost_dev_init(struct vhost_dev *hdev, int devfd);
++int vhost_dev_init(struct vhost_dev *hdev, int devfd, int numtxqs);
+ void vhost_dev_cleanup(struct vhost_dev *hdev);
+ int vhost_dev_start(struct vhost_dev *hdev, VirtIODevice *vdev);
+ void vhost_dev_stop(struct vhost_dev *hdev, VirtIODevice *vdev);
+diff -ruNp org3/hw/vhost_net.c new3/hw/vhost_net.c
+--- org3/hw/vhost_net.c	2010-09-28 10:07:31.000000000 +0530
++++ new3/hw/vhost_net.c	2010-10-19 19:46:52.000000000 +0530
+@@ -36,7 +36,8 @@
  
  struct vhost_net {
- 	struct vhost_dev dev;
--	struct vhost_virtqueue vqs[VHOST_NET_VQ_MAX];
--	struct vhost_poll poll[VHOST_NET_VQ_MAX];
-+	struct vhost_virtqueue *vqs;
-+	struct vhost_poll *poll;
-+	struct socket **socks;
- 	/* Tells us whether we are polling a socket for TX.
- 	 * We only do this when socket buffer fills up.
- 	 * Protected by tx vq lock. */
--	enum vhost_net_poll_state tx_poll_state;
-+	enum vhost_net_poll_state *tx_poll_state;
+     struct vhost_dev dev;
+-    struct vhost_virtqueue vqs[2];
++    struct vhost_virtqueue *vqs;
++    int nvqs;
+     int backend;
+     VLANClientState *vc;
  };
- 
- /* Pop first len bytes from iovec. Return number of segments used. */
-@@ -92,28 +87,28 @@ static void copy_iovec_hdr(const struct 
+@@ -81,7 +82,8 @@ static int vhost_net_get_fd(VLANClientSt
+     }
  }
  
- /* Caller must have TX VQ lock */
--static void tx_poll_stop(struct vhost_net *net)
-+static void tx_poll_stop(struct vhost_net *net, int qnum)
+-struct vhost_net *vhost_net_init(VLANClientState *backend, int devfd)
++struct vhost_net *vhost_net_init(VLANClientState *backend, int devfd,
++				 int numtxqs)
  {
--	if (likely(net->tx_poll_state != VHOST_NET_POLL_STARTED))
-+	if (likely(net->tx_poll_state[qnum] != VHOST_NET_POLL_STARTED))
- 		return;
--	vhost_poll_stop(net->poll + VHOST_NET_VQ_TX);
--	net->tx_poll_state = VHOST_NET_POLL_STOPPED;
-+	vhost_poll_stop(&net->poll[qnum]);
-+	net->tx_poll_state[qnum] = VHOST_NET_POLL_STOPPED;
- }
+     int r;
+     struct vhost_net *net = qemu_malloc(sizeof *net);
+@@ -98,10 +100,14 @@ struct vhost_net *vhost_net_init(VLANCli
+         (1 << VHOST_NET_F_VIRTIO_NET_HDR);
+     net->backend = r;
  
- /* Caller must have TX VQ lock */
--static void tx_poll_start(struct vhost_net *net, struct socket *sock)
-+static void tx_poll_start(struct vhost_net *net, struct socket *sock, int qnum)
+-    r = vhost_dev_init(&net->dev, devfd);
++    r = vhost_dev_init(&net->dev, devfd, numtxqs);
+     if (r < 0) {
+         goto fail;
+     }
++
++    net->nvqs = numtxqs + 1;
++    net->vqs = qemu_malloc(net->nvqs * (sizeof *net->vqs));
++
+     if (!tap_has_vnet_hdr_len(backend,
+                               sizeof(struct virtio_net_hdr_mrg_rxbuf))) {
+         net->dev.features &= ~(1 << VIRTIO_NET_F_MRG_RXBUF);
+@@ -131,7 +137,6 @@ int vhost_net_start(struct vhost_net *ne
+                              sizeof(struct virtio_net_hdr_mrg_rxbuf));
+     }
+ 
+-    net->dev.nvqs = 2;
+     net->dev.vqs = net->vqs;
+     r = vhost_dev_start(&net->dev, dev);
+     if (r < 0) {
+@@ -188,7 +193,8 @@ void vhost_net_cleanup(struct vhost_net 
+     qemu_free(net);
+ }
+ #else
+-struct vhost_net *vhost_net_init(VLANClientState *backend, int devfd)
++struct vhost_net *vhost_net_init(VLANClientState *backend, int devfd,
++				 int nvqs)
  {
--	if (unlikely(net->tx_poll_state != VHOST_NET_POLL_STOPPED))
-+	if (unlikely(net->tx_poll_state[qnum] != VHOST_NET_POLL_STOPPED))
- 		return;
--	vhost_poll_start(net->poll + VHOST_NET_VQ_TX, sock->file);
--	net->tx_poll_state = VHOST_NET_POLL_STARTED;
-+	vhost_poll_start(&net->poll[qnum], sock->file);
-+	net->tx_poll_state[qnum] = VHOST_NET_POLL_STARTED;
+ 	return NULL;
  }
+diff -ruNp org3/hw/vhost_net.h new3/hw/vhost_net.h
+--- org3/hw/vhost_net.h	2010-07-01 11:42:09.000000000 +0530
++++ new3/hw/vhost_net.h	2010-10-19 19:46:52.000000000 +0530
+@@ -6,7 +6,7 @@
+ struct vhost_net;
+ typedef struct vhost_net VHostNetState;
  
- /* Expects to be always run from workqueue - which acts as
-  * read-size critical section for our kind of RCU. */
--static void handle_tx(struct vhost_net *net)
-+static void handle_tx(struct vhost_virtqueue *vq)
+-VHostNetState *vhost_net_init(VLANClientState *backend, int devfd);
++VHostNetState *vhost_net_init(VLANClientState *backend, int devfd, int nvqs);
+ 
+ int vhost_net_start(VHostNetState *net, VirtIODevice *dev);
+ void vhost_net_stop(VHostNetState *net, VirtIODevice *dev);
+diff -ruNp org3/hw/virtio-net.c new3/hw/virtio-net.c
+--- org3/hw/virtio-net.c	2010-10-19 19:38:11.000000000 +0530
++++ new3/hw/virtio-net.c	2010-10-19 21:02:33.000000000 +0530
+@@ -32,7 +32,7 @@ typedef struct VirtIONet
+     uint8_t mac[ETH_ALEN];
+     uint16_t status;
+     VirtQueue *rx_vq;
+-    VirtQueue *tx_vq;
++    VirtQueue **tx_vq;
+     VirtQueue *ctrl_vq;
+     NICState *nic;
+     QEMUTimer *tx_timer;
+@@ -65,6 +65,7 @@ typedef struct VirtIONet
+     } mac_table;
+     uint32_t *vlans;
+     DeviceState *qdev;
++    uint16_t numtxqs;
+ } VirtIONet;
+ 
+ /* TODO
+@@ -82,6 +83,7 @@ static void virtio_net_get_config(VirtIO
+     struct virtio_net_config netcfg;
+ 
+     netcfg.status = n->status;
++    netcfg.numtxqs = n->numtxqs;
+     memcpy(netcfg.mac, n->mac, ETH_ALEN);
+     memcpy(config, &netcfg, sizeof(netcfg));
+ }
+@@ -196,6 +198,8 @@ static uint32_t virtio_net_get_features(
+     VirtIONet *n = to_virtio_net(vdev);
+ 
+     features |= (1 << VIRTIO_NET_F_MAC);
++    if (n->numtxqs > 1)
++        features |= (1 << VIRTIO_NET_F_NUMTXQS);
+ 
+     if (peer_has_vnet_hdr(n)) {
+         tap_using_vnet_hdr(n->nic->nc.peer, 1);
+@@ -659,13 +663,16 @@ static void virtio_net_tx_complete(VLANC
  {
--	struct vhost_virtqueue *vq = &net->dev.vqs[VHOST_NET_VQ_TX];
-+	struct vhost_net *net = container_of(vq->dev, struct vhost_net, dev);
- 	unsigned out, in, s;
- 	int head;
- 	struct msghdr msg = {
-@@ -134,7 +129,7 @@ static void handle_tx(struct vhost_net *
- 	wmem = atomic_read(&sock->sk->sk_wmem_alloc);
- 	if (wmem >= sock->sk->sk_sndbuf) {
- 		mutex_lock(&vq->mutex);
--		tx_poll_start(net, sock);
-+		tx_poll_start(net, sock, vq->qnum);
- 		mutex_unlock(&vq->mutex);
- 		return;
- 	}
-@@ -144,7 +139,7 @@ static void handle_tx(struct vhost_net *
- 	vhost_disable_notify(vq);
+     VirtIONet *n = DO_UPCAST(NICState, nc, nc)->opaque;
  
- 	if (wmem < sock->sk->sk_sndbuf / 2)
--		tx_poll_stop(net);
-+		tx_poll_stop(net, vq->qnum);
- 	hdr_size = vq->vhost_hlen;
+-    virtqueue_push(n->tx_vq, &n->async_tx.elem, n->async_tx.len);
+-    virtio_notify(&n->vdev, n->tx_vq);
++    /*
++     * If this function executes, we are single TX and hence use only txq[0]
++     */
++    virtqueue_push(n->tx_vq[0], &n->async_tx.elem, n->async_tx.len);
++    virtio_notify(&n->vdev, n->tx_vq[0]);
  
- 	for (;;) {
-@@ -159,7 +154,7 @@ static void handle_tx(struct vhost_net *
- 		if (head == vq->num) {
- 			wmem = atomic_read(&sock->sk->sk_wmem_alloc);
- 			if (wmem >= sock->sk->sk_sndbuf * 3 / 4) {
--				tx_poll_start(net, sock);
-+				tx_poll_start(net, sock, vq->qnum);
- 				set_bit(SOCK_ASYNC_NOSPACE, &sock->flags);
- 				break;
- 			}
-@@ -189,7 +184,7 @@ static void handle_tx(struct vhost_net *
- 		err = sock->ops->sendmsg(NULL, sock, &msg, len);
- 		if (unlikely(err < 0)) {
- 			vhost_discard_vq_desc(vq, 1);
--			tx_poll_start(net, sock);
-+			tx_poll_start(net, sock, vq->qnum);
- 			break;
- 		}
- 		if (err != len)
-@@ -282,9 +277,9 @@ err:
+     n->async_tx.elem.out_num = n->async_tx.len = 0;
  
- /* Expects to be always run from workqueue - which acts as
-  * read-size critical section for our kind of RCU. */
--static void handle_rx_big(struct vhost_net *net)
-+static void handle_rx_big(struct vhost_virtqueue *vq,
-+			  struct vhost_net *net)
+-    virtio_queue_set_notification(n->tx_vq, 1);
+-    virtio_net_flush_tx(n, n->tx_vq);
++    virtio_queue_set_notification(n->tx_vq[0], 1);
++    virtio_net_flush_tx(n, n->tx_vq[0]);
+ }
+ 
+ /* TX */
+@@ -679,7 +686,7 @@ static int32_t virtio_net_flush_tx(VirtI
+     }
+ 
+     if (n->async_tx.elem.out_num) {
+-        virtio_queue_set_notification(n->tx_vq, 0);
++        virtio_queue_set_notification(n->tx_vq[0], 0);
+         return num_packets;
+     }
+ 
+@@ -714,7 +721,7 @@ static int32_t virtio_net_flush_tx(VirtI
+         ret = qemu_sendv_packet_async(&n->nic->nc, out_sg, out_num,
+                                       virtio_net_tx_complete);
+         if (ret == 0) {
+-            virtio_queue_set_notification(n->tx_vq, 0);
++            virtio_queue_set_notification(n->tx_vq[0], 0);
+             n->async_tx.elem = elem;
+             n->async_tx.len  = len;
+             return -EBUSY;
+@@ -771,8 +778,8 @@ static void virtio_net_tx_timer(void *op
+     if (!(n->vdev.status & VIRTIO_CONFIG_S_DRIVER_OK))
+         return;
+ 
+-    virtio_queue_set_notification(n->tx_vq, 1);
+-    virtio_net_flush_tx(n, n->tx_vq);
++    virtio_queue_set_notification(n->tx_vq[0], 1);
++    virtio_net_flush_tx(n, n->tx_vq[0]);
+ }
+ 
+ static void virtio_net_tx_bh(void *opaque)
+@@ -786,7 +793,7 @@ static void virtio_net_tx_bh(void *opaqu
+     if (unlikely(!(n->vdev.status & VIRTIO_CONFIG_S_DRIVER_OK)))
+         return;
+ 
+-    ret = virtio_net_flush_tx(n, n->tx_vq);
++    ret = virtio_net_flush_tx(n, n->tx_vq[0]);
+     if (ret == -EBUSY) {
+         return; /* Notification re-enable handled by tx_complete */
+     }
+@@ -802,9 +809,9 @@ static void virtio_net_tx_bh(void *opaqu
+     /* If less than a full burst, re-enable notification and flush
+      * anything that may have come in while we weren't looking.  If
+      * we find something, assume the guest is still active and reschedule */
+-    virtio_queue_set_notification(n->tx_vq, 1);
+-    if (virtio_net_flush_tx(n, n->tx_vq) > 0) {
+-        virtio_queue_set_notification(n->tx_vq, 0);
++    virtio_queue_set_notification(n->tx_vq[0], 1);
++    if (virtio_net_flush_tx(n, n->tx_vq[0]) > 0) {
++        virtio_queue_set_notification(n->tx_vq[0], 0);
+         qemu_bh_schedule(n->tx_bh);
+         n->tx_waiting = 1;
+     }
+@@ -820,6 +827,7 @@ static void virtio_net_save(QEMUFile *f,
+     virtio_save(&n->vdev, f);
+ 
+     qemu_put_buffer(f, n->mac, ETH_ALEN);
++    qemu_put_be16(f, n->numtxqs);
+     qemu_put_be32(f, n->tx_waiting);
+     qemu_put_be32(f, n->mergeable_rx_bufs);
+     qemu_put_be16(f, n->status);
+@@ -849,6 +857,7 @@ static int virtio_net_load(QEMUFile *f, 
+     virtio_load(&n->vdev, f);
+ 
+     qemu_get_buffer(f, n->mac, ETH_ALEN);
++    n->numtxqs = qemu_get_be32(f);
+     n->tx_waiting = qemu_get_be32(f);
+     n->mergeable_rx_bufs = qemu_get_be32(f);
+ 
+@@ -966,11 +975,14 @@ VirtIODevice *virtio_net_init(DeviceStat
+                               virtio_net_conf *net)
  {
--	struct vhost_virtqueue *vq = &net->dev.vqs[VHOST_NET_VQ_RX];
- 	unsigned out, in, log, s;
- 	int head;
- 	struct vhost_log *vq_log;
-@@ -393,9 +388,9 @@ static void handle_rx_big(struct vhost_n
+     VirtIONet *n;
++    int i;
  
- /* Expects to be always run from workqueue - which acts as
-  * read-size critical section for our kind of RCU. */
--static void handle_rx_mergeable(struct vhost_net *net)
-+static void handle_rx_mergeable(struct vhost_virtqueue *vq,
-+				struct vhost_net *net)
+     n = (VirtIONet *)virtio_common_init("virtio-net", VIRTIO_ID_NET,
+                                         sizeof(struct virtio_net_config),
+                                         sizeof(VirtIONet));
+ 
++    n->numtxqs = conf->peer->numtxqs;
++
+     n->vdev.get_config = virtio_net_get_config;
+     n->vdev.set_config = virtio_net_set_config;
+     n->vdev.get_features = virtio_net_get_features;
+@@ -978,8 +990,8 @@ VirtIODevice *virtio_net_init(DeviceStat
+     n->vdev.bad_features = virtio_net_bad_features;
+     n->vdev.reset = virtio_net_reset;
+     n->vdev.set_status = virtio_net_set_status;
+-    n->rx_vq = virtio_add_queue(&n->vdev, 256, virtio_net_handle_rx);
+ 
++    n->rx_vq = virtio_add_queue(&n->vdev, 256, virtio_net_handle_rx);
+     if (net->tx && strcmp(net->tx, "timer") && strcmp(net->tx, "bh")) {
+         fprintf(stderr, "virtio-net: "
+                 "Unknown option tx=%s, valid options: \"timer\" \"bh\"\n",
+@@ -987,12 +999,21 @@ VirtIODevice *virtio_net_init(DeviceStat
+         fprintf(stderr, "Defaulting to \"bh\"\n");
+     }
+ 
++    /* Allocate per tx vq's */
++    n->tx_vq = qemu_mallocz(n->numtxqs * sizeof(*n->tx_vq));
++    for (i = 0; i < n->numtxqs; i++) {
++        if (net->tx && !strcmp(net->tx, "timer")) {
++            n->tx_vq[i] = virtio_add_queue(&n->vdev, 256,
++                                           virtio_net_handle_tx_timer);
++        } else {
++            n->tx_vq[i] = virtio_add_queue(&n->vdev, 256,
++                                           virtio_net_handle_tx_bh);
++        }
++    }
+     if (net->tx && !strcmp(net->tx, "timer")) {
+-        n->tx_vq = virtio_add_queue(&n->vdev, 256, virtio_net_handle_tx_timer);
+         n->tx_timer = qemu_new_timer(vm_clock, virtio_net_tx_timer, n);
+         n->tx_timeout = net->txtimer;
+     } else {
+-        n->tx_vq = virtio_add_queue(&n->vdev, 256, virtio_net_handle_tx_bh);
+         n->tx_bh = qemu_bh_new(virtio_net_tx_bh, n);
+     }
+     n->ctrl_vq = virtio_add_queue(&n->vdev, 64, virtio_net_handle_ctrl);
+diff -ruNp org3/hw/virtio-net.h new3/hw/virtio-net.h
+--- org3/hw/virtio-net.h	2010-09-28 10:07:31.000000000 +0530
++++ new3/hw/virtio-net.h	2010-10-19 19:46:52.000000000 +0530
+@@ -44,6 +44,7 @@
+ #define VIRTIO_NET_F_CTRL_RX    18      /* Control channel RX mode support */
+ #define VIRTIO_NET_F_CTRL_VLAN  19      /* Control channel VLAN filtering */
+ #define VIRTIO_NET_F_CTRL_RX_EXTRA 20   /* Extra RX mode control support */
++#define VIRTIO_NET_F_NUMTXQS    21      /* Supports multiple TX queues */
+ 
+ #define VIRTIO_NET_S_LINK_UP    1       /* Link is up */
+ 
+@@ -72,6 +73,7 @@ struct virtio_net_config
+     uint8_t mac[ETH_ALEN];
+     /* See VIRTIO_NET_F_STATUS and VIRTIO_NET_S_* above */
+     uint16_t status;
++    uint16_t numtxqs;	/* number of transmit queues */
+ } __attribute__((packed));
+ 
+ /* This is the first element of the scatter-gather list.  If you don't
+diff -ruNp org3/hw/virtio-pci.c new3/hw/virtio-pci.c
+--- org3/hw/virtio-pci.c	2010-10-19 19:38:11.000000000 +0530
++++ new3/hw/virtio-pci.c	2010-10-19 19:46:52.000000000 +0530
+@@ -99,6 +99,7 @@ typedef struct {
+     uint32_t addr;
+     uint32_t class_code;
+     uint32_t nvectors;
++    uint32_t mq;
+     BlockConf block;
+     NICConf nic;
+     uint32_t host_features;
+@@ -788,6 +789,7 @@ static PCIDeviceInfo virtio_info[] = {
+         .romfile    = "pxe-virtio.bin",
+         .qdev.props = (Property[]) {
+             DEFINE_PROP_UINT32("vectors", VirtIOPCIProxy, nvectors, 3),
++	    DEFINE_PROP_UINT32("mq", VirtIOPCIProxy, mq, 1),
+             DEFINE_VIRTIO_NET_FEATURES(VirtIOPCIProxy, host_features),
+             DEFINE_NIC_PROPERTIES(VirtIOPCIProxy, nic),
+             DEFINE_PROP_UINT32("x-txtimer", VirtIOPCIProxy,
+diff -ruNp org3/net/tap.c new3/net/tap.c
+--- org3/net/tap.c	2010-09-28 10:07:31.000000000 +0530
++++ new3/net/tap.c	2010-10-20 12:39:56.000000000 +0530
+@@ -320,13 +320,14 @@ static NetClientInfo net_tap_info = {
+ static TAPState *net_tap_fd_init(VLANState *vlan,
+                                  const char *model,
+                                  const char *name,
+-                                 int fd,
++                                 int fd, int numtxqs,
+                                  int vnet_hdr)
  {
--	struct vhost_virtqueue *vq = &net->dev.vqs[VHOST_NET_VQ_RX];
- 	unsigned uninitialized_var(in), log;
- 	struct vhost_log *vq_log;
- 	struct msghdr msg = {
-@@ -500,96 +495,184 @@ static void handle_rx_mergeable(struct v
- 	unuse_mm(net->dev.mm);
- }
+     VLANClientState *nc;
+     TAPState *s;
  
--static void handle_rx(struct vhost_net *net)
-+static void handle_rx(struct vhost_virtqueue *vq)
+     nc = qemu_new_net_client(&net_tap_info, vlan, NULL, model, name);
++    nc->numtxqs = numtxqs;
+ 
+     s = DO_UPCAST(TAPState, nc, nc);
+ 
+@@ -424,6 +425,27 @@ int net_init_tap(QemuOpts *opts, Monitor
  {
-+	struct vhost_net *net = container_of(vq->dev, struct vhost_net, dev);
+     TAPState *s;
+     int fd, vnet_hdr = 0;
++    int vhost;
++    int numtxqs = 1;
 +
- 	if (vhost_has_feature(&net->dev, VIRTIO_NET_F_MRG_RXBUF))
--		handle_rx_mergeable(net);
-+		handle_rx_mergeable(vq, net);
- 	else
--		handle_rx_big(net);
-+		handle_rx_big(vq, net);
- }
++    vhost = qemu_opt_get_bool(opts, "vhost", 0);
++
++    /*
++     * We support multiple tx queues if:
++     *      1. smp > 1
++     *      2. vhost=on
++     *      3. mq=on
++     * In this case, #txqueues = #cpus. This value can be changed by
++     * using the "numtxqs" option.
++     */
++    if (vhost && smp_cpus > 1) {
++        if (qemu_opt_get_bool(opts, "mq", 0)) {
++#define VIRTIO_MAX_TXQS         32
++            int dflt = MIN(smp_cpus, VIRTIO_MAX_TXQS);
++
++            numtxqs = qemu_opt_get_number(opts, "numtxqs", dflt);
++        }
++    }
  
- static void handle_tx_kick(struct vhost_work *work)
- {
- 	struct vhost_virtqueue *vq = container_of(work, struct vhost_virtqueue,
- 						  poll.work);
--	struct vhost_net *net = container_of(vq->dev, struct vhost_net, dev);
+     if (qemu_opt_get(opts, "fd")) {
+         if (qemu_opt_get(opts, "ifname") ||
+@@ -457,7 +479,7 @@ int net_init_tap(QemuOpts *opts, Monitor
+         }
+     }
  
--	handle_tx(net);
-+	handle_tx(vq);
- }
+-    s = net_tap_fd_init(vlan, "tap", name, fd, vnet_hdr);
++    s = net_tap_fd_init(vlan, "tap", name, fd, numtxqs, vnet_hdr);
+     if (!s) {
+         close(fd);
+         return -1;
+@@ -486,7 +508,7 @@ int net_init_tap(QemuOpts *opts, Monitor
+         }
+     }
  
- static void handle_rx_kick(struct vhost_work *work)
- {
- 	struct vhost_virtqueue *vq = container_of(work, struct vhost_virtqueue,
- 						  poll.work);
--	struct vhost_net *net = container_of(vq->dev, struct vhost_net, dev);
+-    if (qemu_opt_get_bool(opts, "vhost", !!qemu_opt_get(opts, "vhostfd"))) {
++    if (vhost) {
+         int vhostfd, r;
+         if (qemu_opt_get(opts, "vhostfd")) {
+             r = net_handle_fd_param(mon, qemu_opt_get(opts, "vhostfd"));
+@@ -497,9 +519,13 @@ int net_init_tap(QemuOpts *opts, Monitor
+         } else {
+             vhostfd = -1;
+         }
+-        s->vhost_net = vhost_net_init(&s->nc, vhostfd);
++        s->vhost_net = vhost_net_init(&s->nc, vhostfd, numtxqs);
+         if (!s->vhost_net) {
+             error_report("vhost-net requested but could not be initialized");
++            if (numtxqs > 1) {
++                error_report("Need vhost support for numtxqs > 1, exiting...");
++                exit(1);
++            }
+             return -1;
+         }
+     } else if (qemu_opt_get(opts, "vhostfd")) {
+diff -ruNp org3/net.c new3/net.c
+--- org3/net.c	2010-10-19 19:38:11.000000000 +0530
++++ new3/net.c	2010-10-19 19:46:52.000000000 +0530
+@@ -849,6 +849,15 @@ static int net_init_nic(QemuOpts *opts,
+         return -1;
+     }
  
--	handle_rx(net);
-+	handle_rx(vq);
- }
++    if (nd->netdev->numtxqs > 1 && nd->nvectors == DEV_NVECTORS_UNSPECIFIED) {
++        /*
++         * User specified mq for guest, but no "vectors=", tune
++         * it automatically to 'numtxqs' TX + 1 RX + 1 controlq.
++         */
++        nd->nvectors = nd->netdev->numtxqs + 1 + 1;
++        monitor_printf(mon, "nvectors tuned to %d\n", nd->nvectors);
++    }
++
+     nd->used = 1;
+     nb_nics++;
  
- static void handle_tx_net(struct vhost_work *work)
- {
--	struct vhost_net *net = container_of(work, struct vhost_net,
--					     poll[VHOST_NET_VQ_TX].work);
--	handle_tx(net);
-+	struct vhost_virtqueue *vq = container_of(work, struct vhost_poll,
-+						  work)->vq;
-+
-+	handle_tx(vq);
- }
- 
- static void handle_rx_net(struct vhost_work *work)
- {
--	struct vhost_net *net = container_of(work, struct vhost_net,
--					     poll[VHOST_NET_VQ_RX].work);
--	handle_rx(net);
-+	struct vhost_virtqueue *vq = container_of(work, struct vhost_poll,
-+						  work)->vq;
-+
-+	handle_rx(vq);
- }
- 
--static int vhost_net_open(struct inode *inode, struct file *f)
-+void vhost_free_vqs(struct vhost_dev *dev)
- {
--	struct vhost_net *n = kmalloc(sizeof *n, GFP_KERNEL);
--	struct vhost_dev *dev;
--	int r;
-+	struct vhost_net *n = container_of(dev, struct vhost_net, dev);
-+
-+	kfree(dev->work_list);
-+	kfree(dev->work_lock);
-+	kfree(dev->jiffies);
-+	kfree(n->socks);
-+	kfree(n->tx_poll_state);
-+	kfree(n->poll);
-+	kfree(n->vqs);
-+
-+	/*
-+	 * Reset so that vhost_net_release (after vhost_dev_set_owner call)
-+	 * will notice.
-+	 */
-+	n->vqs = NULL;
-+	n->poll = NULL;
-+	n->socks = NULL;
-+	n->tx_poll_state = NULL;
-+	dev->jiffies = NULL;
-+	dev->work_lock = NULL;
-+	dev->work_list = NULL;
-+}
-+
-+int vhost_setup_vqs(struct vhost_dev *dev, int numtxqs)
-+{
-+	struct vhost_net *n = container_of(dev, struct vhost_net, dev);
-+	int nvhosts;
-+	int i, nvqs;
-+	int ret;
-+
-+	if (numtxqs < 0 || numtxqs > VIRTIO_MAX_SQ)
-+		return -EINVAL;
-+
-+	if (numtxqs == 0) {
-+		/* Old qemu doesn't pass arguments to set_owner, use 1 txq */
-+		numtxqs = 1;
-+	}
-+
-+	/* Get total number of virtqueues */
-+	nvqs = numtxqs + 1;
-+
-+	/* Get total number of vhost threads */
-+	nvhosts = get_nvhosts(nvqs);
-+
-+	n->vqs = kmalloc(nvqs * sizeof(*n->vqs), GFP_KERNEL);
-+	n->poll = kmalloc(nvqs * sizeof(*n->poll), GFP_KERNEL);
-+	n->socks = kmalloc(nvqs * sizeof(*n->socks), GFP_KERNEL);
-+	n->tx_poll_state = kmalloc(nvqs * sizeof(*n->tx_poll_state),
-+				   GFP_KERNEL);
-+	dev->jiffies = kzalloc(numtxqs * sizeof(*dev->jiffies), GFP_KERNEL);
-+	dev->work_lock = kmalloc(nvhosts * sizeof(*dev->work_lock),
-+				 GFP_KERNEL);
-+	dev->work_list = kmalloc(nvhosts * sizeof(*dev->work_list),
-+				 GFP_KERNEL);
-+
-+	if (!n->vqs || !n->poll || !n->socks || !n->tx_poll_state ||
-+	    !dev->jiffies || !dev->work_lock || !dev->work_list) {
-+		ret = -ENOMEM;
-+		goto err;
-+	}
- 
--	if (!n)
--		return -ENOMEM;
-+	/* 1 RX, followed by 'numtxqs' TX queues */
-+	n->vqs[0].handle_kick = handle_rx_kick;
- 
--	dev = &n->dev;
--	n->vqs[VHOST_NET_VQ_TX].handle_kick = handle_tx_kick;
--	n->vqs[VHOST_NET_VQ_RX].handle_kick = handle_rx_kick;
--	r = vhost_dev_init(dev, n->vqs, VHOST_NET_VQ_MAX);
--	if (r < 0) {
--		kfree(n);
--		return r;
--	}
-+	for (i = 1; i < nvqs; i++)
-+		n->vqs[i].handle_kick = handle_tx_kick;
-+
-+	ret = vhost_dev_init(dev, n->vqs, nvqs, nvhosts);
-+	if (ret < 0)
-+		goto err;
- 
--	vhost_poll_init(n->poll + VHOST_NET_VQ_TX, handle_tx_net, POLLOUT, dev);
--	vhost_poll_init(n->poll + VHOST_NET_VQ_RX, handle_rx_net, POLLIN, dev);
--	n->tx_poll_state = VHOST_NET_POLL_DISABLED;
-+	vhost_poll_init(&n->poll[0], handle_rx_net, POLLIN, &n->vqs[0], 1);
- 
--	f->private_data = n;
-+	for (i = 1; i < nvqs; i++) {
-+		vhost_poll_init(&n->poll[i], handle_tx_net, POLLOUT,
-+				&n->vqs[i], (nvqs == 2));
-+		n->tx_poll_state[i] = VHOST_NET_POLL_DISABLED;
-+	}
- 
- 	return 0;
-+
-+err:
-+	/* Free all pointers that may have been allocated */
-+	vhost_free_vqs(dev);
-+
-+	return ret;
-+}
-+
-+static int vhost_net_open(struct inode *inode, struct file *f)
-+{
-+	struct vhost_net *n = kzalloc(sizeof *n, GFP_KERNEL);
-+	int ret = ENOMEM;
-+
-+	if (n) {
-+		struct vhost_dev *dev = &n->dev;
-+
-+		f->private_data = n;
-+		mutex_init(&dev->mutex);
-+
-+		/* Defer all other initialization till user does SET_OWNER */
-+		ret = 0;
-+	}
-+
-+	return ret;
- }
- 
- static void vhost_net_disable_vq(struct vhost_net *n,
- 				 struct vhost_virtqueue *vq)
- {
-+	int qnum = vq->qnum;
-+
- 	if (!vq->private_data)
- 		return;
--	if (vq == n->vqs + VHOST_NET_VQ_TX) {
--		tx_poll_stop(n);
--		n->tx_poll_state = VHOST_NET_POLL_DISABLED;
-+	if (qnum) {	/* TX */
-+		tx_poll_stop(n, qnum);
-+		n->tx_poll_state[qnum] = VHOST_NET_POLL_DISABLED;
- 	} else
--		vhost_poll_stop(n->poll + VHOST_NET_VQ_RX);
-+		vhost_poll_stop(&n->poll[qnum]);
- }
- 
- static void vhost_net_enable_vq(struct vhost_net *n,
- 				struct vhost_virtqueue *vq)
- {
- 	struct socket *sock = vq->private_data;
-+	int qnum = vq->qnum;
-+
- 	if (!sock)
- 		return;
--	if (vq == n->vqs + VHOST_NET_VQ_TX) {
--		n->tx_poll_state = VHOST_NET_POLL_STOPPED;
--		tx_poll_start(n, sock);
-+
-+	if (qnum) {	/* TX */
-+		n->tx_poll_state[qnum] = VHOST_NET_POLL_STOPPED;
-+		tx_poll_start(n, sock, qnum);
- 	} else
--		vhost_poll_start(n->poll + VHOST_NET_VQ_RX, sock->file);
-+		vhost_poll_start(&n->poll[qnum], sock->file);
- }
- 
- static struct socket *vhost_net_stop_vq(struct vhost_net *n,
-@@ -605,11 +688,12 @@ static struct socket *vhost_net_stop_vq(
- 	return sock;
- }
- 
--static void vhost_net_stop(struct vhost_net *n, struct socket **tx_sock,
--			   struct socket **rx_sock)
-+static void vhost_net_stop(struct vhost_net *n)
- {
--	*tx_sock = vhost_net_stop_vq(n, n->vqs + VHOST_NET_VQ_TX);
--	*rx_sock = vhost_net_stop_vq(n, n->vqs + VHOST_NET_VQ_RX);
-+	int i;
-+
-+	for (i = n->dev.nvqs - 1; i >= 0; i--)
-+		n->socks[i] = vhost_net_stop_vq(n, &n->vqs[i]);
- }
- 
- static void vhost_net_flush_vq(struct vhost_net *n, int index)
-@@ -620,26 +704,33 @@ static void vhost_net_flush_vq(struct vh
- 
- static void vhost_net_flush(struct vhost_net *n)
- {
--	vhost_net_flush_vq(n, VHOST_NET_VQ_TX);
--	vhost_net_flush_vq(n, VHOST_NET_VQ_RX);
-+	int i;
-+
-+	for (i = n->dev.nvqs - 1; i >= 0; i--)
-+		vhost_net_flush_vq(n, i);
- }
- 
- static int vhost_net_release(struct inode *inode, struct file *f)
- {
- 	struct vhost_net *n = f->private_data;
--	struct socket *tx_sock;
--	struct socket *rx_sock;
-+	struct vhost_dev *dev = &n->dev;
-+	int i;
- 
--	vhost_net_stop(n, &tx_sock, &rx_sock);
-+	vhost_net_stop(n);
- 	vhost_net_flush(n);
--	vhost_dev_cleanup(&n->dev);
--	if (tx_sock)
--		fput(tx_sock->file);
--	if (rx_sock)
--		fput(rx_sock->file);
-+	vhost_dev_cleanup(dev);
-+
-+	for (i = n->dev.nvqs - 1; i >= 0; i--)
-+		if (n->socks[i])
-+			fput(n->socks[i]->file);
-+
- 	/* We do an extra flush before freeing memory,
- 	 * since jobs can re-queue themselves. */
- 	vhost_net_flush(n);
-+
-+	/* Free all old pointers */
-+	vhost_free_vqs(dev);
-+
- 	kfree(n);
- 	return 0;
- }
-@@ -717,7 +808,7 @@ static long vhost_net_set_backend(struct
- 	if (r)
- 		goto err;
- 
--	if (index >= VHOST_NET_VQ_MAX) {
-+	if (index >= n->dev.nvqs) {
- 		r = -ENOBUFS;
- 		goto err;
- 	}
-@@ -738,9 +829,9 @@ static long vhost_net_set_backend(struct
- 	/* start polling new socket */
- 	oldsock = vq->private_data;
- 	if (sock != oldsock) {
--                vhost_net_disable_vq(n, vq);
--                rcu_assign_pointer(vq->private_data, sock);
--                vhost_net_enable_vq(n, vq);
-+		vhost_net_disable_vq(n, vq);
-+		rcu_assign_pointer(vq->private_data, sock);
-+		vhost_net_enable_vq(n, vq);
- 	}
- 
- 	mutex_unlock(&vq->mutex);
-@@ -762,22 +853,25 @@ err:
- 
- static long vhost_net_reset_owner(struct vhost_net *n)
- {
--	struct socket *tx_sock = NULL;
--	struct socket *rx_sock = NULL;
- 	long err;
-+	int i;
-+
- 	mutex_lock(&n->dev.mutex);
- 	err = vhost_dev_check_owner(&n->dev);
--	if (err)
--		goto done;
--	vhost_net_stop(n, &tx_sock, &rx_sock);
-+	if (err) {
-+		mutex_unlock(&n->dev.mutex);
-+		return err;
-+	}
-+
-+	vhost_net_stop(n);
- 	vhost_net_flush(n);
- 	err = vhost_dev_reset_owner(&n->dev);
--done:
- 	mutex_unlock(&n->dev.mutex);
--	if (tx_sock)
--		fput(tx_sock->file);
--	if (rx_sock)
--		fput(rx_sock->file);
-+
-+	for (i = n->dev.nvqs - 1; i >= 0; i--)
-+		if (n->socks[i])
-+			fput(n->socks[i]->file);
-+
- 	return err;
- }
- 
-@@ -806,7 +900,7 @@ static int vhost_net_set_features(struct
- 	}
- 	n->dev.acked_features = features;
- 	smp_wmb();
--	for (i = 0; i < VHOST_NET_VQ_MAX; ++i) {
-+	for (i = 0; i < n->dev.nvqs; ++i) {
- 		mutex_lock(&n->vqs[i].mutex);
- 		n->vqs[i].vhost_hlen = vhost_hlen;
- 		n->vqs[i].sock_hlen = sock_hlen;
-diff -ruNp org/drivers/vhost/vhost.c new/drivers/vhost/vhost.c
---- org/drivers/vhost/vhost.c	2010-10-11 10:21:14.000000000 +0530
-+++ new/drivers/vhost/vhost.c	2010-10-20 14:20:04.000000000 +0530
-@@ -69,16 +69,70 @@ static void vhost_work_init(struct vhost
- 	work->queue_seq = work->done_seq = 0;
- }
- 
-+/*
-+ * __vhost_sq_find_vq: This is the poll->find_vq() handler for cases:
-+ *	- #numtxqs == 1; or
-+ *	- this is an RX vq
-+ */
-+static struct vhost_virtqueue *__vhost_sq_find_vq(struct vhost_poll *poll)
-+{
-+	return poll->vq;
-+}
-+
-+/* Define how recently a txq was used, beyond this it is considered unused */
-+#define RECENTLY_USED  5
-+
-+/*
-+ * __vhost_mq_find_vq: This is the poll->find_vq() handler for cases:
-+ *	- #numtxqs > 1, and
-+ *	- this is a TX vq
-+ *
-+ * Algorithm for selecting vq:
-+ *
-+ *	Condition:					Return:
-+ *	If all txqs unused				vq[0]
-+ *	If one txq used, and new txq is same		vq[0]
-+ *	If one txq used, and new txq is different	vq[vq->qnum]
-+ *	If > 1 txqs used				vq[vq->qnum]
-+ * Where "used" means the txq was used in the last RECENTLY_USED jiffies.
-+ *
-+ * Note: locking is not required as an update race will only result in
-+ * a different worker being woken up.
-+ */
-+static struct vhost_virtqueue *__vhost_mq_find_vq(struct vhost_poll *poll)
-+{
-+	struct vhost_dev *dev = poll->vq->dev;
-+	struct vhost_virtqueue *vq = &dev->vqs[0];
-+	unsigned long max_time = jiffies - RECENTLY_USED;
-+	unsigned long *table = dev->jiffies;
-+	int i, used = 0;
-+
-+	for (i = 0; i < dev->nvqs - 1; i++) {
-+		if (time_after_eq(table[i], max_time) && ++used > 1) {
-+			vq = poll->vq;
-+			break;
-+		}
-+	}
-+
-+	table[poll->vq->qnum - 1] = jiffies;
-+	return vq;
-+}
-+
- /* Init poll structure */
- void vhost_poll_init(struct vhost_poll *poll, vhost_work_fn_t fn,
--		     unsigned long mask, struct vhost_dev *dev)
-+		     unsigned long mask, struct vhost_virtqueue *vq,
-+		     int single_queue)
- {
- 	init_waitqueue_func_entry(&poll->wait, vhost_poll_wakeup);
- 	init_poll_funcptr(&poll->table, vhost_poll_func);
- 	poll->mask = mask;
--	poll->dev = dev;
-+	poll->vq = vq;
- 
- 	vhost_work_init(&poll->work, fn);
-+	if (single_queue)
-+		poll->find_vq = __vhost_sq_find_vq;
-+	else
-+		poll->find_vq = __vhost_mq_find_vq;
- }
- 
- /* Start polling a file. We add ourselves to file's wait queue. The caller must
-@@ -98,25 +152,25 @@ void vhost_poll_stop(struct vhost_poll *
- 	remove_wait_queue(poll->wqh, &poll->wait);
- }
- 
--static void vhost_work_flush(struct vhost_dev *dev, struct vhost_work *work)
-+static void vhost_work_flush(struct vhost_poll *poll, struct vhost_work *work)
- {
- 	unsigned seq;
- 	int left;
- 	int flushing;
- 
--	spin_lock_irq(&dev->work_lock);
-+	spin_lock_irq(poll->vq->work_lock);
- 	seq = work->queue_seq;
- 	work->flushing++;
--	spin_unlock_irq(&dev->work_lock);
-+	spin_unlock_irq(poll->vq->work_lock);
- 	wait_event(work->done, ({
--		   spin_lock_irq(&dev->work_lock);
-+		   spin_lock_irq(poll->vq->work_lock);
- 		   left = seq - work->done_seq <= 0;
--		   spin_unlock_irq(&dev->work_lock);
-+		   spin_unlock_irq(poll->vq->work_lock);
- 		   left;
- 	}));
--	spin_lock_irq(&dev->work_lock);
-+	spin_lock_irq(poll->vq->work_lock);
- 	flushing = --work->flushing;
--	spin_unlock_irq(&dev->work_lock);
-+	spin_unlock_irq(poll->vq->work_lock);
- 	BUG_ON(flushing < 0);
- }
- 
-@@ -124,26 +178,28 @@ static void vhost_work_flush(struct vhos
-  * locks that are also used by the callback. */
- void vhost_poll_flush(struct vhost_poll *poll)
- {
--	vhost_work_flush(poll->dev, &poll->work);
-+	vhost_work_flush(poll, &poll->work);
- }
- 
--static inline void vhost_work_queue(struct vhost_dev *dev,
-+static inline void vhost_work_queue(struct vhost_virtqueue *vq,
- 				    struct vhost_work *work)
- {
- 	unsigned long flags;
- 
--	spin_lock_irqsave(&dev->work_lock, flags);
-+	spin_lock_irqsave(vq->work_lock, flags);
- 	if (list_empty(&work->node)) {
--		list_add_tail(&work->node, &dev->work_list);
-+		list_add_tail(&work->node, vq->work_list);
- 		work->queue_seq++;
--		wake_up_process(dev->worker);
-+		wake_up_process(vq->worker);
- 	}
--	spin_unlock_irqrestore(&dev->work_lock, flags);
-+	spin_unlock_irqrestore(vq->work_lock, flags);
- }
- 
- void vhost_poll_queue(struct vhost_poll *poll)
- {
--	vhost_work_queue(poll->dev, &poll->work);
-+	struct vhost_virtqueue *vq = poll->find_vq(poll);
-+
-+	vhost_work_queue(vq, &poll->work);
- }
- 
- static void vhost_vq_reset(struct vhost_dev *dev,
-@@ -174,7 +230,7 @@ static void vhost_vq_reset(struct vhost_
- 
- static int vhost_worker(void *data)
- {
--	struct vhost_dev *dev = data;
-+	struct vhost_virtqueue *vq = data;
- 	struct vhost_work *work = NULL;
- 	unsigned uninitialized_var(seq);
- 
-@@ -182,7 +238,7 @@ static int vhost_worker(void *data)
- 		/* mb paired w/ kthread_stop */
- 		set_current_state(TASK_INTERRUPTIBLE);
- 
--		spin_lock_irq(&dev->work_lock);
-+		spin_lock_irq(vq->work_lock);
- 		if (work) {
- 			work->done_seq = seq;
- 			if (work->flushing)
-@@ -190,18 +246,18 @@ static int vhost_worker(void *data)
- 		}
- 
- 		if (kthread_should_stop()) {
--			spin_unlock_irq(&dev->work_lock);
-+			spin_unlock_irq(vq->work_lock);
- 			__set_current_state(TASK_RUNNING);
- 			return 0;
- 		}
--		if (!list_empty(&dev->work_list)) {
--			work = list_first_entry(&dev->work_list,
-+		if (!list_empty(vq->work_list)) {
-+			work = list_first_entry(vq->work_list,
- 						struct vhost_work, node);
- 			list_del_init(&work->node);
- 			seq = work->queue_seq;
- 		} else
- 			work = NULL;
--		spin_unlock_irq(&dev->work_lock);
-+		spin_unlock_irq(vq->work_lock);
- 
- 		if (work) {
- 			__set_current_state(TASK_RUNNING);
-@@ -251,8 +307,19 @@ static void vhost_dev_free_iovecs(struct
- 	}
- }
- 
-+/* Get index of an existing thread that will handle this txq */
-+static int vhost_get_buddy_thread(int index, int nvhosts)
-+{
-+	int buddy = 0;
-+
-+	if (nvhosts > 1)
-+		buddy = (index - 1) % MAX_TXQ_THREADS + 1;
-+
-+	return buddy;
-+}
-+
- long vhost_dev_init(struct vhost_dev *dev,
--		    struct vhost_virtqueue *vqs, int nvqs)
-+		    struct vhost_virtqueue *vqs, int nvqs, int nvhosts)
- {
- 	int i;
- 
-@@ -263,20 +330,37 @@ long vhost_dev_init(struct vhost_dev *de
- 	dev->log_file = NULL;
- 	dev->memory = NULL;
- 	dev->mm = NULL;
--	spin_lock_init(&dev->work_lock);
--	INIT_LIST_HEAD(&dev->work_list);
--	dev->worker = NULL;
- 
- 	for (i = 0; i < dev->nvqs; ++i) {
--		dev->vqs[i].log = NULL;
--		dev->vqs[i].indirect = NULL;
--		dev->vqs[i].heads = NULL;
--		dev->vqs[i].dev = dev;
--		mutex_init(&dev->vqs[i].mutex);
-+		struct vhost_virtqueue *vq = &dev->vqs[i];
-+		int single_queue = (!i || dev->nvqs == 2);
-+
-+		if (i < nvhosts) {
-+			spin_lock_init(&dev->work_lock[i]);
-+			INIT_LIST_HEAD(&dev->work_list[i]);
-+
-+			vq->work_lock = &dev->work_lock[i];
-+			vq->work_list = &dev->work_list[i];
-+		} else {
-+			/* Share work with another thread */
-+			int j = vhost_get_buddy_thread(i, nvhosts);
-+
-+			vq->work_lock = &dev->work_lock[j];
-+			vq->work_list = &dev->work_list[j];
-+		}
-+
-+		vq->worker = NULL;
-+		vq->qnum = i;
-+		vq->log = NULL;
-+		vq->indirect = NULL;
-+		vq->heads = NULL;
-+		vq->dev = dev;
-+		mutex_init(&vq->mutex);
- 		vhost_vq_reset(dev, dev->vqs + i);
--		if (dev->vqs[i].handle_kick)
--			vhost_poll_init(&dev->vqs[i].poll,
--					dev->vqs[i].handle_kick, POLLIN, dev);
-+		if (vq->handle_kick)
-+			vhost_poll_init(&vq->poll,
-+					vq->handle_kick, POLLIN, vq,
-+					single_queue);
- 	}
- 
- 	return 0;
-@@ -290,61 +374,116 @@ long vhost_dev_check_owner(struct vhost_
- }
- 
- struct vhost_attach_cgroups_struct {
--        struct vhost_work work;
--        struct task_struct *owner;
--        int ret;
-+	struct vhost_work work;
-+	struct task_struct *owner;
-+	int ret;
- };
- 
- static void vhost_attach_cgroups_work(struct vhost_work *work)
- {
--        struct vhost_attach_cgroups_struct *s;
--        s = container_of(work, struct vhost_attach_cgroups_struct, work);
--        s->ret = cgroup_attach_task_all(s->owner, current);
-+	struct vhost_attach_cgroups_struct *s;
-+	s = container_of(work, struct vhost_attach_cgroups_struct, work);
-+	s->ret = cgroup_attach_task_all(s->owner, current);
- }
- 
--static int vhost_attach_cgroups(struct vhost_dev *dev)
--{
--        struct vhost_attach_cgroups_struct attach;
--        attach.owner = current;
--        vhost_work_init(&attach.work, vhost_attach_cgroups_work);
--        vhost_work_queue(dev, &attach.work);
--        vhost_work_flush(dev, &attach.work);
--        return attach.ret;
-+static int vhost_attach_cgroups(struct vhost_virtqueue *vq)
-+{
-+	struct vhost_attach_cgroups_struct attach;
-+	attach.owner = current;
-+	vhost_work_init(&attach.work, vhost_attach_cgroups_work);
-+	vhost_work_queue(vq, &attach.work);
-+	vhost_work_flush(&vq->poll, &attach.work);
-+	return attach.ret;
-+}
-+
-+static void __vhost_stop_workers(struct vhost_dev *dev, int nvhosts)
-+{
-+	int i;
-+
-+	for (i = 0; i < nvhosts; i++) {
-+		WARN_ON(!list_empty(dev->vqs[i].work_list));
-+		if (dev->vqs[i].worker) {
-+			kthread_stop(dev->vqs[i].worker);
-+			dev->vqs[i].worker = NULL;
-+		}
-+	}
-+}
-+
-+static void vhost_stop_workers(struct vhost_dev *dev)
-+{
-+	__vhost_stop_workers(dev, get_nvhosts(dev->nvqs));
-+}
-+
-+static int vhost_start_workers(struct vhost_dev *dev)
-+{
-+	int nvhosts = get_nvhosts(dev->nvqs);
-+	int i, err;
-+
-+	for (i = 0; i < dev->nvqs; ++i) {
-+		struct vhost_virtqueue *vq = &dev->vqs[i];
-+
-+		if (i < nvhosts) {
-+			/* Start a new thread */
-+			vq->worker = kthread_create(vhost_worker, vq,
-+						    "vhost-%d-%d",
-+						    current->pid, i);
-+			if (IS_ERR(vq->worker)) {
-+				i--;	/* no thread to clean at this index */
-+				err = PTR_ERR(vq->worker);
-+				goto err;
-+			}
-+
-+			wake_up_process(vq->worker);
-+
-+			/* avoid contributing to loadavg */
-+			err = vhost_attach_cgroups(vq);
-+			if (err)
-+				goto err;
-+		} else {
-+			/* Share work with an existing thread */
-+			int j = vhost_get_buddy_thread(i, nvhosts);
-+			struct vhost_virtqueue *share_vq = &dev->vqs[j];
-+
-+			vq->worker = share_vq->worker;
-+		}
-+	}
-+	return 0;
-+
-+err:
-+	__vhost_stop_workers(dev, i);
-+	return err;
- }
- 
- /* Caller should have device mutex */
--static long vhost_dev_set_owner(struct vhost_dev *dev)
-+static long vhost_dev_set_owner(struct vhost_dev *dev, int numtxqs)
- {
--	struct task_struct *worker;
- 	int err;
- 	/* Is there an owner already? */
- 	if (dev->mm) {
- 		err = -EBUSY;
- 		goto err_mm;
- 	}
-+
-+	err = vhost_setup_vqs(dev, numtxqs);
-+	if (err)
-+		goto err_mm;
-+
- 	/* No owner, become one */
- 	dev->mm = get_task_mm(current);
--	worker = kthread_create(vhost_worker, dev, "vhost-%d", current->pid);
--	if (IS_ERR(worker)) {
--		err = PTR_ERR(worker);
--		goto err_worker;
--	}
--
--	dev->worker = worker;
--	wake_up_process(worker);	/* avoid contributing to loadavg */
- 
--	err = vhost_attach_cgroups(dev);
-+	/* Start threads */
-+	err =  vhost_start_workers(dev);
- 	if (err)
--		goto err_cgroup;
-+		goto err_worker;
- 
- 	err = vhost_dev_alloc_iovecs(dev);
- 	if (err)
--		goto err_cgroup;
-+		goto err_iovec;
- 
- 	return 0;
--err_cgroup:
--	kthread_stop(worker);
--	dev->worker = NULL;
-+err_iovec:
-+	vhost_stop_workers(dev);
-+	vhost_free_vqs(dev);
- err_worker:
- 	if (dev->mm)
- 		mmput(dev->mm);
-@@ -405,11 +544,7 @@ void vhost_dev_cleanup(struct vhost_dev 
- 		mmput(dev->mm);
- 	dev->mm = NULL;
- 
--	WARN_ON(!list_empty(&dev->work_list));
--	if (dev->worker) {
--		kthread_stop(dev->worker);
--		dev->worker = NULL;
--	}
-+	vhost_stop_workers(dev);
- }
- 
- static int log_access_ok(void __user *log_base, u64 addr, unsigned long sz)
-@@ -760,7 +895,7 @@ long vhost_dev_ioctl(struct vhost_dev *d
- 
- 	/* If you are not the owner, you can become one */
- 	if (ioctl == VHOST_SET_OWNER) {
--		r = vhost_dev_set_owner(d);
-+		r = vhost_dev_set_owner(d, arg);
- 		goto done;
- 	}
- 
+@@ -992,6 +1001,14 @@ static const struct {
+             },
+ #ifndef _WIN32
+             {
++                .name = "mq",
++                .type = QEMU_OPT_BOOL,
++                .help = "enable multiqueue on network i/f",
++            }, {
++                .name = "numtxqs",
++                .type = QEMU_OPT_NUMBER,
++                .help = "optional number of TX queues, if mq is enabled",
++            }, {
+                 .name = "fd",
+                 .type = QEMU_OPT_STRING,
+                 .help = "file descriptor of an already opened tap",
+diff -ruNp org3/net.h new3/net.h
+--- org3/net.h	2010-10-19 19:38:11.000000000 +0530
++++ new3/net.h	2010-10-19 19:46:52.000000000 +0530
+@@ -62,6 +62,7 @@ struct VLANClientState {
+     struct VLANState *vlan;
+     VLANClientState *peer;
+     NetQueue *send_queue;
++    int numtxqs;
+     char *model;
+     char *name;
+     char info_str[256];
