@@ -1,36 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: avoid RCU for NOCACHE dst
-Date: Wed, 20 Oct 2010 03:03:08 -0700 (PDT)
-Message-ID: <20101020.030308.39191390.davem@davemloft.net>
-References: <1287157451.2647.126.camel@edumazet-laptop>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [PATCH 0/2] can: mcp251x: fix error handling and error frames bug
+Date: Wed, 20 Oct 2010 12:11:57 +0200
+Message-ID: <4CBEC06D.6000102@grandegger.com>
+References: <1287568946-32727-1-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49004
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752672Ab0JTKCq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Oct 2010 06:02:46 -0400
-In-Reply-To: <1287157451.2647.126.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <1287568946-32727-1-git-send-email-mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 15 Oct 2010 17:44:11 +0200
-
-> There is no point using RCU for dst we allocate for a very short time
-> (used once).
+On 10/20/2010 12:02 PM, Marc Kleine-Budde wrote:
+> Hello,
 > 
-> Change dst_release() to take DST_NOCACHE into account, but also change
-> skb_dst_set_noref() to force a refcount increment for such dst.
+> this series of patches fixes two bugs, one introduced by me in the other 
+> mcp251x series.
 > 
-> This is a _huge_ gain, because we dont waste memory to store xx thousand
-> of dsts. Instead of queueing them to RCU, we can free them instantly. 
- ...
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Please test, especially the error handling, i.e. wrong bitrate, shortcut in
+> CAN bus. I'm also interested in tests with non i.MX SPI can cores.
 
-Wonderful, we are now faster without the routing cache. :-)
+You can add my Acked-by but more Tested-by's are definitely more useful.
+Unfortunately, I do not have that hardware at hand.
 
-Applied.
+Wolfgang.
