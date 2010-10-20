@@ -1,45 +1,40 @@
-From: Vasanthy Kolluri <vkolluri@cisco.com>
-Subject: [net-next-2.6 PATCH 5/5] enic: Fix log message
-Date: Wed, 20 Oct 2010 13:17:19 -0700
-Message-ID: <20101020201719.26870.79271.stgit@savbu-pc100.cisco.com>
-References: <20101020201609.26870.80308.stgit@savbu-pc100.cisco.com>
+From: Florian Fainelli <florian@openwrt.org>
+Subject: [PATCH 2/2] r6040: bump to version 0.27 and release date of 20Oct2010
+Date: Wed, 20 Oct 2010 23:09:46 +0200
+Message-ID: <201010202309.47662.florian@openwrt.org>
+Reply-To: Florian Fainelli <florian@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roprabhu@cisco.com, dwang2@cisco.com
-To: davem@davemloft.net
+To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-4.cisco.com ([171.68.10.86]:23689 "EHLO
-	sj-iport-4.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755503Ab0JTURT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Oct 2010 16:17:19 -0400
-In-Reply-To: <20101020201609.26870.80308.stgit@savbu-pc100.cisco.com>
+Received: from mail-ew0-f46.google.com ([209.85.215.46]:55473 "EHLO
+	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753249Ab0JTVHt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Oct 2010 17:07:49 -0400
+Received: by ewy20 with SMTP id 20so5110577ewy.19
+        for <netdev@vger.kernel.org>; Wed, 20 Oct 2010 14:07:48 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vasanthy Kolluri <vkolluri@cisco.com>
 
-Fix a log message
-
-Signed-off-by: Vasanthy Kolluri <vkolluri@cisco.com>
-Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
-Signed-off-by: David Wang <dwang2@cisco.com>
+Signed-off-by: Florian Fainelli <florian@openwrt.org>
 ---
- drivers/net/enic/enic_main.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-
-diff --git a/drivers/net/enic/enic_main.c b/drivers/net/enic/enic_main.c
-index a63d2ba..f47fbb6 100644
---- a/drivers/net/enic/enic_main.c
-+++ b/drivers/net/enic/enic_main.c
-@@ -2428,7 +2428,7 @@ static int enic_dev_init(struct enic *enic)
+diff --git a/drivers/net/r6040.c b/drivers/net/r6040.c
+index 3843363..7294cec 100644
+--- a/drivers/net/r6040.c
++++ b/drivers/net/r6040.c
+@@ -49,8 +49,8 @@
+ #include <asm/processor.h>
  
- 	err = enic_dev_set_ig_vlan_rewrite_mode(enic);
- 	if (err) {
--		netdev_err(netdev,
-+		dev_err(dev,
- 			"Failed to set ingress vlan rewrite mode, aborting.\n");
- 		goto err_out_free_vnic_resources;
- 	}
+ #define DRV_NAME	"r6040"
+-#define DRV_VERSION	"0.26"
+-#define DRV_RELDATE	"30May2010"
++#define DRV_VERSION	"0.27"
++#define DRV_RELDATE	"20Oct2010"
+ 
+ /* PHY CHIP Address */
+ #define PHY1_ADDR	1	/* For MAC1 */
+
 
