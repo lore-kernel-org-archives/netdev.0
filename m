@@ -1,79 +1,28 @@
-From: Leandro Lucarella <luca@llucax.com.ar>
-Subject: Re: Linux 2.6.35/TIPC 2.0 ABI breaking changes
-Date: Wed, 20 Oct 2010 16:23:50 -0300
-Message-ID: <20101020192350.GR8781@llucax.com.ar>
-References: <20101019021657.GZ8781@llucax.com.ar>
-	<20101019.011649.71113115.davem@davemloft.net>
-	<20101019110452.GA14410@hmsreliant.think-freely.org>
-	<20101019131936.GB8781@llucax.com.ar>
-	<20101019201841.GC14410@hmsreliant.think-freely.org>
-	<20101020172018.GN8781@llucax.com.ar>
-	<0434463FDA60A94FA978ACA44617682DEE84668199@EUSAACMS0702.eamcs.ericsson.se>
-	<20101020180454.GC14407@hmsreliant.think-freely.org>
-	<0434463FDA60A94FA978ACA44617682DEE846681B9@EUSAACMS0702.eamcs.ericsson.se>
-	<20101020182851.GP8781@llucax.com.ar>
+From: Vasanthy Kolluri <vkolluri@cisco.com>
+Subject: [net-next-2.6 PATCH 0/5] enic: updates to version 1.4.1.6
+Date: Wed, 20 Oct 2010 13:16:53 -0700
+Message-ID: <20101020201609.26870.80308.stgit@savbu-pc100.cisco.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"tipc-discussion@lists.sourceforge.net"
-	<tipc-discussion@lists.sourceforge.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Neil Horman <nhorman@tuxdriver.com>, David Miller <davem@davemloft.net>
-To: Jon Maloy <jon.maloy@ericsson.com>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-In-Reply-To: <20101020182851.GP8781@llucax.com.ar>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, roprabhu@cisco.com, dwang2@cisco.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sj-iport-1.cisco.com ([171.71.176.70]:26189 "EHLO
+	sj-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754994Ab0JTUQy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Oct 2010 16:16:54 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-TGVhbmRybyBMdWNhcmVsbGEsIGVsIDIwIGRlIG9jdHVicmUgYSBsYXMgMTU6MjggbWUgZXNjcmli
-aXN0ZToKPiBKb24gTWFsb3ksIGVsIDIwIGRlIG9jdHVicmUgYSBsYXMgMTQ6MTAgbWUgZXNjcmli
-aXN0ZToKPiA+IDwuLi4+Cj4gPiA+ID4gCj4gPiA+ID4gUmVtZW1iZXIsIHBlcm1pdHRpbmcgYm90
-aCBpcyBhIHN1cGVyc2V0IG9mIHRoZSBjdXJyZW50IG9uZSAKPiA+ID4gKE5CTyBvbmx5KSAKPiA+
-ID4gPiBzbyBpdCBpcyBmdWxseSBiYWNrd2FyZHMgY29tcGF0aWJsZS4gV2UgYnJlYWsgYWJzb2x1
-dGx5IG5vdGhpbmcgYnkgCj4gPiA+ID4gcGVybWl0dGluZyB0aGlzLgo+ID4gPiA+IAo+ID4gPiBU
-aGF0cyBlZmZlY3RpdmVseSByZXZlcnRpbmcgYm90aCBvdXIgcGF0Y2hlcyB0aG91Z2gsIGlzbid0
-IGl0IAo+ID4gPiAobm90IHRoYXQgSSdtIGRpc2FncmVlaW5nIHdpdGggaXQsIGp1c3QgbG9va2lu
-ZyBmb3IgCj4gPiA+IGNsYXJpZmljYXRpb24pLiAgSWYgd2UgcmV2ZXJ0IG15IHBhdGNoIGFuZCBy
-ZWludHJvZHVjZSB0aGUgCj4gPiA+IGh0b2hsIG1lY2hhbmlzbSB3aGljaCB0cmFja3MgZW5kaWFu
-ZXNzLCB3ZSBtaWdodCBhcyB3ZWxsIAo+ID4gPiByZXZlcnQgdGhlIFRJUENfU1VCX1NFUlZJQ0Ug
-ZmxhZyBhcyB3ZWxsLCB5ZWFoPwo+ID4gCj4gPiBBYnNvbHV0ZWx5LiBJIHRoaW5rIGl0IHdhcyBh
-IG1pc3Rha2UgdG8gY2hhbmdlIHRoYXQgdmFsdWUuCj4gPiBCdXQgSSBkb24ndCB0aGluayB3ZSBu
-ZWVkIHRvIHJlaW50cm9kdWNlIHRoZSBodG9obCgpLiBUaGF0Cj4gPiB3YXMganVzdCBvbmUgd2F5
-IG9mIGRvaW5nIGl0LiBJZiBJIHVuZGVyc3Rvb2QgeW91ciBzdWdnZXN0aW9uCj4gPiBmcm9tIHll
-c3RlcmRheSBjb3JyZWN0bHkgeW91IGNvbnZlcnRlZCB0aGUgd2hvbGUgbWVzc2FnZSB3aXRoaW4K
-PiA+IG9uZSBpZigpY2xhdXNlLCB3aXRob3V0IGFueSBodG9obCgpLiBJIGhhdmUgaGF2ZSBubyBw
-cm9ibGVtIHdpdGggCj4gPiB0aGF0IGFwcHJvYWNoLgo+IAo+IFRoZXJlIGlzIGEgZGlmZmVyZW5j
-ZSBiZXR3ZWVuIGJvdGggc29sdXRpb25zLCB0aGUgaHRvaGwoKSB2ZXJzaW9uCj4gdHJhY2tlZCB0
-aGUgbmVlZCBmb3Igc3dhcCBhcyBhIHN0cnVjdCBzdWJzY3JpcHRpb24gbWVtYmVyICh3aGljaCB3
-YXMKPiB1c2VkIHdoZW4gc2VuZGluZyBiYWNrIGV2ZW50cykuIE5laWxzIHBhdGNoIGRvZXNuJ3Qg
-ZG8gdGhhdCB0cmFja2luZy4KPiBJIGRvbid0IHJlYWxseSBrbm93IHRoZSBpbXBsaWNhdGlvbnMg
-b2YgdGhpcywgYnV0IG1heWJlIGl0IHdvdWxkIGJlCj4gYSB3aXNlIGlkZWEgdG8gc3RheSBpbiB0
-aGUgc2FmZSBzaWRlIGFuZCByZXZlcnQgYm90aCBwYXRjaGVzIGZvciBub3cuCgpCVFcsIEkgdHJp
-ZWQgMi42LjM3IHJldmVydGluZyBib3RoIG9mZmVuZGluZyBwYXRjaGVzIGFuZCBldmVyeXRoaW5n
-CnNlZW1zIHRvIHdvcmsgd2VsbC4KCi0tIApMZWFuZHJvIEx1Y2FyZWxsYSAoQUtBIGx1Y2EpICAg
-ICAgICAgICAgICAgICAgICAgaHR0cDovL2xsdWNheC5jb20uYXIvCi0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KR1BH
-IEtleTogNUY1QThEMDUgKEY4Q0QgRjlBNyBCRjAwIDU0MzEgNDE0NSAgMTA0QyA5NDlFIEJGQjYg
-NUY1QSA4RDA1KQotLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tClZpdmltb3MgZW4gdW5hIMOpcG9jYSBtdXkgY29udGVt
-cG9yw6FuZWEsIERvbiBJbm9kb3JvLi4uCgktLSBNZW5kaWV0YQoKLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tCk5va2lhIGFuZCBBVCZUIHByZXNlbnQgdGhlIDIwMTAgQ2FsbGluZyBBbGwgSW5ub3ZhdG9y
-cy1Ob3J0aCBBbWVyaWNhIGNvbnRlc3QKQ3JlYXRlIG5ldyBhcHBzICYgZ2FtZXMgZm9yIHRoZSBO
-b2tpYSBOOCBmb3IgY29uc3VtZXJzIGluICBVLlMuIGFuZCBDYW5hZGEKJDEwIG1pbGxpb24gdG90
-YWwgaW4gcHJpemVzIC0gJDRNIGNhc2gsIDUwMCBkZXZpY2VzLCBuZWFybHkgJDZNIGluIG1hcmtl
-dGluZwpEZXZlbG9wIHdpdGggTm9raWEgUXQgU0RLLCBXZWIgUnVudGltZSwgb3IgSmF2YSBhbmQg
-UHVibGlzaCB0byBPdmkgU3RvcmUgCmh0dHA6Ly9wLnNmLm5ldC9zZnUvbm9raWEtZGV2MmRldgpf
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwp0aXBjLWRpc2N1
-c3Npb24gbWFpbGluZyBsaXN0CnRpcGMtZGlzY3Vzc2lvbkBsaXN0cy5zb3VyY2Vmb3JnZS5uZXQK
-aHR0cHM6Ly9saXN0cy5zb3VyY2Vmb3JnZS5uZXQvbGlzdHMvbGlzdGluZm8vdGlwYy1kaXNjdXNz
-aW9uCg==
+The following patch series implements enic driver updates:
+
+1/5 - Add support for multiple hardware receive queues
+2/5 - Make firmware cognizant of the user set mac address
+3/5 - Replace firmware devcmd CMD_ENABLE with CMD_ENABLE_WAIT
+4/5 - Change min MTU
+5/5 - Fix log message
+
+Signed-off-by: Vasanthy Kolluri <vkolluri@cisco.com>
+Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
+Signed-off-by: David Wang <dwang2@cisco.com>
