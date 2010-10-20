@@ -1,90 +1,455 @@
 From: Krishna Kumar <krkumar2@in.ibm.com>
-Subject: [v3 RFC PATCH 1/4] Change virtqueue structure
-Date: Wed, 20 Oct 2010 14:24:59 +0530
-Message-ID: <20101020085459.15579.37705.sendpatchset@krkumar2.in.ibm.com>
+Subject: [v3 RFC PATCH 2/4] Changes for virtio-net
+Date: Wed, 20 Oct 2010 14:25:05 +0530
+Message-ID: <20101020085505.15579.94591.sendpatchset@krkumar2.in.ibm.com>
 References: <20101020085452.15579.76002.sendpatchset@krkumar2.in.ibm.com>
-Cc: eric.dumazet@gmail.com, kvm@vger.kernel.org,
-	netdev@vger.kernel.org, arnd@arndb.de, avi@redhat.com,
-	anthony@codemonkey.ws, Krishna Kumar <krkumar2@in.ibm.com>
+Cc: kvm@vger.kernel.org, arnd@arndb.de, netdev@vger.kernel.org,
+	avi@redhat.com, anthony@codemonkey.ws, eric.dumazet@gmail.com,
+	Krishna Kumar <krkumar2@in.ibm.com>
 To: rusty@rustcorp.com.au, davem@davemloft.net, mst@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp05.in.ibm.com ([122.248.162.5]:54028 "EHLO
-	e28smtp05.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751334Ab0JTIzJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Oct 2010 04:55:09 -0400
+Return-path: <kvm-owner@vger.kernel.org>
 In-Reply-To: <20101020085452.15579.76002.sendpatchset@krkumar2.in.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Move queue_index from virtio_pci_vq_info to virtqueue.  This
-allows callback handlers to figure out the queue number for
-the vq that needs attention.
+Implement mq virtio-net driver. 
 
-Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>  
----
- drivers/virtio/virtio_pci.c |   10 +++-------
- include/linux/virtio.h      |    1 +
- 2 files changed, 4 insertions(+), 7 deletions(-)
+Though struct virtio_net_config changes, it works with old
+qemu's since the last element is not accessed, unless qemu
+sets VIRTIO_NET_F_NUMTXQS.  Patch also adds a macro for the
+maximum number of TX vq's (VIRTIO_MAX_SQ) that the user can
+specify.
+        
+Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
+---     
+ drivers/net/virtio_net.c   |  234 ++++++++++++++++++++++++++---------
+ include/linux/virtio_net.h |    6 
+ 2 files changed, 185 insertions(+), 55 deletions(-)
 
-diff -ruNp org/include/linux/virtio.h new.dynamic.optimize_vhost/include/linux/virtio.h
---- org/include/linux/virtio.h	2010-10-11 10:20:22.000000000 +0530
-+++ new.dynamic.optimize_vhost/include/linux/virtio.h	2010-10-15 13:25:42.000000000 +0530
-@@ -22,6 +22,7 @@ struct virtqueue {
- 	void (*callback)(struct virtqueue *vq);
- 	const char *name;
+diff -ruNp org/include/linux/virtio_net.h new.dynamic.optimize_vhost/include/linux/virtio_net.h
+--- org/include/linux/virtio_net.h	2010-10-11 10:20:22.000000000 +0530
++++ new.dynamic.optimize_vhost/include/linux/virtio_net.h	2010-10-19 13:24:38.000000000 +0530
+@@ -7,6 +7,9 @@
+ #include <linux/virtio_config.h>
+ #include <linux/if_ether.h>
+ 
++/* Maximum number of TX queues supported */
++#define VIRTIO_MAX_SQ 32
++
+ /* The feature bitmap for virtio net */
+ #define VIRTIO_NET_F_CSUM	0	/* Host handles pkts w/ partial csum */
+ #define VIRTIO_NET_F_GUEST_CSUM	1	/* Guest handles pkts w/ partial csum */
+@@ -26,6 +29,7 @@
+ #define VIRTIO_NET_F_CTRL_RX	18	/* Control channel RX mode support */
+ #define VIRTIO_NET_F_CTRL_VLAN	19	/* Control channel VLAN filtering */
+ #define VIRTIO_NET_F_CTRL_RX_EXTRA 20	/* Extra RX mode control support */
++#define VIRTIO_NET_F_NUMTXQS	21	/* Device supports multiple TX queue */
+ 
+ #define VIRTIO_NET_S_LINK_UP	1	/* Link is up */
+ 
+@@ -34,6 +38,8 @@ struct virtio_net_config {
+ 	__u8 mac[6];
+ 	/* See VIRTIO_NET_F_STATUS and VIRTIO_NET_S_* above */
+ 	__u16 status;
++	/* number of transmit queues */
++	__u16 numtxqs;
+ } __attribute__((packed));
+ 
+ /* This is the first element of the scatter-gather list.  If you don't
+diff -ruNp org/drivers/net/virtio_net.c new.dynamic.optimize_vhost/drivers/net/virtio_net.c
+--- org/drivers/net/virtio_net.c	2010-10-11 10:20:02.000000000 +0530
++++ new.dynamic.optimize_vhost/drivers/net/virtio_net.c	2010-10-19 17:01:53.000000000 +0530
+@@ -40,11 +40,24 @@ module_param(gso, bool, 0444);
+ 
+ #define VIRTNET_SEND_COMMAND_SG_MAX    2
+ 
++/* Our representation of a send virtqueue */
++struct send_queue {
++	struct virtqueue *svq;
++
++	/* TX: fragments + linear part + virtio header */
++	struct scatterlist tx_sg[MAX_SKB_FRAGS + 2];
++};
++
+ struct virtnet_info {
++	struct send_queue **sq;
++	struct napi_struct napi ____cacheline_aligned_in_smp;
++
++	/* read-mostly variables */
++	int numtxqs ____cacheline_aligned_in_smp;
  	struct virtio_device *vdev;
-+	int queue_index;	/* the index of the queue */
- 	void *priv;
+-	struct virtqueue *rvq, *svq, *cvq;
++	struct virtqueue *rvq;
++	struct virtqueue *cvq;
+ 	struct net_device *dev;
+-	struct napi_struct napi;
+ 	unsigned int status;
+ 
+ 	/* Number of input buffers, and max we've ever had. */
+@@ -62,9 +75,8 @@ struct virtnet_info {
+ 	/* Chain pages by the private ptr. */
+ 	struct page *pages;
+ 
+-	/* fragments + linear part + virtio header */
++	/* RX: fragments + linear part + virtio header */
+ 	struct scatterlist rx_sg[MAX_SKB_FRAGS + 2];
+-	struct scatterlist tx_sg[MAX_SKB_FRAGS + 2];
  };
  
-diff -ruNp org/drivers/virtio/virtio_pci.c new.dynamic.optimize_vhost/drivers/virtio/virtio_pci.c
---- org/drivers/virtio/virtio_pci.c	2010-10-11 10:20:15.000000000 +0530
-+++ new.dynamic.optimize_vhost/drivers/virtio/virtio_pci.c	2010-10-15 13:25:42.000000000 +0530
-@@ -75,9 +75,6 @@ struct virtio_pci_vq_info
- 	/* the number of entries in the queue */
- 	int num;
- 
--	/* the index of the queue */
--	int queue_index;
--
- 	/* the virtual address of the ring queue */
- 	void *queue;
- 
-@@ -185,11 +182,10 @@ static void vp_reset(struct virtio_devic
- static void vp_notify(struct virtqueue *vq)
+ struct skb_vnet_hdr {
+@@ -120,12 +132,13 @@ static struct page *get_a_page(struct vi
+ static void skb_xmit_done(struct virtqueue *svq)
  {
- 	struct virtio_pci_device *vp_dev = to_vp_device(vq->vdev);
--	struct virtio_pci_vq_info *info = vq->priv;
+ 	struct virtnet_info *vi = svq->vdev->priv;
++	int qnum = svq->queue_index - 1;	/* 0 is RX vq */
  
- 	/* we write the queue's selector into the notification register to
- 	 * signal the other end */
--	iowrite16(info->queue_index, vp_dev->ioaddr + VIRTIO_PCI_QUEUE_NOTIFY);
-+	iowrite16(vq->queue_index, vp_dev->ioaddr + VIRTIO_PCI_QUEUE_NOTIFY);
+ 	/* Suppress further interrupts. */
+ 	virtqueue_disable_cb(svq);
+ 
+ 	/* We were probably waiting for more output buffers. */
+-	netif_wake_queue(vi->dev);
++	netif_wake_subqueue(vi->dev, qnum);
  }
  
- /* Handle a configuration change: Tell driver if it wants to know. */
-@@ -385,7 +381,6 @@ static struct virtqueue *setup_vq(struct
- 	if (!info)
- 		return ERR_PTR(-ENOMEM);
+ static void set_skb_frag(struct sk_buff *skb, struct page *page,
+@@ -495,12 +508,13 @@ again:
+ 	return received;
+ }
  
--	info->queue_index = index;
- 	info->num = num;
- 	info->msix_vector = msix_vec;
+-static unsigned int free_old_xmit_skbs(struct virtnet_info *vi)
++static unsigned int free_old_xmit_skbs(struct virtnet_info *vi,
++				       struct virtqueue *svq)
+ {
+ 	struct sk_buff *skb;
+ 	unsigned int len, tot_sgs = 0;
  
-@@ -408,6 +403,7 @@ static struct virtqueue *setup_vq(struct
- 		goto out_activate_queue;
+-	while ((skb = virtqueue_get_buf(vi->svq, &len)) != NULL) {
++	while ((skb = virtqueue_get_buf(svq, &len)) != NULL) {
+ 		pr_debug("Sent skb %p\n", skb);
+ 		vi->dev->stats.tx_bytes += skb->len;
+ 		vi->dev->stats.tx_packets++;
+@@ -510,7 +524,8 @@ static unsigned int free_old_xmit_skbs(s
+ 	return tot_sgs;
+ }
+ 
+-static int xmit_skb(struct virtnet_info *vi, struct sk_buff *skb)
++static int xmit_skb(struct virtnet_info *vi, struct sk_buff *skb,
++		    struct virtqueue *svq, struct scatterlist *tx_sg)
+ {
+ 	struct skb_vnet_hdr *hdr = skb_vnet_hdr(skb);
+ 	const unsigned char *dest = ((struct ethhdr *)skb->data)->h_dest;
+@@ -548,12 +563,12 @@ static int xmit_skb(struct virtnet_info 
+ 
+ 	/* Encode metadata header at front. */
+ 	if (vi->mergeable_rx_bufs)
+-		sg_set_buf(vi->tx_sg, &hdr->mhdr, sizeof hdr->mhdr);
++		sg_set_buf(tx_sg, &hdr->mhdr, sizeof hdr->mhdr);
+ 	else
+-		sg_set_buf(vi->tx_sg, &hdr->hdr, sizeof hdr->hdr);
++		sg_set_buf(tx_sg, &hdr->hdr, sizeof hdr->hdr);
+ 
+-	hdr->num_sg = skb_to_sgvec(skb, vi->tx_sg + 1, 0, skb->len) + 1;
+-	return virtqueue_add_buf(vi->svq, vi->tx_sg, hdr->num_sg,
++	hdr->num_sg = skb_to_sgvec(skb, tx_sg + 1, 0, skb->len) + 1;
++	return virtqueue_add_buf(svq, tx_sg, hdr->num_sg,
+ 					0, skb);
+ }
+ 
+@@ -561,31 +576,34 @@ static netdev_tx_t start_xmit(struct sk_
+ {
+ 	struct virtnet_info *vi = netdev_priv(dev);
+ 	int capacity;
++	int qnum = skb_get_queue_mapping(skb);
++	struct virtqueue *svq = vi->sq[qnum]->svq;
+ 
+ 	/* Free up any pending old buffers before queueing new ones. */
+-	free_old_xmit_skbs(vi);
++	free_old_xmit_skbs(vi, svq);
+ 
+ 	/* Try to transmit */
+-	capacity = xmit_skb(vi, skb);
++	capacity = xmit_skb(vi, skb, svq, vi->sq[qnum]->tx_sg);
+ 
+ 	/* This can happen with OOM and indirect buffers. */
+ 	if (unlikely(capacity < 0)) {
+ 		if (net_ratelimit()) {
+ 			if (likely(capacity == -ENOMEM)) {
+ 				dev_warn(&dev->dev,
+-					 "TX queue failure: out of memory\n");
++					 "TXQ (%d) failure: out of memory\n",
++					 qnum);
+ 			} else {
+ 				dev->stats.tx_fifo_errors++;
+ 				dev_warn(&dev->dev,
+-					 "Unexpected TX queue failure: %d\n",
+-					 capacity);
++					 "Unexpected TXQ (%d) failure: %d\n",
++					 qnum, capacity);
+ 			}
+ 		}
+ 		dev->stats.tx_dropped++;
+ 		kfree_skb(skb);
+ 		return NETDEV_TX_OK;
+ 	}
+-	virtqueue_kick(vi->svq);
++	virtqueue_kick(svq);
+ 
+ 	/* Don't wait up for transmitted skbs to be freed. */
+ 	skb_orphan(skb);
+@@ -594,13 +612,13 @@ static netdev_tx_t start_xmit(struct sk_
+ 	/* Apparently nice girls don't return TX_BUSY; stop the queue
+ 	 * before it gets out of hand.  Naturally, this wastes entries. */
+ 	if (capacity < 2+MAX_SKB_FRAGS) {
+-		netif_stop_queue(dev);
+-		if (unlikely(!virtqueue_enable_cb(vi->svq))) {
++		netif_stop_subqueue(dev, qnum);
++		if (unlikely(!virtqueue_enable_cb(svq))) {
+ 			/* More just got used, free them then recheck. */
+-			capacity += free_old_xmit_skbs(vi);
++			capacity += free_old_xmit_skbs(vi, svq);
+ 			if (capacity >= 2+MAX_SKB_FRAGS) {
+-				netif_start_queue(dev);
+-				virtqueue_disable_cb(vi->svq);
++				netif_start_subqueue(dev, qnum);
++				virtqueue_disable_cb(svq);
+ 			}
+ 		}
+ 	}
+@@ -871,10 +889,10 @@ static void virtnet_update_status(struct
+ 
+ 	if (vi->status & VIRTIO_NET_S_LINK_UP) {
+ 		netif_carrier_on(vi->dev);
+-		netif_wake_queue(vi->dev);
++		netif_tx_wake_all_queues(vi->dev);
+ 	} else {
+ 		netif_carrier_off(vi->dev);
+-		netif_stop_queue(vi->dev);
++		netif_tx_stop_all_queues(vi->dev);
+ 	}
+ }
+ 
+@@ -885,18 +903,122 @@ static void virtnet_config_changed(struc
+ 	virtnet_update_status(vi);
+ }
+ 
++#define MAX_DEVICE_NAME		16
++static int initialize_vqs(struct virtnet_info *vi, int numtxqs)
++{
++	vq_callback_t **callbacks;
++	struct virtqueue **vqs;
++	int i, err = -ENOMEM;
++	int totalvqs;
++	char **names;
++
++	vi->sq = kzalloc(numtxqs * sizeof(*vi->sq), GFP_KERNEL);
++	if (!vi->sq)
++		goto out;
++	for (i = 0; i < numtxqs; i++) {
++		vi->sq[i] = kzalloc(sizeof(*vi->sq[i]), GFP_KERNEL);
++		if (!vi->sq[i])
++			goto out;
++	}
++
++	/* setup initial send queue parameters */
++	for (i = 0; i < numtxqs; i++)
++		sg_init_table(vi->sq[i]->tx_sg, ARRAY_SIZE(vi->sq[i]->tx_sg));
++
++	/*
++	 * We expect 1 RX virtqueue followed by 'numtxqs' TX virtqueues, and
++	 * optionally one control virtqueue.
++	 */
++	totalvqs = 1 + numtxqs +
++		   virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VQ);
++
++	/* Setup parameters for find_vqs */
++	vqs = kmalloc(totalvqs * sizeof(*vqs), GFP_KERNEL);
++	callbacks = kmalloc(totalvqs * sizeof(*callbacks), GFP_KERNEL);
++	names = kzalloc(totalvqs * sizeof(*names), GFP_KERNEL);
++	if (!vqs || !callbacks || !names)
++		goto free_mem;
++
++	/* Parameters for recv virtqueue */
++	callbacks[0] = skb_recv_done;
++	names[0] = "input";
++
++	/* Parameters for send virtqueues */
++	for (i = 1; i <= numtxqs; i++) {
++		callbacks[i] = skb_xmit_done;
++		names[i] = kmalloc(MAX_DEVICE_NAME * sizeof(*names[i]),
++				   GFP_KERNEL);
++		if (!names[i])
++			goto free_mem;
++		sprintf(names[i], "output.%d", i - 1);
++	}
++
++	/* Parameters for control virtqueue, if any */
++	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VQ)) {
++		callbacks[i] = NULL;
++		names[i] = "control";
++	}
++
++	err = vi->vdev->config->find_vqs(vi->vdev, totalvqs, vqs, callbacks,
++					 (const char **)names);
++	if (err)
++		goto free_mem;
++
++	vi->rvq = vqs[0];
++	for (i = 0; i < numtxqs; i++)
++		vi->sq[i]->svq = vqs[i + 1];
++
++	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VQ)) {
++		vi->cvq = vqs[i + 1];
++
++		if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VLAN))
++			vi->dev->features |= NETIF_F_HW_VLAN_FILTER;
++	}
++
++free_mem:
++	if (names) {
++		for (i = 1; i <= numtxqs; i++)
++			kfree(names[i]);
++		kfree(names);
++	}
++
++	kfree(callbacks);
++	kfree(vqs);
++
++out:
++	if (err) {
++		for (i = 0; i < numtxqs; i++)
++			kfree(vi->sq[i]);
++		kfree(vi->sq);
++	}
++
++	return err;
++}
++
+ static int virtnet_probe(struct virtio_device *vdev)
+ {
+-	int err;
++	int i, err;
++	u16 numtxqs;
+ 	struct net_device *dev;
+ 	struct virtnet_info *vi;
+-	struct virtqueue *vqs[3];
+-	vq_callback_t *callbacks[] = { skb_recv_done, skb_xmit_done, NULL};
+-	const char *names[] = { "input", "output", "control" };
+-	int nvqs;
++
++	/*
++	 * Find if host passed the number of transmit queues supported
++	 * by the device
++	 */
++	err = virtio_config_val(vdev, VIRTIO_NET_F_NUMTXQS,
++				offsetof(struct virtio_net_config, numtxqs),
++				&numtxqs);
++
++	/* We need atleast one txq */
++	if (err || !numtxqs)
++		numtxqs = 1;
++
++	if (numtxqs > VIRTIO_MAX_SQ)
++		return -EINVAL;
+ 
+ 	/* Allocate ourselves a network device with room for our info */
+-	dev = alloc_etherdev(sizeof(struct virtnet_info));
++	dev = alloc_etherdev_mq(sizeof(struct virtnet_info), numtxqs);
+ 	if (!dev)
+ 		return -ENOMEM;
+ 
+@@ -940,9 +1062,9 @@ static int virtnet_probe(struct virtio_d
+ 	vi->vdev = vdev;
+ 	vdev->priv = vi;
+ 	vi->pages = NULL;
++	vi->numtxqs = numtxqs;
+ 	INIT_DELAYED_WORK(&vi->refill, refill_work);
+ 	sg_init_table(vi->rx_sg, ARRAY_SIZE(vi->rx_sg));
+-	sg_init_table(vi->tx_sg, ARRAY_SIZE(vi->tx_sg));
+ 
+ 	/* If we can receive ANY GSO packets, we must allocate large ones. */
+ 	if (virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_TSO4) ||
+@@ -953,23 +1075,10 @@ static int virtnet_probe(struct virtio_d
+ 	if (virtio_has_feature(vdev, VIRTIO_NET_F_MRG_RXBUF))
+ 		vi->mergeable_rx_bufs = true;
+ 
+-	/* We expect two virtqueues, receive then send,
+-	 * and optionally control. */
+-	nvqs = virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VQ) ? 3 : 2;
+-
+-	err = vdev->config->find_vqs(vdev, nvqs, vqs, callbacks, names);
++	/* Initialize our rx/tx queue parameters, and invoke find_vqs */
++	err = initialize_vqs(vi, numtxqs);
+ 	if (err)
+-		goto free;
+-
+-	vi->rvq = vqs[0];
+-	vi->svq = vqs[1];
+-
+-	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VQ)) {
+-		vi->cvq = vqs[2];
+-
+-		if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VLAN))
+-			dev->features |= NETIF_F_HW_VLAN_FILTER;
+-	}
++		goto free_netdev;
+ 
+ 	err = register_netdev(dev);
+ 	if (err) {
+@@ -986,6 +1095,9 @@ static int virtnet_probe(struct virtio_d
+ 		goto unregister;
  	}
  
-+	vq->queue_index = index;
- 	vq->priv = info;
- 	info->vq = vq;
++	dev_info(&dev->dev, "(virtio-net) Allocated 1 RX and %d TX vq's\n",
++		 numtxqs);
++
+ 	vi->status = VIRTIO_NET_S_LINK_UP;
+ 	virtnet_update_status(vi);
+ 	netif_carrier_on(dev);
+@@ -998,7 +1110,10 @@ unregister:
+ 	cancel_delayed_work_sync(&vi->refill);
+ free_vqs:
+ 	vdev->config->del_vqs(vdev);
+-free:
++	for (i = 0; i < numtxqs; i++)
++		kfree(vi->sq[i]);
++	kfree(vi->sq);
++free_netdev:
+ 	free_netdev(dev);
+ 	return err;
+ }
+@@ -1006,12 +1121,21 @@ free:
+ static void free_unused_bufs(struct virtnet_info *vi)
+ {
+ 	void *buf;
+-	while (1) {
+-		buf = virtqueue_detach_unused_buf(vi->svq);
+-		if (!buf)
+-			break;
+-		dev_kfree_skb(buf);
++	int i;
++
++	for (i = 0; i < vi->numtxqs; i++) {
++		struct virtqueue *svq = vi->sq[i]->svq;
++
++		while (1) {
++			buf = virtqueue_detach_unused_buf(svq);
++			if (!buf)
++				break;
++			dev_kfree_skb(buf);
++		}
++		kfree(vi->sq[i]);
+ 	}
++	kfree(vi->sq);
++
+ 	while (1) {
+ 		buf = virtqueue_detach_unused_buf(vi->rvq);
+ 		if (!buf)
+@@ -1059,7 +1183,7 @@ static unsigned int features[] = {
+ 	VIRTIO_NET_F_HOST_ECN, VIRTIO_NET_F_GUEST_TSO4, VIRTIO_NET_F_GUEST_TSO6,
+ 	VIRTIO_NET_F_GUEST_ECN, VIRTIO_NET_F_GUEST_UFO,
+ 	VIRTIO_NET_F_MRG_RXBUF, VIRTIO_NET_F_STATUS, VIRTIO_NET_F_CTRL_VQ,
+-	VIRTIO_NET_F_CTRL_RX, VIRTIO_NET_F_CTRL_VLAN,
++	VIRTIO_NET_F_CTRL_RX, VIRTIO_NET_F_CTRL_VLAN, VIRTIO_NET_F_NUMTXQS,
+ };
  
-@@ -446,7 +442,7 @@ static void vp_del_vq(struct virtqueue *
- 	list_del(&info->node);
- 	spin_unlock_irqrestore(&vp_dev->lock, flags);
- 
--	iowrite16(info->queue_index, vp_dev->ioaddr + VIRTIO_PCI_QUEUE_SEL);
-+	iowrite16(vq->queue_index, vp_dev->ioaddr + VIRTIO_PCI_QUEUE_SEL);
- 
- 	if (vp_dev->msix_enabled) {
- 		iowrite16(VIRTIO_MSI_NO_VECTOR,
+ static struct virtio_driver virtio_net_driver = {
