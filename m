@@ -1,225 +1,295 @@
 From: Jesse Gross <jesse@nicira.com>
-Subject: [PATCH v2 14/14] vlan: Remove accleration legacy functions.
-Date: Wed, 20 Oct 2010 16:56:14 -0700
-Message-ID: <1287618974-4714-15-git-send-email-jesse@nicira.com>
+Subject: [PATCH v2 11/14] bnx2x: Update bnx2x to use new vlan accleration.
+Date: Wed, 20 Oct 2010 16:56:11 -0700
+Message-ID: <1287618974-4714-12-git-send-email-jesse@nicira.com>
 References: <1287618974-4714-1-git-send-email-jesse@nicira.com>
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, Hao Zheng <hzheng@nicira.com>,
+	Eilon Greenstein <eilong@broadcom.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:34344 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755704Ab0JTX4o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Oct 2010 19:56:44 -0400
-Received: by mail-vw0-f46.google.com with SMTP id 2so2600261vws.19
-        for <netdev@vger.kernel.org>; Wed, 20 Oct 2010 16:56:43 -0700 (PDT)
+Received: from mail-qy0-f174.google.com ([209.85.216.174]:59370 "EHLO
+	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752455Ab0JTX4j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Oct 2010 19:56:39 -0400
+Received: by mail-qy0-f174.google.com with SMTP id 12so1775911qyk.19
+        for <netdev@vger.kernel.org>; Wed, 20 Oct 2010 16:56:38 -0700 (PDT)
 In-Reply-To: <1287618974-4714-1-git-send-email-jesse@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This removes the explicit vlan accleration functions that acted
-as shims in favor of the main receive functions that can now
-handle vlans.
+From: Hao Zheng <hzheng@nicira.com>
 
+Make the bnx2x driver use the new vlan accleration model.
+
+Signed-off-by: Hao Zheng <hzheng@nicira.com>
 Signed-off-by: Jesse Gross <jesse@nicira.com>
---
-This patch can only be applied once all drivers that use vlan acceleration
-have been converted over to the new model.
+CC: Eilon Greenstein <eilong@broadcom.com>
 ---
- include/linux/if_vlan.h   |   63 +++------------------------------------------
- include/linux/netdevice.h |    8 -----
- net/8021q/vlan.c          |    7 +----
- net/8021q/vlan_core.c     |   25 ------------------
- 4 files changed, 5 insertions(+), 98 deletions(-)
+ drivers/net/bnx2x/bnx2x.h         |   10 ------
+ drivers/net/bnx2x/bnx2x_cmn.c     |   60 +++++++------------------------------
+ drivers/net/bnx2x/bnx2x_ethtool.c |   33 ++++++++++----------
+ drivers/net/bnx2x/bnx2x_main.c    |    8 -----
+ 4 files changed, 27 insertions(+), 84 deletions(-)
 
-diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
-index a0d9786..e607256 100644
---- a/include/linux/if_vlan.h
-+++ b/include/linux/if_vlan.h
-@@ -74,6 +74,10 @@ static inline struct vlan_ethhdr *vlan_eth_hdr(const struct sk_buff *skb)
- /* found in socket.c */
- extern void vlan_ioctl_set(int (*hook)(struct net *, void __user *));
+diff --git a/drivers/net/bnx2x/bnx2x.h b/drivers/net/bnx2x/bnx2x.h
+index 3bf236b..9571ecf 100644
+--- a/drivers/net/bnx2x/bnx2x.h
++++ b/drivers/net/bnx2x/bnx2x.h
+@@ -24,10 +24,6 @@
+ #define DRV_MODULE_RELDATE      "2010/10/19"
+ #define BNX2X_BC_VER            0x040200
  
-+#define vlan_tx_tag_present(__skb)	((__skb)->vlan_tci & VLAN_TAG_PRESENT)
-+#define vlan_tx_tag_get(__skb)		((__skb)->vlan_tci & ~VLAN_TAG_PRESENT)
-+
-+#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
- /* if this changes, algorithm will have to be reworked because this
-  * depends on completely exhausting the VLAN identifier space.  Thus
-  * it gives constant time look-up, but in many cases it wastes memory.
-@@ -111,10 +115,6 @@ static inline void vlan_group_set_device(struct vlan_group *vg,
- 	array[vlan_id % VLAN_GROUP_ARRAY_PART_LEN] = dev;
- }
- 
--#define vlan_tx_tag_present(__skb)	((__skb)->vlan_tci & VLAN_TAG_PRESENT)
--#define vlan_tx_tag_get(__skb)		((__skb)->vlan_tci & ~VLAN_TAG_PRESENT)
--
 -#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
- /* Must be invoked with rcu_read_lock or with RTNL. */
- static inline struct net_device *vlan_find_dev(struct net_device *real_dev,
- 					       u16 vlan_id)
-@@ -130,15 +130,7 @@ static inline struct net_device *vlan_find_dev(struct net_device *real_dev,
- extern struct net_device *vlan_dev_real_dev(const struct net_device *dev);
- extern u16 vlan_dev_vlan_id(const struct net_device *dev);
+-#define BCM_VLAN			1
+-#endif
+-
+ #define BNX2X_MULTI_QUEUE
  
--extern int __vlan_hwaccel_rx(struct sk_buff *skb, struct vlan_group *grp,
--			     u16 vlan_tci, int polling);
- extern bool vlan_hwaccel_do_receive(struct sk_buff **skb);
--extern gro_result_t
--vlan_gro_receive(struct napi_struct *napi, struct vlan_group *grp,
--		 unsigned int vlan_tci, struct sk_buff *skb);
--extern gro_result_t
--vlan_gro_frags(struct napi_struct *napi, struct vlan_group *grp,
--	       unsigned int vlan_tci);
+ #define BNX2X_NEW_NAPI
+@@ -858,10 +854,6 @@ struct bnx2x {
  
- #else
- static inline struct net_device *vlan_find_dev(struct net_device *real_dev,
-@@ -159,61 +151,14 @@ static inline u16 vlan_dev_vlan_id(const struct net_device *dev)
- 	return 0;
+ 	int			tx_ring_size;
+ 
+-#ifdef BCM_VLAN
+-	struct vlan_group	*vlgrp;
+-#endif
+-
+ 	u32			rx_csum;
+ 	u32			rx_buf_size;
+ /* L2 header size + 2*VLANs (8 bytes) + LLC SNAP (8 bytes) */
+@@ -925,8 +917,6 @@ struct bnx2x {
+ #define NO_MCP_FLAG			0x100
+ #define DISABLE_MSI_FLAG		0x200
+ #define BP_NOMCP(bp)			(bp->flags & NO_MCP_FLAG)
+-#define HW_VLAN_TX_FLAG			0x400
+-#define HW_VLAN_RX_FLAG			0x800
+ #define MF_FUNC_DIS			0x1000
+ 
+ 	int			pf_num;	/* absolute PF number */
+diff --git a/drivers/net/bnx2x/bnx2x_cmn.c b/drivers/net/bnx2x/bnx2x_cmn.c
+index 6905b2e..bc58375 100644
+--- a/drivers/net/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/bnx2x/bnx2x_cmn.c
+@@ -16,16 +16,13 @@
+  */
+ 
+ #include <linux/etherdevice.h>
++#include <linux/if_vlan.h>
+ #include <linux/ip.h>
+ #include <net/ipv6.h>
+ #include <net/ip6_checksum.h>
+ #include <linux/firmware.h>
+ #include "bnx2x_cmn.h"
+ 
+-#ifdef BCM_VLAN
+-#include <linux/if_vlan.h>
+-#endif
+-
+ #include "bnx2x_init.h"
+ 
+ 
+@@ -346,13 +343,6 @@ static void bnx2x_tpa_stop(struct bnx2x *bp, struct bnx2x_fastpath *fp,
+ 	if (likely(new_skb)) {
+ 		/* fix ip xsum and give it to the stack */
+ 		/* (no need to map the new skb) */
+-#ifdef BCM_VLAN
+-		int is_vlan_cqe =
+-			(le16_to_cpu(cqe->fast_path_cqe.pars_flags.flags) &
+-			 PARSING_FLAGS_VLAN);
+-		int is_not_hwaccel_vlan_cqe =
+-			(is_vlan_cqe && (!(bp->flags & HW_VLAN_RX_FLAG)));
+-#endif
+ 
+ 		prefetch(skb);
+ 		prefetch(((char *)(skb)) + L1_CACHE_BYTES);
+@@ -377,28 +367,18 @@ static void bnx2x_tpa_stop(struct bnx2x *bp, struct bnx2x_fastpath *fp,
+ 			struct iphdr *iph;
+ 
+ 			iph = (struct iphdr *)skb->data;
+-#ifdef BCM_VLAN
+-			/* If there is no Rx VLAN offloading -
+-			   take VLAN tag into an account */
+-			if (unlikely(is_not_hwaccel_vlan_cqe))
+-				iph = (struct iphdr *)((u8 *)iph + VLAN_HLEN);
+-#endif
+ 			iph->check = 0;
+ 			iph->check = ip_fast_csum((u8 *)iph, iph->ihl);
+ 		}
+ 
+ 		if (!bnx2x_fill_frag_skb(bp, fp, skb,
+ 					 &cqe->fast_path_cqe, cqe_idx)) {
+-#ifdef BCM_VLAN
+-			if ((bp->vlgrp != NULL) &&
+-				(le16_to_cpu(cqe->fast_path_cqe.
+-				pars_flags.flags) & PARSING_FLAGS_VLAN))
+-				vlan_gro_receive(&fp->napi, bp->vlgrp,
++			if ((le16_to_cpu(cqe->fast_path_cqe.
++			    pars_flags.flags) & PARSING_FLAGS_VLAN))
++				__vlan_hwaccel_put_tag(skb,
+ 						 le16_to_cpu(cqe->fast_path_cqe.
+-							     vlan_tag), skb);
+-			else
+-#endif
+-				napi_gro_receive(&fp->napi, skb);
++							     vlan_tag));
++			napi_gro_receive(&fp->napi, skb);
+ 		} else {
+ 			DP(NETIF_MSG_RX_STATUS, "Failed to allocate new pages"
+ 			   " - dropping packet!\n");
+@@ -633,15 +613,11 @@ reuse_rx:
+ 
+ 		skb_record_rx_queue(skb, fp->index);
+ 
+-#ifdef BCM_VLAN
+-		if ((bp->vlgrp != NULL) && (bp->flags & HW_VLAN_RX_FLAG) &&
+-		    (le16_to_cpu(cqe->fast_path_cqe.pars_flags.flags) &
+-		     PARSING_FLAGS_VLAN))
+-			vlan_gro_receive(&fp->napi, bp->vlgrp,
+-				le16_to_cpu(cqe->fast_path_cqe.vlan_tag), skb);
+-		else
+-#endif
+-			napi_gro_receive(&fp->napi, skb);
++		if (le16_to_cpu(cqe->fast_path_cqe.pars_flags.flags) &
++		     PARSING_FLAGS_VLAN)
++			__vlan_hwaccel_put_tag(skb,
++				le16_to_cpu(cqe->fast_path_cqe.vlan_tag));
++		napi_gro_receive(&fp->napi, skb);
+ 
+ 
+ next_rx:
+@@ -2025,14 +2001,12 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	   "sending pkt %u @%p  next_idx %u  bd %u @%p\n",
+ 	   pkt_prod, tx_buf, fp->tx_pkt_prod, bd_prod, tx_start_bd);
+ 
+-#ifdef BCM_VLAN
+ 	if (vlan_tx_tag_present(skb)) {
+ 		tx_start_bd->vlan_or_ethertype =
+ 		    cpu_to_le16(vlan_tx_tag_get(skb));
+ 		tx_start_bd->bd_flags.as_bitfield |=
+ 		    (X_ETH_OUTBAND_VLAN << ETH_TX_BD_FLAGS_VLAN_MODE_SHIFT);
+ 	} else
+-#endif
+ 		tx_start_bd->vlan_or_ethertype = cpu_to_le16(pkt_prod);
+ 
+ 	/* turn on parsing and get a BD */
+@@ -2317,18 +2291,6 @@ void bnx2x_tx_timeout(struct net_device *dev)
+ 	schedule_delayed_work(&bp->reset_task, 0);
  }
  
--static inline int __vlan_hwaccel_rx(struct sk_buff *skb, struct vlan_group *grp,
--				    u16 vlan_tci, int polling)
+-#ifdef BCM_VLAN
+-/* called with rtnl_lock */
+-void bnx2x_vlan_rx_register(struct net_device *dev,
+-				   struct vlan_group *vlgrp)
 -{
--	BUG();
--	return NET_XMIT_SUCCESS;
+-	struct bnx2x *bp = netdev_priv(dev);
+-
+-	bp->vlgrp = vlgrp;
 -}
 -
- static inline bool vlan_hwaccel_do_receive(struct sk_buff **skb)
+-#endif
+-
+ int bnx2x_suspend(struct pci_dev *pdev, pm_message_t state)
  {
- 	BUG();
- 	return false;
- }
+ 	struct net_device *dev = pci_get_drvdata(pdev);
+diff --git a/drivers/net/bnx2x/bnx2x_ethtool.c b/drivers/net/bnx2x/bnx2x_ethtool.c
+index 54fe061..daefef6 100644
+--- a/drivers/net/bnx2x/bnx2x_ethtool.c
++++ b/drivers/net/bnx2x/bnx2x_ethtool.c
+@@ -1117,35 +1117,34 @@ static int bnx2x_set_flags(struct net_device *dev, u32 data)
+ 	int changed = 0;
+ 	int rc = 0;
+ 
+-	if (data & ~(ETH_FLAG_LRO | ETH_FLAG_RXHASH))
+-		return -EINVAL;
 -
--static inline gro_result_t
--vlan_gro_receive(struct napi_struct *napi, struct vlan_group *grp,
--		 unsigned int vlan_tci, struct sk_buff *skb)
--{
--	return GRO_DROP;
--}
+ 	if (bp->recovery_state != BNX2X_RECOVERY_DONE) {
+ 		printk(KERN_ERR "Handling parity error recovery. Try again later\n");
+ 		return -EAGAIN;
+ 	}
+ 
++	if (!(data & ETH_FLAG_RXVLAN))
++		return -EOPNOTSUPP;
++
++	if ((data & ETH_FLAG_LRO) && bp->rx_csum && bp->disable_tpa)
++		return -EINVAL;
++
++	rc = ethtool_op_set_flags(dev, data, ETH_FLAG_LRO | ETH_FLAG_RXVLAN |
++					ETH_FLAG_TXVLAN | ETH_FLAG_RXHASH);
++	if (rc)
++		return rc;
++
+ 	/* TPA requires Rx CSUM offloading */
+ 	if ((data & ETH_FLAG_LRO) && bp->rx_csum) {
+-		if (!bp->disable_tpa) {
+-			if (!(dev->features & NETIF_F_LRO)) {
+-				dev->features |= NETIF_F_LRO;
+-				bp->flags |= TPA_ENABLE_FLAG;
+-				changed = 1;
+-			}
+-		} else
+-			rc = -EINVAL;
+-	} else if (dev->features & NETIF_F_LRO) {
++		if (!(bp->flags & TPA_ENABLE_FLAG)) {
++			bp->flags |= TPA_ENABLE_FLAG;
++			changed = 1;
++		}
++	} else if (bp->flags & TPA_ENABLE_FLAG) {
+ 		dev->features &= ~NETIF_F_LRO;
+ 		bp->flags &= ~TPA_ENABLE_FLAG;
+ 		changed = 1;
+ 	}
+ 
+-	if (data & ETH_FLAG_RXHASH)
+-		dev->features |= NETIF_F_RXHASH;
+-	else
+-		dev->features &= ~NETIF_F_RXHASH;
 -
--static inline gro_result_t
--vlan_gro_frags(struct napi_struct *napi, struct vlan_group *grp,
--	       unsigned int vlan_tci)
--{
--	return GRO_DROP;
--}
+ 	if (changed && netif_running(dev)) {
+ 		bnx2x_nic_unload(bp, UNLOAD_NORMAL);
+ 		rc = bnx2x_nic_load(bp, LOAD_NORMAL);
+diff --git a/drivers/net/bnx2x/bnx2x_main.c b/drivers/net/bnx2x/bnx2x_main.c
+index f22e283..ff99a2f 100644
+--- a/drivers/net/bnx2x/bnx2x_main.c
++++ b/drivers/net/bnx2x/bnx2x_main.c
+@@ -2371,10 +2371,8 @@ static inline u16 bnx2x_get_cl_flags(struct bnx2x *bp,
+ 	flags |= QUEUE_FLG_HC;
+ 	flags |= IS_MF(bp) ? QUEUE_FLG_OV : 0;
+ 
+-#ifdef BCM_VLAN
+ 	flags |= QUEUE_FLG_VLAN;
+ 	DP(NETIF_MSG_IFUP, "vlan removal enabled\n");
+-#endif
+ 
+ 	if (!fp->disable_tpa)
+ 		flags |= QUEUE_FLG_TPA;
+@@ -8630,9 +8628,6 @@ static const struct net_device_ops bnx2x_netdev_ops = {
+ 	.ndo_do_ioctl		= bnx2x_ioctl,
+ 	.ndo_change_mtu		= bnx2x_change_mtu,
+ 	.ndo_tx_timeout		= bnx2x_tx_timeout,
+-#ifdef BCM_VLAN
+-	.ndo_vlan_rx_register	= bnx2x_vlan_rx_register,
+-#endif
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller	= poll_bnx2x,
  #endif
+@@ -8764,9 +8759,7 @@ static int __devinit bnx2x_init_dev(struct pci_dev *pdev,
+ 		dev->features |= NETIF_F_HIGHDMA;
+ 	dev->features |= (NETIF_F_TSO | NETIF_F_TSO_ECN);
+ 	dev->features |= NETIF_F_TSO6;
+-#ifdef BCM_VLAN
+ 	dev->features |= (NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX);
+-	bp->flags |= (HW_VLAN_RX_FLAG | HW_VLAN_TX_FLAG);
  
- /**
-- * vlan_hwaccel_rx - netif_rx wrapper for VLAN RX acceleration
-- * @skb: buffer
-- * @grp: vlan group
-- * @vlan_tci: VLAN TCI as received from the card
-- */
--static inline int vlan_hwaccel_rx(struct sk_buff *skb,
--				  struct vlan_group *grp,
--				  u16 vlan_tci)
--{
--	return __vlan_hwaccel_rx(skb, grp, vlan_tci, 0);
--}
--
--/**
-- * vlan_hwaccel_receive_skb - netif_receive_skb wrapper for VLAN RX acceleration
-- * @skb: buffer
-- * @grp: vlan group
-- * @vlan_tci: VLAN TCI as received from the card
-- */
--static inline int vlan_hwaccel_receive_skb(struct sk_buff *skb,
--					   struct vlan_group *grp,
--					   u16 vlan_tci)
--{
--	return __vlan_hwaccel_rx(skb, grp, vlan_tci, 1);
--}
--
--/**
-  * __vlan_put_tag - regular VLAN tag inserting
-  * @skb: skbuff to tag
-  * @vlan_tci: VLAN TCI to insert
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index ed7db7e..22c3c46 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -682,12 +682,6 @@ struct netdev_rx_queue {
-  *	3. Update dev->stats asynchronously and atomically, and define
-  *	   neither operation.
-  *
-- * void (*ndo_vlan_rx_register)(struct net_device *dev, struct vlan_group *grp);
-- *	If device support VLAN receive accleration
-- *	(ie. dev->features & NETIF_F_HW_VLAN_RX), then this function is called
-- *	when vlan groups for the device changes.  Note: grp is NULL
-- *	if no vlan's groups are being used.
-- *
-  * void (*ndo_vlan_rx_add_vid)(struct net_device *dev, unsigned short vid);
-  *	If device support VLAN filtering (dev->features & NETIF_F_HW_VLAN_FILTER)
-  *	this function is called when a VLAN id is registered.
-@@ -739,8 +733,6 @@ struct net_device_ops {
- 						     struct rtnl_link_stats64 *storage);
- 	struct net_device_stats* (*ndo_get_stats)(struct net_device *dev);
+ 	dev->vlan_features |= NETIF_F_SG;
+ 	dev->vlan_features |= NETIF_F_HW_CSUM;
+@@ -8774,7 +8767,6 @@ static int __devinit bnx2x_init_dev(struct pci_dev *pdev,
+ 		dev->vlan_features |= NETIF_F_HIGHDMA;
+ 	dev->vlan_features |= (NETIF_F_TSO | NETIF_F_TSO_ECN);
+ 	dev->vlan_features |= NETIF_F_TSO6;
+-#endif
  
--	void			(*ndo_vlan_rx_register)(struct net_device *dev,
--						        struct vlan_group *grp);
- 	void			(*ndo_vlan_rx_add_vid)(struct net_device *dev,
- 						       unsigned short vid);
- 	void			(*ndo_vlan_rx_kill_vid)(struct net_device *dev,
-diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index 05b867e..4e91db3 100644
---- a/net/8021q/vlan.c
-+++ b/net/8021q/vlan.c
-@@ -135,8 +135,6 @@ void unregister_vlan_dev(struct net_device *dev, struct list_head *head)
- 		vlan_gvrp_uninit_applicant(real_dev);
- 
- 		rcu_assign_pointer(real_dev->vlgrp, NULL);
--		if (ops->ndo_vlan_rx_register)
--			ops->ndo_vlan_rx_register(real_dev, NULL);
- 
- 		/* Free the group, after all cpu's are done. */
- 		call_rcu(&grp->rcu, vlan_rcu_free);
-@@ -207,11 +205,8 @@ int register_vlan_dev(struct net_device *dev)
- 	vlan_group_set_device(grp, vlan_id, dev);
- 	grp->nr_vlans++;
- 
--	if (ngrp) {
--		if (ops->ndo_vlan_rx_register)
--			ops->ndo_vlan_rx_register(real_dev, ngrp);
-+	if (ngrp)
- 		rcu_assign_pointer(real_dev->vlgrp, ngrp);
--	}
- 	if (real_dev->features & NETIF_F_HW_VLAN_FILTER)
- 		ops->ndo_vlan_rx_add_vid(real_dev, vlan_id);
- 
-diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
-index 69b2f79..4d6a2b8 100644
---- a/net/8021q/vlan_core.c
-+++ b/net/8021q/vlan_core.c
-@@ -63,28 +63,3 @@ u16 vlan_dev_vlan_id(const struct net_device *dev)
- 	return vlan_dev_info(dev)->vlan_id;
- }
- EXPORT_SYMBOL(vlan_dev_vlan_id);
--
--/* VLAN rx hw acceleration helper.  This acts like netif_{rx,receive_skb}(). */
--int __vlan_hwaccel_rx(struct sk_buff *skb, struct vlan_group *grp,
--		      u16 vlan_tci, int polling)
--{
--	__vlan_hwaccel_put_tag(skb, vlan_tci);
--	return polling ? netif_receive_skb(skb) : netif_rx(skb);
--}
--EXPORT_SYMBOL(__vlan_hwaccel_rx);
--
--gro_result_t vlan_gro_receive(struct napi_struct *napi, struct vlan_group *grp,
--			      unsigned int vlan_tci, struct sk_buff *skb)
--{
--	__vlan_hwaccel_put_tag(skb, vlan_tci);
--	return napi_gro_receive(napi, skb);
--}
--EXPORT_SYMBOL(vlan_gro_receive);
--
--gro_result_t vlan_gro_frags(struct napi_struct *napi, struct vlan_group *grp,
--			    unsigned int vlan_tci)
--{
--	__vlan_hwaccel_put_tag(napi->skb, vlan_tci);
--	return napi_gro_frags(napi);
--}
--EXPORT_SYMBOL(vlan_gro_frags);
+ 	/* get_port_hwinfo() will set prtad and mmds properly */
+ 	bp->mdio.prtad = MDIO_PRTAD_NONE;
 -- 
 1.7.1
 
