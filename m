@@ -1,56 +1,51 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH] net: make ctl_path local and const
-Date: Wed, 20 Oct 2010 13:10:27 +0800
-Message-ID: <AANLkTi=wtc3uAqP6zq4XN-_kLaDhaPNB+BxkwkFbpxj4@mail.gmail.com>
-References: <1287543276-4511-1-git-send-email-xiaosuo@gmail.com>
-	<1287543701.10409.599.camel@Joe-Laptop>
-	<AANLkTi=pz4zYnnUSvb9FjVvCAURruHhJTz7pBKDi8Pdw@mail.gmail.com>
-	<1287545337.10409.602.camel@Joe-Laptop>
-	<AANLkTimGUB-+TTsje1kc3q9PyoB2jJdgCK2Z7n9u7N1J@mail.gmail.com>
-	<1287550779.10409.620.camel@Joe-Laptop>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: 2.6.36-rc7: net/bridge causes temporary network I/O lockups [2]
+Date: Wed, 20 Oct 2010 14:16:31 +0800
+Message-ID: <20101020061631.GA21679@gondor.apana.org.au>
+References: <4CB9EBC3.4070905@freenet.de> <20101018161656.GA2403@gondor.apana.org.au> <4CBCB014.9080108@freenet.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Andy Grover <andy.grover@oracle.com>, linux-sctp@vger.kernel.org,
-        rds-devel@oss.oracle.com, "Pekka Savola \(ipv6\)" <pekkas@netcore.fi>,
-        linux-x25@vger.kernel.org, dccp@vger.kernel.org,
-        bridge@lists.linux-foundation.org, James Morris <jmorris@namei.org>,
-        coreteam@netfilter.org,
-        Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Joerg Reuter <jreuter@yaina.de>, Sridhar Samudrala <sri@us.ibm.com>,
-        Samuel Ortiz <samuel@sortiz.org>,
-        Vlad Yasevich <vladislav.yasevich@hp.com>, netfilter@vger.kernel.org,
-        Remi Denis-Courmont <remi.denis-courmont@nokia.com>,
-        linux-hams@vger.kernel.org,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>, netdev@vger.kernel.org,
-        linux-decnet-user@lists.sourceforge.net, linux-kernel@vger.kernel.org,
-        Ralf Baechle <ralf
-To: Joe Perches <joe@perches.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1287550779.10409.620.camel@Joe-Laptop>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/bridge>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	bridge@lists.linux-foundation.org
+To: Patrick Ringl <patrick_@freenet.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4CBCB014.9080108@freenet.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 20, 2010 at 12:59 PM, Joe Perches <joe@perches.com> wrote:
+On Mon, Oct 18, 2010 at 10:37:40PM +0200, Patrick Ringl wrote:
 >
-> Not using static requires the compiler to emit
-> initialization code for any use of the routine
-> that otherwise would only be done once.
->
+> Anything else I could possibly provide? :-)
 
-If the code isn't performance critical, I think we can afford.
-Otherwise, we have to reserve the memory used to save the static data,
-if we don't specify it as initial data.
+Yes, testing :)
 
+First of all I'd like to rule out (or in) the IPv6 query code,
+which is clearly generating a bogus packet (wrong payload_len).
+
+So can you apply this patch and see if it makes the problem
+go away? Please take packet dumps so we know that the IPv6 query
+is no longer being sent.
+
+Thanks,
 -- 
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index eb5b256..66f39d7 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -832,11 +832,6 @@ static void br_multicast_send_query(struct net_bridge *br,
+ 	br_group.proto = htons(ETH_P_IP);
+ 	__br_multicast_send_query(br, port, &br_group);
+ 
+-#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+-	br_group.proto = htons(ETH_P_IPV6);
+-	__br_multicast_send_query(br, port, &br_group);
+-#endif
+-
+ 	time = jiffies;
+ 	time += sent < br->multicast_startup_query_count ?
+ 		br->multicast_startup_query_interval :
