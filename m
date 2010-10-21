@@ -1,50 +1,25 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [RFC PATCH 3/9] ipvs network name space aware
-Date: Thu, 21 Oct 2010 10:22:50 +0200
-Message-ID: <20101021082250.GC835@verge.net.au>
-References: <201010081316.57914.hans.schillstrom@ericsson.com>
- <20101020140318.GA17760@verge.net.au>
- <201010210951.40914.hans.schillstrom@ericsson.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "lvs-devel@vger.kernel.org" <lvs-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"ja@ssi.bg" <ja@ssi.bg>,
-	"wensong@linux-vs.org" <wensong@linux-vs.org>,
-	"daniel.lezcano@free.fr" <daniel.lezcano@free.fr>
-To: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <201010210951.40914.hans.schillstrom@ericsson.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Stanislaw Gruszka <sgruszka@redhat.com>
+Subject: [PATCH 0/8] r8169 patches for net-next v2
+Date: Thu, 21 Oct 2010 10:25:35 +0200
+Message-ID: <1287649543-6569-1-git-send-email-sgruszka@redhat.com>
+Cc: Denis Kirjanov <kirjanov@gmail.com>,
+	Stanislaw Gruszka <sgruszka@redhat.com>
+To: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:53249 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753163Ab0JUIXU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Oct 2010 04:23:20 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 21, 2010 at 09:51:40AM +0200, Hans Schillstrom wrote:
-> On Wednesday 20 October 2010 16:03:24 Simon Horman wrote:
-> > On Fri, Oct 08, 2010 at 01:16:57PM +0200, Hans Schillstrom wrote:
+v1 -> v2
+- update to current code and some minor changes/cleanups
+- do not return NETDEV_TX_BUSY from start_xmit when mapping fail (patch 1)
+- add missing unlikely (patch 1)
+- account tx bytes based on skb->len (patch 5)
+- new patches: changing mtu clean up, (re)init phy on resume
+- add net_ratelimit (patch 8)
 
-[ snip ]
+All patches in series was tested on RTL8111/8168B
 
-> > > @@ -278,35 +271,41 @@ ip_vs_conn_in_get_proto(int af, const struct sk_buff *skb,
-> > >                       unsigned int proto_off, int inverse)
-> > >  {
-> > >       __be16 _ports[2], *pptr;
-> > > +     struct net *net = dev_net(skb->dev);
-> > >
-> > >       pptr = skb_header_pointer(skb, proto_off, sizeof(_ports), _ports);
-> > >       if (pptr == NULL)
-> > >               return NULL;
-> > >
-> > > +     BUG_ON(!net);
-> >
-> > Can you explain why BUG_ON is here?
-> 
-> Yes, I forgot to remove it.
-> I had them every where to make sure that net ptr was set,
-> - don't call me paranoid ;-)
-
-Thanks, I thought it was something like that.
-I'll remove them as part of my rebase.
-
-[ strip ]
