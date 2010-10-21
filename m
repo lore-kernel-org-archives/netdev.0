@@ -1,67 +1,52 @@
 From: Stanislaw Gruszka <sgruszka@redhat.com>
-Subject: [PATCH 5/8] r8169: do not account fragments as packets
-Date: Thu, 21 Oct 2010 10:25:40 +0200
-Message-ID: <1287649543-6569-6-git-send-email-sgruszka@redhat.com>
+Subject: [PATCH 7/8] r8169: (re)init phy on resume
+Date: Thu, 21 Oct 2010 10:25:42 +0200
+Message-ID: <1287649543-6569-8-git-send-email-sgruszka@redhat.com>
 References: <1287649543-6569-1-git-send-email-sgruszka@redhat.com>
 Cc: Denis Kirjanov <kirjanov@gmail.com>,
 	Stanislaw Gruszka <sgruszka@redhat.com>
 To: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:4973 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:21891 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753152Ab0JUIXb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Oct 2010 04:23:31 -0400
+	id S1753537Ab0JUIXf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Oct 2010 04:23:35 -0400
 In-Reply-To: <1287649543-6569-1-git-send-email-sgruszka@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Only increase tx_{packets,dropped} statistics when transmit or drop
-full skb, not just fragment.
+Fix switching device to low-speed mode after resume reported in:
+https://bugzilla.redhat.com/show_bug.cgi?id=502974
 
+Reported-and-tested-by: Laurentiu Badea <bugzilla-redhat@wotevah.com>
 Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
---
- drivers/net/r8169.c |    8 +++-----
- 1 files changed, 3 insertions(+), 5 deletions(-)
+---
+ drivers/net/r8169.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 0a797d0..ef304c5 100644
+index ad3f37a..1165e7d 100644
 --- a/drivers/net/r8169.c
 +++ b/drivers/net/r8169.c
-@@ -4094,10 +4094,10 @@ static void rtl8169_tx_clear_range(struct rtl8169_private *tp, u32 start,
- 			rtl8169_unmap_tx_skb(&tp->pci_dev->dev, tx_skb,
- 					     tp->TxDescArray + entry);
- 			if (skb) {
-+				tp->dev->stats.tx_dropped++;
- 				dev_kfree_skb(skb);
- 				tx_skb->skb = NULL;
- 			}
--			tp->dev->stats.tx_dropped++;
- 		}
- 	}
- }
-@@ -4402,7 +4402,6 @@ static void rtl8169_tx_interrupt(struct net_device *dev,
- 	while (tx_left > 0) {
- 		unsigned int entry = dirty_tx % NUM_TX_DESC;
- 		struct ring_info *tx_skb = tp->tx_skb + entry;
--		u32 len = tx_skb->len;
- 		u32 status;
+@@ -4824,6 +4824,9 @@ static int rtl8169_resume(struct device *device)
+ {
+ 	struct pci_dev *pdev = to_pci_dev(device);
+ 	struct net_device *dev = pci_get_drvdata(pdev);
++	struct rtl8169_private *tp = netdev_priv(dev);
++
++	rtl8169_init_phy(dev, tp);
  
- 		rmb();
-@@ -4410,12 +4409,11 @@ static void rtl8169_tx_interrupt(struct net_device *dev,
- 		if (status & DescOwn)
- 			break;
+ 	if (netif_running(dev))
+ 		__rtl8169_resume(dev);
+@@ -4864,6 +4867,8 @@ static int rtl8169_runtime_resume(struct device *device)
+ 	tp->saved_wolopts = 0;
+ 	spin_unlock_irq(&tp->lock);
  
--		dev->stats.tx_bytes += len;
--		dev->stats.tx_packets++;
--
- 		rtl8169_unmap_tx_skb(&tp->pci_dev->dev, tx_skb,
- 				     tp->TxDescArray + entry);
- 		if (status & LastFrag) {
-+			dev->stats.tx_packets++;
-+			dev->stats.tx_bytes += tx_skb->skb->len;
- 			dev_kfree_skb(tx_skb->skb);
- 			tx_skb->skb = NULL;
- 		}
++	rtl8169_init_phy(dev, tp);
++
+ 	__rtl8169_resume(dev);
+ 
+ 	return 0;
 -- 
 1.6.5.2
 
