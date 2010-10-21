@@ -1,60 +1,99 @@
 From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH v2 09/14] bnx2: Update bnx2 to use new vlan accleration.
-Date: Thu, 21 Oct 2010 14:38:34 -0700
-Message-ID: <AANLkTikaE-88LSZcMhZaqrpJzeZi0gSdQX1KAvj5vOPA@mail.gmail.com>
+Subject: Re: [PATCH v2 04/14] vlan: Enable software emulation for vlan accleration.
+Date: Thu, 21 Oct 2010 14:44:26 -0700
+Message-ID: <AANLkTi=6erj4L7mwH4j1h+urPrc2PQu2xg7xTHkiM0A5@mail.gmail.com>
 References: <1287618974-4714-1-git-send-email-jesse@nicira.com>
-	<1287618974-4714-10-git-send-email-jesse@nicira.com>
-	<1287675106.2235.10.camel@achroite.uk.solarflarecom.com>
+	<1287618974-4714-5-git-send-email-jesse@nicira.com>
+	<1287675008.2235.8.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Michael Chan <mchan@broadcom.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:57946 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758450Ab0JUVif convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 17:38:35 -0400
-Received: by wyf28 with SMTP id 28so81761wyf.19
-        for <netdev@vger.kernel.org>; Thu, 21 Oct 2010 14:38:34 -0700 (PDT)
-In-Reply-To: <1287675106.2235.10.camel@achroite.uk.solarflarecom.com>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:53548 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752238Ab0JUVo1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 17:44:27 -0400
+Received: by wwe15 with SMTP id 15so81315wwe.1
+        for <netdev@vger.kernel.org>; Thu, 21 Oct 2010 14:44:26 -0700 (PDT)
+In-Reply-To: <1287675008.2235.8.camel@achroite.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 21, 2010 at 8:31 AM, Ben Hutchings
+On Thu, Oct 21, 2010 at 8:30 AM, Ben Hutchings
 <bhutchings@solarflare.com> wrote:
 > On Wed, 2010-10-20 at 16:56 -0700, Jesse Gross wrote:
->> Make the bnx2 driver use the new vlan accleration model.
->>
->> Signed-off-by: Jesse Gross <jesse@nicira.com>
->> CC: Michael Chan <mchan@broadcom.com>
->> ---
->> =A0drivers/net/bnx2.c | =A0 97 +++++++++++++++----------------------=
----------------
->> =A0drivers/net/bnx2.h | =A0 =A04 --
->> =A02 files changed, 28 insertions(+), 73 deletions(-)
->>
->> diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
->> index 363ca8b..bf3c830 100644
->> --- a/drivers/net/bnx2.c
->> +++ b/drivers/net/bnx2.c
+>> Currently users of hardware vlan accleration need to know whether
+>> the device supports it before generating packets. =A0However, vlan
+>> acceleration will soon be available in a more flexible manner so
+>> knowing ahead of time becomes much more difficult. =A0This adds
+>> a software fallback path for vlan packets on devices without the
+>> necessary offloading support, similar to other types of hardware
+>> accleration.
 > [...]
->> @@ -7578,7 +7523,28 @@ bnx2_set_tx_csum(struct net_device *dev, u32 =
-data)
->> =A0static int
->> =A0bnx2_set_flags(struct net_device *dev, u32 data)
+>> diff --git a/net/core/dev.c b/net/core/dev.c
+>> index 4c3ac53..1bfd96b 100644
+>> --- a/net/core/dev.c
+>> +++ b/net/core/dev.c
+>> @@ -1694,7 +1694,12 @@ static bool can_checksum_protocol(unsigned lo=
+ng features, __be16 protocol)
+>>
+>> =A0static bool dev_can_checksum(struct net_device *dev, struct sk_bu=
+ff *skb)
 >> =A0{
->> - =A0 =A0 return ethtool_op_set_flags(dev, data, ETH_FLAG_RXHASH);
->> + =A0 =A0 struct bnx2 *bp =3D netdev_priv(dev);
->> + =A0 =A0 int rc;
+>> - =A0 =A0 if (can_checksum_protocol(dev->features, skb->protocol))
+>> + =A0 =A0 int features =3D dev->features;
 >> +
->> + =A0 =A0 if (!(bp->flags & BNX2_FLAG_CAN_KEEP_VLAN) &&
->> + =A0 =A0 =A0 =A0 !(data & ETH_FLAG_RXVLAN))
->> + =A0 =A0 =A0 =A0 =A0 =A0 return -EOPNOTSUPP;
+>> + =A0 =A0 if (vlan_tx_tag_present(skb))
+>> + =A0 =A0 =A0 =A0 =A0 =A0 features &=3D dev->vlan_features;
+>> +
+>> + =A0 =A0 if (can_checksum_protocol(features, skb->protocol))
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 return true;
+>>
+>> =A0 =A0 =A0 if (skb->protocol =3D=3D htons(ETH_P_8021Q)) {
 > [...]
 >
-> Should be -EINVAL.
+> Additional context:
+>
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0struct vlan_ethhdr *veh =3D (struct vl=
+an_ethhdr *)skb->data;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (can_checksum_protocol(dev->feature=
+s & dev->vlan_features,
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0veh->h_vlan_encapsulated_proto))
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return true;
+> =A0 =A0 =A0 =A0}
+>
+> =A0 =A0 =A0 =A0return false;
+> }
+>
+> I don't think this will do the right thing if the NIC does VLAN tag
+> insertion and checksum offload with only one layer of VLAN
+> encapsulation, but the skb has two layers of VLAN encapsulation.
+>
+> I think we actually want something like:
+>
+> static bool dev_can_checksum(struct net_device *dev, struct sk_buff *=
+skb)
+> {
+> =A0 =A0 =A0 =A0__be16 protocol =3D skb->protocol;
+> =A0 =A0 =A0 =A0int features =3D dev->features;
+>
+> =A0 =A0 =A0 =A0if (vlan_tx_tag_present(skb)) {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0features &=3D dev->vlan_features;
+> =A0 =A0 =A0 =A0} else if (skb->protocol =3D=3D htons(ETH_P_8021Q)) {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0struct vlan_ethhdr *veh =3D (struct vl=
+an_ethhdr *)skb->data;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0protocol =3D veh->h_vlan_encapsulated_=
+proto;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0features &=3D dev->vlan_features;
+> =A0 =A0 =A0 =A0}
+>
+> =A0 =A0 =A0 =A0return can_checksum_protocol(features, protocol);
+> }
+>
+> Does that look right?
 
-OK, thanks.  I've sent out a patch to fix this (and a similar one in
-the bnx2x driver).
+Thanks, good catch.  Yes, that looks right.  Will you submit a patch
+to fix this?
