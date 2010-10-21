@@ -1,8 +1,8 @@
 From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [PATCH v2 07/14] ethtool: Add support for vlan accleration.
-Date: Wed, 20 Oct 2010 20:27:28 -0700
-Message-ID: <4CBFB320.2060703@intel.com>
-References: <1287618974-4714-1-git-send-email-jesse@nicira.com> <1287618974-4714-8-git-send-email-jesse@nicira.com>
+Subject: Re: [PATCH v2 04/14] vlan: Enable software emulation for vlan accleration.
+Date: Wed, 20 Oct 2010 20:32:12 -0700
+Message-ID: <4CBFB43C.6000501@intel.com>
+References: <1287618974-4714-1-git-send-email-jesse@nicira.com> <1287618974-4714-5-git-send-email-jesse@nicira.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
@@ -10,68 +10,137 @@ Cc: David Miller <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:23729 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:10016 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757277Ab0JUD13 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Oct 2010 23:27:29 -0400
-In-Reply-To: <1287618974-4714-8-git-send-email-jesse@nicira.com>
+	id S1757083Ab0JUDcM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Oct 2010 23:32:12 -0400
+In-Reply-To: <1287618974-4714-5-git-send-email-jesse@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On 10/20/2010 4:56 PM, Jesse Gross wrote:
-> Now that vlan acceleration is handled consistently regardless of usage,
-> it is possible to enable and disable it at will.  This adds support for
-> Ethtool operations that change the offloading status for debugging
-> purposes, similar to other forms of hardware acceleration.
+> Currently users of hardware vlan accleration need to know whether
+> the device supports it before generating packets.  However, vlan
+> acceleration will soon be available in a more flexible manner so
+> knowing ahead of time becomes much more difficult.  This adds
+> a software fallback path for vlan packets on devices without the
+> necessary offloading support, similar to other types of hardware
+> accleration.
 > 
+> Signed-off-by: Jesse Gross <jesse@nicira.com>
+> ---
+>  include/linux/netdevice.h |   14 +++++++++++---
+>  net/core/dev.c            |   36 +++++++++++++++++++++++++++++++++---
+>  2 files changed, 44 insertions(+), 6 deletions(-)
+> 
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index 880d565..2861565 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -2248,9 +2248,17 @@ static inline int skb_gso_ok(struct sk_buff *skb, int features)
+>  
+>  static inline int netif_needs_gso(struct net_device *dev, struct sk_buff *skb)
+>  {
+> -	return skb_is_gso(skb) &&
+> -	       (!skb_gso_ok(skb, dev->features) ||
+> -		unlikely(skb->ip_summed != CHECKSUM_PARTIAL));
+> +	if (skb_is_gso(skb)) {
+> +		int features = dev->features;
+> +
+> +		if (skb->protocol == htons(ETH_P_8021Q) || skb->vlan_tci)
+> +			features &= dev->vlan_features;
+> +
+> +		return (!skb_gso_ok(skb, features) ||
+> +			unlikely(skb->ip_summed != CHECKSUM_PARTIAL));
+> +	}
+> +
+> +	return 0;
+>  }
+>  
+>  static inline void netif_set_gso_max_size(struct net_device *dev,
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 4c3ac53..1bfd96b 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -1694,7 +1694,12 @@ static bool can_checksum_protocol(unsigned long features, __be16 protocol)
+>  
+>  static bool dev_can_checksum(struct net_device *dev, struct sk_buff *skb)
+>  {
+> -	if (can_checksum_protocol(dev->features, skb->protocol))
+> +	int features = dev->features;
+> +
+> +	if (vlan_tx_tag_present(skb))
+> +		features &= dev->vlan_features;
+> +
+> +	if (can_checksum_protocol(features, skb->protocol))
+>  		return true;
+>  
+>  	if (skb->protocol == htons(ETH_P_8021Q)) {
+> @@ -1793,6 +1798,16 @@ struct sk_buff *skb_gso_segment(struct sk_buff *skb, int features)
+>  	__be16 type = skb->protocol;
+>  	int err;
+>  
+> +	if (type == htons(ETH_P_8021Q)) {
+> +		struct vlan_ethhdr *veh;
+> +
+> +		if (unlikely(!pskb_may_pull(skb, VLAN_ETH_HLEN)))
+> +			return ERR_PTR(-EINVAL);
+> +
+> +		veh = (struct vlan_ethhdr *)skb->data;
+> +		type = veh->h_vlan_encapsulated_proto;
+> +	}
+> +
+>  	skb_reset_mac_header(skb);
+>  	skb->mac_len = skb->network_header - skb->mac_header;
+>  	__skb_pull(skb, skb->mac_len);
+> @@ -1964,9 +1979,14 @@ static inline void skb_orphan_try(struct sk_buff *skb)
+>  static inline int skb_needs_linearize(struct sk_buff *skb,
+>  				      struct net_device *dev)
+>  {
+> +	int features = dev->features;
+> +
+> +	if (skb->protocol == htons(ETH_P_8021Q) || vlan_tx_tag_present(skb))
+> +		features &= dev->vlan_features;
+> +
+>  	return skb_is_nonlinear(skb) &&
+> -	       ((skb_has_frag_list(skb) && !(dev->features & NETIF_F_FRAGLIST)) ||
+> -	        (skb_shinfo(skb)->nr_frags && (!(dev->features & NETIF_F_SG) ||
+> +	       ((skb_has_frag_list(skb) && !(features & NETIF_F_FRAGLIST)) ||
+> +		(skb_shinfo(skb)->nr_frags && (!(features & NETIF_F_SG) ||
+>  					      illegal_highdma(dev, skb))));
+>  }
+>  
+> @@ -1989,6 +2009,15 @@ int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
+>  
+>  		skb_orphan_try(skb);
+>  
+> +		if (vlan_tx_tag_present(skb) &&
+> +		    !(dev->features & NETIF_F_HW_VLAN_TX)) {
+> +			skb = __vlan_put_tag(skb, vlan_tx_tag_get(skb));
+> +			if (unlikely(!skb))
+> +				goto out;
+> +
+> +			skb->vlan_tci = 0;
+> +		}
+> +
 
-Jesse,
-
-Not sure if this is enough to get dynamic toggling like this
-dev->hard_header_len is set depending on offloads at init time in
-vlan_dev_init(). By changing this LL_RESERVED_SPACE won't work
-correctly and we end up having to call pskb_expand_head(). I think
-this might end up hurting performance.
-
-That said I think I can probably get this working by fixing up the
-header_ops in vlan_dev.c.  And while I'm at it add a vlan_header_cache
-and vlan_header_cache_update routines. I'll try to get something out
-tomorrow in the meantime nothing too bad is happening.
+Nice set of patches! If we tag frames in dev_hard_start_xmit() can we consolidate
+the offload enabled and non-offloaded net_device_ops in 8021q. And then not tag in
+vlan_dev_hard_start_xmit? I'll post an example thinking out loud here.
 
 Thanks,
 John.
 
-> Signed-off-by: Jesse Gross <jesse@nicira.com>
-> ---
->  include/linux/ethtool.h |    2 ++
->  net/core/ethtool.c      |    3 ++-
->  2 files changed, 4 insertions(+), 1 deletions(-)
-> 
-> diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-> index 8a3338c..6628a50 100644
-> --- a/include/linux/ethtool.h
-> +++ b/include/linux/ethtool.h
-> @@ -309,6 +309,8 @@ struct ethtool_perm_addr {
->   * flag differs from the read-only value.
->   */
->  enum ethtool_flags {
-> +	ETH_FLAG_TXVLAN		= (1 << 7),	/* TX VLAN offload enabled */
-> +	ETH_FLAG_RXVLAN		= (1 << 8),	/* RX VLAN offload enabled */
->  	ETH_FLAG_LRO		= (1 << 15),	/* LRO is enabled */
->  	ETH_FLAG_NTUPLE		= (1 << 27),	/* N-tuple filters enabled */
->  	ETH_FLAG_RXHASH		= (1 << 28),
-> diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-> index 685c700..956a9f4 100644
-> --- a/net/core/ethtool.c
-> +++ b/net/core/ethtool.c
-> @@ -132,7 +132,8 @@ EXPORT_SYMBOL(ethtool_op_set_ufo);
->   * NETIF_F_xxx values in include/linux/netdevice.h
->   */
->  static const u32 flags_dup_features =
-> -	(ETH_FLAG_LRO | ETH_FLAG_NTUPLE | ETH_FLAG_RXHASH);
-> +	(ETH_FLAG_LRO | ETH_FLAG_RXVLAN | ETH_FLAG_TXVLAN | ETH_FLAG_NTUPLE |
-> +	 ETH_FLAG_RXHASH);
+
+>  		if (netif_needs_gso(dev, skb)) {
+>  			if (unlikely(dev_gso_segment(skb)))
+>  				goto out_kfree_skb;
+> @@ -2050,6 +2079,7 @@ out_kfree_gso_skb:
+>  		skb->destructor = DEV_GSO_CB(skb)->destructor;
+>  out_kfree_skb:
+>  	kfree_skb(skb);
+> +out:
+>  	return rc;
+>  }
 >  
->  u32 ethtool_op_get_flags(struct net_device *dev)
->  {
 
