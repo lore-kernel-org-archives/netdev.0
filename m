@@ -1,7 +1,7 @@
 From: kaber@trash.net
-Subject: [PATCH 58/72] nf_nat: restrict ICMP translation for embedded header
-Date: Thu, 21 Oct 2010 17:19:45 +0200
-Message-ID: <1287674399-31455-59-git-send-email-kaber@trash.net>
+Subject: [PATCH 50/72] ipvs: move ip_route_me_harder for ICMP
+Date: Thu, 21 Oct 2010 17:19:37 +0200
+Message-ID: <1287674399-31455-51-git-send-email-kaber@trash.net>
 References: <1287674399-31455-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
@@ -12,66 +12,95 @@ List-Id: netdev.vger.kernel.org
 
 From: Julian Anastasov <ja@ssi.bg>
 
- 	Skip ICMP translation of embedded protocol header
-if NAT bits are not set. Needed for IPVS to see the original
-embedded addresses because for IPVS traffic the IPS_SRC_NAT_BIT
-and IPS_DST_NAT_BIT bits are not set. It happens when IPVS performs
-DNAT for client packets after using nf_conntrack_alter_reply
-to expect replies from real server.
+ 	Currently, ip_route_me_harder after ip_vs_out_icmp
+is called even if packet is not related to IPVS connection.
+Move it into handle_response_icmp. Also, force rerouting
+if sending to local client because IPv4 stack uses addresses
+from the route.
 
 Signed-off-by: Julian Anastasov <ja@ssi.bg>
 Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- net/ipv4/netfilter/nf_nat_core.c |   29 +++++++++++++++--------------
- 1 files changed, 15 insertions(+), 14 deletions(-)
+ net/netfilter/ipvs/ip_vs_core.c |   41 ++++++++++++++++++++-------------------
+ 1 files changed, 21 insertions(+), 20 deletions(-)
 
-diff --git a/net/ipv4/netfilter/nf_nat_core.c b/net/ipv4/netfilter/nf_nat_core.c
-index e2e00c4..0047923 100644
---- a/net/ipv4/netfilter/nf_nat_core.c
-+++ b/net/ipv4/netfilter/nf_nat_core.c
-@@ -462,6 +462,18 @@ int nf_nat_icmp_reply_translation(struct nf_conn *ct,
- 			return 0;
- 	}
+diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
+index f7f5283..c4f091d 100644
+--- a/net/netfilter/ipvs/ip_vs_core.c
++++ b/net/netfilter/ipvs/ip_vs_core.c
+@@ -702,6 +702,17 @@ static int handle_response_icmp(int af, struct sk_buff *skb,
+ #endif
+ 		ip_vs_nat_icmp(skb, pp, cp, 1);
  
-+	if (manip == IP_NAT_MANIP_SRC)
-+		statusbit = IPS_SRC_NAT;
-+	else
-+		statusbit = IPS_DST_NAT;
++#ifdef CONFIG_IP_VS_IPV6
++	if (af == AF_INET6) {
++		if (sysctl_ip_vs_snat_reroute && ip6_route_me_harder(skb) != 0)
++			goto out;
++	} else
++#endif
++		if ((sysctl_ip_vs_snat_reroute ||
++		     skb_rtable(skb)->rt_flags & RTCF_LOCAL) &&
++		    ip_route_me_harder(skb, RTN_LOCAL) != 0)
++			goto out;
 +
-+	/* Invert if this is reply dir. */
-+	if (dir == IP_CT_DIR_REPLY)
-+		statusbit ^= IPS_NAT_MASK;
-+
-+	if (!(ct->status & statusbit))
-+		return 1;
-+
- 	pr_debug("icmp_reply_translation: translating error %p manip %u "
- 		 "dir %s\n", skb, manip,
- 		 dir == IP_CT_DIR_ORIGINAL ? "ORIG" : "REPLY");
-@@ -496,20 +508,9 @@ int nf_nat_icmp_reply_translation(struct nf_conn *ct,
+ 	/* do the statistics and put it back */
+ 	ip_vs_out_stats(cp, skb);
  
- 	/* Change outer to look the reply to an incoming packet
- 	 * (proto 0 means don't invert per-proto part). */
--	if (manip == IP_NAT_MANIP_SRC)
--		statusbit = IPS_SRC_NAT;
--	else
--		statusbit = IPS_DST_NAT;
--
--	/* Invert if this is reply dir. */
--	if (dir == IP_CT_DIR_REPLY)
--		statusbit ^= IPS_NAT_MASK;
--
--	if (ct->status & statusbit) {
--		nf_ct_invert_tuplepr(&target, &ct->tuplehash[!dir].tuple);
--		if (!manip_pkt(0, skb, 0, &target, manip))
--			return 0;
+@@ -940,16 +951,16 @@ handle_response(int af, struct sk_buff *skb, struct ip_vs_protocol *pp,
+ 	 * if it came from this machine itself.  So re-compute
+ 	 * the routing information.
+ 	 */
+-	if (sysctl_ip_vs_snat_reroute) {
+ #ifdef CONFIG_IP_VS_IPV6
+-		if (af == AF_INET6) {
+-			if (ip6_route_me_harder(skb) != 0)
+-				goto drop;
+-		} else
++	if (af == AF_INET6) {
++		if (sysctl_ip_vs_snat_reroute && ip6_route_me_harder(skb) != 0)
++			goto drop;
++	} else
+ #endif
+-			if (ip_route_me_harder(skb, RTN_LOCAL) != 0)
+-				goto drop;
 -	}
-+	nf_ct_invert_tuplepr(&target, &ct->tuplehash[!dir].tuple);
-+	if (!manip_pkt(0, skb, 0, &target, manip))
-+		return 0;
++		if ((sysctl_ip_vs_snat_reroute ||
++		     skb_rtable(skb)->rt_flags & RTCF_LOCAL) &&
++		    ip_route_me_harder(skb, RTN_LOCAL) != 0)
++			goto drop;
  
- 	return 1;
- }
+ 	IP_VS_DBG_PKT(10, pp, skb, 0, "After SNAT");
+ 
+@@ -1001,13 +1012,8 @@ ip_vs_out(unsigned int hooknum, struct sk_buff *skb,
+ 			int verdict = ip_vs_out_icmp_v6(skb, &related,
+ 							hooknum);
+ 
+-			if (related) {
+-				if (sysctl_ip_vs_snat_reroute &&
+-					NF_ACCEPT == verdict &&
+-					ip6_route_me_harder(skb))
+-					verdict = NF_DROP;
++			if (related)
+ 				return verdict;
+-			}
+ 			ip_vs_fill_iphdr(af, skb_network_header(skb), &iph);
+ 		}
+ 	} else
+@@ -1016,13 +1022,8 @@ ip_vs_out(unsigned int hooknum, struct sk_buff *skb,
+ 			int related;
+ 			int verdict = ip_vs_out_icmp(skb, &related, hooknum);
+ 
+-			if (related) {
+-				if (sysctl_ip_vs_snat_reroute &&
+-					NF_ACCEPT == verdict &&
+-					ip_route_me_harder(skb, RTN_LOCAL))
+-					verdict = NF_DROP;
++			if (related)
+ 				return verdict;
+-			}
+ 			ip_vs_fill_iphdr(af, skb_network_header(skb), &iph);
+ 		}
+ 
 -- 
 1.7.1
 
