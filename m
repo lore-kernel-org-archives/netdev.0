@@ -1,51 +1,67 @@
 From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 4/9] tproxy: added tproxy sockopt interface in the IPV6
- layer
-Date: Fri, 22 Oct 2010 06:09:37 +0900
-Message-ID: <1287695377.2707.9.camel@takos>
+Subject: Re: [PATCH 5/9] tproxy: allow non-local binds of IPv6 sockets if
+ IP_TRANSPARENT is enabled
+Date: Fri, 22 Oct 2010 06:24:12 +0900
+Message-ID: <1287696252.2707.24.camel@takos>
 References: <20101020112118.6260.31618.stgit@este.odu>
-	 <20101020112118.6260.78508.stgit@este.odu>
-	 <alpine.LNX.2.01.1010211037520.22922@obet.zrqbmnf.qr>
-	 <1287650781.13326.1.camel@este.odu>
+	 <20101020112118.6260.93956.stgit@este.odu>
+	 <4CBEE45D.2080201@linux-ipv6.org>  <1287583653.29676.9.camel@bzorp.lan>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-2022-JP"
 Content-Transfer-Encoding: 7bit
-Cc: Jan Engelhardt <jengelh@medozas.de>, netdev@vger.kernel.org,
+Cc: KOVACS Krisztian <hidden@balabit.hu>, netdev@vger.kernel.org,
 	netfilter-devel@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	David Miller <davem@davemloft.net>, yoshfuji@linux-ipv6.org
-To: KOVACS Krisztian <hidden@balabit.hu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:38325 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751464Ab0JUVJi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 17:09:38 -0400
-In-Reply-To: <1287650781.13326.1.camel@este.odu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Balazs Scheidler <bazsi@balabit.hu>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1287583653.29676.9.camel@bzorp.lan>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2010-10-21, KOVACS Krisztian wrote:
-> Hi,
-> 
-> On Thu, 2010-10-21 at 10:39 +0200, Jan Engelhardt wrote:
-> > On Wednesday 2010-10-20 13:21, KOVACS Krisztian wrote:
-> > 
-> > >@@ -268,6 +268,10 @@ struct in6_flowlabel_req {
-> > > /* RFC5082: Generalized Ttl Security Mechanism */
-> > > #define IPV6_MINHOPCOUNT		73
+Hello.
+
+2010-10-20, Balazs Scheidler wrote:
+> On Wed, 2010-10-20 at 21:45 +0900, YOSHIFUJI Hideaki wrote:
+> > (2010/10/20 20:21), KOVACS Krisztian wrote:
+> > > From: Balazs Scheidler<bazsi@balabit.hu>
 > > > 
-> > >+#define IPV6_ORIGDSTADDR        74
-> > >+#define IPV6_RECVORIGDSTADDR    IPV6_ORIGDSTADDR
-> > >+#define IPV6_TRANSPARENT        75
-> > >+
+> > > Signed-off-by: Balazs Scheidler<bazsi@balabit.hu>
+> > > Signed-off-by: KOVACS Krisztian<hidden@balabit.hu>
+> > > ---
+> > >   net/ipv6/af_inet6.c |    2 +-
+> > >   1 files changed, 1 insertions(+), 1 deletions(-)
+> > > 
+> > > diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+> > > index 6022098..9480572 100644
+> > > --- a/net/ipv6/af_inet6.c
+> > > +++ b/net/ipv6/af_inet6.c
+> > > @@ -343,7 +343,7 @@ int inet6_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
+> > >   			 */
+> > >   			v4addr = LOOPBACK4_IPV6;
+> > >   			if (!(addr_type&  IPV6_ADDR_MULTICAST))	{
+> > > -				if (!ipv6_chk_addr(net,&addr->sin6_addr,
+> > > +				if (!inet->transparent&&  !ipv6_chk_addr(net,&addr->sin6_addr,
+> > >   						   dev, 0)) {
+> > >   					err = -EADDRNOTAVAIL;
+> > >   					goto out_unlock;
+> > > 
+> > > 
 > > 
-> > Why do we actually need two names for the same thing?
+> > As I wrote before in other thread, this does not seem sufficient --
+> > well, it is sufficient to allow non-local bind, but before we're
+> > allowing this, we need add checks of source address in sending side.
 > 
-> IPV6_RECVORIGDSTADDR is the name of the socket option you're supposed to
-> set if you require the original destination address. IPV6_ORIGDSTADDR is
-> the name of the ancillary message you get with the actual address in it.
-> Just like we have it for IP_TOS/IP_RECVTOS, for example.
+> Can you please elaborate or point us to the other thread? Is it some
+> kind of address-type check that we miss?
 
-I agree.
+Please see my comment at:
+<http://kerneltrap.org/mailarchive/linux-netdev/2010/7/5/6280572>
+
+This will result in allowing non-privileged users easily sending from
+non-local / unauthorized address, which is not good, and which should
+not be allowed from security aspects.
+
+Regards,
 
 --yoshfuji
 
