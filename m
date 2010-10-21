@@ -1,68 +1,44 @@
-From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: [PATCH 03/10] can: at91_can: fix use after free of priv
-Date: Thu, 21 Oct 2010 13:01:15 +0200
-Message-ID: <1287658882-26914-4-git-send-email-mkl@pengutronix.de>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: [PATCH 07/10] can: at91_can: set bittiming in chip_start
+Date: Thu, 21 Oct 2010 13:01:19 +0200
+Message-ID: <1287658882-26914-8-git-send-email-mkl@pengutronix.de>
 References: <1287658882-26914-1-git-send-email-mkl@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-To: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <1287658882-26914-1-git-send-email-mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Marc Kleine-Budde <mkl@pengutronix.de>
+To: socketcan-core@lists.berlios.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:34925 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757268Ab0JULB1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 07:01:27 -0400
+In-Reply-To: <1287658882-26914-1-git-send-email-mkl@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The priv is part of the memory allocated by alloc_candev().
-This patch moved the free it after last usage of priv.
-
-While there convert all free_netdev() to free_candev() (which is currently
-just a wrapper around free_netdev()) to be symetrically with the allocation
-via alloc_candev().
-
-Signed-off-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- drivers/net/can/at91_can.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/can/at91_can.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/can/at91_can.c b/drivers/net/can/at91_can.c
-index 3b66c67..2c17e74 100644
+index 4fa0aa0..ace9c08 100644
 --- a/drivers/net/can/at91_can.c
 +++ b/drivers/net/can/at91_can.c
-@@ -1101,7 +1101,7 @@ static int __init at91_can_probe(struct platform_device *pdev)
- 	return 0;
+@@ -299,6 +299,7 @@ static void at91_chip_start(struct net_device *dev)
+ 	reg_mr = at91_read(priv, AT91_MR);
+ 	at91_write(priv, AT91_MR, reg_mr & ~AT91_MR_CANEN);
  
-  exit_free:
--	free_netdev(dev);
-+	free_candev(dev);
-  exit_iounmap:
- 	iounmap(addr);
-  exit_release:
-@@ -1122,8 +1122,6 @@ static int __devexit at91_can_remove(struct platform_device *pdev)
++	at91_set_bittiming(dev);
+ 	at91_setup_mailboxes(dev);
+ 	at91_transceiver_switch(priv, 1);
  
- 	platform_set_drvdata(pdev, NULL);
- 
--	free_netdev(dev);
--
- 	iounmap(priv->reg_base);
- 
- 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-@@ -1131,6 +1129,8 @@ static int __devexit at91_can_remove(struct platform_device *pdev)
- 
- 	clk_put(priv->clk);
- 
-+	free_candev(dev);
-+
- 	return 0;
- }
- 
+@@ -1086,7 +1087,6 @@ static int __devinit at91_can_probe(struct platform_device *pdev)
+ 	priv = netdev_priv(dev);
+ 	priv->can.clock.freq = clk_get_rate(clk);
+ 	priv->can.bittiming_const = &at91_bittiming_const;
+-	priv->can.do_set_bittiming = at91_set_bittiming;
+ 	priv->can.do_set_mode = at91_set_mode;
+ 	priv->can.do_get_berr_counter = at91_get_berr_counter;
+ 	priv->can.ctrlmode_supported = CAN_CTRLMODE_3_SAMPLES;
 -- 
 1.7.0.4
+
