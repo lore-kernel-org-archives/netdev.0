@@ -1,64 +1,86 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH 1/9] ipvs network name space aware
-Date: Thu, 21 Oct 2010 10:58:24 +0200
-Message-ID: <1287651504.6871.44.camel@edumazet-laptop>
-References: <201010081316.46690.hans.schillstrom@ericsson.com>
-	 <201010181523.49568.hans.schillstrom@ericsson.com>
-	 <20101019184436.GG2362@linux.vnet.ibm.com>
-	 <201010201025.20950.hans.schillstrom@ericsson.com>
-	 <20101020160205.GB2386@linux.vnet.ibm.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 PATCH 1/3] ixgbe: update copyright info
+Date: Thu, 21 Oct 2010 01:59:40 -0700
+Message-ID: <20101021085740.12059.20577.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Hans Schillstrom <hans.schillstrom@ericsson.com>,
-	Daniel Lezcano <daniel.lezcano@free.fr>,
-	"lvs-devel@vger.kernel.org" <lvs-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"horms@verge.net.au" <horms@verge.net.au>, "ja@ssi.bg" <ja@ssi.bg>,
-	"wensong@linux-vs.org" <wensong@linux-vs.org>
-To: paulmck@linux.vnet.ibm.com
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20101020160205.GB2386@linux.vnet.ibm.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
+	Emil Tantilov <emil.s.tantilov@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from qmta15.westchester.pa.mail.comcast.net ([76.96.59.228]:55788
+	"EHLO qmta15.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753429Ab0JUJAB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 05:00:01 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-> You said that there were a lot of "stepi" commands to get through
-> rcu_read_lock() on x86_64.  This is quite surprising, especially if you
-> built with CONFIG_RCU_TREE.  Even if you built with CONFIG_PREEMPT_RCU_TREE,
-> you should only see something like the following from rcu_read_lock():
-> 
-> 000000b7 <__rcu_read_lock>:
->       b7:	55                   	push   %ebp
->       b8:	64 a1 00 00 00 00    	mov    %fs:0x0,%eax
->       be:	ff 80 80 01 00 00    	incl   0x180(%eax)
->       c4:	89 e5                	mov    %esp,%ebp
->       c6:	5d                   	pop    %ebp
->       c7:	c3                   	ret    
-> 
-> Unless you have some sort of debugging options turned on.  Or unless
-> six instructions counts for "quite many" stepi commands.  ;-)
-> 
+Update copyright notice
 
-Paul, this should be inlined, dont you think ?
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
-Also, I dont understand why we use ACCESS_ONCE() in rcu_read_lock()
+ drivers/net/ixgbe/ixgbe_mbx.c   |    2 +-
+ drivers/net/ixgbe/ixgbe_mbx.h   |    2 +-
+ drivers/net/ixgbe/ixgbe_sriov.c |    2 +-
+ drivers/net/ixgbe/ixgbe_sriov.h |    2 +-
+ 4 files changed, 4 insertions(+), 4 deletions(-)
 
-ACCESS_ONCE(current->rcu_read_lock_nesting)++;
-
-Apparently, some compilers are a bit noisy here.
-
-mov    0x1b0(%rdx),%eax
-inc    %eax
-mov    %eax,0x1b0(%rdx)
-
-instead of :
-
-incl   0x1b0(%rax)
-
-So if the ACCESS_ONCE() is needed, we might add a comment, because it's
-not obvious ;)
-
-
+diff --git a/drivers/net/ixgbe/ixgbe_mbx.c b/drivers/net/ixgbe/ixgbe_mbx.c
+index 435e028..471f0f2 100644
+--- a/drivers/net/ixgbe/ixgbe_mbx.c
++++ b/drivers/net/ixgbe/ixgbe_mbx.c
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+ 
+   Intel 10 Gigabit PCI Express Linux driver
+-  Copyright(c) 1999 - 2009 Intel Corporation.
++  Copyright(c) 1999 - 2010 Intel Corporation.
+ 
+   This program is free software; you can redistribute it and/or modify it
+   under the terms and conditions of the GNU General Public License,
+diff --git a/drivers/net/ixgbe/ixgbe_mbx.h b/drivers/net/ixgbe/ixgbe_mbx.h
+index c5ae4b4..7e0d08f 100644
+--- a/drivers/net/ixgbe/ixgbe_mbx.h
++++ b/drivers/net/ixgbe/ixgbe_mbx.h
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+ 
+   Intel 10 Gigabit PCI Express Linux driver
+-  Copyright(c) 1999 - 2009 Intel Corporation.
++  Copyright(c) 1999 - 2010 Intel Corporation.
+ 
+   This program is free software; you can redistribute it and/or modify it
+   under the terms and conditions of the GNU General Public License,
+diff --git a/drivers/net/ixgbe/ixgbe_sriov.c b/drivers/net/ixgbe/ixgbe_sriov.c
+index a6b720a..5428153 100644
+--- a/drivers/net/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ixgbe/ixgbe_sriov.c
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+ 
+   Intel 10 Gigabit PCI Express Linux driver
+-  Copyright(c) 1999 - 2009 Intel Corporation.
++  Copyright(c) 1999 - 2010 Intel Corporation.
+ 
+   This program is free software; you can redistribute it and/or modify it
+   under the terms and conditions of the GNU General Public License,
+diff --git a/drivers/net/ixgbe/ixgbe_sriov.h b/drivers/net/ixgbe/ixgbe_sriov.h
+index 9a424bb..49dc14d 100644
+--- a/drivers/net/ixgbe/ixgbe_sriov.h
++++ b/drivers/net/ixgbe/ixgbe_sriov.h
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+ 
+   Intel 10 Gigabit PCI Express Linux driver
+-  Copyright(c) 1999 - 2009 Intel Corporation.
++  Copyright(c) 1999 - 2010 Intel Corporation.
+ 
+   This program is free software; you can redistribute it and/or modify it
+   under the terms and conditions of the GNU General Public License,
 
