@@ -1,122 +1,46 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: Re: 2.6.36-rc7-git2 - panic/GPF: e1000e/vlans?
-Date: Thu, 21 Oct 2010 12:09:03 -0700 (Pacific Daylight Time)
-Message-ID: <alpine.WNT.2.00.1010211207220.5208@jbrandeb-desk1.amr.corp.intel.com>
-References: <20101014052242.GA8998@pcnci.linuxbox.cz>
-	<EA929A9653AAE14F841771FB1DE5A1366027CEFF1C@rrsmsx501.amr.corp.intel.com>
-	<20101020144640.GA3009@pcnci.linuxbox.cz>
-	<20101020163659.GB3009@pcnci.linuxbox.cz>
-	<20101021190208.GA7289@nik-comp.lan>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH v2 00/14] Move vlan acceleration into networking core.
+Date: Thu, 21 Oct 2010 12:32:33 -0700
+Message-ID: <AANLkTikiv53_r3vAWa+ejRfBAHmeiUXnWuBR=_1vOR3_@mail.gmail.com>
+References: <1287618974-4714-1-git-send-email-jesse@nicira.com>
+	<1287626579.11431.9.camel@obelisk.thedillows.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Tantilov, Emil S" <emil.s.tantilov@intel.com>,
-	e1000-devel list <e1000-devel@lists.sourceforge.net>,
-	netdev@vger.kernel.org, Linux kernel list <linux-kernel@vger.kernel.org>,
-	"nikola.ciprich@linuxbox.cz" <nikola.ciprich@linuxbox.cz>,
-	linux-net maillist <linux-net@vger.kernel.org>
-To: Nikola Ciprich <extmaillist@linuxbox.cz>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20101021190208.GA7289@nik-comp.lan>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: David Dillow <dave@thedillows.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:37024 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750774Ab0JUTcf convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 15:32:35 -0400
+Received: by fxm16 with SMTP id 16so470810fxm.19
+        for <netdev@vger.kernel.org>; Thu, 21 Oct 2010 12:32:34 -0700 (PDT)
+In-Reply-To: <1287626579.11431.9.camel@obelisk.thedillows.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-CkFkZGluZyBuZXRkZXYuLi4gYmV3YXJlIHRoZSB0b3AgcG9zdCBvcmRlcmluZyBpbiB0aGUgdGhy
-ZWFkLgoKT24gVGh1LCAyMSBPY3QgMjAxMCwgTmlrb2xhIENpcHJpY2ggd3JvdGU6Cgo+IE9rLCBo
-ZXJlJ3JlIHRoZSBzdGVwcyB0byByZXByb2R1Y2UgdGhlIHByb2JsZW06Cj4gCj4gaXAgbGluayBz
-ZXQgdXAgZGV2IGV0aDAKPiB2Y29uZmlnIGFkZCBldGgwIDEwCj4gaXAgbGluayBzZXQgdXAgZGV2
-IGV0aDAuMTAKPiBicmN0bCBhZGRiciBicnRlc3QKPiAjIHRvIGJ5bG8gb2ssIHN1bmTDoSB0byBh
-xb46Cj4gYnJjdGwgYWRkIGJydGVzdCBldGgwLjEwCj4gCj4gbGFzdCBjb21tYW5kIGNhdXNlcyBw
-YW5pYyBpbiBmZXcgc2Vjb25kcy4uCj4gCj4gSW50ZXJlc3RpbmcgdGhpbmcgaXMgdGhhdCBpdCdy
-ZSByZXByb2R1Y2libGUgb25seSBmb3IgZXRoMCwgbm90IGZvcgo+IGV0aDEgKGJvdGggYXJlIG9u
-Ym9hcmQgODAwMDNFUzJMQU4pCj4gCj4gaGVyZSdzIHRoZSBsc3BjaSBmb3IgdGhvc2U6Cj4gMDY6
-MDAuMCBFdGhlcm5ldCBjb250cm9sbGVyOiBJbnRlbCBDb3Jwb3JhdGlvbiA4MDAwM0VTMkxBTiBH
-aWdhYml0IEV0aGVybmV0IENvbnRyb2xsZXIgKENvcHBlcikgKHJldiAwMSkKPiAJU3Vic3lzdGVt
-OiBTdXBlciBNaWNybyBDb21wdXRlciBJbmMgVW5rbm93biBkZXZpY2UgMDAwMAo+IAlGbGFnczog
-YnVzIG1hc3RlciwgZmFzdCBkZXZzZWwsIGxhdGVuY3kgMCwgSVJRIDY1Cj4gCU1lbW9yeSBhdCBk
-ODMwMDAwMCAoMzItYml0LCBub24tcHJlZmV0Y2hhYmxlKSBbc2l6ZT0xMjhLXQo+IAlJL08gcG9y
-dHMgYXQgMzAwMCBbc2l6ZT0zMl0KPiAJQ2FwYWJpbGl0aWVzOiBbYzhdIFBvd2VyIE1hbmFnZW1l
-bnQgdmVyc2lvbiAyCj4gCUNhcGFiaWxpdGllczogW2QwXSBNZXNzYWdlIFNpZ25hbGxlZCBJbnRl
-cnJ1cHRzOiA2NGJpdCsgUXVldWU9MC8wIEVuYWJsZSsKPiAJQ2FwYWJpbGl0aWVzOiBbZTBdIEV4
-cHJlc3MgRW5kcG9pbnQgSVJRIDAKPiAJQ2FwYWJpbGl0aWVzOiBbMTAwXSBBZHZhbmNlZCBFcnJv
-ciBSZXBvcnRpbmcKPiAJQ2FwYWJpbGl0aWVzOiBbMTQwXSBEZXZpY2UgU2VyaWFsIE51bWJlciA1
-YS0xOS0zNC1mZi1mZi00OC0zMC0wMAo+IAo+IDA2OjAwLjEgRXRoZXJuZXQgY29udHJvbGxlcjog
-SW50ZWwgQ29ycG9yYXRpb24gODAwMDNFUzJMQU4gR2lnYWJpdCBFdGhlcm5ldCBDb250cm9sbGVy
-IChDb3BwZXIpIChyZXYgMDEpCj4gCVN1YnN5c3RlbTogU3VwZXIgTWljcm8gQ29tcHV0ZXIgSW5j
-IFVua25vd24gZGV2aWNlIDAwMDAKPiAJRmxhZ3M6IGJ1cyBtYXN0ZXIsIGZhc3QgZGV2c2VsLCBs
-YXRlbmN5IDAsIElSUSA2Ngo+IAlNZW1vcnkgYXQgZDgzMjAwMDAgKDMyLWJpdCwgbm9uLXByZWZl
-dGNoYWJsZSkgW3NpemU9MTI4S10KPiAJSS9PIHBvcnRzIGF0IDMwMjAgW3NpemU9MzJdCj4gCUNh
-cGFiaWxpdGllczogW2M4XSBQb3dlciBNYW5hZ2VtZW50IHZlcnNpb24gMgo+IAlDYXBhYmlsaXRp
-ZXM6IFtkMF0gTWVzc2FnZSBTaWduYWxsZWQgSW50ZXJydXB0czogNjRiaXQrIFF1ZXVlPTAvMCBF
-bmFibGUrCj4gCUNhcGFiaWxpdGllczogW2UwXSBFeHByZXNzIEVuZHBvaW50IElSUSAwCj4gCUNh
-cGFiaWxpdGllczogWzEwMF0gQWR2YW5jZWQgRXJyb3IgUmVwb3J0aW5nCj4gCUNhcGFiaWxpdGll
-czogWzE0MF0gRGV2aWNlIFNlcmlhbCBOdW1iZXIgNWEtMTktMzQtZmYtZmYtNDgtMzAtMDAKPiAK
-PiBsYXN0IGJ1dCBub3QgbGVhc3QsIEkndmUgZG9uZSBiaXNlY3QgYW5kIGl0IGxlYWRzIHRvOgo+
-IGNvbW1pdCBhZTg3OGFlMjgwYmVhMjg2ZmYyYjFlMWNiNmU2MDlkZDhjYjQ1MDFkCj4gQXV0aG9y
-OiBNYWNpZWogxbtlbmN6eWtvd3NraSA8bWF6ZUBnb29nbGUuY29tPgo+IERhdGU6ICAgU3VuIE9j
-dCAzIDE0OjQ5OjAwIDIwMTAgLTA3MDAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBuZXQ6IEZp
-eCBJUHY2IFBNVFUgZGlzYy4gdy8gYXN5bW1ldHJpYyByb3V0ZXMKPiAKPiBkb2Vzbid0IHNlZW0g
-dG8gbWUgdG8gYmUgcmVsYXRlZCBhdCBhbGwsIGJ1dCByZXZlcnRpbmcgcmVhbGx5IHNlZW1zIHRv
-IGZpeCB0aGUgcHJvYmxlbSBmb3IgbWUuLgo+IEkgaG9wZSBpdCBoZWxwcy4uCj4gd2l0aCBiZXN0
-IHJlZ2FyZHMKPiBuaWsKPiAKPiAKPiAKPiBPbiBXZWQsIE9jdCAyMCwgMjAxMCBhdCAwNjozNjo1
-OVBNICswMjAwLCBOaWtvbGEgQ2lwcmljaCB3cm90ZToKPiA+IHNvIHVuZm9ydHVuYXRlbHkgSSBo
-YXZlIHRvIHRha2UgYmFjayB3aGF0IEkganVzdCB3cm90ZSA6KAo+ID4gdGhlIHByb2JsZW0gc3Rp
-bGwgcGVyc2lzdHMsIGl0IGp1c3Qgc2VlbXMgdG8gYmUgbW9yZSByYW5kb20KPiA+IHNvIEknbGwg
-dHJ5IHRvIHNlcGFyYXRlIHRoZSBleGFjdCBjb21tYW5kIHRoYXQgY2F1c2VzIHRoZSBwYW5pYy4u
-Cj4gPiBuLgo+ID4gCj4gPiBPbiBXZWQsIE9jdCAyMCwgMjAxMCBhdCAwNDo0Njo0MFBNICswMjAw
-LCBOaWtvbGEgQ2lwcmljaCB3cm90ZToKPiA+ID4gSGVsbG8gRW1pbCwKPiA+ID4gCj4gPiA+IEkg
-dHJpZWQgaXQgbm93LCBJIGNhbiBzdGlsbCAxMDAlIHJlcHJvZHVjZSB3aXRoIDIuNi4zNi1yYzct
-Z2l0MiwgYnV0Cj4gPiA+IHdpdGggMi42LjM2LXJjOC1naXQ1IGl0IHdvcmtzIE9LLiBTbyBpdCBj
-ZXJ0YWlubHkgZ290IGZpeGVkIGluIHRoZSBtZWFudGltZSEKPiA+ID4gSSdsbCB0aGVyZWZvcmUg
-Y2xvc2UgdGhlIGJ1ZyBpbiBCWi4KPiA+ID4gCj4gPiA+IGhhdmUgYSBuaWNlIGRheSEKPiA+ID4g
-Cj4gPiA+IGJlc3QgcmVnYXJkcwo+ID4gPiAKPiA+ID4gbmlrCj4gPiA+IAo+ID4gPiAKPiA+ID4g
-T24gRnJpLCBPY3QgMTUsIDIwMTAgYXQgMTA6NTg6MTVBTSAtMDYwMCwgVGFudGlsb3YsIEVtaWwg
-UyB3cm90ZToKPiA+ID4gPiA+LS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0KPiA+ID4gPiA+RnJv
-bTogTmlrb2xhIENpcHJpY2ggW21haWx0bzpleHRtYWlsbGlzdEBsaW51eGJveC5jel0KPiA+ID4g
-PiA+U2VudDogV2VkbmVzZGF5LCBPY3RvYmVyIDEzLCAyMDEwIDEwOjIzIFBNCj4gPiA+ID4gPlRv
-OiBMaW51eCBrZXJuZWwgbGlzdDsgbGludXgtbmV0IG1haWxsaXN0OyBlMTAwMC1kZXZlbCBsaXN0
-Cj4gPiA+ID4gPkNjOiBuaWtvbGEuY2lwcmljaEBsaW51eGJveC5jego+ID4gPiA+ID5TdWJqZWN0
-OiBbRTEwMDAtZGV2ZWxdIDIuNi4zNi1yYzctZ2l0MiAtIHBhbmljL0dQRjogZTEwMDBlL3ZsYW5z
-Pwo+ID4gPiA+ID4KPiA+ID4gPiA+SGksCj4gPiA+ID4gPndoZW4gSSB0cnkgdG8gYm9vdCAyLjYu
-MzYtcmM3LWdpdDIgb24gb25lIG9mIG15IG1hY2hpbmVzLCBpdCBjcmFzaGVzIHdoaWxlCj4gPiA+
-ID4gPnNldHRpbmcgdXAgdGhlIG5ldHdvcmsuCj4gPiA+ID4gCj4gPiA+ID4gVGhhbmtzIGZvciBs
-ZXR0aW5nIHVzIGtub3chCj4gPiA+ID4gCj4gPiA+ID4gPlRoZSBzZXR1cCBpcyBxdWl0ZSBjb21w
-bGV4LCB3aXRoIGJvbmRpbmcsIGxvdHMgb2YgdmxhbnMgYW5kIDMgaW50ZWwKPiA+ID4gPiA+YWRh
-cHRlcnMgKHN5c3RlbSBpcyBxdWFkIHg4Nl82NCkKPiA+ID4gPiAKPiA+ID4gPiBDb3VsZCB5b3Ug
-cHJvdmlkZSBtb3JlIGRldGFpbHMgYWJvdXQgdGhlIGV4YWN0IHNldHVwIGFuZCB0aGUgc2VxdWVu
-Y2Ugb2YgCj4gPiA+ID4gY29tbWFuZHMgdGhhdCBsZWFkIHRvIHRoZSBjcmFzaD8gSWYgeW91IGNh
-biBuYXJyb3cgaXQgZG93biB0byB0aGUgYWN0dWFsIAo+ID4gPiA+IGNvbW1hbmQgdGhhdCBjYXVz
-ZWQgdGhlIGNyYXNoIHRoYXQgd291bGQgYmUgdmVyeSBoZWxwZnVsLgo+ID4gPiA+IAo+ID4gPiA+
-IEFsc28gLSBhcmUgeW91IHRlc3RpbmcgZnJvbSBMaW51cyBvciBuZXQtbmV4dCB0cmVlPyBJZiB5
-b3UgYXJlIG5vdCB1c2luZyAKPiA+ID4gPiBuZXQtbmV4dCwgY291bGQgeW91IGdpdmUgaXQgYSB0
-cnkgYW5kIHNlZSBpZiB5b3UgY2FuIHJlcHJvZHVjZSBpdCB0aGVyZT8KPiA+ID4gPiAKPiA+ID4g
-PiA+Cj4gPiA+ID4gPnNuaXAgb2YgbHNwY2k6Cj4gPiA+ID4gPjA2OjAwLjAgRXRoZXJuZXQgY29u
-dHJvbGxlcjogSW50ZWwgQ29ycG9yYXRpb24gODAwMDNFUzJMQU4gR2lnYWJpdCBFdGhlcm5ldAo+
-ID4gPiA+ID5Db250cm9sbGVyIChDb3BwZXIpIChyZXYgMDEpCj4gPiA+ID4gPjA2OjAwLjEgRXRo
-ZXJuZXQgY29udHJvbGxlcjogSW50ZWwgQ29ycG9yYXRpb24gODAwMDNFUzJMQU4gR2lnYWJpdCBF
-dGhlcm5ldAo+ID4gPiA+ID5Db250cm9sbGVyIChDb3BwZXIpIChyZXYgMDEpCj4gPiA+ID4gPjA5
-OjAwLjAgRXRoZXJuZXQgY29udHJvbGxlcjogSW50ZWwgQ29ycG9yYXRpb24gODI1NzRMIEdpZ2Fi
-aXQgTmV0d29yawo+ID4gPiA+ID5Db25uZWN0aW9uCj4gPiA+ID4gCj4gPiA+ID4gQ291bGQgeW91
-IHByb3ZpZGUgdGhlIG91dHB1dCBvZiBsc3BjaSAtdnZ2IGFuZCBhIGtlcm5lbCBjb25maWc/Cgot
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0KTm9raWEgYW5kIEFUJlQgcHJlc2VudCB0aGUgMjAxMCBDYWxs
-aW5nIEFsbCBJbm5vdmF0b3JzLU5vcnRoIEFtZXJpY2EgY29udGVzdApDcmVhdGUgbmV3IGFwcHMg
-JiBnYW1lcyBmb3IgdGhlIE5va2lhIE44IGZvciBjb25zdW1lcnMgaW4gIFUuUy4gYW5kIENhbmFk
-YQokMTAgbWlsbGlvbiB0b3RhbCBpbiBwcml6ZXMgLSAkNE0gY2FzaCwgNTAwIGRldmljZXMsIG5l
-YXJseSAkNk0gaW4gbWFya2V0aW5nCkRldmVsb3Agd2l0aCBOb2tpYSBRdCBTREssIFdlYiBSdW50
-aW1lLCBvciBKYXZhIGFuZCBQdWJsaXNoIHRvIE92aSBTdG9yZSAKaHR0cDovL3Auc2YubmV0L3Nm
-dS9ub2tpYS1kZXYyZGV2Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fCkUxMDAwLWRldmVsIG1haWxpbmcgbGlzdApFMTAwMC1kZXZlbEBsaXN0cy5zb3VyY2Vm
-b3JnZS5uZXQKaHR0cHM6Ly9saXN0cy5zb3VyY2Vmb3JnZS5uZXQvbGlzdHMvbGlzdGluZm8vZTEw
-MDAtZGV2ZWwKVG8gbGVhcm4gbW9yZSBhYm91dCBJbnRlbCYjMTc0OyBFdGhlcm5ldCwgdmlzaXQg
-aHR0cDovL2NvbW11bml0aWVzLmludGVsLmNvbS9jb21tdW5pdHkvd2lyZWQK
+On Wed, Oct 20, 2010 at 7:02 PM, David Dillow <dave@thedillows.org> wro=
+te:
+> On Wed, 2010-10-20 at 16:56 -0700, Jesse Gross wrote:
+>> The first eleven patches can be applied immediately, while the last =
+three need
+>> to wait until all drivers that support vlan acceleration are updated=
+=2E =A0If
+>> people agree that this patch set makes sense I will go ahead and swi=
+tch over
+>> the dozen or so drivers that would need to change.
+>
+> Here's a first pass at converting typhoon to the new methods. It is
+> compile tested, but I have to put the hardware back in a machine to d=
+o
+> some testing, which I may not be able to do before the weekend.
+>
+> Of course, we could just change it to not offload by default if we ne=
+ed
+> to push this sooner.
+>
+> Applies to net-next-2.6 with the vlan changes.
+
+This is great, thanks.  Much better to have someone who actually knows
+what's going on, rather than me trying to randomly guess...
