@@ -1,59 +1,66 @@
-From: Valdis.Kletnieks@vt.edu
-Subject: mmotm 2010-10-20 - netfilter Kconfig whinge
-Date: Thu, 21 Oct 2010 07:14:45 -0400
-Message-ID: <83468.1287659685@localhost>
-References: <201010202233.o9KMXNoL008303@imap1.linux-foundation.org>
+From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+Subject: Re: [PATCH] ipv4: synchronize bind() with RTM_NEWADDR notifications
+Date: Thu, 21 Oct 2010 14:29:22 +0300
+Message-ID: <4CC02412.8050000@iki.fi>
+References: <4CC018E1.3000906@iki.fi>	<20101021.035004.212683583.davem@davemloft.net>	<4CC01CC0.7090101@iki.fi> <20101021.040319.191412436.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1287659685_4988P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netfilter@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>,
-	Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from c-98-249-9-36.hsd1.va.comcast.net ([98.249.9.36]:59352 "EHLO
-	turing-police.cc.vt.edu" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756254Ab0JUL3U (ORCPT
-	<RFC822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 07:29:20 -0400
-In-Reply-To: Your message of "Wed, 20 Oct 2010 15:01:43 PDT."
-             <201010202233.o9KMXNoL008303@imap1.linux-foundation.org>
+Received: from mail-ew0-f46.google.com ([209.85.215.46]:60557 "EHLO
+	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757595Ab0JUL3Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 07:29:24 -0400
+Received: by ewy20 with SMTP id 20so5611103ewy.19
+        for <netdev@vger.kernel.org>; Thu, 21 Oct 2010 04:29:23 -0700 (PDT)
+In-Reply-To: <20101021.040319.191412436.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---==_Exmh_1287659685_4988P
-Content-Type: text/plain; charset="us-ascii"
-Content-Id: <83421.1287659675.1@localhost>
+On 10/21/2010 02:03 PM, David Miller wrote:
+> From: Timo Ter=E4s <timo.teras@iki.fi>
+> Date: Thu, 21 Oct 2010 13:58:08 +0300
+>=20
+>> On 10/21/2010 01:50 PM, David Miller wrote:
+>>> From: Timo Ter=E4s <timo.teras@iki.fi>
+>>> Date: Thu, 21 Oct 2010 13:41:37 +0300
+>>>
+>>>> Is inet_bind() called from non-userland context? If yes, then this=
+ is a
+>>>> bad idea. Otherwise I don't think it's that hot path...
+>>>
+>>> It is.
+>>
+>> Yet, almost immediately after that there is lock_sock() which can al=
+so
+>> sleep. How does that work then?
+>=20
+> RTNL interlocks globally with a heavy primitive, a mutex, lock_sock()
+> grabs a spinlcok which is local to the socket's context.
+>=20
+> So if we have 100,000 sockets binding we'll suck with you're change
+> whereas the lock_sock() does not cause that problem.
+>=20
+> Is this so difficult for you to comprehend?
 
-On Wed, 20 Oct 2010 15:01:43 PDT, akpm@linux-foundation.org said:
-> The mm-of-the-moment snapshot 2010-10-20-15-01 has been uploaded to
-> 
->    http://userweb.kernel.org/~akpm/mmotm/
+I was confused with Dave's original reply "It is." as referring to that
+inet_bind() can get called from non-userland context. But apparently yo=
+u
+just meant that "It is (bad idea regardless)."
 
-Seen during 'make oldconfig':
+I thought the problem was possible sleeping, and not contention. Which
+became very obvious from Eric's example. I didn't realize that many do
+bind()/recv()/send() as general workload.
 
-      Input subsystem LEDs Trigger (LEDS_TRIGGER_INPUT) [N/m/y/?] (NEW) m
-      *
-      * iptables trigger is under Netfilter config (LED target)
-      *
-warning: (NETFILTER_XT_MATCH_REALM && NET && INET && NETFILTER && NETFILTER_XTABLES && NETFILTER_ADVANCED || NET_CLS_ROUTE4 && NET && NET_SCHED) selects NET_CLS_ROUTE which has unmet direct dependencies (NET && NET_SCHED)
-#
-# configuration written to .config
-#
+Sorry for not seeing the obvious.
 
+This is the third time asking, what would be a good way to fix the
+problem described in the original commit log?
 
+Changing RTM_NEWADDR after FIB update would break Netlink event
+ordering. And this breaks performance. I can't really use RTN_LOCAL
+RTM_NEWROUTE events since (at least IPv6 side) has incorrect ifindex.
 
-
---==_Exmh_1287659685_4988P
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Exmh version 2.5 07/13/2001
-
-iD8DBQFMwCClcC3lWbTT17ARAg7cAJ9oCFBplj1ZieJYUE/KekUlN2EDBQCg/sFO
-kGtt3GnuTFCWAtxwO5TZCSE=
-=XEit
------END PGP SIGNATURE-----
-
---==_Exmh_1287659685_4988P--
+Should inet_addr_type() be rewritten to not use FIB lookups?
