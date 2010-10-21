@@ -1,57 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ipv4: synchronize bind() with RTM_NEWADDR notifications
-Date: Thu, 21 Oct 2010 13:12:57 +0200
-Message-ID: <1287659577.6871.69.camel@edumazet-laptop>
-References: <1287655930-16879-1-git-send-email-timo.teras@iki.fi>
-	 <1287656753.6871.46.camel@edumazet-laptop>	<4CC018E1.3000906@iki.fi>
-	 <20101021.035004.212683583.davem@davemloft.net>  <4CC01CC0.7090101@iki.fi>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [RFC PATCH 5/9] ipvs network name space aware
+Date: Thu, 21 Oct 2010 13:16:47 +0200
+Message-ID: <20101021111644.GA25555@verge.net.au>
+References: <201010081317.04167.hans.schillstrom@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Timo =?ISO-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:53156 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756551Ab0JULND (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 07:13:03 -0400
-Received: by wwf26 with SMTP id 26so2421015wwf.1
-        for <netdev@vger.kernel.org>; Thu, 21 Oct 2010 04:13:01 -0700 (PDT)
-In-Reply-To: <4CC01CC0.7090101@iki.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, ja@ssi.bg, wensong@linux-vs.org,
+	daniel.lezcano@free.fr
+To: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <201010081317.04167.hans.schillstrom@ericsson.com>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le jeudi 21 octobre 2010 =C3=A0 13:58 +0300, Timo Ter=C3=A4s a =C3=A9cr=
-it :
-> On 10/21/2010 01:50 PM, David Miller wrote:
-> > From: Timo Ter=C3=A4s <timo.teras@iki.fi>
-> > Date: Thu, 21 Oct 2010 13:41:37 +0300
-> >=20
-> >> Is inet_bind() called from non-userland context? If yes, then this=
- is a
-> >> bad idea. Otherwise I don't think it's that hot path...
-> >=20
-> > It is.
->=20
-> Yet, almost immediately after that there is lock_sock() which can als=
-o
-> sleep. How does that work then?
->=20
+On Fri, Oct 08, 2010 at 01:17:02PM +0200, Hans Schillstrom wrote:
+> This patch just contains ip_vs_ctl
+> 
+> Signed-off-by:Hans Schillstrom <hans.schillstrom@ericsson.com>
+> 
+> diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+> index ca8ec8c..7e99cbc 100644
+> --- a/net/netfilter/ipvs/ip_vs_ctl.c
+> +++ b/net/netfilter/ipvs/ip_vs_ctl.c
 
-I am not sure I understand your question. Maybe my answer wont be clear=
-=2E
+[ snip ]
 
-rtnl_lock() can take ages on some setups, because its using one single
-and shared mutex. Its use should be restricted to administrative
-purposes.
+> @@ -2680,10 +2664,15 @@ static int ip_vs_genl_dump_services(struct sk_buff *skb,
+>  	int idx = 0, i;
+>  	int start = cb->args[0];
+>  	struct ip_vs_service *svc;
+> -
+> +	struct net *net = skb->sk->sk_net;
 
-bind() is a pretty hot path on many workloads, this is hardly what we
-call an administrative task.
+skb->sk->sk_net needs CONFIG_NS_NET.
+Is your plan for IPVS to unconditionally depend on CONFIG_NS_NET?
+It would be nice to avoid that, but I fear it will be too messy.
 
-lock_sock() uses a per socket lock, and it is a _bit_ more scalable, yo=
-u
-can have 4096 cpus all using bind()/recv()/send()/... at the same time,
-it just works.
+> +	struct netns_ipvs *ipvs;
+> +	if (!net)
+> +		net = dev_net(skb->dev);
+> +	BUG_ON(!net);
+> +	ipvs = net->ipvs;
+>  	mutex_lock(&__ip_vs_mutex);
+>  	for (i = 0; i < IP_VS_SVC_TAB_SIZE; i++) {
+> -		list_for_each_entry(svc, &ip_vs_svc_table[i], s_list) {
+> +		list_for_each_entry(svc, &ipvs->ctl_svc_table[i], s_list) {
+>  			if (++idx <= start)
+>  				continue;
+>  			if (ip_vs_genl_dump_service(skb, svc, cb) < 0) {
 
-
-
+[ snip ]
