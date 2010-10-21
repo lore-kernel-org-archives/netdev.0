@@ -1,7 +1,7 @@
 From: kaber@trash.net
-Subject: [PATCH 50/72] ipvs: move ip_route_me_harder for ICMP
-Date: Thu, 21 Oct 2010 17:19:37 +0200
-Message-ID: <1287674399-31455-51-git-send-email-kaber@trash.net>
+Subject: [PATCH 56/72] tproxy: add lookup type checks for UDP in nf_tproxy_get_sock_v4()
+Date: Thu, 21 Oct 2010 17:19:43 +0200
+Message-ID: <1287674399-31455-57-git-send-email-kaber@trash.net>
 References: <1287674399-31455-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
@@ -10,97 +10,208 @@ In-Reply-To: <1287674399-31455-1-git-send-email-kaber@trash.net>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Julian Anastasov <ja@ssi.bg>
+From: Balazs Scheidler <bazsi@balabit.hu>
 
- 	Currently, ip_route_me_harder after ip_vs_out_icmp
-is called even if packet is not related to IPVS connection.
-Move it into handle_response_icmp. Also, force rerouting
-if sending to local client because IPv4 stack uses addresses
-from the route.
+Also, inline this function as the lookup_type is always a literal
+and inlining removes branches performed at runtime.
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Signed-off-by: Balazs Scheidler <bazsi@balabit.hu>
+Signed-off-by: KOVACS Krisztian <hidden@balabit.hu>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- net/netfilter/ipvs/ip_vs_core.c |   41 ++++++++++++++++++++-------------------
- 1 files changed, 21 insertions(+), 20 deletions(-)
+ include/net/netfilter/nf_tproxy_core.h |  116 +++++++++++++++++++++++++++++++-
+ net/netfilter/nf_tproxy_core.c         |   48 -------------
+ 2 files changed, 114 insertions(+), 50 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-index f7f5283..c4f091d 100644
---- a/net/netfilter/ipvs/ip_vs_core.c
-+++ b/net/netfilter/ipvs/ip_vs_core.c
-@@ -702,6 +702,17 @@ static int handle_response_icmp(int af, struct sk_buff *skb,
- #endif
- 		ip_vs_nat_icmp(skb, pp, cp, 1);
+diff --git a/include/net/netfilter/nf_tproxy_core.h b/include/net/netfilter/nf_tproxy_core.h
+index b3a8942..1027d7f 100644
+--- a/include/net/netfilter/nf_tproxy_core.h
++++ b/include/net/netfilter/nf_tproxy_core.h
+@@ -13,11 +13,123 @@
+ #define NFT_LOOKUP_ESTABLISHED 2
  
-+#ifdef CONFIG_IP_VS_IPV6
-+	if (af == AF_INET6) {
-+		if (sysctl_ip_vs_snat_reroute && ip6_route_me_harder(skb) != 0)
-+			goto out;
-+	} else
-+#endif
-+		if ((sysctl_ip_vs_snat_reroute ||
-+		     skb_rtable(skb)->rt_flags & RTCF_LOCAL) &&
-+		    ip_route_me_harder(skb, RTN_LOCAL) != 0)
-+			goto out;
+ /* look up and get a reference to a matching socket */
+-extern struct sock *
 +
- 	/* do the statistics and put it back */
- 	ip_vs_out_stats(cp, skb);
++
++/* This function is used by the 'TPROXY' target and the 'socket'
++ * match. The following lookups are supported:
++ *
++ * Explicit TProxy target rule
++ * ===========================
++ *
++ * This is used when the user wants to intercept a connection matching
++ * an explicit iptables rule. In this case the sockets are assumed
++ * matching in preference order:
++ *
++ *   - match: if there's a fully established connection matching the
++ *     _packet_ tuple, it is returned, assuming the redirection
++ *     already took place and we process a packet belonging to an
++ *     established connection
++ *
++ *   - match: if there's a listening socket matching the redirection
++ *     (e.g. on-port & on-ip of the connection), it is returned,
++ *     regardless if it was bound to 0.0.0.0 or an explicit
++ *     address. The reasoning is that if there's an explicit rule, it
++ *     does not really matter if the listener is bound to an interface
++ *     or to 0. The user already stated that he wants redirection
++ *     (since he added the rule).
++ *
++ * "socket" match based redirection (no specific rule)
++ * ===================================================
++ *
++ * There are connections with dynamic endpoints (e.g. FTP data
++ * connection) that the user is unable to add explicit rules
++ * for. These are taken care of by a generic "socket" rule. It is
++ * assumed that the proxy application is trusted to open such
++ * connections without explicit iptables rule (except of course the
++ * generic 'socket' rule). In this case the following sockets are
++ * matched in preference order:
++ *
++ *   - match: if there's a fully established connection matching the
++ *     _packet_ tuple
++ *
++ *   - match: if there's a non-zero bound listener (possibly with a
++ *     non-local address) We don't accept zero-bound listeners, since
++ *     then local services could intercept traffic going through the
++ *     box.
++ *
++ * Please note that there's an overlap between what a TPROXY target
++ * and a socket match will match. Normally if you have both rules the
++ * "socket" match will be the first one, effectively all packets
++ * belonging to established connections going through that one.
++ */
++static inline struct sock *
+ nf_tproxy_get_sock_v4(struct net *net, const u8 protocol,
+ 		      const __be32 saddr, const __be32 daddr,
+ 		      const __be16 sport, const __be16 dport,
+-		      const struct net_device *in, int lookup_type);
++		      const struct net_device *in, int lookup_type)
++{
++	struct sock *sk;
++
++	/* look up socket */
++	switch (protocol) {
++	case IPPROTO_TCP:
++		switch (lookup_type) {
++		case NFT_LOOKUP_ANY:
++			sk = __inet_lookup(net, &tcp_hashinfo,
++					   saddr, sport, daddr, dport,
++					   in->ifindex);
++			break;
++		case NFT_LOOKUP_LISTENER:
++			sk = inet_lookup_listener(net, &tcp_hashinfo,
++						    daddr, dport,
++						    in->ifindex);
++
++			/* NOTE: we return listeners even if bound to
++			 * 0.0.0.0, those are filtered out in
++			 * xt_socket, since xt_TPROXY needs 0 bound
++			 * listeners too */
++
++			break;
++		case NFT_LOOKUP_ESTABLISHED:
++			sk = inet_lookup_established(net, &tcp_hashinfo,
++						    saddr, sport, daddr, dport,
++						    in->ifindex);
++			break;
++		default:
++			WARN_ON(1);
++			sk = NULL;
++			break;
++		}
++		break;
++	case IPPROTO_UDP:
++		sk = udp4_lib_lookup(net, saddr, sport, daddr, dport,
++				     in->ifindex);
++		if (sk && lookup_type != NFT_LOOKUP_ANY) {
++			int connected = (sk->sk_state == TCP_ESTABLISHED);
++			int wildcard = (inet_sk(sk)->inet_rcv_saddr == 0);
++
++			/* NOTE: we return listeners even if bound to
++			 * 0.0.0.0, those are filtered out in
++			 * xt_socket, since xt_TPROXY needs 0 bound
++			 * listeners too */
++			if ((lookup_type == NFT_LOOKUP_ESTABLISHED && (!connected || wildcard)) ||
++			    (lookup_type == NFT_LOOKUP_LISTENER && connected)) {
++				sock_put(sk);
++				sk = NULL;
++			}
++		}
++		break;
++	default:
++		WARN_ON(1);
++		sk = NULL;
++	}
++
++	pr_debug("tproxy socket lookup: proto %u %08x:%u -> %08x:%u, lookup type: %d, sock %p\n",
++		 protocol, ntohl(saddr), ntohs(sport), ntohl(daddr), ntohs(dport), lookup_type, sk);
++
++	return sk;
++}
++
  
-@@ -940,16 +951,16 @@ handle_response(int af, struct sk_buff *skb, struct ip_vs_protocol *pp,
- 	 * if it came from this machine itself.  So re-compute
- 	 * the routing information.
- 	 */
--	if (sysctl_ip_vs_snat_reroute) {
- #ifdef CONFIG_IP_VS_IPV6
--		if (af == AF_INET6) {
--			if (ip6_route_me_harder(skb) != 0)
--				goto drop;
--		} else
-+	if (af == AF_INET6) {
-+		if (sysctl_ip_vs_snat_reroute && ip6_route_me_harder(skb) != 0)
-+			goto drop;
-+	} else
- #endif
--			if (ip_route_me_harder(skb, RTN_LOCAL) != 0)
--				goto drop;
+ static inline void
+ nf_tproxy_put_sock(struct sock *sk)
+diff --git a/net/netfilter/nf_tproxy_core.c b/net/netfilter/nf_tproxy_core.c
+index 8589e5e..db65563 100644
+--- a/net/netfilter/nf_tproxy_core.c
++++ b/net/netfilter/nf_tproxy_core.c
+@@ -18,54 +18,6 @@
+ #include <net/udp.h>
+ #include <net/netfilter/nf_tproxy_core.h>
+ 
+-struct sock *
+-nf_tproxy_get_sock_v4(struct net *net, const u8 protocol,
+-		      const __be32 saddr, const __be32 daddr,
+-		      const __be16 sport, const __be16 dport,
+-		      const struct net_device *in, int lookup_type)
+-{
+-	struct sock *sk;
+-
+-	/* look up socket */
+-	switch (protocol) {
+-	case IPPROTO_TCP:
+-		switch (lookup_type) {
+-		case NFT_LOOKUP_ANY:
+-			sk = __inet_lookup(net, &tcp_hashinfo,
+-					   saddr, sport, daddr, dport,
+-					   in->ifindex);
+-			break;
+-		case NFT_LOOKUP_LISTENER:
+-			sk = inet_lookup_listener(net, &tcp_hashinfo,
+-						    daddr, dport,
+-						    in->ifindex);
+-			break;
+-		case NFT_LOOKUP_ESTABLISHED:
+-			sk = inet_lookup_established(net, &tcp_hashinfo,
+-						    saddr, sport, daddr, dport,
+-						    in->ifindex);
+-			break;
+-		default:
+-			WARN_ON(1);
+-			sk = NULL;
+-			break;
+-		}
+-		break;
+-	case IPPROTO_UDP:
+-		sk = udp4_lib_lookup(net, saddr, sport, daddr, dport,
+-				     in->ifindex);
+-		break;
+-	default:
+-		WARN_ON(1);
+-		sk = NULL;
 -	}
-+		if ((sysctl_ip_vs_snat_reroute ||
-+		     skb_rtable(skb)->rt_flags & RTCF_LOCAL) &&
-+		    ip_route_me_harder(skb, RTN_LOCAL) != 0)
-+			goto drop;
+-
+-	pr_debug("tproxy socket lookup: proto %u %08x:%u -> %08x:%u, lookup type: %d, sock %p\n",
+-		 protocol, ntohl(saddr), ntohs(sport), ntohl(daddr), ntohs(dport), lookup_type, sk);
+-
+-	return sk;
+-}
+-EXPORT_SYMBOL_GPL(nf_tproxy_get_sock_v4);
  
- 	IP_VS_DBG_PKT(10, pp, skb, 0, "After SNAT");
- 
-@@ -1001,13 +1012,8 @@ ip_vs_out(unsigned int hooknum, struct sk_buff *skb,
- 			int verdict = ip_vs_out_icmp_v6(skb, &related,
- 							hooknum);
- 
--			if (related) {
--				if (sysctl_ip_vs_snat_reroute &&
--					NF_ACCEPT == verdict &&
--					ip6_route_me_harder(skb))
--					verdict = NF_DROP;
-+			if (related)
- 				return verdict;
--			}
- 			ip_vs_fill_iphdr(af, skb_network_header(skb), &iph);
- 		}
- 	} else
-@@ -1016,13 +1022,8 @@ ip_vs_out(unsigned int hooknum, struct sk_buff *skb,
- 			int related;
- 			int verdict = ip_vs_out_icmp(skb, &related, hooknum);
- 
--			if (related) {
--				if (sysctl_ip_vs_snat_reroute &&
--					NF_ACCEPT == verdict &&
--					ip_route_me_harder(skb, RTN_LOCAL))
--					verdict = NF_DROP;
-+			if (related)
- 				return verdict;
--			}
- 			ip_vs_fill_iphdr(af, skb_network_header(skb), &iph);
- 		}
- 
+ static void
+ nf_tproxy_destructor(struct sk_buff *skb)
 -- 
 1.7.1
 
