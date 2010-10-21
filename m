@@ -1,75 +1,183 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [RFC PATCH 1/9] ipvs network name space aware
-Date: Thu, 21 Oct 2010 08:18:06 -0700
-Message-ID: <20101021151806.GC2363@linux.vnet.ibm.com>
-References: <201010081316.46690.hans.schillstrom@ericsson.com>
- <201010201025.20950.hans.schillstrom@ericsson.com>
- <20101020160205.GB2386@linux.vnet.ibm.com>
- <201010210945.55252.hans.schillstrom@ericsson.com>
- <1287648072.6871.15.camel@edumazet-laptop>
-Reply-To: paulmck@linux.vnet.ibm.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Hans Schillstrom <hans.schillstrom@ericsson.com>,
-	Daniel Lezcano <daniel.lezcano@free.fr>,
-	"lvs-devel@vger.kernel.org" <lvs-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"horms@verge.net.au" <horms@verge.net.au>, "ja@ssi.bg" <ja@ssi.bg>,
-	"wensong@linux-vs.org" <wensong@linux-vs.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: kaber@trash.net
+Subject: [PATCH 06/72] ipvs: extend connection flags to 32 bits
+Date: Thu, 21 Oct 2010 17:18:53 +0200
+Message-ID: <1287674399-31455-7-git-send-email-kaber@trash.net>
+References: <1287674399-31455-1-git-send-email-kaber@trash.net>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:39747 "EHLO e2.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751025Ab0JUPSI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Oct 2010 11:18:08 -0400
-Content-Disposition: inline
-In-Reply-To: <1287648072.6871.15.camel@edumazet-laptop>
+Received: from stinky.trash.net ([213.144.137.162]:59989 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752149Ab0JUPUD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 11:20:03 -0400
+In-Reply-To: <1287674399-31455-1-git-send-email-kaber@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 21, 2010 at 10:01:12AM +0200, Eric Dumazet wrote:
-> Le jeudi 21 octobre 2010 =E0 09:45 +0200, Hans Schillstrom a =E9crit =
-:
-> > I do have this (and some debuging)
-> > __rcu_read_lock()
-> > =3D> 0xffffffff8108bcf3 <+0>:	push   %rbp
-> >    0xffffffff8108bcf4 <+1>:	mov    %rsp,%rbp
-> >    0xffffffff8108bcf7 <+4>:	nopl   0x0(%rax,%rax,1)
-> >    0xffffffff8108bcfc <+9>:	mov    %gs:0xb540,%rax
-> >    0xffffffff8108bd05 <+18>:	mov    0x108(%rax),%edx
-> >    0xffffffff8108bd0b <+24>:	inc    %edx
-> >    0xffffffff8108bd0d <+26>:	mov    %edx,0x108(%rax)
-> >    0xffffffff8108bd13 <+32>:	leaveq
-> >    0xffffffff8108bd14 <+33>:	retq
-> >=20
-> > which is not that many, actually imprerssing few instructions :-)
->=20
-> nopl   0x0(%rax,%rax,1) is a filler because of extra instrumentation =
-in
-> your kernel.
->=20
-> Maybe you could find out why your compiler dont use
->=20
-> 	incl 0x108(%rax)
->=20
-> instead of
->=20
-> 	mov    0x108(%rax),%edx
-> 	inc    %edx
-> 	mov    %edx,0x108(%rax)
->=20
->=20
-> So rcu_read_lock() is really _two_ instructions.
->=20
-> I agree with Paul with the "few" qualification... :-)
+From: Julian Anastasov <ja@ssi.bg>
 
-Thank you!  ;-)
+- the sync protocol supports 16 bits only, so bits 0..15 should be
+used only for flags that should go to backup server, bits 16 and
+above should be allocated for flags not sent to backup.
 
-And the reason for the three-instruction shuffle is that Hans's kernel
-does not yet contain commit 80dcf60e.  That commit is on its way upstre=
-am,
-and will hopefully make the current merge window.
+- use IP_VS_CONN_F_DEST_MASK as mask of connection flags in
+destination that can be changed by user space
 
-							Thanx, Paul
+- allow IP_VS_CONN_F_ONE_PACKET to be set in destination
+
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+---
+ include/linux/ip_vs.h           |    8 ++++++++
+ include/net/ip_vs.h             |    2 +-
+ net/netfilter/ipvs/ip_vs_conn.c |   16 ++++++++++------
+ net/netfilter/ipvs/ip_vs_core.c |   11 ++++++-----
+ net/netfilter/ipvs/ip_vs_ctl.c  |    5 +++--
+ 5 files changed, 28 insertions(+), 14 deletions(-)
+
+diff --git a/include/linux/ip_vs.h b/include/linux/ip_vs.h
+index 9708de2..003d75f 100644
+--- a/include/linux/ip_vs.h
++++ b/include/linux/ip_vs.h
+@@ -70,6 +70,7 @@
+ 
+ /*
+  *      IPVS Connection Flags
++ *      Only flags 0..15 are sent to backup server
+  */
+ #define IP_VS_CONN_F_FWD_MASK	0x0007		/* mask for the fwd methods */
+ #define IP_VS_CONN_F_MASQ	0x0000		/* masquerading/NAT */
+@@ -88,6 +89,13 @@
+ #define IP_VS_CONN_F_TEMPLATE	0x1000		/* template, not connection */
+ #define IP_VS_CONN_F_ONE_PACKET	0x2000		/* forward only one packet */
+ 
++/* Flags that are not sent to backup server start from bit 16 */
++
++/* Connection flags from destination that can be changed by user space */
++#define IP_VS_CONN_F_DEST_MASK (IP_VS_CONN_F_FWD_MASK | \
++				IP_VS_CONN_F_ONE_PACKET | \
++				0)
++
+ #define IP_VS_SCHEDNAME_MAXLEN	16
+ #define IP_VS_IFNAME_MAXLEN	16
+ 
+diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+index f976885..62698a9 100644
+--- a/include/net/ip_vs.h
++++ b/include/net/ip_vs.h
+@@ -366,6 +366,7 @@ struct ip_vs_conn {
+ 	union nf_inet_addr       caddr;          /* client address */
+ 	union nf_inet_addr       vaddr;          /* virtual address */
+ 	union nf_inet_addr       daddr;          /* destination address */
++	volatile __u32           flags;          /* status flags */
+ 	__be16                   cport;
+ 	__be16                   vport;
+ 	__be16                   dport;
+@@ -378,7 +379,6 @@ struct ip_vs_conn {
+ 
+ 	/* Flags and state transition */
+ 	spinlock_t              lock;           /* lock for state transition */
+-	volatile __u16          flags;          /* status flags */
+ 	volatile __u16          state;          /* state info */
+ 	volatile __u16          old_state;      /* old state, to be used for
+ 						 * state transition triggerd
+diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
+index b71c69a..9fe1da7 100644
+--- a/net/netfilter/ipvs/ip_vs_conn.c
++++ b/net/netfilter/ipvs/ip_vs_conn.c
+@@ -505,6 +505,8 @@ static inline int ip_vs_dest_totalconns(struct ip_vs_dest *dest)
+ static inline void
+ ip_vs_bind_dest(struct ip_vs_conn *cp, struct ip_vs_dest *dest)
+ {
++	unsigned int conn_flags;
++
+ 	/* if dest is NULL, then return directly */
+ 	if (!dest)
+ 		return;
+@@ -512,16 +514,18 @@ ip_vs_bind_dest(struct ip_vs_conn *cp, struct ip_vs_dest *dest)
+ 	/* Increase the refcnt counter of the dest */
+ 	atomic_inc(&dest->refcnt);
+ 
++	conn_flags = atomic_read(&dest->conn_flags);
++	if (cp->protocol != IPPROTO_UDP)
++		conn_flags &= ~IP_VS_CONN_F_ONE_PACKET;
+ 	/* Bind with the destination and its corresponding transmitter */
+-	if ((cp->flags & IP_VS_CONN_F_SYNC) &&
+-	    (!(cp->flags & IP_VS_CONN_F_TEMPLATE)))
++	if (cp->flags & IP_VS_CONN_F_SYNC) {
+ 		/* if the connection is not template and is created
+ 		 * by sync, preserve the activity flag.
+ 		 */
+-		cp->flags |= atomic_read(&dest->conn_flags) &
+-			     (~IP_VS_CONN_F_INACTIVE);
+-	else
+-		cp->flags |= atomic_read(&dest->conn_flags);
++		if (!(cp->flags & IP_VS_CONN_F_TEMPLATE))
++			conn_flags &= ~IP_VS_CONN_F_INACTIVE;
++	}
++	cp->flags |= conn_flags;
+ 	cp->dest = dest;
+ 
+ 	IP_VS_DBG_BUF(7, "Bind-dest %s c:%s:%d v:%s:%d "
+diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
+index 0c043b6..319991d 100644
+--- a/net/netfilter/ipvs/ip_vs_core.c
++++ b/net/netfilter/ipvs/ip_vs_core.c
+@@ -194,7 +194,7 @@ ip_vs_sched_persist(struct ip_vs_service *svc,
+ 	struct ip_vs_dest *dest;
+ 	struct ip_vs_conn *ct;
+ 	__be16  dport;			/* destination port to forward */
+-	__be16  flags;
++	unsigned int flags;
+ 	union nf_inet_addr snet;	/* source network of the client,
+ 					   after masking */
+ 
+@@ -382,7 +382,8 @@ ip_vs_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
+ 	struct ip_vs_conn *cp = NULL;
+ 	struct ip_vs_iphdr iph;
+ 	struct ip_vs_dest *dest;
+-	__be16 _ports[2], *pptr, flags;
++	__be16 _ports[2], *pptr;
++	unsigned int flags;
+ 
+ 	ip_vs_fill_iphdr(svc->af, skb_network_header(skb), &iph);
+ 	pptr = skb_header_pointer(skb, iph.len, sizeof(_ports), _ports);
+@@ -473,9 +474,9 @@ int ip_vs_leave(struct ip_vs_service *svc, struct sk_buff *skb,
+ 	if (sysctl_ip_vs_cache_bypass && svc->fwmark && unicast) {
+ 		int ret, cs;
+ 		struct ip_vs_conn *cp;
+-		__u16 flags = (svc->flags & IP_VS_SVC_F_ONEPACKET &&
+-				iph.protocol == IPPROTO_UDP)?
+-				IP_VS_CONN_F_ONE_PACKET : 0;
++		unsigned int flags = (svc->flags & IP_VS_SVC_F_ONEPACKET &&
++				      iph.protocol == IPPROTO_UDP)?
++				      IP_VS_CONN_F_ONE_PACKET : 0;
+ 		union nf_inet_addr daddr =  { .all = { 0, 0, 0, 0 } };
+ 
+ 		ip_vs_service_put(svc);
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index ca8ec8c..7bd41d2 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -765,7 +765,8 @@ __ip_vs_update_dest(struct ip_vs_service *svc,
+ 
+ 	/* set the weight and the flags */
+ 	atomic_set(&dest->weight, udest->weight);
+-	conn_flags = udest->conn_flags | IP_VS_CONN_F_INACTIVE;
++	conn_flags = udest->conn_flags & IP_VS_CONN_F_DEST_MASK;
++	conn_flags |= IP_VS_CONN_F_INACTIVE;
+ 
+ 	/* check if local node and update the flags */
+ #ifdef CONFIG_IP_VS_IPV6
+@@ -782,7 +783,7 @@ __ip_vs_update_dest(struct ip_vs_service *svc,
+ 		}
+ 
+ 	/* set the IP_VS_CONN_F_NOOUTPUT flag if not masquerading/NAT */
+-	if ((conn_flags & IP_VS_CONN_F_FWD_MASK) != 0) {
++	if ((conn_flags & IP_VS_CONN_F_FWD_MASK) != IP_VS_CONN_F_MASQ) {
+ 		conn_flags |= IP_VS_CONN_F_NOOUTPUT;
+ 	} else {
+ 		/*
+-- 
+1.7.1
+
