@@ -1,26 +1,35 @@
-From: nhorman@tuxdriver.com
-Subject: [PATCH] tipc: revert some previously ABI breaking changes to the user space tipc interface
-Date: Thu, 21 Oct 2010 07:06:14 -0400
-Message-ID: <1287659176-14504-1-git-send-email-nhorman@tuxdriver.com>
-Cc: davem@davemloft.net, jon.maloy@ericsson.com,
-	paul.gortmaker@windriver.com,
-	tipc-discussion@lists.sourceforge.net, luca@llucax.com.ar,
-	nhorman@tuxdriver.com
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net/core: Allow tagged VLAN packets to flow through
+ VETH devices.
+Date: Thu, 21 Oct 2010 04:07:17 -0700 (PDT)
+Message-ID: <20101021.040717.241928814.davem@davemloft.net>
+References: <1287167705-28583-1-git-send-email-greearb@candelatech.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: greearb@candelatech.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:49635 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757023Ab0JULGh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 07:06:37 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60697
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757352Ab0JULGz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 07:06:55 -0400
+In-Reply-To: <1287167705-28583-1-git-send-email-greearb@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Based on discussions with Leandro Lucarella and Jon Maloy, it appears we've
-managed to break the TIPC user space ABI.  While it would be really nice to have
-some level of consistency in regards to on the wire byte order, we can't do that
-if it breaks user space.  This patch series reverts the offending patches that
-caused this, and puts us back in a state that allows user space to work
-properly.  We can now go back and look at methods to get consistent on the wire
-byte order while maintaining host byte order in the user space API.
+From: Ben Greear <greearb@candelatech.com>
+Date: Fri, 15 Oct 2010 11:35:05 -0700
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> When there are VLANs on a VETH device, the packets being transmitted
+> through the VETH device may be 4 bytes bigger than MTU.  A check
+> in dev_forward_skb did not take this into account and so dropped
+> these packets.
+> 
+> This patch is needed at least as far back as 2.6.34.7 and should
+> be considered for -stable.
+> 
+> Signed-off-by: Ben Greear <greearb@candelatech.com>
+
+Applied, although a check of the vlan-capable netdev flag
+might be appropriate to add.
