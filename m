@@ -1,35 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH 0/5] enic: updates to version 1.4.1.6
-Date: Thu, 21 Oct 2010 01:34:20 -0700 (PDT)
-Message-ID: <20101021.013420.59669081.davem@davemloft.net>
-References: <20101020201609.26870.80308.stgit@savbu-pc100.cisco.com>
+Subject: Re: [PATCH 0/8] r8169 patches for net-next v2
+Date: Thu, 21 Oct 2010 01:35:13 -0700 (PDT)
+Message-ID: <20101021.013513.115924529.davem@davemloft.net>
+References: <1287649543-6569-1-git-send-email-sgruszka@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roprabhu@cisco.com, dwang2@cisco.com
-To: vkolluri@cisco.com
+Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org, kirjanov@gmail.com
+To: sgruszka@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33470
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33474
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750907Ab0JUId5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 04:33:57 -0400
-In-Reply-To: <20101020201609.26870.80308.stgit@savbu-pc100.cisco.com>
+	by vger.kernel.org with ESMTP id S1750915Ab0JUIev (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 04:34:51 -0400
+In-Reply-To: <1287649543-6569-1-git-send-email-sgruszka@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vasanthy Kolluri <vkolluri@cisco.com>
-Date: Wed, 20 Oct 2010 13:16:53 -0700
+From: Stanislaw Gruszka <sgruszka@redhat.com>
+Date: Thu, 21 Oct 2010 10:25:35 +0200
 
-> The following patch series implements enic driver updates:
+> v1 -> v2
+> - update to current code and some minor changes/cleanups
+> - do not return NETDEV_TX_BUSY from start_xmit when mapping fail (patch 1)
+> - add missing unlikely (patch 1)
+> - account tx bytes based on skb->len (patch 5)
+> - new patches: changing mtu clean up, (re)init phy on resume
+> - add net_ratelimit (patch 8)
 > 
-> 1/5 - Add support for multiple hardware receive queues
-> 2/5 - Make firmware cognizant of the user set mac address
-> 3/5 - Replace firmware devcmd CMD_ENABLE with CMD_ENABLE_WAIT
-> 4/5 - Change min MTU
-> 5/5 - Fix log message
-> 
-> Signed-off-by: Vasanthy Kolluri <vkolluri@cisco.com>
-> Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
-> Signed-off-by: David Wang <dwang2@cisco.com>
+> All patches in series was tested on RTL8111/8168B
 
-All applied, thanks.
+All applied, thank you.
