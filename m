@@ -1,22 +1,34 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH v2 7/9] tproxy: added IPv6 support to the TPROXY target
-Date: Thu, 21 Oct 2010 16:17:59 +0200
-Message-ID: <4CC04B97.8030906@trash.net>
-References: <20101021104709.5192.31249.stgit@este.odu> <20101021104709.5192.99755.stgit@este.odu>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/3] cxgb3: function namespace cleanup
+Date: Thu, 21 Oct 2010 07:19:31 -0700 (PDT)
+Message-ID: <20101021.071931.226776481.davem@davemloft.net>
+References: <20101015224309.179898823@vyatta.com>
+	<20101015224523.536739529@vyatta.com>
+	<4CBCF10C.4010900@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Balazs Scheidler <bazsi@balabit.hu>,
-	David Miller <davem@davemloft.net>
-To: KOVACS Krisztian <hidden@balabit.hu>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20101021104709.5192.99755.stgit@este.odu>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: shemminger@vyatta.com, leedom@chelsio.com, dm@chelsio.com,
+	netdev@vger.kernel.org
+To: divy@chelsio.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49525
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932274Ab0JUOTI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 10:19:08 -0400
+In-Reply-To: <4CBCF10C.4010900@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am 21.10.2010 12:47, schrieb KOVACS Krisztian:
-> This requires a new revision as the old target structure was
-> IPv4 specific.
+From: Divy Le Ray <divy@chelsio.com>
+Date: Mon, 18 Oct 2010 18:14:52 -0700
 
-Applied, thanks.
+>  On 10/15/2010 03:43 PM, Stephen Hemminger wrote:
+>> Make local functions static. Remove functions that are
+>> defined and never used. Compile tested only.
+>>
+>> Signed-off-by: Stephen Hemminger<shemminger@vyatta.com>
+> 
+> Acked-by: Divy Le Ray <divy@chelsio.com>
+
+Applied.
