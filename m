@@ -1,16 +1,16 @@
 From: Harvey Harrison <harvey.harrison@gmail.com>
-Subject: [PATCH] vmxnet3: remove set_flag_le{16,64} helpers
-Date: Wed, 20 Oct 2010 23:28:37 -0700
-Message-ID: <1287642517-5414-1-git-send-email-harvey.harrison@gmail.com>
+Subject: [PATCHv2] vmxnet3: remove set_flag_le{16,64} helpers
+Date: Wed, 20 Oct 2010 23:32:01 -0700
+Message-ID: <1287642721-5997-1-git-send-email-harvey.harrison@gmail.com>
 Cc: netdev@vger.kernel.org, shemminger@vyatta.com
 To: sbhatewara@vmware.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f174.google.com ([209.85.212.174]:41026 "EHLO
+Received: from mail-px0-f174.google.com ([209.85.212.174]:55816 "EHLO
 	mail-px0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750959Ab0JUG2q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 02:28:46 -0400
-Received: by pxi16 with SMTP id 16so1087286pxi.19
-        for <netdev@vger.kernel.org>; Wed, 20 Oct 2010 23:28:46 -0700 (PDT)
+	with ESMTP id S1757131Ab0JUGcH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 02:32:07 -0400
+Received: by pxi16 with SMTP id 16so1087583pxi.19
+        for <netdev@vger.kernel.org>; Wed, 20 Oct 2010 23:32:07 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -18,13 +18,15 @@ It's easier to just annotate the constants as little endian types and set/clear
 the flags directly.
 
 Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
----
+---i
+Sorry, missed a git add and left a line out of the previous patch.
+
  drivers/net/vmxnet3/upt1_defs.h       |    8 +++---
  drivers/net/vmxnet3/vmxnet3_defs.h    |    6 ++--
- drivers/net/vmxnet3/vmxnet3_drv.c     |   35 +++++++-------------------------
+ drivers/net/vmxnet3/vmxnet3_drv.c     |   37 ++++++++-------------------------
  drivers/net/vmxnet3/vmxnet3_ethtool.c |   14 +++++-------
  drivers/net/vmxnet3/vmxnet3_int.h     |    4 ---
- 5 files changed, 21 insertions(+), 46 deletions(-)
+ 5 files changed, 22 insertions(+), 47 deletions(-)
 
 diff --git a/drivers/net/vmxnet3/upt1_defs.h b/drivers/net/vmxnet3/upt1_defs.h
 index 37108fb..969c751 100644
@@ -62,7 +64,7 @@ index ca7727b..4d84912 100644
  
  struct Vmxnet3_PM_PktFilter {
 diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
-index 198ce92..ce292d4 100644
+index 198ce92..c8d1a14 100644
 --- a/drivers/net/vmxnet3/vmxnet3_drv.c
 +++ b/drivers/net/vmxnet3/vmxnet3_drv.c
 @@ -1548,23 +1548,6 @@ vmxnet3_free_irqs(struct vmxnet3_adapter *adapter)
@@ -146,7 +148,14 @@ index 198ce92..ce292d4 100644
  		i++;
  	}
  
-@@ -2642,7 +2623,7 @@ vmxnet3_suspend(struct device *device)
+@@ -2636,13 +2617,13 @@ vmxnet3_suspend(struct device *device)
+ 		pmConf->filters[i].mask[5] = 0x03; /* IPv4 TIP */
+ 		in_dev_put(in_dev);
+ 
+-		set_flag_le16(&pmConf->wakeUpEvents, VMXNET3_PM_WAKEUP_FILTER);
++		pmConf->wakeUpEvents |= VMXNET3_PM_WAKEUP_FILTER;
+ 		i++;
+ 	}
  
  skip_arp:
  	if (adapter->wol & WAKE_MAGIC)
