@@ -1,67 +1,87 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ipv4: synchronize bind() with RTM_NEWADDR notifications
-Date: Thu, 21 Oct 2010 12:25:53 +0200
-Message-ID: <1287656753.6871.46.camel@edumazet-laptop>
-References: <1287655930-16879-1-git-send-email-timo.teras@iki.fi>
+From: KOVACS Krisztian <hidden@balabit.hu>
+Subject: Re: [PATCH 9/9] tproxy: use the interface primary IP address as a
+ default value for --on-ip
+Date: Thu, 21 Oct 2010 12:32:08 +0200
+Message-ID: <1287657128.13326.42.camel@este.odu>
+References: <20101020112118.6260.31618.stgit@este.odu>
+	 <20101020112118.6260.54362.stgit@este.odu>
+	 <alpine.LNX.2.01.1010211051560.22922@obet.zrqbmnf.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Timo =?ISO-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>,
+	David Miller <davem@davemloft.net>
+To: Jan Engelhardt <jengelh@medozas.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:57286 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756443Ab0JUKZ6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 06:25:58 -0400
-Received: by wyb28 with SMTP id 28so4915395wyb.19
-        for <netdev@vger.kernel.org>; Thu, 21 Oct 2010 03:25:57 -0700 (PDT)
-In-Reply-To: <1287655930-16879-1-git-send-email-timo.teras@iki.fi>
+Received: from brother.balabit.com ([195.70.62.219]:35891 "EHLO
+	lists.balabit.hu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755801Ab0JUKcN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 06:32:13 -0400
+In-Reply-To: <alpine.LNX.2.01.1010211051560.22922@obet.zrqbmnf.qr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 21 octobre 2010 =C3=A0 13:12 +0300, Timo Ter=C3=A4s a =C3=A9cr=
-it :
-> Otherwise we have race condition to user land:
->  1. process A changes IP address
->  2. kernel sends RTM_NEWADDR
->  3. process B gets notification
->  4. process B tries to bind() to new IP but that fails with
-> EADDRNOTAVAIL because FIB is not yet updated and inet_addr_type() in
-> inet_bind() does not recognize the IP as local
->  5. kernel calls inetaddr_chain notifiers which updates FIB
->=20
-> IPv6 side seems to handle the notifications properly: bind()
-> immediately after RTM_NEWADDR succeeds as expected. This is because
-> ipv6_chk_addr() uses inet6_addr_lst which is updated before address
-> notification.
->=20
-> Signed-off-by: Timo Ter=C3=A4s <timo.teras@iki.fi>
-> ---
->  net/ipv4/af_inet.c  |    9 +++++++++
->  net/ipv6/af_inet6.c |    4 +++-
->  2 files changed, 12 insertions(+), 1 deletions(-)
->=20
-> diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-> index 6a1100c..21200e4 100644
-> --- a/net/ipv4/af_inet.c
-> +++ b/net/ipv4/af_inet.c
-> @@ -466,6 +466,15 @@ int inet_bind(struct socket *sock, struct sockad=
-dr *uaddr, int addr_len)
->  	if (addr_len < sizeof(struct sockaddr_in))
->  		goto out;
-> =20
-> +	/* Acquire rtnl_lock to synchronize with possible simultaneous
-> +	 * IP-address changes. This is needed because when RTM_NEWADDR
-> +	 * is sent the new IP is not yet in FIB, but alas inet_addr_type
-> +	 * checks the address type using FIB. Acquiring rtnl lock once
-> +	 * makse sure that any address for which RTM_NEWADDR was sent
-> +	 * earlier exists also in FIB. */
-> +	rtnl_lock();
-> +	rtnl_unlock();
+Hi,
 
-You must be kidding ?
+On Thu, 2010-10-21 at 11:12 +0200, Jan Engelhardt wrote:
+> On Wednesday 2010-10-20 13:21, KOVACS Krisztian wrote:
+> >+
+> >+	if (!ipv6_addr_any(user_laddr))
+> >+		return user_laddr;
+> >+	laddr = NULL;
+> >+
+> >+	rcu_read_lock();
+> >+	indev = __in6_dev_get(skb->dev);
+> >+	if (indev)
+> >+		list_for_each_entry(ifa, &indev->addr_list, if_list) {
+> >+			/* FIXME: address selection */
+> 
+> Per our realworld discussion, I believe we should add checks for
+> some conditions (RFC 4862 section 2):
+> 
+> 1. ignore tentative addresses
+> 
+> 	if (ifa->ifa_flags & IFA_F_TENTATIVE)
+> 		continue;
 
-Really, this is a hot path...
+Yep, we should definitely do that.
 
+> 2. tests for when the interface's ifa->preferred_lft == 0/deprecatedness:
+> 
+> 	if (ctinfo == IP_CT_NEW/RELATED && (ifa->ifa_flags & IFA_F_DEPRECATED))
+> 		continue;
+
+Well, we can use the TPROXY target without conntrack so we cannot really
+check if ctinfo==IP_CT_NEW/RELATED. However, we do address selection
+only in case no established socket was found for the skb, so I think
+it's safe to ignore addresses with IFA_F_DEPRECATED set.
+
+Something like
+
+	if (ifa->ifa_flags & (IFA_F_TENTATIVE | IFA_F_DEPRECATED))
+		continue;
+
+> 3. check for invalid addresses
+> (There might be a flag like tentative..)
+> 
+> 	if (ifa->valid_lft == 0)
+> 		continue;
+
+I didn't find such a flag and it seems that valid_lft contains the
+lifetime in seconds, so I think it's not that simple. The addrconf.c
+code does something like this:
+
+	unsigned long age = (jiffies - ifp->tstamp) / HZ;
+	if (age >= ifp->valid_lft) {
+		/* not valid */
+	}
+
+The code also sets the deprecated flag when the preferred lifetime
+expires and I think valid_lft must be less or equal to prefered_lft. If
+this is the case then I think this case should be already covered by
+checking for IFA_F_DEPRECATED above.
+
+--KK
 
 
