@@ -1,46 +1,53 @@
 From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH v2 00/14] Move vlan acceleration into networking core.
-Date: Thu, 21 Oct 2010 12:32:33 -0700
-Message-ID: <AANLkTikiv53_r3vAWa+ejRfBAHmeiUXnWuBR=_1vOR3_@mail.gmail.com>
+Subject: Re: [PATCH v2 07/14] ethtool: Add support for vlan accleration.
+Date: Thu, 21 Oct 2010 12:43:46 -0700
+Message-ID: <AANLkTi=Ws6acYHszNKm0E2ur4AKoim+jBkmiaYvdsa9t@mail.gmail.com>
 References: <1287618974-4714-1-git-send-email-jesse@nicira.com>
-	<1287626579.11431.9.camel@obelisk.thedillows.org>
+	<1287618974-4714-8-git-send-email-jesse@nicira.com>
+	<4CBFB320.2060703@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: David Dillow <dave@thedillows.org>
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:37024 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750774Ab0JUTcf convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 15:32:35 -0400
-Received: by fxm16 with SMTP id 16so470810fxm.19
-        for <netdev@vger.kernel.org>; Thu, 21 Oct 2010 12:32:34 -0700 (PDT)
-In-Reply-To: <1287626579.11431.9.camel@obelisk.thedillows.org>
+Received: from mail-gy0-f174.google.com ([209.85.160.174]:54780 "EHLO
+	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755037Ab0JUTns convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 15:43:48 -0400
+Received: by gyg4 with SMTP id 4so212129gyg.19
+        for <netdev@vger.kernel.org>; Thu, 21 Oct 2010 12:43:48 -0700 (PDT)
+In-Reply-To: <4CBFB320.2060703@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 20, 2010 at 7:02 PM, David Dillow <dave@thedillows.org> wro=
-te:
-> On Wed, 2010-10-20 at 16:56 -0700, Jesse Gross wrote:
->> The first eleven patches can be applied immediately, while the last =
-three need
->> to wait until all drivers that support vlan acceleration are updated=
-=2E =A0If
->> people agree that this patch set makes sense I will go ahead and swi=
-tch over
->> the dozen or so drivers that would need to change.
+On Wed, Oct 20, 2010 at 8:27 PM, John Fastabend
+<john.r.fastabend@intel.com> wrote:
+> On 10/20/2010 4:56 PM, Jesse Gross wrote:
+>> Now that vlan acceleration is handled consistently regardless of usa=
+ge,
+>> it is possible to enable and disable it at will. =A0This adds suppor=
+t for
+>> Ethtool operations that change the offloading status for debugging
+>> purposes, similar to other forms of hardware acceleration.
+>>
 >
-> Here's a first pass at converting typhoon to the new methods. It is
-> compile tested, but I have to put the hardware back in a machine to d=
-o
-> some testing, which I may not be able to do before the weekend.
+> Jesse,
 >
-> Of course, we could just change it to not offload by default if we ne=
-ed
-> to push this sooner.
->
-> Applies to net-next-2.6 with the vlan changes.
+> Not sure if this is enough to get dynamic toggling like this
+> dev->hard_header_len is set depending on offloads at init time in
+> vlan_dev_init(). By changing this LL_RESERVED_SPACE won't work
+> correctly and we end up having to call pskb_expand_head(). I think
+> this might end up hurting performance.
 
-This is great, thanks.  Much better to have someone who actually knows
-what's going on, rather than me trying to randomly guess...
+That's a good point.
+
+>
+> That said I think I can probably get this working by fixing up the
+> header_ops in vlan_dev.c. =A0And while I'm at it add a vlan_header_ca=
+che
+> and vlan_header_cache_update routines. I'll try to get something out
+> tomorrow in the meantime nothing too bad is happening.
+
+That sounds great, thanks.
