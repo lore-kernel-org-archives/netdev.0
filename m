@@ -1,295 +1,188 @@
 From: kaber@trash.net
-Subject: [PATCH 44/72] ipvs: optimize checksums for apps
-Date: Thu, 21 Oct 2010 17:19:31 +0200
-Message-ID: <1287674399-31455-45-git-send-email-kaber@trash.net>
+Subject: [PATCH 45/72] ipvs: switch to notrack mode
+Date: Thu, 21 Oct 2010 17:19:32 +0200
+Message-ID: <1287674399-31455-46-git-send-email-kaber@trash.net>
 References: <1287674399-31455-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:59995 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753032Ab0JUPUN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 11:20:13 -0400
 In-Reply-To: <1287674399-31455-1-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Julian Anastasov <ja@ssi.bg>
 
- 	Avoid full checksum calculation for apps that can provide
-info whether csum was broken after payload mangling. For now only
-ip_vs_ftp mangles payload and it updates the csum, so the full
-recalculation is avoided for all packets.
-
- 	Add CHECKSUM_UNNECESSARY for snat_handler (TCP and UDP).
-It is needed to support SNAT from local address for the case
-when csum is fully recalculated.
+ 	Change skb->ipvs_property semantic. This is preparation
+to support ip_vs_out processing in LOCAL_OUT. ipvs_property=1
+will be used to avoid expensive lookups for traffic sent by
+transmitters. Now when conntrack support is not used we call
+ip_vs_notrack method to avoid problems in OUTPUT and
+POST_ROUTING hooks instead of exiting POST_ROUTING as before.
 
 Signed-off-by: Julian Anastasov <ja@ssi.bg>
 Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- include/net/ip_vs.h                  |   12 ++++++++++--
- net/netfilter/ipvs/ip_vs_ftp.c       |    7 ++++++-
- net/netfilter/ipvs/ip_vs_proto_tcp.c |   31 +++++++++++++++++++++++++------
- net/netfilter/ipvs/ip_vs_proto_udp.c |   31 +++++++++++++++++++++++++------
- 4 files changed, 66 insertions(+), 15 deletions(-)
+ include/net/ip_vs.h             |   20 +++++++++++++++++++-
+ net/netfilter/ipvs/ip_vs_core.c |   39 ++++-----------------------------------
+ net/netfilter/ipvs/ip_vs_xmit.c |    7 +++++--
+ 3 files changed, 28 insertions(+), 38 deletions(-)
 
 diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index 6e8a619..adcdba9 100644
+index adcdba9..0e46184 100644
 --- a/include/net/ip_vs.h
 +++ b/include/net/ip_vs.h
-@@ -597,11 +597,19 @@ struct ip_vs_app {
- 	__be16			port;		/* port number in net order */
- 	atomic_t		usecnt;		/* usage counter */
+@@ -25,7 +25,7 @@
+ #include <linux/ip.h>
+ #include <linux/ipv6.h>			/* for struct ipv6hdr */
+ #include <net/ipv6.h>			/* for ipv6_addr_copy */
+-#ifdef CONFIG_IP_VS_NFCT
++#if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+ #include <net/netfilter/nf_conntrack.h>
+ #endif
  
--	/* output hook: return false if can't linearize. diff set for TCP.  */
-+	/*
-+	 * output hook: Process packet in inout direction, diff set for TCP.
-+	 * Return: 0=Error, 1=Payload Not Mangled/Mangled but checksum is ok,
-+	 *	   2=Mangled but checksum was not updated
-+	 */
- 	int (*pkt_out)(struct ip_vs_app *, struct ip_vs_conn *,
- 		       struct sk_buff *, int *diff);
+@@ -1021,6 +1021,24 @@ static inline __wsum ip_vs_check_diff2(__be16 old, __be16 new, __wsum oldsum)
+ 	return csum_partial(diff, sizeof(diff), oldsum);
+ }
  
--	/* input hook: return false if can't linearize. diff set for TCP. */
-+	/*
-+	 * input hook: Process packet in outin direction, diff set for TCP.
-+	 * Return: 0=Error, 1=Payload Not Mangled/Mangled but checksum is ok,
-+	 *	   2=Mangled but checksum was not updated
-+	 */
- 	int (*pkt_in)(struct ip_vs_app *, struct ip_vs_conn *,
- 		      struct sk_buff *, int *diff);
- 
-diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
-index 090889a..7545500 100644
---- a/net/netfilter/ipvs/ip_vs_ftp.c
-+++ b/net/netfilter/ipvs/ip_vs_ftp.c
-@@ -242,9 +242,14 @@ static int ip_vs_ftp_out(struct ip_vs_app *app, struct ip_vs_conn *cp,
- 			ret = nf_nat_mangle_tcp_packet(skb, ct, ctinfo,
- 						       start-data, end-start,
- 						       buf, buf_len);
--			if (ret)
-+			if (ret) {
- 				ip_vs_nfct_expect_related(skb, ct, n_cp,
- 							  IPPROTO_TCP, 0, 0);
-+				if (skb->ip_summed == CHECKSUM_COMPLETE)
-+					skb->ip_summed = CHECKSUM_UNNECESSARY;
-+				/* csum is updated */
-+				ret = 1;
-+			}
- 		}
- 
- 		/*
-diff --git a/net/netfilter/ipvs/ip_vs_proto_tcp.c b/net/netfilter/ipvs/ip_vs_proto_tcp.c
-index 318d011..64dc295 100644
---- a/net/netfilter/ipvs/ip_vs_proto_tcp.c
-+++ b/net/netfilter/ipvs/ip_vs_proto_tcp.c
-@@ -120,6 +120,7 @@ tcp_snat_handler(struct sk_buff *skb,
- 	struct tcphdr *tcph;
- 	unsigned int tcphoff;
- 	int oldlen;
-+	int payload_csum = 0;
- 
- #ifdef CONFIG_IP_VS_IPV6
- 	if (cp->af == AF_INET6)
-@@ -134,13 +135,20 @@ tcp_snat_handler(struct sk_buff *skb,
- 		return 0;
- 
- 	if (unlikely(cp->app != NULL)) {
-+		int ret;
++/*
++ * Forget current conntrack (unconfirmed) and attach notrack entry
++ */
++static inline void ip_vs_notrack(struct sk_buff *skb)
++{
++#if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
++	enum ip_conntrack_info ctinfo;
++	struct nf_conn *ct = ct = nf_ct_get(skb, &ctinfo);
 +
- 		/* Some checks before mangling */
- 		if (pp->csum_check && !pp->csum_check(cp->af, skb, pp))
- 			return 0;
- 
- 		/* Call application helper if needed */
--		if (!ip_vs_app_pkt_out(cp, skb))
-+		if (!(ret = ip_vs_app_pkt_out(cp, skb)))
- 			return 0;
-+		/* ret=2: csum update is needed after payload mangling */
-+		if (ret == 1)
-+			oldlen = skb->len - tcphoff;
-+		else
-+			payload_csum = 1;
- 	}
- 
- 	tcph = (void *)skb_network_header(skb) + tcphoff;
-@@ -151,12 +159,13 @@ tcp_snat_handler(struct sk_buff *skb,
- 		tcp_partial_csum_update(cp->af, tcph, &cp->daddr, &cp->vaddr,
- 					htons(oldlen),
- 					htons(skb->len - tcphoff));
--	} else if (!cp->app) {
-+	} else if (!payload_csum) {
- 		/* Only port and addr are changed, do fast csum update */
- 		tcp_fast_csum_update(cp->af, tcph, &cp->daddr, &cp->vaddr,
- 				     cp->dport, cp->vport);
- 		if (skb->ip_summed == CHECKSUM_COMPLETE)
--			skb->ip_summed = CHECKSUM_NONE;
-+			skb->ip_summed = (cp->app && pp->csum_check) ?
-+					 CHECKSUM_UNNECESSARY : CHECKSUM_NONE;
- 	} else {
- 		/* full checksum calculation */
- 		tcph->check = 0;
-@@ -174,6 +183,7 @@ tcp_snat_handler(struct sk_buff *skb,
- 							skb->len - tcphoff,
- 							cp->protocol,
- 							skb->csum);
-+		skb->ip_summed = CHECKSUM_UNNECESSARY;
- 
- 		IP_VS_DBG(11, "O-pkt: %s O-csum=%d (+%zd)\n",
- 			  pp->name, tcph->check,
-@@ -190,6 +200,7 @@ tcp_dnat_handler(struct sk_buff *skb,
- 	struct tcphdr *tcph;
- 	unsigned int tcphoff;
- 	int oldlen;
-+	int payload_csum = 0;
- 
- #ifdef CONFIG_IP_VS_IPV6
- 	if (cp->af == AF_INET6)
-@@ -204,6 +215,8 @@ tcp_dnat_handler(struct sk_buff *skb,
- 		return 0;
- 
- 	if (unlikely(cp->app != NULL)) {
-+		int ret;
++	if (!ct || !nf_ct_is_untracked(ct)) {
++		nf_reset(skb);
++		skb->nfct = &nf_ct_untracked_get()->ct_general;
++		skb->nfctinfo = IP_CT_NEW;
++		nf_conntrack_get(skb->nfct);
++	}
++#endif
++}
 +
- 		/* Some checks before mangling */
- 		if (pp->csum_check && !pp->csum_check(cp->af, skb, pp))
- 			return 0;
-@@ -212,8 +225,13 @@ tcp_dnat_handler(struct sk_buff *skb,
- 		 *	Attempt ip_vs_app call.
- 		 *	It will fix ip_vs_conn and iph ack_seq stuff
- 		 */
--		if (!ip_vs_app_pkt_in(cp, skb))
-+		if (!(ret = ip_vs_app_pkt_in(cp, skb)))
- 			return 0;
-+		/* ret=2: csum update is needed after payload mangling */
-+		if (ret == 1)
-+			oldlen = skb->len - tcphoff;
-+		else
-+			payload_csum = 1;
- 	}
+ #ifdef CONFIG_IP_VS_NFCT
+ /*
+  *      Netfilter connection tracking
+diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
+index e5fef7a..2224530 100644
+--- a/net/netfilter/ipvs/ip_vs_core.c
++++ b/net/netfilter/ipvs/ip_vs_core.c
+@@ -507,23 +507,6 @@ int ip_vs_leave(struct ip_vs_service *svc, struct sk_buff *skb,
+ 	return NF_DROP;
+ }
  
- 	tcph = (void *)skb_network_header(skb) + tcphoff;
-@@ -226,12 +244,13 @@ tcp_dnat_handler(struct sk_buff *skb,
- 		tcp_partial_csum_update(cp->af, tcph, &cp->vaddr, &cp->daddr,
- 					htons(oldlen),
- 					htons(skb->len - tcphoff));
--	} else if (!cp->app) {
-+	} else if (!payload_csum) {
- 		/* Only port and addr are changed, do fast csum update */
- 		tcp_fast_csum_update(cp->af, tcph, &cp->vaddr, &cp->daddr,
- 				     cp->vport, cp->dport);
- 		if (skb->ip_summed == CHECKSUM_COMPLETE)
--			skb->ip_summed = CHECKSUM_NONE;
-+			skb->ip_summed = (cp->app && pp->csum_check) ?
-+					 CHECKSUM_UNNECESSARY : CHECKSUM_NONE;
- 	} else {
- 		/* full checksum calculation */
- 		tcph->check = 0;
-diff --git a/net/netfilter/ipvs/ip_vs_proto_udp.c b/net/netfilter/ipvs/ip_vs_proto_udp.c
-index f929089..9c558c4 100644
---- a/net/netfilter/ipvs/ip_vs_proto_udp.c
-+++ b/net/netfilter/ipvs/ip_vs_proto_udp.c
-@@ -121,6 +121,7 @@ udp_snat_handler(struct sk_buff *skb,
- 	struct udphdr *udph;
- 	unsigned int udphoff;
- 	int oldlen;
-+	int payload_csum = 0;
+-/*
+- * It is hooked before NF_IP_PRI_NAT_SRC at the NF_INET_POST_ROUTING
+- * chain and is used to avoid double NAT and confirmation when we do
+- * not want to keep the conntrack structure
+- */
+-static unsigned int ip_vs_post_routing(unsigned int hooknum,
+-				       struct sk_buff *skb,
+-				       const struct net_device *in,
+-				       const struct net_device *out,
+-				       int (*okfn)(struct sk_buff *))
+-{
+-	if (!skb->ipvs_property)
+-		return NF_ACCEPT;
+-	/* The packet was sent from IPVS, exit this chain */
+-	return NF_STOP;
+-}
+-
+ __sum16 ip_vs_checksum_complete(struct sk_buff *skb, int offset)
+ {
+ 	return csum_fold(skb_checksum(skb, offset, skb->len - offset, 0));
+@@ -682,8 +665,9 @@ static int handle_response_icmp(int af, struct sk_buff *skb,
+ 	/* do the statistics and put it back */
+ 	ip_vs_out_stats(cp, skb);
  
++	skb->ipvs_property = 1;
+ 	if (!(cp->flags & IP_VS_CONN_F_NFCT))
+-		skb->ipvs_property = 1;
++		ip_vs_notrack(skb);
+ 	else
+ 		ip_vs_update_conntrack(skb, cp, 0);
+ 	verdict = NF_ACCEPT;
+@@ -929,8 +913,9 @@ handle_response(int af, struct sk_buff *skb, struct ip_vs_protocol *pp,
+ 
+ 	ip_vs_out_stats(cp, skb);
+ 	ip_vs_set_state(cp, IP_VS_DIR_OUTPUT, skb, pp);
++	skb->ipvs_property = 1;
+ 	if (!(cp->flags & IP_VS_CONN_F_NFCT))
+-		skb->ipvs_property = 1;
++		ip_vs_notrack(skb);
+ 	else
+ 		ip_vs_update_conntrack(skb, cp, 0);
+ 	ip_vs_conn_put(cp);
+@@ -1496,14 +1481,6 @@ static struct nf_hook_ops ip_vs_ops[] __read_mostly = {
+ 		.hooknum        = NF_INET_FORWARD,
+ 		.priority       = 99,
+ 	},
+-	/* Before the netfilter connection tracking, exit from POST_ROUTING */
+-	{
+-		.hook		= ip_vs_post_routing,
+-		.owner		= THIS_MODULE,
+-		.pf		= PF_INET,
+-		.hooknum        = NF_INET_POST_ROUTING,
+-		.priority       = NF_IP_PRI_NAT_SRC-1,
+-	},
  #ifdef CONFIG_IP_VS_IPV6
- 	if (cp->af == AF_INET6)
-@@ -135,6 +136,8 @@ udp_snat_handler(struct sk_buff *skb,
- 		return 0;
+ 	/* After packet filtering, forward packet through VS/DR, VS/TUN,
+ 	 * or VS/NAT(change destination), so that filtering rules can be
+@@ -1532,14 +1509,6 @@ static struct nf_hook_ops ip_vs_ops[] __read_mostly = {
+ 		.hooknum        = NF_INET_FORWARD,
+ 		.priority       = 99,
+ 	},
+-	/* Before the netfilter connection tracking, exit from POST_ROUTING */
+-	{
+-		.hook		= ip_vs_post_routing,
+-		.owner		= THIS_MODULE,
+-		.pf		= PF_INET6,
+-		.hooknum        = NF_INET_POST_ROUTING,
+-		.priority       = NF_IP6_PRI_NAT_SRC-1,
+-	},
+ #endif
+ };
  
- 	if (unlikely(cp->app != NULL)) {
-+		int ret;
-+
- 		/* Some checks before mangling */
- 		if (pp->csum_check && !pp->csum_check(cp->af, skb, pp))
- 			return 0;
-@@ -142,8 +145,13 @@ udp_snat_handler(struct sk_buff *skb,
- 		/*
- 		 *	Call application helper if needed
- 		 */
--		if (!ip_vs_app_pkt_out(cp, skb))
-+		if (!(ret = ip_vs_app_pkt_out(cp, skb)))
- 			return 0;
-+		/* ret=2: csum update is needed after payload mangling */
-+		if (ret == 1)
-+			oldlen = skb->len - udphoff;
-+		else
-+			payload_csum = 1;
- 	}
+diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
+index b0bd8af..94b53b4 100644
+--- a/net/netfilter/ipvs/ip_vs_xmit.c
++++ b/net/netfilter/ipvs/ip_vs_xmit.c
+@@ -217,6 +217,7 @@ ip_vs_dst_reset(struct ip_vs_dest *dest)
+ ({								\
+ 	int __ret = NF_ACCEPT;					\
+ 								\
++	(skb)->ipvs_property = 1;				\
+ 	if (unlikely((cp)->flags & IP_VS_CONN_F_NFCT))		\
+ 		__ret = ip_vs_confirm_conntrack(skb, cp);	\
+ 	if (__ret == NF_ACCEPT) {				\
+@@ -228,8 +229,9 @@ ip_vs_dst_reset(struct ip_vs_dest *dest)
  
- 	udph = (void *)skb_network_header(skb) + udphoff;
-@@ -156,12 +164,13 @@ udp_snat_handler(struct sk_buff *skb,
- 		udp_partial_csum_update(cp->af, udph, &cp->daddr, &cp->vaddr,
- 					htons(oldlen),
- 					htons(skb->len - udphoff));
--	} else if (!cp->app && (udph->check != 0)) {
-+	} else if (!payload_csum && (udph->check != 0)) {
- 		/* Only port and addr are changed, do fast csum update */
- 		udp_fast_csum_update(cp->af, udph, &cp->daddr, &cp->vaddr,
- 				     cp->dport, cp->vport);
- 		if (skb->ip_summed == CHECKSUM_COMPLETE)
--			skb->ip_summed = CHECKSUM_NONE;
-+			skb->ip_summed = (cp->app && pp->csum_check) ?
-+					 CHECKSUM_UNNECESSARY : CHECKSUM_NONE;
- 	} else {
- 		/* full checksum calculation */
- 		udph->check = 0;
-@@ -181,6 +190,7 @@ udp_snat_handler(struct sk_buff *skb,
- 							skb->csum);
- 		if (udph->check == 0)
- 			udph->check = CSUM_MANGLED_0;
-+		skb->ip_summed = CHECKSUM_UNNECESSARY;
- 		IP_VS_DBG(11, "O-pkt: %s O-csum=%d (+%zd)\n",
- 			  pp->name, udph->check,
- 			  (char*)&(udph->check) - (char*)udph);
-@@ -196,6 +206,7 @@ udp_dnat_handler(struct sk_buff *skb,
- 	struct udphdr *udph;
- 	unsigned int udphoff;
- 	int oldlen;
-+	int payload_csum = 0;
+ #define IP_VS_XMIT_NAT(pf, skb, cp)				\
+ do {							\
++	(skb)->ipvs_property = 1;			\
+ 	if (likely(!((cp)->flags & IP_VS_CONN_F_NFCT)))	\
+-		(skb)->ipvs_property = 1;		\
++		ip_vs_notrack(skb);			\
+ 	else						\
+ 		ip_vs_update_conntrack(skb, cp, 1);	\
+ 	skb_forward_csum(skb);				\
+@@ -239,8 +241,9 @@ do {							\
  
- #ifdef CONFIG_IP_VS_IPV6
- 	if (cp->af == AF_INET6)
-@@ -210,6 +221,8 @@ udp_dnat_handler(struct sk_buff *skb,
- 		return 0;
- 
- 	if (unlikely(cp->app != NULL)) {
-+		int ret;
-+
- 		/* Some checks before mangling */
- 		if (pp->csum_check && !pp->csum_check(cp->af, skb, pp))
- 			return 0;
-@@ -218,8 +231,13 @@ udp_dnat_handler(struct sk_buff *skb,
- 		 *	Attempt ip_vs_app call.
- 		 *	It will fix ip_vs_conn
- 		 */
--		if (!ip_vs_app_pkt_in(cp, skb))
-+		if (!(ret = ip_vs_app_pkt_in(cp, skb)))
- 			return 0;
-+		/* ret=2: csum update is needed after payload mangling */
-+		if (ret == 1)
-+			oldlen = skb->len - udphoff;
-+		else
-+			payload_csum = 1;
- 	}
- 
- 	udph = (void *)skb_network_header(skb) + udphoff;
-@@ -232,12 +250,13 @@ udp_dnat_handler(struct sk_buff *skb,
- 		udp_partial_csum_update(cp->af, udph, &cp->vaddr, &cp->daddr,
- 					htons(oldlen),
- 					htons(skb->len - udphoff));
--	} else if (!cp->app && (udph->check != 0)) {
-+	} else if (!payload_csum && (udph->check != 0)) {
- 		/* Only port and addr are changed, do fast csum update */
- 		udp_fast_csum_update(cp->af, udph, &cp->vaddr, &cp->daddr,
- 				     cp->vport, cp->dport);
- 		if (skb->ip_summed == CHECKSUM_COMPLETE)
--			skb->ip_summed = CHECKSUM_NONE;
-+			skb->ip_summed = (cp->app && pp->csum_check) ?
-+					 CHECKSUM_UNNECESSARY : CHECKSUM_NONE;
- 	} else {
- 		/* full checksum calculation */
- 		udph->check = 0;
+ #define IP_VS_XMIT(pf, skb, cp)				\
+ do {							\
++	(skb)->ipvs_property = 1;			\
+ 	if (likely(!((cp)->flags & IP_VS_CONN_F_NFCT)))	\
+-		(skb)->ipvs_property = 1;		\
++		ip_vs_notrack(skb);			\
+ 	skb_forward_csum(skb);				\
+ 	NF_HOOK(pf, NF_INET_LOCAL_OUT, (skb), NULL,	\
+ 		skb_dst(skb)->dev, dst_output);		\
 -- 
 1.7.1
 
