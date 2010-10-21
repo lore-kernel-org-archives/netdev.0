@@ -1,61 +1,210 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: Question w.r.t debugfs / netdevice pass-through IOCTL
-Date: Wed, 20 Oct 2010 21:19:00 -0700
-Message-ID: <20101020211900.79b8336f@nehalam>
-References: <F363E7AC84E1B646A0358B281A46F4AEABA0FFCC68@HQ1-EXCH03.corp.brocade.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Debashis Dutt <ddutt@Brocade.COM>
+From: Harvey Harrison <harvey.harrison@gmail.com>
+Subject: [PATCH] vmxnet3: remove set_flag_le{16,64} helpers
+Date: Wed, 20 Oct 2010 23:28:37 -0700
+Message-ID: <1287642517-5414-1-git-send-email-harvey.harrison@gmail.com>
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com
+To: sbhatewara@vmware.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:52105 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750931Ab0JUETD convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 00:19:03 -0400
-In-Reply-To: <F363E7AC84E1B646A0358B281A46F4AEABA0FFCC68@HQ1-EXCH03.corp.brocade.com>
+Received: from mail-px0-f174.google.com ([209.85.212.174]:41026 "EHLO
+	mail-px0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750959Ab0JUG2q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 02:28:46 -0400
+Received: by pxi16 with SMTP id 16so1087286pxi.19
+        for <netdev@vger.kernel.org>; Wed, 20 Oct 2010 23:28:46 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 20 Oct 2010 20:26:50 -0700
-Debashis Dutt <ddutt@Brocade.COM> wrote:
+It's easier to just annotate the constants as little endian types and set/clear
+the flags directly.
 
-> Hi,=20
->=20
-> For the Brocade 10G Ethernet driver (bna) we want to implement a set =
-of operations which is not supported by current tools like ethtool.=20
->=20
-> Examples of such operations would be=20
-> =A0=A0=A0=A0=A0=A0 a) Queries related to CEE, if the link is CEE.
-> =A0=A0=A0=A0=A0=A0 b) Get traces from firmware.
+Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+---
+ drivers/net/vmxnet3/upt1_defs.h       |    8 +++---
+ drivers/net/vmxnet3/vmxnet3_defs.h    |    6 ++--
+ drivers/net/vmxnet3/vmxnet3_drv.c     |   35 +++++++-------------------------
+ drivers/net/vmxnet3/vmxnet3_ethtool.c |   14 +++++-------
+ drivers/net/vmxnet3/vmxnet3_int.h     |    4 ---
+ 5 files changed, 21 insertions(+), 46 deletions(-)
 
->=20
-> I was wondering what would be right approach to take here:
-> =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 a) use debugfs (like th=
-e Chelsio cxgb4 driver)
-Works as long as they are really debug operations. The debugfs isn't al=
-ways
-available, and support should be a config option for your driver.
+diff --git a/drivers/net/vmxnet3/upt1_defs.h b/drivers/net/vmxnet3/upt1_defs.h
+index 37108fb..969c751 100644
+--- a/drivers/net/vmxnet3/upt1_defs.h
++++ b/drivers/net/vmxnet3/upt1_defs.h
+@@ -88,9 +88,9 @@ struct UPT1_RSSConf {
+ 
+ /* features */
+ enum {
+-	UPT1_F_RXCSUM		= 0x0001,   /* rx csum verification */
+-	UPT1_F_RSS		= 0x0002,
+-	UPT1_F_RXVLAN		= 0x0004,   /* VLAN tag stripping */
+-	UPT1_F_LRO		= 0x0008,
++	UPT1_F_RXCSUM		= cpu_to_le64(0x0001),   /* rx csum verification */
++	UPT1_F_RSS		= cpu_to_le64(0x0002),
++	UPT1_F_RXVLAN		= cpu_to_le64(0x0004),   /* VLAN tag stripping */
++	UPT1_F_LRO		= cpu_to_le64(0x0008),
+ };
+ #endif
+diff --git a/drivers/net/vmxnet3/vmxnet3_defs.h b/drivers/net/vmxnet3/vmxnet3_defs.h
+index ca7727b..4d84912 100644
+--- a/drivers/net/vmxnet3/vmxnet3_defs.h
++++ b/drivers/net/vmxnet3/vmxnet3_defs.h
+@@ -523,9 +523,9 @@ struct Vmxnet3_RxFilterConf {
+ #define VMXNET3_PM_MAX_PATTERN_SIZE   128
+ #define VMXNET3_PM_MAX_MASK_SIZE      (VMXNET3_PM_MAX_PATTERN_SIZE / 8)
+ 
+-#define VMXNET3_PM_WAKEUP_MAGIC       0x01  /* wake up on magic pkts */
+-#define VMXNET3_PM_WAKEUP_FILTER      0x02  /* wake up on pkts matching
+-					     * filters */
++#define VMXNET3_PM_WAKEUP_MAGIC       cpu_to_le16(0x01)  /* wake up on magic pkts */
++#define VMXNET3_PM_WAKEUP_FILTER      cpu_to_le16(0x02)  /* wake up on pkts matching
++							  * filters */
+ 
+ 
+ struct Vmxnet3_PM_PktFilter {
+diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+index 198ce92..ce292d4 100644
+--- a/drivers/net/vmxnet3/vmxnet3_drv.c
++++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+@@ -1548,23 +1548,6 @@ vmxnet3_free_irqs(struct vmxnet3_adapter *adapter)
+ 	}
+ }
+ 
+-
+-inline void set_flag_le16(__le16 *data, u16 flag)
+-{
+-	*data = cpu_to_le16(le16_to_cpu(*data) | flag);
+-}
+-
+-inline void set_flag_le64(__le64 *data, u64 flag)
+-{
+-	*data = cpu_to_le64(le64_to_cpu(*data) | flag);
+-}
+-
+-inline void reset_flag_le64(__le64 *data, u64 flag)
+-{
+-	*data = cpu_to_le64(le64_to_cpu(*data) & ~flag);
+-}
+-
+-
+ static void
+ vmxnet3_vlan_rx_register(struct net_device *netdev, struct vlan_group *grp)
+ {
+@@ -1580,8 +1563,7 @@ vmxnet3_vlan_rx_register(struct net_device *netdev, struct vlan_group *grp)
+ 			adapter->vlan_grp = grp;
+ 
+ 			/* update FEATURES to device */
+-			set_flag_le64(&devRead->misc.uptFeatures,
+-				      UPT1_F_RXVLAN);
++			devRead->misc.uptFeatures |= UPT1_F_RXVLAN;
+ 			VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
+ 					       VMXNET3_CMD_UPDATE_FEATURE);
+ 			/*
+@@ -1604,7 +1586,7 @@ vmxnet3_vlan_rx_register(struct net_device *netdev, struct vlan_group *grp)
+ 		struct Vmxnet3_DSDevRead *devRead = &shared->devRead;
+ 		adapter->vlan_grp = NULL;
+ 
+-		if (le64_to_cpu(devRead->misc.uptFeatures) & UPT1_F_RXVLAN) {
++		if (devRead->misc.uptFeatures & UPT1_F_RXVLAN) {
+ 			int i;
+ 
+ 			for (i = 0; i < VMXNET3_VFT_SIZE; i++) {
+@@ -1617,8 +1599,7 @@ vmxnet3_vlan_rx_register(struct net_device *netdev, struct vlan_group *grp)
+ 					       VMXNET3_CMD_UPDATE_VLAN_FILTERS);
+ 
+ 			/* update FEATURES to device */
+-			reset_flag_le64(&devRead->misc.uptFeatures,
+-					UPT1_F_RXVLAN);
++			devRead->misc.uptFeatures &= ~UPT1_F_RXVLAN;
+ 			VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
+ 					       VMXNET3_CMD_UPDATE_FEATURE);
+ 		}
+@@ -1779,15 +1760,15 @@ vmxnet3_setup_driver_shared(struct vmxnet3_adapter *adapter)
+ 
+ 	/* set up feature flags */
+ 	if (adapter->rxcsum)
+-		set_flag_le64(&devRead->misc.uptFeatures, UPT1_F_RXCSUM);
++		devRead->misc.uptFeatures |= UPT1_F_RXCSUM;
+ 
+ 	if (adapter->lro) {
+-		set_flag_le64(&devRead->misc.uptFeatures, UPT1_F_LRO);
++		devRead->misc.uptFeatures |= UPT1_F_LRO;
+ 		devRead->misc.maxNumRxSG = cpu_to_le16(1 + MAX_SKB_FRAGS);
+ 	}
+ 	if ((adapter->netdev->features & NETIF_F_HW_VLAN_RX) &&
+ 	    adapter->vlan_grp) {
+-		set_flag_le64(&devRead->misc.uptFeatures, UPT1_F_RXVLAN);
++		devRead->misc.uptFeatures |= UPT1_F_RXVLAN;
+ 	}
+ 
+ 	devRead->misc.mtu = cpu_to_le32(adapter->netdev->mtu);
+@@ -2594,7 +2575,7 @@ vmxnet3_suspend(struct device *device)
+ 		memcpy(pmConf->filters[i].pattern, netdev->dev_addr, ETH_ALEN);
+ 		pmConf->filters[i].mask[0] = 0x3F; /* LSB ETH_ALEN bits */
+ 
+-		set_flag_le16(&pmConf->wakeUpEvents, VMXNET3_PM_WAKEUP_FILTER);
++		pmConf->wakeUpEvents |= VMXNET3_PM_WAKEUP_FILTER;
+ 		i++;
+ 	}
+ 
+@@ -2642,7 +2623,7 @@ vmxnet3_suspend(struct device *device)
+ 
+ skip_arp:
+ 	if (adapter->wol & WAKE_MAGIC)
+-		set_flag_le16(&pmConf->wakeUpEvents, VMXNET3_PM_WAKEUP_MAGIC);
++		pmConf->wakeUpEvents |= VMXNET3_PM_WAKEUP_MAGIC;
+ 
+ 	pmConf->numFilters = i;
+ 
+diff --git a/drivers/net/vmxnet3/vmxnet3_ethtool.c b/drivers/net/vmxnet3/vmxnet3_ethtool.c
+index 7e4b5a8..b79070b 100644
+--- a/drivers/net/vmxnet3/vmxnet3_ethtool.c
++++ b/drivers/net/vmxnet3/vmxnet3_ethtool.c
+@@ -50,13 +50,11 @@ vmxnet3_set_rx_csum(struct net_device *netdev, u32 val)
+ 		adapter->rxcsum = val;
+ 		if (netif_running(netdev)) {
+ 			if (val)
+-				set_flag_le64(
+-				&adapter->shared->devRead.misc.uptFeatures,
+-				UPT1_F_RXCSUM);
++				adapter->shared->devRead.misc.uptFeatures |=
++				UPT1_F_RXCSUM;
+ 			else
+-				reset_flag_le64(
+-				&adapter->shared->devRead.misc.uptFeatures,
+-				UPT1_F_RXCSUM);
++				adapter->shared->devRead.misc.uptFeatures &=
++				~UPT1_F_RXCSUM;
+ 
+ 			VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
+ 					       VMXNET3_CMD_UPDATE_FEATURE);
+@@ -292,10 +290,10 @@ vmxnet3_set_flags(struct net_device *netdev, u32 data)
+ 		/* update harware LRO capability accordingly */
+ 		if (lro_requested)
+ 			adapter->shared->devRead.misc.uptFeatures |=
+-						cpu_to_le64(UPT1_F_LRO);
++							UPT1_F_LRO;
+ 		else
+ 			adapter->shared->devRead.misc.uptFeatures &=
+-						cpu_to_le64(~UPT1_F_LRO);
++							~UPT1_F_LRO;
+ 		VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
+ 				       VMXNET3_CMD_UPDATE_FEATURE);
+ 	}
+diff --git a/drivers/net/vmxnet3/vmxnet3_int.h b/drivers/net/vmxnet3/vmxnet3_int.h
+index 2121c73..46aee6d 100644
+--- a/drivers/net/vmxnet3/vmxnet3_int.h
++++ b/drivers/net/vmxnet3/vmxnet3_int.h
+@@ -353,10 +353,6 @@ struct vmxnet3_adapter {
+ #define VMXNET3_MAX_ETH_HDR_SIZE    22
+ #define VMXNET3_MAX_SKB_BUF_SIZE    (3*1024)
+ 
+-void set_flag_le16(__le16 *data, u16 flag);
+-void set_flag_le64(__le64 *data, u64 flag);
+-void reset_flag_le64(__le64 *data, u64 flag);
+-
+ int
+ vmxnet3_quiesce_dev(struct vmxnet3_adapter *adapter);
+ 
+-- 
+1.7.1
 
-> =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 b) use SIOCDEVPRIVATE f=
-or the pass through IOCTL defined in
-> =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 =A0=A0=A0 struct net_de=
-vice_ops{}
-
-The problem with ioctl is it doesn't work for 32 bit user space
-compatiablity. The ioctl compat layer does not have enough context
-to translate SIOCDEVPRIVATE
-
-> =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 =A0=A0=A0 As per commen=
-ts in the header file, b) should not be used
-> =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 =A0=A0=A0 since this IO=
-CTL is supposed to be deprecated.
-> =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 c) use procfs / sysfs (=
-these may not scale, in our opinion)
-
-Although less common, there were drivers putting things in /proc/net/xx=
-x/ethX
-
-
-
---=20
