@@ -1,53 +1,77 @@
-From: Debashis Dutt <ddutt@Brocade.COM>
-Subject: Question w.r.t debugfs / netdevice pass-through IOCTL
-Date: Wed, 20 Oct 2010 20:26:50 -0700
-Message-ID: <F363E7AC84E1B646A0358B281A46F4AEABA0FFCC68@HQ1-EXCH03.corp.brocade.com>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [PATCH v2 07/14] ethtool: Add support for vlan accleration.
+Date: Wed, 20 Oct 2010 20:27:28 -0700
+Message-ID: <4CBFB320.2060703@intel.com>
+References: <1287618974-4714-1-git-send-email-jesse@nicira.com> <1287618974-4714-8-git-send-email-jesse@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:54299 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757205Ab0JUD0z convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Oct 2010 23:26:55 -0400
-Received: from pps.filterd (m0000700 [127.0.0.1])
-	by mx0b-000f0801.pphosted.com (8.14.4/8.14.4) with SMTP id o9L3GrTq011042
-	for <netdev@vger.kernel.org>; Wed, 20 Oct 2010 20:26:53 -0700
-Received: from hq1-exedge.brocade.com (hq1-exedge.brocade.com [144.49.141.11])
-	by mx0b-000f0801.pphosted.com with ESMTP id s2a5gg3hb-1
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Wed, 20 Oct 2010 20:26:52 -0700
-Content-Language: en-US
+Received: from mga01.intel.com ([192.55.52.88]:23729 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757277Ab0JUD13 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Oct 2010 23:27:29 -0400
+In-Reply-To: <1287618974-4714-8-git-send-email-jesse@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,=20
+On 10/20/2010 4:56 PM, Jesse Gross wrote:
+> Now that vlan acceleration is handled consistently regardless of usage,
+> it is possible to enable and disable it at will.  This adds support for
+> Ethtool operations that change the offloading status for debugging
+> purposes, similar to other forms of hardware acceleration.
+> 
 
-=46or the Brocade 10G Ethernet driver (bna) we want to implement a set =
-of operations which is not supported by current tools like ethtool.=20
+Jesse,
 
-Examples of such operations would be=20
-=A0=A0=A0=A0=A0=A0 a) Queries related to CEE, if the link is CEE.
-=A0=A0=A0=A0=A0=A0 b) Get traces from firmware.
+Not sure if this is enough to get dynamic toggling like this
+dev->hard_header_len is set depending on offloads at init time in
+vlan_dev_init(). By changing this LL_RESERVED_SPACE won't work
+correctly and we end up having to call pskb_expand_head(). I think
+this might end up hurting performance.
 
-I was wondering what would be right approach to take here:
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 a) use debugfs (like the =
-Chelsio cxgb4 driver)
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 b) use SIOCDEVPRIVATE for=
- the pass through IOCTL defined in
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 =A0=A0=A0 struct net_devi=
-ce_ops{}
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 =A0=A0=A0 As per comments=
- in the header file, b) should not be used
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 =A0=A0=A0 since this IOCT=
-L is supposed to be deprecated.
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 c) use procfs / sysfs (th=
-ese may not scale, in our opinion)
+That said I think I can probably get this working by fixing up the
+header_ops in vlan_dev.c.  And while I'm at it add a vlan_header_cache
+and vlan_header_cache_update routines. I'll try to get something out
+tomorrow in the meantime nothing too bad is happening.
 
-Please suggest.
+Thanks,
+John.
 
-Thanks
---Debashis
+> Signed-off-by: Jesse Gross <jesse@nicira.com>
+> ---
+>  include/linux/ethtool.h |    2 ++
+>  net/core/ethtool.c      |    3 ++-
+>  2 files changed, 4 insertions(+), 1 deletions(-)
+> 
+> diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+> index 8a3338c..6628a50 100644
+> --- a/include/linux/ethtool.h
+> +++ b/include/linux/ethtool.h
+> @@ -309,6 +309,8 @@ struct ethtool_perm_addr {
+>   * flag differs from the read-only value.
+>   */
+>  enum ethtool_flags {
+> +	ETH_FLAG_TXVLAN		= (1 << 7),	/* TX VLAN offload enabled */
+> +	ETH_FLAG_RXVLAN		= (1 << 8),	/* RX VLAN offload enabled */
+>  	ETH_FLAG_LRO		= (1 << 15),	/* LRO is enabled */
+>  	ETH_FLAG_NTUPLE		= (1 << 27),	/* N-tuple filters enabled */
+>  	ETH_FLAG_RXHASH		= (1 << 28),
+> diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+> index 685c700..956a9f4 100644
+> --- a/net/core/ethtool.c
+> +++ b/net/core/ethtool.c
+> @@ -132,7 +132,8 @@ EXPORT_SYMBOL(ethtool_op_set_ufo);
+>   * NETIF_F_xxx values in include/linux/netdevice.h
+>   */
+>  static const u32 flags_dup_features =
+> -	(ETH_FLAG_LRO | ETH_FLAG_NTUPLE | ETH_FLAG_RXHASH);
+> +	(ETH_FLAG_LRO | ETH_FLAG_RXVLAN | ETH_FLAG_TXVLAN | ETH_FLAG_NTUPLE |
+> +	 ETH_FLAG_RXHASH);
+>  
+>  u32 ethtool_op_get_flags(struct net_device *dev)
+>  {
 
