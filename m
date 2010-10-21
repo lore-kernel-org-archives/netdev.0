@@ -1,33 +1,36 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 3/3] tproxy: fix hash locking issue when using port redirection
- in __inet_inherit_port()
-Date: Thu, 21 Oct 2010 13:08:06 +0200
-Message-ID: <4CC01F16.2000008@trash.net>
-References: <20101020112142.6538.25550.stgit@este.odu> <20101020112142.6538.40476.stgit@este.odu>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] Revert c6537d6742985da1fbf12ae26cde6a096fd35b5c
+Date: Thu, 21 Oct 2010 04:11:30 -0700 (PDT)
+Message-ID: <20101021.041130.98891966.davem@davemloft.net>
+References: <1287659176-14504-1-git-send-email-nhorman@tuxdriver.com>
+	<1287659176-14504-2-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	David Miller <davem@davemloft.net>
-To: KOVACS Krisztian <hidden@balabit.hu>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20101020112142.6538.40476.stgit@este.odu>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jon.maloy@ericsson.com,
+	paul.gortmaker@windriver.com,
+	tipc-discussion@lists.sourceforge.net, luca@llucax.com.ar
+To: nhorman@tuxdriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48209
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756860Ab0JULLI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 07:11:08 -0400
+In-Reply-To: <1287659176-14504-2-git-send-email-nhorman@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am 20.10.2010 13:21, schrieb KOVACS Krisztian:
-> When __inet_inherit_port() is called on a tproxy connection the wrong locks are
-> held for the inet_bind_bucket it is added to. __inet_inherit_port() made an
-> implicit assumption that the listener's port number (and thus its bind bucket).
-> Unfortunately, if you're using the TPROXY target to redirect skbs to a
-> transparent proxy that assumption is not true anymore and things break.
-> 
-> This patch adds code to __inet_inherit_port() so that it can handle this case
-> by looking up or creating a new bind bucket for the child socket and updates
-> callers of __inet_inherit_port() to gracefully handle __inet_inherit_port()
-> failing.
-> 
-> Reported by and original patch from Stephen Buck <stephen.buck@exinda.com>.
-> See http://marc.info/?t=128169268200001&r=1&w=2 for the original discussion.
+From: nhorman@tuxdriver.com
+Date: Thu, 21 Oct 2010 07:06:15 -0400
 
-Applied, thanks.
+> From: Neil Horman <nhorman@tuxdriver.com>
+> 
+> Backout the tipc changes to the flags int he subscription message.  These
+> changees, while reasonable on the surface, interefere with user space ABI
+> compatibility which is a no-no.  This was part of the changes to fix the
+> endianess issues in the TIPC protocol, which would be really nice to do but we
+> need to do so in a way that is backwards compatible with user space.
+> 
+> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+
+Applied and queued up for -stable.
