@@ -1,7 +1,7 @@
 From: Dominik Brodowski <linux@dominikbrodowski.net>
-Subject: [PATCH 07/22] pcmcia: move config_{base,index,regs} to struct pcmcia_device
-Date: Thu, 21 Oct 2010 17:35:23 +0200
-Message-ID: <1287675338-12588-7-git-send-email-linux@dominikbrodowski.net>
+Subject: [PATCH 10/22] pcmcia: introduce autoconfiguration feature
+Date: Thu, 21 Oct 2010 17:35:26 +0200
+Message-ID: <1287675338-12588-10-git-send-email-linux@dominikbrodowski.net>
 References: <20101021153450.GA12405@comet.dominikbrodowski.net>
 Cc: Dominik Brodowski <linux@dominikbrodowski.net>,
 	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
@@ -15,10 +15,13 @@ In-Reply-To: <20101021153450.GA12405@comet.dominikbrodowski.net>
 Sender: linux-serial-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Several drivers prefer to explicitly set config_{base,index,regs},
-formerly known as ConfigBase, ConfigIndex and Present. Instead of
-passing these values inside config_req_t, store it in struct
-pcmcia_device.
+Introduce an autoconfiguration feature to set certain values in
+pcmcia_loop_config(), instead of copying the same code over and over
+in each PCMCIA driver. At first, introduce the following options:
+
+CONF_AUTO_CHECK_VCC	check or matching Vcc entry
+CONF_AUTO_SET_VPP	set Vpp
+CONF_AUTO_AUDIO		enable the speaker line
 
 CC: netdev@vger.kernel.org
 CC: linux-wireless@vger.kernel.org
@@ -34,952 +37,1293 @@ Acked-by: Gustavo F. Padovan <padovan@profusion.mobi> (for drivers/bluetooth)
 Tested-by: Wolfram Sang <w.sang@pengutronix.de>
 Signed-off-by: Dominik Brodowski <linux@dominikbrodowski.net>
 ---
- drivers/bluetooth/bluecard_cs.c                  |    2 +-
- drivers/char/pcmcia/ipwireless/main.c            |    2 +-
- drivers/char/pcmcia/synclink_cs.c                |    6 ++--
- drivers/ide/ide-cs.c                             |    3 +-
- drivers/isdn/hardware/avm/avm_cs.c               |    4 +-
- drivers/isdn/hisax/avma1_cs.c                    |    4 +-
- drivers/isdn/hisax/elsa_cs.c                     |    2 +-
- drivers/isdn/hisax/sedlbauer_cs.c                |    2 +-
- drivers/isdn/hisax/teles_cs.c                    |    2 +-
- drivers/mtd/maps/pcmciamtd.c                     |    2 +-
- drivers/net/pcmcia/3c574_cs.c                    |    2 +-
- drivers/net/pcmcia/3c589_cs.c                    |    2 +-
- drivers/net/pcmcia/axnet_cs.c                    |    6 ++--
- drivers/net/pcmcia/fmvj18x_cs.c                  |   22 ++++++------
- drivers/net/pcmcia/ibmtr_cs.c                    |    4 +-
- drivers/net/pcmcia/nmclan_cs.c                   |    4 +-
- drivers/net/pcmcia/pcnet_cs.c                    |    6 ++--
- drivers/net/pcmcia/smc91c92_cs.c                 |   10 +++---
- drivers/net/pcmcia/xirc2ps_cs.c                  |    2 +-
- drivers/net/wireless/airo_cs.c                   |    2 +-
- drivers/net/wireless/hostap/hostap_cs.c          |    2 +-
- drivers/net/wireless/ray_cs.c                    |    2 +-
- drivers/net/wireless/wl3501_cs.c                 |    2 +-
- drivers/parport/parport_cs.c                     |    2 +-
- drivers/pcmcia/cs_internal.h                     |    3 --
- drivers/pcmcia/ds.c                              |    8 ++--
- drivers/pcmcia/pcmcia_cis.c                      |    2 +-
- drivers/pcmcia/pcmcia_resource.c                 |   38 +++++++++++-----------
- drivers/scsi/pcmcia/aha152x_stub.c               |    2 +-
- drivers/scsi/pcmcia/fdomain_stub.c               |    2 +-
- drivers/scsi/pcmcia/nsp_cs.c                     |    2 +-
- drivers/scsi/pcmcia/qlogic_stub.c                |    2 +-
- drivers/serial/serial_cs.c                       |    6 ++--
- drivers/staging/comedi/drivers/cb_das16_cs.c     |    2 +-
- drivers/staging/comedi/drivers/das08_cs.c        |    2 +-
- drivers/staging/comedi/drivers/ni_daq_700.c      |    2 +-
- drivers/staging/comedi/drivers/ni_daq_dio24.c    |    2 +-
- drivers/staging/comedi/drivers/ni_labpc_cs.c     |    2 +-
- drivers/staging/comedi/drivers/quatech_daqp_cs.c |    2 +-
- drivers/staging/wlags49_h2/wl_cs.c               |    4 +-
- drivers/usb/host/sl811_cs.c                      |    2 +-
- include/pcmcia/cs.h                              |   15 --------
- include/pcmcia/ds.h                              |   14 ++++++++
- sound/pcmcia/pdaudiocf/pdaudiocf.c               |    6 ++--
- sound/pcmcia/vx/vxpocket.c                       |    4 +-
- 45 files changed, 107 insertions(+), 112 deletions(-)
+ drivers/ata/pata_pcmcia.c                        |   23 +----
+ drivers/bluetooth/bt3c_cs.c                      |    7 +-
+ drivers/bluetooth/btuart_cs.c                    |    7 +-
+ drivers/bluetooth/dtl1_cs.c                      |    1 -
+ drivers/char/pcmcia/cm4000_cs.c                  |    1 -
+ drivers/char/pcmcia/cm4040_cs.c                  |    1 -
+ drivers/char/pcmcia/ipwireless/main.c            |    1 -
+ drivers/char/pcmcia/synclink_cs.c                |    1 -
+ drivers/ide/ide-cs.c                             |   23 +----
+ drivers/isdn/hardware/avm/avm_cs.c               |    1 -
+ drivers/isdn/hisax/avma1_cs.c                    |    1 -
+ drivers/isdn/hisax/elsa_cs.c                     |    1 -
+ drivers/isdn/hisax/sedlbauer_cs.c                |   25 +-----
+ drivers/isdn/hisax/teles_cs.c                    |    1 -
+ drivers/net/pcmcia/axnet_cs.c                    |    1 -
+ drivers/net/pcmcia/fmvj18x_cs.c                  |    1 -
+ drivers/net/pcmcia/pcnet_cs.c                    |    1 -
+ drivers/net/pcmcia/smc91c92_cs.c                 |    2 -
+ drivers/net/pcmcia/xirc2ps_cs.c                  |    5 +-
+ drivers/net/wireless/airo_cs.c                   |   17 +---
+ drivers/net/wireless/atmel_cs.c                  |   17 +---
+ drivers/net/wireless/hostap/hostap_cs.c          |   27 +-----
+ drivers/net/wireless/libertas/if_cs.c            |    1 -
+ drivers/net/wireless/orinoco/orinoco_cs.c        |   31 +------
+ drivers/net/wireless/orinoco/spectrum_cs.c       |   24 +----
+ drivers/parport/parport_cs.c                     |    1 -
+ drivers/pcmcia/pcmcia_cis.c                      |   36 ++++++-
+ drivers/scsi/pcmcia/aha152x_stub.c               |    1 -
+ drivers/scsi/pcmcia/fdomain_stub.c               |    1 -
+ drivers/scsi/pcmcia/nsp_cs.c                     |  110 ++++++++-------------
+ drivers/scsi/pcmcia/qlogic_stub.c                |    1 -
+ drivers/scsi/pcmcia/sym53c500_cs.c               |    1 -
+ drivers/serial/serial_cs.c                       |   10 +--
+ drivers/staging/comedi/drivers/cb_das16_cs.c     |    1 -
+ drivers/staging/comedi/drivers/das08_cs.c        |    1 -
+ drivers/staging/comedi/drivers/ni_daq_700.c      |   10 +--
+ drivers/staging/comedi/drivers/ni_daq_dio24.c    |   10 +--
+ drivers/staging/comedi/drivers/ni_labpc_cs.c     |   11 +--
+ drivers/staging/comedi/drivers/ni_mio_cs.c       |    1 -
+ drivers/staging/comedi/drivers/quatech_daqp_cs.c |    1 -
+ drivers/telephony/ixj_pcmcia.c                   |    1 -
+ drivers/usb/host/sl811_cs.c                      |   24 +----
+ include/pcmcia/ds.h                              |    7 +-
+ 43 files changed, 120 insertions(+), 329 deletions(-)
 
-diff --git a/drivers/bluetooth/bluecard_cs.c b/drivers/bluetooth/bluecard_cs.c
-index 4cb2dfe..08f4818 100644
---- a/drivers/bluetooth/bluecard_cs.c
-+++ b/drivers/bluetooth/bluecard_cs.c
-@@ -885,7 +885,7 @@ static int bluecard_config(struct pcmcia_device *link)
- 	bluecard_info_t *info = link->priv;
- 	int i, n;
+diff --git a/drivers/ata/pata_pcmcia.c b/drivers/ata/pata_pcmcia.c
+index 76da55d..954f43c 100644
+--- a/drivers/ata/pata_pcmcia.c
++++ b/drivers/ata/pata_pcmcia.c
+@@ -169,34 +169,16 @@ static struct ata_port_operations pcmcia_8bit_port_ops = {
  
--	link->conf.ConfigIndex = 0x20;
-+	link->config_index = 0x20;
+ struct pcmcia_config_check {
+ 	unsigned long ctl_base;
+-	int skip_vcc;
+ 	int is_kme;
+ };
  
- 	link->resource[0]->flags |= IO_DATA_PATH_WIDTH_8;
- 	link->resource[0]->end = 64;
-diff --git a/drivers/char/pcmcia/ipwireless/main.c b/drivers/char/pcmcia/ipwireless/main.c
-index 0f0be4d..05c4e68 100644
---- a/drivers/char/pcmcia/ipwireless/main.c
-+++ b/drivers/char/pcmcia/ipwireless/main.c
-@@ -92,7 +92,7 @@ static int ipwireless_probe(struct pcmcia_device *p_dev,
+ static int pcmcia_check_one_config(struct pcmcia_device *pdev,
+ 				   cistpl_cftable_entry_t *cfg,
+ 				   cistpl_cftable_entry_t *dflt,
+-				   unsigned int vcc,
+ 				   void *priv_data)
+ {
+ 	struct pcmcia_config_check *stk = priv_data;
  
- 	/* 0x40 causes it to generate level mode interrupts. */
- 	/* 0x04 enables IREQ pin. */
--	p_dev->conf.ConfigIndex = cfg->index | 0x44;
-+	p_dev->config_index = cfg->index | 0x44;
- 	p_dev->io_lines = 16;
- 	ret = pcmcia_request_io(p_dev);
- 	if (ret)
-diff --git a/drivers/char/pcmcia/synclink_cs.c b/drivers/char/pcmcia/synclink_cs.c
-index ba7ccf5..535aa08 100644
---- a/drivers/char/pcmcia/synclink_cs.c
-+++ b/drivers/char/pcmcia/synclink_cs.c
-@@ -594,8 +594,8 @@ static int mgslpc_config(struct pcmcia_device *link)
- 	    goto failed;
- 
-     link->conf.Attributes = CONF_ENABLE_IRQ;
--    link->conf.ConfigIndex = 8;
--    link->conf.Present = PRESENT_OPTION;
-+    link->config_index = 8;
-+    link->config_regs = PRESENT_OPTION;
- 
-     ret = pcmcia_request_irq(link, mgslpc_isr);
-     if (ret)
-@@ -608,7 +608,7 @@ static int mgslpc_config(struct pcmcia_device *link)
-     info->irq_level = link->irq;
- 
-     dev_info(&link->dev, "index 0x%02x:",
--	    link->conf.ConfigIndex);
-+	    link->config_index);
-     if (link->conf.Attributes & CONF_ENABLE_IRQ)
- 	    printk(", irq %d", link->irq);
-     if (link->resource[0])
-diff --git a/drivers/ide/ide-cs.c b/drivers/ide/ide-cs.c
-index cf7cb49..07e3787 100644
---- a/drivers/ide/ide-cs.c
-+++ b/drivers/ide/ide-cs.c
-@@ -227,8 +227,7 @@ static int pcmcia_check_one_config(struct pcmcia_device *pdev,
+-	/* Check for matching Vcc, unless we're desperate */
+-	if (!stk->skip_vcc) {
+-		if (cfg->vcc.present & (1 << CISTPL_POWER_VNOM)) {
+-			if (vcc != cfg->vcc.param[CISTPL_POWER_VNOM] / 10000)
+-				return -ENODEV;
+-		} else if (dflt->vcc.present & (1 << CISTPL_POWER_VNOM)) {
+-			if (vcc != dflt->vcc.param[CISTPL_POWER_VNOM] / 10000)
+-				return -ENODEV;
+-		}
+-	}
+-
+-	if (cfg->vpp1.present & (1 << CISTPL_POWER_VNOM))
+-		pdev->vpp = cfg->vpp1.param[CISTPL_POWER_VNOM] / 10000;
+-	else if (dflt->vpp1.present & (1 << CISTPL_POWER_VNOM))
+-		pdev->vpp = dflt->vpp1.param[CISTPL_POWER_VNOM] / 10000;
+-
  	if ((cfg->io.nwin > 0) || (dflt->io.nwin > 0)) {
  		cistpl_io_t *io = (cfg->io.nwin) ? &cfg->io : &dflt->io;
  		pdev->io_lines = io->flags & CISTPL_IO_LINES_MASK;
+@@ -249,6 +231,7 @@ static int pcmcia_init_one(struct pcmcia_device *pdev)
+ 	pdev->resource[0]->flags |= IO_DATA_PATH_WIDTH_AUTO;
+ 	pdev->resource[1]->flags |= IO_DATA_PATH_WIDTH_8;
+ 	pdev->config_flags |= CONF_ENABLE_IRQ;
++	pdev->config_flags |= CONF_AUTO_SET_VPP | CONF_AUTO_CHECK_VCC;
+ 
+ 	/* See if we have a manufacturer identifier. Use it to set is_kme for
+ 	   vendor quirks */
+@@ -262,10 +245,10 @@ static int pcmcia_init_one(struct pcmcia_device *pdev)
+ 	if (!stk)
+ 		goto out1;
+ 	stk->is_kme = is_kme;
+-	stk->skip_vcc = io_base = ctl_base = 0;
++	io_base = ctl_base = 0;
+ 
+ 	if (pcmcia_loop_config(pdev, pcmcia_check_one_config, stk)) {
+-		stk->skip_vcc = 1;
++		pdev->config_flags &= ~CONF_AUTO_CHECK_VCC;
+ 		if (pcmcia_loop_config(pdev, pcmcia_check_one_config, stk))
+ 			goto failed; /* No suitable config found */
+ 	}
+diff --git a/drivers/bluetooth/bt3c_cs.c b/drivers/bluetooth/bt3c_cs.c
+index 3db9588..97338a3 100644
+--- a/drivers/bluetooth/bt3c_cs.c
++++ b/drivers/bluetooth/bt3c_cs.c
+@@ -659,7 +659,7 @@ static int bt3c_probe(struct pcmcia_device *link)
+ 	link->resource[0]->flags |= IO_DATA_PATH_WIDTH_8;
+ 	link->resource[0]->end = 8;
+ 
+-	link->config_flags |= CONF_ENABLE_IRQ;
++	link->config_flags |= CONF_ENABLE_IRQ | CONF_AUTO_SET_VPP;
+ 
+ 	return bt3c_config(link);
+ }
+@@ -676,15 +676,11 @@ static void bt3c_detach(struct pcmcia_device *link)
+ static int bt3c_check_config(struct pcmcia_device *p_dev,
+ 			     cistpl_cftable_entry_t *cf,
+ 			     cistpl_cftable_entry_t *dflt,
+-			     unsigned int vcc,
+ 			     void *priv_data)
+ {
+ 	unsigned long try = (unsigned long) priv_data;
 -
--		pdev->conf.ConfigIndex = cfg->index;
-+		pdev->config_index = cfg->index;
- 		pdev->resource[0]->start = io->win[0].base;
- 		if (!(io->flags & CISTPL_IO_16BIT)) {
- 			pdev->resource[0]->flags &= ~IO_DATA_PATH_WIDTH;
+ 	p_dev->io_lines = (try == 0) ? 16 : cf->io.flags & CISTPL_IO_LINES_MASK;
+ 
+-	if (cf->vpp1.present & (1 << CISTPL_POWER_VNOM))
+-		p_dev->vpp = cf->vpp1.param[CISTPL_POWER_VNOM] / 10000;
+ 	if ((cf->io.nwin > 0) && (cf->io.win[0].len == 8) &&
+ 	    (cf->io.win[0].base != 0)) {
+ 		p_dev->resource[0]->start = cf->io.win[0].base;
+@@ -697,7 +693,6 @@ static int bt3c_check_config(struct pcmcia_device *p_dev,
+ static int bt3c_check_config_notpicky(struct pcmcia_device *p_dev,
+ 				      cistpl_cftable_entry_t *cf,
+ 				      cistpl_cftable_entry_t *dflt,
+-				      unsigned int vcc,
+ 				      void *priv_data)
+ {
+ 	static unsigned int base[5] = { 0x3f8, 0x2f8, 0x3e8, 0x2e8, 0x0 };
+diff --git a/drivers/bluetooth/btuart_cs.c b/drivers/bluetooth/btuart_cs.c
+index c5c4359..8a6864f 100644
+--- a/drivers/bluetooth/btuart_cs.c
++++ b/drivers/bluetooth/btuart_cs.c
+@@ -588,7 +588,7 @@ static int btuart_probe(struct pcmcia_device *link)
+ 	link->resource[0]->flags |= IO_DATA_PATH_WIDTH_8;
+ 	link->resource[0]->end = 8;
+ 
+-	link->config_flags |= CONF_ENABLE_IRQ;
++	link->config_flags |= CONF_ENABLE_IRQ | CONF_AUTO_SET_VPP;
+ 
+ 	return btuart_config(link);
+ }
+@@ -605,15 +605,11 @@ static void btuart_detach(struct pcmcia_device *link)
+ static int btuart_check_config(struct pcmcia_device *p_dev,
+ 			       cistpl_cftable_entry_t *cf,
+ 			       cistpl_cftable_entry_t *dflt,
+-			       unsigned int vcc,
+ 			       void *priv_data)
+ {
+ 	int *try = priv_data;
+-
+ 	p_dev->io_lines = (try == 0) ? 16 : cf->io.flags & CISTPL_IO_LINES_MASK;
+ 
+-	if (cf->vpp1.present & (1 << CISTPL_POWER_VNOM))
+-		p_dev->vpp = cf->vpp1.param[CISTPL_POWER_VNOM] / 10000;
+ 	if ((cf->io.nwin > 0) && (cf->io.win[0].len == 8) &&
+ 	    (cf->io.win[0].base != 0)) {
+ 		p_dev->resource[0]->start = cf->io.win[0].base;
+@@ -626,7 +622,6 @@ static int btuart_check_config(struct pcmcia_device *p_dev,
+ static int btuart_check_config_notpicky(struct pcmcia_device *p_dev,
+ 					cistpl_cftable_entry_t *cf,
+ 					cistpl_cftable_entry_t *dflt,
+-					unsigned int vcc,
+ 					void *priv_data)
+ {
+ 	static unsigned int base[5] = { 0x3f8, 0x2f8, 0x3e8, 0x2e8, 0x0 };
+diff --git a/drivers/bluetooth/dtl1_cs.c b/drivers/bluetooth/dtl1_cs.c
+index 38206df..4620cc3 100644
+--- a/drivers/bluetooth/dtl1_cs.c
++++ b/drivers/bluetooth/dtl1_cs.c
+@@ -592,7 +592,6 @@ static void dtl1_detach(struct pcmcia_device *link)
+ static int dtl1_confcheck(struct pcmcia_device *p_dev,
+ 			  cistpl_cftable_entry_t *cf,
+ 			  cistpl_cftable_entry_t *dflt,
+-			  unsigned int vcc,
+ 			  void *priv_data)
+ {
+ 	if ((cf->io.nwin != 1) || (cf->io.win[0].len <= 8))
+diff --git a/drivers/char/pcmcia/cm4000_cs.c b/drivers/char/pcmcia/cm4000_cs.c
+index 75caa8c..0b2f3b9 100644
+--- a/drivers/char/pcmcia/cm4000_cs.c
++++ b/drivers/char/pcmcia/cm4000_cs.c
+@@ -1744,7 +1744,6 @@ static void cmm_cm4000_release(struct pcmcia_device * link)
+ static int cm4000_config_check(struct pcmcia_device *p_dev,
+ 			       cistpl_cftable_entry_t *cfg,
+ 			       cistpl_cftable_entry_t *dflt,
+-			       unsigned int vcc,
+ 			       void *priv_data)
+ {
+ 	if (!cfg->io.nwin)
+diff --git a/drivers/char/pcmcia/cm4040_cs.c b/drivers/char/pcmcia/cm4040_cs.c
+index 0c87b80..acf88d5 100644
+--- a/drivers/char/pcmcia/cm4040_cs.c
++++ b/drivers/char/pcmcia/cm4040_cs.c
+@@ -518,7 +518,6 @@ static void cm4040_reader_release(struct pcmcia_device *link)
+ static int cm4040_config_check(struct pcmcia_device *p_dev,
+ 			       cistpl_cftable_entry_t *cfg,
+ 			       cistpl_cftable_entry_t *dflt,
+-			       unsigned int vcc,
+ 			       void *priv_data)
+ {
+ 	int rc;
+diff --git a/drivers/char/pcmcia/ipwireless/main.c b/drivers/char/pcmcia/ipwireless/main.c
+index cd21b2b..1b7f092 100644
+--- a/drivers/char/pcmcia/ipwireless/main.c
++++ b/drivers/char/pcmcia/ipwireless/main.c
+@@ -78,7 +78,6 @@ static void signalled_reboot_callback(void *callback_data)
+ static int ipwireless_probe(struct pcmcia_device *p_dev,
+ 			    cistpl_cftable_entry_t *cfg,
+ 			    cistpl_cftable_entry_t *dflt,
+-			    unsigned int vcc,
+ 			    void *priv_data)
+ {
+ 	struct ipw_dev *ipw = priv_data;
+diff --git a/drivers/char/pcmcia/synclink_cs.c b/drivers/char/pcmcia/synclink_cs.c
+index 99feaed..c701434 100644
+--- a/drivers/char/pcmcia/synclink_cs.c
++++ b/drivers/char/pcmcia/synclink_cs.c
+@@ -564,7 +564,6 @@ static int mgslpc_probe(struct pcmcia_device *link)
+ static int mgslpc_ioprobe(struct pcmcia_device *p_dev,
+ 			  cistpl_cftable_entry_t *cfg,
+ 			  cistpl_cftable_entry_t *dflt,
+-			  unsigned int vcc,
+ 			  void *priv_data)
+ {
+ 	if (!cfg->io.nwin)
+diff --git a/drivers/ide/ide-cs.c b/drivers/ide/ide-cs.c
+index 87ad049..25b8a10 100644
+--- a/drivers/ide/ide-cs.c
++++ b/drivers/ide/ide-cs.c
+@@ -99,6 +99,7 @@ static int ide_probe(struct pcmcia_device *link)
+     link->resource[0]->flags |= IO_DATA_PATH_WIDTH_AUTO;
+     link->resource[1]->flags |= IO_DATA_PATH_WIDTH_8;
+     link->config_flags |= CONF_ENABLE_IRQ;
++    link->config_flags |= CONF_AUTO_SET_VPP | CONF_AUTO_CHECK_VCC;
+ 
+     return ide_config(link);
+ } /* ide_attach */
+@@ -195,34 +196,16 @@ out_release:
+ 
+ struct pcmcia_config_check {
+ 	unsigned long ctl_base;
+-	int skip_vcc;
+ 	int is_kme;
+ };
+ 
+ static int pcmcia_check_one_config(struct pcmcia_device *pdev,
+ 				   cistpl_cftable_entry_t *cfg,
+ 				   cistpl_cftable_entry_t *dflt,
+-				   unsigned int vcc,
+ 				   void *priv_data)
+ {
+ 	struct pcmcia_config_check *stk = priv_data;
+ 
+-	/* Check for matching Vcc, unless we're desperate */
+-	if (!stk->skip_vcc) {
+-		if (cfg->vcc.present & (1 << CISTPL_POWER_VNOM)) {
+-			if (vcc != cfg->vcc.param[CISTPL_POWER_VNOM] / 10000)
+-				return -ENODEV;
+-		} else if (dflt->vcc.present & (1 << CISTPL_POWER_VNOM)) {
+-			if (vcc != dflt->vcc.param[CISTPL_POWER_VNOM] / 10000)
+-				return -ENODEV;
+-		}
+-	}
+-
+-	if (cfg->vpp1.present & (1 << CISTPL_POWER_VNOM))
+-		pdev->vpp = cfg->vpp1.param[CISTPL_POWER_VNOM] / 10000;
+-	else if (dflt->vpp1.present & (1 << CISTPL_POWER_VNOM))
+-		pdev->vpp = dflt->vpp1.param[CISTPL_POWER_VNOM] / 10000;
+-
+ 	if ((cfg->io.nwin > 0) || (dflt->io.nwin > 0)) {
+ 		cistpl_io_t *io = (cfg->io.nwin) ? &cfg->io : &dflt->io;
+ 		pdev->io_lines = io->flags & CISTPL_IO_LINES_MASK;
+@@ -271,10 +254,10 @@ static int ide_config(struct pcmcia_device *link)
+     if (!stk)
+ 	    goto err_mem;
+     stk->is_kme = is_kme;
+-    stk->skip_vcc = io_base = ctl_base = 0;
++    io_base = ctl_base = 0;
+ 
+     if (pcmcia_loop_config(link, pcmcia_check_one_config, stk)) {
+-	    stk->skip_vcc = 1;
++	    link->config_flags &= ~CONF_AUTO_CHECK_VCC;
+ 	    if (pcmcia_loop_config(link, pcmcia_check_one_config, stk))
+ 		    goto failed; /* No suitable config found */
+     }
 diff --git a/drivers/isdn/hardware/avm/avm_cs.c b/drivers/isdn/hardware/avm/avm_cs.c
-index 938ca41..2d8bbbf 100644
+index 6ea5cd2..9dbab9c 100644
 --- a/drivers/isdn/hardware/avm/avm_cs.c
 +++ b/drivers/isdn/hardware/avm/avm_cs.c
-@@ -80,8 +80,8 @@ static int avmcs_probe(struct pcmcia_device *p_dev)
- 
-     /* General socket configuration */
-     p_dev->conf.Attributes = CONF_ENABLE_IRQ;
--    p_dev->conf.ConfigIndex = 1;
--    p_dev->conf.Present = PRESENT_OPTION;
-+    p_dev->config_index = 1;
-+    p_dev->config_regs = PRESENT_OPTION;
- 
-     return avmcs_config(p_dev);
- } /* avmcs_attach */
+@@ -110,7 +110,6 @@ static void avmcs_detach(struct pcmcia_device *link)
+ static int avmcs_configcheck(struct pcmcia_device *p_dev,
+ 			     cistpl_cftable_entry_t *cf,
+ 			     cistpl_cftable_entry_t *dflt,
+-			     unsigned int vcc,
+ 			     void *priv_data)
+ {
+ 	if (cf->io.nwin <= 0)
 diff --git a/drivers/isdn/hisax/avma1_cs.c b/drivers/isdn/hisax/avma1_cs.c
-index 7d5ff20..e25f6c7 100644
+index 5dd47ad..2f2b000 100644
 --- a/drivers/isdn/hisax/avma1_cs.c
 +++ b/drivers/isdn/hisax/avma1_cs.c
-@@ -85,8 +85,8 @@ static int __devinit avma1cs_probe(struct pcmcia_device *p_dev)
- 
-     /* General socket configuration */
-     p_dev->conf.Attributes = CONF_ENABLE_IRQ;
--    p_dev->conf.ConfigIndex = 1;
--    p_dev->conf.Present = PRESENT_OPTION;
-+    p_dev->config_index = 1;
-+    p_dev->config_regs = PRESENT_OPTION;
- 
-     return avma1cs_config(p_dev);
- } /* avma1cs_attach */
+@@ -117,7 +117,6 @@ static void __devexit avma1cs_detach(struct pcmcia_device *link)
+ static int avma1cs_configcheck(struct pcmcia_device *p_dev,
+ 			       cistpl_cftable_entry_t *cf,
+ 			       cistpl_cftable_entry_t *dflt,
+-			       unsigned int vcc,
+ 			       void *priv_data)
+ {
+ 	if (cf->io.nwin <= 0)
 diff --git a/drivers/isdn/hisax/elsa_cs.c b/drivers/isdn/hisax/elsa_cs.c
-index df360c8..f276e84 100644
+index 368c8a2..0a65280 100644
 --- a/drivers/isdn/hisax/elsa_cs.c
 +++ b/drivers/isdn/hisax/elsa_cs.c
-@@ -211,7 +211,7 @@ static int __devinit elsa_cs_config(struct pcmcia_device *link)
- 
-     /* Finally, report what we've done */
-     dev_info(&link->dev, "index 0x%02x: ",
--	    link->conf.ConfigIndex);
-+	    link->config_index);
-     if (link->conf.Attributes & CONF_ENABLE_IRQ)
- 	printk(", irq %d", link->irq);
-     if (link->resource[0])
+@@ -163,7 +163,6 @@ static void __devexit elsa_cs_detach(struct pcmcia_device *link)
+ static int elsa_cs_configcheck(struct pcmcia_device *p_dev,
+ 			       cistpl_cftable_entry_t *cf,
+ 			       cistpl_cftable_entry_t *dflt,
+-			       unsigned int vcc,
+ 			       void *priv_data)
+ {
+ 	int j;
 diff --git a/drivers/isdn/hisax/sedlbauer_cs.c b/drivers/isdn/hisax/sedlbauer_cs.c
-index 169061f..43d0a4e 100644
+index 791e23a..b69eccf 100644
 --- a/drivers/isdn/hisax/sedlbauer_cs.c
 +++ b/drivers/isdn/hisax/sedlbauer_cs.c
-@@ -253,7 +253,7 @@ static int __devinit sedlbauer_config(struct pcmcia_device *link)
- 
-     /* Finally, report what we've done */
-     dev_info(&link->dev, "index 0x%02x:",
--	   link->conf.ConfigIndex);
-+	   link->config_index);
-     if (link->vpp)
- 	printk(", Vpp %d.%d", link->vpp/10, link->vpp%10);
-     if (link->conf.Attributes & CONF_ENABLE_IRQ)
-diff --git a/drivers/isdn/hisax/teles_cs.c b/drivers/isdn/hisax/teles_cs.c
-index 46e72a1..614afc6 100644
---- a/drivers/isdn/hisax/teles_cs.c
-+++ b/drivers/isdn/hisax/teles_cs.c
-@@ -191,7 +191,7 @@ static int __devinit teles_cs_config(struct pcmcia_device *link)
- 
-     /* Finally, report what we've done */
-     dev_info(&link->dev, "index 0x%02x:",
--	    link->conf.ConfigIndex);
-+	    link->config_index);
-     if (link->conf.Attributes & CONF_ENABLE_IRQ)
- 	    printk(", irq %d", link->irq);
-     if (link->resource[0])
-diff --git a/drivers/mtd/maps/pcmciamtd.c b/drivers/mtd/maps/pcmciamtd.c
-index 663b48b..99c7257 100644
---- a/drivers/mtd/maps/pcmciamtd.c
-+++ b/drivers/mtd/maps/pcmciamtd.c
-@@ -575,7 +575,7 @@ static int pcmciamtd_config(struct pcmcia_device *link)
- 		link->vpp = 0;
- 	}
- 
--	link->conf.ConfigIndex = 0;
-+	link->config_index = 0;
- 	DEBUG(2, "Setting Configuration");
- 	ret = pcmcia_request_configuration(link, &link->conf);
- 	if (ret != 0) {
-diff --git a/drivers/net/pcmcia/3c574_cs.c b/drivers/net/pcmcia/3c574_cs.c
-index 41ecb27..4b670b3 100644
---- a/drivers/net/pcmcia/3c574_cs.c
-+++ b/drivers/net/pcmcia/3c574_cs.c
-@@ -281,7 +281,7 @@ static int tc574_probe(struct pcmcia_device *link)
- 	link->resource[0]->end = 32;
- 	link->resource[0]->flags |= IO_DATA_PATH_WIDTH_16;
- 	link->conf.Attributes = CONF_ENABLE_IRQ;
--	link->conf.ConfigIndex = 1;
-+	link->config_index = 1;
- 
- 	dev->netdev_ops = &el3_netdev_ops;
- 	SET_ETHTOOL_OPS(dev, &netdev_ethtool_ops);
-diff --git a/drivers/net/pcmcia/3c589_cs.c b/drivers/net/pcmcia/3c589_cs.c
-index 6888672..6549e2c 100644
---- a/drivers/net/pcmcia/3c589_cs.c
-+++ b/drivers/net/pcmcia/3c589_cs.c
-@@ -217,7 +217,7 @@ static int tc589_probe(struct pcmcia_device *link)
-     link->resource[0]->flags |= IO_DATA_PATH_WIDTH_16;
- 
-     link->conf.Attributes = CONF_ENABLE_IRQ;
--    link->conf.ConfigIndex = 1;
-+    link->config_index = 1;
- 
-     dev->netdev_ops = &el3_netdev_ops;
-     dev->watchdog_timeo = TX_TIMEOUT;
-diff --git a/drivers/net/pcmcia/axnet_cs.c b/drivers/net/pcmcia/axnet_cs.c
-index 4d4928a..2c273ce 100644
---- a/drivers/net/pcmcia/axnet_cs.c
-+++ b/drivers/net/pcmcia/axnet_cs.c
-@@ -230,7 +230,7 @@ static int get_prom(struct pcmcia_device *link)
-     };
- 
-     /* Not much of a test, but the alternatives are messy */
--    if (link->conf.ConfigBase != 0x03c0)
-+    if (link->config_base != 0x03c0)
- 	return 0;
- 
-     axnet_reset_8390(dev);
-@@ -297,7 +297,7 @@ static int axnet_configcheck(struct pcmcia_device *p_dev,
- 	if (cfg->index == 0 || cfg->io.nwin == 0)
+@@ -164,33 +164,11 @@ static void __devexit sedlbauer_detach(struct pcmcia_device *link)
+ static int sedlbauer_config_check(struct pcmcia_device *p_dev,
+ 				  cistpl_cftable_entry_t *cfg,
+ 				  cistpl_cftable_entry_t *dflt,
+-				  unsigned int vcc,
+ 				  void *priv_data)
+ {
+ 	if (cfg->index == 0)
  		return -ENODEV;
  
--	p_dev->conf.ConfigIndex = 0x05;
-+	p_dev->config_index = 0x05;
- 	/* For multifunction cards, by convention, we configure the
- 	   network function with window 0, and serial with window 1 */
- 	if (io->nwin > 1) {
-@@ -325,7 +325,7 @@ static int axnet_config(struct pcmcia_device *link)
-     dev_dbg(&link->dev, "axnet_config(0x%p)\n", link);
+-	/* Does this card need audio output? */
+-	if (cfg->flags & CISTPL_CFTABLE_AUDIO)
+-		p_dev->config_flags |= CONF_ENABLE_SPKR;
+-
+-	/* Use power settings for Vcc and Vpp if present */
+-	/*  Note that the CIS values need to be rescaled */
+-	if (cfg->vcc.present & (1<<CISTPL_POWER_VNOM)) {
+-		if (vcc != cfg->vcc.param[CISTPL_POWER_VNOM]/10000)
+-			return -ENODEV;
+-	} else if (dflt->vcc.present & (1<<CISTPL_POWER_VNOM)) {
+-		if (vcc != dflt->vcc.param[CISTPL_POWER_VNOM]/10000)
+-			return -ENODEV;
+-	}
+-
+-	if (cfg->vpp1.present & (1<<CISTPL_POWER_VNOM))
+-		p_dev->vpp = cfg->vpp1.param[CISTPL_POWER_VNOM]/10000;
+-	else if (dflt->vpp1.present & (1<<CISTPL_POWER_VNOM))
+-		p_dev->vpp = dflt->vpp1.param[CISTPL_POWER_VNOM]/10000;
+-
+-	p_dev->config_flags |= CONF_ENABLE_IRQ;
+-
+ 	/* IO window settings */
+ 	p_dev->resource[0]->end = p_dev->resource[1]->end = 0;
+ 	if ((cfg->io.nwin > 0) || (dflt->io.nwin > 0)) {
+@@ -223,6 +201,9 @@ static int __devinit sedlbauer_config(struct pcmcia_device *link)
  
-     /* don't trust the CIS on this; Linksys got it wrong */
--    link->conf.Present = 0x63;
-+    link->config_regs = 0x63;
-     ret = pcmcia_loop_config(link, axnet_configcheck, NULL);
-     if (ret != 0)
- 	goto failed;
+     dev_dbg(&link->dev, "sedlbauer_config(0x%p)\n", link);
+ 
++    link->config_flags |= CONF_ENABLE_IRQ | CONF_AUTO_CHECK_VCC |
++	    CONF_AUTO_SET_VPP | CONF_AUTO_AUDIO;
++
+     /*
+       In this loop, we scan the CIS for configuration table entries,
+       each of which describes a valid card configuration, including
+diff --git a/drivers/isdn/hisax/teles_cs.c b/drivers/isdn/hisax/teles_cs.c
+index 2ae71e3..6605480 100644
+--- a/drivers/isdn/hisax/teles_cs.c
++++ b/drivers/isdn/hisax/teles_cs.c
+@@ -145,7 +145,6 @@ static void __devexit teles_detach(struct pcmcia_device *link)
+ static int teles_cs_configcheck(struct pcmcia_device *p_dev,
+ 				cistpl_cftable_entry_t *cf,
+ 				cistpl_cftable_entry_t *dflt,
+-				unsigned int vcc,
+ 				void *priv_data)
+ {
+ 	int j;
+diff --git a/drivers/net/pcmcia/axnet_cs.c b/drivers/net/pcmcia/axnet_cs.c
+index f361d28..17f1040 100644
+--- a/drivers/net/pcmcia/axnet_cs.c
++++ b/drivers/net/pcmcia/axnet_cs.c
+@@ -287,7 +287,6 @@ static int try_io_port(struct pcmcia_device *link)
+ static int axnet_configcheck(struct pcmcia_device *p_dev,
+ 			     cistpl_cftable_entry_t *cfg,
+ 			     cistpl_cftable_entry_t *dflt,
+-			     unsigned int vcc,
+ 			     void *priv_data)
+ {
+ 	int i;
 diff --git a/drivers/net/pcmcia/fmvj18x_cs.c b/drivers/net/pcmcia/fmvj18x_cs.c
-index caf2b2e..23f5333 100644
+index f6865ad..c1479e3 100644
 --- a/drivers/net/pcmcia/fmvj18x_cs.c
 +++ b/drivers/net/pcmcia/fmvj18x_cs.c
-@@ -312,7 +312,7 @@ static int ungermann_try_io_port(struct pcmcia_device *link)
- 	ret = pcmcia_request_io(link);
- 	if (ret == 0) {
- 	    /* calculate ConfigIndex value */
--	    link->conf.ConfigIndex = 
-+	    link->config_index =
- 		((link->resource[0]->start & 0x0f0) >> 3) | 0x22;
- 	    return ret;
- 	}
-@@ -361,28 +361,28 @@ static int fmvj18x_config(struct pcmcia_device *link)
- 		link->card_id == PRODID_TDK_NP9610 ||
- 		link->card_id == PRODID_TDK_MN3200) {
- 		/* MultiFunction Card */
--		link->conf.ConfigBase = 0x800;
--		link->conf.ConfigIndex = 0x47;
-+		link->config_base = 0x800;
-+		link->config_index = 0x47;
- 		link->resource[1]->end = 8;
- 	    }
- 	    break;
- 	case MANFID_NEC:
- 	    cardtype = NEC; /* MultiFunction Card */
--	    link->conf.ConfigBase = 0x800;
--	    link->conf.ConfigIndex = 0x47;
-+	    link->config_base = 0x800;
-+	    link->config_index = 0x47;
- 	    link->resource[1]->end = 8;
- 	    break;
- 	case MANFID_KME:
- 	    cardtype = KME; /* MultiFunction Card */
--	    link->conf.ConfigBase = 0x800;
--	    link->conf.ConfigIndex = 0x47;
-+	    link->config_base = 0x800;
-+	    link->config_index = 0x47;
- 	    link->resource[1]->end = 8;
- 	    break;
- 	case MANFID_CONTEC:
- 	    cardtype = CONTEC;
- 	    break;
- 	case MANFID_FUJITSU:
--	    if (link->conf.ConfigBase == 0x0fe0)
-+	    if (link->config_base == 0x0fe0)
- 		cardtype = MBH10302;
- 	    else if (link->card_id == PRODID_FUJITSU_MBH10302) 
-                 /* RATOC REX-5588/9822/4886's PRODID are 0004(=MBH10302),
-@@ -402,10 +402,10 @@ static int fmvj18x_config(struct pcmcia_device *link)
- 	case MANFID_FUJITSU:
- 	    if (link->card_id == PRODID_FUJITSU_MBH10304) {
- 		cardtype = XXX10304;    /* MBH10304 with buggy CIS */
--	        link->conf.ConfigIndex = 0x20;
-+		link->config_index = 0x20;
- 	    } else {
- 		cardtype = MBH10302;    /* NextCom NC5310, etc. */
--		link->conf.ConfigIndex = 1;
-+		link->config_index = 1;
- 	    }
- 	    break;
- 	case MANFID_UNGERMANN:
-@@ -413,7 +413,7 @@ static int fmvj18x_config(struct pcmcia_device *link)
- 	    break;
- 	default:
- 	    cardtype = MBH10302;
--	    link->conf.ConfigIndex = 1;
-+	    link->config_index = 1;
- 	}
-     }
- 
-diff --git a/drivers/net/pcmcia/ibmtr_cs.c b/drivers/net/pcmcia/ibmtr_cs.c
-index 1327f08..feedeeb 100644
---- a/drivers/net/pcmcia/ibmtr_cs.c
-+++ b/drivers/net/pcmcia/ibmtr_cs.c
-@@ -153,7 +153,7 @@ static int __devinit ibmtr_attach(struct pcmcia_device *link)
-     link->resource[0]->flags |= IO_DATA_PATH_WIDTH_8;
-     link->resource[0]->end = 4;
-     link->conf.Attributes = CONF_ENABLE_IRQ;
--    link->conf.Present = PRESENT_OPTION;
-+    link->config_regs = PRESENT_OPTION;
- 
-     info->dev = dev;
- 
-@@ -212,8 +212,8 @@ static int __devinit ibmtr_config(struct pcmcia_device *link)
- 
-     dev_dbg(&link->dev, "ibmtr_config\n");
- 
--    link->conf.ConfigIndex = 0x61;
-     link->io_lines = 16;
-+    link->config_index = 0x61;
- 
-     /* Determine if this is PRIMARY or ALTERNATE. */
- 
-diff --git a/drivers/net/pcmcia/nmclan_cs.c b/drivers/net/pcmcia/nmclan_cs.c
-index 90d1728..98c4a69 100644
---- a/drivers/net/pcmcia/nmclan_cs.c
-+++ b/drivers/net/pcmcia/nmclan_cs.c
-@@ -461,8 +461,8 @@ static int nmclan_probe(struct pcmcia_device *link)
-     link->resource[0]->end = 32;
-     link->resource[0]->flags |= IO_DATA_PATH_WIDTH_AUTO;
-     link->conf.Attributes = CONF_ENABLE_IRQ;
--    link->conf.ConfigIndex = 1;
--    link->conf.Present = PRESENT_OPTION;
-+    link->config_index = 1;
-+    link->config_regs = PRESENT_OPTION;
- 
-     lp->tx_free_frames=AM2150_MAX_TX_FRAMES;
- 
+@@ -322,7 +322,6 @@ static int ungermann_try_io_port(struct pcmcia_device *link)
+ static int fmvj18x_ioprobe(struct pcmcia_device *p_dev,
+ 			   cistpl_cftable_entry_t *cfg,
+ 			   cistpl_cftable_entry_t *dflt,
+-			   unsigned int vcc,
+ 			   void *priv_data)
+ {
+ 	return 0; /* strange, but that's what the code did already before... */
 diff --git a/drivers/net/pcmcia/pcnet_cs.c b/drivers/net/pcmcia/pcnet_cs.c
-index 6913576..68c4675 100644
+index 4a3b6a4..12b028c 100644
 --- a/drivers/net/pcmcia/pcnet_cs.c
 +++ b/drivers/net/pcmcia/pcnet_cs.c
-@@ -420,7 +420,7 @@ static hw_info_t *get_ax88190(struct pcmcia_device *link)
-     int i, j;
- 
-     /* Not much of a test, but the alternatives are messy */
--    if (link->conf.ConfigBase != 0x03c0)
-+    if (link->config_base != 0x03c0)
- 	return NULL;
- 
-     outb_p(0x01, ioaddr + EN0_DCFG);	/* Set word-wide access. */
-@@ -564,7 +564,7 @@ static hw_info_t *pcnet_try_config(struct pcmcia_device *link,
- 
- 	if ((link->manf_id == MANFID_IBM) &&
- 	    (link->card_id == PRODID_IBM_HOME_AND_AWAY))
--		link->conf.ConfigIndex |= 0x10;
-+		link->config_index |= 0x10;
- 
- 	ret = pcmcia_request_configuration(link, &link->conf);
- 	if (ret)
-@@ -581,7 +581,7 @@ static hw_info_t *pcnet_try_config(struct pcmcia_device *link,
- 	} else
- 		dev->if_port = 0;
- 
--	if ((link->conf.ConfigBase == 0x03c0) &&
-+	if ((link->config_base == 0x03c0) &&
- 	    (link->manf_id == 0x149) && (link->card_id == 0xc1ab)) {
- 		dev_info(&link->dev,
- 			"this is an AX88190 card - use axnet_cs instead.\n");
+@@ -503,7 +503,6 @@ static int try_io_port(struct pcmcia_device *link)
+ static int pcnet_confcheck(struct pcmcia_device *p_dev,
+ 			   cistpl_cftable_entry_t *cfg,
+ 			   cistpl_cftable_entry_t *dflt,
+-			   unsigned int vcc,
+ 			   void *priv_data)
+ {
+ 	int *priv = priv_data;
 diff --git a/drivers/net/pcmcia/smc91c92_cs.c b/drivers/net/pcmcia/smc91c92_cs.c
-index 2c2a878..59f5034 100644
+index 8c16ba6..e127d2b 100644
 --- a/drivers/net/pcmcia/smc91c92_cs.c
 +++ b/drivers/net/pcmcia/smc91c92_cs.c
-@@ -411,9 +411,9 @@ static int mhz_3288_power(struct pcmcia_device *link)
-     mdelay(200);
- 
-     /* Now read and write the COR... */
--    tmp = readb(smc->base + link->conf.ConfigBase + CISREG_COR);
-+    tmp = readb(smc->base + link->config_base + CISREG_COR);
-     udelay(5);
--    writeb(tmp, smc->base + link->conf.ConfigBase + CISREG_COR);
-+    writeb(tmp, smc->base + link->config_base + CISREG_COR);
- 
-     return 0;
- }
-@@ -464,7 +464,7 @@ static int mhz_mfc_config(struct pcmcia_device *link)
- 
-     smc->base = ioremap(link->resource[2]->start,
- 		    resource_size(link->resource[2]));
--    offset = (smc->manfid == MANFID_MOTOROLA) ? link->conf.ConfigBase : 0;
-+    offset = (smc->manfid == MANFID_MOTOROLA) ? link->config_base : 0;
-     i = pcmcia_map_mem_page(link, link->resource[2], offset);
-     if ((i == 0) &&
- 	(smc->manfid == MANFID_MEGAHERTZ) &&
-@@ -643,8 +643,8 @@ static int osi_config(struct pcmcia_device *link)
-     link->resource[1]->end = 8;
- 
-     /* Enable Hard Decode, LAN, Modem */
--    link->conf.ConfigIndex = 0x23;
-     link->io_lines = 16;
-+    link->config_index = 0x23;
- 
-     for (i = j = 0; j < 4; j++) {
- 	link->resource[1]->start = com[j];
-@@ -654,7 +654,7 @@ static int osi_config(struct pcmcia_device *link)
-     }
-     if (i != 0) {
- 	/* Fallback: turn off hard decode */
--	link->conf.ConfigIndex = 0x03;
-+	link->config_index = 0x03;
- 	link->resource[1]->end = 0;
- 	i = pcmcia_request_io(link);
-     }
+@@ -420,7 +420,6 @@ static int mhz_3288_power(struct pcmcia_device *link)
+ static int mhz_mfc_config_check(struct pcmcia_device *p_dev,
+ 				cistpl_cftable_entry_t *cf,
+ 				cistpl_cftable_entry_t *dflt,
+-				unsigned int vcc,
+ 				void *priv_data)
+ {
+ 	int k;
+@@ -590,7 +589,6 @@ static int mot_setup(struct pcmcia_device *link)
+ static int smc_configcheck(struct pcmcia_device *p_dev,
+ 			   cistpl_cftable_entry_t *cf,
+ 			   cistpl_cftable_entry_t *dflt,
+-			   unsigned int vcc,
+ 			   void *priv_data)
+ {
+ 	p_dev->resource[0]->start = cf->io.win[0].base;
 diff --git a/drivers/net/pcmcia/xirc2ps_cs.c b/drivers/net/pcmcia/xirc2ps_cs.c
-index 1776f49..1c8ebf2 100644
+index 7a4a99b..2bc2eb8 100644
 --- a/drivers/net/pcmcia/xirc2ps_cs.c
 +++ b/drivers/net/pcmcia/xirc2ps_cs.c
-@@ -530,7 +530,7 @@ xirc2ps_probe(struct pcmcia_device *link)
- 
-     /* General socket configuration */
-     link->conf.Attributes = CONF_ENABLE_IRQ;
--    link->conf.ConfigIndex = 1;
-+    link->config_index = 1;
- 
-     /* Fill in card specific entries */
-     dev->netdev_ops = &netdev_ops;
+@@ -668,7 +668,6 @@ static int
+ xirc2ps_config_modem(struct pcmcia_device *p_dev,
+ 		     cistpl_cftable_entry_t *cf,
+ 		     cistpl_cftable_entry_t *dflt,
+-		     unsigned int vcc,
+ 		     void *priv_data)
+ {
+ 	unsigned int ioaddr;
+@@ -688,7 +687,6 @@ static int
+ xirc2ps_config_check(struct pcmcia_device *p_dev,
+ 		     cistpl_cftable_entry_t *cf,
+ 		     cistpl_cftable_entry_t *dflt,
+-		     unsigned int vcc,
+ 		     void *priv_data)
+ {
+ 	int *pass = priv_data;
+@@ -826,7 +824,8 @@ xirc2ps_config(struct pcmcia_device * link)
+ 	     * the Mako if (on the first pass) the COR bit 5 is set.
+ 	     */
+ 	    for (pass=0; pass < 2; pass++)
+-		    if (!pcmcia_loop_config(link, xirc2ps_config_check, &pass))
++		    if (!pcmcia_loop_config(link, xirc2ps_config_check,
++						    &pass))
+ 			    goto port_found;
+ 	    /* if special option:
+ 	     * try to configure as Ethernet only.
 diff --git a/drivers/net/wireless/airo_cs.c b/drivers/net/wireless/airo_cs.c
-index ccb2fdd..40f9ed7 100644
+index 5939d0c..63bf662 100644
 --- a/drivers/net/wireless/airo_cs.c
 +++ b/drivers/net/wireless/airo_cs.c
-@@ -240,7 +240,7 @@ static int airo_config(struct pcmcia_device *link)
+@@ -140,25 +140,11 @@ static void airo_detach(struct pcmcia_device *link)
+ static int airo_cs_config_check(struct pcmcia_device *p_dev,
+ 				cistpl_cftable_entry_t *cfg,
+ 				cistpl_cftable_entry_t *dflt,
+-				unsigned int vcc,
+ 				void *priv_data)
+ {
+ 	if (cfg->index == 0)
+ 		return -ENODEV;
  
- 	/* Finally, report what we've done */
- 	dev_info(&link->dev, "index 0x%02x: ",
--	       link->conf.ConfigIndex);
-+	       link->config_index);
- 	if (link->vpp)
- 		printk(", Vpp %d.%d", link->vpp/10, link->vpp%10);
- 	printk(", irq %d", link->irq);
+-	/* Does this card need audio output? */
+-	if (cfg->flags & CISTPL_CFTABLE_AUDIO)
+-		p_dev->config_flags |= CONF_ENABLE_SPKR;
+-
+-	/* Use power settings for Vcc and Vpp if present */
+-	/*  Note that the CIS values need to be rescaled */
+-	if (cfg->vpp1.present & (1<<CISTPL_POWER_VNOM))
+-		p_dev->vpp = cfg->vpp1.param[CISTPL_POWER_VNOM]/10000;
+-	else if (dflt->vpp1.present & (1<<CISTPL_POWER_VNOM))
+-		p_dev->vpp = dflt->vpp1.param[CISTPL_POWER_VNOM]/10000;
+-
+-	p_dev->config_flags |= CONF_ENABLE_IRQ;
+-
+ 	/* IO window settings */
+ 	p_dev->resource[0]->end = p_dev->resource[1]->end = 0;
+ 	if ((cfg->io.nwin > 0) || (dflt->io.nwin > 0)) {
+@@ -193,6 +179,9 @@ static int airo_config(struct pcmcia_device *link)
+ 
+ 	dev_dbg(&link->dev, "airo_config\n");
+ 
++	link->config_flags |= CONF_ENABLE_IRQ | CONF_AUTO_SET_VPP |
++		CONF_AUTO_AUDIO;
++
+ 	/*
+ 	 * In this loop, we scan the CIS for configuration table
+ 	 * entries, each of which describes a valid card
+diff --git a/drivers/net/wireless/atmel_cs.c b/drivers/net/wireless/atmel_cs.c
+index 080266e..812decd 100644
+--- a/drivers/net/wireless/atmel_cs.c
++++ b/drivers/net/wireless/atmel_cs.c
+@@ -157,25 +157,11 @@ static int card_present(void *arg)
+ static int atmel_config_check(struct pcmcia_device *p_dev,
+ 			      cistpl_cftable_entry_t *cfg,
+ 			      cistpl_cftable_entry_t *dflt,
+-			      unsigned int vcc,
+ 			      void *priv_data)
+ {
+ 	if (cfg->index == 0)
+ 		return -ENODEV;
+ 
+-	/* Does this card need audio output? */
+-	if (cfg->flags & CISTPL_CFTABLE_AUDIO)
+-		p_dev->config_flags |= CONF_ENABLE_SPKR;
+-
+-	/* Use power settings for Vcc and Vpp if present */
+-	/*  Note that the CIS values need to be rescaled */
+-	if (cfg->vpp1.present & (1<<CISTPL_POWER_VNOM))
+-		p_dev->vpp = cfg->vpp1.param[CISTPL_POWER_VNOM]/10000;
+-	else if (dflt->vpp1.present & (1<<CISTPL_POWER_VNOM))
+-		p_dev->vpp = dflt->vpp1.param[CISTPL_POWER_VNOM]/10000;
+-
+-	p_dev->config_flags |= CONF_ENABLE_IRQ;
+-
+ 	/* IO window settings */
+ 	p_dev->resource[0]->end = p_dev->resource[1]->end = 0;
+ 	if ((cfg->io.nwin > 0) || (dflt->io.nwin > 0)) {
+@@ -207,6 +193,9 @@ static int atmel_config(struct pcmcia_device *link)
+ 
+ 	dev_dbg(&link->dev, "atmel_config\n");
+ 
++	link->config_flags |= CONF_ENABLE_IRQ | CONF_AUTO_SET_VPP |
++		CONF_AUTO_AUDIO;
++
+ 	/*
+ 	  In this loop, we scan the CIS for configuration table entries,
+ 	  each of which describes a valid card configuration, including
 diff --git a/drivers/net/wireless/hostap/hostap_cs.c b/drivers/net/wireless/hostap/hostap_cs.c
-index 0fe6f82..5704d3f 100644
+index 5b0b582..d4f19af 100644
 --- a/drivers/net/wireless/hostap/hostap_cs.c
 +++ b/drivers/net/wireless/hostap/hostap_cs.c
-@@ -601,7 +601,7 @@ static int prism2_config(struct pcmcia_device *link)
+@@ -472,7 +472,6 @@ static void prism2_detach(struct pcmcia_device *link)
+ static int prism2_config_check(struct pcmcia_device *p_dev,
+ 			       cistpl_cftable_entry_t *cfg,
+ 			       cistpl_cftable_entry_t *dflt,
+-			       unsigned int vcc,
+ 			       void *priv_data)
+ {
+ 	if (cfg->index == 0)
+@@ -481,28 +480,6 @@ static int prism2_config_check(struct pcmcia_device *p_dev,
+ 	PDEBUG(DEBUG_EXTRA, "Checking CFTABLE_ENTRY 0x%02X "
+ 	       "(default 0x%02X)\n", cfg->index, dflt->index);
  
- 	/* Finally, report what we've done */
- 	printk(KERN_INFO "%s: index 0x%02x: ",
--	       dev_info, link->conf.ConfigIndex);
-+	       dev_info, link->config_index);
- 	if (link->vpp)
- 		printk(", Vpp %d.%d", link->vpp / 10,
- 		       link->vpp % 10);
-diff --git a/drivers/net/wireless/ray_cs.c b/drivers/net/wireless/ray_cs.c
-index 30cfd88..7fb66cc 100644
---- a/drivers/net/wireless/ray_cs.c
-+++ b/drivers/net/wireless/ray_cs.c
-@@ -319,7 +319,7 @@ static int ray_probe(struct pcmcia_device *p_dev)
- 
- 	/* General socket configuration */
- 	p_dev->conf.Attributes = CONF_ENABLE_IRQ;
--	p_dev->conf.ConfigIndex = 1;
-+	p_dev->config_index = 1;
- 
- 	p_dev->priv = dev;
- 
-diff --git a/drivers/net/wireless/wl3501_cs.c b/drivers/net/wireless/wl3501_cs.c
-index 92a9ad5..3947cf8 100644
---- a/drivers/net/wireless/wl3501_cs.c
-+++ b/drivers/net/wireless/wl3501_cs.c
-@@ -1889,7 +1889,7 @@ static int wl3501_probe(struct pcmcia_device *p_dev)
- 
- 	/* General socket configuration */
- 	p_dev->conf.Attributes	= CONF_ENABLE_IRQ;
--	p_dev->conf.ConfigIndex	= 1;
-+	p_dev->config_index	= 1;
- 
- 	dev = alloc_etherdev(sizeof(struct wl3501_card));
- 	if (!dev)
-diff --git a/drivers/parport/parport_cs.c b/drivers/parport/parport_cs.c
-index afd946e..8faf634 100644
---- a/drivers/parport/parport_cs.c
-+++ b/drivers/parport/parport_cs.c
-@@ -144,7 +144,7 @@ static int parport_config_check(struct pcmcia_device *p_dev,
- 		cistpl_io_t *io = (cfg->io.nwin) ? &cfg->io : &dflt->io;
- 		p_dev->io_lines = io->flags & CISTPL_IO_LINES_MASK;
- 		if (epp_mode)
--			p_dev->conf.ConfigIndex |= FORCE_EPP_MODE;
-+			p_dev->config_index |= FORCE_EPP_MODE;
- 		p_dev->resource[0]->start = io->win[0].base;
- 		p_dev->resource[0]->end = io->win[0].len;
- 		if (io->nwin == 2) {
-diff --git a/drivers/pcmcia/cs_internal.h b/drivers/pcmcia/cs_internal.h
-index a0c5adb..42eef43 100644
---- a/drivers/pcmcia/cs_internal.h
-+++ b/drivers/pcmcia/cs_internal.h
-@@ -34,9 +34,6 @@ typedef struct config_t {
- 	struct kref	ref;
- 	unsigned int	state;
- 	unsigned int	Attributes;
--	unsigned int	ConfigBase;
--	unsigned char	Option;
--	unsigned int	CardValues;
- 
- 	struct resource io[MAX_IO_WIN]; /* io ports */
- 	struct resource mem[MAX_WIN];   /* mem areas */
-diff --git a/drivers/pcmcia/ds.c b/drivers/pcmcia/ds.c
-index 55570d9..00db600 100644
---- a/drivers/pcmcia/ds.c
-+++ b/drivers/pcmcia/ds.c
-@@ -276,13 +276,13 @@ static int pcmcia_device_probe(struct device *dev)
- 	ret = pccard_read_tuple(p_dev->socket, p_dev->func, CISTPL_CONFIG,
- 				&cis_config);
- 	if (!ret) {
--		p_dev->conf.ConfigBase = cis_config.base;
--		p_dev->conf.Present = cis_config.rmask[0];
-+		p_dev->config_base = cis_config.base;
-+		p_dev->config_regs = cis_config.rmask[0];
- 	} else {
- 		dev_printk(KERN_INFO, dev,
- 			   "pcmcia: could not parse base and rmask0 of CIS\n");
--		p_dev->conf.ConfigBase = 0;
--		p_dev->conf.Present = 0;
-+		p_dev->config_base = 0;
-+		p_dev->config_regs = 0;
+-	/* Does this card need audio output? */
+-	if (cfg->flags & CISTPL_CFTABLE_AUDIO)
+-		p_dev->config_flags |= CONF_ENABLE_SPKR;
+-
+-	/* Use power settings for Vcc and Vpp if present */
+-	/*  Note that the CIS values need to be rescaled */
+-	if (cfg->vcc.present & (1 << CISTPL_POWER_VNOM)) {
+-		if (vcc != cfg->vcc.param[CISTPL_POWER_VNOM] /
+-		    10000 && !ignore_cis_vcc) {
+-			PDEBUG(DEBUG_EXTRA, "  Vcc mismatch - skipping"
+-			       " this entry\n");
+-			return -ENODEV;
+-		}
+-	} else if (dflt->vcc.present & (1 << CISTPL_POWER_VNOM)) {
+-		if (vcc != dflt->vcc.param[CISTPL_POWER_VNOM] /
+-		    10000 && !ignore_cis_vcc) {
+-			PDEBUG(DEBUG_EXTRA, "  Vcc (default) mismatch "
+-			       "- skipping this entry\n");
+-			return -ENODEV;
+-		}
+-	}
+-
+ 	if (cfg->vpp1.present & (1 << CISTPL_POWER_VNOM))
+ 		p_dev->vpp = cfg->vpp1.param[CISTPL_POWER_VNOM] / 10000;
+ 	else if (dflt->vpp1.present & (1 << CISTPL_POWER_VNOM))
+@@ -553,6 +530,10 @@ static int prism2_config(struct pcmcia_device *link)
  	}
  
- 	ret = p_drv->probe(p_dev);
+ 	/* Look for an appropriate configuration table entry in the CIS */
++	link->config_flags |= CONF_AUTO_SET_VPP | CONF_AUTO_AUDIO |
++		CONF_AUTO_CHECK_VCC;
++	if (ignore_cis_vcc)
++		link->config_flags &= ~CONF_AUTO_CHECK_VCC;
+ 	ret = pcmcia_loop_config(link, prism2_config_check, NULL);
+ 	if (ret) {
+ 		if (!ignore_cis_vcc)
+diff --git a/drivers/net/wireless/libertas/if_cs.c b/drivers/net/wireless/libertas/if_cs.c
+index 6020c19..031f3e6 100644
+--- a/drivers/net/wireless/libertas/if_cs.c
++++ b/drivers/net/wireless/libertas/if_cs.c
+@@ -797,7 +797,6 @@ static void if_cs_release(struct pcmcia_device *p_dev)
+ static int if_cs_ioprobe(struct pcmcia_device *p_dev,
+ 			 cistpl_cftable_entry_t *cfg,
+ 			 cistpl_cftable_entry_t *dflt,
+-			 unsigned int vcc,
+ 			 void *priv_data)
+ {
+ 	p_dev->resource[0]->flags |= IO_DATA_PATH_WIDTH_AUTO;
+diff --git a/drivers/net/wireless/orinoco/orinoco_cs.c b/drivers/net/wireless/orinoco/orinoco_cs.c
+index 00316a1..b921738 100644
+--- a/drivers/net/wireless/orinoco/orinoco_cs.c
++++ b/drivers/net/wireless/orinoco/orinoco_cs.c
+@@ -145,39 +145,11 @@ static void orinoco_cs_detach(struct pcmcia_device *link)
+ static int orinoco_cs_config_check(struct pcmcia_device *p_dev,
+ 				   cistpl_cftable_entry_t *cfg,
+ 				   cistpl_cftable_entry_t *dflt,
+-				   unsigned int vcc,
+ 				   void *priv_data)
+ {
+ 	if (cfg->index == 0)
+ 		goto next_entry;
+ 
+-	/* Use power settings for Vcc and Vpp if present */
+-	/* Note that the CIS values need to be rescaled */
+-	if (cfg->vcc.present & (1 << CISTPL_POWER_VNOM)) {
+-		if (vcc != cfg->vcc.param[CISTPL_POWER_VNOM] / 10000) {
+-			DEBUG(2, "%s: Vcc mismatch (vcc = %d, CIS = %d)\n",
+-			      __func__, vcc,
+-			      cfg->vcc.param[CISTPL_POWER_VNOM] / 10000);
+-			if (!ignore_cis_vcc)
+-				goto next_entry;
+-		}
+-	} else if (dflt->vcc.present & (1 << CISTPL_POWER_VNOM)) {
+-		if (vcc != dflt->vcc.param[CISTPL_POWER_VNOM] / 10000) {
+-			DEBUG(2, "%s: Vcc mismatch (vcc = %d, CIS = %d)\n",
+-			      __func__, vcc,
+-			      dflt->vcc.param[CISTPL_POWER_VNOM] / 10000);
+-			if (!ignore_cis_vcc)
+-				goto next_entry;
+-		}
+-	}
+-
+-	if (cfg->vpp1.present & (1 << CISTPL_POWER_VNOM))
+-		p_dev->vpp =
+-			cfg->vpp1.param[CISTPL_POWER_VNOM] / 10000;
+-	else if (dflt->vpp1.present & (1 << CISTPL_POWER_VNOM))
+-		p_dev->vpp =
+-			dflt->vpp1.param[CISTPL_POWER_VNOM] / 10000;
+-
+ 	/* Do we need to allocate an interrupt? */
+ 	p_dev->config_flags |= CONF_ENABLE_IRQ;
+ 
+@@ -230,6 +202,9 @@ orinoco_cs_config(struct pcmcia_device *link)
+ 	 * and most client drivers will only use the CIS to fill in
+ 	 * implementation-defined details.
+ 	 */
++	link->config_flags |= CONF_AUTO_SET_VPP | CONF_AUTO_CHECK_VCC;
++	if (ignore_cis_vcc)
++		link->config_flags &= ~CONF_AUTO_CHECK_VCC;
+ 	ret = pcmcia_loop_config(link, orinoco_cs_config_check, NULL);
+ 	if (ret) {
+ 		if (!ignore_cis_vcc)
+diff --git a/drivers/net/wireless/orinoco/spectrum_cs.c b/drivers/net/wireless/orinoco/spectrum_cs.c
+index ca2c6c0..f462c78 100644
+--- a/drivers/net/wireless/orinoco/spectrum_cs.c
++++ b/drivers/net/wireless/orinoco/spectrum_cs.c
+@@ -207,32 +207,11 @@ static void spectrum_cs_detach(struct pcmcia_device *link)
+ static int spectrum_cs_config_check(struct pcmcia_device *p_dev,
+ 				    cistpl_cftable_entry_t *cfg,
+ 				    cistpl_cftable_entry_t *dflt,
+-				    unsigned int vcc,
+ 				    void *priv_data)
+ {
+ 	if (cfg->index == 0)
+ 		goto next_entry;
+ 
+-	/* Use power settings for Vcc and Vpp if present */
+-	/* Note that the CIS values need to be rescaled */
+-	if (cfg->vcc.present & (1 << CISTPL_POWER_VNOM)) {
+-		if (vcc != cfg->vcc.param[CISTPL_POWER_VNOM] / 10000) {
+-			DEBUG(2, "%s: Vcc mismatch (vcc = %d, CIS = %d)\n",
+-			      __func__, vcc,
+-			      cfg->vcc.param[CISTPL_POWER_VNOM] / 10000);
+-			if (!ignore_cis_vcc)
+-				goto next_entry;
+-		}
+-	} else if (dflt->vcc.present & (1 << CISTPL_POWER_VNOM)) {
+-		if (vcc != dflt->vcc.param[CISTPL_POWER_VNOM] / 10000) {
+-			DEBUG(2, "%s: Vcc mismatch (vcc = %d, CIS = %d)\n",
+-			      __func__, vcc,
+-			      dflt->vcc.param[CISTPL_POWER_VNOM] / 10000);
+-			if (!ignore_cis_vcc)
+-				goto next_entry;
+-		}
+-	}
+-
+ 	if (cfg->vpp1.present & (1 << CISTPL_POWER_VNOM))
+ 		p_dev->vpp =
+ 			cfg->vpp1.param[CISTPL_POWER_VNOM] / 10000;
+@@ -292,6 +271,9 @@ spectrum_cs_config(struct pcmcia_device *link)
+ 	 * and most client drivers will only use the CIS to fill in
+ 	 * implementation-defined details.
+ 	 */
++	link->config_flags |= CONF_AUTO_SET_VPP | CONF_AUTO_CHECK_VCC;
++	if (ignore_cis_vcc)
++		link->config_flags &= ~CONF_AUTO_CHECK_VCC;
+ 	ret = pcmcia_loop_config(link, spectrum_cs_config_check, NULL);
+ 	if (ret) {
+ 		if (!ignore_cis_vcc)
+diff --git a/drivers/parport/parport_cs.c b/drivers/parport/parport_cs.c
+index 63b3d3c..8c2a473 100644
+--- a/drivers/parport/parport_cs.c
++++ b/drivers/parport/parport_cs.c
+@@ -136,7 +136,6 @@ static void parport_detach(struct pcmcia_device *link)
+ static int parport_config_check(struct pcmcia_device *p_dev,
+ 				cistpl_cftable_entry_t *cfg,
+ 				cistpl_cftable_entry_t *dflt,
+-				unsigned int vcc,
+ 				void *priv_data)
+ {
+ 	if ((cfg->io.nwin > 0) || (dflt->io.nwin > 0)) {
 diff --git a/drivers/pcmcia/pcmcia_cis.c b/drivers/pcmcia/pcmcia_cis.c
-index 0ac54da..ac47cc4 100644
+index ce8b94a..160da06 100644
 --- a/drivers/pcmcia/pcmcia_cis.c
 +++ b/drivers/pcmcia/pcmcia_cis.c
-@@ -151,7 +151,7 @@ static int pcmcia_do_loop_config(tuple_t *tuple, cisparse_t *parse, void *priv)
+@@ -131,7 +131,6 @@ struct pcmcia_cfg_mem {
+ 	int (*conf_check) (struct pcmcia_device *p_dev,
+ 			   cistpl_cftable_entry_t *cfg,
+ 			   cistpl_cftable_entry_t *dflt,
+-			   unsigned int vcc,
+ 			   void *priv_data);
+ 	cisparse_t parse;
+ 	cistpl_cftable_entry_t dflt;
+@@ -146,16 +145,46 @@ struct pcmcia_cfg_mem {
+  */
+ static int pcmcia_do_loop_config(tuple_t *tuple, cisparse_t *parse, void *priv)
+ {
+-	cistpl_cftable_entry_t *cfg = &parse->cftable_entry;
  	struct pcmcia_cfg_mem *cfg_mem = priv;
++	struct pcmcia_device *p_dev = cfg_mem->p_dev;
++	cistpl_cftable_entry_t *cfg = &parse->cftable_entry;
++	cistpl_cftable_entry_t *dflt = &cfg_mem->dflt;
++	unsigned int flags = p_dev->config_flags;
++	unsigned int vcc = p_dev->socket->socket.Vcc;
++
++	dev_dbg(&p_dev->dev, "testing configuration %x, autoconf %x\n",
++		cfg->index, flags);
  
  	/* default values */
--	cfg_mem->p_dev->conf.ConfigIndex = cfg->index;
-+	cfg_mem->p_dev->config_index = cfg->index;
+ 	cfg_mem->p_dev->config_index = cfg->index;
  	if (cfg->flags & CISTPL_CFTABLE_DEFAULT)
  		cfg_mem->dflt = *cfg;
  
-diff --git a/drivers/pcmcia/pcmcia_resource.c b/drivers/pcmcia/pcmcia_resource.c
-index 6210e1c..a1fb0dc 100644
---- a/drivers/pcmcia/pcmcia_resource.c
-+++ b/drivers/pcmcia/pcmcia_resource.c
-@@ -168,7 +168,7 @@ static int pcmcia_access_config(struct pcmcia_device *p_dev,
- 		return -EACCES;
- 	}
++	/* check for matching Vcc? */
++	if (flags & CONF_AUTO_CHECK_VCC) {
++		if (cfg->vcc.present & (1 << CISTPL_POWER_VNOM)) {
++			if (vcc != cfg->vcc.param[CISTPL_POWER_VNOM] / 10000)
++				return -ENODEV;
++		} else if (dflt->vcc.present & (1 << CISTPL_POWER_VNOM)) {
++			if (vcc != dflt->vcc.param[CISTPL_POWER_VNOM] / 10000)
++				return -ENODEV;
++		}
++	}
++
++	/* set Vpp? */
++	if (flags & CONF_AUTO_SET_VPP) {
++		if (cfg->vpp1.present & (1 << CISTPL_POWER_VNOM))
++			p_dev->vpp = cfg->vpp1.param[CISTPL_POWER_VNOM] / 10000;
++		else if (dflt->vpp1.present & (1 << CISTPL_POWER_VNOM))
++			p_dev->vpp =
++				dflt->vpp1.param[CISTPL_POWER_VNOM] / 10000;
++	}
++
++	/* enable audio? */
++	if ((flags & CONF_AUTO_AUDIO) && (cfg->flags & CISTPL_CFTABLE_AUDIO))
++		p_dev->config_flags |= CONF_ENABLE_SPKR;
++
+ 	return cfg_mem->conf_check(cfg_mem->p_dev, cfg, &cfg_mem->dflt,
+-				   cfg_mem->p_dev->socket->socket.Vcc,
+ 				   cfg_mem->priv_data);
+ }
  
--	addr = (c->ConfigBase + where) >> 1;
-+	addr = (p_dev->config_base + where) >> 1;
- 
- 	ret = accessf(s, 1, addr, 1, val);
- 
-@@ -443,6 +443,7 @@ int pcmcia_request_configuration(struct pcmcia_device *p_dev,
- 	pccard_io_map iomap;
- 	unsigned char status = 0;
- 	unsigned char ext_status = 0;
-+	unsigned char option = 0;
- 
- 	if (!(s->state & SOCKET_PRESENT))
- 		return -ENODEV;
-@@ -473,7 +474,7 @@ int pcmcia_request_configuration(struct pcmcia_device *p_dev,
- 	if (req->Attributes & CONF_ENABLE_SPKR) {
- 		s->socket.flags |= SS_SPKR_ENA;
- 		status = CCSR_AUDIO_ENA;
--		if (!(req->Present & PRESENT_STATUS))
-+		if (!(p_dev->config_regs & PRESENT_STATUS))
- 			dev_warn(&p_dev->dev, "speaker requested, but "
- 					      "PRESENT_STATUS not set!\n");
- 	}
-@@ -482,54 +483,53 @@ int pcmcia_request_configuration(struct pcmcia_device *p_dev,
- 	else
- 		s->socket.io_irq = 0;
- 	if (req->Attributes & CONF_ENABLE_ESR) {
--		req->Present |= PRESENT_EXT_STATUS;
-+		p_dev->config_regs |= PRESENT_EXT_STATUS;
- 		ext_status = ESR_REQ_ATTN_ENA;
- 	}
- 	s->ops->set_socket(s, &s->socket);
- 	s->lock_count++;
- 
- 	/* Set up CIS configuration registers */
--	base = c->ConfigBase = req->ConfigBase;
--	c->CardValues = req->Present;
--	if (req->Present & PRESENT_COPY) {
-+	base = p_dev->config_base;
-+	if (p_dev->config_regs & PRESENT_COPY) {
- 		u16 tmp = 0;
- 		dev_dbg(&p_dev->dev, "clearing CISREG_SCR\n");
- 		pcmcia_write_cis_mem(s, 1, (base + CISREG_SCR)>>1, 1, &tmp);
- 	}
--	if (req->Present & PRESENT_PIN_REPLACE) {
-+	if (p_dev->config_regs & PRESENT_PIN_REPLACE) {
- 		u16 tmp = 0;
- 		dev_dbg(&p_dev->dev, "clearing CISREG_PRR\n");
- 		pcmcia_write_cis_mem(s, 1, (base + CISREG_PRR)>>1, 1, &tmp);
- 	}
--	if (req->Present & PRESENT_OPTION) {
-+	if (p_dev->config_regs & PRESENT_OPTION) {
- 		if (s->functions == 1) {
--			c->Option = req->ConfigIndex & COR_CONFIG_MASK;
-+			option = p_dev->config_index & COR_CONFIG_MASK;
- 		} else {
--			c->Option = req->ConfigIndex & COR_MFC_CONFIG_MASK;
--			c->Option |= COR_FUNC_ENA|COR_IREQ_ENA;
--			if (req->Present & PRESENT_IOBASE_0)
--				c->Option |= COR_ADDR_DECODE;
-+			option = p_dev->config_index & COR_MFC_CONFIG_MASK;
-+			option |= COR_FUNC_ENA|COR_IREQ_ENA;
-+			if (p_dev->config_regs & PRESENT_IOBASE_0)
-+				option |= COR_ADDR_DECODE;
- 		}
- 		if ((req->Attributes & CONF_ENABLE_IRQ) &&
- 			!(req->Attributes & CONF_ENABLE_PULSE_IRQ))
--			c->Option |= COR_LEVEL_REQ;
--		pcmcia_write_cis_mem(s, 1, (base + CISREG_COR)>>1, 1, &c->Option);
-+			option |= COR_LEVEL_REQ;
-+		pcmcia_write_cis_mem(s, 1, (base + CISREG_COR)>>1, 1, &option);
- 		mdelay(40);
- 	}
--	if (req->Present & PRESENT_STATUS)
-+	if (p_dev->config_regs & PRESENT_STATUS)
- 		pcmcia_write_cis_mem(s, 1, (base + CISREG_CCSR)>>1, 1, &status);
- 
--	if (req->Present & PRESENT_EXT_STATUS)
-+	if (p_dev->config_regs & PRESENT_EXT_STATUS)
- 		pcmcia_write_cis_mem(s, 1, (base + CISREG_ESR)>>1, 1,
- 					&ext_status);
- 
--	if (req->Present & PRESENT_IOBASE_0) {
-+	if (p_dev->config_regs & PRESENT_IOBASE_0) {
- 		u8 b = c->io[0].start & 0xff;
- 		pcmcia_write_cis_mem(s, 1, (base + CISREG_IOBASE_0)>>1, 1, &b);
- 		b = (c->io[0].start >> 8) & 0xff;
- 		pcmcia_write_cis_mem(s, 1, (base + CISREG_IOBASE_1)>>1, 1, &b);
- 	}
--	if (req->Present & PRESENT_IOSIZE) {
-+	if (p_dev->config_regs & PRESENT_IOSIZE) {
- 		u8 b = resource_size(&c->io[0]) + resource_size(&c->io[1]) - 1;
- 		pcmcia_write_cis_mem(s, 1, (base + CISREG_IOSIZE)>>1, 1, &b);
- 	}
+@@ -176,7 +205,6 @@ int pcmcia_loop_config(struct pcmcia_device *p_dev,
+ 		       int	(*conf_check)	(struct pcmcia_device *p_dev,
+ 						 cistpl_cftable_entry_t *cfg,
+ 						 cistpl_cftable_entry_t *dflt,
+-						 unsigned int vcc,
+ 						 void *priv_data),
+ 		       void *priv_data)
+ {
 diff --git a/drivers/scsi/pcmcia/aha152x_stub.c b/drivers/scsi/pcmcia/aha152x_stub.c
-index 3c0046e..c368249 100644
+index e1f7485..0b5fc2f 100644
 --- a/drivers/scsi/pcmcia/aha152x_stub.c
 +++ b/drivers/scsi/pcmcia/aha152x_stub.c
-@@ -103,7 +103,7 @@ static int aha152x_probe(struct pcmcia_device *link)
-     link->resource[0]->end = 0x20;
-     link->resource[0]->flags |= IO_DATA_PATH_WIDTH_AUTO;
-     link->conf.Attributes = CONF_ENABLE_IRQ;
--    link->conf.Present = PRESENT_OPTION;
-+    link->config_regs = PRESENT_OPTION;
- 
-     return aha152x_config_cs(link);
- } /* aha152x_attach */
+@@ -124,7 +124,6 @@ static void aha152x_detach(struct pcmcia_device *link)
+ static int aha152x_config_check(struct pcmcia_device *p_dev,
+ 				cistpl_cftable_entry_t *cfg,
+ 				cistpl_cftable_entry_t *dflt,
+-				unsigned int vcc,
+ 				void *priv_data)
+ {
+ 	p_dev->io_lines = 10;
 diff --git a/drivers/scsi/pcmcia/fdomain_stub.c b/drivers/scsi/pcmcia/fdomain_stub.c
-index 8ff7603..bb909e1 100644
+index ae263b1..3b9f311 100644
 --- a/drivers/scsi/pcmcia/fdomain_stub.c
 +++ b/drivers/scsi/pcmcia/fdomain_stub.c
-@@ -86,7 +86,7 @@ static int fdomain_probe(struct pcmcia_device *link)
- 	link->resource[0]->end = 0x10;
- 	link->resource[0]->flags |= IO_DATA_PATH_WIDTH_AUTO;
- 	link->conf.Attributes = CONF_ENABLE_IRQ;
--	link->conf.Present = PRESENT_OPTION;
-+	link->config_regs = PRESENT_OPTION;
- 
- 	return fdomain_config(link);
- } /* fdomain_attach */
+@@ -106,7 +106,6 @@ static void fdomain_detach(struct pcmcia_device *link)
+ static int fdomain_config_check(struct pcmcia_device *p_dev,
+ 				cistpl_cftable_entry_t *cfg,
+ 				cistpl_cftable_entry_t *dflt,
+-				unsigned int vcc,
+ 				void *priv_data)
+ {
+ 	p_dev->io_lines = 10;
 diff --git a/drivers/scsi/pcmcia/nsp_cs.c b/drivers/scsi/pcmcia/nsp_cs.c
-index c0cf2df..a5648e9 100644
+index d0546c0..344d499 100644
 --- a/drivers/scsi/pcmcia/nsp_cs.c
 +++ b/drivers/scsi/pcmcia/nsp_cs.c
-@@ -1745,7 +1745,7 @@ static int nsp_cs_config(struct pcmcia_device *link)
+@@ -1597,7 +1597,6 @@ static void nsp_cs_detach(struct pcmcia_device *link)
+ static int nsp_cs_config_check(struct pcmcia_device *p_dev,
+ 			       cistpl_cftable_entry_t *cfg,
+ 			       cistpl_cftable_entry_t *dflt,
+-			       unsigned int vcc,
+ 			       void *priv_data)
+ {
+ 	nsp_hw_data		*data = priv_data;
+@@ -1605,77 +1604,49 @@ static int nsp_cs_config_check(struct pcmcia_device *p_dev,
+ 	if (cfg->index == 0)
+ 		return -ENODEV;
  
- 	/* Finally, report what we've done */
- 	printk(KERN_INFO "nsp_cs: index 0x%02x: ",
--	       link->conf.ConfigIndex);
-+	       link->config_index);
- 	if (link->vpp) {
- 		printk(", Vpp %d.%d", link->vpp/10, link->vpp%10);
+-	/* Does this card need audio output? */
+-	if (cfg->flags & CISTPL_CFTABLE_AUDIO)
+-		p_dev->config_flags |= CONF_ENABLE_SPKR;
+-
+-	/* Use power settings for Vcc and Vpp if present */
+-	/*  Note that the CIS values need to be rescaled */
+-	if (cfg->vcc.present & (1<<CISTPL_POWER_VNOM)) {
+-		if (vcc != cfg->vcc.param[CISTPL_POWER_VNOM]/10000)
+-			return -ENODEV;
+-		else if (dflt->vcc.present & (1<<CISTPL_POWER_VNOM)) {
+-			if (vcc != dflt->vcc.param[CISTPL_POWER_VNOM]/10000)
+-				return -ENODEV;
+-		}
+-
+-		if (cfg->vpp1.present & (1 << CISTPL_POWER_VNOM)) {
+-			p_dev->vpp =
+-				cfg->vpp1.param[CISTPL_POWER_VNOM] / 10000;
+-		} else if (dflt->vpp1.present & (1 << CISTPL_POWER_VNOM)) {
+-			p_dev->vpp =
+-				dflt->vpp1.param[CISTPL_POWER_VNOM] / 10000;
+-		}
+-
+-		/* Do we need to allocate an interrupt? */
+-		p_dev->config_flags |= CONF_ENABLE_IRQ;
+-
+-		/* IO window settings */
+-		p_dev->resource[0]->end = p_dev->resource[1]->end = 0;
+-		if ((cfg->io.nwin > 0) || (dflt->io.nwin > 0)) {
+-			cistpl_io_t *io = (cfg->io.nwin) ? &cfg->io : &dflt->io;
+-			p_dev->io_lines = io->flags & CISTPL_IO_LINES_MASK;
+-			p_dev->resource[0]->flags &= ~IO_DATA_PATH_WIDTH;
+-			p_dev->resource[0]->flags |=
+-				pcmcia_io_cfg_data_width(io->flags);
+-			p_dev->resource[0]->start = io->win[0].base;
+-			p_dev->resource[0]->end = io->win[0].len;
+-			if (io->nwin > 1) {
+-				p_dev->resource[1]->flags =
+-					p_dev->resource[0]->flags;
+-				p_dev->resource[1]->start = io->win[1].base;
+-				p_dev->resource[1]->end = io->win[1].len;
+-			}
+-			/* This reserves IO space but doesn't actually enable it */
+-			if (pcmcia_request_io(p_dev) != 0)
+-				goto next_entry;
++	/* IO window settings */
++	p_dev->resource[0]->end = p_dev->resource[1]->end = 0;
++	if ((cfg->io.nwin > 0) || (dflt->io.nwin > 0)) {
++		cistpl_io_t *io = (cfg->io.nwin) ? &cfg->io : &dflt->io;
++		p_dev->io_lines = io->flags & CISTPL_IO_LINES_MASK;
++		p_dev->resource[0]->flags &= ~IO_DATA_PATH_WIDTH;
++		p_dev->resource[0]->flags |=
++					pcmcia_io_cfg_data_width(io->flags);
++		p_dev->resource[0]->start = io->win[0].base;
++		p_dev->resource[0]->end = io->win[0].len;
++		if (io->nwin > 1) {
++			p_dev->resource[1]->flags = p_dev->resource[0]->flags;
++			p_dev->resource[1]->start = io->win[1].base;
++			p_dev->resource[1]->end = io->win[1].len;
+ 		}
++		/* This reserves IO space but doesn't actually enable it */
++		if (pcmcia_request_io(p_dev) != 0)
++			goto next_entry;
++	}
+ 
+-		if ((cfg->mem.nwin > 0) || (dflt->mem.nwin > 0)) {
+-			cistpl_mem_t	*mem =
+-				(cfg->mem.nwin) ? &cfg->mem : &dflt->mem;
+-			p_dev->resource[2]->flags |= (WIN_DATA_WIDTH_16 |
+-						WIN_MEMORY_TYPE_CM |
+-						WIN_ENABLE);
+-			p_dev->resource[2]->start = mem->win[0].host_addr;
+-			p_dev->resource[2]->end = mem->win[0].len;
+-			if (p_dev->resource[2]->end < 0x1000)
+-				p_dev->resource[2]->end = 0x1000;
+-			if (pcmcia_request_window(p_dev, p_dev->resource[2],
+-							0) != 0)
+-				goto next_entry;
+-			if (pcmcia_map_mem_page(p_dev, p_dev->resource[2],
+-					mem->win[0].card_addr) != 0)
+-				goto next_entry;
+-
+-			data->MmioAddress = (unsigned long)
+-				ioremap_nocache(p_dev->resource[2]->start,
++	if ((cfg->mem.nwin > 0) || (dflt->mem.nwin > 0)) {
++		cistpl_mem_t	*mem =
++			(cfg->mem.nwin) ? &cfg->mem : &dflt->mem;
++		p_dev->resource[2]->flags |= (WIN_DATA_WIDTH_16 |
++					WIN_MEMORY_TYPE_CM |
++					WIN_ENABLE);
++		p_dev->resource[2]->start = mem->win[0].host_addr;
++		p_dev->resource[2]->end = mem->win[0].len;
++		if (p_dev->resource[2]->end < 0x1000)
++			p_dev->resource[2]->end = 0x1000;
++		if (pcmcia_request_window(p_dev, p_dev->resource[2], 0) != 0)
++			goto next_entry;
++		if (pcmcia_map_mem_page(p_dev, p_dev->resource[2],
++						mem->win[0].card_addr) != 0)
++			goto next_entry;
++
++		data->MmioAddress = (unsigned long)
++			ioremap_nocache(p_dev->resource[2]->start,
+ 					resource_size(p_dev->resource[2]));
+-			data->MmioLength  = resource_size(p_dev->resource[2]);
+-		}
+-		/* If we got this far, we're cool! */
+-		return 0;
++		data->MmioLength  = resource_size(p_dev->resource[2]);
  	}
++	/* If we got this far, we're cool! */
++	return 0;
+ 
+ next_entry:
+ 	nsp_dbg(NSP_DEBUG_INIT, "next");
+@@ -1692,6 +1663,9 @@ static int nsp_cs_config(struct pcmcia_device *link)
+ 
+ 	nsp_dbg(NSP_DEBUG_INIT, "in");
+ 
++	link->config_flags |= CONF_ENABLE_IRQ | CONF_AUTO_CHECK_VCC |
++		CONF_AUTO_SET_VPP | CONF_AUTO_AUDIO;
++
+ 	ret = pcmcia_loop_config(link, nsp_cs_config_check, data);
+ 	if (ret)
+ 		goto cs_failed;
 diff --git a/drivers/scsi/pcmcia/qlogic_stub.c b/drivers/scsi/pcmcia/qlogic_stub.c
-index 77f46a2..5e2cbe0 100644
+index 7d3f49c..468fd12 100644
 --- a/drivers/scsi/pcmcia/qlogic_stub.c
 +++ b/drivers/scsi/pcmcia/qlogic_stub.c
-@@ -159,7 +159,7 @@ static int qlogic_probe(struct pcmcia_device *link)
- 	link->resource[0]->end = 16;
- 	link->resource[0]->flags |= IO_DATA_PATH_WIDTH_AUTO;
- 	link->conf.Attributes = CONF_ENABLE_IRQ;
--	link->conf.Present = PRESENT_OPTION;
-+	link->config_regs = PRESENT_OPTION;
- 
- 	return qlogic_config(link);
- }				/* qlogic_attach */
+@@ -179,7 +179,6 @@ static void qlogic_detach(struct pcmcia_device *link)
+ static int qlogic_config_check(struct pcmcia_device *p_dev,
+ 			       cistpl_cftable_entry_t *cfg,
+ 			       cistpl_cftable_entry_t *dflt,
+-			       unsigned int vcc,
+ 			       void *priv_data)
+ {
+ 	p_dev->io_lines = 10;
+diff --git a/drivers/scsi/pcmcia/sym53c500_cs.c b/drivers/scsi/pcmcia/sym53c500_cs.c
+index 600630e..7a0bb9a 100644
+--- a/drivers/scsi/pcmcia/sym53c500_cs.c
++++ b/drivers/scsi/pcmcia/sym53c500_cs.c
+@@ -686,7 +686,6 @@ static struct scsi_host_template sym53c500_driver_template = {
+ static int SYM53C500_config_check(struct pcmcia_device *p_dev,
+ 				  cistpl_cftable_entry_t *cfg,
+ 				  cistpl_cftable_entry_t *dflt,
+-				  unsigned int vcc,
+ 				  void *priv_data)
+ {
+ 	p_dev->io_lines = 10;
 diff --git a/drivers/serial/serial_cs.c b/drivers/serial/serial_cs.c
-index 38baede..ee19f2d 100644
+index 47b1869..a796a93 100644
 --- a/drivers/serial/serial_cs.c
 +++ b/drivers/serial/serial_cs.c
-@@ -495,7 +495,7 @@ static int simple_config(struct pcmcia_device *link)
+@@ -427,16 +427,11 @@ static int pfc_config(struct pcmcia_device *p_dev)
+ static int simple_config_check(struct pcmcia_device *p_dev,
+ 			       cistpl_cftable_entry_t *cf,
+ 			       cistpl_cftable_entry_t *dflt,
+-			       unsigned int vcc,
+ 			       void *priv_data)
+ {
+ 	static const int size_table[2] = { 8, 16 };
+ 	int *try = priv_data;
  
- found_port:
- 	if (info->multi && (info->manfid == MANFID_3COM))
--		link->conf.ConfigIndex &= ~(0x08);
-+		link->config_index &= ~(0x08);
+-	if (cf->vpp1.present & (1 << CISTPL_POWER_VNOM))
+-		p_dev->vpp =
+-			cf->vpp1.param[CISTPL_POWER_VNOM] / 10000;
+-
+ 	p_dev->io_lines = ((*try & 0x1) == 0) ?
+ 			16 : cf->io.flags & CISTPL_IO_LINES_MASK;
  
- 	/*
- 	 * Apply any configuration quirks.
-@@ -591,8 +591,8 @@ static int multi_config(struct pcmcia_device *link)
- 				info->prodid == PRODID_POSSIO_GCC)) {
- 		int err;
+@@ -452,7 +447,6 @@ static int simple_config_check(struct pcmcia_device *p_dev,
+ static int simple_config_check_notpicky(struct pcmcia_device *p_dev,
+ 					cistpl_cftable_entry_t *cf,
+ 					cistpl_cftable_entry_t *dflt,
+-					unsigned int vcc,
+ 					void *priv_data)
+ {
+ 	static const unsigned int base[5] = { 0x3f8, 0x2f8, 0x3e8, 0x2e8, 0x0 };
+@@ -479,6 +473,7 @@ static int simple_config(struct pcmcia_device *link)
  
--		if (link->conf.ConfigIndex == 1 ||
--		    link->conf.ConfigIndex == 3) {
-+		if (link->config_index == 1 ||
-+		    link->config_index == 3) {
- 			err = setup_serial(link, info, base2,
- 					link->irq);
- 			base2 = link->resource[0]->start;;
+ 	/* First pass: look for a config entry that looks normal.
+ 	 * Two tries: without IO aliases, then with aliases */
++	link->config_flags |= CONF_AUTO_SET_VPP;
+ 	for (try = 0; try < 4; try++)
+ 		if (!pcmcia_loop_config(link, simple_config_check, &try))
+ 			goto found_port;
+@@ -511,7 +506,6 @@ found_port:
+ static int multi_config_check(struct pcmcia_device *p_dev,
+ 			      cistpl_cftable_entry_t *cf,
+ 			      cistpl_cftable_entry_t *dflt,
+-			      unsigned int vcc,
+ 			      void *priv_data)
+ {
+ 	int *base2 = priv_data;
+@@ -532,7 +526,6 @@ static int multi_config_check(struct pcmcia_device *p_dev,
+ static int multi_config_check_notpicky(struct pcmcia_device *p_dev,
+ 				       cistpl_cftable_entry_t *cf,
+ 				       cistpl_cftable_entry_t *dflt,
+-				       unsigned int vcc,
+ 				       void *priv_data)
+ {
+ 	int *base2 = priv_data;
+@@ -621,7 +614,6 @@ static int multi_config(struct pcmcia_device *link)
+ static int serial_check_for_multi(struct pcmcia_device *p_dev,
+ 				  cistpl_cftable_entry_t *cf,
+ 				  cistpl_cftable_entry_t *dflt,
+-				  unsigned int vcc,
+ 				  void *priv_data)
+ {
+ 	struct serial_info *info = p_dev->priv;
 diff --git a/drivers/staging/comedi/drivers/cb_das16_cs.c b/drivers/staging/comedi/drivers/cb_das16_cs.c
-index 11271b6..034cbfc 100644
+index ee91c89..678fbf6 100644
 --- a/drivers/staging/comedi/drivers/cb_das16_cs.c
 +++ b/drivers/staging/comedi/drivers/cb_das16_cs.c
-@@ -772,7 +772,7 @@ static void das16cs_pcmcia_config(struct pcmcia_device *link)
- 		goto failed;
- 
- 	/* Finally, report what we've done */
--	dev_info(&link->dev, "index 0x%02x", link->conf.ConfigIndex);
-+	dev_info(&link->dev, "index 0x%02x", link->config_index);
- 	if (link->conf.Attributes & CONF_ENABLE_IRQ)
- 		printk(", irq %u", link->irq);
- 	if (link->resource[0])
+@@ -712,7 +712,6 @@ static void das16cs_pcmcia_detach(struct pcmcia_device *link)
+ static int das16cs_pcmcia_config_loop(struct pcmcia_device *p_dev,
+ 				cistpl_cftable_entry_t *cfg,
+ 				cistpl_cftable_entry_t *dflt,
+-				unsigned int vcc,
+ 				void *priv_data)
+ {
+ 	if (cfg->index == 0)
 diff --git a/drivers/staging/comedi/drivers/das08_cs.c b/drivers/staging/comedi/drivers/das08_cs.c
-index 319aad4..e37ea79 100644
+index f8f3de5..12a96b7 100644
 --- a/drivers/staging/comedi/drivers/das08_cs.c
 +++ b/drivers/staging/comedi/drivers/das08_cs.c
-@@ -268,7 +268,7 @@ static void das08_pcmcia_config(struct pcmcia_device *link)
- 		goto failed;
- 
- 	/* Finally, report what we've done */
--	dev_info(&link->dev, "index 0x%02x", link->conf.ConfigIndex);
-+	dev_info(&link->dev, "index 0x%02x", link->config_index);
- 	if (link->conf.Attributes & CONF_ENABLE_IRQ)
- 		printk(", irq %u", link->irq);
- 	if (link->resource[0])
+@@ -194,7 +194,6 @@ static void das08_pcmcia_detach(struct pcmcia_device *link)
+ static int das08_pcmcia_config_loop(struct pcmcia_device *p_dev,
+ 				cistpl_cftable_entry_t *cfg,
+ 				cistpl_cftable_entry_t *dflt,
+-				unsigned int vcc,
+ 				void *priv_data)
+ {
+ 	if (cfg->index == 0)
 diff --git a/drivers/staging/comedi/drivers/ni_daq_700.c b/drivers/staging/comedi/drivers/ni_daq_700.c
-index d269bbd..8107e40 100644
+index 803683b..f22dc0f 100644
 --- a/drivers/staging/comedi/drivers/ni_daq_700.c
 +++ b/drivers/staging/comedi/drivers/ni_daq_700.c
-@@ -607,7 +607,7 @@ static void dio700_config(struct pcmcia_device *link)
- 		goto failed;
+@@ -532,19 +532,11 @@ static void dio700_cs_detach(struct pcmcia_device *link)
+ static int dio700_pcmcia_config_loop(struct pcmcia_device *p_dev,
+ 				cistpl_cftable_entry_t *cfg,
+ 				cistpl_cftable_entry_t *dflt,
+-				unsigned int vcc,
+ 				void *priv_data)
+ {
+ 	if (cfg->index == 0)
+ 		return -ENODEV;
  
- 	/* Finally, report what we've done */
--	dev_info(&link->dev, "index 0x%02x", link->conf.ConfigIndex);
-+	dev_info(&link->dev, "index 0x%02x", link->config_index);
- 	if (link->conf.Attributes & CONF_ENABLE_IRQ)
- 		printk(", irq %d", link->irq);
- 	if (link->resource[0])
+-	/* Does this card need audio output? */
+-	if (cfg->flags & CISTPL_CFTABLE_AUDIO)
+-		p_dev->config_flags |= CONF_ENABLE_SPKR;
+-
+-	/* Do we need to allocate an interrupt? */
+-	p_dev->config_flags |= CONF_ENABLE_IRQ;
+-
+ 	/* IO window settings */
+ 	p_dev->resource[0]->end = p_dev->resource[1]->end = 0;
+ 	if ((cfg->io.nwin > 0) || (dflt->io.nwin > 0)) {
+@@ -578,6 +570,8 @@ static void dio700_config(struct pcmcia_device *link)
+ 
+ 	dev_dbg(&link->dev, "dio700_config\n");
+ 
++	link->config_flags |= CONF_ENABLE_IRQ | CONF_AUTO_AUDIO;
++
+ 	ret = pcmcia_loop_config(link, dio700_pcmcia_config_loop, NULL);
+ 	if (ret) {
+ 		dev_warn(&link->dev, "no configuration found\n");
 diff --git a/drivers/staging/comedi/drivers/ni_daq_dio24.c b/drivers/staging/comedi/drivers/ni_daq_dio24.c
-index fcaa829..4f9daa3 100644
+index 6512f7a..6dc2b06 100644
 --- a/drivers/staging/comedi/drivers/ni_daq_dio24.c
 +++ b/drivers/staging/comedi/drivers/ni_daq_dio24.c
-@@ -358,7 +358,7 @@ static void dio24_config(struct pcmcia_device *link)
- 		goto failed;
+@@ -284,19 +284,11 @@ static void dio24_cs_detach(struct pcmcia_device *link)
+ static int dio24_pcmcia_config_loop(struct pcmcia_device *p_dev,
+ 				cistpl_cftable_entry_t *cfg,
+ 				cistpl_cftable_entry_t *dflt,
+-				unsigned int vcc,
+ 				void *priv_data)
+ {
+ 	if (cfg->index == 0)
+ 		return -ENODEV;
  
- 	/* Finally, report what we've done */
--	dev_info(&link->dev, "index 0x%02x", link->conf.ConfigIndex);
-+	dev_info(&link->dev, "index 0x%02x", link->config_index);
- 	if (link->conf.Attributes & CONF_ENABLE_IRQ)
- 		printk(", irq %d", link->irq);
- 	if (link->resource[0])
+-	/* Does this card need audio output? */
+-	if (cfg->flags & CISTPL_CFTABLE_AUDIO)
+-		p_dev->config_flags |= CONF_ENABLE_SPKR;
+-
+-	/* Do we need to allocate an interrupt? */
+-	p_dev->config_flags |= CONF_ENABLE_IRQ;
+-
+ 	/* IO window settings */
+ 	p_dev->resource[0]->end = p_dev->resource[1]->end = 0;
+ 	if ((cfg->io.nwin > 0) || (dflt->io.nwin > 0)) {
+@@ -329,6 +321,8 @@ static void dio24_config(struct pcmcia_device *link)
+ 
+ 	dev_dbg(&link->dev, "dio24_config\n");
+ 
++	link->config_flags |= CONF_ENABLE_IRQ | CONF_AUTO_AUDIO;
++
+ 	ret = pcmcia_loop_config(link, dio24_pcmcia_config_loop, NULL);
+ 	if (ret) {
+ 		dev_warn(&link->dev, "no configuration found\n");
 diff --git a/drivers/staging/comedi/drivers/ni_labpc_cs.c b/drivers/staging/comedi/drivers/ni_labpc_cs.c
-index a936c11..2e27a30 100644
+index 255cf40..6eacbd7 100644
 --- a/drivers/staging/comedi/drivers/ni_labpc_cs.c
 +++ b/drivers/staging/comedi/drivers/ni_labpc_cs.c
-@@ -336,7 +336,7 @@ static void labpc_config(struct pcmcia_device *link)
- 		goto failed;
+@@ -263,19 +263,11 @@ static void labpc_cs_detach(struct pcmcia_device *link)
+ static int labpc_pcmcia_config_loop(struct pcmcia_device *p_dev,
+ 				cistpl_cftable_entry_t *cfg,
+ 				cistpl_cftable_entry_t *dflt,
+-				unsigned int vcc,
+ 				void *priv_data)
+ {
+ 	if (cfg->index == 0)
+ 		return -ENODEV;
  
- 	/* Finally, report what we've done */
--	dev_info(&link->dev, "index 0x%02x", link->conf.ConfigIndex);
-+	dev_info(&link->dev, "index 0x%02x", link->config_index);
- 	if (link->conf.Attributes & CONF_ENABLE_IRQ)
- 		printk(", irq %d", link->irq);
- 	if (link->resource[0])
+-	/* Does this card need audio output? */
+-	if (cfg->flags & CISTPL_CFTABLE_AUDIO)
+-		p_dev->config_flags |= CONF_ENABLE_SPKR;
+-
+-	/* Do we need to allocate an interrupt? */
+-	p_dev->config_flags |= CONF_ENABLE_IRQ | CONF_ENABLE_PULSE_IRQ;
+-
+ 	/* IO window settings */
+ 	p_dev->resource[0]->end = p_dev->resource[1]->end = 0;
+ 	if ((cfg->io.nwin > 0) || (dflt->io.nwin > 0)) {
+@@ -307,6 +299,9 @@ static void labpc_config(struct pcmcia_device *link)
+ 
+ 	dev_dbg(&link->dev, "labpc_config\n");
+ 
++	link->config_flags |= CONF_ENABLE_IRQ | CONF_ENABLE_PULSE_IRQ |
++		CONF_AUTO_AUDIO;
++
+ 	ret = pcmcia_loop_config(link, labpc_pcmcia_config_loop, NULL);
+ 	if (ret) {
+ 		dev_warn(&link->dev, "no configuration found\n");
+diff --git a/drivers/staging/comedi/drivers/ni_mio_cs.c b/drivers/staging/comedi/drivers/ni_mio_cs.c
+index b88f52d..da4e2a2 100644
+--- a/drivers/staging/comedi/drivers/ni_mio_cs.c
++++ b/drivers/staging/comedi/drivers/ni_mio_cs.c
+@@ -302,7 +302,6 @@ static int mio_cs_resume(struct pcmcia_device *link)
+ static int mio_pcmcia_config_loop(struct pcmcia_device *p_dev,
+ 				cistpl_cftable_entry_t *cfg,
+ 				cistpl_cftable_entry_t *dflt,
+-				unsigned int vcc,
+ 				void *priv_data)
+ {
+ 	int base, ret;
 diff --git a/drivers/staging/comedi/drivers/quatech_daqp_cs.c b/drivers/staging/comedi/drivers/quatech_daqp_cs.c
-index cd818fb..a2a32de 100644
+index b8940d7..03a72d7 100644
 --- a/drivers/staging/comedi/drivers/quatech_daqp_cs.c
 +++ b/drivers/staging/comedi/drivers/quatech_daqp_cs.c
-@@ -1137,7 +1137,7 @@ static void daqp_cs_config(struct pcmcia_device *link)
- 		goto failed;
- 
- 	/* Finally, report what we've done */
--	dev_info(&link->dev, "index 0x%02x", link->conf.ConfigIndex);
-+	dev_info(&link->dev, "index 0x%02x", link->config_index);
- 	if (link->conf.Attributes & CONF_ENABLE_IRQ)
- 		printk(", irq %u", link->irq);
- 	if (link->resource[0])
-diff --git a/drivers/staging/wlags49_h2/wl_cs.c b/drivers/staging/wlags49_h2/wl_cs.c
-index b2efff6..778800f 100644
---- a/drivers/staging/wlags49_h2/wl_cs.c
-+++ b/drivers/staging/wlags49_h2/wl_cs.c
-@@ -148,8 +148,8 @@ static int wl_adapter_attach(struct pcmcia_device *link)
- 	link->resource[0]->end  = HCF_NUM_IO_PORTS;
- 	link->resource[0]->flags= IO_DATA_PATH_WIDTH_16;
- 	link->conf.Attributes   = CONF_ENABLE_IRQ;
--	link->conf.ConfigIndex  = 5;
--	link->conf.Present      = PRESENT_OPTION;
-+	link->config_index      = 5;
-+	link->config_regs       = PRESENT_OPTION;
- 
- 	link->priv = dev;
- 	lp = wl_priv(dev);
+@@ -1071,7 +1071,6 @@ static void daqp_cs_detach(struct pcmcia_device *link)
+ static int daqp_pcmcia_config_loop(struct pcmcia_device *p_dev,
+ 				cistpl_cftable_entry_t *cfg,
+ 				cistpl_cftable_entry_t *dflt,
+-				unsigned int vcc,
+ 				void *priv_data)
+ {
+ 	if (cfg->index == 0)
+diff --git a/drivers/telephony/ixj_pcmcia.c b/drivers/telephony/ixj_pcmcia.c
+index e23270d..670a76b 100644
+--- a/drivers/telephony/ixj_pcmcia.c
++++ b/drivers/telephony/ixj_pcmcia.c
+@@ -112,7 +112,6 @@ failed:
+ static int ixj_config_check(struct pcmcia_device *p_dev,
+ 			    cistpl_cftable_entry_t *cfg,
+ 			    cistpl_cftable_entry_t *dflt,
+-			    unsigned int vcc,
+ 			    void *priv_data)
+ {
+ 	if ((cfg->io.nwin > 0) || (dflt->io.nwin > 0)) {
 diff --git a/drivers/usb/host/sl811_cs.c b/drivers/usb/host/sl811_cs.c
-index 78bad51..5904053 100644
+index 744c2cd..d960629 100644
 --- a/drivers/usb/host/sl811_cs.c
 +++ b/drivers/usb/host/sl811_cs.c
-@@ -200,7 +200,7 @@ static int sl811_cs_config(struct pcmcia_device *link)
+@@ -134,32 +134,11 @@ static void sl811_cs_release(struct pcmcia_device * link)
+ static int sl811_cs_config_check(struct pcmcia_device *p_dev,
+ 				 cistpl_cftable_entry_t *cfg,
+ 				 cistpl_cftable_entry_t *dflt,
+-				 unsigned int vcc,
+ 				 void *priv_data)
+ {
+ 	if (cfg->index == 0)
+ 		return -ENODEV;
+ 
+-	/* Use power settings for Vcc and Vpp if present */
+-	/*  Note that the CIS values need to be rescaled */
+-	if (cfg->vcc.present & (1<<CISTPL_POWER_VNOM)) {
+-		if (cfg->vcc.param[CISTPL_POWER_VNOM]/10000 != vcc)
+-			return -ENODEV;
+-	} else if (dflt->vcc.present & (1<<CISTPL_POWER_VNOM)) {
+-		if (dflt->vcc.param[CISTPL_POWER_VNOM]/10000 != vcc)
+-			return -ENODEV;
+-		}
+-
+-	if (cfg->vpp1.present & (1<<CISTPL_POWER_VNOM))
+-		p_dev->vpp =
+-			cfg->vpp1.param[CISTPL_POWER_VNOM]/10000;
+-	else if (dflt->vpp1.present & (1<<CISTPL_POWER_VNOM))
+-		p_dev->vpp =
+-			dflt->vpp1.param[CISTPL_POWER_VNOM]/10000;
+-
+-	/* we need an interrupt */
+-	p_dev->config_flags |= CONF_ENABLE_IRQ;
+-
+ 	/* IO window settings */
+ 	p_dev->resource[0]->end = p_dev->resource[1]->end = 0;
+ 	if ((cfg->io.nwin > 0) || (dflt->io.nwin > 0)) {
+@@ -184,6 +163,9 @@ static int sl811_cs_config(struct pcmcia_device *link)
+ 
+ 	dev_dbg(&link->dev, "sl811_cs_config\n");
+ 
++	link->config_flags |= CONF_ENABLE_IRQ |	CONF_AUTO_SET_VPP |
++		CONF_AUTO_CHECK_VCC;
++
+ 	if (pcmcia_loop_config(link, sl811_cs_config_check, NULL))
  		goto failed;
  
- 	dev_info(&link->dev, "index 0x%02x: ",
--		link->conf.ConfigIndex);
-+		link->config_index);
- 	if (link->vpp)
- 		printk(", Vpp %d.%d", link->vpp/10, link->vpp%10);
- 	printk(", irq %d", link->irq);
-diff --git a/include/pcmcia/cs.h b/include/pcmcia/cs.h
-index 674edbc..47b6092 100644
---- a/include/pcmcia/cs.h
-+++ b/include/pcmcia/cs.h
-@@ -22,9 +22,6 @@
- /* For RequestConfiguration */
- typedef struct config_req_t {
-     u_int	Attributes;
--    u_int	ConfigBase;
--    u_char	ConfigIndex;
--    u_int	Present;
- } config_req_t;
- 
- /* Attributes for RequestConfiguration */
-@@ -35,16 +32,4 @@ typedef struct config_req_t {
- #define CONF_ENABLE_ESR		0x10
- #define CONF_VALID_CLIENT	0x100
- 
--/* Configuration registers present */
--#define PRESENT_OPTION		0x001
--#define PRESENT_STATUS		0x002
--#define PRESENT_PIN_REPLACE	0x004
--#define PRESENT_COPY		0x008
--#define PRESENT_EXT_STATUS	0x010
--#define PRESENT_IOBASE_0	0x020
--#define PRESENT_IOBASE_1	0x040
--#define PRESENT_IOBASE_2	0x080
--#define PRESENT_IOBASE_3	0x100
--#define PRESENT_IOSIZE		0x200
--
- #endif /* _LINUX_CS_H */
 diff --git a/include/pcmcia/ds.h b/include/pcmcia/ds.h
-index 6137fbc..bc28f96 100644
+index 50b03fd..0577e5f 100644
 --- a/include/pcmcia/ds.h
 +++ b/include/pcmcia/ds.h
-@@ -97,6 +97,9 @@ struct pcmcia_device {
- 	unsigned int		vpp;
+@@ -177,7 +177,6 @@ int pcmcia_loop_config(struct pcmcia_device *p_dev,
+ 		       int	(*conf_check)	(struct pcmcia_device *p_dev,
+ 						 cistpl_cftable_entry_t *cf,
+ 						 cistpl_cftable_entry_t *dflt,
+-						 unsigned int vcc,
+ 						 void *priv_data),
+ 		       void *priv_data);
  
- 	unsigned int		io_lines; /* number of I/O lines */
-+	unsigned int		config_base;
-+	unsigned int		config_index;
-+	unsigned int		config_regs;	/* PRESENT_ flags below */
+@@ -270,6 +269,12 @@ static inline int pcmcia_io_cfg_data_width(unsigned int flags)
+ #define CONF_ENABLE_PULSE_IRQ   0x04
+ #define CONF_ENABLE_ESR         0x08
  
- 	/* Is the device suspended? */
- 	u16			suspended:1;
-@@ -250,6 +253,17 @@ static inline int pcmcia_io_cfg_data_width(unsigned int flags)
- 					0x0c -> 2
- 					0x10 -> 3 */
- 
-+/* config_reg{ister}s present for this PCMCIA device */
-+#define PRESENT_OPTION		0x001
-+#define PRESENT_STATUS		0x002
-+#define PRESENT_PIN_REPLACE	0x004
-+#define PRESENT_COPY		0x008
-+#define PRESENT_EXT_STATUS	0x010
-+#define PRESENT_IOBASE_0	0x020
-+#define PRESENT_IOBASE_1	0x040
-+#define PRESENT_IOBASE_2	0x080
-+#define PRESENT_IOBASE_3	0x100
-+#define PRESENT_IOSIZE		0x200
- 
++/* flags used by pcmcia_loop_config() autoconfiguration */
++#define CONF_AUTO_CHECK_VCC	0x10 /* check for matching Vcc? */
++#define CONF_AUTO_SET_VPP	0x20 /* set Vpp? */
++#define CONF_AUTO_AUDIO		0x40 /* enable audio line? */
++
++
  #endif /* __KERNEL__ */
  
-diff --git a/sound/pcmcia/pdaudiocf/pdaudiocf.c b/sound/pcmcia/pdaudiocf/pdaudiocf.c
-index 2e1282d..4df07fc 100644
---- a/sound/pcmcia/pdaudiocf/pdaudiocf.c
-+++ b/sound/pcmcia/pdaudiocf/pdaudiocf.c
-@@ -143,8 +143,8 @@ static int snd_pdacf_probe(struct pcmcia_device *link)
- 	link->resource[0]->end = 16;
- 
- 	link->conf.Attributes = CONF_ENABLE_IRQ | CONF_ENABLE_PULSE_IRQ;
--	link->conf.ConfigIndex = 1;
--	link->conf.Present = PRESENT_OPTION;
-+	link->config_index = 1;
-+	link->config_regs = PRESENT_OPTION;
- 
- 	return pdacf_config(link);
- }
-@@ -216,7 +216,7 @@ static int pdacf_config(struct pcmcia_device *link)
- 	int ret;
- 
- 	snd_printdd(KERN_DEBUG "pdacf_config called\n");
--	link->conf.ConfigIndex = 0x5;
-+	link->config_index = 0x5;
- 
- 	ret = pcmcia_request_io(link);
- 	if (ret)
-diff --git a/sound/pcmcia/vx/vxpocket.c b/sound/pcmcia/vx/vxpocket.c
-index a48b3ee..16186ad 100644
---- a/sound/pcmcia/vx/vxpocket.c
-+++ b/sound/pcmcia/vx/vxpocket.c
-@@ -163,8 +163,8 @@ static int snd_vxpocket_new(struct snd_card *card, int ibl,
- 	link->resource[0]->end = 16;
- 
- 	link->conf.Attributes = CONF_ENABLE_IRQ;
--	link->conf.ConfigIndex = 1;
--	link->conf.Present = PRESENT_OPTION;
-+	link->config_index = 1;
-+	link->config_regs = PRESENT_OPTION;
- 
- 	*chip_ret = vxp;
- 	return 0;
+ #endif /* _LINUX_DS_H */
 -- 
 1.7.0.4
 
