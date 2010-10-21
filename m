@@ -1,7 +1,7 @@
 From: KOVACS Krisztian <hidden@balabit.hu>
-Subject: [PATCH v2 8/9] tproxy: added IPv6 support to the socket match
-Date: Thu, 21 Oct 2010 12:47:10 +0200
-Message-ID: <20101021104709.5192.41764.stgit@este.odu>
+Subject: [PATCH v2 4/9] tproxy: added tproxy sockopt interface in the IPV6 layer
+Date: Thu, 21 Oct 2010 12:47:09 +0200
+Message-ID: <20101021104709.5192.34941.stgit@este.odu>
 References: <20101021104709.5192.31249.stgit@este.odu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
@@ -10,275 +10,125 @@ Cc: Balazs Scheidler <bazsi@balabit.hu>,
 	Patrick McHardy <kaber@trash.net>,
 	David Miller <davem@davemloft.net>
 To: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from balu.sch.bme.hu ([152.66.208.40]:35683 "EHLO balu.sch.bme.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756727Ab0JUKsh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Oct 2010 06:48:37 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-reply-to: <20101021104709.5192.31249.stgit@este.odu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Balazs Scheidler <bazsi@balabit.hu>
 
-The ICMP extraction bits were contributed by Harry Mason.
+Support for IPV6_RECVORIGDSTADDR sockopt for UDP sockets were contributed by
+Harry Mason.
 
 Signed-off-by: Balazs Scheidler <bazsi@balabit.hu>
 Signed-off-by: KOVACS Krisztian <hidden@balabit.hu>
 ---
- net/netfilter/xt_socket.c |  165 ++++++++++++++++++++++++++++++++++++++++++---
- 1 files changed, 154 insertions(+), 11 deletions(-)
+ include/linux/in6.h      |    4 ++++
+ include/linux/ipv6.h     |    4 +++-
+ net/ipv6/datagram.c      |   19 +++++++++++++++++++
+ net/ipv6/ipv6_sockglue.c |   23 +++++++++++++++++++++++
+ 4 files changed, 49 insertions(+), 1 deletions(-)
 
-diff --git a/net/netfilter/xt_socket.c b/net/netfilter/xt_socket.c
-index 266faa0..2dbd4c8 100644
---- a/net/netfilter/xt_socket.c
-+++ b/net/netfilter/xt_socket.c
-@@ -14,6 +14,7 @@
- #include <linux/skbuff.h>
- #include <linux/netfilter/x_tables.h>
- #include <linux/netfilter_ipv4/ip_tables.h>
-+#include <linux/netfilter_ipv6/ip6_tables.h>
- #include <net/tcp.h>
- #include <net/udp.h>
- #include <net/icmp.h>
-@@ -21,6 +22,7 @@
- #include <net/inet_sock.h>
- #include <net/netfilter/nf_tproxy_core.h>
- #include <net/netfilter/ipv4/nf_defrag_ipv4.h>
-+#include <net/netfilter/ipv6/nf_defrag_ipv6.h>
+diff --git a/include/linux/in6.h b/include/linux/in6.h
+index c4bf46f..097a34b 100644
+--- a/include/linux/in6.h
++++ b/include/linux/in6.h
+@@ -268,6 +268,10 @@ struct in6_flowlabel_req {
+ /* RFC5082: Generalized Ttl Security Mechanism */
+ #define IPV6_MINHOPCOUNT		73
  
- #include <linux/netfilter/xt_socket.h>
- 
-@@ -30,7 +32,7 @@
- #endif
- 
- static int
--extract_icmp_fields(const struct sk_buff *skb,
-+extract_icmp4_fields(const struct sk_buff *skb,
- 		    u8 *protocol,
- 		    __be32 *raddr,
- 		    __be32 *laddr,
-@@ -86,7 +88,6 @@ extract_icmp_fields(const struct sk_buff *skb,
++#define IPV6_ORIGDSTADDR        74
++#define IPV6_RECVORIGDSTADDR    IPV6_ORIGDSTADDR
++#define IPV6_TRANSPARENT        75
++
+ /*
+  * Multicast Routing:
+  * see include/linux/mroute6.h.
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index e62683b..8e429d0 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -341,7 +341,9 @@ struct ipv6_pinfo {
+ 				odstopts:1,
+                                 rxflow:1,
+ 				rxtclass:1,
+-				rxpmtu:1;
++				rxpmtu:1,
++				rxorigdstaddr:1;
++				/* 2 bits hole */
+ 		} bits;
+ 		__u16		all;
+ 	} rxopt;
+diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
+index ef371aa..320bdb8 100644
+--- a/net/ipv6/datagram.c
++++ b/net/ipv6/datagram.c
+@@ -577,6 +577,25 @@ int datagram_recv_ctl(struct sock *sk, struct msghdr *msg, struct sk_buff *skb)
+ 		u8 *ptr = nh + opt->dst1;
+ 		put_cmsg(msg, SOL_IPV6, IPV6_2292DSTOPTS, (ptr[1]+1)<<3, ptr);
+ 	}
++	if (np->rxopt.bits.rxorigdstaddr) {
++		struct sockaddr_in6 sin6;
++		u16 *ports = (u16 *) skb_transport_header(skb);
++
++		if (skb_transport_offset(skb) + 4 <= skb->len) {
++			/* All current transport protocols have the port numbers in the
++			 * first four bytes of the transport header and this function is
++			 * written with this assumption in mind.
++			 */
++
++			sin6.sin6_family = AF_INET6;
++			ipv6_addr_copy(&sin6.sin6_addr, &ipv6_hdr(skb)->daddr);
++			sin6.sin6_port = ports[1];
++			sin6.sin6_flowinfo = 0;
++			sin6.sin6_scope_id = 0;
++
++			put_cmsg(msg, SOL_IPV6, IPV6_ORIGDSTADDR, sizeof(sin6), &sin6);
++		}
++	}
  	return 0;
  }
  
--
- static bool
- socket_match(const struct sk_buff *skb, struct xt_action_param *par,
- 	     const struct xt_socket_mtinfo1 *info)
-@@ -115,7 +116,7 @@ socket_match(const struct sk_buff *skb, struct xt_action_param *par,
- 		dport = hp->dest;
+diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+index a7f66bc..0553867 100644
+--- a/net/ipv6/ipv6_sockglue.c
++++ b/net/ipv6/ipv6_sockglue.c
+@@ -342,6 +342,21 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
+ 		retv = 0;
+ 		break;
  
- 	} else if (iph->protocol == IPPROTO_ICMP) {
--		if (extract_icmp_fields(skb, &protocol, &saddr, &daddr,
-+		if (extract_icmp4_fields(skb, &protocol, &saddr, &daddr,
- 					&sport, &dport))
- 			return false;
- 	} else {
-@@ -165,32 +166,157 @@ socket_match(const struct sk_buff *skb, struct xt_action_param *par,
- 			sk = NULL;
++	case IPV6_TRANSPARENT:
++		if (optlen < sizeof(int))
++			goto e_inval;
++		/* we don't have a separate transparent bit for IPV6 we use the one in the IPv4 socket */
++		inet_sk(sk)->transparent = valbool;
++		retv = 0;
++		break;
++
++	case IPV6_RECVORIGDSTADDR:
++		if (optlen < sizeof(int))
++			goto e_inval;
++		np->rxopt.bits.rxorigdstaddr = valbool;
++		retv = 0;
++		break;
++
+ 	case IPV6_HOPOPTS:
+ 	case IPV6_RTHDRDSTOPTS:
+ 	case IPV6_RTHDR:
+@@ -1104,6 +1119,14 @@ static int do_ipv6_getsockopt(struct sock *sk, int level, int optname,
+ 		break;
  	}
  
--	pr_debug("proto %u %08x:%u -> %08x:%u (orig %08x:%u) sock %p\n",
--		 protocol, ntohl(saddr), ntohs(sport),
--		 ntohl(daddr), ntohs(dport),
--		 ntohl(iph->daddr), hp ? ntohs(hp->dest) : 0, sk);
-+	pr_debug("proto %hhu %pI4:%hu -> %pI4:%hu (orig %pI4:%hu) sock %p\n",
-+		 protocol, &saddr, ntohs(sport),
-+		 &daddr, ntohs(dport),
-+		 &iph->daddr, hp ? ntohs(hp->dest) : 0, sk);
- 
- 	return (sk != NULL);
- }
- 
- static bool
--socket_mt_v0(const struct sk_buff *skb, struct xt_action_param *par)
-+socket_mt4_v0(const struct sk_buff *skb, struct xt_action_param *par)
- {
- 	return socket_match(skb, par, NULL);
- }
- 
- static bool
--socket_mt_v1(const struct sk_buff *skb, struct xt_action_param *par)
-+socket_mt4_v1(const struct sk_buff *skb, struct xt_action_param *par)
- {
- 	return socket_match(skb, par, par->matchinfo);
- }
- 
-+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++	case IPV6_TRANSPARENT:
++		val = inet_sk(sk)->transparent;
++		break;
 +
-+static int
-+extract_icmp6_fields(const struct sk_buff *skb,
-+		     unsigned int outside_hdrlen,
-+		     u8 *protocol,
-+		     struct in6_addr **raddr,
-+		     struct in6_addr **laddr,
-+		     __be16 *rport,
-+		     __be16 *lport)
-+{
-+	struct ipv6hdr *inside_iph, _inside_iph;
-+	struct icmp6hdr *icmph, _icmph;
-+	__be16 *ports, _ports[2];
-+	u8 inside_nexthdr;
-+	int inside_hdrlen;
++	case IPV6_RECVORIGDSTADDR:
++		val = np->rxopt.bits.rxorigdstaddr;
++		break;
 +
-+	icmph = skb_header_pointer(skb, outside_hdrlen,
-+				   sizeof(_icmph), &_icmph);
-+	if (icmph == NULL)
-+		return 1;
-+
-+	if (icmph->icmp6_type & ICMPV6_INFOMSG_MASK)
-+		return 1;
-+
-+	inside_iph = skb_header_pointer(skb, outside_hdrlen + sizeof(_icmph), sizeof(_inside_iph), &_inside_iph);
-+	if (inside_iph == NULL)
-+		return 1;
-+	inside_nexthdr = inside_iph->nexthdr;
-+
-+	inside_hdrlen = ipv6_skip_exthdr(skb, outside_hdrlen + sizeof(_icmph) + sizeof(_inside_iph), &inside_nexthdr);
-+	if (inside_hdrlen < 0)
-+		return 1; /* hjm: Packet has no/incomplete transport layer headers. */
-+
-+	if (inside_nexthdr != IPPROTO_TCP &&
-+	    inside_nexthdr != IPPROTO_UDP)
-+		return 1;
-+
-+	ports = skb_header_pointer(skb, inside_hdrlen,
-+				   sizeof(_ports), &_ports);
-+	if (ports == NULL)
-+		return 1;
-+
-+	/* the inside IP packet is the one quoted from our side, thus
-+	 * its saddr is the local address */
-+	*protocol = inside_nexthdr;
-+	*laddr = &inside_iph->saddr;
-+	*lport = ports[0];
-+	*raddr = &inside_iph->daddr;
-+	*rport = ports[1];
-+
-+	return 0;
-+}
-+
-+static bool
-+socket_mt6_v1(const struct sk_buff *skb, struct xt_action_param *par)
-+{
-+	struct ipv6hdr *iph = ipv6_hdr(skb);
-+	struct udphdr _hdr, *hp = NULL;
-+	struct sock *sk;
-+	struct in6_addr *daddr, *saddr;
-+	__be16 dport, sport;
-+	int thoff;
-+	u8 tproto;
-+	const struct xt_socket_mtinfo1 *info = (struct xt_socket_mtinfo1 *) par->matchinfo;
-+
-+	tproto = ipv6_find_hdr(skb, &thoff, -1, NULL);
-+	if (tproto < 0) {
-+		pr_debug("unable to find transport header in IPv6 packet, dropping\n");
-+		return NF_DROP;
-+	}
-+
-+	if (tproto == IPPROTO_UDP || tproto == IPPROTO_TCP) {
-+		hp = skb_header_pointer(skb, thoff,
-+					sizeof(_hdr), &_hdr);
-+		if (hp == NULL)
-+			return false;
-+
-+		saddr = &iph->saddr;
-+		sport = hp->source;
-+		daddr = &iph->daddr;
-+		dport = hp->dest;
-+
-+	} else if (tproto == IPPROTO_ICMPV6) {
-+		if (extract_icmp6_fields(skb, thoff, &tproto, &saddr, &daddr,
-+					 &sport, &dport))
-+			return false;
-+	} else {
-+		return false;
-+	}
-+
-+	sk = nf_tproxy_get_sock_v6(dev_net(skb->dev), tproto,
-+				   saddr, daddr, sport, dport, par->in, NFT_LOOKUP_ANY);
-+	if (sk != NULL) {
-+		bool wildcard;
-+		bool transparent = true;
-+
-+		/* Ignore sockets listening on INADDR_ANY */
-+		wildcard = (sk->sk_state != TCP_TIME_WAIT &&
-+			    ipv6_addr_any(&inet6_sk(sk)->rcv_saddr));
-+
-+		/* Ignore non-transparent sockets,
-+		   if XT_SOCKET_TRANSPARENT is used */
-+		if (info && info->flags & XT_SOCKET_TRANSPARENT)
-+			transparent = ((sk->sk_state != TCP_TIME_WAIT &&
-+					inet_sk(sk)->transparent) ||
-+				       (sk->sk_state == TCP_TIME_WAIT &&
-+					inet_twsk(sk)->tw_transparent));
-+
-+		nf_tproxy_put_sock(sk);
-+
-+		if (wildcard || !transparent)
-+			sk = NULL;
-+	}
-+
-+	pr_debug("proto %hhu %pI6:%hu -> %pI6:%hu "
-+		 "(orig %pI6:%hu) sock %p\n",
-+		 tproto, saddr, ntohs(sport),
-+		 daddr, ntohs(dport),
-+		 &iph->daddr, hp ? ntohs(hp->dest) : 0, sk);
-+
-+	return (sk != NULL);
-+}
-+#endif
-+
- static struct xt_match socket_mt_reg[] __read_mostly = {
+ 	case IPV6_UNICAST_HOPS:
+ 	case IPV6_MULTICAST_HOPS:
  	{
- 		.name		= "socket",
- 		.revision	= 0,
- 		.family		= NFPROTO_IPV4,
--		.match		= socket_mt_v0,
-+		.match		= socket_mt4_v0,
- 		.hooks		= (1 << NF_INET_PRE_ROUTING) |
- 				  (1 << NF_INET_LOCAL_IN),
- 		.me		= THIS_MODULE,
-@@ -199,17 +325,33 @@ static struct xt_match socket_mt_reg[] __read_mostly = {
- 		.name		= "socket",
- 		.revision	= 1,
- 		.family		= NFPROTO_IPV4,
--		.match		= socket_mt_v1,
-+		.match		= socket_mt4_v1,
- 		.matchsize	= sizeof(struct xt_socket_mtinfo1),
- 		.hooks		= (1 << NF_INET_PRE_ROUTING) |
- 				  (1 << NF_INET_LOCAL_IN),
- 		.me		= THIS_MODULE,
- 	},
-+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-+	{
-+		.name		= "socket",
-+		.revision	= 1,
-+		.family		= NFPROTO_IPV6,
-+		.match		= socket_mt6_v1,
-+		.matchsize	= sizeof(struct xt_socket_mtinfo1),
-+		.hooks		= (1 << NF_INET_PRE_ROUTING) |
-+				  (1 << NF_INET_LOCAL_IN),
-+		.me		= THIS_MODULE,
-+	},
-+#endif
- };
- 
- static int __init socket_mt_init(void)
- {
- 	nf_defrag_ipv4_enable();
-+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-+	nf_defrag_ipv6_enable();
-+#endif
-+
- 	return xt_register_matches(socket_mt_reg, ARRAY_SIZE(socket_mt_reg));
- }
- 
-@@ -225,3 +367,4 @@ MODULE_LICENSE("GPL");
- MODULE_AUTHOR("Krisztian Kovacs, Balazs Scheidler");
- MODULE_DESCRIPTION("x_tables socket match module");
- MODULE_ALIAS("ipt_socket");
-+MODULE_ALIAS("ip6t_socket");
 
 
