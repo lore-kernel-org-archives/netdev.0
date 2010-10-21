@@ -1,7 +1,7 @@
 From: kaber@trash.net
-Subject: [PATCH 42/72] Fixed race condition at ip_vs.ko module init.
-Date: Thu, 21 Oct 2010 17:19:29 +0200
-Message-ID: <1287674399-31455-43-git-send-email-kaber@trash.net>
+Subject: [PATCH 38/72] netfilter: fix kconfig unmet dependency warning
+Date: Thu, 21 Oct 2010 17:19:25 +0200
+Message-ID: <1287674399-31455-39-git-send-email-kaber@trash.net>
 References: <1287674399-31455-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
@@ -10,56 +10,54 @@ In-Reply-To: <1287674399-31455-1-git-send-email-kaber@trash.net>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eduardo Blanco <ejblanco@google.com>
+From: Randy Dunlap <randy.dunlap@oracle.com>
 
-Lists were initialized after the module was registered.  Multiple ipvsadm
-processes at module load triggered a race condition that resulted in a null
-pointer dereference in do_ip_vs_get_ctl(). As a result, __ip_vs_mutex
-was left locked preventing all further ipvsadm commands.
+Fix netfilter kconfig unmet dependencies warning & spell out
+"compatible" while there.
 
-Signed-off-by: Eduardo J. Blanco <ejblanco@google.com>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+warning: (IP_NF_TARGET_TTL && NET && INET && NETFILTER && IP_NF_IPTABLES && NETFILTER_ADVANCED || IP6_NF_TARGET_HL && NET && INET && IPV6 && NETFILTER && IP6_NF_IPTABLES && NETFILTER_ADVANCED) selects NETFILTER_XT_TARGET_HL which has unmet direct dependencies ((IP_NF_MANGLE || IP6_NF_MANGLE) && NETFILTER_ADVANCED)
+
+Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- net/netfilter/ipvs/ip_vs_ctl.c |   19 ++++++++++---------
- 1 files changed, 10 insertions(+), 9 deletions(-)
+ net/ipv4/netfilter/Kconfig |    4 ++--
+ net/ipv6/netfilter/Kconfig |    4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index a697591..0b884d3 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -3400,6 +3400,16 @@ int __init ip_vs_control_init(void)
+diff --git a/net/ipv4/netfilter/Kconfig b/net/ipv4/netfilter/Kconfig
+index 1833bdb..8e33506 100644
+--- a/net/ipv4/netfilter/Kconfig
++++ b/net/ipv4/netfilter/Kconfig
+@@ -324,10 +324,10 @@ config IP_NF_TARGET_ECN
  
- 	EnterFunction(2);
+ config IP_NF_TARGET_TTL
+ 	tristate '"TTL" target support'
+-	depends on NETFILTER_ADVANCED
++	depends on NETFILTER_ADVANCED && IP_NF_MANGLE
+ 	select NETFILTER_XT_TARGET_HL
+ 	---help---
+-	This is a backwards-compat option for the user's convenience
++	This is a backwards-compatible option for the user's convenience
+ 	(e.g. when running oldconfig). It selects
+ 	CONFIG_NETFILTER_XT_TARGET_HL.
  
-+	/* Initialize ip_vs_svc_table, ip_vs_svc_fwm_table, ip_vs_rtable */
-+	for(idx = 0; idx < IP_VS_SVC_TAB_SIZE; idx++)  {
-+		INIT_LIST_HEAD(&ip_vs_svc_table[idx]);
-+		INIT_LIST_HEAD(&ip_vs_svc_fwm_table[idx]);
-+	}
-+	for(idx = 0; idx < IP_VS_RTAB_SIZE; idx++)  {
-+		INIT_LIST_HEAD(&ip_vs_rtable[idx]);
-+	}
-+	smp_wmb();
-+
- 	ret = nf_register_sockopt(&ip_vs_sockopts);
- 	if (ret) {
- 		pr_err("cannot register sockopt.\n");
-@@ -3418,15 +3428,6 @@ int __init ip_vs_control_init(void)
+diff --git a/net/ipv6/netfilter/Kconfig b/net/ipv6/netfilter/Kconfig
+index 29d643b..44d2eea 100644
+--- a/net/ipv6/netfilter/Kconfig
++++ b/net/ipv6/netfilter/Kconfig
+@@ -132,10 +132,10 @@ config IP6_NF_MATCH_RT
+ # The targets
+ config IP6_NF_TARGET_HL
+ 	tristate '"HL" hoplimit target support'
+-	depends on NETFILTER_ADVANCED
++	depends on NETFILTER_ADVANCED && IP6_NF_MANGLE
+ 	select NETFILTER_XT_TARGET_HL
+ 	---help---
+-	This is a backwards-compat option for the user's convenience
++	This is a backwards-compatible option for the user's convenience
+ 	(e.g. when running oldconfig). It selects
+ 	CONFIG_NETFILTER_XT_TARGET_HL.
  
- 	sysctl_header = register_sysctl_paths(net_vs_ctl_path, vs_vars);
- 
--	/* Initialize ip_vs_svc_table, ip_vs_svc_fwm_table, ip_vs_rtable */
--	for(idx = 0; idx < IP_VS_SVC_TAB_SIZE; idx++)  {
--		INIT_LIST_HEAD(&ip_vs_svc_table[idx]);
--		INIT_LIST_HEAD(&ip_vs_svc_fwm_table[idx]);
--	}
--	for(idx = 0; idx < IP_VS_RTAB_SIZE; idx++)  {
--		INIT_LIST_HEAD(&ip_vs_rtable[idx]);
--	}
--
- 	ip_vs_new_estimator(&ip_vs_stats);
- 
- 	/* Hook the defense timer */
 -- 
 1.7.1
 
