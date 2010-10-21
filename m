@@ -1,48 +1,60 @@
 From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH v2 11/14] bnx2x: Update bnx2x to use new vlan accleration.
-Date: Thu, 21 Oct 2010 14:36:51 -0700
-Message-ID: <AANLkTinudtxjGAEcc9cLjn+7Y7kqcaQXMW_5SRoNe5QU@mail.gmail.com>
+Subject: Re: [PATCH v2 09/14] bnx2: Update bnx2 to use new vlan accleration.
+Date: Thu, 21 Oct 2010 14:38:34 -0700
+Message-ID: <AANLkTikaE-88LSZcMhZaqrpJzeZi0gSdQX1KAvj5vOPA@mail.gmail.com>
 References: <1287618974-4714-1-git-send-email-jesse@nicira.com>
-	<1287618974-4714-12-git-send-email-jesse@nicira.com>
-	<8628FE4E7912BF47A96AE7DD7BAC0AADDDEE429135@SJEXCHCCR02.corp.ad.broadcom.com>
-	<8628FE4E7912BF47A96AE7DD7BAC0AADDDEE429137@SJEXCHCCR02.corp.ad.broadcom.com>
-	<8628FE4E7912BF47A96AE7DD7BAC0AADDDEE42913C@SJEXCHCCR02.corp.ad.broadcom.com>
+	<1287618974-4714-10-git-send-email-jesse@nicira.com>
+	<1287675106.2235.10.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Hao Zheng <hzheng@nicira.com>,
-	Eilon Greenstein <eilong@broadcom.com>
-To: Vladislav Zolotarov <vladz@broadcom.com>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Michael Chan <mchan@broadcom.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f46.google.com ([209.85.215.46]:54096 "EHLO
-	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755923Ab0JUVgy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 17:36:54 -0400
-Received: by ewy7 with SMTP id 7so212236ewy.19
-        for <netdev@vger.kernel.org>; Thu, 21 Oct 2010 14:36:52 -0700 (PDT)
-In-Reply-To: <8628FE4E7912BF47A96AE7DD7BAC0AADDDEE42913C@SJEXCHCCR02.corp.ad.broadcom.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:57946 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758450Ab0JUVif convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 17:38:35 -0400
+Received: by wyf28 with SMTP id 28so81761wyf.19
+        for <netdev@vger.kernel.org>; Thu, 21 Oct 2010 14:38:34 -0700 (PDT)
+In-Reply-To: <1287675106.2235.10.camel@achroite.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 21, 2010 at 7:50 AM, Vladislav Zolotarov <vladz@broadcom.com> wrote:
->> > Guys, when I compiled the kernel with these patches without VLAN
->> > support (CONFIG_VLAN_8021Q is not set) and tried to send VLAN tagged
->> > frames from the remote side to the bnx2x interface the kernel
->> panicked.
->> >
->> > The stack trace got cut with the __netif_receive_skb() on top by the
->> > IPKVM and I'll have to connect a serial to get it all. But until I
->> > did that maybe somebody will have any ideas anyway...
->> >
->> > It happens regardless there is HW RX VLAN stripping enabled or not.
+On Thu, Oct 21, 2010 at 8:31 AM, Ben Hutchings
+<bhutchings@solarflare.com> wrote:
+> On Wed, 2010-10-20 at 16:56 -0700, Jesse Gross wrote:
+>> Make the bnx2 driver use the new vlan accleration model.
 >>
->> When RX VLAN stripping is enabled we hit the BUG() in the
->> vlan_hwaccel_do_receive().:
+>> Signed-off-by: Jesse Gross <jesse@nicira.com>
+>> CC: Michael Chan <mchan@broadcom.com>
+>> ---
+>> =A0drivers/net/bnx2.c | =A0 97 +++++++++++++++----------------------=
+---------------
+>> =A0drivers/net/bnx2.h | =A0 =A04 --
+>> =A02 files changed, 28 insertions(+), 73 deletions(-)
+>>
+>> diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+>> index 363ca8b..bf3c830 100644
+>> --- a/drivers/net/bnx2.c
+>> +++ b/drivers/net/bnx2.c
+> [...]
+>> @@ -7578,7 +7523,28 @@ bnx2_set_tx_csum(struct net_device *dev, u32 =
+data)
+>> =A0static int
+>> =A0bnx2_set_flags(struct net_device *dev, u32 data)
+>> =A0{
+>> - =A0 =A0 return ethtool_op_set_flags(dev, data, ETH_FLAG_RXHASH);
+>> + =A0 =A0 struct bnx2 *bp =3D netdev_priv(dev);
+>> + =A0 =A0 int rc;
+>> +
+>> + =A0 =A0 if (!(bp->flags & BNX2_FLAG_CAN_KEEP_VLAN) &&
+>> + =A0 =A0 =A0 =A0 !(data & ETH_FLAG_RXVLAN))
+>> + =A0 =A0 =A0 =A0 =A0 =A0 return -EOPNOTSUPP;
+> [...]
 >
-> We hit the same BUG() both when VLAN stripping is disabled.
+> Should be -EINVAL.
 
-This one surprises me because that function shouldn't get called at
-all when VLAN stripping is disabled.  Are you sure that it is
-disabled?  From my reading of the bnx2x driver it seems like it is
-always enabled.
+OK, thanks.  I've sent out a patch to fix this (and a similar one in
+the bnx2x driver).
