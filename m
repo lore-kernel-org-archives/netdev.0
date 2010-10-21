@@ -1,33 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net_sched: remove the unused parameter of
- qdisc_create_dflt()
-Date: Thu, 21 Oct 2010 03:16:46 -0700 (PDT)
-Message-ID: <20101021.031646.232745392.davem@davemloft.net>
-References: <1287270248-13190-1-git-send-email-xiaosuo@gmail.com>
-	<1287404425.3664.186.camel@bigi>
+Subject: Re: [PATCH] smsc95xx: generate random MAC address once, not every
+ ifup
+Date: Thu, 21 Oct 2010 03:17:13 -0700 (PDT)
+Message-ID: <20101021.031713.229751156.davem@davemloft.net>
+References: <20101018231639.GA15955@mersenne.largestprime.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xiaosuo@gmail.com, shemminger@linux-foundation.org,
-	netdev@vger.kernel.org, netem@lists.linux-foundation.org
-To: hadi@cyberus.ca
+Cc: steve.glendinning@smsc.com, netdev@vger.kernel.org,
+	linux-omap@vger.kernel.org
+To: bernard@largestprime.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43799
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43804
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755947Ab0JUKQX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 06:16:23 -0400
-In-Reply-To: <1287404425.3664.186.camel@bigi>
+	by vger.kernel.org with ESMTP id S1756426Ab0JUKQu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 06:16:50 -0400
+In-Reply-To: <20101018231639.GA15955@mersenne.largestprime.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: jamal <hadi@cyberus.ca>
-Date: Mon, 18 Oct 2010 08:20:25 -0400
+From: Bernard Blackham <bernard@largestprime.net>
+Date: Tue, 19 Oct 2010 10:16:39 +1100
 
-> On Sun, 2010-10-17 at 07:04 +0800, Changli Gao wrote:
->> The first parameter dev isn't in use in qdisc_create_dflt().
+> The smsc95xx driver currently generates a new random MAC address
+> every time the interface is brought up. This makes it impossible to
+> override using the standard `ifconfig hw ether` approach.
 > 
-> And we can derive it from netdev_queue if ever needed in the future.
+> Past patches tried to make the MAC address a module parameter or
+> base it off the die ID, but it seems to me much simpler (and
+> hopefully less controversial) to stick with the current random
+> generation scheme, but allow the user to change the address.
 > 
-> Acked-by: Jamal Hadi Salim <hadi@cyberus.ca>
+> This patch does exactly that - it moves the random address
+> generation from smsc95xx_reset() into smsc95xx_bind(), so that it is
+> done once on module load, not on every ifup. The user can then
+> override this using the standard mechanisms.
+> 
+> Applies against 2.6.35 and linux-2.6 head.
+> 
+> Signed-off-by: Bernard Blackham <b-omap@largestprime.net>
 
-Applied, thanks.
+Applied.
