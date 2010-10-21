@@ -1,53 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 1/9] tproxy: split off ipv6 defragmentation to a
- separate module
-Date: Fri, 22 Oct 2010 00:19:18 +0200
-Message-ID: <1287699558.2607.5.camel@edumazet-laptop>
-References: <20101021104709.5192.31249.stgit@este.odu>
-	 <20101021104709.5192.64336.stgit@este.odu>  <4CC02456.4050301@trash.net>
-	 <1287661385.13326.45.camel@este.odu>  <4CC0486D.60703@trash.net>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [RFC PATCH 5/9] ipvs network name space aware
+Date: Fri, 22 Oct 2010 01:56:51 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1010220141440.3256@ja.ssi.bg>
+References: <201010081317.04167.hans.schillstrom@ericsson.com> <20101021111644.GA25555@verge.net.au> <201010211342.42833.hans.schillstrom@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: KOVACS Krisztian <hidden@balabit.hu>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Balazs Scheidler <bazsi@balabit.hu>,
-	David Miller <davem@davemloft.net>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4CC0486D.60703@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-Le jeudi 21 octobre 2010 =C3=A0 16:04 +0200, Patrick McHardy a =C3=A9cr=
-it :
-> Am 21.10.2010 13:43, schrieb KOVACS Krisztian:
-> > tproxy: split off ipv6 defragmentation to a separate module
-> >    =20
-> >     Like with IPv4, TProxy needs IPv6 defragmentation but does not
-> >     require connection tracking. Since defragmentation was coupled
-> >     with conntrack, I split off the two, creating an nf_defrag_ipv6=
- module,
-> >     similar to the already existing nf_defrag_ipv4.
->=20
-> Applied, thanks.
-
-Hmm...
-
-CONFIG_IPV6=3Dm
-CONFIG_NETFILTER_TPROXY=3Dm
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Simon Horman <horms@verge.net.au>,
+	"lvs-devel@vger.kernel.org" <lvs-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"wensong@linux-vs.org" <wensong@linux-vs.org>,
+	"daniel.lezcano@free.fr" <daniel.lezcano@free.fr>
+To: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:56621 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752454Ab0JUWz6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Oct 2010 18:55:58 -0400
+In-Reply-To: <201010211342.42833.hans.schillstrom@ericsson.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-  MODPOST 201 modules
-ERROR: "nf_defrag_ipv6_enable" [net/netfilter/xt_TPROXY.ko] undefined!
-ERROR: "ipv6_find_hdr" [net/netfilter/xt_TPROXY.ko] undefined!
+ 	Hello,
 
-Sorry, it's late here, I wont fix this ;)
+On Thu, 21 Oct 2010, Hans Schillstrom wrote:
 
+> static inline struct net * ipvs_devnet(struct skb *skb)
+> {
+> #ifdef CONFIG_NS_NET
+> 	return dev_net(skb->dev);
+> #else
+> 	return init_net;
+> #endif
+> }
 
+ 	After last IPVS changes may be something like that
+is needed instead:
+
+static inline struct net *ipvs_skbnet(struct sk_buff *skb)
+{
+ 	return dev_net(skb->dev ? : skb_dst(skb)->dev);
+}
+
+ 	because now we have LOCAL_OUT processing.
+
+Regards
 
 --
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Julian Anastasov <ja@ssi.bg>
