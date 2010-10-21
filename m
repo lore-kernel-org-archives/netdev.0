@@ -1,36 +1,86 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: dead code in networking core
-Date: Thu, 21 Oct 2010 17:47:01 +0200
-Message-ID: <20101021154701.GA4654@riccoc20.at.omicron.at>
-References: <20101020085229.4f908bcd@nehalam>
+From: Michael Leun <lkml20100708@newton.leun.net>
+Subject: Re: NET_NS: unregister_netdevice: waiting for lo to become free
+ (adding ipv6 address to interface)
+Date: Thu, 21 Oct 2010 17:15:32 +0200
+Message-ID: <20101021171532.54af5e97@xenia.leun.net>
+References: <loom.20100708T183152-326@post.gmane.org>
+	<20100709235744.GA12752@kroah.com>
+	<20100710101540.2799c9ef@xenia.leun.net>
+	<20100710140800.GA20424@kroah.com>
+	<20100710165208.59272ae6@xenia.leun.net>
+	<20100710235323.5336f627@xenia.leun.net>
+	<20100711192939.1c25dcaf@xenia.leun.net>
+	<20100804153543.56f6ecad@xenia.leun.net>
+	<20100804214618.GA6289@kroah.com>
+	<20100805001105.5a3453ed@xenia.leun.net>
+	<m1lj8l29zm.fsf@fess.ebiederm.org>
+	<20100805112538.60a46cb1@xenia.leun.net>
+	<m1y6clz8ta.fsf_-_@fess.ebiederm.org>
+	<20100805134707.0442a7b1@xenia.leun.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:42432 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750881Ab0JUPqu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 11:46:50 -0400
-Received: by bwz18 with SMTP id 18so420574bwz.19
-        for <netdev@vger.kernel.org>; Thu, 21 Oct 2010 08:46:49 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20101020085229.4f908bcd@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Greg KH <greg@kroah.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, linux-kernel@vger.kernel.org,
+	Alexey Dobriyan <adobriyan@gmail.com>,
+	Patrick McHardy <kaber@trash.net>
+To: ebiederm@xmission.com (Eric W. Biederman)
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100805134707.0442a7b1@xenia.leun.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 20, 2010 at 08:52:29AM -0700, Stephen Hemminger wrote:
->   net/core/timestamping.o
->     skb_clone_tx_timestamp
->     skb_complete_tx_timestamp
+Hi,
+
+unfortunately the bug described below originally reported in 2.6.35-rcX
+is still there in 2.6.36.
+
+Is there anything I might do to help fix it (besides fixing it myself,
+I do not have the knowhow)?
+
+On Thu, 5 Aug 2010 13:47:07 +0200
+Michael Leun <lkml20100708@newton.leun.net> wrote:
+
+[...]
+> Putting an ipv6 address on a device seems to be the trigger:
 > 
-> Any plans to use these soon?
+> OrigNS > # ip link add type veth
+> OrigNS > # ip link set dev veth0 up
+> OrigNS > # unshare -n /bin/bash
+> NewNS > # echo $$
+> <SomePID>
+> OrigNS > # ip link set dev veth1 netns <SomePID> # this, of course is
+> on a different terminal NewNS > # ip link set dev veth1 up
+> NewNS > # ip -6 addr add dev veth1 fd50:dead:beef::1/64
+> NewNS > # exit
+> 
+> Yields
+> 
+> kernel: unregister_netdevice: waiting for veth1 to become free. Usage
+> count = 3
+> 
+> Oh - its veth1 this time, not lo - add an "ip link set up dev lo" in
+> the above scenario just after the unshare, and you get the message
+> with lo.
+> 
+> One might ask, if
+> 
+> > # unshare -n /bin/bash
+> > # ip link set up dev lo
+> > # ip -6 addr add dev veth1 fd50:dead:beef::1/64
+> > # exit
+> 
+> also does the trick, so I tried it - and it does NOT.
+> 
+> In the above scenario, not setting veth0 and veth1 up also makes it
+> not happen. Only setting veth1 up also is not enough (seems to need
+> to be "really up" what as you shurely know with veth is only the case
+> when both sides are up).
+> 
+> I hope, this makes it somewhat easier to track that down.
 
-Yes, these are brand new functions needed for PTP hardware
-timestamping support.
 
-I have a patch series under active review on lkml. It will take time
-to settle the issues, but people have clearing indicated wanting to
-support PTP hardware clocks.
+-- 
+MfG,
 
-Richard
+Michael Leun
