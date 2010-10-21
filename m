@@ -1,33 +1,64 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [PATCH 7/9] tproxy: added IPv6 support to the TPROXY target
-Date: Thu, 21 Oct 2010 10:47:08 +0200 (CEST)
-Message-ID: <alpine.LNX.2.01.1010211042190.22922@obet.zrqbmnf.qr>
-References: <20101020112118.6260.31618.stgit@este.odu> <20101020112118.6260.51773.stgit@este.odu>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH 1/9] ipvs network name space aware
+Date: Thu, 21 Oct 2010 10:58:24 +0200
+Message-ID: <1287651504.6871.44.camel@edumazet-laptop>
+References: <201010081316.46690.hans.schillstrom@ericsson.com>
+	 <201010181523.49568.hans.schillstrom@ericsson.com>
+	 <20101019184436.GG2362@linux.vnet.ibm.com>
+	 <201010201025.20950.hans.schillstrom@ericsson.com>
+	 <20101020160205.GB2386@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>,
-	David Miller <davem@davemloft.net>
-To: KOVACS Krisztian <hidden@balabit.hu>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20101020112118.6260.51773.stgit@este.odu>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Hans Schillstrom <hans.schillstrom@ericsson.com>,
+	Daniel Lezcano <daniel.lezcano@free.fr>,
+	"lvs-devel@vger.kernel.org" <lvs-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"horms@verge.net.au" <horms@verge.net.au>, "ja@ssi.bg" <ja@ssi.bg>,
+	"wensong@linux-vs.org" <wensong@linux-vs.org>
+To: paulmck@linux.vnet.ibm.com
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20101020160205.GB2386@linux.vnet.ibm.com>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-On Wednesday 2010-10-20 13:21, KOVACS Krisztian wrote:
+> You said that there were a lot of "stepi" commands to get through
+> rcu_read_lock() on x86_64.  This is quite surprising, especially if you
+> built with CONFIG_RCU_TREE.  Even if you built with CONFIG_PREEMPT_RCU_TREE,
+> you should only see something like the following from rcu_read_lock():
 > 
-> /* TPROXY target is capable of marking the packet to perform
->  * redirection. We can get rid of that whenever we get support for
->  * mutliple targets in the same rule. */
->-struct xt_tproxy_target_info {
->+struct xt_tproxy_target_info_v0 {
-> 	u_int32_t mark_mask;
-> 	u_int32_t mark_value;
-> 	__be32 laddr;
-> 	__be16 lport;
-> };
+> 000000b7 <__rcu_read_lock>:
+>       b7:	55                   	push   %ebp
+>       b8:	64 a1 00 00 00 00    	mov    %fs:0x0,%eax
+>       be:	ff 80 80 01 00 00    	incl   0x180(%eax)
+>       c4:	89 e5                	mov    %esp,%ebp
+>       c6:	5d                   	pop    %ebp
+>       c7:	c3                   	ret    
+> 
+> Unless you have some sort of debugging options turned on.  Or unless
+> six instructions counts for "quite many" stepi commands.  ;-)
+> 
 
-You cannot change the struct name either, or it may break userspace
-compilations.
+Paul, this should be inlined, dont you think ?
+
+Also, I dont understand why we use ACCESS_ONCE() in rcu_read_lock()
+
+ACCESS_ONCE(current->rcu_read_lock_nesting)++;
+
+Apparently, some compilers are a bit noisy here.
+
+mov    0x1b0(%rdx),%eax
+inc    %eax
+mov    %eax,0x1b0(%rdx)
+
+instead of :
+
+incl   0x1b0(%rax)
+
+So if the ACCESS_ONCE() is needed, we might add a comment, because it's
+not obvious ;)
+
+
 
