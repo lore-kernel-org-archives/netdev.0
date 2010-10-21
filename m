@@ -1,298 +1,209 @@
 From: kaber@trash.net
-Subject: [PATCH 09/72] netfilter: save the hash of the tuple in the original direction for latter use
-Date: Thu, 21 Oct 2010 17:18:56 +0200
-Message-ID: <1287674399-31455-10-git-send-email-kaber@trash.net>
+Subject: [PATCH 46/72] ipvs: do not schedule conns from real servers
+Date: Thu, 21 Oct 2010 17:19:33 +0200
+Message-ID: <1287674399-31455-47-git-send-email-kaber@trash.net>
 References: <1287674399-31455-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:59997 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752199Ab0JUPUE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 11:20:04 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1287674399-31455-1-git-send-email-kaber@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Changli Gao <xiaosuo@gmail.com>
+From: Julian Anastasov <ja@ssi.bg>
 
-Since we don't change the tuple in the original direction, we can save it
-in ct->tuplehash[IP_CT_DIR_REPLY].hnode.pprev for __nf_conntrack_confirm()
-use.
+ 	This patch is needed to avoid scheduling of
+packets from local real server when we add ip_vs_in
+in LOCAL_OUT hook to support local client.
 
-__hash_conntrack() is split into two steps: hash_conntrack_raw() is used
-to get the raw hash, and __hash_bucket() is used to get the bucket id.
+ 	Currently, when ip_vs_in can not find existing
+connection it tries to create new one by calling ip_vs_schedule.
 
-In SYN-flood case, early_drop() doesn't need to recompute the hash again.
+ 	The default indication from ip_vs_schedule was if
+connection was scheduled to real server. If real server is
+not available we try to use the bypass forwarding method
+or to send ICMP error. But in some cases we do not want to use
+the bypass feature. So, add flag 'ignored' to indicate if
+the scheduler ignores this packet.
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+ 	Make sure we do not create new connections from replies.
+We can hit this problem for persistent services and local real
+server when ip_vs_in is added to LOCAL_OUT hook to handle
+local clients.
+
+ 	Also, make sure ip_vs_schedule ignores SYN packets
+for Active FTP DATA from local real server. The FTP DATA
+connection should be created on SYN+ACK from client to assign
+correct connection daddr.
+
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- net/netfilter/nf_conntrack_core.c |  112 +++++++++++++++++++++++++-----------
- 1 files changed, 78 insertions(+), 34 deletions(-)
+ include/net/ip_vs.h                   |    3 +-
+ net/netfilter/ipvs/ip_vs_core.c       |   34 +++++++++++++++++++++++++++++++-
+ net/netfilter/ipvs/ip_vs_proto_sctp.c |    6 +++-
+ net/netfilter/ipvs/ip_vs_proto_tcp.c  |    7 ++++-
+ net/netfilter/ipvs/ip_vs_proto_udp.c  |    6 +++-
+ 5 files changed, 47 insertions(+), 9 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index 4c0ad9b..1eacf8d 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -67,29 +67,40 @@ EXPORT_PER_CPU_SYMBOL(nf_conntrack_untracked);
+diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+index 0e46184..9d5c1b9 100644
+--- a/include/net/ip_vs.h
++++ b/include/net/ip_vs.h
+@@ -849,7 +849,8 @@ extern int ip_vs_unbind_scheduler(struct ip_vs_service *svc);
+ extern struct ip_vs_scheduler *ip_vs_scheduler_get(const char *sched_name);
+ extern void ip_vs_scheduler_put(struct ip_vs_scheduler *scheduler);
+ extern struct ip_vs_conn *
+-ip_vs_schedule(struct ip_vs_service *svc, struct sk_buff *skb);
++ip_vs_schedule(struct ip_vs_service *svc, struct sk_buff *skb,
++	       struct ip_vs_protocol *pp, int *ignored);
+ extern int ip_vs_leave(struct ip_vs_service *svc, struct sk_buff *skb,
+ 			struct ip_vs_protocol *pp);
  
- static unsigned int nf_conntrack_hash_rnd __read_mostly;
- 
--static u_int32_t __hash_conntrack(const struct nf_conntrack_tuple *tuple,
--				  u16 zone, unsigned int size, unsigned int rnd)
-+static u32 hash_conntrack_raw(const struct nf_conntrack_tuple *tuple, u16 zone)
- {
- 	unsigned int n;
--	u_int32_t h;
- 
- 	/* The direction must be ignored, so we hash everything up to the
- 	 * destination ports (which is a multiple of 4) and treat the last
- 	 * three bytes manually.
- 	 */
- 	n = (sizeof(tuple->src) + sizeof(tuple->dst.u3)) / sizeof(u32);
--	h = jhash2((u32 *)tuple, n,
--		   zone ^ rnd ^ (((__force __u16)tuple->dst.u.all << 16) |
--				 tuple->dst.protonum));
-+	return jhash2((u32 *)tuple, n, zone ^ nf_conntrack_hash_rnd ^
-+		      (((__force __u16)tuple->dst.u.all << 16) |
-+		      tuple->dst.protonum));
-+}
-+
-+static u32 __hash_bucket(u32 hash, unsigned int size)
-+{
-+	return ((u64)hash * size) >> 32;
-+}
-+
-+static u32 hash_bucket(u32 hash, const struct net *net)
-+{
-+	return __hash_bucket(hash, net->ct.htable_size);
-+}
- 
--	return ((u64)h * size) >> 32;
-+static u_int32_t __hash_conntrack(const struct nf_conntrack_tuple *tuple,
-+				  u16 zone, unsigned int size)
-+{
-+	return __hash_bucket(hash_conntrack_raw(tuple, zone), size);
- }
- 
- static inline u_int32_t hash_conntrack(const struct net *net, u16 zone,
- 				       const struct nf_conntrack_tuple *tuple)
- {
--	return __hash_conntrack(tuple, zone, net->ct.htable_size,
--				nf_conntrack_hash_rnd);
-+	return __hash_conntrack(tuple, zone, net->ct.htable_size);
- }
- 
- bool
-@@ -291,20 +302,20 @@ static void death_by_timeout(unsigned long ul_conntrack)
-  * OR
-  * - Caller must lock nf_conntrack_lock before calling this function
+diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
+index 2224530..0090d6d 100644
+--- a/net/netfilter/ipvs/ip_vs_core.c
++++ b/net/netfilter/ipvs/ip_vs_core.c
+@@ -342,7 +342,8 @@ ip_vs_sched_persist(struct ip_vs_service *svc,
+  *  Protocols supported: TCP, UDP
   */
--struct nf_conntrack_tuple_hash *
--__nf_conntrack_find(struct net *net, u16 zone,
--		    const struct nf_conntrack_tuple *tuple)
-+static struct nf_conntrack_tuple_hash *
-+____nf_conntrack_find(struct net *net, u16 zone,
-+		      const struct nf_conntrack_tuple *tuple, u32 hash)
+ struct ip_vs_conn *
+-ip_vs_schedule(struct ip_vs_service *svc, struct sk_buff *skb)
++ip_vs_schedule(struct ip_vs_service *svc, struct sk_buff *skb,
++	       struct ip_vs_protocol *pp, int *ignored)
  {
- 	struct nf_conntrack_tuple_hash *h;
- 	struct hlist_nulls_node *n;
--	unsigned int hash = hash_conntrack(net, zone, tuple);
-+	unsigned int bucket = hash_bucket(hash, net);
+ 	struct ip_vs_conn *cp = NULL;
+ 	struct ip_vs_iphdr iph;
+@@ -350,16 +351,43 @@ ip_vs_schedule(struct ip_vs_service *svc, struct sk_buff *skb)
+ 	__be16 _ports[2], *pptr;
+ 	unsigned int flags;
  
- 	/* Disable BHs the entire time since we normally need to disable them
- 	 * at least once for the stats anyway.
++	*ignored = 1;
+ 	ip_vs_fill_iphdr(svc->af, skb_network_header(skb), &iph);
+ 	pptr = skb_header_pointer(skb, iph.len, sizeof(_ports), _ports);
+ 	if (pptr == NULL)
+ 		return NULL;
+ 
+ 	/*
++	 * FTPDATA needs this check when using local real server.
++	 * Never schedule Active FTPDATA connections from real server.
++	 * For LVS-NAT they must be already created. For other methods
++	 * with persistence the connection is created on SYN+ACK.
++	 */
++	if (pptr[0] == FTPDATA) {
++		IP_VS_DBG_PKT(12, pp, skb, 0, "Not scheduling FTPDATA");
++		return NULL;
++	}
++
++	/*
++	 * Do not schedule replies from local real server. It is risky
++	 * for fwmark services but mostly for persistent services.
++	 */
++	if ((!skb->dev || skb->dev->flags & IFF_LOOPBACK) &&
++	    (svc->flags & IP_VS_SVC_F_PERSISTENT || svc->fwmark) &&
++	    (cp = pp->conn_in_get(svc->af, skb, pp, &iph, iph.len, 1))) {
++		IP_VS_DBG_PKT(12, pp, skb, 0,
++			      "Not scheduling reply for existing connection");
++		__ip_vs_conn_put(cp);
++		return NULL;
++	}
++
++	/*
+ 	 *    Persistent service
  	 */
- 	local_bh_disable();
- begin:
--	hlist_nulls_for_each_entry_rcu(h, n, &net->ct.hash[hash], hnnode) {
-+	hlist_nulls_for_each_entry_rcu(h, n, &net->ct.hash[bucket], hnnode) {
- 		if (nf_ct_tuple_equal(tuple, &h->tuple) &&
- 		    nf_ct_zone(nf_ct_tuplehash_to_ctrack(h)) == zone) {
- 			NF_CT_STAT_INC(net, found);
-@@ -318,7 +329,7 @@ begin:
- 	 * not the expected one, we must restart lookup.
- 	 * We probably met an item that was moved to another chain.
- 	 */
--	if (get_nulls_value(n) != hash) {
-+	if (get_nulls_value(n) != bucket) {
- 		NF_CT_STAT_INC(net, search_restart);
- 		goto begin;
- 	}
-@@ -326,19 +337,27 @@ begin:
+-	if (svc->flags & IP_VS_SVC_F_PERSISTENT)
++	if (svc->flags & IP_VS_SVC_F_PERSISTENT) {
++		*ignored = 0;
+ 		return ip_vs_sched_persist(svc, skb, pptr);
++	}
  
- 	return NULL;
- }
-+
-+struct nf_conntrack_tuple_hash *
-+__nf_conntrack_find(struct net *net, u16 zone,
-+		    const struct nf_conntrack_tuple *tuple)
-+{
-+	return ____nf_conntrack_find(net, zone, tuple,
-+				     hash_conntrack_raw(tuple, zone));
-+}
- EXPORT_SYMBOL_GPL(__nf_conntrack_find);
- 
- /* Find a connection corresponding to a tuple. */
--struct nf_conntrack_tuple_hash *
--nf_conntrack_find_get(struct net *net, u16 zone,
--		      const struct nf_conntrack_tuple *tuple)
-+static struct nf_conntrack_tuple_hash *
-+__nf_conntrack_find_get(struct net *net, u16 zone,
-+			const struct nf_conntrack_tuple *tuple, u32 hash)
- {
- 	struct nf_conntrack_tuple_hash *h;
- 	struct nf_conn *ct;
- 
- 	rcu_read_lock();
- begin:
--	h = __nf_conntrack_find(net, zone, tuple);
-+	h = ____nf_conntrack_find(net, zone, tuple, hash);
- 	if (h) {
- 		ct = nf_ct_tuplehash_to_ctrack(h);
- 		if (unlikely(nf_ct_is_dying(ct) ||
-@@ -356,6 +375,14 @@ begin:
- 
- 	return h;
- }
-+
-+struct nf_conntrack_tuple_hash *
-+nf_conntrack_find_get(struct net *net, u16 zone,
-+		      const struct nf_conntrack_tuple *tuple)
-+{
-+	return __nf_conntrack_find_get(net, zone, tuple,
-+				       hash_conntrack_raw(tuple, zone));
-+}
- EXPORT_SYMBOL_GPL(nf_conntrack_find_get);
- 
- static void __nf_conntrack_hash_insert(struct nf_conn *ct,
-@@ -408,8 +435,11 @@ __nf_conntrack_confirm(struct sk_buff *skb)
- 		return NF_ACCEPT;
- 
- 	zone = nf_ct_zone(ct);
--	hash = hash_conntrack(net, zone, &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple);
--	repl_hash = hash_conntrack(net, zone, &ct->tuplehash[IP_CT_DIR_REPLY].tuple);
-+	/* reuse the hash saved before */
-+	hash = *(unsigned long *)&ct->tuplehash[IP_CT_DIR_REPLY].hnnode.pprev;
-+	hash = hash_bucket(hash, net);
-+	repl_hash = hash_conntrack(net, zone,
-+				   &ct->tuplehash[IP_CT_DIR_REPLY].tuple);
- 
- 	/* We're not in hash table, and we refuse to set up related
- 	   connections for unconfirmed conns.  But packet copies and
-@@ -566,10 +596,11 @@ static noinline int early_drop(struct net *net, unsigned int hash)
- 	return dropped;
- }
- 
--struct nf_conn *nf_conntrack_alloc(struct net *net, u16 zone,
--				   const struct nf_conntrack_tuple *orig,
--				   const struct nf_conntrack_tuple *repl,
--				   gfp_t gfp)
-+static struct nf_conn *
-+__nf_conntrack_alloc(struct net *net, u16 zone,
-+		     const struct nf_conntrack_tuple *orig,
-+		     const struct nf_conntrack_tuple *repl,
-+		     gfp_t gfp, u32 hash)
- {
- 	struct nf_conn *ct;
- 
-@@ -585,6 +616,9 @@ struct nf_conn *nf_conntrack_alloc(struct net *net, u16 zone,
- 			get_random_bytes(&rand, sizeof(rand));
- 		} while (!rand);
- 		cmpxchg(&nf_conntrack_hash_rnd, 0, rand);
-+
-+		/* recompute the hash as nf_conntrack_hash_rnd is initialized */
-+		hash = hash_conntrack_raw(orig, zone);
- 	}
- 
- 	/* We don't want any race condition at early drop stage */
-@@ -592,8 +626,7 @@ struct nf_conn *nf_conntrack_alloc(struct net *net, u16 zone,
- 
- 	if (nf_conntrack_max &&
- 	    unlikely(atomic_read(&net->ct.count) > nf_conntrack_max)) {
--		unsigned int hash = hash_conntrack(net, zone, orig);
--		if (!early_drop(net, hash)) {
-+		if (!early_drop(net, hash_bucket(hash, net))) {
- 			atomic_dec(&net->ct.count);
- 			if (net_ratelimit())
- 				printk(KERN_WARNING
-@@ -623,7 +656,8 @@ struct nf_conn *nf_conntrack_alloc(struct net *net, u16 zone,
- 	ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple = *orig;
- 	ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode.pprev = NULL;
- 	ct->tuplehash[IP_CT_DIR_REPLY].tuple = *repl;
--	ct->tuplehash[IP_CT_DIR_REPLY].hnnode.pprev = NULL;
-+	/* save hash for reusing when confirming */
-+	*(unsigned long *)(&ct->tuplehash[IP_CT_DIR_REPLY].hnnode.pprev) = hash;
- 	/* Don't set timer yet: wait for confirmation */
- 	setup_timer(&ct->timeout, death_by_timeout, (unsigned long)ct);
- 	write_pnet(&ct->ct_net, net);
-@@ -650,6 +684,14 @@ out_free:
- 	return ERR_PTR(-ENOMEM);
- #endif
- }
-+
-+struct nf_conn *nf_conntrack_alloc(struct net *net, u16 zone,
-+				   const struct nf_conntrack_tuple *orig,
-+				   const struct nf_conntrack_tuple *repl,
-+				   gfp_t gfp)
-+{
-+	return __nf_conntrack_alloc(net, zone, orig, repl, gfp, 0);
-+}
- EXPORT_SYMBOL_GPL(nf_conntrack_alloc);
- 
- void nf_conntrack_free(struct nf_conn *ct)
-@@ -671,7 +713,7 @@ init_conntrack(struct net *net, struct nf_conn *tmpl,
- 	       struct nf_conntrack_l3proto *l3proto,
- 	       struct nf_conntrack_l4proto *l4proto,
- 	       struct sk_buff *skb,
--	       unsigned int dataoff)
-+	       unsigned int dataoff, u32 hash)
- {
- 	struct nf_conn *ct;
- 	struct nf_conn_help *help;
-@@ -685,7 +727,8 @@ init_conntrack(struct net *net, struct nf_conn *tmpl,
+ 	/*
+ 	 *    Non-persistent service
+@@ -372,6 +400,8 @@ ip_vs_schedule(struct ip_vs_service *svc, struct sk_buff *skb)
  		return NULL;
  	}
  
--	ct = nf_conntrack_alloc(net, zone, tuple, &repl_tuple, GFP_ATOMIC);
-+	ct = __nf_conntrack_alloc(net, zone, tuple, &repl_tuple, GFP_ATOMIC,
-+				  hash);
- 	if (IS_ERR(ct)) {
- 		pr_debug("Can't allocate conntrack.\n");
- 		return (struct nf_conntrack_tuple_hash *)ct;
-@@ -762,6 +805,7 @@ resolve_normal_ct(struct net *net, struct nf_conn *tmpl,
- 	struct nf_conntrack_tuple_hash *h;
- 	struct nf_conn *ct;
- 	u16 zone = tmpl ? nf_ct_zone(tmpl) : NF_CT_DEFAULT_ZONE;
-+	u32 hash;
- 
- 	if (!nf_ct_get_tuple(skb, skb_network_offset(skb),
- 			     dataoff, l3num, protonum, &tuple, l3proto,
-@@ -771,10 +815,11 @@ resolve_normal_ct(struct net *net, struct nf_conn *tmpl,
- 	}
- 
- 	/* look for tuple match */
--	h = nf_conntrack_find_get(net, zone, &tuple);
-+	hash = hash_conntrack_raw(&tuple, zone);
-+	h = __nf_conntrack_find_get(net, zone, &tuple, hash);
- 	if (!h) {
- 		h = init_conntrack(net, tmpl, &tuple, l3proto, l4proto,
--				   skb, dataoff);
-+				   skb, dataoff, hash);
- 		if (!h)
- 			return NULL;
- 		if (IS_ERR(h))
-@@ -1314,8 +1359,7 @@ int nf_conntrack_set_hashsize(const char *val, struct kernel_param *kp)
- 			ct = nf_ct_tuplehash_to_ctrack(h);
- 			hlist_nulls_del_rcu(&h->hnnode);
- 			bucket = __hash_conntrack(&h->tuple, nf_ct_zone(ct),
--						  hashsize,
--						  nf_conntrack_hash_rnd);
-+						  hashsize);
- 			hlist_nulls_add_head_rcu(&h->hnnode, &hash[bucket]);
++	*ignored = 0;
++
+ 	dest = svc->scheduler->schedule(svc, skb);
+ 	if (dest == NULL) {
+ 		IP_VS_DBG(1, "Schedule: no dest found.\n");
+diff --git a/net/netfilter/ipvs/ip_vs_proto_sctp.c b/net/netfilter/ipvs/ip_vs_proto_sctp.c
+index 4c0855c..9ab5232 100644
+--- a/net/netfilter/ipvs/ip_vs_proto_sctp.c
++++ b/net/netfilter/ipvs/ip_vs_proto_sctp.c
+@@ -31,6 +31,8 @@ sctp_conn_schedule(int af, struct sk_buff *skb, struct ip_vs_protocol *pp,
+ 	if ((sch->type == SCTP_CID_INIT) &&
+ 	    (svc = ip_vs_service_get(af, skb->mark, iph.protocol,
+ 				     &iph.daddr, sh->dest))) {
++		int ignored;
++
+ 		if (ip_vs_todrop()) {
+ 			/*
+ 			 * It seems that we are very loaded.
+@@ -44,8 +46,8 @@ sctp_conn_schedule(int af, struct sk_buff *skb, struct ip_vs_protocol *pp,
+ 		 * Let the virtual server select a real server for the
+ 		 * incoming connection, and create a connection entry.
+ 		 */
+-		*cpp = ip_vs_schedule(svc, skb);
+-		if (!*cpp) {
++		*cpp = ip_vs_schedule(svc, skb, pp, &ignored);
++		if (!*cpp && !ignored) {
+ 			*verdict = ip_vs_leave(svc, skb, pp);
+ 			return 0;
  		}
+diff --git a/net/netfilter/ipvs/ip_vs_proto_tcp.c b/net/netfilter/ipvs/ip_vs_proto_tcp.c
+index 64dc295..85d80a6 100644
+--- a/net/netfilter/ipvs/ip_vs_proto_tcp.c
++++ b/net/netfilter/ipvs/ip_vs_proto_tcp.c
+@@ -43,9 +43,12 @@ tcp_conn_schedule(int af, struct sk_buff *skb, struct ip_vs_protocol *pp,
+ 		return 0;
  	}
+ 
++	/* No !th->ack check to allow scheduling on SYN+ACK for Active FTP */
+ 	if (th->syn &&
+ 	    (svc = ip_vs_service_get(af, skb->mark, iph.protocol, &iph.daddr,
+ 				     th->dest))) {
++		int ignored;
++
+ 		if (ip_vs_todrop()) {
+ 			/*
+ 			 * It seems that we are very loaded.
+@@ -60,8 +63,8 @@ tcp_conn_schedule(int af, struct sk_buff *skb, struct ip_vs_protocol *pp,
+ 		 * Let the virtual server select a real server for the
+ 		 * incoming connection, and create a connection entry.
+ 		 */
+-		*cpp = ip_vs_schedule(svc, skb);
+-		if (!*cpp) {
++		*cpp = ip_vs_schedule(svc, skb, pp, &ignored);
++		if (!*cpp && !ignored) {
+ 			*verdict = ip_vs_leave(svc, skb, pp);
+ 			return 0;
+ 		}
+diff --git a/net/netfilter/ipvs/ip_vs_proto_udp.c b/net/netfilter/ipvs/ip_vs_proto_udp.c
+index 9c558c4..5d21f08 100644
+--- a/net/netfilter/ipvs/ip_vs_proto_udp.c
++++ b/net/netfilter/ipvs/ip_vs_proto_udp.c
+@@ -46,6 +46,8 @@ udp_conn_schedule(int af, struct sk_buff *skb, struct ip_vs_protocol *pp,
+ 	svc = ip_vs_service_get(af, skb->mark, iph.protocol,
+ 				&iph.daddr, uh->dest);
+ 	if (svc) {
++		int ignored;
++
+ 		if (ip_vs_todrop()) {
+ 			/*
+ 			 * It seems that we are very loaded.
+@@ -60,8 +62,8 @@ udp_conn_schedule(int af, struct sk_buff *skb, struct ip_vs_protocol *pp,
+ 		 * Let the virtual server select a real server for the
+ 		 * incoming connection, and create a connection entry.
+ 		 */
+-		*cpp = ip_vs_schedule(svc, skb);
+-		if (!*cpp) {
++		*cpp = ip_vs_schedule(svc, skb, pp, &ignored);
++		if (!*cpp && !ignored) {
+ 			*verdict = ip_vs_leave(svc, skb, pp);
+ 			return 0;
+ 		}
 -- 
 1.7.1
 
