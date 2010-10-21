@@ -1,51 +1,42 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [RFC PATCH 5/9] ipvs network name space aware
-Date: Fri, 22 Oct 2010 01:56:51 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1010220141440.3256@ja.ssi.bg>
-References: <201010081317.04167.hans.schillstrom@ericsson.com> <20101021111644.GA25555@verge.net.au> <201010211342.42833.hans.schillstrom@ericsson.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: 2.6.36-rc7: net/bridge causes temporary network I/O lockups [2]
+Date: Thu, 21 Oct 2010 18:07:24 -0500
+Message-ID: <20101021230724.GA5170@gondor.apana.org.au>
+References: <4CB9EBC3.4070905@freenet.de> <20101018161656.GA2403@gondor.apana.org.au> <4CBCB014.9080108@freenet.de> <20101020061631.GA21679@gondor.apana.org.au> <4CC0BC3E.6080906@freenet.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Simon Horman <horms@verge.net.au>,
-	"lvs-devel@vger.kernel.org" <lvs-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"wensong@linux-vs.org" <wensong@linux-vs.org>,
-	"daniel.lezcano@free.fr" <daniel.lezcano@free.fr>
-To: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:56621 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752454Ab0JUWz6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Oct 2010 18:55:58 -0400
-In-Reply-To: <201010211342.42833.hans.schillstrom@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	bridge@lists.linux-foundation.org
+To: Patrick Ringl <patrick_@freenet.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4CC0BC3E.6080906@freenet.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Fri, Oct 22, 2010 at 12:18:38AM +0200, Patrick Ringl wrote:
+>
+> sorry for the late response. I've been using your patch on 2.6.36 and  
+> unfortunately, the bogus ipv6 packet is not the cause of the lockups. I  
+> have attached two packet dumps (br0 and eth1) again.
 
- 	Hello,
+OK I see, I had thought that your whole system locked up for
+20-30 seconds but it was only the external network responses
+that stopped.
 
-On Thu, 21 Oct 2010, Hans Schillstrom wrote:
+I think the problem is your switch.  It appears to purge our
+port entry when it receives our general query.
 
-> static inline struct net * ipvs_devnet(struct skb *skb)
-> {
-> #ifdef CONFIG_NS_NET
-> 	return dev_net(skb->dev);
-> #else
-> 	return init_net;
-> #endif
-> }
+So to work around this, I suggest that you disable the startup
+queries through the parameter multicast_startup_query_count.
+You can do this either through sysfs or a sufficiently recent
+brctl command.
 
- 	After last IPVS changes may be something like that
-is needed instead:
+BTW, what brand/model is your switch? If this problem is common
+enough then we may have to disable general queries by default.
 
-static inline struct net *ipvs_skbnet(struct sk_buff *skb)
-{
- 	return dev_net(skb->dev ? : skb_dst(skb)->dev);
-}
-
- 	because now we have LOCAL_OUT processing.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
