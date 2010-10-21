@@ -1,67 +1,58 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 5/9] tproxy: allow non-local binds of IPv6 sockets if
- IP_TRANSPARENT is enabled
-Date: Fri, 22 Oct 2010 06:24:12 +0900
-Message-ID: <1287696252.2707.24.camel@takos>
-References: <20101020112118.6260.31618.stgit@este.odu>
-	 <20101020112118.6260.93956.stgit@este.odu>
-	 <4CBEE45D.2080201@linux-ipv6.org>  <1287583653.29676.9.camel@bzorp.lan>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-2022-JP"
-Content-Transfer-Encoding: 7bit
-Cc: KOVACS Krisztian <hidden@balabit.hu>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	David Miller <davem@davemloft.net>, yoshfuji@linux-ipv6.org
-To: Balazs Scheidler <bazsi@balabit.hu>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1287583653.29676.9.camel@bzorp.lan>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Dimitris Michailidis <dm@chelsio.com>
+Subject: [PATCH 1/2] cxgb4: fix crash due to manipulating queues before registration
+Date: Thu, 21 Oct 2010 14:29:55 -0700
+Message-ID: <1287696596-15175-2-git-send-email-dm@chelsio.com>
+References: <1287696596-15175-1-git-send-email-dm@chelsio.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:26716 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756871Ab0JUV35 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 17:29:57 -0400
+Received: from maui.asicdesigners.com (maui.asicdesigners.com [10.192.180.15])
+	by stargate.chelsio.com (8.13.1/8.13.1) with SMTP id o9LLTu3N029217
+	for <netdev@vger.kernel.org>; Thu, 21 Oct 2010 14:29:56 -0700
+Received: from darkside.asicdesigners.com (localhost.localdomain [127.0.0.1])
+	by darkside.asicdesigners.com (8.13.4/8.13.4) with ESMTP id o9LLTujF015446
+	for <netdev@vger.kernel.org>; Thu, 21 Oct 2010 14:29:56 -0700
+Received: (from dm@localhost)
+	by darkside.asicdesigners.com (8.13.4/8.13.4/Submit) id o9LLTulo015445
+	for netdev@vger.kernel.org; Thu, 21 Oct 2010 14:29:56 -0700
+In-Reply-To: <1287696596-15175-1-git-send-email-dm@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Before commit "net: allocate tx queues in register_netdevice"
+netif_tx_stop_all_queues and related functions could be used between
+device allocation and registration but now only after registration.
+cxgb4 has such a call before registration and crashes now.  Move it
+after register_netdev.
 
-2010-10-20, Balazs Scheidler wrote:
-> On Wed, 2010-10-20 at 21:45 +0900, YOSHIFUJI Hideaki wrote:
-> > (2010/10/20 20:21), KOVACS Krisztian wrote:
-> > > From: Balazs Scheidler<bazsi@balabit.hu>
-> > > 
-> > > Signed-off-by: Balazs Scheidler<bazsi@balabit.hu>
-> > > Signed-off-by: KOVACS Krisztian<hidden@balabit.hu>
-> > > ---
-> > >   net/ipv6/af_inet6.c |    2 +-
-> > >   1 files changed, 1 insertions(+), 1 deletions(-)
-> > > 
-> > > diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-> > > index 6022098..9480572 100644
-> > > --- a/net/ipv6/af_inet6.c
-> > > +++ b/net/ipv6/af_inet6.c
-> > > @@ -343,7 +343,7 @@ int inet6_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
-> > >   			 */
-> > >   			v4addr = LOOPBACK4_IPV6;
-> > >   			if (!(addr_type&  IPV6_ADDR_MULTICAST))	{
-> > > -				if (!ipv6_chk_addr(net,&addr->sin6_addr,
-> > > +				if (!inet->transparent&&  !ipv6_chk_addr(net,&addr->sin6_addr,
-> > >   						   dev, 0)) {
-> > >   					err = -EADDRNOTAVAIL;
-> > >   					goto out_unlock;
-> > > 
-> > > 
-> > 
-> > As I wrote before in other thread, this does not seem sufficient --
-> > well, it is sufficient to allow non-local bind, but before we're
-> > allowing this, we need add checks of source address in sending side.
-> 
-> Can you please elaborate or point us to the other thread? Is it some
-> kind of address-type check that we miss?
+Signed-off-by: Dimitris Michailidis <dm@chelsio.com>
+---
+ drivers/net/cxgb4/cxgb4_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Please see my comment at:
-<http://kerneltrap.org/mailarchive/linux-netdev/2010/7/5/6280572>
-
-This will result in allowing non-privileged users easily sending from
-non-local / unauthorized address, which is not good, and which should
-not be allowed from security aspects.
-
-Regards,
-
---yoshfuji
+diff --git a/drivers/net/cxgb4/cxgb4_main.c b/drivers/net/cxgb4/cxgb4_main.c
+index 930bd07..bc354ee 100644
+--- a/drivers/net/cxgb4/cxgb4_main.c
++++ b/drivers/net/cxgb4/cxgb4_main.c
+@@ -3657,7 +3657,6 @@ static int __devinit init_one(struct pci_dev *pdev,
+ 		pi->rx_offload = RX_CSO;
+ 		pi->port_id = i;
+ 		netif_carrier_off(netdev);
+-		netif_tx_stop_all_queues(netdev);
+ 		netdev->irq = pdev->irq;
+ 
+ 		netdev->features |= NETIF_F_SG | TSO_FLAGS;
+@@ -3729,6 +3728,7 @@ static int __devinit init_one(struct pci_dev *pdev,
+ 
+ 			__set_bit(i, &adapter->registered_device_map);
+ 			adapter->chan_map[adap2pinfo(adapter, i)->tx_chan] = i;
++			netif_tx_stop_all_queues(adapter->port[i]);
+ 		}
+ 	}
+ 	if (!adapter->registered_device_map) {
+-- 
+1.5.4
 
