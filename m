@@ -1,65 +1,64 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH v2 02/22] bitops: rename generic little-endian bitops functions
-Date: Thu, 21 Oct 2010 17:07:16 +0200
-Message-ID: <201010211707.17049.arnd@arndb.de>
-References: <1287672077-5797-1-git-send-email-akinobu.mita@gmail.com> <1287672077-5797-3-git-send-email-akinobu.mita@gmail.com>
+From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: [PATCH] can: flexcan: fix use after free of priv
+Date: Thu, 21 Oct 2010 17:07:58 +0200
+Message-ID: <1287673678-27510-1-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
-	Christoph Hellwig <hch@infradead.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"Hans-Christian Egtvedt" <hans-christian.egtvedt@atmel.com>,
-	Geert Uytterhoeven <geert@linux-m68k.org>,
-	Roman Zippel <zippel@linux-m68k.org>,
-	Andreas Schwab <schwab@linux-m68k.org>,
-	linux-m68k@lists.linux-m68k.org, Greg Ungerer <gerg@uclinux.org>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Paul Mackerras <paulus@samba.org>,
-	linuxppc-dev@lists.ozlabs.org,
-	Andy Grover <andy.grover@oracle.com>, rds-devel@oss.oracle.com,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Avi Kivity <avi@redhat.com>,
-	Marcelo Tosatti <mtosatti@redhat.com>, kvm@vger.kernel.org
-To: Akinobu Mita <akinobu.mita@gmail.com>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <1287672077-5797-3-git-send-email-akinobu.mita@gmail.com>
-Sender: linux-arch-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+To: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 21 October 2010, Akinobu Mita wrote:
-> As a preparation for providing little-endian bitops for all architectures,
-> This removes generic_ prefix from little-endian bitops function names
-> in asm-generic/bitops/le.h.
-> 
-> s/generic_find_next_le_bit/find_next_le_bit/
-> s/generic_find_next_zero_le_bit/find_next_zero_le_bit/
-> s/generic_find_first_zero_le_bit/find_first_zero_le_bit/
-> s/generic___test_and_set_le_bit/__test_and_set_le_bit/
-> s/generic___test_and_clear_le_bit/__test_and_clear_le_bit/
-> s/generic_test_le_bit/test_le_bit/
-> s/generic___set_le_bit/__set_le_bit/
-> s/generic___clear_le_bit/__clear_le_bit/
-> s/generic_test_and_set_le_bit/test_and_set_le_bit/
-> s/generic_test_and_clear_le_bit/test_and_clear_le_bit/
-> 
-> Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
-> Cc: Hans-Christian Egtvedt <hans-christian.egtvedt@atmel.com>
-> Cc: Geert Uytterhoeven <geert@linux-m68k.org>
-> Cc: Roman Zippel <zippel@linux-m68k.org>
-> Cc: Andreas Schwab <schwab@linux-m68k.org>
-> Cc: linux-m68k@lists.linux-m68k.org
-> Cc: Greg Ungerer <gerg@uclinux.org>
-> Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-> Cc: Paul Mackerras <paulus@samba.org>
-> Cc: linuxppc-dev@lists.ozlabs.org
-> Cc: Andy Grover <andy.grover@oracle.com>
-> Cc: rds-devel@oss.oracle.com
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: netdev@vger.kernel.org
-> Cc: Avi Kivity <avi@redhat.com>
-> Cc: Marcelo Tosatti <mtosatti@redhat.com>
-> Cc: kvm@vger.kernel.org
+The priv is part of the memory allocated by alloc_candev().
+This patch moved the free it after last usage of priv.
 
-Acked-by: Arnd Bergmann <arnd@arndb.de>
+Signed-off-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+---
+
+The following changes since commit 27b75c95f10d249574d9c4cb9dab878107faede8:
+  Eric Dumazet (1):
+        net: avoid RCU for NOCACHE dst
+
+are available in the git repository at:
+
+  git://git.pengutronix.de/git/mkl/linux-2.6.git can/flexcan-for-net-next
+
+Marc Kleine-Budde (1):
+      can: flexcan: fix use after free of priv
+
+ drivers/net/can/flexcan.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/can/flexcan.c b/drivers/net/can/flexcan.c
+index ef443a0..d499056 100644
+--- a/drivers/net/can/flexcan.c
++++ b/drivers/net/can/flexcan.c
+@@ -992,7 +992,6 @@ static int __devexit flexcan_remove(struct platform_device *pdev)
+ 
+ 	unregister_flexcandev(dev);
+ 	platform_set_drvdata(pdev, NULL);
+-	free_candev(dev);
+ 	iounmap(priv->base);
+ 
+ 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+@@ -1000,6 +999,8 @@ static int __devexit flexcan_remove(struct platform_device *pdev)
+ 
+ 	clk_put(priv->clk);
+ 
++	free_candev(dev);
++
+ 	return 0;
+ }
+ 
+-- 
+1.7.0.4
