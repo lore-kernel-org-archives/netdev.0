@@ -1,88 +1,68 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [RFC PATCH 1/9] ipvs network name space aware
-Date: Thu, 21 Oct 2010 08:16:13 -0700
-Message-ID: <20101021151613.GB2363@linux.vnet.ibm.com>
-References: <201010081316.46690.hans.schillstrom@ericsson.com>
- <201010181523.49568.hans.schillstrom@ericsson.com>
- <20101019184436.GG2362@linux.vnet.ibm.com>
- <201010201025.20950.hans.schillstrom@ericsson.com>
- <20101020160205.GB2386@linux.vnet.ibm.com>
- <1287651504.6871.44.camel@edumazet-laptop>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Robert Jennings <rcj@linux.vnet.ibm.com>
+Subject: Re: [PATCH] ibmveth: Increase default copybreak limits to 2k
+Date: Thu, 21 Oct 2010 10:17:46 -0500
+Message-ID: <20101021151746.GB5567@linux.vnet.ibm.com>
+References: <20101021143753.GA5567@linux.vnet.ibm.com>
+ <20101021.074525.71113963.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Hans Schillstrom <hans.schillstrom@ericsson.com>,
-	Daniel Lezcano <daniel.lezcano@free.fr>,
-	"lvs-devel@vger.kernel.org" <lvs-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"horms@verge.net.au" <horms@verge.net.au>, "ja@ssi.bg" <ja@ssi.bg>,
-	"wensong@linux-vs.org" <wensong@linux-vs.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e4.ny.us.ibm.com ([32.97.182.144]:42451 "EHLO e4.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750712Ab0JUPRv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Oct 2010 11:17:51 -0400
+Received: from d01relay06.pok.ibm.com (d01relay06.pok.ibm.com [9.56.227.116])
+	by e4.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id o9LF1jjs003830
+	for <netdev@vger.kernel.org>; Thu, 21 Oct 2010 11:01:45 -0400
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay06.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o9LFHnql962690
+	for <netdev@vger.kernel.org>; Thu, 21 Oct 2010 11:17:50 -0400
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o9LFHnVO024268
+	for <netdev@vger.kernel.org>; Thu, 21 Oct 2010 11:17:49 -0400
 Content-Disposition: inline
-In-Reply-To: <1287651504.6871.44.camel@edumazet-laptop>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20101021.074525.71113963.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 21, 2010 at 10:58:24AM +0200, Eric Dumazet wrote:
+* David Miller (davem@davemloft.net) wrote:
+> From: Robert Jennings <rcj@linux.vnet.ibm.com>
 > 
-> > You said that there were a lot of "stepi" commands to get through
-> > rcu_read_lock() on x86_64.  This is quite surprising, especially if you
-> > built with CONFIG_RCU_TREE.  Even if you built with CONFIG_PREEMPT_RCU_TREE,
-> > you should only see something like the following from rcu_read_lock():
+> > Increase the copybreak limits for rx and tx from 128 bytes
+> > to 2048 bytes. These limits were added by commits
+> > 8d86c61ae41d9068fd5e5cc01a4abd53c4fe3ab5 and
+> > c08cc3ccebd46dce44d13a8ce81d249e687eeb8a to make use of a
+> > bounce buffer for packets below 128 bytes.  This avoids
+> > tearing down and creating a TCE entry.
 > > 
-> > 000000b7 <__rcu_read_lock>:
-> >       b7:	55                   	push   %ebp
-> >       b8:	64 a1 00 00 00 00    	mov    %fs:0x0,%eax
-> >       be:	ff 80 80 01 00 00    	incl   0x180(%eax)
-> >       c4:	89 e5                	mov    %esp,%ebp
-> >       c6:	5d                   	pop    %ebp
-> >       c7:	c3                   	ret    
+> > Performance testing shows that this default limit can be
+> > increased from 128 to 2048 for both rx and tx copybreak.
+> > This resulted in ~10% throughput increase for for packets
+> > that fit this limit without affecting performance for larger
+> > packets.
 > > 
-> > Unless you have some sort of debugging options turned on.  Or unless
-> > six instructions counts for "quite many" stepi commands.  ;-)
+> > Signed-off-by: Robert Jennings <rcj@linux.vnet.ibm.com>
 > 
-> Paul, this should be inlined, dont you think ?
-
-Indeed it should!!!  It is out-of-line due to header-file issues.
-Lai Jiangshan proposed a change to kbuild to allow it to be inlined as
-part of his ring-RCU patch, and I have asked him to submit a version
-of that for Tree and Tiny preemptible RCU.  This is the usual trick of
-having the build system compile the data structure and emit offsets,
-which are then used in the main kernel build.  (Yes, I did something
-similar in DYNIX/ptx, but never managed to work up the courage to attempt
-the equivalent in Linux's kbuild, so props to Lai!)
-
-> Also, I dont understand why we use ACCESS_ONCE() in rcu_read_lock()
+> For a default MTU of 1500 this means the copybreak will
+> never be used.
 > 
-> ACCESS_ONCE(current->rcu_read_lock_nesting)++;
-> 
-> Apparently, some compilers are a bit noisy here.
-> 
-> mov    0x1b0(%rdx),%eax
-> inc    %eax
-> mov    %eax,0x1b0(%rdx)
-> 
-> instead of :
-> 
-> incl   0x1b0(%rax)
-> 
-> So if the ACCESS_ONCE() is needed, we might add a comment, because it's
-> not obvious ;)
+> This makes absolutely no sense, are you doing these tests
+> with Jumbo frames?
 
-Here is what it looks like in my -rcu tree:
+The value of copybreak is the point where we stop using the bounce
+buffer and start to copy data to new buffers; having the overhead of
+additional TCE entry setup/teardown.  For the default MTU of 1500,
+increasing the copybreak value to 2k will result in all packets using
+the bounce buffer now.  Expanding the use of the bounce buffer up to 2k
+with the default MTU resulted in ~10% throughput improvement.
 
-void __rcu_read_lock(void)
-{
-	current->rcu_read_lock_nesting++;
-	barrier();  /* needed if we ever invoke rcu_read_lock in rcutree.c */
-}
+This was also tested with jumbo frames to verify that larger than
+2k we don't use the bounce buffer and that there is no performance
+regression.
 
-So yes, I finally did convince myself that the ACCESS_ONCE was not
-needed.  ;-)
+I can repost the patch with these clarifications in the log message
+if you would like.
 
-This is not yet in mainline, but Ingo sent the series containing this
-commit (80dcf60e) to Linus earlier today, so there is hope!
-
-							Thanx, Paul
+--Rob Jennings
