@@ -1,53 +1,45 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH v2 07/14] ethtool: Add support for vlan accleration.
-Date: Thu, 21 Oct 2010 12:43:46 -0700
-Message-ID: <AANLkTi=Ws6acYHszNKm0E2ur4AKoim+jBkmiaYvdsa9t@mail.gmail.com>
-References: <1287618974-4714-1-git-send-email-jesse@nicira.com>
-	<1287618974-4714-8-git-send-email-jesse@nicira.com>
-	<4CBFB320.2060703@intel.com>
+From: Debashis Dutt <ddutt@Brocade.COM>
+Subject: RE:
+Date: Thu, 21 Oct 2010 12:48:35 -0700
+Message-ID: <F363E7AC84E1B646A0358B281A46F4AEABA0FFCFC1@HQ1-EXCH03.corp.brocade.com>
+References: <F363E7AC84E1B646A0358B281A46F4AEABA0FFCC62@HQ1-EXCH03.corp.brocade.com>
+ <20101021.005657.226776344.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: John Fastabend <john.r.fastabend@intel.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Rasesh Mody <rmody@brocade.com>,
+	Jing Huang <huangj@Brocade.COM>,
+	Akshay Mathur <amathur@brocade.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gy0-f174.google.com ([209.85.160.174]:54780 "EHLO
-	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755037Ab0JUTns convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 15:43:48 -0400
-Received: by gyg4 with SMTP id 4so212129gyg.19
-        for <netdev@vger.kernel.org>; Thu, 21 Oct 2010 12:43:48 -0700 (PDT)
-In-Reply-To: <4CBFB320.2060703@intel.com>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:57949 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752116Ab0JUTsl convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Oct 2010 15:48:41 -0400
+In-Reply-To: <20101021.005657.226776344.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 20, 2010 at 8:27 PM, John Fastabend
-<john.r.fastabend@intel.com> wrote:
-> On 10/20/2010 4:56 PM, Jesse Gross wrote:
->> Now that vlan acceleration is handled consistently regardless of usa=
-ge,
->> it is possible to enable and disable it at will. =A0This adds suppor=
-t for
->> Ethtool operations that change the offloading status for debugging
->> purposes, similar to other forms of hardware acceleration.
->>
->
-> Jesse,
->
-> Not sure if this is enough to get dynamic toggling like this
-> dev->hard_header_len is set depending on offloads at init time in
-> vlan_dev_init(). By changing this LL_RESERVED_SPACE won't work
-> correctly and we end up having to call pskb_expand_head(). I think
-> this might end up hurting performance.
+-----Original Message-----
+From: David Miller [mailto:davem@davemloft.net] 
+Sent: Thursday, October 21, 2010 12:57 AM
+To: Debashis Dutt
+Cc: netdev@vger.kernel.org; Rasesh Mody; Jing Huang; Akshay Mathur
+Subject: 
 
-That's a good point.
 
->
-> That said I think I can probably get this working by fixing up the
-> header_ops in vlan_dev.c. =A0And while I'm at it add a vlan_header_ca=
-che
-> and vlan_header_cache_update routines. I'll try to get something out
-> tomorrow in the meantime nothing too bad is happening.
+People are very unlikely to read your posting because you
+did not provide a subject line.
 
-That sounds great, thanks.
+>>>
+Thanks David, for looking at this. I have already reposted in netdev with the correct
+subject line. 
+
+Please provide your suggestions/feedback as required.
+
+Thanks
+--Debashis
+
