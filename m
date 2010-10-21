@@ -1,42 +1,44 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: 2.6.36-rc7: net/bridge causes temporary network I/O lockups [2]
-Date: Thu, 21 Oct 2010 18:07:24 -0500
-Message-ID: <20101021230724.GA5170@gondor.apana.org.au>
-References: <4CB9EBC3.4070905@freenet.de> <20101018161656.GA2403@gondor.apana.org.au> <4CBCB014.9080108@freenet.de> <20101020061631.GA21679@gondor.apana.org.au> <4CC0BC3E.6080906@freenet.de>
+From: Dan Rosenberg <drosenberg@vsecurity.com>
+Subject: TIPC security issues
+Date: Thu, 21 Oct 2010 19:45:52 -0400
+Message-ID: <1287704752.11051.79.camel@Dan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	bridge@lists.linux-foundation.org
-To: Patrick Ringl <patrick_@freenet.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4CC0BC3E.6080906@freenet.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: security@kernel.org, netdev@vger.kernel.org
+To: jon.maloy@ericsson.com, allan.stephens@windriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.vsecurity.com ([209.67.252.12]:53984 "EHLO
+	mx1.vsecurity.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751495Ab0JUXqA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 19:46:00 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 22, 2010 at 12:18:38AM +0200, Patrick Ringl wrote:
->
-> sorry for the late response. I've been using your patch on 2.6.36 and  
-> unfortunately, the bogus ipv6 packet is not the cause of the lockups. I  
-> have attached two packet dumps (br0 and eth1) again.
+The tipc_msg_build() function in net/tipc/msg.c is written in such a way
+as to create a highly exploitable kernel heap overflow that would allow
+a local user to escalate privileges to root by issuing maliciously
+crafted sendmsg() calls.  At a minimum, the following issues should be
+fixed:
 
-OK I see, I had thought that your whole system locked up for
-20-30 seconds but it was only the external network responses
-that stopped.
+1. The tipc_msg_calc_data_size() function is almost totally broken.  It
+sums together size_t values (iov_lens), but returns an integer.  Two
+things can go wrong - the total value can wrap around, or on 64-bit
+platforms, iov_len values greater than UINT_MAX will be truncated.
 
-I think the problem is your switch.  It appears to purge our
-port entry when it receives our general query.
+2. The comparison of dsz to TIPC_MAX_USER_MSG_SIZE is signed, so
+negative (large unsigned) values will pass this check.
 
-So to work around this, I suggest that you disable the startup
-queries through the parameter multicast_startup_query_count.
-You can do this either through sysfs or a sufficiently recent
-brctl command.
+3. The comparison of sz to max_size is also signed.
 
-BTW, what brand/model is your switch? If this problem is common
-enough then we may have to disable general queries by default.
+As a result of these issues, it's possible to cause the allocation of a
+small heap buffer and the subsequent copying of a carefully controlled
+larger amount of data into that buffer.
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I haven't found a Linux distribution that defines a module alias for
+TIPC (even though most compile it as a module), so an administrator will
+have had to explicitly load the TIPC module for a system to be
+vulnerable.
+
+-Dan
+
