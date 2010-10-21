@@ -1,30 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] 9p: client code cleanup
-Date: Thu, 21 Oct 2010 04:32:13 -0700 (PDT)
-Message-ID: <20101021.043213.220059264.davem@davemloft.net>
-References: <20101019094816.7898beff@nehalam>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6] can-raw: add msg_flags to distinguish
+	local traffic
+Date: Thu, 21 Oct 2010 04:32:33 -0700 (PDT)
+Message-ID: <20101021.043233.123993885.davem@davemloft.net>
+References: <4CBDF234.9000509@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: ericvh@gmail.com, rminnich@sandia.gov, lucho@ionkov.net,
-	v9fs-developer@lists.sourceforge.net, netdev@vger.kernel.org
-To: shemminger@vyatta.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37633
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757602Ab0JULbv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 07:31:51 -0400
-In-Reply-To: <20101019094816.7898beff@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4CBDF234.9000509-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Tue, 19 Oct 2010 09:48:16 -0700
+From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Date: Tue, 19 Oct 2010 21:32:04 +0200
 
-> Make p9_client_version static since only used in one file.
-> Remove p9_client_auth because it is defined but never used.
-> Compile tested only.
+> CAN has no addressing scheme. It is currently impossible for userspace
+> to tell is a received CAN frame comes from another process on the local
+> host, or from a remote CAN device.
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> This patch add support for userspace applications to distinguish between
+> 'own', 'local' and 'remote' CAN traffic. The distinction is made by returning
+> flags in msg->msg_flags in the call to recvmsg().
+> 
+> The added documentation explains the introduced flags.
+> 
+> Signed-off-by: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
+> Signed-off-by: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
 
 Applied.
