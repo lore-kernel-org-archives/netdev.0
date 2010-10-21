@@ -1,35 +1,140 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/core: Allow tagged VLAN packets to flow through
- VETH devices.
-Date: Thu, 21 Oct 2010 04:07:17 -0700 (PDT)
-Message-ID: <20101021.040717.241928814.davem@davemloft.net>
-References: <1287167705-28583-1-git-send-email-greearb@candelatech.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: greearb@candelatech.com
+From: nhorman@tuxdriver.com
+Subject: [PATCH 1/2] Revert c6537d6742985da1fbf12ae26cde6a096fd35b5c
+Date: Thu, 21 Oct 2010 07:06:15 -0400
+Message-ID: <1287659176-14504-2-git-send-email-nhorman@tuxdriver.com>
+References: <1287659176-14504-1-git-send-email-nhorman@tuxdriver.com>
+Cc: davem@davemloft.net, jon.maloy@ericsson.com,
+	paul.gortmaker@windriver.com,
+	tipc-discussion@lists.sourceforge.net, luca@llucax.com.ar,
+	nhorman@tuxdriver.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60697
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757352Ab0JULGz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 07:06:55 -0400
-In-Reply-To: <1287167705-28583-1-git-send-email-greearb@candelatech.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:49669 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757164Ab0JULGy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 07:06:54 -0400
+In-Reply-To: <1287659176-14504-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Greear <greearb@candelatech.com>
-Date: Fri, 15 Oct 2010 11:35:05 -0700
+From: Neil Horman <nhorman@tuxdriver.com>
 
-> When there are VLANs on a VETH device, the packets being transmitted
-> through the VETH device may be 4 bytes bigger than MTU.  A check
-> in dev_forward_skb did not take this into account and so dropped
-> these packets.
-> 
-> This patch is needed at least as far back as 2.6.34.7 and should
-> be considered for -stable.
-> 
-> Signed-off-by: Ben Greear <greearb@candelatech.com>
+Backout the tipc changes to the flags int he subscription message.  These
+changees, while reasonable on the surface, interefere with user space ABI
+compatibility which is a no-no.  This was part of the changes to fix the
+endianess issues in the TIPC protocol, which would be really nice to do but we
+need to do so in a way that is backwards compatible with user space.
 
-Applied, although a check of the vlan-capable netdev flag
-might be appropriate to add.
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+---
+ include/linux/tipc.h |   30 ++++++++++++++++++------------
+ net/tipc/subscr.c    |   15 +++++----------
+ 2 files changed, 23 insertions(+), 22 deletions(-)
+
+diff --git a/include/linux/tipc.h b/include/linux/tipc.h
+index 181c8d0..d10614b 100644
+--- a/include/linux/tipc.h
++++ b/include/linux/tipc.h
+@@ -127,17 +127,23 @@ static inline unsigned int tipc_node(__u32 addr)
+  * TIPC topology subscription service definitions
+  */
+ 
+-#define TIPC_SUB_SERVICE     	0x00  	/* Filter for service availability    */
+-#define TIPC_SUB_PORTS     	0x01  	/* Filter for port availability  */
+-#define TIPC_SUB_CANCEL         0x04    /* Cancel a subscription         */
++#define TIPC_SUB_PORTS     	0x01  	/* filter for port availability */
++#define TIPC_SUB_SERVICE     	0x02  	/* filter for service availability */
++#define TIPC_SUB_CANCEL         0x04    /* cancel a subscription */
++#if 0
++/* The following filter options are not currently implemented */
++#define TIPC_SUB_NO_BIND_EVTS	0x04	/* filter out "publish" events */
++#define TIPC_SUB_NO_UNBIND_EVTS	0x08	/* filter out "withdraw" events */
++#define TIPC_SUB_SINGLE_EVT	0x10	/* expire after first event */
++#endif
+ 
+ #define TIPC_WAIT_FOREVER	~0	/* timeout for permanent subscription */
+ 
+ struct tipc_subscr {
+-	struct tipc_name_seq seq;	/* NBO. Name sequence of interest */
+-	__u32 timeout;			/* NBO. Subscription duration (in ms) */
+-        __u32 filter;   		/* NBO. Bitmask of filter options */
+-	char usr_handle[8];		/* Opaque. Available for subscriber use */
++	struct tipc_name_seq seq;	/* name sequence of interest */
++	__u32 timeout;			/* subscription duration (in ms) */
++        __u32 filter;   		/* bitmask of filter options */
++	char usr_handle[8];		/* available for subscriber use */
+ };
+ 
+ #define TIPC_PUBLISHED		1	/* publication event */
+@@ -145,11 +151,11 @@ struct tipc_subscr {
+ #define TIPC_SUBSCR_TIMEOUT	3	/* subscription timeout event */
+ 
+ struct tipc_event {
+-	__u32 event;			/* NBO. Event type, as defined above */
+-	__u32 found_lower;		/* NBO. Matching name seq instances  */
+-	__u32 found_upper;		/*  "      "       "   "    "        */
+-	struct tipc_portid port;	/* NBO. Associated port              */
+-	struct tipc_subscr s;		/* Original, associated subscription */
++	__u32 event;			/* event type */
++	__u32 found_lower;		/* matching name seq instances */
++	__u32 found_upper;		/*    "      "    "     "      */
++	struct tipc_portid port;	/* associated port */
++	struct tipc_subscr s;		/* associated subscription */
+ };
+ 
+ /*
+diff --git a/net/tipc/subscr.c b/net/tipc/subscr.c
+index 18813ac..ecccfdb 100644
+--- a/net/tipc/subscr.c
++++ b/net/tipc/subscr.c
+@@ -274,7 +274,7 @@ static void subscr_cancel(struct tipc_subscr *s,
+ {
+ 	struct subscription *sub;
+ 	struct subscription *sub_temp;
+-	__u32 type, lower, upper, timeout, filter;
++	__u32 type, lower, upper;
+ 	int found = 0;
+ 
+ 	/* Find first matching subscription, exit if not found */
+@@ -282,18 +282,12 @@ static void subscr_cancel(struct tipc_subscr *s,
+ 	type = ntohl(s->seq.type);
+ 	lower = ntohl(s->seq.lower);
+ 	upper = ntohl(s->seq.upper);
+-	timeout = ntohl(s->timeout);
+-	filter = ntohl(s->filter) & ~TIPC_SUB_CANCEL;
+ 
+ 	list_for_each_entry_safe(sub, sub_temp, &subscriber->subscription_list,
+ 				 subscription_list) {
+ 			if ((type == sub->seq.type) &&
+ 			    (lower == sub->seq.lower) &&
+-			    (upper == sub->seq.upper) &&
+-			    (timeout == sub->timeout) &&
+-                            (filter == sub->filter) &&
+-                             !memcmp(s->usr_handle,sub->evt.s.usr_handle,
+-				     sizeof(s->usr_handle)) ){
++			    (upper == sub->seq.upper)) {
+ 				found = 1;
+ 				break;
+ 			}
+@@ -310,7 +304,7 @@ static void subscr_cancel(struct tipc_subscr *s,
+ 		k_term_timer(&sub->timer);
+ 		spin_lock_bh(subscriber->lock);
+ 	}
+-	dbg("Cancel: removing sub %u,%u,%u from subscriber %p list\n",
++	dbg("Cancel: removing sub %u,%u,%u from subscriber %x list\n",
+ 	    sub->seq.type, sub->seq.lower, sub->seq.upper, subscriber);
+ 	subscr_del(sub);
+ }
+@@ -358,7 +352,8 @@ static struct subscription *subscr_subscribe(struct tipc_subscr *s,
+ 	sub->seq.upper = ntohl(s->seq.upper);
+ 	sub->timeout = ntohl(s->timeout);
+ 	sub->filter = ntohl(s->filter);
+-	if ((sub->filter && (sub->filter != TIPC_SUB_PORTS)) ||
++	if ((!(sub->filter & TIPC_SUB_PORTS) ==
++	     !(sub->filter & TIPC_SUB_SERVICE)) ||
+ 	    (sub->seq.lower > sub->seq.upper)) {
+ 		warn("Subscription rejected, illegal request\n");
+ 		kfree(sub);
+-- 
+1.7.2.3
+
