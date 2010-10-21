@@ -1,35 +1,52 @@
-From: James Chapman <jchapman@katalix.com>
-Subject: Re: [PATCH 01/12] l2tp: make local function static
-Date: Thu, 21 Oct 2010 21:30:15 +0100
-Message-ID: <4CC0A2D7.50900@katalix.com>
-References: <20101021175045.625707607@vyatta.com> <20101021175148.018298774@vyatta.com>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH 63/72] tproxy: allow non-local binds of IPv6 sockets if
+ IP_TRANSPARENT is enabled
+Date: Fri, 22 Oct 2010 06:07:49 +0900
+Message-ID: <1287695269.2707.7.camel@takos>
+References: <1287674399-31455-1-git-send-email-kaber@trash.net>
+	 <1287674399-31455-64-git-send-email-kaber@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="ISO-2022-JP"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from katalix.com ([82.103.140.233]:52664 "EHLO mail.katalix.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757353Ab0JUUaR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Oct 2010 16:30:17 -0400
-In-Reply-To: <20101021175148.018298774@vyatta.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: bazsi@balabit.hu, hidden@balabit.hu, davem@davemloft.net,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org
+To: kaber@trash.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1287674399-31455-64-git-send-email-kaber@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 21/10/2010 18:50, Stephen Hemminger wrote:
-> Also moved the refcound inlines from l2tp_core.h to l2tp_core.c
-> since only used in that one file.
+Hello.
+
+On 2010-10-21, kaber@trash.net wrote:
+> From: Balazs Scheidler <bazsi@balabit.hu>
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> Signed-off-by: Balazs Scheidler <bazsi@balabit.hu>
+> Signed-off-by: KOVACS Krisztian <hidden@balabit.hu>
+> Signed-off-by: Patrick McHardy <kaber@trash.net>
+> ---
+>  net/ipv6/af_inet6.c |    3 ++-
+>  1 files changed, 2 insertions(+), 1 deletions(-)
 > 
+> diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+> index 56b9bf2..4869797 100644
+> --- a/net/ipv6/af_inet6.c
+> +++ b/net/ipv6/af_inet6.c
+> @@ -343,7 +343,8 @@ int inet6_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
+>  			 */
+>  			v4addr = LOOPBACK4_IPV6;
+>  			if (!(addr_type & IPV6_ADDR_MULTICAST))	{
+> -				if (!ipv6_chk_addr(net, &addr->sin6_addr,
+> +				if (!inet->transparent &&
+> +				    !ipv6_chk_addr(net, &addr->sin6_addr,
+>  						   dev, 0)) {
+>  					err = -EADDRNOTAVAIL;
+>  					goto out_unlock;
 
-Acked-by: James Chapman <jchapman@katalix.com>
+Sorry, NAK.
 
+http://kerneltrap.org/mailarchive/linux-netdev/2010/7/5/6280572
 
--- 
-James Chapman
-Katalix Systems Ltd
-http://www.katalix.com
-Catalysts for your Embedded Linux software development
+--yoshfuji
 
