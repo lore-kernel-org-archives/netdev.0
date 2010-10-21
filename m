@@ -1,32 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 1/1] phy/marvell: fix 88e1121 support
-Date: Thu, 21 Oct 2010 04:00:15 -0700 (PDT)
-Message-ID: <20101021.040015.27805979.davem@davemloft.net>
-References: <4CBCC3FC.2030506@ti.com>
-	<20101018222947.418028323@rtp-net.org>
-	<20101018223056.716357140@rtp-net.org>
+From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: [PATCH 01/10] can: at91_can: use correct bit to enable
+	CAN_CTRLMODE_3_SAMPLES
+Date: Thu, 21 Oct 2010 13:01:13 +0200
+Message-ID: <1287658882-26914-2-git-send-email-mkl@pengutronix.de>
+References: <1287658882-26914-1-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, cyril@ti.com
-To: arnaud.patard@rtp-net.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43041
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753745Ab0JUK7x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 06:59:53 -0400
-In-Reply-To: <20101018223056.716357140@rtp-net.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+To: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <1287658882-26914-1-git-send-email-mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Arnaud Patard (Rtp) <arnaud.patard@rtp-net.org>
-Date: Tue, 19 Oct 2010 00:29:48 +0200
+Signed-off-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+---
+ drivers/net/can/at91_can.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-> Commit c477d0447db08068a497e7beb892b2b2a7bff64b added support for RGMII
-> rx/tx delays except that it ends up clearing rx/tx delays bit for modes
-> differents that RGMII*ID. Due to this, ethernet is not working anymore
-> on my guruplug server +. This patch is fixing that.
-> 
-> Signed-off-by: Arnaud Patard <arnaud.patard@rtp-net.org>
-
-Applied, thanks.
+diff --git a/drivers/net/can/at91_can.c b/drivers/net/can/at91_can.c
+index 2d8bd86..b2a4599 100644
+--- a/drivers/net/can/at91_can.c
++++ b/drivers/net/can/at91_can.c
+@@ -2,7 +2,7 @@
+  * at91_can.c - CAN network driver for AT91 SoC CAN controller
+  *
+  * (C) 2007 by Hans J. Koch <hjk-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+- * (C) 2008, 2009 by Marc Kleine-Budde <kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
++ * (C) 2008, 2009, 2010 by Marc Kleine-Budde <kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+  *
+  * This software may be distributed under the terms of the GNU General
+  * Public License ("GPL") version 2 as distributed in the 'COPYING'
+@@ -257,8 +257,8 @@ static int at91_set_bittiming(struct net_device *dev)
+ 	const struct can_bittiming *bt = &priv->can.bittiming;
+ 	u32 reg_br;
+ 
+-	reg_br = ((priv->can.ctrlmode & CAN_CTRLMODE_3_SAMPLES) << 24) |
+-		((bt->brp - 1) << 16) |	((bt->sjw - 1) << 12) |
++	reg_br = ((priv->can.ctrlmode & CAN_CTRLMODE_3_SAMPLES) ? 1 << 24 : 0) |
++		((bt->brp - 1) << 16) | ((bt->sjw - 1) << 12) |
+ 		((bt->prop_seg - 1) << 8) | ((bt->phase_seg1 - 1) << 4) |
+ 		((bt->phase_seg2 - 1) << 0);
+ 
+-- 
+1.7.0.4
