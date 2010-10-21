@@ -1,64 +1,88 @@
-From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: [PATCH] can: flexcan: fix use after free of priv
-Date: Thu, 21 Oct 2010 17:07:58 +0200
-Message-ID: <1287673678-27510-1-git-send-email-mkl@pengutronix.de>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [RFC PATCH 1/9] ipvs network name space aware
+Date: Thu, 21 Oct 2010 08:16:13 -0700
+Message-ID: <20101021151613.GB2363@linux.vnet.ibm.com>
+References: <201010081316.46690.hans.schillstrom@ericsson.com>
+ <201010181523.49568.hans.schillstrom@ericsson.com>
+ <20101019184436.GG2362@linux.vnet.ibm.com>
+ <201010201025.20950.hans.schillstrom@ericsson.com>
+ <20101020160205.GB2386@linux.vnet.ibm.com>
+ <1287651504.6871.44.camel@edumazet-laptop>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-To: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Hans Schillstrom <hans.schillstrom@ericsson.com>,
+	Daniel Lezcano <daniel.lezcano@free.fr>,
+	"lvs-devel@vger.kernel.org" <lvs-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"horms@verge.net.au" <horms@verge.net.au>, "ja@ssi.bg" <ja@ssi.bg>,
+	"wensong@linux-vs.org" <wensong@linux-vs.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1287651504.6871.44.camel@edumazet-laptop>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The priv is part of the memory allocated by alloc_candev().
-This patch moved the free it after last usage of priv.
+On Thu, Oct 21, 2010 at 10:58:24AM +0200, Eric Dumazet wrote:
+> 
+> > You said that there were a lot of "stepi" commands to get through
+> > rcu_read_lock() on x86_64.  This is quite surprising, especially if you
+> > built with CONFIG_RCU_TREE.  Even if you built with CONFIG_PREEMPT_RCU_TREE,
+> > you should only see something like the following from rcu_read_lock():
+> > 
+> > 000000b7 <__rcu_read_lock>:
+> >       b7:	55                   	push   %ebp
+> >       b8:	64 a1 00 00 00 00    	mov    %fs:0x0,%eax
+> >       be:	ff 80 80 01 00 00    	incl   0x180(%eax)
+> >       c4:	89 e5                	mov    %esp,%ebp
+> >       c6:	5d                   	pop    %ebp
+> >       c7:	c3                   	ret    
+> > 
+> > Unless you have some sort of debugging options turned on.  Or unless
+> > six instructions counts for "quite many" stepi commands.  ;-)
+> 
+> Paul, this should be inlined, dont you think ?
 
-Signed-off-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
----
+Indeed it should!!!  It is out-of-line due to header-file issues.
+Lai Jiangshan proposed a change to kbuild to allow it to be inlined as
+part of his ring-RCU patch, and I have asked him to submit a version
+of that for Tree and Tiny preemptible RCU.  This is the usual trick of
+having the build system compile the data structure and emit offsets,
+which are then used in the main kernel build.  (Yes, I did something
+similar in DYNIX/ptx, but never managed to work up the courage to attempt
+the equivalent in Linux's kbuild, so props to Lai!)
 
-The following changes since commit 27b75c95f10d249574d9c4cb9dab878107faede8:
-  Eric Dumazet (1):
-        net: avoid RCU for NOCACHE dst
+> Also, I dont understand why we use ACCESS_ONCE() in rcu_read_lock()
+> 
+> ACCESS_ONCE(current->rcu_read_lock_nesting)++;
+> 
+> Apparently, some compilers are a bit noisy here.
+> 
+> mov    0x1b0(%rdx),%eax
+> inc    %eax
+> mov    %eax,0x1b0(%rdx)
+> 
+> instead of :
+> 
+> incl   0x1b0(%rax)
+> 
+> So if the ACCESS_ONCE() is needed, we might add a comment, because it's
+> not obvious ;)
 
-are available in the git repository at:
+Here is what it looks like in my -rcu tree:
 
-  git://git.pengutronix.de/git/mkl/linux-2.6.git can/flexcan-for-net-next
+void __rcu_read_lock(void)
+{
+	current->rcu_read_lock_nesting++;
+	barrier();  /* needed if we ever invoke rcu_read_lock in rcutree.c */
+}
 
-Marc Kleine-Budde (1):
-      can: flexcan: fix use after free of priv
+So yes, I finally did convince myself that the ACCESS_ONCE was not
+needed.  ;-)
 
- drivers/net/can/flexcan.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+This is not yet in mainline, but Ingo sent the series containing this
+commit (80dcf60e) to Linus earlier today, so there is hope!
 
-diff --git a/drivers/net/can/flexcan.c b/drivers/net/can/flexcan.c
-index ef443a0..d499056 100644
---- a/drivers/net/can/flexcan.c
-+++ b/drivers/net/can/flexcan.c
-@@ -992,7 +992,6 @@ static int __devexit flexcan_remove(struct platform_device *pdev)
- 
- 	unregister_flexcandev(dev);
- 	platform_set_drvdata(pdev, NULL);
--	free_candev(dev);
- 	iounmap(priv->base);
- 
- 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-@@ -1000,6 +999,8 @@ static int __devexit flexcan_remove(struct platform_device *pdev)
- 
- 	clk_put(priv->clk);
- 
-+	free_candev(dev);
-+
- 	return 0;
- }
- 
--- 
-1.7.0.4
+							Thanx, Paul
