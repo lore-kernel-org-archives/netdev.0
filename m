@@ -1,78 +1,104 @@
 From: kaber@trash.net
-Subject: [PATCH 47/72] ipvs: stop ICMP from FORWARD to local
-Date: Thu, 21 Oct 2010 17:19:34 +0200
-Message-ID: <1287674399-31455-48-git-send-email-kaber@trash.net>
+Subject: [PATCH 43/72] ipvs: fix CHECKSUM_PARTIAL for TCP, UDP
+Date: Thu, 21 Oct 2010 17:19:30 +0200
+Message-ID: <1287674399-31455-44-git-send-email-kaber@trash.net>
 References: <1287674399-31455-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:59999 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752977Ab0JUPUM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 11:20:12 -0400
 In-Reply-To: <1287674399-31455-1-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Julian Anastasov <ja@ssi.bg>
 
- 	Delivering locally ICMP from FORWARD hook is not supported.
+ 	Fix CHECKSUM_PARTIAL handling. Tested for IPv4 TCP,
+UDP not tested because it needs network card with HW CSUM support.
+May be fixes problem where IPVS can not be used in virtual boxes.
+Problem appears with DNAT to local address when the local stack
+sends reply in CHECKSUM_PARTIAL mode.
+
+ 	Fix tcp_dnat_handler and udp_dnat_handler to provide
+vaddr and daddr in right order (old and new IP) when calling
+tcp_partial_csum_update/udp_partial_csum_update (CHECKSUM_PARTIAL).
 
 Signed-off-by: Julian Anastasov <ja@ssi.bg>
 Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- net/netfilter/ipvs/ip_vs_core.c |   21 +++++++++++++++++++--
- 1 files changed, 19 insertions(+), 2 deletions(-)
+ net/netfilter/ipvs/ip_vs_proto_tcp.c |   10 +++++-----
+ net/netfilter/ipvs/ip_vs_proto_udp.c |   10 +++++-----
+ 2 files changed, 10 insertions(+), 10 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-index 0090d6d..27ecb25 100644
---- a/net/netfilter/ipvs/ip_vs_core.c
-+++ b/net/netfilter/ipvs/ip_vs_core.c
-@@ -48,6 +48,7 @@
+diff --git a/net/netfilter/ipvs/ip_vs_proto_tcp.c b/net/netfilter/ipvs/ip_vs_proto_tcp.c
+index 282d24d..318d011 100644
+--- a/net/netfilter/ipvs/ip_vs_proto_tcp.c
++++ b/net/netfilter/ipvs/ip_vs_proto_tcp.c
+@@ -101,15 +101,15 @@ tcp_partial_csum_update(int af, struct tcphdr *tcph,
  #ifdef CONFIG_IP_VS_IPV6
- #include <net/ipv6.h>
- #include <linux/netfilter_ipv6.h>
-+#include <net/ip6_route.h>
+ 	if (af == AF_INET6)
+ 		tcph->check =
+-			csum_fold(ip_vs_check_diff16(oldip->ip6, newip->ip6,
++			~csum_fold(ip_vs_check_diff16(oldip->ip6, newip->ip6,
+ 					 ip_vs_check_diff2(oldlen, newlen,
+-						~csum_unfold(tcph->check))));
++						csum_unfold(tcph->check))));
+ 	else
  #endif
+ 	tcph->check =
+-		csum_fold(ip_vs_check_diff4(oldip->ip, newip->ip,
++		~csum_fold(ip_vs_check_diff4(oldip->ip, newip->ip,
+ 				ip_vs_check_diff2(oldlen, newlen,
+-						~csum_unfold(tcph->check))));
++						csum_unfold(tcph->check))));
+ }
  
- #include <net/ip_vs.h>
-@@ -1191,7 +1192,14 @@ ip_vs_in_icmp(struct sk_buff *skb, int *related, unsigned int hooknum)
- 	if (IPPROTO_TCP == cih->protocol || IPPROTO_UDP == cih->protocol)
- 		offset += 2 * sizeof(__u16);
- 	verdict = ip_vs_icmp_xmit(skb, cp, pp, offset);
--	/* do not touch skb anymore */
-+	/* LOCALNODE from FORWARD hook is not supported */
-+	if (verdict == NF_ACCEPT && hooknum == NF_INET_FORWARD &&
-+	    skb_rtable(skb)->rt_flags & RTCF_LOCAL) {
-+		IP_VS_DBG(1, "%s(): "
-+			  "local delivery to %pI4 but in FORWARD\n",
-+			  __func__, &skb_rtable(skb)->rt_dst);
-+		verdict = NF_DROP;
-+	}
  
-   out:
- 	__ip_vs_conn_put(cp);
-@@ -1212,6 +1220,7 @@ ip_vs_in_icmp_v6(struct sk_buff *skb, int *related, unsigned int hooknum)
- 	struct ip_vs_protocol *pp;
- 	unsigned int offset, verdict;
- 	union nf_inet_addr snet;
-+	struct rt6_info *rt;
+@@ -223,7 +223,7 @@ tcp_dnat_handler(struct sk_buff *skb,
+ 	 *	Adjust TCP checksums
+ 	 */
+ 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
+-		tcp_partial_csum_update(cp->af, tcph, &cp->daddr, &cp->vaddr,
++		tcp_partial_csum_update(cp->af, tcph, &cp->vaddr, &cp->daddr,
+ 					htons(oldlen),
+ 					htons(skb->len - tcphoff));
+ 	} else if (!cp->app) {
+diff --git a/net/netfilter/ipvs/ip_vs_proto_udp.c b/net/netfilter/ipvs/ip_vs_proto_udp.c
+index 8553231..f929089 100644
+--- a/net/netfilter/ipvs/ip_vs_proto_udp.c
++++ b/net/netfilter/ipvs/ip_vs_proto_udp.c
+@@ -102,15 +102,15 @@ udp_partial_csum_update(int af, struct udphdr *uhdr,
+ #ifdef CONFIG_IP_VS_IPV6
+ 	if (af == AF_INET6)
+ 		uhdr->check =
+-			csum_fold(ip_vs_check_diff16(oldip->ip6, newip->ip6,
++			~csum_fold(ip_vs_check_diff16(oldip->ip6, newip->ip6,
+ 					 ip_vs_check_diff2(oldlen, newlen,
+-						~csum_unfold(uhdr->check))));
++						csum_unfold(uhdr->check))));
+ 	else
+ #endif
+ 	uhdr->check =
+-		csum_fold(ip_vs_check_diff4(oldip->ip, newip->ip,
++		~csum_fold(ip_vs_check_diff4(oldip->ip, newip->ip,
+ 				ip_vs_check_diff2(oldlen, newlen,
+-						~csum_unfold(uhdr->check))));
++						csum_unfold(uhdr->check))));
+ }
  
- 	*related = 1;
  
-@@ -1290,7 +1299,15 @@ ip_vs_in_icmp_v6(struct sk_buff *skb, int *related, unsigned int hooknum)
- 	    IPPROTO_SCTP == cih->nexthdr)
- 		offset += 2 * sizeof(__u16);
- 	verdict = ip_vs_icmp_xmit_v6(skb, cp, pp, offset);
--	/* do not touch skb anymore */
-+	/* LOCALNODE from FORWARD hook is not supported */
-+	if (verdict == NF_ACCEPT && hooknum == NF_INET_FORWARD &&
-+	    (rt = (struct rt6_info *) skb_dst(skb)) &&
-+	    rt->rt6i_dev && rt->rt6i_dev->flags & IFF_LOOPBACK) {
-+		IP_VS_DBG(1, "%s(): "
-+			  "local delivery to %pI6 but in FORWARD\n",
-+			  __func__, &rt->rt6i_dst);
-+		verdict = NF_DROP;
-+	}
- 
- 	__ip_vs_conn_put(cp);
- 
+@@ -229,7 +229,7 @@ udp_dnat_handler(struct sk_buff *skb,
+ 	 *	Adjust UDP checksums
+ 	 */
+ 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
+-		udp_partial_csum_update(cp->af, udph, &cp->daddr, &cp->vaddr,
++		udp_partial_csum_update(cp->af, udph, &cp->vaddr, &cp->daddr,
+ 					htons(oldlen),
+ 					htons(skb->len - udphoff));
+ 	} else if (!cp->app && (udph->check != 0)) {
 -- 
 1.7.1
 
