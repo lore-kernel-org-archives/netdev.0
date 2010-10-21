@@ -1,7 +1,7 @@
 From: kaber@trash.net
-Subject: [PATCH 27/72] netfilter: nf_nat: make find/put static
-Date: Thu, 21 Oct 2010 17:19:14 +0200
-Message-ID: <1287674399-31455-28-git-send-email-kaber@trash.net>
+Subject: [PATCH 30/72] netfilter: unregister nf hooks, matches and targets in the reverse order
+Date: Thu, 21 Oct 2010 17:19:17 +0200
+Message-ID: <1287674399-31455-31-git-send-email-kaber@trash.net>
 References: <1287674399-31455-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
@@ -10,62 +10,65 @@ In-Reply-To: <1287674399-31455-1-git-send-email-kaber@trash.net>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@vyatta.com>
+From: Changli Gao <xiaosuo@gmail.com>
 
-The functions nf_nat_proto_find_get and nf_nat_proto_put are
-only used internally in nf_nat_core. This might break some out
-of tree NAT module.
+Since we register nf hooks, matches and targets in order, we'd better
+unregister them in the reverse order.
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- include/net/netfilter/nf_nat_protocol.h |    3 ---
- net/ipv4/netfilter/nf_nat_core.c        |    6 ++----
- 2 files changed, 2 insertions(+), 7 deletions(-)
+ net/netfilter/core.c     |    6 ++----
+ net/netfilter/x_tables.c |   12 ++++--------
+ 2 files changed, 6 insertions(+), 12 deletions(-)
 
-diff --git a/include/net/netfilter/nf_nat_protocol.h b/include/net/netfilter/nf_nat_protocol.h
-index df17bac..93cc90d 100644
---- a/include/net/netfilter/nf_nat_protocol.h
-+++ b/include/net/netfilter/nf_nat_protocol.h
-@@ -45,9 +45,6 @@ struct nf_nat_protocol {
- extern int nf_nat_protocol_register(const struct nf_nat_protocol *proto);
- extern void nf_nat_protocol_unregister(const struct nf_nat_protocol *proto);
+diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+index 78b505d..8f014f2 100644
+--- a/net/netfilter/core.c
++++ b/net/netfilter/core.c
+@@ -105,10 +105,8 @@ EXPORT_SYMBOL(nf_register_hooks);
  
--extern const struct nf_nat_protocol *nf_nat_proto_find_get(u_int8_t protocol);
--extern void nf_nat_proto_put(const struct nf_nat_protocol *proto);
+ void nf_unregister_hooks(struct nf_hook_ops *reg, unsigned int n)
+ {
+-	unsigned int i;
 -
- /* Built-in protocols. */
- extern const struct nf_nat_protocol nf_nat_protocol_tcp;
- extern const struct nf_nat_protocol nf_nat_protocol_udp;
-diff --git a/net/ipv4/netfilter/nf_nat_core.c b/net/ipv4/netfilter/nf_nat_core.c
-index 2c084b3..e2e00c4 100644
---- a/net/ipv4/netfilter/nf_nat_core.c
-+++ b/net/ipv4/netfilter/nf_nat_core.c
-@@ -47,7 +47,7 @@ __nf_nat_proto_find(u_int8_t protonum)
- 	return rcu_dereference(nf_nat_protos[protonum]);
+-	for (i = 0; i < n; i++)
+-		nf_unregister_hook(&reg[i]);
++	while (n-- > 0)
++		nf_unregister_hook(&reg[n]);
  }
+ EXPORT_SYMBOL(nf_unregister_hooks);
  
--const struct nf_nat_protocol *
-+static const struct nf_nat_protocol *
- nf_nat_proto_find_get(u_int8_t protonum)
+diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
+index e34622f..8046350 100644
+--- a/net/netfilter/x_tables.c
++++ b/net/netfilter/x_tables.c
+@@ -116,10 +116,8 @@ EXPORT_SYMBOL(xt_register_targets);
+ void
+ xt_unregister_targets(struct xt_target *target, unsigned int n)
  {
- 	const struct nf_nat_protocol *p;
-@@ -60,14 +60,12 @@ nf_nat_proto_find_get(u_int8_t protonum)
- 
- 	return p;
+-	unsigned int i;
+-
+-	for (i = 0; i < n; i++)
+-		xt_unregister_target(&target[i]);
++	while (n-- > 0)
++		xt_unregister_target(&target[n]);
  }
--EXPORT_SYMBOL_GPL(nf_nat_proto_find_get);
+ EXPORT_SYMBOL(xt_unregister_targets);
  
--void
-+static void
- nf_nat_proto_put(const struct nf_nat_protocol *p)
+@@ -174,10 +172,8 @@ EXPORT_SYMBOL(xt_register_matches);
+ void
+ xt_unregister_matches(struct xt_match *match, unsigned int n)
  {
- 	module_put(p->me);
+-	unsigned int i;
+-
+-	for (i = 0; i < n; i++)
+-		xt_unregister_match(&match[i]);
++	while (n-- > 0)
++		xt_unregister_match(&match[n]);
  }
--EXPORT_SYMBOL_GPL(nf_nat_proto_put);
+ EXPORT_SYMBOL(xt_unregister_matches);
  
- /* We keep an extra hash for each conntrack, for fast searching. */
- static inline unsigned int
 -- 
 1.7.1
 
