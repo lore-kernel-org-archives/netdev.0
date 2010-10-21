@@ -1,9 +1,8 @@
 From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [PATCH 9/9] tproxy: use the interface primary IP address as a
- default value for --on-ip
-Date: Thu, 21 Oct 2010 11:12:55 +0200 (CEST)
-Message-ID: <alpine.LNX.2.01.1010211051560.22922@obet.zrqbmnf.qr>
-References: <20101020112118.6260.31618.stgit@este.odu> <20101020112118.6260.54362.stgit@este.odu>
+Subject: Re: [PATCH 7/9] tproxy: added IPv6 support to the TPROXY target
+Date: Thu, 21 Oct 2010 11:14:24 +0200 (CEST)
+Message-ID: <alpine.LNX.2.01.1010211113020.22922@obet.zrqbmnf.qr>
+References: <20101020112118.6260.31618.stgit@este.odu>  <20101020112118.6260.51773.stgit@este.odu>  <alpine.LNX.2.01.1010211042190.22922@obet.zrqbmnf.qr> <1287651014.13326.2.camel@este.odu>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
@@ -11,43 +10,39 @@ Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
 	David Miller <davem@davemloft.net>
 To: KOVACS Krisztian <hidden@balabit.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from borg.medozas.de ([188.40.89.202]:40336 "EHLO borg.medozas.de"
+Received: from borg.medozas.de ([188.40.89.202]:40344 "EHLO borg.medozas.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754954Ab0JUJM5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Oct 2010 05:12:57 -0400
-In-Reply-To: <20101020112118.6260.54362.stgit@este.odu>
+	id S1755496Ab0JUJO0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Oct 2010 05:14:26 -0400
+In-Reply-To: <1287651014.13326.2.camel@este.odu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thursday 2010-10-21 10:50, KOVACS Krisztian wrote:
 
-On Wednesday 2010-10-20 13:21, KOVACS Krisztian wrote:
->+
->+	if (!ipv6_addr_any(user_laddr))
->+		return user_laddr;
->+	laddr = NULL;
->+
->+	rcu_read_lock();
->+	indev = __in6_dev_get(skb->dev);
->+	if (indev)
->+		list_for_each_entry(ifa, &indev->addr_list, if_list) {
->+			/* FIXME: address selection */
+>Hi,
+>
+>On Thu, 2010-10-21 at 10:47 +0200, Jan Engelhardt wrote:
+>> On Wednesday 2010-10-20 13:21, KOVACS Krisztian wrote:
+>> > 
+>> > /* TPROXY target is capable of marking the packet to perform
+>> >  * redirection. We can get rid of that whenever we get support for
+>> >  * mutliple targets in the same rule. */
+>> >-struct xt_tproxy_target_info {
+>> >+struct xt_tproxy_target_info_v0 {
+>> > 	u_int32_t mark_mask;
+>> > 	u_int32_t mark_value;
+>> > 	__be32 laddr;
+>> > 	__be16 lport;
+>> > };
+>> 
+>> You cannot change the struct name either, or it may break userspace
+>> compilations.
+>
+>True, though iptables has its own copy of the header anyway.
 
-Per our realworld discussion, I believe we should add checks for
-some conditions (RFC 4862 section 2):
+There is - or so I always hear - other userspace programs.
 
-1. ignore tentative addresses
-
-	if (ifa->ifa_flags & IFA_F_TENTATIVE)
-		continue;
-
-2. tests for when the interface's ifa->preferred_lft == 0/deprecatedness:
-
-	if (ctinfo == IP_CT_NEW/RELATED && (ifa->ifa_flags & IFA_F_DEPRECATED))
-		continue;
-
-3. check for invalid addresses
-(There might be a flag like tentative..)
-
-	if (ifa->valid_lft == 0)
-		continue;
-
+As for iptables, we only do the copy so that it compiles independent of 
+the kernel version. You have to assume that the headers can be updated 
+at any time.
