@@ -1,33 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: synchronize bind() with RTM_NEWADDR notifications
-Date: Thu, 21 Oct 2010 04:34:21 -0700 (PDT)
-Message-ID: <20101021.043421.108778257.davem@davemloft.net>
-References: <4CC01CC0.7090101@iki.fi>
-	<20101021.040319.191412436.davem@davemloft.net>
-	<4CC02412.8050000@iki.fi>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] l2tp: small cleanup
+Date: Thu, 21 Oct 2010 13:36:11 +0200
+Message-ID: <1287660971.6871.97.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: timo.teras@iki.fi
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37655
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753979Ab0JULd6 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Oct 2010 07:33:58 -0400
-In-Reply-To: <4CC02412.8050000@iki.fi>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:60227 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757702Ab0JULgQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 07:36:16 -0400
+Received: by wwf26 with SMTP id 26so2444710wwf.1
+        for <netdev@vger.kernel.org>; Thu, 21 Oct 2010 04:36:14 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Timo Ter=E4s <timo.teras@iki.fi>
-Date: Thu, 21 Oct 2010 14:29:22 +0300
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/l2tp/l2tp_ip.c |    4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-> This is the third time asking, what would be a good way to fix the
-> problem described in the original commit log?
+diff --git a/net/l2tp/l2tp_ip.c b/net/l2tp/l2tp_ip.c
+index 226a0ae..1c770c0 100644
+--- a/net/l2tp/l2tp_ip.c
++++ b/net/l2tp/l2tp_ip.c
+@@ -65,9 +65,7 @@ static struct sock *__l2tp_ip_bind_lookup(struct net *net, __be32 laddr, int dif
+ 			continue;
+ 
+ 		if ((l2tp->conn_id == tunnel_id) &&
+-#ifdef CONFIG_NET_NS
+-		    (sk->sk_net == net) &&
+-#endif
++		    net_eq(sock_net(sk), net) &&
+ 		    !(inet->inet_rcv_saddr && inet->inet_rcv_saddr != laddr) &&
+ 		    !(sk->sk_bound_dev_if && sk->sk_bound_dev_if != dif))
+ 			goto found;
 
-I kept your report in my inbox backlog and intended to think about
-it as time permitted.
 
-As the merge window has just openned up, for me time will not be
-"permitted" for some time.
