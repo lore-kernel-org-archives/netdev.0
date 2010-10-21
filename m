@@ -1,50 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH 2/3] ixgbe: fix stats handling
-Date: Thu, 21 Oct 2010 03:56:03 -0700 (PDT)
-Message-ID: <20101021.035603.233701260.davem@davemloft.net>
-References: <20101021085740.12059.20577.stgit@localhost.localdomain>
-	<20101021090001.12059.37088.stgit@localhost.localdomain>
+Subject: Re: [PATCHv2] vmxnet3: remove set_flag_le{16,64} helpers
+Date: Thu, 21 Oct 2010 03:57:41 -0700 (PDT)
+Message-ID: <20101021.035741.68130271.davem@davemloft.net>
+References: <1287642721-5997-1-git-send-email-harvey.harrison@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
-	eric.dumazet@gmail.com, donald.c.skidmore@intel.com
-To: jeffrey.t.kirsher@intel.com
+Cc: sbhatewara@vmware.com, netdev@vger.kernel.org,
+	shemminger@vyatta.com
+To: harvey.harrison@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34643
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43035
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757075Ab0JUKzk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 06:55:40 -0400
-In-Reply-To: <20101021090001.12059.37088.stgit@localhost.localdomain>
+	by vger.kernel.org with ESMTP id S1754262Ab0JUK5S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 06:57:18 -0400
+In-Reply-To: <1287642721-5997-1-git-send-email-harvey.harrison@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Thu, 21 Oct 2010 02:00:04 -0700
+From: Harvey Harrison <harvey.harrison@gmail.com>
+Date: Wed, 20 Oct 2010 23:32:01 -0700
 
-> From: Eric Dumazet <eric.dumazet@gmail.com>
+> It's easier to just annotate the constants as little endian types and set/clear
+> the flags directly.
 > 
-> Current ixgbe stats have following problems :
-> 
-> - Not 64 bit safe (on 32bit arches)
-> 
-> - Not safe in ixgbe_clean_rx_irq() :
->    All cpus dirty a common location (netdev->stats.rx_bytes &
-> netdev->stats.rx_packets) without proper synchronization.
->    This slow down a bit multiqueue operations, and possibly miss some
-> updates.
-> 
-> Fixes :
-> 
-> Implement ndo_get_stats64() method to provide accurate 64bit rx|tx
-> bytes/packets counters, using 64bit safe infrastructure.
-> 
-> ixgbe_get_ethtool_stats() also use this infrastructure to provide 64bit
-> safe counters.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Acked-by: Don Skidmore <donald.c.skidmore@intel.com>
-> Tested-by: Stephen Ko <stephen.s.ko@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+> ---i
+> Sorry, missed a git add and left a line out of the previous patch.
 
-Applied.
+Could you please rebase this against net-next-2.6 since I've
+applied Stephen Hemminger's patch.
+
+Thanks!
