@@ -1,80 +1,122 @@
-From: =?UTF-8?B?VGltbyBUZXLDpHM=?= <timo.teras@iki.fi>
-Subject: Re: [PATCH v2] ipv4: synchronize bind() with RTM_NEWADDR notifications
-Date: Thu, 21 Oct 2010 22:01:18 +0300
-Message-ID: <4CC08DFE.7070400@iki.fi>
-References: <4CC02ABF.8090008@iki.fi>	 <1287666383-17615-1-git-send-email-timo.teras@iki.fi> <1287670228.6871.99.camel@edumazet-laptop>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: Re: 2.6.36-rc7-git2 - panic/GPF: e1000e/vlans?
+Date: Thu, 21 Oct 2010 12:09:03 -0700 (Pacific Daylight Time)
+Message-ID: <alpine.WNT.2.00.1010211207220.5208@jbrandeb-desk1.amr.corp.intel.com>
+References: <20101014052242.GA8998@pcnci.linuxbox.cz>
+	<EA929A9653AAE14F841771FB1DE5A1366027CEFF1C@rrsmsx501.amr.corp.intel.com>
+	<20101020144640.GA3009@pcnci.linuxbox.cz>
+	<20101020163659.GB3009@pcnci.linuxbox.cz>
+	<20101021190208.GA7289@nik-comp.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f46.google.com ([209.85.215.46]:52563 "EHLO
-	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757445Ab0JUTBU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 15:01:20 -0400
-Received: by ewy7 with SMTP id 7so560564ewy.19
-        for <netdev@vger.kernel.org>; Thu, 21 Oct 2010 12:01:19 -0700 (PDT)
-In-Reply-To: <1287670228.6871.99.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Tantilov, Emil S" <emil.s.tantilov@intel.com>,
+	e1000-devel list <e1000-devel@lists.sourceforge.net>,
+	netdev@vger.kernel.org, Linux kernel list <linux-kernel@vger.kernel.org>,
+	"nikola.ciprich@linuxbox.cz" <nikola.ciprich@linuxbox.cz>,
+	linux-net maillist <linux-net@vger.kernel.org>
+To: Nikola Ciprich <extmaillist@linuxbox.cz>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20101021190208.GA7289@nik-comp.lan>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On 10/21/2010 05:10 PM, Eric Dumazet wrote:
-> Le jeudi 21 octobre 2010 =C3=A0 16:06 +0300, Timo Ter=C3=A4s a =C3=A9=
-crit :
->> Otherwise we have race condition to user land:
->>  1. process A: changes IP address
->>  2. process A: kernel sends RTM_NEWADDR (and schedules out)
->>  3. process B: gets notification
->>  4. process B: tries to bind() to new IP, but fails with EADDRNOTAVA=
-IL
->>       because FIB is not yet updated and inet_addr_type() in inet_bi=
-nd()
->>       does not recognize the IP as local
->>  5. process A: calls inetaddr_chain notifiers which updates FIB
->>
->> Fix the error path to synchronize with configuration changes and ret=
-ry
->> the address type check.
->>
->> IPv6 side seems to handle the notifications properly: bind() immedia=
-tely
->> after RTM_NEWADDR succeeds as expected.  This is because ipv6_chk_ad=
-dr()
->> uses inet6_addr_lst which is updated before address notification.
->>
->> Signed-off-by: Timo Ter=C3=A4s <timo.teras@iki.fi>
->> ---
->> Since there was no reply to my question if this is ok, I interpreted=
- it
->> as "maybe". So here's the code for review. Hopefully this helps dete=
-rmining
->> if this is an acceptable fix.
->=20
-> Just say : no
->=20
-> Really Timo, this problem must get another fix.
->=20
-> I understand you need an urgent fix, you can use your patch in the
-> meantime, of course ;)
-
-=46ine. I figured you might feel this way. My final idea to fix this, i=
-s
-to modify inet_addr_type() do the address type check using the ifa
-lists. This probably involves making ifa lists rcu (did not take close
-look on how ifa lists work in current ipv4 code). This is basically how
-ipv6 side works. I'm not too sure how to go on with this, so I'll wait
-up until someone more qualified gets the time to look at this.
-
-I think for my immediate needs I might be able to get away with using
-the kludge patch, enabling non-local binding or fixing my userland code
-to listen RTM_NEWROUTE/RTN_LOCAL events (though, IPv6 link-local
-addresses are special and would need RTM_NEWADDR handling still to get
-the real device's ifindex).
-
-Btw. why do IPv6 RTN_LOCAL routes have loopback interface as dst instea=
-d
-of the real device? IPv4 RTN_LOCAL routes seem to have the real device
-so this looks inconsistent at first sight. I guess IPv6 requires this
-for a bunch of other things. This way it's just not really possible to
-get link-local IPv6 routes.
+CkFkZGluZyBuZXRkZXYuLi4gYmV3YXJlIHRoZSB0b3AgcG9zdCBvcmRlcmluZyBpbiB0aGUgdGhy
+ZWFkLgoKT24gVGh1LCAyMSBPY3QgMjAxMCwgTmlrb2xhIENpcHJpY2ggd3JvdGU6Cgo+IE9rLCBo
+ZXJlJ3JlIHRoZSBzdGVwcyB0byByZXByb2R1Y2UgdGhlIHByb2JsZW06Cj4gCj4gaXAgbGluayBz
+ZXQgdXAgZGV2IGV0aDAKPiB2Y29uZmlnIGFkZCBldGgwIDEwCj4gaXAgbGluayBzZXQgdXAgZGV2
+IGV0aDAuMTAKPiBicmN0bCBhZGRiciBicnRlc3QKPiAjIHRvIGJ5bG8gb2ssIHN1bmTDoSB0byBh
+xb46Cj4gYnJjdGwgYWRkIGJydGVzdCBldGgwLjEwCj4gCj4gbGFzdCBjb21tYW5kIGNhdXNlcyBw
+YW5pYyBpbiBmZXcgc2Vjb25kcy4uCj4gCj4gSW50ZXJlc3RpbmcgdGhpbmcgaXMgdGhhdCBpdCdy
+ZSByZXByb2R1Y2libGUgb25seSBmb3IgZXRoMCwgbm90IGZvcgo+IGV0aDEgKGJvdGggYXJlIG9u
+Ym9hcmQgODAwMDNFUzJMQU4pCj4gCj4gaGVyZSdzIHRoZSBsc3BjaSBmb3IgdGhvc2U6Cj4gMDY6
+MDAuMCBFdGhlcm5ldCBjb250cm9sbGVyOiBJbnRlbCBDb3Jwb3JhdGlvbiA4MDAwM0VTMkxBTiBH
+aWdhYml0IEV0aGVybmV0IENvbnRyb2xsZXIgKENvcHBlcikgKHJldiAwMSkKPiAJU3Vic3lzdGVt
+OiBTdXBlciBNaWNybyBDb21wdXRlciBJbmMgVW5rbm93biBkZXZpY2UgMDAwMAo+IAlGbGFnczog
+YnVzIG1hc3RlciwgZmFzdCBkZXZzZWwsIGxhdGVuY3kgMCwgSVJRIDY1Cj4gCU1lbW9yeSBhdCBk
+ODMwMDAwMCAoMzItYml0LCBub24tcHJlZmV0Y2hhYmxlKSBbc2l6ZT0xMjhLXQo+IAlJL08gcG9y
+dHMgYXQgMzAwMCBbc2l6ZT0zMl0KPiAJQ2FwYWJpbGl0aWVzOiBbYzhdIFBvd2VyIE1hbmFnZW1l
+bnQgdmVyc2lvbiAyCj4gCUNhcGFiaWxpdGllczogW2QwXSBNZXNzYWdlIFNpZ25hbGxlZCBJbnRl
+cnJ1cHRzOiA2NGJpdCsgUXVldWU9MC8wIEVuYWJsZSsKPiAJQ2FwYWJpbGl0aWVzOiBbZTBdIEV4
+cHJlc3MgRW5kcG9pbnQgSVJRIDAKPiAJQ2FwYWJpbGl0aWVzOiBbMTAwXSBBZHZhbmNlZCBFcnJv
+ciBSZXBvcnRpbmcKPiAJQ2FwYWJpbGl0aWVzOiBbMTQwXSBEZXZpY2UgU2VyaWFsIE51bWJlciA1
+YS0xOS0zNC1mZi1mZi00OC0zMC0wMAo+IAo+IDA2OjAwLjEgRXRoZXJuZXQgY29udHJvbGxlcjog
+SW50ZWwgQ29ycG9yYXRpb24gODAwMDNFUzJMQU4gR2lnYWJpdCBFdGhlcm5ldCBDb250cm9sbGVy
+IChDb3BwZXIpIChyZXYgMDEpCj4gCVN1YnN5c3RlbTogU3VwZXIgTWljcm8gQ29tcHV0ZXIgSW5j
+IFVua25vd24gZGV2aWNlIDAwMDAKPiAJRmxhZ3M6IGJ1cyBtYXN0ZXIsIGZhc3QgZGV2c2VsLCBs
+YXRlbmN5IDAsIElSUSA2Ngo+IAlNZW1vcnkgYXQgZDgzMjAwMDAgKDMyLWJpdCwgbm9uLXByZWZl
+dGNoYWJsZSkgW3NpemU9MTI4S10KPiAJSS9PIHBvcnRzIGF0IDMwMjAgW3NpemU9MzJdCj4gCUNh
+cGFiaWxpdGllczogW2M4XSBQb3dlciBNYW5hZ2VtZW50IHZlcnNpb24gMgo+IAlDYXBhYmlsaXRp
+ZXM6IFtkMF0gTWVzc2FnZSBTaWduYWxsZWQgSW50ZXJydXB0czogNjRiaXQrIFF1ZXVlPTAvMCBF
+bmFibGUrCj4gCUNhcGFiaWxpdGllczogW2UwXSBFeHByZXNzIEVuZHBvaW50IElSUSAwCj4gCUNh
+cGFiaWxpdGllczogWzEwMF0gQWR2YW5jZWQgRXJyb3IgUmVwb3J0aW5nCj4gCUNhcGFiaWxpdGll
+czogWzE0MF0gRGV2aWNlIFNlcmlhbCBOdW1iZXIgNWEtMTktMzQtZmYtZmYtNDgtMzAtMDAKPiAK
+PiBsYXN0IGJ1dCBub3QgbGVhc3QsIEkndmUgZG9uZSBiaXNlY3QgYW5kIGl0IGxlYWRzIHRvOgo+
+IGNvbW1pdCBhZTg3OGFlMjgwYmVhMjg2ZmYyYjFlMWNiNmU2MDlkZDhjYjQ1MDFkCj4gQXV0aG9y
+OiBNYWNpZWogxbtlbmN6eWtvd3NraSA8bWF6ZUBnb29nbGUuY29tPgo+IERhdGU6ICAgU3VuIE9j
+dCAzIDE0OjQ5OjAwIDIwMTAgLTA3MDAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBuZXQ6IEZp
+eCBJUHY2IFBNVFUgZGlzYy4gdy8gYXN5bW1ldHJpYyByb3V0ZXMKPiAKPiBkb2Vzbid0IHNlZW0g
+dG8gbWUgdG8gYmUgcmVsYXRlZCBhdCBhbGwsIGJ1dCByZXZlcnRpbmcgcmVhbGx5IHNlZW1zIHRv
+IGZpeCB0aGUgcHJvYmxlbSBmb3IgbWUuLgo+IEkgaG9wZSBpdCBoZWxwcy4uCj4gd2l0aCBiZXN0
+IHJlZ2FyZHMKPiBuaWsKPiAKPiAKPiAKPiBPbiBXZWQsIE9jdCAyMCwgMjAxMCBhdCAwNjozNjo1
+OVBNICswMjAwLCBOaWtvbGEgQ2lwcmljaCB3cm90ZToKPiA+IHNvIHVuZm9ydHVuYXRlbHkgSSBo
+YXZlIHRvIHRha2UgYmFjayB3aGF0IEkganVzdCB3cm90ZSA6KAo+ID4gdGhlIHByb2JsZW0gc3Rp
+bGwgcGVyc2lzdHMsIGl0IGp1c3Qgc2VlbXMgdG8gYmUgbW9yZSByYW5kb20KPiA+IHNvIEknbGwg
+dHJ5IHRvIHNlcGFyYXRlIHRoZSBleGFjdCBjb21tYW5kIHRoYXQgY2F1c2VzIHRoZSBwYW5pYy4u
+Cj4gPiBuLgo+ID4gCj4gPiBPbiBXZWQsIE9jdCAyMCwgMjAxMCBhdCAwNDo0Njo0MFBNICswMjAw
+LCBOaWtvbGEgQ2lwcmljaCB3cm90ZToKPiA+ID4gSGVsbG8gRW1pbCwKPiA+ID4gCj4gPiA+IEkg
+dHJpZWQgaXQgbm93LCBJIGNhbiBzdGlsbCAxMDAlIHJlcHJvZHVjZSB3aXRoIDIuNi4zNi1yYzct
+Z2l0MiwgYnV0Cj4gPiA+IHdpdGggMi42LjM2LXJjOC1naXQ1IGl0IHdvcmtzIE9LLiBTbyBpdCBj
+ZXJ0YWlubHkgZ290IGZpeGVkIGluIHRoZSBtZWFudGltZSEKPiA+ID4gSSdsbCB0aGVyZWZvcmUg
+Y2xvc2UgdGhlIGJ1ZyBpbiBCWi4KPiA+ID4gCj4gPiA+IGhhdmUgYSBuaWNlIGRheSEKPiA+ID4g
+Cj4gPiA+IGJlc3QgcmVnYXJkcwo+ID4gPiAKPiA+ID4gbmlrCj4gPiA+IAo+ID4gPiAKPiA+ID4g
+T24gRnJpLCBPY3QgMTUsIDIwMTAgYXQgMTA6NTg6MTVBTSAtMDYwMCwgVGFudGlsb3YsIEVtaWwg
+UyB3cm90ZToKPiA+ID4gPiA+LS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0KPiA+ID4gPiA+RnJv
+bTogTmlrb2xhIENpcHJpY2ggW21haWx0bzpleHRtYWlsbGlzdEBsaW51eGJveC5jel0KPiA+ID4g
+PiA+U2VudDogV2VkbmVzZGF5LCBPY3RvYmVyIDEzLCAyMDEwIDEwOjIzIFBNCj4gPiA+ID4gPlRv
+OiBMaW51eCBrZXJuZWwgbGlzdDsgbGludXgtbmV0IG1haWxsaXN0OyBlMTAwMC1kZXZlbCBsaXN0
+Cj4gPiA+ID4gPkNjOiBuaWtvbGEuY2lwcmljaEBsaW51eGJveC5jego+ID4gPiA+ID5TdWJqZWN0
+OiBbRTEwMDAtZGV2ZWxdIDIuNi4zNi1yYzctZ2l0MiAtIHBhbmljL0dQRjogZTEwMDBlL3ZsYW5z
+Pwo+ID4gPiA+ID4KPiA+ID4gPiA+SGksCj4gPiA+ID4gPndoZW4gSSB0cnkgdG8gYm9vdCAyLjYu
+MzYtcmM3LWdpdDIgb24gb25lIG9mIG15IG1hY2hpbmVzLCBpdCBjcmFzaGVzIHdoaWxlCj4gPiA+
+ID4gPnNldHRpbmcgdXAgdGhlIG5ldHdvcmsuCj4gPiA+ID4gCj4gPiA+ID4gVGhhbmtzIGZvciBs
+ZXR0aW5nIHVzIGtub3chCj4gPiA+ID4gCj4gPiA+ID4gPlRoZSBzZXR1cCBpcyBxdWl0ZSBjb21w
+bGV4LCB3aXRoIGJvbmRpbmcsIGxvdHMgb2YgdmxhbnMgYW5kIDMgaW50ZWwKPiA+ID4gPiA+YWRh
+cHRlcnMgKHN5c3RlbSBpcyBxdWFkIHg4Nl82NCkKPiA+ID4gPiAKPiA+ID4gPiBDb3VsZCB5b3Ug
+cHJvdmlkZSBtb3JlIGRldGFpbHMgYWJvdXQgdGhlIGV4YWN0IHNldHVwIGFuZCB0aGUgc2VxdWVu
+Y2Ugb2YgCj4gPiA+ID4gY29tbWFuZHMgdGhhdCBsZWFkIHRvIHRoZSBjcmFzaD8gSWYgeW91IGNh
+biBuYXJyb3cgaXQgZG93biB0byB0aGUgYWN0dWFsIAo+ID4gPiA+IGNvbW1hbmQgdGhhdCBjYXVz
+ZWQgdGhlIGNyYXNoIHRoYXQgd291bGQgYmUgdmVyeSBoZWxwZnVsLgo+ID4gPiA+IAo+ID4gPiA+
+IEFsc28gLSBhcmUgeW91IHRlc3RpbmcgZnJvbSBMaW51cyBvciBuZXQtbmV4dCB0cmVlPyBJZiB5
+b3UgYXJlIG5vdCB1c2luZyAKPiA+ID4gPiBuZXQtbmV4dCwgY291bGQgeW91IGdpdmUgaXQgYSB0
+cnkgYW5kIHNlZSBpZiB5b3UgY2FuIHJlcHJvZHVjZSBpdCB0aGVyZT8KPiA+ID4gPiAKPiA+ID4g
+PiA+Cj4gPiA+ID4gPnNuaXAgb2YgbHNwY2k6Cj4gPiA+ID4gPjA2OjAwLjAgRXRoZXJuZXQgY29u
+dHJvbGxlcjogSW50ZWwgQ29ycG9yYXRpb24gODAwMDNFUzJMQU4gR2lnYWJpdCBFdGhlcm5ldAo+
+ID4gPiA+ID5Db250cm9sbGVyIChDb3BwZXIpIChyZXYgMDEpCj4gPiA+ID4gPjA2OjAwLjEgRXRo
+ZXJuZXQgY29udHJvbGxlcjogSW50ZWwgQ29ycG9yYXRpb24gODAwMDNFUzJMQU4gR2lnYWJpdCBF
+dGhlcm5ldAo+ID4gPiA+ID5Db250cm9sbGVyIChDb3BwZXIpIChyZXYgMDEpCj4gPiA+ID4gPjA5
+OjAwLjAgRXRoZXJuZXQgY29udHJvbGxlcjogSW50ZWwgQ29ycG9yYXRpb24gODI1NzRMIEdpZ2Fi
+aXQgTmV0d29yawo+ID4gPiA+ID5Db25uZWN0aW9uCj4gPiA+ID4gCj4gPiA+ID4gQ291bGQgeW91
+IHByb3ZpZGUgdGhlIG91dHB1dCBvZiBsc3BjaSAtdnZ2IGFuZCBhIGtlcm5lbCBjb25maWc/Cgot
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0KTm9raWEgYW5kIEFUJlQgcHJlc2VudCB0aGUgMjAxMCBDYWxs
+aW5nIEFsbCBJbm5vdmF0b3JzLU5vcnRoIEFtZXJpY2EgY29udGVzdApDcmVhdGUgbmV3IGFwcHMg
+JiBnYW1lcyBmb3IgdGhlIE5va2lhIE44IGZvciBjb25zdW1lcnMgaW4gIFUuUy4gYW5kIENhbmFk
+YQokMTAgbWlsbGlvbiB0b3RhbCBpbiBwcml6ZXMgLSAkNE0gY2FzaCwgNTAwIGRldmljZXMsIG5l
+YXJseSAkNk0gaW4gbWFya2V0aW5nCkRldmVsb3Agd2l0aCBOb2tpYSBRdCBTREssIFdlYiBSdW50
+aW1lLCBvciBKYXZhIGFuZCBQdWJsaXNoIHRvIE92aSBTdG9yZSAKaHR0cDovL3Auc2YubmV0L3Nm
+dS9ub2tpYS1kZXYyZGV2Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fCkUxMDAwLWRldmVsIG1haWxpbmcgbGlzdApFMTAwMC1kZXZlbEBsaXN0cy5zb3VyY2Vm
+b3JnZS5uZXQKaHR0cHM6Ly9saXN0cy5zb3VyY2Vmb3JnZS5uZXQvbGlzdHMvbGlzdGluZm8vZTEw
+MDAtZGV2ZWwKVG8gbGVhcm4gbW9yZSBhYm91dCBJbnRlbCYjMTc0OyBFdGhlcm5ldCwgdmlzaXQg
+aHR0cDovL2NvbW11bml0aWVzLmludGVsLmNvbS9jb21tdW5pdHkvd2lyZWQK
