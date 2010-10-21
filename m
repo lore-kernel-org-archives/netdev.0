@@ -1,466 +1,934 @@
 From: kaber@trash.net
-Subject: [PATCH 41/72] ipvs: IPv6 tunnel mode
-Date: Thu, 21 Oct 2010 17:19:28 +0200
-Message-ID: <1287674399-31455-42-git-send-email-kaber@trash.net>
+Subject: [PATCH 33/72] netfilter: xtables: resolve indirect macros 2/3
+Date: Thu, 21 Oct 2010 17:19:20 +0200
+Message-ID: <1287674399-31455-34-git-send-email-kaber@trash.net>
 References: <1287674399-31455-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:60001 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:59999 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752369Ab0JUPUL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 11:20:11 -0400
+	with ESMTP id S1752840Ab0JUPUJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 11:20:09 -0400
 In-Reply-To: <1287674399-31455-1-git-send-email-kaber@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hans Schillstrom <hans.schillstrom@ericsson.com>
+From: Jan Engelhardt <jengelh@medozas.de>
 
-IPv6 encapsulation uses a bad source address for the tunnel.
-i.e. VIP will be used as local-addr and encap. dst addr.
-Decapsulation will not accept this.
-
-Example
-LVS (eth1 2003::2:0:1/96, VIP 2003::2:0:100)
-   (eth0 2003::1:0:1/96)
-RS  (ethX 2003::1:0:5/96)
-
-tcpdump
-2003::2:0:100 > 2003::1:0:5: IP6 (hlim 63, next-header TCP (6) payload length: 40)  2003::3:0:10.50991 > 2003::2:0:100.http: Flags [S], cksum 0x7312 (correct), seq 3006460279, win 5760, options [mss 1440,sackOK,TS val 1904932 ecr 0,nop,wscale 3], length 0
-
-In Linux IPv6 impl. you can't have a tunnel with an any cast address
-receiving packets (I have not tried to interpret RFC 2473)
-To have receive capabilities the tunnel must have:
- - Local address set as multicast addr or an unicast addr
- - Remote address set as an unicast addr.
- - Loop back addres or Link local address are not allowed.
-
-This causes us to setup a tunnel in the Real Server with the
-LVS as the remote address, here you can't use the VIP address since it's
-used inside the tunnel.
-
-Solution
-Use outgoing interface IPv6 address (match against the destination).
-i.e. use ip6_route_output() to look up the route cache and
-then use ipv6_dev_get_saddr(...) to set the source address of the
-encapsulated packet.
-
-Additionally, cache the results in new destination
-fields: dst_cookie and dst_saddr and properly check the
-returned dst from ip6_route_output. We now add xfrm_lookup
-call only for the tunneling method where the source address
-is a local one.
-
-Signed-off-by:Hans Schillstrom <hans.schillstrom@ericsson.com>
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
 ---
- include/net/ip_vs.h             |    4 +
- net/netfilter/ipvs/ip_vs_xmit.c |  171 +++++++++++++++++++++------------------
- 2 files changed, 96 insertions(+), 79 deletions(-)
+ include/linux/netfilter_arp/arp_tables.h  |   15 ++++----
+ include/linux/netfilter_ipv4/ip_tables.h  |   18 ++++-----
+ include/linux/netfilter_ipv6/ip6_tables.h |   20 +++++------
+ net/ipv4/netfilter/arp_tables.c           |   38 ++++++++++----------
+ net/ipv4/netfilter/ip_tables.c            |   54 ++++++++++++++--------------
+ net/ipv6/netfilter/ip6_tables.c           |   54 ++++++++++++++--------------
+ net/sched/act_ipt.c                       |   12 +++---
+ 7 files changed, 103 insertions(+), 108 deletions(-)
 
-diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index 52fbe23..6e8a619 100644
---- a/include/net/ip_vs.h
-+++ b/include/net/ip_vs.h
-@@ -529,6 +529,10 @@ struct ip_vs_dest {
- 	spinlock_t		dst_lock;	/* lock of dst_cache */
- 	struct dst_entry	*dst_cache;	/* destination cache entry */
- 	u32			dst_rtos;	/* RT_TOS(tos) for dst */
-+	u32			dst_cookie;
-+#ifdef CONFIG_IP_VS_IPV6
-+	struct in6_addr		dst_saddr;
-+#endif
+diff --git a/include/linux/netfilter_arp/arp_tables.h b/include/linux/netfilter_arp/arp_tables.h
+index 8193860..7e193c9 100644
+--- a/include/linux/netfilter_arp/arp_tables.h
++++ b/include/linux/netfilter_arp/arp_tables.h
+@@ -24,6 +24,8 @@
+ #ifndef __KERNEL__
+ #define ARPT_FUNCTION_MAXNAMELEN XT_FUNCTION_MAXNAMELEN
+ #define ARPT_TABLE_MAXNAMELEN XT_TABLE_MAXNAMELEN
++#define arpt_entry_target xt_entry_target
++#define arpt_standard_target xt_standard_target
+ #endif
  
- 	/* for virtual service */
- 	struct ip_vs_service	*svc;		/* service it belongs to */
-diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
-index 8817afa..b0bd8af 100644
---- a/net/netfilter/ipvs/ip_vs_xmit.c
-+++ b/net/netfilter/ipvs/ip_vs_xmit.c
-@@ -26,6 +26,7 @@
- #include <net/route.h>                  /* for ip_route_output */
- #include <net/ipv6.h>
- #include <net/ip6_route.h>
-+#include <net/addrconf.h>
- #include <linux/icmpv6.h>
- #include <linux/netfilter.h>
- #include <linux/netfilter_ipv4.h>
-@@ -37,26 +38,27 @@
-  *      Destination cache to speed up outgoing route lookup
-  */
- static inline void
--__ip_vs_dst_set(struct ip_vs_dest *dest, u32 rtos, struct dst_entry *dst)
-+__ip_vs_dst_set(struct ip_vs_dest *dest, u32 rtos, struct dst_entry *dst,
-+		u32 dst_cookie)
- {
- 	struct dst_entry *old_dst;
+ #define ARPT_DEV_ADDR_LEN_MAX 16
+@@ -65,9 +67,6 @@ struct arpt_arp {
+ 	u_int16_t invflags;
+ };
  
- 	old_dst = dest->dst_cache;
- 	dest->dst_cache = dst;
- 	dest->dst_rtos = rtos;
-+	dest->dst_cookie = dst_cookie;
- 	dst_release(old_dst);
- }
- 
- static inline struct dst_entry *
--__ip_vs_dst_check(struct ip_vs_dest *dest, u32 rtos, u32 cookie)
-+__ip_vs_dst_check(struct ip_vs_dest *dest, u32 rtos)
- {
- 	struct dst_entry *dst = dest->dst_cache;
- 
- 	if (!dst)
- 		return NULL;
--	if ((dst->obsolete
--	     || (dest->af == AF_INET && rtos != dest->dst_rtos)) &&
--	    dst->ops->check(dst, cookie) == NULL) {
-+	if ((dst->obsolete || rtos != dest->dst_rtos) &&
-+	    dst->ops->check(dst, dest->dst_cookie) == NULL) {
- 		dest->dst_cache = NULL;
- 		dst_release(dst);
- 		return NULL;
-@@ -66,15 +68,16 @@ __ip_vs_dst_check(struct ip_vs_dest *dest, u32 rtos, u32 cookie)
- }
- 
- static struct rtable *
--__ip_vs_get_out_rt(struct ip_vs_conn *cp, u32 rtos)
-+__ip_vs_get_out_rt(struct sk_buff *skb, struct ip_vs_conn *cp, u32 rtos)
- {
-+	struct net *net = dev_net(skb->dev);
- 	struct rtable *rt;			/* Route to the other host */
- 	struct ip_vs_dest *dest = cp->dest;
- 
- 	if (dest) {
- 		spin_lock(&dest->dst_lock);
- 		if (!(rt = (struct rtable *)
--		      __ip_vs_dst_check(dest, rtos, 0))) {
-+		      __ip_vs_dst_check(dest, rtos))) {
- 			struct flowi fl = {
- 				.oif = 0,
- 				.nl_u = {
-@@ -84,13 +87,13 @@ __ip_vs_get_out_rt(struct ip_vs_conn *cp, u32 rtos)
- 						.tos = rtos, } },
- 			};
- 
--			if (ip_route_output_key(&init_net, &rt, &fl)) {
-+			if (ip_route_output_key(net, &rt, &fl)) {
- 				spin_unlock(&dest->dst_lock);
- 				IP_VS_DBG_RL("ip_route_output error, dest: %pI4\n",
- 					     &dest->addr.ip);
- 				return NULL;
- 			}
--			__ip_vs_dst_set(dest, rtos, dst_clone(&rt->dst));
-+			__ip_vs_dst_set(dest, rtos, dst_clone(&rt->dst), 0);
- 			IP_VS_DBG(10, "new dst %pI4, refcnt=%d, rtos=%X\n",
- 				  &dest->addr.ip,
- 				  atomic_read(&rt->dst.__refcnt), rtos);
-@@ -106,7 +109,7 @@ __ip_vs_get_out_rt(struct ip_vs_conn *cp, u32 rtos)
- 					.tos = rtos, } },
- 		};
- 
--		if (ip_route_output_key(&init_net, &rt, &fl)) {
-+		if (ip_route_output_key(net, &rt, &fl)) {
- 			IP_VS_DBG_RL("ip_route_output error, dest: %pI4\n",
- 				     &cp->daddr.ip);
- 			return NULL;
-@@ -117,62 +120,79 @@ __ip_vs_get_out_rt(struct ip_vs_conn *cp, u32 rtos)
- }
- 
- #ifdef CONFIG_IP_VS_IPV6
-+
-+static struct dst_entry *
-+__ip_vs_route_output_v6(struct net *net, struct in6_addr *daddr,
-+			struct in6_addr *ret_saddr, int do_xfrm)
-+{
-+	struct dst_entry *dst;
-+	struct flowi fl = {
-+		.oif = 0,
-+		.nl_u = {
-+			.ip6_u = {
-+				.daddr = *daddr,
-+			},
-+		},
-+	};
-+
-+	dst = ip6_route_output(net, NULL, &fl);
-+	if (dst->error)
-+		goto out_err;
-+	if (!ret_saddr)
-+		return dst;
-+	if (ipv6_addr_any(&fl.fl6_src) &&
-+	    ipv6_dev_get_saddr(net, ip6_dst_idev(dst)->dev,
-+			       &fl.fl6_dst, 0, &fl.fl6_src) < 0)
-+		goto out_err;
-+	if (do_xfrm && xfrm_lookup(net, &dst, &fl, NULL, 0) < 0)
-+		goto out_err;
-+	ipv6_addr_copy(ret_saddr, &fl.fl6_src);
-+	return dst;
-+
-+out_err:
-+	dst_release(dst);
-+	IP_VS_DBG_RL("ip6_route_output error, dest: %pI6\n", daddr);
-+	return NULL;
-+}
-+
- static struct rt6_info *
--__ip_vs_get_out_rt_v6(struct ip_vs_conn *cp)
-+__ip_vs_get_out_rt_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
-+		      struct in6_addr *ret_saddr, int do_xfrm)
- {
-+	struct net *net = dev_net(skb->dev);
- 	struct rt6_info *rt;			/* Route to the other host */
- 	struct ip_vs_dest *dest = cp->dest;
-+	struct dst_entry *dst;
- 
- 	if (dest) {
- 		spin_lock(&dest->dst_lock);
--		rt = (struct rt6_info *)__ip_vs_dst_check(dest, 0, 0);
-+		rt = (struct rt6_info *)__ip_vs_dst_check(dest, 0);
- 		if (!rt) {
--			struct flowi fl = {
--				.oif = 0,
--				.nl_u = {
--					.ip6_u = {
--						.daddr = dest->addr.in6,
--						.saddr = {
--							.s6_addr32 =
--								{ 0, 0, 0, 0 },
--						},
--					},
--				},
--			};
-+			u32 cookie;
- 
--			rt = (struct rt6_info *)ip6_route_output(&init_net,
--								 NULL, &fl);
--			if (!rt) {
-+			dst = __ip_vs_route_output_v6(net, &dest->addr.in6,
-+						      &dest->dst_saddr,
-+						      do_xfrm);
-+			if (!dst) {
- 				spin_unlock(&dest->dst_lock);
--				IP_VS_DBG_RL("ip6_route_output error, dest: %pI6\n",
--					     &dest->addr.in6);
- 				return NULL;
- 			}
--			__ip_vs_dst_set(dest, 0, dst_clone(&rt->dst));
--			IP_VS_DBG(10, "new dst %pI6, refcnt=%d\n",
--				  &dest->addr.in6,
-+			rt = (struct rt6_info *) dst;
-+			cookie = rt->rt6i_node ? rt->rt6i_node->fn_sernum : 0;
-+			__ip_vs_dst_set(dest, 0, dst_clone(&rt->dst), cookie);
-+			IP_VS_DBG(10, "new dst %pI6, src %pI6, refcnt=%d\n",
-+				  &dest->addr.in6, &dest->dst_saddr,
- 				  atomic_read(&rt->dst.__refcnt));
- 		}
-+		if (ret_saddr)
-+			ipv6_addr_copy(ret_saddr, &dest->dst_saddr);
- 		spin_unlock(&dest->dst_lock);
- 	} else {
--		struct flowi fl = {
--			.oif = 0,
--			.nl_u = {
--				.ip6_u = {
--					.daddr = cp->daddr.in6,
--					.saddr = {
--						.s6_addr32 = { 0, 0, 0, 0 },
--					},
--				},
--			},
--		};
+-#define arpt_entry_target xt_entry_target
+-#define arpt_standard_target xt_standard_target
 -
--		rt = (struct rt6_info *)ip6_route_output(&init_net, NULL, &fl);
--		if (!rt) {
--			IP_VS_DBG_RL("ip6_route_output error, dest: %pI6\n",
--				     &cp->daddr.in6);
-+		dst = __ip_vs_route_output_v6(net, &cp->daddr.in6, ret_saddr,
-+					      do_xfrm);
-+		if (!dst)
- 			return NULL;
--		}
-+		rt = (struct rt6_info *) dst;
- 	}
+ /* Values for "flag" field in struct arpt_ip (general arp structure).
+  * No flags defined yet.
+  */
+@@ -208,7 +207,7 @@ struct arpt_get_entries {
+ #define ARPT_ERROR_TARGET XT_ERROR_TARGET
  
- 	return rt;
-@@ -248,6 +268,7 @@ int
- ip_vs_bypass_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
- 		  struct ip_vs_protocol *pp)
+ /* Helper functions */
+-static __inline__ struct arpt_entry_target *arpt_get_target(struct arpt_entry *e)
++static __inline__ struct xt_entry_target *arpt_get_target(struct arpt_entry *e)
  {
-+	struct net *net = dev_net(skb->dev);
- 	struct rtable *rt;			/* Route to the other host */
- 	struct iphdr  *iph = ip_hdr(skb);
- 	u8     tos = iph->tos;
-@@ -263,7 +284,7 @@ ip_vs_bypass_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 	return (void *)e + e->target_offset;
+ }
+@@ -227,11 +226,11 @@ static __inline__ struct arpt_entry_target *arpt_get_target(struct arpt_entry *e
+ /* Standard entry. */
+ struct arpt_standard {
+ 	struct arpt_entry entry;
+-	struct arpt_standard_target target;
++	struct xt_standard_target target;
+ };
  
- 	EnterFunction(10);
+ struct arpt_error_target {
+-	struct arpt_entry_target target;
++	struct xt_entry_target target;
+ 	char errorname[XT_FUNCTION_MAXNAMELEN];
+ };
  
--	if (ip_route_output_key(&init_net, &rt, &fl)) {
-+	if (ip_route_output_key(net, &rt, &fl)) {
- 		IP_VS_DBG_RL("%s(): ip_route_output error, dest: %pI4\n",
- 			     __func__, &iph->daddr);
- 		goto tx_error_icmp;
-@@ -313,25 +334,18 @@ int
- ip_vs_bypass_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
- 		     struct ip_vs_protocol *pp)
+@@ -250,7 +249,7 @@ struct arpt_error {
+ {									       \
+ 	.entry		= ARPT_ENTRY_INIT(sizeof(struct arpt_standard)),       \
+ 	.target		= XT_TARGET_INIT(ARPT_STANDARD_TARGET,		       \
+-					 sizeof(struct arpt_standard_target)), \
++					 sizeof(struct xt_standard_target)), \
+ 	.target.verdict	= -(__verdict) - 1,				       \
+ }
+ 
+@@ -287,7 +286,7 @@ struct compat_arpt_entry {
+ 	unsigned char elems[0];
+ };
+ 
+-static inline struct arpt_entry_target *
++static inline struct xt_entry_target *
+ compat_arpt_get_target(struct compat_arpt_entry *e)
  {
-+	struct net *net = dev_net(skb->dev);
-+	struct dst_entry *dst;
- 	struct rt6_info *rt;			/* Route to the other host */
- 	struct ipv6hdr  *iph = ipv6_hdr(skb);
- 	int    mtu;
--	struct flowi fl = {
--		.oif = 0,
--		.nl_u = {
--			.ip6_u = {
--				.daddr = iph->daddr,
--				.saddr = { .s6_addr32 = {0, 0, 0, 0} }, } },
--	};
+ 	return (void *)e + e->target_offset;
+diff --git a/include/linux/netfilter_ipv4/ip_tables.h b/include/linux/netfilter_ipv4/ip_tables.h
+index 1b7cdf1..ec50691 100644
+--- a/include/linux/netfilter_ipv4/ip_tables.h
++++ b/include/linux/netfilter_ipv4/ip_tables.h
+@@ -34,6 +34,10 @@
+ #define ipt_target xt_target
+ #define ipt_table xt_table
+ #define ipt_get_revision xt_get_revision
++#define ipt_entry_match xt_entry_match
++#define ipt_entry_target xt_entry_target
++#define ipt_standard_target xt_standard_target
++#define ipt_counters xt_counters
+ #endif
  
- 	EnterFunction(10);
+ /* Yes, Virginia, you have to zero the padding. */
+@@ -54,12 +58,6 @@ struct ipt_ip {
+ 	u_int8_t invflags;
+ };
  
--	rt = (struct rt6_info *)ip6_route_output(&init_net, NULL, &fl);
--	if (!rt) {
--		IP_VS_DBG_RL("%s(): ip6_route_output error, dest: %pI6\n",
--			     __func__, &iph->daddr);
-+	dst = __ip_vs_route_output_v6(net, &iph->daddr, NULL, 0);
-+	if (!dst)
- 		goto tx_error_icmp;
--	}
-+	rt = (struct rt6_info *) dst;
+-#define ipt_entry_match xt_entry_match
+-#define ipt_entry_target xt_entry_target
+-#define ipt_standard_target xt_standard_target
+-
+-#define ipt_counters xt_counters
+-
+ /* Values for "flag" field in struct ipt_ip (general ip structure). */
+ #define IPT_F_FRAG		0x01	/* Set if rule is a fragment rule */
+ #define IPT_F_GOTO		0x02	/* Set if jump is a goto */
+@@ -219,7 +217,7 @@ struct ipt_get_entries {
+ #define IPT_ERROR_TARGET XT_ERROR_TARGET
  
- 	/* MTU checking */
- 	mtu = dst_mtu(&rt->dst);
-@@ -397,7 +411,7 @@ ip_vs_nat_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
- 		IP_VS_DBG(10, "filled cport=%d\n", ntohs(*p));
- 	}
- 
--	if (!(rt = __ip_vs_get_out_rt(cp, RT_TOS(iph->tos))))
-+	if (!(rt = __ip_vs_get_out_rt(skb, cp, RT_TOS(iph->tos))))
- 		goto tx_error_icmp;
- 
- 	/* MTU checking */
-@@ -472,7 +486,7 @@ ip_vs_nat_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
- 		IP_VS_DBG(10, "filled cport=%d\n", ntohs(*p));
- 	}
- 
--	rt = __ip_vs_get_out_rt_v6(cp);
-+	rt = __ip_vs_get_out_rt_v6(skb, cp, NULL, 0);
- 	if (!rt)
- 		goto tx_error_icmp;
- 
-@@ -557,7 +571,6 @@ ip_vs_tunnel_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
- 	struct iphdr  *old_iph = ip_hdr(skb);
- 	u8     tos = old_iph->tos;
- 	__be16 df = old_iph->frag_off;
--	sk_buff_data_t old_transport_header = skb->transport_header;
- 	struct iphdr  *iph;			/* Our new IP header */
- 	unsigned int max_headroom;		/* The extra header space needed */
- 	int    mtu;
-@@ -572,7 +585,7 @@ ip_vs_tunnel_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
- 		goto tx_error;
- 	}
- 
--	if (!(rt = __ip_vs_get_out_rt(cp, RT_TOS(tos))))
-+	if (!(rt = __ip_vs_get_out_rt(skb, cp, RT_TOS(tos))))
- 		goto tx_error_icmp;
- 
- 	tdev = rt->dst.dev;
-@@ -616,7 +629,7 @@ ip_vs_tunnel_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
- 		old_iph = ip_hdr(skb);
- 	}
- 
--	skb->transport_header = old_transport_header;
-+	skb->transport_header = skb->network_header;
- 
- 	/* fix old IP header checksum */
- 	ip_send_check(old_iph);
-@@ -670,9 +683,9 @@ ip_vs_tunnel_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
- 		     struct ip_vs_protocol *pp)
+ /* Helper functions */
+-static __inline__ struct ipt_entry_target *
++static __inline__ struct xt_entry_target *
+ ipt_get_target(struct ipt_entry *e)
  {
- 	struct rt6_info *rt;		/* Route to the other host */
-+	struct in6_addr saddr;		/* Source for tunnel */
- 	struct net_device *tdev;	/* Device to other host */
- 	struct ipv6hdr  *old_iph = ipv6_hdr(skb);
--	sk_buff_data_t old_transport_header = skb->transport_header;
- 	struct ipv6hdr  *iph;		/* Our new IP header */
- 	unsigned int max_headroom;	/* The extra header space needed */
- 	int    mtu;
-@@ -687,17 +700,17 @@ ip_vs_tunnel_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
- 		goto tx_error;
+ 	return (void *)e + e->target_offset;
+@@ -251,11 +249,11 @@ extern void ipt_unregister_table(struct net *net, struct xt_table *table);
+ /* Standard entry. */
+ struct ipt_standard {
+ 	struct ipt_entry entry;
+-	struct ipt_standard_target target;
++	struct xt_standard_target target;
+ };
+ 
+ struct ipt_error_target {
+-	struct ipt_entry_target target;
++	struct xt_entry_target target;
+ 	char errorname[XT_FUNCTION_MAXNAMELEN];
+ };
+ 
+@@ -309,7 +307,7 @@ struct compat_ipt_entry {
+ };
+ 
+ /* Helper functions */
+-static inline struct ipt_entry_target *
++static inline struct xt_entry_target *
+ compat_ipt_get_target(struct compat_ipt_entry *e)
+ {
+ 	return (void *)e + e->target_offset;
+diff --git a/include/linux/netfilter_ipv6/ip6_tables.h b/include/linux/netfilter_ipv6/ip6_tables.h
+index abe31d0..40d11fa 100644
+--- a/include/linux/netfilter_ipv6/ip6_tables.h
++++ b/include/linux/netfilter_ipv6/ip6_tables.h
+@@ -34,6 +34,10 @@
+ #define ip6t_target xt_target
+ #define ip6t_table xt_table
+ #define ip6t_get_revision xt_get_revision
++#define ip6t_entry_match xt_entry_match
++#define ip6t_entry_target xt_entry_target
++#define ip6t_standard_target xt_standard_target
++#define ip6t_counters xt_counters
+ #endif
+ 
+ /* Yes, Virginia, you have to zero the padding. */
+@@ -63,12 +67,6 @@ struct ip6t_ip6 {
+ 	u_int8_t invflags;
+ };
+ 
+-#define ip6t_entry_match xt_entry_match
+-#define ip6t_entry_target xt_entry_target
+-#define ip6t_standard_target xt_standard_target
+-
+-#define ip6t_counters	xt_counters
+-
+ /* Values for "flag" field in struct ip6t_ip6 (general ip6 structure). */
+ #define IP6T_F_PROTO		0x01	/* Set if rule cares about upper 
+ 					   protocols */
+@@ -113,11 +111,11 @@ struct ip6t_entry {
+ /* Standard entry */
+ struct ip6t_standard {
+ 	struct ip6t_entry entry;
+-	struct ip6t_standard_target target;
++	struct xt_standard_target target;
+ };
+ 
+ struct ip6t_error_target {
+-	struct ip6t_entry_target target;
++	struct xt_entry_target target;
+ 	char errorname[XT_FUNCTION_MAXNAMELEN];
+ };
+ 
+@@ -136,7 +134,7 @@ struct ip6t_error {
+ {									       \
+ 	.entry		= IP6T_ENTRY_INIT(sizeof(struct ip6t_standard)),       \
+ 	.target		= XT_TARGET_INIT(IP6T_STANDARD_TARGET,		       \
+-					 sizeof(struct ip6t_standard_target)), \
++					 sizeof(struct xt_standard_target)),   \
+ 	.target.verdict	= -(__verdict) - 1,				       \
+ }
+ 
+@@ -275,7 +273,7 @@ struct ip6t_get_entries {
+ #define IP6T_ERROR_TARGET XT_ERROR_TARGET
+ 
+ /* Helper functions */
+-static __inline__ struct ip6t_entry_target *
++static __inline__ struct xt_entry_target *
+ ip6t_get_target(struct ip6t_entry *e)
+ {
+ 	return (void *)e + e->target_offset;
+@@ -332,7 +330,7 @@ struct compat_ip6t_entry {
+ 	unsigned char elems[0];
+ };
+ 
+-static inline struct ip6t_entry_target *
++static inline struct xt_entry_target *
+ compat_ip6t_get_target(struct compat_ip6t_entry *e)
+ {
+ 	return (void *)e + e->target_offset;
+diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
+index e427a9e..ed178cb 100644
+--- a/net/ipv4/netfilter/arp_tables.c
++++ b/net/ipv4/netfilter/arp_tables.c
+@@ -228,7 +228,7 @@ arpt_error(struct sk_buff *skb, const struct xt_action_param *par)
+ 	return NF_DROP;
+ }
+ 
+-static inline const struct arpt_entry_target *
++static inline const struct xt_entry_target *
+ arpt_get_target_c(const struct arpt_entry *e)
+ {
+ 	return arpt_get_target((struct arpt_entry *)e);
+@@ -282,7 +282,7 @@ unsigned int arpt_do_table(struct sk_buff *skb,
+ 
+ 	arp = arp_hdr(skb);
+ 	do {
+-		const struct arpt_entry_target *t;
++		const struct xt_entry_target *t;
+ 
+ 		if (!arp_packet_match(arp, skb->dev, indev, outdev, &e->arp)) {
+ 			e = arpt_next_entry(e);
+@@ -297,7 +297,7 @@ unsigned int arpt_do_table(struct sk_buff *skb,
+ 		if (!t->u.kernel.target->target) {
+ 			int v;
+ 
+-			v = ((struct arpt_standard_target *)t)->verdict;
++			v = ((struct xt_standard_target *)t)->verdict;
+ 			if (v < 0) {
+ 				/* Pop from stack? */
+ 				if (v != ARPT_RETURN) {
+@@ -377,7 +377,7 @@ static int mark_source_chains(const struct xt_table_info *newinfo,
+ 		e->counters.pcnt = pos;
+ 
+ 		for (;;) {
+-			const struct arpt_standard_target *t
++			const struct xt_standard_target *t
+ 				= (void *)arpt_get_target_c(e);
+ 			int visited = e->comefrom & (1 << hook);
+ 
+@@ -464,14 +464,14 @@ static int mark_source_chains(const struct xt_table_info *newinfo,
+ 
+ static inline int check_entry(const struct arpt_entry *e, const char *name)
+ {
+-	const struct arpt_entry_target *t;
++	const struct xt_entry_target *t;
+ 
+ 	if (!arp_checkentry(&e->arp)) {
+ 		duprintf("arp_tables: arp check failed %p %s.\n", e, name);
+ 		return -EINVAL;
  	}
  
--	rt = __ip_vs_get_out_rt_v6(cp);
-+	rt = __ip_vs_get_out_rt_v6(skb, cp, &saddr, 1);
- 	if (!rt)
- 		goto tx_error_icmp;
+-	if (e->target_offset + sizeof(struct arpt_entry_target) > e->next_offset)
++	if (e->target_offset + sizeof(struct xt_entry_target) > e->next_offset)
+ 		return -EINVAL;
  
- 	tdev = rt->dst.dev;
+ 	t = arpt_get_target_c(e);
+@@ -483,7 +483,7 @@ static inline int check_entry(const struct arpt_entry *e, const char *name)
  
- 	mtu = dst_mtu(&rt->dst) - sizeof(struct ipv6hdr);
--	/* TODO IPv6: do we need this check in IPv6? */
--	if (mtu < 1280) {
-+	if (mtu < IPV6_MIN_MTU) {
- 		dst_release(&rt->dst);
--		IP_VS_DBG_RL("%s(): mtu less than 1280\n", __func__);
-+		IP_VS_DBG_RL("%s(): mtu less than %d\n", __func__,
-+			     IPV6_MIN_MTU);
- 		goto tx_error;
+ static inline int check_target(struct arpt_entry *e, const char *name)
+ {
+-	struct arpt_entry_target *t = arpt_get_target(e);
++	struct xt_entry_target *t = arpt_get_target(e);
+ 	int ret;
+ 	struct xt_tgchk_param par = {
+ 		.table     = name,
+@@ -506,7 +506,7 @@ static inline int check_target(struct arpt_entry *e, const char *name)
+ static inline int
+ find_check_entry(struct arpt_entry *e, const char *name, unsigned int size)
+ {
+-	struct arpt_entry_target *t;
++	struct xt_entry_target *t;
+ 	struct xt_target *target;
+ 	int ret;
+ 
+@@ -536,7 +536,7 @@ out:
+ 
+ static bool check_underflow(const struct arpt_entry *e)
+ {
+-	const struct arpt_entry_target *t;
++	const struct xt_entry_target *t;
+ 	unsigned int verdict;
+ 
+ 	if (!unconditional(&e->arp))
+@@ -544,7 +544,7 @@ static bool check_underflow(const struct arpt_entry *e)
+ 	t = arpt_get_target_c(e);
+ 	if (strcmp(t->u.user.name, XT_STANDARD_TARGET) != 0)
+ 		return false;
+-	verdict = ((struct arpt_standard_target *)t)->verdict;
++	verdict = ((struct xt_standard_target *)t)->verdict;
+ 	verdict = -verdict - 1;
+ 	return verdict == NF_DROP || verdict == NF_ACCEPT;
+ }
+@@ -566,7 +566,7 @@ static inline int check_entry_size_and_hooks(struct arpt_entry *e,
  	}
- 	if (skb_dst(skb))
-@@ -730,7 +743,7 @@ ip_vs_tunnel_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
- 		old_iph = ipv6_hdr(skb);
+ 
+ 	if (e->next_offset
+-	    < sizeof(struct arpt_entry) + sizeof(struct arpt_entry_target)) {
++	    < sizeof(struct arpt_entry) + sizeof(struct xt_entry_target)) {
+ 		duprintf("checking: element %p size %u\n",
+ 			 e, e->next_offset);
+ 		return -EINVAL;
+@@ -598,7 +598,7 @@ static inline int check_entry_size_and_hooks(struct arpt_entry *e,
+ static inline void cleanup_entry(struct arpt_entry *e)
+ {
+ 	struct xt_tgdtor_param par;
+-	struct arpt_entry_target *t;
++	struct xt_entry_target *t;
+ 
+ 	t = arpt_get_target(e);
+ 	par.target   = t->u.kernel.target;
+@@ -794,7 +794,7 @@ static int copy_entries_to_user(unsigned int total_size,
+ 	/* FIXME: use iterator macros --RR */
+ 	/* ... then go back and fix counters and names */
+ 	for (off = 0, num = 0; off < total_size; off += e->next_offset, num++){
+-		const struct arpt_entry_target *t;
++		const struct xt_entry_target *t;
+ 
+ 		e = (struct arpt_entry *)(loc_cpu_entry + off);
+ 		if (copy_to_user(userptr + off
+@@ -807,7 +807,7 @@ static int copy_entries_to_user(unsigned int total_size,
+ 
+ 		t = arpt_get_target_c(e);
+ 		if (copy_to_user(userptr + off + e->target_offset
+-				 + offsetof(struct arpt_entry_target,
++				 + offsetof(struct xt_entry_target,
+ 					    u.user.name),
+ 				 t->u.kernel.target->name,
+ 				 strlen(t->u.kernel.target->name)+1) != 0) {
+@@ -844,7 +844,7 @@ static int compat_calc_entry(const struct arpt_entry *e,
+ 			     const struct xt_table_info *info,
+ 			     const void *base, struct xt_table_info *newinfo)
+ {
+-	const struct arpt_entry_target *t;
++	const struct xt_entry_target *t;
+ 	unsigned int entry_offset;
+ 	int off, i, ret;
+ 
+@@ -1204,7 +1204,7 @@ static int do_add_counters(struct net *net, const void __user *user,
+ #ifdef CONFIG_COMPAT
+ static inline void compat_release_entry(struct compat_arpt_entry *e)
+ {
+-	struct arpt_entry_target *t;
++	struct xt_entry_target *t;
+ 
+ 	t = compat_arpt_get_target(e);
+ 	module_put(t->u.kernel.target->me);
+@@ -1220,7 +1220,7 @@ check_compat_entry_size_and_hooks(struct compat_arpt_entry *e,
+ 				  const unsigned int *underflows,
+ 				  const char *name)
+ {
+-	struct arpt_entry_target *t;
++	struct xt_entry_target *t;
+ 	struct xt_target *target;
+ 	unsigned int entry_offset;
+ 	int ret, off, h;
+@@ -1288,7 +1288,7 @@ compat_copy_entry_from_user(struct compat_arpt_entry *e, void **dstptr,
+ 			    unsigned int *size, const char *name,
+ 			    struct xt_table_info *newinfo, unsigned char *base)
+ {
+-	struct arpt_entry_target *t;
++	struct xt_entry_target *t;
+ 	struct xt_target *target;
+ 	struct arpt_entry *de;
+ 	unsigned int origsize;
+@@ -1567,7 +1567,7 @@ static int compat_copy_entry_to_user(struct arpt_entry *e, void __user **dstptr,
+ 				     struct xt_counters *counters,
+ 				     unsigned int i)
+ {
+-	struct arpt_entry_target *t;
++	struct xt_entry_target *t;
+ 	struct compat_arpt_entry __user *ce;
+ 	u_int16_t target_offset, next_offset;
+ 	compat_uint_t origsize;
+diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
+index 2efd41b..cb10888 100644
+--- a/net/ipv4/netfilter/ip_tables.c
++++ b/net/ipv4/netfilter/ip_tables.c
+@@ -186,7 +186,7 @@ static inline bool unconditional(const struct ipt_ip *ip)
+ }
+ 
+ /* for const-correctness */
+-static inline const struct ipt_entry_target *
++static inline const struct xt_entry_target *
+ ipt_get_target_c(const struct ipt_entry *e)
+ {
+ 	return ipt_get_target((struct ipt_entry *)e);
+@@ -230,7 +230,7 @@ get_chainname_rulenum(const struct ipt_entry *s, const struct ipt_entry *e,
+ 		      const char *hookname, const char **chainname,
+ 		      const char **comment, unsigned int *rulenum)
+ {
+-	const struct ipt_standard_target *t = (void *)ipt_get_target_c(s);
++	const struct xt_standard_target *t = (void *)ipt_get_target_c(s);
+ 
+ 	if (strcmp(t->target.u.kernel.target->name, IPT_ERROR_TARGET) == 0) {
+ 		/* Head of user chain: ERROR target with chainname */
+@@ -346,7 +346,7 @@ ipt_do_table(struct sk_buff *skb,
+ 		 get_entry(table_base, private->underflow[hook]));
+ 
+ 	do {
+-		const struct ipt_entry_target *t;
++		const struct xt_entry_target *t;
+ 		const struct xt_entry_match *ematch;
+ 
+ 		IP_NF_ASSERT(e);
+@@ -380,7 +380,7 @@ ipt_do_table(struct sk_buff *skb,
+ 		if (!t->u.kernel.target->target) {
+ 			int v;
+ 
+-			v = ((struct ipt_standard_target *)t)->verdict;
++			v = ((struct xt_standard_target *)t)->verdict;
+ 			if (v < 0) {
+ 				/* Pop from stack? */
+ 				if (v != IPT_RETURN) {
+@@ -461,7 +461,7 @@ mark_source_chains(const struct xt_table_info *newinfo,
+ 		e->counters.pcnt = pos;
+ 
+ 		for (;;) {
+-			const struct ipt_standard_target *t
++			const struct xt_standard_target *t
+ 				= (void *)ipt_get_target_c(e);
+ 			int visited = e->comefrom & (1 << hook);
+ 
+@@ -552,7 +552,7 @@ mark_source_chains(const struct xt_table_info *newinfo,
+ 	return 1;
+ }
+ 
+-static void cleanup_match(struct ipt_entry_match *m, struct net *net)
++static void cleanup_match(struct xt_entry_match *m, struct net *net)
+ {
+ 	struct xt_mtdtor_param par;
+ 
+@@ -568,14 +568,14 @@ static void cleanup_match(struct ipt_entry_match *m, struct net *net)
+ static int
+ check_entry(const struct ipt_entry *e, const char *name)
+ {
+-	const struct ipt_entry_target *t;
++	const struct xt_entry_target *t;
+ 
+ 	if (!ip_checkentry(&e->ip)) {
+ 		duprintf("ip check failed %p %s.\n", e, par->match->name);
+ 		return -EINVAL;
  	}
  
--	skb->transport_header = old_transport_header;
-+	skb->transport_header = skb->network_header;
+-	if (e->target_offset + sizeof(struct ipt_entry_target) >
++	if (e->target_offset + sizeof(struct xt_entry_target) >
+ 	    e->next_offset)
+ 		return -EINVAL;
  
- 	skb_push(skb, sizeof(struct ipv6hdr));
- 	skb_reset_network_header(skb);
-@@ -750,8 +763,8 @@ ip_vs_tunnel_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
- 	be16_add_cpu(&iph->payload_len, sizeof(*old_iph));
- 	iph->priority		=	old_iph->priority;
- 	memset(&iph->flow_lbl, 0, sizeof(iph->flow_lbl));
--	iph->daddr		=	rt->rt6i_dst.addr;
--	iph->saddr		=	cp->vaddr.in6; /* rt->rt6i_src.addr; */
-+	ipv6_addr_copy(&iph->daddr, &cp->daddr.in6);
-+	ipv6_addr_copy(&iph->saddr, &saddr);
- 	iph->hop_limit		=	old_iph->hop_limit;
+@@ -587,7 +587,7 @@ check_entry(const struct ipt_entry *e, const char *name)
+ }
  
- 	/* Another hack: avoid icmp_send in ip_fragment */
-@@ -791,7 +804,7 @@ ip_vs_dr_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
+ static int
+-check_match(struct ipt_entry_match *m, struct xt_mtchk_param *par)
++check_match(struct xt_entry_match *m, struct xt_mtchk_param *par)
+ {
+ 	const struct ipt_ip *ip = par->entryinfo;
+ 	int ret;
+@@ -605,7 +605,7 @@ check_match(struct ipt_entry_match *m, struct xt_mtchk_param *par)
+ }
  
- 	EnterFunction(10);
+ static int
+-find_check_match(struct ipt_entry_match *m, struct xt_mtchk_param *par)
++find_check_match(struct xt_entry_match *m, struct xt_mtchk_param *par)
+ {
+ 	struct xt_match *match;
+ 	int ret;
+@@ -630,7 +630,7 @@ err:
  
--	if (!(rt = __ip_vs_get_out_rt(cp, RT_TOS(iph->tos))))
-+	if (!(rt = __ip_vs_get_out_rt(skb, cp, RT_TOS(iph->tos))))
- 		goto tx_error_icmp;
+ static int check_target(struct ipt_entry *e, struct net *net, const char *name)
+ {
+-	struct ipt_entry_target *t = ipt_get_target(e);
++	struct xt_entry_target *t = ipt_get_target(e);
+ 	struct xt_tgchk_param par = {
+ 		.net       = net,
+ 		.table     = name,
+@@ -656,7 +656,7 @@ static int
+ find_check_entry(struct ipt_entry *e, struct net *net, const char *name,
+ 		 unsigned int size)
+ {
+-	struct ipt_entry_target *t;
++	struct xt_entry_target *t;
+ 	struct xt_target *target;
+ 	int ret;
+ 	unsigned int j;
+@@ -707,7 +707,7 @@ find_check_entry(struct ipt_entry *e, struct net *net, const char *name,
  
- 	/* MTU checking */
-@@ -843,7 +856,7 @@ ip_vs_dr_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+ static bool check_underflow(const struct ipt_entry *e)
+ {
+-	const struct ipt_entry_target *t;
++	const struct xt_entry_target *t;
+ 	unsigned int verdict;
  
- 	EnterFunction(10);
+ 	if (!unconditional(&e->ip))
+@@ -715,7 +715,7 @@ static bool check_underflow(const struct ipt_entry *e)
+ 	t = ipt_get_target_c(e);
+ 	if (strcmp(t->u.user.name, XT_STANDARD_TARGET) != 0)
+ 		return false;
+-	verdict = ((struct ipt_standard_target *)t)->verdict;
++	verdict = ((struct xt_standard_target *)t)->verdict;
+ 	verdict = -verdict - 1;
+ 	return verdict == NF_DROP || verdict == NF_ACCEPT;
+ }
+@@ -738,7 +738,7 @@ check_entry_size_and_hooks(struct ipt_entry *e,
+ 	}
  
--	rt = __ip_vs_get_out_rt_v6(cp);
-+	rt = __ip_vs_get_out_rt_v6(skb, cp, NULL, 0);
- 	if (!rt)
- 		goto tx_error_icmp;
+ 	if (e->next_offset
+-	    < sizeof(struct ipt_entry) + sizeof(struct ipt_entry_target)) {
++	    < sizeof(struct ipt_entry) + sizeof(struct xt_entry_target)) {
+ 		duprintf("checking: element %p size %u\n",
+ 			 e, e->next_offset);
+ 		return -EINVAL;
+@@ -771,7 +771,7 @@ static void
+ cleanup_entry(struct ipt_entry *e, struct net *net)
+ {
+ 	struct xt_tgdtor_param par;
+-	struct ipt_entry_target *t;
++	struct xt_entry_target *t;
+ 	struct xt_entry_match *ematch;
  
-@@ -919,7 +932,7 @@ ip_vs_icmp_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
- 	 * mangle and send the packet here (only for VS/NAT)
- 	 */
+ 	/* Cleanup all matches */
+@@ -972,8 +972,8 @@ copy_entries_to_user(unsigned int total_size,
+ 	/* ... then go back and fix counters and names */
+ 	for (off = 0, num = 0; off < total_size; off += e->next_offset, num++){
+ 		unsigned int i;
+-		const struct ipt_entry_match *m;
+-		const struct ipt_entry_target *t;
++		const struct xt_entry_match *m;
++		const struct xt_entry_target *t;
  
--	if (!(rt = __ip_vs_get_out_rt(cp, RT_TOS(ip_hdr(skb)->tos))))
-+	if (!(rt = __ip_vs_get_out_rt(skb, cp, RT_TOS(ip_hdr(skb)->tos))))
- 		goto tx_error_icmp;
+ 		e = (struct ipt_entry *)(loc_cpu_entry + off);
+ 		if (copy_to_user(userptr + off
+@@ -990,7 +990,7 @@ copy_entries_to_user(unsigned int total_size,
+ 			m = (void *)e + i;
  
- 	/* MTU checking */
-@@ -993,7 +1006,7 @@ ip_vs_icmp_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
- 	 * mangle and send the packet here (only for VS/NAT)
- 	 */
+ 			if (copy_to_user(userptr + off + i
+-					 + offsetof(struct ipt_entry_match,
++					 + offsetof(struct xt_entry_match,
+ 						    u.user.name),
+ 					 m->u.kernel.match->name,
+ 					 strlen(m->u.kernel.match->name)+1)
+@@ -1002,7 +1002,7 @@ copy_entries_to_user(unsigned int total_size,
  
--	rt = __ip_vs_get_out_rt_v6(cp);
-+	rt = __ip_vs_get_out_rt_v6(skb, cp, NULL, 0);
- 	if (!rt)
- 		goto tx_error_icmp;
+ 		t = ipt_get_target_c(e);
+ 		if (copy_to_user(userptr + off + e->target_offset
+-				 + offsetof(struct ipt_entry_target,
++				 + offsetof(struct xt_entry_target,
+ 					    u.user.name),
+ 				 t->u.kernel.target->name,
+ 				 strlen(t->u.kernel.target->name)+1) != 0) {
+@@ -1040,7 +1040,7 @@ static int compat_calc_entry(const struct ipt_entry *e,
+ 			     const void *base, struct xt_table_info *newinfo)
+ {
+ 	const struct xt_entry_match *ematch;
+-	const struct ipt_entry_target *t;
++	const struct xt_entry_target *t;
+ 	unsigned int entry_offset;
+ 	int off, i, ret;
+ 
+@@ -1407,7 +1407,7 @@ struct compat_ipt_replace {
+ 	u32			hook_entry[NF_INET_NUMHOOKS];
+ 	u32			underflow[NF_INET_NUMHOOKS];
+ 	u32			num_counters;
+-	compat_uptr_t		counters;	/* struct ipt_counters * */
++	compat_uptr_t		counters;	/* struct xt_counters * */
+ 	struct compat_ipt_entry	entries[0];
+ };
+ 
+@@ -1416,7 +1416,7 @@ compat_copy_entry_to_user(struct ipt_entry *e, void __user **dstptr,
+ 			  unsigned int *size, struct xt_counters *counters,
+ 			  unsigned int i)
+ {
+-	struct ipt_entry_target *t;
++	struct xt_entry_target *t;
+ 	struct compat_ipt_entry __user *ce;
+ 	u_int16_t target_offset, next_offset;
+ 	compat_uint_t origsize;
+@@ -1451,7 +1451,7 @@ compat_copy_entry_to_user(struct ipt_entry *e, void __user **dstptr,
+ }
+ 
+ static int
+-compat_find_calc_match(struct ipt_entry_match *m,
++compat_find_calc_match(struct xt_entry_match *m,
+ 		       const char *name,
+ 		       const struct ipt_ip *ip,
+ 		       unsigned int hookmask,
+@@ -1473,7 +1473,7 @@ compat_find_calc_match(struct ipt_entry_match *m,
+ 
+ static void compat_release_entry(struct compat_ipt_entry *e)
+ {
+-	struct ipt_entry_target *t;
++	struct xt_entry_target *t;
+ 	struct xt_entry_match *ematch;
+ 
+ 	/* Cleanup all matches */
+@@ -1494,7 +1494,7 @@ check_compat_entry_size_and_hooks(struct compat_ipt_entry *e,
+ 				  const char *name)
+ {
+ 	struct xt_entry_match *ematch;
+-	struct ipt_entry_target *t;
++	struct xt_entry_target *t;
+ 	struct xt_target *target;
+ 	unsigned int entry_offset;
+ 	unsigned int j;
+@@ -1576,7 +1576,7 @@ compat_copy_entry_from_user(struct compat_ipt_entry *e, void **dstptr,
+ 			    unsigned int *size, const char *name,
+ 			    struct xt_table_info *newinfo, unsigned char *base)
+ {
+-	struct ipt_entry_target *t;
++	struct xt_entry_target *t;
+ 	struct xt_target *target;
+ 	struct ipt_entry *de;
+ 	unsigned int origsize;
+diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
+index 4b973e1..c7334c1 100644
+--- a/net/ipv6/netfilter/ip6_tables.c
++++ b/net/ipv6/netfilter/ip6_tables.c
+@@ -215,7 +215,7 @@ static inline bool unconditional(const struct ip6t_ip6 *ipv6)
+ 	return memcmp(ipv6, &uncond, sizeof(uncond)) == 0;
+ }
+ 
+-static inline const struct ip6t_entry_target *
++static inline const struct xt_entry_target *
+ ip6t_get_target_c(const struct ip6t_entry *e)
+ {
+ 	return ip6t_get_target((struct ip6t_entry *)e);
+@@ -260,7 +260,7 @@ get_chainname_rulenum(const struct ip6t_entry *s, const struct ip6t_entry *e,
+ 		      const char *hookname, const char **chainname,
+ 		      const char **comment, unsigned int *rulenum)
+ {
+-	const struct ip6t_standard_target *t = (void *)ip6t_get_target_c(s);
++	const struct xt_standard_target *t = (void *)ip6t_get_target_c(s);
+ 
+ 	if (strcmp(t->target.u.kernel.target->name, IP6T_ERROR_TARGET) == 0) {
+ 		/* Head of user chain: ERROR target with chainname */
+@@ -369,7 +369,7 @@ ip6t_do_table(struct sk_buff *skb,
+ 	e = get_entry(table_base, private->hook_entry[hook]);
+ 
+ 	do {
+-		const struct ip6t_entry_target *t;
++		const struct xt_entry_target *t;
+ 		const struct xt_entry_match *ematch;
+ 
+ 		IP_NF_ASSERT(e);
+@@ -403,7 +403,7 @@ ip6t_do_table(struct sk_buff *skb,
+ 		if (!t->u.kernel.target->target) {
+ 			int v;
+ 
+-			v = ((struct ip6t_standard_target *)t)->verdict;
++			v = ((struct xt_standard_target *)t)->verdict;
+ 			if (v < 0) {
+ 				/* Pop from stack? */
+ 				if (v != IP6T_RETURN) {
+@@ -474,7 +474,7 @@ mark_source_chains(const struct xt_table_info *newinfo,
+ 		e->counters.pcnt = pos;
+ 
+ 		for (;;) {
+-			const struct ip6t_standard_target *t
++			const struct xt_standard_target *t
+ 				= (void *)ip6t_get_target_c(e);
+ 			int visited = e->comefrom & (1 << hook);
+ 
+@@ -565,7 +565,7 @@ mark_source_chains(const struct xt_table_info *newinfo,
+ 	return 1;
+ }
+ 
+-static void cleanup_match(struct ip6t_entry_match *m, struct net *net)
++static void cleanup_match(struct xt_entry_match *m, struct net *net)
+ {
+ 	struct xt_mtdtor_param par;
+ 
+@@ -581,14 +581,14 @@ static void cleanup_match(struct ip6t_entry_match *m, struct net *net)
+ static int
+ check_entry(const struct ip6t_entry *e, const char *name)
+ {
+-	const struct ip6t_entry_target *t;
++	const struct xt_entry_target *t;
+ 
+ 	if (!ip6_checkentry(&e->ipv6)) {
+ 		duprintf("ip_tables: ip check failed %p %s.\n", e, name);
+ 		return -EINVAL;
+ 	}
+ 
+-	if (e->target_offset + sizeof(struct ip6t_entry_target) >
++	if (e->target_offset + sizeof(struct xt_entry_target) >
+ 	    e->next_offset)
+ 		return -EINVAL;
+ 
+@@ -599,7 +599,7 @@ check_entry(const struct ip6t_entry *e, const char *name)
+ 	return 0;
+ }
+ 
+-static int check_match(struct ip6t_entry_match *m, struct xt_mtchk_param *par)
++static int check_match(struct xt_entry_match *m, struct xt_mtchk_param *par)
+ {
+ 	const struct ip6t_ip6 *ipv6 = par->entryinfo;
+ 	int ret;
+@@ -618,7 +618,7 @@ static int check_match(struct ip6t_entry_match *m, struct xt_mtchk_param *par)
+ }
+ 
+ static int
+-find_check_match(struct ip6t_entry_match *m, struct xt_mtchk_param *par)
++find_check_match(struct xt_entry_match *m, struct xt_mtchk_param *par)
+ {
+ 	struct xt_match *match;
+ 	int ret;
+@@ -643,7 +643,7 @@ err:
+ 
+ static int check_target(struct ip6t_entry *e, struct net *net, const char *name)
+ {
+-	struct ip6t_entry_target *t = ip6t_get_target(e);
++	struct xt_entry_target *t = ip6t_get_target(e);
+ 	struct xt_tgchk_param par = {
+ 		.net       = net,
+ 		.table     = name,
+@@ -670,7 +670,7 @@ static int
+ find_check_entry(struct ip6t_entry *e, struct net *net, const char *name,
+ 		 unsigned int size)
+ {
+-	struct ip6t_entry_target *t;
++	struct xt_entry_target *t;
+ 	struct xt_target *target;
+ 	int ret;
+ 	unsigned int j;
+@@ -721,7 +721,7 @@ find_check_entry(struct ip6t_entry *e, struct net *net, const char *name,
+ 
+ static bool check_underflow(const struct ip6t_entry *e)
+ {
+-	const struct ip6t_entry_target *t;
++	const struct xt_entry_target *t;
+ 	unsigned int verdict;
+ 
+ 	if (!unconditional(&e->ipv6))
+@@ -729,7 +729,7 @@ static bool check_underflow(const struct ip6t_entry *e)
+ 	t = ip6t_get_target_c(e);
+ 	if (strcmp(t->u.user.name, XT_STANDARD_TARGET) != 0)
+ 		return false;
+-	verdict = ((struct ip6t_standard_target *)t)->verdict;
++	verdict = ((struct xt_standard_target *)t)->verdict;
+ 	verdict = -verdict - 1;
+ 	return verdict == NF_DROP || verdict == NF_ACCEPT;
+ }
+@@ -752,7 +752,7 @@ check_entry_size_and_hooks(struct ip6t_entry *e,
+ 	}
+ 
+ 	if (e->next_offset
+-	    < sizeof(struct ip6t_entry) + sizeof(struct ip6t_entry_target)) {
++	    < sizeof(struct ip6t_entry) + sizeof(struct xt_entry_target)) {
+ 		duprintf("checking: element %p size %u\n",
+ 			 e, e->next_offset);
+ 		return -EINVAL;
+@@ -784,7 +784,7 @@ check_entry_size_and_hooks(struct ip6t_entry *e,
+ static void cleanup_entry(struct ip6t_entry *e, struct net *net)
+ {
+ 	struct xt_tgdtor_param par;
+-	struct ip6t_entry_target *t;
++	struct xt_entry_target *t;
+ 	struct xt_entry_match *ematch;
+ 
+ 	/* Cleanup all matches */
+@@ -985,8 +985,8 @@ copy_entries_to_user(unsigned int total_size,
+ 	/* ... then go back and fix counters and names */
+ 	for (off = 0, num = 0; off < total_size; off += e->next_offset, num++){
+ 		unsigned int i;
+-		const struct ip6t_entry_match *m;
+-		const struct ip6t_entry_target *t;
++		const struct xt_entry_match *m;
++		const struct xt_entry_target *t;
+ 
+ 		e = (struct ip6t_entry *)(loc_cpu_entry + off);
+ 		if (copy_to_user(userptr + off
+@@ -1003,7 +1003,7 @@ copy_entries_to_user(unsigned int total_size,
+ 			m = (void *)e + i;
+ 
+ 			if (copy_to_user(userptr + off + i
+-					 + offsetof(struct ip6t_entry_match,
++					 + offsetof(struct xt_entry_match,
+ 						    u.user.name),
+ 					 m->u.kernel.match->name,
+ 					 strlen(m->u.kernel.match->name)+1)
+@@ -1015,7 +1015,7 @@ copy_entries_to_user(unsigned int total_size,
+ 
+ 		t = ip6t_get_target_c(e);
+ 		if (copy_to_user(userptr + off + e->target_offset
+-				 + offsetof(struct ip6t_entry_target,
++				 + offsetof(struct xt_entry_target,
+ 					    u.user.name),
+ 				 t->u.kernel.target->name,
+ 				 strlen(t->u.kernel.target->name)+1) != 0) {
+@@ -1053,7 +1053,7 @@ static int compat_calc_entry(const struct ip6t_entry *e,
+ 			     const void *base, struct xt_table_info *newinfo)
+ {
+ 	const struct xt_entry_match *ematch;
+-	const struct ip6t_entry_target *t;
++	const struct xt_entry_target *t;
+ 	unsigned int entry_offset;
+ 	int off, i, ret;
+ 
+@@ -1422,7 +1422,7 @@ struct compat_ip6t_replace {
+ 	u32			hook_entry[NF_INET_NUMHOOKS];
+ 	u32			underflow[NF_INET_NUMHOOKS];
+ 	u32			num_counters;
+-	compat_uptr_t		counters;	/* struct ip6t_counters * */
++	compat_uptr_t		counters;	/* struct xt_counters * */
+ 	struct compat_ip6t_entry entries[0];
+ };
+ 
+@@ -1431,7 +1431,7 @@ compat_copy_entry_to_user(struct ip6t_entry *e, void __user **dstptr,
+ 			  unsigned int *size, struct xt_counters *counters,
+ 			  unsigned int i)
+ {
+-	struct ip6t_entry_target *t;
++	struct xt_entry_target *t;
+ 	struct compat_ip6t_entry __user *ce;
+ 	u_int16_t target_offset, next_offset;
+ 	compat_uint_t origsize;
+@@ -1466,7 +1466,7 @@ compat_copy_entry_to_user(struct ip6t_entry *e, void __user **dstptr,
+ }
+ 
+ static int
+-compat_find_calc_match(struct ip6t_entry_match *m,
++compat_find_calc_match(struct xt_entry_match *m,
+ 		       const char *name,
+ 		       const struct ip6t_ip6 *ipv6,
+ 		       unsigned int hookmask,
+@@ -1488,7 +1488,7 @@ compat_find_calc_match(struct ip6t_entry_match *m,
+ 
+ static void compat_release_entry(struct compat_ip6t_entry *e)
+ {
+-	struct ip6t_entry_target *t;
++	struct xt_entry_target *t;
+ 	struct xt_entry_match *ematch;
+ 
+ 	/* Cleanup all matches */
+@@ -1509,7 +1509,7 @@ check_compat_entry_size_and_hooks(struct compat_ip6t_entry *e,
+ 				  const char *name)
+ {
+ 	struct xt_entry_match *ematch;
+-	struct ip6t_entry_target *t;
++	struct xt_entry_target *t;
+ 	struct xt_target *target;
+ 	unsigned int entry_offset;
+ 	unsigned int j;
+@@ -1591,7 +1591,7 @@ compat_copy_entry_from_user(struct compat_ip6t_entry *e, void **dstptr,
+ 			    unsigned int *size, const char *name,
+ 			    struct xt_table_info *newinfo, unsigned char *base)
+ {
+-	struct ip6t_entry_target *t;
++	struct xt_entry_target *t;
+ 	struct xt_target *target;
+ 	struct ip6t_entry *de;
+ 	unsigned int origsize;
+diff --git a/net/sched/act_ipt.c b/net/sched/act_ipt.c
+index c7e59e6..f6d464f 100644
+--- a/net/sched/act_ipt.c
++++ b/net/sched/act_ipt.c
+@@ -39,7 +39,7 @@ static struct tcf_hashinfo ipt_hash_info = {
+ 	.lock	=	&ipt_lock,
+ };
+ 
+-static int ipt_init_target(struct ipt_entry_target *t, char *table, unsigned int hook)
++static int ipt_init_target(struct xt_entry_target *t, char *table, unsigned int hook)
+ {
+ 	struct xt_tgchk_param par;
+ 	struct xt_target *target;
+@@ -66,7 +66,7 @@ static int ipt_init_target(struct ipt_entry_target *t, char *table, unsigned int
+ 	return 0;
+ }
+ 
+-static void ipt_destroy_target(struct ipt_entry_target *t)
++static void ipt_destroy_target(struct xt_entry_target *t)
+ {
+ 	struct xt_tgdtor_param par = {
+ 		.target   = t->u.kernel.target,
+@@ -99,7 +99,7 @@ static const struct nla_policy ipt_policy[TCA_IPT_MAX + 1] = {
+ 	[TCA_IPT_TABLE]	= { .type = NLA_STRING, .len = IFNAMSIZ },
+ 	[TCA_IPT_HOOK]	= { .type = NLA_U32 },
+ 	[TCA_IPT_INDEX]	= { .type = NLA_U32 },
+-	[TCA_IPT_TARG]	= { .len = sizeof(struct ipt_entry_target) },
++	[TCA_IPT_TARG]	= { .len = sizeof(struct xt_entry_target) },
+ };
+ 
+ static int tcf_ipt_init(struct nlattr *nla, struct nlattr *est,
+@@ -108,7 +108,7 @@ static int tcf_ipt_init(struct nlattr *nla, struct nlattr *est,
+ 	struct nlattr *tb[TCA_IPT_MAX + 1];
+ 	struct tcf_ipt *ipt;
+ 	struct tcf_common *pc;
+-	struct ipt_entry_target *td, *t;
++	struct xt_entry_target *td, *t;
+ 	char *tname;
+ 	int ret = 0, err;
+ 	u32 hook = 0;
+@@ -126,7 +126,7 @@ static int tcf_ipt_init(struct nlattr *nla, struct nlattr *est,
+ 	if (tb[TCA_IPT_TARG] == NULL)
+ 		return -EINVAL;
+ 
+-	td = (struct ipt_entry_target *)nla_data(tb[TCA_IPT_TARG]);
++	td = (struct xt_entry_target *)nla_data(tb[TCA_IPT_TARG]);
+ 	if (nla_len(tb[TCA_IPT_TARG]) < td->u.target_size)
+ 		return -EINVAL;
+ 
+@@ -249,7 +249,7 @@ static int tcf_ipt_dump(struct sk_buff *skb, struct tc_action *a, int bind, int
+ {
+ 	unsigned char *b = skb_tail_pointer(skb);
+ 	struct tcf_ipt *ipt = a->priv;
+-	struct ipt_entry_target *t;
++	struct xt_entry_target *t;
+ 	struct tcf_t tm;
+ 	struct tc_cnt c;
  
 -- 
 1.7.1
