@@ -1,146 +1,194 @@
 From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [PATCH v2 04/14] vlan: Enable software emulation for vlan accleration.
-Date: Wed, 20 Oct 2010 20:32:12 -0700
-Message-ID: <4CBFB43C.6000501@intel.com>
-References: <1287618974-4714-1-git-send-email-jesse@nicira.com> <1287618974-4714-5-git-send-email-jesse@nicira.com>
+Subject: [RFC PATCH] net: consolidate 8021q tagging
+Date: Wed, 20 Oct 2010 20:40:10 -0700
+Message-ID: <20101021034010.11025.76708.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jesse Gross <jesse@nicira.com>
+Cc: john.r.fastabend@intel.com, jesse@nicira.com, davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:10016 "EHLO mga01.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:64260 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757083Ab0JUDcM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Oct 2010 23:32:12 -0400
-In-Reply-To: <1287618974-4714-5-git-send-email-jesse@nicira.com>
+	id S1757384Ab0JUDlb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Oct 2010 23:41:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/20/2010 4:56 PM, Jesse Gross wrote:
-> Currently users of hardware vlan accleration need to know whether
-> the device supports it before generating packets.  However, vlan
-> acceleration will soon be available in a more flexible manner so
-> knowing ahead of time becomes much more difficult.  This adds
-> a software fallback path for vlan packets on devices without the
-> necessary offloading support, similar to other types of hardware
-> accleration.
-> 
-> Signed-off-by: Jesse Gross <jesse@nicira.com>
-> ---
->  include/linux/netdevice.h |   14 +++++++++++---
->  net/core/dev.c            |   36 +++++++++++++++++++++++++++++++++---
->  2 files changed, 44 insertions(+), 6 deletions(-)
-> 
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index 880d565..2861565 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -2248,9 +2248,17 @@ static inline int skb_gso_ok(struct sk_buff *skb, int features)
->  
->  static inline int netif_needs_gso(struct net_device *dev, struct sk_buff *skb)
->  {
-> -	return skb_is_gso(skb) &&
-> -	       (!skb_gso_ok(skb, dev->features) ||
-> -		unlikely(skb->ip_summed != CHECKSUM_PARTIAL));
-> +	if (skb_is_gso(skb)) {
-> +		int features = dev->features;
-> +
-> +		if (skb->protocol == htons(ETH_P_8021Q) || skb->vlan_tci)
-> +			features &= dev->vlan_features;
-> +
-> +		return (!skb_gso_ok(skb, features) ||
-> +			unlikely(skb->ip_summed != CHECKSUM_PARTIAL));
-> +	}
-> +
-> +	return 0;
->  }
->  
->  static inline void netif_set_gso_max_size(struct net_device *dev,
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 4c3ac53..1bfd96b 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -1694,7 +1694,12 @@ static bool can_checksum_protocol(unsigned long features, __be16 protocol)
->  
->  static bool dev_can_checksum(struct net_device *dev, struct sk_buff *skb)
->  {
-> -	if (can_checksum_protocol(dev->features, skb->protocol))
-> +	int features = dev->features;
-> +
-> +	if (vlan_tx_tag_present(skb))
-> +		features &= dev->vlan_features;
-> +
-> +	if (can_checksum_protocol(features, skb->protocol))
->  		return true;
->  
->  	if (skb->protocol == htons(ETH_P_8021Q)) {
-> @@ -1793,6 +1798,16 @@ struct sk_buff *skb_gso_segment(struct sk_buff *skb, int features)
->  	__be16 type = skb->protocol;
->  	int err;
->  
-> +	if (type == htons(ETH_P_8021Q)) {
-> +		struct vlan_ethhdr *veh;
-> +
-> +		if (unlikely(!pskb_may_pull(skb, VLAN_ETH_HLEN)))
-> +			return ERR_PTR(-EINVAL);
-> +
-> +		veh = (struct vlan_ethhdr *)skb->data;
-> +		type = veh->h_vlan_encapsulated_proto;
-> +	}
-> +
->  	skb_reset_mac_header(skb);
->  	skb->mac_len = skb->network_header - skb->mac_header;
->  	__skb_pull(skb, skb->mac_len);
-> @@ -1964,9 +1979,14 @@ static inline void skb_orphan_try(struct sk_buff *skb)
->  static inline int skb_needs_linearize(struct sk_buff *skb,
->  				      struct net_device *dev)
->  {
-> +	int features = dev->features;
-> +
-> +	if (skb->protocol == htons(ETH_P_8021Q) || vlan_tx_tag_present(skb))
-> +		features &= dev->vlan_features;
-> +
->  	return skb_is_nonlinear(skb) &&
-> -	       ((skb_has_frag_list(skb) && !(dev->features & NETIF_F_FRAGLIST)) ||
-> -	        (skb_shinfo(skb)->nr_frags && (!(dev->features & NETIF_F_SG) ||
-> +	       ((skb_has_frag_list(skb) && !(features & NETIF_F_FRAGLIST)) ||
-> +		(skb_shinfo(skb)->nr_frags && (!(features & NETIF_F_SG) ||
->  					      illegal_highdma(dev, skb))));
->  }
->  
-> @@ -1989,6 +2009,15 @@ int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
->  
->  		skb_orphan_try(skb);
->  
-> +		if (vlan_tx_tag_present(skb) &&
-> +		    !(dev->features & NETIF_F_HW_VLAN_TX)) {
-> +			skb = __vlan_put_tag(skb, vlan_tx_tag_get(skb));
-> +			if (unlikely(!skb))
-> +				goto out;
-> +
-> +			skb->vlan_tci = 0;
-> +		}
-> +
+This is an example to illustrate my comment to Jesse Gross
+patch where he adds vlan tagging for the non offload case
+to dev_hard_start_xmit. It compiles but otherwise I've not
+tested it.
 
-Nice set of patches! If we tag frames in dev_hard_start_xmit() can we consolidate
-the offload enabled and non-offloaded net_device_ops in 8021q. And then not tag in
-vlan_dev_hard_start_xmit? I'll post an example thinking out loud here.
+If we tag vlan packets in dev_hard_start_xmit we no longer
+need to actually tag them here just set the vlan_tci field
+in the skb and let the stack get them at the bottom.
 
-Thanks,
-John.
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+---
 
+ net/8021q/vlan_dev.c |  105 +++-----------------------------------------------
+ 1 files changed, 7 insertions(+), 98 deletions(-)
 
->  		if (netif_needs_gso(dev, skb)) {
->  			if (unlikely(dev_gso_segment(skb)))
->  				goto out_kfree_skb;
-> @@ -2050,6 +2079,7 @@ out_kfree_gso_skb:
->  		skb->destructor = DEV_GSO_CB(skb)->destructor;
->  out_kfree_skb:
->  	kfree_skb(skb);
-> +out:
->  	return rc;
->  }
->  
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index 14e3d1f..78b1618 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -326,24 +326,12 @@ static netdev_tx_t vlan_dev_hard_start_xmit(struct sk_buff *skb,
+ 	 */
+ 	if (veth->h_vlan_proto != htons(ETH_P_8021Q) ||
+ 	    vlan_dev_info(dev)->flags & VLAN_FLAG_REORDER_HDR) {
+-		unsigned int orig_headroom = skb_headroom(skb);
+ 		u16 vlan_tci;
+-
+-		vlan_dev_info(dev)->cnt_encap_on_xmit++;
+-
+ 		vlan_tci = vlan_dev_info(dev)->vlan_id;
+ 		vlan_tci |= vlan_dev_get_egress_qos_mask(dev, skb);
+-		skb = __vlan_put_tag(skb, vlan_tci);
+-		if (!skb) {
+-			txq->tx_dropped++;
+-			return NETDEV_TX_OK;
+-		}
+-
+-		if (orig_headroom < VLAN_HLEN)
+-			vlan_dev_info(dev)->cnt_inc_headroom_on_tx++;
++		skb = __vlan_hwaccel_put_tag(skb, vlan_tci);
+ 	}
+ 
+-
+ 	skb_set_dev(skb, vlan_dev_info(dev)->real_dev);
+ 	len = skb->len;
+ 	ret = dev_queue_xmit(skb);
+@@ -357,32 +345,6 @@ static netdev_tx_t vlan_dev_hard_start_xmit(struct sk_buff *skb,
+ 	return ret;
+ }
+ 
+-static netdev_tx_t vlan_dev_hwaccel_hard_start_xmit(struct sk_buff *skb,
+-						    struct net_device *dev)
+-{
+-	int i = skb_get_queue_mapping(skb);
+-	struct netdev_queue *txq = netdev_get_tx_queue(dev, i);
+-	u16 vlan_tci;
+-	unsigned int len;
+-	int ret;
+-
+-	vlan_tci = vlan_dev_info(dev)->vlan_id;
+-	vlan_tci |= vlan_dev_get_egress_qos_mask(dev, skb);
+-	skb = __vlan_hwaccel_put_tag(skb, vlan_tci);
+-
+-	skb->dev = vlan_dev_info(dev)->real_dev;
+-	len = skb->len;
+-	ret = dev_queue_xmit(skb);
+-
+-	if (likely(ret == NET_XMIT_SUCCESS || ret == NET_XMIT_CN)) {
+-		txq->tx_packets++;
+-		txq->tx_bytes += len;
+-	} else
+-		txq->tx_dropped++;
+-
+-	return ret;
+-}
+-
+ static u16 vlan_dev_select_queue(struct net_device *dev, struct sk_buff *skb)
+ {
+ 	struct net_device *rdev = vlan_dev_info(dev)->real_dev;
+@@ -719,8 +681,7 @@ static const struct header_ops vlan_header_ops = {
+ 	.parse	 = eth_header_parse,
+ };
+ 
+-static const struct net_device_ops vlan_netdev_ops, vlan_netdev_accel_ops,
+-		    vlan_netdev_ops_sq, vlan_netdev_accel_ops_sq;
++static const struct net_device_ops vlan_netdev_ops, vlan_netdev_ops_sq;
+ 
+ static int vlan_dev_init(struct net_device *dev)
+ {
+@@ -755,19 +716,16 @@ static int vlan_dev_init(struct net_device *dev)
+ 	if (real_dev->features & NETIF_F_HW_VLAN_TX) {
+ 		dev->header_ops      = real_dev->header_ops;
+ 		dev->hard_header_len = real_dev->hard_header_len;
+-		if (real_dev->netdev_ops->ndo_select_queue)
+-			dev->netdev_ops = &vlan_netdev_accel_ops_sq;
+-		else
+-			dev->netdev_ops = &vlan_netdev_accel_ops;
+ 	} else {
+ 		dev->header_ops      = &vlan_header_ops;
+ 		dev->hard_header_len = real_dev->hard_header_len + VLAN_HLEN;
+-		if (real_dev->netdev_ops->ndo_select_queue)
+-			dev->netdev_ops = &vlan_netdev_ops_sq;
+-		else
+-			dev->netdev_ops = &vlan_netdev_ops;
+ 	}
+ 
++	if (real_dev->netdev_ops->ndo_select_queue)
++		dev->netdev_ops = &vlan_netdev_ops_sq;
++	else
++		dev->netdev_ops = &vlan_netdev_ops;
++
+ 	if (is_vlan_dev(real_dev))
+ 		subclass = 1;
+ 
+@@ -908,30 +866,6 @@ static const struct net_device_ops vlan_netdev_ops = {
+ #endif
+ };
+ 
+-static const struct net_device_ops vlan_netdev_accel_ops = {
+-	.ndo_change_mtu		= vlan_dev_change_mtu,
+-	.ndo_init		= vlan_dev_init,
+-	.ndo_uninit		= vlan_dev_uninit,
+-	.ndo_open		= vlan_dev_open,
+-	.ndo_stop		= vlan_dev_stop,
+-	.ndo_start_xmit =  vlan_dev_hwaccel_hard_start_xmit,
+-	.ndo_validate_addr	= eth_validate_addr,
+-	.ndo_set_mac_address	= vlan_dev_set_mac_address,
+-	.ndo_set_rx_mode	= vlan_dev_set_rx_mode,
+-	.ndo_set_multicast_list	= vlan_dev_set_rx_mode,
+-	.ndo_change_rx_flags	= vlan_dev_change_rx_flags,
+-	.ndo_do_ioctl		= vlan_dev_ioctl,
+-	.ndo_neigh_setup	= vlan_dev_neigh_setup,
+-	.ndo_get_stats64	= vlan_dev_get_stats64,
+-#if defined(CONFIG_FCOE) || defined(CONFIG_FCOE_MODULE)
+-	.ndo_fcoe_ddp_setup	= vlan_dev_fcoe_ddp_setup,
+-	.ndo_fcoe_ddp_done	= vlan_dev_fcoe_ddp_done,
+-	.ndo_fcoe_enable	= vlan_dev_fcoe_enable,
+-	.ndo_fcoe_disable	= vlan_dev_fcoe_disable,
+-	.ndo_fcoe_get_wwn	= vlan_dev_fcoe_get_wwn,
+-#endif
+-};
+-
+ static const struct net_device_ops vlan_netdev_ops_sq = {
+ 	.ndo_select_queue	= vlan_dev_select_queue,
+ 	.ndo_change_mtu		= vlan_dev_change_mtu,
+@@ -957,31 +891,6 @@ static const struct net_device_ops vlan_netdev_ops_sq = {
+ #endif
+ };
+ 
+-static const struct net_device_ops vlan_netdev_accel_ops_sq = {
+-	.ndo_select_queue	= vlan_dev_select_queue,
+-	.ndo_change_mtu		= vlan_dev_change_mtu,
+-	.ndo_init		= vlan_dev_init,
+-	.ndo_uninit		= vlan_dev_uninit,
+-	.ndo_open		= vlan_dev_open,
+-	.ndo_stop		= vlan_dev_stop,
+-	.ndo_start_xmit =  vlan_dev_hwaccel_hard_start_xmit,
+-	.ndo_validate_addr	= eth_validate_addr,
+-	.ndo_set_mac_address	= vlan_dev_set_mac_address,
+-	.ndo_set_rx_mode	= vlan_dev_set_rx_mode,
+-	.ndo_set_multicast_list	= vlan_dev_set_rx_mode,
+-	.ndo_change_rx_flags	= vlan_dev_change_rx_flags,
+-	.ndo_do_ioctl		= vlan_dev_ioctl,
+-	.ndo_neigh_setup	= vlan_dev_neigh_setup,
+-	.ndo_get_stats64	= vlan_dev_get_stats64,
+-#if defined(CONFIG_FCOE) || defined(CONFIG_FCOE_MODULE)
+-	.ndo_fcoe_ddp_setup	= vlan_dev_fcoe_ddp_setup,
+-	.ndo_fcoe_ddp_done	= vlan_dev_fcoe_ddp_done,
+-	.ndo_fcoe_enable	= vlan_dev_fcoe_enable,
+-	.ndo_fcoe_disable	= vlan_dev_fcoe_disable,
+-	.ndo_fcoe_get_wwn	= vlan_dev_fcoe_get_wwn,
+-#endif
+-};
+-
+ void vlan_setup(struct net_device *dev)
+ {
+ 	ether_setup(dev);
 
