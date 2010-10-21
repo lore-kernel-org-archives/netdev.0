@@ -1,39 +1,38 @@
 From: kaber@trash.net
-Subject: [PATCH 69/72] netfilter: xtables: add a missing pair of parentheses
-Date: Thu, 21 Oct 2010 17:19:56 +0200
-Message-ID: <1287674399-31455-70-git-send-email-kaber@trash.net>
+Subject: [PATCH 63/72] tproxy: allow non-local binds of IPv6 sockets if IP_TRANSPARENT is enabled
+Date: Thu, 21 Oct 2010 17:19:50 +0200
+Message-ID: <1287674399-31455-64-git-send-email-kaber@trash.net>
 References: <1287674399-31455-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:59992 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753555Ab0JUPUR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 11:20:17 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1287674399-31455-1-git-send-email-kaber@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jan Engelhardt <jengelh@medozas.de>
+From: Balazs Scheidler <bazsi@balabit.hu>
 
-Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
+Signed-off-by: Balazs Scheidler <bazsi@balabit.hu>
+Signed-off-by: KOVACS Krisztian <hidden@balabit.hu>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- include/linux/netfilter/x_tables.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ net/ipv6/af_inet6.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfilter/x_tables.h
-index 742bec0..9f69599 100644
---- a/include/linux/netfilter/x_tables.h
-+++ b/include/linux/netfilter/x_tables.h
-@@ -177,7 +177,7 @@ struct xt_counters_info {
- 
- /* can only be xt_entry_match, so no use of typeof here */
- #define xt_ematch_foreach(pos, entry) \
--	for ((pos) = (struct xt_entry_match *)entry->elems; \
-+	for ((pos) = (struct xt_entry_match *)(entry)->elems; \
- 	     (pos) < (struct xt_entry_match *)((char *)(entry) + \
- 	             (entry)->target_offset); \
- 	     (pos) = (struct xt_entry_match *)((char *)(pos) + \
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index 56b9bf2..4869797 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -343,7 +343,8 @@ int inet6_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
+ 			 */
+ 			v4addr = LOOPBACK4_IPV6;
+ 			if (!(addr_type & IPV6_ADDR_MULTICAST))	{
+-				if (!ipv6_chk_addr(net, &addr->sin6_addr,
++				if (!inet->transparent &&
++				    !ipv6_chk_addr(net, &addr->sin6_addr,
+ 						   dev, 0)) {
+ 					err = -EADDRNOTAVAIL;
+ 					goto out_unlock;
 -- 
 1.7.1
 
