@@ -1,35 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] b44: fix resume, request_irq after hw reset
-Date: Thu, 21 Oct 2010 04:30:36 -0700 (PDT)
-Message-ID: <20101021.043036.57469867.davem@davemloft.net>
-References: <201010171249.00485.james@albanarts.com>
+Subject: Re: [PATCH 2/2] drivers/net/ax88796.c: Return error code in failure
+Date: Thu, 21 Oct 2010 04:31:00 -0700 (PDT)
+Message-ID: <20101021.043100.42796935.davem@davemloft.net>
+References: <1287411074-19825-2-git-send-email-julia@diku.dk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: zambrano@broadcom.com, jpirko@redhat.com,
-	fujita.tomonori@lab.ntt.co.jp, hauke@hauke-m.de,
-	Larry.Finger@lwfinger.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, akpm@linux-foundation.org
-To: james@albanarts.com
+Cc: p_gortmaker@yahoo.com, kernel-janitors@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: julia@diku.dk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43506
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43512
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755013Ab0JULaN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 07:30:13 -0400
-In-Reply-To: <201010171249.00485.james@albanarts.com>
+	by vger.kernel.org with ESMTP id S1757633Ab0JULai (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 07:30:38 -0400
+In-Reply-To: <1287411074-19825-2-git-send-email-julia@diku.dk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: James Hogan <james@albanarts.com>
-Date: Sun, 17 Oct 2010 12:48:59 +0100
+From: Julia Lawall <julia@diku.dk>
+Date: Mon, 18 Oct 2010 16:11:14 +0200
 
-> On resume, call request_irq() after resetting the hardware rather than
-> before. It's a shared interrupt so the handler could be called
-> immediately if another device on the same irq interrupts (and will be
-> called immediately if CONFIG_DEBUG_SHIRQ=y), but unless the hardware is
-> reinitialised with b44_init_hw() the read of the interrupt status
-> register will hang the system.
+> In this code, 0 is returned on failure, even though other
+> failures return -ENOMEM or other similar values.
 > 
-> Signed-off-by: James Hogan <james@albanarts.com>
+> A simplified version of the semantic match that finds this problem is as
+> follows: (http://coccinelle.lip6.fr/)
+ ...
+> Signed-off-by: Julia Lawall <julia@diku.dk>
 
 Applied.
