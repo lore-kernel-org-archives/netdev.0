@@ -1,34 +1,25 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/3] cxgb3: function namespace cleanup
-Date: Thu, 21 Oct 2010 07:19:31 -0700 (PDT)
-Message-ID: <20101021.071931.226776481.davem@davemloft.net>
-References: <20101015224309.179898823@vyatta.com>
-	<20101015224523.536739529@vyatta.com>
-	<4CBCF10C.4010900@chelsio.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH v2 8/9] tproxy: added IPv6 support to the socket match
+Date: Thu, 21 Oct 2010 16:20:16 +0200
+Message-ID: <4CC04C20.5000408@trash.net>
+References: <20101021104709.5192.31249.stgit@este.odu> <20101021104709.5192.41764.stgit@este.odu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, leedom@chelsio.com, dm@chelsio.com,
-	netdev@vger.kernel.org
-To: divy@chelsio.com
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Balazs Scheidler <bazsi@balabit.hu>,
+	David Miller <davem@davemloft.net>
+To: KOVACS Krisztian <hidden@balabit.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49525
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932274Ab0JUOTI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 10:19:08 -0400
-In-Reply-To: <4CBCF10C.4010900@chelsio.com>
+Received: from stinky.trash.net ([213.144.137.162]:58849 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756306Ab0JUOUS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 10:20:18 -0400
+In-Reply-To: <20101021104709.5192.41764.stgit@este.odu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Divy Le Ray <divy@chelsio.com>
-Date: Mon, 18 Oct 2010 18:14:52 -0700
+Am 21.10.2010 12:47, schrieb KOVACS Krisztian:
+> The ICMP extraction bits were contributed by Harry Mason.
 
->  On 10/15/2010 03:43 PM, Stephen Hemminger wrote:
->> Make local functions static. Remove functions that are
->> defined and never used. Compile tested only.
->>
->> Signed-off-by: Stephen Hemminger<shemminger@vyatta.com>
-> 
-> Acked-by: Divy Le Ray <divy@chelsio.com>
-
-Applied.
+Applied, thanks.
