@@ -1,45 +1,65 @@
-From: Chris Friesen <chris.friesen@genband.com>
-Subject: Re: [BUG] problems with "ip xfrm" on 32-bit userspace with 64-bit
- kernel
-Date: Thu, 21 Oct 2010 09:05:46 -0600
-Message-ID: <4CC056CA.9060903@genband.com>
-References: <4CBF78B6.90002@genband.com> <20101021075056.GE15247@Chamillionaire.breakpoint.cc>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH v2 02/22] bitops: rename generic little-endian bitops functions
+Date: Thu, 21 Oct 2010 17:07:16 +0200
+Message-ID: <201010211707.17049.arnd@arndb.de>
+References: <1287672077-5797-1-git-send-email-akinobu.mita@gmail.com> <1287672077-5797-3-git-send-email-akinobu.mita@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og108.obsmtp.com ([64.18.2.169]:34502 "EHLO
-	exprod7og108.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758357Ab0JUPF7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 11:05:59 -0400
-In-Reply-To: <20101021075056.GE15247@Chamillionaire.breakpoint.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
+	Christoph Hellwig <hch@infradead.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"Hans-Christian Egtvedt" <hans-christian.egtvedt@atmel.com>,
+	Geert Uytterhoeven <geert@linux-m68k.org>,
+	Roman Zippel <zippel@linux-m68k.org>,
+	Andreas Schwab <schwab@linux-m68k.org>,
+	linux-m68k@lists.linux-m68k.org, Greg Ungerer <gerg@uclinux.org>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Paul Mackerras <paulus@samba.org>,
+	linuxppc-dev@lists.ozlabs.org,
+	Andy Grover <andy.grover@oracle.com>, rds-devel@oss.oracle.com,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Avi Kivity <avi@redhat.com>,
+	Marcelo Tosatti <mtosatti@redhat.com>, kvm@vger.kernel.org
+To: Akinobu Mita <akinobu.mita@gmail.com>
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <1287672077-5797-3-git-send-email-akinobu.mita@gmail.com>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/21/2010 01:50 AM, Florian Westphal wrote:
-> Chris Friesen <chris.friesen@genband.com> wrote:
->> We've run into a 32/64 compatibility problem with iproute2.  The "ip
->> xfrm monitor acquire" command doesn't work properly due to struct size
->> mismatches between kernel and userspace.
+On Thursday 21 October 2010, Akinobu Mita wrote:
+> As a preparation for providing little-endian bitops for all architectures,
+> This removes generic_ prefix from little-endian bitops function names
+> in asm-generic/bitops/le.h.
 > 
-> Yes.  See archives for 'xfrm: add x86 CONFIG_COMPAT support'
-> (http://marc.info/?t=127050655600003&r=1&w=2)
+> s/generic_find_next_le_bit/find_next_le_bit/
+> s/generic_find_next_zero_le_bit/find_next_zero_le_bit/
+> s/generic_find_first_zero_le_bit/find_first_zero_le_bit/
+> s/generic___test_and_set_le_bit/__test_and_set_le_bit/
+> s/generic___test_and_clear_le_bit/__test_and_clear_le_bit/
+> s/generic_test_le_bit/test_le_bit/
+> s/generic___set_le_bit/__set_le_bit/
+> s/generic___clear_le_bit/__clear_le_bit/
+> s/generic_test_and_set_le_bit/test_and_set_le_bit/
+> s/generic_test_and_clear_le_bit/test_and_clear_le_bit/
 > 
-> for a discussion on why the patch set to fix this was rejected.
+> Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
+> Cc: Hans-Christian Egtvedt <hans-christian.egtvedt@atmel.com>
+> Cc: Geert Uytterhoeven <geert@linux-m68k.org>
+> Cc: Roman Zippel <zippel@linux-m68k.org>
+> Cc: Andreas Schwab <schwab@linux-m68k.org>
+> Cc: linux-m68k@lists.linux-m68k.org
+> Cc: Greg Ungerer <gerg@uclinux.org>
+> Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+> Cc: Paul Mackerras <paulus@samba.org>
+> Cc: linuxppc-dev@lists.ozlabs.org
+> Cc: Andy Grover <andy.grover@oracle.com>
+> Cc: rds-devel@oss.oracle.com
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: netdev@vger.kernel.org
+> Cc: Avi Kivity <avi@redhat.com>
+> Cc: Marcelo Tosatti <mtosatti@redhat.com>
+> Cc: kvm@vger.kernel.org
 
-Interesting discussion.  Kind of sucks for people trying to use it though.
-
-How do distros resolve this?  Do they build iproute2 as a 64-bit package
-or something?
-
-Chris
-
--- 
-Chris Friesen
-Software Developer
-GENBAND
-chris.friesen@genband.com
-www.genband.com
+Acked-by: Arnd Bergmann <arnd@arndb.de>
