@@ -1,254 +1,145 @@
 From: kaber@trash.net
-Subject: [PATCH 11/72] netfilter: nf_nat: better error handling of nf_ct_expect_related() in helpers
-Date: Thu, 21 Oct 2010 17:18:58 +0200
-Message-ID: <1287674399-31455-12-git-send-email-kaber@trash.net>
+Subject: [PATCH 01/72] netfilter: nf_nat: add nf_nat_csum()
+Date: Thu, 21 Oct 2010 17:18:48 +0200
+Message-ID: <1287674399-31455-2-git-send-email-kaber@trash.net>
 References: <1287674399-31455-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:59979 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752119Ab0JUPUC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 11:20:02 -0400
 In-Reply-To: <1287674399-31455-1-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
+From: Changli Gao <xiaosuo@gmail.com>
 
-This patch improves the situation in which the expectation table is
-full for conntrack NAT helpers. Basically, we give up if we don't
-find a place in the table instead of looping over nf_ct_expect_related()
-with a different port (we should only do this if it returns -EBUSY, for
--EMFILE or -ESHUTDOWN I think that it's better to skip this).
+Add a static function nf_nat_csum() to replace the duplicate code in
+nf_nat_mangle_udp_packet() and __nf_nat_mangle_tcp_packet().
 
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- net/ipv4/netfilter/nf_nat_amanda.c |    9 +++++-
- net/ipv4/netfilter/nf_nat_ftp.c    |    9 +++++-
- net/ipv4/netfilter/nf_nat_h323.c   |   53 +++++++++++++++++++++++++++++++-----
- net/ipv4/netfilter/nf_nat_irc.c    |    9 +++++-
- net/ipv4/netfilter/nf_nat_sip.c    |   27 +++++++++++++++---
- 5 files changed, 93 insertions(+), 14 deletions(-)
+ net/ipv4/netfilter/nf_nat_helper.c |   76 +++++++++++++++---------------------
+ 1 files changed, 31 insertions(+), 45 deletions(-)
 
-diff --git a/net/ipv4/netfilter/nf_nat_amanda.c b/net/ipv4/netfilter/nf_nat_amanda.c
-index c31b876..0f23b3f 100644
---- a/net/ipv4/netfilter/nf_nat_amanda.c
-+++ b/net/ipv4/netfilter/nf_nat_amanda.c
-@@ -44,9 +44,16 @@ static unsigned int help(struct sk_buff *skb,
+diff --git a/net/ipv4/netfilter/nf_nat_helper.c b/net/ipv4/netfilter/nf_nat_helper.c
+index 4a0c6b5..31427fb 100644
+--- a/net/ipv4/netfilter/nf_nat_helper.c
++++ b/net/ipv4/netfilter/nf_nat_helper.c
+@@ -153,6 +153,35 @@ void nf_nat_set_seq_adjust(struct nf_conn *ct, enum ip_conntrack_info ctinfo,
+ }
+ EXPORT_SYMBOL_GPL(nf_nat_set_seq_adjust);
  
- 	/* Try to get same port: if not, try to change it. */
- 	for (port = ntohs(exp->saved_proto.tcp.port); port != 0; port++) {
-+		int ret;
++static void nf_nat_csum(struct sk_buff *skb, struct iphdr *iph, void *data,
++			int datalen, __sum16 *check, int oldlen)
++{
++	struct rtable *rt = skb_rtable(skb);
 +
- 		exp->tuple.dst.u.tcp.port = htons(port);
--		if (nf_ct_expect_related(exp) == 0)
-+		ret = nf_ct_expect_related(exp);
-+		if (ret == 0)
-+			break;
-+		else if (ret != -EBUSY) {
-+			port = 0;
- 			break;
++	if (skb->ip_summed != CHECKSUM_PARTIAL) {
++		if (!(rt->rt_flags & RTCF_LOCAL) &&
++		    skb->dev->features & NETIF_F_V4_CSUM) {
++			skb->ip_summed = CHECKSUM_PARTIAL;
++			skb->csum_start = skb_headroom(skb) +
++					  skb_network_offset(skb) +
++					  iph->ihl * 4;
++			skb->csum_offset = (void *)check - data;
++			*check = ~csum_tcpudp_magic(iph->saddr, iph->daddr,
++						    datalen, iph->protocol, 0);
++		} else {
++			*check = 0;
++			*check = csum_tcpudp_magic(iph->saddr, iph->daddr,
++						   datalen, iph->protocol,
++						   csum_partial(data, datalen,
++								0));
++			if (iph->protocol == IPPROTO_UDP && !*check)
++				*check = CSUM_MANGLED_0;
 +		}
- 	}
- 
- 	if (port == 0)
-diff --git a/net/ipv4/netfilter/nf_nat_ftp.c b/net/ipv4/netfilter/nf_nat_ftp.c
-index 86e0e84..dc73abb 100644
---- a/net/ipv4/netfilter/nf_nat_ftp.c
-+++ b/net/ipv4/netfilter/nf_nat_ftp.c
-@@ -79,9 +79,16 @@ static unsigned int nf_nat_ftp(struct sk_buff *skb,
- 
- 	/* Try to get same port: if not, try to change it. */
- 	for (port = ntohs(exp->saved_proto.tcp.port); port != 0; port++) {
-+		int ret;
++	} else
++		inet_proto_csum_replace2(check, skb,
++					 htons(oldlen), htons(datalen), 1);
++}
 +
- 		exp->tuple.dst.u.tcp.port = htons(port);
--		if (nf_ct_expect_related(exp) == 0)
-+		ret = nf_ct_expect_related(exp);
-+		if (ret == 0)
-+			break;
-+		else if (ret != -EBUSY) {
-+			port = 0;
- 			break;
-+		}
- 	}
+ /* Generic function for mangling variable-length address changes inside
+  * NATed TCP connections (like the PORT XXX,XXX,XXX,XXX,XXX,XXX
+  * command in FTP).
+@@ -169,7 +198,6 @@ int __nf_nat_mangle_tcp_packet(struct sk_buff *skb,
+ 			       const char *rep_buffer,
+ 			       unsigned int rep_len, bool adjust)
+ {
+-	struct rtable *rt = skb_rtable(skb);
+ 	struct iphdr *iph;
+ 	struct tcphdr *tcph;
+ 	int oldlen, datalen;
+@@ -192,26 +220,7 @@ int __nf_nat_mangle_tcp_packet(struct sk_buff *skb,
+ 			match_offset, match_len, rep_buffer, rep_len);
  
- 	if (port == 0)
-diff --git a/net/ipv4/netfilter/nf_nat_h323.c b/net/ipv4/netfilter/nf_nat_h323.c
-index 5045196..790f316 100644
---- a/net/ipv4/netfilter/nf_nat_h323.c
-+++ b/net/ipv4/netfilter/nf_nat_h323.c
-@@ -222,13 +222,24 @@ static int nat_rtp_rtcp(struct sk_buff *skb, struct nf_conn *ct,
- 	/* Try to get a pair of ports. */
- 	for (nated_port = ntohs(rtp_exp->tuple.dst.u.udp.port);
- 	     nated_port != 0; nated_port += 2) {
-+		int ret;
-+
- 		rtp_exp->tuple.dst.u.udp.port = htons(nated_port);
--		if (nf_ct_expect_related(rtp_exp) == 0) {
-+		ret = nf_ct_expect_related(rtp_exp);
-+		if (ret == 0) {
- 			rtcp_exp->tuple.dst.u.udp.port =
- 			    htons(nated_port + 1);
--			if (nf_ct_expect_related(rtcp_exp) == 0)
-+			ret = nf_ct_expect_related(rtcp_exp);
-+			if (ret == 0)
-+				break;
-+			else if (ret != -EBUSY) {
-+				nf_ct_unexpect_related(rtp_exp);
-+				nated_port = 0;
- 				break;
--			nf_ct_unexpect_related(rtp_exp);
-+			}
-+		} else if (ret != -EBUSY) {
-+			nated_port = 0;
-+			break;
- 		}
- 	}
+ 	datalen = skb->len - iph->ihl*4;
+-	if (skb->ip_summed != CHECKSUM_PARTIAL) {
+-		if (!(rt->rt_flags & RTCF_LOCAL) &&
+-		    skb->dev->features & NETIF_F_V4_CSUM) {
+-			skb->ip_summed = CHECKSUM_PARTIAL;
+-			skb->csum_start = skb_headroom(skb) +
+-					  skb_network_offset(skb) +
+-					  iph->ihl * 4;
+-			skb->csum_offset = offsetof(struct tcphdr, check);
+-			tcph->check = ~tcp_v4_check(datalen,
+-						    iph->saddr, iph->daddr, 0);
+-		} else {
+-			tcph->check = 0;
+-			tcph->check = tcp_v4_check(datalen,
+-						   iph->saddr, iph->daddr,
+-						   csum_partial(tcph,
+-								datalen, 0));
+-		}
+-	} else
+-		inet_proto_csum_replace2(&tcph->check, skb,
+-					 htons(oldlen), htons(datalen), 1);
++	nf_nat_csum(skb, iph, tcph, datalen, &tcph->check, oldlen);
  
-@@ -284,9 +295,16 @@ static int nat_t120(struct sk_buff *skb, struct nf_conn *ct,
+ 	if (adjust && rep_len != match_len)
+ 		nf_nat_set_seq_adjust(ct, ctinfo, tcph->seq,
+@@ -240,7 +249,6 @@ nf_nat_mangle_udp_packet(struct sk_buff *skb,
+ 			 const char *rep_buffer,
+ 			 unsigned int rep_len)
+ {
+-	struct rtable *rt = skb_rtable(skb);
+ 	struct iphdr *iph;
+ 	struct udphdr *udph;
+ 	int datalen, oldlen;
+@@ -274,29 +282,7 @@ nf_nat_mangle_udp_packet(struct sk_buff *skb,
+ 	if (!udph->check && skb->ip_summed != CHECKSUM_PARTIAL)
+ 		return 1;
  
- 	/* Try to get same port: if not, try to change it. */
- 	for (; nated_port != 0; nated_port++) {
-+		int ret;
-+
- 		exp->tuple.dst.u.tcp.port = htons(nated_port);
--		if (nf_ct_expect_related(exp) == 0)
-+		ret = nf_ct_expect_related(exp);
-+		if (ret == 0)
-+			break;
-+		else if (ret != -EBUSY) {
-+			nated_port = 0;
- 			break;
-+		}
- 	}
+-	if (skb->ip_summed != CHECKSUM_PARTIAL) {
+-		if (!(rt->rt_flags & RTCF_LOCAL) &&
+-		    skb->dev->features & NETIF_F_V4_CSUM) {
+-			skb->ip_summed = CHECKSUM_PARTIAL;
+-			skb->csum_start = skb_headroom(skb) +
+-					  skb_network_offset(skb) +
+-					  iph->ihl * 4;
+-			skb->csum_offset = offsetof(struct udphdr, check);
+-			udph->check = ~csum_tcpudp_magic(iph->saddr, iph->daddr,
+-							 datalen, IPPROTO_UDP,
+-							 0);
+-		} else {
+-			udph->check = 0;
+-			udph->check = csum_tcpudp_magic(iph->saddr, iph->daddr,
+-							datalen, IPPROTO_UDP,
+-							csum_partial(udph,
+-								     datalen, 0));
+-			if (!udph->check)
+-				udph->check = CSUM_MANGLED_0;
+-		}
+-	} else
+-		inet_proto_csum_replace2(&udph->check, skb,
+-					 htons(oldlen), htons(datalen), 1);
++	nf_nat_csum(skb, iph, udph, datalen, &udph->check, oldlen);
  
- 	if (nated_port == 0) {	/* No port available */
-@@ -334,9 +352,16 @@ static int nat_h245(struct sk_buff *skb, struct nf_conn *ct,
- 
- 	/* Try to get same port: if not, try to change it. */
- 	for (; nated_port != 0; nated_port++) {
-+		int ret;
-+
- 		exp->tuple.dst.u.tcp.port = htons(nated_port);
--		if (nf_ct_expect_related(exp) == 0)
-+		ret = nf_ct_expect_related(exp);
-+		if (ret == 0)
- 			break;
-+		else if (ret != -EBUSY) {
-+			nated_port = 0;
-+			break;
-+		}
- 	}
- 
- 	if (nated_port == 0) {	/* No port available */
-@@ -418,9 +443,16 @@ static int nat_q931(struct sk_buff *skb, struct nf_conn *ct,
- 
- 	/* Try to get same port: if not, try to change it. */
- 	for (; nated_port != 0; nated_port++) {
-+		int ret;
-+
- 		exp->tuple.dst.u.tcp.port = htons(nated_port);
--		if (nf_ct_expect_related(exp) == 0)
-+		ret = nf_ct_expect_related(exp);
-+		if (ret == 0)
-+			break;
-+		else if (ret != -EBUSY) {
-+			nated_port = 0;
- 			break;
-+		}
- 	}
- 
- 	if (nated_port == 0) {	/* No port available */
-@@ -500,9 +532,16 @@ static int nat_callforwarding(struct sk_buff *skb, struct nf_conn *ct,
- 
- 	/* Try to get same port: if not, try to change it. */
- 	for (nated_port = ntohs(port); nated_port != 0; nated_port++) {
-+		int ret;
-+
- 		exp->tuple.dst.u.tcp.port = htons(nated_port);
--		if (nf_ct_expect_related(exp) == 0)
-+		ret = nf_ct_expect_related(exp);
-+		if (ret == 0)
- 			break;
-+		else if (ret != -EBUSY) {
-+			nated_port = 0;
-+			break;
-+		}
- 	}
- 
- 	if (nated_port == 0) {	/* No port available */
-diff --git a/net/ipv4/netfilter/nf_nat_irc.c b/net/ipv4/netfilter/nf_nat_irc.c
-index ea83a88..535e1a8 100644
---- a/net/ipv4/netfilter/nf_nat_irc.c
-+++ b/net/ipv4/netfilter/nf_nat_irc.c
-@@ -45,9 +45,16 @@ static unsigned int help(struct sk_buff *skb,
- 
- 	/* Try to get same port: if not, try to change it. */
- 	for (port = ntohs(exp->saved_proto.tcp.port); port != 0; port++) {
-+		int ret;
-+
- 		exp->tuple.dst.u.tcp.port = htons(port);
--		if (nf_ct_expect_related(exp) == 0)
-+		ret = nf_ct_expect_related(exp);
-+		if (ret == 0)
-+			break;
-+		else if (ret != -EBUSY) {
-+			port = 0;
- 			break;
-+		}
- 	}
- 
- 	if (port == 0)
-diff --git a/net/ipv4/netfilter/nf_nat_sip.c b/net/ipv4/netfilter/nf_nat_sip.c
-index 11b538d..e40cf78 100644
---- a/net/ipv4/netfilter/nf_nat_sip.c
-+++ b/net/ipv4/netfilter/nf_nat_sip.c
-@@ -307,9 +307,16 @@ static unsigned int ip_nat_sip_expect(struct sk_buff *skb, unsigned int dataoff,
- 	exp->expectfn = ip_nat_sip_expected;
- 
- 	for (; port != 0; port++) {
-+		int ret;
-+
- 		exp->tuple.dst.u.udp.port = htons(port);
--		if (nf_ct_expect_related(exp) == 0)
-+		ret = nf_ct_expect_related(exp);
-+		if (ret == 0)
-+			break;
-+		else if (ret != -EBUSY) {
-+			port = 0;
- 			break;
-+		}
- 	}
- 
- 	if (port == 0)
-@@ -480,13 +487,25 @@ static unsigned int ip_nat_sdp_media(struct sk_buff *skb, unsigned int dataoff,
- 	/* Try to get same pair of ports: if not, try to change them. */
- 	for (port = ntohs(rtp_exp->tuple.dst.u.udp.port);
- 	     port != 0; port += 2) {
-+		int ret;
-+
- 		rtp_exp->tuple.dst.u.udp.port = htons(port);
--		if (nf_ct_expect_related(rtp_exp) != 0)
-+		ret = nf_ct_expect_related(rtp_exp);
-+		if (ret == -EBUSY)
- 			continue;
-+		else if (ret < 0) {
-+			port = 0;
-+			break;
-+		}
- 		rtcp_exp->tuple.dst.u.udp.port = htons(port + 1);
--		if (nf_ct_expect_related(rtcp_exp) == 0)
-+		ret = nf_ct_expect_related(rtcp_exp);
-+		if (ret == 0)
- 			break;
--		nf_ct_unexpect_related(rtp_exp);
-+		else if (ret != -EBUSY) {
-+			nf_ct_unexpect_related(rtp_exp);
-+			port = 0;
-+			break;
-+		}
- 	}
- 
- 	if (port == 0)
+ 	return 1;
+ }
 -- 
 1.7.1
 
