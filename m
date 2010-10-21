@@ -1,177 +1,134 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: [RFC][net-next-2.6 PATCH 2/4] net: 8021Q consolidate header_ops
-	routines
-Date: Thu, 21 Oct 2010 15:10:10 -0700
-Message-ID: <20101021221010.22906.60238.stgit@jf-dev1-dcblab>
-References: <20101021221004.22906.58438.stgit@jf-dev1-dcblab>
+From: Patrick Ringl <patrick_@freenet.de>
+Subject: Re: 2.6.36-rc7: net/bridge causes temporary network I/O lockups [2]
+Date: Fri, 22 Oct 2010 00:18:38 +0200
+Message-ID: <4CC0BC3E.6080906@freenet.de>
+References: <4CB9EBC3.4070905@freenet.de> <20101018161656.GA2403@gondor.apana.org.au> <4CBCB014.9080108@freenet.de> <20101020061631.GA21679@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: multipart/mixed;
+ boundary="------------070402080704000908080609"
+Cc: Patrick Ringl <patrick_@freenet.de>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, bridge@lists.linux-foundation.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20101020061631.GA21679@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+This is a multi-part message in MIME format.
+--------------070402080704000908080609
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jesse@nicira.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:41308 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753720Ab0JUWNk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Oct 2010 18:13:40 -0400
-In-Reply-To: <20101021221004.22906.58438.stgit@jf-dev1-dcblab>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-The only thing the 8021Q header ops routines are required
-for is the VLAN_FLAG_REORDER_HDR otherwise by the time
-the VLAN tag has been added the packet is already on
-its way down the stack. In this case using the Ethernet
-ops works OK.
+On 10/20/2010 08:16 AM, Herbert Xu wrote:
+> On Mon, Oct 18, 2010 at 10:37:40PM +0200, Patrick Ringl wrote:
+>    
+>> Anything else I could possibly provide? :-)
+>>      
+> Yes, testing :)
+>
+> First of all I'd like to rule out (or in) the IPv6 query code,
+> which is clearly generating a bogus packet (wrong payload_len).
+>
+> So can you apply this patch and see if it makes the problem
+> go away? Please take packet dumps so we know that the IPv6 query
+> is no longer being sent.
+>    
+Hi,
 
-At present the VLAN_FLAG_REORDER_HDR flag does not work
-with vlan offloads. As I understand the flag the intent
-is to allow taps on the vlan device and possibly the
-QOS layer to see the vlan tag info.
+Hi,
 
-By inserting the tag in vlan_tci any taps or QOS policies
-should be able to retrieve the vlan info. This allows
-the flag to work the same in both the offload case and
-non-offloaded case. And allows us to use the underlying
-ethernet ops.
+sorry for the late response. I've been using your patch on 2.6.36 and 
+unfortunately, the bogus ipv6 packet is not the cause of the lockups. I 
+have attached two packet dumps (br0 and eth1) again.
 
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
----
 
- net/8021q/vlan_dev.c |   83 +++++++++++++-------------------------------------
- 1 files changed, 21 insertions(+), 62 deletions(-)
+regards,
+Patrick
+> Thanks,
+>    
 
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index 78b1618..1645c3c 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -32,39 +32,6 @@
- #include "vlanproc.h"
- #include <linux/if_vlan.h>
- 
--/*
-- *	Rebuild the Ethernet MAC header. This is called after an ARP
-- *	(or in future other address resolution) has completed on this
-- *	sk_buff. We now let ARP fill in the other fields.
-- *
-- *	This routine CANNOT use cached dst->neigh!
-- *	Really, it is used only when dst->neigh is wrong.
-- *
-- * TODO:  This needs a checkup, I'm ignorant here. --BLG
-- */
--static int vlan_dev_rebuild_header(struct sk_buff *skb)
--{
--	struct net_device *dev = skb->dev;
--	struct vlan_ethhdr *veth = (struct vlan_ethhdr *)(skb->data);
--
--	switch (veth->h_vlan_encapsulated_proto) {
--#ifdef CONFIG_INET
--	case htons(ETH_P_IP):
--
--		/* TODO:  Confirm this will work with VLAN headers... */
--		return arp_find(veth->h_dest, skb);
--#endif
--	default:
--		pr_debug("%s: unable to resolve type %X addresses.\n",
--			 dev->name, ntohs(veth->h_vlan_encapsulated_proto));
--
--		memcpy(veth->h_source, dev->dev_addr, ETH_ALEN);
--		break;
--	}
--
--	return 0;
--}
--
- static inline struct sk_buff *vlan_check_reorder_header(struct sk_buff *skb)
- {
- 	if (vlan_dev_info(skb->dev)->flags & VLAN_FLAG_REORDER_HDR) {
-@@ -269,33 +236,26 @@ static int vlan_dev_hard_header(struct sk_buff *skb, struct net_device *dev,
- 				const void *daddr, const void *saddr,
- 				unsigned int len)
- {
--	struct vlan_hdr *vhdr;
--	unsigned int vhdrlen = 0;
--	u16 vlan_tci = 0;
- 	int rc;
- 
- 	if (WARN_ON(skb_headroom(skb) < dev->hard_header_len))
- 		return -ENOSPC;
- 
-+	/* When this flag is not set we make the vlan_tci visible
-+	 * by setting the skb field.
-+	 *
-+	 * We do not immediately insert the tag here the intent
-+	 * of setting VLAN_FLAG_REORDER_HDR is to make the vlan
-+	 * info avaiable to tap devices and the QOS layer. Adding
-+	 * the tag present bit shoould be enough for other layers
-+	 * to learn the vlan tag.
-+	 */
- 	if (!(vlan_dev_info(dev)->flags & VLAN_FLAG_REORDER_HDR)) {
--		vhdr = (struct vlan_hdr *) skb_push(skb, VLAN_HLEN);
-+		u16 vlan_tci = 0;
- 
- 		vlan_tci = vlan_dev_info(dev)->vlan_id;
- 		vlan_tci |= vlan_dev_get_egress_qos_mask(dev, skb);
--		vhdr->h_vlan_TCI = htons(vlan_tci);
--
--		/*
--		 *  Set the protocol type. For a packet of type ETH_P_802_3/2 we
--		 *  put the length in here instead.
--		 */
--		if (type != ETH_P_802_3 && type != ETH_P_802_2)
--			vhdr->h_vlan_encapsulated_proto = htons(type);
--		else
--			vhdr->h_vlan_encapsulated_proto = htons(len);
--
--		skb->protocol = htons(ETH_P_8021Q);
--		type = ETH_P_8021Q;
--		vhdrlen = VLAN_HLEN;
-+		skb = __vlan_hwaccel_put_tag(skb, vlan_tci);
- 	}
- 
- 	/* Before delegating work to the lower layer, enter our MAC-address */
-@@ -304,9 +264,7 @@ static int vlan_dev_hard_header(struct sk_buff *skb, struct net_device *dev,
- 
- 	/* Now make the underlying real hard header */
- 	dev = vlan_dev_info(dev)->real_dev;
--	rc = dev_hard_header(skb, dev, type, daddr, saddr, len + vhdrlen);
--	if (rc > 0)
--		rc += vhdrlen;
-+	rc = dev_hard_header(skb, dev, type, daddr, saddr, len);
- 	return rc;
- }
- 
-@@ -676,9 +634,11 @@ static void vlan_dev_set_lockdep_class(struct net_device *dev, int subclass)
- }
- 
- static const struct header_ops vlan_header_ops = {
--	.create	 = vlan_dev_hard_header,
--	.rebuild = vlan_dev_rebuild_header,
--	.parse	 = eth_header_parse,
-+	.create		= vlan_dev_hard_header,
-+	.rebuild	= eth_rebuild_header,
-+	.parse		= eth_header_parse,
-+	.cache		= eth_header_cache,
-+	.cache_update	= eth_header_cache_update,
- };
- 
- static const struct net_device_ops vlan_netdev_ops, vlan_netdev_ops_sq;
-@@ -713,13 +673,12 @@ static int vlan_dev_init(struct net_device *dev)
- 	dev->fcoe_ddp_xid = real_dev->fcoe_ddp_xid;
- #endif
- 
--	if (real_dev->features & NETIF_F_HW_VLAN_TX) {
--		dev->header_ops      = real_dev->header_ops;
-+	dev->header_ops = &vlan_header_ops;
-+
-+	if (real_dev->features & NETIF_F_HW_VLAN_TX)
- 		dev->hard_header_len = real_dev->hard_header_len;
--	} else {
--		dev->header_ops      = &vlan_header_ops;
-+	else
- 		dev->hard_header_len = real_dev->hard_header_len + VLAN_HLEN;
--	}
- 
- 	if (real_dev->netdev_ops->ndo_select_queue)
- 		dev->netdev_ops = &vlan_netdev_ops_sq;
 
+--------------070402080704000908080609
+Content-Type: application/octet-stream;
+ name="n_br0"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+ filename="n_br0"
+
+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
+AAA=
+--------------070402080704000908080609
+Content-Type: application/octet-stream;
+ name="n_eth1"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+ filename="n_eth1"
+
+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
+AAAAAA==
+--------------070402080704000908080609--
