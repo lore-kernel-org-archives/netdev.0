@@ -1,38 +1,33 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 2/2] can: mcp251x: fix generation of error frames
-Date: Thu, 21 Oct 2010 04:33:06 -0700 (PDT)
-Message-ID: <20101021.043306.149829565.davem@davemloft.net>
-References: <1287568946-32727-1-git-send-email-mkl@pengutronix.de>
-	<1287568946-32727-3-git-send-email-mkl@pengutronix.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipv4: synchronize bind() with RTM_NEWADDR notifications
+Date: Thu, 21 Oct 2010 04:34:21 -0700 (PDT)
+Message-ID: <20101021.043421.108778257.davem@davemloft.net>
+References: <4CC01CC0.7090101@iki.fi>
+	<20101021.040319.191412436.davem@davemloft.net>
+	<4CC02412.8050000@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <1287568946-32727-3-git-send-email-mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: timo.teras@iki.fi
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37655
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753979Ab0JULd6 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Oct 2010 07:33:58 -0400
+In-Reply-To: <4CC02412.8050000@iki.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Date: Wed, 20 Oct 2010 12:02:26 +0200
+=46rom: Timo Ter=E4s <timo.teras@iki.fi>
+Date: Thu, 21 Oct 2010 14:29:22 +0300
 
-> The function "mcp251x_error_skb" is used to generate error frames.
-> They are identified by the "CAN_ERR_FLAG" in can_id. The function
-> overwrites the can_id so that the frames show up as normal frames instead
-> of error frames.
-> 
-> This patch fixes the problem by or'ing the can_id instead of overwriting it.
-> 
-> Signed-off-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-> Tested-by: Jargalan Nermunkh <jargalan.nermunkh-wZX4cNJlHJ2sVWG7oymsAA@public.gmane.org>
+> This is the third time asking, what would be a good way to fix the
+> problem described in the original commit log?
 
-Applied.
+I kept your report in my inbox backlog and intended to think about
+it as time permitted.
+
+As the merge window has just openned up, for me time will not be
+"permitted" for some time.
