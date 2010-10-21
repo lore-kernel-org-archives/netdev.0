@@ -1,228 +1,240 @@
-From: David Dillow <dave@thedillows.org>
-Subject: Re: [PATCH v2 00/14] Move vlan acceleration into networking core.
-Date: Wed, 20 Oct 2010 22:02:59 -0400
-Message-ID: <1287626579.11431.9.camel@obelisk.thedillows.org>
-References: <1287618974-4714-1-git-send-email-jesse@nicira.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH 1/2] r6040: fix multicast operations
+Date: Thu, 21 Oct 2010 03:55:51 +0100
+Message-ID: <1287629751.20865.220.camel@localhost>
+References: <201010202309.43812.florian@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Jesse Gross <jesse@nicira.com>
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-cmbRnZvcrTIPNRsJoUH7"
+Cc: netdev@vger.kernel.org, Shawn Lin <shawn@dmp.com.tw>,
+	Marc Leclerc <marc-leclerc@signaturealpha.com>,
+	Albert Chen <albert.chen@rdc.com.tw>,
+	David Miller <davem@davemloft.net>
+To: Florian Fainelli <florian@openwrt.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from amavis-smtp.knology.net ([75.76.199.6]:36151 "EHLO
-	amavis-smtp.knology.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757083Ab0JUCfK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Oct 2010 22:35:10 -0400
-In-Reply-To: <1287618974-4714-1-git-send-email-jesse@nicira.com>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:49709 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757028Ab0JUC4F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Oct 2010 22:56:05 -0400
+In-Reply-To: <201010202309.43812.florian@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-10-20 at 16:56 -0700, Jesse Gross wrote:
-> The first eleven patches can be applied immediately, while the last three need
-> to wait until all drivers that support vlan acceleration are updated.  If
-> people agree that this patch set makes sense I will go ahead and switch over
-> the dozen or so drivers that would need to change.
 
-Here's a first pass at converting typhoon to the new methods. It is
-compile tested, but I have to put the hardware back in a machine to do
-some testing, which I may not be able to do before the weekend.
+--=-cmbRnZvcrTIPNRsJoUH7
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Of course, we could just change it to not offload by default if we need
-to push this sooner.
+On Wed, 2010-10-20 at 22:25 +0100, Florian Fainelli wrote:
+> This patch fixes the following issues with the r6040 NIC operating in
+> multicast:
+>=20
+> 1) When the IFF_ALLMULTI flag is set, we should write 0xffff to the NIC h=
+ash
+>    table registers to make it process multicast traffic
+> 2) When the number of multicast address to handle is smaller than MCAST_M=
+AX
+>    we should use the NIC multicast registers MID1_{L,M,H}.
+> 3) The hashing of the address was not correct, due to an invalid substrac=
+tion
+>    (15 - (crc & 0x0f)) instead of (crc & 0x0f)
 
-Applies to net-next-2.6 with the vlan changes.
+> Reported-by: Marc Leclerc <marc-leclerc@signaturealpha.com>
+> Tested-by: Marc Leclerc <marc-leclerc@signaturealpha.com>
+> Signed-off-by: Shawn Lin <shawn@dmp.com.tw>
+> Signed-off-by: Albert Chen <albert.chen@rdc.com.tw>
+> Signed-off-by: Florian Fainelli <florian@openwrt.org>
+> CC: stable@kernel.org
 
+Remember you'll need to provide a different version for 2.6.27.y and
+2.6.32.y.
 
+> ---
+> diff --git a/drivers/net/r6040.c b/drivers/net/r6040.c
+> index 68a8419..3843363 100644
+> --- a/drivers/net/r6040.c
+> +++ b/drivers/net/r6040.c
+> @@ -852,74 +852,90 @@ static void r6040_multicast_list(struct net_device =
+*dev)
+>  	struct r6040_private *lp =3D netdev_priv(dev);
+>  	void __iomem *ioaddr =3D lp->base;
+>  	u16 *adrp;
+> -	u16 reg;
+>  	unsigned long flags;
+>  	struct netdev_hw_addr *ha;
+>  	int i;
+> =20
+> -	/* MAC Address */
+> -	adrp =3D (u16 *)dev->dev_addr;
+> -	iowrite16(adrp[0], ioaddr + MID_0L);
+> -	iowrite16(adrp[1], ioaddr + MID_0M);
+> -	iowrite16(adrp[2], ioaddr + MID_0H);
+> -
+> -	/* Promiscous Mode */
+>  	spin_lock_irqsave(&lp->lock, flags);
+> =20
+>  	/* Clear AMCP & PROM bits */
+> -	reg =3D ioread16(ioaddr) & ~0x0120;
+> -	if (dev->flags & IFF_PROMISC) {
+> -		reg |=3D 0x0020;
+> +	lp->mcr0 =3D ioread16(ioaddr) & ~0x0120;
+> +
+> +	/* Promiscuous Mode */
+> +	if (dev->flags & IFF_PROMISC)
+>  		lp->mcr0 |=3D 0x0020;
+> -	}
+> -	/* Too many multicast addresses
+> -	 * accept all traffic */
+> -	else if ((netdev_mc_count(dev) > MCAST_MAX) ||
+> -		 (dev->flags & IFF_ALLMULTI))
+> -		reg |=3D 0x0020;
+> =20
+> -	iowrite16(reg, ioaddr);
+> -	spin_unlock_irqrestore(&lp->lock, flags);
+> +	/* Enable multicast hash table function to
+> +	 * receive all multicast packets.
+> +	 */
+> +	else if (dev->flags & IFF_ALLMULTI) {
+> +		lp->mcr0 |=3D 0x0100;
 
-diff --git a/drivers/net/typhoon.c b/drivers/net/typhoon.c
-index 1cc6713..5ee0324 100644
---- a/drivers/net/typhoon.c
-+++ b/drivers/net/typhoon.c
-@@ -280,8 +280,6 @@ struct typhoon {
- 	struct pci_dev *	pdev;
- 	struct net_device *	dev;
- 	struct napi_struct	napi;
--	spinlock_t		state_lock;
--	struct vlan_group *	vlgrp;
- 	struct basic_ring	rxHiRing;
- 	struct basic_ring	rxBuffRing;
- 	struct rxbuff_ent	rxbuffers[RXENT_ENTRIES];
-@@ -695,42 +693,39 @@ out:
- 	return err;
- }
- 
--static void
--typhoon_vlan_rx_register(struct net_device *dev, struct vlan_group *grp)
-+static int
-+typhoon_offload_vlan(struct net_device *dev, bool enabled)
- {
- 	struct typhoon *tp = netdev_priv(dev);
-+	__le32 offload = tp->offload;
- 	struct cmd_desc xp_cmd;
- 	int err;
- 
--	spin_lock_bh(&tp->state_lock);
--	if(!tp->vlgrp != !grp) {
--		/* We've either been turned on for the first time, or we've
--		 * been turned off. Update the 3XP.
--		 */
--		if(grp)
--			tp->offload |= TYPHOON_OFFLOAD_VLAN;
--		else
--			tp->offload &= ~TYPHOON_OFFLOAD_VLAN;
--
--		/* If the interface is up, the runtime is running -- and we
--		 * must be up for the vlan core to call us.
--		 *
--		 * Do the command outside of the spin lock, as it is slow.
--		 */
--		INIT_COMMAND_WITH_RESPONSE(&xp_cmd,
--					TYPHOON_CMD_SET_OFFLOAD_TASKS);
--		xp_cmd.parm2 = tp->offload;
--		xp_cmd.parm3 = tp->offload;
--		spin_unlock_bh(&tp->state_lock);
--		err = typhoon_issue_command(tp, 1, &xp_cmd, 0, NULL);
--		if(err < 0)
--			netdev_err(tp->dev, "vlan offload error %d\n", -err);
--		spin_lock_bh(&tp->state_lock);
--	}
--
--	/* now make the change visible */
--	tp->vlgrp = grp;
--	spin_unlock_bh(&tp->state_lock);
-+	if (enabled)
-+		offload |= TYPHOON_OFFLOAD_VLAN;
-+	else
-+		offload &= ~TYPHOON_OFFLOAD_VLAN;
-+
-+	if (offload == tp->offload)
-+		return 0;
-+
-+	/* We've either been turned on for the first time, or we've
-+	 * been turned off. Save the setting, and update the 3XP if the
-+	 * runtime is active.
-+	 *
-+	 * Caller must hold the RTNL lock.
-+	 */
-+	tp->offload = offload;
-+	if (!netif_running(dev))
-+		return 0;
-+
-+	INIT_COMMAND_WITH_RESPONSE(&xp_cmd, TYPHOON_CMD_SET_OFFLOAD_TASKS);
-+	xp_cmd.parm2 = tp->offload;
-+	xp_cmd.parm3 = tp->offload;
-+	err = typhoon_issue_command(tp, 1, &xp_cmd, 0, NULL);
-+	if(err < 0)
-+		netdev_err(tp->dev, "vlan offload error %d\n", -err);
-+	return err;
- }
- 
- static inline void
-@@ -1198,6 +1193,30 @@ typhoon_get_rx_csum(struct net_device *dev)
- 	return 1;
- }
- 
-+static int
-+typhoon_set_flags(struct net_device *dev, u32 data)
-+{
-+	u32 orig_flags = dev->features;
-+	int rc;
-+
-+	/* VLAN offloading is a package deal on the 3XP -- if enabled,
-+	 * we'll always have RX offload active, but we can choose to
-+	 * not use the TX offload.
-+	 */
-+	if ((data & ETH_FLAG_TXVLAN) && !(data & ETH_FLAG_RXVLAN))
-+		return -EINVAL;
-+
-+	rc = ethtool_op_set_flags(dev, data, ETH_FLAG_RXVLAN | ETH_FLAG_TXVLAN);
-+	if (rc)
-+		return rc;
-+
-+	data &= ETH_FLAG_RXVLAN | ETH_FLAG_TXVLAN;
-+	rc = typhoon_offload_vlan(dev, data);
-+	if (rc)
-+		dev->features = orig_flags;
-+	return rc;
-+}
-+
- static void
- typhoon_get_ringparam(struct net_device *dev, struct ethtool_ringparam *ering)
- {
-@@ -1224,6 +1243,8 @@ static const struct ethtool_ops typhoon_ethtool_ops = {
- 	.set_sg			= ethtool_op_set_sg,
- 	.set_tso		= ethtool_op_set_tso,
- 	.get_ringparam		= typhoon_get_ringparam,
-+	.set_flags		= typhoon_set_flags,
-+	.get_flags		= ethtool_op_get_flags,
- };
- 
- static int
-@@ -1309,9 +1330,9 @@ typhoon_init_interface(struct typhoon *tp)
- 
- 	tp->offload = TYPHOON_OFFLOAD_IP_CHKSUM | TYPHOON_OFFLOAD_TCP_CHKSUM;
- 	tp->offload |= TYPHOON_OFFLOAD_UDP_CHKSUM | TSO_OFFLOAD_ON;
-+	tp->offload |= TYPHOON_OFFLOAD_VLAN;
- 
- 	spin_lock_init(&tp->command_lock);
--	spin_lock_init(&tp->state_lock);
- 
- 	/* Force the writes to the shared memory area out before continuing. */
- 	wmb();
-@@ -1762,13 +1783,10 @@ typhoon_rx(struct typhoon *tp, struct basic_ring *rxRing, volatile __le32 * read
- 		} else
- 			skb_checksum_none_assert(new_skb);
- 
--		spin_lock(&tp->state_lock);
--		if(tp->vlgrp != NULL && rx->rxStatus & TYPHOON_RX_VLAN)
--			vlan_hwaccel_receive_skb(new_skb, tp->vlgrp,
--						 ntohl(rx->vlanTag) & 0xffff);
--		else
--			netif_receive_skb(new_skb);
--		spin_unlock(&tp->state_lock);
-+		if (rx->rxStatus & TYPHOON_RX_VLAN)
-+			__vlan_hwaccel_put_tag(new_skb,
-+					       ntohl(rx->vlanTag) & 0xffff);
-+		netif_receive_skb(new_skb);
- 
- 		received++;
- 		budget--;
-@@ -1989,11 +2007,9 @@ typhoon_start_runtime(struct typhoon *tp)
- 		goto error_out;
- 
- 	INIT_COMMAND_NO_RESPONSE(&xp_cmd, TYPHOON_CMD_SET_OFFLOAD_TASKS);
--	spin_lock_bh(&tp->state_lock);
- 	xp_cmd.parm2 = tp->offload;
- 	xp_cmd.parm3 = tp->offload;
- 	err = typhoon_issue_command(tp, 1, &xp_cmd, 0, NULL);
--	spin_unlock_bh(&tp->state_lock);
- 	if(err < 0)
- 		goto error_out;
- 
-@@ -2231,13 +2247,9 @@ typhoon_suspend(struct pci_dev *pdev, pm_message_t state)
- 	if(!netif_running(dev))
- 		return 0;
- 
--	spin_lock_bh(&tp->state_lock);
--	if(tp->vlgrp && tp->wol_events & TYPHOON_WAKE_MAGIC_PKT) {
--		spin_unlock_bh(&tp->state_lock);
--		netdev_err(dev, "cannot do WAKE_MAGIC with VLANS\n");
--		return -EBUSY;
--	}
--	spin_unlock_bh(&tp->state_lock);
-+	if(tp->offload & TYPHOON_OFFLOAD_VLAN &&
-+				tp->wol_events & TYPHOON_WAKE_MAGIC_PKT)
-+		netdev_warn(dev, "WAKE_MAGIC does not work with VLANS\n");
- 
- 	netif_device_detach(dev);
- 
-@@ -2338,7 +2350,6 @@ static const struct net_device_ops typhoon_netdev_ops = {
- 	.ndo_validate_addr	= eth_validate_addr,
- 	.ndo_set_mac_address	= typhoon_set_mac_address,
- 	.ndo_change_mtu		= eth_change_mtu,
--	.ndo_vlan_rx_register	= typhoon_vlan_rx_register,
- };
- 
- static int __devinit
+Please give these flags names.
 
+> =20
+> -	/* Build the hash table */
+> -	if (netdev_mc_count(dev) > MCAST_MAX) {
+> -		u16 hash_table[4];
+> +		for (i =3D 0; i < MCAST_MAX ; i++) {
+> +			iowrite16(0, ioaddr + MID_1L + 8 * i);
+> +			iowrite16(0, ioaddr + MID_1M + 8 * i);
+> +			iowrite16(0, ioaddr + MID_1H + 8 * i);
+> +		}
+> +
+> +		iowrite16(0xffff, ioaddr + MAR0);
+> +		iowrite16(0xffff, ioaddr + MAR1);
+> +		iowrite16(0xffff, ioaddr + MAR2);
+> +		iowrite16(0xffff, ioaddr + MAR3);
+> +	}
+> +
+> +	/* Use internal multicast address registers
+> +	 * if the number of multicast addresses is not greater than MCAST_MAX.
+> +	 */
+> +	else if (netdev_mc_empty(dev)) {
+> +		for (i =3D 0; i < MCAST_MAX ; i++) {
+> +			iowrite16(0, ioaddr + MID_1L + 8 * i);
+> +			iowrite16(0, ioaddr + MID_1M + 8 * i);
+> +			iowrite16(0, ioaddr + MID_1H + 8 * i);
+> +		}
+> +	} else if (netdev_mc_count(dev) <=3D MCAST_MAX) {
+> +		i =3D 0;
+> +		netdev_for_each_mc_addr(ha, dev) {
+> +			adrp =3D (u16 *) ha->addr;
+> +			iowrite16(adrp[0], ioaddr + MID_1L + 8 * i);
+> +			iowrite16(adrp[1], ioaddr + MID_1M + 8 * i);
+> +			iowrite16(adrp[2], ioaddr + MID_1H + 8 * i);
+> +			i++;
+> +		}
 
+What about the unused exact match entries?  And why is the empty case
+special?
+
+> +	}
+> +	/* Otherwise, Enable multicast hash table function. */
+> +	else {
+> +		u16 hash_table[4] =3D { 0, };
+>  		u32 crc;
+> =20
+> -		for (i =3D 0; i < 4; i++)
+> -			hash_table[i] =3D 0;
+> +		lp->mcr0 |=3D 0x0100;
+> =20
+> +		for (i =3D 0; i < MCAST_MAX ; i++) {
+> +			iowrite16(0, ioaddr + MID_1L + 8 * i);
+> +			iowrite16(0, ioaddr + MID_1M + 8 * i);
+> +			iowrite16(0, ioaddr + MID_1H + 8 * i);
+> +		}
+> +
+> +		/* Build multicast hash table */
+>  		netdev_for_each_mc_addr(ha, dev) {
+>  			char *addrs =3D ha->addr;
+> =20
+>  			if (!(*addrs & 1))
+>  				continue;
+> =20
+> -			crc =3D ether_crc_le(6, addrs);
+> +			crc =3D ether_crc(ETH_ALEN, addrs);
+
+You're reversing the order of bits in the CRC, which is not mentioned in
+the commit message; are you sure that's right?
+
+>  			crc >>=3D 26;
+> -			hash_table[crc >> 4] |=3D 1 << (15 - (crc & 0xf));
+> +			hash_table[crc >> 4] |=3D 1 << (crc & 0xf);
+>  		}
+> +
+>  		/* Fill the MAC hash tables with their values */
+>  		iowrite16(hash_table[0], ioaddr + MAR0);
+>  		iowrite16(hash_table[1], ioaddr + MAR1);
+>  		iowrite16(hash_table[2], ioaddr + MAR2);
+>  		iowrite16(hash_table[3], ioaddr + MAR3);
+>  	}
+> -	/* Multicast Address 1~4 case */
+> -	i =3D 0;
+> -	netdev_for_each_mc_addr(ha, dev) {
+> -		if (i < MCAST_MAX) {
+> -			adrp =3D (u16 *) ha->addr;
+> -			iowrite16(adrp[0], ioaddr + MID_1L + 8 * i);
+> -			iowrite16(adrp[1], ioaddr + MID_1M + 8 * i);
+> -			iowrite16(adrp[2], ioaddr + MID_1H + 8 * i);
+> -		} else {
+> -			iowrite16(0xffff, ioaddr + MID_1L + 8 * i);
+> -			iowrite16(0xffff, ioaddr + MID_1M + 8 * i);
+> -			iowrite16(0xffff, ioaddr + MID_1H + 8 * i);
+> -		}
+
+This conflicts with my patch in
+<http://article.gmane.org/gmane.linux.network/174926> which Dave has
+already applied (but not pushed out).
+
+Ben.
+
+> -		i++;
+> -	}
+> +	iowrite16(lp->mcr0, ioaddr);
+> +
+> +	spin_unlock_irqrestore(&lp->lock, flags);
+>  }
+> =20
+>  static void netdev_get_drvinfo(struct net_device *dev,
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>=20
+>=20
+
+--=20
+Ben Hutchings
+Once a job is fouled up, anything done to improve it makes it worse.
+
+--=-cmbRnZvcrTIPNRsJoUH7
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iQIVAwUATL+rsee/yOyVhhEJAQJ0gQ//SLa9ugqTikG6D6NkhJYP4Pfp36es48q/
+MT9JRlF9IX7zIEFzlNz4pE91ux1fUFa3Xp8NPaPcc4pACkBQRmkKcyS6vmUG9SPm
+FcrJLbKww4W5nu2EeUNXNUp62RFSJi5mNJNlzFEyvPTVkEWTwXnbI+XXPYsObhEC
+l84PY3ytifRIuLra149QyxohsnnfhouyVdjYSvAwLqstuBGPtsF7meYg5GAHmFp4
+aVHjmavnjGBPNsnjiSq9x+LKK+xC7WzGcMq3Zx7wow4peQEVSAHxOg7MSW0KZ9st
+Z/FS54uISEoYZaEBlUOUKHfxK/L5+tIpx/IPkUqegledlOag+3dEoFCN/Trya4FG
+k+kbgjKjY0Jvj06wMmQL9JskbAptj4GJU4+TDrHar53UnKLqtM7uOoXCZPdTw86S
+8uFkOwXceg5SWrjgk5g3xp8uXmiCoDLxG88gJBm1tUT7kreSmYv3ApHxLkInBpJL
+2H1ouVU/2WpXyQ9g6xchSeuwLgQmtV+L8/whdw0ELB5h5ko2IQ+9rQ8oxaQin/GN
+CuqCYS4ml2zNjPpT2/5kANn3XfhEg2n1JIy22dlhEKrhQCejKkP2JFgG7mXV5yeT
+GXOD5ktoYLM2nvq01UhROe5FFids9vPlT+ZwLRi2S/lrEJ1KCB6udyLQxDS7fj8Y
+hxz9T+zB5xA=
+=96hf
+-----END PGP SIGNATURE-----
+
+--=-cmbRnZvcrTIPNRsJoUH7--
