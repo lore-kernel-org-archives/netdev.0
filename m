@@ -1,8 +1,7 @@
 From: KOVACS Krisztian <hidden@balabit.hu>
-Subject: [PATCH v2 1/9] tproxy: split off ipv6 defragmentation to a separate
- module
-Date: Thu, 21 Oct 2010 12:47:09 +0200
-Message-ID: <20101021104709.5192.64336.stgit@este.odu>
+Subject: [PATCH v2 8/9] tproxy: added IPv6 support to the socket match
+Date: Thu, 21 Oct 2010 12:47:10 +0200
+Message-ID: <20101021104709.5192.41764.stgit@este.odu>
 References: <20101021104709.5192.31249.stgit@este.odu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
@@ -11,387 +10,275 @@ Cc: Balazs Scheidler <bazsi@balabit.hu>,
 	Patrick McHardy <kaber@trash.net>,
 	David Miller <davem@davemloft.net>
 To: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from balu.sch.bme.hu ([152.66.208.40]:35683 "EHLO balu.sch.bme.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756727Ab0JUKsh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Oct 2010 06:48:37 -0400
 In-reply-to: <20101021104709.5192.31249.stgit@este.odu>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Balazs Scheidler <bazsi@balabit.hu>
 
-Like with IPv4, TProxy needs IPv6 defragmentation but does not
-require connection tracking. Since defragmentation was coupled
-with conntrack, I split off the two, creating an nf_defrag_ipv6 module,
-similar to the already existing nf_defrag_ipv4.
+The ICMP extraction bits were contributed by Harry Mason.
 
 Signed-off-by: Balazs Scheidler <bazsi@balabit.hu>
 Signed-off-by: KOVACS Krisztian <hidden@balabit.hu>
 ---
- include/net/netfilter/ipv6/nf_defrag_ipv6.h    |    6 +
- net/ipv6/netfilter/Makefile                    |    5 +
- net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |   78 +-------------
- net/ipv6/netfilter/nf_conntrack_reasm.c        |   12 ++
- net/ipv6/netfilter/nf_defrag_ipv6_hooks.c      |  131 ++++++++++++++++++++++++
- 5 files changed, 154 insertions(+), 78 deletions(-)
- create mode 100644 include/net/netfilter/ipv6/nf_defrag_ipv6.h
- create mode 100644 net/ipv6/netfilter/nf_defrag_ipv6_hooks.c
+ net/netfilter/xt_socket.c |  165 ++++++++++++++++++++++++++++++++++++++++++---
+ 1 files changed, 154 insertions(+), 11 deletions(-)
 
-diff --git a/include/net/netfilter/ipv6/nf_defrag_ipv6.h b/include/net/netfilter/ipv6/nf_defrag_ipv6.h
-new file mode 100644
-index 0000000..94dd54d
---- /dev/null
-+++ b/include/net/netfilter/ipv6/nf_defrag_ipv6.h
-@@ -0,0 +1,6 @@
-+#ifndef _NF_DEFRAG_IPV6_H
-+#define _NF_DEFRAG_IPV6_H
-+
-+extern void nf_defrag_ipv6_enable(void);
-+
-+#endif /* _NF_DEFRAG_IPV6_H */
-diff --git a/net/ipv6/netfilter/Makefile b/net/ipv6/netfilter/Makefile
-index aafbba3..3f8e4a3 100644
---- a/net/ipv6/netfilter/Makefile
-+++ b/net/ipv6/netfilter/Makefile
-@@ -11,10 +11,11 @@ obj-$(CONFIG_IP6_NF_RAW) += ip6table_raw.o
- obj-$(CONFIG_IP6_NF_SECURITY) += ip6table_security.o
- 
- # objects for l3 independent conntrack
--nf_conntrack_ipv6-objs  :=  nf_conntrack_l3proto_ipv6.o nf_conntrack_proto_icmpv6.o nf_conntrack_reasm.o
-+nf_conntrack_ipv6-objs  :=  nf_conntrack_l3proto_ipv6.o nf_conntrack_proto_icmpv6.o
-+nf_defrag_ipv6-objs := nf_defrag_ipv6_hooks.o nf_conntrack_reasm.o
- 
- # l3 independent conntrack
--obj-$(CONFIG_NF_CONNTRACK_IPV6) += nf_conntrack_ipv6.o
-+obj-$(CONFIG_NF_CONNTRACK_IPV6) += nf_conntrack_ipv6.o nf_defrag_ipv6.o
- 
- # matches
- obj-$(CONFIG_IP6_NF_MATCH_AH) += ip6t_ah.o
-diff --git a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-index ff43461..c8af58b 100644
---- a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-+++ b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-@@ -16,7 +16,6 @@
- #include <linux/module.h>
+diff --git a/net/netfilter/xt_socket.c b/net/netfilter/xt_socket.c
+index 266faa0..2dbd4c8 100644
+--- a/net/netfilter/xt_socket.c
++++ b/net/netfilter/xt_socket.c
+@@ -14,6 +14,7 @@
  #include <linux/skbuff.h>
- #include <linux/icmp.h>
--#include <linux/sysctl.h>
- #include <net/ipv6.h>
- #include <net/inet_frag.h>
- 
-@@ -29,6 +28,7 @@
- #include <net/netfilter/nf_conntrack_core.h>
- #include <net/netfilter/nf_conntrack_zones.h>
- #include <net/netfilter/ipv6/nf_conntrack_ipv6.h>
+ #include <linux/netfilter/x_tables.h>
+ #include <linux/netfilter_ipv4/ip_tables.h>
++#include <linux/netfilter_ipv6/ip6_tables.h>
+ #include <net/tcp.h>
+ #include <net/udp.h>
+ #include <net/icmp.h>
+@@ -21,6 +22,7 @@
+ #include <net/inet_sock.h>
+ #include <net/netfilter/nf_tproxy_core.h>
+ #include <net/netfilter/ipv4/nf_defrag_ipv4.h>
 +#include <net/netfilter/ipv6/nf_defrag_ipv6.h>
- #include <net/netfilter/nf_log.h>
  
- static bool ipv6_pkt_to_tuple(const struct sk_buff *skb, unsigned int nhoff,
-@@ -189,53 +189,6 @@ out:
- 	return nf_conntrack_confirm(skb);
- }
+ #include <linux/netfilter/xt_socket.h>
  
--static enum ip6_defrag_users nf_ct6_defrag_user(unsigned int hooknum,
--						struct sk_buff *skb)
--{
--	u16 zone = NF_CT_DEFAULT_ZONE;
--
--	if (skb->nfct)
--		zone = nf_ct_zone((struct nf_conn *)skb->nfct);
--
--#ifdef CONFIG_BRIDGE_NETFILTER
--	if (skb->nf_bridge &&
--	    skb->nf_bridge->mask & BRNF_NF_BRIDGE_PREROUTING)
--		return IP6_DEFRAG_CONNTRACK_BRIDGE_IN + zone;
--#endif
--	if (hooknum == NF_INET_PRE_ROUTING)
--		return IP6_DEFRAG_CONNTRACK_IN + zone;
--	else
--		return IP6_DEFRAG_CONNTRACK_OUT + zone;
--
--}
--
--static unsigned int ipv6_defrag(unsigned int hooknum,
--				struct sk_buff *skb,
--				const struct net_device *in,
--				const struct net_device *out,
--				int (*okfn)(struct sk_buff *))
--{
--	struct sk_buff *reasm;
--
--	/* Previously seen (loopback)?  */
--	if (skb->nfct && !nf_ct_is_template((struct nf_conn *)skb->nfct))
--		return NF_ACCEPT;
--
--	reasm = nf_ct_frag6_gather(skb, nf_ct6_defrag_user(hooknum, skb));
--	/* queued */
--	if (reasm == NULL)
--		return NF_STOLEN;
--
--	/* error occured or not fragmented */
--	if (reasm == skb)
--		return NF_ACCEPT;
--
--	nf_ct_frag6_output(hooknum, reasm, (struct net_device *)in,
--			   (struct net_device *)out, okfn);
--
--	return NF_STOLEN;
--}
--
- static unsigned int __ipv6_conntrack_in(struct net *net,
- 					unsigned int hooknum,
- 					struct sk_buff *skb,
-@@ -288,13 +241,6 @@ static unsigned int ipv6_conntrack_local(unsigned int hooknum,
- 
- static struct nf_hook_ops ipv6_conntrack_ops[] __read_mostly = {
- 	{
--		.hook		= ipv6_defrag,
--		.owner		= THIS_MODULE,
--		.pf		= NFPROTO_IPV6,
--		.hooknum	= NF_INET_PRE_ROUTING,
--		.priority	= NF_IP6_PRI_CONNTRACK_DEFRAG,
--	},
--	{
- 		.hook		= ipv6_conntrack_in,
- 		.owner		= THIS_MODULE,
- 		.pf		= NFPROTO_IPV6,
-@@ -309,13 +255,6 @@ static struct nf_hook_ops ipv6_conntrack_ops[] __read_mostly = {
- 		.priority	= NF_IP6_PRI_CONNTRACK,
- 	},
- 	{
--		.hook		= ipv6_defrag,
--		.owner		= THIS_MODULE,
--		.pf		= NFPROTO_IPV6,
--		.hooknum	= NF_INET_LOCAL_OUT,
--		.priority	= NF_IP6_PRI_CONNTRACK_DEFRAG,
--	},
--	{
- 		.hook		= ipv6_confirm,
- 		.owner		= THIS_MODULE,
- 		.pf		= NFPROTO_IPV6,
-@@ -387,10 +326,6 @@ struct nf_conntrack_l3proto nf_conntrack_l3proto_ipv6 __read_mostly = {
- 	.nlattr_to_tuple	= ipv6_nlattr_to_tuple,
- 	.nla_policy		= ipv6_nla_policy,
- #endif
--#ifdef CONFIG_SYSCTL
--	.ctl_table_path		= nf_net_netfilter_sysctl_path,
--	.ctl_table		= nf_ct_ipv6_sysctl_table,
--#endif
- 	.me			= THIS_MODULE,
- };
- 
-@@ -403,16 +338,12 @@ static int __init nf_conntrack_l3proto_ipv6_init(void)
- 	int ret = 0;
- 
- 	need_conntrack();
-+	nf_defrag_ipv6_enable();
- 
--	ret = nf_ct_frag6_init();
--	if (ret < 0) {
--		pr_err("nf_conntrack_ipv6: can't initialize frag6.\n");
--		return ret;
--	}
- 	ret = nf_conntrack_l4proto_register(&nf_conntrack_l4proto_tcp6);
- 	if (ret < 0) {
- 		pr_err("nf_conntrack_ipv6: can't register tcp.\n");
--		goto cleanup_frag6;
-+		return ret;
- 	}
- 
- 	ret = nf_conntrack_l4proto_register(&nf_conntrack_l4proto_udp6);
-@@ -450,8 +381,6 @@ static int __init nf_conntrack_l3proto_ipv6_init(void)
- 	nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_udp6);
-  cleanup_tcp:
- 	nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_tcp6);
-- cleanup_frag6:
--	nf_ct_frag6_cleanup();
- 	return ret;
- }
- 
-@@ -463,7 +392,6 @@ static void __exit nf_conntrack_l3proto_ipv6_fini(void)
- 	nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_icmpv6);
- 	nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_udp6);
- 	nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_tcp6);
--	nf_ct_frag6_cleanup();
- }
- 
- module_init(nf_conntrack_l3proto_ipv6_init);
-diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
-index 138a8b3..bb669b4 100644
---- a/net/ipv6/netfilter/nf_conntrack_reasm.c
-+++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
-@@ -73,7 +73,7 @@ static struct inet_frags nf_frags;
- static struct netns_frags nf_init_frags;
- 
- #ifdef CONFIG_SYSCTL
--struct ctl_table nf_ct_ipv6_sysctl_table[] = {
-+struct ctl_table nf_ct_frag6_sysctl_table[] = {
- 	{
- 		.procname	= "nf_conntrack_frag6_timeout",
- 		.data		= &nf_init_frags.timeout,
-@@ -97,6 +97,8 @@ struct ctl_table nf_ct_ipv6_sysctl_table[] = {
- 	},
- 	{ }
- };
-+
-+static struct ctl_table_header *nf_ct_frag6_sysctl_header;
+@@ -30,7 +32,7 @@
  #endif
  
- static unsigned int nf_hashfn(struct inet_frag_queue *q)
-@@ -623,11 +625,19 @@ int nf_ct_frag6_init(void)
- 	inet_frags_init_net(&nf_init_frags);
- 	inet_frags_init(&nf_frags);
- 
-+	nf_ct_frag6_sysctl_header = register_sysctl_paths(nf_net_netfilter_sysctl_path,
-+							  nf_ct_frag6_sysctl_table);
-+	if (!nf_ct_frag6_sysctl_header)
-+		return -ENOMEM;
-+
+ static int
+-extract_icmp_fields(const struct sk_buff *skb,
++extract_icmp4_fields(const struct sk_buff *skb,
+ 		    u8 *protocol,
+ 		    __be32 *raddr,
+ 		    __be32 *laddr,
+@@ -86,7 +88,6 @@ extract_icmp_fields(const struct sk_buff *skb,
  	return 0;
  }
  
- void nf_ct_frag6_cleanup(void)
- {
-+	unregister_sysctl_table(nf_ct_frag6_sysctl_header);
-+	nf_ct_frag6_sysctl_header = NULL;
-+
- 	inet_frags_fini(&nf_frags);
+-
+ static bool
+ socket_match(const struct sk_buff *skb, struct xt_action_param *par,
+ 	     const struct xt_socket_mtinfo1 *info)
+@@ -115,7 +116,7 @@ socket_match(const struct sk_buff *skb, struct xt_action_param *par,
+ 		dport = hp->dest;
  
- 	nf_init_frags.low_thresh = 0;
-diff --git a/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c b/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c
-new file mode 100644
-index 0000000..99abfb5
---- /dev/null
-+++ b/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c
-@@ -0,0 +1,131 @@
-+/* (C) 1999-2001 Paul `Rusty' Russell
-+ * (C) 2002-2004 Netfilter Core Team <coreteam@netfilter.org>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ */
+ 	} else if (iph->protocol == IPPROTO_ICMP) {
+-		if (extract_icmp_fields(skb, &protocol, &saddr, &daddr,
++		if (extract_icmp4_fields(skb, &protocol, &saddr, &daddr,
+ 					&sport, &dport))
+ 			return false;
+ 	} else {
+@@ -165,32 +166,157 @@ socket_match(const struct sk_buff *skb, struct xt_action_param *par,
+ 			sk = NULL;
+ 	}
+ 
+-	pr_debug("proto %u %08x:%u -> %08x:%u (orig %08x:%u) sock %p\n",
+-		 protocol, ntohl(saddr), ntohs(sport),
+-		 ntohl(daddr), ntohs(dport),
+-		 ntohl(iph->daddr), hp ? ntohs(hp->dest) : 0, sk);
++	pr_debug("proto %hhu %pI4:%hu -> %pI4:%hu (orig %pI4:%hu) sock %p\n",
++		 protocol, &saddr, ntohs(sport),
++		 &daddr, ntohs(dport),
++		 &iph->daddr, hp ? ntohs(hp->dest) : 0, sk);
+ 
+ 	return (sk != NULL);
+ }
+ 
+ static bool
+-socket_mt_v0(const struct sk_buff *skb, struct xt_action_param *par)
++socket_mt4_v0(const struct sk_buff *skb, struct xt_action_param *par)
+ {
+ 	return socket_match(skb, par, NULL);
+ }
+ 
+ static bool
+-socket_mt_v1(const struct sk_buff *skb, struct xt_action_param *par)
++socket_mt4_v1(const struct sk_buff *skb, struct xt_action_param *par)
+ {
+ 	return socket_match(skb, par, par->matchinfo);
+ }
+ 
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
 +
-+#include <linux/types.h>
-+#include <linux/ipv6.h>
-+#include <linux/in6.h>
-+#include <linux/netfilter.h>
-+#include <linux/module.h>
-+#include <linux/skbuff.h>
-+#include <linux/icmp.h>
-+#include <linux/sysctl.h>
-+#include <net/ipv6.h>
-+#include <net/inet_frag.h>
-+
-+#include <linux/netfilter_ipv6.h>
-+#include <linux/netfilter_bridge.h>
-+#include <net/netfilter/nf_conntrack.h>
-+#include <net/netfilter/nf_conntrack_helper.h>
-+#include <net/netfilter/nf_conntrack_l4proto.h>
-+#include <net/netfilter/nf_conntrack_l3proto.h>
-+#include <net/netfilter/nf_conntrack_core.h>
-+#include <net/netfilter/nf_conntrack_zones.h>
-+#include <net/netfilter/ipv6/nf_conntrack_ipv6.h>
-+#include <net/netfilter/ipv6/nf_defrag_ipv6.h>
-+
-+static enum ip6_defrag_users nf_ct6_defrag_user(unsigned int hooknum,
-+						struct sk_buff *skb)
++static int
++extract_icmp6_fields(const struct sk_buff *skb,
++		     unsigned int outside_hdrlen,
++		     u8 *protocol,
++		     struct in6_addr **raddr,
++		     struct in6_addr **laddr,
++		     __be16 *rport,
++		     __be16 *lport)
 +{
-+	u16 zone = NF_CT_DEFAULT_ZONE;
++	struct ipv6hdr *inside_iph, _inside_iph;
++	struct icmp6hdr *icmph, _icmph;
++	__be16 *ports, _ports[2];
++	u8 inside_nexthdr;
++	int inside_hdrlen;
 +
-+	if (skb->nfct)
-+		zone = nf_ct_zone((struct nf_conn *)skb->nfct);
++	icmph = skb_header_pointer(skb, outside_hdrlen,
++				   sizeof(_icmph), &_icmph);
++	if (icmph == NULL)
++		return 1;
 +
-+#ifdef CONFIG_BRIDGE_NETFILTER
-+	if (skb->nf_bridge &&
-+	    skb->nf_bridge->mask & BRNF_NF_BRIDGE_PREROUTING)
-+		return IP6_DEFRAG_CONNTRACK_BRIDGE_IN + zone;
++	if (icmph->icmp6_type & ICMPV6_INFOMSG_MASK)
++		return 1;
++
++	inside_iph = skb_header_pointer(skb, outside_hdrlen + sizeof(_icmph), sizeof(_inside_iph), &_inside_iph);
++	if (inside_iph == NULL)
++		return 1;
++	inside_nexthdr = inside_iph->nexthdr;
++
++	inside_hdrlen = ipv6_skip_exthdr(skb, outside_hdrlen + sizeof(_icmph) + sizeof(_inside_iph), &inside_nexthdr);
++	if (inside_hdrlen < 0)
++		return 1; /* hjm: Packet has no/incomplete transport layer headers. */
++
++	if (inside_nexthdr != IPPROTO_TCP &&
++	    inside_nexthdr != IPPROTO_UDP)
++		return 1;
++
++	ports = skb_header_pointer(skb, inside_hdrlen,
++				   sizeof(_ports), &_ports);
++	if (ports == NULL)
++		return 1;
++
++	/* the inside IP packet is the one quoted from our side, thus
++	 * its saddr is the local address */
++	*protocol = inside_nexthdr;
++	*laddr = &inside_iph->saddr;
++	*lport = ports[0];
++	*raddr = &inside_iph->daddr;
++	*rport = ports[1];
++
++	return 0;
++}
++
++static bool
++socket_mt6_v1(const struct sk_buff *skb, struct xt_action_param *par)
++{
++	struct ipv6hdr *iph = ipv6_hdr(skb);
++	struct udphdr _hdr, *hp = NULL;
++	struct sock *sk;
++	struct in6_addr *daddr, *saddr;
++	__be16 dport, sport;
++	int thoff;
++	u8 tproto;
++	const struct xt_socket_mtinfo1 *info = (struct xt_socket_mtinfo1 *) par->matchinfo;
++
++	tproto = ipv6_find_hdr(skb, &thoff, -1, NULL);
++	if (tproto < 0) {
++		pr_debug("unable to find transport header in IPv6 packet, dropping\n");
++		return NF_DROP;
++	}
++
++	if (tproto == IPPROTO_UDP || tproto == IPPROTO_TCP) {
++		hp = skb_header_pointer(skb, thoff,
++					sizeof(_hdr), &_hdr);
++		if (hp == NULL)
++			return false;
++
++		saddr = &iph->saddr;
++		sport = hp->source;
++		daddr = &iph->daddr;
++		dport = hp->dest;
++
++	} else if (tproto == IPPROTO_ICMPV6) {
++		if (extract_icmp6_fields(skb, thoff, &tproto, &saddr, &daddr,
++					 &sport, &dport))
++			return false;
++	} else {
++		return false;
++	}
++
++	sk = nf_tproxy_get_sock_v6(dev_net(skb->dev), tproto,
++				   saddr, daddr, sport, dport, par->in, NFT_LOOKUP_ANY);
++	if (sk != NULL) {
++		bool wildcard;
++		bool transparent = true;
++
++		/* Ignore sockets listening on INADDR_ANY */
++		wildcard = (sk->sk_state != TCP_TIME_WAIT &&
++			    ipv6_addr_any(&inet6_sk(sk)->rcv_saddr));
++
++		/* Ignore non-transparent sockets,
++		   if XT_SOCKET_TRANSPARENT is used */
++		if (info && info->flags & XT_SOCKET_TRANSPARENT)
++			transparent = ((sk->sk_state != TCP_TIME_WAIT &&
++					inet_sk(sk)->transparent) ||
++				       (sk->sk_state == TCP_TIME_WAIT &&
++					inet_twsk(sk)->tw_transparent));
++
++		nf_tproxy_put_sock(sk);
++
++		if (wildcard || !transparent)
++			sk = NULL;
++	}
++
++	pr_debug("proto %hhu %pI6:%hu -> %pI6:%hu "
++		 "(orig %pI6:%hu) sock %p\n",
++		 tproto, saddr, ntohs(sport),
++		 daddr, ntohs(dport),
++		 &iph->daddr, hp ? ntohs(hp->dest) : 0, sk);
++
++	return (sk != NULL);
++}
 +#endif
-+	if (hooknum == NF_INET_PRE_ROUTING)
-+		return IP6_DEFRAG_CONNTRACK_IN + zone;
-+	else
-+		return IP6_DEFRAG_CONNTRACK_OUT + zone;
 +
-+}
-+
-+static unsigned int ipv6_defrag(unsigned int hooknum,
-+				struct sk_buff *skb,
-+				const struct net_device *in,
-+				const struct net_device *out,
-+				int (*okfn)(struct sk_buff *))
-+{
-+	struct sk_buff *reasm;
-+
-+	/* Previously seen (loopback)?	*/
-+	if (skb->nfct && !nf_ct_is_template((struct nf_conn *)skb->nfct))
-+		return NF_ACCEPT;
-+
-+	reasm = nf_ct_frag6_gather(skb, nf_ct6_defrag_user(hooknum, skb));
-+	/* queued */
-+	if (reasm == NULL)
-+		return NF_STOLEN;
-+
-+	/* error occured or not fragmented */
-+	if (reasm == skb)
-+		return NF_ACCEPT;
-+
-+	nf_ct_frag6_output(hooknum, reasm, (struct net_device *)in,
-+			   (struct net_device *)out, okfn);
-+
-+	return NF_STOLEN;
-+}
-+
-+static struct nf_hook_ops ipv6_defrag_ops[] = {
+ static struct xt_match socket_mt_reg[] __read_mostly = {
+ 	{
+ 		.name		= "socket",
+ 		.revision	= 0,
+ 		.family		= NFPROTO_IPV4,
+-		.match		= socket_mt_v0,
++		.match		= socket_mt4_v0,
+ 		.hooks		= (1 << NF_INET_PRE_ROUTING) |
+ 				  (1 << NF_INET_LOCAL_IN),
+ 		.me		= THIS_MODULE,
+@@ -199,17 +325,33 @@ static struct xt_match socket_mt_reg[] __read_mostly = {
+ 		.name		= "socket",
+ 		.revision	= 1,
+ 		.family		= NFPROTO_IPV4,
+-		.match		= socket_mt_v1,
++		.match		= socket_mt4_v1,
+ 		.matchsize	= sizeof(struct xt_socket_mtinfo1),
+ 		.hooks		= (1 << NF_INET_PRE_ROUTING) |
+ 				  (1 << NF_INET_LOCAL_IN),
+ 		.me		= THIS_MODULE,
+ 	},
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
 +	{
-+		.hook		= ipv6_defrag,
-+		.owner		= THIS_MODULE,
-+		.pf		= NFPROTO_IPV6,
-+		.hooknum	= NF_INET_PRE_ROUTING,
-+		.priority	= NF_IP6_PRI_CONNTRACK_DEFRAG,
++		.name		= "socket",
++		.revision	= 1,
++		.family		= NFPROTO_IPV6,
++		.match		= socket_mt6_v1,
++		.matchsize	= sizeof(struct xt_socket_mtinfo1),
++		.hooks		= (1 << NF_INET_PRE_ROUTING) |
++				  (1 << NF_INET_LOCAL_IN),
++		.me		= THIS_MODULE,
 +	},
-+	{
-+		.hook		= ipv6_defrag,
-+		.owner		= THIS_MODULE,
-+		.pf		= NFPROTO_IPV6,
-+		.hooknum	= NF_INET_LOCAL_OUT,
-+		.priority	= NF_IP6_PRI_CONNTRACK_DEFRAG,
-+	},
-+};
++#endif
+ };
+ 
+ static int __init socket_mt_init(void)
+ {
+ 	nf_defrag_ipv4_enable();
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++	nf_defrag_ipv6_enable();
++#endif
 +
-+static int __init nf_defrag_init(void)
-+{
-+	int ret = 0;
-+
-+	ret = nf_ct_frag6_init();
-+	if (ret < 0) {
-+		pr_err("nf_defrag_ipv6: can't initialize frag6.\n");
-+		return ret;
-+	}
-+	ret = nf_register_hooks(ipv6_defrag_ops, ARRAY_SIZE(ipv6_defrag_ops));
-+	if (ret < 0) {
-+		pr_err("nf_defrag_ipv6: can't register hooks\n");
-+		goto cleanup_frag6;
-+	}
-+	return ret;
-+
-+cleanup_frag6:
-+	nf_ct_frag6_cleanup();
-+	return ret;
-+
-+}
-+
-+static void __exit nf_defrag_fini(void)
-+{
-+	nf_unregister_hooks(ipv6_defrag_ops, ARRAY_SIZE(ipv6_defrag_ops));
-+	nf_ct_frag6_cleanup();
-+}
-+
-+void nf_defrag_ipv6_enable(void)
-+{
-+}
-+EXPORT_SYMBOL_GPL(nf_defrag_ipv6_enable);
-+
-+module_init(nf_defrag_init);
-+module_exit(nf_defrag_fini);
-+
-+MODULE_LICENSE("GPL");
+ 	return xt_register_matches(socket_mt_reg, ARRAY_SIZE(socket_mt_reg));
+ }
+ 
+@@ -225,3 +367,4 @@ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Krisztian Kovacs, Balazs Scheidler");
+ MODULE_DESCRIPTION("x_tables socket match module");
+ MODULE_ALIAS("ipt_socket");
++MODULE_ALIAS("ip6t_socket");
 
 
