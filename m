@@ -1,70 +1,121 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 06/12] ipconfig: make local variables/function static
-Date: Thu, 21 Oct 2010 10:50:51 -0700
-Message-ID: <20101021175148.504406585@vyatta.com>
+Subject: [PATCH 05/12] atlx: make local functions/data static
+Date: Thu, 21 Oct 2010 10:50:50 -0700
+Message-ID: <20101021175148.404042175@vyatta.com>
 References: <20101021175045.625707607@vyatta.com>
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: David Miller <davem@davemloft.net>,
+	Jay Cliburn <jcliburn@gmail.com>,
+	Chris Snook <chris.snook@gmail.com>,
+	Jie Yang <jie.yang@atheros.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:36297 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:36317 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756147Ab0JUSBE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Oct 2010 14:01:04 -0400
-Content-Disposition: inline; filename=ipconfig-local.patch
+	id S1756405Ab0JUSBG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Oct 2010 14:01:06 -0400
+Content-Disposition: inline; filename=atlx_local.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
 
---- a/net/ipv4/ipconfig.c	2010-10-19 10:29:06.307382554 -0700
-+++ b/net/ipv4/ipconfig.c	2010-10-19 10:32:05.564463819 -0700
-@@ -112,12 +112,12 @@
-  * variables using firmware environment vars.  If this is set, it will
-  * ignore such firmware variables.
+---
+ drivers/net/atlx/atl1.c |   12 +++++++-----
+ drivers/net/atlx/atl1.h |    9 +++------
+ drivers/net/atlx/atlx.c |    4 ++++
+ 3 files changed, 14 insertions(+), 11 deletions(-)
+
+--- a/drivers/net/atlx/atl1.c	2010-10-21 08:50:30.597051580 -0700
++++ b/drivers/net/atlx/atl1.c	2010-10-21 08:52:01.833715425 -0700
+@@ -91,6 +91,8 @@ MODULE_VERSION(ATLX_DRIVER_VERSION);
+ /* Temporary hack for merging atl1 and atl2 */
+ #include "atlx.c"
+ 
++static const struct ethtool_ops atl1_ethtool_ops;
++
+ /*
+  * This is the only thing that needs to be changed to adjust the
+  * maximum number of ports that the driver can manage.
+@@ -353,7 +355,7 @@ static bool atl1_read_eeprom(struct atl1
+  * hw - Struct containing variables accessed by shared code
+  * reg_addr - address of the PHY register to read
   */
--int ic_set_manually __initdata = 0;		/* IPconfig parameters set manually */
-+static int ic_set_manually __initdata = 0; /* IPconfig parameters set manually */
- 
- static int ic_enable __initdata = 0;		/* IP config enabled? */
- 
- /* Protocol choice */
--int ic_proto_enabled __initdata = 0
-+static int ic_proto_enabled __initdata = 0
- #ifdef IPCONFIG_BOOTP
- 			| IC_BOOTP
- #endif
-@@ -131,16 +131,16 @@ int ic_proto_enabled __initdata = 0
- 
- static int ic_host_name_set __initdata = 0;	/* Host name set by us? */
- 
--__be32 ic_myaddr = NONE;		/* My IP address */
-+static __be32 ic_myaddr = NONE;		/* My IP address */
- static __be32 ic_netmask = NONE;	/* Netmask for local subnet */
--__be32 ic_gateway = NONE;	/* Gateway IP address */
-+static __be32 ic_gateway = NONE;	/* Gateway IP address */
- 
--__be32 ic_servaddr = NONE;	/* Boot server IP address */
-+static __be32 ic_servaddr = NONE;	/* Boot server IP address */
- 
--__be32 root_server_addr = NONE;	/* Address of NFS server */
--u8 root_server_path[256] = { 0, };	/* Path to mount as root */
-+static __be32 root_server_addr = NONE;	/* Address of NFS server */
-+static u8 root_server_path[256] = { 0 }; /* Path to mount as root */
- 
--u32 ic_dev_xid;		/* Device under configuration */
-+static u32 ic_dev_xid;		/* Device under configuration */
- 
- /* vendor class identifier */
- static char vendor_class_identifier[253] __initdata;
-@@ -1289,7 +1289,7 @@ static const struct file_operations pnp_
-  *  need to have root_server_addr set _before_ IPConfig gets called as it
-  *  can override it.
-  */
--__be32 __init root_nfs_parse_addr(char *name)
-+static __be32 __init root_nfs_parse_addr(char *name)
+-s32 atl1_read_phy_reg(struct atl1_hw *hw, u16 reg_addr, u16 *phy_data)
++static s32 atl1_read_phy_reg(struct atl1_hw *hw, u16 reg_addr, u16 *phy_data)
  {
- 	__be32 addr;
- 	int octets = 0;
+ 	u32 val;
+ 	int i;
+@@ -553,7 +555,7 @@ static s32 atl1_read_mac_addr(struct atl
+  *          1. calcu 32bit CRC for multicast address
+  *          2. reverse crc with MSB to LSB
+  */
+-u32 atl1_hash_mc_addr(struct atl1_hw *hw, u8 *mc_addr)
++static u32 atl1_hash_mc_addr(struct atl1_hw *hw, u8 *mc_addr)
+ {
+ 	u32 crc32, value = 0;
+ 	int i;
+@@ -570,7 +572,7 @@ u32 atl1_hash_mc_addr(struct atl1_hw *hw
+  * hw - Struct containing variables accessed by shared code
+  * hash_value - Multicast address hash value
+  */
+-void atl1_hash_set(struct atl1_hw *hw, u32 hash_value)
++static void atl1_hash_set(struct atl1_hw *hw, u32 hash_value)
+ {
+ 	u32 hash_bit, hash_reg;
+ 	u32 mta;
+@@ -914,7 +916,7 @@ static s32 atl1_get_speed_and_duplex(str
+ 	return 0;
+ }
+ 
+-void atl1_set_mac_addr(struct atl1_hw *hw)
++static void atl1_set_mac_addr(struct atl1_hw *hw)
+ {
+ 	u32 value;
+ 	/*
+@@ -3658,7 +3660,7 @@ static int atl1_nway_reset(struct net_de
+ 	return 0;
+ }
+ 
+-const struct ethtool_ops atl1_ethtool_ops = {
++static const struct ethtool_ops atl1_ethtool_ops = {
+ 	.get_settings		= atl1_get_settings,
+ 	.set_settings		= atl1_set_settings,
+ 	.get_drvinfo		= atl1_get_drvinfo,
+--- a/drivers/net/atlx/atl1.h	2010-10-21 08:50:30.613053116 -0700
++++ b/drivers/net/atlx/atl1.h	2010-10-21 08:52:01.833715425 -0700
+@@ -56,16 +56,13 @@ struct atl1_adapter;
+ struct atl1_hw;
+ 
+ /* function prototypes needed by multiple files */
+-u32 atl1_hash_mc_addr(struct atl1_hw *hw, u8 *mc_addr);
+-void atl1_hash_set(struct atl1_hw *hw, u32 hash_value);
+-s32 atl1_read_phy_reg(struct atl1_hw *hw, u16 reg_addr, u16 *phy_data);
+-void atl1_set_mac_addr(struct atl1_hw *hw);
++static u32 atl1_hash_mc_addr(struct atl1_hw *hw, u8 *mc_addr);
++static void atl1_hash_set(struct atl1_hw *hw, u32 hash_value);
++static void atl1_set_mac_addr(struct atl1_hw *hw);
+ static int atl1_mii_ioctl(struct net_device *netdev, struct ifreq *ifr,
+ 	int cmd);
+ static u32 atl1_check_link(struct atl1_adapter *adapter);
+ 
+-extern const struct ethtool_ops atl1_ethtool_ops;
+-
+ /* hardware definitions specific to L1 */
+ 
+ /* Block IDLE Status Register */
+--- a/drivers/net/atlx/atlx.c	2010-10-21 08:50:30.637055420 -0700
++++ b/drivers/net/atlx/atlx.c	2010-10-21 08:52:01.837715801 -0700
+@@ -41,6 +41,10 @@
+ 
+ #include "atlx.h"
+ 
++static s32 atlx_read_phy_reg(struct atl1_hw *hw, u16 reg_addr, u16 *phy_data);
++static u32 atlx_hash_mc_addr(struct atl1_hw *hw, u8 *mc_addr);
++static void atlx_set_mac_addr(struct atl1_hw *hw);
++
+ static struct atlx_spi_flash_dev flash_table[] = {
+ /*	MFR_NAME  WRSR  READ  PRGM  WREN  WRDI  RDSR  RDID  SEC_ERS CHIP_ERS */
+ 	{"Atmel", 0x00, 0x03, 0x02, 0x06, 0x04, 0x05, 0x15, 0x52,   0x62},
 
 
