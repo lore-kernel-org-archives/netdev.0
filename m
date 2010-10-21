@@ -1,46 +1,50 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 08/10] can: at91_can: convert readl, writel their __raw pendants
-Date: Thu, 21 Oct 2010 13:01:20 +0200
-Message-ID: <1287658882-26914-9-git-send-email-mkl@pengutronix.de>
+From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: [PATCH 04/10] can: at91_can: fix compiler warning in
+	at91_irq_err_state
+Date: Thu, 21 Oct 2010 13:01:16 +0200
+Message-ID: <1287658882-26914-5-git-send-email-mkl@pengutronix.de>
 References: <1287658882-26914-1-git-send-email-mkl@pengutronix.de>
-Cc: netdev@vger.kernel.org, Marc Kleine-Budde <mkl@pengutronix.de>,
-	Russell King <rmk@arm.linux.org.uk>
-To: socketcan-core@lists.berlios.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:34934 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757274Ab0JULB2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 07:01:28 -0400
-In-Reply-To: <1287658882-26914-1-git-send-email-mkl@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+To: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <1287658882-26914-1-git-send-email-mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
-Cc: Russell King <rmk@arm.linux.org.uk>
+This patch fixes the following compiler warning:
+
+drivers/net/can/at91_can.c: In function 'at91_irq_err_state':
+drivers/net/can/at91_can.c:779: warning: 'reg_ier' may be used uninitialized in this function
+drivers/net/can/at91_can.c:779: warning: 'reg_idr' may be used uninitialized in this function
+
+Signed-off-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
 ---
- drivers/net/can/at91_can.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/can/at91_can.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/can/at91_can.c b/drivers/net/can/at91_can.c
-index ace9c08..12bd615 100644
+index 2c17e74..1954ab0 100644
 --- a/drivers/net/can/at91_can.c
 +++ b/drivers/net/can/at91_can.c
-@@ -199,13 +199,13 @@ static inline int get_tx_echo_mb(const struct at91_priv *priv)
- 
- static inline u32 at91_read(const struct at91_priv *priv, enum at91_reg reg)
+@@ -764,7 +764,7 @@ static void at91_irq_err_state(struct net_device *dev,
+ 		struct can_frame *cf, enum can_state new_state)
  {
--	return readl(priv->reg_base + reg);
-+	return __raw_readl(priv->reg_base + reg);
- }
+ 	struct at91_priv *priv = netdev_priv(dev);
+-	u32 reg_idr, reg_ier, reg_ecr;
++	u32 reg_idr = 0, reg_ier = 0, reg_ecr;
+ 	u8 tec, rec;
  
- static inline void at91_write(const struct at91_priv *priv, enum at91_reg reg,
- 		u32 value)
- {
--	writel(value, priv->reg_base + reg);
-+	__raw_writel(value, priv->reg_base + reg);
- }
- 
- static inline void set_mb_mode_prio(const struct at91_priv *priv,
+ 	reg_ecr = at91_read(priv, AT91_ECR);
 -- 
 1.7.0.4
-
