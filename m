@@ -1,46 +1,31 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH 5/9] ipvs network name space aware
-Date: Thu, 21 Oct 2010 13:26:54 +0200
-Message-ID: <1287660414.6871.85.camel@edumazet-laptop>
-References: <201010081317.04167.hans.schillstrom@ericsson.com>
-	 <20101021111644.GA25555@verge.net.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6] be2net: Changes to use only priority
+ codes allowed by f/w
+Date: Thu, 21 Oct 2010 04:27:59 -0700 (PDT)
+Message-ID: <20101021.042759.52197332.davem@davemloft.net>
+References: <20101019085114.GA352@emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Hans Schillstrom <hans.schillstrom@ericsson.com>,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, ja@ssi.bg, wensong@linux-vs.org,
-	daniel.lezcano@free.fr
-To: Simon Horman <horms@verge.net.au>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20101021111644.GA25555@verge.net.au>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: somnath.kotur@emulex.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43471
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757525Ab0JUL1g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 07:27:36 -0400
+In-Reply-To: <20101019085114.GA352@emulex.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 21 octobre 2010 =C3=A0 13:16 +0200, Simon Horman a =C3=A9crit =
-:
+From: Somnath Kotur <somnath.kotur@emulex.com>
+Date: Tue, 19 Oct 2010 14:21:14 +0530
 
-> > @@ -2680,10 +2664,15 @@ static int ip_vs_genl_dump_services(struct =
-sk_buff *skb,
-> >  	int idx =3D 0, i;
-> >  	int start =3D cb->args[0];
-> >  	struct ip_vs_service *svc;
-> > -
-> > +	struct net *net =3D skb->sk->sk_net;
->=20
-> skb->sk->sk_net needs CONFIG_NS_NET.
-> Is your plan for IPVS to unconditionally depend on CONFIG_NS_NET?
-> It would be nice to avoid that, but I fear it will be too messy.
->=20
+> Changes to use one of the priority codes allowed by CNA f/w for NIC traffic
+> from host. The driver gets the bit map of the priority codes allowed for
+> host traffic through a asynchronous message from the f/w that the driver
+> subscribes to.
+> 
+> Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
 
-
-struct net *net =3D sock_net(skb->sk);
-
-is your friend ;)
-
-
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This patch does not apply to the current tree.
