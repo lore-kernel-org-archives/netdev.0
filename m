@@ -1,59 +1,42 @@
-From: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Subject: Re: [RFC PATCH 5/9] ipvs network name space aware
-Date: Thu, 21 Oct 2010 13:49:25 +0200
-Message-ID: <201010211349.25921.hans.schillstrom@ericsson.com>
-References: <201010081317.04167.hans.schillstrom@ericsson.com> <20101021111644.GA25555@verge.net.au> <1287660414.6871.85.camel@edumazet-laptop>
+From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+Subject: Re: [PATCH] ipv4: synchronize bind() with RTM_NEWADDR notifications
+Date: Thu, 21 Oct 2010 14:57:51 +0300
+Message-ID: <4CC02ABF.8090008@iki.fi>
+References: <4CC01CC0.7090101@iki.fi>	<20101021.040319.191412436.davem@davemloft.net>	<4CC02412.8050000@iki.fi> <20101021.043421.108778257.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Simon Horman <horms@verge.net.au>,
-	"lvs-devel@vger.kernel.org" <lvs-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"ja@ssi.bg" <ja@ssi.bg>,
-	"wensong@linux-vs.org" <wensong@linux-vs.org>,
-	"daniel.lezcano@free.fr" <daniel.lezcano@free.fr>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1287660414.6871.85.camel@edumazet-laptop>
-Content-Disposition: inline
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ew0-f46.google.com ([209.85.215.46]:58588 "EHLO
+	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753368Ab0JUL5x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 07:57:53 -0400
+Received: by ewy20 with SMTP id 20so5636904ewy.19
+        for <netdev@vger.kernel.org>; Thu, 21 Oct 2010 04:57:52 -0700 (PDT)
+In-Reply-To: <20101021.043421.108778257.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 21 October 2010 13:26:54 Eric Dumazet wrote:
-> Le jeudi 21 octobre 2010 =C3=A0 13:16 +0200, Simon Horman a =C3=A9cri=
-t :
->
-> > > @@ -2680,10 +2664,15 @@ static int ip_vs_genl_dump_services(struc=
-t sk_buff *skb,
-> > >  	int idx =3D 0, i;
-> > >  	int start =3D cb->args[0];
-> > >  	struct ip_vs_service *svc;
-> > > -
-> > > +	struct net *net =3D skb->sk->sk_net;
-> >
-> > skb->sk->sk_net needs CONFIG_NS_NET.
-> > Is your plan for IPVS to unconditionally depend on CONFIG_NS_NET?
-> > It would be nice to avoid that, but I fear it will be too messy.
-> >
->
->
-> struct net *net =3D sock_net(skb->sk);
->
-> is your friend ;)
->
->
-Tanks Eric,
+On 10/21/2010 02:34 PM, David Miller wrote:
+> From: Timo Ter=E4s <timo.teras@iki.fi>
+> Date: Thu, 21 Oct 2010 14:29:22 +0300
+>=20
+>> This is the third time asking, what would be a good way to fix the
+>> problem described in the original commit log?
+>=20
+> I kept your report in my inbox backlog and intended to think about
+> it as time permitted.
+>=20
+> As the merge window has just openned up, for me time will not be
+> "permitted" for some time.
 
-Simon,
-do forget about my last mail....
->
+=46air enough. Just getting multiple "does not work" without single
+mention of "will think about this later" felt frustrating.
 
---
-Regards
-Hans Schillstrom <hans.schillstrom@ericsson.com>
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I have one more alternative: Would it be acceptable if we did
+rtnl_lock()/rtnl_unlock() only if inet_addr_type() earlier said the
+address is unacceptable for binding. And then retry inet_addr_type(). O=
+r
+do you think that the error case EADDRNOTAVAIL is a hot path too?
