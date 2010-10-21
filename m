@@ -1,16 +1,13 @@
 From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: [PATCH 01/10] can: at91_can: use correct bit to enable
-	CAN_CTRLMODE_3_SAMPLES
-Date: Thu, 21 Oct 2010 13:01:13 +0200
-Message-ID: <1287658882-26914-2-git-send-email-mkl@pengutronix.de>
-References: <1287658882-26914-1-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH 00/10] can: at91: bugfixes and improvements
+Date: Thu, 21 Oct 2010 13:01:12 +0200
+Message-ID: <1287658882-26914-1-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 To: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <1287658882-26914-1-git-send-email-mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
 List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
 	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
 List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
@@ -22,34 +19,42 @@ Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
----
- drivers/net/can/at91_can.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+Hello,
 
-diff --git a/drivers/net/can/at91_can.c b/drivers/net/can/at91_can.c
-index 2d8bd86..b2a4599 100644
---- a/drivers/net/can/at91_can.c
-+++ b/drivers/net/can/at91_can.c
-@@ -2,7 +2,7 @@
-  * at91_can.c - CAN network driver for AT91 SoC CAN controller
-  *
-  * (C) 2007 by Hans J. Koch <hjk-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
-- * (C) 2008, 2009 by Marc Kleine-Budde <kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-+ * (C) 2008, 2009, 2010 by Marc Kleine-Budde <kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-  *
-  * This software may be distributed under the terms of the GNU General
-  * Public License ("GPL") version 2 as distributed in the 'COPYING'
-@@ -257,8 +257,8 @@ static int at91_set_bittiming(struct net_device *dev)
- 	const struct can_bittiming *bt = &priv->can.bittiming;
- 	u32 reg_br;
- 
--	reg_br = ((priv->can.ctrlmode & CAN_CTRLMODE_3_SAMPLES) << 24) |
--		((bt->brp - 1) << 16) |	((bt->sjw - 1) << 12) |
-+	reg_br = ((priv->can.ctrlmode & CAN_CTRLMODE_3_SAMPLES) ? 1 << 24 : 0) |
-+		((bt->brp - 1) << 16) | ((bt->sjw - 1) << 12) |
- 		((bt->prop_seg - 1) << 8) | ((bt->phase_seg1 - 1) << 4) |
- 		((bt->phase_seg2 - 1) << 0);
- 
--- 
-1.7.0.4
+this series of patches fixes three bugs (CAN_CTRLMODE_3_SAMPLES,
+extended frames, use-after-free), a compiler warning (uninit'ed variable) and
+a section mismatch. Further it add the implementation of the
+do_get_berr_counter callback, the bittiming setting is now done in chip_start.
+As requested by Russell King the driver uses __raw_readl instead of readl.
+
+The last two patches do some cleanups, they convert dev_<level> printing
+to netdev_<level> and add the KBUILD_MODNAME to the bit timing constant
+to identify the driver.
+
+Please review and consider to apply,
+Marc
+
+---
+
+The following changes since commit 27b75c95f10d249574d9c4cb9dab878107faede8:
+  Eric Dumazet (1):
+        net: avoid RCU for NOCACHE dst
+
+are available in the git repository at:
+
+  git://git.pengutronix.de/git/mkl/linux-2.6.git can/at91_can-for-net-next
+
+Marc Kleine-Budde (10):
+      can: at91_can: use correct bit to enable CAN_CTRLMODE_3_SAMPLES
+      can: at91_can: fix reception of extended frames
+      can: at91_can: fix use after free of priv
+      can: at91_can: fix compiler warning in at91_irq_err_state
+      can: at91_can: fix section mismatch warning
+      can: at91_can: implement and use at91_get_berr_counter
+      can: at91_can: set bittiming in chip_start
+      can: at91_can: convert readl, writel their __raw pendants
+      can: at91_can: convert dev_<level> printing to netdev_<level>
+      can: at91_can: add KBUILD_MODNAME to bittiming constant
+
+ drivers/net/can/at91_can.c |   95 ++++++++++++++++++++++++++------------------
+ 1 files changed, 56 insertions(+), 39 deletions(-)
