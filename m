@@ -1,57 +1,54 @@
 From: kaber@trash.net
-Subject: [PATCH 03/72] netfilter: nf_nat_core: don't check if the tuple is used if there is no other choice
-Date: Thu, 21 Oct 2010 17:18:50 +0200
-Message-ID: <1287674399-31455-4-git-send-email-kaber@trash.net>
-References: <1287674399-31455-1-git-send-email-kaber@trash.net>
+Subject: [PATCH 00/72] netfilter: netfilter update for 2.6.37
+Date: Thu, 21 Oct 2010 17:18:47 +0200
+Message-ID: <1287674399-31455-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:59985 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:59978 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752123Ab0JUPUC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 11:20:02 -0400
-In-Reply-To: <1287674399-31455-1-git-send-email-kaber@trash.net>
+	with ESMTP id S1752057Ab0JUPUB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 11:20:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Changli Gao <xiaosuo@gmail.com>
+Hi Dave,
 
-Eliminate nf_nat_used_tuple() to save some CPU cycles when there is no
-other choice.
+the following patches contain my netfilter update for 2.6.37, containing:
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-Signed-off-by: Patrick McHardy <kaber@trash.net>
----
- net/ipv4/netfilter/nf_nat_core.c |   16 +++++++++++-----
- 1 files changed, 11 insertions(+), 5 deletions(-)
+- xtables and ebtables cleanups from Jan
 
-diff --git a/net/ipv4/netfilter/nf_nat_core.c b/net/ipv4/netfilter/nf_nat_core.c
-index 8c8632d..2c084b3 100644
---- a/net/ipv4/netfilter/nf_nat_core.c
-+++ b/net/ipv4/netfilter/nf_nat_core.c
-@@ -262,11 +262,17 @@ get_unique_tuple(struct nf_conntrack_tuple *tuple,
- 	proto = __nf_nat_proto_find(orig_tuple->dst.protonum);
- 
- 	/* Only bother mapping if it's not already in range and unique */
--	if (!(range->flags & IP_NAT_RANGE_PROTO_RANDOM) &&
--	    (!(range->flags & IP_NAT_RANGE_PROTO_SPECIFIED) ||
--	     proto->in_range(tuple, maniptype, &range->min, &range->max)) &&
--	    !nf_nat_used_tuple(tuple, ct))
--		goto out;
-+	if (!(range->flags & IP_NAT_RANGE_PROTO_RANDOM)) {
-+		if (range->flags & IP_NAT_RANGE_PROTO_SPECIFIED) {
-+			if (proto->in_range(tuple, maniptype, &range->min,
-+					    &range->max) &&
-+			    (range->min.all == range->max.all ||
-+			     !nf_nat_used_tuple(tuple, ct)))
-+				goto out;
-+		} else if (!nf_nat_used_tuple(tuple, ct)) {
-+			goto out;
-+		}
-+	}
- 
- 	/* Last change: get protocol to try to obtain unique tuple. */
- 	proto->unique_tuple(tuple, range, maniptype, ct);
--- 
-1.7.1
+- NAT cleanups and optimizations from Changli
 
+- a fix for a race condition in netfilter hash random initialization and
+  caching of the original hash value from the lookup for hash insertion
+  from Changli
+
+- smaller ctnetlink fixes and support for user-space connection tracking
+  helpers from Pablo
+
+- ctnetlink expectation deletion event notifications from Pablo
+
+- a patch from Eric to make the LOG targets build the entire log string
+  in a buffer before printing it to save some overhead and avoid having
+  the log message intermixed with unrelated printks
+
+- a TPROXY fix for dealing with TIME_WAIT sockets from Balazs
+
+- a TPROXY fix for locking problems in __inet_inherit_port() from Balazs
+
+- IPv6 TPROXY support from Balazs and Krisztian
+
+- IPVS persistent engine core and SIP persistent engine from Simon
+
+- IPVS IPv6 tunnel mode from Hans Schillstrom
+
+- various IPVS fixes and optimizations from Julian
+
+- IPVS support for local servers and clients from Julian
+
+Please pull from:
+
+git://git.kernel.org:/pub/scm/linux/kernel/git/kaber/nf-next-2.6.git master
+
+Thanks!
