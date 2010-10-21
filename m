@@ -1,34 +1,32 @@
-From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: Re: [PATCH] ipv4: synchronize bind() with RTM_NEWADDR notifications
-Date: Thu, 21 Oct 2010 13:58:08 +0300
-Message-ID: <4CC01CC0.7090101@iki.fi>
-References: <1287655930-16879-1-git-send-email-timo.teras@iki.fi>	<1287656753.6871.46.camel@edumazet-laptop>	<4CC018E1.3000906@iki.fi> <20101021.035004.212683583.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch 1/1] phy/marvell: fix 88e1121 support
+Date: Thu, 21 Oct 2010 04:00:15 -0700 (PDT)
+Message-ID: <20101021.040015.27805979.davem@davemloft.net>
+References: <4CBCC3FC.2030506@ti.com>
+	<20101018222947.418028323@rtp-net.org>
+	<20101018223056.716357140@rtp-net.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, cyril@ti.com
+To: arnaud.patard@rtp-net.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f46.google.com ([209.85.215.46]:57586 "EHLO
-	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757154Ab0JUK6K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 06:58:10 -0400
-Received: by ewy20 with SMTP id 20so5587871ewy.19
-        for <netdev@vger.kernel.org>; Thu, 21 Oct 2010 03:58:09 -0700 (PDT)
-In-Reply-To: <20101021.035004.212683583.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43041
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753745Ab0JUK7x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 06:59:53 -0400
+In-Reply-To: <20101018223056.716357140@rtp-net.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/21/2010 01:50 PM, David Miller wrote:
-> From: Timo Ter=E4s <timo.teras@iki.fi>
-> Date: Thu, 21 Oct 2010 13:41:37 +0300
->=20
->> Is inet_bind() called from non-userland context? If yes, then this i=
-s a
->> bad idea. Otherwise I don't think it's that hot path...
->=20
-> It is.
+From: Arnaud Patard (Rtp) <arnaud.patard@rtp-net.org>
+Date: Tue, 19 Oct 2010 00:29:48 +0200
 
-Yet, almost immediately after that there is lock_sock() which can also
-sleep. How does that work then?
+> Commit c477d0447db08068a497e7beb892b2b2a7bff64b added support for RGMII
+> rx/tx delays except that it ends up clearing rx/tx delays bit for modes
+> differents that RGMII*ID. Due to this, ethernet is not working anymore
+> on my guruplug server +. This patch is fixing that.
+> 
+> Signed-off-by: Arnaud Patard <arnaud.patard@rtp-net.org>
 
+Applied, thanks.
