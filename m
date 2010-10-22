@@ -1,36 +1,51 @@
-From: Kyle McMartin <kyle@mcmartin.ca>
-Subject: [PATCH] cxgb3: slay double assignment
-Date: Fri, 22 Oct 2010 14:00:03 -0400
-Message-ID: <20101022180003.GO8332@bombadil.infradead.org>
+From: Shreyas Bhatewara <sbhatewara@vmware.com>
+Subject: RE: [PATCH 3/3] vmxnet3: fix typo setting confPA
+Date: Fri, 22 Oct 2010 11:10:42 -0700
+Message-ID: <89E2752CFA8EC044846EB8499819134102BF28D6E3@EXCH-MBX-4.vmware.com>
+References: <1287720334-15469-1-git-send-email-harvey.harrison@gmail.com>
+	<1287720334-15469-3-git-send-email-harvey.harrison@gmail.com>
+	<alpine.LRH.2.00.1010221030530.9726@sbhatewara-dev1.eng.vmware.com>
+	<AANLkTinBGP1gzUCFN2n1xBGZydEnUKoZYPKd1_WbF1gY@mail.gmail.com>
+	<89E2752CFA8EC044846EB8499819134102BF28D66D@EXCH-MBX-4.vmware.com>
+ <AANLkTimy5Pg1aUMfCZG+r+Zb=A_udx8NsYf3TXVHHTsf@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: divy@chelsio.com
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"shemminger@vyatta.com" <shemminger@vyatta.com>
+To: Harvey Harrison <harvey.harrison@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:37564 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932503Ab0JVSAE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Oct 2010 14:00:04 -0400
-Content-Disposition: inline
+Received: from smtp-outbound-2.vmware.com ([65.115.85.73]:50504 "EHLO
+	smtp-outbound-2.vmware.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754794Ab0JVSKp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Oct 2010 14:10:45 -0400
+In-Reply-To: <AANLkTimy5Pg1aUMfCZG+r+Zb=A_udx8NsYf3TXVHHTsf@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Noticed this while building Fedora today... It's been
-there since around 2007, so I guess a new gcc must be catching
-these.
-
-Signed-off-by: Kyle McMartin <kyle@redhat.com>
----
-diff --git a/drivers/net/cxgb3/t3_hw.c b/drivers/net/cxgb3/t3_hw.c
-index 427c451..997b14b 100644
---- a/drivers/net/cxgb3/t3_hw.c
-+++ b/drivers/net/cxgb3/t3_hw.c
-@@ -3682,7 +3682,7 @@ static void mc7_prep(struct adapter *adapter, struct mc7 *mc7,
- 	mc7->name = name;
- 	mc7->offset = base_addr - MC7_PMRX_BASE_ADDR;
- 	cfg = t3_read_reg(adapter, mc7->offset + A_MC7_CFG);
--	mc7->size = mc7->size = G_DEN(cfg) == M_DEN ? 0 : mc7_calc_size(cfg);
-+	mc7->size = G_DEN(cfg) == M_DEN ? 0 : mc7_calc_size(cfg);
- 	mc7->width = G_WIDTH(cfg);
- }
- 
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogSGFydmV5IEhhcnJpc29u
+IFttYWlsdG86aGFydmV5LmhhcnJpc29uQGdtYWlsLmNvbV0NCj4gU2VudDogRnJpZGF5LCBPY3Rv
+YmVyIDIyLCAyMDEwIDEwOjUyIEFNDQo+IFRvOiBTaHJleWFzIEJoYXRld2FyYQ0KPiBDYzogbmV0
+ZGV2QHZnZXIua2VybmVsLm9yZzsgc2hlbW1pbmdlckB2eWF0dGEuY29tDQo+IFN1YmplY3Q6IFJl
+OiBbUEFUQ0ggMy8zXSB2bXhuZXQzOiBmaXggdHlwbyBzZXR0aW5nIGNvbmZQQQ0KPiANCj4gT24g
+RnJpLCBPY3QgMjIsIDIwMTAgYXQgMTA6NDYgQU0sIFNocmV5YXMgQmhhdGV3YXJhDQo+IDxzYmhh
+dGV3YXJhQHZtd2FyZS5jb20+IHdyb3RlOg0KPiA+PiBGcm9tOiBIYXJ2ZXkgSGFycmlzb24gW21h
+aWx0bzpoYXJ2ZXkuaGFycmlzb25AZ21haWwuY29tXQ0KPiA+PiBPbmUgcXVlc3Rpb24gSSBoYWQg
+d2hlbiBsb29raW5nIGludG8gdGhpcywgd2h5IGFyZSB5b3UgZG9pbmcNCj4gPj4gYnl0ZXN3YXBw
+aW5nIGluIHRoZSBWTVhORVRfe1JFQUQsV1JJVEV9X0JBUnswLDF9DQo+ID4+IG1hY3Jvcz8NCj4g
+Pg0KPiA+IEJlY2F1c2UgdmFsdWVzIG5lZWQgdG8gYmUgd3JpdHRlbiBpbiBMRSBvcmRlcnMgaW4g
+cmVnaXN0ZXJzLiBGb3IgZWcuDQo+IHdoZW4gcnhfcmluZy5uZXh0MmZpbGwgaW5kZXggaXMgd3Jp
+dHRlbiB0byBSWFBST0QgcmVnLCBpdCBzaG91bGQgYmUNCj4gY29udmVydGVkIGZyb20gQ1BVIG9y
+ZGVyIHRvIExFLg0KPiANCj4gWWVzLCBidXQgKHVubGVzcyBJJ20gbWlzdGFrZW4pIHdyaXRlbCBh
+bHdheXMgd3JpdGVzIG91dCBpbg0KPiBsaXR0bGUtZW5kaWFuLCBzbyB0aGVyZSBpc24ndCBhIG5l
+ZWQgdG8gc3dhcCB0aGUgYXJndW1lbnRzLA0KPiBzaW1pbGFybHkgZm9yIHJlYWRsIGluIHRoZSBv
+dGhlciBkaXJlY3Rpb24uDQo+IA0KPiBZb3Ugd291bGRuJ3Qgbm90aWNlIHRoaXMgb24gYSBsaXR0
+bGUtZW5kaWFuIG1hY2hpbmUgb2J2aW91c2x5LCBoYXMNCj4gdGhpcyBldmVuIGJlZSB0cmllZCBv
+biBiZT8NCg0KTm8sIHRoZSB2aXJ0dWFsaXplZCBOSUMgdm14bmV0MyB3aWxsIG5vdCBiZSBhdmFp
+bGFibGUgaW4gQkUgYXJjaGl0ZWN0dXJlcyBhcyBmYXIgYXMgSSBjYW4gdGVsbC4gSGVuY2UgdGhl
+IGRyaXZlciBjYW4gbmV2ZXIgYmUgZXhlcmNpc2VkIG9uIEJFIG1hY2hpbmVzLiBUaGUgQkUgc3Vw
+cG9ydCB3YXMganVzdCBwdXQgaW4gdGhlIGRyaXZlciB0byBnZXQgcmlkIG9mIHRoZSBjb21waWxl
+IHRpbWUgWDg2IGRlcGVuZGVuY3kgaW4gY29uZmlnIGZpbGVzIGJlY2F1c2UgZGV2ZWxvcGVycyBv
+ZnRlbiB1c2VkIEJFIG1hY2hpbmVzIHRvIHRlc3QgdGhlIGtlcm5lbCBidWlsZHMuIA0KDQpCZXN0
+IHJlZ2FyZHMuDQpTaHJleWFzDQoNCg0KPiANCj4gSGFydmV5DQo=
