@@ -1,43 +1,63 @@
-From: Joe Buehler <aspam@cox.net>
-Subject: Re: kernel panic in fib_rules_lookup [2.6.27.7 vendor-patched]
-Date: Fri, 22 Oct 2010 16:30:52 -0400
-Message-ID: <4CC1F47C.9020104@cox.net>
-References: <loom.20101012T185411-307@post.gmane.org>	 <1286905245.2703.3.camel@edumazet-laptop>  <4CBF2A3F.2070108@cox.net> <1287612353.2545.11.camel@edumazet-laptop>
+From: "Luis R. Rodriguez" <lrodriguez@atheros.com>
+Subject: Re: [PATCH] atl1c: Add support for Atheros AR8152 and AR8152
+Date: Fri, 22 Oct 2010 13:37:07 -0700
+Message-ID: <20101022203707.GD16209@tux>
+References: <1286759930.2955.285.camel@localhost>
+ <20101010.210304.71107535.davem@davemloft.net>
+ <20101011184835.GA10049@tux>
+ <1286836101.2955.293.camel@localhost>
+ <20101012004503.GI10049@tux>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Ben Hutchings <ben@decadent.org.uk>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jie Yang <Jie.Yang@Atheros.com>, <linux-team@atheros.com>
+To: Luis Rodriguez <Luis.Rodriguez@Atheros.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eastrmmtao103.cox.net ([68.230.240.9]:42538 "EHLO
-	eastrmmtao103.cox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752469Ab0JVUbA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Oct 2010 16:31:00 -0400
-In-Reply-To: <1287612353.2545.11.camel@edumazet-laptop>
+Received: from mail.atheros.com ([12.19.149.2]:65503 "EHLO mail.atheros.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752469Ab0JVUhN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Oct 2010 16:37:13 -0400
+Received: from mail.atheros.com ([10.10.20.105])
+	by sidewinder.atheros.com
+	for <netdev@vger.kernel.org>; Fri, 22 Oct 2010 13:37:03 -0700
+Content-Disposition: inline
+In-Reply-To: <20101012004503.GI10049@tux>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
+On Mon, Oct 11, 2010 at 05:45:03PM -0700, Luis Rodriguez wrote:
+> On Mon, Oct 11, 2010 at 03:28:21PM -0700, Ben Hutchings wrote:
+> > On Mon, 2010-10-11 at 11:48 -0700, Luis R. Rodriguez wrote:
+> > > On Sun, Oct 10, 2010 at 09:03:04PM -0700, David Miller wrote:
+> > > > From: Ben Hutchings <ben@decadent.org.uk>
+> > > > Date: Mon, 11 Oct 2010 02:18:50 +0100
+> > > > 
+> > > > > Your commit 496c185c9495629ef1c65387cb2594578393cfe0 "atl1c: Add support
+> > > > > for Atheros AR8152 and AR8152" included the following changes:
+> > > >  ...
+> > > > >> +		if (hw->nic_type == athr_l1c || hw->nic_type == athr_l2c_b) {
+> > > >  ...
+> > > > >> +	if ((hw->nic_type == athr_l1c || hw->nic_type == athr_l2c)) {
+> > > >  ...
+> > > > > Shouldn't the first if-statement use the same condition as the second
+> > > > > i.e. matching the previously-defined hardware types athr_l1c and
+> > > > > athr_l2c?
+> > > > 
+> > > > Yeah that definitely looks like a bug to me.
+> > > 
+> > > Good catch, unfortunatley I don't have the source code I used to port
+> > > this work the day I did this anymore locally, so adding 
+> > > Jie Yang who is actually our maintainer for this driver.
+> > > 
+> > > Jie, can you please confirm if this patch is correct?
+> > 
+> > I was suggesting that the first condition was wrong and the second was
+> > right.
+> 
+> Heh, thanks, Jie can you review?
 
-> Could you provide a disassembly of function fib_rules_lookup ?
+Jie, have you had any chance to review?
 
-Try looking in http://68.100.141.95:3000/linux-crash/.  There should be
-the source file I am using (not current release if you recall), the .o,
-the disassembly, and a -S compile that makes deducing the line numbers a
-little easier.
-
-I have tried adding a recursive spinlock as a quick fix without much
-success.  It looks like the code in net/core/fib_rules.c results in some
-rather complex code paths through the kernel involving softirq handlers.
- I get lockups though I took steps to make sure local interrupts were
-off and preemption disabled when taking the spinlock.
-
-I do not know the RCU API or the network code at all but some of the
-code in fib_rules.c does not look right prima facie.  For example,
-dump_rules does not seem to bother about RCU when traversing rules_list.
- Its caller, fib_nl_dumprule does, but only for one of two calls.  The
-fib_nl_newrule and fib_nl_delrule functions traverse rules_list without
-any obvious RCU precautions.
-
-Joe Buehler
-
+  Luis
