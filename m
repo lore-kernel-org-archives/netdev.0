@@ -1,121 +1,50 @@
 From: Simon Horman <horms@verge.net.au>
-Subject: Re: [RFC PATCH 5/9] ipvs network name space aware
-Date: Fri, 22 Oct 2010 21:05:48 +0200
-Message-ID: <20101022190548.GA24978@verge.net.au>
-References: <201010081317.04167.hans.schillstrom@ericsson.com>
+Subject: Re: [PATCH] af_packet: account for VLAN when checking packet size
+Date: Fri, 22 Oct 2010 10:41:26 +0200
+Message-ID: <20101022084052.GA2118@verge.net.au>
+References: <20101011.090153.226774563.davem@davemloft.net>
+ <20101011172932.GB12342@orbit.nwl.cc>
+ <20101012171940.GB30613@redhat.com>
+ <20101012.104032.71103852.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, ja@ssi.bg, wensong@linux-vs.org,
-	daniel.lezcano@free.fr
-To: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Cc: mst@redhat.com, eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	johann.baudy@gnu-log.net
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:43379 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754956Ab0JWB1f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Oct 2010 21:27:35 -0400
 Content-Disposition: inline
-In-Reply-To: <201010081317.04167.hans.schillstrom@ericsson.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20101012.104032.71103852.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 08, 2010 at 01:17:02PM +0200, Hans Schillstrom wrote:
-> This patch just contains ip_vs_ctl
+On Tue, Oct 12, 2010 at 10:40:32AM -0700, David Miller wrote:
+> From: "Michael S. Tsirkin" <mst@redhat.com>
+> Date: Tue, 12 Oct 2010 19:19:41 +0200
 > 
-> Signed-off-by:Hans Schillstrom <hans.schillstrom@ericsson.com>
+> > Yes, like eth_type_trans does I guess.  I think we had a similar
+> > discussion already:
+> > 
+> > http://lists.openwall.net/netdev/2010/01/06/38
+> > 
+> > Summary: if we want to make the protocol field have the correct
+> > value for this case we need to make it work for other
+> > transports not just for ethernet.
 > 
-> diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-> index ca8ec8c..7e99cbc 100644
-> --- a/net/netfilter/ipvs/ip_vs_ctl.c
-> +++ b/net/netfilter/ipvs/ip_vs_ctl.c
+> Right, so for now we should just allow 4-byte larger
+> than MTU TX packets, as long as the device is ethernet
+> and can handle VLANs properly.
 
-[ snip ]
+Incidently, I believe that this problem will only become more acute
+and complex if support for 802.1ad (Provider Bridges, aka Q-in-Q),
+802.1ah (Provider Backbone Bridges, aka MAC-in-MAC) or other standards
+which further extend the maximum frame size.
 
-> @@ -1539,53 +1511,71 @@ proc_do_sync_threshold(ctl_table *table, int write,
-> 
->  /*
->   *	IPVS sysctl table (under the /proc/sys/net/ipv4/vs/)
-> + *	Do not change order or insert new entries without
-> + *	align with netns init in __ip_vs_control_init()
->   */
-> 
->  static struct ctl_table vs_vars[] = {
->  	{
->  		.procname	= "amemthresh",
-> -		.data		= &sysctl_ip_vs_amemthresh,
-> -		.maxlen		= sizeof(int),
-> -		.mode		= 0644,
-> -		.proc_handler	= proc_dointvec,
-> -	},
-> -#ifdef CONFIG_IP_VS_DEBUG
-> -	{
-> -		.procname	= "debug_level",
-> -		.data		= &sysctl_ip_vs_debug_level,
->  		.maxlen		= sizeof(int),
->  		.mode		= 0644,
->  		.proc_handler	= proc_dointvec,
->  	},
-> -#endif
->  	{
->  		.procname	= "am_droprate",
-> -		.data		= &sysctl_ip_vs_am_droprate,
->  		.maxlen		= sizeof(int),
->  		.mode		= 0644,
->  		.proc_handler	= proc_dointvec,
->  	},
->  	{
->  		.procname	= "drop_entry",
-> -		.data		= &sysctl_ip_vs_drop_entry,
->  		.maxlen		= sizeof(int),
->  		.mode		= 0644,
->  		.proc_handler	= proc_do_defense_mode,
->  	},
->  	{
->  		.procname	= "drop_packet",
-> -		.data		= &sysctl_ip_vs_drop_packet,
->  		.maxlen		= sizeof(int),
->  		.mode		= 0644,
->  		.proc_handler	= proc_do_defense_mode,
->  	},
->  	{
->  		.procname	= "secure_tcp",
-> -		.data		= &sysctl_ip_vs_secure_tcp,
->  		.maxlen		= sizeof(int),
->  		.mode		= 0644,
->  		.proc_handler	= proc_do_defense_mode,
->  	},
-> +	{
-> +		.procname	= "cache_bypass",
-> +		.maxlen		= sizeof(int),
-> +		.mode		= 0644,
-> +		.proc_handler	= proc_dointvec,
-> +	},
-> +	{
-> +		.procname	= "expire_nodest_conn",
-> +		.maxlen		= sizeof(int),
-> +		.mode		= 0644,
-> +		.proc_handler	= proc_dointvec,
-> +	},
-> +	{
-> +		.procname	= "expire_quiescent_template",
-> +		.maxlen		= sizeof(int),
-> +		.mode		= 0644,
-> +		.proc_handler	= proc_dointvec,
-> +	},
-> +	{
-> +		.procname	= "sync_threshold",
-> +		.maxlen		= sizeof(sysctl_ip_vs_sync_threshold),
-> +		.mode		= 0644,
-> +		.proc_handler	= proc_do_sync_threshold,
-> +	},
-> +	{
-> +		.procname	= "nat_icmp_send",
-> +		.maxlen		= sizeof(int),
-> +		.mode		= 0644,
-> +		.proc_handler	= proc_dointvec,
-> +	},
->  #if 0
->  	{
->  		.procname	= "timeout_established",
-
-Hi Hans,
-
-is there a reason that the order some of the entries in
-vs_vars has been switched around?
+Dave, you were mentioning to me the other day that the kernel
+already supports some notion of Q-in-Q (though its not 802.1ad).
+Does the current implementation allow for frames > 1504 bytes?
+Is that a complication to the change proposed here?
 
