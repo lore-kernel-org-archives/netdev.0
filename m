@@ -1,42 +1,64 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 9/9] net/wanrouter: typo fix of faild to failed
-Date: Thu, 21 Oct 2010 22:17:20 -0700
-Message-ID: <130529f876ab654054274b3a8bf4841714064ea0.1287724261.git.joe@perches.com>
+Subject: [PATCH 3/9] drivers/net: typo fix of faild to failed
+Date: Thu, 21 Oct 2010 22:17:14 -0700
+Message-ID: <246fa5db6273b9f79c3bb27ab2abb22e85fe7b38.1287724261.git.joe@perches.com>
 References: <cover.1287724261.git.joe@perches.com>
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+Cc: Geoff Levand <geoff@infradead.org>,
+	Grant Grundler <grundler@parisc-linux.org>,
+	Kyle McMartin <kyle@mcmartin.ca>, netdev@vger.kernel.org,
+	cbe-oss-dev@lists.ozlabs.org, linuxppc-dev@lists.ozlabs.org,
 	linux-kernel@vger.kernel.org
 To: Jiri Kosina <trivial@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.perches.com ([173.55.12.10]:3464 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752793Ab0JVFR0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Oct 2010 01:17:26 -0400
 In-Reply-To: <cover.1287724261.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- net/wanrouter/wanmain.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ps3_gelic_net.c |    4 ++--
+ drivers/net/tulip/pnic2.c   |    2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/net/wanrouter/wanmain.c b/net/wanrouter/wanmain.c
-index 2bf2340..74944a2 100644
---- a/net/wanrouter/wanmain.c
-+++ b/net/wanrouter/wanmain.c
-@@ -471,7 +471,7 @@ static int wanrouter_device_setup(struct wan_device *wandev,
- 		data = vmalloc(conf->data_size);
- 		if (!data) {
- 			printk(KERN_INFO
--				"%s: ERROR, Faild allocate kernel memory !\n",
-+				"%s: ERROR, Failed allocate kernel memory !\n",
- 				wandev->name);
- 			kfree(conf);
- 			return -ENOBUFS;
-@@ -481,7 +481,7 @@ static int wanrouter_device_setup(struct wan_device *wandev,
- 			err = wandev->setup(wandev, conf);
- 		} else {
- 			printk(KERN_INFO
--			     "%s: ERROR, Faild to copy from user data !\n",
-+			     "%s: ERROR, Failed to copy from user data !\n",
- 			       wandev->name);
- 			err = -EFAULT;
- 		}
+diff --git a/drivers/net/ps3_gelic_net.c b/drivers/net/ps3_gelic_net.c
+index 87d6b8f..49f6700 100644
+--- a/drivers/net/ps3_gelic_net.c
++++ b/drivers/net/ps3_gelic_net.c
+@@ -642,7 +642,7 @@ static inline void gelic_card_disable_rxdmac(struct gelic_card *card)
+ 	status = lv1_net_stop_rx_dma(bus_id(card), dev_id(card), 0);
+ 	if (status)
+ 		dev_err(ctodev(card),
+-			"lv1_net_stop_rx_dma faild, %d\n", status);
++			"lv1_net_stop_rx_dma failed, %d\n", status);
+ }
+ 
+ /**
+@@ -660,7 +660,7 @@ static inline void gelic_card_disable_txdmac(struct gelic_card *card)
+ 	status = lv1_net_stop_tx_dma(bus_id(card), dev_id(card), 0);
+ 	if (status)
+ 		dev_err(ctodev(card),
+-			"lv1_net_stop_tx_dma faild, status=%d\n", status);
++			"lv1_net_stop_tx_dma failed, status=%d\n", status);
+ }
+ 
+ /**
+diff --git a/drivers/net/tulip/pnic2.c b/drivers/net/tulip/pnic2.c
+index b819766..186d725 100644
+--- a/drivers/net/tulip/pnic2.c
++++ b/drivers/net/tulip/pnic2.c
+@@ -59,7 +59,7 @@
+  * Bit 14:12 - autonegotiation state (write 001 to start autonegotiate)
+  * Bit 3     - Autopolarity state
+  * Bit 2     - LS10B - link state of 10baseT 0 - good, 1 - failed
+- * Bit 1     - LS100B - link state of 100baseT 0 - good, 1- faild
++ * Bit 1     - LS100B - link state of 100baseT 0 - good, 1- failed
+  *
+  *
+  * Data Port Selection Info
 -- 
 1.7.3.1.g432b3.dirty
+
