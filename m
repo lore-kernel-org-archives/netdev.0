@@ -1,66 +1,86 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: RE: TIPC security issues
-Date: Fri, 22 Oct 2010 09:49:21 -0400
-Message-ID: <0434463FDA60A94FA978ACA44617682DEE846B4D37@EUSAACMS0702.eamcs.ericsson.se>
-References: <1287704752.11051.79.camel@Dan>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH net-next-2.6] net: Fix some corner cases in
+ dev_can_checksum()
+Date: Fri, 22 Oct 2010 15:12:19 +0100
+Message-ID: <1287756739.2316.11.camel@achroite.uk.solarflarecom.com>
+References: <1287618974-4714-1-git-send-email-jesse@nicira.com>
+	 <1287618974-4714-5-git-send-email-jesse@nicira.com>
+	 <1287675008.2235.8.camel@achroite.uk.solarflarecom.com>
+	 <AANLkTi=6erj4L7mwH4j1h+urPrc2PQu2xg7xTHkiM0A5@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "security@kernel.org" <security@kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Dan Rosenberg <drosenberg@vsecurity.com>,
-	"allan.stephens@windriver.com" <allan.stephens@windriver.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jesse Gross <jesse@nicira.com>, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from imr4.ericy.com ([198.24.6.8]:45574 "EHLO imr4.ericy.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755283Ab0JVNvN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Oct 2010 09:51:13 -0400
-In-Reply-To: <1287704752.11051.79.camel@Dan>
-Content-Language: en-US
+Received: from exchange.solarflare.com ([216.237.3.220]:51295 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754896Ab0JVOMW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Oct 2010 10:12:22 -0400
+In-Reply-To: <AANLkTi=6erj4L7mwH4j1h+urPrc2PQu2xg7xTHkiM0A5@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Acked. We clearly have a couple of things to fix here.
-We'll try to get it done asap.
+dev_can_checksum() incorrectly returns true in these cases:
 
-///jon
+1. The skb has both out-of-band and in-band VLAN tags and the device
+   supports checksum offload for the encapsulated protocol but only with
+   one layer of encapsulation.
+2. The skb has a VLAN tag and the device supports generic checksumming
+   but not in conjunction with VLAN encapsulation.
+
+Rearrange the VLAN tag checks to avoid these.
+
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+I don't know whether I have hardware that would cover these cases (our
+NICs certainly don't), so instead I wrote some unit tests; I'll
+follow-up with the test program.
+
+Ben.
+
+ net/core/dev.c |   16 ++++++----------
+ 1 files changed, 6 insertions(+), 10 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 6d4218c..a698252 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1694,22 +1694,18 @@ static bool can_checksum_protocol(unsigned long features, __be16 protocol)
+ 
+ static bool dev_can_checksum(struct net_device *dev, struct sk_buff *skb)
+ {
++	__be16 protocol = skb->protocol;
+ 	int features = dev->features;
+ 
+-	if (vlan_tx_tag_present(skb))
++	if (vlan_tx_tag_present(skb)) {
+ 		features &= dev->vlan_features;
+-
+-	if (can_checksum_protocol(features, skb->protocol))
+-		return true;
+-
+-	if (skb->protocol == htons(ETH_P_8021Q)) {
++	} else if (protocol == htons(ETH_P_8021Q)) {
+ 		struct vlan_ethhdr *veh = (struct vlan_ethhdr *)skb->data;
+-		if (can_checksum_protocol(dev->features & dev->vlan_features,
+-					  veh->h_vlan_encapsulated_proto))
+-			return true;
++		protocol = veh->h_vlan_encapsulated_proto;
++		features &= dev->vlan_features;
+ 	}
+ 
+-	return false;
++	return can_checksum_protocol(features, protocol);
+ }
+ 
+ /**
+-- 
+1.7.2.1
 
 
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
-> -----Original Message-----
-> From: Dan Rosenberg [mailto:drosenberg@vsecurity.com] 
-> Sent: October-21-10 19:46
-> To: Jon Maloy; allan.stephens@windriver.com
-> Cc: security@kernel.org; netdev@vger.kernel.org
-> Subject: TIPC security issues
-> 
-> The tipc_msg_build() function in net/tipc/msg.c is written in 
-> such a way as to create a highly exploitable kernel heap 
-> overflow that would allow a local user to escalate privileges 
-> to root by issuing maliciously crafted sendmsg() calls.  At a 
-> minimum, the following issues should be
-> fixed:
-> 
-> 1. The tipc_msg_calc_data_size() function is almost totally 
-> broken.  It sums together size_t values (iov_lens), but 
-> returns an integer.  Two things can go wrong - the total 
-> value can wrap around, or on 64-bit platforms, iov_len values 
-> greater than UINT_MAX will be truncated.
-> 
-> 2. The comparison of dsz to TIPC_MAX_USER_MSG_SIZE is signed, 
-> so negative (large unsigned) values will pass this check.
-> 
-> 3. The comparison of sz to max_size is also signed.
-> 
-> As a result of these issues, it's possible to cause the 
-> allocation of a small heap buffer and the subsequent copying 
-> of a carefully controlled larger amount of data into that buffer.
-> 
-> I haven't found a Linux distribution that defines a module 
-> alias for TIPC (even though most compile it as a module), so 
-> an administrator will have had to explicitly load the TIPC 
-> module for a system to be vulnerable.
-> 
-> -Dan
-> 
-> 
