@@ -1,55 +1,67 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next-2.6] net: NETIF_F_HW_CSUM does not imply FCoE CRC
- offload
-Date: Fri, 22 Oct 2010 15:38:26 +0100
-Message-ID: <1287758306.2316.35.camel@achroite.uk.solarflarecom.com>
+From: Denis Kirjanov <dkirjanov@kernel.org>
+Subject: [PATCH -next] slhc: Don't export symbols twice
+Date: Fri, 22 Oct 2010 15:41:14 +0000
+Message-ID: <20101022154114.GA29603@hera.kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Yi Zou <yi.zou@intel.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:53423 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757348Ab0JVOi3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Oct 2010 10:38:29 -0400
+Received: from hera.kernel.org ([140.211.167.34]:40506 "EHLO hera.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755362Ab0JVPlQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Oct 2010 11:41:16 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-NETIF_F_HW_CSUM indicates the ability to update an TCP/IP-style 16-bit
-checksum with the checksum of an arbitrary part of the packet data,
-whereas the FCoE CRC is something entirely different.
+Don't export symbols twice.
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-Cc: stable@kernel.org [2.6.32+]
+Signed-off-by: Denis Kirjanov <dkirjanov@kernel.org>
 ---
- net/core/dev.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/slhc.c |   15 ++++-----------
+ 1 files changed, 4 insertions(+), 11 deletions(-)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index a698252..8ab61de 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1683,10 +1683,10 @@ EXPORT_SYMBOL(netif_device_attach);
+diff --git a/drivers/net/slhc.c b/drivers/net/slhc.c
+index ac279fa..ab9e3b7 100644
+--- a/drivers/net/slhc.c
++++ b/drivers/net/slhc.c
+@@ -688,18 +688,8 @@ slhc_toss(struct slcompress *comp)
+ 	return 0;
+ }
  
- static bool can_checksum_protocol(unsigned long features, __be16 protocol)
+-
+-/* VJ header compression */
+-EXPORT_SYMBOL(slhc_init);
+-EXPORT_SYMBOL(slhc_free);
+-EXPORT_SYMBOL(slhc_remember);
+-EXPORT_SYMBOL(slhc_compress);
+-EXPORT_SYMBOL(slhc_uncompress);
+-EXPORT_SYMBOL(slhc_toss);
+-
+ #else /* CONFIG_INET */
+ 
+-
+ int
+ slhc_toss(struct slcompress *comp)
  {
--	return ((features & NETIF_F_GEN_CSUM) ||
--		((features & NETIF_F_IP_CSUM) &&
-+	return ((features & NETIF_F_NO_CSUM) ||
-+		((features & NETIF_F_V4_CSUM) &&
- 		 protocol == htons(ETH_P_IP)) ||
--		((features & NETIF_F_IPV6_CSUM) &&
-+		((features & NETIF_F_V6_CSUM) &&
- 		 protocol == htons(ETH_P_IPV6)) ||
- 		((features & NETIF_F_FCOE_CRC) &&
- 		 protocol == htons(ETH_P_FCOE)));
+@@ -738,6 +728,10 @@ slhc_init(int rslots, int tslots)
+   printk(KERN_DEBUG "Called IP function on non IP-system: slhc_init");
+   return NULL;
+ }
++
++#endif /* CONFIG_INET */
++
++/* VJ header compression */
+ EXPORT_SYMBOL(slhc_init);
+ EXPORT_SYMBOL(slhc_free);
+ EXPORT_SYMBOL(slhc_remember);
+@@ -745,5 +739,4 @@ EXPORT_SYMBOL(slhc_compress);
+ EXPORT_SYMBOL(slhc_uncompress);
+ EXPORT_SYMBOL(slhc_toss);
+ 
+-#endif /* CONFIG_INET */
+ MODULE_LICENSE("Dual BSD/GPL");
 -- 
-1.7.2.1
-
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.0
 
