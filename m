@@ -1,45 +1,50 @@
-From: emin ak <eminak71@gmail.com>
-Subject: Re: [PATCH] gianfar: Fix crashes on RX path (Was Re: [Bugme-new] [Bug
- 19692] New: linux-2.6.36-rc5 crash with gianfar ethernet at full line rate traffic)
-Date: Fri, 22 Oct 2010 08:42:10 +0300
-Message-ID: <AANLkTimakJjwL9v2Ztpce3Xnjb_r5XB=rGoJc9pZKE12@mail.gmail.com>
-References: <20101010103236.GA1919@del.dom.local>
-	<20101015085853.GA8091@ff.dom.local>
-	<AANLkTinAj=9-RqNA6xKc_5ONz2hPMRGM8uJ2Xy7XJVdr@mail.gmail.com>
-	<20101016194815.GA1894@del.dom.local>
-	<AANLkTi=08Myz1=XOHkGJWTdyC8vK+y+zf0UQhjxUi=qC@mail.gmail.com>
-	<20101019100636.GA9246@ff.dom.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org,
-	Anton Vorontsov <avorontsov@mvista.com>,
-	Andy Fleming <afleming@freescale.com>
-To: Jarek Poplawski <jarkao2@gmail.com>
+From: Mike Frysinger <vapier@gentoo.org>
+Subject: [PATCH 5/5] netdev: bfin_mac: disable hardware checksum if writeback cache is enabled
+Date: Fri, 22 Oct 2010 01:59:21 -0400
+Message-ID: <1287727161-24671-5-git-send-email-vapier@gentoo.org>
+References: <1287727161-24671-1-git-send-email-vapier@gentoo.org>
+Cc: uclinux-dist-devel@blackfin.uclinux.org,
+	Sonic Zhang <sonic.zhang@analog.com>
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f174.google.com ([209.85.214.174]:51135 "EHLO
-	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751400Ab0JVFmL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Oct 2010 01:42:11 -0400
-Received: by iwn34 with SMTP id 34so472120iwn.19
-        for <netdev@vger.kernel.org>; Thu, 21 Oct 2010 22:42:11 -0700 (PDT)
-In-Reply-To: <20101019100636.GA9246@ff.dom.local>
+Received: from smtp.gentoo.org ([140.211.166.183]:40762 "EHLO smtp.gentoo.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752795Ab0JVF7n (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Oct 2010 01:59:43 -0400
+In-Reply-To: <1287727161-24671-1-git-send-email-vapier@gentoo.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jarek;
+From: Sonic Zhang <sonic.zhang@analog.com>
 
-> Maybe for now let's try to get and see this type 1 again? Since the
-> recycle path is suspicious a bit to me, probably limiting memory or
-> slowing tx (maybe different mtus on eth0 and 1) under heavy multi cpu
-> load might help.
->
+With writeback caches, corrupted RX packets will be sent up the stack
+without any error markings.
 
-I'll do my best with your recommended test conditions. I have reserved
-a machine and two ports of  hw packet generator, now we'll see if this
-error will occur again or not. (But I'am not sure if I want to see it
-again:)
-Thanks
-Emin
+Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
+Signed-off-by: Mike Frysinger <vapier@gentoo.org>
+---
+ drivers/net/bfin_mac.h |    7 +++++++
+ 1 files changed, 7 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/bfin_mac.h b/drivers/net/bfin_mac.h
+index 4827f6b..692187d 100644
+--- a/drivers/net/bfin_mac.h
++++ b/drivers/net/bfin_mac.h
+@@ -17,7 +17,14 @@
+ #include <linux/etherdevice.h>
+ #include <linux/bfin_mac.h>
+ 
++/*
++ * Disable hardware checksum for bug #5600 if writeback cache is
++ * enabled. Otherwize, corrupted RX packet will be sent up stack
++ * without error mark.
++ */
++#ifndef CONFIG_BFIN_EXTMEM_WRITEBACK
+ #define BFIN_MAC_CSUM_OFFLOAD
++#endif
+ 
+ #define TX_RECLAIM_JIFFIES (HZ / 5)
+ 
+-- 
+1.7.3.1
+
