@@ -1,73 +1,66 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [PATCH v2 10/14] ixgbe: Update ixgbe to use new vlan accleration.
-Date: Fri, 22 Oct 2010 15:24:00 +0200
-Message-ID: <AANLkTindxJD1a5UPV+6vWbDEeMUTy1QgPs1X8pT-b69D@mail.gmail.com>
-References: <1287618974-4714-1-git-send-email-jesse@nicira.com>
-	<1287618974-4714-11-git-send-email-jesse@nicira.com>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: RE: TIPC security issues
+Date: Fri, 22 Oct 2010 09:49:21 -0400
+Message-ID: <0434463FDA60A94FA978ACA44617682DEE846B4D37@EUSAACMS0702.eamcs.ericsson.se>
+References: <1287704752.11051.79.camel@Dan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Peter Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
-	Emil Tantilov <emil.s.tantilov@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: Jesse Gross <jesse@nicira.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "security@kernel.org" <security@kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Dan Rosenberg <drosenberg@vsecurity.com>,
+	"allan.stephens@windriver.com" <allan.stephens@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:49741 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754750Ab0JVNYB convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Oct 2010 09:24:01 -0400
-Received: by ywk9 with SMTP id 9so656820ywk.19
-        for <netdev@vger.kernel.org>; Fri, 22 Oct 2010 06:24:01 -0700 (PDT)
-In-Reply-To: <1287618974-4714-11-git-send-email-jesse@nicira.com>
+Received: from imr4.ericy.com ([198.24.6.8]:45574 "EHLO imr4.ericy.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755283Ab0JVNvN convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Oct 2010 09:51:13 -0400
+In-Reply-To: <1287704752.11051.79.camel@Dan>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2010/10/21 Jesse Gross <jesse@nicira.com>:
-> Make the ixgbe driver use the new vlan accleration model.
-[...]
-> --- a/drivers/net/ixgbe/ixgbe_main.c
-> +++ b/drivers/net/ixgbe/ixgbe_main.c
-> @@ -954,17 +954,13 @@ static void ixgbe_receive_skb(struct ixgbe_q_ve=
-ctor *q_vector,
-> =A0 =A0 =A0 =A0bool is_vlan =3D (status & IXGBE_RXD_STAT_VP);
-> =A0 =A0 =A0 =A0u16 tag =3D le16_to_cpu(rx_desc->wb.upper.vlan);
->
-> - =A0 =A0 =A0 if (!(adapter->flags & IXGBE_FLAG_IN_NETPOLL)) {
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (adapter->vlgrp && is_vlan && (tag &=
- VLAN_VID_MASK))
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 vlan_gro_receive(napi, =
-adapter->vlgrp, tag, skb);
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 else
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 napi_gro_receive(napi, =
-skb);
-> - =A0 =A0 =A0 } else {
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (adapter->vlgrp && is_vlan && (tag &=
- VLAN_VID_MASK))
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 vlan_hwaccel_rx(skb, ad=
-apter->vlgrp, tag);
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 else
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 netif_rx(skb);
-> - =A0 =A0 =A0 }
-> + =A0 =A0 =A0 if (is_vlan && (tag & VLAN_VID_MASK))
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 __vlan_hwaccel_put_tag(skb, tag);
+Acked. We clearly have a couple of things to fix here.
+We'll try to get it done asap.
 
-I know that this is carried over from the driver, but why tag =3D=3D 0 =
-is
-treated differently here? VID0 is somewhat special, as normally it
-means 802.1p packet, but i.e. in embedded world people are using it as
-normal VID. It would be nice to have this handled consistently in the
-VLAN core - deliver to base dev (tag stripped) if vlan 0 is not
-configured and to vlan dev if it is.
+///jon
 
-> +
-> + =A0 =A0 =A0 if (!(adapter->flags & IXGBE_FLAG_IN_NETPOLL))
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 napi_gro_receive(napi, skb);
-> + =A0 =A0 =A0 else
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 netif_rx(skb);
-> =A0}
->
-> =A0/**
 
-Best Regards,
-Micha=B3 Miros=B3aw
+
+> -----Original Message-----
+> From: Dan Rosenberg [mailto:drosenberg@vsecurity.com] 
+> Sent: October-21-10 19:46
+> To: Jon Maloy; allan.stephens@windriver.com
+> Cc: security@kernel.org; netdev@vger.kernel.org
+> Subject: TIPC security issues
+> 
+> The tipc_msg_build() function in net/tipc/msg.c is written in 
+> such a way as to create a highly exploitable kernel heap 
+> overflow that would allow a local user to escalate privileges 
+> to root by issuing maliciously crafted sendmsg() calls.  At a 
+> minimum, the following issues should be
+> fixed:
+> 
+> 1. The tipc_msg_calc_data_size() function is almost totally 
+> broken.  It sums together size_t values (iov_lens), but 
+> returns an integer.  Two things can go wrong - the total 
+> value can wrap around, or on 64-bit platforms, iov_len values 
+> greater than UINT_MAX will be truncated.
+> 
+> 2. The comparison of dsz to TIPC_MAX_USER_MSG_SIZE is signed, 
+> so negative (large unsigned) values will pass this check.
+> 
+> 3. The comparison of sz to max_size is also signed.
+> 
+> As a result of these issues, it's possible to cause the 
+> allocation of a small heap buffer and the subsequent copying 
+> of a carefully controlled larger amount of data into that buffer.
+> 
+> I haven't found a Linux distribution that defines a module 
+> alias for TIPC (even though most compile it as a module), so 
+> an administrator will have had to explicitly load the TIPC 
+> module for a system to be vulnerable.
+> 
+> -Dan
+> 
+> 
