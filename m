@@ -1,32 +1,204 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] vlan: Calling vlan_hwaccel_do_receive() is always
- valid.
-Date: Thu, 21 Oct 2010 20:00:27 -0700 (PDT)
-Message-ID: <20101021.200027.71112639.davem@davemloft.net>
-References: <1287696643-9695-1-git-send-email-jesse@nicira.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jesse@nicira.com
+From: Harvey Harrison <harvey.harrison@gmail.com>
+Subject: [PATCH 1/3] vmxnet3: remove set_flag_le{16,64} helpers
+Date: Thu, 21 Oct 2010 21:05:32 -0700
+Message-ID: <1287720334-15469-1-git-send-email-harvey.harrison@gmail.com>
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com
+To: sbhatewara@vmware.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44053
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754071Ab0JVDAF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Oct 2010 23:00:05 -0400
-In-Reply-To: <1287696643-9695-1-git-send-email-jesse@nicira.com>
+Received: from mail-px0-f174.google.com ([209.85.212.174]:33008 "EHLO
+	mail-px0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1749667Ab0JVEFk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Oct 2010 00:05:40 -0400
+Received: by pxi12 with SMTP id 12so63626pxi.19
+        for <netdev@vger.kernel.org>; Thu, 21 Oct 2010 21:05:40 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Gross <jesse@nicira.com>
-Date: Thu, 21 Oct 2010 14:30:42 -0700
+It's easier to just annotate the constants as little endian types and set/clear
+the flags directly.
 
-> It is now acceptable to receive vlan tagged packets at any time,
-> even if CONFIG_VLAN_8021Q is not set.  This means that calling
-> vlan_hwaccel_do_receive() should not result in BUG() but rather just
-> behave as if there were no vlan devices configured.
-> 
-> Reported-by: Vladislav Zolotarov <vladz@broadcom.com>
-> Signed-off-by: Jesse Gross <jesse@nicira.com>
+Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+---
+ drivers/net/vmxnet3/upt1_defs.h       |    8 ++++----
+ drivers/net/vmxnet3/vmxnet3_defs.h    |    6 +++---
+ drivers/net/vmxnet3/vmxnet3_drv.c     |   20 +++++++++-----------
+ drivers/net/vmxnet3/vmxnet3_ethtool.c |   14 ++++++--------
+ drivers/net/vmxnet3/vmxnet3_int.h     |   15 ---------------
+ 5 files changed, 22 insertions(+), 41 deletions(-)
 
-Applied.
+diff --git a/drivers/net/vmxnet3/upt1_defs.h b/drivers/net/vmxnet3/upt1_defs.h
+index 37108fb..969c751 100644
+--- a/drivers/net/vmxnet3/upt1_defs.h
++++ b/drivers/net/vmxnet3/upt1_defs.h
+@@ -88,9 +88,9 @@ struct UPT1_RSSConf {
+ 
+ /* features */
+ enum {
+-	UPT1_F_RXCSUM		= 0x0001,   /* rx csum verification */
+-	UPT1_F_RSS		= 0x0002,
+-	UPT1_F_RXVLAN		= 0x0004,   /* VLAN tag stripping */
+-	UPT1_F_LRO		= 0x0008,
++	UPT1_F_RXCSUM		= cpu_to_le64(0x0001),   /* rx csum verification */
++	UPT1_F_RSS		= cpu_to_le64(0x0002),
++	UPT1_F_RXVLAN		= cpu_to_le64(0x0004),   /* VLAN tag stripping */
++	UPT1_F_LRO		= cpu_to_le64(0x0008),
+ };
+ #endif
+diff --git a/drivers/net/vmxnet3/vmxnet3_defs.h b/drivers/net/vmxnet3/vmxnet3_defs.h
+index ca7727b..4d84912 100644
+--- a/drivers/net/vmxnet3/vmxnet3_defs.h
++++ b/drivers/net/vmxnet3/vmxnet3_defs.h
+@@ -523,9 +523,9 @@ struct Vmxnet3_RxFilterConf {
+ #define VMXNET3_PM_MAX_PATTERN_SIZE   128
+ #define VMXNET3_PM_MAX_MASK_SIZE      (VMXNET3_PM_MAX_PATTERN_SIZE / 8)
+ 
+-#define VMXNET3_PM_WAKEUP_MAGIC       0x01  /* wake up on magic pkts */
+-#define VMXNET3_PM_WAKEUP_FILTER      0x02  /* wake up on pkts matching
+-					     * filters */
++#define VMXNET3_PM_WAKEUP_MAGIC       cpu_to_le16(0x01)  /* wake up on magic pkts */
++#define VMXNET3_PM_WAKEUP_FILTER      cpu_to_le16(0x02)  /* wake up on pkts matching
++							  * filters */
+ 
+ 
+ struct Vmxnet3_PM_PktFilter {
+diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+index 3f60e0e..2ea4b81 100644
+--- a/drivers/net/vmxnet3/vmxnet3_drv.c
++++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+@@ -1563,8 +1563,7 @@ vmxnet3_vlan_rx_register(struct net_device *netdev, struct vlan_group *grp)
+ 			adapter->vlan_grp = grp;
+ 
+ 			/* update FEATURES to device */
+-			set_flag_le64(&devRead->misc.uptFeatures,
+-				      UPT1_F_RXVLAN);
++			devRead->misc.uptFeatures |= UPT1_F_RXVLAN;
+ 			VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
+ 					       VMXNET3_CMD_UPDATE_FEATURE);
+ 			/*
+@@ -1587,7 +1586,7 @@ vmxnet3_vlan_rx_register(struct net_device *netdev, struct vlan_group *grp)
+ 		struct Vmxnet3_DSDevRead *devRead = &shared->devRead;
+ 		adapter->vlan_grp = NULL;
+ 
+-		if (le64_to_cpu(devRead->misc.uptFeatures) & UPT1_F_RXVLAN) {
++		if (devRead->misc.uptFeatures & UPT1_F_RXVLAN) {
+ 			int i;
+ 
+ 			for (i = 0; i < VMXNET3_VFT_SIZE; i++) {
+@@ -1600,8 +1599,7 @@ vmxnet3_vlan_rx_register(struct net_device *netdev, struct vlan_group *grp)
+ 					       VMXNET3_CMD_UPDATE_VLAN_FILTERS);
+ 
+ 			/* update FEATURES to device */
+-			reset_flag_le64(&devRead->misc.uptFeatures,
+-					UPT1_F_RXVLAN);
++			devRead->misc.uptFeatures &= ~UPT1_F_RXVLAN;
+ 			VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
+ 					       VMXNET3_CMD_UPDATE_FEATURE);
+ 		}
+@@ -1762,15 +1760,15 @@ vmxnet3_setup_driver_shared(struct vmxnet3_adapter *adapter)
+ 
+ 	/* set up feature flags */
+ 	if (adapter->rxcsum)
+-		set_flag_le64(&devRead->misc.uptFeatures, UPT1_F_RXCSUM);
++		devRead->misc.uptFeatures |= UPT1_F_RXCSUM;
+ 
+ 	if (adapter->lro) {
+-		set_flag_le64(&devRead->misc.uptFeatures, UPT1_F_LRO);
++		devRead->misc.uptFeatures |= UPT1_F_LRO;
+ 		devRead->misc.maxNumRxSG = cpu_to_le16(1 + MAX_SKB_FRAGS);
+ 	}
+ 	if ((adapter->netdev->features & NETIF_F_HW_VLAN_RX) &&
+ 	    adapter->vlan_grp) {
+-		set_flag_le64(&devRead->misc.uptFeatures, UPT1_F_RXVLAN);
++		devRead->misc.uptFeatures |= UPT1_F_RXVLAN;
+ 	}
+ 
+ 	devRead->misc.mtu = cpu_to_le32(adapter->netdev->mtu);
+@@ -2577,7 +2575,7 @@ vmxnet3_suspend(struct device *device)
+ 		memcpy(pmConf->filters[i].pattern, netdev->dev_addr, ETH_ALEN);
+ 		pmConf->filters[i].mask[0] = 0x3F; /* LSB ETH_ALEN bits */
+ 
+-		set_flag_le16(&pmConf->wakeUpEvents, VMXNET3_PM_WAKEUP_FILTER);
++		pmConf->wakeUpEvents |= VMXNET3_PM_WAKEUP_FILTER;
+ 		i++;
+ 	}
+ 
+@@ -2619,13 +2617,13 @@ vmxnet3_suspend(struct device *device)
+ 		pmConf->filters[i].mask[5] = 0x03; /* IPv4 TIP */
+ 		in_dev_put(in_dev);
+ 
+-		set_flag_le16(&pmConf->wakeUpEvents, VMXNET3_PM_WAKEUP_FILTER);
++		pmConf->wakeUpEvents |= VMXNET3_PM_WAKEUP_FILTER;
+ 		i++;
+ 	}
+ 
+ skip_arp:
+ 	if (adapter->wol & WAKE_MAGIC)
+-		set_flag_le16(&pmConf->wakeUpEvents, VMXNET3_PM_WAKEUP_MAGIC);
++		pmConf->wakeUpEvents |= VMXNET3_PM_WAKEUP_MAGIC;
+ 
+ 	pmConf->numFilters = i;
+ 
+diff --git a/drivers/net/vmxnet3/vmxnet3_ethtool.c b/drivers/net/vmxnet3/vmxnet3_ethtool.c
+index 7e4b5a8..b79070b 100644
+--- a/drivers/net/vmxnet3/vmxnet3_ethtool.c
++++ b/drivers/net/vmxnet3/vmxnet3_ethtool.c
+@@ -50,13 +50,11 @@ vmxnet3_set_rx_csum(struct net_device *netdev, u32 val)
+ 		adapter->rxcsum = val;
+ 		if (netif_running(netdev)) {
+ 			if (val)
+-				set_flag_le64(
+-				&adapter->shared->devRead.misc.uptFeatures,
+-				UPT1_F_RXCSUM);
++				adapter->shared->devRead.misc.uptFeatures |=
++				UPT1_F_RXCSUM;
+ 			else
+-				reset_flag_le64(
+-				&adapter->shared->devRead.misc.uptFeatures,
+-				UPT1_F_RXCSUM);
++				adapter->shared->devRead.misc.uptFeatures &=
++				~UPT1_F_RXCSUM;
+ 
+ 			VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
+ 					       VMXNET3_CMD_UPDATE_FEATURE);
+@@ -292,10 +290,10 @@ vmxnet3_set_flags(struct net_device *netdev, u32 data)
+ 		/* update harware LRO capability accordingly */
+ 		if (lro_requested)
+ 			adapter->shared->devRead.misc.uptFeatures |=
+-						cpu_to_le64(UPT1_F_LRO);
++							UPT1_F_LRO;
+ 		else
+ 			adapter->shared->devRead.misc.uptFeatures &=
+-						cpu_to_le64(~UPT1_F_LRO);
++							~UPT1_F_LRO;
+ 		VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
+ 				       VMXNET3_CMD_UPDATE_FEATURE);
+ 	}
+diff --git a/drivers/net/vmxnet3/vmxnet3_int.h b/drivers/net/vmxnet3/vmxnet3_int.h
+index c88ea5c..46aee6d 100644
+--- a/drivers/net/vmxnet3/vmxnet3_int.h
++++ b/drivers/net/vmxnet3/vmxnet3_int.h
+@@ -353,21 +353,6 @@ struct vmxnet3_adapter {
+ #define VMXNET3_MAX_ETH_HDR_SIZE    22
+ #define VMXNET3_MAX_SKB_BUF_SIZE    (3*1024)
+ 
+-static inline void set_flag_le16(__le16 *data, u16 flag)
+-{
+-	*data = cpu_to_le16(le16_to_cpu(*data) | flag);
+-}
+-
+-static inline void set_flag_le64(__le64 *data, u64 flag)
+-{
+-	*data = cpu_to_le64(le64_to_cpu(*data) | flag);
+-}
+-
+-static inline void reset_flag_le64(__le64 *data, u64 flag)
+-{
+-	*data = cpu_to_le64(le64_to_cpu(*data) & ~flag);
+-}
+-
+ int
+ vmxnet3_quiesce_dev(struct vmxnet3_adapter *adapter);
+ 
+-- 
+1.7.1
+
