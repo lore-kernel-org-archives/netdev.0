@@ -1,50 +1,42 @@
 From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH] af_packet: account for VLAN when checking packet size
-Date: Fri, 22 Oct 2010 10:41:26 +0200
-Message-ID: <20101022084052.GA2118@verge.net.au>
-References: <20101011.090153.226774563.davem@davemloft.net>
- <20101011172932.GB12342@orbit.nwl.cc>
- <20101012171940.GB30613@redhat.com>
- <20101012.104032.71103852.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mst@redhat.com, eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	johann.baudy@gnu-log.net
-To: David Miller <davem@davemloft.net>
+Subject: [rfc v2 05/10] ipvs: Add ipvs_skbnet
+Date: Fri, 22 Oct 2010 22:09:39 +0200
+Message-ID: <20101022202358.801407495@joe.akashicho.tokyo.vergenet.net>
+References: <20101022200934.822223308@joe.akashicho.tokyo.vergenet.net>
+Cc: Hans Schillstrom <hans.schillstrom@ericsson.com>,
+	Julian Anastasov <ja@ssi.bg>,
+	Daniel Lezcano <daniel.lezcano@free.fr>,
+	Wensong Zhang <wensong@linux-vs.org>
+To: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:43379 "EHLO
+Received: from kirsty.vergenet.net ([202.4.237.240]:43371 "EHLO
 	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754956Ab0JWB1f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Oct 2010 21:27:35 -0400
-Content-Disposition: inline
-In-Reply-To: <20101012.104032.71103852.davem@davemloft.net>
+	with ESMTP id S1752996Ab0JWB1e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Oct 2010 21:27:34 -0400
+Content-Disposition: inline; filename=ipvs_skbnet.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 12, 2010 at 10:40:32AM -0700, David Miller wrote:
-> From: "Michael S. Tsirkin" <mst@redhat.com>
-> Date: Tue, 12 Oct 2010 19:19:41 +0200
-> 
-> > Yes, like eth_type_trans does I guess.  I think we had a similar
-> > discussion already:
-> > 
-> > http://lists.openwall.net/netdev/2010/01/06/38
-> > 
-> > Summary: if we want to make the protocol field have the correct
-> > value for this case we need to make it work for other
-> > transports not just for ethernet.
-> 
-> Right, so for now we should just allow 4-byte larger
-> than MTU TX packets, as long as the device is ethernet
-> and can handle VLANs properly.
+As suggested by Julian Anastasov
 
-Incidently, I believe that this problem will only become more acute
-and complex if support for 802.1ad (Provider Bridges, aka Q-in-Q),
-802.1ah (Provider Backbone Bridges, aka MAC-in-MAC) or other standards
-which further extend the maximum frame size.
+Cc: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 
-Dave, you were mentioning to me the other day that the kernel
-already supports some notion of Q-in-Q (though its not 802.1ad).
-Does the current implementation allow for frames > 1504 bytes?
-Is that a complication to the change proposed here?
+Index: lvs-test-2.6/include/net/ip_vs.h
+===================================================================
+--- lvs-test-2.6.orig/include/net/ip_vs.h	2010-10-22 21:16:52.000000000 +0200
++++ lvs-test-2.6/include/net/ip_vs.h	2010-10-22 21:16:56.000000000 +0200
+@@ -1097,6 +1097,11 @@ static inline void ip_vs_conn_drop_connt
+ /* CONFIG_IP_VS_NFCT */
+ #endif
+ 
++static inline struct net *ipvs_skbnet(struct sk_buff *skb)
++{
++	return dev_net(skb->dev ? : skb_dst(skb)->dev);
++}
++
+ #endif /* __KERNEL__ */
+ 
+ #endif	/* _NET_IP_VS_H */
 
