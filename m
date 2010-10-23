@@ -1,81 +1,99 @@
-From: Jim <jim876@xs4all.nl>
-Subject: tap0 device stopped working in 2.6.36 (ok in 2.6.35)
-Date: Sat, 23 Oct 2010 14:55:08 +0200
-Message-ID: <4CC2DB2C.3060908@xs4all.nl>
+From: Balazs Scheidler <bazsi@balabit.hu>
+Subject: Re: [PATCH 5/9] tproxy: allow non-local binds of IPv6 sockets if
+ IP_TRANSPARENT is enabled
+Date: Sat, 23 Oct 2010 16:48:14 +0200
+Message-ID: <1287845294.13882.4.camel@bzorp.lan>
+References: <20101020112118.6260.31618.stgit@este.odu>
+	 <20101020112118.6260.93956.stgit@este.odu>
+	 <4CBEE45D.2080201@linux-ipv6.org>  <1287583653.29676.9.camel@bzorp.lan>
+	 <1287696252.2707.24.camel@takos>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: nolan@cumulusnetworks.com
-To: netdev@vger.kernel.org
+Cc: KOVACS Krisztian <hidden@balabit.hu>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	David Miller <davem@davemloft.net>
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-vbr5.xs4all.nl ([194.109.24.25]:4861 "EHLO
-	smtp-vbr5.xs4all.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755065Ab0JWMzM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Oct 2010 08:55:12 -0400
+Received: from brother.balabit.com ([195.70.62.219]:51513 "EHLO
+	lists.balabit.hu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757164Ab0JWOsV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Oct 2010 10:48:21 -0400
+In-Reply-To: <1287696252.2707.24.camel@takos>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, 2010-10-22 at 06:24 +0900, YOSHIFUJI Hideaki wrote:
+> Hello.
+> 
+> 2010-10-20, Balazs Scheidler wrote:
+> > On Wed, 2010-10-20 at 21:45 +0900, YOSHIFUJI Hideaki wrote:
+> > > (2010/10/20 20:21), KOVACS Krisztian wrote:
+> > > > From: Balazs Scheidler<bazsi@balabit.hu>
+> > > > 
+> > > > Signed-off-by: Balazs Scheidler<bazsi@balabit.hu>
+> > > > Signed-off-by: KOVACS Krisztian<hidden@balabit.hu>
+> > > > ---
+> > > >   net/ipv6/af_inet6.c |    2 +-
+> > > >   1 files changed, 1 insertions(+), 1 deletions(-)
+> > > > 
+> > > > diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+> > > > index 6022098..9480572 100644
+> > > > --- a/net/ipv6/af_inet6.c
+> > > > +++ b/net/ipv6/af_inet6.c
+> > > > @@ -343,7 +343,7 @@ int inet6_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
+> > > >   			 */
+> > > >   			v4addr = LOOPBACK4_IPV6;
+> > > >   			if (!(addr_type&  IPV6_ADDR_MULTICAST))	{
+> > > > -				if (!ipv6_chk_addr(net,&addr->sin6_addr,
+> > > > +				if (!inet->transparent&&  !ipv6_chk_addr(net,&addr->sin6_addr,
+> > > >   						   dev, 0)) {
+> > > >   					err = -EADDRNOTAVAIL;
+> > > >   					goto out_unlock;
+> > > > 
+> > > > 
+> > > 
+> > > As I wrote before in other thread, this does not seem sufficient --
+> > > well, it is sufficient to allow non-local bind, but before we're
+> > > allowing this, we need add checks of source address in sending side.
+> > 
+> > Can you please elaborate or point us to the other thread? Is it some
+> > kind of address-type check that we miss?
+> 
+> Please see my comment at:
+> <http://kerneltrap.org/mailarchive/linux-netdev/2010/7/5/6280572>
+> 
+> This will result in allowing non-privileged users easily sending from
+> non-local / unauthorized address, which is not good, and which should
+> not be allowed from security aspects.
 
-My tap0 device stopped working with 2.6.36, seems it couldn't
-send any packets anymore (receiving was still fine).
+IP_TRANSPARENT requires root (more precisely CAP_NET_ADMIN privielges)
+for IPV6.
 
-After some checking noticed that apparently link isn't ready:
- modprobe tun
- tunctl -b
- ifconfig tap0 192.168.20.1 up
-Gives:
-[   26.411932] ADDRCONF(NETDEV_UP): tap0: link is not ready
+However as I see right now this check was missed from the IPv6
+implementation.
 
-Bisected it all the way to this commit:
+Is that enough as a safeguard? e.g. something like this:
 
-=================
-
-# git bisect good
-bee31369ce16fc3898ec9a54161248c9eddb06bc is the first bad commit
-commit bee31369ce16fc3898ec9a54161248c9eddb06bc
-Author: Nolan Leake <nolan@cumulusnetworks.com>
-Date:   Tue Jul 27 13:53:43 2010 +0000
-
-    tun: keep link (carrier) state up to date
-
-    Currently, only ethtool can get accurate link state of a tap device.
-    With this patch, IFF_RUNNING and IF_OPER_UP/DOWN are kept up to date as
-    well.
-
-    Signed-off-by: Nolan Leake <nolan@cumulusnetworks.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-:040000 040000 6f2464fe2c604079908afc677522bd396b40db9a
-0d144f138fe93ffbe3da7ce31951855c60b51510 M      drivers
-
-===================
-
-Apply-ing this patch on top of vanilla 2.6.36 makes the tap device
-working again for me (strangely in the function __tun_detach):
---- tun.c.ORIG  2010-10-21 18:08:12.404276662 +0200
-+++ tun.c       2010-10-23 14:22:58.056366365 +0200
-@@ -163,7 +163,7 @@
- {
-        /* Detach from net device */
-        netif_tx_lock_bh(tun->dev);
--       netif_carrier_off(tun->dev);
-+//     netif_carrier_off(tun->dev);
-        tun->tfile = NULL;
-        tun->socket.file = NULL;
-        netif_tx_unlock_bh(tun->dev);
-
-====
-Strangely that's in the function __tun_detach, it appears the functions
-do the opposite of what is expected, when deleting the the tap0 device
-it becomes ready!?
-
-# tunctl -d tap0
-Set 'tap0' nonpersistent
-[ 1000.945790] ADDRCONF(NETDEV_CHANGE): tap0: link becomes ready
-
-So to me it seems the netif_carrier_on / netif_carrier_off from the
-commit should be reversed ??
+diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+index 0553867..f683d2c 100644
+--- a/net/ipv6/ipv6_sockglue.c
++++ b/net/ipv6/ipv6_sockglue.c
+@@ -343,6 +343,10 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
+                break;
+ 
+        case IPV6_TRANSPARENT:
++                if (!capable(CAP_NET_ADMIN)) {
++                        retv = -EPERM;
++                        break;
++                }
+                if (optlen < sizeof(int))
+                        goto e_inval;
+                /* we don't have a separate transparent bit for IPV6 we use the one in the IPv4 socket */
 
 
-_
-Jim
+
+-- 
+Bazsi
+
+
