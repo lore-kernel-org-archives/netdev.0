@@ -1,72 +1,119 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: kernel panic in fib_rules_lookup [2.6.27.7 vendor-patched]
-Date: Sat, 23 Oct 2010 05:44:47 +0200
-Message-ID: <1287805487.2658.5.camel@edumazet-laptop>
-References: <loom.20101012T185411-307@post.gmane.org>
-	 <1286905245.2703.3.camel@edumazet-laptop>  <4CBF2A3F.2070108@cox.net>
-	 <1287612353.2545.11.camel@edumazet-laptop>  <4CC1F47C.9020104@cox.net>
+From: Hans Schillstrom <hans@schillstrom.com>
+Subject: Re: [rfc v2 00/10] ipvs network name space (netns) aware
+Date: Sat, 23 Oct 2010 10:44:31 +0200
+Message-ID: <201010231044.32503.hans@schillstrom.com>
+References: <20101022200934.822223308@joe.akashicho.tokyo.vergenet.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Joe Buehler <aspam@cox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:61579 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756319Ab0JWDo6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Oct 2010 23:44:58 -0400
-Received: by wyf28 with SMTP id 28so1564159wyf.19
-        for <netdev@vger.kernel.org>; Fri, 22 Oct 2010 20:44:57 -0700 (PDT)
-In-Reply-To: <4CC1F47C.9020104@cox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>,
+	Julian Anastasov <ja@ssi.bg>,
+	Daniel Lezcano <daniel.lezcano@free.fr>,
+	Wensong Zhang <wensong@linux-vs.org>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20101022200934.822223308@joe.akashicho.tokyo.vergenet.net>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le vendredi 22 octobre 2010 =C3=A0 16:30 -0400, Joe Buehler a =C3=A9cri=
-t :
-> Eric Dumazet wrote:
->=20
-> > Could you provide a disassembly of function fib_rules_lookup ?
->=20
-> Try looking in http://68.100.141.95:3000/linux-crash/.  There should =
-be
-> the source file I am using (not current release if you recall), the .=
-o,
-> the disassembly, and a -S compile that makes deducing the line number=
-s a
-> little easier.
->=20
+Hi Simon
+Thanx a lot. for your work, I will use this a the new base
 
-Hmm, I'll take a look sometime in the future, thanks
+On Friday, October 22, 2010 22:09:34 Simon Horman wrote:
+> Hi Hans,
+> 
+> this is a re-base of your patch-set against the current nf-next-2.6 tree,
+> which includes all the changes currently queued for 2.6.37-rc1 and nothing
+> else.
+> 
+> I also removed the BUG_ON() statements and incorported various
+> suggestions that were made in response to your original post.
+> 
+> It is compile tested only (partly because I am in an areoplane).
+> 
+> I have not re-split the patches into logical units.
+> Having worked with these patches a bit, I really think
+> that split needs to occur.
 
-> I have tried adding a recursive spinlock as a quick fix without much
-> success.  It looks like the code in net/core/fib_rules.c results in s=
-ome
-> rather complex code paths through the kernel involving softirq handle=
-rs.
->  I get lockups though I took steps to make sure local interrupts were
-> off and preemption disabled when taking the spinlock.
->=20
-> I do not know the RCU API or the network code at all but some of the
-> code in fib_rules.c does not look right prima facie.  For example,
-> dump_rules does not seem to bother about RCU when traversing rules_li=
-st.
->  Its caller, fib_nl_dumprule does, but only for one of two calls.  Th=
-e
-> fib_nl_newrule and fib_nl_delrule functions traverse rules_list witho=
-ut
-> any obvious RCU precautions.
+Daniel  will help me with that, i.e. we will split the work between us.
+The plan is to do it in small steps
 
-There is no obligation RCU shall be used in a slow path algorithm.
-
-This slow path uses regular locking to prevent another process to chang=
-e
-the things while we read them, thats it.
-
-Patrick made a change in the past so that RTNL is locked on dump
-operations, so no dump_rules() is in fact protected by RTNL, it doesnt
-need to take care of 'RCU'.
-
-Thanks
-
-
+> 
+> For the benefit of others, your original cover email is below,
+> updated as appropriate.
+> 
+> -----
+> 
+> This patch series adds network name space (netns) support to the LVS.
+> 
+> REVISION
+> 
+> This is version 2
+> 
+> OVERVIEW
+> 
+> The patch doesn't remove or add any functionality except for netns.
+> For users that don't use network name space (netns) this patch is
+> completely transparent.
+> 
+> No it's possible to run LVS in a Linux container (see lxc-tools)
+> i.e.  a light weight virtualization. For example it's possible to run
+> one or several lvs on a real server in their own network name spaces.
+> >From the LVS point of view it looks like it runs on it's own machine.
+> 
+> IMPLEMENTATION
+> Basic requirements for netns awareness
+>  - Global variables has to be moved to dyn. allocated memory.
+> 
+> Most global variables now resides in a struct ipvs { } in netns/ip_vs.h.
+> What is moved and what is not ?
+> 
+> Some cache aligned locks are still in global, module init params and some debug_level.
+> 
+> Algorithm files they are untouched.
+> 
+> QUESTIONS
+> Drop rate in ip_vs_ctl per netns or grand total ?
+> Should more lock variables be moved (or less) ?
+> 
+> Include files,
+> A new file added include/net/netns/ip_vs.h containg all netns specific data.
+> include/net/net_namespce.h, pointer to "struct ipvs"  added.
+> include/net/ip_vs.h a new struct added, and many prototypes changed.
+> 
+> * ip_vs_core.c
+> All netns init origins from this file - ip_vs_init()
+> 
+> * ip_vs_conn.c
+> Lock array for conn table is kept due to performance,
+> (or am I wrong here ?).
+> "static struct ip_vs_aligned_lock
+> __ip_vs_conntbl_lock_array[CT_LOCKARRAY_SIZE] __cacheline_aligned;"
+> 
+> * ip_vs_ctl.c
+> drop_ rate is still global
+> 
+> TESTING
+> This patch have been running for a month now with three LVS/machine
+> one in root name-space and two in other name-space.
+> Both IPv4 & IPv6 have been tested in all three modes DR/TUN and NAT
+> Only a limited set of algos have been used (read rr).
+> 
+> Backup have been there all the time and a switch has been performed a couple of times.
+> 
+> Not tested yet:
+>  Drop level, DOS,  schedulers, performance ....
+>  Netns exit after usage of LVS (due to a bug in netdev/ipip somewhere tunl0 and
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe lvs-devel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+-- 
+Mvh
+Hasse Schillstrom <hans@schillstrom.com>
 
