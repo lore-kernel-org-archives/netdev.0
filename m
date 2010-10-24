@@ -1,42 +1,33 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next-2.6 v1] can: Topcliff: Update PCH_CAN driver
-	to 2.6.35
-Date: Sun, 24 Oct 2010 14:43:12 -0700 (PDT)
-Message-ID: <20101024.144312.104048720.davem@davemloft.net>
-References: <4CB8506C.3060600@dsn.okisemi.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 00/10] can: at91: bugfixes and improvements
+Date: Sun, 24 Oct 2010 14:48:33 -0700 (PDT)
+Message-ID: <20101024.144833.189709619.davem@davemloft.net>
+References: <1287658882-26914-1-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
-	margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org,
-	morinaga526-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org, joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, chripell-VaTbYqLCNhc@public.gmane.org, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-To: masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4CB8506C.3060600-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: socketcan-core@lists.berlios.de, netdev@vger.kernel.org
+To: mkl@pengutronix.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57094
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758304Ab0JXVsK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Oct 2010 17:48:10 -0400
+In-Reply-To: <1287658882-26914-1-git-send-email-mkl@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Masayuki Ohtak <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Date: Fri, 15 Oct 2010 22:00:28 +0900
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Thu, 21 Oct 2010 13:01:12 +0200
 
-> CAN driver of Topcliff PCH
+> this series of patches fixes three bugs (CAN_CTRLMODE_3_SAMPLES,
+> extended frames, use-after-free), a compiler warning (uninit'ed variable) and
+> a section mismatch. Further it add the implementation of the
+> do_get_berr_counter callback, the bittiming setting is now done in chip_start.
+> As requested by Russell King the driver uses __raw_readl instead of readl.
 > 
-> Topcliff PCH is the platform controller hub that is going to be used in
-> Intel's upcoming general embedded platform. All IO peripherals in
-> Topcliff PCH are actually devices sitting on AMBA bus. 
-> Topcliff PCH has CAN I/F. This driver enables CAN function.
-> 
-> Signed-off-by: Masayuki Ohtake <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+> The last two patches do some cleanups, they convert dev_<level> printing
+> to netdev_<level> and add the KBUILD_MODNAME to the bit timing constant
+> to identify the driver.
 
-Applied, thanks.
+All applied, thanks.
