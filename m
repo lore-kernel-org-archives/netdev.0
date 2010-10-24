@@ -1,37 +1,32 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next-2.6 v2] can: tscan1: add driver for TS-CAN1 boards
-Date: Sun, 24 Oct 2010 15:27:04 -0700 (PDT)
-Message-ID: <20101024.152704.28807635.davem@davemloft.net>
-References: <1287474447-2049-1-git-send-email-anbadeol@gmail.com>
-	<20101019192730.GA31336@pengutronix.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch] Limit sysctl_tcp_mem and sysctl_udp_mem initializers
+ to prevent integer overflows.
+Date: Sun, 24 Oct 2010 15:28:30 -0700 (PDT)
+Message-ID: <20101024.152830.102557040.davem@davemloft.net>
+References: <20101020120336.967805943@gulag1.americas.sgi.com>
+	<20101020120345.436404838@gulag1.americas.sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, anbadeol-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <20101019192730.GA31336-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: w@1wt.eu, linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org, kuznet@ms2.inr.ac.ru,
+	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, vladislav.yasevich@hp.com, sri@us.ibm.com
+To: holt@sgi.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20101020120345.436404838@gulag1.americas.sgi.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Date: Tue, 19 Oct 2010 21:27:30 +0200
+From: Robin Holt <holt@sgi.com>
+Date: Wed, 20 Oct 2010 07:03:37 -0500
 
-> On Tue, Oct 19, 2010 at 08:47:27AM +0100, Andre B. Oliveira wrote:
->> Add driver for Technologic Systems TS-CAN1 PC104 peripheral boards.
->> 
->> Signed-off-by: Andre B. Oliveira <anbadeol-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Subject: [Patch] Limit sysctl_tcp_mem and sysctl_udp_mem initializers to prevent integer overflows.
 > 
-> This one already had a round on the socketcan-list, so:
+> On a 16TB x86_64 machine, sysctl_tcp_mem[2], sysctl_udp_mem[2], and
+> sysctl_sctp_mem[2] can integer overflow.  Set limit such that they are
+> maximized without overflowing.
 > 
-> Reviewed-by: Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+> Signed-off-by: Robin Holt <holt@sgi.com>
 
-Applied, thanks everyone.
+I'll queue this up for -stable, thanks Robin!
