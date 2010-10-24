@@ -1,22 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 06/12] ipconfig: make local variables/function static
-Date: Sun, 24 Oct 2010 15:06:37 -0700 (PDT)
-Message-ID: <20101024.150637.183042113.davem@davemloft.net>
-References: <20101021175045.625707607@vyatta.com>
-	<20101021175148.504406585@vyatta.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6 v1] can: Topcliff: Update PCH_CAN driver
+	to 2.6.35
+Date: Sun, 24 Oct 2010 15:09:05 -0700 (PDT)
+Message-ID: <20101024.150905.39179588.davem@davemloft.net>
+References: <4CB8506C.3060600@dsn.okisemi.com>
+	<20101024.144312.104048720.davem@davemloft.net>
+	<4CC4ADA5.8@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: shemminger@vyatta.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43891
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932938Ab0JXWGO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Oct 2010 18:06:14 -0400
-In-Reply-To: <20101021175148.504406585@vyatta.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, chripell-VaTbYqLCNhc@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org, kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, morinaga526-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org,
+	wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+To: mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4CC4ADA5.8-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Date: Mon, 25 Oct 2010 00:05:25 +0200
 
-git grep ic_set_manually -- arch/sparc
+> On 10/24/2010 11:43 PM, David Miller wrote:
+>> From: Masayuki Ohtak <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+>> Date: Fri, 15 Oct 2010 22:00:28 +0900
+>> 
+>>> CAN driver of Topcliff PCH
+>>>
+>>> Topcliff PCH is the platform controller hub that is going to be used in
+>>> Intel's upcoming general embedded platform. All IO peripherals in
+>>> Topcliff PCH are actually devices sitting on AMBA bus. 
+>>> Topcliff PCH has CAN I/F. This driver enables CAN function.
+>>>
+>>> Signed-off-by: Masayuki Ohtake <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+>> 
+>> Applied, thanks.
+> 
+> IMHO this driver needs some improvements. There are some open points
+> from Wolfgangs and my review. On the other side, it's a new driver and
+> there's some time left before it hits mainline.
+
+When people have more than a week to review and provide feedback,
+and don't, I have zero sympathy especially this early in the
+release cycle.
+
+So if adding it to the tree is what I have to do to get you guys to
+post your comments and suggest fixes, then that's what I am going to
+(continue) to do. :-)
