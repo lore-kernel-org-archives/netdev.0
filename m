@@ -1,34 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] macb: Don't re-enable interrupts while in polling mode
-Date: Sun, 24 Oct 2010 15:23:06 -0700 (PDT)
-Message-ID: <20101024.152306.48512783.davem@davemloft.net>
-References: <C8F551D39A7C724E987CF8DD11D3178304D02F88@svr3.sixnetio.com>
+Subject: Re: [PATCH] pktgen: clean up handling of local/transient counter
+ vars
+Date: Sun, 24 Oct 2010 15:23:50 -0700 (PDT)
+Message-ID: <20101024.152350.260093579.davem@davemloft.net>
+References: <1287440084-4848-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nicolas.ferre@atmel.com, jpirko@redhat.com,
-	peter.korsgaard@barco.com, eric.dumazet@gmail.com,
-	haavard.skinnemoen@atmel.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, akpm@linux-foundation.org
-To: Joshua.Hoke@sixnet.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <C8F551D39A7C724E987CF8DD11D3178304D02F88@svr3.sixnetio.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: paul.gortmaker@windriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41740
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933104Ab0JXWX1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Oct 2010 18:23:27 -0400
+In-Reply-To: <1287440084-4848-1-git-send-email-paul.gortmaker@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Joshua Hoke" <Joshua.Hoke@sixnet.com>
-Date: Tue, 19 Oct 2010 12:48:22 -0400
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Date: Mon, 18 Oct 2010 18:14:44 -0400
 
-> diff --git a/drivers/net/macb.c b/drivers/net/macb.c
-> index ff2f158..36cf594 100644
-> --- a/drivers/net/macb.c
-> +++ b/drivers/net/macb.c
-> @@ -515,14 +515,15 @@ static int macb_poll(struct napi_struct *napi, int
-> budget)
+> The temporary variable "i" is needlessly initialized to zero
+> in two distinct cases in this file:
+> 
+> 1) where it is set to zero and then used as an argument in an addition
+> before being assigned a non-zero value.
+> 
+> 2) where it is only used in a standard/typical loop counter
+> 
+> For (1), simply delete assignment to zero and usages while still
+> zero; for (2) simply make the loop start at zero as per standard
+> practice as seen everywhere else in the same file.
+> 
+> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 
-Your email client is breaking up long lines which corrupts the
-patch.
-
-Please fix this up in your email client and resubmit.
-
-Thank you.
+Applied.
