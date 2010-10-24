@@ -1,23 +1,54 @@
-From: =?iso-8859-1?Q?Marin=FAs_Pires_Lima_Soares?=
-	<marinus.pires.lima@ics.ul.pt>
-Subject: Executor of the estate of Late Mr. Christopher Friedrich [Reply To:
- lawfirmchambers16@yahoo.com.hk]
-Date: Sun, 24 Oct 2010 06:27:45 +0100
-Message-ID: <8BA2D39B6E138C43A5ECDA208DF97995AA7D512A7F@UL-MBCLUSTER02.ul.pt>
+From: "Vladislav Zolotarov" <vladz@broadcom.com>
+Subject: RE: [PATCH v2 11/14] bnx2x: Update bnx2x to use new vlan
+ accleration.
+Date: Sun, 24 Oct 2010 02:21:53 -0700
+Message-ID: <8628FE4E7912BF47A96AE7DD7BAC0AADDDEE6B11FD@SJEXCHCCR02.corp.ad.broadcom.com>
+References: <1287618974-4714-1-git-send-email-jesse@nicira.com>
+ <1287618974-4714-12-git-send-email-jesse@nicira.com>
+ <8628FE4E7912BF47A96AE7DD7BAC0AADDDEE429135@SJEXCHCCR02.corp.ad.broadcom.com>
+ <8628FE4E7912BF47A96AE7DD7BAC0AADDDEE429137@SJEXCHCCR02.corp.ad.broadcom.com>
+ <8628FE4E7912BF47A96AE7DD7BAC0AADDDEE42913C@SJEXCHCCR02.corp.ad.broadcom.com>
+ <AANLkTinudtxjGAEcc9cLjn+7Y7kqcaQXMW_5SRoNe5QU@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: undisclosed-recipients:;
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "David Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Hao Zheng" <hzheng@nicira.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>
+To: "Jesse Gross" <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx02.ul.pt ([194.117.3.99]:55129 "EHLO mx03.ul.pt"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752482Ab0JXFnE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Oct 2010 01:43:04 -0400
-Received: from mx.anubis.local (ste [10.1.2.2])
-	by mx03.ul.pt (Postfix) with ESMTP id 15747508424
-	for <netdev@vger.kernel.org>; Sun, 24 Oct 2010 06:27:50 +0100 (WEST)
-Content-Language: pt-PT
+Received: from mms3.broadcom.com ([216.31.210.19]:2104 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932229Ab0JXJWM convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Oct 2010 05:22:12 -0400
+In-Reply-To: <AANLkTinudtxjGAEcc9cLjn+7Y7kqcaQXMW_5SRoNe5QU@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Late Mr. Christopher Friedrich  bequeathed US$20, 500,000.00 USD, to you in his will. More info,contact your attorney(Browne Jacobson Esq.) via email address;  lawfirmchambers16@yahoo.com.hk<mailto:lawfirmchambers16@yahoo.com.hk> or call;+447024057921
+
+
+> >
+> > We hit the same BUG() both when VLAN stripping is disabled.
+> 
+> This one surprises me because that function shouldn't get called at
+> all when VLAN stripping is disabled.  Are you sure that it is
+> disabled?  From my reading of the bnx2x driver it seems like it is
+> always enabled.
+
+I tried to check all possibilities and to check at which level the problem is,
+so I patched the bnx2x not to do the stripping and recompiled it with the
+kernel having CONFIG_VLAN_8021Q disabled. Then I saw the (same) BUG() message
+again. It seems to me that your patch series were meant to remove the 
+handling of this configuration (CONFIG_VLAN_8021Q) from the L2 drivers 
+as well, isn't it? This means that the same VLAN flows, both accelerated and none
+accelerated should be "active" both when this configuration is present and 
+when it's not... Do I get it right?
+
+Thanks,
+vlad
+
+
+
