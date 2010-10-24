@@ -1,33 +1,32 @@
-From: Kyle McMartin <kyle@mcmartin.ca>
-Subject: Re: [PATCH] cxgb3: slay double assignment
-Date: Sun, 24 Oct 2010 19:40:47 -0400
-Message-ID: <20101024234047.GR8332@bombadil.infradead.org>
-References: <20101022180003.GO8332@bombadil.infradead.org>
- <20101024.162611.02282476.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Uclinux-dist-devel] [PATCH 1/5] netdev: bfin_mac: push
+ settings to platform resources
+Date: Sun, 24 Oct 2010 16:45:34 -0700 (PDT)
+Message-ID: <20101024.164534.241451843.davem@davemloft.net>
+References: <1287727161-24671-1-git-send-email-vapier@gentoo.org>
+	<20101024.161722.258113499.davem@davemloft.net>
+	<AANLkTik5_a6t5xJ9TWJf37UCL52O02nAQY4YwB6mgnQx@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kyle@mcmartin.ca, divy@chelsio.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, uclinux-dist-devel@blackfin.uclinux.org
+To: vapier@gentoo.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:34954 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750996Ab0JXXku (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Oct 2010 19:40:50 -0400
-Content-Disposition: inline
-In-Reply-To: <20101024.162611.02282476.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50922
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751225Ab0JXXpL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Oct 2010 19:45:11 -0400
+In-Reply-To: <AANLkTik5_a6t5xJ9TWJf37UCL52O02nAQY4YwB6mgnQx@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Oct 24, 2010 at 04:26:11PM -0700, David Miller wrote:
-> > Noticed this while building Fedora today... It's been
-> > there since around 2007, so I guess a new gcc must be catching
-> > these.
-> > 
-> > Signed-off-by: Kyle McMartin <kyle@redhat.com>
-> 
-> This patch doesn't apply.
-> 
+From: Mike Frysinger <vapier@gentoo.org>
+Date: Sun, 24 Oct 2010 19:40:31 -0400
 
-You already merged a patch to fix it, sorry for the noise.
+> and i have the Blackfin changes waiting for you to merge this patch.
+> i can squash them into this change and have you merge the result, or i
+> can merge it.  i dont really care either way.
 
---Kyle
+Why don't you just apply this to your tree then.  Feel free to add my:
+
+Acked-by: David S. Miller <davem@davemloft.net>
