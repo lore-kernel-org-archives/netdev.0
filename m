@@ -1,38 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] pktgen: clean up handling of local/transient counter
- vars
-Date: Sun, 24 Oct 2010 15:23:50 -0700 (PDT)
-Message-ID: <20101024.152350.260093579.davem@davemloft.net>
-References: <1287440084-4848-1-git-send-email-paul.gortmaker@windriver.com>
+Subject: Re: [PATCH] ip6_tunnel dont update the mtu on the route.
+Date: Sun, 24 Oct 2010 15:24:48 -0700 (PDT)
+Message-ID: <20101024.152448.246523906.davem@davemloft.net>
+References: <1287496247-24127-1-git-send-email-Anders.Franzen@ericsson.com>
+	<1287498728.2676.110.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: paul.gortmaker@windriver.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Anders.Franzen@ericsson.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41740
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41744
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933104Ab0JXWX1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Oct 2010 18:23:27 -0400
-In-Reply-To: <1287440084-4848-1-git-send-email-paul.gortmaker@windriver.com>
+	by vger.kernel.org with ESMTP id S933116Ab0JXWYZ convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 24 Oct 2010 18:24:25 -0400
+In-Reply-To: <1287498728.2676.110.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Date: Mon, 18 Oct 2010 18:14:44 -0400
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 19 Oct 2010 16:32:08 +0200
 
-> The temporary variable "i" is needlessly initialized to zero
-> in two distinct cases in this file:
-> 
-> 1) where it is set to zero and then used as an argument in an addition
-> before being assigned a non-zero value.
-> 
-> 2) where it is only used in a standard/typical loop counter
-> 
-> For (1), simply delete assignment to zero and usages while still
-> zero; for (2) simply make the loop start at zero as per standard
-> practice as seen everywhere else in the same file.
-> 
-> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+> Le mardi 19 octobre 2010 =E0 15:50 +0200, Anders.Franzen@ericsson.com=
+ a
+> =E9crit :
+>> From: Anders Franzen <anders.franzen@ericsson.com>
+>>=20
+>> The ip6_tunnel device did not unset the flag,
+>> IFF_XMIT_DST_RELEASE. This will make the dev layer
+>> to release the dst before calling the tunnel.
+>> The tunnel will not update any mtu/pmtu info, since
+>> it does not have a dst on the skb.
+=2E..
+> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
 
 Applied.
+
+Anders, please provide a proper "Signed-off-by: " tag in your
+commit messages in the future.
+
+Thanks.
