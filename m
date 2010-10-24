@@ -1,17 +1,17 @@
 From: "CHARITY DONATION & ECOWAS" <donation@fdv.org>
 Subject: (unknown)
-Date: Sun, 24 Oct 2010 16:20:04 -0200 (FNT)
-Message-ID: <13868.41.203.64.241.1287944404.squirrel@41.203.64.241>
+Date: Sun, 24 Oct 2010 16:26:18 -0200 (FNT)
+Message-ID: <39331.41.203.64.242.1287944778.squirrel@41.203.64.242>
 Reply-To: ecowas00@aol.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7BIT
 To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.avellaneda-ba.gov.ar ([200.71.230.2]:35670 "EHLO
+Received: from mail.avellaneda-ba.gov.ar ([200.71.230.2]:53728 "EHLO
 	ns2.avellaneda-ba.gov.ar" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753974Ab0JXSnZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Oct 2010 14:43:25 -0400
+	by vger.kernel.org with ESMTP id S1751809Ab0JXSth (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Oct 2010 14:49:37 -0400
 Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
