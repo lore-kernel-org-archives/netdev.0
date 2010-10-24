@@ -1,28 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/12] last of the namespace cleanups
-Date: Sun, 24 Oct 2010 15:20:30 -0700 (PDT)
-Message-ID: <20101024.152030.115921890.davem@davemloft.net>
-References: <20101021175045.625707607@vyatta.com>
+Subject: Re: [PATCH] macb: Don't re-enable interrupts while in polling mode
+Date: Sun, 24 Oct 2010 15:23:06 -0700 (PDT)
+Message-ID: <20101024.152306.48512783.davem@davemloft.net>
+References: <C8F551D39A7C724E987CF8DD11D3178304D02F88@svr3.sixnetio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: shemminger@vyatta.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56840
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933030Ab0JXWUH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Oct 2010 18:20:07 -0400
-In-Reply-To: <20101021175045.625707607@vyatta.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: nicolas.ferre@atmel.com, jpirko@redhat.com,
+	peter.korsgaard@barco.com, eric.dumazet@gmail.com,
+	haavard.skinnemoen@atmel.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, akpm@linux-foundation.org
+To: Joshua.Hoke@sixnet.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <C8F551D39A7C724E987CF8DD11D3178304D02F88@svr3.sixnetio.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Thu, 21 Oct 2010 10:50:45 -0700
+From: "Joshua Hoke" <Joshua.Hoke@sixnet.com>
+Date: Tue, 19 Oct 2010 12:48:22 -0400
 
-> These are the last of the cleanups to networking for 2.6.37 based
-> on "make namespacecheck" reports.
+> diff --git a/drivers/net/macb.c b/drivers/net/macb.c
+> index ff2f158..36cf594 100644
+> --- a/drivers/net/macb.c
+> +++ b/drivers/net/macb.c
+> @@ -515,14 +515,15 @@ static int macb_poll(struct napi_struct *napi, int
+> budget)
 
-All applied except the ipconfig patch that breaks the sparc build.
+Your email client is breaking up long lines which corrupts the
+patch.
 
-Thanks.
+Please fix this up in your email client and resubmit.
+
+Thank you.
