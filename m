@@ -1,53 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] jme: Support WoL after shutdown
-Date: Sun, 24 Oct 2010 15:51:35 -0700 (PDT)
-Message-ID: <20101024.155135.200373852.davem@davemloft.net>
-References: <1287711220-20075-1-git-send-email-cooldavid@cooldavid.org>
-	<20101024.154227.232753445.davem@davemloft.net>
+Subject: Re: [PATCH 5/9] tproxy: allow non-local binds of IPv6 sockets if
+ IP_TRANSPARENT is enabled
+Date: Sun, 24 Oct 2010 16:08:23 -0700 (PDT)
+Message-ID: <20101024.160823.212694928.davem@davemloft.net>
+References: <1287583653.29676.9.camel@bzorp.lan>
+	<1287696252.2707.24.camel@takos>
+	<1287845294.13882.4.camel@bzorp.lan>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=koi8-r
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Taoga@yandex.ru, arieslee@jmicron.com,
-	devinchiu@jmicron.com, hcchao@jmicron.com, ethanhsiao@jmicron.com
-To: cooldavid@cooldavid.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48140
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750774Ab0JXWvL convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 24 Oct 2010 18:51:11 -0400
-In-Reply-To: <20101024.154227.232753445.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: yoshfuji@linux-ipv6.org, hidden@balabit.hu, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, kaber@trash.net
+To: bazsi@balabit.hu
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1287845294.13882.4.camel@bzorp.lan>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: David Miller <davem@davemloft.net>
-Date: Sun, 24 Oct 2010 15:42:27 -0700 (PDT)
+From: Balazs Scheidler <bazsi@balabit.hu>
+Date: Sat, 23 Oct 2010 16:48:14 +0200
 
-> From: "Guo-Fu Tseng" <cooldavid@cooldavid.org>
-> Date: Fri, 22 Oct 2010 09:33:40 +0800
->=20
->> From: Guo-Fu Tseng <cooldavid@cooldavid.org>
->>=20
->> Adding shutdown function that setup wake if wol is enabled.
->> Add jme_phy_on in jme_set_100m_half in case it is shutting down
->> or suspending when interface is down(phy_off by default).
->>=20
->> Reported_and_helped_by: =F3tac <Taoga@yandex.ru>
->> Signed-off-by: Guo-Fu Tseng <cooldavid@cooldavid.org>
->=20
-> Applied.
+> IP_TRANSPARENT requires root (more precisely CAP_NET_ADMIN privielges)
+> for IPV6.
+> 
+> However as I see right now this check was missed from the IPv6
+> implementation.
+> 
+> Is that enough as a safeguard? e.g. something like this:
 
-Actually, I had to undo this patch.  It generates build
-failures:
-
-drivers/net/jme.c: In function 'jme_powersave_phy':
-drivers/net/jme.c:1672:3: error: implicit declaration of function 'jme_=
-set_100m_half'
-drivers/net/jme.c:1675:4: error: implicit declaration of function 'jme_=
-wait_link'
-
-I guess I'm one of the few people who build with CONFIG_PM
-disabled :-)
-
-Please fix this up and resubmit your patch.
-
+Applied, thanks everyone.
