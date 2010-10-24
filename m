@@ -1,341 +1,202 @@
-From: Michael Leun <lkml20100708@newton.leun.net>
-Subject: Re: NET_NS: unregister_netdevice: waiting for lo to become free
- (adding ipv6 address to interface)
-Date: Sun, 24 Oct 2010 15:15:41 +0200
-Message-ID: <20101024151541.161bf46c@xenia.leun.net>
-References: <20100710235323.5336f627@xenia.leun.net>
-	<20100711192939.1c25dcaf@xenia.leun.net>
-	<20100804153543.56f6ecad@xenia.leun.net>
-	<20100804214618.GA6289@kroah.com>
-	<20100805001105.5a3453ed@xenia.leun.net>
-	<m1lj8l29zm.fsf@fess.ebiederm.org>
-	<20100805112538.60a46cb1@xenia.leun.net>
-	<m1y6clz8ta.fsf_-_@fess.ebiederm.org>
-	<20100805134707.0442a7b1@xenia.leun.net>
-	<20101021171532.54af5e97@xenia.leun.net>
-	<20101022124858.GA719746@jupiter.n2.diac24.net>
-	<20101022190532.00e9e5d8@xenia.leun.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] netlink: fix netlink_change_ngroups()
+Date: Sun, 24 Oct 2010 16:27:10 +0200
+Message-ID: <1287930430.2658.805.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Lamparter <equinox@diac24.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Greg KH <greg@kroah.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, linux-kernel@vger.kernel.org,
-	Alexey Dobriyan <adobriyan@gmail.com>,
-	Patrick McHardy <kaber@trash.net>
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20101022190532.00e9e5d8@xenia.leun.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:57345 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755179Ab0JXO1S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Oct 2010 10:27:18 -0400
+Received: by wwe15 with SMTP id 15so2607723wwe.1
+        for <netdev@vger.kernel.org>; Sun, 24 Oct 2010 07:27:16 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 22 Oct 2010 19:05:32 +0200
-Michael Leun <lkml20100708@newton.leun.net> wrote:
+commit 6c04bb18ddd633 (netlink: use call_rcu for netlink_change_ngroups)
+used a somewhat convoluted and racy way to perform call_rcu().
 
-> On Fri, 22 Oct 2010 14:48:58 +0200
-> David Lamparter <equinox@diac24.net> wrote:
-> 
-> > On Thu, Oct 21, 2010 at 05:15:32PM +0200, Michael Leun wrote:
-> > > unfortunately the bug described below originally reported in
-> > > 2.6.35-rcX is still there in 2.6.36.
-> > 
-> > can you post your full kernel .config?
-> 
-> Please find below.
-> 
-> > I'm using network namespaces quite extensively - OpenVPN and IPv6
-> > included - and i haven't hit this bug. That makes it rather likely
-> > it depends on some option difference.
-> 
-> I take candidates for options to change for test... ;-)
-> 
-> Maybe I will try to strip it down for test towards a minimal config.
+The old block of memory is freed after a grace period, but the rcu_head
+used to track it is located in new block.
 
-Now I have tried a kernel config with almost everything disabled -
-please find below.
+This can clash if we call two times or more netlink_change_ngroups(),
+and a block is freed before another. call_rcu() called on different cpus
+makes no guarantee in order of callbacks.
 
-If I have overlooked anything I should disable (or if you suggest I
-should not disable, but enable any option) - please tell me.
+Fix this using a more standard way of handling this : Each block of
+memory contains its own rcu_head, so that no 'use after free' can
+happens.
 
-I've created an ~2.5MB bootable ISO image based on buildroot/busybox
-with this kernel, which also shows this bug (e.g. when run in
-VirtualBox).
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Johannes Berg <johannes@sipsolutions.net>
+CC: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+---
+ net/netlink/af_netlink.c |   65 +++++++++++++------------------------
+ 1 files changed, 24 insertions(+), 41 deletions(-)
 
-If anybody is interested I could send this image as mail attachment or
-provide a download link.
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index cd96ed3..478181d 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -83,9 +83,9 @@ struct netlink_sock {
+ 	struct module		*module;
+ };
+ 
+-struct listeners_rcu_head {
+-	struct rcu_head rcu_head;
+-	void *ptr;
++struct listeners {
++	struct rcu_head		rcu;
++	unsigned long		masks[0];
+ };
+ 
+ #define NETLINK_KERNEL_SOCKET	0x1
+@@ -119,7 +119,7 @@ struct nl_pid_hash {
+ struct netlink_table {
+ 	struct nl_pid_hash hash;
+ 	struct hlist_head mc_list;
+-	unsigned long *listeners;
++	struct listeners __rcu *listeners;
+ 	unsigned int nl_nonroot;
+ 	unsigned int groups;
+ 	struct mutex *cb_mutex;
+@@ -338,7 +338,7 @@ netlink_update_listeners(struct sock *sk)
+ 			if (i < NLGRPLONGS(nlk_sk(sk)->ngroups))
+ 				mask |= nlk_sk(sk)->groups[i];
+ 		}
+-		tbl->listeners[i] = mask;
++		tbl->listeners->masks[i] = mask;
+ 	}
+ 	/* this function is only called with the netlink table "grabbed", which
+ 	 * makes sure updates are visible before bind or setsockopt return. */
+@@ -936,7 +936,7 @@ EXPORT_SYMBOL(netlink_unicast);
+ int netlink_has_listeners(struct sock *sk, unsigned int group)
+ {
+ 	int res = 0;
+-	unsigned long *listeners;
++	struct listeners *listeners;
+ 
+ 	BUG_ON(!netlink_is_kernel(sk));
+ 
+@@ -944,7 +944,7 @@ int netlink_has_listeners(struct sock *sk, unsigned int group)
+ 	listeners = rcu_dereference(nl_table[sk->sk_protocol].listeners);
+ 
+ 	if (group - 1 < nl_table[sk->sk_protocol].groups)
+-		res = test_bit(group - 1, listeners);
++		res = test_bit(group - 1, listeners->masks);
+ 
+ 	rcu_read_unlock();
+ 
+@@ -1498,7 +1498,7 @@ netlink_kernel_create(struct net *net, int unit, unsigned int groups,
+ 	struct socket *sock;
+ 	struct sock *sk;
+ 	struct netlink_sock *nlk;
+-	unsigned long *listeners = NULL;
++	struct listeners *listeners = NULL;
+ 
+ 	BUG_ON(!nl_table);
+ 
+@@ -1523,8 +1523,7 @@ netlink_kernel_create(struct net *net, int unit, unsigned int groups,
+ 	if (groups < 32)
+ 		groups = 32;
+ 
+-	listeners = kzalloc(NLGRPSZ(groups) + sizeof(struct listeners_rcu_head),
+-			    GFP_KERNEL);
++	listeners = kzalloc(sizeof(*listeners) + NLGRPSZ(groups), GFP_KERNEL);
+ 	if (!listeners)
+ 		goto out_sock_release;
+ 
+@@ -1541,7 +1540,7 @@ netlink_kernel_create(struct net *net, int unit, unsigned int groups,
+ 	netlink_table_grab();
+ 	if (!nl_table[unit].registered) {
+ 		nl_table[unit].groups = groups;
+-		nl_table[unit].listeners = listeners;
++		rcu_assign_pointer(nl_table[unit].listeners, listeners);
+ 		nl_table[unit].cb_mutex = cb_mutex;
+ 		nl_table[unit].module = module;
+ 		nl_table[unit].registered = 1;
+@@ -1572,43 +1571,28 @@ netlink_kernel_release(struct sock *sk)
+ EXPORT_SYMBOL(netlink_kernel_release);
+ 
+ 
+-static void netlink_free_old_listeners(struct rcu_head *rcu_head)
++static void listeners_free_rcu(struct rcu_head *head)
+ {
+-	struct listeners_rcu_head *lrh;
+-
+-	lrh = container_of(rcu_head, struct listeners_rcu_head, rcu_head);
+-	kfree(lrh->ptr);
++	kfree(container_of(head, struct listeners, rcu));
+ }
+ 
+ int __netlink_change_ngroups(struct sock *sk, unsigned int groups)
+ {
+-	unsigned long *listeners, *old = NULL;
+-	struct listeners_rcu_head *old_rcu_head;
++	struct listeners *new, *old;
+ 	struct netlink_table *tbl = &nl_table[sk->sk_protocol];
+ 
+ 	if (groups < 32)
+ 		groups = 32;
+ 
+ 	if (NLGRPSZ(tbl->groups) < NLGRPSZ(groups)) {
+-		listeners = kzalloc(NLGRPSZ(groups) +
+-				    sizeof(struct listeners_rcu_head),
+-				    GFP_ATOMIC);
+-		if (!listeners)
++		new = kzalloc(sizeof(*new) + NLGRPSZ(groups), GFP_ATOMIC);
++		if (!new)
+ 			return -ENOMEM;
+-		old = tbl->listeners;
+-		memcpy(listeners, old, NLGRPSZ(tbl->groups));
+-		rcu_assign_pointer(tbl->listeners, listeners);
+-		/*
+-		 * Free the old memory after an RCU grace period so we
+-		 * don't leak it. We use call_rcu() here in order to be
+-		 * able to call this function from atomic contexts. The
+-		 * allocation of this memory will have reserved enough
+-		 * space for struct listeners_rcu_head at the end.
+-		 */
+-		old_rcu_head = (void *)(tbl->listeners +
+-					NLGRPLONGS(tbl->groups));
+-		old_rcu_head->ptr = old;
+-		call_rcu(&old_rcu_head->rcu_head, netlink_free_old_listeners);
++		old = rcu_dereference_raw(tbl->listeners);
++		memcpy(new->masks, old->masks, NLGRPSZ(tbl->groups));
++		rcu_assign_pointer(tbl->listeners, new);
++
++		call_rcu(&old->rcu, listeners_free_rcu);
+ 	}
+ 	tbl->groups = groups;
+ 
+@@ -2104,18 +2088,17 @@ static void __net_exit netlink_net_exit(struct net *net)
+ 
+ static void __init netlink_add_usersock_entry(void)
+ {
+-	unsigned long *listeners;
++	struct listeners *listeners;
+ 	int groups = 32;
+ 
+-	listeners = kzalloc(NLGRPSZ(groups) + sizeof(struct listeners_rcu_head),
+-			    GFP_KERNEL);
++	listeners = kzalloc(sizeof(*listeners) + NLGRPSZ(groups), GFP_KERNEL);
+ 	if (!listeners)
+-		panic("netlink_add_usersock_entry: Cannot allocate listneres\n");
++		panic("netlink_add_usersock_entry: Cannot allocate listeners\n");
+ 
+ 	netlink_table_grab();
+ 
+ 	nl_table[NETLINK_USERSOCK].groups = groups;
+-	nl_table[NETLINK_USERSOCK].listeners = listeners;
++	rcu_assign_pointer(nl_table[NETLINK_USERSOCK].listeners, listeners);
+ 	nl_table[NETLINK_USERSOCK].module = THIS_MODULE;
+ 	nl_table[NETLINK_USERSOCK].registered = 1;
+ 
 
-ml@xenia:~> grep -v "^#" .config |grep -v "^ *$"
-CONFIG_X86_32=y
-CONFIG_X86=y
-CONFIG_INSTRUCTION_DECODER=y
-CONFIG_OUTPUT_FORMAT="elf32-i386"
-CONFIG_ARCH_DEFCONFIG="arch/x86/configs/i386_defconfig"
-CONFIG_GENERIC_CMOS_UPDATE=y
-CONFIG_CLOCKSOURCE_WATCHDOG=y
-CONFIG_GENERIC_CLOCKEVENTS=y
-CONFIG_LOCKDEP_SUPPORT=y
-CONFIG_STACKTRACE_SUPPORT=y
-CONFIG_HAVE_LATENCYTOP_SUPPORT=y
-CONFIG_MMU=y
-CONFIG_ZONE_DMA=y
-CONFIG_NEED_SG_DMA_LENGTH=y
-CONFIG_GENERIC_ISA_DMA=y
-CONFIG_GENERIC_IOMAP=y
-CONFIG_GENERIC_BUG=y
-CONFIG_GENERIC_HWEIGHT=y
-CONFIG_ARCH_MAY_HAVE_PC_FDC=y
-CONFIG_RWSEM_XCHGADD_ALGORITHM=y
-CONFIG_ARCH_HAS_CPU_IDLE_WAIT=y
-CONFIG_GENERIC_CALIBRATE_DELAY=y
-CONFIG_ARCH_HAS_CPU_RELAX=y
-CONFIG_ARCH_HAS_DEFAULT_IDLE=y
-CONFIG_ARCH_HAS_CACHE_LINE_SIZE=y
-CONFIG_HAVE_SETUP_PER_CPU_AREA=y
-CONFIG_NEED_PER_CPU_EMBED_FIRST_CHUNK=y
-CONFIG_NEED_PER_CPU_PAGE_FIRST_CHUNK=y
-CONFIG_ARCH_HIBERNATION_POSSIBLE=y
-CONFIG_ARCH_SUSPEND_POSSIBLE=y
-CONFIG_ARCH_POPULATES_NODE_MAP=y
-CONFIG_ARCH_SUPPORTS_OPTIMIZED_INLINING=y
-CONFIG_ARCH_SUPPORTS_DEBUG_PAGEALLOC=y
-CONFIG_HAVE_EARLY_RES=y
-CONFIG_GENERIC_HARDIRQS=y
-CONFIG_GENERIC_HARDIRQS_NO__DO_IRQ=y
-CONFIG_GENERIC_IRQ_PROBE=y
-CONFIG_X86_32_LAZY_GS=y
-CONFIG_ARCH_HWEIGHT_CFLAGS="-fcall-saved-ecx -fcall-saved-edx"
-CONFIG_KTIME_SCALAR=y
-CONFIG_DEFCONFIG_LIST="/lib/modules/$UNAME_RELEASE/.config"
-CONFIG_CONSTRUCTORS=y
-CONFIG_EXPERIMENTAL=y
-CONFIG_BROKEN_ON_SMP=y
-CONFIG_INIT_ENV_ARG_LIMIT=32
-CONFIG_CROSS_COMPILE=""
-CONFIG_LOCALVERSION=""
-CONFIG_HAVE_KERNEL_GZIP=y
-CONFIG_HAVE_KERNEL_BZIP2=y
-CONFIG_HAVE_KERNEL_LZMA=y
-CONFIG_HAVE_KERNEL_LZO=y
-CONFIG_KERNEL_LZMA=y
-CONFIG_TREE_RCU=y
-CONFIG_RCU_FANOUT=32
-CONFIG_IKCONFIG=y
-CONFIG_IKCONFIG_PROC=y
-CONFIG_LOG_BUF_SHIFT=18
-CONFIG_HAVE_UNSTABLE_SCHED_CLOCK=y
-CONFIG_NAMESPACES=y
-CONFIG_NET_NS=y
-CONFIG_BLK_DEV_INITRD=y
-CONFIG_INITRAMFS_SOURCE=""
-CONFIG_RD_GZIP=y
-CONFIG_RD_BZIP2=y
-CONFIG_RD_LZMA=y
-CONFIG_RD_LZO=y
-CONFIG_SYSCTL=y
-CONFIG_ANON_INODES=y
-CONFIG_UID16=y
-CONFIG_SYSCTL_SYSCALL=y
-CONFIG_KALLSYMS=y
-CONFIG_HOTPLUG=y
-CONFIG_PRINTK=y
-CONFIG_BUG=y
-CONFIG_ELF_CORE=y
-CONFIG_PCSPKR_PLATFORM=y
-CONFIG_BASE_FULL=y
-CONFIG_FUTEX=y
-CONFIG_EPOLL=y
-CONFIG_SIGNALFD=y
-CONFIG_TIMERFD=y
-CONFIG_EVENTFD=y
-CONFIG_SHMEM=y
-CONFIG_AIO=y
-CONFIG_HAVE_PERF_EVENTS=y
-CONFIG_PERF_EVENTS=y
-CONFIG_VM_EVENT_COUNTERS=y
-CONFIG_PCI_QUIRKS=y
-CONFIG_SLUB_DEBUG=y
-CONFIG_SLUB=y
-CONFIG_HAVE_OPROFILE=y
-CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS=y
-CONFIG_HAVE_IOREMAP_PROT=y
-CONFIG_HAVE_KPROBES=y
-CONFIG_HAVE_KRETPROBES=y
-CONFIG_HAVE_OPTPROBES=y
-CONFIG_HAVE_ARCH_TRACEHOOK=y
-CONFIG_HAVE_DMA_ATTRS=y
-CONFIG_HAVE_REGS_AND_STACK_ACCESS_API=y
-CONFIG_HAVE_DMA_API_DEBUG=y
-CONFIG_HAVE_HW_BREAKPOINT=y
-CONFIG_HAVE_MIXED_BREAKPOINTS_REGS=y
-CONFIG_HAVE_USER_RETURN_NOTIFIER=y
-CONFIG_HAVE_PERF_EVENTS_NMI=y
-CONFIG_HAVE_GENERIC_DMA_COHERENT=y
-CONFIG_SLABINFO=y
-CONFIG_RT_MUTEXES=y
-CONFIG_BASE_SMALL=0
-CONFIG_BLOCK=y
-CONFIG_LBDAF=y
-CONFIG_IOSCHED_NOOP=y
-CONFIG_DEFAULT_NOOP=y
-CONFIG_DEFAULT_IOSCHED="noop"
-CONFIG_INLINE_SPIN_UNLOCK=y
-CONFIG_INLINE_SPIN_UNLOCK_IRQ=y
-CONFIG_INLINE_READ_UNLOCK=y
-CONFIG_INLINE_READ_UNLOCK_IRQ=y
-CONFIG_INLINE_WRITE_UNLOCK=y
-CONFIG_INLINE_WRITE_UNLOCK_IRQ=y
-CONFIG_GENERIC_CLOCKEVENTS_BUILD=y
-CONFIG_M586=y
-CONFIG_X86_CPU=y
-CONFIG_X86_INTERNODE_CACHE_SHIFT=5
-CONFIG_X86_CMPXCHG=y
-CONFIG_X86_L1_CACHE_SHIFT=5
-CONFIG_X86_XADD=y
-CONFIG_X86_F00F_BUG=y
-CONFIG_X86_WP_WORKS_OK=y
-CONFIG_X86_INVLPG=y
-CONFIG_X86_BSWAP=y
-CONFIG_X86_POPAD_OK=y
-CONFIG_X86_ALIGNMENT_16=y
-CONFIG_X86_MINIMUM_CPU_FAMILY=4
-CONFIG_CPU_SUP_INTEL=y
-CONFIG_CPU_SUP_CYRIX_32=y
-CONFIG_CPU_SUP_AMD=y
-CONFIG_CPU_SUP_CENTAUR=y
-CONFIG_CPU_SUP_TRANSMETA_32=y
-CONFIG_CPU_SUP_UMC_32=y
-CONFIG_DMI=y
-CONFIG_NR_CPUS=1
-CONFIG_PREEMPT_NONE=y
-CONFIG_VM86=y
-CONFIG_HIGHMEM4G=y
-CONFIG_PAGE_OFFSET=0xC0000000
-CONFIG_HIGHMEM=y
-CONFIG_NEED_NODE_MEMMAP_SIZE=y
-CONFIG_ARCH_FLATMEM_ENABLE=y
-CONFIG_ARCH_SPARSEMEM_ENABLE=y
-CONFIG_ARCH_SELECT_MEMORY_MODEL=y
-CONFIG_ILLEGAL_POINTER_VALUE=0
-CONFIG_SELECT_MEMORY_MODEL=y
-CONFIG_SPARSEMEM_MANUAL=y
-CONFIG_SPARSEMEM=y
-CONFIG_HAVE_MEMORY_PRESENT=y
-CONFIG_SPARSEMEM_STATIC=y
-CONFIG_SPLIT_PTLOCK_CPUS=4
-CONFIG_ZONE_DMA_FLAG=1
-CONFIG_BOUNCE=y
-CONFIG_VIRT_TO_BUS=y
-CONFIG_DEFAULT_MMAP_MIN_ADDR=65536
-CONFIG_MTRR=y
-CONFIG_X86_PAT=y
-CONFIG_ARCH_USES_PG_UNCACHED=y
-CONFIG_HZ_1000=y
-CONFIG_HZ=1000
-CONFIG_PHYSICAL_START=0x1000000
-CONFIG_PHYSICAL_ALIGN=0x1000000
-CONFIG_ARCH_ENABLE_MEMORY_HOTPLUG=y
-CONFIG_PCI=y
-CONFIG_PCI_GOANY=y
-CONFIG_PCI_BIOS=y
-CONFIG_PCI_DIRECT=y
-CONFIG_PCI_DOMAINS=y
-CONFIG_ISA_DMA_API=y
-CONFIG_K8_NB=y
-CONFIG_BINFMT_ELF=y
-CONFIG_HAVE_AOUT=y
-CONFIG_HAVE_ATOMIC_IOMAP=y
-CONFIG_NET=y
-CONFIG_UNIX=y
-CONFIG_INET=y
-CONFIG_IP_FIB_HASH=y
-CONFIG_TCP_CONG_CUBIC=y
-CONFIG_DEFAULT_TCP_CONG="cubic"
-CONFIG_IPV6=y
-CONFIG_UEVENT_HELPER_PATH=""
-CONFIG_DEVTMPFS=y
-CONFIG_DEVTMPFS_MOUNT=y
-CONFIG_PREVENT_FIRMWARE_BUILD=y
-CONFIG_FW_LOADER=y
-CONFIG_EXTRA_FIRMWARE=""
-CONFIG_HAVE_IDE=y
-CONFIG_SCSI_MOD=y
-CONFIG_NETDEVICES=y
-CONFIG_VETH=y
-CONFIG_INPUT=y
-CONFIG_INPUT_MOUSEDEV=y
-CONFIG_INPUT_MOUSEDEV_SCREEN_X=1024
-CONFIG_INPUT_MOUSEDEV_SCREEN_Y=576
-CONFIG_INPUT_KEYBOARD=y
-CONFIG_KEYBOARD_ATKBD=y
-CONFIG_SERIO=y
-CONFIG_SERIO_I8042=y
-CONFIG_SERIO_LIBPS2=y
-CONFIG_VT=y
-CONFIG_CONSOLE_TRANSLATIONS=y
-CONFIG_VT_CONSOLE=y
-CONFIG_HW_CONSOLE=y
-CONFIG_FIX_EARLYCON_MEM=y
-CONFIG_UNIX98_PTYS=y
-CONFIG_DEVPORT=y
-CONFIG_ARCH_WANT_OPTIONAL_GPIOLIB=y
-CONFIG_SSB_POSSIBLE=y
-CONFIG_VGA_ARB=y
-CONFIG_VGA_ARB_MAX_GPUS=16
-CONFIG_VGA_CONSOLE=y
-CONFIG_VGACON_SOFT_SCROLLBACK=y
-CONFIG_VGACON_SOFT_SCROLLBACK_SIZE=64
-CONFIG_DUMMY_CONSOLE=y
-CONFIG_FIRMWARE_MEMMAP=y
-CONFIG_FILE_LOCKING=y
-CONFIG_PROC_FS=y
-CONFIG_PROC_SYSCTL=y
-CONFIG_PROC_PAGE_MONITOR=y
-CONFIG_SYSFS=y
-CONFIG_MSDOS_PARTITION=y
-CONFIG_TRACE_IRQFLAGS_SUPPORT=y
-CONFIG_FRAME_WARN=2048
-CONFIG_DEBUG_BUGVERBOSE=y
-CONFIG_DEBUG_MEMORY_INIT=y
-CONFIG_ARCH_WANT_FRAME_POINTERS=y
-CONFIG_USER_STACKTRACE_SUPPORT=y
-CONFIG_HAVE_FUNCTION_TRACER=y
-CONFIG_HAVE_FUNCTION_GRAPH_TRACER=y
-CONFIG_HAVE_FUNCTION_GRAPH_FP_TEST=y
-CONFIG_HAVE_FUNCTION_TRACE_MCOUNT_TEST=y
-CONFIG_HAVE_DYNAMIC_FTRACE=y
-CONFIG_HAVE_FTRACE_MCOUNT_RECORD=y
-CONFIG_HAVE_SYSCALL_TRACEPOINTS=y
-CONFIG_TRACING_SUPPORT=y
-CONFIG_HAVE_ARCH_KGDB=y
-CONFIG_HAVE_ARCH_KMEMCHECK=y
-CONFIG_EARLY_PRINTK=y
-CONFIG_DOUBLEFAULT=y
-CONFIG_HAVE_MMIOTRACE_SUPPORT=y
-CONFIG_IO_DELAY_TYPE_0X80=0
-CONFIG_IO_DELAY_TYPE_0XED=1
-CONFIG_IO_DELAY_TYPE_UDELAY=2
-CONFIG_IO_DELAY_TYPE_NONE=3
-CONFIG_IO_DELAY_0X80=y
-CONFIG_DEFAULT_IO_DELAY_TYPE=0
-CONFIG_DEFAULT_SECURITY_DAC=y
-CONFIG_DEFAULT_SECURITY=""
-CONFIG_HAVE_KVM=y
-CONFIG_GENERIC_FIND_FIRST_BIT=y
-CONFIG_GENERIC_FIND_NEXT_BIT=y
-CONFIG_GENERIC_FIND_LAST_BIT=y
-CONFIG_ZLIB_INFLATE=y
-CONFIG_LZO_DECOMPRESS=y
-CONFIG_DECOMPRESS_GZIP=y
-CONFIG_DECOMPRESS_BZIP2=y
-CONFIG_DECOMPRESS_LZMA=y
-CONFIG_DECOMPRESS_LZO=y
-CONFIG_HAS_IOMEM=y
-CONFIG_HAS_IOPORT=y
-CONFIG_HAS_DMA=y
-CONFIG_NLATTR=y
 
--- 
-MfG,
-
-Michael Leun
