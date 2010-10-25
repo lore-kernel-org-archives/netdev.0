@@ -1,31 +1,32 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] mlx4_en: Fix out of bounds array access
-Date: Mon, 25 Oct 2010 12:16:01 -0700 (PDT)
-Message-ID: <20101025.121601.48518820.davem@davemloft.net>
-References: <20101025125647.GA7710@mtldesk30>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] ixgbe: v3 normalize frag_list usage
+Date: Mon, 25 Oct 2010 12:47:52 -0700 (PDT)
+Message-ID: <20101025.124752.246526233.davem@davemloft.net>
+References: <80769D7B14936844A23C0C43D9FBCF0F25B97A24B5@orsmsx501.amr.corp.intel.com>
+	<20101006.235837.241424681.davem@davemloft.net>
+	<80769D7B14936844A23C0C43D9FBCF0F25BC8DEC85@orsmsx501.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org, rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: eli-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20101025125647.GA7710@mtldesk30>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	bruce.w.allan@intel.com, netdev@vger.kernel.org
+To: alexander.h.duyck@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35680
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757502Ab0JYTra (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Oct 2010 15:47:30 -0400
+In-Reply-To: <80769D7B14936844A23C0C43D9FBCF0F25BC8DEC85@orsmsx501.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eli Cohen <eli-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
-Date: Mon, 25 Oct 2010 14:56:47 +0200
+From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
+Date: Fri, 8 Oct 2010 16:57:40 -0700
 
-> When searching for a free entry in either mlx4_register_vlan() or
-> mlx4_register_mac(), and there is no free entry, the loop terminates without
-> updating the local variable free thus causing out of array bounds access. Fix
-> this by adding a proper check outside the loop.
+> Below is the new and improved version of the RSC chaining approach.  Basically
+> I am holding off on merging the SKB into the frame until the SKB has data in
+> order to make it take a more standard approach.
 > 
-> Signed-off-by: Eli Cohen <eli-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
+> Let me know if this will work with the new pointer structure.
 
-Applied.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This variant looks great, thanks Alexander!
