@@ -1,296 +1,265 @@
-From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
-Subject: 2.6.35->2.6.36 regression, vanilla kernel panic, ppp or hrtimers crashing
-Date: Mon, 25 Oct 2010 12:22:36 +0300
-Message-ID: <201010251222.37191.nuclearcat@nuclearcat.com>
+From: KOVACS Krisztian <hidden@balabit.hu>
+Subject: Re: [PATCH v2 1/9] tproxy: split off ipv6 defragmentation to a
+ separate module
+Date: Mon, 25 Oct 2010 11:38:32 +0200
+Message-ID: <1287999512.2160.25.camel@este.odu>
+References: <20101021104709.5192.31249.stgit@este.odu>
+	 <20101021104709.5192.64336.stgit@este.odu>  <4CC02456.4050301@trash.net>
+	 <1287661385.13326.45.camel@este.odu>  <4CC0486D.60703@trash.net>
+	 <1287699558.2607.5.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="koi8-r"
-Content-Transfer-Encoding: 7bit
-To: Thomas Gleixner <tglx@linutronix.de>,
-	Paul Mackerras <paulus@samba.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Balazs Scheidler <bazsi@balabit.hu>,
+	David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from brother.balabit.com ([195.70.62.219]:44082 "EHLO
+	lists.balabit.hu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751722Ab0JYJij (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Oct 2010 05:38:39 -0400
+In-Reply-To: <1287699558.2607.5.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi
+Hi,
 
-Here is what i got from netconsole
- [  259.238755] BUG: unable to handle kernel 
- paging request
- at f8ba001c
- [  259.238953] IP:
- [<c0199ebe>] do_select+0x2cc/0x502
- [  259.239008] *pdpt = 0000000000a55001 
- *pde = 0000000036dd6067 
- *pte = 0000000000000000 
- 
- [  259.239008] Oops: 0000 [#1] 
- SMP 
- 
- [  259.239008] last sysfs file: /sys/devices/pnp0/00:02/rtc/rtc0/dev
- [  259.239008] Modules linked in:
- rtc_cmos
- rtc_core
- rtc_lib
- act_skbedit
- sch_ingress
- sch_prio
- 
- configfs
- cls_flow
- cls_u32
- em_meta
- cls_basic
- xt_dscp
- ipt_REJECT
- ts_bm
- xt_string
- xt_hl
- ifb
- cls_fw
- sch_tbf
- sch_htb
- act_ipt
- act_mirred
- pppoe
- pppox
- ppp_generic
- slhc
- ipt_REDIRECT
- ipt_MASQUERADE
- xt_TCPMSS
- xt_DSCP
- xt_mark
- xt_tcpudp
- iptable_mangle
- iptable_nat
- nf_nat
- nf_conntrack_ipv4
- nf_conntrack
- nf_defrag_ipv4
- iptable_filter
- ip_tables
- x_tables
- 8021q
- garp
- stp
- llc
- loop
- usb_storage
- iTCO_wdt
- iTCO_vendor_support
- ata_generic
- pata_acpi
- ata_piix
- libata
- 8139cp
- sr_mod
- cdrom
- tulip
- r8169
- sky2
- via_velocity
- via_rhine
- sis900
- ne2k_pci
- 8390
- skge
- tg3
- libphy
- 8139too
- e1000
- e100
- usbhid
- ohci_hcd
- uhci_hcd
- ehci_hcd
- usbcore
- nls_base
- 
- [  259.239008] 
- [  259.239008] Pid: 3307, comm: pppd Not tainted 2.6.36-build-0053 #14 
-D915GAV                        /        
- [  259.239008] EIP: 0060:[<c0199ebe>] EFLAGS: 00010286 CPU: 0
- [  259.239008] EIP is at do_select+0x2cc/0x502
- [  259.239008] EAX: f610a600 EBX: 00000080 ECX: f8ba0000 EDX: f60f1808
- [  259.239008] ESI: 00000000 EDI: f610a600 EBP: f60eae4c ESP: f60eab64
- [  259.239008]  DS: 007b ES: 007b FS: 00d8 GS: 0033 SS: 0068
- [  259.239008] Process pppd (pid: 3307, ti=f60ea000 task=f66a0000 
-task.ti=f60ea000)
- [  259.239008] Stack:
- [  259.239008]  0e95bb42
- 0000003d
- 000000d0
- 00000000
- f60eaf60
- f66a0000
- f60eae6c
- f60eae70
- 
- [  259.239008] <0>
- f60eae74
- f60eae60
- f60eae64
- f60eae68
- 00000180
- 00000020
- 010eabdc
- 002dc698
- 
- [  259.239008] <0>
- f60eae34
- 00000180
- 00000000
- 00000180
- 00000000
- 00000000
- 00000000
- 00000000
- 
- [  259.239008] Call Trace:
- [  259.239008]  [<c019a484>] ? __pollwait+0x0/0xa5
- [  259.239008]  [<c019a529>] ? pollwake+0x0/0x63
- [  259.239008]  [<c019a529>] ? pollwake+0x0/0x63
- [  259.239008]  [<c0143f37>] ? sched_clock_local+0x17/0x13d
- [  259.239008]  [<c0122ac4>] ? update_curr+0x84/0x15c
- [  259.239008]  [<c011f5a3>] ? kmap_atomic_prot+0xe1/0xe3
- [  259.239008]  [<c0143f37>] ? sched_clock_local+0x17/0x13d
- [  259.239008]  [<c02044ee>] ? put_dec+0x2a/0x74
- [  259.239008]  [<c0204689>] ? number+0x151/0x223
- [  259.239008]  [<c012461f>] ? dequeue_task_fair+0x283/0x28b
- [  259.239008]  [<c0123845>] ? __dequeue_entity+0x23/0x27
- [  259.239008]  [<c01238d6>] ? set_next_entity+0x8d/0xf7
- [  259.239008]  [<c012889c>] ? finish_task_switch+0x33/0x7a
- [  259.239008]  [<c02f931c>] ? schedule+0x5c0/0x5ff
- [  259.239008]  [<c019a208>] ? core_sys_select+0x114/0x190
- [  259.239008]  [<c015ce1c>] ? call_rcu_sched+0xd/0xf
- [  259.239008]  [<c015ce26>] ? call_rcu+0x8/0xa
- [  259.239008]  [<c012f80b>] ? release_task+0x28d/0x29d
- [  259.239008]  [<c012fc80>] ? wait_consider_task+0x465/0x7b7
- [  259.239008]  [<c013fa7f>] ? spin_unlock_irqrestore+0x8/0xa
- [  259.239008]  [<c013fc10>] ? remove_wait_queue+0x31/0x36
- [  259.239008]  [<f8bacff1>] ? ppp_read+0x101/0x145 [ppp_generic]
- [  259.239008]  [<c0145ceb>] ? timekeeping_get_ns+0x11/0x4f
- [  259.239008]  [<c014688a>] ? ktime_get_ts+0x89/0x93
- [  259.239008]  [<c019a42e>] ? sys_select+0x68/0x84
- [  259.239008]  [<c02fa625>] ? syscall_call+0x7/0xb
- [  259.239008] Code: 
- 85 
- 9d 
- 48 
- fd 
- ff 
- ff 
- 0f 
- 84 
- cb 
- 00 
- 00 
- 00 
- 8b 
- 85 
- 7c 
- fd 
- ff 
- ff 
- 8d 
- 55 
- f0 
- e8 
- c1 
- 55 
- ff 
- ff 
- 85 
- c0 
- 89 
- c7 
- 0f 
- 84 
- b3 
- 00 
- 00 
- 00 
- 8b 
- 48 
- 10 
- 85 
- c9 
- 74 
- 3a 
- 
- 79 
- 1c 
- 00 
- 74 
- 34 
- 85 
- f6 
- 74 
- 25 
- c7 
- 46 
- 04 
- 02 
- 00 
- 00 
- 00 
- 85 
- 9d 
- 5c 
- fd 
- 
- [  259.239008] EIP: [<c0199ebe>] 
- do_select+0x2cc/0x502
- SS:ESP 0068:f60eab64
- [  259.239008] CR2: 00000000f8ba001c
- [  259.239008] ---[ end trace a6117b9e067aeb87 ]---
- [  259.239008] Kernel panic - not syncing: Fatal exception
- [  259.239008] Pid: 3307, comm: pppd Tainted: G      D     2.6.36-build-0053 
-#14
- [  259.239008] Call Trace:
- [  259.239008]  [<c02f8ace>] ? printk+0xf/0x11
- [  259.239008]  [<c02f89cb>] panic+0x50/0x144
- [  259.239008]  [<c0105061>] oops_end+0x8b/0x9a
- [  259.239008]  [<c011af70>] no_context+0x13e/0x148
- [  259.239008]  [<c0142b8c>] ? hrtimer_try_to_cancel+0x60/0x69
- [  259.239008]  [<c011b05f>] __bad_area_nosemaphore+0xe5/0xed
- [  259.239008]  [<c011b074>] bad_area_nosemaphore+0xd/0x10
- [  259.239008]  [<c011b2d6>] do_page_fault+0xf6/0x230
- [  259.239008]  [<c011b1e0>] ? do_page_fault+0x0/0x230
- [  259.239008]  [<c02fac22>] error_code+0x5a/0x60
- [  259.239008]  [<c019007b>] ? grab_super+0x30/0x56
- [  259.239008]  [<c011b1e0>] ? do_page_fault+0x0/0x230
- [  259.239008]  [<c0199ebe>] ? do_select+0x2cc/0x502
- [  259.239008]  [<c019a484>] ? __pollwait+0x0/0xa5
- [  259.239008]  [<c019a529>] ? pollwake+0x0/0x63
- [  259.239008]  [<c019a529>] ? pollwake+0x0/0x63
- [  259.239008]  [<c0143f37>] ? sched_clock_local+0x17/0x13d
- [  259.239008]  [<c0122ac4>] ? update_curr+0x84/0x15c
- [  259.239008]  [<c011f5a3>] ? kmap_atomic_prot+0xe1/0xe3
- [  259.239008]  [<c0143f37>] ? sched_clock_local+0x17/0x13d
- [  259.239008]  [<c02044ee>] ? put_dec+0x2a/0x74
- [  259.239008]  [<c0204689>] ? number+0x151/0x223
- [  259.239008]  [<c012461f>] ? dequeue_task_fair+0x283/0x28b
- [  259.239008]  [<c0123845>] ? __dequeue_entity+0x23/0x27
- [  259.239008]  [<c01238d6>] ? set_next_entity+0x8d/0xf7
- [  259.239008]  [<c012889c>] ? finish_task_switch+0x33/0x7a
- [  259.239008]  [<c02f931c>] ? schedule+0x5c0/0x5ff
- [  259.239008]  [<c019a208>] core_sys_select+0x114/0x190
- [  259.239008]  [<c015ce1c>] ? call_rcu_sched+0xd/0xf
- [  259.239008]  [<c015ce26>] ? call_rcu+0x8/0xa
- [  259.239008]  [<c012f80b>] ? release_task+0x28d/0x29d
- [  259.239008]  [<c012fc80>] ? wait_consider_task+0x465/0x7b7
- [  259.239008]  [<c013fa7f>] ? spin_unlock_irqrestore+0x8/0xa
- [  259.239008]  [<c013fc10>] ? remove_wait_queue+0x31/0x36
- [  259.239008]  [<f8bacff1>] ? ppp_read+0x101/0x145 [ppp_generic]
- [  259.239008]  [<c0145ceb>] ? timekeeping_get_ns+0x11/0x4f
- [  259.239008]  [<c014688a>] ? ktime_get_ts+0x89/0x93
- [  259.239008]  [<c019a42e>] sys_select+0x68/0x84
- [  259.239008]  [<c02fa625>] syscall_call+0x7/0xb
- [  259.239008] Rebooting in 5 seconds..
+On Fri, 2010-10-22 at 00:19 +0200, Eric Dumazet wrote:
+> Le jeudi 21 octobre 2010 =C3=A0 16:04 +0200, Patrick McHardy a =C3=A9=
+crit :
+> > Am 21.10.2010 13:43, schrieb KOVACS Krisztian:
+> > > tproxy: split off ipv6 defragmentation to a separate module
+> > >    =20
+> > >     Like with IPv4, TProxy needs IPv6 defragmentation but does no=
+t
+> > >     require connection tracking. Since defragmentation was couple=
+d
+> > >     with conntrack, I split off the two, creating an nf_defrag_ip=
+v6 module,
+> > >     similar to the already existing nf_defrag_ipv4.
+> >=20
+> > Applied, thanks.
+>=20
+> Hmm...
+>=20
+> CONFIG_IPV6=3Dm
+> CONFIG_NETFILTER_TPROXY=3Dm
+>=20
+>=20
+>   MODPOST 201 modules
+> ERROR: "nf_defrag_ipv6_enable" [net/netfilter/xt_TPROXY.ko] undefined=
+!
+> ERROR: "ipv6_find_hdr" [net/netfilter/xt_TPROXY.ko] undefined!
+>=20
+> Sorry, it's late here, I wont fix this ;)
 
-It is not easy to do full git bisect(it is semi-embedded distro), but i can 
-try reversing particular commits, if someone can give idea which one, and can 
-try debug patches.
+Oops, I guess this is because you do have IPv6 support but don't have
+ip6tables enabled in your config. Does the patch below fix the issue fo=
+r
+you? (For me it now compiles with and without IPv6 conntrack, ip6tables
+and IPv6 support, too.)
+
+
+
+netfilter: fix module dependency issues with IPv6 defragmentation, ip6t=
+ables and xt_TPROXY
+
+One of the previous tproxy related patches split IPv6 defragmentation a=
+nd
+connection tracking, but did not correctly add Kconfig stanzas to handl=
+e the
+new dependencies correctly. This patch fixes that by making the config =
+options
+mirror the setup we have for IPv4: a distinct config option for defragm=
+entation
+that is automatically selected by both connection tracking and
+xt_TPROXY/xt_socket.
+
+The patch also changes the #ifdefs enclosing IPv6 specific code in xt_s=
+ocket
+and xt_TPROXY: we only compile these in case we have ip6tables support =
+enabled.
+
+Signed-off-by: KOVACS Krisztian <hidden@balabit.hu>
+
+---
+ net/ipv6/netfilter/Kconfig  |    5 +++++
+ net/ipv6/netfilter/Makefile |    5 ++++-
+ net/netfilter/Kconfig       |    2 ++
+ net/netfilter/xt_TPROXY.c   |   10 ++++++----
+ net/netfilter/xt_socket.c   |   12 ++++++++----
+ 5 files changed, 25 insertions(+), 9 deletions(-)
+
+diff --git a/net/ipv6/netfilter/Kconfig b/net/ipv6/netfilter/Kconfig
+index 29d643b..e5f6edc 100644
+--- a/net/ipv6/netfilter/Kconfig
++++ b/net/ipv6/netfilter/Kconfig
+@@ -5,10 +5,15 @@
+ menu "IPv6: Netfilter Configuration"
+ 	depends on INET && IPV6 && NETFILTER
+=20
++config NF_DEFRAG_IPV6
++	tristate
++	default n
++
+ config NF_CONNTRACK_IPV6
+ 	tristate "IPv6 connection tracking support"
+ 	depends on INET && IPV6 && NF_CONNTRACK
+ 	default m if NETFILTER_ADVANCED=3Dn
++	select NF_DEFRAG_IPV6
+ 	---help---
+ 	  Connection tracking keeps a record of what packets have passed
+ 	  through your machine, in order to figure out how they are related
+diff --git a/net/ipv6/netfilter/Makefile b/net/ipv6/netfilter/Makefile
+index 3f8e4a3..0a432c9 100644
+--- a/net/ipv6/netfilter/Makefile
++++ b/net/ipv6/netfilter/Makefile
+@@ -12,11 +12,14 @@ obj-$(CONFIG_IP6_NF_SECURITY) +=3D ip6table_securit=
+y.o
+=20
+ # objects for l3 independent conntrack
+ nf_conntrack_ipv6-objs  :=3D  nf_conntrack_l3proto_ipv6.o nf_conntrack=
+_proto_icmpv6.o
+-nf_defrag_ipv6-objs :=3D nf_defrag_ipv6_hooks.o nf_conntrack_reasm.o
+=20
+ # l3 independent conntrack
+ obj-$(CONFIG_NF_CONNTRACK_IPV6) +=3D nf_conntrack_ipv6.o nf_defrag_ipv=
+6.o
+=20
++# defrag
++nf_defrag_ipv6-objs :=3D nf_defrag_ipv6_hooks.o nf_conntrack_reasm.o
++obj-$(CONFIG_NF_DEFRAG_IPV6) +=3D nf_defrag_ipv6.o
++
+ # matches
+ obj-$(CONFIG_IP6_NF_MATCH_AH) +=3D ip6t_ah.o
+ obj-$(CONFIG_IP6_NF_MATCH_EUI64) +=3D ip6t_eui64.o
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+index 4328825..1534f2b 100644
+--- a/net/netfilter/Kconfig
++++ b/net/netfilter/Kconfig
+@@ -525,6 +525,7 @@ config NETFILTER_XT_TARGET_TPROXY
+ 	depends on NETFILTER_XTABLES
+ 	depends on NETFILTER_ADVANCED
+ 	select NF_DEFRAG_IPV4
++	select NF_DEFRAG_IPV6 if IP6_NF_IPTABLES
+ 	help
+ 	  This option adds a `TPROXY' target, which is somewhat similar to
+ 	  REDIRECT.  It can only be used in the mangle table and is useful
+@@ -927,6 +928,7 @@ config NETFILTER_XT_MATCH_SOCKET
+ 	depends on NETFILTER_ADVANCED
+ 	depends on !NF_CONNTRACK || NF_CONNTRACK
+ 	select NF_DEFRAG_IPV4
++	select NF_DEFRAG_IPV6 if IP6_NF_IPTABLES
+ 	help
+ 	  This option adds a `socket' match, which can be used to match
+ 	  packets for which a TCP or UDP socket lookup finds a valid socket.
+diff --git a/net/netfilter/xt_TPROXY.c b/net/netfilter/xt_TPROXY.c
+index 19c482c..640678f 100644
+--- a/net/netfilter/xt_TPROXY.c
++++ b/net/netfilter/xt_TPROXY.c
+@@ -21,7 +21,9 @@
+ #include <linux/netfilter_ipv4/ip_tables.h>
+=20
+ #include <net/netfilter/ipv4/nf_defrag_ipv4.h>
+-#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++
++#if defined(CONFIG_IP6_NF_IPTABLES) || defined(CONFIG_IP6_NF_IPTABLES_=
+MODULE)
++#define XT_TPROXY_HAVE_IPV6 1
+ #include <net/if_inet6.h>
+ #include <net/addrconf.h>
+ #include <linux/netfilter_ipv6/ip6_tables.h>
+@@ -172,7 +174,7 @@ tproxy_tg4_v1(struct sk_buff *skb, const struct xt_=
+action_param *par)
+ 	return tproxy_tg4(skb, tgi->laddr.ip, tgi->lport, tgi->mark_mask, tgi=
+->mark_value);
+ }
+=20
+-#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++#ifdef XT_TPROXY_HAVE_IPV6
+=20
+ static inline const struct in6_addr *
+ tproxy_laddr6(struct sk_buff *skb, const struct in6_addr *user_laddr,
+@@ -372,7 +374,7 @@ static struct xt_target tproxy_tg_reg[] __read_most=
+ly =3D {
+ 		.hooks		=3D 1 << NF_INET_PRE_ROUTING,
+ 		.me		=3D THIS_MODULE,
+ 	},
+-#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++#ifdef XT_TPROXY_HAVE_IPV6
+ 	{
+ 		.name		=3D "TPROXY",
+ 		.family		=3D NFPROTO_IPV6,
+@@ -391,7 +393,7 @@ static struct xt_target tproxy_tg_reg[] __read_most=
+ly =3D {
+ static int __init tproxy_tg_init(void)
+ {
+ 	nf_defrag_ipv4_enable();
+-#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++#ifdef XT_TPROXY_HAVE_IPV6
+ 	nf_defrag_ipv6_enable();
+ #endif
+=20
+diff --git a/net/netfilter/xt_socket.c b/net/netfilter/xt_socket.c
+index 2dbd4c8..d94a858 100644
+--- a/net/netfilter/xt_socket.c
++++ b/net/netfilter/xt_socket.c
+@@ -14,7 +14,6 @@
+ #include <linux/skbuff.h>
+ #include <linux/netfilter/x_tables.h>
+ #include <linux/netfilter_ipv4/ip_tables.h>
+-#include <linux/netfilter_ipv6/ip6_tables.h>
+ #include <net/tcp.h>
+ #include <net/udp.h>
+ #include <net/icmp.h>
+@@ -22,7 +21,12 @@
+ #include <net/inet_sock.h>
+ #include <net/netfilter/nf_tproxy_core.h>
+ #include <net/netfilter/ipv4/nf_defrag_ipv4.h>
++
++#if defined(CONFIG_IP6_NF_IPTABLES) || defined(CONFIG_IP6_NF_IPTABLES_=
+MODULE)
++#define XT_SOCKET_HAVE_IPV6 1
++#include <linux/netfilter_ipv6/ip6_tables.h>
+ #include <net/netfilter/ipv6/nf_defrag_ipv6.h>
++#endif
+=20
+ #include <linux/netfilter/xt_socket.h>
+=20
+@@ -186,7 +190,7 @@ socket_mt4_v1(const struct sk_buff *skb, struct xt_=
+action_param *par)
+ 	return socket_match(skb, par, par->matchinfo);
+ }
+=20
+-#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++#ifdef XT_SOCKET_HAVE_IPV6
+=20
+ static int
+ extract_icmp6_fields(const struct sk_buff *skb,
+@@ -331,7 +335,7 @@ static struct xt_match socket_mt_reg[] __read_mostl=
+y =3D {
+ 				  (1 << NF_INET_LOCAL_IN),
+ 		.me		=3D THIS_MODULE,
+ 	},
+-#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++#ifdef XT_SOCKET_HAVE_IPV6
+ 	{
+ 		.name		=3D "socket",
+ 		.revision	=3D 1,
+@@ -348,7 +352,7 @@ static struct xt_match socket_mt_reg[] __read_mostl=
+y =3D {
+ static int __init socket_mt_init(void)
+ {
+ 	nf_defrag_ipv4_enable();
+-#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++#ifdef XT_SOCKET_HAVE_IPV6
+ 	nf_defrag_ipv6_enable();
+ #endif
+=20
+
+
+
+
+
