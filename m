@@ -1,218 +1,171 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH] netlink: fix netlink_change_ngroups()
-Date: Sun, 24 Oct 2010 21:14:56 -0700
-Message-ID: <20101025041456.GB3087@linux.vnet.ibm.com>
-References: <1287930430.2658.805.camel@edumazet-laptop>
-Reply-To: paulmck@linux.vnet.ibm.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Johannes Berg <johannes@sipsolutions.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Jeff Hansen <x@jeffhansen.com>
+Subject: [PATCH] net/unix: Allow Unix sockets to be treated like normal files.
+Date: Mon, 25 Oct 2010 04:35:44 +0000
+Message-ID: <1287981344-23828-1-git-send-email-x@jeffhansen.com>
+Cc: x@jeffhansen.com, Dave Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e1.ny.us.ibm.com ([32.97.182.141]:54000 "EHLO e1.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750742Ab0JYEPD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Oct 2010 00:15:03 -0400
-Received: from d01relay05.pok.ibm.com (d01relay05.pok.ibm.com [9.56.227.237])
-	by e1.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id o9P47eH1021859
-	for <netdev@vger.kernel.org>; Mon, 25 Oct 2010 00:07:40 -0400
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay05.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o9P4ExcN106504
-	for <netdev@vger.kernel.org>; Mon, 25 Oct 2010 00:14:59 -0400
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o9P4Ew3a030068
-	for <netdev@vger.kernel.org>; Mon, 25 Oct 2010 00:14:59 -0400
-Content-Disposition: inline
-In-Reply-To: <1287930430.2658.805.camel@edumazet-laptop>
+Received: from out02.mta.xmission.com ([166.70.13.232]:48660 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750949Ab0JYEfu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Oct 2010 00:35:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Oct 24, 2010 at 04:27:10PM +0200, Eric Dumazet wrote:
-> commit 6c04bb18ddd633 (netlink: use call_rcu for netlink_change_ngroups)
-> used a somewhat convoluted and racy way to perform call_rcu().
-> 
-> The old block of memory is freed after a grace period, but the rcu_head
-> used to track it is located in new block.
-> 
-> This can clash if we call two times or more netlink_change_ngroups(),
-> and a block is freed before another. call_rcu() called on different cpus
-> makes no guarantee in order of callbacks.
-> 
-> Fix this using a more standard way of handling this : Each block of
-> memory contains its own rcu_head, so that no 'use after free' can
-> happens.
+This allows Unix sockets to be opened, written, read, and closed, like normal
+files.  This can be especially handy from, for example, a shell script that
+wants to send a short message to a Unix socket, but doesn't want to and/or
+cannot create the socket itself.
 
-Good catch, Eric!!!  I believe this needs to be mentioned in the RCU
-docs, will get it in there.
+This will try to open the Unix socket first in SOCK_DGRAM mode, then
+SOCK_STREAM mode if that fails.
 
-							Thanx, Paul
+Signed-off-by: Jeff Hansen <x@jeffhansen.com>
+---
+ net/unix/Kconfig   |   10 +++++
+ net/unix/af_unix.c |  104 ++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 114 insertions(+), 0 deletions(-)
 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> CC: Johannes Berg <johannes@sipsolutions.net>
-> CC: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-> ---
->  net/netlink/af_netlink.c |   65 +++++++++++++------------------------
->  1 files changed, 24 insertions(+), 41 deletions(-)
-> 
-> diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-> index cd96ed3..478181d 100644
-> --- a/net/netlink/af_netlink.c
-> +++ b/net/netlink/af_netlink.c
-> @@ -83,9 +83,9 @@ struct netlink_sock {
->  	struct module		*module;
->  };
-> 
-> -struct listeners_rcu_head {
-> -	struct rcu_head rcu_head;
-> -	void *ptr;
-> +struct listeners {
-> +	struct rcu_head		rcu;
-> +	unsigned long		masks[0];
->  };
-> 
->  #define NETLINK_KERNEL_SOCKET	0x1
-> @@ -119,7 +119,7 @@ struct nl_pid_hash {
->  struct netlink_table {
->  	struct nl_pid_hash hash;
->  	struct hlist_head mc_list;
-> -	unsigned long *listeners;
-> +	struct listeners __rcu *listeners;
->  	unsigned int nl_nonroot;
->  	unsigned int groups;
->  	struct mutex *cb_mutex;
-> @@ -338,7 +338,7 @@ netlink_update_listeners(struct sock *sk)
->  			if (i < NLGRPLONGS(nlk_sk(sk)->ngroups))
->  				mask |= nlk_sk(sk)->groups[i];
->  		}
-> -		tbl->listeners[i] = mask;
-> +		tbl->listeners->masks[i] = mask;
->  	}
->  	/* this function is only called with the netlink table "grabbed", which
->  	 * makes sure updates are visible before bind or setsockopt return. */
-> @@ -936,7 +936,7 @@ EXPORT_SYMBOL(netlink_unicast);
->  int netlink_has_listeners(struct sock *sk, unsigned int group)
->  {
->  	int res = 0;
-> -	unsigned long *listeners;
-> +	struct listeners *listeners;
-> 
->  	BUG_ON(!netlink_is_kernel(sk));
-> 
-> @@ -944,7 +944,7 @@ int netlink_has_listeners(struct sock *sk, unsigned int group)
->  	listeners = rcu_dereference(nl_table[sk->sk_protocol].listeners);
-> 
->  	if (group - 1 < nl_table[sk->sk_protocol].groups)
-> -		res = test_bit(group - 1, listeners);
-> +		res = test_bit(group - 1, listeners->masks);
-> 
->  	rcu_read_unlock();
-> 
-> @@ -1498,7 +1498,7 @@ netlink_kernel_create(struct net *net, int unit, unsigned int groups,
->  	struct socket *sock;
->  	struct sock *sk;
->  	struct netlink_sock *nlk;
-> -	unsigned long *listeners = NULL;
-> +	struct listeners *listeners = NULL;
-> 
->  	BUG_ON(!nl_table);
-> 
-> @@ -1523,8 +1523,7 @@ netlink_kernel_create(struct net *net, int unit, unsigned int groups,
->  	if (groups < 32)
->  		groups = 32;
-> 
-> -	listeners = kzalloc(NLGRPSZ(groups) + sizeof(struct listeners_rcu_head),
-> -			    GFP_KERNEL);
-> +	listeners = kzalloc(sizeof(*listeners) + NLGRPSZ(groups), GFP_KERNEL);
->  	if (!listeners)
->  		goto out_sock_release;
-> 
-> @@ -1541,7 +1540,7 @@ netlink_kernel_create(struct net *net, int unit, unsigned int groups,
->  	netlink_table_grab();
->  	if (!nl_table[unit].registered) {
->  		nl_table[unit].groups = groups;
-> -		nl_table[unit].listeners = listeners;
-> +		rcu_assign_pointer(nl_table[unit].listeners, listeners);
->  		nl_table[unit].cb_mutex = cb_mutex;
->  		nl_table[unit].module = module;
->  		nl_table[unit].registered = 1;
-> @@ -1572,43 +1571,28 @@ netlink_kernel_release(struct sock *sk)
->  EXPORT_SYMBOL(netlink_kernel_release);
-> 
-> 
-> -static void netlink_free_old_listeners(struct rcu_head *rcu_head)
-> +static void listeners_free_rcu(struct rcu_head *head)
->  {
-> -	struct listeners_rcu_head *lrh;
-> -
-> -	lrh = container_of(rcu_head, struct listeners_rcu_head, rcu_head);
-> -	kfree(lrh->ptr);
-> +	kfree(container_of(head, struct listeners, rcu));
->  }
-> 
->  int __netlink_change_ngroups(struct sock *sk, unsigned int groups)
->  {
-> -	unsigned long *listeners, *old = NULL;
-> -	struct listeners_rcu_head *old_rcu_head;
-> +	struct listeners *new, *old;
->  	struct netlink_table *tbl = &nl_table[sk->sk_protocol];
-> 
->  	if (groups < 32)
->  		groups = 32;
-> 
->  	if (NLGRPSZ(tbl->groups) < NLGRPSZ(groups)) {
-> -		listeners = kzalloc(NLGRPSZ(groups) +
-> -				    sizeof(struct listeners_rcu_head),
-> -				    GFP_ATOMIC);
-> -		if (!listeners)
-> +		new = kzalloc(sizeof(*new) + NLGRPSZ(groups), GFP_ATOMIC);
-> +		if (!new)
->  			return -ENOMEM;
-> -		old = tbl->listeners;
-> -		memcpy(listeners, old, NLGRPSZ(tbl->groups));
-> -		rcu_assign_pointer(tbl->listeners, listeners);
-> -		/*
-> -		 * Free the old memory after an RCU grace period so we
-> -		 * don't leak it. We use call_rcu() here in order to be
-> -		 * able to call this function from atomic contexts. The
-> -		 * allocation of this memory will have reserved enough
-> -		 * space for struct listeners_rcu_head at the end.
-> -		 */
-> -		old_rcu_head = (void *)(tbl->listeners +
-> -					NLGRPLONGS(tbl->groups));
-> -		old_rcu_head->ptr = old;
-> -		call_rcu(&old_rcu_head->rcu_head, netlink_free_old_listeners);
-> +		old = rcu_dereference_raw(tbl->listeners);
-> +		memcpy(new->masks, old->masks, NLGRPSZ(tbl->groups));
-> +		rcu_assign_pointer(tbl->listeners, new);
-> +
-> +		call_rcu(&old->rcu, listeners_free_rcu);
->  	}
->  	tbl->groups = groups;
-> 
-> @@ -2104,18 +2088,17 @@ static void __net_exit netlink_net_exit(struct net *net)
-> 
->  static void __init netlink_add_usersock_entry(void)
->  {
-> -	unsigned long *listeners;
-> +	struct listeners *listeners;
->  	int groups = 32;
-> 
-> -	listeners = kzalloc(NLGRPSZ(groups) + sizeof(struct listeners_rcu_head),
-> -			    GFP_KERNEL);
-> +	listeners = kzalloc(sizeof(*listeners) + NLGRPSZ(groups), GFP_KERNEL);
->  	if (!listeners)
-> -		panic("netlink_add_usersock_entry: Cannot allocate listneres\n");
-> +		panic("netlink_add_usersock_entry: Cannot allocate listeners\n");
-> 
->  	netlink_table_grab();
-> 
->  	nl_table[NETLINK_USERSOCK].groups = groups;
-> -	nl_table[NETLINK_USERSOCK].listeners = listeners;
-> +	rcu_assign_pointer(nl_table[NETLINK_USERSOCK].listeners, listeners);
->  	nl_table[NETLINK_USERSOCK].module = THIS_MODULE;
->  	nl_table[NETLINK_USERSOCK].registered = 1;
-> 
-> 
-> 
+diff --git a/net/unix/Kconfig b/net/unix/Kconfig
+index 5a69733..68df4f1 100644
+--- a/net/unix/Kconfig
++++ b/net/unix/Kconfig
+@@ -19,3 +19,13 @@ config UNIX
+ 
+ 	  Say Y unless you know what you are doing.
+ 
++config UNIX_FOPS
++	boolean "Allow Unix sockets to be treated like normal files"
++	depends on UNIX
++	---help---
++	  If you say Y here, Unix sockets may be opened, written, read, and
++	  closed, like normal files.  This is handy for sending short commands
++	  to Unix sockets (i.e. from shell scripts), without having to create
++	  a Unix socket.
++
++	  Say Y unless you know what you are doing.
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 0ebc777..feb5877 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -798,6 +798,105 @@ fail:
+ 	return NULL;
+ }
+ 
++#ifdef CONFIG_UNIX_FOPS
++static int unix_open(struct inode *inode, struct file *filp)
++{
++	int err;
++	struct socket *sock = NULL;
++	struct dentry *dentry = filp->f_dentry;
++	struct sockaddr_un sunaddr = { 0 };
++	char *p;
++
++	if (!filp)
++		return -ENXIO;
++	dentry = filp->f_dentry;
++
++	if (!dentry || !dentry->d_parent)
++		return -ENXIO;
++
++	if (filp->private_data)
++		return -EBUSY;
++
++	sunaddr.sun_family = AF_UNIX;
++	p = d_path(&filp->f_path, sunaddr.sun_path, sizeof(sunaddr.sun_path));
++	if (IS_ERR(p))
++		return PTR_ERR(p);
++	memmove(sunaddr.sun_path, p, p[sizeof(sunaddr.sun_path) - 1] ?
++		sizeof(sunaddr.sun_path) : strlen(p));
++
++	err = sock_create(PF_UNIX, SOCK_DGRAM, 0, &sock);
++	if (err)
++		return err;
++
++	err = unix_dgram_connect(sock, (struct sockaddr *)&sunaddr,
++				 sizeof(sunaddr), 0);
++	if (err) {
++		sock_release(sock);
++
++		err = sock_create(PF_UNIX, SOCK_STREAM, 0, &sock);
++		if (err)
++			return err;
++
++		err = unix_stream_connect(sock, (struct sockaddr *)&sunaddr,
++					  sizeof(sunaddr), 0);
++
++		if (err)
++			return err;
++	}
++	filp->private_data = sock;
++
++	return err;
++}
++
++static int unix_frelease(struct inode *inode, struct file *filp)
++{
++	if (!filp->private_data)
++		return -ENXIO;
++
++	sock_release(filp->private_data);
++	filp->private_data = NULL;
++	return 0;
++}
++
++#define DECLARE_UNIX_FOP(name, buf_mod, fop) \
++static ssize_t name(struct file *filp, buf_mod char __user *buf, \
++	size_t _len, loff_t *ppos) \
++{ \
++	struct socket *sock = filp->private_data; \
++	int len = (int)_len, err; \
++	struct kvec iov = { \
++		.iov_base = (void *)buf, \
++		.iov_len = len, \
++	}; \
++	struct msghdr msg = { \
++		/* NB: struct iovec and kvec are equal */ \
++		.msg_iov = (struct iovec *)&iov, \
++		.msg_iovlen = 1, \
++	}; \
++\
++	if (!sock) \
++		return -ENXIO; \
++	if (_len > 0xffffffffLL) \
++		return -E2BIG; \
++\
++	err = sock_sendmsg(sock, &msg, len); \
++	if (err > 0 && ppos) \
++		*ppos += err; \
++\
++	return err; \
++}
++
++DECLARE_UNIX_FOP(unix_write, const, sock_sendmsg(sock, &msg, len))
++DECLARE_UNIX_FOP(unix_read, , sock_recvmsg(sock, &msg, len, 0))
++
++const struct file_operations unix_sock_fops = {
++	.owner = THIS_MODULE,
++	.open = unix_open,
++	.release = unix_frelease,
++	.write = unix_write,
++	.read = unix_read,
++};
++#endif /* CONFIG_UNIX_FOPS */
+ 
+ static int unix_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
+ {
+@@ -874,6 +973,11 @@ out_mknod_drop_write:
+ 		mnt_drop_write(nd.path.mnt);
+ 		if (err)
+ 			goto out_mknod_dput;
++
++#ifdef CONFIG_UNIX_FOPS
++		dentry->d_inode->i_fop = &unix_sock_fops;
++#endif
++
+ 		mutex_unlock(&nd.path.dentry->d_inode->i_mutex);
+ 		dput(nd.path.dentry);
+ 		nd.path.dentry = dentry;
+-- 
+1.7.0.4
+
