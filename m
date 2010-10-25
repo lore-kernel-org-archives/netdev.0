@@ -1,99 +1,120 @@
-From: Somnath Kotur <somnath.kotur@emulex.com>
-Subject: [PATCH net-next-2.6 2/2] be2net: Schedule/Destroy worker thread in
- probe()/remove() rather than open()/close()
-Date: Mon, 25 Oct 2010 16:43:01 +0530
-Message-ID: <20101025111301.GA2039@emulex.com>
-Reply-To: Somnath Kotur <somnath.kotur@emulex.com>
+From: "Joshua Hoke" <Joshua.Hoke@sixnet.com>
+Subject: RE: [PATCH] macb: Don't re-enable interrupts while in polling mode
+Date: Mon, 25 Oct 2010 07:44:22 -0400
+Message-ID: <C8F551D39A7C724E987CF8DD11D3178304D7CC86@svr3.sixnetio.com>
+References: <C8F551D39A7C724E987CF8DD11D3178304D02F88@svr3.sixnetio.com> <20101024.152306.48512783.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht1.emulex.com ([138.239.113.183]:44730 "EHLO
-	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753506Ab0JYLNX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Oct 2010 07:13:23 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: <nicolas.ferre@atmel.com>, <jpirko@redhat.com>,
+	<peter.korsgaard@barco.com>, <eric.dumazet@gmail.com>,
+	<haavard.skinnemoen@atmel.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <akpm@linux-foundation.org>
+To: "David Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <20101024.152306.48512783.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When async mcc compls are rcvd on an i/f that is down (and so interrupts are disabled)
-they just lie unprocessed in the compl queue.The compl queue can eventually get filled
-up and cause the BE to lock up.The fix is to use be_worker to reap mcc compls when the
-i/f is down.be_worker is now launched in be_probe() and canceled in be_remove().
+> Your email client is breaking up long lines which corrupts the
+> patch.
+> 
+> Please fix this up in your email client and resubmit.
 
-Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
+Thanks for pointing this out. It looks fine in my sent folder but here's
+a second try. In case this doesn't work, I've attached the contents to the bug as: https://bugzilla.kernel.org/attachment.cgi?id=34972
+
+Contents of first e-mail follow, maybe not mangled this time.
+
+
+
+From: Joshua Hoke <joshua.hoke@sixnet.com>
+
+[PATCH] macb: Don't re-enable interrupts while in polling mode
+
+On a busy network, the macb driver could get stuck in the interrupt
+handler, quickly triggering the watchdog, due to a confluence of
+factors:
+
+ 1. macb_poll re-enables interrupts unconditionally, even when it will
+    be called again because it exhausted its rx budget
+
+ 2. macb_interrupt only disables interrupts after scheduling
+    macb_poll, but scheduling fails when macb_poll is already scheduled
+    because it didn't call napi_complete
+
+ 3. macb_interrupt loops until the interrupt status register is clear,
+    which will never happen in this case if the driver doesn't disable
+    the RX interrupt
+
+Since macb_interrupt runs in interrupt context, this effectively locks
+up the machine, triggering the hardware watchdog.
+
+This issue was readily reproducible on a flooded network with a
+modified 2.6.27.48 kernel. The same problem appears to still be in the
+2.6.36-rc8 driver code, so I am submitting this patch against that
+version. I have not tested this version of the patch except to make
+sure the kernel compiles.
+
+Signed-off-by: Joshua Hoke <joshua.hoke@sixnet.com>
+
 ---
- drivers/net/benet/be_main.c |   22 ++++++++++++++++++----
- 1 files changed, 18 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
-index 1262292..2546273 100644
---- a/drivers/net/benet/be_main.c
-+++ b/drivers/net/benet/be_main.c
-@@ -1809,6 +1809,20 @@ static void be_worker(struct work_struct *work)
- 	struct be_rx_obj *rxo;
- 	int i;
+I'm submitting this at the request of Andrew Morton in this bug:
+
+  https://bugzilla.kernel.org/show_bug.cgi?id=20732
+
+This version of the patch applies to 2.6.36-rc8 but has not been
+tested. In particular I am assuming that napi_schedule_prep() behaves
+the same as netif_rx_schedule_prep() did by failing when the macb_poll
+callback is already scheduled.
+
+diff --git a/drivers/net/macb.c b/drivers/net/macb.c
+index ff2f158..36cf594 100644
+--- a/drivers/net/macb.c
++++ b/drivers/net/macb.c
+@@ -515,14 +515,15 @@ static int macb_poll(struct napi_struct *napi, int budget)
+ 		(unsigned long)status, budget);
  
-+	/* when interrupts are not yet enabled, just reap any pending
-+	* mcc completions */
-+	if (!netif_running(adapter->netdev)) {
-+		int mcc_compl, status = 0;
-+
-+		mcc_compl = be_process_mcc(adapter, &status);
-+
-+		if (mcc_compl) {
-+			struct be_mcc_obj *mcc_obj = &adapter->mcc_obj;
-+			be_cq_notify(adapter, mcc_obj->cq.id, false, mcc_compl);
-+		}
-+		goto reschedule;
+ 	work_done = macb_rx(bp, budget);
+-	if (work_done < budget)
++	if (work_done < budget) {
+ 		napi_complete(napi);
+ 
+-	/*
+-	 * We've done what we can to clean the buffers. Make sure we
+-	 * get notified when new packets arrive.
+-	 */
+-	macb_writel(bp, IER, MACB_RX_INT_FLAGS);
++		/*
++		 * We've done what we can to clean the buffers. Make sure we
++		 * get notified when new packets arrive.
++		 */
++		macb_writel(bp, IER, MACB_RX_INT_FLAGS);
 +	}
+ 
+ 	/* TODO: Handle errors */
+ 
+@@ -550,12 +551,16 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
+ 		}
+ 
+ 		if (status & MACB_RX_INT_FLAGS) {
++			/*
++			 * There's no point taking any more interrupts
++			 * until we have processed the buffers. The
++			 * scheduling call may fail if the poll routine
++			 * is already scheduled, so disable interrupts
++			 * now.
++			 */
++			macb_writel(bp, IDR, MACB_RX_INT_FLAGS);
 +
- 	if (!adapter->stats_ioctl_sent)
- 		be_cmd_get_stats(adapter, &adapter->stats_cmd);
- 
-@@ -1827,6 +1841,7 @@ static void be_worker(struct work_struct *work)
- 	if (!adapter->ue_detected)
- 		be_detect_dump_ue(adapter);
- 
-+reschedule:
- 	schedule_delayed_work(&adapter->work, msecs_to_jiffies(1000));
- }
- 
-@@ -2022,8 +2037,6 @@ static int be_close(struct net_device *netdev)
- 	struct be_eq_obj *tx_eq = &adapter->tx_eq;
- 	int vec, i;
- 
--	cancel_delayed_work_sync(&adapter->work);
--
- 	be_async_mcc_disable(adapter);
- 
- 	netif_stop_queue(netdev);
-@@ -2088,8 +2101,6 @@ static int be_open(struct net_device *netdev)
- 	/* Now that interrupts are on we can process async mcc */
- 	be_async_mcc_enable(adapter);
- 
--	schedule_delayed_work(&adapter->work, msecs_to_jiffies(100));
--
- 	status = be_cmd_link_status_query(adapter, &link_up, &mac_speed,
- 			&link_speed);
- 	if (status)
-@@ -2718,6 +2729,8 @@ static void __devexit be_remove(struct pci_dev *pdev)
- 	if (!adapter)
- 		return;
- 
-+	cancel_delayed_work_sync(&adapter->work);
-+
- 	unregister_netdev(adapter->netdev);
- 
- 	be_clear(adapter);
-@@ -2874,6 +2887,7 @@ static int __devinit be_probe(struct pci_dev *pdev,
- 		goto unsetup;
- 
- 	dev_info(&pdev->dev, "%s port %d\n", nic_name(pdev), adapter->port_num);
-+	schedule_delayed_work(&adapter->work, msecs_to_jiffies(100));
- 	return 0;
- 
- unsetup:
--- 
-1.5.6.1
-
+ 			if (napi_schedule_prep(&bp->napi)) {
+-				/*
+-				 * There's no point taking any more interrupts
+-				 * until we have processed the buffers
+-				 */
+-				macb_writel(bp, IDR, MACB_RX_INT_FLAGS);
+ 				dev_dbg(&bp->pdev->dev,
+ 					"scheduling RX softirq\n");
+ 				__napi_schedule(&bp->napi);
