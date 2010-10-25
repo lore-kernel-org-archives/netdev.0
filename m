@@ -1,88 +1,61 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build failure after merge of the final tree
- (net-current tree related)
-Date: Mon, 25 Oct 2010 14:19:56 +1100
-Message-ID: <20101025141956.d8f0888f.sfr@canb.auug.org.au>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [Security] TIPC security issues
+Date: Sun, 24 Oct 2010 20:42:39 -0700
+Message-ID: <AANLkTinXmKrf+wovco0j_aBuB7=qSq42+bVCM-amfL7W@mail.gmail.com>
+References: <1287704752.11051.79.camel@Dan> <AANLkTi=V93A660+YS8C2TvC13kGUcJpFgjPHUvONd_WW@mail.gmail.com>
+ <20101024.191415.226787411.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	stephen hemminger <shemminger@vyatta.com>,
-	James Chapman <jchapman@katalix.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: drosenberg@vsecurity.com, jon.maloy@ericsson.com,
+	allan.stephens@windriver.com, netdev@vger.kernel.org,
+	security@kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:41810 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752836Ab0JYDnC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Oct 2010 23:43:02 -0400
+Received: from mail-iw0-f174.google.com (mail-iw0-f174.google.com [209.85.214.174])
+	(authenticated bits=0)
+	by smtp1.linux-foundation.org (8.14.2/8.13.5/Debian-3ubuntu1.1) with ESMTP id o9P3h1oK027984
+	(version=TLSv1/SSLv3 cipher=RC4-MD5 bits=128 verify=FAIL)
+	for <netdev@vger.kernel.org>; Sun, 24 Oct 2010 20:43:01 -0700
+Received: by iwn10 with SMTP id 10so238439iwn.19
+        for <netdev@vger.kernel.org>; Sun, 24 Oct 2010 20:43:00 -0700 (PDT)
+In-Reply-To: <20101024.191415.226787411.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+On Sun, Oct 24, 2010 at 7:14 PM, David Miller <davem@davemloft.net> wrote:
+>
+> Maybe the filesystem paths are this way, but the bulk of the socket
+> paths properly use size_t when touching anything even related
+> to an I/O length.
 
-After merging the final tree, today's linux-next build (powerpc
-allyesconfig) failed like this:
+Umm. "Bulk" is not "all".
 
-net/l2tp/l2tp_core.c:1228: error: __ksymtab_l2tp_tunnel_closeall causes a section type conflict
-net/l2tp/l2tp_core.c:1228: error: __ksymtab_l2tp_tunnel_closeall causes a section type conflict
-net/l2tp/l2tp_core.c:1006: error: __ksymtab_l2tp_xmit_core causes a section type conflict
-net/l2tp/l2tp_core.c:1006: error: __ksymtab_l2tp_xmit_core causes a section type conflict
-net/l2tp/l2tp_core.c:847: error: __ksymtab_l2tp_udp_recv_core causes a section type conflict
-net/l2tp/l2tp_core.c:847: error: __ksymtab_l2tp_udp_recv_core causes a section type conflict
+Which is the whole point. Most filesystems have no trouble either. But
+when a mistake is a security issue, that's not enough.
 
-Caused by commit fc130840d75d42c5a360fd1d8b72489eec09cad3 ("l2tp: make
-local function static") since these functions are now static (and should
-not be exported).  I wish doing that caused a build failure on other
-architectures ...
+> I know that TCP can do a >= 4GB write just fine right now.
 
-I applied the following patch:
+Again - totally irrelevant. Plus anybody who relies on doing 4GB
+writes in one go would be broken _anyway_.
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Mon, 25 Oct 2010 14:16:53 +1100
-Subject: [PATCH] l2tp: static functions should not be exported
+In other words, what you argue for has zero upsides, and it has
+downsides. As shown by the fact that TIPC was buggy.
 
-Causes these build failures on PowerPC:
+> In fact if you look I recently removed the last obstacle to this based
+> upon a bug report from a user trying to do a 4GB write (which ended up
+> getting truncated to zero):
 
-net/l2tp/l2tp_core.c:1228: error: __ksymtab_l2tp_tunnel_closeall causes a section type conflict
-net/l2tp/l2tp_core.c:1228: error: __ksymtab_l2tp_tunnel_closeall causes a section type conflict
-net/l2tp/l2tp_core.c:1006: error: __ksymtab_l2tp_xmit_core causes a section type conflict
-net/l2tp/l2tp_core.c:1006: error: __ksymtab_l2tp_xmit_core causes a section type conflict
-net/l2tp/l2tp_core.c:847: error: __ksymtab_l2tp_udp_recv_core causes a section type conflict
-net/l2tp/l2tp_core.c:847: error: __ksymtab_l2tp_udp_recv_core causes a section type conflict
+.. and if you looked at my suggested patch, you would have seen that
+it would have avoided that, and still worked fine (exactly because it
+doesn't truncate anything).
 
-Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
----
- net/l2tp/l2tp_core.c |    3 ---
- 1 files changed, 0 insertions(+), 3 deletions(-)
+David - the issue is _security_. The way to fix security problems is
+not to say "most things handle this correctly". The way to avoid them
+is to have several layers of handling things correctly, so that even
+when one turns out to be broken, the others still protect it.
 
-diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
-index 5fb4803..c64ce0a 100644
---- a/net/l2tp/l2tp_core.c
-+++ b/net/l2tp/l2tp_core.c
-@@ -844,7 +844,6 @@ error:
- 
- 	return 1;
- }
--EXPORT_SYMBOL_GPL(l2tp_udp_recv_core);
- 
- /* UDP encapsulation receive handler. See net/ipv4/udp.c.
-  * Return codes:
-@@ -1003,7 +1002,6 @@ static int l2tp_xmit_core(struct l2tp_session *session, struct sk_buff *skb,
- 
- 	return 0;
- }
--EXPORT_SYMBOL_GPL(l2tp_xmit_core);
- 
- /* Automatically called when the skb is freed.
-  */
-@@ -1225,7 +1223,6 @@ again:
- 	}
- 	write_unlock_bh(&tunnel->hlist_lock);
- }
--EXPORT_SYMBOL_GPL(l2tp_tunnel_closeall);
- 
- /* Really kill the tunnel.
-  * Come here only when all sessions have been cleared from the tunnel.
--- 
-1.7.2.3
-
--- 
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
+                        Linus
