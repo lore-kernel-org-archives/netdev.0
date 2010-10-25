@@ -1,30 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] be2net: Call netif_carier_off() after
- register_netdev()
-Date: Mon, 25 Oct 2010 12:15:34 -0700 (PDT)
-Message-ID: <20101025.121534.39175322.davem@davemloft.net>
-References: <20101025111110.GA1990@emulex.com>
+Subject: Re: [PATCH] macb: Don't re-enable interrupts while in polling mode
+Date: Mon, 25 Oct 2010 12:15:50 -0700 (PDT)
+Message-ID: <20101025.121550.115922916.davem@davemloft.net>
+References: <C8F551D39A7C724E987CF8DD11D3178304D02F88@svr3.sixnetio.com>
+	<20101024.152306.48512783.davem@davemloft.net>
+	<C8F551D39A7C724E987CF8DD11D3178304D7CC86@svr3.sixnetio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: somnath.kotur@emulex.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40794
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752389Ab0JYTPL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Oct 2010 15:15:11 -0400
-In-Reply-To: <20101025111110.GA1990@emulex.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: nicolas.ferre@atmel.com, jpirko@redhat.com,
+	peter.korsgaard@barco.com, eric.dumazet@gmail.com,
+	haavard.skinnemoen@atmel.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, akpm@linux-foundation.org
+To: Joshua.Hoke@sixnet.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <C8F551D39A7C724E987CF8DD11D3178304D7CC86@svr3.sixnetio.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Somnath Kotur <somnath.kotur@emulex.com>
-Date: Mon, 25 Oct 2010 16:41:10 +0530
+From: "Joshua Hoke" <Joshua.Hoke@sixnet.com>
+Date: Mon, 25 Oct 2010 07:44:22 -0400
 
-> Calling netif_carrier_off before register_netdev was causing the network interface
-> to miss a linkwatch pending event leading to  an inconsistent state if the link
-> is not up when interface is initialized.This is now invoked after register_netdev.
-> 
-> Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
+> [PATCH] macb: Don't re-enable interrupts while in polling mode
 
 Applied.
