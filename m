@@ -1,121 +1,47 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [PATCH v2 10/14] ixgbe: Update ixgbe to use new vlan accleration.
-Date: Tue, 26 Oct 2010 01:23:55 +0200
-Message-ID: <AANLkTim68bfo54XsoPbbDUGa4evPA2vSmJbSTs-LZv=Q@mail.gmail.com>
-References: <1287618974-4714-1-git-send-email-jesse@nicira.com>
-	<1287618974-4714-11-git-send-email-jesse@nicira.com>
-	<AANLkTindxJD1a5UPV+6vWbDEeMUTy1QgPs1X8pT-b69D@mail.gmail.com>
-	<1288029009.1808.1.camel@pjaxe>
-	<AANLkTi=R9f3oAdVAG1MyyTwEqBGRaBj8mtLPg15R2BjW@mail.gmail.com>
-	<4CC5FE81.4020606@intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6 1/2] be2net: Adding an option to use INTx
+ instead of MSI-X
+Date: Mon, 25 Oct 2010 16:25:35 -0700 (PDT)
+Message-ID: <20101025.162535.226782713.davem@davemloft.net>
+References: <20101025111235.GA2024@emulex.com>
+	<20101025.120943.189699949.davem@davemloft.net>
+	<20101025223853.GD15074@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	Jesse Gross <jesse@nicira.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Tantilov, Emil S" <emil.s.tantilov@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-To: John Fastabend <john.r.fastabend@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f181.google.com ([209.85.216.181]:34745 "EHLO
-	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932156Ab0JYXX4 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Oct 2010 19:23:56 -0400
-Received: by qyk10 with SMTP id 10so2273684qyk.19
-        for <netdev@vger.kernel.org>; Mon, 25 Oct 2010 16:23:55 -0700 (PDT)
-In-Reply-To: <4CC5FE81.4020606@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: somnath.kotur@emulex.com, netdev@vger.kernel.org,
+	linux-pci@vger.kernel.org
+To: bhutchings@solarflare.com
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <20101025223853.GD15074@solarflare.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-W dniu 26 pa=BCdziernika 2010 00:02 u=BFytkownik John Fastabend
-<john.r.fastabend@intel.com> napisa=B3:
-> On 10/25/2010 2:40 PM, Micha=B3 Miros=B3aw wrote:
->> W dniu 25 pa=BCdziernika 2010 19:50 u=BFytkownik Peter P Waskiewicz =
-Jr
->> <peter.p.waskiewicz.jr@intel.com> napisa=B3:
->>> On Fri, 2010-10-22 at 06:24 -0700, Micha=B3 Miros=B3aw wrote:
->>>> 2010/10/21 Jesse Gross <jesse@nicira.com>:
->>>>> Make the ixgbe driver use the new vlan accleration model.
->>>> [...]
->>>>> --- a/drivers/net/ixgbe/ixgbe_main.c
->>>>> +++ b/drivers/net/ixgbe/ixgbe_main.c
->>>>> @@ -954,17 +954,13 @@ static void ixgbe_receive_skb(struct ixgbe_=
-q_vector *q_vector,
->>>>> =A0 =A0 =A0 =A0bool is_vlan =3D (status & IXGBE_RXD_STAT_VP);
->>>>> =A0 =A0 =A0 =A0u16 tag =3D le16_to_cpu(rx_desc->wb.upper.vlan);
->>>>>
->>>>> - =A0 =A0 =A0 if (!(adapter->flags & IXGBE_FLAG_IN_NETPOLL)) {
->>>>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (adapter->vlgrp && is_vlan && (t=
-ag & VLAN_VID_MASK))
->>>>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 vlan_gro_receive(na=
-pi, adapter->vlgrp, tag, skb);
->>>>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 else
->>>>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 napi_gro_receive(na=
-pi, skb);
->>>>> - =A0 =A0 =A0 } else {
->>>>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (adapter->vlgrp && is_vlan && (t=
-ag & VLAN_VID_MASK))
->>>>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 vlan_hwaccel_rx(skb=
-, adapter->vlgrp, tag);
->>>>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 else
->>>>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 netif_rx(skb);
->>>>> - =A0 =A0 =A0 }
->>>>> + =A0 =A0 =A0 if (is_vlan && (tag & VLAN_VID_MASK))
->>>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 __vlan_hwaccel_put_tag(skb, tag);
->>>>
->>>> I know that this is carried over from the driver, but why tag =3D=3D=
- 0 is
->>>> treated differently here? VID0 is somewhat special, as normally it
->>>> means 802.1p packet, but i.e. in embedded world people are using i=
-t as
->>>> normal VID. It would be nice to have this handled consistently in =
-the
->>>> VLAN core - deliver to base dev (tag stripped) if vlan 0 is not
->>>> configured and to vlan dev if it is.
->>>
->>> ixgbe handles VLAN 0 differently because that's the tag that's used=
- when
->>> DCB is enabled, and no VLAN is configured. =A0We have to insert the=
- 802.1p
->>> tag for DCB to work, but the OS won't know about the 802.1q tag, an=
-d
->>> ends up dropping the frame. =A0So we enable VLAN ID 0 in the HW and=
- tell
->>> it to strip the tag, so we can still pass the frame up the stack.
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Mon, 25 Oct 2010 23:38:53 +0100
+
+> David Miller wrote:
+>> From: Somnath Kotur <somnath.kotur@emulex.com>
+>> Date: Mon, 25 Oct 2010 16:42:35 +0530
+>> 
+>> > By default, be2net uses MSIx wherever possible.
+>> > Adding a module parameter to use INTx for users who do not want to use MSIx.
+>> > 
+>> > Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
+>> 
+>> Either add a new ethtool flag, or use the PCI subsystem facilities
+>> for tweaking things to implement this.
 >>
->> So that's actually (part of) what I'm proposing but done at driver l=
-evel.
-> I agree this should be handled outside the driver. Something like thi=
-s should
-> do,
+>> Do not use a module option, otherwise every other networking driver
+>> author will get the same "cool" idea, give the module option
+>> different names, and the resulting user experience is terrible.
+> 
+> This has already happened, sadly.  So far as I can see it's mostly done
+> to allow users to work around systems with broken MSIs; I'm not aware of
+> any other reason to prefer legacy interrupts.  However, the PCI subsystem
+> already implements a blacklist and a kernel parameter for disabling MSIs
+> on these systems.
 
-Current code (Linus' tree, so with Jesse's VLAN rework applied) should
-work exactly as I proposed in my original mail - VLAN 0 is treated as
-802.1p (stripped and delivered to original dev) unless vlan device
-with id 0 is configured. (Patch untested).
+The PCI subsystem bits I'm totally fine with.
 
-Best Regards,
-Micha=B3 Miros=B3aw
----
-
-ixgbe: Enable VLAN 0
-
-Signed-off-by: Micha=B3 Miros=B3aw <mirq-linux@rere.qmqm.pl>
-
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_m=
-ain.c
-index f856312..1544368 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -956,7 +956,7 @@ static void ixgbe_receive_skb(struct
-ixgbe_q_vector *q_vector,
- 	bool is_vlan =3D (status & IXGBE_RXD_STAT_VP);
- 	u16 tag =3D le16_to_cpu(rx_desc->wb.upper.vlan);
-
--	if (is_vlan && (tag & VLAN_VID_MASK))
-+	if (is_vlan)
- 		__vlan_hwaccel_put_tag(skb, tag);
-
- 	if (!(adapter->flags & IXGBE_FLAG_IN_NETPOLL))
+But in the drivers themselves, that's what I don't want.
