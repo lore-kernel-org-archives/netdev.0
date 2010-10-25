@@ -1,35 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 1/3] qlge: Restoring the vlan setting.
-Date: Mon, 25 Oct 2010 12:07:39 -0700 (PDT)
-Message-ID: <20101025.120739.104054830.davem@davemloft.net>
-References: <1288023473-31490-1-git-send-email-ron.mercer@qlogic.com>
-	<1288023473-31490-2-git-send-email-ron.mercer@qlogic.com>
+Subject: Re: [PATCH net-next-2.6 1/2] be2net: Adding an option to use INTx
+ instead of MSI-X
+Date: Mon, 25 Oct 2010 12:09:43 -0700 (PDT)
+Message-ID: <20101025.120943.189699949.davem@davemloft.net>
+References: <20101025111235.GA2024@emulex.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jitendra.kalsaria@qlogic.com,
-	ying.lok@qlogic.com
-To: ron.mercer@qlogic.com
+Cc: netdev@vger.kernel.org
+To: somnath.kotur@emulex.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46213
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46219
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932837Ab0JYTHQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Oct 2010 15:07:16 -0400
-In-Reply-To: <1288023473-31490-2-git-send-email-ron.mercer@qlogic.com>
+	by vger.kernel.org with ESMTP id S932906Ab0JYTJV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Oct 2010 15:09:21 -0400
+In-Reply-To: <20101025111235.GA2024@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ron Mercer <ron.mercer@qlogic.com>
-Date: Mon, 25 Oct 2010 09:17:51 -0700
+From: Somnath Kotur <somnath.kotur@emulex.com>
+Date: Mon, 25 Oct 2010 16:42:35 +0530
 
-> +	if (qdev->vlgrp) {
-> +		u16 vid;
-> +			for (vid = 0; vid < VLAN_N_VID; vid++) {
-> +				if (!vlan_group_get_device(qdev->vlgrp, vid))
-> +					continue;
-> +				qlge_vlan_rx_add_vid(qdev->ndev, vid);
-> +			}
-> +	}
-> +}
+> By default, be2net uses MSIx wherever possible.
+> Adding a module parameter to use INTx for users who do not want to use MSIx.
+> 
+> Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
 
-Please fix the indentation in this code block.
+Either add a new ethtool flag, or use the PCI subsystem facilities
+for tweaking things to implement this.
+
+Do not use a module option, otherwise every other networking driver
+author will get the same "cool" idea, give the module option
+different names, and the resulting user experience is terrible.
