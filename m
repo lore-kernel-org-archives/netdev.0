@@ -1,72 +1,314 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Security] TIPC security issues
-Date: Sun, 24 Oct 2010 19:14:15 -0700 (PDT)
-Message-ID: <20101024.191415.226787411.davem@davemloft.net>
-References: <1287704752.11051.79.camel@Dan>
-	<AANLkTi=V93A660+YS8C2TvC13kGUcJpFgjPHUvONd_WW@mail.gmail.com>
+From: Tomoya <tomoya-linux@dsn.okisemi.com>
+Subject: [PATCH net-next-2.6 v2] can: Topcliff: PCH_CAN driver: Fix build
+ warnings
+Date: Mon, 25 Oct 2010 11:32:24 +0900
+Message-ID: <4CC4EC38.2040208@dsn.okisemi.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: drosenberg@vsecurity.com, jon.maloy@ericsson.com,
-	allan.stephens@windriver.com, netdev@vger.kernel.org,
-	security@kernel.org
-To: torvalds@linux-foundation.org
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: qi.wang@intel.com, yong.y.wang@intel.com,
+	andrew.chih.howe.khor@intel.com, joel.clark@intel.com,
+	kok.howg.ewe@intel.com, morinaga526@dsn.okisemi.com,
+	Masayuki Ohtake <masa-korg@dsn.okisemi.com>,
+	margie.foster@intel.com
+To: Wolfgang Grandegger <wg@grandegger.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Wolfram Sang <w.sang@pengutronix.de>,
+	Christian Pellegrin <chripell@fsfe.org>,
+	Barry Song <21cnbao@g
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53971
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751595Ab0JYCNw convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 24 Oct 2010 22:13:52 -0400
-In-Reply-To: <AANLkTi=V93A660+YS8C2TvC13kGUcJpFgjPHUvONd_WW@mail.gmail.com>
+Received: from sm-d311v.smileserver.ne.jp ([203.211.202.206]:6823 "EHLO
+	sm-d311v.smileserver.ne.jp" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751479Ab0JYCcS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Oct 2010 22:32:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Thu, 21 Oct 2010 17:31:12 -0700
+Hi David,
 
-> We already (long ago) decided that POSIX.1 compatibility be damned,
-> and that reading and writing more than 2GB in a single system call is
-> bogus: so normal write calls will actually limit size_t arguments to
-> MAX_INT, exactly so that various filesystems don't have to worry abou=
-t
-> overflow and can keep length arguments in an "int".
+From: Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
+ - Fix build warnings when PM_CONFIG is disabled.
+ - Modify Copyright "Co" to "CO".
 
-Maybe the filesystem paths are this way, but the bulk of the socket
-paths properly use size_t when touching anything even related
-to an I/O length.
+Reported-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
+---
+ drivers/net/can/pch_can.c |  208
+++++++++++++++++++++++----------------------
+ 1 files changed, 104 insertions(+), 104 deletions(-)
 
-I know that TCP can do a >=3D 4GB write just fine right now.
+diff --git a/drivers/net/can/pch_can.c b/drivers/net/can/pch_can.c
+index 55ec324..2889e11 100755
+--- a/drivers/net/can/pch_can.c
++++ b/drivers/net/can/pch_can.c
+@@ -1,6 +1,6 @@
+ /*
+  * Copyright (C) 1999 - 2010 Intel Corporation.
+- * Copyright (C) 2010 OKI SEMICONDUCTOR Co., LTD.
++ * Copyright (C) 2010 OKI SEMICONDUCTOR CO., LTD.
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+@@ -255,21 +255,21 @@ static void pch_can_set_optmode(struct
+pch_can_priv *priv)
+ 	iowrite32(reg_val, &priv->regs->opt);
+ }
 
-In fact if you look I recently removed the last obstacle to this based
-upon a bug report from a user trying to do a 4GB write (which ended up
-getting truncated to zero):
+-static void pch_can_set_int_custom(struct pch_can_priv *priv)
++static void pch_can_check_if_busy(u32 __iomem *creq_addr, u32 num)
+ {
+-	/* Clearing the IE, SIE and EIE bits of Can control register. */
+-	pch_can_bit_clear(&priv->regs->cont, CAN_CTRL_IE_SIE_EIE);
+-
+-	/* Appropriately setting them. */
+-	pch_can_bit_set(&priv->regs->cont,
+-			((priv->int_enables & MSK_CTRL_IE_SIE_EIE) << 1));
+-}
++	u32 counter = COUNTER_LIMIT;
++	u32 ifx_creq;
 
-commit 01db403cf99f739f86903314a489fb420e0e254f
-Author: David S. Miller <davem@davemloft.net>
-Date:   Mon Sep 27 20:24:54 2010 -0700
+-/* This function retrieves interrupt enabled for the CAN device. */
+-static void pch_can_get_int_enables(struct pch_can_priv *priv, u32
+*enables)
+-{
+-	/* Obtaining the status of IE, SIE and EIE interrupt bits. */
+-	*enables = ((ioread32(&priv->regs->cont) & CAN_CTRL_IE_SIE_EIE) >> 1);
++	iowrite32(num, creq_addr);
++	while (counter) {
++		ifx_creq = ioread32(creq_addr) & CAN_IF_CREQ_BUSY;
++		if (!ifx_creq)
++			break;
++		counter--;
++		udelay(1);
++	}
++	if (!counter)
++		pr_err("%s:IF1 BUSY Flag is set forever.\n", __func__);
+ }
 
-    tcp: Fix >4GB writes on 64-bit.
-   =20
-    Fixes kernel bugzilla #16603
-   =20
-    tcp_sendmsg() truncates iov_len to an 'int' which a 4GB write to wr=
-ite
-    zero bytes, for example.
-   =20
-    There is also the problem higher up of how verify_iovec() works.  I=
-t
-    wants to prevent the total length from looking like an error return
-    value.
-   =20
-    However it does this using 'int', but syscalls return 'long' (and
-    thus signed 64-bit on 64-bit machines).  So it could trigger
-    false-positives on 64-bit as written.  So fix it to use 'long'.
-   =20
-    Reported-by: Olaf Bonorden <bono@onlinehome.de>
-    Reported-by: Daniel B=FCse <dbuese@gmx.de>
-    Reported-by: Andrew Morton <akpm@linux-foundation.org>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+ static void pch_can_set_int_enables(struct pch_can_priv *priv,
+@@ -298,23 +298,6 @@ static void pch_can_set_int_enables(struct
+pch_can_priv *priv,
+ 	}
+ }
 
-Anyways, my point is that not only is the socket layer entirely ready
-for this, it is also the case that while 2GB may seem big today in
-most places, some day it might not be.  :-)
+-static void pch_can_check_if_busy(u32 __iomem *creq_addr, u32 num)
+-{
+-	u32 counter = COUNTER_LIMIT;
+-	u32 ifx_creq;
+-
+-	iowrite32(num, creq_addr);
+-	while (counter) {
+-		ifx_creq = ioread32(creq_addr) & CAN_IF_CREQ_BUSY;
+-		if (!ifx_creq)
+-			break;
+-		counter--;
+-		udelay(1);
+-	}
+-	if (!counter)
+-		pr_err("%s:IF1 BUSY Flag is set forever.\n", __func__);
+-}
+-
+ static void pch_can_set_rx_enable(struct pch_can_priv *priv, u32 buff_num,
+ 				  u32 set)
+ {
+@@ -417,82 +400,11 @@ static void pch_can_tx_disable_all(struct
+pch_can_priv *priv)
+ 	}
+ }
+
+-static void pch_can_get_rx_enable(struct pch_can_priv *priv, u32 buff_num,
+-				 u32 *enable)
+-{
+-	unsigned long flags;
+-
+-	spin_lock_irqsave(&priv->msgif_reg_lock, flags);
+-	iowrite32(CAN_CMASK_RX_TX_GET, &priv->regs->if1_cmask);
+-	pch_can_check_if_busy(&priv->regs->if1_creq, buff_num);
+-
+-	if (((ioread32(&priv->regs->if1_id2)) & CAN_ID_MSGVAL) &&
+-			((ioread32(&priv->regs->if1_mcont)) &
+-			CAN_IF_MCONT_RXIE))
+-		*enable = ENABLE;
+-	else
+-		*enable = DISABLE;
+-	spin_unlock_irqrestore(&priv->msgif_reg_lock, flags);
+-}
+-
+-static void pch_can_get_tx_enable(struct pch_can_priv *priv, u32 buff_num,
+-				 u32 *enable)
+-{
+-	unsigned long flags;
+-
+-	spin_lock_irqsave(&priv->msgif_reg_lock, flags);
+-	iowrite32(CAN_CMASK_RX_TX_GET, &priv->regs->if2_cmask);
+-	pch_can_check_if_busy(&priv->regs->if2_creq, buff_num);
+-
+-	if (((ioread32(&priv->regs->if2_id2)) & CAN_ID_MSGVAL) &&
+-			((ioread32(&priv->regs->if2_mcont)) &
+-			CAN_IF_MCONT_TXIE)) {
+-		*enable = ENABLE;
+-	} else {
+-		*enable = DISABLE;
+-	}
+-	spin_unlock_irqrestore(&priv->msgif_reg_lock, flags);
+-}
+-
+ static int pch_can_int_pending(struct pch_can_priv *priv)
+ {
+ 	return ioread32(&priv->regs->intr) & 0xffff;
+ }
+
+-static void pch_can_set_rx_buffer_link(struct pch_can_priv *priv,
+-				       u32 buffer_num, u32 set)
+-{
+-	unsigned long flags;
+-
+-	spin_lock_irqsave(&priv->msgif_reg_lock, flags);
+-	iowrite32(CAN_CMASK_RX_TX_GET, &priv->regs->if1_cmask);
+-	pch_can_check_if_busy(&priv->regs->if1_creq, buffer_num);
+-	iowrite32(CAN_CMASK_RDWR | CAN_CMASK_CTRL, &priv->regs->if1_cmask);
+-	if (set == ENABLE)
+-		pch_can_bit_clear(&priv->regs->if1_mcont, CAN_IF_MCONT_EOB);
+-	else
+-		pch_can_bit_set(&priv->regs->if1_mcont, CAN_IF_MCONT_EOB);
+-
+-	pch_can_check_if_busy(&priv->regs->if1_creq, buffer_num);
+-	spin_unlock_irqrestore(&priv->msgif_reg_lock, flags);
+-}
+-
+-static void pch_can_get_rx_buffer_link(struct pch_can_priv *priv,
+-				       u32 buffer_num, u32 *link)
+-{
+-	unsigned long flags;
+-
+-	spin_lock_irqsave(&priv->msgif_reg_lock, flags);
+-	iowrite32(CAN_CMASK_RX_TX_GET, &priv->regs->if1_cmask);
+-	pch_can_check_if_busy(&priv->regs->if1_creq, buffer_num);
+-
+-	if (ioread32(&priv->regs->if1_mcont) & CAN_IF_MCONT_EOB)
+-		*link = DISABLE;
+-	else
+-		*link = ENABLE;
+-	spin_unlock_irqrestore(&priv->msgif_reg_lock, flags);
+-}
+-
+ static void pch_can_clear_buffers(struct pch_can_priv *priv)
+ {
+ 	int i;
+@@ -1121,13 +1033,13 @@ static netdev_tx_t pch_xmit(struct sk_buff *skb,
+struct net_device *ndev)
+ 	if (can_dropped_invalid_skb(ndev, skb))
+ 		return NETDEV_TX_OK;
+
+-	if (priv->tx_obj == (PCH_OBJ_NUM + 1)) { /* Point tail Obj */
++	if (priv->tx_obj == (PCH_OBJ_NUM + 1)) { /* Point tail Obj + 1 */
+ 		while (pch_get_msg_obj_sts(ndev, (((1 << PCH_TX_OBJ_NUM)-1) <<
+ 					   PCH_RX_OBJ_NUM)))
+ 			udelay(500);
+
+ 		priv->tx_obj = PCH_RX_OBJ_NUM + 1; /* Point head of Tx Obj ID */
+-		tx_buffer_avail = priv->tx_obj; /* Point Tail of Tx Obj */
++		tx_buffer_avail = priv->tx_obj;
+ 	} else {
+ 		tx_buffer_avail = priv->tx_obj;
+ 	}
+@@ -1212,6 +1124,94 @@ static void __devexit pch_can_remove(struct
+pci_dev *pdev)
+ }
+
+ #ifdef CONFIG_PM
++static void pch_can_set_int_custom(struct pch_can_priv *priv)
++{
++	/* Clearing the IE, SIE and EIE bits of Can control register. */
++	pch_can_bit_clear(&priv->regs->cont, CAN_CTRL_IE_SIE_EIE);
++
++	/* Appropriately setting them. */
++	pch_can_bit_set(&priv->regs->cont,
++			((priv->int_enables & MSK_CTRL_IE_SIE_EIE) << 1));
++}
++
++/* This function retrieves interrupt enabled for the CAN device. */
++static void pch_can_get_int_enables(struct pch_can_priv *priv, u32
+*enables)
++{
++	/* Obtaining the status of IE, SIE and EIE interrupt bits. */
++	*enables = ((ioread32(&priv->regs->cont) & CAN_CTRL_IE_SIE_EIE) >> 1);
++}
++
++static void pch_can_get_rx_enable(struct pch_can_priv *priv, u32 buff_num,
++				 u32 *enable)
++{
++	unsigned long flags;
++
++	spin_lock_irqsave(&priv->msgif_reg_lock, flags);
++	iowrite32(CAN_CMASK_RX_TX_GET, &priv->regs->if1_cmask);
++	pch_can_check_if_busy(&priv->regs->if1_creq, buff_num);
++
++	if (((ioread32(&priv->regs->if1_id2)) & CAN_ID_MSGVAL) &&
++			((ioread32(&priv->regs->if1_mcont)) &
++			CAN_IF_MCONT_RXIE))
++		*enable = ENABLE;
++	else
++		*enable = DISABLE;
++	spin_unlock_irqrestore(&priv->msgif_reg_lock, flags);
++}
++
++static void pch_can_get_tx_enable(struct pch_can_priv *priv, u32 buff_num,
++				 u32 *enable)
++{
++	unsigned long flags;
++
++	spin_lock_irqsave(&priv->msgif_reg_lock, flags);
++	iowrite32(CAN_CMASK_RX_TX_GET, &priv->regs->if2_cmask);
++	pch_can_check_if_busy(&priv->regs->if2_creq, buff_num);
++
++	if (((ioread32(&priv->regs->if2_id2)) & CAN_ID_MSGVAL) &&
++			((ioread32(&priv->regs->if2_mcont)) &
++			CAN_IF_MCONT_TXIE)) {
++		*enable = ENABLE;
++	} else {
++		*enable = DISABLE;
++	}
++	spin_unlock_irqrestore(&priv->msgif_reg_lock, flags);
++}
++
++static void pch_can_set_rx_buffer_link(struct pch_can_priv *priv,
++				       u32 buffer_num, u32 set)
++{
++	unsigned long flags;
++
++	spin_lock_irqsave(&priv->msgif_reg_lock, flags);
++	iowrite32(CAN_CMASK_RX_TX_GET, &priv->regs->if1_cmask);
++	pch_can_check_if_busy(&priv->regs->if1_creq, buffer_num);
++	iowrite32(CAN_CMASK_RDWR | CAN_CMASK_CTRL, &priv->regs->if1_cmask);
++	if (set == ENABLE)
++		pch_can_bit_clear(&priv->regs->if1_mcont, CAN_IF_MCONT_EOB);
++	else
++		pch_can_bit_set(&priv->regs->if1_mcont, CAN_IF_MCONT_EOB);
++
++	pch_can_check_if_busy(&priv->regs->if1_creq, buffer_num);
++	spin_unlock_irqrestore(&priv->msgif_reg_lock, flags);
++}
++
++static void pch_can_get_rx_buffer_link(struct pch_can_priv *priv,
++				       u32 buffer_num, u32 *link)
++{
++	unsigned long flags;
++
++	spin_lock_irqsave(&priv->msgif_reg_lock, flags);
++	iowrite32(CAN_CMASK_RX_TX_GET, &priv->regs->if1_cmask);
++	pch_can_check_if_busy(&priv->regs->if1_creq, buffer_num);
++
++	if (ioread32(&priv->regs->if1_mcont) & CAN_IF_MCONT_EOB)
++		*link = DISABLE;
++	else
++		*link = ENABLE;
++	spin_unlock_irqrestore(&priv->msgif_reg_lock, flags);
++}
++
+ static int pch_can_suspend(struct pci_dev *pdev, pm_message_t state)
+ {
+ 	int i;			/* Counter variable. */
+-- 
+1.6.0.6
+
