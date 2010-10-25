@@ -1,71 +1,63 @@
-From: Ron Mercer <ron.mercer@qlogic.com>
-Subject: Re: [net-next PATCH 1/3] qlge: Restoring the vlan setting.
-Date: Mon, 25 Oct 2010 12:46:33 -0700
-Message-ID: <20101025194632.GA3545@linux-ox1b.qlogic.org>
-References: <1288023473-31490-1-git-send-email-ron.mercer@qlogic.com> <1288023473-31490-2-git-send-email-ron.mercer@qlogic.com> <20101025.120739.104054830.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: __bad_udelay in network driver breaks build
+Date: Mon, 25 Oct 2010 13:05:13 -0700 (PDT)
+Message-ID: <20101025.130513.102558756.davem@davemloft.net>
+References: <20101018115230.GA27565@basil.fritz.box>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>,
-	Ying Ping Lok <ying.lok@qlogic.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: andi@firstfloor.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cain.qlogic.com ([198.70.193.223]:61716 "EHLO cain.qlc.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757502Ab0JYT6d (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Oct 2010 15:58:33 -0400
-Content-Disposition: inline
-In-Reply-To: <20101025.120739.104054830.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51349
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756468Ab0JYUEu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Oct 2010 16:04:50 -0400
+In-Reply-To: <20101018115230.GA27565@basil.fritz.box>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Andi Kleen <andi@firstfloor.org>
+Date: Mon, 18 Oct 2010 13:52:30 +0200
 
->From 4981e8d94411b282040bcee89f08e16eef5c608c Mon Sep 17 00:00:00 2001
-From: Ron Mercer <ron.mercer@qlogic.com>
-Date: Mon, 25 Oct 2010 12:38:33 -0700
-Subject: [net-next PATCH 1/3] qlge: Restoring the vlan setting.
+> 
+> Current Linus master x86-64 allyesconfig fails with
+> 
+> drivers/built-in.o: In function `tms380tr_chipset_init':
+> tms380tr.c:(.text+0x10f02de): undefined reference to `__bad_udelay'
+> tms380tr.c:(.text+0x10f03ab): undefined reference to `__bad_udelay'
+> tms380tr.c:(.text+0x10f0400): undefined reference to `__bad_udelay'
+> tms380tr.c:(.text+0x10f07b2): undefined reference to `__bad_udelay'
+> tms380tr.c:(.text+0x10f08ed): undefined reference to `__bad_udelay'
+> make[2]: *** [.tmp_vmlinux1] Error 1
 
-Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
+Let me know if this fixes things:
+
+--------------------
+tms380tr: Use mdelay() in tms380tr_wait().
+
+This driver tries to do up to half-second udelay()
+calls, which overflows on x86-64.
+
+Reported-by: Andi Kleen <andi@firstfloor.org>
+Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- drivers/net/qlge/qlge_main.c |   17 +++++++++++++++++
- 1 files changed, 17 insertions(+), 0 deletions(-)
+ drivers/net/tokenring/tms380tr.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/qlge/qlge_main.c b/drivers/net/qlge/qlge_main.c
-index ba0053d..5077d38 100644
---- a/drivers/net/qlge/qlge_main.c
-+++ b/drivers/net/qlge/qlge_main.c
-@@ -2382,6 +2382,20 @@ static void qlge_vlan_rx_kill_vid(struct net_device *ndev, u16 vid)
- 
+diff --git a/drivers/net/tokenring/tms380tr.c b/drivers/net/tokenring/tms380tr.c
+index 663b886..7930203 100644
+--- a/drivers/net/tokenring/tms380tr.c
++++ b/drivers/net/tokenring/tms380tr.c
+@@ -1220,7 +1220,7 @@ void tms380tr_wait(unsigned long time)
+ 		tmp = schedule_timeout_interruptible(tmp);
+ 	} while(time_after(tmp, jiffies));
+ #else
+-	udelay(time);
++	mdelay(time / 1000);
+ #endif
  }
  
-+static void qlge_restore_vlan(struct ql_adapter *qdev)
-+{
-+	qlge_vlan_rx_register(qdev->ndev, qdev->vlgrp);
-+
-+	if (qdev->vlgrp) {
-+		u16 vid;
-+		for (vid = 0; vid < VLAN_N_VID; vid++) {
-+			if (!vlan_group_get_device(qdev->vlgrp, vid))
-+				continue;
-+			qlge_vlan_rx_add_vid(qdev->ndev, vid);
-+		}
-+	}
-+}
-+
- /* MSI-X Multiple Vector Interrupt Handler for inbound completions. */
- static irqreturn_t qlge_msix_rx_isr(int irq, void *dev_id)
- {
-@@ -3957,6 +3971,9 @@ static int ql_adapter_up(struct ql_adapter *qdev)
- 	clear_bit(QL_PROMISCUOUS, &qdev->flags);
- 	qlge_set_multicast_list(qdev->ndev);
- 
-+	/* Restore vlan setting. */
-+	qlge_restore_vlan(qdev);
-+
- 	ql_enable_interrupts(qdev);
- 	ql_enable_all_completion_interrupts(qdev);
- 	netif_tx_start_all_queues(qdev->ndev);
 -- 
-1.6.0.2
+1.7.3.2
 
