@@ -1,70 +1,99 @@
 From: Somnath Kotur <somnath.kotur@emulex.com>
-Subject: [PATCH net-next-2.6 1/2] be2net: Adding an option to use INTx
- instead of MSI-X
-Date: Mon, 25 Oct 2010 16:42:35 +0530
-Message-ID: <20101025111235.GA2024@emulex.com>
+Subject: [PATCH net-next-2.6 2/2] be2net: Schedule/Destroy worker thread in
+ probe()/remove() rather than open()/close()
+Date: Mon, 25 Oct 2010 16:43:01 +0530
+Message-ID: <20101025111301.GA2039@emulex.com>
 Reply-To: Somnath Kotur <somnath.kotur@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht1.emulex.com ([138.239.113.183]:44728 "EHLO
+Received: from exht1.emulex.com ([138.239.113.183]:44730 "EHLO
 	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753417Ab0JYLMx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Oct 2010 07:12:53 -0400
+	with ESMTP id S1753506Ab0JYLNX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Oct 2010 07:13:23 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-By default, be2net uses MSIx wherever possible.
-Adding a module parameter to use INTx for users who do not want to use MSIx.
+When async mcc compls are rcvd on an i/f that is down (and so interrupts are disabled)
+they just lie unprocessed in the compl queue.The compl queue can eventually get filled
+up and cause the BE to lock up.The fix is to use be_worker to reap mcc compls when the
+i/f is down.be_worker is now launched in be_probe() and canceled in be_remove().
 
 Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
 ---
- drivers/net/benet/be_main.c |   12 +++++++++++-
- 1 files changed, 11 insertions(+), 1 deletions(-)
+ drivers/net/benet/be_main.c |   22 ++++++++++++++++++----
+ 1 files changed, 18 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
-index 45b1f66..1262292 100644
+index 1262292..2546273 100644
 --- a/drivers/net/benet/be_main.c
 +++ b/drivers/net/benet/be_main.c
-@@ -27,10 +27,13 @@ MODULE_LICENSE("GPL");
+@@ -1809,6 +1809,20 @@ static void be_worker(struct work_struct *work)
+ 	struct be_rx_obj *rxo;
+ 	int i;
  
- static unsigned int rx_frag_size = 2048;
- static unsigned int num_vfs;
-+static unsigned int msix = 1;
- module_param(rx_frag_size, uint, S_IRUGO);
- module_param(num_vfs, uint, S_IRUGO);
-+module_param(msix, uint, S_IRUGO);
- MODULE_PARM_DESC(rx_frag_size, "Size of a fragment that holds rcvd data.");
- MODULE_PARM_DESC(num_vfs, "Number of PCI VFs to initialize");
-+MODULE_PARM_DESC(msix, "Enable/Disable the MSIx (MSIx enabled by default)");
- 
- static bool multi_rxq = true;
- module_param(multi_rxq, bool, S_IRUGO | S_IWUSR);
-@@ -2856,7 +2859,8 @@ static int __devinit be_probe(struct pci_dev *pdev,
- 	if (status)
- 		goto stats_clean;
- 
--	be_msix_enable(adapter);
-+	if (msix)
-+		be_msix_enable(adapter);
- 
- 	INIT_DELAYED_WORK(&adapter->work, be_worker);
- 
-@@ -3082,6 +3086,12 @@ static int __init be_init_module(void)
- 		num_vfs = 32;
- 	}
- 
-+	if (!msix && num_vfs > 0) {
-+		printk(KERN_WARNING DRV_NAME
-+			" : MSIx required for num_vfs > 0. Ignoring msix=0\n");
-+		msix = 1;
++	/* when interrupts are not yet enabled, just reap any pending
++	* mcc completions */
++	if (!netif_running(adapter->netdev)) {
++		int mcc_compl, status = 0;
++
++		mcc_compl = be_process_mcc(adapter, &status);
++
++		if (mcc_compl) {
++			struct be_mcc_obj *mcc_obj = &adapter->mcc_obj;
++			be_cq_notify(adapter, mcc_obj->cq.id, false, mcc_compl);
++		}
++		goto reschedule;
 +	}
 +
- 	return pci_register_driver(&be_driver);
+ 	if (!adapter->stats_ioctl_sent)
+ 		be_cmd_get_stats(adapter, &adapter->stats_cmd);
+ 
+@@ -1827,6 +1841,7 @@ static void be_worker(struct work_struct *work)
+ 	if (!adapter->ue_detected)
+ 		be_detect_dump_ue(adapter);
+ 
++reschedule:
+ 	schedule_delayed_work(&adapter->work, msecs_to_jiffies(1000));
  }
- module_init(be_init_module);
+ 
+@@ -2022,8 +2037,6 @@ static int be_close(struct net_device *netdev)
+ 	struct be_eq_obj *tx_eq = &adapter->tx_eq;
+ 	int vec, i;
+ 
+-	cancel_delayed_work_sync(&adapter->work);
+-
+ 	be_async_mcc_disable(adapter);
+ 
+ 	netif_stop_queue(netdev);
+@@ -2088,8 +2101,6 @@ static int be_open(struct net_device *netdev)
+ 	/* Now that interrupts are on we can process async mcc */
+ 	be_async_mcc_enable(adapter);
+ 
+-	schedule_delayed_work(&adapter->work, msecs_to_jiffies(100));
+-
+ 	status = be_cmd_link_status_query(adapter, &link_up, &mac_speed,
+ 			&link_speed);
+ 	if (status)
+@@ -2718,6 +2729,8 @@ static void __devexit be_remove(struct pci_dev *pdev)
+ 	if (!adapter)
+ 		return;
+ 
++	cancel_delayed_work_sync(&adapter->work);
++
+ 	unregister_netdev(adapter->netdev);
+ 
+ 	be_clear(adapter);
+@@ -2874,6 +2887,7 @@ static int __devinit be_probe(struct pci_dev *pdev,
+ 		goto unsetup;
+ 
+ 	dev_info(&pdev->dev, "%s port %d\n", nic_name(pdev), adapter->port_num);
++	schedule_delayed_work(&adapter->work, msecs_to_jiffies(100));
+ 	return 0;
+ 
+ unsetup:
 -- 
 1.5.6.1
 
