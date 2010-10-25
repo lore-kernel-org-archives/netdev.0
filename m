@@ -1,37 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: b43legacy: fix compile error
-Date: Mon, 25 Oct 2010 21:56:52 +0200
-Message-ID: <1288036613.2451.2.camel@edumazet-laptop>
-References: <1288017690-31248-1-git-send-email-arnd@arndnet.de>
-	 <4CC5A301.1080606@lwfinger.net> <1288021905.2826.142.camel@edumazet-laptop>
-	 <4CC5C863.9070801@lwfinger.net>
+From: Ron Mercer <ron.mercer@qlogic.com>
+Subject: Re: [net-next PATCH 1/3] qlge: Restoring the vlan setting.
+Date: Mon, 25 Oct 2010 12:46:33 -0700
+Message-ID: <20101025194632.GA3545@linux-ox1b.qlogic.org>
+References: <1288023473-31490-1-git-send-email-ron.mercer@qlogic.com> <1288023473-31490-2-git-send-email-ron.mercer@qlogic.com> <20101025.120739.104054830.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Arnd Hannemann <arnd@arndnet.de>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>,
+	Ying Ping Lok <ying.lok@qlogic.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:42126 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757555Ab0JYT5X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Oct 2010 15:57:23 -0400
-In-Reply-To: <4CC5C863.9070801@lwfinger.net>
+Received: from cain.qlogic.com ([198.70.193.223]:61716 "EHLO cain.qlc.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1757502Ab0JYT6d (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Oct 2010 15:58:33 -0400
+Content-Disposition: inline
+In-Reply-To: <20101025.120739.104054830.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 25 octobre 2010 =C3=A0 13:11 -0500, Larry Finger a =C3=A9crit =
-:
 
-> I have no idea why that header was included - likely historical in th=
-e
-> transformation from bcm43xx to b43legacy. For completeness, there are=
- 2 more
-> places to change:
+>From 4981e8d94411b282040bcee89f08e16eef5c608c Mon Sep 17 00:00:00 2001
+From: Ron Mercer <ron.mercer@qlogic.com>
+Date: Mon, 25 Oct 2010 12:38:33 -0700
+Subject: [net-next PATCH 1/3] qlge: Restoring the vlan setting.
 
-Anyway, Arnd patch is fine by me, I didnt want to supply an alternate
-patch.
+Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
+---
+ drivers/net/qlge/qlge_main.c |   17 +++++++++++++++++
+ 1 files changed, 17 insertions(+), 0 deletions(-)
 
-I only was wondering why the include was in this driver...
+diff --git a/drivers/net/qlge/qlge_main.c b/drivers/net/qlge/qlge_main.c
+index ba0053d..5077d38 100644
+--- a/drivers/net/qlge/qlge_main.c
++++ b/drivers/net/qlge/qlge_main.c
+@@ -2382,6 +2382,20 @@ static void qlge_vlan_rx_kill_vid(struct net_device *ndev, u16 vid)
+ 
+ }
+ 
++static void qlge_restore_vlan(struct ql_adapter *qdev)
++{
++	qlge_vlan_rx_register(qdev->ndev, qdev->vlgrp);
++
++	if (qdev->vlgrp) {
++		u16 vid;
++		for (vid = 0; vid < VLAN_N_VID; vid++) {
++			if (!vlan_group_get_device(qdev->vlgrp, vid))
++				continue;
++			qlge_vlan_rx_add_vid(qdev->ndev, vid);
++		}
++	}
++}
++
+ /* MSI-X Multiple Vector Interrupt Handler for inbound completions. */
+ static irqreturn_t qlge_msix_rx_isr(int irq, void *dev_id)
+ {
+@@ -3957,6 +3971,9 @@ static int ql_adapter_up(struct ql_adapter *qdev)
+ 	clear_bit(QL_PROMISCUOUS, &qdev->flags);
+ 	qlge_set_multicast_list(qdev->ndev);
+ 
++	/* Restore vlan setting. */
++	qlge_restore_vlan(qdev);
++
+ 	ql_enable_interrupts(qdev);
+ 	ql_enable_all_completion_interrupts(qdev);
+ 	netif_tx_start_all_queues(qdev->ndev);
+-- 
+1.6.0.2
 
