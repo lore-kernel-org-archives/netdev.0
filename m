@@ -1,26 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: FYI: net-2.6 and net-next-2.6 rebased
-Date: Sun, 24 Oct 2010 16:55:14 -0700 (PDT)
-Message-ID: <20101024.165514.52187613.davem@davemloft.net>
+From: Harvey Harrison <harvey.harrison@gmail.com>
+Subject: Re: [PATCH 3/3] vmxnet3: fix typo setting confPA
+Date: Sun, 24 Oct 2010 18:46:27 -0700
+Message-ID: <AANLkTi=XUrRsNqCfMsyMQoXj2ufe-RPwrbNJMBTvttvW@mail.gmail.com>
+References: <AANLkTinBGP1gzUCFN2n1xBGZydEnUKoZYPKd1_WbF1gY@mail.gmail.com>
+	<89E2752CFA8EC044846EB8499819134102BF28D66D@EXCH-MBX-4.vmware.com>
+	<AANLkTimy5Pg1aUMfCZG+r+Zb=A_udx8NsYf3TXVHHTsf@mail.gmail.com>
+	<20101024.154417.116368884.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	kaber@trash.net, linville@tuxdriver.com, sfr@canb.auug.org.au
-To: netdev@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: sbhatewara@vmware.com, netdev@vger.kernel.org,
+	shemminger@vyatta.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:57914 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752332Ab0JYBq1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Oct 2010 21:46:27 -0400
+Received: by iwn10 with SMTP id 10so129841iwn.19
+        for <netdev@vger.kernel.org>; Sun, 24 Oct 2010 18:46:27 -0700 (PDT)
+In-Reply-To: <20101024.154417.116368884.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Sun, Oct 24, 2010 at 3:44 PM, David Miller <davem@davemloft.net> wrote:
+> From: Harvey Harrison <harvey.harrison@gmail.com>
+>> <sbhatewara@vmware.com> wrote:
+>>> Because values need to be written in LE orders in registers. For eg. when rx_ring.next2fill index is written to RXPROD reg, it should be converted from CPU order to LE.
+>>
+>> Yes, but (unless I'm mistaken) writel always writes out in
+>> little-endian, so there isn't a need to swap the arguments,
+>> similarly for readl in the other direction.
+>
+> That's right, readl() and writel() translate to little-endian.
+>
 
-I've rebased both the net-2.6 and net-next-2.6 trees.
+OK, I'll submit patches for this and one more endian fix I found (only
+visible on BE)
 
-All of the commits that were in those trees are in Linus's
-tree now, so in fact this event ought to be %100 transparent
-for people pulling from my trees.
-
-No commits will appear in net-next-2.6 until the merge
-window is closed, it's just a dummy clone of Linus's current
-tree so that Stephen Rothwell's -next pulls "just work."
-
-Thanks.
+Harvey
