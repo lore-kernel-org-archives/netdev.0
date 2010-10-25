@@ -1,32 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next] pch_can: depends on PCI
-Date: Mon, 25 Oct 2010 16:47:47 -0700 (PDT)
-Message-ID: <20101025.164747.189713145.davem@davemloft.net>
-References: <20101025145834.9b68e026.sfr@canb.auug.org.au>
-	<20101025162524.570fc82a.randy.dunlap@oracle.com>
+Subject: Re: __bad_udelay in network driver breaks build
+Date: Mon, 25 Oct 2010 16:48:20 -0700 (PDT)
+Message-ID: <20101025.164820.112608218.davem@davemloft.net>
+References: <20101018115230.GA27565@basil.fritz.box>
+	<20101025.130513.102558756.davem@davemloft.net>
+	<20101025221042.GE17622@basil.fritz.box>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	akpm@linux-foundation.org
-To: randy.dunlap@oracle.com
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20101025162524.570fc82a.randy.dunlap@oracle.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com,
+	alexander.h.duyck@intel.com
+To: andi@firstfloor.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52737
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758333Ab0JYXr5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Oct 2010 19:47:57 -0400
+In-Reply-To: <20101025221042.GE17622@basil.fritz.box>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Date: Mon, 25 Oct 2010 16:25:24 -0700
+From: Andi Kleen <andi@firstfloor.org>
+Date: Tue, 26 Oct 2010 00:10:42 +0200
 
-> From: Randy Dunlap <randy.dunlap@oracle.com>
-> 
-> Fix pch_can build when CONFIG_PCI is not enabled.  It uses pci interfaces
-> and data structures, so it should depend on PCI.
-> 
-> drivers/net/can/pch_can.c:1044: error: implicit declaration of function 'pci_enable_msi'
-> drivers/net/can/pch_can.c:1079: error: implicit declaration of function 'pci_disable_msi'
-> 
-> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+> In file included from /home/lsrc/git/linux-2.6/drivers/net/igbvf/ethtool.c:36:0:
+> /home/lsrc/git/linux-2.6/drivers/net/igbvf/igbvf.h:129:15: error: duplicate member 'page'
+> make[5]: *** [drivers/net/igbvf/ethtool.o] Error 1
+> make[4]: *** [drivers/net/igbvf] Error 2
 
-Applied, thanks Randy.
+Oh that's fun :-)
+
+Intel folks please take a look.
