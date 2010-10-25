@@ -1,28 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: build failure after merge of the final tree
- (net-current tree related)
-Date: Sun, 24 Oct 2010 22:26:02 -0700 (PDT)
-Message-ID: <20101024.222602.71095343.davem@davemloft.net>
-References: <20101025141956.d8f0888f.sfr@canb.auug.org.au>
+Subject: Re: [Security] TIPC security issues
+Date: Sun, 24 Oct 2010 22:28:38 -0700 (PDT)
+Message-ID: <20101024.222838.104033980.davem@davemloft.net>
+References: <AANLkTi=V93A660+YS8C2TvC13kGUcJpFgjPHUvONd_WW@mail.gmail.com>
+	<20101024.191415.226787411.davem@davemloft.net>
+	<AANLkTinXmKrf+wovco0j_aBuB7=qSq42+bVCM-amfL7W@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, shemminger@vyatta.com,
-	jchapman@katalix.com
-To: sfr@canb.auug.org.au
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20101025141956.d8f0888f.sfr@canb.auug.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: drosenberg@vsecurity.com, jon.maloy@ericsson.com,
+	allan.stephens@windriver.com, netdev@vger.kernel.org,
+	security@kernel.org
+To: torvalds@linux-foundation.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41381
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751296Ab0JYF2P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Oct 2010 01:28:15 -0400
+In-Reply-To: <AANLkTinXmKrf+wovco0j_aBuB7=qSq42+bVCM-amfL7W@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Mon, 25 Oct 2010 14:19:56 +1100
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Sun, 24 Oct 2010 20:42:39 -0700
 
-> I wish doing that caused a build failure on other architectures ...
+> David - the issue is _security_. The way to fix security problems is
+> not to say "most things handle this correctly". The way to avoid them
+> is to have several layers of handling things correctly, so that even
+> when one turns out to be broken, the others still protect it.
 
-Me too :-/
-
-> Subject: [PATCH] l2tp: static functions should not be exported
-
-I'll add this thanks Stephen.
+Fair enough.
