@@ -1,14 +1,14 @@
 From: Jeff Hansen <x@jeffhansen.com>
-Subject: [PATCH] net/unix: Allow Unix sockets to be treated like normal files.
-Date: Mon, 25 Oct 2010 04:35:44 +0000
-Message-ID: <1287981344-23828-1-git-send-email-x@jeffhansen.com>
+Subject: [PATCH] net/unix: Allow Unix sockets to be treated like normal files. (round 2)
+Date: Mon, 25 Oct 2010 04:59:10 +0000
+Message-ID: <1287982750-24083-1-git-send-email-x@jeffhansen.com>
 Cc: x@jeffhansen.com, Dave Miller <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:48660 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750949Ab0JYEfu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Oct 2010 00:35:50 -0400
+Received: from out01.mta.xmission.com ([166.70.13.231]:55768 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751026Ab0JYE7P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Oct 2010 00:59:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -133,7 +133,7 @@ index 0ebc777..feb5877 100644
 +	if (_len > 0xffffffffLL) \
 +		return -E2BIG; \
 +\
-+	err = sock_sendmsg(sock, &msg, len); \
++	err = fop; \
 +	if (err > 0 && ppos) \
 +		*ppos += err; \
 +\
