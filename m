@@ -1,48 +1,37 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next-2.6 1/2] be2net: Adding an option to use INTx instead of MSI-X
-Date: Mon, 25 Oct 2010 23:38:53 +0100
-Message-ID: <20101025223853.GD15074@solarflare.com>
-References: <20101025111235.GA2024@emulex.com> <20101025.120943.189699949.davem@davemloft.net>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [RFC][net-next-2.6 PATCH 1/4] net: consolidate 8021q tagging
+Date: Mon, 25 Oct 2010 15:44:45 -0700
+Message-ID: <AANLkTikwH39XsWBQXB6YUa6q5YCoT6NXTg1cJAdFfL3n@mail.gmail.com>
+References: <20101021221004.22906.58438.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: somnath.kotur@emulex.com, netdev@vger.kernel.org,
-	linux-pci@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:50747 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751305Ab0JYWi5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Oct 2010 18:38:57 -0400
-Content-Disposition: inline
-In-Reply-To: <20101025.120943.189699949.davem@davemloft.net>
+Received: from mail-gx0-f174.google.com ([209.85.161.174]:46950 "EHLO
+	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751171Ab0JYWoq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Oct 2010 18:44:46 -0400
+Received: by gxk23 with SMTP id 23so2273479gxk.19
+        for <netdev@vger.kernel.org>; Mon, 25 Oct 2010 15:44:45 -0700 (PDT)
+In-Reply-To: <20101021221004.22906.58438.stgit@jf-dev1-dcblab>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Somnath Kotur <somnath.kotur@emulex.com>
-> Date: Mon, 25 Oct 2010 16:42:35 +0530
-> 
-> > By default, be2net uses MSIx wherever possible.
-> > Adding a module parameter to use INTx for users who do not want to use MSIx.
-> > 
-> > Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
-> 
-> Either add a new ethtool flag, or use the PCI subsystem facilities
-> for tweaking things to implement this.
+On Thu, Oct 21, 2010 at 3:10 PM, John Fastabend
+<john.r.fastabend@intel.com> wrote:
+> Now that VLAN packets are tagged in dev_hard_start_xmit()
+> at the bottom of the stack we no longer need to tag them
+> in the 8021Q module (Except in the !VLAN_FLAG_REORDER_HDR
+> case).
 >
-> Do not use a module option, otherwise every other networking driver
-> author will get the same "cool" idea, give the module option
-> different names, and the resulting user experience is terrible.
+> This allows the accel path and non accel paths to be consolidated.
+> Here the vlan_tci in the skb is always set and we allow the
+> stack to add the actual tag in dev_hard_start_xmit().
+>
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 
-This has already happened, sadly.  So far as I can see it's mostly done
-to allow users to work around systems with broken MSIs; I'm not aware of
-any other reason to prefer legacy interrupts.  However, the PCI subsystem
-already implements a blacklist and a kernel parameter for disabling MSIs
-on these systems.
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+This makes sense.  The only other thing that I would do is drop the
+vlan_dev_info(dev)->cnt_encap_on_xmit and
+vlan_dev_info(dev)->cnt_inc_headroom_on_tx variables.  Nothing will
+ever increment them anymore.
