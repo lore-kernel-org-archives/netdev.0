@@ -1,69 +1,56 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH] drivers: rtl818x: request DMA-able memory
-Date: Mon, 25 Oct 2010 10:22:32 -0400
-Message-ID: <20101025142232.GC2414@tuxdriver.com>
-References: <1287952327-9924-1-git-send-email-sez@debian.org>
- <4CC5851D.1040204@lwfinger.net>
- <4CC5900A.2050209@users.sourceforge.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Larry Finger <Larry.Finger@lwfinger.net>,
-	Serafeim Zanikolas <sez@debian.org>, herton@mandriva.com.br,
-	joe@perches.com, davem@davemloft.net,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Hin-Tak Leung <htl10@users.sourceforge.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:48305 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755891Ab0JYOaN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Oct 2010 10:30:13 -0400
-Content-Disposition: inline
-In-Reply-To: <4CC5900A.2050209@users.sourceforge.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Hannemann <arnd@arndnet.de>
+Subject: [PATCH] net: b43legacy: fix compile error
+Date: Mon, 25 Oct 2010 16:41:30 +0200
+Message-ID: <1288017690-31248-1-git-send-email-arnd@arndnet.de>
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-wireless@vger.kernel.org, Arnd Hannemann <arnd@arndnet.de>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 25, 2010 at 03:11:22PM +0100, Hin-Tak Leung wrote:
-> 
-> 
-> Larry Finger wrote:
-> >On 10/24/2010 03:32 PM, Serafeim Zanikolas wrote:
-> >>Despite the indicated intention in comment, the kmalloc() call was not
-> >>explicitly requesting memory from ZONE_DMA.
-> >>
-> >>Signed-off-by: Serafeim Zanikolas <sez@debian.org>
-> >>---
-> >> drivers/net/wireless/rtl818x/rtl8187_dev.c |    3 ++-
-> >> 1 files changed, 2 insertions(+), 1 deletions(-)
-> >>
-> >>diff --git a/drivers/net/wireless/rtl818x/rtl8187_dev.c b/drivers/net/wireless/rtl818x/rtl8187_dev.c
-> >>index 38fa824..771794d 100644
-> >>--- a/drivers/net/wireless/rtl818x/rtl8187_dev.c
-> >>+++ b/drivers/net/wireless/rtl818x/rtl8187_dev.c
-> >>@@ -1343,7 +1343,8 @@ static int __devinit rtl8187_probe(struct usb_interface *intf,
-> >> 	priv->is_rtl8187b = (id->driver_info == DEVICE_RTL8187B);
-> >> 	/* allocate "DMA aware" buffer for register accesses */
-> >>-	priv->io_dmabuf = kmalloc(sizeof(*priv->io_dmabuf), GFP_KERNEL);
-> >>+	priv->io_dmabuf = kmalloc(sizeof(*priv->io_dmabuf),
-> >>+				  GFP_DMA | GFP_KERNEL);
-> >> 	if (!priv->io_dmabuf) {
-> >> 		err = -ENOMEM;
-> >> 		goto err_free_dev;
-> >
-> >ACK.
-> >
-> >Larry
-> 
-> Acked-by: Hin-Tak Leung <htl10@users.sourceforge.net>
-> 
-> I had a quick look for similiar constructs and AFAIK only the
-> b43/b43legacy drivers uses DMA buffers. Seems to be a rare practice.
-> Is that something we should or should not do?
+On todays linus tree the following compile error happened to me:
 
-It doesn't mean what you think it means.  It is a relic of the past,
-used to indicate memory below 16MB so that ISA devices could do DMA.
+  CC [M]  drivers/net/wireless/b43legacy/xmit.o
+In file included from include/net/dst.h:11,
+                 from drivers/net/wireless/b43legacy/xmit.c:31:
+include/net/dst_ops.h:28: error: expected ':', ',', ';', '}' or '__attribute__' before '____cacheline_aligned_in_smp'
+include/net/dst_ops.h: In function 'dst_entries_get_fast':
+include/net/dst_ops.h:33: error: 'struct dst_ops' has no member named 'pcpuc_entries'
+include/net/dst_ops.h: In function 'dst_entries_get_slow':
+include/net/dst_ops.h:41: error: 'struct dst_ops' has no member named 'pcpuc_entries'
+include/net/dst_ops.h: In function 'dst_entries_add':
+include/net/dst_ops.h:49: error: 'struct dst_ops' has no member named 'pcpuc_entries'
+include/net/dst_ops.h: In function 'dst_entries_init':
+include/net/dst_ops.h:55: error: 'struct dst_ops' has no member named 'pcpuc_entries'
+include/net/dst_ops.h: In function 'dst_entries_destroy':
+include/net/dst_ops.h:60: error: 'struct dst_ops' has no member named 'pcpuc_entries'
+make[4]: *** [drivers/net/wireless/b43legacy/xmit.o] Error 1
+make[3]: *** [drivers/net/wireless/b43legacy] Error 2
+make[2]: *** [drivers/net/wireless] Error 2
+make[1]: *** [drivers/net] Error 2
+make: *** [drivers] Error 2
 
-John
+This patch fixes this issue by adding "linux/cache.h" as an include to
+"include/net/dst_ops.h".
+
+Signed-off-by: Arnd Hannemann <arnd@arndnet.de>
+---
+ include/net/dst_ops.h |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/include/net/dst_ops.h b/include/net/dst_ops.h
+index 1fa5306..51665b3 100644
+--- a/include/net/dst_ops.h
++++ b/include/net/dst_ops.h
+@@ -2,6 +2,7 @@
+ #define _NET_DST_OPS_H
+ #include <linux/types.h>
+ #include <linux/percpu_counter.h>
++#include <linux/cache.h>
+ 
+ struct dst_entry;
+ struct kmem_cachep;
 -- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+1.7.0.4
