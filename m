@@ -1,117 +1,88 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] net: add __rcu annotation to sk_filter
-Date: Mon, 25 Oct 2010 15:47:05 +0200
-Message-ID: <1288014425.2826.126.camel@edumazet-laptop>
+From: <Shyam_Iyer@Dell.com>
+Subject: RE: Question w.r.t debugfs / netdevice pass-through IOCTL
+Date: Mon, 25 Oct 2010 06:48:28 -0700
+Message-ID: <DBFB1B45AF80394ABD1C807E9F28D1570262CCC3BD@BLRX7MCDC203.AMER.DELL.COM>
+References: <F363E7AC84E1B646A0358B281A46F4AEABA0FFCC68@HQ1-EXCH03.corp.brocade.com>
+ <20101020211900.79b8336f@nehalam> <4CC0A0E9.9090903@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <ddutt@Brocade.COM>, <netdev@vger.kernel.org>
+To: <john.r.fastabend@intel.com>, <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:48771 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751164Ab0JYNrK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Oct 2010 09:47:10 -0400
-Received: by wwe15 with SMTP id 15so3507504wwe.1
-        for <netdev@vger.kernel.org>; Mon, 25 Oct 2010 06:47:09 -0700 (PDT)
+Received: from ausc60pc101.us.dell.com ([143.166.85.206]:17529 "EHLO
+	ausc60pc101.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755465Ab0JYNta convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Oct 2010 09:49:30 -0400
+In-Reply-To: <4CC0A0E9.9090903@intel.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add __rcu annotation to :
-        (struct sock)->sk_filter
-
-And use appropriate rcu primitives to reduce sparse warnings if
-CONFIG_SPARSE_RCU_POINTER=y
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- include/net/sock.h |    2 +-
- net/core/filter.c  |    4 ++--
- net/core/sock.c    |    2 +-
- net/ipv4/udp.c     |    2 +-
- net/ipv6/raw.c     |    2 +-
- net/ipv6/udp.c     |    2 +-
- 6 files changed, 7 insertions(+), 7 deletions(-)
-
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 73a4f97..c7a7362 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -301,7 +301,7 @@ struct sock {
- 	const struct cred	*sk_peer_cred;
- 	long			sk_rcvtimeo;
- 	long			sk_sndtimeo;
--	struct sk_filter      	*sk_filter;
-+	struct sk_filter __rcu	*sk_filter;
- 	void			*sk_protinfo;
- 	struct timer_list	sk_timer;
- 	ktime_t			sk_stamp;
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 7adf503..7beaec3 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -89,8 +89,8 @@ int sk_filter(struct sock *sk, struct sk_buff *skb)
- 	rcu_read_lock_bh();
- 	filter = rcu_dereference_bh(sk->sk_filter);
- 	if (filter) {
--		unsigned int pkt_len = sk_run_filter(skb, filter->insns,
--				filter->len);
-+		unsigned int pkt_len = sk_run_filter(skb, filter->insns, filter->len);
-+
- 		err = pkt_len ? pskb_trim(skb, pkt_len) : -EPERM;
- 	}
- 	rcu_read_unlock_bh();
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 11db436..3eed542 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1225,7 +1225,7 @@ struct sock *sk_clone(const struct sock *sk, const gfp_t priority)
- 		sock_reset_flag(newsk, SOCK_DONE);
- 		skb_queue_head_init(&newsk->sk_error_queue);
- 
--		filter = newsk->sk_filter;
-+		filter = rcu_dereference_protected(newsk->sk_filter, 1);
- 		if (filter != NULL)
- 			sk_filter_charge(newsk, filter);
- 
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index b3f7e8c..28cb2d7 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1413,7 +1413,7 @@ int udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
- 		}
- 	}
- 
--	if (sk->sk_filter) {
-+	if (rcu_dereference_raw(sk->sk_filter)) {
- 		if (udp_lib_checksum_complete(skb))
- 			goto drop;
- 	}
-diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-index 45e6efb..86c3952 100644
---- a/net/ipv6/raw.c
-+++ b/net/ipv6/raw.c
-@@ -373,7 +373,7 @@ void raw6_icmp_error(struct sk_buff *skb, int nexthdr,
- 
- static inline int rawv6_rcv_skb(struct sock * sk, struct sk_buff * skb)
- {
--	if ((raw6_sk(sk)->checksum || sk->sk_filter) &&
-+	if ((raw6_sk(sk)->checksum || rcu_dereference_raw(sk->sk_filter)) &&
- 	    skb_checksum_complete(skb)) {
- 		atomic_inc(&sk->sk_drops);
- 		kfree_skb(skb);
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index c84dad4..91def93 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -527,7 +527,7 @@ int udpv6_queue_rcv_skb(struct sock * sk, struct sk_buff *skb)
- 		}
- 	}
- 
--	if (sk->sk_filter) {
-+	if (rcu_dereference_raw(sk->sk_filter)) {
- 		if (udp_lib_checksum_complete(skb))
- 			goto drop;
- 	}
 
 
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On Behalf Of John Fastabend
+> Sent: Thursday, October 21, 2010 4:22 PM
+> To: Stephen Hemminger
+> Cc: Debashis Dutt; netdev@vger.kernel.org
+> Subject: Re: Question w.r.t debugfs / netdevice pass-through IOCTL
+> 
+> On 10/20/2010 9:19 PM, Stephen Hemminger wrote:
+> > On Wed, 20 Oct 2010 20:26:50 -0700
+> > Debashis Dutt <ddutt@Brocade.COM> wrote:
+> >
+> >> Hi,
+> >>
+> >> For the Brocade 10G Ethernet driver (bna) we want to implement a set of operations which is not
+> supported by current tools like ethtool.
+> >>
+> >> Examples of such operations would be
+> >>        a) Queries related to CEE, if the link is CEE.
+> 
+> Assuming CEE is Converged Enhanced Ethernet here.
+> 
+> For CEE queries please consider using the dcbnl interface in /net/dcb/dcbnl.c. If
+> it is missing an interface that would be useful to all DCB devices we could
+> entertain adding it. Also this way DCB queries will work with existing tools that
+> query these things lldpad/dcbtool.
+> 
+> The things you would want to know about a CEE device should be about the same
+> regardless of the hardware in use lets try to use a single interface and avoid
+> private interfaces.
+
+John - I agree on this.. On a sidenote I would like the interface to not be netdev device specific.. 
+View the CEE device to be not just an Ethernet controller but a SCSI controller as well and hence if this interface can be generally accessible by other subsystems.
+
+> 
+> Thanks,
+> John.
+> 
+> >>        b) Get traces from firmware.
+> >
+> >>
+> >> I was wondering what would be right approach to take here:
+> >>                 a) use debugfs (like the Chelsio cxgb4 driver)
+> > Works as long as they are really debug operations. The debugfs isn't always
+> > available, and support should be a config option for your driver.
+> >
+> >>                 b) use SIOCDEVPRIVATE for the pass through IOCTL defined in
+> >>                     struct net_device_ops{}
+> >
+> > The problem with ioctl is it doesn't work for 32 bit user space
+> > compatiablity. The ioctl compat layer does not have enough context
+> > to translate SIOCDEVPRIVATE
+> >
+> >>                     As per comments in the header file, b) should not be used
+> >>                     since this IOCTL is supposed to be deprecated.
+> >>                 c) use procfs / sysfs (these may not scale, in our opinion)
+> >
+> > Although less common, there were drivers putting things in /proc/net/xxx/ethX
+> >
+> >
+> >
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
