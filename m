@@ -1,80 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Nested GRE locking bug
-Date: Mon, 25 Oct 2010 12:53:47 -0700 (PDT)
-Message-ID: <20101025.125347.28807251.davem@davemloft.net>
-References: <1287029519.2649.108.camel@edumazet-laptop>
-	<20101019.015303.104063240.davem@davemloft.net>
-	<1287478956.2676.13.camel@edumazet-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: b43legacy: fix compile error
+Date: Mon, 25 Oct 2010 21:56:52 +0200
+Message-ID: <1288036613.2451.2.camel@edumazet-laptop>
+References: <1288017690-31248-1-git-send-email-arnd@arndnet.de>
+	 <4CC5A301.1080606@lwfinger.net> <1288021905.2826.142.camel@edumazet-laptop>
+	 <4CC5C863.9070801@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ben@decadent.org.uk, netdev@vger.kernel.org,
-	beatrice.barbe@gmail.com, 599816@bugs.debian.org
-To: eric.dumazet@gmail.com
+Cc: Arnd Hannemann <arnd@arndnet.de>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org
+To: Larry Finger <Larry.Finger@lwfinger.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53027
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757502Ab0JYTxY convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Oct 2010 15:53:24 -0400
-In-Reply-To: <1287478956.2676.13.camel@edumazet-laptop>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:42126 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757555Ab0JYT5X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Oct 2010 15:57:23 -0400
+In-Reply-To: <4CC5C863.9070801@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 19 Oct 2010 11:02:36 +0200
+Le lundi 25 octobre 2010 =C3=A0 13:11 -0500, Larry Finger a =C3=A9crit =
+:
 
-> Le mardi 19 octobre 2010 =E0 01:53 -0700, David Miller a =E9crit :
->> From: Eric Dumazet <eric.dumazet@gmail.com>
->> Date: Thu, 14 Oct 2010 06:11:59 +0200
->>=20
->> > net-next-2.6 contains a fix for this, adding the perc_cpu
->> > xmit_recursion limit. We might push it to net-2.6
->>=20
->> We need to think a bit more about this.
->>=20
->> We are essentially now saying that one can only configure
->> tunnels 3 levels deep, and no more.
->>=20
->> I can guarentee you someone out there uses at least 4,
->> perhaps more.
->>=20
->> And those people will be broken by the new limit.
->>=20
->> So putting this into net-2.6 with such a low limit will
->> be quite dangerous.
->=20
-> Well limit is actually 4, but I get your point ;)
+> I have no idea why that header was included - likely historical in th=
+e
+> transformation from bcm43xx to b43legacy. For completeness, there are=
+ 2 more
+> places to change:
 
-I'll commit the following to upstream, and submit a combined
-patch to -stable.
+Anyway, Arnd patch is fine by me, I didnt want to supply an alternate
+patch.
 
---------------------
-net: Increase xmit RECURSION_LIMIT to 10.
-
-Three is definitely too low, and we know from reports that GRE tunnels
-stacked as deeply as 37 levels cause stack overflows, so pick some
-reasonable value between those two.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/core/dev.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 78b5a89..2c7da3a 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2213,7 +2213,7 @@ static inline int __dev_xmit_skb(struct sk_buff *=
-skb, struct Qdisc *q,
- }
-=20
- static DEFINE_PER_CPU(int, xmit_recursion);
--#define RECURSION_LIMIT 3
-+#define RECURSION_LIMIT 10
-=20
- /**
-  *	dev_queue_xmit - transmit a buffer
---=20
-1.7.3.2
+I only was wondering why the include was in this driver...
 
