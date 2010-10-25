@@ -1,37 +1,28 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next-2.6 v2] can: Topcliff: PCH_CAN driver: Fix
-	build warnings
-Date: Mon, 25 Oct 2010 12:14:55 -0700 (PDT)
-Message-ID: <20101025.121455.112605816.davem@davemloft.net>
-References: <4CC4EC38.2040208@dsn.okisemi.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/2] be2net: Fix CSO for UDP packets
+Date: Mon, 25 Oct 2010 12:15:40 -0700 (PDT)
+Message-ID: <20101025.121540.59673699.davem@davemloft.net>
+References: <20101025111158.GA2009@emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org,
-	sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org, morinaga526-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org,
-	joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, chripell-VaTbYqLCNhc@public.gmane.org,
-	qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-To: tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4CC4EC38.2040208-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: somnath.kotur@emulex.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40798
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759478Ab0JYTPR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Oct 2010 15:15:17 -0400
+In-Reply-To: <20101025111158.GA2009@emulex.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Tomoya <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Date: Mon, 25 Oct 2010 11:32:24 +0900
+From: Somnath Kotur <somnath.kotur@emulex.com>
+Date: Mon, 25 Oct 2010 16:41:58 +0530
 
-> @@ -255,21 +255,21 @@ static void pch_can_set_optmode(struct
-> pch_can_priv *priv)
+> We're setting skb->ip_summed to CHECKSUM_NONE for all non-TCP pkts, making the stack
+> recompute checksum.This is a bug for UDP pkts for which cso must be used.
+> 
+> Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
 
-This patch has been corrupted by your email client.
+Applied.
