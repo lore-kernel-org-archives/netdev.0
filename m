@@ -1,26 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] macb: Don't re-enable interrupts while in polling mode
-Date: Mon, 25 Oct 2010 12:15:50 -0700 (PDT)
-Message-ID: <20101025.121550.115922916.davem@davemloft.net>
-References: <C8F551D39A7C724E987CF8DD11D3178304D02F88@svr3.sixnetio.com>
-	<20101024.152306.48512783.davem@davemloft.net>
-	<C8F551D39A7C724E987CF8DD11D3178304D7CC86@svr3.sixnetio.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] mlx4_en: Fix out of bounds array access
+Date: Mon, 25 Oct 2010 12:16:01 -0700 (PDT)
+Message-ID: <20101025.121601.48518820.davem@davemloft.net>
+References: <20101025125647.GA7710@mtldesk30>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nicolas.ferre@atmel.com, jpirko@redhat.com,
-	peter.korsgaard@barco.com, eric.dumazet@gmail.com,
-	haavard.skinnemoen@atmel.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, akpm@linux-foundation.org
-To: Joshua.Hoke@sixnet.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <C8F551D39A7C724E987CF8DD11D3178304D7CC86@svr3.sixnetio.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org, rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: eli-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20101025125647.GA7710@mtldesk30>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: "Joshua Hoke" <Joshua.Hoke@sixnet.com>
-Date: Mon, 25 Oct 2010 07:44:22 -0400
+From: Eli Cohen <eli-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+Date: Mon, 25 Oct 2010 14:56:47 +0200
 
-> [PATCH] macb: Don't re-enable interrupts while in polling mode
+> When searching for a free entry in either mlx4_register_vlan() or
+> mlx4_register_mac(), and there is no free entry, the loop terminates without
+> updating the local variable free thus causing out of array bounds access. Fix
+> this by adding a proper check outside the loop.
+> 
+> Signed-off-by: Eli Cohen <eli-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
 
 Applied.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
