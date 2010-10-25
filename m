@@ -1,51 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] Enhance AF_PACKET implementation to not require high
- order contiguous memory allocation
-Date: Tue, 26 Oct 2010 00:30:56 +0200
-Message-ID: <1288045856.3296.19.camel@edumazet-laptop>
-References: <E1PAVIx-0001qL-EB@smtp.tuxdriver.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next-2.6 1/2] be2net: Adding an option to use INTx instead of MSI-X
+Date: Mon, 25 Oct 2010 23:38:53 +0100
+Message-ID: <20101025223853.GD15074@solarflare.com>
+References: <20101025111235.GA2024@emulex.com> <20101025.120943.189699949.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jpirko@redhat.com
-To: "nhorman@tuxdriver.com" <nhorman@tuxdriver.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: somnath.kotur@emulex.com, netdev@vger.kernel.org,
+	linux-pci@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:42133 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932166Ab0JYWbJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Oct 2010 18:31:09 -0400
-Received: by wyf28 with SMTP id 28so3936558wyf.19
-        for <netdev@vger.kernel.org>; Mon, 25 Oct 2010 15:31:08 -0700 (PDT)
-In-Reply-To: <E1PAVIx-0001qL-EB@smtp.tuxdriver.com>
+Received: from mail.solarflare.com ([216.237.3.220]:50747 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751305Ab0JYWi5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Oct 2010 18:38:57 -0400
+Content-Disposition: inline
+In-Reply-To: <20101025.120943.189699949.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 25 octobre 2010 =C3=A0 18:14 -0400, nhorman@tuxdriver.com a =C3=
-=A9crit :
-> I think I remember those changes and IIrc yes,  tcpdump will make
-> several attempts to get buffers of an appropriate size.  But while it
-> tries to do that it bogs the system trying to write out pagecahe,
-> swap, etc.  And that activity doesn't guarantee success.  His does
-> either, but getting 5 order 0 pages is far easier and less intrusive
-> to a loaded system than trying to get 1 order 4 chunk.  That's all I'=
-m
-> trying to accomplish here.  Just making it easier to use af_packet
-> sockets without interfering with system performance
->=20
+David Miller wrote:
+> From: Somnath Kotur <somnath.kotur@emulex.com>
+> Date: Mon, 25 Oct 2010 16:42:35 +0530
+> 
+> > By default, be2net uses MSIx wherever possible.
+> > Adding a module parameter to use INTx for users who do not want to use MSIx.
+> > 
+> > Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
+> 
+> Either add a new ethtool flag, or use the PCI subsystem facilities
+> for tweaking things to implement this.
+>
+> Do not use a module option, otherwise every other networking driver
+> author will get the same "cool" idea, give the module option
+> different names, and the resulting user experience is terrible.
 
-Actually, using vmalloc() would probably hurt performance, because of
-extra TLB pressure.
+This has already happened, sadly.  So far as I can see it's mostly done
+to allow users to work around systems with broken MSIs; I'm not aware of
+any other reason to prefer legacy interrupts.  However, the PCI subsystem
+already implements a blacklist and a kernel parameter for disabling MSIs
+on these systems.
 
-Of course, on recent x86 hardware you dont notice that much...
+Ben.
 
-If not, why af_packet would use such convoluted double array of
-'compound pages' ?
-
-Also, on x86_32, vmalloc()/vmap() space is small (128 MB) so you might
-exhaust it pretty fast with several sniffers running.
-
-I would try a two level thing : Try to get high order pages, and
-fallback on low order pages, but normally libpcap does this for us ?
-
-
-
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
