@@ -1,191 +1,208 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: [PATCH] net: b43legacy: fix compile error
-Date: Mon, 25 Oct 2010 13:59:51 -0500
-Message-ID: <4CC5D3A7.3080709@lwfinger.net>
-References: <1288017690-31248-1-git-send-email-arnd@arndnet.de> <4CC5A301.1080606@lwfinger.net> <4CC5CBC4.7060308@arndnet.de> <4CC5CE47.2020607@lwfinger.net> <4CC5D01C.20804@arndnet.de>
-Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------020507030607040009030501"
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Arnd Hannemann <arnd-BCMAnToX5e2ELgA04lAiVw@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4CC5D01C.20804-BCMAnToX5e2ELgA04lAiVw@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: nhorman@tuxdriver.com
+Subject: [PATCH] Enhance AF_PACKET implementation to not require high order contiguous memory allocation
+Date: Mon, 25 Oct 2010 15:06:06 -0400
+Message-ID: <1288033566-2091-1-git-send-email-nhorman@tuxdriver.com>
+Cc: davem@davemloft.net, eric.dumazet@gmail.com, jpirko@redhat.com,
+	Neil Horman <nhorman@tuxdriver.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:37525 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932760Ab0JYTG1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Oct 2010 15:06:27 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------020507030607040009030501
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+From: Neil Horman <nhorman@tuxdriver.com>
 
-On 10/25/2010 01:44 PM, Arnd Hannemann wrote:
-> Am 25.10.2010 20:36, schrieb Larry Finger:
->> On 10/25/2010 01:26 PM, Arnd Hannemann wrote:
->>> Am 25.10.2010 17:32, schrieb Larry Finger:
->>>> On 10/25/2010 09:41 AM, Arnd Hannemann wrote:
->>>>> On todays linus tree the following compile error happened to me:
->>>>>
->>>>>   CC [M]  drivers/net/wireless/b43legacy/xmit.o
->>>>> In file included from include/net/dst.h:11,
->>>>>                  from drivers/net/wireless/b43legacy/xmit.c:31:
->>>>> include/net/dst_ops.h:28: error: expected ':', ',', ';', '}' or '__attribute__' before '____cacheline_aligned_in_smp'
->>>>> include/net/dst_ops.h: In function 'dst_entries_get_fast':
->>>>> include/net/dst_ops.h:33: error: 'struct dst_ops' has no member named 'pcpuc_entries'
->>>>> include/net/dst_ops.h: In function 'dst_entries_get_slow':
->>>>> include/net/dst_ops.h:41: error: 'struct dst_ops' has no member named 'pcpuc_entries'
->>>>> include/net/dst_ops.h: In function 'dst_entries_add':
->>>>> include/net/dst_ops.h:49: error: 'struct dst_ops' has no member named 'pcpuc_entries'
->>>>> include/net/dst_ops.h: In function 'dst_entries_init':
->>>>> include/net/dst_ops.h:55: error: 'struct dst_ops' has no member named 'pcpuc_entries'
->>>>> include/net/dst_ops.h: In function 'dst_entries_destroy':
->>>>> include/net/dst_ops.h:60: error: 'struct dst_ops' has no member named 'pcpuc_entries'
->>>>> make[4]: *** [drivers/net/wireless/b43legacy/xmit.o] Error 1
->>>>> make[3]: *** [drivers/net/wireless/b43legacy] Error 2
->>>>> make[2]: *** [drivers/net/wireless] Error 2
->>>>> make[1]: *** [drivers/net] Error 2
->>>>> make: *** [drivers] Error 2
->>>>>
->>>>> This patch fixes this issue by adding "linux/cache.h" as an include to
->>>>> "include/net/dst_ops.h".
->>>>
->>>> Strange. Compiling b43legacy from the linux-2.6.git tree (git describe is
->>>> v2.6.36-4464-g229aebb) works fine on x86_64. I wonder what is different.
->>>
->>> Exactly the same git describe here.
->>> Maybe your arch includes cache.h already, in my case its a compile for ARM (shmobile).
->>
->> That probably makes the difference. Using Eric's fix that removes the #include
->> <linux/dst.h> should be better. Does it work for you?
->>
->> There are probably a lot more of the system includes that may not be needed. If
->> I send you a patch removing them, could you test?
-> 
-> As it turns out my card is not supported by b43legacy, but compilation testing,
-> sure I can test that.
+It was shown to me recently that systems under high load were driven very deep
+into swap when tcpdump was run.  The reason this happened was because the
+AF_PACKET protocol has a SET_RINGBUFFER socket option that allows the user space
+application to specify how many entries an AF_PACKET socket will have and how
+large each entry will be.  It seems the default setting for tcpdump is to set
+the ring buffer to 32 entries of 64 Kb each, which implies 32 order 5
+allocation.  Thats difficult under good circumstances, and horrid under memory
+pressure.
 
-If it is a Broadcom card, it is likely handled by b43.
+I thought it would be good to make that a bit more usable.  I was going to do a
+simple conversion of the ring buffer from contigous pages to iovecs, but
+unfortunately, the metadata which AF_PACKET places in these buffers can easily
+span a page boundary, and given that these buffers get mapped into user space,
+and the data layout doesn't easily allow for a change to padding between frames
+to avoid that, a simple iovec change is just going to break user space ABI
+consistency.
 
-Attached is a trial removal of a number of include statements. Does it compile?
+So instead I've done this.  This patch does the aforementioned change,
+allocating an array of pages instead of one contiguous chunk, and then vmaps the
+array into a contiguous memory space, so that it can still be accessed in the
+same way it was before.  This allows for a consisten user and kernel space
+behavior for memory mapped AF_PACKET sockets, which at the same time relieving
+the memory pressure placed on a system when tcpdump defaults are used.
 
-Larry
+Tested successfully by me.
 
---------------020507030607040009030501
-Content-Type: text/plain;
- name="b43legacy_remove_dst_h"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename="b43legacy_remove_dst_h"
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+---
+ net/packet/af_packet.c |   94 +++++++++++++++++++++++++++++++++++++----------
+ 1 files changed, 74 insertions(+), 20 deletions(-)
 
-Index: linux-2.6/drivers/net/wireless/b43legacy/dma.c
-===================================================================
---- linux-2.6.orig/drivers/net/wireless/b43legacy/dma.c
-+++ linux-2.6/drivers/net/wireless/b43legacy/dma.c
-@@ -33,13 +33,6 @@
- #include "debugfs.h"
- #include "xmit.h"
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 3616f27..fad3891 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -163,8 +163,14 @@ struct packet_mreq_max {
+ static int packet_set_ring(struct sock *sk, struct tpacket_req *req,
+ 		int closing, int tx_ring);
  
--#include <linux/dma-mapping.h>
--#include <linux/pci.h>
--#include <linux/delay.h>
--#include <linux/skbuff.h>
--#include <linux/slab.h>
--#include <net/dst.h>
--
- /* 32bit DMA ops. */
- static
- struct b43legacy_dmadesc_generic *op32_idx2desc(
-Index: linux-2.6/drivers/net/wireless/b43legacy/main.c
-===================================================================
---- linux-2.6.orig/drivers/net/wireless/b43legacy/main.c
-+++ linux-2.6/drivers/net/wireless/b43legacy/main.c
-@@ -29,20 +29,8 @@
-  *
-  */
++struct pkt_page_list {
++	unsigned int num_pages;
++	char	*vmap_area;
++	unsigned long pages[0];
++};
++
+ struct packet_ring_buffer {
+-	char			**pg_vec;
++	struct pkt_page_list	**pg_vec;
+ 	unsigned int		head;
+ 	unsigned int		frames_per_block;
+ 	unsigned int		frame_size;
+@@ -283,7 +289,8 @@ static void *packet_lookup_frame(struct packet_sock *po,
+ 	pg_vec_pos = position / rb->frames_per_block;
+ 	frame_offset = position % rb->frames_per_block;
  
--#include <linux/delay.h>
--#include <linux/init.h>
--#include <linux/moduleparam.h>
--#include <linux/if_arp.h>
- #include <linux/etherdevice.h>
- #include <linux/firmware.h>
--#include <linux/wireless.h>
--#include <linux/workqueue.h>
--#include <linux/sched.h>
--#include <linux/skbuff.h>
--#include <linux/dma-mapping.h>
--#include <linux/slab.h>
--#include <net/dst.h>
--#include <asm/unaligned.h>
+-	h.raw = rb->pg_vec[pg_vec_pos] + (frame_offset * rb->frame_size);
++	h.raw = rb->pg_vec[pg_vec_pos]->vmap_area +
++		(frame_offset * rb->frame_size);
  
- #include "b43legacy.h"
- #include "main.h"
-Index: linux-2.6/drivers/net/wireless/b43legacy/xmit.c
-===================================================================
---- linux-2.6.orig/drivers/net/wireless/b43legacy/xmit.c
-+++ linux-2.6/drivers/net/wireless/b43legacy/xmit.c
-@@ -28,8 +28,6 @@
+ 	if (status != __packet_get_status(po, h.raw))
+ 		return NULL;
+@@ -2322,41 +2329,86 @@ static const struct vm_operations_struct packet_mmap_ops = {
+ 	.close	=	packet_mm_close,
+ };
  
- */
- 
--#include <net/dst.h>
--
- #include "xmit.h"
- #include "phy.h"
- #include "dma.h"
-Index: linux-2.6/drivers/net/wireless/b43legacy/phy.c
-===================================================================
---- linux-2.6.orig/drivers/net/wireless/b43legacy/phy.c
-+++ linux-2.6/drivers/net/wireless/b43legacy/phy.c
-@@ -29,12 +29,6 @@
- 
- */
- 
--#include <linux/delay.h>
--#include <linux/pci.h>
--#include <linux/sched.h>
--#include <linux/slab.h>
--#include <linux/types.h>
--
- #include "b43legacy.h"
- #include "phy.h"
- #include "main.h"
-Index: linux-2.6/drivers/net/wireless/b43legacy/pio.c
-===================================================================
---- linux-2.6.orig/drivers/net/wireless/b43legacy/pio.c
-+++ linux-2.6/drivers/net/wireless/b43legacy/pio.c
-@@ -28,10 +28,6 @@
- #include "main.h"
- #include "xmit.h"
- 
--#include <linux/delay.h>
--#include <linux/slab.h>
--
--
- static void tx_start(struct b43legacy_pioqueue *queue)
+-static void free_pg_vec(char **pg_vec, unsigned int order, unsigned int len)
++static void free_one_pkt_list(struct pkt_page_list *pglist)
++{
++	int i;
++
++	if ((pglist->num_pages > 1) && (pglist->vmap_area))
++		vunmap(pglist->vmap_area);
++	for (i = 0; i < pglist->num_pages; i++)
++		free_pages(pglist->pages[i], 0);
++}
++
++static void free_pg_vec(struct pkt_page_list **pg_vec, unsigned int order,
++			unsigned int len)
  {
- 	b43legacy_pio_write(queue, B43legacy_PIO_TXCTL,
-Index: linux-2.6/drivers/net/wireless/b43legacy/radio.c
-===================================================================
---- linux-2.6.orig/drivers/net/wireless/b43legacy/radio.c
-+++ linux-2.6/drivers/net/wireless/b43legacy/radio.c
-@@ -29,8 +29,6 @@
+ 	int i;
  
- */
+-	for (i = 0; i < len; i++) {
++	for (i = 0; i < len; i++)
+ 		if (likely(pg_vec[i]))
+-			free_pages((unsigned long) pg_vec[i], order);
+-	}
++			free_one_pkt_list(pg_vec[i]);
++
+ 	kfree(pg_vec);
+ }
  
--#include <linux/delay.h>
--
- #include "b43legacy.h"
- #include "main.h"
- #include "phy.h"
-Index: linux-2.6/drivers/net/wireless/b43legacy/sysfs.c
-===================================================================
---- linux-2.6.orig/drivers/net/wireless/b43legacy/sysfs.c
-+++ linux-2.6/drivers/net/wireless/b43legacy/sysfs.c
-@@ -29,8 +29,6 @@
- #include "phy.h"
- #include "radio.h"
+-static inline char *alloc_one_pg_vec_page(unsigned long order)
++static inline struct pkt_page_list *alloc_one_pg_page_list(unsigned long order)
+ {
++	int i;
++	struct pkt_page_list *newlist;
+ 	gfp_t gfp_flags = GFP_KERNEL | __GFP_COMP | __GFP_ZERO | __GFP_NOWARN;
  
--#include <linux/capability.h>
---------------020507030607040009030501--
+-	return (char *) __get_free_pages(gfp_flags, order);
++
++	newlist = kzalloc(sizeof(struct pkt_page_list)+
++			  (sizeof(void *)*(1<<order)), GFP_KERNEL);
++	if (!newlist)
++		return NULL;
++	newlist->num_pages = (1<<order);
++
++	for (i = 0; i < newlist->num_pages; i++) {
++		newlist->pages[i] = __get_free_pages(gfp_flags, 0);
++		if (!newlist->pages[i])
++			goto out_free;
++	}
++
++	return newlist;
++out_free:
++	free_one_pkt_list(newlist);
++	kfree(newlist);
++	return NULL;
+ }
+ 
+-static char **alloc_pg_vec(struct tpacket_req *req, int order)
++static struct pkt_page_list **alloc_pg_vec(struct tpacket_req *req, int order)
+ {
+ 	unsigned int block_nr = req->tp_block_nr;
+-	char **pg_vec;
+-	int i;
++	struct pkt_page_list **pg_vec;
++	struct page **pages;
++	int i, j;
+ 
+-	pg_vec = kzalloc(block_nr * sizeof(char *), GFP_KERNEL);
+-	if (unlikely(!pg_vec))
++	pg_vec = kzalloc(block_nr * sizeof(struct pkt_page_list *), GFP_KERNEL);
++	pages = kzalloc(block_nr * sizeof(struct page *), GFP_KERNEL);
++
++	if (unlikely(!pg_vec || !pages))
+ 		goto out;
+ 
+ 	for (i = 0; i < block_nr; i++) {
+-		pg_vec[i] = alloc_one_pg_vec_page(order);
+-		if (unlikely(!pg_vec[i]))
+-			goto out_free_pgvec;
++		pg_vec[i] = alloc_one_pg_page_list(order);
++
++		if (order > 0) {
++			for (j = 0; j < pg_vec[i]->num_pages; j++)
++				pages[j] = virt_to_page(pg_vec[i]->pages[j]);
++
++			if (unlikely(!pg_vec[i]))
++				goto out_free_pgvec;
++			pg_vec[i]->vmap_area = vmap(pages, pg_vec[i]->num_pages,
++						 VM_MAP, PAGE_KERNEL);
++			if (!pg_vec[i]->vmap_area)
++				goto out_free_pgvec;
++		} else
++			pg_vec[i]->vmap_area = (void *)pg_vec[i]->pages[0];
+ 	}
+ 
+ out:
++	kfree(pages);
+ 	return pg_vec;
+ 
+ out_free_pgvec:
+@@ -2368,7 +2420,7 @@ out_free_pgvec:
+ static int packet_set_ring(struct sock *sk, struct tpacket_req *req,
+ 		int closing, int tx_ring)
+ {
+-	char **pg_vec = NULL;
++	struct pkt_page_list **pg_vec = NULL;
+ 	struct packet_sock *po = pkt_sk(sk);
+ 	int was_running, order = 0;
+ 	struct packet_ring_buffer *rb;
+@@ -2530,11 +2582,13 @@ static int packet_mmap(struct file *file, struct socket *sock,
+ 			continue;
+ 
+ 		for (i = 0; i < rb->pg_vec_len; i++) {
+-			struct page *page = virt_to_page(rb->pg_vec[i]);
++			struct pkt_page_list *plist = rb->pg_vec[i];
+ 			int pg_num;
++			struct page *page;
+ 
+-			for (pg_num = 0; pg_num < rb->pg_vec_pages;
+-					pg_num++, page++) {
++			for (pg_num = 0; pg_num < plist->num_pages;
++					pg_num++) {
++				page = virt_to_page(plist->pages[pg_num]);
+ 				err = vm_insert_page(vma, start, page);
+ 				if (unlikely(err))
+ 					goto out;
+-- 
+1.7.2.3
+
