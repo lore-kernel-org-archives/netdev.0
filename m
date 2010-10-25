@@ -1,48 +1,69 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [patch 1/1] [PATCH BUG_FIX] ipv6: fix refcnt problem related
-	to POSTDAD state
-Date: Mon, 25 Oct 2010 16:01:32 -0700
-Message-ID: <20101025230132.GA5474@gondor.apana.org.au>
-References: <20101025090642.958260964@linux.vnet.ibm.com> <20101025090716.315678235@linux.vnet.ibm.com>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: [PATCH] tg3: Do not call device_set_wakeup_enable() under spin_lock_bh
+Date: Tue, 26 Oct 2010 01:01:55 +0200
+Message-ID: <201010260101.56128.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	vosburgh@de.ibm.com, "David S. Miller" <davem@davemloft.net>
-To: Ursula Braun <ursula.braun@de.ibm.com>
+Content-Type: Text/Plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Matt Carlson <mcarlson@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>, netdev@vger.kernel.org,
+	Maxim Levitsky <maximlevitsky@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:43320 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751305Ab0JYXBi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Oct 2010 19:01:38 -0400
-Content-Disposition: inline
-In-Reply-To: <20101025090716.315678235@linux.vnet.ibm.com>
+Received: from ogre.sisk.pl ([217.79.144.158]:51883 "EHLO ogre.sisk.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751311Ab0JYXC4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Oct 2010 19:02:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 25, 2010 at 11:06:43AM +0200, Ursula Braun wrote:
-> Subject: [patch 1/1] [PATCH BUG_FIX] ipv6: fix refcnt problem related to POSTDAD state
-> 
-> From: Ursula Braun <ursula.braun@de.ibm.com>
-> 
-> After running this bonding setup script
->     modprobe bonding miimon=100 mode=0 max_bonds=1
->     ifconfig bond0 10.1.1.1/16
->     ifenslave bond0 eth1
->     ifenslave bond0 eth3
-> on s390 with qeth-driven slaves, modprobe -r fails with this message
->     unregister_netdevice: waiting for bond0 to become free. Usage count = 1
-> due to twice detection of duplicate address.
-> Problem is caused by a missing decrease of ifp->refcnt in addrconf_dad_failure.
-> An extra call of in6_ifa_put(ifp) solves it.
-> Problem has been introduced with commit f2344a131bccdbfc5338e17fa71a807dee7944fa.
-> 
-> Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
-> Cc: David S. Miller <davem@davemloft.net>
+From: Rafael J. Wysocki <rjw@sisk.pl>
 
-Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+The tg3 driver calls device_set_wakeup_enable() under spin_lock_bh,
+which causes a problem to happen after the recent core power
+management changes, because this function can sleep now.  Fix this
+by moving the device_set_wakeup_enable() call out of the
+spin_lock_bh-protected area.
 
-Thanks for catching this!
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Reported-by: Maxim Levitsky <maximlevitsky@gmail.com>
+Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
+---
+
+Hi,
+
+This fixes a regression from 2.6.36, please apply.
+
+Thanks,
+Rafael
+
+---
+ drivers/net/tg3.c |   10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+Index: linux-2.6/drivers/net/tg3.c
+===================================================================
+--- linux-2.6.orig/drivers/net/tg3.c
++++ linux-2.6/drivers/net/tg3.c
+@@ -9732,16 +9732,16 @@ static int tg3_set_wol(struct net_device
+ 	    !((tp->tg3_flags & TG3_FLAG_WOL_CAP) && device_can_wakeup(dp)))
+ 		return -EINVAL;
+ 
++	device_set_wakeup_enable(dp, wol->wolopts & WAKE_MAGIC);
++
+ 	spin_lock_bh(&tp->lock);
+-	if (wol->wolopts & WAKE_MAGIC) {
++	if (device_may_wakeup(dp))
+ 		tp->tg3_flags |= TG3_FLAG_WOL_ENABLE;
+-		device_set_wakeup_enable(dp, true);
+-	} else {
++	else
+ 		tp->tg3_flags &= ~TG3_FLAG_WOL_ENABLE;
+-		device_set_wakeup_enable(dp, false);
+-	}
+ 	spin_unlock_bh(&tp->lock);
+ 
++
+ 	return 0;
+ }
+ 
