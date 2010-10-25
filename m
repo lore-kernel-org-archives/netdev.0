@@ -1,56 +1,51 @@
-From: Flavio Leitner <fleitner@redhat.com>
-Subject: [PATCH] net: reset gso header when the copied skb is linearized
-Date: Mon, 25 Oct 2010 20:23:18 -0200
-Message-ID: <1288045398-3110-1-git-send-email-fleitner@redhat.com>
-Cc: Flavio Leitner <fleitner@redhat.com>
-To: netdev <netdev@vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] Enhance AF_PACKET implementation to not require high
+ order contiguous memory allocation
+Date: Tue, 26 Oct 2010 00:30:56 +0200
+Message-ID: <1288045856.3296.19.camel@edumazet-laptop>
+References: <E1PAVIx-0001qL-EB@smtp.tuxdriver.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jpirko@redhat.com
+To: "nhorman@tuxdriver.com" <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:22911 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752674Ab0JYWXe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Oct 2010 18:23:34 -0400
-Received: from int-mx09.intmail.prod.int.phx2.redhat.com (int-mx09.intmail.prod.int.phx2.redhat.com [10.5.11.22])
-	by mx1.redhat.com (8.13.8/8.13.8) with ESMTP id o9PMNYkX008362
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Mon, 25 Oct 2010 18:23:34 -0400
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:42133 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932166Ab0JYWbJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Oct 2010 18:31:09 -0400
+Received: by wyf28 with SMTP id 28so3936558wyf.19
+        for <netdev@vger.kernel.org>; Mon, 25 Oct 2010 15:31:08 -0700 (PDT)
+In-Reply-To: <E1PAVIx-0001qL-EB@smtp.tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The gso header is incorrect when the copied skb is
-linearized. This patch creates another helper function
-to copy the gso header when it is appropriated
+Le lundi 25 octobre 2010 =C3=A0 18:14 -0400, nhorman@tuxdriver.com a =C3=
+=A9crit :
+> I think I remember those changes and IIrc yes,  tcpdump will make
+> several attempts to get buffers of an appropriate size.  But while it
+> tries to do that it bogs the system trying to write out pagecahe,
+> swap, etc.  And that activity doesn't guarantee success.  His does
+> either, but getting 5 order 0 pages is far easier and less intrusive
+> to a loaded system than trying to get 1 order 4 chunk.  That's all I'=
+m
+> trying to accomplish here.  Just making it easier to use af_packet
+> sockets without interfering with system performance
+>=20
 
-Signed-off-by: Flavio Leitner <fleitner@redhat.com>
----
- net/core/skbuff.c |    8 +++++++-
- 1 files changed, 7 insertions(+), 1 deletions(-)
+Actually, using vmalloc() would probably hurt performance, because of
+extra TLB pressure.
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 104f844..54a2d3a 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -649,6 +649,12 @@ static void copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
- 	if (skb_mac_header_was_set(new))
- 		new->mac_header	      += offset;
- #endif
-+}
-+
-+static void copy_skb_header_gso(struct sk_buff *new, const struct sk_buff *old)
-+{
-+	copy_skb_header(new, old);
-+
- 	skb_shinfo(new)->gso_size = skb_shinfo(old)->gso_size;
- 	skb_shinfo(new)->gso_segs = skb_shinfo(old)->gso_segs;
- 	skb_shinfo(new)->gso_type = skb_shinfo(old)->gso_type;
-@@ -740,7 +746,7 @@ struct sk_buff *pskb_copy(struct sk_buff *skb, gfp_t gfp_mask)
- 		skb_clone_fraglist(n);
- 	}
- 
--	copy_skb_header(n, skb);
-+	copy_skb_header_gso(n, skb);
- out:
- 	return n;
- }
--- 
-1.7.3.1
+Of course, on recent x86 hardware you dont notice that much...
+
+If not, why af_packet would use such convoluted double array of
+'compound pages' ?
+
+Also, on x86_32, vmalloc()/vmap() space is small (128 MB) so you might
+exhaust it pretty fast with several sniffers running.
+
+I would try a two level thing : Try to get high order pages, and
+fallback on low order pages, but normally libpcap does this for us ?
+
+
 
