@@ -1,44 +1,70 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Uclinux-dist-devel] [PATCH 1/5] netdev: bfin_mac: push
- settings to platform resources
-Date: Mon, 25 Oct 2010 22:07:29 -0700 (PDT)
-Message-ID: <20101025.220729.59680341.davem@davemloft.net>
-References: <20101024.164534.241451843.davem@davemloft.net>
-	<AANLkTik6C2tbir0hKJJ2kErha-JJD_yx927qw=3t7=Xu@mail.gmail.com>
-	<AANLkTi=jfho4yd_gSMfKywBPkD_=smgnP_yLtRh=00jv@mail.gmail.com>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: [v3 RFC PATCH 0/4] Implement multiqueue virtio-net
+Date: Tue, 26 Oct 2010 10:40:35 +0530
+Message-ID: <OF5C53E9CF.FFDF2CE7-ON652577C8.00191D14-652577C8.001C2154@in.ibm.com>
+References: <20101020085452.15579.76002.sendpatchset@krkumar2.in.ibm.com> <OF8735A2A4.74B4EE91-ON652577C5.0040D90B-652577C7.0056B99D@in.ibm.com> <20101025161718.GA19559@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, uclinux-dist-devel@blackfin.uclinux.org
-To: vapier@gentoo.org
+Content-Type: text/plain; charset=US-ASCII
+Cc: anthony@codemonkey.ws, arnd@arndb.de, avi@redhat.com,
+	davem@davemloft.net, eric.dumazet@gmail.com, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, rusty@rustcorp.com.au
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45416
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752417Ab0JZFHF convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Oct 2010 01:07:05 -0400
-In-Reply-To: <AANLkTi=jfho4yd_gSMfKywBPkD_=smgnP_yLtRh=00jv@mail.gmail.com>
+Received: from e28smtp04.in.ibm.com ([122.248.162.4]:52836 "EHLO
+	e28smtp04.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751867Ab0JZFHY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Oct 2010 01:07:24 -0400
+In-Reply-To: <20101025161718.GA19559@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Mike Frysinger <vapier@gentoo.org>
-Date: Mon, 25 Oct 2010 21:54:48 -0400
+"Michael S. Tsirkin" <mst@redhat.com> wrote on 10/25/2010 09:47:18 PM:
 
-> On Sun, Oct 24, 2010 at 19:51, Mike Frysinger wrote:
->> On Sun, Oct 24, 2010 at 19:45, David Miller wrote:
->>> From: Mike Frysinger
->>>> and i have the Blackfin changes waiting for you to merge this patc=
-h.
->>>> i can squash them into this change and have you merge the result, =
-or i
->>>> can merge it. =A0i dont really care either way.
->>>
->>> Why don't you just apply this to your tree then. =A0Feel free to ad=
-d my:
->>
->> thanks, i'll do that
->=20
-> Linus has taken this via my tree now.  are you going to merge the
-> other patches ?  or do i need to resend them ?
+> > Any feedback, comments, objections, issues or bugs about the
+> > patches? Please let me know if something needs to be done.
+>
+> I am trying to wrap my head around kernel/user interface here.
+> E.g., will we need another incompatible change when we add multiple RX
+> queues?
 
-Please resend them, thanks.
+Though I added a 'mq' option to qemu, there shouldn't be
+any incompatibility between old and new qemu's wrt vhost
+and virtio-net drivers. So the old qemu will run new host
+and new guest without issues, and new qemu can also run
+old host and old guest. Multiple RXQ will also not add
+any incompatibility.
+
+With MQ RX, I will be able to remove the hueristic (idea
+from David Stevens).  The idea is: Guest sends out packets
+on, say TXQ#2, vhost#2 processes the packets but packets
+going out from host to guest might be sent out on a
+different RXQ, say RXQ#4.  Guest receives the packet on
+RXQ#4, and all future responses on that connection are sent
+on TXQ#4.  Now vhost#4 processes both RX and TX packets for
+this connection.  Without needing to hash on the connection,
+guest can make sure that the same vhost thread will handle
+a single connection.
+
+> Also need to think about how robust our single stream heuristic is,
+> e.g. what are the chances it will misdetect a bidirectional
+> UDP stream as a single TCP?
+
+I think it should not happen. The hueristic code gets
+called for handling just the transmit packets, packets
+that vhost sends out to the guest skip this path.
+
+I tested unidirectional and bidirectional UDP to confirm:
+
+8 iterations of iperf tests, each iteration of 15 secs,
+result is the sum of all 8 iterations in Gbits/sec
+__________________________________________
+Uni-directional          Bi-directional
+  Org      New             Org      New
+__________________________________________
+  71.78    71.77           71.74   72.07
+__________________________________________
+
+Thanks,
+
+- KK
+
