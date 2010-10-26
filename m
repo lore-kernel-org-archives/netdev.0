@@ -1,100 +1,82 @@
-From: Dongdong Deng <dongdong.deng@windriver.com>
-Subject: [PATCH] e1000e: add netpoll support for MSI/MSI-X IRQ modes
-Date: Tue, 26 Oct 2010 13:54:36 +0800
-Message-ID: <1288072476-20720-1-git-send-email-dongdong.deng@windriver.com>
-Cc: alexander.h.duyck@intel.com, carolyn.wyborny@intel.com,
-	donald.c.skidmore@intel.com, gregory.v.rose@intel.com,
-	peter.p.waskiewicz.jr@intel.com, john.ronciak@intel.com,
-	dongdong.deng@windriver.com, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org
-To: davem@davemloft.net, jesse@nicira.com, jeffrey.t.kirsher@intel.com,
-	bruce.w.allan@intel.com
+From: Helmut Schaa <helmut.schaa@googlemail.com>
+Subject: Re: [PATCH 1/2 v3] xps: Improvements in TX queue selection
+Date: Tue, 26 Oct 2010 08:18:47 +0200
+Message-ID: <201010260818.47523.helmut.schaa@googlemail.com>
+References: <alpine.DEB.1.00.1010211303390.30535@pokey.mtv.corp.google.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:42142 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754506Ab0JZFsS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Oct 2010 01:48:18 -0400
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:57693 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752843Ab0JZGTd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Oct 2010 02:19:33 -0400
+Received: by bwz11 with SMTP id 11so3101740bwz.19
+        for <netdev@vger.kernel.org>; Mon, 25 Oct 2010 23:19:32 -0700 (PDT)
+In-Reply-To: <alpine.DEB.1.00.1010211303390.30535@pokey.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With enabling CONFIG_PCI_MSI, e1000e could work in MSI/MSI-X IRQ mode,
-and netpoll controller didn't deal with those IRQ modes on e1000e.
+Hi,
 
-This patch add the handling MSI/MSI-X IRQ modes to netpoll controller,
-so that netconsole could work with those IRQ modes.
+Am Donnerstag 21 Oktober 2010 schrieb Tom Herbert:
+> In dev_pick_tx, don't do work in calculating queue index or setting
+> the index in the sock unless the device has more than one queue.  This
+> allows the sock to be set only with a queue index of a multi-queue
+> device which is desirable if device are stacked like in a tunnel.
+> 
+> We also allow the mapping of a socket to queue to be changed.  To
+> maintain in order packet transmission a flag (ooo_okay) has been
+> added to the sk_buff structure.  If a transport layer sets this flag
+> on a packet, the transmit queue can be changed for the socket.
+> Presumably, the transport would set this if there was no possbility
+> of creating OOO packets (for instance, there are no packets in flight
+> for the socket).  This patch includes the modification in TCP output
+> for setting this flag.
+> 
+> Signed-off-by: Tom Herbert <therbert@google.com>
+> ---
 
-Signed-off-by: Dongdong Deng <dongdong.deng@windriver.com>
----
- drivers/net/e1000e/netdev.c |   49 +++++++++++++++++++++++++++++++++++++++---
- 1 files changed, 45 insertions(+), 4 deletions(-)
+[...]
 
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index e561d15..36992ba 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -5369,6 +5369,36 @@ static void e1000_shutdown(struct pci_dev *pdev)
- }
- 
- #ifdef CONFIG_NET_POLL_CONTROLLER
-+
-+static irqreturn_t e1000_intr_msix(int irq, void *data)
-+{
-+	struct net_device *netdev = data;
-+	struct e1000_adapter *adapter = netdev_priv(netdev);
-+	int vector, msix_irq;
-+
-+	if (adapter->msix_entries) {
-+		vector = 0;
-+		msix_irq = adapter->msix_entries[vector].vector;
-+		disable_irq(msix_irq);
-+		e1000_intr_msix_rx(msix_irq, netdev);
-+		enable_irq(msix_irq);
-+
-+		vector++;
-+		msix_irq = adapter->msix_entries[vector].vector;
-+		disable_irq(msix_irq);
-+		e1000_intr_msix_tx(msix_irq, netdev);
-+		enable_irq(msix_irq);
-+
-+		vector++;
-+		msix_irq = adapter->msix_entries[vector].vector;
-+		disable_irq(msix_irq);
-+		e1000_msix_other(msix_irq, netdev);
-+		enable_irq(msix_irq);
-+	}
-+
-+	return IRQ_HANDLED;
-+}
-+
- /*
-  * Polling 'interrupt' - used by things like netconsole to send skbs
-  * without having to re-enable interrupts. It's not called while
-@@ -5378,10 +5408,21 @@ static void e1000_netpoll(struct net_device *netdev)
- {
- 	struct e1000_adapter *adapter = netdev_priv(netdev);
- 
--	disable_irq(adapter->pdev->irq);
--	e1000_intr(adapter->pdev->irq, netdev);
--
--	enable_irq(adapter->pdev->irq);
-+	switch (adapter->int_mode) {
-+	case E1000E_INT_MODE_MSIX:
-+		e1000_intr_msix(adapter->pdev->irq, netdev);
-+		break;
-+	case E1000E_INT_MODE_MSI:
-+		disable_irq(adapter->pdev->irq);
-+		e1000_intr_msi(adapter->pdev->irq, netdev);
-+		enable_irq(adapter->pdev->irq);
-+		break;
-+	default: /* E1000E_INT_MODE_LEGACY */
-+		disable_irq(adapter->pdev->irq);
-+		e1000_intr(adapter->pdev->irq, netdev);
-+		enable_irq(adapter->pdev->irq);
-+		break;
-+	}
- }
- #endif
- 
--- 
-1.6.0.4
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index b2269ac..a538ed5 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -2123,28 +2123,32 @@ static struct netdev_queue *dev_pick_tx(struct net_device *dev,
+>  					struct sk_buff *skb)
+>  {
+>  	int queue_index;
+> -	const struct net_device_ops *ops = dev->netdev_ops;
+>  
+> -	if (ops->ndo_select_queue) {
+> -		queue_index = ops->ndo_select_queue(dev, skb);
+> -		queue_index = dev_cap_txqueue(dev, queue_index);
+> -	} else {
+> +	if (dev->real_num_tx_queues > 1) {
+>  		struct sock *sk = skb->sk;
+> +
+>  		queue_index = sk_tx_queue_get(sk);
+> -		if (queue_index < 0) {
+>  
+> -			queue_index = 0;
+> -			if (dev->real_num_tx_queues > 1)
+> +		if (queue_index < 0 || skb->ooo_okay ||
+> +		    queue_index >= dev->real_num_tx_queues) {
+> +			const struct net_device_ops *ops = dev->netdev_ops;
+> +			int old_index = queue_index;
+> +
+> +			if (ops->ndo_select_queue) {
+> +				queue_index = ops->ndo_select_queue(dev, skb);
+> +				queue_index = dev_cap_txqueue(dev, queue_index);
+> +			} else
+>  				queue_index = skb_tx_hash(dev, skb);
 
+Wouldn't that break mac80211 QoS again for bridged AP mode interfaces (see
+commit deabc772f39405054a438d711f408d2d94d26d96, "net: fix tx queue selection
+for bridged devices implementing select_queue")?
+
+Helmut
