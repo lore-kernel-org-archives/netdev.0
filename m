@@ -1,35 +1,66 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [v3 RFC PATCH 0/4] Implement multiqueue virtio-net
-Date: Tue, 26 Oct 2010 11:38:46 +0200
-Message-ID: <20101026093846.GA6766@redhat.com>
-References: <20101020085452.15579.76002.sendpatchset@krkumar2.in.ibm.com>
- <OF8735A2A4.74B4EE91-ON652577C5.0040D90B-652577C7.0056B99D@in.ibm.com>
- <20101025161718.GA19559@redhat.com>
- <OF5C53E9CF.FFDF2CE7-ON652577C8.00191D14-652577C8.001C2154@LocalDomain>
- <OFBB51646E.01CC3630-ON652577C8.0030D6EF-652577C8.0031DA3C@in.ibm.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] qlcnic: dma address align check
+Date: Tue, 26 Oct 2010 11:54:54 +0200
+Message-ID: <1288086894.3169.53.camel@edumazet-laptop>
+References: <1288085882-11988-1-git-send-email-amit.salecha@qlogic.com>
+	 <1288085882-11988-5-git-send-email-amit.salecha@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: anthony@codemonkey.ws, arnd@arndb.de, avi@redhat.com,
-	davem@davemloft.net, eric.dumazet@gmail.com, kvm@vger.kernel.org,
-	netdev@vger.kernel.org, rusty@rustcorp.com.au
-To: Krishna Kumar2 <krkumar2@in.ibm.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	ameen.rahman@qlogic.com, anirban.chakraborty@qlogic.com
+To: Amit Kumar Salecha <amit.salecha@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:27265 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758816Ab0JZJpm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Oct 2010 05:45:42 -0400
-Content-Disposition: inline
-In-Reply-To: <OFBB51646E.01CC3630-ON652577C8.0030D6EF-652577C8.0031DA3C@in.ibm.com>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:47818 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755093Ab0JZJy6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Oct 2010 05:54:58 -0400
+Received: by wwe15 with SMTP id 15so4545030wwe.1
+        for <netdev@vger.kernel.org>; Tue, 26 Oct 2010 02:54:57 -0700 (PDT)
+In-Reply-To: <1288085882-11988-5-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 26, 2010 at 02:38:53PM +0530, Krishna Kumar2 wrote:
-> Results for UDP BW tests (unidirectional, sum across
-> 3 iterations, each iteration of 45 seconds, default
-> netperf, vhosts bound to cpus 0-3; no other tuning):
+Le mardi 26 octobre 2010 =C3=A0 02:38 -0700, Amit Kumar Salecha a =C3=A9=
+crit :
+> Device requires tx_hw_cosnumer to be 64 byte aligned.
+> Tx desc size is 64 byte, alloc tx_hw_consumer with tx desc.
+>=20
+> Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
+> ---
+>  drivers/net/qlcnic/qlcnic_ctx.c |   35 +++++++++++++++--------------=
+------
+>  1 files changed, 15 insertions(+), 20 deletions(-)
+>=20
+> diff --git a/drivers/net/qlcnic/qlcnic_ctx.c b/drivers/net/qlcnic/qlc=
+nic_ctx.c
+> index 1cdc05d..21c9c28 100644
+> --- a/drivers/net/qlcnic/qlcnic_ctx.c
+> +++ b/drivers/net/qlcnic/qlcnic_ctx.c
+> @@ -418,18 +418,9 @@ int qlcnic_alloc_hw_resources(struct qlcnic_adap=
+ter *adapter)
+>  	recv_ctx =3D &adapter->recv_ctx;
+>  	tx_ring =3D adapter->tx_ring;
+> =20
+> -	tx_ring->hw_consumer =3D (__le32 *)pci_alloc_consistent(pdev, sizeo=
+f(u32),
+> -						&tx_ring->hw_cons_phys_addr);
+> -	if (tx_ring->hw_consumer =3D=3D NULL) {
+> -		dev_err(&pdev->dev, "failed to allocate tx consumer\n");
+> -		return -ENOMEM;
+> -	}
+> -	*(tx_ring->hw_consumer) =3D 0;
+> -
+>  	/* cmd desc ring */
+> -	addr =3D pci_alloc_consistent(pdev, TX_DESC_RINGSIZE(tx_ring),
+> -			&tx_ring->phys_addr);
+> -
+> +	addr =3D pci_alloc_consistent(pdev, TX_DESC_RINGSIZE(tx_ring) +
+> +			sizeof(u32), &tx_ring->phys_addr);
 
-Is binding vhost threads to CPUs really required?
-What happens if we let the scheduler do its job?
+Wont this use twice memory than before, due to power-of-two
+allocations ?
 
--- 
-MST
+Allocating 65536 + 4 bytes gives you 131072 bytes.
+
+
