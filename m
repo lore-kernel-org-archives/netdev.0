@@ -1,64 +1,58 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 3/14] drivers/vhost/vhost.c: delete double assignment
-Date: Tue, 26 Oct 2010 13:06:44 +0200
-Message-ID: <20101026110644.GA7922@redhat.com>
-References: <1288088743-3725-1-git-send-email-julia@diku.dk>
-	<1288088743-3725-4-git-send-email-julia@diku.dk>
+Subject: Re: [v3 RFC PATCH 0/4] Implement multiqueue virtio-net
+Date: Tue, 26 Oct 2010 13:09:13 +0200
+Message-ID: <20101026110913.GC7922@redhat.com>
+References: <20101020085452.15579.76002.sendpatchset@krkumar2.in.ibm.com>
+ <OF8735A2A4.74B4EE91-ON652577C5.0040D90B-652577C7.0056B99D@in.ibm.com>
+ <20101025161718.GA19559@redhat.com>
+ <OF5C53E9CF.FFDF2CE7-ON652577C8.00191D14-652577C8.001C2154@LocalDomain>
+ <OFBB51646E.01CC3630-ON652577C8.0030D6EF-652577C8.0031DA3C@in.ibm.com>
+ <20101026093846.GA6766@redhat.com>
+ <OFBE9E2C99.648EFB19-ON652577C8.0035FEDD-652577C8.0036AD51@in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: virtualization@lists.osdl.org, kernel-janitors@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
-        netdev@vger.kernel.org
-To: Julia Lawall <julia@diku.dk>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: anthony@codemonkey.ws, arnd@arndb.de, avi@redhat.com,
+	davem@davemloft.net, eric.dumazet@gmail.com, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
+	rusty@rustcorp.com.au
+To: Krishna Kumar2 <krkumar2@in.ibm.com>
+Return-path: <kvm-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1288088743-3725-4-git-send-email-julia@diku.dk>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/virtualization>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+In-Reply-To: <OFBE9E2C99.648EFB19-ON652577C8.0035FEDD-652577C8.0036AD51@in.ibm.com>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 26, 2010 at 12:25:32PM +0200, Julia Lawall wrote:
-> From: Julia Lawall <julia@diku.dk>
+On Tue, Oct 26, 2010 at 03:31:39PM +0530, Krishna Kumar2 wrote:
+> > "Michael S. Tsirkin" <mst@redhat.com>
+> >
+> > On Tue, Oct 26, 2010 at 02:38:53PM +0530, Krishna Kumar2 wrote:
+> > > Results for UDP BW tests (unidirectional, sum across
+> > > 3 iterations, each iteration of 45 seconds, default
+> > > netperf, vhosts bound to cpus 0-3; no other tuning):
+> >
+> > Is binding vhost threads to CPUs really required?
+> > What happens if we let the scheduler do its job?
 > 
-> Delete successive assignments to the same location.
-> 
-> A simplified version of the semantic match that finds this problem is as
-> follows: (http://coccinelle.lip6.fr/)
-> 
-> // <smpl>
-> @@
-> expression i;
-> @@
-> 
-> *i = ...;
->  i = ...;
-> // </smpl>
-> 
-> Signed-off-by: Julia Lawall <julia@diku.dk>
+> Nothing drastic, I remember BW% and SD% both improved a
+> bit as a result of binding.
 
-Thanks, applied.
+If there's a significant improvement this would mean that
+we need to rethink the vhost-net interaction with the scheduler.
 
-> ---
->  drivers/vhost/vhost.c |    1 -
->  1 file changed, 1 deletion(-)
+> I started binding vhost thread
+> after Avi suggested it in response to my v1 patch (he
+> suggested some more that I haven't done), and have been
+> doing only this tuning ever since. This is part of his
+> mail for the tuning:
 > 
-> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-> index 94701ff..ed27727 100644
-> --- a/drivers/vhost/vhost.c
-> +++ b/drivers/vhost/vhost.c
-> @@ -157,7 +157,6 @@ static void vhost_vq_reset(struct vhost_dev *dev,
->  	vq->avail_idx = 0;
->  	vq->last_used_idx = 0;
->  	vq->used_flags = 0;
-> -	vq->used_flags = 0;
->  	vq->log_used = false;
->  	vq->log_addr = -1ull;
->  	vq->vhost_hlen = 0;
+> > 		 vhost:
+> > 		 		 thread #0:  CPU0
+> > 		 		 thread #1:  CPU1
+> > 		 		 thread #2:  CPU2
+> > 		 		 thread #3:  CPU3
+> 
+> I simply bound each thread to CPU0-3 instead.
+> 
+> Thanks,
+> 
+> - KK
