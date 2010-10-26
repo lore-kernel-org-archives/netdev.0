@@ -1,66 +1,87 @@
-From: Kevin Wilson <wkevils@gmail.com>
-Subject: Re: GSO and IPv4 forwarding
-Date: Tue, 26 Oct 2010 22:26:07 +0200
-Message-ID: <AANLkTik+s4CHgPuY6uhe-0aD=WJs=UHhoEdok4AyTdYJ@mail.gmail.com>
-References: <AANLkTikxNYGFAmyZDit9fTp=-M8wfYp3Ew8rejsjHWHb@mail.gmail.com>
-	<1288124114.2652.25.camel@edumazet-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Unwanted aliasing of UDP checksum failed error counter
+Date: Tue, 26 Oct 2010 22:27:22 +0200
+Message-ID: <1288124842.2652.28.camel@edumazet-laptop>
+References: <8545971aec0612a0bca2801107d9493b.squirrel@imap.coplanar.net>
+	 <1288124033.2652.24.camel@edumazet-laptop>
+	 <a2ae895d871551a9b3ded9ce3874fe28.squirrel@imap.coplanar.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Jeremy Jackson <jerj@coplanar.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f174.google.com ([209.85.214.174]:33470 "EHLO
-	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755634Ab0JZU0I convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Oct 2010 16:26:08 -0400
-Received: by iwn10 with SMTP id 10so2572658iwn.19
-        for <netdev@vger.kernel.org>; Tue, 26 Oct 2010 13:26:07 -0700 (PDT)
-In-Reply-To: <1288124114.2652.25.camel@edumazet-laptop>
+Received: from mail-gw0-f46.google.com ([74.125.83.46]:57160 "EHLO
+	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755917Ab0JZU11 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Oct 2010 16:27:27 -0400
+Received: by gwj21 with SMTP id 21so3654927gwj.19
+        for <netdev@vger.kernel.org>; Tue, 26 Oct 2010 13:27:26 -0700 (PDT)
+In-Reply-To: <a2ae895d871551a9b3ded9ce3874fe28.squirrel@imap.coplanar.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-Thanks a lot for your quick answer, I appreciate it (and did not
-expect it to be so quick!)
+Le mardi 26 octobre 2010 =C3=A0 16:21 -0400, Jeremy Jackson a =C3=A9cri=
+t :
+> > Le mardi 26 octobre 2010 =C3=83  15:53 -0400, Jeremy Jackson a =C3=83=
+=C2=A9crit :
+> >> Trying to find source of packet loss on an 8node compute cluster, =
+we
+> >> find:
+> >> (not in this example, but on the real cluster)
+> >>
+> >> in /proc/sys/net/snmp
+> >> Udp: InDatagrams NoPorts InErrors OutDatagrams RcvbufErrors Sndbuf=
+Errors
+> >> Udp: 976460 1750 0 986795 0 0
+> >>
+> >> InErrors *and* RcvbufErrors both go up with full socket buffer, th=
+is has
+> >> made troubleshooting our application more difficult.  We were chas=
+ing
+> >> UDP
+> >> checksum problems, until we checked linux source code, and found
+> >> aliasing.
+> >>
+> >> Is this done for assembly code efficiency?  Any reason ENOMEM (ie =
+socket
+> >> buffer full) can't avoid aliasing to UDP checksum failed errors?
+> >>
+> >> in linux-source-2.6.32/net/ipv4/udp.c:__udp_queue_rcv_skb()
+> >> ....
+> >>                 /* Note that an ENOMEM error is charged twice */
+> >>                 if (rc =3D=3D -ENOMEM) {
+> >>                         UDP_INC_STATS_BH(sock_net(sk),
+> >> UDP_MIB_RCVBUFERRORS,
+> >>                                          is_udplite);
+> >>                         atomic_inc(&sk->sk_drops);
+> >>                 }
+> >>                 goto drop;
+> >> ...
+> >> drop:
+> >>         UDP_INC_STATS_BH(sock_net(sk), UDP_MIB_INERRORS, is_udplit=
+e);
+> >>
+> >
+> > In MIBS, there is no counter for UDP checksum errors
+> >
+> > So we use the standard UDP_MIB_INERRORS
+>=20
+> Yes, this part I understand, but what I don't understand is why ENOME=
+M
+> errors *and* checksum errors both use the same counter, while ENOMEM =
+has
+> it's own already.
 
-Can someone please explain in 2-3 short sentences Why GRO can be
-forwarded and LRO cannot be forwarded ?
-rgs,
-Kevin
+Because ENOMEM errors were handled in commit 81aa646c,
+but _all_ errors must also be accounted in INERRORS, to be RFC
+compliant.
 
-On Tue, Oct 26, 2010 at 10:15 PM, Eric Dumazet <eric.dumazet@gmail.com>=
- wrote:
-> Le mardi 26 octobre 2010 =E0 22:02 +0200, Kevin Wilson a =E9crit :
->> Hi,
->> When we set a netdevice to support forwarding, we disable LRO.
->> This is done because we don't want to forward an SKB which has been
->> processed by LRO.
->>
->> This is done in inet_forward_change() in net/ipv4/devinet.c:
->> We call dev_disable_lro(dev) in this method, when setting forwarding
->> for the device.
->> As a result, in ip_forward(), the packet will be dropped. (because
->> skb_warn_if_lro(), called by this method, =A0returns TRUE)
->>
->> My question is:
->> dev_disable_lro(dev) disable the LRO feature (NETIF_F_LRO) of the
->> device. But suppose I have a device where GRO is enabled (and LRO is
->> not). And let's say I set forwarding on this device.
->>
->> it seems to me that is such case, calling dev_disable_lro(dev) =A0in
->> net_forward_change() to disable the LRO feature of the device (which
->> is already disabled) is not enough, and in such case , GRO packets,
->> which want to be forwarded, =A0will **not** be dropped in ip_forward=
-().
->> (since kb_warn_if_lro() will return false in this case)
->>
->> Is it so ? I am ready to send a patch fixing it, but I am a newbie i=
-n
->> kernel, so I want to ask first.
->
-> GRO packets can be forwarded just fine.
->
->
->
->
+[IPV4]: add the UdpSndbufErrors and UdpRcvbufErrors MIBs
+
+
+If we add a new MIB counter for checksum errors, a bad checksum packet
+will increment both this new counter and INERRORS.
+
+
+
