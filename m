@@ -1,51 +1,41 @@
-From: Lorenzo Colitti <lorenzo@google.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH] ipv6: addrconf: clear IPv6 addresses and routes when
  losing link
-Date: Tue, 26 Oct 2010 11:17:27 -0700
-Message-ID: <AANLkTikFnwM9Ks6h1Jb0+pNW6rkmcKnbVNzKdXUqPnHU@mail.gmail.com>
-References: <AANLkTin-u_bZj6_wpoV6fNaLg81JbFN0EvhNrA6wX6SG@mail.gmail.com>
- <20101026.102145.246528067.davem@davemloft.net> <AANLkTi=P80OUBSy3xCt_qOjPGTwNjrtFL1iLJnkc9joq@mail.gmail.com>
- <20101026.104710.232747902.davem@davemloft.net>
+Date: Tue, 26 Oct 2010 11:21:03 -0700 (PDT)
+Message-ID: <20101026.112103.212686377.davem@davemloft.net>
+References: <AANLkTi=DPaxVLzasA_xs0rPQGBFtfbS7aThx54OT798H@mail.gmail.com>
+	<20101026.105524.116376168.davem@davemloft.net>
+	<AANLkTi=Wp83HtQHXG0YEBjmctQYDu9Y4j+O9==_URy_A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: brian.haley@hp.com, shemminger@vyatta.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: lorenzo@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.35]:46409 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933477Ab0JZSRx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Oct 2010 14:17:53 -0400
-Received: from kpbe11.cbf.corp.google.com (kpbe11.cbf.corp.google.com [172.25.105.75])
-	by smtp-out.google.com with ESMTP id o9QIHp9Q028622
-	for <netdev@vger.kernel.org>; Tue, 26 Oct 2010 11:17:51 -0700
-Received: from ywc21 (ywc21.prod.google.com [10.192.3.21])
-	by kpbe11.cbf.corp.google.com with ESMTP id o9QIHnlh027299
-	for <netdev@vger.kernel.org>; Tue, 26 Oct 2010 11:17:49 -0700
-Received: by ywc21 with SMTP id 21so2644356ywc.41
-        for <netdev@vger.kernel.org>; Tue, 26 Oct 2010 11:17:49 -0700 (PDT)
-In-Reply-To: <20101026.104710.232747902.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36300
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932875Ab0JZSUk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Oct 2010 14:20:40 -0400
+In-Reply-To: <AANLkTi=Wp83HtQHXG0YEBjmctQYDu9Y4j+O9==_URy_A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 26, 2010 at 10:47 AM, David Miller <davem@davemloft.net> wrote:
-> Why would you do this when there are link layer indications that
-> we are attached to a different network?
+From: Lorenzo Colitti <lorenzo@google.com>
+Date: Tue, 26 Oct 2010 11:02:45 -0700
 
-Thinking about this some more, I don't think it's necessarily better.
+> On Tue, Oct 26, 2010 at 10:55 AM, David Miller <davem@davemloft.net> wrote:
+>>> Are there? For wifi you could look at the SSID (though even that is no
+>>
+>> I'm saying to check the AP's MAC.
+> 
+> Ah yes, that works better. But for wired? Or do you think it should be
+> fixed only for wifi?
 
-The only thing that really knows the state of the network is the
-network itself. IPv6 provides a mechanism that hosts can use to find
-out what they should be doing: send an RA and process the resulting
-RS. I think this is much cleaner than keeping local state, performing
-layering violations (looking at MAC addresses) and getting information
-from other systems in order to second-guess information that the host
-can get simply by sending another RS.
+For now the case where it is most important to do something, and
+the situation is common, seems to be wireless.
 
-If you think about it, this is what we do today in IPv4: when link is
-lost, networkmanager *deletes IP addresses and routes* from the
-interfaces, and then starts DHCP again when link comes back. That is,
-asks the network for configuration information.
+BTW, we already have a NETDEV_NOTIFY_PEERS notifier for faster
+failover.  It's used in ipv4 to generate gratuitous ARPs.
 
-This works pretty well. Why not do the same for IPv6? The only
-difference in IPv6 is that the kernel is the one doing
-autoconfiguration, so it's the kernel that should be doing the asking.
+Maybe it could be used for your case too somehow.  Just an idea.
+
