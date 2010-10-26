@@ -1,38 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH linux-2.6 v2] IPv6: Temp addresses are immediately
- deleted.
-Date: Tue, 26 Oct 2010 12:19:41 -0700 (PDT)
-Message-ID: <20101026.121941.98879640.davem@davemloft.net>
-References: <20100927171010.GB7106@adams.ccsl.carleton.ca>
-	<20100928.233028.112599117.davem@davemloft.net>
-	<201010161442.18748.gwurster@scs.carleton.ca>
+Subject: Re: [PATCH] ipv4: Flush per-ns routing cache more sanely.
+Date: Tue, 26 Oct 2010 12:20:22 -0700 (PDT)
+Message-ID: <20101026.122022.241452738.davem@davemloft.net>
+References: <20101026.103428.179941457.davem@davemloft.net>
+	<m1sjzs3hbw.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, shemminger@vyatta.com,
-	eric.dumazet@gmail.com, herbert@gondor.hengli.com.au,
-	ebiederm@xmission.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: gwurster@scs.carleton.ca
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201010161442.18748.gwurster@scs.carleton.ca>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, daniel.lezcano@free.fr
+To: ebiederm@xmission.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42292
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755976Ab0JZTT7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Oct 2010 15:19:59 -0400
+In-Reply-To: <m1sjzs3hbw.fsf@fess.ebiederm.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Glenn Wurster <gwurster@scs.carleton.ca>
-Date: Sat, 16 Oct 2010 14:42:17 -0400
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Tue, 26 Oct 2010 12:05:39 -0700
 
-> This patch accommodates the case where the router is only broadcasting 
-> advertisements every x seconds, and yet the user has set the valid_lft to be 
-> something less than x.  In this setup, the condition I mentioned in the patch 
-> description happens, where the new temporary address is created, but the last 
-> modification time on that temporary address is set to the time of the last 
-> router advertisement, which was more than valid_lft seconds ago.  In this 
-> case, the temporary address is immediately deleted, and we are left with no 
-> temporary address on the interface.  Furthermore, because all temporary 
-> addresses get deleted by the time the next router advertisement arrives, we 
-> are left with not being able to use temporary addresses until we move 
-> networks.
+>> @@ -999,7 +999,7 @@ static int fib_netdev_event(struct notifier_block *this, unsigned long event, vo
+>>  		rt_cache_flush(dev_net(dev), 0);
+>>  		break;
+>>  	case NETDEV_UNREGISTER_BATCH:
+>> -		rt_cache_flush_batch();
+>> +		rt_cache_flush_batch(dev_net(dev));
+> 
+> It still has this incorrect conversion in it.
 
-Thanks for the information, I'll look into this some more.
+Sorry I missed that, what's the exact problem with it?
