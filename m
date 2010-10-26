@@ -1,68 +1,48 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next-2.6] net: Fix some corner cases in dev_can_checksum()
-Date: Tue, 26 Oct 2010 14:29:19 +0100
-Message-ID: <20101026132918.GG15074@solarflare.com>
-References: <1287618974-4714-1-git-send-email-jesse@nicira.com> <1287618974-4714-5-git-send-email-jesse@nicira.com> <1287675008.2235.8.camel@achroite.uk.solarflarecom.com> <AANLkTi=6erj4L7mwH4j1h+urPrc2PQu2xg7xTHkiM0A5@mail.gmail.com> <1287756739.2316.11.camel@achroite.uk.solarflarecom.com> <AANLkTi=PiB_oCvaFzQpUNhgV8qsn9d-jy_ejGdbOTzQe@mail.gmail.com>
+From: Joe Buehler <aspam@cox.net>
+Subject: Re: kernel panic in fib_rules_lookup [2.6.27.7 vendor-patched]
+Date: Tue, 26 Oct 2010 09:29:48 -0400
+Message-ID: <4CC6D7CC.5040608@cox.net>
+References: <loom.20101012T185411-307@post.gmane.org>	 <1286905245.2703.3.camel@edumazet-laptop>  <4CBF2A3F.2070108@cox.net>	 <1287612353.2545.11.camel@edumazet-laptop>  <4CC1F47C.9020104@cox.net>	 <1287805487.2658.5.camel@edumazet-laptop>	 <1287846669.2658.247.camel@edumazet-laptop>  <4CC30055.5040509@cox.net> <1287851745.2658.364.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Jesse Gross <jesse@nicira.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:52821 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751529Ab0JZN3W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Oct 2010 09:29:22 -0400
-Content-Disposition: inline
-In-Reply-To: <AANLkTi=PiB_oCvaFzQpUNhgV8qsn9d-jy_ejGdbOTzQe@mail.gmail.com>
+Received: from eastrmmtao101.cox.net ([68.230.240.7]:65486 "EHLO
+	eastrmmtao101.cox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753315Ab0JZN3u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Oct 2010 09:29:50 -0400
+In-Reply-To: <1287851745.2658.364.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jesse Gross wrote:
-> On Fri, Oct 22, 2010 at 7:12 AM, Ben Hutchings
-> <bhutchings@solarflare.com> wrote:
-> > dev_can_checksum() incorrectly returns true in these cases:
-> >
-> > 1. The skb has both out-of-band and in-band VLAN tags and the devic=
-e
-> > =A0 supports checksum offload for the encapsulated protocol but onl=
-y with
-> > =A0 one layer of encapsulation.
-> > 2. The skb has a VLAN tag and the device supports generic checksumm=
-ing
-> > =A0 but not in conjunction with VLAN encapsulation.
-> >
-> > Rearrange the VLAN tag checks to avoid these.
-> >
-> > Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
->=20
-> If we assume that cards cannot handle offloading for double tagged
-> packets, which is obviously the most conservative approach, we
-> probably also need to change the checks for TSO/SG.  There's no issue
-> with extracting the protocol from the right header but we might assum=
-e
-> that the card can handle double tag offloading when it can't.  For
-> both TSO/SG we check if there is either an in-band tag or out-of-band
-> tag and use dev->vlan_features if that is the case.  Maybe we need to
-> handle it in software if it is double tagged.
+Eric Dumazet wrote:
 
-That's something to check.
+> With a normal workload, on a dual cpu machine, a missing memory barrier
+> can stay un-noticed for quite a long time. The race window is so small
+> that probability for the bug might be 0.0000001 % or something like
+> that :(
 
-> On the other hand, I don't know whether it's true that cards can't
-> handle offloading for packets tagged in both manners.  I suppose that
-> it depends on where the offloading and tagging are in the pipeline.
-> For example, when it comes to SG I doubt that the cards care about
-> vlan tags much at all.
+I'm looking at the LINUX source at the moment and not liking what I see
+in include/asm-mips/barrier.h:
 
-I do know that current Solarflare controllers can parse two VLAN tags
-and generate/validate TCP/IP-style checksums after them.  We could add
-vlan2_features which would be copied to a VLAN sub-device's
-vlan_features, but then what happens when people want to handle triple
-VLAN encapsulation?
+#define smp_mb()	__asm__ __volatile__(__WEAK_ORDERING_MB : : :"memory")
+#ifdef CONFIG_CPU_CAVIUM_OCTEON
+#define smp_rmb()	barrier()
+#define smp_wmb()	barrier()
+#else
+#define smp_rmb()	__asm__ __volatile__(__WEAK_ORDERING_MB : : :"memory")
+#define smp_wmb()	__asm__ __volatile__(__WEAK_ORDERING_MB : : :"memory")
+#endif
 
-Ben.
+The Octeon documentation explicitly says that neither loads nor stores
+need execute in program order, so the definitions for smp_rmb and
+smp_wmb appear to be wrong wrong wrong.
 
---=20
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+It appears that smp_wmb should be making use of SYNCW and smp_rmb should
+be making use of SYNC.
+
+Should I pursue this question on the main LINUX kernel list?
+
+Joe Buehler
