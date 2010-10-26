@@ -1,36 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH linux-2.6 v2] IPv6: Temp addresses are immediately
- deleted.
-Date: Tue, 26 Oct 2010 12:38:52 -0700 (PDT)
-Message-ID: <20101026.123852.58436932.davem@davemloft.net>
-References: <20100927171010.GB7106@adams.ccsl.carleton.ca>
-	<20100928.233028.112599117.davem@davemloft.net>
-	<201010161442.18748.gwurster@scs.carleton.ca>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] net: reset gso header when the copied skb is linearized
+Date: Tue, 26 Oct 2010 15:38:32 -0400
+Message-ID: <20101026193832.GA13747@gondor.apana.org.au>
+References: <1288045398-3110-1-git-send-email-fleitner@redhat.com> <20101026.113157.233700961.davem@davemloft.net> <20101026192511.GA3494@redhat.com> <20101026.122801.52191238.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, shemminger@vyatta.com,
-	eric.dumazet@gmail.com, herbert@gondor.hengli.com.au,
-	ebiederm@xmission.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: gwurster@scs.carleton.ca
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201010161442.18748.gwurster@scs.carleton.ca>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: fleitner@redhat.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.apana.org.au ([209.40.204.226]:35783 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758133Ab0JZTih (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Oct 2010 15:38:37 -0400
+Content-Disposition: inline
+In-Reply-To: <20101026.122801.52191238.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Glenn Wurster <gwurster@scs.carleton.ca>
-Date: Sat, 16 Oct 2010 14:42:17 -0400
+On Tue, Oct 26, 2010 at 12:28:01PM -0700, David Miller wrote:
+>
+> Thus, if we linearize a larger than MSS sized frame, it should still
+> have the same GSO attributes.
 
-> No, the first patch was to create a temporary address if none exists.  Like 
-> Brian Haley pointed out, that patch accommodates the case where we set 
-> use_tempaddr to a non-zero value after the interface had been brought up.
-> 
-> This patch accommodates the case where the router is only broadcasting 
-> advertisements every x seconds, and yet the user has set the valid_lft to be 
-> something less than x.
-
-Ok, thanks for your patience.
-
-I've applied both of your patches, thanks.
+I agree with you on all counts :)
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
