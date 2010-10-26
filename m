@@ -1,82 +1,168 @@
-From: Helmut Schaa <helmut.schaa@googlemail.com>
-Subject: Re: [PATCH 1/2 v3] xps: Improvements in TX queue selection
-Date: Tue, 26 Oct 2010 08:18:47 +0200
-Message-ID: <201010260818.47523.helmut.schaa@googlemail.com>
-References: <alpine.DEB.1.00.1010211303390.30535@pokey.mtv.corp.google.com>
+From: Michael Ellerman <michael@ellerman.id.au>
+Subject: Re: [PATCH net-next-2.6 1/2] be2net: Adding an option to use INTx
+ instead of MSI-X
+Date: Tue, 26 Oct 2010 17:52:08 +1100
+Message-ID: <1288075928.6578.185.camel@concordia>
+References: <20101025111235.GA2024@emulex.com>
+	 <20101025.120943.189699949.davem@davemloft.net>
+	 <20101025223853.GD15074@solarflare.com>
+	 <20101025.162535.226782713.davem@davemloft.net>
+Reply-To: michael@ellerman.id.au
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: Tom Herbert <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:57693 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752843Ab0JZGTd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Oct 2010 02:19:33 -0400
-Received: by bwz11 with SMTP id 11so3101740bwz.19
-        for <netdev@vger.kernel.org>; Mon, 25 Oct 2010 23:19:32 -0700 (PDT)
-In-Reply-To: <alpine.DEB.1.00.1010211303390.30535@pokey.mtv.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-NrA7c9r2ghiymiU5wGec"
+Cc: bhutchings@solarflare.com, somnath.kotur@emulex.com,
+	netdev@vger.kernel.org, linux-pci@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <20101025.162535.226782713.davem@davemloft.net>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
 
-Am Donnerstag 21 Oktober 2010 schrieb Tom Herbert:
-> In dev_pick_tx, don't do work in calculating queue index or setting
-> the index in the sock unless the device has more than one queue.  This
-> allows the sock to be set only with a queue index of a multi-queue
-> device which is desirable if device are stacked like in a tunnel.
-> 
-> We also allow the mapping of a socket to queue to be changed.  To
-> maintain in order packet transmission a flag (ooo_okay) has been
-> added to the sk_buff structure.  If a transport layer sets this flag
-> on a packet, the transmit queue can be changed for the socket.
-> Presumably, the transport would set this if there was no possbility
-> of creating OOO packets (for instance, there are no packets in flight
-> for the socket).  This patch includes the modification in TCP output
-> for setting this flag.
-> 
-> Signed-off-by: Tom Herbert <therbert@google.com>
-> ---
+--=-NrA7c9r2ghiymiU5wGec
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-[...]
+On Mon, 2010-10-25 at 16:25 -0700, David Miller wrote:
+> From: Ben Hutchings <bhutchings@solarflare.com>
+> Date: Mon, 25 Oct 2010 23:38:53 +0100
+>=20
+> > David Miller wrote:
+> >> From: Somnath Kotur <somnath.kotur@emulex.com>
+> >> Date: Mon, 25 Oct 2010 16:42:35 +0530
+> >>=20
+> >> > By default, be2net uses MSIx wherever possible.
+> >> > Adding a module parameter to use INTx for users who do not want to u=
+se MSIx.
+> >> >=20
+> >> > Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
+> >>=20
+> >> Either add a new ethtool flag, or use the PCI subsystem facilities
+> >> for tweaking things to implement this.
+> >>
+> >> Do not use a module option, otherwise every other networking driver
+> >> author will get the same "cool" idea, give the module option
+> >> different names, and the resulting user experience is terrible.
+> >=20
+> > This has already happened, sadly.  So far as I can see it's mostly done
+> > to allow users to work around systems with broken MSIs; I'm not aware o=
+f
+> > any other reason to prefer legacy interrupts.  However, the PCI subsyst=
+em
+> > already implements a blacklist and a kernel parameter for disabling MSI=
+s
+> > on these systems.
+>=20
+> The PCI subsystem bits I'm totally fine with.
+>=20
+> But in the drivers themselves, that's what I don't want.
 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index b2269ac..a538ed5 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -2123,28 +2123,32 @@ static struct netdev_queue *dev_pick_tx(struct net_device *dev,
->  					struct sk_buff *skb)
->  {
->  	int queue_index;
-> -	const struct net_device_ops *ops = dev->netdev_ops;
->  
-> -	if (ops->ndo_select_queue) {
-> -		queue_index = ops->ndo_select_queue(dev, skb);
-> -		queue_index = dev_cap_txqueue(dev, queue_index);
-> -	} else {
-> +	if (dev->real_num_tx_queues > 1) {
->  		struct sock *sk = skb->sk;
-> +
->  		queue_index = sk_tx_queue_get(sk);
-> -		if (queue_index < 0) {
->  
-> -			queue_index = 0;
-> -			if (dev->real_num_tx_queues > 1)
-> +		if (queue_index < 0 || skb->ooo_okay ||
-> +		    queue_index >= dev->real_num_tx_queues) {
-> +			const struct net_device_ops *ops = dev->netdev_ops;
-> +			int old_index = queue_index;
-> +
-> +			if (ops->ndo_select_queue) {
-> +				queue_index = ops->ndo_select_queue(dev, skb);
-> +				queue_index = dev_cap_txqueue(dev, queue_index);
-> +			} else
->  				queue_index = skb_tx_hash(dev, skb);
+That horse has really really bolted, it's gawn.
 
-Wouldn't that break mac80211 QoS again for bridged AP mode interfaces (see
-commit deabc772f39405054a438d711f408d2d94d26d96, "net: fix tx queue selection
-for bridged devices implementing select_queue")?
+I count 26 drivers with "disable MSI/X" parameters. Some even have more
+than one.
 
-Helmut
+11 of them are network drivers, 9 scsi, 3 ata.
+
+I agree it's a mess for users, but it's probably preferable to a
+non-working driver.
+
+Ethtool would be nice, but only for network drivers. Is there a generic
+solution, quirks are obviously not keeping people happy.
+
+cheers
+
+
+
+MSI:
+
+Param "msi", 10 users:
+  drivers/ata/sata_mv.c:MODULE_PARM_DESC(msi, "Enable use of PCI MSI (0=3Do=
+ff, 1=3Don)");
+  drivers/ata/sata_nv.c:MODULE_PARM_DESC(msi, "Enable use of MSI (Default: =
+false)");
+  drivers/ata/sata_sil24.c:MODULE_PARM_DESC(msi, "Enable MSI (Default: fals=
+e)");
+  drivers/net/cxgb3/cxgb3_main.c:MODULE_PARM_DESC(msi, "whether to use MSI =
+or MSI-X");
+  drivers/net/cxgb4/cxgb4_main.c:MODULE_PARM_DESC(msi, "whether to use INTx=
+ (0), MSI (1) or MSI-X (2)");
+  drivers/net/cxgb4vf/cxgb4vf_main.c:MODULE_PARM_DESC(msi, "whether to use =
+MSI-X or MSI");
+  drivers/net/forcedeth.c:MODULE_PARM_DESC(msi, "MSI interrupts are enabled=
+ by setting to 1 and disabled by setting to 0.");
+  drivers/net/qla3xxx.c:MODULE_PARM_DESC(msi, "Turn on Message Signaled Int=
+errupts.");
+  drivers/scsi/aacraid/aachba.c:MODULE_PARM_DESC(msi, "IRQ handling."
+  drivers/scsi/stex.c:MODULE_PARM_DESC(msi, "Enable Message Signaled Interr=
+upts(0=3Doff, 1=3Don)");
+
+Param "use_msi", 4 users:
+  drivers/net/qlcnic/qlcnic_main.c:MODULE_PARM_DESC(use_msi, "MSI interrupt=
+ (0=3Ddisabled, 1=3Denabled");
+  drivers/scsi/3w-9xxx.c:MODULE_PARM_DESC(use_msi, "Use Message Signaled In=
+terrupts.  Default: 0");
+  drivers/scsi/3w-sas.c:MODULE_PARM_DESC(use_msi, "Use Message Signaled Int=
+errupts. Default: 0");
+  drivers/scsi/aic94xx/aic94xx_init.c:MODULE_PARM_DESC(use_msi, "\n"
+
+Param "disable_msi", 4 users:
+  drivers/scsi/vmw_pvscsi.c:MODULE_PARM_DESC(disable_msi, "Disable MSI use =
+in driver - (default=3D0)");
+  drivers/net/bnx2.c:MODULE_PARM_DESC(disable_msi, "Disable Message Signale=
+d Interrupt (MSI)");
+  drivers/net/chelsio/cxgb2.c:MODULE_PARM_DESC(disable_msi, "Disable Messag=
+e Signaled Interrupt (MSI)");
+  drivers/net/sky2.c:MODULE_PARM_DESC(disable_msi, "Disable Message Signale=
+d Interrupt (MSI)");
+
+Misc:
+  sound/pci/hda/hda_intel.c:MODULE_PARM_DESC(enable_msi, "Enable Message Si=
+gnaled Interrupt (MSI)");
+  drivers/message/fusion/mptbase.c:MODULE_PARM_DESC(mpt_msi_enable_spi, " E=
+nable MSI Support for SPI \
+  drivers/message/fusion/mptbase.c:MODULE_PARM_DESC(mpt_msi_enable_fc, " En=
+able MSI Support for FC \
+  drivers/message/fusion/mptbase.c:MODULE_PARM_DESC(mpt_msi_enable_sas, " E=
+nable MSI Support for SAS \
+  drivers/net/myri10ge/myri10ge.c:MODULE_PARM_DESC(myri10ge_msi, "Enable Me=
+ssage Signalled Interrupts");
+
+
+MSI-X:
+
+Param "msi_x", 2 users:
+  drivers/infiniband/hw/mthca/mthca_main.c:MODULE_PARM_DESC(msi_x, "attempt=
+ to use MSI-X if nonzero");
+  drivers/net/mlx4/main.c:MODULE_PARM_DESC(msi_x, "attempt to use MSI-X if =
+nonzero");
+
+Misc:
+  drivers/net/forcedeth.c:MODULE_PARM_DESC(msix, "MSIX interrupts are enabl=
+ed by setting to 1 and disabled by setting to 0.");
+  drivers/net/qlcnic/qlcnic_main.c:MODULE_PARM_DESC(use_msi_x, "MSI-X inter=
+rupt (0=3Ddisabled, 1=3Denabled");
+  drivers/scsi/bfa/bfad_intr.c:MODULE_PARM_DESC(msix_disable_cb, "Disable M=
+SIX for Brocade-415/425/815/825"
+  drivers/scsi/bfa/bfad_intr.c:MODULE_PARM_DESC(msix_disable_ct, "Disable M=
+SIX for Brocade-1010/1020/804"
+  drivers/scsi/mpt2sas/mpt2sas_base.c:MODULE_PARM_DESC(msix_disable, " disa=
+ble msix routed interrupts (default=3D0)");
+  drivers/scsi/qla4xxx/ql4_os.c:MODULE_PARM_DESC(ql4xenablemsix,
+  drivers/scsi/vmw_pvscsi.c:MODULE_PARM_DESC(disable_msix, "Disable MSI-X u=
+se in driver - (default=3D0)");
+
+
+--=-NrA7c9r2ghiymiU5wGec
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iEYEABECAAYFAkzGepgACgkQdSjSd0sB4dI/zACeMLe0oZm/V45kSfU8VpOWmp5U
+zxkAmgLHZ1hmqFHKgQeq5KI4hUBWHSCS
+=dP3C
+-----END PGP SIGNATURE-----
+
+--=-NrA7c9r2ghiymiU5wGec--
