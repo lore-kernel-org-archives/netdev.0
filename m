@@ -1,32 +1,29 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] can: flexcan: fix use after free of priv
-Date: Tue, 26 Oct 2010 10:49:36 -0700 (PDT)
-Message-ID: <20101026.104936.229745338.davem@davemloft.net>
-References: <1287673678-27510-1-git-send-email-mkl@pengutronix.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] can: mcp251x: fix reception of standard RTR frames
+Date: Tue, 26 Oct 2010 10:49:49 -0700 (PDT)
+Message-ID: <20101026.104949.35034236.davem@davemloft.net>
+References: <1287679030-13993-1-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <1287673678-27510-1-git-send-email-mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: socketcan-core@lists.berlios.de, netdev@vger.kernel.org
+To: mkl@pengutronix.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48124
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755257Ab0JZRtZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Oct 2010 13:49:25 -0400
+In-Reply-To: <1287679030-13993-1-git-send-email-mkl@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Date: Thu, 21 Oct 2010 17:07:58 +0200
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Thu, 21 Oct 2010 18:37:10 +0200
 
-> The priv is part of the memory allocated by alloc_candev().
-> This patch moved the free it after last usage of priv.
+> This patch sets the missing CAN_RTR_FLAG if a standard RTR frame is
+> received.
+> (For extended frames the CAN_RTR_FLAG was already set correctly.)
 > 
-> Signed-off-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+> Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 
 Applied.
