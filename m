@@ -1,46 +1,60 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: [v3 RFC PATCH 0/4] Implement multiqueue virtio-net
-Date: Tue, 26 Oct 2010 15:31:39 +0530
-Message-ID: <OFBE9E2C99.648EFB19-ON652577C8.0035FEDD-652577C8.0036AD51@in.ibm.com>
-References: <20101020085452.15579.76002.sendpatchset@krkumar2.in.ibm.com> <OF8735A2A4.74B4EE91-ON652577C5.0040D90B-652577C7.0056B99D@in.ibm.com> <20101025161718.GA19559@redhat.com> <OF5C53E9CF.FFDF2CE7-ON652577C8.00191D14-652577C8.001C2154@LocalDomain> <OFBB51646E.01CC3630-ON652577C8.0030D6EF-652577C8.0031DA3C@in.ibm.com> <20101026093846.GA6766@redhat.com>
+From: Amit Salecha <amit.salecha@qlogic.com>
+Subject: RE: [PATCH] qlcnic: dma address align check
+Date: Tue, 26 Oct 2010 05:04:18 -0500
+Message-ID: <99737F4847ED0A48AECC9F4A1974A4B80F871A817A@MNEXMB2.qlogic.org>
+References: <1288085882-11988-1-git-send-email-amit.salecha@qlogic.com>
+	 <1288085882-11988-5-git-send-email-amit.salecha@qlogic.com>
+ <1288086894.3169.53.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: anthony@codemonkey.ws, arnd@arndb.de, avi@redhat.com,
-	davem@davemloft.net, eric.dumazet@gmail.com, kvm@vger.kernel.org,
-	netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
-	rusty@rustcorp.com.au
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20101026093846.GA6766@redhat.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ameen Rahman <ameen.rahman@qlogic.com>,
+	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from avexcashub1.qlogic.com ([198.70.193.61]:46366 "EHLO
+	avexcashub1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755093Ab0JZKEX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Oct 2010 06:04:23 -0400
+In-Reply-To: <1288086894.3169.53.camel@edumazet-laptop>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> "Michael S. Tsirkin" <mst@redhat.com>
->
-> On Tue, Oct 26, 2010 at 02:38:53PM +0530, Krishna Kumar2 wrote:
-> > Results for UDP BW tests (unidirectional, sum across
-> > 3 iterations, each iteration of 45 seconds, default
-> > netperf, vhosts bound to cpus 0-3; no other tuning):
->
-> Is binding vhost threads to CPUs really required?
-> What happens if we let the scheduler do its job?
-
-Nothing drastic, I remember BW% and SD% both improved a
-bit as a result of binding. I started binding vhost thread
-after Avi suggested it in response to my v1 patch (he
-suggested some more that I haven't done), and have been
-doing only this tuning ever since. This is part of his
-mail for the tuning:
-
-> 		 vhost:
-> 		 		 thread #0:  CPU0
-> 		 		 thread #1:  CPU1
-> 		 		 thread #2:  CPU2
-> 		 		 thread #3:  CPU3
-
-I simply bound each thread to CPU0-3 instead.
-
-Thanks,
-
-- KK
-
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogRXJpYyBEdW1hemV0IFtt
+YWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0NCj4gU2VudDogVHVlc2RheSwgT2N0b2JlciAy
+NiwgMjAxMCAzOjI1IFBNDQo+IFRvOiBBbWl0IFNhbGVjaGENCj4gQ2M6IGRhdmVtQGRhdmVtbG9m
+dC5uZXQ7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IEFtZWVuIFJhaG1hbjsgQW5pcmJhbg0KPiBD
+aGFrcmFib3J0eQ0KPiBTdWJqZWN0OiBSZTogW1BBVENIXSBxbGNuaWM6IGRtYSBhZGRyZXNzIGFs
+aWduIGNoZWNrDQo+IA0KPiBMZSBtYXJkaSAyNiBvY3RvYnJlIDIwMTAgw6AgMDI6MzggLTA3MDAs
+IEFtaXQgS3VtYXIgU2FsZWNoYSBhIMOpY3JpdCA6DQo+ID4gRGV2aWNlIHJlcXVpcmVzIHR4X2h3
+X2Nvc251bWVyIHRvIGJlIDY0IGJ5dGUgYWxpZ25lZC4NCj4gPiBUeCBkZXNjIHNpemUgaXMgNjQg
+Ynl0ZSwgYWxsb2MgdHhfaHdfY29uc3VtZXIgd2l0aCB0eCBkZXNjLg0KPiA+DQo+ID4gU2lnbmVk
+LW9mZi1ieTogQW1pdCBLdW1hciBTYWxlY2hhIDxhbWl0LnNhbGVjaGFAcWxvZ2ljLmNvbT4NCj4g
+PiAtLS0NCj4gPiAgZHJpdmVycy9uZXQvcWxjbmljL3FsY25pY19jdHguYyB8ICAgMzUgKysrKysr
+KysrKysrKysrLS0tLS0tLS0tLS0tLS0NCj4gLS0tLS0tDQo+ID4gIDEgZmlsZXMgY2hhbmdlZCwg
+MTUgaW5zZXJ0aW9ucygrKSwgMjAgZGVsZXRpb25zKC0pDQo+ID4NCj4gPiBkaWZmIC0tZ2l0IGEv
+ZHJpdmVycy9uZXQvcWxjbmljL3FsY25pY19jdHguYw0KPiBiL2RyaXZlcnMvbmV0L3FsY25pYy9x
+bGNuaWNfY3R4LmMNCj4gPiBpbmRleCAxY2RjMDVkLi4yMWM5YzI4IDEwMDY0NA0KPiA+IC0tLSBh
+L2RyaXZlcnMvbmV0L3FsY25pYy9xbGNuaWNfY3R4LmMNCj4gPiArKysgYi9kcml2ZXJzL25ldC9x
+bGNuaWMvcWxjbmljX2N0eC5jDQo+ID4gQEAgLTQxOCwxOCArNDE4LDkgQEAgaW50IHFsY25pY19h
+bGxvY19od19yZXNvdXJjZXMoc3RydWN0DQo+IHFsY25pY19hZGFwdGVyICphZGFwdGVyKQ0KPiA+
+ICAJcmVjdl9jdHggPSAmYWRhcHRlci0+cmVjdl9jdHg7DQo+ID4gIAl0eF9yaW5nID0gYWRhcHRl
+ci0+dHhfcmluZzsNCj4gPg0KPiA+IC0JdHhfcmluZy0+aHdfY29uc3VtZXIgPSAoX19sZTMyICop
+cGNpX2FsbG9jX2NvbnNpc3RlbnQocGRldiwNCj4gc2l6ZW9mKHUzMiksDQo+ID4gLQkJCQkJCSZ0
+eF9yaW5nLT5od19jb25zX3BoeXNfYWRkcik7DQo+ID4gLQlpZiAodHhfcmluZy0+aHdfY29uc3Vt
+ZXIgPT0gTlVMTCkgew0KPiA+IC0JCWRldl9lcnIoJnBkZXYtPmRldiwgImZhaWxlZCB0byBhbGxv
+Y2F0ZSB0eCBjb25zdW1lclxuIik7DQo+ID4gLQkJcmV0dXJuIC1FTk9NRU07DQo+ID4gLQl9DQo+
+ID4gLQkqKHR4X3JpbmctPmh3X2NvbnN1bWVyKSA9IDA7DQo+ID4gLQ0KPiA+ICAJLyogY21kIGRl
+c2MgcmluZyAqLw0KPiA+IC0JYWRkciA9IHBjaV9hbGxvY19jb25zaXN0ZW50KHBkZXYsIFRYX0RF
+U0NfUklOR1NJWkUodHhfcmluZyksDQo+ID4gLQkJCSZ0eF9yaW5nLT5waHlzX2FkZHIpOw0KPiA+
+IC0NCj4gPiArCWFkZHIgPSBwY2lfYWxsb2NfY29uc2lzdGVudChwZGV2LCBUWF9ERVNDX1JJTkdT
+SVpFKHR4X3JpbmcpICsNCj4gPiArCQkJc2l6ZW9mKHUzMiksICZ0eF9yaW5nLT5waHlzX2FkZHIp
+Ow0KPiANCj4gV29udCB0aGlzIHVzZSB0d2ljZSBtZW1vcnkgdGhhbiBiZWZvcmUsIGR1ZSB0byBw
+b3dlci1vZi10d28NCj4gYWxsb2NhdGlvbnMgPw0KPiANCj4gQWxsb2NhdGluZyA2NTUzNiArIDQg
+Ynl0ZXMgZ2l2ZXMgeW91IDEzMTA3MiBieXRlcy4NCj4NCklzIGl0ID8gSSBhbSBub3QgYXdhcmUg
+YWJvdXQgc3VjaCBjYWxjdWxhdGlvbi4NCklzIHBjaV9hbGxvY19jb25zaXN0ZW50IGd1YXJhbnRl
+ZSB0byBnaXZlIFBBR0UgYWxpZ24gZG1hIGFkZHJlc3MgPw0KDQotQW1pdA0KIA0KDQoNCiANCg0K
+DQo=
