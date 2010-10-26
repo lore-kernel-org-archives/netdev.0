@@ -1,168 +1,135 @@
-From: Michael Ellerman <michael@ellerman.id.au>
-Subject: Re: [PATCH net-next-2.6 1/2] be2net: Adding an option to use INTx
- instead of MSI-X
-Date: Tue, 26 Oct 2010 17:52:08 +1100
-Message-ID: <1288075928.6578.185.camel@concordia>
-References: <20101025111235.GA2024@emulex.com>
-	 <20101025.120943.189699949.davem@davemloft.net>
-	 <20101025223853.GD15074@solarflare.com>
-	 <20101025.162535.226782713.davem@davemloft.net>
-Reply-To: michael@ellerman.id.au
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] tunnels: add __rcu annotations
+Date: Tue, 26 Oct 2010 09:01:26 +0200
+Message-ID: <1288076486.3296.85.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-NrA7c9r2ghiymiU5wGec"
-Cc: bhutchings@solarflare.com, somnath.kotur@emulex.com,
-	netdev@vger.kernel.org, linux-pci@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20101025.162535.226782713.davem@davemloft.net>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-
---=-NrA7c9r2ghiymiU5wGec
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:63715 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755914Ab0JZHBe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Oct 2010 03:01:34 -0400
+Received: by wyf28 with SMTP id 28so4262324wyf.19
+        for <netdev@vger.kernel.org>; Tue, 26 Oct 2010 00:01:32 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2010-10-25 at 16:25 -0700, David Miller wrote:
-> From: Ben Hutchings <bhutchings@solarflare.com>
-> Date: Mon, 25 Oct 2010 23:38:53 +0100
->=20
-> > David Miller wrote:
-> >> From: Somnath Kotur <somnath.kotur@emulex.com>
-> >> Date: Mon, 25 Oct 2010 16:42:35 +0530
-> >>=20
-> >> > By default, be2net uses MSIx wherever possible.
-> >> > Adding a module parameter to use INTx for users who do not want to u=
-se MSIx.
-> >> >=20
-> >> > Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
-> >>=20
-> >> Either add a new ethtool flag, or use the PCI subsystem facilities
-> >> for tweaking things to implement this.
-> >>
-> >> Do not use a module option, otherwise every other networking driver
-> >> author will get the same "cool" idea, give the module option
-> >> different names, and the resulting user experience is terrible.
-> >=20
-> > This has already happened, sadly.  So far as I can see it's mostly done
-> > to allow users to work around systems with broken MSIs; I'm not aware o=
-f
-> > any other reason to prefer legacy interrupts.  However, the PCI subsyst=
-em
-> > already implements a blacklist and a kernel parameter for disabling MSI=
-s
-> > on these systems.
->=20
-> The PCI subsystem bits I'm totally fine with.
->=20
-> But in the drivers themselves, that's what I don't want.
+Add __rcu annotations to :
+        (struct ip_tunnel)->prl
+        (struct ip_tunnel_prl_entry)->next
+        (struct xfrm_tunnel)->next
+	struct xfrm_tunnel *tunnel4_handlers
+	struct xfrm_tunnel *tunnel64_handlers
 
-That horse has really really bolted, it's gawn.
+And use appropriate rcu primitives to reduce sparse warnings if
+CONFIG_SPARSE_RCU_POINTER=y
 
-I count 26 drivers with "disable MSI/X" parameters. Some even have more
-than one.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ include/net/ipip.h |    4 ++--
+ include/net/xfrm.h |    2 +-
+ net/ipv4/tunnel4.c |   29 +++++++++++++++++++----------
+ 3 files changed, 22 insertions(+), 13 deletions(-)
 
-11 of them are network drivers, 9 scsi, 3 ata.
-
-I agree it's a mess for users, but it's probably preferable to a
-non-working driver.
-
-Ethtool would be nice, but only for network drivers. Is there a generic
-solution, quirks are obviously not keeping people happy.
-
-cheers
-
-
-
-MSI:
-
-Param "msi", 10 users:
-  drivers/ata/sata_mv.c:MODULE_PARM_DESC(msi, "Enable use of PCI MSI (0=3Do=
-ff, 1=3Don)");
-  drivers/ata/sata_nv.c:MODULE_PARM_DESC(msi, "Enable use of MSI (Default: =
-false)");
-  drivers/ata/sata_sil24.c:MODULE_PARM_DESC(msi, "Enable MSI (Default: fals=
-e)");
-  drivers/net/cxgb3/cxgb3_main.c:MODULE_PARM_DESC(msi, "whether to use MSI =
-or MSI-X");
-  drivers/net/cxgb4/cxgb4_main.c:MODULE_PARM_DESC(msi, "whether to use INTx=
- (0), MSI (1) or MSI-X (2)");
-  drivers/net/cxgb4vf/cxgb4vf_main.c:MODULE_PARM_DESC(msi, "whether to use =
-MSI-X or MSI");
-  drivers/net/forcedeth.c:MODULE_PARM_DESC(msi, "MSI interrupts are enabled=
- by setting to 1 and disabled by setting to 0.");
-  drivers/net/qla3xxx.c:MODULE_PARM_DESC(msi, "Turn on Message Signaled Int=
-errupts.");
-  drivers/scsi/aacraid/aachba.c:MODULE_PARM_DESC(msi, "IRQ handling."
-  drivers/scsi/stex.c:MODULE_PARM_DESC(msi, "Enable Message Signaled Interr=
-upts(0=3Doff, 1=3Don)");
-
-Param "use_msi", 4 users:
-  drivers/net/qlcnic/qlcnic_main.c:MODULE_PARM_DESC(use_msi, "MSI interrupt=
- (0=3Ddisabled, 1=3Denabled");
-  drivers/scsi/3w-9xxx.c:MODULE_PARM_DESC(use_msi, "Use Message Signaled In=
-terrupts.  Default: 0");
-  drivers/scsi/3w-sas.c:MODULE_PARM_DESC(use_msi, "Use Message Signaled Int=
-errupts. Default: 0");
-  drivers/scsi/aic94xx/aic94xx_init.c:MODULE_PARM_DESC(use_msi, "\n"
-
-Param "disable_msi", 4 users:
-  drivers/scsi/vmw_pvscsi.c:MODULE_PARM_DESC(disable_msi, "Disable MSI use =
-in driver - (default=3D0)");
-  drivers/net/bnx2.c:MODULE_PARM_DESC(disable_msi, "Disable Message Signale=
-d Interrupt (MSI)");
-  drivers/net/chelsio/cxgb2.c:MODULE_PARM_DESC(disable_msi, "Disable Messag=
-e Signaled Interrupt (MSI)");
-  drivers/net/sky2.c:MODULE_PARM_DESC(disable_msi, "Disable Message Signale=
-d Interrupt (MSI)");
-
-Misc:
-  sound/pci/hda/hda_intel.c:MODULE_PARM_DESC(enable_msi, "Enable Message Si=
-gnaled Interrupt (MSI)");
-  drivers/message/fusion/mptbase.c:MODULE_PARM_DESC(mpt_msi_enable_spi, " E=
-nable MSI Support for SPI \
-  drivers/message/fusion/mptbase.c:MODULE_PARM_DESC(mpt_msi_enable_fc, " En=
-able MSI Support for FC \
-  drivers/message/fusion/mptbase.c:MODULE_PARM_DESC(mpt_msi_enable_sas, " E=
-nable MSI Support for SAS \
-  drivers/net/myri10ge/myri10ge.c:MODULE_PARM_DESC(myri10ge_msi, "Enable Me=
-ssage Signalled Interrupts");
-
-
-MSI-X:
-
-Param "msi_x", 2 users:
-  drivers/infiniband/hw/mthca/mthca_main.c:MODULE_PARM_DESC(msi_x, "attempt=
- to use MSI-X if nonzero");
-  drivers/net/mlx4/main.c:MODULE_PARM_DESC(msi_x, "attempt to use MSI-X if =
-nonzero");
-
-Misc:
-  drivers/net/forcedeth.c:MODULE_PARM_DESC(msix, "MSIX interrupts are enabl=
-ed by setting to 1 and disabled by setting to 0.");
-  drivers/net/qlcnic/qlcnic_main.c:MODULE_PARM_DESC(use_msi_x, "MSI-X inter=
-rupt (0=3Ddisabled, 1=3Denabled");
-  drivers/scsi/bfa/bfad_intr.c:MODULE_PARM_DESC(msix_disable_cb, "Disable M=
-SIX for Brocade-415/425/815/825"
-  drivers/scsi/bfa/bfad_intr.c:MODULE_PARM_DESC(msix_disable_ct, "Disable M=
-SIX for Brocade-1010/1020/804"
-  drivers/scsi/mpt2sas/mpt2sas_base.c:MODULE_PARM_DESC(msix_disable, " disa=
-ble msix routed interrupts (default=3D0)");
-  drivers/scsi/qla4xxx/ql4_os.c:MODULE_PARM_DESC(ql4xenablemsix,
-  drivers/scsi/vmw_pvscsi.c:MODULE_PARM_DESC(disable_msix, "Disable MSI-X u=
-se in driver - (default=3D0)");
+diff --git a/include/net/ipip.h b/include/net/ipip.h
+index 0403fe4..a32654d 100644
+--- a/include/net/ipip.h
++++ b/include/net/ipip.h
+@@ -34,12 +34,12 @@ struct ip_tunnel {
+ #ifdef CONFIG_IPV6_SIT_6RD
+ 	struct ip_tunnel_6rd_parm	ip6rd;
+ #endif
+-	struct ip_tunnel_prl_entry	*prl;		/* potential router list */
++	struct ip_tunnel_prl_entry __rcu *prl;		/* potential router list */
+ 	unsigned int			prl_count;	/* # of entries in PRL */
+ };
+ 
+ struct ip_tunnel_prl_entry {
+-	struct ip_tunnel_prl_entry	*next;
++	struct ip_tunnel_prl_entry __rcu *next;
+ 	__be32				addr;
+ 	u16				flags;
+ 	struct rcu_head			rcu_head;
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index ffcd478..bcfb6b2 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -1264,7 +1264,7 @@ struct xfrm_tunnel {
+ 	int (*handler)(struct sk_buff *skb);
+ 	int (*err_handler)(struct sk_buff *skb, u32 info);
+ 
+-	struct xfrm_tunnel *next;
++	struct xfrm_tunnel __rcu *next;
+ 	int priority;
+ };
+ 
+diff --git a/net/ipv4/tunnel4.c b/net/ipv4/tunnel4.c
+index 9a17bd2..ac3b3ee 100644
+--- a/net/ipv4/tunnel4.c
++++ b/net/ipv4/tunnel4.c
+@@ -14,27 +14,32 @@
+ #include <net/protocol.h>
+ #include <net/xfrm.h>
+ 
+-static struct xfrm_tunnel *tunnel4_handlers __read_mostly;
+-static struct xfrm_tunnel *tunnel64_handlers __read_mostly;
++static struct xfrm_tunnel __rcu *tunnel4_handlers __read_mostly;
++static struct xfrm_tunnel __rcu *tunnel64_handlers __read_mostly;
+ static DEFINE_MUTEX(tunnel4_mutex);
+ 
+-static inline struct xfrm_tunnel **fam_handlers(unsigned short family)
++static inline struct xfrm_tunnel __rcu **fam_handlers(unsigned short family)
+ {
+ 	return (family == AF_INET) ? &tunnel4_handlers : &tunnel64_handlers;
+ }
+ 
+ int xfrm4_tunnel_register(struct xfrm_tunnel *handler, unsigned short family)
+ {
+-	struct xfrm_tunnel **pprev;
++	struct xfrm_tunnel __rcu **pprev;
++	struct xfrm_tunnel *t;
++
+ 	int ret = -EEXIST;
+ 	int priority = handler->priority;
+ 
+ 	mutex_lock(&tunnel4_mutex);
+ 
+-	for (pprev = fam_handlers(family); *pprev; pprev = &(*pprev)->next) {
+-		if ((*pprev)->priority > priority)
++	for (pprev = fam_handlers(family);
++	     (t = rcu_dereference_protected(*pprev,
++			lockdep_is_held(&tunnel4_mutex))) != NULL;
++	     pprev = &t->next) {
++		if (t->priority > priority)
+ 			break;
+-		if ((*pprev)->priority == priority)
++		if (t->priority == priority)
+ 			goto err;
+ 	}
+ 
+@@ -52,13 +57,17 @@ EXPORT_SYMBOL(xfrm4_tunnel_register);
+ 
+ int xfrm4_tunnel_deregister(struct xfrm_tunnel *handler, unsigned short family)
+ {
+-	struct xfrm_tunnel **pprev;
++	struct xfrm_tunnel __rcu **pprev;
++	struct xfrm_tunnel *t;
+ 	int ret = -ENOENT;
+ 
+ 	mutex_lock(&tunnel4_mutex);
+ 
+-	for (pprev = fam_handlers(family); *pprev; pprev = &(*pprev)->next) {
+-		if (*pprev == handler) {
++	for (pprev = fam_handlers(family);
++	     (t = rcu_dereference_protected(*pprev,
++			lockdep_is_held(&tunnel4_mutex))) != NULL;
++	     pprev = &t->next) {
++		if (t == handler) {
+ 			*pprev = handler->next;
+ 			ret = 0;
+ 			break;
 
 
---=-NrA7c9r2ghiymiU5wGec
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iEYEABECAAYFAkzGepgACgkQdSjSd0sB4dI/zACeMLe0oZm/V45kSfU8VpOWmp5U
-zxkAmgLHZ1hmqFHKgQeq5KI4hUBWHSCS
-=dP3C
------END PGP SIGNATURE-----
-
---=-NrA7c9r2ghiymiU5wGec--
