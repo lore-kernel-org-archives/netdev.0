@@ -1,39 +1,48 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: Re: [PATCH] ipv6: addrconf: clear IPv6 addresses and routes when
- losing link
-Date: Tue, 26 Oct 2010 10:50:20 -0700
-Message-ID: <AANLkTi=DPaxVLzasA_xs0rPQGBFtfbS7aThx54OT798H@mail.gmail.com>
-References: <AANLkTin-u_bZj6_wpoV6fNaLg81JbFN0EvhNrA6wX6SG@mail.gmail.com>
- <20101026.102145.246528067.davem@davemloft.net> <AANLkTi=P80OUBSy3xCt_qOjPGTwNjrtFL1iLJnkc9joq@mail.gmail.com>
- <20101026.104710.232747902.davem@davemloft.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6 v2] can: Topcliff: PCH_CAN driver: Fix
+	build warnings
+Date: Tue, 26 Oct 2010 10:52:06 -0700 (PDT)
+Message-ID: <20101026.105206.15244527.davem@davemloft.net>
+References: <4CC61B1B.3090602@dsn.okisemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: brian.haley@hp.com, shemminger@vyatta.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.35]:31069 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760167Ab0JZRuo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Oct 2010 13:50:44 -0400
-Received: from kpbe12.cbf.corp.google.com (kpbe12.cbf.corp.google.com [172.25.105.76])
-	by smtp-out.google.com with ESMTP id o9QHogAr010600
-	for <netdev@vger.kernel.org>; Tue, 26 Oct 2010 10:50:43 -0700
-Received: from ywj3 (ywj3.prod.google.com [10.192.10.3])
-	by kpbe12.cbf.corp.google.com with ESMTP id o9QHofPa001626
-	for <netdev@vger.kernel.org>; Tue, 26 Oct 2010 10:50:41 -0700
-Received: by ywj3 with SMTP id 3so3284334ywj.16
-        for <netdev@vger.kernel.org>; Tue, 26 Oct 2010 10:50:41 -0700 (PDT)
-In-Reply-To: <20101026.104710.232747902.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org,
+	sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org, morinaga526-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org,
+	joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, chripell-VaTbYqLCNhc@public.gmane.org,
+	qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+To: tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4CC61B1B.3090602-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 26, 2010 at 10:47 AM, David Miller <davem@davemloft.net> wrote:
-> Why would you do this when there are link layer indications that
-> we are attached to a different network?
+From: Tomoya <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Date: Tue, 26 Oct 2010 09:04:43 +0900
 
-Are there? For wifi you could look at the SSID (though even that is no
-guarantee - for example enterprise networks commonly use just a few
-SSIDs, but have different IP address ranges on a per-controller or
-per-radio basis). But what about wired? Remember, the same thing
-happens when you unplug your laptop's ethernet port and plug it in to
-another network.
+> Hi David,
+> 
+>> This patch has been corrupted by your email client.
+> 
+> Sorry, it seems my e-mail client setting was reset to default.
+
+There are still problems.
+
+This is beyond frustrating.
+
+> index 55ec324..2889e11 100755
+
+Why does the pch_can.c file have execute permission in your tree?
+It doesn't in net-next-2.6 and that is what you should be generating
+patches against.
