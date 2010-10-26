@@ -1,71 +1,65 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: kernel panic in fib_rules_lookup [2.6.27.7 vendor-patched]
-Date: Tue, 26 Oct 2010 15:58:52 +0200
-Message-ID: <1288101532.3169.114.camel@edumazet-laptop>
-References: <loom.20101012T185411-307@post.gmane.org>
-	 <1286905245.2703.3.camel@edumazet-laptop>  <4CBF2A3F.2070108@cox.net>
-	 <1287612353.2545.11.camel@edumazet-laptop>  <4CC1F47C.9020104@cox.net>
-	 <1287805487.2658.5.camel@edumazet-laptop>
-	 <1287846669.2658.247.camel@edumazet-laptop>  <4CC30055.5040509@cox.net>
-	 <1287851745.2658.364.camel@edumazet-laptop>  <4CC6D7CC.5040608@cox.net>
-	 <1288100208.3169.112.camel@edumazet-laptop>  <4CC6DD69.4020502@cox.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] ipv6: addrconf: clear IPv6 addresses and routes when
+ losing link
+Date: Tue, 26 Oct 2010 08:28:32 -0700
+Message-ID: <20101026082832.4c5af2ef@nehalam>
+References: <AANLkTikC4pv8aOODM2pOg2bKQGL69wivcUU3f9ZziPhe@mail.gmail.com>
+	<20101025213841.635b9a15@nehalam>
+	<AANLkTinGpt=EQX3aXRaj5mEUMDNpyEapbs4VyOwgtN55@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Joe Buehler <aspam@cox.net>
+To: Lorenzo Colitti <lorenzo@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:63031 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751219Ab0JZOmW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Oct 2010 10:42:22 -0400
-Received: by eye27 with SMTP id 27so5300723eye.19
-        for <netdev@vger.kernel.org>; Tue, 26 Oct 2010 07:42:21 -0700 (PDT)
-In-Reply-To: <4CC6DD69.4020502@cox.net>
+Received: from mail.vyatta.com ([76.74.103.46]:34214 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754095Ab0JZP2f (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Oct 2010 11:28:35 -0400
+In-Reply-To: <AANLkTinGpt=EQX3aXRaj5mEUMDNpyEapbs4VyOwgtN55@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 26 octobre 2010 =C3=A0 09:53 -0400, Joe Buehler a =C3=A9crit :
-> Eric Dumazet wrote:
->=20
-> > Well, it would be surprising this being wrong and crash only once i=
-n a
-> > while in fib_rules_lookup
->=20
-> > Did you tried my last patch ?
->=20
-> There was a patch to the kernel by David Daney back in January to
-> improve performance of Octeon memory barriers.  The patch changes the
-> generic MIPS barrier code to introduce optimizations for Octeon.  The
-> LINUX version I am using is from the Octeon SDK and appears to have a=
-n
-> early version of this patch.  It's broken however -- the Jan patch ha=
-s
-> proper SYNCW instructions in smp_wmb while the SDK version does not.
->=20
-> I have made your changes but will also fold in this change, then star=
-t
-> some load testing.
->=20
-> The real-time scheduler is broken in the LINUX I am using -- I get
-> kernel crashes -- and I would be most happy if the SYNCW fix fixed th=
-at
-> also.
->=20
-> Joe Buehler
->=20
+On Mon, 25 Oct 2010 22:44:03 -0700
+Lorenzo Colitti <lorenzo@google.com> wrote:
 
-Just to make sure, you do use two "syncw", not only one ?
+> On Mon, Oct 25, 2010 at 9:38 PM, Stephen Hemminger
+> <shemminger@vyatta.com> wrote:
+> > This is incorrect. When link is lost, routes and address should not be
+> > flushed. They should be marked as tentative and then go through DAD again
+> > on the new network.
+> 
+> That won't help the case I am trying to fix, which is the case where
+> the new link has a global prefix different than the old link. Marking
+> the addresses as tentative will simply make them pass DAD and come
+> back as soon as link comes back. But since they don't match the prefix
+> that is assigned to the new link, they are unusable, because packets
+> can't be routed back to them.
 
-/*
- * We actually use two syncw instructions in a row when we need a write
- * memory barrier. This is because the CN3XXX series of Octeons have
- * errata Core-401. This can cause a single syncw to not enforce
- * ordering under very rare conditions. Even if it is rare, better safe
- * than sorry.
- */
-#define CVMX_SYNCW asm volatile ("syncw\n\tsyncw" : : : "memory")
+For IPv4 this is already handled by network manager.
+Why couldn't the same apply to IPv6?
 
+> > If you do it this way, you break routing protocols when link is brought
+> > down and back up.
+> 
+> The only addresses and routes flushed in this way should be ones that
+> aren't manually configured, i.e., the ones created by autoconf
+> (addrconf.c:2720 onwards). These won't be used by routing protocols,
+> except for link-local addresses. So I assume you're talking about
+> link-local here.
 
+Not sure, let me do test it.
 
+> Link-local addresses are immediately recreated in a tentative state as
+> soon as link comes back, because on NETDEV_UP addrconf_notify calls
+> addrconf_dev_config. So, this patch only makes it so that they become
+> tentative when link goes away and comes back. In that time, the router
+> that temporarily loses link is unable to send packets for the brief
+> period of time that the link is performing DAD, but if the router has
+> lost link, it will also fail to send the packet while link is lost.
+> What's the additional failure scenario? Will it help if I make it so
+> that link-local addresses aren't touched at all?
 
+Link-local works fine.
+
+-- 
