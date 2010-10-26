@@ -1,71 +1,36 @@
-From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH 00/10] Remove multiple uses of KERN_<level>
-Date: Mon, 25 Oct 2010 19:44:18 -0700
-Message-ID: <cover.1288059486.git.joe@perches.com>
-Cc: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
-	Ingo Molnar <mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	Chas Williams <chas-vT06rRrALxcmhCb6mdbn6A@public.gmane.org>,
-	Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>,
-	Tom Tucker <tom-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
-	Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
-	Roland Dreier <rolandd-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>,
-	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Alessandro Rubini <rubini-JCs+bAQazDroPXhRcRtihA@public.gmane.org>,
-	Dmitry Torokhov <dmitry.torokhov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Mauro Carvalho Chehab <mchehab-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	"James E.J. Bottomley" <James.Bottomley-l3A5Bk7waGM@public.gmane.org>,
-	David Brown <davidb-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	Daniel Walker <dwalker-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	Bryan Huntsman <bryanh-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-atm-general-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-input-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-s
-To: Jiri Kosina <trivial-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: David Dillow <dave@thedillows.org>
+Subject: Re: [PATCH] Add support for new VLAN acceleration model
+Date: Mon, 25 Oct 2010 22:48:11 -0400
+Message-ID: <1288061291.21198.9.camel@obelisk.thedillows.org>
+References: <1287951880-25321-1-git-send-email-dave@thedillows.org>
+	 <AANLkTi=kYH2NLMChuzd=OF6TPyn8FPJaRLfBg7z1gcYq@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jgarzik@redhat.com, davem@davemloft.net
+To: Jesse Gross <jesse@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from amavis-smtp.knology.net ([75.76.199.6]:47516 "EHLO
+	amavis-smtp.knology.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757094Ab0JZCsW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Oct 2010 22:48:22 -0400
+In-Reply-To: <AANLkTi=kYH2NLMChuzd=OF6TPyn8FPJaRLfBg7z1gcYq@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Found using strings vmlinux | grep "^<.>.*<.>"
-and a couple of other cleanups of logging message format strings.
+On Mon, 2010-10-25 at 19:22 -0700, Jesse Gross wrote:
+> On Sun, Oct 24, 2010 at 1:24 PM, David Dillow <dave@thedillows.org> wrote:
+> > Signed-off-by: David Dillow <dave@thedillows.org>
+> > ---
+> > I used this during testing of the typhoon conversion.
+> 
+> Oops, I have a nearly identical patch that I should have sent out
+> earlier to make everyone's lives easier.
 
-Joe Perches (10):
-  arch/x86/kernel/apic/io_apic.c: Typo fix WARNING
-  drivers/atm/eni.c: Remove multiple uses of KERN_<level>
-  drivers/hid/hid-input.c: Remove KERN_DEBUG from dbg_hid use
-  drivers/infiniband: Remove unnecessary KERN_<level> uses
-  drivers/input/mouse/appletouch.c: Remove KERN_DEBUG use from dprintk
-  drivers/input/serio/i8042: Use pr_<level>, pr_fmt.  Fix dbg and __FILE__ use
-  drivers/media: Removed unnecessary KERN_<level>s from dprintk uses
-  drivers/scsi:mvsas/mv_sas.c: Remove KERN_DEBUG from mv_dprintk use
-  drivers/video/msm/mddi.c: Remove multiple KERN_<level> uses
-  fs/proc/vmcore.c: Use pr_<level> and pr_<fmt>
+Would have saved me a few minutes, but don't sweat it -- it took me
+forever to figure out that my WRT54G was stripping VLAN tags, making it
+look like the driver had been broken for quite some time...
 
- arch/x86/kernel/apic/io_apic.c                |    2 +-
- drivers/atm/eni.c                             |    7 +-
- drivers/hid/hid-input.c                       |    2 +-
- drivers/infiniband/hw/amso1100/c2_intr.c      |    4 +-
- drivers/infiniband/hw/cxgb3/iwch_cm.c         |    4 +-
- drivers/infiniband/hw/cxgb4/cm.c              |    4 +-
- drivers/input/mouse/appletouch.c              |    2 +-
- drivers/input/serio/i8042.c                   |   94 ++++++++++++-------------
- drivers/input/serio/i8042.h                   |   19 +++--
- drivers/media/common/tuners/max2165.c         |   10 +--
- drivers/media/dvb/frontends/atbm8830.c        |    8 +--
- drivers/media/dvb/frontends/lgs8gxx.c         |   11 +--
- drivers/media/video/saa7134/saa7134-input.c   |    2 +-
- drivers/media/video/saa7134/saa7134-tvaudio.c |   12 ++--
- drivers/scsi/mvsas/mv_sas.c                   |    2 +-
- drivers/video/msm/mddi.c                      |    5 +-
- fs/proc/vmcore.c                              |   16 ++---
- 17 files changed, 97 insertions(+), 107 deletions(-)
+As for the credit, I'm not at all concerned; I think I like your patch
+better anyway.
 
--- 
-1.7.3.dirty
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
