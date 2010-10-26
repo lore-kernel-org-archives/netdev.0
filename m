@@ -1,313 +1,116 @@
-From: Tomoya <tomoya-linux@dsn.okisemi.com>
-Subject: [PATCH net-next-2.6 v2] can: Topcliff: PCH_CAN driver: Fix build
- warnings
-Date: Tue, 26 Oct 2010 09:04:43 +0900
-Message-ID: <4CC61B1B.3090602__32230.5178655826$1288051511$gmane$org@dsn.okisemi.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH v2 10/14] ixgbe: Update ixgbe to use new vlan accleration.
+Date: Mon, 25 Oct 2010 17:08:30 -0700
+Message-ID: <AANLkTinGe-p3EspYGJbNSY7L=pC6nA+g_MDgC8=NeUVQ@mail.gmail.com>
+References: <1287618974-4714-1-git-send-email-jesse@nicira.com>
+	<1287618974-4714-11-git-send-email-jesse@nicira.com>
+	<AANLkTindxJD1a5UPV+6vWbDEeMUTy1QgPs1X8pT-b69D@mail.gmail.com>
+	<1288029009.1808.1.camel@pjaxe>
+	<AANLkTi=R9f3oAdVAG1MyyTwEqBGRaBj8mtLPg15R2BjW@mail.gmail.com>
+	<4CC5FE81.4020606@intel.com>
+	<AANLkTim68bfo54XsoPbbDUGa4evPA2vSmJbSTs-LZv=Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: qi.wang@intel.com, yong.y.wang@intel.com,
-	andrew.chih.howe.khor@intel.com, joel.clark@intel.com,
-	kok.howg.ewe@intel.com, morinaga526@dsn.okisemi.com,
-	Masayuki Ohtake <masa-korg@dsn.okisemi.com>,
-	margie.foster@intel.com
-To: Wolfgang Grandegger <wg@grandegger.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Wolfram Sang <w.sang@pengutronix.de>,
-	Christian Pellegrin <chripell@fsfe.org>,
-	Barry Song <21cnbao@g
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Tantilov, Emil S" <emil.s.tantilov@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+To: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sm-d311v.smileserver.ne.jp ([203.211.202.206]:24746 "EHLO
-	sm-d311v.smileserver.ne.jp" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753904Ab0JZAEk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Oct 2010 20:04:40 -0400
+Received: from mail-ww0-f42.google.com ([74.125.82.42]:44895 "EHLO
+	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757170Ab0JZAIc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Oct 2010 20:08:32 -0400
+Received: by wwb34 with SMTP id 34so90541wwb.1
+        for <netdev@vger.kernel.org>; Mon, 25 Oct 2010 17:08:31 -0700 (PDT)
+In-Reply-To: <AANLkTim68bfo54XsoPbbDUGa4evPA2vSmJbSTs-LZv=Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+2010/10/25 Micha=B3 Miros=B3aw <mirqus@gmail.com>:
+> W dniu 26 pa=BCdziernika 2010 00:02 u=BFytkownik John Fastabend
+> <john.r.fastabend@intel.com> napisa=B3:
+>> On 10/25/2010 2:40 PM, Micha=B3 Miros=B3aw wrote:
+>>> W dniu 25 pa=BCdziernika 2010 19:50 u=BFytkownik Peter P Waskiewicz=
+ Jr
+>>> <peter.p.waskiewicz.jr@intel.com> napisa=B3:
+>>>> On Fri, 2010-10-22 at 06:24 -0700, Micha=B3 Miros=B3aw wrote:
+>>>>> 2010/10/21 Jesse Gross <jesse@nicira.com>:
+>>>>>> Make the ixgbe driver use the new vlan accleration model.
+>>>>> [...]
+>>>>>> --- a/drivers/net/ixgbe/ixgbe_main.c
+>>>>>> +++ b/drivers/net/ixgbe/ixgbe_main.c
+>>>>>> @@ -954,17 +954,13 @@ static void ixgbe_receive_skb(struct ixgbe=
+_q_vector *q_vector,
+>>>>>> =A0 =A0 =A0 =A0bool is_vlan =3D (status & IXGBE_RXD_STAT_VP);
+>>>>>> =A0 =A0 =A0 =A0u16 tag =3D le16_to_cpu(rx_desc->wb.upper.vlan);
+>>>>>>
+>>>>>> - =A0 =A0 =A0 if (!(adapter->flags & IXGBE_FLAG_IN_NETPOLL)) {
+>>>>>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (adapter->vlgrp && is_vlan && (=
+tag & VLAN_VID_MASK))
+>>>>>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 vlan_gro_receive(n=
+api, adapter->vlgrp, tag, skb);
+>>>>>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 else
+>>>>>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 napi_gro_receive(n=
+api, skb);
+>>>>>> - =A0 =A0 =A0 } else {
+>>>>>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (adapter->vlgrp && is_vlan && (=
+tag & VLAN_VID_MASK))
+>>>>>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 vlan_hwaccel_rx(sk=
+b, adapter->vlgrp, tag);
+>>>>>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 else
+>>>>>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 netif_rx(skb);
+>>>>>> - =A0 =A0 =A0 }
+>>>>>> + =A0 =A0 =A0 if (is_vlan && (tag & VLAN_VID_MASK))
+>>>>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 __vlan_hwaccel_put_tag(skb, tag);
+>>>>>
+>>>>> I know that this is carried over from the driver, but why tag =3D=
+=3D 0 is
+>>>>> treated differently here? VID0 is somewhat special, as normally i=
+t
+>>>>> means 802.1p packet, but i.e. in embedded world people are using =
+it as
+>>>>> normal VID. It would be nice to have this handled consistently in=
+ the
+>>>>> VLAN core - deliver to base dev (tag stripped) if vlan 0 is not
+>>>>> configured and to vlan dev if it is.
+>>>>
+>>>> ixgbe handles VLAN 0 differently because that's the tag that's use=
+d when
+>>>> DCB is enabled, and no VLAN is configured. =A0We have to insert th=
+e 802.1p
+>>>> tag for DCB to work, but the OS won't know about the 802.1q tag, a=
+nd
+>>>> ends up dropping the frame. =A0So we enable VLAN ID 0 in the HW an=
+d tell
+>>>> it to strip the tag, so we can still pass the frame up the stack.
+>>>
+>>> So that's actually (part of) what I'm proposing but done at driver =
+level.
+>> I agree this should be handled outside the driver. Something like th=
+is should
+>> do,
+>
+> Current code (Linus' tree, so with Jesse's VLAN rework applied) shoul=
+d
+> work exactly as I proposed in my original mail - VLAN 0 is treated as
+> 802.1p (stripped and delivered to original dev) unless vlan device
+> with id 0 is configured. (Patch untested).
 
-> This patch has been corrupted by your email client.
+Yes, the current vlan acceleration path should work correctly in this
+case.  There are definitely a few things that can be improved though:
 
-Sorry, it seems my e-mail client setting was reset to default.
+1. The non-accelerated path doesn't handle things in the same way,
+which is inherently not good.  It doesn't drop packets to vlan 0 but
+it does run them through the network stack again on the same device.
+The acceleration code simply allows it to continue onto the protocol
+handlers.  This can have strange results, i.e. packets will show up
+twice in tcpdump (tagged and untagged) on non-accelerated but once
+(tagged) on accelerated.
 
-Thanks, Tomoya(OKI SEMICONDUCTOR CO., LTD.)
----
-
-From: Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
- - Fix build warnings when PM_CONFIG is disabled.
- - Modify Copyright "Co" to "CO".
-
-Reported-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
----
- drivers/net/can/pch_can.c |  208 ++++++++++++++++++++++----------------------
- 1 files changed, 104 insertions(+), 104 deletions(-)
-
-diff --git a/drivers/net/can/pch_can.c b/drivers/net/can/pch_can.c
-index 55ec324..2889e11 100755
---- a/drivers/net/can/pch_can.c
-+++ b/drivers/net/can/pch_can.c
-@@ -1,6 +1,6 @@
- /*
-  * Copyright (C) 1999 - 2010 Intel Corporation.
-- * Copyright (C) 2010 OKI SEMICONDUCTOR Co., LTD.
-+ * Copyright (C) 2010 OKI SEMICONDUCTOR CO., LTD.
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License as published by
-@@ -255,21 +255,21 @@ static void pch_can_set_optmode(struct pch_can_priv *priv)
- 	iowrite32(reg_val, &priv->regs->opt);
- }
- 
--static void pch_can_set_int_custom(struct pch_can_priv *priv)
-+static void pch_can_check_if_busy(u32 __iomem *creq_addr, u32 num)
- {
--	/* Clearing the IE, SIE and EIE bits of Can control register. */
--	pch_can_bit_clear(&priv->regs->cont, CAN_CTRL_IE_SIE_EIE);
--
--	/* Appropriately setting them. */
--	pch_can_bit_set(&priv->regs->cont,
--			((priv->int_enables & MSK_CTRL_IE_SIE_EIE) << 1));
--}
-+	u32 counter = COUNTER_LIMIT;
-+	u32 ifx_creq;
- 
--/* This function retrieves interrupt enabled for the CAN device. */
--static void pch_can_get_int_enables(struct pch_can_priv *priv, u32 *enables)
--{
--	/* Obtaining the status of IE, SIE and EIE interrupt bits. */
--	*enables = ((ioread32(&priv->regs->cont) & CAN_CTRL_IE_SIE_EIE) >> 1);
-+	iowrite32(num, creq_addr);
-+	while (counter) {
-+		ifx_creq = ioread32(creq_addr) & CAN_IF_CREQ_BUSY;
-+		if (!ifx_creq)
-+			break;
-+		counter--;
-+		udelay(1);
-+	}
-+	if (!counter)
-+		pr_err("%s:IF1 BUSY Flag is set forever.\n", __func__);
- }
- 
- static void pch_can_set_int_enables(struct pch_can_priv *priv,
-@@ -298,23 +298,6 @@ static void pch_can_set_int_enables(struct pch_can_priv *priv,
- 	}
- }
- 
--static void pch_can_check_if_busy(u32 __iomem *creq_addr, u32 num)
--{
--	u32 counter = COUNTER_LIMIT;
--	u32 ifx_creq;
--
--	iowrite32(num, creq_addr);
--	while (counter) {
--		ifx_creq = ioread32(creq_addr) & CAN_IF_CREQ_BUSY;
--		if (!ifx_creq)
--			break;
--		counter--;
--		udelay(1);
--	}
--	if (!counter)
--		pr_err("%s:IF1 BUSY Flag is set forever.\n", __func__);
--}
--
- static void pch_can_set_rx_enable(struct pch_can_priv *priv, u32 buff_num,
- 				  u32 set)
- {
-@@ -417,82 +400,11 @@ static void pch_can_tx_disable_all(struct pch_can_priv *priv)
- 	}
- }
- 
--static void pch_can_get_rx_enable(struct pch_can_priv *priv, u32 buff_num,
--				 u32 *enable)
--{
--	unsigned long flags;
--
--	spin_lock_irqsave(&priv->msgif_reg_lock, flags);
--	iowrite32(CAN_CMASK_RX_TX_GET, &priv->regs->if1_cmask);
--	pch_can_check_if_busy(&priv->regs->if1_creq, buff_num);
--
--	if (((ioread32(&priv->regs->if1_id2)) & CAN_ID_MSGVAL) &&
--			((ioread32(&priv->regs->if1_mcont)) &
--			CAN_IF_MCONT_RXIE))
--		*enable = ENABLE;
--	else
--		*enable = DISABLE;
--	spin_unlock_irqrestore(&priv->msgif_reg_lock, flags);
--}
--
--static void pch_can_get_tx_enable(struct pch_can_priv *priv, u32 buff_num,
--				 u32 *enable)
--{
--	unsigned long flags;
--
--	spin_lock_irqsave(&priv->msgif_reg_lock, flags);
--	iowrite32(CAN_CMASK_RX_TX_GET, &priv->regs->if2_cmask);
--	pch_can_check_if_busy(&priv->regs->if2_creq, buff_num);
--
--	if (((ioread32(&priv->regs->if2_id2)) & CAN_ID_MSGVAL) &&
--			((ioread32(&priv->regs->if2_mcont)) &
--			CAN_IF_MCONT_TXIE)) {
--		*enable = ENABLE;
--	} else {
--		*enable = DISABLE;
--	}
--	spin_unlock_irqrestore(&priv->msgif_reg_lock, flags);
--}
--
- static int pch_can_int_pending(struct pch_can_priv *priv)
- {
- 	return ioread32(&priv->regs->intr) & 0xffff;
- }
- 
--static void pch_can_set_rx_buffer_link(struct pch_can_priv *priv,
--				       u32 buffer_num, u32 set)
--{
--	unsigned long flags;
--
--	spin_lock_irqsave(&priv->msgif_reg_lock, flags);
--	iowrite32(CAN_CMASK_RX_TX_GET, &priv->regs->if1_cmask);
--	pch_can_check_if_busy(&priv->regs->if1_creq, buffer_num);
--	iowrite32(CAN_CMASK_RDWR | CAN_CMASK_CTRL, &priv->regs->if1_cmask);
--	if (set == ENABLE)
--		pch_can_bit_clear(&priv->regs->if1_mcont, CAN_IF_MCONT_EOB);
--	else
--		pch_can_bit_set(&priv->regs->if1_mcont, CAN_IF_MCONT_EOB);
--
--	pch_can_check_if_busy(&priv->regs->if1_creq, buffer_num);
--	spin_unlock_irqrestore(&priv->msgif_reg_lock, flags);
--}
--
--static void pch_can_get_rx_buffer_link(struct pch_can_priv *priv,
--				       u32 buffer_num, u32 *link)
--{
--	unsigned long flags;
--
--	spin_lock_irqsave(&priv->msgif_reg_lock, flags);
--	iowrite32(CAN_CMASK_RX_TX_GET, &priv->regs->if1_cmask);
--	pch_can_check_if_busy(&priv->regs->if1_creq, buffer_num);
--
--	if (ioread32(&priv->regs->if1_mcont) & CAN_IF_MCONT_EOB)
--		*link = DISABLE;
--	else
--		*link = ENABLE;
--	spin_unlock_irqrestore(&priv->msgif_reg_lock, flags);
--}
--
- static void pch_can_clear_buffers(struct pch_can_priv *priv)
- {
- 	int i;
-@@ -1121,13 +1033,13 @@ static netdev_tx_t pch_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	if (can_dropped_invalid_skb(ndev, skb))
- 		return NETDEV_TX_OK;
- 
--	if (priv->tx_obj == (PCH_OBJ_NUM + 1)) { /* Point tail Obj */
-+	if (priv->tx_obj == (PCH_OBJ_NUM + 1)) { /* Point tail Obj + 1 */
- 		while (pch_get_msg_obj_sts(ndev, (((1 << PCH_TX_OBJ_NUM)-1) <<
- 					   PCH_RX_OBJ_NUM)))
- 			udelay(500);
- 
- 		priv->tx_obj = PCH_RX_OBJ_NUM + 1; /* Point head of Tx Obj ID */
--		tx_buffer_avail = priv->tx_obj; /* Point Tail of Tx Obj */
-+		tx_buffer_avail = priv->tx_obj;
- 	} else {
- 		tx_buffer_avail = priv->tx_obj;
- 	}
-@@ -1212,6 +1124,94 @@ static void __devexit pch_can_remove(struct pci_dev *pdev)
- }
- 
- #ifdef CONFIG_PM
-+static void pch_can_set_int_custom(struct pch_can_priv *priv)
-+{
-+	/* Clearing the IE, SIE and EIE bits of Can control register. */
-+	pch_can_bit_clear(&priv->regs->cont, CAN_CTRL_IE_SIE_EIE);
-+
-+	/* Appropriately setting them. */
-+	pch_can_bit_set(&priv->regs->cont,
-+			((priv->int_enables & MSK_CTRL_IE_SIE_EIE) << 1));
-+}
-+
-+/* This function retrieves interrupt enabled for the CAN device. */
-+static void pch_can_get_int_enables(struct pch_can_priv *priv, u32 *enables)
-+{
-+	/* Obtaining the status of IE, SIE and EIE interrupt bits. */
-+	*enables = ((ioread32(&priv->regs->cont) & CAN_CTRL_IE_SIE_EIE) >> 1);
-+}
-+
-+static void pch_can_get_rx_enable(struct pch_can_priv *priv, u32 buff_num,
-+				 u32 *enable)
-+{
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&priv->msgif_reg_lock, flags);
-+	iowrite32(CAN_CMASK_RX_TX_GET, &priv->regs->if1_cmask);
-+	pch_can_check_if_busy(&priv->regs->if1_creq, buff_num);
-+
-+	if (((ioread32(&priv->regs->if1_id2)) & CAN_ID_MSGVAL) &&
-+			((ioread32(&priv->regs->if1_mcont)) &
-+			CAN_IF_MCONT_RXIE))
-+		*enable = ENABLE;
-+	else
-+		*enable = DISABLE;
-+	spin_unlock_irqrestore(&priv->msgif_reg_lock, flags);
-+}
-+
-+static void pch_can_get_tx_enable(struct pch_can_priv *priv, u32 buff_num,
-+				 u32 *enable)
-+{
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&priv->msgif_reg_lock, flags);
-+	iowrite32(CAN_CMASK_RX_TX_GET, &priv->regs->if2_cmask);
-+	pch_can_check_if_busy(&priv->regs->if2_creq, buff_num);
-+
-+	if (((ioread32(&priv->regs->if2_id2)) & CAN_ID_MSGVAL) &&
-+			((ioread32(&priv->regs->if2_mcont)) &
-+			CAN_IF_MCONT_TXIE)) {
-+		*enable = ENABLE;
-+	} else {
-+		*enable = DISABLE;
-+	}
-+	spin_unlock_irqrestore(&priv->msgif_reg_lock, flags);
-+}
-+
-+static void pch_can_set_rx_buffer_link(struct pch_can_priv *priv,
-+				       u32 buffer_num, u32 set)
-+{
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&priv->msgif_reg_lock, flags);
-+	iowrite32(CAN_CMASK_RX_TX_GET, &priv->regs->if1_cmask);
-+	pch_can_check_if_busy(&priv->regs->if1_creq, buffer_num);
-+	iowrite32(CAN_CMASK_RDWR | CAN_CMASK_CTRL, &priv->regs->if1_cmask);
-+	if (set == ENABLE)
-+		pch_can_bit_clear(&priv->regs->if1_mcont, CAN_IF_MCONT_EOB);
-+	else
-+		pch_can_bit_set(&priv->regs->if1_mcont, CAN_IF_MCONT_EOB);
-+
-+	pch_can_check_if_busy(&priv->regs->if1_creq, buffer_num);
-+	spin_unlock_irqrestore(&priv->msgif_reg_lock, flags);
-+}
-+
-+static void pch_can_get_rx_buffer_link(struct pch_can_priv *priv,
-+				       u32 buffer_num, u32 *link)
-+{
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&priv->msgif_reg_lock, flags);
-+	iowrite32(CAN_CMASK_RX_TX_GET, &priv->regs->if1_cmask);
-+	pch_can_check_if_busy(&priv->regs->if1_creq, buffer_num);
-+
-+	if (ioread32(&priv->regs->if1_mcont) & CAN_IF_MCONT_EOB)
-+		*link = DISABLE;
-+	else
-+		*link = ENABLE;
-+	spin_unlock_irqrestore(&priv->msgif_reg_lock, flags);
-+}
-+
- static int pch_can_suspend(struct pci_dev *pdev, pm_message_t state)
- {
- 	int i;			/* Counter variable. */
--- 
-1.6.0.6
-
+2.  In the ixgbe driver we should be able to handle vlan 0 in a less
+special manner.  In addition to delivering accelerated tags to vlan 0,
+we should also be able to avoid DCB forcing on vlan stripping.
