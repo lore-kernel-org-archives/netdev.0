@@ -1,89 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] fib_rules: __rcu annotates ctarget
-Date: Tue, 26 Oct 2010 21:24:55 +0200
-Message-ID: <1288121095.2652.9.camel@edumazet-laptop>
+From: Flavio Leitner <fleitner@redhat.com>
+Subject: Re: [PATCH] net: reset gso header when the copied skb is linearized
+Date: Tue, 26 Oct 2010 17:25:11 -0200
+Message-ID: <20101026192511.GA3494@redhat.com>
+References: <1288045398-3110-1-git-send-email-fleitner@redhat.com>
+ <20101026.113157.233700961.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, herbert@gondor.hengli.com.au
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:40615 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752843Ab0JZTY7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Oct 2010 15:24:59 -0400
-Received: by wyf28 with SMTP id 28so5003022wyf.19
-        for <netdev@vger.kernel.org>; Tue, 26 Oct 2010 12:24:58 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:3731 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756257Ab0JZTZU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Oct 2010 15:25:20 -0400
+Content-Disposition: inline
+In-Reply-To: <20101026.113157.233700961.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adds __rcu annotation to (struct fib_rule)->ctarget
+On Tue, Oct 26, 2010 at 11:31:57AM -0700, David Miller wrote:
+> From: Flavio Leitner <fleitner@redhat.com>
+> Date: Mon, 25 Oct 2010 20:23:18 -0200
+> 
+> > The gso header is incorrect when the copied skb is
+> > linearized. This patch creates another helper function
+> > to copy the gso header when it is appropriated
+> > 
+> > Signed-off-by: Flavio Leitner <fleitner@redhat.com>
+> 
+> I don't understand why the GSO information should be
+> omitted just because we are creating a linearlized
+> version of the SKB?
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- include/net/fib_rules.h |    2 +-
- net/core/fib_rules.c    |   11 ++++++-----
- 2 files changed, 7 insertions(+), 6 deletions(-)
+If I understand that correctly, the gso_segs is the number
+of GSO segments which are divided in non-linear way. When the
+copy is made using that function, the skb turns into a big
+one segment inlined. So, the idea of segments is lost and
+I'm not seeing how it is going to be divided again. 
+Later the NIC drives does, for example:
 
-diff --git a/include/net/fib_rules.h b/include/net/fib_rules.h
-index 106f309..075f1e3 100644
---- a/include/net/fib_rules.h
-+++ b/include/net/fib_rules.h
-@@ -20,7 +20,7 @@ struct fib_rule {
- 	u32			table;
- 	u8			action;
- 	u32			target;
--	struct fib_rule *	ctarget;
-+	struct fib_rule __rcu	*ctarget;
- 	char			iifname[IFNAMSIZ];
- 	char			oifname[IFNAMSIZ];
- 	struct rcu_head		rcu;
-diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
-index 12b43cc..82a4369 100644
---- a/net/core/fib_rules.c
-+++ b/net/core/fib_rules.c
-@@ -351,12 +351,12 @@ static int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
- 
- 		list_for_each_entry(r, &ops->rules_list, list) {
- 			if (r->pref == rule->target) {
--				rule->ctarget = r;
-+				RCU_INIT_POINTER(rule->ctarget, r);
- 				break;
- 			}
- 		}
- 
--		if (rule->ctarget == NULL)
-+		if (rcu_dereference_protected(rule->ctarget, 1) == NULL)
- 			unresolved = 1;
- 	} else if (rule->action == FR_ACT_GOTO)
- 		goto errout_free;
-@@ -386,7 +386,7 @@ static int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
- 		list_for_each_entry(r, &ops->rules_list, list) {
- 			if (r->action == FR_ACT_GOTO &&
- 			    r->target == rule->pref) {
--				BUG_ON(r->ctarget != NULL);
-+				BUG_ON(rtnl_dereference(r->ctarget) != NULL);
- 				rcu_assign_pointer(r->ctarget, rule);
- 				if (--ops->unresolved_rules == 0)
- 					break;
-@@ -487,7 +487,7 @@ static int fib_nl_delrule(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
- 		 */
- 		if (ops->nr_goto_rules > 0) {
- 			list_for_each_entry(tmp, &ops->rules_list, list) {
--				if (tmp->ctarget == rule) {
-+				if (rtnl_dereference(tmp->ctarget) == rule) {
- 					rcu_assign_pointer(tmp->ctarget, NULL);
- 					ops->unresolved_rules++;
- 				}
-@@ -545,7 +545,8 @@ static int fib_nl_fill_rule(struct sk_buff *skb, struct fib_rule *rule,
- 	frh->action = rule->action;
- 	frh->flags = rule->flags;
- 
--	if (rule->action == FR_ACT_GOTO && rule->ctarget == NULL)
-+	if (rule->action == FR_ACT_GOTO &&
-+	    rcu_dereference_raw(rule->ctarget) == NULL)
- 		frh->flags |= FIB_RULE_UNRESOLVED;
- 
- 	if (rule->iifname[0]) {
+drivers/net/e1000/e1000_main.c
+...
+                if (cleaned) {
+                        struct sk_buff *skb = buffer_info->skb;
+                        unsigned int segs, bytecount;
+                        segs = skb_shinfo(skb)->gso_segs ?: 1;
+                        /* multiply data chunks by size of * headers */
+                        bytecount = ((segs - 1) * skb_headlen(skb)) +
+                                    skb->len;
+                        total_tx_packets += segs;
+                        total_tx_bytes += bytecount;
+                }
+...
 
+The bytecount there will be wrong because it will multiply 
+the old gso_segs X skb_headlen(skb) which will be the entire
+skb as the payload is inlined.
 
+I see that there are some places checking for skb_is_gso()
+before do something or calculating using that math above.
+
+> The packet still could have a larger than MSS size,
+> and thus be composed of multiple actual segments for
+> the network.
+
+hopefully I answered this too in my previous comment
+
+thanks,
+-- 
+Flavio
