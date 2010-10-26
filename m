@@ -1,31 +1,21 @@
 From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 3/14] drivers/vhost/vhost.c: delete double assignment
-Date: Tue, 26 Oct 2010 12:25:32 +0200
-Message-ID: <1288088743-3725-4-git-send-email-julia@diku.dk>
+Subject: [PATCH 7/14] drivers/net/typhoon.c: delete double assignment
+Date: Tue, 26 Oct 2010 12:25:36 +0200
+Message-ID: <1288088743-3725-8-git-send-email-julia@diku.dk>
 References: <1288088743-3725-1-git-send-email-julia@diku.dk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: virtualization@lists.osdl.org, kernel-janitors@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
-        netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Dillow <dave@thedillows.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1288088743-3725-1-git-send-email-julia@diku.dk>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/virtualization>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Julia Lawall <julia@diku.dk>
 
-Delete successive assignments to the same location.
+Delete successive assignments to the same location.  The current definition
+does not initialize the respRing structure, which has the same type as the
+cmdRing structure, so initialize that one instead.
 
 A simplified version of the semantic match that finds this problem is as
 follows: (http://coccinelle.lip6.fr/)
@@ -42,18 +32,21 @@ expression i;
 Signed-off-by: Julia Lawall <julia@diku.dk>
 
 ---
- drivers/vhost/vhost.c |    1 -
- 1 file changed, 1 deletion(-)
+This changes the semantics and has not been tested.
 
-diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-index 94701ff..ed27727 100644
---- a/drivers/vhost/vhost.c
-+++ b/drivers/vhost/vhost.c
-@@ -157,7 +157,6 @@ static void vhost_vq_reset(struct vhost_dev *dev,
- 	vq->avail_idx = 0;
- 	vq->last_used_idx = 0;
- 	vq->used_flags = 0;
--	vq->used_flags = 0;
- 	vq->log_used = false;
- 	vq->log_addr = -1ull;
- 	vq->vhost_hlen = 0;
+ drivers/net/typhoon.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/typhoon.c b/drivers/net/typhoon.c
+index 1cc6713..fc014eb 100644
+--- a/drivers/net/typhoon.c
++++ b/drivers/net/typhoon.c
+@@ -1328,7 +1328,7 @@ typhoon_init_rings(struct typhoon *tp)
+ 	tp->rxHiRing.lastWrite = 0;
+ 	tp->rxBuffRing.lastWrite = 0;
+ 	tp->cmdRing.lastWrite = 0;
+-	tp->cmdRing.lastWrite = 0;
++	tp->respRing.lastWrite = 0;
+ 
+ 	tp->txLoRing.lastRead = 0;
+ 	tp->txHiRing.lastRead = 0;
