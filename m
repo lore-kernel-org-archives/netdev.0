@@ -1,51 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: netlink stats: Ability to get stats for a single device?
-Date: Tue, 26 Oct 2010 21:56:26 +0200
-Message-ID: <1288122986.2652.20.camel@edumazet-laptop>
-References: <4CC72C80.9010802@candelatech.com>
-	 <20101026.123811.13746869.davem@davemloft.net>
+From: =?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Subject: [PATCH 10/22] [RFC] trivial: fix typos concerning "function"
+Date: Tue, 26 Oct 2010 21:57:07 +0200
+Message-ID: <1288123039-22368-10-git-send-email-u.kleine-koenig@pengutronix.de>
+References: <1288123039-22368-1-git-send-email-u.kleine-koenig@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: greearb@candelatech.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: trivial@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f46.google.com ([209.85.215.46]:35779 "EHLO
-	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758821Ab0JZT4b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Oct 2010 15:56:31 -0400
-Received: by ewy7 with SMTP id 7so5785062ewy.19
-        for <netdev@vger.kernel.org>; Tue, 26 Oct 2010 12:56:30 -0700 (PDT)
-In-Reply-To: <20101026.123811.13746869.davem@davemloft.net>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:39469 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759517Ab0JZT5a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Oct 2010 15:57:30 -0400
+In-Reply-To: <1288123039-22368-1-git-send-email-u.kleine-koenig@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 26 octobre 2010 =C3=A0 12:38 -0700, David Miller a =C3=A9crit =
-:
-> From: Ben Greear <greearb@candelatech.com>
-> Date: Tue, 26 Oct 2010 12:31:12 -0700
->=20
-> > Am I missing something, or do I just need to write up a patch
-> > to have netlink pay attention to the ifindex?
->=20
-> Setting the ->ifi_index or IFLA_IFNAME attribute values appropriately
-> in the getlink request doesn't work?
->=20
-> That should give you back, amonst other things, the rtnl_link_stats
-> for the device in the netlink response.
-> --
+I'm a bit unsure about this patch.  I'm unable to parse both statements=
+=2E
 
-Yep, it should be easy to change iproute2 to not ask a full dump
-in ip/ipaddress.c :
+Cc: netdev@vger.kernel.org
+Signed-off-by: Uwe Kleine-K=C3=B6nig <u.kleine-koenig@pengutronix.de>
+---
+ drivers/isdn/hisax/isar.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-if (rtnl_wilddump_request(&rth, preferred_family, RTM_GETLINK) < 0) ...
-
-and instead use rtnl_send() or something like that, if user provided on=
-e
-specific interface name   (or index)
-
-ip link show dev eth0
-
-
-
+diff --git a/drivers/isdn/hisax/isar.c b/drivers/isdn/hisax/isar.c
+index 40b914b..2e72227 100644
+--- a/drivers/isdn/hisax/isar.c
++++ b/drivers/isdn/hisax/isar.c
+@@ -1427,8 +1427,8 @@ modeisar(struct BCState *bcs, int mode, int bc)
+ 					&bcs->hw.isar.reg->Flags))
+ 					bcs->hw.isar.dpath =3D 1;
+ 				else {
+-					printk(KERN_WARNING"isar modeisar analog funktions only with DP1\=
+n");
+-					debugl1(cs, "isar modeisar analog funktions only with DP1");
++					printk(KERN_WARNING"isar modeisar analog functions only with DP1\=
+n");
++					debugl1(cs, "isar modeisar analog functions only with DP1");
+ 					return(1);
+ 				}
+ 				break;
+--=20
+1.7.2.3
 
