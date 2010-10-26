@@ -1,57 +1,53 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] Enhance AF_PACKET implementation to not require high
- order contiguous memory allocation
-Date: Mon, 25 Oct 2010 21:58:44 -0400
-Message-ID: <20101026015844.GB31631@hmsreliant.think-freely.org>
-References: <E1PAVIx-0001qL-EB@smtp.tuxdriver.com>
- <1288045856.3296.19.camel@edumazet-laptop>
- <20101025233558.GA30118@hmsreliant.think-freely.org>
- <20101025.164646.104054845.davem@davemloft.net>
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: [PATCH] ipv6: addrconf: clear IPv6 addresses and routes when losing link
+Date: Mon, 25 Oct 2010 19:08:27 -0700
+Message-ID: <AANLkTikC4pv8aOODM2pOg2bKQGL69wivcUU3f9ZziPhe@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, jpirko@redhat.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:54232 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755944Ab0JZB6y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Oct 2010 21:58:54 -0400
-Content-Disposition: inline
-In-Reply-To: <20101025.164646.104054845.davem@davemloft.net>
+Received: from smtp-out.google.com ([216.239.44.51]:16387 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757861Ab0JZCIt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Oct 2010 22:08:49 -0400
+Received: from wpaz5.hot.corp.google.com (wpaz5.hot.corp.google.com [172.24.198.69])
+	by smtp-out.google.com with ESMTP id o9Q28nvt015318
+	for <netdev@vger.kernel.org>; Mon, 25 Oct 2010 19:08:49 -0700
+Received: from gxk8 (gxk8.prod.google.com [10.202.11.8])
+	by wpaz5.hot.corp.google.com with ESMTP id o9Q28m9u031209
+	for <netdev@vger.kernel.org>; Mon, 25 Oct 2010 19:08:48 -0700
+Received: by gxk8 with SMTP id 8so2485682gxk.11
+        for <netdev@vger.kernel.org>; Mon, 25 Oct 2010 19:08:48 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 25, 2010 at 04:46:46PM -0700, David Miller wrote:
-> From: Neil Horman <nhorman@tuxdriver.com>
-> Date: Mon, 25 Oct 2010 19:35:58 -0400
-> 
-> > On Tue, Oct 26, 2010 at 12:30:56AM +0200, Eric Dumazet wrote:
-> >> I would try a two level thing : Try to get high order pages, and
-> >> fallback on low order pages, but normally libpcap does this for us ?
-> >> 
-> >> 
-> > It does, but it tries them in that order, which causes the problem I'm
-> > describing, which is to say that attempting to get a large high order allocation
-> > causes the system to dig into swap and become unresponsive while it tries to
-> > assemble those allocations.  I would suggest a vmalloc, with a backoff to high
-> > order allocation if that fails.
-> 
-> I think that logic should be maintained, except that one of the GFP_*
-> flags should be specified so that it doesn't go all swap crazy on us,
-> and instead fails a high order allocation earlier.
-> 
-I suppose we can do that.  Specifically we can add __GFP_NORETRY so that we
-don't continually drive I/O or swap to get pages freed, but I think that all
-that will result in is earlier failures.  No matter how you look at it, order 4
-allocations are hard to come by, and we can make it work with non-contigous
-pages (the vmalloc case).  Given that each of the cases can fail, I can see this
-being a workable fallback set:
+When roaming between different networks (e.g., changing wireless
+SSIDs, or plugging in to different wired networks), IPv6 addresses and
+routes are not cleared. If the two networks have different IPv6
+subnets assigned, the host maintains both the old and new IPv6
+addresses and gateways, but only the new ones works. If the host
+chooses the wrong source address or gateway, or if the new network
+does not have IPv6 but the old one did, IPv6 connections time out,
+leading to long delays when trying to connect to IPv6 hosts.
 
-1) get_free_pages (GFP_KERNEL|...+|__GFP_NORETRY)
-2) vmalloc
-3) get_free_pages (GFP_KERNEL|...)
+Fix this by ensuring that autoconfigured IPv6 addresses and routes are
+purged when link is lost, not only when the interface goes down.
 
-Theres no reason to fail af_packet socket options just because the system is
-under presure.  My only concern is that, since af_packet is typically used for
-debugging/tracing, I'd rather not have its memory allocation adversely affect
-system behavio.
+Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
+
+--- a/net/ipv6/addrconf.c	2010-10-20 13:30:22.000000000 -0700
++++ b/net/ipv6/addrconf.c	2010-10-25 13:55:15.000000000 -0700
+@@ -2524,6 +2524,14 @@
+ 		} else {
+ 			if (!addrconf_qdisc_ok(dev)) {
+ 				/* device is still not ready. */
++				if (idev && (idev->if_flags & IF_READY)) {
++					/* Link lost. Clear addresses and
++					   routes, the device might come back
++					   on a link where they are no longer
++					   valid. */
++					addrconf_ifdown(dev, 0);
++					idev->if_flags &= ~IF_READY;
++				}
+ 				break;
+ 			}
