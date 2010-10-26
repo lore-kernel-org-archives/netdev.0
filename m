@@ -1,21 +1,31 @@
 From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 10/14] drivers/isdn: delete double assignment
-Date: Tue, 26 Oct 2010 12:25:39 +0200
-Message-ID: <1288088743-3725-11-git-send-email-julia@diku.dk>
+Subject: [PATCH 3/14] drivers/vhost/vhost.c: delete double assignment
+Date: Tue, 26 Oct 2010 12:25:32 +0200
+Message-ID: <1288088743-3725-4-git-send-email-julia@diku.dk>
 References: <1288088743-3725-1-git-send-email-julia@diku.dk>
-Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Karsten Keil <isdn@linux-pingi.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: virtualization@lists.osdl.org, kernel-janitors@vger.kernel.org,
+        linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+        netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 In-Reply-To: <1288088743-3725-1-git-send-email-julia@diku.dk>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/virtualization>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
 From: Julia Lawall <julia@diku.dk>
 
-Delete successive assignments to the same location.  In the first case, the
-hscx array has two elements, so change the assignment to initialize the
-second one.  In the second case, the two assignments are simply identical.
+Delete successive assignments to the same location.
 
 A simplified version of the semantic match that finds this problem is as
 follows: (http://coccinelle.lip6.fr/)
@@ -32,35 +42,18 @@ expression i;
 Signed-off-by: Julia Lawall <julia@diku.dk>
 
 ---
-In the first case, the patch changes the semantics and has not been tested.
+ drivers/vhost/vhost.c |    1 -
+ 1 file changed, 1 deletion(-)
 
- drivers/isdn/hardware/mISDN/mISDNinfineon.c |    2 +-
- drivers/isdn/hisax/l3_1tr6.c                |    2 --
- 2 files changed, 1 insertion(+), 3 deletions(-)
-
-diff --git a/drivers/isdn/hardware/mISDN/mISDNinfineon.c b/drivers/isdn/hardware/mISDN/mISDNinfineon.c
-index af25e1f..e90db88 100644
---- a/drivers/isdn/hardware/mISDN/mISDNinfineon.c
-+++ b/drivers/isdn/hardware/mISDN/mISDNinfineon.c
-@@ -563,7 +563,7 @@ reset_inf(struct inf_hw *hw)
- 		mdelay(10);
- 		hw->ipac.isac.adf2 = 0x87;
- 		hw->ipac.hscx[0].slot = 0x1f;
--		hw->ipac.hscx[0].slot = 0x23;
-+		hw->ipac.hscx[1].slot = 0x23;
- 		break;
- 	case INF_GAZEL_R753:
- 		val = inl((u32)hw->cfg.start + GAZEL_CNTRL);
-diff --git a/drivers/isdn/hisax/l3_1tr6.c b/drivers/isdn/hisax/l3_1tr6.c
-index b0554f8..a5c76fc 100644
---- a/drivers/isdn/hisax/l3_1tr6.c
-+++ b/drivers/isdn/hisax/l3_1tr6.c
-@@ -164,8 +164,6 @@ l3_1tr6_setup(struct l3_process *pc, u_char pr, void *arg)
- 	char tmp[80];
- 	struct sk_buff *skb = arg;
- 
--	p = skb->data;
--
- 	/* Channel Identification */
- 	p = skb->data;
- 	if ((p = findie(p, skb->len, WE0_chanID, 0))) {
+diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+index 94701ff..ed27727 100644
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -157,7 +157,6 @@ static void vhost_vq_reset(struct vhost_dev *dev,
+ 	vq->avail_idx = 0;
+ 	vq->last_used_idx = 0;
+ 	vq->used_flags = 0;
+-	vq->used_flags = 0;
+ 	vq->log_used = false;
+ 	vq->log_addr = -1ull;
+ 	vq->vhost_hlen = 0;
