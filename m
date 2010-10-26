@@ -1,50 +1,36 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ipv4: Flush per-ns routing cache more sanely.
-Date: Tue, 26 Oct 2010 21:30:22 +0200
-Message-ID: <1288121422.2652.14.camel@edumazet-laptop>
-References: <20101026.103428.179941457.davem@davemloft.net>
-	 <m1sjzs3hbw.fsf@fess.ebiederm.org>
-	 <20101026.122022.241452738.davem@davemloft.net>
+From: Ben Greear <greearb@candelatech.com>
+Subject: netlink stats:   Ability to get stats for a single device?
+Date: Tue, 26 Oct 2010 12:31:12 -0700
+Message-ID: <4CC72C80.9010802@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ebiederm@xmission.com, netdev@vger.kernel.org,
-	daniel.lezcano@free.fr
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:59737 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752050Ab0JZTa1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Oct 2010 15:30:27 -0400
-Received: by wwe15 with SMTP id 15so5104327wwe.1
-        for <netdev@vger.kernel.org>; Tue, 26 Oct 2010 12:30:26 -0700 (PDT)
-In-Reply-To: <20101026.122022.241452738.davem@davemloft.net>
+Received: from mail.candelatech.com ([208.74.158.172]:41686 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751911Ab0JZTbN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Oct 2010 15:31:13 -0400
+Received: from [192.168.100.195] (firewall.candelatech.com [70.89.124.249])
+	(authenticated bits=0)
+	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id o9QJVCsB022347
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Tue, 26 Oct 2010 12:31:12 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 26 octobre 2010 =C3=A0 12:20 -0700, David Miller a =C3=A9crit =
-:
-> From: ebiederm@xmission.com (Eric W. Biederman)
-> Date: Tue, 26 Oct 2010 12:05:39 -0700
->=20
-> >> @@ -999,7 +999,7 @@ static int fib_netdev_event(struct notifier_bl=
-ock *this, unsigned long event, vo
-> >>  		rt_cache_flush(dev_net(dev), 0);
-> >>  		break;
-> >>  	case NETDEV_UNREGISTER_BATCH:
-> >> -		rt_cache_flush_batch();
-> >> +		rt_cache_flush_batch(dev_net(dev));
-> >=20
-> > It still has this incorrect conversion in it.
->=20
-> Sorry I missed that, what's the exact problem with it?
+ From what I can tell, it's impossible to request stats for a single
+network device via netlink.  When you have thousands of interfaces,
+this means a lot of wasted effort to get stats for a particular
+device.
 
-Because the way _BATCH operation is performed, we call it once...
+Am I missing something, or do I just need to write up a patch
+to have netlink pay attention to the ifindex?
 
-rollback_registered_many() calls it for the first dev queued in the
-list.
+Thanks,
+Ben
 
-So it should be net independant.
-
-
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
 
