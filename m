@@ -1,49 +1,47 @@
-From: =?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?=
-	<u.kleine-koenig@pengutronix.de>
-Subject: [PATCH 10/22] [RFC] trivial: fix typos concerning "function"
-Date: Tue, 26 Oct 2010 21:57:07 +0200
-Message-ID: <1288123039-22368-10-git-send-email-u.kleine-koenig@pengutronix.de>
-References: <1288123039-22368-1-git-send-email-u.kleine-koenig@pengutronix.de>
+From: "Jeremy Jackson" <jerj@coplanar.net>
+Subject: Unwanted aliasing of UDP checksum failed error counter
+Date: Tue, 26 Oct 2010 15:53:27 -0400
+Message-ID: <8545971aec0612a0bca2801107d9493b.squirrel@imap.coplanar.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: trivial@kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:39469 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759517Ab0JZT5a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Oct 2010 15:57:30 -0400
-In-Reply-To: <1288123039-22368-1-git-send-email-u.kleine-koenig@pengutronix.de>
+Received: from sputnik.coplanar.net ([70.47.139.1]:36484 "EHLO
+	sputnik.coplanar.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760185Ab0JZUBi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Oct 2010 16:01:38 -0400
+Received: from imap.coplanar.net (localhost [127.0.0.1])
+	by sputnik.coplanar.net (8.14.3/8.14.3/Debian-9ubuntu1) with ESMTP id o9QJrRpe028325
+	for <netdev@vger.kernel.org>; Tue, 26 Oct 2010 15:53:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I'm a bit unsure about this patch.  I'm unable to parse both statements=
-=2E
+Trying to find source of packet loss on an 8node compute cluster, we find:
+(not in this example, but on the real cluster)
 
-Cc: netdev@vger.kernel.org
-Signed-off-by: Uwe Kleine-K=C3=B6nig <u.kleine-koenig@pengutronix.de>
----
- drivers/isdn/hisax/isar.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+in /proc/sys/net/snmp
+Udp: InDatagrams NoPorts InErrors OutDatagrams RcvbufErrors SndbufErrors
+Udp: 976460 1750 0 986795 0 0
 
-diff --git a/drivers/isdn/hisax/isar.c b/drivers/isdn/hisax/isar.c
-index 40b914b..2e72227 100644
---- a/drivers/isdn/hisax/isar.c
-+++ b/drivers/isdn/hisax/isar.c
-@@ -1427,8 +1427,8 @@ modeisar(struct BCState *bcs, int mode, int bc)
- 					&bcs->hw.isar.reg->Flags))
- 					bcs->hw.isar.dpath =3D 1;
- 				else {
--					printk(KERN_WARNING"isar modeisar analog funktions only with DP1\=
-n");
--					debugl1(cs, "isar modeisar analog funktions only with DP1");
-+					printk(KERN_WARNING"isar modeisar analog functions only with DP1\=
-n");
-+					debugl1(cs, "isar modeisar analog functions only with DP1");
- 					return(1);
- 				}
- 				break;
---=20
-1.7.2.3
+InErrors *and* RcvbufErrors both go up with full socket buffer, this has
+made troubleshooting our application more difficult.  We were chasing UDP
+checksum problems, until we checked linux source code, and found aliasing.
+
+Is this done for assembly code efficiency?  Any reason ENOMEM (ie socket
+buffer full) can't avoid aliasing to UDP checksum failed errors?
+
+in linux-source-2.6.32/net/ipv4/udp.c:__udp_queue_rcv_skb()
+....
+                /* Note that an ENOMEM error is charged twice */
+                if (rc == -ENOMEM) {
+                        UDP_INC_STATS_BH(sock_net(sk), UDP_MIB_RCVBUFERRORS,
+                                         is_udplite);
+                        atomic_inc(&sk->sk_drops);
+                }
+                goto drop;
+...
+drop:
+        UDP_INC_STATS_BH(sock_net(sk), UDP_MIB_INERRORS, is_udplite);
+
 
