@@ -1,61 +1,38 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: netns patches WAS( Re: [PATCH 8/8] net: Implement socketat.
-Date: Tue, 26 Oct 2010 16:52:06 -0400
-Message-ID: <1288126326.2094.131.camel@mojatatu>
-References: <m1ocborgq7.fsf@fess.ebiederm.org>
-	 <m1bp7oq1u8.fsf@fess.ebiederm.org>  <4C9B162E.7040201@parallels.com>
-	 <1285240797.5036.5.camel@bigi>  <4C9B3B06.900@parallels.com>
-	 <1285242055.5036.9.camel@bigi> <4C9B3F9C.8080506@parallels.com>
-	 <4CA7A07C.5030504@free.fr>  <1286113441.3812.229.camel@bigi>
-	 <1287145855.3642.30.camel@bigi>
-Reply-To: hadi@cyberus.ca
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: GSO and IPv4 forwarding
+Date: Tue, 26 Oct 2010 13:52:50 -0700
+Message-ID: <20101026135250.74870932@nehalam>
+References: <AANLkTikxNYGFAmyZDit9fTp=-M8wfYp3Ew8rejsjHWHb@mail.gmail.com>
+	<1288124114.2652.25.camel@edumazet-laptop>
+	<AANLkTik+s4CHgPuY6uhe-0aD=WJs=UHhoEdok4AyTdYJ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Lezcano <daniel.lezcano@free.fr>,
-	Pavel Emelyanov <xemul@parallels.com>,
-	linux-kernel@vger.kernel.org,
-	Linux Containers <containers@lists.osdl.org>,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Michael Kerrisk <mtk.manpages@gmail.com>,
-	Ulrich Drepper <drepper@gmail.com>,
-	Al Viro <viro@ZenIV.linux.org.uk>,
-	David Miller <davem@davemloft.net>,
-	"Serge E. Hallyn" <serge@hallyn.com>,
-	Pavel Emelyanov <xemul@openvz.org>,
-	Ben Greear <greearb@candelatech.com>,
-	Matt Helsley <matthltc@us.ibm.com>,
-	Jonathan Corbet <corbet@lwn.net>,
-	Sukadev Bhattiprolu <sukadev@linux.vnet.ibm.com>,
-	Jan Engelhardt <jengelh@medozas.de>,
-	Patrick McHardy <kaber@trash.net>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1287145855.3642.30.camel@bigi>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+To: Kevin Wilson <wkevils@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:56721 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760439Ab0JZUww (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Oct 2010 16:52:52 -0400
+In-Reply-To: <AANLkTik+s4CHgPuY6uhe-0aD=WJs=UHhoEdok4AyTdYJ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Eric,
+On Tue, 26 Oct 2010 22:26:07 +0200
+Kevin Wilson <wkevils@gmail.com> wrote:
 
-Ping?
-If you are too busy to push these in maybe have
-someone clueful like Daniel help out submitting? I think it
-should probably be reasonable to leave out the sockeat
-patch initially if it is deemed controversial..
-
-cheers,
-jamal
-
-On Fri, 2010-10-15 at 08:30 -0400, jamal wrote:
-> Eric et al,
+> Hi,
+> Thanks a lot for your quick answer, I appreciate it (and did not
+> expect it to be so quick!)
 > 
-> Did these patches make it in? I was looking at
-> two Davem net trees and i dont see them.
-> 
-> cheers,
-> jamal
-> 
+> Can someone please explain in 2-3 short sentences Why GRO can be
+> forwarded and LRO cannot be forwarded ?
+> rgs,
+> Kevin
 
+LRO merges packets together creating one large skb.  This is a layering
+violation for forwarding or bridging (it violates end to end principle).
 
+GRO maintains the headers of each packet and passes them as
+a cluster.
