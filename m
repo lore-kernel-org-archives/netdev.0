@@ -1,81 +1,70 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next-2.6 1/2] be2net: Adding an option to use INTx instead of MSI-X
-Date: Tue, 26 Oct 2010 14:32:34 +0100
-Message-ID: <20101026133233.GH15074@solarflare.com>
-References: <20101025111235.GA2024@emulex.com> <20101025.120943.189699949.davem@davemloft.net> <20101025223853.GD15074@solarflare.com> <20101025.162535.226782713.davem@davemloft.net> <1288075928.6578.185.camel@concordia>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: kernel panic in fib_rules_lookup [2.6.27.7 vendor-patched]
+Date: Tue, 26 Oct 2010 15:36:48 +0200
+Message-ID: <1288100208.3169.112.camel@edumazet-laptop>
+References: <loom.20101012T185411-307@post.gmane.org>
+	 <1286905245.2703.3.camel@edumazet-laptop>  <4CBF2A3F.2070108@cox.net>
+	 <1287612353.2545.11.camel@edumazet-laptop>  <4CC1F47C.9020104@cox.net>
+	 <1287805487.2658.5.camel@edumazet-laptop>
+	 <1287846669.2658.247.camel@edumazet-laptop>  <4CC30055.5040509@cox.net>
+	 <1287851745.2658.364.camel@edumazet-laptop>  <4CC6D7CC.5040608@cox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, somnath.kotur@emulex.com,
-	netdev@vger.kernel.org, linux-pci@vger.kernel.org
-To: Michael Ellerman <michael@ellerman.id.au>
-Return-path: <linux-pci-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1288075928.6578.185.camel@concordia>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Joe Buehler <aspam@cox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:59416 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933206Ab0JZNgx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Oct 2010 09:36:53 -0400
+Received: by ywk9 with SMTP id 9so2857672ywk.19
+        for <netdev@vger.kernel.org>; Tue, 26 Oct 2010 06:36:53 -0700 (PDT)
+In-Reply-To: <4CC6D7CC.5040608@cox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Michael Ellerman wrote:
-> On Mon, 2010-10-25 at 16:25 -0700, David Miller wrote:
-> > From: Ben Hutchings <bhutchings@solarflare.com>
-> > Date: Mon, 25 Oct 2010 23:38:53 +0100
-> > 
-> > > David Miller wrote:
-> > >> From: Somnath Kotur <somnath.kotur@emulex.com>
-> > >> Date: Mon, 25 Oct 2010 16:42:35 +0530
-> > >> 
-> > >> > By default, be2net uses MSIx wherever possible.
-> > >> > Adding a module parameter to use INTx for users who do not want to use MSIx.
-> > >> > 
-> > >> > Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
-> > >> 
-> > >> Either add a new ethtool flag, or use the PCI subsystem facilities
-> > >> for tweaking things to implement this.
-> > >>
-> > >> Do not use a module option, otherwise every other networking driver
-> > >> author will get the same "cool" idea, give the module option
-> > >> different names, and the resulting user experience is terrible.
-> > > 
-> > > This has already happened, sadly.  So far as I can see it's mostly done
-> > > to allow users to work around systems with broken MSIs; I'm not aware of
-> > > any other reason to prefer legacy interrupts.  However, the PCI subsystem
-> > > already implements a blacklist and a kernel parameter for disabling MSIs
-> > > on these systems.
-> > 
-> > The PCI subsystem bits I'm totally fine with.
-> > 
-> > But in the drivers themselves, that's what I don't want.
-> 
-> That horse has really really bolted, it's gawn.
-> 
-> I count 26 drivers with "disable MSI/X" parameters. Some even have more
-> than one.
-> 
-> 11 of them are network drivers, 9 scsi, 3 ata.
-> 
-> I agree it's a mess for users, but it's probably preferable to a
-> non-working driver.
-> 
-> Ethtool would be nice, but only for network drivers. Is there a generic
-> solution, quirks are obviously not keeping people happy.
- 
-Since this is (normally) a property of the system, pci=nomsi is the
-generic solution.
+Le mardi 26 octobre 2010 =C3=A0 09:29 -0400, Joe Buehler a =C3=A9crit :
+> Eric Dumazet wrote:
+>=20
+> > With a normal workload, on a dual cpu machine, a missing memory bar=
+rier
+> > can stay un-noticed for quite a long time. The race window is so sm=
+all
+> > that probability for the bug might be 0.0000001 % or something like
+> > that :(
+>=20
+> I'm looking at the LINUX source at the moment and not liking what I s=
+ee
+> in include/asm-mips/barrier.h:
+>=20
+> #define smp_mb()	__asm__ __volatile__(__WEAK_ORDERING_MB : : :"memory=
+")
+> #ifdef CONFIG_CPU_CAVIUM_OCTEON
+> #define smp_rmb()	barrier()
+> #define smp_wmb()	barrier()
+> #else
+> #define smp_rmb()	__asm__ __volatile__(__WEAK_ORDERING_MB : : :"memor=
+y")
+> #define smp_wmb()	__asm__ __volatile__(__WEAK_ORDERING_MB : : :"memor=
+y")
+> #endif
+>=20
+> The Octeon documentation explicitly says that neither loads nor store=
+s
+> need execute in program order, so the definitions for smp_rmb and
+> smp_wmb appear to be wrong wrong wrong.
+>=20
+> It appears that smp_wmb should be making use of SYNCW and smp_rmb sho=
+uld
+> be making use of SYNC.
+>=20
+> Should I pursue this question on the main LINUX kernel list?
 
-[...]
-> Misc:
->   sound/pci/hda/hda_intel.c:MODULE_PARM_DESC(enable_msi, "Enable Message Signaled Interrupt (MSI)");
->   drivers/message/fusion/mptbase.c:MODULE_PARM_DESC(mpt_msi_enable_spi, " Enable MSI Support for SPI \
->   drivers/message/fusion/mptbase.c:MODULE_PARM_DESC(mpt_msi_enable_fc, " Enable MSI Support for FC \
->   drivers/message/fusion/mptbase.c:MODULE_PARM_DESC(mpt_msi_enable_sas, " Enable MSI Support for SAS \
->   drivers/net/myri10ge/myri10ge.c:MODULE_PARM_DESC(myri10ge_msi, "Enable Message Signalled Interrupts");
-[...]
+Well, it would be surprising this being wrong and crash only once in a
+while in fib_rules_lookup
 
-  drivers/net/sfc/efx.c:MODULE_PARM_DESC(interrupt_mode,
-  drivers/net/sfc/efx.c-                 "Interrupt mode (0=>MSIX 1=>MSI 2=>legacy)");
+Did you tried my last patch ?
 
-Ben.
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+
