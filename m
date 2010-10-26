@@ -1,36 +1,37 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: netlink stats:   Ability to get stats for a single device?
-Date: Tue, 26 Oct 2010 12:31:12 -0700
-Message-ID: <4CC72C80.9010802@candelatech.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: netlink stats:   Ability to get stats for a single device?
+Date: Tue, 26 Oct 2010 21:35:20 +0200
+Message-ID: <1288121720.2652.15.camel@edumazet-laptop>
+References: <4CC72C80.9010802@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: NetDev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: NetDev <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:41686 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751911Ab0JZTbN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Oct 2010 15:31:13 -0400
-Received: from [192.168.100.195] (firewall.candelatech.com [70.89.124.249])
-	(authenticated bits=0)
-	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id o9QJVCsB022347
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Tue, 26 Oct 2010 12:31:12 -0700
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:62259 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752050Ab0JZTfZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Oct 2010 15:35:25 -0400
+Received: by wwe15 with SMTP id 15so5109022wwe.1
+        for <netdev@vger.kernel.org>; Tue, 26 Oct 2010 12:35:24 -0700 (PDT)
+In-Reply-To: <4CC72C80.9010802@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- From what I can tell, it's impossible to request stats for a single
-network device via netlink.  When you have thousands of interfaces,
-this means a lot of wasted effort to get stats for a particular
-device.
+Le mardi 26 octobre 2010 =C3=A0 12:31 -0700, Ben Greear a =C3=A9crit :
+> From what I can tell, it's impossible to request stats for a single
+> network device via netlink.  When you have thousands of interfaces,
+> this means a lot of wasted effort to get stats for a particular
+> device.
+>=20
+> Am I missing something, or do I just need to write up a patch
+> to have netlink pay attention to the ifindex?
+>=20
 
-Am I missing something, or do I just need to write up a patch
-to have netlink pay attention to the ifindex?
+Its already done
 
-Thanks,
-Ben
+rtnl_register(PF_UNSPEC, RTM_GETLINK, rtnl_getlink, rtnl_dump_ifinfo);=20
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+
 
