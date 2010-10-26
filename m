@@ -1,44 +1,35 @@
-From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCH] qlcnic: define valid vlan id range
-Date: Tue, 26 Oct 2010 02:38:01 -0700
-Message-ID: <1288085882-11988-4-git-send-email-amit.salecha@qlogic.com>
-References: <1288085882-11988-1-git-send-email-amit.salecha@qlogic.com>
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
-	anirban.chakraborty@qlogic.com,
-	Sony Chacko <sony.chacko@qlogic.com>
-To: davem@davemloft.net
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [v3 RFC PATCH 0/4] Implement multiqueue virtio-net
+Date: Tue, 26 Oct 2010 11:38:46 +0200
+Message-ID: <20101026093846.GA6766@redhat.com>
+References: <20101020085452.15579.76002.sendpatchset@krkumar2.in.ibm.com>
+ <OF8735A2A4.74B4EE91-ON652577C5.0040D90B-652577C7.0056B99D@in.ibm.com>
+ <20101025161718.GA19559@redhat.com>
+ <OF5C53E9CF.FFDF2CE7-ON652577C8.00191D14-652577C8.001C2154@LocalDomain>
+ <OFBB51646E.01CC3630-ON652577C8.0030D6EF-652577C8.0031DA3C@in.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: anthony@codemonkey.ws, arnd@arndb.de, avi@redhat.com,
+	davem@davemloft.net, eric.dumazet@gmail.com, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, rusty@rustcorp.com.au
+To: Krishna Kumar2 <krkumar2@in.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:1530 "HELO unm84.unmin.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1755194Ab0JZJiE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Oct 2010 05:38:04 -0400
-In-Reply-To: <1288085882-11988-1-git-send-email-amit.salecha@qlogic.com>
+Received: from mx1.redhat.com ([209.132.183.28]:27265 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758816Ab0JZJpm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Oct 2010 05:45:42 -0400
+Content-Disposition: inline
+In-Reply-To: <OFBB51646E.01CC3630-ON652577C8.0030D6EF-652577C8.0031DA3C@in.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sony Chacko <sony.chacko@qlogic.com>
+On Tue, Oct 26, 2010 at 02:38:53PM +0530, Krishna Kumar2 wrote:
+> Results for UDP BW tests (unidirectional, sum across
+> 3 iterations, each iteration of 45 seconds, default
+> netperf, vhosts bound to cpus 0-3; no other tuning):
 
-4095 vlan id is reserved and should not be use.
+Is binding vhost threads to CPUs really required?
+What happens if we let the scheduler do its job?
 
-Signed-off-by: Sony Chacko <sony.chacko@qlogic.com>
-Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
----
- drivers/net/qlcnic/qlcnic.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/qlcnic/qlcnic.h b/drivers/net/qlcnic/qlcnic.h
-index 6400e6a..8ecc170 100644
---- a/drivers/net/qlcnic/qlcnic.h
-+++ b/drivers/net/qlcnic/qlcnic.h
-@@ -1134,7 +1134,7 @@ struct qlcnic_eswitch {
- #define MAX_RX_QUEUES		4
- #define DEFAULT_MAC_LEARN	1
- 
--#define IS_VALID_VLAN(vlan)	(vlan >= MIN_VLAN_ID && vlan <= MAX_VLAN_ID)
-+#define IS_VALID_VLAN(vlan)	(vlan >= MIN_VLAN_ID && vlan < MAX_VLAN_ID)
- #define IS_VALID_BW(bw)		(bw >= MIN_BW && bw <= MAX_BW)
- #define IS_VALID_TX_QUEUES(que)	(que > 0 && que <= MAX_TX_QUEUES)
- #define IS_VALID_RX_QUEUES(que)	(que > 0 && que <= MAX_RX_QUEUES)
 -- 
-1.6.0.2
-
+MST
