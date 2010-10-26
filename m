@@ -1,117 +1,59 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: __bad_udelay in network driver breaks build
-Date: Tue, 26 Oct 2010 10:36:37 -0700
-Message-ID: <43F901BD926A4E43B106BF17856F0755FD437C73@orsmsx508.amr.corp.intel.com>
-References: <20101018115230.GA27565@basil.fritz.box>
- <20101025.130513.102558756.davem@davemloft.net>
- <20101025221042.GE17622@basil.fritz.box>
- <80769D7B14936844A23C0C43D9FBCF0F25BCE9E78C@orsmsx501.amr.corp.intel.com>
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: Re: [PATCH] ipv6: addrconf: clear IPv6 addresses and routes when
+ losing link
+Date: Tue, 26 Oct 2010 10:37:53 -0700
+Message-ID: <AANLkTi=P80OUBSy3xCt_qOjPGTwNjrtFL1iLJnkc9joq@mail.gmail.com>
+References: <4CC708CE.4040404@hp.com> <20101026.101038.260090183.davem@davemloft.net>
+ <AANLkTin-u_bZj6_wpoV6fNaLg81JbFN0EvhNrA6wX6SG@mail.gmail.com> <20101026.102145.246528067.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-To: "Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-	Andi Kleen <andi@firstfloor.org>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: brian.haley@hp.com, shemminger@vyatta.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:25301 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751543Ab0JZRgj convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Oct 2010 13:36:39 -0400
-In-Reply-To: <80769D7B14936844A23C0C43D9FBCF0F25BCE9E78C@orsmsx501.amr.corp.intel.com>
-Content-Language: en-US
+Received: from smtp-out.google.com ([74.125.121.35]:22834 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932875Ab0JZRiS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Oct 2010 13:38:18 -0400
+Received: from kpbe16.cbf.corp.google.com (kpbe16.cbf.corp.google.com [172.25.105.80])
+	by smtp-out.google.com with ESMTP id o9QHcGTB029745
+	for <netdev@vger.kernel.org>; Tue, 26 Oct 2010 10:38:17 -0700
+Received: from gyg8 (gyg8.prod.google.com [10.243.50.136])
+	by kpbe16.cbf.corp.google.com with ESMTP id o9QHc3JS008011
+	for <netdev@vger.kernel.org>; Tue, 26 Oct 2010 10:38:15 -0700
+Received: by gyg8 with SMTP id 8so3637021gyg.38
+        for <netdev@vger.kernel.org>; Tue, 26 Oct 2010 10:38:15 -0700 (PDT)
+In-Reply-To: <20101026.102145.246528067.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Duyck, Alexander H
-> Sent: Tuesday, October 26, 2010 10:35 AM
-> To: Andi Kleen; David Miller
-> Cc: netdev@vger.kernel.org; Kirsher, Jeffrey T; Rose, Gregory V
-> Subject: RE: __bad_udelay in network driver breaks build
-> 
-> >-----Original Message-----
-> >From: Andi Kleen [mailto:andi@firstfloor.org]
-> >Sent: Monday, October 25, 2010 3:11 PM
-> >To: David Miller
-> >Cc: andi@firstfloor.org; netdev@vger.kernel.org; Kirsher, Jeffrey T;
-> >Duyck, Alexander H
-> >Subject: Re: __bad_udelay in network driver breaks build
-> >
-> >On Mon, Oct 25, 2010 at 01:05:13PM -0700, David Miller wrote:
-> >> From: Andi Kleen <andi@firstfloor.org>
-> >> Date: Mon, 18 Oct 2010 13:52:30 +0200
-> >>
-> >> >
-> >> > Current Linus master x86-64 allyesconfig fails with
-> >> >
-> >> > drivers/built-in.o: In function `tms380tr_chipset_init':
-> >> > tms380tr.c:(.text+0x10f02de): undefined reference to
-> >`__bad_udelay'
-> >> > tms380tr.c:(.text+0x10f03ab): undefined reference to
-> >`__bad_udelay'
-> >> > tms380tr.c:(.text+0x10f0400): undefined reference to
-> >`__bad_udelay'
-> >> > tms380tr.c:(.text+0x10f07b2): undefined reference to
-> >`__bad_udelay'
-> >> > tms380tr.c:(.text+0x10f08ed): undefined reference to
-> >`__bad_udelay'
-> >> > make[2]: *** [.tmp_vmlinux1] Error 1
-> >>
-> >> Let me know if this fixes things:
-> >
-> >Fixes that problem, but now I get (with Linus' latest again and a gcc
-> >4.6
-> >snapshot)
-> >
-> >In file included from /home/lsrc/git/linux-
-> >2.6/drivers/net/igbvf/ethtool.c:36:0:
-> >/home/lsrc/git/linux-2.6/drivers/net/igbvf/igbvf.h:129:15: error:
-> >duplicate member 'page'
-> >make[5]: *** [drivers/net/igbvf/ethtool.o] Error 1
-> >make[4]: *** [drivers/net/igbvf] Error 2
-> >
-> >struct igbvf_buffer {
-> >        dma_addr_t dma;
-> >        struct sk_buff *skb;
-> >        union {
-> >                /* Tx */
-> >                struct {
-> >                        unsigned long time_stamp;
-> >                        u16 length;
-> >                        u16 next_to_watch;
-> >                        u16 mapped_as_page;
-> >                };
-> >                /* Rx */
-> >                struct {
-> >                        struct page *page; <--------------- No 1
-> >                        u64 page_dma;
-> >                        unsigned int page_offset;
-> >                };
-> >        };
-> >        struct page *page;         <------------ No 2
-> >};
-> >
-> >Hmm conflict of a member with a transparent union.
-> >Maybe older gccs didn't catch that. But it looks very broken
-> >
-> >Alexander, can you sort out which "page" member should be used where?
-> >
-> >And there's another problem in SCSI which I'll report separately.
-> >
-> >-Andi
-> 
-> Yeah, I'm pretty sure the 2nd page pointer shouldn't be there.  We will
-> look into correcting that.
-> 
-> Thanks,
-> 
-> Alex
+On Tue, Oct 26, 2010 at 10:21 AM, David Miller <davem@davemloft.net> wrote:
+>> Removing autoconfigured addresses is what the kernel currently does
+>> when the link goes down. The patch just makes sure it happens when
+>> carrier is lost as well, since losing link might mean that when
+>> carrier comes back, the host might be on a different link than it was
+>> before.
+>
+> I just think validating that fact would be a better approach than
+> simply assuming link down/up means link change.
 
-I'll post a patch to correct this directly.
+So when the link comes back, we'd have to wait for all RAs to come in
+(there could be multiple routers on a link, each announcing different
+prefixes), and when this is all done, compare the list of addresses to
+the prefixes that are currently on the link and delete the ones that
+don't match. We'd have to do the same with default routers and /64
+routes to all the link prefixes.
 
-Thanks,
+Also, we'd have to figure out how long to wait for RAs, and when to
+time out if there are no RAs. Bear in mind that for as long as you
+have an invalid IPv6 address, you can't reach dual-stack websites at
+all (well, technically you can, but only if you're prepared to wait 3
+minutes for the connection to time out). The damage starts when
+associating to the link and only stops when the addresses and routes
+are removed.
 
-- Greg
-
+Is the extra complexity worth it? This patch is three lines, deals
+with what I think is the common case, and has no obvious downsides
+we've spotted so far. And at least in my testing, it's a definite
+improvement. Would you be opposed to doing something like this as a
+first cut and iterating or backing out if it turns out to be
+insufficient or broken?
