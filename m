@@ -1,66 +1,43 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH 2.6.36/stable] vlan: Fix crash when hwaccel rx pkt for
- non-existant vlan.
-Date: Mon, 25 Oct 2010 18:51:52 -0700
-Message-ID: <AANLkTi=yT9JcwjQHu3P8mc5MZNb_-0BwHpsrH=BV=a84@mail.gmail.com>
-References: <1288047166-5660-1-git-send-email-greearb@candelatech.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] Enhance AF_PACKET implementation to not require high
+ order contiguous memory allocation
+Date: Mon, 25 Oct 2010 21:53:49 -0400
+Message-ID: <20101026015349.GA31631@hmsreliant.think-freely.org>
+References: <E1PAVIx-0001qL-EB@smtp.tuxdriver.com>
+ <1288045856.3296.19.camel@edumazet-laptop>
+ <20101025233558.GA30118@hmsreliant.think-freely.org>
+ <20101025.164646.104054845.davem@davemloft.net>
+ <AANLkTinxe7M-_bHdhA-jrW2gBtGLCXkBasSPi7RaFDi-@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Ben Greear <greearb@candelatech.com>
+Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, jpirko@redhat.com
+To: Maciej =?utf-8?Q?=C5=BBenczykowski?= <zenczykowski@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:49997 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753988Ab0JZBvx convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Oct 2010 21:51:53 -0400
-Received: by wyf28 with SMTP id 28so4080249wyf.19
-        for <netdev@vger.kernel.org>; Mon, 25 Oct 2010 18:51:52 -0700 (PDT)
-In-Reply-To: <1288047166-5660-1-git-send-email-greearb@candelatech.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:58652 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754079Ab0JZByB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Oct 2010 21:54:01 -0400
+Content-Disposition: inline
+In-Reply-To: <AANLkTinxe7M-_bHdhA-jrW2gBtGLCXkBasSPi7RaFDi-@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 25, 2010 at 3:52 PM, Ben Greear <greearb@candelatech.com> w=
-rote:
-> diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
-> index 0eb96f7..2883d0e 100644
-> --- a/net/8021q/vlan_core.c
-> +++ b/net/8021q/vlan_core.c
-> @@ -43,10 +43,16 @@ int vlan_hwaccel_do_receive(struct sk_buff *skb)
-> =A0 =A0 =A0 =A0struct net_device *dev =3D skb->dev;
-> =A0 =A0 =A0 =A0struct vlan_rx_stats =A0 =A0 *rx_stats;
->
-> - =A0 =A0 =A0 skb->dev =3D vlan_dev_info(dev)->real_dev;
-> - =A0 =A0 =A0 netif_nit_deliver(skb);
-> + =A0 =A0 =A0 if (is_vlan_dev(dev)) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 skb->dev =3D vlan_dev_info(dev)->real_d=
-ev;
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 netif_nit_deliver(skb);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 skb->dev =3D dev;
-> + =A0 =A0 =A0 } else {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 netif_nit_deliver(skb);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 skb->pkt_type =3D PACKET_OTHERHOST;
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return 0;
-> + =A0 =A0 =A0 }
+On Mon, Oct 25, 2010 at 05:48:33PM -0700, Maciej =C5=BBenczykowski wrot=
+e:
+> This is http://bugzilla.redhat.com/637619
+>=20
+> I'm the original reporter and I haven't yet fully vetted / tested the
+> patch (not directly related to my job and all that).
+>=20
+I validated it.  You reported that tcpdump startup caused your system t=
+o
+'freeze'.  I managed to recreate that situation, as observed by my syst=
+em
+becomming unresponsive on the console, and validated that that situatio=
+n did not
+occur when this patch was applied.
 
-Neither setting skb->pkt_type nor calling netif_nit_deliver() should
-be necessary here.  The former is done on receive if there is no
-matching device and the latter happens later on in
-__netif_receive_skb().  So you should just be able to do:
+Neil
 
-if (!is_vlan_dev(dev))
-    return 0;
-
-One potentially bad outcome of this approach is that other components
-like bridging can start to pick up packets with vlan tags in
-skb->vlan_tci.  However, in 2.6.36 it isn't able to do filtering on
-them and the NIC on the output side may not be able to handle the tag
-in the skb.  It's probably not common to have both bridging and a vlan
-group on the same device but you'll get into some weird situations if
-you do.
-
-Once you start solving these issues you end up with more invasive
-changes that look like the implementation in 2.6.37.  Since we don't
-want to pull all of that in, it might just be best to deliver the
-packet to network taps and then drop it.  That was the original reason
-for allowing vlan packets with no device this far into the stack.
