@@ -1,30 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: netlink stats: Ability to get stats for a single device?
-Date: Tue, 26 Oct 2010 12:38:11 -0700 (PDT)
-Message-ID: <20101026.123811.13746869.davem@davemloft.net>
-References: <4CC72C80.9010802@candelatech.com>
+Subject: Re: [PATCH linux-2.6 v2] IPv6: Temp addresses are immediately
+ deleted.
+Date: Tue, 26 Oct 2010 12:38:52 -0700 (PDT)
+Message-ID: <20101026.123852.58436932.davem@davemloft.net>
+References: <20100927171010.GB7106@adams.ccsl.carleton.ca>
+	<20100928.233028.112599117.davem@davemloft.net>
+	<201010161442.18748.gwurster@scs.carleton.ca>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: greearb@candelatech.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33369
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753150Ab0JZThs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Oct 2010 15:37:48 -0400
-In-Reply-To: <4CC72C80.9010802@candelatech.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, shemminger@vyatta.com,
+	eric.dumazet@gmail.com, herbert@gondor.hengli.com.au,
+	ebiederm@xmission.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: gwurster@scs.carleton.ca
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201010161442.18748.gwurster@scs.carleton.ca>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ben Greear <greearb@candelatech.com>
-Date: Tue, 26 Oct 2010 12:31:12 -0700
+From: Glenn Wurster <gwurster@scs.carleton.ca>
+Date: Sat, 16 Oct 2010 14:42:17 -0400
 
-> Am I missing something, or do I just need to write up a patch
-> to have netlink pay attention to the ifindex?
+> No, the first patch was to create a temporary address if none exists.  Like 
+> Brian Haley pointed out, that patch accommodates the case where we set 
+> use_tempaddr to a non-zero value after the interface had been brought up.
+> 
+> This patch accommodates the case where the router is only broadcasting 
+> advertisements every x seconds, and yet the user has set the valid_lft to be 
+> something less than x.
 
-Setting the ->ifi_index or IFLA_IFNAME attribute values appropriately
-in the getlink request doesn't work?
+Ok, thanks for your patience.
 
-That should give you back, amonst other things, the rtnl_link_stats
-for the device in the netlink response.
+I've applied both of your patches, thanks.
