@@ -1,39 +1,64 @@
-From: Amit Salecha <amit.salecha@qlogic.com>
-Subject: RE: [PATCH] qlcnic: dma address align check
-Date: Tue, 26 Oct 2010 05:52:13 -0500
-Message-ID: <99737F4847ED0A48AECC9F4A1974A4B80F871A8182@MNEXMB2.qlogic.org>
-References: <1288085882-11988-1-git-send-email-amit.salecha@qlogic.com>
-	 <1288085882-11988-5-git-send-email-amit.salecha@qlogic.com>
-	 <1288086894.3169.53.camel@edumazet-laptop>
-	 <99737F4847ED0A48AECC9F4A1974A4B80F871A817A@MNEXMB2.qlogic.org>
- <1288089033.3169.73.camel@edumazet-laptop>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 3/14] drivers/vhost/vhost.c: delete double assignment
+Date: Tue, 26 Oct 2010 13:06:44 +0200
+Message-ID: <20101026110644.GA7922@redhat.com>
+References: <1288088743-3725-1-git-send-email-julia@diku.dk>
+	<1288088743-3725-4-git-send-email-julia@diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ameen Rahman <ameen.rahman@qlogic.com>,
-	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexcashub1.qlogic.com ([198.70.193.61]:5721 "EHLO
-	avexcashub1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932363Ab0JZKwT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Oct 2010 06:52:19 -0400
-In-Reply-To: <1288089033.3169.73.camel@edumazet-laptop>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: virtualization@lists.osdl.org, kernel-janitors@vger.kernel.org,
+        linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Julia Lawall <julia@diku.dk>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1288088743-3725-4-git-send-email-julia@diku.dk>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/virtualization>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-PiA+IElzIHBjaV9hbGxvY19jb25zaXN0ZW50IGd1YXJhbnRlZSB0byBnaXZlIFBBR0UgYWxpZ24g
-ZG1hIGFkZHJlc3MgPw0KPiANCj4gSSBiZWxpZXZlIHNvDQo+IA0KPiBCeSB0aGUgd2F5LCB5b3Ug
-c2hvdWxkIHVzZSBkbWFfYWxsb2NfY29oZXJlbnQoKSBpbnN0ZWFkIG9mDQo+IHBjaV9hbGxvY19j
-b25zaXN0ZW50KCkgc28gdGhhdCB5b3UgY2FuIHVzZSBHRlBfS0VSTkVMIGFsbG9jYXRpb25zDQo+
-IGluc3RlYWQgb2YgR0ZQX0FUT01JQywgaXQgbWlnaHQgaGVscCBpbiBsb3cgbWVtb3J5IGNvbmRp
-dGlvbnMgKGlmIHlvdQ0KPiBkb250IGhvbGQgYSBzcGlubG9jayBhdCB0aGlzIHBvaW50KQ0KPiAN
-Cj4gDQo+IElmIFRYX0RFU0NfUklOR1NJWkUodHhfcmluZykgaXMgbm90IGEgcG93ZXIgb2YgdHdv
-LCB0aGVuIHllcyB5b3UgY291bGQNCj4gcHJvYmFibHkgYWRkIDY0IGJ5dGVzIGFuZCBhdm9pZCBh
-bGxvY2F0aW5nIGEgZnVsbCBwYWdlIG9ubHkgZm9yIHRoZSB1MzINCj4gZmllbGQgOykNCj4gDQo+
-IA0KDQpUWF9ERVNDX1JJTkdTSVpFIGlzIHBvd2VyIG9mIHR3by4NCg0KSWYgcGNpX2FsbG9jX2Nv
-bnNpc3RlbnQgZ3VhcmFudGVlIHRvIGdpdmUgUEFHRSBhbGlnbiBkbWEgYWRkcmVzcywgdGhlbiB0
-aGlzIHBhdGNoIGlzIG5vdCByZXF1aXJlZC4NCj4NCg==
+On Tue, Oct 26, 2010 at 12:25:32PM +0200, Julia Lawall wrote:
+> From: Julia Lawall <julia@diku.dk>
+> 
+> Delete successive assignments to the same location.
+> 
+> A simplified version of the semantic match that finds this problem is as
+> follows: (http://coccinelle.lip6.fr/)
+> 
+> // <smpl>
+> @@
+> expression i;
+> @@
+> 
+> *i = ...;
+>  i = ...;
+> // </smpl>
+> 
+> Signed-off-by: Julia Lawall <julia@diku.dk>
+
+Thanks, applied.
+
+> ---
+>  drivers/vhost/vhost.c |    1 -
+>  1 file changed, 1 deletion(-)
+> 
+> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+> index 94701ff..ed27727 100644
+> --- a/drivers/vhost/vhost.c
+> +++ b/drivers/vhost/vhost.c
+> @@ -157,7 +157,6 @@ static void vhost_vq_reset(struct vhost_dev *dev,
+>  	vq->avail_idx = 0;
+>  	vq->last_used_idx = 0;
+>  	vq->used_flags = 0;
+> -	vq->used_flags = 0;
+>  	vq->log_used = false;
+>  	vq->log_addr = -1ull;
+>  	vq->vhost_hlen = 0;
