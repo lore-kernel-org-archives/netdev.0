@@ -1,65 +1,38 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] ipv6: addrconf: clear IPv6 addresses and routes when
- losing link
-Date: Tue, 26 Oct 2010 08:28:32 -0700
-Message-ID: <20101026082832.4c5af2ef@nehalam>
-References: <AANLkTikC4pv8aOODM2pOg2bKQGL69wivcUU3f9ZziPhe@mail.gmail.com>
-	<20101025213841.635b9a15@nehalam>
-	<AANLkTinGpt=EQX3aXRaj5mEUMDNpyEapbs4VyOwgtN55@mail.gmail.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH 1/2 v3] xps: Improvements in TX queue selection
+Date: Tue, 26 Oct 2010 08:32:59 -0700
+Message-ID: <AANLkTimMrqhWbnLXk1xbYPY7WT7Gazn5G=S1QvVkZ86Y@mail.gmail.com>
+References: <alpine.DEB.1.00.1010211303390.30535@pokey.mtv.corp.google.com>
+	<201010260818.47523.helmut.schaa@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Lorenzo Colitti <lorenzo@google.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: davem@davemloft.net, netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: Helmut Schaa <helmut.schaa@googlemail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:34214 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754095Ab0JZP2f (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Oct 2010 11:28:35 -0400
-In-Reply-To: <AANLkTinGpt=EQX3aXRaj5mEUMDNpyEapbs4VyOwgtN55@mail.gmail.com>
+Received: from smtp-out.google.com ([74.125.121.35]:8071 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755231Ab0JZPdE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Oct 2010 11:33:04 -0400
+Received: from kpbe15.cbf.corp.google.com (kpbe15.cbf.corp.google.com [172.25.105.79])
+	by smtp-out.google.com with ESMTP id o9QFX18g000312
+	for <netdev@vger.kernel.org>; Tue, 26 Oct 2010 08:33:02 -0700
+Received: from pxi12 (pxi12.prod.google.com [10.243.27.12])
+	by kpbe15.cbf.corp.google.com with ESMTP id o9QFWvLV003664
+	for <netdev@vger.kernel.org>; Tue, 26 Oct 2010 08:33:00 -0700
+Received: by pxi12 with SMTP id 12so1003156pxi.10
+        for <netdev@vger.kernel.org>; Tue, 26 Oct 2010 08:32:59 -0700 (PDT)
+In-Reply-To: <201010260818.47523.helmut.schaa@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 25 Oct 2010 22:44:03 -0700
-Lorenzo Colitti <lorenzo@google.com> wrote:
+> Wouldn't that break mac80211 QoS again for bridged AP mode interfaces (see
+> commit deabc772f39405054a438d711f408d2d94d26d96, "net: fix tx queue selection
+> for bridged devices implementing select_queue")?
+>
+Yes, looks like that would break.  I'll fix that.
 
-> On Mon, Oct 25, 2010 at 9:38 PM, Stephen Hemminger
-> <shemminger@vyatta.com> wrote:
-> > This is incorrect. When link is lost, routes and address should not be
-> > flushed. They should be marked as tentative and then go through DAD again
-> > on the new network.
-> 
-> That won't help the case I am trying to fix, which is the case where
-> the new link has a global prefix different than the old link. Marking
-> the addresses as tentative will simply make them pass DAD and come
-> back as soon as link comes back. But since they don't match the prefix
-> that is assigned to the new link, they are unusable, because packets
-> can't be routed back to them.
+If a device only has one real TX queue should we still call
+ndo_select_queue, or can we bypass it? (to save one conditional)
 
-For IPv4 this is already handled by network manager.
-Why couldn't the same apply to IPv6?
-
-> > If you do it this way, you break routing protocols when link is brought
-> > down and back up.
-> 
-> The only addresses and routes flushed in this way should be ones that
-> aren't manually configured, i.e., the ones created by autoconf
-> (addrconf.c:2720 onwards). These won't be used by routing protocols,
-> except for link-local addresses. So I assume you're talking about
-> link-local here.
-
-Not sure, let me do test it.
-
-> Link-local addresses are immediately recreated in a tentative state as
-> soon as link comes back, because on NETDEV_UP addrconf_notify calls
-> addrconf_dev_config. So, this patch only makes it so that they become
-> tentative when link goes away and comes back. In that time, the router
-> that temporarily loses link is unable to send packets for the brief
-> period of time that the link is performing DAD, but if the router has
-> lost link, it will also fail to send the packet while link is lost.
-> What's the additional failure scenario? Will it help if I make it so
-> that link-local addresses aren't touched at all?
-
-Link-local works fine.
-
--- 
+Thanks,
+Tom
