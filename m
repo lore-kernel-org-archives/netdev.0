@@ -1,74 +1,79 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: Question on UNIX domain socket.
-Date: Tue, 26 Oct 2010 21:15:25 +0900
-Message-ID: <201010262115.FEH09326.OMFJHSVOFLQFOt@I-love.SAKURA.ne.jp>
-References: <AANLkTimtTazMmDvQFgASsVGa=AYvPZqUaUmyg5p7VVY1@mail.gmail.com>
-	<201010171428.DDC17187.FFFJSLtOOHOMQV@I-love.SAKURA.ne.jp>
+From: Julia Lawall <julia@diku.dk>
+Subject: Re: [PATCH 10/14] drivers/isdn: delete double assignment
+Date: Tue, 26 Oct 2010 14:20:56 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.1010261419510.25281@ask.diku.dk>
+References: <1288088743-3725-1-git-send-email-julia@diku.dk>
+ <1288088743-3725-11-git-send-email-julia@diku.dk> <4CC6C1C0.8020005@bfs.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: mtk.manpages@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wine.ocn.ne.jp ([122.1.235.145]:61347 "EHLO smtp.wine.ocn.ne.jp"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933006Ab0JZMP3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Oct 2010 08:15:29 -0400
-In-Reply-To: <201010171428.DDC17187.FFFJSLtOOHOMQV@I-love.SAKURA.ne.jp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Karsten Keil <isdn@linux-pingi.de>,
+	kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: walter harms <wharms@bfs.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4CC6C1C0.8020005@bfs.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+From: Julia Lawall <julia@diku.dk>
 
-Is the latest manpage for UNIX domain socket is at
-http://www.kernel.org/doc/man-pages/online/pages/man7/unix.7.html ?
+Delete successive assignments to the same location.  In the first case, the
+hscx array has two elements, so change the assignment to initialize the
+second one.  In the second case, the two assignments are simply identical.
+Furthermore, neither is necessary, because the effect of the assignment is
+only visible in the next line, in the assignment in the if test.  The patch
+inlines the right hand side value in the latter assignment and pulls that
+assignment out of the if test.
 
-I got a question. Above page says
+A simplified version of the semantic match that finds this problem is as
+follows: (http://coccinelle.lip6.fr/)
 
-   pathname: a UNIX domain socket can be bound to a null-terminated file
-   system pathname using bind(2).  When the address of the socket is returned
-   by getsockname(2), getpeername(2), and accept(2), its length is
-   offsetof(struct sockaddr_un, sun_path) + strlen(sun_path) + 1, and sun_path
-   contains the null-terminated pathname.
+// <smpl>
+@@
+expression i;
+@@
 
-However, running below program results in
-"sun_path *not* containing the null-terminated pathname" (and therefore it is
-not safe to use printf("%s", sun_path) even if sun_path[0] != '\0').
+*i = ...;
+ i = ...;
+// </smpl>
 
-Should "sun_path contains the null-terminated pathname" be corrected?
+Signed-off-by: Julia Lawall <julia@diku.dk>
 
-Regards.
+---
+In the first case, the patch changes the semantics and has not been tested.
 
------ Test program start -----
-#include <stdio.h>
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <unistd.h>
+ drivers/isdn/hardware/mISDN/mISDNinfineon.c |    2 +-
+ drivers/isdn/hisax/l3_1tr6.c                |    6 ++----
+ 2 files changed, 3 insertions(+), 5 deletions(-)
 
-int main(int argc, char *argv[])
-{
-	union {
-		struct sockaddr_un addr;
-		char buf[512];
-	} u;
-	socklen_t len = sizeof(u.addr);
-	int fd = socket(PF_UNIX, SOCK_STREAM, 0);
-	u.addr.sun_family = AF_UNIX;
-	snprintf(u.addr.sun_path, sizeof(u.buf) - 2, "/"
-		 "1234567890123456789012345678901234567890"
-		 "1234567890123456789012345678901234567890"
-		 "1234567890123456789012345678901234567890"
-		 "1234567890123456789012345678901234567890");
-	if (bind(fd, (struct sockaddr *) &u.addr, sizeof(u.addr)) == EOF)
-		return 1;
-	memset(&u, 0, sizeof(u)); /* You may comment out this line. */
-	printf("len=%d\n", len);
-	if (getsockname(fd, (struct sockaddr *) &u.addr, &len) == EOF)
-		return 1;
-	printf("strlen=%d len=%d\n", strlen(u.addr.sun_path), len);
-	return 0;
-}
------ Test program end -----
-
------ Output of test program -----
-len=110
-strlen=108 len=111
+diff --git a/drivers/isdn/hardware/mISDN/mISDNinfineon.c b/drivers/isdn/hardware/mISDN/mISDNinfineon.c
+index af25e1f..e90db88 100644
+--- a/drivers/isdn/hardware/mISDN/mISDNinfineon.c
++++ b/drivers/isdn/hardware/mISDN/mISDNinfineon.c
+@@ -563,7 +563,7 @@ reset_inf(struct inf_hw *hw)
+ 		mdelay(10);
+ 		hw->ipac.isac.adf2 = 0x87;
+ 		hw->ipac.hscx[0].slot = 0x1f;
+-		hw->ipac.hscx[0].slot = 0x23;
++		hw->ipac.hscx[1].slot = 0x23;
+ 		break;
+ 	case INF_GAZEL_R753:
+ 		val = inl((u32)hw->cfg.start + GAZEL_CNTRL);
+diff --git a/drivers/isdn/hisax/l3_1tr6.c b/drivers/isdn/hisax/l3_1tr6.c
+index b0554f8..ee4dae1 100644
+--- a/drivers/isdn/hisax/l3_1tr6.c
++++ b/drivers/isdn/hisax/l3_1tr6.c
+@@ -164,11 +164,9 @@ l3_1tr6_setup(struct l3_process *pc, u_char pr, void *arg)
+ 	char tmp[80];
+ 	struct sk_buff *skb = arg;
+ 
+-	p = skb->data;
+-
+ 	/* Channel Identification */
+-	p = skb->data;
+-	if ((p = findie(p, skb->len, WE0_chanID, 0))) {
++	p = findie(skb->data, skb->len, WE0_chanID, 0);
++	if (p) {
+ 		if (p[1] != 1) {
+ 			l3_1tr6_error(pc, "setup wrong chanID len", skb);
+ 			return;
