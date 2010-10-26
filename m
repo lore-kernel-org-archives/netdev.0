@@ -1,87 +1,87 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Unwanted aliasing of UDP checksum failed error counter
-Date: Tue, 26 Oct 2010 22:27:22 +0200
-Message-ID: <1288124842.2652.28.camel@edumazet-laptop>
-References: <8545971aec0612a0bca2801107d9493b.squirrel@imap.coplanar.net>
-	 <1288124033.2652.24.camel@edumazet-laptop>
-	 <a2ae895d871551a9b3ded9ce3874fe28.squirrel@imap.coplanar.net>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: netlink stats: Ability to get stats for a single device?
+Date: Tue, 26 Oct 2010 13:29:18 -0700
+Message-ID: <4CC73A1E.5050605@candelatech.com>
+References: <4CC72C80.9010802@candelatech.com>	 <20101026.123811.13746869.davem@davemloft.net> <1288122986.2652.20.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Jeremy Jackson <jerj@coplanar.net>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw0-f46.google.com ([74.125.83.46]:57160 "EHLO
-	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755917Ab0JZU11 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Oct 2010 16:27:27 -0400
-Received: by gwj21 with SMTP id 21so3654927gwj.19
-        for <netdev@vger.kernel.org>; Tue, 26 Oct 2010 13:27:26 -0700 (PDT)
-In-Reply-To: <a2ae895d871551a9b3ded9ce3874fe28.squirrel@imap.coplanar.net>
+Received: from mail.candelatech.com ([208.74.158.172]:58869 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755917Ab0JZU3Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Oct 2010 16:29:24 -0400
+In-Reply-To: <1288122986.2652.20.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 26 octobre 2010 =C3=A0 16:21 -0400, Jeremy Jackson a =C3=A9cri=
+On 10/26/2010 12:56 PM, Eric Dumazet wrote:
+> Le mardi 26 octobre 2010 =C3=A0 12:38 -0700, David Miller a =C3=A9cri=
 t :
-> > Le mardi 26 octobre 2010 =C3=83  15:53 -0400, Jeremy Jackson a =C3=83=
-=C2=A9crit :
-> >> Trying to find source of packet loss on an 8node compute cluster, =
-we
-> >> find:
-> >> (not in this example, but on the real cluster)
-> >>
-> >> in /proc/sys/net/snmp
-> >> Udp: InDatagrams NoPorts InErrors OutDatagrams RcvbufErrors Sndbuf=
-Errors
-> >> Udp: 976460 1750 0 986795 0 0
-> >>
-> >> InErrors *and* RcvbufErrors both go up with full socket buffer, th=
-is has
-> >> made troubleshooting our application more difficult.  We were chas=
-ing
-> >> UDP
-> >> checksum problems, until we checked linux source code, and found
-> >> aliasing.
-> >>
-> >> Is this done for assembly code efficiency?  Any reason ENOMEM (ie =
-socket
-> >> buffer full) can't avoid aliasing to UDP checksum failed errors?
-> >>
-> >> in linux-source-2.6.32/net/ipv4/udp.c:__udp_queue_rcv_skb()
-> >> ....
-> >>                 /* Note that an ENOMEM error is charged twice */
-> >>                 if (rc =3D=3D -ENOMEM) {
-> >>                         UDP_INC_STATS_BH(sock_net(sk),
-> >> UDP_MIB_RCVBUFERRORS,
-> >>                                          is_udplite);
-> >>                         atomic_inc(&sk->sk_drops);
-> >>                 }
-> >>                 goto drop;
-> >> ...
-> >> drop:
-> >>         UDP_INC_STATS_BH(sock_net(sk), UDP_MIB_INERRORS, is_udplit=
-e);
-> >>
-> >
-> > In MIBS, there is no counter for UDP checksum errors
-> >
-> > So we use the standard UDP_MIB_INERRORS
->=20
-> Yes, this part I understand, but what I don't understand is why ENOME=
-M
-> errors *and* checksum errors both use the same counter, while ENOMEM =
-has
-> it's own already.
+>> From: Ben Greear<greearb@candelatech.com>
+>> Date: Tue, 26 Oct 2010 12:31:12 -0700
+>>
+>>> Am I missing something, or do I just need to write up a patch
+>>> to have netlink pay attention to the ifindex?
+>>
+>> Setting the ->ifi_index or IFLA_IFNAME attribute values appropriatel=
+y
+>> in the getlink request doesn't work?
+>>
+>> That should give you back, amonst other things, the rtnl_link_stats
+>> for the device in the netlink response.
+>> --
+>
+> Yep, it should be easy to change iproute2 to not ask a full dump
+> in ip/ipaddress.c :
+>
+> if (rtnl_wilddump_request(&rth, preferred_family, RTM_GETLINK)<  0) .=
+=2E.
+>
+> and instead use rtnl_send() or something like that, if user provided =
+one
+> specific interface name   (or index)
+>
+> ip link show dev eth0
 
-Because ENOMEM errors were handled in commit 81aa646c,
-but _all_ errors must also be accounted in INERRORS, to be RFC
-compliant.
+I'm trying to craft my own netlink message...basically:
 
-[IPV4]: add the UdpSndbufErrors and UdpRcvbufErrors MIBs
+    memset(&snl, 0, sizeof(snl));
+    snl.nl_family =3D AF_NETLINK;
+    snl.nl_pid    =3D 0;
+    snl.nl_groups =3D 0;
+
+    memset(&buffer, 0, sizeof(buffer));
+    nlh->nlmsg_type =3D msg_type;
+    nlh->nlmsg_flags =3D NLM_F_MATCH|NLM_F_REQUEST;
+    static unsigned int nl_seqno =3D 1;
+    nlh->nlmsg_seq =3D nl_seqno++;
+    nlh->nlmsg_pid =3D nl_pid;
 
 
-If we add a new MIB counter for checksum errors, a bad checksum packet
-will increment both this new counter and INERRORS.
+
+       nlh->nlmsg_len =3D NLMSG_LENGTH(sizeof(*ifinfomsg));
+       ifinfomsg =3D (struct ifinfomsg*)(NLMSG_DATA(nlh));
+       ifinfomsg->ifi_family =3D AF_UNSPEC;
+       ifinfomsg->ifi_type =3D IFLA_UNSPEC;
+       ifinfomsg->ifi_index =3D if_index;
+       ifinfomsg->ifi_flags =3D 0;
+       ifinfomsg->ifi_change =3D 0xffffffff;
 
 
+It's possible that I'm somehow messing this up. But, looking at the
+static int rtnl_dump_ifinfo(struct sk_buff *skb, struct netlink_callbac=
+k *cb)
+method, I cannot see how it would bail out properly after a single dev
+has been processed, either.
+
+Thanks,
+Ben
+
+--=20
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
 
