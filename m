@@ -1,38 +1,49 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: GSO and IPv4 forwarding
-Date: Tue, 26 Oct 2010 13:52:50 -0700
-Message-ID: <20101026135250.74870932@nehalam>
-References: <AANLkTikxNYGFAmyZDit9fTp=-M8wfYp3Ew8rejsjHWHb@mail.gmail.com>
-	<1288124114.2652.25.camel@edumazet-laptop>
-	<AANLkTik+s4CHgPuY6uhe-0aD=WJs=UHhoEdok4AyTdYJ@mail.gmail.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [RFC PATCH 5/9] ipvs network name space aware
+Date: Wed, 27 Oct 2010 06:03:22 +0900
+Message-ID: <20101026210321.GE13167@verge.net.au>
+References: <201010081317.04167.hans.schillstrom@ericsson.com>
+ <20101022190548.GA24978@verge.net.au>
+ <201010261507.39734.hans.schillstrom@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
-To: Kevin Wilson <wkevils@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:56721 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760439Ab0JZUww (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Oct 2010 16:52:52 -0400
-In-Reply-To: <AANLkTik+s4CHgPuY6uhe-0aD=WJs=UHhoEdok4AyTdYJ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "lvs-devel@vger.kernel.org" <lvs-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"ja@ssi.bg" <ja@ssi.bg>,
+	"wensong@linux-vs.org" <wensong@linux-vs.org>,
+	"daniel.lezcano@free.fr" <daniel.lezcano@free.fr>
+To: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <201010261507.39734.hans.schillstrom@ericsson.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 26 Oct 2010 22:26:07 +0200
-Kevin Wilson <wkevils@gmail.com> wrote:
-
-> Hi,
-> Thanks a lot for your quick answer, I appreciate it (and did not
-> expect it to be so quick!)
+On Tue, Oct 26, 2010 at 03:07:38PM +0200, Hans Schillstrom wrote:
+> On Friday 22 October 2010 21:05:48 Simon Horman wrote:
+> > On Fri, Oct 08, 2010 at 01:17:02PM +0200, Hans Schillstrom wrote:
+> > > This patch just contains ip_vs_ctl
+> > >
+> > > Signed-off-by:Hans Schillstrom <hans.schillstrom@ericsson.com>
+> > >
+> > > diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+> > > index ca8ec8c..7e99cbc 100644
+> > > --- a/net/netfilter/ipvs/ip_vs_ctl.c
+> > > +++ b/net/netfilter/ipvs/ip_vs_ctl.c
+> >
+> > [ snip ]
+> > Hi Hans,
+> >
+> > is there a reason that the order some of the entries in
+> > vs_vars has been switched around?
+> >
+> Yes there is, when vars will be copied to it's own NS it's a lot easier
+> when they are in sequence and without a potential insert in the middle
+> the #if 0 ...
 > 
-> Can someone please explain in 2-3 short sentences Why GRO can be
-> forwarded and LRO cannot be forwarded ?
-> rgs,
-> Kevin
+> have a look at __ip_vs_control_init(struct net *net)
 
-LRO merges packets together creating one large skb.  This is a layering
-violation for forwarding or bridging (it violates end to end principle).
-
-GRO maintains the headers of each packet and passes them as
-a cluster.
+Ok, I suspected something like that.
+In that case I think there may be a problem with
+the way that I handled sysctl_ip_vs_conntrack.
