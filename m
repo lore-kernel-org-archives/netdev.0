@@ -1,40 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: addrconf: clear IPv6 addresses and routes when
- losing link
-Date: Tue, 26 Oct 2010 10:47:10 -0700 (PDT)
-Message-ID: <20101026.104710.232747902.davem@davemloft.net>
-References: <AANLkTin-u_bZj6_wpoV6fNaLg81JbFN0EvhNrA6wX6SG@mail.gmail.com>
-	<20101026.102145.246528067.davem@davemloft.net>
-	<AANLkTi=P80OUBSy3xCt_qOjPGTwNjrtFL1iLJnkc9joq@mail.gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] can: flexcan: fix use after free of priv
+Date: Tue, 26 Oct 2010 10:49:36 -0700 (PDT)
+Message-ID: <20101026.104936.229745338.davem@davemloft.net>
+References: <1287673678-27510-1-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: brian.haley@hp.com, shemminger@vyatta.com, netdev@vger.kernel.org
-To: lorenzo@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48112
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752527Ab0JZRqq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Oct 2010 13:46:46 -0400
-In-Reply-To: <AANLkTi=P80OUBSy3xCt_qOjPGTwNjrtFL1iLJnkc9joq@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <1287673678-27510-1-git-send-email-mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Lorenzo Colitti <lorenzo@google.com>
-Date: Tue, 26 Oct 2010 10:37:53 -0700
+From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Date: Thu, 21 Oct 2010 17:07:58 +0200
 
-> So when the link comes back, we'd have to wait for all RAs to come in
-> (there could be multiple routers on a link, each announcing different
-> prefixes), and when this is all done, compare the list of addresses to
-> the prefixes that are currently on the link and delete the ones that
-> don't match. We'd have to do the same with default routers and /64
-> routes to all the link prefixes.
+> The priv is part of the memory allocated by alloc_candev().
+> This patch moved the free it after last usage of priv.
+> 
+> Signed-off-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
 
-Why would you do this when there are link layer indications that
-we are attached to a different network?
-
-The only thing missing is a new device notification type, some code to
-generate it in the wireless subsystem, and an ipv6 handler to zap the
-addresses when received.
-
-Please think out of the box for a second, thanks :-)
+Applied.
