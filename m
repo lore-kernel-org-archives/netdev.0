@@ -1,48 +1,32 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next-2.6 v2] can: Topcliff: PCH_CAN driver: Fix
-	build warnings
-Date: Tue, 26 Oct 2010 10:52:06 -0700 (PDT)
-Message-ID: <20101026.105206.15244527.davem@davemloft.net>
-References: <4CC61B1B.3090602@dsn.okisemi.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipv6: addrconf: clear IPv6 addresses and routes when
+ losing link
+Date: Tue, 26 Oct 2010 10:55:24 -0700 (PDT)
+Message-ID: <20101026.105524.116376168.davem@davemloft.net>
+References: <AANLkTi=P80OUBSy3xCt_qOjPGTwNjrtFL1iLJnkc9joq@mail.gmail.com>
+	<20101026.104710.232747902.davem@davemloft.net>
+	<AANLkTi=DPaxVLzasA_xs0rPQGBFtfbS7aThx54OT798H@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org,
-	sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org, morinaga526-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org,
-	joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, chripell-VaTbYqLCNhc@public.gmane.org,
-	qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-To: tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4CC61B1B.3090602-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: brian.haley@hp.com, shemminger@vyatta.com, netdev@vger.kernel.org
+To: lorenzo@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55628
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752045Ab0JZRzA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Oct 2010 13:55:00 -0400
+In-Reply-To: <AANLkTi=DPaxVLzasA_xs0rPQGBFtfbS7aThx54OT798H@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Tomoya <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Date: Tue, 26 Oct 2010 09:04:43 +0900
+From: Lorenzo Colitti <lorenzo@google.com>
+Date: Tue, 26 Oct 2010 10:50:20 -0700
 
-> Hi David,
+> On Tue, Oct 26, 2010 at 10:47 AM, David Miller <davem@davemloft.net> wrote:
+>> Why would you do this when there are link layer indications that
+>> we are attached to a different network?
 > 
->> This patch has been corrupted by your email client.
-> 
-> Sorry, it seems my e-mail client setting was reset to default.
+> Are there? For wifi you could look at the SSID (though even that is no
 
-There are still problems.
-
-This is beyond frustrating.
-
-> index 55ec324..2889e11 100755
-
-Why does the pch_can.c file have execute permission in your tree?
-It doesn't in net-next-2.6 and that is what you should be generating
-patches against.
+I'm saying to check the AP's MAC.
