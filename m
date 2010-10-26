@@ -1,46 +1,37 @@
-From: Dr Carl Lee <vcheng69@yahoo.com.hk>
-Subject: Reply Needed
-Date: Tue, 26 Oct 2010 06:21:48 -0700
-Message-ID: <201010261321.o9QDLmSY001983@relay.dotsterhost.com>
-Reply-To: carl_leeus69@yahoo.co.jp
+From: David Dillow <dave@thedillows.org>
+Subject: Re: [PATCH 7/14] drivers/net/typhoon.c: delete double assignment
+Date: Tue, 26 Oct 2010 07:52:12 -0400
+Message-ID: <1288093932.14943.1.camel@lap75545.ornl.gov>
+References: <1288088743-3725-1-git-send-email-julia@diku.dk>
+ <1288088743-3725-8-git-send-email-julia@diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 16bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
+Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Julia Lawall <julia@diku.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.dotsterhost.com ([72.5.54.243]:60811 "EHLO
-	relay.dotsterhost.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756233Ab0JZL1C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Oct 2010 07:27:02 -0400
-Received: from relay.dotsterhost.com (localhost.localdomain [127.0.0.1])
-	by relay.dotsterhost.com (8.12.11.20060308/8.12.11) with ESMTP id o9QDLnmW002033
-	for <netdev@vger.kernel.org>; Tue, 26 Oct 2010 06:21:49 -0700
+Received: from emroute4.ornl.gov ([160.91.86.27]:40530 "EHLO emroute4.ornl.gov"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756233Ab0JZLwQ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Oct 2010 07:52:16 -0400
+In-reply-to: <1288088743-3725-8-git-send-email-julia@diku.dk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
- 
-I have a proposition for you, this however is not mandatory nor will I
-in any manner compel you to honor against your will.Let me start by
-introducing myself. I am Dr.Carl Lee, Director of Operations
-of the Hang Seng Bank Ltd,Sai Wan Ho Branch. I have a mutual beneficial
-business suggestion for you.
- 
-1. Can you handle this project?
-2. Can I give you this trust ?
- 
-Absolute confidentiality is required from you.Besides,I will use my connection
-to get some documents to back up the fund so that the fund can not be
-question by any authority.
- 
-More information await you in my next response to your email message.
- 
- 
-Treat as very urgent.
- 
-Yours Faithfully,
- 
-Dr. Carl Lee.
+On Tue, 2010-10-26 at 12:25 +0200, Julia Lawall wrote:
+> From: Julia Lawall <julia@diku.dk>
+> 
+> Delete successive assignments to the same location.  The current definition
+> does not initialize the respRing structure, which has the same type as the
+> cmdRing structure, so initialize that one instead.
 
+> Signed-off-by: Julia Lawall <julia@diku.dk>
 
+Acked-by: David Dillow <dave@thedillows.org>
 
+> ---
+> This changes the semantics and has not been tested.
+
+tp->respRing.lastWrite is only an artifact of using a common struct for
+the rings and is not otherwise used, so no change to semantics.
