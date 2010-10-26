@@ -1,50 +1,39 @@
 From: Mike Frysinger <vapier@gentoo.org>
-Subject: [PATCH 5/5] netdev: bfin_mac: disable hardware checksum if writeback cache is enabled
-Date: Tue, 26 Oct 2010 03:40:27 -0400
-Message-ID: <1288078827-17495-5-git-send-email-vapier@gentoo.org>
+Subject: [PATCH 3/5] netdev: bfin_mac: drop unused Mac data
+Date: Tue, 26 Oct 2010 03:40:25 -0400
+Message-ID: <1288078827-17495-3-git-send-email-vapier@gentoo.org>
 References: <1288078827-17495-1-git-send-email-vapier@gentoo.org>
-Cc: uclinux-dist-devel@blackfin.uclinux.org,
-	Sonic Zhang <sonic.zhang@analog.com>
+Cc: uclinux-dist-devel@blackfin.uclinux.org
 To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.gentoo.org ([140.211.166.183]:38832 "EHLO smtp.gentoo.org"
+Received: from smtp.gentoo.org ([140.211.166.183]:38823 "EHLO smtp.gentoo.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754499Ab0JZHkX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Oct 2010 03:40:23 -0400
+	id S1751994Ab0JZHkV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Oct 2010 03:40:21 -0400
 In-Reply-To: <1288078827-17495-1-git-send-email-vapier@gentoo.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sonic Zhang <sonic.zhang@analog.com>
+We don't use this local "Mac" data anywhere (since we rely on the
+netdev's storage), so punt it.
 
-With writeback caches, corrupted RX packets will be sent up the stack
-without any error markings.
-
-Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
 Signed-off-by: Mike Frysinger <vapier@gentoo.org>
 ---
- drivers/net/bfin_mac.h |    7 +++++++
- 1 files changed, 7 insertions(+), 0 deletions(-)
+ drivers/net/bfin_mac.h |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/bfin_mac.h b/drivers/net/bfin_mac.h
-index c1a0d66..f8559ac 100644
+index aed68be..4827f6b 100644
 --- a/drivers/net/bfin_mac.h
 +++ b/drivers/net/bfin_mac.h
-@@ -17,7 +17,14 @@
- #include <linux/etherdevice.h>
- #include <linux/bfin_mac.h>
+@@ -68,7 +68,6 @@ struct bfin_mac_local {
+ 	 */
+ 	struct net_device_stats stats;
  
-+/*
-+ * Disable hardware checksum for bug #5600 if writeback cache is
-+ * enabled. Otherwize, corrupted RX packet will be sent up stack
-+ * without error mark.
-+ */
-+#ifndef CONFIG_BFIN_EXTMEM_WRITEBACK
- #define BFIN_MAC_CSUM_OFFLOAD
-+#endif
+-	unsigned char Mac[6];	/* MAC address of the board */
+ 	spinlock_t lock;
  
- #define TX_RECLAIM_JIFFIES (HZ / 5)
- 
+ 	int wol;		/* Wake On Lan */
 -- 
 1.7.3.2
 
