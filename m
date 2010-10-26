@@ -1,60 +1,66 @@
-From: Amit Salecha <amit.salecha@qlogic.com>
-Subject: RE: [PATCH] qlcnic: dma address align check
-Date: Tue, 26 Oct 2010 05:04:18 -0500
-Message-ID: <99737F4847ED0A48AECC9F4A1974A4B80F871A817A@MNEXMB2.qlogic.org>
-References: <1288085882-11988-1-git-send-email-amit.salecha@qlogic.com>
-	 <1288085882-11988-5-git-send-email-amit.salecha@qlogic.com>
- <1288086894.3169.53.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ameen Rahman <ameen.rahman@qlogic.com>,
-	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexcashub1.qlogic.com ([198.70.193.61]:46366 "EHLO
-	avexcashub1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755093Ab0JZKEX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Oct 2010 06:04:23 -0400
-In-Reply-To: <1288086894.3169.53.camel@edumazet-laptop>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Julia Lawall <julia@diku.dk>
+Subject: [PATCH 10/14] drivers/isdn: delete double assignment
+Date: Tue, 26 Oct 2010 12:25:39 +0200
+Message-ID: <1288088743-3725-11-git-send-email-julia@diku.dk>
+References: <1288088743-3725-1-git-send-email-julia@diku.dk>
+Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Karsten Keil <isdn@linux-pingi.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1288088743-3725-1-git-send-email-julia@diku.dk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogRXJpYyBEdW1hemV0IFtt
-YWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0NCj4gU2VudDogVHVlc2RheSwgT2N0b2JlciAy
-NiwgMjAxMCAzOjI1IFBNDQo+IFRvOiBBbWl0IFNhbGVjaGENCj4gQ2M6IGRhdmVtQGRhdmVtbG9m
-dC5uZXQ7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IEFtZWVuIFJhaG1hbjsgQW5pcmJhbg0KPiBD
-aGFrcmFib3J0eQ0KPiBTdWJqZWN0OiBSZTogW1BBVENIXSBxbGNuaWM6IGRtYSBhZGRyZXNzIGFs
-aWduIGNoZWNrDQo+IA0KPiBMZSBtYXJkaSAyNiBvY3RvYnJlIDIwMTAgw6AgMDI6MzggLTA3MDAs
-IEFtaXQgS3VtYXIgU2FsZWNoYSBhIMOpY3JpdCA6DQo+ID4gRGV2aWNlIHJlcXVpcmVzIHR4X2h3
-X2Nvc251bWVyIHRvIGJlIDY0IGJ5dGUgYWxpZ25lZC4NCj4gPiBUeCBkZXNjIHNpemUgaXMgNjQg
-Ynl0ZSwgYWxsb2MgdHhfaHdfY29uc3VtZXIgd2l0aCB0eCBkZXNjLg0KPiA+DQo+ID4gU2lnbmVk
-LW9mZi1ieTogQW1pdCBLdW1hciBTYWxlY2hhIDxhbWl0LnNhbGVjaGFAcWxvZ2ljLmNvbT4NCj4g
-PiAtLS0NCj4gPiAgZHJpdmVycy9uZXQvcWxjbmljL3FsY25pY19jdHguYyB8ICAgMzUgKysrKysr
-KysrKysrKysrLS0tLS0tLS0tLS0tLS0NCj4gLS0tLS0tDQo+ID4gIDEgZmlsZXMgY2hhbmdlZCwg
-MTUgaW5zZXJ0aW9ucygrKSwgMjAgZGVsZXRpb25zKC0pDQo+ID4NCj4gPiBkaWZmIC0tZ2l0IGEv
-ZHJpdmVycy9uZXQvcWxjbmljL3FsY25pY19jdHguYw0KPiBiL2RyaXZlcnMvbmV0L3FsY25pYy9x
-bGNuaWNfY3R4LmMNCj4gPiBpbmRleCAxY2RjMDVkLi4yMWM5YzI4IDEwMDY0NA0KPiA+IC0tLSBh
-L2RyaXZlcnMvbmV0L3FsY25pYy9xbGNuaWNfY3R4LmMNCj4gPiArKysgYi9kcml2ZXJzL25ldC9x
-bGNuaWMvcWxjbmljX2N0eC5jDQo+ID4gQEAgLTQxOCwxOCArNDE4LDkgQEAgaW50IHFsY25pY19h
-bGxvY19od19yZXNvdXJjZXMoc3RydWN0DQo+IHFsY25pY19hZGFwdGVyICphZGFwdGVyKQ0KPiA+
-ICAJcmVjdl9jdHggPSAmYWRhcHRlci0+cmVjdl9jdHg7DQo+ID4gIAl0eF9yaW5nID0gYWRhcHRl
-ci0+dHhfcmluZzsNCj4gPg0KPiA+IC0JdHhfcmluZy0+aHdfY29uc3VtZXIgPSAoX19sZTMyICop
-cGNpX2FsbG9jX2NvbnNpc3RlbnQocGRldiwNCj4gc2l6ZW9mKHUzMiksDQo+ID4gLQkJCQkJCSZ0
-eF9yaW5nLT5od19jb25zX3BoeXNfYWRkcik7DQo+ID4gLQlpZiAodHhfcmluZy0+aHdfY29uc3Vt
-ZXIgPT0gTlVMTCkgew0KPiA+IC0JCWRldl9lcnIoJnBkZXYtPmRldiwgImZhaWxlZCB0byBhbGxv
-Y2F0ZSB0eCBjb25zdW1lclxuIik7DQo+ID4gLQkJcmV0dXJuIC1FTk9NRU07DQo+ID4gLQl9DQo+
-ID4gLQkqKHR4X3JpbmctPmh3X2NvbnN1bWVyKSA9IDA7DQo+ID4gLQ0KPiA+ICAJLyogY21kIGRl
-c2MgcmluZyAqLw0KPiA+IC0JYWRkciA9IHBjaV9hbGxvY19jb25zaXN0ZW50KHBkZXYsIFRYX0RF
-U0NfUklOR1NJWkUodHhfcmluZyksDQo+ID4gLQkJCSZ0eF9yaW5nLT5waHlzX2FkZHIpOw0KPiA+
-IC0NCj4gPiArCWFkZHIgPSBwY2lfYWxsb2NfY29uc2lzdGVudChwZGV2LCBUWF9ERVNDX1JJTkdT
-SVpFKHR4X3JpbmcpICsNCj4gPiArCQkJc2l6ZW9mKHUzMiksICZ0eF9yaW5nLT5waHlzX2FkZHIp
-Ow0KPiANCj4gV29udCB0aGlzIHVzZSB0d2ljZSBtZW1vcnkgdGhhbiBiZWZvcmUsIGR1ZSB0byBw
-b3dlci1vZi10d28NCj4gYWxsb2NhdGlvbnMgPw0KPiANCj4gQWxsb2NhdGluZyA2NTUzNiArIDQg
-Ynl0ZXMgZ2l2ZXMgeW91IDEzMTA3MiBieXRlcy4NCj4NCklzIGl0ID8gSSBhbSBub3QgYXdhcmUg
-YWJvdXQgc3VjaCBjYWxjdWxhdGlvbi4NCklzIHBjaV9hbGxvY19jb25zaXN0ZW50IGd1YXJhbnRl
-ZSB0byBnaXZlIFBBR0UgYWxpZ24gZG1hIGFkZHJlc3MgPw0KDQotQW1pdA0KIA0KDQoNCiANCg0K
-DQo=
+From: Julia Lawall <julia@diku.dk>
+
+Delete successive assignments to the same location.  In the first case, the
+hscx array has two elements, so change the assignment to initialize the
+second one.  In the second case, the two assignments are simply identical.
+
+A simplified version of the semantic match that finds this problem is as
+follows: (http://coccinelle.lip6.fr/)
+
+// <smpl>
+@@
+expression i;
+@@
+
+*i = ...;
+ i = ...;
+// </smpl>
+
+Signed-off-by: Julia Lawall <julia@diku.dk>
+
+---
+In the first case, the patch changes the semantics and has not been tested.
+
+ drivers/isdn/hardware/mISDN/mISDNinfineon.c |    2 +-
+ drivers/isdn/hisax/l3_1tr6.c                |    2 --
+ 2 files changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/drivers/isdn/hardware/mISDN/mISDNinfineon.c b/drivers/isdn/hardware/mISDN/mISDNinfineon.c
+index af25e1f..e90db88 100644
+--- a/drivers/isdn/hardware/mISDN/mISDNinfineon.c
++++ b/drivers/isdn/hardware/mISDN/mISDNinfineon.c
+@@ -563,7 +563,7 @@ reset_inf(struct inf_hw *hw)
+ 		mdelay(10);
+ 		hw->ipac.isac.adf2 = 0x87;
+ 		hw->ipac.hscx[0].slot = 0x1f;
+-		hw->ipac.hscx[0].slot = 0x23;
++		hw->ipac.hscx[1].slot = 0x23;
+ 		break;
+ 	case INF_GAZEL_R753:
+ 		val = inl((u32)hw->cfg.start + GAZEL_CNTRL);
+diff --git a/drivers/isdn/hisax/l3_1tr6.c b/drivers/isdn/hisax/l3_1tr6.c
+index b0554f8..a5c76fc 100644
+--- a/drivers/isdn/hisax/l3_1tr6.c
++++ b/drivers/isdn/hisax/l3_1tr6.c
+@@ -164,8 +164,6 @@ l3_1tr6_setup(struct l3_process *pc, u_char pr, void *arg)
+ 	char tmp[80];
+ 	struct sk_buff *skb = arg;
+ 
+-	p = skb->data;
+-
+ 	/* Channel Identification */
+ 	p = skb->data;
+ 	if ((p = findie(p, skb->len, WE0_chanID, 0))) {
