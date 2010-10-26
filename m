@@ -1,49 +1,32 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [RFC PATCH 5/9] ipvs network name space aware
-Date: Wed, 27 Oct 2010 06:03:22 +0900
-Message-ID: <20101026210321.GE13167@verge.net.au>
-References: <201010081317.04167.hans.schillstrom@ericsson.com>
- <20101022190548.GA24978@verge.net.au>
- <201010261507.39734.hans.schillstrom@ericsson.com>
+From: Ron Mercer <ron.mercer@qlogic.com>
+Subject: Re: [net-next PATCH 1/3] qlge: Restoring the vlan setting.
+Date: Tue, 26 Oct 2010 13:54:22 -0700
+Message-ID: <20101026205422.GC30008@linux-ox1b.qlogic.org>
+References: <1288023473-31490-1-git-send-email-ron.mercer@qlogic.com> <1288023473-31490-2-git-send-email-ron.mercer@qlogic.com> <20101025.120739.104054830.davem@davemloft.net> <20101025194632.GA3545@linux-ox1b.qlogic.org> <AANLkTinr5fHjgPNieYjJuegU2EKWiQG00rAeatZV_=3w@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "lvs-devel@vger.kernel.org" <lvs-devel@vger.kernel.org>,
+Cc: David Miller <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"ja@ssi.bg" <ja@ssi.bg>,
-	"wensong@linux-vs.org" <wensong@linux-vs.org>,
-	"daniel.lezcano@free.fr" <daniel.lezcano@free.fr>
-To: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>,
+	Ying Ping Lok <ying.lok@qlogic.com>
+To: Jesse Gross <jesse@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cain.qlogic.com ([198.70.193.223]:57967 "EHLO cain.qlc.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1756909Ab0JZVGZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Oct 2010 17:06:25 -0400
 Content-Disposition: inline
-In-Reply-To: <201010261507.39734.hans.schillstrom@ericsson.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <AANLkTinr5fHjgPNieYjJuegU2EKWiQG00rAeatZV_=3w@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 26, 2010 at 03:07:38PM +0200, Hans Schillstrom wrote:
-> On Friday 22 October 2010 21:05:48 Simon Horman wrote:
-> > On Fri, Oct 08, 2010 at 01:17:02PM +0200, Hans Schillstrom wrote:
-> > > This patch just contains ip_vs_ctl
-> > >
-> > > Signed-off-by:Hans Schillstrom <hans.schillstrom@ericsson.com>
-> > >
-> > > diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-> > > index ca8ec8c..7e99cbc 100644
-> > > --- a/net/netfilter/ipvs/ip_vs_ctl.c
-> > > +++ b/net/netfilter/ipvs/ip_vs_ctl.c
-> >
-> > [ snip ]
-> > Hi Hans,
-> >
-> > is there a reason that the order some of the entries in
-> > vs_vars has been switched around?
-> >
-> Yes there is, when vars will be copied to it's own NS it's a lot easier
-> when they are in sequence and without a potential insert in the middle
-> the #if 0 ...
+On Mon, Oct 25, 2010 at 05:56:57PM -0700, Jesse Gross wrote:
 > 
-> have a look at __ip_vs_control_init(struct net *net)
+> Using vlan groups within a driver is now deprecated.  I realize that
+> this is just a bug fix but it would nice if we can avoid introducing
+> more code around vlan groups.  Of course, fully switching the driver
+> over to use the new vlan model would be even nicer.
 
-Ok, I suspected something like that.
-In that case I think there may be a problem with
-the way that I handled sysctl_ip_vs_conntrack.
+I would like this bug fix to be applied though we will schedule switching
+to the new vlan model ASAP.
+
