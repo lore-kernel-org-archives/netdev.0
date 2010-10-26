@@ -1,70 +1,64 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: [v3 RFC PATCH 0/4] Implement multiqueue virtio-net
-Date: Tue, 26 Oct 2010 10:40:35 +0530
-Message-ID: <OF5C53E9CF.FFDF2CE7-ON652577C8.00191D14-652577C8.001C2154@in.ibm.com>
-References: <20101020085452.15579.76002.sendpatchset@krkumar2.in.ibm.com> <OF8735A2A4.74B4EE91-ON652577C5.0040D90B-652577C7.0056B99D@in.ibm.com> <20101025161718.GA19559@redhat.com>
+From: <Somnath.Kotur@Emulex.Com>
+Subject: RE: [PATCH net-next-2.6 1/2] be2net: Adding an option to use INTx
+ instead of MSI-X
+Date: Mon, 25 Oct 2010 22:24:39 -0700
+Message-ID: <3367B80B08154D42A3B2BC708B5D41F63A00DC7EA5@EXMAIL.ad.emulex.com>
+References: <20101025111235.GA2024@emulex.com>
+	<20101025.120943.189699949.davem@davemloft.net>
+	<20101025223853.GD15074@solarflare.com>,<20101025.162535.226782713.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: anthony@codemonkey.ws, arnd@arndb.de, avi@redhat.com,
-	davem@davemloft.net, eric.dumazet@gmail.com, kvm@vger.kernel.org,
-	netdev@vger.kernel.org, rusty@rustcorp.com.au
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp04.in.ibm.com ([122.248.162.4]:52836 "EHLO
-	e28smtp04.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751867Ab0JZFHY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Oct 2010 01:07:24 -0400
-In-Reply-To: <20101025161718.GA19559@redhat.com>
+Received: from exht1.emulex.com ([138.239.113.183]:1203 "EHLO
+	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752417Ab0JZF1D convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Oct 2010 01:27:03 -0400
+In-Reply-To: <20101025.162535.226782713.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-"Michael S. Tsirkin" <mst@redhat.com> wrote on 10/25/2010 09:47:18 PM:
+Dave,
+         Could you pls ignore this patch and apply the next patch in the series ?
+ ( PATCH 2/2]  be2net: Schedule/Destroy worker thread in probe()/remove() rather than open()/close()
 
-> > Any feedback, comments, objections, issues or bugs about the
-> > patches? Please let me know if something needs to be done.
+Thanks
+Som
+________________________________________
+From: David Miller [davem@davemloft.net]
+Sent: Tuesday, October 26, 2010 4:55 AM
+To: bhutchings@solarflare.com
+Cc: Kotur, Somnath; netdev@vger.kernel.org; linux-pci@vger.kernel.org
+Subject: Re: [PATCH net-next-2.6 1/2] be2net: Adding an option to use INTx instead of MSI-X
+
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Mon, 25 Oct 2010 23:38:53 +0100
+
+> David Miller wrote:
+>> From: Somnath Kotur <somnath.kotur@emulex.com>
+>> Date: Mon, 25 Oct 2010 16:42:35 +0530
+>>
+>> > By default, be2net uses MSIx wherever possible.
+>> > Adding a module parameter to use INTx for users who do not want to use MSIx.
+>> >
+>> > Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
+>>
+>> Either add a new ethtool flag, or use the PCI subsystem facilities
+>> for tweaking things to implement this.
+>>
+>> Do not use a module option, otherwise every other networking driver
+>> author will get the same "cool" idea, give the module option
+>> different names, and the resulting user experience is terrible.
 >
-> I am trying to wrap my head around kernel/user interface here.
-> E.g., will we need another incompatible change when we add multiple RX
-> queues?
+> This has already happened, sadly.  So far as I can see it's mostly done
+> to allow users to work around systems with broken MSIs; I'm not aware of
+> any other reason to prefer legacy interrupts.  However, the PCI subsystem
+> already implements a blacklist and a kernel parameter for disabling MSIs
+> on these systems.
 
-Though I added a 'mq' option to qemu, there shouldn't be
-any incompatibility between old and new qemu's wrt vhost
-and virtio-net drivers. So the old qemu will run new host
-and new guest without issues, and new qemu can also run
-old host and old guest. Multiple RXQ will also not add
-any incompatibility.
+The PCI subsystem bits I'm totally fine with.
 
-With MQ RX, I will be able to remove the hueristic (idea
-from David Stevens).  The idea is: Guest sends out packets
-on, say TXQ#2, vhost#2 processes the packets but packets
-going out from host to guest might be sent out on a
-different RXQ, say RXQ#4.  Guest receives the packet on
-RXQ#4, and all future responses on that connection are sent
-on TXQ#4.  Now vhost#4 processes both RX and TX packets for
-this connection.  Without needing to hash on the connection,
-guest can make sure that the same vhost thread will handle
-a single connection.
-
-> Also need to think about how robust our single stream heuristic is,
-> e.g. what are the chances it will misdetect a bidirectional
-> UDP stream as a single TCP?
-
-I think it should not happen. The hueristic code gets
-called for handling just the transmit packets, packets
-that vhost sends out to the guest skip this path.
-
-I tested unidirectional and bidirectional UDP to confirm:
-
-8 iterations of iperf tests, each iteration of 15 secs,
-result is the sum of all 8 iterations in Gbits/sec
-__________________________________________
-Uni-directional          Bi-directional
-  Org      New             Org      New
-__________________________________________
-  71.78    71.77           71.74   72.07
-__________________________________________
-
-Thanks,
-
-- KK
-
+But in the drivers themselves, that's what I don't want.
