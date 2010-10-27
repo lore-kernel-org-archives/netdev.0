@@ -1,131 +1,61 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [RFC PATCH 0/1] vhost: Reduce TX used buffer signal for
- performance
-Date: Wed, 27 Oct 2010 14:05:57 -0700
-Message-ID: <1288213557.17571.28.camel@localhost.localdomain>
-References: <1288213257.17571.25.camel@localhost.localdomain>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] e1000e: add netpoll support for MSI/MSI-X IRQ modes
+Date: Wed, 27 Oct 2010 14:12:31 -0700
+Message-ID: <1288213951.12299.1.camel@jtkirshe-MOBL1>
+References: <1288072476-20720-1-git-send-email-dongdong.deng@windriver.com>
+	 <20101027.112025.102538977.davem@davemloft.net>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-P/XQYcOACNhjb5c/vZZH"
+Cc: "dongdong.deng@windriver.com" <dongdong.deng@windriver.com>,
+	"jesse@nicira.com" <jesse@nicira.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Rose, Gregory V" <gregory.v.rose@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:30571 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757035Ab0J0VMy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Oct 2010 17:12:54 -0400
+In-Reply-To: <20101027.112025.102538977.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+
+--=-P/XQYcOACNhjb5c/vZZH
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "mst@redhat.com" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1288213257.17571.25.camel@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: quoted-printable
 
-This patch changes vhost TX used buffer signal to guest from one by
-one to up to 3/4 of vring size. This change improves vhost TX message 
-size from 256 to 8K performance for both bandwidth and CPU utilization 
-without inducing any regression.
+On Wed, 2010-10-27 at 11:20 -0700, David Miller wrote:
+> Intel folks, I assume you guys will look at this and integrate it.
+>=20
+> Thanks.
 
-Signed-off-by: Shirley Ma <xma@us.ibm.com>
----
+Correct.  I will add this to my queue.
 
- drivers/vhost/net.c   |   19 ++++++++++++++++++-
- drivers/vhost/vhost.c |   31 +++++++++++++++++++++++++++++++
- drivers/vhost/vhost.h |    3 +++
- 3 files changed, 52 insertions(+), 1 deletions(-)
+--=-P/XQYcOACNhjb5c/vZZH
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 
-diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index 4b4da5b..bd1ba71 100644
---- a/drivers/vhost/net.c
-+++ b/drivers/vhost/net.c
-@@ -198,7 +198,24 @@ static void handle_tx(struct vhost_net *net)
- 		if (err != len)
- 			pr_debug("Truncated TX packet: "
- 				 " len %d != %zd\n", err, len);
--		vhost_add_used_and_signal(&net->dev, vq, head, 0);
-+		/*
-+		 * if no pending buffer size allocate, signal used buffer
-+		 * one by one, otherwise, signal used buffer when reaching
-+		 * 3/4 ring size to reduce CPU utilization.
-+		 */
-+		if (unlikely(vq->pend))
-+			vhost_add_used_and_signal(&net->dev, vq, head, 0);
-+		else {
-+			vq->pend[vq->num_pend].id = head;
-+			vq->pend[vq->num_pend].len = 0;
-+			++vq->num_pend;
-+			if (vq->num_pend == (vq->num - (vq->num >> 2))) {
-+				vhost_add_used_and_signal_n(&net->dev, vq,
-+							    vq->pend,
-+							    vq->num_pend);
-+				vq->num_pend = 0;
-+			}
-+		}
- 		total_len += len;
- 		if (unlikely(total_len >= VHOST_NET_WEIGHT)) {
- 			vhost_poll_queue(&vq->poll);
-diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-index 94701ff..47696d2 100644
---- a/drivers/vhost/vhost.c
-+++ b/drivers/vhost/vhost.c
-@@ -170,6 +170,16 @@ static void vhost_vq_reset(struct vhost_dev *dev,
- 	vq->call_ctx = NULL;
- 	vq->call = NULL;
- 	vq->log_ctx = NULL;
-+	/* signal pending used buffers */
-+	if (vq->pend) {
-+		if (vq->num_pend != 0) {
-+			vhost_add_used_and_signal_n(dev, vq, vq->pend,
-+						    vq->num_pend);
-+			vq->num_pend = 0;
-+		}
-+		kfree(vq->pend);
-+	}
-+	vq->pend = NULL;
- }
- 
- static int vhost_worker(void *data)
-@@ -273,7 +283,13 @@ long vhost_dev_init(struct vhost_dev *dev,
- 		dev->vqs[i].heads = NULL;
- 		dev->vqs[i].dev = dev;
- 		mutex_init(&dev->vqs[i].mutex);
-+		dev->vqs[i].num_pend = 0;
-+		dev->vqs[i].pend = NULL;
- 		vhost_vq_reset(dev, dev->vqs + i);
-+		/* signal 3/4 of ring size used buffers */
-+		dev->vqs[i].pend = kmalloc((dev->vqs[i].num -
-+					   (dev->vqs[i].num >> 2)) *
-+					   sizeof *vq->peed, GFP_KERNEL);
- 		if (dev->vqs[i].handle_kick)
- 			vhost_poll_init(&dev->vqs[i].poll,
- 					dev->vqs[i].handle_kick, POLLIN, dev);
-@@ -599,6 +615,21 @@ static long vhost_set_vring(struct vhost_dev *d, int ioctl, void __user *argp)
- 			r = -EINVAL;
- 			break;
- 		}
-+		if (vq->num != s.num) {
-+			/* signal used buffers first */
-+			if (vq->pend) {
-+				if (vq->num_pend != 0) {
-+					vhost_add_used_and_signal_n(vq->dev, vq,
-+								    vq->pend,
-+								    vq->num_pend);
-+					vq->num_pend = 0;
-+				}
-+				kfree(vq->pend);
-+			}
-+			/* realloc pending used buffers size */
-+			vq->pend = kmalloc((s.num - (s.num >> 2)) *
-+					   sizeof *vq->pend, GFP_KERNEL);
-+		}
- 		vq->num = s.num;
- 		break;
- 	case VHOST_SET_VRING_BASE:
-diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
-index 073d06a..78949c0 100644
---- a/drivers/vhost/vhost.h
-+++ b/drivers/vhost/vhost.h
-@@ -108,6 +108,9 @@ struct vhost_virtqueue {
- 	/* Log write descriptors */
- 	void __user *log_base;
- 	struct vhost_log *log;
-+	/* delay multiple used buffers to signal once */
-+	int num_pend;
-+	struct vring_used_elem *pend;
- };
- 
- struct vhost_dev {
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iQEcBAABAgAGBQJMyJW0AAoJECTsCADr/EWU7TQH/1BZePnx55dJTXUG2AmEMBsz
+QFA1mliiwilOGNbx4YJp/d4p3EA1+/5zQdAmAp4n10zga/tf+itjqzTBCPa6/Ov2
+oplZGr4Jf/v+8NZDQ0Rt/Jo9zUOzO1WqnsRoBWtPZ0vu+hboYE+OSJ2JIGzo+x1B
+8Vw5lbfCqvM5hXubQ182nTmaqc+Mnqk8jNI/sbLGlePAvz1cEIEBUgvurwMc+Qr9
+UgCAbRYcbG+vchvPDo7RqitywDwRVHHkKopt/YiRVpq/C7rEK1OalUtwR3l1/Vw6
+qoMHypbKWUEF2HbofdLb2DMB3sVemd5YVldkYp2mRaDsCj0gzwzib4dZVWFkz28=
+=CJmp
+-----END PGP SIGNATURE-----
+
+--=-P/XQYcOACNhjb5c/vZZH--
+
