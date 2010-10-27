@@ -1,57 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] ipv6/udp:  report SndbufErrors and RcvbufErrors
-Date: Wed, 27 Oct 2010 11:35:16 +0200
-Message-ID: <1288172116.2709.81.camel@edumazet-laptop>
-References: <8545971aec0612a0bca2801107d9493b.squirrel@imap.coplanar.net>
-	 <1288124033.2652.24.camel@edumazet-laptop>
-	 <a2ae895d871551a9b3ded9ce3874fe28.squirrel@imap.coplanar.net>
-	 <1288124842.2652.28.camel@edumazet-laptop>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: tbf/htb qdisc limitations
+Date: Wed, 27 Oct 2010 09:48:05 +0000
+Message-ID: <20101027094805.GA8929@ff.dom.local>
+References: <1287125059.2659.1812.camel@edumazet-laptop> <20101015173746.12c7c40a.billfink@mindspring.com> <20101015220535.GA1997@del.dom.local> <20101016005106.35e4cc8d.billfink@mindspring.com> <20101016205824.GA2113@del.dom.local> <20101016212434.72ae5250.billfink@mindspring.com> <20101017203618.GA1889@del.dom.local> <20101019033724.0bffbe88.billfink@mindspring.com> <20101020110612.GA18315@ff.dom.local> <20101027005143.bfa8fbfd.billfink@mindspring.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stable@kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Rick Jones <rick.jones2@hp.com>,
+	Steven Brudenell <steven.brudenell@gmail.com>,
+	netdev@vger.kernel.org
+To: Bill Fink <billfink@mindspring.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:41555 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752651Ab0J0JfV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Oct 2010 05:35:21 -0400
-Received: by wyf28 with SMTP id 28so467393wyf.19
-        for <netdev@vger.kernel.org>; Wed, 27 Oct 2010 02:35:20 -0700 (PDT)
-In-Reply-To: <1288124842.2652.28.camel@edumazet-laptop>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:46496 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754604Ab0J0JsN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Oct 2010 05:48:13 -0400
+Received: by bwz11 with SMTP id 11so343270bwz.19
+        for <netdev@vger.kernel.org>; Wed, 27 Oct 2010 02:48:12 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20101027005143.bfa8fbfd.billfink@mindspring.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit a18135eb9389 (Add UDP_MIB_{SND,RCV}BUFERRORS handling.)
-forgot to make the necessary changes in net/ipv6/proc.c to report
-additional counters in /proc/net/snmp6
+On Wed, Oct 27, 2010 at 12:51:43AM -0400, Bill Fink wrote:
+> On Wed, 20 Oct 2010, Jarek Poplawski wrote:
+> > Btw, if you find time I would be interested in checking an opposite
+> > concept of lower than real mtu (256) to use rate tables different way
+> > (other tbf parameters without change). The patch below is needed for
+> > this to work.
+> 
+> Sorry.  I'm totally swamped at work currently and won't be able
+> to investigate that.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/ipv6/proc.c |    4 ++++
- 1 file changed, 4 insertions(+)
+No problem, especially when current solution works for you.
 
-diff --git a/net/ipv6/proc.c b/net/ipv6/proc.c
-index d082eae..24b3558 100644
---- a/net/ipv6/proc.c
-+++ b/net/ipv6/proc.c
-@@ -126,6 +126,8 @@ static const struct snmp_mib snmp6_udp6_list[] = {
- 	SNMP_MIB_ITEM("Udp6NoPorts", UDP_MIB_NOPORTS),
- 	SNMP_MIB_ITEM("Udp6InErrors", UDP_MIB_INERRORS),
- 	SNMP_MIB_ITEM("Udp6OutDatagrams", UDP_MIB_OUTDATAGRAMS),
-+	SNMP_MIB_ITEM("Udp6RcvbufErrors", UDP_MIB_RCVBUFERRORS),
-+	SNMP_MIB_ITEM("Udp6SndbufErrors", UDP_MIB_SNDBUFERRORS),
- 	SNMP_MIB_SENTINEL
- };
- 
-@@ -134,6 +136,8 @@ static const struct snmp_mib snmp6_udplite6_list[] = {
- 	SNMP_MIB_ITEM("UdpLite6NoPorts", UDP_MIB_NOPORTS),
- 	SNMP_MIB_ITEM("UdpLite6InErrors", UDP_MIB_INERRORS),
- 	SNMP_MIB_ITEM("UdpLite6OutDatagrams", UDP_MIB_OUTDATAGRAMS),
-+	SNMP_MIB_ITEM("UdpLite6RcvbufErrors", UDP_MIB_RCVBUFERRORS),
-+	SNMP_MIB_ITEM("UdpLite6SndbufErrors", UDP_MIB_SNDBUFERRORS),
- 	SNMP_MIB_SENTINEL
- };
- 
-
-
+Jarek P.
