@@ -1,27 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-2.6 PATCH 1/1] qlge: bugfix: Restoring the vlan setting.
-Date: Wed, 27 Oct 2010 11:19:23 -0700 (PDT)
-Message-ID: <20101027.111923.28825146.davem@davemloft.net>
-References: <1288191492-1967-1-git-send-email-ron.mercer@qlogic.com>
+Subject: Re: [PATCH] e1000e: add netpoll support for MSI/MSI-X IRQ modes
+Date: Wed, 27 Oct 2010 11:20:25 -0700 (PDT)
+Message-ID: <20101027.112025.102538977.davem@davemloft.net>
+References: <1288072476-20720-1-git-send-email-dongdong.deng@windriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jitendra.kalsaria@qlogic.com,
-	ying.lok@qlogic.com
-To: ron.mercer@qlogic.com
+Cc: jesse@nicira.com, jeffrey.t.kirsher@intel.com,
+	bruce.w.allan@intel.com, alexander.h.duyck@intel.com,
+	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
+	gregory.v.rose@intel.com, peter.p.waskiewicz.jr@intel.com,
+	john.ronciak@intel.com, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org
+To: dongdong.deng@windriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59677
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59682
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754199Ab0J0STA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Oct 2010 14:19:00 -0400
-In-Reply-To: <1288191492-1967-1-git-send-email-ron.mercer@qlogic.com>
+	by vger.kernel.org with ESMTP id S1754426Ab0J0SUC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Oct 2010 14:20:02 -0400
+In-Reply-To: <1288072476-20720-1-git-send-email-dongdong.deng@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ron Mercer <ron.mercer@qlogic.com>
-Date: Wed, 27 Oct 2010 07:58:12 -0700
 
-> Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-> Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
+Intel folks, I assume you guys will look at this and integrate it.
 
-Applied, thanks.
+Thanks.
