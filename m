@@ -1,53 +1,102 @@
-From: Nolan Leake <nolan@cumulusnetworks.com>
-Subject: Re: tap0 device stopped working in 2.6.36 (ok in 2.6.35)
-Date: Wed, 27 Oct 2010 10:48:54 -0700
-Message-ID: <1288201734.26640.43.camel@voxel>
-References: <4CC2DB2C.3060908@xs4all.nl> <1287862760.7499.225.camel@voxel>
-	 <4CC40398.6070105@xs4all.nl> <1288142302.26640.7.camel@voxel>
-	 <4CC84EAD.7040506@xs4all.nl>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Security] TIPC security issues
+Date: Wed, 27 Oct 2010 10:50:47 -0700 (PDT)
+Message-ID: <20101027.105047.183059900.davem@davemloft.net>
+References: <AANLkTi=V93A660+YS8C2TvC13kGUcJpFgjPHUvONd_WW@mail.gmail.com>
+	<20101027.102940.112580564.davem@davemloft.net>
+	<AANLkTinHVXDJbgJ0zBVRnr8R4sx=NtZCaFgbFC+8DE+q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Jim <jim876@xs4all.nl>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: drosenberg@vsecurity.com, jon.maloy@ericsson.com,
+	allan.stephens@windriver.com, netdev@vger.kernel.org,
+	security@kernel.org
+To: torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from phong.sigbus.net ([65.49.35.42]:52652 "EHLO phong.sigbus.net"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753334Ab0J0Rs4 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Oct 2010 13:48:56 -0400
-In-Reply-To: <4CC84EAD.7040506@xs4all.nl>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37157
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753293Ab0J0RuZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Oct 2010 13:50:25 -0400
+In-Reply-To: <AANLkTinHVXDJbgJ0zBVRnr8R4sx=NtZCaFgbFC+8DE+q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-10-27 at 18:09 +0200, Jim wrote:
-> Not exactly, VirtualBox calls it "bridged adapter", it 'bridges' the
-> guest machine to the tap0 interface on the host for so called host-only
-> networking.
-> See eg. http://forums.virtualbox.org/viewtopic.php?f=1&t=165
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Wed, 27 Oct 2010 10:37:46 -0700
 
-OK, so you have the tap0 device, and you assign an IP to it and run
-dhcpd on it.  Understood.  Thank you for the explanatory link.
+> If you _really_ care deeply, then some packet-oriented protocol can
+> just have its own private packet size limit (which would be way less
+> than 2GB), and then just look at the total size and say "oh, the total
+> size is bigger than my limit, so I'll just error out". Then, the fact
+> that verify_iovec() may have truncated the message to 2GB-1 doesn't
+> matter at all.
+> 
+> (Practically speaking, I bet all packet-oriented protocols already
+> have a limit that is enforced by simply allocation patterns, so I
+> don't think it's actually a problem even now)
 
-> And this sequence is now simply failing
->   tunctl -t tap0 -u tuxuser
->   ifconfig tap0 10.0.0.1 up
+This is, as it turns out, effectively what the TIPC socket layer
+already does.
 
-The link is not ready until some process has attached to the tap device.
-tunctl simply attaches and then immediately detaches, leaving it
-link-down until the virtualbox process starts and attaches.
+Most of the send calls that propagate down to this code adding up the
+iov_len lengths gets passed a maximum packet size.
 
-But this doesn't cause the problem for me!  I suspect that is because I
-am running an ipv4 only kernel; the "ADDRCONF(NETDEV_UP): tap0: link is
-not ready" error comes from net/ipv6/addrconf.c.
+Anyways, here is what I came up with to kill this specific bug in
+TIPC:
 
-I have no idea why ipv6 vetos the upping of a link-down interface, while
-ipv4 doesn't care.
+>From 39dc17049a5ed989bab8997945a048ffddf48387 Mon Sep 17 00:00:00 2001
+From: David S. Miller <davem@davemloft.net>
+Date: Wed, 27 Oct 2010 10:46:59 -0700
+Subject: [PATCH] tipc: Fix iov_len handling in message send path.
 
-If this is all intended behavior, then I guess I'll need to make the old
-"tap devices are always link-up" mode the default, and add a way for
-newer software to opt-in into correct link-state reporting.
+Use size_t to add together iov_len's from the iovec, error
+out with -EMSGSIZE if total is greater than INT_MAX.
 
-David (CC'd), could you comment on this?
+Reported-by: Dan Rosenberg <drosenberg@vsecurity.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/tipc/msg.c |   13 ++++++++++---
+ 1 files changed, 10 insertions(+), 3 deletions(-)
 
-Thanks,
-Nolan
+diff --git a/net/tipc/msg.c b/net/tipc/msg.c
+index ecb532f..b29eb8b 100644
+--- a/net/tipc/msg.c
++++ b/net/tipc/msg.c
+@@ -76,11 +76,15 @@ void tipc_msg_init(struct tipc_msg *m, u32 user, u32 type,
+ 
+ int tipc_msg_calc_data_size(struct iovec const *msg_sect, u32 num_sect)
+ {
+-	int dsz = 0;
++	size_t dsz = 0;
+ 	int i;
+ 
+ 	for (i = 0; i < num_sect; i++)
+ 		dsz += msg_sect[i].iov_len;
++
++	if (dsz > INT_MAX)
++		return -EMSGSIZE;
++
+ 	return dsz;
+ }
+ 
+@@ -93,12 +97,15 @@ int tipc_msg_calc_data_size(struct iovec const *msg_sect, u32 num_sect)
+  */
+ 
+ int tipc_msg_build(struct tipc_msg *hdr,
+-			    struct iovec const *msg_sect, u32 num_sect,
+-			    int max_size, int usrmem, struct sk_buff** buf)
++		      struct iovec const *msg_sect, u32 num_sect,
++		      int max_size, int usrmem, struct sk_buff** buf)
+ {
+ 	int dsz, sz, hsz, pos, res, cnt;
+ 
+ 	dsz = tipc_msg_calc_data_size(msg_sect, num_sect);
++	if (dsz < 0)
++		return dsz;
++
+ 	if (unlikely(dsz > TIPC_MAX_USER_MSG_SIZE)) {
+ 		*buf = NULL;
+ 		return -EINVAL;
+-- 
+1.7.3.2
+
