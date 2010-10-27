@@ -1,64 +1,38 @@
-From: "Tomoya MORINAGA" <tomoya-linux@dsn.okisemi.com>
-Subject: Re: [PATCH net-next-2.6 v2] can: Topcliff: PCH_CAN driver: Fix buildwarnings
-Date: Wed, 27 Oct 2010 20:27:29 +0900
-Message-ID: <008201cb75c9$f27ff720$66f8800a@maildom.okisemi.com>
-References: <4CC61B1B.3090602@dsn.okisemi.com>	<20101026.105206.15244527.davem@davemloft.net>	<20101026.105545.200376685.davem@davemloft.net><4CC71DA4.3020600@grandegger.com> <4CC72360.1070608@pengutronix.de>
+From: "Tomoya MORINAGA" <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Subject: Re: can: About Socket CAN with MSI issue
+Date: Wed, 27 Oct 2010 20:41:21 +0900
+Message-ID: <00dc01cb75cb$e0ca3430$66f8800a@maildom.okisemi.com>
+References: <4CC61B1B.3090602@dsn.okisemi.com><20101026.105206.15244527.davem@davemloft.net><002801cb758f$876aaf00$66f8800a@maildom.okisemi.com>
+	<AANLkTi=bJTMhEo2agsMJ8fptNp7suERCGkzybb5m7ggg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <andrew.chih.howe.khor@intel.com>,
-	<socketcan-core@lists.berlios.de>, <sameo@linux.intel.com>,
-	<margie.foster@intel.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <yong.y.wang@intel.com>,
-	<masa-korg@dsn.okisemi.com>, <kok.howg.ewe@intel.com>,
-	<chripell@fsfe.org>, <morinaga526@dsn.okisemi.com>,
-	"David Miller" <davem@davemloft.net>, <joel.clark@intel.com>,
-	<qi.wang@intel.com>
-To: "Marc Kleine-Budde" <mkl@pengutronix.de>,
-	"Wolfgang Grandegger" <wg@grandegger.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
+	margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org,
+	joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	chripell-VaTbYqLCNhc@public.gmane.org, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+To: "Dave Airlie" <airlied-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday, October 27, 2010 3:52 AM :  Marc Kleine-Budde and Wolfgang Grandegge wrote:
+On Wednesday, October 27, 2010 4:56 PM, Dave Airlie wrote:
+> Its a bug in the PCI layer most likely,
 
-The following is some inarticulate points I have for your questions.
-Please give me more information.
+Thank you for your information.
 
-> Do I understand your code correctly? You have a big loop, but only do
->  two different things at certain values of the loop? Smells fishy.
-Uh, I can't understand your intention.
-Please show in detail.
-This processing does configuration for all message objects.
-
-
-> what does this loop do? why is it nessecarry? I don't like delay loops
->   in the hot path of a driver.
-This loop is for waiting for all tx Message Object completion.
-This is Topcliff CAN HW specification.
-
-
-> If you figured out how to use the endianess conversion functions from
-> the cpu_to_{le,be}-{le,to}_to_cpup family use them here, too.
-Uh,le32_to_cpu have been used already here.
-I can't understand your intention.
-Please show in detail.
-
-
->> All these check if busy in the code make me a bit nervous, can you
->> please explain why they are needed. A pointer to the manual is okay, too.
-> Me too. I already ask in my previous mail how long that functions
-> usually blocks.
-When accessing read/write from/to Message RAM,
-Since it takes much time for transferring between Register and Message RAM,
-SW must check busy flag of CAN register.
-This is a Topcliff HW specification.
-
-
-> is there some pdev->name instead of KBUILD_MODNAME that can be used?
-I can't understand your intention.
-pdev(struct pci_dev) doesn't have "name" member. 
-Please show in detail.
+This issue occurrs with Socket-CAN driver only.
+Previous version our CAN driver(Not Socket-CAN but Tolapai ) works well.
+Thus, IMHO, PCI layer doesn't related to the issue.
 
 Thanks, Tomoya(OKI SEMICONDUCTOR CO., LTD.)
