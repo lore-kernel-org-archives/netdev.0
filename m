@@ -1,62 +1,77 @@
-From: Dan Carpenter <error27@gmail.com>
-Subject: [patch v2] fix stack overflow in pktgen_if_write()
-Date: Thu, 28 Oct 2010 00:43:02 +0200
-Message-ID: <20101027224302.GQ6062@bicker>
-References: <1288206788-21063-1-git-send-email-nelhage@ksplice.com> <20101027221234.GN6062@bicker>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [RFC][net-next-2.6 PATCH v2] 8021q: set hard_header_len when VLAN
+ offload features are toggled
+Date: Wed, 27 Oct 2010 16:04:11 -0700
+Message-ID: <AANLkTimTc2QwgsXk8qeU7ZBu977nOFLGQTx9sE5f4f-L@mail.gmail.com>
+References: <20101026215933.2339.45454.stgit@jf-dev1-dcblab>
+	<AANLkTi=9tL5yrVGWsOagcgyKte5z8R9ADdz5n-Uf2Lsw@mail.gmail.com>
+	<4CC89C3A.7000209@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Robert Olsson <robert.olsson@its.uu.se>,
-	Andy Shevchenko <andy.shevchenko@gmail.com>,
-	netdev@vger.kernel.org
-To: nelhage@ksplice.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>
+To: John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:41167 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755330Ab0J0WnQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Oct 2010 18:43:16 -0400
-Received: by wyf28 with SMTP id 28so1251448wyf.19
-        for <netdev@vger.kernel.org>; Wed, 27 Oct 2010 15:43:14 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20101027221234.GN6062@bicker>
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:56715 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756119Ab0J0XEL convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Oct 2010 19:04:11 -0400
+Received: by ywk9 with SMTP id 9so866259ywk.19
+        for <netdev@vger.kernel.org>; Wed, 27 Oct 2010 16:04:11 -0700 (PDT)
+In-Reply-To: <4CC89C3A.7000209@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Nelson Elhage says he was able to oops both amd64 and i386 test 
-machines with 8k writes to the pktgen file.  Let's just allocate the
-buffer on the heap instead of on the stack.
+On Wed, Oct 27, 2010 at 2:40 PM, John Fastabend
+<john.r.fastabend@intel.com> wrote:
+> On 10/26/2010 7:05 PM, Jesse Gross wrote:
+>> On Tue, Oct 26, 2010 at 2:59 PM, John Fastabend
+>> <john.r.fastabend@intel.com> wrote:
+>>> Toggling the vlan tx|rx hw offloads needs to set the hard_header_le=
+n
+>>> as well otherwise we end up using LL_RESERVED_SPACE incorrectly.
+>>> This results in pskb_expand_head() being used unnecessarily.
+>>>
+>>> This add a check in vlan_transfer_features =A0to catch the ETH_FLAG=
+_TXVLAN
+>>> flag and set the header length. This requires drivers to add the
+>>> ETH_FLAG_TXVLAN to vlan_features.
+>>>
+>>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+>>
+>> I think this addresses all of the original problems. =A0However, I d=
+on't
+>> think that we want to have drivers claim to support vlan offloading =
+as
+>> a feature for vlan packets. =A0That implies some type of QinQ
+>> functionality to me. =A0In addition, if the vlan device claims to
+>> support offloading and a second vlan device is stacked on top of it,
+>> then the two will clobber skb->vlan_tci. =A0It's probably simpler to
+>> just keep track of whether vlan offloading is currently enabled so w=
+e
+>> can find out whether it changed.
+>>
+>
+> Agreed. Rather then trying to be clever this is probably the easiest.
+>
+> --- a/net/8021q/vlan.c
+> +++ b/net/8021q/vlan.c
+> @@ -334,6 +334,12 @@ Hunk #1, a/net/8021q/vlan.c static void vlan_tra=
+nsfer_features(struct net_device *dev,
+> =A0 =A0 =A0 =A0vlandev->features &=3D ~dev->vlan_features;
+> =A0 =A0 =A0 =A0vlandev->features |=3D dev->features & dev->vlan_featu=
+res;
+> =A0 =A0 =A0 =A0vlandev->gso_max_size =3D dev->gso_max_size;
+> +
+> + =A0 =A0 =A0 if (dev->features & NETIF_F_HW_VLAN_TX)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 vlandev->hard_header_len =3D dev->hard_=
+header_len;
+> + =A0 =A0 =A0 else
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 vlandev->hard_header_len =3D dev->hard_=
+header_len + VLAN_HLEN;
+> +
 
-This can only be triggered by root so there are no security issues here.
+Great, that's even simpler than I was thinking.
 
-Reported-by: Nelson Elhage <nelhage@ksplice.com>
-Signed-off-by: Dan Carpenter <error27@gmail.com>
----
-I saw this on twitter.  Hi Nelson, could you test this?
-
-V2:  strndup_user() => memdup_user()  
-
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 2c0df0f..b5d3c70 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -887,12 +887,14 @@ static ssize_t pktgen_if_write(struct file *file,
- 	i += len;
- 
- 	if (debug) {
--		char tb[count + 1];
--		if (copy_from_user(tb, user_buffer, count))
--			return -EFAULT;
--		tb[count] = 0;
-+		char *tb;
-+
-+		tb = memdup_user(user_buffer, count + 1);
-+		if (IS_ERR(tb))
-+			return PTR_ERR(tb);
- 		printk(KERN_DEBUG "pktgen: %s,%lu  buffer -:%s:-\n", name,
- 		       (unsigned long)count, tb);
-+		kfree(tb);
- 	}
- 
- 	if (!strcmp(name, "min_pkt_size")) {
-
+I think this series is ready to go.
