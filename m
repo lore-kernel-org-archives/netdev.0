@@ -1,28 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] e1000e: add netpoll support for MSI/MSI-X IRQ modes
-Date: Wed, 27 Oct 2010 11:20:25 -0700 (PDT)
-Message-ID: <20101027.112025.102538977.davem@davemloft.net>
-References: <1288072476-20720-1-git-send-email-dongdong.deng@windriver.com>
+Subject: Re: [PATCH] tunnels: add __rcu annotations
+Date: Wed, 27 Oct 2010 11:22:27 -0700 (PDT)
+Message-ID: <20101027.112227.179923691.davem@davemloft.net>
+References: <1288076486.3296.85.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jesse@nicira.com, jeffrey.t.kirsher@intel.com,
-	bruce.w.allan@intel.com, alexander.h.duyck@intel.com,
-	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
-	gregory.v.rose@intel.com, peter.p.waskiewicz.jr@intel.com,
-	john.ronciak@intel.com, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org
-To: dongdong.deng@windriver.com
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59682
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35689
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754426Ab0J0SUC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Oct 2010 14:20:02 -0400
-In-Reply-To: <1288072476-20720-1-git-send-email-dongdong.deng@windriver.com>
+	by vger.kernel.org with ESMTP id S1754610Ab0J0SWE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Oct 2010 14:22:04 -0400
+In-Reply-To: <1288076486.3296.85.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 26 Oct 2010 09:01:26 +0200
 
-Intel folks, I assume you guys will look at this and integrate it.
+> Add __rcu annotations to :
+>         (struct ip_tunnel)->prl
+>         (struct ip_tunnel_prl_entry)->next
+>         (struct xfrm_tunnel)->next
+> 	struct xfrm_tunnel *tunnel4_handlers
+> 	struct xfrm_tunnel *tunnel64_handlers
+> 
+> And use appropriate rcu primitives to reduce sparse warnings if
+> CONFIG_SPARSE_RCU_POINTER=y
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Thanks.
+Applied.
