@@ -1,57 +1,59 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build warning from Linus' tree
-Date: Wed, 27 Oct 2010 11:29:04 +1100
-Message-ID: <20101027112904.461a0143.sfr@canb.auug.org.au>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: netns patches WAS( Re: [PATCH 8/8] net: Implement socketat.
+Date: Tue, 26 Oct 2010 17:27:47 -0700
+Message-ID: <m1aam032f0.fsf@fess.ebiederm.org>
+References: <m1ocborgq7.fsf@fess.ebiederm.org>
+	<m1bp7oq1u8.fsf@fess.ebiederm.org> <4C9B162E.7040201@parallels.com>
+	<1285240797.5036.5.camel@bigi> <4C9B3B06.900@parallels.com>
+	<1285242055.5036.9.camel@bigi> <4C9B3F9C.8080506@parallels.com>
+	<4CA7A07C.5030504@free.fr> <1286113441.3812.229.camel@bigi>
+	<1287145855.3642.30.camel@bigi> <1288126326.2094.131.camel@mojatatu>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Wed__27_Oct_2010_11_29_04_+1100_fW4QsOLKUqgp1zYU"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jesse Gross <jesse@nicira.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from chilli.pcug.org.au ([203.10.76.44]:59101 "EHLO smtps.tip.net.au"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933523Ab0J0A3M (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Oct 2010 20:29:12 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Daniel Lezcano <daniel.lezcano@free.fr>,
+	Pavel Emelyanov <xemul@parallels.com>,
+	linux-kernel@vger.kernel.org,
+	Linux Containers <containers@lists.osdl.org>,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Michael Kerrisk <mtk.manpages@gmail.com>,
+	Ulrich Drepper <drepper@gmail.com>,
+	Al Viro <viro@ZenIV.linux.org.uk>,
+	David Miller <davem@davemloft.net>,
+	"Serge E. Hallyn" <serge@hallyn.com>,
+	Pavel Emelyanov <xemul@openvz.org>,
+	Ben Greear <greearb@candelatech.com>,
+	Matt Helsley <matthltc@us.ibm.com>,
+	Jonathan Corbet <corbet@lwn.net>,
+	Sukadev Bhattiprolu <sukadev@linux.vnet.ibm.com>,
+	Jan Engelhardt <jengelh@medozas.de>,
+	Patrick McHardy <kaber@trash.net>
+To: hadi@cyberus.ca
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1288126326.2094.131.camel@mojatatu> (jamal's message of "Tue, 26
+	Oct 2010 16:52:06 -0400")
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
---Signature=_Wed__27_Oct_2010_11_29_04_+1100_fW4QsOLKUqgp1zYU
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+jamal <hadi@cyberus.ca> writes:
 
-Hi all,
+> Eric,
+>
+> Ping?
+> If you are too busy to push these in maybe have
+> someone clueful like Daniel help out submitting? I think it
+> should probably be reasonable to leave out the sockeat
+> patch initially if it is deemed controversial..
 
-While building Linus' tree, today's linux-next build (x86_64 allmodconfig)
-produced this warning:
+This merge cycle I am too busy, and my patches did not make it into
+linux-next before the merge window.
 
-drivers/net/igb/igb_main.c: In function 'igb_xmit_frame_ring_adv':
-drivers/net/igb/igb_main.c:4110: warning: unused variable 'adapter'
+Everything except socketat at seems non-controversial.  socketat makes
+sense to post-pone a little bit until we start converting applications,
+and there is a little real world experience about what is needed.
 
-Introduced by commit eab6d18d20fc5b5ba04a7e7fcd6f357197870e51 ("vlan:
-Don't check for vlan group before vlan_tx_tag_present").
+I anticipate some time freeing up in the next couple of weeks so I
+should be ready for the next merge window.
 
-Sorry I didn't catch it earlier.
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
-
---Signature=_Wed__27_Oct_2010_11_29_04_+1100_fW4QsOLKUqgp1zYU
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iQEcBAEBAgAGBQJMx3JQAAoJEDMEi1NhKgbs8dwH+wV6qS5UGpXyJ7kh9kXC6HhG
-t1+HiFzeVmzhjc4gN76VOEfyntsd76mHCSarJHiC0HkRkj81Kcpd1k429oo+ZjkT
-e60XD6cwUNltw0oWfkvox8cQStJZva3seIbDfDAOkfGSbsITPF7swhhBRTdIu3IF
-G8unOc05OPL9HxlKlLZmX1TIclH1AuCBm4lMs2k0bELrCvPOaUILpbH00jo6fSxW
-+RkRe2e9onWCyIVM62T3/yEdEbHdsxTuDV/kkryf6DNL+jDO9azY6UnePpmWdWr0
-sGcp2KYo2uJbYrcH1xCrBLuzWzdJ4nMU+CLMpHvc2X1DE1nfZV8J3jcnK4kGizo=
-=1+Ge
------END PGP SIGNATURE-----
-
---Signature=_Wed__27_Oct_2010_11_29_04_+1100_fW4QsOLKUqgp1zYU--
+Eric
