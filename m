@@ -1,41 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6 1/2] be2net: Adding an option to use INTx
- instead of MSI-X
-Date: Wed, 27 Oct 2010 08:46:04 -0700 (PDT)
-Message-ID: <20101027.084604.226761472.davem@davemloft.net>
-References: <1288075928.6578.185.camel@concordia>
-	<20101026133233.GH15074@solarflare.com>
-	<1288135235.16778.14.camel@concordia>
+Subject: Re: [PATCH] af_packet: account for VLAN when checking packet size
+Date: Wed, 27 Oct 2010 08:48:54 -0700 (PDT)
+Message-ID: <20101027.084854.71130929.davem@davemloft.net>
+References: <20101012171940.GB30613@redhat.com>
+	<20101012.104032.71103852.davem@davemloft.net>
+	<20101022084052.GA2118@verge.net.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, somnath.kotur@emulex.com,
-	netdev@vger.kernel.org, linux-pci@vger.kernel.org
-To: michael@ellerman.id.au
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <1288135235.16778.14.camel@concordia>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: mst@redhat.com, eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	johann.baudy@gnu-log.net
+To: horms@verge.net.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47806
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1760749Ab0J0Psb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Oct 2010 11:48:31 -0400
+In-Reply-To: <20101022084052.GA2118@verge.net.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Michael Ellerman <michael@ellerman.id.au>
-Date: Wed, 27 Oct 2010 10:20:35 +1100
+From: Simon Horman <horms@verge.net.au>
+Date: Fri, 22 Oct 2010 10:41:26 +0200
 
-> On Tue, 2010-10-26 at 14:32 +0100, Ben Hutchings wrote:
->> Michael Ellerman wrote:
->> > On Mon, 2010-10-25 at 16:25 -0700, David Miller wrote:
->> > > From: Ben Hutchings <bhutchings@solarflare.com>
->> > > Date: Mon, 25 Oct 2010 23:38:53 +0100
-> 
->> > Ethtool would be nice, but only for network drivers. Is there a generic
->> > solution, quirks are obviously not keeping people happy.
->>  
->> Since this is (normally) a property of the system, pci=nomsi is the
->> generic solution.
-> 
-> Sort of, it's a big hammer. Did all these driver writers not know about
-> pci=nomsi or did they prefer to add a parameter to their driver for some
-> reason?
+> Incidently, I believe that this problem will only become more acute
+> and complex if support for 802.1ad (Provider Bridges, aka Q-in-Q),
+> 802.1ah (Provider Backbone Bridges, aka MAC-in-MAC) or other standards
+> which further extend the maximum frame size.
 
-Every time I've actually done the work to try and track down the
-true issue, it always turned out to be a PCI chipset problem rather
-than a device specific issue.
+No doubt.
+
+> Dave, you were mentioning to me the other day that the kernel
+> already supports some notion of Q-in-Q (though its not 802.1ad).
+> Does the current implementation allow for frames > 1504 bytes?
+
+It's only going to hardware offload and allow the extra space
+for the outer-most VLAN tag.  Everthing inside of the outer
+tag will be handled in software as far as Linux is concerned.
+
+> Is that a complication to the change proposed here?
+
+For now, I don't think so.
