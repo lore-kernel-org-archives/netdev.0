@@ -1,13 +1,16 @@
 From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: [PATCH 0/2] can: pch_can: fix sparse warnings and section mismatch
-Date: Wed, 27 Oct 2010 10:38:24 +0200
-Message-ID: <1288168706-870-1-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH 2/2] can: pch_can: fix section mismatch warning by using a
+	whitelisted name
+Date: Wed, 27 Oct 2010 10:38:26 +0200
+Message-ID: <1288168706-870-3-git-send-email-mkl@pengutronix.de>
+References: <1288168706-870-1-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
 To: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <1288168706-870-1-git-send-email-mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
 List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
 	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
 List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
@@ -19,27 +22,34 @@ Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
-
-this patch fixes two problems found during compile time, a sparse warning
-and a section mismatch.
-
-These patches apply to net-2.6/master
-
-cheers, Marc
-
----
-
-The following changes since commit 7a876b0efcba3804da3051313445fa7be751cab7:
-
-  IPv6: Temp addresses are immediately deleted. (2010-10-26 12:35:13 -0700)
-
-are available in the git repository at:
-  git://git.pengutronix.de/git/mkl/linux-2.6.git can/pch_can-for-net-2.6
-
-Marc Kleine-Budde (2):
-      can: pch_can: fix sparse warning
-      can: pch_can: fix section mismatch warning by using a whitelisted name
-
- drivers/net/can/pch_can.c |   10 +++++-----
- 1 files changed, 5 insertions(+), 5 deletions(-)
+VGhpcyBwYXRjaCBmaXhlcyB0aGUgZm9sbG93aW5nIHNlY3Rpb24gbWlzbWF0Y2ggd2FybmluZzoK
+CldBUk5JTkc6IGRyaXZlcnMvbmV0L2Nhbi9wY2hfY2FuLm8oLmRhdGErMHgxOCk6ClNlY3Rpb24g
+bWlzbWF0Y2ggaW4gcmVmZXJlbmNlIGZyb20gdGhlIHZhcmlhYmxlIHBjaF9jYW5fcGNpZGV2CnRv
+IHRoZSB2YXJpYWJsZSAuZGV2aW5pdC5yb2RhdGE6cGNoX3BjaV90YmwKVGhlIHZhcmlhYmxlIHBj
+aF9jYW5fcGNpZGV2IHJlZmVyZW5jZXMKdGhlIHZhcmlhYmxlIF9fZGV2aW5pdGNvbnN0IHBjaF9w
+Y2lfdGJsCgpUaGlzIGlzIGFjdHVhbGx5IGEgZmFsc2UgcG9zaXRpdmUgd2hpY2ggaXMgZml4ZWQg
+YnkgZ2l2aW5nIHRoZSBvZmZlbmRpbmcKdmFyaWFibGUgYSB3aGl0ZWxpc3RlZCBuYW1lLCBpdCdz
+IHJlbmFtZWQgdG8gInBjaF9jYW5fcGNpX2RyaXZlciIuClRoaXMgbWFrZXMgc2Vuc2UgYmVjYXVz
+ZSB0aGUgdmFyaWFibGUgaXMgb2YgdGhlIHR5cGUgInN0cnVjdCBwY2lfZHJpdmVyIi4KClNpZ25l
+ZC1vZmYtYnk6IE1hcmMgS2xlaW5lLUJ1ZGRlIDxta2xAcGVuZ3V0cm9uaXguZGU+CkFja2VkLWJ5
+OiBVd2UgS2xlaW5lLUvDtm5pZyA8dS5rbGVpbmUta29lbmlnQHBlbmd1dHJvbml4LmRlPgpDYzog
+VG9tb3lhIE1PUklOQUdBIDx0b21veWEtbGludXhAZHNuLm9raXNlbWkuY29tPgotLS0KIGRyaXZl
+cnMvbmV0L2Nhbi9wY2hfY2FuLmMgfCAgICA2ICsrKy0tLQogMSBmaWxlcyBjaGFuZ2VkLCAzIGlu
+c2VydGlvbnMoKyksIDMgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvY2Fu
+L3BjaF9jYW4uYyBiL2RyaXZlcnMvbmV0L2Nhbi9wY2hfY2FuLmMKaW5kZXggYzYzMjA5Zi4uNjcy
+NzE4MiAxMDA2NDQKLS0tIGEvZHJpdmVycy9uZXQvY2FuL3BjaF9jYW4uYworKysgYi9kcml2ZXJz
+L25ldC9jYW4vcGNoX2Nhbi5jCkBAIC0xNDM3LDcgKzE0MzcsNyBAQCBwcm9iZV9leGl0X2VuZGV2
+OgogCXJldHVybiByYzsKIH0KIAotc3RhdGljIHN0cnVjdCBwY2lfZHJpdmVyIHBjaF9jYW5fcGNp
+ZGV2ID0geworc3RhdGljIHN0cnVjdCBwY2lfZHJpdmVyIHBjaF9jYW5fcGNpX2RyaXZlciA9IHsK
+IAkubmFtZSA9ICJwY2hfY2FuIiwKIAkuaWRfdGFibGUgPSBwY2hfcGNpX3RibCwKIAkucHJvYmUg
+PSBwY2hfY2FuX3Byb2JlLApAQCAtMTQ0OCwxMyArMTQ0OCwxMyBAQCBzdGF0aWMgc3RydWN0IHBj
+aV9kcml2ZXIgcGNoX2Nhbl9wY2lkZXYgPSB7CiAKIHN0YXRpYyBpbnQgX19pbml0IHBjaF9jYW5f
+cGNpX2luaXQodm9pZCkKIHsKLQlyZXR1cm4gcGNpX3JlZ2lzdGVyX2RyaXZlcigmcGNoX2Nhbl9w
+Y2lkZXYpOworCXJldHVybiBwY2lfcmVnaXN0ZXJfZHJpdmVyKCZwY2hfY2FuX3BjaV9kcml2ZXIp
+OwogfQogbW9kdWxlX2luaXQocGNoX2Nhbl9wY2lfaW5pdCk7CiAKIHN0YXRpYyB2b2lkIF9fZXhp
+dCBwY2hfY2FuX3BjaV9leGl0KHZvaWQpCiB7Ci0JcGNpX3VucmVnaXN0ZXJfZHJpdmVyKCZwY2hf
+Y2FuX3BjaWRldik7CisJcGNpX3VucmVnaXN0ZXJfZHJpdmVyKCZwY2hfY2FuX3BjaV9kcml2ZXIp
+OwogfQogbW9kdWxlX2V4aXQocGNoX2Nhbl9wY2lfZXhpdCk7CiAKLS0gCjEuNy4yLjMKCl9fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fClNvY2tldGNhbi1jb3Jl
+IG1haWxpbmcgbGlzdApTb2NrZXRjYW4tY29yZUBsaXN0cy5iZXJsaW9zLmRlCmh0dHBzOi8vbGlz
+dHMuYmVybGlvcy5kZS9tYWlsbWFuL2xpc3RpbmZvL3NvY2tldGNhbi1jb3JlCg==
