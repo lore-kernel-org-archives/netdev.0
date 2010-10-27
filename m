@@ -1,77 +1,55 @@
 From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [RFC][net-next-2.6 PATCH v2] 8021q: set hard_header_len when VLAN
- offload features are toggled
-Date: Tue, 26 Oct 2010 19:05:07 -0700
-Message-ID: <AANLkTi=9tL5yrVGWsOagcgyKte5z8R9ADdz5n-Uf2Lsw@mail.gmail.com>
-References: <20101026215933.2339.45454.stgit@jf-dev1-dcblab>
+Subject: Re: [RFC][net-next-2.6 PATCH 4/4] net: remove check for headroom in vlan_dev_create
+Date: Tue, 26 Oct 2010 19:07:54 -0700
+Message-ID: <AANLkTimYGADLrfYrY6kth7EDeiGXsvSY8wS=3dxVQ3cC@mail.gmail.com>
+References: <20101021221004.22906.58438.stgit@jf-dev1-dcblab>
+	<20101021221020.22906.96059.stgit@jf-dev1-dcblab>
+	<AANLkTinREMV1bRhoJuiRV805-e1NKdZD6ejyhYczpw_E@mail.gmail.com>
+	<4CC750B8.7060607@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, bhutchings@solarflare.com
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 To: John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:53174 "EHLO
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:56014 "EHLO
 	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752472Ab0J0CFJ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Oct 2010 22:05:09 -0400
-Received: by wyf28 with SMTP id 28so149704wyf.19
-        for <netdev@vger.kernel.org>; Tue, 26 Oct 2010 19:05:07 -0700 (PDT)
-In-Reply-To: <20101026215933.2339.45454.stgit@jf-dev1-dcblab>
+	with ESMTP id S1758797Ab0J0CH4 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Oct 2010 22:07:56 -0400
+Received: by wyf28 with SMTP id 28so152192wyf.19
+        for <netdev@vger.kernel.org>; Tue, 26 Oct 2010 19:07:55 -0700 (PDT)
+In-Reply-To: <4CC750B8.7060607@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 26, 2010 at 2:59 PM, John Fastabend
+On Tue, Oct 26, 2010 at 3:05 PM, John Fastabend
 <john.r.fastabend@intel.com> wrote:
-> Toggling the vlan tx|rx hw offloads needs to set the hard_header_len
-> as well otherwise we end up using LL_RESERVED_SPACE incorrectly.
-> This results in pskb_expand_head() being used unnecessarily.
+> On 10/25/2010 3:45 PM, Jesse Gross wrote:
+>> On Thu, Oct 21, 2010 at 3:10 PM, John Fastabend
+>> <john.r.fastabend@intel.com> wrote:
+>>> It is possible for the headroom to be smaller then the
+>>> hard_header_len for a short period of time after toggling
+>>> the vlan offload setting.
+>>>
+>>> This is not a hard error and skb_cow_head is called in
+>>> __vlan_put_tag() to resolve this.
+>>>
+>>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+>>
+>> How is it possible that the hard_header_len changes on the vlan
+>> device? =A0It looks like the header length never gets changed after =
+it
+>> is initialized. =A0There's no set_flags method in the vlan device to
+>> toggle whether it is using offloading or not, it just rides on top o=
+f
+>> the underlying device.
 >
-> This add a check in vlan_transfer_features =A0to catch the ETH_FLAG_T=
-XVLAN
-> flag and set the header length. This requires drivers to add the
-> ETH_FLAG_TXVLAN to vlan_features.
->
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> Your right and I think this is why my previous patch was broken. If w=
+e
+> can toggle the underlying offloads we should set the header length as
+> well. With the updated patch I just sent this should be true now.
 
-I think this addresses all of the original problems.  However, I don't
-think that we want to have drivers claim to support vlan offloading as
-a feature for vlan packets.  That implies some type of QinQ
-functionality to me.  In addition, if the vlan device claims to
-support offloading and a second vlan device is stacked on top of it,
-then the two will clobber skb->vlan_tci.  It's probably simpler to
-just keep track of whether vlan offloading is currently enabled so we
-can find out whether it changed.
-
-> ---
->
-> =A0net/8021q/vlan.c | =A0 10 ++++++++++
-> =A01 files changed, 10 insertions(+), 0 deletions(-)
->
-> diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-> index 05b867e..825011b 100644
-> --- a/net/8021q/vlan.c
-> +++ b/net/8021q/vlan.c
-> @@ -334,6 +334,16 @@ static void vlan_transfer_features(struct net_de=
-vice *dev,
-> =A0 =A0 =A0 =A0vlandev->features &=3D ~dev->vlan_features;
-> =A0 =A0 =A0 =A0vlandev->features |=3D dev->features & dev->vlan_featu=
-res;
-> =A0 =A0 =A0 =A0vlandev->gso_max_size =3D dev->gso_max_size;
-> +
-> + =A0 =A0 =A0 /* is ETH_FLAGS_TXVLAN being toggled */
-> + =A0 =A0 =A0 if ((vlandev->features & ETH_FLAG_TXVLAN) ^
-> + =A0 =A0 =A0 =A0 =A0 (old_features & ETH_FLAG_TXVLAN)) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (vlandev->features & ETH_FLAG_TXVLAN=
-)
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 vlandev->hard_header_le=
-n -=3D VLAN_HLEN;
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 else
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 vlandev->hard_header_le=
-n +=3D VLAN_HLEN;
-> + =A0 =A0 =A0 }
-
-The correct flag for dev->features is NETIF_F_HW_VLAN_TX.
-ETH_FLAGS_TXVLAN is an ethtool construct (that happens to have the
-same value).
+OK, it makes sense it that context.
+Acked-by: Jesse Gross <jesse@nicira.com>
 
 Thanks.
