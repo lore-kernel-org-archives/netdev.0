@@ -1,82 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] ehea: fix use after free
-Date: Wed, 27 Oct 2010 07:21:07 +0200
-Message-ID: <1288156867.2652.127.camel@edumazet-laptop>
-References: <1288116213-11801-1-git-send-email-leitao@linux.vnet.ibm.com>
-	 <1288118920.2652.4.camel@edumazet-laptop>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: can: About Socket CAN with MSI issue
+Date: Wed, 27 Oct 2010 09:31:50 +0200
+Message-ID: <4CC7D566.7090707@grandegger.com>
+References: <4CC61B1B.3090602@dsn.okisemi.com>	<20101026.105206.15244527.davem@davemloft.net>
+	<002801cb758f$876aaf00$66f8800a@maildom.okisemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: leitao@linux.vnet.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:51125 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751138Ab0J0FVM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Oct 2010 01:21:12 -0400
-Received: by wyf28 with SMTP id 28so264744wyf.19
-        for <netdev@vger.kernel.org>; Tue, 26 Oct 2010 22:21:11 -0700 (PDT)
-In-Reply-To: <1288118920.2652.4.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
+	margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, chripell-VaTbYqLCNhc@public.gmane.org,
+	qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+To: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <002801cb758f$876aaf00$66f8800a-a06+6cuVnkTSQfdrb5gaxUEOCMrvLtNR@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le mardi 26 octobre 2010 =C3=A0 20:48 +0200, Eric Dumazet a =C3=A9crit =
-:
+On 10/27/2010 06:29 AM, Tomoya MORINAGA wrote:
+> We have faced issue when our CAN diriver whose MSI is enabled, after installing the driver,
+> once remove the driver and install the driver again,
+> As a result, interupt handler of the driver is not called again.
+> 
+> Do you have any information or suggestion about the above issue?
 
-> Note: driver already uses skb after its freeing, before your patch.
->=20
->         if (vlan_tx_tag_present(skb)) {
->                 swqe->tx_control |=3D EHEA_SWQE_VLAN_INSERT;
->                 swqe->vlan_tag =3D vlan_tx_tag_get(skb);
->         }
->=20
+Not really, the remove functions looks ok, apart from the fact, that
+pch_can_reset() is called *after* pci_iounmap().
 
-Could you please test following patch ?
-
-Thanks
-
-[PATCH] ehea: fix use after free
-
-ehea_start_xmit() dereferences skb after its freeing in ehea_xmit3() to
-get vlan tags.
-
-Move the offending block before the potential ehea_xmit3() call.
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- drivers/net/ehea/ehea_main.c |   10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.=
-c
-index bb7d306..e59d386 100644
---- a/drivers/net/ehea/ehea_main.c
-+++ b/drivers/net/ehea/ehea_main.c
-@@ -2249,6 +2249,11 @@ static int ehea_start_xmit(struct sk_buff *skb, =
-struct net_device *dev)
- 	memset(swqe, 0, SWQE_HEADER_SIZE);
- 	atomic_dec(&pr->swqe_avail);
-=20
-+	if (vlan_tx_tag_present(skb)) {
-+		swqe->tx_control |=3D EHEA_SWQE_VLAN_INSERT;
-+		swqe->vlan_tag =3D vlan_tx_tag_get(skb);
-+	}
-+
- 	if (skb->len <=3D SWQE3_MAX_IMM) {
- 		u32 sig_iv =3D port->sig_comp_iv;
- 		u32 swqe_num =3D pr->swqe_id_counter;
-@@ -2279,11 +2284,6 @@ static int ehea_start_xmit(struct sk_buff *skb, =
-struct net_device *dev)
- 	}
- 	pr->swqe_id_counter +=3D 1;
-=20
--	if (vlan_tx_tag_present(skb)) {
--		swqe->tx_control |=3D EHEA_SWQE_VLAN_INSERT;
--		swqe->vlan_tag =3D vlan_tx_tag_get(skb);
--	}
--
- 	if (netif_msg_tx_queued(port)) {
- 		ehea_info("post swqe on QP %d", pr->qp->init_attr.qp_nr);
- 		ehea_dump(swqe, 512, "swqe");
-
-
+Wolfgang.
