@@ -1,142 +1,73 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: [RFC PATCH 1/1] vhost: TX used buffer guest signal accumulation
-Date: Wed, 27 Oct 2010 14:58:13 -0700
-Message-ID: <1288216693.17571.38.camel@localhost.localdomain>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: IPV6 raw socket denies bind(2)
+Date: Thu, 28 Oct 2010 00:01:57 +0200 (CEST)
+Message-ID: <alpine.LNX.2.01.1010280000260.7820@obet.zrqbmnf.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "mst@redhat.com" <mst@redhat.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e1.ny.us.ibm.com ([32.97.182.141]:33585 "EHLO e1.ny.us.ibm.com"
+Received: from borg.medozas.de ([188.40.89.202]:48475 "EHLO borg.medozas.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755305Ab0J0V6S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Oct 2010 17:58:18 -0400
+	id S1752909Ab0J0WB7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Oct 2010 18:01:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch changes vhost TX used buffer guest signal from one by
-one to 3/4 of vring size. This change improves vhost TX transmission 
-both bandwidth and CPU utilization performance for 256 to 8K messages s
-ize without inducing any regression.
+[Doublepost: linux-netdev does not exist. Sigh. "netdev" is totally 
+nonstandard to all the other linux-* list names. :-?]
+
+Hi,
 
 
-Signed-off-by: Shirley Ma <xma@us.ibm.com>
----
- drivers/vhost/net.c   |   20 +++++++++++++++++++-
- drivers/vhost/vhost.c |   31 +++++++++++++++++++++++++++++++
- drivers/vhost/vhost.h |    3 +++
- 3 files changed, 53 insertions(+), 1 deletions(-)
+I was trying out raw sockets and stumbled into a case whereby I cannot 
+call bind(2) on a AF_INET6, SOCK_RAW socket. Apparently, I am triggering 
+this particular code path that means absolutely nothing to me:
 
-diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index 4b4da5b..45e07cd 100644
---- a/drivers/vhost/net.c
-+++ b/drivers/vhost/net.c
-@@ -128,6 +128,7 @@ static void handle_tx(struct vhost_net *net)
- 	int err, wmem;
- 	size_t hdr_size;
- 	struct socket *sock;
-+	int max_pend = vq->num - (vq->num >> 2); 
- 
- 	sock = rcu_dereference_check(vq->private_data,
- 				     lockdep_is_held(&vq->mutex));
-@@ -198,7 +199,24 @@ static void handle_tx(struct vhost_net *net)
- 		if (err != len)
- 			pr_debug("Truncated TX packet: "
- 				 " len %d != %zd\n", err, len);
--		vhost_add_used_and_signal(&net->dev, vq, head, 0);
-+		/*
-+		 * if no pending buffer size allocate, signal used buffer
-+		 * one by one, otherwise, signal used buffer when reaching
-+		 * 3/4 ring size to reduce CPU utilization.
-+		 */
-+		if (unlikely(vq->pend))
-+			vhost_add_used_and_signal(&net->dev, vq, head, 0);
-+		else {
-+			vq->pend[vq->num_pend].id = head;
-+			vq->pend[vq->num_pend].len = 0;
-+			++vq->num_pend;
-+			if (vq->num_pend == max_pend) {
-+				vhost_add_used_and_signal_n(&net->dev, vq,
-+							    vq->pend,
-+							    vq->num_pend);
-+				vq->num_pend = 0;
-+			}
-+		}
- 		total_len += len;
- 		if (unlikely(total_len >= VHOST_NET_WEIGHT)) {
- 			vhost_poll_queue(&vq->poll);
-diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-index 94701ff..9486a25 100644
---- a/drivers/vhost/vhost.c
-+++ b/drivers/vhost/vhost.c
-@@ -170,6 +170,16 @@ static void vhost_vq_reset(struct vhost_dev *dev,
- 	vq->call_ctx = NULL;
- 	vq->call = NULL;
- 	vq->log_ctx = NULL;
-+	/* signal pending used buffers */
-+	if (vq->pend) {
-+		if (vq->num_pend != 0) {
-+			vhost_add_used_and_signal_n(dev, vq, vq->pend,
-+						    vq->num_pend);
-+			vq->num_pend = 0;
-+		}
-+		kfree(vq->pend);
-+	}
-+	vq->pend = NULL;
- }
- 
- static int vhost_worker(void *data)
-@@ -273,7 +283,13 @@ long vhost_dev_init(struct vhost_dev *dev,
- 		dev->vqs[i].heads = NULL;
- 		dev->vqs[i].dev = dev;
- 		mutex_init(&dev->vqs[i].mutex);
-+		dev->vqs[i].num_pend = 0;
-+		dev->vqs[i].pend = NULL;
- 		vhost_vq_reset(dev, dev->vqs + i);
-+		/* signal 3/4 of ring size used buffers */
-+		dev->vqs[i].pend = kmalloc((dev->vqs[i].num -
-+					   (dev->vqs[i].num >> 2)) *
-+					   sizeof *vq->pend, GFP_KERNEL);
- 		if (dev->vqs[i].handle_kick)
- 			vhost_poll_init(&dev->vqs[i].poll,
- 					dev->vqs[i].handle_kick, POLLIN, dev);
-@@ -599,6 +615,21 @@ static long vhost_set_vring(struct vhost_dev *d, int ioctl, void __user *argp)
- 			r = -EINVAL;
- 			break;
- 		}
-+		if (vq->num != s.num) {
-+			/* signal used buffers first */
-+			if (vq->pend) {
-+				if (vq->num_pend != 0) {
-+					vhost_add_used_and_signal_n(vq->dev, vq,
-+								    vq->pend,
-+								    vq->num_pend);
-+					vq->num_pend = 0;
-+				}
-+				kfree(vq->pend);
-+			}
-+			/* realloc pending used buffers size */
-+			vq->pend = kmalloc((s.num - (s.num >> 2)) *
-+					   sizeof *vq->pend, GFP_KERNEL);
-+		}
- 		vq->num = s.num;
- 		break;
- 	case VHOST_SET_VRING_BASE:
-diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
-index 073d06a..78949c0 100644
---- a/drivers/vhost/vhost.h
-+++ b/drivers/vhost/vhost.h
-@@ -108,6 +108,9 @@ struct vhost_virtqueue {
- 	/* Log write descriptors */
- 	void __user *log_base;
- 	struct vhost_log *log;
-+	/* delay multiple used buffers to signal once */
-+	int num_pend;
-+	struct vring_used_elem *pend;
- };
- 
- struct vhost_dev {
+# ./rawtest
 
+kernel pseudo callgraph:
+static int rawv6_bind(struct sock *sk, struct sockaddr *uaddr, int 
+addr_len)
+addr >= SIN6_LEN_RFC2133
+addr_type != IPV6_ADDR_MAPPED
+sk->sk_state == TCP_CLOSED
+addr_type != IPV6_ADDR_ANY
+!(addr_type & IPV6_ADDR_LINKLOCAL)
+!(addr_type & IPV6_ADDR_MULTICAST)
+dev == NULL
+ipv6_chk_addr does not have any addresses to loop through (wtf? checked 
+with printk.)
+=> going -EADDRNOTAVAIL
 
+At this point I have no idea why ipv6_chk_addr does not run through 
+its loop. No devices in the hash bucket or something. Happens in 
+2.6.36. I hope somebody can shed some light here.
+
+---Userspace testcase---
+#include <sys/socket.h>
+#include <stdio.h>
+#include <string.h>
+#include <netinet/udp.h>
+#include <netinet/in.h>
+#include <netinet/ip6.h>
+#include <arpa/inet.h>
+#include <stdlib.h>
+
+int main(void)
+{
+	struct sockaddr_in6 src = {};
+	int sk;
+
+	sk = socket(AF_INET6, SOCK_RAW, IPPROTO_UDP);
+	memset(&src, 0, sizeof(src));
+	inet_pton(AF_INET6, "::1", &src);
+	src.sin6_family = AF_INET6;
+
+	if (bind(sk, (void *)&src, sizeof(src)) < 0) {
+		perror("bind");
+		abort();
+	}
+	return 0;
+}
