@@ -1,111 +1,50 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH] bonding: Fix lockdep warning after bond_vlan_rx_register()
-Date: Wed, 27 Oct 2010 19:08:22 +0200
-Message-ID: <20101027170822.GA1902@del.dom.local>
-References: <1288175070.2709.86.camel@edumazet-laptop>
- <20101027120334.GA11247@ff.dom.local>
- <1288184416.2709.109.camel@edumazet-laptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Security] TIPC security issues
+Date: Wed, 27 Oct 2010 10:29:40 -0700 (PDT)
+Message-ID: <20101027.102940.112580564.davem@davemloft.net>
+References: <1287704752.11051.79.camel@Dan>
+	<AANLkTi=V93A660+YS8C2TvC13kGUcJpFgjPHUvONd_WW@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>, Jesse Gross <jesse@nicira.com>,
-	Jay Vosburgh <fubar@us.ibm.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: drosenberg@vsecurity.com, jon.maloy@ericsson.com,
+	allan.stephens@windriver.com, netdev@vger.kernel.org,
+	security@kernel.org
+To: torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f42.google.com ([74.125.82.42]:57171 "EHLO
-	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752129Ab0J0RIa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Oct 2010 13:08:30 -0400
-Received: by wwi18 with SMTP id 18so1828777wwi.1
-        for <netdev@vger.kernel.org>; Wed, 27 Oct 2010 10:08:28 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1288184416.2709.109.camel@edumazet-laptop>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56697
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752331Ab0J0R3R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Oct 2010 13:29:17 -0400
+In-Reply-To: <AANLkTi=V93A660+YS8C2TvC13kGUcJpFgjPHUvONd_WW@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 27, 2010 at 03:00:16PM +0200, Eric Dumazet wrote:
-> 
-> Indeed this is the right fix, I wonder why I did not catch it before ?
-> 
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Thu, 21 Oct 2010 17:31:12 -0700
 
-Thanks,
-Jarek P.
------------------------->
+> Something like the appended UNTESTED patch. NOTE! it actually makes
+> "verify_iovec()" *change* the iovec if it grows too big.
 
-Fix lockdep warning:
-[   52.991402] ======================================================
-[   52.991511] [ INFO: SOFTIRQ-safe -> SOFTIRQ-unsafe lock order detected ]
-[   52.991569] 2.6.36-04573-g4b60626-dirty #65
-[   52.991622] ------------------------------------------------------
-[   52.991696] ip/4842 [HC0[0]:SC0[4]:HE1:SE0] is trying to acquire:
-[   52.991758]  (&bond->lock){++++..}, at: [<efe4d300>] bond_set_multicast_list+0x60/0x2c0 [bonding]
-[   52.991966] 
-[   52.991967] and this task is already holding:
-[   52.992008]  (&bonding_netdev_addr_lock_key){+.....}, at: [<c04e5530>] dev_mc_sync+0x50/0xa0
-[   52.992008] which would create a new lock dependency:
-[   52.992008]  (&bonding_netdev_addr_lock_key){+.....} -> (&bond->lock){++++..}
-[   52.992008] 
-[   52.992008] but this new dependency connects a SOFTIRQ-irq-safe lock:
-[   52.992008]  (&(&mc->mca_lock)->rlock){+.-...}
-[   52.992008] ... which became SOFTIRQ-irq-safe at:
-[   52.992008]   [<c0272beb>] __lock_acquire+0x96b/0x1960
-[   52.992008]   [<c027415e>] lock_acquire+0x7e/0xf0
-[   52.992008]   [<c05f356d>] _raw_spin_lock_bh+0x3d/0x50
-[   52.992008]   [<c0584e40>] mld_ifc_timer_expire+0xf0/0x280
-[   52.992008]   [<c024cee6>] run_timer_softirq+0x146/0x310
-[   52.992008]   [<c024591d>] __do_softirq+0xad/0x1c0
-[   52.992008] 
-[   52.992008] to a SOFTIRQ-irq-unsafe lock:
-[   52.992008]  (&bond->lock){++++..}
-[   52.992008] ... which became SOFTIRQ-irq-unsafe at:
-[   52.992008] ...  [<c0272c3b>] __lock_acquire+0x9bb/0x1960
-[   52.992008]   [<c027415e>] lock_acquire+0x7e/0xf0
-[   52.992008]   [<c05f36b8>] _raw_write_lock+0x38/0x50
-[   52.992008]   [<efe4cbe4>] bond_vlan_rx_register+0x24/0x70 [bonding]
-[   52.992008]   [<c0598010>] register_vlan_dev+0xc0/0x280
-[   52.992008]   [<c0599f3a>] vlan_newlink+0xaa/0xd0
-[   52.992008]   [<c04ed4b4>] rtnl_newlink+0x404/0x490
-[   52.992008]   [<c04ece35>] rtnetlink_rcv_msg+0x1e5/0x220
-[   52.992008]   [<c050424e>] netlink_rcv_skb+0x8e/0xb0
-[   52.992008]   [<c04ecbac>] rtnetlink_rcv+0x1c/0x30
-[   52.992008]   [<c0503bfb>] netlink_unicast+0x24b/0x290
-[   52.992008]   [<c0503e37>] netlink_sendmsg+0x1f7/0x310
-[   52.992008]   [<c04cd41c>] sock_sendmsg+0xac/0xe0
-[   52.992008]   [<c04ceb80>] sys_sendmsg+0x130/0x230
-[   52.992008]   [<c04cf04e>] sys_socketcall+0xde/0x280
-[   52.992008]   [<c0202d10>] sysenter_do_call+0x12/0x36
-[   52.992008] 
-[   52.992008] other info that might help us debug this:
-...
-[ Full info at netdev: Wed, 27 Oct 2010 12:24:30 +0200
-  Subject: [BUG net-2.6 vlan/bonding] lockdep splats ]
+Ok I thought a bit about this patch.
 
-Use BH variant of write_lock(&bond->lock) (as elsewhere in bond_main)
-to prevent this dependency.
+How we can behave here depends upon the socket type.
 
-Fixes commit f35188faa0fbabefac476536994f4b6f3677380f [v2.6.36]
+For example, for a stream socket such as TCP a partial write is OK and
+we could truncate the iovec like this.  That's fine.
 
-Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
-Tested-by: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Jay Vosburgh <fubar@us.ibm.com>
----
+But for a datagram socket, we have to have a one-to-one correspondance
+between write() calls and packets on the wire.  So we'd either need to
+accept the entire write() length or fail it with an error.
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index beb3b7c..bdb68a6 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -493,9 +493,9 @@ static void bond_vlan_rx_register(struct net_device *bond_dev,
- 	struct slave *slave;
- 	int i;
- 
--	write_lock(&bond->lock);
-+	write_lock_bh(&bond->lock);
- 	bond->vlgrp = grp;
--	write_unlock(&bond->lock);
-+	write_unlock_bh(&bond->lock);
- 
- 	bond_for_each_slave(bond, slave, i) {
- 		struct net_device *slave_dev = slave->dev;
+verify_iovec() (currently) doesn't have the socket type information
+available, so it's not able to key off of that right now.
+
+I agree that cutting off these cases at a high level would be the
+thing to do long term, but right now verify_iovec() isn't positioned
+such that we can do it just yet.
+
+For now I'm going to look into specifically fixing the TIPC case and
+also think longer term about another way to address this at a high
+level.
+
