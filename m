@@ -1,55 +1,53 @@
-From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: [PATCH 2/2] can: pch_can: fix section mismatch warning by using a
-	whitelisted name
-Date: Wed, 27 Oct 2010 10:38:26 +0200
-Message-ID: <1288168706-870-3-git-send-email-mkl@pengutronix.de>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: [PATCH 1/2] can: pch_can: fix sparse warning
+Date: Wed, 27 Oct 2010 10:38:25 +0200
+Message-ID: <1288168706-870-2-git-send-email-mkl@pengutronix.de>
 References: <1288168706-870-1-git-send-email-mkl@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-To: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <1288168706-870-1-git-send-email-mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Marc Kleine-Budde <mkl@pengutronix.de>,
+	Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
+To: socketcan-core@lists.berlios.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:40424 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753581Ab0J0Iid (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Oct 2010 04:38:33 -0400
+In-Reply-To: <1288168706-870-1-git-send-email-mkl@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-VGhpcyBwYXRjaCBmaXhlcyB0aGUgZm9sbG93aW5nIHNlY3Rpb24gbWlzbWF0Y2ggd2FybmluZzoK
-CldBUk5JTkc6IGRyaXZlcnMvbmV0L2Nhbi9wY2hfY2FuLm8oLmRhdGErMHgxOCk6ClNlY3Rpb24g
-bWlzbWF0Y2ggaW4gcmVmZXJlbmNlIGZyb20gdGhlIHZhcmlhYmxlIHBjaF9jYW5fcGNpZGV2CnRv
-IHRoZSB2YXJpYWJsZSAuZGV2aW5pdC5yb2RhdGE6cGNoX3BjaV90YmwKVGhlIHZhcmlhYmxlIHBj
-aF9jYW5fcGNpZGV2IHJlZmVyZW5jZXMKdGhlIHZhcmlhYmxlIF9fZGV2aW5pdGNvbnN0IHBjaF9w
-Y2lfdGJsCgpUaGlzIGlzIGFjdHVhbGx5IGEgZmFsc2UgcG9zaXRpdmUgd2hpY2ggaXMgZml4ZWQg
-YnkgZ2l2aW5nIHRoZSBvZmZlbmRpbmcKdmFyaWFibGUgYSB3aGl0ZWxpc3RlZCBuYW1lLCBpdCdz
-IHJlbmFtZWQgdG8gInBjaF9jYW5fcGNpX2RyaXZlciIuClRoaXMgbWFrZXMgc2Vuc2UgYmVjYXVz
-ZSB0aGUgdmFyaWFibGUgaXMgb2YgdGhlIHR5cGUgInN0cnVjdCBwY2lfZHJpdmVyIi4KClNpZ25l
-ZC1vZmYtYnk6IE1hcmMgS2xlaW5lLUJ1ZGRlIDxta2xAcGVuZ3V0cm9uaXguZGU+CkFja2VkLWJ5
-OiBVd2UgS2xlaW5lLUvDtm5pZyA8dS5rbGVpbmUta29lbmlnQHBlbmd1dHJvbml4LmRlPgpDYzog
-VG9tb3lhIE1PUklOQUdBIDx0b21veWEtbGludXhAZHNuLm9raXNlbWkuY29tPgotLS0KIGRyaXZl
-cnMvbmV0L2Nhbi9wY2hfY2FuLmMgfCAgICA2ICsrKy0tLQogMSBmaWxlcyBjaGFuZ2VkLCAzIGlu
-c2VydGlvbnMoKyksIDMgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvY2Fu
-L3BjaF9jYW4uYyBiL2RyaXZlcnMvbmV0L2Nhbi9wY2hfY2FuLmMKaW5kZXggYzYzMjA5Zi4uNjcy
-NzE4MiAxMDA2NDQKLS0tIGEvZHJpdmVycy9uZXQvY2FuL3BjaF9jYW4uYworKysgYi9kcml2ZXJz
-L25ldC9jYW4vcGNoX2Nhbi5jCkBAIC0xNDM3LDcgKzE0MzcsNyBAQCBwcm9iZV9leGl0X2VuZGV2
-OgogCXJldHVybiByYzsKIH0KIAotc3RhdGljIHN0cnVjdCBwY2lfZHJpdmVyIHBjaF9jYW5fcGNp
-ZGV2ID0geworc3RhdGljIHN0cnVjdCBwY2lfZHJpdmVyIHBjaF9jYW5fcGNpX2RyaXZlciA9IHsK
-IAkubmFtZSA9ICJwY2hfY2FuIiwKIAkuaWRfdGFibGUgPSBwY2hfcGNpX3RibCwKIAkucHJvYmUg
-PSBwY2hfY2FuX3Byb2JlLApAQCAtMTQ0OCwxMyArMTQ0OCwxMyBAQCBzdGF0aWMgc3RydWN0IHBj
-aV9kcml2ZXIgcGNoX2Nhbl9wY2lkZXYgPSB7CiAKIHN0YXRpYyBpbnQgX19pbml0IHBjaF9jYW5f
-cGNpX2luaXQodm9pZCkKIHsKLQlyZXR1cm4gcGNpX3JlZ2lzdGVyX2RyaXZlcigmcGNoX2Nhbl9w
-Y2lkZXYpOworCXJldHVybiBwY2lfcmVnaXN0ZXJfZHJpdmVyKCZwY2hfY2FuX3BjaV9kcml2ZXIp
-OwogfQogbW9kdWxlX2luaXQocGNoX2Nhbl9wY2lfaW5pdCk7CiAKIHN0YXRpYyB2b2lkIF9fZXhp
-dCBwY2hfY2FuX3BjaV9leGl0KHZvaWQpCiB7Ci0JcGNpX3VucmVnaXN0ZXJfZHJpdmVyKCZwY2hf
-Y2FuX3BjaWRldik7CisJcGNpX3VucmVnaXN0ZXJfZHJpdmVyKCZwY2hfY2FuX3BjaV9kcml2ZXIp
-OwogfQogbW9kdWxlX2V4aXQocGNoX2Nhbl9wY2lfZXhpdCk7CiAKLS0gCjEuNy4yLjMKCl9fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fClNvY2tldGNhbi1jb3Jl
-IG1haWxpbmcgbGlzdApTb2NrZXRjYW4tY29yZUBsaXN0cy5iZXJsaW9zLmRlCmh0dHBzOi8vbGlz
-dHMuYmVybGlvcy5kZS9tYWlsbWFuL2xpc3RpbmZvL3NvY2tldGNhbi1jb3JlCg==
+This patch fixes the following sparse warning:
+
+drivers/net/can/pch_can.c:231:26: warning: incorrect type in argument 1 (different address spaces)
+drivers/net/can/pch_can.c:231:26:    expected unsigned int [usertype] *addr
+drivers/net/can/pch_can.c:231:26:    got unsigned int [noderef] <asn:2>*<noident>
+
+Let pch_can_bit_{set,clear} first parameter be a void __iomem pointer.
+
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+Cc: Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
+---
+ drivers/net/can/pch_can.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/can/pch_can.c b/drivers/net/can/pch_can.c
+index 55ec324..c63209f 100644
+--- a/drivers/net/can/pch_can.c
++++ b/drivers/net/can/pch_can.c
+@@ -213,12 +213,12 @@ static DEFINE_PCI_DEVICE_TABLE(pch_pci_tbl) = {
+ };
+ MODULE_DEVICE_TABLE(pci, pch_pci_tbl);
+ 
+-static inline void pch_can_bit_set(u32 *addr, u32 mask)
++static inline void pch_can_bit_set(void __iomem *addr, u32 mask)
+ {
+ 	iowrite32(ioread32(addr) | mask, addr);
+ }
+ 
+-static inline void pch_can_bit_clear(u32 *addr, u32 mask)
++static inline void pch_can_bit_clear(void __iomem *addr, u32 mask)
+ {
+ 	iowrite32(ioread32(addr) & ~mask, addr);
+ }
+-- 
+1.7.2.3
+
