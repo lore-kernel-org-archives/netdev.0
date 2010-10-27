@@ -1,43 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] af_packet: account for VLAN when checking packet size
-Date: Wed, 27 Oct 2010 08:48:54 -0700 (PDT)
-Message-ID: <20101027.084854.71130929.davem@davemloft.net>
-References: <20101012171940.GB30613@redhat.com>
-	<20101012.104032.71103852.davem@davemloft.net>
-	<20101022084052.GA2118@verge.net.au>
+Subject: Re: [PATCH] ipv6: addrconf: clear IPv6 addresses and routes when
+ losing link
+Date: Wed, 27 Oct 2010 08:51:15 -0700 (PDT)
+Message-ID: <20101027.085115.104074771.davem@davemloft.net>
+References: <AANLkTikFnwM9Ks6h1Jb0+pNW6rkmcKnbVNzKdXUqPnHU@mail.gmail.com>
+	<20101026.112321.258116003.davem@davemloft.net>
+	<AANLkTik2Q=fF9j6eiBQx33e2JU7EG3Sc5hnXyDH24+mt@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	johann.baudy@gnu-log.net
-To: horms@verge.net.au
+Cc: brian.haley@hp.com, shemminger@vyatta.com, netdev@vger.kernel.org
+To: lorenzo@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47806
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46929
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1760749Ab0J0Psb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Oct 2010 11:48:31 -0400
-In-Reply-To: <20101022084052.GA2118@verge.net.au>
+	by vger.kernel.org with ESMTP id S1754748Ab0J0Puw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Oct 2010 11:50:52 -0400
+In-Reply-To: <AANLkTik2Q=fF9j6eiBQx33e2JU7EG3Sc5hnXyDH24+mt@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Simon Horman <horms@verge.net.au>
-Date: Fri, 22 Oct 2010 10:41:26 +0200
+From: Lorenzo Colitti <lorenzo@google.com>
+Date: Tue, 26 Oct 2010 15:53:50 -0700
 
-> Incidently, I believe that this problem will only become more acute
-> and complex if support for 802.1ad (Provider Bridges, aka Q-in-Q),
-> 802.1ah (Provider Backbone Bridges, aka MAC-in-MAC) or other standards
-> which further extend the maximum frame size.
+> As the patch stands, they don't. Only autoconfigured addresses will be
+> cleared, because addrconf_ifdown() does not remove any addresses that
+> are permanent (unless they are link-local, in which case they are
+> recreated as soon as link comes back).
 
-No doubt.
+Ok, and that brings us back to the issue of losing a TCP connection
+over a link-local et al. address during a minor link flap.
 
-> Dave, you were mentioning to me the other day that the kernel
-> already supports some notion of Q-in-Q (though its not 802.1ad).
-> Does the current implementation allow for frames > 1504 bytes?
-
-It's only going to hardware offload and allow the extra space
-for the outer-most VLAN tag.  Everthing inside of the outer
-tag will be handled in software as far as Linux is concerned.
-
-> Is that a complication to the change proposed here?
-
-For now, I don't think so.
+I think some financial services people will really dislike that
+behavior :)
