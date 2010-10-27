@@ -1,37 +1,49 @@
-From: Breno Leitao <leitao@linux.vnet.ibm.com>
-Subject: Re: [PATCH] ehea: fix use after free
-Date: Wed, 27 Oct 2010 14:05:35 -0200
-Message-ID: <4CC84DCF.1070806@linux.vnet.ibm.com>
-References: <1288116213-11801-1-git-send-email-leitao@linux.vnet.ibm.com> <1288118920.2652.4.camel@edumazet-laptop> <1288156867.2652.127.camel@edumazet-laptop>
+From: Jim <jim876@xs4all.nl>
+Subject: Re: tap0 device stopped working in 2.6.36 (ok in 2.6.35)
+Date: Wed, 27 Oct 2010 18:09:17 +0200
+Message-ID: <4CC84EAD.7040506@xs4all.nl>
+References: <4CC2DB2C.3060908@xs4all.nl> <1287862760.7499.225.camel@voxel>	 <4CC40398.6070105@xs4all.nl> <1288142302.26640.7.camel@voxel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org
+To: Nolan Leake <nolan@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e24smtp05.br.ibm.com ([32.104.18.26]:57365 "EHLO
-	e24smtp05.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761279Ab0J0QFp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Oct 2010 12:05:45 -0400
-Received: from d24relay01.br.ibm.com (d24relay01.br.ibm.com [9.8.31.16])
-	by e24smtp05.br.ibm.com (8.14.4/8.13.1) with ESMTP id o9RFwgEj006061
-	for <netdev@vger.kernel.org>; Wed, 27 Oct 2010 13:58:42 -0200
-Received: from d24av05.br.ibm.com (d24av05.br.ibm.com [9.18.232.44])
-	by d24relay01.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o9RG4adP966838
-	for <netdev@vger.kernel.org>; Wed, 27 Oct 2010 13:04:40 -0300
-Received: from d24av05.br.ibm.com (loopback [127.0.0.1])
-	by d24av05.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o9RG5Zfl023391
-	for <netdev@vger.kernel.org>; Wed, 27 Oct 2010 14:05:35 -0200
-In-Reply-To: <1288156867.2652.127.camel@edumazet-laptop>
+Received: from smtp-vbr4.xs4all.nl ([194.109.24.24]:2489 "EHLO
+	smtp-vbr4.xs4all.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752503Ab0J0QJW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Oct 2010 12:09:22 -0400
+In-Reply-To: <1288142302.26640.7.camel@voxel>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> [PATCH] ehea: fix use after free
->
-> ehea_start_xmit() dereferences skb after its freeing in ehea_xmit3() to
-> get vlan tags.
->
-> Move the offending block before the potential ehea_xmit3() call.
->
-> Signed-off-by: Eric Dumazet<eric.dumazet@gmail.com>
-Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
+On 10/27/2010 03:18 AM, Nolan Leake wrote:
+> On Sun, 2010-10-24 at 11:59 +0200, Jim wrote:
+>> Thanks for explaining the purpose of the patch.
+>> But it appears something is missing and I think it breaks current
+>> userspace. I use this tap0 device together with VirtualBox, I have a
+>> virtual machine setup as bridged to tap0, not a very odd or strange
+>> setup (this used to be the only method).
+>> On the host side I run dhcpd to hand out IP address to the virtual
+>> machine, but despite the dhcpd running on the tap0 device it never got
+>> 'ready' in the sense that no IP packets made it out from the host to the
+>> guest.
+> 
+> To make sure I understand the situation, is this correct (ignoring the
+> exact names of the interfaces):
+> br0 bridges between eth0 and tap0, and you run dhcpd on tap0?
+> 
+> Since tap0 is part of the bridge, I think dhcpd should be running on
+> br0.  Does that work?
+> 
+
+Not exactly, VirtualBox calls it "bridged adapter", it 'bridges' the
+guest machine to the tap0 interface on the host for so called host-only
+networking.
+See eg. http://forums.virtualbox.org/viewtopic.php?f=1&t=165
+
+And this sequence is now simply failing
+  tunctl -t tap0 -u tuxuser
+  ifconfig tap0 10.0.0.1 up
+
+Jim
