@@ -1,46 +1,66 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [RFC PATCH] macvlan: Introduce a PASSTHRU mode to takeover the underlying device
-Date: Wed, 27 Oct 2010 16:05:29 +0200
-Message-ID: <201010271605.29201.arnd@arndb.de>
-References: <1288131578.7582.49.camel@sridhar.beaverton.ibm.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev <netdev@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>
-To: Sridhar Samudrala <sri@us.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <1288131578.7582.49.camel@sridhar.beaverton.ibm.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: tom.leiming@gmail.com
+Subject: [PATCH] usbnet: runtime pm: fix usb_autopm_get_interface failure
+Date: Wed, 27 Oct 2010 22:45:03 +0800
+Message-ID: <1288190703-3154-1-git-send-email-tom.leiming@gmail.com>
+Cc: Ming Lei <tom.leiming@gmail.com>,
+	David Brownell <dbrownell@users.sourceforge.net>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Joe Perches <joe@perches.com>,
+	Andy Shevchenko <andy.shevchenko@gmail.com>, stable@kernel.org
+To: netdev@vger.kernel.org, oliver@neukum.org, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:36958 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755893Ab0J0OpQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Oct 2010 10:45:16 -0400
+Received: by qwf7 with SMTP id 7so44923qwf.19
+        for <netdev@vger.kernel.org>; Wed, 27 Oct 2010 07:45:15 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 27 October 2010, Sridhar Samudrala wrote:
-> With the current default macvtap mode, a KVM guest using virtio with 
-> macvtap backend has the following limitations.
-> - cannot change/add a mac address on the guest virtio-net
-> - cannot create a vlan device on the guest virtio-net
-> - cannot enable promiscuous mode on guest virtio-net
-> 
-> This patch introduces a new mode called 'passthru' when creating a 
-> macvlan device which allows takeover of the underlying device and 
-> passing it to a guest using virtio with macvtap backend.
-> 
-> Only one macvlan device is allowed in passthru mode and it inherits
-> the mac address from the underlying device and sets it in promiscuous 
-> mode to receive and forward all the packets.
+From: Ming Lei <tom.leiming@gmail.com>
 
-Interesting approach. It somewhat stretches the definition of the
-macvlan concept, but it does sound useful to have.
+Since usbnet already took usb runtime pm, we have to
+enable runtime pm for usb interface of usbnet, otherwise
+usb_autopm_get_interface may return failure and cause
+'ifconfig usb0 up' failed if USB_SUSPEND(RUNTIME_PM) is
+enabled.
 
-I was thinking about adding a new tap frontend driver that could
-share some code with macvtap and do only the takeover but not
-use macvlan as a base. I believe that would be a cleaner abstraction,
-but your code has two advantages in that the implementation is much
-simpler and that it can share a fair amount of the infrastructure
-that we're putting into qemu/libvirt/etc.
+Cc: David Brownell <dbrownell@users.sourceforge.net>
+Cc: Greg Kroah-Hartman <gregkh@suse.de>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Ben Hutchings <ben@decadent.org.uk>
+Cc: Joe Perches <joe@perches.com>
+Cc: Oliver Neukum <oliver@neukum.org>
+Cc: Andy Shevchenko <andy.shevchenko@gmail.com>
+Cc: stable@kernel.org
+Signed-off-by: Ming Lei <tom.leiming@gmail.com>
+---
+ drivers/net/usb/usbnet.c |   10 ++++++++++
+ 1 files changed, 10 insertions(+), 0 deletions(-)
 
-	Arnd
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index ca7fc9d..765308f 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -1273,6 +1273,16 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
+ 	struct usb_device		*xdev;
+ 	int				status;
+ 	const char			*name;
++	struct usb_driver 	*driver = to_usb_driver(udev->dev.driver);
++
++	/*usbnet already took usb runtime pm, so have to enable the feature
++ 	* for usb interface, otherwise usb_autopm_get_interface may return
++ 	* failure if USB_SUSPEND(RUNTIME_PM) is enabled.
++ 	* */
++	if (!driver->supports_autosuspend) {
++		driver->supports_autosuspend = 1;
++		pm_runtime_enable(&udev->dev);
++	}
+ 
+ 	name = udev->dev.driver->name;
+ 	info = (struct driver_info *) prod->driver_info;
+-- 
+1.7.3
 
-PS: Please add a Signed-off-by: line when sending a patch, even for
-discussion.
