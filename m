@@ -1,39 +1,85 @@
-From: Ron Mercer <ron.mercer@qlogic.com>
-Subject: [net-next PATCH 2/2] qlge: Version change to v1.00.00.27
-Date: Wed, 27 Oct 2010 07:58:27 -0700
-Message-ID: <1288191507-1994-2-git-send-email-ron.mercer@qlogic.com>
-References: <1288191507-1994-1-git-send-email-ron.mercer@qlogic.com>
-Cc: netdev@vger.kernel.org, ron.mercer@qlogic.com,
-	jitendra.kalsaria@qlogic.com, ying.lok@qlogic.com
-To: davem@davemloft.net
+From: Pavel Emelyanov <xemul@parallels.com>
+Subject: [PATCH] tunnels: Fix tunnels change rcu protection
+Date: Wed, 27 Oct 2010 19:43:53 +0400
+Message-ID: <4CC848B9.1060406@parallels.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cain.qlogic.com ([198.70.193.223]:38338 "EHLO cain.qlc.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S933188Ab0J0PK1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Oct 2010 11:10:27 -0400
-In-Reply-To: <1288191507-1994-1-git-send-email-ron.mercer@qlogic.com>
+Received: from mailhub.sw.ru ([195.214.232.25]:2028 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755142Ab0J0PoE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Oct 2010 11:44:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
+After making rcu protection for tunnels (ipip, gre, sit and ip6) a bug
+was introduced into the SIOCCHGTUNNEL code.
+
+The tunnel is first unlinked, then addresses change, then it is linked
+back probably into another bucket. But while changing the parms, the
+hash table is unlocked to readers and they can lookup the improper tunnel.
+
+Respective commits are b7285b79 (ipip: get rid of ipip_lock), 1507850b
+(gre: get rid of ipgre_lock), 3a43be3c (sit: get rid of ipip6_lock) and
+94767632 (ip6tnl: get rid of ip6_tnl_lock).
+
+The quick fix is to wait for quiescent state to pass after unlinking,
+but if it is inappropriate I can invent something better, just let me
+know.
+
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+
 ---
- drivers/net/qlge/qlge.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/qlge/qlge.h b/drivers/net/qlge/qlge.h
-index 0474d20..69c4780 100644
---- a/drivers/net/qlge/qlge.h
-+++ b/drivers/net/qlge/qlge.h
-@@ -16,7 +16,7 @@
-  */
- #define DRV_NAME  	"qlge"
- #define DRV_STRING 	"QLogic 10 Gigabit PCI-E Ethernet Driver "
--#define DRV_VERSION	"v1.00.00.25.00.00-01"
-+#define DRV_VERSION	"v1.00.00.27.00.00-01"
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index d0ffcbe..01087e0 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -1072,6 +1072,7 @@ ipgre_tunnel_ioctl (struct net_device *dev, struct ifreq *ifr, int cmd)
+ 					break;
+ 				}
+ 				ipgre_tunnel_unlink(ign, t);
++				synchronize_net();
+ 				t->parms.iph.saddr = p.iph.saddr;
+ 				t->parms.iph.daddr = p.iph.daddr;
+ 				t->parms.i_key = p.i_key;
+diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
+index e9b816e..cd300aa 100644
+--- a/net/ipv4/ipip.c
++++ b/net/ipv4/ipip.c
+@@ -676,6 +676,7 @@ ipip_tunnel_ioctl (struct net_device *dev, struct ifreq *ifr, int cmd)
+ 				}
+ 				t = netdev_priv(dev);
+ 				ipip_tunnel_unlink(ipn, t);
++				synchronize_net();
+ 				t->parms.iph.saddr = p.iph.saddr;
+ 				t->parms.iph.daddr = p.iph.daddr;
+ 				memcpy(dev->dev_addr, &p.iph.saddr, 4);
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index 38b9a56..2a59610 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -1284,6 +1284,7 @@ ip6_tnl_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ 				t = netdev_priv(dev);
  
- #define WQ_ADDR_ALIGN	0x3	/* 4 byte alignment */
- 
--- 
-1.6.0.2
-
+ 			ip6_tnl_unlink(ip6n, t);
++			synchronize_net();
+ 			err = ip6_tnl_change(t, &p);
+ 			ip6_tnl_link(ip6n, t);
+ 			netdev_state_change(dev);
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index 367a6cc..d6bfaec 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -963,6 +963,7 @@ ipip6_tunnel_ioctl (struct net_device *dev, struct ifreq *ifr, int cmd)
+ 				}
+ 				t = netdev_priv(dev);
+ 				ipip6_tunnel_unlink(sitn, t);
++				synchronize_net();
+ 				t->parms.iph.saddr = p.iph.saddr;
+ 				t->parms.iph.daddr = p.iph.daddr;
+ 				memcpy(dev->dev_addr, &p.iph.saddr, 4);
