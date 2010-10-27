@@ -1,39 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: addrconf: clear IPv6 addresses and routes when
- losing link
-Date: Wed, 27 Oct 2010 09:05:52 -0700 (PDT)
-Message-ID: <20101027.090552.189686029.davem@davemloft.net>
-References: <AANLkTik2Q=fF9j6eiBQx33e2JU7EG3Sc5hnXyDH24+mt@mail.gmail.com>
-	<20101027.085115.104074771.davem@davemloft.net>
-	<AANLkTikhhsEu7zzYpEH-Dby_Ke77iSo0z1wu2t-xU+Jc@mail.gmail.com>
+From: Breno Leitao <leitao@linux.vnet.ibm.com>
+Subject: Re: [PATCH] ehea: fix use after free
+Date: Wed, 27 Oct 2010 14:05:35 -0200
+Message-ID: <4CC84DCF.1070806@linux.vnet.ibm.com>
+References: <1288116213-11801-1-git-send-email-leitao@linux.vnet.ibm.com> <1288118920.2652.4.camel@edumazet-laptop> <1288156867.2652.127.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: brian.haley@hp.com, shemminger@vyatta.com, netdev@vger.kernel.org
-To: lorenzo@google.com
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58691
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1761145Ab0J0QF3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Oct 2010 12:05:29 -0400
-In-Reply-To: <AANLkTikhhsEu7zzYpEH-Dby_Ke77iSo0z1wu2t-xU+Jc@mail.gmail.com>
+Received: from e24smtp05.br.ibm.com ([32.104.18.26]:57365 "EHLO
+	e24smtp05.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761279Ab0J0QFp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Oct 2010 12:05:45 -0400
+Received: from d24relay01.br.ibm.com (d24relay01.br.ibm.com [9.8.31.16])
+	by e24smtp05.br.ibm.com (8.14.4/8.13.1) with ESMTP id o9RFwgEj006061
+	for <netdev@vger.kernel.org>; Wed, 27 Oct 2010 13:58:42 -0200
+Received: from d24av05.br.ibm.com (d24av05.br.ibm.com [9.18.232.44])
+	by d24relay01.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o9RG4adP966838
+	for <netdev@vger.kernel.org>; Wed, 27 Oct 2010 13:04:40 -0300
+Received: from d24av05.br.ibm.com (loopback [127.0.0.1])
+	by d24av05.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o9RG5Zfl023391
+	for <netdev@vger.kernel.org>; Wed, 27 Oct 2010 14:05:35 -0200
+In-Reply-To: <1288156867.2652.127.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lorenzo Colitti <lorenzo@google.com>
-Date: Wed, 27 Oct 2010 09:01:25 -0700
-
-> On Wed, Oct 27, 2010 at 8:51 AM, David Miller <davem@davemloft.net> wrote:
->>> As the patch stands, they don't. Only autoconfigured addresses will be
->>> cleared, because addrconf_ifdown() does not remove any addresses that
->>> are permanent (unless they are link-local, in which case they are
->>> recreated as soon as link comes back).
->>
->> Ok, and that brings us back to the issue of losing a TCP connection
->> over a link-local et al. address during a minor link flap.
-> 
-> TCP connections don't go away when the address they are using goes
-> away. They go away if their address goes away forever. As mentioned
-> above in the thread, I did test this :)
-
-Ok, that's good enough for me :)
+> [PATCH] ehea: fix use after free
+>
+> ehea_start_xmit() dereferences skb after its freeing in ehea_xmit3() to
+> get vlan tags.
+>
+> Move the offending block before the potential ehea_xmit3() call.
+>
+> Signed-off-by: Eric Dumazet<eric.dumazet@gmail.com>
+Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
