@@ -1,40 +1,39 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+From: Dave Airlie <airlied@gmail.com>
 Subject: Re: can: About Socket CAN with MSI issue
-Date: Wed, 27 Oct 2010 09:31:50 +0200
-Message-ID: <4CC7D566.7090707@grandegger.com>
-References: <4CC61B1B.3090602@dsn.okisemi.com>	<20101026.105206.15244527.davem@davemloft.net>
+Date: Wed, 27 Oct 2010 17:56:11 +1000
+Message-ID: <AANLkTi=bJTMhEo2agsMJ8fptNp7suERCGkzybb5m7ggg@mail.gmail.com>
+References: <4CC61B1B.3090602@dsn.okisemi.com>
+	<20101026.105206.15244527.davem@davemloft.net>
 	<002801cb758f$876aaf00$66f8800a@maildom.okisemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
-	margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, chripell-VaTbYqLCNhc@public.gmane.org,
-	qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-To: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <002801cb758f$876aaf00$66f8800a-a06+6cuVnkTSQfdrb5gaxUEOCMrvLtNR@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	socketcan-core@lists.berlios.de, sameo@linux.intel.com,
+	21cnbao@gmail.com, chripell@fsfe.org, w.sang@pengutronix.de,
+	wg@grandegger.com, David Miller <davem@davemloft.net>,
+	margie.foster@intel.com, kok.howg.ewe@intel.com,
+	joel.clark@intel.com, andrew.chih.howe.khor@intel.com,
+	yong.y.wang@intel.com, qi.wang@intel.com
+To: Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:57576 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757527Ab0J0H4M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Oct 2010 03:56:12 -0400
+In-Reply-To: <002801cb758f$876aaf00$66f8800a@maildom.okisemi.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/27/2010 06:29 AM, Tomoya MORINAGA wrote:
+On Wed, Oct 27, 2010 at 2:29 PM, Tomoya MORINAGA
+<tomoya-linux@dsn.okisemi.com> wrote:
 > We have faced issue when our CAN diriver whose MSI is enabled, after installing the driver,
 > once remove the driver and install the driver again,
 > As a result, interupt handler of the driver is not called again.
-> 
+>
 > Do you have any information or suggestion about the above issue?
 
-Not really, the remove functions looks ok, apart from the fact, that
-pch_can_reset() is called *after* pci_iounmap().
+Its a bug in the PCI layer most likely,
 
-Wolfgang.
+http://amailbox.org/mailarchive/linux-kernel/2010/10/7/4629072
+
+Dave.
