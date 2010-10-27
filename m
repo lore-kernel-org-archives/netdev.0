@@ -1,62 +1,109 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH] ipv6: addrconf: clear IPv6 addresses and routes when
- losing link
-Date: Tue, 26 Oct 2010 22:31:53 -0400
-Message-ID: <4CC78F19.9080504@hp.com>
-References: <AANLkTikC4pv8aOODM2pOg2bKQGL69wivcUU3f9ZziPhe@mail.gmail.com>
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH 1/2 v4] xps: Improvements in TX queue selection
+Date: Tue, 26 Oct 2010 20:38:10 -0700 (PDT)
+Message-ID: <alpine.DEB.1.00.1010262031250.2605@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Lorenzo Colitti <lorenzo@google.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: eric.dumazet@gmail.com
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g6t0186.atlanta.hp.com ([15.193.32.63]:41764 "EHLO
-	g6t0186.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751851Ab0J0Cb4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Oct 2010 22:31:56 -0400
-In-Reply-To: <AANLkTikC4pv8aOODM2pOg2bKQGL69wivcUU3f9ZziPhe@mail.gmail.com>
+Received: from smtp-out.google.com ([74.125.121.35]:17372 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751231Ab0J0DiR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Oct 2010 23:38:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Lorenzo,
+In dev_pick_tx, don't do work in calculating queue index or setting
+the index in the sock unless the device has more than one queue.  This
+allows the sock to be set only with a queue index of a multi-queue
+device which is desirable if device are stacked like in a tunnel.
 
-On 10/25/2010 10:08 PM, Lorenzo Colitti wrote:
-> When roaming between different networks (e.g., changing wireless
-> SSIDs, or plugging in to different wired networks), IPv6 addresses and
-> routes are not cleared. If the two networks have different IPv6
-> subnets assigned, the host maintains both the old and new IPv6
-> addresses and gateways, but only the new ones works. If the host
-> chooses the wrong source address or gateway, or if the new network
-> does not have IPv6 but the old one did, IPv6 connections time out,
-> leading to long delays when trying to connect to IPv6 hosts.
-> 
-> Fix this by ensuring that autoconfigured IPv6 addresses and routes are
-> purged when link is lost, not only when the interface goes down.
-> 
-> Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
-> 
-> --- a/net/ipv6/addrconf.c	2010-10-20 13:30:22.000000000 -0700
-> +++ b/net/ipv6/addrconf.c	2010-10-25 13:55:15.000000000 -0700
-> @@ -2524,6 +2524,14 @@
->  		} else {
->  			if (!addrconf_qdisc_ok(dev)) {
->  				/* device is still not ready. */
-> +				if (idev && (idev->if_flags & IF_READY)) {
-> +					/* Link lost. Clear addresses and
-> +					   routes, the device might come back
-> +					   on a link where they are no longer
-> +					   valid. */
-> +					addrconf_ifdown(dev, 0);
-> +					idev->if_flags &= ~IF_READY;
-> +				}
+We also allow the mapping of a socket to queue to be changed.  To
+maintain in order packet transmission a flag (ooo_okay) has been
+added to the sk_buff structure.  If a transport layer sets this flag
+on a packet, the transmit queue can be changed for the socket.
+Presumably, the transport would set this if there was no possbility
+of creating OOO packets (for instance, there are no packets in flight
+for the socket).  This patch includes the modification in TCP output
+for setting this flag.
 
-Just taking another look at this, you don't need that ~IF_READY line,
-addrconf_ifdown() is already doing that when how==0.
+Signed-off-by: Tom Herbert <therbert@google.com>
+---
+ include/linux/skbuff.h |    3 ++-
+ net/core/dev.c         |   18 +++++++++++-------
+ net/ipv4/tcp_output.c  |    5 ++++-
+ 3 files changed, 17 insertions(+), 9 deletions(-)
 
-Could you give my previous patch a try?  I believe it will work the same
-way as yours, but also fixes a case where DAD is started twice for some
-addresses.
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index e6ba898..19f37a6 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -386,9 +386,10 @@ struct sk_buff {
+ #else
+ 	__u8			deliver_no_wcard:1;
+ #endif
++	__u8			ooo_okay:1;
+ 	kmemcheck_bitfield_end(flags2);
+ 
+-	/* 0/14 bit hole */
++	/* 0/13 bit hole */
+ 
+ #ifdef CONFIG_NET_DMA
+ 	dma_cookie_t		dma_cookie;
+diff --git a/net/core/dev.c b/net/core/dev.c
+index b2269ac..4df783c 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2125,20 +2125,24 @@ static struct netdev_queue *dev_pick_tx(struct net_device *dev,
+ 	int queue_index;
+ 	const struct net_device_ops *ops = dev->netdev_ops;
+ 
+-	if (ops->ndo_select_queue) {
++	if (dev->real_num_tx_queues == 1)
++		queue_index = 0;
++	else if (ops->ndo_select_queue) {
+ 		queue_index = ops->ndo_select_queue(dev, skb);
+ 		queue_index = dev_cap_txqueue(dev, queue_index);
+ 	} else {
+ 		struct sock *sk = skb->sk;
+ 		queue_index = sk_tx_queue_get(sk);
+-		if (queue_index < 0) {
+ 
+-			queue_index = 0;
+-			if (dev->real_num_tx_queues > 1)
+-				queue_index = skb_tx_hash(dev, skb);
++		if (queue_index < 0 || skb->ooo_okay ||
++		    queue_index >= dev->real_num_tx_queues) {
++			int old_index = queue_index;
+ 
+-			if (sk) {
+-				struct dst_entry *dst = rcu_dereference_check(sk->sk_dst_cache, 1);
++			queue_index = skb_tx_hash(dev, skb);
++
++			if (queue_index != old_index && sk) {
++				struct dst_entry *dst =
++				    rcu_dereference_check(sk->sk_dst_cache, 1);
+ 
+ 				if (dst && skb_dst(skb) == dst)
+ 					sk_tx_queue_set(sk, queue_index);
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 05b1ecf..2b6eb36 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -822,8 +822,11 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
+ 							   &md5);
+ 	tcp_header_size = tcp_options_size + sizeof(struct tcphdr);
+ 
+-	if (tcp_packets_in_flight(tp) == 0)
++	if (tcp_packets_in_flight(tp) == 0) {
+ 		tcp_ca_event(sk, CA_EVENT_TX_START);
++		skb->ooo_okay = 1;
++	} else
++		skb->ooo_okay = 0;
+ 
+ 	skb_push(skb, tcp_header_size);
+ 	skb_reset_transport_header(skb);
+-- 
+1.7.1
 
-Thanks,
-
--Brian
