@@ -1,37 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] pktgen: Remove a dangerous debug print.
-Date: Wed, 27 Oct 2010 12:21:43 -0700 (PDT)
-Message-ID: <20101027.122143.02260950.davem@davemloft.net>
-References: <1288206788-21063-1-git-send-email-nelhage@ksplice.com>
+Subject: Re: [PATCH 5/14] drivers/net/sb1000.c: delete double assignment
+Date: Wed, 27 Oct 2010 12:23:43 -0700 (PDT)
+Message-ID: <20101027.122343.68121252.davem@davemloft.net>
+References: <1288088743-3725-1-git-send-email-julia@diku.dk>
+	<1288088743-3725-6-git-send-email-julia@diku.dk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: robert.olsson@its.uu.se, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, eugene@redhat.com
-To: nelhage@ksplice.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42103
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752698Ab0J0TVT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Oct 2010 15:21:19 -0400
-In-Reply-To: <1288206788-21063-1-git-send-email-nelhage@ksplice.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: julia@diku.dk
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1288088743-3725-6-git-send-email-julia@diku.dk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Nelson Elhage <nelhage@ksplice.com>
-Date: Wed, 27 Oct 2010 15:13:08 -0400
+From: Julia Lawall <julia@diku.dk>
+Date: Tue, 26 Oct 2010 12:25:34 +0200
 
-> We were allocating an arbitrarily-large buffer on the stack, which would allow a
-> buggy or malicious userspace program to overflow the kernel stack.
+> From: Julia Lawall <julia@diku.dk>
 > 
-> Since the debug printk() was just printing exactly the text passed from
-> userspace, it's probably just as easy for anyone who might use it to augment (or
-> just strace(1)) the program writing to the pktgen file, so let's just not bother
-> trying to print the whole buffer.
+> The other code around these duplicated assignments initializes the 0 1 2
+> and 3 elements of an array, so change the initialization of the
+> rx_session_id array to do the same.
 > 
-> Signed-off-by: Nelson Elhage <nelhage@ksplice.com>
+> A simplified version of the semantic match that finds this problem is as
+> follows: (http://coccinelle.lip6.fr/)
+ ...
+> Signed-off-by: Julia Lawall <julia@diku.dk>
 
-Only root can write to the pktgen control file.
-
-Also, the debug feature really is used by people's pktgen scripts, you
-can't just turn it off.
+Applied.
