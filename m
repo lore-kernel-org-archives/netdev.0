@@ -1,42 +1,131 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: kernel panic in fib_rules_lookup [2.6.27.7 vendor-patched]
-Date: Wed, 27 Oct 2010 23:05:02 +0200
-Message-ID: <1288213502.2658.52.camel@edumazet-laptop>
-References: <loom.20101012T185411-307@post.gmane.org>
-	 <1286905245.2703.3.camel@edumazet-laptop>  <4CBF2A3F.2070108@cox.net>
-	 <1287612353.2545.11.camel@edumazet-laptop>  <4CC1F47C.9020104@cox.net>
-	 <1287805487.2658.5.camel@edumazet-laptop>
-	 <1287846669.2658.247.camel@edumazet-laptop>  <4CC30055.5040509@cox.net>
-	 <1287851745.2658.364.camel@edumazet-laptop>  <4CC6D7CC.5040608@cox.net>
-	 <1288100208.3169.112.camel@edumazet-laptop>  <4CC6DD69.4020502@cox.net>
-	 <1288103614.2622.0.camel@edumazet-laptop>  <4CC89333.1040407@cox.net>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [RFC PATCH 0/1] vhost: Reduce TX used buffer signal for
+ performance
+Date: Wed, 27 Oct 2010 14:05:57 -0700
+Message-ID: <1288213557.17571.28.camel@localhost.localdomain>
+References: <1288213257.17571.25.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Joe Buehler <aspam@cox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:60834 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757274Ab0J0VFH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Oct 2010 17:05:07 -0400
-Received: by eye27 with SMTP id 27so1124113eye.19
-        for <netdev@vger.kernel.org>; Wed, 27 Oct 2010 14:05:05 -0700 (PDT)
-In-Reply-To: <4CC89333.1040407@cox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "mst@redhat.com" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1288213257.17571.25.camel@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mercredi 27 octobre 2010 =C3=A0 17:01 -0400, Joe Buehler a =C3=A9cri=
-t :
-> Eric, tests with your fixes and with the smp barrier corrections are
-> looking positive.  More testing is needed before a final verdict is i=
-n
-> however -- the load test crashed after 8 hours due to an application =
-bug
-> that we're working on fixing now.
->=20
+This patch changes vhost TX used buffer signal to guest from one by
+one to up to 3/4 of vring size. This change improves vhost TX message 
+size from 256 to 8K performance for both bandwidth and CPU utilization 
+without inducing any regression.
 
-Excellent ! Thanks for the report.
+Signed-off-by: Shirley Ma <xma@us.ibm.com>
+---
 
+ drivers/vhost/net.c   |   19 ++++++++++++++++++-
+ drivers/vhost/vhost.c |   31 +++++++++++++++++++++++++++++++
+ drivers/vhost/vhost.h |    3 +++
+ 3 files changed, 52 insertions(+), 1 deletions(-)
 
-
+diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+index 4b4da5b..bd1ba71 100644
+--- a/drivers/vhost/net.c
++++ b/drivers/vhost/net.c
+@@ -198,7 +198,24 @@ static void handle_tx(struct vhost_net *net)
+ 		if (err != len)
+ 			pr_debug("Truncated TX packet: "
+ 				 " len %d != %zd\n", err, len);
+-		vhost_add_used_and_signal(&net->dev, vq, head, 0);
++		/*
++		 * if no pending buffer size allocate, signal used buffer
++		 * one by one, otherwise, signal used buffer when reaching
++		 * 3/4 ring size to reduce CPU utilization.
++		 */
++		if (unlikely(vq->pend))
++			vhost_add_used_and_signal(&net->dev, vq, head, 0);
++		else {
++			vq->pend[vq->num_pend].id = head;
++			vq->pend[vq->num_pend].len = 0;
++			++vq->num_pend;
++			if (vq->num_pend == (vq->num - (vq->num >> 2))) {
++				vhost_add_used_and_signal_n(&net->dev, vq,
++							    vq->pend,
++							    vq->num_pend);
++				vq->num_pend = 0;
++			}
++		}
+ 		total_len += len;
+ 		if (unlikely(total_len >= VHOST_NET_WEIGHT)) {
+ 			vhost_poll_queue(&vq->poll);
+diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+index 94701ff..47696d2 100644
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -170,6 +170,16 @@ static void vhost_vq_reset(struct vhost_dev *dev,
+ 	vq->call_ctx = NULL;
+ 	vq->call = NULL;
+ 	vq->log_ctx = NULL;
++	/* signal pending used buffers */
++	if (vq->pend) {
++		if (vq->num_pend != 0) {
++			vhost_add_used_and_signal_n(dev, vq, vq->pend,
++						    vq->num_pend);
++			vq->num_pend = 0;
++		}
++		kfree(vq->pend);
++	}
++	vq->pend = NULL;
+ }
+ 
+ static int vhost_worker(void *data)
+@@ -273,7 +283,13 @@ long vhost_dev_init(struct vhost_dev *dev,
+ 		dev->vqs[i].heads = NULL;
+ 		dev->vqs[i].dev = dev;
+ 		mutex_init(&dev->vqs[i].mutex);
++		dev->vqs[i].num_pend = 0;
++		dev->vqs[i].pend = NULL;
+ 		vhost_vq_reset(dev, dev->vqs + i);
++		/* signal 3/4 of ring size used buffers */
++		dev->vqs[i].pend = kmalloc((dev->vqs[i].num -
++					   (dev->vqs[i].num >> 2)) *
++					   sizeof *vq->peed, GFP_KERNEL);
+ 		if (dev->vqs[i].handle_kick)
+ 			vhost_poll_init(&dev->vqs[i].poll,
+ 					dev->vqs[i].handle_kick, POLLIN, dev);
+@@ -599,6 +615,21 @@ static long vhost_set_vring(struct vhost_dev *d, int ioctl, void __user *argp)
+ 			r = -EINVAL;
+ 			break;
+ 		}
++		if (vq->num != s.num) {
++			/* signal used buffers first */
++			if (vq->pend) {
++				if (vq->num_pend != 0) {
++					vhost_add_used_and_signal_n(vq->dev, vq,
++								    vq->pend,
++								    vq->num_pend);
++					vq->num_pend = 0;
++				}
++				kfree(vq->pend);
++			}
++			/* realloc pending used buffers size */
++			vq->pend = kmalloc((s.num - (s.num >> 2)) *
++					   sizeof *vq->pend, GFP_KERNEL);
++		}
+ 		vq->num = s.num;
+ 		break;
+ 	case VHOST_SET_VRING_BASE:
+diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
+index 073d06a..78949c0 100644
+--- a/drivers/vhost/vhost.h
++++ b/drivers/vhost/vhost.h
+@@ -108,6 +108,9 @@ struct vhost_virtqueue {
+ 	/* Log write descriptors */
+ 	void __user *log_base;
+ 	struct vhost_log *log;
++	/* delay multiple used buffers to signal once */
++	int num_pend;
++	struct vring_used_elem *pend;
+ };
+ 
+ struct vhost_dev {
