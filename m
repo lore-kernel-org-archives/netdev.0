@@ -1,38 +1,55 @@
-From: "Tomoya MORINAGA" <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Subject: Re: can: About Socket CAN with MSI issue
-Date: Wed, 27 Oct 2010 20:41:21 +0900
-Message-ID: <00dc01cb75cb$e0ca3430$66f8800a@maildom.okisemi.com>
-References: <4CC61B1B.3090602@dsn.okisemi.com><20101026.105206.15244527.davem@davemloft.net><002801cb758f$876aaf00$66f8800a@maildom.okisemi.com>
-	<AANLkTi=bJTMhEo2agsMJ8fptNp7suERCGkzybb5m7ggg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
-	margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org,
-	joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	chripell-VaTbYqLCNhc@public.gmane.org, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-To: "Dave Airlie" <airlied-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+From: Jiri Slaby <jslaby@suse.cz>
+Subject: [PATCH] NET: sunrpc, remove unneeded NULL tests
+Date: Wed, 27 Oct 2010 13:52:05 +0200
+Message-ID: <1288180325-20009-1-git-send-email-jslaby@suse.cz>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jirislaby@gmail.com,
+	Neil Brown <neilb@suse.de>, linux-nfs@vger.kernel.org
+To: bfields@fieldses.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday, October 27, 2010 4:56 PM, Dave Airlie wrote:
-> Its a bug in the PCI layer most likely,
+Stanse found that req in xprt_reserve_xprt is dereferenced prior its
+test to NULL. If that's the case, the checks are unnecessary, so
+remove them.
 
-Thank you for your information.
+The alternative is not to dereference it before the test. The patch
+is to point out the problem, you have to decide.
 
-This issue occurrs with Socket-CAN driver only.
-Previous version our CAN driver(Not Socket-CAN but Tolapai ) works well.
-Thus, IMHO, PCI layer doesn't related to the issue.
+Signed-off-by: Jiri Slaby <jslaby@suse.cz>
+Cc: "J. Bruce Fields" <bfields@fieldses.org>
+Cc: Neil Brown <neilb@suse.de>
+Cc: linux-nfs@vger.kernel.org
+---
+ net/sunrpc/xprt.c |    8 +++-----
+ 1 files changed, 3 insertions(+), 5 deletions(-)
 
-Thanks, Tomoya(OKI SEMICONDUCTOR CO., LTD.)
+diff --git a/net/sunrpc/xprt.c b/net/sunrpc/xprt.c
+index 4c8f18a..5355c71 100644
+--- a/net/sunrpc/xprt.c
++++ b/net/sunrpc/xprt.c
+@@ -202,10 +202,8 @@ int xprt_reserve_xprt(struct rpc_task *task)
+ 		goto out_sleep;
+ 	}
+ 	xprt->snd_task = task;
+-	if (req) {
+-		req->rq_bytes_sent = 0;
+-		req->rq_ntrans++;
+-	}
++	req->rq_bytes_sent = 0;
++	req->rq_ntrans++;
+ 	return 1;
+ 
+ out_sleep:
+@@ -213,7 +211,7 @@ out_sleep:
+ 			task->tk_pid, xprt);
+ 	task->tk_timeout = 0;
+ 	task->tk_status = -EAGAIN;
+-	if (req && req->rq_ntrans)
++	if (req->rq_ntrans)
+ 		rpc_sleep_on(&xprt->resend, task, NULL);
+ 	else
+ 		rpc_sleep_on(&xprt->sending, task, NULL);
+-- 
+1.7.3.1
