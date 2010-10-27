@@ -1,36 +1,36 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH 0/4] RFC: tipc int vs size_t fixes
-Date: Wed, 27 Oct 2010 15:29:29 -0400
-Message-ID: <1288207773-25448-1-git-send-email-paul.gortmaker@windriver.com>
-Cc: netdev@vger.kernel.org, allan.stephens@windriver.com,
-	drosenberg@vsecurity.com, jon.maloy@ericsson.com,
-	torvalds@linux-foundation.org, security@kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:43553 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755717Ab0J0TeG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Oct 2010 15:34:06 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] pktgen: Remove a dangerous debug print.
+Date: Wed, 27 Oct 2010 21:41:39 +0200
+Message-ID: <1288208499.2658.19.camel@edumazet-laptop>
+References: <1288206788-21063-1-git-send-email-nelhage@ksplice.com>
+	 <20101027.122143.02260950.davem@davemloft.net>
+	 <20101027192808.GP16803@ksplice.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, robert.olsson@its.uu.se,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	eugene@redhat.com
+To: Nelson Elhage <nelhage@ksplice.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20101027192808.GP16803@ksplice.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Le mercredi 27 octobre 2010 =C3=A0 15:28 -0400, Nelson Elhage a =C3=A9c=
+rit :
+> How would you feel about limiting the debug print to at most, say, 51=
+2 or 1024
+> bytes? Even if it's only accessible to root by default, I don't a use=
+rspace
+> program should be able to accidentally corrupt the kernel stack by wr=
+iting too
+> many bytes to a file in /proc.
 
-[apologies if you get this 2x ; a bogus Status: header caused them
- to fail vger's sanity check for netdev, so resending.]
+Arent /proc writes limited to PAGE_SIZE anyway ?
 
-This is a starting point for fixing up the mix of int vs. size_t
-usage that Dan spotted in TIPC as being open to possible exploits.
+On x86 at least, you cannot corrupt kernel stack, since its bigger than
+PAGE_SIZE.
 
-Open questions I had remaining with these patches were whether we could
-trim out some of the unrequired casts, and whether we wanted to use a
-size_t for everything that at any time was based on or compared to
-an iov_len, including all instances of num_sect, when things like
-iov_length() in <linux/uio.h> use unsigned long for looping over segments.
-Also, whether we should give up at INT_MAX or LONG_MAX...
-
-Please suggest changes as required, and I'll integrate them into this
-pass1 of draft of patches from Al and resend as required until we've
-got a final acceptable solution.
-
-Thanks,
-Paul.
+I agree pktgen code is a bit ugly and needs a cleanup, but who
+cares ? :)
