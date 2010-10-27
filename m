@@ -1,53 +1,82 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 1/2] can: pch_can: fix sparse warning
-Date: Wed, 27 Oct 2010 10:38:25 +0200
-Message-ID: <1288168706-870-2-git-send-email-mkl@pengutronix.de>
-References: <1288168706-870-1-git-send-email-mkl@pengutronix.de>
-Cc: netdev@vger.kernel.org, Marc Kleine-Budde <mkl@pengutronix.de>,
-	Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
-To: socketcan-core@lists.berlios.de
+From: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Subject: [PATCH 1/1] netxen: fix kdump
+Date: Wed, 27 Oct 2010 01:51:50 -0700
+Message-ID: <1288169510-4655-1-git-send-email-amit.salecha@qlogic.com>
+Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
+	anirban.chakraborty@qlogic.com,
+	Rajesh Borundia <rajesh.borundia@qlogic.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:40424 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753581Ab0J0Iid (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Oct 2010 04:38:33 -0400
-In-Reply-To: <1288168706-870-1-git-send-email-mkl@pengutronix.de>
+Received: from mvnat01.qlogic.com ([198.186.3.73]:15567 "HELO unm84.unmin.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1754774Ab0J0Ivv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Oct 2010 04:51:51 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes the following sparse warning:
+From: Rajesh Borundia <rajesh.borundia@qlogic.com>
 
-drivers/net/can/pch_can.c:231:26: warning: incorrect type in argument 1 (different address spaces)
-drivers/net/can/pch_can.c:231:26:    expected unsigned int [usertype] *addr
-drivers/net/can/pch_can.c:231:26:    got unsigned int [noderef] <asn:2>*<noident>
+Reset the whole hw instead of freeing hw resources
+consumed by each pci function.
 
-Let pch_can_bit_{set,clear} first parameter be a void __iomem pointer.
-
-Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
-Cc: Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
+Signed-off-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
+Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
 ---
- drivers/net/can/pch_can.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/netxen/netxen_nic_ctx.c  |   15 ---------------
+ drivers/net/netxen/netxen_nic_main.c |    7 +++++++
+ 2 files changed, 7 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/can/pch_can.c b/drivers/net/can/pch_can.c
-index 55ec324..c63209f 100644
---- a/drivers/net/can/pch_can.c
-+++ b/drivers/net/can/pch_can.c
-@@ -213,12 +213,12 @@ static DEFINE_PCI_DEVICE_TABLE(pch_pci_tbl) = {
- };
- MODULE_DEVICE_TABLE(pci, pch_pci_tbl);
- 
--static inline void pch_can_bit_set(u32 *addr, u32 mask)
-+static inline void pch_can_bit_set(void __iomem *addr, u32 mask)
- {
- 	iowrite32(ioread32(addr) | mask, addr);
+diff --git a/drivers/net/netxen/netxen_nic_ctx.c b/drivers/net/netxen/netxen_nic_ctx.c
+index 1261212..f7d06cb 100644
+--- a/drivers/net/netxen/netxen_nic_ctx.c
++++ b/drivers/net/netxen/netxen_nic_ctx.c
+@@ -255,19 +255,6 @@ out_free_rq:
  }
  
--static inline void pch_can_bit_clear(u32 *addr, u32 mask)
-+static inline void pch_can_bit_clear(void __iomem *addr, u32 mask)
+ static void
+-nx_fw_cmd_reset_ctx(struct netxen_adapter *adapter)
+-{
+-
+-	netxen_issue_cmd(adapter, adapter->ahw.pci_func, NXHAL_VERSION,
+-			adapter->ahw.pci_func, NX_DESTROY_CTX_RESET, 0,
+-			NX_CDRP_CMD_DESTROY_RX_CTX);
+-
+-	netxen_issue_cmd(adapter, adapter->ahw.pci_func, NXHAL_VERSION,
+-			adapter->ahw.pci_func, NX_DESTROY_CTX_RESET, 0,
+-			NX_CDRP_CMD_DESTROY_TX_CTX);
+-}
+-
+-static void
+ nx_fw_cmd_destroy_rx_ctx(struct netxen_adapter *adapter)
  {
- 	iowrite32(ioread32(addr) & ~mask, addr);
- }
+ 	struct netxen_recv_context *recv_ctx = &adapter->recv_ctx;
+@@ -698,8 +685,6 @@ int netxen_alloc_hw_resources(struct netxen_adapter *adapter)
+ 	if (!NX_IS_REVISION_P2(adapter->ahw.revision_id)) {
+ 		if (test_and_set_bit(__NX_FW_ATTACHED, &adapter->state))
+ 			goto done;
+-		if (reset_devices)
+-			nx_fw_cmd_reset_ctx(adapter);
+ 		err = nx_fw_cmd_create_rx_ctx(adapter);
+ 		if (err)
+ 			goto err_out_free;
+diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
+index 50820be..35ae1aa 100644
+--- a/drivers/net/netxen/netxen_nic_main.c
++++ b/drivers/net/netxen/netxen_nic_main.c
+@@ -1356,6 +1356,13 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		break;
+ 	}
+ 
++	if (reset_devices) {
++		if (adapter->portnum == 0) {
++			NXWR32(adapter, NX_CRB_DEV_REF_COUNT, 0);
++			adapter->need_fw_reset = 1;
++		}
++	}
++
+ 	err = netxen_start_firmware(adapter);
+ 	if (err)
+ 		goto err_out_decr_ref;
 -- 
-1.7.2.3
+1.6.0.2
 
