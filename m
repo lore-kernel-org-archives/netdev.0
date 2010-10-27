@@ -1,7 +1,7 @@
 From: Dmitry Popov <dp@highloadlab.com>
-Subject: [PATCH 3/5] tcp: request sock accept queue spinlock protection
-Date: Wed, 27 Oct 2010 17:29:07 +0400
-Message-ID: <AANLkTik2qqqT6ezX=MozOqht9H62JvqDqdAgkX89Qo-w@mail.gmail.com>
+Subject: [PATCH 4/5] tcp: syncookie stats counter
+Date: Wed, 27 Oct 2010 17:30:27 +0400
+Message-ID: <AANLkTik8w1ODK2dFNTsuzGJiZENHuxuJhx=Y3Etaxqkg__4233.67084372348$1288186258$gmane$org@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 To: "David S. Miller" <davem@davemloft.net>,
@@ -10,267 +10,202 @@ To: "David S. Miller" <davem@davemloft.net>,
 	Andreas Petlund <apetlund@simula.no>,
 	Shan Wei <shanwei@cn.fujitsu.co
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gy0-f174.google.com ([209.85.160.174]:42381 "EHLO
-	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933218Ab0J0N3M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Oct 2010 09:29:12 -0400
+Received: from mail-gx0-f174.google.com ([209.85.161.174]:34127 "EHLO
+	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756723Ab0J0Nab (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Oct 2010 09:30:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Dmitry Popov <dp@highloadlab.com>
 
-Spinlock and active flag added for request sock accept queue.
+Estimation of amount of sent SYNACKs used to choose between
+syn_backlog and syn_cookies added.
 
-This is needed to access this queue without main socket lock.
+Estimation is made within TCP_TIMEOUT_INIT period. tcp_syncookie_stats
+struct is added to tcp_sock.
 
 Signed-off-by: Dmitry Popov <dp@highloadlab.com>
 ---
- include/net/inet_connection_sock.h |    7 ++++
- include/net/request_sock.h         |   59 +++++++++++++++++++++++++++++------
- net/core/request_sock.c            |    4 ++-
- net/ipv4/inet_connection_sock.c    |   22 ++++++++-----
- 4 files changed, 73 insertions(+), 19 deletions(-)
-diff --git a/include/net/inet_connection_sock.h
-b/include/net/inet_connection_sock.h
-index b6d3b55..430b58f 100644
---- a/include/net/inet_connection_sock.h
-+++ b/include/net/inet_connection_sock.h
-@@ -258,6 +258,13 @@ static inline void
-inet_csk_reqsk_queue_add(struct sock *sk,
- 	reqsk_queue_add(&inet_csk(sk)->icsk_accept_queue, req, sk, child);
+ include/linux/tcp.h                |   15 +++++++++++++++
+ include/net/inet_connection_sock.h |    7 +++++++
+ include/net/request_sock.h         |    8 ++++++++
+ include/net/tcp.h                  |   29 +++++++++++++++++++++++++++++
+ net/ipv4/tcp_ipv4.c                |   12 ++++++++++--
+ net/ipv6/tcp_ipv6.c                |   16 ++++++++++++----
+ 6 files changed, 81 insertions(+), 6 deletions(-)
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+index 3436176..7445d17 100644
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -288,6 +288,17 @@ static inline struct tcp_request_sock
+*tcp_rsk(const struct request_sock *req)
+ 	return (struct tcp_request_sock *)req;
  }
 
-+static inline void inet_csk_reqsk_queue_do_add(struct sock *sk,
-+					    struct request_sock *req,
-+					    struct sock *child)
-+{
-+	reqsk_queue_do_add(&inet_csk(sk)->icsk_accept_queue, req, sk, child);
-+}
++/* This structure is used to estimate amount of SYNs under (possible) SYNflood.
++ * @cookies_sent[@clock_hand] is incremented for each cookie sent.
++ * This counter is used while jiffies < @expires[@clock_hand],
++ * then clock_hand is switched (clock_hand ^= 1).
++ */
++struct tcp_syncookie_stats {
++	unsigned long expires[2];
++	u32 cookies_sent[2];
++	u8 clock_hand;
++};
 +
- extern void inet_csk_reqsk_queue_hash_add(struct sock *sk,
- 					  struct request_sock *req,
- 					  unsigned long timeout);
-diff --git a/include/net/request_sock.h b/include/net/request_sock.h
-index 99e6e19..870c46b 100644
---- a/include/net/request_sock.h
-+++ b/include/net/request_sock.h
-@@ -109,6 +109,8 @@ struct listen_sock {
-  *
-  * @rskq_accept_head - FIFO head of established children
-  * @rskq_accept_tail - FIFO tail of established children
-+ * @rskq_accept_lock - guard for FIFO of established children
-+ * @rskq_active - != 0 if we're ready for children (LISTEN state), 0 otherwise
-  * @rskq_defer_accept - User waits for some data after accept()
-  * @syn_wait_lock - serializer
-  *
-@@ -124,9 +126,11 @@ struct listen_sock {
- struct request_sock_queue {
- 	struct request_sock	*rskq_accept_head;
- 	struct request_sock	*rskq_accept_tail;
-+	spinlock_t		rskq_accept_lock;
- 	rwlock_t		syn_wait_lock;
- 	u8			rskq_defer_accept;
--	/* 3 bytes hole, try to pack */
-+	u8			rskq_active;
-+	/* 2 bytes hole, try to pack */
- 	struct listen_sock	*listen_opt;
+ struct tcp_sock {
+ 	/* inet_connection_sock has to be the first member of tcp_sock */
+ 	struct inet_connection_sock	inet_conn;
+@@ -471,6 +482,10 @@ struct tcp_sock {
+ 	 * So readers which hold this lock may omit rcu_reader_lock.
+ 	 */
+ 	struct tcp_cookie_values  *cookie_values;
++
++#ifdef CONFIG_SYN_COOKIES
++	struct tcp_syncookie_stats syncookie_stats;
++#endif
  };
 
-@@ -137,11 +141,24 @@ extern void __reqsk_queue_destroy(struct
-request_sock_queue *queue);
- extern void reqsk_queue_destroy(struct request_sock_queue *queue);
+ static inline struct tcp_sock *tcp_sk(const struct sock *sk)
+diff --git a/include/net/inet_connection_sock.h
+b/include/net/inet_connection_sock.h
+index 430b58f..7c63bb0 100644
+--- a/include/net/inet_connection_sock.h
++++ b/include/net/inet_connection_sock.h
+@@ -293,6 +293,13 @@ static inline int
+inet_csk_reqsk_queue_young(const struct sock *sk)
+ 	return reqsk_queue_len_young(&inet_csk(sk)->icsk_accept_queue);
+ }
 
- static inline struct request_sock *
--	reqsk_queue_yank_acceptq(struct request_sock_queue *queue)
-+	reqsk_queue_do_yank_acceptq(struct request_sock_queue *queue)
- {
- 	struct request_sock *req = queue->rskq_accept_head;
-
- 	queue->rskq_accept_head = NULL;
-+
-+	return req;
++static inline int inet_csk_reqsk_queue_is_delta_full(const struct sock *sk,
++						     int delta)
++{
++	const struct request_sock_queue *aq = &inet_csk(sk)->icsk_accept_queue;
++	return reqsk_queue_is_delta_full(aq, delta);
 +}
 +
-+static inline struct request_sock *
-+	reqsk_queue_yank_acceptq(struct request_sock_queue *queue)
-+{
-+	struct request_sock *req;
-+
-+	spin_lock_bh(&queue->rskq_accept_lock);
-+	req = reqsk_queue_do_yank_acceptq(queue);
-+	spin_unlock_bh(&queue->rskq_accept_lock);
-+
- 	return req;
- }
-
-@@ -159,13 +176,12 @@ static inline void reqsk_queue_unlink(struct
-request_sock_queue *queue,
- 	write_unlock(&queue->syn_wait_lock);
- }
-
--static inline void reqsk_queue_add(struct request_sock_queue *queue,
-+static inline void reqsk_queue_do_add(struct request_sock_queue *queue,
- 				   struct request_sock *req,
- 				   struct sock *parent,
- 				   struct sock *child)
+ static inline int inet_csk_reqsk_queue_is_full(const struct sock *sk)
  {
- 	req->sk = child;
--	sk_acceptq_added(parent);
-
- 	if (queue->rskq_accept_head == NULL)
- 		queue->rskq_accept_head = req;
-@@ -174,25 +190,48 @@ static inline void reqsk_queue_add(struct
-request_sock_queue *queue,
-
- 	queue->rskq_accept_tail = req;
- 	req->dl_next = NULL;
-+	sk_acceptq_added(parent);
+ 	return reqsk_queue_is_full(&inet_csk(sk)->icsk_accept_queue);
+diff --git a/include/net/request_sock.h b/include/net/request_sock.h
+index 870c46b..1154277 100644
+--- a/include/net/request_sock.h
++++ b/include/net/request_sock.h
+@@ -272,6 +272,14 @@ static inline int reqsk_queue_len_young(const
+struct request_sock_queue *queue)
+ 	return queue->listen_opt->qlen_young;
  }
 
--static inline struct request_sock *reqsk_queue_remove(struct
-request_sock_queue *queue)
-+static inline void reqsk_queue_add(struct request_sock_queue *queue,
-+				   struct request_sock *req,
-+				   struct sock *parent,
-+				   struct sock *child)
++static inline int
++	reqsk_queue_is_delta_full(const struct request_sock_queue *queue,
++				  int delta)
 +{
-+	spin_lock(&queue->rskq_accept_lock);
-+	reqsk_queue_do_add(queue, req, parent, child);
-+	spin_unlock(&queue->rskq_accept_lock);
++	struct listen_sock *lopt = queue->listen_opt;
++	return (lopt->qlen + delta) >> lopt->max_qlen_log;
 +}
 +
-+static inline struct request_sock *
-+	reqsk_queue_do_remove(struct request_sock_queue *queue)
+ static inline int reqsk_queue_is_full(const struct request_sock_queue *queue)
  {
- 	struct request_sock *req = queue->rskq_accept_head;
-
- 	WARN_ON(req == NULL);
-
- 	queue->rskq_accept_head = req->dl_next;
--	if (queue->rskq_accept_head == NULL)
--		queue->rskq_accept_tail = NULL;
-
- 	return req;
+ 	return queue->listen_opt->qlen >> queue->listen_opt->max_qlen_log;
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 08e6ce1..c25d4a5 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1542,6 +1542,35 @@ static inline int tcp_s_data_size(const struct
+tcp_sock *tp)
+ 		: 0;
  }
 
--static inline struct sock *reqsk_queue_get_child(struct
-request_sock_queue *queue,
--						 struct sock *parent)
-+static inline struct request_sock *
-+	reqsk_queue_remove(struct request_sock_queue *queue)
++/* Updates syn cookie statistics,
++ * should be called after new cookie(SYNACK) is sent.
++ */
++static inline void tcp_inc_syncookie_stats(struct tcp_syncookie_stats *stats)
 +{
-+	struct request_sock *req;
++	u8 hand = stats->clock_hand;
 +
-+	spin_lock_bh(&queue->rskq_accept_lock);
-+	req = reqsk_queue_do_remove(queue);
-+	spin_unlock_bh(&queue->rskq_accept_lock);
-+
-+	return req;
++	if (unlikely(time_after(jiffies, stats->expires[hand]))) {
++		hand ^= 1;
++		stats->expires[hand] = jiffies + TCP_TIMEOUT_INIT;
++		stats->cookies_sent[hand] = 0;
++		stats->clock_hand = hand;
++	}
++	++stats->cookies_sent[hand];
 +}
 +
-+static inline struct sock *
-+	reqsk_queue_do_get_child(struct request_sock_queue *queue,
-+				 struct sock *parent)
- {
--	struct request_sock *req = reqsk_queue_remove(queue);
-+	struct request_sock *req = reqsk_queue_do_remove(queue);
- 	struct sock *child = req->sk;
-
- 	WARN_ON(child == NULL);
-diff --git a/net/core/request_sock.c b/net/core/request_sock.c
-index 7552495..a0f2955 100644
---- a/net/core/request_sock.c
-+++ b/net/core/request_sock.c
-@@ -58,8 +58,10 @@ int reqsk_queue_alloc(struct request_sock_queue *queue,
- 	     lopt->max_qlen_log++);
-
- 	get_random_bytes(&lopt->hash_rnd, sizeof(lopt->hash_rnd));
--	rwlock_init(&queue->syn_wait_lock);
-+	spin_lock_init(&queue->rskq_accept_lock);
- 	queue->rskq_accept_head = NULL;
-+	queue->rskq_active = 0;
-+	rwlock_init(&queue->syn_wait_lock);
- 	lopt->nr_table_entries = nr_table_entries;
-
- 	write_lock_bh(&queue->syn_wait_lock);
-diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-index 7174370..ecf98d2 100644
---- a/net/ipv4/inet_connection_sock.c
-+++ b/net/ipv4/inet_connection_sock.c
-@@ -215,7 +215,7 @@ EXPORT_SYMBOL_GPL(inet_csk_get_port);
-
- /*
-  * Wait for an incoming connection, avoid race conditions. This must be called
-- * with the socket locked.
-+ * with rskq_accept_lock locked.
-  */
- static int inet_csk_wait_for_connect(struct sock *sk, long timeo)
- {
-@@ -240,10 +240,12 @@ static int inet_csk_wait_for_connect(struct sock
-*sk, long timeo)
- 	for (;;) {
- 		prepare_to_wait_exclusive(sk_sleep(sk), &wait,
- 					  TASK_INTERRUPTIBLE);
--		release_sock(sk);
-+		spin_unlock_bh(&icsk->icsk_accept_queue.rskq_accept_lock);
++/* Returns previous syncookie stats(amount of cookies sent). */
++static inline u32 tcp_get_syncookie_stats(struct tcp_syncookie_stats *stats)
++{
++	u8 old_hand = stats->clock_hand ^ 1;
 +
- 		if (reqsk_queue_empty(&icsk->icsk_accept_queue))
- 			timeo = schedule_timeout(timeo);
--		lock_sock(sk);
++	if (time_before(jiffies,
++			stats->expires[old_hand] + 2 * TCP_TIMEOUT_INIT))
++		/* old stats are not too old */
++		return stats->cookies_sent[old_hand];
++	else
++		return 0;
++}
 +
-+		spin_lock_bh(&icsk->icsk_accept_queue.rskq_accept_lock);
- 		err = 0;
- 		if (!reqsk_queue_empty(&icsk->icsk_accept_queue))
- 			break;
-@@ -270,13 +272,13 @@ struct sock *inet_csk_accept(struct sock *sk,
-int flags, int *err)
- 	struct sock *newsk;
- 	int error;
-
--	lock_sock(sk);
-+	spin_lock_bh(&icsk->icsk_accept_queue.rskq_accept_lock);
-
- 	/* We need to make sure that this socket is listening,
- 	 * and that it has something pending.
+ /**
+  *	struct tcp_extend_values - tcp_ipv?.c to tcp_output.c workspace.
+  *
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index c7e9b2a..1e641b0 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1344,13 +1344,21 @@ int tcp_v4_conn_request(struct sock *sk,
+struct sk_buff *skb)
+ 	 * limitations, they conserve resources and peer is
+ 	 * evidently real one.
  	 */
- 	error = -EINVAL;
--	if (sk->sk_state != TCP_LISTEN)
-+	if (!icsk->icsk_accept_queue.rskq_active)
- 		goto out_err;
-
- 	/* Find already established connection */
-@@ -293,10 +295,10 @@ struct sock *inet_csk_accept(struct sock *sk,
-int flags, int *err)
- 			goto out_err;
+-	if (inet_csk_reqsk_queue_is_full(sk) && !isn) {
++#ifdef CONFIG_SYN_COOKIES
++	if (inet_csk_reqsk_queue_is_delta_full(sk,
++		tcp_get_syncookie_stats(&tp->syncookie_stats)) &&
++		!isn)
++	{
+ 		if (net_ratelimit())
+ 			syn_flood_warning(skb);
+-#ifdef CONFIG_SYN_COOKIES
+ 		if (sysctl_tcp_syncookies) {
++			tcp_inc_syncookie_stats(&tp->syncookie_stats);
+ 			want_cookie = 1;
+ 		} else
++#else
++	if (inet_csk_reqsk_queue_is_full(sk) && !isn) {
++		if (net_ratelimit())
++			syn_flood_warning(skb);
+ #endif
+ 		goto drop;
  	}
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index a3fa1f9..767dfde 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1275,13 +1275,21 @@ static int tcp_v6_conn_request(struct sock
+*sk, struct sk_buff *skb)
+ 	if (!ipv6_unicast_destination(skb))
+ 		goto drop;
 
--	newsk = reqsk_queue_get_child(&icsk->icsk_accept_queue, sk);
-+	newsk = reqsk_queue_do_get_child(&icsk->icsk_accept_queue, sk);
- 	WARN_ON(newsk->sk_state == TCP_SYN_RECV);
- out:
--	release_sock(sk);
-+	spin_unlock_bh(&icsk->icsk_accept_queue.rskq_accept_lock);
- 	return newsk;
- out_err:
- 	newsk = NULL;
-@@ -632,6 +634,7 @@ int inet_csk_listen_start(struct sock *sk, const
-int nr_table_entries)
-
- 	sk->sk_max_ack_backlog = 0;
- 	sk->sk_ack_backlog = 0;
-+	icsk->icsk_accept_queue.rskq_active = 1;
- 	inet_csk_delack_init(sk);
-
- 	/* There is race window here: we announce ourselves listening,
-@@ -668,7 +671,10 @@ void inet_csk_listen_stop(struct sock *sk)
- 	inet_csk_delete_keepalive_timer(sk);
-
- 	/* make all the listen_opt local to us */
--	acc_req = reqsk_queue_yank_acceptq(&icsk->icsk_accept_queue);
-+	spin_lock_bh(&icsk->icsk_accept_queue.rskq_accept_lock);
-+	icsk->icsk_accept_queue.rskq_active = 0;
-+	acc_req = reqsk_queue_do_yank_acceptq(&icsk->icsk_accept_queue);
-+	spin_unlock_bh(&icsk->icsk_accept_queue.rskq_accept_lock);
-
- 	/* Following specs, it would be better either to send FIN
- 	 * (and enter FIN-WAIT-1, it is normal close)
+-	if (inet_csk_reqsk_queue_is_full(sk) && !isn) {
++#ifdef CONFIG_SYN_COOKIES
++	if (inet_csk_reqsk_queue_is_delta_full(sk,
++		tcp_get_syncookie_stats(&tp->syncookie_stats)) &&
++		!isn)
++	{
+ 		if (net_ratelimit())
+ 			syn_flood_warning(skb);
+-#ifdef CONFIG_SYN_COOKIES
+-		if (sysctl_tcp_syncookies)
++		if (sysctl_tcp_syncookies) {
++			tcp_inc_syncookie_stats(&tp->syncookie_stats);
+ 			want_cookie = 1;
+-		else
++		} else
++#else
++	if (inet_csk_reqsk_queue_is_full(sk) && !isn) {
++		if (net_ratelimit())
++			syn_flood_warning(skb);
+ #endif
+ 		goto drop;
+ 	}
