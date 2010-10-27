@@ -1,47 +1,26 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: [RFC PATCH 0/1] vhost: Reduce TX used buffer signal for performance
-Date: Wed, 27 Oct 2010 14:00:57 -0700
-Message-ID: <1288213257.17571.25.camel@localhost.localdomain>
+From: Joe Buehler <aspam@cox.net>
+Subject: Re: kernel panic in fib_rules_lookup [2.6.27.7 vendor-patched]
+Date: Wed, 27 Oct 2010 17:01:39 -0400
+Message-ID: <4CC89333.1040407@cox.net>
+References: <loom.20101012T185411-307@post.gmane.org>	 <1286905245.2703.3.camel@edumazet-laptop>  <4CBF2A3F.2070108@cox.net>	 <1287612353.2545.11.camel@edumazet-laptop>  <4CC1F47C.9020104@cox.net>	 <1287805487.2658.5.camel@edumazet-laptop>	 <1287846669.2658.247.camel@edumazet-laptop>  <4CC30055.5040509@cox.net>	 <1287851745.2658.364.camel@edumazet-laptop>  <4CC6D7CC.5040608@cox.net>	 <1288100208.3169.112.camel@edumazet-laptop>  <4CC6DD69.4020502@cox.net> <1288103614.2622.0.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "mst@redhat.com" <mst@redhat.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eastrmmtao102.cox.net ([68.230.240.8]:51990 "EHLO
+	eastrmmtao102.cox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757081Ab0J0VBl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Oct 2010 17:01:41 -0400
+In-Reply-To: <1288103614.2622.0.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch will change vhost TX used buffer guest signaling from one by
-one to 3/4 ring size. I have tried different size, like 4, 16, 1/4 size,
-1/2 size, and found that the large size is best for message size between
-256 - 4K with netperf TCP_STREAM test, so 3/4 of the ring size is picked
-up for signaling. 
+Eric, tests with your fixes and with the smp barrier corrections are
+looking positive.  More testing is needed before a final verdict is in
+however -- the load test crashed after 8 hours due to an application bug
+that we're working on fixing now.
 
-Tested both UDP and TCP performance with guest 2vcpu. The 60 secs
-netperf run shows that guest to host performance for TCP.
+Joe Buehler
 
-TCP_STREAM
-
-Message size	Guest CPU(%)	BW (Mb/s)
-		before:after	before:after
-
-256		57.84:58.42	1678.47:1908.75
-512		68.68:60.21	1844.18:3387.33
-1024		68.01:58.70	1945.14:3384.72
-2048		65.36:54.25	2342.45:3799.31
-4096		63.25:54.62	3307.11:4451.78
-8192		59.57:57.89	6038.64:6694.04
-
-UDP_STREAM
-1024		49.64:26.69	1161.0:1687.6
-2048		49.88:29.25	2326.8:2850.9
-4096		49.59:29.15	3871.1:4880.3
-8192		46.09:32.66	6822.9:7825.1
-16K		42.90:34.96	11347.1:11767.4
-
-For large message size, 60 secs run remains almost the same. I guess the
-signal might not play a big role in large message transmission.
-
-Shirley
