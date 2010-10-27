@@ -1,31 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] be2net: Schedule/Destroy worker thread in
- probe()/remove() rather than open()/close()
-Date: Wed, 27 Oct 2010 11:14:08 -0700 (PDT)
-Message-ID: <20101027.111408.246543108.davem@davemloft.net>
-References: <20101026090102.GA2460@emulex.com>
+Subject: Re: [net-2.6 PATCH 1/1] qlge: bugfix: Restoring the vlan setting.
+Date: Wed, 27 Oct 2010 11:19:23 -0700 (PDT)
+Message-ID: <20101027.111923.28825146.davem@davemloft.net>
+References: <1288191492-1967-1-git-send-email-ron.mercer@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: somnath.kotur@emulex.com
+Cc: netdev@vger.kernel.org, jitendra.kalsaria@qlogic.com,
+	ying.lok@qlogic.com
+To: ron.mercer@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35106
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59677
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754199Ab0J0SNp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Oct 2010 14:13:45 -0400
-In-Reply-To: <20101026090102.GA2460@emulex.com>
+	by vger.kernel.org with ESMTP id S1754199Ab0J0STA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Oct 2010 14:19:00 -0400
+In-Reply-To: <1288191492-1967-1-git-send-email-ron.mercer@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Somnath Kotur <somnath.kotur@emulex.com>
-Date: Tue, 26 Oct 2010 14:31:03 +0530
+From: Ron Mercer <ron.mercer@qlogic.com>
+Date: Wed, 27 Oct 2010 07:58:12 -0700
 
-> When async mcc compls are rcvd on an i/f that is down (and so interrupts are disabled)
-> they just lie unprocessed in the compl queue.The compl queue can eventually get filled
-> up and cause the BE to lock up.The fix is to use be_worker to reap mcc compls when the
-> i/f is down.be_worker is now launched in be_probe() and canceled in be_remove().
-> 
-> Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
+> Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+> Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
 
-Applied.
+Applied, thanks.
