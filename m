@@ -1,11 +1,11 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH net-next-2.6 1/2] be2net: Adding an option to use INTx
  instead of MSI-X
-Date: Wed, 27 Oct 2010 08:45:01 -0700 (PDT)
-Message-ID: <20101027.084501.193727326.davem@davemloft.net>
-References: <20101025223853.GD15074@solarflare.com>
-	<20101025.162535.226782713.davem@davemloft.net>
-	<1288075928.6578.185.camel@concordia>
+Date: Wed, 27 Oct 2010 08:46:04 -0700 (PDT)
+Message-ID: <20101027.084604.226761472.davem@davemloft.net>
+References: <1288075928.6578.185.camel@concordia>
+	<20101026133233.GH15074@solarflare.com>
+	<1288135235.16778.14.camel@concordia>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -13,22 +13,29 @@ Cc: bhutchings@solarflare.com, somnath.kotur@emulex.com,
 	netdev@vger.kernel.org, linux-pci@vger.kernel.org
 To: michael@ellerman.id.au
 Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <1288075928.6578.185.camel@concordia>
+In-Reply-To: <1288135235.16778.14.camel@concordia>
 Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Michael Ellerman <michael@ellerman.id.au>
-Date: Tue, 26 Oct 2010 17:52:08 +1100
+Date: Wed, 27 Oct 2010 10:20:35 +1100
 
-> That horse has really really bolted, it's gawn.
+> On Tue, 2010-10-26 at 14:32 +0100, Ben Hutchings wrote:
+>> Michael Ellerman wrote:
+>> > On Mon, 2010-10-25 at 16:25 -0700, David Miller wrote:
+>> > > From: Ben Hutchings <bhutchings@solarflare.com>
+>> > > Date: Mon, 25 Oct 2010 23:38:53 +0100
 > 
-> I count 26 drivers with "disable MSI/X" parameters. Some even have more
-> than one.
+>> > Ethtool would be nice, but only for network drivers. Is there a generic
+>> > solution, quirks are obviously not keeping people happy.
+>>  
+>> Since this is (normally) a property of the system, pci=nomsi is the
+>> generic solution.
 > 
-> 11 of them are network drivers, 9 scsi, 3 ata.
-> 
-> I agree it's a mess for users, but it's probably preferable to a
-> non-working driver.
+> Sort of, it's a big hammer. Did all these driver writers not know about
+> pci=nomsi or did they prefer to add a parameter to their driver for some
+> reason?
 
-Stupid inappropriate things being in the tree doesn't mean I need
-to accept more of them.
+Every time I've actually done the work to try and track down the
+true issue, it always turned out to be a PCI chipset problem rather
+than a device specific issue.
