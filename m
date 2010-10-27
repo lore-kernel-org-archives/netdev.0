@@ -1,28 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 0/3]qlcnic: bug fixes
-Date: Wed, 27 Oct 2010 12:24:53 -0700 (PDT)
-Message-ID: <20101027.122453.241932171.davem@davemloft.net>
-References: <1288151589-32431-1-git-send-email-amit.salecha@qlogic.com>
+Subject: Re: [Security] TIPC security issues
+Date: Wed, 27 Oct 2010 12:27:57 -0700 (PDT)
+Message-ID: <20101027.122757.98903207.davem@davemloft.net>
+References: <20101027.105047.183059900.davem@davemloft.net>
+	<1288203979.1836.2.camel@dan>
+	<AANLkTikKZdq9u0+Nkd4wtEcAZMT3YCPaXMv6FZaafetc@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
-	anirban.chakraborty@qlogic.com
-To: amit.salecha@qlogic.com
+Cc: drosenberg@vsecurity.com, jon.maloy@ericsson.com,
+	allan.stephens@windriver.com, netdev@vger.kernel.org,
+	security@kernel.org
+To: torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42127
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59202
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755761Ab0J0TYa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Oct 2010 15:24:30 -0400
-In-Reply-To: <1288151589-32431-1-git-send-email-amit.salecha@qlogic.com>
+	by vger.kernel.org with ESMTP id S1753284Ab0J0T1e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Oct 2010 15:27:34 -0400
+In-Reply-To: <AANLkTikKZdq9u0+Nkd4wtEcAZMT3YCPaXMv6FZaafetc@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Date: Tue, 26 Oct 2010 20:53:06 -0700
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Wed, 27 Oct 2010 11:51:19 -0700
 
->   Series v2 of 3 patches for bug fixes. Patches are numbered.
->   Dropping "dma address align check" patch as pci_alloc_consistent is gaurantee to give
->   page align dma address.
+> So doing this in verify_iovec() (and verify_compat_iovec - which I
+> didn't do in my RFC patch) really does fix everything, and means that
+> the individual socket types never have to worry about the subtle cases
+> of overflow in any type.
 
-Applied, thanks.
+I completely agree about capping things in verify_iovec().
+
+And it was completely erroneous of me to change verify_iovec() to
+return 'long' instead of 'int', it should have stayed at 'int' with a
+cap.
+
+Because the protocols don't even have a way to return something larger
+than an 'int' as a return value due to the signature of the recvmsg()
+and sendmsg() socket ops.
