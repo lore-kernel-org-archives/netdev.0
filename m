@@ -1,72 +1,195 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [Bugme-new] [Bug 20772] New: ip= nfsaddrs= stopped working
-Date: Thu, 28 Oct 2010 07:31:32 +0900
-Message-ID: <20101027223103.GA10484@verge.net.au>
-References: <bug-20772-10286@https.bugzilla.kernel.org/>
- <20101019120938.93622e82.akpm@linux-foundation.org>
+From: "Joseph Chang" <joseph_chang@mail.davicom.com.tw>
+Subject: RE: About the Davicom PHY in drivers/net/phy in Linux kernel
+Date: Thu, 28 Oct 2010 15:59:55 +0800
+Message-ID: <20101028075051.53C8E5F947@mail.davicom.com.tw>
+References: <50FD90C65C53FB45BADEEBCD84FF07F2029CB176@ATCPCS06.andestech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, mpetersen@peak6.com
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <afleming@freescale.com>, <jeff@garzik.org>,
+	<f.rodo@til-technologies.fr>
+To: <macpaul@andestech.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:58435 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932356Ab0J1Heg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 03:34:36 -0400
-Content-Disposition: inline
-In-Reply-To: <20101019120938.93622e82.akpm@linux-foundation.org>
+Received: from davicom.com.tw ([202.39.11.22]:38517 "EHLO mail.davicom.com.tw"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933149Ab0J1ITl convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 04:19:41 -0400
+In-Reply-To: <50FD90C65C53FB45BADEEBCD84FF07F2029CB176@ATCPCS06.andestech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 19, 2010 at 12:09:38PM -0700, Andrew Morton wrote:
-> 
-> (switched to email.  Please respond via emailed reply-to-all, not via the
-> bugzilla web interface).
-> 
-> On Tue, 19 Oct 2010 18:20:15 GMT
-> bugzilla-daemon@bugzilla.kernel.org wrote:
-> 
-> > https://bugzilla.kernel.org/show_bug.cgi?id=20772
-> > 
-> >            Summary: ip= nfsaddrs= stopped working
-> >            Product: Networking
-> >            Version: 2.5
-> >     Kernel Version: 2.6.33, 2.6.32, 2.6.26
-> >           Platform: All
-> >         OS/Version: Linux
-> >               Tree: Mainline
-> >             Status: NEW
-> >           Severity: high
-> >           Priority: P1
-> >          Component: IPV4
-> >         AssignedTo: shemminger@linux-foundation.org
-> >         ReportedBy: mpetersen@peak6.com
-> >         Regression: Yes
-> > 
-> > 
-> > I can no longer set a static IP address using either ip= or nfsaddr=,
-> > ie ip=192.168.0.42:192.168.0.69:255.255.255.0:testhost:eth0:none has no
-> > effect, and DHCP is still attempted.
-> > 
-> > Even if I undefine IP_PNP_DHCP IP_PNP_BOOTP and IP_PNP_RARP in the
-> > config (but leave IP_PNP,) the kernel seems to ignore the static IP
-> > settings and try to get a an IP address with DHCP somehow.
+Dear Mac Paul,
 
-Hi,
+=46or you are using DAVICOM PHY in this case.
 
-I believe that the problem is that there is a minor syntax error in the
-configuration parameter. Specifically there should be two colons between
-192.168.0.69 and 255.255.255.0 or between 192.168.0.42 and 192.168.0.69.
+Our suggestion, please check below red comment text:
 
-As it stands the settings are:
+ * =3D=3D > Would you tell us your:
+=EF=83=98	CPU =3D ?
+=EF=83=98	Linux Kernel version=3D ?
+      I will like to download the same source code from LXR.
+      And can check more detail for you.=20
 
-	my address	192.168.0.42
-	server address	192.168.0.69
-	gateway		255.255.255.0
-	netmask		testhost
-	hostname	eth0
-	interface	none
++static int dm9161_config_aneg(struct phy_device *phydev) {
++	int err;
++
++	/* Isolate the PHY */
+     err =3D 0;
++	//err =3D phy_write(phydev, MII_BMCR, BMCR_ISOLATE);
++
++	if (err < 0)
++		return err;
++
++	/* Configure the new settings */
++	err =3D genphy_config_aneg(phydev);
+    err =3D phy_write(phydev, MII_BMCR, BMCR_ANENABLE | 0x200 );
++
++	if (err < 0)
++		return err;
++
++	return 0;
++}
++
++static int dm9161_config_init(struct phy_device *phydev) {
++	int err;
++
++	/* Isolate the PHY */
+     err =3D 0;
++	//err =3D phy_write(phydev, MII_BMCR, BMCR_ISOLATE);
++
++	if (err < 0)
++		return err;
++
++	/* Do not bypass the scrambler/descrambler */
++	err =3D phy_write(phydev, MII_DM9161_SCR, MII_DM9161_SCR_INIT);
++
++	if (err < 0)
++		return err;
++
++	/* Clear 10BTCSR to default */
++	err =3D phy_write(phydev, MII_DM9161_10BTCSR, MII_DM9161_10BTCSR_INIT=
+);
++
++	if (err < 0)
++		return err;
++
++	/* Reconnect the PHY, and enable Autonegotiation */
++	err =3D phy_write(phydev, MII_BMCR, BMCR_ANENABLE | 0x200 );
++
++	if (err < 0)
++		return err;
++
++	return 0;
 
-I believe it is the interface=none that is killing any IP configuration
-by the kernel as no such interface exists.
+Best Regards,
+Joseph CHANG=20
+System Application Engineering Division=20
+Davicom Semiconductor, Inc.=20
+No. 6 Li-Hsin Rd. VI, Science-Based Park,=20
+Hsin-Chu, Taiwan.=20
+Tel: 886-3-5798797 Ex 8534
+=46ax: 886-3-5646929=20
+Web: http://www.davicom.com.tw=20
+
+
+-----Original Message-----
+=46rom: macpaul@andestech.com [mailto:macpaul@andestech.com]=20
+Sent: Thursday, October 28, 2010 2:34 PM
+To: netdev@vger.kernel.org
+Cc: afleming@freescale.com; jeff@garzik.org; f.rodo@til-technologies.fr=
+; joseph_chang@mail.davicom.com.tw
+Subject: About the Davicom PHY in drivers/net/phy in Linux kernel
+
+Hi all,
+
+According to the source code of Davicom PHY in Linux,
+We should do "ISOLATE" command to PHY before setting "auto negotiation"=
+ or "MII/RMII".
+
+However, I've found that with Faraday's MAC/GMAC controller (ftmac100/f=
+tgmac100), setting ISOLATE for multiple PHY configuration will lead MDC=
+ become stop because the flaw inside the MAC controller. Faraday's MAC/=
+GMAC will leverage the TX_CLK as the MDC source. When FTMAC100 send "IS=
+OLATE" to Davicom's PHY, the TX_CLK send out from PHY will be stopped, =
+then MDC will also become stop.
+
+However, this mail wasn't meant to discuss about the design flaw inside=
+ the IC.
+
+We've done two test to the following codes.
+
+1st: if we just skip the " BMCR_ISOLATE" setting command, we will get P=
+HY sometimes become unstable, for example, could not do DHCP request su=
+ccessfully.
+
+2nd: if we replace "BMCR_ISOLATE" to "BMCR_RESET", we could get rid of =
+the problem occurred by Faraday GMAC. And the PHY works well still.
+
+I've found that in some other PHY implementation, for example, in "marv=
+ell.c", there are seems no ISOLATE commands. There are only RESET comma=
+nds.
+If we could replace BMCR_ISOLATE to BMCR_RESET in current kernel source=
+, will there be any unpredictable behavior happened?
+
+Please give us suggestion according to your experiences.
+Thanks a lot.
+
++static int dm9161_config_aneg(struct phy_device *phydev)
++{
++	int err;
++
++	/* Isolate the PHY */
++	err =3D phy_write(phydev, MII_BMCR, BMCR_ISOLATE);
++
++	if (err < 0)
++		return err;
++
++	/* Configure the new settings */
++	err =3D genphy_config_aneg(phydev);
++
++	if (err < 0)
++		return err;
++
++	return 0;
++}
++
++static int dm9161_config_init(struct phy_device *phydev)
++{
++	int err;
++
++	/* Isolate the PHY */
++	err =3D phy_write(phydev, MII_BMCR, BMCR_ISOLATE);
++
++	if (err < 0)
++		return err;
++
++	/* Do not bypass the scrambler/descrambler */
++	err =3D phy_write(phydev, MII_DM9161_SCR, MII_DM9161_SCR_INIT);
++
++	if (err < 0)
++		return err;
++
++	/* Clear 10BTCSR to default */
++	err =3D phy_write(phydev, MII_DM9161_10BTCSR, MII_DM9161_10BTCSR_INIT=
+);
++
++	if (err < 0)
++		return err;
++
++	/* Reconnect the PHY, and enable Autonegotiation */
++	err =3D phy_write(phydev, MII_BMCR, BMCR_ANENABLE);
++
++	if (err < 0)
++		return err;
++
++	return 0;
+
+Best regards,
+Macpaul Lin
+
+--=20
+This message has been scanned for viruses and
+dangerous content by MailScanner, and is
+believed to be clean.
+
+
