@@ -1,183 +1,765 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: cxgb3: kernel access of bad area with v2.6.36-6794-g12ba8d1
-Date: Thu, 28 Oct 2010 05:29:23 +0200
-Message-ID: <1288236563.2658.59.camel@edumazet-laptop>
-References: <20101028015407.GA9564@us.ibm.com>
+From: alex@wigen.net
+Subject: [PATCH] via-velocity: Codestyle fixes
+Date: Thu, 28 Oct 2010 13:48:04 +1000
+Message-ID: <1288237684-30783-1-git-send-email-alex@wigen.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Divy Le Ray <divy@chelsio.com>, sonnyrao@us.ibm.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Nishanth Aravamudan <nacc@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:46765 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932714Ab0J1D33 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Oct 2010 23:29:29 -0400
-In-Reply-To: <20101028015407.GA9564@us.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, alex@wigen.net
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mercredi 27 octobre 2010 =C3=A0 18:54 -0700, Nishanth Aravamudan a =C3=
-=A9crit :
-> Hi,
->=20
-> I'm seeing the following trace w/ current git on a machine in our lab=
-:
->=20
-> Chelsio T3 Network Driver - version 1.1.4-ko
-> cxgb3 0003:01:00.0: enabling device (0140 -> 0142)
-> Unable to handle kernel paging request for data at address 0x00000010
-> Faulting instruction address: 0xd000000008473ae8
-> Oops: Kernel access of bad area, sig: 11 [#1]
-> SMP NR_CPUS=3D32 NUMA pSeries
-> last sysfs file: /sys/devices/virtual/block/dm-0/dev
-> Modules linked in: cxgb3(+) mdio ehea ib_ehca ib_core ext4 jbd2 mbcac=
-he sd_mod crc_t10dif ipr dm_mod [last unloaded: scsi_wait_scan]
-> NIP: d000000008473ae8 LR: d000000008473ac4 CTR: c0000000004398a0
-> REGS: c0000007a157f190 TRAP: 0300   Not tainted  (2.6.36)
-> MSR: 8000000000009032 <EE,ME,IR,DR>  CR: 24424444  XER: 00000000
-> DAR: 0000000000000010, DSISR: 0000000040000000
-> TASK =3D c0000007a3755290[741] 'modprobe' THREAD: c0000007a157c000 CP=
-U: 24
-> GPR00: 0000000000000000 c0000007a157f410 d000000008486978 c0000007a52=
-6c000=20
-> GPR04: c0000000006d25dd c0000007a526c005 c0000007a526c29e 00000000000=
-00002=20
-> GPR08: 0000000000000004 0000000000000010 c0000007a526c0a0 00000000000=
-00000=20
-> GPR12: d000000008474aa8 c00000000eed3c00 d00000000847aeb8 00000000000=
-00001=20
-> GPR16: 0000000000001000 0000000000000000 d000000008477aa8 00003c047ef=
-7e000=20
-> GPR20: c0000007a8b7d280 c0000007a8b7d310 d00000000847d1c0 d0000000084=
-7d1d8=20
-> GPR24: 0000000000000003 00003c047ef7efff 0000000000000001 c0000007a3c=
-1c000=20
-> GPR28: 0000000000000000 c0000007a526c000 d000000008484210 c0000007a3c=
-1c000=20
-> NIP [d000000008473ae8] .init_one+0x510/0xb7c [cxgb3]
-> LR [d000000008473ac4] .init_one+0x4ec/0xb7c [cxgb3]
-> Call Trace:
-> [c0000007a157f410] [d000000008473ac4] .init_one+0x4ec/0xb7c [cxgb3] (=
-unreliable)
-> [c0000007a157f560] [c0000000002e40bc] .local_pci_probe+0x7c/0x100
-> [c0000007a157f5f0] [c0000000002e5018] .pci_device_probe+0x148/0x150
-> [c0000007a157f6a0] [c00000000034df68] .driver_probe_device+0x128/0x33=
-0
-> [c0000007a157f750] [c00000000034e27c] .__driver_attach+0x10c/0x110
-> [c0000007a157f7e0] [c00000000034d15c] .bus_for_each_dev+0x9c/0xf0
-> [c0000007a157f890] [c00000000034dbc8] .driver_attach+0x28/0x40
-> [c0000007a157f910] [c00000000034c648] .bus_add_driver+0x218/0x3d0
-> [c0000007a157f9c0] [c00000000034e718] .driver_register+0x98/0x1d0
-> [c0000007a157fa60] [c0000000002e5354] .__pci_register_driver+0x64/0x1=
-40
-> [c0000007a157fb00] [d000000008474278] .cxgb3_init_module+0x2c/0x44 [c=
-xgb3]
-> [c0000007a157fb80] [c000000000009754] .do_one_initcall+0x64/0x1e0
-> [c0000007a157fc40] [c0000000000d28b8] .SyS_init_module+0x1b8/0x1790
-> [c0000007a157fe30] [c000000000008564] syscall_exit+0x0/0x40
-> Instruction dump:
-> 9b890018 9b090019 48000fe9 e8410028 801d0308 2f800000 419e003c 396000=
-00=20
-> e93d0300 796045e4 7d290214 39290010 <7c0048a8> 7c00d378 7c0049ad 40a2=
-fff4=20
-> ---[ end trace 2a530df8c4ad3d70 ]---
-> udevd-work[600]: '/sbin/modprobe -b pci:v00001425d00000030sv00001014s=
-d0000038Cbc02sc00i00' unexpected exit with status 0x000b
->=20
-> I did an objdump -ldr of cxgb3.ko and:
->=20
->=20
->  4c0:   48 00 00 01     bl      4c0 <.init_one+0x4c0>
->                         4c0: R_PPC64_REL24      .alloc_etherdev_mq
->  4c4:   60 00 00 00     nop
->  4c8:   7c 7d 1b 79     mr.     r29,r3
->  4cc:   41 82 03 28     beq-    7f4 <.init_one+0x7f4>
->  4d0:   39 3d 07 00     addi    r9,r29,1792
->  4d4:   fa bd 03 f8     std     r21,1016(r29)
->  4d8:   fb bb 32 08     std     r29,12808(r27)
->  4dc:   fb fd 07 00     std     r31,1792(r29)
->  4e0:   9b 89 00 18     stb     r28,24(r9)
->  4e4:   9b 09 00 19     stb     r24,25(r9)
->  4e8:   48 00 00 01     bl      4e8 <.init_one+0x4e8>
->                         4e8: R_PPC64_REL24      .netif_carrier_off
->  4ec:   60 00 00 00     nop
->  4f0:   80 1d 03 08     lwz     r0,776(r29)
->  4f4:   2f 80 00 00     cmpwi   cr7,r0,0
->  4f8:   41 9e 00 3c     beq-    cr7,534 <.init_one+0x534>
->  4fc:   39 60 00 00     li      r11,0
->  500:   e9 3d 03 00     ld      r9,768(r29)
->  504:   79 60 45 e4     rldicr  r0,r11,8,55
->  508:   7d 29 02 14     add     r9,r9,r0
->  50c:   39 29 00 10     addi    r9,r9,16
->  510:   7c 00 48 a8     ldarx   r0,0,r9
->  514:   7c 00 d3 78     or      r0,r0,r26
->  518:   7c 00 49 ad     stdcx.  r0,0,r9
->  51c:   40 a2 ff f4     bne-    510 <.init_one+0x510>
->=20
-> So I'm guessing it's somewhere in here:
->=20
->         for (i =3D 0; i < ai->nports0 + ai->nports1; ++i) {
->                 struct net_device *netdev;
->=20
->                 netdev =3D alloc_etherdev_mq(sizeof(struct port_info)=
-, SGE_QSETS);
->                 if (!netdev) {
->                         err =3D -ENOMEM;
->                         goto out_free_dev;
->                 }
->=20
->                 SET_NETDEV_DEV(netdev, &pdev->dev);
->=20
->                 adapter->port[i] =3D netdev;
->                 pi =3D netdev_priv(netdev);
->                 pi->adapter =3D adapter;
->                 pi->rx_offload =3D T3_RX_CSUM | T3_LRO;
->                 pi->port_id =3D i;
->                 netif_carrier_off(netdev);
->                 netif_tx_stop_all_queues(netdev);
->                 netdev->irq =3D pdev->irq;
->                 netdev->mem_start =3D mmio_start;
->                 netdev->mem_end =3D mmio_start + mmio_len - 1;
->                 netdev->features |=3D NETIF_F_SG | NETIF_F_IP_CSUM | =
-NETIF_F_TSO;
->                 netdev->features |=3D NETIF_F_GRO;
->                 if (pci_using_dac)
->                         netdev->features |=3D NETIF_F_HIGHDMA;
->=20
->                 netdev->features |=3D NETIF_F_HW_VLAN_TX | NETIF_F_HW=
-_VLAN_RX;
->                 netdev->netdev_ops =3D &cxgb_netdev_ops;
->                 SET_ETHTOOL_OPS(netdev, &cxgb_ethtool_ops);
->         }
->=20
-> Well, presuming the trace is mostly accurate?  I'm not sure what else=
- is
-> needed to determine the problem further. I'm building 2.6.36 as I wri=
-te
-> this.  But it doesn't seem like this code has changed much and I had =
-a
-> working kernel around 2.6.36-rc7...
->=20
+From: Alexander Wigen <alex@wigen.net>
 
-It seems this crash is because  alloc_etherdev_mq() (alloc_netdev_mq())
-not anymore allocates tx_queues.
+checkpatch.pl --terse --file drivers/net/via-velocity.c
+Before: total: 13 errors, 106 warnings, 3537 lines checked
+After: total: 0 errors, 96 warnings, 3536 lines checked
 
+Signed-off-by: Alexander Wigen <alex@wigen.net>
+---
+ drivers/net/via-velocity.c |  187 ++++++++++++++++++++++----------------------
+ 1 files changed, 93 insertions(+), 94 deletions(-)
 
-So netif_tx_stop_all_queues(netdev) is crashing, accessing a NULL
-pointer in your driver.
-
-netif_tx_stop_all_queues(netdev) should be called only once device is
-registered : netif_alloc_netdev_queues() is called from
-register_netdevice()
-
-Take a look at commit 8f6d9f40476895571 to have an example of how to fi=
-x
-this problem.
-
-Thanks
-
-
-
-
+diff --git a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
+index cab96ad..05c2e1e 100644
+--- a/drivers/net/via-velocity.c
++++ b/drivers/net/via-velocity.c
+@@ -84,7 +84,7 @@ static int velocity_nics;
+ static int msglevel = MSG_LEVEL_INFO;
+ 
+ /**
+- *	mac_get_cam_mask	-	Read a CAM mask
++ *	mac_get_cam_mask - Read a CAM mask
+  *	@regs: register block for this velocity
+  *	@mask: buffer to store mask
+  *
+@@ -113,7 +113,7 @@ static void mac_get_cam_mask(struct mac_regs __iomem *regs, u8 *mask)
+ 
+ 
+ /**
+- *	mac_set_cam_mask	-	Set a CAM mask
++ *	mac_set_cam_mask - Set a CAM mask
+  *	@regs: register block for this velocity
+  *	@mask: CAM mask to load
+  *
+@@ -156,7 +156,7 @@ static void mac_set_vlan_cam_mask(struct mac_regs __iomem *regs, u8 *mask)
+ }
+ 
+ /**
+- *	mac_set_cam	-	set CAM data
++ *	mac_set_cam - set CAM data
+  *	@regs: register block of this velocity
+  *	@idx: Cam index
+  *	@addr: 2 or 6 bytes of CAM data
+@@ -211,11 +211,11 @@ static void mac_set_vlan_cam(struct mac_regs __iomem *regs, int idx,
+ 
+ 
+ /**
+- *	mac_wol_reset	-	reset WOL after exiting low power
++ *	mac_wol_reset - reset WOL after exiting low power
+  *	@regs: register block of this velocity
+  *
+  *	Called after we drop out of wake on lan mode in order to
+- *	reset the Wake on lan features. This function doesn't restore
++ *	reset the Wake On Lan features. This function doesn't restore
+  *	the rest of the logic from the result of sleep/wakeup
+  */
+ static void mac_wol_reset(struct mac_regs __iomem *regs)
+@@ -342,7 +342,7 @@ VELOCITY_PARAM(ValPktLen, "Receiving or Drop invalid 802.3 frame");
+    1: Wake up if link status is on/off.
+    2: Wake up if recevied an arp packet.
+    4: Wake up if recevied any unicast packet.
+-   Those value can be sumed up to support more than one option.
++   Those value can be summed up to support more than one option.
+ */
+ VELOCITY_PARAM(wol_opts, "Wake On Lan options");
+ 
+@@ -370,7 +370,7 @@ static DEFINE_PCI_DEVICE_TABLE(velocity_id_table) = {
+ MODULE_DEVICE_TABLE(pci, velocity_id_table);
+ 
+ /**
+- *	get_chip_name	- 	identifier to name
++ *	get_chip_name - identifier to name
+  *	@id: chip identifier
+  *
+  *	Given a chip identifier return a suitable description. Returns
+@@ -386,7 +386,7 @@ static const char __devinit *get_chip_name(enum chip_type chip_id)
+ }
+ 
+ /**
+- *	velocity_remove1	-	device unplug
++ *	velocity_remove1 - device unplug
+  *	@pdev: PCI device being removed
+  *
+  *	Device unload callback. Called on an unplug or on module
+@@ -409,7 +409,7 @@ static void __devexit velocity_remove1(struct pci_dev *pdev)
+ }
+ 
+ /**
+- *	velocity_set_int_opt	-	parser for integer options
++ *	velocity_set_int_opt - parser for integer options
+  *	@opt: pointer to option value
+  *	@val: value the user requested (or -1 for default)
+  *	@min: lowest value allowed
+@@ -438,7 +438,7 @@ static void __devinit velocity_set_int_opt(int *opt, int val, int min, int max,
+ }
+ 
+ /**
+- *	velocity_set_bool_opt	-	parser for boolean options
++ *	velocity_set_bool_opt - parser for boolean options
+  *	@opt: pointer to option value
+  *	@val: value the user requested (or -1 for default)
+  *	@def: default value (yes/no)
+@@ -467,7 +467,7 @@ static void __devinit velocity_set_bool_opt(u32 *opt, int val, int def, u32 flag
+ }
+ 
+ /**
+- *	velocity_get_options	-	set options on device
++ *	velocity_get_options - set options on device
+  *	@opts: option structure for the device
+  *	@index: index of option to use in module options array
+  *	@devname: device name
+@@ -492,7 +492,7 @@ static void __devinit velocity_get_options(struct velocity_opt *opts, int index,
+ }
+ 
+ /**
+- *	velocity_init_cam_filter	-	initialise CAM
++ *	velocity_init_cam_filter - initialize CAM
+  *	@vptr: velocity to program
+  *
+  *	Initialize the content addressable memory used for filters. Load
+@@ -507,8 +507,8 @@ static void velocity_init_cam_filter(struct velocity_info *vptr)
+ 	WORD_REG_BITS_ON(MCFG_VIDFR, &regs->MCFG);
+ 
+ 	/* Disable all CAMs */
+-	memset(vptr->vCAMmask, 0, sizeof(u8) * 8);
+-	memset(vptr->mCAMmask, 0, sizeof(u8) * 8);
++	memset(vptr->vCAMmask, 0, sizeof(u8) *8);
++	memset(vptr->mCAMmask, 0, sizeof(u8) *8);
+ 	mac_set_vlan_cam_mask(regs, vptr->vCAMmask);
+ 	mac_set_cam_mask(regs, vptr->mCAMmask);
+ 
+@@ -564,7 +564,7 @@ static void velocity_init_rx_ring_indexes(struct velocity_info *vptr)
+ }
+ 
+ /**
+- *	velocity_rx_reset	-	handle a receive reset
++ *	velocity_rx_reset - handle a receive reset
+  *	@vptr: velocity we are resetting
+  *
+  *	Reset the ownership and status for the receive ring side.
+@@ -591,7 +591,7 @@ static void velocity_rx_reset(struct velocity_info *vptr)
+ }
+ 
+ /**
+- *	velocity_get_opt_media_mode	-	get media selection
++ *	velocity_get_opt_media_mode - get media selection
+  *	@vptr: velocity adapter
+  *
+  *	Get the media mode stored in EEPROM or module options and load
+@@ -627,7 +627,7 @@ static u32 velocity_get_opt_media_mode(struct velocity_info *vptr)
+ }
+ 
+ /**
+- *	safe_disable_mii_autopoll	-	autopoll off
++ *	safe_disable_mii_autopoll - autopoll off
+  *	@regs: velocity registers
+  *
+  *	Turn off the autopoll and wait for it to disable on the chip
+@@ -646,7 +646,7 @@ static void safe_disable_mii_autopoll(struct mac_regs __iomem *regs)
+ }
+ 
+ /**
+- *	enable_mii_autopoll	-	turn on autopolling
++ *	enable_mii_autopoll - turn on autopolling
+  *	@regs: velocity registers
+  *
+  *	Enable the MII link status autopoll feature on the Velocity
+@@ -676,7 +676,7 @@ static void enable_mii_autopoll(struct mac_regs __iomem *regs)
+ }
+ 
+ /**
+- *	velocity_mii_read	-	read MII data
++ *	velocity_mii_read - read MII data
+  *	@regs: velocity registers
+  *	@index: MII register index
+  *	@data: buffer for received data
+@@ -712,7 +712,7 @@ static int velocity_mii_read(struct mac_regs __iomem *regs, u8 index, u16 *data)
+ 
+ 
+ /**
+- *	mii_check_media_mode	-	check media state
++ *	mii_check_media_mode - check media state
+  *	@regs: velocity registers
+  *
+  *	Check the current MII status and determine the link status
+@@ -755,7 +755,7 @@ static u32 mii_check_media_mode(struct mac_regs __iomem *regs)
+ }
+ 
+ /**
+- *	velocity_mii_write	-	write MII data
++ *	velocity_mii_write - write MII data
+  *	@regs: velocity registers
+  *	@index: MII register index
+  *	@data: 16bit data for the MII register
+@@ -794,7 +794,7 @@ static int velocity_mii_write(struct mac_regs __iomem *regs, u8 mii_addr, u16 da
+ }
+ 
+ /**
+- *	set_mii_flow_control	-	flow control setup
++ *	set_mii_flow_control - flow control setup
+  *	@vptr: velocity interface
+  *
+  *	Set up the flow control on this interface according to
+@@ -829,10 +829,10 @@ static void set_mii_flow_control(struct velocity_info *vptr)
+ }
+ 
+ /**
+- *	mii_set_auto_on		-	autonegotiate on
++ *	mii_set_auto_on - autonegotiate on
+  *	@vptr: velocity
+  *
+- *	Enable autonegotation on this interface
++ *	Enable autonegotiation on this interface
+  */
+ static void mii_set_auto_on(struct velocity_info *vptr)
+ {
+@@ -879,7 +879,7 @@ static u32 check_connection_type(struct mac_regs __iomem *regs)
+ 
+ 
+ /**
+- *	velocity_set_media_mode		-	set media mode
++ *	velocity_set_media_mode - set media mode
+  *	@mii_status: old MII link state
+  *
+  *	Check the media link state and configure the flow control
+@@ -999,7 +999,7 @@ static int velocity_set_media_mode(struct velocity_info *vptr, u32 mii_status)
+ }
+ 
+ /**
+- *	velocity_print_link_status	-	link status reporting
++ *	velocity_print_link_status - link status reporting
+  *	@vptr: velocity to report on
+  *
+  *	Turn the link status of the velocity card into a kernel log
+@@ -1050,7 +1050,7 @@ static void velocity_print_link_status(struct velocity_info *vptr)
+ }
+ 
+ /**
+- *	enable_flow_control_ability	-	flow control
++ *	enable_flow_control_ability - flow control
+  *	@vptr: veloity to configure
+  *
+  *	Set up flow control according to the flow control options
+@@ -1102,7 +1102,7 @@ static void enable_flow_control_ability(struct velocity_info *vptr)
+ }
+ 
+ /**
+- *	velocity_soft_reset	-	soft reset
++ *	velocity_soft_reset - soft reset
+  *	@vptr: velocity to reset
+  *
+  *	Kick off a soft reset of the velocity adapter and then poll
+@@ -1131,7 +1131,7 @@ static int velocity_soft_reset(struct velocity_info *vptr)
+ }
+ 
+ /**
+- *	velocity_set_multi	-	filter list change callback
++ *	velocity_set_multi - filter list change callback
+  *	@dev: network device
+  *
+  *	Called by the network layer when the filter lists need to change
+@@ -1181,7 +1181,7 @@ static void velocity_set_multi(struct net_device *dev)
+  */
+ 
+ /**
+- *	mii_init	-	set up MII
++ *	mii_init - set up MII
+  *	@vptr: velocity adapter
+  *	@mii_status:  links tatus
+  *
+@@ -1250,7 +1250,7 @@ static void mii_init(struct velocity_info *vptr, u32 mii_status)
+ }
+ 
+ /**
+- * setup_queue_timers	-	Setup interrupt timers
++ * setup_queue_timers - Setup interrupt timers
+  *
+  * Setup interrupt frequency during suppression (timeout if the frame
+  * count isn't filled).
+@@ -1273,7 +1273,7 @@ static void setup_queue_timers(struct velocity_info *vptr)
+ 	}
+ }
+ /**
+- * setup_adaptive_interrupts  -  Setup interrupt suppression
++ * setup_adaptive_interrupts - Setup interrupt suppression
+  *
+  * @vptr velocity adapter
+  *
+@@ -1311,11 +1311,11 @@ static void setup_adaptive_interrupts(struct velocity_info *vptr)
+ }
+ 
+ /**
+- *	velocity_init_registers	-	initialise MAC registers
++ *	velocity_init_registers - initialise MAC registers
+  *	@vptr: velocity to init
+  *	@type: type of initialisation (hot or cold)
+  *
+- *	Initialise the MAC on a reset or on first set up on the
++ *	Initialize the MAC on a reset or on first set up on the
+  *	hardware.
+  */
+ static void velocity_init_registers(struct velocity_info *vptr,
+@@ -1459,7 +1459,7 @@ static void velocity_give_many_rx_descs(struct velocity_info *vptr)
+ }
+ 
+ /**
+- *	velocity_init_dma_rings	-	set up DMA rings
++ *	velocity_init_dma_rings - set up DMA rings
+  *	@vptr: Velocity to set up
+  *
+  *	Allocate PCI mapped DMA rings for the receive and transmit layer
+@@ -1511,7 +1511,7 @@ static void velocity_set_rxbufsize(struct velocity_info *vptr, int mtu)
+ }
+ 
+ /**
+- *	velocity_alloc_rx_buf	-	allocate aligned receive buffer
++ *	velocity_alloc_rx_buf - allocate aligned receive buffer
+  *	@vptr: velocity
+  *	@idx: ring index
+  *
+@@ -1542,7 +1542,7 @@ static int velocity_alloc_rx_buf(struct velocity_info *vptr, int idx)
+ 	 *	Fill in the descriptor to match
+ 	 */
+ 
+-	*((u32 *) & (rd->rdesc0)) = 0;
++	*((u32 *) &(rd->rdesc0)) = 0;
+ 	rd->size = cpu_to_le16(vptr->rx.buf_sz) | RX_INTEN;
+ 	rd->pa_low = cpu_to_le32(rd_info->skb_dma);
+ 	rd->pa_high = 0;
+@@ -1578,7 +1578,7 @@ static int velocity_rx_refill(struct velocity_info *vptr)
+ }
+ 
+ /**
+- *	velocity_free_rd_ring	-	free receive ring
++ *	velocity_free_rd_ring - free receive ring
+  *	@vptr: velocity to clean up
+  *
+  *	Free the receive buffers for each ring slot and any
+@@ -1614,7 +1614,7 @@ static void velocity_free_rd_ring(struct velocity_info *vptr)
+ 
+ 
+ /**
+- *	velocity_init_rd_ring	-	set up receive ring
++ *	velocity_init_rd_ring - set up receive ring
+  *	@vptr: velocity to configure
+  *
+  *	Allocate and set up the receive buffers for each ring slot and
+@@ -1644,7 +1644,7 @@ out:
+ }
+ 
+ /**
+- *	velocity_init_td_ring	-	set up transmit ring
++ *	velocity_init_td_ring - set up transmit ring
+  *	@vptr:	velocity
+  *
+  *	Set up the transmit ring and chain the ring pointers together.
+@@ -1673,7 +1673,7 @@ static int velocity_init_td_ring(struct velocity_info *vptr)
+ }
+ 
+ /**
+- *	velocity_free_dma_rings	-	free PCI ring pointers
++ *	velocity_free_dma_rings - free PCI ring pointers
+  *	@vptr: Velocity to free from
+  *
+  *	Clean up the PCI ring buffers allocated to this velocity.
+@@ -1681,7 +1681,7 @@ static int velocity_init_td_ring(struct velocity_info *vptr)
+ static void velocity_free_dma_rings(struct velocity_info *vptr)
+ {
+ 	const int size = vptr->options.numrx * sizeof(struct rx_desc) +
+-		vptr->options.numtx * sizeof(struct tx_desc) * vptr->tx.numq;
++		vptr->options.numtx * sizeof(struct tx_desc) *vptr->tx.numq;
+ 
+ 	pci_free_consistent(vptr->pdev, size, vptr->rx.ring, vptr->rx.pool_dma);
+ }
+@@ -1715,7 +1715,7 @@ err_free_dma_rings_0:
+ }
+ 
+ /**
+- *	velocity_free_tx_buf	-	free transmit buffer
++ *	velocity_free_tx_buf - free transmit buffer
+  *	@vptr: velocity
+  *	@tdinfo: buffer
+  *
+@@ -1776,7 +1776,7 @@ static void velocity_free_td_ring_entry(struct velocity_info *vptr,
+ }
+ 
+ /**
+- *	velocity_free_td_ring	-	free td ring
++ *	velocity_free_td_ring - free td ring
+  *	@vptr: velocity
+  *
+  *	Free up the transmit ring for this particular velocity adapter.
+@@ -1806,7 +1806,7 @@ static void velocity_free_rings(struct velocity_info *vptr)
+ }
+ 
+ /**
+- *	velocity_error	-	handle error from controller
++ *	velocity_error - handle error from controller
+  *	@vptr: velocity
+  *	@status: card status
+  *
+@@ -1895,7 +1895,7 @@ static void velocity_error(struct velocity_info *vptr, int status)
+ }
+ 
+ /**
+- *	tx_srv		-	transmit interrupt service
++ *	tx_srv - transmit interrupt service
+  *	@vptr; Velocity
+  *
+  *	Scan the queues looking for transmitted packets that
+@@ -1963,7 +1963,7 @@ static int velocity_tx_srv(struct velocity_info *vptr)
+ }
+ 
+ /**
+- *	velocity_rx_csum	-	checksum process
++ *	velocity_rx_csum - checksum process
+  *	@rd: receive packet descriptor
+  *	@skb: network layer packet buffer
+  *
+@@ -1987,14 +1987,14 @@ static inline void velocity_rx_csum(struct rx_desc *rd, struct sk_buff *skb)
+ }
+ 
+ /**
+- *	velocity_rx_copy	-	in place Rx copy for small packets
++ *	velocity_rx_copy - in place Rx copy for small packets
+  *	@rx_skb: network layer packet buffer candidate
+  *	@pkt_size: received data size
+  *	@rd: receive packet descriptor
+  *	@dev: network device
+  *
+  *	Replace the current skb that is scheduled for Rx processing by a
+- *	shorter, immediatly allocated skb, if the received packet is small
++ *	shorter, immediately allocated skb, if the received packet is small
+  *	enough. This function returns a negative value if the received
+  *	packet is too big or if memory is exhausted.
+  */
+@@ -2018,7 +2018,7 @@ static int velocity_rx_copy(struct sk_buff **rx_skb, int pkt_size,
+ }
+ 
+ /**
+- *	velocity_iph_realign	-	IP header alignment
++ *	velocity_iph_realign - IP header alignment
+  *	@vptr: velocity we are handling
+  *	@skb: network layer packet buffer
+  *	@pkt_size: received data size
+@@ -2037,7 +2037,7 @@ static inline void velocity_iph_realign(struct velocity_info *vptr,
+ 
+ 
+ /**
+- *	velocity_receive_frame	-	received packet processor
++ *	velocity_receive_frame - received packet processor
+  *	@vptr: velocity we are handling
+  *	@idx: ring index
+  *
+@@ -2107,7 +2107,7 @@ static int velocity_receive_frame(struct velocity_info *vptr, int idx)
+ 
+ 
+ /**
+- *	velocity_rx_srv		-	service RX interrupt
++ *	velocity_rx_srv - service RX interrupt
+  *	@vptr: velocity
+  *
+  *	Walk the receive ring of the velocity adapter and remove
+@@ -2191,7 +2191,7 @@ static int velocity_poll(struct napi_struct *napi, int budget)
+ }
+ 
+ /**
+- *	velocity_intr		-	interrupt callback
++ *	velocity_intr - interrupt callback
+  *	@irq: interrupt number
+  *	@dev_instance: interrupting device
+  *
+@@ -2232,14 +2232,14 @@ static irqreturn_t velocity_intr(int irq, void *dev_instance)
+ }
+ 
+ /**
+- *	velocity_open		-	interface activation callback
++ *	velocity_open - interface activation callback
+  *	@dev: network layer device to open
+  *
+  *	Called when the network layer brings the interface up. Returns
+  *	a negative posix error code on failure, or zero on success.
+  *
+  *	All the ring allocation and set up is done on open for this
+- *	adapter to minimise memory usage when inactive
++ *	adapter to minimize memory usage when inactive
+  */
+ static int velocity_open(struct net_device *dev)
+ {
+@@ -2275,7 +2275,7 @@ out:
+ }
+ 
+ /**
+- *	velocity_shutdown	-	shut down the chip
++ *	velocity_shutdown - shut down the chip
+  *	@vptr: velocity to deactivate
+  *
+  *	Shuts down the internal operations of the velocity and
+@@ -2293,7 +2293,7 @@ static void velocity_shutdown(struct velocity_info *vptr)
+ }
+ 
+ /**
+- *	velocity_change_mtu	-	MTU change callback
++ *	velocity_change_mtu - MTU change callback
+  *	@dev: network device
+  *	@new_mtu: desired MTU
+  *
+@@ -2374,7 +2374,7 @@ out_0:
+ }
+ 
+ /**
+- *	velocity_mii_ioctl		-	MII ioctl handler
++ *	velocity_mii_ioctl - MII ioctl handler
+  *	@dev: network device
+  *	@ifr: the ifreq block for the ioctl
+  *	@cmd: the command
+@@ -2415,7 +2415,7 @@ static int velocity_mii_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd
+ 
+ 
+ /**
+- *	velocity_ioctl		-	ioctl entry point
++ *	velocity_ioctl - ioctl entry point
+  *	@dev: network device
+  *	@rq: interface request ioctl
+  *	@cmd: command code
+@@ -2452,7 +2452,7 @@ static int velocity_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ }
+ 
+ /**
+- *	velocity_get_status	-	statistics callback
++ *	velocity_get_status - statistics callback
+  *	@dev: network device
+  *
+  *	Callback from the network layer to allow driver statistics
+@@ -2477,24 +2477,24 @@ static struct net_device_stats *velocity_get_stats(struct net_device *dev)
+ 	dev->stats.rx_errors = vptr->mib_counter[HW_MIB_ifRxErrorPkts];
+ 	dev->stats.rx_length_errors = vptr->mib_counter[HW_MIB_ifInRangeLengthErrors];
+ 
+-//  unsigned long   rx_dropped;     /* no space in linux buffers    */
++/*  unsigned long   rx_dropped;     /* no space in linux buffers    */
+ 	dev->stats.collisions = vptr->mib_counter[HW_MIB_ifTxEtherCollisions];
+ 	/* detailed rx_errors: */
+-//  unsigned long   rx_length_errors;
+-//  unsigned long   rx_over_errors;     /* receiver ring buff overflow  */
++/*  unsigned long   rx_length_errors;
++/*  unsigned long   rx_over_errors;     /* receiver ring buff overflow  */
+ 	dev->stats.rx_crc_errors = vptr->mib_counter[HW_MIB_ifRxPktCRCE];
+-//  unsigned long   rx_frame_errors;    /* recv'd frame alignment error */
+-//  unsigned long   rx_fifo_errors;     /* recv'r fifo overrun      */
+-//  unsigned long   rx_missed_errors;   /* receiver missed packet   */
++/*  unsigned long   rx_frame_errors;    /* recv'd frame alignment error */
++/*  unsigned long   rx_fifo_errors;     /* recv'r fifo overrun      */
++/*  unsigned long   rx_missed_errors;   /* receiver missed packet   */
+ 
+ 	/* detailed tx_errors */
+-//  unsigned long   tx_fifo_errors;
++/*  unsigned long   tx_fifo_errors;
+ 
+ 	return &dev->stats;
+ }
+ 
+ /**
+- *	velocity_close		-	close adapter callback
++ *	velocity_close - close adapter callback
+  *	@dev: network device
+  *
+  *	Callback from the network layer when the velocity is being
+@@ -2523,11 +2523,11 @@ static int velocity_close(struct net_device *dev)
+ }
+ 
+ /**
+- *	velocity_xmit		-	transmit packet callback
++ *	velocity_xmit - transmit packet callback
+  *	@skb: buffer to transmit
+  *	@dev: network device
+  *
+- *	Called by the networ layer to request a packet is queued to
++ *	Called by the network layer to request a packet is queued to
+  *	the velocity. Returns zero on success.
+  */
+ static netdev_tx_t velocity_xmit(struct sk_buff *skb,
+@@ -2636,7 +2636,7 @@ static const struct net_device_ops velocity_netdev_ops = {
+ 	.ndo_start_xmit		= velocity_xmit,
+ 	.ndo_get_stats		= velocity_get_stats,
+ 	.ndo_validate_addr	= eth_validate_addr,
+-	.ndo_set_mac_address 	= eth_mac_addr,
++	.ndo_set_mac_address	= eth_mac_addr,
+ 	.ndo_set_multicast_list	= velocity_set_multi,
+ 	.ndo_change_mtu		= velocity_change_mtu,
+ 	.ndo_do_ioctl		= velocity_ioctl,
+@@ -2646,7 +2646,7 @@ static const struct net_device_ops velocity_netdev_ops = {
+ };
+ 
+ /**
+- *	velocity_init_info	-	init private data
++ *	velocity_init_info - init private data
+  *	@pdev: PCI device
+  *	@vptr: Velocity info
+  *	@info: Board type
+@@ -2668,7 +2668,7 @@ static void __devinit velocity_init_info(struct pci_dev *pdev,
+ }
+ 
+ /**
+- *	velocity_get_pci_info	-	retrieve PCI info for device
++ *	velocity_get_pci_info - retrieve PCI info for device
+  *	@vptr: velocity device
+  *	@pdev: PCI device it matches
+  *
+@@ -2706,7 +2706,7 @@ static int __devinit velocity_get_pci_info(struct velocity_info *vptr, struct pc
+ }
+ 
+ /**
+- *	velocity_print_info	-	per driver data
++ *	velocity_print_info - per driver data
+  *	@vptr: velocity
+  *
+  *	Print per driver data as the kernel driver finds Velocity
+@@ -2730,7 +2730,7 @@ static u32 velocity_get_link(struct net_device *dev)
+ 
+ 
+ /**
+- *	velocity_found1		-	set up discovered velocity card
++ *	velocity_found1 - set up discovered velocity card
+  *	@pdev: PCI device
+  *	@ent: PCI device table entry that matched
+  *
+@@ -2877,7 +2877,7 @@ err_free_dev:
+ 
+ #ifdef CONFIG_PM
+ /**
+- *	wol_calc_crc		-	WOL CRC
++ *	wol_calc_crc - WOL CRC
+  *	@pattern: data pattern
+  *	@mask_pattern: mask
+  *
+@@ -2912,7 +2912,7 @@ static u16 wol_calc_crc(int size, u8 *pattern, u8 *mask_pattern)
+ }
+ 
+ /**
+- *	velocity_set_wol	-	set up for wake on lan
++ *	velocity_set_wol - set up for wake on lan
+  *	@vptr: velocity to set WOL status on
+  *
+  *	Set a card up for wake on lan either by unicast or by
+@@ -2957,7 +2957,7 @@ static int velocity_set_wol(struct velocity_info *vptr)
+ 		memcpy(arp->ar_tip, vptr->ip_addr, 4);
+ 
+ 		crc = wol_calc_crc((sizeof(struct arp_packet) + 7) / 8, buf,
+-				(u8 *) & mask_pattern[0][0]);
++				(u8 *) &mask_pattern[0][0]);
+ 
+ 		writew(crc, &regs->PatternCRC[0]);
+ 		writew(WOLCR_ARP_EN, &regs->WOLCRSet);
+@@ -2997,7 +2997,7 @@ static int velocity_set_wol(struct velocity_info *vptr)
+ }
+ 
+ /**
+- *	velocity_save_context	-	save registers
++ *	velocity_save_context - save registers
+  *	@vptr: velocity
+  *	@context: buffer for stored context
+  *
+@@ -3058,7 +3058,7 @@ static int velocity_suspend(struct pci_dev *pdev, pm_message_t state)
+ }
+ 
+ /**
+- *	velocity_restore_context	-	restore registers
++ *	velocity_restore_context - restore registers
+  *	@vptr: velocity
+  *	@context: buffer for stored context
+  *
+@@ -3133,19 +3133,19 @@ static int velocity_resume(struct pci_dev *pdev)
+  *	uses this to handle all our card discover and plugging
+  */
+ static struct pci_driver velocity_driver = {
+-      .name	= VELOCITY_NAME,
+-      .id_table	= velocity_id_table,
+-      .probe	= velocity_found1,
+-      .remove	= __devexit_p(velocity_remove1),
++	.name	= VELOCITY_NAME,
++	.id_table	= velocity_id_table,
++	.probe	= velocity_found1,
++	.remove	= __devexit_p(velocity_remove1),
+ #ifdef CONFIG_PM
+-      .suspend	= velocity_suspend,
+-      .resume	= velocity_resume,
++	.suspend	= velocity_suspend,
++	.resume	= velocity_resume,
+ #endif
+ };
+ 
+ 
+ /**
+- *	velocity_ethtool_up	-	pre hook for ethtool
++ *	velocity_ethtool_up - pre hook for ethtool
+  *	@dev: network device
+  *
+  *	Called before an ethtool operation. We need to make sure the
+@@ -3160,7 +3160,7 @@ static int velocity_ethtool_up(struct net_device *dev)
+ }
+ 
+ /**
+- *	velocity_ethtool_down	-	post hook for ethtool
++ *	velocity_ethtool_down - post hook for ethtool
+  *	@dev: network device
+  *
+  *	Called after an ethtool operation. Restore the chip back to D3
+@@ -3352,8 +3352,7 @@ static int get_pending_timer_val(int val)
+ 	int mult_bits = val >> 6;
+ 	int mult = 1;
+ 
+-	switch (mult_bits)
+-	{
++	switch (mult_bits) {
+ 	case 1:
+ 		mult = 4; break;
+ 	case 2:
+@@ -3454,7 +3453,7 @@ static const struct ethtool_ops velocity_ethtool_ops = {
+ 	.set_wol	=	velocity_ethtool_set_wol,
+ 	.get_msglevel	=	velocity_get_msglevel,
+ 	.set_msglevel	=	velocity_set_msglevel,
+-	.set_sg 	=	ethtool_op_set_sg,
++	.set_sg	=	ethtool_op_set_sg,
+ 	.get_link	=	velocity_get_link,
+ 	.get_coalesce	=	velocity_get_coalesce,
+ 	.set_coalesce	=	velocity_set_coalesce,
+@@ -3480,7 +3479,7 @@ static int velocity_netdev_event(struct notifier_block *nb, unsigned long notifi
+ 
+ #if defined(CONFIG_PM) && defined(CONFIG_INET)
+ static struct notifier_block velocity_inetaddr_notifier = {
+-      .notifier_call	= velocity_netdev_event,
++	.notifier_call	= velocity_netdev_event,
+ };
+ 
+ static void velocity_register_notifier(void)
+@@ -3501,7 +3500,7 @@ static void velocity_unregister_notifier(void)
+ #endif	/* defined(CONFIG_PM) && defined(CONFIG_INET) */
+ 
+ /**
+- *	velocity_init_module	-	load time function
++ *	velocity_init_module - load time function
+  *
+  *	Called when the velocity module is loaded. The PCI driver
+  *	is registered with the PCI layer, and in turn will call
+@@ -3520,7 +3519,7 @@ static int __init velocity_init_module(void)
+ }
+ 
+ /**
+- *	velocity_cleanup	-	module unload
++ *	velocity_cleanup - module unload
+  *
+  *	When the velocity hardware is unloaded this function is called.
+  *	It will clean up the notifiers and the unregister the PCI
+-- 
+1.7.3.2
