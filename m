@@ -1,44 +1,66 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [RFC PATCH 1/1] vhost: TX used buffer guest signal accumulation
-Date: Thu, 28 Oct 2010 10:14:22 -0700
-Message-ID: <1288286062.11251.15.camel@localhost.localdomain>
-References: <1288216693.17571.38.camel@localhost.localdomain>
-	 <1288240804.14342.1.camel@localhost.localdomain>
-	 <20101028052021.GD5599@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Fix missing dependency of PCH_GBE driver
+Date: Thu, 28 Oct 2010 10:16:18 -0700 (PDT)
+Message-ID: <20101028.101618.226776102.davem@davemloft.net>
+References: <1288268189.18238.173.camel@gandalf.stny.rr.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20101028052021.GD5599@redhat.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	error27@gmail.com, masa-korg@dsn.okisemi.com,
+	akpm@linux-foundation.org
+To: rostedt@goodmis.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45535
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933964Ab0J1RP4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 13:15:56 -0400
+In-Reply-To: <1288268189.18238.173.camel@gandalf.stny.rr.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Steven Rostedt <rostedt@goodmis.org>
+Date: Thu, 28 Oct 2010 08:16:29 -0400
 
-> Two ideas:
-> 1. How about writing out used, just delaying the signal?
->    This way we don't have to queue separately.
+> While doing some randconfigs I stumbled across this build error:
+> 
+> ERROR: "mii_ethtool_gset" [drivers/net/pch_gbe/pch_gbe.ko] undefined!
+> ERROR: "generic_mii_ioctl" [drivers/net/pch_gbe/pch_gbe.ko] undefined!
+> ERROR: "mii_nway_restart" [drivers/net/pch_gbe/pch_gbe.ko] undefined!
+> ERROR: "mii_check_gmii_support" [drivers/net/pch_gbe/pch_gbe.ko] undefined!
+> ERROR: "mii_link_ok" [drivers/net/pch_gbe/pch_gbe.ko] undefined!
+> ERROR: "mii_ethtool_sset" [drivers/net/pch_gbe/pch_gbe.ko] undefined!
+> 
+> The config option PCH_GBE is missing the dependency of MII.
+> 
+> Signed-off-by: Steven Rostedt <rostedt@goodmis.org>
 
-This improves some performance, but not as good as delaying
-both used and signal. Since delaying used buffers combining
-multiple small copies to a large copy, which saves more CPU
-utilization and increased some BW.
+The canonical way to handle this is to use 'select'.  Thus,
+I've committed the following to fix this.
 
-> 2. How about flushing out queued stuff before we exit
->    the handle_tx loop? That would address most of
->    the spec issue. 
+Thanks.
 
-The performance is almost as same as the previous patch. I will resubmit
-the modified one, adding vhost_add_used_and_signal_n after handle_tx
-loop for processing pending queue.
+--------------------
+pch_gbe: Select MII.
 
-This patch was a part of modified macvtap zero copy which I haven't
-submitted yet. I found this helped vhost TX in general. This pending
-queue will be used by DMA done later, so I put it in vq instead of a
-local variable in handle_tx.
+Reported-by: Steven Rostedt <rostedt@goodmis.org>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/Kconfig |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-Thanks
-Shirley
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 77c1fab..f24179d 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -2520,6 +2520,7 @@ source "drivers/net/stmmac/Kconfig"
+ config PCH_GBE
+ 	tristate "PCH Gigabit Ethernet"
+ 	depends on PCI
++	select MII
+ 	---help---
+ 	  This is a gigabit ethernet driver for Topcliff PCH.
+ 	  Topcliff PCH is the platform controller hub that is used in Intel's
+-- 
+1.7.3.2
 
