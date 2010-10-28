@@ -1,57 +1,36 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: [PATCH] net: atarilance - flags should be unsigned long
-Date: Thu, 28 Oct 2010 20:31:53 +0200 (CEST)
-Message-ID: <alpine.DEB.2.00.1010282030530.29788@ayla.of.borg>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] pktgen: Limit how much data we copy onto the stack.
+Date: Thu, 28 Oct 2010 11:32:37 -0700 (PDT)
+Message-ID: <20101028.113237.193691913.davem@davemloft.net>
+References: <1288206788-21063-1-git-send-email-nelhage@ksplice.com>
+	<1288279242-22153-1-git-send-email-nelhage@ksplice.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-7
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	Linux Kernel Development <linux-kernel@vger.kernel.org>,
-	Linux/m68k <linux-m68k@lists.linux-m68k.org>
-To: "David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-m68k-owner@vger.kernel.org>
-Sender: linux-m68k-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, robert.olsson@its.uu.se,
+	andy.shevchenko@gmail.com, netdev@vger.kernel.org,
+	eugene@redhat.com
+To: nelhage@ksplice.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44676
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1761286Ab0J1ScO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 14:32:14 -0400
+In-Reply-To: <1288279242-22153-1-git-send-email-nelhage@ksplice.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-drivers/net/atarilance.c: In function =A1addr_accessible=A2:
-drivers/net/atarilance.c:413: warning: comparison of distinct pointer t=
-ypes lacks a cast
-drivers/net/atarilance.c:450: warning: comparison of distinct pointer t=
-ypes lacks a cast
+From: Nelson Elhage <nelhage@ksplice.com>
+Date: Thu, 28 Oct 2010 11:20:42 -0400
 
-Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
----
- drivers/net/atarilance.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+> A program that accidentally writes too much data to the pktgen file can overflow
+> the kernel stack and oops the machine. This is only triggerable by root, so
+> there's no security issue, but it's still an unfortunate bug.
+> 
+> printk() won't print more than 1024 bytes in a single call, anyways, so let's
+> just never copy more than that much data. We're on a fairly shallow stack, so
+> that should be safe even with CONFIG_4KSTACKS.
+> 
+> Signed-off-by: Nelson Elhage <nelhage@ksplice.com>
 
-diff --git a/drivers/net/atarilance.c b/drivers/net/atarilance.c
-index 3134e53..8cb27cb 100644
---- a/drivers/net/atarilance.c
-+++ b/drivers/net/atarilance.c
-@@ -407,7 +407,7 @@ static noinline int __init addr_accessible(volatile=
- void *regp, int wordflag,
- 					   int writeflag)
- {
- 	int		ret;
--	long	flags;
-+	unsigned long	flags;
- 	long	*vbr, save_berr;
-=20
- 	local_irq_save(flags);
---=20
-1.7.0.4
-
-Gr{oetje,eeting}s,
-
-						Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-=
-m68k.org
-
-In personal conversations with technical people, I call myself a hacker=
-=2E But
-when I'm talking to journalists I just say "programmer" or something li=
-ke that.
-							    -- Linus Torvalds
+Applied, thanks a lot.
