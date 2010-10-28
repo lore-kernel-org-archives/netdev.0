@@ -1,35 +1,38 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: multi-machine simultaneous kernel panic in tcp_transmit_kcb
-Date: Thu, 28 Oct 2010 21:42:51 +0100
-Message-ID: <20101028204250.GJ15074@solarflare.com>
-References: <4CC8CC0A.5000705@will.to>
+Subject: Re: ethtool: missing implementation of n_priv_flags
+Date: Thu, 28 Oct 2010 22:00:25 +0100
+Message-ID: <20101028210024.GK15074@solarflare.com>
+References: <F169D4F5E1F1974DBFAFABF47F60C10AA5E60671@orsmsx507.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Doug Hughes <doug@will.to>
+Cc: "jgarzik@redhat.com" <jgarzik@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:10988 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:12594 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933688Ab0J1Um5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 16:42:57 -0400
+	with ESMTP id S933674Ab0J1VA2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 17:00:28 -0400
 Content-Disposition: inline
-In-Reply-To: <4CC8CC0A.5000705@will.to>
+In-Reply-To: <F169D4F5E1F1974DBFAFABF47F60C10AA5E60671@orsmsx507.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Doug Hughes wrote:
-> 3 machines within 1 minute of each other (odd, by itself, but not the 
-> root of the question).
+Brandeburg, Jesse wrote:
+> Was just looking at implementing the driver private flags to add a new feature to 
+> a driver.
 > 
-> 2 of this:
-> 2.6.18-164.15.1.el5 #1 SMP Wed Mar 17 11:30:06 EDT 2010 x86_64 x86_64 
-> x86_64 GNU/Linux
-> (I have a screen shot on the kvm)
-> all Cent 5.4
+> It appears that nothing in the core ethtool.c ever accesses or prints n_priv_flags, 
+> even if a driver assigns it (which none in the kernel currently do)
 [...]
- 
-Please don't ask netdev to support an old distribution kernel.  Try
-asking on CentOS support forums or buy support from Red Hat.
+
+You mean net/core/ethtool.c?  Or the ethtool utility?
+
+If you set it in your get_drvinfo() operation then it will be copied out.
+As for the ethtool utility, I've implemented some generic flag parsing and
+printing functionality so it shouldn't be too hard to use that for private
+flags.
 
 Ben.
 
