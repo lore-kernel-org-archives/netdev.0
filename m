@@ -1,61 +1,74 @@
-From: <macpaul@andestech.com>
-Subject: About the Davicom PHY in drivers/net/phy in Linux kernel
-Date: Thu, 28 Oct 2010 14:33:43 +0800
-Message-ID: <50FD90C65C53FB45BADEEBCD84FF07F2029CB176@ATCPCS06.andestech.com>
+From: Divy Le Ray <divy@chelsio.com>
+Subject: Re: [PATCH] cxgb3: fix crash due to manipulating queues before registration
+Date: Wed, 27 Oct 2010 23:35:29 -0700
+Message-ID: <4CC919B1.1040602@chelsio.com>
+References: <1288236563.2658.59.camel@edumazet-laptop> <1288242390-28574-1-git-send-email-nacc@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <afleming@freescale.com>, <jeff@garzik.org>,
-	<f.rodo@til-technologies.fr>, <joseph_chang@mail.davicom.com.tw>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, sonnyrao@us.ibm.com,
+	Dimitrios Michailidis <dm@chelsio.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Nishanth Aravamudan <nacc@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 59-124-160-117.HINET-IP.hinet.net ([59.124.160.117]:33188 "EHLO
-	ATCPCS06.andestech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756406Ab0J1GqQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 02:46:16 -0400
-Content-class: urn:content-classes:message
+Received: from stargate.chelsio.com ([67.207.112.58]:23817 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754411Ab0J1Gs5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 02:48:57 -0400
+In-Reply-To: <1288242390-28574-1-git-send-email-nacc@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGkgYWxsLA0KDQpBY2NvcmRpbmcgdG8gdGhlIHNvdXJjZSBjb2RlIG9mIERhdmljb20gUEhZIGlu
-IExpbnV4LA0KV2Ugc2hvdWxkIGRvICJJU09MQVRFIiBjb21tYW5kIHRvIFBIWSBiZWZvcmUgc2V0
-dGluZyAiYXV0byBuZWdvdGlhdGlvbiIgb3IgIk1JSS9STUlJIi4NCg0KSG93ZXZlciwgSSd2ZSBm
-b3VuZCB0aGF0IHdpdGggRmFyYWRheSdzIE1BQy9HTUFDIGNvbnRyb2xsZXIgKGZ0bWFjMTAwL2Z0
-Z21hYzEwMCksIHNldHRpbmcgSVNPTEFURSBmb3IgbXVsdGlwbGUgUEhZIGNvbmZpZ3VyYXRpb24g
-d2lsbCBsZWFkIE1EQyBiZWNvbWUgc3RvcCBiZWNhdXNlIHRoZSBmbGF3IGluc2lkZSB0aGUgTUFD
-IGNvbnRyb2xsZXIuIEZhcmFkYXkncyBNQUMvR01BQyB3aWxsIGxldmVyYWdlIHRoZSBUWF9DTEsg
-YXMgdGhlIE1EQyBzb3VyY2UuIFdoZW4gRlRNQUMxMDAgc2VuZCAiSVNPTEFURSIgdG8gRGF2aWNv
-bSdzIFBIWSwgdGhlIFRYX0NMSyBzZW5kIG91dCBmcm9tIFBIWSB3aWxsIGJlIHN0b3BwZWQsIHRo
-ZW4gTURDIHdpbGwgYWxzbyBiZWNvbWUgc3RvcC4NCg0KSG93ZXZlciwgdGhpcyBtYWlsIHdhc24n
-dCBtZWFudCB0byBkaXNjdXNzIGFib3V0IHRoZSBkZXNpZ24gZmxhdyBpbnNpZGUgdGhlIElDLg0K
-DQpXZSd2ZSBkb25lIHR3byB0ZXN0IHRvIHRoZSBmb2xsb3dpbmcgY29kZXMuDQoNCjFzdDogaWYg
-d2UganVzdCBza2lwIHRoZSAiIEJNQ1JfSVNPTEFURSIgc2V0dGluZyBjb21tYW5kLCB3ZSB3aWxs
-IGdldCBQSFkgc29tZXRpbWVzIGJlY29tZSB1bnN0YWJsZSwgZm9yIGV4YW1wbGUsIGNvdWxkIG5v
-dCBkbyBESENQIHJlcXVlc3Qgc3VjY2Vzc2Z1bGx5Lg0KDQoybmQ6IGlmIHdlIHJlcGxhY2UgIkJN
-Q1JfSVNPTEFURSIgdG8gIkJNQ1JfUkVTRVQiLCB3ZSBjb3VsZCBnZXQgcmlkIG9mIHRoZSBwcm9i
-bGVtIG9jY3VycmVkIGJ5IEZhcmFkYXkgR01BQy4gQW5kIHRoZSBQSFkgd29ya3Mgd2VsbCBzdGls
-bC4NCg0KSSd2ZSBmb3VuZCB0aGF0IGluIHNvbWUgb3RoZXIgUEhZIGltcGxlbWVudGF0aW9uLCBm
-b3IgZXhhbXBsZSwgaW4gIm1hcnZlbGwuYyIsIHRoZXJlIGFyZSBzZWVtcyBubyBJU09MQVRFIGNv
-bW1hbmRzLiBUaGVyZSBhcmUgb25seSBSRVNFVCBjb21tYW5kcy4NCklmIHdlIGNvdWxkIHJlcGxh
-Y2UgQk1DUl9JU09MQVRFIHRvIEJNQ1JfUkVTRVQgaW4gY3VycmVudCBrZXJuZWwgc291cmNlLCB3
-aWxsIHRoZXJlIGJlIGFueSB1bnByZWRpY3RhYmxlIGJlaGF2aW9yIGhhcHBlbmVkPw0KDQpQbGVh
-c2UgZ2l2ZSB1cyBzdWdnZXN0aW9uIGFjY29yZGluZyB0byB5b3VyIGV4cGVyaWVuY2VzLg0KVGhh
-bmtzIGEgbG90Lg0KDQorc3RhdGljIGludCBkbTkxNjFfY29uZmlnX2FuZWcoc3RydWN0IHBoeV9k
-ZXZpY2UgKnBoeWRldikNCit7DQorCWludCBlcnI7DQorDQorCS8qIElzb2xhdGUgdGhlIFBIWSAq
-Lw0KKwllcnIgPSBwaHlfd3JpdGUocGh5ZGV2LCBNSUlfQk1DUiwgQk1DUl9JU09MQVRFKTsNCisN
-CisJaWYgKGVyciA8IDApDQorCQlyZXR1cm4gZXJyOw0KKw0KKwkvKiBDb25maWd1cmUgdGhlIG5l
-dyBzZXR0aW5ncyAqLw0KKwllcnIgPSBnZW5waHlfY29uZmlnX2FuZWcocGh5ZGV2KTsNCisNCisJ
-aWYgKGVyciA8IDApDQorCQlyZXR1cm4gZXJyOw0KKw0KKwlyZXR1cm4gMDsNCit9DQorDQorc3Rh
-dGljIGludCBkbTkxNjFfY29uZmlnX2luaXQoc3RydWN0IHBoeV9kZXZpY2UgKnBoeWRldikNCit7
-DQorCWludCBlcnI7DQorDQorCS8qIElzb2xhdGUgdGhlIFBIWSAqLw0KKwllcnIgPSBwaHlfd3Jp
-dGUocGh5ZGV2LCBNSUlfQk1DUiwgQk1DUl9JU09MQVRFKTsNCisNCisJaWYgKGVyciA8IDApDQor
-CQlyZXR1cm4gZXJyOw0KKw0KKwkvKiBEbyBub3QgYnlwYXNzIHRoZSBzY3JhbWJsZXIvZGVzY3Jh
-bWJsZXIgKi8NCisJZXJyID0gcGh5X3dyaXRlKHBoeWRldiwgTUlJX0RNOTE2MV9TQ1IsIE1JSV9E
-TTkxNjFfU0NSX0lOSVQpOw0KKw0KKwlpZiAoZXJyIDwgMCkNCisJCXJldHVybiBlcnI7DQorDQor
-CS8qIENsZWFyIDEwQlRDU1IgdG8gZGVmYXVsdCAqLw0KKwllcnIgPSBwaHlfd3JpdGUocGh5ZGV2
-LCBNSUlfRE05MTYxXzEwQlRDU1IsIE1JSV9ETTkxNjFfMTBCVENTUl9JTklUKTsNCisNCisJaWYg
-KGVyciA8IDApDQorCQlyZXR1cm4gZXJyOw0KKw0KKwkvKiBSZWNvbm5lY3QgdGhlIFBIWSwgYW5k
-IGVuYWJsZSBBdXRvbmVnb3RpYXRpb24gKi8NCisJZXJyID0gcGh5X3dyaXRlKHBoeWRldiwgTUlJ
-X0JNQ1IsIEJNQ1JfQU5FTkFCTEUpOw0KKw0KKwlpZiAoZXJyIDwgMCkNCisJCXJldHVybiBlcnI7
-DQorDQorCXJldHVybiAwOw0KDQpCZXN0IHJlZ2FyZHMsDQpNYWNwYXVsIExpbg0K
+On 10/27/2010 10:06 PM, Nishanth Aravamudan wrote:
+> Hi Eric,
+>
+> Something like the following?:
+>
+> Thanks,
+> Nish
+>
+>
+> Along the same lines as "cxgb4: fix crash due to manipulating queues
+> before registration" (8f6d9f40476895571df039b6f1f5230ec7faebad), before
+> commit "net: allocate tx queues in register_netdevice"
+> netif_tx_stop_all_queues and related functions could be used between
+> device allocation and registration but now only after registration.
+> cxgb4 has such a call before registration and crashes now.  Move it
+> after register_netdev.
+>
+> Signed-off-by: Nishanth Aravamudan<nacc@us.ibm.com>
+
+Acked-by: Divy Le Ray <divy@chelsio.com>
+
+> Cc: eric.dumazet@gmail.com
+> Cc: sonnyrao@us.ibm.com
+> Cc: Divy Le Ray<divy@chelsio.com>
+> Cc: Dimitris Michailidis<dm@chelsio.com>
+> Cc: netdev@vger.kernel.org
+> Cc: linux-kernel@vger.kernel.org
+> ---
+>   drivers/net/cxgb3/cxgb3_main.c |    2 +-
+>   1 files changed, 1 insertions(+), 1 deletions(-)
+>
+> diff --git a/drivers/net/cxgb3/cxgb3_main.c b/drivers/net/cxgb3/cxgb3_main.c
+> index 4e3c123..96c70a5 100644
+> --- a/drivers/net/cxgb3/cxgb3_main.c
+> +++ b/drivers/net/cxgb3/cxgb3_main.c
+> @@ -3301,7 +3301,6 @@ static int __devinit init_one(struct pci_dev *pdev,
+>   		pi->rx_offload = T3_RX_CSUM | T3_LRO;
+>   		pi->port_id = i;
+>   		netif_carrier_off(netdev);
+> -		netif_tx_stop_all_queues(netdev);
+>   		netdev->irq = pdev->irq;
+>   		netdev->mem_start = mmio_start;
+>   		netdev->mem_end = mmio_start + mmio_len - 1;
+> @@ -3342,6 +3341,7 @@ static int __devinit init_one(struct pci_dev *pdev,
+>   				adapter->name = adapter->port[i]->name;
+>
+>   			__set_bit(i,&adapter->registered_device_map);
+> +			 netif_tx_stop_all_queues(adapter->port[i]);
+>   		}
+>   	}
+>   	if (!adapter->registered_device_map) {
+
+
