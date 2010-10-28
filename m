@@ -1,117 +1,56 @@
-From: Alexander Wigen <alex@wigen.net>
-Subject: Re: [PATCH] via-velocity: Codestyle fixes
-Date: Thu, 28 Oct 2010 15:02:47 +1000
-Message-ID: <201010281502.47977.alex@wigen.net>
-References: <1288237684-30783-1-git-send-email-alex@wigen.net> <1288239318.1836.7.camel@Joe-Laptop>
+From: Grant Grundler <grundler@parisc-linux.org>
+Subject: Re: [PATCH net-next-2.6 1/2] be2net: Adding an option to use INTx
+	instead of MSI-X
+Date: Wed, 27 Oct 2010 23:37:14 -0600
+Message-ID: <20101028053714.GD32200@lackof.org>
+References: <1288075928.6578.185.camel@concordia> <20101026133233.GH15074@solarflare.com> <1288135235.16778.14.camel@concordia> <20101027.084604.226761472.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from asav3.lyse.net ([81.167.37.131]:51617 "EHLO asav3.lyse.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752965Ab0J1FfL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Oct 2010 01:35:11 -0400
-Received: from localhost (localhost.localdomain [127.0.0.1])
-	by asav3.lyse.net (Postfix) with ESMTP id 83B7884054
-	for <netdev@vger.kernel.org>; Thu, 28 Oct 2010 07:02:47 +0200 (CEST)
-Received: from wigen.net (2.84-234-148.customer.lyse.net [84.234.148.2])
-	by asav3.lyse.net (Postfix) with SMTP id ACC6284011
-	for <netdev@vger.kernel.org>; Thu, 28 Oct 2010 07:02:46 +0200 (CEST)
-In-Reply-To: <1288239318.1836.7.camel@Joe-Laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: michael@ellerman.id.au, bhutchings@solarflare.com,
+	somnath.kotur@emulex.com, netdev@vger.kernel.org,
+	linux-pci@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20101027.084604.226761472.davem@davemloft.net>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Joe,
-
-Thanks for that very quick review, this is my first kernel patch.
-
-On Thu, 28 Oct 2010, you wrote:
-> On Thu, 2010-10-28 at 13:48 +1000, alex@wigen.net wrote:
-> > From: Alexander Wigen <alex@wigen.net>
-> > @@ -1542,7 +1542,7 @@ static int velocity_alloc_rx_buf(struct
-> > velocity_info *vptr, int idx)
-> > 
-> >  	 *	Fill in the descriptor to match
-> >  	 */
-> > 
-> > -	*((u32 *) & (rd->rdesc0)) = 0;
-> > +	*((u32 *) &(rd->rdesc0)) = 0;
+On Wed, Oct 27, 2010 at 08:46:04AM -0700, David Miller wrote:
+> From: Michael Ellerman <michael@ellerman.id.au>
+> Date: Wed, 27 Oct 2010 10:20:35 +1100
 > 
-> I think this style change isn't really that good.
-> rdesc0 is:
-> 
-> struct rdesc0 {
-> 	__le16 RSR;		/* Receive status */
-> 	__le16 len;		/* bits 0--13; bit 15 - owner */
-> };
-> 
-> I think it more sensible to either set the fields
-> in the struct to 0 or to memset the struct to 0.
-
-Not sure what is best so I reverted the change.
-
-> > @@ -1681,7 +1681,7 @@ static int velocity_init_td_ring(struct
-> > velocity_info *vptr)
+> > On Tue, 2010-10-26 at 14:32 +0100, Ben Hutchings wrote:
+> >> Michael Ellerman wrote:
+> >> > On Mon, 2010-10-25 at 16:25 -0700, David Miller wrote:
+> >> > > From: Ben Hutchings <bhutchings@solarflare.com>
+> >> > > Date: Mon, 25 Oct 2010 23:38:53 +0100
 > > 
-> >  static void velocity_free_dma_rings(struct velocity_info *vptr)
-> >  {
-> >  
-> >  	const int size = vptr->options.numrx * sizeof(struct rx_desc) +
+> >> > Ethtool would be nice, but only for network drivers. Is there a generic
+> >> > solution, quirks are obviously not keeping people happy.
+> >>  
+> >> Since this is (normally) a property of the system, pci=nomsi is the
+> >> generic solution.
 > > 
-> > -		vptr->options.numtx * sizeof(struct tx_desc) * vptr->tx.numq;
-> > +		vptr->options.numtx * sizeof(struct tx_desc) *vptr->tx.numq;
+> > Sort of, it's a big hammer. Did all these driver writers not know about
+> > pci=nomsi or did they prefer to add a parameter to their driver for some
+> > reason?
 > 
-> If checkpatch warns about this, it's wrong.
+> Every time I've actually done the work to try and track down the
+> true issue, it always turned out to be a PCI chipset problem rather
+> than a device specific issue.
 
-It does produce a error acctually, but I have reverted the change:
+I agree with your generalization. I can think of only one exception:
+ISTR pre-5705 tg3 chips would send both MSI and assert IRQ line at the same time.
 
-drivers/net/via-velocity.c:1684: ERROR: space prohibited after that '*' 
-(ctx:WxW)
+My guess is driver writers just want knob to "work around" any issues
+*their* driver might see with chipset. Disabling MSI for all drivers
+doesn't leave opportunity for experimenting with individual drivers.
 
+hth,
+grant
 
-> 
-> > @@ -2477,24 +2477,24 @@ static struct net_device_stats
-> > *velocity_get_stats(struct net_device *dev)
-> > 
-> >  	dev->stats.rx_errors = vptr->mib_counter[HW_MIB_ifRxErrorPkts];
-> >  	dev->stats.rx_length_errors =
-> >  	vptr->mib_counter[HW_MIB_ifInRangeLengthErrors];
-> > 
-> > -//  unsigned long   rx_dropped;     /* no space in linux buffers    */
-> > +/*  unsigned long   rx_dropped;     /* no space in linux buffers    */
-> 
-> why not just remove all these commented-out lines?
-
-Done.
-
-> > @@ -2957,7 +2957,7 @@ static int velocity_set_wol(struct velocity_info
-> > *vptr)
-> > 
-> >  		memcpy(arp->ar_tip, vptr->ip_addr, 4);
-> >  		
-> >  		crc = wol_calc_crc((sizeof(struct arp_packet) + 7) / 8, buf,
-> > 
-> > -				(u8 *) & mask_pattern[0][0]);
-> > +				(u8 *) &mask_pattern[0][0]);
-> 
-> perhaps just (u8 *)mask_pattern?
-> 
-> > @@ -3454,7 +3453,7 @@ static const struct ethtool_ops
-> > velocity_ethtool_ops = {
-> > 
-> >  	.set_wol	=	velocity_ethtool_set_wol,
-> >  	.get_msglevel	=	velocity_get_msglevel,
-> >  	.set_msglevel	=	velocity_set_msglevel,
-> > 
-> > -	.set_sg 	=	ethtool_op_set_sg,
-> > +	.set_sg	=	ethtool_op_set_sg,
-> 
-> bad alignment?
-
-Sorry, wrong editor tab width.
-
-Cheers,
-Alexander Wigen
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-pci" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
