@@ -1,32 +1,32 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [PATCH] Fix missing dependency of PCH_GBE driver
-Date: Thu, 28 Oct 2010 13:31:07 -0400
-Message-ID: <1288287067.18238.272.camel@gandalf.stny.rr.com>
-References: <1288268189.18238.173.camel@gandalf.stny.rr.com>
-	 <20101028.101618.226776102.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] USB: gadget: fix ethernet gadget crash in gether_setup
+Date: Thu, 28 Oct 2010 10:32:06 -0700 (PDT)
+Message-ID: <20101028.103206.28805685.davem@davemloft.net>
+References: <1288253909-12084-1-git-send-email-mad_soft@inbox.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-15"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	error27@gmail.com, masa-korg@dsn.okisemi.com,
-	akpm@linux-foundation.org
-To: David Miller <davem@davemloft.net>
+Cc: linux-usb@vger.kernel.org, dbrownell@users.sourceforge.net,
+	gregkh@suse.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, therbert@google.com
+To: mad_soft@inbox.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hrndva-omtalb.mail.rr.com ([71.74.56.125]:33111 "EHLO
-	hrndva-omtalb.mail.rr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751420Ab0J1RbK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 13:31:10 -0400
-In-Reply-To: <20101028.101618.226776102.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34751
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751403Ab0J1Rbn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 13:31:43 -0400
+In-Reply-To: <1288253909-12084-1-git-send-email-mad_soft@inbox.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-10-28 at 10:16 -0700, David Miller wrote:
+From: Dmitry Artamonow <mad_soft@inbox.ru>
+Date: Thu, 28 Oct 2010 12:18:29 +0400
 
-> The canonical way to handle this is to use 'select'.  Thus,
-> I've committed the following to fix this.
+> Crash is triggered by commit e6484930d7 ("net: allocate tx queues in
+> register_netdevice"), which moved tx netqueue creation into register_netdev.
+> So now calling netif_stop_queue() before register_netdev causes an oops.
+> Move netif_stop_queue() after net device registration to fix crash.
+> 
+> Signed-off-by: Dmitry Artamonow <mad_soft@inbox.ru>
 
-Yeah, I was thinking that too after I posted it.
-
--- Steve
-
-
+Applied, thank you.
