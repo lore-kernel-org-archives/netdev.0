@@ -1,66 +1,39 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [v3 RFC PATCH 0/4] Implement multiqueue virtio-net
-Date: Thu, 28 Oct 2010 07:50:54 +0200
-Message-ID: <20101028055054.GG5599@redhat.com>
-References: <20101020085452.15579.76002.sendpatchset@krkumar2.in.ibm.com>
- <OF8735A2A4.74B4EE91-ON652577C5.0040D90B-652577C7.0056B99D@in.ibm.com>
- <20101025161718.GA19559@redhat.com>
- <OF5C53E9CF.FFDF2CE7-ON652577C8.00191D14-652577C8.001C2154@LocalDomain>
- <OFBB51646E.01CC3630-ON652577C8.0030D6EF-652577C8.0031DA3C@in.ibm.com>
- <20101026093846.GA6766@redhat.com>
- <OFBE9E2C99.648EFB19-ON652577C8.0035FEDD-652577C8.0036AD51@in.ibm.com>
- <20101026110913.GC7922@redhat.com>
- <OFC29C4491.59069AD1-ON652577CA.00170F0D-652577CA.001C76C8@in.ibm.com>
+From: Dan Carpenter <error27@gmail.com>
+Subject: Re: [patch v2] fix stack overflow in pktgen_if_write()
+Date: Thu, 28 Oct 2010 08:05:00 +0200
+Message-ID: <20101028060500.GW6062@bicker>
+References: <1288206788-21063-1-git-send-email-nelhage@ksplice.com> <20101027221234.GN6062@bicker> <20101027224302.GQ6062@bicker> <20101027230657.GT16803@ksplice.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: anthony@codemonkey.ws, arnd@arndb.de, avi@redhat.com,
-	davem@davemloft.net, eric.dumazet@gmail.com, kvm@vger.kernel.org,
-	netdev@vger.kernel.org, rusty@rustcorp.com.au
-To: Krishna Kumar2 <krkumar2@in.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Robert Olsson <robert.olsson@its.uu.se>,
+	Andy Shevchenko <andy.shevchenko@gmail.com>,
+	netdev@vger.kernel.org
+To: Nelson Elhage <nelhage@ksplice.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:33306 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752633Ab0J1GFN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 02:05:13 -0400
+Received: by wyf28 with SMTP id 28so1546696wyf.19
+        for <netdev@vger.kernel.org>; Wed, 27 Oct 2010 23:05:12 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <OFC29C4491.59069AD1-ON652577CA.00170F0D-652577CA.001C76C8@in.ibm.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20101027230657.GT16803@ksplice.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 28, 2010 at 10:44:14AM +0530, Krishna Kumar2 wrote:
-> "Michael S. Tsirkin" <mst@redhat.com> wrote on 10/26/2010 04:39:13 PM:
+On Wed, Oct 27, 2010 at 07:06:57PM -0400, Nelson Elhage wrote:
+> You want to add a trailing NUL, or else printk will read off the end of the
+> buffer.
 > 
-> (merging two posts into one)
+> Also, by memdup()ing count + 1 bytes, you're technically reading one more byte
+> than userspace asked for, which could in principle lead to a spurious EFAULT.
 > 
-> > I think we discussed the need for external to guest testing
-> > over 10G. For large messages we should not see any change
-> > but you should be able to get better numbers for small messages
-> > assuming a MQ NIC card.
-> 
-> For external host, there is a contention among different
-> queues (vhosts) when packets are processed in tun/bridge,
-> unless I implement MQ TX for macvtap (tun/bridge?).  So
-> my testing shows a small improvement (1 to 1.5% average)
-> in BW and a rise in SD (between 10-15%).  For remote host,
-> I think tun/macvtap needs MQ TX support?
 
-Confused. I thought this *is* with a multiqueue tun/macvtap?
-bridge does not do any queueing AFAIK ...
-I think we need to fix the contention. With migration what was guest to
-host a minute ago might become guest to external now ...
+That's a lot of bugs per line.  :(  I'm eating humble pie today...
 
-> > > > > Results for UDP BW tests (unidirectional, sum across
-> > > > > 3 iterations, each iteration of 45 seconds, default
-> > > > > netperf, vhosts bound to cpus 0-3; no other tuning):
-> > > >
-> > > > Is binding vhost threads to CPUs really required?
-> > > > What happens if we let the scheduler do its job?
-> > >
-> > > Nothing drastic, I remember BW% and SD% both improved a
-> > > bit as a result of binding.
-> >
-> > If there's a significant improvement this would mean that
-> > we need to rethink the vhost-net interaction with the scheduler.
-> 
-> I will get a test run with and without binding and post the
-> results later today.
-> 
-> Thanks,
-> 
-> - KK
+regards,
+dan carpenter
+
+
