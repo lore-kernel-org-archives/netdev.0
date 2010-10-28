@@ -1,45 +1,45 @@
-From: Pavel Emelyanov <xemul@parallels.com>
-Subject: Re: [PATCH] ip_gre: fix fallback tunnel setup
-Date: Thu, 28 Oct 2010 23:29:10 +0400
-Message-ID: <4CC9CF06.1090806@parallels.com>
-References: <1288283634.11523.20.camel@edumazet-laptop>	 <20101028.102917.246527148.davem@davemloft.net>	 <1288291138.2711.0.camel@edumazet-laptop>	 <20101028.114102.112602886.davem@davemloft.net>	 <1288291679.2711.1.camel@edumazet-laptop> <1288293079.2711.19.camel@edumazet-laptop>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [RFC PATCH 1/1] vhost: TX used buffer guest signal accumulation
+Date: Thu, 28 Oct 2010 12:32:35 -0700
+Message-ID: <1288294355.11251.20.camel@localhost.localdomain>
+References: <1288216693.17571.38.camel@localhost.localdomain>
+	 <1288240804.14342.1.camel@localhost.localdomain>
+	 <20101028052021.GD5599@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:46924 "EHLO relay.sw.ru"
+Received: from e4.ny.us.ibm.com ([32.97.182.144]:53697 "EHLO e4.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753322Ab0J1T3T (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Oct 2010 15:29:19 -0400
-In-Reply-To: <1288293079.2711.19.camel@edumazet-laptop>
+	id S1759407Ab0J1Tcj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Oct 2010 15:32:39 -0400
+In-Reply-To: <20101028052021.GD5599@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/28/2010 11:11 PM, Eric Dumazet wrote:
-> Le jeudi 28 octobre 2010 =C3=A0 20:47 +0200, Eric Dumazet a =C3=A9cri=
-t :
->> Le jeudi 28 octobre 2010 =C3=A0 11:41 -0700, David Miller a =C3=A9cr=
-it :
->>> I am still able to revert this I think without screwing up
->>> publicly visible history, so I will double check and do the
->>> revert if I can.
->>
->> Cool, I'll provide a patch in a couple of minutes, when tested.
->>
->=20
-> I believe the right fix is this one, Pavel what do you think ?
+On Thu, 2010-10-28 at 07:20 +0200, Michael S. Tsirkin wrote:
+> My concern is this can delay signalling for unlimited time.
+> Could you pls test this with guests that do not have
+> 2b5bbe3b8bee8b38bdc27dd9c0270829b6eb7eeb
+> b0c39dbdc204006ef3558a66716ff09797619778
+> that is 2.6.31 and older? 
 
-Indeed. I missed the fact, that the gre driver uses ndo_init for
-all devices including the fb one :(
+The patch only induces delay signaling unlimited time when there is no
+TX packet to transmit. I thought TX signaling only noticing guest to
+release the used buffers, anything else beside this?
 
-Acked-by: Pavel Emelyanov <xemul@openvz.org>
+I tested rhel5u5 guest (2.6.18 kernel), it works fine. I checked the two
+commits log, I don't think this patch could cause any issue w/o these
+two patches.
 
-> With your patch, we allocate the per_cpu data twice for the fallback
-> tunnel, thus leaking memory.
+Also I found a big TX regression for old guest and new guest. For old
+guest, I am able to get almost 11Gb/s for 2K message size, but for the
+new guest kernel, I can only get 3.5 Gb/s with the patch and same host.
+I will dig it why.
 
-Yup...
+thanks
+Shirley
 
-> Thanks
