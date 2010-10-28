@@ -1,43 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ip_gre: fix percpu stats accounting
-Date: Thu, 28 Oct 2010 18:33:54 +0200
-Message-ID: <1288283634.11523.20.camel@edumazet-laptop>
-References: <4CC99FDC.9070102@parallels.com>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [RFC PATCH 1/1] vhost: TX used buffer guest signal accumulation
+Date: Thu, 28 Oct 2010 10:14:22 -0700
+Message-ID: <1288286062.11251.15.camel@localhost.localdomain>
+References: <1288216693.17571.38.camel@localhost.localdomain>
+	 <1288240804.14342.1.camel@localhost.localdomain>
+	 <20101028052021.GD5599@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Pavel Emelyanov <xemul@parallels.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:32990 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756680Ab0J1QeB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 12:34:01 -0400
-Received: by wyf28 with SMTP id 28so2139310wyf.19
-        for <netdev@vger.kernel.org>; Thu, 28 Oct 2010 09:34:00 -0700 (PDT)
-In-Reply-To: <4CC99FDC.9070102@parallels.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-Le jeudi 28 octobre 2010 =C3=A0 20:07 +0400, Pavel Emelyanov a =C3=A9cr=
-it :
-> commit e985aad7 (ip_gre: percpu stats accounting) forgot the fallback
-> tunnel case (gre0).
->=20
-> This is the 4th part of the "foo: fix percpu stats accounting" series=
- ;)
->=20
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
->=20
-
-Indeed, right you are ;)
-
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
-
-Anyway, I suspect more work is needed...
-
-(check patch against ixgbe : http://patchwork.ozlabs.org/patch/69458/ )
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20101028052021.GD5599@redhat.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
+> Two ideas:
+> 1. How about writing out used, just delaying the signal?
+>    This way we don't have to queue separately.
+
+This improves some performance, but not as good as delaying
+both used and signal. Since delaying used buffers combining
+multiple small copies to a large copy, which saves more CPU
+utilization and increased some BW.
+
+> 2. How about flushing out queued stuff before we exit
+>    the handle_tx loop? That would address most of
+>    the spec issue. 
+
+The performance is almost as same as the previous patch. I will resubmit
+the modified one, adding vhost_add_used_and_signal_n after handle_tx
+loop for processing pending queue.
+
+This patch was a part of modified macvtap zero copy which I haven't
+submitted yet. I found this helped vhost TX in general. This pending
+queue will be used by DMA done later, so I put it in vq instead of a
+local variable in handle_tx.
+
+Thanks
+Shirley
 
