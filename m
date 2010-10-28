@@ -1,63 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Future of the Wimedia LLC Protocol (WLP) subsystem/drivers
-Date: Thu, 28 Oct 2010 09:29:43 -0700 (PDT)
-Message-ID: <20101028.092943.193715325.davem@davemloft.net>
-References: <4CBDC7B7.5070108@csr.com>
-	<20101020091541.ec00fe96.randy.dunlap@oracle.com>
-	<20101020192233.GA8912@kroah.com>
+From: Nelson Elhage <nelhage@ksplice.com>
+Subject: Re: [patch v3] fix stack overflow in pktgen_if_write()
+Date: Thu, 28 Oct 2010 12:30:32 -0400
+Message-ID: <20101028163032.GY16803@ksplice.com>
+References: <1288206788-21063-1-git-send-email-nelhage@ksplice.com>
+ <20101027221234.GN6062@bicker>
+ <20101027224302.GQ6062@bicker>
+ <20101027230657.GT16803@ksplice.com>
+ <20101028060529.GX6062@bicker>
+ <20101028152222.GU16803@ksplice.com>
+ <20101028162825.GG6062@bicker>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: randy.dunlap@oracle.com, david.vrabel@csr.com,
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Robert Olsson <robert.olsson@its.uu.se>,
+	Andy Shevchenko <andy.shevchenko@gmail.com>,
 	netdev@vger.kernel.org
-To: greg@kroah.com
+To: Dan Carpenter <error27@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53960
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752675Ab0J1Q3U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 12:29:20 -0400
-In-Reply-To: <20101020192233.GA8912@kroah.com>
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:45727 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757001Ab0J1Qaf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 12:30:35 -0400
+Received: by qwf7 with SMTP id 7so1313473qwf.19
+        for <netdev@vger.kernel.org>; Thu, 28 Oct 2010 09:30:35 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20101028162825.GG6062@bicker>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg KH <greg@kroah.com>
-Date: Wed, 20 Oct 2010 12:22:33 -0700
-
-> On Wed, Oct 20, 2010 at 09:15:41AM -0700, Randy Dunlap wrote:
->> On Tue, 19 Oct 2010 17:30:47 +0100 David Vrabel wrote:
->> 
->> > Hi,
->> > 
->> > I've have been nominally the maintainer of the Wimedia LLC Protocol
->> > (WLP) subsystem and driver since it was originally submitted.  I am no
->> > longer in a position to even pretend to be a maintainer.
->> > 
->> > The only usable hardware was an Intel i1480 devices with beta firmware
->> > that was never released as a product.  Intel have since sold all there
->> > UWB/WLP IP and I see little prospect of there ever being hardware
->> > commercially available for WLP.
->> > 
->> > Here are a number of options:
->> > 
->> > 1. Someone else maintains it.  Any volunteers?
->> > 
->> > 2. It gets labelled as Orphaned in MAINTAINERS.
->> > 
->> > 3. It gets moved to staging.
->> > 
->> > 4, It gets removed.
->> > 
->> > If no one says anything I'll submit a patch to Linus to mark it as Orphaned.
->> 
->> I'd say either 3 or 4.
->> 
->> It could go to staging on it way to removal, but that's not really necessary.
->> 
->> 
->> cc: gregkh
+On Thu, Oct 28, 2010 at 06:28:25PM +0200, Dan Carpenter wrote:
+> On Thu, Oct 28, 2010 at 11:22:22AM -0400, Nelson Elhage wrote:
+> > You've got a leak if copy_user fails.
+> > 
 > 
-> 3 or 4 is fine with me, which ever David wants.
+> My QC scripts should have caught that, but they didn't...  I'll figure
+> it out.  It shouldn't happen again.
+> 
+> > While testing this, I realized that printk() won't print more than 1k in a
+> > single call, anyways, so I've sent along a patch that just copies up to 1k onto
+> > the stack, which should prevent the overflow without changing behavior or
+> > needing a heap allocation.
+> > 
+> 
+> Ok.  Good to hear.  Sorry I wasted people's time.
 
-I'm fine with either but prefer 4, if we want to resurrect the code
-for whatever reason it is there in the history and we can just revert
-the revert commit to get it all back.
+No worries. I appreciate you jumping in to help, even if it looks like the
+approach wasn't needed in the end.
+
+- Nelson
+
+> 
+> regards,
+> dan carpenter
+> 
+> 
