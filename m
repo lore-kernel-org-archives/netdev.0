@@ -1,34 +1,37 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [RFC PATCH 1/1] vhost: TX used buffer guest signal accumulation
-Date: Thu, 28 Oct 2010 14:40:50 -0700
-Message-ID: <1288302050.11251.26.camel@localhost.localdomain>
-References: <1288216693.17571.38.camel@localhost.localdomain>
-	 <1288240804.14342.1.camel@localhost.localdomain>
-	 <20101028052021.GD5599@redhat.com>
-	 <1288294355.11251.20.camel@localhost.localdomain>
-	 <1288296835.11251.24.camel@localhost.localdomain>
-	 <1288299878.30131.2.camel@sridhar.beaverton.ibm.com>
+From: Jeff Garzik <jgarzik@redhat.com>
+Subject: Re: ethtool: missing implementation of n_priv_flags
+Date: Thu, 28 Oct 2010 17:53:59 -0400
+Message-ID: <20101028215358.GB9421@shell.devel.redhat.com>
+References: <F169D4F5E1F1974DBFAFABF47F60C10AA5E60671@orsmsx507.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Sridhar Samudrala <sri@us.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1288299878.30131.2.camel@sridhar.beaverton.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:12770 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758175Ab0J1VyB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Oct 2010 17:54:01 -0400
+Content-Disposition: inline
+In-Reply-To: <F169D4F5E1F1974DBFAFABF47F60C10AA5E60671@orsmsx507.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-10-28 at 14:04 -0700, Sridhar Samudrala wrote:
-> It would be some change in virtio-net driver that may have improved
-> the
-> latency of small messages which in turn would have reduced the
-> bandwidth
-> as TCP could not accumulate and send large packets.
+On Thu, Oct 28, 2010 at 01:34:34PM -0700, Brandeburg, Jesse wrote:
+> Was just looking at implementing the driver private flags to add a new feature to 
+> a driver.
+> 
+> It appears that nothing in the core ethtool.c ever accesses or prints n_priv_flags, 
+> even if a driver assigns it (which none in the kernel currently do)
+> 
+> Is this just an oversight?
 
-I will check out any latency improvement patch in virtio_net. If that's
-the case, whether it is good to have some tunable parameter to benefit
-both BW and latency workload?
+It was waiting for the first user, basically...  I created an example
+kernel patch for one Intel driver, but you guys didn't seem interested
+in it at the time.  Glad to see it's getting some attention.
 
-Shirley 
+	Jeff
+
+
+
