@@ -1,39 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Security] TIPC security issues
-Date: Thu, 28 Oct 2010 11:49:41 -0700 (PDT)
-Message-ID: <20101028.114941.39177249.davem@davemloft.net>
-References: <20101027.122757.98903207.davem@davemloft.net>
-	<AANLkTikdh-kqroCDA5EsjSMTLjViqe_U=hxM1L6U4Ppb@mail.gmail.com>
-	<4CC9C4B0.50404@oracle.com>
+Subject: Re: [PATCH] ip_gre: fix percpu stats accounting
+Date: Thu, 28 Oct 2010 11:49:51 -0700 (PDT)
+Message-ID: <20101028.114951.59674318.davem@davemloft.net>
+References: <1288291138.2711.0.camel@edumazet-laptop>
+	<20101028.114102.112602886.davem@davemloft.net>
+	<1288291679.2711.1.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, jon.maloy@ericsson.com,
-	netdev@vger.kernel.org, drosenberg@vsecurity.com,
-	security@kernel.org, allan.stephens@windriver.com,
-	rds-devel@oss.oracle.com
-To: andy.grover@oracle.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: xemul@parallels.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51581
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51587
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S934045Ab0J1StS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 14:49:18 -0400
-In-Reply-To: <4CC9C4B0.50404@oracle.com>
+	by vger.kernel.org with ESMTP id S934001Ab0J1St2 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Oct 2010 14:49:28 -0400
+In-Reply-To: <1288291679.2711.1.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andy Grover <andy.grover@oracle.com>
-Date: Thu, 28 Oct 2010 11:45:04 -0700
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 28 Oct 2010 20:47:59 +0200
 
-> Yes that's right, it's to map a memory region that will be the target
-> of an RDMA operation. I don't know why struct rds_iovec was used
-> instead of struct iovec, but I think we're stuck, since it's part of
-> our socket API.
-> 
-> I'll send DaveM patches to fix those two immediately-identified
-> problems today, and we'll take a good long look at the rest of the
-> code for further issues.
+> Le jeudi 28 octobre 2010 =E0 11:41 -0700, David Miller a =E9crit :
+>> I am still able to revert this I think without screwing up
+>> publicly visible history, so I will double check and do the
+>> revert if I can.
+>=20
+> Cool, I'll provide a patch in a couple of minutes, when tested.
 
-FWIW, I would strongly suggest that you copy the iovecs into the
-kernel before parsing them like sys_sendmsg() and sys_recvmsg() do in
-net/socket.c as part of these fixes.
+Thanks.
