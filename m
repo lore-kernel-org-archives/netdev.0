@@ -1,113 +1,111 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 1/4] dccp: Return-value convention of hc_tx_send_packet()
-Date: Thu, 28 Oct 2010 07:16:25 +0200
-Message-ID: <1288242988-5333-2-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 4/4] dccp ccid-2: Stop polling
+Date: Thu, 28 Oct 2010 07:16:28 +0200
+Message-ID: <1288242988-5333-5-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <dccp_packet_dequeueing_interface_set_of_4>
  <1288242988-5333-1-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1288242988-5333-2-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1288242988-5333-3-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1288242988-5333-4-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:39579 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753436Ab0J1FQt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Oct 2010 01:16:49 -0400
-In-Reply-To: <1288242988-5333-1-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1753436Ab0J1FQr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Oct 2010 01:16:47 -0400
+In-Reply-To: <1288242988-5333-4-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch reorganises the return value convention of the CCID TX sending
-function, to permit more flexible schemes, as required by subsequent patches.
-
-Currently the convention is
- * values < 0     mean error,
- * a value == 0   means "send now", and
- * a value x > 0  means "send in x milliseconds".
-
-The patch provides symbolic constants and a function to interpret return values.
-
-In addition, it caps the maximum positive return value to 0xFFFF milliseconds,
-corresponding to 65.535 seconds.  This is possible since in CCID-3/4 the
-maximum possible inter-packet gap is fixed at t_mbi = 64 sec.
+This updates CCID-2 to use the CCID dequeuing mechanism, converting from
+previous continuous-polling to a now event-driven mechanism.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- net/dccp/ccid.h        |   34 +++++++++++++++++++++++++++++++---
- net/dccp/ccids/ccid3.c |   12 ++++++------
- 2 files changed, 37 insertions(+), 9 deletions(-)
+ net/dccp/ccids/ccid2.c |   23 +++++++++++++++--------
+ net/dccp/ccids/ccid2.h |    5 +++++
+ 2 files changed, 20 insertions(+), 8 deletions(-)
 
---- a/net/dccp/ccid.h
-+++ b/net/dccp/ccid.h
-@@ -134,13 +134,41 @@ static inline int ccid_get_current_tx_ccid(struct dccp_sock *dp)
- extern void ccid_hc_rx_delete(struct ccid *ccid, struct sock *sk);
- extern void ccid_hc_tx_delete(struct ccid *ccid, struct sock *sk);
+--- a/net/dccp/ccids/ccid2.h
++++ b/net/dccp/ccids/ccid2.h
+@@ -81,6 +81,11 @@ struct ccid2_hc_tx_sock {
+ 	u64			tx_high_ack;
+ };
  
-+/*
-+ * Congestion control of queued data packets via CCID decision.
-+ *
-+ * The TX CCID performs its congestion-control by indicating whether and when a
-+ * queued packet may be sent, using the return code of ccid_hc_tx_send_packet().
-+ * The following modes are supported via the symbolic constants below:
-+ * - timer-based pacing    (CCID returns a delay value in milliseconds);
-+ * - autonomous dequeueing (CCID internally schedules dccps_xmitlet).
-+ */
-+
-+enum ccid_dequeueing_decision {
-+	CCID_PACKET_SEND_AT_ONCE =	 0x00000,  /* "green light": no delay */
-+	CCID_PACKET_DELAY_MAX =		 0x0FFFF,  /* maximum delay in msecs  */
-+	CCID_PACKET_DELAY =		 0x10000,  /* CCID msec-delay mode */
-+	CCID_PACKET_WILL_DEQUEUE_LATER = 0x20000,  /* CCID autonomous mode */
-+	CCID_PACKET_ERR =		 0xF0000,  /* error condition */
-+};
-+
-+static inline int ccid_packet_dequeue_eval(const int return_code)
++static inline bool ccid2_cwnd_network_limited(struct ccid2_hc_tx_sock *hc)
 +{
-+	if (return_code < 0)
-+		return CCID_PACKET_ERR;
-+	if (return_code == 0)
-+		return CCID_PACKET_SEND_AT_ONCE;
-+	if (return_code <= CCID_PACKET_DELAY_MAX)
-+		return CCID_PACKET_DELAY;
-+	return return_code;
++	return hc->tx_pipe >= hc->tx_cwnd;
 +}
 +
- static inline int ccid_hc_tx_send_packet(struct ccid *ccid, struct sock *sk,
- 					 struct sk_buff *skb)
+ struct ccid2_hc_rx_sock {
+ 	int	rx_data;
+ };
+--- a/net/dccp/ccids/ccid2.c
++++ b/net/dccp/ccids/ccid2.c
+@@ -78,12 +78,9 @@ static int ccid2_hc_tx_alloc_seq(struct ccid2_hc_tx_sock *hc)
+ 
+ static int ccid2_hc_tx_send_packet(struct sock *sk, struct sk_buff *skb)
  {
--	int rc = 0;
- 	if (ccid->ccid_ops->ccid_hc_tx_send_packet != NULL)
--		rc = ccid->ccid_ops->ccid_hc_tx_send_packet(sk, skb);
--	return rc;
-+		return ccid->ccid_ops->ccid_hc_tx_send_packet(sk, skb);
+-	struct ccid2_hc_tx_sock *hc = ccid2_hc_tx_sk(sk);
+-
+-	if (hc->tx_pipe < hc->tx_cwnd)
+-		return 0;
+-
+-	return 1; /* XXX CCID should dequeue when ready instead of polling */
++	if (ccid2_cwnd_network_limited(ccid2_hc_tx_sk(sk)))
++		return CCID_PACKET_WILL_DEQUEUE_LATER;
 +	return CCID_PACKET_SEND_AT_ONCE;
  }
  
- static inline void ccid_hc_tx_packet_sent(struct ccid *ccid, struct sock *sk,
---- a/net/dccp/ccids/ccid3.c
-+++ b/net/dccp/ccids/ccid3.c
-@@ -268,11 +268,11 @@ out:
+ static void ccid2_change_l_ack_ratio(struct sock *sk, u32 val)
+@@ -115,6 +112,7 @@ static void ccid2_hc_tx_rto_expire(unsigned long data)
+ {
+ 	struct sock *sk = (struct sock *)data;
+ 	struct ccid2_hc_tx_sock *hc = ccid2_hc_tx_sk(sk);
++	const bool sender_was_blocked = ccid2_cwnd_network_limited(hc);
+ 
+ 	bh_lock_sock(sk);
+ 	if (sock_owned_by_user(sk)) {
+@@ -129,8 +127,6 @@ static void ccid2_hc_tx_rto_expire(unsigned long data)
+ 	if (hc->tx_rto > DCCP_RTO_MAX)
+ 		hc->tx_rto = DCCP_RTO_MAX;
+ 
+-	sk_reset_timer(sk, &hc->tx_rtotimer, jiffies + hc->tx_rto);
+-
+ 	/* adjust pipe, cwnd etc */
+ 	hc->tx_ssthresh = hc->tx_cwnd / 2;
+ 	if (hc->tx_ssthresh < 2)
+@@ -146,6 +142,12 @@ static void ccid2_hc_tx_rto_expire(unsigned long data)
+ 	hc->tx_rpseq    = 0;
+ 	hc->tx_rpdupack = -1;
+ 	ccid2_change_l_ack_ratio(sk, 1);
++
++	/* if we were blocked before, we may now send cwnd=1 packet */
++	if (sender_was_blocked)
++		tasklet_schedule(&dccp_sk(sk)->dccps_xmitlet);
++	/* restart backed-off timer */
++	sk_reset_timer(sk, &hc->tx_rtotimer, jiffies + hc->tx_rto);
+ out:
+ 	bh_unlock_sock(sk);
  	sock_put(sk);
- }
- 
--/*
-- * returns
-- *   > 0: delay (in msecs) that should pass before actually sending
-- *   = 0: can send immediately
-- *   < 0: error condition; do not send packet
-+/**
-+ * ccid3_hc_tx_send_packet  -  Delay-based dequeueing of TX packets
-+ * @skb: next packet candidate to send on @sk
-+ * This function uses the convention of ccid_packet_dequeue_eval() and
-+ * returns a millisecond-delay value between 0 and t_mbi = 64000 msec.
-  */
- static int ccid3_hc_tx_send_packet(struct sock *sk, struct sk_buff *skb)
+@@ -434,6 +436,7 @@ static void ccid2_hc_tx_packet_recv(struct sock *sk, struct sk_buff *skb)
  {
-@@ -348,7 +348,7 @@ static int ccid3_hc_tx_send_packet(struct sock *sk, struct sk_buff *skb)
- 
- 	/* set the nominal send time for the next following packet */
- 	hc->tx_t_nom = ktime_add_us(hc->tx_t_nom, hc->tx_t_ipi);
--	return 0;
-+	return CCID_PACKET_SEND_AT_ONCE;
+ 	struct dccp_sock *dp = dccp_sk(sk);
+ 	struct ccid2_hc_tx_sock *hc = ccid2_hc_tx_sk(sk);
++	const bool sender_was_blocked = ccid2_cwnd_network_limited(hc);
+ 	u64 ackno, seqno;
+ 	struct ccid2_seq *seqp;
+ 	unsigned char *vector;
+@@ -631,6 +634,10 @@ static void ccid2_hc_tx_packet_recv(struct sock *sk, struct sk_buff *skb)
+ 		sk_stop_timer(sk, &hc->tx_rtotimer);
+ 	else
+ 		sk_reset_timer(sk, &hc->tx_rtotimer, jiffies + hc->tx_rto);
++
++	/* check if incoming Acks allow pending packets to be sent */
++	if (sender_was_blocked && !ccid2_cwnd_network_limited(hc))
++		tasklet_schedule(&dccp_sk(sk)->dccps_xmitlet);
  }
  
- static void ccid3_hc_tx_packet_sent(struct sock *sk, unsigned int len)
+ static int ccid2_hc_tx_init(struct ccid *ccid, struct sock *sk)
