@@ -1,55 +1,45 @@
 From: Lorenzo Colitti <lorenzo@google.com>
 Subject: Re: [PATCH] ipv6: addrconf: clear IPv6 addresses and routes when
  losing link
-Date: Thu, 28 Oct 2010 15:23:29 -0700
-Message-ID: <AANLkTim-2ghTVVEaJesMkXcRL-eCPBoHkehKF8HXhyK+@mail.gmail.com>
+Date: Thu, 28 Oct 2010 15:41:13 -0700
+Message-ID: <AANLkTikiWL+0h4aMv7DvouGudOCVyocuP0BvNL6_Yt+s@mail.gmail.com>
 References: <AANLkTikC4pv8aOODM2pOg2bKQGL69wivcUU3f9ZziPhe@mail.gmail.com>
  <4CC78F19.9080504@hp.com> <AANLkTikTT5ie-R61rA9NucgGi5RBOPpXZLMYQRa_wb7j@mail.gmail.com>
- <AANLkTinA+znFn4txgq_2=njuX+eCTNJW+n_psbMYkU9d@mail.gmail.com> <AANLkTi=AyYrmSWDTZVWb2s+jgnyjNyHo-fkV4U+Fm45n@mail.gmail.com>
+ <AANLkTinA+znFn4txgq_2=njuX+eCTNJW+n_psbMYkU9d@mail.gmail.com>
+ <AANLkTi=AyYrmSWDTZVWb2s+jgnyjNyHo-fkV4U+Fm45n@mail.gmail.com> <AANLkTim-2ghTVVEaJesMkXcRL-eCPBoHkehKF8HXhyK+@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=ISO-8859-1
 Cc: netdev@vger.kernel.org, Brian Haley <brian.haley@hp.com>
 To: =?ISO-8859-2?Q?Maciej_=AFenczykowski?= <zenczykowski@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.35]:31732 "EHLO
+Received: from smtp-out.google.com ([216.239.44.51]:23180 "EHLO
 	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751496Ab0J1WXw convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 18:23:52 -0400
-Received: from hpaq12.eem.corp.google.com (hpaq12.eem.corp.google.com [172.25.149.12])
-	by smtp-out.google.com with ESMTP id o9SMNpnI026916
-	for <netdev@vger.kernel.org>; Thu, 28 Oct 2010 15:23:51 -0700
-Received: from gxk6 (gxk6.prod.google.com [10.202.11.6])
-	by hpaq12.eem.corp.google.com with ESMTP id o9SMMTlk017066
-	for <netdev@vger.kernel.org>; Thu, 28 Oct 2010 15:23:50 -0700
-Received: by gxk6 with SMTP id 6so1747837gxk.9
-        for <netdev@vger.kernel.org>; Thu, 28 Oct 2010 15:23:49 -0700 (PDT)
-In-Reply-To: <AANLkTi=AyYrmSWDTZVWb2s+jgnyjNyHo-fkV4U+Fm45n@mail.gmail.com>
+	with ESMTP id S1758933Ab0J1Wlg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 18:41:36 -0400
+Received: from hpaq5.eem.corp.google.com (hpaq5.eem.corp.google.com [172.25.149.5])
+	by smtp-out.google.com with ESMTP id o9SMfZ61028635
+	for <netdev@vger.kernel.org>; Thu, 28 Oct 2010 15:41:35 -0700
+Received: from gwj22 (gwj22.prod.google.com [10.200.10.22])
+	by hpaq5.eem.corp.google.com with ESMTP id o9SMfXQ8002662
+	for <netdev@vger.kernel.org>; Thu, 28 Oct 2010 15:41:34 -0700
+Received: by gwj22 with SMTP id 22so1820257gwj.11
+        for <netdev@vger.kernel.org>; Thu, 28 Oct 2010 15:41:33 -0700 (PDT)
+In-Reply-To: <AANLkTim-2ghTVVEaJesMkXcRL-eCPBoHkehKF8HXhyK+@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 27, 2010 at 1:39 PM, Maciej =C5=BBenczykowski
-<zenczykowski@gmail.com> wrote:
-> static int __ipv6_regen_rndid(struct inet6_dev *idev) {
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0get_random_bytes(idev->rndid, sizeof(idev-=
->rndid));
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0idev->rndid[0] &=3D ~0x02;
->
-> certainly seem to point towards it being totally random.
+On Thu, Oct 28, 2010 at 3:23 PM, Lorenzo Colitti <lorenzo@google.com> wrote:
+> It's random, but the random interface ID is a property of the
+> interface, not of the address, and thus survives interface up/down:
 
-It's random, but the random interface ID is a property of the
-interface, not of the address, and thus survives interface up/down:
+Also note that it's fairly trivial, instead of deleting all privacy
+addresses when link is lost, to simply deprecate them so they
+automatically come back after link comes back if an RA refreshes their
+lifetime.
 
-# ip -6 a li dev wlan0 secondary
-3: wlan0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qlen 1000
-    inet6 2620:0:1000:fd01:952f:2586:ed6f:408c/64 scope global
-secondary dynamic
-       valid_lft 604363sec preferred_lft 85363sec
-# ip link set wlan0 down
-# ip -6 a li dev wlan0 secondary
-# ip link set wlan0 up
-# ip -6 a li dev wlan0 secondary
-3: wlan0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qlen 1000
-    inet6 2620:0:1000:167d:952f:2586:ed6f:408c/64 scope global
-secondary dynamic
-       valid_lft 604799sec preferred_lft 85799sec
+I'd rather not do this, because it introduces a brief window on link
+up where the system has broken IPv6 connectivity and all connection
+attempts hang for three minutes. But if this is the only alternative
+to the current behaviour (where all connection attempts hang forever
+until all old addresses have exhausted their lifetimes), then we can
+do it.
