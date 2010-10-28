@@ -1,59 +1,171 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 PATCH] igbvf: fix panic on load
-Date: Thu, 28 Oct 2010 03:59:51 -0700
-Message-ID: <20101028105951.27748.36868.stgit@localhost6.localdomain6>
+Subject: [net-2.6 PATCH] e1000e: reset PHY after errors detected
+Date: Thu, 28 Oct 2010 03:59:53 -0700
+Message-ID: <20101028105953.27748.5285.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
-	Emil Tantilov <emil.s.tantilov@intel.com>,
-	Greg Rose <greg.v.rose@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from qmta11.emeryville.ca.mail.comcast.net ([76.96.27.211]:46415
 	"EHLO qmta11.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757217Ab0J1K7x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 06:59:53 -0400
+	by vger.kernel.org with ESMTP id S1757951Ab0J1K7y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 06:59:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+From: Carolyn Wyborny <carolyn.wyborny@intel.com>
 
-Introduced by commit:e6484930d7c73d324bccda7d43d131088da697b9
-net: allocate tx queues in register_netdevice
+Some errors can be induced in the PHY via environmental testing
+(specifically extreme temperature changes and electro static
+discharge testing), and in the case of the PHY hanging due to
+this input, this detects the problem and resets to continue.
+This issue only applies to 82574 silicon.
 
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
-Acked-by: Greg Rose <greg.v.rose@intel.com>
-Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+Tested-by: Emil Tantilov <emil.s.tantilov@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/igbvf/netdev.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/e1000e/82571.c  |   38 ++++++++++++++++++++++++++++++++++++++
+ drivers/net/e1000e/e1000.h  |    3 +++
+ drivers/net/e1000e/netdev.c |   22 ++++++++++++++++++++++
+ 3 files changed, 63 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/igbvf/netdev.c b/drivers/net/igbvf/netdev.c
-index ebfaa68..28af019 100644
---- a/drivers/net/igbvf/netdev.c
-+++ b/drivers/net/igbvf/netdev.c
-@@ -2783,15 +2783,15 @@ static int __devinit igbvf_probe(struct pci_dev *pdev,
- 	/* reset the hardware with the new settings */
- 	igbvf_reset(adapter);
+diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
+index ca663f1..7236f1a 100644
+--- a/drivers/net/e1000e/82571.c
++++ b/drivers/net/e1000e/82571.c
+@@ -52,6 +52,10 @@
+ 			      (ID_LED_DEF1_DEF2))
  
--	/* tell the stack to leave us alone until igbvf_open() is called */
--	netif_carrier_off(netdev);
--	netif_stop_queue(netdev);
--
- 	strcpy(netdev->name, "eth%d");
- 	err = register_netdev(netdev);
- 	if (err)
- 		goto err_hw_init;
+ #define E1000_GCR_L1_ACT_WITHOUT_L0S_RX 0x08000000
++#define E1000_BASE1000T_STATUS          10
++#define E1000_IDLE_ERROR_COUNT_MASK     0xFF
++#define E1000_RECEIVE_ERROR_COUNTER     21
++#define E1000_RECEIVE_ERROR_MAX         0xFFFF
  
-+	/* tell the stack to leave us alone until igbvf_open() is called */
-+	netif_carrier_off(netdev);
-+	netif_stop_queue(netdev);
+ #define E1000_NVM_INIT_CTRL2_MNGM 0x6000 /* Manageability Operation Mode mask */
+ 
+@@ -1243,6 +1247,39 @@ static s32 e1000_led_on_82574(struct e1000_hw *hw)
+ }
+ 
+ /**
++ *  e1000_check_phy_82574 - check 82574 phy hung state
++ *  @hw: pointer to the HW structure
++ *
++ *  Returns whether phy is hung or not
++ **/
++bool e1000_check_phy_82574(struct e1000_hw *hw)
++{
++	u16 status_1kbt = 0;
++	u16 receive_errors = 0;
++	bool phy_hung = false;
++	s32 ret_val = 0;
 +
- 	igbvf_print_device_info(adapter);
++	/*
++	 * Read PHY Receive Error counter first, if its is max - all F's then
++	 * read the Base1000T status register If both are max then PHY is hung.
++	 */
++	ret_val = e1e_rphy(hw, E1000_RECEIVE_ERROR_COUNTER, &receive_errors);
++
++	if (ret_val)
++		goto out;
++	if (receive_errors == E1000_RECEIVE_ERROR_MAX)  {
++		ret_val = e1e_rphy(hw, E1000_BASE1000T_STATUS, &status_1kbt);
++		if (ret_val)
++			goto out;
++		if ((status_1kbt & E1000_IDLE_ERROR_COUNT_MASK) ==
++		    E1000_IDLE_ERROR_COUNT_MASK)
++			phy_hung = true;
++	}
++out:
++	return phy_hung;
++}
++
++/**
+  *  e1000_setup_link_82571 - Setup flow control and link settings
+  *  @hw: pointer to the HW structure
+  *
+@@ -1859,6 +1896,7 @@ struct e1000_info e1000_82574_info = {
+ 				  | FLAG_HAS_SMART_POWER_DOWN
+ 				  | FLAG_HAS_AMT
+ 				  | FLAG_HAS_CTRLEXT_ON_LOAD,
++	.flags2			  = FLAG2_CHECK_PHY_HANG,
+ 	.pba			= 36,
+ 	.max_hw_frame_size	= DEFAULT_JUMBO,
+ 	.get_variants		= e1000_get_variants_82571,
+diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
+index cee882d..fdc67fe 100644
+--- a/drivers/net/e1000e/e1000.h
++++ b/drivers/net/e1000e/e1000.h
+@@ -397,6 +397,7 @@ struct e1000_adapter {
+ 	struct work_struct print_hang_task;
  
- 	igbvf_initialize_last_counter_stats(adapter);
+ 	bool idle_check;
++	int phy_hang_count;
+ };
+ 
+ struct e1000_info {
+@@ -454,6 +455,7 @@ struct e1000_info {
+ #define FLAG2_HAS_EEE                     (1 << 5)
+ #define FLAG2_DMA_BURST                   (1 << 6)
+ #define FLAG2_DISABLE_AIM                 (1 << 8)
++#define FLAG2_CHECK_PHY_HANG              (1 << 9)
+ 
+ #define E1000_RX_DESC_PS(R, i)	    \
+ 	(&(((union e1000_rx_desc_packet_split *)((R).desc))[i]))
+@@ -631,6 +633,7 @@ extern s32 e1000_get_phy_info_ife(struct e1000_hw *hw);
+ extern s32 e1000_check_polarity_ife(struct e1000_hw *hw);
+ extern s32 e1000_phy_force_speed_duplex_ife(struct e1000_hw *hw);
+ extern s32 e1000_check_polarity_igp(struct e1000_hw *hw);
++extern bool e1000_check_phy_82574(struct e1000_hw *hw);
+ 
+ static inline s32 e1000_phy_hw_reset(struct e1000_hw *hw)
+ {
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index ec8cf3f..35a9dd4 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -4098,6 +4098,25 @@ static void e1000e_enable_receives(struct e1000_adapter *adapter)
+ 	}
+ }
+ 
++static void e1000e_check_82574_phy_workaround(struct e1000_adapter *adapter)
++{
++	struct e1000_hw *hw = &adapter->hw;
++
++	/*
++	 * With 82574 controllers, PHY needs to be checked periodically
++	 * for hung state and reset, if two calls return true
++	 */
++	if (e1000_check_phy_82574(hw))
++		adapter->phy_hang_count++;
++	else
++		adapter->phy_hang_count = 0;
++
++	if (adapter->phy_hang_count > 1) {
++		adapter->phy_hang_count = 0;
++		schedule_work(&adapter->reset_task);
++	}
++}
++
+ /**
+  * e1000_watchdog - Timer Call-back
+  * @data: pointer to adapter cast into an unsigned long
+@@ -4333,6 +4352,9 @@ link_up:
+ 	if (e1000e_get_laa_state_82571(hw))
+ 		e1000e_rar_set(hw, adapter->hw.mac.addr, 0);
+ 
++	if (adapter->flags2 & FLAG2_CHECK_PHY_HANG)
++		e1000e_check_82574_phy_workaround(adapter);
++
+ 	/* Reset the timer */
+ 	if (!test_bit(__E1000_DOWN, &adapter->state))
+ 		mod_timer(&adapter->watchdog_timer,
 
