@@ -1,34 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-2.6 PATCH] igbvf: fix panic on load
-Date: Thu, 28 Oct 2010 10:20:03 -0700 (PDT)
-Message-ID: <20101028.102003.104053837.davem@davemloft.net>
-References: <20101028105951.27748.36868.stgit@localhost6.localdomain6>
+Subject: Re: [net-2.6 PATCH] e1000e: reset PHY after errors detected
+Date: Thu, 28 Oct 2010 10:20:09 -0700 (PDT)
+Message-ID: <20101028.102009.189706923.davem@davemloft.net>
+References: <20101028105953.27748.5285.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
-	emil.s.tantilov@intel.com, greg.v.rose@intel.com
+	jesse.brandeburg@intel.com, carolyn.wyborny@intel.com
 To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45545
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45551
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933943Ab0J1RTj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 13:19:39 -0400
-In-Reply-To: <20101028105951.27748.36868.stgit@localhost6.localdomain6>
+	by vger.kernel.org with ESMTP id S933965Ab0J1RTq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 13:19:46 -0400
+In-Reply-To: <20101028105953.27748.5285.stgit@localhost6.localdomain6>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Thu, 28 Oct 2010 03:59:51 -0700
+Date: Thu, 28 Oct 2010 03:59:53 -0700
 
-> From: Emil Tantilov <emil.s.tantilov@intel.com>
+> From: Carolyn Wyborny <carolyn.wyborny@intel.com>
 > 
-> Introduced by commit:e6484930d7c73d324bccda7d43d131088da697b9
-> net: allocate tx queues in register_netdevice
+> Some errors can be induced in the PHY via environmental testing
+> (specifically extreme temperature changes and electro static
+> discharge testing), and in the case of the PHY hanging due to
+> this input, this detects the problem and resets to continue.
+> This issue only applies to 82574 silicon.
 > 
-> Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
-> Acked-by: Greg Rose <greg.v.rose@intel.com>
-> Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+> Tested-by: Emil Tantilov <emil.s.tantilov@intel.com>
 > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
 Applied.
