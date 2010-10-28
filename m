@@ -1,56 +1,66 @@
-From: Grant Grundler <grundler@parisc-linux.org>
-Subject: Re: [PATCH net-next-2.6 1/2] be2net: Adding an option to use INTx
-	instead of MSI-X
-Date: Wed, 27 Oct 2010 23:37:14 -0600
-Message-ID: <20101028053714.GD32200@lackof.org>
-References: <1288075928.6578.185.camel@concordia> <20101026133233.GH15074@solarflare.com> <1288135235.16778.14.camel@concordia> <20101027.084604.226761472.davem@davemloft.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [v3 RFC PATCH 0/4] Implement multiqueue virtio-net
+Date: Thu, 28 Oct 2010 07:50:54 +0200
+Message-ID: <20101028055054.GG5599@redhat.com>
+References: <20101020085452.15579.76002.sendpatchset@krkumar2.in.ibm.com>
+ <OF8735A2A4.74B4EE91-ON652577C5.0040D90B-652577C7.0056B99D@in.ibm.com>
+ <20101025161718.GA19559@redhat.com>
+ <OF5C53E9CF.FFDF2CE7-ON652577C8.00191D14-652577C8.001C2154@LocalDomain>
+ <OFBB51646E.01CC3630-ON652577C8.0030D6EF-652577C8.0031DA3C@in.ibm.com>
+ <20101026093846.GA6766@redhat.com>
+ <OFBE9E2C99.648EFB19-ON652577C8.0035FEDD-652577C8.0036AD51@in.ibm.com>
+ <20101026110913.GC7922@redhat.com>
+ <OFC29C4491.59069AD1-ON652577CA.00170F0D-652577CA.001C76C8@in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: michael@ellerman.id.au, bhutchings@solarflare.com,
-	somnath.kotur@emulex.com, netdev@vger.kernel.org,
-	linux-pci@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-pci-owner@vger.kernel.org>
+Cc: anthony@codemonkey.ws, arnd@arndb.de, avi@redhat.com,
+	davem@davemloft.net, eric.dumazet@gmail.com, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, rusty@rustcorp.com.au
+To: Krishna Kumar2 <krkumar2@in.ibm.com>
+Return-path: <kvm-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20101027.084604.226761472.davem@davemloft.net>
-Sender: linux-pci-owner@vger.kernel.org
+In-Reply-To: <OFC29C4491.59069AD1-ON652577CA.00170F0D-652577CA.001C76C8@in.ibm.com>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 27, 2010 at 08:46:04AM -0700, David Miller wrote:
-> From: Michael Ellerman <michael@ellerman.id.au>
-> Date: Wed, 27 Oct 2010 10:20:35 +1100
+On Thu, Oct 28, 2010 at 10:44:14AM +0530, Krishna Kumar2 wrote:
+> "Michael S. Tsirkin" <mst@redhat.com> wrote on 10/26/2010 04:39:13 PM:
 > 
-> > On Tue, 2010-10-26 at 14:32 +0100, Ben Hutchings wrote:
-> >> Michael Ellerman wrote:
-> >> > On Mon, 2010-10-25 at 16:25 -0700, David Miller wrote:
-> >> > > From: Ben Hutchings <bhutchings@solarflare.com>
-> >> > > Date: Mon, 25 Oct 2010 23:38:53 +0100
-> > 
-> >> > Ethtool would be nice, but only for network drivers. Is there a generic
-> >> > solution, quirks are obviously not keeping people happy.
-> >>  
-> >> Since this is (normally) a property of the system, pci=nomsi is the
-> >> generic solution.
-> > 
-> > Sort of, it's a big hammer. Did all these driver writers not know about
-> > pci=nomsi or did they prefer to add a parameter to their driver for some
-> > reason?
+> (merging two posts into one)
 > 
-> Every time I've actually done the work to try and track down the
-> true issue, it always turned out to be a PCI chipset problem rather
-> than a device specific issue.
+> > I think we discussed the need for external to guest testing
+> > over 10G. For large messages we should not see any change
+> > but you should be able to get better numbers for small messages
+> > assuming a MQ NIC card.
+> 
+> For external host, there is a contention among different
+> queues (vhosts) when packets are processed in tun/bridge,
+> unless I implement MQ TX for macvtap (tun/bridge?).  So
+> my testing shows a small improvement (1 to 1.5% average)
+> in BW and a rise in SD (between 10-15%).  For remote host,
+> I think tun/macvtap needs MQ TX support?
 
-I agree with your generalization. I can think of only one exception:
-ISTR pre-5705 tg3 chips would send both MSI and assert IRQ line at the same time.
+Confused. I thought this *is* with a multiqueue tun/macvtap?
+bridge does not do any queueing AFAIK ...
+I think we need to fix the contention. With migration what was guest to
+host a minute ago might become guest to external now ...
 
-My guess is driver writers just want knob to "work around" any issues
-*their* driver might see with chipset. Disabling MSI for all drivers
-doesn't leave opportunity for experimenting with individual drivers.
-
-hth,
-grant
-
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-pci" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > > > > Results for UDP BW tests (unidirectional, sum across
+> > > > > 3 iterations, each iteration of 45 seconds, default
+> > > > > netperf, vhosts bound to cpus 0-3; no other tuning):
+> > > >
+> > > > Is binding vhost threads to CPUs really required?
+> > > > What happens if we let the scheduler do its job?
+> > >
+> > > Nothing drastic, I remember BW% and SD% both improved a
+> > > bit as a result of binding.
+> >
+> > If there's a significant improvement this would mean that
+> > we need to rethink the vhost-net interaction with the scheduler.
+> 
+> I will get a test run with and without binding and post the
+> results later today.
+> 
+> Thanks,
+> 
+> - KK
