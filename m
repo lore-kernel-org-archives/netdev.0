@@ -1,105 +1,100 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [Security] TIPC security issues
-Date: Thu, 28 Oct 2010 08:32:37 -0700
-Message-ID: <AANLkTikdh-kqroCDA5EsjSMTLjViqe_U=hxM1L6U4Ppb@mail.gmail.com>
-References: <20101027.105047.183059900.davem@davemloft.net>
- <1288203979.1836.2.camel@dan> <AANLkTikKZdq9u0+Nkd4wtEcAZMT3YCPaXMv6FZaafetc@mail.gmail.com>
- <20101027.122757.98903207.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=00151750d9fc6c312e0493af0e75
-Cc: jon.maloy@ericsson.com, netdev@vger.kernel.org,
-	drosenberg@vsecurity.com, security@kernel.org,
-	allan.stephens@windriver.com
-To: David Miller <davem@davemloft.net>,
-	Andy Grover <andy.grover@oracle.com>
+From: Cyril Chemparathy <cyril@ti.com>
+Subject: [PATCH] phy/marvell: rename 88ec048 to 88e1318s and fix mscr1 addr
+Date: Thu, 28 Oct 2010 11:35:12 -0400
+Message-ID: <1288280112-622-1-git-send-email-cyril@ti.com>
+Cc: Cyril Chemparathy <cyril@ti.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:34261 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759241Ab0J1Pdq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 11:33:46 -0400
-Received: from mail-gy0-f174.google.com (mail-gy0-f174.google.com [209.85.160.174])
-	(authenticated bits=0)
-	by smtp1.linux-foundation.org (8.14.2/8.13.5/Debian-3ubuntu1.1) with ESMTP id o9SFX2DM003480
-	(version=TLSv1/SSLv3 cipher=RC4-MD5 bits=128 verify=FAIL)
-	for <netdev@vger.kernel.org>; Thu, 28 Oct 2010 08:33:13 -0700
-Received: by gyg4 with SMTP id 4so1291203gyg.19
-        for <netdev@vger.kernel.org>; Thu, 28 Oct 2010 08:32:57 -0700 (PDT)
-In-Reply-To: <20101027.122757.98903207.davem@davemloft.net>
+Received: from devils.ext.ti.com ([198.47.26.153]:50808 "EHLO
+	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756665Ab0J1PfP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 11:35:15 -0400
+Received: from dlep36.itg.ti.com ([157.170.170.91])
+	by devils.ext.ti.com (8.13.7/8.13.7) with ESMTP id o9SFZFsb019651
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Thu, 28 Oct 2010 10:35:15 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---00151750d9fc6c312e0493af0e75
-Content-Type: text/plain; charset=ISO-8859-1
+The marvell 88ec048's official part number is 88e1318s.  This patch renames
+definitions in the driver to reflect this.
 
-Heh. We apparently have _another_ iovec overflow in networking. This time rds.
+In addition, a minor bug fix has been added to write back the MSCR1 register
+value properly.
 
-Reported by Thomas Pollet <thomas.pollet@gmail.com>: look at
-net/rds/rdma.c around line 490. It doesn't use the regular iovec code,
-instead it cooks its own, and has a few problems with overflow.
+Signed-off-by: Cyril Chemparathy <cyril@ti.com>
+---
+ drivers/net/phy/marvell.c   |   18 +++++++++---------
+ include/linux/marvell_phy.h |    2 +-
+ 2 files changed, 10 insertions(+), 10 deletions(-)
 
-It gathers the number of pages into an "unsigned int", and for each
-entry in its own rds_iovec it will check that the size is < UINT_MAX,
-and then generate the number of pages for that entry. With the whole
-"unaligned address adds one" logic, it means that each entry can get
-(UINT_MAX >> PAGE_SHIFT)+1 pages.
+diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
+index 0101f2b..e6ef44c 100644
+--- a/drivers/net/phy/marvell.c
++++ b/drivers/net/phy/marvell.c
+@@ -74,8 +74,8 @@
+ #define MII_88E1121_PHY_MSCR_TX_DELAY	BIT(4)
+ #define MII_88E1121_PHY_MSCR_DELAY_MASK	(~(0x3 << 4))
+ 
+-#define MII_88EC048_PHY_MSCR1_REG	16
+-#define MII_88EC048_PHY_MSCR1_PAD_ODD	BIT(6)
++#define MII_88E1318S_PHY_MSCR1_REG	16
++#define MII_88E1318S_PHY_MSCR1_PAD_ODD	BIT(6)
+ 
+ #define MII_88E1121_PHY_LED_CTRL	16
+ #define MII_88E1121_PHY_LED_PAGE	3
+@@ -233,7 +233,7 @@ static int m88e1121_config_aneg(struct phy_device *phydev)
+ 	return err;
+ }
+ 
+-static int m88ec048_config_aneg(struct phy_device *phydev)
++static int m88e1318_config_aneg(struct phy_device *phydev)
+ {
+ 	int err, oldpage, mscr;
+ 
+@@ -244,10 +244,10 @@ static int m88ec048_config_aneg(struct phy_device *phydev)
+ 	if (err < 0)
+ 		return err;
+ 
+-	mscr = phy_read(phydev, MII_88EC048_PHY_MSCR1_REG);
+-	mscr |= MII_88EC048_PHY_MSCR1_PAD_ODD;
++	mscr = phy_read(phydev, MII_88E1318S_PHY_MSCR1_REG);
++	mscr |= MII_88E1318S_PHY_MSCR1_PAD_ODD;
+ 
+-	err = phy_write(phydev, MII_88E1121_PHY_MSCR_REG, mscr);
++	err = phy_write(phydev, MII_88E1318S_PHY_MSCR1_REG, mscr);
+ 	if (err < 0)
+ 		return err;
+ 
+@@ -652,12 +652,12 @@ static struct phy_driver marvell_drivers[] = {
+ 		.driver = { .owner = THIS_MODULE },
+ 	},
+ 	{
+-		.phy_id = MARVELL_PHY_ID_88EC048,
++		.phy_id = MARVELL_PHY_ID_88E1318S,
+ 		.phy_id_mask = MARVELL_PHY_ID_MASK,
+-		.name = "Marvell 88EC048",
++		.name = "Marvell 88E1318S",
+ 		.features = PHY_GBIT_FEATURES,
+ 		.flags = PHY_HAS_INTERRUPT,
+-		.config_aneg = &m88ec048_config_aneg,
++		.config_aneg = &m88e1318_config_aneg,
+ 		.read_status = &marvell_read_status,
+ 		.ack_interrupt = &marvell_ack_interrupt,
+ 		.config_intr = &marvell_config_intr,
+diff --git a/include/linux/marvell_phy.h b/include/linux/marvell_phy.h
+index d0f0801..1ff81b5 100644
+--- a/include/linux/marvell_phy.h
++++ b/include/linux/marvell_phy.h
+@@ -12,7 +12,7 @@
+ #define MARVELL_PHY_ID_88E1121R		0x01410cb0
+ #define MARVELL_PHY_ID_88E1145		0x01410cd0
+ #define MARVELL_PHY_ID_88E1240		0x01410e30
+-#define MARVELL_PHY_ID_88EC048		0x01410e90
++#define MARVELL_PHY_ID_88E1318S		0x01410e90
+ 
+ /* struct phy_device dev_flags definitions */
+ #define MARVELL_PHY_M1145_FLAGS_RESISTANCE	0x00000001
+-- 
+1.7.0.4
 
-And how many entries can we have? Apparently that is capped to
-UINT_MAX too. So add all those up, and they can easily overflow the
-unsigned int page counter.
-
-So this time fixing verify_iovec() doesn't help, because rds just
-cooks its own, and this is using a totally different interface: it
-seems to hook into sendmsg, but it looks like it uses the ancillary
-data objects and passes in its own magical iovec rather than use any
-"normal" iovec thing. I don't know the code, I may be totally off.
-
-Attached is a half-arsed patch. I say "half-arsed" because I think it
-fixes one thing, but I haven't looked at any other use. And quite
-frankly, even the one thing it fixes is totally broken: the iovec is
-left in user space, so there are all those crazy race-conditions where
-another thread in user space can _change_ the rds_iovec after we have
-counted the pages, and now the page count is totally wrong.
-
-So the code is just an unmitigated disaster from any standpoint. My
-patch - if it works - makes it slightly better. But I'd suggest
-disabling RDS in any sane setup.
-
-This was the same subsystem that totally didn't check the user
-addresses at all, after all. So there are probably tons of other bugs
-lurking.
-
-Btw: patch is totally untested. I haven't even compiled it. So take it
-with a pinch of salt.
-
-                                                 Linus
-
---00151750d9fc6c312e0493af0e75
-Content-Type: text/x-patch; charset=US-ASCII; name="patch.diff"
-Content-Disposition: attachment; filename="patch.diff"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_gftsk9es0
-
-RnJvbTogTGludXMgVG9ydmFsZHMgPHRvcnZhbGRzQGxpbnV4LWZvdW5kYXRpb24ub3JnPgpTdWJq
-ZWN0OiBuZXQ6IGZpeCByZHNfaW92ZWMgcGFnZSBjb3VudCBvdmVyZmxvdwoKQXMgcmVwb3J0ZWQg
-YnkgVGhvbWFzIFBvbGxldCwgdGhlIHJkbWEgcGFnZSBjb3VudGluZyBjYW4gb3ZlcmZsb3cuICBX
-ZQpnZXQgdGhlIHJkbWEgc2l6ZXMgaW4gNjQtYml0IHVuc2lnbmVkIGVudGl0aWVzLCBidXQgdGhl
-biBsaW1pdCBpdCB0bwpVSU5UX01BWCBieXRlcyBhbmQgc2hpZnQgdGhlbSBkb3duIHRvIHBhZ2Vz
-IChzbyB3aXRoIGEgcG9zc2libGUgIisxIiBmb3IKYW4gdW5hbGlnbmVkIGFkZHJlc3MpLiAKClNv
-IGVhY2ggaW5kaXZpZHVhbCBwYWdlIGNvdW50IGZpdHMgY29tZm9ydGFibHkgaW4gYW4gJ3Vuc2ln
-bmVkIGludCcgKG5vdApldmVuIGNsb3NlIHRvIG92ZXJmbG93aW5nIGludG8gc2lnbmVkKSwgYnV0
-IGFzIHRoZXkgYXJlIGFkZGVkIHVwLCB0aGV5Cm1pZ2h0IGVuZCB1cCByZXN1bHRpbmcgaW4gYSBz
-aWduZWQgcmV0dXJuIHZhbHVlLiBXaGljaCB3b3VsZCBiZSB3cm9uZy4KCkNhdGNoIHRoZSBjYXNl
-IG9mIHRvdF9wYWdlcyB0dXJuaW5nIG5lZ2F0aXZlLCBhbmQgcmV0dXJuIHRoZSBhcHByb3ByaWF0
-ZQplcnJvciBjb2RlLiAKClJlcG9ydGVkLWJ5OiBUaG9tYXMgUG9sbGV0IDx0aG9tYXMucG9sbGV0
-QGdtYWlsLmNvbT4KU2lnbmVkLW9mZi1ieTogTGludXMgVG9ydmFsZHMgPHRvcnZhbGRzQGxpbnV4
-LWZvdW5kYXRpb24ub3JnPgotLS0KIG5ldC9yZHMvcmRtYS5jIHwgICAgNyArKysrKysrCiAxIGZp
-bGVzIGNoYW5nZWQsIDcgaW5zZXJ0aW9ucygrKSwgMCBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQg
-YS9uZXQvcmRzL3JkbWEuYyBiL25ldC9yZHMvcmRtYS5jCmluZGV4IDFhNDFkZWIuLjBkZjAyYzgg
-MTAwNjQ0Ci0tLSBhL25ldC9yZHMvcmRtYS5jCisrKyBiL25ldC9yZHMvcmRtYS5jCkBAIC01MDIs
-NiArNTAyLDEzIEBAIHN0YXRpYyBpbnQgcmRzX3JkbWFfcGFnZXMoc3RydWN0IHJkc19yZG1hX2Fy
-Z3MgKmFyZ3MpCiAJCQlyZXR1cm4gLUVJTlZBTDsKIAogCQl0b3RfcGFnZXMgKz0gbnJfcGFnZXM7
-CisKKwkJLyoKKwkJICogbnJfcGFnZXMgZm9yIG9uZSBlbnRyeSBpcyBsaW1pdGVkIHRvIChVSU5U
-X01BWD4+UEFHRV9TSElGVCkrMSwKKwkJICogc28gdG90X3BhZ2VzIGNhbm5vdCBvdmVyZmxvdyB3
-aXRob3V0IGZpcnN0IGdvaW5nIG5lZ2F0aXZlLgorCQkgKi8KKwkJaWYgKChpbnQpdG90X3BhZ2Vz
-IDwgMCkKKwkJCXJldHVybiAtRUlOVkFMOwogCX0KIAogCXJldHVybiB0b3RfcGFnZXM7Cg==
---00151750d9fc6c312e0493af0e75--
