@@ -1,41 +1,85 @@
-From: Bob Beers <bob.beers@gmail.com>
-Subject: Re: [PATCH] via-velocity: Codestyle fixes
-Date: Thu, 28 Oct 2010 10:34:03 -0400
-Message-ID: <AANLkTi=t-X96a2m9kmP_j+nT=tKjyOJZBsOspuBT4TmM@mail.gmail.com>
-References: <1288242011-32257-1-git-send-email-alex@wigen.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: alex@wigen.net
+From: Chuck Lever <chuck.lever@oracle.com>
+Subject: Re: [Bugme-new] [Bug 20772] New: ip= nfsaddrs= stopped working
+Date: Thu, 28 Oct 2010 10:32:49 -0400
+Message-ID: <17D7A64D-B275-43EB-AE42-6CA3E65ABCA1@oracle.com>
+References: <bug-20772-10286@https.bugzilla.kernel.org/> <20101019120938.93622e82.akpm@linux-foundation.org> <20101027223103.GA10484@verge.net.au>
+Mime-Version: 1.0 (Apple Message framework v1081)
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, mpetersen@peak6.com
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gy0-f174.google.com ([209.85.160.174]:50102 "EHLO
-	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933480Ab0J1OeE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 10:34:04 -0400
-In-Reply-To: <1288242011-32257-1-git-send-email-alex@wigen.net>
+Received: from rcsinet10.oracle.com ([148.87.113.121]:58641 "EHLO
+	rcsinet10.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753819Ab0J1Oeu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 10:34:50 -0400
+In-Reply-To: <20101027223103.GA10484@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 28, 2010 at 1:00 AM,  <alex@wigen.net> wrote:
-> From: Alexander Wigen <alex@wigen.net>
 
-> =A0static void mac_wol_reset(struct mac_regs __iomem *regs)
-> @@ -342,7 +342,7 @@ VELOCITY_PARAM(ValPktLen, "Receiving or Drop inva=
-lid 802.3 frame");
-> =A0 =A01: Wake up if link status is on/off.
-> =A0 =A02: Wake up if recevied an arp packet.
-> =A0 =A04: Wake up if recevied any unicast packet.
-> - =A0 Those value can be sumed up to support more than one option.
-> + =A0 Those value can be summed up to support more than one option.
-> =A0*/
-> =A0VELOCITY_PARAM(wol_opts, "Wake On Lan options");
->
+On Oct 27, 2010, at 6:31 PM, Simon Horman wrote:
 
-my $.02 ...
+> On Tue, Oct 19, 2010 at 12:09:38PM -0700, Andrew Morton wrote:
+>> 
+>> (switched to email.  Please respond via emailed reply-to-all, not via the
+>> bugzilla web interface).
+>> 
+>> On Tue, 19 Oct 2010 18:20:15 GMT
+>> bugzilla-daemon@bugzilla.kernel.org wrote:
+>> 
+>>> https://bugzilla.kernel.org/show_bug.cgi?id=20772
+>>> 
+>>>           Summary: ip= nfsaddrs= stopped working
+>>>           Product: Networking
+>>>           Version: 2.5
+>>>    Kernel Version: 2.6.33, 2.6.32, 2.6.26
+>>>          Platform: All
+>>>        OS/Version: Linux
+>>>              Tree: Mainline
+>>>            Status: NEW
+>>>          Severity: high
+>>>          Priority: P1
+>>>         Component: IPV4
+>>>        AssignedTo: shemminger@linux-foundation.org
+>>>        ReportedBy: mpetersen@peak6.com
+>>>        Regression: Yes
+>>> 
+>>> 
+>>> I can no longer set a static IP address using either ip= or nfsaddr=,
+>>> ie ip=192.168.0.42:192.168.0.69:255.255.255.0:testhost:eth0:none has no
+>>> effect, and DHCP is still attempted.
+>>> 
+>>> Even if I undefine IP_PNP_DHCP IP_PNP_BOOTP and IP_PNP_RARP in the
+>>> config (but leave IP_PNP,) the kernel seems to ignore the static IP
+>>> settings and try to get a an IP address with DHCP somehow.
+> 
+> Hi,
+> 
+> I believe that the problem is that there is a minor syntax error in the
+> configuration parameter. Specifically there should be two colons between
+> 192.168.0.69 and 255.255.255.0 or between 192.168.0.42 and 192.168.0.69.
+> 
+> As it stands the settings are:
+> 
+> 	my address	192.168.0.42
+> 	server address	192.168.0.69
+> 	gateway		255.255.255.0
+> 	netmask		testhost
+> 	hostname	eth0
+> 	interface	none
+> 
+> I believe it is the interface=none that is killing any IP configuration
+> by the kernel as no such interface exists.
 
-s/recevied/receive/ x2
+Did "interface=none" work in 2.6.36 and earlier?
 
-s/These values can be summed/Those value can be summed up/
+-- 
+Chuck Lever
+chuck[dot]lever[at]oracle[dot]com
 
--Bob Beers
+
+
+
