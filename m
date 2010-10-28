@@ -1,35 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next] stmmac: enable/disable rx/tx in the core with a
- single write.
-Date: Thu, 28 Oct 2010 11:38:11 -0700 (PDT)
-Message-ID: <20101028.113811.189711758.davem@davemloft.net>
-References: <1288069094-25365-1-git-send-email-peppe.cavallaro@st.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] ip_gre: fix percpu stats accounting
+Date: Thu, 28 Oct 2010 20:38:58 +0200
+Message-ID: <1288291138.2711.0.camel@edumazet-laptop>
+References: <4CC99FDC.9070102@parallels.com>
+	 <1288283634.11523.20.camel@edumazet-laptop>
+	 <20101028.102917.246527148.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, armando.visconti@st.com
-To: peppe.cavallaro@st.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: xemul@parallels.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60366
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1760765Ab0J1Shr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 14:37:47 -0400
-In-Reply-To: <1288069094-25365-1-git-send-email-peppe.cavallaro@st.com>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:63583 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761385Ab0J1SjE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 14:39:04 -0400
+Received: by wwe15 with SMTP id 15so2348592wwe.1
+        for <netdev@vger.kernel.org>; Thu, 28 Oct 2010 11:39:03 -0700 (PDT)
+In-Reply-To: <20101028.102917.246527148.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Date: Tue, 26 Oct 2010 06:58:14 +0200
+Le jeudi 28 octobre 2010 =C3=A0 10:29 -0700, David Miller a =C3=A9crit =
+:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Thu, 28 Oct 2010 18:33:54 +0200
+>=20
+> > Le jeudi 28 octobre 2010 =C3=A0 20:07 +0400, Pavel Emelyanov a =C3=A9=
+crit :
+> >> commit e985aad7 (ip_gre: percpu stats accounting) forgot the fallb=
+ack
+> >> tunnel case (gre0).
+> >>=20
+> >> This is the 4th part of the "foo: fix percpu stats accounting" ser=
+ies ;)
+> >>=20
+> >> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+> >>=20
+> >=20
+> > Indeed, right you are ;)
+> >=20
+> > Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+>=20
+> Applied.
 
-> From: avisconti <armando.visconti@st.com>
-> 
-> This patch enables and disables the rx and tx bits in the MAC control reg
-> by using a single write operation.
-> This also solves a possible problem (spotted on SPEAr platforms) at 10Mbps
-> where two consecutive writes to a MAC control register can take more than
-> 4 phy_clk cycles.
-> 
-> Signed-off-by: Armando Visconti <armando.visconti@st.com>
-> Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 
-Applied, thanks.
+Hmm, actually patch is buggy, sorry...
+
+
+
