@@ -1,59 +1,49 @@
-From: Dan Carpenter <error27@gmail.com>
-Subject: [patch v3] fix stack overflow in pktgen_if_write()
-Date: Thu, 28 Oct 2010 08:05:29 +0200
-Message-ID: <20101028060529.GX6062@bicker>
-References: <1288206788-21063-1-git-send-email-nelhage@ksplice.com> <20101027221234.GN6062@bicker> <20101027224302.GQ6062@bicker> <20101027230657.GT16803@ksplice.com>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: [v3 RFC PATCH 0/4] Implement multiqueue virtio-net
+Date: Thu, 28 Oct 2010 11:42:05 +0530
+Message-ID: <OF03CB03BB.27A87B85-ON652577CA.002069A5-652577CA.0021C2E2@in.ibm.com>
+References: <20101020085452.15579.76002.sendpatchset@krkumar2.in.ibm.com> <OF8735A2A4.74B4EE91-ON652577C5.0040D90B-652577C7.0056B99D@in.ibm.com> <20101025161718.GA19559@redhat.com> <OF5C53E9CF.FFDF2CE7-ON652577C8.00191D14-652577C8.001C2154@LocalDomain> <OFBB51646E.01CC3630-ON652577C8.0030D6EF-652577C8.0031DA3C@in.ibm.com> <20101026093846.GA6766@redhat.com> <OFBE9E2C99.648EFB19-ON652577C8.0035FEDD-652577C8.0036AD51@in.ibm.com> <20101026110913.GC7922@redhat.com> <OFC29C4491.59069AD1-ON652577CA.00170F0D-652577CA.001C76C8@in.ibm.com> <20101028055054.GG5599@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Robert Olsson <robert.olsson@its.uu.se>,
-	Andy Shevchenko <andy.shevchenko@gmail.com>,
-	netdev@vger.kernel.org
-To: Nelson Elhage <nelhage@ksplice.com>
+Content-Type: text/plain; charset=US-ASCII
+Cc: anthony@codemonkey.ws, arnd@arndb.de, avi@redhat.com,
+	davem@davemloft.net, eric.dumazet@gmail.com, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
+	rusty@rustcorp.com.au
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:33306 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753436Ab0J1GFk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 02:05:40 -0400
-Received: by mail-wy0-f174.google.com with SMTP id 28so1546696wyf.19
-        for <netdev@vger.kernel.org>; Wed, 27 Oct 2010 23:05:39 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20101027230657.GT16803@ksplice.com>
+Received: from e28smtp09.in.ibm.com ([122.248.162.9]:52726 "EHLO
+	e28smtp09.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752637Ab0J1GI5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 02:08:57 -0400
+In-Reply-To: <20101028055054.GG5599@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Nelson Elhage says he was able to oops both amd64 and i386 test 
-machines with 8k writes to the pktgen file.  Let's just allocate the
-buffer on the heap instead of on the stack.
+> "Michael S. Tsirkin" <mst@redhat.com>
 
-This can only be triggered by root so there are no security issues here.
+> > > I think we discussed the need for external to guest testing
+> > > over 10G. For large messages we should not see any change
+> > > but you should be able to get better numbers for small messages
+> > > assuming a MQ NIC card.
+> >
+> > For external host, there is a contention among different
+> > queues (vhosts) when packets are processed in tun/bridge,
+> > unless I implement MQ TX for macvtap (tun/bridge?).  So
+> > my testing shows a small improvement (1 to 1.5% average)
+> > in BW and a rise in SD (between 10-15%).  For remote host,
+> > I think tun/macvtap needs MQ TX support?
+>
+> Confused. I thought this *is* with a multiqueue tun/macvtap?
+> bridge does not do any queueing AFAIK ...
+> I think we need to fix the contention. With migration what was guest to
+> host a minute ago might become guest to external now ...
 
-Reported-by: Nelson Elhage <nelhage@ksplice.com>
-Signed-off-by: Dan Carpenter <error27@gmail.com>
----
-v3:  just use kmalloc()
+Macvtap RX is MQ but not TX. I don't think MQ TX support is
+required for macvtap, though. Is it enough for existing
+macvtap sendmsg to work, since it calls dev_queue_xmit
+which selects the txq for the outgoing device?
 
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 2c0df0f..c8d3620 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -887,12 +887,17 @@ static ssize_t pktgen_if_write(struct file *file,
- 	i += len;
- 
- 	if (debug) {
--		char tb[count + 1];
-+		char *tb;
-+
-+		tb = kmalloc(count + 1, GFP_KERNEL);
-+		if (!tb)
-+			return -ENOMEM;
- 		if (copy_from_user(tb, user_buffer, count))
- 			return -EFAULT;
- 		tb[count] = 0;
- 		printk(KERN_DEBUG "pktgen: %s,%lu  buffer -:%s:-\n", name,
- 		       (unsigned long)count, tb);
-+		kfree(tb);
- 	}
- 
- 	if (!strcmp(name, "min_pkt_size")) {
+Thanks,
+
+- KK
+
