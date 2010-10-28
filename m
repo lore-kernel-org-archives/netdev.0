@@ -1,66 +1,52 @@
-From: Krishna Kumar <krkumar2@in.ibm.com>
-Subject: [PATCH] virtio_net: Fix queue full check
-Date: Thu, 28 Oct 2010 10:40:36 +0530
-Message-ID: <20101028051036.25340.23442.sendpatchset@krkumar2.in.ibm.com>
-Cc: netdev@vger.kernel.org, Krishna Kumar <krkumar2@in.ibm.com>
-To: rusty@rustcorp.com.au, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e23smtp06.au.ibm.com ([202.81.31.148]:40213 "EHLO
-	e23smtp06.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752824Ab0J1FKo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 01:10:44 -0400
-Received: from d23relay03.au.ibm.com (d23relay03.au.ibm.com [202.81.31.245])
-	by e23smtp06.au.ibm.com (8.14.4/8.13.1) with ESMTP id o9S5AUmF010891
-	for <netdev@vger.kernel.org>; Thu, 28 Oct 2010 16:10:30 +1100
-Received: from d23av04.au.ibm.com (d23av04.au.ibm.com [9.190.235.139])
-	by d23relay03.au.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o9S5AcH91138734
-	for <netdev@vger.kernel.org>; Thu, 28 Oct 2010 16:10:38 +1100
-Received: from d23av04.au.ibm.com (loopback [127.0.0.1])
-	by d23av04.au.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o9S5AcwU020617
-	for <netdev@vger.kernel.org>; Thu, 28 Oct 2010 16:10:38 +1100
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: [v3 RFC PATCH 0/4] Implement multiqueue virtio-net
+Date: Thu, 28 Oct 2010 10:44:14 +0530
+Message-ID: <OFC29C4491.59069AD1-ON652577CA.00170F0D-652577CA.001C76C8@in.ibm.com>
+References: <20101020085452.15579.76002.sendpatchset@krkumar2.in.ibm.com> <OF8735A2A4.74B4EE91-ON652577C5.0040D90B-652577C7.0056B99D@in.ibm.com> <20101025161718.GA19559@redhat.com> <OF5C53E9CF.FFDF2CE7-ON652577C8.00191D14-652577C8.001C2154@LocalDomain> <OFBB51646E.01CC3630-ON652577C8.0030D6EF-652577C8.0031DA3C@in.ibm.com> <20101026093846.GA6766@redhat.com> <OFBE9E2C99.648EFB19-ON652577C8.0035FEDD-652577C8.0036AD51@in.ibm.com> <20101026110913.GC7922@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Cc: anthony@codemonkey.ws, arnd@arndb.de, avi@redhat.com,
+	davem@davemloft.net, eric.dumazet@gmail.com, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, rusty@rustcorp.com.au
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20101026110913.GC7922@redhat.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I get many queue full errors being wrongly reported when running
-parallel netperfs:
+"Michael S. Tsirkin" <mst@redhat.com> wrote on 10/26/2010 04:39:13 PM:
 
-Oct 17 10:22:40 localhost kernel: net eth0: Unexpected TX queue failure: -28
-Oct 17 10:28:22 localhost kernel: net eth0: Unexpected TX queue failure: -28
-Oct 17 10:35:58 localhost kernel: net eth0: Unexpected TX queue failure: -28
-Oct 17 10:41:06 localhost kernel: net eth0: Unexpected TX queue failure: -28
+(merging two posts into one)
 
-I initially changed the check from -ENOMEM to -ENOSPC, but
-virtqueue_add_buf can return only -ENOSPC when it doesn't have
-space for new request.  Patch removes redundant checks but
-displays the failure errno.
+> I think we discussed the need for external to guest testing
+> over 10G. For large messages we should not see any change
+> but you should be able to get better numbers for small messages
+> assuming a MQ NIC card.
 
-Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
----
- drivers/net/virtio_net.c |   15 ++++-----------
- 1 file changed, 4 insertions(+), 11 deletions(-)
+For external host, there is a contention among different
+queues (vhosts) when packets are processed in tun/bridge,
+unless I implement MQ TX for macvtap (tun/bridge?).  So
+my testing shows a small improvement (1 to 1.5% average)
+in BW and a rise in SD (between 10-15%).  For remote host,
+I think tun/macvtap needs MQ TX support?
 
-diff -ruNp org/drivers/net/virtio_net.c new/drivers/net/virtio_net.c
---- org/drivers/net/virtio_net.c	2010-10-11 10:20:02.000000000 +0530
-+++ new/drivers/net/virtio_net.c	2010-10-21 17:37:45.000000000 +0530
-@@ -570,17 +570,10 @@ static netdev_tx_t start_xmit(struct sk_
- 
- 	/* This can happen with OOM and indirect buffers. */
- 	if (unlikely(capacity < 0)) {
--		if (net_ratelimit()) {
--			if (likely(capacity == -ENOMEM)) {
--				dev_warn(&dev->dev,
--					 "TX queue failure: out of memory\n");
--			} else {
--				dev->stats.tx_fifo_errors++;
--				dev_warn(&dev->dev,
--					 "Unexpected TX queue failure: %d\n",
--					 capacity);
--			}
--		}
-+		if (net_ratelimit())
-+			dev_warn(&dev->dev,
-+				 "TX queue failure (%d): out of memory\n",
-+				 capacity); 
- 		dev->stats.tx_dropped++;
- 		kfree_skb(skb);
- 		return NETDEV_TX_OK;
+> > > > Results for UDP BW tests (unidirectional, sum across
+> > > > 3 iterations, each iteration of 45 seconds, default
+> > > > netperf, vhosts bound to cpus 0-3; no other tuning):
+> > >
+> > > Is binding vhost threads to CPUs really required?
+> > > What happens if we let the scheduler do its job?
+> >
+> > Nothing drastic, I remember BW% and SD% both improved a
+> > bit as a result of binding.
+>
+> If there's a significant improvement this would mean that
+> we need to rethink the vhost-net interaction with the scheduler.
+
+I will get a test run with and without binding and post the
+results later today.
+
+Thanks,
+
+- KK
+
