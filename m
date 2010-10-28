@@ -1,54 +1,49 @@
-From: Jeff Hansen <x@jeffhansen.com>
-Subject: Re: [PATCH 1/1] net/unix: Allow Unix sockets to be treated like normal
- files
-Date: Wed, 27 Oct 2010 20:50:17 -0600
-Message-ID: <4CC8E4E9.2060209@jeffhansen.com>
-References: <1288232669-8927-1-git-send-email-x@jeffhansen.com> <20101027.193212.193709254.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+From: Harvey Harrison <harvey.harrison@gmail.com>
+Subject: [PATCH 1/2] vmxnet3: remove unnecessary byteswapping in BAR writing macros
+Date: Wed, 27 Oct 2010 20:12:34 -0700
+Message-ID: <1288235555-24675-1-git-send-email-harvey.harrison@gmail.com>
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: sbhatewara@vmware.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:49717 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932744Ab0J1CuX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Oct 2010 22:50:23 -0400
-In-Reply-To: <20101027.193212.193709254.davem@davemloft.net>
+Received: from mail-yx0-f174.google.com ([209.85.213.174]:48147 "EHLO
+	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932852Ab0J1DMm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Oct 2010 23:12:42 -0400
+Received: by yxk8 with SMTP id 8so574874yxk.19
+        for <netdev@vger.kernel.org>; Wed, 27 Oct 2010 20:12:42 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  Dave,
+readl/writel swap to little-endian internally.
 
-I agree that on larger systems this doesn't really make sense, but on 
-embedded platforms this can save some code space since applications can 
-get rid of their FIFO listeners and have strictly socket listeners.  
-That's why I made it an option that could be disabled by default.
+Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+---
+ drivers/net/vmxnet3/vmxnet3_int.h |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
-Do you know who originally suggested that "creepy crawlies" are 
-introduced by allowing sockets to be opened?  I'd be interested to know 
-how this could affect security, if at all.
-
--Jeff
-
-On 10/27/2010 08:32 PM, David Miller wrote:
-> From: x@jeffhansen.com
-> Date: Thu, 28 Oct 2010 02:24:29 +0000
->
->> Resent.  Is there anything else I need to do for this patch to get reviewed
->> and/or merged?  Any comments by anyone?
-> I don't like this idea at all.
->
-> I remember there is a reason why similar things are not allowed for
-> sockets, it causes all sorts of problems although I forget the exact
-> details.
->
-> Take a look at net/socket.c:sock_no_open(), for example.
->
-
-
+diff --git a/drivers/net/vmxnet3/vmxnet3_int.h b/drivers/net/vmxnet3/vmxnet3_int.h
+index 8a2f471..edf2288 100644
+--- a/drivers/net/vmxnet3/vmxnet3_int.h
++++ b/drivers/net/vmxnet3/vmxnet3_int.h
+@@ -330,14 +330,14 @@ struct vmxnet3_adapter {
+ };
+ 
+ #define VMXNET3_WRITE_BAR0_REG(adapter, reg, val)  \
+-	writel(cpu_to_le32(val), (adapter)->hw_addr0 + (reg))
++	writel((val), (adapter)->hw_addr0 + (reg))
+ #define VMXNET3_READ_BAR0_REG(adapter, reg)        \
+-	le32_to_cpu(readl((adapter)->hw_addr0 + (reg)))
++	readl((adapter)->hw_addr0 + (reg))
+ 
+ #define VMXNET3_WRITE_BAR1_REG(adapter, reg, val)  \
+-	writel(cpu_to_le32(val), (adapter)->hw_addr1 + (reg))
++	writel((val), (adapter)->hw_addr1 + (reg))
+ #define VMXNET3_READ_BAR1_REG(adapter, reg)        \
+-	le32_to_cpu(readl((adapter)->hw_addr1 + (reg)))
++	readl((adapter)->hw_addr1 + (reg))
+ 
+ #define VMXNET3_WAKE_QUEUE_THRESHOLD(tq)  (5)
+ #define VMXNET3_RX_ALLOC_THRESHOLD(rq, ring_idx, adapter) \
 -- 
----------------------------------------------------
-"If someone's gotta do it, it might as well be me."
-                 x@jeffhansen.com
+1.7.1
 
