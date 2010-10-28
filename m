@@ -1,49 +1,35 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: net-next-2.6 [PATCH 0/4] dccp: CCID packet dequeueing interface
-Date: Thu, 28 Oct 2010 07:16:24 +0200
-Message-ID: <1288242988-5333-1-git-send-email-gerrit@erg.abdn.ac.uk>
-References: <dccp_packet_dequeueing_interface_set_of_4>
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] cxgb3: fix crash due to manipulating queues before
+ registration
+Date: Thu, 28 Oct 2010 07:18:30 +0200
+Message-ID: <1288243110.2658.126.camel@edumazet-laptop>
+References: <1288236563.2658.59.camel@edumazet-laptop>
+	 <1288242390-28574-1-git-send-email-nacc@us.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: sonnyrao@us.ibm.com, Divy Le Ray <divy@chelsio.com>,
+	Dimitris Michailidis <dm@chelsio.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Nishanth Aravamudan <nacc@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:39579 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752633Ab0J1FQp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Oct 2010 01:16:45 -0400
-In-Reply-To: <dccp_packet_dequeueing_interface_set_of_4>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:49301 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754067Ab0J1FSg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 01:18:36 -0400
+In-Reply-To: <1288242390-28574-1-git-send-email-nacc@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dave,
+Le mercredi 27 octobre 2010 =C3=A0 22:06 -0700, Nishanth Aravamudan a =C3=
+=A9crit :
+> Hi Eric,
+>=20
+> Something like the following?:
+>=20
+> Thanks,
+> Nish
 
-can you please consider the following set of 4, which solves several problems
-of the CCID packet-dequeueing interface. This set has been tested for about
-3 years.
+Yes, probably, but I dont have the hardware so cannot test.
 
- Patch #1: sets up a return code convention to handle both rate-based and
-           window-based congestion-control IDs (CCIDs) with one function.
- Patch #2: generalizes the xmit interface: rate-based CCIDs continue to use 
-           timers, whereas window-based ones use a tasklet.
- Patch #3: fixes issues in cleaning up CCID state when closing a connection,
-           like patch #2 this also divides into rate-based/window-based.
- Patch #4: using the previous patches, takes CCID-2 out of its polling mode
-           (that was the problem of the xmit interface - CCID-2 kept on 
-	    abusing it by faking a small timeout, constantly polling until
-	    its internal congestion state allowed it to send again).
 
-The set has also been placed into a fresh (today's) copy of net-next-2.6, on
-
-    git://eden-feed.erg.abdn.ac.uk/net-next-2.6        [subtree 'dccp']
-
-The set is fully bisectable.    
----
- include/linux/dccp.h   |    4 +-
- net/dccp/ccid.h        |   34 +++++++-
- net/dccp/ccids/ccid2.c |   23 ++++--
- net/dccp/ccids/ccid2.h |    5 +
- net/dccp/ccids/ccid3.c |   12 ++--
- net/dccp/dccp.h        |    5 +-
- net/dccp/output.c      |  209 +++++++++++++++++++++++++++++-------------------
- net/dccp/proto.c       |   21 +++++-
- net/dccp/timer.c       |   27 ++++---
- 9 files changed, 223 insertions(+), 117 deletions(-)
