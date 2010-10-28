@@ -1,54 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Just for fun] loopback: avoid softirq on most transmits
-Date: Thu, 28 Oct 2010 13:09:17 -0700 (PDT)
-Message-ID: <20101028.130917.179938102.davem@davemloft.net>
-References: <1288295326.2711.35.camel@edumazet-laptop>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [RFC PATCH 1/1] vhost: TX used buffer guest signal accumulation
+Date: Thu, 28 Oct 2010 13:13:55 -0700
+Message-ID: <1288296835.11251.24.camel@localhost.localdomain>
+References: <1288216693.17571.38.camel@localhost.localdomain>
+	 <1288240804.14342.1.camel@localhost.localdomain>
+	 <20101028052021.GD5599@redhat.com>
+	 <1288294355.11251.20.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44163
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1761548Ab0J1UIx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 16:08:53 -0400
-In-Reply-To: <1288295326.2711.35.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <1288294355.11251.20.camel@localhost.localdomain>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 28 Oct 2010 21:48:46 +0200
+On Thu, 2010-10-28 at 12:32 -0700, Shirley Ma wrote:
+> Also I found a big TX regression for old guest and new guest. For old
+> guest, I am able to get almost 11Gb/s for 2K message size, but for the
+> new guest kernel, I can only get 3.5 Gb/s with the patch and same
+> host.
+> I will dig it why. 
 
-> With the introduction of xmit_recursion percpu variable, its pretty
-> cheap to check our recursion level in loopback transmit, and avoid
-> raising softirq.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> ---
-> tbench faster by 4%, sorry I couldnt resist...
+The regression is from guest kernel, not from this patch. Tested 2.6.31
+kernel, it's performance is less than 2Gb/s for 2K message size already.
+I will resubmit the patch for review. 
 
-Hehehe :-)
+I will start to test from 2.6.30 kernel to figure it when TX regression
+induced in virtio_net. Any suggestion which guest kernel I should test
+to figure out this regression?
 
-Maybe even that limit is low enough to prevent stack overflow
-situations even when doing NFS over a loopback to a raid volume using
-XFS as the filesystem which seems to be the standard stack usage
-stress test.
+Thanks
+Shirley
 
-But really, just like DST iteration, we should probably make these
-things more iterative.
-
-The cool thing about loopback is that we have a trigger for the cases
-we care about, release_sock().
-
-So we could have something like:
-
-1) lock_sock() sets "local cpu will run release_sock()" mark.
-
-2) netif_rx() checks mark, if set it puts SKB on "release_sock()
-   local cpu work queue"
-
-3) release_sock() retains mark, and runs SKB queue until empty.
-   Once SKB work queue is empty, mark is cleared.
-
-Anyways, just an idea.
