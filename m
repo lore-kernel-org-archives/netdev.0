@@ -1,42 +1,44 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: ethtool: missing implementation of n_priv_flags
-Date: Thu, 28 Oct 2010 22:00:25 +0100
-Message-ID: <20101028210024.GK15074@solarflare.com>
-References: <F169D4F5E1F1974DBFAFABF47F60C10AA5E60671@orsmsx507.amr.corp.intel.com>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: Re: [RFC PATCH 1/1] vhost: TX used buffer guest signal accumulation
+Date: Thu, 28 Oct 2010 14:04:38 -0700
+Message-ID: <1288299878.30131.2.camel@sridhar.beaverton.ibm.com>
+References: <1288216693.17571.38.camel@localhost.localdomain>
+	 <1288240804.14342.1.camel@localhost.localdomain>
+	 <20101028052021.GD5599@redhat.com>
+	 <1288294355.11251.20.camel@localhost.localdomain>
+	 <1288296835.11251.24.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "jgarzik@redhat.com" <jgarzik@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:12594 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933674Ab0J1VA2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 17:00:28 -0400
-Content-Disposition: inline
-In-Reply-To: <F169D4F5E1F1974DBFAFABF47F60C10AA5E60671@orsmsx507.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Shirley Ma <mashirle@us.ibm.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <1288296835.11251.24.camel@localhost.localdomain>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Brandeburg, Jesse wrote:
-> Was just looking at implementing the driver private flags to add a new feature to 
-> a driver.
+On Thu, 2010-10-28 at 13:13 -0700, Shirley Ma wrote:
+> On Thu, 2010-10-28 at 12:32 -0700, Shirley Ma wrote:
+> > Also I found a big TX regression for old guest and new guest. For old
+> > guest, I am able to get almost 11Gb/s for 2K message size, but for the
+> > new guest kernel, I can only get 3.5 Gb/s with the patch and same
+> > host.
+> > I will dig it why. 
 > 
-> It appears that nothing in the core ethtool.c ever accesses or prints n_priv_flags, 
-> even if a driver assigns it (which none in the kernel currently do)
-[...]
+> The regression is from guest kernel, not from this patch. Tested 2.6.31
+> kernel, it's performance is less than 2Gb/s for 2K message size already.
+> I will resubmit the patch for review. 
+> 
+> I will start to test from 2.6.30 kernel to figure it when TX regression
+> induced in virtio_net. Any suggestion which guest kernel I should test
+> to figure out this regression?
 
-You mean net/core/ethtool.c?  Or the ethtool utility?
+It would be some change in virtio-net driver that may have improved the
+latency of small messages which in turn would have reduced the bandwidth
+as TCP could not accumulate and send large packets.
 
-If you set it in your get_drvinfo() operation then it will be copied out.
-As for the ethtool utility, I've implemented some generic flag parsing and
-printing functionality so it shouldn't be too hard to use that for private
-flags.
+Thanks
+Sridhar
 
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
