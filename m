@@ -1,85 +1,61 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: Re: [PATCH] ipv6: addrconf: don't remove address state on ifdown if
- the address is being kept
-Date: Wed, 27 Oct 2010 23:45:17 -0700
-Message-ID: <AANLkTimLicmgC3BptZvXGoA0aN6-cFJtRG3DpqJ3NTpJ@mail.gmail.com>
-References: <AANLkTimyqFoUvjQM_qLS2YeVmJQ_6-LJc6KfLVE-mzH3@mail.gmail.com>
+From: <macpaul@andestech.com>
+Subject: About the Davicom PHY in drivers/net/phy in Linux kernel
+Date: Thu, 28 Oct 2010 14:33:43 +0800
+Message-ID: <50FD90C65C53FB45BADEEBCD84FF07F2029CB176@ATCPCS06.andestech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: =?ISO-8859-2?Q?Maciej_=AFenczykowski?= <maze@google.com>,
-	David Miller <davem@davemloft.net>,
-	Brian Haley <brian.haley@hp.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <afleming@freescale.com>, <jeff@garzik.org>,
+	<f.rodo@til-technologies.fr>, <joseph_chang@mail.davicom.com.tw>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:11612 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932153Ab0J1Gpl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 02:45:41 -0400
-Received: from wpaz21.hot.corp.google.com (wpaz21.hot.corp.google.com [172.24.198.85])
-	by smtp-out.google.com with ESMTP id o9S6jeLw010059
-	for <netdev@vger.kernel.org>; Wed, 27 Oct 2010 23:45:40 -0700
-Received: from gyb13 (gyb13.prod.google.com [10.243.49.77])
-	by wpaz21.hot.corp.google.com with ESMTP id o9S6jOiZ004704
-	for <netdev@vger.kernel.org>; Wed, 27 Oct 2010 23:45:39 -0700
-Received: by gyb13 with SMTP id 13so1063424gyb.23
-        for <netdev@vger.kernel.org>; Wed, 27 Oct 2010 23:45:39 -0700 (PDT)
-In-Reply-To: <AANLkTimyqFoUvjQM_qLS2YeVmJQ_6-LJc6KfLVE-mzH3@mail.gmail.com>
+Received: from 59-124-160-117.HINET-IP.hinet.net ([59.124.160.117]:33188 "EHLO
+	ATCPCS06.andestech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756406Ab0J1GqQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 02:46:16 -0400
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 27, 2010 at 9:16 PM, Lorenzo Colitti <lorenzo@google.com> wrote:
-> Fix it so that none of this state is updated if the address is being kept on the interface.
-
-Or, since the logic of the patched code is a little hard to follow,
-here's an alternative patch against 2.6.36. I think it does exactly
-the same as the previous patch, but it moves things around to make the
-result more readable.
-
-Tested: Added a statically configured IPv6 address to an interface,
-started ping, brought link down, brought link up again. When link came
-up ping kept on going and "ip -6 maddr" showed that the host was still
-subscribed to there
-
-Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
-
---- 2.6.36-orig/net/ipv6/addrconf.c	2010-10-20 13:30:22.000000000 -0700
-+++ linux-2.6.36/net/ipv6/addrconf.c	2010-10-27 23:26:57.000000000 -0700
-@@ -2737,10 +2737,6 @@ static int addrconf_ifdown(struct net_de
- 			/* Flag it for later restoration when link comes up */
- 			ifa->flags |= IFA_F_TENTATIVE;
- 			ifa->state = INET6_IFADDR_STATE_DAD;
--
--			write_unlock_bh(&idev->lock);
--
--			in6_ifa_hold(ifa);
- 		} else {
- 			list_del(&ifa->if_list);
-
-@@ -2755,19 +2751,15 @@ static int addrconf_ifdown(struct net_de
- 			ifa->state = INET6_IFADDR_STATE_DEAD;
- 			spin_unlock_bh(&ifa->state_lock);
-
--			if (state == INET6_IFADDR_STATE_DEAD)
--				goto put_ifa;
-+			if (state == INET6_IFADDR_STATE_DEAD) {
-+				in6_ifa_put(ifa);
-+			} else {
-+				__ipv6_ifa_notify(RTM_DELADDR, ifa);
-+				atomic_notifier_call_chain(&inet6addr_chain,
-+							   NETDEV_DOWN, ifa);
-+			}
-+			write_lock_bh(&idev->lock);
- 		}
--
--		__ipv6_ifa_notify(RTM_DELADDR, ifa);
--		if (ifa->state == INET6_IFADDR_STATE_DEAD)
--			atomic_notifier_call_chain(&inet6addr_chain,
--						   NETDEV_DOWN, ifa);
--
--put_ifa:
--		in6_ifa_put(ifa);
--
--		write_lock_bh(&idev->lock);
- 	}
-
- 	list_splice(&keep_list, &idev->addr_list);
+SGkgYWxsLA0KDQpBY2NvcmRpbmcgdG8gdGhlIHNvdXJjZSBjb2RlIG9mIERhdmljb20gUEhZIGlu
+IExpbnV4LA0KV2Ugc2hvdWxkIGRvICJJU09MQVRFIiBjb21tYW5kIHRvIFBIWSBiZWZvcmUgc2V0
+dGluZyAiYXV0byBuZWdvdGlhdGlvbiIgb3IgIk1JSS9STUlJIi4NCg0KSG93ZXZlciwgSSd2ZSBm
+b3VuZCB0aGF0IHdpdGggRmFyYWRheSdzIE1BQy9HTUFDIGNvbnRyb2xsZXIgKGZ0bWFjMTAwL2Z0
+Z21hYzEwMCksIHNldHRpbmcgSVNPTEFURSBmb3IgbXVsdGlwbGUgUEhZIGNvbmZpZ3VyYXRpb24g
+d2lsbCBsZWFkIE1EQyBiZWNvbWUgc3RvcCBiZWNhdXNlIHRoZSBmbGF3IGluc2lkZSB0aGUgTUFD
+IGNvbnRyb2xsZXIuIEZhcmFkYXkncyBNQUMvR01BQyB3aWxsIGxldmVyYWdlIHRoZSBUWF9DTEsg
+YXMgdGhlIE1EQyBzb3VyY2UuIFdoZW4gRlRNQUMxMDAgc2VuZCAiSVNPTEFURSIgdG8gRGF2aWNv
+bSdzIFBIWSwgdGhlIFRYX0NMSyBzZW5kIG91dCBmcm9tIFBIWSB3aWxsIGJlIHN0b3BwZWQsIHRo
+ZW4gTURDIHdpbGwgYWxzbyBiZWNvbWUgc3RvcC4NCg0KSG93ZXZlciwgdGhpcyBtYWlsIHdhc24n
+dCBtZWFudCB0byBkaXNjdXNzIGFib3V0IHRoZSBkZXNpZ24gZmxhdyBpbnNpZGUgdGhlIElDLg0K
+DQpXZSd2ZSBkb25lIHR3byB0ZXN0IHRvIHRoZSBmb2xsb3dpbmcgY29kZXMuDQoNCjFzdDogaWYg
+d2UganVzdCBza2lwIHRoZSAiIEJNQ1JfSVNPTEFURSIgc2V0dGluZyBjb21tYW5kLCB3ZSB3aWxs
+IGdldCBQSFkgc29tZXRpbWVzIGJlY29tZSB1bnN0YWJsZSwgZm9yIGV4YW1wbGUsIGNvdWxkIG5v
+dCBkbyBESENQIHJlcXVlc3Qgc3VjY2Vzc2Z1bGx5Lg0KDQoybmQ6IGlmIHdlIHJlcGxhY2UgIkJN
+Q1JfSVNPTEFURSIgdG8gIkJNQ1JfUkVTRVQiLCB3ZSBjb3VsZCBnZXQgcmlkIG9mIHRoZSBwcm9i
+bGVtIG9jY3VycmVkIGJ5IEZhcmFkYXkgR01BQy4gQW5kIHRoZSBQSFkgd29ya3Mgd2VsbCBzdGls
+bC4NCg0KSSd2ZSBmb3VuZCB0aGF0IGluIHNvbWUgb3RoZXIgUEhZIGltcGxlbWVudGF0aW9uLCBm
+b3IgZXhhbXBsZSwgaW4gIm1hcnZlbGwuYyIsIHRoZXJlIGFyZSBzZWVtcyBubyBJU09MQVRFIGNv
+bW1hbmRzLiBUaGVyZSBhcmUgb25seSBSRVNFVCBjb21tYW5kcy4NCklmIHdlIGNvdWxkIHJlcGxh
+Y2UgQk1DUl9JU09MQVRFIHRvIEJNQ1JfUkVTRVQgaW4gY3VycmVudCBrZXJuZWwgc291cmNlLCB3
+aWxsIHRoZXJlIGJlIGFueSB1bnByZWRpY3RhYmxlIGJlaGF2aW9yIGhhcHBlbmVkPw0KDQpQbGVh
+c2UgZ2l2ZSB1cyBzdWdnZXN0aW9uIGFjY29yZGluZyB0byB5b3VyIGV4cGVyaWVuY2VzLg0KVGhh
+bmtzIGEgbG90Lg0KDQorc3RhdGljIGludCBkbTkxNjFfY29uZmlnX2FuZWcoc3RydWN0IHBoeV9k
+ZXZpY2UgKnBoeWRldikNCit7DQorCWludCBlcnI7DQorDQorCS8qIElzb2xhdGUgdGhlIFBIWSAq
+Lw0KKwllcnIgPSBwaHlfd3JpdGUocGh5ZGV2LCBNSUlfQk1DUiwgQk1DUl9JU09MQVRFKTsNCisN
+CisJaWYgKGVyciA8IDApDQorCQlyZXR1cm4gZXJyOw0KKw0KKwkvKiBDb25maWd1cmUgdGhlIG5l
+dyBzZXR0aW5ncyAqLw0KKwllcnIgPSBnZW5waHlfY29uZmlnX2FuZWcocGh5ZGV2KTsNCisNCisJ
+aWYgKGVyciA8IDApDQorCQlyZXR1cm4gZXJyOw0KKw0KKwlyZXR1cm4gMDsNCit9DQorDQorc3Rh
+dGljIGludCBkbTkxNjFfY29uZmlnX2luaXQoc3RydWN0IHBoeV9kZXZpY2UgKnBoeWRldikNCit7
+DQorCWludCBlcnI7DQorDQorCS8qIElzb2xhdGUgdGhlIFBIWSAqLw0KKwllcnIgPSBwaHlfd3Jp
+dGUocGh5ZGV2LCBNSUlfQk1DUiwgQk1DUl9JU09MQVRFKTsNCisNCisJaWYgKGVyciA8IDApDQor
+CQlyZXR1cm4gZXJyOw0KKw0KKwkvKiBEbyBub3QgYnlwYXNzIHRoZSBzY3JhbWJsZXIvZGVzY3Jh
+bWJsZXIgKi8NCisJZXJyID0gcGh5X3dyaXRlKHBoeWRldiwgTUlJX0RNOTE2MV9TQ1IsIE1JSV9E
+TTkxNjFfU0NSX0lOSVQpOw0KKw0KKwlpZiAoZXJyIDwgMCkNCisJCXJldHVybiBlcnI7DQorDQor
+CS8qIENsZWFyIDEwQlRDU1IgdG8gZGVmYXVsdCAqLw0KKwllcnIgPSBwaHlfd3JpdGUocGh5ZGV2
+LCBNSUlfRE05MTYxXzEwQlRDU1IsIE1JSV9ETTkxNjFfMTBCVENTUl9JTklUKTsNCisNCisJaWYg
+KGVyciA8IDApDQorCQlyZXR1cm4gZXJyOw0KKw0KKwkvKiBSZWNvbm5lY3QgdGhlIFBIWSwgYW5k
+IGVuYWJsZSBBdXRvbmVnb3RpYXRpb24gKi8NCisJZXJyID0gcGh5X3dyaXRlKHBoeWRldiwgTUlJ
+X0JNQ1IsIEJNQ1JfQU5FTkFCTEUpOw0KKw0KKwlpZiAoZXJyIDwgMCkNCisJCXJldHVybiBlcnI7
+DQorDQorCXJldHVybiAwOw0KDQpCZXN0IHJlZ2FyZHMsDQpNYWNwYXVsIExpbg0K
