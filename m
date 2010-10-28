@@ -1,37 +1,48 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [RFC PATCH 1/1] vhost: TX used buffer guest signal accumulation
-Date: Thu, 28 Oct 2010 13:13:55 -0700
-Message-ID: <1288296835.11251.24.camel@localhost.localdomain>
-References: <1288216693.17571.38.camel@localhost.localdomain>
-	 <1288240804.14342.1.camel@localhost.localdomain>
-	 <20101028052021.GD5599@redhat.com>
-	 <1288294355.11251.20.camel@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <1288294355.11251.20.camel@localhost.localdomain>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Casey Leedom <leedom@chelsio.com>
+Subject: [PATCH] cxgb4vf: fix crash due to manipulating queues before registration
+Date: Thu, 28 Oct 2010 13:16:47 -0700
+Message-ID: <1288297007-663-1-git-send-email-leedom@chelsio.com>
+Cc: netdev@vger.kernel.org, Casey Leedom <leedom@chelsio.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:9160 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754495Ab0J1UQv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 16:16:51 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-10-28 at 12:32 -0700, Shirley Ma wrote:
-> Also I found a big TX regression for old guest and new guest. For old
-> guest, I am able to get almost 11Gb/s for 2K message size, but for the
-> new guest kernel, I can only get 3.5 Gb/s with the patch and same
-> host.
-> I will dig it why. 
+Before commit "net: allocate tx queues in register_netdevice"
+netif_tx_stop_all_queues and related functions could be used between
+device allocation and registration but now only after registration.
+cxgb4 has such a call before registration and crashes now.  Move it
+after register_netdev.
 
-The regression is from guest kernel, not from this patch. Tested 2.6.31
-kernel, it's performance is less than 2Gb/s for 2K message size already.
-I will resubmit the patch for review. 
+Signed-off-by: Casey Leedom <leedom@chelsio.com>
+---
+ drivers/net/cxgb4vf/cxgb4vf_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-I will start to test from 2.6.30 kernel to figure it when TX regression
-induced in virtio_net. Any suggestion which guest kernel I should test
-to figure out this regression?
-
-Thanks
-Shirley
+diff --git a/drivers/net/cxgb4vf/cxgb4vf_main.c b/drivers/net/cxgb4vf/cxgb4vf_main.c
+index 555ecc5..b9d92a5 100644
+--- a/drivers/net/cxgb4vf/cxgb4vf_main.c
++++ b/drivers/net/cxgb4vf/cxgb4vf_main.c
+@@ -2600,7 +2600,6 @@ static int __devinit cxgb4vf_pci_probe(struct pci_dev *pdev,
+ 		pi->xact_addr_filt = -1;
+ 		pi->rx_offload = RX_CSO;
+ 		netif_carrier_off(netdev);
+-		netif_tx_stop_all_queues(netdev);
+ 		netdev->irq = pdev->irq;
+ 
+ 		netdev->features = (NETIF_F_SG | NETIF_F_TSO | NETIF_F_TSO6 |
+@@ -2661,6 +2660,7 @@ static int __devinit cxgb4vf_pci_probe(struct pci_dev *pdev,
+ 			continue;
+ 		}
+ 
++		netif_tx_stop_all_queues(netdev);
+ 		set_bit(pidx, &adapter->registered_device_map);
+ 	}
+ 	if (adapter->registered_device_map == 0) {
+-- 
+1.7.0.4
 
