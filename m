@@ -1,171 +1,56 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 PATCH] e1000e: reset PHY after errors detected
-Date: Thu, 28 Oct 2010 03:59:53 -0700
-Message-ID: <20101028105953.27748.5285.stgit@localhost6.localdomain6>
+Subject: [net-2.6 PATCH] e1000e: Add check for reset flags before displaying
+	reset message
+Date: Thu, 28 Oct 2010 03:59:55 -0700
+Message-ID: <20101028105955.27748.92516.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta11.emeryville.ca.mail.comcast.net ([76.96.27.211]:46415
-	"EHLO qmta11.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757951Ab0J1K7y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 06:59:54 -0400
+Received: from qmta12.emeryville.ca.mail.comcast.net ([76.96.27.227]:36660
+	"EHLO qmta12.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757951Ab0J1K75 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 06:59:57 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Carolyn Wyborny <carolyn.wyborny@intel.com>
 
-Some errors can be induced in the PHY via environmental testing
-(specifically extreme temperature changes and electro static
-discharge testing), and in the case of the PHY hanging due to
-this input, this detects the problem and resets to continue.
-This issue only applies to 82574 silicon.
+Some parts need to execute resets during normal operation.  This flag
+check ensures that those parts reset without needlessly alarming the
+user.  Other unexpected resets by other parts will dump debug info
+and message the reset action to the user, as originally intended.
 
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+Acked-by: Bruce Allan <bruce.w.allan@intel.com>
 Tested-by: Emil Tantilov <emil.s.tantilov@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/e1000e/82571.c  |   38 ++++++++++++++++++++++++++++++++++++++
- drivers/net/e1000e/e1000.h  |    3 +++
- drivers/net/e1000e/netdev.c |   22 ++++++++++++++++++++++
- 3 files changed, 63 insertions(+), 0 deletions(-)
+ drivers/net/e1000e/netdev.c |    7 +++++--
+ 1 files changed, 5 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
-index ca663f1..7236f1a 100644
---- a/drivers/net/e1000e/82571.c
-+++ b/drivers/net/e1000e/82571.c
-@@ -52,6 +52,10 @@
- 			      (ID_LED_DEF1_DEF2))
- 
- #define E1000_GCR_L1_ACT_WITHOUT_L0S_RX 0x08000000
-+#define E1000_BASE1000T_STATUS          10
-+#define E1000_IDLE_ERROR_COUNT_MASK     0xFF
-+#define E1000_RECEIVE_ERROR_COUNTER     21
-+#define E1000_RECEIVE_ERROR_MAX         0xFFFF
- 
- #define E1000_NVM_INIT_CTRL2_MNGM 0x6000 /* Manageability Operation Mode mask */
- 
-@@ -1243,6 +1247,39 @@ static s32 e1000_led_on_82574(struct e1000_hw *hw)
- }
- 
- /**
-+ *  e1000_check_phy_82574 - check 82574 phy hung state
-+ *  @hw: pointer to the HW structure
-+ *
-+ *  Returns whether phy is hung or not
-+ **/
-+bool e1000_check_phy_82574(struct e1000_hw *hw)
-+{
-+	u16 status_1kbt = 0;
-+	u16 receive_errors = 0;
-+	bool phy_hung = false;
-+	s32 ret_val = 0;
-+
-+	/*
-+	 * Read PHY Receive Error counter first, if its is max - all F's then
-+	 * read the Base1000T status register If both are max then PHY is hung.
-+	 */
-+	ret_val = e1e_rphy(hw, E1000_RECEIVE_ERROR_COUNTER, &receive_errors);
-+
-+	if (ret_val)
-+		goto out;
-+	if (receive_errors == E1000_RECEIVE_ERROR_MAX)  {
-+		ret_val = e1e_rphy(hw, E1000_BASE1000T_STATUS, &status_1kbt);
-+		if (ret_val)
-+			goto out;
-+		if ((status_1kbt & E1000_IDLE_ERROR_COUNT_MASK) ==
-+		    E1000_IDLE_ERROR_COUNT_MASK)
-+			phy_hung = true;
-+	}
-+out:
-+	return phy_hung;
-+}
-+
-+/**
-  *  e1000_setup_link_82571 - Setup flow control and link settings
-  *  @hw: pointer to the HW structure
-  *
-@@ -1859,6 +1896,7 @@ struct e1000_info e1000_82574_info = {
- 				  | FLAG_HAS_SMART_POWER_DOWN
- 				  | FLAG_HAS_AMT
- 				  | FLAG_HAS_CTRLEXT_ON_LOAD,
-+	.flags2			  = FLAG2_CHECK_PHY_HANG,
- 	.pba			= 36,
- 	.max_hw_frame_size	= DEFAULT_JUMBO,
- 	.get_variants		= e1000_get_variants_82571,
-diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
-index cee882d..fdc67fe 100644
---- a/drivers/net/e1000e/e1000.h
-+++ b/drivers/net/e1000e/e1000.h
-@@ -397,6 +397,7 @@ struct e1000_adapter {
- 	struct work_struct print_hang_task;
- 
- 	bool idle_check;
-+	int phy_hang_count;
- };
- 
- struct e1000_info {
-@@ -454,6 +455,7 @@ struct e1000_info {
- #define FLAG2_HAS_EEE                     (1 << 5)
- #define FLAG2_DMA_BURST                   (1 << 6)
- #define FLAG2_DISABLE_AIM                 (1 << 8)
-+#define FLAG2_CHECK_PHY_HANG              (1 << 9)
- 
- #define E1000_RX_DESC_PS(R, i)	    \
- 	(&(((union e1000_rx_desc_packet_split *)((R).desc))[i]))
-@@ -631,6 +633,7 @@ extern s32 e1000_get_phy_info_ife(struct e1000_hw *hw);
- extern s32 e1000_check_polarity_ife(struct e1000_hw *hw);
- extern s32 e1000_phy_force_speed_duplex_ife(struct e1000_hw *hw);
- extern s32 e1000_check_polarity_igp(struct e1000_hw *hw);
-+extern bool e1000_check_phy_82574(struct e1000_hw *hw);
- 
- static inline s32 e1000_phy_hw_reset(struct e1000_hw *hw)
- {
 diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index ec8cf3f..35a9dd4 100644
+index 35a9dd4..c4ca162 100644
 --- a/drivers/net/e1000e/netdev.c
 +++ b/drivers/net/e1000e/netdev.c
-@@ -4098,6 +4098,25 @@ static void e1000e_enable_receives(struct e1000_adapter *adapter)
- 	}
+@@ -4882,8 +4882,11 @@ static void e1000_reset_task(struct work_struct *work)
+ 	struct e1000_adapter *adapter;
+ 	adapter = container_of(work, struct e1000_adapter, reset_task);
+ 
+-	e1000e_dump(adapter);
+-	e_err("Reset adapter\n");
++	if (!((adapter->flags & FLAG_RX_NEEDS_RESTART) &&
++	      (adapter->flags & FLAG_RX_RESTART_NOW))) {
++		e1000e_dump(adapter);
++		e_err("Reset adapter\n");
++	}
+ 	e1000e_reinit_locked(adapter);
  }
  
-+static void e1000e_check_82574_phy_workaround(struct e1000_adapter *adapter)
-+{
-+	struct e1000_hw *hw = &adapter->hw;
-+
-+	/*
-+	 * With 82574 controllers, PHY needs to be checked periodically
-+	 * for hung state and reset, if two calls return true
-+	 */
-+	if (e1000_check_phy_82574(hw))
-+		adapter->phy_hang_count++;
-+	else
-+		adapter->phy_hang_count = 0;
-+
-+	if (adapter->phy_hang_count > 1) {
-+		adapter->phy_hang_count = 0;
-+		schedule_work(&adapter->reset_task);
-+	}
-+}
-+
- /**
-  * e1000_watchdog - Timer Call-back
-  * @data: pointer to adapter cast into an unsigned long
-@@ -4333,6 +4352,9 @@ link_up:
- 	if (e1000e_get_laa_state_82571(hw))
- 		e1000e_rar_set(hw, adapter->hw.mac.addr, 0);
- 
-+	if (adapter->flags2 & FLAG2_CHECK_PHY_HANG)
-+		e1000e_check_82574_phy_workaround(adapter);
-+
- 	/* Reset the timer */
- 	if (!test_bit(__E1000_DOWN, &adapter->state))
- 		mod_timer(&adapter->watchdog_timer,
 
