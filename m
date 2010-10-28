@@ -1,76 +1,50 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] via-velocity: Codestyle fixes
-Date: Wed, 27 Oct 2010 21:15:18 -0700
-Message-ID: <1288239318.1836.7.camel@Joe-Laptop>
-References: <1288237684-30783-1-git-send-email-alex@wigen.net>
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: [PATCH] ipv6: addrconf: don't remove address state on ifdown if the
+ address is being kept
+Date: Wed, 27 Oct 2010 21:16:49 -0700
+Message-ID: <AANLkTimyqFoUvjQM_qLS2YeVmJQ_6-LJc6KfLVE-mzH3@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: alex@wigen.net
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: =?ISO-8859-2?Q?Maciej_=AFenczykowski?= <maze@google.com>,
+	David Miller <davem@davemloft.net>,
+	Brian Haley <brian.haley@hp.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:3639 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750773Ab0J1EPT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Oct 2010 00:15:19 -0400
-In-Reply-To: <1288237684-30783-1-git-send-email-alex@wigen.net>
+Received: from smtp-out.google.com ([74.125.121.35]:14805 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750819Ab0J1ERP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 00:17:15 -0400
+Received: from hpaq7.eem.corp.google.com (hpaq7.eem.corp.google.com [172.25.149.7])
+	by smtp-out.google.com with ESMTP id o9S4HDiu015904
+	for <netdev@vger.kernel.org>; Wed, 27 Oct 2010 21:17:13 -0700
+Received: from ywh2 (ywh2.prod.google.com [10.192.8.2])
+	by hpaq7.eem.corp.google.com with ESMTP id o9S4HAmu027468
+	for <netdev@vger.kernel.org>; Wed, 27 Oct 2010 21:17:12 -0700
+Received: by ywh2 with SMTP id 2so384194ywh.27
+        for <netdev@vger.kernel.org>; Wed, 27 Oct 2010 21:17:10 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-10-28 at 13:48 +1000, alex@wigen.net wrote:
-> From: Alexander Wigen <alex@wigen.net>
-> @@ -1542,7 +1542,7 @@ static int velocity_alloc_rx_buf(struct velocity_info *vptr, int idx)
->  	 *	Fill in the descriptor to match
->  	 */
->  
-> -	*((u32 *) & (rd->rdesc0)) = 0;
-> +	*((u32 *) &(rd->rdesc0)) = 0;
+Currently, addrconf_ifdown does not delete statically configured IPv6
+addresses when the interface is brought down. The intent is that when
+the interface comes back up the address will be usable again. However,
+this doesn't actually work, because the system stops listening on the
+corresponding solicited-node multicast address, so the address cannot
+respond to neighbor solicitations and thus receive traffic. Also, the
+code notifies the rest of the system that the address is being deleted
+(e.g, RTM_DELADDR), even though it is not. Fix it so that none of this
+state is updated if the address is being kept on the interface.
 
-I think this style change isn't really that good.
-rdesc0 is:
-
-struct rdesc0 {
-	__le16 RSR;		/* Receive status */
-	__le16 len;		/* bits 0--13; bit 15 - owner */
-};
-
-I think it more sensible to either set the fields
-in the struct to 0 or to memset the struct to 0.
-
-> @@ -1681,7 +1681,7 @@ static int velocity_init_td_ring(struct velocity_info *vptr)
->  static void velocity_free_dma_rings(struct velocity_info *vptr)
->  {
->  	const int size = vptr->options.numrx * sizeof(struct rx_desc) +
-> -		vptr->options.numtx * sizeof(struct tx_desc) * vptr->tx.numq;
-> +		vptr->options.numtx * sizeof(struct tx_desc) *vptr->tx.numq;
-
-If checkpatch warns about this, it's wrong.
-
-> @@ -2477,24 +2477,24 @@ static struct net_device_stats *velocity_get_stats(struct net_device *dev)
->  	dev->stats.rx_errors = vptr->mib_counter[HW_MIB_ifRxErrorPkts];
->  	dev->stats.rx_length_errors = vptr->mib_counter[HW_MIB_ifInRangeLengthErrors];
->  
-> -//  unsigned long   rx_dropped;     /* no space in linux buffers    */
-> +/*  unsigned long   rx_dropped;     /* no space in linux buffers    */
-
-why not just remove all these commented-out lines?
-
-> @@ -2957,7 +2957,7 @@ static int velocity_set_wol(struct velocity_info *vptr)
->  		memcpy(arp->ar_tip, vptr->ip_addr, 4);
->  
->  		crc = wol_calc_crc((sizeof(struct arp_packet) + 7) / 8, buf,
-> -				(u8 *) & mask_pattern[0][0]);
-> +				(u8 *) &mask_pattern[0][0]);
-
-perhaps just (u8 *)mask_pattern?
-
-> @@ -3454,7 +3453,7 @@ static const struct ethtool_ops velocity_ethtool_ops = {
->  	.set_wol	=	velocity_ethtool_set_wol,
->  	.get_msglevel	=	velocity_get_msglevel,
->  	.set_msglevel	=	velocity_set_msglevel,
-> -	.set_sg 	=	ethtool_op_set_sg,
-> +	.set_sg	=	ethtool_op_set_sg,
-
-bad alignment?
-
-
+--- a/net/ipv6/addrconf.c	2010-10-20 13:30:22.000000000 -0700
++++ b/net/ipv6/addrconf.c	2010-10-27 21:04:39.000000000 -0700
+@@ -2737,10 +2737,7 @@ static int addrconf_ifdown(struct net_de
+ 			/* Flag it for later restoration when link comes up */
+ 			ifa->flags |= IFA_F_TENTATIVE;
+ 			ifa->state = INET6_IFADDR_STATE_DAD;
+-
+-			write_unlock_bh(&idev->lock);
+-
+-			in6_ifa_hold(ifa);
++			continue;
+ 		} else {
+ 			list_del(&ifa->if_list);
