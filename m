@@ -1,122 +1,66 @@
 From: Krishna Kumar <krkumar2@in.ibm.com>
-Subject: [PATCH] cxgb3: Fix panic in free_tx_desc()
-Date: Thu, 28 Oct 2010 10:40:31 +0530
-Message-ID: <20101028051031.25339.64988.sendpatchset@krkumar2.in.ibm.com>
+Subject: [PATCH] virtio_net: Fix queue full check
+Date: Thu, 28 Oct 2010 10:40:36 +0530
+Message-ID: <20101028051036.25340.23442.sendpatchset@krkumar2.in.ibm.com>
 Cc: netdev@vger.kernel.org, Krishna Kumar <krkumar2@in.ibm.com>
-To: davem@davemloft.net, divy@chelsio.com
+To: rusty@rustcorp.com.au, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp06.in.ibm.com ([122.248.162.6]:55085 "EHLO
-	e28smtp06.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752633Ab0J1FKh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 01:10:37 -0400
-Received: from d28relay01.in.ibm.com (d28relay01.in.ibm.com [9.184.220.58])
-	by e28smtp06.in.ibm.com (8.14.4/8.13.1) with ESMTP id o9S5AXrv004532
-	for <netdev@vger.kernel.org>; Thu, 28 Oct 2010 10:40:33 +0530
-Received: from d28av02.in.ibm.com (d28av02.in.ibm.com [9.184.220.64])
-	by d28relay01.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o9S5AW0v2953362
-	for <netdev@vger.kernel.org>; Thu, 28 Oct 2010 10:40:32 +0530
-Received: from d28av02.in.ibm.com (loopback [127.0.0.1])
-	by d28av02.in.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o9S5AWpR018145
-	for <netdev@vger.kernel.org>; Thu, 28 Oct 2010 16:10:32 +1100
+Received: from e23smtp06.au.ibm.com ([202.81.31.148]:40213 "EHLO
+	e23smtp06.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752824Ab0J1FKo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 01:10:44 -0400
+Received: from d23relay03.au.ibm.com (d23relay03.au.ibm.com [202.81.31.245])
+	by e23smtp06.au.ibm.com (8.14.4/8.13.1) with ESMTP id o9S5AUmF010891
+	for <netdev@vger.kernel.org>; Thu, 28 Oct 2010 16:10:30 +1100
+Received: from d23av04.au.ibm.com (d23av04.au.ibm.com [9.190.235.139])
+	by d23relay03.au.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o9S5AcH91138734
+	for <netdev@vger.kernel.org>; Thu, 28 Oct 2010 16:10:38 +1100
+Received: from d23av04.au.ibm.com (loopback [127.0.0.1])
+	by d23av04.au.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o9S5AcwU020617
+	for <netdev@vger.kernel.org>; Thu, 28 Oct 2010 16:10:38 +1100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I got a few of these panics (on 2.6.36-rc7) when running high
-number of netperf sessions:
+I get many queue full errors being wrongly reported when running
+parallel netperfs:
 
-BUG: unable to handle kernel paging request at 0000100000000000
-IP: [<ffffffff813125f0>] skb_release_data+0xa0/0xd0
-Oops: 0000 [#1] SMP
-Pid: 2155, comm: vhost-2115 Not tainted 2.6.36-rc7-ORG #1 49Y6512     /System x3650 M2 -[7947AC1]-
-RIP: 0010:[<ffffffff813125f0>]  [<ffffffff813125f0>] skb_release_data+0xa0/0xd0
-RSP: 0018:ffff880001803738  EFLAGS: 00010206
-RAX: ffff880179b0fc00 RBX: ffff880178b441c0 RCX: 0000000000000000
-RSP: 0018:ffff880001803738  EFLAGS: 00010206
-RAX: ffff880179b0fc00 RBX: ffff880178b441c0 RCX: 0000000000000000
-RDX: ffff880179b0fd40 RSI: 0000000000000000 RDI: 0000100000000000
-RBP: ffff880001803748 R08: 0000000000000001 R09: ffff88017f117000
-R10: ffff88017b990608 R11: ffff88017f117090 R12: ffff880178b441c0
-R13: ffff88017f117090 R14: 0000000000000000 R15: ffff880178b441c0
-FS:  0000000000000000(0000) GS:ffff880001800000(0000) knlGS:0000000000000000
-CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-CR2: 0000100000000000 CR3: 000000017ea64000 CR4: 00000000000026e0
-DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-Process vhost-2115 (pid: 2155, threadinfo ffff88017d872000, task ffff88017e954680)
-Stack:
-ffff880178b441c0 0000000000000007 ffff880001803768 ffffffff81312119
-<0> 0000000000000000 0000000000000002 ffff880001803778 ffffffff813121f9
-<0> ffff880001803818 ffffffffa012d14c ffffffffa02de076 ffff880001803700
-Call Trace:
-<IRQ>
-[<ffffffff81312119>] __kfree_skb+0x19/0xa0
-[<ffffffff813121f9>] kfree_skb+0x19/0x40
-[<ffffffffa012d14c>] free_tx_desc+0x2fc/0x350 [cxgb3]
-[<ffffffffa02de076>] ? vhost_poll_wakeup+0x16/0x20 [vhost_net]
-[<ffffffffa01323db>] t3_eth_xmit+0x28b/0x380 [cxgb3]
-[<ffffffff8131ce47>] dev_hard_start_xmit+0x377/0x5a0
-[<ffffffff81335a4a>] sch_direct_xmit+0xfa/0x1d0
-[<ffffffff8131d1a9>] dev_queue_xmit+0x139/0x450
-[<ffffffff81326225>] neigh_resolve_output+0x125/0x340
-[<ffffffff8135a77c>] ip_finish_output+0x14c/0x320
-[<ffffffff8135a9fe>] ip_output+0xae/0xc0
-[<ffffffff8135620f>] ip_forward_finish+0x3f/0x50
-[<ffffffff8135641f>] ip_forward+0x1ff/0x400
-[<ffffffff81354789>] ip_rcv_finish+0x119/0x3e0
-[<ffffffff81354c7d>] ip_rcv+0x22d/0x300
-[<ffffffff8131a95b>] __netif_receive_skb+0x29b/0x570
-[<ffffffff8131ba70>] ? netif_receive_skb+0x0/0x80
-[<ffffffff8131bae8>] netif_receive_skb+0x78/0x80
-[<ffffffffa02a96d8>] br_handle_frame_finish+0x198/0x260 [bridge]
-[<ffffffffa02aebc8>] br_nf_pre_routing_finish+0x238/0x380 [bridge]
-[<ffffffff813424bc>] ? nf_hook_slow+0x6c/0x100
-[<ffffffffa02ae990>] ? br_nf_pre_routing_finish+0x0/0x380 [bridge]
-[<ffffffffa02afb08>] br_nf_pre_routing+0x698/0x7a0 [bridge]
-[<ffffffff81342414>] nf_iterate+0x64/0xa0
-[<ffffffffa02a9540>] ? br_handle_frame_finish+0x0/0x260 [bridge]
-[<ffffffff813424bc>] nf_hook_slow+0x6c/0x100
-[<ffffffffa02a9540>] ? br_handle_frame_finish+0x0/0x260 [bridge]
-[<ffffffffa02a9931>] br_handle_frame+0x191/0x240 [bridge]
-[<ffffffffa02a97a0>] ? br_handle_frame+0x0/0x240 [bridge]
-[<ffffffff8131a863>] __netif_receive_skb+0x1a3/0x570
-[<ffffffff812ef3f6>] ? dma_issue_pending_all+0x76/0xa0
-[<ffffffff8131ad32>] process_backlog+0x102/0x200
-[<ffffffff8131c2d0>] net_rx_action+0x100/0x220
-[<ffffffff810548ef>] __do_softirq+0xaf/0x140
-[<ffffffff8100bcdc>] call_softirq+0x1c/0x30
-[<ffffffff8100dfc5>] ? do_softirq+0x65/0xa0
-[<ffffffff8131c6b8>] netif_rx_ni+0x28/0x30
-[<ffffffffa02c305d>] tun_sendmsg+0x2cd/0x4b0 [tun]
-[<ffffffffa02e01af>] handle_tx+0x1df/0x340 [vhost_net]
-[<ffffffffa02e0340>] handle_tx_kick+0x10/0x20 [vhost_net]
-[<ffffffffa02de29b>] vhost_worker+0xbb/0x130 [vhost_net]
-[<ffffffffa02de1e0>] ? vhost_worker+0x0/0x130 [vhost_net]
-[<ffffffffa02de1e0>] ? vhost_worker+0x0/0x130 [vhost_net]
-[<ffffffff81069686>] kthread+0x96/0xa0
-[<ffffffff8100bbe4>] kernel_thread_helper+0x4/0x10
-[<ffffffff810695f0>] ? kthread+0x0/0xa0
-[<ffffffff8100bbe0>] ? kernel_thread_helper+0x0/0x10
-Code: 8b 94 24 d0 00 00 00 49 8b 84 24 d8 00 00 00 48 8d 14 10 0f b7 0a 39 d9 7f d1 48 8b 7a 10 48 85 ff 74 20 48 c7 42 10 00 00 00 00 <48> 8b 1f e8 e8 fb ff ff 48 85 db 48 89 df 75 f0 49 8b 84 24 d8
+Oct 17 10:22:40 localhost kernel: net eth0: Unexpected TX queue failure: -28
+Oct 17 10:28:22 localhost kernel: net eth0: Unexpected TX queue failure: -28
+Oct 17 10:35:58 localhost kernel: net eth0: Unexpected TX queue failure: -28
+Oct 17 10:41:06 localhost kernel: net eth0: Unexpected TX queue failure: -28
 
-Patch below fixes the panic. cxgb4 and cxgb4vf already have this fix.
+I initially changed the check from -ENOMEM to -ENOSPC, but
+virtqueue_add_buf can return only -ENOSPC when it doesn't have
+space for new request.  Patch removes redundant checks but
+displays the failure errno.
 
 Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
 ---
- drivers/net/cxgb3/sge.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/virtio_net.c |   15 ++++-----------
+ 1 file changed, 4 insertions(+), 11 deletions(-)
 
-diff -ruNp org/drivers/net/cxgb3/sge.c new/drivers/net/cxgb3/sge.c
---- org/drivers/net/cxgb3/sge.c	2010-10-25 09:10:47.000000000 +0530
-+++ new/drivers/net/cxgb3/sge.c	2010-10-28 10:22:47.000000000 +0530
-@@ -296,8 +296,10 @@ static void free_tx_desc(struct adapter 
- 		if (d->skb) {	/* an SGL is present */
- 			if (need_unmap)
- 				unmap_skb(d->skb, q, cidx, pdev);
--			if (d->eop)
-+			if (d->eop) {
- 				kfree_skb(d->skb);
-+				d->skb = NULL;
-+			}
- 		}
- 		++d;
- 		if (++cidx == q->size) {
+diff -ruNp org/drivers/net/virtio_net.c new/drivers/net/virtio_net.c
+--- org/drivers/net/virtio_net.c	2010-10-11 10:20:02.000000000 +0530
++++ new/drivers/net/virtio_net.c	2010-10-21 17:37:45.000000000 +0530
+@@ -570,17 +570,10 @@ static netdev_tx_t start_xmit(struct sk_
+ 
+ 	/* This can happen with OOM and indirect buffers. */
+ 	if (unlikely(capacity < 0)) {
+-		if (net_ratelimit()) {
+-			if (likely(capacity == -ENOMEM)) {
+-				dev_warn(&dev->dev,
+-					 "TX queue failure: out of memory\n");
+-			} else {
+-				dev->stats.tx_fifo_errors++;
+-				dev_warn(&dev->dev,
+-					 "Unexpected TX queue failure: %d\n",
+-					 capacity);
+-			}
+-		}
++		if (net_ratelimit())
++			dev_warn(&dev->dev,
++				 "TX queue failure (%d): out of memory\n",
++				 capacity); 
+ 		dev->stats.tx_dropped++;
+ 		kfree_skb(skb);
+ 		return NETDEV_TX_OK;
