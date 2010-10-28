@@ -1,119 +1,54 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: [PATCH iproute2] macvlan/macvtap: support 'passthru' mode
-Date: Thu, 28 Oct 2010 16:10:55 -0700
-Message-ID: <1288307455.30131.83.camel@sridhar.beaverton.ibm.com>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [patch v3] fix stack overflow in pktgen_if_write()
+Date: Fri, 29 Oct 2010 01:11:57 +0200
+Message-ID: <87lj5hud36.fsf@basil.nowhere.org>
+References: <1288206788-21063-1-git-send-email-nelhage@ksplice.com>
+	<20101027221234.GN6062@bicker> <20101027224302.GQ6062@bicker>
+	<20101027230657.GT16803@ksplice.com> <20101028060529.GX6062@bicker>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Patrick McHardy <kaber@trash.net>
-Return-path: <kvm-owner@vger.kernel.org>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Nelson Elhage <nelhage@ksplice.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Robert Olsson <robert.olsson@its.uu.se>,
+	Andy Shevchenko <andy.shevchenko@gmail.com>,
+	netdev@vger.kernel.org
+To: Dan Carpenter <error27@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from one.firstfloor.org ([213.235.205.2]:45497 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758369Ab0J1XME (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 19:12:04 -0400
+In-Reply-To: <20101028060529.GX6062@bicker> (Dan Carpenter's message of "Thu,
+	28 Oct 2010 08:05:29 +0200")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add support for 'passthru' mode when creating a macvlan/macvtap device
-which allows takeover of the underlying device and passing it to a KVM
-guest using virtio with macvtap backend.
+Dan Carpenter <error27@gmail.com> writes:
 
-Only one macvlan device is allowed in passthru mode and it inherits
-the mac address from the underlying device and sets it in promiscuous 
-mode to receive and forward all the packets.
-
-Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
-
------------------------------------------------------------------------
-
-diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-index f5bb2dc..23de79e 100644
---- a/include/linux/if_link.h
-+++ b/include/linux/if_link.h
-@@ -230,6 +230,7 @@ enum macvlan_mode {
- 	MACVLAN_MODE_PRIVATE = 1, /* don't talk to other macvlans */
- 	MACVLAN_MODE_VEPA    = 2, /* talk to other ports through ext bridge */
- 	MACVLAN_MODE_BRIDGE  = 4, /* talk to bridge ports directly */
-+	MACVLAN_MODE_PASSTHRU  = 8, /* take over the underlying device */
- };
- 
- /* SR-IOV virtual function management section */
-diff --git a/ip/iplink_macvlan.c b/ip/iplink_macvlan.c
-index a3c78bd..15022aa 100644
---- a/ip/iplink_macvlan.c
-+++ b/ip/iplink_macvlan.c
-@@ -23,14 +23,14 @@
- static void explain(void)
- {
- 	fprintf(stderr,
--		"Usage: ... macvlan mode { private | vepa | bridge }\n"
-+		"Usage: ... macvlan mode { private | vepa | bridge | passthru }\n"
- 	);
- }
- 
- static int mode_arg(void)
- {
-         fprintf(stderr, "Error: argument of \"mode\" must be \"private\", "
--		"\"vepa\" or \"bridge\"\n");
-+		"\"vepa\", \"bridge\" or \"passthru\" \n");
-         return -1;
- }
- 
-@@ -48,6 +48,8 @@ static int macvlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 				mode = MACVLAN_MODE_VEPA;
- 			else if (strcmp(*argv, "bridge") == 0)
- 				mode = MACVLAN_MODE_BRIDGE;
-+			else if (strcmp(*argv, "passthru") == 0)
-+				mode = MACVLAN_MODE_PASSTHRU;
- 			else
- 				return mode_arg();
- 
-@@ -82,6 +84,7 @@ static void macvlan_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[]
- 		  mode == MACVLAN_MODE_PRIVATE ? "private"
- 		: mode == MACVLAN_MODE_VEPA    ? "vepa"
- 		: mode == MACVLAN_MODE_BRIDGE  ? "bridge"
-+		: mode == MACVLAN_MODE_PASSTHRU  ? "passthru"
- 		:				 "unknown");
- }
- 
-diff --git a/ip/iplink_macvtap.c b/ip/iplink_macvtap.c
-index 35199b1..5665b6d 100644
---- a/ip/iplink_macvtap.c
-+++ b/ip/iplink_macvtap.c
-@@ -20,14 +20,14 @@
- static void explain(void)
- {
- 	fprintf(stderr,
--		"Usage: ... macvtap mode { private | vepa | bridge }\n"
-+		"Usage: ... macvtap mode { private | vepa | bridge | passthru }\n"
- 	);
- }
- 
- static int mode_arg(void)
- {
-         fprintf(stderr, "Error: argument of \"mode\" must be \"private\", "
--		"\"vepa\" or \"bridge\"\n");
-+		"\"vepa\", \"bridge\" or \"passthru\" \n");
-         return -1;
- }
- 
-@@ -45,6 +45,8 @@ static int macvtap_parse_opt(struct link_util *lu, int argc, char **argv,
- 				mode = MACVLAN_MODE_VEPA;
- 			else if (strcmp(*argv, "bridge") == 0)
- 				mode = MACVLAN_MODE_BRIDGE;
-+			else if (strcmp(*argv, "passthru") == 0)
-+				mode = MACVLAN_MODE_PASSTHRU;
- 			else
- 				return mode_arg();
- 
-@@ -79,6 +81,7 @@ static void macvtap_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[]
- 		  mode == MACVLAN_MODE_PRIVATE ? "private"
- 		: mode == MACVLAN_MODE_VEPA    ? "vepa"
- 		: mode == MACVLAN_MODE_BRIDGE  ? "bridge"
-+		: mode == MACVLAN_MODE_PASSTHRU  ? "passthru"
- 		:				 "unknown");
- }
- 
+> Reported-by: Nelson Elhage <nelhage@ksplice.com>
+> Signed-off-by: Dan Carpenter <error27@gmail.com>
+> ---
+> v3:  just use kmalloc()
+>
+> diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+> index 2c0df0f..c8d3620 100644
+> --- a/net/core/pktgen.c
+> +++ b/net/core/pktgen.c
+> @@ -887,12 +887,17 @@ static ssize_t pktgen_if_write(struct file *file,
+>  	i += len;
+>  
+>  	if (debug) {
+> -		char tb[count + 1];
+> +		char *tb;
+> +
+> +		tb = kmalloc(count + 1, GFP_KERNEL);
 
 
+This is still trivially exploitable (for root) -- think what happens
+when count is near ULONG_MAX
+
+-Andi
+
+-- 
+ak@linux.intel.com -- Speaking for myself only.
