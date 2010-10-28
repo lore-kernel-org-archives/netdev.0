@@ -1,75 +1,44 @@
-From: Pavel Emelyanov <xemul@parallels.com>
-Subject: [PATCH] ip_gre: fix percpu stats accounting
-Date: Thu, 28 Oct 2010 20:07:56 +0400
-Message-ID: <4CC99FDC.9070102@parallels.com>
+From: Dan Carpenter <error27@gmail.com>
+Subject: Re: [patch v3] fix stack overflow in pktgen_if_write()
+Date: Thu, 28 Oct 2010 18:28:25 +0200
+Message-ID: <20101028162825.GG6062@bicker>
+References: <1288206788-21063-1-git-send-email-nelhage@ksplice.com> <20101027221234.GN6062@bicker> <20101027224302.GQ6062@bicker> <20101027230657.GT16803@ksplice.com> <20101028060529.GX6062@bicker> <20101028152222.GU16803@ksplice.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+	"David S. Miller" <davem@davemloft.net>,
+	Robert Olsson <robert.olsson@its.uu.se>,
+	Andy Shevchenko <andy.shevchenko@gmail.com>,
+	netdev@vger.kernel.org
+To: Nelson Elhage <nelhage@ksplice.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:45797 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758192Ab0J1QII (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Oct 2010 12:08:08 -0400
+Received: from mail-yx0-f174.google.com ([209.85.213.174]:61786 "EHLO
+	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752675Ab0J1Q2h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 12:28:37 -0400
+Received: by yxk8 with SMTP id 8so1016597yxk.19
+        for <netdev@vger.kernel.org>; Thu, 28 Oct 2010 09:28:36 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20101028152222.GU16803@ksplice.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit e985aad7 (ip_gre: percpu stats accounting) forgot the fallback
-tunnel case (gre0).
+On Thu, Oct 28, 2010 at 11:22:22AM -0400, Nelson Elhage wrote:
+> You've got a leak if copy_user fails.
+> 
 
-This is the 4th part of the "foo: fix percpu stats accounting" series ;)
+My QC scripts should have caught that, but they didn't...  I'll figure
+it out.  It shouldn't happen again.
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+> While testing this, I realized that printk() won't print more than 1k in a
+> single call, anyways, so I've sent along a patch that just copies up to 1k onto
+> the stack, which should prevent the overflow without changing behavior or
+> needing a heap allocation.
+> 
 
----
+Ok.  Good to hear.  Sorry I wasted people's time.
 
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index 01087e0..be05d5b 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -1321,7 +1321,7 @@ static int ipgre_tunnel_init(struct net_device *dev)
- 	return 0;
- }
- 
--static void ipgre_fb_tunnel_init(struct net_device *dev)
-+static int ipgre_fb_tunnel_init(struct net_device *dev)
- {
- 	struct ip_tunnel *tunnel = netdev_priv(dev);
- 	struct iphdr *iph = &tunnel->parms.iph;
-@@ -1335,8 +1335,13 @@ static void ipgre_fb_tunnel_init(struct net_device *dev)
- 	iph->ihl		= 5;
- 	tunnel->hlen		= sizeof(struct iphdr) + 4;
- 
-+	dev->tstats = alloc_percpu(struct pcpu_tstats);
-+	if (!dev->tstats)
-+		return -ENOMEM;
-+
- 	dev_hold(dev);
- 	rcu_assign_pointer(ign->tunnels_wc[0], tunnel);
-+	return 0;
- }
- 
- 
-@@ -1377,7 +1382,10 @@ static int __net_init ipgre_init_net(struct net *net)
- 	}
- 	dev_net_set(ign->fb_tunnel_dev, net);
- 
--	ipgre_fb_tunnel_init(ign->fb_tunnel_dev);
-+	err = ipgre_fb_tunnel_init(ign->fb_tunnel_dev);
-+	if (err)
-+		goto err_reg_dev;
-+
- 	ign->fb_tunnel_dev->rtnl_link_ops = &ipgre_link_ops;
- 
- 	if ((err = register_netdev(ign->fb_tunnel_dev)))
-@@ -1386,7 +1394,7 @@ static int __net_init ipgre_init_net(struct net *net)
- 	return 0;
- 
- err_reg_dev:
--	free_netdev(ign->fb_tunnel_dev);
-+	ipgre_dev_free(ign->fb_tunnel_dev);
- err_alloc_dev:
- 	return err;
- }
+regards,
+dan carpenter
+
+
