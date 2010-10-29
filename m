@@ -1,82 +1,54 @@
-From: Paulius Zaleckas <paulius.zaleckas@gmail.com>
-Subject: Re: [RFC PATCH 1/2] Gemini: create platform device for ethernet in
- Raidsonic IB-4220B
-Date: Fri, 29 Oct 2010 14:17:07 +0300
-Message-ID: <AANLkTik+r8r-pywpFYfwrZX2bTjgAVd1rwvoTi7ttq3B@mail.gmail.com>
-References: <cover.1288321597.git.mirq-linux@rere.qmqm.pl>
-	<181be0f834f3670249d3c8d7ba1462dab1ece2c1.1288321597.git.mirq-linux@rere.qmqm.pl>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [v3 RFC PATCH 0/4] Implement multiqueue virtio-net
+Date: Fri, 29 Oct 2010 13:26:03 +0200
+Message-ID: <20101029112603.GA24577@redhat.com>
+References: <20101020085452.15579.76002.sendpatchset@krkumar2.in.ibm.com>
+ <OF8735A2A4.74B4EE91-ON652577C5.0040D90B-652577C7.0056B99D@in.ibm.com>
+ <20101025161718.GA19559@redhat.com>
+ <OF5C53E9CF.FFDF2CE7-ON652577C8.00191D14-652577C8.001C2154@LocalDomain>
+ <OFBB51646E.01CC3630-ON652577C8.0030D6EF-652577C8.0031DA3C@in.ibm.com>
+ <20101026093846.GA6766@redhat.com>
+ <OFBE9E2C99.648EFB19-ON652577C8.0035FEDD-652577C8.0036AD51@in.ibm.com>
+ <20101026110913.GC7922@redhat.com>
+ <OFC29C4491.59069AD1-ON652577CA.00170F0D-652577CA.001C76C8@LocalDomain>
+ <OFE75E1E91.9722BFB3-ON652577CA.00256D94-652577CA.0027E1CE@in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Hans Ulli Kroll <ulli.kroll@googlemail.com>,
-	Russell King <linux@arm.linux.org.uk>,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Janos Laube <janos.dev@gmail.com>
-To: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <181be0f834f3670249d3c8d7ba1462dab1ece2c1.1288321597.git.mirq-linux@rere.qmqm.pl>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: anthony@codemonkey.ws, arnd@arndb.de, avi@redhat.com,
+	davem@davemloft.net, eric.dumazet@gmail.com, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, rusty@rustcorp.com.au
+To: Krishna Kumar2 <krkumar2@in.ibm.com>
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <OFE75E1E91.9722BFB3-ON652577CA.00256D94-652577CA.0027E1CE@in.ibm.com>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2010/10/29 Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>:
-> This is cherry-picked from:
->
-> git://git.berlios.de/gemini-board ib4220
->
-> Code by Paulius Zaleckas <paulius.zaleckas@gmail.com>
-> and Janos Laube <janos.dev@gmail.com>.
->
-> Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
-> ---
->
-> =C2=A0arch/arm/mach-gemini/board-nas4220b.c =C2=A0 =C2=A0| =C2=A0 53 =
-++++++++++++++++++++++++++++++
-> =C2=A0arch/arm/mach-gemini/common.h =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0| =C2=A0 =C2=A02 +
-> =C2=A0arch/arm/mach-gemini/devices.c =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- | =C2=A0 52 +++++++++++++++++++++++++++++
-> =C2=A0arch/arm/mach-gemini/include/mach/gmac.h | =C2=A0 21 ++++++++++=
-++
-> =C2=A04 files changed, 128 insertions(+), 0 deletions(-)
-> =C2=A0create mode 100644 arch/arm/mach-gemini/include/mach/gmac.h
->
-[...]
-> diff --git a/arch/arm/mach-gemini/include/mach/gmac.h b/arch/arm/mach=
--gemini/include/mach/gmac.h
-> new file mode 100644
-> index 0000000..c6eeacc
-> --- /dev/null
-> +++ b/arch/arm/mach-gemini/include/mach/gmac.h
-> @@ -0,0 +1,21 @@
-> +/*
-> + * Gemini GMAC specific defines
-> + *
-> + * Copyright (C) 2008, Paulius Zaleckas <paulius.zaleckas@teltonika.=
-lt>
+On Thu, Oct 28, 2010 at 12:48:57PM +0530, Krishna Kumar2 wrote:
+> > Krishna Kumar2/India/IBM wrote on 10/28/2010 10:44:14 AM:
+> >
+> > > > > > Results for UDP BW tests (unidirectional, sum across
+> > > > > > 3 iterations, each iteration of 45 seconds, default
+> > > > > > netperf, vhosts bound to cpus 0-3; no other tuning):
+> > > > >
+> > > > > Is binding vhost threads to CPUs really required?
+> > > > > What happens if we let the scheduler do its job?
+> > > >
+> > > > Nothing drastic, I remember BW% and SD% both improved a
+> > > > bit as a result of binding.
+> > >
+> > > If there's a significant improvement this would mean that
+> > > we need to rethink the vhost-net interaction with the scheduler.
+> >
+> > I will get a test run with and without binding and post the
+> > results later today.
+> 
+> Correction: The result with binding is is much better for
+> SD/CPU compared to without-binding:
 
-This e-mail is dead. Please change it to gmail one.
+Can you pls ty finding out why that is?  Is some thread bouncing between
+CPUs?  Does a wrong numa node get picked up?
+In practice users are very unlikely to pin threads to CPUs.
 
-> + *
-> + * This program is free software; you can redistribute it and/or mod=
-ify
-> + * it under the terms of the GNU General Public License as published=
- by
-> + * the Free Software Foundation; either version 2 of the License, or
-> + * (at your option) any later version.
-> + */
-> +#ifndef __MACH_GMAC_H__
-> +#define __MACH_GMAC_H__
-> +
-> +#include <linux/phy.h>
-> +
-> +struct gemini_gmac_platform_data {
-> + =C2=A0 =C2=A0 =C2=A0 char *bus_id[2]; /* NULL means that this port =
-is not used */
-> + =C2=A0 =C2=A0 =C2=A0 phy_interface_t interface[2];
-> +};
-> +
-> +#endif /* __MACH_GMAC_H__ */
-> --
-> 1.7.1
->
->
+-- 
+MST
