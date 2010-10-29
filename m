@@ -1,115 +1,158 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH 02/15] 3c501: relocate ancient 8 bit ISA driver to legacy dir
-Date: Thu, 28 Oct 2010 21:19:06 -0400
-Message-ID: <1288315159-1350-3-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH 03/15] de6xx: relocate ancient parallel port eth drivers to legacy
+Date: Thu, 28 Oct 2010 21:19:07 -0400
+Message-ID: <1288315159-1350-4-git-send-email-paul.gortmaker@windriver.com>
 References: <1288315159-1350-1-git-send-email-paul.gortmaker@windriver.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:33962 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:33965 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755214Ab0J2BT0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 21:19:26 -0400
+	with ESMTP id S1755651Ab0J2BT1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 21:19:27 -0400
 In-Reply-To: <1288315159-1350-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As the oldest bit of "supported" hardware, this 8 bit relic from
-the 1980's gets the dubious honour of being the 1st driver to
-be relegated to the dark corners of the legacy dir.
-
-It wasn't really a functional bit of kit back in the early 1990's
-so don't be expecting it to work now either.  Sure it compiles,
-but it is largely a historical artefact.
+These old drivers pre-date USB, coming from the early 1990's
+and with the legacy parallel port also now largely gone from
+any current hardware, these need to be relocated to the legacy
+directory, since they won't have been in active use for years.
 
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- drivers/net/Kconfig              |   14 --------------
- drivers/net/Makefile             |    1 -
- drivers/net/{ => legacy}/3c501.c |    0
- drivers/net/{ => legacy}/3c501.h |    0
- drivers/net/legacy/Kconfig       |   14 ++++++++++++++
+ drivers/net/Kconfig              |   30 ------------------------------
+ drivers/net/Makefile             |    2 --
+ drivers/net/legacy/Kconfig       |   30 ++++++++++++++++++++++++++++++
  drivers/net/legacy/Makefile      |    2 ++
- 6 files changed, 16 insertions(+), 15 deletions(-)
- rename drivers/net/{ => legacy}/3c501.c (100%)
- rename drivers/net/{ => legacy}/3c501.h (100%)
+ drivers/net/{ => legacy}/de600.c |    0
+ drivers/net/{ => legacy}/de600.h |    0
+ drivers/net/{ => legacy}/de620.c |    0
+ drivers/net/{ => legacy}/de620.h |    0
+ 8 files changed, 32 insertions(+), 32 deletions(-)
+ rename drivers/net/{ => legacy}/de600.c (100%)
+ rename drivers/net/{ => legacy}/de600.h (100%)
+ rename drivers/net/{ => legacy}/de620.c (100%)
+ rename drivers/net/{ => legacy}/de620.h (100%)
 
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 9515f76..cb7f3f4 100644
+index cb7f3f4..eb65a3a 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -641,20 +641,6 @@ config NET_VENDOR_3COM
- 	  the questions about 3COM cards. If you say Y, you will be asked for
- 	  your specific card in the following questions.
+@@ -1867,36 +1867,6 @@ config ATP
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called atp.
  
--config EL1
--	tristate "3c501 \"EtherLink\" support"
--	depends on NET_VENDOR_3COM && ISA
+-config DE600
+-	tristate "D-Link DE600 pocket adapter support"
+-	depends on NET_POCKET && PARPORT
 -	---help---
--	  If you have a network (Ethernet) card of this type, say Y and read
--	  the Ethernet-HOWTO, available from
--	  <http://www.tldp.org/docs.html#howto>.  Also, consider buying a
--	  new card, since the 3c501 is slow, broken, and obsolete: you will
--	  have problems.  Some people suggest to ping ("man ping") a nearby
--	  machine every minute ("man cron") when using this card.
+-	  This is a network (Ethernet) device which attaches to your parallel
+-	  port. Read <file:Documentation/networking/DLINK.txt> as well as the
+-	  Ethernet-HOWTO, available from
+-	  <http://www.tldp.org/docs.html#howto>, if you want to use
+-	  this. It is possible to have several devices share a single parallel
+-	  port and it is safe to compile the corresponding drivers into the
+-	  kernel.
 -
--	  To compile this driver as a module, choose M here. The module
--	  will be called 3c501.
+-	  To compile this driver as a module, choose M here: the module
+-	  will be called de600.
 -
- config EL2
- 	tristate "3c503 \"EtherLink II\" support"
- 	depends on NET_VENDOR_3COM && ISA
+-config DE620
+-	tristate "D-Link DE620 pocket adapter support"
+-	depends on NET_POCKET && PARPORT
+-	---help---
+-	  This is a network (Ethernet) device which attaches to your parallel
+-	  port. Read <file:Documentation/networking/DLINK.txt> as well as the
+-	  Ethernet-HOWTO, available from
+-	  <http://www.tldp.org/docs.html#howto>, if you want to use
+-	  this. It is possible to have several devices share a single parallel
+-	  port and it is safe to compile the corresponding drivers into the
+-	  kernel.
+-
+-	  To compile this driver as a module, choose M here: the module
+-	  will be called de620.
+-
+ config SGISEEQ
+ 	tristate "SGI Seeq ethernet controller support"
+ 	depends on SGI_HAS_SEEQ
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 8045271..eb99117 100644
+index eb99117..41594da 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -183,7 +183,6 @@ obj-$(CONFIG_DEFXX) += defxx.o
- obj-$(CONFIG_SGISEEQ) += sgiseeq.o
- obj-$(CONFIG_SGI_O2MACE_ETH) += meth.o
- obj-$(CONFIG_AT1700) += at1700.o
--obj-$(CONFIG_EL1) += 3c501.o
- obj-$(CONFIG_EL16) += 3c507.o
- obj-$(CONFIG_ELMC) += 3c523.o
- obj-$(CONFIG_IBMLANA) += ibmlana.o
-diff --git a/drivers/net/3c501.c b/drivers/net/legacy/3c501.c
-similarity index 100%
-rename from drivers/net/3c501.c
-rename to drivers/net/legacy/3c501.c
-diff --git a/drivers/net/3c501.h b/drivers/net/legacy/3c501.h
-similarity index 100%
-rename from drivers/net/3c501.h
-rename to drivers/net/legacy/3c501.h
+@@ -174,8 +174,6 @@ obj-$(CONFIG_DUMMY) += dummy.o
+ obj-$(CONFIG_IFB) += ifb.o
+ obj-$(CONFIG_MACVLAN) += macvlan.o
+ obj-$(CONFIG_MACVTAP) += macvtap.o
+-obj-$(CONFIG_DE600) += de600.o
+-obj-$(CONFIG_DE620) += de620.o
+ obj-$(CONFIG_LANCE) += lance.o
+ obj-$(CONFIG_SUN3_82586) += sun3_82586.o
+ obj-$(CONFIG_SUN3LANCE) += sun3lance.o
 diff --git a/drivers/net/legacy/Kconfig b/drivers/net/legacy/Kconfig
-index 4c23adf..fa2d6f8 100644
+index fa2d6f8..ef6fa1f 100644
 --- a/drivers/net/legacy/Kconfig
 +++ b/drivers/net/legacy/Kconfig
-@@ -1,2 +1,16 @@
+@@ -14,3 +14,33 @@ config EL1
  
- # Legacy drivers for ancient ISA/EISA bus devices and the like.
+ 	  To compile this driver as a module, choose M here. The module
+ 	  will be called 3c501.
 +
-+config EL1
-+	tristate "3c501 \"EtherLink\" support"
-+	depends on NET_VENDOR_3COM && ISA
++config DE600
++	tristate "D-Link DE600 pocket adapter support"
++	depends on NET_POCKET && PARPORT
 +	---help---
-+	  If you have a network (Ethernet) card of this type, say Y and read
-+	  the Ethernet-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>.  Also, consider buying a
-+	  new card, since the 3c501 is slow, broken, and obsolete: you will
-+	  have problems.  Some people suggest to ping ("man ping") a nearby
-+	  machine every minute ("man cron") when using this card.
++	  This is a network (Ethernet) device which attaches to your parallel
++	  port. Read <file:Documentation/networking/DLINK.txt> as well as the
++	  Ethernet-HOWTO, available from
++	  <http://www.tldp.org/docs.html#howto>, if you want to use
++	  this. It is possible to have several devices share a single parallel
++	  port and it is safe to compile the corresponding drivers into the
++	  kernel.
 +
-+	  To compile this driver as a module, choose M here. The module
-+	  will be called 3c501.
++	  To compile this driver as a module, choose M here: the module
++	  will be called de600.
++
++config DE620
++	tristate "D-Link DE620 pocket adapter support"
++	depends on NET_POCKET && PARPORT
++	---help---
++	  This is a network (Ethernet) device which attaches to your parallel
++	  port. Read <file:Documentation/networking/DLINK.txt> as well as the
++	  Ethernet-HOWTO, available from
++	  <http://www.tldp.org/docs.html#howto>, if you want to use
++	  this. It is possible to have several devices share a single parallel
++	  port and it is safe to compile the corresponding drivers into the
++	  kernel.
++
++	  To compile this driver as a module, choose M here: the module
++	  will be called de620.
 diff --git a/drivers/net/legacy/Makefile b/drivers/net/legacy/Makefile
-index 33fd752..acbf0b2 100644
+index acbf0b2..e82ca16 100644
 --- a/drivers/net/legacy/Makefile
 +++ b/drivers/net/legacy/Makefile
-@@ -1,3 +1,5 @@
+@@ -3,3 +3,5 @@
  #
- # Makefile for the Linux legacy network device drivers.
- #
-+
-+obj-$(CONFIG_EL1) += 3c501.o
+ 
+ obj-$(CONFIG_EL1) += 3c501.o
++obj-$(CONFIG_DE600) += de600.o
++obj-$(CONFIG_DE620) += de620.o
+diff --git a/drivers/net/de600.c b/drivers/net/legacy/de600.c
+similarity index 100%
+rename from drivers/net/de600.c
+rename to drivers/net/legacy/de600.c
+diff --git a/drivers/net/de600.h b/drivers/net/legacy/de600.h
+similarity index 100%
+rename from drivers/net/de600.h
+rename to drivers/net/legacy/de600.h
+diff --git a/drivers/net/de620.c b/drivers/net/legacy/de620.c
+similarity index 100%
+rename from drivers/net/de620.c
+rename to drivers/net/legacy/de620.c
+diff --git a/drivers/net/de620.h b/drivers/net/legacy/de620.h
+similarity index 100%
+rename from drivers/net/de620.h
+rename to drivers/net/legacy/de620.h
 -- 
 1.7.3.2.146.g2d444
 
