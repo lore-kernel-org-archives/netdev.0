@@ -1,80 +1,40 @@
-From: Jon Mason <jon.mason@exar.com>
-Subject: [PATCH 10/11] vxge: update Kconfig
-Date: Thu, 28 Oct 2010 21:19:45 -0500
-Message-ID: <1288318786-12319-10-git-send-email-jon.mason@exar.com>
-References: <1288318786-12319-1-git-send-email-jon.mason@exar.com>
-Cc: netdev@vger.kernel.org,
-	Sivakumar Subramani <sivakumar.subramani@exar.com>,
-	Sreenivasa Honnur <sreenivasa.honnur@exar.com>,
-	Ram Vepa <ram.vepa@exar.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:38349 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760227Ab0J2CU0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 22:20:26 -0400
-Received: by mail-yw0-f46.google.com with SMTP id 9so1727254ywk.19
-        for <netdev@vger.kernel.org>; Thu, 28 Oct 2010 19:20:25 -0700 (PDT)
-In-Reply-To: <1288318786-12319-1-git-send-email-jon.mason@exar.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tao Ma <tao.ma@oracle.com>
+Subject: [PATCH] drivers/net/igb: remove unused variable in igb_xmit_frame_ring_adv.
+Date: Fri, 29 Oct 2010 10:55:49 +0800
+Message-ID: <1288320949-5136-1-git-send-email-tao.ma@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Tao Ma <tao.ma@oracle.com>,
+	Jiri Kosina <trivial@kernel.org>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Update Kconfig to reflect Exar's purchase of Neterion (formerly S2IO).
+drivers/net/igb/igb_main.c: In function =E2=80=98igb_xmit_frame_ring_ad=
+v=E2=80=99:
+drivers/net/igb/igb_main.c:4110: warning: unused variable =E2=80=98adap=
+ter=E2=80=99
 
-Signed-off-by: Jon Mason <jon.mason@exar.com>
-Signed-off-by: Ram Vepa <ram.vepa@exar.com>
+Cc: Jiri Kosina <trivial@kernel.org>
+Signed-off-by: Tao Ma <tao.ma@oracle.com>
 ---
- drivers/net/Kconfig |   19 ++++++++++++++-----
- 1 files changed, 14 insertions(+), 5 deletions(-)
+ drivers/net/igb/igb_main.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 77c1fab..123a11e 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -2750,29 +2750,38 @@ config IXGB
- 	  will be called ixgb.
- 
- config S2IO
--	tristate "S2IO 10Gbe XFrame NIC"
-+	tristate "Exar Xframe 10Gb Ethernet Adapter"
- 	depends on PCI
- 	---help---
--	  This driver supports the 10Gbe XFrame NIC of S2IO. 
-+	  This driver supports Exar Corp's Xframe Series 10Gb Ethernet Adapters.
-+
- 	  More specific information on configuring the driver is in 
- 	  <file:Documentation/networking/s2io.txt>.
- 
-+	  To compile this driver as a module, choose M here. The module
-+	  will be called s2io.
-+
- config VXGE
--	tristate "Neterion X3100 Series 10GbE PCIe Server Adapter"
-+	tristate "Exar X3100 Series 10GbE PCIe Server Adapter"
- 	depends on PCI && INET
- 	---help---
--	  This driver supports Neterion Inc's X3100 Series 10 GbE PCIe
-+	  This driver supports Exar Corp's X3100 Series 10 GbE PCIe
- 	  I/O Virtualized Server Adapter.
-+
- 	  More specific information on configuring the driver is in
- 	  <file:Documentation/networking/vxge.txt>.
- 
-+	  To compile this driver as a module, choose M here. The module
-+	  will be called vxge.
-+
- config VXGE_DEBUG_TRACE_ALL
- 	bool "Enabling All Debug trace statments in driver"
- 	default n
- 	depends on VXGE
- 	---help---
- 	  Say Y here if you want to enabling all the debug trace statements in
--	  driver. By  default only few debug trace statements are enabled.
-+	  the vxge driver. By default only few debug trace statements are
-+	  enabled.
- 
- config MYRI10GE
- 	tristate "Myricom Myri-10G Ethernet support"
--- 
-1.7.0.4
-
+diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+index 14db09e..892d196 100644
+--- a/drivers/net/igb/igb_main.c
++++ b/drivers/net/igb/igb_main.c
+@@ -4107,7 +4107,6 @@ static inline int igb_maybe_stop_tx(struct igb_ri=
+ng *tx_ring, int size)
+ netdev_tx_t igb_xmit_frame_ring_adv(struct sk_buff *skb,
+ 				    struct igb_ring *tx_ring)
+ {
+-	struct igb_adapter *adapter =3D netdev_priv(tx_ring->netdev);
+ 	int tso =3D 0, count;
+ 	u32 tx_flags =3D 0;
+ 	u16 first;
+--=20
+1.7.1.GIT
