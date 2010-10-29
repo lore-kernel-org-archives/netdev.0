@@ -1,51 +1,53 @@
-From: "John Luguard" <info@time.net.my>
-Subject: Senate =?iso-8859-1?Q?House=AE?=
-Date: Fri, 29 Oct 2010 22:06:06 +0800 (MYT)
-Message-ID: <1852.82.128.116.249.1288361166.squirrel@webmail.time.net.my>
-Reply-To: fedexdeliverypost290@hotmail.com
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [PATCH] net: Limit socket I/O iovec total length to INT_MAX.
+Date: Fri, 29 Oct 2010 08:28:38 -0700
+Message-ID: <AANLkTikeaXncdUohUiGF2EkhujYETK5dtyOJASffz2qR@mail.gmail.com>
+References: <20101028.112231.232747062.davem@davemloft.net>
+ <AANLkTinAzvfrRHwW-w-Ppdu7LWd7nGTa4EWP=e6pKV2F@mail.gmail.com> <1288360820.2092.34.camel@dan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	jon.maloy@ericsson.com, allan.stephens@windriver.com,
+	Al Viro <viro@zeniv.linux.org.uk>
+To: Dan Rosenberg <drosenberg@vsecurity.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cuda4.time.net.my ([203.121.65.122]:3083 "EHLO
-	cuda4.time.net.my" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932652Ab0J2OZi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Oct 2010 10:25:38 -0400
-Received: from carp.time.net.my (unknown [10.20.0.226])
-	by cuda4.time.net.my (Spam & Virus Firewall) with ESMTP id 96DE03DEE9E1
-	for <netdev@vger.kernel.org>; Fri, 29 Oct 2010 22:06:06 +0800 (MYT)
-Received: from carp.time.net.my ([10.20.0.226]) by cuda4.time.net.my with ESMTP id nrqXRF0EoM8Wk2Aq for <netdev@vger.kernel.org>; Fri, 29 Oct 2010 22:06:06 +0800 (MYT)
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:55118 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756541Ab0J2P3Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Oct 2010 11:29:25 -0400
+Received: from mail-iw0-f174.google.com (mail-iw0-f174.google.com [209.85.214.174])
+	(authenticated bits=0)
+	by smtp1.linux-foundation.org (8.14.2/8.13.5/Debian-3ubuntu1.1) with ESMTP id o9TFT4mO023900
+	(version=TLSv1/SSLv3 cipher=RC4-MD5 bits=128 verify=FAIL)
+	for <netdev@vger.kernel.org>; Fri, 29 Oct 2010 08:29:04 -0700
+Received: by iwn10 with SMTP id 10so3836913iwn.19
+        for <netdev@vger.kernel.org>; Fri, 29 Oct 2010 08:29:02 -0700 (PDT)
+In-Reply-To: <1288360820.2092.34.camel@dan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, Oct 29, 2010 at 7:00 AM, Dan Rosenberg <drosenberg@vsecurity.com> wrote:
+>
+> While you guys are at it, you might consider preventing sendto(), etc.
+> calls from requesting >= 2GB data in one go.
 
+Indeed. David - I think we have to, because that thing converts its
+arguments to an iovec and then does a sendmsg, but since it's already
+in kernel space it doesn't go through the verify_iovec() path.
 
+So sendto/recvfrom (and possibly others that build their own msg
+struct in kernel space) should be limited to MAX_INT too, so that
+there's no back way to create a big iovec..
 
---=20
-Senate House=AE
----DEPUIS 1725---
-276xc Committee On foreign Payment,
-Resolution Panel On Contract Payment.
-Lagos State, Nigeria.
-Phone : +234- (West Africa Office)
+In fs/read_write.c, do_sync_read/write() do that iovec thing too, but
+at least for the regular vfs_read()/vfs_write cases they will have
+gone through rw_verify_area() first, which does the size limiting for
+them.
 
-Accredited ATM card (231) awarded for contract payment of $6.8
-Million Usd with card number: 3478763199030014 has been allocated in
-favor of your email address which was gotten during a discreet search
-on the internet and emerged the winning mail after the raffle draws
-of our Yearly promo from the senate house of Nigeria. Provide my
-secretary Mr Richard ( fedexdeliverypost290@hotmail.com ) with the
-following information to facilitate your claims:
+We do need to fix the readv/writev path, though. It does the
+rw_verify_area(), but it doesn't seem to limit the size to the
+returned length, but still uses the original one. Hmm.
 
-=46ull Names:
-Complete Postal  Address:
-Direct Phone Number:
+I think I'll take care of the readv/writev thing, and send it by Al to verify.
 
-Regards
-Mr. John Luguard
-CC;
-Senator David Mark
-(Senate President)
-Direct line +234-703853-7699
-
+                              Linus
