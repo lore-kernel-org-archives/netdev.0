@@ -1,34 +1,44 @@
-From: Matthew Clayton <mclayton2@rediffmail.com>
-Subject: Re: business offer !
-Date: Fri, 29 Oct 2010 03:53:26 -0700
-Message-ID: <201010291053.o9TArQx1030673@relay.dotsterhost.com>
-Reply-To: mclayton3@rediffmail.com
+From: Sjur BRENDELAND <sjur.brandeland@stericsson.com>
+Subject: RE: [RFC net-next] caif: code cleanup
+Date: Fri, 29 Oct 2010 11:36:25 +0200
+Message-ID: <81C3A93C17462B4BBD7E272753C105791945A4EB6B@EXDCVYMBSTM005.EQ1STM.local>
+References: <20101019095553.0b413b80@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 16bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Andre Carvalho DE MATOS <andre.carvalho.matos@stericsson.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.dotsterhost.com ([72.5.54.243]:56587 "EHLO
-	relay.dotsterhost.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760380Ab0J2I6q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Oct 2010 04:58:46 -0400
-Received: from relay.dotsterhost.com (localhost.localdomain [127.0.0.1])
-	by relay.dotsterhost.com (8.12.11.20060308/8.12.11) with ESMTP id o9TArRbX030719
-	for <netdev@vger.kernel.org>; Fri, 29 Oct 2010 03:53:27 -0700
+Received: from eu1sys200aog116.obsmtp.com ([207.126.144.141]:40217 "EHLO
+	eu1sys200aog116.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756659Ab0J2Jgh convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Oct 2010 05:36:37 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Sir/ Madam,
-I am a staff of Barclays Bank London. I am writing on behalf of my client
-following an Opportunity in my office that will be of immense benefit to
-my client and us.My client\'s bank account with us has been frozen due to
-some diminutive investigation on my client. My client is a very rich man,
-worth over $4 billion USD. We have agreed to give you a non-negotiable
-10%, of the total money transferred. Now! all we need from you is to let us know if
-you are interested before we give you more information.Please get in touch
-with me urgently by E-mail: claytonmattew2@yahoo.com.hk
-Best regards
-Mr. Matthew.
+Hi Stephen,
 
+> Stephen Hemminger wrote:
+> >
+> > Cleanup of new CAIF code.
+> >   * make local functions static
+> >   * remove code that is never used
+> >   * expand get_caif_conf() since wrapper is no longer needed
+> >   * make args to comparison functions const
+> >   * rename connect_req_to_link_param to keep exported names
+> >     consistent
+> 
+> Thank you for your patch.
+> We'll try to test this sometime next week,
+> and get back to you.
 
+Sorry for taking so long to respond.
+We have passed our tests on your RFC.
+I'll ack this if you send a patch.
+
+Regards,
+Sjur
 
