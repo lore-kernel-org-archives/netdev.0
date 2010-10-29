@@ -1,44 +1,36 @@
-From: "Dimitrios Michailidis" <dm@chelsio.com>
-Subject: RE: [PATCH] cxgb4vf: fix crash due to manipulating queues before registration
-Date: Fri, 29 Oct 2010 00:36:22 -0700
-Message-ID: <8A71B368A89016469F72CD08050AD334088DA49E@maui.asicdesigners.com>
-References: <1288297007-663-1-git-send-email-leedom@chelsio.com> <20101028.132122.245402585.davem@davemloft.net>
+From: <macpaul@andestech.com>
+Subject: RE: About the Davicom PHY in drivers/net/phy in Linux kernel
+Date: Fri, 29 Oct 2010 15:46:47 +0800
+Message-ID: <50FD90C65C53FB45BADEEBCD84FF07F202A62479@ATCPCS06.andestech.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: "David Miller" <davem@davemloft.net>,
-	"Casey Leedom" <leedom@chelsio.com>
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <afleming@freescale.com>, <jeff@garzik.org>,
+	<f.rodo@til-technologies.fr>
+To: <joseph_chang@mail.davicom.com.tw>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:31545 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753957Ab0J2Hg1 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Oct 2010 03:36:27 -0400
+Received: from 59-124-160-117.HINET-IP.hinet.net ([59.124.160.117]:14026 "EHLO
+	ATCPCS06.andestech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753748Ab0J2HoH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Oct 2010 03:44:07 -0400
 Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > Before commit "net: allocate tx queues in register_netdevice"
-> > netif_tx_stop_all_queues and related functions could be used between
-> > device allocation and registration but now only after registration.
-> > cxgb4 has such a call before registration and crashes now.  Move it
-> > after register_netdev.
-> >
-> > Signed-off-by: Casey Leedom <leedom@chelsio.com>
-> 
-> Why are you manipulating the queue at all here?
-> 
-> The queue state is "don't care" at this point in time,
-> and has no meaning until ->open() is invoked.
-
-The reason for the call at its initial pre register_netdev location was
-an attempt to make the queues have the same state at the time of each
-open.  Without it at the first open __QUEUE_STATE_XOFF is not set due to
-0-initialization but at subsequent opens it is set because close stops
-the queues.  I agree however that this disparity is not functionally
-significant.  Further, I believe moving the call after register_netdev
-is buggy as open can be called after registration and it can clash with
-the queue stopping.  It seems then that these netif_tx_stop_all_queues
-calls have to go now.
-
+SGkgSm9zZXBoLA0KDQpJIGp1c3QgZm9sbG93ZWQgdXAgeW91ciBzdWdnZXN0aW9uIGluIHByZXZp
+b3VzIG1haWwsIGxldCBtZSBxdW90ZSB0aGVtIGhlcmU6DQoNCiMgcXVvdGUNClRoZSByZWNvbW1l
+bmQgaXMgY2hhbmdlZCB0byBiZSBhcyBiZWxvdzoNCiBlcnIgPSBwaHlfd3JpdGUocGh5ZGV2LCBN
+SUlfQk1DUiwgQk1DUl9SRVNFVCk7DQogICAgLy9lcnIgPSBwaHlfd3JpdGUocGh5ZGV2LCBNSUlf
+Qk1DUiwgQk1DUl9JU09MQVRFKTsNCiAgIGVyciA9IHBoeV93cml0ZShwaHlkZXYsIE1JSV9ETTkx
+NjFfU0NSLCBNSUlfRE05MTYxX1NDUl9JTklUKTsNCiAgIGVyciA9IHBoeV93cml0ZShwaHlkZXYs
+IE1JSV9ETTkxNjFfMTBCVENTUiwgTUlJX0RNOTE2MV8xMEJUQ1NSX0lOSVQpOw0KICAvLyBlcnIg
+PSBwaHlfd3JpdGUocGh5ZGV2LCBNSUlfTldBWVRFU1QsIDB4MTApOw0KICAgIGVyciA9IHBoeV93
+cml0ZShwaHlkZXYsIE1JSV9CTUNSLCBCTUNSX0FORU5BQkxFIHwgQk1DUl9BTlJFU1RBUlQpOw0K
+ICAqTm90ZTogQWRkZWQgYSBQSFkgcmVzZXQgY29tbWFuZC4NCiMgZW5kIHF1b3RlDQo+IA0KPiAg
+KiA9PSA+IFdvdWxkIHlvdSB0ZWxsIHVzIHlvdXI6DQo+IO+DmAlDUFUgPSA/DQpTb0M6IEZhcmFk
+YXkgQTMyMCAoYXJtOTIwdCkgLyBBbmRlcyBBRzEwMSAoTkRTMzIpDQo+IO+DmAlMaW51eCBLZXJu
+ZWwgdmVyc2lvbj0gPw0KTGludXg6IDIuNi4zMg0KPiAgICAgICBJIHdpbGwgbGlrZSB0byBkb3du
+bG9hZCB0aGUgc2FtZSBzb3VyY2UgY29kZSBmcm9tIExYUi4NCj4gICAgICAgQW5kIGNhbiBjaGVj
+ayBtb3JlIGRldGFpbCBmb3IgeW91Lg0KDQpJJ3ZlIGJlbGlldmVkIHRoYXQgeW91IGhhdmUgZG93
+bmxvYWQgdGhlIHNvdXJjZSBhbHJlYWR5LiA6LSkNCg0KDQo=
