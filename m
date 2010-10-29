@@ -1,144 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] ixgbe: refactor ixgbe_alloc_queues()
-Date: Fri, 29 Oct 2010 05:45:33 +0200
-Message-ID: <1288323933.2711.43.camel@edumazet-laptop>
-References: <1286799439.2737.21.camel@edumazet-laptop>
-	 <EA929A9653AAE14F841771FB1DE5A136602807B460@rrsmsx501.amr.corp.intel.com>
-	 <1288239858.2658.72.camel@edumazet-laptop>
-	 <1288267354.2649.369.camel@edumazet-laptop>
-	 <1288268493.27890.5.camel@jtkirshe-MOBL1>
+From: "Maciej W. Rozycki" <macro@linux-mips.org>
+Subject: Re: [PATCH 05/15] dec netdev: relocate DIGITAL based drivers to
+ legacy
+Date: Fri, 29 Oct 2010 05:21:35 +0100 (BST)
+Message-ID: <alpine.LFD.2.00.1010290516110.25426@eddie.linux-mips.org>
+References: <1288315159-1350-1-git-send-email-paul.gortmaker@windriver.com> <1288315159-1350-6-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Tantilov, Emil S" <emil.s.tantilov@intel.com>,
-	David Miller <davem@davemloft.net>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"Brattain, Ross B" <ross.b.brattain@intel.com>,
-	netdev <netdev@vger.kernel.org>
-To: jeffrey.t.kirsher@intel.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:62250 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755079Ab0J2Dpj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 23:45:39 -0400
-Received: by wyf28 with SMTP id 28so2680308wyf.19
-        for <netdev@vger.kernel.org>; Thu, 28 Oct 2010 20:45:38 -0700 (PDT)
-In-Reply-To: <1288268493.27890.5.camel@jtkirshe-MOBL1>
+Received: from eddie.linux-mips.org ([78.24.191.182]:53871 "EHLO
+	cvs.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751104Ab0J2EVg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Oct 2010 00:21:36 -0400
+Received: from localhost.localdomain ([127.0.0.1]:52813 "EHLO
+        localhost.localdomain" rhost-flags-OK-OK-OK-OK)
+        by eddie.linux-mips.org with ESMTP id S1490983Ab0J2EVf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 29 Oct 2010 06:21:35 +0200
+In-Reply-To: <1288315159-1350-6-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Note : compiled only patch, not tested.
+On Thu, 28 Oct 2010, Paul Gortmaker wrote:
 
-Thanks !
+> DEC as a name brand has been gone for over 10 years, and these
+> drivers represent technology from the 1990's like the venerable
+> ISA bus.  Hence relocate them to the legacy dir.
 
-[PATCH] ixgbe: refactor ixgbe_alloc_queues()
+ NAK for the TURBOchannel bits (defxx.[ch] and declance.c) unless you give 
+a plausible justification.  You won't get these drivers offered unless you 
+have the bus in your system anyway, and if you do than you don't want to 
+have them hidden somewhere in the corner.  If you see anything wrong with 
+these drivers, then please do let me know.
 
-I noticed ring variable was initialized before allocations, and that
-memory node management was a bit ugly. We also leak memory in case of
-ring allocations error.
+ Also defxx.c is PCI too (apart from being EISA and TC).
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- drivers/net/ixgbe/ixgbe_main.c |   69 ++++++++++++-------------------
- 1 file changed, 28 insertions(+), 41 deletions(-)
+> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+> ---
+>  drivers/net/Kconfig                 |   63 -----------------------------------
+>  drivers/net/Makefile                |    4 --
+>  drivers/net/legacy/Kconfig          |   63 +++++++++++++++++++++++++++++++++++
+>  drivers/net/legacy/Makefile         |    5 +++
+>  drivers/net/{ => legacy}/declance.c |    0
+>  drivers/net/{ => legacy}/defxx.c    |    0
+>  drivers/net/{ => legacy}/defxx.h    |    0
+>  drivers/net/{ => legacy}/depca.c    |    0
+>  drivers/net/{ => legacy}/depca.h    |    0
+>  drivers/net/{ => legacy}/ewrk3.c    |    0
+>  drivers/net/{ => legacy}/ewrk3.h    |    0
 
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 2bd3eb4..e89da9a 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -4470,65 +4470,52 @@ static void ixgbe_cache_ring_register(struct ixgbe_adapter *adapter)
-  **/
- static int ixgbe_alloc_queues(struct ixgbe_adapter *adapter)
- {
--	int i;
--	int orig_node = adapter->node;
-+	int rx = 0, tx = 0, nid = adapter->node;
- 
--	for (i = 0; i < adapter->num_tx_queues; i++) {
--		struct ixgbe_ring *ring = adapter->tx_ring[i];
--		if (orig_node == -1) {
--			int cur_node = next_online_node(adapter->node);
--			if (cur_node == MAX_NUMNODES)
--				cur_node = first_online_node;
--			adapter->node = cur_node;
--		}
--		ring = kzalloc_node(sizeof(struct ixgbe_ring), GFP_KERNEL,
--				    adapter->node);
-+	if (nid < 0 || !node_online(nid))
-+		nid = first_online_node;
-+
-+	for (; tx < adapter->num_tx_queues; tx++) {
-+		struct ixgbe_ring *ring;
-+
-+		ring = kzalloc_node(sizeof(*ring), GFP_KERNEL, nid);
- 		if (!ring)
--			ring = kzalloc(sizeof(struct ixgbe_ring), GFP_KERNEL);
-+			ring = kzalloc(sizeof(*ring), GFP_KERNEL);
- 		if (!ring)
--			goto err_tx_ring_allocation;
-+			goto err_allocation;
- 		ring->count = adapter->tx_ring_count;
--		ring->queue_index = i;
--		ring->numa_node = adapter->node;
-+		ring->queue_index = tx;
-+		ring->numa_node = nid;
- 
--		adapter->tx_ring[i] = ring;
-+		adapter->tx_ring[tx] = ring;
- 	}
- 
--	/* Restore the adapter's original node */
--	adapter->node = orig_node;
-+	for (; rx < adapter->num_rx_queues; rx++) {
-+		struct ixgbe_ring *ring;
- 
--	for (i = 0; i < adapter->num_rx_queues; i++) {
--		struct ixgbe_ring *ring = adapter->rx_ring[i];
--		if (orig_node == -1) {
--			int cur_node = next_online_node(adapter->node);
--			if (cur_node == MAX_NUMNODES)
--				cur_node = first_online_node;
--			adapter->node = cur_node;
--		}
--		ring = kzalloc_node(sizeof(struct ixgbe_ring), GFP_KERNEL,
--				    adapter->node);
-+		ring = kzalloc_node(sizeof(*ring), GFP_KERNEL, nid);
- 		if (!ring)
--			ring = kzalloc(sizeof(struct ixgbe_ring), GFP_KERNEL);
-+			ring = kzalloc(sizeof(*ring), GFP_KERNEL);
- 		if (!ring)
--			goto err_rx_ring_allocation;
-+			goto err_allocation;
- 		ring->count = adapter->rx_ring_count;
--		ring->queue_index = i;
--		ring->numa_node = adapter->node;
-+		ring->queue_index = rx;
-+		ring->numa_node = nid;
- 
--		adapter->rx_ring[i] = ring;
-+		adapter->rx_ring[rx] = ring;
- 	}
- 
--	/* Restore the adapter's original node */
--	adapter->node = orig_node;
--
- 	ixgbe_cache_ring_register(adapter);
- 
- 	return 0;
- 
--err_rx_ring_allocation:
--	for (i = 0; i < adapter->num_tx_queues; i++)
--		kfree(adapter->tx_ring[i]);
--err_tx_ring_allocation:
-+err_allocation:
-+	while (tx)
-+		kfree(adapter->tx_ring[--tx]);
-+
-+	while (rx)
-+		kfree(adapter->tx_ring[--rx]);
-+
- 	return -ENOMEM;
- }
- 
-
-
+  Maciej
