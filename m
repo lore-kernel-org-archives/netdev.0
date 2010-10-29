@@ -1,121 +1,57 @@
-From: Paulius Zaleckas <paulius.zaleckas@gmail.com>
-Subject: Re: [RFC PATCH 0/2] SL351x (Gemini) ethernet driver
-Date: Fri, 29 Oct 2010 14:14:12 +0300
-Message-ID: <AANLkTinTDZSC93fUsVzx2pbhZE9_39t-m=XNh3h3tkqs@mail.gmail.com>
-References: <cover.1288321597.git.mirq-linux@rere.qmqm.pl>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] aoe: remove dev_base_lock use from aoecmd_cfg_pkts()
+Date: Fri, 29 Oct 2010 13:15:29 +0200
+Message-ID: <1288350929.2560.16.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Hans Ulli Kroll <ulli.kroll@googlemail.com>,
-	Russell King <linux@arm.linux.org.uk>,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Janos Laube <janos.dev@gmail.com>
-To: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	"Ed L. Cashin" <ecashin@coraid.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:40488 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757334Ab0J2LOO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Oct 2010 07:14:14 -0400
-In-Reply-To: <cover.1288321597.git.mirq-linux@rere.qmqm.pl>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:63546 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759688Ab0J2LPd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Oct 2010 07:15:33 -0400
+Received: by wyf28 with SMTP id 28so3020652wyf.19
+        for <netdev@vger.kernel.org>; Fri, 29 Oct 2010 04:15:32 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2010/10/29 Micha=B3 Miros=B3aw <mirq-linux@rere.qmqm.pl>:
-> This is a driver for SL351x (Gemini) SoC ethernet peripheral.
-> Based on work by Paulius Zaleckas and GPLd code from Raidsonic
-> and other NAS vendors.
->
-> This is work in progress. Please comment and test if you can.
-> Patches are against 2.6.37-rc (current Linus' tree) but should
-> apply to 2.6.36. You probably also need patches for PATA from
-> =A0 =A0 =A0 =A0git://git.berlios.de/gemini-board ib4220
+dev_base_lock is the legacy way to lock the device list, and is planned
+to disappear. (writers hold RTNL, readers hold RCU lock)
 
-Nice to hear!
+Convert aoecmd_cfg_pkts() to RCU locking.
 
-> Known bugs:
-> =A0- repeatable bad HW calculated TCP csum
-> =A0 =A0happens for only some packets in a TCP stream
-> =A0 =A0looks like it doesn't like some data pattern or timing
-> =A0 =A0(difference between correct and generated csum is the same
-> =A0 =A0when the packet is retransmitted with changed header/TCP tstam=
-p)
-> =A0- TX DMA hangs sometimes (needs module reload when that happens)
-> =A0 =A0with debugging printks disabled and HW TX csum enabled
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: "Ed L. Cashin" <ecashin@coraid.com>
+---
+ drivers/block/aoe/aoecmd.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-AFAIK DMA hangs are associated with HW checksum errors. So generally
-disabling HW csum is the best solution so far. If I am not wrong, OpenW=
-RT
-does just this in their patches.
+diff --git a/drivers/block/aoe/aoecmd.c b/drivers/block/aoe/aoecmd.c
+index 5674bd0..de0435e 100644
+--- a/drivers/block/aoe/aoecmd.c
++++ b/drivers/block/aoe/aoecmd.c
+@@ -297,8 +297,8 @@ aoecmd_cfg_pkts(ushort aoemajor, unsigned char aoeminor, struct sk_buff_head *qu
+ 	struct sk_buff *skb;
+ 	struct net_device *ifp;
+ 
+-	read_lock(&dev_base_lock);
+-	for_each_netdev(&init_net, ifp) {
++	rcu_read_lock();
++	for_each_netdev_rcu(&init_net, ifp) {
+ 		dev_hold(ifp);
+ 		if (!is_aoe_netif(ifp))
+ 			goto cont;
+@@ -325,7 +325,7 @@ aoecmd_cfg_pkts(ushort aoemajor, unsigned char aoeminor, struct sk_buff_head *qu
+ cont:
+ 		dev_put(ifp);
+ 	}
+-	read_unlock(&dev_base_lock);
++	rcu_read_unlock();
+ }
+ 
+ static void
 
-DMA hangs happen for other reasons as well and main cause seems to be M=
-II
-interface. If timing is wrong or some noise gets onto PCB tracks it is
-very likely
-that DMA will hang. Also using both ports at one time increases posibil=
-ity of
-hang.
 
-> =A0- unsynced counters
->
-> I started to work on Paulius' code to find out why the TX DMA hangs
-> happen, but then I realized that complete rewrite was a better way
-> to understand how the hardware works and why it doesn't. As a "bonus"
-> this got some additional features:
-> =A0- ethtool support
-> =A0- 64-bit counters
-> =A0- proper cleanup on ifdown/module unload
-> =A0- better DMA API usage
-> =A0- cleaned up code
-> =A0- a lot of tx/rx debugging printks
-> =A0- based on 2.6.36 DMA and netdev interfaces
->
-> TODO:
-> =A0- NAPI
-> =A0- MTU changing
-
-Super cool! NAPI shouldn't be very hard...
-
-> For normal use tx-csum and tso have to be disabled:
-> =A0 ethtool -K eth0 tso off tx off
->
-> Tested on Raidsonic IcyBox 4220-B (dual SATA NAS).
->
-> I'm also interested in getting copies of various GPL packages for
-> StorLink SL3516. I already have following packages (md5sum):
->
-> 89991e543eb2e473e3d380ac9a4cd8b4 =A0GPL_source_code(Raidsonic).zip
-> 6ba8b833c429794315f0a73ce2961bd8 =A0Gemini_v2_6_0-n.tgz
-> fe87e97a33554bcab8284d25ff86e383 =A0n299_n199_1.00.24_GPL.tar.bz2
-> eca8994354368304ca3b5bd1429c20bb =A0sl-boot_1.0.9.tgz
-> eafd6497074fe0651459bf38c39d66bd =A0vt4kern-1.5.tar.bz2.tar
-
-I will see what I can provide you when I get home.
-
->
-> Best Regards,
-> Micha=B3 Miros=B3aw
->
-> ---
->
-> Micha=B3 Miros=B3aw (2):
-> =A0Gemini: create platform device for ethernet in Raidsonic IB-4220B
-> =A0Gemini: SL351x Ethernet driver
->
-> =A0arch/arm/mach-gemini/board-nas4220b.c =A0 =A0| =A0 53 +
-> =A0arch/arm/mach-gemini/common.h =A0 =A0 =A0 =A0 =A0 =A0| =A0 =A02 +
-> =A0arch/arm/mach-gemini/devices.c =A0 =A0 =A0 =A0 =A0 | =A0 52 +
-> =A0arch/arm/mach-gemini/include/mach/gmac.h | =A0 21 +
-> =A0drivers/net/Kconfig =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0| =A0=
- =A07 +
-> =A0drivers/net/Makefile =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 | =A0=
- =A01 +
-> =A0drivers/net/sl351x.c =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 | 170=
-6 ++++++++++++++++++++++++++++++
-> =A0drivers/net/sl351x_hw.h =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0| 1423 =
-+++++++++++++++++++++++++
-> =A08 files changed, 3265 insertions(+), 0 deletions(-)
-> =A0create mode 100644 arch/arm/mach-gemini/include/mach/gmac.h
-> =A0create mode 100644 drivers/net/sl351x.c
-> =A0create mode 100644 drivers/net/sl351x_hw.h
->
->
