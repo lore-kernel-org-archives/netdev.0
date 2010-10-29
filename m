@@ -1,62 +1,165 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [RFC PATCH 1/1] vhost: TX used buffer guest signal accumulation
-Date: Fri, 29 Oct 2010 08:43:08 -0700
-Message-ID: <1288366988.4110.5.camel@localhost.localdomain>
-References: <1288216693.17571.38.camel@localhost.localdomain>
-	 <1288240804.14342.1.camel@localhost.localdomain>
-	 <20101028052021.GD5599@redhat.com>
-	 <1288286062.11251.15.camel@localhost.localdomain>
-	 <20101029081027.GB22688@redhat.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [PATCH] net: Limit socket I/O iovec total length to INT_MAX.
+Date: Fri, 29 Oct 2010 09:21:16 -0700
+Message-ID: <AANLkTi=sUDRzGnkp57OCQUi9APHWLYLShhiTVHLyq1eV@mail.gmail.com>
+References: <20101028.112231.232747062.davem@davemloft.net>
+ <AANLkTinAzvfrRHwW-w-Ppdu7LWd7nGTa4EWP=e6pKV2F@mail.gmail.com>
+ <1288360820.2092.34.camel@dan> <AANLkTikeaXncdUohUiGF2EkhujYETK5dtyOJASffz2qR@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/mixed; boundary=00221534d72773bad00493c3dad2
 Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
+	jon.maloy@ericsson.com, allan.stephens@windriver.com,
+	Dan Rosenberg <drosenberg@vsecurity.com>
+To: Al Viro <viro@zeniv.linux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e1.ny.us.ibm.com ([32.97.182.141]:56903 "EHLO e1.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932823Ab0J2PnP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Oct 2010 11:43:15 -0400
-In-Reply-To: <20101029081027.GB22688@redhat.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:36668 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756541Ab0J2QWM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Oct 2010 12:22:12 -0400
+Received: from mail-iw0-f174.google.com (mail-iw0-f174.google.com [209.85.214.174])
+	(authenticated bits=0)
+	by smtp1.linux-foundation.org (8.14.2/8.13.5/Debian-3ubuntu1.1) with ESMTP id o9TGLf1w029199
+	(version=TLSv1/SSLv3 cipher=RC4-MD5 bits=128 verify=FAIL)
+	for <netdev@vger.kernel.org>; Fri, 29 Oct 2010 09:21:42 -0700
+Received: by iwn10 with SMTP id 10so3883582iwn.19
+        for <netdev@vger.kernel.org>; Fri, 29 Oct 2010 09:21:39 -0700 (PDT)
+In-Reply-To: <AANLkTikeaXncdUohUiGF2EkhujYETK5dtyOJASffz2qR@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2010-10-29 at 10:10 +0200, Michael S. Tsirkin wrote:
-> Hmm. I don't yet understand. We are still doing copies into the per-vq
-> buffer, and the data copied is really small.  Is it about cache line
-> bounces?  Could you try figuring it out?
+--00221534d72773bad00493c3dad2
+Content-Type: text/plain; charset=ISO-8859-1
 
-per-vq buffer is much less expensive than 3 put_copy() call. I will
-collect the profiling data to show that.
+On Fri, Oct 29, 2010 at 8:28 AM, Linus Torvalds
+<torvalds@linux-foundation.org> wrote:
+>
+> We do need to fix the readv/writev path, though. It does the
+> rw_verify_area(), but it doesn't seem to limit the size to the
+> returned length, but still uses the original one. Hmm.
+>
+> I think I'll take care of the readv/writev thing, and send it by Al to verify.
 
-> > > 2. How about flushing out queued stuff before we exit
-> > >    the handle_tx loop? That would address most of
-> > >    the spec issue. 
-> > 
-> > The performance is almost as same as the previous patch. I will
-> resubmit
-> > the modified one, adding vhost_add_used_and_signal_n after handle_tx
-> > loop for processing pending queue.
-> > 
-> > This patch was a part of modified macvtap zero copy which I haven't
-> > submitted yet. I found this helped vhost TX in general. This pending
-> > queue will be used by DMA done later, so I put it in vq instead of a
-> > local variable in handle_tx.
-> > 
-> > Thanks
-> > Shirley
-> 
-> BTW why do we need another array? Isn't heads field exactly what we
-> need
-> here?
+Ok, something like the attached should do the same as the suggested
+networking iovec verification (except the VFS code considers the iov
+'len' to be a ssize_t, and a negative value to be an error, and claims
+that that is what SuS says. I don't much care, since we ignore SuS wrt
+the overflow anyway, and now limit IO to MAX_RW_COUNT the same way we
+do for regular reads and writes, but it's possibly worth thinking
+about unifying the networking verify_iovec and the VFS layer one)
 
-head field is only for up to 32, the more used buffers add and signal
-accumulated the better performance is from test results. That's was one
-of the reason I didn't use heads. The other reason was I used these
-buffer for pending dma done in mavctap zero copy patch. It could be up
-to vq->num in worse case.
+Al? What do you think? You've not seen some of the background, but it
+all boils down to simple "some protocols overflow in 'int'", the exact
+same way we had filesystems that had int counters for access lengths
+etc. So for the same reason we did the MAX_RW_COUNT thing for regular
+read/write calls, the networking code is now going to do it for all
+the sendmsg etc iovec things.
 
-Thanks
-Shirley
+Even outside of any networking issues, this unifies the handling of
+read/write vs readv/writev in the "cap IO size" area, so I think we
+should have done this originally (the readv/writev cases actually
+already did the capping by calling rw_verify_area(), but then the code
+threw away the capped value, and only looked at the error return, and
+used the uncapped size)
 
+NOTE! UNTESTED! It compiles, but I didn't actually boot to check.
+Maybe it has some stupid thinko in it. Also, the patch ended up being
+a bit bigger than it needed to be, because I found some annoying
+whitespace issues in rw_copy_check_uvector (spaces at the beginning of
+lines that had tabs in them) that I couldn't keep myself from not
+fixing.
+
+Comments?
+
+                                          Linus
+
+--00221534d72773bad00493c3dad2
+Content-Type: text/x-patch; charset=US-ASCII; name="patch.diff"
+Content-Disposition: attachment; filename="patch.diff"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_gfv9sf2f0
+
+IGZzL2NvbXBhdC5jICAgICAgICB8ICAgMTIgKysrKystLS0tLQogZnMvcmVhZF93cml0ZS5jICAg
+IHwgICA2MiArKysrKysrKysrKysrKysrKysrKysrKysrKystLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0KIGluY2x1ZGUvbGludXgvZnMuaCB8ICAgIDEgKwogMyBmaWxlcyBjaGFuZ2VkLCA0MCBpbnNl
+cnRpb25zKCspLCAzNSBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9mcy9jb21wYXQuYyBiL2Zz
+L2NvbXBhdC5jCmluZGV4IDUyY2ZlYjYuLmZmNjZjMGQgMTAwNjQ0Ci0tLSBhL2ZzL2NvbXBhdC5j
+CisrKyBiL2ZzL2NvbXBhdC5jCkBAIC02MDYsMTQgKzYwNiwxNCBAQCBzc2l6ZV90IGNvbXBhdF9y
+d19jb3B5X2NoZWNrX3V2ZWN0b3IoaW50IHR5cGUsCiAJLyoKIAkgKiBTaW5nbGUgdW5peCBzcGVj
+aWZpY2F0aW9uOgogCSAqIFdlIHNob3VsZCAtRUlOVkFMIGlmIGFuIGVsZW1lbnQgbGVuZ3RoIGlz
+IG5vdCA+PSAwIGFuZCBmaXR0aW5nIGFuCi0JICogc3NpemVfdC4gIFRoZSB0b3RhbCBsZW5ndGgg
+aXMgZml0dGluZyBhbiBzc2l6ZV90CisJICogc3NpemVfdC4KIAkgKgotCSAqIEJlIGNhcmVmdWwg
+aGVyZSBiZWNhdXNlIGlvdl9sZW4gaXMgYSBzaXplX3Qgbm90IGFuIHNzaXplX3QKKwkgKiBJbiBM
+aW51eCwgdGhlIHRvdGFsIGxlbmd0aCBpcyBsaW1pdGVkIHRvIE1BWF9SV19DT1VOVCwgdGhlcmUg
+aXMKKwkgKiBubyBvdmVyZmxvdyBwb3NzaWJpbGl0eS4KIAkgKi8KIAl0b3RfbGVuID0gMDsKIAly
+ZXQgPSAtRUlOVkFMOwogCWZvciAoc2VnID0gMDsgc2VnIDwgbnJfc2Vnczsgc2VnKyspIHsKLQkJ
+Y29tcGF0X3NzaXplX3QgdG1wID0gdG90X2xlbjsKIAkJY29tcGF0X3VwdHJfdCBidWY7CiAJCWNv
+bXBhdF9zc2l6ZV90IGxlbjsKIApAQCAtNjI0LDEzICs2MjQsMTMgQEAgc3NpemVfdCBjb21wYXRf
+cndfY29weV9jaGVja191dmVjdG9yKGludCB0eXBlLAogCQl9CiAJCWlmIChsZW4gPCAwKQkvKiBz
+aXplX3Qgbm90IGZpdHRpbmcgaW4gY29tcGF0X3NzaXplX3QgLi4gKi8KIAkJCWdvdG8gb3V0Owot
+CQl0b3RfbGVuICs9IGxlbjsKLQkJaWYgKHRvdF9sZW4gPCB0bXApIC8qIG1hdGhzIG92ZXJmbG93
+IG9uIHRoZSBjb21wYXRfc3NpemVfdCAqLwotCQkJZ290byBvdXQ7CiAJCWlmICghYWNjZXNzX29r
+KHZyZnlfZGlyKHR5cGUpLCBjb21wYXRfcHRyKGJ1ZiksIGxlbikpIHsKIAkJCXJldCA9IC1FRkFV
+TFQ7CiAJCQlnb3RvIG91dDsKIAkJfQorCQlpZiAobGVuID4gTUFYX1JXX0NPVU5UIC0gdG90X2xl
+bikKKwkJCWxlbiA9IE1BWF9SV19DT1VOVCAtIHRvdF9sZW47CisJCXRvdF9sZW4gKz0gbGVuOwog
+CQlpb3YtPmlvdl9iYXNlID0gY29tcGF0X3B0cihidWYpOwogCQlpb3YtPmlvdl9sZW4gPSAoY29t
+cGF0X3NpemVfdCkgbGVuOwogCQl1dmVjdG9yKys7CmRpZmYgLS1naXQgYS9mcy9yZWFkX3dyaXRl
+LmMgYi9mcy9yZWFkX3dyaXRlLmMKaW5kZXggOWNkOWQxNC4uNDMxYTBlZCAxMDA2NDQKLS0tIGEv
+ZnMvcmVhZF93cml0ZS5jCisrKyBiL2ZzL3JlYWRfd3JpdGUuYwpAQCAtMjQzLDggKzI0Myw2IEBA
+IGJhZDoKICAqIHRoZW0gdG8gc29tZXRoaW5nIHRoYXQgZml0cyBpbiAiaW50IiBzbyB0aGF0IG90
+aGVycwogICogd29uJ3QgaGF2ZSB0byBkbyByYW5nZSBjaGVja3MgYWxsIHRoZSB0aW1lLgogICov
+Ci0jZGVmaW5lIE1BWF9SV19DT1VOVCAoSU5UX01BWCAmIFBBR0VfQ0FDSEVfTUFTSykKLQogaW50
+IHJ3X3ZlcmlmeV9hcmVhKGludCByZWFkX3dyaXRlLCBzdHJ1Y3QgZmlsZSAqZmlsZSwgbG9mZl90
+ICpwcG9zLCBzaXplX3QgY291bnQpCiB7CiAJc3RydWN0IGlub2RlICppbm9kZTsKQEAgLTU4NCw2
+NSArNTgyLDcxIEBAIHNzaXplX3QgcndfY29weV9jaGVja191dmVjdG9yKGludCB0eXBlLCBjb25z
+dCBzdHJ1Y3QgaW92ZWMgX191c2VyICogdXZlY3RvciwKIAkJCSAgICAgIHVuc2lnbmVkIGxvbmcg
+bnJfc2VncywgdW5zaWduZWQgbG9uZyBmYXN0X3NlZ3MsCiAJCQkgICAgICBzdHJ1Y3QgaW92ZWMg
+KmZhc3RfcG9pbnRlciwKIAkJCSAgICAgIHN0cnVjdCBpb3ZlYyAqKnJldF9wb2ludGVyKQotICB7
+Cit7CiAJdW5zaWduZWQgbG9uZyBzZWc7Ci0gIAlzc2l6ZV90IHJldDsKKwlzc2l6ZV90IHJldDsK
+IAlzdHJ1Y3QgaW92ZWMgKmlvdiA9IGZhc3RfcG9pbnRlcjsKIAotICAJLyoKLSAgCSAqIFN1UyBz
+YXlzICJUaGUgcmVhZHYoKSBmdW5jdGlvbiAqbWF5KiBmYWlsIGlmIHRoZSBpb3ZjbnQgYXJndW1l
+bnQKLSAgCSAqIHdhcyBsZXNzIHRoYW4gb3IgZXF1YWwgdG8gMCwgb3IgZ3JlYXRlciB0aGFuIHtJ
+T1ZfTUFYfS4gIExpbnV4IGhhcwotICAJICogdHJhZGl0aW9uYWxseSByZXR1cm5lZCB6ZXJvIGZv
+ciB6ZXJvIHNlZ21lbnRzLCBzby4uLgotICAJICovCisJLyoKKwkgKiBTdVMgc2F5cyAiVGhlIHJl
+YWR2KCkgZnVuY3Rpb24gKm1heSogZmFpbCBpZiB0aGUgaW92Y250IGFyZ3VtZW50CisJICogd2Fz
+IGxlc3MgdGhhbiBvciBlcXVhbCB0byAwLCBvciBncmVhdGVyIHRoYW4ge0lPVl9NQVh9LiAgTGlu
+dXggaGFzCisJICogdHJhZGl0aW9uYWxseSByZXR1cm5lZCB6ZXJvIGZvciB6ZXJvIHNlZ21lbnRz
+LCBzby4uLgorCSAqLwogCWlmIChucl9zZWdzID09IDApIHsKIAkJcmV0ID0gMDsKLSAgCQlnb3Rv
+IG91dDsKKwkJZ290byBvdXQ7CiAJfQogCi0gIAkvKgotICAJICogRmlyc3QgZ2V0IHRoZSAic3Ry
+dWN0IGlvdmVjIiBmcm9tIHVzZXIgbWVtb3J5IGFuZAotICAJICogdmVyaWZ5IGFsbCB0aGUgcG9p
+bnRlcnMKLSAgCSAqLworCS8qCisJICogRmlyc3QgZ2V0IHRoZSAic3RydWN0IGlvdmVjIiBmcm9t
+IHVzZXIgbWVtb3J5IGFuZAorCSAqIHZlcmlmeSBhbGwgdGhlIHBvaW50ZXJzCisJICovCiAJaWYg
+KG5yX3NlZ3MgPiBVSU9fTUFYSU9WKSB7CiAJCXJldCA9IC1FSU5WQUw7Ci0gIAkJZ290byBvdXQ7
+CisJCWdvdG8gb3V0OwogCX0KIAlpZiAobnJfc2VncyA+IGZhc3Rfc2VncykgewotICAJCWlvdiA9
+IGttYWxsb2MobnJfc2VncypzaXplb2Yoc3RydWN0IGlvdmVjKSwgR0ZQX0tFUk5FTCk7CisJCWlv
+diA9IGttYWxsb2MobnJfc2VncypzaXplb2Yoc3RydWN0IGlvdmVjKSwgR0ZQX0tFUk5FTCk7CiAJ
+CWlmIChpb3YgPT0gTlVMTCkgewogCQkJcmV0ID0gLUVOT01FTTsKLSAgCQkJZ290byBvdXQ7CisJ
+CQlnb3RvIG91dDsKIAkJfQotICAJfQorCX0KIAlpZiAoY29weV9mcm9tX3VzZXIoaW92LCB1dmVj
+dG9yLCBucl9zZWdzKnNpemVvZigqdXZlY3RvcikpKSB7CiAJCXJldCA9IC1FRkFVTFQ7Ci0gIAkJ
+Z290byBvdXQ7CisJCWdvdG8gb3V0OwogCX0KIAotICAJLyoKKwkvKgogCSAqIEFjY29yZGluZyB0
+byB0aGUgU2luZ2xlIFVuaXggU3BlY2lmaWNhdGlvbiB3ZSBzaG91bGQgcmV0dXJuIEVJTlZBTAog
+CSAqIGlmIGFuIGVsZW1lbnQgbGVuZ3RoIGlzIDwgMCB3aGVuIGNhc3QgdG8gc3NpemVfdCBvciBp
+ZiB0aGUKIAkgKiB0b3RhbCBsZW5ndGggd291bGQgb3ZlcmZsb3cgdGhlIHNzaXplX3QgcmV0dXJu
+IHZhbHVlIG9mIHRoZQogCSAqIHN5c3RlbSBjYWxsLgotICAJICovCisJICoKKwkgKiBMaW51eCBj
+YXBzIGFsbCByZWFkL3dyaXRlIGNhbGxzIHRvIE1BWF9SV19DT1VOVCwgYW5kIGF2b2lkcyB0aGUK
+KwkgKiBvdmVyZmxvdyBjYXNlLgorCSAqLwogCXJldCA9IDA7Ci0gIAlmb3IgKHNlZyA9IDA7IHNl
+ZyA8IG5yX3NlZ3M7IHNlZysrKSB7Ci0gIAkJdm9pZCBfX3VzZXIgKmJ1ZiA9IGlvdltzZWddLmlv
+dl9iYXNlOwotICAJCXNzaXplX3QgbGVuID0gKHNzaXplX3QpaW92W3NlZ10uaW92X2xlbjsKKwlm
+b3IgKHNlZyA9IDA7IHNlZyA8IG5yX3NlZ3M7IHNlZysrKSB7CisJCXZvaWQgX191c2VyICpidWYg
+PSBpb3Zbc2VnXS5pb3ZfYmFzZTsKKwkJc3NpemVfdCBsZW4gPSAoc3NpemVfdClpb3Zbc2VnXS5p
+b3ZfbGVuOwogCiAJCS8qIHNlZSBpZiB3ZSB3ZSdyZSBhYm91dCB0byB1c2UgYW4gaW52YWxpZCBs
+ZW4gb3IgaWYKIAkJICogaXQncyBhYm91dCB0byBvdmVyZmxvdyBzc2l6ZV90ICovCi0JCWlmIChs
+ZW4gPCAwIHx8IChyZXQgKyBsZW4gPCByZXQpKSB7CisJCWlmIChsZW4gPCAwKSB7CiAJCQlyZXQg
+PSAtRUlOVkFMOwotICAJCQlnb3RvIG91dDsKKwkJCWdvdG8gb3V0OwogCQl9CiAJCWlmICh1bmxp
+a2VseSghYWNjZXNzX29rKHZyZnlfZGlyKHR5cGUpLCBidWYsIGxlbikpKSB7CiAJCQlyZXQgPSAt
+RUZBVUxUOwotICAJCQlnb3RvIG91dDsKKwkJCWdvdG8gb3V0OworCQl9CisJCWlmIChsZW4gPiBN
+QVhfUldfQ09VTlQgLSByZXQpIHsKKwkJCWxlbiA9IE1BWF9SV19DT1VOVCAtIHJldDsKKwkJCWlv
+dltzZWddLmlvdl9sZW4gPSBsZW47CiAJCX0KLQogCQlyZXQgKz0gbGVuOwotICAJfQorCX0KIG91
+dDoKIAkqcmV0X3BvaW50ZXIgPSBpb3Y7CiAJcmV0dXJuIHJldDsKZGlmZiAtLWdpdCBhL2luY2x1
+ZGUvbGludXgvZnMuaCBiL2luY2x1ZGUvbGludXgvZnMuaAppbmRleCA0ZDA3OTAyLi43YjdiNTA3
+IDEwMDY0NAotLS0gYS9pbmNsdWRlL2xpbnV4L2ZzLmgKKysrIGIvaW5jbHVkZS9saW51eC9mcy5o
+CkBAIC0xODY3LDYgKzE4NjcsNyBAQCBleHRlcm4gaW50IGN1cnJlbnRfdW1hc2sodm9pZCk7CiAv
+KiAvc3lzL2ZzICovCiBleHRlcm4gc3RydWN0IGtvYmplY3QgKmZzX2tvYmo7CiAKKyNkZWZpbmUg
+TUFYX1JXX0NPVU5UIChJTlRfTUFYICYgUEFHRV9DQUNIRV9NQVNLKQogZXh0ZXJuIGludCByd192
+ZXJpZnlfYXJlYShpbnQsIHN0cnVjdCBmaWxlICosIGxvZmZfdCAqLCBzaXplX3QpOwogCiAjZGVm
+aW5lIEZMT0NLX1ZFUklGWV9SRUFEICAxCg==
+--00221534d72773bad00493c3dad2--
