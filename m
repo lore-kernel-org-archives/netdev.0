@@ -1,97 +1,54 @@
-From: "Arce, Abraham" <x0066660@ti.com>
-Subject: [PATCH] ks8851: suspend resume support
-Date: Thu, 28 Oct 2010 23:57:20 -0500
-Message-ID: <27F9C60D11D683428E133F85D2BB4A530468882D59@dlee03.ent.ti.com>
+From: "Maciej W. Rozycki" <macro@linux-mips.org>
+Subject: Re: [PATCH 05/15] dec netdev: relocate DIGITAL based drivers to
+ legacy
+Date: Fri, 29 Oct 2010 06:46:13 +0100 (BST)
+Message-ID: <alpine.LFD.2.00.1010290629450.25426@eddie.linux-mips.org>
+References: <1288315159-1350-1-git-send-email-paul.gortmaker@windriver.com>        <1288315159-1350-6-git-send-email-paul.gortmaker@windriver.com>        <alpine.LFD.2.00.1010290516110.25426@eddie.linux-mips.org> <20101028.212939.189691515.davem@davemloft.net>
+ <alpine.LFD.2.00.1010290545270.25426@eddie.linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: paul.gortmaker@windriver.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([192.94.94.40]:46328 "EHLO arroyo.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751078Ab0J2E53 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Oct 2010 00:57:29 -0400
-Received: from dlep35.itg.ti.com ([157.170.170.118])
-	by arroyo.ext.ti.com (8.13.7/8.13.7) with ESMTP id o9T4vTq7008703
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Thu, 28 Oct 2010 23:57:29 -0500
-Received: from dlep26.itg.ti.com (localhost [127.0.0.1])
-	by dlep35.itg.ti.com (8.13.7/8.13.7) with ESMTP id o9T4vPEx029966
-	for <netdev@vger.kernel.org>; Thu, 28 Oct 2010 23:57:26 -0500 (CDT)
-Received: from dlee73.ent.ti.com (localhost [127.0.0.1])
-	by dlep26.itg.ti.com (8.13.8/8.13.8) with ESMTP id o9T4vL2u011825
-	for <netdev@vger.kernel.org>; Thu, 28 Oct 2010 23:57:21 -0500 (CDT)
-Content-Language: en-US
+Received: from eddie.linux-mips.org ([78.24.191.182]:43072 "EHLO
+	cvs.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751777Ab0J2FqS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Oct 2010 01:46:18 -0400
+Received: from localhost.localdomain ([127.0.0.1]:42291 "EHLO
+        localhost.localdomain" rhost-flags-OK-OK-OK-OK)
+        by eddie.linux-mips.org with ESMTP id S1491016Ab0J2FqN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 29 Oct 2010 07:46:13 +0200
+In-Reply-To: <alpine.LFD.2.00.1010290545270.25426@eddie.linux-mips.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add suspend/resume support using default open/stop interface methods
-to do hardware dependant operations.
+On Fri, 29 Oct 2010, Maciej W. Rozycki wrote:
 
-On suspend, same low power state (soft power mode) will be kept, the
-following blocks will be disabled:
+> > This is not about a specific bus technology, it's simply for
+> > "really old stuff" so we can declutter the top-level of drivers/net
+> 
+>  Hmm, what's the difference between placing these drivers here or there 
+> and what's so particular about them that they cause clutter?  I mean a 
+> mere high number of items does not cause a mess by itself -- the lack of 
+> order might.
 
- - Internal PLL Clock
- - Tx/Rx PHY
- - MAC
- - SPI Interface
+ I have given myself some food for thought and have come up with the 
+following proposal: how about simply classifying drivers according to the 
+physical layer they support or if multiple are, such as with the Ethernet 
+that is backwards compatible, the newest variation they do?
 
-Signed-off-by: Abraham Arce <x0066660@ti.com>
----
- drivers/net/ks8851.c |   33 +++++++++++++++++++++++++++++++++
- 1 files changed, 33 insertions(+), 0 deletions(-)
+ This would be no different to what we do wrt network protocols under 
+net/, so drivers would go to ethernet/, fasteth/, gbeth/, 10gbeth/, fddi/, 
+tokenring/, atm/, appletalk/, etc. (names up to debate if need be) as 
+applicable.  This would scale well, avoid the need for arbitrary decisions 
+(is this piece legacy yet or not?) and automatically classify drivers as 
+more or less obsolescent too, as obviously none of the stuff under 
+ethernet/, fddi/ or tokenring/ can be reasonably recent unlike 10gbeth/.
 
-diff --git a/drivers/net/ks8851.c b/drivers/net/ks8851.c
-index 8a178bc..9d40e33 100644
---- a/drivers/net/ks8851.c
-+++ b/drivers/net/ks8851.c
-@@ -1570,6 +1570,37 @@ static int ks8851_read_selftest(struct ks8851_net *ks)
- 
- /* driver bus management functions */
- 
-+#ifdef CONFIG_PM
-+static int ks8851_suspend(struct spi_device *spi, pm_message_t state)
-+{
-+	struct ks8851_net *ks = dev_get_drvdata(&spi->dev);
-+	struct net_device *dev = ks->netdev;
-+
-+	if (netif_running(dev)) {
-+		netif_device_detach(dev);
-+		ks8851_net_stop(dev);
-+	}
-+
-+	return 0;
-+}
-+
-+static int ks8851_resume(struct spi_device *spi)
-+{
-+	struct ks8851_net *ks = dev_get_drvdata(&spi->dev);
-+	struct net_device *dev = ks->netdev;
-+
-+	if (netif_running(dev)) {
-+		ks8851_net_open(dev);
-+		netif_device_attach(dev);
-+	}
-+
-+	return 0;
-+}
-+#else
-+#define ks8851_suspend NULL
-+#define ks8851_resume NULL
-+#endif
-+
- static int __devinit ks8851_probe(struct spi_device *spi)
- {
- 	struct net_device *ndev;
-@@ -1710,6 +1741,8 @@ static struct spi_driver ks8851_driver = {
- 	},
- 	.probe = ks8851_probe,
- 	.remove = __devexit_p(ks8851_remove),
-+	.suspend = ks8851_suspend,
-+	.resume = ks8851_resume,
- };
- 
- static int __init ks8851_init(void)
--- 
-1.5.4.3
+ Software stuff such as SLIP or PPP could go either into separate 
+subdirectories or grouped together under software/; I gather we have a few 
+such pieces only.
 
+ What do you think?
+
+  Maciej
