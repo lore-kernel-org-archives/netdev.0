@@ -1,59 +1,51 @@
-From: Andy Grover <andy.grover@oracle.com>
-Subject: [PATCH 1/5] net: fix rds_iovec page count overflow
-Date: Thu, 28 Oct 2010 18:40:55 -0700
-Message-ID: <1288316459-4679-2-git-send-email-andy.grover@oracle.com>
-References: <1288316459-4679-1-git-send-email-andy.grover@oracle.com>
-Cc: rds-devel@oss.oracle.com,
-	Linus Torvalds <torvalds@linux-foundation.org>
-To: netdev@vger.kernel.org
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 0/15] RFC: create drivers/net/legacy for ISA, EISA, MCA
+ drivers
+Date: Thu, 28 Oct 2010 18:48:16 -0700
+Message-ID: <1288316896.1836.41.camel@Joe-Laptop>
+References: <1288315159-1350-1-git-send-email-paul.gortmaker@windriver.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet10.oracle.com ([148.87.113.121]:44289 "EHLO
-	rcsinet10.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755651Ab0J2Bmf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Oct 2010 21:42:35 -0400
-In-Reply-To: <1288316459-4679-1-git-send-email-andy.grover@oracle.com>
+Received: from mail.perches.com ([173.55.12.10]:3653 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756306Ab0J2BsS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Oct 2010 21:48:18 -0400
+In-Reply-To: <1288315159-1350-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Linus Torvalds <torvalds@linux-foundation.org>
+On Thu, 2010-10-28 at 21:19 -0400, Paul Gortmaker wrote:
+> The drivers/net dir has a lot of files - originally there were
+> no subdirs, but at least now subdirs are being used effectively.
+> But the original drivers from 10+ years ago are still right
+> there at the top.  This series creates a drivers/net/legacy dir.
 
-As reported by Thomas Pollet, the rdma page counting can overflow.  We
-get the rdma sizes in 64-bit unsigned entities, but then limit it to
-UINT_MAX bytes and shift them down to pages (so with a possible "+1" for
-an unaligned address).
+Hi Paul.
 
-So each individual page count fits comfortably in an 'unsigned int' (not
-even close to overflowing into signed), but as they are added up, they
-might end up resulting in a signed return value. Which would be wrong.
+I like this idea.
 
-Catch the case of tot_pages turning negative, and return the appropriate
-error code.
+I suggest a bit of a further grouping by using a
+drivers/net/ethernet directory and putting those
+legacy drivers in a new subdirectory
+drivers/net/ethernet/legacy.
 
-Reported-by: Thomas Pollet <thomas.pollet@gmail.com>
-Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
-Signed-off-by: Andy Grover <andy.grover@oracle.com>
----
- net/rds/rdma.c |    7 +++++++
- 1 files changed, 7 insertions(+), 0 deletions(-)
+> The initial target is things like ISA/EISA/MCA drivers, and with
+> that alone, we can get close to 90 files out of drivers/net.
+> Plus, by having a semi-defined description for legacy as being
+> "drivers more than 10 years old" we'll always have a destination
+> for drivers as they fall out of maintainership and use.
 
-diff --git a/net/rds/rdma.c b/net/rds/rdma.c
-index 1a41deb..0df02c8 100644
---- a/net/rds/rdma.c
-+++ b/net/rds/rdma.c
-@@ -502,6 +502,13 @@ static int rds_rdma_pages(struct rds_rdma_args *args)
- 			return -EINVAL;
- 
- 		tot_pages += nr_pages;
-+
-+		/*
-+		 * nr_pages for one entry is limited to (UINT_MAX>>PAGE_SHIFT)+1,
-+		 * so tot_pages cannot overflow without first going negative.
-+		 */
-+		if ((int)tot_pages < 0)
-+			return -EINVAL;
- 	}
- 
- 	return tot_pages;
--- 
-1.7.1
+I think legacy is "old and not sold or used much anymore".
+
+I believe you're not moving 3c59x as that's relatively
+still popular even though it's nearly 15 years old.
+
+Or maybe that was just an oversight...
+
+
 
