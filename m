@@ -1,98 +1,62 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [ANNOUNCE]: Release of iptables-1.4.10
-Date: Fri, 29 Oct 2010 17:43:06 +0200
-Message-ID: <4CCAEB8A.5090504@trash.net>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [RFC PATCH 1/1] vhost: TX used buffer guest signal accumulation
+Date: Fri, 29 Oct 2010 08:43:08 -0700
+Message-ID: <1288366988.4110.5.camel@localhost.localdomain>
+References: <1288216693.17571.38.camel@localhost.localdomain>
+	 <1288240804.14342.1.camel@localhost.localdomain>
+	 <20101028052021.GD5599@redhat.com>
+	 <1288286062.11251.15.camel@localhost.localdomain>
+	 <20101029081027.GB22688@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------020503020803020608050505"
-To: Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>, NetDev <netdev@vger.kernel.org>,
-	netfilter-announce@lists.netfilter.org,
-	"'netfilter@vger.kernel.org'" <netfilter
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-This is a multi-part message in MIME format.
---------------020503020803020608050505
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e1.ny.us.ibm.com ([32.97.182.141]:56903 "EHLO e1.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932823Ab0J2PnP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Oct 2010 11:43:15 -0400
+In-Reply-To: <20101029081027.GB22688@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The netfilter coreteam presents:
+On Fri, 2010-10-29 at 10:10 +0200, Michael S. Tsirkin wrote:
+> Hmm. I don't yet understand. We are still doing copies into the per-vq
+> buffer, and the data copied is really small.  Is it about cache line
+> bounces?  Could you try figuring it out?
 
-    iptables version 1.4.10
+per-vq buffer is much less expensive than 3 put_copy() call. I will
+collect the profiling data to show that.
 
-the iptables release for the 2.6.36 kernel. Changes include:
+> > > 2. How about flushing out queued stuff before we exit
+> > >    the handle_tx loop? That would address most of
+> > >    the spec issue. 
+> > 
+> > The performance is almost as same as the previous patch. I will
+> resubmit
+> > the modified one, adding vhost_add_used_and_signal_n after handle_tx
+> > loop for processing pending queue.
+> > 
+> > This patch was a part of modified macvtap zero copy which I haven't
+> > submitted yet. I found this helped vhost TX in general. This pending
+> > queue will be used by DMA done later, so I put it in vq instead of a
+> > local variable in handle_tx.
+> > 
+> > Thanks
+> > Shirley
+> 
+> BTW why do we need another array? Isn't heads field exactly what we
+> need
+> here?
 
-- support for the cpu match, which can be used to improve cache
-  locality when running multiple server instances
+head field is only for up to 32, the more used buffers add and signal
+accumulated the better performance is from test results. That's was one
+of the reason I didn't use heads. The other reason was I used these
+buffer for pending dma done in mavctap zero copy patch. It could be up
+to vq->num in worse case.
 
-- support for the IDLETIMER target, which can be used to notify
-  userspace of interfaces being idle
+Thanks
+Shirley
 
-- support for the CHECKSUM target
-
-- support for the ipvs match
-
-- documentation updates
-
-- a fix for deletion of rules using the quota match
-
-See the Changelog for more details.
-
-Version 1.4.10 can be obtained from:
-
-http://www.netfilter.org/projects/iptables/downloads.html
-ftp://ftp.netfilter.org/pub/iptables/
-git://git.netfilter.org/iptables.git
-
-On behalf of the Netfilter Core Team.
-Happy firewalling!
-
---------------020503020803020608050505
-Content-Type: text/plain;
- name="changes-iptables-1.4.10.txt"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename="changes-iptables-1.4.10.txt"
-
-Changli Gao (1):
-      libxt_quota: don't ignore the quota value on deletion
-
-Eric Dumazet (2):
-      extensions: REDIRECT: add random help
-      extension: add xt_cpu match
-
-Hannes Eder (1):
-      libxt_ipvs: user-space lib for netfilter matcher xt_ipvs
-
-Jan Engelhardt (11):
-      doc: let man(1) autoalign the text in xt_cpu
-      doc: remove extra empty line from xt_cpu
-      doc: minimal spelling updates to xt_cpu
-      all: consistent syntax use in struct option
-      doc: consistent use of markup
-      xtables: remove unnecessary cast
-      build: fix static linking
-      iptables-xml: resolve compiler warnings
-      iptables: limit chain name length to be consistent with targets
-      libiptc: build with -Wl,--no-as-needed
-      libiptc: add Libs.private to pkgconfig files
-
-Luciano Coelho (2):
-      extensions: add idletimer xt target extension
-      extensions: libxt_IDLETIMER: use xtables_param_act when checking options
-
-Michael S. Tsirkin (1):
-      extensions: libxt_CHECKSUM extension
-
-Patrick McHardy (6):
-      extensions: libipt_LOG/libip6t_LOG: support macdecode option
-      extensions: fix compilation of the new CHECKSUM target
-      Merge branch 'master' into iptables-next
-      Merge branch 'master' into iptables-next
-      Merge branch 'iptables-next'
-      Bump version to 1.4.10
-
-
---------------020503020803020608050505--
