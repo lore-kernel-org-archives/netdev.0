@@ -1,74 +1,58 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [GIT] Networking
-Date: Fri, 29 Oct 2010 14:41:03 -0700
-Message-ID: <AANLkTinR6XH30dHwPS23=sGYOJU8rO4+kwz+Uv_XRB-b@mail.gmail.com>
-References: <20101029.125920.189692530.davem@davemloft.net>
+From: Daniel Lezcano <daniel.lezcano@free.fr>
+Subject: Re: [PATCH] ipv4: Flush per-ns routing cache more sanely.
+Date: Fri, 29 Oct 2010 23:41:40 +0200
+Message-ID: <4CCB3F94.20709@free.fr>
+References: <20101026.103428.179941457.davem@davemloft.net>	 <m1sjzs3hbw.fsf@fess.ebiederm.org>	 <20101026.122022.241452738.davem@davemloft.net> <1288121422.2652.14.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=20cf303dd828e76cc30493c851f6
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, ebiederm@xmission.com,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:42796 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755194Ab0J2VlZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Oct 2010 17:41:25 -0400
-In-Reply-To: <20101029.125920.189692530.davem@davemloft.net>
+Received: from smtp1-g21.free.fr ([212.27.42.1]:57204 "EHLO smtp1-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755194Ab0J2Vlu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Oct 2010 17:41:50 -0400
+In-Reply-To: <1288121422.2652.14.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---20cf303dd828e76cc30493c851f6
-Content-Type: text/plain; charset=ISO-8859-1
-
-On Fri, Oct 29, 2010 at 12:59 PM, David Miller <davem@davemloft.net> wrote:
+On 10/26/2010 09:30 PM, Eric Dumazet wrote:
+> Le mardi 26 octobre 2010 =C3=A0 12:20 -0700, David Miller a =C3=A9cri=
+t :
+>   =20
+>> From: ebiederm@xmission.com (Eric W. Biederman)
+>> Date: Tue, 26 Oct 2010 12:05:39 -0700
+>>
+>>     =20
+>>>> @@ -999,7 +999,7 @@ static int fib_netdev_event(struct notifier_bl=
+ock *this, unsigned long event, vo
+>>>>   		rt_cache_flush(dev_net(dev), 0);
+>>>>   		break;
+>>>>   	case NETDEV_UNREGISTER_BATCH:
+>>>> -		rt_cache_flush_batch();
+>>>> +		rt_cache_flush_batch(dev_net(dev));
+>>>>         =20
+>>> It still has this incorrect conversion in it.
+>>>       =20
+>> Sorry I missed that, what's the exact problem with it?
+>>     =20
+> Because the way _BATCH operation is performed, we call it once...
 >
-> This has the verify_iovec() INT_MAX limiter change as well as:
+> rollback_registered_many() calls it for the first dev queued in the
+> list.
+>
+> So it should be net independant.
+>   =20
 
-I think you'd want this as well, to make sure that sendto/recvfrom
-don't generate invalid iovecs.
+Dave,
 
-Feel free to add my sign-off (or just commit it as yourself) after
-giving it some testing.
+do you plan to send another version of this patch ? Or can I test it as=
+=20
+it is ?
+Without removing a network device, I can check the routine, no ?
 
-NOTE! On thing that struck me is that the VFS layer does the
-"access_ok()" on the pre-truncated size and pointer pair, and I think
-that is the correct thing to do. However, the socket layer (and this
-patch) just truncates the size, so even if the copy is then done
-correctly with the proper user access checking, it will not check that
-the whole original buffer was valid - only that the buffer it fills in
-is valid.
-
-Now, this is not a security issue (since we're just not checking stuff
-that isn't getting filled in), but I think it's a QoI issue - it
-allows users to successfully pass in bogus buffers with huge sizes,
-and then if the thing only reads a few bytes it will all be ok.
-
-That's not a new thing: the old code may not have truncated the sizes,
-but if you pass in a 2GB buffer size, 99.999% of all socket read calls
-obviously won't ever fill that 2GB, but will happily return with
-whatever is there in the socket now (especially with nonblocking IO
-etc). But I do wonder if we shouldn't do the access_ok() on the whole
-buffer, as a way to keep user code honest.
-
-                  Linus
-
---20cf303dd828e76cc30493c851f6
-Content-Type: text/x-patch; charset=US-ASCII; name="patch.diff"
-Content-Disposition: attachment; filename="patch.diff"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_gfvknyzj0
-
-IG5ldC9zb2NrZXQuYyB8ICAgIDQgKysrKwogMSBmaWxlcyBjaGFuZ2VkLCA0IGluc2VydGlvbnMo
-KyksIDAgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvbmV0L3NvY2tldC5jIGIvbmV0L3NvY2tl
-dC5jCmluZGV4IDUyNDdhZTEuLjNjYTJmZDkgMTAwNjQ0Ci0tLSBhL25ldC9zb2NrZXQuYworKysg
-Yi9uZXQvc29ja2V0LmMKQEAgLTE2NTIsNiArMTY1Miw4IEBAIFNZU0NBTExfREVGSU5FNihzZW5k
-dG8sIGludCwgZmQsIHZvaWQgX191c2VyICosIGJ1ZmYsIHNpemVfdCwgbGVuLAogCXN0cnVjdCBp
-b3ZlYyBpb3Y7CiAJaW50IGZwdXRfbmVlZGVkOwogCisJaWYgKGxlbiA+IElOVF9NQVgpCisJCWxl
-biA9IElOVF9NQVg7CiAJc29jayA9IHNvY2tmZF9sb29rdXBfbGlnaHQoZmQsICZlcnIsICZmcHV0
-X25lZWRlZCk7CiAJaWYgKCFzb2NrKQogCQlnb3RvIG91dDsKQEAgLTE3MDksNiArMTcxMSw4IEBA
-IFNZU0NBTExfREVGSU5FNihyZWN2ZnJvbSwgaW50LCBmZCwgdm9pZCBfX3VzZXIgKiwgdWJ1Ziwg
-c2l6ZV90LCBzaXplLAogCWludCBlcnIsIGVycjI7CiAJaW50IGZwdXRfbmVlZGVkOwogCisJaWYg
-KHNpemUgPiBJTlRfTUFYKQorCQlzaXplID0gSU5UX01BWDsKIAlzb2NrID0gc29ja2ZkX2xvb2t1
-cF9saWdodChmZCwgJmVyciwgJmZwdXRfbmVlZGVkKTsKIAlpZiAoIXNvY2spCiAJCWdvdG8gb3V0
-Owo=
---20cf303dd828e76cc30493c851f6--
+Thanks
+   -- Daniel
