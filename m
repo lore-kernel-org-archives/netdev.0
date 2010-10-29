@@ -1,81 +1,65 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 0/15] RFC: create drivers/net/legacy for ISA, EISA, MCA
- drivers
-Date: Fri, 29 Oct 2010 15:08:47 -0700
-Message-ID: <1288390127.28828.225.camel@Joe-Laptop>
-References: <1288315159-1350-1-git-send-email-paul.gortmaker@windriver.com>
-	 <1288316896.1836.41.camel@Joe-Laptop>  <4CCB3BF1.7070000@windriver.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: Paul Gortmaker <paul.gortmaker@windriver.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: [PATCH 1/3] offloading: Make scatter/gather more tolerant of vlans.
+Date: Fri, 29 Oct 2010 15:14:53 -0700
+Message-ID: <1288390495-28923-1-git-send-email-jesse@nicira.com>
+Cc: netdev@vger.kernel.org, Ben Hutchings <bhutchings@solarflare.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:3663 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755739Ab0J2WIt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Oct 2010 18:08:49 -0400
-In-Reply-To: <4CCB3BF1.7070000@windriver.com>
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:50140 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932900Ab0J2WPD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Oct 2010 18:15:03 -0400
+Received: by qwf7 with SMTP id 7so2743176qwf.19
+        for <netdev@vger.kernel.org>; Fri, 29 Oct 2010 15:15:01 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2010-10-29 at 17:26 -0400, Paul Gortmaker wrote:
-> On 10-10-28 09:48 PM, Joe Perches wrote:
-> > On Thu, 2010-10-28 at 21:19 -0400, Paul Gortmaker wrote:
-> >> The drivers/net dir has a lot of files - originally there were
-> >> no subdirs, but at least now subdirs are being used effectively.
-> >> But the original drivers from 10+ years ago are still right
-> >> there at the top.  This series creates a drivers/net/legacy dir.
-> > I like this idea.
-> > I suggest a bit of a further grouping by using a
-> > drivers/net/ethernet directory and putting those
-> > legacy drivers in a new subdirectory
-> > drivers/net/ethernet/legacy.
-> That is a substantially larger change, since you'd now be
-> relocating nearly every remaining driver, i.e. all the
-> relatively modern 100M and GigE drivers.
+When checking if it is necessary to linearize a packet, we currently
+use vlan_features if the packet contains either an in-band or out-
+of-band vlan tag.  However, in-band tags aren't special in any way
+for scatter/gather since they are part of the packet buffer and are
+simply more data to DMA.  Therefore, only use vlan_features for out-
+of-band tags, which could potentially have some interaction with
+scatter/gather.
 
-Files to not need immediate renames.
+Signed-off-by: Jesse Gross <jesse@nicira.com>
+CC: Ben Hutchings <bhutchings@solarflare.com>
+---
+ net/core/dev.c |   19 ++++++++++++-------
+ 1 files changed, 12 insertions(+), 7 deletions(-)
 
-Renames could happen when the appropriate maintainer
-wants to or gets coerced to conform to some new
-file layout standard.
-
-I had submitted a related RFC patch:
-
-https://patchwork.kernel.org/patch/244641/
-
-and then had some off list discussions
-with Jeff Kirsher from Intel.
-
-Perhaps Jeff will chime in.
-
-> Plus what do you
-> do with the sb1000 - create drivers/cablemodem/legacy
-> just for one file?
-
-I never looked at that particular driver before.
-Maybe.  I don't have a strong opinion.  Leaving
-it where it is might be OK.
-
-> Or the ethernet drivers already in
-> existing subdirs, like arm and pcmcia -- do we move those?
-
-Maybe.  If there's no demand, there's no absolute need to
-move it at all.  I think a reasonable goal is to have some
-sensible and consistent file layout scheme though.
-
-There are arch specific directories under various drivers/...
-so I don't see a need to move directories like drivers/net/arm
-or drivers/s390.
-
-> With this, I tried to aim for a significant gain (close to 1/3
-> less files) within what I felt was a reasonable sized change
-> set that had a chance of getting an overall OK from folks.
-> Giant "flag-day" type mammoth changesets are a PITA for all.
-
-I believe there's no need for a flag-day.
-File renames could happen gradually or not at all.
-
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 35dfb83..d21d655 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1977,15 +1977,20 @@ static inline void skb_orphan_try(struct sk_buff *skb)
+ static inline int skb_needs_linearize(struct sk_buff *skb,
+ 				      struct net_device *dev)
+ {
+-	int features = dev->features;
++	if (skb_is_nonlinear(skb)) {
++		int features = dev->features;
+ 
+-	if (skb->protocol == htons(ETH_P_8021Q) || vlan_tx_tag_present(skb))
+-		features &= dev->vlan_features;
++		if (vlan_tx_tag_present(skb))
++			features &= dev->vlan_features;
+ 
+-	return skb_is_nonlinear(skb) &&
+-	       ((skb_has_frag_list(skb) && !(features & NETIF_F_FRAGLIST)) ||
+-		(skb_shinfo(skb)->nr_frags && (!(features & NETIF_F_SG) ||
+-					      illegal_highdma(dev, skb))));
++		return (skb_has_frag_list(skb) &&
++			!(features & NETIF_F_FRAGLIST)) ||
++			(skb_shinfo(skb)->nr_frags &&
++			(!(features & NETIF_F_SG) ||
++			illegal_highdma(dev, skb)));
++	}
++
++	return 0;
+ }
+ 
+ int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
+-- 
+1.7.1
 
