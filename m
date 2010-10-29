@@ -1,48 +1,28 @@
-From: Dan Rosenberg <drosenberg@vsecurity.com>
-Subject: Re: [PATCH] net: Limit socket I/O iovec total length to INT_MAX.
-Date: Fri, 29 Oct 2010 16:22:49 -0400
-Message-ID: <1288383769.2092.62.camel@dan>
-References: <AANLkTi=sUDRzGnkp57OCQUi9APHWLYLShhiTVHLyq1eV@mail.gmail.com>
-	 <20101029.123230.226768623.davem@davemloft.net>
-	 <AANLkTikGkfcHdemZwURrYLPBC1QQnbQP_g-7YadzeE-D@mail.gmail.com>
-	 <20101029.125509.104071725.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v13 10/16] Add a hook to intercept external buffers
+ from NIC driver.
+Date: Fri, 29 Oct 2010 13:28:36 -0700 (PDT)
+Message-ID: <20101029.132836.115944599.davem@davemloft.net>
+References: <33f51c5eddec843260451eccbfa3c5fdea13b479.1287132437.git.xiaohui.xin@intel.com>
+	<20101019.082401.28817543.davem@davemloft.net>
+	<F2E9EB7348B8264F86B6AB8151CE2D7931E3CB834A@shsmsx502.ccr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, viro@zeniv.linux.org.uk,
-	netdev@vger.kernel.org, jon.maloy@ericsson.com,
-	allan.stephens@windriver.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.vsecurity.com ([209.67.252.12]:56011 "EHLO
-	mx1.vsecurity.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757635Ab0J2UWz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Oct 2010 16:22:55 -0400
-In-Reply-To: <20101029.125509.104071725.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mst@redhat.com, mingo@elte.hu,
+	herbert@gondor.apana.org.au, jdike@linux.intel.com
+To: xiaohui.xin@intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <F2E9EB7348B8264F86B6AB8151CE2D7931E3CB834A@shsmsx502.ccr.corp.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Thanks for your work on this.  Just a friendly reminder not to forget
-the compat code.  :)
+From: "Xin, Xiaohui" <xiaohui.xin@intel.com>
+Date: Wed, 27 Oct 2010 09:33:12 +0800
 
--Dan
+> Somehow, it seems not a trivial work to support it now. Can we support it
+> later and as a todo with our current work?
 
-On Fri, 2010-10-29 at 12:55 -0700, David Miller wrote:
-> From: Linus Torvalds <torvalds@linux-foundation.org>
-> Date: Fri, 29 Oct 2010 12:37:29 -0700
-> 
-> > On Fri, Oct 29, 2010 at 12:32 PM, David Miller <davem@davemloft.net> wrote:
-> >>
-> >> I just got out of a long dentist appointment, will look at this right
-> >> now, thanks!
-> > 
-> > I booted with it and committed it as "obvious". Let's see if there is
-> > any fallout. I doubt it, but I also doubt we'll find any until we have
-> > lots of testers, unless I made some subtly totally buggy change that
-> > just didn't happen to show up during a normal boot.
-> 
-> It ought to be ok.
-> 
-> Let me send you a pull request so you can get the verify_iovec() change.
-
-
+I would prefer the feature work properly, rather than only in specific
+cases, before being integated.
