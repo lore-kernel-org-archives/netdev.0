@@ -1,39 +1,46 @@
-From: "Maciej W. Rozycki" <macro@linux-mips.org>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH 05/15] dec netdev: relocate DIGITAL based drivers to
  legacy
-Date: Fri, 29 Oct 2010 06:50:17 +0100 (BST)
-Message-ID: <alpine.LFD.2.00.1010290647270.25426@eddie.linux-mips.org>
-References: <alpine.LFD.2.00.1010290516110.25426@eddie.linux-mips.org>        <20101028.212939.189691515.davem@davemloft.net>        <alpine.LFD.2.00.1010290545270.25426@eddie.linux-mips.org> <20101028.224703.112589527.davem@davemloft.net>
+Date: Thu, 28 Oct 2010 22:53:26 -0700 (PDT)
+Message-ID: <20101028.225326.183057622.davem@davemloft.net>
+References: <20101028.212939.189691515.davem@davemloft.net>
+	<alpine.LFD.2.00.1010290545270.25426@eddie.linux-mips.org>
+	<alpine.LFD.2.00.1010290629450.25426@eddie.linux-mips.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: paul.gortmaker@windriver.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: macro@linux-mips.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eddie.linux-mips.org ([78.24.191.182]:57916 "EHLO
-	cvs.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752484Ab0J2FuT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Oct 2010 01:50:19 -0400
-Received: from localhost.localdomain ([127.0.0.1]:47355 "EHLO
-        localhost.localdomain" rhost-flags-OK-OK-OK-OK)
-        by eddie.linux-mips.org with ESMTP id S1491016Ab0J2FuR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 29 Oct 2010 07:50:17 +0200
-In-Reply-To: <20101028.224703.112589527.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45243
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751777Ab0J2FxD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Oct 2010 01:53:03 -0400
+In-Reply-To: <alpine.LFD.2.00.1010290629450.25426@eddie.linux-mips.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 28 Oct 2010, David Miller wrote:
+From: "Maciej W. Rozycki" <macro@linux-mips.org>
+Date: Fri, 29 Oct 2010 06:46:13 +0100 (BST)
 
-> This patch series started with a "0/15" introduction posting which
-> explains the intention and reasoning.
+>  This would be no different to what we do wrt network protocols under 
+> net/, so drivers would go to ethernet/, fasteth/, gbeth/, 10gbeth/, fddi/, 
+> tokenring/, atm/, appletalk/, etc. (names up to debate if need be) as 
+> applicable.  This would scale well, avoid the need for arbitrary decisions 
+> (is this piece legacy yet or not?) and automatically classify drivers as 
+> more or less obsolescent too, as obviously none of the stuff under 
+> ethernet/, fddi/ or tokenring/ can be reasonably recent unlike 10gbeth/.
 
- Well, I didn't reach it (ENOBREAKFAST that has been fixed since ;) ), but 
-I sort of guessed it anyway and didn't like the arbitrary nature of 
-assigning drivers to legacy/.
+Why are you so hung up about something being called legacy?
 
-> It might be easier for you to read it instead of asking me to repeat
-> it's contents :-)
+I would be proud to be labelled "legacy", as that means I've served a
+purpose for a long time and some folks even want or need me to stick
+around for a bit longer.
 
- See my proposal that crossed with your e-mail.  I think it fits the 
-purpose very well. :)
+Legacy hardware is just old and the drivers for them are in a purely
+"sustaining" state, that is all.
 
-  Maciej
+And using link layer technology to classify is really stupid since
+many devices match multiple of the categories you've suggested.
+
+I think the existing proposal is just fine.
