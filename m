@@ -1,42 +1,51 @@
-From: Steven Whitehouse <steve@chygwyn.com>
-Subject: Re: [PATCH] decnet: RCU conversion and get rid of dev_base_lock
-Date: Fri, 29 Oct 2010 14:54:39 +0100
-Message-ID: <1288360479.9016.35.camel@dolmen>
-References: <1288357764.2560.33.camel@edumazet-laptop>
+From: "John Luguard" <info@time.net.my>
+Subject: Senate =?iso-8859-1?Q?House=AE?=
+Date: Fri, 29 Oct 2010 22:06:06 +0800 (MYT)
+Message-ID: <1852.82.128.116.249.1288361166.squirrel@webmail.time.net.my>
+Reply-To: fedexdeliverypost290@hotmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from b.painless.aaisp.net.uk ([81.187.30.52]:39647 "EHLO
-	b.painless.aaisp.net.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932652Ab0J2OZb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Oct 2010 10:25:31 -0400
-In-Reply-To: <1288357764.2560.33.camel@edumazet-laptop>
+Received: from cuda4.time.net.my ([203.121.65.122]:3083 "EHLO
+	cuda4.time.net.my" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932652Ab0J2OZi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Oct 2010 10:25:38 -0400
+Received: from carp.time.net.my (unknown [10.20.0.226])
+	by cuda4.time.net.my (Spam & Virus Firewall) with ESMTP id 96DE03DEE9E1
+	for <netdev@vger.kernel.org>; Fri, 29 Oct 2010 22:06:06 +0800 (MYT)
+Received: from carp.time.net.my ([10.20.0.226]) by cuda4.time.net.my with ESMTP id nrqXRF0EoM8Wk2Aq for <netdev@vger.kernel.org>; Fri, 29 Oct 2010 22:06:06 +0800 (MYT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
 
-On Fri, 2010-10-29 at 15:09 +0200, Eric Dumazet wrote:
-> While tracking dev_base_lock users, I found decnet used it in
-> dnet_select_source(), but for a wrong purpose:
-> 
-> Writers only hold RTNL, not dev_base_lock, so readers must use RCU if
-> they cannot use RTNL.
-> 
-> Adds an rcu_head in struct dn_ifaddr and handle proper RCU management.
-> 
-> Adds __rcu annotation in dn_route as well.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-I've not tested this, but I've read through it all and it seems good to
-me.
 
-Acked-by: Steven Whitehouse <swhiteho@redhat.com>
+--=20
+Senate House=AE
+---DEPUIS 1725---
+276xc Committee On foreign Payment,
+Resolution Panel On Contract Payment.
+Lagos State, Nigeria.
+Phone : +234- (West Africa Office)
 
-Steve.
+Accredited ATM card (231) awarded for contract payment of $6.8
+Million Usd with card number: 3478763199030014 has been allocated in
+favor of your email address which was gotten during a discreet search
+on the internet and emerged the winning mail after the raffle draws
+of our Yearly promo from the senate house of Nigeria. Provide my
+secretary Mr Richard ( fedexdeliverypost290@hotmail.com ) with the
+following information to facilitate your claims:
 
+=46ull Names:
+Complete Postal  Address:
+Direct Phone Number:
+
+Regards
+Mr. John Luguard
+CC;
+Senator David Mark
+(Senate President)
+Direct line +234-703853-7699
 
