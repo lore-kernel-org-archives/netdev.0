@@ -1,44 +1,43 @@
-From: Sjur BRENDELAND <sjur.brandeland@stericsson.com>
-Subject: RE: [RFC net-next] caif: code cleanup
-Date: Fri, 29 Oct 2010 11:36:25 +0200
-Message-ID: <81C3A93C17462B4BBD7E272753C105791945A4EB6B@EXDCVYMBSTM005.EQ1STM.local>
-References: <20101019095553.0b413b80@nehalam>
+From: David Lamparter <equinox@diac24.net>
+Subject: Re: [PATCH 0/15] RFC: create drivers/net/legacy for ISA, EISA, MCA
+ drivers
+Date: Fri, 29 Oct 2010 11:40:51 +0200
+Message-ID: <20101029094050.GA1835290@jupiter.n2.diac24.net>
+References: <1288315159-1350-1-git-send-email-paul.gortmaker@windriver.com>
+ <1288316896.1836.41.camel@Joe-Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Andre Carvalho DE MATOS <andre.carvalho.matos@stericsson.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog116.obsmtp.com ([207.126.144.141]:40217 "EHLO
-	eu1sys200aog116.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756659Ab0J2Jgh convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Oct 2010 05:36:37 -0400
-Content-Language: en-US
+Received: from spaceboyz.net ([87.106.131.203]:36453 "EHLO spaceboyz.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756687Ab0J2Jk7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Oct 2010 05:40:59 -0400
+Content-Disposition: inline
+In-Reply-To: <1288316896.1836.41.camel@Joe-Laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Stephen,
-
-> Stephen Hemminger wrote:
-> >
-> > Cleanup of new CAIF code.
-> >   * make local functions static
-> >   * remove code that is never used
-> >   * expand get_caif_conf() since wrapper is no longer needed
-> >   * make args to comparison functions const
-> >   * rename connect_req_to_link_param to keep exported names
-> >     consistent
+On Thu, Oct 28, 2010 at 06:48:16PM -0700, Joe Perches wrote:
+> On Thu, 2010-10-28 at 21:19 -0400, Paul Gortmaker wrote:
+> > The initial target is things like ISA/EISA/MCA drivers, and with
+> > that alone, we can get close to 90 files out of drivers/net.
+> > Plus, by having a semi-defined description for legacy as being
+> > "drivers more than 10 years old" we'll always have a destination
+> > for drivers as they fall out of maintainership and use.
 > 
-> Thank you for your patch.
-> We'll try to test this sometime next week,
-> and get back to you.
+> I think legacy is "old and not sold or used much anymore".
+> 
+> I believe you're not moving 3c59x as that's relatively
+> still popular even though it's nearly 15 years old.
+> 
+> Or maybe that was just an oversight...
 
-Sorry for taking so long to respond.
-We have passed our tests on your RFC.
-I'll ack this if you send a patch.
+The 3c59x driver also drives a few not-that-old 100MBit cards like
+"3Com Corporation 3c905B 100BaseTX [Cyclone] [10b7:9055] (rev 64)"
+and these are quite common still :)
 
-Regards,
-Sjur
+
+-David
 
