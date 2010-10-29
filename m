@@ -1,88 +1,69 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH] virtio_net: Fix queue full check
-Date: Fri, 29 Oct 2010 21:58:40 +1030
-Message-ID: <201010292158.40411.rusty@rustcorp.com.au>
-References: <20101028051036.25340.23442.sendpatchset@krkumar2.in.ibm.com> <201010292017.25099.rusty@rustcorp.com.au> <OF30574F6E.113EC5F4-ON652577CB.0037DAB5-652577CB.003BACE8@in.ibm.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] bonding: remove dev_base_lock use
+Date: Fri, 29 Oct 2010 13:52:46 +0200
+Message-ID: <1288353166.2560.22.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: Krishna Kumar2 <krkumar2@in.ibm.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>, Jay Vosburgh <fubar@us.ibm.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:45182 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933746Ab0J2L2r (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Oct 2010 07:28:47 -0400
-In-Reply-To: <OF30574F6E.113EC5F4-ON652577CB.0037DAB5-652577CB.003BACE8@in.ibm.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:59093 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751991Ab0J2Lwu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Oct 2010 07:52:50 -0400
+Received: by wyf28 with SMTP id 28so3051316wyf.19
+        for <netdev@vger.kernel.org>; Fri, 29 Oct 2010 04:52:49 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 29 Oct 2010 09:25:09 pm Krishna Kumar2 wrote:
-> Rusty Russell <rusty@rustcorp.com.au> wrote on 10/29/2010 03:17:24 PM:
-> 
-> > > Oct 17 10:22:40 localhost kernel: net eth0: Unexpected TX queue
-> failure: -28
-> > > Oct 17 10:28:22 localhost kernel: net eth0: Unexpected TX queue
-> failure: -28
-> > > Oct 17 10:35:58 localhost kernel: net eth0: Unexpected TX queue
-> failure: -28
-> > > Oct 17 10:41:06 localhost kernel: net eth0: Unexpected TX queue
-> failure: -28
-> > >
-> > > I initially changed the check from -ENOMEM to -ENOSPC, but
-> > > virtqueue_add_buf can return only -ENOSPC when it doesn't have
-> > > space for new request.  Patch removes redundant checks but
-> > > displays the failure errno.
-> > >
-> > > Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
-> > > ---
-> > >  drivers/net/virtio_net.c |   15 ++++-----------
-> > >  1 file changed, 4 insertions(+), 11 deletions(-)
-> > >
-> > > diff -ruNp org/drivers/net/virtio_net.c new/drivers/net/virtio_net.c
-> > > --- org/drivers/net/virtio_net.c   2010-10-11 10:20:02.000000000 +0530
-> > > +++ new/drivers/net/virtio_net.c   2010-10-21 17:37:45.000000000 +0530
-> > > @@ -570,17 +570,10 @@ static netdev_tx_t start_xmit(struct sk_
-> > >
-> > >     /* This can happen with OOM and indirect buffers. */
-> > >     if (unlikely(capacity < 0)) {
-> > > -      if (net_ratelimit()) {
-> > > -         if (likely(capacity == -ENOMEM)) {
-> > > -            dev_warn(&dev->dev,
-> > > -                "TX queue failure: out of memory\n");
-> > > -         } else {
-> > > -            dev->stats.tx_fifo_errors++;
-> > > -            dev_warn(&dev->dev,
-> > > -                "Unexpected TX queue failure: %d\n",
-> > > -                capacity);
-> > > -         }
-> > > -      }
-> > > +      if (net_ratelimit())
-> > > +         dev_warn(&dev->dev,
-> > > +             "TX queue failure (%d): out of memory\n",
-> > > +             capacity);
-> >
-> > Hold on... you were getting -ENOSPC, which shouldn't happen.  What makes
-> you
-> > think it's out of memory?
-> 
-> virtqueue_add_buf_gfp returns only -ENOSPC on failure, whether
-> direct or indirect descriptors are used, so isn't -ENOSPC
-> "expected"? (vring_add_indirect returns -ENOMEM on memory
-> failure, but that is masked out and we go direct which is
-> the failure point).
+bond_info_seq_start() uses a read_lock(&dev_base_lock) to make sure
+device doesn=E2=80=99t disappear. Same goal can be achieved using RCU.
 
-Ah, OK, gotchya.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ drivers/net/bonding/bond_main.c |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-I'm not even sure the fallback to linear makes sense; if we're failing
-kmallocs we should probably just return -ENOMEM.  Would mean we can
-tell the difference between "out of space" (which should never happen
-since we stop the queue when we have < 2+MAX_SKB_FRAGS slots left)
-and this case.
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond=
+_main.c
+index bdb68a6..5188448 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -3209,7 +3209,7 @@ out:
+ #ifdef CONFIG_PROC_FS
+=20
+ static void *bond_info_seq_start(struct seq_file *seq, loff_t *pos)
+-	__acquires(&dev_base_lock)
++	__acquires(RCU)
+ 	__acquires(&bond->lock)
+ {
+ 	struct bonding *bond =3D seq->private;
+@@ -3218,7 +3218,7 @@ static void *bond_info_seq_start(struct seq_file =
+*seq, loff_t *pos)
+ 	int i;
+=20
+ 	/* make sure the bond won't be taken away */
+-	read_lock(&dev_base_lock);
++	rcu_read_lock();
+ 	read_lock(&bond->lock);
+=20
+ 	if (*pos =3D=3D 0)
+@@ -3248,12 +3248,12 @@ static void *bond_info_seq_next(struct seq_file=
+ *seq, void *v, loff_t *pos)
+=20
+ static void bond_info_seq_stop(struct seq_file *seq, void *v)
+ 	__releases(&bond->lock)
+-	__releases(&dev_base_lock)
++	__releases(RCU)
+ {
+ 	struct bonding *bond =3D seq->private;
+=20
+ 	read_unlock(&bond->lock);
+-	read_unlock(&dev_base_lock);
++	rcu_read_unlock();
+ }
+=20
+ static void bond_info_show_master(struct seq_file *seq)
 
-Michael, what do you think?
 
-Thanks,
-Rusty.
