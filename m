@@ -1,54 +1,47 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH] ixgbe: refactor ixgbe_alloc_queues()
-Date: Fri, 29 Oct 2010 00:46:40 -0700
-Message-ID: <AANLkTi=Pu2RNzHrY-4=rkPkpSsOUmGMLF8DB=K7oCLLO@mail.gmail.com>
-References: <1286799439.2737.21.camel@edumazet-laptop>
-	<EA929A9653AAE14F841771FB1DE5A136602807B460@rrsmsx501.amr.corp.intel.com>
-	<1288239858.2658.72.camel@edumazet-laptop>
-	<1288267354.2649.369.camel@edumazet-laptop>
-	<1288268493.27890.5.camel@jtkirshe-MOBL1>
-	<1288323933.2711.43.camel@edumazet-laptop>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [RFC PATCH 1/1] vhost: TX used buffer guest signal accumulation
+Date: Fri, 29 Oct 2010 10:03:47 +0200
+Message-ID: <20101029080347.GA22688@redhat.com>
+References: <1288216693.17571.38.camel@localhost.localdomain>
+ <1288240804.14342.1.camel@localhost.localdomain>
+ <20101028052021.GD5599@redhat.com>
+ <1288294355.11251.20.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Tantilov, Emil S" <emil.s.tantilov@intel.com>,
-	David Miller <davem@davemloft.net>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"Brattain, Ross B" <ross.b.brattain@intel.com>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f174.google.com ([209.85.214.174]:33812 "EHLO
-	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754964Ab0J2Hql convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Oct 2010 03:46:41 -0400
-Received: by iwn10 with SMTP id 10so3372326iwn.19
-        for <netdev@vger.kernel.org>; Fri, 29 Oct 2010 00:46:40 -0700 (PDT)
-In-Reply-To: <1288323933.2711.43.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Shirley Ma <mashirle@us.ibm.com>
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1288294355.11251.20.camel@localhost.localdomain>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 28, 2010 at 20:45, Eric Dumazet <eric.dumazet@gmail.com> wr=
-ote:
-> Note : compiled only patch, not tested.
->
-> Thanks !
->
-> [PATCH] ixgbe: refactor ixgbe_alloc_queues()
->
-> I noticed ring variable was initialized before allocations, and that
-> memory node management was a bit ugly. We also leak memory in case of
-> ring allocations error.
->
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> ---
-> =C2=A0drivers/net/ixgbe/ixgbe_main.c | =C2=A0 69 ++++++++++++--------=
------------
-> =C2=A01 file changed, 28 insertions(+), 41 deletions(-)
->
+On Thu, Oct 28, 2010 at 12:32:35PM -0700, Shirley Ma wrote:
+> On Thu, 2010-10-28 at 07:20 +0200, Michael S. Tsirkin wrote:
+> > My concern is this can delay signalling for unlimited time.
+> > Could you pls test this with guests that do not have
+> > 2b5bbe3b8bee8b38bdc27dd9c0270829b6eb7eeb
+> > b0c39dbdc204006ef3558a66716ff09797619778
+> > that is 2.6.31 and older? 
+> 
+> The patch only induces delay signaling unlimited time when there is no
+> TX packet to transmit. I thought TX signaling only noticing guest to
+> release the used buffers, anything else beside this?
 
-Thanks Eric.  I will add this to my queue of patches.
+Right, that's it I think. For newer kernels we orphan the skb
+on xmit so we don't care that much about completing them.
+This does rely on an undocumented assumption about guest
+behaviour though.
 
---=20
-Cheers,
-Jeff
+> I tested rhel5u5 guest (2.6.18 kernel), it works fine. I checked the two
+> commits log, I don't think this patch could cause any issue w/o these
+> two patches.
+> 
+> Also I found a big TX regression for old guest and new guest. For old
+> guest, I am able to get almost 11Gb/s for 2K message size, but for the
+> new guest kernel, I can only get 3.5 Gb/s with the patch and same host.
+> I will dig it why.
+> 
+> thanks
+> Shirley
