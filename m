@@ -1,54 +1,39 @@
-From: "Maciej W. Rozycki" <macro@linux-mips.org>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH 05/15] dec netdev: relocate DIGITAL based drivers to
  legacy
-Date: Fri, 29 Oct 2010 06:46:13 +0100 (BST)
-Message-ID: <alpine.LFD.2.00.1010290629450.25426@eddie.linux-mips.org>
-References: <1288315159-1350-1-git-send-email-paul.gortmaker@windriver.com>        <1288315159-1350-6-git-send-email-paul.gortmaker@windriver.com>        <alpine.LFD.2.00.1010290516110.25426@eddie.linux-mips.org> <20101028.212939.189691515.davem@davemloft.net>
- <alpine.LFD.2.00.1010290545270.25426@eddie.linux-mips.org>
+Date: Thu, 28 Oct 2010 22:47:03 -0700 (PDT)
+Message-ID: <20101028.224703.112589527.davem@davemloft.net>
+References: <alpine.LFD.2.00.1010290516110.25426@eddie.linux-mips.org>
+	<20101028.212939.189691515.davem@davemloft.net>
+	<alpine.LFD.2.00.1010290545270.25426@eddie.linux-mips.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: paul.gortmaker@windriver.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: macro@linux-mips.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eddie.linux-mips.org ([78.24.191.182]:43072 "EHLO
-	cvs.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751777Ab0J2FqS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Oct 2010 01:46:18 -0400
-Received: from localhost.localdomain ([127.0.0.1]:42291 "EHLO
-        localhost.localdomain" rhost-flags-OK-OK-OK-OK)
-        by eddie.linux-mips.org with ESMTP id S1491016Ab0J2FqN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 29 Oct 2010 07:46:13 +0200
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33297
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752357Ab0J2Fqk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Oct 2010 01:46:40 -0400
 In-Reply-To: <alpine.LFD.2.00.1010290545270.25426@eddie.linux-mips.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 29 Oct 2010, Maciej W. Rozycki wrote:
+From: "Maciej W. Rozycki" <macro@linux-mips.org>
+Date: Fri, 29 Oct 2010 05:54:56 +0100 (BST)
 
-> > This is not about a specific bus technology, it's simply for
-> > "really old stuff" so we can declutter the top-level of drivers/net
-> 
 >  Hmm, what's the difference between placing these drivers here or there 
 > and what's so particular about them that they cause clutter?  I mean a 
 > mere high number of items does not cause a mess by itself -- the lack of 
 > order might.
+> 
+>  Also -- if this change goes ahead -- when I add new TURBOchannel drivers, 
+> should they go straight to legacy/?  It sounds odd to me to have a thing 
+> obsolete straight from the beginning.
 
- I have given myself some food for thought and have come up with the 
-following proposal: how about simply classifying drivers according to the 
-physical layer they support or if multiple are, such as with the Ethernet 
-that is backwards compatible, the newest variation they do?
+This patch series started with a "0/15" introduction posting which
+explains the intention and reasoning.
 
- This would be no different to what we do wrt network protocols under 
-net/, so drivers would go to ethernet/, fasteth/, gbeth/, 10gbeth/, fddi/, 
-tokenring/, atm/, appletalk/, etc. (names up to debate if need be) as 
-applicable.  This would scale well, avoid the need for arbitrary decisions 
-(is this piece legacy yet or not?) and automatically classify drivers as 
-more or less obsolescent too, as obviously none of the stuff under 
-ethernet/, fddi/ or tokenring/ can be reasonably recent unlike 10gbeth/.
-
- Software stuff such as SLIP or PPP could go either into separate 
-subdirectories or grouped together under software/; I gather we have a few 
-such pieces only.
-
- What do you think?
-
-  Maciej
+It might be easier for you to read it instead of asking me to repeat
+it's contents :-)
