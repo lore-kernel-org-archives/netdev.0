@@ -1,53 +1,98 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [PATCH] net: Limit socket I/O iovec total length to INT_MAX.
-Date: Fri, 29 Oct 2010 08:28:38 -0700
-Message-ID: <AANLkTikeaXncdUohUiGF2EkhujYETK5dtyOJASffz2qR@mail.gmail.com>
-References: <20101028.112231.232747062.davem@davemloft.net>
- <AANLkTinAzvfrRHwW-w-Ppdu7LWd7nGTa4EWP=e6pKV2F@mail.gmail.com> <1288360820.2092.34.camel@dan>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [ANNOUNCE]: Release of iptables-1.4.10
+Date: Fri, 29 Oct 2010 17:43:06 +0200
+Message-ID: <4CCAEB8A.5090504@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	jon.maloy@ericsson.com, allan.stephens@windriver.com,
-	Al Viro <viro@zeniv.linux.org.uk>
-To: Dan Rosenberg <drosenberg@vsecurity.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:55118 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756541Ab0J2P3Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Oct 2010 11:29:25 -0400
-Received: from mail-iw0-f174.google.com (mail-iw0-f174.google.com [209.85.214.174])
-	(authenticated bits=0)
-	by smtp1.linux-foundation.org (8.14.2/8.13.5/Debian-3ubuntu1.1) with ESMTP id o9TFT4mO023900
-	(version=TLSv1/SSLv3 cipher=RC4-MD5 bits=128 verify=FAIL)
-	for <netdev@vger.kernel.org>; Fri, 29 Oct 2010 08:29:04 -0700
-Received: by iwn10 with SMTP id 10so3836913iwn.19
-        for <netdev@vger.kernel.org>; Fri, 29 Oct 2010 08:29:02 -0700 (PDT)
-In-Reply-To: <1288360820.2092.34.camel@dan>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed;
+ boundary="------------020503020803020608050505"
+To: Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>, NetDev <netdev@vger.kernel.org>,
+	netfilter-announce@lists.netfilter.org,
+	"'netfilter@vger.kernel.org'" <netfilter
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 29, 2010 at 7:00 AM, Dan Rosenberg <drosenberg@vsecurity.com> wrote:
->
-> While you guys are at it, you might consider preventing sendto(), etc.
-> calls from requesting >= 2GB data in one go.
+This is a multi-part message in MIME format.
+--------------020503020803020608050505
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 
-Indeed. David - I think we have to, because that thing converts its
-arguments to an iovec and then does a sendmsg, but since it's already
-in kernel space it doesn't go through the verify_iovec() path.
+The netfilter coreteam presents:
 
-So sendto/recvfrom (and possibly others that build their own msg
-struct in kernel space) should be limited to MAX_INT too, so that
-there's no back way to create a big iovec..
+    iptables version 1.4.10
 
-In fs/read_write.c, do_sync_read/write() do that iovec thing too, but
-at least for the regular vfs_read()/vfs_write cases they will have
-gone through rw_verify_area() first, which does the size limiting for
-them.
+the iptables release for the 2.6.36 kernel. Changes include:
 
-We do need to fix the readv/writev path, though. It does the
-rw_verify_area(), but it doesn't seem to limit the size to the
-returned length, but still uses the original one. Hmm.
+- support for the cpu match, which can be used to improve cache
+  locality when running multiple server instances
 
-I think I'll take care of the readv/writev thing, and send it by Al to verify.
+- support for the IDLETIMER target, which can be used to notify
+  userspace of interfaces being idle
 
-                              Linus
+- support for the CHECKSUM target
+
+- support for the ipvs match
+
+- documentation updates
+
+- a fix for deletion of rules using the quota match
+
+See the Changelog for more details.
+
+Version 1.4.10 can be obtained from:
+
+http://www.netfilter.org/projects/iptables/downloads.html
+ftp://ftp.netfilter.org/pub/iptables/
+git://git.netfilter.org/iptables.git
+
+On behalf of the Netfilter Core Team.
+Happy firewalling!
+
+--------------020503020803020608050505
+Content-Type: text/plain;
+ name="changes-iptables-1.4.10.txt"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="changes-iptables-1.4.10.txt"
+
+Changli Gao (1):
+      libxt_quota: don't ignore the quota value on deletion
+
+Eric Dumazet (2):
+      extensions: REDIRECT: add random help
+      extension: add xt_cpu match
+
+Hannes Eder (1):
+      libxt_ipvs: user-space lib for netfilter matcher xt_ipvs
+
+Jan Engelhardt (11):
+      doc: let man(1) autoalign the text in xt_cpu
+      doc: remove extra empty line from xt_cpu
+      doc: minimal spelling updates to xt_cpu
+      all: consistent syntax use in struct option
+      doc: consistent use of markup
+      xtables: remove unnecessary cast
+      build: fix static linking
+      iptables-xml: resolve compiler warnings
+      iptables: limit chain name length to be consistent with targets
+      libiptc: build with -Wl,--no-as-needed
+      libiptc: add Libs.private to pkgconfig files
+
+Luciano Coelho (2):
+      extensions: add idletimer xt target extension
+      extensions: libxt_IDLETIMER: use xtables_param_act when checking options
+
+Michael S. Tsirkin (1):
+      extensions: libxt_CHECKSUM extension
+
+Patrick McHardy (6):
+      extensions: libipt_LOG/libip6t_LOG: support macdecode option
+      extensions: fix compilation of the new CHECKSUM target
+      Merge branch 'master' into iptables-next
+      Merge branch 'master' into iptables-next
+      Merge branch 'iptables-next'
+      Bump version to 1.4.10
+
+
+--------------020503020803020608050505--
