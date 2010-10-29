@@ -1,54 +1,88 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [v3 RFC PATCH 0/4] Implement multiqueue virtio-net
-Date: Fri, 29 Oct 2010 13:26:03 +0200
-Message-ID: <20101029112603.GA24577@redhat.com>
-References: <20101020085452.15579.76002.sendpatchset@krkumar2.in.ibm.com>
- <OF8735A2A4.74B4EE91-ON652577C5.0040D90B-652577C7.0056B99D@in.ibm.com>
- <20101025161718.GA19559@redhat.com>
- <OF5C53E9CF.FFDF2CE7-ON652577C8.00191D14-652577C8.001C2154@LocalDomain>
- <OFBB51646E.01CC3630-ON652577C8.0030D6EF-652577C8.0031DA3C@in.ibm.com>
- <20101026093846.GA6766@redhat.com>
- <OFBE9E2C99.648EFB19-ON652577C8.0035FEDD-652577C8.0036AD51@in.ibm.com>
- <20101026110913.GC7922@redhat.com>
- <OFC29C4491.59069AD1-ON652577CA.00170F0D-652577CA.001C76C8@LocalDomain>
- <OFE75E1E91.9722BFB3-ON652577CA.00256D94-652577CA.0027E1CE@in.ibm.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH] virtio_net: Fix queue full check
+Date: Fri, 29 Oct 2010 21:58:40 +1030
+Message-ID: <201010292158.40411.rusty@rustcorp.com.au>
+References: <20101028051036.25340.23442.sendpatchset@krkumar2.in.ibm.com> <201010292017.25099.rusty@rustcorp.com.au> <OF30574F6E.113EC5F4-ON652577CB.0037DAB5-652577CB.003BACE8@in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: anthony@codemonkey.ws, arnd@arndb.de, avi@redhat.com,
-	davem@davemloft.net, eric.dumazet@gmail.com, kvm@vger.kernel.org,
-	netdev@vger.kernel.org, rusty@rustcorp.com.au
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	"Michael S. Tsirkin" <mst@redhat.com>
 To: Krishna Kumar2 <krkumar2@in.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <OFE75E1E91.9722BFB3-ON652577CA.00256D94-652577CA.0027E1CE@in.ibm.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([203.10.76.45]:45182 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933746Ab0J2L2r (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Oct 2010 07:28:47 -0400
+In-Reply-To: <OF30574F6E.113EC5F4-ON652577CB.0037DAB5-652577CB.003BACE8@in.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 28, 2010 at 12:48:57PM +0530, Krishna Kumar2 wrote:
-> > Krishna Kumar2/India/IBM wrote on 10/28/2010 10:44:14 AM:
-> >
-> > > > > > Results for UDP BW tests (unidirectional, sum across
-> > > > > > 3 iterations, each iteration of 45 seconds, default
-> > > > > > netperf, vhosts bound to cpus 0-3; no other tuning):
-> > > > >
-> > > > > Is binding vhost threads to CPUs really required?
-> > > > > What happens if we let the scheduler do its job?
-> > > >
-> > > > Nothing drastic, I remember BW% and SD% both improved a
-> > > > bit as a result of binding.
-> > >
-> > > If there's a significant improvement this would mean that
-> > > we need to rethink the vhost-net interaction with the scheduler.
-> >
-> > I will get a test run with and without binding and post the
-> > results later today.
+On Fri, 29 Oct 2010 09:25:09 pm Krishna Kumar2 wrote:
+> Rusty Russell <rusty@rustcorp.com.au> wrote on 10/29/2010 03:17:24 PM:
 > 
-> Correction: The result with binding is is much better for
-> SD/CPU compared to without-binding:
+> > > Oct 17 10:22:40 localhost kernel: net eth0: Unexpected TX queue
+> failure: -28
+> > > Oct 17 10:28:22 localhost kernel: net eth0: Unexpected TX queue
+> failure: -28
+> > > Oct 17 10:35:58 localhost kernel: net eth0: Unexpected TX queue
+> failure: -28
+> > > Oct 17 10:41:06 localhost kernel: net eth0: Unexpected TX queue
+> failure: -28
+> > >
+> > > I initially changed the check from -ENOMEM to -ENOSPC, but
+> > > virtqueue_add_buf can return only -ENOSPC when it doesn't have
+> > > space for new request.  Patch removes redundant checks but
+> > > displays the failure errno.
+> > >
+> > > Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
+> > > ---
+> > >  drivers/net/virtio_net.c |   15 ++++-----------
+> > >  1 file changed, 4 insertions(+), 11 deletions(-)
+> > >
+> > > diff -ruNp org/drivers/net/virtio_net.c new/drivers/net/virtio_net.c
+> > > --- org/drivers/net/virtio_net.c   2010-10-11 10:20:02.000000000 +0530
+> > > +++ new/drivers/net/virtio_net.c   2010-10-21 17:37:45.000000000 +0530
+> > > @@ -570,17 +570,10 @@ static netdev_tx_t start_xmit(struct sk_
+> > >
+> > >     /* This can happen with OOM and indirect buffers. */
+> > >     if (unlikely(capacity < 0)) {
+> > > -      if (net_ratelimit()) {
+> > > -         if (likely(capacity == -ENOMEM)) {
+> > > -            dev_warn(&dev->dev,
+> > > -                "TX queue failure: out of memory\n");
+> > > -         } else {
+> > > -            dev->stats.tx_fifo_errors++;
+> > > -            dev_warn(&dev->dev,
+> > > -                "Unexpected TX queue failure: %d\n",
+> > > -                capacity);
+> > > -         }
+> > > -      }
+> > > +      if (net_ratelimit())
+> > > +         dev_warn(&dev->dev,
+> > > +             "TX queue failure (%d): out of memory\n",
+> > > +             capacity);
+> >
+> > Hold on... you were getting -ENOSPC, which shouldn't happen.  What makes
+> you
+> > think it's out of memory?
+> 
+> virtqueue_add_buf_gfp returns only -ENOSPC on failure, whether
+> direct or indirect descriptors are used, so isn't -ENOSPC
+> "expected"? (vring_add_indirect returns -ENOMEM on memory
+> failure, but that is masked out and we go direct which is
+> the failure point).
 
-Can you pls ty finding out why that is?  Is some thread bouncing between
-CPUs?  Does a wrong numa node get picked up?
-In practice users are very unlikely to pin threads to CPUs.
+Ah, OK, gotchya.
 
--- 
-MST
+I'm not even sure the fallback to linear makes sense; if we're failing
+kmallocs we should probably just return -ENOMEM.  Would mean we can
+tell the difference between "out of space" (which should never happen
+since we stop the queue when we have < 2+MAX_SKB_FRAGS slots left)
+and this case.
+
+Michael, what do you think?
+
+Thanks,
+Rusty.
