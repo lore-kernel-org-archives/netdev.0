@@ -1,38 +1,57 @@
-From: Thomas Graf <tgraf@infradead.org>
-Subject: [PATCH] text ematch: check for NULL pointer before destroying
- textsearch config
-Date: Sun, 31 Oct 2010 04:06:35 -0400
-Message-ID: <20101031080635.GA22639@canuck.infradead.org>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: Re: [PATCH] macvlan: Introduce 'passthru' mode to takeover the underlying
+ device
+Date: Sat, 30 Oct 2010 13:55:25 -0700
+Message-ID: <4CCC863D.2070406@us.ibm.com>
+References: <1288307450.30131.82.camel@sridhar.beaverton.ibm.com> <201010291545.17910.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canuck.infradead.org ([134.117.69.58]:54164 "EHLO
-	canuck.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753252Ab0JaIGg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 31 Oct 2010 04:06:36 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	netdev <netdev@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <201010291545.17910.arnd@arndb.de>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-While validating the configuration em_ops is already set, thus the
-individual destroy functions are called, but the ematch data has
-not been allocated and associated with the ematch yet.
+On 10/29/2010 6:45 AM, Arnd Bergmann wrote:
+> On Friday 29 October 2010, Sridhar Samudrala wrote:
+>> With the current default 'vepa' mode, a KVM guest using virtio with
+>> macvtap backend has the following limitations.
+>> - cannot change/add a mac address on the guest virtio-net
+> I believe this could be changed if there is a neeed, but I actually
+> consider it one of the design points of macvlan that the guest
+> is not able to change the mac address. With 802.1Qbg you rely on
+> the switch being able to identify the guest by its MAC address,
+> which the host kernel must ensure.
+>
+Currently the host cannot prevent a guest user from trying to change/add 
+a mac address
+on the guest virtio-net. From guest point of view, the request succeeds, 
+but the incoming packets
+are dropped siliently by the host interface.
 
-Signed-off-by: Thomas Graf <tgraf@infradead.org>
+>> - cannot create a vlan device on the guest virtio-net
+> Why not? If this doesn't work, it's probably a bug!
+Because the host is not aware of the guest vlan tag and the host 
+external interface will filter out
+incoming vlan tagged packets.
 
-Index: net-2.6/net/sched/em_text.c
-===================================================================
---- net-2.6.orig/net/sched/em_text.c
-+++ net-2.6/net/sched/em_text.c
-@@ -103,7 +103,8 @@ retry:
- 
- static void em_text_destroy(struct tcf_proto *tp, struct tcf_ematch *m)
- {
--	textsearch_destroy(EM_TEXT_PRIV(m)->config);
-+	if (EM_TEXT_PRIV(m) && EM_TEXT_PRIV(m)->config)
-+		textsearch_destroy(EM_TEXT_PRIV(m)->config);
- }
- 
- static int em_text_dump(struct sk_buff *skb, struct tcf_ematch *m)
+> Why does the passthru mode enable it if it doesn't work
+> already?
+>
+passthru mode puts the host external interface in promiscuous mode which 
+allows vlan tagged
+packets to be received.
+
+Even in tap/bridge mode, this works because adding an external interface 
+to the bridge causes it to be
+put in promiscuous mode.
+
+Thanks
+Sridhar
+
