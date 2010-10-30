@@ -1,107 +1,85 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 0/1] RFC: poll/select performance on datagram sockets
-Date: Sat, 30 Oct 2010 14:53:37 +0200
-Message-ID: <1288443217.2680.962.camel@edumazet-laptop>
-References: <20101029191857.5f789d56@chocolatine.cbg.collabora.co.uk>
-	 <1288380431.2680.3.camel@edumazet-laptop>
-	 <20101030123403.5e01540d@chocolatine.cbg.collabora.co.uk>
+From: zic422@gmail.com
+Subject: Re: [Bugme-new] [Bug 16350] New: RTL8103EL interface new tcp
+ connections get stuck on SYN_SENT state after 10 hours uptime
+Date: Sat, 30 Oct 2010 15:58:56 +0300
+Message-ID: <AANLkTinTFxwKpc0zmQ7HZw8=QmLc2MKrJgWyQ6P6vCeW@mail.gmail.com>
+References: <bug-16350-10286@https.bugzilla.kernel.org/>
+	<20100708142526.5bf5938e.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Cyrill Gorcunov <gorcunov@openvz.org>,
-	Alexey Dobriyan <adobriyan@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Pauli Nieminen <pauli.nieminen@collabora.co.uk>,
-	Rainer Weikusat <rweikusat@mssgmbh.com>,
-	Davide Libenzi <davidel@xmailserver.org>
-To: Alban Crequy <alban.crequy@collabora.co.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20101030123403.5e01540d@chocolatine.cbg.collabora.co.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org,
+	Francois Romieu <romieu@fr.zoreil.com>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:33710 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752784Ab0J3M66 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Oct 2010 08:58:58 -0400
+Received: by wwe15 with SMTP id 15so4470704wwe.1
+        for <netdev@vger.kernel.org>; Sat, 30 Oct 2010 05:58:56 -0700 (PDT)
+In-Reply-To: <20100708142526.5bf5938e.akpm@linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le samedi 30 octobre 2010 =C3=A0 12:34 +0100, Alban Crequy a =C3=A9crit=
- :
-> Le Fri, 29 Oct 2010 21:27:11 +0200,
-> Eric Dumazet <eric.dumazet@gmail.com> a =C3=A9crit :
->=20
-> > Le vendredi 29 octobre 2010 =C3=A0 19:18 +0100, Alban Crequy a =C3=A9=
-crit :
-> > > Hi,
-> > >=20
-> > > When a process calls the poll or select, the kernel calls (struct
-> > > file_operations)->poll on every file descriptor and returns a mas=
-k
-> > > of events which are ready. If the process is only interested by
-> > > POLLIN events, the mask is still computed for POLLOUT and it can =
-be
-> > > expensive. For example, on Unix datagram sockets, a process runni=
-ng
-> > > poll() with POLLIN will wakes-up when the remote end call read().
-> > > This is a performance regression introduced when fixing another b=
-ug
-> > > by 3c73419c09a5ef73d56472dbfdade9e311496e9b and
-> > > ec0d215f9420564fc8286dcf93d2d068bb53a07e.
-> > >=20
-> > > The attached program illustrates the problem. It compares the
-> > > performance of sending/receiving data on an Unix datagram socket =
-and
-> > > select(). When the datagram sockets are not connected, the
-> > > performance problem is not triggered, but when they are connected
-> > > it becomes a lot slower. On my computer, I have the following tim=
-e:
-> > >=20
-> > > Connected datagram sockets: >4 seconds
-> > > Non-connected datagram sockets: <1 second
-> > >=20
-> > > The patch attached in the next email fixes the performance proble=
-m:
-> > > it becomes <1 second for both cases. I am not suggesting the patc=
-h
-> > > for inclusion; I would like to change the prototype of (struct
-> > > file_operations)->poll instead of adding ->poll2. But there is a
-> > > lot of poll functions to change (grep tells me 337 functions).
-> > >=20
-> > > Any opinions?
-> >=20
-> > My opinion would be to use epoll() for this kind of workload.
->=20
-> I found a problem with epoll() with the following program. When there
-> is several datagram sockets connected to the same server and the
-> receiving queue is full, epoll(EPOLLOUT) wakes up only the emitter wh=
-o
-> has its skb removed from the queue, and not all the emitters. It is
-> because sock_wfree() runs sk->sk_write_space() only for one emitter.
->=20
+Now I cannot reproduce this bug. Don't know when it get banished. I
+did not managed to reach more than ten hours uptime last two months.
 
-I dont think this is the reason.
-
-sock_wfree() really is good here, since it copes with one socket (the
-one that sent the message)
-
-Problem is the peer_wait, that epoll doesnt seem to be plugged into.
-
-Bug is in unix_dgram_poll()
-
-It calls sock_poll_wait( ... &unix_sk(other)->peer_wait,) only if socke=
-t
-is 'writable'. Its a clear bug
-
-Try this patch please ?
-
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 0ebc777..315716c 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -2092,7 +2092,7 @@ static unsigned int unix_dgram_poll(struct file *=
-file, struct socket *sock,
-=20
- 	/* writable? */
- 	writable =3D unix_writable(sk);
--	if (writable) {
-+	if (1 /*writable*/) {
- 		other =3D unix_peer_get(sk);
- 		if (other) {
- 			if (unix_peer(other) !=3D sk) {
+On Fri, Jul 9, 2010 at 12:25 AM, Andrew Morton
+<akpm@linux-foundation.org> wrote:
+>
+> (switched to email. =C2=A0Please respond via emailed reply-to-all, no=
+t via the
+> bugzilla web interface).
+>
+> On Wed, 7 Jul 2010 14:04:59 GMT
+> bugzilla-daemon@bugzilla.kernel.org wrote:
+>
+>> https://bugzilla.kernel.org/show_bug.cgi?id=3D16350
+>>
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0Summary: RTL8103EL interfac=
+e new tcp connections get stuck on
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ SYN_SENT state after 10 hours uptime
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0Product: Networking
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0Version: 2.5
+>> =C2=A0 =C2=A0 Kernel Version: 2.6.34.1
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 Platform: All
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 OS/Version: Linux
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 Tree: Mainline
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 Status: NEW
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 Severity: normal
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 Priority: P1
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0Component: IPV4
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 AssignedTo: shemminger@linux-foundation.=
+org
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 ReportedBy: zic422@gmail.com
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 Regression: No
+>>
+>>
+>> Created an attachment (id=3D27038)
+>> =C2=A0--> (https://bugzilla.kernel.org/attachment.cgi?id=3D27038)
+>> ioports, iomem, lspci, ver_linux and kernel config
+>>
+>> After 9-11 hours uptime network interface of RTL8103EL card cannot m=
+ake new tcp
+>> connections to internet and correctly close existing ones. ICMP and =
+UDP works
+>> fine. Besides r8169 driver I tried also the r8101-1.015.00 one from =
+realtek
+>> site with older kernel and bug were in place.
+>>
+>> Connections inside home network work normally. I tried to reboot rou=
+ter but
+>> nor reconnecting ethernet cable nor restarting network daemon nor re=
+loading
+>> kernel module does not make any help. Bug disappears only after rebo=
+oting my
+>> pc.
+>>
+>> repeatability of bug is 100% on arch, debian and gentoo
+>>
+>> default kernel config
+>>
+>> http://bugs.archlinux.org/task/19162 =C2=A0(this bug)
