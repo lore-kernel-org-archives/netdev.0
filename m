@@ -1,101 +1,162 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] af_unix: optimize unix_dgram_poll()
-Date: Sat, 30 Oct 2010 11:53:40 +0200
-Message-ID: <1288432420.2680.933.camel@edumazet-laptop>
+From: Alban Crequy <alban.crequy@collabora.co.uk>
+Subject: Re: [PATCH 0/1] RFC: poll/select performance on datagram sockets
+Date: Sat, 30 Oct 2010 12:34:03 +0100
+Message-ID: <20101030123403.5e01540d@chocolatine.cbg.collabora.co.uk>
 References: <20101029191857.5f789d56@chocolatine.cbg.collabora.co.uk>
-	 <1288380431.2680.3.camel@edumazet-laptop>
-	 <alpine.DEB.2.00.1010291306390.8517@davide-lnx1>
-	 <alpine.DEB.2.00.1010291339180.8517@davide-lnx1>
+	<1288380431.2680.3.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alban Crequy <alban.crequy@collabora.co.uk>,
-	"David S. Miller" <davem@davemloft.net>,
+Cc: "David S. Miller" <davem@davemloft.net>,
 	Stephen Hemminger <shemminger@vyatta.com>,
 	Cyrill Gorcunov <gorcunov@openvz.org>,
 	Alexey Dobriyan <adobriyan@gmail.com>, netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-kernel@vger.kernel.org,
 	Pauli Nieminen <pauli.nieminen@collabora.co.uk>,
-	Rainer Weikusat <rweikusat@mssgmbh.com>
-To: Davide Libenzi <davidel@xmailserver.org>
+	Rainer Weikusat <rweikusat@mssgmbh.com>,
+	Davide Libenzi <davidel@xmailserver.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:48740 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751967Ab0J3Jxr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Oct 2010 05:53:47 -0400
-In-Reply-To: <alpine.DEB.2.00.1010291339180.8517@davide-lnx1>
+Received: from bhuna.collabora.co.uk ([93.93.128.226]:43418 "EHLO
+	bhuna.collabora.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752639Ab0J3Lgq convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Oct 2010 07:36:46 -0400
+In-Reply-To: <1288380431.2680.3.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 29 octobre 2010 =C3=A0 13:46 -0700, Davide Libenzi a =C3=A9=
+Le Fri, 29 Oct 2010 21:27:11 +0200,
+Eric Dumazet <eric.dumazet@gmail.com> a =C3=A9crit :
+
+> Le vendredi 29 octobre 2010 =C3=A0 19:18 +0100, Alban Crequy a =C3=A9=
 crit :
+> > Hi,
+> >=20
+> > When a process calls the poll or select, the kernel calls (struct
+> > file_operations)->poll on every file descriptor and returns a mask
+> > of events which are ready. If the process is only interested by
+> > POLLIN events, the mask is still computed for POLLOUT and it can be
+> > expensive. For example, on Unix datagram sockets, a process running
+> > poll() with POLLIN will wakes-up when the remote end call read().
+> > This is a performance regression introduced when fixing another bug
+> > by 3c73419c09a5ef73d56472dbfdade9e311496e9b and
+> > ec0d215f9420564fc8286dcf93d2d068bb53a07e.
+> >=20
+> > The attached program illustrates the problem. It compares the
+> > performance of sending/receiving data on an Unix datagram socket an=
+d
+> > select(). When the datagram sockets are not connected, the
+> > performance problem is not triggered, but when they are connected
+> > it becomes a lot slower. On my computer, I have the following time:
+> >=20
+> > Connected datagram sockets: >4 seconds
+> > Non-connected datagram sockets: <1 second
+> >=20
+> > The patch attached in the next email fixes the performance problem:
+> > it becomes <1 second for both cases. I am not suggesting the patch
+> > for inclusion; I would like to change the prototype of (struct
+> > file_operations)->poll instead of adding ->poll2. But there is a
+> > lot of poll functions to change (grep tells me 337 functions).
+> >=20
+> > Any opinions?
+>=20
+> My opinion would be to use epoll() for this kind of workload.
 
-> Also, why not using the existing wait->key instead of adding a poll2(=
-)?
+I found a problem with epoll() with the following program. When there
+is several datagram sockets connected to the same server and the
+receiving queue is full, epoll(EPOLLOUT) wakes up only the emitter who
+has its skb removed from the queue, and not all the emitters. It is
+because sock_wfree() runs sk->sk_write_space() only for one emitter.
 
-Indeed, if wait is not null, we have in wait->key the interest of
-poller. If a particular poll() function is expensive, it can test these
-bits.
+poll/select do not have this problem.
 
-Thanks !
+-----------------------
 
-Note: I chose the 'goto skip_write' to make this patch really obvious.
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <time.h>
+#include <sys/epoll.h>
 
-[PATCH] af_unix: optimize unix_dgram_poll()
+int
+main(int argc, char *argv[])
+{
 
-unix_dgram_poll() is pretty expensive to check POLLOUT status, because
-it has to lock the socket to get its peer, take a reference on the peer
-to check its receive queue status, and queue another poll_wait on
-peer_wait. This all can be avoided if the process calling
-unix_dgram_poll() is not interested in POLLOUT status. It makes
-unix_dgram_recvmsg() faster by not queueing irrelevant pollers in
-peer_wait.
+// cat /proc/sys/net/unix/max_dgram_qlen
+#define NB_CLIENTS (10 + 2)
 
-On a test program provided by Alan Crequy :
+  int client_fds[NB_CLIENTS];
+  int server_fd;
+  struct sockaddr_un addr_server;
+  int epollfd =3D epoll_create(10);
+#define MAX_EVENTS 10
+  struct epoll_event ev, events[MAX_EVENTS];
+  int i;
+  char buffer[1024];
 
-Before:
+  int trigger =3D atoi(argv[1]);
+  printf("trigger =3D %d\n", trigger);
 
-real    0m0.211s
-user    0m0.000s
-sys     0m0.208s
+  memset(&addr_server, 0, sizeof(addr_server));
+  addr_server.sun_family =3D AF_UNIX;
+  addr_server.sun_path[0] =3D '\0';
+  strcpy(addr_server.sun_path + 1, "dgram_perfs_server");
 
-After:
+  server_fd =3D socket(AF_UNIX, SOCK_DGRAM, 0);
+  bind(server_fd, (struct sockaddr*)&addr_server, sizeof(addr_server));
 
-real	0m0.044s
-user	0m0.000s
-sys	0m0.040s
+  for (i =3D 0 ; i < NB_CLIENTS ; i++)
+    {
+      client_fds[i] =3D socket(AF_UNIX, SOCK_DGRAM, 0);
+    }
 
-Suggested-by: Davide Libenzi <davidel@xmailserver.org>
-Reported-by: Alban Crequy <alban.crequy@collabora.co.uk>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/unix/af_unix.c |    4 ++++
- 1 file changed, 4 insertions(+)
+  ev.events =3D EPOLLOUT;
+  ev.data.fd =3D client_fds[NB_CLIENTS-1];
+  if (epoll_ctl(epollfd, EPOLL_CTL_ADD, client_fds[NB_CLIENTS-1], &ev) =
+=3D=3D -1) {
+      perror("epoll_ctl: client_fds max");
+      exit(EXIT_FAILURE);
+  }
+  if (trigger =3D=3D 0)
+    {
+      ev.events =3D EPOLLOUT;
+      ev.data.fd =3D client_fds[0];
+      if (epoll_ctl(epollfd, EPOLL_CTL_ADD, client_fds[0], &ev) =3D=3D =
+-1) {
+        perror("epoll_ctl: client_fds 0");
+        exit(EXIT_FAILURE);
+      }
+    }
 
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 3c95304..dcb84fe 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -2090,6 +2090,9 @@ static unsigned int unix_dgram_poll(struct file *=
-file, struct socket *sock,
- 			return mask;
- 	}
-=20
-+	if (wait && !(wait->key & (POLLWRBAND | POLLWRNORM | POLLOUT)))
-+		goto skip_write;
-+
- 	/* writable? */
- 	writable =3D unix_writable(sk);
- 	if (writable) {
-@@ -2111,6 +2114,7 @@ static unsigned int unix_dgram_poll(struct file *=
-file, struct socket *sock,
- 	else
- 		set_bit(SOCK_ASYNC_NOSPACE, &sk->sk_socket->flags);
-=20
-+skip_write:
- 	return mask;
- }
-=20
+  for (i =3D 0 ; i < NB_CLIENTS ; i++)
+    {
+      connect(client_fds[i], (struct sockaddr*)&addr_server, sizeof(add=
+r_server));
+    }
 
+  if (fork() > 0)
+    {
+      for (i =3D 0 ; i < NB_CLIENTS - 1 ; i++)
+        sendto(client_fds[i], "S", 1, 0, (struct sockaddr*)&addr_server=
+, sizeof(addr_server));
+      printf("Everything sent successfully. Now epoll_wait...\n");
 
+      epoll_wait(epollfd, events, MAX_EVENTS, -1);
+      printf("epoll_wait works fine :-)\n");
+      wait(NULL);
+      exit(0);
+    }
 
+  sleep(1);
+
+  printf("Receiving one buffer...\n");
+  recv(server_fd, buffer, 1024, 0);
+  printf("One buffer received\n");
+
+  return 0;
+}
