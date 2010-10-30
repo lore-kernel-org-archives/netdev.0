@@ -1,49 +1,58 @@
 From: Simon Horman <horms@verge.net.au>
-Subject: bonding: propagation of offload settings
-Date: Sat, 30 Oct 2010 11:54:35 +0900
-Message-ID: <20101030025435.GF12842@verge.net.au>
+Subject: Re: [ovs-dev] Flow Control and Port Mirroring
+Date: Sat, 30 Oct 2010 11:59:33 +0900
+Message-ID: <20101030025932.GG12842@verge.net.au>
+References: <20101028115403.GA16206@verge.net.au>
+ <AANLkTi=QXBi4wmJS1TY0P=s+11Vjp0v=AfWOdFb4vrCj@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jay Vosburgh <fubar@us.ibm.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:54477 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752000Ab0J3Cy5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Oct 2010 22:54:57 -0400
+Cc: dev@openvswitch.org, "Michael S. Tsirkin" <mst@redhat.com>,
+	kvm@vger.kernel.org, virtualization@lists.osdl.org,
+	netdev@vger.kernel.org
+To: Jesse Gross <jesse@nicira.com>
+Return-path: <kvm-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <AANLkTi=QXBi4wmJS1TY0P=s+11Vjp0v=AfWOdFb4vrCj@mail.gmail.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+[ CCed VHOST contacts ]
 
-I am wondering what the desired behaviour for the propagating
-of offload settings between master and slaves when the settings
-are modified using ethtool.
+On Thu, Oct 28, 2010 at 01:22:02PM -0700, Jesse Gross wrote:
+> On Thu, Oct 28, 2010 at 4:54 AM, Simon Horman <horms@verge.net.au> wrote:
+> > My reasoning is that in the non-mirroring case the guest is
+> > limited by the external interface through wich the packets
+> > eventually flow - that is 1Gbit/s. But in the mirrored either
+> > there is no flow control or the flow control is acting on the
+> > rate of dummy0, which is essentailly infinate.
+> >
+> > Before investigating this any further I wanted to ask if
+> > this behaviour is intentional.
+> 
+> It's not intentional but I can take a guess at what is happening.
+> 
+> When we send the packet to a mirror, the skb is cloned but only the
+> original skb is charged to the sender.  If the original packet is
+> delivered to localhost then it will be freed quickly and no longer
+> accounted for, despite the fact that the "real" packet is still
+> sitting in the transmit queue on the NIC.  The UDP stack will then
+> send the next packet, limited only by the speed of the CPU.
 
-I have observed the following (using Linus' latest tree, 2.6.36+)
+That would explain what I have observed.
 
-#1 Disabling gro on a slave device propagates to the master
-   but not other slaves
+> Normally, this would be tracked by accounting for the memory charged
+> to the socket.  However, I know that Xen tracks whether the actual
+> pages of memory have been freed, which should avoid this problem since
+> the memory won't be released util the last packet has been sent.  I
+> don't know what KVM virtio does but I'm guessing that it similar to
+> the former, since this problem is occurring.
 
-   bond1: generic-receive-offload: on
-   eth1: generic-receive-offload: on
-   eth4: generic-receive-offload: on
+I am also familiar of how Xen tracks pages but less sure of the
+virtio side of things.
 
-   # ethtool -K eth1 gro off
+> While it would be easy to charge the socket for all clones, I also
+> want to be careful about over accounting of the same data, leading to
+> a very small effective socket buffer.
 
-   bond1: generic-receive-offload: off
-   eth1: generic-receive-offload: on
-   eth4: generic-receive-offload: off
-
-   This seems to occur regardless of if the slave is the
-   active slave or not.
-
-#2 No other propagation of settings occurs
-
-
-It seems to me that from a user point of view it may make more sense to:
-
-a) propagate settings from the master to the slaves and;
-b) possibly disallow setting the slaves directly
+Agreed, we don't want to see over-charging.
 
