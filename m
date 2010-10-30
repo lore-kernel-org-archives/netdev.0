@@ -1,43 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ip_gre: fix fallback tunnel setup
-Date: Sat, 30 Oct 2010 16:21:38 -0700 (PDT)
-Message-ID: <20101030.162138.59683924.davem@davemloft.net>
-References: <1288291679.2711.1.camel@edumazet-laptop>
-	<1288293079.2711.19.camel@edumazet-laptop>
-	<4CC9CF06.1090806@parallels.com>
+From: Matthew Wilcox <matthew@wil.cx>
+Subject: Re: [PATCH net-next-2.6 1/2] be2net: Adding an option to use INTx
+	instead of MSI-X
+Date: Sat, 30 Oct 2010 17:21:55 -0600
+Message-ID: <20101030232155.GA14129@parisc-linux.org>
+References: <20101025111235.GA2024@emulex.com> <20101025.120943.189699949.davem@davemloft.net> <20101025223853.GD15074@solarflare.com> <20101025.162535.226782713.davem@davemloft.net> <1288075928.6578.185.camel@concordia>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: xemul@parallels.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39118
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753921Ab0J3XVO convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 Oct 2010 19:21:14 -0400
-In-Reply-To: <4CC9CF06.1090806@parallels.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, bhutchings@solarflare.com,
+	somnath.kotur@emulex.com, netdev@vger.kernel.org,
+	linux-pci@vger.kernel.org
+To: Michael Ellerman <michael@ellerman.id.au>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1288075928.6578.185.camel@concordia>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Pavel Emelyanov <xemul@parallels.com>
-Date: Thu, 28 Oct 2010 23:29:10 +0400
+On Tue, Oct 26, 2010 at 05:52:08PM +1100, Michael Ellerman wrote:
+> That horse has really really bolted, it's gawn.
+> 
+> I count 26 drivers with "disable MSI/X" parameters. Some even have more
+> than one.
 
-> On 10/28/2010 11:11 PM, Eric Dumazet wrote:
->> Le jeudi 28 octobre 2010 =E0 20:47 +0200, Eric Dumazet a =E9crit :
->>> Le jeudi 28 octobre 2010 =E0 11:41 -0700, David Miller a =E9crit :
->>>> I am still able to revert this I think without screwing up
->>>> publicly visible history, so I will double check and do the
->>>> revert if I can.
->>>
->>> Cool, I'll provide a patch in a couple of minutes, when tested.
->>>
->>=20
->> I believe the right fix is this one, Pavel what do you think ?
->=20
-> Indeed. I missed the fact, that the gre driver uses ndo_init for
-> all devices including the fb one :(
->=20
-> Acked-by: Pavel Emelyanov <xemul@openvz.org>
+That's 26 patches someone needs to write, then.  You can put my Acked-by
+on all of them.
 
-Applied.
+> I agree it's a mess for users, but it's probably preferable to a
+> non-working driver.
+
+What more drivers need is an automatic detection of a non-working
+interrupt situation, great big warning messages, and fallback to an
+alternate interrupt mechanism.  Doing it for one driver, then generalising
+as much of it into the core as possible would be nice.
+
+-- 
+Matthew Wilcox				Intel Open Source Technology Centre
+"Bill, look, we understand that you're interested in selling us this
+operating system, but compare it to ours.  We can't possibly take such
+a retrograde step."
