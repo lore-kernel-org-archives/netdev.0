@@ -1,29 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 5/6] netdev: can: Change mail address of Hans J. Koch
-Date: Sat, 30 Oct 2010 16:50:06 -0700 (PDT)
-Message-ID: <20101030.165006.245389188.davem@davemloft.net>
-References: <20101029221231.GA4331@local>
-	<20101029223357.GF4331@local>
+Subject: Re: [PATCH] isdn: mISDN: socket: fix information leak to userland
+Date: Sat, 30 Oct 2010 16:49:54 -0700 (PDT)
+Message-ID: <20101030.164954.179924837.davem@davemloft.net>
+References: <1288429473-21864-1-git-send-email-segooon@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: hjk@hansjkoch.de
+Cc: kernel-janitors@vger.kernel.org, isdn@linux-pingi.de,
+	acme@redhat.com, tj@kernel.org, eparis@redhat.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: segooon@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56914
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56907
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754429Ab0J3Xtm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Oct 2010 19:49:42 -0400
-In-Reply-To: <20101029223357.GF4331@local>
+	by vger.kernel.org with ESMTP id S1754282Ab0J3Xtb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Oct 2010 19:49:31 -0400
+In-Reply-To: <1288429473-21864-1-git-send-email-segooon@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Hans J. Koch" <hjk@hansjkoch.de>
-Date: Sat, 30 Oct 2010 00:33:57 +0200
+From: Vasiliy Kulikov <segooon@gmail.com>
+Date: Sat, 30 Oct 2010 13:04:33 +0400
 
-> My old mail address doesn't exist anymore. This changes all occurrences
-> to my new address.
+> Structure mISDN_devinfo is copied to userland with the field "name"
+> that has the last elements unitialized.  It leads to leaking of
+> contents of kernel stack memory.
 > 
-> Signed-off-by: Hans J. Koch <hjk@hansjkoch.de>
+> Signed-off-by: Vasiliy Kulikov <segooon@gmail.com>
 
 Applied.
