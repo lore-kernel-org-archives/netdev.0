@@ -1,39 +1,49 @@
-From: Pascal Hambourg <pascal.mail@plouf.fr.eu.org>
-Subject: Re: [PATCH 1/2] IPv6: conntrack: Use protocol-related initialization
- routine to initial queues of IPv6 connection track
-Date: Sat, 30 Oct 2010 20:41:03 +0200
-Message-ID: <4CCC66BF.3040305@plouf.fr.eu.org>
-References: <20100125.233254.35824860.davem@davemloft.net>	<4B5EE2C6.6010802@cn.fujitsu.com>	<4B5EE436.3040204@trash.net> <20100126.051147.256313206.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: kaber@trash.net, shanwei@cn.fujitsu.com,
-	yasuyuki.kozakai@toshiba.co.jp, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
+From: Jesse Gross <jesse@nicira.com>
+Subject: [PATCH 1/2] ixgb: Don't check for vlan group on transmit.
+Date: Sat, 30 Oct 2010 11:49:50 -0700
+Message-ID: <1288464591-31528-1-git-send-email-jesse@nicira.com>
+Cc: netdev@vger.kernel.org, Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bamako.nerim.net ([62.4.17.28]:53450 "EHLO bamako.nerim.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751163Ab0J3Sqw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 Oct 2010 14:46:52 -0400
-In-Reply-To: <20100126.051147.256313206.davem@davemloft.net>
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:38176 "EHLO
+	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755109Ab0J3SuE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Oct 2010 14:50:04 -0400
+Received: by pwj3 with SMTP id 3so1060592pwj.19
+        for <netdev@vger.kernel.org>; Sat, 30 Oct 2010 11:50:03 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On transmit, the ixgb driver will only use vlan acceleration if a
+vlan group is configured.  This can lead to tags getting dropped
+when bridging because the networking core assumes that a driver
+that claims vlan acceleration support can do it at all times.  This
+change should have been part of commit eab6d18d "vlan: Don't check for
+vlan group before vlan_tx_tag_present." but was missed.
 
-David Miller a =E9crit :
->=20
-> Anyways, meanwhile I'll apply the fix.  And yes I know it needs
-> to go to stable too... :-)
+Signed-off-by: Jesse Gross <jesse@nicira.com>
+CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+CC: Jesse Brandeburg <jesse.brandeburg@intel.com>
+CC: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
+---
+ drivers/net/ixgb/ixgb_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-It appears that the patch "ipv6: reassembly: use seperate reassembly
-queues for conntrack and local delivery" went to both the 2.6.32 and
-2.6.27 stable branches, but the fix from Shan Wei went to the 2.6.32
-branch only, not to the 2.6.27 branch. However I checked that it applie=
-s
- on the latest 2.6.27 release, and fixes the problem.
+diff --git a/drivers/net/ixgb/ixgb_main.c b/drivers/net/ixgb/ixgb_main.c
+index caa8192..d18194e 100644
+--- a/drivers/net/ixgb/ixgb_main.c
++++ b/drivers/net/ixgb/ixgb_main.c
+@@ -1498,7 +1498,7 @@ ixgb_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+                      DESC_NEEDED)))
+ 		return NETDEV_TX_BUSY;
+ 
+-	if (adapter->vlgrp && vlan_tx_tag_present(skb)) {
++	if (vlan_tx_tag_present(skb)) {
+ 		tx_flags |= IXGB_TX_FLAGS_VLAN;
+ 		vlan_id = vlan_tx_tag_get(skb);
+ 	}
+-- 
+1.7.1
 
-Could someone submit it for the next 2.6.27 stable release ? Or if I
-have to do it, what is the process ?
-Thanks.
