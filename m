@@ -1,190 +1,182 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC PATCH 1/1] vhost: TX used buffer guest signal accumulation
-Date: Sat, 30 Oct 2010 22:06:03 +0200
-Message-ID: <20101030200603.GA19033@redhat.com>
-References: <1288216693.17571.38.camel@localhost.localdomain>
- <1288240804.14342.1.camel@localhost.localdomain>
- <20101028052021.GD5599@redhat.com>
- <1288286062.11251.15.camel@localhost.localdomain>
- <20101029081027.GB22688@redhat.com>
- <1288366988.4110.5.camel@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="uAKRQypu60I7Lcqm"
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Shirley Ma <mashirle@us.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1288366988.4110.5.camel@localhost.localdomain>
-Sender: kvm-owner@vger.kernel.org
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 00/39] Cleanup WARN #defines
+Date: Sat, 30 Oct 2010 14:08:17 -0700
+Message-ID: <cover.1288471897.git.joe@perches.com>
+Cc: linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, linux-omap@vger.kernel.org,
+	linux-tegra@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	linux-pm@lists.linux-foundation.org, discuss@x86-64.org,
+	linux-acpi@vger.kernel.org, linux1394-devel@lists.sourceforge.net,
+	dri-devel@lists.freedesktop.org, intel-gfx@lists.freedesktop.org,
+	linux-media@vger.kernel.org, socketcan-core@lists.berlios.de,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	linux-wireless@vger.kernel.org, devel@open-fcoe.org,
+	linux-scsi@vger.kernel.org, devel@driverdev.osuosl.org,
+	linux-fbdev@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	linux-nfs@vger.kernel.org, linux-arch@vger.kernel.org,
+	linux-mm@kvack.org, alsa-devel@alsa-project.org
+To: Jiri Kosina <trivial@kernel.org>
+Return-path: <linux-arch-owner@vger.kernel.org>
+Sender: linux-arch-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+WARN uses sometimes use KERN_<level> but mostly don't
+have any prefix.
 
---uAKRQypu60I7Lcqm
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Change the WARN macros and the warn_slowpath function to preface
+KERN_WARNING and remove all the KERN_<level> uses from WARN sites.
 
-On Fri, Oct 29, 2010 at 08:43:08AM -0700, Shirley Ma wrote:
-> On Fri, 2010-10-29 at 10:10 +0200, Michael S. Tsirkin wrote:
-> > Hmm. I don't yet understand. We are still doing copies into the per-vq
-> > buffer, and the data copied is really small.  Is it about cache line
-> > bounces?  Could you try figuring it out?
-> 
-> per-vq buffer is much less expensive than 3 put_copy() call. I will
-> collect the profiling data to show that.
+Neatening clean up of include/asm-generic/bug.h
 
-What about __put_user? Maybe the access checks are the ones
-that add the cost here? I attach patches to strip access checks:
-they are not needed as we do them on setup time already, anyway.
-Can you try them out and see if performance is improved for you please?
-On top of this, we will need to add some scheme to accumulate signals,
-but that is a separate issue.
+Update WARN macros
+Add KERN_WARNING to WARN output
+Remove any KERN_<level> from WARN uses
+Coalesce formats
+Align WARN arguments
+Add some missing newlines to WARN uses
+Add some missing first test argument (1, fmt, args) to WARN uses
 
-> > > > 2. How about flushing out queued stuff before we exit
-> > > >    the handle_tx loop? That would address most of
-> > > >    the spec issue. 
-> > > 
-> > > The performance is almost as same as the previous patch. I will
-> > resubmit
-> > > the modified one, adding vhost_add_used_and_signal_n after handle_tx
-> > > loop for processing pending queue.
-> > > 
-> > > This patch was a part of modified macvtap zero copy which I haven't
-> > > submitted yet. I found this helped vhost TX in general. This pending
-> > > queue will be used by DMA done later, so I put it in vq instead of a
-> > > local variable in handle_tx.
-> > > 
-> > > Thanks
-> > > Shirley
-> > 
-> > BTW why do we need another array? Isn't heads field exactly what we
-> > need
-> > here?
-> 
-> head field is only for up to 32, the more used buffers add and signal
-> accumulated the better performance is from test results.
+Joe Perches (39):
+  include/asm-generic/bug.h: Update WARN macros
+  arch/alpha: Update WARN uses
+  arch/arm: Update WARN uses
+  arch/powerpc: Update WARN uses
+  arch/x86: Update WARN uses
+  drivers/acpi: Update WARN uses
+  drivers/base: Update WARN uses
+  drivers/block: Update WARN uses
+  drivers/cpuidle: Update WARN uses
+  drivers/firewire: Update WARN uses
+  drivers/firmware: Update WARN uses
+  drivers/gpio: Update WARN uses
+  drivers/gpu/drm: Update WARN uses
+  drivers/media/video: Update WARN uses
+  drivers/mfd: Update WARN uses
+  drivers/net/can: Update WARN uses
+  drivers/net/usb: Update WARN uses
+  drivers/net/wireless/iwlwifi: Update WARN uses
+  drivers/regulator: Update WARN uses
+  drivers/scsi/fcoe: Update WARN uses
+  drivers/staging: Update WARN uses
+  drivers/usb/musb: Update WARN uses
+  drivers/video/omap2/dss: Update WARN uses
+  fs/nfsd: Update WARN uses
+  fs/notify/inotify: Update WARN uses
+  fs/sysfs: Update WARN uses
+  fs/proc: Update WARN uses
+  fs: Update WARN uses
+  include/linux/device.h: Update WARN uses
+  kernel/irq: Update WARN uses
+  kernel/panic.c: Update warn_slowpath to use %pV
+  kernel: Update WARN uses
+  lib: Update WARN uses
+  mm: Update WARN uses
+  net/core/dev.c: Update WARN uses
+  net/ipv4/tcp.c: Update WARN uses
+  net/mac80211: Update WARN uses
+  net/rfkill/input.c: Update WARN uses
+  sound/soc/codecs/wm_hubs.c: Update WARN uses
 
-I think we should separate the used update and signalling.  Interrupts
-are expensive so I can believe accumulating even up to 100 of them
-helps. But used head copies are already prety cheap. If we cut the
-overhead by x32, that should make them almost free?
+ arch/alpha/kernel/pci-sysfs.c                |   14 ++--
+ arch/arm/mach-davinci/clock.c                |    4 +-
+ arch/arm/mach-davinci/da830.c                |    2 +-
+ arch/arm/mach-davinci/da850.c                |   12 ++--
+ arch/arm/mach-omap2/clkt_clksel.c            |   12 ++--
+ arch/arm/mach-omap2/clock.c                  |   16 ++--
+ arch/arm/mach-omap2/devices.c                |    4 +-
+ arch/arm/mach-omap2/omap_hwmod.c             |   47 +++++++-----
+ arch/arm/mach-omap2/pm34xx.c                 |    7 +-
+ arch/arm/mach-omap2/serial.c                 |    2 +-
+ arch/arm/mach-omap2/timer-gp.c               |    3 +-
+ arch/arm/mach-tegra/clock.c                  |    3 +-
+ arch/arm/mach-tegra/timer.c                  |    2 +-
+ arch/arm/mach-u300/padmux.c                  |   14 +---
+ arch/arm/plat-omap/omap-pm-noop.c            |   10 ++--
+ arch/powerpc/kernel/hw_breakpoint.c          |    4 +-
+ arch/x86/kernel/acpi/boot.c                  |    2 +-
+ arch/x86/kernel/apic/apic.c                  |    2 +-
+ arch/x86/kernel/apic/es7000_32.c             |    2 +-
+ arch/x86/kernel/cpu/perf_event.c             |    4 +-
+ arch/x86/kernel/pci-calgary_64.c             |    4 +-
+ arch/x86/kernel/tsc_sync.c                   |    4 +-
+ arch/x86/kernel/xsave.c                      |    2 +-
+ arch/x86/mm/ioremap.c                        |    5 +-
+ arch/x86/mm/pageattr-test.c                  |    2 +-
+ arch/x86/mm/pageattr.c                       |    5 +-
+ arch/x86/platform/sfi/sfi.c                  |    4 +-
+ drivers/acpi/ec.c                            |    4 +-
+ drivers/base/class.c                         |    4 +-
+ drivers/base/core.c                          |    5 +-
+ drivers/base/memory.c                        |    4 +-
+ drivers/base/sys.c                           |   10 +--
+ drivers/block/floppy.c                       |    2 +-
+ drivers/cpuidle/driver.c                     |    2 +-
+ drivers/firewire/core-transaction.c          |    6 +-
+ drivers/firmware/dmi_scan.c                  |    2 +-
+ drivers/gpio/gpiolib.c                       |    4 +-
+ drivers/gpio/it8761e_gpio.c                  |    2 +-
+ drivers/gpu/drm/drm_crtc_helper.c            |    2 +-
+ drivers/gpu/drm/i915/i915_gem.c              |    3 +-
+ drivers/gpu/drm/radeon/evergreen.c           |    2 +-
+ drivers/gpu/drm/radeon/r100.c                |    4 +-
+ drivers/gpu/drm/radeon/r300.c                |    2 +-
+ drivers/gpu/drm/radeon/r600.c                |    4 +-
+ drivers/gpu/drm/radeon/radeon_fence.c        |    3 +-
+ drivers/gpu/drm/radeon/radeon_ttm.c          |    3 +-
+ drivers/gpu/drm/radeon/rs400.c               |    2 +-
+ drivers/gpu/drm/radeon/rs600.c               |    4 +-
+ drivers/media/video/s5p-fimc/fimc-core.c     |    2 +-
+ drivers/media/video/sr030pc30.c              |    2 +-
+ drivers/mfd/ezx-pcap.c                       |    5 +-
+ drivers/net/can/mscan/mscan.c                |    2 +-
+ drivers/net/usb/ipheth.c                     |    2 +-
+ drivers/net/wireless/iwlwifi/iwl-agn-lib.c   |    3 +-
+ drivers/net/wireless/iwlwifi/iwl-agn-sta.c   |    6 +-
+ drivers/net/wireless/iwlwifi/iwl-tx.c        |    6 +-
+ drivers/net/wireless/iwlwifi/iwl3945-base.c  |    2 +-
+ drivers/regulator/core.c                     |    3 +-
+ drivers/scsi/fcoe/libfcoe.c                  |    2 +-
+ drivers/staging/memrar/memrar_allocator.c    |    2 +-
+ drivers/staging/solo6x10/solo6010-v4l2-enc.c |    2 +-
+ drivers/usb/musb/musb_host.c                 |    6 +-
+ drivers/video/omap2/dss/core.c               |    3 +-
+ fs/bio.c                                     |    2 +-
+ fs/buffer.c                                  |    2 +-
+ fs/nfsd/nfs4state.c                          |    3 +-
+ fs/notify/inotify/inotify_fsnotify.c         |    4 +-
+ fs/proc/generic.c                            |    9 +--
+ fs/super.c                                   |    5 +-
+ fs/sysfs/dir.c                               |    3 +-
+ fs/sysfs/file.c                              |    4 +-
+ fs/sysfs/group.c                             |    4 +-
+ fs/sysfs/symlink.c                           |   10 +--
+ include/asm-generic/bug.h                    |  101 ++++++++++++++++----------
+ include/linux/device.h                       |    2 +-
+ kernel/irq/chip.c                            |    2 +-
+ kernel/irq/manage.c                          |    2 +-
+ kernel/notifier.c                            |    2 +-
+ kernel/panic.c                               |   40 +++++------
+ kernel/pm_qos_params.c                       |    6 +-
+ lib/debugobjects.c                           |   21 +++---
+ lib/iomap.c                                  |    2 +-
+ lib/kobject.c                                |    9 +--
+ lib/kobject_uevent.c                         |    4 +-
+ lib/list_debug.c                             |   24 +++----
+ lib/plist.c                                  |   12 ++--
+ mm/percpu.c                                  |    4 +-
+ mm/vmalloc.c                                 |    5 +-
+ net/core/dev.c                               |    3 +-
+ net/ipv4/tcp.c                               |   16 ++---
+ net/mac80211/agg-tx.c                        |    5 +-
+ net/mac80211/iface.c                         |    4 +-
+ net/mac80211/mlme.c                          |    2 +-
+ net/mac80211/rx.c                            |    4 +-
+ net/mac80211/tx.c                            |    4 +-
+ net/mac80211/util.c                          |    4 +-
+ net/mac80211/work.c                          |    4 +-
+ net/rfkill/input.c                           |    5 +-
+ sound/soc/codecs/wm_hubs.c                   |    2 +-
+ 99 files changed, 319 insertions(+), 330 deletions(-)
 
-> That's was one
-> of the reason I didn't use heads. The other reason was I used these
-> buffer for pending dma done in mavctap zero copy patch. It could be up
-> to vq->num in worse case.
-
-We can always increase that, not an issue.
-
-> Thanks
-> Shirley
-
---uAKRQypu60I7Lcqm
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=1
-
-commit f983547ed65a90c73b3e5eeee707041cc04acb0e
-Author: Michael S. Tsirkin <mst@redhat.com>
-Date:   Tue Sep 21 14:18:01 2010 +0200
-
-    vhost: copy_to_user -> __copy_to_user
-    
-    We do access_ok checks at setup time, so we don't need to
-    redo them on each access.
-    
-    Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-
-diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-index 54ba561..5109bc0 100644
---- a/drivers/vhost/vhost.c
-+++ b/drivers/vhost/vhost.c
-@@ -1245,7 +1245,7 @@ static int __vhost_add_used_n(struct vhost_virtqueue *vq,
- 
- 	start = vq->last_used_idx % vq->num;
- 	used = vq->used->ring + start;
--	if (copy_to_user(used, heads, count * sizeof *used)) {
-+	if (__copy_to_user(used, heads, count * sizeof *used)) {
- 		vq_err(vq, "Failed to write used");
- 		return -EFAULT;
- 	}
-
---uAKRQypu60I7Lcqm
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=2
-
-commit 85337783cb9487246ed067592e50a5ee800e2683
-Author: Michael S. Tsirkin <mst@redhat.com>
-Date:   Sun Sep 19 15:56:30 2010 +0200
-
-    vhost: get/put_user -> __get/__put_user
-    
-    We do access_ok checks on all ring values on an ioctl,
-    so we don't need to redo them on each access.
-    
-    Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-
-diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-index 3440197..54ba561 100644
---- a/drivers/vhost/vhost.c
-+++ b/drivers/vhost/vhost.c
-@@ -1082,7 +1082,7 @@ int vhost_get_vq_desc(struct vhost_dev *dev, struct vhost_virtqueue *vq,
- 
- 	/* Check it isn't doing very strange things with descriptor numbers. */
- 	last_avail_idx = vq->last_avail_idx;
--	if (unlikely(get_user(vq->avail_idx, &vq->avail->idx))) {
-+	if (unlikely(__get_user(vq->avail_idx, &vq->avail->idx))) {
- 		vq_err(vq, "Failed to access avail idx at %p\n",
- 		       &vq->avail->idx);
- 		return -EFAULT;
-@@ -1103,8 +1103,8 @@ int vhost_get_vq_desc(struct vhost_dev *dev, struct vhost_virtqueue *vq,
- 
- 	/* Grab the next descriptor number they're advertising, and increment
- 	 * the index we've seen. */
--	if (unlikely(get_user(head,
--			      &vq->avail->ring[last_avail_idx % vq->num]))) {
-+	if (unlikely(__get_user(head,
-+				&vq->avail->ring[last_avail_idx % vq->num]))) {
- 		vq_err(vq, "Failed to read head: idx %d address %p\n",
- 		       last_avail_idx,
- 		       &vq->avail->ring[last_avail_idx % vq->num]);
-@@ -1203,17 +1203,17 @@ int vhost_add_used(struct vhost_virtqueue *vq, unsigned int head, int len)
- 	/* The virtqueue contains a ring of used buffers.  Get a pointer to the
- 	 * next entry in that used ring. */
- 	used = &vq->used->ring[vq->last_used_idx % vq->num];
--	if (put_user(head, &used->id)) {
-+	if (__put_user(head, &used->id)) {
- 		vq_err(vq, "Failed to write used id");
- 		return -EFAULT;
- 	}
--	if (put_user(len, &used->len)) {
-+	if (__put_user(len, &used->len)) {
- 		vq_err(vq, "Failed to write used len");
- 		return -EFAULT;
- 	}
- 	/* Make sure buffer is written before we update index. */
- 	smp_wmb();
--	if (put_user(vq->last_used_idx + 1, &vq->used->idx)) {
-+	if (__put_user(vq->last_used_idx + 1, &vq->used->idx)) {
- 		vq_err(vq, "Failed to increment used idx");
- 		return -EFAULT;
- 	}
-@@ -1306,7 +1306,7 @@ void vhost_signal(struct vhost_dev *dev, struct vhost_virtqueue *vq)
- 	 * interrupts. */
- 	smp_mb();
- 
--	if (get_user(flags, &vq->avail->flags)) {
-+	if (__get_user(flags, &vq->avail->flags)) {
- 		vq_err(vq, "Failed to get flags");
- 		return;
- 	}
-@@ -1357,7 +1357,7 @@ bool vhost_enable_notify(struct vhost_virtqueue *vq)
- 	/* They could have slipped one in as we were doing that: make
- 	 * sure it's written, then check again. */
- 	smp_mb();
--	r = get_user(avail_idx, &vq->avail->idx);
-+	r = __get_user(avail_idx, &vq->avail->idx);
- 	if (r) {
- 		vq_err(vq, "Failed to check avail idx at %p: %d\n",
- 		       &vq->avail->idx, r);
-
---uAKRQypu60I7Lcqm--
+-- 
+1.7.3.1.g432b3.dirty
