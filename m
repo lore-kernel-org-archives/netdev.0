@@ -1,41 +1,39 @@
 From: Vasiliy Kulikov <segooon@gmail.com>
-Subject: [PATCH] net: core: sock: fix information leak to userland
-Date: Sat, 30 Oct 2010 18:26:40 +0400
-Message-ID: <1288448801-6303-1-git-send-email-segooon@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
+Subject: [PATCH] bluetooth: cmtp: fix information leak to userland
+Date: Sat, 30 Oct 2010 18:26:26 +0400
+Message-ID: <1288448787-5848-1-git-send-email-segooon@gmail.com>
+Cc: Marcel Holtmann <marcel@holtmann.org>,
+	"Gustavo F. Padovan" <padovan@profusion.mobi>,
+	"David S. Miller" <davem@davemloft.net>,
 	Eric Dumazet <eric.dumazet@gmail.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 To: kernel-janitors@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-"Address" variable might be not fully initialized in sock->ops->get_name().
-The only current implementation is get_name(), it leaves some padding
-fields of sockaddr_tipc uninitialized.  It leads to leaking of contents
-of kernel stack memory.
+Structure cmtp_conninfo is copied to userland with some padding fields
+unitialized.  It leads to leaking of contents of kernel stack memory.
 
 Signed-off-by: Vasiliy Kulikov <segooon@gmail.com>
 ---
  Compile tested.
 
- net/core/sock.c |    1 +
+ net/bluetooth/cmtp/core.c |    1 +
  1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 3eed542..759dd81 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -930,6 +930,7 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
- 	{
- 		char address[128];
+diff --git a/net/bluetooth/cmtp/core.c b/net/bluetooth/cmtp/core.c
+index ec0a134..8e5f292 100644
+--- a/net/bluetooth/cmtp/core.c
++++ b/net/bluetooth/cmtp/core.c
+@@ -78,6 +78,7 @@ static void __cmtp_unlink_session(struct cmtp_session *session)
  
-+		memset(&address, 0, sizeof(address));
- 		if (sock->ops->getname(sock, (struct sockaddr *)address, &lv, 2))
- 			return -ENOTCONN;
- 		if (lv < len)
+ static void __cmtp_copy_session(struct cmtp_session *session, struct cmtp_conninfo *ci)
+ {
++	memset(ci, 0, sizeof(*ci));
+ 	bacpy(&ci->bdaddr, &session->bdaddr);
+ 
+ 	ci->flags = session->flags;
 -- 
 1.7.0.4
