@@ -1,85 +1,86 @@
-From: zic422@gmail.com
-Subject: Re: [Bugme-new] [Bug 16350] New: RTL8103EL interface new tcp
- connections get stuck on SYN_SENT state after 10 hours uptime
-Date: Sat, 30 Oct 2010 15:58:56 +0300
-Message-ID: <AANLkTinTFxwKpc0zmQ7HZw8=QmLc2MKrJgWyQ6P6vCeW@mail.gmail.com>
-References: <bug-16350-10286@https.bugzilla.kernel.org/>
-	<20100708142526.5bf5938e.akpm@linux-foundation.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 0/1] RFC: poll/select performance on datagram sockets
+Date: Sat, 30 Oct 2010 15:17:58 +0200
+Message-ID: <1288444678.2680.966.camel@edumazet-laptop>
+References: <20101029191857.5f789d56@chocolatine.cbg.collabora.co.uk>
+	 <1288380431.2680.3.camel@edumazet-laptop>
+	 <20101030123403.5e01540d@chocolatine.cbg.collabora.co.uk>
+	 <1288443217.2680.962.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org,
-	Francois Romieu <romieu@fr.zoreil.com>
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Cyrill Gorcunov <gorcunov@openvz.org>,
+	Alexey Dobriyan <adobriyan@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Pauli Nieminen <pauli.nieminen@collabora.co.uk>,
+	Rainer Weikusat <rweikusat@mssgmbh.com>,
+	Davide Libenzi <davidel@xmailserver.org>
+To: Alban Crequy <alban.crequy@collabora.co.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:33710 "EHLO
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:55034 "EHLO
 	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752784Ab0J3M66 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Oct 2010 08:58:58 -0400
-Received: by wwe15 with SMTP id 15so4470704wwe.1
-        for <netdev@vger.kernel.org>; Sat, 30 Oct 2010 05:58:56 -0700 (PDT)
-In-Reply-To: <20100708142526.5bf5938e.akpm@linux-foundation.org>
+	with ESMTP id S1751142Ab0J3NSG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Oct 2010 09:18:06 -0400
+In-Reply-To: <1288443217.2680.962.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now I cannot reproduce this bug. Don't know when it get banished. I
-did not managed to reach more than ten hours uptime last two months.
 
-On Fri, Jul 9, 2010 at 12:25 AM, Andrew Morton
-<akpm@linux-foundation.org> wrote:
->
-> (switched to email. =C2=A0Please respond via emailed reply-to-all, no=
-t via the
-> bugzilla web interface).
->
-> On Wed, 7 Jul 2010 14:04:59 GMT
-> bugzilla-daemon@bugzilla.kernel.org wrote:
->
->> https://bugzilla.kernel.org/show_bug.cgi?id=3D16350
->>
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0Summary: RTL8103EL interfac=
-e new tcp connections get stuck on
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- SYN_SENT state after 10 hours uptime
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0Product: Networking
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0Version: 2.5
->> =C2=A0 =C2=A0 Kernel Version: 2.6.34.1
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 Platform: All
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 OS/Version: Linux
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 Tree: Mainline
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 Status: NEW
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 Severity: normal
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 Priority: P1
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0Component: IPV4
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 AssignedTo: shemminger@linux-foundation.=
-org
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 ReportedBy: zic422@gmail.com
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 Regression: No
->>
->>
->> Created an attachment (id=3D27038)
->> =C2=A0--> (https://bugzilla.kernel.org/attachment.cgi?id=3D27038)
->> ioports, iomem, lspci, ver_linux and kernel config
->>
->> After 9-11 hours uptime network interface of RTL8103EL card cannot m=
-ake new tcp
->> connections to internet and correctly close existing ones. ICMP and =
-UDP works
->> fine. Besides r8169 driver I tried also the r8101-1.015.00 one from =
-realtek
->> site with older kernel and bug were in place.
->>
->> Connections inside home network work normally. I tried to reboot rou=
-ter but
->> nor reconnecting ethernet cable nor restarting network daemon nor re=
-loading
->> kernel module does not make any help. Bug disappears only after rebo=
-oting my
->> pc.
->>
->> repeatability of bug is 100% on arch, debian and gentoo
->>
->> default kernel config
->>
->> http://bugs.archlinux.org/task/19162 =C2=A0(this bug)
+> Problem is the peer_wait, that epoll doesnt seem to be plugged into.
+> 
+> Bug is in unix_dgram_poll()
+> 
+> It calls sock_poll_wait( ... &unix_sk(other)->peer_wait,) only if socket
+> is 'writable'. Its a clear bug
+> 
+> Try this patch please ?
+> 
+> diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+> index 0ebc777..315716c 100644
+> --- a/net/unix/af_unix.c
+> +++ b/net/unix/af_unix.c
+> @@ -2092,7 +2092,7 @@ static unsigned int unix_dgram_poll(struct file *file, struct socket *sock,
+>  
+>  	/* writable? */
+>  	writable = unix_writable(sk);
+> -	if (writable) {
+> +	if (1 /*writable*/) {
+>  		other = unix_peer_get(sk);
+>  		if (other) {
+>  			if (unix_peer(other) != sk) {
+> 
+> 
+> 
+
+Also you'll need to change your program to make the epoll registrations
+_after_ sockets connect(), or else you can see that epoll() wont know
+about the other peer stuff.
+
+for (i = 0 ; i < NB_CLIENTS ; i++) {
+	client_fds[i] = socket(AF_UNIX, SOCK_DGRAM, 0);
+}
+
+
+for (i = 0 ; i < NB_CLIENTS ; i++) {
+	connect(client_fds[i], (struct sockaddr*)&addr_server, sizeof(addr_server));
+}
+
+ev.events = EPOLLOUT;
+ev.data.fd = client_fds[NB_CLIENTS-1];
+if (epoll_ctl(epollfd, EPOLL_CTL_ADD, client_fds[NB_CLIENTS-1], &ev) == -1) {
+      perror("epoll_ctl: client_fds max");
+      exit(EXIT_FAILURE);
+}
+if (trigger == 0) {
+      ev.events = EPOLLOUT;
+      ev.data.fd = client_fds[0];
+      if (epoll_ctl(epollfd, EPOLL_CTL_ADD, client_fds[0], &ev) == -1) {
+        perror("epoll_ctl: client_fds 0");
+        exit(EXIT_FAILURE);
+      }
+}
+
+
+
