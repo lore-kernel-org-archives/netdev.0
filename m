@@ -1,235 +1,109 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: [net-next-2.6 PATCH 3/3] net: consolidate 8021q tagging
-Date: Sat, 30 Oct 2010 17:22:42 -0700
-Message-ID: <20101031002242.8691.38060.stgit@jf-dev1-dcblab>
-References: <20101031002232.8691.41201.stgit@jf-dev1-dcblab>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT] Networking
+Date: Sat, 30 Oct 2010 18:32:57 -0700 (PDT)
+Message-ID: <20101030.183257.70183832.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jesse@nicira.com
-To: davem@davemloft.net
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:2888 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754463Ab0JaAY5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 Oct 2010 20:24:57 -0400
-In-Reply-To: <20101031002232.8691.41201.stgit@jf-dev1-dcblab>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51125
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754503Ab0JaBce (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Oct 2010 21:32:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now that VLAN packets are tagged in dev_hard_start_xmit()
-at the bottom of the stack we no longer need to tag them
-in the 8021Q module (Except in the !VLAN_FLAG_REORDER_HDR
-case).
 
-This allows the accel path and non accel paths to be consolidated.
-Here the vlan_tci in the skb is always set and we allow the
-stack to add the actual tag in dev_hard_start_xmit().
+Last pull request before 2.6.37-rc1, I really wanted to get your
+sendto/recvfrom patch in here as well as the RDS fixes.
 
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
----
+I did a bunch of tests with the various I/O calls using different
+lengths, like 10, (2^31 - 1), 2^31, 2^32, and larger on 64-bit and it
+all seems to be doing the right thing at least with TCP and UDP.
 
- net/8021q/vlan.h     |    4 --
- net/8021q/vlan_dev.c |  105 +++-----------------------------------------------
- net/8021q/vlanproc.c |    4 --
- 3 files changed, 7 insertions(+), 106 deletions(-)
+Also:
 
-diff --git a/net/8021q/vlan.h b/net/8021q/vlan.h
-index db01b31..4625ba6 100644
---- a/net/8021q/vlan.h
-+++ b/net/8021q/vlan.h
-@@ -45,8 +45,6 @@ struct vlan_rx_stats {
-  *	@real_dev: underlying netdevice
-  *	@real_dev_addr: address of underlying netdevice
-  *	@dent: proc dir entry
-- *	@cnt_inc_headroom_on_tx: statistic - number of skb expansions on TX
-- *	@cnt_encap_on_xmit: statistic - number of skb encapsulations on TX
-  *	@vlan_rx_stats: ptr to percpu rx stats
-  */
- struct vlan_dev_info {
-@@ -62,8 +60,6 @@ struct vlan_dev_info {
- 	unsigned char				real_dev_addr[ETH_ALEN];
- 
- 	struct proc_dir_entry			*dent;
--	unsigned long				cnt_inc_headroom_on_tx;
--	unsigned long				cnt_encap_on_xmit;
- 	struct vlan_rx_stats __percpu		*vlan_rx_stats;
- };
- 
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index afb03c5..f3c9552 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -323,24 +323,12 @@ static netdev_tx_t vlan_dev_hard_start_xmit(struct sk_buff *skb,
- 	 */
- 	if (veth->h_vlan_proto != htons(ETH_P_8021Q) ||
- 	    vlan_dev_info(dev)->flags & VLAN_FLAG_REORDER_HDR) {
--		unsigned int orig_headroom = skb_headroom(skb);
- 		u16 vlan_tci;
--
--		vlan_dev_info(dev)->cnt_encap_on_xmit++;
--
- 		vlan_tci = vlan_dev_info(dev)->vlan_id;
- 		vlan_tci |= vlan_dev_get_egress_qos_mask(dev, skb);
--		skb = __vlan_put_tag(skb, vlan_tci);
--		if (!skb) {
--			txq->tx_dropped++;
--			return NETDEV_TX_OK;
--		}
--
--		if (orig_headroom < VLAN_HLEN)
--			vlan_dev_info(dev)->cnt_inc_headroom_on_tx++;
-+		skb = __vlan_hwaccel_put_tag(skb, vlan_tci);
- 	}
- 
--
- 	skb_set_dev(skb, vlan_dev_info(dev)->real_dev);
- 	len = skb->len;
- 	ret = dev_queue_xmit(skb);
-@@ -354,32 +342,6 @@ static netdev_tx_t vlan_dev_hard_start_xmit(struct sk_buff *skb,
- 	return ret;
- }
- 
--static netdev_tx_t vlan_dev_hwaccel_hard_start_xmit(struct sk_buff *skb,
--						    struct net_device *dev)
--{
--	int i = skb_get_queue_mapping(skb);
--	struct netdev_queue *txq = netdev_get_tx_queue(dev, i);
--	u16 vlan_tci;
--	unsigned int len;
--	int ret;
--
--	vlan_tci = vlan_dev_info(dev)->vlan_id;
--	vlan_tci |= vlan_dev_get_egress_qos_mask(dev, skb);
--	skb = __vlan_hwaccel_put_tag(skb, vlan_tci);
--
--	skb->dev = vlan_dev_info(dev)->real_dev;
--	len = skb->len;
--	ret = dev_queue_xmit(skb);
--
--	if (likely(ret == NET_XMIT_SUCCESS || ret == NET_XMIT_CN)) {
--		txq->tx_packets++;
--		txq->tx_bytes += len;
--	} else
--		txq->tx_dropped++;
--
--	return ret;
--}
--
- static u16 vlan_dev_select_queue(struct net_device *dev, struct sk_buff *skb)
- {
- 	struct net_device *rdev = vlan_dev_info(dev)->real_dev;
-@@ -716,8 +678,7 @@ static const struct header_ops vlan_header_ops = {
- 	.parse	 = eth_header_parse,
- };
- 
--static const struct net_device_ops vlan_netdev_ops, vlan_netdev_accel_ops,
--		    vlan_netdev_ops_sq, vlan_netdev_accel_ops_sq;
-+static const struct net_device_ops vlan_netdev_ops, vlan_netdev_ops_sq;
- 
- static int vlan_dev_init(struct net_device *dev)
- {
-@@ -752,19 +713,16 @@ static int vlan_dev_init(struct net_device *dev)
- 	if (real_dev->features & NETIF_F_HW_VLAN_TX) {
- 		dev->header_ops      = real_dev->header_ops;
- 		dev->hard_header_len = real_dev->hard_header_len;
--		if (real_dev->netdev_ops->ndo_select_queue)
--			dev->netdev_ops = &vlan_netdev_accel_ops_sq;
--		else
--			dev->netdev_ops = &vlan_netdev_accel_ops;
- 	} else {
- 		dev->header_ops      = &vlan_header_ops;
- 		dev->hard_header_len = real_dev->hard_header_len + VLAN_HLEN;
--		if (real_dev->netdev_ops->ndo_select_queue)
--			dev->netdev_ops = &vlan_netdev_ops_sq;
--		else
--			dev->netdev_ops = &vlan_netdev_ops;
- 	}
- 
-+	if (real_dev->netdev_ops->ndo_select_queue)
-+		dev->netdev_ops = &vlan_netdev_ops_sq;
-+	else
-+		dev->netdev_ops = &vlan_netdev_ops;
-+
- 	if (is_vlan_dev(real_dev))
- 		subclass = 1;
- 
-@@ -905,30 +863,6 @@ static const struct net_device_ops vlan_netdev_ops = {
- #endif
- };
- 
--static const struct net_device_ops vlan_netdev_accel_ops = {
--	.ndo_change_mtu		= vlan_dev_change_mtu,
--	.ndo_init		= vlan_dev_init,
--	.ndo_uninit		= vlan_dev_uninit,
--	.ndo_open		= vlan_dev_open,
--	.ndo_stop		= vlan_dev_stop,
--	.ndo_start_xmit =  vlan_dev_hwaccel_hard_start_xmit,
--	.ndo_validate_addr	= eth_validate_addr,
--	.ndo_set_mac_address	= vlan_dev_set_mac_address,
--	.ndo_set_rx_mode	= vlan_dev_set_rx_mode,
--	.ndo_set_multicast_list	= vlan_dev_set_rx_mode,
--	.ndo_change_rx_flags	= vlan_dev_change_rx_flags,
--	.ndo_do_ioctl		= vlan_dev_ioctl,
--	.ndo_neigh_setup	= vlan_dev_neigh_setup,
--	.ndo_get_stats64	= vlan_dev_get_stats64,
--#if defined(CONFIG_FCOE) || defined(CONFIG_FCOE_MODULE)
--	.ndo_fcoe_ddp_setup	= vlan_dev_fcoe_ddp_setup,
--	.ndo_fcoe_ddp_done	= vlan_dev_fcoe_ddp_done,
--	.ndo_fcoe_enable	= vlan_dev_fcoe_enable,
--	.ndo_fcoe_disable	= vlan_dev_fcoe_disable,
--	.ndo_fcoe_get_wwn	= vlan_dev_fcoe_get_wwn,
--#endif
--};
--
- static const struct net_device_ops vlan_netdev_ops_sq = {
- 	.ndo_select_queue	= vlan_dev_select_queue,
- 	.ndo_change_mtu		= vlan_dev_change_mtu,
-@@ -954,31 +888,6 @@ static const struct net_device_ops vlan_netdev_ops_sq = {
- #endif
- };
- 
--static const struct net_device_ops vlan_netdev_accel_ops_sq = {
--	.ndo_select_queue	= vlan_dev_select_queue,
--	.ndo_change_mtu		= vlan_dev_change_mtu,
--	.ndo_init		= vlan_dev_init,
--	.ndo_uninit		= vlan_dev_uninit,
--	.ndo_open		= vlan_dev_open,
--	.ndo_stop		= vlan_dev_stop,
--	.ndo_start_xmit =  vlan_dev_hwaccel_hard_start_xmit,
--	.ndo_validate_addr	= eth_validate_addr,
--	.ndo_set_mac_address	= vlan_dev_set_mac_address,
--	.ndo_set_rx_mode	= vlan_dev_set_rx_mode,
--	.ndo_set_multicast_list	= vlan_dev_set_rx_mode,
--	.ndo_change_rx_flags	= vlan_dev_change_rx_flags,
--	.ndo_do_ioctl		= vlan_dev_ioctl,
--	.ndo_neigh_setup	= vlan_dev_neigh_setup,
--	.ndo_get_stats64	= vlan_dev_get_stats64,
--#if defined(CONFIG_FCOE) || defined(CONFIG_FCOE_MODULE)
--	.ndo_fcoe_ddp_setup	= vlan_dev_fcoe_ddp_setup,
--	.ndo_fcoe_ddp_done	= vlan_dev_fcoe_ddp_done,
--	.ndo_fcoe_enable	= vlan_dev_fcoe_enable,
--	.ndo_fcoe_disable	= vlan_dev_fcoe_disable,
--	.ndo_fcoe_get_wwn	= vlan_dev_fcoe_get_wwn,
--#endif
--};
--
- void vlan_setup(struct net_device *dev)
- {
- 	ether_setup(dev);
-diff --git a/net/8021q/vlanproc.c b/net/8021q/vlanproc.c
-index 80e280f..8a64db1 100644
---- a/net/8021q/vlanproc.c
-+++ b/net/8021q/vlanproc.c
-@@ -299,10 +299,6 @@ static int vlandev_seq_show(struct seq_file *seq, void *offset)
- 	seq_puts(seq, "\n");
- 	seq_printf(seq, fmt64, "total frames transmitted", stats->tx_packets);
- 	seq_printf(seq, fmt64, "total bytes transmitted", stats->tx_bytes);
--	seq_printf(seq, fmt, "total headroom inc",
--		   dev_info->cnt_inc_headroom_on_tx);
--	seq_printf(seq, fmt, "total encap on xmit",
--		   dev_info->cnt_encap_on_xmit);
- 	seq_printf(seq, "Device: %s", dev_info->real_dev->name);
- 	/* now show all PRIORITY mappings relating to this VLAN */
- 	seq_printf(seq, "\nINGRESS priority mappings: "
+1) Fix ipv6 UDP statistic regression, from Eric Dumazet.
 
+2) Fix GRE fallback tunnel init, also from Eric Dumazet.
+
+3) Endianness fixes from vmxnet driver, from Harvey Harrison.
+
+4) New ID for pcnet_cs driver.
+
+5) Stack info leak to userland fix in mISDN, from Kulikov Vasiliy.
+
+6) netxen_nic probe crash due to too early tx queue manipulation,
+   fix from Denis Kirjanov.
+
+7) RDS fixes from you and Andy Grover.
+
+8) Fix sparse and section mismatch problems in new pch_can driver,
+   from Marc Kleine-Budde.
+
+Please pull, thanks a lot!
+
+The following changes since commit b7bdcc47114595b4b359fe0f7d941bb901e9261d:
+
+  Merge branch 'for-linus' of git://git.kernel.org/pub/scm/linux/kernel/git/rostedt/linux-2.6-kconfig (2010-10-29 14:43:30 -0700)
+
+are available in the git repository at:
+
+  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
+
+Andy Grover (4):
+      RDS: Return -EINVAL if rds_rdma_pages returns an error
+      RDS: Clean up error handling in rds_cmsg_rdma_args
+      RDS: Copy rds_iovecs into kernel memory instead of rereading from userspace
+      RDS: Let rds_message_alloc_sgs() return NULL
+
+Cyril Chemparathy (1):
+      phy/marvell: rename 88ec048 to 88e1318s and fix mscr1 addr
+
+Denis Kirjanov (1):
+      netxen_nic: Fix the tx queue manipulation bug in netxen_nic_probe
+
+Eric Dumazet (2):
+      ipv6/udp: report SndbufErrors and RcvbufErrors
+      ip_gre: fix fallback tunnel setup
+
+Hans J. Koch (1):
+      netdev: can: Change mail address of Hans J. Koch
+
+Harvey Harrison (2):
+      vmxnet3: remove unnecessary byteswapping in BAR writing macros
+      vmxnet: trivial annotation of protocol constant
+
+Ken Kawasaki (1):
+      pcnet_cs: add new_id
+
+Kulikov Vasiliy (1):
+      isdn: mISDN: socket: fix information leak to userland
+
+Linus Torvalds (2):
+      net: fix rds_iovec page count overflow
+      net: Truncate recvfrom and sendto length to INT_MAX.
+
+Marc Kleine-Budde (2):
+      can: pch_can: fix sparse warning
+      can: pch_can: fix section mismatch warning by using a whitelisted name
+
+ drivers/isdn/mISDN/socket.c          |    2 +
+ drivers/net/can/at91_can.c           |    2 +-
+ drivers/net/can/pch_can.c            |   10 ++--
+ drivers/net/netxen/netxen_nic_main.c |    1 -
+ drivers/net/pcmcia/pcnet_cs.c        |    1 +
+ drivers/net/phy/marvell.c            |   18 +++---
+ drivers/net/vmxnet3/vmxnet3_drv.c    |    2 +-
+ drivers/net/vmxnet3/vmxnet3_int.h    |    8 +-
+ include/linux/marvell_phy.h          |    2 +-
+ net/ipv4/ip_gre.c                    |    6 +-
+ net/ipv6/proc.c                      |    4 +
+ net/rds/message.c                    |    5 ++
+ net/rds/rdma.c                       |  126 ++++++++++++++++++++++-----------
+ net/rds/send.c                       |    4 +
+ net/socket.c                         |    4 +
+ 15 files changed, 128 insertions(+), 67 deletions(-)
