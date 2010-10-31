@@ -1,79 +1,136 @@
-From: Hans-Christian Egtvedt <hans-christian.egtvedt@atmel.com>
-Subject: Re: [PATCH v2 02/22] bitops: rename generic little-endian bitops
- functions
-Date: Sun, 31 Oct 2010 15:02:44 +0100
-Message-ID: <20101031140244.GA2269@ssg-0.norway.atmel.com>
-References: <1287672077-5797-1-git-send-email-akinobu.mita@gmail.com>
- <1287672077-5797-3-git-send-email-akinobu.mita@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH 1/2] af_unix: fix unix_dgram_poll() behavior for EPOLLOUT
+ event
+Date: Sun, 31 Oct 2010 16:36:23 +0100
+Message-ID: <1288539383.2660.38.camel@edumazet-laptop>
+References: <20101029191857.5f789d56@chocolatine.cbg.collabora.co.uk>
+	 <1288380431.2680.3.camel@edumazet-laptop>
+	 <20101030123403.5e01540d@chocolatine.cbg.collabora.co.uk>
+	 <1288443217.2680.962.camel@edumazet-laptop>
+	 <1288444678.2680.966.camel@edumazet-laptop>
+	 <20101030224703.065e70f6@chocolatine.cbg.collabora.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
-	Arnd Bergmann <arnd@arndb.de>,
-	Christoph Hellwig <hch@infradead.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Hans-Christian Egtvedt <hans-christian.egtvedt@atmel.com>,
-	Geert Uytterhoeven <geert@linux-m68k.org>,
-	Roman Zippel <zippel@linux-m68k.org>,
-	Andreas Schwab <schwab@linux-m68k.org>,
-	linux-m68k@vger.kernel.org, Greg Ungerer <gerg@uclinux.org>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Paul Mackerras <paulus@samba.org>,
-	linuxppc-dev@lists.ozlabs.org,
-	Andy Grover <andy.grover@oracle.com>, rds-devel@oss.oracle.com,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Avi Kivity <avi@redhat.com>,
-	Marcelo Tosatti <mtosatti@redhat.com>, kvm@vger.kernel.org
-To: Akinobu Mita <akinobu.mita@gmail.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1287672077-5797-3-git-send-email-akinobu.mita@gmail.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>,
+	Davide Libenzi <davidel@xmailserver.org>
+To: Alban Crequy <alban.crequy@collabora.co.uk>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:64346 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756030Ab0JaPga (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 31 Oct 2010 11:36:30 -0400
+Received: by wyf28 with SMTP id 28so4696012wyf.19
+        for <netdev@vger.kernel.org>; Sun, 31 Oct 2010 08:36:28 -0700 (PDT)
+In-Reply-To: <20101030224703.065e70f6@chocolatine.cbg.collabora.co.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Around Thu 21 Oct 2010 23:40:57 +0900 or thereabout, Akinobu Mita wrote:
-> As a preparation for providing little-endian bitops for all architectures,
-> This removes generic_ prefix from little-endian bitops function names
-> in asm-generic/bitops/le.h.
-> 
-> s/generic_find_next_le_bit/find_next_le_bit/
-> s/generic_find_next_zero_le_bit/find_next_zero_le_bit/
-> s/generic_find_first_zero_le_bit/find_first_zero_le_bit/
-> s/generic___test_and_set_le_bit/__test_and_set_le_bit/
-> s/generic___test_and_clear_le_bit/__test_and_clear_le_bit/
-> s/generic_test_le_bit/test_le_bit/
-> s/generic___set_le_bit/__set_le_bit/
-> s/generic___clear_le_bit/__clear_le_bit/
-> s/generic_test_and_set_le_bit/test_and_set_le_bit/
-> s/generic_test_and_clear_le_bit/test_and_clear_le_bit/
-> 
-> Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
-> Cc: Hans-Christian Egtvedt <hans-christian.egtvedt@atmel.com>
-> Cc: Geert Uytterhoeven <geert@linux-m68k.org>
-> Cc: Roman Zippel <zippel@linux-m68k.org>
-> Cc: Andreas Schwab <schwab@linux-m68k.org>
-> Cc: linux-m68k@lists.linux-m68k.org
-> Cc: Greg Ungerer <gerg@uclinux.org>
-> Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-> Cc: Paul Mackerras <paulus@samba.org>
-> Cc: linuxppc-dev@lists.ozlabs.org
-> Cc: Andy Grover <andy.grover@oracle.com>
-> Cc: rds-devel@oss.oracle.com
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: netdev@vger.kernel.org
-> Cc: Avi Kivity <avi@redhat.com>
-> Cc: Marcelo Tosatti <mtosatti@redhat.com>
-> Cc: kvm@vger.kernel.org
-> ---
-> No change from previous submission
-> 
->  arch/avr32/kernel/avr32_ksyms.c              |    4 ++--
->  arch/avr32/lib/findbit.S                     |    4 ++--
+Le samedi 30 octobre 2010 =C3=A0 22:47 +0100, Alban Crequy a =C3=A9crit=
+ :
+> Le Sat, 30 Oct 2010 15:17:58 +0200,
+> Eric Dumazet <eric.dumazet@gmail.com> a =C3=A9crit :
+>=20
+> > > Problem is the peer_wait, that epoll doesnt seem to be plugged in=
+to.
+> > >=20
+> > > Bug is in unix_dgram_poll()
+> > >=20
+> > > It calls sock_poll_wait( ... &unix_sk(other)->peer_wait,) only if
+> > > socket is 'writable'. Its a clear bug
+>=20
+> Yes, it looks weird...
+>=20
+> > > Try this patch please ?
+>=20
+> I will be away from computer and I will continue to work on this from
+> the 20th of November.
 
-For the AVR32 changes.
+OK, no problem. I tried it and it solves the problem. Here is an
+official patch submission.
 
-Acked-by: Hans-Christian Egtvedt <hans-christian.egtvedt@atmel.com>
+David, for your convenience, I cooked a patch serie for the 2 patches
+against af_unix unix_dgram_poll().
 
-<snipp patch>
+The third patch (af_unix: unix_write_space() use keyed wakeups)) can be
+applied as is.
 
--- 
-Best regards, Hans-Christian Egtvedt
+Thanks !
+
+[PATCH 1/2] af_unix: fix unix_dgram_poll() behavior for EPOLLOUT event
+
+Alban Crequy reported a problem with connected dgram af_unix sockets an=
+d
+provided a test program. epoll() would miss to send an EPOLLOUT event
+when a thread unqueues a packet from the other peer, making its receive
+queue not full.
+
+This is because unix_dgram_poll() fails to call sock_poll_wait(file,
+&unix_sk(other)->peer_wait, wait);
+if the socket is not writeable at the time epoll_ctl(ADD) is called.=20
+
+We must call sock_poll_wait(), regardless of 'writable' status, so that
+epoll can be notified later of states changes.
+
+Misc: avoids testing twice (sk->sk_shutdown & RCV_SHUTDOWN)
+
+Reported-by: Alban Crequy <alban.crequy@collabora.co.uk>
+Cc: Davide Libenzi <davidel@xmailserver.org>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/unix/af_unix.c |   24 +++++++++---------------
+ 1 file changed, 9 insertions(+), 15 deletions(-)
+
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 0ebc777..7375131 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -2072,13 +2072,12 @@ static unsigned int unix_dgram_poll(struct file=
+ *file, struct socket *sock,
+ 	if (sk->sk_err || !skb_queue_empty(&sk->sk_error_queue))
+ 		mask |=3D POLLERR;
+ 	if (sk->sk_shutdown & RCV_SHUTDOWN)
+-		mask |=3D POLLRDHUP;
++		mask |=3D POLLRDHUP | POLLIN | POLLRDNORM;
+ 	if (sk->sk_shutdown =3D=3D SHUTDOWN_MASK)
+ 		mask |=3D POLLHUP;
+=20
+ 	/* readable? */
+-	if (!skb_queue_empty(&sk->sk_receive_queue) ||
+-	    (sk->sk_shutdown & RCV_SHUTDOWN))
++	if (!skb_queue_empty(&sk->sk_receive_queue))
+ 		mask |=3D POLLIN | POLLRDNORM;
+=20
+ 	/* Connection-based need to check for termination and startup */
+@@ -2090,20 +2089,15 @@ static unsigned int unix_dgram_poll(struct file=
+ *file, struct socket *sock,
+ 			return mask;
+ 	}
+=20
+-	/* writable? */
+ 	writable =3D unix_writable(sk);
+-	if (writable) {
+-		other =3D unix_peer_get(sk);
+-		if (other) {
+-			if (unix_peer(other) !=3D sk) {
+-				sock_poll_wait(file, &unix_sk(other)->peer_wait,
+-					  wait);
+-				if (unix_recvq_full(other))
+-					writable =3D 0;
+-			}
+-
+-			sock_put(other);
++	other =3D unix_peer_get(sk);
++	if (other) {
++		if (unix_peer(other) !=3D sk) {
++			sock_poll_wait(file, &unix_sk(other)->peer_wait, wait);
++			if (unix_recvq_full(other))
++				writable =3D 0;
+ 		}
++		sock_put(other);
+ 	}
+=20
+ 	if (writable)
+
+
