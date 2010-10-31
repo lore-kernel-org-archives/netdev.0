@@ -1,42 +1,42 @@
-From: Vasiliy Kulikov <segooon@gmail.com>
-Subject: [PATCH 3/3] net: tipc: fix information leak to userland
-Date: Sun, 31 Oct 2010 20:10:32 +0300
-Message-ID: <1288545032-16481-1-git-send-email-segooon@gmail.com>
-Cc: Jon Maloy <jon.maloy@ericsson.com>,
-	Allan Stephens <allan.stephens@windriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	tipc-discussion@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: kernel-janitors@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:58185 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756257Ab0JaRKj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 31 Oct 2010 13:10:39 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Dr. David Alan Gilbert" <linux@treblig.org>
+Subject: [PATCH] kzalloc with swapped params in l2tp_dfs_seq_open
+Date: Sun, 31 Oct 2010 17:26:03 +0000
+Message-ID: <20101031172603.GB16459@gallifrey>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: jchapman@katalix.com, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Structure sockaddr_tipc is copied to userland with padding bytes after
-"id" field in union field "name" unitialized.  It leads to leaking of
-contents of kernel stack memory.  We have to initialize them to zero.
+Hi,
+  'sparse' spotted that the parameters to kzalloc in l2tp_dfs_seq_open
+were swapped.
 
-Signed-off-by: Vasiliy Kulikov <segooon@gmail.com>
----
- net/tipc/socket.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+Tested on current git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux-2.6.git
+at 1792f17b7210280a3d7ff29da9614ba779cfcedb  build, boots and I can see that directory,
+but there again I could see /sys/kernel/debug/l2tp with it swapped; I don't have
+any l2tp in use.
 
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 33217fc..e9f0d50 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -396,6 +396,7 @@ static int get_name(struct socket *sock, struct sockaddr *uaddr,
- 	struct sockaddr_tipc *addr = (struct sockaddr_tipc *)uaddr;
- 	struct tipc_sock *tsock = tipc_sk(sock->sk);
+Signed-off-by: Dr. David Alan Gilbert <linux@treblig.org>
+--
+diff --git a/net/l2tp/l2tp_debugfs.c b/net/l2tp/l2tp_debugfs.c
+index 104ec3b..b8dbae8 100644
+--- a/net/l2tp/l2tp_debugfs.c
++++ b/net/l2tp/l2tp_debugfs.c
+@@ -249,7 +249,7 @@ static int l2tp_dfs_seq_open(struct inode *inode, struct file *file)
+ 	struct seq_file *seq;
+ 	int rc = -ENOMEM;
  
-+	memset(addr, 0, sizeof(*addr));
- 	if (peer) {
- 		if ((sock->state != SS_CONNECTED) &&
- 			((peer != 2) || (sock->state != SS_DISCONNECTING)))
+-	pd = kzalloc(GFP_KERNEL, sizeof(*pd));
++	pd = kzalloc(sizeof(*pd), GFP_KERNEL);
+ 	if (pd == NULL)
+ 		goto out;
+ 
 -- 
-1.7.0.4
-
+ -----Open up your eyes, open up your mind, open up your code -------   
+/ Dr. David Alan Gilbert    |       Running GNU/Linux       | Happy  \ 
+\ gro.gilbert @ treblig.org |                               | In Hex /
+ \ _________________________|_____ http://www.treblig.org   |_______/
