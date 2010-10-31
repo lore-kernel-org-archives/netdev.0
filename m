@@ -1,30 +1,27 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] text ematch: check for NULL pointer before destroying
- textsearch config
-Date: Sun, 31 Oct 2010 09:38:00 -0700 (PDT)
-Message-ID: <20101031.093800.104070726.davem@davemloft.net>
-References: <20101031080635.GA22639@canuck.infradead.org>
+From: ASIAWORLD LOAN COMPANY <info@asiaworld.com>
+Subject: AFFORDABLE LOAN OFFER!!!
+Date: Sun, 31 Oct 2010 21:35:55 +0530
+Message-ID: <20101031213555.3geewxgvcoss08k4@202.54.156.184>
+Reply-To: asiaworldloan@yahoo.com.hk
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+	charset=ISO-8859-1;
+	DelSp="Yes";
+	format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: tgraf@infradead.org
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50152
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756185Ab0JaQhg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 31 Oct 2010 12:37:36 -0400
-In-Reply-To: <20101031080635.GA22639@canuck.infradead.org>
+Received: from ns2.fastdnsnetwork.com ([202.54.156.184]:42308 "EHLO
+	ns2.fastdnsnetwork.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756072Ab0JaRBO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 31 Oct 2010 13:01:14 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Graf <tgraf@infradead.org>
-Date: Sun, 31 Oct 2010 04:06:35 -0400
 
-> While validating the configuration em_ops is already set, thus the
-> individual destroy functions are called, but the ematch data has
-> not been allocated and associated with the ematch yet.
-> 
-> Signed-off-by: Thomas Graf <tgraf@infradead.org>
 
-Applied, thanks Thomas.
+  We offer Loan to serious individuals or Organization with low  
+interest rate of
+  3%. Contact us via e-mail: asiaworldloan@yahoo.com.hk or Tel: +233543956345
+
