@@ -1,36 +1,35 @@
-From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
-Subject: Re: [PATCH 0/4] Ethtool: cleanup strategy
-Date: Sun, 31 Oct 2010 05:30:21 +0100
-Message-ID: <20101031043021.GA10462@rere.qmqm.pl>
-References: <cover.1288496404.git.mirq-linux@rere.qmqm.pl> <20101030.211820.229761955.davem@davemloft.net>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 37/39] net/mac80211: Update WARN uses
+Date: Sun, 31 Oct 2010 08:33:01 +0100
+Message-ID: <1288510381.3839.0.camel@jlt3.sipsolutions.net>
+References: <cover.1288471897.git.joe@perches.com>
+	 <de75963e04701e309b86dfee54c36e11873048c2.1288471898.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Kosina <trivial@kernel.org>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:49074 "EHLO rere.qmqm.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751394Ab0JaEaW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 31 Oct 2010 00:30:22 -0400
-Content-Disposition: inline
-In-Reply-To: <20101030.211820.229761955.davem@davemloft.net>
+Received: from he.sipsolutions.net ([78.46.109.217]:56660 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752286Ab0JaHdO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 31 Oct 2010 03:33:14 -0400
+In-Reply-To: <de75963e04701e309b86dfee54c36e11873048c2.1288471898.git.joe@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Oct 30, 2010 at 09:18:20PM -0700, David Miller wrote:
-> Can you do me a huge favor?
->=20
-> In the future make the dates more sensible in your patch postings.
->=20
-> With how you did this, your patches are scattered all over the place
-> in patchwork because it orders things by date, have a look:
->=20
-> http://patchwork.ozlabs.org/project/netdev/list/
+On Sat, 2010-10-30 at 14:08 -0700, Joe Perches wrote:
+> Coalesce long formats.
+> Add missing newlines.
 
-Thanks for the hint.  I used git format-patch and it creates Date
-headers based on git commit time.  I'll probably just filter them
-or git rebase before sending patches from now on.
+> -			WARN(1, "frame for unexpected interface type");
+> +			WARN(1, "frame for unexpected interface type\n");
 
-Best Regards,
-Micha=B3 Miros=B3aw
+But I thought WARN() added a newline...
+
+johannes
+
