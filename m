@@ -1,40 +1,46 @@
-From: David Miller <davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH] jme: fix panic on load
-Date: Sun, 31 Oct 2010 09:26:36 -0700 (PDT)
-Message-ID: <20101031.092636.193730282.davem@davemloft.net>
+Date: Sun, 31 Oct 2010 17:32:12 +0100
+Message-ID: <1288542732.2660.57.camel@edumazet-laptop>
 References: <1288539978.2660.47.camel@edumazet-laptop>
-	<20101031163428.M61655@cooldavid.org>
+	 <20101031163428.M61655@cooldavid.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: cooldavid@cooldavid.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Guo-Fu Tseng <cooldavid@cooldavid.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44642
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756130Ab0JaQ0M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 31 Oct 2010 12:26:12 -0400
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:56546 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756066Ab0JaQcT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 31 Oct 2010 12:32:19 -0400
+Received: by wwe15 with SMTP id 15so5237382wwe.1
+        for <netdev@vger.kernel.org>; Sun, 31 Oct 2010 09:32:18 -0700 (PDT)
 In-Reply-To: <20101031163428.M61655@cooldavid.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Guo-Fu Tseng" <cooldavid@cooldavid.org>
-Date: Mon, 1 Nov 2010 00:39:14 +0800
-
-> On Sun, 31 Oct 2010 16:46:18 +0100, Eric Dumazet wrote
+Le lundi 01 novembre 2010 =C3=A0 00:39 +0800, Guo-Fu Tseng a =C3=A9crit=
+ :
 > Can this patch be modified to move the netif_stop_queue()
 > after register_netdev() ?
 > It seems the __QUEUE_STATE_XOFF is not set after the register_netdev.
 > The tx_queue was kcalloc() ed without touching state flags.
+>=20
 
-At the veyr moment that register_netdev() is called, the
-->open() method of your driver can be invoked and the
-queue state changed.
+Real question is : why this netif_stop_queue() was needed at the first
+place ?
 
-So no, you can't put it after the register call.
+We believe (David and others), that using before ndo_open() is useless
+or a sign of design error.
 
-There is zero reason to touch the queue state in your
-probe routine, the state of the queue before ->open()
-is "don't care".
+http://www.spinics.net/lists/netdev/msg145481.html
 
-Eric's patch is going to be applied, it is correct.
+
+Refs: commit c117e4a2bb4911
+
+If your driver doesnt work after my change, then another patch is
+needed, but not using netif_stop_queue() right after register_netdev()
+
+
+
