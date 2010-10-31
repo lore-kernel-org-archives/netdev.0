@@ -1,35 +1,38 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 37/39] net/mac80211: Update WARN uses
-Date: Sun, 31 Oct 2010 08:33:01 +0100
-Message-ID: <1288510381.3839.0.camel@jlt3.sipsolutions.net>
-References: <cover.1288471897.git.joe@perches.com>
-	 <de75963e04701e309b86dfee54c36e11873048c2.1288471898.git.joe@perches.com>
+From: Thomas Graf <tgraf@infradead.org>
+Subject: [PATCH] text ematch: check for NULL pointer before destroying
+ textsearch config
+Date: Sun, 31 Oct 2010 04:06:35 -0400
+Message-ID: <20101031080635.GA22639@canuck.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Kosina <trivial@kernel.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from he.sipsolutions.net ([78.46.109.217]:56660 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752286Ab0JaHdO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 31 Oct 2010 03:33:14 -0400
-In-Reply-To: <de75963e04701e309b86dfee54c36e11873048c2.1288471898.git.joe@perches.com>
+Received: from canuck.infradead.org ([134.117.69.58]:54164 "EHLO
+	canuck.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753252Ab0JaIGg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 31 Oct 2010 04:06:36 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2010-10-30 at 14:08 -0700, Joe Perches wrote:
-> Coalesce long formats.
-> Add missing newlines.
+While validating the configuration em_ops is already set, thus the
+individual destroy functions are called, but the ematch data has
+not been allocated and associated with the ematch yet.
 
-> -			WARN(1, "frame for unexpected interface type");
-> +			WARN(1, "frame for unexpected interface type\n");
+Signed-off-by: Thomas Graf <tgraf@infradead.org>
 
-But I thought WARN() added a newline...
-
-johannes
-
+Index: net-2.6/net/sched/em_text.c
+===================================================================
+--- net-2.6.orig/net/sched/em_text.c
++++ net-2.6/net/sched/em_text.c
+@@ -103,7 +103,8 @@ retry:
+ 
+ static void em_text_destroy(struct tcf_proto *tp, struct tcf_ematch *m)
+ {
+-	textsearch_destroy(EM_TEXT_PRIV(m)->config);
++	if (EM_TEXT_PRIV(m) && EM_TEXT_PRIV(m)->config)
++		textsearch_destroy(EM_TEXT_PRIV(m)->config);
+ }
+ 
+ static int em_text_dump(struct sk_buff *skb, struct tcf_ematch *m)
