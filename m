@@ -1,42 +1,33 @@
-From: "Dr. David Alan Gilbert" <linux@treblig.org>
-Subject: [PATCH] kzalloc with swapped params in l2tp_dfs_seq_open
-Date: Sun, 31 Oct 2010 17:26:03 +0000
-Message-ID: <20101031172603.GB16459@gallifrey>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: Re: [PATCH 1/3] net: ax25: fix information leak to userland
+Date: Sun, 31 Oct 2010 18:00:06 +0000
+Message-ID: <20101031180005.GA26588@linux-mips.org>
+References: <1288545022-16393-1-git-send-email-segooon@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jchapman@katalix.com, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: kernel-janitors@vger.kernel.org, Joerg Reuter <jreuter@yaina.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-hams@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Vasiliy Kulikov <segooon@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from h5.dl5rb.org.uk ([81.2.74.5]:42736 "EHLO h5.dl5rb.org.uk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756283Ab0JaSAP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 31 Oct 2010 14:00:15 -0400
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1288545022-16393-1-git-send-email-segooon@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
-  'sparse' spotted that the parameters to kzalloc in l2tp_dfs_seq_open
-were swapped.
+On Sun, Oct 31, 2010 at 08:10:22PM +0300, Vasiliy Kulikov wrote:
 
-Tested on current git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux-2.6.git
-at 1792f17b7210280a3d7ff29da9614ba779cfcedb  build, boots and I can see that directory,
-but there again I could see /sys/kernel/debug/l2tp with it swapped; I don't have
-any l2tp in use.
+> Sometimes ax25_getname() doesn't initialize all members of fsa_digipeater
+> field of fsa struct.  This structure is then copied to userland.  It leads to
+> leaking of contents of kernel stack memory.  We have to initialize them to zero.
+> 
+> Signed-off-by: Vasiliy Kulikov <segooon@gmail.com>
 
-Signed-off-by: Dr. David Alan Gilbert <linux@treblig.org>
---
-diff --git a/net/l2tp/l2tp_debugfs.c b/net/l2tp/l2tp_debugfs.c
-index 104ec3b..b8dbae8 100644
---- a/net/l2tp/l2tp_debugfs.c
-+++ b/net/l2tp/l2tp_debugfs.c
-@@ -249,7 +249,7 @@ static int l2tp_dfs_seq_open(struct inode *inode, struct file *file)
- 	struct seq_file *seq;
- 	int rc = -ENOMEM;
- 
--	pd = kzalloc(GFP_KERNEL, sizeof(*pd));
-+	pd = kzalloc(sizeof(*pd), GFP_KERNEL);
- 	if (pd == NULL)
- 		goto out;
- 
--- 
- -----Open up your eyes, open up your mind, open up your code -------   
-/ Dr. David Alan Gilbert    |       Running GNU/Linux       | Happy  \ 
-\ gro.gilbert @ treblig.org |                               | In Hex /
- \ _________________________|_____ http://www.treblig.org   |_______/
+Acked-by: Ralf Baechle <ralf@linux-mips.org>
+
+  Ralf
