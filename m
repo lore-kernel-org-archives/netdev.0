@@ -1,35 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [ANNOUNCE] Host Fabric Interface (HFI) device driver available
- on sourceforge
-Date: Sat, 30 Oct 2010 21:08:06 -0700 (PDT)
-Message-ID: <20101030.210806.232732630.davem@davemloft.net>
-References: <4CCCDE23.1090202@linux.vnet.ibm.com>
+Subject: Re: [PATCH 0/4] Ethtool: cleanup strategy
+Date: Sat, 30 Oct 2010 21:18:20 -0700 (PDT)
+Message-ID: <20101030.211820.229761955.davem@davemloft.net>
+References: <cover.1288496404.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dykmanj@linux.vnet.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37854
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750730Ab0JaEHm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 31 Oct 2010 00:07:42 -0400
-In-Reply-To: <4CCCDE23.1090202@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-net-drivers@solarflare.com, ddutt@brocade.com,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	gregkh@suse.de, rmody@brocade.com, linux-driver@qlogic.com,
+	steve.glendinning@smsc.com, kristoffer@gaisler.com
+To: mirq-linux@rere.qmqm.pl
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <cover.1288496404.git.mirq-linux@rere.qmqm.pl>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-From: Jim Dykman <dykmanj@linux.vnet.ibm.com>
-Date: Sat, 30 Oct 2010 23:10:27 -0400
 
-> The HFI network interface is the internal cluster fabric of IBM's
-> PERCS supercomputer. The device driver patch for 2.6.36, hfi-utils,
-> and an introduction to the hardware are available on the sourceforge
-> page (http://sourceforge.net/projects/hfidevicedriver). The hardware
-> design is under US export control, so we cannot release hardware
-> specs.
+Can you do me a huge favor?
 
-Nobody is going to look at your code, let alone help review it
-for inclusion, if you just say "go look at this stuff on this
-sourceforge web site."
+In the future make the dates more sensible in your patch postings.
 
-You have to post the kernel patches here, one by one.
+With how you did this, your patches are scattered all over the place
+in patchwork because it orders things by date, have a look:
+
+http://patchwork.ozlabs.org/project/netdev/list/
+
+Thanks.
+
+------------------------------------------------------------------------------
+Nokia and AT&T present the 2010 Calling All Innovators-North America contest
+Create new apps & games for the Nokia N8 for consumers in  U.S. and Canada
+$10 million total in prizes - $4M cash, 500 devices, nearly $6M in marketing
+Develop with Nokia Qt SDK, Web Runtime, or Java and Publish to Ovi Store 
+http://p.sf.net/sfu/nokia-dev2dev
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
