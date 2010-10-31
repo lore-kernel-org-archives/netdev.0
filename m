@@ -1,31 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] isdn: mISDN: socket: fix information leak to userland
-Date: Sat, 30 Oct 2010 16:49:54 -0700 (PDT)
-Message-ID: <20101030.164954.179924837.davem@davemloft.net>
-References: <1288429473-21864-1-git-send-email-segooon@gmail.com>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: [net-next-2.6 PATCH 1/3] 8021q: set hard_header_len when VLAN offload
+	features are toggled
+Date: Sat, 30 Oct 2010 17:22:32 -0700
+Message-ID: <20101031002232.8691.41201.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@vger.kernel.org, isdn@linux-pingi.de,
-	acme@redhat.com, tj@kernel.org, eparis@redhat.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: segooon@gmail.com
+Cc: netdev@vger.kernel.org, jesse@nicira.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56907
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754282Ab0J3Xtb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Oct 2010 19:49:31 -0400
-In-Reply-To: <1288429473-21864-1-git-send-email-segooon@gmail.com>
+Received: from mga09.intel.com ([134.134.136.24]:53425 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754117Ab0JaAYr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 30 Oct 2010 20:24:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vasiliy Kulikov <segooon@gmail.com>
-Date: Sat, 30 Oct 2010 13:04:33 +0400
+Toggling the vlan tx|rx hw offloads needs to set the hard_header_len
+as well otherwise we end up using LL_RESERVED_SPACE incorrectly.
+This results in pskb_expand_head() being used unnecessarily.
 
-> Structure mISDN_devinfo is copied to userland with the field "name"
-> that has the last elements unitialized.  It leads to leaking of
-> contents of kernel stack memory.
-> 
-> Signed-off-by: Vasiliy Kulikov <segooon@gmail.com>
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+---
 
-Applied.
+ net/8021q/vlan.c |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
+
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index 05b867e..cb78b99 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -334,6 +334,12 @@ static void vlan_transfer_features(struct net_device *dev,
+ 	vlandev->features &= ~dev->vlan_features;
+ 	vlandev->features |= dev->features & dev->vlan_features;
+ 	vlandev->gso_max_size = dev->gso_max_size;
++
++	if (dev->features & NETIF_F_HW_VLAN_TX)
++		vlandev->hard_header_len = dev->hard_header_len;
++	else
++		vlandev->hard_header_len = dev->hard_header_len + VLAN_HLEN;
++
+ #if defined(CONFIG_FCOE) || defined(CONFIG_FCOE_MODULE)
+ 	vlandev->fcoe_ddp_xid = dev->fcoe_ddp_xid;
+ #endif
+
