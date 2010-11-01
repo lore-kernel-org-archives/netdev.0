@@ -1,71 +1,85 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Routing over multiple interfaces
-Date: Mon, 01 Nov 2010 22:35:30 +0100
-Message-ID: <1288647330.2660.116.camel@edumazet-laptop>
-References: <1288645922.5977.41.camel@macbook.infradead.org>
-	 <20101101.141638.116372747.davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 4/4] Ethtool: convert get_tx_csum/set_tx_csum calls to
+ hw_features flags
+Date: Mon, 01 Nov 2010 21:38:57 +0000
+Message-ID: <1288647537.2231.81.camel@achroite.uk.solarflarecom.com>
+References: <cover.1288496404.git.mirq-linux@rere.qmqm.pl>
+	 <904bc8c98062fc793573ee6bc120ed0b8af292d2.1288496405.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: dwmw2@infradead.org, netdev@vger.kernel.org, uweber@astaro.com
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
+	Steve Glendinning <steve.glendinning@smsc.com>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	Rasesh Mody <rmody@brocade.com>,
+	Debashis Dutt <ddutt@brocade.com>,
+	Kristoffer Glembo <kristoffer@gaisler.com>,
+	linux-driver@qlogic.com, linux-net-drivers@solarflare.com
+To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:36022 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750749Ab0KAVfi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Nov 2010 17:35:38 -0400
-Received: by wwe15 with SMTP id 15so6624306wwe.1
-        for <netdev@vger.kernel.org>; Mon, 01 Nov 2010 14:35:37 -0700 (PDT)
-In-Reply-To: <20101101.141638.116372747.davem@davemloft.net>
+Received: from exchange.solarflare.com ([216.237.3.220]:26651 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755220Ab0KAVjC convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Nov 2010 17:39:02 -0400
+In-Reply-To: <904bc8c98062fc793573ee6bc120ed0b8af292d2.1288496405.git.mirq-linux@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 01 novembre 2010 =C3=A0 14:16 -0700, David Miller a =C3=A9crit=
- :
-> From: David Woodhouse <dwmw2@infradead.org>
-> Date: Mon, 01 Nov 2010 17:12:02 -0400
->=20
-> > But when I do a large upload, I find that the kernel is only ever u=
-sing
-> > a *single* link at a time, rather than both. How can I make it use
-> > *both* links? It's fine to confine each flow to a single link if it
-> > doesn't saturate that link... but once the queue is full, it should
-> > overflow onto the other device.
->=20
-> Once a TCP socket gets a routing cache entry, that's what it uses
-> for the rest of the life of the connection.
->=20
-> The multi-pathing decision happens at the time the routing
-> cache entry is created.
->=20
-> What you want is multi-path routing support in the routing cache.
->=20
-> We used to have that, but the guy who implemented it (after bugging
-> me to integrate it for 4 months straight, non-stop) just did a code
-> dump and then disappeared and fixed none of the serious fundamental
-> problems which existed in his code.
->=20
-> After a year of no action, I simply tore out all of his code.
->=20
-> More recently Ulrich Weber gave a presentation at netfilter workshop
-> on some uplink load balancing work he is doing, you might have
-> a look at his talk and get in contact with him:
->=20
-> http://people.astaro.com/uweber/uplink_balancing.pdf
-> --
+On Sun, 2010-10-31 at 02:09 +0200, Micha=C5=82 Miros=C5=82aw wrote:
+[...]
+> diff --git a/drivers/net/dm9000.c b/drivers/net/dm9000.c
+> index 9f6aeef..5ba4535 100644
+> --- a/drivers/net/dm9000.c
+> +++ b/drivers/net/dm9000.c
+> @@ -132,7 +132,6 @@ typedef struct board_info {
+>  	u32		wake_state;
+> =20
+>  	int		rx_csum;
+> -	int		can_csum;
+>  	int		ip_summed;
+>  } board_info_t;
+> =20
+> @@ -480,7 +479,7 @@ static int dm9000_set_rx_csum_unlocked(struct net=
+_device *dev, uint32_t data)
+>  {
+>  	board_info_t *dm =3D to_dm9000_board(dev);
+> =20
+> -	if (dm->can_csum) {
+> +	if (dev->hw_features & NETIF_F_IP_CSUM) {
 
-Astaro case is a bit different, since links have different IP addresses=
-,
-and a single upload uses a single link anyway because of hashing or
-policy that selects one source IP address.
+This is a bit ugly because can_csum is being used to indicate RX
+checksum offload capability whereas the checksum feature flags logicall=
+y
+indicate TX checksum offload capability.  Of course, the two hardware
+features are highly correlated!
 
-David W. probably wants to use teql or some bonding ?
+[...]
+> diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+> index 9b0e598..95e8b7a 100644
+> --- a/net/core/ethtool.c
+> +++ b/net/core/ethtool.c
+[...]
+> @@ -1077,12 +1039,18 @@ static int __ethtool_set_sg(struct net_device=
+ *dev, u32 data)
+>  	return 0;
+>  }
+> =20
+> +static u32 ethtool_get_tx_csum(struct net_device *dev)
+> +{
+> +	return (dev->features & (NETIF_F_ALL_CSUM|NETIF_F_SCTP_CSUM)) !=3D =
+0;
+> +}
+> +
+[...]
 
-# tc qdisc add dev ppp0 root teql0
-# tc qdisc add dev ppp1 root teql0
-# ip link set dev teql0 up
-# ip route add default src 90.155.92.214 dev teql0
+It seems to me that NETIF_F_SCTP_CSUM should be added to
+NETIF_F_ALL_CSUM, though that may cause problems in some other places
+NETIF_F_ALL_CSUM is used.
 
+Ben.
 
-
+--=20
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
