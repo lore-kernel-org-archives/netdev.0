@@ -1,50 +1,93 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [patch] netlink: use TID instead of PID for automatic id
-	assignment
-Date: Sun, 31 Oct 2010 21:25:48 -0500
-Message-ID: <20101101022548.GA27367@gondor.apana.org.au>
-References: <alpine.LNX.2.01.1010312013100.20872@obet.zrqbmnf.qr>
+From: "Joseph Chang" <joseph_chang@mail.davicom.com.tw>
+Subject: RE: About the Davicom PHY in drivers/net/phy in Linux kernel
+Date: Mon, 1 Nov 2010 10:27:25 +0800
+Message-ID: <20101101022039.5EF1F5F951@mail.davicom.com.tw>
+References: <50FD90C65C53FB45BADEEBCD84FF07F202A62479@ATCPCS06.andestech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Jan Engelhardt <jengelh@medozas.de>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <afleming@freescale.com>, <jeff@garzik.org>,
+	<f.rodo@til-technologies.fr>
+To: <macpaul@andestech.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:59661 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754955Ab0KACZ5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 31 Oct 2010 22:25:57 -0400
-Content-Disposition: inline
-In-Reply-To: <alpine.LNX.2.01.1010312013100.20872@obet.zrqbmnf.qr>
+Received: from davicom.com.tw ([202.39.11.22]:39523 "EHLO mail.davicom.com.tw"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753816Ab0KAC1i convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 31 Oct 2010 22:27:38 -0400
+In-Reply-To: <50FD90C65C53FB45BADEEBCD84FF07F202A62479@ATCPCS06.andestech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Oct 31, 2010 at 08:14:00PM +0100, Jan Engelhardt wrote:
-> parent 3985c7ce85039adacdf882904ca096f091d39346 (v2.6.36-9871-g3985c7c)
-> commit 183ded547d51508f23f6c18a999f6c165e66c99e
-> Author: Jan Engelhardt <jengelh@medozas.de>
-> Date:   Sun Oct 31 20:09:36 2010 +0100
-> 
-> netlink: use TID instead of PID for automatic id assignment
-> 
-> This makes it easier to identify processes in the output of `ss -af
-> netlink` - as I see no reason to force negative space numbers upon
-> all but the first socket in a thread group.
-> 
-> Turns out this reverts v2.6.15-rc4~65.
-> 
-> Cc: Herbert Xu <herbert@gondor.apana.org.au>
-> Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
+Dear MacPaul,
 
-Nack.  Sockets are typically shared amongst threads so using the
-ID of the thread that created it doesn't make much sense when
-all the threads in that group use it to send/receive messages.
+   1.Yes. I have downloaded it. And below is the know items.
+  =20
+     DM9161A
+     cpu: Faraday A320 (arm920t) + Andes AG101 (NDS32) ;SoC
+     OS: Linux: 2.6.32
+     Actions:
+       - davicom.c             // Download from LXR
+       - include-linux-mii.h   // Download from LXR
 
-In any case, this field should not be relied on (please google
-the thread "netlink nlmsg_pid supposed to be pid or tid?") as
-anybody can claim your PID in the netlink name space.
+   2.Your quote is right. Please tell us the test result.
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+   3.I have a question for you,
+   Where is your company? I browse for andestech, And found that andest=
+ech located at
+    SiSoft SIPP Center! (Address: 2F, No.1, Li-Hsin First Road, Science=
+-Based Industrial Park)=20
+    Is it right?=20
+
+Best Regards,
+Joseph CHANG=20
+System Application Engineering Division=20
+Davicom Semiconductor, Inc.=20
+No. 6 Li-Hsin Rd. VI, Science-Based Park,=20
+Hsin-Chu, Taiwan.=20
+Tel: 886-3-5798797 Ex 8534
+=46ax: 886-3-5646929=20
+Web: http://www.davicom.com.tw=20
+
+-----Original Message-----
+=46rom: macpaul@andestech.com [mailto:macpaul@andestech.com]=20
+Sent: Friday, October 29, 2010 3:47 PM
+To: joseph_chang@mail.davicom.com.tw; netdev@vger.kernel.org
+Cc: afleming@freescale.com; jeff@garzik.org; f.rodo@til-technologies.fr
+Subject: RE: About the Davicom PHY in drivers/net/phy in Linux kernel
+
+Hi Joseph,
+
+I just followed up your suggestion in previous mail, let me quote them =
+here:
+
+# quote
+The recommend is changed to be as below:
+ err =3D phy_write(phydev, MII_BMCR, BMCR_RESET);
+    //err =3D phy_write(phydev, MII_BMCR, BMCR_ISOLATE);
+   err =3D phy_write(phydev, MII_DM9161_SCR, MII_DM9161_SCR_INIT);
+   err =3D phy_write(phydev, MII_DM9161_10BTCSR, MII_DM9161_10BTCSR_INI=
+T);
+  // err =3D phy_write(phydev, MII_NWAYTEST, 0x10);
+    err =3D phy_write(phydev, MII_BMCR, BMCR_ANENABLE | BMCR_ANRESTART)=
+;
+  *Note: Added a PHY reset command.
+# end quote
+>=20
+>  * =3D=3D > Would you tell us your:
+> =EF=83=98	CPU =3D ?
+SoC: Faraday A320 (arm920t) / Andes AG101 (NDS32)
+> =EF=83=98	Linux Kernel version=3D ?
+Linux: 2.6.32
+>       I will like to download the same source code from LXR.
+>       And can check more detail for you.
+
+I've believed that you have download the source already. :-)
+
+
+
+--=20
+This message has been scanned for viruses and
+dangerous content by MailScanner, and is
+believed to be clean.
+
+
