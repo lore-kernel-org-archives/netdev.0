@@ -1,50 +1,38 @@
-From: Dan Carpenter <error27@gmail.com>
-Subject: Re: [patch v3] fix stack overflow in pktgen_if_write()
-Date: Mon, 1 Nov 2010 05:47:35 +0200
-Message-ID: <20101101034721.GA14069@bicker>
-References: <1288206788-21063-1-git-send-email-nelhage@ksplice.com> <20101027221234.GN6062@bicker> <20101027224302.GQ6062@bicker> <20101027230657.GT16803@ksplice.com> <20101028060529.GX6062@bicker> <87lj5hud36.fsf@basil.nowhere.org>
+From: Amit Salecha <amit.salecha@qlogic.com>
+Subject: RE: NULL pointer dereference at netxen_nic_probe+0x813/0x9a0
+Date: Sun, 31 Oct 2010 23:56:28 -0500
+Message-ID: <99737F4847ED0A48AECC9F4A1974A4B80FCEAB434C@MNEXMB2.qlogic.org>
+References: <201010281250.50802.bjorn.helgaas@hp.com>
+	<AANLkTim8coGDmxxCnhzXXLEswf1OYptswbA59BYcbp-N@mail.gmail.com>
+	<4CCB24CA.3050106@kernel.org>
+ <20101029.125403.71123384.davem@davemloft.net>,<4CCC7868.60104@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Nelson Elhage <nelhage@ksplice.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Robert Olsson <robert.olsson@its.uu.se>,
-	Andy Shevchenko <andy.shevchenko@gmail.com>,
-	netdev@vger.kernel.org
-To: Andi Kleen <andi@firstfloor.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "bjorn.helgaas@hp.com" <bjorn.helgaas@hp.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Denis Kirjanov <dkirjanov@kernel.org>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:48526 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751389Ab0KADrx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 31 Oct 2010 23:47:53 -0400
-Received: by vws13 with SMTP id 13so3129863vws.19
-        for <netdev@vger.kernel.org>; Sun, 31 Oct 2010 20:47:52 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <87lj5hud36.fsf@basil.nowhere.org>
+Received: from avexcashub1.qlogic.com ([198.70.193.61]:53942 "EHLO
+	avexcashub1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750933Ab0KAE6R convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Nov 2010 00:58:17 -0400
+In-Reply-To: <4CCC7868.60104@kernel.org>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > @@ -887,12 +887,17 @@ static ssize_t pktgen_if_write(struct file *file,
-> >  	i += len;
-> >  
-> >  	if (debug) {
-> > -		char tb[count + 1];
-> > +		char *tb;
-> > +
-> > +		tb = kmalloc(count + 1, GFP_KERNEL);
-> 
-> 
-> This is still trivially exploitable (for root) -- think what happens
-> when count is near ULONG_MAX
-> 
+> Ok, thanks Dave, now I see.
+>
+> [PATCH] netxen_nic: Fix the tx queue manipulation bug in netxen_nic_probe
+>
+> We should not stop the egress queue during probe because it is wrong.
+>
+>Signed-off-by: Denis Kirjanov <dkirjanov@kernel.org>
+> ---
+> drivers/net/netxen/netxen_nic_main.c |    1 -
+> 1 files changed, 0 insertions(+), 1 deletions(-)
 
-In vfs_write() we call rw_verify_area() which caps count at INT_MAX or
-LONG_MAX.
-
-        if (unlikely((ssize_t) count < 0))
-                return retval;
-
-So I get lucky this time...  ;)
-
-regards,
-dan carpenter
+Thanks Denis, for fixing this.
