@@ -1,304 +1,252 @@
 From: Sjur Braendeland <sjur.brandeland@stericsson.com>
-Subject: [PATCH 1/2] caif: Bugfix for socket priority, bindtodev and dbg channel.
-Date: Mon,  1 Nov 2010 22:52:47 +0100
-Message-ID: <1288648368-9062-1-git-send-email-sjur.brandeland@stericsson.com>
+Subject: [PATCH 2/2] caif: SPI-driver bugfix - incorrect padding.
+Date: Mon,  1 Nov 2010 22:52:48 +0100
+Message-ID: <1288648368-9062-2-git-send-email-sjur.brandeland@stericsson.com>
+References: <1288648368-9062-1-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?q?Andr=C3=A9=20Carvalho=20de=20Matos?=
-	<andre.carvalho.matos@stericsson.com>,
-	Sjur Braendeland <sjur.brandeland@stericsson.com>
+Cc: =?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>
 To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:53297 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751125Ab0KAVwx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Nov 2010 17:52:53 -0400
-Received: by eye27 with SMTP id 27so3559902eye.19
-        for <netdev@vger.kernel.org>; Mon, 01 Nov 2010 14:52:52 -0700 (PDT)
+Received: from mail-ew0-f46.google.com ([209.85.215.46]:35010 "EHLO
+	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751534Ab0KAVwy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Nov 2010 17:52:54 -0400
+Received: by ewy7 with SMTP id 7so3675566ewy.19
+        for <netdev@vger.kernel.org>; Mon, 01 Nov 2010 14:52:53 -0700 (PDT)
+In-Reply-To: <1288648368-9062-1-git-send-email-sjur.brandeland@stericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Andr=C3=A9 Carvalho de Matos <andre.carvalho.matos@stericsson.c=
-om>
+=46rom: Sjur Br=C3=A6ndeland <sjur.brandeland@stericsson.com>
 
-Changes:
-o Bugfix: SO_PRIORITY for SOL_SOCKET could not be handled
-  in caif's setsockopt,  using the struct sock attribute priority inste=
-ad.
-
-o Bugfix: SO_BINDTODEVICE for SOL_SOCKET could not be handled
-  in caif's setsockopt,  using the struct sock attribute ifindex instea=
-d.
-
-o Wrong assert statement for RFM layer segmentation.
-
-o CAIF Debug channels was not working over SPI, caif_payload_info
-  containing padding info must be initialized.
-
-o Check on pointer before dereferencing when unregister dev in caif_dev=
-=2Ec
 
 Signed-off-by: Sjur Braendeland <sjur.brandeland@stericsson.com>
 ---
- include/net/caif/caif_dev.h |    4 +-
- include/net/caif/cfcnfg.h   |    8 +++---
- net/caif/caif_config_util.c |   13 +++++++++--
- net/caif/caif_dev.c         |    2 +
- net/caif/caif_socket.c      |   45 ++++++++++++++---------------------=
--------
- net/caif/cfcnfg.c           |   17 ++++++---------
- net/caif/cfdbgl.c           |   14 +++++++++++++
- net/caif/cfrfml.c           |    2 +-
- 8 files changed, 55 insertions(+), 50 deletions(-)
+ drivers/net/caif/caif_spi.c       |   57 +++++++++++++++++++++++++++--=
+--------
+ drivers/net/caif/caif_spi_slave.c |   13 ++++++--
+ include/net/caif/caif_spi.h       |    2 +
+ 3 files changed, 53 insertions(+), 19 deletions(-)
 
-diff --git a/include/net/caif/caif_dev.h b/include/net/caif/caif_dev.h
-index 6da573c..8eff83b 100644
---- a/include/net/caif/caif_dev.h
-+++ b/include/net/caif/caif_dev.h
-@@ -28,7 +28,7 @@ struct caif_param {
-  * @sockaddr:		Socket address to connect.
-  * @priority:		Priority of the connection.
-  * @link_selector:	Link selector (high bandwidth or low latency)
-- * @link_name:		Name of the CAIF Link Layer to use.
-+ * @ifindex:		kernel index of the interface.
-  * @param:		Connect Request parameters (CAIF_SO_REQ_PARAM).
-  *
-  * This struct is used when connecting a CAIF channel.
-@@ -39,7 +39,7 @@ struct caif_connect_request {
- 	struct sockaddr_caif sockaddr;
- 	enum caif_channel_priority priority;
- 	enum caif_link_selector link_selector;
--	char link_name[16];
-+	int ifindex;
- 	struct caif_param param;
+diff --git a/drivers/net/caif/caif_spi.c b/drivers/net/caif/caif_spi.c
+index 8427533..8b4cea5 100644
+--- a/drivers/net/caif/caif_spi.c
++++ b/drivers/net/caif/caif_spi.c
+@@ -33,6 +33,9 @@ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Daniel Martensson<daniel.martensson@stericsson.com>");
+ MODULE_DESCRIPTION("CAIF SPI driver");
+=20
++/* Returns the number of padding bytes for alignment. */
++#define PAD_POW2(x, pow) ((((x)&((pow)-1))=3D=3D0) ? 0 : (((pow)-((x)&=
+((pow)-1)))))
++
+ static int spi_loop;
+ module_param(spi_loop, bool, S_IRUGO);
+ MODULE_PARM_DESC(spi_loop, "SPI running in loopback mode.");
+@@ -41,7 +44,10 @@ MODULE_PARM_DESC(spi_loop, "SPI running in loopback =
+mode.");
+ module_param(spi_frm_align, int, S_IRUGO);
+ MODULE_PARM_DESC(spi_frm_align, "SPI frame alignment.");
+=20
+-/* SPI padding options. */
++/*
++ * SPI padding options.
++ * Warning: must be a base of 2 (& operation used) and can not be zero=
+ !
++ */
+ module_param(spi_up_head_align, int, S_IRUGO);
+ MODULE_PARM_DESC(spi_up_head_align, "SPI uplink head alignment.");
+=20
+@@ -240,15 +246,13 @@ static ssize_t dbgfs_frame(struct file *file, cha=
+r __user *user_buf,
+ static const struct file_operations dbgfs_state_fops =3D {
+ 	.open =3D dbgfs_open,
+ 	.read =3D dbgfs_state,
+-	.owner =3D THIS_MODULE,
+-	.llseek =3D default_llseek,
++	.owner =3D THIS_MODULE
  };
 =20
-diff --git a/include/net/caif/cfcnfg.h b/include/net/caif/cfcnfg.h
-index bd646fa..f688478 100644
---- a/include/net/caif/cfcnfg.h
-+++ b/include/net/caif/cfcnfg.h
-@@ -139,10 +139,10 @@ struct dev_info *cfcnfg_get_phyid(struct cfcnfg *=
-cnfg,
- 		     enum cfcnfg_phy_preference phy_pref);
+ static const struct file_operations dbgfs_frame_fops =3D {
+ 	.open =3D dbgfs_open,
+ 	.read =3D dbgfs_frame,
+-	.owner =3D THIS_MODULE,
+-	.llseek =3D default_llseek,
++	.owner =3D THIS_MODULE
+ };
 =20
- /**
-- * cfcnfg_get_named() - Get the Physical Identifier of CAIF Link Layer
-+ * cfcnfg_get_id_from_ifi() - Get the Physical Identifier of ifindex,
-+ * 			it matches caif physical id with the kernel interface id.
-  * @cnfg:	Configuration object
-- * @name:	Name of the Physical Layer (Caif Link Layer)
-+ * @ifi:	ifindex obtained from socket.c bindtodevice.
-  */
--int cfcnfg_get_named(struct cfcnfg *cnfg, char *name);
--
-+int cfcnfg_get_id_from_ifi(struct cfcnfg *cnfg, int ifi);
- #endif				/* CFCNFG_H_ */
-diff --git a/net/caif/caif_config_util.c b/net/caif/caif_config_util.c
-index 76ae683..d522d8c 100644
---- a/net/caif/caif_config_util.c
-+++ b/net/caif/caif_config_util.c
-@@ -16,11 +16,18 @@ int connect_req_to_link_param(struct cfcnfg *cnfg,
- {
- 	struct dev_info *dev_info;
- 	enum cfcnfg_phy_preference pref;
-+	int res;
+ static inline void dev_debugfs_add(struct cfspi *cfspi)
+@@ -337,6 +341,9 @@ int cfspi_xmitfrm(struct cfspi *cfspi, u8 *buf, siz=
+e_t len)
+ 	u8 *dst =3D buf;
+ 	caif_assert(buf);
+=20
++	if (cfspi->slave && !cfspi->slave_talked)
++		cfspi->slave_talked =3D true;
 +
- 	memset(l, 0, sizeof(*l));
--	l->priority =3D s->priority;
-+	/* In caif protocol low value is high priority */
-+	l->priority =3D CAIF_PRIO_MAX - s->priority + 1;
+ 	do {
+ 		struct sk_buff *skb;
+ 		struct caif_payload_info *info;
+@@ -357,8 +364,8 @@ int cfspi_xmitfrm(struct cfspi *cfspi, u8 *buf, siz=
+e_t len)
+ 		 * Compute head offset i.e. number of bytes to add to
+ 		 * get the start of the payload aligned.
+ 		 */
+-		if (spi_up_head_align) {
+-			spad =3D 1 + ((info->hdr_len + 1) & spi_up_head_align);
++		if (spi_up_head_align > 1) {
++			spad =3D 1 + PAD_POW2((info->hdr_len + 1), spi_up_head_align);
+ 			*dst =3D (u8)(spad - 1);
+ 			dst +=3D spad;
+ 		}
+@@ -373,7 +380,7 @@ int cfspi_xmitfrm(struct cfspi *cfspi, u8 *buf, siz=
+e_t len)
+ 		 * Compute tail offset i.e. number of bytes to add to
+ 		 * get the complete CAIF frame aligned.
+ 		 */
+-		epad =3D (skb->len + spad) & spi_up_tail_align;
++		epad =3D PAD_POW2((skb->len + spad), spi_up_tail_align);
+ 		dst +=3D epad;
 =20
--	if (s->link_name[0] !=3D '\0')
--		l->phyid =3D cfcnfg_get_named(cnfg, s->link_name);
-+	if (s->ifindex !=3D 0){
-+		res =3D cfcnfg_get_id_from_ifi(cnfg, s->ifindex);
-+		if (res < 0)
-+			return res;
-+		l->phyid =3D res;
-+	}
- 	else {
- 		switch (s->link_selector) {
- 		case CAIF_LINK_HIGH_BANDW:
-diff --git a/net/caif/caif_dev.c b/net/caif/caif_dev.c
-index b99369a..a42a408 100644
---- a/net/caif/caif_dev.c
-+++ b/net/caif/caif_dev.c
-@@ -307,6 +307,8 @@ static int caif_device_notify(struct notifier_block=
- *me, unsigned long what,
+ 		dev_kfree_skb(skb);
+@@ -417,14 +424,14 @@ int cfspi_xmitlen(struct cfspi *cfspi)
+ 		 * Compute head offset i.e. number of bytes to add to
+ 		 * get the start of the payload aligned.
+ 		 */
+-		if (spi_up_head_align)
+-			spad =3D 1 + ((info->hdr_len + 1) & spi_up_head_align);
++		if (spi_up_head_align > 1)
++			spad =3D 1 + PAD_POW2((info->hdr_len + 1), spi_up_head_align);
 =20
- 	case NETDEV_UNREGISTER:
- 		caifd =3D caif_get(dev);
-+		if (caifd =3D=3D NULL)
+ 		/*
+ 		 * Compute tail offset i.e. number of bytes to add to
+ 		 * get the complete CAIF frame aligned.
+ 		 */
+-		epad =3D (skb->len + spad) & spi_up_tail_align;
++		epad =3D PAD_POW2((skb->len + spad), spi_up_tail_align);
+=20
+ 		if ((skb->len + spad + epad + frm_len) <=3D CAIF_MAX_SPI_FRAME) {
+ 			skb_queue_tail(&cfspi->chead, skb);
+@@ -433,6 +440,7 @@ int cfspi_xmitlen(struct cfspi *cfspi)
+ 		} else {
+ 			/* Put back packet. */
+ 			skb_queue_head(&cfspi->qhead, skb);
 +			break;
- 		netdev_info(dev, "unregister\n");
- 		atomic_set(&caifd->state, what);
- 		caif_device_destroy(dev);
-diff --git a/net/caif/caif_socket.c b/net/caif/caif_socket.c
-index 2eca2dd..1bf0cf5 100644
---- a/net/caif/caif_socket.c
-+++ b/net/caif/caif_socket.c
-@@ -716,8 +716,7 @@ static int setsockopt(struct socket *sock,
+ 		}
+ 	} while (pkts <=3D CAIF_MAX_SPI_PKTS);
+=20
+@@ -453,6 +461,15 @@ static void cfspi_ss_cb(bool assert, struct cfspi_=
+ifc *ifc)
  {
- 	struct sock *sk =3D sock->sk;
- 	struct caifsock *cf_sk =3D container_of(sk, struct caifsock, sk);
--	int prio, linksel;
--	struct ifreq ifreq;
-+	int linksel;
+ 	struct cfspi *cfspi =3D (struct cfspi *)ifc->priv;
 =20
- 	if (cf_sk->sk.sk_socket->state !=3D SS_UNCONNECTED)
- 		return -ENOPROTOOPT;
-@@ -735,33 +734,6 @@ static int setsockopt(struct socket *sock,
- 		release_sock(&cf_sk->sk);
- 		return 0;
-=20
--	case SO_PRIORITY:
--		if (lvl !=3D SOL_SOCKET)
--			goto bad_sol;
--		if (ol < sizeof(int))
--			return -EINVAL;
--		if (copy_from_user(&prio, ov, sizeof(int)))
--			return -EINVAL;
--		lock_sock(&(cf_sk->sk));
--		cf_sk->conn_req.priority =3D prio;
--		release_sock(&cf_sk->sk);
--		return 0;
--
--	case SO_BINDTODEVICE:
--		if (lvl !=3D SOL_SOCKET)
--			goto bad_sol;
--		if (ol < sizeof(struct ifreq))
--			return -EINVAL;
--		if (copy_from_user(&ifreq, ov, sizeof(ifreq)))
--			return -EFAULT;
--		lock_sock(&(cf_sk->sk));
--		strncpy(cf_sk->conn_req.link_name, ifreq.ifr_name,
--			sizeof(cf_sk->conn_req.link_name));
--		cf_sk->conn_req.link_name
--			[sizeof(cf_sk->conn_req.link_name)-1] =3D 0;
--		release_sock(&cf_sk->sk);
--		return 0;
--
- 	case CAIFSO_REQ_PARAM:
- 		if (lvl !=3D SOL_CAIF)
- 			goto bad_sol;
-@@ -880,6 +852,18 @@ static int caif_connect(struct socket *sock, struc=
-t sockaddr *uaddr,
- 	sock->state =3D SS_CONNECTING;
- 	sk->sk_state =3D CAIF_CONNECTING;
-=20
-+	/* Check priority value comming from socket */
-+	/* if priority value is out of range it will be ajusted */
-+	if (cf_sk->sk.sk_priority > CAIF_PRIO_MAX)
-+		cf_sk->conn_req.priority =3D CAIF_PRIO_MAX;
-+	else if (cf_sk->sk.sk_priority < CAIF_PRIO_MIN)
-+		cf_sk->conn_req.priority =3D CAIF_PRIO_MIN;
-+	else
-+		cf_sk->conn_req.priority =3D cf_sk->sk.sk_priority;
++	/*
++	 * The slave device is the master on the link. Interrupts before the
++	 * slave has transmitted are considered spurious.
++	 */
++	if (cfspi->slave && !cfspi->slave_talked) {
++		printk(KERN_WARNING "CFSPI: Spurious SS interrupt.\n");
++		return;
++	}
 +
-+	/*ifindex =3D id of the interface.*/
-+	cf_sk->conn_req.ifindex =3D cf_sk->sk.sk_bound_dev_if;
-+
- 	dbfs_atomic_inc(&cnt.num_connect_req);
- 	cf_sk->layer.receive =3D caif_sktrecv_cb;
- 	err =3D caif_connect_client(&cf_sk->conn_req,
-@@ -905,6 +889,7 @@ static int caif_connect(struct socket *sock, struct=
- sockaddr *uaddr,
- 	cf_sk->maxframe =3D mtu - (headroom + tailroom);
- 	if (cf_sk->maxframe < 1) {
- 		pr_warn("CAIF Interface MTU too small (%d)\n", dev->mtu);
-+		err =3D -ENODEV;
- 		goto out;
- 	}
+ 	if (!in_interrupt())
+ 		spin_lock(&cfspi->lock);
+ 	if (assert) {
+@@ -465,7 +482,8 @@ static void cfspi_ss_cb(bool assert, struct cfspi_i=
+fc *ifc)
+ 		spin_unlock(&cfspi->lock);
 =20
-@@ -1142,7 +1127,7 @@ static int caif_create(struct net *net, struct so=
-cket *sock, int protocol,
- 	set_rx_flow_on(cf_sk);
-=20
- 	/* Set default options on configuration */
--	cf_sk->conn_req.priority =3D CAIF_PRIO_NORMAL;
-+	cf_sk->sk.sk_priority=3D CAIF_PRIO_NORMAL;
- 	cf_sk->conn_req.link_selector =3D CAIF_LINK_LOW_LATENCY;
- 	cf_sk->conn_req.protocol =3D protocol;
- 	/* Increase the number of sockets created. */
-diff --git a/net/caif/cfcnfg.c b/net/caif/cfcnfg.c
-index 41adafd..21ede14 100644
---- a/net/caif/cfcnfg.c
-+++ b/net/caif/cfcnfg.c
-@@ -173,18 +173,15 @@ static struct cfcnfg_phyinfo *cfcnfg_get_phyinfo(=
-struct cfcnfg *cnfg,
- 	return NULL;
+ 	/* Wake up the xfer thread. */
+-	wake_up_interruptible(&cfspi->wait);
++	if (assert)
++		wake_up_interruptible(&cfspi->wait);
  }
 =20
--int cfcnfg_get_named(struct cfcnfg *cnfg, char *name)
+ static void cfspi_xfer_done_cb(struct cfspi_ifc *ifc)
+@@ -523,7 +541,7 @@ int cfspi_rxfrm(struct cfspi *cfspi, u8 *buf, size_=
+t len)
+ 		 * Compute head offset i.e. number of bytes added to
+ 		 * get the start of the payload aligned.
+ 		 */
+-		if (spi_down_head_align) {
++		if (spi_down_head_align > 1) {
+ 			spad =3D 1 + *src;
+ 			src +=3D spad;
+ 		}
+@@ -564,7 +582,7 @@ int cfspi_rxfrm(struct cfspi *cfspi, u8 *buf, size_=
+t len)
+ 		 * Compute tail offset i.e. number of bytes added to
+ 		 * get the complete CAIF frame aligned.
+ 		 */
+-		epad =3D (pkt_len + spad) & spi_down_tail_align;
++		epad =3D PAD_POW2((pkt_len + spad), spi_down_tail_align);
+ 		src +=3D epad;
+ 	} while ((src - buf) < len);
+=20
+@@ -625,11 +643,20 @@ int cfspi_spi_probe(struct platform_device *pdev)
+ 	cfspi->ndev =3D ndev;
+ 	cfspi->pdev =3D pdev;
+=20
+-	/* Set flow info */
++	/* Set flow info. */
+ 	cfspi->flow_off_sent =3D 0;
+ 	cfspi->qd_low_mark =3D LOW_WATER_MARK;
+ 	cfspi->qd_high_mark =3D HIGH_WATER_MARK;
+=20
++	/* Set slave info. */
++	if (!strncmp(cfspi_spi_driver.driver.name, "cfspi_sspi", 10)) {
++		cfspi->slave =3D true;
++		cfspi->slave_talked =3D false;
++	} else {
++		cfspi->slave =3D false;
++		cfspi->slave_talked =3D false;
++	}
 +
-+int cfcnfg_get_id_from_ifi(struct cfcnfg *cnfg, int ifi)
- {
- 	int i;
--
--	/* Try to match with specified name */
--	for (i =3D 0; i < MAX_PHY_LAYERS; i++) {
--		if (cnfg->phy_layers[i].frm_layer !=3D NULL
--		    && strcmp(cnfg->phy_layers[i].phy_layer->name,
--			      name) =3D=3D 0)
--			return cnfg->phy_layers[i].frm_layer->id;
--	}
--	return 0;
-+	for (i =3D 0; i < MAX_PHY_LAYERS; i++)
-+		if (cnfg->phy_layers[i].frm_layer !=3D NULL &&
-+				cnfg->phy_layers[i].ifindex =3D=3D ifi)
-+			return i;
-+	return -ENODEV;
- }
+ 	/* Assign the SPI device. */
+ 	cfspi->dev =3D dev;
+ 	/* Assign the device ifc to this SPI interface. */
+diff --git a/drivers/net/caif/caif_spi_slave.c b/drivers/net/caif/caif_=
+spi_slave.c
+index 2111dbf..1b9943a 100644
+--- a/drivers/net/caif/caif_spi_slave.c
++++ b/drivers/net/caif/caif_spi_slave.c
+@@ -36,10 +36,15 @@ static inline int forward_to_spi_cmd(struct cfspi *=
+cfspi)
+ #endif
 =20
- int cfcnfg_disconn_adapt_layer(struct cfcnfg *cnfg, struct cflayer *ad=
-ap_layer)
-diff --git a/net/caif/cfdbgl.c b/net/caif/cfdbgl.c
-index 496fda9..11a2af4 100644
---- a/net/caif/cfdbgl.c
-+++ b/net/caif/cfdbgl.c
-@@ -12,6 +12,8 @@
- #include <net/caif/cfsrvl.h>
- #include <net/caif/cfpkt.h>
-=20
-+#define container_obj(layr) ((struct cfsrvl *) layr)
+ int spi_frm_align =3D 2;
+-int spi_up_head_align =3D 1;
+-int spi_up_tail_align;
+-int spi_down_head_align =3D 3;
+-int spi_down_tail_align =3D 1;
 +
- static int cfdbgl_receive(struct cflayer *layr, struct cfpkt *pkt);
- static int cfdbgl_transmit(struct cflayer *layr, struct cfpkt *pkt);
++/*
++ * SPI padding options.
++ * Warning: must be a base of 2 (& operation used) and can not be zero=
+ !
++ */
++int spi_up_head_align   =3D 1 << 1;
++int spi_up_tail_align   =3D 1 << 0;
++int spi_down_head_align =3D 1 << 2;
++int spi_down_tail_align =3D 1 << 1;
 =20
-@@ -38,5 +40,17 @@ static int cfdbgl_receive(struct cflayer *layr, stru=
-ct cfpkt *pkt)
-=20
- static int cfdbgl_transmit(struct cflayer *layr, struct cfpkt *pkt)
- {
-+	struct cfsrvl *service =3D container_obj(layr);
-+	struct caif_payload_info *info;
-+	int ret;
-+
-+	if (!cfsrvl_ready(service, &ret))
-+		return ret;
-+
-+	/* Add info for MUX-layer to route the packet out */
-+	info =3D cfpkt_info(pkt);
-+	info->channel_id =3D service->layer.id;
-+	info->dev_info =3D &service->dev_info;
-+
- 	return layr->dn->transmit(layr->dn, pkt);
- }
-diff --git a/net/caif/cfrfml.c b/net/caif/cfrfml.c
-index bde8481..e2fb5fa 100644
---- a/net/caif/cfrfml.c
-+++ b/net/caif/cfrfml.c
-@@ -193,7 +193,7 @@ out:
-=20
- static int cfrfml_transmit_segment(struct cfrfml *rfml, struct cfpkt *=
-pkt)
- {
--	caif_assert(cfpkt_getlen(pkt) >=3D rfml->fragment_size);
-+	caif_assert(cfpkt_getlen(pkt) < rfml->fragment_size);
-=20
- 	/* Add info for MUX-layer to route the packet out. */
- 	cfpkt_info(pkt)->channel_id =3D rfml->serv.layer.id;
+ #ifdef CONFIG_DEBUG_FS
+ static inline void debugfs_store_prev(struct cfspi *cfspi)
+diff --git a/include/net/caif/caif_spi.h b/include/net/caif/caif_spi.h
+index ce4570d..87c3d11 100644
+--- a/include/net/caif/caif_spi.h
++++ b/include/net/caif/caif_spi.h
+@@ -121,6 +121,8 @@ struct cfspi {
+ 	wait_queue_head_t wait;
+ 	spinlock_t lock;
+ 	bool flow_stop;
++	bool slave;
++	bool slave_talked;
+ #ifdef CONFIG_DEBUG_FS
+ 	enum cfspi_state dbg_state;
+ 	u16 pcmd;
 --=20
 1.7.0.4
 
