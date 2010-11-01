@@ -1,33 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: check queue_index from sock is valid for device
-Date: Mon, 01 Nov 2010 12:56:05 -0700 (PDT)
-Message-ID: <20101101.125605.28797776.davem@davemloft.net>
-References: <alpine.DEB.1.00.1011011249590.5368@pokey.mtv.corp.google.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 1/3] offloading: Make scatter/gather more tolerant of
+ vlans.
+Date: Mon, 01 Nov 2010 20:06:29 +0000
+Message-ID: <1288641989.2231.3.camel@achroite.uk.solarflarecom.com>
+References: <1288390495-28923-1-git-send-email-jesse@nicira.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: therbert@google.com
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52186
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753113Ab0KATzl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Nov 2010 15:55:41 -0400
-In-Reply-To: <alpine.DEB.1.00.1011011249590.5368@pokey.mtv.corp.google.com>
+Received: from exchange.solarflare.com ([216.237.3.220]:19860 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752909Ab0KAUGc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Nov 2010 16:06:32 -0400
+In-Reply-To: <1288390495-28923-1-git-send-email-jesse@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <therbert@google.com>
-Date: Mon, 1 Nov 2010 12:53:32 -0700 (PDT)
-
-> In dev_pick_tx recompute the queue index if the value stored in the
-> socket is greater than or equal to the number of real queues for the
-> device.  The saved index in the sock structure is not guaranteed to
-> be appropriate for the egress device (this could happen on a route
-> change or in presence of tunnelling).  The result of the queue index
-> being bad would be to return a bogus queue (crash could prersumably
-> follow).
+On Fri, 2010-10-29 at 15:14 -0700, Jesse Gross wrote:
+> When checking if it is necessary to linearize a packet, we currently
+> use vlan_features if the packet contains either an in-band or out-
+> of-band vlan tag.  However, in-band tags aren't special in any way
+> for scatter/gather since they are part of the packet buffer and are
+> simply more data to DMA.  Therefore, only use vlan_features for out-
+> of-band tags, which could potentially have some interaction with
+> scatter/gather.
 > 
-> Signed-off-by: Tom Herbert <therbert@google.com>
+> Signed-off-by: Jesse Gross <jesse@nicira.com>
+> CC: Ben Hutchings <bhutchings@solarflare.com>
+[...]
 
-Looks good, applied, thanks Tom.
+Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
