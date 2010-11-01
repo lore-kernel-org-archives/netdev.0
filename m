@@ -1,39 +1,46 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 2/3] offloading: Support multiple vlan tags in GSO.
-Date: Mon, 01 Nov 2010 20:33:50 +0000
-Message-ID: <1288643630.2231.30.camel@achroite.uk.solarflarecom.com>
-References: <1288390495-28923-1-git-send-email-jesse@nicira.com>
-	 <1288390495-28923-2-git-send-email-jesse@nicira.com>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: [PATCH 1/2] solos: Add 'Firmware' attribute for Traverse overall
+ firmware version
+Date: Mon, 01 Nov 2010 16:34:29 -0400
+Message-ID: <1288643669.5977.21.camel@macbook.infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Jesse Gross <jesse@nicira.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:22487 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753673Ab0KAUdy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Nov 2010 16:33:54 -0400
-In-Reply-To: <1288390495-28923-2-git-send-email-jesse@nicira.com>
+Received: from canuck.infradead.org ([134.117.69.58]:34535 "EHLO
+	canuck.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753673Ab0KAUed (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Nov 2010 16:34:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2010-10-29 at 15:14 -0700, Jesse Gross wrote:
-> We assume that hardware TSO can't support multiple levels of vlan tags
-> but we allow it to be done.  Therefore, enable GSO to parse these tags
-> so we can fallback to software.
-> 
-> Signed-off-by: Jesse Gross <jesse@nicira.com>
-> CC: Ben Hutchings <bhutchings@solarflare.com>
-[...]
+The existing 'FirmwareVersion' attribute only covers the DSP firmware as
+provided by Conexant; not the overall version of the device firmware. We
+do want to be able to see the full version number too.
 
-I can't see how TSO would be enabled on a second-level VLAN device;
-presumably you're thinking about GSO being enabled there?
+Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
+---
+ drivers/atm/solos-attrlist.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-Ben.
+diff --git a/drivers/atm/solos-attrlist.c b/drivers/atm/solos-attrlist.c
+index 1a9332e..9a676ee 100644
+--- a/drivers/atm/solos-attrlist.c
++++ b/drivers/atm/solos-attrlist.c
+@@ -1,6 +1,7 @@
+ SOLOS_ATTR_RO(DriverVersion)
+ SOLOS_ATTR_RO(APIVersion)
+ SOLOS_ATTR_RO(FirmwareVersion)
++SOLOS_ATTR_RO(Version)
+ // SOLOS_ATTR_RO(DspVersion)
+ // SOLOS_ATTR_RO(CommonHandshake)
+ SOLOS_ATTR_RO(Connected)
+-- 
+1.7.3.1
+
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+David Woodhouse                            Open Source Technology Centre
+David.Woodhouse@intel.com                              Intel Corporation
 
