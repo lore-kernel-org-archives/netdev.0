@@ -1,62 +1,48 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 2/4] Ethtool: convert get_sg/set_sg calls to
- hw_features flag
-Date: Mon, 01 Nov 2010 21:15:50 +0000
-Message-ID: <1288646150.2231.62.camel@achroite.uk.solarflarecom.com>
-References: <cover.1288496404.git.mirq-linux@rere.qmqm.pl>
-	 <9d89236b6e4ff8c66937fbd7d8ce76602e680c5b.1288496404.git.mirq-linux@rere.qmqm.pl>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Routing over multiple interfaces
+Date: Mon, 01 Nov 2010 14:16:38 -0700 (PDT)
+Message-ID: <20101101.141638.116372747.davem@davemloft.net>
+References: <1288645922.5977.41.camel@macbook.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-	Steve Glendinning <steve.glendinning@smsc.com>,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	Rasesh Mody <rmody@brocade.com>,
-	Debashis Dutt <ddutt@brocade.com>,
-	Kristoffer Glembo <kristoffer@gaisler.com>,
-	linux-driver@qlogic.com, linux-net-drivers@solarflare.com
-To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, uweber@astaro.com
+To: dwmw2@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:25144 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751156Ab0KAVPy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Nov 2010 17:15:54 -0400
-In-Reply-To: <9d89236b6e4ff8c66937fbd7d8ce76602e680c5b.1288496404.git.mirq-linux@rere.qmqm.pl>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53257
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753696Ab0KAVQP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Nov 2010 17:16:15 -0400
+In-Reply-To: <1288645922.5977.41.camel@macbook.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2010-10-30 at 06:28 +0200, Micha=C5=82 Miros=C5=82aw wrote:
-[...]
-> @@ -1088,7 +1076,19 @@ static int __ethtool_set_sg(struct net_device =
-*dev, u32 data)
->  		if (err)
->  			return err;
->  	}
-> -	return dev->ethtool_ops->set_sg(dev, data);
-> +
-> +	if (dev->ethtool_ops->hw_set_sg) {
-> +		err =3D dev->ethtool_ops->hw_set_sg(dev, data);
-> +		if (err)
-> +			return min(err, 0);
-> +	}
-> +
-> +	if (data)
-> +		dev->features |=3D NETIF_F_SG;
-> +	else
-> +		dev->features &=3D ~NETIF_F_SG;
-> +
-> +	return 0;
->  }
-[...]
+From: David Woodhouse <dwmw2@infradead.org>
+Date: Mon, 01 Nov 2010 17:12:02 -0400
 
-The odd semantics of positive return values really need to be documente=
-d
-- both in the commit message and in the comment on struct ethtool_ops.
+> But when I do a large upload, I find that the kernel is only ever using
+> a *single* link at a time, rather than both. How can I make it use
+> *both* links? It's fine to confine each flow to a single link if it
+> doesn't saturate that link... but once the queue is full, it should
+> overflow onto the other device.
 
-Ben.
+Once a TCP socket gets a routing cache entry, that's what it uses
+for the rest of the life of the connection.
 
---=20
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+The multi-pathing decision happens at the time the routing
+cache entry is created.
 
+What you want is multi-path routing support in the routing cache.
+
+We used to have that, but the guy who implemented it (after bugging
+me to integrate it for 4 months straight, non-stop) just did a code
+dump and then disappeared and fixed none of the serious fundamental
+problems which existed in his code.
+
+After a year of no action, I simply tore out all of his code.
+
+More recently Ulrich Weber gave a presentation at netfilter workshop
+on some uplink load balancing work he is doing, you might have
+a look at his talk and get in contact with him:
+
+http://people.astaro.com/uweber/uplink_balancing.pdf
