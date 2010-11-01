@@ -1,66 +1,52 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Subject: Re: [PATCH] USB: gadget: fix ethernet gadget crash in gether_setup
-Date: Mon, 1 Nov 2010 17:16:39 +0100
-Message-ID: <AANLkTimMwTbj-2oP-VP7Ht1VnA8_w7vpTGz1kk5HG7zx@mail.gmail.com>
+Date: Mon, 01 Nov 2010 09:22:46 -0700 (PDT)
+Message-ID: <20101101.092246.104046133.davem@davemloft.net>
 References: <1288253909-12084-1-git-send-email-mad_soft@inbox.ru>
+	<AANLkTimMwTbj-2oP-VP7Ht1VnA8_w7vpTGz1kk5HG7zx@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	David Brownell <dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Tom Herbert <therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Dmitry Artamonow <mad_soft-aPYA7nAdAYY@public.gmane.org>
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: mad_soft-aPYA7nAdAYY@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, gregkh-l3A5Bk7waGM@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org
+To: mirqus-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1288253909-12084-1-git-send-email-mad_soft-aPYA7nAdAYY@public.gmane.org>
+In-Reply-To: <AANLkTimMwTbj-2oP-VP7Ht1VnA8_w7vpTGz1kk5HG7zx-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
 Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-2010/10/28 Dmitry Artamonow <mad_soft-aPYA7nAdAYY@public.gmane.org>:
-> Crash is triggered by commit e6484930d7 ("net: allocate tx queues in
-> register_netdevice"), which moved tx netqueue creation into register_=
-netdev.
-> So now calling netif_stop_queue() before register_netdev causes an oo=
-ps.
-> Move netif_stop_queue() after net device registration to fix crash.
->
-> Signed-off-by: Dmitry Artamonow <mad_soft-aPYA7nAdAYY@public.gmane.org>
-> ---
-> =A0drivers/usb/gadget/u_ether.c | =A0 =A02 +-
-> =A01 files changed, 1 insertions(+), 1 deletions(-)
->
-> diff --git a/drivers/usb/gadget/u_ether.c b/drivers/usb/gadget/u_ethe=
-r.c
-> index 6bb876d..cb23355 100644
-> --- a/drivers/usb/gadget/u_ether.c
-> +++ b/drivers/usb/gadget/u_ether.c
-> @@ -797,7 +797,6 @@ int gether_setup(struct usb_gadget *g, u8 ethaddr=
-[ETH_ALEN])
-> =A0 =A0 =A0 =A0 * =A0- iff DATA transfer is active, carrier is "on"
-> =A0 =A0 =A0 =A0 * =A0- tx queueing enabled if open *and* carrier is "=
-on"
-> =A0 =A0 =A0 =A0 */
-> - =A0 =A0 =A0 netif_stop_queue(net);
-> =A0 =A0 =A0 =A0netif_carrier_off(net);
->
-> =A0 =A0 =A0 =A0dev->gadget =3D g;
-> @@ -812,6 +811,7 @@ int gether_setup(struct usb_gadget *g, u8 ethaddr=
-[ETH_ALEN])
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0INFO(dev, "MAC %pM\n", net->dev_addr);
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0INFO(dev, "HOST MAC %pM\n", dev->host_=
-mac);
->
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 netif_stop_queue(net);
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0the_dev =3D dev;
-> =A0 =A0 =A0 =A0}
->
-
-What about a race between register_netdev() -> open() -> rest of
-gether_setup() ? What is this netif_stop_queue() here needed for?
-
-Best Regards,
-Micha=B3 Miros=B3aw
+RnJvbTogTWljaGHFgiBNaXJvc8WCYXcgPG1pcnF1c0BnbWFpbC5jb20+DQpEYXRlOiBNb24sIDEg
+Tm92IDIwMTAgMTc6MTY6MzkgKzAxMDANCg0KPiAyMDEwLzEwLzI4IERtaXRyeSBBcnRhbW9ub3cg
+PG1hZF9zb2Z0QGluYm94LnJ1PjoNCj4+IENyYXNoIGlzIHRyaWdnZXJlZCBieSBjb21taXQgZTY0
+ODQ5MzBkNyAoIm5ldDogYWxsb2NhdGUgdHggcXVldWVzIGluDQo+PiByZWdpc3Rlcl9uZXRkZXZp
+Y2UiKSwgd2hpY2ggbW92ZWQgdHggbmV0cXVldWUgY3JlYXRpb24gaW50byByZWdpc3Rlcl9uZXRk
+ZXYuDQo+PiBTbyBub3cgY2FsbGluZyBuZXRpZl9zdG9wX3F1ZXVlKCkgYmVmb3JlIHJlZ2lzdGVy
+X25ldGRldiBjYXVzZXMgYW4gb29wcy4NCj4+IE1vdmUgbmV0aWZfc3RvcF9xdWV1ZSgpIGFmdGVy
+IG5ldCBkZXZpY2UgcmVnaXN0cmF0aW9uIHRvIGZpeCBjcmFzaC4NCj4+DQo+PiBTaWduZWQtb2Zm
+LWJ5OiBEbWl0cnkgQXJ0YW1vbm93IDxtYWRfc29mdEBpbmJveC5ydT4NCj4+IC0tLQ0KPj4gwqBk
+cml2ZXJzL3VzYi9nYWRnZXQvdV9ldGhlci5jIHwgwqAgwqAyICstDQo+PiDCoDEgZmlsZXMgY2hh
+bmdlZCwgMSBpbnNlcnRpb25zKCspLCAxIGRlbGV0aW9ucygtKQ0KPj4NCj4+IGRpZmYgLS1naXQg
+YS9kcml2ZXJzL3VzYi9nYWRnZXQvdV9ldGhlci5jIGIvZHJpdmVycy91c2IvZ2FkZ2V0L3VfZXRo
+ZXIuYw0KPj4gaW5kZXggNmJiODc2ZC4uY2IyMzM1NSAxMDA2NDQNCj4+IC0tLSBhL2RyaXZlcnMv
+dXNiL2dhZGdldC91X2V0aGVyLmMNCj4+ICsrKyBiL2RyaXZlcnMvdXNiL2dhZGdldC91X2V0aGVy
+LmMNCj4+IEBAIC03OTcsNyArNzk3LDYgQEAgaW50IGdldGhlcl9zZXR1cChzdHJ1Y3QgdXNiX2dh
+ZGdldCAqZywgdTggZXRoYWRkcltFVEhfQUxFTl0pDQo+PiDCoCDCoCDCoCDCoCAqIMKgLSBpZmYg
+REFUQSB0cmFuc2ZlciBpcyBhY3RpdmUsIGNhcnJpZXIgaXMgIm9uIg0KPj4gwqAgwqAgwqAgwqAg
+KiDCoC0gdHggcXVldWVpbmcgZW5hYmxlZCBpZiBvcGVuICphbmQqIGNhcnJpZXIgaXMgIm9uIg0K
+Pj4gwqAgwqAgwqAgwqAgKi8NCj4+IC0gwqAgwqAgwqAgbmV0aWZfc3RvcF9xdWV1ZShuZXQpOw0K
+Pj4gwqAgwqAgwqAgwqBuZXRpZl9jYXJyaWVyX29mZihuZXQpOw0KPj4NCj4+IMKgIMKgIMKgIMKg
+ZGV2LT5nYWRnZXQgPSBnOw0KPj4gQEAgLTgxMiw2ICs4MTEsNyBAQCBpbnQgZ2V0aGVyX3NldHVw
+KHN0cnVjdCB1c2JfZ2FkZ2V0ICpnLCB1OCBldGhhZGRyW0VUSF9BTEVOXSkNCj4+IMKgIMKgIMKg
+IMKgIMKgIMKgIMKgIMKgSU5GTyhkZXYsICJNQUMgJXBNXG4iLCBuZXQtPmRldl9hZGRyKTsNCj4+
+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgSU5GTyhkZXYsICJIT1NUIE1BQyAlcE1cbiIsIGRldi0+
+aG9zdF9tYWMpOw0KPj4NCj4+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgbmV0aWZfc3RvcF9xdWV1
+ZShuZXQpOw0KPj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqB0aGVfZGV2ID0gZGV2Ow0KPj4gwqAg
+wqAgwqAgwqB9DQo+Pg0KPiANCj4gV2hhdCBhYm91dCBhIHJhY2UgYmV0d2VlbiByZWdpc3Rlcl9u
+ZXRkZXYoKSAtPiBvcGVuKCkgLT4gcmVzdCBvZg0KPiBnZXRoZXJfc2V0dXAoKSA/IFdoYXQgaXMg
+dGhpcyBuZXRpZl9zdG9wX3F1ZXVlKCkgaGVyZSBuZWVkZWQgZm9yPw0KDQpOb3RoaW5nLCBpdCBz
+aG91bGQgYmUgY29tcGxldGVseSByZW1vdmVkLg0K
 --
 To unsubscribe from this list: send the line "unsubscribe linux-usb" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
