@@ -1,65 +1,45 @@
-From: "Tomoya MORINAGA" <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Subject: Re: [PATCH net-next-2.6 v2] can: Topcliff: PCH_CAN driver: Fix build
-	warnings
-Date: Mon, 1 Nov 2010 16:15:01 +0900
-Message-ID: <002701cb7994$81db1350$66f8800a@maildom.okisemi.com>
-References: <4CCAA3D4.8070408@dsn.okisemi.com>
-	<4CCAC4CD.7000503@pengutronix.de>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: [patch] netlink: use TID instead of PID for automatic id
+ assignment
+Date: Mon, 1 Nov 2010 09:27:39 +0100 (CET)
+Message-ID: <alpine.LNX.2.01.1011010925400.16087@obet.zrqbmnf.qr>
+References: <alpine.LNX.2.01.1010312013100.20872@obet.zrqbmnf.qr> <20101101022548.GA27367@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	Masayuki Ohtake <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>,
-	Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>, margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
-	joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-To: "Marc Kleine-Budde" <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
-On Friday, October 29, 2010 9:57 PM : Marc Kleine-Budde wrote:
->>>> SW must check busy flag of CAN register.
->>>> This is a Topcliff HW specification.
->>> Maybe the busy check could also be done *before* the Message RAM is
->>> accessed to avoid (or minimize) waiting.
->> Yes, *before* is right.
->> If there is *after* processing, this is a bug.
->> Can you see anyway ?
->Sorry I don't understand what you mean.
-
-Sorry, my English had mistake. I show my comment below again.
- - If there is *after* processing, this is a bug.
- - Can you see the point anywhere ?
-
-> You probably know the datasheet, but I don't, although I've printed
-> chapter 13 from the Intel Controller Hub EG20T datasheet, but it's 50+
-> pages. If the hardware needs the busy waiting in the hot tx path a
-> pointer to the respective section in the manual is a good idea. Just
-> something like:
-
-Though "Oliver Hartkopp" found the place of Datasheet EG20T and notified with the mailing-list,
-Have you read the following ?
-http://edc.intel.com/Platforms/Atom-E6xx/#hardware
-
->>> You have to change the definition of the regs struct a bit:
->>>>  u32 if1_mcont;
->>>>  u32 if1_data[4];
->>>>  u32 reserve2;
->> Uh, I can't find this. Where is this ?
->Here's a patch to illustrate what I meant:
-I understand.
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from borg.medozas.de ([188.40.89.202]:60864 "EHLO borg.medozas.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753263Ab0KAI1k (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Nov 2010 04:27:40 -0400
+In-Reply-To: <20101101022548.GA27367@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-Thanks, Tomoya(OKI SEMICONDUCTOR CO., LTD.)
+On Monday 2010-11-01 03:25, Herbert Xu wrote:
+>> 
+>> netlink: use TID instead of PID for automatic id assignment
+>> 
+>> This makes it easier to identify processes in the output of `ss -af
+>> netlink` - as I see no reason to force negative space numbers upon
+>> all but the first socket in a thread group.
+>> 
+>> Turns out this reverts v2.6.15-rc4~65.
+>> 
+>> Cc: Herbert Xu <herbert@gondor.apana.org.au>
+>> Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
+>
+>Nack.  Sockets are typically shared amongst threads so using the
+>ID of the thread that created it doesn't make much sense when
+>all the threads in that group use it to send/receive messages.
+
+That would be fine, because they are in the same process.
+
+>In any case, this field should not be relied on (please google
+>the thread "netlink nlmsg_pid supposed to be pid or tid?") as
+>anybody can claim your PID in the netlink name space.
+
+I am aware of that. But then it raises the question why we are
+giving the first socket a non-negative value in the first place.
