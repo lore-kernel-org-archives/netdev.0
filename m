@@ -1,79 +1,39 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 0/4] Ethtool: cleanup strategy
-Date: Mon, 01 Nov 2010 21:05:25 +0000
-Message-ID: <1288645525.2231.60.camel@achroite.uk.solarflarecom.com>
-References: <cover.1288496404.git.mirq-linux@rere.qmqm.pl>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] cxgb4vf: fix crash due to manipulating queues before
+ registration
+Date: Mon, 01 Nov 2010 14:06:26 -0700 (PDT)
+Message-ID: <20101101.140626.229737015.davem@davemloft.net>
+References: <8A71B368A89016469F72CD08050AD334088DA49E@maui.asicdesigners.com>
+	<20101029.130559.112585228.davem@davemloft.net>
+	<4CCF2B00.3060602@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-	Steve Glendinning <steve.glendinning@smsc.com>,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	Rasesh Mody <rmody@brocade.com>,
-	Debashis Dutt <ddutt@brocade.com>,
-	Kristoffer Glembo <kristoffer@gaisler.com>,
-	linux-driver@qlogic.com, linux-net-drivers@solarflare.com
-To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dm@chelsio.com, leedom@chelsio.com, netdev@vger.kernel.org
+To: divy@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:24554 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753430Ab0KAVF3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Nov 2010 17:05:29 -0400
-In-Reply-To: <cover.1288496404.git.mirq-linux@rere.qmqm.pl>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39653
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754461Ab0KAVGE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Nov 2010 17:06:04 -0400
+In-Reply-To: <4CCF2B00.3060602@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2010-10-31 at 04:40 +0100, Micha=C5=82 Miros=C5=82aw wrote:
-> While writing and debugging driver for StorLink's Gemini ethernet
-> "card" I couldn't not notice that ethtool support had accumulated a l=
-ot
-> of dust and "aah, let's just copy that from another driver"-generated
-> code.  There are things that are reimplemented in more-or-less same w=
-ay
-> in multiple network drivers, there are logic bugs or unexpected
-> variations among the implementations, and there is a lot of boilerpla=
-te
-> code needed to be written by a person who wants to support ethtool
-> in his driver.  I'm concentrating on offload feature setting here as
-> that's what I needed for my driver.
+From: Divy Le Ray <divy@chelsio.com>
+Date: Mon, 01 Nov 2010 14:02:56 -0700
 
-I agree; I've fixed a few of these variations but I'm aware there are
-many left.  Thanks for taking on some of this cleanup work.
+> On 10/29/2010 01:05 PM, David Miller wrote:
+>> From: "Dimitrios Michailidis"<dm@chelsio.com>
+>> Date: Fri, 29 Oct 2010 00:36:22 -0700
+>>
+>>> Further, I believe moving the call after register_netdev is buggy as
+>>> open can be called after registration and it can clash with the
+>>> queue stopping.  It seems then that these netif_tx_stop_all_queues
+>>> calls have to go now.
+>> This is a good explanation of why no driver should be touching the
+>> queue state before the first ->open() call.
+> 
+> I'm sending a series of 3 patches fixing cxgb3, cxgb4, cxgb4vf.
 
-[...]
-> My proposal is to implement a offload feature setting that needs
-> (almost) no code in network driver.  The idea is to add two
-> ethtool-specific fields to struct net_device:
->=20
->  - hw_features
->       offloads supported by the netdev (togglable by user)
->  - features_requested
->       offloads currently requested by user; this will be superset of
->       (features & hw_features) when i.e. current MTU or other externa=
-l
->       conditions disable some offloads
->=20
-> ... and use them to implement changing of offloads in ethtool core.
-> Since get_*() for TX offloads is just a bit test on netdev->features,
-> corresponding ethtool entry points could be removed.
-
-Right.
-
-It also might be worth defining a standard feature flag for RX checksum
-offload, since currently every driver has to maintain its own private
-flag.  Though we're running short of feature flags on 32-bit machines.
-
-[...]
-> * sfc
-> 	assumed: constant efx->type->offload_features
-[...]
-
-This is correct.
-
-Ben.
-
---=20
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Thank you.
