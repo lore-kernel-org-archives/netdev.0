@@ -1,182 +1,76 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC PATCH] macvlan: Introduce a PASSTHRU mode to takeover the
- underlying device
-Date: Mon, 1 Nov 2010 10:28:26 +0200
-Message-ID: <20101101082826.GA25879@redhat.com>
-References: <1288131578.7582.49.camel@sridhar.beaverton.ibm.com>
+From: walter harms <wharms@bfs.de>
+Subject: Re: [PATCH 2/3] net: packet: fix information leak to userland
+Date: Mon, 01 Nov 2010 10:14:10 +0100
+Message-ID: <4CCE84E2.9050801@bfs.de>
+References: <1288545028-16436-1-git-send-email-segooon@gmail.com>
+Reply-To: wharms@bfs.de
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kaber@trash.net, Arnd Bergmann <arnd@arndb.de>,
-	netdev <netdev@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>
-To: Sridhar Samudrala <sri@us.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1288131578.7582.49.camel@sridhar.beaverton.ibm.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: kernel-janitors@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Jiri Pirko <jpirko@redhat.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Vasiliy Kulikov <segooon@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx01.sz.bfs.de ([194.94.69.103]:63746 "EHLO mx01.sz.bfs.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754377Ab0KAJOP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Nov 2010 05:14:15 -0400
+In-Reply-To: <1288545028-16436-1-git-send-email-segooon@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 26, 2010 at 03:19:38PM -0700, Sridhar Samudrala wrote:
-> With the current default macvtap mode, a KVM guest using virtio with 
-> macvtap backend has the following limitations.
-> - cannot change/add a mac address on the guest virtio-net
-> - cannot create a vlan device on the guest virtio-net
-> - cannot enable promiscuous mode on guest virtio-net
-> 
-> This patch introduces a new mode called 'passthru' when creating a 
-> macvlan device which allows takeover of the underlying device and 
-> passing it to a guest using virtio with macvtap backend.
-> 
-> Only one macvlan device is allowed in passthru mode and it inherits
-> the mac address from the underlying device and sets it in promiscuous 
-> mode to receive and forward all the packets.
-> 
-> Thanks
-> Sridhar
 
-One concern with promisc mode is that for the common case,
-which is a single mac and no vlans, we will be getting
-extra packets that will get dropped in userspace/guest
-as compared to the case where same mac is programmed
-in hardware and by guest.
 
-We could let userspace supply a list of mac/vlan addresses through
-an ioctl on macvtap, and then
-1. for a single mac, program it in hardware
-2. for other configurations, set promisc mode
-
-tun already has TUNSETTXFILTER which might come in handy here.
-We don't pass in vlans with the filter now but maybe we should.
-How does this sound?
-
-> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-> index 0ef0eb0..bca3cb7 100644
-> --- a/drivers/net/macvlan.c
-> +++ b/drivers/net/macvlan.c
-> @@ -38,6 +38,7 @@ struct macvlan_port {
->  	struct hlist_head	vlan_hash[MACVLAN_HASH_SIZE];
->  	struct list_head	vlans;
->  	struct rcu_head		rcu;
-> +	bool 			passthru;
->  };
->  
->  #define macvlan_port_get_rcu(dev) \
-> @@ -169,6 +170,7 @@ static struct sk_buff *macvlan_handle_frame(struct sk_buff *skb)
->  			macvlan_broadcast(skb, port, NULL,
->  					  MACVLAN_MODE_PRIVATE |
->  					  MACVLAN_MODE_VEPA    |
-> +					  MACVLAN_MODE_PASSTHRU|
->  					  MACVLAN_MODE_BRIDGE);
->  		else if (src->mode == MACVLAN_MODE_VEPA)
->  			/* flood to everyone except source */
-> @@ -185,7 +187,10 @@ static struct sk_buff *macvlan_handle_frame(struct sk_buff *skb)
->  		return skb;
->  	}
->  
-> -	vlan = macvlan_hash_lookup(port, eth->h_dest);
-> +	if (port->passthru)
-> +		vlan = list_first_entry(&port->vlans, struct macvlan_dev, list);
-> +	else
-> +		vlan = macvlan_hash_lookup(port, eth->h_dest);
->  	if (vlan == NULL)
->  		return skb;
->  
-> @@ -284,6 +289,11 @@ static int macvlan_open(struct net_device *dev)
->  	struct net_device *lowerdev = vlan->lowerdev;
->  	int err;
->  
-> +	if (vlan->port->passthru) {
-> +		dev_set_promiscuity(lowerdev, 1);
-> +		goto hash_add;
-> +	}
-> +
->  	err = -EBUSY;
->  	if (macvlan_addr_busy(vlan->port, dev->dev_addr))
->  		goto out;
-> @@ -296,6 +306,8 @@ static int macvlan_open(struct net_device *dev)
->  		if (err < 0)
->  			goto del_unicast;
->  	}
-> +
-> +hash_add:
->  	macvlan_hash_add(vlan);
->  	return 0;
->  
-> @@ -310,12 +322,18 @@ static int macvlan_stop(struct net_device *dev)
->  	struct macvlan_dev *vlan = netdev_priv(dev);
->  	struct net_device *lowerdev = vlan->lowerdev;
->  
-> +	if (vlan->port->passthru) {
-> +		dev_set_promiscuity(lowerdev, -1);
-> +		goto hash_del;
-> +	}
-> +
->  	dev_mc_unsync(lowerdev, dev);
->  	if (dev->flags & IFF_ALLMULTI)
->  		dev_set_allmulti(lowerdev, -1);
->  
->  	dev_uc_del(lowerdev, dev->dev_addr);
->  
-> +hash_del:
->  	macvlan_hash_del(vlan);
->  	return 0;
->  }
-> @@ -549,6 +567,7 @@ static int macvlan_port_create(struct net_device *dev)
->  	if (port == NULL)
->  		return -ENOMEM;
->  
-> +	port->passthru = false;
->  	port->dev = dev;
->  	INIT_LIST_HEAD(&port->vlans);
->  	for (i = 0; i < MACVLAN_HASH_SIZE; i++)
-> @@ -593,6 +612,7 @@ static int macvlan_validate(struct nlattr *tb[], struct nlattr *data[])
->  		case MACVLAN_MODE_PRIVATE:
->  		case MACVLAN_MODE_VEPA:
->  		case MACVLAN_MODE_BRIDGE:
-> +		case MACVLAN_MODE_PASSTHRU:
->  			break;
->  		default:
->  			return -EINVAL;
-> @@ -661,6 +681,10 @@ int macvlan_common_newlink(struct net *src_net, struct net_device *dev,
->  	}
->  	port = macvlan_port_get(lowerdev);
->  
-> +	/* Only 1 macvlan device can be created in passthru mode */
-> +	if (port->passthru)
-> +		return -EINVAL;
-> +
->  	vlan->lowerdev = lowerdev;
->  	vlan->dev      = dev;
->  	vlan->port     = port;
-> @@ -671,6 +695,13 @@ int macvlan_common_newlink(struct net *src_net, struct net_device *dev,
->  	if (data && data[IFLA_MACVLAN_MODE])
->  		vlan->mode = nla_get_u32(data[IFLA_MACVLAN_MODE]);
->  
-> +	if (vlan->mode == MACVLAN_MODE_PASSTHRU) {
-> +		if (!list_empty(&port->vlans))
-> +			return -EINVAL;
-> +		port->passthru = true;
-> +		memcpy(dev->dev_addr, lowerdev->dev_addr, ETH_ALEN);
-> +	}
-> +
->  	err = register_netdevice(dev);
->  	if (err < 0)
->  		goto destroy_port;
-> diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-> index 2fc66dd..8454805 100644
-> --- a/include/linux/if_link.h
-> +++ b/include/linux/if_link.h
-> @@ -232,6 +232,7 @@ enum macvlan_mode {
->  	MACVLAN_MODE_PRIVATE = 1, /* don't talk to other macvlans */
->  	MACVLAN_MODE_VEPA    = 2, /* talk to other ports through ext bridge */
->  	MACVLAN_MODE_BRIDGE  = 4, /* talk to bridge ports directly */
-> +	MACVLAN_MODE_PASSTHRU = 8,/* take over the underlying device */
->  };
->  
->  /* SR-IOV virtual function management section */
+Vasiliy Kulikov schrieb:
+> packet_getname_spkt() doesn't initialize all members of sa_data field of
+> sockaddr struct if strlen(dev->name) < 13.  This structure is then copied
+> to userland.  It leads to leaking of contents of kernel stack memory.
+> We have to fully fill sa_data with strncpy() instead of strlcpy().
 > 
+> The same with packet_getname(): it doesn't initialize sll_pkttype field of
+> sockaddr_ll.  Set it to zero.
 > 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Signed-off-by: Vasiliy Kulikov <segooon@gmail.com>
+> ---
+>  net/packet/af_packet.c |    3 ++-
+>  1 files changed, 2 insertions(+), 1 deletions(-)
+> 
+> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+> index 3616f27..0856a13 100644
+> --- a/net/packet/af_packet.c
+> +++ b/net/packet/af_packet.c
+> @@ -1719,7 +1719,7 @@ static int packet_getname_spkt(struct socket *sock, struct sockaddr *uaddr,
+>  	rcu_read_lock();
+>  	dev = dev_get_by_index_rcu(sock_net(sk), pkt_sk(sk)->ifindex);
+>  	if (dev)
+> -		strlcpy(uaddr->sa_data, dev->name, 15);
+> +		strncpy(uaddr->sa_data, dev->name, 14);
+>  	else
+>  		memset(uaddr->sa_data, 0, 14);
+
+if i understand the code correcly the max size for dev->name is IFNAMSIZ.
+You can simply that part:
+
+memset(uaddr->sa_data, 0, IFNAMSIZ);
+dev = dev_get_by_index_rcu(sock_net(sk), pkt_sk(sk)->ifindex);
+if (dev)
+	strlcpy(uaddr->sa_data, dev->name, IFNAMSIZ);
+
+
+you should send that as separate patch.
+re,
+ wh
+
+
+>  	rcu_read_unlock();
+> @@ -1742,6 +1742,7 @@ static int packet_getname(struct socket *sock, struct sockaddr *uaddr,
+>  	sll->sll_family = AF_PACKET;
+>  	sll->sll_ifindex = po->ifindex;
+>  	sll->sll_protocol = po->num;
+> +	sll->sll_pkttype = 0;
+>  	rcu_read_lock();
+>  	dev = dev_get_by_index_rcu(sock_net(sk), po->ifindex);
+>  	if (dev) {
