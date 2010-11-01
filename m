@@ -1,29 +1,303 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [PATCH 1/2] solos: Add 'Firmware' attribute for Traverse
- overall firmware version
-Date: Mon, 01 Nov 2010 16:50:37 -0400
-Message-ID: <1288644637.5977.27.camel@macbook.infradead.org>
-References: <1288643669.5977.21.camel@macbook.infradead.org>
-	 <20101101164938.5807e4c3@s6510>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 05/11] vxge: add support for ethtool firmware flashing
+Date: Mon, 01 Nov 2010 20:51:27 +0000
+Message-ID: <1288644687.2231.46.camel@achroite.uk.solarflarecom.com>
+References: <1288318786-12319-1-git-send-email-jon.mason@exar.com>
+	 <1288318786-12319-5-git-send-email-jon.mason@exar.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Sivakumar Subramani <sivakumar.subramani@exar.com>,
+	Sreenivasa Honnur <sreenivasa.honnur@exar.com>,
+	Ram Vepa <ram.vepa@exar.com>
+To: Jon Mason <jon.mason@exar.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canuck.infradead.org ([134.117.69.58]:36348 "EHLO
-	canuck.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754167Ab0KAUuk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Nov 2010 16:50:40 -0400
-In-Reply-To: <20101101164938.5807e4c3@s6510>
+Received: from mail.solarflare.com ([216.237.3.220]:23679 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754167Ab0KAUvb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Nov 2010 16:51:31 -0400
+In-Reply-To: <1288318786-12319-5-git-send-email-jon.mason@exar.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2010-11-01 at 16:49 -0400, Stephen Hemminger wrote:
-> There is a firware version in ethtool, does this driver supply it? 
+On Thu, 2010-10-28 at 21:19 -0500, Jon Mason wrote:
+> Add the ability in the vxge driver to flash firmware via ethtool.
+[...]
+> +enum vxge_hw_status
+> +vxge_update_fw_image(struct __vxge_hw_device *hldev, const u8 *fwdata, int size)
+> +{
+> +	u64 data0 = 0, data1 = 0, steer_ctrl = 0;
+> +	struct __vxge_hw_virtualpath *vpath;
+> +	enum vxge_hw_status status;
+> +	int ret_code, sec_code, i;
+> +
+> +	vpath = &hldev->virtual_paths[hldev->first_vp_id];
+> +
+> +	/* send upgrade start command */
+> +	status = vxge_hw_vpath_fw_api(vpath,
+> +				      VXGE_HW_FW_UPGRADE_ACTION,
+> +				      VXGE_HW_FW_UPGRADE_MEMO,
+> +				      VXGE_HW_FW_UPGRADE_OFFSET_START,
+> +				      &data0, &data1, &steer_ctrl);
+> +	if (status != VXGE_HW_OK) {
+> +		vxge_debug_init(VXGE_ERR, " %s: Upgrade start cmd failed",
+> +				__func__);
+> +		return status;
+> +	}
+> +
+> +	/* Transfer fw image to adapter 16 bytes at a time */
+> +	for (; size > 0; size -= VXGE_HW_FW_UPGRADE_BLK_SIZE) {
+> +		data0 = data1 = steer_ctrl = 0;
+> +
+> +		/* send 16 bytes at a time */
+> +		for (i = 0; i < VXGE_HW_BYTES_PER_U64; i++) {
+> +			data0 |= (u64)fwdata[i] << (i * VXGE_HW_BYTES_PER_U64);
 
-This is an ATM driver, so no.
+You apparently mean to multiply i by the number of bits in a byte here.
+This happens to be equal to VXGE_HW_BYTES_PER_U64 but it still doesn't
+make sense to use that name for it.
+
+[...]
+> diff --git a/drivers/net/vxge/vxge-ethtool.c b/drivers/net/vxge/vxge-ethtool.c
+> index 6194fd9..c5ab375 100644
+> --- a/drivers/net/vxge/vxge-ethtool.c
+> +++ b/drivers/net/vxge/vxge-ethtool.c
+> @@ -11,7 +11,7 @@
+>   *                 Virtualized Server Adapter.
+>   * Copyright(c) 2002-2010 Exar Corp.
+>   ******************************************************************************/
+> -#include<linux/ethtool.h>
+> +#include <linux/ethtool.h>
+>  #include <linux/slab.h>
+>  #include <linux/pci.h>
+>  #include <linux/etherdevice.h>
+> @@ -29,7 +29,6 @@
+>   * Return value:
+>   * 0 on success.
+>   */
+> -
+>  static int vxge_ethtool_sset(struct net_device *dev, struct ethtool_cmd *info)
+>  {
+>  	/* We currently only support 10Gb/FULL */
+> @@ -148,8 +147,7 @@ static void vxge_ethtool_gregs(struct net_device *dev,
+>  static int vxge_ethtool_idnic(struct net_device *dev, u32 data)
+>  {
+>  	struct vxgedev *vdev = (struct vxgedev *)netdev_priv(dev);
+> -	struct __vxge_hw_device  *hldev = (struct __vxge_hw_device  *)
+> -			pci_get_drvdata(vdev->pdev);
+> +	struct __vxge_hw_device *hldev = vdev->devh;
+>  
+>  	vxge_hw_device_flick_link_led(hldev, VXGE_FLICKER_ON);
+>  	msleep_interruptible(data ? (data * HZ) : VXGE_MAX_FLICKER_TIME);
+> @@ -168,11 +166,10 @@ static int vxge_ethtool_idnic(struct net_device *dev, u32 data)
+>   *  void
+>   */
+>  static void vxge_ethtool_getpause_data(struct net_device *dev,
+> -					struct ethtool_pauseparam *ep)
+> +				       struct ethtool_pauseparam *ep)
+>  {
+>  	struct vxgedev *vdev = (struct vxgedev *)netdev_priv(dev);
+> -	struct __vxge_hw_device  *hldev = (struct __vxge_hw_device  *)
+> -			pci_get_drvdata(vdev->pdev);
+> +	struct __vxge_hw_device *hldev = vdev->devh;
+>  
+>  	vxge_hw_device_getpause_data(hldev, 0, &ep->tx_pause, &ep->rx_pause);
+>  }
+> @@ -188,11 +185,10 @@ static void vxge_ethtool_getpause_data(struct net_device *dev,
+>   * int, returns 0 on Success
+>   */
+>  static int vxge_ethtool_setpause_data(struct net_device *dev,
+> -					struct ethtool_pauseparam *ep)
+> +				      struct ethtool_pauseparam *ep)
+>  {
+>  	struct vxgedev *vdev = (struct vxgedev *)netdev_priv(dev);
+> -	struct __vxge_hw_device  *hldev = (struct __vxge_hw_device  *)
+> -			pci_get_drvdata(vdev->pdev);
+> +	struct __vxge_hw_device *hldev = vdev->devh;
+>  
+>  	vxge_hw_device_setpause_data(hldev, 0, ep->tx_pause, ep->rx_pause);
+>  
+> @@ -211,7 +207,7 @@ static void vxge_get_ethtool_stats(struct net_device *dev,
+>  	struct vxge_vpath *vpath = NULL;
+>  
+>  	struct vxgedev *vdev = (struct vxgedev *)netdev_priv(dev);
+> -	struct __vxge_hw_device  *hldev = vdev->devh;
+> +	struct __vxge_hw_device *hldev = vdev->devh;
+>  	struct vxge_hw_xmac_stats *xmac_stats;
+>  	struct vxge_hw_device_stats_sw_info *sw_stats;
+>  	struct vxge_hw_device_stats_hw_info *hw_stats;
+
+These changes seem to be entirely unrelated to the patch description.
+
+> @@ -1153,6 +1149,25 @@ static int vxge_set_flags(struct net_device *dev, u32 data)
+>  	return 0;
+>  }
+>  
+> +static int vxge_fw_flash(struct net_device *dev, struct ethtool_flash *parms)
+> +{
+> +	struct vxgedev *vdev = (struct vxgedev *)netdev_priv(dev);
+> +
+> +	if (vdev->max_vpath_supported != VXGE_HW_MAX_VIRTUAL_PATHS) {
+> +		printk(KERN_INFO "Single Function Mode is required to flash the"
+> +		       " firmware\n");
+> +		return -EINVAL;
+> +	}
+> +
+> +	if (netif_running(dev)) {
+> +		printk(KERN_INFO "Interface %s must be down to flash the "
+> +		       "firmware\n", dev->name);
+> +		return -EINVAL;
+> +	}
+> +
+> +	return vxge_fw_upgrade(vdev, parms->data, 1);
+> +}
+
+I think EBUSY is a more appropriate error code.  There is nothing wrong
+with the arguments, only the current state of the device.
+
+[...]
+> diff --git a/drivers/net/vxge/vxge-main.c b/drivers/net/vxge/vxge-main.c
+> index d977a63..52a48e7 100644
+> --- a/drivers/net/vxge/vxge-main.c
+> +++ b/drivers/net/vxge/vxge-main.c
+[...]
+> @@ -3277,30 +3279,23 @@ vxge_device_unregister(struct __vxge_hw_device *hldev)
+>  	struct vxgedev *vdev;
+>  	struct net_device *dev;
+>  	char buf[IFNAMSIZ];
+> -#if ((VXGE_DEBUG_INIT & VXGE_DEBUG_MASK) || \
+> -	(VXGE_DEBUG_ENTRYEXIT & VXGE_DEBUG_MASK))
+> -	u32 level_trace;
+> -#endif
+>  
+>  	dev = hldev->ndev;
+>  	vdev = netdev_priv(dev);
+> -#if ((VXGE_DEBUG_INIT & VXGE_DEBUG_MASK) || \
+> -	(VXGE_DEBUG_ENTRYEXIT & VXGE_DEBUG_MASK))
+> -	level_trace = vdev->level_trace;
+> -#endif
+> -	vxge_debug_entryexit(level_trace,
+> -		"%s: %s:%d", vdev->ndev->name, __func__, __LINE__);
+> +	vxge_debug_entryexit(vdev->level_trace,	"%s: %s:%d", dev->name,
+> +			     __func__, __LINE__);
+>  
+> -	memcpy(buf, vdev->ndev->name, IFNAMSIZ);
+> +	memcpy(buf, dev->name, IFNAMSIZ);
+>  
+>  	/* in 2.6 will call stop() if device is up */
+>  	unregister_netdev(dev);
+>  
+>  	flush_scheduled_work();
+>  
+> -	vxge_debug_init(level_trace, "%s: ethernet device unregistered", buf);
+> -	vxge_debug_entryexit(level_trace,
+> -		"%s: %s:%d  Exiting...", buf, __func__, __LINE__);
+> +	vxge_debug_init(vdev->level_trace, "%s: ethernet device unregistered",
+> +			buf);
+> +	vxge_debug_entryexit(vdev->level_trace,	"%s: %s:%d  Exiting...", buf,
+> +			     __func__, __LINE__);
+>  }
+>  
+>  /*
+
+More apparently unrelated changes.
+
+> @@ -3924,6 +3919,142 @@ static inline u32 vxge_get_num_vfs(u64 function_mode)
+>  	return num_functions;
+>  }
+>  
+> +int vxge_fw_upgrade(struct vxgedev *vdev, char *fw_name, int override)
+> +{
+> +	struct __vxge_hw_device *hldev = vdev->devh;
+> +	u32 maj, min, bld, cmaj, cmin, cbld;
+> +	enum vxge_hw_status status;
+> +	const struct firmware *fw;
+> +	int ret;
+> +
+> +	ret = request_firmware(&fw, fw_name, &vdev->pdev->dev);
+> +	if (ret) {
+> +		vxge_debug_init(VXGE_ERR, "%s: Firmware file '%s' not found",
+> +				VXGE_DRIVER_NAME, fw_name);
+> +		goto out;
+> +	}
+> +
+> +	/* Load the new firmware onto the adapter */
+> +	status = vxge_update_fw_image(hldev, fw->data, fw->size);
+> +	if (status != VXGE_HW_OK) {
+> +		vxge_debug_init(VXGE_ERR,
+> +				"%s: FW image download to adapter failed '%s'.",
+> +				VXGE_DRIVER_NAME, fw_name);
+> +		ret = -EFAULT;
+
+Surely EIO or EINVAL.
+
+> +		goto out;
+> +	}
+> +
+> +	/* Read the version of the new firmware */
+> +	status = vxge_hw_upgrade_read_version(hldev, &maj, &min, &bld);
+> +	if (status != VXGE_HW_OK) {
+> +		vxge_debug_init(VXGE_ERR,
+> +				"%s: Upgrade read version failed '%s'.",
+> +				VXGE_DRIVER_NAME, fw_name);
+> +		ret = -EFAULT;
+
+EIO.
+
+> +		goto out;
+> +	}
+> +
+> +	cmaj = vdev->config.device_hw_info.fw_version.major;
+> +	cmin = vdev->config.device_hw_info.fw_version.minor;
+> +	cbld = vdev->config.device_hw_info.fw_version.build;
+> +	/* It's possible the version in /lib/firmware is not the latest version.
+> +	 * If so, we could get into a loop of trying to upgrade to the latest
+> +	 * and flashing the older version.
+> +	 */
+> +	if (VXGE_FW_VER(maj, min, bld) == VXGE_FW_VER(cmaj, cmin, cbld) &&
+> +	    !override) {
+> +		ret = -EINVAL;
+> +		goto out;
+> +	}
+> +
+> +	printk(KERN_NOTICE "Upgrade to firmware version %d.%d.%d commencing\n",
+> +	       maj, min, bld);
+> +
+> +	/* Flash the adapter with the new firmware */
+> +	status = vxge_hw_flash_fw(hldev);
+> +	if (status != VXGE_HW_OK) {
+> +		vxge_debug_init(VXGE_ERR, "%s: Upgrade commit failed '%s'.",
+> +				VXGE_DRIVER_NAME, fw_name);
+> +		ret = -EFAULT;
+> +		goto out;
+> +	}
+> +
+> +	printk(KERN_NOTICE "Upgrade of firmware successful!  Adapter must be "
+> +	       "hard reset before using, thus requiring a system reboot or a "
+> +	       "hotplug event.\n");
+
+Then what is the point of having the driver manage this?  And how can
+you be sure the user will even see this message?
+
+[...]
+> +static int vxge_probe_fw_update(struct vxgedev *vdev)
+> +{
+[...]
+> +	ret = vxge_fw_upgrade(vdev, fw_name, 0);
+> +	/* -EINVAL and -ENOENT are not fatal errors for flashing firmware on
+> +	 * probe, so ignore them
+> +	 */
+> +	if (ret != -EINVAL && ret != -ENOENT)
+> +		return -EFAULT;
+[..]
+
+EIO.
+
+Ben.
 
 -- 
-dwmw2
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
