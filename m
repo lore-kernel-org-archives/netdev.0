@@ -1,88 +1,65 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH] OF device tree: Move of_get_mac_address() to a common
-	source file.
-Date: Mon, 1 Nov 2010 01:17:34 -0400
-Message-ID: <20101101051734.GB17587@angua.secretlab.ca>
-References: <1288130833-16421-1-git-send-email-ddaney@caviumnetworks.com>
+From: "Tomoya MORINAGA" <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6 v2] can: Topcliff: PCH_CAN driver: Fix build
+	warnings
+Date: Mon, 1 Nov 2010 16:15:01 +0900
+Message-ID: <002701cb7994$81db1350$66f8800a@maildom.okisemi.com>
+References: <4CCAA3D4.8070408@dsn.okisemi.com>
+	<4CCAC4CD.7000503@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-mips@linux-mips.org, Corey Minyard <cminyard@mvista.com>,
-	Anton Vorontsov <avorontsov@mvista.com>, Paul Mackerras <paulus@samba.org>,
-	Sadanand Mutyala <Sadanand.Mutyala@xilinx.com>,
-	Sergey Matyukevich <geomatsi@gmail.com>,
-	Sean MacLennan <smaclennan@pikatech.com>,
-	Wolfgang Denk <wd@denx.de>, microblaze-uclinux@itee.uq.edu.au,
-	devicetree-discuss@lists.ozlabs.org, Andres Salomon <dilinger@queued.net>,
-	Michal Simek <monstr@monstr.eu>, Anatolij Gustschin <agust@denx.de>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ralf@linux-mips.org,
-	Sandeep Gopalpet <Sandeep.Kumar@freescale.com>,
-	Vitaly Bordug <vbordug@ru.mvista.com>, linuxppc-dev@lists.ozlabs.org,
-	"David S. Miller" <davem@davemloft.net>
-To: David Daney <ddaney@caviumnetworks.com>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-Content-Disposition: inline
-In-Reply-To: <1288130833-16421-1-git-send-email-ddaney@caviumnetworks.com>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	Masayuki Ohtake <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>,
+	Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>, margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
+	joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+To: "Marc Kleine-Budde" <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 26, 2010 at 03:07:13PM -0700, David Daney wrote:
-> There are two identical implementations of of_get_mac_address(), one
-> each in arch/powerpc/kernel/prom_parse.c and
-> arch/microblaze/kernel/prom_parse.c.  Move this function to a new
-> common file of_net.{c,h} and adjust all the callers to include the new
-> header.
+On Friday, October 29, 2010 9:57 PM : Marc Kleine-Budde wrote:
+>>>> SW must check busy flag of CAN register.
+>>>> This is a Topcliff HW specification.
+>>> Maybe the busy check could also be done *before* the Message RAM is
+>>> accessed to avoid (or minimize) waiting.
+>> Yes, *before* is right.
+>> If there is *after* processing, this is a bug.
+>> Can you see anyway ?
+>Sorry I don't understand what you mean.
 
-Applied, thanks; but made some changes to protect this code because it
-does not work on little endian (it can be fixed in a separate patch)
+Sorry, my English had mistake. I show my comment below again.
+ - If there is *after* processing, this is a bug.
+ - Can you see the point anywhere ?
 
-Also...
+> You probably know the datasheet, but I don't, although I've printed
+> chapter 13 from the Intel Controller Hub EG20T datasheet, but it's 50+
+> pages. If the hardware needs the busy waiting in the hot tx path a
+> pointer to the respective section in the manual is a good idea. Just
+> something like:
 
-> 
-> Signed-off-by: David Daney <ddaney@caviumnetworks.com>
-> Cc: Michal Simek <monstr@monstr.eu>
-> Cc: Grant Likely <grant.likely@secretlab.ca>
-> Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-> Cc: Wolfram Sang <w.sang@pengutronix.de>
-> Cc: Paul Mackerras <paulus@samba.org>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: Corey Minyard <cminyard@mvista.com>
-> Cc: Pantelis Antoniou <pantelis.antoniou@gmail.com>
-> Cc: Vitaly Bordug <vbordug@ru.mvista.com>
-> Cc: Anatolij Gustschin <agust@denx.de>
-> Cc: John Rigby <jcrigby@gmail.com>
-> Cc: Wolfgang Denk <wd@denx.de>
-> Cc: Anton Vorontsov <avorontsov@mvista.com>
-> Cc: Sandeep Gopalpet <Sandeep.Kumar@freescale.com>
-> Cc: Kumar Gala <galak@kernel.crashing.org>
-> Cc: Li Yang <leoli@freescale.com>
-> Cc: Sergey Matyukevich <geomatsi@gmail.com>
-> Cc: Jiri Pirko <jpirko@redhat.com>
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: Sean MacLennan <smaclennan@pikatech.com>
-> Cc: Sadanand Mutyala <Sadanand.Mutyala@xilinx.com>
-> Cc: Andres Salomon <dilinger@queued.net>
-> Cc: microblaze-uclinux@itee.uq.edu.au
-> Cc: linux-kernel@vger.kernel.org
-> Cc: linuxppc-dev@lists.ozlabs.org
-> Cc: netdev@vger.kernel.org
-> Cc: devicetree-discuss@lists.ozlabs.org
+Though "Oliver Hartkopp" found the place of Datasheet EG20T and notified with the mailing-list,
+Have you read the following ?
+http://edc.intel.com/Platforms/Atom-E6xx/#hardware
 
-You don't need to believe everything that get_maintainers is telling
-you.  When you get a large list like this, don't Cc everyone, but
-apply some educated guesses.  You can guess that the PowerPC and
-Microblaze maintainers care because it touches their trees, and you
-can guess that I care because I'm the dt maintainer. David Miller
-isn't a bad guess because of networking.  But 22 people is excessive.
+>>> You have to change the definition of the regs struct a bit:
+>>>>  u32 if1_mcont;
+>>>>  u32 if1_data[4];
+>>>>  u32 reserve2;
+>> Uh, I can't find this. Where is this ?
+>Here's a patch to illustrate what I meant:
+I understand.
 
-g.
+
+Thanks, Tomoya(OKI SEMICONDUCTOR CO., LTD.)
