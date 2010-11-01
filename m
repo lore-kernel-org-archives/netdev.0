@@ -1,36 +1,88 @@
-From: Amit Salecha <amit.salecha@qlogic.com>
-Subject: RE: [PATCH] qlcnic: fix panic on load
-Date: Sun, 31 Oct 2010 23:58:29 -0500
-Message-ID: <99737F4847ED0A48AECC9F4A1974A4B80FCEAB434D@MNEXMB2.qlogic.org>
-References: <1288540238.2660.50.camel@edumazet-laptop>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: Re: [PATCH] OF device tree: Move of_get_mac_address() to a common
+	source file.
+Date: Mon, 1 Nov 2010 01:17:34 -0400
+Message-ID: <20101101051734.GB17587@angua.secretlab.ca>
+References: <1288130833-16421-1-git-send-email-ddaney@caviumnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexcashub1.qlogic.com ([198.70.193.61]:58273 "EHLO
-	avexcashub1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752152Ab0KAE72 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Nov 2010 00:59:28 -0400
-In-Reply-To: <1288540238.2660.50.camel@edumazet-laptop>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: linux-mips@linux-mips.org, Corey Minyard <cminyard@mvista.com>,
+	Anton Vorontsov <avorontsov@mvista.com>, Paul Mackerras <paulus@samba.org>,
+	Sadanand Mutyala <Sadanand.Mutyala@xilinx.com>,
+	Sergey Matyukevich <geomatsi@gmail.com>,
+	Sean MacLennan <smaclennan@pikatech.com>,
+	Wolfgang Denk <wd@denx.de>, microblaze-uclinux@itee.uq.edu.au,
+	devicetree-discuss@lists.ozlabs.org, Andres Salomon <dilinger@queued.net>,
+	Michal Simek <monstr@monstr.eu>, Anatolij Gustschin <agust@denx.de>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ralf@linux-mips.org,
+	Sandeep Gopalpet <Sandeep.Kumar@freescale.com>,
+	Vitaly Bordug <vbordug@ru.mvista.com>, linuxppc-dev@lists.ozlabs.org,
+	"David S. Miller" <davem@davemloft.net>
+To: David Daney <ddaney@caviumnetworks.com>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+Content-Disposition: inline
+In-Reply-To: <1288130833-16421-1-git-send-email-ddaney@caviumnetworks.com>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-> From: Eric Dumazet [eric.dumazet@gmail.com]
-> Sent: Sunday, October 31, 2010 9:20 PM
-> To: David Miller
-> Cc: netdev; Amit Salecha
-> Subject: [PATCH] qlcnic: fix panic on load
-> 
-> Its now illegal to call netif_stop_queue() before register_netdev()
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: Amit Kumar Salecha <amit.salecha@qlogic.com>
-> ---
-> drivers/net/qlcnic/qlcnic_main.c |    1 -
-> 1 file changed, 1 deletion(-)
+On Tue, Oct 26, 2010 at 03:07:13PM -0700, David Daney wrote:
+> There are two identical implementations of of_get_mac_address(), one
+> each in arch/powerpc/kernel/prom_parse.c and
+> arch/microblaze/kernel/prom_parse.c.  Move this function to a new
+> common file of_net.{c,h} and adjust all the callers to include the new
+> header.
 
-Thanks Eric.
+Applied, thanks; but made some changes to protect this code because it
+does not work on little endian (it can be fixed in a separate patch)
+
+Also...
+
+> 
+> Signed-off-by: David Daney <ddaney@caviumnetworks.com>
+> Cc: Michal Simek <monstr@monstr.eu>
+> Cc: Grant Likely <grant.likely@secretlab.ca>
+> Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+> Cc: Wolfram Sang <w.sang@pengutronix.de>
+> Cc: Paul Mackerras <paulus@samba.org>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Corey Minyard <cminyard@mvista.com>
+> Cc: Pantelis Antoniou <pantelis.antoniou@gmail.com>
+> Cc: Vitaly Bordug <vbordug@ru.mvista.com>
+> Cc: Anatolij Gustschin <agust@denx.de>
+> Cc: John Rigby <jcrigby@gmail.com>
+> Cc: Wolfgang Denk <wd@denx.de>
+> Cc: Anton Vorontsov <avorontsov@mvista.com>
+> Cc: Sandeep Gopalpet <Sandeep.Kumar@freescale.com>
+> Cc: Kumar Gala <galak@kernel.crashing.org>
+> Cc: Li Yang <leoli@freescale.com>
+> Cc: Sergey Matyukevich <geomatsi@gmail.com>
+> Cc: Jiri Pirko <jpirko@redhat.com>
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Sean MacLennan <smaclennan@pikatech.com>
+> Cc: Sadanand Mutyala <Sadanand.Mutyala@xilinx.com>
+> Cc: Andres Salomon <dilinger@queued.net>
+> Cc: microblaze-uclinux@itee.uq.edu.au
+> Cc: linux-kernel@vger.kernel.org
+> Cc: linuxppc-dev@lists.ozlabs.org
+> Cc: netdev@vger.kernel.org
+> Cc: devicetree-discuss@lists.ozlabs.org
+
+You don't need to believe everything that get_maintainers is telling
+you.  When you get a large list like this, don't Cc everyone, but
+apply some educated guesses.  You can guess that the PowerPC and
+Microblaze maintainers care because it touches their trees, and you
+can guess that I care because I'm the dt maintainer. David Miller
+isn't a bad guess because of networking.  But 22 people is excessive.
+
+g.
