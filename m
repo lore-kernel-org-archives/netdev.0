@@ -1,38 +1,36 @@
 From: Amit Salecha <amit.salecha@qlogic.com>
-Subject: RE: NULL pointer dereference at netxen_nic_probe+0x813/0x9a0
-Date: Sun, 31 Oct 2010 23:56:28 -0500
-Message-ID: <99737F4847ED0A48AECC9F4A1974A4B80FCEAB434C@MNEXMB2.qlogic.org>
-References: <201010281250.50802.bjorn.helgaas@hp.com>
-	<AANLkTim8coGDmxxCnhzXXLEswf1OYptswbA59BYcbp-N@mail.gmail.com>
-	<4CCB24CA.3050106@kernel.org>
- <20101029.125403.71123384.davem@davemloft.net>,<4CCC7868.60104@kernel.org>
+Subject: RE: [PATCH] qlcnic: fix panic on load
+Date: Sun, 31 Oct 2010 23:58:29 -0500
+Message-ID: <99737F4847ED0A48AECC9F4A1974A4B80FCEAB434D@MNEXMB2.qlogic.org>
+References: <1288540238.2660.50.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: "bjorn.helgaas@hp.com" <bjorn.helgaas@hp.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Denis Kirjanov <dkirjanov@kernel.org>,
+Cc: netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
 	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexcashub1.qlogic.com ([198.70.193.61]:53942 "EHLO
+Received: from avexcashub1.qlogic.com ([198.70.193.61]:58273 "EHLO
 	avexcashub1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750933Ab0KAE6R convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Nov 2010 00:58:17 -0400
-In-Reply-To: <4CCC7868.60104@kernel.org>
+	with ESMTP id S1752152Ab0KAE72 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Nov 2010 00:59:28 -0400
+In-Reply-To: <1288540238.2660.50.camel@edumazet-laptop>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Ok, thanks Dave, now I see.
->
-> [PATCH] netxen_nic: Fix the tx queue manipulation bug in netxen_nic_probe
->
-> We should not stop the egress queue during probe because it is wrong.
->
->Signed-off-by: Denis Kirjanov <dkirjanov@kernel.org>
+> From: Eric Dumazet [eric.dumazet@gmail.com]
+> Sent: Sunday, October 31, 2010 9:20 PM
+> To: David Miller
+> Cc: netdev; Amit Salecha
+> Subject: [PATCH] qlcnic: fix panic on load
+> 
+> Its now illegal to call netif_stop_queue() before register_netdev()
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Amit Kumar Salecha <amit.salecha@qlogic.com>
 > ---
-> drivers/net/netxen/netxen_nic_main.c |    1 -
-> 1 files changed, 0 insertions(+), 1 deletions(-)
+> drivers/net/qlcnic/qlcnic_main.c |    1 -
+> 1 file changed, 1 deletion(-)
 
-Thanks Denis, for fixing this.
+Thanks Eric.
