@@ -1,47 +1,45 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: bonding: flow control regression [was Re: bridging: flow
- control regression]
-Date: Tue, 2 Nov 2010 16:03:11 +0900
-Message-ID: <20101102070308.GA19924@verge.net.au>
-References: <20101101122920.GB10052@verge.net.au>
- <1288616372.2660.101.camel@edumazet-laptop>
- <20101102020625.GA22724@verge.net.au>
- <1288673622.2660.147.camel@edumazet-laptop>
+From: <macpaul@andestech.com>
+Subject: RE: About the Davicom PHY in drivers/net/phy in Linux kernel
+Date: Tue, 2 Nov 2010 15:27:02 +0800
+Message-ID: <50FD90C65C53FB45BADEEBCD84FF07F202A6269C@ATCPCS06.andestech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Jay Vosburgh <fubar@us.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <afleming@freescale.com>, <jeff@garzik.org>,
+	<f.rodo@til-technologies.fr>
+To: <joseph_chang@mail.davicom.com.tw>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:54330 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753059Ab0KBHDZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Nov 2010 03:03:25 -0400
-Content-Disposition: inline
-In-Reply-To: <1288673622.2660.147.camel@edumazet-laptop>
+Received: from 59-124-160-117.HINET-IP.hinet.net ([59.124.160.117]:24197 "EHLO
+	ATCPCS06.andestech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932358Ab0KBHYV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Nov 2010 03:24:21 -0400
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 02, 2010 at 05:53:42AM +0100, Eric Dumazet wrote:
-> Le mardi 02 novembre 2010 =C3=A0 11:06 +0900, Simon Horman a =C3=A9cr=
-it :
->=20
-> > Thanks for the explanation.
-> > I'm not entirely sure how much of a problem this is in practice.
->=20
-> Maybe for virtual devices (tunnels, bonding, ...), it would make sens=
-e
-> to delay the orphaning up to the real device.
-
-That was my initial thought. Could you give me some guidance
-on how that might be done so I can try and make a patch to test?
-
-> But if the socket send buffer is very large, it would defeat the flow
-> control any way...
-
-I'm primarily concerned about a situation where
-UDP packets are sent as fast as possible, indefinitely.
-And in that scenario, I think it would need to be a rather large buffer=
-=2E
-
+SGkgSm9zZXBoLA0KDQo+IEZyb206IEpvc2VwaCBDaGFuZyBbbWFpbHRvOmpvc2VwaF9jaGFuZ0Bt
+YWlsLmRhdmljb20uY29tLnR3XQ0KPiBTZW50OiBNb25kYXksIE5vdmVtYmVyIDAxLCAyMDEwIDEw
+OjI3IEFNDQo+IFRvOiBNYWNwYXVsIENoaWgtUGluIExpbijmnpfmmbrmlowpOyBuZXRkZXZAdmdl
+ci5rZXJuZWwub3JnDQo+IENjOiBhZmxlbWluZ0BmcmVlc2NhbGUuY29tOyBqZWZmQGdhcnppay5v
+cmc7IGYucm9kb0B0aWwtdGVjaG5vbG9naWVzLmZyDQo+IFN1YmplY3Q6IFJFOiBBYm91dCB0aGUg
+RGF2aWNvbSBQSFkgaW4gZHJpdmVycy9uZXQvcGh5IGluIExpbnV4IGtlcm5lbA0KPiANCj4gRGVh
+ciBNYWNQYXVsLA0KPiANCj4gICAgMS5ZZXMuIEkgaGF2ZSBkb3dubG9hZGVkIGl0LiBBbmQgYmVs
+b3cgaXMgdGhlIGtub3cgaXRlbXMuDQo+IA0KPiAgICAgIERNOTE2MUENCj4gICAgICBjcHU6IEZh
+cmFkYXkgQTMyMCAoYXJtOTIwdCkgKyBBbmRlcyBBRzEwMSAoTkRTMzIpIDtTb0MNCj4gICAgICBP
+UzogTGludXg6IDIuNi4zMg0KPiAgICAgIEFjdGlvbnM6DQo+ICAgICAgICAtIGRhdmljb20uYyAg
+ICAgICAgICAgICAvLyBEb3dubG9hZCBmcm9tIExYUg0KPiAgICAgICAgLSBpbmNsdWRlLWxpbnV4
+LW1paS5oICAgLy8gRG93bmxvYWQgZnJvbSBMWFINCg0KWWVzDQoNCj4gICAgMi5Zb3VyIHF1b3Rl
+IGlzIHJpZ2h0LiBQbGVhc2UgdGVsbCB1cyB0aGUgdGVzdCByZXN1bHQuDQoNCk9uIG91ciBFVkIg
+Ym9hcmQsIFJFU0VUIHdvbid0IGhhdmUgZGhjcCBwcm9ibGVtICh1bnN0YWJsZSkgaG93ZXZlciBJ
+U09MQVRFIGRvZXMuDQoNCj4gICAgMy5JIGhhdmUgYSBxdWVzdGlvbiBmb3IgeW91LA0KPiAgICBX
+aGVyZSBpcyB5b3VyIGNvbXBhbnk/IEkgYnJvd3NlIGZvciBhbmRlc3RlY2gsIEFuZCBmb3VuZCB0
+aGF0IGFuZGVzdGVjaA0KPiBsb2NhdGVkIGF0DQo+ICAgICBTaVNvZnQgU0lQUCBDZW50ZXIhIChB
+ZGRyZXNzOiAyRiwgTm8uMSwgTGktSHNpbiBGaXJzdCBSb2FkLCBTY2llbmNlLUJhc2VkDQo+IElu
+ZHVzdHJpYWwgUGFyaykNCj4gICAgIElzIGl0IHJpZ2h0Pw0KDQpZZXMuIFRoYXQncyB0aGUgbG9j
+YXRpb24gb2YgbXkgY29tcGFueS4NCj4gDQo+IEJlc3QgUmVnYXJkcywNCj4gSm9zZXBoIENIQU5H
+DQo+IFN5c3RlbSBBcHBsaWNhdGlvbiBFbmdpbmVlcmluZyBEaXZpc2lvbg0KPiBEYXZpY29tIFNl
+bWljb25kdWN0b3IsIEluYy4NCj4gTm8uIDYgTGktSHNpbiBSZC4gVkksIFNjaWVuY2UtQmFzZWQg
+UGFyaywNCj4gSHNpbi1DaHUsIFRhaXdhbi4NCj4gVGVsOiA4ODYtMy01Nzk4Nzk3IEV4IDg1MzQN
+Cj4gRmF4OiA4ODYtMy01NjQ2OTI5DQo+IFdlYjogaHR0cDovL3d3dy5kYXZpY29tLmNvbS50dw0K
+W0RlbGV0ZWRdDQoNCkJlc3QgcmVnYXJkcywNCk1hY3BhdWwgTGluDQo=
