@@ -1,79 +1,58 @@
-From: Dave Chinner <david@fromorbit.com>
-Subject: [regression, 2.6.37-rc1] 'ip link tap0 up' stuck in do_exit()
-Date: Wed, 3 Nov 2010 17:26:09 +1100
-Message-ID: <20101103062609.GB31163@dastard>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [Ksummit-2010-discuss] [v2] Remaining BKL users, what to do
+Date: Tue, 2 Nov 2010 02:21:35 +0100
+Message-ID: <20101102012135.GB2648@ucw.cz>
+References: <201009161632.59210.arnd@arndb.de>
+ <201010192140.47433.oliver@neukum.org>
+ <20101019202912.GA30133@kroah.com>
+ <201010192244.41913.arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Greg KH <greg@kroah.com>, Oliver Neukum <oliver@neukum.org>,
+	Valdis.Kletnieks@vt.edu, Dave Airlie <airlied@gmail.com>,
+	codalist@telemann.coda.cs.cmu.edu,
+	ksummit-2010-discuss@lists.linux-foundation.org,
+	autofs@linux.kernel.org, Jan Harkes <jaharkes@cs.cmu.edu>,
+	Samuel Ortiz <samuel@sortiz.org>, Jan Kara <jack@suse.cz>,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	netdev@vger.kernel.org, Anders Larsen <al@alarsen.net>,
+	linux-kernel@vger.kernel.org, dri-devel@lists.freedesktop.org,
+	Bryan Schumaker <bjschuma@netapp.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Petr Vandrovec <vandrove@vc.cvut.cz>,
+	Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>,
+	linux-fsdevel@vger.kernel.org,
+	Evgeniy Dushistov <dushistov@mail.ru>,
+	Ingo Molnar <mingo@elte.hu>,
+	Andrew Hendry <andrew.hendry@gmail.com>,
+	linux-media@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ksp.mff.cuni.cz ([195.113.26.206]:44298 "EHLO
+	atrey.karlin.mff.cuni.cz" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753019Ab0KCGnH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Nov 2010 02:43:07 -0400
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <201010192244.41913.arnd@arndb.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Folks,
+Hi!
 
-Starting up KVM on a current mainline kernel using the tap
-device for the networking is resulting in the ip process tryin gto
-up the tap interface hanging. KVM is started with this networking
-config:
+> @@ -79,6 +79,10 @@ static struct drm_driver driver = {
+>  
+>  static int __init i810_init(void)
+>  {
+> +	if (num_present_cpus() > 1) {
+> +		pr_err("drm/i810 does not support SMP\n");
+> +		return -EINVAL;
+> +	}
+>  	driver.num_ioctls = i810_max_ioctl;
+>  	return drm_init(&driver);
 
-....
-        -net nic,vlan=0,macaddr=00:e4:b6:63:63:6d,model=virtio \
-        -net tap,vlan=0,script=/vm-images/qemu-ifup,downscript=no \
-....
+Umm, and now someone onlines second cpu?
 
-And the script is effectively:
-
-switch=br0
-if [ -n "$1" ];then
-        /usr/bin/sudo /sbin/ip link set $1 up
-        sleep 0.5s
-        /usr/bin/sudo /usr/sbin/brctl addif $switch $1
-	exit 0
-fi
-exit 1
-
-This is resulting in the command 'ip link set tap0 up' hanging as a zombie:
-
-root      3005     1  0 16:53 pts/3    00:00:00 /bin/sh /vm-images/qemu-ifup tap0
-root      3011  3005  0 16:53 pts/3    00:00:00 /usr/bin/sudo /sbin/ip link set tap0 up
-root      3012  3011  0 16:53 pts/3    00:00:00 [ip] <defunct>
-
-In do_exit() with this trace:
-
-[ 1630.782255] ip            x ffff88063fcb3600     0  3012   3011 0x00000000
-[ 1630.789121]  ffff880631328000 0000000000000046 0000000000000000 ffff880633104380
-[ 1630.796524]  0000000000013600 ffff88062f031fd8 0000000000013600 0000000000013600
-[ 1630.803925]  ffff8806313282d8 ffff8806313282e0 ffff880631328000 0000000000013600
-[ 1630.811324] Call Trace:
-[ 1630.813760]  [<ffffffff8104a90d>] ? do_exit+0x716/0x724
-[ 1630.818964]  [<ffffffff8104a995>] ? do_group_exit+0x7a/0xa4
-[ 1630.824512]  [<ffffffff8104a9d1>] ? sys_exit_group+0x12/0x16
-[ 1630.830149]  [<ffffffff81009a82>] ? system_call_fastpath+0x16/0x1b
-
-The address comes down to the schedule() call:
-
-(gdb) l *(do_exit+0x716)
-0xffffffff8104a90d is in do_exit (kernel/exit.c:1034).
-1029            preempt_disable();
-1030            exit_rcu();
-1031            /* causes final put_task_struct in finish_task_switch(). */
-1032            tsk->state = TASK_DEAD;
-1033            schedule();
-1034            BUG();
-1035            /* Avoid "noreturn function does return".  */
-1036            for (;;)
-1037                    cpu_relax();    /* For when BUG is null */
-1038    }
-
-Needless to say, KVM is not starting up. This works just fine on
-2.6.35.1 and so is a regression. I can't do a lot of testing on this as
-the host is the machine that hosts all my build and test environments....
-
-Cheers,
-
-Dave.
+									Pavel
 -- 
-Dave Chinner
-david@fromorbit.com
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
