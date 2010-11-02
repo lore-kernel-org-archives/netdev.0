@@ -1,63 +1,47 @@
-From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
-Subject: Re: 2.6.35->2.6.36 regression, vanilla kernel panic, ppp or hrtimers crashing
-Date: Tue, 2 Nov 2010 15:49:47 +0200
-Message-ID: <201011021549.47466.nuclearcat@nuclearcat.com>
-References: <20101028070550.GA7647@ff.dom.local>
+From: Dan Rosenberg <drosenberg@vsecurity.com>
+Subject: [SECURITY] memory corruption in X.25 facilities parsing
+Date: Tue, 02 Nov 2010 11:02:48 -0400
+Message-ID: <1288710168.2504.6.camel@dan>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-	Paul Mackerras <paulus@samba.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Cc: netdev@vger.kernel.org, security@kernel.org, stable@kernel.org
+To: andrew.hendry@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:43237 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752962Ab0KBNtY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Nov 2010 09:49:24 -0400
-In-Reply-To: <20101028070550.GA7647@ff.dom.local>
+Received: from mx1.vsecurity.com ([209.67.252.12]:49506 "EHLO
+	mx1.vsecurity.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752966Ab0KBPCv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Nov 2010 11:02:51 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I didn't try yet, but i enable more debugs and catch linked list corruption. 
+I put this together after a quick glance, so if someone knows this code
+better than I do (i.e. at all), feel free to comment or drop this patch
+if it's unnecessary.
 
-Here is dumps from netconsole:
-http://www.nuclearcat.com/ll.txt
-http://www.nuclearcat.com/ll2.txt		
+A value of 0 will cause a memcpy() of ULONG_MAX size, destroying the
+kernel heap.
 
-I have another PC, also fails to run 2.6.36, but netconsole don't give 
-anything.
-Both PC's have strange issue with clock drifting away too much (on 2.6.35 and 
-maybe even before).
+Signed-off-by: Dan Rosenberg <drosenberg@vsecurity.com>
+
+--- linux-2.6.36-rc6.orig/net/x25/x25_facilities.c	2010-09-28 21:01:22.000000000 -0400
++++ linux-2.6.36-rc6/net/x25/x25_facilities.c	2010-11-02 10:36:02.827291324 -0400
+@@ -134,14 +134,14 @@ int x25_parse_facilities(struct sk_buff 
+ 		case X25_FAC_CLASS_D:
+ 			switch (*p) {
+ 			case X25_FAC_CALLING_AE:
+-				if (p[1] > X25_MAX_DTE_FACIL_LEN)
++				if (p[1] > X25_MAX_DTE_FACIL_LEN || p[1] == 0)
+ 					break;
+ 				dte_facs->calling_len = p[2];
+ 				memcpy(dte_facs->calling_ae, &p[3], p[1] - 1);
+ 				*vc_fac_mask |= X25_MASK_CALLING_AE;
+ 				break;
+ 			case X25_FAC_CALLED_AE:
+-				if (p[1] > X25_MAX_DTE_FACIL_LEN)
++				if (p[1] > X25_MAX_DTE_FACIL_LEN || p[1] == 0)
+ 					break;
+ 				dte_facs->called_len = p[2];
+ 				memcpy(dte_facs->called_ae, &p[3], p[1] - 1);
 
 
-On Thursday 28 October 2010 10:05:50 Jarek Poplawski wrote:
-> On 2010-10-25 11:22, Denys Fedoryshchenko wrote:
-> > Hi
-> > 
-> > Here is what i got from netconsole
-> > 
-> >  [  259.238755] BUG: unable to handle kernel
-> >  paging request
-> >  at f8ba001c
-> >  [  259.238953] IP:
-> >  [<c0199ebe>] do_select+0x2cc/0x502
-> 
-> ...
-> 
-> > It is not easy to do full git bisect(it is semi-embedded distro), but i
-> > can try reversing particular commits, if someone can give idea which
-> > one, and can try debug patches.
-> 
-> Hi,
-> Nothing concrete, but you might try reverting this one:
-> 
-> http://git.kernel.org/?p=linux/kernel/git/stable/linux-2.6.36.y.git;a=commi
-> tdiff;h=15fd0cd9a2ad24a78fbee369dec8ca660979d57e
-> 
-> Jarek P.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
