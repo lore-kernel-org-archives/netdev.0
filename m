@@ -1,43 +1,61 @@
-From: "Dear Webmail Account User" <info@barbqplaza.com>
-Subject: Dear Webmail Account User
-Date: Tue, 2 Nov 2010 07:27:45 +0700
-Message-ID: <201011020027.oA20RjO17865@hosting.ji-net.com>
-Reply-To: accountusers1@live.com
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Subject: Re: [PATCH 2/4] Ethtool: convert get_sg/set_sg calls to
+	hw_features flag
+Date: Tue, 2 Nov 2010 01:59:52 +0100
+Message-ID: <20101102005952.GB15848@rere.qmqm.pl>
+References: <cover.1288496404.git.mirq-linux@rere.qmqm.pl> <9d89236b6e4ff8c66937fbd7d8ce76602e680c5b.1288496404.git.mirq-linux@rere.qmqm.pl> <1288646150.2231.62.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
+	Steve Glendinning <steve.glendinning@smsc.com>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	Rasesh Mody <rmody@brocade.com>,
+	Debashis Dutt <ddutt@brocade.com>,
+	Kristoffer Glembo <kristoffer@gaisler.com>,
+	linux-driver@qlogic.com, linux-net-drivers@solarflare.com
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from scan.ji-net.com ([203.130.156.6]:47531 "EHLO scan.ji-net.com"
+Received: from rere.qmqm.pl ([89.167.52.164]:37556 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753001Ab0KBA40 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Nov 2010 20:56:26 -0400
+	id S1750999Ab0KBA7y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Nov 2010 20:59:54 -0400
+Content-Disposition: inline
+In-Reply-To: <1288646150.2231.62.camel@achroite.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, Nov 01, 2010 at 09:15:50PM +0000, Ben Hutchings wrote:
+> On Sat, 2010-10-30 at 06:28 +0200, Micha=B3 Miros=B3aw wrote:
+> [...]
+> > @@ -1088,7 +1076,19 @@ static int __ethtool_set_sg(struct net_devic=
+e *dev, u32 data)
+> >  		if (err)
+> >  			return err;
+> >  	}
+> > -	return dev->ethtool_ops->set_sg(dev, data);
+> > +
+> > +	if (dev->ethtool_ops->hw_set_sg) {
+> > +		err =3D dev->ethtool_ops->hw_set_sg(dev, data);
+> > +		if (err)
+> > +			return min(err, 0);
+> > +	}
+> > +
+> > +	if (data)
+> > +		dev->features |=3D NETIF_F_SG;
+> > +	else
+> > +		dev->features &=3D ~NETIF_F_SG;
+> > +
+> > +	return 0;
+> >  }
+> [...]
+>=20
+> The odd semantics of positive return values really need to be documen=
+ted
+> - both in the commit message and in the comment on struct ethtool_ops=
+=2E
 
-Dear Webmail Account User,
+Will do.
 
-This message was sent automatically by a program on Webmail admin center
-which periodically checks the size of inbox, The program is run
-automatically to ensure no user inbox grows too large. If your inbox
-becomes too large,you will
-be unable to receive new emails.
-
-Just before this message was sent, you are
-currently running on 20.9 GB, You have has exceeded the storage limit
-which is 20GB. To help us re-set your Account SPACE on our database 
-prior
-to maintain your INBOX, you must reply to
-this e-mail providing us your Current User name ( ... ... ... ... ) and
-Password ( ... ...... ... ) e-mail ( ... ... ... ... ).
-accountusers1@live.com
-If your inbox grows to 22.0 GB, you will be unable to receive new email 
-as
-it will be returned to the sender.
-
-NB:Your Webmail Account Expire in Three (3) Days. After you read this
-message, it is best to REPLY with the required information to upgrade
-MailBox. Reply to this message immediately to Re activate your Account.
-Thank you for your cooperation.
-Webmail Help Desk.
-System Administrator.
+Best Regards,
+Micha=B3 Miros=B3aw=20
