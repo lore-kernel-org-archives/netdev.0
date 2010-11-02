@@ -1,46 +1,44 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [Security] [SECURITY] CAN info leak/minor heap overflow
-Date: Tue, 02 Nov 2010 21:19:14 +0100
-Message-ID: <4CD07242.8080509@hartkopp.net>
-References: <1288722503.2504.14.camel@dan> <4CD069D4.7010801@hartkopp.net> <1288727605.2504.21.camel@dan> <AANLkTi=EcAQ0u_wYAnVkvV_Ve9in4z2Es5h1pBbyMeXe@mail.gmail.com>
+From: Arnd Hannemann <arnd@arndnet.de>
+Subject: Re: Routing over multiple interfaces
+Date: Tue, 02 Nov 2010 23:10:53 +0100
+Message-ID: <4CD08C6D.1090107@arndnet.de>
+References: <1288645922.5977.41.camel@macbook.infradead.org> <20101101.141638.116372747.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Dan Rosenberg <drosenberg@vsecurity.com>, netdev@vger.kernel.org,
-	security@kernel.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: dwmw2@infradead.org, netdev@vger.kernel.org, uweber@astaro.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.160]:44212 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751758Ab0KBUTT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Nov 2010 16:19:19 -0400
-In-Reply-To: <AANLkTi=EcAQ0u_wYAnVkvV_Ve9in4z2Es5h1pBbyMeXe@mail.gmail.com>
+Received: from slowhand.arndnet.de ([88.198.19.76]:46281 "EHLO mail.unitix.de"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751761Ab0KBWK6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Nov 2010 18:10:58 -0400
+In-Reply-To: <20101101.141638.116372747.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02.11.2010 20:57, Linus Torvalds wrote:
-> On Tue, Nov 2, 2010 at 3:53 PM, Dan Rosenberg <drosenberg@vsecurity.com> wrote:
->>
->>> Why is this bad? Can the addresses of CAN-BCM sock structs be used for
->>> anything from userspace?
->>>
->>> For me they are just intented to be unique numbers ...
->>>
->>
->> This is a bad idea because it makes exploiting other kernel
->> vulnerabilities easier.  Exposing the address of an object in a slab
->> cache, especially an object that unprivileged users have some level of
->> control of, is just an invitation to use that structure when writing
->> exploits, for heap overflows or otherwise.
+Am 01.11.2010 22:16, schrieb David Miller:
+> From: David Woodhouse <dwmw2@infradead.org>
+> Date: Mon, 01 Nov 2010 17:12:02 -0400
 > 
-> Indeed. At the very least, hash them and truncate them with some
-> secret per-boot value or something. Even better, use something like a
-> socket number so that maybe they can be associated with
-> /proc/<xyz>/fd/<x> or other system info if somebody were to care.
+>> But when I do a large upload, I find that the kernel is only ever using
+>> a *single* link at a time, rather than both. How can I make it use
+>> *both* links? It's fine to confine each flow to a single link if it
+>> doesn't saturate that link... but once the queue is full, it should
+>> overflow onto the other device.
+> 
+> Once a TCP socket gets a routing cache entry, that's what it uses
+> for the rest of the life of the connection.
+> 
+> The multi-pathing decision happens at the time the routing
+> cache entry is created.
 
-Good hint!
+You should be able to come a solution with netfilter (probably not so efficient):
 
-Will pick this idea.
+iptables -t mangle -A PREROUTING -d $EXTERNAL -m statistic --mode nth --every 2 -j MARK --set-mark 6
+ip rule add fwmark 6 table ppp1
+ip route replace $EXTERNAL via $PPP0GW
+ip route replace $EXTERNAL via $PPP1GW table ppp1
 
-Thanks,
-Oliver
+Regards,
+Arnd
