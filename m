@@ -1,35 +1,51 @@
-From: Pascal Hambourg <pascal.mail@plouf.fr.eu.org>
-Subject: Re: Routing over multiple interfaces
-Date: Tue, 02 Nov 2010 20:46:44 +0100
-Message-ID: <4CD06AA4.6090005@plouf.fr.eu.org>
-References: <1288645922.5977.41.camel@macbook.infradead.org>	 <20101101.141638.116372747.davem@davemloft.net> <1288647330.2660.116.camel@edumazet-laptop>
+From: Dan Rosenberg <drosenberg@vsecurity.com>
+Subject: Re: [SECURITY] CAN info leak/minor heap overflow
+Date: Tue, 02 Nov 2010 15:53:25 -0400
+Message-ID: <1288727605.2504.21.camel@dan>
+References: <1288722503.2504.14.camel@dan>  <4CD069D4.7010801@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: dwmw2@infradead.org, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, security@kernel.org
+To: Oliver Hartkopp <socketcan@hartkopp.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from poutre.nerim.net ([62.4.16.124]:65011 "EHLO poutre.nerim.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755178Ab0KBTqs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Nov 2010 15:46:48 -0400
-In-Reply-To: <1288647330.2660.116.camel@edumazet-laptop>
+Received: from mx1.vsecurity.com ([209.67.252.12]:53458 "EHLO
+	mx1.vsecurity.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755229Ab0KBTx2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Nov 2010 15:53:28 -0400
+In-Reply-To: <4CD069D4.7010801@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
 
-Eric Dumazet a =E9crit :
->=20
-> David W. probably wants to use teql or some bonding ?
+> Why is this bad? Can the addresses of CAN-BCM sock structs be used for
+> anything from userspace?
+> 
+> For me they are just intented to be unique numbers ...
+> 
 
-I doubt that (ethernet) bonding works with PPP links.
+This is a bad idea because it makes exploiting other kernel
+vulnerabilities easier.  Exposing the address of an object in a slab
+cache, especially an object that unprivileged users have some level of
+control of, is just an invitation to use that structure when writing
+exploits, for heap overflows or otherwise.
 
-> # tc qdisc add dev ppp0 root teql0
-> # tc qdisc add dev ppp1 root teql0
-> # ip link set dev teql0 up
-> # ip route add default src 90.155.92.214 dev teql0
+-Dan
 
-What about using iptables + routing rules ?
-Mark every other packet going through the default PPP link with
-iptables, and reroute marked packets through the other PPP link.
+> > Secondly,
+> > on 64-bit platforms, up to 17 bytes may be copied into the buffer.
+> 
+> Hm - that's indeed not wanted. Will send a patch at least for this issue.
+> 
+> > Fortunately, structure padding will most likely prevent this from being
+> > a problem, except for the trailing NULL byte, which may overwrite the
+> > first byte of the next heap object.  Please name your procfile in a way
+> > that doesn't leak information and fits into the desired name buffer.
+> > 
+> > -Dan
+> > 
+> 
+> Regards,
+> Oliver
+
+
