@@ -1,52 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Routing over multiple interfaces
-Date: Tue, 02 Nov 2010 21:04:27 +0100
-Message-ID: <1288728267.2467.4.camel@edumazet-laptop>
-References: <1288645922.5977.41.camel@macbook.infradead.org>
-	 <20101101.141638.116372747.davem@davemloft.net>
-	 <1288647330.2660.116.camel@edumazet-laptop>
-	 <4CD06AA4.6090005@plouf.fr.eu.org>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [SECURITY] CAN info leak/minor heap overflow
+Date: Tue, 02 Nov 2010 21:16:54 +0100
+Message-ID: <4CD071B6.7030202@hartkopp.net>
+References: <1288722503.2504.14.camel@dan>  <4CD069D4.7010801@hartkopp.net> <1288727605.2504.21.camel@dan>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: dwmw2@infradead.org, netdev@vger.kernel.org
-To: Pascal Hambourg <pascal.mail@plouf.fr.eu.org>
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, security@kernel.org
+To: Dan Rosenberg <drosenberg@vsecurity.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:53881 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750796Ab0KBUEj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Nov 2010 16:04:39 -0400
-Received: by eye27 with SMTP id 27so4184202eye.19
-        for <netdev@vger.kernel.org>; Tue, 02 Nov 2010 13:04:38 -0700 (PDT)
-In-Reply-To: <4CD06AA4.6090005@plouf.fr.eu.org>
+Received: from mo-p00-ob.rzone.de ([81.169.146.161]:11116 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751649Ab0KBURB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Nov 2010 16:17:01 -0400
+In-Reply-To: <1288727605.2504.21.camel@dan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 02 novembre 2010 =C3=A0 20:46 +0100, Pascal Hambourg a =C3=A9c=
-rit :
-> Hello,
->=20
-> Eric Dumazet a =C3=A9crit :
-> >=20
-> > David W. probably wants to use teql or some bonding ?
->=20
-> I doubt that (ethernet) bonding works with PPP links.
->=20
+On 02.11.2010 20:53, Dan Rosenberg wrote:
+> 
+>> Why is this bad? Can the addresses of CAN-BCM sock structs be used for
+>> anything from userspace?
+>>
+>> For me they are just intended to be unique numbers ...
+>>
+> 
+> This is a bad idea because it makes exploiting other kernel
+> vulnerabilities easier.  Exposing the address of an object in a slab
+> cache, especially an object that unprivileged users have some level of
+> control of, is just an invitation to use that structure when writing
+> exploits, for heap overflows or otherwise.
 
-Well, I was asking if some ppp bonding was possible. I am not a ppp
-user.
+The "level of control of" is just creating a socket or not. None of the data
+in the created struct can be influenced by an unprivileged user.
+Btw. i can generally follow your concerns after this explanation.
 
-> > # tc qdisc add dev ppp0 root teql0
-> > # tc qdisc add dev ppp1 root teql0
-> > # ip link set dev teql0 up
-> > # ip route add default src 90.155.92.214 dev teql0
->=20
-> What about using iptables + routing rules ?
-> Mark every other packet going through the default PPP link with
-> iptables, and reroute marked packets through the other PPP link.
+I'm going to check the kernel src for other approaches to display unique
+numbers in procfs and will send a patch that takes care.
 
-OK. I provided a working setup, maybe you also could provide one based
-on iptables as well ?
-
-
-
+Thanks,
+Oliver
