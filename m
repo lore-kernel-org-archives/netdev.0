@@ -1,35 +1,38 @@
-From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCH] bluetooth: bnep: fix information leak to userland
-Date: Tue, 02 Nov 2010 16:35:31 +0100
-Message-ID: <1288712131.3322.178.camel@aeonflux>
-References: <1288448782-5582-1-git-send-email-segooon@gmail.com>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH] bluetooth: cmtp: fix information leak to userland
+Date: Tue, 02 Nov 2010 16:35:58 +0100
+Message-ID: <1288712158.3322.179.camel@aeonflux>
+References: <1288448787-5848-1-git-send-email-segooon@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"Gustavo F. Padovan" <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Thadeu Lima de Souza Cascardo <cascardo-DmMZpsCg3uxeGPcbtGPokg@public.gmane.org>,
-	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Vasiliy Kulikov <segooon-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1288448782-5582-1-git-send-email-segooon-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: kernel-janitors@vger.kernel.org,
+	"Gustavo F. Padovan" <padovan@profusion.mobi>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Vasiliy Kulikov <segooon@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from senator.holtmann.net ([87.106.208.187]:36072 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751883Ab0KBPgQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Nov 2010 11:36:16 -0400
+In-Reply-To: <1288448787-5848-1-git-send-email-segooon@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Vasiiy,
+Hi Vasiliy,
 
-> Structure bnep_conninfo is copied to userland with the field "device"
-> that has the last elements unitialized.  It leads to leaking of
-> contents of kernel stack memory.
+> Structure cmtp_conninfo is copied to userland with some padding fields
+> unitialized.  It leads to leaking of contents of kernel stack memory.
 > 
-> Signed-off-by: Vasiliy Kulikov <segooon-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Signed-off-by: Vasiliy Kulikov <segooon@gmail.com>
 
-Acked-by: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Acked-by: Marcel Holtmann <marcel@holtmann.org>
 
 Regards
 
 Marcel
+
+
