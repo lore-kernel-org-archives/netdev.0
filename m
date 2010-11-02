@@ -1,32 +1,46 @@
-From: Paul Mundt <lethal@linux-sh.org>
-Subject: Re: [PATCH] net: sh_eth: ctrl_in/outX to __raw_read/writeX conversion.
-Date: Tue, 2 Nov 2010 22:39:36 +0900
-Message-ID: <20101102133936.GC5583@linux-sh.org>
-References: <1288666295-12529-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
+From: "Mr. Vincent Cheng" <info@cheng.org>
+Subject: Partnership..?
+Date: Tue, 2 Nov 2010 06:44:47 -0300 (BRT)
+Message-ID: <48967.41.206.15.1.1288691087.squirrel__49009.6970032484$1288705763$gmane$org@alesc.sc.gov.br>
+Reply-To: mrchengvich66@yahoo.com.hk
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: info@mail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 124x34x33x190.ap124.ftth.ucom.ne.jp ([124.34.33.190]:57692 "EHLO
-	master.linux-sh.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752729Ab0KBNjs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Nov 2010 09:39:48 -0400
-Content-Disposition: inline
-In-Reply-To: <1288666295-12529-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
+Received: from tubarao.alesc.sc.gov.br ([200.192.66.23]:53861 "EHLO
+	tubarao.alesc.sc.gov.br" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752839Ab0KBNtM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Nov 2010 09:49:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 02, 2010 at 11:51:35AM +0900, Nobuhiro Iwamatsu wrote:
-> The ctrl_xxx routines are deprecated, switch over to the __raw_xxx
-> versions.
-> 
-> Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+Hello,
 
-I sent a similar patch yesterday:
+I am Mr. Vincent Cheng, and have a sensitive and confidential brief from
 
-http://patchwork.ozlabs.org/patch/69831/
+Hong Kong.
 
-It doesn't matter really which one gets applied, although I opted to use
-the accessors with strong ordering given that we'll continue to see this
-block in newer CPUs where weak ordering is unlikely to be sufficient.
+I am asking for your partnership in re-profiling funds and will give the
+
+details.
+
+This is a legitimate transaction and you will be paid a handsome
+
+percentage for your "Management Fees". If interested you can kindly write
+
+and provide me with your confidential telephone number or fax number
+
+and I will provide further details with proper guidelines. I require absolute
+
+confidentiality as to any political problems.
+
+Finally, note that this must be concluded within two weeks. Kindly write
+
+back to this email  mrchengvich66@yahoo.com.hk, I look forward to hear from
+you.
+
+Regards,
+Vincent Cheng.
+
+
