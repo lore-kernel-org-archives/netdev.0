@@ -1,48 +1,87 @@
-From: "Webmail Help Desk" <jomilson@fc.unesp.br>
-Subject: Urgent...(Webmail upgrade notice)
-Date: Tue, 02 Nov 2010 06:06:51 -0200
-Message-ID: <20101102060651.23291z3fz5vcsm1n__3920.06095867163$1288688349$gmane$org@webmail.fc.unesp.br>
-Reply-To: web_admin10@mail2consultant.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: bonding: flow control regression [was Re: bridging: flow
+ control regression]
+Date: Tue, 02 Nov 2010 10:29:45 +0100
+Message-ID: <1288690185.2832.8.camel@edumazet-laptop>
+References: <20101101122920.GB10052@verge.net.au>
+	 <1288616372.2660.101.camel@edumazet-laptop>
+	 <20101102020625.GA22724@verge.net.au>
+	 <1288673622.2660.147.camel@edumazet-laptop>
+	 <20101102070308.GA19924@verge.net.au>
+	 <1288683057.2660.154.camel@edumazet-laptop>
+	 <20101102084646.GA23774@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	DelSp=Yes	format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
+Cc: netdev@vger.kernel.org, Jay Vosburgh <fubar@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.fc.unesp.br ([200.145.159.3]:53867 "EHLO mail.fc.unesp.br"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751980Ab0KBI6N convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Nov 2010 04:58:13 -0400
-Content-Disposition: inline
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:60386 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750853Ab0KBJ3u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Nov 2010 05:29:50 -0400
+Received: by wwe15 with SMTP id 15so7114852wwe.1
+        for <netdev@vger.kernel.org>; Tue, 02 Nov 2010 02:29:49 -0700 (PDT)
+In-Reply-To: <20101102084646.GA23774@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Le mardi 02 novembre 2010 =C3=A0 17:46 +0900, Simon Horman a =C3=A9crit=
+ :
+
+> Thanks Eric, that seems to resolve the problem that I was seeing.
+>=20
+> With your patch I see:
+>=20
+> No bonding
+>=20
+> # netperf -c -4 -t UDP_STREAM -H 172.17.60.216 -l 30 -- -m 1472
+> UDP UNIDIRECTIONAL SEND TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to=
+ 172.17.60.216 (172.17.60.216) port 0 AF_INET
+> Socket  Message  Elapsed      Messages                   CPU      Ser=
+vice
+> Size    Size     Time         Okay Errors   Throughput   Util     Dem=
+and
+> bytes   bytes    secs            #      #   10^6bits/sec % SU     us/=
+KB
+>=20
+> 116736    1472   30.00     2438413      0      957.2     8.52     1.4=
+58=20
+> 129024           30.00     2438413             957.2     -1.00    -1.=
+000
+>=20
+> With bonding (one slave, the interface used in the test above)
+>=20
+> netperf -c -4 -t UDP_STREAM -H 172.17.60.216 -l 30 -- -m 1472
+> UDP UNIDIRECTIONAL SEND TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to=
+ 172.17.60.216 (172.17.60.216) port 0 AF_INET
+> Socket  Message  Elapsed      Messages                   CPU      Ser=
+vice
+> Size    Size     Time         Okay Errors   Throughput   Util     Dem=
+and
+> bytes   bytes    secs            #      #   10^6bits/sec % SU     us/=
+KB
+>=20
+> 116736    1472   30.00     2438390      0      957.1     8.97     1.5=
+35=20
+> 129024           30.00     2438390             957.1     -1.00    -1.=
+000
+>=20
 
 
-Dear account user,
+Sure the patch helps when not too many flows are involved, but this is =
+a
+hack.
 
-We are updating our database, and e-mail account center. We are =20
-deleting all unused webmail account and create more space for new =20
-accounts. To ensure  that you do not experience service disruption =20
-during this period, you need to provide the below details:
+Say the device queue is 1000 packets, and you run a workload with 2000
+sockets, it wont work...
 
-CONFIRM YOUR ACCOUNT BELOW
-1. E-mail:.................................
-2. Username :....................................
-2. Password :...................................
-3. Confirm password :...............................
+Or device queue is 1000 packets, one flow, and socket send queue size
+allows for more than 1000 packets to be 'in flight' (echo 2000000
+>/proc/sys/net/core/wmem_default) , it wont work too with bonding, only
+with devices with a qdisc sitting in the first device met after the
+socket.
 
-You will receive confirmation of a new alphanumeric password that is =20
-only valid during this period, and may be changed by this process. We =20
-regret any inconvenience this may cost you.
 
-Please reply to this message so we can give you better services online =
-=20
-with our new and improved webmail functionality and improvements.
-
-Webmail Upgrade Team =A9 2010
-Warning Code: ID67565434.
-
-----------------------------------------------------------------
-This message was sent using IMP, the Internet Messaging Program.
 
