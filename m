@@ -1,46 +1,63 @@
-From: "Mr. Vincent Cheng" <info@cheng.org>
-Subject: Partnership..?
-Date: Tue, 2 Nov 2010 06:44:47 -0300 (BRT)
-Message-ID: <48967.41.206.15.1.1288691087.squirrel__49009.6970032484$1288705763$gmane$org@alesc.sc.gov.br>
-Reply-To: mrchengvich66@yahoo.com.hk
+From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+Subject: Re: 2.6.35->2.6.36 regression, vanilla kernel panic, ppp or hrtimers crashing
+Date: Tue, 2 Nov 2010 15:49:47 +0200
+Message-ID: <201011021549.47466.nuclearcat@nuclearcat.com>
+References: <20101028070550.GA7647@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: info@mail.com
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+	Paul Mackerras <paulus@samba.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tubarao.alesc.sc.gov.br ([200.192.66.23]:53861 "EHLO
-	tubarao.alesc.sc.gov.br" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752839Ab0KBNtM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Nov 2010 09:49:12 -0400
+Received: from hosting.visp.net.lb ([194.146.153.11]:43237 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752962Ab0KBNtY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Nov 2010 09:49:24 -0400
+In-Reply-To: <20101028070550.GA7647@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+I didn't try yet, but i enable more debugs and catch linked list corruption. 
 
-I am Mr. Vincent Cheng, and have a sensitive and confidential brief from
+Here is dumps from netconsole:
+http://www.nuclearcat.com/ll.txt
+http://www.nuclearcat.com/ll2.txt		
 
-Hong Kong.
-
-I am asking for your partnership in re-profiling funds and will give the
-
-details.
-
-This is a legitimate transaction and you will be paid a handsome
-
-percentage for your "Management Fees". If interested you can kindly write
-
-and provide me with your confidential telephone number or fax number
-
-and I will provide further details with proper guidelines. I require absolute
-
-confidentiality as to any political problems.
-
-Finally, note that this must be concluded within two weeks. Kindly write
-
-back to this email  mrchengvich66@yahoo.com.hk, I look forward to hear from
-you.
-
-Regards,
-Vincent Cheng.
+I have another PC, also fails to run 2.6.36, but netconsole don't give 
+anything.
+Both PC's have strange issue with clock drifting away too much (on 2.6.35 and 
+maybe even before).
 
 
+On Thursday 28 October 2010 10:05:50 Jarek Poplawski wrote:
+> On 2010-10-25 11:22, Denys Fedoryshchenko wrote:
+> > Hi
+> > 
+> > Here is what i got from netconsole
+> > 
+> >  [  259.238755] BUG: unable to handle kernel
+> >  paging request
+> >  at f8ba001c
+> >  [  259.238953] IP:
+> >  [<c0199ebe>] do_select+0x2cc/0x502
+> 
+> ...
+> 
+> > It is not easy to do full git bisect(it is semi-embedded distro), but i
+> > can try reversing particular commits, if someone can give idea which
+> > one, and can try debug patches.
+> 
+> Hi,
+> Nothing concrete, but you might try reverting this one:
+> 
+> http://git.kernel.org/?p=linux/kernel/git/stable/linux-2.6.36.y.git;a=commi
+> tdiff;h=15fd0cd9a2ad24a78fbee369dec8ca660979d57e
+> 
+> Jarek P.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
