@@ -1,45 +1,115 @@
-From: <macpaul@andestech.com>
-Subject: RE: About the Davicom PHY in drivers/net/phy in Linux kernel
-Date: Tue, 2 Nov 2010 15:27:02 +0800
-Message-ID: <50FD90C65C53FB45BADEEBCD84FF07F202A6269C@ATCPCS06.andestech.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: bonding: flow control regression [was Re: bridging: flow
+ control regression]
+Date: Tue, 02 Nov 2010 08:30:57 +0100
+Message-ID: <1288683057.2660.154.camel@edumazet-laptop>
+References: <20101101122920.GB10052@verge.net.au>
+	 <1288616372.2660.101.camel@edumazet-laptop>
+	 <20101102020625.GA22724@verge.net.au>
+	 <1288673622.2660.147.camel@edumazet-laptop>
+	 <20101102070308.GA19924@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <afleming@freescale.com>, <jeff@garzik.org>,
-	<f.rodo@til-technologies.fr>
-To: <joseph_chang@mail.davicom.com.tw>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Jay Vosburgh <fubar@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 59-124-160-117.HINET-IP.hinet.net ([59.124.160.117]:24197 "EHLO
-	ATCPCS06.andestech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932358Ab0KBHYV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Nov 2010 03:24:21 -0400
-Content-class: urn:content-classes:message
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:35497 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756832Ab0KBHbG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Nov 2010 03:31:06 -0400
+Received: by wwe15 with SMTP id 15so7023709wwe.1
+        for <netdev@vger.kernel.org>; Tue, 02 Nov 2010 00:31:05 -0700 (PDT)
+In-Reply-To: <20101102070308.GA19924@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGkgSm9zZXBoLA0KDQo+IEZyb206IEpvc2VwaCBDaGFuZyBbbWFpbHRvOmpvc2VwaF9jaGFuZ0Bt
-YWlsLmRhdmljb20uY29tLnR3XQ0KPiBTZW50OiBNb25kYXksIE5vdmVtYmVyIDAxLCAyMDEwIDEw
-OjI3IEFNDQo+IFRvOiBNYWNwYXVsIENoaWgtUGluIExpbijmnpfmmbrmlowpOyBuZXRkZXZAdmdl
-ci5rZXJuZWwub3JnDQo+IENjOiBhZmxlbWluZ0BmcmVlc2NhbGUuY29tOyBqZWZmQGdhcnppay5v
-cmc7IGYucm9kb0B0aWwtdGVjaG5vbG9naWVzLmZyDQo+IFN1YmplY3Q6IFJFOiBBYm91dCB0aGUg
-RGF2aWNvbSBQSFkgaW4gZHJpdmVycy9uZXQvcGh5IGluIExpbnV4IGtlcm5lbA0KPiANCj4gRGVh
-ciBNYWNQYXVsLA0KPiANCj4gICAgMS5ZZXMuIEkgaGF2ZSBkb3dubG9hZGVkIGl0LiBBbmQgYmVs
-b3cgaXMgdGhlIGtub3cgaXRlbXMuDQo+IA0KPiAgICAgIERNOTE2MUENCj4gICAgICBjcHU6IEZh
-cmFkYXkgQTMyMCAoYXJtOTIwdCkgKyBBbmRlcyBBRzEwMSAoTkRTMzIpIDtTb0MNCj4gICAgICBP
-UzogTGludXg6IDIuNi4zMg0KPiAgICAgIEFjdGlvbnM6DQo+ICAgICAgICAtIGRhdmljb20uYyAg
-ICAgICAgICAgICAvLyBEb3dubG9hZCBmcm9tIExYUg0KPiAgICAgICAgLSBpbmNsdWRlLWxpbnV4
-LW1paS5oICAgLy8gRG93bmxvYWQgZnJvbSBMWFINCg0KWWVzDQoNCj4gICAgMi5Zb3VyIHF1b3Rl
-IGlzIHJpZ2h0LiBQbGVhc2UgdGVsbCB1cyB0aGUgdGVzdCByZXN1bHQuDQoNCk9uIG91ciBFVkIg
-Ym9hcmQsIFJFU0VUIHdvbid0IGhhdmUgZGhjcCBwcm9ibGVtICh1bnN0YWJsZSkgaG93ZXZlciBJ
-U09MQVRFIGRvZXMuDQoNCj4gICAgMy5JIGhhdmUgYSBxdWVzdGlvbiBmb3IgeW91LA0KPiAgICBX
-aGVyZSBpcyB5b3VyIGNvbXBhbnk/IEkgYnJvd3NlIGZvciBhbmRlc3RlY2gsIEFuZCBmb3VuZCB0
-aGF0IGFuZGVzdGVjaA0KPiBsb2NhdGVkIGF0DQo+ICAgICBTaVNvZnQgU0lQUCBDZW50ZXIhIChB
-ZGRyZXNzOiAyRiwgTm8uMSwgTGktSHNpbiBGaXJzdCBSb2FkLCBTY2llbmNlLUJhc2VkDQo+IElu
-ZHVzdHJpYWwgUGFyaykNCj4gICAgIElzIGl0IHJpZ2h0Pw0KDQpZZXMuIFRoYXQncyB0aGUgbG9j
-YXRpb24gb2YgbXkgY29tcGFueS4NCj4gDQo+IEJlc3QgUmVnYXJkcywNCj4gSm9zZXBoIENIQU5H
-DQo+IFN5c3RlbSBBcHBsaWNhdGlvbiBFbmdpbmVlcmluZyBEaXZpc2lvbg0KPiBEYXZpY29tIFNl
-bWljb25kdWN0b3IsIEluYy4NCj4gTm8uIDYgTGktSHNpbiBSZC4gVkksIFNjaWVuY2UtQmFzZWQg
-UGFyaywNCj4gSHNpbi1DaHUsIFRhaXdhbi4NCj4gVGVsOiA4ODYtMy01Nzk4Nzk3IEV4IDg1MzQN
-Cj4gRmF4OiA4ODYtMy01NjQ2OTI5DQo+IFdlYjogaHR0cDovL3d3dy5kYXZpY29tLmNvbS50dw0K
-W0RlbGV0ZWRdDQoNCkJlc3QgcmVnYXJkcywNCk1hY3BhdWwgTGluDQo=
+Le mardi 02 novembre 2010 =C3=A0 16:03 +0900, Simon Horman a =C3=A9crit=
+ :
+> On Tue, Nov 02, 2010 at 05:53:42AM +0100, Eric Dumazet wrote:
+> > Le mardi 02 novembre 2010 =C3=A0 11:06 +0900, Simon Horman a =C3=A9=
+crit :
+> >=20
+> > > Thanks for the explanation.
+> > > I'm not entirely sure how much of a problem this is in practice.
+> >=20
+> > Maybe for virtual devices (tunnels, bonding, ...), it would make se=
+nse
+> > to delay the orphaning up to the real device.
+>=20
+> That was my initial thought. Could you give me some guidance
+> on how that might be done so I can try and make a patch to test?
+>=20
+> > But if the socket send buffer is very large, it would defeat the fl=
+ow
+> > control any way...
+>=20
+> I'm primarily concerned about a situation where
+> UDP packets are sent as fast as possible, indefinitely.
+> And in that scenario, I think it would need to be a rather large buff=
+er.
+>=20
+
+Please try following patch, thanks.
+
+ drivers/net/bonding/bond_main.c |    1 +
+ include/linux/if.h              |    3 +++
+ net/core/dev.c                  |    5 +++--
+ 3 files changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond=
+_main.c
+index bdb68a6..325931e 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -4714,6 +4714,7 @@ static void bond_setup(struct net_device *bond_de=
+v)
+ 	bond_dev->flags |=3D IFF_MASTER|IFF_MULTICAST;
+ 	bond_dev->priv_flags |=3D IFF_BONDING;
+ 	bond_dev->priv_flags &=3D ~IFF_XMIT_DST_RELEASE;
++	bond_dev->priv_flags &=3D ~IFF_EARLY_ORPHAN;
+=20
+ 	if (bond->params.arp_interval)
+ 		bond_dev->priv_flags |=3D IFF_MASTER_ARPMON;
+diff --git a/include/linux/if.h b/include/linux/if.h
+index 1239599..7499a99 100644
+--- a/include/linux/if.h
++++ b/include/linux/if.h
+@@ -77,6 +77,9 @@
+ #define IFF_BRIDGE_PORT	0x8000		/* device used as bridge port */
+ #define IFF_OVS_DATAPATH	0x10000	/* device used as Open vSwitch
+ 					 * datapath port */
++#define IFF_EARLY_ORPHAN	0x20000 /* early orphan skbs in
++					 * dev_hard_start_xmit()
++					 */
+=20
+ #define IF_GET_IFACE	0x0001		/* for querying only */
+ #define IF_GET_PROTO	0x0002
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 35dfb83..eabf94d 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2005,7 +2005,8 @@ int dev_hard_start_xmit(struct sk_buff *skb, stru=
+ct net_device *dev,
+ 		if (dev->priv_flags & IFF_XMIT_DST_RELEASE)
+ 			skb_dst_drop(skb);
+=20
+-		skb_orphan_try(skb);
++		if (dev->priv_flags & IFF_EARLY_ORPHAN)
++			skb_orphan_try(skb);
+=20
+ 		if (vlan_tx_tag_present(skb) &&
+ 		    !(dev->features & NETIF_F_HW_VLAN_TX)) {
+@@ -5590,7 +5591,7 @@ struct net_device *alloc_netdev_mq(int sizeof_pri=
+v, const char *name,
+ 	INIT_LIST_HEAD(&dev->napi_list);
+ 	INIT_LIST_HEAD(&dev->unreg_list);
+ 	INIT_LIST_HEAD(&dev->link_watch_list);
+-	dev->priv_flags =3D IFF_XMIT_DST_RELEASE;
++	dev->priv_flags =3D IFF_XMIT_DST_RELEASE | IFF_EARLY_ORPHAN ;
+ 	setup(dev);
+ 	strcpy(dev->name, name);
+ 	return dev;
+
+
