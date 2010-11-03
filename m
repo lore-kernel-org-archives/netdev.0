@@ -1,111 +1,60 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] drivers/net/tile/: on-chip network drivers for the
- tile architecture
-Date: Wed, 03 Nov 2010 21:31:40 +0100
-Message-ID: <1288816300.2718.5.camel@edumazet-laptop>
-References: <201011012107.oA1L7TGd031588@farm-0027.internal.tilera.com>
-	 <20101103125959.3231daa1@s6510>  <4CD19DCF.1040709@tilera.com>
-	 <1288806622.2511.187.camel@edumazet-laptop>  <4CD1BA71.3000806@tilera.com>
+From: Luciano Ruete <lruete@sequre.com.ar>
+Subject: Netfilter MARK on tc ingress and ifb redirect
+Date: Wed, 3 Nov 2010 17:25:55 -0300
+Message-ID: <201011031725.55722.lruete@sequre.com.ar>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Chris Metcalf <cmetcalf@tilera.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4CD1BA71.3000806@tilera.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns1.vita.com.ar ([190.15.193.98]:43555 "HELO vita.com.ar"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1753563Ab0KCUci (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Nov 2010 16:32:38 -0400
+Received: from lakshmi.localnet (host.190.15.203.70.static.itcsa.net [190.15.203.70])
+    (authenticated-user luciano@praga.org.ar)
+    by mail.vita.com.ar with SMTP id zct7cqg2n4dswcctgxzm53a6ae;
+    for netdev@vger.kernel.org;
+    Wed, 03 Nov 2010 17:25:54 -0300 (ART)
+    (envelope-from lruete@sequre.com.ar)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 03 novembre 2010 =C3=A0 15:39 -0400, Chris Metcalf a =C3=A9=
-crit :
+Hi,
 
-> I read it and internalized it long ago, and re-read it when I got Ste=
-phen's
-> original email.  I should have said that explicitly instead of a comm=
-ent
-> with a smiley -- email is a tricky communication medium sometimes.
->=20
-> Several uses of "*(volatile int *)ptr" in that file are intended as
-> performance hints.  A more obvious way to state this, for our compile=
-r, is
-> to say "prefetch_L1(ptr)".  This generates essentially the same code,=
- but
-> avoids the red flag for "volatile" and also reads more clearly, so it=
-'s a
-> good change.
->=20
-> The other use is part of a very precise dance that involves detailed
-> knowledge of the Tile memory subsystem micro-architecture.  This does=
-n't
-> really belong in the network device driver code, so I've moved it to
-> <asm/cacheflush.h>, and cleaned it up, with detailed comments.  The u=
-se
-> here is that our network hardware's DMA engine can be used in a mode =
-where
-> it reads directly from memory, in which case you must ensure that any
-> cached values have been flushed.
->=20
+Im developing a FLOSS ISP solution based on iptables/tc/iproute2
 
-This kind of things really must be discussed before using it in a
-network driver.
+2 stumbling blocks that I found in my path
 
-Because, an skb can be built by one CPU, queued on a qdisc queue, with
-no particular "cached values have been flushed" ...
+1) It would be very usefull have this working
 
-It then can be dequeued by another CPU, and given to the device.
-What happens then ?
+tc filter add dev eth0 parent :ffff ... action ipt -j CONNMARK --restore-mark
 
-> /*
->  * Flush & invalidate a VA range that is homed remotely on a single c=
-ore,
->  * waiting until the memory controller holds the flushed values.
->  */
-> static inline void finv_buffer_remote(void *buffer, size_t size)
-> {
-> 	char *p;
-> 	int i;
->=20
-> 	/*
-> 	 * Flush and invalidate the buffer out of the local L1/L2
-> 	 * and request the home cache to flush and invalidate as well.
-> 	 */
-> 	__finv_buffer(buffer, size);
->=20
-> 	/*
-> 	 * Wait for the home cache to acknowledge that it has processed
-> 	 * all the flush-and-invalidate requests.  This does not mean
-> 	 * that the flushed data has reached the memory controller yet,
-> 	 * but it does mean the home cache is processing the flushes.
-> 	 */
-> 	__insn_mf();
->=20
-> 	/*
-> 	 * Issue a load to the last cache line, which can't complete
-> 	 * until all the previously-issued flushes to the same memory
-> 	 * controller have also completed.  If we weren't striping
-> 	 * memory, that one load would be sufficient, but since we may
-> 	 * be, we also need to back up to the last load issued to
-> 	 * another memory controller, which would be the point where
-> 	 * we crossed an 8KB boundary (the granularity of striping
-> 	 * across memory controllers).  Keep backing up and doing this
-> 	 * until we are before the beginning of the buffer, or have
-> 	 * hit all the controllers.
-> 	 */
-> 	for (i =3D 0, p =3D (char *)buffer + size - 1;
-> 	     i < (1 << CHIP_LOG_NUM_MSHIMS()) && p >=3D (char *)buffer;
-> 	     ++i) {
-> 		const unsigned long STRIPE_WIDTH =3D 8192;
->=20
-> 		/* Force a load instruction to issue. */
-> 		*(volatile char *)p;
->=20
-> 		/* Jump to end of previous stripe. */
-> 		p -=3D STRIPE_WIDTH;
-> 		p =3D (char *)((unsigned long)p | (STRIPE_WIDTH - 1));
-> 	}
->=20
-> 	/* Wait for the loads (and thus flushes) to have completed. */
-> 	__insn_mf();
-> }
->=20
+where :ffff is an ingress qdisc, i know that currently this is not working nor 
+coded.
+Is this anyhow in the sight or TODO list of the iproute2 developers to have 
+connmark available in ingress?
+
+If not, how complex will be to implement it? (ie: lines of code number)
+
+2) For a technical reason we need to be able to do:
+
+tc filter action mirred egress redirect dev ifbx
+
+at least twice in the same qdisc tree or nested in the redirected ifb, now 
+only the first filter matched returns. That was possible in (i think) pre 2.6.18 
+kernels but changed to avoid an infinite loop.
+
+Is there any chance to have that behavior back using a kernel flag or 
+something? 
+
+PD: Plz CC me i'm not suscribed (I try but never get the reply)
+
+-- 
+Luciano Ruete
+Sequre - Sys Admin
+Mitre 617, piso 7, of. 1 
++54 261 4254894
+Mendoza - Argentina
+http://www.sequre.com.ar/
