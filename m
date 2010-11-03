@@ -1,55 +1,59 @@
-From: Pekka Enberg <penberg@kernel.org>
-Subject: Re: [Ksummit-2010-discuss] [v2] Remaining BKL users, what to do
-Date: Wed, 3 Nov 2010 08:58:56 +0200
-Message-ID: <AANLkTim=suDPVCW+dPCxtasbUj=X8EMgGRHAiGO37cGo@mail.gmail.com>
-References: <201009161632.59210.arnd@arndb.de>
-	<201010192140.47433.oliver@neukum.org>
-	<20101019202912.GA30133@kroah.com>
-	<201010192244.41913.arnd@arndb.de>
-	<20101102012135.GB2648@ucw.cz>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [v3 RFC PATCH 0/4] Implement multiqueue virtio-net
+Date: Wed, 3 Nov 2010 09:01:16 +0200
+Message-ID: <20101103070116.GC5245@redhat.com>
+References: <20101020085452.15579.76002.sendpatchset@krkumar2.in.ibm.com>
+ <OF8735A2A4.74B4EE91-ON652577C5.0040D90B-652577C7.0056B99D@in.ibm.com>
+ <20101025161718.GA19559@redhat.com>
+ <OF5C53E9CF.FFDF2CE7-ON652577C8.00191D14-652577C8.001C2154@LocalDomain>
+ <OFBB51646E.01CC3630-ON652577C8.0030D6EF-652577C8.0031DA3C@in.ibm.com>
+ <20101026093846.GA6766@redhat.com>
+ <OFBE9E2C99.648EFB19-ON652577C8.0035FEDD-652577C8.0036AD51@in.ibm.com>
+ <20101026110913.GC7922@redhat.com>
+ <OFC29C4491.59069AD1-ON652577CA.00170F0D-652577CA.001C76C8@LocalDomain>
+ <OFE75E1E91.9722BFB3-ON652577CA.00256D94-652577CA.0027E1CE@in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Arnd Bergmann <arnd@arndb.de>, Greg KH <greg@kroah.com>,
-	Oliver Neukum <oliver@neukum.org>, Valdis.Kletnieks@vt.edu,
-	Dave Airlie <airlied@gmail.com>,
-	codalist@telemann.coda.cs.cmu.edu,
-	ksummit-2010-discuss@lists.linux-foundation.org,
-	autofs@linux.kernel.org, Jan Harkes <jaharkes@cs.cmu.edu>,
-	Samuel Ortiz <samuel@sortiz.org>, Jan Kara <jack@suse.cz>,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	netdev@vger.kernel.org, Anders Larsen <al@alarsen.net>,
-	linux-kernel@vger.kernel.org, dri-devel@lists.freedesktop.org,
-	Bryan Schumaker <bjschuma@netapp.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Petr Vandrovec <vandrove@vc.cvut.cz>,
-	Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>,
-	linux-fsdevel@vger.kernel.org,
-	Evgeniy Dushistov <dushistov@mail.ru>,
-	Ingo Molnar <mingo@elte.hu>,
-	Andrew Hendry <andrew.hendry@gmail.com>,
-	linux-media@vger.kernel.org
-To: Pavel Machek <pavel@ucw.cz>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20101102012135.GB2648@ucw.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: anthony@codemonkey.ws, arnd@arndb.de, avi@redhat.com,
+	davem@davemloft.net, eric.dumazet@gmail.com, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, rusty@rustcorp.com.au
+To: Krishna Kumar2 <krkumar2@in.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:57653 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753611Ab0KCHBj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Nov 2010 03:01:39 -0400
+Content-Disposition: inline
+In-Reply-To: <OFE75E1E91.9722BFB3-ON652577CA.00256D94-652577CA.0027E1CE@in.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 2, 2010 at 3:21 AM, Pavel Machek <pavel@ucw.cz> wrote:
-> Hi!
->
->> @@ -79,6 +79,10 @@ static struct drm_driver driver =3D {
->>
->> =A0static int __init i810_init(void)
->> =A0{
->> + =A0 =A0 if (num_present_cpus() > 1) {
->> + =A0 =A0 =A0 =A0 =A0 =A0 pr_err("drm/i810 does not support SMP\n");
->> + =A0 =A0 =A0 =A0 =A0 =A0 return -EINVAL;
->> + =A0 =A0 }
->> =A0 =A0 =A0 driver.num_ioctls =3D i810_max_ioctl;
->> =A0 =A0 =A0 return drm_init(&driver);
->
-> Umm, and now someone onlines second cpu?
+On Thu, Oct 28, 2010 at 12:48:57PM +0530, Krishna Kumar2 wrote:
+> > Krishna Kumar2/India/IBM wrote on 10/28/2010 10:44:14 AM:
+> >
+> > > > > > Results for UDP BW tests (unidirectional, sum across
+> > > > > > 3 iterations, each iteration of 45 seconds, default
+> > > > > > netperf, vhosts bound to cpus 0-3; no other tuning):
+> > > > >
+> > > > > Is binding vhost threads to CPUs really required?
+> > > > > What happens if we let the scheduler do its job?
+> > > >
+> > > > Nothing drastic, I remember BW% and SD% both improved a
+> > > > bit as a result of binding.
+> > >
+> > > If there's a significant improvement this would mean that
+> > > we need to rethink the vhost-net interaction with the scheduler.
+> >
+> > I will get a test run with and without binding and post the
+> > results later today.
+> 
+> Correction: The result with binding is is much better for
+> SD/CPU compared to without-binding:
 
-Well, I see it's being fixed in a different way but yeah,
-num_possible_cpus() would be more appropriate here.
+Something that was suggested to me off-list is
+trying to set smp affinity for NIC: in host to guest
+case probably virtio-net, for external to guest
+the host NIC as well.
+
+-- 
+MST
