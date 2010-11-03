@@ -1,122 +1,122 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC PATCH 1/1] vhost: TX used buffer guest signal accumulation
-Date: Wed, 3 Nov 2010 12:48:12 +0200
-Message-ID: <20101103104812.GB10555@redhat.com>
-References: <1288216693.17571.38.camel@localhost.localdomain>
- <1288240804.14342.1.camel@localhost.localdomain>
- <20101028052021.GD5599@redhat.com>
- <1288286062.11251.15.camel@localhost.localdomain>
- <20101029081027.GB22688@redhat.com>
- <1288366988.4110.5.camel@localhost.localdomain>
- <20101030200603.GA19033@redhat.com>
- <1288642673.19173.8.camel@localhost.localdomain>
+From: Dave Chinner <david@fromorbit.com>
+Subject: Re: [regression, 2.6.37-rc1] 'ip link tap0 up' stuck in do_exit()
+Date: Wed, 3 Nov 2010 22:29:36 +1100
+Message-ID: <20101103112936.GB9169@dastard>
+References: <20101103062609.GB31163@dastard>
+ <1288768402.2467.665.camel@edumazet-laptop>
+ <20101103103448.GA9169@dastard>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Shirley Ma <mashirle@us.ibm.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1288642673.19173.8.camel@localhost.localdomain>
+In-Reply-To: <20101103103448.GA9169@dastard>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 01, 2010 at 01:17:53PM -0700, Shirley Ma wrote:
-> On Sat, 2010-10-30 at 22:06 +0200, Michael S. Tsirkin wrote:
-> > On Fri, Oct 29, 2010 at 08:43:08AM -0700, Shirley Ma wrote:
-> > > On Fri, 2010-10-29 at 10:10 +0200, Michael S. Tsirkin wrote:
-> > > > Hmm. I don't yet understand. We are still doing copies into the
-> > per-vq
-> > > > buffer, and the data copied is really small.  Is it about cache
-> > line
-> > > > bounces?  Could you try figuring it out?
-> > > 
-> > > per-vq buffer is much less expensive than 3 put_copy() call. I will
-> > > collect the profiling data to show that.
-> > 
-> > What about __put_user? Maybe the access checks are the ones
-> > that add the cost here? I attach patches to strip access checks:
-> > they are not needed as we do them on setup time already, anyway.
-> > Can you try them out and see if performance is improved for you
-> > please?
-> > On top of this, we will need to add some scheme to accumulate signals,
-> > but that is a separate issue.
-> 
-> Yes, moving from put_user/get_user to __put_user/__get_user does improve
-> the performance by removing the checking.
+On Wed, Nov 03, 2010 at 09:34:48PM +1100, Dave Chinner wrote:
+> On Wed, Nov 03, 2010 at 08:13:22AM +0100, Eric Dumazet wrote:
+> > Le mercredi 03 novembre 2010 =E0 17:26 +1100, Dave Chinner a =E9cri=
+t :
+> > > Folks,
+> > >=20
+> > > Starting up KVM on a current mainline kernel using the tap
+> > > device for the networking is resulting in the ip process tryin gt=
+o
+> > > up the tap interface hanging. KVM is started with this networking
+> > > config:
+> > >=20
+> > > ....
+> > >         -net nic,vlan=3D0,macaddr=3D00:e4:b6:63:63:6d,model=3Dvir=
+tio \
+> > >         -net tap,vlan=3D0,script=3D/vm-images/qemu-ifup,downscrip=
+t=3Dno \
+> > > ....
+> > >=20
+> > > And the script is effectively:
+> > >=20
+> > > switch=3Dbr0
+> > > if [ -n "$1" ];then
+> > >         /usr/bin/sudo /sbin/ip link set $1 up
+> > >         sleep 0.5s
+> > >         /usr/bin/sudo /usr/sbin/brctl addif $switch $1
+> > > 	exit 0
+> > > fi
+> > > exit 1
+> > >=20
+> > > This is resulting in the command 'ip link set tap0 up' hanging as=
+ a zombie:
+> > >=20
+> > > root      3005     1  0 16:53 pts/3    00:00:00 /bin/sh /vm-image=
+s/qemu-ifup tap0
+> > > root      3011  3005  0 16:53 pts/3    00:00:00 /usr/bin/sudo /sb=
+in/ip link set tap0 up
+> > > root      3012  3011  0 16:53 pts/3    00:00:00 [ip] <defunct>
+> > >=20
+> > > In do_exit() with this trace:
+> > >=20
+> > > [ 1630.782255] ip            x ffff88063fcb3600     0  3012   301=
+1 0x00000000
+> > > [ 1630.789121]  ffff880631328000 0000000000000046 000000000000000=
+0 ffff880633104380
+> > > [ 1630.796524]  0000000000013600 ffff88062f031fd8 000000000001360=
+0 0000000000013600
+> > > [ 1630.803925]  ffff8806313282d8 ffff8806313282e0 ffff88063132800=
+0 0000000000013600
+> > > [ 1630.811324] Call Trace:
+> > > [ 1630.813760]  [<ffffffff8104a90d>] ? do_exit+0x716/0x724
+> > > [ 1630.818964]  [<ffffffff8104a995>] ? do_group_exit+0x7a/0xa4
+> > > [ 1630.824512]  [<ffffffff8104a9d1>] ? sys_exit_group+0x12/0x16
+> > > [ 1630.830149]  [<ffffffff81009a82>] ? system_call_fastpath+0x16/=
+0x1b
+> > >=20
+> > > The address comes down to the schedule() call:
+> > >=20
+> > > (gdb) l *(do_exit+0x716)
+> > > 0xffffffff8104a90d is in do_exit (kernel/exit.c:1034).
+> > > 1029            preempt_disable();
+> > > 1030            exit_rcu();
+> > > 1031            /* causes final put_task_struct in finish_task_sw=
+itch(). */
+> > > 1032            tsk->state =3D TASK_DEAD;
+> > > 1033            schedule();
+> > > 1034            BUG();
+> > > 1035            /* Avoid "noreturn function does return".  */
+> > > 1036            for (;;)
+> > > 1037                    cpu_relax();    /* For when BUG is null *=
+/
+> > > 1038    }
+> > >=20
+> > > Needless to say, KVM is not starting up. This works just fine on
+> > > 2.6.35.1 and so is a regression. I can't do a lot of testing on t=
+his as
+> > > the host is the machine that hosts all my build and test environm=
+ents....
+> > >=20
+> > > Cheers,
+> > >=20
+> > > Dave.
+> >=20
+> > Could it be the same problem than=20
+> >=20
+> > http://kerneltrap.com/mailarchive/linux-netdev/2010/10/23/6288128
+> >=20
+> > Try to revert bee31369ce16fc3898ec9a54161248c9eddb06bc ?
+>=20
+> It's working fine on 2.6.36 right now, so it's something that came in
+> with the .37 merge cycle...
 
-I mean in practice, you see a benefit from this patch?
+Actually, the machine isn't running a 2.6.36 kernel (it had booted
+to the working .35 kernel and I didn't notice). So i've just tested
+a 2.6.36 kernel, and the problem _is present_ in 2.6.36. I've
+reverted the above commit but that does not fix the problem.
 
-> My concern here is whether checking only in set up would be sufficient
-> for security?
+Cheers,
 
-It better be sufficient because the checks that put_user does
-are not effictive when run from the kernel thread, anyway.
+Dave.
 
-> Would be there is a case guest could corrupt the ring
-> later? If not, that's OK.
-
-You mean change the pointer after it's checked?
-If you see such a case, please holler.
-
-> > > > > > 2. How about flushing out queued stuff before we exit
-> > > > > >    the handle_tx loop? That would address most of
-> > > > > >    the spec issue. 
-> > > > > 
-> > > > > The performance is almost as same as the previous patch. I will
-> > > > resubmit
-> > > > > the modified one, adding vhost_add_used_and_signal_n after
-> > handle_tx
-> > > > > loop for processing pending queue.
-> > > > > 
-> > > > > This patch was a part of modified macvtap zero copy which I
-> > haven't
-> > > > > submitted yet. I found this helped vhost TX in general. This
-> > pending
-> > > > > queue will be used by DMA done later, so I put it in vq instead
-> > of a
-> > > > > local variable in handle_tx.
-> > > > > 
-> > > > > Thanks
-> > > > > Shirley
-> > > > 
-> > > > BTW why do we need another array? Isn't heads field exactly what
-> > we
-> > > > need
-> > > > here?
-> > > 
-> > > head field is only for up to 32, the more used buffers add and
-> > signal
-> > > accumulated the better performance is from test results.
-> > 
-> > I think we should separate the used update and signalling.  Interrupts
-> > are expensive so I can believe accumulating even up to 100 of them
-> > helps. But used head copies are already prety cheap. If we cut the
-> > overhead by x32, that should make them almost free?
-> 
-> I can separate the used update and signaling to see the best
-> performance.
-> 
-> > > That's was one
-> > > of the reason I didn't use heads. The other reason was I used these
-> > > buffer for pending dma done in mavctap zero copy patch. It could be
-> > up
-> > > to vq->num in worse case.
-> > 
-> > We can always increase that, not an issue. 
-> 
-> Good, I will change heads up to vq->num and use it.
-> 
-> Thanks
-> Shirley
-
-To clarify: the combination of __put_user and separate
-signalling is giving the same performance benefit as your
-patch?
-
-I am mostly concerned with adding code that seems to help
-speed for reasons we don't completely understand, because
-then we might break the optimization easily without noticing.
-
--- 
-MST
+--=20
+Dave Chinner
+david@fromorbit.com
