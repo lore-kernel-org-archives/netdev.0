@@ -1,40 +1,56 @@
-From: "Gustavo F. Padovan" <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
-Subject: Re: [PATCH] bluetooth: hidp: fix information leak to userland
-Date: Wed, 3 Nov 2010 14:37:17 -0400
-Message-ID: <20101103183717.GD17943@vigoh>
-References: <1288448791-6009-1-git-send-email-segooon@gmail.com>
- <1288712189.3322.180.camel@aeonflux>
+From: md@Linux.IT (Marco d'Itri)
+Subject: Re: [PATCH 1/1] UDEV - Add 'udevlom' command line param to
+	start_udev
+Date: Wed, 3 Nov 2010 19:32:47 +0100
+Message-ID: <20101103183247.GA28139@bongo.bofh.it>
+References: <20101103165505.GA3281@fedora-14-r710.oslab.blr.amer.dell.com> <20101103180500.GA7441@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vasiliy Kulikov <segooon-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>,
-	Michael Poole <mdpoole-IZmAEv5cUt1AfugRpC6u6w@public.gmane.org>,
-	Bastien Nocera <hadess-0MeiytkfxGOsTnJN9+BGXg@public.gmane.org>,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="DocE+STaALJfprDB"
+Cc: Narendra_K@Dell.com, linux-hotplug@vger.kernel.org,
+	netdev@vger.kernel.org, Matt_Domsch@Dell.com,
+	Jordan_Hargrave@Dell.com, Charles_Rose@Dell.com
+To: Greg KH <greg@kroah.com>
+Return-path: <linux-hotplug-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1288712189.3322.180.camel@aeonflux>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <20101103180500.GA7441@kroah.com>
+Sender: linux-hotplug-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org> [2010-11-02 16:36:29 +0100]:
 
-> Hi Vasiliy,
-> 
-> > Structure hidp_conninfo is copied to userland with version, product,
-> > vendor and name fields unitialized if both session->input and session->hid
-> > are NULL.  It leads to leaking of contents of kernel stack memory.
-> > 
-> > Signed-off-by: Vasiliy Kulikov <segooon-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> 
-> Acked-by: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+--DocE+STaALJfprDB
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Applied, thanks.
+On Nov 03, Greg KH <greg@kroah.com> wrote:
 
--- 
-Gustavo F. Padovan
-ProFUSION embedded systems - http://profusion.mobi
+> Why not do this in some other configuration file?  Don't rely on udev
+> being started with a different option, that is only ripe for abuse by
+> everyone else who wants their pet-project to get into the udev
+> environment.
+Agreed. What about instructing users/installers to add something like
+this in /etc/udev/rules.d/00-something.rules?
+
+KERNEL=3D=3D"eth*", ENV{UDEVLOM}=3D"1"
+
+(Maybe with a more descriptive name than "UDEVLOM".)
+
+--=20
+ciao,
+Marco
+
+--DocE+STaALJfprDB
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iEYEARECAAYFAkzRqs8ACgkQFGfw2OHuP7EYEACZAeDc/phuXkT89y+bGtsYROYN
+Pw0An1Lti6pAyXjt/pjIj8L9h7V5hXTC
+=Keaz
+-----END PGP SIGNATURE-----
+
+--DocE+STaALJfprDB--
