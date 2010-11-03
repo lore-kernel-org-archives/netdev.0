@@ -1,70 +1,79 @@
-From: Xiaotian Feng <dfeng@redhat.com>
-Subject: Re: [PATCH] net dst: fix percpu_counter list corruption and poison
- overwritten
-Date: Wed, 03 Nov 2010 13:25:03 +0800
-Message-ID: <4CD0F22F.9000503@redhat.com>
-References: <1288750265-17664-1-git-send-email-dfeng@redhat.com> <1288761773.2467.535.camel@edumazet-laptop>
+From: Dave Chinner <david@fromorbit.com>
+Subject: [regression, 2.6.37-rc1] 'ip link tap0 up' stuck in do_exit()
+Date: Wed, 3 Nov 2010 17:26:09 +1100
+Message-ID: <20101103062609.GB31163@dastard>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42042 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751007Ab0KCFZz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Nov 2010 01:25:55 -0400
-In-Reply-To: <1288761773.2467.535.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/03/2010 01:22 PM, Eric Dumazet wrote:
-> Le mercredi 03 novembre 2010 =C3=A0 10:11 +0800, Xiaotian Feng a =C3=A9=
-crit :
->> There're some percpu_counter list corruption and poison overwritten =
-warnings
->> in recent kernel, which is resulted by fc66f95c.
->>
->> commit fc66f95c switches to use percpu_counter, in ip6_route_net_ini=
-t, kernel
->> init the percpu_counter for dst entries, but, the percpu_counter is =
-never destroyed
->> in ip6_route_net_exit. So if the related data is freed by kernel, th=
-e freed percpu_counter
->> is still on the list, then if we insert/remove other percpu_counter,=
- list corruption
->> resulted. Also, if the insert/remove option modifies the ->prev,->ne=
-xt pointer of
->> the freed value, the poison overwritten is resulted then.
->>
->> With the following patch, the percpu_counter list corruption and poi=
-son overwritten
->> warnings disappeared.
->>
->> Signed-off-by: Xiaotian Feng<dfeng@redhat.com>
->> Cc: "David S. Miller"<davem@davemloft.net>
->> Cc: Alexey Kuznetsov<kuznet@ms2.inr.ac.ru>
->> Cc: "Pekka Savola (ipv6)"<pekkas@netcore.fi>
->> Cc: James Morris<jmorris@namei.org>
->> Cc: Hideaki YOSHIFUJI<yoshfuji@linux-ipv6.org>
->> Cc: Patrick McHardy<kaber@trash.net>
->> ---
->
-> Good catch, thanks !
->
-> Any reason you didnt Cc me (the author of the patch) ?
-Sorry, I just used get_maintainer.pl to get the cc list...
->
-> Acked-by: Eric Dumazet<eric.dumazet@gmail.com>
->
->
->
->
+Folks,
 
+Starting up KVM on a current mainline kernel using the tap
+device for the networking is resulting in the ip process tryin gto
+up the tap interface hanging. KVM is started with this networking
+config:
+
+....
+        -net nic,vlan=0,macaddr=00:e4:b6:63:63:6d,model=virtio \
+        -net tap,vlan=0,script=/vm-images/qemu-ifup,downscript=no \
+....
+
+And the script is effectively:
+
+switch=br0
+if [ -n "$1" ];then
+        /usr/bin/sudo /sbin/ip link set $1 up
+        sleep 0.5s
+        /usr/bin/sudo /usr/sbin/brctl addif $switch $1
+	exit 0
+fi
+exit 1
+
+This is resulting in the command 'ip link set tap0 up' hanging as a zombie:
+
+root      3005     1  0 16:53 pts/3    00:00:00 /bin/sh /vm-images/qemu-ifup tap0
+root      3011  3005  0 16:53 pts/3    00:00:00 /usr/bin/sudo /sbin/ip link set tap0 up
+root      3012  3011  0 16:53 pts/3    00:00:00 [ip] <defunct>
+
+In do_exit() with this trace:
+
+[ 1630.782255] ip            x ffff88063fcb3600     0  3012   3011 0x00000000
+[ 1630.789121]  ffff880631328000 0000000000000046 0000000000000000 ffff880633104380
+[ 1630.796524]  0000000000013600 ffff88062f031fd8 0000000000013600 0000000000013600
+[ 1630.803925]  ffff8806313282d8 ffff8806313282e0 ffff880631328000 0000000000013600
+[ 1630.811324] Call Trace:
+[ 1630.813760]  [<ffffffff8104a90d>] ? do_exit+0x716/0x724
+[ 1630.818964]  [<ffffffff8104a995>] ? do_group_exit+0x7a/0xa4
+[ 1630.824512]  [<ffffffff8104a9d1>] ? sys_exit_group+0x12/0x16
+[ 1630.830149]  [<ffffffff81009a82>] ? system_call_fastpath+0x16/0x1b
+
+The address comes down to the schedule() call:
+
+(gdb) l *(do_exit+0x716)
+0xffffffff8104a90d is in do_exit (kernel/exit.c:1034).
+1029            preempt_disable();
+1030            exit_rcu();
+1031            /* causes final put_task_struct in finish_task_switch(). */
+1032            tsk->state = TASK_DEAD;
+1033            schedule();
+1034            BUG();
+1035            /* Avoid "noreturn function does return".  */
+1036            for (;;)
+1037                    cpu_relax();    /* For when BUG is null */
+1038    }
+
+Needless to say, KVM is not starting up. This works just fine on
+2.6.35.1 and so is a regression. I can't do a lot of testing on this as
+the host is the machine that hosts all my build and test environments....
+
+Cheers,
+
+Dave.
+-- 
+Dave Chinner
+david@fromorbit.com
