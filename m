@@ -1,60 +1,101 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [PATCH 5/5] ipv4: netfilter: ip_tables: fix information leak to
- userland
-Date: Wed, 3 Nov 2010 23:55:58 +0100 (CET)
-Message-ID: <alpine.LNX.2.01.1011032355020.31351@obet.zrqbmnf.qr>
-References: <1288822372-21245-1-git-send-email-kaber@trash.net> <1288822372-21245-6-git-send-email-kaber@trash.net>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Subject: Re: [PATCH 2/4] Ethtool: convert get_sg/set_sg calls to
+	hw_features flag
+Date: Wed, 3 Nov 2010 23:58:46 +0100
+Message-ID: <20101103225846.GA32330@rere.qmqm.pl>
+References: <cover.1288496404.git.mirq-linux@rere.qmqm.pl> <9d89236b6e4ff8c66937fbd7d8ce76602e680c5b.1288496404.git.mirq-linux@rere.qmqm.pl> <20101102022438.GA4243@mcarlson.broadcom.com> <20101103222910.GA24320@rere.qmqm.pl> <20101103224247.GB9869@mcarlson.broadcom.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: davem@davemloft.net, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: kaber@trash.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1288822372-21245-6-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	Steve Glendinning <steve.glendinning@smsc.com>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	Rasesh Mody <rmody@brocade.com>,
+	Debashis Dutt <ddutt@brocade.com>,
+	Kristoffer Glembo <kristoffer@gaisler.com>,
+	"linux-driver@qlogic.com" <linux-driver@qlogic.com>,
+	"linux-net-drivers@solarflare.com" <linux-net-drivers@solarflare.com>
+To: Matt Carlson <mcarlson@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rere.qmqm.pl ([89.167.52.164]:38946 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752830Ab0KCW6r (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Nov 2010 18:58:47 -0400
+Content-Disposition: inline
+In-Reply-To: <20101103224247.GB9869@mcarlson.broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 2010-11-03 23:12, kaber@trash.net wrote:
+On Wed, Nov 03, 2010 at 03:42:47PM -0700, Matt Carlson wrote:
+> On Wed, Nov 03, 2010 at 03:29:10PM -0700, Micha?? Miros??aw wrote:
+> > On Mon, Nov 01, 2010 at 07:24:38PM -0700, Matt Carlson wrote:
+> > > On Fri, Oct 29, 2010 at 09:28:26PM -0700, Micha?? Miros??aw wrote=
+:
+> > > > diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+> > > > index 30ccbb6..b07e2d1 100644
+> > > > --- a/drivers/net/tg3.c
+> > > > +++ b/drivers/net/tg3.c
+> > > > @@ -11306,7 +11306,6 @@ static const struct ethtool_ops tg3_eth=
+tool_ops =3D {
+> > > >         .get_rx_csum            =3D tg3_get_rx_csum,
+> > > >         .set_rx_csum            =3D tg3_set_rx_csum,
+> > > >         .set_tx_csum            =3D tg3_set_tx_csum,
+> > > > -       .set_sg                 =3D ethtool_op_set_sg,
 
->From: Vasiliy Kulikov <segooon@gmail.com>
->
->Structure ipt_getinfo is copied to userland with the field "name"
->that has the last elements unitialized.  It leads to leaking of
->contents of kernel stack memory.
->
->Signed-off-by: Vasiliy Kulikov <segooon@gmail.com>
->Signed-off-by: Patrick McHardy <kaber@trash.net>
->---
-> net/ipv4/netfilter/ip_tables.c |    1 +
+This is exchanged ...
 
+> > > >         .set_tso                =3D tg3_set_tso,
+> > > >         .self_test              =3D tg3_self_test,
+> > > >         .get_strings            =3D tg3_get_strings,
+> > > > @@ -14681,6 +14680,7 @@ static int __devinit tg3_init_one(struc=
+t pci_dev *pdev,
+> > > >         tp->rx_pending =3D TG3_DEF_RX_RING_PENDING;
+> > > >         tp->rx_jumbo_pending =3D TG3_DEF_RX_JUMBO_RING_PENDING;
+> > > >=20
+> > > > +       dev->hw_features |=3D NETIF_F_SG;
 
-But then we would also need this:
+=2E.. for this. (This introduces no functional changes, whatsoever.)
 
+> > > Scatter-gather should not be enabled if TG3_FLAG_BROKEN_CHECKSUMS=
+ is set.  I
+> > > would do the following instead:
+> > >=20
+> > > 	if (!(tp->tg3_flags & TG3_FLAG_BROKEN_CHECKSUMS))
+> > > 		dev->hw_features |=3D NETIF_F_SG;
+> > >=20
+> > > TG3_FLAG_BROKEN_CHECKSUMS is set in tg3_get_invariants(), so this=
+ code
+> > > would need to be placed later than that function call.
+> >=20
+> > This bug is there now, so I'll queue this as all other hints of exi=
+stent
+> > bugs that this patch series "uncovers".
+>=20
+> How so?  This patch would be introducing the bug.  From tg3_get_invar=
+iants:
+>=20
+> 	if (tp->pci_chip_rev_id =3D=3D CHIPREV_ID_5700_B0)
+> 		tp->tg3_flags |=3D TG3_FLAG_BROKEN_CHECKSUMS;
+> 	else {
+> 		unsigned long features =3D NETIF_F_IP_CSUM | NETIF_F_SG | NETIF_F_G=
+RO;
+>=20
+> 		tp->tg3_flags |=3D TG3_FLAG_RX_CHECKSUMS;
+> 		if (tp->tg3_flags3 & TG3_FLG3_5755_PLUS)
+> 			features |=3D NETIF_F_IPV6_CSUM;
+> 		tp->dev->features |=3D features;
+> 		vlan_features_add(tp->dev, features);
+> 	}
 
---------8<-------------
-parent 93aa45607748d2ffa73f41a435dced6a2fd90cb5 (v2.6.36-rc3-1020-g93aa456)
-commit 8aff3f67fa47f7d3211aea8bbef999554d6f65e5
-Author: Jan Engelhardt <jengelh@medozas.de>
-Date:   Wed Nov 3 23:55:18 2010 +0100
+Actually this is hidden anyway, because currently scatter-gather depend=
+s
+on checksumming offload. So the SG won't be enabled based on check left
+in ethtool_set_sg().
 
-netfilter: ip6_tables: fix information leak to userspace
+Note, that hw_features flags enable toggling of the offloads but don't
+enable them unless requested by a user later.
 
-Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
----
- net/ipv6/netfilter/ip6_tables.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
-index c683e9e..d13f893 100644
---- a/net/ipv6/netfilter/ip6_tables.c
-+++ b/net/ipv6/netfilter/ip6_tables.c
-@@ -1137,6 +1137,7 @@ static int get_info(struct net *net, void __user *user,
- 			private = &tmp;
- 		}
- #endif
-+		memset(&info, 0, sizeof(info));
- 		info.valid_hooks = t->valid_hooks;
- 		memcpy(info.hook_entry, private->hook_entry,
- 		       sizeof(info.hook_entry));
--- 
-# Created with git-export-patch
+Best Regards,
+Micha=B3 Miros=B3aw
