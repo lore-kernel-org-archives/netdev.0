@@ -1,71 +1,63 @@
-From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
-Subject: Re: 2.6.35->2.6.36 regression, vanilla kernel panic, ppp or hrtimers crashing
-Date: Wed, 3 Nov 2010 09:47:53 +0200
-Message-ID: <201011030947.54464.nuclearcat@nuclearcat.com>
-References: <20101028070550.GA7647@ff.dom.local> <201011021549.47466.nuclearcat@nuclearcat.com> <20101103073854.GA7279@ff.dom.local>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] virtio-net: init link state correctly
+Date: Wed, 3 Nov 2010 10:00:19 +0200
+Message-ID: <20101103080019.GC6772@redhat.com>
+References: <20101103070817.26272.31654.stgit@dhcp-91-158.nay.redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-	Paul Mackerras <paulus@samba.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: rusty@rustcorp.com.au, davem@davemloft.net, markmc@redhat.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kvm@vger.kernel.org
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20101103073854.GA7279@ff.dom.local>
+Content-Disposition: inline
+In-Reply-To: <20101103070817.26272.31654.stgit@dhcp-91-158.nay.redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I try to reverse and got very weird lockups (no netconsole logs and no 
-watchdog triggered reboot on that remote machine).
-I will try to cook something to reboot it, because it is very remote machine
+On Wed, Nov 03, 2010 at 03:08:17PM +0800, Jason Wang wrote:
+> We need call netif_carrier_off() and do not assume VIRTIO_NET_S_LINKUP
+> before querying device state during probing, otherwise we may get
+> wrong operstate after driver was loaded because the link watch event
+> was not fired as expected.
+> 
+> Since the device state changed could be caught through interrupt, the
+> unconditional call to nerif_carrier_on() is also removed.
+> 
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-On Wednesday 03 November 2010 09:38:54 Jarek Poplawski wrote:
-> On Tue, Nov 02, 2010 at 03:49:47PM +0200, Denys Fedoryshchenko wrote:
-> > I didn't try yet, but i enable more debugs and catch linked list
-> > corruption.
+OK, but this seems broken for hosts without VIRTIO_NET_F_STATUS.  Right?
+Probably
+
+	/* Assume link up if device can't report link status,
+	   otherwise get link status from config. */
+	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_STATUS)) {
+		vi->status = 0;
+		netif_carrier_off(dev);
+  		virtnet_update_status(vi);
+	} else {
+		vi->status = VIRTIO_NET_S_LINK_UP;
+		netif_carrier_on(dev);
+	}
+
+Makes sense?
+
+> ---
+>  drivers/net/virtio_net.c |    3 +--
+>  1 files changed, 1 insertions(+), 2 deletions(-)
 > 
-> It should be very useful but it seems there were no significant changes
-> in ppp locking between 2.6.35 and .36 except the patch I mentioned, so
-> it would be nice to check this first and try to fix it properly later.
-> 
-> Jarek P.
-> 
-> > Here is dumps from netconsole:
-> > http://www.nuclearcat.com/ll.txt
-> > http://www.nuclearcat.com/ll2.txt
-> > 
-> > I have another PC, also fails to run 2.6.36, but netconsole don't give
-> > anything.
-> > Both PC's have strange issue with clock drifting away too much (on 2.6.35
-> > and maybe even before).
-> > 
-> > On Thursday 28 October 2010 10:05:50 Jarek Poplawski wrote:
-> > > On 2010-10-25 11:22, Denys Fedoryshchenko wrote:
-> > > > Hi
-> > > > 
-> > > > Here is what i got from netconsole
-> > > > 
-> > > >  [  259.238755] BUG: unable to handle kernel
-> > > >  paging request
-> > > >  at f8ba001c9999
-> > > >  [  259.238953] IP:
-> > > >  [<c0199ebe>] do_select+0x2cc/0x502
-> > > 
-> > > ...
-> > > 
-> > > > It is not easy to do full git bisect(it is semi-embedded distro), but
-> > > > i can try reversing particular commits, if someone can give idea
-> > > > which one, and can try debug patches.
-> > > 
-> > > Hi,
-> > > Nothing concrete, but you might try reverting this one:
-> > > 
-> > > http://git.kernel.org/?p=linux/kernel/git/stable/linux-2.6.36.y.git;a=c
-> > > ommi tdiff;h=15fd0cd9a2ad24a78fbee369dec8ca660979d57e
-> > > 
-> > > Jarek P.
-> > > --
-> > > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > > the body of a message to majordomo@vger.kernel.org
-> > > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index bb6b67f..0a0cd35 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -986,9 +986,8 @@ static int virtnet_probe(struct virtio_device *vdev)
+>  		goto unregister;
+>  	}
+>  
+> -	vi->status = VIRTIO_NET_S_LINK_UP;
+> +	netif_carrier_off(dev);
+>  	virtnet_update_status(vi);
+> -	netif_carrier_on(dev);
+>  
+>  	pr_debug("virtnet: registered device %s\n", dev->name);
+>  	return 0;
