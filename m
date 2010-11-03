@@ -1,55 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] drivers/net/tile/: on-chip network drivers for the
- tile architecture
-Date: Wed, 03 Nov 2010 18:50:22 +0100
-Message-ID: <1288806622.2511.187.camel@edumazet-laptop>
-References: <201011012107.oA1L7TGd031588@farm-0027.internal.tilera.com>
-	 <20101103125959.3231daa1@s6510>  <4CD19DCF.1040709@tilera.com>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH 1/1] UDEV - Add 'udevlom' command line param to
+	start_udev
+Date: Wed, 3 Nov 2010 11:05:00 -0700
+Message-ID: <20101103180500.GA7441@kroah.com>
+References: <20101103165505.GA3281@fedora-14-r710.oslab.blr.amer.dell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Chris Metcalf <cmetcalf@tilera.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-hotplug@vger.kernel.org, netdev@vger.kernel.org,
+	Matt_Domsch@Dell.com, Jordan_Hargrave@Dell.com,
+	Charles_Rose@Dell.com
+To: Narendra_K@Dell.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:57743 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932222Ab0KCRua (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Nov 2010 13:50:30 -0400
-In-Reply-To: <4CD19DCF.1040709@tilera.com>
+Received: from kroah.org ([198.145.64.141]:54565 "EHLO coco.kroah.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753458Ab0KCSP7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Nov 2010 14:15:59 -0400
+Content-Disposition: inline
+In-Reply-To: <20101103165505.GA3281@fedora-14-r710.oslab.blr.amer.dell.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 03 novembre 2010 =C3=A0 13:37 -0400, Chris Metcalf a =C3=A9=
-crit :
-> Stephen, thanks for your feedback!
->=20
-> On 11/3/2010 12:59 PM, Stephen Hemminger wrote:
-> > 1. MUST not use volatile, see volatile-considered-harmful.txt
->=20
-> The "harmful" use of volatile is in trying to fake out SMP.  Believe =
-me,
-> with a 64-core architecture, we know our SMP guidelines. :-)  Our use=
- here
-> is simply to force the compiler to issue a load, for the side-effect =
-of
-> populating the TLB, for example.
->=20
-> However, your response does suggest that simply the syntactic use of
-> "volatile" will cause a red flag for readers.  I'll move this to an i=
-nline
-> function in a header with a comment explaining what it's for, and use=
- the
-> function instead.
+On Wed, Nov 03, 2010 at 10:25:25PM +0530, Narendra_K@Dell.com wrote:
+> Hello,
+> 
+> This patch allows users to specify if they want the onboard network
+> interfaces to be renamed to lomN by implementing a command line param
+> 'udevlom'.
 
-Please read Documentation/volatile-considered-harmful.txt
+Ick ick ick.
 
-Then if there is a problem, we can make change to the documentation, bu=
-t
-volatile use in new code is _strictly_ forbidden.
+Why not do this in some other configuration file?  Don't rely on udev
+being started with a different option, that is only ripe for abuse by
+everyone else who wants their pet-project to get into the udev
+environment.
 
-ACCESS_ONCE() is your friend, we might document it in
-Documentation/volatile-considered-harmful.txt
+Please, surely there's a different way to do this.
 
+thanks,
 
-
+greg k-h
