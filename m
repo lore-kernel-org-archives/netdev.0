@@ -1,81 +1,110 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: Re: [PATCH 2/4] Ethtool: convert get_sg/set_sg calls to
- hw_features flag
-Date: Wed, 3 Nov 2010 15:42:47 -0700
-Message-ID: <20101103224247.GB9869@mcarlson.broadcom.com>
-References: <cover.1288496404.git.mirq-linux@rere.qmqm.pl>
- <9d89236b6e4ff8c66937fbd7d8ce76602e680c5b.1288496404.git.mirq-linux@rere.qmqm.pl>
- <20101102022438.GA4243@mcarlson.broadcom.com>
- <20101103222910.GA24320@rere.qmqm.pl>
+From: Andrew Hendry <andrew.hendry@gmail.com>
+Subject: Re: [SECURITY] memory corruption in X.25 facilities parsing
+Date: Thu, 04 Nov 2010 09:54:53 +1100
+Message-ID: <1288824893.1858.5.camel@jaunty>
+References: <1288710168.2504.6.camel@dan>
+	 <AANLkTi=fAMDP-rGZfOcHS0j_J=KSBgxqqbLaQsXxooJn@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"Steve Glendinning" <steve.glendinning@smsc.com>,
-	"Greg Kroah-Hartman" <gregkh@suse.de>,
-	"Rasesh Mody" <rmody@brocade.com>,
-	"Debashis Dutt" <ddutt@brocade.com>,
-	"Kristoffer Glembo" <kristoffer@gaisler.com>,
-	"linux-driver@qlogic.com" <linux-driver@qlogic.com>,
-	"linux-net-drivers@solarflare.com" <linux-net-drivers@solarflare.com>
-To: "Micha?? Miros??aw" <mirq-linux@rere.qmqm.pl>
+Cc: netdev@vger.kernel.org, security@kernel.org, stable@kernel.org
+To: Dan Rosenberg <drosenberg@vsecurity.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4732 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753311Ab0KCWm7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Nov 2010 18:42:59 -0400
-In-Reply-To: <20101103222910.GA24320@rere.qmqm.pl>
-Content-Disposition: inline
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:38914 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752825Ab0KCWzB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Nov 2010 18:55:01 -0400
+Received: by qwf7 with SMTP id 7so630785qwf.19
+        for <netdev@vger.kernel.org>; Wed, 03 Nov 2010 15:55:00 -0700 (PDT)
+In-Reply-To: <AANLkTi=fAMDP-rGZfOcHS0j_J=KSBgxqqbLaQsXxooJn@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 03, 2010 at 03:29:10PM -0700, Micha?? Miros??aw wrote:
-> On Mon, Nov 01, 2010 at 07:24:38PM -0700, Matt Carlson wrote:
-> > On Fri, Oct 29, 2010 at 09:28:26PM -0700, Micha?? Miros??aw wrote:
-> > > diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-> > > index 30ccbb6..b07e2d1 100644
-> > > --- a/drivers/net/tg3.c
-> > > +++ b/drivers/net/tg3.c
-> > > @@ -11306,7 +11306,6 @@ static const struct ethtool_ops tg3_ethtool_ops = {
-> > >         .get_rx_csum            = tg3_get_rx_csum,
-> > >         .set_rx_csum            = tg3_set_rx_csum,
-> > >         .set_tx_csum            = tg3_set_tx_csum,
-> > > -       .set_sg                 = ethtool_op_set_sg,
-> > >         .set_tso                = tg3_set_tso,
-> > >         .self_test              = tg3_self_test,
-> > >         .get_strings            = tg3_get_strings,
-> > > @@ -14681,6 +14680,7 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
-> > >         tp->rx_pending = TG3_DEF_RX_RING_PENDING;
-> > >         tp->rx_jumbo_pending = TG3_DEF_RX_JUMBO_RING_PENDING;
-> > > 
-> > > +       dev->hw_features |= NETIF_F_SG;
-> > Scatter-gather should not be enabled if TG3_FLAG_BROKEN_CHECKSUMS is set.  I
-> > would do the following instead:
-> > 
-> > 	if (!(tp->tg3_flags & TG3_FLAG_BROKEN_CHECKSUMS))
-> > 		dev->hw_features |= NETIF_F_SG;
-> > 
-> > TG3_FLAG_BROKEN_CHECKSUMS is set in tg3_get_invariants(), so this code
-> > would need to be placed later than that function call.
+On Wed, 2010-11-03 at 12:12 +1100, Andrew Hendry wrote:
+> There is an issue here, under select scenarios I can crash systems.
+> However the patch doesn't resolve it fully, I think after breaking at
+> that point the len and p pointers are messed up before it tries to
+> parse the next facility.
 > 
-> This bug is there now, so I'll queue this as all other hints of existent
-> bugs that this patch series "uncovers".
+> Maybe it should return not break? It should reject/clear such calls.
+> I'll start checking if the callers properly handle errors.
+> Also should it be if (p[1] > X25_MAX_DTE_FACIL_LEN || p[1] <= 1),
+> because it does the memcpy with p[1] -1
+> 
+> 
+> On Wed, Nov 3, 2010 at 2:02 AM, Dan Rosenberg <drosenberg@vsecurity.com> wrote:
+> > I put this together after a quick glance, so if someone knows this code
+> > better than I do (i.e. at all), feel free to comment or drop this patch
+> > if it's unnecessary.
+> >
+> > A value of 0 will cause a memcpy() of ULONG_MAX size, destroying the
+> > kernel heap.
+> >
+> > Signed-off-by: Dan Rosenberg <drosenberg@vsecurity.com>
+> >
+> > --- linux-2.6.36-rc6.orig/net/x25/x25_facilities.c      2010-09-28 21:01:22.000000000 -0400
+> > +++ linux-2.6.36-rc6/net/x25/x25_facilities.c   2010-11-02 10:36:02.827291324 -0400
+> > @@ -134,14 +134,14 @@ int x25_parse_facilities(struct sk_buff
+> >                case X25_FAC_CLASS_D:
+> >                        switch (*p) {
+> >                        case X25_FAC_CALLING_AE:
+> > -                               if (p[1] > X25_MAX_DTE_FACIL_LEN)
+> > +                               if (p[1] > X25_MAX_DTE_FACIL_LEN || p[1] == 0)
+> >                                        break;
+> >                                dte_facs->calling_len = p[2];
+> >                                memcpy(dte_facs->calling_ae, &p[3], p[1] - 1);
+> >                                *vc_fac_mask |= X25_MASK_CALLING_AE;
+> >                                break;
+> >                        case X25_FAC_CALLED_AE:
+> > -                               if (p[1] > X25_MAX_DTE_FACIL_LEN)
+> > +                               if (p[1] > X25_MAX_DTE_FACIL_LEN || p[1] == 0)
+> >                                        break;
+> >                                dte_facs->called_len = p[2];
+> >                                memcpy(dte_facs->called_ae, &p[3], p[1] - 1);
+> >
+> >
+> >
 
-How so?  This patch would be introducing the bug.  From tg3_get_invariants:
+How does this look? It appears to fix it for the cases I could test.
 
-	if (tp->pci_chip_rev_id == CHIPREV_ID_5700_B0)
-		tp->tg3_flags |= TG3_FLAG_BROKEN_CHECKSUMS;
-	else {
-		unsigned long features = NETIF_F_IP_CSUM | NETIF_F_SG | NETIF_F_GRO;
+Signed-of-by: Andrew Hendry <andrew.hendry@gmail.com>
 
-		tp->tg3_flags |= TG3_FLAG_RX_CHECKSUMS;
-		if (tp->tg3_flags3 & TG3_FLG3_5755_PLUS)
-			features |= NETIF_F_IPV6_CSUM;
-		tp->dev->features |= features;
-		vlan_features_add(tp->dev, features);
-	}
+diff --git a/net/x25/x25_facilities.c b/net/x25/x25_facilities.c
+index 771bab0..3a8c4c4 100644
+--- a/net/x25/x25_facilities.c
++++ b/net/x25/x25_facilities.c
+@@ -134,15 +134,15 @@ int x25_parse_facilities(struct sk_buff *skb, struct x25_facilities *facilities,
+ 		case X25_FAC_CLASS_D:
+ 			switch (*p) {
+ 			case X25_FAC_CALLING_AE:
+-				if (p[1] > X25_MAX_DTE_FACIL_LEN)
+-					break;
++				if (p[1] > X25_MAX_DTE_FACIL_LEN || p[1] <= 1)
++					return 0;
+ 				dte_facs->calling_len = p[2];
+ 				memcpy(dte_facs->calling_ae, &p[3], p[1] - 1);
+ 				*vc_fac_mask |= X25_MASK_CALLING_AE;
+ 				break;
+ 			case X25_FAC_CALLED_AE:
+-				if (p[1] > X25_MAX_DTE_FACIL_LEN)
+-					break;
++				if (p[1] > X25_MAX_DTE_FACIL_LEN || p[1] <= 1)
++					return 0;
+ 				dte_facs->called_len = p[2];
+ 				memcpy(dte_facs->called_ae, &p[3], p[1] - 1);
+ 				*vc_fac_mask |= X25_MASK_CALLED_AE;
+diff --git a/net/x25/x25_in.c b/net/x25/x25_in.c
+index 6317896..1d80e10 100644
+--- a/net/x25/x25_in.c
++++ b/net/x25/x25_in.c
+@@ -119,6 +119,8 @@ static int x25_state1_machine(struct sock *sk, struct sk_buff *skb, int frametyp
+ 						&x25->vc_facil_mask);
+ 			if (len > 0)
+ 				skb_pull(skb, len);
++			else 
++				return -1;
+ 			/*
+ 			 *	Copy any Call User Data.
+ 			 */
+
 
