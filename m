@@ -1,122 +1,73 @@
-From: Dave Chinner <david@fromorbit.com>
-Subject: Re: [regression, 2.6.37-rc1] 'ip link tap0 up' stuck in do_exit()
-Date: Wed, 3 Nov 2010 22:29:36 +1100
-Message-ID: <20101103112936.GB9169@dastard>
-References: <20101103062609.GB31163@dastard>
- <1288768402.2467.665.camel@edumazet-laptop>
- <20101103103448.GA9169@dastard>
+From: Michael Ellerman <michael@ellerman.id.au>
+Subject: Re: [PATCH net-next-2.6 1/2] be2net: Adding an option to use INTx
+ instead of MSI-X
+Date: Wed, 03 Nov 2010 23:45:57 +1100
+Message-ID: <1288788357.989.77.camel@concordia>
+References: <20101025111235.GA2024@emulex.com>
+	 <20101025.120943.189699949.davem@davemloft.net>
+	 <20101025223853.GD15074@solarflare.com>
+	 <20101025.162535.226782713.davem@davemloft.net>
+	 <1288075928.6578.185.camel@concordia>
+	 <20101030232155.GA14129@parisc-linux.org>
+Reply-To: michael@ellerman.id.au
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20101103103448.GA9169@dastard>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-WpnQ/lLLGQteS2F/RCV2"
+Cc: David Miller <davem@davemloft.net>, bhutchings@solarflare.com,
+	somnath.kotur@emulex.com, netdev@vger.kernel.org,
+	linux-pci@vger.kernel.org
+To: Matthew Wilcox <matthew@wil.cx>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <20101030232155.GA14129@parisc-linux.org>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 03, 2010 at 09:34:48PM +1100, Dave Chinner wrote:
-> On Wed, Nov 03, 2010 at 08:13:22AM +0100, Eric Dumazet wrote:
-> > Le mercredi 03 novembre 2010 =E0 17:26 +1100, Dave Chinner a =E9cri=
-t :
-> > > Folks,
-> > >=20
-> > > Starting up KVM on a current mainline kernel using the tap
-> > > device for the networking is resulting in the ip process tryin gt=
-o
-> > > up the tap interface hanging. KVM is started with this networking
-> > > config:
-> > >=20
-> > > ....
-> > >         -net nic,vlan=3D0,macaddr=3D00:e4:b6:63:63:6d,model=3Dvir=
-tio \
-> > >         -net tap,vlan=3D0,script=3D/vm-images/qemu-ifup,downscrip=
-t=3Dno \
-> > > ....
-> > >=20
-> > > And the script is effectively:
-> > >=20
-> > > switch=3Dbr0
-> > > if [ -n "$1" ];then
-> > >         /usr/bin/sudo /sbin/ip link set $1 up
-> > >         sleep 0.5s
-> > >         /usr/bin/sudo /usr/sbin/brctl addif $switch $1
-> > > 	exit 0
-> > > fi
-> > > exit 1
-> > >=20
-> > > This is resulting in the command 'ip link set tap0 up' hanging as=
- a zombie:
-> > >=20
-> > > root      3005     1  0 16:53 pts/3    00:00:00 /bin/sh /vm-image=
-s/qemu-ifup tap0
-> > > root      3011  3005  0 16:53 pts/3    00:00:00 /usr/bin/sudo /sb=
-in/ip link set tap0 up
-> > > root      3012  3011  0 16:53 pts/3    00:00:00 [ip] <defunct>
-> > >=20
-> > > In do_exit() with this trace:
-> > >=20
-> > > [ 1630.782255] ip            x ffff88063fcb3600     0  3012   301=
-1 0x00000000
-> > > [ 1630.789121]  ffff880631328000 0000000000000046 000000000000000=
-0 ffff880633104380
-> > > [ 1630.796524]  0000000000013600 ffff88062f031fd8 000000000001360=
-0 0000000000013600
-> > > [ 1630.803925]  ffff8806313282d8 ffff8806313282e0 ffff88063132800=
-0 0000000000013600
-> > > [ 1630.811324] Call Trace:
-> > > [ 1630.813760]  [<ffffffff8104a90d>] ? do_exit+0x716/0x724
-> > > [ 1630.818964]  [<ffffffff8104a995>] ? do_group_exit+0x7a/0xa4
-> > > [ 1630.824512]  [<ffffffff8104a9d1>] ? sys_exit_group+0x12/0x16
-> > > [ 1630.830149]  [<ffffffff81009a82>] ? system_call_fastpath+0x16/=
-0x1b
-> > >=20
-> > > The address comes down to the schedule() call:
-> > >=20
-> > > (gdb) l *(do_exit+0x716)
-> > > 0xffffffff8104a90d is in do_exit (kernel/exit.c:1034).
-> > > 1029            preempt_disable();
-> > > 1030            exit_rcu();
-> > > 1031            /* causes final put_task_struct in finish_task_sw=
-itch(). */
-> > > 1032            tsk->state =3D TASK_DEAD;
-> > > 1033            schedule();
-> > > 1034            BUG();
-> > > 1035            /* Avoid "noreturn function does return".  */
-> > > 1036            for (;;)
-> > > 1037                    cpu_relax();    /* For when BUG is null *=
-/
-> > > 1038    }
-> > >=20
-> > > Needless to say, KVM is not starting up. This works just fine on
-> > > 2.6.35.1 and so is a regression. I can't do a lot of testing on t=
-his as
-> > > the host is the machine that hosts all my build and test environm=
-ents....
-> > >=20
-> > > Cheers,
-> > >=20
-> > > Dave.
+
+--=-WpnQ/lLLGQteS2F/RCV2
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Sat, 2010-10-30 at 17:21 -0600, Matthew Wilcox wrote:
+> On Tue, Oct 26, 2010 at 05:52:08PM +1100, Michael Ellerman wrote:
+> > That horse has really really bolted, it's gawn.
 > >=20
-> > Could it be the same problem than=20
-> >=20
-> > http://kerneltrap.com/mailarchive/linux-netdev/2010/10/23/6288128
-> >=20
-> > Try to revert bee31369ce16fc3898ec9a54161248c9eddb06bc ?
+> > I count 26 drivers with "disable MSI/X" parameters. Some even have more
+> > than one.
 >=20
-> It's working fine on 2.6.36 right now, so it's something that came in
-> with the .37 merge cycle...
+> That's 26 patches someone needs to write, then.  You can put my Acked-by
+> on all of them.
 
-Actually, the machine isn't running a 2.6.36 kernel (it had booted
-to the working .35 kernel and I didn't notice). So i've just tested
-a 2.6.36 kernel, and the problem _is present_ in 2.6.36. I've
-reverted the above commit but that does not fix the problem.
+Bah, come on it's hardly the most horrendous sin committed by driver
+writers. And removing them risks breaking someone's system, even if they
+are clueless, should RTFM etc.
 
-Cheers,
+> > I agree it's a mess for users, but it's probably preferable to a
+> > non-working driver.
+>=20
+> What more drivers need is an automatic detection of a non-working
+> interrupt situation, great big warning messages, and fallback to an
+> alternate interrupt mechanism.  Doing it for one driver, then generalisin=
+g
+> as much of it into the core as possible would be nice.
 
-Dave.
+More detection would be good.
 
---=20
-Dave Chinner
-david@fromorbit.com
+I don't see much potential for generalising it though. Looking at e1000e
+and tg3 there is really not much in common except the very basic idea.
+
+cheers
+
+
+
+--=-WpnQ/lLLGQteS2F/RCV2
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iEYEABECAAYFAkzRWYUACgkQdSjSd0sB4dKhogCfeV7Vbb5HUtkxqkcSP5JTpQtu
+A3kAoLgpcmpukjiny9TQQYTMMPzMI9D3
+=h3jr
+-----END PGP SIGNATURE-----
+
+--=-WpnQ/lLLGQteS2F/RCV2--
