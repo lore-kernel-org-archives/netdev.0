@@ -1,54 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: panic with 2.6.37-rc1
-Date: Wed, 03 Nov 2010 23:11:21 +0100
-Message-ID: <1288822281.2718.30.camel@edumazet-laptop>
-References: <AANLkTi=mEzCMCC+K6oLOjW9xfws_+_hHq8DS3hpPB1zY@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Tom Gundersen <teg@jklm.no>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTi=mEzCMCC+K6oLOjW9xfws_+_hHq8DS3hpPB1zY@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: kaber@trash.net
+Subject: [PATCH 1/5] netfilter: nf_conntrack: allow nf_ct_alloc_hashtable() to get highmem pages
+Date: Wed,  3 Nov 2010 23:12:48 +0100
+Message-ID: <1288822372-21245-2-git-send-email-kaber@trash.net>
+References: <1288822372-21245-1-git-send-email-kaber@trash.net>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1288822372-21245-1-git-send-email-kaber@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le mercredi 03 novembre 2010 =C3=A0 23:02 +0100, Tom Gundersen a =C3=A9=
-crit :
-> I get panic during boot both with 2.6.37-rc1 and with current head.
->=20
-> Here is the error message:
-> <http://www.lix.polytechnique.fr/~tom/2.6.37-rc1-panic.jpg>. My
-> .config is below.
->=20
-> Let me know if you want more info. If you want I can test patches or
-> bisect (if no one has any better suggestions).
->=20
+From: Eric Dumazet <eric.dumazet@gmail.com>
 
-Please test following patch, thanks
+commit ea781f197d6a8 (use SLAB_DESTROY_BY_RCU and get rid of call_rcu())
+did a mistake in __vmalloc() call in nf_ct_alloc_hashtable().
 
-[PATCH] atl1 : fix panic on load
+I forgot to add __GFP_HIGHMEM, so pages were taken from LOWMEM only.
 
-Its now illegal to call netif_stop_queue() before register_netdev()
-
-Reported-by: Tom Gundersen <teg@jklm.no>
 Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: stable@kernel.org
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- drivers/net/atlx/atl1.c |    1 -
- 1 file changed, 1 deletion(-)
+ net/netfilter/nf_conntrack_core.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/atlx/atl1.c b/drivers/net/atlx/atl1.c
-index 43579b3..5336310 100644
---- a/drivers/net/atlx/atl1.c
-+++ b/drivers/net/atlx/atl1.c
-@@ -3043,7 +3043,6 @@ static int __devinit atl1_probe(struct pci_dev *p=
-dev,
- 	atl1_pcie_patch(adapter);
- 	/* assume we have no link for now */
- 	netif_carrier_off(netdev);
--	netif_stop_queue(netdev);
-=20
- 	setup_timer(&adapter->phy_config_timer, atl1_phy_config,
- 		    (unsigned long)adapter);
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index 1eacf8d..27a5ea6 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -1312,7 +1312,8 @@ void *nf_ct_alloc_hashtable(unsigned int *sizep, int *vmalloced, int nulls)
+ 	if (!hash) {
+ 		*vmalloced = 1;
+ 		printk(KERN_WARNING "nf_conntrack: falling back to vmalloc.\n");
+-		hash = __vmalloc(sz, GFP_KERNEL | __GFP_ZERO, PAGE_KERNEL);
++		hash = __vmalloc(sz, GFP_KERNEL | __GFP_HIGHMEM | __GFP_ZERO,
++				 PAGE_KERNEL);
+ 	}
+ 
+ 	if (hash && nulls)
+-- 
+1.7.1
+
