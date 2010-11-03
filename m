@@ -1,45 +1,43 @@
 From: kaber@trash.net
-Subject: [PATCH 3/5] netfilter: fix nf_conntrack_l4proto_register()
-Date: Wed,  3 Nov 2010 23:12:50 +0100
-Message-ID: <1288822372-21245-4-git-send-email-kaber@trash.net>
+Subject: [PATCH 5/5] ipv4: netfilter: ip_tables: fix information leak to userland
+Date: Wed,  3 Nov 2010 23:12:52 +0100
+Message-ID: <1288822372-21245-6-git-send-email-kaber@trash.net>
 References: <1288822372-21245-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:58661 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752750Ab0KCWNC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Nov 2010 18:13:02 -0400
 In-Reply-To: <1288822372-21245-1-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Vasiliy Kulikov <segooon@gmail.com>
 
-While doing __rcu annotations work on net/netfilter I found following
-bug. On some arches, it is possible we publish a table while its content
-is not yet committed to memory, and lockless reader can dereference wild
-pointer.
+Structure ipt_getinfo is copied to userland with the field "name"
+that has the last elements unitialized.  It leads to leaking of
+contents of kernel stack memory.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Vasiliy Kulikov <segooon@gmail.com>
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- net/netfilter/nf_conntrack_proto.c |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
+ net/ipv4/netfilter/ip_tables.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_proto.c b/net/netfilter/nf_conntrack_proto.c
-index ed6d929..dc7bb74 100644
---- a/net/netfilter/nf_conntrack_proto.c
-+++ b/net/netfilter/nf_conntrack_proto.c
-@@ -292,6 +292,12 @@ int nf_conntrack_l4proto_register(struct nf_conntrack_l4proto *l4proto)
- 
- 		for (i = 0; i < MAX_NF_CT_PROTO; i++)
- 			proto_array[i] = &nf_conntrack_l4proto_generic;
-+
-+		/* Before making proto_array visible to lockless readers,
-+		 * we must make sure its content is committed to memory.
-+		 */
-+		smp_wmb();
-+
- 		nf_ct_protos[l4proto->l3proto] = proto_array;
- 	} else if (nf_ct_protos[l4proto->l3proto][l4proto->l4proto] !=
- 					&nf_conntrack_l4proto_generic) {
+diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
+index d31b007..a846d63 100644
+--- a/net/ipv4/netfilter/ip_tables.c
++++ b/net/ipv4/netfilter/ip_tables.c
+@@ -1124,6 +1124,7 @@ static int get_info(struct net *net, void __user *user,
+ 			private = &tmp;
+ 		}
+ #endif
++		memset(&info, 0, sizeof(info));
+ 		info.valid_hooks = t->valid_hooks;
+ 		memcpy(info.hook_entry, private->hook_entry,
+ 		       sizeof(info.hook_entry));
 -- 
 1.7.1
 
