@@ -1,41 +1,44 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH 1/1] UDEV - Add 'udevlom' command line param to
-	start_udev
-Date: Wed, 3 Nov 2010 11:05:00 -0700
-Message-ID: <20101103180500.GA7441@kroah.com>
-References: <20101103165505.GA3281@fedora-14-r710.oslab.blr.amer.dell.com>
+From: "Gustavo F. Padovan" <padovan@profusion.mobi>
+Subject: Re: [PATCH] bluetooth: bnep: fix information leak to userland
+Date: Wed, 3 Nov 2010 14:36:00 -0400
+Message-ID: <20101103183600.GB17943@vigoh>
+References: <1288448782-5582-1-git-send-email-segooon@gmail.com>
+ <1288712131.3322.178.camel@aeonflux>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-hotplug@vger.kernel.org, netdev@vger.kernel.org,
-	Matt_Domsch@Dell.com, Jordan_Hargrave@Dell.com,
-	Charles_Rose@Dell.com
-To: Narendra_K@Dell.com
+Cc: Vasiliy Kulikov <segooon@gmail.com>,
+	kernel-janitors@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Thadeu Lima de Souza Cascardo <cascardo@holoscopio.com>,
+	Tejun Heo <tj@kernel.org>, Jiri Kosina <jkosina@suse.cz>,
+	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Marcel Holtmann <marcel@holtmann.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kroah.org ([198.145.64.141]:54565 "EHLO coco.kroah.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753458Ab0KCSP7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Nov 2010 14:15:59 -0400
+Received: from mail-yx0-f174.google.com ([209.85.213.174]:40022 "EHLO
+	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932222Ab0KCSft (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Nov 2010 14:35:49 -0400
 Content-Disposition: inline
-In-Reply-To: <20101103165505.GA3281@fedora-14-r710.oslab.blr.amer.dell.com>
+In-Reply-To: <1288712131.3322.178.camel@aeonflux>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 03, 2010 at 10:25:25PM +0530, Narendra_K@Dell.com wrote:
-> Hello,
+* Marcel Holtmann <marcel@holtmann.org> [2010-11-02 16:35:31 +0100]:
+
+> Hi Vasiiy,
 > 
-> This patch allows users to specify if they want the onboard network
-> interfaces to be renamed to lomN by implementing a command line param
-> 'udevlom'.
+> > Structure bnep_conninfo is copied to userland with the field "device"
+> > that has the last elements unitialized.  It leads to leaking of
+> > contents of kernel stack memory.
+> > 
+> > Signed-off-by: Vasiliy Kulikov <segooon@gmail.com>
+> 
+> Acked-by: Marcel Holtmann <marcel@holtmann.org>
 
-Ick ick ick.
+Applied, thanks.  
 
-Why not do this in some other configuration file?  Don't rely on udev
-being started with a different option, that is only ripe for abuse by
-everyone else who wants their pet-project to get into the udev
-environment.
-
-Please, surely there's a different way to do this.
-
-thanks,
-
-greg k-h
+-- 
+Gustavo F. Padovan
+ProFUSION embedded systems - http://profusion.mobi
