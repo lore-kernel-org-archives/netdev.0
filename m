@@ -1,60 +1,49 @@
-From: <Narendra_K@Dell.com>
-Subject: [PATCH 1/1] UDEV - Add 'udevlom' command line param to start_udev
-Date: Wed, 3 Nov 2010 22:25:25 +0530
-Message-ID: <20101103165505.GA3281@fedora-14-r710.oslab.blr.amer.dell.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] drivers/net/tile/: on-chip network drivers for the tile
+ architecture
+Date: Wed, 3 Nov 2010 12:59:59 -0400
+Message-ID: <20101103125959.3231daa1@s6510>
+References: <201011012107.oA1L7TGd031588@farm-0027.internal.tilera.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: <netdev@vger.kernel.org>, <Matt_Domsch@Dell.com>,
-	<Jordan_Hargrave@Dell.com>, <Charles_Rose@Dell.com>
-To: <linux-hotplug@vger.kernel.org>
-Return-path: <linux-hotplug-owner@vger.kernel.org>
-Sender: linux-hotplug-owner@vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Chris Metcalf <cmetcalf@tilera.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201011012107.oA1L7TGd031588@farm-0027.internal.tilera.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+On Mon, 1 Nov 2010 17:00:37 -0400
+Chris Metcalf <cmetcalf@tilera.com> wrote:
 
-This patch allows users to specify if they want the onboard network
-interfaces to be renamed to lomN by implementing a command line param
-'udevlom'.
+> This change adds the first network driver for the tile architecture,
+> supporting the on-chip XGBE and GBE shims.
+> 
+> The infrastructure is present for the TILE-Gx networking drivers (another
+> three source files in the new directory) but for now the the actual
+> tilegx sources are waiting on releasing hardware to initial customers.
+> 
+> Note that arch/tile/include/hv/* are "upstream" headers from the
+> Tilera hypervisor and will probably benefit less from LKML review.
+> 
 
-From: Narendra K <narendra_k@dell.com>
-Subject: [PATCH] UDEV - Add 'udevlom' command line param to start_udev
+> Signed-off-by: Chris Metcalf <cmetcalf@tilera.com>
+> +typedef struct {
+> +  /** Byte offset of the next notify packet to be written: zero for the first
+> +   *  packet on the queue, sizeof (netio_pkt_t) for the second packet on the
+> +   *  queue, etc. */
+> +  volatile uint32_t __packet_write;
+> +
+> +  /** Offset of the packet after the last valid packet (i.e., when any
+> +   *  pointer is incremented to this value, it wraps back to zero). */
+> +  uint32_t __last_packet_plus_one;
+> +}
+> +__netio_packet_queue_t;
 
-This patch implements 'udevlom' command line parameter, which
-when passed, results in onboard network interfaces getting
-renamed to lomN.
+1. MUST not use volatile, see volatile-considered-harmful.txt
+2. SHOULD use __u32 rather than uint32_t in kernel structures
+3. MUST not introduce typedef's; use structures
+4. SHOULD use proper kernel implementation
 
-Signed-off-by: Narendra K <narendra_k@dell.com>
----
- start_udev |    5 +++++
- 1 files changed, 5 insertions(+), 0 deletions(-)
-
-diff --git a/start_udev b/start_udev
-index 49fc286..57d60c9 100755
---- a/start_udev
-+++ b/start_udev
-@@ -32,6 +32,7 @@ export TZ=/etc/localtime
- . /etc/init.d/functions
- 
- prog=udev
-+cmdline=`cat /proc/cmdline`
- 
- touch_recursive() {
- 	( cd $1;
-@@ -60,6 +61,10 @@ fi
- 
- ret=$[$ret + $?]
- 
-+if strstr "$cmdline" udevlom; then
-+	/sbin/udevadm control --env=UDEVLOM="y"
-+fi
-+
- /sbin/udevadm trigger --type=subsystems --action=add
- /sbin/udevadm trigger --type=devices --action=add
- /sbin/udevadm settle
--- 
-1.7.3.1
-
-With regards,
-Narendra K
+If you use scripts/checkpatch.pl it will tell you about these.
