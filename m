@@ -1,114 +1,103 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] mpc52xx: cleanup locking
-Date: Wed, 03 Nov 2010 16:56:38 +0100
-Message-ID: <1288799798.2511.164.camel@edumazet-laptop>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6 v2] can: Topcliff: PCH_CAN driver: Fix build
+	warnings
+Date: Wed, 03 Nov 2010 17:15:42 +0100
+Message-ID: <4CD18AAE.9040300@grandegger.com>
+References: <4CCAA3D4.8070408@dsn.okisemi.com>	<4CCAC4CD.7000503@pengutronix.de>
+	<4CCAF517.2000409@pengutronix.de>	<4CCB213A.2020206@grandegger.com>
+	<4CCE9F0B.1000901@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Asier Llano <a.llano@ziv.es>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	Jean-Michel Hautbois <jhautbois@gmail.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f42.google.com ([74.125.82.42]:58307 "EHLO
-	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752617Ab0KCP4o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Nov 2010 11:56:44 -0400
-Received: by wwi17 with SMTP id 17so1586274wwi.1
-        for <netdev@vger.kernel.org>; Wed, 03 Nov 2010 08:56:43 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: quoted-printable
+Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>, margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Masayuki Ohtake <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>,
+	kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4CCE9F0B.1000901-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-commit 1e4e0767ecb1 (Fix locking on fec_mpc52xx driver) assumed IRQ are
-enabled when an IRQ handler is called.
+On 11/01/2010 12:05 PM, Marc Kleine-Budde wrote:
+> Hello,
+> =
 
-It is not the case anymore (IRQF_DISABLED is deprecated), so we can use
-regular spin_lock(), no need for spin_lock_irqsave().
+> On 10/29/2010 09:32 PM, Wolfgang Grandegger wrote:
+> =
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-Tested-by: Jean-Michel Hautbois <jhautbois@gmail.com>
-Cc: Asier Llano <a.llano@ziv.es>
-Cc: Grant Likely <grant.likely@secretlab.ca>
----
- drivers/net/fec_mpc52xx.c |   19 ++++++++-----------
- 1 file changed, 8 insertions(+), 11 deletions(-)
+> some comments inline.
+> =
 
-diff --git a/drivers/net/fec_mpc52xx.c b/drivers/net/fec_mpc52xx.c
-index e9f5d03..50c1213 100644
---- a/drivers/net/fec_mpc52xx.c
-+++ b/drivers/net/fec_mpc52xx.c
-@@ -366,9 +366,8 @@ static irqreturn_t mpc52xx_fec_tx_interrupt(int irq, void *dev_id)
- {
- 	struct net_device *dev = dev_id;
- 	struct mpc52xx_fec_priv *priv = netdev_priv(dev);
--	unsigned long flags;
- 
--	spin_lock_irqsave(&priv->lock, flags);
-+	spin_lock(&priv->lock);
- 	while (bcom_buffer_done(priv->tx_dmatsk)) {
- 		struct sk_buff *skb;
- 		struct bcom_fec_bd *bd;
-@@ -379,7 +378,7 @@ static irqreturn_t mpc52xx_fec_tx_interrupt(int irq, void *dev_id)
- 
- 		dev_kfree_skb_irq(skb);
- 	}
--	spin_unlock_irqrestore(&priv->lock, flags);
-+	spin_unlock(&priv->lock);
- 
- 	netif_wake_queue(dev);
- 
-@@ -395,9 +394,8 @@ static irqreturn_t mpc52xx_fec_rx_interrupt(int irq, void *dev_id)
- 	struct bcom_fec_bd *bd;
- 	u32 status, physaddr;
- 	int length;
--	unsigned long flags;
- 
--	spin_lock_irqsave(&priv->lock, flags);
-+	spin_lock(&priv->lock);
- 
- 	while (bcom_buffer_done(priv->rx_dmatsk)) {
- 
-@@ -429,7 +427,7 @@ static irqreturn_t mpc52xx_fec_rx_interrupt(int irq, void *dev_id)
- 
- 		/* Process the received skb - Drop the spin lock while
- 		 * calling into the network stack */
--		spin_unlock_irqrestore(&priv->lock, flags);
-+		spin_unlock(&priv->lock);
- 
- 		dma_unmap_single(dev->dev.parent, physaddr, rskb->len,
- 				 DMA_FROM_DEVICE);
-@@ -438,10 +436,10 @@ static irqreturn_t mpc52xx_fec_rx_interrupt(int irq, void *dev_id)
- 		rskb->protocol = eth_type_trans(rskb, dev);
- 		netif_rx(rskb);
- 
--		spin_lock_irqsave(&priv->lock, flags);
-+		spin_lock(&priv->lock);
- 	}
- 
--	spin_unlock_irqrestore(&priv->lock, flags);
-+	spin_unlock(&priv->lock);
- 
- 	return IRQ_HANDLED;
- }
-@@ -452,7 +450,6 @@ static irqreturn_t mpc52xx_fec_interrupt(int irq, void *dev_id)
- 	struct mpc52xx_fec_priv *priv = netdev_priv(dev);
- 	struct mpc52xx_fec __iomem *fec = priv->fec;
- 	u32 ievent;
--	unsigned long flags;
- 
- 	ievent = in_be32(&fec->ievent);
- 
-@@ -470,9 +467,9 @@ static irqreturn_t mpc52xx_fec_interrupt(int irq, void *dev_id)
- 		if (net_ratelimit() && (ievent & FEC_IEVENT_XFIFO_ERROR))
- 			dev_warn(&dev->dev, "FEC_IEVENT_XFIFO_ERROR\n");
- 
--		spin_lock_irqsave(&priv->lock, flags);
-+		spin_lock(&priv->lock);
- 		mpc52xx_fec_reset(dev);
--		spin_unlock_irqrestore(&priv->lock, flags);
-+		spin_unlock(&priv->lock);
- 
- 		return IRQ_HANDLED;
- 	}
+> [...]
+...
+>>>> +	if (status & PCH_LEC_ALL) {
+>>>> +		priv->can.can_stats.bus_error++;
+>>>> +		stats->rx_errors++;
+>>>> +		switch (status & PCH_LEC_ALL) {
+>>>
+>>> I suggest to convert to a if-bit-set because there might be more than
+>>> one bit set.
+>>
+>> Marc, what do you mean here. It's an enumeraton. Maybe the following
+>> code is more clear:
+> =
 
+> Oh, I haven't looked this one up in the datasheet.
+>>
+>> 	lec =3D status & PCH_LEC_ALL;
+>> 	if (lec > 0) {
+> =
 
+> or "if (lec)", YMMV
+> =
+
+>> 		switch (lec) {
+>>
+>>>> +		case PCH_STUF_ERR:
+>>>> +			cf->data[2] |=3D CAN_ERR_PROT_STUFF;
+>>>> +			break;
+>>>> +		case PCH_FORM_ERR:
+>>>> +			cf->data[2] |=3D CAN_ERR_PROT_FORM;
+>>>> +			break;
+>>>> +		case PCH_ACK_ERR:
+>>>> +			cf->data[2] |=3D CAN_ERR_PROT_LOC_ACK |
+>>>> +				       CAN_ERR_PROT_LOC_ACK_DEL;
+>>
+>> Could you check what that type of bus error that is? Usually it's a ack
+>> lost error.
+>>
+>>>> +			break;
+>>>> +		case PCH_BIT1_ERR:
+>>>> +		case PCH_BIT0_ERR:
+>>>> +			cf->data[2] |=3D CAN_ERR_PROT_BIT;
+>>>> +			break;
+>>>> +		case PCH_CRC_ERR:
+>>>> +			cf->data[2] |=3D CAN_ERR_PROT_LOC_CRC_SEQ |
+>>>> +				       CAN_ERR_PROT_LOC_CRC_DEL;
+>>>> +			break;
+>>>> +		default:
+>>>> +			iowrite32(status | PCH_LEC_ALL, &priv->regs->stat);
+>>>> +			break;
+>>>> +		}
+>>>> +
+>>>> +	}
+
+At a closer look, I doubt that the above LEC handling is correct.
+According to the manual: "when the LEC shows the value =937,=94 this value
+was written to the LEC by the CPU; thus, no CAN bus event was detected"
+Therefore the LEC bits should be properly *initialized* and *reset* to
+0x7, which I do not find in the code.
+
+Wolfgang.
