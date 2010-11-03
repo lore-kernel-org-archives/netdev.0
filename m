@@ -1,110 +1,60 @@
-From: Andrew Hendry <andrew.hendry@gmail.com>
-Subject: Re: [SECURITY] memory corruption in X.25 facilities parsing
-Date: Thu, 04 Nov 2010 09:54:53 +1100
-Message-ID: <1288824893.1858.5.camel@jaunty>
-References: <1288710168.2504.6.camel@dan>
-	 <AANLkTi=fAMDP-rGZfOcHS0j_J=KSBgxqqbLaQsXxooJn@mail.gmail.com>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: [PATCH 5/5] ipv4: netfilter: ip_tables: fix information leak to
+ userland
+Date: Wed, 3 Nov 2010 23:55:58 +0100 (CET)
+Message-ID: <alpine.LNX.2.01.1011032355020.31351@obet.zrqbmnf.qr>
+References: <1288822372-21245-1-git-send-email-kaber@trash.net> <1288822372-21245-6-git-send-email-kaber@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, security@kernel.org, stable@kernel.org
-To: Dan Rosenberg <drosenberg@vsecurity.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f46.google.com ([209.85.216.46]:38914 "EHLO
-	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752825Ab0KCWzB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Nov 2010 18:55:01 -0400
-Received: by qwf7 with SMTP id 7so630785qwf.19
-        for <netdev@vger.kernel.org>; Wed, 03 Nov 2010 15:55:00 -0700 (PDT)
-In-Reply-To: <AANLkTi=fAMDP-rGZfOcHS0j_J=KSBgxqqbLaQsXxooJn@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: davem@davemloft.net, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: kaber@trash.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1288822372-21245-6-git-send-email-kaber@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2010-11-03 at 12:12 +1100, Andrew Hendry wrote:
-> There is an issue here, under select scenarios I can crash systems.
-> However the patch doesn't resolve it fully, I think after breaking at
-> that point the len and p pointers are messed up before it tries to
-> parse the next facility.
-> 
-> Maybe it should return not break? It should reject/clear such calls.
-> I'll start checking if the callers properly handle errors.
-> Also should it be if (p[1] > X25_MAX_DTE_FACIL_LEN || p[1] <= 1),
-> because it does the memcpy with p[1] -1
-> 
-> 
-> On Wed, Nov 3, 2010 at 2:02 AM, Dan Rosenberg <drosenberg@vsecurity.com> wrote:
-> > I put this together after a quick glance, so if someone knows this code
-> > better than I do (i.e. at all), feel free to comment or drop this patch
-> > if it's unnecessary.
-> >
-> > A value of 0 will cause a memcpy() of ULONG_MAX size, destroying the
-> > kernel heap.
-> >
-> > Signed-off-by: Dan Rosenberg <drosenberg@vsecurity.com>
-> >
-> > --- linux-2.6.36-rc6.orig/net/x25/x25_facilities.c      2010-09-28 21:01:22.000000000 -0400
-> > +++ linux-2.6.36-rc6/net/x25/x25_facilities.c   2010-11-02 10:36:02.827291324 -0400
-> > @@ -134,14 +134,14 @@ int x25_parse_facilities(struct sk_buff
-> >                case X25_FAC_CLASS_D:
-> >                        switch (*p) {
-> >                        case X25_FAC_CALLING_AE:
-> > -                               if (p[1] > X25_MAX_DTE_FACIL_LEN)
-> > +                               if (p[1] > X25_MAX_DTE_FACIL_LEN || p[1] == 0)
-> >                                        break;
-> >                                dte_facs->calling_len = p[2];
-> >                                memcpy(dte_facs->calling_ae, &p[3], p[1] - 1);
-> >                                *vc_fac_mask |= X25_MASK_CALLING_AE;
-> >                                break;
-> >                        case X25_FAC_CALLED_AE:
-> > -                               if (p[1] > X25_MAX_DTE_FACIL_LEN)
-> > +                               if (p[1] > X25_MAX_DTE_FACIL_LEN || p[1] == 0)
-> >                                        break;
-> >                                dte_facs->called_len = p[2];
-> >                                memcpy(dte_facs->called_ae, &p[3], p[1] - 1);
-> >
-> >
-> >
+On Wednesday 2010-11-03 23:12, kaber@trash.net wrote:
 
-How does this look? It appears to fix it for the cases I could test.
-
-Signed-of-by: Andrew Hendry <andrew.hendry@gmail.com>
-
-diff --git a/net/x25/x25_facilities.c b/net/x25/x25_facilities.c
-index 771bab0..3a8c4c4 100644
---- a/net/x25/x25_facilities.c
-+++ b/net/x25/x25_facilities.c
-@@ -134,15 +134,15 @@ int x25_parse_facilities(struct sk_buff *skb, struct x25_facilities *facilities,
- 		case X25_FAC_CLASS_D:
- 			switch (*p) {
- 			case X25_FAC_CALLING_AE:
--				if (p[1] > X25_MAX_DTE_FACIL_LEN)
--					break;
-+				if (p[1] > X25_MAX_DTE_FACIL_LEN || p[1] <= 1)
-+					return 0;
- 				dte_facs->calling_len = p[2];
- 				memcpy(dte_facs->calling_ae, &p[3], p[1] - 1);
- 				*vc_fac_mask |= X25_MASK_CALLING_AE;
- 				break;
- 			case X25_FAC_CALLED_AE:
--				if (p[1] > X25_MAX_DTE_FACIL_LEN)
--					break;
-+				if (p[1] > X25_MAX_DTE_FACIL_LEN || p[1] <= 1)
-+					return 0;
- 				dte_facs->called_len = p[2];
- 				memcpy(dte_facs->called_ae, &p[3], p[1] - 1);
- 				*vc_fac_mask |= X25_MASK_CALLED_AE;
-diff --git a/net/x25/x25_in.c b/net/x25/x25_in.c
-index 6317896..1d80e10 100644
---- a/net/x25/x25_in.c
-+++ b/net/x25/x25_in.c
-@@ -119,6 +119,8 @@ static int x25_state1_machine(struct sock *sk, struct sk_buff *skb, int frametyp
- 						&x25->vc_facil_mask);
- 			if (len > 0)
- 				skb_pull(skb, len);
-+			else 
-+				return -1;
- 			/*
- 			 *	Copy any Call User Data.
- 			 */
+>From: Vasiliy Kulikov <segooon@gmail.com>
+>
+>Structure ipt_getinfo is copied to userland with the field "name"
+>that has the last elements unitialized.  It leads to leaking of
+>contents of kernel stack memory.
+>
+>Signed-off-by: Vasiliy Kulikov <segooon@gmail.com>
+>Signed-off-by: Patrick McHardy <kaber@trash.net>
+>---
+> net/ipv4/netfilter/ip_tables.c |    1 +
 
 
+But then we would also need this:
+
+
+--------8<-------------
+parent 93aa45607748d2ffa73f41a435dced6a2fd90cb5 (v2.6.36-rc3-1020-g93aa456)
+commit 8aff3f67fa47f7d3211aea8bbef999554d6f65e5
+Author: Jan Engelhardt <jengelh@medozas.de>
+Date:   Wed Nov 3 23:55:18 2010 +0100
+
+netfilter: ip6_tables: fix information leak to userspace
+
+Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
+---
+ net/ipv6/netfilter/ip6_tables.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
+index c683e9e..d13f893 100644
+--- a/net/ipv6/netfilter/ip6_tables.c
++++ b/net/ipv6/netfilter/ip6_tables.c
+@@ -1137,6 +1137,7 @@ static int get_info(struct net *net, void __user *user,
+ 			private = &tmp;
+ 		}
+ #endif
++		memset(&info, 0, sizeof(info));
+ 		info.valid_hooks = t->valid_hooks;
+ 		memcpy(info.hook_entry, private->hook_entry,
+ 		       sizeof(info.hook_entry));
+-- 
+# Created with git-export-patch
