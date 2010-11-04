@@ -1,51 +1,72 @@
-From: xiaohui.xin@intel.com
-Subject: [PATCH v14 01/17] Add a new structure for skb buffer from external.
-Date: Thu,  4 Nov 2010 17:04:57 +0800
-Message-ID: <fc6e95d63a2c62aaf77f8ded22fc43ccefcdbbff.1288860477.git.xiaohui.xin@intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v14 06/17] Use callback to deal with skb_release_data()
+ specially.
+Date: Thu, 04 Nov 2010 10:04:25 +0100
+Message-ID: <1288861465.2659.44.camel@edumazet-laptop>
 References: <1288861513-5707-1-git-send-email-xiaohui.xin@intel.com>
-Cc: Xin Xiaohui <xiaohui.xin@intel.com>
-To: netdev@vger.kernel.org, kvm@vger.kernel.org,
+	 <bd4abd1568dfc75daed6713f9a568bf0f895de4b.1288860477.git.xiaohui.xin@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
 	linux-kernel@vger.kernel.org, mst@redhat.com, mingo@elte.hu,
 	davem@davemloft.net, herbert@gondor.apana.org.au,
 	jdike@linux.intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:34881 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752266Ab0KDIn4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Nov 2010 04:43:56 -0400
-In-Reply-To: <1288861513-5707-1-git-send-email-xiaohui.xin@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: xiaohui.xin@intel.com
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <bd4abd1568dfc75daed6713f9a568bf0f895de4b.1288860477.git.xiaohui.xin@intel.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Xin Xiaohui <xiaohui.xin@intel.com>
+Le jeudi 04 novembre 2010 =C3=A0 17:05 +0800, xiaohui.xin@intel.com a =C3=
+=A9crit :
+> From: Xin Xiaohui <xiaohui.xin@intel.com>
+>=20
+> If buffer is external, then use the callback to destruct
+> buffers.
+>=20
+> Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
+> Signed-off-by: Zhao Yu <yzhao81new@gmail.com>
+> Reviewed-by: Jeff Dike <jdike@linux.intel.com>
+> ---
+>  net/core/skbuff.c |    8 ++++++++
+>  1 files changed, 8 insertions(+), 0 deletions(-)
+>=20
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index c83b421..5e6d69c 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -210,6 +210,7 @@ struct sk_buff *__alloc_skb(unsigned int size, gf=
+p_t gfp_mask,
+> =20
+>  	/* make sure we initialize shinfo sequentially */
+>  	shinfo =3D skb_shinfo(skb);
+> +	shinfo->destructor_arg =3D NULL;
 
-Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
-Signed-off-by: Zhao Yu <yzhao81new@gmail.com>
-Reviewed-by: Jeff Dike <jdike@linux.intel.com>
----
- include/linux/skbuff.h |    9 +++++++++
- 1 files changed, 9 insertions(+), 0 deletions(-)
+Hmm, I suggest you read the comment two lines above.
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 77eb60d..696e690 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -211,6 +211,15 @@ struct skb_shared_info {
- 	skb_frag_t	frags[MAX_SKB_FRAGS];
- };
- 
-+/* The structure is for a skb which pages may point to
-+ * an external buffer, which is not allocated from kernel space.
-+ * It also contains a destructor for itself.
-+ */
-+struct skb_ext_page {
-+	struct		page *page;
-+	void		(*dtor)(struct skb_ext_page *);
-+};
-+
- /* We divide dataref into two halves.  The higher 16 bits hold references
-  * to the payload part of skb->data.  The lower 16 bits hold references to
-  * the entire skb->data.  A clone of a headerless skb holds the length of
--- 
-1.7.3
+If destructor_arg is now cleared each time we allocate a new skb, then,
+please move it before dataref in shinfo structure, so that the followin=
+g
+memset() does the job efficiently...
+
+>  	memset(shinfo, 0, offsetof(struct skb_shared_info, dataref));
+>  	atomic_set(&shinfo->dataref, 1);
+> =20
+> @@ -343,6 +344,13 @@ static void skb_release_data(struct sk_buff *skb=
+)
+>  		if (skb_has_frags(skb))
+>  			skb_drop_fraglist(skb);
+> =20
+> +		if (skb->dev && dev_is_mpassthru(skb->dev)) {
+> +			struct skb_ext_page *ext_page =3D
+> +				skb_shinfo(skb)->destructor_arg;
+> +			if (ext_page && ext_page->dtor)
+> +				ext_page->dtor(ext_page);
+> +		}
+> +
+>  		kfree(skb->head);
+>  	}
+>  }
+
 
