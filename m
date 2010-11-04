@@ -1,7 +1,7 @@
 From: xiaohui.xin@intel.com
-Subject: [PATCH v14 10/17] If device is in zero-copy mode first, bonding will fail.
-Date: Thu,  4 Nov 2010 17:05:06 +0800
-Message-ID: <8364055ac2b8674da9df73869ea26f96f621e126.1288860477.git.xiaohui.xin@intel.com>
+Subject: [PATCH v14 05/17] Add a function to indicate if device use external buffer.
+Date: Thu,  4 Nov 2010 17:05:01 +0800
+Message-ID: <c6cf5c7b815e2fe905b41ab6f1be4ffa0b6cd210.1288860477.git.xiaohui.xin@intel.com>
 References: <1288861513-5707-1-git-send-email-xiaohui.xin@intel.com>
 Cc: Xin Xiaohui <xiaohui.xin@intel.com>
 To: netdev@vger.kernel.org, kvm@vger.kernel.org,
@@ -17,33 +17,28 @@ List-Id: netdev.vger.kernel.org
 
 From: Xin Xiaohui <xiaohui.xin@intel.com>
 
-If device is in this zero-copy mode first, we cannot handle this,
-so fail it. This patch is for this.
-
-If bonding is created first, and one of the device will be in zero-copy
-mode, this will be handled by mp device. It will first check if all the
-slaves have the zero-copy capability. If no, fail too. Otherwise make
-all the slaves in zero-copy mode.
-
 Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
+Signed-off-by: Zhao Yu <yzhao81new@gmail.com>
+Reviewed-by: Jeff Dike <jdike@linux.intel.com>
 ---
- drivers/net/bonding/bond_main.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+ include/linux/netdevice.h |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 3b16f62..dfb6a2c 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1428,6 +1428,10 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 			   bond_dev->name);
- 	}
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 8dcf6de..f91d9bb 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1739,6 +1739,11 @@ extern gro_result_t	napi_gro_frags(struct napi_struct *napi);
+ extern int netdev_mp_port_prep(struct net_device *dev,
+ 				struct mp_port *port);
  
-+	/* if the device is in zero-copy mode before bonding, fail it. */
-+	if (dev_is_mpassthru(slave_dev))
-+		return -EBUSY;
++static inline bool dev_is_mpassthru(struct net_device *dev)
++{
++	return dev && dev->mp_port;
++}
 +
- 	/* already enslaved */
- 	if (slave_dev->flags & IFF_SLAVE) {
- 		pr_debug("Error, Device was already enslaved\n");
+ static inline void napi_free_frags(struct napi_struct *napi)
+ {
+ 	kfree_skb(napi->skb);
 -- 
 1.7.3
