@@ -1,44 +1,56 @@
 From: xiaohui.xin@intel.com
-Subject: [PATCH v14 05/17] Add a function to indicate if device use external buffer.
-Date: Thu,  4 Nov 2010 17:05:01 +0800
-Message-ID: <c6cf5c7b815e2fe905b41ab6f1be4ffa0b6cd210.1288860477.git.xiaohui.xin@intel.com>
+Subject: [PATCH v14 14/17] Add a kconfig entry and make entry for mp device.
+Date: Thu,  4 Nov 2010 17:05:10 +0800
+Message-ID: <f3dee67238115fe0f90603deed84ee4acf3157a0.1288860478.git.xiaohui.xin@intel.com>
 References: <1288861513-5707-1-git-send-email-xiaohui.xin@intel.com>
 Cc: Xin Xiaohui <xiaohui.xin@intel.com>
 To: netdev@vger.kernel.org, kvm@vger.kernel.org,
 	linux-kernel@vger.kernel.org, mst@redhat.com, mingo@elte.hu,
 	davem@davemloft.net, herbert@gondor.apana.org.au,
 	jdike@linux.intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <kvm-owner@vger.kernel.org>
 In-Reply-To: <1288861513-5707-1-git-send-email-xiaohui.xin@intel.com>
 In-Reply-To: <fc6e95d63a2c62aaf77f8ded22fc43ccefcdbbff.1288860477.git.xiaohui.xin@intel.com>
 References: <fc6e95d63a2c62aaf77f8ded22fc43ccefcdbbff.1288860477.git.xiaohui.xin@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Xin Xiaohui <xiaohui.xin@intel.com>
 
 Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
-Signed-off-by: Zhao Yu <yzhao81new@gmail.com>
 Reviewed-by: Jeff Dike <jdike@linux.intel.com>
 ---
- include/linux/netdevice.h |    5 +++++
- 1 files changed, 5 insertions(+), 0 deletions(-)
+ drivers/vhost/Kconfig  |   10 ++++++++++
+ drivers/vhost/Makefile |    2 ++
+ 2 files changed, 12 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 8dcf6de..f91d9bb 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1739,6 +1739,11 @@ extern gro_result_t	napi_gro_frags(struct napi_struct *napi);
- extern int netdev_mp_port_prep(struct net_device *dev,
- 				struct mp_port *port);
+diff --git a/drivers/vhost/Kconfig b/drivers/vhost/Kconfig
+index e4e2fd1..a6b8cbf 100644
+--- a/drivers/vhost/Kconfig
++++ b/drivers/vhost/Kconfig
+@@ -9,3 +9,13 @@ config VHOST_NET
+ 	  To compile this driver as a module, choose M here: the module will
+ 	  be called vhost_net.
  
-+static inline bool dev_is_mpassthru(struct net_device *dev)
-+{
-+	return dev && dev->mp_port;
-+}
++config MEDIATE_PASSTHRU
++	tristate "mediate passthru network driver (EXPERIMENTAL)"
++	depends on VHOST_NET
++	---help---
++	  zerocopy network I/O support, we call it as mediate passthru to
++	  be distiguish with hardare passthru.
 +
- static inline void napi_free_frags(struct napi_struct *napi)
- {
- 	kfree_skb(napi->skb);
++	  To compile this driver as a module, choose M here: the module will
++	  be called mpassthru.
++
+diff --git a/drivers/vhost/Makefile b/drivers/vhost/Makefile
+index 72dd020..c18b9fc 100644
+--- a/drivers/vhost/Makefile
++++ b/drivers/vhost/Makefile
+@@ -1,2 +1,4 @@
+ obj-$(CONFIG_VHOST_NET) += vhost_net.o
+ vhost_net-y := vhost.o net.o
++
++obj-$(CONFIG_MEDIATE_PASSTHRU) += mpassthru.o
 -- 
 1.7.3
+
