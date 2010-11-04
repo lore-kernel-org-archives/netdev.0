@@ -1,7 +1,7 @@
 From: xiaohui.xin@intel.com
-Subject: [PATCH v14 08/17] Modify netdev_free_page() to release external buffer
-Date: Thu,  4 Nov 2010 17:05:04 +0800
-Message-ID: <897ced730f589c2f082bf2538795f3efc95d6e59.1288860477.git.xiaohui.xin@intel.com>
+Subject: [PATCH v14 07/17]Modify netdev_alloc_page() to get external buffer
+Date: Thu,  4 Nov 2010 17:05:03 +0800
+Message-ID: <5a5e9fe302ee1838873571fb79fdc9e617b65817.1288860477.git.xiaohui.xin@intel.com>
 References: <1288861513-5707-1-git-send-email-xiaohui.xin@intel.com>
 Cc: Xin Xiaohui <xiaohui.xin@intel.com>
 To: netdev@vger.kernel.org, kvm@vger.kernel.org,
@@ -9,10 +9,10 @@ To: netdev@vger.kernel.org, kvm@vger.kernel.org,
 	davem@davemloft.net, herbert@gondor.apana.org.au,
 	jdike@linux.intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:2445 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:34881 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754108Ab0KDIoJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Nov 2010 04:44:09 -0400
+	id S1754080Ab0KDIoI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Nov 2010 04:44:08 -0400
 In-Reply-To: <1288861513-5707-1-git-send-email-xiaohui.xin@intel.com>
 In-Reply-To: <fc6e95d63a2c62aaf77f8ded22fc43ccefcdbbff.1288860477.git.xiaohui.xin@intel.com>
 References: <fc6e95d63a2c62aaf77f8ded22fc43ccefcdbbff.1288860477.git.xiaohui.xin@intel.com>
@@ -21,68 +21,58 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Xin Xiaohui <xiaohui.xin@intel.com>
 
-Currently, it can get external buffers from mp device.
+    Currently, it can get external buffers from mp device.
 
-Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
-Signed-off-by: Zhao Yu <yzhao81new@gmail.com>
-Reviewed-by: Jeff Dike <jdike@linux.intel.com>
+    Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
+    Signed-off-by: Zhao Yu <yzhao81new@gmail.com>
+    Reviewed-by: Jeff Dike <jdike@linux.intel.com>
 ---
- include/linux/skbuff.h |    4 +++-
- net/core/skbuff.c      |   24 ++++++++++++++++++++++++
- 2 files changed, 27 insertions(+), 1 deletions(-)
+ net/core/skbuff.c |   27 +++++++++++++++++++++++++++
+ 1 files changed, 27 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 696e690..8cfde3e 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -1585,9 +1585,11 @@ static inline struct page *netdev_alloc_page(struct net_device *dev)
- 	return __netdev_alloc_page(dev, GFP_ATOMIC);
- }
- 
-+extern void __netdev_free_page(struct net_device *dev, struct page *page);
-+
- static inline void netdev_free_page(struct net_device *dev, struct page *page)
- {
--	__free_page(page);
-+	__netdev_free_page(dev, page);
- }
- 
- /**
 diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index f39d372..02439e0 100644
+index 5e6d69c..f39d372 100644
 --- a/net/core/skbuff.c
 +++ b/net/core/skbuff.c
-@@ -299,6 +299,30 @@ struct page *__netdev_alloc_page(struct net_device *dev, gfp_t gfp_mask)
+@@ -262,11 +262,38 @@ struct sk_buff *__netdev_alloc_skb(struct net_device *dev,
  }
- EXPORT_SYMBOL(__netdev_alloc_page);
+ EXPORT_SYMBOL(__netdev_alloc_skb);
  
-+void netdev_free_ext_page(struct net_device *dev, struct page *page)
++struct page *netdev_alloc_ext_pages(struct net_device *dev, int npages)
 +{
++	struct mp_port *port;
 +	struct skb_ext_page *ext_page = NULL;
-+	if (dev_is_mpassthru(dev) && dev->mp_port->hash) {
-+		ext_page = dev->mp_port->hash(dev, page);
-+		if (ext_page)
-+			ext_page->dtor(ext_page);
-+		else
-+			__free_page(page);
-+	}
-+}
-+EXPORT_SYMBOL(netdev_free_ext_page);
 +
-+void __netdev_free_page(struct net_device *dev, struct page *page)
++	port = dev->mp_port;
++	if (!port)
++		goto out;
++	ext_page = port->ctor(port, NULL, npages);
++	if (ext_page)
++		return ext_page->page;
++out:
++	return NULL;
++
++}
++EXPORT_SYMBOL(netdev_alloc_ext_pages);
++
++struct page *netdev_alloc_ext_page(struct net_device *dev)
 +{
-+	if (dev_is_mpassthru(dev)) {
-+		netdev_free_ext_page(dev, page);
-+		return;
-+	}
++	return netdev_alloc_ext_pages(dev, 1);
 +
-+	__free_page(page);
 +}
-+EXPORT_SYMBOL(__netdev_free_page);
++EXPORT_SYMBOL(netdev_alloc_ext_page);
 +
- void skb_add_rx_frag(struct sk_buff *skb, int i, struct page *page, int off,
- 		int size)
+ struct page *__netdev_alloc_page(struct net_device *dev, gfp_t gfp_mask)
  {
+ 	int node = dev->dev.parent ? dev_to_node(dev->dev.parent) : -1;
+ 	struct page *page;
+ 
++	if (dev_is_mpassthru(dev))
++		return netdev_alloc_ext_page(dev);
++
+ 	page = alloc_pages_node(node, gfp_mask, 0);
+ 	return page;
+ }
 -- 
 1.7.3
 
