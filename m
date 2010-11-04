@@ -1,55 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net dst: fix percpu_counter list corruption and poison
- overwritten
-Date: Wed, 03 Nov 2010 18:59:14 -0700 (PDT)
-Message-ID: <20101103.185914.245411332.davem@davemloft.net>
-References: <1288750265-17664-1-git-send-email-dfeng@redhat.com>
-	<1288761773.2467.535.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: dfeng@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kuznet@ms2.inr.ac.ru,
-	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net
-To: eric.dumazet@gmail.com
+From: Nelson Elhage <nelhage@ksplice.com>
+Subject: [PATCH 1/2] netlink: Make nlmsg_find_attr take a const nlmsghdr*.
+Date: Wed,  3 Nov 2010 22:35:40 -0400
+Message-ID: <1288838141-17871-1-git-send-email-nelhage@ksplice.com>
+Cc: Nelson Elhage <nelhage@ksplice.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37031
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754629Ab0KDB6u convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Nov 2010 21:58:50 -0400
-In-Reply-To: <1288761773.2467.535.camel@edumazet-laptop>
+Received: from DMZ-MAILSEC-SCANNER-8.MIT.EDU ([18.7.68.37]:49115 "EHLO
+	dmz-mailsec-scanner-8.mit.edu" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752125Ab0KDCgY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Nov 2010 22:36:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 03 Nov 2010 06:22:53 +0100
+This will let us use it on a nlmsghdr stored inside a netlink_callback.
 
-> Le mercredi 03 novembre 2010 =E0 10:11 +0800, Xiaotian Feng a =E9crit=
- :
->> There're some percpu_counter list corruption and poison overwritten =
-warnings
->> in recent kernel, which is resulted by fc66f95c.
->>=20
->> commit fc66f95c switches to use percpu_counter, in ip6_route_net_ini=
-t, kernel
->> init the percpu_counter for dst entries, but, the percpu_counter is =
-never destroyed
->> in ip6_route_net_exit. So if the related data is freed by kernel, th=
-e freed percpu_counter
->> is still on the list, then if we insert/remove other percpu_counter,=
- list corruption
->> resulted. Also, if the insert/remove option modifies the ->prev,->ne=
-xt pointer of
->> the freed value, the poison overwritten is resulted then.
->>=20
->> With the following patch, the percpu_counter list corruption and poi=
-son overwritten
->> warnings disappeared.
->>=20
->> Signed-off-by: Xiaotian Feng <dfeng@redhat.com>
- ...
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Nelson Elhage <nelhage@ksplice.com>
+---
+ include/net/netlink.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Applied, thanks!
+diff --git a/include/net/netlink.h b/include/net/netlink.h
+index f3b201d..9801c55 100644
+--- a/include/net/netlink.h
++++ b/include/net/netlink.h
+@@ -384,7 +384,7 @@ static inline int nlmsg_parse(const struct nlmsghdr *nlh, int hdrlen,
+  *
+  * Returns the first attribute which matches the specified type.
+  */
+-static inline struct nlattr *nlmsg_find_attr(struct nlmsghdr *nlh,
++static inline struct nlattr *nlmsg_find_attr(const struct nlmsghdr *nlh,
+ 					     int hdrlen, int attrtype)
+ {
+ 	return nla_find(nlmsg_attrdata(nlh, hdrlen),
+-- 
+1.7.1.31.g6297e
+
