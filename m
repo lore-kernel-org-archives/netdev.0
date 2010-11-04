@@ -1,114 +1,66 @@
-From: Nelson Elhage <nelhage@ksplice.com>
-Subject: [PATCH 2/2] inet_diag: Make sure we actually run the same bytecode we audited.
-Date: Wed,  3 Nov 2010 22:35:41 -0400
-Message-ID: <1288838141-17871-2-git-send-email-nelhage@ksplice.com>
-References: <1288838141-17871-1-git-send-email-nelhage@ksplice.com>
-Cc: Nelson Elhage <nelhage@ksplice.com>
-To: netdev@vger.kernel.org
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [RFC PATCH 1/1] vhost: TX used buffer guest signal accumulation
+Date: Wed, 03 Nov 2010 22:38:46 -0700
+Message-ID: <1288849126.12932.4.camel@localhost.localdomain>
+References: <1288216693.17571.38.camel@localhost.localdomain>
+	 <1288240804.14342.1.camel@localhost.localdomain>
+	 <20101028052021.GD5599@redhat.com>
+	 <1288286062.11251.15.camel@localhost.localdomain>
+	 <20101029081027.GB22688@redhat.com>
+	 <1288366988.4110.5.camel@localhost.localdomain>
+	 <20101030200603.GA19033@redhat.com>
+	 <1288642673.19173.8.camel@localhost.localdomain>
+	 <20101103104812.GB10555@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from DMZ-MAILSEC-SCANNER-4.MIT.EDU ([18.9.25.15]:55463 "EHLO
-	dmz-mailsec-scanner-4.mit.edu" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752125Ab0KDCgd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Nov 2010 22:36:33 -0400
-In-Reply-To: <1288838141-17871-1-git-send-email-nelhage@ksplice.com>
+Received: from e2.ny.us.ibm.com ([32.97.182.142]:46728 "EHLO e2.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754176Ab0KDFit (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Nov 2010 01:38:49 -0400
+In-Reply-To: <20101103104812.GB10555@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We were using nlmsg_find_attr() to look up the bytecode by attribute when
-auditing, but then just using the first attribute when actually running
-bytecode. So, if we received a message with two attribute elements, where only
-the second had type INET_DIAG_REQ_BYTECODE, we would validate and run different
-bytecode strings.
+On Wed, 2010-11-03 at 12:48 +0200, Michael S. Tsirkin wrote:
+> I mean in practice, you see a benefit from this patch?
 
-Fix this by consistently using nlmsg_find_attr everywhere.
+Yes, I tested it. It does benefit the performance.
 
-Signed-off-by: Nelson Elhage <nelhage@ksplice.com>
----
- net/ipv4/inet_diag.c |   27 ++++++++++++++++-----------
- 1 files changed, 16 insertions(+), 11 deletions(-)
+> > My concern here is whether checking only in set up would be
+> sufficient
+> > for security?
+> 
+> It better be sufficient because the checks that put_user does
+> are not effictive when run from the kernel thread, anyway.
+> 
+> > Would be there is a case guest could corrupt the ring
+> > later? If not, that's OK.
+> 
+> You mean change the pointer after it's checked?
+> If you see such a case, please holler.
 
-diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
-index ba80426..2ada171 100644
---- a/net/ipv4/inet_diag.c
-+++ b/net/ipv4/inet_diag.c
-@@ -490,9 +490,11 @@ static int inet_csk_diag_dump(struct sock *sk,
- {
- 	struct inet_diag_req *r = NLMSG_DATA(cb->nlh);
- 
--	if (cb->nlh->nlmsg_len > 4 + NLMSG_SPACE(sizeof(*r))) {
-+	if (nlmsg_attrlen(cb->nlh, sizeof(*r))) {
- 		struct inet_diag_entry entry;
--		struct rtattr *bc = (struct rtattr *)(r + 1);
-+		const struct nlattr *bc = nlmsg_find_attr(cb->nlh,
-+							  sizeof(*r),
-+							  INET_DIAG_REQ_BYTECODE);
- 		struct inet_sock *inet = inet_sk(sk);
- 
- 		entry.family = sk->sk_family;
-@@ -512,7 +514,7 @@ static int inet_csk_diag_dump(struct sock *sk,
- 		entry.dport = ntohs(inet->inet_dport);
- 		entry.userlocks = sk->sk_userlocks;
- 
--		if (!inet_diag_bc_run(RTA_DATA(bc), RTA_PAYLOAD(bc), &entry))
-+		if (!inet_diag_bc_run(nla_data(bc), nla_len(bc), &entry))
- 			return 0;
- 	}
- 
-@@ -527,9 +529,11 @@ static int inet_twsk_diag_dump(struct inet_timewait_sock *tw,
- {
- 	struct inet_diag_req *r = NLMSG_DATA(cb->nlh);
- 
--	if (cb->nlh->nlmsg_len > 4 + NLMSG_SPACE(sizeof(*r))) {
-+	if (nlmsg_attrlen(cb->nlh, sizeof(*r))) {
- 		struct inet_diag_entry entry;
--		struct rtattr *bc = (struct rtattr *)(r + 1);
-+		const struct nlattr *bc = nlmsg_find_attr(cb->nlh,
-+							  sizeof(*r),
-+							  INET_DIAG_REQ_BYTECODE);
- 
- 		entry.family = tw->tw_family;
- #if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
-@@ -548,7 +552,7 @@ static int inet_twsk_diag_dump(struct inet_timewait_sock *tw,
- 		entry.dport = ntohs(tw->tw_dport);
- 		entry.userlocks = 0;
- 
--		if (!inet_diag_bc_run(RTA_DATA(bc), RTA_PAYLOAD(bc), &entry))
-+		if (!inet_diag_bc_run(nla_data(bc), nla_len(bc), &entry))
- 			return 0;
- 	}
- 
-@@ -618,7 +622,7 @@ static int inet_diag_dump_reqs(struct sk_buff *skb, struct sock *sk,
- 	struct inet_diag_req *r = NLMSG_DATA(cb->nlh);
- 	struct inet_connection_sock *icsk = inet_csk(sk);
- 	struct listen_sock *lopt;
--	struct rtattr *bc = NULL;
-+	const struct nlattr *bc = NULL;
- 	struct inet_sock *inet = inet_sk(sk);
- 	int j, s_j;
- 	int reqnum, s_reqnum;
-@@ -638,8 +642,9 @@ static int inet_diag_dump_reqs(struct sk_buff *skb, struct sock *sk,
- 	if (!lopt || !lopt->qlen)
- 		goto out;
- 
--	if (cb->nlh->nlmsg_len > 4 + NLMSG_SPACE(sizeof(*r))) {
--		bc = (struct rtattr *)(r + 1);
-+	if (nlmsg_attrlen(cb->nlh, sizeof(*r))) {
-+		bc = nlmsg_find_attr(cb->nlh, sizeof(*r),
-+				     INET_DIAG_REQ_BYTECODE);
- 		entry.sport = inet->inet_num;
- 		entry.userlocks = sk->sk_userlocks;
- 	}
-@@ -672,8 +677,8 @@ static int inet_diag_dump_reqs(struct sk_buff *skb, struct sock *sk,
- 					&ireq->rmt_addr;
- 				entry.dport = ntohs(ireq->rmt_port);
- 
--				if (!inet_diag_bc_run(RTA_DATA(bc),
--						    RTA_PAYLOAD(bc), &entry))
-+				if (!inet_diag_bc_run(nla_data(bc),
-+						      nla_len(bc), &entry))
- 					continue;
- 			}
- 
--- 
-1.7.1.31.g6297e
+I wonder about it, not a such case in mind.
+
+> To clarify: the combination of __put_user and separate
+> signalling is giving the same performance benefit as your
+> patch?
+
+Yes, it has similar performance, not I haven't finished all message
+sizes comparison yet.
+
+> I am mostly concerned with adding code that seems to help
+> speed for reasons we don't completely understand, because
+> then we might break the optimization easily without noticing.
+
+I don't think the patch I submited would break up anything. It just
+reduced the cost of per used buffer 3 put_user() calls and guest
+signaling from one to one to many to one.
+
+Thanks
+Shirley
 
