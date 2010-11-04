@@ -1,57 +1,68 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [RFC][net-next-2.6 PATCH 2/4] net: 8021Q consolidate header_ops routines
-Date: Wed, 3 Nov 2010 17:47:11 -0700
-Message-ID: <AANLkTi=pObCfPHkPCUxD8yicZL3pyTwm9s_z4KKda62k@mail.gmail.com>
-References: <20101021221004.22906.58438.stgit@jf-dev1-dcblab>
-	<20101021221010.22906.60238.stgit@jf-dev1-dcblab>
+From: Li Zefan <lizf.kern@gmail.com>
+Subject: Re: Linux 2.6.37-rc1 (net/sched: cls_cgroup)
+Date: Thu, 04 Nov 2010 09:46:07 +0800
+Message-ID: <4CD2105F.6090900@gmail.com>
+References: <AANLkTimr3rW67HxgOUyReEW8dmmSsd4b7-Ns57mXzS1w@mail.gmail.com> <20101103142156.73c2d3c9.randy.dunlap@oracle.com> <1288821677.2718.27.camel@edumazet-laptop> <20101103233105.GA26124@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: John Fastabend <john.r.fastabend@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:59918 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754128Ab0KDArL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Nov 2010 20:47:11 -0400
-Received: by mail-ww0-f44.google.com with SMTP id 13so70446wwb.1
-        for <netdev@vger.kernel.org>; Wed, 03 Nov 2010 17:47:11 -0700 (PDT)
-In-Reply-To: <20101021221010.22906.60238.stgit@jf-dev1-dcblab>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Jamal Hadi Salim <hadi@cyberus.ca>,
+	Thomas Graf <tgraf@suug.ch>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>, Ben Blum <bblum@andrew.cmu.edu>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20101103233105.GA26124@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 21, 2010 at 3:10 PM, John Fastabend
-<john.r.fastabend@intel.com> wrote:
-> The only thing the 8021Q header ops routines are required
-> for is the VLAN_FLAG_REORDER_HDR otherwise by the time
-> the VLAN tag has been added the packet is already on
-> its way down the stack. In this case using the Ethernet
-> ops works OK.
->
-> At present the VLAN_FLAG_REORDER_HDR flag does not work
-> with vlan offloads. As I understand the flag the intent
-> is to allow taps on the vlan device and possibly the
-> QOS layer to see the vlan tag info.
->
-> By inserting the tag in vlan_tci any taps or QOS policies
-> should be able to retrieve the vlan info. This allows
-> the flag to work the same in both the offload case and
-> non-offloaded case. And allows us to use the underlying
-> ethernet ops.
->
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+>> commits 8e039d84b323c450 
+>> (cgroups: net_cls as module)
+>>
+>> followed by commit f845172531f
+>> (cls_cgroup: Store classid in struct sock)
+> 
+> Indeed, it looks like the tree I worked on didn't have the first
+> patch applied for some reason.
+> 
 
-I noticed that you dropped this patch from your most recent series, so
-I went back to take a look at it.  I realized that it probably works
-inconsistently since header caching doesn't take into account
-skb->vlan_tci, so whether you see the tag depends on the state of the
-cache.
+The first patch was merged in .34, and the second one .35, and
+from the changelog and the diff, seems you did know cls_cgroup
+can be a module. ;)
 
-It would be really good to have this type of code consolidation, both
-for the sake of sanity and to eliminate the inconsistent behavior.  We
-could do that by either not using header caching or making it work
-with vlan offloading somehow.  However, I'm not sure that there's
-really much point in that.  VLAN_FLAG_REORDER_HDR doesn't work with
-cards that do vlan offloading, which is a pretty significant number of
-them.  It similarly works inconsistently on the rx side.  So it's
-broken most of the time and worse, the behavior changes depending on
-the NIC (and now the ethtool setting).  Can we just eliminate it?
+> Anyway, this patch should fix the problem.  Thanks Eric!
+> 
+> cls_cgroup: Fix crash on module unload
+> 
+> Somewhere along the lines net_cls_subsys_id became a macro when
+> cls_cgroup is built as a module.  Not only did it make cls_cgroup
+> completely useless, it also causes it to crash on module unload.
+> 
+> This patch fixes this by removing that macro.
+> 
+> Thanks to Eric Dumazet for diagnosing this problem.
+> 
+> Reported-by: Randy Dunlap <randy.dunlap@oracle.com>
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> 
+
+Reviewed-by: Li Zefan <lizf@cn.fujitsu.com>
+
+> diff --git a/net/sched/cls_cgroup.c b/net/sched/cls_cgroup.c
+> index 37dff78..d49c40f 100644
+> --- a/net/sched/cls_cgroup.c
+> +++ b/net/sched/cls_cgroup.c
+> @@ -34,8 +34,6 @@ struct cgroup_subsys net_cls_subsys = {
+>  	.populate	= cgrp_populate,
+>  #ifdef CONFIG_NET_CLS_CGROUP
+>  	.subsys_id	= net_cls_subsys_id,
+> -#else
+> -#define net_cls_subsys_id net_cls_subsys.subsys_id
+>  #endif
+>  	.module		= THIS_MODULE,
+>  };
+> 
+> Cheers,
