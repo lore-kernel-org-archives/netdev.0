@@ -1,7 +1,7 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 2/4] crypto: af_alg - User-space interface for Crypto API
-Date: Thu, 04 Nov 2010 12:36:19 -0500
-Message-ID: <E1PE3jX-0000MM-MP@gondolin.me.apana.org.au>
+Subject: [PATCH 4/4] crypto: algif_skcipher - User-space interface for skcipher operations
+Date: Thu, 04 Nov 2010 12:36:20 -0500
+Message-ID: <E1PE3jY-0000Ml-7B@gondolin.me.apana.org.au>
 References: <20101104173456.GA1321@gondor.apana.org.au>
 To: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
 	netdev@vger.kernel.org,
@@ -10,23 +10,31 @@ Return-path: <linux-crypto-owner@vger.kernel.org>
 Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-crypto: af_alg - User-space interface for Crypto API
+crypto: algif_skcipher - User-space interface for skcipher operations
 
-This patch creates the backbone of the user-space interface for
-the Crypto API, through a new socket family AF_ALG.
+This patch adds the af_alg plugin for symmetric key ciphers,
+corresponding to the ablkcipher kernel operation type.
 
-Each session corresponds to one or more connections obtained from
-that socket.  The number depends on the number of inputs/outputs
-of that particular type of operation.  For most types there will
-be a s ingle connection/file descriptor that is used for both input
-and output.  AEAD is one of the few that require two inputs.
+Keys can optionally be set through the setsockopt interface.
 
-Each algorithm type will provide its own implementation that plugs
-into af_alg.  They're keyed using a string such as "skcipher" or
-"hash".
+Once a sendmsg call occurs without MSG_MORE no further writes
+may be made to the socket until all previous data has been read.
 
-IOW this patch only contains the boring bits that is required
-to hold everything together.
+IVs and and whether encryption/decryption is performed can be
+set through the setsockopt interface or as a control message
+to sendmsg.
+
+The interface is completely synchronous, all operations are
+carried out in recvmsg(2) and will complete prior to the system
+call returning.
+
+The splice(2) interface support reading the user-space data directly
+without copying (except that the Crypto API itself may copy the data
+if alignment is off).
+
+The recvmsg(2) interface supports directly writing to user-space
+without additional copying, i.e., the kernel crypto interface will
+receive the user-space address as its output SG list.
 
 Thakns to Miloslav Trmac for reviewing this and contributing
 fixes and improvements.
@@ -34,49 +42,52 @@ fixes and improvements.
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- crypto/Kconfig          |    3 
+ crypto/Kconfig          |    8 
  crypto/Makefile         |    1 
- crypto/af_alg.c         |  460 ++++++++++++++++++++++++++++++++++++++++++++++++
- include/crypto/if_alg.h |   92 +++++++++
- include/linux/if_alg.h  |   40 ++++
- 5 files changed, 596 insertions(+)
+ crypto/algif_skcipher.c |  647 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 656 insertions(+)
 
 diff --git a/crypto/Kconfig b/crypto/Kconfig
-index e4bac29..357e3ca 100644
+index 6db27d7..69437e2 100644
 --- a/crypto/Kconfig
 +++ b/crypto/Kconfig
-@@ -841,6 +841,9 @@ config CRYPTO_ANSI_CPRNG
- 	  ANSI X9.31 A.2.4. Note that this option must be enabled if
- 	  CRYPTO_FIPS is selected
+@@ -852,6 +852,14 @@ config CRYPTO_USER_API_HASH
+ 	  This option enables the user-spaces interface for hash
+ 	  algorithms.
  
-+config CRYPTO_USER_API
-+	tristate
++config CRYPTO_USER_API_SKCIPHER
++	tristate "User-space interface for symmetric key cipher algorithms"
++	select CRYPTO_BLKCIPHER
++	select CRYPTO_USER_API
++	help
++	  This option enables the user-spaces interface for symmetric
++	  key cipher algorithms.
 +
  source "drivers/crypto/Kconfig"
  
  endif	# if CRYPTO
 diff --git a/crypto/Makefile b/crypto/Makefile
-index 423b7de..0b13197 100644
+index 14ab405..efc0f18 100644
 --- a/crypto/Makefile
 +++ b/crypto/Makefile
-@@ -85,6 +85,7 @@ obj-$(CONFIG_CRYPTO_RNG2) += krng.o
- obj-$(CONFIG_CRYPTO_ANSI_CPRNG) += ansi_cprng.o
- obj-$(CONFIG_CRYPTO_TEST) += tcrypt.o
+@@ -87,6 +87,7 @@ obj-$(CONFIG_CRYPTO_TEST) += tcrypt.o
  obj-$(CONFIG_CRYPTO_GHASH) += ghash-generic.o
-+obj-$(CONFIG_CRYPTO_USER_API) += af_alg.o
+ obj-$(CONFIG_CRYPTO_USER_API) += af_alg.o
+ obj-$(CONFIG_CRYPTO_USER_API_HASH) += algif_hash.o
++obj-$(CONFIG_CRYPTO_USER_API_SKCIPHER) += algif_skcipher.o
  
  #
  # generic algorithms and the async_tx api
-diff --git a/crypto/af_alg.c b/crypto/af_alg.c
+diff --git a/crypto/algif_skcipher.c b/crypto/algif_skcipher.c
 new file mode 100644
-index 0000000..92cd9b1
+index 0000000..abc15b2
 --- /dev/null
-+++ b/crypto/af_alg.c
-@@ -0,0 +1,460 @@
++++ b/crypto/algif_skcipher.c
+@@ -0,0 +1,647 @@
 +/*
-+ * af_alg: User-space algorithm interface
++ * algif_skcipher: User-space interface for skcipher algorithms
 + *
-+ * This file provides the user-space API for algorithms.
++ * This file provides the user-space API for symmetric key ciphers.
 + *
 + * Copyright (c) 2010 Herbert Xu <herbert@gondor.apana.org.au>
 + *
@@ -87,250 +98,529 @@ index 0000000..92cd9b1
 + *
 + */
 +
-+#include <asm/atomic.h>
++#include <crypto/skcipher.h>
 +#include <crypto/if_alg.h>
-+#include <linux/crypto.h>
 +#include <linux/init.h>
-+#include <linux/kernel.h>
 +#include <linux/list.h>
++#include <linux/kernel.h>
++#include <linux/mm.h>
 +#include <linux/module.h>
 +#include <linux/net.h>
-+#include <linux/rwsem.h>
++#include <net/sock.h>
 +
-+struct alg_type_list {
-+	const struct af_alg_type *type;
++struct skcipher_sg_list {
 +	struct list_head list;
++
++	int cur;
++
++	struct scatterlist sg[0];
 +};
 +
-+static atomic_t alg_memory_allocated;
++struct skcipher_ctx {
++	struct list_head tsgl;
++	struct af_alg_sgl rsgl;
 +
-+static struct proto alg_proto = {
-+	.name			= "ALG",
-+	.owner			= THIS_MODULE,
-+	.memory_allocated	= &alg_memory_allocated,
-+	.obj_size		= sizeof(struct alg_sock),
++	void *iv;
++
++	struct af_alg_completion completion;
++
++	unsigned used;
++
++	unsigned int len;
++	bool more;
++	bool merge;
++	bool enc;
++
++	struct ablkcipher_request req;
 +};
 +
-+static LIST_HEAD(alg_types);
-+static DECLARE_RWSEM(alg_types_sem);
++#define MAX_SGL_ENTS ((PAGE_SIZE - sizeof(struct skcipher_sg_list)) / \
++		      sizeof(struct scatterlist) - 1)
 +
-+static const struct af_alg_type *alg_get_type(const char *name)
++static inline bool skcipher_writable(struct sock *sk)
 +{
-+	const struct af_alg_type *type = ERR_PTR(-ENOENT);
-+	struct alg_type_list *node;
++	struct alg_sock *ask = alg_sk(sk);
++	struct skcipher_ctx *ctx = ask->private;
 +
-+	down_read(&alg_types_sem);
-+	list_for_each_entry(node, &alg_types, list) {
-+		if (strcmp(node->type->name, name))
-+			continue;
-+
-+		if (try_module_get(node->type->owner))
-+			type = node->type;
-+		break;
-+	}
-+	up_read(&alg_types_sem);
-+
-+	return type;
++	return ctx->used + PAGE_SIZE <= max_t(int, sk->sk_sndbuf, PAGE_SIZE);
 +}
 +
-+int af_alg_register_type(const struct af_alg_type *type)
++static int skcipher_alloc_sgl(struct sock *sk, int size)
 +{
-+	struct alg_type_list *node;
-+	int err = -EEXIST;
++	struct alg_sock *ask = alg_sk(sk);
++	struct skcipher_ctx *ctx = ask->private;
++	struct skcipher_sg_list *sgl;
++	struct scatterlist *sg = NULL;
 +
-+	down_write(&alg_types_sem);
-+	list_for_each_entry(node, &alg_types, list) {
-+		if (!strcmp(node->type->name, type->name))
-+			goto unlock;
++	sgl = list_first_entry(&ctx->tsgl, struct skcipher_sg_list, list);
++	if (!list_empty(&ctx->tsgl))
++		sg = sgl->sg;
++
++	if (!sg || sgl->cur >= MAX_SGL_ENTS) {
++		sgl = sock_kmalloc(sk, sizeof(*sgl) +
++				       sizeof(sgl->sg[0]) * (MAX_SGL_ENTS + 1),
++				   GFP_KERNEL);
++		if (!sgl)
++			return -ENOMEM;
++
++		sg_init_table(sgl->sg, MAX_SGL_ENTS + 1);
++		sgl->cur = 0;
++
++		if (sg)
++			sg_chain(sg, MAX_SGL_ENTS + 1, sgl->sg);
++
++		list_add_tail(&sgl->list, &ctx->tsgl);
 +	}
 +
-+	node = kmalloc(sizeof(*node), GFP_KERNEL);
-+	err = -ENOMEM;
-+	if (!node)
++	return 0;
++}
++
++static void skcipher_pull_sgl(struct sock *sk, int used)
++{
++	struct alg_sock *ask = alg_sk(sk);
++	struct skcipher_ctx *ctx = ask->private;
++	struct skcipher_sg_list *sgl;
++	struct scatterlist *sg;
++	int i;
++
++	while (!list_empty(&ctx->tsgl)) {
++		sgl = list_first_entry(&ctx->tsgl, struct skcipher_sg_list,
++				       list);
++		sg = sgl->sg;
++
++		for (i = 0; i < sgl->cur; i++) {
++			int plen = min_t(int, used, sg[i].length);
++
++			if (!sg_page(sg + i))
++				continue;
++
++			if (!used)
++				return;
++
++			sg[i].length -= plen;
++			sg[i].offset += plen;
++
++			if (!sg[i].length) {
++				put_page(sg_page(sg + i));
++				sg_assign_page(sg + i, NULL);
++			}
++
++			used -= plen;
++			ctx->used -= plen;
++		}
++
++		list_del(&sgl->list);
++		sock_kfree_s(sk, sgl,
++			     sizeof(*sgl) + sizeof(sgl->sg[0]) *
++					    (MAX_SGL_ENTS + 1));
++	}
++
++	if (!ctx->used)
++		ctx->merge = 0;
++}
++
++static void skcipher_free_sgl(struct sock *sk)
++{
++	struct alg_sock *ask = alg_sk(sk);
++	struct skcipher_ctx *ctx = ask->private;
++
++	skcipher_pull_sgl(sk, ctx->used);
++}
++
++static int skcipher_wait_for_wmem(struct sock *sk, unsigned flags)
++{
++	DEFINE_WAIT(wait);
++	int err = -ERESTARTSYS;
++
++	if (flags & MSG_DONTWAIT)
++		return -EAGAIN;
++
++	set_bit(SOCK_ASYNC_NOSPACE, &sk->sk_socket->flags);
++
++	for (;;) {
++		if (signal_pending(current))
++			break;
++		prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
++		if (skcipher_writable(sk)) {
++			err = 0;
++			break;
++		}
++		schedule();
++	}
++	finish_wait(sk_sleep(sk), &wait);
++
++	return err;
++}
++
++static void skcipher_wmem_wakeup(struct sock *sk)
++{
++	struct socket_wq *wq;
++
++	if (!skcipher_writable(sk))
++		return;
++
++	rcu_read_lock();
++	wq = rcu_dereference(sk->sk_wq);
++	if (wq_has_sleeper(wq))
++		wake_up_interruptible_sync_poll(&wq->wait, POLLIN |
++							   POLLRDNORM |
++							   POLLRDBAND);
++	sk_wake_async(sk, SOCK_WAKE_WAITD, POLL_IN);
++	rcu_read_unlock();
++}
++
++static int skcipher_wait_for_data(struct sock *sk, unsigned flags)
++{
++	struct alg_sock *ask = alg_sk(sk);
++	struct skcipher_ctx *ctx = ask->private;
++	DEFINE_WAIT(wait);
++	int err = -ERESTARTSYS;
++
++	if (flags & MSG_DONTWAIT) {
++		return -EAGAIN;
++	}
++
++	set_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
++
++	for (;;) {
++		if (signal_pending(current))
++			break;
++		prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
++		if (ctx->used) {
++			err = 0;
++			break;
++		}
++		schedule();
++	}
++	finish_wait(sk_sleep(sk), &wait);
++
++	clear_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
++
++	return err;
++}
++
++static void skcipher_data_wakeup(struct sock *sk)
++{
++	struct alg_sock *ask = alg_sk(sk);
++	struct skcipher_ctx *ctx = ask->private;
++	struct socket_wq *wq;
++
++	if (!ctx->used);
++		return;
++
++	rcu_read_lock();
++	wq = rcu_dereference(sk->sk_wq);
++	if (wq_has_sleeper(wq))
++		wake_up_interruptible_sync_poll(&wq->wait, POLLOUT |
++							   POLLRDNORM |
++							   POLLRDBAND);
++	sk_wake_async(sk, SOCK_WAKE_SPACE, POLL_OUT);
++	rcu_read_unlock();
++}
++
++static int skcipher_sendmsg(struct kiocb *unused, struct socket *sock,
++			    struct msghdr *msg, size_t size)
++{
++	struct sock *sk = sock->sk;
++	struct alg_sock *ask = alg_sk(sk);
++	struct skcipher_ctx *ctx = ask->private;
++	struct crypto_ablkcipher *tfm = crypto_ablkcipher_reqtfm(&ctx->req);
++	unsigned ivsize = crypto_ablkcipher_ivsize(tfm);
++	struct skcipher_sg_list *sgl;
++	struct af_alg_control con = {};
++	long copied = 0;
++	bool enc = 0;
++	int limit;
++	int err;
++	int i;
++
++	if (msg->msg_controllen) {
++		err = af_alg_cmsg_send(msg, &con);
++		if (err)
++			return err;
++
++		switch (con.op) {
++		case ALG_OP_ENCRYPT:
++			enc = 1;
++			break;
++		case ALG_OP_DECRYPT:
++			enc = 0;
++			break;
++		default:
++			return -EINVAL;
++		}
++
++		if (con.iv && con.iv->ivlen != ivsize)
++			return -EINVAL;
++	}
++
++	err = -EINVAL;
++
++	lock_sock(sk);
++	if (!ctx->more && ctx->used)
 +		goto unlock;
 +
-+	type->ops->owner = THIS_MODULE;
-+	node->type = type;
-+	list_add(&node->list, &alg_types);
++	if (!ctx->used) {
++		ctx->enc = enc;
++		if (con.iv)
++			memcpy(ctx->iv, con.iv->iv, ivsize);
++	}
++
++	limit = max_t(int, sk->sk_sndbuf, PAGE_SIZE);
++	limit -= ctx->used;
++
++	while (size) {
++		struct scatterlist *sg;
++		unsigned long len = size;
++		int plen;
++
++		if (ctx->merge) {
++			sgl = list_entry(ctx->tsgl.prev,
++					 struct skcipher_sg_list, list);
++			sg = sgl->sg + sgl->cur - 1;
++			len = min_t(unsigned long, len, PAGE_SIZE - sg->length);
++
++			err = memcpy_fromiovec(page_address(sg_page(sg)) +
++					       sg->length, msg->msg_iov, len);
++			if (err)
++				goto unlock;
++
++			sg->length += len;
++			ctx->merge = sg->length & (PAGE_SIZE - 1);
++
++			size -= len;
++			copied += len;
++			continue;
++		}
++
++		if (limit < PAGE_SIZE) {
++			release_sock(sk);
++			err = skcipher_wait_for_wmem(sk, msg->msg_flags);
++			lock_sock(sk);
++			if (err)
++				goto unlock;
++
++			limit = max_t(int, sk->sk_sndbuf, PAGE_SIZE);
++			limit -= ctx->used;
++		}
++
++		len = min_t(unsigned long, len, limit);
++
++		err = skcipher_alloc_sgl(sk, len);
++		if (err)
++			goto unlock;
++
++		sgl = list_first_entry(&ctx->tsgl, struct skcipher_sg_list,
++				       list);
++		sg = sgl->sg;
++		do {
++			i = sgl->cur;
++			plen = min_t(int, len, PAGE_SIZE);
++
++			sg_assign_page(sg + i, alloc_page(GFP_KERNEL));
++			err = -ENOMEM;
++			if (!sg_page(sg + i))
++				goto unlock;
++
++			err = memcpy_fromiovec(page_address(sg_page(sg + i)),
++					       msg->msg_iov, plen);
++			if (err) {
++				__free_page(sg_page(sg + i));
++				sg_assign_page(sg + i, NULL);
++				goto unlock;
++			}
++
++			sg[i].length = plen;
++			len -= plen;
++			ctx->used += plen;
++			copied += plen;
++			size -= plen;
++			limit -= plen;
++			sgl->cur++;
++		} while (sg_page(sg + ++i));
++
++		ctx->merge = plen & (PAGE_SIZE - 1);
++		if (ctx->merge)
++			sgl->cur--;
++	}
++
++	err = 0;
++
++	ctx->more = msg->msg_flags & MSG_MORE;
++	if (!ctx->more && !list_empty(&ctx->tsgl)) {
++		sgl = list_entry(ctx->tsgl.prev, struct skcipher_sg_list, list);
++		sg_mark_end(sgl->sg + sgl->cur - 1);
++	}
++
++unlock:
++	skcipher_data_wakeup(sk);
++	release_sock(sk);
++
++	return copied ?: err;
++}
++
++static ssize_t skcipher_sendpage(struct socket *sock, struct page *page,
++				 int offset, size_t size, int flags)
++{
++	struct sock *sk = sock->sk;
++	struct alg_sock *ask = alg_sk(sk);
++	struct skcipher_ctx *ctx = ask->private;
++	struct skcipher_sg_list *sgl;
++	int err = -EINVAL;
++	int limit;
++
++	lock_sock(sk);
++	if (!ctx->more && ctx->used)
++		goto unlock;
++
++	if (!size)
++		goto done;
++
++	limit = max_t(int, sk->sk_sndbuf, PAGE_SIZE);
++	limit -= ctx->used;
++
++	if (limit < PAGE_SIZE) {
++		release_sock(sk);
++		err = skcipher_wait_for_wmem(sk, flags);
++		lock_sock(sk);
++		if (err)
++			goto unlock;
++
++		limit = max_t(int, sk->sk_sndbuf, PAGE_SIZE);
++		limit -= ctx->used;
++	}
++
++	err = skcipher_alloc_sgl(sk, 0);
++	if (err)
++		goto unlock;
++
++	ctx->merge = 0;
++	sgl = list_entry(ctx->tsgl.prev, struct skcipher_sg_list, list);
++
++	get_page(page);
++	sg_set_page(sgl->sg + sgl->cur, page, size, offset);
++	sgl->cur++;
++	ctx->used += size;
++
++done:
++	ctx->more = flags & MSG_MORE;
++	if (!ctx->more && !list_empty(&ctx->tsgl)) {
++		sgl = list_entry(ctx->tsgl.prev, struct skcipher_sg_list, list);
++		sg_mark_end(sgl->sg + sgl->cur - 1);
++	}
++
++unlock:
++	skcipher_data_wakeup(sk);
++	release_sock(sk);
++
++	return err ?: size;
++}
++
++static int skcipher_recvmsg(struct kiocb *unused, struct socket *sock,
++			    struct msghdr *msg, size_t ignored, int flags)
++{
++	struct sock *sk = sock->sk;
++	struct alg_sock *ask = alg_sk(sk);
++	struct skcipher_ctx *ctx = ask->private;
++	unsigned bs = crypto_ablkcipher_blocksize(crypto_ablkcipher_reqtfm(
++		&ctx->req));
++	struct skcipher_sg_list *sgl;
++	struct scatterlist *sg;
++	unsigned long iovlen;
++	struct iovec *iov;
++	int err = -EAGAIN;
++	int used;
++	long copied = 0;
++
++	lock_sock(sk);
++	for (iov = msg->msg_iov, iovlen = msg->msg_iovlen; iovlen > 0;
++	     iovlen--, iov++) {
++		unsigned long seglen = iov->iov_len;
++		char __user *from = iov->iov_base;
++
++		sgl = list_first_entry(&ctx->tsgl, struct skcipher_sg_list,
++				       list);
++		sg = sgl->sg;
++		while (!sg->length)
++			sg++;
++
++		while (seglen) {
++			used = ctx->used;
++			if (!used) {
++				release_sock(sk);
++				err = skcipher_wait_for_data(sk, flags);
++				lock_sock(sk);
++				if (err)
++					goto unlock;
++			}
++
++			used = min_t(unsigned long, used, seglen);
++
++			if (ctx->more || used < ctx->used)
++				used -= used % bs;
++
++			err = -EINVAL;
++			if (!used)
++				goto unlock;
++
++			used = af_alg_make_sg(&ctx->rsgl, from, used, 1);
++			if (used < 0)
++				goto unlock;
++
++			ablkcipher_request_set_crypt(&ctx->req, sg,
++						     ctx->rsgl.sg, used,
++						     ctx->iv);
++
++			err = af_alg_wait_for_completion(
++				ctx->enc ?
++					crypto_ablkcipher_encrypt(&ctx->req) :
++					crypto_ablkcipher_decrypt(&ctx->req),
++				&ctx->completion);
++
++			af_alg_free_sg(&ctx->rsgl);
++
++			if (err)
++				goto unlock;
++
++			copied += used;
++			from += used;
++			seglen -= used;
++			skcipher_pull_sgl(sk, used);
++		}
++	}
++
 +	err = 0;
 +
 +unlock:
-+	up_write(&alg_types_sem);
-+
-+	return err;
-+}
-+EXPORT_SYMBOL_GPL(af_alg_register_type);
-+
-+int af_alg_unregister_type(const struct af_alg_type *type)
-+{
-+	struct alg_type_list *node;
-+	int err = -ENOENT;
-+
-+	down_write(&alg_types_sem);
-+	list_for_each_entry(node, &alg_types, list) {
-+		if (strcmp(node->type->name, type->name))
-+			continue;
-+
-+		list_del(&node->list);
-+		kfree(node);
-+		err = 0;
-+		break;
-+	}
-+	up_write(&alg_types_sem);
-+
-+	return err;
-+}
-+EXPORT_SYMBOL_GPL(af_alg_unregister_type);
-+
-+static void alg_do_release(const struct af_alg_type *type, void *private)
-+{
-+	if (!type)
-+		return;
-+
-+	type->release(private);
-+	module_put(type->owner);
-+}
-+
-+int af_alg_release(struct socket *sock)
-+{
-+	if (sock->sk)
-+		sock_put(sock->sk);
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(af_alg_release);
-+
-+static int alg_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
-+{
-+	struct sock *sk = sock->sk;
-+	struct alg_sock *ask = alg_sk(sk);
-+	struct sockaddr_alg *sa = (void *)uaddr;
-+	const struct af_alg_type *type;
-+	void *private;
-+
-+	if (sock->state == SS_CONNECTED)
-+		return -EINVAL;
-+
-+	if (addr_len != sizeof(*sa))
-+		return -EINVAL;
-+
-+	sa->salg_type[sizeof(sa->salg_type) - 1] = 0;
-+	sa->salg_name[sizeof(sa->salg_name) - 1] = 0;
-+
-+	type = alg_get_type(sa->salg_type);
-+	if (IS_ERR(type) && PTR_ERR(type) == -ENOENT) {
-+		request_module("algif-%s", sa->salg_type);
-+		type = alg_get_type(sa->salg_type);
-+	}
-+
-+	if (IS_ERR(type))
-+		return PTR_ERR(type);
-+
-+	private = type->bind(sa->salg_name, sa->salg_feat, sa->salg_mask);
-+	if (IS_ERR(private)) {
-+		module_put(type->owner);
-+		return PTR_ERR(private);
-+	}
-+
-+	lock_sock(sk);
-+
-+	swap(ask->type, type);
-+	swap(ask->private, private);
-+
++	skcipher_wmem_wakeup(sk);
 +	release_sock(sk);
 +
-+	alg_do_release(type, private);
-+
-+	return 0;
++	return copied ?: err;
 +}
 +
-+static int alg_setkey(struct sock *sk, char __user *ukey,
-+		      unsigned int keylen)
-+{
-+	struct alg_sock *ask = alg_sk(sk);
-+	const struct af_alg_type *type = ask->type;
-+	u8 *key;
-+	int err;
 +
-+	key = sock_kmalloc(sk, keylen, GFP_KERNEL);
-+	if (!key)
-+		return -ENOMEM;
-+
-+	if (copy_from_user(key, ukey, keylen))
-+		return -EFAULT;
-+
-+	err = type->setkey(ask->private, key, keylen);
-+
-+	sock_kfree_s(sk, key, keylen);
-+
-+	return err;
-+}
-+
-+static int alg_setsockopt(struct socket *sock, int level, int optname,
-+			  char __user *optval, unsigned int optlen)
++static unsigned int skcipher_poll(struct file *file, struct socket *sock,
++				  poll_table *wait)
 +{
 +	struct sock *sk = sock->sk;
 +	struct alg_sock *ask = alg_sk(sk);
-+	const struct af_alg_type *type = ask->type;
++	struct skcipher_ctx *ctx = ask->private;
++	unsigned int mask;
 +
-+	if (level != SOL_ALG || !type)
-+		return -ENOPROTOOPT;
++	sock_poll_wait(file, sk_sleep(sk), wait);
++	mask = 0;
 +
-+	switch (optname) {
-+	case ALG_SET_KEY:
-+		if (sock->state == SS_CONNECTED)
-+			return -ENOPROTOOPT;
-+		if (!type->setkey)
-+			return -ENOPROTOOPT;
++	if (ctx->used)
++		mask |= POLLIN | POLLRDNORM;
 +
-+		return alg_setkey(sk, optval, optlen);
-+	}
++	if (skcipher_writable(sk))
++		mask |= POLLOUT | POLLWRNORM | POLLWRBAND;
 +
-+	return -ENOPROTOOPT;
++	return mask;
 +}
 +
-+int af_alg_accept(struct sock *sk, struct socket *newsock)
-+{
-+	struct alg_sock *ask = alg_sk(sk);
-+	const struct af_alg_type *type = ask->type;
-+	struct sock *sk2;
-+	int err;
-+
-+	if (!type)
-+		return -EINVAL;
-+
-+	sk2 = sk_alloc(sock_net(sk), PF_ALG, GFP_KERNEL, &alg_proto);
-+	if (!sk2)
-+		return -ENOMEM;
-+
-+	sock_init_data(newsock, sk2);
-+
-+	err = type->accept(ask->private, sk2);
-+	if (err) {
-+		sk_free(sk2);
-+		return err;
-+	}
-+
-+	sk2->sk_family = PF_ALG;
-+
-+	sock_hold(sk);
-+	alg_sk(sk2)->parent = sk;
-+	alg_sk(sk2)->type = type;
-+
-+	newsock->ops = type->ops;
-+	newsock->state = SS_CONNECTED;
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(af_alg_accept);
-+
-+static int alg_accept(struct socket *sock, struct socket *newsock, int flags)
-+{
-+	return af_alg_accept(sock->sk, newsock);
-+}
-+
-+static const struct proto_ops alg_proto_ops = {
++static struct proto_ops algif_skcipher_ops = {
 +	.family		=	PF_ALG,
-+	.owner		=	THIS_MODULE,
 +
 +	.connect	=	sock_no_connect,
 +	.socketpair	=	sock_no_socketpair,
@@ -340,340 +630,104 @@ index 0000000..92cd9b1
 +	.shutdown	=	sock_no_shutdown,
 +	.getsockopt	=	sock_no_getsockopt,
 +	.mmap		=	sock_no_mmap,
-+	.sendpage	=	sock_no_sendpage,
-+	.sendmsg	=	sock_no_sendmsg,
-+	.recvmsg	=	sock_no_recvmsg,
-+	.poll		=	sock_no_poll,
++	.bind		=	sock_no_bind,
++	.accept		=	sock_no_accept,
++	.setsockopt	=	sock_no_setsockopt,
 +
-+	.bind		=	alg_bind,
 +	.release	=	af_alg_release,
-+	.setsockopt	=	alg_setsockopt,
-+	.accept		=	alg_accept,
++	.sendmsg	=	skcipher_sendmsg,
++	.sendpage	=	skcipher_sendpage,
++	.recvmsg	=	skcipher_recvmsg,
++	.poll		=	skcipher_poll,
 +};
 +
-+static void alg_sock_destruct(struct sock *sk)
++static void *skcipher_bind(const char *name, u32 type, u32 mask)
++{
++	return crypto_alloc_ablkcipher(name, type, mask);
++}
++
++static void skcipher_release(void *private)
++{
++	crypto_free_ablkcipher(private);
++}
++
++static int skcipher_setkey(void *private, const u8 *key, unsigned int keylen)
++{
++	return crypto_ablkcipher_setkey(private, key, keylen);
++}
++
++static void skcipher_sock_destruct(struct sock *sk)
 +{
 +	struct alg_sock *ask = alg_sk(sk);
++	struct skcipher_ctx *ctx = ask->private;
++	struct crypto_ablkcipher *tfm = crypto_ablkcipher_reqtfm(&ctx->req);
 +
-+	alg_do_release(ask->type, ask->private);
++	skcipher_free_sgl(sk);
++	sock_kfree_s(sk, ctx->iv, crypto_ablkcipher_blocksize(tfm));
++	sock_kfree_s(sk, ctx, ctx->len);
++	af_alg_release_parent(sk);
 +}
 +
-+static int alg_create(struct net *net, struct socket *sock, int protocol,
-+		      int kern)
++static int skcipher_accept_parent(void *private, struct sock *sk)
 +{
-+	struct sock *sk;
-+	int err;
++	struct skcipher_ctx *ctx;
++	struct alg_sock *ask = alg_sk(sk);
++	unsigned int len = sizeof(*ctx) + crypto_ablkcipher_reqsize(private);
 +
-+	if (sock->type != SOCK_SEQPACKET)
-+		return -ESOCKTNOSUPPORT;
-+	if (protocol != 0)
-+		return -EPROTONOSUPPORT;
++	ctx = sock_kmalloc(sk, len, GFP_KERNEL);
++	if (!ctx)
++		return -ENOMEM;
 +
-+	err = -ENOMEM;
-+	sk = sk_alloc(net, PF_ALG, GFP_KERNEL, &alg_proto);
-+	if (!sk)
-+		goto out;
++	ctx->iv = sock_kmalloc(sk, crypto_ablkcipher_ivsize(private),
++			       GFP_KERNEL);
++	if (!ctx->iv) {
++		sock_kfree_s(sk, ctx, len);
++		return -ENOMEM;
++	}
 +
-+	sock->ops = &alg_proto_ops;
-+	sock_init_data(sock, sk);
++	memset(ctx->iv, 0, crypto_ablkcipher_ivsize(private));
 +
-+	sk->sk_family = PF_ALG;
-+	sk->sk_destruct = alg_sock_destruct;
++	INIT_LIST_HEAD(&ctx->tsgl);
++	ctx->len = len;
++	ctx->used = 0;
++	ctx->more = 0;
++	ctx->merge = 0;
++	ctx->enc = 0;
++	af_alg_init_completion(&ctx->completion);
++
++	ask->private = ctx;
++
++	ablkcipher_request_set_tfm(&ctx->req, private);
++	ablkcipher_request_set_callback(&ctx->req, CRYPTO_TFM_REQ_MAY_BACKLOG,
++					af_alg_complete, &ctx->completion);
++
++	sk->sk_destruct = skcipher_sock_destruct;
 +
 +	return 0;
-+out:
-+	return err;
 +}
 +
-+static const struct net_proto_family alg_family = {
-+	.family	=	PF_ALG,
-+	.create	=	alg_create,
-+	.owner	=	THIS_MODULE,
++static const struct af_alg_type algif_type_skcipher = {
++	.bind		=	skcipher_bind,
++	.release	=	skcipher_release,
++	.setkey		=	skcipher_setkey,
++	.accept		=	skcipher_accept_parent,
++	.ops		=	&algif_skcipher_ops,
++	.name		=	"skcipher",
++	.owner		=	THIS_MODULE
 +};
 +
-+int af_alg_make_sg(struct af_alg_sgl *sgl, void __user *addr, int len,
-+		   int write)
++static int __init algif_skcipher_init(void)
 +{
-+	unsigned long from = (unsigned long)addr;
-+	unsigned long npages;
-+	unsigned off;
-+	int err;
-+	int i;
-+
-+	err = -EFAULT;
-+	if (!access_ok(write ? VERIFY_READ : VERIFY_WRITE, addr, len))
-+		goto out;
-+
-+	off = from & ~PAGE_MASK;
-+	npages = (off + len + PAGE_SIZE - 1) >> PAGE_SHIFT;
-+	err = get_user_pages_fast(from, npages, write, sgl->pages);
-+	if (err < 0)
-+		goto out;
-+
-+	npages = err;
-+	err = -EINVAL;
-+	if (WARN_ON(npages == 0))
-+		goto out;
-+
-+	err = 0;
-+
-+	sg_init_table(sgl->sg, npages);
-+
-+	for (i = 0; i < npages; i++) {
-+		int plen = min_t(int, len, PAGE_SIZE - off);
-+
-+		sg_set_page(sgl->sg + i, sgl->pages[i], plen, off);
-+
-+		off = 0;
-+		len -= plen;
-+		err += plen;
-+	}
-+
-+out:
-+	return err;
-+}
-+EXPORT_SYMBOL_GPL(af_alg_make_sg);
-+
-+void af_alg_free_sg(struct af_alg_sgl *sgl)
-+{
-+	int i;
-+
-+	i = 0;
-+	do {
-+		put_page(sgl->pages[i]);
-+	} while (!sg_is_last(sgl->sg + (i++)));
-+}
-+EXPORT_SYMBOL_GPL(af_alg_free_sg);
-+
-+int af_alg_cmsg_send(struct msghdr *msg, struct af_alg_control *con)
-+{
-+	struct cmsghdr *cmsg;
-+
-+	for (cmsg = CMSG_FIRSTHDR(msg); cmsg; cmsg = CMSG_NXTHDR(msg, cmsg)) {
-+		if (!CMSG_OK(msg, cmsg))
-+			return -EINVAL;
-+		if (cmsg->cmsg_level != SOL_ALG)
-+			continue;
-+
-+		switch(cmsg->cmsg_type) {
-+		case ALG_SET_IV:
-+			if (cmsg->cmsg_len < sizeof(*con->iv))
-+				return -EINVAL;
-+			con->iv = (void *)CMSG_DATA(cmsg);
-+			if (cmsg->cmsg_len < con->iv->ivlen +
-+					     sizeof(con->iv->ivlen))
-+				return -EINVAL;
-+			break;
-+
-+		case ALG_SET_OP:
-+			if (cmsg->cmsg_len < sizeof(u32))
-+				return -EINVAL;
-+			con->op = *(u32 *)CMSG_DATA(cmsg);
-+			break;
-+
-+		default:
-+			return -EINVAL;
-+		}
-+	}
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(af_alg_cmsg_send);
-+
-+int af_alg_wait_for_completion(int err, struct af_alg_completion *completion)
-+{
-+	switch (err) {
-+	case -EINPROGRESS:
-+	case -EBUSY:
-+		wait_for_completion(&completion->completion);
-+		INIT_COMPLETION(completion->completion);
-+		err = completion->err;
-+		break;
-+	};
-+
-+	return err;
-+}
-+EXPORT_SYMBOL_GPL(af_alg_wait_for_completion);
-+
-+void af_alg_complete(struct crypto_async_request *req, int err)
-+{
-+	struct af_alg_completion *completion = req->data;
-+
-+	completion->err = err;
-+	complete(&completion->completion);
-+}
-+EXPORT_SYMBOL_GPL(af_alg_complete);
-+
-+static int __init af_alg_init(void)
-+{
-+	int err = proto_register(&alg_proto, 0);
-+
-+	if (err)
-+		goto out;
-+
-+	err = sock_register(&alg_family);
-+	if (err != 0)
-+		goto out_unregister_proto;
-+
-+out:
-+	return err;
-+
-+out_unregister_proto:
-+	proto_unregister(&alg_proto);
-+	goto out;
++	return af_alg_register_type(&algif_type_skcipher);
 +}
 +
-+static void __exit af_alg_exit(void)
++static void __exit algif_skcipher_exit(void)
 +{
-+	sock_unregister(PF_ALG);
-+	proto_unregister(&alg_proto);
++	int err = af_alg_unregister_type(&algif_type_skcipher);
++	BUG_ON(err);
 +}
 +
-+module_init(af_alg_init);
-+module_exit(af_alg_exit);
++module_init(algif_skcipher_init);
++module_exit(algif_skcipher_exit);
 +MODULE_LICENSE("GPL");
 +MODULE_ALIAS_NETPROTO(AF_ALG);
-diff --git a/include/crypto/if_alg.h b/include/crypto/if_alg.h
-new file mode 100644
-index 0000000..c5813c8
---- /dev/null
-+++ b/include/crypto/if_alg.h
-@@ -0,0 +1,92 @@
-+/*
-+ * if_alg: User-space algorithm interface
-+ *
-+ * Copyright (c) 2010 Herbert Xu <herbert@gondor.apana.org.au>
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of the GNU General Public License as published by the Free
-+ * Software Foundation; either version 2 of the License, or (at your option)
-+ * any later version.
-+ *
-+ */
-+
-+#ifndef _CRYPTO_IF_ALG_H
-+#define _CRYPTO_IF_ALG_H
-+
-+#include <linux/compiler.h>
-+#include <linux/completion.h>
-+#include <linux/if_alg.h>
-+#include <linux/types.h>
-+#include <net/sock.h>
-+
-+#define ALG_MAX_PAGES			16
-+
-+struct crypto_async_request;
-+
-+struct alg_sock {
-+	/* struct sock must be the first member of struct alg_sock */
-+	struct sock sk;
-+
-+	struct sock *parent;
-+
-+	const struct af_alg_type *type;
-+	void *private;
-+};
-+
-+struct af_alg_completion {
-+	struct completion completion;
-+	int err;
-+};
-+
-+struct af_alg_control {
-+	struct af_alg_iv *iv;
-+	int op;
-+};
-+
-+struct af_alg_type {
-+	void *(*bind)(const char *name, u32 type, u32 mask);
-+	void (*release)(void *private);
-+	int (*setkey)(void *private, const u8 *key, unsigned int keylen);
-+	int (*accept)(void *private, struct sock *sk);
-+
-+	struct proto_ops *ops;
-+	struct module *owner;
-+	char name[14];
-+};
-+
-+struct af_alg_sgl {
-+	struct scatterlist sg[ALG_MAX_PAGES];
-+	struct page *pages[ALG_MAX_PAGES];
-+};
-+
-+int af_alg_register_type(const struct af_alg_type *type);
-+int af_alg_unregister_type(const struct af_alg_type *type);
-+
-+int af_alg_release(struct socket *sock);
-+int af_alg_accept(struct sock *sk, struct socket *newsock);
-+
-+int af_alg_make_sg(struct af_alg_sgl *sgl, void __user *addr, int len,
-+		   int write);
-+void af_alg_free_sg(struct af_alg_sgl *sgl);
-+
-+int af_alg_cmsg_send(struct msghdr *msg, struct af_alg_control *con);
-+
-+int af_alg_wait_for_completion(int err, struct af_alg_completion *completion);
-+void af_alg_complete(struct crypto_async_request *req, int err);
-+
-+static inline struct alg_sock *alg_sk(struct sock *sk)
-+{
-+	return (struct alg_sock *)sk;
-+}
-+
-+static inline void af_alg_release_parent(struct sock *sk)
-+{
-+	sock_put(alg_sk(sk)->parent);
-+}
-+
-+static inline void af_alg_init_completion(struct af_alg_completion *completion)
-+{
-+	init_completion(&completion->completion);
-+}
-+
-+#endif	/* _CRYPTO_IF_ALG_H */
-diff --git a/include/linux/if_alg.h b/include/linux/if_alg.h
-new file mode 100644
-index 0000000..0f9acce
---- /dev/null
-+++ b/include/linux/if_alg.h
-@@ -0,0 +1,40 @@
-+/*
-+ * if_alg: User-space algorithm interface
-+ *
-+ * Copyright (c) 2010 Herbert Xu <herbert@gondor.apana.org.au>
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of the GNU General Public License as published by the Free
-+ * Software Foundation; either version 2 of the License, or (at your option)
-+ * any later version.
-+ *
-+ */
-+
-+#ifndef _LINUX_IF_ALG_H
-+#define _LINUX_IF_ALG_H
-+
-+#include <linux/types.h>
-+
-+struct sockaddr_alg {
-+	__u16	salg_family;
-+	__u8	salg_type[14];
-+	__u32	salg_feat;
-+	__u32	salg_mask;
-+	__u8	salg_name[64];
-+};
-+
-+struct af_alg_iv {
-+	__u32	ivlen;
-+	__u8	iv[0];
-+};
-+
-+/* Socket options */
-+#define ALG_SET_KEY			1
-+#define ALG_SET_IV			2
-+#define ALG_SET_OP			3
-+
-+/* Operations */
-+#define ALG_OP_DECRYPT			0
-+#define ALG_OP_ENCRYPT			1
-+
-+#endif	/* _LINUX_IF_ALG_H */
