@@ -1,48 +1,42 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [RFC PATCH 1/1] vhost: TX used buffer guest signal accumulation
-Date: Thu, 04 Nov 2010 14:37:23 -0700
-Message-ID: <1288906643.16508.0.camel@localhost.localdomain>
-References: <1288216693.17571.38.camel@localhost.localdomain>
-	 <1288240804.14342.1.camel@localhost.localdomain>
-	 <20101028052021.GD5599@redhat.com>
-	 <1288286062.11251.15.camel@localhost.localdomain>
-	 <20101029081027.GB22688@redhat.com>
-	 <1288366988.4110.5.camel@localhost.localdomain>
-	 <20101030200603.GA19033@redhat.com>
-	 <1288642673.19173.8.camel@localhost.localdomain>
-	 <20101103104812.GB10555@redhat.com>
-	 <1288849126.12932.4.camel@localhost.localdomain>
-	 <20101104093045.GA27506@redhat.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] classifier: report statistics for basic classifier
+Date: Thu, 4 Nov 2010 17:47:04 -0400
+Message-ID: <20101104174704.573c52e4@s6510>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20101104093045.GA27506@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:52695 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753124Ab0KDVrI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Nov 2010 17:47:08 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-11-04 at 11:30 +0200, Michael S. Tsirkin wrote:
-> One thing to note is that deferred signalling needs to be
-> benchmarked with old guests which don't orphan skbs on xmit
-> (or disable orphaning in both networking stack and virtio-net).
+The basic classifier keeps statistics but does not report it to user space.
+This showed up when using basic classifier (with police) as a default catch
+all on ingress; no statistics were reported.
 
-Yes, we need run more test.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-> 
-> OK, so I guess I'll queue the __put_user etc patches for net-next, on
-> top of this
-> I think a patch which defers signalling would be nice to have,
-> then we can figure out whether a separate heads array still has
-> benefits
-> for non zero copy case: if yes what they are, if no whether it should
-> be
-> used for zero copy only for both both non-zero copy and zero copy.
-> 
-> Makes sense? 
+---
+I consider this a bug and should go into net-2.6 but not stable.
 
-Agree.
+ net/sched/cls_basic.c |    4 ++++
+ 1 file changed, 4 insertions(+)
 
-Shirley
+--- a/net/sched/cls_basic.c	2010-11-04 16:06:19.984953193 -0400
++++ b/net/sched/cls_basic.c	2010-11-04 16:06:42.248953192 -0400
+@@ -268,6 +268,10 @@ static int basic_dump(struct tcf_proto *
+ 		goto nla_put_failure;
+ 
+ 	nla_nest_end(skb, nest);
++
++	if (tcf_exts_dump_stats(skb, &f->exts, &basic_ext_map) < 0)
++		goto nla_put_failure;
++
+ 	return skb->len;
+ 
+ nla_put_failure:
