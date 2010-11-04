@@ -1,78 +1,95 @@
 From: xiaohui.xin@intel.com
-Subject: [PATCH v14 07/17]Modify netdev_alloc_page() to get external buffer
-Date: Thu,  4 Nov 2010 17:05:03 +0800
-Message-ID: <5a5e9fe302ee1838873571fb79fdc9e617b65817.1288860477.git.xiaohui.xin@intel.com>
+Subject: [PATCH v14 11/17] Add a hook to intercept external buffers from NIC driver.
+Date: Thu,  4 Nov 2010 17:05:07 +0800
+Message-ID: <1d5846a8be592339af246d19d99c0243855978d0.1288860477.git.xiaohui.xin@intel.com>
 References: <1288861513-5707-1-git-send-email-xiaohui.xin@intel.com>
 Cc: Xin Xiaohui <xiaohui.xin@intel.com>
 To: netdev@vger.kernel.org, kvm@vger.kernel.org,
 	linux-kernel@vger.kernel.org, mst@redhat.com, mingo@elte.hu,
 	davem@davemloft.net, herbert@gondor.apana.org.au,
 	jdike@linux.intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:34881 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754080Ab0KDIoI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Nov 2010 04:44:08 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1288861513-5707-1-git-send-email-xiaohui.xin@intel.com>
 In-Reply-To: <fc6e95d63a2c62aaf77f8ded22fc43ccefcdbbff.1288860477.git.xiaohui.xin@intel.com>
 References: <fc6e95d63a2c62aaf77f8ded22fc43ccefcdbbff.1288860477.git.xiaohui.xin@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Xin Xiaohui <xiaohui.xin@intel.com>
 
-    Currently, it can get external buffers from mp device.
+The hook is called in __netif_receive_skb().
 
-    Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
-    Signed-off-by: Zhao Yu <yzhao81new@gmail.com>
-    Reviewed-by: Jeff Dike <jdike@linux.intel.com>
+Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
+Signed-off-by: Zhao Yu <yzhao81new@gmail.com>
+Reviewed-by: Jeff Dike <jdike@linux.intel.com>
 ---
- net/core/skbuff.c |   27 +++++++++++++++++++++++++++
- 1 files changed, 27 insertions(+), 0 deletions(-)
+ net/core/dev.c |   40 ++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 40 insertions(+), 0 deletions(-)
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 5e6d69c..f39d372 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -262,11 +262,38 @@ struct sk_buff *__netdev_alloc_skb(struct net_device *dev,
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 84fbb83..bdad1c8 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2814,6 +2814,40 @@ int __skb_bond_should_drop(struct sk_buff *skb, struct net_device *master)
  }
- EXPORT_SYMBOL(__netdev_alloc_skb);
+ EXPORT_SYMBOL(__skb_bond_should_drop);
  
-+struct page *netdev_alloc_ext_pages(struct net_device *dev, int npages)
++#if defined(CONFIG_MEDIATE_PASSTHRU) || defined(CONFIG_MEDIATE_PASSTHRU_MODULE)
++/* Add a hook to intercept mediate passthru(zero-copy) packets,
++ * and insert it to the socket queue owned by mp_port specially.
++ */
++static inline struct sk_buff *handle_mpassthru(struct sk_buff *skb,
++					       struct packet_type **pt_prev,
++					       int *ret,
++					       struct net_device *orig_dev)
 +{
-+	struct mp_port *port;
-+	struct skb_ext_page *ext_page = NULL;
++	struct mp_port *mp_port = NULL;
++	struct sock *sk = NULL;
 +
-+	port = dev->mp_port;
-+	if (!port)
-+		goto out;
-+	ext_page = port->ctor(port, NULL, npages);
-+	if (ext_page)
-+		return ext_page->page;
-+out:
++	if (!dev_is_mpassthru(skb->dev) && !dev_is_mpassthru(orig_dev))
++		return skb;
++	if (dev_is_mpassthru(skb->dev))
++		mp_port = skb->dev->mp_port;
++	else if (orig_dev->master == skb->dev && dev_is_mpassthru(orig_dev))
++		mp_port = orig_dev->mp_port;
++
++	if (*pt_prev) {
++		*ret = deliver_skb(skb, *pt_prev, orig_dev);
++		*pt_prev = NULL;
++	}
++
++	sk = mp_port->sock->sk;
++	skb_queue_tail(&sk->sk_receive_queue, skb);
++	sk->sk_state_change(sk);
++
 +	return NULL;
-+
 +}
-+EXPORT_SYMBOL(netdev_alloc_ext_pages);
++#else
++#define handle_mpassthru(skb, pt_prev, ret, orig_dev)     (skb)
++#endif
 +
-+struct page *netdev_alloc_ext_page(struct net_device *dev)
-+{
-+	return netdev_alloc_ext_pages(dev, 1);
-+
-+}
-+EXPORT_SYMBOL(netdev_alloc_ext_page);
-+
- struct page *__netdev_alloc_page(struct net_device *dev, gfp_t gfp_mask)
+ static int __netif_receive_skb(struct sk_buff *skb)
  {
- 	int node = dev->dev.parent ? dev_to_node(dev->dev.parent) : -1;
- 	struct page *page;
+ 	struct packet_type *ptype, *pt_prev;
+@@ -2891,6 +2925,11 @@ static int __netif_receive_skb(struct sk_buff *skb)
+ ncls:
+ #endif
  
-+	if (dev_is_mpassthru(dev))
-+		return netdev_alloc_ext_page(dev);
++	/* To intercept mediate passthru(zero-copy) packets here */
++	skb = handle_mpassthru(skb, &pt_prev, &ret, orig_dev);
++	if (!skb)
++		goto out;
 +
- 	page = alloc_pages_node(node, gfp_mask, 0);
- 	return page;
- }
+ 	/* Handle special case of bridge or macvlan */
+ 	rx_handler = rcu_dereference(skb->dev->rx_handler);
+ 	if (rx_handler) {
+@@ -2983,6 +3022,7 @@ err:
+ EXPORT_SYMBOL(netdev_mp_port_prep);
+ #endif
+ 
++
+ /**
+  *	netif_receive_skb - process receive buffer from network
+  *	@skb: buffer to process
 -- 
 1.7.3
-
