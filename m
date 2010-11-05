@@ -1,36 +1,36 @@
-From: Jiri Kosina <jkosina@suse.cz>
-Subject: Re: [PATCH 46/49] net/netfilter: Use vzalloc
-Date: Fri, 5 Nov 2010 11:10:23 -0400 (EDT)
-Message-ID: <alpine.LNX.2.00.1011051108270.15851@pobox.suse.cz>
-References: <alpine.DEB.2.00.1011031108260.11625@router.home>  <7d6da34b7e84955795717b0241000a0701cd5b34.1288925425.git.joe@perches.com>  <1288938640.3234.12.camel@edumazet-laptop> <1288940146.18440.55.camel@Joe-Laptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipv6: addrconf: don't remove address state on ifdown
+ if the address is being kept
+Date: Fri, 05 Nov 2010 08:12:54 -0700 (PDT)
+Message-ID: <20101105.081254.193711384.davem@davemloft.net>
+References: <AANLkTimyqFoUvjQM_qLS2YeVmJQ_6-LJc6KfLVE-mzH3@mail.gmail.com>
+	<AANLkTimLicmgC3BptZvXGoA0aN6-cFJtRG3DpqJ3NTpJ@mail.gmail.com>
+	<AANLkTine2qXg7MTFyh=Ka=tB8fuzB18-NVRryTyc=LKp@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Jesper Juhl <jj@chaosbits.net>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1288940146.18440.55.camel@Joe-Laptop>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: maze@google.com, brian.haley@hp.com, netdev@vger.kernel.org
+To: lorenzo@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52292
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751538Ab0KEPMa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Nov 2010 11:12:30 -0400
+In-Reply-To: <AANLkTine2qXg7MTFyh=Ka=tB8fuzB18-NVRryTyc=LKp@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 4 Nov 2010, Joe Perches wrote:
+From: Lorenzo Colitti <lorenzo@google.com>
+Date: Fri, 5 Nov 2010 14:45:28 +0800
 
-> I also think a single rolled-up single patch is good.
+> On Thu, Oct 28, 2010 at 2:45 PM, Lorenzo Colitti <lorenzo@google.com> wrote:
+>>> Fix it so that none of this state is updated if the address is being kept on the interface.
 > 
-> I believe Jiri Kosina can easily apply all these individual patches as a 
-> single patch if he chooses.
+> David, any feedback on this? The existing code clearly has the
+> intention of keeping the addresses around, except they don't actually
+> work, and this just fixes the bug.
 
-I will, after this settles a little bit (the same for the WARN series). 
-I prefer waiting a bit before applying your patches usually. 
+I'm travelling and busy at Kernel Summit and Linux Plumbers Conference,
+so I'm only processing the most easiest patches this week.
 
-First to see what lands in linux-next through maintainer's trees, second 
-to gather Acks.
-
--- 
-Jiri Kosina
-SUSE Labs, Novell Inc.
+I'll look into this when I get back.
