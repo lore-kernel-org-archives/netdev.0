@@ -1,33 +1,49 @@
-From: Amit Salecha <amit.salecha@qlogic.com>
-Subject: RE: [PATCH 27/49] drivers/net/netxen: Use vzalloc
-Date: Fri, 5 Nov 2010 00:18:30 -0500
-Message-ID: <99737F4847ED0A48AECC9F4A1974A4B80FCEAB4368@MNEXMB2.qlogic.org>
-References: <cover.1288925424.git.joe@perches.com>,<61bf7e82bb35693aebdb3a56b30b1c38836bf502.1288925425.git.joe@perches.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 46/49] net/netfilter: Use vzalloc
+Date: Fri, 05 Nov 2010 07:30:40 +0100
+Message-ID: <1288938640.3234.12.camel@edumazet-laptop>
+References: <alpine.DEB.2.00.1011031108260.11625@router.home>
+	 <7d6da34b7e84955795717b0241000a0701cd5b34.1288925425.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Joe Perches <joe@perches.com>, Jiri Kosina <trivial@kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jiri Kosina <trivial@kernel.org>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>, Jesper Juhl <jj@chaosbits.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexcashub1.qlogic.com ([198.70.193.61]:58327 "EHLO
-	avexcashub1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750848Ab0KEFUJ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Nov 2010 01:20:09 -0400
-In-Reply-To: <61bf7e82bb35693aebdb3a56b30b1c38836bf502.1288925425.git.joe@perches.com>
-Content-Language: en-US
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:33278 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751309Ab0KEGas (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Nov 2010 02:30:48 -0400
+In-Reply-To: <7d6da34b7e84955795717b0241000a0701cd5b34.1288925425.git.joe@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: Joe Perches [joe@perches.com]
-> Sent: Friday, November 05, 2010 8:37 AM
-> To: Jiri Kosina
-> Cc: Amit Salecha; netdev@vger.kernel.org; linux-kernel@vger.kernel.org
-> Subject: [PATCH 27/49] drivers/net/netxen: Use vzalloc
-> 
+Le jeudi 04 novembre 2010 =C3=A0 20:08 -0700, Joe Perches a =C3=A9crit =
+:
 > Signed-off-by: Joe Perches <joe@perches.com>
 > ---
-> drivers/net/netxen/netxen_nic_init.c |    7 ++-----
->  files changed, 2 insertions(+), 5 deletions(-)
+>  net/netfilter/x_tables.c |    5 ++---
+>  1 files changed, 2 insertions(+), 3 deletions(-)
 
-Thanks.
+So many 'vzalloc' patches for net tree...=20
+
+I had _one_ patch, waiting that David actually had vzalloc() in its tre=
+e
+before sending it.
+
+Given Jesper Juhl was doing this work, could you please take another
+one, please ?
+
+=46or example, explaining him how to use other tools than "bash+egrep
++manual inspection" as he mentioned in a previous mail.
+
+Really Joe, your behavior should be smarter than that.
+
+Thanks
+
+
