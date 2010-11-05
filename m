@@ -1,7 +1,7 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 20/49] drivers/net/e1000e: Use vzalloc
-Date: Thu,  4 Nov 2010 20:07:44 -0700
-Message-ID: <f2fa68e9dc6ba623ed7d54ae49fd20e07bccc780.1288925424.git.joe@perches.com>
+Subject: [PATCH 22/49] drivers/net/igb: Use vzalloc
+Date: Thu,  4 Nov 2010 20:07:46 -0700
+Message-ID: <e84a7e92e3fefb39e4870d5930ea04c8990f8e14.1288925424.git.joe@perches.com>
 References: <alpine.DEB.2.00.1011031108260.11625@router.home>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -28,17 +28,17 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/e1000e/netdev.c |    6 ++----
+ drivers/net/igb/igb_main.c |    6 ++----
  1 files changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index c4ca162..9922edb 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -2059,10 +2059,9 @@ int e1000e_setup_tx_resources(struct e1000_adapter *adapter)
- 	int err = -ENOMEM, size;
+diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+index 892d196..67ea262 100644
+--- a/drivers/net/igb/igb_main.c
++++ b/drivers/net/igb/igb_main.c
+@@ -2436,10 +2436,9 @@ int igb_setup_tx_resources(struct igb_ring *tx_ring)
+ 	int size;
  
- 	size = sizeof(struct e1000_buffer) * tx_ring->count;
+ 	size = sizeof(struct igb_buffer) * tx_ring->count;
 -	tx_ring->buffer_info = vmalloc(size);
 +	tx_ring->buffer_info = vzalloc(size);
  	if (!tx_ring->buffer_info)
@@ -46,19 +46,19 @@ index c4ca162..9922edb 100644
 -	memset(tx_ring->buffer_info, 0, size);
  
  	/* round up to nearest 4K */
- 	tx_ring->size = tx_ring->count * sizeof(struct e1000_tx_desc);
-@@ -2095,10 +2094,9 @@ int e1000e_setup_rx_resources(struct e1000_adapter *adapter)
- 	int i, size, desc_len, err = -ENOMEM;
+ 	tx_ring->size = tx_ring->count * sizeof(union e1000_adv_tx_desc);
+@@ -2587,10 +2586,9 @@ int igb_setup_rx_resources(struct igb_ring *rx_ring)
+ 	int size, desc_len;
  
- 	size = sizeof(struct e1000_buffer) * rx_ring->count;
+ 	size = sizeof(struct igb_buffer) * rx_ring->count;
 -	rx_ring->buffer_info = vmalloc(size);
 +	rx_ring->buffer_info = vzalloc(size);
  	if (!rx_ring->buffer_info)
  		goto err;
 -	memset(rx_ring->buffer_info, 0, size);
  
- 	for (i = 0; i < rx_ring->count; i++) {
- 		buffer_info = &rx_ring->buffer_info[i];
+ 	desc_len = sizeof(union e1000_adv_rx_desc);
+ 
 -- 
 1.7.3.1.g432b3.dirty
 
