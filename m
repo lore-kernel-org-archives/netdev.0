@@ -1,7 +1,7 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 22/49] drivers/net/igb: Use vzalloc
-Date: Thu,  4 Nov 2010 20:07:46 -0700
-Message-ID: <e84a7e92e3fefb39e4870d5930ea04c8990f8e14.1288925424.git.joe@perches.com>
+Subject: [PATCH 24/49] drivers/net/ixgb: Use vzalloc
+Date: Thu,  4 Nov 2010 20:07:48 -0700
+Message-ID: <b63aacd8d05e27da93e3412a146e98939fba8e2a.1288925424.git.joe@perches.com>
 References: <alpine.DEB.2.00.1011031108260.11625@router.home>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -28,36 +28,42 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/igb/igb_main.c |    6 ++----
+ drivers/net/ixgb/ixgb_main.c |    6 ++----
  1 files changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index 892d196..67ea262 100644
---- a/drivers/net/igb/igb_main.c
-+++ b/drivers/net/igb/igb_main.c
-@@ -2436,10 +2436,9 @@ int igb_setup_tx_resources(struct igb_ring *tx_ring)
+diff --git a/drivers/net/ixgb/ixgb_main.c b/drivers/net/ixgb/ixgb_main.c
+index caa8192..211a169 100644
+--- a/drivers/net/ixgb/ixgb_main.c
++++ b/drivers/net/ixgb/ixgb_main.c
+@@ -669,13 +669,12 @@ ixgb_setup_tx_resources(struct ixgb_adapter *adapter)
  	int size;
  
- 	size = sizeof(struct igb_buffer) * tx_ring->count;
--	tx_ring->buffer_info = vmalloc(size);
-+	tx_ring->buffer_info = vzalloc(size);
- 	if (!tx_ring->buffer_info)
- 		goto err;
--	memset(tx_ring->buffer_info, 0, size);
+ 	size = sizeof(struct ixgb_buffer) * txdr->count;
+-	txdr->buffer_info = vmalloc(size);
++	txdr->buffer_info = vzalloc(size);
+ 	if (!txdr->buffer_info) {
+ 		netif_err(adapter, probe, adapter->netdev,
+ 			  "Unable to allocate transmit descriptor ring memory\n");
+ 		return -ENOMEM;
+ 	}
+-	memset(txdr->buffer_info, 0, size);
  
  	/* round up to nearest 4K */
- 	tx_ring->size = tx_ring->count * sizeof(union e1000_adv_tx_desc);
-@@ -2587,10 +2586,9 @@ int igb_setup_rx_resources(struct igb_ring *rx_ring)
- 	int size, desc_len;
  
- 	size = sizeof(struct igb_buffer) * rx_ring->count;
--	rx_ring->buffer_info = vmalloc(size);
-+	rx_ring->buffer_info = vzalloc(size);
- 	if (!rx_ring->buffer_info)
- 		goto err;
--	memset(rx_ring->buffer_info, 0, size);
+@@ -759,13 +758,12 @@ ixgb_setup_rx_resources(struct ixgb_adapter *adapter)
+ 	int size;
  
- 	desc_len = sizeof(union e1000_adv_rx_desc);
+ 	size = sizeof(struct ixgb_buffer) * rxdr->count;
+-	rxdr->buffer_info = vmalloc(size);
++	rxdr->buffer_info = vzalloc(size);
+ 	if (!rxdr->buffer_info) {
+ 		netif_err(adapter, probe, adapter->netdev,
+ 			  "Unable to allocate receive descriptor ring\n");
+ 		return -ENOMEM;
+ 	}
+-	memset(rxdr->buffer_info, 0, size);
+ 
+ 	/* Round up to nearest 4K */
  
 -- 
 1.7.3.1.g432b3.dirty
