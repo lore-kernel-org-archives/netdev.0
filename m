@@ -1,63 +1,121 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: ping -I eth1 ....
-Date: Fri, 05 Nov 2010 14:36:46 +0100
-Message-ID: <1288964206.2882.402.camel@edumazet-laptop>
-References: <OF339BCA8A.B674D6AE-ONC12577D2.00481B5E-C12577D2.0048B214@transmode.se>
+From: Simon Horman <horms@verge.net.au>
+Subject: [RFC] ipvs: allow transmit of GRO aggregated skbs
+Date: Fri, 5 Nov 2010 22:52:26 +0900
+Message-ID: <20101105135222.GA8714@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Joakim Tjernlund <joakim.tjernlund@transmode.se>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:56339 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754537Ab0KENgu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Nov 2010 09:36:50 -0400
-Received: by wwb39 with SMTP id 39so1410274wwb.1
-        for <netdev@vger.kernel.org>; Fri, 05 Nov 2010 06:36:49 -0700 (PDT)
-In-Reply-To: <OF339BCA8A.B674D6AE-ONC12577D2.00481B5E-C12577D2.0048B214@transmode.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Julian Anastasov <ja@ssi.bg>
+To: lvs-devel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le vendredi 05 novembre 2010 =C3=A0 14:14 +0100, Joakim Tjernlund a =C3=
-=A9crit :
-> If I do busybox ping -I eth1 x.x.y.y i see
-> socket(PF_INET, SOCK_RAW, IPPROTO_ICMP) =3D 3
-> getuid()                                =3D 0
-> setuid(0)                               =3D 0
-> setsockopt(3, SOL_SOCKET, SO_BINDTODEVICE, "eth1\0\0\0\0\0\0\0\0\0\0\=
-0\0\20\0[l\0\0\0\2\20\7\354(\0"..., 32) =3D 0
-> setsockopt(3, SOL_SOCKET, SO_BROADCAST, [1], 4) =3D 0
-> setsockopt(3, SOL_SOCKET, SO_RCVBUF, [7280], 4) =3D 0
->=20
-> ......
-> then this in a loop:
-> --- SIGALRM (Alarm clock) @ 0 (0) ---
-> clock_gettime(CLOCK_MONOTONIC, {1238, 116470107}) =3D 0
-> sendto(3, "\10\0\203\345\1\326\0\2I\314(v\0\0\0\0\0\0\0\0\0\0\0\0"...=
-, 64, 0, {sa_family=3DAF_INET, sin_port=3Dhtons(0), sin_addr=3Dinet_add=
-r("1.1.1.1")}, 16) =3D 64
-> rt_sigaction(SIGALRM, {0x10017034, [ALRM], SA_RESTART}, {0x10017034, =
-[ALRM], SA_RESTART}, 8) =3D 0
-> alarm(1)                                =3D 0
-> sigreturn()                             =3D ? (mask now [ILL ABRT FPE=
- KILL ALRM STKFLT CONT STOP TTOU URG XCPU XFSZ VTALRM PROF WINCH IO PWR=
- RTMIN])
-> recvfrom(3, 0xbfe6a620, 192, 0, 0xbfe6a6f0, 0xbfe6a70c) =3D ? ERESTAR=
-TSYS (To be restarted)
->=20
-> Then I do ifconfig eth1 down
-> and I still see the same. Should not
-> sendto and/or revcfrom return some error as
-> the interface is down?
+This is a first attempt at allowing LVS to transmit
+skbs of greater than MTU length that have been aggregated by GRO.
 
-Hmm, this reminds me one patch, yes...
+I have lightly tested the ip_vs_dr_xmit() portion of this patch and
+although it seems to work I am unsure that netif_needs_gso() is the correct
+test to use.
 
-Search for " ipv4: remove all rt cache entries on UNREGISTER event"
+Signed-off-by: Simon Horman <horms@verge.net.au>
 
-http://permalink.gmane.org/gmane.linux.network/173391
+--- 
 
-I guess I should respin it for net-next-2.6
+LRO is still an outstanding issue, but as its deprecated in favour
+of GRO perhaps it doesn't need to be solved.
 
-
+diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
+index 93c15a1..93a782e 100644
+--- a/net/netfilter/ipvs/ip_vs_xmit.c
++++ b/net/netfilter/ipvs/ip_vs_xmit.c
+@@ -246,7 +246,8 @@ ip_vs_bypass_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 
+ 	/* MTU checking */
+ 	mtu = dst_mtu(&rt->u.dst);
+-	if ((skb->len > mtu) && (iph->frag_off & htons(IP_DF))) {
++	if ((skb->len > mtu) && (iph->frag_off & htons(IP_DF)) &&
++	    !netif_needs_gso(rt->u.dst.dev, skb)) {
+ 		ip_rt_put(rt);
+ 		icmp_send(skb, ICMP_DEST_UNREACH,ICMP_FRAG_NEEDED, htonl(mtu));
+ 		IP_VS_DBG_RL("%s(): frag needed\n", __func__);
+@@ -310,7 +311,7 @@ ip_vs_bypass_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 
+ 	/* MTU checking */
+ 	mtu = dst_mtu(&rt->u.dst);
+-	if (skb->len > mtu) {
++	if (skb->len > mtu && !netif_needs_gso(rt->u.dst.dev, skb)) {
+ 		dst_release(&rt->u.dst);
+ 		icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
+ 		IP_VS_DBG_RL("%s(): frag needed\n", __func__);
+@@ -377,7 +378,8 @@ ip_vs_nat_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 
+ 	/* MTU checking */
+ 	mtu = dst_mtu(&rt->u.dst);
+-	if ((skb->len > mtu) && (iph->frag_off & htons(IP_DF))) {
++	if ((skb->len > mtu) && (iph->frag_off & htons(IP_DF)) &&
++	    !netif_needs_gso(rt->u.dst.dev, skb)) {
+ 		ip_rt_put(rt);
+ 		icmp_send(skb, ICMP_DEST_UNREACH,ICMP_FRAG_NEEDED, htonl(mtu));
+ 		IP_VS_DBG_RL_PKT(0, pp, skb, 0, "ip_vs_nat_xmit(): frag needed for");
+@@ -453,7 +455,7 @@ ip_vs_nat_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 
+ 	/* MTU checking */
+ 	mtu = dst_mtu(&rt->u.dst);
+-	if (skb->len > mtu) {
++	if (skb->len > mtu && !netif_needs_gso(rt->u.dst.dev, skb)) {
+ 		dst_release(&rt->u.dst);
+ 		icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
+ 		IP_VS_DBG_RL_PKT(0, pp, skb, 0,
+@@ -562,8 +564,9 @@ ip_vs_tunnel_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 
+ 	df |= (old_iph->frag_off & htons(IP_DF));
+ 
+-	if ((old_iph->frag_off & htons(IP_DF))
+-	    && mtu < ntohs(old_iph->tot_len)) {
++	if ((old_iph->frag_off & htons(IP_DF) &&
++	    mtu < ntohs(old_iph->tot_len) &&
++	    !netif_needs_gso(rt->u.dst.dev, skb))) {
+ 		icmp_send(skb, ICMP_DEST_UNREACH,ICMP_FRAG_NEEDED, htonl(mtu));
+ 		ip_rt_put(rt);
+ 		IP_VS_DBG_RL("%s(): frag needed\n", __func__);
+@@ -672,7 +675,8 @@ ip_vs_tunnel_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 	if (skb_dst(skb))
+ 		skb_dst(skb)->ops->update_pmtu(skb_dst(skb), mtu);
+ 
+-	if (mtu < ntohs(old_iph->payload_len) + sizeof(struct ipv6hdr)) {
++	if (mtu < ntohs(old_iph->payload_len) + sizeof(struct ipv6hdr) &&
++	    !netif_needs_gso(rt->u.dst.dev, skb)) {
+ 		icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
+ 		dst_release(&rt->u.dst);
+ 		IP_VS_DBG_RL("%s(): frag needed\n", __func__);
+@@ -761,7 +765,8 @@ ip_vs_dr_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 
+ 	/* MTU checking */
+ 	mtu = dst_mtu(&rt->u.dst);
+-	if ((iph->frag_off & htons(IP_DF)) && skb->len > mtu) {
++	if ((iph->frag_off & htons(IP_DF)) && skb->len > mtu &&
++	    !netif_needs_gso(rt->u.dst.dev, skb)) {
+ 		icmp_send(skb, ICMP_DEST_UNREACH,ICMP_FRAG_NEEDED, htonl(mtu));
+ 		ip_rt_put(rt);
+ 		IP_VS_DBG_RL("%s(): frag needed\n", __func__);
+@@ -889,7 +894,8 @@ ip_vs_icmp_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 
+ 	/* MTU checking */
+ 	mtu = dst_mtu(&rt->u.dst);
+-	if ((skb->len > mtu) && (ip_hdr(skb)->frag_off & htons(IP_DF))) {
++	if ((skb->len > mtu) && (ip_hdr(skb)->frag_off & htons(IP_DF)) &&
++	    !netif_needs_gso(rt->u.dst.dev, skb)) {
+ 		ip_rt_put(rt);
+ 		icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED, htonl(mtu));
+ 		IP_VS_DBG_RL("%s(): frag needed\n", __func__);
+@@ -964,7 +970,7 @@ ip_vs_icmp_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 
+ 	/* MTU checking */
+ 	mtu = dst_mtu(&rt->u.dst);
+-	if (skb->len > mtu) {
++	if (skb->len > mtu && !netif_needs_gso(rt->u.dst.dev, skb)) {
+ 		dst_release(&rt->u.dst);
+ 		icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
+ 		IP_VS_DBG_RL("%s(): frag needed\n", __func__);
 
