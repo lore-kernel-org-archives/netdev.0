@@ -1,33 +1,200 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH] via-rhine: hardware VLAN support
-Date: Fri, 5 Nov 2010 11:31:56 -0700
-Message-ID: <AANLkTikUe9DR2QTU+72Q8vmGnDyvUtSm_wwCpGEq-M4s@mail.gmail.com>
-References: <20101105104303.GA8325@core.hellgate.ch>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH] atomic: add atomic_inc_not_zero_hint()
+Date: Fri, 5 Nov 2010 11:40:34 -0700
+Message-ID: <20101105184034.GG2850@linux.vnet.ibm.com>
+References: <1288975980.2882.877.camel@edumazet-laptop>
+ <20101105102038.53e36f9e.akpm@linux-foundation.org>
+ <1288980046.2882.1054.camel@edumazet-laptop>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Roger Luethi <rl@hellgate.ch>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Christoph Lameter <cl@linux-foundation.org>,
+	Ingo Molnar <mingo@elte.hu>, Andi Kleen <andi@firstfloor.org>,
+	Nick Piggin <npiggin@kernel.dk>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:33002 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752902Ab0KESb5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Nov 2010 14:31:57 -0400
-Received: by wyb36 with SMTP id 36so1364770wyb.19
-        for <netdev@vger.kernel.org>; Fri, 05 Nov 2010 11:31:56 -0700 (PDT)
-In-Reply-To: <20101105104303.GA8325@core.hellgate.ch>
+Received: from e2.ny.us.ibm.com ([32.97.182.142]:42228 "EHLO e2.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752862Ab0KESkp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Nov 2010 14:40:45 -0400
+Content-Disposition: inline
+In-Reply-To: <1288980046.2882.1054.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 5, 2010 at 3:43 AM, Roger Luethi <rl@hellgate.ch> wrote:
-> This patch adds VLAN hardware support for Rhine chips.
->
-> The driver uses up to 3 additional bytes of buffer space when extracting
-> 802.1Q headers; PKT_BUF_SZ should still be sufficient.
->
-> The initial code was provided by David Lv. I reworked it to use standard
-> kernel facilities. Coding style clean up mostly follows via-velocity.
+On Fri, Nov 05, 2010 at 07:00:46PM +0100, Eric Dumazet wrote:
+> Le vendredi 05 novembre 2010 =E0 10:20 -0700, Andrew Morton a =E9crit=
+ :
+>=20
+> > It totally makes sense to add include/linu/atomic.h for common thin=
+gs.=20
+> > Perhaps there's already code in arch/*/include/asm/atomic.h which
+> > should be hoisted up there.  But that can't reliably be done until =
+a
+> > million files have had their #includes switched :(
+> >=20
+>=20
+> Maybe including <linux/atomic.h> only from the end of various
+>=20
+> arch/*/include/asm/atomic.h  ?
+>=20
+> In this case, I remove the include <asm/atomic.h> from linux/atomic.h
+>=20
+> > It's quite unobvious *why* `hint' cannot be zero.  Can you please a=
+dd
+> > the reasoning to the comment?  Also, the local `hint' should be
+> > referred to as "@hint" in a kerneldoc comment.
+>=20
+> Well ;)
+>=20
+> We want to increment the counter if its not zero.
+> Typically used for refcounts, of RCU protected structures.
+>=20
+> Giving a zero hint would be curious dont you think ?
+>=20
+> I see no usage for this, and using atomic_inc_not_zero() in this case=
+ is
+> the only choice, since we dont ever want to cmpxchg(v, 0, 1) (or risk
+> double free and crazy things)
+>=20
+> Hmm... maybe I can add a test (compiler should optimize it anyway, si=
+nce
+> all usages I can foresee will use a constant hint)
+>=20
+> >=20
+> > > +static inline int atomic_inc_not_zero_hint(atomic_t *v, int hint=
+)
+> > > +{
+> > > +	int val, c =3D hint;
+> > > +
+> > > + 	do {
+> > > +		val =3D atomic_cmpxchg(v, c, c + 1);
+> > > +		if (val =3D=3D c)
+> > > +			return 1;
+> > > +		c =3D val;
+> > > +	} while (c);
+> > > +
+> > > +	return 0;
+> > > +}
+> >=20
+> > Should/could this have implemented a more general
+> > atomic_add_not_zero_hint() and made atomic_inc_not_zero_hint() a
+> > wrapper around that?
+>=20
+> Well, I see no practical use for this, but yes, this could be done.
+>=20
+> As atomic_add_not_zero() doesnt exist, I am not sure we need an
+> atomic_add_not_zero_hint() yet ?
+>=20
+> >=20
+> > Also, it might make sense to add "#ifndef atomic_inc_not_zero_hint"
+> > wrappers around this function so that the arch can implement an
+> > overriding custom version.  And that becomes a general rule as more
+> > functions are added to include/linux/atomic.h.
+>=20
+> Ah yes, thats right !
+>=20
+> Thanks !
+>=20
+> [PATCH v2] atomic: add atomic_inc_not_zero_hint()
+>=20
+> Followup of perf tools session in Netfilter WorkShop 2010
+>=20
+> In network stack we make high usage of atomic_inc_not_zero() in conte=
+xts
+> we know the probable value of atomic before increment (2 for udp sock=
+ets
+> for example)
+>=20
+> Using a special version of atomic_inc_not_zero() giving this hint can
+> help processor to use less bus transactions.
+>=20
+> On x86 (MESI protocol) for example, this avoids entering Shared state=
+,
+> because "lock cmpxchg" issues an RFO (Read For Ownership)
+>=20
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Christoph Lameter <cl@linux-foundation.org>
+> Cc: Ingo Molnar <mingo@elte.hu>
+> Cc: Andi Kleen <andi@firstfloor.org>
+> Cc: Arnaldo Carvalho de Melo <acme@infradead.org>
+> Cc: David Miller <davem@davemloft.net>
+> Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+> Cc: Nick Piggin <npiggin@kernel.dk>
+> ---
+> V2: add #ifndef atomic_inc_not_zero_hint
+>     kerneldoc changes
+>     test that hint is not null
+>     Meant to be included at end of arch/*/asm/atomic.h files
+>=20
+>  include/linux/atomic.h |   36 ++++++++++++++++++++++++++++++++++++
+>  1 files changed, 36 insertions(+)
+>=20
+> diff --git a/include/linux/atomic.h b/include/linux/atomic.h
+> new file mode 100644
+> index 0000000..0897bdd
+> --- /dev/null
+> +++ b/include/linux/atomic.h
+> @@ -0,0 +1,36 @@
+> +#ifndef _LINUX_ATOMIC_H
+> +#define _LINUX_ATOMIC_H
+> +
+> +/**
+> + * atomic_inc_not_zero_hint - increment if not null
+> + * @v: pointer of type atomic_t
+> + * @hint: probable value of the atomic before the increment
+> + *
+> + * This version of atomic_inc_not_zero() gives a hint of probable
+> + * value of the atomic. This helps processor to not read memory
+> + * before doing the atomic read/modify/write cycle, lowering
+> + * number of bus transactions on some arches.
+> + * Note: @hint MUST not be 0, or increment is not done.
+> + * Returns: 0 if increment was not done, 1 otherwise.
+> + */
+> +#ifndef atomic_inc_not_zero_hint
+> +static inline int atomic_inc_not_zero_hint(atomic_t *v, int hint)
+> +{
+> +	int val, c =3D hint;
+> +
+> +	/* sanity test, should be removed by compiler if hint is a constant=
+ */
+> +	if (!hint)
+> +		return 0;
 
-This uses the old interfaces for vlan acceleration.  We're working to
-switch drivers over to use the new methods and the old ones will be
-going away in the future.  It would be great if we can avoid adding
-more code that uses those interfaces.
+OK, so I cannot resist the challenge...  ;-)
+
+Suppose that the atomic_inc_not_zero_hint() is in common code that migh=
+t
+be invoked from a cleanup path.  On the cleanup path, perhaps within an
+RCU callback, if the reference is zero, we have the only reference and
+thus don't need to increment the reference count.  On the other hand,
+if the reference is non-zero, we want to obtain a reference in order
+to safely attempt to encourage the other reference holder to let go
+more quickly.
+
+Perhaps a bit of a stretch, but why not just replace the above
+"return 0" with "atomic_inc_not_zero(v)"?  It will usually be
+compiled out, right?
+
+							Thanx, Paul
+
+> + 	do {
+> +		val =3D atomic_cmpxchg(v, c, c + 1);
+> +		if (val =3D=3D c)
+> +			return 1;
+> +		c =3D val;
+> +	} while (c);
+> +
+> +	return 0;
+> +}
+> +#endif
+> +
+> +#endif /* _LINUX_ATOMIC_H */
+>=20
+>=20
