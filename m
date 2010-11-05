@@ -1,85 +1,67 @@
-From: Matt Domsch <Matt_Domsch@Dell.com>
-Subject: Re: [PATCH 1/1] UDEV - Add 'udevlom' command line param to start_udev
-Date: Thu, 4 Nov 2010 21:58:48 -0500
-Message-ID: <20101105025848.GA14021@pws490.domsch.com>
-References: <20101103165505.GA3281@fedora-14-r710.oslab.blr.amer.dell.com>
- <20101103180500.GA7441@kroah.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [V2 PATCH] virtio-net: init link state correctly
+Date: Fri, 5 Nov 2010 11:00:53 +0800
+Message-ID: <19667.29541.897732.941476@gargle.gargle.HOWL>
+References: <20101105025008.3277.87697.stgit@dhcp-91-158.nay.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "K, Narendra" <Narendra_K@Dell.com>,
-	"linux-hotplug@vger.kernel.org" <linux-hotplug@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Hargrave, Jordan" <Jordan_Hargrave@Dell.com>,
-	"Rose, Charles" <Charles_Rose@Dell.com>
-To: Greg KH <greg@kroah.com>
-Return-path: <linux-hotplug-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20101103180500.GA7441@kroah.com>
-Sender: linux-hotplug-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: rusty@rustcorp.com.au, davem@davemloft.net, markmc@redhat.com,
+	linux-kernel@vger.kernel.org, kvm@vger.kernel.org, mst@redhat.com,
+	netdev@vger.kernel.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:55576 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753047Ab0KEDBJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Nov 2010 23:01:09 -0400
+In-Reply-To: <20101105025008.3277.87697.stgit@dhcp-91-158.nay.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 03, 2010 at 11:05:00AM -0700, Greg KH wrote:
-> On Wed, Nov 03, 2010 at 10:25:25PM +0530, Narendra_K@Dell.com wrote:
-> > Hello,
-> > 
-> > This patch allows users to specify if they want the onboard network
-> > interfaces to be renamed to lomN by implementing a command line param
-> > 'udevlom'.
-> 
-> Ick ick ick.
-> 
-> Why not do this in some other configuration file?  Don't rely on udev
-> being started with a different option, that is only ripe for abuse by
-> everyone else who wants their pet-project to get into the udev
-> environment.
-> 
-> Please, surely there's a different way to do this.
+Jason Wang writes:
 
-At Linux Plumbers Conference today, this problem space was discussed
-once again, and I believe concensus on approach was reached.  Here
-goes:
-
-* If a 70-persistent-net.rules file sets a name, honor that.  This
-  preserves existing installs.
-
-* If BIOS provides indexes for onboard devices, honor that.
-** Rename onboard NICs "lom[1-N]" as BIOS reports (# matches chassis labels)
-** No rename for all others "ethX" (no change for NICs in PCI slots/USB/others)
-
-* If neither are true, do not rename at all.
-
-* Implementation will be:
-** Udev rules to be included in upstream udev will read the index
-   value from sysfs (provided by SMBIOS 2.6 info on kernels >= 2.6.36,
-   PCI DSM info at some future point) if present, and rename LOMs
-   based on that index value.  Distros will use these rules by default
-   (Ubuntu and Fedora maintainers on board with the concept; I have
-   not spoken with other distros yet.)
-** Legacy distros with older udev rules will invoke biosdevname on
-   kernels < 2.6.36 to get the same information, if present, and will
-   rename LOMs based on index value.
-
-** Installers will use the above udev rules by default.  If there is
-   outcry during the distros beta testing periods, a way to disable
-   these renames may be implemented.
-
-* NetworkManager to display BIOS-provided labels as informational text
-
-
-As such, biosdevname will be packaged and included in Debian and
-Ubuntu (thanks to Colin Watson) to facilitate use in the udev rules.
-Colin also suggested that any string used in Fedora kickstart files to
-enable/disable this feature will also be used to enable/disable this
-feature in the Debian & Ubuntu installers.  Given today's discussion
-that the feature be enabled by default, this flag, if needed at all,
-will be to disable the feature.
-
-Does this seem sane to everyone?  Next step is to integrate
-biosdevname into udev rules in a sane manner.
-
-Thanks,
-Matt
-
--- 
-Matt Domsch
-Technology Strategist, Dell Office of the CTO
+CC netdev missed in the original patch.
+ > For device that supports VIRTIO_NET_F_STATUS, there's no need to
+ > assume the link is up and we need to call nerif_carrier_off() before
+ > querying device status, otherwise we may get wrong operstate after
+ > diver was loaded because the link watch event was not fired as
+ > expected.
+ > 
+ > For device that does not support VIRITO_NET_F_STATUS, we could not get
+ > its status through virtnet_update_status() and what we can only do is
+ > always assuming the link is up.
+ > 
+ > Signed-off-by: Jason Wang <jasowang@redhat.com>
+ > ---
+ >  drivers/net/virtio_net.c |   12 +++++++++---
+ >  1 files changed, 9 insertions(+), 3 deletions(-)
+ > 
+ > diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+ > index bb6b67f..b6d4028 100644
+ > --- a/drivers/net/virtio_net.c
+ > +++ b/drivers/net/virtio_net.c
+ > @@ -986,9 +986,15 @@ static int virtnet_probe(struct virtio_device *vdev)
+ >  		goto unregister;
+ >  	}
+ >  
+ > -	vi->status = VIRTIO_NET_S_LINK_UP;
+ > -	virtnet_update_status(vi);
+ > -	netif_carrier_on(dev);
+ > +	/* Assume link up if device can't report link status,
+ > +	   otherwise get link status from config. */
+ > +	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_STATUS)) {
+ > +		netif_carrier_off(dev);
+ > +		virtnet_update_status(vi);
+ > +	} else {
+ > +		vi->status = VIRTIO_NET_S_LINK_UP;
+ > +		netif_carrier_on(dev);
+ > +	}
+ >  
+ >  	pr_debug("virtnet: registered device %s\n", dev->name);
+ >  	return 0;
+ > 
+ > --
+ > To unsubscribe from this list: send the line "unsubscribe kvm" in
+ > the body of a message to majordomo@vger.kernel.org
+ > More majordomo info at  http://vger.kernel.org/majordomo-info.html
