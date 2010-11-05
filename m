@@ -1,73 +1,75 @@
-From: "Lucas C. Villa Real" <lucasvr@gobolinux.org>
-Subject: [PATCH] iputils signal mask issue
-Date: Fri, 5 Nov 2010 17:56:24 -0200
-Message-ID: <AANLkTikuA-H23FH7-WzAu1nsVXb2SxR+tbQ8d8BNdoW+@mail.gmail.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH 1/2] ixgb: Don't check for vlan group on transmit.
+Date: Fri, 5 Nov 2010 12:56:30 -0700
+Message-ID: <AANLkTin62WWL+cnLVNaOYmcvL28rfkUDVCVqiimSPZ=e@mail.gmail.com>
+References: <1288464591-31528-1-git-send-email-jesse@nicira.com>
+	<1288984304.3091.11.camel@jtkirshe-MOBL1>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=001517511d3a59c763049453abe8
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Duyck, Alexander H" <alexander.h.duyck@intel.com>
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f181.google.com ([209.85.216.181]:39421 "EHLO
-	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752327Ab0KET4Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Nov 2010 15:56:25 -0400
-Received: by qyk10 with SMTP id 10so2992824qyk.19
-        for <netdev@vger.kernel.org>; Fri, 05 Nov 2010 12:56:24 -0700 (PDT)
+Received: from mail-ew0-f46.google.com ([209.85.215.46]:55334 "EHLO
+	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753286Ab0KET4c convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Nov 2010 15:56:32 -0400
+Received: by ewy7 with SMTP id 7so2024703ewy.19
+        for <netdev@vger.kernel.org>; Fri, 05 Nov 2010 12:56:31 -0700 (PDT)
+In-Reply-To: <1288984304.3091.11.camel@jtkirshe-MOBL1>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---001517511d3a59c763049453abe8
-Content-Type: text/plain; charset=ISO-8859-1
+On Fri, Nov 5, 2010 at 12:11 PM, Jeff Kirsher
+<jeffrey.t.kirsher@intel.com> wrote:
+> On Sat, 2010-10-30 at 11:49 -0700, Jesse Gross wrote:
+>> On transmit, the ixgb driver will only use vlan acceleration if a
+>> vlan group is configured. =A0This can lead to tags getting dropped
+>> when bridging because the networking core assumes that a driver
+>> that claims vlan acceleration support can do it at all times. =A0Thi=
+s
+>> change should have been part of commit eab6d18d "vlan: Don't check f=
+or
+>> vlan group before vlan_tx_tag_present." but was missed.
+>>
+>> Signed-off-by: Jesse Gross <jesse@nicira.com>
+>> CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>> CC: Jesse Brandeburg <jesse.brandeburg@intel.com>
+>> CC: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
+>> ---
+>> =A0drivers/net/ixgb/ixgb_main.c | =A0 =A02 +-
+>> =A01 files changed, 1 insertions(+), 1 deletions(-)
+>>
+>> diff --git a/drivers/net/ixgb/ixgb_main.c b/drivers/net/ixgb/ixgb_ma=
+in.c
+>> index caa8192..d18194e 100644
+>> --- a/drivers/net/ixgb/ixgb_main.c
+>> +++ b/drivers/net/ixgb/ixgb_main.c
+>> @@ -1498,7 +1498,7 @@ ixgb_xmit_frame(struct sk_buff *skb, struct ne=
+t_device *netdev)
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 DESC_NEEDED)))
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 return NETDEV_TX_BUSY;
+>>
+>> - =A0 =A0 if (adapter->vlgrp && vlan_tx_tag_present(skb)) {
+>> + =A0 =A0 if (vlan_tx_tag_present(skb)) {
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 tx_flags |=3D IXGB_TX_FLAGS_VLAN;
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 vlan_id =3D vlan_tx_tag_get(skb);
+>> =A0 =A0 =A0 }
+>
+> After further review, NAK because this will cause a bug. =A0With this
+> patch it would be possible to overrun the buffers, so the correct fix=
+ is
+> to increase max_frame_size by VLAN_TAG_SIZE in ixgb/igb_change_mtu.
 
-Hi,
+Hmm, I didn't see any other place where it made changes to the
+handling of packets on transmit if a vlan group is configured.  Maybe
+the buffer is extended when a group is registered and stripping is
+enabled?
 
-Today we found an issue where arping would get stuck in an endless
-loop. The problem was found to be related to the parent process (a
-shell script) having had SIGALRM blocked, which is used by arping to
-update "count" and to check the "timeout" global.
-
-Since we cannot make assumptions on the signal masks of the
-environment it's better to explicitly unblock the signals that the
-utility needs before the main loop executes. It's worth noting that
-although sigaction() is called to associate a handler to a given
-signal, that function doesn't automatically unblock that signal.
-
-A similar problem was noticed on rdisc, so the attached patch also
-ensures to unblock the signals that it relies on.
-
-Thanks,
-Lucas
-
---001517511d3a59c763049453abe8
-Content-Type: application/octet-stream; name="02-iputils-SIG_UNBLOCK.patch"
-Content-Disposition: attachment; filename="02-iputils-SIG_UNBLOCK.patch"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_gg5hdw6m0
-
-RG9uJ3QgcmVseSBvbiB0aGUgcGFyZW50IHNpZ25hbCBtYXNrLiBJZiB0aGF0IHByb2Nlc3MgaGFz
-IGJsb2NrZWQgU0lHQUxSTSAKdGhlbiBjaGFuY2VzIGFyZSBoaWdoIHRoYXQgYXJwaW5nIGFuZCBy
-ZGlzYyB3aWxsIGV4ZWN1dGUgZm9yZXZlciwgYXMgdGhhdApzaWduYWwgd2lsbCBuZXZlciBiZSBk
-ZWxpdmVyZWQgYW5kIHRoZSBnbG9iYWxzLCBzdWNoIGFzICdjb3VudCcgYW5kICd0aW1lb3V0JywK
-d29uJ3QgYmUgdXBkYXRlZCBvciBjaGVja2VkLgoKU2lnbmVkLW9mZi1ieTogTHVjYXMgQy4gVmls
-bGEgUmVhbCA8bHVjYXN2ckB1cy5pYm0uY29tPgoKZGlmZiAtdXJwIGlwdXRpbHMtczIwMTAxMDA2
-Lm9yaWcvYXJwaW5nLmMgaXB1dGlscy1zMjAxMDEwMDYvYXJwaW5nLmMKLS0tIGlwdXRpbHMtczIw
-MTAxMDA2Lm9yaWcvYXJwaW5nLmMJMjAxMC0xMC0wNiAwODo1OToyMC4wMDAwMDAwMDAgLTAzMDAK
-KysrIGlwdXRpbHMtczIwMTAxMDA2L2FycGluZy5jCTIwMTAtMTEtMDUgMTY6MTI6NDIuMDAwMDAw
-MDAwIC0wMjAwCkBAIC0zNDYsNiArMzQ2LDcgQEAgbWFpbihpbnQgYXJnYywgY2hhciAqKmFyZ3Yp
-CiB7CiAJaW50IHNvY2tldF9lcnJubzsKIAlpbnQgY2g7CisJc2lnc2V0X3Qgc3NldCwgb3NzZXQ7
-CiAJdWlkX3QgdWlkID0gZ2V0dWlkKCk7CiAKIAlzID0gc29ja2V0KFBGX1BBQ0tFVCwgU09DS19E
-R1JBTSwgMCk7CkBAIC01NDQsMTMgKzU0NSwxNyBAQCBtYWluKGludCBhcmdjLCBjaGFyICoqYXJn
-dikKIAkJZXhpdCgyKTsKIAl9CiAKKwlzaWdlbXB0eXNldCgmc3NldCk7CisJc2lnYWRkc2V0KCZz
-c2V0LCBTSUdBTFJNKTsKKwlzaWdhZGRzZXQoJnNzZXQsIFNJR0lOVCk7CisJc2lncHJvY21hc2so
-U0lHX1VOQkxPQ0ssICZzc2V0LCBOVUxMKTsKKwogCXNldF9zaWduYWwoU0lHSU5ULCBmaW5pc2gp
-OwogCXNldF9zaWduYWwoU0lHQUxSTSwgY2F0Y2hlcik7CiAKIAljYXRjaGVyKCk7CiAKIAl3aGls
-ZSgxKSB7Ci0JCXNpZ3NldF90IHNzZXQsIG9zc2V0OwogCQl1bnNpZ25lZCBjaGFyIHBhY2tldFs0
-MDk2XTsKIAkJc3RydWN0IHNvY2thZGRyX3N0b3JhZ2UgZnJvbTsKIAkJc29ja2xlbl90IGFsZW4g
-PSBzaXplb2YoZnJvbSk7CmRpZmYgLXVycCBpcHV0aWxzLXMyMDEwMTAwNi5vcmlnL3JkaXNjLmMg
-aXB1dGlscy1zMjAxMDEwMDYvcmRpc2MuYwotLS0gaXB1dGlscy1zMjAxMDEwMDYub3JpZy9yZGlz
-Yy5jCTIwMTAtMTAtMDYgMDg6NTk6MjAuMDAwMDAwMDAwIC0wMzAwCisrKyBpcHV0aWxzLXMyMDEw
-MTAwNi9yZGlzYy5jCTIwMTAtMTEtMDUgMTY6MTQ6MzMuMDAwMDAwMDAwIC0wMjAwCkBAIC00NDks
-NiArNDQ5LDcgQEAgbmV4dDoKIAlzaWdhZGRzZXQoJnNzZXQsIFNJR0hVUCk7CiAJc2lnYWRkc2V0
-KCZzc2V0LCBTSUdURVJNKTsKIAlzaWdhZGRzZXQoJnNzZXQsIFNJR0lOVCk7CisJc2lncHJvY21h
-c2soU0lHX1VOQkxPQ0ssICZzc2V0LCBOVUxMKTsKIAogCWluaXQoKTsKIAlpZiAoam9pbihzLCAm
-am9pbmFkZHIpIDwgMCkgewo=
---001517511d3a59c763049453abe8--
+In any case, you might want to check the other Intel drivers for
+similar problems.  I did a pass and made a mass conversion of this
+type a little while ago.  Those changes have already been merged, I
+just missed this one by accident.
