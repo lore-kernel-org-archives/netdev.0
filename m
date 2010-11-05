@@ -1,10 +1,10 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 32/49] drivers/net/bnx2.c: Use vzalloc
-Date: Thu,  4 Nov 2010 20:07:56 -0700
-Message-ID: <d7426ed19adf82783f1cf87cd95637594f3f2e40.1288925425.git.joe@perches.com>
+Subject: [PATCH 27/49] drivers/net/netxen: Use vzalloc
+Date: Thu,  4 Nov 2010 20:07:51 -0700
+Message-ID: <61bf7e82bb35693aebdb3a56b30b1c38836bf502.1288925425.git.joe@perches.com>
 References: <alpine.DEB.2.00.1011031108260.11625@router.home>
-Cc: Michael Chan <mchan@broadcom.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: Amit Kumar Salecha <amit.salecha@qlogic.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: Jiri Kosina <trivial@kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <alpine.DEB.2.00.1011031108260.11625@router.home>
@@ -15,42 +15,45 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/bnx2.c |   10 ++--------
- 1 files changed, 2 insertions(+), 8 deletions(-)
+ drivers/net/netxen/netxen_nic_init.c |    7 ++-----
+ 1 files changed, 2 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index 062600b..aba4d0f 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -766,13 +766,10 @@ bnx2_alloc_rx_mem(struct bnx2 *bp)
- 		int j;
+diff --git a/drivers/net/netxen/netxen_nic_init.c b/drivers/net/netxen/netxen_nic_init.c
+index 95fe552..731077d 100644
+--- a/drivers/net/netxen/netxen_nic_init.c
++++ b/drivers/net/netxen/netxen_nic_init.c
+@@ -214,13 +214,12 @@ int netxen_alloc_sw_resources(struct netxen_adapter *adapter)
+ 	tx_ring->num_desc = adapter->num_txd;
+ 	tx_ring->txq = netdev_get_tx_queue(netdev, 0);
  
- 		rxr->rx_buf_ring =
--			vmalloc(SW_RXBD_RING_SIZE * bp->rx_max_ring);
-+			vzalloc(SW_RXBD_RING_SIZE * bp->rx_max_ring);
- 		if (rxr->rx_buf_ring == NULL)
- 			return -ENOMEM;
+-	cmd_buf_arr = vmalloc(TX_BUFF_RINGSIZE(tx_ring));
++	cmd_buf_arr = vzalloc(TX_BUFF_RINGSIZE(tx_ring));
+ 	if (cmd_buf_arr == NULL) {
+ 		dev_err(&pdev->dev, "%s: failed to allocate cmd buffer ring\n",
+ 		       netdev->name);
+ 		goto err_out;
+ 	}
+-	memset(cmd_buf_arr, 0, TX_BUFF_RINGSIZE(tx_ring));
+ 	tx_ring->cmd_buf_arr = cmd_buf_arr;
  
--		memset(rxr->rx_buf_ring, 0,
--		       SW_RXBD_RING_SIZE * bp->rx_max_ring);
--
- 		for (j = 0; j < bp->rx_max_ring; j++) {
- 			rxr->rx_desc_ring[j] =
- 				dma_alloc_coherent(&bp->pdev->dev,
-@@ -785,13 +782,10 @@ bnx2_alloc_rx_mem(struct bnx2 *bp)
+ 	recv_ctx = &adapter->recv_ctx;
+@@ -279,8 +278,7 @@ int netxen_alloc_sw_resources(struct netxen_adapter *adapter)
+ 			break;
+ 
  		}
- 
- 		if (bp->rx_pg_ring_size) {
--			rxr->rx_pg_ring = vmalloc(SW_RXPG_RING_SIZE *
-+			rxr->rx_pg_ring = vzalloc(SW_RXPG_RING_SIZE *
- 						  bp->rx_max_pg_ring);
- 			if (rxr->rx_pg_ring == NULL)
- 				return -ENOMEM;
--
--			memset(rxr->rx_pg_ring, 0, SW_RXPG_RING_SIZE *
--			       bp->rx_max_pg_ring);
+-		rds_ring->rx_buf_arr = (struct netxen_rx_buffer *)
+-			vmalloc(RCV_BUFF_RINGSIZE(rds_ring));
++		rds_ring->rx_buf_arr = vzalloc(RCV_BUFF_RINGSIZE(rds_ring));
+ 		if (rds_ring->rx_buf_arr == NULL) {
+ 			printk(KERN_ERR "%s: Failed to allocate "
+ 				"rx buffer ring %d\n",
+@@ -288,7 +286,6 @@ int netxen_alloc_sw_resources(struct netxen_adapter *adapter)
+ 			/* free whatever was already allocated */
+ 			goto err_out;
  		}
- 
- 		for (j = 0; j < bp->rx_max_pg_ring; j++) {
+-		memset(rds_ring->rx_buf_arr, 0, RCV_BUFF_RINGSIZE(rds_ring));
+ 		INIT_LIST_HEAD(&rds_ring->free_list);
+ 		/*
+ 		 * Now go through all of them, set reference handles
 -- 
 1.7.3.1.g432b3.dirty
