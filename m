@@ -1,99 +1,85 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] atomic: add atomic_inc_not_zero_hint()
-Date: Fri, 05 Nov 2010 17:53:00 +0100
-Message-ID: <1288975980.2882.877.camel@edumazet-laptop>
+From: Jesper Juhl <jj@chaosbits.net>
+Subject: Re: [PATCH 46/49] net/netfilter: Use vzalloc
+Date: Fri, 5 Nov 2010 18:01:30 +0100 (CET)
+Message-ID: <alpine.LNX.2.00.1011051749230.17746@swampdragon.chaosbits.net>
+References: <alpine.DEB.2.00.1011031108260.11625@router.home>  <7d6da34b7e84955795717b0241000a0701cd5b34.1288925425.git.joe@perches.com>  <1288938640.3234.12.camel@edumazet-laptop>  <1288940146.18440.55.camel@Joe-Laptop>
+ <1288941371.3234.31.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Christoph Lameter <cl@linux-foundation.org>,
-	Ingo Molnar <mingo@elte.hu>, Andi Kleen <andi@firstfloor.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Nick Piggin <npiggin@kernel.dk>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:56910 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752788Ab0KEQxF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Nov 2010 12:53:05 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-1527753567-1288976490=:17746"
+Cc: Jiri Kosina <trivial@kernel.org>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Joe Perches <joe@perches.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1288941371.3234.31.camel@edumazet-laptop>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Andrew
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-atomic_inc_not_zero() / atomic_add_unless() ... are spreaded in many
-arch/xxx/include/asm/atomic.h, but they are generic.
+--8323328-1527753567-1288976490=:17746
+Content-Type: TEXT/PLAIN; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
 
-Apparently there is no centralization of some common atomic features...
+On Fri, 5 Nov 2010, Eric Dumazet wrote:
 
-What do you think adding a new file so that we can move common
-definitions in it ?
+> Le jeudi 04 novembre 2010 à 23:55 -0700, Joe Perches a écrit :
+> > On Fri, 2010-11-05 at 07:30 +0100, Eric Dumazet wrote:
+> > > I had _one_ patch, waiting that David actually had vzalloc() in its tree
+> > > before sending it.
+> > 
+> > Fine by me, use yours.
+> 
+> I dont care at all, only to say that David tree was not ready yet.
+> 
+> 
+> > 
+> > > Given Jesper Juhl was doing this work, could you please take another
+> > > one, please ?
+> > > For example, explaining him how to use other tools than "bash+egrep
+> > > +manual inspection" as he mentioned in a previous mail.
+> > 
+> > Jesper Juhl was both pointed at the cocci docs and
+> > given a cocci script.  He said he'd investigate it
+> > when he could.  I trust he will get to it.
+> > 
+> 
+> Yes, yet you posted patches, knowing he was working on the _same_
+> subject.
+> 
+And I will get to look at cocci and spatch, they are definately tools that 
+I want in my arsenal.
 
-Thanks
+> I remember other occurrences of such behavior.
+> 
+> I find this behavior very unfriendly, time consuming, and not useful.
+> 
+> We try to work together, to increase our common knowledge, not to throw
+> a bunch of patches "just because I know better than you"
+> 
 
-[PATCH] atomic: add atomic_inc_not_zero_hint()
+To be completely honest, I did get the feeling that the task I'd set for 
+myself and was having fun doing in the little spare time I have got 
+hijacked and I did waste about an hour and a half doing a few more 
+cleanups before I saw the patchset on lkml.
 
-Followup of perf tools session in Netfilter WorkShop 2010
+But on the other hand, the most important thing is that it gets done, not 
+who ends up doing it - especially since it's such a trivial cleanup, so I 
+choose to see it as my initial patches just getting the ball rolling.
 
-In network stack we make high usage of atomic_inc_not_zero() in contexts
-we know the probable value of atomic before increment (2 for udp sockets
-for example)
-
-Using a special version of atomic_inc_not_zero() giving this hint can
-help processor to use less bus transactions.
-
-On x86 (MESI protocol) for example, this avoids entering Shared state,
-because "lock cmpxchg" issues an RFO (Read For Ownership)
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Christoph Lameter <cl@linux-foundation.org>
-Cc: Ingo Molnar <mingo@elte.hu>
-Cc: Andi Kleen <andi@firstfloor.org>
-Cc: Arnaldo Carvalho de Melo <acme@infradead.org>
-Cc: David Miller <davem@davemloft.net>
-Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Cc: Nick Piggin <npiggin@kernel.dk>
----
- include/linux/atomic.h |   29 +++++++++++++++++++++++++++++
- 1 file changed, 29 insertions(+)
-
-diff --git a/include/linux/atomic.h b/include/linux/atomic.h
-new file mode 100644
-index 0000000..c04327a
---- /dev/null
-+++ b/include/linux/atomic.h
-@@ -0,0 +1,29 @@
-+#ifndef _LINUX_ATOMIC_H
-+#define _LINUX_ATOMIC_H
-+#include <asm/atomic.h>
-+
-+/**
-+ * atomic_inc_not_zero_hint - increment if not null
-+ * @v: pointer of type atomic_t
-+ * @hint: probable value of the atomic before the increment
-+ *
-+ * This version of atomic_inc_not_zero() gives a hint of probable
-+ * value of the atomic. This helps processor to not read the memory
-+ * before doing the atomic read/modify/write cycle, lowering
-+ * number of bus transactions on some arches.
-+ * Note: hint MUST not be 0 !
-+ */
-+static inline int atomic_inc_not_zero_hint(atomic_t *v, int hint)
-+{
-+	int val, c = hint;
-+
-+ 	do {
-+		val = atomic_cmpxchg(v, c, c + 1);
-+		if (val == c)
-+			return 1;
-+		c = val;
-+	} while (c);
-+
-+	return 0;
-+}
-+#endif /* _LINUX_ATOMIC_H */
+It would have been nice with at least an email along the lines of "I 
+know how we can do all those patches in a jiffy, mind if I just go along 
+and do that?", but I'll live. There's plenty of other stuff to do :-)
 
 
+-- 
+Jesper Juhl <jj@chaosbits.net>             http://www.chaosbits.net/
+Plain text mails only, please      http://www.expita.com/nomime.html
+Don't top-post  http://www.catb.org/~esr/jargon/html/T/top-post.html
+
+--8323328-1527753567-1288976490=:17746--
