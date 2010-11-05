@@ -1,75 +1,24 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: OOM when adding ipv6 route:  How to make available more per-cpu
- memory?
-Date: Fri, 05 Nov 2010 17:07:11 -0700
-Message-ID: <4CD49C2F.3060904@candelatech.com>
-References: <4CD43C87.5040403@candelatech.com>	 <1288980361.2882.1070.camel@edumazet-laptop>	 <4CD449A5.5070305@candelatech.com>	 <1288988403.2665.268.camel@edumazet-laptop> <1288995103.2665.653.camel@edumazet-laptop>
+From: ACCESS FINANCE INC <andrea.lopiccolo@fastwebnet.it>
+Subject: FINANCE
+Date: Fri, 5 Nov 2010 21:57:43 +0100 (CET)
+Message-ID: <20625437.1808101288990663302.JavaMail.root__7084.57205114446$1289003347$gmane$org@pr002msr>
+Reply-To: Access225@mail.bg
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: NetDev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Tejun Heo <tj@kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1288995103.2665.653.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aa012-1msr.fastwebnet.it ([62.101.93.132]:33112 "EHLO
+	aa012-1msr.fastwebnet.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753704Ab0KFA2u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Nov 2010 20:28:50 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/05/2010 03:11 PM, Eric Dumazet wrote:
-> Le vendredi 05 novembre 2010 =C3=A0 21:20 +0100, Eric Dumazet a =C3=A9=
-crit :
->> Your vmalloc space is very fragmented. pcpu_get_vm_areas() want
->> hugepages (4MB on your machine, 2MB on mine because I have
->> CONFIG_HIGHMEM64G=3Dy)
->
-> Well, this is wrong. We use normal (4KB) pages, unfortunately.
->
-> I have a NUMA machine, with two nodes, so pcpu_get_vm_areas() allocat=
-es
-> two zones, one for each node, with a 'known' offset between them.
-> Then, 4KB pages are allocated to populate the zone when needed.
->
-> # grep pcpu_get_vm_areas /proc/vmallocinfo
-> 0xffffe8ffa0400000-0xffffe8ffa0600000 2097152 pcpu_get_vm_areas+0x0/0=
-x740 vmalloc
-> 0xffffe8ffffc00000-0xffffe8ffffe00000 2097152 pcpu_get_vm_areas+0x0/0=
-x740 vmalloc
->
-> BTW, we dont have the number of pages currently allocated in each
-> 'vmalloc' zone, and/or node information.
->
-> Tejun, do you have plans to use hugepages eventually ?
-> (and fallback to 4KB pages, but most percpu data are allocated right
-> after boot)
+                                                                              AP
+PLY NOW FOR YOUR FINANCIAL ADVANCEMENT. ACCESS FINANCE LOAN FACILITY TO PEOPLE A
+T 2.5% FIXED INTEREST RATE. IF YOUR ARE INTERESTED IN GETTING THIS LOAN PLEASE S
+END IN THE FOLLOWING INFORMATION TO US WITHOUT DELAY: NAME.... LOAN AMOUNT... DU
+RATION... PHONE NUMBER... FROM STEVE BARRY.GUARANTEED NO MATTER YOUR CREDIT SCOR
+E.
 
-We just tried creating 1000 macvlans with IPv6 addrs on a 64-bit machin=
-e
-with 12GB RAM.  Only around 520 interfaces properly set their IPs, and
-again there are errors about of-of-memory from 'ip', but no obvious
-splats in dmesg.
-
-'top' shows 10G or so free.
-
-It will take some time to figure out what exactly is returning
-the ENOMEM....
-
-Thanks,
-Ben
-
->
-> Thanks
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kerne=
-l" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
-
-
---=20
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
