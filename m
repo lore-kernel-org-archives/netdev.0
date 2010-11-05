@@ -1,178 +1,87 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Fri, 05 Nov 2010 15:14:39 -0700 (PDT)
-Message-ID: <20101105.151439.71090650.davem@davemloft.net>
+From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
+Subject: RE: [PATCH 1/2] ixgb: Don't check for vlan group on transmit.
+Date: Fri, 5 Nov 2010 15:30:31 -0700
+Message-ID: <80769D7B14936844A23C0C43D9FBCF0F25BD180E03@orsmsx501.amr.corp.intel.com>
+References: <1288464591-31528-1-git-send-email-jesse@nicira.com>
+	 <1288984304.3091.11.camel@jtkirshe-MOBL1>
+	 <AANLkTin62WWL+cnLVNaOYmcvL28rfkUDVCVqiimSPZ=e@mail.gmail.com>
+ <1288987609.3091.16.camel@jtkirshe-MOBL1>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+To: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37128
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752728Ab0KEWOP convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Nov 2010 18:14:15 -0400
+Received: from mga14.intel.com ([143.182.124.37]:54671 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754039Ab0KEWaf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Nov 2010 18:30:35 -0400
+In-Reply-To: <1288987609.3091.16.camel@jtkirshe-MOBL1>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-Here are the bug fixes that have queued up since -rc1,
-several "touches netdev queue before device registry"
-cases as well as the "net dst" percpu fixup you want
-to see merged ASAP.
-
-Please pull, thanks a lot!
-
-The following changes since commit ff8b16d7e15a8ba2a6086645614a483e048e=
-3fbf:
-
-  vmstat: fix offset calculation on void* (2010-11-03 14:39:58 -0400)
-
-are available in the git repository at:
-  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
-
-Amerigo Wang (1):
-      netxen: remove unused firmware exports
-
-Andr=E9 Carvalho de Matos (1):
-      caif: Bugfix for socket priority, bindtodev and dbg channel.
-
-David S. Miller (2):
-      ibm_newemac: Remove netif_stop_queue() in emac_probe().
-      Merge branch 'master' of git://git.kernel.org/.../kaber/nf-2.6
-
-Divy Le Ray (3):
-      cxgb3: remove call to stop TX queues at load time.
-      cxgb4: remove call to stop TX queues at load time.
-      cxgb4vf: remove call to stop TX queues at load time.
-
-Dmitry Artamonow (1):
-      USB: gadget: fix ethernet gadget crash in gether_setup
-
-Dr. David Alan Gilbert (1):
-      l2tp: kzalloc with swapped params in l2tp_dfs_seq_open
-
-Eric Dumazet (7):
-      netfilter: nf_conntrack: allow nf_ct_alloc_hashtable() to get hig=
-hmem pages
-      netfilter: fix nf_conntrack_l4proto_register()
-      jme: fix panic on load
-      qlcnic: fix panic on load
-      atl1 : fix panic on load
-      de2104x: fix panic on load
-      fib: fib_result_assign() should not change fib refcounts
-
-Herbert Xu (1):
-      cls_cgroup: Fix crash on module unload
-
-Jan Engelhardt (1):
-      netfilter: ip6_tables: fix information leak to userspace
-
-John Faith (1):
-      smsc911x: Set Ethernet EEPROM size to supported device's size
-
-Ming Lei (1):
-      usbnet: fix usb_autopm_get_interface failure(v1)
-
-Nelson Elhage (2):
-      netlink: Make nlmsg_find_attr take a const nlmsghdr*.
-      inet_diag: Make sure we actually run the same bytecode we audited=
-=2E
-
-Patrick McHardy (1):
-      netfilter: nf_nat: fix compiler warning with CONFIG_NF_CT_NETLINK=
-=3Dn
-
-Pavel Emelyanov (2):
-      rds: Lost locking in loop connection freeing
-      rds: Remove kfreed tcp conn from list
-
-Sjur Br=E6ndeland (1):
-      caif: SPI-driver bugfix - incorrect padding.
-
-Thomas Graf (1):
-      text ematch: check for NULL pointer before destroying textsearch =
-config
-
-Tom Herbert (1):
-      net: check queue_index from sock is valid for device
-
-Uwe Kleine-K=F6nig (1):
-      trivial: fix typos concerning "function"
-
-Vasiliy Kulikov (2):
-      ipv4: netfilter: arp_tables: fix information leak to userland
-      ipv4: netfilter: ip_tables: fix information leak to userland
-
-Xiaotian Feng (1):
-      net dst: fix percpu_counter list corruption and poison overwritte=
-n
-
-Yaniv Rosner (8):
-      bnx2x: Restore appropriate delay during BMAC reset
-      bnx2x: Fix waiting for reset complete on BCM848x3 PHYs
-      bnx2x: Fix port selection in case of E2
-      bnx2x: Clear latch indication on link reset
-      bnx2x: Fix resetting BCM8726 PHY during common init
-      bnx2x: Do not enable CL37 BAM unless it is explicitly enabled
-      bnx2x: Reset 8073 phy during common init
-      bnx2x: Update version number
-
-andrew hendry (1):
-      memory corruption in X.25 facilities parsing
-
-sjur.brandeland@stericsson.com (1):
-      caif: Remove noisy printout when disconnecting caif socket
-
- drivers/isdn/hisax/isar.c            |    4 +-
- drivers/net/atlx/atl1.c              |    1 -
- drivers/net/bnx2x/bnx2x.h            |    4 +-
- drivers/net/bnx2x/bnx2x_hsi.h        |    9 +++++-
- drivers/net/bnx2x/bnx2x_link.c       |   57 +++++++++++++++++++++++++-=
---------
- drivers/net/caif/caif_spi.c          |   57 +++++++++++++++++++++++++-=
---------
- drivers/net/caif/caif_spi_slave.c    |   13 +++++--
- drivers/net/cxgb3/cxgb3_main.c       |    1 -
- drivers/net/cxgb4/cxgb4_main.c       |    1 -
- drivers/net/cxgb4vf/cxgb4vf_main.c   |    1 -
- drivers/net/ibm_newemac/core.c       |    1 -
- drivers/net/jme.c                    |    4 --
- drivers/net/netxen/netxen_nic_main.c |    3 --
- drivers/net/qlcnic/qlcnic_main.c     |    1 -
- drivers/net/smsc911x.h               |    2 +-
- drivers/net/tulip/de2104x.c          |    1 -
- drivers/net/usb/usbnet.c             |   11 ++++++
- drivers/usb/gadget/u_ether.c         |    1 -
- include/net/caif/caif_dev.h          |    4 +-
- include/net/caif/caif_spi.h          |    2 +
- include/net/caif/cfcnfg.h            |    8 ++--
- include/net/netlink.h                |    2 +-
- net/caif/caif_config_util.c          |   13 ++++++--
- net/caif/caif_dev.c                  |    2 +
- net/caif/caif_socket.c               |   45 +++++++++-----------------=
--
- net/caif/cfcnfg.c                    |   17 ++++------
- net/caif/cfctrl.c                    |    3 +-
- net/caif/cfdbgl.c                    |   14 ++++++++
- net/caif/cfrfml.c                    |    2 +-
- net/core/dev.c                       |    2 +-
- net/ipv4/fib_lookup.h                |    5 +--
- net/ipv4/inet_diag.c                 |   27 +++++++++------
- net/ipv4/netfilter/arp_tables.c      |    1 +
- net/ipv4/netfilter/ip_tables.c       |    1 +
- net/ipv4/netfilter/nf_nat_core.c     |   40 ++++++++++++------------
- net/ipv6/netfilter/ip6_tables.c      |    1 +
- net/ipv6/route.c                     |    2 +
- net/l2tp/l2tp_debugfs.c              |    2 +-
- net/netfilter/nf_conntrack_core.c    |    3 +-
- net/netfilter/nf_conntrack_proto.c   |    6 +++
- net/rds/loop.c                       |    4 ++
- net/rds/tcp.c                        |    6 +++
- net/sched/cls_cgroup.c               |    2 -
- net/sched/em_text.c                  |    3 +-
- net/x25/x25_facilities.c             |    8 ++--
- net/x25/x25_in.c                     |    2 +
- 46 files changed, 246 insertions(+), 153 deletions(-)
+DQoNCj4tLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPkZyb206IEtpcnNoZXIsIEplZmZyZXkg
+VA0KPlNlbnQ6IEZyaWRheSwgTm92ZW1iZXIgMDUsIDIwMTAgMTowNyBQTQ0KPlRvOiBKZXNzZSBH
+cm9zcw0KPkNjOiBEYXZpZCBNaWxsZXI7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IEJyYW5kZWJ1
+cmcsIEplc3NlOyBEdXljaywNCj5BbGV4YW5kZXIgSA0KPlN1YmplY3Q6IFJlOiBbUEFUQ0ggMS8y
+XSBpeGdiOiBEb24ndCBjaGVjayBmb3IgdmxhbiBncm91cCBvbiB0cmFuc21pdC4NCj4NCj5PbiBG
+cmksIDIwMTAtMTEtMDUgYXQgMTI6NTYgLTA3MDAsIEplc3NlIEdyb3NzIHdyb3RlOg0KPj4gT24g
+RnJpLCBOb3YgNSwgMjAxMCBhdCAxMjoxMSBQTSwgSmVmZiBLaXJzaGVyDQo+PiA8amVmZnJleS50
+LmtpcnNoZXJAaW50ZWwuY29tPiB3cm90ZToNCj4+ID4gT24gU2F0LCAyMDEwLTEwLTMwIGF0IDEx
+OjQ5IC0wNzAwLCBKZXNzZSBHcm9zcyB3cm90ZToNCj4+ID4+IE9uIHRyYW5zbWl0LCB0aGUgaXhn
+YiBkcml2ZXIgd2lsbCBvbmx5IHVzZSB2bGFuIGFjY2VsZXJhdGlvbiBpZiBhDQo+PiA+PiB2bGFu
+IGdyb3VwIGlzIGNvbmZpZ3VyZWQuICBUaGlzIGNhbiBsZWFkIHRvIHRhZ3MgZ2V0dGluZyBkcm9w
+cGVkDQo+PiA+PiB3aGVuIGJyaWRnaW5nIGJlY2F1c2UgdGhlIG5ldHdvcmtpbmcgY29yZSBhc3N1
+bWVzIHRoYXQgYSBkcml2ZXINCj4+ID4+IHRoYXQgY2xhaW1zIHZsYW4gYWNjZWxlcmF0aW9uIHN1
+cHBvcnQgY2FuIGRvIGl0IGF0IGFsbCB0aW1lcy4NCj5UaGlzDQo+PiA+PiBjaGFuZ2Ugc2hvdWxk
+IGhhdmUgYmVlbiBwYXJ0IG9mIGNvbW1pdCBlYWI2ZDE4ZCAidmxhbjogRG9uJ3QNCj5jaGVjayBm
+b3INCj4+ID4+IHZsYW4gZ3JvdXAgYmVmb3JlIHZsYW5fdHhfdGFnX3ByZXNlbnQuIiBidXQgd2Fz
+IG1pc3NlZC4NCj4+ID4+DQo+PiA+PiBTaWduZWQtb2ZmLWJ5OiBKZXNzZSBHcm9zcyA8amVzc2VA
+bmljaXJhLmNvbT4NCj4+ID4+IENDOiBKZWZmIEtpcnNoZXIgPGplZmZyZXkudC5raXJzaGVyQGlu
+dGVsLmNvbT4NCj4+ID4+IENDOiBKZXNzZSBCcmFuZGVidXJnIDxqZXNzZS5icmFuZGVidXJnQGlu
+dGVsLmNvbT4NCj4+ID4+IENDOiBQSiBXYXNraWV3aWN6IDxwZXRlci5wLndhc2tpZXdpY3ouanJA
+aW50ZWwuY29tPg0KPj4gPj4gLS0tDQo+PiA+PiAgZHJpdmVycy9uZXQvaXhnYi9peGdiX21haW4u
+YyB8ICAgIDIgKy0NCj4+ID4+ICAxIGZpbGVzIGNoYW5nZWQsIDEgaW5zZXJ0aW9ucygrKSwgMSBk
+ZWxldGlvbnMoLSkNCj4+ID4+DQo+PiA+PiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvaXhnYi9p
+eGdiX21haW4uYw0KPmIvZHJpdmVycy9uZXQvaXhnYi9peGdiX21haW4uYw0KPj4gPj4gaW5kZXgg
+Y2FhODE5Mi4uZDE4MTk0ZSAxMDA2NDQNCj4+ID4+IC0tLSBhL2RyaXZlcnMvbmV0L2l4Z2IvaXhn
+Yl9tYWluLmMNCj4+ID4+ICsrKyBiL2RyaXZlcnMvbmV0L2l4Z2IvaXhnYl9tYWluLmMNCj4+ID4+
+IEBAIC0xNDk4LDcgKzE0OTgsNyBAQCBpeGdiX3htaXRfZnJhbWUoc3RydWN0IHNrX2J1ZmYgKnNr
+Yiwgc3RydWN0DQo+bmV0X2RldmljZSAqbmV0ZGV2KQ0KPj4gPj4gICAgICAgICAgICAgICAgICAg
+ICAgIERFU0NfTkVFREVEKSkpDQo+PiA+PiAgICAgICAgICAgICAgIHJldHVybiBORVRERVZfVFhf
+QlVTWTsNCj4+ID4+DQo+PiA+PiAtICAgICBpZiAoYWRhcHRlci0+dmxncnAgJiYgdmxhbl90eF90
+YWdfcHJlc2VudChza2IpKSB7DQo+PiA+PiArICAgICBpZiAodmxhbl90eF90YWdfcHJlc2VudChz
+a2IpKSB7DQo+PiA+PiAgICAgICAgICAgICAgIHR4X2ZsYWdzIHw9IElYR0JfVFhfRkxBR1NfVkxB
+TjsNCj4+ID4+ICAgICAgICAgICAgICAgdmxhbl9pZCA9IHZsYW5fdHhfdGFnX2dldChza2IpOw0K
+Pj4gPj4gICAgICAgfQ0KPj4gPg0KPj4gPiBBZnRlciBmdXJ0aGVyIHJldmlldywgTkFLIGJlY2F1
+c2UgdGhpcyB3aWxsIGNhdXNlIGEgYnVnLiAgV2l0aA0KPnRoaXMNCj4+ID4gcGF0Y2ggaXQgd291
+bGQgYmUgcG9zc2libGUgdG8gb3ZlcnJ1biB0aGUgYnVmZmVycywgc28gdGhlIGNvcnJlY3QNCj5m
+aXggaXMNCj4+ID4gdG8gaW5jcmVhc2UgbWF4X2ZyYW1lX3NpemUgYnkgVkxBTl9UQUdfU0laRSBp
+bg0KPml4Z2IvaWdiX2NoYW5nZV9tdHUuDQo+Pg0KPj4gSG1tLCBJIGRpZG4ndCBzZWUgYW55IG90
+aGVyIHBsYWNlIHdoZXJlIGl0IG1hZGUgY2hhbmdlcyB0byB0aGUNCj4+IGhhbmRsaW5nIG9mIHBh
+Y2tldHMgb24gdHJhbnNtaXQgaWYgYSB2bGFuIGdyb3VwIGlzIGNvbmZpZ3VyZWQuDQo+TWF5YmUN
+Cj4+IHRoZSBidWZmZXIgaXMgZXh0ZW5kZWQgd2hlbiBhIGdyb3VwIGlzIHJlZ2lzdGVyZWQgYW5k
+IHN0cmlwcGluZyBpcw0KPj4gZW5hYmxlZD8NCj4+DQo+PiBJbiBhbnkgY2FzZSwgeW91IG1pZ2h0
+IHdhbnQgdG8gY2hlY2sgdGhlIG90aGVyIEludGVsIGRyaXZlcnMgZm9yDQo+PiBzaW1pbGFyIHBy
+b2JsZW1zLiAgSSBkaWQgYSBwYXNzIGFuZCBtYWRlIGEgbWFzcyBjb252ZXJzaW9uIG9mIHRoaXMN
+Cj4+IHR5cGUgYSBsaXR0bGUgd2hpbGUgYWdvLiAgVGhvc2UgY2hhbmdlcyBoYXZlIGFscmVhZHkg
+YmVlbiBtZXJnZWQsIEkNCj4+IGp1c3QgbWlzc2VkIHRoaXMgb25lIGJ5IGFjY2lkZW50Lg0KPg0K
+Pkkgd2lsbCBnZXQgd2l0aCBBbGV4IGFuZCByZXZpZXcgdGhlIG90aGVyIEludGVsIGRyaXZlcnMs
+IHRoYW5rcyBKZXNzZS4NCg0KSnVzdCB0byBtYWtlIHRoaW5ncyBjbGVhci4gIFRoZSBpeGdiIHBh
+dGNoIGlzIGZpbmUuICBUaGVyZSBpc24ndCBhbnl0aGluZyB3cm9uZyB3aXRoIGl0Lg0KDQpUaGUg
+cGF0Y2ggd2l0aCB0aGUgYnVnIGlzIHRoZSBvdGhlciBwYXRjaCwgIjIvMiBpZ2I6IERvbid0IGRl
+cGVuZCBvbiBWTEFOIGdyb3VwIGZvciByZWNlaXZlIHNpemUiLiAgVGhlIHByb2JsZW0gaXMgaXQg
+d2FzIHVwZGF0aW5nIHRoZSBSTFBNTCByZWdpc3RlciwgYnV0IG5vdCB1cGRhdGluZyB0aGUgYnVm
+ZmVyIHNpemVzIGFzIHN1Y2ggdGhlcmUgd2VyZSBhIGZldyBjYXNlcyB3aGVyZSB3ZSBjb3VsZCBy
+ZWNlaXZlIGEgYnVmZmVyIGxhcmdlciB0aGUgU0tCIGhlYWQgcm9vbS4gIFRoZSBidWcgaXRzZWxm
+IHByb2JhYmx5IHdvbid0IGNvbWUgdXAgdmVyeSBvZnRlbiBzaW5jZSB0aGVyZSBhcmUgb25seSBh
+IGNvdXBsZSBvZiB2ZXJ5IHNwZWNpZmljIE1UVSBzaXplcyB3aGVyZSBpdCB3aWxsIGJlIGFuIGlz
+c3VlLg0KDQpUaGUgcXVpY2sgZml4IGZvciB5b3VyIHBhdGNoIGlzIHRvIG1vdmUgdGhlIGFkZGl0
+aW9uIG9mIFZMQU5fVEFHX1NJWkUgdG8gdGhlIG1heF9mcmFtZSBpbiBpZ2JfY2hhbmdlX210dSBp
+bnN0ZWFkIG9mIGluIHRoZSBzZXRfcmxwbWwgY2FsbC4gIE90aGVyd2lzZSBJIHdpbGwgc2VlIGFi
+b3V0IHN1Ym1pdHRpbmcgYW4gdXBkYXRlZCBwYXRjaCBpbiB0aGUgbmV4dCBmZXcgZGF5cy4NCg0K
+VGhhbmtzLA0KDQpBbGV4DQo=
