@@ -1,45 +1,40 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 30/49] drivers/net/sfc: Use vzalloc
-Date: Thu,  4 Nov 2010 20:07:54 -0700
-Message-ID: <70ba2984e2d82d5f7dd6733f8466e3b2a8774747.1288925425.git.joe@perches.com>
+Subject: [PATCH 21/49] drivers/net/ehea: Use vzalloc
+Date: Thu,  4 Nov 2010 20:07:45 -0700
+Message-ID: <488a71bfe20f9bad2440db9b7da18de2650628f0.1288925424.git.joe@perches.com>
 References: <alpine.DEB.2.00.1011031108260.11625@router.home>
-Cc: Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
-	Steve Hodgson <shodgson@solarflare.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: Breno Leitao <leitao@linux.vnet.ibm.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 To: Jiri Kosina <trivial@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:4140 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753816Ab0KEDI5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Nov 2010 23:08:57 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <alpine.DEB.2.00.1011031108260.11625@router.home>
 In-Reply-To: <cover.1288925424.git.joe@perches.com>
 References: <cover.1288925424.git.joe@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/sfc/filter.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+ drivers/net/ehea/ehea_main.c |    4 +---
+ 1 files changed, 1 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/sfc/filter.c b/drivers/net/sfc/filter.c
-index 52cb608..44500b5 100644
---- a/drivers/net/sfc/filter.c
-+++ b/drivers/net/sfc/filter.c
-@@ -428,10 +428,9 @@ int efx_probe_filters(struct efx_nic *efx)
- 					     GFP_KERNEL);
- 		if (!table->used_bitmap)
- 			goto fail;
--		table->spec = vmalloc(table->size * sizeof(*table->spec));
-+		table->spec = vzalloc(table->size * sizeof(*table->spec));
- 		if (!table->spec)
- 			goto fail;
--		memset(table->spec, 0, table->size * sizeof(*table->spec));
- 	}
+diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.c
+index 182b2a7..a84c389 100644
+--- a/drivers/net/ehea/ehea_main.c
++++ b/drivers/net/ehea/ehea_main.c
+@@ -1496,12 +1496,10 @@ static int ehea_init_q_skba(struct ehea_q_skb_arr *q_skba, int max_q_entries)
+ {
+ 	int arr_size = sizeof(void *) * max_q_entries;
  
- 	return 0;
+-	q_skba->arr = vmalloc(arr_size);
++	q_skba->arr = vzalloc(arr_size);
+ 	if (!q_skba->arr)
+ 		return -ENOMEM;
+ 
+-	memset(q_skba->arr, 0, arr_size);
+-
+ 	q_skba->len = max_q_entries;
+ 	q_skba->index = 0;
+ 	q_skba->os_skbs = 0;
 -- 
 1.7.3.1.g432b3.dirty
-
