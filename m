@@ -1,44 +1,41 @@
-From: Nikola Ciprich <extmaillist@linuxbox.cz>
-Subject: 2.6.36 vlans & bridge crash - status?
-Date: Fri, 5 Nov 2010 11:35:20 +0100
-Message-ID: <20101105103520.GA3577@pcnci.linuxbox.cz>
+From: Ulrich Weber <uweber@astaro.com>
+Subject: [PATCH] xfrm: update flowi saddr in icmp_send if unset
+Date: Fri, 5 Nov 2010 12:39:12 +0100
+Message-ID: <20101105113912.GA14694@babylon>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: nikola.ciprich@linuxbox.cz
-To: netdev list <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gwu.lbox.cz ([62.245.111.132]:49795 "EHLO gwu.lbox.cz"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751070Ab0KELKW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Nov 2010 07:10:22 -0400
-Received: from linuxbox.linuxbox.cz (server.linuxbox.cz [10.76.66.10])
-	by gwu.lbox.cz (Sendmail) with ESMTP id oA5AZQ6v000710
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Fri, 5 Nov 2010 11:35:26 +0100
+Received: from dhost002-48.dex002.intermedia.net ([64.78.21.144]:38144 "EHLO
+	dhost002-48.dex002.intermedia.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751591Ab0KELyh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Nov 2010 07:54:37 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
-I would like to ask if somebody is trying to solve
-https://bugzilla.kernel.org/show_bug.cgi?id=20462
-and if needed, could I provide some help, testing etc?
-thanks a lot in advance!
-with best regards
-nik
+otherwise xfrm_lookup will fail to find correct policy
 
+Signed-off-by: Ulrich Weber <uweber@astaro.com>
+---
+ net/ipv4/icmp.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
+diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+index 96bc7f9..e5d1a44 100644
+--- a/net/ipv4/icmp.c
++++ b/net/ipv4/icmp.c
+@@ -569,6 +569,9 @@ void icmp_send(struct sk_buff *skb_in, int type, int code, __be32 info)
+ 		/* No need to clone since we're just using its address. */
+ 		rt2 = rt;
+ 
++		if (!fl.nl_u.ip4_u.saddr)
++			fl.nl_u.ip4_u.saddr = rt->rt_src;
++
+ 		err = xfrm_lookup(net, (struct dst_entry **)&rt, &fl, NULL, 0);
+ 		switch (err) {
+ 		case 0:
 -- 
--------------------------------------
-Ing. Nikola CIPRICH
-LinuxBox.cz, s.r.o.
-28. rijna 168, 709 01 Ostrava
+1.7.1
 
-tel.:   +420 596 603 142
-fax:    +420 596 621 273
-mobil:  +420 777 093 799
-www.linuxbox.cz
-
-mobil servis: +420 737 238 656
-email servis: servis@linuxbox.cz
--------------------------------------
