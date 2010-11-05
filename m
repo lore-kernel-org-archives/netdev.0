@@ -1,87 +1,50 @@
-From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
-Subject: RE: [PATCH 1/2] ixgb: Don't check for vlan group on transmit.
-Date: Fri, 5 Nov 2010 15:30:31 -0700
-Message-ID: <80769D7B14936844A23C0C43D9FBCF0F25BD180E03@orsmsx501.amr.corp.intel.com>
-References: <1288464591-31528-1-git-send-email-jesse@nicira.com>
-	 <1288984304.3091.11.camel@jtkirshe-MOBL1>
-	 <AANLkTin62WWL+cnLVNaOYmcvL28rfkUDVCVqiimSPZ=e@mail.gmail.com>
- <1288987609.3091.16.camel@jtkirshe-MOBL1>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-To: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	Jesse Gross <jesse@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:54671 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754039Ab0KEWaf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Nov 2010 18:30:35 -0400
-In-Reply-To: <1288987609.3091.16.camel@jtkirshe-MOBL1>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 0/7] Convert sprintf_symbol uses to %p[Ss]
+Date: Fri,  5 Nov 2010 16:12:33 -0700
+Message-ID: <1288998760-11775-1-git-send-email-joe@perches.com>
+Cc: linux-arm-kernel@lists.infradead.org,
+	linux-kernel@vger.kernel.org,
+	cluster-devel@redhat.com,
+	linux-mm@kvack.org,
+	linux-nfs@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Jiri Kosina <trivial@kernel.org>
+Return-path: <owner-linux-mm@kvack.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-DQoNCj4tLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPkZyb206IEtpcnNoZXIsIEplZmZyZXkg
-VA0KPlNlbnQ6IEZyaWRheSwgTm92ZW1iZXIgMDUsIDIwMTAgMTowNyBQTQ0KPlRvOiBKZXNzZSBH
-cm9zcw0KPkNjOiBEYXZpZCBNaWxsZXI7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IEJyYW5kZWJ1
-cmcsIEplc3NlOyBEdXljaywNCj5BbGV4YW5kZXIgSA0KPlN1YmplY3Q6IFJlOiBbUEFUQ0ggMS8y
-XSBpeGdiOiBEb24ndCBjaGVjayBmb3IgdmxhbiBncm91cCBvbiB0cmFuc21pdC4NCj4NCj5PbiBG
-cmksIDIwMTAtMTEtMDUgYXQgMTI6NTYgLTA3MDAsIEplc3NlIEdyb3NzIHdyb3RlOg0KPj4gT24g
-RnJpLCBOb3YgNSwgMjAxMCBhdCAxMjoxMSBQTSwgSmVmZiBLaXJzaGVyDQo+PiA8amVmZnJleS50
-LmtpcnNoZXJAaW50ZWwuY29tPiB3cm90ZToNCj4+ID4gT24gU2F0LCAyMDEwLTEwLTMwIGF0IDEx
-OjQ5IC0wNzAwLCBKZXNzZSBHcm9zcyB3cm90ZToNCj4+ID4+IE9uIHRyYW5zbWl0LCB0aGUgaXhn
-YiBkcml2ZXIgd2lsbCBvbmx5IHVzZSB2bGFuIGFjY2VsZXJhdGlvbiBpZiBhDQo+PiA+PiB2bGFu
-IGdyb3VwIGlzIGNvbmZpZ3VyZWQuICBUaGlzIGNhbiBsZWFkIHRvIHRhZ3MgZ2V0dGluZyBkcm9w
-cGVkDQo+PiA+PiB3aGVuIGJyaWRnaW5nIGJlY2F1c2UgdGhlIG5ldHdvcmtpbmcgY29yZSBhc3N1
-bWVzIHRoYXQgYSBkcml2ZXINCj4+ID4+IHRoYXQgY2xhaW1zIHZsYW4gYWNjZWxlcmF0aW9uIHN1
-cHBvcnQgY2FuIGRvIGl0IGF0IGFsbCB0aW1lcy4NCj5UaGlzDQo+PiA+PiBjaGFuZ2Ugc2hvdWxk
-IGhhdmUgYmVlbiBwYXJ0IG9mIGNvbW1pdCBlYWI2ZDE4ZCAidmxhbjogRG9uJ3QNCj5jaGVjayBm
-b3INCj4+ID4+IHZsYW4gZ3JvdXAgYmVmb3JlIHZsYW5fdHhfdGFnX3ByZXNlbnQuIiBidXQgd2Fz
-IG1pc3NlZC4NCj4+ID4+DQo+PiA+PiBTaWduZWQtb2ZmLWJ5OiBKZXNzZSBHcm9zcyA8amVzc2VA
-bmljaXJhLmNvbT4NCj4+ID4+IENDOiBKZWZmIEtpcnNoZXIgPGplZmZyZXkudC5raXJzaGVyQGlu
-dGVsLmNvbT4NCj4+ID4+IENDOiBKZXNzZSBCcmFuZGVidXJnIDxqZXNzZS5icmFuZGVidXJnQGlu
-dGVsLmNvbT4NCj4+ID4+IENDOiBQSiBXYXNraWV3aWN6IDxwZXRlci5wLndhc2tpZXdpY3ouanJA
-aW50ZWwuY29tPg0KPj4gPj4gLS0tDQo+PiA+PiAgZHJpdmVycy9uZXQvaXhnYi9peGdiX21haW4u
-YyB8ICAgIDIgKy0NCj4+ID4+ICAxIGZpbGVzIGNoYW5nZWQsIDEgaW5zZXJ0aW9ucygrKSwgMSBk
-ZWxldGlvbnMoLSkNCj4+ID4+DQo+PiA+PiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvaXhnYi9p
-eGdiX21haW4uYw0KPmIvZHJpdmVycy9uZXQvaXhnYi9peGdiX21haW4uYw0KPj4gPj4gaW5kZXgg
-Y2FhODE5Mi4uZDE4MTk0ZSAxMDA2NDQNCj4+ID4+IC0tLSBhL2RyaXZlcnMvbmV0L2l4Z2IvaXhn
-Yl9tYWluLmMNCj4+ID4+ICsrKyBiL2RyaXZlcnMvbmV0L2l4Z2IvaXhnYl9tYWluLmMNCj4+ID4+
-IEBAIC0xNDk4LDcgKzE0OTgsNyBAQCBpeGdiX3htaXRfZnJhbWUoc3RydWN0IHNrX2J1ZmYgKnNr
-Yiwgc3RydWN0DQo+bmV0X2RldmljZSAqbmV0ZGV2KQ0KPj4gPj4gICAgICAgICAgICAgICAgICAg
-ICAgIERFU0NfTkVFREVEKSkpDQo+PiA+PiAgICAgICAgICAgICAgIHJldHVybiBORVRERVZfVFhf
-QlVTWTsNCj4+ID4+DQo+PiA+PiAtICAgICBpZiAoYWRhcHRlci0+dmxncnAgJiYgdmxhbl90eF90
-YWdfcHJlc2VudChza2IpKSB7DQo+PiA+PiArICAgICBpZiAodmxhbl90eF90YWdfcHJlc2VudChz
-a2IpKSB7DQo+PiA+PiAgICAgICAgICAgICAgIHR4X2ZsYWdzIHw9IElYR0JfVFhfRkxBR1NfVkxB
-TjsNCj4+ID4+ICAgICAgICAgICAgICAgdmxhbl9pZCA9IHZsYW5fdHhfdGFnX2dldChza2IpOw0K
-Pj4gPj4gICAgICAgfQ0KPj4gPg0KPj4gPiBBZnRlciBmdXJ0aGVyIHJldmlldywgTkFLIGJlY2F1
-c2UgdGhpcyB3aWxsIGNhdXNlIGEgYnVnLiAgV2l0aA0KPnRoaXMNCj4+ID4gcGF0Y2ggaXQgd291
-bGQgYmUgcG9zc2libGUgdG8gb3ZlcnJ1biB0aGUgYnVmZmVycywgc28gdGhlIGNvcnJlY3QNCj5m
-aXggaXMNCj4+ID4gdG8gaW5jcmVhc2UgbWF4X2ZyYW1lX3NpemUgYnkgVkxBTl9UQUdfU0laRSBp
-bg0KPml4Z2IvaWdiX2NoYW5nZV9tdHUuDQo+Pg0KPj4gSG1tLCBJIGRpZG4ndCBzZWUgYW55IG90
-aGVyIHBsYWNlIHdoZXJlIGl0IG1hZGUgY2hhbmdlcyB0byB0aGUNCj4+IGhhbmRsaW5nIG9mIHBh
-Y2tldHMgb24gdHJhbnNtaXQgaWYgYSB2bGFuIGdyb3VwIGlzIGNvbmZpZ3VyZWQuDQo+TWF5YmUN
-Cj4+IHRoZSBidWZmZXIgaXMgZXh0ZW5kZWQgd2hlbiBhIGdyb3VwIGlzIHJlZ2lzdGVyZWQgYW5k
-IHN0cmlwcGluZyBpcw0KPj4gZW5hYmxlZD8NCj4+DQo+PiBJbiBhbnkgY2FzZSwgeW91IG1pZ2h0
-IHdhbnQgdG8gY2hlY2sgdGhlIG90aGVyIEludGVsIGRyaXZlcnMgZm9yDQo+PiBzaW1pbGFyIHBy
-b2JsZW1zLiAgSSBkaWQgYSBwYXNzIGFuZCBtYWRlIGEgbWFzcyBjb252ZXJzaW9uIG9mIHRoaXMN
-Cj4+IHR5cGUgYSBsaXR0bGUgd2hpbGUgYWdvLiAgVGhvc2UgY2hhbmdlcyBoYXZlIGFscmVhZHkg
-YmVlbiBtZXJnZWQsIEkNCj4+IGp1c3QgbWlzc2VkIHRoaXMgb25lIGJ5IGFjY2lkZW50Lg0KPg0K
-Pkkgd2lsbCBnZXQgd2l0aCBBbGV4IGFuZCByZXZpZXcgdGhlIG90aGVyIEludGVsIGRyaXZlcnMs
-IHRoYW5rcyBKZXNzZS4NCg0KSnVzdCB0byBtYWtlIHRoaW5ncyBjbGVhci4gIFRoZSBpeGdiIHBh
-dGNoIGlzIGZpbmUuICBUaGVyZSBpc24ndCBhbnl0aGluZyB3cm9uZyB3aXRoIGl0Lg0KDQpUaGUg
-cGF0Y2ggd2l0aCB0aGUgYnVnIGlzIHRoZSBvdGhlciBwYXRjaCwgIjIvMiBpZ2I6IERvbid0IGRl
-cGVuZCBvbiBWTEFOIGdyb3VwIGZvciByZWNlaXZlIHNpemUiLiAgVGhlIHByb2JsZW0gaXMgaXQg
-d2FzIHVwZGF0aW5nIHRoZSBSTFBNTCByZWdpc3RlciwgYnV0IG5vdCB1cGRhdGluZyB0aGUgYnVm
-ZmVyIHNpemVzIGFzIHN1Y2ggdGhlcmUgd2VyZSBhIGZldyBjYXNlcyB3aGVyZSB3ZSBjb3VsZCBy
-ZWNlaXZlIGEgYnVmZmVyIGxhcmdlciB0aGUgU0tCIGhlYWQgcm9vbS4gIFRoZSBidWcgaXRzZWxm
-IHByb2JhYmx5IHdvbid0IGNvbWUgdXAgdmVyeSBvZnRlbiBzaW5jZSB0aGVyZSBhcmUgb25seSBh
-IGNvdXBsZSBvZiB2ZXJ5IHNwZWNpZmljIE1UVSBzaXplcyB3aGVyZSBpdCB3aWxsIGJlIGFuIGlz
-c3VlLg0KDQpUaGUgcXVpY2sgZml4IGZvciB5b3VyIHBhdGNoIGlzIHRvIG1vdmUgdGhlIGFkZGl0
-aW9uIG9mIFZMQU5fVEFHX1NJWkUgdG8gdGhlIG1heF9mcmFtZSBpbiBpZ2JfY2hhbmdlX210dSBp
-bnN0ZWFkIG9mIGluIHRoZSBzZXRfcmxwbWwgY2FsbC4gIE90aGVyd2lzZSBJIHdpbGwgc2VlIGFi
-b3V0IHN1Ym1pdHRpbmcgYW4gdXBkYXRlZCBwYXRjaCBpbiB0aGUgbmV4dCBmZXcgZGF5cy4NCg0K
-VGhhbmtzLA0KDQpBbGV4DQo=
+Remove unnecessary declarations of temporary buffers.
+Use %pS or %ps as appropriate.
+Minor reformatting in a couple of places.
+
+Compiled, but otherwise untested.
+
+Joe Perches (7):
+  arch/arm/kernel/traps.c: Convert sprintf_symbol to %pS
+  arch/x86/kernel/pci-iommu_table.c: Convert sprintf_symbol to %pS
+  fs/gfs2/glock.c: Convert sprintf_symbol to %pS
+  fs/proc/base.c kernel/latencytop.c: Convert sprintf_symbol to %ps
+  kernel/lockdep_proc.c: Convert sprintf_symbol to %pS
+  mm: Convert sprintf_symbol to %pS
+  net/sunrpc/clnt.c: Convert sprintf_symbol to %ps
+
+ arch/arm/kernel/traps.c           |    5 +----
+ arch/x86/kernel/pci-iommu_table.c |   18 ++++--------------
+ fs/gfs2/glock.c                   |   15 +++++++--------
+ fs/proc/base.c                    |   22 ++++++++--------------
+ kernel/latencytop.c               |   23 +++++++++--------------
+ kernel/lockdep_proc.c             |   16 ++++++----------
+ mm/slub.c                         |   11 ++++-------
+ mm/vmalloc.c                      |    9 ++-------
+ net/sunrpc/clnt.c                 |   12 ++----------
+ 9 files changed, 43 insertions(+), 88 deletions(-)
+
+-- 
+1.7.3.2.146.gca209
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom policy in Canada: sign http://dissolvethecrtc.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
