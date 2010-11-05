@@ -1,63 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] atomic: add atomic_inc_not_zero_hint()
-Date: Fri, 05 Nov 2010 20:46:31 +0100
-Message-ID: <1288986391.2665.157.camel@edumazet-laptop>
-References: <1288975980.2882.877.camel@edumazet-laptop>
-	 <20101105102038.53e36f9e.akpm@linux-foundation.org>
-	 <1288980046.2882.1054.camel@edumazet-laptop>
-	 <20101105110828.52f061b3.akpm@linux-foundation.org>
-	 <1288981224.2882.1105.camel@edumazet-laptop>
-	 <20101105112821.57f80481.akpm@linux-foundation.org>
-	 <1288984844.2665.52.camel@edumazet-laptop>
-	 <20101105123927.5779e464.akpm@linux-foundation.org>
+From: "Lucas C. Villa Real" <lucasvr@gobolinux.org>
+Subject: [PATCH] iputils build fix
+Date: Fri, 5 Nov 2010 17:49:39 -0200
+Message-ID: <AANLkTikrxk2zTJffVvjjez=4c9na=4ioVOgQ4pD61qWw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Christoph Lameter <cl@linux-foundation.org>,
-	Ingo Molnar <mingo@elte.hu>, Andi Kleen <andi@firstfloor.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Nick Piggin <npiggin@kernel.dk>
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: multipart/mixed; boundary=001517511d3a30eaeb0494539342
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:40527 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754618Ab0KETqk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Nov 2010 15:46:40 -0400
-In-Reply-To: <20101105123927.5779e464.akpm@linux-foundation.org>
+Received: from mail-qy0-f181.google.com ([209.85.216.181]:56758 "EHLO
+	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752712Ab0KETtk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Nov 2010 15:49:40 -0400
+Received: by qyk10 with SMTP id 10so2987442qyk.19
+        for <netdev@vger.kernel.org>; Fri, 05 Nov 2010 12:49:39 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 05 novembre 2010 =C3=A0 12:39 -0700, Andrew Morton a =C3=A9=
-crit :
+--001517511d3a30eaeb0494539342
+Content-Type: text/plain; charset=ISO-8859-1
 
-> Ah.  I wasn't able to see much duplicated code at all, so I wasn't su=
-re
-> that we needed to bother about this issue.
->=20
-> yup, atomic_inc_not_zero() looks like a candidate.
+Hi,
 
-yes, and atomic_add_unless()...
+Please find attached a patch which fixes the build of
+iputils-s20101006 on platforms that don't have the SO_MARK operation.
 
->=20
-> > [PATCH v3] atomic: add atomic_inc_not_zero_hint()
->=20
-> Let's go with this for now ;)
->=20
-> I'll assume that you intend to make use of this function soon, and it
-> looks safe enough to sneak it into 2.6.37-rc2, IMO.  If Linus shouts =
-at
-> me then we could merge it into 2.6.38-rc1 via net-next, but I think
-> straight-to-mainline is best.
->=20
+Thanks,
+Lucas
 
-Well, I dont expect using it before 2.6.38, no hurry Andrew, but it
-probably can be merged before, since it has no user yet. It'll help our
-job for sure.
+--001517511d3a30eaeb0494539342
+Content-Type: application/octet-stream; name="01-iputils-SO_MARK.patch"
+Content-Disposition: attachment; filename="01-iputils-SO_MARK.patch"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_gg5h7nwf0
 
-Thanks
-
-
+Rml4ZXMgYnVpbGQgb24gcGxhdGZvcm1zIHdoZXJlIFNPX01BUksgaXMgbm90IGRlZmluZWQuCgpT
+aWduZWQtb2ZmLWJ5OiBMdWNhcyBDLiBWaWxsYSBSZWFsIDxsdWNhc3ZyQHVzLmlibS5jb20+Cgpk
+aWZmIC11cnAgaXB1dGlscy1zMjAxMDEwMDYub3JpZy9waW5nX2NvbW1vbi5jIGlwdXRpbHMtczIw
+MTAxMDA2L3BpbmdfY29tbW9uLmMKLS0tIGlwdXRpbHMtczIwMTAxMDA2Lm9yaWcvcGluZ19jb21t
+b24uYwkyMDEwLTEwLTA2IDA4OjU5OjIwLjAwMDAwMDAwMCAtMDMwMAorKysgaXB1dGlscy1zMjAx
+MDEwMDYvcGluZ19jb21tb24uYwkyMDEwLTExLTA1IDE2OjA4OjA2LjAwMDAwMDAwMCAtMDIwMApA
+QCAtNDc1LDYgKzQ3NSw3IEBAIHZvaWQgc2V0dXAoaW50IGljbXBfc29jaykKIAkJCWZwcmludGYo
+c3RkZXJyLCAiV2FybmluZzogbm8gU09fVElNRVNUQU1QIHN1cHBvcnQsIGZhbGxpbmcgYmFjayB0
+byBTSU9DR1NUQU1QXG4iKTsKIAl9CiAjZW5kaWYKKyNpZmRlZiBTT19NQVJLCiAJaWYgKG9wdGlv
+bnMgJiBGX01BUkspIHsKIAkJaWYgKHNldHNvY2tvcHQoaWNtcF9zb2NrLCBTT0xfU09DS0VULCBT
+T19NQVJLLAogCQkJCSZtYXJrLCBzaXplb2YobWFyaykpID09IC0xKSB7CkBAIC00ODQsNiArNDg1
+LDcgQEAgdm9pZCBzZXR1cChpbnQgaWNtcF9zb2NrKQogCQkJZnByaW50ZihzdGRlcnIsICJXYXJu
+aW5nOiBGYWlsZWQgdG8gc2V0IG1hcmsgJWRcbiIsIG1hcmspOwogCQl9CiAJfQorI2VuZGlmCiAK
+IAkvKiBTZXQgc29tZSBTTkRUSU1FTyB0byBwcmV2ZW50IGJsb2NraW5nIGZvcmV2ZXIKIAkgKiBv
+biBzZW5kcywgd2hlbiBkZXZpY2UgaXMgdG9vIHNsb3cgb3Igc3RhbGxzLiBKdXN0IHB1dCBsaW1p
+dAo=
+--001517511d3a30eaeb0494539342--
