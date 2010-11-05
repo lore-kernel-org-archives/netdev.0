@@ -1,9 +1,9 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 45/49] net/core/pktgen.c: Use vzalloc
-Date: Thu,  4 Nov 2010 20:08:09 -0700
-Message-ID: <01a5bd0185f5d41ce510c1e15358044f6c3b9349.1288925425.git.joe@perches.com>
+Subject: [PATCH 32/49] drivers/net/bnx2.c: Use vzalloc
+Date: Thu,  4 Nov 2010 20:07:56 -0700
+Message-ID: <d7426ed19adf82783f1cf87cd95637594f3f2e40.1288925425.git.joe@perches.com>
 References: <alpine.DEB.2.00.1011031108260.11625@router.home>
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+Cc: Michael Chan <mchan@broadcom.com>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 To: Jiri Kosina <trivial@kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -15,27 +15,42 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- net/core/pktgen.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+ drivers/net/bnx2.c |   10 ++--------
+ 1 files changed, 2 insertions(+), 8 deletions(-)
 
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index fbce4b0..ccca6cd 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -3706,13 +3706,12 @@ static int pktgen_add_device(struct pktgen_thread *t, const char *ifname)
- 		return -ENOMEM;
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index 062600b..aba4d0f 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -766,13 +766,10 @@ bnx2_alloc_rx_mem(struct bnx2 *bp)
+ 		int j;
  
- 	strcpy(pkt_dev->odevname, ifname);
--	pkt_dev->flows = vmalloc_node(MAX_CFLOWS * sizeof(struct flow_state),
-+	pkt_dev->flows = vzalloc_node(MAX_CFLOWS * sizeof(struct flow_state),
- 				      node);
- 	if (pkt_dev->flows == NULL) {
- 		kfree(pkt_dev);
- 		return -ENOMEM;
- 	}
--	memset(pkt_dev->flows, 0, MAX_CFLOWS * sizeof(struct flow_state));
+ 		rxr->rx_buf_ring =
+-			vmalloc(SW_RXBD_RING_SIZE * bp->rx_max_ring);
++			vzalloc(SW_RXBD_RING_SIZE * bp->rx_max_ring);
+ 		if (rxr->rx_buf_ring == NULL)
+ 			return -ENOMEM;
  
- 	pkt_dev->removal_mark = 0;
- 	pkt_dev->min_pkt_size = ETH_ZLEN;
+-		memset(rxr->rx_buf_ring, 0,
+-		       SW_RXBD_RING_SIZE * bp->rx_max_ring);
+-
+ 		for (j = 0; j < bp->rx_max_ring; j++) {
+ 			rxr->rx_desc_ring[j] =
+ 				dma_alloc_coherent(&bp->pdev->dev,
+@@ -785,13 +782,10 @@ bnx2_alloc_rx_mem(struct bnx2 *bp)
+ 		}
+ 
+ 		if (bp->rx_pg_ring_size) {
+-			rxr->rx_pg_ring = vmalloc(SW_RXPG_RING_SIZE *
++			rxr->rx_pg_ring = vzalloc(SW_RXPG_RING_SIZE *
+ 						  bp->rx_max_pg_ring);
+ 			if (rxr->rx_pg_ring == NULL)
+ 				return -ENOMEM;
+-
+-			memset(rxr->rx_pg_ring, 0, SW_RXPG_RING_SIZE *
+-			       bp->rx_max_pg_ring);
+ 		}
+ 
+ 		for (j = 0; j < bp->rx_max_pg_ring; j++) {
 -- 
 1.7.3.1.g432b3.dirty
