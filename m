@@ -1,140 +1,73 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH] atomic: add atomic_inc_not_zero_hint()
-Date: Fri, 5 Nov 2010 12:51:01 -0700
-Message-ID: <20101105195101.GC15561@linux.vnet.ibm.com>
-References: <1288975980.2882.877.camel@edumazet-laptop>
- <20101105102038.53e36f9e.akpm@linux-foundation.org>
- <1288980046.2882.1054.camel@edumazet-laptop>
- <20101105110828.52f061b3.akpm@linux-foundation.org>
- <1288981224.2882.1105.camel@edumazet-laptop>
- <20101105112821.57f80481.akpm@linux-foundation.org>
- <1288984844.2665.52.camel@edumazet-laptop>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: "Lucas C. Villa Real" <lucasvr@gobolinux.org>
+Subject: [PATCH] iputils signal mask issue
+Date: Fri, 5 Nov 2010 17:56:24 -0200
+Message-ID: <AANLkTikuA-H23FH7-WzAu1nsVXb2SxR+tbQ8d8BNdoW+@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Christoph Lameter <cl@linux-foundation.org>,
-	Ingo Molnar <mingo@elte.hu>, Andi Kleen <andi@firstfloor.org>,
-	Nick Piggin <npiggin@kernel.dk>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: multipart/mixed; boundary=001517511d3a59c763049453abe8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e8.ny.us.ibm.com ([32.97.182.138]:55903 "EHLO e8.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752375Ab0KETvI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Nov 2010 15:51:08 -0400
-Content-Disposition: inline
-In-Reply-To: <1288984844.2665.52.camel@edumazet-laptop>
+Received: from mail-qy0-f181.google.com ([209.85.216.181]:39421 "EHLO
+	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752327Ab0KET4Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Nov 2010 15:56:25 -0400
+Received: by qyk10 with SMTP id 10so2992824qyk.19
+        for <netdev@vger.kernel.org>; Fri, 05 Nov 2010 12:56:24 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 05, 2010 at 08:20:44PM +0100, Eric Dumazet wrote:
-> Le vendredi 05 novembre 2010 =E0 11:28 -0700, Andrew Morton a =E9crit=
- :
-> > But we haven't established that there _is_ duplicated code which ne=
-eds
-> > that treatment.
-> >=20
-> > Scanning arch/x86/include/asm/atomic.h, perhaps ATOMIC_INIT() is a
-> > candidate.  But I'm not sure that it _should_ be hoisted up - if ev=
-ery
-> > architecture happens to do it the same way then that's just a fluke=
-=2E
-> >=20
-> >=20
->=20
-> Not sure I understand you. I was trying to avoid recursive includes, =
-but
-> that should be protected anyway. I see a lot of code that could be
-> factorized in this new header (atomic_inc_not_zero() for example)
->=20
-> Thanks
->=20
-> [PATCH v3] atomic: add atomic_inc_not_zero_hint()
->=20
-> Followup of perf tools session in Netfilter WorkShop 2010
->=20
-> In network stack we make high usage of atomic_inc_not_zero() in conte=
-xts
-> we know the probable value of atomic before increment (2 for udp sock=
-ets
-> for example)
->=20
-> Using a special version of atomic_inc_not_zero() giving this hint can
-> help processor to use less bus transactions.
->=20
-> On x86 (MESI protocol) for example, this avoids entering Shared state=
-,
-> because "lock cmpxchg" issues an RFO (Read For Ownership)
->=20
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: Christoph Lameter <cl@linux-foundation.org>
-> Cc: Ingo Molnar <mingo@elte.hu>
-> Cc: Andi Kleen <andi@firstfloor.org>
-> Cc: Arnaldo Carvalho de Melo <acme@infradead.org>
-> Cc: David Miller <davem@davemloft.net>
-> Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+--001517511d3a59c763049453abe8
+Content-Type: text/plain; charset=ISO-8859-1
 
-Looks quite good to me!
+Hi,
 
-Reviewed-by: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Today we found an issue where arping would get stuck in an endless
+loop. The problem was found to be related to the parent process (a
+shell script) having had SIGALRM blocked, which is used by arping to
+update "count" and to check the "timeout" global.
 
-> Cc: Nick Piggin <npiggin@kernel.dk>
-> ---
-> V3: adds the include <asm/atomic.h>
->     if hint is null, use atomic_inc_not_zero() (Paul suggestion)
-> V2: add #ifndef atomic_inc_not_zero_hint
->     kerneldoc changes
->     test that hint is not null
->     Meant to be included at end of arch/*/asm/atomic.h files
->=20
-> diff --git a/include/linux/atomic.h b/include/linux/atomic.h
-> new file mode 100644
-> index 0000000..5a7df87
-> --- /dev/null
-> +++ b/include/linux/atomic.h
-> @@ -0,0 +1,37 @@
-> +#ifndef _LINUX_ATOMIC_H
-> +#define _LINUX_ATOMIC_H
-> +#include <asm/atomic.h>
-> +
-> +/**
-> + * atomic_inc_not_zero_hint - increment if not null
-> + * @v: pointer of type atomic_t
-> + * @hint: probable value of the atomic before the increment
-> + *
-> + * This version of atomic_inc_not_zero() gives a hint of probable
-> + * value of the atomic. This helps processor to not read the memory
-> + * before doing the atomic read/modify/write cycle, lowering
-> + * number of bus transactions on some arches.
-> + *
-> + * Returns: 0 if increment was not done, 1 otherwise.
-> + */
-> +#ifndef atomic_inc_not_zero_hint
-> +static inline int atomic_inc_not_zero_hint(atomic_t *v, int hint)
-> +{
-> +	int val, c =3D hint;
-> +
-> +	/* sanity test, should be removed by compiler if hint is a constant=
- */
-> +	if (!hint)
-> +		return atomic_inc_not_zero(v);
-> +
-> + 	do {
-> +		val =3D atomic_cmpxchg(v, c, c + 1);
-> +		if (val =3D=3D c)
-> +			return 1;
-> +		c =3D val;
-> +	} while (c);
-> +
-> +	return 0;
-> +}
-> +#endif
-> +
-> +#endif /* _LINUX_ATOMIC_H */
->=20
->=20
+Since we cannot make assumptions on the signal masks of the
+environment it's better to explicitly unblock the signals that the
+utility needs before the main loop executes. It's worth noting that
+although sigaction() is called to associate a handler to a given
+signal, that function doesn't automatically unblock that signal.
+
+A similar problem was noticed on rdisc, so the attached patch also
+ensures to unblock the signals that it relies on.
+
+Thanks,
+Lucas
+
+--001517511d3a59c763049453abe8
+Content-Type: application/octet-stream; name="02-iputils-SIG_UNBLOCK.patch"
+Content-Disposition: attachment; filename="02-iputils-SIG_UNBLOCK.patch"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_gg5hdw6m0
+
+RG9uJ3QgcmVseSBvbiB0aGUgcGFyZW50IHNpZ25hbCBtYXNrLiBJZiB0aGF0IHByb2Nlc3MgaGFz
+IGJsb2NrZWQgU0lHQUxSTSAKdGhlbiBjaGFuY2VzIGFyZSBoaWdoIHRoYXQgYXJwaW5nIGFuZCBy
+ZGlzYyB3aWxsIGV4ZWN1dGUgZm9yZXZlciwgYXMgdGhhdApzaWduYWwgd2lsbCBuZXZlciBiZSBk
+ZWxpdmVyZWQgYW5kIHRoZSBnbG9iYWxzLCBzdWNoIGFzICdjb3VudCcgYW5kICd0aW1lb3V0JywK
+d29uJ3QgYmUgdXBkYXRlZCBvciBjaGVja2VkLgoKU2lnbmVkLW9mZi1ieTogTHVjYXMgQy4gVmls
+bGEgUmVhbCA8bHVjYXN2ckB1cy5pYm0uY29tPgoKZGlmZiAtdXJwIGlwdXRpbHMtczIwMTAxMDA2
+Lm9yaWcvYXJwaW5nLmMgaXB1dGlscy1zMjAxMDEwMDYvYXJwaW5nLmMKLS0tIGlwdXRpbHMtczIw
+MTAxMDA2Lm9yaWcvYXJwaW5nLmMJMjAxMC0xMC0wNiAwODo1OToyMC4wMDAwMDAwMDAgLTAzMDAK
+KysrIGlwdXRpbHMtczIwMTAxMDA2L2FycGluZy5jCTIwMTAtMTEtMDUgMTY6MTI6NDIuMDAwMDAw
+MDAwIC0wMjAwCkBAIC0zNDYsNiArMzQ2LDcgQEAgbWFpbihpbnQgYXJnYywgY2hhciAqKmFyZ3Yp
+CiB7CiAJaW50IHNvY2tldF9lcnJubzsKIAlpbnQgY2g7CisJc2lnc2V0X3Qgc3NldCwgb3NzZXQ7
+CiAJdWlkX3QgdWlkID0gZ2V0dWlkKCk7CiAKIAlzID0gc29ja2V0KFBGX1BBQ0tFVCwgU09DS19E
+R1JBTSwgMCk7CkBAIC01NDQsMTMgKzU0NSwxNyBAQCBtYWluKGludCBhcmdjLCBjaGFyICoqYXJn
+dikKIAkJZXhpdCgyKTsKIAl9CiAKKwlzaWdlbXB0eXNldCgmc3NldCk7CisJc2lnYWRkc2V0KCZz
+c2V0LCBTSUdBTFJNKTsKKwlzaWdhZGRzZXQoJnNzZXQsIFNJR0lOVCk7CisJc2lncHJvY21hc2so
+U0lHX1VOQkxPQ0ssICZzc2V0LCBOVUxMKTsKKwogCXNldF9zaWduYWwoU0lHSU5ULCBmaW5pc2gp
+OwogCXNldF9zaWduYWwoU0lHQUxSTSwgY2F0Y2hlcik7CiAKIAljYXRjaGVyKCk7CiAKIAl3aGls
+ZSgxKSB7Ci0JCXNpZ3NldF90IHNzZXQsIG9zc2V0OwogCQl1bnNpZ25lZCBjaGFyIHBhY2tldFs0
+MDk2XTsKIAkJc3RydWN0IHNvY2thZGRyX3N0b3JhZ2UgZnJvbTsKIAkJc29ja2xlbl90IGFsZW4g
+PSBzaXplb2YoZnJvbSk7CmRpZmYgLXVycCBpcHV0aWxzLXMyMDEwMTAwNi5vcmlnL3JkaXNjLmMg
+aXB1dGlscy1zMjAxMDEwMDYvcmRpc2MuYwotLS0gaXB1dGlscy1zMjAxMDEwMDYub3JpZy9yZGlz
+Yy5jCTIwMTAtMTAtMDYgMDg6NTk6MjAuMDAwMDAwMDAwIC0wMzAwCisrKyBpcHV0aWxzLXMyMDEw
+MTAwNi9yZGlzYy5jCTIwMTAtMTEtMDUgMTY6MTQ6MzMuMDAwMDAwMDAwIC0wMjAwCkBAIC00NDks
+NiArNDQ5LDcgQEAgbmV4dDoKIAlzaWdhZGRzZXQoJnNzZXQsIFNJR0hVUCk7CiAJc2lnYWRkc2V0
+KCZzc2V0LCBTSUdURVJNKTsKIAlzaWdhZGRzZXQoJnNzZXQsIFNJR0lOVCk7CisJc2lncHJvY21h
+c2soU0lHX1VOQkxPQ0ssICZzc2V0LCBOVUxMKTsKIAogCWluaXQoKTsKIAlpZiAoam9pbihzLCAm
+am9pbmFkZHIpIDwgMCkgewo=
+--001517511d3a59c763049453abe8--
