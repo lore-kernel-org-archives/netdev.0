@@ -1,37 +1,57 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: Re: [PATCH] ipv6: addrconf: don't remove address state on ifdown if
- the address is being kept
-Date: Fri, 5 Nov 2010 14:45:28 +0800
-Message-ID: <AANLkTine2qXg7MTFyh=Ka=tB8fuzB18-NVRryTyc=LKp@mail.gmail.com>
-References: <AANLkTimyqFoUvjQM_qLS2YeVmJQ_6-LJc6KfLVE-mzH3@mail.gmail.com> <AANLkTimLicmgC3BptZvXGoA0aN6-cFJtRG3DpqJ3NTpJ@mail.gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 46/49] net/netfilter: Use vzalloc
+Date: Thu, 04 Nov 2010 23:55:46 -0700
+Message-ID: <1288940146.18440.55.camel@Joe-Laptop>
+References: <alpine.DEB.2.00.1011031108260.11625@router.home>
+	 <7d6da34b7e84955795717b0241000a0701cd5b34.1288925425.git.joe@perches.com>
+	 <1288938640.3234.12.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: =?ISO-8859-2?Q?Maciej_=AFenczykowski?= <maze@google.com>,
-	Brian Haley <brian.haley@hp.com>, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:6616 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751537Ab0KEGpv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Nov 2010 02:45:51 -0400
-Received: from hpaq2.eem.corp.google.com (hpaq2.eem.corp.google.com [172.25.149.2])
-	by smtp-out.google.com with ESMTP id oA56johx006334
-	for <netdev@vger.kernel.org>; Thu, 4 Nov 2010 23:45:50 -0700
-Received: from gyf2 (gyf2.prod.google.com [10.243.50.66])
-	by hpaq2.eem.corp.google.com with ESMTP id oA56jdtV021465
-	for <netdev@vger.kernel.org>; Thu, 4 Nov 2010 23:45:49 -0700
-Received: by gyf2 with SMTP id 2so2299431gyf.7
-        for <netdev@vger.kernel.org>; Thu, 04 Nov 2010 23:45:48 -0700 (PDT)
-In-Reply-To: <AANLkTimLicmgC3BptZvXGoA0aN6-cFJtRG3DpqJ3NTpJ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jesper Juhl <jj@chaosbits.net>, Jiri Kosina <trivial@kernel.org>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1288938640.3234.12.camel@edumazet-laptop>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 28, 2010 at 2:45 PM, Lorenzo Colitti <lorenzo@google.com> wrote:
->> Fix it so that none of this state is updated if the address is being kept on the interface.
+On Fri, 2010-11-05 at 07:30 +0100, Eric Dumazet wrote:
+> I had _one_ patch, waiting that David actually had vzalloc() in its tree
+> before sending it.
 
-David, any feedback on this? The existing code clearly has the
-intention of keeping the addresses around, except they don't actually
-work, and this just fixes the bug.
+Fine by me, use yours.
 
-Thanks,
-Lorenzo
+> Given Jesper Juhl was doing this work, could you please take another
+> one, please ?
+> For example, explaining him how to use other tools than "bash+egrep
+> +manual inspection" as he mentioned in a previous mail.
+
+Jesper Juhl was both pointed at the cocci docs and
+given a cocci script.  He said he'd investigate it
+when he could.  I trust he will get to it.
+
+I think that for this sort of patchset, grep and
+manual inspection works just as well as spatch
+and likely better because a simple cocci script
+doesn't transform code like:
+
+	if (size > PAGE_SIZE)
+		ptr = vmalloc(size);
+	else
+		ptr = kmalloc(size, GFP);
+	if (ptr)
+		memset(ptr, 0, size);
+
+I did say in the 00 cover that this was broken up
+just to cc the maintainers of each block.
+
+I also think a single rolled-up single patch is good.
+
+I believe Jiri Kosina can easily apply all these
+individual patches as a single patch if he chooses.
+
