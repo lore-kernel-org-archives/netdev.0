@@ -1,7 +1,7 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 26/49] drivers/net/ixgbevf: Use vzalloc
-Date: Thu,  4 Nov 2010 20:07:50 -0700
-Message-ID: <79b773f5012cba15686c4048d48cbbef6a13b049.1288925425.git.joe@perches.com>
+Subject: [PATCH 25/49] drivers/net/ixgbe: Use vzalloc
+Date: Thu,  4 Nov 2010 20:07:49 -0700
+Message-ID: <3ef4ca9d423bd0fc5dcc8dae9c8c04ce48c9c240.1288925424.git.joe@perches.com>
 References: <alpine.DEB.2.00.1011031108260.11625@router.home>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -28,35 +28,40 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/ixgbevf/ixgbevf_main.c |    6 ++----
- 1 files changed, 2 insertions(+), 4 deletions(-)
+ drivers/net/ixgbe/ixgbe_main.c |   10 ++++------
+ 1 files changed, 4 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ixgbevf/ixgbevf_main.c b/drivers/net/ixgbevf/ixgbevf_main.c
-index dc03c96..6aeaf54 100644
---- a/drivers/net/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ixgbevf/ixgbevf_main.c
-@@ -2488,10 +2488,9 @@ int ixgbevf_setup_tx_resources(struct ixgbevf_adapter *adapter,
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 2bd3eb4..c10d179 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -4970,12 +4970,11 @@ int ixgbe_setup_tx_resources(struct ixgbe_adapter *adapter,
  	int size;
  
- 	size = sizeof(struct ixgbevf_tx_buffer) * tx_ring->count;
--	tx_ring->tx_buffer_info = vmalloc(size);
-+	tx_ring->tx_buffer_info = vzalloc(size);
+ 	size = sizeof(struct ixgbe_tx_buffer) * tx_ring->count;
+-	tx_ring->tx_buffer_info = vmalloc_node(size, tx_ring->numa_node);
++	tx_ring->tx_buffer_info = vzalloc_node(size, tx_ring->numa_node);
+ 	if (!tx_ring->tx_buffer_info)
+-		tx_ring->tx_buffer_info = vmalloc(size);
++		tx_ring->tx_buffer_info = vzalloc(size);
  	if (!tx_ring->tx_buffer_info)
  		goto err;
 -	memset(tx_ring->tx_buffer_info, 0, size);
  
  	/* round up to nearest 4K */
  	tx_ring->size = tx_ring->count * sizeof(union ixgbe_adv_tx_desc);
-@@ -2555,14 +2554,13 @@ int ixgbevf_setup_rx_resources(struct ixgbevf_adapter *adapter,
+@@ -5037,15 +5036,14 @@ int ixgbe_setup_rx_resources(struct ixgbe_adapter *adapter,
  	int size;
  
- 	size = sizeof(struct ixgbevf_rx_buffer) * rx_ring->count;
--	rx_ring->rx_buffer_info = vmalloc(size);
-+	rx_ring->rx_buffer_info = vzalloc(size);
+ 	size = sizeof(struct ixgbe_rx_buffer) * rx_ring->count;
+-	rx_ring->rx_buffer_info = vmalloc_node(size, adapter->node);
++	rx_ring->rx_buffer_info = vzalloc_node(size, adapter->node);
+ 	if (!rx_ring->rx_buffer_info)
+-		rx_ring->rx_buffer_info = vmalloc(size);
++		rx_ring->rx_buffer_info = vzalloc(size);
  	if (!rx_ring->rx_buffer_info) {
- 		hw_dbg(&adapter->hw,
- 		       "Unable to vmalloc buffer memory for "
- 		       "the receive descriptor ring\n");
+ 		e_err(probe, "vmalloc allocation failed for the Rx "
+ 		      "descriptor ring\n");
  		goto alloc_failed;
  	}
 -	memset(rx_ring->rx_buffer_info, 0, size);
