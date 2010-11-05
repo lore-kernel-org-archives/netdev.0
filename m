@@ -1,9 +1,9 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 17/49] drivers/net/cxgb3: Use vzalloc
-Date: Thu,  4 Nov 2010 20:07:41 -0700
-Message-ID: <86e0ae42a56bc458519fa0a550bc3b1c50cd86bc.1288925424.git.joe@perches.com>
+Subject: [PATCH 18/49] drivers/net/cxgb4: Use vzalloc
+Date: Thu,  4 Nov 2010 20:07:42 -0700
+Message-ID: <e208320e90dc0d7e77686cf8bf8131553f7a7b6e.1288925424.git.joe@perches.com>
 References: <alpine.DEB.2.00.1011031108260.11625@router.home>
-Cc: Divy Le Ray <divy@chelsio.com>, netdev@vger.kernel.org,
+Cc: Dimitris Michailidis <dm@chelsio.com>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 To: Jiri Kosina <trivial@kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -15,16 +15,16 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/cxgb3/cxgb3_offload.c |    7 +++----
+ drivers/net/cxgb4/cxgb4_main.c |    7 +++----
  1 files changed, 3 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/cxgb3/cxgb3_offload.c b/drivers/net/cxgb3/cxgb3_offload.c
-index bcf0753..5e632e2 100644
---- a/drivers/net/cxgb3/cxgb3_offload.c
-+++ b/drivers/net/cxgb3/cxgb3_offload.c
-@@ -1164,12 +1164,11 @@ static void cxgb_redirect(struct dst_entry *old, struct dst_entry *new)
+diff --git a/drivers/net/cxgb4/cxgb4_main.c b/drivers/net/cxgb4/cxgb4_main.c
+index f17703f..b7758ce 100644
+--- a/drivers/net/cxgb4/cxgb4_main.c
++++ b/drivers/net/cxgb4/cxgb4_main.c
+@@ -868,12 +868,11 @@ out:	release_firmware(fw);
   */
- void *cxgb_alloc_mem(unsigned long size)
+ void *t4_alloc_mem(size_t size)
  {
 -	void *p = kmalloc(size, GFP_KERNEL);
 +	void *p = kzalloc(size, GFP_KERNEL);
