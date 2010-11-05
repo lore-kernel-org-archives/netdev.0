@@ -1,9 +1,11 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 28/49] drivers/net/pch_gbe: Use vzalloc
-Date: Thu,  4 Nov 2010 20:07:52 -0700
-Message-ID: <c38e12c7c652bb3da28566ba5cb78d0fe68f5d20.1288925425.git.joe@perches.com>
+Subject: [PATCH 47/49] net/rds: Use vzalloc
+Date: Thu,  4 Nov 2010 20:08:11 -0700
+Message-ID: <8a5a2c1182dcc6c558c1c351e63c5bcccac537f1.1288925425.git.joe@perches.com>
 References: <alpine.DEB.2.00.1011031108260.11625@router.home>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: Andy Grover <andy.grover@oracle.com>,
+	"David S. Miller" <davem@davemloft.net>, rds-devel@oss.oracle.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: Jiri Kosina <trivial@kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <alpine.DEB.2.00.1011031108260.11625@router.home>
@@ -14,40 +16,38 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/pch_gbe/pch_gbe_main.c |    6 ++----
+ net/rds/ib_cm.c |    6 ++----
  1 files changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/pch_gbe/pch_gbe_main.c b/drivers/net/pch_gbe/pch_gbe_main.c
-index 472056b..afb7506 100644
---- a/drivers/net/pch_gbe/pch_gbe_main.c
-+++ b/drivers/net/pch_gbe/pch_gbe_main.c
-@@ -1523,12 +1523,11 @@ int pch_gbe_setup_tx_resources(struct pch_gbe_adapter *adapter,
- 	int desNo;
- 
- 	size = (int)sizeof(struct pch_gbe_buffer) * tx_ring->count;
--	tx_ring->buffer_info = vmalloc(size);
-+	tx_ring->buffer_info = vzalloc(size);
- 	if (!tx_ring->buffer_info) {
- 		pr_err("Unable to allocate memory for the buffer infomation\n");
- 		return -ENOMEM;
+diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
+index ee369d2..cc6b073 100644
+--- a/net/rds/ib_cm.c
++++ b/net/rds/ib_cm.c
+@@ -374,23 +374,21 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
+ 		goto out;
  	}
--	memset(tx_ring->buffer_info, 0, size);
  
- 	tx_ring->size = tx_ring->count * (int)sizeof(struct pch_gbe_tx_desc);
- 
-@@ -1573,12 +1572,11 @@ int pch_gbe_setup_rx_resources(struct pch_gbe_adapter *adapter,
- 	int desNo;
- 
- 	size = (int)sizeof(struct pch_gbe_buffer) * rx_ring->count;
--	rx_ring->buffer_info = vmalloc(size);
-+	rx_ring->buffer_info = vzalloc(size);
- 	if (!rx_ring->buffer_info) {
- 		pr_err("Unable to allocate memory for the receive descriptor ring\n");
- 		return -ENOMEM;
+-	ic->i_sends = vmalloc_node(ic->i_send_ring.w_nr * sizeof(struct rds_ib_send_work),
++	ic->i_sends = vzalloc_node(ic->i_send_ring.w_nr * sizeof(struct rds_ib_send_work),
+ 				   ibdev_to_node(dev));
+ 	if (!ic->i_sends) {
+ 		ret = -ENOMEM;
+ 		rdsdebug("send allocation failed\n");
+ 		goto out;
  	}
--	memset(rx_ring->buffer_info, 0, size);
- 	rx_ring->size = rx_ring->count * (int)sizeof(struct pch_gbe_rx_desc);
- 	rx_ring->desc =	dma_alloc_coherent(&pdev->dev, rx_ring->size,
- 					   &rx_ring->dma, GFP_KERNEL);
+-	memset(ic->i_sends, 0, ic->i_send_ring.w_nr * sizeof(struct rds_ib_send_work));
+ 
+-	ic->i_recvs = vmalloc_node(ic->i_recv_ring.w_nr * sizeof(struct rds_ib_recv_work),
++	ic->i_recvs = vzalloc_node(ic->i_recv_ring.w_nr * sizeof(struct rds_ib_recv_work),
+ 				   ibdev_to_node(dev));
+ 	if (!ic->i_recvs) {
+ 		ret = -ENOMEM;
+ 		rdsdebug("recv allocation failed\n");
+ 		goto out;
+ 	}
+-	memset(ic->i_recvs, 0, ic->i_recv_ring.w_nr * sizeof(struct rds_ib_recv_work));
+ 
+ 	rds_ib_recv_init_ack(ic);
+ 
 -- 
 1.7.3.1.g432b3.dirty
