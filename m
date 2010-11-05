@@ -1,64 +1,70 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 46/49] net/netfilter: Use vzalloc
-Date: Fri, 05 Nov 2010 08:16:11 +0100
-Message-ID: <1288941371.3234.31.camel@edumazet-laptop>
-References: <alpine.DEB.2.00.1011031108260.11625@router.home>
-	 <7d6da34b7e84955795717b0241000a0701cd5b34.1288925425.git.joe@perches.com>
-	 <1288938640.3234.12.camel@edumazet-laptop>
-	 <1288940146.18440.55.camel@Joe-Laptop>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [V2 PATCH] virtio-net: init link state correctly
+Date: Fri, 5 Nov 2010 10:47:11 +0200
+Message-ID: <20101105084711.GC3464@redhat.com>
+References: <20101105025008.3277.87697.stgit@dhcp-91-158.nay.redhat.com>
+ <19667.29541.897732.941476@gargle.gargle.HOWL>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jesper Juhl <jj@chaosbits.net>, Jiri Kosina <trivial@kernel.org>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1288940146.18440.55.camel@Joe-Laptop>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: rusty@rustcorp.com.au, davem@davemloft.net, markmc@redhat.com,
+	linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <19667.29541.897732.941476@gargle.gargle.HOWL>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le jeudi 04 novembre 2010 =C3=A0 23:55 -0700, Joe Perches a =C3=A9crit =
-:
-> On Fri, 2010-11-05 at 07:30 +0100, Eric Dumazet wrote:
-> > I had _one_ patch, waiting that David actually had vzalloc() in its=
- tree
-> > before sending it.
->=20
-> Fine by me, use yours.
+On Fri, Nov 05, 2010 at 11:00:53AM +0800, Jason Wang wrote:
+> Jason Wang writes:
+> 
+> CC netdev missed in the original patch.
 
-I dont care at all, only to say that David tree was not ready yet.
+You'll have to repost it properly. Patches with a >
+at start can't be applied :)
+You can add my ack when you do.
 
-
->=20
-> > Given Jesper Juhl was doing this work, could you please take anothe=
-r
-> > one, please ?
-> > For example, explaining him how to use other tools than "bash+egrep
-> > +manual inspection" as he mentioned in a previous mail.
->=20
-> Jesper Juhl was both pointed at the cocci docs and
-> given a cocci script.  He said he'd investigate it
-> when he could.  I trust he will get to it.
->=20
-
-Yes, yet you posted patches, knowing he was working on the _same_
-subject.
-
-I remember other occurrences of such behavior.
-
-I find this behavior very unfriendly, time consuming, and not useful.
-
-We try to work together, to increase our common knowledge, not to throw
-a bunch of patches "just because I know better than you"
-
-
-
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>  > For device that supports VIRTIO_NET_F_STATUS, there's no need to
+>  > assume the link is up and we need to call nerif_carrier_off() before
+>  > querying device status, otherwise we may get wrong operstate after
+>  > diver was loaded because the link watch event was not fired as
+>  > expected.
+>  > 
+>  > For device that does not support VIRITO_NET_F_STATUS, we could not get
+>  > its status through virtnet_update_status() and what we can only do is
+>  > always assuming the link is up.
+>  > 
+>  > Signed-off-by: Jason Wang <jasowang@redhat.com>
+>  > ---
+>  >  drivers/net/virtio_net.c |   12 +++++++++---
+>  >  1 files changed, 9 insertions(+), 3 deletions(-)
+>  > 
+>  > diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+>  > index bb6b67f..b6d4028 100644
+>  > --- a/drivers/net/virtio_net.c
+>  > +++ b/drivers/net/virtio_net.c
+>  > @@ -986,9 +986,15 @@ static int virtnet_probe(struct virtio_device *vdev)
+>  >  		goto unregister;
+>  >  	}
+>  >  
+>  > -	vi->status = VIRTIO_NET_S_LINK_UP;
+>  > -	virtnet_update_status(vi);
+>  > -	netif_carrier_on(dev);
+>  > +	/* Assume link up if device can't report link status,
+>  > +	   otherwise get link status from config. */
+>  > +	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_STATUS)) {
+>  > +		netif_carrier_off(dev);
+>  > +		virtnet_update_status(vi);
+>  > +	} else {
+>  > +		vi->status = VIRTIO_NET_S_LINK_UP;
+>  > +		netif_carrier_on(dev);
+>  > +	}
+>  >  
+>  >  	pr_debug("virtnet: registered device %s\n", dev->name);
+>  >  	return 0;
+>  > 
+>  > --
+>  > To unsubscribe from this list: send the line "unsubscribe kvm" in
+>  > the body of a message to majordomo@vger.kernel.org
+>  > More majordomo info at  http://vger.kernel.org/majordomo-info.html
