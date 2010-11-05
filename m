@@ -1,41 +1,45 @@
-From: Ulrich Weber <uweber@astaro.com>
-Subject: [PATCH] xfrm: update flowi saddr in icmp_send if unset
-Date: Fri, 5 Nov 2010 12:39:12 +0100
-Message-ID: <20101105113912.GA14694@babylon>
+From: Shan Wei <shanwei@cn.fujitsu.com>
+Subject: [PATCH] ipv6: fix overlap check for fragments
+Date: Fri, 05 Nov 2010 19:56:34 +0800
+Message-ID: <4CD3F0F2.2080804@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>
+To: nicolas.dichtel@6wind.com, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dhost002-48.dex002.intermedia.net ([64.78.21.144]:38144 "EHLO
-	dhost002-48.dex002.intermedia.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751591Ab0KELyh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Nov 2010 07:54:37 -0400
-Content-Disposition: inline
+Received: from cn.fujitsu.com ([222.73.24.84]:54586 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751758Ab0KEL4P (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Nov 2010 07:56:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-otherwise xfrm_lookup will fail to find correct policy
+The type of FRAG6_CB(prev)->offset is int, skb->len is *unsigned* int,
+and offset is int.
 
-Signed-off-by: Ulrich Weber <uweber@astaro.com>
+Without this patch, type conversion occurred to this expression, when
+(FRAG6_CB(prev)->offset + prev->len) is less than offset.
+
+
+Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
 ---
- net/ipv4/icmp.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+ net/ipv6/reassembly.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-index 96bc7f9..e5d1a44 100644
---- a/net/ipv4/icmp.c
-+++ b/net/ipv4/icmp.c
-@@ -569,6 +569,9 @@ void icmp_send(struct sk_buff *skb_in, int type, int code, __be32 info)
- 		/* No need to clone since we're just using its address. */
- 		rt2 = rt;
+diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
+index c7ba314..0f27664 100644
+--- a/net/ipv6/reassembly.c
++++ b/net/ipv6/reassembly.c
+@@ -349,7 +349,7 @@ found:
  
-+		if (!fl.nl_u.ip4_u.saddr)
-+			fl.nl_u.ip4_u.saddr = rt->rt_src;
-+
- 		err = xfrm_lookup(net, (struct dst_entry **)&rt, &fl, NULL, 0);
- 		switch (err) {
- 		case 0:
+ 	/* Check for overlap with preceding fragment. */
+ 	if (prev &&
+-	    (FRAG6_CB(prev)->offset + prev->len) - offset > 0)
++	    (FRAG6_CB(prev)->offset + prev->len) > offset)
+ 		goto discard_fq;
+ 
+ 	/* Look for overlap with succeeding segment. */
 -- 
-1.7.1
-
+1.6.3.3
