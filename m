@@ -1,58 +1,132 @@
-From: David <david@unsolicited.net>
-Subject: Sky2 - problems with VLANs - kernel 2.6.36
-Date: Fri, 05 Nov 2010 23:06:14 +0000
-Message-ID: <4CD48DE6.7060906@unsolicited.net>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [RFC v2] ipvs: allow transmit of GRO aggregated skbs
+Date: Sat, 6 Nov 2010 08:54:12 +0900
+Message-ID: <20101105235411.GA2443@verge.net.au>
+References: <20101105135222.GA8714@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Julian Anastasov <ja@ssi.bg>
+To: lvs-devel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:49520 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754147Ab0KEXxb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Nov 2010 19:53:31 -0400
+Content-Disposition: inline
+In-Reply-To: <20101105135222.GA8714@verge.net.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I've just installed a Lycom dual port gigabit ethernet card, picked up
-as follows :-
+This is a first attempt at allowing LVS to transmit
+skbs of greater than MTU length that have been aggregated by GRO.
 
-03:00.0 Ethernet controller: Marvell Technology Group Ltd. 88E8062 PCI-E
-IPMI Gigabit Ethernet Controller (rev 14)
-    Subsystem: Marvell Technology Group Ltd. Device 6222
-    Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
-Stepping- SERR+ FastB2B- DisINTx+
-    Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort-
-<TAbort- <MAbort- >SERR- <PERR- INTx-
-    Latency: 0, Cache Line Size: 64 bytes
-    Interrupt: pin A routed to IRQ 41
-    Region 0: Memory at fe8fc000 (64-bit, non-prefetchable) [size=16K]
-    Region 2: I/O ports at c800 [size=256]
-    Expansion ROM at fe8c0000 [disabled] [size=128K]
-    Capabilities: <access denied>
-    Kernel driver in use: sky2
-    Kernel modules: sky2
+I have lightly tested the ip_vs_dr_xmit() portion of this patch and
+although it seems to work I am unsure that netif_needs_gso() is the correct
+test to use.
 
-I'm having a problem with VLANs. Outgoing packets are tagged correctly
-and devices on the VLAN are responding. Unfortunately all of the
-response packets stay on the raw device and are not allocated to the VLAN.
+Signed-off-by: Simon Horman <horms@verge.net.au>
 
-I've done some investigation (printks etc.), and have found that neither
-of the following cases in sky2_status_intr() are being triggered...
+--- 
 
-                case OP_RXVLAN:
-                        printk("RXVLAN, length=%u, status=%u\n", length,
-status);
-                        sky2->rx_tag = length;
-                        break;
+* LRO is still an outstanding issue, but as its deprecated in favour
+  of GRO perhaps it doesn't need to be solved.
 
-                case OP_RXCHKSVLAN:
-                        printk("RXCHKSVLAN, length=%u, status=%u\n",
-length, status);
-                        sky2->rx_tag = length;
-                        /* fall through */
+* v1
+  - Based on 2.6.35
 
-... however the status when calling sky2_skb_rx() does have GMR_FS_VLAN
-set, it's just we haven't been able to find out which VLAN the packet
-comes from (and sky2->rx_tag is zero). Does anyone have any suggestions
-as to how I proceed from here? I'm happy to test patches etc.
+* v2
+  - Rebase on current nf-next-2.6 tree (~2.6.37-rc1)
 
-Cheers
-David
+Index: lvs-test-2.6/net/netfilter/ipvs/ip_vs_xmit.c
+===================================================================
+--- lvs-test-2.6.orig/net/netfilter/ipvs/ip_vs_xmit.c	2010-10-30 11:43:37.000000000 +0900
++++ lvs-test-2.6/net/netfilter/ipvs/ip_vs_xmit.c	2010-11-06 08:09:17.000000000 +0900
+@@ -408,7 +408,8 @@ ip_vs_bypass_xmit(struct sk_buff *skb, s
+ 
+ 	/* MTU checking */
+ 	mtu = dst_mtu(&rt->dst);
+-	if ((skb->len > mtu) && (iph->frag_off & htons(IP_DF))) {
++	if ((skb->len > mtu) && (iph->frag_off & htons(IP_DF)) &&
++	    !netif_needs_gso(rt->dst.dev, skb)) {
+ 		ip_rt_put(rt);
+ 		icmp_send(skb, ICMP_DEST_UNREACH,ICMP_FRAG_NEEDED, htonl(mtu));
+ 		IP_VS_DBG_RL("%s(): frag needed\n", __func__);
+@@ -461,7 +462,7 @@ ip_vs_bypass_xmit_v6(struct sk_buff *skb
+ 
+ 	/* MTU checking */
+ 	mtu = dst_mtu(&rt->dst);
+-	if (skb->len > mtu) {
++	if (skb->len > mtu && !netif_needs_gso(rt->dst.dev, skb)) {
+ 		if (!skb->dev) {
+ 			struct net *net = dev_net(skb_dst(skb)->dev);
+ 
+@@ -560,7 +561,8 @@ ip_vs_nat_xmit(struct sk_buff *skb, stru
+ 
+ 	/* MTU checking */
+ 	mtu = dst_mtu(&rt->dst);
+-	if ((skb->len > mtu) && (iph->frag_off & htons(IP_DF))) {
++	if ((skb->len > mtu) && (iph->frag_off & htons(IP_DF)) &&
++	    !netif_needs_gso(rt->dst.dev, skb)) {
+ 		icmp_send(skb, ICMP_DEST_UNREACH,ICMP_FRAG_NEEDED, htonl(mtu));
+ 		IP_VS_DBG_RL_PKT(0, AF_INET, pp, skb, 0,
+ 				 "ip_vs_nat_xmit(): frag needed for");
+@@ -675,7 +677,7 @@ ip_vs_nat_xmit_v6(struct sk_buff *skb, s
+ 
+ 	/* MTU checking */
+ 	mtu = dst_mtu(&rt->dst);
+-	if (skb->len > mtu) {
++	if (skb->len > mtu && !netif_needs_gso(rt->dst.dev, skb)) {
+ 		if (!skb->dev) {
+ 			struct net *net = dev_net(skb_dst(skb)->dev);
+ 
+@@ -790,8 +792,9 @@ ip_vs_tunnel_xmit(struct sk_buff *skb, s
+ 
+ 	df |= (old_iph->frag_off & htons(IP_DF));
+ 
+-	if ((old_iph->frag_off & htons(IP_DF))
+-	    && mtu < ntohs(old_iph->tot_len)) {
++	if ((old_iph->frag_off & htons(IP_DF) &&
++	    mtu < ntohs(old_iph->tot_len) &&
++	    !netif_needs_gso(rt->dst.dev, skb))) {
+ 		icmp_send(skb, ICMP_DEST_UNREACH,ICMP_FRAG_NEEDED, htonl(mtu));
+ 		IP_VS_DBG_RL("%s(): frag needed\n", __func__);
+ 		goto tx_error_put;
+@@ -903,7 +906,8 @@ ip_vs_tunnel_xmit_v6(struct sk_buff *skb
+ 	if (skb_dst(skb))
+ 		skb_dst(skb)->ops->update_pmtu(skb_dst(skb), mtu);
+ 
+-	if (mtu < ntohs(old_iph->payload_len) + sizeof(struct ipv6hdr)) {
++	if (mtu < ntohs(old_iph->payload_len) + sizeof(struct ipv6hdr) &&
++	    !netif_needs_gso(rt->dst.dev, skb)) {
+ 		if (!skb->dev) {
+ 			struct net *net = dev_net(skb_dst(skb)->dev);
+ 
+@@ -1008,7 +1012,8 @@ ip_vs_dr_xmit(struct sk_buff *skb, struc
+ 
+ 	/* MTU checking */
+ 	mtu = dst_mtu(&rt->dst);
+-	if ((iph->frag_off & htons(IP_DF)) && skb->len > mtu) {
++	if ((iph->frag_off & htons(IP_DF)) && skb->len > mtu &&
++	    !netif_needs_gso(rt->dst.dev, skb)) {
+ 		icmp_send(skb, ICMP_DEST_UNREACH,ICMP_FRAG_NEEDED, htonl(mtu));
+ 		ip_rt_put(rt);
+ 		IP_VS_DBG_RL("%s(): frag needed\n", __func__);
+@@ -1174,7 +1179,8 @@ ip_vs_icmp_xmit(struct sk_buff *skb, str
+ 
+ 	/* MTU checking */
+ 	mtu = dst_mtu(&rt->dst);
+-	if ((skb->len > mtu) && (ip_hdr(skb)->frag_off & htons(IP_DF))) {
++	if ((skb->len > mtu) && (ip_hdr(skb)->frag_off & htons(IP_DF)) &&
++	    !netif_needs_gso(rt->dst.dev, skb)) {
+ 		icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED, htonl(mtu));
+ 		IP_VS_DBG_RL("%s(): frag needed\n", __func__);
+ 		goto tx_error_put;
+@@ -1288,7 +1294,7 @@ ip_vs_icmp_xmit_v6(struct sk_buff *skb,
+ 
+ 	/* MTU checking */
+ 	mtu = dst_mtu(&rt->dst);
+-	if (skb->len > mtu) {
++	if (skb->len > mtu && !netif_needs_gso(rt->dst.dev, skb)) {
+ 		if (!skb->dev) {
+ 			struct net *net = dev_net(skb_dst(skb)->dev);
+ 
