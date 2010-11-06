@@ -1,34 +1,83 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [RFC v2] ipvs: allow transmit of GRO aggregated skbs
-Date: Sat, 6 Nov 2010 23:28:21 +0900
-Message-ID: <20101106142817.GA27212@verge.net.au>
-References: <20101105135222.GA8714@verge.net.au>
- <20101105235411.GA2443@verge.net.au>
- <alpine.LFD.2.00.1011061608510.4009@ja.ssi.bg>
+From: Vasiliy Kulikov <segooon@gmail.com>
+Subject: Re: [PATCH 2/3] net: packet: fix information leak to userland
+Date: Sat, 6 Nov 2010 17:39:11 +0300
+Message-ID: <20101106143911.GA17428@albatros>
+References: <1288545028-16436-1-git-send-email-segooon@gmail.com>
+ <4CCE84E2.9050801@bfs.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <lvs-devel-owner@vger.kernel.org>
+Cc: kernel-janitors@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Jiri Pirko <jpirko@redhat.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: walter harms <wharms@bfs.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.00.1011061608510.4009@ja.ssi.bg>
-Sender: lvs-devel-owner@vger.kernel.org
+In-Reply-To: <4CCE84E2.9050801@bfs.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Nov 06, 2010 at 04:18:21PM +0200, Julian Anastasov wrote:
+On Mon, Nov 01, 2010 at 10:14 +0100, walter harms wrote:
 > 
-> 	Hello,
 > 
-> On Sat, 6 Nov 2010, Simon Horman wrote:
+> Vasiliy Kulikov schrieb:
+> > packet_getname_spkt() doesn't initialize all members of sa_data field of
+> > sockaddr struct if strlen(dev->name) < 13.  This structure is then copied
+> > to userland.  It leads to leaking of contents of kernel stack memory.
+> > We have to fully fill sa_data with strncpy() instead of strlcpy().
+> > 
+> > The same with packet_getname(): it doesn't initialize sll_pkttype field of
+> > sockaddr_ll.  Set it to zero.
+> > 
+> > Signed-off-by: Vasiliy Kulikov <segooon@gmail.com>
+> > ---
+> >  net/packet/af_packet.c |    3 ++-
+> >  1 files changed, 2 insertions(+), 1 deletions(-)
+> > 
+> > diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+> > index 3616f27..0856a13 100644
+> > --- a/net/packet/af_packet.c
+> > +++ b/net/packet/af_packet.c
+> > @@ -1719,7 +1719,7 @@ static int packet_getname_spkt(struct socket *sock, struct sockaddr *uaddr,
+> >  	rcu_read_lock();
+> >  	dev = dev_get_by_index_rcu(sock_net(sk), pkt_sk(sk)->ifindex);
+> >  	if (dev)
+> > -		strlcpy(uaddr->sa_data, dev->name, 15);
+> > +		strncpy(uaddr->sa_data, dev->name, 14);
+> >  	else
+> >  		memset(uaddr->sa_data, 0, 14);
 > 
-> >This is a first attempt at allowing LVS to transmit
-> >skbs of greater than MTU length that have been aggregated by GRO.
-> >
-> >I have lightly tested the ip_vs_dr_xmit() portion of this patch and
-> >although it seems to work I am unsure that netif_needs_gso() is the correct
-> >test to use.
-> 
-> 	ip_forward() uses !skb_is_gso(skb), so may be it is
-> enough to check for GRO instead of using netif_needs_gso?
+> if i understand the code correcly the max size for dev->name is IFNAMSIZ.
 
-Thanks, I'll look into that.
+For dev->name - IFNAMSIZ, for uaddr->sa_data - 14.
+
+> You can simply that part:
+> 
+> memset(uaddr->sa_data, 0, IFNAMSIZ);
+> dev = dev_get_by_index_rcu(sock_net(sk), pkt_sk(sk)->ifindex);
+> if (dev)
+> 	strlcpy(uaddr->sa_data, dev->name, IFNAMSIZ);
+
+This will overflow uaddr->sa_data.  Also I don't see any difficulty to
+fill the array only once.
+
+> you should send that as separate patch.
+> re,
+>  wh
+> 
+> 
+> >  	rcu_read_unlock();
+> > @@ -1742,6 +1742,7 @@ static int packet_getname(struct socket *sock, struct sockaddr *uaddr,
+> >  	sll->sll_family = AF_PACKET;
+> >  	sll->sll_ifindex = po->ifindex;
+> >  	sll->sll_protocol = po->num;
+> > +	sll->sll_pkttype = 0;
+> >  	rcu_read_lock();
+> >  	dev = dev_get_by_index_rcu(sock_net(sk), po->ifindex);
+> >  	if (dev) {
+
+Thanks,
+
+-- 
+Vasiliy
