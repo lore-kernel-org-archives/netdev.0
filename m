@@ -1,39 +1,46 @@
 From: Guillaume Chazarain <guichaz@gmail.com>
-Subject: [PATCH 1/2] skge: Remove tx queue stopping in skge_devinit()
-Date: Sat,  6 Nov 2010 17:39:31 +0100
-Message-ID: <1289061572-5029-1-git-send-email-guichaz@gmail.com>
+Subject: [PATCH 2/2] net: Detect and ignore netif_stop_queue() calls before register_netdev()
+Date: Sat,  6 Nov 2010 17:39:32 +0100
+Message-ID: <1289061572-5029-2-git-send-email-guichaz@gmail.com>
+References: <1289061572-5029-1-git-send-email-guichaz@gmail.com>
 Cc: Guillaume Chazarain <guichaz@gmail.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:41397 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753897Ab0KFQjy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Nov 2010 12:39:54 -0400
-Received: by wyb36 with SMTP id 36so2096349wyb.19
-        for <netdev@vger.kernel.org>; Sat, 06 Nov 2010 09:39:52 -0700 (PDT)
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:55355 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753897Ab0KFQjz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Nov 2010 12:39:55 -0400
+Received: by wwb39 with SMTP id 39so2454387wwb.1
+        for <netdev@vger.kernel.org>; Sat, 06 Nov 2010 09:39:54 -0700 (PDT)
+In-Reply-To: <1289061572-5029-1-git-send-email-guichaz@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 After e6484930d7c73d324bccda7d43d131088da697b9: net: allocate tx queues in register_netdevice
-It causes an Oops at skge_probe() time.
+These calls make net drivers oops at load time, so let's avoid people
+git-bisect'ing known problems.
 
 Signed-off-by: Guillaume Chazarain <guichaz@gmail.com>
 ---
- drivers/net/skge.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+ include/linux/netdevice.h |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/skge.c b/drivers/net/skge.c
-index bfec2e0..220e039 100644
---- a/drivers/net/skge.c
-+++ b/drivers/net/skge.c
-@@ -3858,7 +3858,6 @@ static struct net_device *skge_devinit(struct skge_hw *hw, int port,
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 072652d..d8fd2c2 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1554,6 +1554,11 @@ static inline void netif_tx_wake_all_queues(struct net_device *dev)
  
- 	/* device is off until link detection */
- 	netif_carrier_off(dev);
--	netif_stop_queue(dev);
- 
- 	return dev;
+ static inline void netif_tx_stop_queue(struct netdev_queue *dev_queue)
+ {
++	if (WARN_ON(!dev_queue)) {
++		printk(KERN_INFO "netif_stop_queue() cannot be called before "
++		       "register_netdev()");
++		return;
++	}
+ 	set_bit(__QUEUE_STATE_XOFF, &dev_queue->state);
  }
+ 
 -- 
 1.7.1
 
