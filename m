@@ -1,46 +1,57 @@
-From: Guillaume Chazarain <guichaz@gmail.com>
-Subject: [PATCH 2/2] net: Detect and ignore netif_stop_queue() calls before register_netdev()
-Date: Sat,  6 Nov 2010 17:39:32 +0100
-Message-ID: <1289061572-5029-2-git-send-email-guichaz@gmail.com>
-References: <1289061572-5029-1-git-send-email-guichaz@gmail.com>
-Cc: Guillaume Chazarain <guichaz@gmail.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:55355 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753897Ab0KFQjz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Nov 2010 12:39:55 -0400
-Received: by wwb39 with SMTP id 39so2454387wwb.1
-        for <netdev@vger.kernel.org>; Sat, 06 Nov 2010 09:39:54 -0700 (PDT)
-In-Reply-To: <1289061572-5029-1-git-send-email-guichaz@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: OOM when adding ipv6 route:  How to make available more per-cpu
+ memory?
+Date: Sat, 06 Nov 2010 10:08:44 -0700
+Message-ID: <4CD58B9C.2030006@candelatech.com>
+References: <4CD43C87.5040403@candelatech.com>	 <1288980361.2882.1070.camel@edumazet-laptop>	 <4CD449A5.5070305@candelatech.com>	 <1288988403.2665.268.camel@edumazet-laptop>	 <1288995103.2665.653.camel@edumazet-laptop>	 <4CD49C2F.3060904@candelatech.com> <1289028392.2665.2418.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: NetDev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Tejun Heo <tj@kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1289028392.2665.2418.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-After e6484930d7c73d324bccda7d43d131088da697b9: net: allocate tx queues in register_netdevice
-These calls make net drivers oops at load time, so let's avoid people
-git-bisect'ing known problems.
+On 11/06/2010 12:26 AM, Eric Dumazet wrote:
+> Le vendredi 05 novembre 2010 =C3=A0 17:07 -0700, Ben Greear a =C3=A9c=
+rit :
+>
+>> We just tried creating 1000 macvlans with IPv6 addrs on a 64-bit mac=
+hine
+>> with 12GB RAM.  Only around 520 interfaces properly set their IPs, a=
+nd
+>> again there are errors about of-of-memory from 'ip', but no obvious
+>> splats in dmesg.
+>>
+>> 'top' shows 10G or so free.
+>>
+>> It will take some time to figure out what exactly is returning
+>> the ENOMEM....
+>
+> At least, nothing to do with percpu stuff ?
 
-Signed-off-by: Guillaume Chazarain <guichaz@gmail.com>
----
- include/linux/netdevice.h |    5 +++++
- 1 files changed, 5 insertions(+), 0 deletions(-)
+At least I don't see any percpu dumps in dmesg.  I vaguely remember
+someone posting some ipv6 address scalability patches some time back.
+I think they had to hack on /proc fs as well.  I'll see if I can
+dig those up.
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 072652d..d8fd2c2 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1554,6 +1554,11 @@ static inline void netif_tx_wake_all_queues(struct net_device *dev)
- 
- static inline void netif_tx_stop_queue(struct netdev_queue *dev_queue)
- {
-+	if (WARN_ON(!dev_queue)) {
-+		printk(KERN_INFO "netif_stop_queue() cannot be called before "
-+		       "register_netdev()");
-+		return;
-+	}
- 	set_bit(__QUEUE_STATE_XOFF, &dev_queue->state);
- }
- 
--- 
-1.7.1
+> Make sure udev / hotplug is not the problem, if you create your devic=
+es
+> very fast.
 
+We can create the macvlans w/out problem, though I'm sure that could
+be sped up.  The problem is when we try to add IPv6 addresses to
+them.
+
+Thanks,
+Ben
+
+
+--=20
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
