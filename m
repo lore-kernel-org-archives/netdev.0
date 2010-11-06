@@ -1,46 +1,57 @@
-From: Mikael Abrahamsson <swmike@swm.pp.se>
-Subject: Re: radvd and auto-ipv6 address regression from 2.6.31 to 2.6.34+
-Date: Sat, 6 Nov 2010 07:17:41 +0100 (CET)
-Message-ID: <alpine.DEB.1.10.1011060713290.2639@uplift.swm.pp.se>
-References: <4CD47622.5040507@candelatech.com> <4CD48FB4.2050903@candelatech.com>
+From: Nikola Ciprich <extmaillist@linuxbox.cz>
+Subject: Re: 2.6.36 vlans & bridge crash - status?
+Date: Sat, 6 Nov 2010 08:11:15 +0100
+Message-ID: <20101106071115.GA3264@nik-comp.lan>
+References: <20101105103520.GA3577@pcnci.linuxbox.cz> <AANLkTin130xsLRQRMH2W6Yy=gJSD-qS29vR-E6Qvfgpg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
-Cc: NetDev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev list <netdev@vger.kernel.org>, nikola.ciprich@linuxbox.cz
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swm.pp.se ([212.247.200.143]:40387 "EHLO uplift.swm.pp.se"
+Received: from gwu.lbox.cz ([62.245.111.132]:56237 "EHLO gwu.lbox.cz"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753142Ab0KFGXq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 6 Nov 2010 02:23:46 -0400
-In-Reply-To: <4CD48FB4.2050903@candelatech.com>
+	id S1753662Ab0KFHLT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 6 Nov 2010 03:11:19 -0400
+Content-Disposition: inline
+In-Reply-To: <AANLkTin130xsLRQRMH2W6Yy=gJSD-qS29vR-E6Qvfgpg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 5 Nov 2010, Ben Greear wrote:
+Hello Jesse,
+It really fixes the problem, thanks!
+Was the patch submitted to Greg for 2.6.36.y ?
+n.
 
->> On hacked 2.6.34 and 2.6.36 kernels, however, the veth0 gains a new 
->> address that appears to be generated similar to other IPs associated 
->> with auto-creation via radvd.
->> 
->> I have not yet tested intervening kernels or physical interfaces between
->> two machines.
->> 
->> So, the question is: Is the new behaviour on purpose, or is it a
->> regression bug?
->
-> Actually, this doesn't seem to work for 2.6.31 either, so I guess it
-> isn't a regression.
->
-> Is it expected behaviour, however?
 
-I would not be surprised if the IPv6 stack on Linux would gain IPv6 
-addresses using SLAAC from any interface if it sees RAs on it, regardless 
-if these are locally generated or not.
-
-I guess any Linux device running radvd should turn off autoconf on those 
-interface that radvd is acting on?
-
-net.ipv6.conf.veth0.accept_ra=0 should do the trick?
+On Fri, Nov 05, 2010 at 08:05:17AM -0700, Jesse Gross wrote:
+> On Fri, Nov 5, 2010 at 3:35 AM, Nikola Ciprich <extmaillist@linuxbox.cz> wrote:
+> > Hello,
+> > I would like to ask if somebody is trying to solve
+> > https://bugzilla.kernel.org/show_bug.cgi?id=20462
+> > and if needed, could I provide some help, testing etc?
+> 
+> I sent out a patch for something related:
+> http://permalink.gmane.org/gmane.linux.network/176566
+> 
+> My guess is that it will also fix your issue.  Can you test it?
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
 -- 
-Mikael Abrahamsson    email: swmike@swm.pp.se
+-------------------------------------
+Ing. Nikola CIPRICH
+LinuxBox.cz, s.r.o.
+28. rijna 168, 709 01 Ostrava
+
+tel.:   +420 596 603 142
+fax:    +420 596 621 273
+mobil:  +420 777 093 799
+
+www.linuxbox.cz
+
+mobil servis: +420 737 238 656
+email servis: servis@linuxbox.cz
+-------------------------------------
