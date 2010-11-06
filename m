@@ -1,74 +1,96 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: OOM when adding ipv6 route:  How to make available more per-cpu
- memory?
-Date: Sat, 06 Nov 2010 10:11:44 +0100
-Message-ID: <4CD51BD0.8040609@kernel.org>
-References: <4CD43C87.5040403@candelatech.com>	 <1288980361.2882.1070.camel@edumazet-laptop>	 <4CD449A5.5070305@candelatech.com>	 <1288988403.2665.268.camel@edumazet-laptop> <1288995103.2665.653.camel@edumazet-laptop>
+From: Simon Horman <simon@horms.net>
+Subject: Re: bonding: flow control regression [was Re: bridging: flow
+ control regression]
+Date: Sat, 6 Nov 2010 18:25:37 +0900
+Message-ID: <20101106092535.GD5128@verge.net.au>
+References: <20101101122920.GB10052@verge.net.au>
+ <1288616372.2660.101.camel@edumazet-laptop>
+ <20101102020625.GA22724@verge.net.au>
+ <1288673622.2660.147.camel@edumazet-laptop>
+ <20101102070308.GA19924@verge.net.au>
+ <1288683057.2660.154.camel@edumazet-laptop>
+ <20101102084646.GA23774@verge.net.au>
+ <1288690185.2832.8.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ben Greear <greearb@candelatech.com>,
-	NetDev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>
+Cc: netdev@vger.kernel.org, Jay Vosburgh <fubar@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>
 To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1288995103.2665.653.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:47088 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753574Ab0KFJZ5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Nov 2010 05:25:57 -0400
+Content-Disposition: inline
+In-Reply-To: <1288690185.2832.8.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
-
-On 11/05/2010 11:11 PM, Eric Dumazet wrote:
-> Le vendredi 05 novembre 2010 =C3=A0 21:20 +0100, Eric Dumazet a =C3=A9=
-crit :
->> Your vmalloc space is very fragmented. pcpu_get_vm_areas() want
->> hugepages (4MB on your machine, 2MB on mine because I have
->> CONFIG_HIGHMEM64G=3Dy)
+On Tue, Nov 02, 2010 at 10:29:45AM +0100, Eric Dumazet wrote:
+> Le mardi 02 novembre 2010 =C3=A0 17:46 +0900, Simon Horman a =C3=A9cr=
+it :
 >=20
-> Well, this is wrong. We use normal (4KB) pages, unfortunately.
->
-> I have a NUMA machine, with two nodes, so pcpu_get_vm_areas() allocat=
-es
-> two zones, one for each node, with a 'known' offset between them.
-> Then, 4KB pages are allocated to populate the zone when needed.
+> > Thanks Eric, that seems to resolve the problem that I was seeing.
+> >=20
+> > With your patch I see:
+> >=20
+> > No bonding
+> >=20
+> > # netperf -c -4 -t UDP_STREAM -H 172.17.60.216 -l 30 -- -m 1472
+> > UDP UNIDIRECTIONAL SEND TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET =
+to 172.17.60.216 (172.17.60.216) port 0 AF_INET
+> > Socket  Message  Elapsed      Messages                   CPU      S=
+ervice
+> > Size    Size     Time         Okay Errors   Throughput   Util     D=
+emand
+> > bytes   bytes    secs            #      #   10^6bits/sec % SU     u=
+s/KB
+> >=20
+> > 116736    1472   30.00     2438413      0      957.2     8.52     1=
+=2E458=20
+> > 129024           30.00     2438413             957.2     -1.00    -=
+1.000
+> >=20
+> > With bonding (one slave, the interface used in the test above)
+> >=20
+> > netperf -c -4 -t UDP_STREAM -H 172.17.60.216 -l 30 -- -m 1472
+> > UDP UNIDIRECTIONAL SEND TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET =
+to 172.17.60.216 (172.17.60.216) port 0 AF_INET
+> > Socket  Message  Elapsed      Messages                   CPU      S=
+ervice
+> > Size    Size     Time         Okay Errors   Throughput   Util     D=
+emand
+> > bytes   bytes    secs            #      #   10^6bits/sec % SU     u=
+s/KB
+> >=20
+> > 116736    1472   30.00     2438390      0      957.1     8.97     1=
+=2E535=20
+> > 129024           30.00     2438390             957.1     -1.00    -=
+1.000
+> >=20
 >=20
-> # grep pcpu_get_vm_areas /proc/vmallocinfo=20
-> 0xffffe8ffa0400000-0xffffe8ffa0600000 2097152 pcpu_get_vm_areas+0x0/0=
-x740 vmalloc
-> 0xffffe8ffffc00000-0xffffe8ffffe00000 2097152 pcpu_get_vm_areas+0x0/0=
-x740 vmalloc
 >=20
-> BTW, we dont have the number of pages currently allocated in each
-> 'vmalloc' zone, and/or node information.
+> Sure the patch helps when not too many flows are involved, but this i=
+s a
+> hack.
 >=20
-> Tejun, do you have plans to use hugepages eventually ?
-> (and fallback to 4KB pages, but most percpu data are allocated right
-> after boot)
+> Say the device queue is 1000 packets, and you run a workload with 200=
+0
+> sockets, it wont work...
+>=20
+> Or device queue is 1000 packets, one flow, and socket send queue size
+> allows for more than 1000 packets to be 'in flight' (echo 2000000
+> >/proc/sys/net/core/wmem_default) , it wont work too with bonding, on=
+ly
+> with devices with a qdisc sitting in the first device met after the
+> socket.
 
-Well, it's rather complicated.  Till now, the percpu usage hasn't
-justified allocating hugepages but it might someday, but more
-importantly the reason why those big chunks of address space are used
-is to keep the first chunk embedded in the regular linear kernel
-address space to avoid extra TLB pressure.
+True, thanks for pointing that out.
 
-On configurations where vmalloc area is a scarce resource,
-percpu_alloc=3Dpage can be specified to use page-mapped allocation.
-This will use much smaller chunks in vmalloc area at the cost of
-additional 4k page TLB pressure for percpu memory in the first chunk
-(all the static percpu variables and then some).
+The scenario that I am actually interested in is virtualisation.
+And I believe that your patch helps the vhostnet case (I don't see
+flow control problems with bonding + virtio without vhostnet). However,
+I am unsure if there are also some easy work-arounds to degrade
+flow control in the vhostnet case too.
 
-pcpu_embed_first_chunk() contains heuristic which makes it yield to
-page allocator but the parameter is pretty generous (maximum distance
-between chunks > 75% of vmalloc area).  It's there just to avoid
-completely crazy cases.  Also, x86 setup_per_cpu_areas() chooses page
-allocator on 32bit NUMAs.  This case didn't trigger either.  We
-probably need to add another condition.
-
-That large machine on 32bit is bound to be flaky.  To be short on
-virtual address space is a pretty silly and stupid thing.  Anyways,
-any good idea on what criteria we could test?
-
-Thanks.
-
---=20
-tejun
