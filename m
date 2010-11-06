@@ -1,132 +1,75 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [RFC v2] ipvs: allow transmit of GRO aggregated skbs
-Date: Sat, 6 Nov 2010 08:54:12 +0900
-Message-ID: <20101105235411.GA2443@verge.net.au>
-References: <20101105135222.GA8714@verge.net.au>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: OOM when adding ipv6 route:  How to make available more per-cpu
+ memory?
+Date: Fri, 05 Nov 2010 17:07:11 -0700
+Message-ID: <4CD49C2F.3060904@candelatech.com>
+References: <4CD43C87.5040403@candelatech.com>	 <1288980361.2882.1070.camel@edumazet-laptop>	 <4CD449A5.5070305@candelatech.com>	 <1288988403.2665.268.camel@edumazet-laptop> <1288995103.2665.653.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Julian Anastasov <ja@ssi.bg>
-To: lvs-devel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:49520 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754147Ab0KEXxb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Nov 2010 19:53:31 -0400
-Content-Disposition: inline
-In-Reply-To: <20101105135222.GA8714@verge.net.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: NetDev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Tejun Heo <tj@kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1288995103.2665.653.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is a first attempt at allowing LVS to transmit
-skbs of greater than MTU length that have been aggregated by GRO.
+On 11/05/2010 03:11 PM, Eric Dumazet wrote:
+> Le vendredi 05 novembre 2010 =C3=A0 21:20 +0100, Eric Dumazet a =C3=A9=
+crit :
+>> Your vmalloc space is very fragmented. pcpu_get_vm_areas() want
+>> hugepages (4MB on your machine, 2MB on mine because I have
+>> CONFIG_HIGHMEM64G=3Dy)
+>
+> Well, this is wrong. We use normal (4KB) pages, unfortunately.
+>
+> I have a NUMA machine, with two nodes, so pcpu_get_vm_areas() allocat=
+es
+> two zones, one for each node, with a 'known' offset between them.
+> Then, 4KB pages are allocated to populate the zone when needed.
+>
+> # grep pcpu_get_vm_areas /proc/vmallocinfo
+> 0xffffe8ffa0400000-0xffffe8ffa0600000 2097152 pcpu_get_vm_areas+0x0/0=
+x740 vmalloc
+> 0xffffe8ffffc00000-0xffffe8ffffe00000 2097152 pcpu_get_vm_areas+0x0/0=
+x740 vmalloc
+>
+> BTW, we dont have the number of pages currently allocated in each
+> 'vmalloc' zone, and/or node information.
+>
+> Tejun, do you have plans to use hugepages eventually ?
+> (and fallback to 4KB pages, but most percpu data are allocated right
+> after boot)
 
-I have lightly tested the ip_vs_dr_xmit() portion of this patch and
-although it seems to work I am unsure that netif_needs_gso() is the correct
-test to use.
+We just tried creating 1000 macvlans with IPv6 addrs on a 64-bit machin=
+e
+with 12GB RAM.  Only around 520 interfaces properly set their IPs, and
+again there are errors about of-of-memory from 'ip', but no obvious
+splats in dmesg.
 
-Signed-off-by: Simon Horman <horms@verge.net.au>
+'top' shows 10G or so free.
 
---- 
+It will take some time to figure out what exactly is returning
+the ENOMEM....
 
-* LRO is still an outstanding issue, but as its deprecated in favour
-  of GRO perhaps it doesn't need to be solved.
+Thanks,
+Ben
 
-* v1
-  - Based on 2.6.35
+>
+> Thanks
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kerne=
+l" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
 
-* v2
-  - Rebase on current nf-next-2.6 tree (~2.6.37-rc1)
 
-Index: lvs-test-2.6/net/netfilter/ipvs/ip_vs_xmit.c
-===================================================================
---- lvs-test-2.6.orig/net/netfilter/ipvs/ip_vs_xmit.c	2010-10-30 11:43:37.000000000 +0900
-+++ lvs-test-2.6/net/netfilter/ipvs/ip_vs_xmit.c	2010-11-06 08:09:17.000000000 +0900
-@@ -408,7 +408,8 @@ ip_vs_bypass_xmit(struct sk_buff *skb, s
- 
- 	/* MTU checking */
- 	mtu = dst_mtu(&rt->dst);
--	if ((skb->len > mtu) && (iph->frag_off & htons(IP_DF))) {
-+	if ((skb->len > mtu) && (iph->frag_off & htons(IP_DF)) &&
-+	    !netif_needs_gso(rt->dst.dev, skb)) {
- 		ip_rt_put(rt);
- 		icmp_send(skb, ICMP_DEST_UNREACH,ICMP_FRAG_NEEDED, htonl(mtu));
- 		IP_VS_DBG_RL("%s(): frag needed\n", __func__);
-@@ -461,7 +462,7 @@ ip_vs_bypass_xmit_v6(struct sk_buff *skb
- 
- 	/* MTU checking */
- 	mtu = dst_mtu(&rt->dst);
--	if (skb->len > mtu) {
-+	if (skb->len > mtu && !netif_needs_gso(rt->dst.dev, skb)) {
- 		if (!skb->dev) {
- 			struct net *net = dev_net(skb_dst(skb)->dev);
- 
-@@ -560,7 +561,8 @@ ip_vs_nat_xmit(struct sk_buff *skb, stru
- 
- 	/* MTU checking */
- 	mtu = dst_mtu(&rt->dst);
--	if ((skb->len > mtu) && (iph->frag_off & htons(IP_DF))) {
-+	if ((skb->len > mtu) && (iph->frag_off & htons(IP_DF)) &&
-+	    !netif_needs_gso(rt->dst.dev, skb)) {
- 		icmp_send(skb, ICMP_DEST_UNREACH,ICMP_FRAG_NEEDED, htonl(mtu));
- 		IP_VS_DBG_RL_PKT(0, AF_INET, pp, skb, 0,
- 				 "ip_vs_nat_xmit(): frag needed for");
-@@ -675,7 +677,7 @@ ip_vs_nat_xmit_v6(struct sk_buff *skb, s
- 
- 	/* MTU checking */
- 	mtu = dst_mtu(&rt->dst);
--	if (skb->len > mtu) {
-+	if (skb->len > mtu && !netif_needs_gso(rt->dst.dev, skb)) {
- 		if (!skb->dev) {
- 			struct net *net = dev_net(skb_dst(skb)->dev);
- 
-@@ -790,8 +792,9 @@ ip_vs_tunnel_xmit(struct sk_buff *skb, s
- 
- 	df |= (old_iph->frag_off & htons(IP_DF));
- 
--	if ((old_iph->frag_off & htons(IP_DF))
--	    && mtu < ntohs(old_iph->tot_len)) {
-+	if ((old_iph->frag_off & htons(IP_DF) &&
-+	    mtu < ntohs(old_iph->tot_len) &&
-+	    !netif_needs_gso(rt->dst.dev, skb))) {
- 		icmp_send(skb, ICMP_DEST_UNREACH,ICMP_FRAG_NEEDED, htonl(mtu));
- 		IP_VS_DBG_RL("%s(): frag needed\n", __func__);
- 		goto tx_error_put;
-@@ -903,7 +906,8 @@ ip_vs_tunnel_xmit_v6(struct sk_buff *skb
- 	if (skb_dst(skb))
- 		skb_dst(skb)->ops->update_pmtu(skb_dst(skb), mtu);
- 
--	if (mtu < ntohs(old_iph->payload_len) + sizeof(struct ipv6hdr)) {
-+	if (mtu < ntohs(old_iph->payload_len) + sizeof(struct ipv6hdr) &&
-+	    !netif_needs_gso(rt->dst.dev, skb)) {
- 		if (!skb->dev) {
- 			struct net *net = dev_net(skb_dst(skb)->dev);
- 
-@@ -1008,7 +1012,8 @@ ip_vs_dr_xmit(struct sk_buff *skb, struc
- 
- 	/* MTU checking */
- 	mtu = dst_mtu(&rt->dst);
--	if ((iph->frag_off & htons(IP_DF)) && skb->len > mtu) {
-+	if ((iph->frag_off & htons(IP_DF)) && skb->len > mtu &&
-+	    !netif_needs_gso(rt->dst.dev, skb)) {
- 		icmp_send(skb, ICMP_DEST_UNREACH,ICMP_FRAG_NEEDED, htonl(mtu));
- 		ip_rt_put(rt);
- 		IP_VS_DBG_RL("%s(): frag needed\n", __func__);
-@@ -1174,7 +1179,8 @@ ip_vs_icmp_xmit(struct sk_buff *skb, str
- 
- 	/* MTU checking */
- 	mtu = dst_mtu(&rt->dst);
--	if ((skb->len > mtu) && (ip_hdr(skb)->frag_off & htons(IP_DF))) {
-+	if ((skb->len > mtu) && (ip_hdr(skb)->frag_off & htons(IP_DF)) &&
-+	    !netif_needs_gso(rt->dst.dev, skb)) {
- 		icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED, htonl(mtu));
- 		IP_VS_DBG_RL("%s(): frag needed\n", __func__);
- 		goto tx_error_put;
-@@ -1288,7 +1294,7 @@ ip_vs_icmp_xmit_v6(struct sk_buff *skb,
- 
- 	/* MTU checking */
- 	mtu = dst_mtu(&rt->dst);
--	if (skb->len > mtu) {
-+	if (skb->len > mtu && !netif_needs_gso(rt->dst.dev, skb)) {
- 		if (!skb->dev) {
- 			struct net *net = dev_net(skb_dst(skb)->dev);
- 
+--=20
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
