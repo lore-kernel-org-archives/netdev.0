@@ -1,29 +1,60 @@
-From: Harry Barnes <barnesharry@gmx.net>
-Subject: PERSONAL
-Date: Sat, 6 Nov 2010 07:32:59 -0500
-Message-ID: <8c99cc32a8d4517c0e58ace4e3d3f2d4@www.lephalalefetcollege.co.za>
-Reply-To: barnesharry@gala.net
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [RFC v2] ipvs: allow transmit of GRO aggregated skbs
+Date: Sat, 6 Nov 2010 16:18:21 +0200 (EET)
+Message-ID: <alpine.LFD.2.00.1011061608510.4009@ja.ssi.bg>
+References: <20101105135222.GA8714@verge.net.au> <20101105235411.GA2443@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from spam2.logic.bm ([199.172.192.7]:55168 "EHLO spam2.logic.bm"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754552Ab0KFMuC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 6 Nov 2010 08:50:02 -0400
-Received: from www.lephalalefetcollege.co.za (web.webhostpremium.com [174.121.58.85]) by spam2.logic.bm with ESMTP id nCsN3JyHx4wftZfC for <netdev@vger.kernel.org>; Sat, 06 Nov 2010 09:33:00 -0300 (ADT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-Hello,
-
-This is Harry Barnes of the US Marine Corps, but redeployed to Iraq, and presently stationed in Mosul. I will like to share some very vital information that would bring some good financial returns to us in just a few weeks or days depending on how fast we pursue the matter. I am seeking your assistance to evacuate the sum of $28m to you,as far as I can be assured that it will be safe in your care until I complete my service here.
-
-This may not be the best medium to make this kind of contact because of the numerous scam offers transmitted through the Internet, but it is all I have access to for now. I will be very grateful if you can give me the opportunity to discuss this matter with you by assuring me that you will not use any part of it against me in anyway, I hope you understand my limitations here. Should you have reasons to reject this  offer,  please destroy this mail as any  leakage will be too  bad for us.
-
-Respectfully,
-
-Harry Barnes.
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20101105235411.GA2443@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
+ 	Hello,
+
+On Sat, 6 Nov 2010, Simon Horman wrote:
+
+> This is a first attempt at allowing LVS to transmit
+> skbs of greater than MTU length that have been aggregated by GRO.
+>
+> I have lightly tested the ip_vs_dr_xmit() portion of this patch and
+> although it seems to work I am unsure that netif_needs_gso() is the correct
+> test to use.
+
+ 	ip_forward() uses !skb_is_gso(skb), so may be it is
+enough to check for GRO instead of using netif_needs_gso?
+
+> Signed-off-by: Simon Horman <horms@verge.net.au>
+>
+> ---
+>
+> * LRO is still an outstanding issue, but as its deprecated in favour
+>  of GRO perhaps it doesn't need to be solved.
+>
+> * v1
+>  - Based on 2.6.35
+>
+> * v2
+>  - Rebase on current nf-next-2.6 tree (~2.6.37-rc1)
+
+> --- lvs-test-2.6.orig/net/netfilter/ipvs/ip_vs_xmit.c	2010-10-30 11:43:37.000000000 +0900
+> +++ lvs-test-2.6/net/netfilter/ipvs/ip_vs_xmit.c	2010-11-06 08:09:17.000000000 +0900
+
+> @@ -1008,7 +1012,8 @@ ip_vs_dr_xmit(struct sk_buff *skb, struc
+>
+> 	/* MTU checking */
+> 	mtu = dst_mtu(&rt->dst);
+> -	if ((iph->frag_off & htons(IP_DF)) && skb->len > mtu) {
+> +	if ((iph->frag_off & htons(IP_DF)) && skb->len > mtu &&
+> +	    !netif_needs_gso(rt->dst.dev, skb)) {
+> 		icmp_send(skb, ICMP_DEST_UNREACH,ICMP_FRAG_NEEDED, htonl(mtu));
+> 		ip_rt_put(rt);
+> 		IP_VS_DBG_RL("%s(): frag needed\n", __func__);
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
