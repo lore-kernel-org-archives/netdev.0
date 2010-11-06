@@ -1,24 +1,46 @@
-From: ACCESS FINANCE INC <andrea.lopiccolo@fastwebnet.it>
-Subject: FINANCE
-Date: Fri, 5 Nov 2010 21:57:43 +0100 (CET)
-Message-ID: <20625437.1808101288990663302.JavaMail.root__7084.57205114446$1289003347$gmane$org@pr002msr>
-Reply-To: Access225@mail.bg
+From: Mikael Abrahamsson <swmike@swm.pp.se>
+Subject: Re: radvd and auto-ipv6 address regression from 2.6.31 to 2.6.34+
+Date: Sat, 6 Nov 2010 07:17:41 +0100 (CET)
+Message-ID: <alpine.DEB.1.10.1011060713290.2639@uplift.swm.pp.se>
+References: <4CD47622.5040507@candelatech.com> <4CD48FB4.2050903@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain;charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
+Cc: NetDev <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aa012-1msr.fastwebnet.it ([62.101.93.132]:33112 "EHLO
-	aa012-1msr.fastwebnet.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753704Ab0KFA2u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Nov 2010 20:28:50 -0400
+Received: from swm.pp.se ([212.247.200.143]:40387 "EHLO uplift.swm.pp.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753142Ab0KFGXq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 6 Nov 2010 02:23:46 -0400
+In-Reply-To: <4CD48FB4.2050903@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-                                                                              AP
-PLY NOW FOR YOUR FINANCIAL ADVANCEMENT. ACCESS FINANCE LOAN FACILITY TO PEOPLE A
-T 2.5% FIXED INTEREST RATE. IF YOUR ARE INTERESTED IN GETTING THIS LOAN PLEASE S
-END IN THE FOLLOWING INFORMATION TO US WITHOUT DELAY: NAME.... LOAN AMOUNT... DU
-RATION... PHONE NUMBER... FROM STEVE BARRY.GUARANTEED NO MATTER YOUR CREDIT SCOR
-E.
+On Fri, 5 Nov 2010, Ben Greear wrote:
 
+>> On hacked 2.6.34 and 2.6.36 kernels, however, the veth0 gains a new 
+>> address that appears to be generated similar to other IPs associated 
+>> with auto-creation via radvd.
+>> 
+>> I have not yet tested intervening kernels or physical interfaces between
+>> two machines.
+>> 
+>> So, the question is: Is the new behaviour on purpose, or is it a
+>> regression bug?
+>
+> Actually, this doesn't seem to work for 2.6.31 either, so I guess it
+> isn't a regression.
+>
+> Is it expected behaviour, however?
+
+I would not be surprised if the IPv6 stack on Linux would gain IPv6 
+addresses using SLAAC from any interface if it sees RAs on it, regardless 
+if these are locally generated or not.
+
+I guess any Linux device running radvd should turn off autoconf on those 
+interface that radvd is acting on?
+
+net.ipv6.conf.veth0.accept_ra=0 should do the trick?
+
+-- 
+Mikael Abrahamsson    email: swmike@swm.pp.se
