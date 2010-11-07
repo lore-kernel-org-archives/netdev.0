@@ -1,36 +1,50 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [RESEND PATCH] virtio-net: init link state correctly
-Date: Mon, 8 Nov 2010 09:41:27 +1030
-Message-ID: <201011080941.28190.rusty@rustcorp.com.au>
-References: <20101105094718.19101.58898.stgit@dhcp-91-158.nay.redhat.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH 2/2 v5] xps: Transmit Packet Steering
+Date: Sun, 7 Nov 2010 15:11:51 -0800
+Message-ID: <AANLkTiketXseg+zZW90Aqod+4ej7bHqyRAjH76kN654h@mail.gmail.com>
+References: <alpine.DEB.1.00.1011071146390.29978@pokey.mtv.corp.google.com>
+	<1289162455.2478.295.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davem@davemloft.net, markmc@redhat.com, kvm@vger.kernel.org,
-	mst@redhat.com
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20101105094718.19101.58898.stgit@dhcp-91-158.nay.redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out.google.com ([216.239.44.51]:38331 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753572Ab0KGXLy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Nov 2010 18:11:54 -0500
+Received: from hpaq13.eem.corp.google.com (hpaq13.eem.corp.google.com [172.25.149.13])
+	by smtp-out.google.com with ESMTP id oA7NBr2W011148
+	for <netdev@vger.kernel.org>; Sun, 7 Nov 2010 15:11:53 -0800
+Received: from pzk30 (pzk30.prod.google.com [10.243.19.158])
+	by hpaq13.eem.corp.google.com with ESMTP id oA7NBpTA011613
+	for <netdev@vger.kernel.org>; Sun, 7 Nov 2010 15:11:52 -0800
+Received: by pzk30 with SMTP id 30so1004170pzk.18
+        for <netdev@vger.kernel.org>; Sun, 07 Nov 2010 15:11:51 -0800 (PST)
+In-Reply-To: <1289162455.2478.295.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 5 Nov 2010 08:17:18 pm Jason Wang wrote:
-> For device that supports VIRTIO_NET_F_STATUS, there's no need to
-> assume the link is up and we need to call nerif_carrier_off() before
-> querying device status, otherwise we may get wrong operstate after
-> diver was loaded because the link watch event was not fired as
-> expected.
-> 
-> For device that does not support VIRITO_NET_F_STATUS, we could not get
-> its status through virtnet_update_status() and what we can only do is
-> always assuming the link is up.
-> 
-> Acked-by: Michael S. Tsirkin <mst@redhat.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> Tom, I still dont understand why *xps_maps is here, and not in
+> net_device ?
+>
 
-Acked-by: Rusty Russell <rusty@rustcorp.com.au>
+Originally it was in the net_device, but that necessitated a reference
+be held on the device since we can't destroy the map until all
+kobjects were released, but the open reference prevents the kojects
+from being released in the first place.
 
-Thanks!
-Rusty.
+> I am asking because netdev_get_xps_maps(dev) might be slowed down
+> because queue 0 state might change often (__QUEUE_STATE_XOFF)
+>
+Could a add a pointer in the net_device also.
+
+> This means _tx[0] becomes a very hot cache line, needed to access all
+> queues (from get_xps_queue())
+>
+> Other than that, your patch seems fine (not tested yet)
+>
+> Thanks
+>
+>
+>
