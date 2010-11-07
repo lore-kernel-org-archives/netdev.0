@@ -1,48 +1,52 @@
-From: Dan Rosenberg <drosenberg@vsecurity.com>
-Subject: [PATCH 9/9] Fix leaking of kernel heap addresses in net/
-Date: Sun, 07 Nov 2010 11:33:08 -0500
-Message-ID: <1289147588.3090.147.camel@Dan>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Netlink limitations
+Date: Sun, 7 Nov 2010 17:44:02 +0100 (CET)
+Message-ID: <alpine.LNX.2.01.1011071743070.21289@obet.zrqbmnf.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, security@kernel.org, stable@kernel.org
-To: chas@cmf.nrl.navy.mil, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
-	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, remi.denis-courmont@nokia.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: pablo@netfilter.org, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.vsecurity.com ([209.67.252.12]:57502 "EHLO
-	mx1.vsecurity.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753871Ab0KGQdL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Nov 2010 11:33:11 -0500
+Received: from borg.medozas.de ([188.40.89.202]:38453 "EHLO borg.medozas.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750984Ab0KGQoD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 7 Nov 2010 11:44:03 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Dan Rosenberg <drosenberg@vsecurity.com>
-
-diff -urp linux-2.6.37-rc1.orig/net/unix/af_unix.c linux-2.6.37-rc1/net/unix/af_unix.c
---- linux-2.6.37-rc1.orig/net/unix/af_unix.c	2010-11-01 07:54:12.000000000 -0400
-+++ linux-2.6.37-rc1/net/unix/af_unix.c	2010-11-07 10:46:27.000000000 -0500
-@@ -353,7 +353,8 @@ static void unix_sock_destructor(struct 
- 	WARN_ON(!sk_unhashed(sk));
- 	WARN_ON(sk->sk_socket);
- 	if (!sock_flag(sk, SOCK_DEAD)) {
--		printk(KERN_INFO "Attempt to release alive unix socket: %p\n", sk);
-+		printk(KERN_INFO "Attempt to release alive unix socket: %lu\n",
-+			sock_i_ino(sk));
- 		return;
- 	}
- 
-@@ -2198,8 +2199,8 @@ static int unix_seq_show(struct seq_file
- 		struct unix_sock *u = unix_sk(s);
- 		unix_state_lock(s);
- 
--		seq_printf(seq, "%p: %08X %08X %08X %04X %02X %5lu",
--			s,
-+		seq_printf(seq, "%d: %08X %08X %08X %04X %02X %5lu",
-+			0,
- 			atomic_read(&s->sk_refcnt),
- 			0,
- 			s->sk_state == TCP_LISTEN ? __SO_ACCEPTCON : 0,
+Hi,
 
 
+we mentioned it only briefly at the Netfilter workshop a few weeks ago, 
+but as I am trying to figure out how to use Netlink in Xtables, 
+Netlink's limitations really start ruining my day.
 
+The well-known issue is that NL messages the kernel is supposed to 
+receive have a max size of 64K, due to nlmsghdr's use of uint16_t. This 
+is very problematic because attributes can easily amass more than 64K. 
+Think of a chain full of rules, represented by a top-level attribute 
+that nests attributes. The problem is bidirectional, a table 
+dump has the same problem.
+
+A further problem seems to be that the kernel does not seem to have 
+support for receiving NLM_F_MULTI messages, so even assuming chains were 
+just 40K, one cannot atomically replace an entire table with 2 chains of 
+40K each. Trying to slap transaction support on _top_ of netlink is not 
+going to work with the current implementation, because there is no 
+notification of when the socket is closed before a NLMSG_DONE has been 
+sent.
+
+What I would also like is streaming support, i.e. that I can tag an 
+attribute container (one that has nested attrs) with .len = -1 to define 
+that the end of the container is given not by .len, but by a stop 
+marker.
+
+Hacks like nfnetlink or genetlink also seem unnecessary to me, and the 
+limit of MAX_LINKS=32 most likely just stems from nl_table being an 
+array that is not very sparse.
+
+Perhaps it is time to replace Netlink by something new?
+Trying to elicit some opinions.
+
+
+Jan
