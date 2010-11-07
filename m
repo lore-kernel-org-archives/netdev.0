@@ -1,52 +1,63 @@
-From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
-Subject: [PATCH] NET: pktgen - fix compile warning
-Date: Sat, 6 Nov 2010 23:11:38 -0700
-Message-ID: <20101107061138.GA6601@core.coreip.homeip.net>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [Security] [SECURITY] Fix leaking of kernel heap addresses via
+ /proc
+Date: Sun, 07 Nov 2010 11:28:08 +0100
+Message-ID: <4CD67F38.1060506@hartkopp.net>
+References: <1289074307.3090.100.camel@Dan>	<AANLkTimC01SViEOObgf2N2VcLTYO59rOAbHaKf2RM54w@mail.gmail.com> <20101106.165703.193714684.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Nelson Elhage <nelhage@ksplice.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: torvalds@linux-foundation.org, drosenberg@vsecurity.com,
+	chas@cmf.nrl.navy.mil, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	remi.denis-courmont@nokia.com, netdev@vger.kernel.org,
+	security@kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f174.google.com ([209.85.214.174]:48131 "EHLO
-	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751288Ab0KGGLp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Nov 2010 01:11:45 -0500
-Received: by iwn41 with SMTP id 41so2621591iwn.19
-        for <netdev@vger.kernel.org>; Sat, 06 Nov 2010 23:11:44 -0700 (PDT)
-Content-Disposition: inline
+Received: from mo-p00-ob.rzone.de ([81.169.146.162]:8908 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751228Ab0KGK2u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Nov 2010 05:28:50 -0500
+In-Reply-To: <20101106.165703.193714684.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This should fix the following warning:
+On 07.11.2010 00:57, David Miller wrote:
+> From: Linus Torvalds <torvalds@linux-foundation.org>
+> Date: Sat, 6 Nov 2010 13:50:32 -0700
+> 
+>> On Saturday, November 6, 2010, Dan Rosenberg <drosenberg@vsecurity.com> wrote:
+>>>
+>>> Clearly, in most cases we cannot just remove the field from the /proc
+>>> output, as this would break a number of userspace programs that rely on
+>>> consistency.  However, I propose that we replace the address with a "0"
+>>> rather than leaking this information.
+>>
+>> I really think it would be much better to use the unidentified number
+>> or similar.
+>>
+>> Just replacing with zeroes is annoying, and has the potential of
+>> losing actual information.
+> 
+> I would really like to see the specific examples of where this is
+> happening, it sounds like something very silly to me.
 
-net/core/pktgen.c: In function =E2=80=98pktgen_if_write=E2=80=99:
-net/core/pktgen.c:890: warning: comparison of distinct pointer types la=
-cks a cast
+Indeed Urs and me had a similar discussion before we decided to put different
+(user relevant) content into the procfs output and break the current layout:
 
-Signed-off-by: Dmitry Torokhov <dtor@mail.ru>
----
+http://patchwork.ozlabs.org/patch/70282/
 
-Unless somebody already beat me to it...
+The layout break was ok in this case as the people using the CAN procfs stuff
+do this only when facing problems (with their applications) at runtime.
 
- net/core/pktgen.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+A discussed approach that won't break the procfs layout was to set the values
+to "0" and only fill them with real content depending on CONFIG_DEBUG_INFO .
 
+Would that fit here?
 
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index fbce4b0..1992cd0 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -887,7 +887,7 @@ static ssize_t pktgen_if_write(struct file *file,
- 	i +=3D len;
-=20
- 	if (debug) {
--		size_t copy =3D min(count, 1023);
-+		size_t copy =3D min_t(size_t, count, 1023);
- 		char tb[copy + 1];
- 		if (copy_from_user(tb, user_buffer, copy))
- 			return -EFAULT;
+Or maybe a different config option CONFIG_DEBUG_KERNEL_ADDR would do the job,
+as i don't know which distros enable CONFIG_DEBUG_INFO by default ...
 
---=20
-Dmitry
+Regards,
+Oliver
+
