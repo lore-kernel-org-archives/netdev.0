@@ -1,38 +1,52 @@
-From: Haitao Zhang <minipanda@linuxrobot.org>
-Subject: [PATCH] ath9k_htc: Add support for device ID 3346
-Date: Sun,  7 Nov 2010 12:50:24 +0800
-Message-ID: <1289105424-3597-1-git-send-email-minipanda@linuxrobot.org>
-To: "Luis R. Rodriguez" <lrodriguez@atheros.com>,
-	Jouni Malinen <jmalinen@atheros.com>,
-	Vasanthakumar Thiagarajan <vasanth@atheros.com>,
-	Senthil Balasubramanian <senthilkumar@atheros.com>
+From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+Subject: [PATCH] NET: pktgen - fix compile warning
+Date: Sat, 6 Nov 2010 23:11:38 -0700
+Message-ID: <20101107061138.GA6601@core.coreip.homeip.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Nelson Elhage <nelhage@ksplice.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [218.247.216.29] ([218.247.216.29]:58770 "EHLO
-	mail.linuxfire.com.cn" rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1751008Ab0KGFQc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Nov 2010 01:16:32 -0400
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:48131 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751288Ab0KGGLp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Nov 2010 01:11:45 -0500
+Received: by iwn41 with SMTP id 41so2621591iwn.19
+        for <netdev@vger.kernel.org>; Sat, 06 Nov 2010 23:11:44 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds support for USB dongle with device ID 3346 from IMC Networks.
+This should fix the following warning:
 
-Signed-off-by: Haitao Zhang <minipanda@linuxrobot.org>
+net/core/pktgen.c: In function =E2=80=98pktgen_if_write=E2=80=99:
+net/core/pktgen.c:890: warning: comparison of distinct pointer types la=
+cks a cast
+
+Signed-off-by: Dmitry Torokhov <dtor@mail.ru>
 ---
- drivers/net/wireless/ath/ath9k/hif_usb.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/wireless/ath/ath9k/hif_usb.c b/drivers/net/wireless/ath/ath9k/hif_usb.c
-index 6576f68..2f6b1e9 100644
---- a/drivers/net/wireless/ath/ath9k/hif_usb.c
-+++ b/drivers/net/wireless/ath/ath9k/hif_usb.c
-@@ -35,6 +35,7 @@ static struct usb_device_id ath9k_hif_usb_ids[] = {
- 	{ USB_DEVICE(0x07D1, 0x3A10) }, /* Dlink Wireless 150 */
- 	{ USB_DEVICE(0x13D3, 0x3327) }, /* Azurewave */
- 	{ USB_DEVICE(0x13D3, 0x3328) }, /* Azurewave */
-+	{ USB_DEVICE(0x13D3, 0x3346) }, /* IMC Networks */
- 	{ USB_DEVICE(0x04CA, 0x4605) }, /* Liteon */
- 	{ USB_DEVICE(0x083A, 0xA704) }, /* SMC Networks */
- 	{ },
--- 
-1.7.0.4
+Unless somebody already beat me to it...
 
+ net/core/pktgen.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index fbce4b0..1992cd0 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -887,7 +887,7 @@ static ssize_t pktgen_if_write(struct file *file,
+ 	i +=3D len;
+=20
+ 	if (debug) {
+-		size_t copy =3D min(count, 1023);
++		size_t copy =3D min_t(size_t, count, 1023);
+ 		char tb[copy + 1];
+ 		if (copy_from_user(tb, user_buffer, copy))
+ 			return -EFAULT;
+
+--=20
+Dmitry
