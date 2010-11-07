@@ -1,84 +1,55 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [Security] [SECURITY] Fix leaking of kernel heap addresses via
- /proc
-Date: Sun, 07 Nov 2010 17:11:06 +0000
-Message-ID: <1289149866.2816.69.camel@localhost>
-References: <1289074307.3090.100.camel@Dan>
-	 <AANLkTimC01SViEOObgf2N2VcLTYO59rOAbHaKf2RM54w@mail.gmail.com>
-	 <20101106.165703.193714684.davem@davemloft.net>
-	 <4CD67F38.1060506@hartkopp.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Netlink limitations
+Date: Sun, 07 Nov 2010 18:17:43 +0100
+Message-ID: <4CD6DF37.6010800@trash.net>
+References: <alpine.LNX.2.01.1011071743070.21289@obet.zrqbmnf.qr>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-tn0vObSOrrp6rBRo4Moc"
-Cc: David Miller <davem@davemloft.net>, torvalds@linux-foundation.org,
-	drosenberg@vsecurity.com, chas@cmf.nrl.navy.mil,
-	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net,
-	remi.denis-courmont@nokia.com, netdev@vger.kernel.org,
-	security@kernel.org
-To: Oliver Hartkopp <socketcan@hartkopp.net>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, pablo@netfilter.org,
+	netdev@vger.kernel.org
+To: Jan Engelhardt <jengelh@medozas.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:38620 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751882Ab0KGRLu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Nov 2010 12:11:50 -0500
-In-Reply-To: <4CD67F38.1060506@hartkopp.net>
+Received: from stinky.trash.net ([213.144.137.162]:41682 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752148Ab0KGRR7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Nov 2010 12:17:59 -0500
+In-Reply-To: <alpine.LNX.2.01.1011071743070.21289@obet.zrqbmnf.qr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 07.11.2010 17:44, Jan Engelhardt wrote:
+> we mentioned it only briefly at the Netfilter workshop a few weeks ago, 
+> but as I am trying to figure out how to use Netlink in Xtables, 
+> Netlink's limitations really start ruining my day.
+> 
+> The well-known issue is that NL messages the kernel is supposed to 
+> receive have a max size of 64K, due to nlmsghdr's use of uint16_t. This 
+> is very problematic because attributes can easily amass more than 64K. 
+> Think of a chain full of rules, represented by a top-level attribute 
+> that nests attributes. The problem is bidirectional, a table 
+> dump has the same problem.
 
---=-tn0vObSOrrp6rBRo4Moc
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Messages are not limited to 64k, individual attributes are. Holger
+started working on a nlattr32, which uses 32 bit for the length
+value.
 
-On Sun, 2010-11-07 at 11:28 +0100, Oliver Hartkopp wrote:
-[...]
-> The layout break was ok in this case as the people using the CAN procfs s=
-tuff
-> do this only when facing problems (with their applications) at runtime.
->=20
-> A discussed approach that won't break the procfs layout was to set the va=
-lues
-> to "0" and only fill them with real content depending on CONFIG_DEBUG_INF=
-O .
->=20
-> Would that fit here?
->=20
-> Or maybe a different config option CONFIG_DEBUG_KERNEL_ADDR would do the =
-job,
-> as i don't know which distros enable CONFIG_DEBUG_INFO by default ...
+> A further problem seems to be that the kernel does not seem to have 
+> support for receiving NLM_F_MULTI messages, so even assuming chains were 
+> just 40K, one cannot atomically replace an entire table with 2 chains of 
+> 40K each. Trying to slap transaction support on _top_ of netlink is not 
+> going to work with the current implementation, because there is no 
+> notification of when the socket is closed before a NLMSG_DONE has been 
+> sent.
 
-I believe most distributions now enable CONFIG_DEBUG_INFO (though the
-debug information is then stripped and shipped in separate packages).  I
-also dislike this idea of an implicit trade-off between debugging and
-security; such a trade-off may be necessary but then it should be
-explicit.
+There is, search for NETLINK_URELEASE in af_netlink.c. With 32 bit
+attribute lengths this should not be needed anymore however.
 
-Ben.
+> What I would also like is streaming support, i.e. that I can tag an 
+> attribute container (one that has nested attrs) with .len = -1 to define 
+> that the end of the container is given not by .len, but by a stop 
+> marker.
 
---=20
-Ben Hutchings
-Once a job is fouled up, anything done to improve it makes it worse.
-
---=-tn0vObSOrrp6rBRo4Moc
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iQIVAwUATNbdoOe/yOyVhhEJAQLTJg/+Ml9SLU4kz4Rwkv50E7JuhKYC6nXj3za9
-Wux7151hfCK2S1W+BYXuYT1dJvdjaQZiP4gCcL7M6qc6xqK6Nm1htmh1GrJkDDIL
-JuO5OCegbb2A1YgyYvwuVhv03z4sjedkulWtBSXjwmNFOg4Uj986kIL2gZR3Ahei
-QAx0eOkgIaCo7vfiFutf6kclBiO/Ec3t9wMaRNPEfyqyQTNsEaDVvnh1mawWfvMJ
-nRYe0nAZDRZbmlxMDAafKHCxQR7zKISBlDRRj2tf33GyusrqsHyvztscDQJNimyY
-JIv9VFdnji/t9FF0hogXWQKUk3rUhc3QMcOGY5FWo3Eg3TpFSahhk2sbJpJTEBKH
-4NUAJ/jN7jNXqOcVh6f2c4kUKt0olP8SlTJphXcshU7SHtVUI/ZKwvNogA+JFCjJ
-gQjcrbuhaeAxcjtnjbCC0CQpzYfsDtJ0ybh6vae6qk0M1vpXHPo0g57djg4OZ+cM
-qesdHSosX0xkO1inLVHzM/rXgJEZKsWGl/HpK2AVYXXXYtJ63UgDn+xzr+TWRxWe
-dgE3Q73AAsYmgGiOPMn2NDHMQoEjAJpe+O2WlafG5So15rtLLF5zNXkSMH6YWfx3
-DBnjlFVs/VWC/3m6gZnHK/8txf8n18tVf1RyRlEc+3S19FCqCSLt/4nIH5zRRdrY
-HSi/7uxhSoA=
-=Bpx0
------END PGP SIGNATURE-----
-
---=-tn0vObSOrrp6rBRo4Moc--
+That's somewhat similar to the nlattr32 idea, but a length of 0 makes
+more sense since that's currently not used. In that case the length
+would be read from a second length field which has 32 bits.
