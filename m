@@ -1,174 +1,100 @@
-From: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Subject: [PATCH 4/4] firewire: net: throttle TX queue before running out of
-	tlabels
-Date: Sun, 7 Nov 2010 22:41:21 +0100 (CET)
-Message-ID: <tkrat.39c164e4c52e2fc8@s5r6.in-berlin.de>
-References: <tkrat.036c5d10fb83f85d@s5r6.in-berlin.de>
+From: Marin Mitov <mitov@issp.bas.bg>
+Subject: [BUG]: skge not working (as module) in 2.6.37-rc1
+Date: Sun, 7 Nov 2010 23:45:52 +0200
+Message-ID: <201011072345.52784.mitov@issp.bas.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: linux1394-devel@lists.sourceforge.net
-Return-path: <linux1394-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <tkrat.036c5d10fb83f85d@s5r6.in-berlin.de>
-Content-Disposition: INLINE
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
-	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux1394-devel>
-List-Post: <mailto:linux1394-devel@lists.sourceforge.net>
-List-Help: <mailto:linux1394-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
-	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: linux1394-devel-bounces@lists.sourceforge.net
+To: Stephen Hemminger <shemminger@osdl.org>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This prevents firewire-net from submitting write requests in fast
-succession until failure due to all 64 transaction labels used up for
-unfinished split transactions.  The netif_stop/wake_queue API is used
-for this purpose.
+Hi Stephen,
 
-The high watermark is set to considerably less than 64 (I chose 8) in
-order to put less pressure on to responder peers.  Still, responders
-which run Linux firewire-net still need to improved to keep up with
-even this small amount of outstanding split transactions.  (This is
-considering the case of only one responder at a time, or a primary
-responder, because this is the most likely case with IP over 1394.)
+skge as in 2.6.36 (and before) is working.
+As in 2.6.37-rc1 it is not:
 
-This is based on the count of unfinished TX datagrams.  Maybe it should
-rather be based on the count of unfinished TX fragments?  Many 1394a
-CardBus cards accept only 1024k sized packets, i.e. require two fragments
-per datagram at the standard MTU of 1500.  However, the chosen watermark
-is still well below the maximum number of tlabels.
+kernel: BUG: unable to handle kernel NULL pointer dereference at 0000000000000010
+kernel: IP: [<ffffffffa0005d20>] skge_devinit+0x270/0x2a0 [skge]
+kernel: PGD d8657067 PUD d8658067 PMD 0
+kernel: Oops: 0002 [#1] PREEMPT SMP
+kernel: last sysfs file: /sys/devices/platform/mga_warp.0/firmware/mga_warp.0/loading
+kernel: CPU 1
+kernel: Modules linked in: skge(+)
+kernel:
+kernel: Pid: 2005, comm: insmod Not tainted 2.6.37-rc1 #2 A8V/System Product Name
+kernel: RIP: 0010:[<ffffffffa0005d20>]  [<ffffffffa0005d20>] skge_devinit+0x270/0x2a0 [skge]
+kernel: RSP: 0018:ffff8800ce477cb8  EFLAGS: 00010292
+kernel: RAX: 0000000000000000 RBX: ffff88011f2cc800 RCX: ffffffff815ab260
+kernel: RDX: ffffffff814e82a8 RSI: 0000000000000046 RDI: ffffffff815ab154
+kernel: RBP: ffff8800ce477cd8 R08: 00000000ffffffff R09: 0000000000000000
+kernel: R10: 0000000000000000 R11: 0000000000000000 R12: ffff8800daa27480
+kernel: R13: 0000000000000000 R14: ffff88011f2ccd80 R15: 0000000000000000
+kernel: FS:  00007f2af73f3700(0000) GS:ffff8800dfd00000(0000) knlGS:0000000000000000
+kernel: CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+kernel: CR2: 0000000000000010 CR3: 00000000d865a000 CR4: 00000000000006e0
+kernel: DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+kernel: DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+kernel: Process insmod (pid: 2005, threadinfo ffff8800ce476000, task ffff880109875370)
+kernel: Stack:
+kernel:  ffff88011fe5f800 0000000000000000 ffff8800daa27480 ffff8800daa274e8
+kernel:  ffff8800ce477d28 ffffffffa0006f2d ffff8800ce477d08 ffffffff8119555a
+kernel:  ffff8800ce477d38 ffff88011fe5f888 ffff88011fe5f800 ffffffffa0008120
+kernel: Call Trace:
+kernel:  [<ffffffffa0006f2d>] skge_probe+0x27c/0x4a7 [skge]
+kernel:  [<ffffffff8119555a>] ? kobject_get+0x1a/0x30
+kernel:  [<ffffffff811aa812>] local_pci_probe+0x12/0x20
+kernel:  [<ffffffff811aaae0>] pci_device_probe+0x80/0xb0
+kernel:  [<ffffffff812337fa>] ? driver_sysfs_add+0x7a/0xb0
+kernel:  [<ffffffff81233931>] driver_probe_device+0x81/0x1a0
+kernel:  [<ffffffff81233ae3>] __driver_attach+0x93/0xa0
+kernel:  [<ffffffff81233a50>] ? __driver_attach+0x0/0xa0
+kernel:  [<ffffffff8123301c>] bus_for_each_dev+0x5c/0x90
+kernel:  [<ffffffff81233779>] driver_attach+0x19/0x20
+kernel:  [<ffffffff81232908>] bus_add_driver+0x198/0x250
+kernel:  [<ffffffffa000c000>] ? skge_init_module+0x0/0x3a [skge]
+kernel:  [<ffffffff81233dd8>] driver_register+0x78/0x140
+kernel:  [<ffffffffa000c000>] ? skge_init_module+0x0/0x3a [skge]
+kernel:  [<ffffffff811aad91>] __pci_register_driver+0x51/0xd0
+kernel:  [<ffffffff812d4840>] ? dmi_check_system+0x20/0x50
+kernel:  [<ffffffffa000c038>] skge_init_module+0x38/0x3a [skge]
+kernel:  [<ffffffff810001de>] do_one_initcall+0x3e/0x170
+kernel:  [<ffffffff81066192>] sys_init_module+0xb2/0x200
+kernel:  [<ffffffff810024ab>] system_call_fastpath+0x16/0x1b
+kernel: Code: 39 e1 48 89 df e8 81 a7 33 e1 ba 15 0f 00 00 48 c7 c6 08 7c 00 a0 48 c7 c7 48 73 00 a0 31 c0 e8 c1 aa 39 e1 48 8b 83 00 03 00 00 <f0> 80 48 10 01 ba 17 0f 00 00 48 c7 c6 08 7c 00 a0 48 c7 c7 48
+kernel: RIP  [<ffffffffa0005d20>] skge_devinit+0x270/0x2a0 [skge]
+kernel:  RSP <ffff8800ce477cb8>
+kernel: CR2: 0000000000000010
+kernel: ---[ end trace ef29176d9e5b71a4 ]---
 
-Without this stop/wake mechanism, datagrams were simply lost whenever
-the tlabel pool was exhausted.
+Reverting the changes in skge.c (2.6.36 -> 2.6.37-rc1) does not help.
+Debugging with many printk embedded in skge_devinit() found the problem is in
+netif_stop_queue(dev). Removing the statement (see the patch) helps - skge is working.
 
-I wonder what a good net_device.tx_queue_len value is.  I just set it
-to the same value as the chosen watermark for now.  Note that the net
-scheduler still lets us exceed the high watermark occasionally.  This
-could be prevented by an earlier queued_datagrams check in fwnet_tx with
-a NETDEV_TX_BUSY return but such an early check did not actually
-improve performance in my testing, i.e. did not reduce busy responder
-situations.
+But I am not expert in the networking, so I am not sure I have solved the real problem.
+May be some changes in the core networking are the real cause of the problem.
 
-Results:
-  - I did not see changes to resulting throughput that were discernible
-    from the usual measuring noise.
-  - With this change, other requesters on the same node now have a
-    chance to get spare transaction labels while firewire-net is
-    transmitting.
+And by the way, why one should stop a queue that is not yet (at least explicitly) started? :-)
 
-Signed-off-by: Stefan Richter <stefanr@s5r6.in-berlin.de>
----
- drivers/firewire/net.c |   36 ++++++++++++++++++++++++++++--------
- 1 file changed, 28 insertions(+), 8 deletions(-)
+Best regards.
 
-Index: b/drivers/firewire/net.c
-===================================================================
---- a/drivers/firewire/net.c
-+++ b/drivers/firewire/net.c
-@@ -28,8 +28,14 @@
- #include <asm/unaligned.h>
- #include <net/arp.h>
+Marin Mitov
+
+Signed-off-by: Marin Mitov <mitov@issp.bas.bg>
+
+===========================================================
+--- a/drivers/net/skge.c	2010-11-07 10:55:22.000000000 +0200
++++ b/drivers/net/skge.c	2010-11-07 20:55:43.000000000 +0200
+@@ -3858,7 +3858,6 @@ static struct net_device *skge_devinit(s
  
--#define FWNET_MAX_FRAGMENTS	25	/* arbitrary limit */
--#define FWNET_ISO_PAGE_COUNT	(PAGE_SIZE < 16 * 1024 ? 4 : 2)
-+/* rx limits */
-+#define FWNET_MAX_FRAGMENTS		25 /* arbitrary limit */
-+#define FWNET_ISO_PAGE_COUNT		(PAGE_SIZE < 16 * 1024 ? 4 : 2)
-+
-+/* tx limits */
-+#define FWNET_TX_QUEUE_LEN		8 /* ? */
-+#define FWNET_MAX_QUEUED_DATAGRAMS	8 /* should keep AT DMA busy enough */
-+#define FWNET_MIN_QUEUED_DATAGRAMS	2
+ 	/* device is off until link detection */
+ 	netif_carrier_off(dev);
+-	netif_stop_queue(dev);
  
- #define IEEE1394_BROADCAST_CHANNEL	31
- #define IEEE1394_ALL_NODES		(0xffc0 | 0x003f)
-@@ -892,6 +898,20 @@ static void fwnet_free_ptask(struct fwne
- 	kmem_cache_free(fwnet_packet_task_cache, ptask);
+ 	return dev;
  }
- 
-+/* caller must hold dev->lock */
-+static void inc_queued_datagrams(struct fwnet_device *dev)
-+{
-+	if (++dev->queued_datagrams >= FWNET_MAX_QUEUED_DATAGRAMS)
-+		netif_stop_queue(dev->netdev);
-+}
-+
-+/* caller must hold dev->lock */
-+static void dec_queued_datagrams(struct fwnet_device *dev)
-+{
-+	if (--dev->queued_datagrams == FWNET_MIN_QUEUED_DATAGRAMS)
-+		netif_wake_queue(dev->netdev);
-+}
-+
- static int fwnet_send_packet(struct fwnet_packet_task *ptask);
- 
- static void fwnet_transmit_packet_done(struct fwnet_packet_task *ptask)
-@@ -908,7 +928,7 @@ static void fwnet_transmit_packet_done(s
- 	/* Check whether we or the networking TX soft-IRQ is last user. */
- 	free = (ptask->outstanding_pkts == 0 && ptask->enqueued);
- 	if (free)
--		dev->queued_datagrams--;
-+		dec_queued_datagrams(dev);
- 
- 	if (ptask->outstanding_pkts == 0) {
- 		dev->netdev->stats.tx_packets++;
-@@ -979,7 +999,7 @@ static void fwnet_transmit_packet_failed
- 	/* Check whether we or the networking TX soft-IRQ is last user. */
- 	free = ptask->enqueued;
- 	if (free)
--		dev->queued_datagrams--;
-+		dec_queued_datagrams(dev);
- 
- 	dev->netdev->stats.tx_dropped++;
- 	dev->netdev->stats.tx_errors++;
-@@ -1064,7 +1084,7 @@ static int fwnet_send_packet(struct fwne
- 		if (!free)
- 			ptask->enqueued = true;
- 		else
--			dev->queued_datagrams--;
-+			dec_queued_datagrams(dev);
- 
- 		spin_unlock_irqrestore(&dev->lock, flags);
- 
-@@ -1083,7 +1103,7 @@ static int fwnet_send_packet(struct fwne
- 	if (!free)
- 		ptask->enqueued = true;
- 	else
--		dev->queued_datagrams--;
-+		dec_queued_datagrams(dev);
- 
- 	spin_unlock_irqrestore(&dev->lock, flags);
- 
-@@ -1345,7 +1365,7 @@ static netdev_tx_t fwnet_tx(struct sk_bu
- 		max_payload += RFC2374_FRAG_HDR_SIZE;
- 	}
- 
--	dev->queued_datagrams++;
-+	inc_queued_datagrams(dev);
- 
- 	spin_unlock_irqrestore(&dev->lock, flags);
- 
-@@ -1415,7 +1435,7 @@ static void fwnet_init_dev(struct net_de
- 	net->addr_len		= FWNET_ALEN;
- 	net->hard_header_len	= FWNET_HLEN;
- 	net->type		= ARPHRD_IEEE1394;
--	net->tx_queue_len	= 10;
-+	net->tx_queue_len	= FWNET_TX_QUEUE_LEN;
- 	SET_ETHTOOL_OPS(net, &fwnet_ethtool_ops);
- }
- 
-
--- 
-Stefan Richter
--=====-==-=- =-== --===
-http://arcgraph.de/sr/
-
-
-------------------------------------------------------------------------------
-The Next 800 Companies to Lead America's Growth: New Video Whitepaper
-David G. Thomson, author of the best-selling book "Blueprint to a 
-Billion" shares his insights and actions to help propel your 
-business during the next growth cycle. Listen Now!
-http://p.sf.net/sfu/SAP-dev2dev
