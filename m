@@ -1,14 +1,12 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [Security] [SECURITY] Fix leaking of kernel heap addresses via
- /proc
-Date: Mon, 8 Nov 2010 00:14:21 +0100
-Message-ID: <20101107231421.GC17592@basil.fritz.box>
-References: <87sjzcssx5.fsf@basil.nowhere.org>
- <201011072248.oA7MmjKg025857@cmf.nrl.navy.mil>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [Security] [SECURITY] Fix leaking of kernel heap addresses via /proc
+Date: Sun, 7 Nov 2010 15:22:34 -0800
+Message-ID: <AANLkTikDeVXcYRXqcq-qD_mf19awnKPTYGZbZguxJLDm@mail.gmail.com>
+References: <87sjzcssx5.fsf@basil.nowhere.org> <201011072248.oA7MmjKg025857@cmf.nrl.navy.mil>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi@firstfloor.org>, Ted Ts'o <tytso@mit.edu>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andi Kleen <andi@firstfloor.org>, "Ted Ts'o" <tytso@mit.edu>,
 	Dan Rosenberg <drosenberg@vsecurity.com>,
 	"davem@davemloft.net" <davem@davemloft.net>,
 	"kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
@@ -21,56 +19,45 @@ Cc: Andi Kleen <andi@firstfloor.org>, Ted Ts'o <tytso@mit.edu>,
 	"security@kernel.org" <security@kernel.org>
 To: chas3@users.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:35543 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752709Ab0KGXOX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Nov 2010 18:14:23 -0500
-Content-Disposition: inline
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:59158 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751336Ab0KGXYk convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 7 Nov 2010 18:24:40 -0500
+Received: from mail-iw0-f174.google.com (mail-iw0-f174.google.com [209.85.214.174])
+	(authenticated bits=0)
+	by smtp1.linux-foundation.org (8.14.2/8.13.5/Debian-3ubuntu1.1) with ESMTP id oA7NMsmD016441
+	(version=TLSv1/SSLv3 cipher=RC4-MD5 bits=128 verify=FAIL)
+	for <netdev@vger.kernel.org>; Sun, 7 Nov 2010 15:22:55 -0800
+Received: by iwn41 with SMTP id 41so3354268iwn.19
+        for <netdev@vger.kernel.org>; Sun, 07 Nov 2010 15:22:54 -0800 (PST)
 In-Reply-To: <201011072248.oA7MmjKg025857@cmf.nrl.navy.mil>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Nov 07, 2010 at 05:48:45PM -0500, Chas Williams (CONTRACTOR) wrote:
-> In message <87sjzcssx5.fsf@basil.nowhere.org>,Andi Kleen writes:
-> >Ted Ts'o <tytso@mit.edu> writes:
-> >
-> >> Are there any userspace programs that might be reasonably expected to
-> >> _use_ this information?  If there is, we could just pick a random
-> >> number at boot time, and then XOR the heap adddress with that random
-> >> number.
-> >
-> >If any of the addresses can be guessed ever (and that is likely if it's
-> >allocated at boot) determining the random value will be trivial
-> >for everyone.
-> 
-> i suppose one could use idr to map the pointers to unique values.  the
+On Sun, Nov 7, 2010 at 2:48 PM, Chas Williams (CONTRACTOR)
+<chas@cmf.nrl.navy.mil> wrote:
+>
+> i suppose one could use idr to map the pointers to unique values. =A0=
+the
 > infiniband code uses this technique>
 
-idr requires allocating memory, and it's unclear you can do that
-in all the situations where debugging printks are used. And
-how would you get the idr table out of a broken kernel? And further
-the memory allocations would eventually fill up your memory
-if they go on. I don't think idr is a solution.
+We already _have_ the unique value that /proc uses - the inode number.
+It's what lsof and friends use to match things across different files
+anyway.
 
-I don't really have a good solution either. Even if the
-the individual pointers were removed from printks (which
-probably doesn't make much difference anyways because those
-printks usually happen only in unlikely debug situations):
+Why are people arguing about stupid things? If it's wrong to expose
+kernel pointers in /proc (and I do think it generally is something we
+should try to avoid), then we already do have the natural alternative.
+Which happens to be what the patch already does.
 
-The information about the memory layout early on in dmesg
-is probably enough to make a good educated guess about
-the locations of standard slab caches on a known kernel
-image. For example the first N sockets opened are very likely
-easy to guess this way.
+So the only question is whether kernel pointers are an information
+leak worth worrying about. Personally, I think it's just damn stupid
+to expose a kernel pointer unless you _have_ to. There is absolutely
+no reason to expose the address of a socket in /proc, perhaps unless
+you're in some super-duper-debugging mode that no sane person would
+ever use outside of specialized network debugging (and I bet that in
+that case you still shouldn't expose it in a _normal_ proc file, but
+in debugfs or something).
 
-I guess one could make dmesg root only, although I personally
-use it often as non root.
-
-Or maybe add some more randomization to the buddy allocator.
-The drawback of that is that they tend to make
-benchmarks unstable due to cache coloring differences.
-
--Andi
-
--- 
-ak@linux.intel.com -- Speaking for myself only.
+                          Linus
