@@ -1,40 +1,112 @@
-From: Stefan Richter <stefanr@s5r6.in-berlin.de>
+From: Maxim Levitsky <maximlevitsky@gmail.com>
 Subject: Re: [PATCH] firewire: net: rate-limit log spam at transmit failure
-Date: Sun, 07 Nov 2010 13:03:08 +0100
-Message-ID: <4CD6957C.5030504@s5r6.in-berlin.de>
-References: <tkrat.01ca17fba0508ae0@s5r6.in-berlin.de>	 <tkrat.1b9925fa1d199c23@s5r6.in-berlin.de>	 <tkrat.18b9f67ac78dcbea@s5r6.in-berlin.de>	 <tkrat.276aeae22ec60090@s5r6.in-berlin.de>	 <1289100404.3277.28.camel@maxim-laptop> <1289100737.3277.32.camel@maxim-laptop>
+Date: Sun, 07 Nov 2010 14:04:23 +0200
+Message-ID: <1289131463.10615.6.camel@maxim-laptop>
+References: <tkrat.01ca17fba0508ae0@s5r6.in-berlin.de>
+	 <tkrat.1b9925fa1d199c23@s5r6.in-berlin.de>
+	 <tkrat.18b9f67ac78dcbea@s5r6.in-berlin.de>
+	 <tkrat.276aeae22ec60090@s5r6.in-berlin.de>
+	 <1289100404.3277.28.camel@maxim-laptop>
+	 <4CD68925.8080302@s5r6.in-berlin.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: linux1394-devel@lists.sourceforge.net,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Maxim Levitsky <maximlevitsky@gmail.com>
+To: Stefan Richter <stefanr@s5r6.in-berlin.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from einhorn.in-berlin.de ([192.109.42.8]:41822 "EHLO
-	einhorn.in-berlin.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752075Ab0KGMDT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Nov 2010 07:03:19 -0500
-In-Reply-To: <1289100737.3277.32.camel@maxim-laptop>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:50411 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752173Ab0KGME2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Nov 2010 07:04:28 -0500
+Received: by fxm16 with SMTP id 16so3426025fxm.19
+        for <netdev@vger.kernel.org>; Sun, 07 Nov 2010 04:04:27 -0800 (PST)
+In-Reply-To: <4CD68925.8080302@s5r6.in-berlin.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Maxim Levitsky wrote:
-> I have here my own hack to set the transaction timeout,
+On Sun, 2010-11-07 at 12:10 +0100, Stefan Richter wrote:
+> Maxim Levitsky wrote:
+> > On Sun, 2010-11-07 at 00:23 +0100, Stefan Richter wrote:
+> >> On  6 Nov, Stefan Richter wrote:
+> >>> Then I tried an XIO2213A card in the AMD PC (again the Intel PC as peer)
+> >>> and got 243 times "failed: 12" i.e. RCODE_BUSY and 81 times "failed: 10"
+> >>> i.e. RCODE_SEND_ERROR during ftp transfer of a >500 MB large file from
+> >>> XIO2213A to FW323.
+> > 
+> > I also am getting strange results (but very good compared to what I had
+> > recently).
+> > 
+> > With all your patches, I get very stable TCP and UDP streams from laptop
+> > to desktop at 180~190 Mbits/s.
+> > 
+> > However, the opposite direction (desktop->laptop) still suffers from
+> > tlabel exhaustion.
+> > I added some printks, and I see, clearly that netif_stop_queue doesn't
+> > always work (probably this is intended?).
+> > 
+> > If I replace == with >= in inc_queue_packets and similar in
+> > dec_queued_packets, then tlabel exhaustion disappears, and I get ~240
+> > Mbit/s on TCP and UDP.
+> 
+> Remind me, is this FireWire 800?  And what controllers in particular?  I get
+> about half of your numbers with FireWire 400 connections.
+Firewire 400.
 
-You can use firecontrol to set it on-the-fly.  To set it on node ffc2 i.e. the
-node with phy ID 2, and controller 1 (i.e. libraw1394 "port" 1):
-# echo "w . 2 0xfffff0000018 4 3" | firecontrol 1
+Laptop: Ricoh R5C832
+Desktop: TI TSB43AB22A
 
-This sets the whole-seconds part to 3, which gives you 3.1 seconds timeout if
-the fractional part at 0xfffff000001c is still at its default value of 0.1
-seconds, i.e. 800 << 19 (subsecond part in units of (1/8000)s shifted by 19).
 
-# { echo "r . 2 0xfffff0000018 4"; echo "r . 2 0xfffff000001c 4"; } |
-firecontrol 1
+> 
+> The == vs. >= is a good hint.  If .ndo_start_xmit can be entered by multiple
+> CPUs, the upper limit will clearly exceeded eventually.
+> 
+> With >= instead of ==, the same test as that quoted above gives 71x RCODE_BUSY
+> + 0x RCODE_SEND_ERROR, and 59x RCODE_BUSY + 0x RCODE_SEND_ERROR in a
+> repetition.  (0x + 0x in the other direction.)  There were no RCODE_CANCELLED
+> occurrences, which I had occasionally in the past.
+RCODE_CANCELLED is result of timeout timer which is set to run with 0
+jiffies in the future.
 
-displays the current register value on node ffc2 at port 1.  Type "help" in
-firecontrol for more available firecontrol commands.
--- 
-Stefan Richter
--=====-==-=- =-== --===
-http://arcgraph.de/sr/
+> 
+> I then tried
+> 
+> 	if (dev->queued_packets >= FWNET_MAX_QUEUED_PACKETS)
+> 		return NETDEV_TX_BUSY;
+> 
+> at the top of fwnet_tx but it did not change the amount of RCODE_BUSY, which
+> is not too surprising.  So next I should have a look at the responder side again.
+I see RCODE_BUSY sometimes too.
+
+> 
+> BTW, FireWire 400 CardBus controllers usually feature a limitation of max_rec
+> = 1024 (maximum size of asynchronous packets they can receive).  Incidentally,
+> the VT6306 card that I used in my other tests from yesterday is one of those.
+> So, since link fragmentation is quite common due to this kind of cards, I
+> should perhaps count queued fragments instead of queued datagrams.
+> 
+> > UDP transfers work quite well, tested for few minutes.
+> > TCP transfers unfortunelly trigger (probably a hardware) bug in notebook
+> > OHCI controller (I have seen that meny times so far.)
+> > 
+> > Transfer just stops, and controller goes south.
+> > If I unload the firewire-ohci, then when I load it:
+> > 
+> > [ 2062.632532] firewire_ohci 0000:07:00.0: PCI INT A -> GSI 20 (level, low) -> IRQ 20
+> > [ 2072.650173] firewire_ohci: Failed to reset ohci card.
+> > [ 2072.650267] firewire_ohci 0000:07:00.0: PCI INT A disabled
+> > [ 2072.650314] firewire_ohci: probe of 0000:07:00.0 failed with error -16
+> > 
+> > 
+> > Only suspend to ram helps bring it back from that state.
+> 
+> On the bright side, s2ram fixes things for once instead of breaking them...
+Well, of course after s2ram I have to reload the firewire-ohci to make
+it work, but that is separate issue.
+
+Best regards,
+	Maxim Levitsky
+
+
+
+
