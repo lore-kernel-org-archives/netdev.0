@@ -1,7 +1,7 @@
 From: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Subject: [PATCH 1/4] firewire: net: count stats.tx_packets and stats.tx_bytes
-Date: Sun, 7 Nov 2010 22:39:30 +0100 (CET)
-Message-ID: <tkrat.581b2b7b08a9998b@s5r6.in-berlin.de>
+Subject: [PATCH 2/4] firewire: net: fix memory leaks
+Date: Sun, 7 Nov 2010 22:40:03 +0100 (CET)
+Message-ID: <tkrat.d3b1585b222c0bb6@s5r6.in-berlin.de>
 References: <tkrat.036c5d10fb83f85d@s5r6.in-berlin.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -21,59 +21,91 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
 Errors-To: linux1394-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
+a) fwnet_transmit_packet_done used to poison ptask->pt_link by list_del.
+If fwnet_send_packet checked later whether it was responsible to clean
+up (in the border case that the TX soft IRQ was outpaced by the AT-req
+tasklet on another CPU), it missed this because ptask->pt_link was no
+longer shown as empty.
+
+b) If fwnet_write_complete got an rcode other than RCODE_COMPLETE, we
+missed to free the skb and ptask entirely.
+
+Also, count stats.tx_dropped and stats.tx_errors when rcode != 0.
+
 Signed-off-by: Stefan Richter <stefanr@s5r6.in-berlin.de>
 ---
- drivers/firewire/net.c |    9 ++++++---
- 1 file changed, 6 insertions(+), 3 deletions(-)
+ drivers/firewire/net.c |   35 +++++++++++++++++++++++++++++++----
+ 1 file changed, 31 insertions(+), 4 deletions(-)
 
 Index: b/drivers/firewire/net.c
 ===================================================================
 --- a/drivers/firewire/net.c
 +++ b/drivers/firewire/net.c
-@@ -907,6 +907,7 @@ static int fwnet_send_packet(struct fwne
- static void fwnet_transmit_packet_done(struct fwnet_packet_task *ptask)
- {
- 	struct fwnet_device *dev = ptask->dev;
-+	struct sk_buff *skb = ptask->skb;
- 	unsigned long flags;
- 	bool free;
+@@ -917,9 +917,10 @@ static void fwnet_transmit_packet_done(s
  
-@@ -917,8 +918,11 @@ static void fwnet_transmit_packet_done(s
  	/* Check whether we or the networking TX soft-IRQ is last user. */
  	free = (ptask->outstanding_pkts == 0 && !list_empty(&ptask->pt_link));
++	if (free)
++		list_del(&ptask->pt_link);
  
--	if (ptask->outstanding_pkts == 0)
-+	if (ptask->outstanding_pkts == 0) {
- 		list_del(&ptask->pt_link);
-+		dev->netdev->stats.tx_packets++;
-+		dev->netdev->stats.tx_bytes += skb->len;
-+	}
+ 	if (ptask->outstanding_pkts == 0) {
+-		list_del(&ptask->pt_link);
+ 		dev->netdev->stats.tx_packets++;
+ 		dev->netdev->stats.tx_bytes += skb->len;
+ 	}
+@@ -974,6 +975,31 @@ static void fwnet_transmit_packet_done(s
+ 		fwnet_free_ptask(ptask);
+ }
  
- 	spin_unlock_irqrestore(&dev->lock, flags);
- 
-@@ -927,7 +931,6 @@ static void fwnet_transmit_packet_done(s
- 		u16 fg_off;
- 		u16 datagram_label;
- 		u16 lf;
--		struct sk_buff *skb;
- 
- 		/* Update the ptask to point to the next fragment and send it */
- 		lf = fwnet_get_hdr_lf(&ptask->hdr);
-@@ -954,7 +957,7 @@ static void fwnet_transmit_packet_done(s
- 			datagram_label = fwnet_get_hdr_dgl(&ptask->hdr);
- 			break;
- 		}
--		skb = ptask->skb;
++static void fwnet_transmit_packet_failed(struct fwnet_packet_task *ptask)
++{
++	struct fwnet_device *dev = ptask->dev;
++	unsigned long flags;
++	bool free;
 +
- 		skb_pull(skb, ptask->max_payload);
- 		if (ptask->outstanding_pkts > 1) {
- 			fwnet_make_sf_hdr(&ptask->hdr, RFC2374_HDR_INTFRAG,
++	spin_lock_irqsave(&dev->lock, flags);
++
++	/* One fragment failed; don't try to send remaining fragments. */
++	ptask->outstanding_pkts = 0;
++
++	/* Check whether we or the networking TX soft-IRQ is last user. */
++	free = !list_empty(&ptask->pt_link);
++	if (free)
++		list_del(&ptask->pt_link);
++
++	dev->netdev->stats.tx_dropped++;
++	dev->netdev->stats.tx_errors++;
++
++	spin_unlock_irqrestore(&dev->lock, flags);
++
++	if (free)
++		fwnet_free_ptask(ptask);
++}
++
+ static void fwnet_write_complete(struct fw_card *card, int rcode,
+ 				 void *payload, size_t length, void *data)
+ {
+@@ -981,11 +1007,12 @@ static void fwnet_write_complete(struct 
+ 
+ 	ptask = data;
+ 
+-	if (rcode == RCODE_COMPLETE)
++	if (rcode == RCODE_COMPLETE) {
+ 		fwnet_transmit_packet_done(ptask);
+-	else
++	} else {
+ 		fw_error("fwnet_write_complete: failed: %x\n", rcode);
+-		/* ??? error recovery */
++		fwnet_transmit_packet_failed(ptask);
++	}
+ }
+ 
+ static int fwnet_send_packet(struct fwnet_packet_task *ptask)
 
 -- 
 Stefan Richter
 -=====-==-=- =-== --===
 http://arcgraph.de/sr/
-
 
 
 ------------------------------------------------------------------------------
