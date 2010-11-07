@@ -1,47 +1,68 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [Security] [SECURITY] Fix leaking of kernel heap addresses via /proc
-Date: Sun, 07 Nov 2010 22:52:22 +0100
-Message-ID: <87sjzcssx5.fsf@basil.nowhere.org>
-References: <1289074307.3090.100.camel@Dan>
-	<AANLkTimC01SViEOObgf2N2VcLTYO59rOAbHaKf2RM54w@mail.gmail.com>
-	<20101106234840.GD2935@thunk.org>
+From: Urs Thuermann <urs@isnogud.escape.de>
+Subject: Re: [PATCH 0/9] Fix leaking of kernel heap addresses in net/
+Date: 07 Nov 2010 22:53:54 +0100
+Message-ID: <ygfwroodclp.fsf@janus.isnogud.escape.de>
+References: <1289147492.3090.137.camel@Dan>
+	<1289149416.2478.143.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Dan Rosenberg <drosenberg@vsecurity.com>,
-	"chas\@cmf.nrl.navy.mil" <chas@cmf.nrl.navy.mil>,
-	"davem\@davemloft.net" <davem@davemloft.net>,
-	"kuznet\@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
-	"pekkas\@netcore.fi" <pekkas@netcore.fi>,
-	"jmorris\@namei.org" <jmorris@namei.org>,
-	"yoshfuji\@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
-	"kaber\@trash.net" <kaber@trash.net>,
-	"remi.denis-courmont\@nokia.com" <remi.denis-courmont@nokia.com>,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-	"security\@kernel.org" <security@kernel.org>
-To: Ted Ts'o <tytso@mit.edu>
+Cc: Dan Rosenberg <drosenberg@vsecurity.com>, chas@cmf.nrl.navy.mil,
+	davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	remi.denis-courmont@nokia.com, netdev@vger.kernel.org,
+	security@kernel.org, stable@kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:55393 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751439Ab0KGVw2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Nov 2010 16:52:28 -0500
-In-Reply-To: <20101106234840.GD2935@thunk.org> (Ted Ts'o's message of "Sat, 6
-	Nov 2010 19:48:40 -0400")
+Received: from oker.escape.de ([194.120.234.254]:40891 "EHLO oker.escape.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752368Ab0KGWE7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 7 Nov 2010 17:04:59 -0500
+In-Reply-To: <1289149416.2478.143.camel@edumazet-laptop>; from Eric Dumazet on Sun, 07 Nov 2010 18:03:36 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ted Ts'o <tytso@mit.edu> writes:
+Eric Dumazet <eric.dumazet@gmail.com> writes:
 
-> Are there any userspace programs that might be reasonably expected to
-> _use_ this information?  If there is, we could just pick a random
-> number at boot time, and then XOR the heap adddress with that random
-> number.
+> You are basically ruining a lot of debugging facilities we use every
+> day to find and fix _real_ bugs. The bugs that happen to crash
+> machines of our customers.
+> 
+> If you want to avoid a user reading kernel syslog, why dont you fix
+> the problem for non root users able to "dmesg" ? I personally dont
+> care.
 
-If any of the addresses can be guessed ever (and that is likely if it's
-allocated at boot) determining the random value will be trivial
-for everyone.
+dmesg and syslog aren't the only problem.  There are files in
+/proc/net/ that must be readable by all users in order for a number of
+tools to work, e.g. netstat(8), and those files contain kernel
+addresses of sock structs.
 
--Andi
+> There are pretty easy ways to not disclose "information", but your
+> way of using '0' for all values is the dumbest idea one could ever
+> had.
+> 
+> A single XOR with a "root only visible, random value chosen at boot"
+> would be OK. At least we could continue our work, with litle burden.
 
--- 
-ak@linux.intel.com -- Speaking for myself only.
+Simple XOR with a secret constant doesn't help very much.  Many bits
+of that hidden constant can be revealed quite easily.  On x86-32 for
+example all addresses are in the high 1 GB address space so the
+highest two address bits are 1.  Many structs of type sock are aligned
+to 64 or higher powers of two so you can easily infer the lower 6 or
+more bits of that hidden XOR constant.  If you know two structs of
+alignment 2^n are contiguous in memory you can infer the lower n+1
+bits.
+
+I suggest either one of the following two solutions:
+
+1. Make the contents of the proc-files in question dependent on some
+   capability, e.g. CAP_SYS_ADMIN or some new CAP_KERNEL_DEBUG.  If
+   the process opening the file owns that capability it will see the
+   kernel address, otherwise it will see 0.
+
+2. Replace the kernel address by the socket inode number or some other
+   identifying value (as our patch for CAN does) and provide some
+   mechanism for root only to translate that value to the
+   corresponding kernel address.
+
+
+urs
