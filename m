@@ -1,48 +1,62 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [Security] [SECURITY] Fix leaking of kernel heap addresses via
- /proc
-Date: Mon, 8 Nov 2010 00:56:10 +0100
-Message-ID: <20101107235610.GE17592@basil.fritz.box>
-References: <201011072248.oA7MmjKg025857@cmf.nrl.navy.mil>
- <1289172456.3090.184.camel@Dan>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [Security] [SECURITY] Fix leaking of kernel heap addresses via /proc
+Date: Mon, 8 Nov 2010 02:00:42 +0100
+Message-ID: <20101108010042.GA13384@1wt.eu>
+References: <1289074307.3090.100.camel@Dan> <AANLkTimC01SViEOObgf2N2VcLTYO59rOAbHaKf2RM54w@mail.gmail.com> <20101106.165703.193714684.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: chas3@users.sourceforge.net, Andi Kleen <andi@firstfloor.org>,
-	Ted Ts'o <tytso@mit.edu>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
-	"pekkas@netcore.fi" <pekkas@netcore.fi>,
-	"jmorris@namei.org" <jmorris@namei.org>,
-	"yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"remi.denis-courmont@nokia.com" <remi.denis-courmont@nokia.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"security@kernel.org" <security@kernel.org>
-To: Dan Rosenberg <drosenberg@vsecurity.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: torvalds@linux-foundation.org, chas@cmf.nrl.navy.mil,
+	security@kernel.org, pekkas@netcore.fi, yoshfuji@linux-ipv6.org,
+	netdev@vger.kernel.org, drosenberg@vsecurity.com,
+	jmorris@namei.org, remi.denis-courmont@nokia.com,
+	kuznet@ms2.inr.ac.ru, kaber@trash.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:48165 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752218Ab0KGX4N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Nov 2010 18:56:13 -0500
+Received: from 1wt.eu ([62.212.114.60]:47209 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752297Ab0KHBHP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 7 Nov 2010 20:07:15 -0500
 Content-Disposition: inline
-In-Reply-To: <1289172456.3090.184.camel@Dan>
+In-Reply-To: <20101106.165703.193714684.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> The criticism raised so far is that cutting out the pointers entirely
-> results in the omission of potentially useful debugging information.  I
-> see two viable options to address this: either print out or omit
-> addresses based on privileges (CAP_NET_ADMIN, for example), or have it
-> controllable via sysctl.  I'm leaning towards the sysctl
-> option...thoughts?
+On Sat, Nov 06, 2010 at 04:57:03PM -0700, David Miller wrote:
+> From: Linus Torvalds <torvalds@linux-foundation.org>
+> Date: Sat, 6 Nov 2010 13:50:32 -0700
+>=20
+> > On Saturday, November 6, 2010, Dan Rosenberg <drosenberg@vsecurity.=
+com> wrote:
+> >>
+> >> Clearly, in most cases we cannot just remove the field from the /p=
+roc
+> >> output, as this would break a number of userspace programs that re=
+ly on
+> >> consistency. =A0However, I propose that we replace the address wit=
+h a "0"
+> >> rather than leaking this information.
+> >=20
+> > I really think it would be much better to use the unidentified numb=
+er
+> > or similar.
+> >=20
+> > Just replacing with zeroes is annoying, and has the potential of
+> > losing actual information.
+>=20
+> I would really like to see the specific examples of where this is
+> happening, it sounds like something very silly to me.
 
-I would just remove the pointers from /proc and supply 
-gdb macros that extract the equivalent information from /proc/kcore.
-This is a bit racy, but for debugging it should be no
-problem to run them multiple times as needed.
+It has happened to me several times to use an hex editor to check some
+socket's parameters (eg: backlog) based on the pointer. Sometimes I had
+even change some parameters at runtime as part of debugging sessions.
 
--Andi
+In fact we could consider than many places that return pointers could
+return 0 to normal users and the real value only to root (or any specia=
+l
+capability). I find it important not to reduce the observability of the
+kernel for the sake of security.
 
--- 
-ak@linux.intel.com -- Speaking for myself only.
+Regards,
+Willy
+
