@@ -1,55 +1,62 @@
-From: Jesper Juhl <jj@chaosbits.net>
-Subject: [PATCH 07/17][trivial] net, wireless: Remove unnecessary casts of
- void ptr returning alloc function return values
-Date: Tue, 9 Nov 2010 00:09:13 +0100 (CET)
-Message-ID: <alpine.LNX.2.00.1011082330390.23697@swampdragon.chaosbits.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH 1/2] r8169: revert "Handle rxfifo errors on 8168 chips"
+Date: Tue, 9 Nov 2010 00:23:05 +0100
+Message-ID: <20101108232305.GA13720@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: trivial@kernel.org, Ulrich Kunitz <kune@deine-taler.de>,
-	Daniel Drake <dsd@gentoo.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Andreas Radke <a.radke@arcor.de>,
+	Matthew Garrett <mjg@redhat.com>,
+	Daniel J Blueman <daniel.blueman@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swampdragon.chaosbits.net ([90.184.90.115]:39364 "EHLO
-	swampdragon.chaosbits.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751727Ab0KHXUk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Nov 2010 18:20:40 -0500
+Received: from 254.185.140-88.rev.gaoland.net ([88.140.185.254]:60179 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754646Ab0KHX2t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Nov 2010 18:28:49 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+The original patch helps under obscure conditions (no pun) but
+some 8168 do not like it. The change needs to be tightened with
+a specific 8168 version.
 
-The [vk][cmz]alloc(_node) family of functions return void pointers which
-it's completely unnecessary/pointless to cast to other pointer types since
-that happens implicitly.
+This reverts commit 801e147cde02f04b5c2f42764cd43a89fc7400a2.
 
-This patch removes such casts from drivers/net/
+Regression at https://bugzilla.kernel.org/show_bug.cgi?id=20882
 
-
-Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+Tested-by: Andreas Radke <a.radke@arcor.de>
+Cc: Matthew Garrett <mjg@redhat.com>
+Cc: Daniel J Blueman <daniel.blueman@gmail.com>
 ---
- zd_chip.c |    3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
-diff --git a/drivers/net/wireless/zd1211rw/zd_chip.c b/drivers/net/wireless/zd1211rw/zd_chip.c
-index 87a95bc..dfcebed 100644
---- a/drivers/net/wireless/zd1211rw/zd_chip.c
-+++ b/drivers/net/wireless/zd1211rw/zd_chip.c
-@@ -117,8 +117,7 @@ int zd_ioread32v_locked(struct zd_chip *chip, u32 *values, const zd_addr_t *addr
+ drivers/net/r8169.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index d88ce9f..3a0877e 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -2931,7 +2931,7 @@ static const struct rtl_cfg_info {
+ 		.hw_start	= rtl_hw_start_8168,
+ 		.region		= 2,
+ 		.align		= 8,
+-		.intr_event	= SYSErr | RxFIFOOver | LinkChg | RxOverflow |
++		.intr_event	= SYSErr | LinkChg | RxOverflow |
+ 				  TxErr | TxOK | RxOK | RxErr,
+ 		.napi_event	= TxErr | TxOK | RxOK | RxOverflow,
+ 		.features	= RTL_FEATURE_GMII | RTL_FEATURE_MSI,
+@@ -4588,7 +4588,8 @@ static irqreturn_t rtl8169_interrupt(int irq, void *dev_instance)
+ 		}
  
- 	/* Allocate a single memory block for values and addresses. */
- 	count16 = 2*count;
--	a16 = (zd_addr_t *) kmalloc(count16 * (sizeof(zd_addr_t) + sizeof(u16)),
--		                   GFP_KERNEL);
-+	a16 = kmalloc(count16 * (sizeof(zd_addr_t) + sizeof(u16)), GFP_KERNEL);
- 	if (!a16) {
- 		dev_dbg_f(zd_chip_dev(chip),
- 			  "error ENOMEM in allocation of a16\n");
-
-
-
+ 		/* Work around for rx fifo overflow */
+-		if (unlikely(status & RxFIFOOver)) {
++		if (unlikely(status & RxFIFOOver) &&
++		(tp->mac_version == RTL_GIGA_MAC_VER_11)) {
+ 			netif_stop_queue(dev);
+ 			rtl8169_tx_timeout(dev);
+ 			break;
 -- 
-Jesper Juhl <jj@chaosbits.net>             http://www.chaosbits.net/
-Don't top-post  http://www.catb.org/~esr/jargon/html/T/top-post.html
-Plain text mails only, please.
+1.7.2.3
 
