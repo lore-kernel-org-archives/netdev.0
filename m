@@ -1,69 +1,90 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [ovs-dev] Flow Control and Port Mirroring
-Date: Mon, 8 Nov 2010 13:59:42 +0900
-Message-ID: <20101108045942.GA7504@verge.net.au>
-References: <20101028115403.GA16206@verge.net.au>
- <AANLkTi=QXBi4wmJS1TY0P=s+11Vjp0v=AfWOdFb4vrCj@mail.gmail.com>
- <20101030025932.GG12842@verge.net.au>
- <201011081341.23529.rusty@rustcorp.com.au>
+From: ranjith kumar <ranjithproxy@gmail.com>
+Subject: how to read one udp packet with more than one recvfrom() calls?
+Date: Mon, 8 Nov 2010 12:38:47 +0530
+Message-ID: <AANLkTi=40758wF4Z6GDfm809miA-hnCnSQdwA9bALX0+__34132.6534086422$1289200164$gmane$org@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: virtualization@lists.linux-foundation.org,
-	Jesse Gross <jesse@nicira.com>, dev@openvswitch.org,
-	virtualization@lists.osdl.org, netdev@vger.kernel.org,
-	kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>
-To: Rusty Russell <rusty@rustcorp.com.au>
+Content-Type: multipart/mixed; boundary=20cf3054a047a5f7540494854b56
+To: linux-kernel <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:51788 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751547Ab0KHFAC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Nov 2010 00:00:02 -0500
-Content-Disposition: inline
-In-Reply-To: <201011081341.23529.rusty@rustcorp.com.au>
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:57577 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752123Ab0KHHIs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Nov 2010 02:08:48 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 08, 2010 at 01:41:23PM +1030, Rusty Russell wrote:
-> On Sat, 30 Oct 2010 01:29:33 pm Simon Horman wrote:
-> > [ CCed VHOST contacts ]
-> > 
-> > On Thu, Oct 28, 2010 at 01:22:02PM -0700, Jesse Gross wrote:
-> > > On Thu, Oct 28, 2010 at 4:54 AM, Simon Horman <horms@verge.net.au> wrote:
-> > > > My reasoning is that in the non-mirroring case the guest is
-> > > > limited by the external interface through wich the packets
-> > > > eventually flow - that is 1Gbit/s. But in the mirrored either
-> > > > there is no flow control or the flow control is acting on the
-> > > > rate of dummy0, which is essentailly infinate.
-> > > >
-> > > > Before investigating this any further I wanted to ask if
-> > > > this behaviour is intentional.
-> > > 
-> > > It's not intentional but I can take a guess at what is happening.
-> > > 
-> > > When we send the packet to a mirror, the skb is cloned but only the
-> > > original skb is charged to the sender.  If the original packet is
-> > > delivered to localhost then it will be freed quickly and no longer
-> > > accounted for, despite the fact that the "real" packet is still
-> > > sitting in the transmit queue on the NIC.  The UDP stack will then
-> > > send the next packet, limited only by the speed of the CPU.
-> > 
-> > That would explain what I have observed.
-> 
-> I can't find the thread (what is ovs-dev?),
+--20cf3054a047a5f7540494854b56
+Content-Type: text/plain; charset=ISO-8859-1
 
-Sorry, yes its on ovs-dev.
-http://openvswitch.org/pipermail/dev_openvswitch.org/2010-October/003806.html
+Hi,
 
-> but I think the tap device
-> has this fundamental feature: you can blast as many packets as you want
-> through it.
-> 
-> If that's a bad thing, we have to look harder...
+I  have implemented client and server programs using udp
+protocol(files are attached).
+UDP packet size is 500bytes.
 
-There does seem to be flow control in the non-mirrored case.
-So I suspect its occurring at the skb level but that breaks down when
-a clone occurs. It would seem that fragment level flow control would
-help this problem (which is basically what Xen's netback/netfront has),
-but by this point I am speculating wildly.  I'll try and find out exactly
-where the problem is occurring in order for us to have a more informed
-discussion.
+I want to read these 500bytes in two calls to recvfrom(). First time
+reading 100bytes and second time 400bytes.
+How to do this?
+
+When I tried to change the third argument of recvfrom(size_t len),
+from 500 to 100, first 100bytes are read correctly.
+But when I call recvfrom() second time with len=400, it is reading the
+first 400bytes of "next udp packet".
+Why? Isn't it possible to read one udp packet in two calls to
+recvfrom()/read()????
+
+Thanks in advance.
+
+--20cf3054a047a5f7540494854b56
+Content-Type: application/octet-stream; name="client.c"
+Content-Disposition: attachment; filename="client.c"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_gg90frnc0
+
+I2luY2x1ZGU8c3RkaW8uaD4NCiNpbmNsdWRlIDxzeXMvdHlwZXMuaD4NCiNpbmNsdWRlIDxzdHJp
+bmcuaD4NCiNpbmNsdWRlIDxzeXMvdHlwZXMuaD4NCiNpbmNsdWRlIDx1bmlzdGQuaD4NCiNpbmNs
+dWRlIDxzeXMvdGltZS5oPg0KI2luY2x1ZGUgPHN0ZGlvLmg+DQojaW5jbHVkZSA8bmV0aW5ldC9p
+bi5oPg0KI2luY2x1ZGUgPHN5cy9zb2NrZXQuaD4NCiNpbmNsdWRlIDxuZXRpbmV0L2luLmg+DQoj
+aW5jbHVkZSA8YXJwYS9pbmV0Lmg+DQojaW5jbHVkZSA8c3RyaW5nLmg+DQoNCiNkZWZpbmUgQlVG
+TEVOIDUwMA0KI2RlZmluZSBQT1JUICA1MDAwDQojZGVmaW5lIE5QQUNLICA1DQoNCiANCiNkZWZp
+bmUgU1JWX0lQICIxMDcuMTA5LjM4LjMyIg0KIC8qIGZwcmludGYoc3Rkb3V0LCksICNpbmNsdWRl
+cyBhbmQgI2RlZmluZXMgbGlrZSBpbiB0aGUgc2VydmVyICovDQoNCiBpbnQgbWFpbih2b2lkKQ0K
+IHsNCiAgIHN0cnVjdCBzb2NrYWRkcl9pbiBzaV9vdGhlcjsNCiAgIGludCBzLCBpLCBzbGVuPXNp
+emVvZihzaV9vdGhlcik7DQogICBjaGFyIGJ1ZltCVUZMRU5dOw0KDQogICBpZiAoKHM9c29ja2V0
+KEFGX0lORVQsIFNPQ0tfREdSQU0sIElQUFJPVE9fVURQKSk9PS0xKQ0KICAgICBmcHJpbnRmKHN0
+ZG91dCwic29ja2V0Iik7DQoNCiAgIG1lbXNldCgoY2hhciAqKSAmc2lfb3RoZXIsIDAsIHNpemVv
+ZihzaV9vdGhlcikpOw0KICAgc2lfb3RoZXIuc2luX2ZhbWlseSA9IEFGX0lORVQ7DQogICBzaV9v
+dGhlci5zaW5fcG9ydCA9IGh0b25zKFBPUlQpOw0KICAgaWYgKGluZXRfYXRvbihTUlZfSVAsICZz
+aV9vdGhlci5zaW5fYWRkcik9PTApIHsNCiAgICAgZnByaW50ZihzdGRlcnIsICJpbmV0X2F0b24o
+KSBmYWlsZWRcbiIpOw0KICAgICBleGl0KDEpOw0KICAgfQ0KDQogICBmb3IgKGk9MDsgaTxOUEFD
+SzsgaSsrKSB7DQogICAgIHByaW50ZigiU2VuZGluZyBwYWNrZXQgJWRcbiIsIGkpOw0KICAgICBz
+cHJpbnRmKGJ1ZiwgIlRoaXMgaXMgcGFja2V0ICVkXG4iLCBpKTsNCi8vCXdyaXRlKHMsYnVmLEJV
+RkxFTik7DQogICAgIGlmIChzZW5kdG8ocywgYnVmLCBCVUZMRU4sIDAsICZzaV9vdGhlciwgc2xl
+bik9PS0xKQ0KICAgICAgZnByaW50ZihzdGRvdXQsInNlbmR0bygpIik7DQogICB9DQoNCiAgIGNs
+b3NlKHMpOw0KICAgcmV0dXJuIDA7DQogfQ0KDQo=
+--20cf3054a047a5f7540494854b56
+Content-Type: application/octet-stream; name="server.c"
+Content-Disposition: attachment; filename="server.c"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_gg90fucq1
+
+I2luY2x1ZGU8c3RkaW8uaD4NCiNpbmNsdWRlIDxzeXMvdHlwZXMuaD4NCiNpbmNsdWRlIDxzdHJp
+bmcuaD4NCiNpbmNsdWRlIDxzeXMvdHlwZXMuaD4NCiNpbmNsdWRlIDx1bmlzdGQuaD4NCiNpbmNs
+dWRlIDxzeXMvdGltZS5oPg0KI2luY2x1ZGUgPHN0ZGlvLmg+DQojaW5jbHVkZSA8bmV0aW5ldC9p
+bi5oPg0KI2luY2x1ZGUgPHN5cy9zb2NrZXQuaD4NCiNpbmNsdWRlIDxuZXRpbmV0L2luLmg+DQoj
+aW5jbHVkZSA8YXJwYS9pbmV0Lmg+DQojaW5jbHVkZSA8c3RyaW5nLmg+DQoNCiNkZWZpbmUgQlVG
+TEVOIDUwMA0KI2RlZmluZSBQT1JUICA1MDAwDQojZGVmaW5lIE5QQUNLICA1DQoNCg0KDQp2b2lk
+IGRpZXAoY2hhciAqcykNCnsNCglwZXJyb3Iocyk7DQoJZXhpdCgxKTsNCn0NCg0KaW50IG1haW4o
+dm9pZCkNCnsNCglzdHJ1Y3Qgc29ja2FkZHJfaW4gc2lfbWUsIHNpX290aGVyOw0KCWludCBzLCBp
+LCBzbGVuPXNpemVvZihzaV9vdGhlcik7DQoJY2hhciBidWZbQlVGTEVOXTsNCg0KCWlmICgocz1z
+b2NrZXQoQUZfSU5FVCwgU09DS19ER1JBTSwgSVBQUk9UT19VRFApKT09LTEpDQoJCWRpZXAoInNv
+Y2tldCIpOw0KDQoJbWVtc2V0KChjaGFyICopICZzaV9tZSwgMCwgc2l6ZW9mKHNpX21lKSk7DQoJ
+c2lfbWUuc2luX2ZhbWlseSA9IEFGX0lORVQ7DQoJc2lfbWUuc2luX3BvcnQgPSBodG9ucyhQT1JU
+KTsNCglzaV9tZS5zaW5fYWRkci5zX2FkZHIgPSBodG9ubChJTkFERFJfQU5ZKTsNCglpZiAoYmlu
+ZChzLCAmc2lfbWUsIHNpemVvZihzaV9tZSkpPT0tMSkNCgkJZGllcCgiYmluZCIpOw0KDQoJZm9y
+IChpPTA7IGk8TlBBQ0s7IGkrKykgew0KCQlpZiAocmVjdmZyb20ocywgYnVmLCBCVUZMRU4sIDAs
+ICZzaV9vdGhlciwgJnNsZW4pPT0tMSkNCgkJCWRpZXAoInJlY3Zmcm9tKCkiKTsNCi8vCXJlYWQo
+cyxidWYsQlVGTEVOKTsNCgkJcHJpbnRmKCJSZWNlaXZlZCBwYWNrZXQgZnJvbSAlczolZFxuRGF0
+YTogJXNcblxuIiwgDQoJCQkJaW5ldF9udG9hKHNpX290aGVyLnNpbl9hZGRyKSwgbnRvaHMoc2lf
+b3RoZXIuc2luX3BvcnQpLCBidWYpOw0KCX0NCg0KCWNsb3NlKHMpOw0KCXJldHVybiAwOw0KfQ0K
+--20cf3054a047a5f7540494854b56--
