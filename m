@@ -1,35 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] net: Detect and ignore netif_stop_queue() calls
- before register_netdev()
-Date: Mon, 08 Nov 2010 12:19:37 -0800 (PST)
-Message-ID: <20101108.121937.183055720.davem@davemloft.net>
-References: <1289061572-5029-1-git-send-email-guichaz@gmail.com>
-	<1289061572-5029-2-git-send-email-guichaz@gmail.com>
+Subject: Re: [PATCH] pktgen: correct uninitialized queue_map
+Date: Mon, 08 Nov 2010 12:19:55 -0800 (PST)
+Message-ID: <20101108.121955.39191326.davem@davemloft.net>
+References: <20101108091941.GB5025@Desktop-Junchang>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: guichaz@gmail.com
+Cc: robert.olsson@its.uu.se, eric.dumazet@gmail.com, joe@perches.com,
+	andy.shevchenko@gmail.com, backyes@mail.ustc.edu.cn,
+	netdev@vger.kernel.org
+To: junchangwang@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43057
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43061
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754440Ab0KHUTN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Nov 2010 15:19:13 -0500
-In-Reply-To: <1289061572-5029-2-git-send-email-guichaz@gmail.com>
+	by vger.kernel.org with ESMTP id S1754475Ab0KHUTa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Nov 2010 15:19:30 -0500
+In-Reply-To: <20101108091941.GB5025@Desktop-Junchang>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Guillaume Chazarain <guichaz@gmail.com>
-Date: Sat,  6 Nov 2010 17:39:32 +0100
+From: Junchang Wang <junchangwang@gmail.com>
+Date: Mon, 8 Nov 2010 17:19:43 +0800
 
-> After e6484930d7c73d324bccda7d43d131088da697b9: net: allocate tx queues in register_netdevice
-> These calls make net drivers oops at load time, so let's avoid people
-> git-bisect'ing known problems.
 > 
-> Signed-off-by: Guillaume Chazarain <guichaz@gmail.com>
+> This fix a bug reported by backyes.
+> Right the first time pktgen's using queue_map that's not been initialized
+> by set_cur_queue_map(pkt_dev);
+> 
+> Signed-off-by: Junchang Wang <junchangwang@gmail.com>
+> Signed-off-by: Backyes <backyes@mail.ustc.edu.cn>
 
-Applied, but I'd like to remove this check after we've had some
-time to weed out all of the offending cases, since this sits
-in a hot path of sorts.
+Applied, thank you.
 
-Thanks.
+I think I added this bug :-)
