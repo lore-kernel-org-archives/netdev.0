@@ -1,31 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] IPv6: Warn users when route/max_entries is reached.
-Date: Mon, 08 Nov 2010 13:22:03 -0800 (PST)
-Message-ID: <20101108.132203.260081813.davem@davemloft.net>
-References: <1289243629-20789-1-git-send-email-greearb@candelatech.com>
-	<1289243629-20789-2-git-send-email-greearb@candelatech.com>
-	<4CD86709.5090906@candelatech.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [RFC v2] ipvs: allow transmit of GRO aggregated skbs
+Date: Tue, 9 Nov 2010 06:22:58 +0900
+Message-ID: <20101108212255.GA2308@verge.net.au>
+References: <20101105135222.GA8714@verge.net.au>
+ <20101105235411.GA2443@verge.net.au>
+ <alpine.LFD.2.00.1011061608510.4009@ja.ssi.bg>
+ <20101106142817.GA27212@verge.net.au>
+ <20101108073149.GA31384@verge.net.au>
+ <alpine.LFD.2.00.1011081104310.1687@ja.ssi.bg>
+ <20101108114542.GF14454@verge.net.au>
+ <20101108141955.GA31649@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: greearb@candelatech.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47247
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752503Ab0KHVVi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Nov 2010 16:21:38 -0500
-In-Reply-To: <4CD86709.5090906@candelatech.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Julian Anastasov <ja@ssi.bg>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20101108141955.GA31649@gondor.apana.org.au>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ben Greear <greearb@candelatech.com>
-Date: Mon, 08 Nov 2010 13:09:29 -0800
+On Mon, Nov 08, 2010 at 10:19:55PM +0800, Herbert Xu wrote:
+> On Mon, Nov 08, 2010 at 08:45:42PM +0900, Simon Horman wrote:
+> >
+> > > 	Yes, I think we should check for !skb_is_gso(skb)
+> > > as it looks as correct check to avoid FRAG_NEEDED after GRO
+> > > but lets wait for confirmation from Herbert Xu.
+> > 
+> > Yes, lets try and get a word from Herbert Xu on this.
+> 
+> Yes skb_is_gso(skb) is the best for now.  It isn't 100% correct
+> as we should still be checking that the gso_size is less than
+> the MTU but we need to fix that elsewhere first.
 
-> On 11/08/2010 11:13 AM, Ben Greear wrote:
->> Signed-off-by: Ben Greear<greearb@candelatech.com>
- ...
-> Please don't apply this.  I mis-read this code and that warning
-> is useless at best in this place.
+Thanks Herbert.
 
-Ok.
