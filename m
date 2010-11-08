@@ -1,70 +1,40 @@
-From: Simon Horman <simon@horms.net>
-Subject: Re: [RFC v2] ipvs: allow transmit of GRO aggregated skbs
-Date: Mon, 8 Nov 2010 20:45:42 +0900
-Message-ID: <20101108114542.GF14454@verge.net.au>
-References: <20101105135222.GA8714@verge.net.au>
- <20101105235411.GA2443@verge.net.au>
- <alpine.LFD.2.00.1011061608510.4009@ja.ssi.bg>
- <20101106142817.GA27212@verge.net.au>
- <20101108073149.GA31384@verge.net.au>
- <alpine.LFD.2.00.1011081104310.1687@ja.ssi.bg>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Herbert Xu <herbert@gondor.hengli.com.au>
-To: Julian Anastasov <ja@ssi.bg>
+From: frank.blaschka@de.ibm.com
+Subject: [patch 2/2] [PATCH] qeth: fix race condition during device startup
+Date: Mon, 08 Nov 2010 14:03:49 +0100
+Message-ID: <20101108130427.518691409@de.ibm.com>
+References: <20101108130347.973708765@de.ibm.com>
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:48871 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754712Ab0KHLp6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Nov 2010 06:45:58 -0500
-Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.00.1011081104310.1687@ja.ssi.bg>
+Received: from mtagate2.de.ibm.com ([195.212.17.162]:49234 "EHLO
+	mtagate2.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752926Ab0KHNEd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Nov 2010 08:04:33 -0500
+Content-Disposition: inline; filename=603-qeth-startup-race.diff
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 08, 2010 at 11:36:21AM +0200, Julian Anastasov wrote:
-> 
-> 	Hello,
-> 
-> On Mon, 8 Nov 2010, Simon Horman wrote:
-> 
-> >[ CCing Herbet Xu ]
-> >
-> >>>>This is a first attempt at allowing LVS to transmit
-> >>>>skbs of greater than MTU length that have been aggregated by GRO.
-> >>>>
-> >>>>I have lightly tested the ip_vs_dr_xmit() portion of this patch and
-> >>>>although it seems to work I am unsure that netif_needs_gso() is the correct
-> >>>>test to use.
-> >>>
-> >>>	ip_forward() uses !skb_is_gso(skb), so may be it is
-> >>>enough to check for GRO instead of using netif_needs_gso?
-> >>
-> >>Thanks, I'll look into that.
-> >
-> >Hi Julian,
-> >
-> >just to clarify, you think that !skb_is_gso(skb) should be
-> >used in ip_vs_xmit.c? If so, yes I think that makes sense
-> >and I'll re-spin my patch accordingly.
-> 
-> 	Yes, I think we should check for !skb_is_gso(skb)
-> as it looks as correct check to avoid FRAG_NEEDED after GRO
-> but lets wait for confirmation from Herbert Xu.
+From: Frank Blaschka <frank.blaschka@de.ibm.com>
 
-Yes, lets try and get a word from Herbert Xu on this.
+QDIO is running independent from netdevice state. We are not
+allowed to schedule NAPI in case the netdevice is not open.
 
-> Also, !skb->local_df check should help for local IPVS clients
-> that set local_df.
-> 
-> 	If you prefer you can create such helper in ip_vs_xmit.c:
-> 
-> /* Check if packet exceeds MTU */
-> static inline int ip_vs_mtu_exceeded(struct sk_buff *skb, unsigned int mtu)
-> {
-> 	return skb->len > mtu && !skb_is_gso(skb) && !skb->local_df;
-> }
+Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
+---
 
-Good thinking.
+ drivers/s390/net/qeth_core_main.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff -urpN linux-2.6/drivers/s390/net/qeth_core_main.c linux-2.6-patched/drivers/s390/net/qeth_core_main.c
+--- linux-2.6/drivers/s390/net/qeth_core_main.c	2010-11-08 09:41:13.000000000 +0100
++++ linux-2.6-patched/drivers/s390/net/qeth_core_main.c	2010-11-08 09:41:13.000000000 +0100
+@@ -2903,7 +2903,7 @@ void qeth_qdio_start_poll(struct ccw_dev
+ {
+ 	struct qeth_card *card = (struct qeth_card *)card_ptr;
+ 
+-	if (card->dev)
++	if (card->dev && (card->dev->flags & IFF_UP))
+ 		napi_schedule(&card->napi);
+ }
+ EXPORT_SYMBOL_GPL(qeth_qdio_start_poll);
 
