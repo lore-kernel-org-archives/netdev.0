@@ -1,41 +1,31 @@
-From: Pavel Emelyanov <xemul@parallels.com>
-Subject: [PATCH] rds: Fix rds message leak in rds_message_map_pages
-Date: Mon, 08 Nov 2010 19:20:50 +0300
-Message-ID: <4CD82362.9070402@parallels.com>
+From: Roger Luethi <rl@hellgate.ch>
+Subject: Re: [PATCH] via-rhine: hardware VLAN support
+Date: Mon, 8 Nov 2010 17:21:32 +0100
+Message-ID: <20101108162132.GA32728@core.hellgate.ch>
+References: <20101105104303.GA8325@core.hellgate.ch>
+ <AANLkTikUe9DR2QTU+72Q8vmGnDyvUtSm_wwCpGEq-M4s@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: rds-devel@oss.oracle.com,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Andy Grover <andy.grover@oracle.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:35388 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752481Ab0KHQVE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Nov 2010 11:21:04 -0500
+Received: from mail17.bluewin.ch ([195.186.18.64]:30863 "EHLO
+	mail17.bluewin.ch" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753796Ab0KHQVh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Nov 2010 11:21:37 -0500
+Content-Disposition: inline
+In-Reply-To: <AANLkTikUe9DR2QTU+72Q8vmGnDyvUtSm_wwCpGEq-M4s@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The sgs allocation error path leaks the allocated message.
+On Fri, 05 Nov 2010 11:31:56 -0700, Jesse Gross wrote:
+> On Fri, Nov 5, 2010 at 3:43 AM, Roger Luethi <rl@hellgate.ch> wrote:
+> > This patch adds VLAN hardware support for Rhine chips.
+> 
+> This uses the old interfaces for vlan acceleration.  We're working to
+> switch drivers over to use the new methods and the old ones will be
+> going away in the future.  It would be great if we can avoid adding
+> more code that uses those interfaces.
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-
----
-
-diff --git a/net/rds/message.c b/net/rds/message.c
-index 848cff4..1fd3d29 100644
---- a/net/rds/message.c
-+++ b/net/rds/message.c
-@@ -249,8 +249,10 @@ struct rds_message *rds_message_map_pages(unsigned long *page_addrs, unsigned in
- 	rm->m_inc.i_hdr.h_len = cpu_to_be32(total_len);
- 	rm->data.op_nents = ceil(total_len, PAGE_SIZE);
- 	rm->data.op_sg = rds_message_alloc_sgs(rm, num_sgs);
--	if (!rm->data.op_sg)
-+	if (!rm->data.op_sg) {
-+		rds_message_put(rm);
- 		return ERR_PTR(-ENOMEM);
-+	}
- 
- 	for (i = 0; i < rm->data.op_nents; ++i) {
- 		sg_set_page(&rm->data.op_sg[i],
+Can you point me to a driver that has been switched to use the new methods
+already? Is there some other form of documentation?
