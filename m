@@ -1,99 +1,70 @@
-From: Antonio Ospite <ospite-aNJ+ML1ZbiP93QAQaVx+gl6hYfS7NtTn@public.gmane.org>
-Subject: Re: [PATCH v4 0/2] Get and Set Feature Reports on HIDRAW (USB and
- Bluetooth)
-Date: Mon, 8 Nov 2010 12:17:15 +0100
-Message-ID: <20101108121715.ae2da4af.ospite@studenti.unina.it>
-References: <1281442367.12579.206.camel@localhost.localdomain>
-	<1281990059-3562-1-git-send-email-alan@signal11.us>
-	<alpine.LNX.2.00.1008231459370.1019@pobox.suse.cz>
-	<alpine.LNX.2.00.1009021724480.26813@pobox.suse.cz>
-	<alpine.LNX.2.00.1009221408330.26813@pobox.suse.cz>
-	<alpine.LNX.2.00.1011011523150.15851@pobox.suse.cz>
+From: Simon Horman <simon@horms.net>
+Subject: Re: [RFC v2] ipvs: allow transmit of GRO aggregated skbs
+Date: Mon, 8 Nov 2010 20:45:42 +0900
+Message-ID: <20101108114542.GF14454@verge.net.au>
+References: <20101105135222.GA8714@verge.net.au>
+ <20101105235411.GA2443@verge.net.au>
+ <alpine.LFD.2.00.1011061608510.4009@ja.ssi.bg>
+ <20101106142817.GA27212@verge.net.au>
+ <20101108073149.GA31384@verge.net.au>
+ <alpine.LFD.2.00.1011081104310.1687@ja.ssi.bg>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Mon__8_Nov_2010_12_17_15_+0100_wOAKV+vaqM7S8DO7"
-Cc: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>, Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Stefan Achatz <erazor_de-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-	Alexey Dobriyan <adobriyan-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>,
-	Stephane Chatty <chatty-rXV5z7KbLFk@public.gmane.org>,
-	Michael Poole <mdpoole-IZmAEv5cUt1AfugRpC6u6w@public.gmane.org>,
-	Bastien Nocera <hadess-0MeiytkfxGOsTnJN9+BGXg@public.gmane.org>,
-	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-input-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <alpine.LNX.2.00.1011011523150.15851-ztGlSCb7Y1iN3ZZ/Hiejyg@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
---Signature=_Mon__8_Nov_2010_12_17_15_+0100_wOAKV+vaqM7S8DO7
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	Herbert Xu <herbert@gondor.hengli.com.au>
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:48871 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754712Ab0KHLp6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Nov 2010 06:45:58 -0500
 Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+In-Reply-To: <alpine.LFD.2.00.1011081104310.1687@ja.ssi.bg>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 1 Nov 2010 15:23:34 -0400 (EDT)
-Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org> wrote:
+On Mon, Nov 08, 2010 at 11:36:21AM +0200, Julian Anastasov wrote:
+> 
+> 	Hello,
+> 
+> On Mon, 8 Nov 2010, Simon Horman wrote:
+> 
+> >[ CCing Herbet Xu ]
+> >
+> >>>>This is a first attempt at allowing LVS to transmit
+> >>>>skbs of greater than MTU length that have been aggregated by GRO.
+> >>>>
+> >>>>I have lightly tested the ip_vs_dr_xmit() portion of this patch and
+> >>>>although it seems to work I am unsure that netif_needs_gso() is the correct
+> >>>>test to use.
+> >>>
+> >>>	ip_forward() uses !skb_is_gso(skb), so may be it is
+> >>>enough to check for GRO instead of using netif_needs_gso?
+> >>
+> >>Thanks, I'll look into that.
+> >
+> >Hi Julian,
+> >
+> >just to clarify, you think that !skb_is_gso(skb) should be
+> >used in ip_vs_xmit.c? If so, yes I think that makes sense
+> >and I'll re-spin my patch accordingly.
+> 
+> 	Yes, I think we should check for !skb_is_gso(skb)
+> as it looks as correct check to avoid FRAG_NEEDED after GRO
+> but lets wait for confirmation from Herbert Xu.
 
-> On Wed, 22 Sep 2010, Jiri Kosina wrote:
->=20
-> > > > > This is version 4. Built against 2.6.35+ revision 320b2b8de12698 .
-> > > > >=20
-> > > > > Alan Ott (2):
-> > > > >   HID: Add Support for Setting and Getting Feature Reports from h=
-idraw
-> > > > >   Bluetooth: hidp: Add support for hidraw  HIDIOCGFEATURE  and
-> > > > >     HIDIOCSFEATURE
-[...]
-> > > ... Marcel?
-> > >=20
-> > > I'd really like not to miss 2.6.37 merge window with this.
-> >=20
-> > Seemingly I have not enought powers to get statement from Marcel here=20
-> > these days/weeks.
-> >=20
-> > Davem, would you perhaps be able to step in here?
->=20
-> Marcel, any word on this patchset by chance?
->=20
+Yes, lets try and get a word from Herbert Xu on this.
 
-Hopefully Alan will manage to send a v5 sometime soon, Alan I don't want
-to pressure you, just remember to CC Gustavo F. Padovan (see
-MAINTAINERS) as he looks to be the most active bluetooth maintainer
-these days.
+> Also, !skb->local_df check should help for local IPVS clients
+> that set local_df.
+> 
+> 	If you prefer you can create such helper in ip_vs_xmit.c:
+> 
+> /* Check if packet exceeds MTU */
+> static inline int ip_vs_mtu_exceeded(struct sk_buff *skb, unsigned int mtu)
+> {
+> 	return skb->len > mtu && !skb_is_gso(skb) && !skb->local_df;
+> }
 
-Thanks,
-   Antonio
+Good thinking.
 
---=20
-Antonio Ospite
-http://ao2.it
-
-PGP public key ID: 0x4553B001
-
-A: Because it messes up the order in which people normally read text.
-   See http://en.wikipedia.org/wiki/Posting_style
-Q: Why is top-posting such a bad thing?
-
---Signature=_Mon__8_Nov_2010_12_17_15_+0100_wOAKV+vaqM7S8DO7
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iEYEARECAAYFAkzX3DsACgkQ5xr2akVTsAEZagCgmarMRB+cv6ZnfEtdAF8ekkkf
-/f0Anj1kzzXCG73SZ+dLjuMVQiyQojpe
-=6gey
------END PGP SIGNATURE-----
-
---Signature=_Mon__8_Nov_2010_12_17_15_+0100_wOAKV+vaqM7S8DO7--
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
