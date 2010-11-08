@@ -1,62 +1,60 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [Security] [SECURITY] Fix leaking of kernel heap addresses via /proc
-Date: Mon, 8 Nov 2010 02:00:42 +0100
-Message-ID: <20101108010042.GA13384@1wt.eu>
-References: <1289074307.3090.100.camel@Dan> <AANLkTimC01SViEOObgf2N2VcLTYO59rOAbHaKf2RM54w@mail.gmail.com> <20101106.165703.193714684.davem@davemloft.net>
+From: Maxim Levitsky <maximlevitsky@gmail.com>
+Subject: Re: [PATCH] firewire: net: rate-limit log spam at transmit failure
+Date: Mon, 08 Nov 2010 03:41:57 +0200
+Message-ID: <1289180517.4318.3.camel@maxim-laptop>
+References: <tkrat.01ca17fba0508ae0@s5r6.in-berlin.de>
+	 <tkrat.1b9925fa1d199c23@s5r6.in-berlin.de>
+	 <tkrat.18b9f67ac78dcbea@s5r6.in-berlin.de>
+	 <tkrat.276aeae22ec60090@s5r6.in-berlin.de>
+	 <1289100404.3277.28.camel@maxim-laptop>
+	 <1289100737.3277.32.camel@maxim-laptop>
+	 <4CD6957C.5030504@s5r6.in-berlin.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: torvalds@linux-foundation.org, chas@cmf.nrl.navy.mil,
-	security@kernel.org, pekkas@netcore.fi, yoshfuji@linux-ipv6.org,
-	netdev@vger.kernel.org, drosenberg@vsecurity.com,
-	jmorris@namei.org, remi.denis-courmont@nokia.com,
-	kuznet@ms2.inr.ac.ru, kaber@trash.net
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux1394-devel@lists.sourceforge.net,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stefan Richter <stefanr@s5r6.in-berlin.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:47209 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752297Ab0KHBHP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 7 Nov 2010 20:07:15 -0500
-Content-Disposition: inline
-In-Reply-To: <20101106.165703.193714684.davem@davemloft.net>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:59028 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752300Ab0KHBmH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Nov 2010 20:42:07 -0500
+Received: by fxm16 with SMTP id 16so3667223fxm.19
+        for <netdev@vger.kernel.org>; Sun, 07 Nov 2010 17:42:02 -0800 (PST)
+In-Reply-To: <4CD6957C.5030504@s5r6.in-berlin.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Nov 06, 2010 at 04:57:03PM -0700, David Miller wrote:
-> From: Linus Torvalds <torvalds@linux-foundation.org>
-> Date: Sat, 6 Nov 2010 13:50:32 -0700
->=20
-> > On Saturday, November 6, 2010, Dan Rosenberg <drosenberg@vsecurity.=
-com> wrote:
-> >>
-> >> Clearly, in most cases we cannot just remove the field from the /p=
-roc
-> >> output, as this would break a number of userspace programs that re=
-ly on
-> >> consistency. =A0However, I propose that we replace the address wit=
-h a "0"
-> >> rather than leaking this information.
-> >=20
-> > I really think it would be much better to use the unidentified numb=
-er
-> > or similar.
-> >=20
-> > Just replacing with zeroes is annoying, and has the potential of
-> > losing actual information.
->=20
-> I would really like to see the specific examples of where this is
-> happening, it sounds like something very silly to me.
+On Sun, 2010-11-07 at 13:03 +0100, Stefan Richter wrote:
+> Maxim Levitsky wrote:
+> > I have here my own hack to set the transaction timeout,
+> 
+> You can use firecontrol to set it on-the-fly.  To set it on node ffc2 i.e. the
+> node with phy ID 2, and controller 1 (i.e. libraw1394 "port" 1):
+> # echo "w . 2 0xfffff0000018 4 3" | firecontrol 1
+> 
+> This sets the whole-seconds part to 3, which gives you 3.1 seconds timeout if
+> the fractional part at 0xfffff000001c is still at its default value of 0.1
+> seconds, i.e. 800 << 19 (subsecond part in units of (1/8000)s shifted by 19).
+> 
+> # { echo "r . 2 0xfffff0000018 4"; echo "r . 2 0xfffff000001c 4"; } |
+> firecontrol 1
+> 
+> displays the current register value on node ffc2 at port 1.  Type "help" in
+> firecontrol for more available firecontrol commands.
+Agreed.
 
-It has happened to me several times to use an hex editor to check some
-socket's parameters (eg: backlog) based on the pointer. Sometimes I had
-even change some parameters at runtime as part of debugging sessions.
+But why the timeout is  never set?
+What is the default?
 
-In fact we could consider than many places that return pointers could
-return 0 to normal users and the real value only to root (or any specia=
-l
-capability). I find it important not to reduce the observability of the
-kernel for the sake of security.
+I think that timeout_jiffies is never initialized, thus, it is 0 due to
+kzalloc.
 
-Regards,
-Willy
+Also, note that I see here that if I send a TCP stream from one system
+to another then the system that recieves the packets (and sends TCP
+acks), still overflows the queue (error 10, and confirmed by printks).
+
+Best regards,
+	Maxim Levitsky
 
