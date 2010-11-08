@@ -1,38 +1,165 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: ip_summed setting for TCP pure-ACK packets
-Date: Mon, 08 Nov 2010 16:35:13 +0000
-Message-ID: <1289234113.2222.20.camel@achroite.uk.solarflarecom.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: Sky2 2.6.36-09934-g2aab243 DMAR error with tcp timestamp
+ enabled
+Date: Mon, 8 Nov 2010 08:46:50 -0800
+Message-ID: <20101108084650.0af41e14@nehalam>
+References: <20100128223447.GC3109@del.dom.local>
+	<4B621316.8070308@majjas.com>
+	<20100128225621.GD3109@del.dom.local>
+	<4B6216B9.1010802@majjas.com>
+	<20100128153643.0fca3c51@nehalam>
+	<4B645EF4.4050701@majjas.com>
+	<20100131003449.GA11935@del.dom.local>
+	<4B650D53.2010607@majjas.com>
+	<4B65D0F9.2020602@majjas.com>
+	<4B65FD12.7090101@majjas.com>
+	<20100131221835.GA3317@del.dom.local>
+	<20100201102018.7b597992@nehalam>
+	<4B68F664.6050007@majjas.com>
+	<4B69A897.7030408@majjas.com>
+	<20100203085618.6662cc6f@nehalam>
+	<4B69AD5C.5030601@majjas.com>
+	<4CD58911.3050201@majjas.com>
+	<20101107191304.4a6cdfa4@s6510>
+	<4CD770AB.60402@majjas.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: sf-linux-drivers <linux-net-drivers@solarflare.com>,
-	netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	Jarek Poplawski <jarkao2@gmail.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Michael Breuer <mbreuer@majjas.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:52718 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751904Ab0KHQfR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Nov 2010 11:35:17 -0500
+Received: from mail.vyatta.com ([76.74.103.46]:45859 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754515Ab0KHQqw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Nov 2010 11:46:52 -0500
+In-Reply-To: <4CD770AB.60402@majjas.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As we discussed at LPC:
+On Sun, 07 Nov 2010 22:38:19 -0500
+Michael Breuer <mbreuer@majjas.com> wrote:
 
-Current controllers handled by the sfc driver have a per-queue (rather
-than per-packet) option for checksum generation.  Currently pure-ACK
-packets sent by TCP have ip_summed == CHECKSUM_NONE and we must send
-them on hardware queues with checksum generation disabled.  To support
-this, we allocate 2 hardware queues per core TX queue.
+> On 11/7/2010 10:13 PM, Stephen Hemminger wrote:
+> > On Sat, 06 Nov 2010 12:57:53 -0400
+> > Michael Breuer<mbreuer@majjas.com>  wrote:
+> >
+> >> Basically, if I enable tcp timestamps (now disabled) I get a sky2 hang.
+> >> As with the earlier issue the effects are not seen until after a couple
+> >> days of uptime and seem exacerbated by load.
+> >>
+> >> I can't 100% confirm that the problem is not occurring without tcp
+> >> timestamps, but will leave the system up for a while to try to confirm.
+> >> This didn't occur previously without tcp timestamps enabled, but I also
+> >> pulled git changes between the two events.
+> >>
+> >> I'm now also on 2.6.37-rc1.... I did a quick scan and didn't see any
+> >> obvious commits between 2.6.36-09934 and -rc1 that would have affected this.
+> >>
+> >>   From the log:
+> >> Nov  2 05:41:54 mail kernel: DRHD: handling fault status reg 2
+> >> Nov  2 05:41:54 mail kernel: DMAR:[DMA Read] Request device [06:00.0]
+> >> fault addr ffea3000
+> >> Nov  2 05:41:54 mail kernel: DMAR:[fault reason 06] PTE Read access is
+> >> not set
+> >> Nov  2 05:41:54 mail kernel: sky2 0000:06:00.0: error interrupt
+> >> status=0x80000000
+> >> Nov  2 05:41:54 mail kernel: sky2 0000:06:00.0: PCI hardware error (0x2010)
+> >> Nov  2 05:42:01 mail clamd[9755]: SelfCheck: Database status OK.
+> >> Nov  2 05:42:11 mail root: ping of potter failed
+> >> Nov  2 05:42:16 mail kernel: ------------[ cut here ]------------
+> >> Nov  2 05:42:16 mail kernel: WARNING: at net/sched/sch_generic.c:258
+> >> dev_watchdog+0x251/0x260()
+> >> Nov  2 05:42:16 mail kernel: Hardware name: System Product Name
+> >> Nov  2 05:42:16 mail kernel: NETDEV WATCHDOG: eth0 (sky2): transmit
+> >> queue 0 timed out
+> >> Nov  2 05:42:16 mail kernel: Modules linked in: cpufreq_stats
+> >> ip6table_filter ip6table_mangle ip6_tables ipt_MASQUERADE iptable_nat
+> >> nf_nat iptable_mangle iptable_raw ebtable_nat ebtables bridge stp
+> >> appletalk psnap llc nfsd lockd nfs_acl auth_rpcgss exportfs coretemp
+> >> sunrpc acpi_cpufreq mperf sit tunnel4 ipt_LOG nf_conntrack_netbios_ns
+> >> nf_conntrack_ftp xt_DSCP xt_dscp xt_mark nf_conntrack_ipv6
+> >> nf_defrag_ipv6 xt_state xt_multiport ipv6 kvm_intel kvm
+> >> snd_hda_codec_analog snd_ens1371 gameport snd_rawmidi snd_ac97_codec
+> >> snd_hda_intel snd_hda_codec ac97_bus snd_hwdep snd_seq snd_seq_device
+> >> snd_pcm gspca_spca505 gspca_main snd_timer videodev snd v4l1_compat
+> >> i2c_i801 sky2 v4l2_compat_ioctl32 iTCO_wdt pcspkr asus_atk0110
+> >> i7core_edac edac_core soundcore iTCO_vendor_support snd_page_alloc
+> >> microcode raid456 async_raid6_recov async_pq raid6_pq async_xor xor
+> >> async_memcpy async_tx raid1 ata_generic firewire_ohci pata_acpi
+> >> firewire_core crc_itu_t pata_marvell nouveau ttm drm_kms_helper drm
+> >> i2c_algo_bit i2c_core video output [
+> >> Nov  2 05:42:16 mail kernel: last unloaded: ip6_tables]
+> >> Nov  2 05:42:16 mail kernel: Pid: 0, comm: swapper Tainted: G        W
+> >> 2.6.36-09934-g2aab243 #44
+> >> Nov  2 05:42:16 mail kernel: Call Trace:
+> >> Nov  2 05:42:16 mail kernel:<IRQ>   [<ffffffff81058a4f>]
+> >> warn_slowpath_common+0x7f/0xc0
+> >> Nov  2 05:42:16 mail kernel: [<ffffffff81058b46>]
+> >> warn_slowpath_fmt+0x46/0x50
+> >> Nov  2 05:42:16 mail kernel: [<ffffffff814603d1>] dev_watchdog+0x251/0x260
+> >> Nov  2 05:42:16 mail kernel: [<ffffffff8108a4a6>] ?
+> >> tick_program_event+0x26/0x30
+> >> Nov  2 05:42:16 mail kernel: [<ffffffff8107eed4>] ?
+> >> hrtimer_interrupt+0x134/0x240
+> >> Nov  2 05:42:16 mail kernel: [<ffffffff81068ab0>]
+> >> run_timer_softirq+0x160/0x390
+> >> Nov  2 05:42:16 mail kernel: [<ffffffff8108a368>] ?
+> >> tick_dev_program_event+0x48/0x110
+> >> Nov  2 05:42:16 mail kernel: [<ffffffff81460180>] ? dev_watchdog+0x0/0x260
+> >> Nov  2 05:42:16 mail kernel: [<ffffffff8105f981>] __do_softirq+0xb1/0x220
+> >> Nov  2 05:42:16 mail kernel: [<ffffffff8100cfdc>] call_softirq+0x1c/0x30
+> >> Nov  2 05:42:16 mail kernel: [<ffffffff8100ea15>] do_softirq+0x65/0xa0
+> >> Nov  2 05:42:16 mail kernel: [<ffffffff8105f845>] irq_exit+0x85/0x90
+> >> Nov  2 05:42:16 mail kernel: [<ffffffff81511d61>] do_IRQ+0x71/0xf0
+> >> Nov  2 05:42:16 mail kernel: [<ffffffff8150a7d3>] ret_from_intr+0x0/0x11
+> >> Nov  2 05:42:16 mail kernel:<EOI>   [<ffffffff812e4165>] ?
+> >> intel_idle+0xd5/0x170
+> >> Nov  2 05:42:16 mail kernel: [<ffffffff812e4148>] ? intel_idle+0xb8/0x170
+> >> Nov  2 05:42:16 mail kernel: [<ffffffff81425b51>]
+> >> cpuidle_idle_call+0x91/0x150
+> >> Nov  2 05:42:16 mail kernel: [<ffffffff8100aa8b>] cpu_idle+0xbb/0x150
+> >> Nov  2 05:42:16 mail kernel: [<ffffffff814f1785>] rest_init+0x75/0x80
+> >> Nov  2 05:42:16 mail kernel: [<ffffffff81b4ae9b>] start_kernel+0x3dc/0x3e7
+> >> Nov  2 05:42:16 mail kernel: [<ffffffff81b4a346>]
+> >> x86_64_start_reservations+0x131/0x135
+> >> Nov  2 05:42:16 mail kernel: [<ffffffff81b4a450>]
+> >> x86_64_start_kernel+0x106/0x115
+> >> Nov  2 05:42:16 mail kernel: ---[ end trace d9d3a1889f8925bf ]---
+> >> Nov  2 05:42:16 mail kernel: sky2 0000:06:00.0: eth0: tx timeout
+> >> Nov  2 05:42:16 mail kernel: sky2 0000:06:00.0: eth0: transmit ring 29
+> >> .. 117 report=29 done=29
+> >>
+> >> --
+> >> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> >> the body of a message to majordomo@vger.kernel.org
+> >> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > Looks like a hardware issue, never saw it before.
+> > Are you running MTU>  1500?
+> > Does turning off TSO help?
+> >
+> > One possibility is that NET_IP_ALIGN changed. Now the ethernet header is
+> > aligned and the IP header is not.
+> >
+> MTU=1500
+> TCP timestamps seems to be the culprit - no issues with it disabled. I 
+> hit the problem after running about 18 hours with TCP timestamps 
+> enabled. Has been stable since rebuilding without timestamps... but 
+> another day would be more telling.
+> 
+> Didn't look into the header alignment - but would that be inconsistent 
+> with tcp timestamps being involved?
 
-To reduce the risk of reordering (and possibly the number of hardware TX
-queues required), it would be helpful for TCP to set ip_summed ==
-CHECKSUM_PARTIAL on pure-ACK packets when the output device is known to
-support checksum generation.
+TCP timestamps make the header bigger and that might be causing
+the gather code to see different alignment, causing problem.
+Seeing the whole contents of the transmit ring on the dmesg might
+give a clue.
 
-Ben.
+I don't work for Marvell. The limited documentation does not describe
+any restrictions on alignment. But that's not a surprise since they
+never tell me about errata. 
+
+Since it is a regression, bisect might help.
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
