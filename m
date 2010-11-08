@@ -1,58 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Security] [SECURITY] Fix leaking of kernel heap addresses via
- /proc
-Date: Mon, 08 Nov 2010 11:14:18 +0100
-Message-ID: <1289211258.2820.176.camel@edumazet-laptop>
-References: <201011072248.oA7MmjKg025857@cmf.nrl.navy.mil>
-	 <1289172456.3090.184.camel@Dan> <20101107235610.GE17592@basil.fritz.box>
-	 <20101107.180108.71121019.davem@davemloft.net>
-	 <1289201612.2478.371.camel@edumazet-laptop>
-	 <20101108094358.GA22069@basil.fritz.box>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, drosenberg@vsecurity.com,
-	chas3@users.sourceforge.net, tytso@mit.edu,
-	torvalds@linux-foundation.org, kuznet@ms2.inr.ac.ru,
-	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, remi.denis-courmont@nokia.com,
-	netdev@vger.kernel.org, security@kernel.org
-To: Andi Kleen <andi@firstfloor.org>
+From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+Subject: [PATCH] ucc_geth: Fix hung tasks.
+Date: Mon, 8 Nov 2010 11:23:39 +0100
+Message-ID: <1289211819-21746-1-git-send-email-Joakim.Tjernlund@transmode.se>
+Cc: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+To: linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
+	Anton Vorontsov <avorontsov@ru.mvista.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:34327 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751633Ab0KHKOX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Nov 2010 05:14:23 -0500
-Received: by fxm16 with SMTP id 16so3850657fxm.19
-        for <netdev@vger.kernel.org>; Mon, 08 Nov 2010 02:14:22 -0800 (PST)
-In-Reply-To: <20101108094358.GA22069@basil.fritz.box>
+Received: from gw1.transmode.se ([213.115.205.20]:50660 "EHLO gw1.transmode.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753196Ab0KHKXt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Nov 2010 05:23:49 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 08 novembre 2010 =C3=A0 10:43 +0100, Andi Kleen a =C3=A9crit :
-> > When a printk() happens right before a BUG(), how are we going to c=
-heck
-> > the dumped registers are possibly close the socket involved, if we =
-dont
-> > have access to the machine, and only the crashlog ?
->=20
-> Is that really something you do regularly? It seems highly obscure
-> to me.
+We noticed a few hangs like this:
 
-Yes, very regularly, I can find bugs thanks to every bit of information
-found in kernel logs, including code around the fault.
+INFO: task ifconfig:572 blocked for more than 120 seconds.
+"echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this message.
+ifconfig      D 0ff65760     0   572    369 0x00000000
+Call Trace:
+[c6157be0] [c6008460] 0xc6008460 (unreliable)
+[c6157ca0] [c0008608] __switch_to+0x4c/0x6c
+[c6157cb0] [c028fecc] schedule+0x184/0x310
+[c6157ce0] [c0290e54] __mutex_lock_slowpath+0xa4/0x150
+[c6157d20] [c0290c48] mutex_lock+0x44/0x48
+[c6157d30] [c01aba74] phy_stop+0x20/0x70
+[c6157d40] [c01aef40] ucc_geth_stop+0x30/0x98
+[c6157d60] [c01b18fc] ucc_geth_close+0x9c/0xdc
+[c6157d80] [c01db0cc] __dev_close+0xa0/0xd0
+[c6157d90] [c01deddc] __dev_change_flags+0x8c/0x148
+[c6157db0] [c01def54] dev_change_flags+0x1c/0x64
+[c6157dd0] [c0237ac8] devinet_ioctl+0x678/0x784
+[c6157e50] [c0239a58] inet_ioctl+0xb0/0xbc
+[c6157e60] [c01cafa8] sock_ioctl+0x174/0x2a0
+[c6157e80] [c009a16c] vfs_ioctl+0xcc/0xe0
+[c6157ea0] [c009a998] do_vfs_ioctl+0xc4/0x79c
+[c6157f10] [c009b0b0] sys_ioctl+0x40/0x74
+[c6157f40] [c00117c4] ret_from_syscall+0x0/0x38
 
-If people now say : "I have a kernel bug, but am not able to provide yo=
-u
-a kernel stack trace and previous printk() messages because of security=
-=2E
-You cannot have an access to this machine, and the bug happens once in =
-a
-while. Kernel version is also hidden. Please help me."
+I THINK this is due to a missing cancel_work_sync in the driver
+although we cannot be sure. I found this by comparing
+ucc_geth with gianfar.
 
-Oh well, thats a challenge, maybe use this cristal ball I have somewher=
-e
-in the attic ;)
+Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+---
+ drivers/net/ucc_geth.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+index 97f9f7d..6647ed7 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -3556,6 +3556,7 @@ static int ucc_geth_close(struct net_device *dev)
+ 
+ 	napi_disable(&ugeth->napi);
+ 
++	cancel_work_sync(&ugeth->timeout_work);
+ 	ucc_geth_stop(ugeth);
+ 
+ 	free_irq(ugeth->ug_info->uf_info.irq, ugeth->ndev);
+-- 
+1.7.2.2
 
