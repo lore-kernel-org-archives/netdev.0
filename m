@@ -1,41 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.36 stable] vlan: Avoid hwaccel vlan packets when
- vid not used.
-Date: Mon, 08 Nov 2010 13:26:36 -0800 (PST)
-Message-ID: <20101108.132636.246537518.davem@davemloft.net>
-References: <1289251381-6671-1-git-send-email-jesse@nicira.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: OOM when adding ipv6 route:  How to make available more per-cpu
+ memory?
+Date: Mon, 08 Nov 2010 13:27:41 -0800
+Message-ID: <4CD86B4D.6020406@candelatech.com>
+References: <4CD43C87.5040403@candelatech.com>	 <1288980361.2882.1070.camel@edumazet-laptop>	 <4CD449A5.5070305@candelatech.com>	 <1288988403.2665.268.camel@edumazet-laptop>	 <1288995103.2665.653.camel@edumazet-laptop>	 <4CD49C2F.3060904@candelatech.com>	 <1289028392.2665.2418.camel@edumazet-laptop>	 <4CD58B9C.2030006@candelatech.com> <1289214131.2820.187.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: stable@kernel.org, netdev@vger.kernel.org
-To: jesse@nicira.com
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: NetDev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52557
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754554Ab0KHV0M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Nov 2010 16:26:12 -0500
-In-Reply-To: <1289251381-6671-1-git-send-email-jesse@nicira.com>
+Received: from mail.candelatech.com ([208.74.158.172]:32957 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754295Ab0KHV1p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Nov 2010 16:27:45 -0500
+In-Reply-To: <1289214131.2820.187.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Gross <jesse@nicira.com>
-Date: Mon,  8 Nov 2010 13:23:01 -0800
+On 11/08/2010 03:02 AM, Eric Dumazet wrote:
+> Le samedi 06 novembre 2010 =C3=A0 10:08 -0700, Ben Greear a =C3=A9cri=
+t :
+>
+>> At least I don't see any percpu dumps in dmesg.  I vaguely remember
+>> someone posting some ipv6 address scalability patches some time back=
+=2E
+>> I think they had to hack on /proc fs as well.  I'll see if I can
+>> dig those up.
+>>
+>>> Make sure udev / hotplug is not the problem, if you create your dev=
+ices
+>>> very fast.
+>>
+>> We can create the macvlans w/out problem, though I'm sure that could
+>> be sped up.  The problem is when we try to add IPv6 addresses to
+>> them.
+>
+> I see. Did you check /proc/sys/net/ipv6/ tunables ?
+>
+> For example, I bet you need to make route/max_size a bigger value tha=
+n
+> default (4096)
 
-> Normally hardware accelerated vlan packets are quickly dropped if
-> there is no corresponding vlan device configured.  The one exception
-> is promiscuous mode, where we allow all of these packets through so
-> they can be picked up by tcpdump.  However, this behavior causes a
-> crash if we actually try to receive these packets.  This fixes that
-> crash by ignoring packets with vids not corresponding to a configured
-> device in the vlan hwaccel routines and then dropping them before they
-> get to consumers in the network stack.
-> 
-> This patch applies only to 2.6.36 stable.  The problem was introduced
-> in that release and is already fixed by larger changes to the vlan
-> code in 2.6.37.
-> 
-> Reported-by: Ben Greear <greearb@candelatech.com>
-> Tested-by: Nikola Ciprich <extmaillist@linuxbox.cz>
-> Signed-off-by: Jesse Gross <jesse@nicira.com>
+I'm having a hard time figuring out how this actually causes something
+to fail.
 
-Acked-by: David S. Miller <davem@davemloft.net>
+It seems that having max_size too small would cause the garbage collect=
+or
+logic to happen more often, but I don't see any place it actually
+removes or limits entries, and I can't find any other references to
+ip6_rt_max_size.
+
+I must just be missing something..so if you have any ideas where to
+look, I'd love to hear it!
+
+Thanks,
+Ben
+
+--=20
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
