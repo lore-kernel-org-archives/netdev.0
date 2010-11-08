@@ -1,28 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 2/2] qlge: Version change to v1.00.00.27
-Date: Mon, 08 Nov 2010 13:43:07 -0800 (PST)
-Message-ID: <20101108.134307.179932270.davem@davemloft.net>
-References: <1288191507-1994-1-git-send-email-ron.mercer@qlogic.com>
-	<1288191507-1994-2-git-send-email-ron.mercer@qlogic.com>
+Subject: Re: [PATCH] ks8851: suspend resume support
+Date: Mon, 08 Nov 2010 13:43:18 -0800 (PST)
+Message-ID: <20101108.134318.245393709.davem@davemloft.net>
+References: <27F9C60D11D683428E133F85D2BB4A530468882D59@dlee03.ent.ti.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jitendra.kalsaria@qlogic.com,
-	ying.lok@qlogic.com
-To: ron.mercer@qlogic.com
+Cc: netdev@vger.kernel.org
+To: x0066660@ti.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57741
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57745
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755227Ab0KHVmn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Nov 2010 16:42:43 -0500
-In-Reply-To: <1288191507-1994-2-git-send-email-ron.mercer@qlogic.com>
+	by vger.kernel.org with ESMTP id S1755528Ab0KHVmy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Nov 2010 16:42:54 -0500
+In-Reply-To: <27F9C60D11D683428E133F85D2BB4A530468882D59@dlee03.ent.ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ron Mercer <ron.mercer@qlogic.com>
-Date: Wed, 27 Oct 2010 07:58:27 -0700
+From: "Arce, Abraham" <x0066660@ti.com>
+Date: Thu, 28 Oct 2010 23:57:20 -0500
 
-> Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-> Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
+> Add suspend/resume support using default open/stop interface methods
+> to do hardware dependant operations.
+> 
+> On suspend, same low power state (soft power mode) will be kept, the
+> following blocks will be disabled:
+> 
+>  - Internal PLL Clock
+>  - Tx/Rx PHY
+>  - MAC
+>  - SPI Interface
+> 
+> Signed-off-by: Abraham Arce <x0066660@ti.com>
 
 Applied.
