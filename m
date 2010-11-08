@@ -1,90 +1,45 @@
-From: ranjith kumar <ranjithproxy@gmail.com>
-Subject: how to read one udp packet with more than one recvfrom() calls?
-Date: Mon, 8 Nov 2010 12:38:47 +0530
-Message-ID: <AANLkTi=40758wF4Z6GDfm809miA-hnCnSQdwA9bALX0+__34132.6534086422$1289200164$gmane$org@mail.gmail.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [RFC v2] ipvs: allow transmit of GRO aggregated skbs
+Date: Mon, 8 Nov 2010 16:31:51 +0900
+Message-ID: <20101108073149.GA31384@verge.net.au>
+References: <20101105135222.GA8714@verge.net.au>
+ <20101105235411.GA2443@verge.net.au>
+ <alpine.LFD.2.00.1011061608510.4009@ja.ssi.bg>
+ <20101106142817.GA27212@verge.net.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=20cf3054a047a5f7540494854b56
-To: linux-kernel <linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f174.google.com ([209.85.214.174]:57577 "EHLO
-	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752123Ab0KHHIs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Nov 2010 02:08:48 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20101106142817.GA27212@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
---20cf3054a047a5f7540494854b56
-Content-Type: text/plain; charset=ISO-8859-1
+[ CCing Herbet Xu ]
 
-Hi,
+On Sat, Nov 06, 2010 at 11:28:21PM +0900, Simon Horman wrote:
+> On Sat, Nov 06, 2010 at 04:18:21PM +0200, Julian Anastasov wrote:
+> > 
+> > 	Hello,
+> > 
+> > On Sat, 6 Nov 2010, Simon Horman wrote:
+> > 
+> > >This is a first attempt at allowing LVS to transmit
+> > >skbs of greater than MTU length that have been aggregated by GRO.
+> > >
+> > >I have lightly tested the ip_vs_dr_xmit() portion of this patch and
+> > >although it seems to work I am unsure that netif_needs_gso() is the correct
+> > >test to use.
+> > 
+> > 	ip_forward() uses !skb_is_gso(skb), so may be it is
+> > enough to check for GRO instead of using netif_needs_gso?
+> 
+> Thanks, I'll look into that.
 
-I  have implemented client and server programs using udp
-protocol(files are attached).
-UDP packet size is 500bytes.
+Hi Julian,
 
-I want to read these 500bytes in two calls to recvfrom(). First time
-reading 100bytes and second time 400bytes.
-How to do this?
-
-When I tried to change the third argument of recvfrom(size_t len),
-from 500 to 100, first 100bytes are read correctly.
-But when I call recvfrom() second time with len=400, it is reading the
-first 400bytes of "next udp packet".
-Why? Isn't it possible to read one udp packet in two calls to
-recvfrom()/read()????
-
-Thanks in advance.
-
---20cf3054a047a5f7540494854b56
-Content-Type: application/octet-stream; name="client.c"
-Content-Disposition: attachment; filename="client.c"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_gg90frnc0
-
-I2luY2x1ZGU8c3RkaW8uaD4NCiNpbmNsdWRlIDxzeXMvdHlwZXMuaD4NCiNpbmNsdWRlIDxzdHJp
-bmcuaD4NCiNpbmNsdWRlIDxzeXMvdHlwZXMuaD4NCiNpbmNsdWRlIDx1bmlzdGQuaD4NCiNpbmNs
-dWRlIDxzeXMvdGltZS5oPg0KI2luY2x1ZGUgPHN0ZGlvLmg+DQojaW5jbHVkZSA8bmV0aW5ldC9p
-bi5oPg0KI2luY2x1ZGUgPHN5cy9zb2NrZXQuaD4NCiNpbmNsdWRlIDxuZXRpbmV0L2luLmg+DQoj
-aW5jbHVkZSA8YXJwYS9pbmV0Lmg+DQojaW5jbHVkZSA8c3RyaW5nLmg+DQoNCiNkZWZpbmUgQlVG
-TEVOIDUwMA0KI2RlZmluZSBQT1JUICA1MDAwDQojZGVmaW5lIE5QQUNLICA1DQoNCiANCiNkZWZp
-bmUgU1JWX0lQICIxMDcuMTA5LjM4LjMyIg0KIC8qIGZwcmludGYoc3Rkb3V0LCksICNpbmNsdWRl
-cyBhbmQgI2RlZmluZXMgbGlrZSBpbiB0aGUgc2VydmVyICovDQoNCiBpbnQgbWFpbih2b2lkKQ0K
-IHsNCiAgIHN0cnVjdCBzb2NrYWRkcl9pbiBzaV9vdGhlcjsNCiAgIGludCBzLCBpLCBzbGVuPXNp
-emVvZihzaV9vdGhlcik7DQogICBjaGFyIGJ1ZltCVUZMRU5dOw0KDQogICBpZiAoKHM9c29ja2V0
-KEFGX0lORVQsIFNPQ0tfREdSQU0sIElQUFJPVE9fVURQKSk9PS0xKQ0KICAgICBmcHJpbnRmKHN0
-ZG91dCwic29ja2V0Iik7DQoNCiAgIG1lbXNldCgoY2hhciAqKSAmc2lfb3RoZXIsIDAsIHNpemVv
-ZihzaV9vdGhlcikpOw0KICAgc2lfb3RoZXIuc2luX2ZhbWlseSA9IEFGX0lORVQ7DQogICBzaV9v
-dGhlci5zaW5fcG9ydCA9IGh0b25zKFBPUlQpOw0KICAgaWYgKGluZXRfYXRvbihTUlZfSVAsICZz
-aV9vdGhlci5zaW5fYWRkcik9PTApIHsNCiAgICAgZnByaW50ZihzdGRlcnIsICJpbmV0X2F0b24o
-KSBmYWlsZWRcbiIpOw0KICAgICBleGl0KDEpOw0KICAgfQ0KDQogICBmb3IgKGk9MDsgaTxOUEFD
-SzsgaSsrKSB7DQogICAgIHByaW50ZigiU2VuZGluZyBwYWNrZXQgJWRcbiIsIGkpOw0KICAgICBz
-cHJpbnRmKGJ1ZiwgIlRoaXMgaXMgcGFja2V0ICVkXG4iLCBpKTsNCi8vCXdyaXRlKHMsYnVmLEJV
-RkxFTik7DQogICAgIGlmIChzZW5kdG8ocywgYnVmLCBCVUZMRU4sIDAsICZzaV9vdGhlciwgc2xl
-bik9PS0xKQ0KICAgICAgZnByaW50ZihzdGRvdXQsInNlbmR0bygpIik7DQogICB9DQoNCiAgIGNs
-b3NlKHMpOw0KICAgcmV0dXJuIDA7DQogfQ0KDQo=
---20cf3054a047a5f7540494854b56
-Content-Type: application/octet-stream; name="server.c"
-Content-Disposition: attachment; filename="server.c"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_gg90fucq1
-
-I2luY2x1ZGU8c3RkaW8uaD4NCiNpbmNsdWRlIDxzeXMvdHlwZXMuaD4NCiNpbmNsdWRlIDxzdHJp
-bmcuaD4NCiNpbmNsdWRlIDxzeXMvdHlwZXMuaD4NCiNpbmNsdWRlIDx1bmlzdGQuaD4NCiNpbmNs
-dWRlIDxzeXMvdGltZS5oPg0KI2luY2x1ZGUgPHN0ZGlvLmg+DQojaW5jbHVkZSA8bmV0aW5ldC9p
-bi5oPg0KI2luY2x1ZGUgPHN5cy9zb2NrZXQuaD4NCiNpbmNsdWRlIDxuZXRpbmV0L2luLmg+DQoj
-aW5jbHVkZSA8YXJwYS9pbmV0Lmg+DQojaW5jbHVkZSA8c3RyaW5nLmg+DQoNCiNkZWZpbmUgQlVG
-TEVOIDUwMA0KI2RlZmluZSBQT1JUICA1MDAwDQojZGVmaW5lIE5QQUNLICA1DQoNCg0KDQp2b2lk
-IGRpZXAoY2hhciAqcykNCnsNCglwZXJyb3Iocyk7DQoJZXhpdCgxKTsNCn0NCg0KaW50IG1haW4o
-dm9pZCkNCnsNCglzdHJ1Y3Qgc29ja2FkZHJfaW4gc2lfbWUsIHNpX290aGVyOw0KCWludCBzLCBp
-LCBzbGVuPXNpemVvZihzaV9vdGhlcik7DQoJY2hhciBidWZbQlVGTEVOXTsNCg0KCWlmICgocz1z
-b2NrZXQoQUZfSU5FVCwgU09DS19ER1JBTSwgSVBQUk9UT19VRFApKT09LTEpDQoJCWRpZXAoInNv
-Y2tldCIpOw0KDQoJbWVtc2V0KChjaGFyICopICZzaV9tZSwgMCwgc2l6ZW9mKHNpX21lKSk7DQoJ
-c2lfbWUuc2luX2ZhbWlseSA9IEFGX0lORVQ7DQoJc2lfbWUuc2luX3BvcnQgPSBodG9ucyhQT1JU
-KTsNCglzaV9tZS5zaW5fYWRkci5zX2FkZHIgPSBodG9ubChJTkFERFJfQU5ZKTsNCglpZiAoYmlu
-ZChzLCAmc2lfbWUsIHNpemVvZihzaV9tZSkpPT0tMSkNCgkJZGllcCgiYmluZCIpOw0KDQoJZm9y
-IChpPTA7IGk8TlBBQ0s7IGkrKykgew0KCQlpZiAocmVjdmZyb20ocywgYnVmLCBCVUZMRU4sIDAs
-ICZzaV9vdGhlciwgJnNsZW4pPT0tMSkNCgkJCWRpZXAoInJlY3Zmcm9tKCkiKTsNCi8vCXJlYWQo
-cyxidWYsQlVGTEVOKTsNCgkJcHJpbnRmKCJSZWNlaXZlZCBwYWNrZXQgZnJvbSAlczolZFxuRGF0
-YTogJXNcblxuIiwgDQoJCQkJaW5ldF9udG9hKHNpX290aGVyLnNpbl9hZGRyKSwgbnRvaHMoc2lf
-b3RoZXIuc2luX3BvcnQpLCBidWYpOw0KCX0NCg0KCWNsb3NlKHMpOw0KCXJldHVybiAwOw0KfQ0K
---20cf3054a047a5f7540494854b56--
+just to clarify, you think that !skb_is_gso(skb) should be
+used in ip_vs_xmit.c? If so, yes I think that makes sense
+and I'll re-spin my patch accordingly.
