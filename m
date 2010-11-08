@@ -1,51 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] af_unix: optimize unix_dgram_poll()
-Date: Mon, 08 Nov 2010 13:44:44 -0800 (PST)
-Message-ID: <20101108.134444.242133347.davem@davemloft.net>
-References: <1288539505.2660.41.camel@edumazet-laptop>
+Subject: Re: [net-next PATCH 1/2] qlge: Add firmware info to ethtool get
+ regs.
+Date: Mon, 08 Nov 2010 13:49:32 -0800 (PST)
+Message-ID: <20101108.134932.116391208.davem@davemloft.net>
+References: <1288191507-1994-1-git-send-email-ron.mercer@qlogic.com>
+	<20101108.134302.102548897.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davidel@xmailserver.org,
-	alban.crequy@collabora.co.uk
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, jitendra.kalsaria@qlogic.com,
+	ying.lok@qlogic.com
+To: ron.mercer@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57781
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57396
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755751Ab0KHVoU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Nov 2010 16:44:20 -0500
-In-Reply-To: <1288539505.2660.41.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1755622Ab0KHVtI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Nov 2010 16:49:08 -0500
+In-Reply-To: <20101108.134302.102548897.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sun, 31 Oct 2010 16:38:25 +0100
+From: David Miller <davem@davemloft.net>
+Date: Mon, 08 Nov 2010 13:43:02 -0800 (PST)
 
-> unix_dgram_poll() is pretty expensive to check POLLOUT status, because
-> it has to lock the socket to get its peer, take a reference on the peer
-> to check its receive queue status, and queue another poll_wait on
-> peer_wait. This all can be avoided if the process calling
-> unix_dgram_poll() is not interested in POLLOUT status. It makes
-> unix_dgram_recvmsg() faster by not queueing irrelevant pollers in
-> peer_wait.
+> From: Ron Mercer <ron.mercer@qlogic.com>
+> Date: Wed, 27 Oct 2010 07:58:26 -0700
 > 
-> On a test program provided by Alan Crequy :
+>> By default we add firmware information to ethtool get regs.
+>> Optionally firmware info can instead be sent to log.
+>> 
+>> Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+>> Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
 > 
-> Before:
-> 
-> real    0m0.211s
-> user    0m0.000s
-> sys     0m0.208s
-> 
-> After:
-> 
-> real    0m0.044s
-> user    0m0.000s
-> sys     0m0.040s
-> 
-> Suggested-by: Davide Libenzi <davidel@xmailserver.org>
-> Reported-by: Alban Crequy <alban.crequy@collabora.co.uk>
-> Acked-by: Davide Libenzi <davidel@xmailserver.org>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Applied.
 
-Applied.
+Nevermind, reverted, can you please more carefully build test
+your changes?
+
+drivers/net/qlge/qlge_mpi.c:90:12: error: static declaration of 'ql_soft_reset_mpi_risc' follows non-static declaration
+drivers/net/qlge/qlge.h:2224:5: note: previous declaration of 'ql_soft_reset_mpi_risc' was here
+
+The line that added the extern declaration to qlge.h seems to be completely
+unrelated to the rest of the patch, as if it's a mis-commit or something
+from another change you were working on.
