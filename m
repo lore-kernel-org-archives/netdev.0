@@ -1,32 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: fix overlap check for fragments
-Date: Mon, 08 Nov 2010 12:19:02 -0800 (PST)
-Message-ID: <20101108.121902.189697974.davem@davemloft.net>
-References: <4CD3F0F2.2080804@cn.fujitsu.com>
+Subject: Re: [PATCH 1/2] skge: Remove tx queue stopping in skge_devinit()
+Date: Mon, 08 Nov 2010 12:19:13 -0800 (PST)
+Message-ID: <20101108.121913.112596741.davem@davemloft.net>
+References: <1289061572-5029-1-git-send-email-guichaz@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nicolas.dichtel@6wind.com, netdev@vger.kernel.org, kaber@trash.net
-To: shanwei@cn.fujitsu.com
+Cc: netdev@vger.kernel.org
+To: guichaz@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43048
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43053
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754160Ab0KHUSi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Nov 2010 15:18:38 -0500
-In-Reply-To: <4CD3F0F2.2080804@cn.fujitsu.com>
+	by vger.kernel.org with ESMTP id S1754380Ab0KHUSt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Nov 2010 15:18:49 -0500
+In-Reply-To: <1289061572-5029-1-git-send-email-guichaz@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shan Wei <shanwei@cn.fujitsu.com>
-Date: Fri, 05 Nov 2010 19:56:34 +0800
+From: Guillaume Chazarain <guichaz@gmail.com>
+Date: Sat,  6 Nov 2010 17:39:31 +0100
 
-> The type of FRAG6_CB(prev)->offset is int, skb->len is *unsigned* int,
-> and offset is int.
+> After e6484930d7c73d324bccda7d43d131088da697b9: net: allocate tx queues in register_netdevice
+> It causes an Oops at skge_probe() time.
 > 
-> Without this patch, type conversion occurred to this expression, when
-> (FRAG6_CB(prev)->offset + prev->len) is less than offset.
-> 
-> 
-> Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
+> Signed-off-by: Guillaume Chazarain <guichaz@gmail.com>
 
 Applied.
