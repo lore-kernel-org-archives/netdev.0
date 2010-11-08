@@ -1,47 +1,55 @@
-From: Jon Mason <jon.mason@exar.com>
-Subject: Re: [PATCH 01/11] vxge: enable rxhash
-Date: Mon, 8 Nov 2010 16:53:40 -0600
-Message-ID: <20101108225340.GA16247@exar.com>
-References: <1288911122-28669-1-git-send-email-jon.mason@exar.com>
- <20101108.124452.115944240.davem@davemloft.net>
+From: Jesper Juhl <jj@chaosbits.net>
+Subject: [PATCH 07/17][trivial] net, wireless: Remove unnecessary casts of
+ void ptr returning alloc function return values
+Date: Tue, 9 Nov 2010 00:09:13 +0100 (CET)
+Message-ID: <alpine.LNX.2.00.1011082330390.23697@swampdragon.chaosbits.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Sivakumar Subramani <Sivakumar.Subramani@exar.com>,
-	Sreenivasa Honnur <Sreenivasa.Honnur@exar.com>,
-	Ramkrishna Vepa <Ramkrishna.Vepa@exar.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: trivial@kernel.org, Ulrich Kunitz <kune@deine-taler.de>,
+	Daniel Drake <dsd@gentoo.org>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f174.google.com ([209.85.213.174]:63484 "EHLO
-	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752852Ab0KHWxt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Nov 2010 17:53:49 -0500
-Received: by yxk8 with SMTP id 8so3843773yxk.19
-        for <netdev@vger.kernel.org>; Mon, 08 Nov 2010 14:53:49 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20101108.124452.115944240.davem@davemloft.net>
-Content-Language: en-US
+Received: from swampdragon.chaosbits.net ([90.184.90.115]:39364 "EHLO
+	swampdragon.chaosbits.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751727Ab0KHXUk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Nov 2010 18:20:40 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 08, 2010 at 12:44:52PM -0800, David Miller wrote:
-> 
-> This patch set doesn't apply at all to the current tree, please
-> respin them, thanks.
+Hi,
 
-When I sent out the series on Thursday, the tree did not have
-"vxge: make functions local and remove dead code".  When that patch
-was originally released (Oct 15), I asked for it to not be included as
-it would break soon-to-be-released patch series.  I did not see any
-e-mail afterward, so I assumed this was acceptable to you.  We then
-ran the driver though our internal tests to verify its functionality,
-which would need to be re-done if the patches are respun.
+The [vk][cmz]alloc(_node) family of functions return void pointers which
+it's completely unnecessary/pointless to cast to other pointer types since
+that happens implicitly.
 
-I have a reworked version of that patch which can be applied after
-this patch series.  Is it acceptable to you to revert the commit,
-apply the series, then apply the modified version of the "local
-functions" patch?  I have already sniff tested it on our hardware
-without issues.
+This patch removes such casts from drivers/net/
 
-Thanks,
-Jon
+
+Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+---
+ zd_chip.c |    3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+diff --git a/drivers/net/wireless/zd1211rw/zd_chip.c b/drivers/net/wireless/zd1211rw/zd_chip.c
+index 87a95bc..dfcebed 100644
+--- a/drivers/net/wireless/zd1211rw/zd_chip.c
++++ b/drivers/net/wireless/zd1211rw/zd_chip.c
+@@ -117,8 +117,7 @@ int zd_ioread32v_locked(struct zd_chip *chip, u32 *values, const zd_addr_t *addr
+ 
+ 	/* Allocate a single memory block for values and addresses. */
+ 	count16 = 2*count;
+-	a16 = (zd_addr_t *) kmalloc(count16 * (sizeof(zd_addr_t) + sizeof(u16)),
+-		                   GFP_KERNEL);
++	a16 = kmalloc(count16 * (sizeof(zd_addr_t) + sizeof(u16)), GFP_KERNEL);
+ 	if (!a16) {
+ 		dev_dbg_f(zd_chip_dev(chip),
+ 			  "error ENOMEM in allocation of a16\n");
+
+
+
+-- 
+Jesper Juhl <jj@chaosbits.net>             http://www.chaosbits.net/
+Don't top-post  http://www.catb.org/~esr/jargon/html/T/top-post.html
+Plain text mails only, please.
+
