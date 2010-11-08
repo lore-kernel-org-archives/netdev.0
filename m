@@ -1,64 +1,65 @@
-From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-Subject: [PATCH] ucc_geth: Fix hung tasks.
-Date: Mon, 8 Nov 2010 11:23:39 +0100
-Message-ID: <1289211819-21746-1-git-send-email-Joakim.Tjernlund@transmode.se>
-Cc: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-To: linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
-	Anton Vorontsov <avorontsov@ru.mvista.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: OOM when adding ipv6 route:  How to make available more
+ per-cpu memory?
+Date: Mon, 08 Nov 2010 12:02:11 +0100
+Message-ID: <1289214131.2820.187.camel@edumazet-laptop>
+References: <4CD43C87.5040403@candelatech.com>
+	 <1288980361.2882.1070.camel@edumazet-laptop>
+	 <4CD449A5.5070305@candelatech.com>
+	 <1288988403.2665.268.camel@edumazet-laptop>
+	 <1288995103.2665.653.camel@edumazet-laptop>
+	 <4CD49C2F.3060904@candelatech.com>
+	 <1289028392.2665.2418.camel@edumazet-laptop>
+	 <4CD58B9C.2030006@candelatech.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: NetDev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Tejun Heo <tj@kernel.org>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.transmode.se ([213.115.205.20]:50660 "EHLO gw1.transmode.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753196Ab0KHKXt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Nov 2010 05:23:49 -0500
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:33589 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754371Ab0KHLCP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Nov 2010 06:02:15 -0500
+In-Reply-To: <4CD58B9C.2030006@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We noticed a few hangs like this:
+Le samedi 06 novembre 2010 =C3=A0 10:08 -0700, Ben Greear a =C3=A9crit =
+:
 
-INFO: task ifconfig:572 blocked for more than 120 seconds.
-"echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this message.
-ifconfig      D 0ff65760     0   572    369 0x00000000
-Call Trace:
-[c6157be0] [c6008460] 0xc6008460 (unreliable)
-[c6157ca0] [c0008608] __switch_to+0x4c/0x6c
-[c6157cb0] [c028fecc] schedule+0x184/0x310
-[c6157ce0] [c0290e54] __mutex_lock_slowpath+0xa4/0x150
-[c6157d20] [c0290c48] mutex_lock+0x44/0x48
-[c6157d30] [c01aba74] phy_stop+0x20/0x70
-[c6157d40] [c01aef40] ucc_geth_stop+0x30/0x98
-[c6157d60] [c01b18fc] ucc_geth_close+0x9c/0xdc
-[c6157d80] [c01db0cc] __dev_close+0xa0/0xd0
-[c6157d90] [c01deddc] __dev_change_flags+0x8c/0x148
-[c6157db0] [c01def54] dev_change_flags+0x1c/0x64
-[c6157dd0] [c0237ac8] devinet_ioctl+0x678/0x784
-[c6157e50] [c0239a58] inet_ioctl+0xb0/0xbc
-[c6157e60] [c01cafa8] sock_ioctl+0x174/0x2a0
-[c6157e80] [c009a16c] vfs_ioctl+0xcc/0xe0
-[c6157ea0] [c009a998] do_vfs_ioctl+0xc4/0x79c
-[c6157f10] [c009b0b0] sys_ioctl+0x40/0x74
-[c6157f40] [c00117c4] ret_from_syscall+0x0/0x38
+> At least I don't see any percpu dumps in dmesg.  I vaguely remember
+> someone posting some ipv6 address scalability patches some time back.
+> I think they had to hack on /proc fs as well.  I'll see if I can
+> dig those up.
+>=20
+> > Make sure udev / hotplug is not the problem, if you create your dev=
+ices
+> > very fast.
+>=20
+> We can create the macvlans w/out problem, though I'm sure that could
+> be sped up.  The problem is when we try to add IPv6 addresses to
+> them.
 
-I THINK this is due to a missing cancel_work_sync in the driver
-although we cannot be sure. I found this by comparing
-ucc_geth with gianfar.
+I see. Did you check /proc/sys/net/ipv6/ tunables ?
 
-Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
----
- drivers/net/ucc_geth.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+=46or example, I bet you need to make route/max_size a bigger value tha=
+n
+default (4096)
 
-diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-index 97f9f7d..6647ed7 100644
---- a/drivers/net/ucc_geth.c
-+++ b/drivers/net/ucc_geth.c
-@@ -3556,6 +3556,7 @@ static int ucc_geth_close(struct net_device *dev)
- 
- 	napi_disable(&ugeth->napi);
- 
-+	cancel_work_sync(&ugeth->timeout_work);
- 	ucc_geth_stop(ugeth);
- 
- 	free_irq(ugeth->ug_info->uf_info.irq, ugeth->ndev);
--- 
-1.7.2.2
+=46ollowing is working for me
+
+echo 16384 >/proc/sys/net/ipv6/route/max_size
+modprobe dummy numdummies=3D2000
+for a in `seq 1 1999`
+do
+ ip -6 add add 4444::444:$a/24 dev dummy$a
+done
+
+ip -6 ro | wc -l
+6008
+
+
 
