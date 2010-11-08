@@ -1,112 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Loopback performance from kernel 2.6.12 to 2.6.37
-Date: Mon, 08 Nov 2010 16:06:25 +0100
-Message-ID: <1289228785.2820.203.camel@edumazet-laptop>
-References: <1288954189.28003.178.camel@firesoul.comx.local>
-	 <1288988955.2665.297.camel@edumazet-laptop>
-	 <1289213926.15004.19.camel@firesoul.comx.local>
-	 <1289214289.2820.188.camel@edumazet-laptop>
+From: Thomas Graf <tgraf@infradead.org>
+Subject: Re: Netlink limitations
+Date: Mon, 8 Nov 2010 10:16:35 -0500
+Message-ID: <20101108151635.GA20629@canuck.infradead.org>
+References: <alpine.LNX.2.01.1011071743070.21289@obet.zrqbmnf.qr>
+ <4CD6DF37.6010800@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: Jesper Dangaard Brouer <jdb@comx.dk>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jan Engelhardt <jengelh@medozas.de>,
+	"David S. Miller" <davem@davemloft.net>, pablo@netfilter.org,
+	netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:39776 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754847Ab0KHPGb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Nov 2010 10:06:31 -0500
-Received: by wwb18 with SMTP id 18so11978wwb.1
-        for <netdev@vger.kernel.org>; Mon, 08 Nov 2010 07:06:30 -0800 (PST)
-In-Reply-To: <1289214289.2820.188.camel@edumazet-laptop>
+Received: from canuck.infradead.org ([134.117.69.58]:39573 "EHLO
+	canuck.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751715Ab0KHPQv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Nov 2010 10:16:51 -0500
+Content-Disposition: inline
+In-Reply-To: <4CD6DF37.6010800@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 08 novembre 2010 =C3=A0 12:04 +0100, Eric Dumazet a =C3=A9crit=
- :
-> Le lundi 08 novembre 2010 =C3=A0 11:58 +0100, Jesper Dangaard Brouer =
-a
-> =C3=A9crit :
-> > On Fri, 2010-11-05 at 21:29 +0100, Eric Dumazet wrote:
-> > > Le vendredi 05 novembre 2010 =C3=A0 11:49 +0100, Jesper Dangaard =
-Brouer a
-> > > =C3=A9crit :
-> > > > Hi Eric,
-> > > >=20
-> > > > A colleague send me a link to someone who has done some quite e=
-xtensive
-> > > > performance measurements across different kernel versions.
-> > > >=20
-> > > > I noticed that the loopback performance has gotten quite bad:
-> > > >=20
-> > > > http://www.phoronix.com/scan.php?page=3Darticle&item=3Dlinux_26=
-12_2637&num=3D6
-> > > >=20
-> > > > I though you might be interested in the link.
-> > > >=20
-> > > > See you around :-)
-> > >=20
-> > > Hi !
-> > >=20
-> > > Problem is : I have no idea what test they exactly use,
-> > > do you have info about it ?
-> >=20
-> > Its called the Phoronix test-suite, their website is:
-> > http://www.phoronix-test-suite.com/?k=3Dhome
-> >=20
-> > On my Ubuntu workstation their software comes as a software package=
-:
-> >  sudo aptitude install phoronix-test-suite
-> >=20
-> > They seem to be related to the test/review site:
-> > http://www.phoronix.com/
-> >=20
-> >=20
-> >=20
-> > > This probably can be explained very fast.
-> >=20
-> > The loopback test seems to be the only real networking test they do=
-=2E
-> > It looks like they just copy a very big fil via loopback, and recor=
-d the
-> > time it took... quite simple.
-> >=20
-> > Their tests seems to be focused on CPU util/speed, graphics/games.
-> >=20
-> >=20
-> > The thing that caught my attention, was that they seemed interested=
- in
-> > doing performance regression testing on all kernel versions...
-> >=20
-> > So, I though, it would be great if someone else would do automated
-> > performance regression testing for us :-),  Too bad they only have =
-a
-> > very simple network test.
-> >=20
-> >=20
->=20
+On Sun, Nov 07, 2010 at 06:17:43PM +0100, Patrick McHardy wrote:
+> On 07.11.2010 17:44, Jan Engelhardt wrote:
+> > we mentioned it only briefly at the Netfilter workshop a few weeks ago, 
+> > but as I am trying to figure out how to use Netlink in Xtables, 
+> > Netlink's limitations really start ruining my day.
+> > 
+> > The well-known issue is that NL messages the kernel is supposed to 
+> > receive have a max size of 64K, due to nlmsghdr's use of uint16_t. This 
+> > is very problematic because attributes can easily amass more than 64K. 
+> > Think of a chain full of rules, represented by a top-level attribute 
+> > that nests attributes. The problem is bidirectional, a table 
+> > dump has the same problem.
+> 
+> Messages are not limited to 64k, individual attributes are. Holger
+> started working on a nlattr32, which uses 32 bit for the length
+> value.
 
->=20
+Also, it is not required to pack everything in attributes. Your protocol
+may specify that the whole message payload consists of chained attributes.
+Alternatively you may as well split your attribut chain and dump them
+as several messages.
 
-CC netdev, if you dont mind.
+If a large attribute container for nested attribtues is required, I agree
+that nlattr32 is the way to go.
 
+> That's somewhat similar to the nlattr32 idea, but a length of 0 makes
+> more sense since that's currently not used. In that case the length
+> would be read from a second length field which has 32 bits.
 
-Their network test is basically :
-
-netcat -l 9999 >/dev/null &
-time dd if=3D/dev/zero bs=3D1M count=3D10000 | netcat  127.0.0.1 9999
-
-They say it takes 38 seconds on their "super fast" processor
-
-On my dev machine, not super fast (E5540 @2.53GHz), I get 8 or 9
-seconds, even if only one CPU is online, all others offline.
-
-Go figure... maybe an artifact of the virtualization they use.
-
-I suspect some problem with the ticket spinlocks and a call to
-hypervisor to say 'I am spinning on a spinlock, see if you need to do
-something useful', or maybe ACPI problem (going to/from idle)
-
-
-
-
+I agree. This makes perfect sense. I was just thinking wheter we want
+to encode more information into the attribute header if we extend it
+anyways.
