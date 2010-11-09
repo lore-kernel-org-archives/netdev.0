@@ -1,72 +1,46 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] Enhance AF_PACKET implementation to not require high
- order contiguous memory allocation (v2)
-Date: Tue, 9 Nov 2010 16:20:00 -0500
-Message-ID: <20101109212000.GA12350@hmsreliant.think-freely.org>
-References: <1288033566-2091-1-git-send-email-nhorman@tuxdriver.com>
- <1289324799-2256-1-git-send-email-nhorman@tuxdriver.com>
- <AANLkTi=s9zr+yF-nr8MoHY6W6m=usR2fH=dPJx6voC34@mail.gmail.com>
+From: Xose Vazquez Perez <xose.vazquez@gmail.com>
+Subject: Re: Loopback performance from kernel 2.6.12 to 2.6.37
+Date: Tue, 09 Nov 2010 22:35:24 +0100
+Message-ID: <4CD9BE9C.30003@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net, eric.dumazet@gmail.com
-To: Maciej =?utf-8?Q?=C5=BBenczykowski?= <zenczykowski@gmail.com>
+To: netdev@vger.kernel.org, jdb@comx.dk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:49230 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754759Ab0KIVWH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Nov 2010 16:22:07 -0500
-Content-Disposition: inline
-In-Reply-To: <AANLkTi=s9zr+yF-nr8MoHY6W6m=usR2fH=dPJx6voC34@mail.gmail.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:49176 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752883Ab0KIVf2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Nov 2010 16:35:28 -0500
+Received: by wyb36 with SMTP id 36so5276460wyb.19
+        for <netdev@vger.kernel.org>; Tue, 09 Nov 2010 13:35:27 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 09, 2010 at 01:07:32PM -0800, Maciej =C5=BBenczykowski wrot=
-e:
-> > +#define PGV_FROM_VMALLOC 1
->=20
-> Why don't we always just use vmalloc, what's the benefit of get_user_=
-pages?
->=20
-Because of how vmalloc works.  It maps discontiguous pages into contigu=
-ous
-address space.  But we only have 128MB of that address space to work wi=
-th by
-default, so its quite possible that we won't be able to alloc all the m=
-emory.
+Jesper Dangaard Brouer wrote:
 
-> > + =C2=A0 =C2=A0 =C2=A0 /*
-> > + =C2=A0 =C2=A0 =C2=A0 =C2=A0* vmalloc failed, lets dig into swap h=
-ere
-> > + =C2=A0 =C2=A0 =C2=A0 =C2=A0*/
-> > + =C2=A0 =C2=A0 =C2=A0 *flags =3D 0;
+> To fix this I added "-q 0" to netcat.  Thus my working commands are:
 >=20
-> probably better to *flags &=3D ~PGV_FROM_VMALLOC;
-> (since some flags could have been set before this function was called=
-)
+>  netcat -l -p 9999 >/dev/null &
+>  time dd if=3D/dev/zero bs=3D1M count=3D10000 | netcat -q0 127.0.0.1 =
+9999
 >=20
-Well, if any other users of this field existed, I'd agree, but since we=
-'re the
-only one, I think its ok, at least for now.
+> Running this on my "big" 10G testlab system, Dual Xeon 5550 2.67GHz,
+> kernel version 2.6.32-5-amd64 (which I usually don't use)
+> The results are 7.487 sec:
 
-> > + =C2=A0 =C2=A0 =C2=A0 gfp_flags &=3D ~__GFP_NORETRY;
-> > + =C2=A0 =C2=A0 =C2=A0 buffer =3D (char *)__get_free_pages(gfp_flag=
-s, order);
->=20
-> wouldn't this still cause problems because you're now requiring linea=
-r
-> memory again?
-yes, its a last ditch effort after the other two options have been trie=
-d.  Its
-all thats left to do.
+netcat flavor ?
 
-> Would it be better to just fail at this point?
-Why?  If we can dig into swap and get the memory, we may as well try.  =
-It would
-be better if we didn't have to, but if the choice is between failing an=
-d making
-the system slow down....
+http://nc110.sourceforge.net/
+http://nmap.org/ncat/
+http://www.dest-unreach.org/socat/
+http://cryptcat.sourceforge.net/
+http://netcat.sourceforge.net/
+http://www.openbsd.org/cgi-bin/cvsweb/src/usr.bin/nc/
 
-Neil
-
->=20
+--=20
+=ABAll=E1 muevan feroz guerra, ciegos reyes por un palmo m=E1s de tierr=
+a;
+que yo aqu=ED tengo por m=EDo cuanto abarca el mar brav=EDo, a quien na=
+die
+impuso leyes. Y no hay playa, sea cualquiera, ni bandera de esplendor,
+que no sienta mi derecho y d=E9 pecho a mi valor.=BB
