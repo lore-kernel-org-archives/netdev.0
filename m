@@ -1,38 +1,49 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: Netlink limitations
-Date: Tue, 9 Nov 2010 23:02:30 +0100 (CET)
-Message-ID: <alpine.LNX.2.01.1011092302070.28314@obet.zrqbmnf.qr>
-References: <alpine.LNX.2.01.1011071743070.21289@obet.zrqbmnf.qr> <4CD6DF37.6010800@trash.net> <20101108151635.GA20629@canuck.infradead.org> <4CD91406.4000603@trash.net> <20101109144941.GA4018@canuck.infradead.org> <alpine.LNX.2.01.1011092113420.10710@obet.zrqbmnf.qr>
- <20101109214039.GA11005@canuck.infradead.org>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: Networking hangs when too many parallel requests are made at
+ once
+Date: Tue, 09 Nov 2010 14:14:58 -0800
+Message-ID: <4CD9C7E2.6050909@candelatech.com>
+References: <AANLkTikuCj=saH34dyO6xnU-y8rWv63hJaqowZ0ACLzk@mail.gmail.com> <AANLkTinRo_ozWFCYYqanOh0YrTJ6+KadutG2j7T726dY@mail.gmail.com> <4CD99E20.4060307@candelatech.com> <AANLkTinz6C4s3wX7t6CsE2bzZ2adCoi0RAcqvpEFE2GV@mail.gmail.com> <4CD9B09B.8040906@candelatech.com> <AANLkTinu4=Ox_vA_yr7vbdbcqr4P7oS+zMX_yaXhK4E9@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>, pablo@netfilter.org,
-	netdev@vger.kernel.org
-To: Thomas Graf <tgraf@infradead.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Luke Hutchison <luke.hutch@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from borg.medozas.de ([188.40.89.202]:39587 "EHLO borg.medozas.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754448Ab0KIWCb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Nov 2010 17:02:31 -0500
-In-Reply-To: <20101109214039.GA11005@canuck.infradead.org>
+Received: from mail.candelatech.com ([208.74.158.172]:52489 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752163Ab0KIWPA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Nov 2010 17:15:00 -0500
+In-Reply-To: <AANLkTinu4=Ox_vA_yr7vbdbcqr4P7oS+zMX_yaXhK4E9@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 11/09/2010 01:17 PM, Luke Hutchison wrote:
 
-On Tuesday 2010-11-09 22:40, Thomas Graf wrote:
->The addition won't be a revolution but it the increased header size,
->8 vs. 12 bytes isn't a big deal and gives us some additional room to
->work with in the future.
+> On Tue, Nov 9, 2010 at 3:35 PM, Ben Greear<greearb@candelatech.com>  wrote:
+>> And, a network capture of your system going into this state might
+>> be useful.  I'd try to disable your wireless NIC entirely and focus
+>> on debugging the wired NIC as that is usually easier to debug.
 >
->struct nlattr_ext {
->	u16	oldlen;		/* 0 */
->	u16	kind;		/* TCA_* */
->	u8	type;		/* NLA_U32 */
->	u8	flags;		/* NLA_F_* */
->	u16	reserved;
->	u32	length;
->};
+> Sure -- a wireshark trace is here: http://web.mit.edu/~luke_h/www/trace.bz2
+>
+> In this particular trace, I opened about 20 browser tabs at once.
+> They all locked up after about 5 seconds.  A few of them loaded some
+> more content after a minute or two.  A minute or two later, I killed
+> them all.  In this particular example, pinging to a specific domain
+> name continued to work (it doesn't always), although I couldn't get
+> content from the domains in question: e.g. I could ping google.com,
+> but opening a new tab and trying to visit google.com caused the new
+> tab to hang too.
 
-And while we're discussing this, surely there are no objections
-to bumping NLA_ALIGN to 8 at the same time..
+Have you tried using a different DNS server (open-dns?), or maybe a caching one one
+your local machine?  Maybe some part of your network is throwing away
+some of your DNS requests since you send so many at once?
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
