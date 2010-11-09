@@ -1,42 +1,69 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Networking hangs when too many parallel requests are made at
- once
-Date: Tue, 09 Nov 2010 11:16:48 -0800
-Message-ID: <4CD99E20.4060307@candelatech.com>
-References: <AANLkTikuCj=saH34dyO6xnU-y8rWv63hJaqowZ0ACLzk@mail.gmail.com> <AANLkTinRo_ozWFCYYqanOh0YrTJ6+KadutG2j7T726dY@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] Enhance AF_PACKET implementation to not require high
+ order contiguous memory allocation (v2)
+Date: Tue, 09 Nov 2010 20:20:38 +0100
+Message-ID: <1289330438.2774.25.camel@edumazet-laptop>
+References: <1288033566-2091-1-git-send-email-nhorman@tuxdriver.com>
+	 <1289324799-2256-1-git-send-email-nhorman@tuxdriver.com>
+	 <1289325753.2774.20.camel@edumazet-laptop>
+	 <20101109183820.GA8069@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Luke Hutchison <luke.hutch@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net, zenczykowski@gmail.com
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:46055 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752278Ab0KITQw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Nov 2010 14:16:52 -0500
-In-Reply-To: <AANLkTinRo_ozWFCYYqanOh0YrTJ6+KadutG2j7T726dY@mail.gmail.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:50136 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753425Ab0KITUq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Nov 2010 14:20:46 -0500
+Received: by wyb36 with SMTP id 36so5152468wyb.19
+        for <netdev@vger.kernel.org>; Tue, 09 Nov 2010 11:20:44 -0800 (PST)
+In-Reply-To: <20101109183820.GA8069@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/09/2010 11:04 AM, Luke Hutchison wrote:
-> On Tue, Nov 9, 2010 at 1:30 PM, Luke Hutchison<luke.hutch@gmail.com>  wrote:
->> Since around Linux kernel 2.6.33 or so (but maybe as early as
->> 2.6.31, not sure exactly what version), when restoring a crashed or
->> closed browser session of either Firefox or Chrome where lots of tabs
->> (say 10-40) open simultaneously, the networking stack is brought to
->> its knees -- most or all the tabs eventually time out without data, or
->> a few tabs might get some data and then display a partial web page.
+Le mardi 09 novembre 2010 =C3=A0 13:38 -0500, Neil Horman a =C3=A9crit =
+:
+> On Tue, Nov 09, 2010 at 07:02:32PM +0100, Eric Dumazet wrote:
+> > Le mardi 09 novembre 2010 =C3=A0 12:46 -0500, nhorman@tuxdriver.com=
+ a =C3=A9crit :
+> ic char **alloc_pg_vec(struct tpacket_req *req, int order)
+> > > +static struct pgv *alloc_pg_vec(struct tpacket_req *req, int ord=
+er)
+> > >  {
+> > >  	unsigned int block_nr =3D req->tp_block_nr;
+> > > -	char **pg_vec;
+> > > +	struct pgv *pg_vec;
+> > >  	int i;
+> > > =20
+> > > -	pg_vec =3D kzalloc(block_nr * sizeof(char *), GFP_KERNEL);
+> > > +	pg_vec =3D kzalloc(block_nr * sizeof(struct pgv), GFP_KERNEL);
+> >=20
+> > While we are at it, we could check block_nr being a sane value here=
+ ;)
+> >=20
+> This is true.  What do you think a reasonable sane value is?  libpcap=
+ seems to
+> limit itself to 32 order 5 entries in the ring, but that seems a bit =
+arbitrary.
+> Perhaps we could check and limit allocations to being no more than or=
+der 8
+> (1Mb), and a total allocation of no more than perhaps max(32Mb, 1% of=
+ all ram)?
+> Just throwing it out there, open to any suggestions here
 
-Have you been able to reproduce this on any other machine?  I suspect
-it might be an issue with your specific NIC or other hardware.
+I was refering to a malicious/buggy program giving a big tp_block_nr so
+that (block_nr * sizeof(struct pgv)) overflows the u32
 
-At the least, it's not a general problem with opening lots
-of TCP connections, as we routinely test with thousands...
+One way to deal with that is to use
 
-Thanks,
-Ben
+	kcalloc(block_nr, sizeof(struct pgv), GFP_KERNEL);
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+I am not sure consistency checks done in packet_set_ring() are enough t=
+o
+properly detect such errors.
+
+
+
 
