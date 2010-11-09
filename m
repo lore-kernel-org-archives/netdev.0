@@ -1,66 +1,34 @@
-From: xiaohui.xin@intel.com
-Subject: [PATCH v15 03/17]Add a ndo_mp_port_prep pointer to net_device_ops.
-Date: Tue,  9 Nov 2010 17:03:08 +0800
-Message-ID: <cd0686f2b8fc16a1d87ced228b2a90b93f008b94.1289280885.git.xiaohui.xin@intel.com>
-References: <1289293402-4791-1-git-send-email-xiaohui.xin@intel.com>
-Cc: Xin Xiaohui <xiaohui.xin@intel.com>
-To: netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mst@redhat.com, mingo@elte.hu,
-	davem@davemloft.net, herbert@gondor.apana.org.au,
-	jdike@linux.intel.com
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Netlink limitations
+Date: Tue, 09 Nov 2010 10:27:34 +0100
+Message-ID: <4CD91406.4000603@trash.net>
+References: <alpine.LNX.2.01.1011071743070.21289@obet.zrqbmnf.qr> <4CD6DF37.6010800@trash.net> <20101108151635.GA20629@canuck.infradead.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: Jan Engelhardt <jengelh@medozas.de>,
+	"David S. Miller" <davem@davemloft.net>, pablo@netfilter.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:25013 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753986Ab0KIIlb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Nov 2010 03:41:31 -0500
-In-Reply-To: <1289293402-4791-1-git-send-email-xiaohui.xin@intel.com>
-In-Reply-To: <fc6e95d63a2c62aaf77f8ded22fc43ccefcdbbff.1289280885.git.xiaohui.xin@intel.com>
-References: <fc6e95d63a2c62aaf77f8ded22fc43ccefcdbbff.1289280885.git.xiaohui.xin@intel.com>
+Received: from stinky.trash.net ([213.144.137.162]:50935 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753630Ab0KIJ1v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Nov 2010 04:27:51 -0500
+In-Reply-To: <20101108151635.GA20629@canuck.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Xin Xiaohui <xiaohui.xin@intel.com>
+Am 08.11.2010 16:16, schrieb Thomas Graf:
+> On Sun, Nov 07, 2010 at 06:17:43PM +0100, Patrick McHardy wrote:
+>> On 07.11.2010 17:44, Jan Engelhardt wrote:
+>>> ...
+> 
+>> That's somewhat similar to the nlattr32 idea, but a length of 0 makes
+>> more sense since that's currently not used. In that case the length
+>> would be read from a second length field which has 32 bits.
+> 
+> I agree. This makes perfect sense. I was just thinking wheter we want
+> to encode more information into the attribute header if we extend it
+> anyways.
 
-    If the driver want to allocate external buffers,
-    then it can export it's capability, as the skb
-    buffer header length, the page length can be DMA, etc.
-    The external buffers owner may utilize this.
-
-    Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
-    Signed-off-by: Zhao Yu <yzhao81new@gmail.com>
-    Reviewed-by: Jeff Dike <jdike@linux.intel.com>
----
- include/linux/netdevice.h |   10 ++++++++++
- 1 files changed, 10 insertions(+), 0 deletions(-)
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index f6b1870..575777f 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -723,6 +723,12 @@ struct netdev_rx_queue {
-  * int (*ndo_set_vf_port)(struct net_device *dev, int vf,
-  *			  struct nlattr *port[]);
-  * int (*ndo_get_vf_port)(struct net_device *dev, int vf, struct sk_buff *skb);
-+ *
-+ * int (*ndo_mp_port_prep)(struct net_device *dev, struct mp_port *port);
-+ *	If the driver want to allocate external buffers,
-+ *	then it can export it's capability, as the skb
-+ *	buffer header length, the page length can be DMA, etc.
-+ *	The external buffers owner may utilize this.
-  */
- #define HAVE_NET_DEVICE_OPS
- struct net_device_ops {
-@@ -795,6 +801,10 @@ struct net_device_ops {
- 	int			(*ndo_fcoe_get_wwn)(struct net_device *dev,
- 						    u64 *wwn, int type);
- #endif
-+#if defined(CONFIG_MEDIATE_PASSTHRU) || defined(CONFIG_MEDIATE_PASSTHRU_MODULE)
-+	int			(*ndo_mp_port_prep)(struct net_device *dev,
-+						struct mp_port *port);
-+#endif
- };
- 
- /*
--- 
-1.7.3
-
+What kind of additional information are you thinking about?
