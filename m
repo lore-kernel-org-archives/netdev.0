@@ -1,43 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Fix CAN info leak/minor heap overflow
-Date: Tue, 09 Nov 2010 09:05:23 -0800 (PST)
-Message-ID: <20101109.090523.189685701.davem@davemloft.net>
-References: <1288722503.2504.14.camel@dan>
-	<ygfiq0bsjry.fsf@janus.isnogud.escape.de>
-	<4CD8FDB5.6060905@hartkopp.net>
+Subject: Re: [PATCH v15 00/17] Provide a zero-copy method on KVM virtio-net.
+Date: Tue, 09 Nov 2010 09:15:16 -0800 (PST)
+Message-ID: <20101109.091516.112581012.davem@davemloft.net>
+References: <1289293402-4791-1-git-send-email-xiaohui.xin@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: urs@isnogud.escape.de, netdev@vger.kernel.org,
-	drosenberg@vsecurity.com, security@kernel.org,
-	torvalds@linux-foundation.org
-To: socketcan@hartkopp.net
+Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mst@redhat.com, mingo@elte.hu,
+	herbert@gondor.apana.org.au, jdike@linux.intel.com
+To: xiaohui.xin@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43621
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47093
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754268Ab0KIRE7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Nov 2010 12:04:59 -0500
-In-Reply-To: <4CD8FDB5.6060905@hartkopp.net>
+	by vger.kernel.org with ESMTP id S1751792Ab0KIROw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Nov 2010 12:14:52 -0500
+In-Reply-To: <1289293402-4791-1-git-send-email-xiaohui.xin@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Date: Tue, 09 Nov 2010 08:52:21 +0100
+From: xiaohui.xin@intel.com
+Date: Tue,  9 Nov 2010 17:03:05 +0800
 
-> Once this patch is applied (and the procfs layout is changed anyway), i'd also
-> like to send a patch from my backlog that would extend the procfs output for
-> can-bcm with an additional drop counter.
+> We provide an zero-copy method which driver side may get external
+> buffers to DMA. Here external means driver don't use kernel space
+> to allocate skb buffers. Currently the external buffer can be from
+> guest virtio-net driver.
 
-I find this kind of discussion extremely disappointing.
+1) Please use kernel-doc style comments to document structure
+   members.
 
-All of this stuff you CAN guys do with procfs files and version
-strings is completely wrong and bogus.
-
-Once you create a procfs file layout, you're basically stuck and you
-can at best only reasonably add new fields at the end, you can't
-really change existing fields.
-
-And sysfs would have been a lot more appropriate, you could use
-attributes for each value you want to export and then just add new
-sysfs attributes when you want to export new values which has very
-clear semantics and backwards compatability implications.
+2) The idea to key off of skb->dev in skb_release_data() is
+   fundamentally flawed since many actions can change skb->dev on you,
+   which will end up causing a leak of your external data areas.
