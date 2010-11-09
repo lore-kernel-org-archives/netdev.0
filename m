@@ -1,145 +1,57 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [patch v3] ipvs: allow transmit of GRO aggregated skbs
-Date: Tue, 9 Nov 2010 10:18:48 +0900
-Message-ID: <20101109011847.GL6502@verge.net.au>
-References: <20101109010847.GA13974@verge.net.au>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: [PATCH 07/17][trivial] net, wireless: Remove unnecessary casts
+ of void ptr returning alloc function return values
+Date: Mon, 8 Nov 2010 20:23:46 -0500
+Message-ID: <20101109012346.GA32743@tuxdriver.com>
+References: <alpine.LNX.2.00.1011082330390.23697@swampdragon.chaosbits.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Julian Anastasov <ja@ssi.bg>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: lvs-devel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:59993 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755087Ab0KIBSD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Nov 2010 20:18:03 -0500
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, trivial-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	Ulrich Kunitz <kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org>,
+	Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jesper Juhl <jj-IYz4IdjRLj0sV2N9l4h3zg@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20101109010847.GA13974@verge.net.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.00.1011082330390.23697-h2p7t3/P30RzeRGmFJ5qR7ZzlVVXadcDXqFh9Ls21Oc@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 09, 2010 at 10:08:49AM +0900, Simon Horman wrote:
-> Attempt at allowing LVS to transmit skbs of greater than MTU length that
-> have been aggregated by GRO and can thus be deaggregated by GSO.
+On Tue, Nov 09, 2010 at 12:09:13AM +0100, Jesper Juhl wrote:
+> Hi,
 > 
-> Cc: Julian Anastasov <ja@ssi.bg>
-> Cc: Herbert Xu <herbert@gondor.apana.org.au>
-> Signed-off-by: Simon Horman <horms@verge.net.au>
+> The [vk][cmz]alloc(_node) family of functions return void pointers which
+> it's completely unnecessary/pointless to cast to other pointer types since
+> that happens implicitly.
 > 
-> --- 
+> This patch removes such casts from drivers/net/
 > 
-> * LRO is still an outstanding issue, but as its deprecated in favour
->   of GRO perhaps it doesn't need to be solved.
 > 
-> * v1
->   - Based on 2.6.35
-> 
-> * v2
->   - Rebase on current nf-next-2.6 tree (~2.6.37-rc1)
-> 
-> * v3
->   - Use skb_is_gso() instead of netif_needs_gso() as suggested by
->     Julian Anastasov and confirmed by Herbert Xu.
+> Signed-off-by: Jesper Juhl <jj-IYz4IdjRLj0sV2N9l4h3zg@public.gmane.org>
+> ---
+>  zd_chip.c |    3 +--
+>  1 file changed, 1 insertion(+), 2 deletions(-)
+> diff --git a/drivers/net/wireless/zd1211rw/zd_chip.c b/drivers/net/wireless/zd1211rw/zd_chip.c
+> index 87a95bc..dfcebed 100644
+> --- a/drivers/net/wireless/zd1211rw/zd_chip.c
+> +++ b/drivers/net/wireless/zd1211rw/zd_chip.c
+> @@ -117,8 +117,7 @@ int zd_ioread32v_locked(struct zd_chip *chip, u32 *values, const zd_addr_t *addr
+>  
+>  	/* Allocate a single memory block for values and addresses. */
+>  	count16 = 2*count;
+> -	a16 = (zd_addr_t *) kmalloc(count16 * (sizeof(zd_addr_t) + sizeof(u16)),
+> -		                   GFP_KERNEL);
+> +	a16 = kmalloc(count16 * (sizeof(zd_addr_t) + sizeof(u16)), GFP_KERNEL);
+>  	if (!a16) {
+>  		dev_dbg_f(zd_chip_dev(chip),
+>  			  "error ENOMEM in allocation of a16\n");
 
-On thinking about this a bit more, I believe that this is material
-for stable as its affecting deployed systems. I'll back-port it
-and add the appropriate CC once its seen a bit more testing.
+kcalloc?
 
-> 
-> Index: lvs-test-2.6/net/netfilter/ipvs/ip_vs_xmit.c
-> ===================================================================
-> --- lvs-test-2.6.orig/net/netfilter/ipvs/ip_vs_xmit.c	2010-11-08 16:27:31.000000000 +0900
-> +++ lvs-test-2.6/net/netfilter/ipvs/ip_vs_xmit.c	2010-11-08 16:29:19.000000000 +0900
-> @@ -408,7 +408,8 @@ ip_vs_bypass_xmit(struct sk_buff *skb, s
->  
->  	/* MTU checking */
->  	mtu = dst_mtu(&rt->dst);
-> -	if ((skb->len > mtu) && (iph->frag_off & htons(IP_DF))) {
-> +	if ((skb->len > mtu) && (iph->frag_off & htons(IP_DF)) &&
-> +	    !skb_is_gso(skb)) {
->  		ip_rt_put(rt);
->  		icmp_send(skb, ICMP_DEST_UNREACH,ICMP_FRAG_NEEDED, htonl(mtu));
->  		IP_VS_DBG_RL("%s(): frag needed\n", __func__);
-> @@ -461,7 +462,7 @@ ip_vs_bypass_xmit_v6(struct sk_buff *skb
->  
->  	/* MTU checking */
->  	mtu = dst_mtu(&rt->dst);
-> -	if (skb->len > mtu) {
-> +	if (skb->len > mtu && !skb_is_gso(skb)) {
->  		if (!skb->dev) {
->  			struct net *net = dev_net(skb_dst(skb)->dev);
->  
-> @@ -560,7 +561,8 @@ ip_vs_nat_xmit(struct sk_buff *skb, stru
->  
->  	/* MTU checking */
->  	mtu = dst_mtu(&rt->dst);
-> -	if ((skb->len > mtu) && (iph->frag_off & htons(IP_DF))) {
-> +	if ((skb->len > mtu) && (iph->frag_off & htons(IP_DF)) &&
-> +	    !skb_is_gso(skb)) {
->  		icmp_send(skb, ICMP_DEST_UNREACH,ICMP_FRAG_NEEDED, htonl(mtu));
->  		IP_VS_DBG_RL_PKT(0, AF_INET, pp, skb, 0,
->  				 "ip_vs_nat_xmit(): frag needed for");
-> @@ -675,7 +677,7 @@ ip_vs_nat_xmit_v6(struct sk_buff *skb, s
->  
->  	/* MTU checking */
->  	mtu = dst_mtu(&rt->dst);
-> -	if (skb->len > mtu) {
-> +	if (skb->len > mtu && !skb_is_gso(skb)) {
->  		if (!skb->dev) {
->  			struct net *net = dev_net(skb_dst(skb)->dev);
->  
-> @@ -790,8 +792,8 @@ ip_vs_tunnel_xmit(struct sk_buff *skb, s
->  
->  	df |= (old_iph->frag_off & htons(IP_DF));
->  
-> -	if ((old_iph->frag_off & htons(IP_DF))
-> -	    && mtu < ntohs(old_iph->tot_len)) {
-> +	if ((old_iph->frag_off & htons(IP_DF) &&
-> +	    mtu < ntohs(old_iph->tot_len) && !skb_is_gso(skb))) {
->  		icmp_send(skb, ICMP_DEST_UNREACH,ICMP_FRAG_NEEDED, htonl(mtu));
->  		IP_VS_DBG_RL("%s(): frag needed\n", __func__);
->  		goto tx_error_put;
-> @@ -903,7 +905,8 @@ ip_vs_tunnel_xmit_v6(struct sk_buff *skb
->  	if (skb_dst(skb))
->  		skb_dst(skb)->ops->update_pmtu(skb_dst(skb), mtu);
->  
-> -	if (mtu < ntohs(old_iph->payload_len) + sizeof(struct ipv6hdr)) {
-> +	if (mtu < ntohs(old_iph->payload_len) + sizeof(struct ipv6hdr) &&
-> +	    !skb_is_gso(skb)) {
->  		if (!skb->dev) {
->  			struct net *net = dev_net(skb_dst(skb)->dev);
->  
-> @@ -1008,7 +1011,8 @@ ip_vs_dr_xmit(struct sk_buff *skb, struc
->  
->  	/* MTU checking */
->  	mtu = dst_mtu(&rt->dst);
-> -	if ((iph->frag_off & htons(IP_DF)) && skb->len > mtu) {
-> +	if ((iph->frag_off & htons(IP_DF)) && skb->len > mtu &&
-> +	    !skb_is_gso(skb)) {
->  		icmp_send(skb, ICMP_DEST_UNREACH,ICMP_FRAG_NEEDED, htonl(mtu));
->  		ip_rt_put(rt);
->  		IP_VS_DBG_RL("%s(): frag needed\n", __func__);
-> @@ -1174,7 +1178,8 @@ ip_vs_icmp_xmit(struct sk_buff *skb, str
->  
->  	/* MTU checking */
->  	mtu = dst_mtu(&rt->dst);
-> -	if ((skb->len > mtu) && (ip_hdr(skb)->frag_off & htons(IP_DF))) {
-> +	if ((skb->len > mtu) && (ip_hdr(skb)->frag_off & htons(IP_DF)) &&
-> +	    !skb_is_gso(skb)) {
->  		icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED, htonl(mtu));
->  		IP_VS_DBG_RL("%s(): frag needed\n", __func__);
->  		goto tx_error_put;
-> @@ -1288,7 +1293,7 @@ ip_vs_icmp_xmit_v6(struct sk_buff *skb,
->  
->  	/* MTU checking */
->  	mtu = dst_mtu(&rt->dst);
-> -	if (skb->len > mtu) {
-> +	if (skb->len > mtu && !skb_is_gso(skb)) {
->  		if (!skb->dev) {
->  			struct net *net = dev_net(skb_dst(skb)->dev);
->  
-> --
-> To unsubscribe from this list: send the line "unsubscribe lvs-devel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
