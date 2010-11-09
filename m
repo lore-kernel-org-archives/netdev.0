@@ -1,76 +1,93 @@
-From: Miles Lane <miles.lane@gmail.com>
-Subject: Re: [PATCH] inet: fix ip_mc_drop_socket()
-Date: Mon, 8 Nov 2010 23:20:49 -0500
-Message-ID: <AANLkTik6EXFDNw0uJfCSPj8gucQvFi3423kCG+pjS=vJ@mail.gmail.com>
-References: <AANLkTinVyf4CpxdzEWUn7zTyOrAMKY3H9Dct-HfopiSD@mail.gmail.com>
-	<20101108200600.GG4032@linux.vnet.ibm.com>
-	<1289248166.2790.1.camel@edumazet-laptop>
-	<20101108204240.GA1585@arch.trippelsdorf.de>
-	<1289249191.2790.3.camel@edumazet-laptop>
-	<20101108205511.GB1585@arch.trippelsdorf.de>
-	<1289250954.2790.11.camel@edumazet-laptop>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: [PATCH] virtio_net: Fix queue full check
+Date: Tue, 9 Nov 2010 09:56:03 +0530
+Message-ID: <OF5977B5FB.669A3250-ON652577D6.00168221-652577D6.00180738@in.ibm.com>
+References: <20101028051036.25340.23442.sendpatchset@krkumar2.in.ibm.com> <20101102161730.GA32311@redhat.com> <20101104122424.GA29830@redhat.com> <201011080938.47938.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Markus Trippelsdorf <markus@trippelsdorf.de>,
-	David Miller <davem@davemloft.net>, paulmck@linux.vnet.ibm.com,
-	ilpo.jarvinen@helsinki.fi, LKML <linux-kernel@vger.kernel.org>,
-	Len Brown <lenb@kernel.org>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Cc: davem@davemloft.net, "Michael S. Tsirkin" <mst@redhat.com>,
+	netdev@vger.kernel.org, yvugenfi@redhat.com
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f174.google.com ([209.85.214.174]:64778 "EHLO
-	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752807Ab0KIEUu convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Nov 2010 23:20:50 -0500
-In-Reply-To: <1289250954.2790.11.camel@edumazet-laptop>
+Received: from e28smtp09.in.ibm.com ([122.248.162.9]:51739 "EHLO
+	e28smtp09.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752798Ab0KIEWd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Nov 2010 23:22:33 -0500
+Received: from d28relay03.in.ibm.com (d28relay03.in.ibm.com [9.184.220.60])
+	by e28smtp09.in.ibm.com (8.14.4/8.13.1) with ESMTP id oA93rESQ019809
+	for <netdev@vger.kernel.org>; Tue, 9 Nov 2010 09:23:14 +0530
+Received: from d28av05.in.ibm.com (d28av05.in.ibm.com [9.184.220.67])
+	by d28relay03.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id oA94MU1R3842248
+	for <netdev@vger.kernel.org>; Tue, 9 Nov 2010 09:52:30 +0530
+Received: from d28av05.in.ibm.com (loopback [127.0.0.1])
+	by d28av05.in.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id oA94MUFS016374
+	for <netdev@vger.kernel.org>; Tue, 9 Nov 2010 15:22:30 +1100
+In-Reply-To: <201011080938.47938.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Looks good here.
+Rusty Russell <rusty@rustcorp.com.au> wrote on 11/08/2010 04:38:47 AM:
 
-On Mon, Nov 8, 2010 at 4:15 PM, Eric Dumazet <eric.dumazet@gmail.com> w=
-rote:
-> Hmm, I believe I found the bug.
+> Re: [PATCH] virtio_net: Fix queue full check
 >
-> Thanks guys !
+> On Thu, 4 Nov 2010 10:54:24 pm Michael S. Tsirkin wrote:
+> > I thought about this some more.  I think the original
+> > code is actually correct in returning ENOSPC: indirect
+> > buffers are nice, but it's a mistake
+> > to rely on them as a memory allocation might fail.
+> >
+> > And if you look at virtio-net, it is dropping packets
+> > under memory pressure which is not really a happy outcome:
+> > the packet will get freed, reallocated and we get another one,
+> > adding pressure on the allocator instead of releasing it
+> > until we free up some buffers.
+> >
+> > So I now think we should calculate the capacity
+> > assuming non-indirect entries, and if we manage to
+> > use indirect, all the better.
 >
-> [PATCH] inet: fix ip_mc_drop_socket()
+> I've long said it's a weakness in the network stack that it insists
+> drivers stop the tx queue before they *might* run out of room, leading to
+> worst-case assumptions and underutilization of the tx ring.
 >
-> commit 8723e1b4ad9be4444 (inet: RCU changes in inetdev_by_index())
-> forgot one call site in ip_mc_drop_socket()
+> However, I lost that debate, and so your patch is the way it's supposed
+to
+> work.  The other main indirect user (block) doesn't care as its queue
+> allows for post-attempt blocking.
 >
-> We should not decrease idev refcount after inetdev_by_index() call,
-> since refcount is not increased anymore.
+> I enhanced your commentry a little:
 >
-> Reported-by: Markus Trippelsdorf <markus@trippelsdorf.de>
-> Reported-by: Miles Lane <miles.lane@gmail.com>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> ---
-> =A0net/ipv4/igmp.c | =A0 =A04 +---
-> =A01 file changed, 1 insertion(+), 3 deletions(-)
+> Subject: virtio: return correct capacity to users
+> Date: Thu, 4 Nov 2010 14:24:24 +0200
+> From: "Michael S. Tsirkin" <mst@redhat.com>
 >
-> diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-> index c8877c6..3c53c2d 100644
-> --- a/net/ipv4/igmp.c
-> +++ b/net/ipv4/igmp.c
-> @@ -2306,10 +2306,8 @@ void ip_mc_drop_socket(struct sock *sk)
+> We can't rely on indirect buffers for capacity
+> calculations because they need a memory allocation
+> which might fail.  In particular, virtio_net can get
+> into this situation under stress, and it drops packets
+> and performs badly.
 >
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0in_dev =3D inetdev_by_index(net, iml->=
-multi.imr_ifindex);
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0(void) ip_mc_leave_src(sk, iml, in_dev=
-);
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (in_dev !=3D NULL) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (in_dev !=3D NULL)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0ip_mc_dec_group(in_dev=
-, iml->multi.imr_multiaddr.s_addr);
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 in_dev_put(in_dev);
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0/* decrease mem now to avoid the memle=
-ak warning */
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0atomic_sub(sizeof(*iml), &sk->sk_omem_=
-alloc);
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0call_rcu(&iml->rcu, ip_mc_socklist_rec=
-laim);
+> So return the number of buffers we can guarantee users.
 >
->
->
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+> Reported-By: Krishna Kumar2 <krkumar2@in.ibm.com>
+
+I have tested this patch for 3-4 hours but so far I have not got the tx
+full
+error. I am not sure if "Tested-By" applies to this situation, but just in
+case:
+
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+Reported-By: Krishna Kumar2 <krkumar2@in.ibm.com>
+Tested-By: Krishna Kumar2 <krkumar2@in.ibm.com>
+
+I think both this patch and the original patch I submitted
+are needed? That patch removes ENOMEM check and the increment
+of dev->stats.tx_fifo_errors, and reports "memory failure".
+
+Thanks,
+
+- KK
+
