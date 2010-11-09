@@ -1,249 +1,193 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH] Fix CAN info leak/minor heap overflow
-Date: Tue, 09 Nov 2010 08:52:21 +0100
-Message-ID: <4CD8FDB5.6060905@hartkopp.net>
-References: <1288722503.2504.14.camel@dan> <ygfiq0bsjry.fsf@janus.isnogud.escape.de>
+From: Holger Eitzenberger <holger@eitzenberger.org>
+Subject: [e1000e] BUG triggered when triggering LED blinking
+Date: Tue, 9 Nov 2010 09:39:54 +0100
+Message-ID: <20101109083954.GB11829@mail.eitzenberger.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Urs Thuermann <urs@isnogud.escape.de>, netdev@vger.kernel.org,
-	Dan Rosenberg <drosenberg@vsecurity.com>, security@kernel.org,
-	Linus Torvalds <torvalds@linux-foundation.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/mixed; boundary="vGgW1X5XWziG23Ko"
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org
+To: e1000-devel@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.160]:62379 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753071Ab0KIHxb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Nov 2010 02:53:31 -0500
-In-Reply-To: <ygfiq0bsjry.fsf@janus.isnogud.escape.de>
+Received: from moutng.kundenserver.de ([212.227.126.171]:62246 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753856Ab0KIIkC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Nov 2010 03:40:02 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05.11.2010 19:33, Urs Thuermann wrote:
-> This patch removes the leakage of kernel space addresses to userspace.
-> Instead, socket inode numbers are used to create unique proc file
-> names for CAN_BCM sockets and for referring to sockets in filter
-> lists.  In addition, this makes debugging easier, since inode numbers
-> are also shown in ls -l /proc/<pid>/fd/<fd> and lsof(8) output.
-> 
-> BTW, if kernel space addresses are considered security critical
-> information one should also take a look and possibly change
-> 
->     /proc/net/{tcp,tcp6,udp,udp6,raw,raw6,unix}
-> 
-> and maybe some others.
-> 
-> The change of the procfs content leads to a new version string
-> 20101105.
-> 
-> Signed-off-by: Urs Thuermann <urs@isnogud.escape.de>
-> Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
 
-Besides the ongoing(?) discussion about the exposed kernel addresses in procfs
-- what are your plans about this patch that already moves the kernel addresses
-to inode numbers?
+--vGgW1X5XWziG23Ko
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Is it something for net-2.6 / net-next-2.6 / stable ?
+Hi,
 
-Especially in this case we do not see any problems with userspace tools that
-could break as it would be for some other /proc/net entries.
+using e1000e driver version 1.2.10 and kernel version 2.6.32.24 I see
+the kernel go BUG() sporadically at the time 'ethtool -p eth0 3' comes
+back.
 
-Once this patch is applied (and the procfs layout is changed anyway), i'd also
-like to send a patch from my backlog that would extend the procfs output for
-can-bcm with an additional drop counter.
+Network hardware is four times 'Intel Corporation 82583V Gigabit Network
+Connection' (0x8086:0x150c) on Atom N450.
 
-Best regards,
-Oliver
+kernel BUG at kernel/workqueue.c:287!
+invalid opcode: 0000 [#1] SMP
+last sysfs file:
+/sys/devices/pci0000:00/0000:00:1d.0/usb2/2-1/2-1:1.1/input/input2/event2/dev
+Modules linked in: nls_utf8 isofs edd ide_cd_mod sr_mod cdrom sg sd_mod
+pata_acpi ata_generic usb_storage ppdev ide_pci_generic ata_piix libata
+evdev rtc_cmos uhci_hcd parport_pc scsi_mod i2c_i801 ehci_hcd rtc_core
+rtc_lib e1000e parport ftdi_sio usbhid usbserial
+
+Pid: 8, comm: events/1 Not tainted (2.6.32.24-62.gce8dff6-ai #1) To Be
+Filled By O.E.M.
+EIP: 0060:[<c102ed4f>] EFLAGS: 00010206 CPU: 1
+EIP is at worker_thread+0xc5/0x144
+EAX: c1c052e0 EBX: c1d052e0 ECX: f70cac1c EDX: f70cac1c
+ESI: f81c75b0 EDI: f70cac18 EBP: f705e3b0 ESP: f7093f90
+ DS: 007b ES: 007b FS: 00d8 GS: 0000 SS: 0068
+Process events/1 (pid: 8, ti=f7092000 task=f705e3b0 task.ti=f7092000)
+Stack:
+ f705e5a0 c1d052ec c1d052e4 00000000 f705e3b0 c103151e f7093fa8 f7093fa8
+<0> f7061f68 c1d052e0 c102ec8a 00000000 c103132b 00000000 00000000
+00000000
+<0> f7093fd0 f7093fd0 c10312ca 00000000 00000000 c100329f f7061f5c
+00000000
+Call Trace:
+ [<c103151e>] ? autoremove_wake_function+0x0/0x2d
+ [<c102ec8a>] ? worker_thread+0x0/0x144
+ [<c103132b>] ? kthread+0x61/0x66
+ [<c10312ca>] ? kthread+0x0/0x66
+ [<c100329f>] ? kernel_thread_helper+0x7/0x10
+Code: e9 85 00 00 00 8d 79 fc 8b 77 0c 89 7b 18 8b 11 8b 41 04 89 42 04
+89 10 89 09 89 49 04 f0 fe 03 fb 8b 41 fc 83 e0 fc 39 c3 74 04 <0f> 0b
+eb fe f0 80 61 fc fe 89 f8 ff d6 89 e0 25 00 e0 ff ff 8b
+EIP: [<c102ed4f>] worker_thread+0xc5/0x144 SS:ESP 0068:f7093f90
+---[ end trace e297b781eb382c2f ]---
+
+The full trace is attached, it may become clearer from that.
+
+After taking a look I think this may be caused by initializing
+adapter->led_blink_task several times in e1000_phys_id(), while possibly
+led_blink_task is running:
+
+	if ((hw->phy.type == e1000_phy_ife) ||
+	    (hw->mac.type == e1000_pchlan) ||
+	    (hw->mac.type == e1000_82574)) {
+		INIT_WORK(&adapter->led_blink_task, e1000e_led_blink_task);
+		if (!adapter->blink_timer.function) {
+
+I can't reproduce it after moving it inside the following if block,
+but I'm not quite sure if this catches all races in there.  Especially
+the msleep_interruptible() may be too optimistic because it may
+actually not wait long enough.  Someone with more knowledge of the
+driver should take a look.
+
+I've attached a proposed fix for the double initialization, please check.
+
+ /holger
 
 
-> CC: Dan Rosenberg <drosenberg@vsecurity.com>
-> CC: Linus Torvalds <torvalds@linux-foundation.org>
-> 
-> ---
-> 
-> diff --git a/include/linux/can/core.h b/include/linux/can/core.h
-> index 6c507be..e20a841 100644
-> --- a/include/linux/can/core.h
-> +++ b/include/linux/can/core.h
-> @@ -19,7 +19,7 @@
->  #include <linux/skbuff.h>
->  #include <linux/netdevice.h>
->  
-> -#define CAN_VERSION "20090105"
-> +#define CAN_VERSION "20101105"
->  
->  /* increment this number each time you change some user-space interface */
->  #define CAN_ABI_VERSION "8"
-> diff --git a/net/can/bcm.c b/net/can/bcm.c
-> index 08ffe9e..0e81e04 100644
-> --- a/net/can/bcm.c
-> +++ b/net/can/bcm.c
-> @@ -86,6 +86,12 @@ MODULE_LICENSE("Dual BSD/GPL");
->  MODULE_AUTHOR("Oliver Hartkopp <oliver.hartkopp@volkswagen.de>");
->  MODULE_ALIAS("can-proto-2");
->  
-> +/*
-> + * Point to the sockets inode number inside the bcm ident string.
-> + * We skip the string length of "bcm " (== 4) created in bcm_init().
-> + */
-> +#define INODENUM(bo) (bo->ident + 4)
-> +
->  /* easy access to can_frame payload */
->  static inline u64 GET_U64(const struct can_frame *cp)
->  {
-> @@ -125,7 +131,7 @@ struct bcm_sock {
->  	struct list_head tx_ops;
->  	unsigned long dropped_usr_msgs;
->  	struct proc_dir_entry *bcm_proc_read;
-> -	char procname [9]; /* pointer printed in ASCII with \0 */
-> +	char ident[32];
->  };
->  
->  static inline struct bcm_sock *bcm_sk(const struct sock *sk)
-> @@ -165,9 +171,7 @@ static int bcm_proc_show(struct seq_file *m, void *v)
->  	struct bcm_sock *bo = bcm_sk(sk);
->  	struct bcm_op *op;
->  
-> -	seq_printf(m, ">>> socket %p", sk->sk_socket);
-> -	seq_printf(m, " / sk %p", sk);
-> -	seq_printf(m, " / bo %p", bo);
-> +	seq_printf(m, ">>> socket inode %s", INODENUM(bo));
->  	seq_printf(m, " / dropped %lu", bo->dropped_usr_msgs);
->  	seq_printf(m, " / bound %s", bcm_proc_getifname(ifname, bo->ifindex));
->  	seq_printf(m, " <<<\n");
-> @@ -1168,7 +1172,7 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
->  				err = can_rx_register(dev, op->can_id,
->  						      REGMASK(op->can_id),
->  						      bcm_rx_handler, op,
-> -						      "bcm");
-> +						      bo->ident);
->  
->  				op->rx_reg_dev = dev;
->  				dev_put(dev);
-> @@ -1177,7 +1181,7 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
->  		} else
->  			err = can_rx_register(NULL, op->can_id,
->  					      REGMASK(op->can_id),
-> -					      bcm_rx_handler, op, "bcm");
-> +					      bcm_rx_handler, op, bo->ident);
->  		if (err) {
->  			/* this bcm rx op is broken -> remove it */
->  			list_del(&op->list);
-> @@ -1402,6 +1406,8 @@ static int bcm_init(struct sock *sk)
->  {
->  	struct bcm_sock *bo = bcm_sk(sk);
->  
-> +	snprintf(bo->ident, sizeof(bo->ident), "bcm %lu", sock_i_ino(sk));
-> +
->  	bo->bound            = 0;
->  	bo->ifindex          = 0;
->  	bo->dropped_usr_msgs = 0;
-> @@ -1466,7 +1472,7 @@ static int bcm_release(struct socket *sock)
->  
->  	/* remove procfs entry */
->  	if (proc_dir && bo->bcm_proc_read)
-> -		remove_proc_entry(bo->procname, proc_dir);
-> +		remove_proc_entry(INODENUM(bo), proc_dir);
->  
->  	/* remove device reference */
->  	if (bo->bound) {
-> @@ -1519,13 +1525,11 @@ static int bcm_connect(struct socket *sock, struct sockaddr *uaddr, int len,
->  
->  	bo->bound = 1;
->  
-> -	if (proc_dir) {
-> -		/* unique socket address as filename */
-> -		sprintf(bo->procname, "%p", sock);
-> -		bo->bcm_proc_read = proc_create_data(bo->procname, 0644,
-> +	/* use unique socket inode number as filename */
-> +	if (proc_dir)
-> +		bo->bcm_proc_read = proc_create_data(INODENUM(bo), 0644,
->  						     proc_dir,
->  						     &bcm_proc_fops, sk);
-> -	}
->  
->  	return 0;
->  }
-> diff --git a/net/can/proc.c b/net/can/proc.c
-> index f4265cc..15bed1c 100644
-> --- a/net/can/proc.c
-> +++ b/net/can/proc.c
-> @@ -204,23 +204,17 @@ static void can_print_rcvlist(struct seq_file *m, struct hlist_head *rx_list,
->  
->  	hlist_for_each_entry_rcu(r, n, rx_list, list) {
->  		char *fmt = (r->can_id & CAN_EFF_FLAG)?
-> -			"   %-5s  %08X  %08x  %08x  %08x  %8ld  %s\n" :
-> -			"   %-5s     %03X    %08x  %08lx  %08lx  %8ld  %s\n";
-> +			"   %-5s  %08X  %08x  %8ld   %s\n" :
-> +			"   %-5s     %03X    %08x  %8ld   %s\n";
->  
->  		seq_printf(m, fmt, DNAME(dev), r->can_id, r->mask,
-> -				(unsigned long)r->func, (unsigned long)r->data,
->  				r->matches, r->ident);
->  	}
->  }
->  
->  static void can_print_recv_banner(struct seq_file *m)
->  {
-> -	/*
-> -	 *                  can1.  00000000  00000000  00000000
-> -	 *                 .......          0  tp20
-> -	 */
-> -	seq_puts(m, "  device   can_id   can_mask  function"
-> -			"  userdata   matches  ident\n");
-> +	seq_puts(m, "  device   can_id   can_mask   matches   ident\n");
->  }
->  
->  static int can_stats_proc_show(struct seq_file *m, void *v)
-> diff --git a/net/can/raw.c b/net/can/raw.c
-> index e88f610..e057f0d 100644
-> --- a/net/can/raw.c
-> +++ b/net/can/raw.c
-> @@ -88,6 +88,7 @@ struct raw_sock {
->  	struct can_filter dfilter; /* default/single filter */
->  	struct can_filter *filter; /* pointer to filter(s) */
->  	can_err_mask_t err_mask;
-> +	char ident[32];
->  };
->  
->  /*
-> @@ -154,13 +155,14 @@ static void raw_rcv(struct sk_buff *oskb, void *data)
->  static int raw_enable_filters(struct net_device *dev, struct sock *sk,
->  			      struct can_filter *filter, int count)
->  {
-> +	struct raw_sock *ro = raw_sk(sk);
->  	int err = 0;
->  	int i;
->  
->  	for (i = 0; i < count; i++) {
->  		err = can_rx_register(dev, filter[i].can_id,
->  				      filter[i].can_mask,
-> -				      raw_rcv, sk, "raw");
-> +				      raw_rcv, sk, ro->ident);
->  		if (err) {
->  			/* clean up successfully registered filters */
->  			while (--i >= 0)
-> @@ -177,11 +179,12 @@ static int raw_enable_filters(struct net_device *dev, struct sock *sk,
->  static int raw_enable_errfilter(struct net_device *dev, struct sock *sk,
->  				can_err_mask_t err_mask)
->  {
-> +	struct raw_sock *ro = raw_sk(sk);
->  	int err = 0;
->  
->  	if (err_mask)
->  		err = can_rx_register(dev, 0, err_mask | CAN_ERR_FLAG,
-> -				      raw_rcv, sk, "raw");
-> +				      raw_rcv, sk, ro->ident);
->  
->  	return err;
->  }
-> @@ -281,6 +284,8 @@ static int raw_init(struct sock *sk)
->  {
->  	struct raw_sock *ro = raw_sk(sk);
->  
-> +	snprintf(ro->ident, sizeof(ro->ident), "raw %lu", sock_i_ino(sk));
-> +
->  	ro->bound            = 0;
->  	ro->ifindex          = 0;
->  
+--vGgW1X5XWziG23Ko
+Content-Type: text/plain; charset=unknown-8bit
+Content-Disposition: attachment; filename="putty.log"
+Content-Transfer-Encoding: 8bit
 
+=~=~=~=~=~=~=~=~=~=~=~= PuTTY log 2010.11.03 16:51:28 =~=~=~=~=~=~=~=~=~=~=~=
+ÿ------------[ cut here ]------------
+kernel BUG at kernel/workqueue.c:287!
+invalid opcode: 0000 [#1] SMP 
+last sysfs file: /sys/devices/pci0000:00/0000:00:1d.0/usb2/2-1/2-1:1.1/input/input2/event2/dev
+Modules linked in: nls_utf8 isofs edd ide_cd_mod sr_mod cdrom sg sd_mod pata_acpi ata_generic usb_storage ppdev ide_pci_generic ata_piix libata evdev rtc_cmos uhci_hcd parport_pc scsi_mod i2c_i801 ehci_hcd rtc_core rtc_lib e1000e parport ftdi_sio usbhid usbserial
+
+Pid: 8, comm: events/1 Not tainted (2.6.32.24-62.gce8dff6-ai #1) To Be Filled By O.E.M.
+EIP: 0060:[<c102ed4f>] EFLAGS: 00010206 CPU: 1
+EIP is at worker_thread+0xc5/0x144
+EAX: c1c052e0 EBX: c1d052e0 ECX: f70cac1c EDX: f70cac1c
+ESI: f81c75b0 EDI: f70cac18 EBP: f705e3b0 ESP: f7093f90
+ DS: 007b ES: 007b FS: 00d8 GS: 0000 SS: 0068
+Process events/1 (pid: 8, ti=f7092000 task=f705e3b0 task.ti=f7092000)
+Stack:
+ f705e5a0 c1d052ec c1d052e4 00000000 f705e3b0 c103151e f7093fa8 f7093fa8
+<0> f7061f68 c1d052e0 c102ec8a 00000000 c103132b 00000000 00000000 00000000
+<0> f7093fd0 f7093fd0 c10312ca 00000000 00000000 c100329f f7061f5c 00000000
+Call Trace:
+ [<c103151e>] ? autoremove_wake_function+0x0/0x2d
+ [<c102ec8a>] ? worker_thread+0x0/0x144
+ [<c103132b>] ? kthread+0x61/0x66
+ [<c10312ca>] ? kthread+0x0/0x66
+ [<c100329f>] ? kernel_thread_helper+0x7/0x10
+Code: e9 85 00 00 00 8d 79 fc 8b 77 0c 89 7b 18 8b 11 8b 41 04 89 42 04 89 10 89 09 89 49 04 f0 fe 03 fb 8b 41 fc 83 e0 fc 39 c3 74 04 <0f> 0b eb fe f0 80 61 fc fe 89 f8 ff d6 89 e0 25 00 e0 ff ff 8b 
+EIP: [<c102ed4f>] worker_thread+0xc5/0x144 SS:ESP 0068:f7093f90
+---[ end trace e297b781eb382c2f ]---
+------------[ cut here ]------------
+kernel BUG at kernel/workqueue.c:191!
+invalid opcode: 0000 [#2] SMP 
+last sysfs file: /sys/devices/pci0000:00/0000:00:1d.0/usb2/2-1/2-1:1.1/input/input2/event2/dev
+Modules linked in: nls_utf8 isofs edd ide_cd_mod sr_mod cdrom sg sd_mod pata_acpi ata_generic usb_storage ppdev ide_pci_generic ata_piix libata evdev rtc_cmos uhci_hcd parport_pc scsi_mod i2c_i801 ehci_hcd rtc_core rtc_lib e1000e parport ftdi_sio usbhid usbserial
+
+Pid: 1012, comm: klogd Tainted: G      D    (2.6.32.24-62.gce8dff6-ai #1) To Be Filled By O.E.M.
+EIP: 0060:[<c102eeac>] EFLAGS: 00010283 CPU: 0
+EIP is at queue_work_on+0x1b/0x44
+EAX: f70cac1c EBX: 00000000 ECX: f70cac18 EDX: 00000000
+ESI: f7001280 EDI: f81c7920 EBP: f71dbf60 ESP: f71dbf3c
+ DS: 007b ES: 007b FS: 00d8 GS: 0033 SS: 0068
+Process klogd (pid: 1012, ti=f71da000 task=f71d87a0 task.ti=f71da000)
+Stack:
+ f70c8330 c133ca00 f81c7931 00000100 c1029710 c133d810 c133d610 c133d410
+<0> c133d210 f71dbf60 f71dbf60 00000001 00000004 00000100 00000141 c102652e
+<0> c1318010 0000000a 00000000 00000046 00000000 099251d0 bfb6e968 c10265be
+Call Trace:
+ [<f81c7931>] ? e1000e_set_ethtool_ops+0x1d1/0x38b0 [e1000e]
+ [<c1029710>] ? run_timer_softirq+0x116/0x16a
+ [<c102652e>] ? __do_softirq+0x78/0xe5
+ [<c10265be>] ? do_softirq+0x23/0x27
+ [<c102668d>] ? irq_exit+0x26/0x58
+ [<c100f9ea>] ? smp_apic_timer_interrupt+0x6c/0x76
+ [<c10030f6>] ? apic_timer_interrupt+0x2a/0x30
+Code: 2c c1 8b 00 03 04 8d c0 bb 2c c1 e9 3d ff ff ff 56 89 d6 53 89 c3 f0 0f ba 29 00 19 c0 31 d2 85 c0 75 2c 8d 41 04 39 41 04 74 04 <0f> 0b eb fe 83 7e 10 00 89 ca 0f 45 1d b4 bc 2c c1 8b 06 03 04 
+EIP: [<c102eeac>] queue_work_on+0x1b/0x44 SS:ESP 0068:f71dbf3c
+---[ end trace e297b781eb382c30 ]---
+Kernel panic - not syncing: Fatal exception in interrupt
+Pid: 1012, comm: klogd Tainted: G      D    2.6.32.24-62.gce8dff6-ai #1
+Call Trace:
+ [<c11e0a50>] ? panic+0x38/0xda
+ [<c11e3371>] ? oops_end+0x89/0x94
+ [<c1003628>] ? do_invalid_op+0x0/0x70
+ [<c100368f>] ? do_invalid_op+0x67/0x70
+ [<c102eeac>] ? queue_work_on+0x1b/0x44
+ [<c117bfb3>] ? sys_sendto+0xfc/0x127
+ [<c101c3cc>] ? dequeue_task_fair+0x3f/0x1bc
+ [<c1018e0b>] ? sched_slice+0x6d/0x79
+ [<c11e2ac6>] ? error_code+0x66/0x6c
+ [<f81c7920>] ? e1000e_set_ethtool_ops+0x1c0/0x38b0 [e1000e]
+ [<c1003628>] ? do_invalid_op+0x0/0x70
+ [<c102eeac>] ? queue_work_on+0x1b/0x44
+ [<f81c7931>] ? e1000e_set_ethtool_ops+0x1d1/0x38b0 [e1000e]
+ [<c1029710>] ? run_timer_softirq+0x116/0x16a
+ [<c102652e>] ? __do_softirq+0x78/0xe5
+ [<c10265be>] ? do_softirq+0x23/0x27
+ [<c102668d>] ? irq_exit+0x26/0x58
+ [<c100f9ea>] ? smp_apic_timer_interrupt+0x6c/0x76
+ [<c10030f6>] ? apic_timer_interrupt+0x2a/0x30
+
+--vGgW1X5XWziG23Ko
+Content-Type: text/x-diff; charset=us-ascii
+Content-Disposition: attachment; filename="e1000e-fix.diff"
+
+Index: linux-2.6.32.y/drivers/net/e1000e/ethtool.c
+===================================================================
+--- linux-2.6.32.y.orig/drivers/net/e1000e/ethtool.c	2010-11-08 15:34:35.000000000 +0100
++++ linux-2.6.32.y/drivers/net/e1000e/ethtool.c	2010-11-08 17:32:27.000000000 +0100
+@@ -1833,8 +1833,8 @@
+ 	if ((hw->phy.type == e1000_phy_ife) ||
+ 	    (hw->mac.type == e1000_pchlan) ||
+ 	    (hw->mac.type == e1000_82574)) {
+-		INIT_WORK(&adapter->led_blink_task, e1000e_led_blink_task);
+ 		if (!adapter->blink_timer.function) {
++			INIT_WORK(&adapter->led_blink_task, e1000e_led_blink_task);
+ 			init_timer(&adapter->blink_timer);
+ 			adapter->blink_timer.function =
+ 				e1000_led_blink_callback;
+
+--vGgW1X5XWziG23Ko--
