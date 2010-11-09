@@ -1,118 +1,128 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
 Subject: Re: [PATCH] virtio_net: Fix queue full check
-Date: Tue, 9 Nov 2010 21:00:58 +0530
-Message-ID: <OF5BF09BF3.7DE39268-ON652577D6.004B4830-652577D6.0054E713@in.ibm.com>
-References: <20101028051036.25340.23442.sendpatchset@krkumar2.in.ibm.com> <20101102161730.GA32311@redhat.com> <20101104122424.GA29830@redhat.com> <201011080938.47938.rusty@rustcorp.com.au> <OF5977B5FB.669A3250-ON652577D6.00168221-652577D6.00180738@in.ibm.com> <20101109131555.GE22705@redhat.com>
+Date: Tue, 9 Nov 2010 17:30:41 +0200
+Message-ID: <20101109153041.GA26153@redhat.com>
+References: <20101028051036.25340.23442.sendpatchset@krkumar2.in.ibm.com>
+ <20101102161730.GA32311@redhat.com>
+ <20101104122424.GA29830@redhat.com>
+ <201011080938.47938.rusty@rustcorp.com.au>
+ <OF5977B5FB.669A3250-ON652577D6.00168221-652577D6.00180738@in.ibm.com>
+ <20101109131555.GE22705@redhat.com>
+ <OF5BF09BF3.7DE39268-ON652577D6.004B4830-652577D6.0054E713@in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net, netdev@vger.kernel.org,
 	Rusty Russell <rusty@rustcorp.com.au>, yvugenfi@redhat.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
+To: Krishna Kumar2 <krkumar2@in.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp08.in.ibm.com ([122.248.162.8]:57463 "EHLO
-	e28smtp08.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751191Ab0KIP13 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Nov 2010 10:27:29 -0500
-Received: from d28relay03.in.ibm.com (d28relay03.in.ibm.com [9.184.220.60])
-	by e28smtp08.in.ibm.com (8.14.4/8.13.1) with ESMTP id oA9EtO09027792
-	for <netdev@vger.kernel.org>; Tue, 9 Nov 2010 20:25:24 +0530
-Received: from d28av04.in.ibm.com (d28av04.in.ibm.com [9.184.220.66])
-	by d28relay03.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id oA9FRNRu4046858
-	for <netdev@vger.kernel.org>; Tue, 9 Nov 2010 20:57:23 +0530
-Received: from d28av04.in.ibm.com (loopback [127.0.0.1])
-	by d28av04.in.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id oA9FRMkT000436
-	for <netdev@vger.kernel.org>; Wed, 10 Nov 2010 02:27:23 +1100
-In-Reply-To: <20101109131555.GE22705@redhat.com>
+Received: from mx1.redhat.com ([209.132.183.28]:50012 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751439Ab0KIPav (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Nov 2010 10:30:51 -0500
+Content-Disposition: inline
+In-Reply-To: <OF5BF09BF3.7DE39268-ON652577D6.004B4830-652577D6.0054E713@in.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-"Michael S. Tsirkin" <mst@redhat.com> wrote on 11/09/2010 06:45:55 PM:
-
-> Re: [PATCH] virtio_net: Fix queue full check
->
-> On Tue, Nov 09, 2010 at 09:56:03AM +0530, Krishna Kumar2 wrote:
-> > Rusty Russell <rusty@rustcorp.com.au> wrote on 11/08/2010 04:38:47 AM:
+On Tue, Nov 09, 2010 at 09:00:58PM +0530, Krishna Kumar2 wrote:
+> "Michael S. Tsirkin" <mst@redhat.com> wrote on 11/09/2010 06:45:55 PM:
+> 
+> > Re: [PATCH] virtio_net: Fix queue full check
 > >
-> > > Re: [PATCH] virtio_net: Fix queue full check
+> > On Tue, Nov 09, 2010 at 09:56:03AM +0530, Krishna Kumar2 wrote:
+> > > Rusty Russell <rusty@rustcorp.com.au> wrote on 11/08/2010 04:38:47 AM:
 > > >
-> > > On Thu, 4 Nov 2010 10:54:24 pm Michael S. Tsirkin wrote:
-> > > > I thought about this some more.  I think the original
-> > > > code is actually correct in returning ENOSPC: indirect
-> > > > buffers are nice, but it's a mistake
-> > > > to rely on them as a memory allocation might fail.
+> > > > Re: [PATCH] virtio_net: Fix queue full check
 > > > >
-> > > > And if you look at virtio-net, it is dropping packets
-> > > > under memory pressure which is not really a happy outcome:
-> > > > the packet will get freed, reallocated and we get another one,
-> > > > adding pressure on the allocator instead of releasing it
-> > > > until we free up some buffers.
+> > > > On Thu, 4 Nov 2010 10:54:24 pm Michael S. Tsirkin wrote:
+> > > > > I thought about this some more.  I think the original
+> > > > > code is actually correct in returning ENOSPC: indirect
+> > > > > buffers are nice, but it's a mistake
+> > > > > to rely on them as a memory allocation might fail.
+> > > > >
+> > > > > And if you look at virtio-net, it is dropping packets
+> > > > > under memory pressure which is not really a happy outcome:
+> > > > > the packet will get freed, reallocated and we get another one,
+> > > > > adding pressure on the allocator instead of releasing it
+> > > > > until we free up some buffers.
+> > > > >
+> > > > > So I now think we should calculate the capacity
+> > > > > assuming non-indirect entries, and if we manage to
+> > > > > use indirect, all the better.
 > > > >
-> > > > So I now think we should calculate the capacity
-> > > > assuming non-indirect entries, and if we manage to
-> > > > use indirect, all the better.
+> > > > I've long said it's a weakness in the network stack that it insists
+> > > > drivers stop the tx queue before they *might* run out of room,
+> leading to
+> > > > worst-case assumptions and underutilization of the tx ring.
+> > > >
+> > > > However, I lost that debate, and so your patch is the way it's
+> supposed
+> > > to
+> > > > work.  The other main indirect user (block) doesn't care as its queue
+> > > > allows for post-attempt blocking.
+> > > >
+> > > > I enhanced your commentry a little:
+> > > >
+> > > > Subject: virtio: return correct capacity to users
+> > > > Date: Thu, 4 Nov 2010 14:24:24 +0200
+> > > > From: "Michael S. Tsirkin" <mst@redhat.com>
+> > > >
+> > > > We can't rely on indirect buffers for capacity
+> > > > calculations because they need a memory allocation
+> > > > which might fail.  In particular, virtio_net can get
+> > > > into this situation under stress, and it drops packets
+> > > > and performs badly.
+> > > >
+> > > > So return the number of buffers we can guarantee users.
+> > > >
+> > > > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> > > > Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+> > > > Reported-By: Krishna Kumar2 <krkumar2@in.ibm.com>
 > > >
-> > > I've long said it's a weakness in the network stack that it insists
-> > > drivers stop the tx queue before they *might* run out of room,
-leading to
-> > > worst-case assumptions and underutilization of the tx ring.
-> > >
-> > > However, I lost that debate, and so your patch is the way it's
-supposed
-> > to
-> > > work.  The other main indirect user (block) doesn't care as its queue
-> > > allows for post-attempt blocking.
-> > >
-> > > I enhanced your commentry a little:
-> > >
-> > > Subject: virtio: return correct capacity to users
-> > > Date: Thu, 4 Nov 2010 14:24:24 +0200
-> > > From: "Michael S. Tsirkin" <mst@redhat.com>
-> > >
-> > > We can't rely on indirect buffers for capacity
-> > > calculations because they need a memory allocation
-> > > which might fail.  In particular, virtio_net can get
-> > > into this situation under stress, and it drops packets
-> > > and performs badly.
-> > >
-> > > So return the number of buffers we can guarantee users.
+> > > I have tested this patch for 3-4 hours but so far I have not got the tx
+> > > full
+> > > error. I am not sure if "Tested-By" applies to this situation, but just
+> in
+> > > case:
 > > >
 > > > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 > > > Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
 > > > Reported-By: Krishna Kumar2 <krkumar2@in.ibm.com>
+> > > Tested-By: Krishna Kumar2 <krkumar2@in.ibm.com>
+> > >
+> > > I think both this patch and the original patch I submitted
+> > > are needed? That patch removes ENOMEM check and the increment
+> > > of dev->stats.tx_fifo_errors, and reports "memory failure".
+> > >
+> > > Thanks,
+> > >
+> > > - KK
 > >
-> > I have tested this patch for 3-4 hours but so far I have not got the tx
-> > full
-> > error. I am not sure if "Tested-By" applies to this situation, but just
-in
-> > case:
+> > So I think your patch on top of this one would be wrong:
+> > we actually make sure out of memory does not affect TX path
+> > at all, so any error would be unexpected.
 > >
-> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> > Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
-> > Reported-By: Krishna Kumar2 <krkumar2@in.ibm.com>
-> > Tested-By: Krishna Kumar2 <krkumar2@in.ibm.com>
+> > Incrementing tx fifo errors is probably also helpful for debugging.
 > >
-> > I think both this patch and the original patch I submitted
-> > are needed? That patch removes ENOMEM check and the increment
-> > of dev->stats.tx_fifo_errors, and reports "memory failure".
-> >
-> > Thanks,
-> >
-> > - KK
->
-> So I think your patch on top of this one would be wrong:
-> we actually make sure out of memory does not affect TX path
-> at all, so any error would be unexpected.
->
-> Incrementing tx fifo errors is probably also helpful for debugging.
->
-> If you like, we could kill the special handling for ENOMEM.
-> Not sure whether it matters.
+> > If you like, we could kill the special handling for ENOMEM.
+> > Not sure whether it matters.
+> 
+> Since that is dead code, we could remove it (and the fifo error
+> should disappear too - tx_dropped should be the only counter to
+> be incremented?). Sorry if I misunderstood something.
+> 
+> Thanks,
+> 
+> - KK
 
-Since that is dead code, we could remove it (and the fifo error
-should disappear too - tx_dropped should be the only counter to
-be incremented?). Sorry if I misunderstood something.
+It's just a sanity check. The capacity checking is tricky enough
+that I'm happier with some way to detect overflow both from ifconfig
+and dmesg.
 
-Thanks,
+I don't really care which counter gets incremented really,
+since this is some TX bug fifo error seems appropriate
+but I don't really care much.
 
-- KK
 
+-- 
+MST
