@@ -1,136 +1,116 @@
 From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: [v3 RFC PATCH 0/4] Implement multiqueue virtio-net
-Date: Tue, 9 Nov 2010 20:58:44 +0530
-Message-ID: <OF24E08752.2087FFA4-ON652577D6.00532DF1-652577D6.0054B291@in.ibm.com>
-References: <20101020085452.15579.76002.sendpatchset@krkumar2.in.ibm.com> <OF8735A2A4.74B4EE91-ON652577C5.0040D90B-652577C7.0056B99D@in.ibm.com> <20101026085709.GC23530@redhat.com> <OF529E89EE.84DB37B8-ON652577D6.001665CF-652577D6.00192784@in.ibm.com> <20101109132239.GF22705@redhat.com>
+Subject: Re: [PATCH] virtio_net: Fix queue full check
+Date: Tue, 9 Nov 2010 21:00:58 +0530
+Message-ID: <OF5BF09BF3.7DE39268-ON652577D6.004B4830-652577D6.0054E713@in.ibm.com>
+References: <20101028051036.25340.23442.sendpatchset@krkumar2.in.ibm.com> <20101102161730.GA32311@redhat.com> <20101104122424.GA29830@redhat.com> <201011080938.47938.rusty@rustcorp.com.au> <OF5977B5FB.669A3250-ON652577D6.00168221-652577D6.00180738@in.ibm.com> <20101109131555.GE22705@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Cc: anthony@codemonkey.ws, arnd@arndb.de, avi@redhat.com,
-	davem@davemloft.net, eric.dumazet@gmail.com, kvm@vger.kernel.org,
-	netdev@vger.kernel.org, rusty@rustcorp.com.au
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Rusty Russell <rusty@rustcorp.com.au>, yvugenfi@redhat.com
 To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp01.in.ibm.com ([122.248.162.1]:37671 "EHLO
-	e28smtp01.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751076Ab0KIPZP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Nov 2010 10:25:15 -0500
-In-Reply-To: <20101109132239.GF22705@redhat.com>
+Received: from e28smtp08.in.ibm.com ([122.248.162.8]:57463 "EHLO
+	e28smtp08.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751191Ab0KIP13 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Nov 2010 10:27:29 -0500
+Received: from d28relay03.in.ibm.com (d28relay03.in.ibm.com [9.184.220.60])
+	by e28smtp08.in.ibm.com (8.14.4/8.13.1) with ESMTP id oA9EtO09027792
+	for <netdev@vger.kernel.org>; Tue, 9 Nov 2010 20:25:24 +0530
+Received: from d28av04.in.ibm.com (d28av04.in.ibm.com [9.184.220.66])
+	by d28relay03.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id oA9FRNRu4046858
+	for <netdev@vger.kernel.org>; Tue, 9 Nov 2010 20:57:23 +0530
+Received: from d28av04.in.ibm.com (loopback [127.0.0.1])
+	by d28av04.in.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id oA9FRMkT000436
+	for <netdev@vger.kernel.org>; Wed, 10 Nov 2010 02:27:23 +1100
+In-Reply-To: <20101109131555.GE22705@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-"Michael S. Tsirkin" <mst@redhat.com> wrote on 11/09/2010 06:52:39 PM:
+"Michael S. Tsirkin" <mst@redhat.com> wrote on 11/09/2010 06:45:55 PM:
 
-> > > Re: [v3 RFC PATCH 0/4] Implement multiqueue virtio-net
+> Re: [PATCH] virtio_net: Fix queue full check
+>
+> On Tue, Nov 09, 2010 at 09:56:03AM +0530, Krishna Kumar2 wrote:
+> > Rusty Russell <rusty@rustcorp.com.au> wrote on 11/08/2010 04:38:47 AM:
+> >
+> > > Re: [PATCH] virtio_net: Fix queue full check
 > > >
-> > > On Mon, Oct 25, 2010 at 09:20:38PM +0530, Krishna Kumar2 wrote:
-> > > > > Krishna Kumar2/India/IBM@IBMIN wrote on 10/20/2010 02:24:52 PM:
+> > > On Thu, 4 Nov 2010 10:54:24 pm Michael S. Tsirkin wrote:
+> > > > I thought about this some more.  I think the original
+> > > > code is actually correct in returning ENOSPC: indirect
+> > > > buffers are nice, but it's a mistake
+> > > > to rely on them as a memory allocation might fail.
 > > > >
-> > > > Any feedback, comments, objections, issues or bugs about the
-> > > > patches? Please let me know if something needs to be done.
+> > > > And if you look at virtio-net, it is dropping packets
+> > > > under memory pressure which is not really a happy outcome:
+> > > > the packet will get freed, reallocated and we get another one,
+> > > > adding pressure on the allocator instead of releasing it
+> > > > until we free up some buffers.
 > > > >
-> > > > Some more test results:
-> > > > _____________________________________________________
-> > > >          Host->Guest BW (numtxqs=2)
-> > > > #       BW%     CPU%    RCPU%   SD%     RSD%
-> > > > _____________________________________________________
+> > > > So I now think we should calculate the capacity
+> > > > assuming non-indirect entries, and if we manage to
+> > > > use indirect, all the better.
 > > >
-> > > I think we discussed the need for external to guest testing
-> > > over 10G. For large messages we should not see any change
-> > > but you should be able to get better numbers for small messages
-> > > assuming a MQ NIC card.
+> > > I've long said it's a weakness in the network stack that it insists
+> > > drivers stop the tx queue before they *might* run out of room,
+leading to
+> > > worst-case assumptions and underutilization of the tx ring.
+> > >
+> > > However, I lost that debate, and so your patch is the way it's
+supposed
+> > to
+> > > work.  The other main indirect user (block) doesn't care as its queue
+> > > allows for post-attempt blocking.
+> > >
+> > > I enhanced your commentry a little:
+> > >
+> > > Subject: virtio: return correct capacity to users
+> > > Date: Thu, 4 Nov 2010 14:24:24 +0200
+> > > From: "Michael S. Tsirkin" <mst@redhat.com>
+> > >
+> > > We can't rely on indirect buffers for capacity
+> > > calculations because they need a memory allocation
+> > > which might fail.  In particular, virtio_net can get
+> > > into this situation under stress, and it drops packets
+> > > and performs badly.
+> > >
+> > > So return the number of buffers we can guarantee users.
+> > >
+> > > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> > > Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+> > > Reported-By: Krishna Kumar2 <krkumar2@in.ibm.com>
 > >
-> > I had to make a few changes to qemu (and a minor change in macvtap
-> > driver) to get multiple TXQ support using macvtap working. The NIC
-> > is a ixgbe card.
+> > I have tested this patch for 3-4 hours but so far I have not got the tx
+> > full
+> > error. I am not sure if "Tested-By" applies to this situation, but just
+in
+> > case:
 > >
+> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> > Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+> > Reported-By: Krishna Kumar2 <krkumar2@in.ibm.com>
+> > Tested-By: Krishna Kumar2 <krkumar2@in.ibm.com>
 > >
-__________________________________________________________________________
-> >             Org vs New (I/O: 512 bytes, #numtxqs=2, #vhosts=3)
-> > #      BW1     BW2 (%)       SD1    SD2 (%)        RSD1    RSD2 (%)
-> >
-__________________________________________________________________________
-> > 1      14367   13142 (-8.5)  56     62 (10.7)      8        8 (0)
-> > 2      3652    3855 (5.5)    37     35 (-5.4)      7        6 (-14.2)
-> > 4      12529   12059 (-3.7)  65     77 (18.4)      35       35 (0)
-> > 8      13912   14668 (5.4)   288    332 (15.2)     175      184 (5.1)
-> > 16     13433   14455 (7.6)   1218   1321 (8.4)     920      943 (2.5)
-> > 24     12750   13477 (5.7)   2876   2985 (3.7)     2514     2348 (-6.6)
-> > 32     11729   12632 (7.6)   5299   5332 (.6)      4934     4497 (-8.8)
-> > 40     11061   11923 (7.7)   8482   8364 (-1.3)    8374     7495
-(-10.4)
-> > 48     10624   11267 (6.0)   12329  12258 (-.5)    12762    11538
-(-9.5)
-> > 64     10524   10596 (.6)    21689  22859 (5.3)    23626    22403
-(-5.1)
-> > 80     9856    10284 (4.3)   35769  36313 (1.5)    39932    36419
-(-8.7)
-> > 96     9691    10075 (3.9)   52357  52259 (-.1)    58676    53463
-(-8.8)
-> > 128    9351    9794 (4.7)    114707 94275 (-17.8)  114050   97337
-(-14.6)
-> >
-__________________________________________________________________________
-> > Avg:      BW: (3.3)      SD: (-7.3)      RSD: (-11.0)
-> >
-> >
-__________________________________________________________________________
-> >             Org vs New (I/O: 1K, #numtxqs=8, #vhosts=5)
-> > #      BW1      BW2 (%)       SD1   SD2 (%)        RSD1   RSD2 (%)
-> >
-__________________________________________________________________________
-> > 1      16509    15985 (-3.1)  45    47 (4.4)       7       7 (0)
-> > 2      6963     4499 (-35.3)  17    51 (200.0)     7       7 (0)
-> > 4      12932    11080 (-14.3) 49    74 (51.0)      35      35 (0)
-> > 8      13878    14095 (1.5)   223   292 (30.9)     175     181 (3.4)
-> > 16     13440    13698 (1.9)   980   1131 (15.4)    926     942 (1.7)
-> > 24     12680    12927 (1.9)   2387  2463 (3.1)     2526    2342 (-7.2)
-> > 32     11714    12261 (4.6)   4506  4486 (-.4)     4941    4463 (-9.6)
-> > 40     11059    11651 (5.3)   7244  7081 (-2.2)    8349    7437 (-10.9)
-> > 48     10580    11095 (4.8)   10811 10500 (-2.8)   12809   11403
-(-10.9)
-> > 64     10569    10566 (0)     19194 19270 (.3)     23648   21717 (-8.1)
-> > 80     9827     10753 (9.4)   31668 29425 (-7.0)   39991   33824
-(-15.4)
-> > 96     10043    10150 (1.0)   45352 44227 (-2.4)   57766   51131
-(-11.4)
-> > 128    9360     9979 (6.6)    92058 79198 (-13.9)  114381  92873
-(-18.8)
-> >
-__________________________________________________________________________
-> > Avg:      BW: (-.5)      SD: (-7.5)      RSD: (-14.7)
-> >
-> > Is there anything else you would like me to test/change, or shall
-> > I submit the next version (with the above macvtap changes)?
+> > I think both this patch and the original patch I submitted
+> > are needed? That patch removes ENOMEM check and the increment
+> > of dev->stats.tx_fifo_errors, and reports "memory failure".
 > >
 > > Thanks,
 > >
 > > - KK
 >
-> Something strange here, right?
-> 1. You are consistently getting >10G/s here, and even with a single
-stream?
+> So I think your patch on top of this one would be wrong:
+> we actually make sure out of memory does not affect TX path
+> at all, so any error would be unexpected.
+>
+> Incrementing tx fifo errors is probably also helpful for debugging.
+>
+> If you like, we could kill the special handling for ENOMEM.
+> Not sure whether it matters.
 
-Sorry, I should have mentioned this though I had stated in my
-earlier mails. Each test result has two iterations, each of 60
-seconds, except when #netperfs is 1 for which I do 10 iteration
-(sum across 10 iterations).  I started doing many more iterations
-for 1 netperf after finding the issue earlier with single stream.
-So the BW is only 4.5-7 Gbps.
-
-> 2. With 2 streams, is where we get < 10G/s originally. Instead of
->    doubling that we get a marginal improvement with 2 queues and
->    about 30% worse with 1 queue.
-
-(doubling happens consistently for guest -> host, but never for
-remote host) I tried 512/txqs=2 and 1024/txqs=8 to get a varied
-testing scenario. In first case, there is a slight improvement in
-BW and good reduction in SD. In the second case, only SD improves
-(though BW drops for 2 stream for some reason).  In both cases,
-BW and SD improves as the number of sessions increase.
-
-> Is your card MQ?
-
-Yes, the card is MQ. ixgbe 10g card.
+Since that is dead code, we could remove it (and the fifo error
+should disappear too - tx_dropped should be the only counter to
+be incremented?). Sorry if I misunderstood something.
 
 Thanks,
 
