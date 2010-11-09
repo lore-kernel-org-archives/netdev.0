@@ -1,69 +1,85 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] Enhance AF_PACKET implementation to not require high
- order contiguous memory allocation (v2)
-Date: Tue, 09 Nov 2010 20:20:38 +0100
-Message-ID: <1289330438.2774.25.camel@edumazet-laptop>
-References: <1288033566-2091-1-git-send-email-nhorman@tuxdriver.com>
-	 <1289324799-2256-1-git-send-email-nhorman@tuxdriver.com>
-	 <1289325753.2774.20.camel@edumazet-laptop>
-	 <20101109183820.GA8069@hmsreliant.think-freely.org>
+From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Subject: Re: ping -I eth1 ....
+Date: Tue, 9 Nov 2010 20:33:37 +0100
+Message-ID: <OFC0986D69.B0E22D17-ONC12577D6.006B4A38-C12577D6.006B72F9@transmode.se>
+References: <OF339BCA8A.B674D6AE-ONC12577D2.00481B5E-C12577D2.0048B214@transmode.se> <1288964206.2882.402.camel@edumazet-laptop> <OF22F5901E.A7276220-ONC12577D2.004C79CB-C12577D2.004D1571@transmode.se> <20101105142510.GA14986@canuck.infradead.org> <1288967665.2882.522.camel@edumazet-laptop> <OF6C6C2970.245A64ED-ONC12577D2.00518CF6-C12577D2.00522AAD@transmode.se> <1288969614.2882.590.camel@edumazet-laptop> <OFAA7963DE.C3F04675-ONC12577D2.0056F55C-C12577D2.00575EC2@transmode.se> <20101105203150.GA12118@canuck.infradead.org> <OF921B3329.67FE598A-ONC12577D3.0033387A-C12577D3.00355AC4@LocalDomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net, zenczykowski@gmail.com
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Type: text/plain; charset=US-ASCII
+Cc: Thomas Graf <tgraf@infradead.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:50136 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753425Ab0KITUq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Nov 2010 14:20:46 -0500
-Received: by wyb36 with SMTP id 36so5152468wyb.19
-        for <netdev@vger.kernel.org>; Tue, 09 Nov 2010 11:20:44 -0800 (PST)
-In-Reply-To: <20101109183820.GA8069@hmsreliant.think-freely.org>
+Received: from gw1.transmode.se ([213.115.205.20]:39179 "EHLO gw1.transmode.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753956Ab0KITdl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Nov 2010 14:33:41 -0500
+In-Reply-To: <OF921B3329.67FE598A-ONC12577D3.0033387A-C12577D3.00355AC4@LocalDomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 09 novembre 2010 =C3=A0 13:38 -0500, Neil Horman a =C3=A9crit =
-:
-> On Tue, Nov 09, 2010 at 07:02:32PM +0100, Eric Dumazet wrote:
-> > Le mardi 09 novembre 2010 =C3=A0 12:46 -0500, nhorman@tuxdriver.com=
- a =C3=A9crit :
-> ic char **alloc_pg_vec(struct tpacket_req *req, int order)
-> > > +static struct pgv *alloc_pg_vec(struct tpacket_req *req, int ord=
-er)
-> > >  {
-> > >  	unsigned int block_nr =3D req->tp_block_nr;
-> > > -	char **pg_vec;
-> > > +	struct pgv *pg_vec;
-> > >  	int i;
-> > > =20
-> > > -	pg_vec =3D kzalloc(block_nr * sizeof(char *), GFP_KERNEL);
-> > > +	pg_vec =3D kzalloc(block_nr * sizeof(struct pgv), GFP_KERNEL);
-> >=20
-> > While we are at it, we could check block_nr being a sane value here=
- ;)
-> >=20
-> This is true.  What do you think a reasonable sane value is?  libpcap=
- seems to
-> limit itself to 32 order 5 entries in the ring, but that seems a bit =
-arbitrary.
-> Perhaps we could check and limit allocations to being no more than or=
-der 8
-> (1Mb), and a total allocation of no more than perhaps max(32Mb, 1% of=
- all ram)?
-> Just throwing it out there, open to any suggestions here
+Joakim Tjernlund/Transmode wrote on 2010/11/06 10:42:46:
+> Thomas Graf <tgr@infradead.org> wrote on 2010/11/05 21:31:50:
+> >
+> > On Fri, Nov 05, 2010 at 04:54:18PM +0100, Joakim Tjernlund wrote:
+> > > Eric Dumazet <eric.dumazet@gmail.com> wrote on 2010/11/05 16:06:54:
+> > > >
+> > > > > Hopefully most of that is legacy or just plain wrong? Unless
+> > > > > someone can say why only test IFF_UP one should consider changing them.
+> > > > >
+> > > >
+> > > > Most of the places are hot path.
+> > > >
+> > > > You dont want to replace one test by four tests.
+> > > >
+> > > > _This_ would be wrong :)
+> > >
+> > > Wrong is wrong, even if it is in the hot path :)
+> > > Perhaps it is time define and internal IFF_OPERATIONAL flag
+> > > which is the sum of IFF_UP, IFF_RUNNING etc.? Tht
+> > > way you still get one test in the hot path and can abstract
+> > > what defines an operational link.
+> >
+> > You definitely don't want to have your send() call fail simply because
+> > the carrier was off for a few msec or the routing daemon has put a link
+> > down temporarly. Also, the outgoing interface looked up at routing
+> > decision is not necessarly the interface used for sending in the end.
+> > The packet may get mangled and rerouted by netfilter or tc on the way.
+>
+> But do you handle the case when the link is non operational for a long time?
+>
+> >
+> > Personally I'm even ok with the current behaviour of sendto() while the
+> > socket is bound to an interface but if we choose to return an error
+> > if the interface is down we might as well do so based on the operational
+> > status.
 
-I was refering to a malicious/buggy program giving a big tp_block_nr so
-that (block_nr * sizeof(struct pgv)) overflows the u32
+> Perhaps there is a better way. This all started when pppd hung because
+> of ping -I <ppp interface>, then someone pulled the cable for the on the link.
+>
+> This is a strace where we have two ping -I,
+> ping -I p1-2-1-2-2 .. and ping -I p1-2-3-2-4 ..
+> Notice how pppd hangs for a long time in PPPIOCDETACH
+> As far as I can tell this is due to ping -I has claimed the ppp interfaces
+> and doesn't noticed that the link is down. Ideally ping should receive
+> a ENODEV as soon as pppd calls PPPIOCDETACH.
+>
+>    0.000908 write(0, "Connection terminated.\n", 23) = 23
+>      0.000481 gettimeofday({1288952770, 566048}, NULL) = 0
+>      0.001553 ioctl(7, PPPIOCDETACH
+> Message from syslogd@Brazil at Fri Nov  5 11:26:20 2010 ...
+> Brazil kernel: unregister_netdevice: waiting for p1-2-1-2-2 to become free. Usage count = 3
+> Message from syslogd@Brazil at Fri Nov  5 11:26:20 2010 ...
+> Brazil kernel: unregister_netdevice: waiting for p1-2-3-2-4 to become free. Usage count = 3
+> Message from syslogd@Brazil at Fri Nov  5 11:26:51 2010 ...
+> Brazil last message repeated 3 times
+> , 0xbfbc3398) = 0
+>     66.559216 connect(9, {sa_family=AF_PPPOX, sa_data="\0\0\0\0\0\0\0\252\273\314\335\356hd"}, 30) = 0
+>      0.000693 close(10)                 = 0
+>      0.000449 close(7)                  = 0
+>      0.009801 close(9)                  = 0
 
-One way to deal with that is to use
+Any comment on this last strace? It is expected that ping -I should
+hold pppd hostage?
 
-	kcalloc(block_nr, sizeof(struct pgv), GFP_KERNEL);
-
-I am not sure consistency checks done in packet_set_ring() are enough t=
-o
-properly detect such errors.
-
-
-
+ Jocke
 
