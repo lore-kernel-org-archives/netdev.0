@@ -1,55 +1,45 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] iproute2: add VF_PORT support
-Date: Tue, 9 Nov 2010 14:22:19 -0800
-Message-ID: <20101109142219.0166576a@nehalam>
-References: <20101109222011.23322.24678.stgit@savbu-pc100.cisco.com>
+From: Dan Rosenberg <drosenberg@vsecurity.com>
+Subject: [PATCH] Prevent reading uninitialized memory with socket filters
+Date: Tue, 09 Nov 2010 17:28:44 -0500
+Message-ID: <1289341724.7380.13.camel@dan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, chrisw@redhat.com, scofeldm@cisco.com,
-	arnd@arndb.de
-To: Roopa Prabhu <roprabhu@cisco.com>
+Cc: stable@kernel.org, security@kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:42755 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753497Ab0KIWWV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Nov 2010 17:22:21 -0500
-In-Reply-To: <20101109222011.23322.24678.stgit@savbu-pc100.cisco.com>
+Received: from mx1.vsecurity.com ([209.67.252.12]:56575 "EHLO
+	mx1.vsecurity.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751607Ab0KIW2y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Nov 2010 17:28:54 -0500
+Received: from unknown (HELO [172.28.170.78]) (drosenbe@[206.205.176.2])
+          (envelope-sender <drosenberg@vsecurity.com>)
+          by mx1.vsecurity.com (qmail-ldap-1.03) with SMTP
+          for <netdev@vger.kernel.org>; 9 Nov 2010 22:27:43 -0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 09 Nov 2010 14:20:11 -0800
-Roopa Prabhu <roprabhu@cisco.com> wrote:
+The "mem" array used as scratch space for socket filters is not
+initialized, allowing unprivileged users to leak kernel stack bytes.
 
-> 			response == PORT_VDP_RESPONSE_SUCCESS ?
-> +				"SUCCESS" :
-> +			response == PORT_VDP_RESPONSE_INVALID_FORMAT ?
-> +				"INVALID FORMAT" :
-> +			response == PORT_VDP_RESPONSE_INSUFFICIENT_RESOURCES ?
-> +				"INSUFFICIENT RESOURCES" :
-> +			response == PORT_VDP_RESPONSE_UNUSED_VTID ?
-> +				"UNUSED VTID" :
-> +			response == PORT_VDP_RESPONSE_VTID_VIOLATION ?
-> +				"VTID VIOLATION" :
-> +			response == PORT_VDP_RESPONSE_VTID_VERSION_VIOALTION ?
-> +				"VTID VERSION VIOLATION" :
-> +			response == PORT_VDP_RESPONSE_OUT_OF_SYNC ?
-> +				"OUT-OF-SYNC" :
-> +			response == PORT_PROFILE_RESPONSE_SUCCESS ?
-> +				"SUCCESS" :
-> +			response == PORT_PROFILE_RESPONSE_INPROGRESS ?
-> +				"IN-PROGRESS" :
-> +			response == PORT_PROFILE_RESPONSE_INVALID ?
-> +				"INVALID" :
-> +			response == PORT_PROFILE_RESPONSE_BADSTATE ?
-> +				"BAD STATE" :
-> +			response == PORT_PROFILE_RESPONSE_INSUFFICIENT_RESOURCES ?
-> +				"INSUFFICIENT RESOURCES" :
-> +			response == PORT_PROFILE_RESPONSE_ERROR ?
-> +				"ERROR" :
-> +			"UNKNOWN RESPONSE");
+Signed-off-by: Dan Rosenberg <drosenberg@vsecurity.com>
 
-That's an ugly way to do this.
-Make it a real function nor array.
+---
+ net/core/filter.c               |    2 ++
+ 1 file changed, 2 insertions(+), 0 deletions(-)
 
--- 
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 7beaec3..2749ba0 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -121,6 +121,8 @@ unsigned int sk_run_filter(struct sk_buff *skb, struct sock_filter *filter, int
+ 	int k;
+ 	int pc;
+ 
++	memset(mem, 0, sizeof(mem));
++
+ 	/*
+ 	 * Process array of filter instructions.
+ 	 */
+
+
