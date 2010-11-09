@@ -1,101 +1,62 @@
-From: Wolfram Sang <w.sang@pengutronix.de>
-Subject: [RFC] irda: irttp: allow zero byte packets
-Date: Wed, 10 Nov 2010 00:19:47 +0100
-Message-ID: <1289344787-12160-1-git-send-email-w.sang@pengutronix.de>
-Cc: netdev@vger.kernel.org, Wolfram Sang <w.sang@pengutronix.de>,
-	Samuel Ortiz <samuel@sortiz.org>
-To: irda-users@lists.sourceforge.net
+From: roprabhu <roprabhu@cisco.com>
+Subject: Re: [PATCH] iproute2: add VF_PORT support
+Date: Tue, 09 Nov 2010 15:30:29 -0800
+Message-ID: <C8FF1995.188E2%roprabhu@cisco.com>
+References: <20101109142219.0166576a@nehalam>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <chrisw@redhat.com>,
+	<scofeldm@cisco.com>, <arnd@arndb.de>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:55867 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753483Ab0KIXTo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Nov 2010 18:19:44 -0500
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:62796 "EHLO
+	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751002Ab0KIXbc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Nov 2010 18:31:32 -0500
+In-Reply-To: <20101109142219.0166576a@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sending zero byte packets is not neccessarily an error (AF_INET accepts it,
-too), so just apply a shortcut. This was discovered because of a non-working
-software with WINE. See
 
-  http://bugs.winehq.org/show_bug.cgi?id=19397#c86
-  http://thread.gmane.org/gmane.linux.irda.general/1643
 
-for very detailed debugging information and a testcase. Kudos to Wolfgang for
-those!
 
-Reported-by: Wolfgang Schwotzer <wolfgang.schwotzer@gmx.net>
-Signed-off-by: Wolfram Sang <w.sang@pengutronix.de>
-Tested-by: Mike Evans <mike.evans@cardolan.com>
-Cc: Samuel Ortiz <samuel@sortiz.org>
----
+On 11/9/10 2:22 PM, "Stephen Hemminger" <shemminger@vyatta.com> wrote:
 
-I found Wolfgang's very detailed report while looking for WINE-bugreports
-affecting the kernel somehow. His mail sadly went to an almost dead
-mailing-list and he told me he lost interest meanwhile. This is why I picked
-the issue up and created this straightforward patch which helps the case at
-least (thanks Mike for testing!).
+> On Tue, 09 Nov 2010 14:20:11 -0800
+> Roopa Prabhu <roprabhu@cisco.com> wrote:
+> 
+>> response == PORT_VDP_RESPONSE_SUCCESS ?
+>> +    "SUCCESS" :
+>> +   response == PORT_VDP_RESPONSE_INVALID_FORMAT ?
+>> +    "INVALID FORMAT" :
+>> +   response == PORT_VDP_RESPONSE_INSUFFICIENT_RESOURCES ?
+>> +    "INSUFFICIENT RESOURCES" :
+>> +   response == PORT_VDP_RESPONSE_UNUSED_VTID ?
+>> +    "UNUSED VTID" :
+>> +   response == PORT_VDP_RESPONSE_VTID_VIOLATION ?
+>> +    "VTID VIOLATION" :
+>> +   response == PORT_VDP_RESPONSE_VTID_VERSION_VIOALTION ?
+>> +    "VTID VERSION VIOLATION" :
+>> +   response == PORT_VDP_RESPONSE_OUT_OF_SYNC ?
+>> +    "OUT-OF-SYNC" :
+>> +   response == PORT_PROFILE_RESPONSE_SUCCESS ?
+>> +    "SUCCESS" :
+>> +   response == PORT_PROFILE_RESPONSE_INPROGRESS ?
+>> +    "IN-PROGRESS" :
+>> +   response == PORT_PROFILE_RESPONSE_INVALID ?
+>> +    "INVALID" :
+>> +   response == PORT_PROFILE_RESPONSE_BADSTATE ?
+>> +    "BAD STATE" :
+>> +   response == PORT_PROFILE_RESPONSE_INSUFFICIENT_RESOURCES ?
+>> +    "INSUFFICIENT RESOURCES" :
+>> +   response == PORT_PROFILE_RESPONSE_ERROR ?
+>> +    "ERROR" :
+>> +   "UNKNOWN RESPONSE");
+> 
+> That's an ugly way to do this.
+> Make it a real function nor array.
 
- net/irda/irttp.c |   25 +++++++++++++++++++------
- 1 files changed, 19 insertions(+), 6 deletions(-)
-
-diff --git a/net/irda/irttp.c b/net/irda/irttp.c
-index 285761e..6cfaeaf 100644
---- a/net/irda/irttp.c
-+++ b/net/irda/irttp.c
-@@ -550,16 +550,23 @@ EXPORT_SYMBOL(irttp_close_tsap);
-  */
- int irttp_udata_request(struct tsap_cb *self, struct sk_buff *skb)
- {
-+	int ret = -1;
-+
- 	IRDA_ASSERT(self != NULL, return -1;);
- 	IRDA_ASSERT(self->magic == TTP_TSAP_MAGIC, return -1;);
- 	IRDA_ASSERT(skb != NULL, return -1;);
- 
- 	IRDA_DEBUG(4, "%s()\n", __func__);
- 
-+	/* Take shortcut on zero byte packets */
-+	if (skb->len == 0) {
-+		ret = 0;
-+		goto err;
-+	}
-+
- 	/* Check that nothing bad happens */
--	if ((skb->len == 0) || (!self->connected)) {
--		IRDA_DEBUG(1, "%s(), No data, or not connected\n",
--			   __func__);
-+	if (!self->connected) {
-+		IRDA_DEBUG(1, "%s(), Not connected\n", __func__);
- 		goto err;
- 	}
- 
-@@ -576,7 +583,7 @@ int irttp_udata_request(struct tsap_cb *self, struct sk_buff *skb)
- 
- err:
- 	dev_kfree_skb(skb);
--	return -1;
-+	return ret;
- }
- EXPORT_SYMBOL(irttp_udata_request);
- 
-@@ -599,9 +606,15 @@ int irttp_data_request(struct tsap_cb *self, struct sk_buff *skb)
- 	IRDA_DEBUG(2, "%s() : queue len = %d\n", __func__,
- 		   skb_queue_len(&self->tx_queue));
- 
-+	/* Take shortcut on zero byte packets */
-+	if (skb->len == 0) {
-+		ret = 0;
-+		goto err;
-+	}
-+
- 	/* Check that nothing bad happens */
--	if ((skb->len == 0) || (!self->connected)) {
--		IRDA_WARNING("%s: No data, or not connected\n", __func__);
-+	if (!self->connected) {
-+		IRDA_WARNING("%s: Not connected\n", __func__);
- 		ret = -ENOTCONN;
- 		goto err;
- 	}
--- 
-1.7.2.3
+Ok sounds good. Will re-spin. Thanks.
 
