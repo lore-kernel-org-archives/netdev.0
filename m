@@ -1,70 +1,69 @@
-From: Thomas Graf <tgraf@infradead.org>
-Subject: Re: Netlink limitations
-Date: Tue, 9 Nov 2010 16:40:39 -0500
-Message-ID: <20101109214039.GA11005@canuck.infradead.org>
-References: <alpine.LNX.2.01.1011071743070.21289@obet.zrqbmnf.qr>
- <4CD6DF37.6010800@trash.net>
- <20101108151635.GA20629@canuck.infradead.org>
- <4CD91406.4000603@trash.net>
- <20101109144941.GA4018@canuck.infradead.org>
- <alpine.LNX.2.01.1011092113420.10710@obet.zrqbmnf.qr>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: [PATCH] gianfar: Do not call device_set_wakeup_enable() under a spinlock
+Date: Tue, 9 Nov 2010 22:54:19 +0100
+Message-ID: <201011092254.19550.rjw@sisk.pl>
+References: <AANLkTimf_mVrRPEcj8qBbYw1iYHfWdeKUNS3Kk-dfhTT@mail.gmail.com> <201011090030.42693.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>, pablo@netfilter.org,
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
 	netdev@vger.kernel.org
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canuck.infradead.org ([134.117.69.58]:37521 "EHLO
-	canuck.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753791Ab0KIVlC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Nov 2010 16:41:02 -0500
-Content-Disposition: inline
-In-Reply-To: <alpine.LNX.2.01.1011092113420.10710@obet.zrqbmnf.qr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Daniel J Blueman <daniel.blueman@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201011090030.42693.rjw@sisk.pl>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 09, 2010 at 09:20:09PM +0100, Jan Engelhardt wrote:
-> What's more, there is no way to specify a remote host in sockaddr_nl
-> right now, so all communication is necessarily being local - that is,
-> unless you add a hidden forwarder in kernel space that transparently
-> tunnels it into IPv6 or something.
+On Tuesday, November 09, 2010, Rafael J. Wysocki wrote:
+> On Tuesday, November 02, 2010, Daniel J Blueman wrote:
+> > Since device_set_wakeup_enable now sleeps, it should not be called
+> > from a critical section. Since wol_en is not updated elsewhere, we can
+> > omit the locking entirely.
+> > 
+> > Signed-off-by: Daniel J Blueman <daniel.blueman@gmail.com>
+> 
+> Acked-by: Rafael J. Wysocki <rjw@sisk.pl>
 
-That's fine. I don't expect the kernel to send netlink message to
-other machines directly but rather have a userspace daemon handle
-this. 
+Having reconsidered that I think it may be better to do something like in the
+patch below.
 
-> I do not believe that encoding the attribute type into the protocol
-> itself is going to be such a big win. You still need a local
-> authoritative database (struct nla_policy[] or some representation of
-> it, nevermind I'm thinking "XML-DTD"-like) to do the verification
-> against because some NL messages may be purposely forged. If you have
-> an nlattr that says it is a string, how do you know that it is in
-> fact a string rather than a blob that happens to have a trailing \0.
+This is a regression fix, so please apply if there are no objections.
 
-True, we will never be able to verify the contents of attributes but
-what we can do is give the sender the ability to specify what type of
-attribute he was meant to send. This can be a big advantage as it
-limits the possibliy of misinterpreting messages which may have been
-corrupted because we can match the expected attribute type against
-the attribute type supplied by the sender. Of course this doesn't
-protect against forged messages at all, we will never be able to do
-that.
+Thanks,
+Rafael
 
-The addition won't be a revolution but it the increased header size,
-8 vs. 12 bytes isn't a big deal and gives us some additional room to
-work with in the future.
+---
+From: Rafael J. Wysocki <rjw@sisk.pl>
+Subject: gianfar: Do not call device_set_wakeup_enable() under a spinlock
 
-struct nlattr_ext {
-	u16	oldlen;		/* 0 */
-	u16	kind;		/* TCA_* */
-	u8	type;		/* NLA_U32 */
-	u8	flags;		/* NLA_F_* */
-	u16	reserved;
-	u32	length;
-};
+The gianfar driver calls device_set_wakeup_enable() under a spinlock,
+which causes a problem to happen after the recent core power
+management changes, because this function can sleep now.  Fix this
+by moving the device_set_wakeup_enable() call out of the
+spinlock-protected area.
 
-There has been more than one debate whether to share nla_policy between
-kernel and userspace. There is nothing which prevents people from doing
-so. But typically the semantics between kernel->userspace and vice versa
-are slightly different and require a different policy to be applied.
+Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
+---
+ drivers/net/gianfar_ethtool.c |    5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+Index: linux-2.6/drivers/net/gianfar_ethtool.c
+===================================================================
+--- linux-2.6.orig/drivers/net/gianfar_ethtool.c
++++ linux-2.6/drivers/net/gianfar_ethtool.c
+@@ -635,9 +635,10 @@ static int gfar_set_wol(struct net_devic
+ 	if (wol->wolopts & ~WAKE_MAGIC)
+ 		return -EINVAL;
+ 
++	device_set_wakeup_enable(&dev->dev, wol->wolopts & WAKE_MAGIC);
++
+ 	spin_lock_irqsave(&priv->bflock, flags);
+-	priv->wol_en = wol->wolopts & WAKE_MAGIC ? 1 : 0;
+-	device_set_wakeup_enable(&dev->dev, priv->wol_en);
++	priv->wol_en =  !!device_may_wakeup(&dev->dev);
+ 	spin_unlock_irqrestore(&priv->bflock, flags);
+ 
+ 	return 0;
