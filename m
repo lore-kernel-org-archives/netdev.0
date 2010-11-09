@@ -1,53 +1,55 @@
-From: Luke Hutchison <luke.hutch@gmail.com>
-Subject: Re: Networking hangs when too many parallel requests are made at once
-Date: Tue, 9 Nov 2010 15:27:24 -0500
-Message-ID: <AANLkTinz6C4s3wX7t6CsE2bzZ2adCoi0RAcqvpEFE2GV@mail.gmail.com>
-References: <AANLkTikuCj=saH34dyO6xnU-y8rWv63hJaqowZ0ACLzk@mail.gmail.com>
- <AANLkTinRo_ozWFCYYqanOh0YrTJ6+KadutG2j7T726dY@mail.gmail.com> <4CD99E20.4060307@candelatech.com>
+From: Vasiliy Kulikov <segooon@gmail.com>
+Subject: Re: [PATCH 3/3] net: tipc: fix information leak to userland
+Date: Tue, 9 Nov 2010 23:33:18 +0300
+Message-ID: <20101109203317.GA24933@albatros>
+References: <1288545032-16481-1-git-send-email-segooon@gmail.com>
+ <20101109.092630.260076036.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Ben Greear <greearb@candelatech.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f174.google.com ([209.85.213.174]:44323 "EHLO
-	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752134Ab0KIU2F convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Nov 2010 15:28:05 -0500
-Received: by yxt3 with SMTP id 3so259507yxt.19
-        for <netdev@vger.kernel.org>; Tue, 09 Nov 2010 12:28:04 -0800 (PST)
-In-Reply-To: <4CD99E20.4060307@candelatech.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: kernel-janitors@vger.kernel.org, jon.maloy@ericsson.com,
+	allan.stephens@windriver.com,
+	tipc-discussion@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20101109.092630.260076036.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 9, 2010 at 2:16 PM, Ben Greear <greearb@candelatech.com> wr=
-ote:
-> On 11/09/2010 11:04 AM, Luke Hutchison wrote:
->>
->> On Tue, Nov 9, 2010 at 1:30 PM, Luke Hutchison<luke.hutch@gmail.com>
->> =C2=A0wrote:
->>>
->>> Since around Linux kernel 2.6.33 or so (but maybe as early as
->>> 2.6.31, not sure exactly what version), when restoring a crashed or
->>> closed browser session of either Firefox or Chrome where lots of ta=
-bs
->>> (say 10-40) open simultaneously, the networking stack is brought to
->>> its knees -- most or all the tabs eventually time out without data,=
- or
->>> a few tabs might get some data and then display a partial web page.
->
-> Have you been able to reproduce this on any other machine? =C2=A0I su=
-spect
-> it might be an issue with your specific NIC or other hardware.
->
-> At the least, it's not a general problem with opening lots
-> of TCP connections, as we routinely test with thousands...
->
-> Thanks,
-> Ben
+On Tue, Nov 09, 2010 at 09:26 -0800, David Miller wrote:
+> From: Vasiliy Kulikov <segooon@gmail.com>
+> Date: Sun, 31 Oct 2010 20:10:32 +0300
+> 
+> > Structure sockaddr_tipc is copied to userland with padding bytes after
+> > "id" field in union field "name" unitialized.  It leads to leaking of
+> > contents of kernel stack memory.  We have to initialize them to zero.
+> > 
+> > Signed-off-by: Vasiliy Kulikov <segooon@gmail.com>
+> 
+> Applied.
+> 
+> Patches #1 and #2 were given feedback which I need you to integrate
+> and submit new patches based upon, thanks.
 
-No, I haven't been able to reproduce on any other machine.  But it
-happens on both my wifi NIC and my ethernet NIC in this machine.
+About #2:
 
-Thanks,
-Luke
+I still think that this:
+
+    if (dev)
+        strncpy(uaddr->sa_data, dev->name, 14);
+    else
+        memset(uaddr->sa_data, 0, 14);
+
+is better than this:
+
+    memset(uaddr->sa_data, 0, 14);
+    dev = dev_get_by_index_rcu(sock_net(sk), pkt_sk(sk)->ifindex);
+    if (dev)
+        strlcpy(uaddr->sa_data, dev->name, 15);
+
+Doesn't it?  Explicitly filling with zero on the same "if" level is
+slightly easier to read and understand.
+
+-- 
+Vasiliy
