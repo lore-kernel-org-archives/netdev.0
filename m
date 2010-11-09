@@ -1,71 +1,128 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Takes > 1 second to delete macvlan with global IPv6 address on it.
-Date: Mon, 08 Nov 2010 16:20:22 -0800
-Message-ID: <4CD893C6.2030803@candelatech.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: [patch v3] ipvs: allow transmit of GRO aggregated skbs
+Date: Tue, 9 Nov 2010 10:08:49 +0900
+Message-ID: <20101109010847.GA13974@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: NetDev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:51451 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754087Ab0KIAUX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Nov 2010 19:20:23 -0500
-Received: from [192.168.100.195] (firewall.candelatech.com [70.89.124.249])
-	(authenticated bits=0)
-	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id oA90KMJ0020717
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Mon, 8 Nov 2010 16:20:22 -0800
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Julian Anastasov <ja@ssi.bg>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: lvs-devel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is on an otherwise lightly loaded 2.6.36 + hacks system, 12 physical interfaces,
-and two VETH interfaces.
+Attempt at allowing LVS to transmit skbs of greater than MTU length that
+have been aggregated by GRO and can thus be deaggregated by GSO.
 
-It's much faster to delete an interface when it has no IPv6 address:
+Cc: Julian Anastasov <ja@ssi.bg>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 
-[root@ct503-60 lanforge]# time ip link add link eth5 up name eth5#0 address 00:00:00:00:00:01 type macvlan
+--- 
 
-real	0m0.005s
-user	0m0.001s
-sys	0m0.004s
-[root@ct503-60 lanforge]# time ip link delete eth5#0
+* LRO is still an outstanding issue, but as its deprecated in favour
+  of GRO perhaps it doesn't need to be solved.
 
-real	0m0.033s
-user	0m0.001s
-sys	0m0.005s
-[root@ct503-60 lanforge]# ip link add link eth5 up name eth5#0 address 00:00:00:00:00:01 type macvlan
+* v1
+  - Based on 2.6.35
 
-[root@ct503-60 lanforge]# ip -6 addr add 2002::1/64 dev eth5#0
-[root@ct503-60 lanforge]# time ip link delete eth5#0
+* v2
+  - Rebase on current nf-next-2.6 tree (~2.6.37-rc1)
 
-real	0m1.030s
-user	0m0.000s
-sys	0m0.013s
+* v3
+  - Use skb_is_gso() instead of netif_needs_gso() as suggested by
+    Julian Anastasov and confirmed by Herbert Xu.
 
-
-Funny enough, if you explicitly remove the IPv6 addr first it seems
-to run at normal speed (adding both operation's times together)
-
-[root@ct503-60 lanforge]# ip link add link eth5 up name eth5#0 address 00:00:00:00:00:01 type macvlan
-[root@ct503-60 lanforge]# ip -6 addr add 2002::1/64 dev eth5#0
-[root@ct503-60 lanforge]# time ip -6 addr delete 2002::1/64 dev eth5#0
-
-real	0m0.001s
-user	0m0.000s
-sys	0m0.001s
-[root@ct503-60 lanforge]# time ip link delete eth5#0
-
-real	0m0.028s
-user	0m0.001s
-sys	0m0.005s
-
-
-Take it easy,
-Ben
-
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+Index: lvs-test-2.6/net/netfilter/ipvs/ip_vs_xmit.c
+===================================================================
+--- lvs-test-2.6.orig/net/netfilter/ipvs/ip_vs_xmit.c	2010-11-08 16:27:31.000000000 +0900
++++ lvs-test-2.6/net/netfilter/ipvs/ip_vs_xmit.c	2010-11-08 16:29:19.000000000 +0900
+@@ -408,7 +408,8 @@ ip_vs_bypass_xmit(struct sk_buff *skb, s
+ 
+ 	/* MTU checking */
+ 	mtu = dst_mtu(&rt->dst);
+-	if ((skb->len > mtu) && (iph->frag_off & htons(IP_DF))) {
++	if ((skb->len > mtu) && (iph->frag_off & htons(IP_DF)) &&
++	    !skb_is_gso(skb)) {
+ 		ip_rt_put(rt);
+ 		icmp_send(skb, ICMP_DEST_UNREACH,ICMP_FRAG_NEEDED, htonl(mtu));
+ 		IP_VS_DBG_RL("%s(): frag needed\n", __func__);
+@@ -461,7 +462,7 @@ ip_vs_bypass_xmit_v6(struct sk_buff *skb
+ 
+ 	/* MTU checking */
+ 	mtu = dst_mtu(&rt->dst);
+-	if (skb->len > mtu) {
++	if (skb->len > mtu && !skb_is_gso(skb)) {
+ 		if (!skb->dev) {
+ 			struct net *net = dev_net(skb_dst(skb)->dev);
+ 
+@@ -560,7 +561,8 @@ ip_vs_nat_xmit(struct sk_buff *skb, stru
+ 
+ 	/* MTU checking */
+ 	mtu = dst_mtu(&rt->dst);
+-	if ((skb->len > mtu) && (iph->frag_off & htons(IP_DF))) {
++	if ((skb->len > mtu) && (iph->frag_off & htons(IP_DF)) &&
++	    !skb_is_gso(skb)) {
+ 		icmp_send(skb, ICMP_DEST_UNREACH,ICMP_FRAG_NEEDED, htonl(mtu));
+ 		IP_VS_DBG_RL_PKT(0, AF_INET, pp, skb, 0,
+ 				 "ip_vs_nat_xmit(): frag needed for");
+@@ -675,7 +677,7 @@ ip_vs_nat_xmit_v6(struct sk_buff *skb, s
+ 
+ 	/* MTU checking */
+ 	mtu = dst_mtu(&rt->dst);
+-	if (skb->len > mtu) {
++	if (skb->len > mtu && !skb_is_gso(skb)) {
+ 		if (!skb->dev) {
+ 			struct net *net = dev_net(skb_dst(skb)->dev);
+ 
+@@ -790,8 +792,8 @@ ip_vs_tunnel_xmit(struct sk_buff *skb, s
+ 
+ 	df |= (old_iph->frag_off & htons(IP_DF));
+ 
+-	if ((old_iph->frag_off & htons(IP_DF))
+-	    && mtu < ntohs(old_iph->tot_len)) {
++	if ((old_iph->frag_off & htons(IP_DF) &&
++	    mtu < ntohs(old_iph->tot_len) && !skb_is_gso(skb))) {
+ 		icmp_send(skb, ICMP_DEST_UNREACH,ICMP_FRAG_NEEDED, htonl(mtu));
+ 		IP_VS_DBG_RL("%s(): frag needed\n", __func__);
+ 		goto tx_error_put;
+@@ -903,7 +905,8 @@ ip_vs_tunnel_xmit_v6(struct sk_buff *skb
+ 	if (skb_dst(skb))
+ 		skb_dst(skb)->ops->update_pmtu(skb_dst(skb), mtu);
+ 
+-	if (mtu < ntohs(old_iph->payload_len) + sizeof(struct ipv6hdr)) {
++	if (mtu < ntohs(old_iph->payload_len) + sizeof(struct ipv6hdr) &&
++	    !skb_is_gso(skb)) {
+ 		if (!skb->dev) {
+ 			struct net *net = dev_net(skb_dst(skb)->dev);
+ 
+@@ -1008,7 +1011,8 @@ ip_vs_dr_xmit(struct sk_buff *skb, struc
+ 
+ 	/* MTU checking */
+ 	mtu = dst_mtu(&rt->dst);
+-	if ((iph->frag_off & htons(IP_DF)) && skb->len > mtu) {
++	if ((iph->frag_off & htons(IP_DF)) && skb->len > mtu &&
++	    !skb_is_gso(skb)) {
+ 		icmp_send(skb, ICMP_DEST_UNREACH,ICMP_FRAG_NEEDED, htonl(mtu));
+ 		ip_rt_put(rt);
+ 		IP_VS_DBG_RL("%s(): frag needed\n", __func__);
+@@ -1174,7 +1178,8 @@ ip_vs_icmp_xmit(struct sk_buff *skb, str
+ 
+ 	/* MTU checking */
+ 	mtu = dst_mtu(&rt->dst);
+-	if ((skb->len > mtu) && (ip_hdr(skb)->frag_off & htons(IP_DF))) {
++	if ((skb->len > mtu) && (ip_hdr(skb)->frag_off & htons(IP_DF)) &&
++	    !skb_is_gso(skb)) {
+ 		icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED, htonl(mtu));
+ 		IP_VS_DBG_RL("%s(): frag needed\n", __func__);
+ 		goto tx_error_put;
+@@ -1288,7 +1293,7 @@ ip_vs_icmp_xmit_v6(struct sk_buff *skb,
+ 
+ 	/* MTU checking */
+ 	mtu = dst_mtu(&rt->dst);
+-	if (skb->len > mtu) {
++	if (skb->len > mtu && !skb_is_gso(skb)) {
+ 		if (!skb->dev) {
+ 			struct net *net = dev_net(skb_dst(skb)->dev);
+ 
