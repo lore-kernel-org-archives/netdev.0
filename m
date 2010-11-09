@@ -1,45 +1,45 @@
-From: Davidlohr Bueso <dave@gnu.org>
-Subject: [PATCH] net: replace min with min_t in pktgen_if_write
-Date: Tue, 09 Nov 2010 13:37:13 -0300
-Message-ID: <1289320633.2260.12.camel@cowboy>
-Reply-To: dave@gnu.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: replace min with min_t in pktgen_if_write
+Date: Tue, 09 Nov 2010 08:40:45 -0800 (PST)
+Message-ID: <20101109.084045.104069884.davem@davemloft.net>
+References: <1289320633.2260.12.camel@cowboy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-	Robert Olsson <robert.olsson@its.uu.se>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: robert.olsson@its.uu.se, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: dave@gnu.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50284
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752988Ab0KIQkU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Nov 2010 11:40:20 -0500
+In-Reply-To: <1289320633.2260.12.camel@cowboy>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Davidlohr Bueso <dave@gnu.org>
-
-This addresses the following compiler (gcc 4.4.5) warning:
-
-  CC [M]  net/core/pktgen.o
-net/core/pktgen.c: In function =E2=80=98pktgen_if_write=E2=80=99:
-net/core/pktgen.c:890: warning: comparison of distinct pointer types la=
-cks a cast
-
-Signed-off-by: Davidlohr Bueso <dave@gnu.org>
----
- net/core/pktgen.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index fbce4b0..1992cd0 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -887,7 +887,7 @@ static ssize_t pktgen_if_write(struct file *file,
- 	i +=3D len;
-=20
- 	if (debug) {
--		size_t copy =3D min(count, 1023);
-+		size_t copy =3D min_t(size_t, count, 1023);
- 		char tb[copy + 1];
- 		if (copy_from_user(tb, user_buffer, copy))
- 			return -EFAULT;
---=20
-1.7.1
+RnJvbTogRGF2aWRsb2hyIEJ1ZXNvIDxkYXZlQGdudS5vcmc+DQpEYXRlOiBUdWUsIDA5IE5vdiAy
+MDEwIDEzOjM3OjEzIC0wMzAwDQoNCj4gRnJvbTogRGF2aWRsb2hyIEJ1ZXNvIDxkYXZlQGdudS5v
+cmc+DQo+IA0KPiBUaGlzIGFkZHJlc3NlcyB0aGUgZm9sbG93aW5nIGNvbXBpbGVyIChnY2MgNC40
+LjUpIHdhcm5pbmc6DQo+IA0KPiAgIENDIFtNXSAgbmV0L2NvcmUvcGt0Z2VuLm8NCj4gbmV0L2Nv
+cmUvcGt0Z2VuLmM6IEluIGZ1bmN0aW9uIKFwa3RnZW5faWZfd3JpdGWiOg0KPiBuZXQvY29yZS9w
+a3RnZW4uYzo4OTA6IHdhcm5pbmc6IGNvbXBhcmlzb24gb2YgZGlzdGluY3QgcG9pbnRlciB0eXBl
+cyBsYWNrcyBhIGNhc3QNCj4gDQo+IFNpZ25lZC1vZmYtYnk6IERhdmlkbG9ociBCdWVzbyA8ZGF2
+ZUBnbnUub3JnPg0KDQpBbHJlYWR5IGZpeGVkIGluIG5ldC0yLjY6DQoNCmNvbW1pdCA4NmMyYzBh
+OGE0OTY1YWU1Y2JjMGZmOTdlZDM5YTQ0NzJlOGU5YjIzDQpBdXRob3I6IERtaXRyeSBUb3Jva2hv
+diA8ZG1pdHJ5LnRvcm9raG92QGdtYWlsLmNvbT4NCkRhdGU6ICAgU2F0IE5vdiA2IDIwOjExOjM4
+IDIwMTAgKzAwMDANCg0KICAgIE5FVDogcGt0Z2VuIC0gZml4IGNvbXBpbGUgd2FybmluZw0KICAg
+IA0KICAgIFRoaXMgc2hvdWxkIGZpeCB0aGUgZm9sbG93aW5nIHdhcm5pbmc6DQogICAgDQogICAg
+bmV0L2NvcmUvcGt0Z2VuLmM6IEluIGZ1bmN0aW9uIKFwa3RnZW5faWZfd3JpdGWiOg0KICAgIG5l
+dC9jb3JlL3BrdGdlbi5jOjg5MDogd2FybmluZzogY29tcGFyaXNvbiBvZiBkaXN0aW5jdCBwb2lu
+dGVyIHR5cGVzIGxhY2tzIGEgY2FzdA0KICAgIA0KICAgIFNpZ25lZC1vZmYtYnk6IERtaXRyeSBU
+b3Jva2hvdiA8ZHRvckBtYWlsLnJ1Pg0KICAgIFJldmlld2VkLWJ5OiBOZWxzb24gRWxoYWdlIDxu
+ZWxoYWdlQGtzcGxpY2UuY29tPg0KICAgIFNpZ25lZC1vZmYtYnk6IERhdmlkIFMuIE1pbGxlciA8
+ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4NCg0KZGlmZiAtLWdpdCBhL25ldC9jb3JlL3BrdGdlbi5jIGIv
+bmV0L2NvcmUvcGt0Z2VuLmMNCmluZGV4IGZiY2U0YjAuLjE5OTJjZDAgMTAwNjQ0DQotLS0gYS9u
+ZXQvY29yZS9wa3RnZW4uYw0KKysrIGIvbmV0L2NvcmUvcGt0Z2VuLmMNCkBAIC04ODcsNyArODg3
+LDcgQEAgc3RhdGljIHNzaXplX3QgcGt0Z2VuX2lmX3dyaXRlKHN0cnVjdCBmaWxlICpmaWxlLA0K
+IAlpICs9IGxlbjsNCiANCiAJaWYgKGRlYnVnKSB7DQotCQlzaXplX3QgY29weSA9IG1pbihjb3Vu
+dCwgMTAyMyk7DQorCQlzaXplX3QgY29weSA9IG1pbl90KHNpemVfdCwgY291bnQsIDEwMjMpOw0K
+IAkJY2hhciB0Yltjb3B5ICsgMV07DQogCQlpZiAoY29weV9mcm9tX3VzZXIodGIsIHVzZXJfYnVm
+ZmVyLCBjb3B5KSkNCiAJCQlyZXR1cm4gLUVGQVVMVDsNCg==
