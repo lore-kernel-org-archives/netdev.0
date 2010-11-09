@@ -1,48 +1,58 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 01/11] vxge: enable rxhash
-Date: Mon, 08 Nov 2010 18:38:06 -0800 (PST)
-Message-ID: <20101108.183806.193724928.davem@davemloft.net>
-References: <1288911122-28669-1-git-send-email-jon.mason@exar.com>
-	<20101108.124452.115944240.davem@davemloft.net>
-	<20101108225340.GA16247@exar.com>
+Subject: Re: [Bugme-new] [Bug 22142] New: skge module doesn't work in
+ 2.6.37-rc1
+Date: Mon, 08 Nov 2010 18:46:24 -0800 (PST)
+Message-ID: <20101108.184624.71119177.davem@davemloft.net>
+References: <bug-22142-10286@https.bugzilla.kernel.org/>
+	<20101108154306.0f93eddb.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Sivakumar.Subramani@exar.com,
-	Sreenivasa.Honnur@exar.com, Ramkrishna.Vepa@exar.com
-To: jon.mason@exar.com
+Cc: shemminger@linux-foundation.org,
+	bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
+	jtmettala@gmail.com
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45842
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39818
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752992Ab0KIChm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Nov 2010 21:37:42 -0500
-In-Reply-To: <20101108225340.GA16247@exar.com>
+	by vger.kernel.org with ESMTP id S1754722Ab0KICqA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Nov 2010 21:46:00 -0500
+In-Reply-To: <20101108154306.0f93eddb.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jon Mason <jon.mason@exar.com>
-Date: Mon, 8 Nov 2010 16:53:40 -0600
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Mon, 8 Nov 2010 15:43:06 -0800
 
-> On Mon, Nov 08, 2010 at 12:44:52PM -0800, David Miller wrote:
->> 
->> This patch set doesn't apply at all to the current tree, please
->> respin them, thanks.
-> 
-> When I sent out the series on Thursday, the tree did not have
-> "vxge: make functions local and remove dead code".  When that patch
-> was originally released (Oct 15), I asked for it to not be included as
-> it would break soon-to-be-released patch series.  I did not see any
-> e-mail afterward, so I assumed this was acceptable to you.  We then
-> ran the driver though our internal tests to verify its functionality,
-> which would need to be re-done if the patches are respun.
-> 
-> I have a reworked version of that patch which can be applied after
-> this patch series.  Is it acceptable to you to revert the commit,
-> apply the series, then apply the modified version of the "local
-> functions" patch?  I have already sniff tested it on our hardware
-> without issues.
+> skge_devinit() did a nearly-NULL deref.
 
-Ummm, no.  I'm not reverting a correct patch just so that your
-original patches apply properly.
+Fixed in net-2.6:
 
-Please just respin the patch series on top of the current tree.
+--------------------
+skge: Remove tx queue stopping in skge_devinit()
+
+After e6484930d7c73d324bccda7d43d131088da697b9: net: allocate tx queues in register_netdevice
+It causes an Oops at skge_probe() time.
+
+Signed-off-by: Guillaume Chazarain <guichaz@gmail.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/skge.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/skge.c b/drivers/net/skge.c
+index bfec2e0..220e039 100644
+--- a/drivers/net/skge.c
++++ b/drivers/net/skge.c
+@@ -3858,7 +3858,6 @@ static struct net_device *skge_devinit(struct skge_hw *hw, int port,
+ 
+ 	/* device is off until link detection */
+ 	netif_carrier_off(dev);
+-	netif_stop_queue(dev);
+ 
+ 	return dev;
+ }
+-- 
+1.7.3.2
+
