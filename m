@@ -1,49 +1,185 @@
-From: Roger Luethi <rl@hellgate.ch>
-Subject: Re: [PATCH] via-rhine: hardware VLAN support
-Date: Tue, 9 Nov 2010 07:18:32 +0100
-Message-ID: <20101109061831.GA8730@core.hellgate.ch>
-References: <20101105104303.GA8325@core.hellgate.ch>
- <AANLkTikUe9DR2QTU+72Q8vmGnDyvUtSm_wwCpGEq-M4s@mail.gmail.com>
- <20101108162132.GA32728@core.hellgate.ch>
- <AANLkTim40QH2AWz8YtW_y3=WjEU0_Rom9-CPFj-O5MCt@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Loopback performance from kernel 2.6.12 to 2.6.37
+Date: Tue, 09 Nov 2010 07:23:17 +0100
+Message-ID: <1289283797.2790.84.camel@edumazet-laptop>
+References: <1288954189.28003.178.camel@firesoul.comx.local>
+	 <1288988955.2665.297.camel@edumazet-laptop>
+	 <1289213926.15004.19.camel@firesoul.comx.local>
+	 <1289214289.2820.188.camel@edumazet-laptop>
+	 <1289228785.2820.203.camel@edumazet-laptop>
+	 <AANLkTi=HhouZymj0R7JsDy-X1LDbfT_WL0x10EMhdOho@mail.gmail.com>
+	 <1289280152.2790.23.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Jesse Gross <jesse@nicira.com>
+Cc: Jesper Dangaard Brouer <jdb@comx.dk>,
+	netdev <netdev@vger.kernel.org>
+To: Andrew Hendry <andrew.hendry@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail13.bluewin.ch ([195.186.18.62]:14072 "EHLO
-	mail13.bluewin.ch" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752558Ab0KIGSf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Nov 2010 01:18:35 -0500
-Content-Disposition: inline
-In-Reply-To: <AANLkTim40QH2AWz8YtW_y3=WjEU0_Rom9-CPFj-O5MCt@mail.gmail.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:55740 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752629Ab0KIGXa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Nov 2010 01:23:30 -0500
+Received: by wyb36 with SMTP id 36so4461432wyb.19
+        for <netdev@vger.kernel.org>; Mon, 08 Nov 2010 22:23:29 -0800 (PST)
+In-Reply-To: <1289280152.2790.23.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 08 Nov 2010 12:53:57 -0800, Jesse Gross wrote:
-> On Mon, Nov 8, 2010 at 8:21 AM, Roger Luethi <rl@hellgate.ch> wrote:
-> > On Fri, 05 Nov 2010 11:31:56 -0700, Jesse Gross wrote:
-> >> On Fri, Nov 5, 2010 at 3:43 AM, Roger Luethi <rl@hellgate.ch> wrot=
-e:
-> >> > This patch adds VLAN hardware support for Rhine chips.
-> >>
-> >> This uses the old interfaces for vlan acceleration. =A0We're worki=
-ng to
-> >> switch drivers over to use the new methods and the old ones will b=
-e
-> >> going away in the future. =A0It would be great if we can avoid add=
-ing
-> >> more code that uses those interfaces.
-> >
-> > Can you point me to a driver that has been switched to use the new =
-methods
-> > already? Is there some other form of documentation?
+Le mardi 09 novembre 2010 =C3=A0 06:22 +0100, Eric Dumazet a =C3=A9crit=
+ :
+> Le mardi 09 novembre 2010 =C3=A0 11:05 +1100, Andrew Hendry a =C3=A9c=
+rit :
+> > results on an i7 860 @ 2.80Ghz machine, no virtualization involved.=
+ 2.6.37-rc1+
+> >=20
+> > # time dd if=3D/dev/zero bs=3D1M count=3D10000 | netcat  127.0.0.1 =
+9999
+> > 10000+0 records in
+> > 10000+0 records out
+> > 10485760000 bytes (10 GB) copied, 50.2022 s, 209 MB/s
+> >=20
+> > real	0m50.210s
+> > user	0m1.094s
+> > sys	0m57.589s
 >=20
-> bnx2 is an example of a driver that has been converted.  The commit
-> that actually made the change was
-> 7d0fd2117e3d0550d7987b3aff2bfbc0244cf7c6, which should highlight the
-> differences.  A key point is that drivers should no longer reference
-> vlan groups at all.
+> Thanks !
+>=20
+> Could you take a pef snapshot during the test ?
+>=20
+> # perf record -a -g sleep 10
+> # perf report
+>=20
+>=20
 
-Thank you. I will take a look and submit a revised patch.
+On my laptop=20
+Intel(R) Core(TM)2 Duo CPU     T8300  @ 2.40GHz
+(2.6.35-22-generic #35-Ubuntu SMP Sat Oct 16 20:45:36 UTC 2010 x86_64
+GNU/Linux) :
+
+time dd if=3D/dev/zero bs=3D1M count=3D10000|netcat 127.0.0.1 9999
+10000+0 enregistrements lus
+10000+0 enregistrements =C3=A9crits
+10485760000 octets (10 GB) copi=C3=A9s, 38,2691 s, 274 MB/s
+
+real	0m38.274s
+user	0m1.870s
+sys	0m38.370s
+
+
+perf top result :
+
+-----------------------------------------------------------------------=
+--------------------------
+   PerfTop:    1948 irqs/sec  kernel:90.7%  exact:  0.0% [1000Hz cycles=
+],  (all, 2 CPUs)
+-----------------------------------------------------------------------=
+--------------------------
+
+             samples  pcnt function                    DSO
+             _______ _____ ___________________________ ________________=
+___
+
+             1867.00 12.4% copy_user_generic_string    [kernel.kallsyms=
+] =20
+             1166.00  7.7% __ticket_spin_lock          [kernel.kallsyms=
+] =20
+              744.00  4.9% __clear_user                [kernel.kallsyms=
+] =20
+              667.00  4.4% system_call                 [kernel.kallsyms=
+] =20
+              329.00  2.2% tcp_sendmsg                 [kernel.kallsyms=
+] =20
+              304.00  2.0% schedule                    [kernel.kallsyms=
+] =20
+              257.00  1.7% _raw_spin_unlock_irqrestore [kernel.kallsyms=
+] =20
+              231.00  1.5% fget_light                  [kernel.kallsyms=
+] =20
+              216.00  1.4% do_poll                     [kernel.kallsyms=
+] =20
+              203.00  1.3% __read_chk                  /lib/libc-2.12.1=
+=2Eso
+              202.00  1.3% __pollwait                  [kernel.kallsyms=
+] =20
+              201.00  1.3% __poll                      /lib/libc-2.12.1=
+=2Eso
+              187.00  1.2% system_call_after_swapgs    [kernel.kallsyms=
+] =20
+              176.00  1.2% __write                     /lib/libc-2.12.1=
+=2Eso
+              173.00  1.1% _raw_spin_lock_irqsave      [kernel.kallsyms=
+] =20
+              163.00  1.1% tcp_recvmsg                 [kernel.kallsyms=
+] =20
+              158.00  1.0% do_sys_poll                 [kernel.kallsyms=
+] =20
+              153.00  1.0% vfs_write                   [kernel.kallsyms=
+] =20
+              143.00  0.9% pipe_read                   [kernel.kallsyms=
+] =20
+              141.00  0.9% fput                        [kernel.kallsyms=
+] =20
+              121.00  0.8% common_file_perm            [kernel.kallsyms=
+] =20
+              120.00  0.8% _cond_resched               [kernel.kallsyms=
+] =20
+
+
+# vmstat 1
+procs -----------memory---------- ---swap-- -----io---- -system-- ----c=
+pu----
+ r  b   swpd   free   buff  cache   si   so    bi    bo   in   cs us sy=
+ id wa
+ 2  0   1456 120056  51572 2606876    0    0   158    41  254  190  9  =
+2 88  0
+ 2  0   1456 120140  51580 2606868    0    0    12     0  758 158309 11=
+ 76 13  0
+ 2  0   1456 119520  51588 2606896    0    0     0   176  778 160749  8=
+ 80 12  0
+ 2  0   1456 120388  51588 2606896    0    0     0     0  730 158201  9=
+ 76 16  0
+ 3  0   1456 120388  51588 2606896    0    0     0     0  745 158490  8=
+ 76 16  0
+ 2  0   1456 120520  51588 2606896    0    0     0     0  991 159120  9=
+ 78 13  0
+ 2  0   1456 120024  51588 2606896    0    0     0     0  653 160023 10=
+ 79 11  0
+ 3  0   1456 120520  51588 2606896    0    0     0     0  659 160614  8=
+ 78 14  0
+ 2  0   1456 120272  51596 2606896    0    0     0    80  695 159922 10=
+ 75 14  0
+ 4  0   1456 120272  51596 2606896    0    0     0     0  675 158010  7=
+ 79 14  0
+
+
+# powertop
+     PowerTOP version 1.13      (C) 2007 Intel Corporation
+
+< Detailed C-state information is not P-states (frequencies)
+                                      Turbo Mode    43.1%
+                                        2.40 Ghz    48.0%
+                                        2.00 Ghz     8.2%
+                                        1.60 Ghz     0.7%
+                                        1200 Mhz     0.1%
+
+Wakeups-from-idle per second : 542.9    interval: 10.0s
+no ACPI power usage estimate available
+
+Top causes for wakeups:
+  21.9% (196.5)   [kernel scheduler] Load balancing tick
+  21.2% (190.7)   [Rescheduling interrupts] <kernel IPI>
+  12.7% (114.0)   PS/2 keyboard/mouse/touchpad interrupt
+  12.0% (107.9)   plugin-containe
+  11.1% ( 99.3)   alsa-sink
+   6.0% ( 53.8)   firefox-bin
+   4.4% ( 39.7)   fping
+   3.9% ( 35.2)   Xorg
+   1.3% ( 11.3)   [b43] <interrupt>
+   1.1% ( 10.0)   ksoftirqd/0
+   0.4% (  4.0)D  nagios3
+   0.2% (  1.9)D  gnome-terminal
+   0.7% (  6.4)   [Thermal event interrupts] <kernel IPI>
+
+
+
