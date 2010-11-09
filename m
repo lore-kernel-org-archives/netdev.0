@@ -1,34 +1,32 @@
-From: Patrick McHardy <kaber@trash.net>
+From: Jan Engelhardt <jengelh@medozas.de>
 Subject: Re: Netlink limitations
-Date: Tue, 09 Nov 2010 10:27:34 +0100
-Message-ID: <4CD91406.4000603@trash.net>
+Date: Tue, 9 Nov 2010 12:58:04 +0100 (CET)
+Message-ID: <alpine.LNX.2.01.1011091253370.20655@obet.zrqbmnf.qr>
 References: <alpine.LNX.2.01.1011071743070.21289@obet.zrqbmnf.qr> <4CD6DF37.6010800@trash.net> <20101108151635.GA20629@canuck.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: Jan Engelhardt <jengelh@medozas.de>,
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Patrick McHardy <kaber@trash.net>,
 	"David S. Miller" <davem@davemloft.net>, pablo@netfilter.org,
 	netdev@vger.kernel.org
+To: Thomas Graf <tgraf@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:50935 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753630Ab0KIJ1v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Nov 2010 04:27:51 -0500
+Received: from borg.medozas.de ([188.40.89.202]:45273 "EHLO borg.medozas.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754265Ab0KIL6F (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Nov 2010 06:58:05 -0500
 In-Reply-To: <20101108151635.GA20629@canuck.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am 08.11.2010 16:16, schrieb Thomas Graf:
-> On Sun, Nov 07, 2010 at 06:17:43PM +0100, Patrick McHardy wrote:
->> On 07.11.2010 17:44, Jan Engelhardt wrote:
->>> ...
-> 
->> That's somewhat similar to the nlattr32 idea, but a length of 0 makes
->> more sense since that's currently not used. In that case the length
->> would be read from a second length field which has 32 bits.
-> 
-> I agree. This makes perfect sense. I was just thinking wheter we want
-> to encode more information into the attribute header if we extend it
-> anyways.
 
-What kind of additional information are you thinking about?
+On Monday 2010-11-08 16:16, Thomas Graf wrote:
+>
+>Also, it is not required to pack everything in attributes. Your protocol
+>may specify that the whole message payload consists of chained attributes.
+
+Yeah but that does not work well with nla_parse and nfnetlink.c
+unserializing the byte stream into a tb[] array.
+
+Does it hurt to not use nfnetlink? The only issue I see is that
+af_netlink.c's nl_table is an array, when it should preferably be a
+hash or tree if we are going to add more subsystems.
