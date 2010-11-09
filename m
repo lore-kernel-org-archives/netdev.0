@@ -1,69 +1,38 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: [PATCH] gianfar: Do not call device_set_wakeup_enable() under a spinlock
-Date: Tue, 9 Nov 2010 22:54:19 +0100
-Message-ID: <201011092254.19550.rjw@sisk.pl>
-References: <AANLkTimf_mVrRPEcj8qBbYw1iYHfWdeKUNS3Kk-dfhTT@mail.gmail.com> <201011090030.42693.rjw@sisk.pl>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: Netlink limitations
+Date: Tue, 9 Nov 2010 23:02:30 +0100 (CET)
+Message-ID: <alpine.LNX.2.01.1011092302070.28314@obet.zrqbmnf.qr>
+References: <alpine.LNX.2.01.1011071743070.21289@obet.zrqbmnf.qr> <4CD6DF37.6010800@trash.net> <20101108151635.GA20629@canuck.infradead.org> <4CD91406.4000603@trash.net> <20101109144941.GA4018@canuck.infradead.org> <alpine.LNX.2.01.1011092113420.10710@obet.zrqbmnf.qr>
+ <20101109214039.GA11005@canuck.infradead.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>, pablo@netfilter.org,
 	netdev@vger.kernel.org
-To: Daniel J Blueman <daniel.blueman@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201011090030.42693.rjw@sisk.pl>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Thomas Graf <tgraf@infradead.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from borg.medozas.de ([188.40.89.202]:39587 "EHLO borg.medozas.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754448Ab0KIWCb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Nov 2010 17:02:31 -0500
+In-Reply-To: <20101109214039.GA11005@canuck.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday, November 09, 2010, Rafael J. Wysocki wrote:
-> On Tuesday, November 02, 2010, Daniel J Blueman wrote:
-> > Since device_set_wakeup_enable now sleeps, it should not be called
-> > from a critical section. Since wol_en is not updated elsewhere, we can
-> > omit the locking entirely.
-> > 
-> > Signed-off-by: Daniel J Blueman <daniel.blueman@gmail.com>
-> 
-> Acked-by: Rafael J. Wysocki <rjw@sisk.pl>
 
-Having reconsidered that I think it may be better to do something like in the
-patch below.
+On Tuesday 2010-11-09 22:40, Thomas Graf wrote:
+>The addition won't be a revolution but it the increased header size,
+>8 vs. 12 bytes isn't a big deal and gives us some additional room to
+>work with in the future.
+>
+>struct nlattr_ext {
+>	u16	oldlen;		/* 0 */
+>	u16	kind;		/* TCA_* */
+>	u8	type;		/* NLA_U32 */
+>	u8	flags;		/* NLA_F_* */
+>	u16	reserved;
+>	u32	length;
+>};
 
-This is a regression fix, so please apply if there are no objections.
-
-Thanks,
-Rafael
-
----
-From: Rafael J. Wysocki <rjw@sisk.pl>
-Subject: gianfar: Do not call device_set_wakeup_enable() under a spinlock
-
-The gianfar driver calls device_set_wakeup_enable() under a spinlock,
-which causes a problem to happen after the recent core power
-management changes, because this function can sleep now.  Fix this
-by moving the device_set_wakeup_enable() call out of the
-spinlock-protected area.
-
-Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
----
- drivers/net/gianfar_ethtool.c |    5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
-
-Index: linux-2.6/drivers/net/gianfar_ethtool.c
-===================================================================
---- linux-2.6.orig/drivers/net/gianfar_ethtool.c
-+++ linux-2.6/drivers/net/gianfar_ethtool.c
-@@ -635,9 +635,10 @@ static int gfar_set_wol(struct net_devic
- 	if (wol->wolopts & ~WAKE_MAGIC)
- 		return -EINVAL;
- 
-+	device_set_wakeup_enable(&dev->dev, wol->wolopts & WAKE_MAGIC);
-+
- 	spin_lock_irqsave(&priv->bflock, flags);
--	priv->wol_en = wol->wolopts & WAKE_MAGIC ? 1 : 0;
--	device_set_wakeup_enable(&dev->dev, priv->wol_en);
-+	priv->wol_en =  !!device_may_wakeup(&dev->dev);
- 	spin_unlock_irqrestore(&priv->bflock, flags);
- 
- 	return 0;
+And while we're discussing this, surely there are no objections
+to bumping NLA_ALIGN to 8 at the same time..
