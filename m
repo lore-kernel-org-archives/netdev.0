@@ -1,57 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Prevent reading uninitialized memory with socket
- filters
-Date: Wed, 10 Nov 2010 10:07:52 -0800 (PST)
-Message-ID: <20101110.100752.71107177.davem@davemloft.net>
-References: <1289341724.7380.13.camel@dan>
-	<20101109.212838.193698340.davem@davemloft.net>
-	<1289387567.7380.63.camel@dan>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stable@kernel.org, security@kernel.org
-To: drosenberg@vsecurity.com
+From: Vasiliy Kulikov <segooon@gmail.com>
+Subject: [PATCH v2] net: ax25: fix information leak to userland
+Date: Wed, 10 Nov 2010 21:12:36 +0300
+Message-ID: <1289412757-11411-1-git-send-email-segooon@gmail.com>
+Cc: Joerg Reuter <jreuter@yaina.de>,
+	Ralf Baechle <ralf@linux-mips.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-hams@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: kernel-janitors@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38656
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755372Ab0KJSH2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Nov 2010 13:07:28 -0500
-In-Reply-To: <1289387567.7380.63.camel@dan>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:53385 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756036Ab0KJSMo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Nov 2010 13:12:44 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Rosenberg <drosenberg@vsecurity.com>
-Date: Wed, 10 Nov 2010 06:12:47 -0500
+Sometimes ax25_getname() doesn't initialize all members of fsa_digipeater
+field of fsa struct, also the struct has padding bytes between
+sax25_call and sax25_ndigis fields.  This structure is then copied to
+userland.  It leads to leaking of contents of kernel stack memory.
 
-> 
->> 
->> Prove it.
-> 
-> I hope this was a joke.
+Signed-off-by: Vasiliy Kulikov <segooon@gmail.com>
+---
+ Compile tested.
 
-It absolutely is not.
+ net/ax25/af_ax25.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-You are very much not the first person ever to try and add an
-expensive memset() here.
-
-So the onus is really on you to prove this assertion and show the
-exact code path by which the user can actually see any uninitialized
-kernel stack memory (he can't, he can peek at certain values in a
-certain extremely contrived range, making the leak useless), rather
-than point us at some web external site archive of a list posting
-which we cannot easily quote and reply to here.
-
-I think you cannot do it, really.  Except in the AF_PACKET case, the
-sockets can only see "0" or a negative error code, not the actual
-sk_run_filter() return value.
-
-In the one exception, AF_PACKET, the range of values the user can
-see are in the range of MTU of the device being accessed, which
-realistically is 1500 bytes.  This means the user cannot see any
-kernel stack value outside of the range 0 to 1500, which isn't
-worth using this expensive memset to guard against at all.
-
-I don't even think it's worth adding all of the extra cpu cycles
-incurred by Eric Dumazet's scheme of using a bitmap test on every
-single memory buffer access.
+diff --git a/net/ax25/af_ax25.c b/net/ax25/af_ax25.c
+index 26eaebf..bb86d29 100644
+--- a/net/ax25/af_ax25.c
++++ b/net/ax25/af_ax25.c
+@@ -1392,6 +1392,7 @@ static int ax25_getname(struct socket *sock, struct sockaddr *uaddr,
+ 	ax25_cb *ax25;
+ 	int err = 0;
+ 
++	memset(fsa, 0, sizeof(fsa));
+ 	lock_sock(sk);
+ 	ax25 = ax25_sk(sk);
+ 
+@@ -1403,7 +1404,6 @@ static int ax25_getname(struct socket *sock, struct sockaddr *uaddr,
+ 
+ 		fsa->fsa_ax25.sax25_family = AF_AX25;
+ 		fsa->fsa_ax25.sax25_call   = ax25->dest_addr;
+-		fsa->fsa_ax25.sax25_ndigis = 0;
+ 
+ 		if (ax25->digipeat != NULL) {
+ 			ndigi = ax25->digipeat->ndigi;
+-- 
+1.7.0.4
 
