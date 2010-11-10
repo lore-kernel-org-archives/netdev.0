@@ -1,18 +1,17 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 5/9] drivers/net/wireless/b43legacy/main.c: Use printf extension %pV
-Date: Tue,  9 Nov 2010 16:35:19 -0800
-Message-ID: <3c8217914a987ad3f86afbc1890637657b8b7aa7.1289348757.git.joe@perches.com>
+Subject: [PATCH 4/9] drivers/net/wireless/b43/main.c: Use printf extension %pV
+Date: Tue,  9 Nov 2010 16:35:18 -0800
+Message-ID: <68c1a8814468ff2b8f901da4533f3bbea3c2c770.1289348757.git.joe@perches.com>
 References: <cover.1289348757.git.joe@perches.com>
-Cc: Larry Finger <Larry.Finger@lwfinger.net>,
-	Stefano Brivio <stefano.brivio@polimi.it>,
+Cc: Stefano Brivio <stefano.brivio@polimi.it>,
 	"John W. Linville" <linville@tuxdriver.com>,
 	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:4845 "EHLO mail.perches.com"
+Received: from mail.perches.com ([173.55.12.10]:4840 "EHLO mail.perches.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753911Ab0KJAfb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Nov 2010 19:35:31 -0500
+	id S1753749Ab0KJAfa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Nov 2010 19:35:30 -0500
 In-Reply-To: <cover.1289348757.git.joe@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -23,101 +22,109 @@ other printk calls.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/wireless/b43legacy/main.c |   47 ++++++++++++++++++++++++--------
- 1 files changed, 35 insertions(+), 12 deletions(-)
+ drivers/net/wireless/b43/main.c |   48 +++++++++++++++++++++++++++++---------
+ 1 files changed, 36 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/wireless/b43legacy/main.c b/drivers/net/wireless/b43legacy/main.c
-index 67f18ec..1f11e16 100644
---- a/drivers/net/wireless/b43legacy/main.c
-+++ b/drivers/net/wireless/b43legacy/main.c
-@@ -181,52 +181,75 @@ static int b43legacy_ratelimit(struct b43legacy_wl *wl)
+diff --git a/drivers/net/wireless/b43/main.c b/drivers/net/wireless/b43/main.c
+index a118652..fa48803 100644
+--- a/drivers/net/wireless/b43/main.c
++++ b/drivers/net/wireless/b43/main.c
+@@ -322,59 +322,83 @@ static int b43_ratelimit(struct b43_wl *wl)
  
- void b43legacyinfo(struct b43legacy_wl *wl, const char *fmt, ...)
+ void b43info(struct b43_wl *wl, const char *fmt, ...)
  {
 +	struct va_format vaf;
  	va_list args;
  
- 	if (!b43legacy_ratelimit(wl))
+ 	if (b43_modparam_verbose < B43_VERBOSITY_INFO)
+ 		return;
+ 	if (!b43_ratelimit(wl))
  		return;
 +
  	va_start(args, fmt);
--	printk(KERN_INFO "b43legacy-%s: ",
+-	printk(KERN_INFO "b43-%s: ",
 -	       (wl && wl->hw) ? wiphy_name(wl->hw->wiphy) : "wlan");
 -	vprintk(fmt, args);
 +
 +	vaf.fmt = fmt;
 +	vaf.va = &args;
 +
-+	printk(KERN_INFO "b43legacy-%s: %pV",
++	printk(KERN_INFO "b43-%s: %pV",
 +	       (wl && wl->hw) ? wiphy_name(wl->hw->wiphy) : "wlan", &vaf);
 +
  	va_end(args);
  }
  
- void b43legacyerr(struct b43legacy_wl *wl, const char *fmt, ...)
+ void b43err(struct b43_wl *wl, const char *fmt, ...)
  {
 +	struct va_format vaf;
  	va_list args;
  
- 	if (!b43legacy_ratelimit(wl))
+ 	if (b43_modparam_verbose < B43_VERBOSITY_ERROR)
+ 		return;
+ 	if (!b43_ratelimit(wl))
  		return;
 +
  	va_start(args, fmt);
--	printk(KERN_ERR "b43legacy-%s ERROR: ",
+-	printk(KERN_ERR "b43-%s ERROR: ",
 -	       (wl && wl->hw) ? wiphy_name(wl->hw->wiphy) : "wlan");
 -	vprintk(fmt, args);
 +
 +	vaf.fmt = fmt;
 +	vaf.va = &args;
 +
-+	printk(KERN_ERR "b43legacy-%s ERROR: %pV",
++	printk(KERN_ERR "b43-%s ERROR: %pV",
 +	       (wl && wl->hw) ? wiphy_name(wl->hw->wiphy) : "wlan", &vaf);
 +
  	va_end(args);
  }
  
- void b43legacywarn(struct b43legacy_wl *wl, const char *fmt, ...)
+ void b43warn(struct b43_wl *wl, const char *fmt, ...)
  {
 +	struct va_format vaf;
  	va_list args;
  
- 	if (!b43legacy_ratelimit(wl))
+ 	if (b43_modparam_verbose < B43_VERBOSITY_WARN)
+ 		return;
+ 	if (!b43_ratelimit(wl))
  		return;
 +
  	va_start(args, fmt);
--	printk(KERN_WARNING "b43legacy-%s warning: ",
+-	printk(KERN_WARNING "b43-%s warning: ",
 -	       (wl && wl->hw) ? wiphy_name(wl->hw->wiphy) : "wlan");
 -	vprintk(fmt, args);
 +
 +	vaf.fmt = fmt;
 +	vaf.va = &args;
 +
-+	printk(KERN_WARNING "b43legacy-%s warning: %pV",
++	printk(KERN_WARNING "b43-%s warning: %pV",
 +	       (wl && wl->hw) ? wiphy_name(wl->hw->wiphy) : "wlan", &vaf);
 +
  	va_end(args);
  }
  
- #if B43legacy_DEBUG
- void b43legacydbg(struct b43legacy_wl *wl, const char *fmt, ...)
+ void b43dbg(struct b43_wl *wl, const char *fmt, ...)
  {
 +	struct va_format vaf;
  	va_list args;
  
+ 	if (b43_modparam_verbose < B43_VERBOSITY_DEBUG)
+ 		return;
++
  	va_start(args, fmt);
--	printk(KERN_DEBUG "b43legacy-%s debug: ",
+-	printk(KERN_DEBUG "b43-%s debug: ",
 -	       (wl && wl->hw) ? wiphy_name(wl->hw->wiphy) : "wlan");
 -	vprintk(fmt, args);
 +
 +	vaf.fmt = fmt;
 +	vaf.va = &args;
 +
-+	printk(KERN_DEBUG "b43legacy-%s debug: %pV",
++	printk(KERN_DEBUG "b43-%s debug: %pV",
 +	       (wl && wl->hw) ? wiphy_name(wl->hw->wiphy) : "wlan", &vaf);
 +
  	va_end(args);
  }
- #endif /* DEBUG */
+ 
 -- 
 1.7.3.1.g432b3.dirty
 
