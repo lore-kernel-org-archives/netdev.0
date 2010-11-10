@@ -1,80 +1,70 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: sk->sk_socket seems to disappear before connection termination
-Date: Wed, 10 Nov 2010 11:53:48 +0100 (CET)
-Message-ID: <alpine.LNX.2.01.1011101148060.18018@obet.zrqbmnf.qr>
-References: <alpine.LNX.2.01.1011100205220.17978@obet.zrqbmnf.qr> <1289368037.2700.14.camel@edumazet-laptop>
+From: Jesper Dangaard Brouer <hawk@diku.dk>
+Subject: Re: [RFC 0/3] MPEG2/TS drop analyzer iptables match extension
+Date: Wed, 10 Nov 2010 12:02:20 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.1011081229390.13163@ask.diku.dk>
+References: <Pine.LNX.4.64.1010191608080.18708@ask.diku.dk>
+ <alpine.LNX.2.01.1011040113270.8604@obet.zrqbmnf.qr>
+ <Pine.LNX.4.64.1011040953590.19565@ask.diku.dk>
+ <alpine.LNX.2.01.1011041121170.16551@obet.zrqbmnf.qr>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Howells <dhowells@redhat.com>,
-	Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>, netdev@vger.kernel.org,
-	=?UTF-8?Q?Rafa=C5=82_Maj?= <rafal.maj.it@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Netfilter Developers <netfilter-devel@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	Solvik Blum <solvik.blum@smartjog.com>
+To: Jan Engelhardt <jengelh@medozas.de>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1289368037.2700.14.camel@edumazet-laptop>
+In-Reply-To: <alpine.LNX.2.01.1011041121170.16551@obet.zrqbmnf.qr>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 2010-11-10 06:47, Eric Dumazet wrote:
->Le mercredi 10 novembre 2010 =C3=A0 02:09 +0100, Jan Engelhardt a =C3=A9=
-crit :
->> Hi,
->>=20
->> Rafa=C5=82 reported this to us on IRC, paraphrasing what has been ob=
-served:
->>=20
->> Using a simple rule like `iptables -A OUTPUT -p tcp --dport 80 -j LO=
-G=20
->> --log-uid`, one can observe on creating a connection and terminating
->> it that the trailing packets have skb->sk->sk_socket =3D=3D NULL.
->> Is this intended? Is the socket not retained until after TCP has
->> sent out the closing exchange?
->>=20
->> As I can reproduce:
->>=20
->> $ telnet 134.76.13.21 80
->> Trying 134.76.13.21...
->> Connected to 134.76.13.21.
->> Escape character is '^]'.
->> ^]
->> telnet> ^D
->> Connection closed.
->>=20
->> [491419.500978] IN=3D OUT=3Dtun0 SRC=3D134.76.2.163 DST=3D134.76.13.=
-21 LEN=3D60 TOS=3D0x10 PREC=3D0x00 TTL=3D64 ID=3D35420 DF PROTO=3DTCP S=
-PT=3D58613 DPT=3D80 WINDOW=3D5488 RES=3D0x00 SYN URGP=3D0 UID=3D25121 G=
-ID=3D100=20
->> [491419.511533] IN=3D OUT=3Dtun0 SRC=3D134.76.2.163 DST=3D134.76.13.=
-21 LEN=3D52 TOS=3D0x10 PREC=3D0x00 TTL=3D64 ID=3D35421 DF PROTO=3DTCP S=
-PT=3D58613 DPT=3D80 WINDOW=3D86 RES=3D0x00 ACK URGP=3D0 UID=3D25121 GID=
-=3D100=20
->> [491420.052182] IN=3D OUT=3Dtun0 SRC=3D134.76.2.163 DST=3D134.76.13.=
-21 LEN=3D52 TOS=3D0x10 PREC=3D0x00 TTL=3D64 ID=3D35422 DF PROTO=3DTCP S=
-PT=3D58613 DPT=3D80 WINDOW=3D86 RES=3D0x00 ACK FIN URGP=3D0 UID=3D25121=
- GID=3D100=20
->> [491420.063619] IN=3D OUT=3Dtun0 SRC=3D134.76.2.163 DST=3D134.76.13.=
-21 LEN=3D52 TOS=3D0x10 PREC=3D0x00 TTL=3D64 ID=3D35423 DF PROTO=3DTCP S=
-PT=3D58613 DPT=3D80 WINDOW=3D86 RES=3D0x00 ACK URGP=3D0=20
+
+On Thu, 4 Nov 2010, Jan Engelhardt wrote:
+> On Thursday 2010-11-04 10:20, Jesper Dangaard Brouer wrote:
+>> On Thu, 4 Nov 2010, Jan Engelhardt wrote:
+>>>
+>>> This now lives in the mp2t branch (since NFWS already actually) of xt-a,
+>>> and I have taken the liberty to start updating it to higher standards.
+>>> Please watch that branch, as I don't have any MPEG equipment around me
+>>> to do runtime tests.
+>>
+>> Jan, I would actually like to maintain the source via my own git tree. And I
+>> would gladly accept your patches against that tree.
 >
->Hmmm... skb->sk->sk_socket is really NULL ?
->Are you sure its not skb->sk->sk_socket->file which is NULL ?
+> I do not mind who is hosting what parts, as git repos can be
+> transferred easily, but I strongly suggest not to decouple xt_mp2t
+> from (any clone of) the xtables-addons structure base, because doing
+> so would bring you back to square one with regard to maintenance.
+>
+> I recognize you may dislike splitting up the IPTV codebase, so I
+> propose that you make use of submodules, and have an Xt-a clone as
+> one submodule. That would allow merging in both directions.
 
-I am certain of it, having augmented ipt_LOG/xt_LOGMARK temporarily by=20
-appropriate printks.
+Well, I'm ready to maintain the module my self.  I know we talked (during 
+Netfilter Workshop) about putting the module into the Xtables-addons 
+git-tree, because the project had stalled.
 
->In this case, you might need to use sock_i_uid() / sock_i_ino() as a
->fallback ? (expensive because they take a rwlock)
+But things have changed! - I now have some people/developers interested in 
+the project, thus I'm taking an active maintainer role instead.
 
-No, sock_i_uid also uses sk->sk_socket. What is interesting though is=20
-that sock_i_uid uses SOCK_INODE(sk->sk_socket)->i_uid, but xt_owner use=
-s=20
-sk->sk_socket->file->f_cred->fsuid. Would you have an idea as to why=20
-that is?
-Dave Howells (cced) did the last change on it.
+My plan is to keep the module "compatible" with the Xtables-addon build 
+system.  Thats why I make my module use your compat_* system from xt-a.
+This way you can easier copy the module into you tree, if I fail to 
+maintain the module...
+
+I have looked at your improvements in the "mp2t" branch of you tree. I'll 
+integrate those changes/improvement in my tree, and give you the author 
+credits in my tree.
+
+(ps. this email got delayed on my postponed email outbox, sorry.  Have 
+already had some offlist discussions with Jan)
+
+Cheers,
+   Jesper Brouer
 
 --
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-------------------------------------------------------------------
+MSc. Master of Computer Science
+Dept. of Computer Science, University of Copenhagen
+Author of http://www.adsl-optimizer.dk
+-------------------------------------------------------------------
