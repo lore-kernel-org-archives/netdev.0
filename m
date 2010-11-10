@@ -1,71 +1,73 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: possible kernel oops from user MSS
-Date: Wed, 10 Nov 2010 12:41:19 -0800 (PST)
-Message-ID: <20101110.124119.102563803.davem@davemloft.net>
-References: <AANLkTimMDMb74-3E9vhFxZ5Dgeuk3HMzPZVjwCj+yFEJ@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] net: net_families __rcu annotations
+Date: Wed, 10 Nov 2010 21:50:44 +0100
+Message-ID: <1289422244.17691.2.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: schen@mvista.com
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41121
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753603Ab0KJUkz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Nov 2010 15:40:55 -0500
-In-Reply-To: <AANLkTimMDMb74-3E9vhFxZ5Dgeuk3HMzPZVjwCj+yFEJ@mail.gmail.com>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:38252 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752454Ab0KJUus (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Nov 2010 15:50:48 -0500
+Received: by wwb39 with SMTP id 39so1187974wwb.1
+        for <netdev@vger.kernel.org>; Wed, 10 Nov 2010 12:50:47 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steve Chen <schen@mvista.com>
-Date: Wed, 10 Nov 2010 07:24:51 -0600
+Use modern RCU API / annotations for net_families array.
 
-> With commit f5fff5dc8a7a3f395b0525c02ba92c95d42b7390, a user program
-> can pass in TCP_MAXSEG of 12 (or TCPOLEN_TSTAMP_ALIGNED), and cause
-> kernel oops with division by 0
->  in tcp_select_initial_window.  One way to prevent it is to change the
-> minimum value for TCP_MAXSEG in do_tcp_setsockopt from 8 to some value
-> over 12.  Two questions.
-> 
-> 1.  Is this the right solution?
-> 2.  If it is, what is a good minimum value?
-
-Thanks Steve, I'll fix this like so:
-
---------------------
-tcp: Increase TCP_MAXSEG socket option minimum.
-
-As noted by Steve Chen, since commit
-f5fff5dc8a7a3f395b0525c02ba92c95d42b7390 ("tcp: advertise MSS
-requested by user") we can end up with a situation where
-tcp_select_initial_window() does a divide by a zero (or
-even negative) mss value.
-
-The problem is that sometimes we subtract TCPOLEN_TSTAMP_ALIGNED
-from the mss.
-
-Fix this by increasing the minimum from 8 to 8 plus the value
-of TCPOLEN_TSTATMP_ALIGNED.
-
-Reported-by: Steve Chen <schen@mvista.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 ---
- net/ipv4/tcp.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ net/socket.c |   11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
 
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 245603c..6b0eb4d 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2246,7 +2246,7 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
- 		/* Values greater than interface MTU won't take effect. However
- 		 * at the point when this call is done we typically don't yet
- 		 * know which interface is going to be used */
--		if (val < 8 || val > MAX_TCP_WINDOW) {
-+		if (val < TCPOLEN_TSTAMP_ALIGNED + 8 || val > MAX_TCP_WINDOW) {
- 			err = -EINVAL;
- 			break;
- 		}
--- 
-1.7.3.2
+diff --git a/net/socket.c b/net/socket.c
+index 3ca2fd9..c898df7 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -156,7 +156,7 @@ static const struct file_operations socket_file_ops = {
+  */
+ 
+ static DEFINE_SPINLOCK(net_family_lock);
+-static const struct net_proto_family *net_families[NPROTO] __read_mostly;
++static const struct net_proto_family __rcu *net_families[NPROTO] __read_mostly;
+ 
+ /*
+  *	Statistics counters of the socket lists
+@@ -1200,7 +1200,7 @@ int __sock_create(struct net *net, int family, int type, int protocol,
+ 	 * requested real, full-featured networking support upon configuration.
+ 	 * Otherwise module support will break!
+ 	 */
+-	if (net_families[family] == NULL)
++	if (rcu_access_pointer(net_families[family]) == NULL)
+ 		request_module("net-pf-%d", family);
+ #endif
+ 
+@@ -2332,10 +2332,11 @@ int sock_register(const struct net_proto_family *ops)
+ 	}
+ 
+ 	spin_lock(&net_family_lock);
+-	if (net_families[ops->family])
++	if (rcu_dereference_protected(net_families[ops->family],
++				      lockdep_is_held(&net_family_lock)))
+ 		err = -EEXIST;
+ 	else {
+-		net_families[ops->family] = ops;
++		rcu_assign_pointer(net_families[ops->family], ops);
+ 		err = 0;
+ 	}
+ 	spin_unlock(&net_family_lock);
+@@ -2363,7 +2364,7 @@ void sock_unregister(int family)
+ 	BUG_ON(family < 0 || family >= NPROTO);
+ 
+ 	spin_lock(&net_family_lock);
+-	net_families[family] = NULL;
++	rcu_assign_pointer(net_families[family], NULL);
+ 	spin_unlock(&net_family_lock);
+ 
+ 	synchronize_rcu();
+
 
