@@ -1,45 +1,101 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: can-bcm: fix minor heap overflow
-Date: Wed, 10 Nov 2010 23:10:30 +0100
-Message-ID: <4CDB1856.4040001@hartkopp.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] macvlan: lockless tx path
+Date: Wed, 10 Nov 2010 23:21:45 +0100
+Message-ID: <1289427705.17691.52.camel@edumazet-laptop>
+References: <1289403709.2860.216.camel@edumazet-laptop>
+	 <4CDAD8C8.20807@candelatech.com>
+	 <1289411027.2860.248.camel@edumazet-laptop>
+	 <4CDADC17.6070506@candelatech.com>
+	 <1289413120.2469.12.camel@edumazet-laptop>
+	 <4CDAE713.7020309@candelatech.com>
+	 <1289421187.2469.127.camel@edumazet-laptop>  <4CDB1021.507@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Dan Rosenberg <drosenberg@vsecurity.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Urs Thuermann <urs@isnogud.escape.de>, security@kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	netdev <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.161]:45658 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757014Ab0KJWLC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Nov 2010 17:11:02 -0500
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:63637 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757115Ab0KJWVv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Nov 2010 17:21:51 -0500
+Received: by eye27 with SMTP id 27so785761eye.19
+        for <netdev@vger.kernel.org>; Wed, 10 Nov 2010 14:21:50 -0800 (PST)
+In-Reply-To: <4CDB1021.507@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 64-bit platforms the ASCII representation of a pointer may be up to 17
-bytes long. This patch increases the length of the buffer accordingly.
+Le mercredi 10 novembre 2010 =C3=A0 13:35 -0800, Ben Greear a =C3=A9cri=
+t :
 
-http://marc.info/?l=linux-netdev&m=128872251418192&w=2
 
-Reported-by: Dan Rosenberg <drosenberg@vsecurity.com>
-Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
-CC: Linus Torvalds <torvalds@linux-foundation.org>
+> So an application that must deal with wraps must poll at the minimal
+> time interval for wrapping 32-bit counters at whatever speed, or it
+> must pay attention to the driver to somehow know that this magic driv=
+er
+> can *really* do 64-bit stats properly?
+>=20
 
----
+Are you aware that you speak of something that is not specified at all
+in linux ?
 
-diff --git a/net/can/bcm.c b/net/can/bcm.c
-index 08ffe9e..6faa825 100644
---- a/net/can/bcm.c
-+++ b/net/can/bcm.c
-@@ -125,7 +125,7 @@ struct bcm_sock {
- 	struct list_head tx_ops;
- 	unsigned long dropped_usr_msgs;
- 	struct proc_dir_entry *bcm_proc_read;
--	char procname [9]; /* pointer printed in ASCII with \0 */
-+	char procname [20]; /* pointer printed in ASCII with \0 */
- };
+=46requency of polling is not part of any RFC. This usually is tunable =
+in
+the _application_. Some people sample stats every 5 minutes, some sampl=
+e
+every second, and hit the "xxx driver updates its stats every two
+seconds, this sucks"
 
- static inline struct bcm_sock *bcm_sk(const struct sock *sk)
+I wrote SNMP apps based on /proc/net/dev and all just work, with any
+versions, any driver. Of course, some of them broke 6 years ago because
+they were 32bit legacy application, running on a 64bit kernel. I never
+asked David to change /proc/net/dev to cap counters to 32bit.
+
+When 128bit cpu come, some userland changes are needed to parse 128bit
+numbers.
+
+In anycase, apps dont have to know a particular driver provides 64bit o=
+r
+32bit counter. Only choice for them is to automatically detect the
+wraparound, because they fetch a STRING, not a Counter32 or Counter64
+
+This works for all drivers, legacy, new, Intel or whatever. If a driver
+changes from 32 to 64, nothing special happens in /proc/net/dev.
+
+RRD for example handles this just fine.
+
+> Please note that just because a counter is less than the previous rea=
+d,
+> that doesn't by itself tell us if it wrapped once or twice.  And, if =
+we
+> don't know at which number of bits it wraps, then we don't know how m=
+any
+> to add even if we are certain it wrapped only once.
+>=20
+
+I repeat : Nothing in /proc/net/dev can tell you when a counter will
+wrap (the counter width).
+
+You also need to use the correct polling frequency, depending on max
+speed. It was already the case with 32bit counters, 64bit ones only gav=
+e
+some extra range.
+
+> In general, I want to treat eth0 the same as eth5, and not worry that=
+ one
+> is 10/100 realtek and the other a 10G Intel.
+>=20
+
+
+> If netlink reports stats64, then those should only wrap at 64 bits,
+> and if it reports stats32, then wrap at 32-bits.
+>=20
+
+I believe you are mistaken. We provide stats64 for all drivers, even
+32bit legacy ones. rtnetlink has no way to report counter widths,
+because nobody cared.
+
+
 
