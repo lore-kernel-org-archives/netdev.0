@@ -1,47 +1,65 @@
-From: Robin Holt <holt@sgi.com>
-Subject: Re: [Patch] Limit sysctl_tcp_mem and sysctl_udp_mem initializers
- to prevent integer overflows.
-Date: Wed, 10 Nov 2010 00:15:07 -0600
-Message-ID: <20101110061507.GF4330@sgi.com>
-References: <20101002112405.951704198@gulag1.americas.sgi.com>
- <20101002112419.248437367@gulag1.americas.sgi.com>
- <1286025736.2582.1827.camel@edumazet-laptop>
- <20101005.145055.63017205.davem@davemloft.net>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH] Fix CAN info leak/minor heap overflow
+Date: Wed, 10 Nov 2010 07:52:27 +0100
+Message-ID: <4CDA412B.90900@hartkopp.net>
+References: <1288722503.2504.14.camel@dan>	<ygfiq0bsjry.fsf@janus.isnogud.escape.de>	<4CD8FDB5.6060905@hartkopp.net> <20101109.090523.189685701.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, holt@sgi.com,
-	akpm@linux-foundation.org, w@1wt.eu, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: urs@isnogud.escape.de, netdev@vger.kernel.org,
+	drosenberg@vsecurity.com, security@kernel.org,
+	torvalds@linux-foundation.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay1.sgi.com ([192.48.179.29]:48672 "EHLO relay.sgi.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751997Ab0KJGQR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Nov 2010 01:16:17 -0500
-Content-Disposition: inline
-In-Reply-To: <20101005.145055.63017205.davem@davemloft.net>
+Received: from mo-p00-ob.rzone.de ([81.169.146.160]:30609 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752424Ab0KJGwr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Nov 2010 01:52:47 -0500
+In-Reply-To: <20101109.090523.189685701.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 05, 2010 at 02:50:55PM -0700, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Sat, 02 Oct 2010 15:22:16 +0200
+On 09.11.2010 18:05, David Miller wrote:
+> From: Oliver Hartkopp <socketcan@hartkopp.net>
+> Date: Tue, 09 Nov 2010 08:52:21 +0100
 > 
-> > [PATCH] net: avoid limits overflow
-> > 
-> > Robin Holt tried to boot a 16TB machine and found some limits were
-> > reached : sysctl_tcp_mem[2], sysctl_udp_mem[2]
-> > 
-> > We can switch infrastructure to use long "instead" of "int", now
-> > atomic_long_t primitives are available for free.
-> > 
-> > Reported-by: Robin Holt <holt@sgi.com>
-> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+>> Once this patch is applied (and the procfs layout is changed anyway), i'd also
+>> like to send a patch from my backlog that would extend the procfs output for
+>> can-bcm with an additional drop counter.
 > 
-> Eric please resubmit this when the sysctl fix is resolved.
+> I find this kind of discussion extremely disappointing.
+> 
+> All of this stuff you CAN guys do with procfs files and version
+> strings is completely wrong and bogus.
+> 
+> Once you create a procfs file layout, you're basically stuck and you
+> can at best only reasonably add new fields at the end, you can't
+> really change existing fields.
+> 
+> And sysfs would have been a lot more appropriate, you could use
+> attributes for each value you want to export and then just add new
+> sysfs attributes when you want to export new values which has very
+> clear semantics and backwards compatability implications.
 
-It looks like the sysctl fix is upstream.  Has this been resubmitted
-and I missed it?
+I admit that from my todays knowledge i would have done things differently.
+But the network layer information bits have been always exposed in /proc/net
+as it was in 2003 when we started the implementation on a 2.4.x kernel.
+There are netdriver infos in sysfs but no netlayer entries.
 
-Robin
+>From my point of view the only thing could be to improve the current
+situation, which the posted patch does:
+
+- remove kernel addresses that were only relevant at implementation time
+- allow AF_CAN protocols to provide their own information due to their needs
+- provide inode numbers that can be found in procfs at several places
+  => improvements for developers in userspace & kernelspace
+
+The patch has been discussed on SocketCAN ML and the filter entries have not
+been identified as a problem for userspace tools. E.g. /proc/net/can/stats is
+one of the entries that's used by userspace tools.
+
+IMHO the patch improves the historic situation and fixes the useless leakage
+of kernel addresses. Please consider to apply that procfs changes.
+
+Best regards,
+Oliver
