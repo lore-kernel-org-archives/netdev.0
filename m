@@ -1,14 +1,21 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 2/9] drivers/isdn/mISDN: Use printf extension %pV
-Date: Tue,  9 Nov 2010 16:35:16 -0800
-Message-ID: <b7079ecc43454c8b8baaef07f8cf1c1756c2ce3e.1289348757.git.joe@perches.com>
+Subject: [PATCH 5/9] drivers/net/wireless/b43legacy/main.c: Use printf extension %pV
+Date: Tue,  9 Nov 2010 16:35:19 -0800
+Message-ID: <3c8217914a987ad3f86afbc1890637657b8b7aa7.1289348757.git.joe@perches.com>
 References: <cover.1289348757.git.joe@perches.com>
-Cc: Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org
+Cc: Larry Finger <Larry.Finger@lwfinger.net>,
+	Stefano Brivio <stefano.brivio@polimi.it>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.perches.com ([173.55.12.10]:4845 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753911Ab0KJAfb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Nov 2010 19:35:31 -0500
 In-Reply-To: <cover.1289348757.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Using %pV reduces the number of printk calls and
 eliminates any possible message interleaving from
@@ -16,113 +23,101 @@ other printk calls.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/isdn/mISDN/layer1.c |   10 +++++++---
- drivers/isdn/mISDN/layer2.c |   12 +++++++++---
- drivers/isdn/mISDN/tei.c    |   23 +++++++++++++++++------
- 3 files changed, 33 insertions(+), 12 deletions(-)
+ drivers/net/wireless/b43legacy/main.c |   47 ++++++++++++++++++++++++--------
+ 1 files changed, 35 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/isdn/mISDN/layer1.c b/drivers/isdn/mISDN/layer1.c
-index ac4aa18..5cc7c00 100644
---- a/drivers/isdn/mISDN/layer1.c
-+++ b/drivers/isdn/mISDN/layer1.c
-@@ -99,12 +99,16 @@ static void
- l1m_debug(struct FsmInst *fi, char *fmt, ...)
+diff --git a/drivers/net/wireless/b43legacy/main.c b/drivers/net/wireless/b43legacy/main.c
+index 67f18ec..1f11e16 100644
+--- a/drivers/net/wireless/b43legacy/main.c
++++ b/drivers/net/wireless/b43legacy/main.c
+@@ -181,52 +181,75 @@ static int b43legacy_ratelimit(struct b43legacy_wl *wl)
+ 
+ void b43legacyinfo(struct b43legacy_wl *wl, const char *fmt, ...)
  {
- 	struct layer1 *l1 = fi->userdata;
 +	struct va_format vaf;
- 	va_list va;
+ 	va_list args;
  
- 	va_start(va, fmt);
--	printk(KERN_DEBUG "%s: ", dev_name(&l1->dch->dev.dev));
--	vprintk(fmt, va);
--	printk("\n");
-+
-+	vaf.fmt = fmt;
-+	vaf.va = &va;
-+
-+	printk(KERN_DEBUG "%s: %pV\n", dev_name(&l1->dch->dev.dev), &vaf);
-+
- 	va_end(va);
- }
- 
-diff --git a/drivers/isdn/mISDN/layer2.c b/drivers/isdn/mISDN/layer2.c
-index c973717..4ae7505 100644
---- a/drivers/isdn/mISDN/layer2.c
-+++ b/drivers/isdn/mISDN/layer2.c
-@@ -95,14 +95,20 @@ static void
- l2m_debug(struct FsmInst *fi, char *fmt, ...)
- {
- 	struct layer2 *l2 = fi->userdata;
-+	struct va_format vaf;
- 	va_list va;
- 
- 	if (!(*debug & DEBUG_L2_FSM))
+ 	if (!b43legacy_ratelimit(wl))
  		return;
 +
- 	va_start(va, fmt);
--	printk(KERN_DEBUG "l2 (sapi %d tei %d): ", l2->sapi, l2->tei);
--	vprintk(fmt, va);
--	printk("\n");
+ 	va_start(args, fmt);
+-	printk(KERN_INFO "b43legacy-%s: ",
+-	       (wl && wl->hw) ? wiphy_name(wl->hw->wiphy) : "wlan");
+-	vprintk(fmt, args);
 +
 +	vaf.fmt = fmt;
-+	vaf.va = &va;
++	vaf.va = &args;
 +
-+	printk(KERN_DEBUG "l2 (sapi %d tei %d): %pV\n",
-+	       l2->sapi, l2->tei, &vaf);
++	printk(KERN_INFO "b43legacy-%s: %pV",
++	       (wl && wl->hw) ? wiphy_name(wl->hw->wiphy) : "wlan", &vaf);
 +
- 	va_end(va);
+ 	va_end(args);
  }
  
-diff --git a/drivers/isdn/mISDN/tei.c b/drivers/isdn/mISDN/tei.c
-index 1b85d9d..687c9b6 100644
---- a/drivers/isdn/mISDN/tei.c
-+++ b/drivers/isdn/mISDN/tei.c
-@@ -79,14 +79,19 @@ static void
- da_debug(struct FsmInst *fi, char *fmt, ...)
+ void b43legacyerr(struct b43legacy_wl *wl, const char *fmt, ...)
  {
- 	struct manager	*mgr = fi->userdata;
 +	struct va_format vaf;
- 	va_list va;
+ 	va_list args;
  
- 	if (!(*debug & DEBUG_L2_TEIFSM))
+ 	if (!b43legacy_ratelimit(wl))
  		return;
 +
- 	va_start(va, fmt);
--	printk(KERN_DEBUG "mgr(%d): ", mgr->ch.st->dev->id);
--	vprintk(fmt, va);
--	printk("\n");
+ 	va_start(args, fmt);
+-	printk(KERN_ERR "b43legacy-%s ERROR: ",
+-	       (wl && wl->hw) ? wiphy_name(wl->hw->wiphy) : "wlan");
+-	vprintk(fmt, args);
 +
 +	vaf.fmt = fmt;
-+	vaf.va = &va;
++	vaf.va = &args;
 +
-+	printk(KERN_DEBUG "mgr(%d): %pV\n", mgr->ch.st->dev->id, &vaf);
++	printk(KERN_ERR "b43legacy-%s ERROR: %pV",
++	       (wl && wl->hw) ? wiphy_name(wl->hw->wiphy) : "wlan", &vaf);
 +
- 	va_end(va);
+ 	va_end(args);
  }
  
-@@ -223,14 +228,20 @@ static void
- tei_debug(struct FsmInst *fi, char *fmt, ...)
+ void b43legacywarn(struct b43legacy_wl *wl, const char *fmt, ...)
  {
- 	struct teimgr	*tm = fi->userdata;
 +	struct va_format vaf;
- 	va_list va;
+ 	va_list args;
  
- 	if (!(*debug & DEBUG_L2_TEIFSM))
+ 	if (!b43legacy_ratelimit(wl))
  		return;
 +
- 	va_start(va, fmt);
--	printk(KERN_DEBUG "sapi(%d) tei(%d): ", tm->l2->sapi, tm->l2->tei);
--	vprintk(fmt, va);
--	printk("\n");
+ 	va_start(args, fmt);
+-	printk(KERN_WARNING "b43legacy-%s warning: ",
+-	       (wl && wl->hw) ? wiphy_name(wl->hw->wiphy) : "wlan");
+-	vprintk(fmt, args);
 +
 +	vaf.fmt = fmt;
-+	vaf.va = &va;
++	vaf.va = &args;
 +
-+	printk(KERN_DEBUG "sapi(%d) tei(%d): %pV\n",
-+	       tm->l2->sapi, tm->l2->tei, &vaf);
++	printk(KERN_WARNING "b43legacy-%s warning: %pV",
++	       (wl && wl->hw) ? wiphy_name(wl->hw->wiphy) : "wlan", &vaf);
 +
- 	va_end(va);
+ 	va_end(args);
  }
  
+ #if B43legacy_DEBUG
+ void b43legacydbg(struct b43legacy_wl *wl, const char *fmt, ...)
+ {
++	struct va_format vaf;
+ 	va_list args;
+ 
+ 	va_start(args, fmt);
+-	printk(KERN_DEBUG "b43legacy-%s debug: ",
+-	       (wl && wl->hw) ? wiphy_name(wl->hw->wiphy) : "wlan");
+-	vprintk(fmt, args);
++
++	vaf.fmt = fmt;
++	vaf.va = &args;
++
++	printk(KERN_DEBUG "b43legacy-%s debug: %pV",
++	       (wl && wl->hw) ? wiphy_name(wl->hw->wiphy) : "wlan", &vaf);
++
+ 	va_end(args);
+ }
+ #endif /* DEBUG */
 -- 
 1.7.3.1.g432b3.dirty
+
