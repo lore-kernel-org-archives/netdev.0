@@ -1,98 +1,122 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH net-2.6 1/3] vlan: Add function to retrieve EtherType from
- vlan packets.
-Date: Tue, 9 Nov 2010 23:18:26 -0800
-Message-ID: <AANLkTinpdqhqRwNQ8mqsYcr5QM6y-OJwXOZPz7tg-R93@mail.gmail.com>
-References: <1289351344-14340-1-git-send-email-jesse@nicira.com>
-	<20101109215412.38412cff@nehalam>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] Prevent reading uninitialized memory with socket
+ filters
+Date: Wed, 10 Nov 2010 08:22:51 +0100
+Message-ID: <1289373771.2700.110.camel@edumazet-laptop>
+References: <1289341724.7380.13.camel@dan>
+	 <20101109.212838.193698340.davem@davemloft.net>
+	 <1289368423.2700.17.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Hao Zheng <hzheng@nicira.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: drosenberg@vsecurity.com, netdev@vger.kernel.org,
+	stable@kernel.org, security@kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:38755 "EHLO
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:53352 "EHLO
 	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752901Ab0KJHS2 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Nov 2010 02:18:28 -0500
-Received: by wyb36 with SMTP id 36so339731wyb.19
-        for <netdev@vger.kernel.org>; Tue, 09 Nov 2010 23:18:27 -0800 (PST)
-In-Reply-To: <20101109215412.38412cff@nehalam>
+	with ESMTP id S1752224Ab0KJHW5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Nov 2010 02:22:57 -0500
+Received: by wyb36 with SMTP id 36so342577wyb.19
+        for <netdev@vger.kernel.org>; Tue, 09 Nov 2010 23:22:56 -0800 (PST)
+In-Reply-To: <1289368423.2700.17.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 9, 2010 at 9:54 PM, Stephen Hemminger <shemminger@vyatta.co=
-m> wrote:
-> On Tue, =A09 Nov 2010 17:09:02 -0800
-> Jesse Gross <jesse@nicira.com> wrote:
->
->> From: Hao Zheng <hzheng@nicira.com>
->>
->> Depending on how a packet is vlan tagged (i.e. hardware accelerated =
-or
->> not), the encapsulated protocol is stored in different locations. =A0=
-This
->> provides a consistent method of accessing that protocol, which is ne=
-eded
->> by drivers, security checks, etc.
->>
->> Signed-off-by: Hao Zheng <hzheng@nicira.com>
->> Signed-off-by: Jesse Gross <jesse@nicira.com>
->> ---
->> =A0include/linux/if_vlan.h | =A0 20 ++++++++++++++++++++
->> =A01 files changed, 20 insertions(+), 0 deletions(-)
->>
->> diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
->> index c2f3a72..ee06c52 100644
->> --- a/include/linux/if_vlan.h
->> +++ b/include/linux/if_vlan.h
->> @@ -339,6 +339,26 @@ static inline int vlan_get_tag(const struct sk_=
-buff *skb, u16 *vlan_tci)
->> =A0 =A0 =A0 }
->> =A0}
->>
->> +/**
->> + * vlan_get_protocol - get protocol EtherType.
->> + * @skb: skbuff to query
->> + *
->> + * Returns the EtherType of the packet, regardless of whether it is
->> + * vlan encapsulated (normal or hardware accelerated) or not.
->> + */
->> +static inline __be16 vlan_get_protocol(struct sk_buff *skb)
->> +{
->> + =A0 =A0 __be16 protocol =3D 0;
->> +
->> + =A0 =A0 if (vlan_tx_tag_present(skb) ||
->> + =A0 =A0 =A0 =A0 =A0skb->protocol !=3D cpu_to_be16(ETH_P_8021Q))
->> + =A0 =A0 =A0 =A0 =A0 =A0 protocol =3D skb->protocol;
->> + =A0 =A0 else if (likely(pskb_may_pull(skb, VLAN_ETH_HLEN)))
->> + =A0 =A0 =A0 =A0 =A0 =A0 protocol =3D ((const struct vlan_ethhdr *)=
-skb->data)->
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0h_vlan_encapsulated=
-_proto;
->> +
->> + =A0 =A0 return protocol;
->> +}
->
-> This this calls pskb_may_pull, which modifies the skb data
-> offsets and therefore could invalidate any callers pointers
-> to ip header or other fields.
-> Therefore you will need to audit all callers of this function!
+Le mercredi 10 novembre 2010 =C3=A0 06:53 +0100, Eric Dumazet a =C3=A9c=
+rit :
+> Le mardi 09 novembre 2010 =C3=A0 21:28 -0800, David Miller a =C3=A9cr=
+it :
+> > From: Dan Rosenberg <drosenberg@vsecurity.com>
+> > Date: Tue, 09 Nov 2010 17:28:44 -0500
+> >=20
+> > > The "mem" array used as scratch space for socket filters is not
+> > > initialized, allowing unprivileged users to leak kernel stack byt=
+es.
+> > >=20
+> > > Signed-off-by: Dan Rosenberg <drosenberg@vsecurity.com>
+> >=20
+> > Prove it.
+>=20
+> And once done, add the checks in sk_chk_filter() ?
+>=20
+> Allow a load of mem[X] only if a prior store of mem[X] is proven.
+>=20
+>=20
 
-That's a good point.  I switched it to use skb_header_pointer()
-instead, which is probably more efficient anyways and avoids the
-potential for a problem.
+This seems complex, and might fail on some valid filters.
 
->
-> Also, your code doesn't handle the case of too small a frame (VLAN he=
-ader only).
+What about the following patch then ?
 
-The goal is to get equivalence to checking skb->protocol, except to
-handle vlan accelerated vs non-accelerated consistently.  In this
-case, the caller would need to check the length of the protocol header
-as appropriate.  If the packet claims to be a vlan frame and the
-length is less than the size of a vlan header then we'll return 0,
-which should be sufficient to avoid any protocol processing.
+[PATCH] filter: make sure filters dont read uninitialized memory
 
-Thanks.
+There is a possibility malicious users can get limited information abou=
+t
+uninitialized stack mem array. Even if sk_run_filter() result is bound
+to packet length (0 .. 65535), we could imagine this can be used by
+hostile user.
+
+Initializing mem[] array, like Dan Rosenberg suggested in his patch is
+expensive since most filters dont even use this array.
+
+Its hard to make the filter validation in sk_chk_filter(), because of
+the jumps. This might be done later.
+
+In this patch, I use a bitmap (a single long var) so that only filters
+using mem[] loads/stores pay the price of added security checks.
+
+=46or other filters, additional cost is a single instruction.
+
+Reported-by: Dan Rosenberg <drosenberg@vsecurity.com>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/core/filter.c |   10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 7beaec3..4d84dc2 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -117,10 +117,12 @@ unsigned int sk_run_filter(struct sk_buff *skb, s=
+truct sock_filter *filter, int
+ 	u32 A =3D 0;			/* Accumulator */
+ 	u32 X =3D 0;			/* Index Register */
+ 	u32 mem[BPF_MEMWORDS];		/* Scratch Memory Store */
++	unsigned long memvalid =3D 0;
+ 	u32 tmp;
+ 	int k;
+ 	int pc;
+=20
++	BUILD_BUG_ON(BPF_MEMWORDS > BITS_PER_LONG);
+ 	/*
+ 	 * Process array of filter instructions.
+ 	 */
+@@ -264,10 +266,12 @@ load_b:
+ 			X =3D fentry->k;
+ 			continue;
+ 		case BPF_S_LD_MEM:
+-			A =3D mem[fentry->k];
++			A =3D (memvalid & (1UL << fentry->k)) ?
++				mem[fentry->k] : 0;
+ 			continue;
+ 		case BPF_S_LDX_MEM:
+-			X =3D mem[fentry->k];
++			X =3D (memvalid & (1UL << fentry->k)) ?
++				mem[fentry->k] : 0;
+ 			continue;
+ 		case BPF_S_MISC_TAX:
+ 			X =3D A;
+@@ -280,9 +284,11 @@ load_b:
+ 		case BPF_S_RET_A:
+ 			return A;
+ 		case BPF_S_ST:
++			memvalid |=3D 1UL << fentry->k;
+ 			mem[fentry->k] =3D A;
+ 			continue;
+ 		case BPF_S_STX:
++			memvalid |=3D 1UL << fentry->k;
+ 			mem[fentry->k] =3D X;
+ 			continue;
+ 		default:
+
+
