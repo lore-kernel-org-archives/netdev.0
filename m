@@ -1,106 +1,66 @@
-From: Jesper Dangaard Brouer <jdb@comx.dk>
-Subject: Re: Loopback performance from kernel 2.6.12 to 2.6.37
-Date: Wed, 10 Nov 2010 12:24:16 +0100
-Message-ID: <1289388256.15004.66.camel@firesoul.comx.local>
-References: <1288954189.28003.178.camel@firesoul.comx.local>
-	 <1288988955.2665.297.camel@edumazet-laptop>
-	 <1289213926.15004.19.camel@firesoul.comx.local>
-	 <1289214289.2820.188.camel@edumazet-laptop>
-	 <1289228785.2820.203.camel@edumazet-laptop>
-	 <1289311159.17448.9.camel@traveldev.cxnet.dk>
-	 <1289312178.17448.20.camel@traveldev.cxnet.dk>
-	 <1289313516.17448.28.camel@traveldev.cxnet.dk>
+From: walter harms <wharms@bfs.de>
+Subject: Re: [PATCH 3/3] net: tipc: fix information leak to userland
+Date: Wed, 10 Nov 2010 12:58:54 +0100
+Message-ID: <4CDA88FE.8040801@bfs.de>
+References: <1288545032-16481-1-git-send-email-segooon@gmail.com> <20101109.092630.260076036.davem@davemloft.net> <20101109203317.GA24933@albatros>
+Reply-To: wharms@bfs.de
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, acme@redhat.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lanfw001a.cxnet.dk ([87.72.215.196]:55101 "EHLO
-	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752402Ab0KJLYR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Nov 2010 06:24:17 -0500
-In-Reply-To: <1289313516.17448.28.camel@traveldev.cxnet.dk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>,
+	kernel-janitors@vger.kernel.org, jon.maloy@ericsson.com,
+	allan.stephens@windriver.com,
+	tipc-discussion@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Vasiliy Kulikov <segooon@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20101109203317.GA24933@albatros>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2010-11-09 at 15:38 +0100, Jesper Dangaard Brouer wrote:
-> On Tue, 2010-11-09 at 15:16 +0100, Jesper Dangaard Brouer wrote:
-> > On Tue, 2010-11-09 at 14:59 +0100, Jesper Dangaard Brouer wrote:
-> > > On Mon, 2010-11-08 at 16:06 +0100, Eric Dumazet wrote:
-> > > ...
-> > 
-> > To fix this I added "-q 0" to netcat.  Thus my working commands are:
-> > 
-> >  netcat -l -p 9999 >/dev/null &
-> >  time dd if=/dev/zero bs=1M count=10000 | netcat -q0 127.0.0.1 9999
-> > 
-> > Running this on my "big" 10G testlab system, Dual Xeon 5550 2.67GHz,
-> > kernel version 2.6.32-5-amd64 (which I usually don't use)
-> > The results are 7.487 sec
+
+
+Am 09.11.2010 21:33, schrieb Vasiliy Kulikov:
+> On Tue, Nov 09, 2010 at 09:26 -0800, David Miller wrote:
+>> From: Vasiliy Kulikov <segooon@gmail.com>
+>> Date: Sun, 31 Oct 2010 20:10:32 +0300
+>>
+>>> Structure sockaddr_tipc is copied to userland with padding bytes after
+>>> "id" field in union field "name" unitialized.  It leads to leaking of
+>>> contents of kernel stack memory.  We have to initialize them to zero.
+>>>
+>>> Signed-off-by: Vasiliy Kulikov <segooon@gmail.com>
+>>
+>> Applied.
+>>
+>> Patches #1 and #2 were given feedback which I need you to integrate
+>> and submit new patches based upon, thanks.
 > 
-> Using kernel 2.6.35.8-comx01+ (which is 35-stable with some minor
-> patches of my own) on the same type of hardware (our preprod server).
-> The result is 12 sec.
+> About #2:
 > 
-> time dd if=/dev/zero bs=1M count=10000 | netcat -q0 127.0.0.1 9999
-> 10000+0 records in
-> 10000+0 records out
-> 10485760000 bytes (10 GB) copied, 12,0805 s, 868 MB/s
+> I still think that this:
 > 
-> real    0m12.082s
-> user    0m0.311s
-> sys     0m15.896s
+>     if (dev)
+>         strncpy(uaddr->sa_data, dev->name, 14);
+>     else
+>         memset(uaddr->sa_data, 0, 14);
+> 
+> is better than this:
+> 
+>     memset(uaddr->sa_data, 0, 14);
+>     dev = dev_get_by_index_rcu(sock_net(sk), pkt_sk(sk)->ifindex);
+>     if (dev)
+>         strlcpy(uaddr->sa_data, dev->name, 15);
+> 
+> Doesn't it?  Explicitly filling with zero on the same "if" level is
+> slightly easier to read and understand.
+> 
 
-On the same system I can better performance IF I pin the processes on
-different CPUs. BUT the trick here is I choose CPUs with different "core
-id", thus I avoid the HT CPUs in the system (hint look in /proc/cpuinfo
-for choosing the CPUs).
+no problem with me, since i came up with the idea a simple explanation:
+IMHO the pattern clear/if/copy is more robust
 
-Commands:
- taskset 16 netcat -lv -p 9999 >/dev/null &
- time taskset 1 dd if=/dev/zero bs=1M count=10000 | taskset 4 netcat -q0 127.0.0.1 9999
-
-Result:
- 10485760000 bytes (10 GB) copied, 8,74021 s, 1,2 GB/s
- real    0m8.742s
- user    0m0.208s
- sys     0m11.426s
-
-So, perhaps the Core i7 has a problem with the HT CPUs with this
-workload?
-
-Forcing dd and netcat on the same HT CPU gives a result of approx 18
-sec!
-
-Commands:
- taskset 16 netcat -lv -p 9999 >/dev/null
- time taskset 1 dd if=/dev/zero bs=1M count=10000 | taskset 2 netcat -q0 127.0.0.1 9999
-
-Result:
- 10485760000 bytes (10 GB) copied, 18,6575 s, 562 MB/s
- real    0m18.659s
- user    0m0.341s
- sys     0m18.969s
+NTL the core problem was that sizeof sa_data is 14 while dev->name is IFNAMESZ=15.
 
 
-> BUT perf top reveals that its probably related to the function
-> 'find_busiest_group' ... any kernel config hints how I get rid of that?
-
-The 'find_busiest_group' seems to be an artifact of "perf top", if I use
-"perf record" then the 'find_busiest_group' function disappears.  Which
-is kind of strange, as 'find_busiest_group' seem the be related to
-sched_fair.c.
-
-perf --version
-perf version 2.6.35.7.1.g60d9c
-
--- 
-Med venlig hilsen / Best regards
-  Jesper Brouer
-  ComX Networks A/S
-  Linux Network Kernel Developer
-  Cand. Scient Datalog / MSc.CS
-  Author of http://adsl-optimizer.dk
-  LinkedIn: http://www.linkedin.com/in/brouer
-
+re,
+ wh
