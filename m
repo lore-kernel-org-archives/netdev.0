@@ -1,62 +1,57 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: Re: [e1000e] BUG triggered when triggering LED blinking
-Date: Wed, 10 Nov 2010 10:32:52 -0800 (Pacific Standard Time)
-Message-ID: <alpine.WNT.2.00.1011101030130.14720@jbrandeb-desk1.amr.corp.intel.com>
-References: <20101109083954.GB11829@mail.eitzenberger.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] Prevent reading uninitialized memory with socketfilters
+Date: Wed, 10 Nov 2010 19:33:44 +0100
+Message-ID: <1289414024.2469.20.camel@edumazet-laptop>
+References: <1695276347-1289413089-cardhu_decombobulator_blackberry.rim.net-434693855-@bda083.bisx.prod.on.blackberry>
+	 <20101110.102129.112602843.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Holger Eitzenberger <holger@eitzenberger.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: drosenberg@vsecurity.com, netdev@vger.kernel.org,
+	stable@kernel.org, security@kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:23981 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755351Ab0KJScx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Nov 2010 13:32:53 -0500
-In-Reply-To: <20101109083954.GB11829@mail.eitzenberger.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:63089 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752441Ab0KJSdu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Nov 2010 13:33:50 -0500
+Received: by wyb36 with SMTP id 36so988141wyb.19
+        for <netdev@vger.kernel.org>; Wed, 10 Nov 2010 10:33:49 -0800 (PST)
+In-Reply-To: <20101110.102129.112602843.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Le mercredi 10 novembre 2010 =C3=A0 10:21 -0800, David Miller a =C3=A9c=
+rit :
+> From: "Dan Rosenberg" <drosenberg@vsecurity.com>
+> Date: Wed, 10 Nov 2010 18:18:08 +0000
+>=20
+> > The code sample I linked to clearly demonstrates exactly how to
+> > accomplish this, if you had bothered to read it.
+>=20
+> I told you why I didn't read it, if you had bothered to read my
+> reply properly :-)
+>=20
+> Anyways, I realize we have to do something, but memset() is going
+> to completely kill performance.  I consider Eric's suggestion the
+> closest to acceptable cost at this point but even that is hard
+> to digest for me.
 
 
-On Tue, 9 Nov 2010, Holger Eitzenberger wrote:
+Most filters dont use mem[] at all, so the added cost seems OK to me,
+but we can work to use a compile time check, to make memset(mem, 0,
+length) a filter parameter if you prefer removing the test on each
+load(mem[K]).
 
-> Hi,
-> 
-> using e1000e driver version 1.2.10 and kernel version 2.6.32.24 I see
-> the kernel go BUG() sporadically at the time 'ethtool -p eth0 3' comes
-> back.
-> 
-> Network hardware is four times 'Intel Corporation 82583V Gigabit Network
-> Connection' (0x8086:0x150c) on Atom N450.
-> 
-> kernel BUG at kernel/workqueue.c:287!
+This memset() could be avoided if the compiler() can be sure all
+load(mem[K]) follow a prior store(mem[K])
 
-<snip>
+Its not a five minutes patch, I tried to work on it but it was a bit
+hard, for a very remote security risk.
 
-> 
-> The full trace is attached, it may become clearer from that.
-> 
-> After taking a look I think this may be caused by initializing
-> adapter->led_blink_task several times in e1000_phys_id(), while possibly
-> led_blink_task is running:
-> 
-> 	if ((hw->phy.type == e1000_phy_ife) ||
-> 	    (hw->mac.type == e1000_pchlan) ||
-> 	    (hw->mac.type == e1000_82574)) {
-> 		INIT_WORK(&adapter->led_blink_task, e1000e_led_blink_task);
-> 		if (!adapter->blink_timer.function) {
-> 
-> I can't reproduce it after moving it inside the following if block,
-> but I'm not quite sure if this catches all races in there.  Especially
-> the msleep_interruptible() may be too optimistic because it may
-> actually not wait long enough.  Someone with more knowledge of the
-> driver should take a look.
+(On x86 platform, incoming packets are handled in SOFTIRQ stack, not th=
+e
+kernel stack of current thread anyway)
 
-thanks for your investigation and troubleshooting.  I don't think it is 
-correct at all to be calling INIT_WORK more than once.  In fact the 
-INIT_WORK should just be moved into probe, and then e1000_phys_id should 
-just do schedule_work.
 
 
