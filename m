@@ -1,41 +1,275 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH] Prevent reading uninitialized memory with socketfilters
-Date: Wed, 10 Nov 2010 10:38:07 -0800 (PST)
-Message-ID: <20101110.103807.39173013.davem@davemloft.net>
-References: <1695276347-1289413089-cardhu_decombobulator_blackberry.rim.net-434693855-@bda083.bisx.prod.on.blackberry>
-	<20101110.102129.112602843.davem@davemloft.net>
-	<1289414024.2469.20.camel@edumazet-laptop>
+Date: Wed, 10 Nov 2010 10:39:23 -0800 (PST)
+Message-ID: <20101110.103923.59670339.davem@davemloft.net>
+References: <1289368423.2700.17.camel@edumazet-laptop>
+	<1289373771.2700.110.camel@edumazet-laptop>
+	<201011102325.JAF82308.OSVLFHtFJMQFOO@I-love.SAKURA.ne.jp>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: drosenberg@vsecurity.com, netdev@vger.kernel.org,
-	stable@kernel.org, security@kernel.org
-To: eric.dumazet@gmail.com
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: penguin-kernel@I-love.SAKURA.ne.jp
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59585
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59591
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755143Ab0KJShn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Nov 2010 13:37:43 -0500
-In-Reply-To: <1289414024.2469.20.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1753451Ab0KJSi6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Nov 2010 13:38:58 -0500
+In-Reply-To: <201011102325.JAF82308.OSVLFHtFJMQFOO@I-love.SAKURA.ne.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 10 Nov 2010 19:33:44 +0100
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Date: Wed, 10 Nov 2010 23:25:08 +0900
 
-> Most filters dont use mem[] at all, so the added cost seems OK to me,
-> but we can work to use a compile time check, to make memset(mem, 0,
-> length) a filter parameter if you prefer removing the test on each
-> load(mem[K]).
+> Just I thought...
 > 
-> This memset() could be avoided if the compiler() can be sure all
-> load(mem[K]) follow a prior store(mem[K])
-> 
-> Its not a five minutes patch, I tried to work on it but it was a bit
-> hard, for a very remote security risk.
-> 
-> (On x86 platform, incoming packets are handled in SOFTIRQ stack, not the
-> kernel stack of current thread anyway)
+>> unsigned int sk_run_filter(struct sk_buff *skb, struct sock_filter *filter, int flen)
+>> {
+>> 	struct sock_filter *fentry;     /* We walk down these */
+> Can't this be "const struct sock_filter *"?
+>> (...snipped...)
+>> 	for (pc = 0; pc < flen; pc++) {
+>> 		fentry = &filter[pc];
+> Can't we do
+> 		u32 f_k = fentry->k;
+> and replace 27 repetition of fentry->k with f_k?
 
-Understood, I'm going to apply your patch for now with the
-"const filter pointer" and "u32 f_k = fentry->k;" changes.
+Ok, here is what I'm adding to net-2.6 (and will submit to -stable),
+if anyone can spot any silly errors let me know now.
+
+Thanks!
+
+--------------------
+filter: make sure filters dont read uninitialized memory
+
+There is a possibility malicious users can get limited information about
+uninitialized stack mem array. Even if sk_run_filter() result is bound
+to packet length (0 .. 65535), we could imagine this can be used by
+hostile user.
+
+Initializing mem[] array, like Dan Rosenberg suggested in his patch is
+expensive since most filters dont even use this array.
+
+Its hard to make the filter validation in sk_chk_filter(), because of
+the jumps. This might be done later.
+
+In this patch, I use a bitmap (a single long var) so that only filters
+using mem[] loads/stores pay the price of added security checks.
+
+For other filters, additional cost is a single instruction.
+
+[ Since we access fentry->k a lot now, cache it in a local variable
+  and mark filter entry pointer as const. -DaveM ]
+
+Reported-by: Dan Rosenberg <drosenberg@vsecurity.com>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/core/filter.c |   64 +++++++++++++++++++++++++++++------------------------
+ 1 files changed, 35 insertions(+), 29 deletions(-)
+
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 7beaec3..23e9b2a 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -112,39 +112,41 @@ EXPORT_SYMBOL(sk_filter);
+  */
+ unsigned int sk_run_filter(struct sk_buff *skb, struct sock_filter *filter, int flen)
+ {
+-	struct sock_filter *fentry;	/* We walk down these */
+ 	void *ptr;
+ 	u32 A = 0;			/* Accumulator */
+ 	u32 X = 0;			/* Index Register */
+ 	u32 mem[BPF_MEMWORDS];		/* Scratch Memory Store */
++	unsigned long memvalid = 0;
+ 	u32 tmp;
+ 	int k;
+ 	int pc;
+ 
++	BUILD_BUG_ON(BPF_MEMWORDS > BITS_PER_LONG);
+ 	/*
+ 	 * Process array of filter instructions.
+ 	 */
+ 	for (pc = 0; pc < flen; pc++) {
+-		fentry = &filter[pc];
++		const struct sock_filter *fentry = &filter[pc];
++		u32 f_k = fentry->k;
+ 
+ 		switch (fentry->code) {
+ 		case BPF_S_ALU_ADD_X:
+ 			A += X;
+ 			continue;
+ 		case BPF_S_ALU_ADD_K:
+-			A += fentry->k;
++			A += f_k;
+ 			continue;
+ 		case BPF_S_ALU_SUB_X:
+ 			A -= X;
+ 			continue;
+ 		case BPF_S_ALU_SUB_K:
+-			A -= fentry->k;
++			A -= f_k;
+ 			continue;
+ 		case BPF_S_ALU_MUL_X:
+ 			A *= X;
+ 			continue;
+ 		case BPF_S_ALU_MUL_K:
+-			A *= fentry->k;
++			A *= f_k;
+ 			continue;
+ 		case BPF_S_ALU_DIV_X:
+ 			if (X == 0)
+@@ -152,49 +154,49 @@ unsigned int sk_run_filter(struct sk_buff *skb, struct sock_filter *filter, int
+ 			A /= X;
+ 			continue;
+ 		case BPF_S_ALU_DIV_K:
+-			A /= fentry->k;
++			A /= f_k;
+ 			continue;
+ 		case BPF_S_ALU_AND_X:
+ 			A &= X;
+ 			continue;
+ 		case BPF_S_ALU_AND_K:
+-			A &= fentry->k;
++			A &= f_k;
+ 			continue;
+ 		case BPF_S_ALU_OR_X:
+ 			A |= X;
+ 			continue;
+ 		case BPF_S_ALU_OR_K:
+-			A |= fentry->k;
++			A |= f_k;
+ 			continue;
+ 		case BPF_S_ALU_LSH_X:
+ 			A <<= X;
+ 			continue;
+ 		case BPF_S_ALU_LSH_K:
+-			A <<= fentry->k;
++			A <<= f_k;
+ 			continue;
+ 		case BPF_S_ALU_RSH_X:
+ 			A >>= X;
+ 			continue;
+ 		case BPF_S_ALU_RSH_K:
+-			A >>= fentry->k;
++			A >>= f_k;
+ 			continue;
+ 		case BPF_S_ALU_NEG:
+ 			A = -A;
+ 			continue;
+ 		case BPF_S_JMP_JA:
+-			pc += fentry->k;
++			pc += f_k;
+ 			continue;
+ 		case BPF_S_JMP_JGT_K:
+-			pc += (A > fentry->k) ? fentry->jt : fentry->jf;
++			pc += (A > f_k) ? fentry->jt : fentry->jf;
+ 			continue;
+ 		case BPF_S_JMP_JGE_K:
+-			pc += (A >= fentry->k) ? fentry->jt : fentry->jf;
++			pc += (A >= f_k) ? fentry->jt : fentry->jf;
+ 			continue;
+ 		case BPF_S_JMP_JEQ_K:
+-			pc += (A == fentry->k) ? fentry->jt : fentry->jf;
++			pc += (A == f_k) ? fentry->jt : fentry->jf;
+ 			continue;
+ 		case BPF_S_JMP_JSET_K:
+-			pc += (A & fentry->k) ? fentry->jt : fentry->jf;
++			pc += (A & f_k) ? fentry->jt : fentry->jf;
+ 			continue;
+ 		case BPF_S_JMP_JGT_X:
+ 			pc += (A > X) ? fentry->jt : fentry->jf;
+@@ -209,7 +211,7 @@ unsigned int sk_run_filter(struct sk_buff *skb, struct sock_filter *filter, int
+ 			pc += (A & X) ? fentry->jt : fentry->jf;
+ 			continue;
+ 		case BPF_S_LD_W_ABS:
+-			k = fentry->k;
++			k = f_k;
+ load_w:
+ 			ptr = load_pointer(skb, k, 4, &tmp);
+ 			if (ptr != NULL) {
+@@ -218,7 +220,7 @@ load_w:
+ 			}
+ 			break;
+ 		case BPF_S_LD_H_ABS:
+-			k = fentry->k;
++			k = f_k;
+ load_h:
+ 			ptr = load_pointer(skb, k, 2, &tmp);
+ 			if (ptr != NULL) {
+@@ -227,7 +229,7 @@ load_h:
+ 			}
+ 			break;
+ 		case BPF_S_LD_B_ABS:
+-			k = fentry->k;
++			k = f_k;
+ load_b:
+ 			ptr = load_pointer(skb, k, 1, &tmp);
+ 			if (ptr != NULL) {
+@@ -242,32 +244,34 @@ load_b:
+ 			X = skb->len;
+ 			continue;
+ 		case BPF_S_LD_W_IND:
+-			k = X + fentry->k;
++			k = X + f_k;
+ 			goto load_w;
+ 		case BPF_S_LD_H_IND:
+-			k = X + fentry->k;
++			k = X + f_k;
+ 			goto load_h;
+ 		case BPF_S_LD_B_IND:
+-			k = X + fentry->k;
++			k = X + f_k;
+ 			goto load_b;
+ 		case BPF_S_LDX_B_MSH:
+-			ptr = load_pointer(skb, fentry->k, 1, &tmp);
++			ptr = load_pointer(skb, f_k, 1, &tmp);
+ 			if (ptr != NULL) {
+ 				X = (*(u8 *)ptr & 0xf) << 2;
+ 				continue;
+ 			}
+ 			return 0;
+ 		case BPF_S_LD_IMM:
+-			A = fentry->k;
++			A = f_k;
+ 			continue;
+ 		case BPF_S_LDX_IMM:
+-			X = fentry->k;
++			X = f_k;
+ 			continue;
+ 		case BPF_S_LD_MEM:
+-			A = mem[fentry->k];
++			A = (memvalid & (1UL << f_k)) ?
++				mem[f_k] : 0;
+ 			continue;
+ 		case BPF_S_LDX_MEM:
+-			X = mem[fentry->k];
++			X = (memvalid & (1UL << f_k)) ?
++				mem[f_k] : 0;
+ 			continue;
+ 		case BPF_S_MISC_TAX:
+ 			X = A;
+@@ -276,14 +280,16 @@ load_b:
+ 			A = X;
+ 			continue;
+ 		case BPF_S_RET_K:
+-			return fentry->k;
++			return f_k;
+ 		case BPF_S_RET_A:
+ 			return A;
+ 		case BPF_S_ST:
+-			mem[fentry->k] = A;
++			memvalid |= 1UL << f_k;
++			mem[f_k] = A;
+ 			continue;
+ 		case BPF_S_STX:
+-			mem[fentry->k] = X;
++			memvalid |= 1UL << f_k;
++			mem[f_k] = X;
+ 			continue;
+ 		default:
+ 			WARN_ON(1);
+-- 
+1.7.3.2
+
