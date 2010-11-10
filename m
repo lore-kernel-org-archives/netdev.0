@@ -1,86 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] macvlan: lockless tx path
-Date: Wed, 10 Nov 2010 21:33:07 +0100
-Message-ID: <1289421187.2469.127.camel@edumazet-laptop>
-References: <1289403709.2860.216.camel@edumazet-laptop>
-	 <4CDAD8C8.20807@candelatech.com>
-	 <1289411027.2860.248.camel@edumazet-laptop>
-	 <4CDADC17.6070506@candelatech.com>
-	 <1289413120.2469.12.camel@edumazet-laptop>
-	 <4CDAE713.7020309@candelatech.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: possible kernel oops from user MSS
+Date: Wed, 10 Nov 2010 12:41:19 -0800 (PST)
+Message-ID: <20101110.124119.102563803.davem@davemloft.net>
+References: <AANLkTimMDMb74-3E9vhFxZ5Dgeuk3HMzPZVjwCj+yFEJ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	netdev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: schen@mvista.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:63433 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755379Ab0KJUdM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Nov 2010 15:33:12 -0500
-Received: by wyb36 with SMTP id 36so1100152wyb.19
-        for <netdev@vger.kernel.org>; Wed, 10 Nov 2010 12:33:11 -0800 (PST)
-In-Reply-To: <4CDAE713.7020309@candelatech.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41121
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753603Ab0KJUkz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Nov 2010 15:40:55 -0500
+In-Reply-To: <AANLkTimMDMb74-3E9vhFxZ5Dgeuk3HMzPZVjwCj+yFEJ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 10 novembre 2010 =C3=A0 10:40 -0800, Ben Greear a =C3=A9cri=
-t :
+From: Steve Chen <schen@mvista.com>
+Date: Wed, 10 Nov 2010 07:24:51 -0600
 
-> In my opinion, the kernel and/or driver should deal with this such th=
-at
-> at worst the user has to deal with 32 v/s 64 bits based on whether th=
-e
-> kernel is compiled for 32 or 64 bit CPUs.  (Let the driver sample at
-> intervals needed to never wrap it's counters more than once and updat=
-e
-> software stats of well-defined bit-width, and present those software
-> counters to users.
->=20
+> With commit f5fff5dc8a7a3f395b0525c02ba92c95d42b7390, a user program
+> can pass in TCP_MAXSEG of 12 (or TCPOLEN_TSTAMP_ALIGNED), and cause
+> kernel oops with division by 0
+>  in tcp_select_initial_window.  One way to prevent it is to change the
+> minimum value for TCP_MAXSEG in do_tcp_setsockopt from 8 to some value
+> over 12.  Two questions.
+> 
+> 1.  Is this the right solution?
+> 2.  If it is, what is a good minimum value?
 
-How so ? Are you willing to provide patches for all network drivers ?
+Thanks Steve, I'll fix this like so:
 
-> In practice, this seems to be the case, at least for the NICs I've us=
-ed
-> (mostly Intel).  But, please don't propagate the idea that any width =
-of
-> counters is OK to present to user-space:  It is completely unfair to
-> make app writers have to know the network driver and/or hardware quir=
-ks to
-> know how often it must sample stats.
->=20
+--------------------
+tcp: Increase TCP_MAXSEG socket option minimum.
 
-I am sorry Ben, but /proc/net/dev doesnt publish each counter effective
-width. Its unfair, but its like that.
+As noted by Steve Chen, since commit
+f5fff5dc8a7a3f395b0525c02ba92c95d42b7390 ("tcp: advertise MSS
+requested by user") we can end up with a situation where
+tcp_select_initial_window() does a divide by a zero (or
+even negative) mss value.
 
-An appplication must be able to cope for wrap arounds, running on a 32
-or 64bit kernel. Our duty is to provide 64bit counters for high speed
-interfaces where possible.
-=46or a 10Mb adapter, there is no need, since a 32bit counter doesnt wr=
-ap
-in less than one hour (RFC1902 suggestion)
+The problem is that sometimes we subtract TCPOLEN_TSTAMP_ALIGNED
+from the mss.
 
-As I said, many drivers counters are not 32bit or 64bit. I did many
-driver get_stats() checks lately...
+Fix this by increasing the minimum from 8 to 8 plus the value
+of TCPOLEN_TSTATMP_ALIGNED.
 
-Why should we cap them to 32bit if they really are 36 or 40 bits ?=20
+Reported-by: Steve Chen <schen@mvista.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/ipv4/tcp.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-
-> Well, maybe using u32 would have positive benefits on 64-bit kernels =
-then?
->=20
-
-But we want to handle 40/100Gbps devices, and keep SNMP apps happy.
-
-We really need 64bit for them, and MACVLAN might be used on top of such
-devices.
-
-Or are you suggesting using u32 instead of "unsigned long" for
-rx_errors/tx_dropped ?
-
-This would indeed save 8 bytes per cpu per macvlan.
-
-
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 245603c..6b0eb4d 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2246,7 +2246,7 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
+ 		/* Values greater than interface MTU won't take effect. However
+ 		 * at the point when this call is done we typically don't yet
+ 		 * know which interface is going to be used */
+-		if (val < 8 || val > MAX_TCP_WINDOW) {
++		if (val < TCPOLEN_TSTAMP_ALIGNED + 8 || val > MAX_TCP_WINDOW) {
+ 			err = -EINVAL;
+ 			break;
+ 		}
+-- 
+1.7.3.2
 
