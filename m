@@ -1,45 +1,51 @@
-From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: [PATCH 0/9] treewide: convert vprintk uses to %pV
-Date: Wed, 10 Nov 2010 15:01:23 -0800
-Message-ID: <1289430083.15905.106.camel@Joe-Laptop>
-References: <cover.1289348757.git.joe@perches.com>
-	 <AANLkTinhcbdm8YQOrFVdONODo6K6PcxHYtx5vqnap_3T@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] macvlan: lockless tx path
+Date: Thu, 11 Nov 2010 00:24:10 +0100
+Message-ID: <1289431450.17691.116.camel@edumazet-laptop>
+References: <1289403709.2860.216.camel@edumazet-laptop>
+	 <4CDAD8C8.20807@candelatech.com>
+	 <1289411027.2860.248.camel@edumazet-laptop>
+	 <4CDADC17.6070506@candelatech.com>
+	 <1289413120.2469.12.camel@edumazet-laptop>
+	 <4CDAE713.7020309@candelatech.com>
+	 <1289421187.2469.127.camel@edumazet-laptop> <4CDB1021.507@candelatech.com>
+	 <1289427705.17691.52.camel@edumazet-laptop>
+	 <4CDB226A.8080903@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	cluster-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-nilfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-nilfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <AANLkTinhcbdm8YQOrFVdONODo6K6PcxHYtx5vqnap_3T-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-nilfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f42.google.com ([74.125.82.42]:43946 "EHLO
+	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757268Ab0KJXYP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Nov 2010 18:24:15 -0500
+Received: by wwi17 with SMTP id 17so906436wwi.1
+        for <netdev@vger.kernel.org>; Wed, 10 Nov 2010 15:24:14 -0800 (PST)
+In-Reply-To: <4CDB226A.8080903@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-11-10 at 14:48 -0800, Luis R. Rodriguez wrote:
-> When was this added upstream BTW? I ask for backport considerations.
+Le mercredi 10 novembre 2010 =C3=A0 14:53 -0800, Ben Greear a =C3=A9cri=
+t :
 
-commit 7db6f5fb65a82af03229eef104dc9899c5eecf33
-Author: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Date:   Sun Jun 27 01:02:33 2010 +0000
+> Then it's busted.  If it claims to return stats64, but instead is ret=
+urning
+> something different, it is wrong.  Netlink API still defines a stats3=
+2, so
+> the kernel should use that if it can't reliably deal with 64-bit coun=
+ters.
+>=20
 
-    vsprintf: Recursive vsnprintf: Add "%pV", struct va_format
-    
-    Add the ability to print a format and va_list from a structure pointer
-    
-    Allows __dev_printk to be implemented as a single printk while
-    minimizing string space duplication.
-    
-    %pV should not be used without some mechanism to verify the
-    format and argument use ala __attribute__(format (printf(...))).
-    
-    Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-    Acked-by: Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>
-    Signed-off-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+It claims nothing like that. You obviously assumed wrong things.
+
+It provides a framework, not a mandatory or exclusive one.
+
+Really this endless discussion is going nowhere.
+
+I suggest you send patches if you want, I am very pleased by current
+stats handling.
 
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-nilfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
