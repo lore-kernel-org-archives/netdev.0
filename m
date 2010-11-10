@@ -1,51 +1,39 @@
-From: Vasiliy Kulikov <segooon@gmail.com>
-Subject: [PATCH 2/3 RESEND] net: packet: fix information leak to userland
-Date: Wed, 10 Nov 2010 21:29:18 +0300
-Message-ID: <1289413760-12510-1-git-send-email-segooon@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jiri Pirko <jpirko@redhat.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: kernel-janitors@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Prevent reading uninitialized memory with socketfilters
+Date: Wed, 10 Nov 2010 10:32:34 -0800 (PST)
+Message-ID: <20101110.103234.183039029.davem@davemloft.net>
+References: <1289368423.2700.17.camel@edumazet-laptop>
+	<1289373771.2700.110.camel@edumazet-laptop>
+	<201011102325.JAF82308.OSVLFHtFJMQFOO@I-love.SAKURA.ne.jp>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: penguin-kernel@I-love.SAKURA.ne.jp
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54367
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754069Ab0KJScJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Nov 2010 13:32:09 -0500
+In-Reply-To: <201011102325.JAF82308.OSVLFHtFJMQFOO@I-love.SAKURA.ne.jp>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-packet_getname_spkt() doesn't initialize all members of sa_data field of
-sockaddr struct if strlen(dev->name) < 13.  This structure is then copied
-to userland.  It leads to leaking of contents of kernel stack memory.
-We have to fully fill sa_data with strncpy() instead of strlcpy().
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Date: Wed, 10 Nov 2010 23:25:08 +0900
 
-The same with packet_getname(): it doesn't initialize sll_pkttype field of
-sockaddr_ll.  Set it to zero.
+> Just I thought...
+> 
+>> unsigned int sk_run_filter(struct sk_buff *skb, struct sock_filter *filter, int flen)
+>> {
+>> 	struct sock_filter *fentry;     /* We walk down these */
+> Can't this be "const struct sock_filter *"?
+>> (...snipped...)
+>> 	for (pc = 0; pc < flen; pc++) {
+>> 		fentry = &filter[pc];
+> Can't we do
+> 		u32 f_k = fentry->k;
+> and replace 27 repetition of fentry->k with f_k?
 
-Signed-off-by: Vasiliy Kulikov <segooon@gmail.com>
----
- Compile tested.
-
- net/packet/af_packet.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
-
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 3616f27..0856a13 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -1719,7 +1719,7 @@ static int packet_getname_spkt(struct socket *sock, struct sockaddr *uaddr,
- 	rcu_read_lock();
- 	dev = dev_get_by_index_rcu(sock_net(sk), pkt_sk(sk)->ifindex);
- 	if (dev)
--		strlcpy(uaddr->sa_data, dev->name, 15);
-+		strncpy(uaddr->sa_data, dev->name, 14);
- 	else
- 		memset(uaddr->sa_data, 0, 14);
- 	rcu_read_unlock();
-@@ -1742,6 +1742,7 @@ static int packet_getname(struct socket *sock, struct sockaddr *uaddr,
- 	sll->sll_family = AF_PACKET;
- 	sll->sll_ifindex = po->ifindex;
- 	sll->sll_protocol = po->num;
-+	sll->sll_pkttype = 0;
- 	rcu_read_lock();
- 	dev = dev_get_by_index_rcu(sock_net(sk), po->ifindex);
- 	if (dev) {
--- 
-1.7.0.4
+Yes, this feedback seems reasonable, I'll make these changes when I
+apply Eric's patch, thanks!
