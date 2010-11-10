@@ -1,41 +1,32 @@
-From: Dan Rosenberg <drosenberg@vsecurity.com>
-Subject: Re: [PATCH] Prevent reading uninitialized memory with socket
- filters
-Date: Wed, 10 Nov 2010 08:19:26 -0500
-Message-ID: <1289395166.7380.69.camel@dan>
-References: <1289341724.7380.13.camel@dan>
-	 <20101109.212838.193698340.davem@davemloft.net>
-	 <1289387567.7380.63.camel@dan>
+From: Steve Chen <schen@mvista.com>
+Subject: possible kernel oops from user MSS
+Date: Wed, 10 Nov 2010 07:24:51 -0600
+Message-ID: <AANLkTimMDMb74-3E9vhFxZ5Dgeuk3HMzPZVjwCj+yFEJ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stable@kernel.org, security@kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.vsecurity.com ([209.67.252.12]:61128 "EHLO
-	mx1.vsecurity.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755691Ab0KJNT2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Nov 2010 08:19:28 -0500
-In-Reply-To: <1289387567.7380.63.camel@dan>
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:41191 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755892Ab0KJNY5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Nov 2010 08:24:57 -0500
+Received: by iwn10 with SMTP id 10so786459iwn.19
+        for <netdev@vger.kernel.org>; Wed, 10 Nov 2010 05:24:57 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For reasons I don't understand, this code seems to cause some people's
-machines to lock up:
+Hello
 
-BUG: soft lockup - CPU#0 stuck for 10s! [dz:11844]
+With commit f5fff5dc8a7a3f395b0525c02ba92c95d42b7390, a user program
+can pass in TCP_MAXSEG of 12 (or TCPOLEN_TSTAMP_ALIGNED), and cause
+kernel oops with division by 0
+ in tcp_select_initial_window.  One way to prevent it is to change the
+minimum value for TCP_MAXSEG in do_tcp_setsockopt from 8 to some value
+over 12.  Two questions.
 
-I haven't been able to reproduce this myself.  Very strange.  I'll send
-a stack trace if I can reproduce.
+1.  Is this the right solution?
+2.  If it is, what is a good minimum value?
 
--Dan
+Thanks,
 
-On Wed, 2010-11-10 at 06:12 -0500, Dan Rosenberg wrote:
-> > 
-> > Prove it.
-> 
-> I hope this was a joke.  In either case, my reply is a joke:
-> 
-> http://lists.grok.org.uk/pipermail/full-disclosure/2010-November/077321.html
-
-
+Steve
