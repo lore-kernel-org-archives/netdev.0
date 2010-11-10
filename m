@@ -1,46 +1,56 @@
 From: "Dan Rosenberg" <drosenberg@vsecurity.com>
 Subject: Re: [PATCH] Prevent reading uninitialized memory with socketfilters
-Date: Wed, 10 Nov 2010 18:25:57 +0000
-Message-ID: <504359883-1289413568-cardhu_decombobulator_blackberry.rim.net-525501751-@bda083.bisx.prod.on.blackberry>
+Date: Wed, 10 Nov 2010 18:18:08 +0000
+Message-ID: <1695276347-1289413089-cardhu_decombobulator_blackberry.rim.net-434693855-@bda083.bisx.prod.on.blackberry>
 Reply-To: drosenberg@vsecurity.com
 Mime-Version: 1.0
 Content-Type: text/plain
+Content-Transfer-Encoding: base64
 Cc: netdev@vger.kernel.org, stable@kernel.org, security@kernel.org
 To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp04.bis.na.blackberry.com ([216.9.248.51]:36955 "EHLO
-	smtp04.bis.na.blackberry.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752041Ab0KJS0L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Nov 2010 13:26:11 -0500
+Received: from smtp05.bis.na.blackberry.com ([216.9.248.52]:51221 "EHLO
+	smtp05.bis.na.blackberry.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755257Ab0KJS1z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Nov 2010 13:27:55 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Apologies for the terseness, I'm not looking for a fight.
-
-I agree the memset is too expensive, and that Eric's fix is far better.
-
--Dan
-
-------Original Message------
-From: David Miller
-To: drosenberg@vsecurity.com
-Cc: netdev@vger.kernel.org
-Cc: stable@kernel.org
-Cc: security@kernel.org
-Subject: Re: [PATCH] Prevent reading uninitialized memory with socketfilters
-Sent: Nov 10, 2010 1:21 PM
-
-From: "Dan Rosenberg" <drosenberg@vsecurity.com>
-Date: Wed, 10 Nov 2010 18:18:08 +0000
-
-> The code sample I linked to clearly demonstrates exactly how to
-> accomplish this, if you had bothered to read it.
-
-I told you why I didn't read it, if you had bothered to read my
-reply properly :-)
-
-Anyways, I realize we have to do something, but memset() is going
-to completely kill performance.  I consider Eric's suggestion the
-closest to acceptable cost at this point but even that is hard
-to digest for me.
+VGhlIGNvZGUgc2FtcGxlIEkgbGlua2VkIHRvIGNsZWFybHkgZGVtb25zdHJhdGVzIGV4YWN0bHkg
+aG93IHRvIGFjY29tcGxpc2ggdGhpcywgaWYgeW91IGhhZCBib3RoZXJlZCB0byByZWFkIGl0LiAg
+SSBpbnN0YWxsIGEgc29ja2V0IGZpbHRlciB0aGF0IGxvYWRzIHRoZSBkZXNpcmVkIHVuaW5pdGlh
+bGl6ZWQgaW50IGludG8gdGhlIGFjY3VtdWxhdG9yLCBwZXJmb3JtcyBzb21lIGJpdCBzaGlmdGlu
+ZyB0byBnZXQgdGhlIGRlc2lyZWQgYnl0ZSwgYW5kIHJldHVybnMgdGhlIGFjY3VtdWxhdG9yLiAg
+U2luY2UgdGhlIHBhY2tldCBzaXplIGlzIGdyZWF0ZXIgdGhhbiAyNTYsIHRoZSBwYWNrZXQgd2ls
+bCBiZSB0cnVuY2F0ZWQgYmFzZWQgb24gdGhlIHZhbHVlIG9mIHRoYXQgYnl0ZSwgYWxsb3dpbmcg
+bWUgdG8gZGV0ZXJtaW5lIGl0cyB2YWx1ZS4KClRoZXJlIGFyZSBubyByZXN0cmljdGlvbnMgLSBJ
+IGNhbiBhY2Nlc3MgYW55IGJ5dGUgaW4gdGhlIGFycmF5IHJlZ2FyZGxlc3Mgb2YgaXRzIHZhbHVl
+LgoKLURhbgoKCi0tLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLS0KRnJvbTogRGF2aWQgTWlsbGVy
+ClRvOiBkcm9zZW5iZXJnQHZzZWN1cml0eS5jb20KQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcK
+Q2M6IHN0YWJsZUBrZXJuZWwub3JnCkNjOiBzZWN1cml0eUBrZXJuZWwub3JnClN1YmplY3Q6IFJl
+OiBbUEFUQ0hdIFByZXZlbnQgcmVhZGluZyB1bmluaXRpYWxpemVkIG1lbW9yeSB3aXRoIHNvY2tl
+dGZpbHRlcnMKU2VudDogTm92IDEwLCAyMDEwIDE6MDcgUE0KCkZyb206IERhbiBSb3NlbmJlcmcg
+PGRyb3NlbmJlcmdAdnNlY3VyaXR5LmNvbT4KRGF0ZTogV2VkLCAxMCBOb3YgMjAxMCAwNjoxMjo0
+NyAtMDUwMAoKPiAKPj4gCj4+IFByb3ZlIGl0Lgo+IAo+IEkgaG9wZSB0aGlzIHdhcyBhIGpva2Uu
+CgpJdCBhYnNvbHV0ZWx5IGlzIG5vdC4KCllvdSBhcmUgdmVyeSBtdWNoIG5vdCB0aGUgZmlyc3Qg
+cGVyc29uIGV2ZXIgdG8gdHJ5IGFuZCBhZGQgYW4KZXhwZW5zaXZlIG1lbXNldCgpIGhlcmUuCgpT
+byB0aGUgb251cyBpcyByZWFsbHkgb24geW91IHRvIHByb3ZlIHRoaXMgYXNzZXJ0aW9uIGFuZCBz
+aG93IHRoZQpleGFjdCBjb2RlIHBhdGggYnkgd2hpY2ggdGhlIHVzZXIgY2FuIGFjdHVhbGx5IHNl
+ZSBhbnkgdW5pbml0aWFsaXplZAprZXJuZWwgc3RhY2sgbWVtb3J5IChoZSBjYW4ndCwgaGUgY2Fu
+IHBlZWsgYXQgY2VydGFpbiB2YWx1ZXMgaW4gYQpjZXJ0YWluIGV4dHJlbWVseSBjb250cml2ZWQg
+cmFuZ2UsIG1ha2luZyB0aGUgbGVhayB1c2VsZXNzKSwgcmF0aGVyCnRoYW4gcG9pbnQgdXMgYXQg
+c29tZSB3ZWIgZXh0ZXJuYWwgc2l0ZSBhcmNoaXZlIG9mIGEgbGlzdCBwb3N0aW5nCndoaWNoIHdl
+IGNhbm5vdCBlYXNpbHkgcXVvdGUgYW5kIHJlcGx5IHRvIGhlcmUuCgpJIHRoaW5rIHlvdSBjYW5u
+b3QgZG8gaXQsIHJlYWxseS4gIEV4Y2VwdCBpbiB0aGUgQUZfUEFDS0VUIGNhc2UsIHRoZQpzb2Nr
+ZXRzIGNhbiBvbmx5IHNlZSAiMCIgb3IgYSBuZWdhdGl2ZSBlcnJvciBjb2RlLCBub3QgdGhlIGFj
+dHVhbApza19ydW5fZmlsdGVyKCkgcmV0dXJuIHZhbHVlLgoKSW4gdGhlIG9uZSBleGNlcHRpb24s
+IEFGX1BBQ0tFVCwgdGhlIHJhbmdlIG9mIHZhbHVlcyB0aGUgdXNlciBjYW4Kc2VlIGFyZSBpbiB0
+aGUgcmFuZ2Ugb2YgTVRVIG9mIHRoZSBkZXZpY2UgYmVpbmcgYWNjZXNzZWQsIHdoaWNoCnJlYWxp
+c3RpY2FsbHkgaXMgMTUwMCBieXRlcy4gIFRoaXMgbWVhbnMgdGhlIHVzZXIgY2Fubm90IHNlZSBh
+bnkKa2VybmVsIHN0YWNrIHZhbHVlIG91dHNpZGUgb2YgdGhlIHJhbmdlIDAgdG8gMTUwMCwgd2hp
+Y2ggaXNuJ3QKd29ydGggdXNpbmcgdGhpcyBleHBlbnNpdmUgbWVtc2V0IHRvIGd1YXJkIGFnYWlu
+c3QgYXQgYWxsLgoKSSBkb24ndCBldmVuIHRoaW5rIGl0J3Mgd29ydGggYWRkaW5nIGFsbCBvZiB0
+aGUgZXh0cmEgY3B1IGN5Y2xlcwppbmN1cnJlZCBieSBFcmljIER1bWF6ZXQncyBzY2hlbWUgb2Yg
+dXNpbmcgYSBiaXRtYXAgdGVzdCBvbiBldmVyeQpzaW5nbGUgbWVtb3J5IGJ1ZmZlciBhY2Nlc3Mu
+Cg==
 
