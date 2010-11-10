@@ -1,37 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v15 00/17] Provide a zero-copy method on KVM virtio-net.
-Date: Wed, 10 Nov 2010 09:46:41 -0800 (PST)
-Message-ID: <20101110.094641.193701683.davem@davemloft.net>
-References: <20101109.091516.112581012.davem@davemloft.net>
-	<1289381008-5484-1-git-send-email-xiaohui.xin@intel.com>
+Subject: Re: [PATCH] Fix CAN info leak/minor heap overflow
+Date: Wed, 10 Nov 2010 09:51:41 -0800 (PST)
+Message-ID: <20101110.095141.226780406.davem@davemloft.net>
+References: <4CD8FDB5.6060905@hartkopp.net>
+	<20101109.090523.189685701.davem@davemloft.net>
+	<4CDA412B.90900@hartkopp.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mst@redhat.com, mingo@elte.hu,
-	herbert@gondor.apana.org.au, jdike@linux.intel.com
-To: xiaohui.xin@intel.com
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <1289381008-5484-1-git-send-email-xiaohui.xin@intel.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: urs@isnogud.escape.de, netdev@vger.kernel.org,
+	drosenberg@vsecurity.com, security@kernel.org,
+	torvalds@linux-foundation.org
+To: socketcan@hartkopp.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38317
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754599Ab0KJRvR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Nov 2010 12:51:17 -0500
+In-Reply-To: <4CDA412B.90900@hartkopp.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: xiaohui.xin@intel.com
-Date: Wed, 10 Nov 2010 17:23:28 +0800
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Date: Wed, 10 Nov 2010 07:52:27 +0100
 
-> From: Xin Xiaohui <xiaohui.xin@intel.com>
-> 
->>2) The idea to key off of skb->dev in skb_release_data() is
->>   fundamentally flawed since many actions can change skb->dev on you,
->>   which will end up causing a leak of your external data areas.
-> 
-> How about this one? If the destructor_arg is not a good candidate,
-> then I have to add an apparent field in shinfo.
+> IMHO the patch improves the historic situation and fixes the useless leakage
+> of kernel addresses. Please consider to apply that procfs changes.
 
-If destructor_arg is actually a net_device pointer or similar,
-you will need to take a reference count on it or similar.
+I'm only fine with fixing the kernel pointer fields in some way.
 
-Which means --> good bye performance especially on SMP.
+But moving forward any other change to the procfs file is simply
+a waste of time.
 
-You're going to be adding new serialization points and at
-least two new atomics per packet.
+You should create sysfs files and add logic to your tools to look
+for them and use them if they exist.
+
+Your forward path _SHOULD NOT_ be continuing this procfs versioning
+madness.  Use something sane and do the work to make userland start
+to be ready for this transition.
