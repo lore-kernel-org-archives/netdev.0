@@ -1,112 +1,68 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [v3 RFC PATCH 0/4] Implement multiqueue virtio-net
-Date: Wed, 10 Nov 2010 18:16:00 +0200
-Message-ID: <20101110161600.GC3891@redhat.com>
-References: <20101020085452.15579.76002.sendpatchset@krkumar2.in.ibm.com>
- <OF8735A2A4.74B4EE91-ON652577C5.0040D90B-652577C7.0056B99D@in.ibm.com>
- <20101026085709.GC23530@redhat.com>
- <OF529E89EE.84DB37B8-ON652577D6.001665CF-652577D6.00192784@in.ibm.com>
- <20101109132239.GF22705@redhat.com>
- <OF24E08752.2087FFA4-ON652577D6.00532DF1-652577D6.0054B291@in.ibm.com>
- <20101109153325.GB26153@redhat.com>
- <OFFE63B7F4.D491BE12-ON652577D6.005B4090-652577D6.005F565A@in.ibm.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH 0/2] net: Changes in queue allocation and freeing
+Date: Wed, 10 Nov 2010 08:27:54 -0800
+Message-ID: <AANLkTi=5rxQ6mmnhR7=_dh5u08raaoLiYo=6Gzj9CbL5@mail.gmail.com>
+References: <alpine.DEB.1.00.1011091240470.18565@pokey.mtv.corp.google.com>
+	<1289385696.2860.147.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: anthony@codemonkey.ws, arnd@arndb.de, avi@redhat.com,
-	davem@davemloft.net, eric.dumazet@gmail.com, kvm@vger.kernel.org,
-	netdev@vger.kernel.org, rusty@rustcorp.com.au
-To: Krishna Kumar2 <krkumar2@in.ibm.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38593 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756405Ab0KJQQZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Nov 2010 11:16:25 -0500
-Content-Disposition: inline
-In-Reply-To: <OFFE63B7F4.D491BE12-ON652577D6.005B4090-652577D6.005F565A@in.ibm.com>
+Received: from smtp-out.google.com ([74.125.121.35]:35884 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756231Ab0KJQ16 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Nov 2010 11:27:58 -0500
+Received: from wpaz17.hot.corp.google.com (wpaz17.hot.corp.google.com [172.24.198.81])
+	by smtp-out.google.com with ESMTP id oAAGRuud009734
+	for <netdev@vger.kernel.org>; Wed, 10 Nov 2010 08:27:56 -0800
+Received: from pwj2 (pwj2.prod.google.com [10.241.219.66])
+	by wpaz17.hot.corp.google.com with ESMTP id oAAGRsMe025376
+	for <netdev@vger.kernel.org>; Wed, 10 Nov 2010 08:27:55 -0800
+Received: by pwj2 with SMTP id 2so181457pwj.17
+        for <netdev@vger.kernel.org>; Wed, 10 Nov 2010 08:27:54 -0800 (PST)
+In-Reply-To: <1289385696.2860.147.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 09, 2010 at 10:54:57PM +0530, Krishna Kumar2 wrote:
-> "Michael S. Tsirkin" <mst@redhat.com> wrote on 11/09/2010 09:03:25 PM:
-> 
-> > > > Something strange here, right?
-> > > > 1. You are consistently getting >10G/s here, and even with a single
-> > > stream?
-> > >
-> > > Sorry, I should have mentioned this though I had stated in my
-> > > earlier mails. Each test result has two iterations, each of 60
-> > > seconds, except when #netperfs is 1 for which I do 10 iteration
-> > > (sum across 10 iterations).
-> >
-> > So need to divide the number by 10?
-> 
-> Yes, that is what I get with 512/1K macvtap I/O size :)
-> 
-> > >  I started doing many more iterations
-> > > for 1 netperf after finding the issue earlier with single stream.
-> > > So the BW is only 4.5-7 Gbps.
-> > >
-> > > > 2. With 2 streams, is where we get < 10G/s originally. Instead of
-> > > >    doubling that we get a marginal improvement with 2 queues and
-> > > >    about 30% worse with 1 queue.
-> > >
-> > > (doubling happens consistently for guest -> host, but never for
-> > > remote host) I tried 512/txqs=2 and 1024/txqs=8 to get a varied
-> > > testing scenario. In first case, there is a slight improvement in
-> > > BW and good reduction in SD. In the second case, only SD improves
-> > > (though BW drops for 2 stream for some reason).  In both cases,
-> > > BW and SD improves as the number of sessions increase.
-> >
-> > I guess this is another indication that something's wrong.
-> 
-> The patch - both virtio-net and vhost-net, doesn't have any
-> locking/mutex's/ or any synchronization method. Guest -> host
-> performance improvement of upto 100% shows the patch is not
-> doing anything wrong.
+On Wed, Nov 10, 2010 at 2:41 AM, Eric Dumazet <eric.dumazet@gmail.com> =
+wrote:
+> Le mardi 09 novembre 2010 =E0 12:47 -0800, Tom Herbert a =E9crit :
+>> Changes to both RX and TX queue allocation. =A0In both cases allocat=
+e
+>> in alloc_netdev_mq and free in free_netdev. =A0For RX the reference
+>> couting also changed, the device reference count can now be used.
+>
+> Oh well :)
+>
+> Are they preliminary patches so that XPS also dont need the "referenc=
+e
+> counts specific to TX queues" ? ;)
+>
+Yes, this should allow the xps maps to be in the net_device also.
+Sorry I neglected to mention that.
 
-My concern is this: we don't seem to do anything in tap or macvtap to
-help packets from separate virtio queues get to separate queues in the
-hardware device and to avoid reordering when we do this.
+Also I noticed that the comment about RX queues refcnts is no longer
+valid.  I can respin patch if necessary.
 
-- skb_tx_hash calculation will get different results
-- hash math that e.g. tcp does will run on guest and seems to be discarded
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 87d89ba..34a42a8 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5029,10 +5029,6 @@ static int netif_alloc_rx_queues(struct net_devi=
+ce *dev)
+        }
+        dev->_rx =3D rx;
 
-etc
+-       /*
+-        * Set a pointer to first element in the array which holds the
+-        * reference count.
+-        */
+        for (i =3D 0; i < count; i++)
+                rx[i].dev =3D dev;
+ #endif
 
-Maybe it's as simple as some tap/macvtap ioctls to set up the queue number
-in skbs. Or maybe we need to pass the skb hash from guest to host.
-It's this last option that should make us especially cautios as it'll
-affect guest/host interface.
-
-Also see d5a9e24afb4ab38110ebb777588ea0bd0eacbd0a: if we have
-hardware which records an RX queue, it appears important to
-pass that info to guest and to use that in selecting the TX queue.
-Of course we won't see this in netperf runs but this needs to
-be given thought too - supporting this seems to suggest either
-sticking the hash in the virtio net header for both tx and rx,
-or using multiplease RX queues.
-
-> > We are quite far from line rate, the fact BW does not scale
-> > means there's some contention in the code.
-> 
-> Attaining line speed with macvtap seems to be a generic issue
-> and unrelated to my patch specifically. IMHO if there is nothing
-> wrong in the code (review) and is accepted, it will benefit as
-> others can also help to find what needs to be implemented in
-> vhost/macvtap/qemu to get line speed for guest->remote-host.
-
-No problem, I will queue these patches in some branch
-to help enable cooperation, as well as help you
-iterate with incremental patches instead of resending it all each time.
-
-
-> PS: bare-metal performance for host->remote-host is also
->     2.7 Gbps and 2.8 Gbps for 512/1024 for the same card.
-> 
-> Thanks,
-
-You mean native linux BW does not scale for your host with
-# of connections either? I guess this just means need another
-setup for testing?
-
-> - KK
+>
+>
+>
