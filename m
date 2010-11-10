@@ -1,149 +1,143 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: sk->sk_socket seems to disappear before connection termination
-Date: Wed, 10 Nov 2010 17:44:11 +0100
-Message-ID: <1289407451.2860.239.camel@edumazet-laptop>
-References: <alpine.LNX.2.01.1011100205220.17978@obet.zrqbmnf.qr>
-	 <1289368037.2700.14.camel@edumazet-laptop>
-	 <alpine.LNX.2.01.1011101148060.18018@obet.zrqbmnf.qr>
+From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Subject: Re: [PATCH] ucc_geth: Fix hung tasks.
+Date: Wed, 10 Nov 2010 17:57:54 +0100
+Message-ID: <OFB11D8F46.84F3CAC0-ONC12577D7.005C8EE4-C12577D7.005D3148@transmode.se>
+References: <1289211819-21746-1-git-send-email-Joakim.Tjernlund@transmode.se> <OFEBFE0319.7D12AA7E-ONC12577D7.00423B59-C12577D7.00426B71@LocalDomain> <OF7C87528F.1727C94B-ONC12577D7.004DB53C-C12577D7.004DF235@LocalDomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Howells <dhowells@redhat.com>,
-	Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>, netdev@vger.kernel.org,
-	=?UTF-8?Q?Rafa=C5=82?= Maj <rafal.maj.it@gmail.com>
-To: Jan Engelhardt <jengelh@medozas.de>
+Content-Type: text/plain; charset=US-ASCII
+Cc: Anton Vorontsov <avorontsov@ru.mvista.com>, netdev@vger.kernel.org
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:57590 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756977Ab0KJQoT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Nov 2010 11:44:19 -0500
-In-Reply-To: <alpine.LNX.2.01.1011101148060.18018@obet.zrqbmnf.qr>
+Received: from gw1.transmode.se ([213.115.205.20]:40055 "EHLO gw1.transmode.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756972Ab0KJQ55 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Nov 2010 11:57:57 -0500
+In-Reply-To: <OF7C87528F.1727C94B-ONC12577D7.004DB53C-C12577D7.004DF235@LocalDomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 10 novembre 2010 =C3=A0 11:53 +0100, Jan Engelhardt a =C3=A9=
-crit :
-> On Wednesday 2010-11-10 06:47, Eric Dumazet wrote:
-> >Le mercredi 10 novembre 2010 =C3=A0 02:09 +0100, Jan Engelhardt a =C3=
-=A9crit :
-> >> Hi,
-> >>=20
-> >> Rafa=C5=82 reported this to us on IRC, paraphrasing what has been =
-observed:
-> >>=20
-> >> Using a simple rule like `iptables -A OUTPUT -p tcp --dport 80 -j =
-LOG=20
-> >> --log-uid`, one can observe on creating a connection and terminati=
-ng
-> >> it that the trailing packets have skb->sk->sk_socket =3D=3D NULL.
-> >> Is this intended? Is the socket not retained until after TCP has
-> >> sent out the closing exchange?
-> >>=20
-> >> As I can reproduce:
-> >>=20
-> >> $ telnet 134.76.13.21 80
-> >> Trying 134.76.13.21...
-> >> Connected to 134.76.13.21.
-> >> Escape character is '^]'.
-> >> ^]
-> >> telnet> ^D
-> >> Connection closed.
-> >>=20
-> >> [491419.500978] IN=3D OUT=3Dtun0 SRC=3D134.76.2.163 DST=3D134.76.1=
-3.21 LEN=3D60 TOS=3D0x10 PREC=3D0x00 TTL=3D64 ID=3D35420 DF PROTO=3DTCP=
- SPT=3D58613 DPT=3D80 WINDOW=3D5488 RES=3D0x00 SYN URGP=3D0 UID=3D25121=
- GID=3D100=20
-> >> [491419.511533] IN=3D OUT=3Dtun0 SRC=3D134.76.2.163 DST=3D134.76.1=
-3.21 LEN=3D52 TOS=3D0x10 PREC=3D0x00 TTL=3D64 ID=3D35421 DF PROTO=3DTCP=
- SPT=3D58613 DPT=3D80 WINDOW=3D86 RES=3D0x00 ACK URGP=3D0 UID=3D25121 G=
-ID=3D100=20
-> >> [491420.052182] IN=3D OUT=3Dtun0 SRC=3D134.76.2.163 DST=3D134.76.1=
-3.21 LEN=3D52 TOS=3D0x10 PREC=3D0x00 TTL=3D64 ID=3D35422 DF PROTO=3DTCP=
- SPT=3D58613 DPT=3D80 WINDOW=3D86 RES=3D0x00 ACK FIN URGP=3D0 UID=3D251=
-21 GID=3D100=20
-> >> [491420.063619] IN=3D OUT=3Dtun0 SRC=3D134.76.2.163 DST=3D134.76.1=
-3.21 LEN=3D52 TOS=3D0x10 PREC=3D0x00 TTL=3D64 ID=3D35423 DF PROTO=3DTCP=
- SPT=3D58613 DPT=3D80 WINDOW=3D86 RES=3D0x00 ACK URGP=3D0=20
+Joakim Tjernlund/Transmode wrote on 2010/11/10 15:11:22:
+>
+> Actually, there is something wrong anyway with TX timeout
+> so don't use this patch. I must investigate more but
+> it seems like cancel_work_sync hangs whenever an TX timeout
+> occurs.
+
+OK, found the problem. Currently ucc_geth bring the IF down and up
+each time a TX timeout occurs which means you cannot do cancel_work_sync()
+in ucc_geth_close as it will dead lock.
+
+Looking at gianfar, it just reinits the controller and PHY and
+I guess ucc_geth really should do the same.
+This patch tries to do that but I am not sure it recovers
+after a TX timeout.
+
+Anton, what do think? If OK with you I will write up
+a proper patch.
+
+ diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+index 6647ed7..133aaba 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -2065,9 +2065,6 @@ static void ucc_geth_stop(struct ucc_geth_private *ugeth)
+ 	/* Disable Rx and Tx */
+ 	clrbits32(&ug_regs->maccfg1, MACCFG1_ENABLE_RX | MACCFG1_ENABLE_TX);
+
+-	phy_disconnect(ugeth->phydev);
+-	ugeth->phydev = NULL;
+-
+ 	ucc_geth_memclean(ugeth);
+ }
+
+@@ -3558,6 +3555,8 @@ static int ucc_geth_close(struct net_device *dev)
+
+ 	cancel_work_sync(&ugeth->timeout_work);
+ 	ucc_geth_stop(ugeth);
++	phy_disconnect(ugeth->phydev);
++	ugeth->phydev = NULL;
+
+ 	free_irq(ugeth->ug_info->uf_info.irq, ugeth->ndev);
+
+@@ -3586,8 +3585,12 @@ static void ucc_geth_timeout_work(struct work_struct *work)
+ 		 * Must reset MAC *and* PHY. This is done by reopening
+ 		 * the device.
+ 		 */
+-		ucc_geth_close(dev);
+-		ucc_geth_open(dev);
++		netif_tx_stop_all_queues(dev);
++		ucc_geth_stop(ugeth);
++		ucc_geth_init_mac(ugeth);
++		/* Must start PHY here */
++		phy_start(ugeth->phydev);
++		netif_tx_start_all_queues(dev);
+ 	}
+
+ 	netif_tx_schedule_all(dev);
+
+>
+> Joakim Tjernlund/Transmode wrote on 2010/11/10 13:05:28:
 > >
-> >Hmmm... skb->sk->sk_socket is really NULL ?
-> >Are you sure its not skb->sk->sk_socket->file which is NULL ?
->=20
-> I am certain of it, having augmented ipt_LOG/xt_LOGMARK temporarily b=
-y=20
-> appropriate printks.
->=20
-> >In this case, you might need to use sock_i_uid() / sock_i_ino() as a
-> >fallback ? (expensive because they take a rwlock)
->=20
-> No, sock_i_uid also uses sk->sk_socket. What is interesting though is=
-=20
-> that sock_i_uid uses SOCK_INODE(sk->sk_socket)->i_uid, but xt_owner u=
-ses=20
-> sk->sk_socket->file->f_cred->fsuid. Would you have an idea as to why=20
-> that is?
-> Dave Howells (cced) did the last change on it.
->=20
-
-Hmm, this is not what I get here. Could you please recheck ?
-
-diff --git a/net/ipv4/netfilter/ipt_LOG.c b/net/ipv4/netfilter/ipt_LOG.=
-c
-index 72ffc8f..b0933b7 100644
---- a/net/ipv4/netfilter/ipt_LOG.c
-+++ b/net/ipv4/netfilter/ipt_LOG.c
-@@ -337,6 +337,8 @@ static void dump_packet(struct sbuff *m,
-        /* Max length: 15 "UID=3D4294967295 " */
-        if ((logflags & IPT_LOG_UID) && !iphoff && skb->sk) {
-                read_lock_bh(&skb->sk->sk_callback_lock);
-+               pr_err("sk=3D%p sk->sk_socket=3D%p file=3D%p\n",
-+                       skb->sk, skb->sk->sk_socket, skb->sk->sk_socket=
- ? skb->sk->sk_socket->file : NULL);
-                if (skb->sk->sk_socket && skb->sk->sk_socket->file)
-                        sb_add(m, "UID=3D%u GID=3D%u ",
-                                skb->sk->sk_socket->file->f_cred->fsuid=
-,
-
-
-[ 9917.808796] ipt_LOG: sk=3Dffff880118bd32c0 sk->sk_socket=3Dffff88011=
-d0d8c00 file=3Dffff88011cd4e100
-[ 9917.808851] IN=3D OUT=3Deth1 SRC=3D192.168.20.108 DST=3D192.168.20.1=
-10 LEN=3D60 TOS=3D0x10 PREC=3D0x00 TTL=3D64 ID=3D63701 DF PROTO=3DTCP S=
-PT=3D60088 DPT=3D22 WINDOW=3D4380 RES=3D0x00 SYN URGP=3D0 UID=3D0 GID=3D=
-0=20
-[ 9917.809091] ipt_LOG: sk=3Dffff880118bd32c0 sk->sk_socket=3Dffff88011=
-d0d8c00 file=3Dffff88011cd4e100
-[ 9917.809142] IN=3D OUT=3Deth1 SRC=3D192.168.20.108 DST=3D192.168.20.1=
-10 LEN=3D52 TOS=3D0x10 PREC=3D0x00 TTL=3D64 ID=3D63702 DF PROTO=3DTCP S=
-PT=3D60088 DPT=3D22 WINDOW=3D35 RES=3D0x00 ACK URGP=3D0 UID=3D0 GID=3D0=
-=20
-[ 9917.814199] ipt_LOG: sk=3Dffff880118bd32c0 sk->sk_socket=3Dffff88011=
-d0d8c00 file=3Dffff88011cd4e100
-[ 9917.814251] IN=3D OUT=3Deth1 SRC=3D192.168.20.108 DST=3D192.168.20.1=
-10 LEN=3D52 TOS=3D0x10 PREC=3D0x00 TTL=3D64 ID=3D63703 DF PROTO=3DTCP S=
-PT=3D60088 DPT=3D22 WINDOW=3D35 RES=3D0x00 ACK URGP=3D0 UID=3D0 GID=3D0=
-=20
-[ 9920.234680] ipt_LOG: sk=3Dffff880118bd32c0 sk->sk_socket=3Dffff88011=
-d0d8c00 file=3Dffff88011cd4e100
-[ 9920.234731] IN=3D OUT=3Deth1 SRC=3D192.168.20.108 DST=3D192.168.20.1=
-10 LEN=3D52 TOS=3D0x10 PREC=3D0x00 TTL=3D64 ID=3D63704 DF PROTO=3DTCP S=
-PT=3D60088 DPT=3D22 WINDOW=3D35 RES=3D0x00 ACK FIN URGP=3D0 UID=3D0 GID=
-=3D0=20
-[ 9920.235221] ipt_LOG: sk=3Dffff880078998000 sk->sk_socket=3Dffff88007=
-8c58300 file=3D          (null)
-[ 9920.235271] IN=3D OUT=3Deth1 SRC=3D192.168.20.108 DST=3D192.168.20.1=
-10 LEN=3D52 TOS=3D0x00 PREC=3D0x00 TTL=3D64 ID=3D0 DF PROTO=3DTCP SPT=3D=
-60088 DPT=3D22 WINDOW=3D35 RES=3D0x00 ACK URGP=3D0=20
-
-
-You can see in my log, that the last packet seems to be from a differen=
-t socket !
-(sk pointer changed to ffff880078998000 !)
-
-Well well well, thats an ACK, in answer to FIN packet received from rem=
-ote side.
-
-
-
-
+> > Ping?
+> >
+> > Even though this patch didn't solve my hang it is still a bug.
+> >
+> >      Jocke
+> >
+> > Joakim Tjernlund <Joakim.Tjernlund@transmode.se> wrote on 2010/11/08 11:23:39:
+> >
+> > > From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+> > > To: linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org, Anton Vorontsov <avorontsov@ru.mvista.com>
+> > > Cc: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+> > > Date: 2010/11/08 11:23
+> > > Subject: [PATCH] ucc_geth: Fix hung tasks.
+> > >
+> > > We noticed a few hangs like this:
+> > >
+> > > INFO: task ifconfig:572 blocked for more than 120 seconds.
+> > > "echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this message.
+> > > ifconfig      D 0ff65760     0   572    369 0x00000000
+> > > Call Trace:
+> > > [c6157be0] [c6008460] 0xc6008460 (unreliable)
+> > > [c6157ca0] [c0008608] __switch_to+0x4c/0x6c
+> > > [c6157cb0] [c028fecc] schedule+0x184/0x310
+> > > [c6157ce0] [c0290e54] __mutex_lock_slowpath+0xa4/0x150
+> > > [c6157d20] [c0290c48] mutex_lock+0x44/0x48
+> > > [c6157d30] [c01aba74] phy_stop+0x20/0x70
+> > > [c6157d40] [c01aef40] ucc_geth_stop+0x30/0x98
+> > > [c6157d60] [c01b18fc] ucc_geth_close+0x9c/0xdc
+> > > [c6157d80] [c01db0cc] __dev_close+0xa0/0xd0
+> > > [c6157d90] [c01deddc] __dev_change_flags+0x8c/0x148
+> > > [c6157db0] [c01def54] dev_change_flags+0x1c/0x64
+> > > [c6157dd0] [c0237ac8] devinet_ioctl+0x678/0x784
+> > > [c6157e50] [c0239a58] inet_ioctl+0xb0/0xbc
+> > > [c6157e60] [c01cafa8] sock_ioctl+0x174/0x2a0
+> > > [c6157e80] [c009a16c] vfs_ioctl+0xcc/0xe0
+> > > [c6157ea0] [c009a998] do_vfs_ioctl+0xc4/0x79c
+> > > [c6157f10] [c009b0b0] sys_ioctl+0x40/0x74
+> > > [c6157f40] [c00117c4] ret_from_syscall+0x0/0x38
+> > >
+> > > I THINK this is due to a missing cancel_work_sync in the driver
+> > > although we cannot be sure. I found this by comparing
+> > > ucc_geth with gianfar.
+> > >
+> > > Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+> > > ---
+> > >  drivers/net/ucc_geth.c |    1 +
+> > >  1 files changed, 1 insertions(+), 0 deletions(-)
+> > >
+> > > diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+> > > index 97f9f7d..6647ed7 100644
+> > > --- a/drivers/net/ucc_geth.c
+> > > +++ b/drivers/net/ucc_geth.c
+> > > @@ -3556,6 +3556,7 @@ static int ucc_geth_close(struct net_device *dev)
+> > >
+> > >     napi_disable(&ugeth->napi);
+> > >
+> > > +   cancel_work_sync(&ugeth->timeout_work);
+> > >     ucc_geth_stop(ugeth);
+> > >
+> > >     free_irq(ugeth->ug_info->uf_info.irq, ugeth->ndev);
+> > > --
+> > > 1.7.2.2
+> > >
 
