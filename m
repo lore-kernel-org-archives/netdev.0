@@ -1,70 +1,75 @@
-From: Jesper Juhl <jj-IYz4IdjRLj0sV2N9l4h3zg@public.gmane.org>
-Subject: Re: [PATCH] SUNRPC: Simplify rpc_alloc_iostats by removing pointless
- local variable
-Date: Wed, 10 Nov 2010 22:32:44 +0100 (CET)
-Message-ID: <alpine.LNX.2.00.1011102229370.625@swampdragon.chaosbits.net>
-References: <alpine.LNX.2.00.1011072205370.26247@swampdragon.chaosbits.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] macvlan: lockless tx path
+Date: Wed, 10 Nov 2010 21:53:37 +0000
+Message-ID: <1289426017.2249.56.camel@achroite.uk.solarflarecom.com>
+References: <1289403709.2860.216.camel@edumazet-laptop>
+	 <4CDAD8C8.20807@candelatech.com>
+	 <1289411027.2860.248.camel@edumazet-laptop>
+	 <4CDADC17.6070506@candelatech.com>
+	 <1289413120.2469.12.camel@edumazet-laptop>
+	 <4CDAE713.7020309@candelatech.com>
+	 <1289421187.2469.127.camel@edumazet-laptop>
+	 <1289423056.2249.7.camel@achroite.uk.solarflarecom.com>
+	 <1289423555.17691.8.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>,
-	Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <alpine.LNX.2.00.1011072205370.26247-h2p7t3/P30RzeRGmFJ5qR7ZzlVVXadcDXqFh9Ls21Oc@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ben Greear <greearb@candelatech.com>,
+	David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.solarflare.com ([216.237.3.220]:7966 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757166Ab0KJVxm convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Nov 2010 16:53:42 -0500
+In-Reply-To: <1289423555.17691.8.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 7 Nov 2010, Jesper Juhl wrote:
+On Wed, 2010-11-10 at 22:12 +0100, Eric Dumazet wrote:
+> Le mercredi 10 novembre 2010 =C3=A0 21:04 +0000, Ben Hutchings a =C3=A9=
+crit :
+>=20
+> > Drivers should calculate differences and accumulate them in a 64-bi=
+t
+> > counter.  (A lot of hardware has read-to-clear counters anyway, in =
+which
+> > case the driver *has* to accumulate the values it reads.)
+>=20
+> You are mistaken. These are _hardware_ counters. If they were softwar=
+e,
+> of course they would be 32 or 64 bit.
 
-> Hi,
-> 
-> We can simplify net/sunrpc/stats.c::rpc_alloc_iostats() a bit by getting 
-> rid of the unneeded local variable 'new'.
-> 
-> 
-> Please CC me on replies.
-> 
-> 
-> Signed-off-by: Jesper Juhl <jj-IYz4IdjRLj0sV2N9l4h3zg@public.gmane.org>
-> ---
->  stats.c |    4 +---
->  1 file changed, 1 insertion(+), 3 deletions(-)
-> 
-> diff --git 
-> a/net/sunrpc/stats.c b/net/sunrpc/stats.c
-> index f71a731..80df89d 100644
-> --- a/net/sunrpc/stats.c
-> +++ b/net/sunrpc/stats.c
-> @@ -115,9 +115,7 @@ EXPORT_SYMBOL_GPL(svc_seq_show);
->   */
->  struct rpc_iostats *rpc_alloc_iostats(struct rpc_clnt *clnt)
->  {
-> -	struct rpc_iostats *new;
-> -	new = kcalloc(clnt->cl_maxproc, sizeof(struct rpc_iostats), GFP_KERNEL);
-> -	return new;
-> +	return kcalloc(clnt->cl_maxproc, sizeof(struct rpc_iostats), GFP_KERNEL);
->  }
->  EXPORT_SYMBOL_GPL(rpc_alloc_iostats);
->  
-> 
-> 
+Of course I understood that.
 
-Ok, no response to this for a couple of days.
-Is there some problem or did it just get missed?
-Could someone merge this and push it up-stream, please, if there are no 
-problems with it...
- 
+> And doing the thing you describe in software is racy.
+> I tried to remove many races, not to add new ones.
 
--- 
-Jesper Juhl <jj-IYz4IdjRLj0sV2N9l4h3zg@public.gmane.org>             http://www.chaosbits.net/
-Don't top-post  http://www.catb.org/~esr/jargon/html/T/top-post.html
-Plain text mails only, please.
+If you do it in ndo_get_stats{,64} and don't use your own lock, yes.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Yes, some drivers read one hardware counter using two instructions, a=
+nd
+> this is racy.
+
+Most hardware which supports MMIO to multi-word counters has some kind
+of latching scheme where you can read the words/registers in order and
+get consistent values (within a single counter; consistency between
+counters is another matter).  Obviously you have to use a lock to
+serialise stats updates in this case - whether or not you maintain wide=
+r
+software counters.
+
+Oh, another problem with using register values directly is that
+statistics are likely to be reset whenever the device is reconfigured i=
+n
+the way that requires a hardware reset.
+
+Ben.
+
+--=20
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
