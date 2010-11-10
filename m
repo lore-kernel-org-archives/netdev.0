@@ -1,75 +1,52 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] macvlan: lockless tx path
-Date: Wed, 10 Nov 2010 21:53:37 +0000
-Message-ID: <1289426017.2249.56.camel@achroite.uk.solarflarecom.com>
-References: <1289403709.2860.216.camel@edumazet-laptop>
-	 <4CDAD8C8.20807@candelatech.com>
-	 <1289411027.2860.248.camel@edumazet-laptop>
-	 <4CDADC17.6070506@candelatech.com>
-	 <1289413120.2469.12.camel@edumazet-laptop>
-	 <4CDAE713.7020309@candelatech.com>
-	 <1289421187.2469.127.camel@edumazet-laptop>
-	 <1289423056.2249.7.camel@achroite.uk.solarflarecom.com>
-	 <1289423555.17691.8.camel@edumazet-laptop>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH] Fix CAN info leak/minor heap overflow
+Date: Wed, 10 Nov 2010 23:10:24 +0100
+Message-ID: <4CDB1850.3060204@hartkopp.net>
+References: <4CD8FDB5.6060905@hartkopp.net>	<20101109.090523.189685701.davem@davemloft.net>	<4CDA412B.90900@hartkopp.net> <20101110.095141.226780406.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ben Greear <greearb@candelatech.com>,
-	David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: urs@isnogud.escape.de, netdev@vger.kernel.org,
+	drosenberg@vsecurity.com, security@kernel.org,
+	torvalds@linux-foundation.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:7966 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757166Ab0KJVxm convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Nov 2010 16:53:42 -0500
-In-Reply-To: <1289423555.17691.8.camel@edumazet-laptop>
+Received: from mo-p00-ob.rzone.de ([81.169.146.161]:45403 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756610Ab0KJWKn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Nov 2010 17:10:43 -0500
+In-Reply-To: <20101110.095141.226780406.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-11-10 at 22:12 +0100, Eric Dumazet wrote:
-> Le mercredi 10 novembre 2010 =C3=A0 21:04 +0000, Ben Hutchings a =C3=A9=
-crit :
->=20
-> > Drivers should calculate differences and accumulate them in a 64-bi=
-t
-> > counter.  (A lot of hardware has read-to-clear counters anyway, in =
-which
-> > case the driver *has* to accumulate the values it reads.)
->=20
-> You are mistaken. These are _hardware_ counters. If they were softwar=
-e,
-> of course they would be 32 or 64 bit.
+On 10.11.2010 18:51, David Miller wrote:
+> From: Oliver Hartkopp <socketcan@hartkopp.net>
+> Date: Wed, 10 Nov 2010 07:52:27 +0100
+> 
+>> IMHO the patch improves the historic situation and fixes the useless leakage
+>> of kernel addresses. Please consider to apply that procfs changes.
+> 
+> I'm only fine with fixing the kernel pointer fields in some way.
+> 
+> But moving forward any other change to the procfs file is simply
+> a waste of time.
+> 
+> You should create sysfs files and add logic to your tools to look
+> for them and use them if they exist.
+> 
+> Your forward path _SHOULD NOT_ be continuing this procfs versioning
+> madness.  Use something sane and do the work to make userland start
+> to be ready for this transition.
 
-Of course I understood that.
+Hm, summarizing the given restrictions and taking into account that just
+setting the pointer fields to '0' is said to be annoying, the only thing that
+can be fixed is the minor heap overflow caused by the char array. I'll send a
+patch for that.
 
-> And doing the thing you describe in software is racy.
-> I tried to remove many races, not to add new ones.
+As you don't want to change the layout even if there's no tool relying on the
+entries i wanted to modify, i'll just stop my attempts to improve it.
 
-If you do it in ndo_get_stats{,64} and don't use your own lock, yes.
+Regards,
+Oliver
 
-> Yes, some drivers read one hardware counter using two instructions, a=
-nd
-> this is racy.
-
-Most hardware which supports MMIO to multi-word counters has some kind
-of latching scheme where you can read the words/registers in order and
-get consistent values (within a single counter; consistency between
-counters is another matter).  Obviously you have to use a lock to
-serialise stats updates in this case - whether or not you maintain wide=
-r
-software counters.
-
-Oh, another problem with using register values directly is that
-statistics are likely to be reset whenever the device is reconfigured i=
-n
-the way that requires a hardware reset.
-
-Ben.
-
---=20
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
 
