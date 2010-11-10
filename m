@@ -1,86 +1,57 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH] macvlan: lockless tx path
-Date: Wed, 10 Nov 2010 09:53:27 -0800
-Message-ID: <4CDADC17.6070506@candelatech.com>
-References: <1289403709.2860.216.camel@edumazet-laptop>	 <4CDAD8C8.20807@candelatech.com> <1289411027.2860.248.camel@edumazet-laptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Prevent reading uninitialized memory with socket
+ filters
+Date: Wed, 10 Nov 2010 10:07:52 -0800 (PST)
+Message-ID: <20101110.100752.71107177.davem@davemloft.net>
+References: <1289341724.7380.13.camel@dan>
+	<20101109.212838.193698340.davem@davemloft.net>
+	<1289387567.7380.63.camel@dan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, stable@kernel.org, security@kernel.org
+To: drosenberg@vsecurity.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:33569 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754361Ab0KJRxd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Nov 2010 12:53:33 -0500
-In-Reply-To: <1289411027.2860.248.camel@edumazet-laptop>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38656
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755372Ab0KJSH2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Nov 2010 13:07:28 -0500
+In-Reply-To: <1289387567.7380.63.camel@dan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/10/2010 09:43 AM, Eric Dumazet wrote:
-> Le mercredi 10 novembre 2010 =C3=A0 09:39 -0800, Ben Greear a =C3=A9c=
-rit :
->
->>>    /**
->>> - *	struct macvlan_rx_stats - MACVLAN percpu rx stats
->>> + *	struct macvlan_pcpu_stats - MACVLAN percpu stats
->>>     *	@rx_packets: number of received packets
->>>     *	@rx_bytes: number of received bytes
->>>     *	@rx_multicast: number of received multicast packets
->>> + *	@tx_
->>
->> Minor nit..seems you missed a few there?
->>
->
-> Arg... you're right !
->
->>>     *	@syncp: synchronization point for 64bit counters
->>>     *	@rx_errors: number of errors
->>>     */
->>> -struct macvlan_rx_stats {
->>> +struct macvlan_pcpu_stats {
->>>    	u64			rx_packets;
->>>    	u64			rx_bytes;
->>>    	u64			rx_multicast;
->>> +	u64			tx_packets;
->>> +	u64			tx_bytes;
->>>    	struct u64_stats_sync	syncp;
->>>    	unsigned long		rx_errors;
->>> +	unsigned long		tx_dropped;
->>
->> Any reason to not also make those u64?
->>
->
-> Well, they are supposed to be not incremented often, and they are pac=
-ket
-> counts only, so a wrap around in less than 5 seconds is very unlikely=
-=2E
+From: Dan Rosenberg <drosenberg@vsecurity.com>
+Date: Wed, 10 Nov 2010 06:12:47 -0500
 
-I agree, but if these can be read from user-space, it can be tricky to =
-make
-solid code to deal with wraps when the thing wrapping can be 32 or 64 b=
-its,
-depending on whether the kernel is compiled 32-bit or 64-bit.
+> 
+>> 
+>> Prove it.
+> 
+> I hope this was a joke.
 
-So, my preference is to use u32 or u64 so there is no guesswork involve=
-d.
+It absolutely is not.
 
-To be sure, this problem exists in lots of places already (/proc/net/de=
-v comes to mind),
-but the fewer places the better in my opinion.
+You are very much not the first person ever to try and add an
+expensive memset() here.
 
-That said, I don't feel too strongly about it, so if you want to keep t=
-hese
-stats as they are, I shall argue no more :)
+So the onus is really on you to prove this assertion and show the
+exact code path by which the user can actually see any uninitialized
+kernel stack memory (he can't, he can peek at certain values in a
+certain extremely contrived range, making the leak useless), rather
+than point us at some web external site archive of a list posting
+which we cannot easily quote and reply to here.
 
-Thanks,
-Ben
+I think you cannot do it, really.  Except in the AF_PACKET case, the
+sockets can only see "0" or a negative error code, not the actual
+sk_run_filter() return value.
 
+In the one exception, AF_PACKET, the range of values the user can
+see are in the range of MTU of the device being accessed, which
+realistically is 1500 bytes.  This means the user cannot see any
+kernel stack value outside of the range 0 to 1500, which isn't
+worth using this expensive memset to guard against at all.
 
---=20
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+I don't even think it's worth adding all of the extra cpu cycles
+incurred by Eric Dumazet's scheme of using a bitmap test on every
+single memory buffer access.
 
