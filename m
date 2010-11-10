@@ -1,73 +1,43 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: sk->sk_socket seems to disappear before connection termination
-Date: Wed, 10 Nov 2010 06:47:17 +0100
-Message-ID: <1289368037.2700.14.camel@edumazet-laptop>
-References: <alpine.LNX.2.01.1011100205220.17978@obet.zrqbmnf.qr>
+Subject: Re: [PATCH] Prevent reading uninitialized memory with socket
+ filters
+Date: Wed, 10 Nov 2010 06:53:43 +0100
+Message-ID: <1289368423.2700.17.camel@edumazet-laptop>
+References: <1289341724.7380.13.camel@dan>
+	 <20101109.212838.193698340.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>, netdev@vger.kernel.org,
-	=?UTF-8?Q?Rafa=C5=82?= Maj <rafal.maj.it@gmail.com>
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.01.1011100205220.17978@obet.zrqbmnf.qr>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: drosenberg@vsecurity.com, netdev@vger.kernel.org,
+	stable@kernel.org, security@kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:55881 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751751Ab0KJFxx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Nov 2010 00:53:53 -0500
+Received: by wyb36 with SMTP id 36so285919wyb.19
+        for <netdev@vger.kernel.org>; Tue, 09 Nov 2010 21:53:52 -0800 (PST)
+In-Reply-To: <20101109.212838.193698340.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 10 novembre 2010 =C3=A0 02:09 +0100, Jan Engelhardt a =C3=A9=
-crit :
-> Hi,
+Le mardi 09 novembre 2010 =C3=A0 21:28 -0800, David Miller a =C3=A9crit=
+ :
+> From: Dan Rosenberg <drosenberg@vsecurity.com>
+> Date: Tue, 09 Nov 2010 17:28:44 -0500
 >=20
+> > The "mem" array used as scratch space for socket filters is not
+> > initialized, allowing unprivileged users to leak kernel stack bytes=
+=2E
+> >=20
+> > Signed-off-by: Dan Rosenberg <drosenberg@vsecurity.com>
 >=20
-> Rafa=C5=82 reported this to us on IRC, paraphrasing what has been obs=
-erved:
->=20
-> Using a simple rule like `iptables -A OUTPUT -p tcp --dport 80 -j LOG=
-=20
-> --log-uid`, one can observe on creating a connection and terminating
-> it that the trailing packets have skb->sk->sk_socket =3D=3D NULL.
-> Is this intended? Is the socket not retained until after TCP has
-> sent out the closing exchange?
->=20
-> As I can reproduce:
->=20
-> $ telnet 134.76.13.21 80
-> Trying 134.76.13.21...
-> Connected to 134.76.13.21.
-> Escape character is '^]'.
-> ^]
-> telnet> ^D
-> Connection closed.
->=20
-> [491419.500978] IN=3D OUT=3Dtun0 SRC=3D134.76.2.163 DST=3D134.76.13.2=
-1 LEN=3D60 TOS=3D0x10 PREC=3D0x00 TTL=3D64 ID=3D35420 DF PROTO=3DTCP SP=
-T=3D58613 DPT=3D80 WINDOW=3D5488 RES=3D0x00 SYN URGP=3D0 UID=3D25121 GI=
-D=3D100=20
-> [491419.511533] IN=3D OUT=3Dtun0 SRC=3D134.76.2.163 DST=3D134.76.13.2=
-1 LEN=3D52 TOS=3D0x10 PREC=3D0x00 TTL=3D64 ID=3D35421 DF PROTO=3DTCP SP=
-T=3D58613 DPT=3D80 WINDOW=3D86 RES=3D0x00 ACK URGP=3D0 UID=3D25121 GID=3D=
-100=20
-> [491420.052182] IN=3D OUT=3Dtun0 SRC=3D134.76.2.163 DST=3D134.76.13.2=
-1 LEN=3D52 TOS=3D0x10 PREC=3D0x00 TTL=3D64 ID=3D35422 DF PROTO=3DTCP SP=
-T=3D58613 DPT=3D80 WINDOW=3D86 RES=3D0x00 ACK FIN URGP=3D0 UID=3D25121 =
-GID=3D100=20
-> [491420.063619] IN=3D OUT=3Dtun0 SRC=3D134.76.2.163 DST=3D134.76.13.2=
-1 LEN=3D52 TOS=3D0x10 PREC=3D0x00 TTL=3D64 ID=3D35423 DF PROTO=3DTCP SP=
-T=3D58613 DPT=3D80 WINDOW=3D86 RES=3D0x00 ACK URGP=3D0=20
+> Prove it.
 
-Hmmm... skb->sk->sk_socket is really NULL ?
+And once done, add the checks in sk_chk_filter() ?
 
-Are you sure its not skb->sk->sk_socket->file which is NULL ?
-
-In this case, you might need to use sock_i_uid() / sock_i_ino() as a
-fallback ? (expensive because they take a rwlock)
+Allow a load of mem[X] only if a prior store of mem[X] is proven.
 
 
 
-
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
