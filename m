@@ -1,50 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] macvlan: lockless tx path
-Date: Wed, 10 Nov 2010 22:12:35 +0100
-Message-ID: <1289423555.17691.8.camel@edumazet-laptop>
-References: <1289403709.2860.216.camel@edumazet-laptop>
-	 <4CDAD8C8.20807@candelatech.com>
-	 <1289411027.2860.248.camel@edumazet-laptop>
-	 <4CDADC17.6070506@candelatech.com>
-	 <1289413120.2469.12.camel@edumazet-laptop>
-	 <4CDAE713.7020309@candelatech.com>
-	 <1289421187.2469.127.camel@edumazet-laptop>
-	 <1289423056.2249.7.camel@achroite.uk.solarflarecom.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] Prevent reading uninitialized memory with socketfilters
+Date: Wed, 10 Nov 2010 21:25:43 +0000
+Message-ID: <1289424343.2249.28.camel@achroite.uk.solarflarecom.com>
+References: <201011102325.JAF82308.OSVLFHtFJMQFOO@I-love.SAKURA.ne.jp>
+	 <20101110.103923.59670339.davem@davemloft.net>
+	 <1289422664.2249.1.camel@achroite.uk.solarflarecom.com>
+	 <20101110.125929.245406622.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ben Greear <greearb@candelatech.com>,
-	David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	netdev <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: penguin-kernel@I-love.SAKURA.ne.jp, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:61991 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756475Ab0KJVMj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Nov 2010 16:12:39 -0500
-Received: by eye27 with SMTP id 27so717147eye.19
-        for <netdev@vger.kernel.org>; Wed, 10 Nov 2010 13:12:38 -0800 (PST)
-In-Reply-To: <1289423056.2249.7.camel@achroite.uk.solarflarecom.com>
+Received: from mail.solarflare.com ([216.237.3.220]:4782 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756859Ab0KJVZq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Nov 2010 16:25:46 -0500
+In-Reply-To: <20101110.125929.245406622.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 10 novembre 2010 =C3=A0 21:04 +0000, Ben Hutchings a =C3=A9=
-crit :
+On Wed, 2010-11-10 at 12:59 -0800, David Miller wrote:
+> From: Ben Hutchings <bhutchings@solarflare.com>
+> Date: Wed, 10 Nov 2010 20:57:44 +0000
+> 
+> > On Wed, 2010-11-10 at 10:39 -0800, David Miller wrote:
+> > [...]
+> >> In this patch, I use a bitmap (a single long var) so that only filters
+> >> using mem[] loads/stores pay the price of added security checks.
+> >> 
+> >> For other filters, additional cost is a single instruction.
+> >> 
+> >> [ Since we access fentry->k a lot now, cache it in a local variable
+> >>   and mark filter entry pointer as const. -DaveM ]
+> > [...]
+> > 
+> > I don't see the justification for combining these changes.  One patch,
+> > one fix, right?
+> 
+> I'm minimizing the performance impact of the new bitmap checks.
 
-> Drivers should calculate differences and accumulate them in a 64-bit
-> counter.  (A lot of hardware has read-to-clear counters anyway, in wh=
-ich
-> case the driver *has* to accumulate the values it reads.)
+This seems like an entirely separate optimisation, since fentry->k was
+*already* being used all over the place.  (And a smart compiler should
+optimise that anyway... though I realise gcc is often not that smart.)
 
-You are mistaken. These are _hardware_ counters. If they were software,
-of course they would be 32 or 64 bit.
+Ben.
 
-And doing the thing you describe in software is racy.
-I tried to remove many races, not to add new ones.
-
-Yes, some drivers read one hardware counter using two instructions, and
-this is racy.
-
-
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
