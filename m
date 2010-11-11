@@ -1,63 +1,80 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH] macvlan: lockless tx path
-Date: Thu, 11 Nov 2010 10:13:31 -0800
-Message-ID: <4CDC324B.40206@candelatech.com>
-References: <1289403709.2860.216.camel@edumazet-laptop>	 <4CDAD8C8.20807@candelatech.com>	 <1289411027.2860.248.camel@edumazet-laptop>	 <4CDADC17.6070506@candelatech.com>	 <1289413120.2469.12.camel@edumazet-laptop>	 <4CDAE713.7020309@candelatech.com>	 <1289421187.2469.127.camel@edumazet-laptop> <4CDB1021.507@candelatech.com>	 <1289427705.17691.52.camel@edumazet-laptop>	 <4CDB226A.8080903@candelatech.com>	 <1289432184.17691.141.camel@edumazet-laptop>	 <4CDB2EBC.2090905@candelatech.com>	 <1289459012.17691.1001.camel@edumazet-laptop>	 <4CDC1C9A.3070102@candelatech.com>	 <1289494618.17691.1498.camel@edumazet-laptop>	 <4CDC25F5.7010501@candelatech.com> <1289498572.17691.1599.camel@edumazet-laptop>
+From: Michael Monnerie <michael.monnerie@is.it-management.at>
+Subject: Regression 2.6.36 - driver rtl8169 crashes kernel, triggered by user app
+Date: Thu, 11 Nov 2010 19:33:00 +0100
+Message-ID: <201011111933.04343@zmi.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:60691 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752492Ab0KKSNe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Nov 2010 13:13:34 -0500
-In-Reply-To: <1289498572.17691.1599.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed;
+  boundary="nextPart2438180.0ZLtrkFrBO";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/11/2010 10:02 AM, Eric Dumazet wrote:
-> Le jeudi 11 novembre 2010 =C3=A0 09:20 -0800, Ben Greear a =C3=A9crit=
- :
->
->> I've shown you my algorithm that requires one to know the counter
->> width, and in response you offered on that will work with 32 OR 64 b=
-its,
->> as long as you make some assumptions.
->>
->> If you have an algorithm that can properly deal with wrapped counter=
-s of
->> arbitrary bits, then post it.
->>
->
-> Its only a generalization of RRD algo
->
-> No rocket science I am afraid.
->
-> You can try all the numbers in `seq 32 64` in this order, to get a
-> generic algo.
+--nextPart2438180.0ZLtrkFrBO
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
 
-Ok, so then you have to sample soon enough that a 32-bit counter
-can't wrap twice..otherwise you couldn't tell a 32 bit from a
-33 bit counter, and you basically gain nothing from having "64-bit"
-stats.
+Dear list, I've hunted down a bug which does *NOT* occur in kernel=20
+2.6.34.7-0.5-desktop from openSUSE 11.3, but crashes stock kernel 2.6.36=20
+triggered by a user!
 
-And that still assumes at least 32-bit stats..not 16 or whatever.
-Thankfully, I doubt there are any drivers using < 32 bit stats.
+It's actually very simple. From my desktop (kernel 2.6.36) I "cd" to an=20
+NFS4 share, where a xz compressed image of Win7-64.iso.xz is located.
 
-I'll work on a patch for my idea when I get a chance..we'll see if
-anyone likes it.
+# cd /q/iso-images
 
-If you are aware of any drivers that return counters of other than 32 o=
-r
-64bit widths, please let us know and perhaps we can fix them as well.
+and then I try to uncompress it there (as user, not root!):
 
-Thanks,
-Ben
+# xz -kv Win7-64.iso.xz
 
---=20
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+With kernel 2.6.34.7-0.5-desktop, this runs with ~41MiB/s without=20
+problems.
 
+With kernel 2.6.36, it runs at ~26MiB/s, and while doing so, dmesg shows=20
+a lot of noise about r8169 complaining:
+http://zmi.at/x/kernel2.6.36-crash86.jpg
+
+Here are 2 pictures of different crashes:
+http://zmi.at/x/kernel2.6.36-crash84.jpg
+http://zmi.at/x/kernel2.6.36-crash85.jpg
+
+Neither the dmesg-messages nor the crash happens with kernel=20
+2.6.34.7-0.5-desktop as delivered by openSUSE 11.3, but it always fully=20
+crashes 2.6.36. I've retried about 10 times, it *never* finished to=20
+uncompress the ~3GB image. At around 500-1000MB the kernel was gone.
+
+I'm sure someone knows how to fix it. :-)
+
+=2D-=20
+mit freundlichen Gr=C3=BCssen,
+Michael Monnerie, Ing. BSc
+
+it-management Internet Services
+http://proteger.at [gesprochen: Prot-e-schee]
+Tel: 0660 / 415 65 31
+
+****** Radiointerview zum Thema Spam ******
+http://www.it-podcast.at/archiv.html#podcast-100716
+
+// Wir haben im Moment zwei H=C3=A4user zu verkaufen:
+// http://zmi.at/langegg/
+// http://zmi.at/haus2009/
+
+--nextPart2438180.0ZLtrkFrBO
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.15 (GNU/Linux)
+
+iEYEABECAAYFAkzcNuAACgkQzhSR9xwSCbQ9sACfQpVrOihap/EXBpa0FkcfhnvY
+67MAoJl5DZy5wHmijRrRzdY/J7Hvj4FB
+=HC7Y
+-----END PGP SIGNATURE-----
+
+--nextPart2438180.0ZLtrkFrBO--
