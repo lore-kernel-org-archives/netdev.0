@@ -1,36 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] neigh: reorder struct neighbour
-Date: Thu, 11 Nov 2010 10:41:38 -0800 (PST)
-Message-ID: <20101111.104138.59661151.davem@davemloft.net>
-References: <1289494639.17691.1499.camel@edumazet-laptop>
+Subject: Re: net-next-2.6 [PATCH 0/3] dccp: Ack Vectors in circular buffer
+ instead of array
+Date: Thu, 11 Nov 2010 10:45:24 -0800 (PST)
+Message-ID: <20101111.104524.48510509.davem@davemloft.net>
+References: <ack_vector_circular_buffer_dccp>
+	<1289455653-5463-1-git-send-email-gerrit@erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: gerrit@erg.abdn.ac.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50591
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50605
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752747Ab0KKSlN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Nov 2010 13:41:13 -0500
-In-Reply-To: <1289494639.17691.1499.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1755586Ab0KKSo7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Nov 2010 13:44:59 -0500
+In-Reply-To: <1289455653-5463-1-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 11 Nov 2010 17:57:19 +0100
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Date: Thu, 11 Nov 2010 07:07:30 +0100
 
-> It is important to move nud_state outside of the often modified cache
-> line (because of refcnt), to reduce false sharing in neigh_event_send()
+>  Patch #1: cleans up the old interface to prepare for the improved one.
+>  Patch #2: also tidies up the old interface, by separating the internals
+>            of Ack Vectors from the option-parsing code.
+>  Patch #3: Completes the implementation of a circular Ack Vector buffer.
 > 
-> This is a followup of commit 0ed8ddf4045f (neigh: Protect neigh->ha[]
-> with a seqlock)
 > 
-> This gives a 7% speedup on routing test with IP route cache disabled.
+> I have also placed this in into a fresh (today's) copy of net-next-2.6, on
 > 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> ---
-> David, it appears I forgot to push this patch, I have it in my tree
-> since one month. Thanks !
+>     git://eden-feed.erg.abdn.ac.uk/net-next-2.6        [subtree 'dccp']
+> 
+> The set has been tested for 3 years, and is fully bisectable.
 
-Applied, thanks.
+Pulled, thanks!
