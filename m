@@ -1,61 +1,31 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: [PATCH] virtio-net: init link state correctly
-Date: Thu, 11 Nov 2010 11:15:41 +1030
-Message-ID: <201011111115.41256.rusty@rustcorp.com.au>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Jason Wang <jasowang@redhat.com>
+From: Casey Leedom <leedom@chelsio.com>
+Subject: [PATCH 00/10] cxgb4vf: a number of bug fixes and minor cleanup
+Date: Wed, 10 Nov 2010 18:01:33 -0800
+Message-ID: <450C6E98-D0D9-42A6-9F15-4DB98647DB04@chelsio.com>
+Mime-Version: 1.0 (Apple Message framework v1081)
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:51556 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757607Ab0KKApr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Nov 2010 19:45:47 -0500
+Received: from stargate.chelsio.com ([67.207.112.58]:24639 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932219Ab0KKCBf convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Nov 2010 21:01:35 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jason Wang <jasowang@redhat.com>
+The following patch set includes a number of bug fixes and some minor c=
+leanup for the cxgb4vf network driver.  If there are any problems with =
+formatting, etc. of the patch set please just reject the patch set and =
+kick my butt =97 I'm still a novice at putting these together!
 
-For device that supports VIRTIO_NET_F_STATUS, there's no need to
-assume the link is up and we need to call nerif_carrier_off() before
-querying device status, otherwise we may get wrong operstate after
-diver was loaded because the link watch event was not fired as
-expected.
+ drivers/net/cxgb4vf/adapter.h      |    2 +-
+ drivers/net/cxgb4vf/cxgb4vf_main.c |   72 +++++++++++++-------
+ drivers/net/cxgb4vf/sge.c          |  131 ++++++++++++++++++++++------=
+--------
+ drivers/net/cxgb4vf/t4vf_common.h  |   29 ++++----
+ drivers/net/cxgb4vf/t4vf_hw.c      |   23 ++++++-
+ 5 files changed, 165 insertions(+), 92 deletions(-)
 
-For device that does not support VIRITO_NET_F_STATUS, we could not get
-its status through virtnet_update_status() and what we can only do is
-always assuming the link is up.
-
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
-Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
----
- drivers/net/virtio_net.c |   12 +++++++++---
- 1 files changed, 9 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index bb6b67f..b6d4028 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -986,9 +986,15 @@ static int virtnet_probe(struct virtio_device *vdev)
- 		goto unregister;
- 	}
- 
--	vi->status = VIRTIO_NET_S_LINK_UP;
--	virtnet_update_status(vi);
--	netif_carrier_on(dev);
-+	/* Assume link up if device can't report link status,
-+	   otherwise get link status from config. */
-+	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_STATUS)) {
-+		netif_carrier_off(dev);
-+		virtnet_update_status(vi);
-+	} else {
-+		vi->status = VIRTIO_NET_S_LINK_UP;
-+		netif_carrier_on(dev);
-+	}
- 
- 	pr_debug("virtnet: registered device %s\n", dev->name);
- 	return 0;
+Casey
