@@ -1,37 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: net-next-2.6 [PATCH 0/3] dccp: Ack Vectors in circular buffer
- instead of array
-Date: Thu, 11 Nov 2010 10:45:24 -0800 (PST)
-Message-ID: <20101111.104524.48510509.davem@davemloft.net>
-References: <ack_vector_circular_buffer_dccp>
-	<1289455653-5463-1-git-send-email-gerrit@erg.abdn.ac.uk>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] macvlan: lockless tx path
+Date: Thu, 11 Nov 2010 19:46:22 +0100
+Message-ID: <1289501182.17691.1646.camel@edumazet-laptop>
+References: <1289403709.2860.216.camel@edumazet-laptop>
+	 <4CDAD8C8.20807@candelatech.com>
+	 <1289411027.2860.248.camel@edumazet-laptop>
+	 <4CDADC17.6070506@candelatech.com>
+	 <1289413120.2469.12.camel@edumazet-laptop>
+	 <4CDAE713.7020309@candelatech.com>
+	 <1289421187.2469.127.camel@edumazet-laptop> <4CDB1021.507@candelatech.com>
+	 <1289427705.17691.52.camel@edumazet-laptop>
+	 <4CDB226A.8080903@candelatech.com>
+	 <1289432184.17691.141.camel@edumazet-laptop>
+	 <4CDB2EBC.2090905@candelatech.com>
+	 <1289459012.17691.1001.camel@edumazet-laptop>
+	 <4CDC1C9A.3070102@candelatech.com>
+	 <1289494618.17691.1498.camel@edumazet-laptop>
+	 <4CDC25F5.7010501@candelatech.com>
+	 <1289498572.17691.1599.camel@edumazet-laptop>
+	 <4CDC324B.40206@candelatech.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
-To: gerrit@erg.abdn.ac.uk
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50605
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755586Ab0KKSo7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Nov 2010 13:44:59 -0500
-In-Reply-To: <1289455653-5463-1-git-send-email-gerrit@erg.abdn.ac.uk>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:61730 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753525Ab0KKSqZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Nov 2010 13:46:25 -0500
+Received: by wwb34 with SMTP id 34so178437wwb.1
+        for <netdev@vger.kernel.org>; Thu, 11 Nov 2010 10:46:24 -0800 (PST)
+In-Reply-To: <4CDC324B.40206@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Date: Thu, 11 Nov 2010 07:07:30 +0100
+Le jeudi 11 novembre 2010 =C3=A0 10:13 -0800, Ben Greear a =C3=A9crit :
 
->  Patch #1: cleans up the old interface to prepare for the improved one.
->  Patch #2: also tidies up the old interface, by separating the internals
->            of Ack Vectors from the option-parsing code.
->  Patch #3: Completes the implementation of a circular Ack Vector buffer.
-> 
-> 
-> I have also placed this in into a fresh (today's) copy of net-next-2.6, on
-> 
->     git://eden-feed.erg.abdn.ac.uk/net-next-2.6        [subtree 'dccp']
-> 
-> The set has been tested for 3 years, and is fully bisectable.
+> If you are aware of any drivers that return counters of other than 32=
+ or
+> 64bit widths, please let us know and perhaps we can fix them as well.
 
-Pulled, thanks!
+I am pretty sure I found some of them, but cannot recall right now.
+
+Some ethtool stats have definitly not a 32 or 64 bit range
+
+
+
