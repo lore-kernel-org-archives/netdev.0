@@ -1,1084 +1,252 @@
 From: Jon Mason <jon.mason@exar.com>
-Subject: [PATCH 04/12] vxge: serialize access to steering control register
-Date: Thu, 11 Nov 2010 08:25:56 -0600
-Message-ID: <1289485564-8822-5-git-send-email-jon.mason@exar.com>
+Subject: [PATCH 06/12] vxge: add receive hardware timestamping
+Date: Thu, 11 Nov 2010 08:25:58 -0600
+Message-ID: <1289485564-8822-7-git-send-email-jon.mason@exar.com>
 Cc: netdev@vger.kernel.org,
 	Sivakumar Subramani <sivakumar.subramani@exar.com>,
 	Sreenivasa Honnur <sreenivasa.honnur@exar.com>,
 	Ram Vepa <ram.vepa@exar.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:40660 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756641Ab0KKO0s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Nov 2010 09:26:48 -0500
-Received: by mail-yw0-f46.google.com with SMTP id 7so28076ywo.19
-        for <netdev@vger.kernel.org>; Thu, 11 Nov 2010 06:26:48 -0800 (PST)
+Received: from mail-yx0-f174.google.com ([209.85.213.174]:45298 "EHLO
+	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755973Ab0KKO1A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Nov 2010 09:27:00 -0500
+Received: by mail-yx0-f174.google.com with SMTP id 8so34940yxk.19
+        for <netdev@vger.kernel.org>; Thu, 11 Nov 2010 06:27:00 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It is possible for multiple callers to access the firmware interface for
-the same vpath simultaneously, resulting in uncertain output.  Add locks
-to serialize access.  Also, make functions only accessed locally static,
-thus requiring some movement of code blocks.
+Add support for enable/disabling hardware timestamping on receive
+packets via ioctl call.  When enabled, the hardware timestamp replaces
+the FCS in the payload.
 
 Signed-off-by: Jon Mason <jon.mason@exar.com>
 Signed-off-by: Ram Vepa <ram.vepa@exar.com>
 ---
- drivers/net/vxge/vxge-config.c |  807 ++++++++++++++++------------------------
- drivers/net/vxge/vxge-config.h |    1 +
- 2 files changed, 325 insertions(+), 483 deletions(-)
+ drivers/net/vxge/vxge-main.c |  133 ++++++++++++++++++++++++++++++++++++++++--
+ drivers/net/vxge/vxge-main.h |    8 ++-
+ 2 files changed, 132 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/vxge/vxge-config.c b/drivers/net/vxge/vxge-config.c
-index 212e301..c822463 100644
---- a/drivers/net/vxge/vxge-config.c
-+++ b/drivers/net/vxge/vxge-config.c
-@@ -19,6 +19,7 @@
+diff --git a/drivers/net/vxge/vxge-main.c b/drivers/net/vxge/vxge-main.c
+index 10549bd..ea303a2 100644
+--- a/drivers/net/vxge/vxge-main.c
++++ b/drivers/net/vxge/vxge-main.c
+@@ -51,6 +51,7 @@
+ #include <linux/netdevice.h>
+ #include <linux/etherdevice.h>
+ #include <linux/firmware.h>
++#include <linux/net_tstamp.h>
+ #include "vxge-main.h"
+ #include "vxge-reg.h"
  
- #include "vxge-traffic.h"
- #include "vxge-config.h"
-+#include "vxge-main.h"
- 
- static enum vxge_hw_status
- __vxge_hw_fifo_create(
-@@ -104,12 +105,6 @@ static void
- __vxge_hw_device_host_info_get(struct __vxge_hw_device *hldev);
- 
- static enum vxge_hw_status
--__vxge_hw_vpath_card_info_get(
--	u32 vp_id,
--	struct vxge_hw_vpath_reg __iomem *vpath_reg,
--	struct vxge_hw_device_hw_info *hw_info);
--
--static enum vxge_hw_status
- __vxge_hw_device_initialize(struct __vxge_hw_device *hldev);
- 
- static void
-@@ -153,17 +148,6 @@ vxge_hw_vpath_stats_enable(struct __vxge_hw_vpath_handle *vpath_handle);
- static enum vxge_hw_status
- __vxge_hw_legacy_swapper_set(struct vxge_hw_legacy_reg __iomem *legacy_reg);
- 
--static u64
--__vxge_hw_vpath_pci_func_mode_get(u32  vp_id,
--				  struct vxge_hw_vpath_reg __iomem *vpath_reg);
--
--static u32
--__vxge_hw_vpath_func_id_get(u32 vp_id, struct vxge_hw_vpmgmt_reg __iomem *vpmgmt_reg);
--
--static enum vxge_hw_status
--__vxge_hw_vpath_addr_get(u32 vp_id, struct vxge_hw_vpath_reg __iomem *vpath_reg,
--			 u8 (macaddr)[ETH_ALEN], u8 (macaddr_mask)[ETH_ALEN]);
--
- static enum vxge_hw_status
- __vxge_hw_vpath_reset_check(struct __vxge_hw_virtualpath *vpath);
- 
-@@ -171,9 +155,6 @@ __vxge_hw_vpath_reset_check(struct __vxge_hw_virtualpath *vpath);
- static enum vxge_hw_status
- __vxge_hw_vpath_sw_reset(struct __vxge_hw_device *devh, u32 vp_id);
- 
--static enum vxge_hw_status
--__vxge_hw_vpath_fw_ver_get(u32 vp_id, struct vxge_hw_vpath_reg __iomem *vpath_reg,
--			   struct vxge_hw_device_hw_info *hw_info);
- 
- static enum vxge_hw_status
- __vxge_hw_vpath_mac_configure(struct __vxge_hw_device *devh, u32 vp_id);
-@@ -275,6 +256,72 @@ void vxge_hw_device_wait_receive_idle(struct __vxge_hw_device *hldev)
- 	}
- }
- 
-+static enum vxge_hw_status
-+vxge_hw_vpath_fw_api(struct __vxge_hw_virtualpath *vpath, u32 action,
-+		     u32 fw_memo, u32 offset, u64 *data0, u64 *data1,
-+		     u64 *steer_ctrl)
-+{
-+	struct vxge_hw_vpath_reg __iomem *vp_reg;
-+	enum vxge_hw_status status;
-+	u64 val64;
-+	u32 retry = 0, max_retry = 100;
-+
-+	vp_reg = vpath->vp_reg;
-+
-+	if (vpath->vp_open) {
-+		max_retry = 3;
-+		spin_lock(&vpath->lock);
-+	}
-+
-+	writeq(*data0, &vp_reg->rts_access_steer_data0);
-+	writeq(*data1, &vp_reg->rts_access_steer_data1);
-+	wmb();
-+
-+	val64 = VXGE_HW_RTS_ACCESS_STEER_CTRL_ACTION(action) |
-+		VXGE_HW_RTS_ACCESS_STEER_CTRL_DATA_STRUCT_SEL(fw_memo) |
-+		VXGE_HW_RTS_ACCESS_STEER_CTRL_OFFSET(offset) |
-+		VXGE_HW_RTS_ACCESS_STEER_CTRL_STROBE |
-+		*steer_ctrl;
-+
-+	status = __vxge_hw_pio_mem_write64(val64,
-+					   &vp_reg->rts_access_steer_ctrl,
-+					   VXGE_HW_RTS_ACCESS_STEER_CTRL_STROBE,
-+					   VXGE_HW_DEF_DEVICE_POLL_MILLIS);
-+
-+	/* The __vxge_hw_device_register_poll can udelay for a significant
-+	 * amount of time, blocking other proccess from the CPU.  If it delays
-+	 * for ~5secs, a NMI error can occur.  A way around this is to give up
-+	 * the processor via msleep, but this is not allowed is under lock.
-+	 * So, only allow it to sleep for ~4secs if open.  Otherwise, delay for
-+	 * 1sec and sleep for 10ms until the firmware operation has completed
-+	 * or timed-out.
-+	 */
-+	while ((status != VXGE_HW_OK) && retry++ < max_retry) {
-+		if (!vpath->vp_open)
-+			msleep(20);
-+		status = __vxge_hw_device_register_poll(
-+					&vp_reg->rts_access_steer_ctrl,
-+					VXGE_HW_RTS_ACCESS_STEER_CTRL_STROBE,
-+					VXGE_HW_DEF_DEVICE_POLL_MILLIS);
-+	}
-+
-+	if (status != VXGE_HW_OK)
-+		goto out;
-+
-+	val64 = readq(&vp_reg->rts_access_steer_ctrl);
-+	if (val64 & VXGE_HW_RTS_ACCESS_STEER_CTRL_RMACJ_STATUS) {
-+		*data0 = readq(&vp_reg->rts_access_steer_data0);
-+		*data1 = readq(&vp_reg->rts_access_steer_data1);
-+		*steer_ctrl = val64;
-+	} else
-+		status = VXGE_HW_FAIL;
-+
-+out:
-+	if (vpath->vp_open)
-+		spin_unlock(&vpath->lock);
-+	return status;
-+}
-+
- /*
-  * __vxge_hw_channel_allocate - Allocate memory for channel
-  * This function allocates required memory for the channel and various arrays
-@@ -650,10 +697,25 @@ __vxge_hw_device_is_privilaged(u32 host_type, u32 func_id)
- }
- 
- /*
-+ * __vxge_hw_vpath_func_id_get - Get the function id of the vpath.
-+ * Returns the function number of the vpath.
-+ */
-+static u32
-+__vxge_hw_vpath_func_id_get(struct vxge_hw_vpmgmt_reg __iomem *vpmgmt_reg)
-+{
-+	u64 val64;
-+
-+	val64 = readq(&vpmgmt_reg->vpath_to_func_map_cfg1);
-+
-+	return
-+	 (u32)VXGE_HW_VPATH_TO_FUNC_MAP_CFG1_GET_VPATH_TO_FUNC_MAP_CFG1(val64);
-+}
-+
-+/*
-  * __vxge_hw_device_host_info_get
-  * This routine returns the host type assignments
-  */
--void __vxge_hw_device_host_info_get(struct __vxge_hw_device *hldev)
-+static void __vxge_hw_device_host_info_get(struct __vxge_hw_device *hldev)
+@@ -369,7 +370,7 @@ vxge_rx_1b_compl(struct __vxge_hw_ring *ringh, void *dtr,
+ 		 u8 t_code, void *userdata)
  {
- 	u64 val64;
- 	u32 i;
-@@ -666,16 +728,18 @@ void __vxge_hw_device_host_info_get(struct __vxge_hw_device *hldev)
- 	hldev->vpath_assignments = readq(&hldev->common_reg->vpath_assignments);
+ 	struct vxge_ring *ring = (struct vxge_ring *)userdata;
+-	struct  net_device *dev = ring->ndev;
++	struct net_device *dev = ring->ndev;
+ 	unsigned int dma_sizes;
+ 	void *first_dtr = NULL;
+ 	int dtr_cnt = 0;
+@@ -513,6 +514,16 @@ vxge_rx_1b_compl(struct __vxge_hw_ring *ringh, void *dtr,
+ 		else
+ 			skb_checksum_none_assert(skb);
  
- 	for (i = 0; i < VXGE_HW_MAX_VIRTUAL_PATHS; i++) {
--
- 		if (!(hldev->vpath_assignments & vxge_mBIT(i)))
- 			continue;
- 
- 		hldev->func_id =
--			__vxge_hw_vpath_func_id_get(i, hldev->vpmgmt_reg[i]);
-+			__vxge_hw_vpath_func_id_get(hldev->vpmgmt_reg[i]);
- 
- 		hldev->access_rights = __vxge_hw_device_access_rights_get(
- 			hldev->host_type, hldev->func_id);
- 
-+		hldev->virtual_paths[i].vp_open = VXGE_HW_VP_NOT_OPEN;
-+		hldev->virtual_paths[i].vp_reg = hldev->vpath_reg[i];
 +
- 		hldev->first_vp_id = i;
- 		break;
- 	}
-@@ -732,6 +796,192 @@ exit:
- 	return status;
++		if (ring->rx_hwts) {
++			struct skb_shared_hwtstamps *skb_hwts;
++			u32 ns = *(u32 *)(skb->head + pkt_length);
++
++			skb_hwts = skb_hwtstamps(skb);
++			skb_hwts->hwtstamp = ns_to_ktime(ns);
++			skb_hwts->syststamp.tv64 = 0;
++		}
++
+ 		/* rth_hash_type and rth_it_hit are non-zero regardless of
+ 		 * whether rss is enabled.  Only the rth_value is zero/non-zero
+ 		 * if rss is disabled/enabled, so key off of that.
+@@ -2037,6 +2048,7 @@ static int vxge_open_vpaths(struct vxgedev *vdev)
+ 				vdev->config.fifo_indicate_max_pkts;
+ 			vpath->ring.rx_vector_no = 0;
+ 			vpath->ring.rx_csum = vdev->rx_csum;
++			vpath->ring.rx_hwts = vdev->rx_hwts;
+ 			vpath->is_open = 1;
+ 			vdev->vp_handles[i] = vpath->handle;
+ 			vpath->ring.gro_enable = vdev->config.gro_enable;
+@@ -2971,6 +2983,101 @@ vxge_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *net_stats)
+ 	return net_stats;
  }
  
-+/*
-+ * __vxge_hw_vpath_fw_ver_get - Get the fw version
-+ * Returns FW Version
-+ */
-+static enum vxge_hw_status
-+__vxge_hw_vpath_fw_ver_get(struct __vxge_hw_virtualpath *vpath,
-+			   struct vxge_hw_device_hw_info *hw_info)
++static enum vxge_hw_status vxge_timestamp_config(struct vxgedev *vdev,
++						 int enable)
 +{
-+	struct vxge_hw_device_version *fw_version = &hw_info->fw_version;
-+	struct vxge_hw_device_date *fw_date = &hw_info->fw_date;
-+	struct vxge_hw_device_version *flash_version = &hw_info->flash_version;
-+	struct vxge_hw_device_date *flash_date = &hw_info->flash_date;
-+	u64 data0, data1 = 0, steer_ctrl = 0;
 +	enum vxge_hw_status status;
++	u64 val64;
 +
-+	status = vxge_hw_vpath_fw_api(vpath,
-+			VXGE_HW_RTS_ACCESS_STEER_CTRL_ACTION_READ_ENTRY,
-+			VXGE_HW_RTS_ACCESS_STEER_CTRL_DATA_STRUCT_SEL_FW_MEMO,
-+			0, &data0, &data1, &steer_ctrl);
-+	if (status != VXGE_HW_OK)
-+		goto exit;
++	/* Timestamp is passed to the driver via the FCS, therefore we
++	 * must disable the FCS stripping by the adapter.  Since this is
++	 * required for the driver to load (due to a hardware bug),
++	 * there is no need to do anything special here.
++	 */
++	if (enable)
++		val64 = VXGE_HW_XMAC_TIMESTAMP_EN |
++			VXGE_HW_XMAC_TIMESTAMP_USE_LINK_ID(0) |
++			VXGE_HW_XMAC_TIMESTAMP_INTERVAL(0);
++	else
++		val64 = 0;
 +
-+	fw_date->day =
-+	    (u32) VXGE_HW_RTS_ACCESS_STEER_DATA0_GET_FW_VER_DAY(data0);
-+	fw_date->month =
-+	    (u32) VXGE_HW_RTS_ACCESS_STEER_DATA0_GET_FW_VER_MONTH(data0);
-+	fw_date->year =
-+	    (u32) VXGE_HW_RTS_ACCESS_STEER_DATA0_GET_FW_VER_YEAR(data0);
-+
-+	snprintf(fw_date->date, VXGE_HW_FW_STRLEN, "%2.2d/%2.2d/%4.4d",
-+		 fw_date->month, fw_date->day, fw_date->year);
-+
-+	fw_version->major =
-+	    (u32) VXGE_HW_RTS_ACCESS_STEER_DATA0_GET_FW_VER_MAJOR(data0);
-+	fw_version->minor =
-+	    (u32) VXGE_HW_RTS_ACCESS_STEER_DATA0_GET_FW_VER_MINOR(data0);
-+	fw_version->build =
-+	    (u32) VXGE_HW_RTS_ACCESS_STEER_DATA0_GET_FW_VER_BUILD(data0);
-+
-+	snprintf(fw_version->version, VXGE_HW_FW_STRLEN, "%d.%d.%d",
-+		 fw_version->major, fw_version->minor, fw_version->build);
-+
-+	flash_date->day =
-+	    (u32) VXGE_HW_RTS_ACCESS_STEER_DATA1_GET_FLASH_VER_DAY(data1);
-+	flash_date->month =
-+	    (u32) VXGE_HW_RTS_ACCESS_STEER_DATA1_GET_FLASH_VER_MONTH(data1);
-+	flash_date->year =
-+	    (u32) VXGE_HW_RTS_ACCESS_STEER_DATA1_GET_FLASH_VER_YEAR(data1);
-+
-+	snprintf(flash_date->date, VXGE_HW_FW_STRLEN, "%2.2d/%2.2d/%4.4d",
-+		 flash_date->month, flash_date->day, flash_date->year);
-+
-+	flash_version->major =
-+	    (u32) VXGE_HW_RTS_ACCESS_STEER_DATA1_GET_FLASH_VER_MAJOR(data1);
-+	flash_version->minor =
-+	    (u32) VXGE_HW_RTS_ACCESS_STEER_DATA1_GET_FLASH_VER_MINOR(data1);
-+	flash_version->build =
-+	    (u32) VXGE_HW_RTS_ACCESS_STEER_DATA1_GET_FLASH_VER_BUILD(data1);
-+
-+	snprintf(flash_version->version, VXGE_HW_FW_STRLEN, "%d.%d.%d",
-+		 flash_version->major, flash_version->minor,
-+		 flash_version->build);
-+
-+exit:
++	status = vxge_hw_mgmt_reg_write(vdev->devh,
++					vxge_hw_mgmt_reg_type_mrpcim,
++					0,
++					offsetof(struct vxge_hw_mrpcim_reg,
++						 xmac_timestamp),
++					val64);
++	vxge_hw_device_flush_io(vdev->devh);
 +	return status;
 +}
 +
-+/*
-+ * __vxge_hw_vpath_card_info_get - Get the serial numbers,
-+ * part number and product description.
-+ */
-+static enum vxge_hw_status
-+__vxge_hw_vpath_card_info_get(struct __vxge_hw_virtualpath *vpath,
-+			      struct vxge_hw_device_hw_info *hw_info)
++static int vxge_hwtstamp_ioctl(struct vxgedev *vdev, void __user *data)
 +{
-+	enum vxge_hw_status status;
-+	u64 data0, data1 = 0, steer_ctrl = 0;
-+	u8 *serial_number = hw_info->serial_number;
-+	u8 *part_number = hw_info->part_number;
-+	u8 *product_desc = hw_info->product_desc;
-+	u32 i, j = 0;
-+
-+	data0 = VXGE_HW_RTS_ACCESS_STEER_DATA0_MEMO_ITEM_SERIAL_NUMBER;
-+
-+	status = vxge_hw_vpath_fw_api(vpath,
-+			VXGE_HW_RTS_ACCESS_STEER_CTRL_ACTION_READ_MEMO_ENTRY,
-+			VXGE_HW_RTS_ACCESS_STEER_CTRL_DATA_STRUCT_SEL_FW_MEMO,
-+			0, &data0, &data1, &steer_ctrl);
-+	if (status != VXGE_HW_OK)
-+		return status;
-+
-+	((u64 *)serial_number)[0] = be64_to_cpu(data0);
-+	((u64 *)serial_number)[1] = be64_to_cpu(data1);
-+
-+	data0 = VXGE_HW_RTS_ACCESS_STEER_DATA0_MEMO_ITEM_PART_NUMBER;
-+	data1 = steer_ctrl = 0;
-+
-+	status = vxge_hw_vpath_fw_api(vpath,
-+			VXGE_HW_RTS_ACCESS_STEER_CTRL_ACTION_READ_MEMO_ENTRY,
-+			VXGE_HW_RTS_ACCESS_STEER_CTRL_DATA_STRUCT_SEL_FW_MEMO,
-+			0, &data0, &data1, &steer_ctrl);
-+	if (status != VXGE_HW_OK)
-+		return status;
-+
-+	((u64 *)part_number)[0] = be64_to_cpu(data0);
-+	((u64 *)part_number)[1] = be64_to_cpu(data1);
-+
-+	for (i = VXGE_HW_RTS_ACCESS_STEER_DATA0_MEMO_ITEM_DESC_0;
-+	     i <= VXGE_HW_RTS_ACCESS_STEER_DATA0_MEMO_ITEM_DESC_3; i++) {
-+		data0 = i;
-+		data1 = steer_ctrl = 0;
-+
-+		status = vxge_hw_vpath_fw_api(vpath,
-+			VXGE_HW_RTS_ACCESS_STEER_CTRL_ACTION_READ_MEMO_ENTRY,
-+			VXGE_HW_RTS_ACCESS_STEER_CTRL_DATA_STRUCT_SEL_FW_MEMO,
-+			0, &data0, &data1, &steer_ctrl);
-+		if (status != VXGE_HW_OK)
-+			return status;
-+
-+		((u64 *)product_desc)[j++] = be64_to_cpu(data0);
-+		((u64 *)product_desc)[j++] = be64_to_cpu(data1);
-+	}
-+
-+	return status;
-+}
-+
-+/*
-+ * __vxge_hw_vpath_pci_func_mode_get - Get the pci mode
-+ * Returns pci function mode
-+ */
-+static u64
-+__vxge_hw_vpath_pci_func_mode_get(struct __vxge_hw_virtualpath *vpath)
-+{
-+	u64 data0, data1 = 0, steer_ctrl = 0;
-+	enum vxge_hw_status status;
-+
-+	data0 = VXGE_HW_RTS_ACCESS_STEER_DATA0_MEMO_ITEM_PCI_MODE;
-+
-+	status = vxge_hw_vpath_fw_api(vpath,
-+			VXGE_HW_RTS_ACCESS_STEER_CTRL_ACTION_READ_MEMO_ENTRY,
-+			VXGE_HW_RTS_ACCESS_STEER_CTRL_DATA_STRUCT_SEL_FW_MEMO,
-+			0, &data0, &data1, &steer_ctrl);
-+
-+	return data0;
-+}
-+
-+/*
-+ * __vxge_hw_vpath_addr_get - Get the hw address entry for this vpath
-+ *               from MAC address table.
-+ */
-+static enum vxge_hw_status
-+__vxge_hw_vpath_addr_get(struct __vxge_hw_virtualpath *vpath,
-+			 u8 *macaddr, u8 *macaddr_mask)
-+{
-+	u64 action = VXGE_HW_RTS_ACCESS_STEER_CTRL_ACTION_LIST_FIRST_ENTRY,
-+	    data0 = 0, data1 = 0, steer_ctrl = 0;
++	struct hwtstamp_config config;
 +	enum vxge_hw_status status;
 +	int i;
 +
-+	do {
-+		status = vxge_hw_vpath_fw_api(vpath, action,
-+			VXGE_HW_RTS_ACCESS_STEER_CTRL_DATA_STRUCT_SEL_DA,
-+			0, &data0, &data1, &steer_ctrl);
++	if (copy_from_user(&config, data, sizeof(config)))
++		return -EFAULT;
++
++	/* reserved for future extensions */
++	if (config.flags)
++		return -EINVAL;
++
++	/* Transmit HW Timestamp not supported */
++	switch (config.tx_type) {
++	case HWTSTAMP_TX_OFF:
++		break;
++	case HWTSTAMP_TX_ON:
++	default:
++		return -ERANGE;
++	}
++
++	switch (config.rx_filter) {
++	case HWTSTAMP_FILTER_NONE:
++		status = vxge_timestamp_config(vdev, 0);
 +		if (status != VXGE_HW_OK)
-+			goto exit;
++			return -EFAULT;
 +
-+		data0 = VXGE_HW_RTS_ACCESS_STEER_DATA0_GET_DA_MAC_ADDR(data0);
-+		data1 = VXGE_HW_RTS_ACCESS_STEER_DATA1_GET_DA_MAC_ADDR_MASK(
-+									data1);
++		vdev->rx_hwts = 0;
++		config.rx_filter = HWTSTAMP_FILTER_NONE;
++		break;
 +
-+		for (i = ETH_ALEN; i > 0; i--) {
-+			macaddr[i - 1] = (u8) (data0 & 0xFF);
-+			data0 >>= 8;
++	case HWTSTAMP_FILTER_ALL:
++	case HWTSTAMP_FILTER_SOME:
++	case HWTSTAMP_FILTER_PTP_V1_L4_EVENT:
++	case HWTSTAMP_FILTER_PTP_V1_L4_SYNC:
++	case HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ:
++	case HWTSTAMP_FILTER_PTP_V2_L4_EVENT:
++	case HWTSTAMP_FILTER_PTP_V2_L4_SYNC:
++	case HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ:
++	case HWTSTAMP_FILTER_PTP_V2_L2_EVENT:
++	case HWTSTAMP_FILTER_PTP_V2_L2_SYNC:
++	case HWTSTAMP_FILTER_PTP_V2_L2_DELAY_REQ:
++	case HWTSTAMP_FILTER_PTP_V2_EVENT:
++	case HWTSTAMP_FILTER_PTP_V2_SYNC:
++	case HWTSTAMP_FILTER_PTP_V2_DELAY_REQ:
++		status = vxge_timestamp_config(vdev, 1);
++		if (status != VXGE_HW_OK)
++			return -EFAULT;
 +
-+			macaddr_mask[i - 1] = (u8) (data1 & 0xFF);
-+			data1 >>= 8;
-+		}
++		vdev->rx_hwts = 1;
++		config.rx_filter = HWTSTAMP_FILTER_ALL;
++		break;
 +
-+		action = VXGE_HW_RTS_ACCESS_STEER_CTRL_ACTION_LIST_NEXT_ENTRY;
-+		data0 = 0, data1 = 0, steer_ctrl = 0;
++	default:
++		 return -ERANGE;
++	}
 +
-+	} while (!is_valid_ether_addr(macaddr));
-+exit:
-+	return status;
++	for (i = 0; i < vdev->no_of_vpath; i++)
++		vdev->vpaths[i].ring.rx_hwts = vdev->rx_hwts;
++
++	if (copy_to_user(data, &config, sizeof(config)))
++		return -EFAULT;
++
++	return 0;
 +}
 +
  /**
-  * vxge_hw_device_hw_info_get - Get the hw information
-  * Returns the vpath mask that has the bits set for each vpath allocated
-@@ -747,9 +997,9 @@ vxge_hw_device_hw_info_get(void __iomem *bar0,
- 	struct vxge_hw_toc_reg __iomem *toc;
- 	struct vxge_hw_mrpcim_reg __iomem *mrpcim_reg;
- 	struct vxge_hw_common_reg __iomem *common_reg;
--	struct vxge_hw_vpath_reg __iomem *vpath_reg;
- 	struct vxge_hw_vpmgmt_reg __iomem *vpmgmt_reg;
- 	enum vxge_hw_status status;
-+	struct __vxge_hw_virtualpath vpath;
- 
- 	memset(hw_info, 0, sizeof(struct vxge_hw_device_hw_info));
- 
-@@ -784,7 +1034,7 @@ vxge_hw_device_hw_info_get(void __iomem *bar0,
- 		vpmgmt_reg = (struct vxge_hw_vpmgmt_reg __iomem *)
- 				(bar0 + val64);
- 
--		hw_info->func_id = __vxge_hw_vpath_func_id_get(i, vpmgmt_reg);
-+		hw_info->func_id = __vxge_hw_vpath_func_id_get(vpmgmt_reg);
- 		if (__vxge_hw_device_access_rights_get(hw_info->host_type,
- 			hw_info->func_id) &
- 			VXGE_HW_DEVICE_ACCESS_RIGHT_MRPCIM) {
-@@ -800,16 +1050,18 @@ vxge_hw_device_hw_info_get(void __iomem *bar0,
- 
- 		val64 = readq(&toc->toc_vpath_pointer[i]);
- 
--		vpath_reg = (struct vxge_hw_vpath_reg __iomem *)(bar0 + val64);
-+		vpath.vp_reg = (struct vxge_hw_vpath_reg __iomem *)
-+			       (bar0 + val64);
-+		vpath.vp_open = 0;
- 
- 		hw_info->function_mode =
--			__vxge_hw_vpath_pci_func_mode_get(i, vpath_reg);
-+			__vxge_hw_vpath_pci_func_mode_get(&vpath);
- 
--		status = __vxge_hw_vpath_fw_ver_get(i, vpath_reg, hw_info);
-+		status = __vxge_hw_vpath_fw_ver_get(&vpath, hw_info);
- 		if (status != VXGE_HW_OK)
- 			goto exit;
- 
--		status = __vxge_hw_vpath_card_info_get(i, vpath_reg, hw_info);
-+		status = __vxge_hw_vpath_card_info_get(&vpath, hw_info);
- 		if (status != VXGE_HW_OK)
- 			goto exit;
- 
-@@ -817,14 +1069,15 @@ vxge_hw_device_hw_info_get(void __iomem *bar0,
- 	}
- 
- 	for (i = 0; i < VXGE_HW_MAX_VIRTUAL_PATHS; i++) {
--
- 		if (!((hw_info->vpath_mask) & vxge_mBIT(i)))
- 			continue;
- 
- 		val64 = readq(&toc->toc_vpath_pointer[i]);
--		vpath_reg = (struct vxge_hw_vpath_reg __iomem *)(bar0 + val64);
-+		vpath.vp_reg = (struct vxge_hw_vpath_reg __iomem *)
-+			       (bar0 + val64);
-+		vpath.vp_open = 0;
- 
--		status =  __vxge_hw_vpath_addr_get(i, vpath_reg,
-+		status =  __vxge_hw_vpath_addr_get(&vpath,
- 				hw_info->mac_addrs[i],
- 				hw_info->mac_addr_masks[i]);
- 		if (status != VXGE_HW_OK)
-@@ -896,7 +1149,6 @@ vxge_hw_device_initialize(
- 	nblocks++;
- 
- 	for (i = 0; i < VXGE_HW_MAX_VIRTUAL_PATHS; i++) {
--
- 		if (!(hldev->vpath_assignments & vxge_mBIT(i)))
- 			continue;
- 
-@@ -921,7 +1173,6 @@ vxge_hw_device_initialize(
- 	}
- 
- 	status = __vxge_hw_device_initialize(hldev);
--
- 	if (status != VXGE_HW_OK) {
- 		vxge_hw_device_terminate(hldev);
- 		goto exit;
-@@ -958,7 +1209,6 @@ vxge_hw_device_stats_get(struct __vxge_hw_device *hldev,
- 	enum vxge_hw_status status = VXGE_HW_OK;
- 
- 	for (i = 0; i < VXGE_HW_MAX_VIRTUAL_PATHS; i++) {
--
- 		if (!(hldev->vpaths_deployed & vxge_mBIT(i)) ||
- 			(hldev->virtual_paths[i].vp_open ==
- 				VXGE_HW_VP_NOT_OPEN))
-@@ -2755,297 +3005,6 @@ exit:
- 	return status;
+  * vxge_ioctl
+  * @dev: Device pointer.
+@@ -2983,7 +3090,20 @@ vxge_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *net_stats)
+  */
+ static int vxge_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ {
+-	return -EOPNOTSUPP;
++	struct vxgedev *vdev = netdev_priv(dev);
++	int ret;
++
++	switch (cmd) {
++	case SIOCSHWTSTAMP:
++		ret = vxge_hwtstamp_ioctl(vdev, rq->ifr_data);
++		if (ret)
++			return ret;
++		break;
++	default:
++		return -EOPNOTSUPP;
++	}
++
++	return 0;
  }
  
--/*
-- * __vxge_hw_vpath_func_id_get - Get the function id of the vpath.
-- * Returns the function number of the vpath.
-- */
--static u32
--__vxge_hw_vpath_func_id_get(u32 vp_id,
--	struct vxge_hw_vpmgmt_reg __iomem *vpmgmt_reg)
--{
--	u64 val64;
--
--	val64 = readq(&vpmgmt_reg->vpath_to_func_map_cfg1);
--
--	return
--	 (u32)VXGE_HW_VPATH_TO_FUNC_MAP_CFG1_GET_VPATH_TO_FUNC_MAP_CFG1(val64);
--}
--
--/*
-- * __vxge_hw_read_rts_ds - Program RTS steering critieria
-- */
--static inline void
--__vxge_hw_read_rts_ds(struct vxge_hw_vpath_reg __iomem *vpath_reg,
--		      u64 dta_struct_sel)
--{
--	writeq(0, &vpath_reg->rts_access_steer_ctrl);
--	wmb();
--	writeq(dta_struct_sel, &vpath_reg->rts_access_steer_data0);
--	writeq(0, &vpath_reg->rts_access_steer_data1);
--	wmb();
--}
--
--
--/*
-- * __vxge_hw_vpath_card_info_get - Get the serial numbers,
-- * part number and product description.
-- */
--static enum vxge_hw_status
--__vxge_hw_vpath_card_info_get(
--	u32 vp_id,
--	struct vxge_hw_vpath_reg __iomem *vpath_reg,
--	struct vxge_hw_device_hw_info *hw_info)
--{
--	u32 i, j;
--	u64 val64;
--	u64 data1 = 0ULL;
--	u64 data2 = 0ULL;
--	enum vxge_hw_status status = VXGE_HW_OK;
--	u8 *serial_number = hw_info->serial_number;
--	u8 *part_number = hw_info->part_number;
--	u8 *product_desc = hw_info->product_desc;
--
--	__vxge_hw_read_rts_ds(vpath_reg,
--		VXGE_HW_RTS_ACCESS_STEER_DATA0_MEMO_ITEM_SERIAL_NUMBER);
--
--	val64 = VXGE_HW_RTS_ACCESS_STEER_CTRL_ACTION(
--			VXGE_HW_RTS_ACCESS_STEER_CTRL_ACTION_READ_MEMO_ENTRY) |
--		VXGE_HW_RTS_ACCESS_STEER_CTRL_DATA_STRUCT_SEL(
--			VXGE_HW_RTS_ACCESS_STEER_CTRL_DATA_STRUCT_SEL_FW_MEMO) |
--		VXGE_HW_RTS_ACCESS_STEER_CTRL_STROBE |
--		VXGE_HW_RTS_ACCESS_STEER_CTRL_OFFSET(0);
--
--	status = __vxge_hw_pio_mem_write64(val64,
--				&vpath_reg->rts_access_steer_ctrl,
--				VXGE_HW_RTS_ACCESS_STEER_CTRL_STROBE,
--				VXGE_HW_DEF_DEVICE_POLL_MILLIS);
--
--	if (status != VXGE_HW_OK)
--		return status;
--
--	val64 = readq(&vpath_reg->rts_access_steer_ctrl);
--
--	if (val64 & VXGE_HW_RTS_ACCESS_STEER_CTRL_RMACJ_STATUS) {
--		data1 = readq(&vpath_reg->rts_access_steer_data0);
--		((u64 *)serial_number)[0] = be64_to_cpu(data1);
--
--		data2 = readq(&vpath_reg->rts_access_steer_data1);
--		((u64 *)serial_number)[1] = be64_to_cpu(data2);
--		status = VXGE_HW_OK;
--	} else
--		*serial_number = 0;
--
--	__vxge_hw_read_rts_ds(vpath_reg,
--			VXGE_HW_RTS_ACCESS_STEER_DATA0_MEMO_ITEM_PART_NUMBER);
--
--	val64 = VXGE_HW_RTS_ACCESS_STEER_CTRL_ACTION(
--			VXGE_HW_RTS_ACCESS_STEER_CTRL_ACTION_READ_MEMO_ENTRY) |
--		VXGE_HW_RTS_ACCESS_STEER_CTRL_DATA_STRUCT_SEL(
--			VXGE_HW_RTS_ACCESS_STEER_CTRL_DATA_STRUCT_SEL_FW_MEMO) |
--		VXGE_HW_RTS_ACCESS_STEER_CTRL_STROBE |
--		VXGE_HW_RTS_ACCESS_STEER_CTRL_OFFSET(0);
--
--	status = __vxge_hw_pio_mem_write64(val64,
--				&vpath_reg->rts_access_steer_ctrl,
--				VXGE_HW_RTS_ACCESS_STEER_CTRL_STROBE,
--				VXGE_HW_DEF_DEVICE_POLL_MILLIS);
--
--	if (status != VXGE_HW_OK)
--		return status;
--
--	val64 = readq(&vpath_reg->rts_access_steer_ctrl);
--
--	if (val64 & VXGE_HW_RTS_ACCESS_STEER_CTRL_RMACJ_STATUS) {
--
--		data1 = readq(&vpath_reg->rts_access_steer_data0);
--		((u64 *)part_number)[0] = be64_to_cpu(data1);
--
--		data2 = readq(&vpath_reg->rts_access_steer_data1);
--		((u64 *)part_number)[1] = be64_to_cpu(data2);
--
--		status = VXGE_HW_OK;
--
--	} else
--		*part_number = 0;
--
--	j = 0;
--
--	for (i = VXGE_HW_RTS_ACCESS_STEER_DATA0_MEMO_ITEM_DESC_0;
--	     i <= VXGE_HW_RTS_ACCESS_STEER_DATA0_MEMO_ITEM_DESC_3; i++) {
--
--		__vxge_hw_read_rts_ds(vpath_reg, i);
--
--		val64 = VXGE_HW_RTS_ACCESS_STEER_CTRL_ACTION(
--			VXGE_HW_RTS_ACCESS_STEER_CTRL_ACTION_READ_MEMO_ENTRY) |
--			VXGE_HW_RTS_ACCESS_STEER_CTRL_DATA_STRUCT_SEL(
--			VXGE_HW_RTS_ACCESS_STEER_CTRL_DATA_STRUCT_SEL_FW_MEMO) |
--			VXGE_HW_RTS_ACCESS_STEER_CTRL_STROBE |
--			VXGE_HW_RTS_ACCESS_STEER_CTRL_OFFSET(0);
--
--		status = __vxge_hw_pio_mem_write64(val64,
--				&vpath_reg->rts_access_steer_ctrl,
--				VXGE_HW_RTS_ACCESS_STEER_CTRL_STROBE,
--				VXGE_HW_DEF_DEVICE_POLL_MILLIS);
--
--		if (status != VXGE_HW_OK)
--			return status;
--
--		val64 = readq(&vpath_reg->rts_access_steer_ctrl);
--
--		if (val64 & VXGE_HW_RTS_ACCESS_STEER_CTRL_RMACJ_STATUS) {
--
--			data1 = readq(&vpath_reg->rts_access_steer_data0);
--			((u64 *)product_desc)[j++] = be64_to_cpu(data1);
--
--			data2 = readq(&vpath_reg->rts_access_steer_data1);
--			((u64 *)product_desc)[j++] = be64_to_cpu(data2);
--
--			status = VXGE_HW_OK;
--		} else
--			*product_desc = 0;
--	}
--
--	return status;
--}
--
--/*
-- * __vxge_hw_vpath_fw_ver_get - Get the fw version
-- * Returns FW Version
-- */
--static enum vxge_hw_status
--__vxge_hw_vpath_fw_ver_get(
--	u32 vp_id,
--	struct vxge_hw_vpath_reg __iomem *vpath_reg,
--	struct vxge_hw_device_hw_info *hw_info)
--{
--	u64 val64;
--	u64 data1 = 0ULL;
--	u64 data2 = 0ULL;
--	struct vxge_hw_device_version *fw_version = &hw_info->fw_version;
--	struct vxge_hw_device_date *fw_date = &hw_info->fw_date;
--	struct vxge_hw_device_version *flash_version = &hw_info->flash_version;
--	struct vxge_hw_device_date *flash_date = &hw_info->flash_date;
--	enum vxge_hw_status status = VXGE_HW_OK;
--
--	val64 = VXGE_HW_RTS_ACCESS_STEER_CTRL_ACTION(
--		VXGE_HW_RTS_ACCESS_STEER_CTRL_ACTION_READ_ENTRY) |
--		VXGE_HW_RTS_ACCESS_STEER_CTRL_DATA_STRUCT_SEL(
--		VXGE_HW_RTS_ACCESS_STEER_CTRL_DATA_STRUCT_SEL_FW_MEMO) |
--		VXGE_HW_RTS_ACCESS_STEER_CTRL_STROBE |
--		VXGE_HW_RTS_ACCESS_STEER_CTRL_OFFSET(0);
--
--	status = __vxge_hw_pio_mem_write64(val64,
--				&vpath_reg->rts_access_steer_ctrl,
--				VXGE_HW_RTS_ACCESS_STEER_CTRL_STROBE,
--				VXGE_HW_DEF_DEVICE_POLL_MILLIS);
--
--	if (status != VXGE_HW_OK)
--		goto exit;
--
--	val64 = readq(&vpath_reg->rts_access_steer_ctrl);
--
--	if (val64 & VXGE_HW_RTS_ACCESS_STEER_CTRL_RMACJ_STATUS) {
--
--		data1 = readq(&vpath_reg->rts_access_steer_data0);
--		data2 = readq(&vpath_reg->rts_access_steer_data1);
--
--		fw_date->day =
--			(u32)VXGE_HW_RTS_ACCESS_STEER_DATA0_GET_FW_VER_DAY(
--						data1);
--		fw_date->month =
--			(u32)VXGE_HW_RTS_ACCESS_STEER_DATA0_GET_FW_VER_MONTH(
--						data1);
--		fw_date->year =
--			(u32)VXGE_HW_RTS_ACCESS_STEER_DATA0_GET_FW_VER_YEAR(
--						data1);
--
--		snprintf(fw_date->date, VXGE_HW_FW_STRLEN, "%2.2d/%2.2d/%4.4d",
--			fw_date->month, fw_date->day, fw_date->year);
--
--		fw_version->major =
--		    (u32)VXGE_HW_RTS_ACCESS_STEER_DATA0_GET_FW_VER_MAJOR(data1);
--		fw_version->minor =
--		    (u32)VXGE_HW_RTS_ACCESS_STEER_DATA0_GET_FW_VER_MINOR(data1);
--		fw_version->build =
--		    (u32)VXGE_HW_RTS_ACCESS_STEER_DATA0_GET_FW_VER_BUILD(data1);
--
--		snprintf(fw_version->version, VXGE_HW_FW_STRLEN, "%d.%d.%d",
--		    fw_version->major, fw_version->minor, fw_version->build);
--
--		flash_date->day =
--		  (u32)VXGE_HW_RTS_ACCESS_STEER_DATA1_GET_FLASH_VER_DAY(data2);
--		flash_date->month =
--		 (u32)VXGE_HW_RTS_ACCESS_STEER_DATA1_GET_FLASH_VER_MONTH(data2);
--		flash_date->year =
--		 (u32)VXGE_HW_RTS_ACCESS_STEER_DATA1_GET_FLASH_VER_YEAR(data2);
--
--		snprintf(flash_date->date, VXGE_HW_FW_STRLEN,
--			"%2.2d/%2.2d/%4.4d",
--			flash_date->month, flash_date->day, flash_date->year);
--
--		flash_version->major =
--		 (u32)VXGE_HW_RTS_ACCESS_STEER_DATA1_GET_FLASH_VER_MAJOR(data2);
--		flash_version->minor =
--		 (u32)VXGE_HW_RTS_ACCESS_STEER_DATA1_GET_FLASH_VER_MINOR(data2);
--		flash_version->build =
--		 (u32)VXGE_HW_RTS_ACCESS_STEER_DATA1_GET_FLASH_VER_BUILD(data2);
--
--		snprintf(flash_version->version, VXGE_HW_FW_STRLEN, "%d.%d.%d",
--			flash_version->major, flash_version->minor,
--			flash_version->build);
--
--		status = VXGE_HW_OK;
--
--	} else
--		status = VXGE_HW_FAIL;
--exit:
--	return status;
--}
--
--/*
-- * __vxge_hw_vpath_pci_func_mode_get - Get the pci mode
-- * Returns pci function mode
-- */
--static u64
--__vxge_hw_vpath_pci_func_mode_get(
--	u32  vp_id,
--	struct vxge_hw_vpath_reg __iomem *vpath_reg)
--{
--	u64 val64;
--	u64 data1 = 0ULL;
--	enum vxge_hw_status status = VXGE_HW_OK;
--
--	__vxge_hw_read_rts_ds(vpath_reg,
--		VXGE_HW_RTS_ACCESS_STEER_DATA0_MEMO_ITEM_PCI_MODE);
--
--	val64 = VXGE_HW_RTS_ACCESS_STEER_CTRL_ACTION(
--			VXGE_HW_RTS_ACCESS_STEER_CTRL_ACTION_READ_MEMO_ENTRY) |
--		VXGE_HW_RTS_ACCESS_STEER_CTRL_DATA_STRUCT_SEL(
--			VXGE_HW_RTS_ACCESS_STEER_CTRL_DATA_STRUCT_SEL_FW_MEMO) |
--		VXGE_HW_RTS_ACCESS_STEER_CTRL_STROBE |
--		VXGE_HW_RTS_ACCESS_STEER_CTRL_OFFSET(0);
--
--	status = __vxge_hw_pio_mem_write64(val64,
--				&vpath_reg->rts_access_steer_ctrl,
--				VXGE_HW_RTS_ACCESS_STEER_CTRL_STROBE,
--				VXGE_HW_DEF_DEVICE_POLL_MILLIS);
--
--	if (status != VXGE_HW_OK)
--		goto exit;
--
--	val64 = readq(&vpath_reg->rts_access_steer_ctrl);
--
--	if (val64 & VXGE_HW_RTS_ACCESS_STEER_CTRL_RMACJ_STATUS) {
--		data1 = readq(&vpath_reg->rts_access_steer_data0);
--		status = VXGE_HW_OK;
--	} else {
--		data1 = 0;
--		status = VXGE_HW_FAIL;
--	}
--exit:
--	return data1;
--}
--
  /**
-  * vxge_hw_device_flick_link_led - Flick (blink) link LED.
-  * @hldev: HW device.
-@@ -3054,37 +3013,24 @@ exit:
-  * Flicker the link LED.
-  */
- enum vxge_hw_status
--vxge_hw_device_flick_link_led(struct __vxge_hw_device *hldev,
--			       u64 on_off)
-+vxge_hw_device_flick_link_led(struct __vxge_hw_device *hldev, u64 on_off)
- {
--	u64 val64;
--	enum vxge_hw_status status = VXGE_HW_OK;
--	struct vxge_hw_vpath_reg __iomem *vp_reg;
-+	struct __vxge_hw_virtualpath *vpath;
-+	u64 data0, data1 = 0, steer_ctrl = 0;
-+	enum vxge_hw_status status;
+@@ -3180,6 +3300,7 @@ static int __devinit vxge_device_register(struct __vxge_hw_device *hldev,
+ 	vdev->pdev = hldev->pdev;
+ 	memcpy(&vdev->config, config, sizeof(struct vxge_config));
+ 	vdev->rx_csum = 1;	/* Enable Rx CSUM by default. */
++	vdev->rx_hwts = 0;
  
- 	if (hldev == NULL) {
- 		status = VXGE_HW_ERR_INVALID_DEVICE;
- 		goto exit;
+ 	SET_NETDEV_DEV(ndev, &vdev->pdev->dev);
+ 
+@@ -4321,10 +4442,10 @@ vxge_probe(struct pci_dev *pdev, const struct pci_device_id *pre)
  	}
  
--	vp_reg = hldev->vpath_reg[hldev->first_vp_id];
-+	vpath = &hldev->virtual_paths[hldev->first_vp_id];
- 
--	writeq(0, &vp_reg->rts_access_steer_ctrl);
--	wmb();
--	writeq(on_off, &vp_reg->rts_access_steer_data0);
--	writeq(0, &vp_reg->rts_access_steer_data1);
--	wmb();
--
--	val64 = VXGE_HW_RTS_ACCESS_STEER_CTRL_ACTION(
--			VXGE_HW_RTS_ACCESS_STEER_CTRL_ACTION_LED_CONTROL) |
--		VXGE_HW_RTS_ACCESS_STEER_CTRL_DATA_STRUCT_SEL(
--			VXGE_HW_RTS_ACCESS_STEER_CTRL_DATA_STRUCT_SEL_FW_MEMO) |
--		VXGE_HW_RTS_ACCESS_STEER_CTRL_STROBE |
--		VXGE_HW_RTS_ACCESS_STEER_CTRL_OFFSET(0);
--
--	status = __vxge_hw_pio_mem_write64(val64,
--				&vp_reg->rts_access_steer_ctrl,
--				VXGE_HW_RTS_ACCESS_STEER_CTRL_STROBE,
--				VXGE_HW_DEF_DEVICE_POLL_MILLIS);
-+	data0 = on_off;
-+	status = vxge_hw_vpath_fw_api(vpath,
-+			VXGE_HW_RTS_ACCESS_STEER_CTRL_ACTION_LED_CONTROL,
-+			VXGE_HW_RTS_ACCESS_STEER_CTRL_DATA_STRUCT_SEL_FW_MEMO,
-+			0, &data0, &data1, &steer_ctrl);
- exit:
- 	return status;
- }
-@@ -3093,63 +3039,38 @@ exit:
-  * __vxge_hw_vpath_rts_table_get - Get the entries from RTS access tables
-  */
- enum vxge_hw_status
--__vxge_hw_vpath_rts_table_get(
--	struct __vxge_hw_vpath_handle *vp,
--	u32 action, u32 rts_table, u32 offset, u64 *data1, u64 *data2)
-+__vxge_hw_vpath_rts_table_get(struct __vxge_hw_vpath_handle *vp,
-+			      u32 action, u32 rts_table, u32 offset,
-+			      u64 *data0, u64 *data1)
- {
--	u64 val64;
--	struct __vxge_hw_virtualpath *vpath;
--	struct vxge_hw_vpath_reg __iomem *vp_reg;
--
--	enum vxge_hw_status status = VXGE_HW_OK;
-+	enum vxge_hw_status status;
-+	u64 steer_ctrl = 0;
- 
- 	if (vp == NULL) {
- 		status = VXGE_HW_ERR_INVALID_HANDLE;
- 		goto exit;
+ 	/* if FCS stripping is not disabled in MAC fail driver load */
+-	if (vxge_hw_vpath_strip_fcs_check(hldev, vpath_mask) != VXGE_HW_OK) {
+-		vxge_debug_init(VXGE_ERR,
+-			"%s: FCS stripping is not disabled in MAC"
+-			" failing driver load", VXGE_DRIVER_NAME);
++	status = vxge_hw_vpath_strip_fcs_check(hldev, vpath_mask);
++	if (status != VXGE_HW_OK) {
++		vxge_debug_init(VXGE_ERR, "%s: FCS stripping is enabled in MAC"
++				" failing driver load", VXGE_DRIVER_NAME);
+ 		ret = -EINVAL;
+ 		goto _exit4;
  	}
+diff --git a/drivers/net/vxge/vxge-main.h b/drivers/net/vxge/vxge-main.h
+index 1699d75..6f6e9ce 100644
+--- a/drivers/net/vxge/vxge-main.h
++++ b/drivers/net/vxge/vxge-main.h
+@@ -248,8 +248,9 @@ struct vxge_ring {
+ 	 */
+ 	int driver_id;
  
--	vpath = vp->vpath;
--	vp_reg = vpath->vp_reg;
--
--	val64 = VXGE_HW_RTS_ACCESS_STEER_CTRL_ACTION(action) |
--		VXGE_HW_RTS_ACCESS_STEER_CTRL_DATA_STRUCT_SEL(rts_table) |
--		VXGE_HW_RTS_ACCESS_STEER_CTRL_STROBE |
--		VXGE_HW_RTS_ACCESS_STEER_CTRL_OFFSET(offset);
--
- 	if ((rts_table ==
--		VXGE_HW_RTS_ACS_STEER_CTRL_DATA_STRUCT_SEL_RTH_SOLO_IT) ||
-+	     VXGE_HW_RTS_ACS_STEER_CTRL_DATA_STRUCT_SEL_RTH_SOLO_IT) ||
- 	    (rts_table ==
--		VXGE_HW_RTS_ACS_STEER_CTRL_DATA_STRUCT_SEL_RTH_MULTI_IT) ||
-+	     VXGE_HW_RTS_ACS_STEER_CTRL_DATA_STRUCT_SEL_RTH_MULTI_IT) ||
- 	    (rts_table ==
--		VXGE_HW_RTS_ACCESS_STEER_CTRL_DATA_STRUCT_SEL_RTH_MASK) ||
-+	     VXGE_HW_RTS_ACCESS_STEER_CTRL_DATA_STRUCT_SEL_RTH_MASK) ||
- 	    (rts_table ==
--		VXGE_HW_RTS_ACCESS_STEER_CTRL_DATA_STRUCT_SEL_RTH_KEY)) {
--		val64 = val64 |	VXGE_HW_RTS_ACCESS_STEER_CTRL_TABLE_SEL;
-+	     VXGE_HW_RTS_ACCESS_STEER_CTRL_DATA_STRUCT_SEL_RTH_KEY)) {
-+		steer_ctrl = VXGE_HW_RTS_ACCESS_STEER_CTRL_TABLE_SEL;
- 	}
+-	 /* copy of the flag indicating whether rx_csum is to be used */
+-	u32 rx_csum;
++	/* copy of the flag indicating whether rx_csum is to be used */
++	u32 rx_csum:1,
++	    rx_hwts:1;
  
--	status = __vxge_hw_pio_mem_write64(val64,
--				&vp_reg->rts_access_steer_ctrl,
--				VXGE_HW_RTS_ACCESS_STEER_CTRL_STROBE,
--				vpath->hldev->config.device_poll_millis);
--
-+	status = vxge_hw_vpath_fw_api(vp->vpath, action, rts_table, offset,
-+				      data0, data1, &steer_ctrl);
- 	if (status != VXGE_HW_OK)
- 		goto exit;
+ 	int pkts_processed;
+ 	int budget;
+@@ -327,7 +328,8 @@ struct vxgedev {
+ 	u16		all_multi_flg;
  
--	val64 = readq(&vp_reg->rts_access_steer_ctrl);
--
--	if (val64 & VXGE_HW_RTS_ACCESS_STEER_CTRL_RMACJ_STATUS) {
--
--		*data1 = readq(&vp_reg->rts_access_steer_data0);
--
--		if ((rts_table ==
--		VXGE_HW_RTS_ACCESS_STEER_CTRL_DATA_STRUCT_SEL_DA) ||
--		(rts_table ==
--		VXGE_HW_RTS_ACS_STEER_CTRL_DATA_STRUCT_SEL_RTH_MULTI_IT)) {
--			*data2 = readq(&vp_reg->rts_access_steer_data1);
--		}
--		status = VXGE_HW_OK;
--	} else
--		status = VXGE_HW_FAIL;
-+	if ((rts_table != VXGE_HW_RTS_ACCESS_STEER_CTRL_DATA_STRUCT_SEL_DA) ||
-+	    (rts_table !=
-+	     VXGE_HW_RTS_ACS_STEER_CTRL_DATA_STRUCT_SEL_RTH_MULTI_IT))
-+		*data1 = 0;
- exit:
- 	return status;
- }
-@@ -3158,107 +3079,27 @@ exit:
-  * __vxge_hw_vpath_rts_table_set - Set the entries of RTS access tables
-  */
- enum vxge_hw_status
--__vxge_hw_vpath_rts_table_set(
--	struct __vxge_hw_vpath_handle *vp, u32 action, u32 rts_table,
--	u32 offset, u64 data1, u64 data2)
-+__vxge_hw_vpath_rts_table_set(struct __vxge_hw_vpath_handle *vp, u32 action,
-+			      u32 rts_table, u32 offset, u64 steer_data0,
-+			      u64 steer_data1)
- {
--	u64 val64;
--	struct __vxge_hw_virtualpath *vpath;
--	enum vxge_hw_status status = VXGE_HW_OK;
--	struct vxge_hw_vpath_reg __iomem *vp_reg;
-+	u64 data0, data1 = 0, steer_ctrl = 0;
-+	enum vxge_hw_status status;
+ 	 /* A flag indicating whether rx_csum is to be used or not. */
+-	u32	rx_csum;
++	u32	rx_csum:1,
++		rx_hwts:1;
  
- 	if (vp == NULL) {
- 		status = VXGE_HW_ERR_INVALID_HANDLE;
- 		goto exit;
- 	}
- 
--	vpath = vp->vpath;
--	vp_reg = vpath->vp_reg;
--
--	writeq(data1, &vp_reg->rts_access_steer_data0);
--	wmb();
-+	data0 = steer_data0;
- 
- 	if ((rts_table == VXGE_HW_RTS_ACCESS_STEER_CTRL_DATA_STRUCT_SEL_DA) ||
- 	    (rts_table ==
--		VXGE_HW_RTS_ACS_STEER_CTRL_DATA_STRUCT_SEL_RTH_MULTI_IT)) {
--		writeq(data2, &vp_reg->rts_access_steer_data1);
--		wmb();
--	}
-+	     VXGE_HW_RTS_ACS_STEER_CTRL_DATA_STRUCT_SEL_RTH_MULTI_IT))
-+		data1 = steer_data1;
- 
--	val64 = VXGE_HW_RTS_ACCESS_STEER_CTRL_ACTION(action) |
--		VXGE_HW_RTS_ACCESS_STEER_CTRL_DATA_STRUCT_SEL(rts_table) |
--		VXGE_HW_RTS_ACCESS_STEER_CTRL_STROBE |
--		VXGE_HW_RTS_ACCESS_STEER_CTRL_OFFSET(offset);
--
--	status = __vxge_hw_pio_mem_write64(val64,
--				&vp_reg->rts_access_steer_ctrl,
--				VXGE_HW_RTS_ACCESS_STEER_CTRL_STROBE,
--				vpath->hldev->config.device_poll_millis);
--
--	if (status != VXGE_HW_OK)
--		goto exit;
--
--	val64 = readq(&vp_reg->rts_access_steer_ctrl);
--
--	if (val64 & VXGE_HW_RTS_ACCESS_STEER_CTRL_RMACJ_STATUS)
--		status = VXGE_HW_OK;
--	else
--		status = VXGE_HW_FAIL;
--exit:
--	return status;
--}
--
--/*
-- * __vxge_hw_vpath_addr_get - Get the hw address entry for this vpath
-- *               from MAC address table.
-- */
--static enum vxge_hw_status
--__vxge_hw_vpath_addr_get(
--	u32 vp_id, struct vxge_hw_vpath_reg __iomem *vpath_reg,
--	u8 (macaddr)[ETH_ALEN], u8 (macaddr_mask)[ETH_ALEN])
--{
--	u32 i;
--	u64 val64;
--	u64 data1 = 0ULL;
--	u64 data2 = 0ULL;
--	enum vxge_hw_status status = VXGE_HW_OK;
--
--	val64 = VXGE_HW_RTS_ACCESS_STEER_CTRL_ACTION(
--		VXGE_HW_RTS_ACCESS_STEER_CTRL_ACTION_LIST_FIRST_ENTRY) |
--		VXGE_HW_RTS_ACCESS_STEER_CTRL_DATA_STRUCT_SEL(
--		VXGE_HW_RTS_ACCESS_STEER_CTRL_DATA_STRUCT_SEL_DA) |
--		VXGE_HW_RTS_ACCESS_STEER_CTRL_STROBE |
--		VXGE_HW_RTS_ACCESS_STEER_CTRL_OFFSET(0);
--
--	status = __vxge_hw_pio_mem_write64(val64,
--				&vpath_reg->rts_access_steer_ctrl,
--				VXGE_HW_RTS_ACCESS_STEER_CTRL_STROBE,
--				VXGE_HW_DEF_DEVICE_POLL_MILLIS);
--
--	if (status != VXGE_HW_OK)
--		goto exit;
--
--	val64 = readq(&vpath_reg->rts_access_steer_ctrl);
--
--	if (val64 & VXGE_HW_RTS_ACCESS_STEER_CTRL_RMACJ_STATUS) {
--
--		data1 = readq(&vpath_reg->rts_access_steer_data0);
--		data2 = readq(&vpath_reg->rts_access_steer_data1);
--
--		data1 = VXGE_HW_RTS_ACCESS_STEER_DATA0_GET_DA_MAC_ADDR(data1);
--		data2 = VXGE_HW_RTS_ACCESS_STEER_DATA1_GET_DA_MAC_ADDR_MASK(
--							data2);
--
--		for (i = ETH_ALEN; i > 0; i--) {
--			macaddr[i-1] = (u8)(data1 & 0xFF);
--			data1 >>= 8;
--
--			macaddr_mask[i-1] = (u8)(data2 & 0xFF);
--			data2 >>= 8;
--		}
--		status = VXGE_HW_OK;
--	} else
--		status = VXGE_HW_FAIL;
-+	status = vxge_hw_vpath_fw_api(vp->vpath, action, rts_table, offset,
-+				      &data0, &data1, &steer_ctrl);
- exit:
- 	return status;
- }
-@@ -4199,6 +4040,7 @@ __vxge_hw_vp_initialize(struct __vxge_hw_device *hldev, u32 vp_id,
- 
- 	vpath = &hldev->virtual_paths[vp_id];
- 
-+	spin_lock_init(&hldev->virtual_paths[vp_id].lock);
- 	vpath->vp_id = vp_id;
- 	vpath->vp_open = VXGE_HW_VP_OPEN;
- 	vpath->hldev = hldev;
-@@ -4209,14 +4051,12 @@ __vxge_hw_vp_initialize(struct __vxge_hw_device *hldev, u32 vp_id,
- 	__vxge_hw_vpath_reset(hldev, vp_id);
- 
- 	status = __vxge_hw_vpath_reset_check(vpath);
--
- 	if (status != VXGE_HW_OK) {
- 		memset(vpath, 0, sizeof(struct __vxge_hw_virtualpath));
- 		goto exit;
- 	}
- 
- 	status = __vxge_hw_vpath_mgmt_read(hldev, vpath);
--
- 	if (status != VXGE_HW_OK) {
- 		memset(vpath, 0, sizeof(struct __vxge_hw_virtualpath));
- 		goto exit;
-@@ -4230,7 +4070,6 @@ __vxge_hw_vp_initialize(struct __vxge_hw_device *hldev, u32 vp_id,
- 		hldev->tim_int_mask1, vp_id);
- 
- 	status = __vxge_hw_vpath_initialize(hldev, vp_id);
--
- 	if (status != VXGE_HW_OK)
- 		__vxge_hw_vp_terminate(hldev, vp_id);
- exit:
-@@ -4496,7 +4335,9 @@ enum vxge_hw_status vxge_hw_vpath_close(struct __vxge_hw_vpath_handle *vp)
- 
- 	__vxge_hw_vp_terminate(devh, vp_id);
- 
-+	spin_lock(&vpath->lock);
- 	vpath->vp_open = VXGE_HW_VP_NOT_OPEN;
-+	spin_unlock(&vpath->lock);
- 
- vpath_close_exit:
- 	return status;
-diff --git a/drivers/net/vxge/vxge-config.h b/drivers/net/vxge/vxge-config.h
-index b395d8d..6a81014 100644
---- a/drivers/net/vxge/vxge-config.h
-+++ b/drivers/net/vxge/vxge-config.h
-@@ -641,6 +641,7 @@ struct __vxge_hw_virtualpath {
- 	struct vxge_hw_vpath_stats_hw_info	*hw_stats;
- 	struct vxge_hw_vpath_stats_hw_info	*hw_stats_sav;
- 	struct vxge_hw_vpath_stats_sw_info	*sw_stats;
-+	spinlock_t lock;
- };
- 
- /*
+ 	struct vxge_msix_entry *vxge_entries;
+ 	struct msix_entry *entries;
 -- 
 1.7.0.4
 
