@@ -1,46 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] net: get rid of rtable->idev
-Date: Thu, 11 Nov 2010 10:41:53 -0800 (PST)
-Message-ID: <20101111.104153.115922255.davem@davemloft.net>
-References: <1289495647.17691.1536.camel@edumazet-laptop>
+Subject: Re: [PATCH] neigh: reorder struct neighbour
+Date: Thu, 11 Nov 2010 10:41:38 -0800 (PST)
+Message-ID: <20101111.104138.59661151.davem@davemloft.net>
+References: <1289494639.17691.1499.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	rolandd@cisco.com, sean.hefty@intel.com, hal.rosenstock@gmail.com
+Cc: netdev@vger.kernel.org
 To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50595
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50591
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754737Ab0KKSl3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Nov 2010 13:41:29 -0500
-In-Reply-To: <1289495647.17691.1536.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1752747Ab0KKSlN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Nov 2010 13:41:13 -0500
+In-Reply-To: <1289494639.17691.1499.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 11 Nov 2010 18:14:07 +0100
+Date: Thu, 11 Nov 2010 17:57:19 +0100
 
-> It seems idev field in struct rtable has no special purpose, but adding
-> extra atomic ops.
+> It is important to move nud_state outside of the often modified cache
+> line (because of refcnt), to reduce false sharing in neigh_event_send()
 > 
-> We hold refcounts on the device itself (using percpu data, so pretty
-> cheap in current kernel).
+> This is a followup of commit 0ed8ddf4045f (neigh: Protect neigh->ha[]
+> with a seqlock)
 > 
-> infiniband case is solved using dst.dev instead of idev->dev
-> 
-> Removal of this field means routing without route cache is now using
-> shared data, percpu data, and only potential contention is a pair of
-> atomic ops on struct neighbour per forwarded packet.
-> 
-> About 5% speedup on routing test.
+> This gives a 7% speedup on routing test with IP route cache disabled.
 > 
 > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: Herbert Xu <herbert@gondor.apana.org.au>
-> Cc: Roland Dreier <rolandd@cisco.com>
-> Cc: Sean Hefty <sean.hefty@intel.com>
-> Cc: Hal Rosenstock <hal.rosenstock@gmail.com>
+> ---
+> David, it appears I forgot to push this patch, I have it in my tree
+> since one month. Thanks !
 
-Yes, let's remove as much unused crap as possible :-)
-
-Applied, thanks!
+Applied, thanks.
