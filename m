@@ -1,109 +1,118 @@
-From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: Re: [PATCH net-next-2.6 v2] can: Topcliff: PCH_CAN driver: Fix build
-	warnings
-Date: Thu, 11 Nov 2010 11:04:39 +0100
-Message-ID: <4CDBBFB7.70806@pengutronix.de>
-References: <005301cb7ffa$5b63cd90$66f8800a@maildom.okisemi.com>
-	<00fe01cb8009$62e11410$66f8800a@maildom.okisemi.com>
-	<4CD945B4.4060408@pengutronix.de>
-	<002501cb8186$b56a6280$66f8800a@maildom.okisemi.com>
+From: Holger Eitzenberger <holger@eitzenberger.org>
+Subject: Re: [e1000e] BUG triggered in blink path
+Date: Thu, 11 Nov 2010 11:17:39 +0100
+Message-ID: <20101111101738.GA2972@mail.eitzenberger.org>
+References: <20101109083954.GB11829@mail.eitzenberger.org> <alpine.WNT.2.00.1011101030130.14720@jbrandeb-desk1.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============6782737796166383542=="
-Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	Masayuki Ohtake <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>,
-	Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>, margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
-	joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-To: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <002501cb8186$b56a6280$66f8800a-a06+6cuVnkTSQfdrb5gaxUEOCMrvLtNR@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---===============6782737796166383542==
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigEAC1BD5DD8E5F0D1A31083FD"
-
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigEAC1BD5DD8E5F0D1A31083FD
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: quoted-printable
-
-On 11/11/2010 10:56 AM, Tomoya MORINAGA wrote:
->>>>> + if (priv->tx_obj =3D=3D (PCH_OBJ_NUM + 1)) { /* Point tail Obj + =
-1 */
->>>>> +  while (ioread32(&priv->regs->treq2) & 0xfc00)
->>>>> +   udelay(1);
->>>
->>> When points tail of Tx message object,
->>> this driver waits until completion of all tx messaeg objects.
->>
->> Looping busy it not an option here.
->>
->>> Thus, application/driver ought not to be able to put Tx object exceed=
- the number of tx message object.
->>> Thus I think these code(netif_stop_queue/netif_wake_queue) are comple=
-tely redundant.
->>
->> Nope - please remove the waiting completely and convert your flow
->> control to netif_stop_queue/netif_wake_queue.
->>
->=20
-> I see.
-> I will remove like above.
->=20
-> BTW, Let me know the reason.
-> Could you explain the reason why you deny looping busy loop ?
-
-That would kill performance.
-
-cheers, Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+Content-Type: multipart/mixed; boundary="envbJBWh7q8WU6mo"
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.17.9]:54206 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754837Ab0KKKRl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Nov 2010 05:17:41 -0500
+Content-Disposition: inline
+In-Reply-To: <alpine.WNT.2.00.1011101030130.14720@jbrandeb-desk1.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---------------enigEAC1BD5DD8E5F0D1A31083FD
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAkzbv7sACgkQjTAFq1RaXHMUsgCfU4InjhlY4IYTO5xwHD6wOOQk
-12kAn291ha7SfRpl2bC5KWVJe8L+EQsH
-=jGR6
------END PGP SIGNATURE-----
-
---------------enigEAC1BD5DD8E5F0D1A31083FD--
-
---===============6782737796166383542==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
+--envbJBWh7q8WU6mo
+Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
-_______________________________________________
-Socketcan-core mailing list
-Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-https://lists.berlios.de/mailman/listinfo/socketcan-core
+Hi Jesse,
 
---===============6782737796166383542==--
+I've attached the patch against net-next-2.6.  Please check if it's ok
+for you.  I checked e1000, igb and ixgbe as well, they don't have that
+problem.
+
+ /holger
+
+> > After taking a look I think this may be caused by initializing
+> > adapter->led_blink_task several times in e1000_phys_id(), while possibly
+> > led_blink_task is running:
+> > 
+> > 	if ((hw->phy.type == e1000_phy_ife) ||
+> > 	    (hw->mac.type == e1000_pchlan) ||
+> > 	    (hw->mac.type == e1000_82574)) {
+> > 		INIT_WORK(&adapter->led_blink_task, e1000e_led_blink_task);
+> > 		if (!adapter->blink_timer.function) {
+> > 
+> > I can't reproduce it after moving it inside the following if block,
+> > but I'm not quite sure if this catches all races in there.  Especially
+> > the msleep_interruptible() may be too optimistic because it may
+> > actually not wait long enough.  Someone with more knowledge of the
+> > driver should take a look.
+> 
+> thanks for your investigation and troubleshooting.  I don't think it is 
+> correct at all to be calling INIT_WORK more than once.  In fact the 
+> INIT_WORK should just be moved into probe, and then e1000_phys_id should 
+> just do schedule_work.
+> 
+> 
+
+--envbJBWh7q8WU6mo
+Content-Type: text/x-diff; charset=us-ascii
+Content-Disposition: inline; filename="x.diff"
+
+e1000e: fix double initialization in blink path
+
+The kernel goes BUG() at the time 'ethtool -p eth0 3' comes
+back, which is due to adapter->led_blink_task initialized
+several times.  At the time it is still running this results
+in a corrupted task_list of the associated workqueue.
+
+The fix is to move the workqueue initialization to the
+probe function instead.
+
+Signed-off-by: Holger Eitzenberger <holger@eitzenberger.org>
+
+Index: net-next-2.6/drivers/net/e1000e/ethtool.c
+===================================================================
+--- net-next-2.6.orig/drivers/net/e1000e/ethtool.c	2010-11-11 10:57:28.000000000 +0100
++++ net-next-2.6/drivers/net/e1000e/ethtool.c	2010-11-11 11:02:21.000000000 +0100
+@@ -1860,7 +1860,7 @@
+ /* bit defines for adapter->led_status */
+ #define E1000_LED_ON		0
+ 
+-static void e1000e_led_blink_task(struct work_struct *work)
++void e1000e_led_blink_task(struct work_struct *work)
+ {
+ 	struct e1000_adapter *adapter = container_of(work,
+ 	                                struct e1000_adapter, led_blink_task);
+@@ -1892,7 +1892,6 @@
+ 	    (hw->mac.type == e1000_pch2lan) ||
+ 	    (hw->mac.type == e1000_82583) ||
+ 	    (hw->mac.type == e1000_82574)) {
+-		INIT_WORK(&adapter->led_blink_task, e1000e_led_blink_task);
+ 		if (!adapter->blink_timer.function) {
+ 			init_timer(&adapter->blink_timer);
+ 			adapter->blink_timer.function =
+Index: net-next-2.6/drivers/net/e1000e/netdev.c
+===================================================================
+--- net-next-2.6.orig/drivers/net/e1000e/netdev.c	2010-11-11 10:57:28.000000000 +0100
++++ net-next-2.6/drivers/net/e1000e/netdev.c	2010-11-11 11:01:17.000000000 +0100
+@@ -5864,6 +5864,7 @@
+ 	INIT_WORK(&adapter->downshift_task, e1000e_downshift_workaround);
+ 	INIT_WORK(&adapter->update_phy_task, e1000e_update_phy_task);
+ 	INIT_WORK(&adapter->print_hang_task, e1000_print_hw_hang);
++	INIT_WORK(&adapter->led_blink_task, e1000e_led_blink_task);
+ 
+ 	/* Initialize link parameters. User can change them with ethtool */
+ 	adapter->hw.mac.autoneg = 1;
+Index: net-next-2.6/drivers/net/e1000e/e1000.h
+===================================================================
+--- net-next-2.6.orig/drivers/net/e1000e/e1000.h	2010-11-11 10:57:28.000000000 +0100
++++ net-next-2.6/drivers/net/e1000e/e1000.h	2010-11-11 11:01:57.000000000 +0100
+@@ -482,6 +482,7 @@
+ 
+ extern void e1000e_check_options(struct e1000_adapter *adapter);
+ extern void e1000e_set_ethtool_ops(struct net_device *netdev);
++extern void e1000e_led_blink_task(struct work_struct *work);
+ 
+ extern int e1000e_up(struct e1000_adapter *adapter);
+ extern void e1000e_down(struct e1000_adapter *adapter);
+
+--envbJBWh7q8WU6mo--
