@@ -1,81 +1,76 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Kernel rwlock design, Multicore and IGMP
-Date: Thu, 11 Nov 2010 16:32:22 +0100
-Message-ID: <1289489542.17691.1325.camel@edumazet-laptop>
-References: <AANLkTikvT=x9eBovn2-m6HLqk7wyXSAR3sc9jCQ0C6mL@mail.gmail.com>
-	 <1289489007.17691.1310.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Cypher Wu <cypher.w@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1289489007.17691.1310.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Chuck Lever <chuck.lever-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] SUNRPC: Simplify rpc_alloc_iostats by removing pointless local variable
+Date: Thu, 11 Nov 2010 10:57:47 -0500
+Message-ID: <1745E543-5867-4814-9678-5E73AD2C25BA@oracle.com>
+References: <alpine.LNX.2.00.1011072205370.26247@swampdragon.chaosbits.net> <alpine.LNX.2.00.1011102229370.625@swampdragon.chaosbits.net>
+Mime-Version: 1.0 (Apple Message framework v1081)
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>,
+	Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+To: Jesper Juhl <jj-IYz4IdjRLj0sV2N9l4h3zg@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <alpine.LNX.2.00.1011102229370.625-h2p7t3/P30RzeRGmFJ5qR7ZzlVVXadcDXqFh9Ls21Oc@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Le jeudi 11 novembre 2010 =C3=A0 16:23 +0100, Eric Dumazet a =C3=A9crit=
- :
-> Le jeudi 11 novembre 2010 =C3=A0 21:49 +0800, Cypher Wu a =C3=A9crit =
-:
->=20
-> Hi
->=20
-> CC netdev, since you ask questions about network stuff _and_ rwlock
->=20
->=20
-> > I'm using TILEPro and its rwlock in kernel is a liitle different th=
-an
-> > other platforms. It have a priority for write lock that when tried =
-it
-> > will block the following read lock even if read lock is hold by
-> > others. Its code can be read in Linux Kernel 2.6.36 in
-> > arch/tile/lib/spinlock_32.c.
->=20
-> This seems a bug to me.
->=20
-> read_lock() can be nested. We used such a schem in the past in iptabl=
-es
-> (it can re-enter itself),
-> and we used instead a spinlock(), but with many discussions with lkml
-> and Linus himself if I remember well.
 
-I meant, a percpu spinlock, and extra logic to spin_lock() it one time,
-even if nested.
+On Nov 10, 2010, at 4:32 PM, Jesper Juhl wrote:
 
-static inline void xt_info_rdlock_bh(void)
-{
-        struct xt_info_lock *lock;
+> On Sun, 7 Nov 2010, Jesper Juhl wrote:
+> 
+>> Hi,
+>> 
+>> We can simplify net/sunrpc/stats.c::rpc_alloc_iostats() a bit by getting 
+>> rid of the unneeded local variable 'new'.
+>> 
+>> 
+>> Please CC me on replies.
+>> 
+>> 
+>> Signed-off-by: Jesper Juhl <jj-IYz4IdjRLj0sV2N9l4h3zg@public.gmane.org>
+>> ---
+>> stats.c |    4 +---
+>> 1 file changed, 1 insertion(+), 3 deletions(-)
+>> 
+>> diff --git 
+>> a/net/sunrpc/stats.c b/net/sunrpc/stats.c
+>> index f71a731..80df89d 100644
+>> --- a/net/sunrpc/stats.c
+>> +++ b/net/sunrpc/stats.c
+>> @@ -115,9 +115,7 @@ EXPORT_SYMBOL_GPL(svc_seq_show);
+>>  */
+>> struct rpc_iostats *rpc_alloc_iostats(struct rpc_clnt *clnt)
+>> {
+>> -	struct rpc_iostats *new;
+>> -	new = kcalloc(clnt->cl_maxproc, sizeof(struct rpc_iostats), GFP_KERNEL);
+>> -	return new;
+>> +	return kcalloc(clnt->cl_maxproc, sizeof(struct rpc_iostats), GFP_KERNEL);
+>> }
+>> EXPORT_SYMBOL_GPL(rpc_alloc_iostats);
+>> 
+>> 
+>> 
+> 
+> Ok, no response to this for a couple of days.
+> Is there some problem or did it just get missed?
+> Could someone merge this and push it up-stream, please, if there are no 
+> problems with it...
 
-        local_bh_disable();
-        lock =3D &__get_cpu_var(xt_info_locks);
-        if (likely(!lock->readers++))
-                spin_lock(&lock->lock);
-}
+The NFS maintainer is traveling.
 
-static inline void xt_info_rdunlock_bh(void)
-{
-        struct xt_info_lock *lock =3D &__get_cpu_var(xt_info_locks);
+-- 
+Chuck Lever
+chuck[dot]lever[at]oracle[dot]com
 
-        if (likely(!--lock->readers))
-                spin_unlock(&lock->lock);
-        local_bh_enable();
-}
 
-The write 'rwlock' side has to lock the percpu spinlock of all possible
-cpus.
 
-/*
- * The "writer" side needs to get exclusive access to the lock,
- * regardless of readers.  This must be called with bottom half
- * processing (and thus also preemption) disabled.
- */
-static inline void xt_info_wrlock(unsigned int cpu)
-{
-        spin_lock(&per_cpu(xt_info_locks, cpu).lock);
-}
 
-static inline void xt_info_wrunlock(unsigned int cpu)
-{
-        spin_unlock(&per_cpu(xt_info_locks, cpu).lock);
-}
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
