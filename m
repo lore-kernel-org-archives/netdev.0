@@ -1,118 +1,61 @@
-From: Holger Eitzenberger <holger@eitzenberger.org>
-Subject: Re: [e1000e] BUG triggered in blink path
-Date: Thu, 11 Nov 2010 11:17:39 +0100
-Message-ID: <20101111101738.GA2972@mail.eitzenberger.org>
-References: <20101109083954.GB11829@mail.eitzenberger.org> <alpine.WNT.2.00.1011101030130.14720@jbrandeb-desk1.amr.corp.intel.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: sk->sk_socket seems to disappear before connection termination
+Date: Thu, 11 Nov 2010 12:00:32 +0100
+Message-ID: <4CDBCCD0.9040807@trash.net>
+References: <alpine.LNX.2.01.1011100205220.17978@obet.zrqbmnf.qr>	 <1289368037.2700.14.camel@edumazet-laptop>	 <alpine.LNX.2.01.1011101148060.18018@obet.zrqbmnf.qr>	 <1289407451.2860.239.camel@edumazet-laptop>	 <alpine.LNX.2.01.1011101816330.2886@obet.zrqbmnf.qr> <1289410679.2860.245.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="envbJBWh7q8WU6mo"
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jan Engelhardt <jengelh@medozas.de>,
+	David Howells <dhowells@redhat.com>,
+	Netfilter Developer Mailing List
+	<netfilter-devel@vger.kernel.org>, netdev@vger.kernel.org,
+	=?UTF-8?B?UmFmYcWCIE1hag==?= <rafal.maj.it@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.9]:54206 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754837Ab0KKKRl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Nov 2010 05:17:41 -0500
-Content-Disposition: inline
-In-Reply-To: <alpine.WNT.2.00.1011101030130.14720@jbrandeb-desk1.amr.corp.intel.com>
+Received: from stinky.trash.net ([213.144.137.162]:36144 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755270Ab0KKLAf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Nov 2010 06:00:35 -0500
+In-Reply-To: <1289410679.2860.245.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 10.11.2010 18:37, Eric Dumazet wrote:
+> Le mercredi 10 novembre 2010 =C3=A0 18:17 +0100, Jan Engelhardt a =C3=
+=A9crit :
+>> On Wednesday 2010-11-10 17:44, Eric Dumazet wrote:
+>>>
+>>> [ 9920.234680] ipt_LOG: sk=3Dffff880118bd32c0 sk->sk_socket=3Dffff8=
+8011d0d8c00 file=3Dffff88011cd4e100
+>>> [ 9920.234731] IN=3D OUT=3Deth1 SRC=3D192.168.20.108 DST=3D192.168.=
+20.110 LEN=3D52 TOS=3D0x10 PREC=3D0x00 TTL=3D64 ID=3D63704 DF PROTO=3DT=
+CP SPT=3D60088 DPT=3D22 WINDOW=3D35 RES=3D0x00 ACK FIN URGP=3D0 UID=3D0=
+ GID=3D0=20
+>>> [ 9920.235221] ipt_LOG: sk=3Dffff880078998000 sk->sk_socket=3Dffff8=
+80078c58300 file=3D          (null)
+>>> [ 9920.235271] IN=3D OUT=3Deth1 SRC=3D192.168.20.108 DST=3D192.168.=
+20.110 LEN=3D52 TOS=3D0x00 PREC=3D0x00 TTL=3D64 ID=3D0 DF PROTO=3DTCP S=
+PT=3D60088 DPT=3D22 WINDOW=3D35 RES=3D0x00 ACK URGP=3D0=20
+>>>
+>>> You can see in my log, that the last packet seems to be from a diff=
+erent
+>>> socket ! (sk pointer changed to ffff880078998000 !)
+>>
+>> Yes, that's it.
+>>
+>>> Well well well, thats an ACK, in answer to FIN packet received from=
+ remote
+>>> side.
+>>
+>> But why is it not handled by sk ffff880118bd32c0 anymore?
+>> It does have, after all, the same (addr,port) tuple.
+>> And it is sort of a hiccup for xt_owner users.
+>=20
+> Its because of TIMEWAIT state : no more socket
+>=20
+> We use a special tcp socket (net->ipv4.tcp_sock) in tcp_v4_send_ack()
 
---envbJBWh7q8WU6mo
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-Hi Jesse,
-
-I've attached the patch against net-next-2.6.  Please check if it's ok
-for you.  I checked e1000, igb and ixgbe as well, they don't have that
-problem.
-
- /holger
-
-> > After taking a look I think this may be caused by initializing
-> > adapter->led_blink_task several times in e1000_phys_id(), while possibly
-> > led_blink_task is running:
-> > 
-> > 	if ((hw->phy.type == e1000_phy_ife) ||
-> > 	    (hw->mac.type == e1000_pchlan) ||
-> > 	    (hw->mac.type == e1000_82574)) {
-> > 		INIT_WORK(&adapter->led_blink_task, e1000e_led_blink_task);
-> > 		if (!adapter->blink_timer.function) {
-> > 
-> > I can't reproduce it after moving it inside the following if block,
-> > but I'm not quite sure if this catches all races in there.  Especially
-> > the msleep_interruptible() may be too optimistic because it may
-> > actually not wait long enough.  Someone with more knowledge of the
-> > driver should take a look.
-> 
-> thanks for your investigation and troubleshooting.  I don't think it is 
-> correct at all to be calling INIT_WORK more than once.  In fact the 
-> INIT_WORK should just be moved into probe, and then e1000_phys_id should 
-> just do schedule_work.
-> 
-> 
-
---envbJBWh7q8WU6mo
-Content-Type: text/x-diff; charset=us-ascii
-Content-Disposition: inline; filename="x.diff"
-
-e1000e: fix double initialization in blink path
-
-The kernel goes BUG() at the time 'ethtool -p eth0 3' comes
-back, which is due to adapter->led_blink_task initialized
-several times.  At the time it is still running this results
-in a corrupted task_list of the associated workqueue.
-
-The fix is to move the workqueue initialization to the
-probe function instead.
-
-Signed-off-by: Holger Eitzenberger <holger@eitzenberger.org>
-
-Index: net-next-2.6/drivers/net/e1000e/ethtool.c
-===================================================================
---- net-next-2.6.orig/drivers/net/e1000e/ethtool.c	2010-11-11 10:57:28.000000000 +0100
-+++ net-next-2.6/drivers/net/e1000e/ethtool.c	2010-11-11 11:02:21.000000000 +0100
-@@ -1860,7 +1860,7 @@
- /* bit defines for adapter->led_status */
- #define E1000_LED_ON		0
- 
--static void e1000e_led_blink_task(struct work_struct *work)
-+void e1000e_led_blink_task(struct work_struct *work)
- {
- 	struct e1000_adapter *adapter = container_of(work,
- 	                                struct e1000_adapter, led_blink_task);
-@@ -1892,7 +1892,6 @@
- 	    (hw->mac.type == e1000_pch2lan) ||
- 	    (hw->mac.type == e1000_82583) ||
- 	    (hw->mac.type == e1000_82574)) {
--		INIT_WORK(&adapter->led_blink_task, e1000e_led_blink_task);
- 		if (!adapter->blink_timer.function) {
- 			init_timer(&adapter->blink_timer);
- 			adapter->blink_timer.function =
-Index: net-next-2.6/drivers/net/e1000e/netdev.c
-===================================================================
---- net-next-2.6.orig/drivers/net/e1000e/netdev.c	2010-11-11 10:57:28.000000000 +0100
-+++ net-next-2.6/drivers/net/e1000e/netdev.c	2010-11-11 11:01:17.000000000 +0100
-@@ -5864,6 +5864,7 @@
- 	INIT_WORK(&adapter->downshift_task, e1000e_downshift_workaround);
- 	INIT_WORK(&adapter->update_phy_task, e1000e_update_phy_task);
- 	INIT_WORK(&adapter->print_hang_task, e1000_print_hw_hang);
-+	INIT_WORK(&adapter->led_blink_task, e1000e_led_blink_task);
- 
- 	/* Initialize link parameters. User can change them with ethtool */
- 	adapter->hw.mac.autoneg = 1;
-Index: net-next-2.6/drivers/net/e1000e/e1000.h
-===================================================================
---- net-next-2.6.orig/drivers/net/e1000e/e1000.h	2010-11-11 10:57:28.000000000 +0100
-+++ net-next-2.6/drivers/net/e1000e/e1000.h	2010-11-11 11:01:57.000000000 +0100
-@@ -482,6 +482,7 @@
- 
- extern void e1000e_check_options(struct e1000_adapter *adapter);
- extern void e1000e_set_ethtool_ops(struct net_device *netdev);
-+extern void e1000e_led_blink_task(struct work_struct *work);
- 
- extern int e1000e_up(struct e1000_adapter *adapter);
- extern void e1000e_down(struct e1000_adapter *adapter);
-
---envbJBWh7q8WU6mo--
+Yeah, this has always been a problem with the owner match.
+I don't think this fixable, it should probably only be used
+in a stateful manner.
