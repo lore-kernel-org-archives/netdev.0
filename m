@@ -1,191 +1,273 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] macvlan: lockless tx path
-Date: Thu, 11 Nov 2010 08:03:32 +0100
-Message-ID: <1289459012.17691.1001.camel@edumazet-laptop>
+Subject: [PATCH net-next-2.6 v2] macvlan: lockless tx path
+Date: Thu, 11 Nov 2010 08:14:04 +0100
+Message-ID: <1289459644.17691.1011.camel@edumazet-laptop>
 References: <1289403709.2860.216.camel@edumazet-laptop>
 	 <4CDAD8C8.20807@candelatech.com>
 	 <1289411027.2860.248.camel@edumazet-laptop>
-	 <4CDADC17.6070506@candelatech.com>
-	 <1289413120.2469.12.camel@edumazet-laptop>
-	 <4CDAE713.7020309@candelatech.com>
-	 <1289421187.2469.127.camel@edumazet-laptop> <4CDB1021.507@candelatech.com>
-	 <1289427705.17691.52.camel@edumazet-laptop>
-	 <4CDB226A.8080903@candelatech.com>
-	 <1289432184.17691.141.camel@edumazet-laptop>
-	 <4CDB2EBC.2090905@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>, netdev <netdev@vger.kernel.org>,
+	Ben Greear <greearb@candelatech.com>,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:47679 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752608Ab0KKHDg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Nov 2010 02:03:36 -0500
-Received: by wyb28 with SMTP id 28so339451wyb.19
-        for <netdev@vger.kernel.org>; Wed, 10 Nov 2010 23:03:35 -0800 (PST)
-In-Reply-To: <4CDB2EBC.2090905@candelatech.com>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:34009 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757725Ab0KKHOJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Nov 2010 02:14:09 -0500
+Received: by wwb28 with SMTP id 28so223679wwb.1
+        for <netdev@vger.kernel.org>; Wed, 10 Nov 2010 23:14:07 -0800 (PST)
+In-Reply-To: <1289411027.2860.248.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 10 novembre 2010 =C3=A0 15:46 -0800, Ben Greear a =C3=A9cri=
-t :
-> On 11/10/2010 03:36 PM, Eric Dumazet wrote:
-> > Le mercredi 10 novembre 2010 =C3=A0 14:53 -0800, Ben Greear a =C3=A9=
-crit :
-> >
-> >> I did similar, and then wrote extra code to detect a 64-bit kernel=
- and if
-> >> so assume that the counters wrap at 64 bits so I didn't have to po=
-ll so
-> >> often to make sure I didn't miss a wrap for a 10G NIC.  If instead=
- one wraps at 33
-> >> bits and the other at 36, there is no way for me to deal with the =
-wrap
-> >> properly w/out explicitly knowing about that 33 and 36.
-> >>
-> >
-> > How do you define 'wrap around' ? Maybe your definition is wrong.
->=20
-> Maybe so.  My algorithm looks like:
->=20
->   // uint64 accum;
->   // uint32 old;
->   // uint32 new;
->   if (old > new) {
->       // This assumes counters wrap at 32 bits (ie, 0xFFFFFFFF).
->       accum +=3D ((uint32)(0xFFFFFFFF) - old) + new;
->   }
->   else if (old < new) {
->       accum +=3D new - old;
->   }
->   old =3D new;
->=20
-> ...
->=20
-> Is there some way I can do this w/out the (0xFFFFFFFF - old),
-> and thus the assumption of 32-bit counters?
->=20
+macvlan is a stacked device, like tunnels. We should use the lockless
+mechanism we are using in tunnels and loopback.
 
-Yes, please take a look at RRD for an example, then you can adapt to
-your needs.
+This patch completely removes locking in TX path.
 
-<quote>
+tx stat counters are added into existing percpu stat structure, renamed
+from rx_stats to pcpu_stats.
 
-http://www.mrtg.org/rrdtool/tut/rrdtutorial.en.html
+Note : this reverts commit 2c11455321f37 (macvlan: add multiqueue
+capability)
 
-At the time of writing this document, RRDtool knows of counters that ar=
-e
-either 32 bits or 64 bits of size. These counters can handle the
-following different values:
+Note : rx_errors converted to a 32bit counter, like tx_dropped, since
+they dont need 64bit range.
 
- - 32 bits: 0 ..           4294967295
- - 64 bits: 0 .. 18446744073709551615
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: Ben Greear <greearb@candelatech.com>
+Cc: Ben Hutchings <bhutchings@solarflare.com>
+---
+V2: correct kerneldoc
+    u32 for tx_dropped and rx_errors
 
-If these numbers look strange to you, you can view them in their
-hexadecimal form:
+ drivers/net/macvlan.c      |   80 +++++++++++++++--------------------
+ include/linux/if_macvlan.h |   34 ++++++++------
+ 2 files changed, 55 insertions(+), 59 deletions(-)
 
- - 32 bits: 0 ..         FFFFFFFF
- - 64 bits: 0 .. FFFFFFFFFFFFFFFF
-
-RRDtool handles both counters the same. If an overflow occurs and the
-delta would be negative, RRDtool first adds the maximum of a small
-counter + 1 to the delta. If the delta is still negative, it had to be
-the large counter that wrapped. Add the maximum possible value of the
-large counter + 1 and subtract the erroneously added small value.
-
-There is a risk in this: suppose the large counter wrapped while adding
-a huge delta, it could happen, theoretically, that adding the smaller
-value would make the delta positive. In this unlikely case the results
-would not be correct. The increase should be nearly as high as the
-maximum counter value for that to happen, so chances are you would have
-several other problems as well and this particular problem would not
-even be worth thinking about. Even though, I did include an example, so
-you can judge for yourself.
-
-The next section gives you some numerical examples for counter-wraps.
-Try to do the calculations yourself or just believe me if your
-calculator can't handle the numbers :)
-
-Correction numbers:
-
- - 32 bits: (4294967295 + 1) =3D                                4294967=
-296
- - 64 bits: (18446744073709551615 + 1)
-                                    - correction1 =3D 18446744069414584=
-320
-
- Before:        4294967200
- Increase:                100
- Should become: 4294967300
- But really is:             4
- Delta:        -4294967196
- Correction1:  -4294967196 + 4294967296 =3D 100
-
- Before:        18446744073709551000
- Increase:                             800
- Should become: 18446744073709551800
- But really is:                        184
- Delta:        -18446744073709550816
- Correction1:  -18446744073709550816
-                                + 4294967296 =3D -18446744069414583520
- Correction2:  -18446744069414583520
-                   + 18446744069414584320 =3D 800
-
- Before:        18446744073709551615 ( maximum value )
- Increase:      18446744069414584320 ( absurd increase, minimum for
- Should become: 36893488143124135935             this example to work )
- But really is: 18446744069414584319
- Delta:                     -4294967296
- Correction1:  -4294967296 + 4294967296 =3D 0
- (not negative -> no correction2)
-
- Before:        18446744073709551615 ( maximum value )
- Increase:      18446744069414584319 ( one less increase )
- Should become: 36893488143124135934
- But really is: 18446744069414584318
- Delta:                     -4294967297
- Correction1:  -4294967297 + 4294967296 =3D -1
- Correction2:  -1 + 18446744069414584320 =3D 18446744069414584319
-
-As you can see from the last two examples, you need strange numbers for
-RRDtool to fail (provided it's bug free of course), so this should not
-happen. However, SNMP or whatever method you choose to collect the data=
-,
-might also report wrong numbers occasionally. We can't prevent all
-errors, but there are some things we can do. The RRDtool "create"
-command takes two special parameters for this. They define the minimum
-and maximum allowed values. Until now, we used "U", meaning "unknown".
-If you provide values for one or both of them and if RRDtool receives
-data points that are outside these limits, it will ignore those values.
-=46or a thermometer in degrees Celsius, the absolute minimum is just un=
-der
--273. For my router, I can assume this minimum is much higher so I woul=
-d
-set it to 10, where as the maximum temperature I would set to 80. Any
-higher and the device would be out of order.
-
-=46or the speed of my car, I would never expect negative numbers and al=
-so
-I would not expect a speed higher than 230. Anything else, and there
-must have been an error. Remember: the opposite is not true, if the
-numbers pass this check, it doesn't mean that they are correct. Always
-judge the graph with a healthy dose of suspicion if it seems weird to
-you.
-
-http://www.mrtg.org/rrdtool/doc/rrdcreate.en.html
-
-COUNTER
-
-    is for continuous incrementing counters like the ifInOctets counter
-in a router. The COUNTER data source assumes that the counter never
-decreases, except when a counter overflows. The update function takes
-the overflow into account. The counter is stored as a per-second rate.
-When the counter overflows, RRDtool checks if the overflow happened at
-the 32bit or 64bit border and acts accordingly by adding an appropriate
-value to the result.
-
-</quote>
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index 0fc9dc7..93f0ba2 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -243,18 +243,22 @@ xmit_world:
+ netdev_tx_t macvlan_start_xmit(struct sk_buff *skb,
+ 			       struct net_device *dev)
+ {
+-	int i = skb_get_queue_mapping(skb);
+-	struct netdev_queue *txq = netdev_get_tx_queue(dev, i);
+ 	unsigned int len = skb->len;
+ 	int ret;
++	const struct macvlan_dev *vlan = netdev_priv(dev);
+ 
+ 	ret = macvlan_queue_xmit(skb, dev);
+ 	if (likely(ret == NET_XMIT_SUCCESS || ret == NET_XMIT_CN)) {
+-		txq->tx_packets++;
+-		txq->tx_bytes += len;
+-	} else
+-		txq->tx_dropped++;
++		struct macvlan_pcpu_stats *pcpu_stats;
+ 
++		pcpu_stats = this_cpu_ptr(vlan->pcpu_stats);
++		u64_stats_update_begin(&pcpu_stats->syncp);
++		pcpu_stats->tx_packets++;
++		pcpu_stats->tx_bytes += len;
++		u64_stats_update_end(&pcpu_stats->syncp);
++	} else {
++		this_cpu_inc(vlan->pcpu_stats->tx_dropped);
++	}
+ 	return ret;
+ }
+ EXPORT_SYMBOL_GPL(macvlan_start_xmit);
+@@ -414,14 +418,15 @@ static int macvlan_init(struct net_device *dev)
+ 	dev->state		= (dev->state & ~MACVLAN_STATE_MASK) |
+ 				  (lowerdev->state & MACVLAN_STATE_MASK);
+ 	dev->features 		= lowerdev->features & MACVLAN_FEATURES;
++	dev->features		|= NETIF_F_LLTX;
+ 	dev->gso_max_size	= lowerdev->gso_max_size;
+ 	dev->iflink		= lowerdev->ifindex;
+ 	dev->hard_header_len	= lowerdev->hard_header_len;
+ 
+ 	macvlan_set_lockdep_class(dev);
+ 
+-	vlan->rx_stats = alloc_percpu(struct macvlan_rx_stats);
+-	if (!vlan->rx_stats)
++	vlan->pcpu_stats = alloc_percpu(struct macvlan_pcpu_stats);
++	if (!vlan->pcpu_stats)
+ 		return -ENOMEM;
+ 
+ 	return 0;
+@@ -431,7 +436,7 @@ static void macvlan_uninit(struct net_device *dev)
+ {
+ 	struct macvlan_dev *vlan = netdev_priv(dev);
+ 
+-	free_percpu(vlan->rx_stats);
++	free_percpu(vlan->pcpu_stats);
+ }
+ 
+ static struct rtnl_link_stats64 *macvlan_dev_get_stats64(struct net_device *dev,
+@@ -439,33 +444,38 @@ static struct rtnl_link_stats64 *macvlan_dev_get_stats64(struct net_device *dev,
+ {
+ 	struct macvlan_dev *vlan = netdev_priv(dev);
+ 
+-	dev_txq_stats_fold(dev, stats);
+-
+-	if (vlan->rx_stats) {
+-		struct macvlan_rx_stats *p, accum = {0};
+-		u64 rx_packets, rx_bytes, rx_multicast;
++	if (vlan->pcpu_stats) {
++		struct macvlan_pcpu_stats *p;
++		u64 rx_packets, rx_bytes, rx_multicast, tx_packets, tx_bytes;
++		u32 rx_errors = 0, tx_dropped = 0;
+ 		unsigned int start;
+ 		int i;
+ 
+ 		for_each_possible_cpu(i) {
+-			p = per_cpu_ptr(vlan->rx_stats, i);
++			p = per_cpu_ptr(vlan->pcpu_stats, i);
+ 			do {
+ 				start = u64_stats_fetch_begin_bh(&p->syncp);
+ 				rx_packets	= p->rx_packets;
+ 				rx_bytes	= p->rx_bytes;
+ 				rx_multicast	= p->rx_multicast;
++				tx_packets	= p->tx_packets;
++				tx_bytes	= p->tx_bytes;
+ 			} while (u64_stats_fetch_retry_bh(&p->syncp, start));
+-			accum.rx_packets	+= rx_packets;
+-			accum.rx_bytes		+= rx_bytes;
+-			accum.rx_multicast	+= rx_multicast;
+-			/* rx_errors is an ulong, updated without syncp protection */
+-			accum.rx_errors		+= p->rx_errors;
++
++			stats->rx_packets	+= rx_packets;
++			stats->rx_bytes		+= rx_bytes;
++			stats->multicast	+= rx_multicast;
++			stats->tx_packets	+= tx_packets;
++			stats->tx_bytes		+= tx_bytes;
++			/* rx_errors & tx_dropped are u32, updated
++			 * without syncp protection.
++			 */
++			rx_errors	+= p->rx_errors;
++			tx_dropped	+= p->tx_dropped;
+ 		}
+-		stats->rx_packets = accum.rx_packets;
+-		stats->rx_bytes   = accum.rx_bytes;
+-		stats->rx_errors  = accum.rx_errors;
+-		stats->rx_dropped = accum.rx_errors;
+-		stats->multicast  = accum.rx_multicast;
++		stats->rx_errors	= rx_errors;
++		stats->rx_dropped	= rx_errors;
++		stats->tx_dropped	= tx_dropped;
+ 	}
+ 	return stats;
+ }
+@@ -601,25 +611,6 @@ static int macvlan_validate(struct nlattr *tb[], struct nlattr *data[])
+ 	return 0;
+ }
+ 
+-static int macvlan_get_tx_queues(struct net *net,
+-				 struct nlattr *tb[],
+-				 unsigned int *num_tx_queues,
+-				 unsigned int *real_num_tx_queues)
+-{
+-	struct net_device *real_dev;
+-
+-	if (!tb[IFLA_LINK])
+-		return -EINVAL;
+-
+-	real_dev = __dev_get_by_index(net, nla_get_u32(tb[IFLA_LINK]));
+-	if (!real_dev)
+-		return -ENODEV;
+-
+-	*num_tx_queues      = real_dev->num_tx_queues;
+-	*real_num_tx_queues = real_dev->real_num_tx_queues;
+-	return 0;
+-}
+-
+ int macvlan_common_newlink(struct net *src_net, struct net_device *dev,
+ 			   struct nlattr *tb[], struct nlattr *data[],
+ 			   int (*receive)(struct sk_buff *skb),
+@@ -743,7 +734,6 @@ int macvlan_link_register(struct rtnl_link_ops *ops)
+ {
+ 	/* common fields */
+ 	ops->priv_size		= sizeof(struct macvlan_dev);
+-	ops->get_tx_queues	= macvlan_get_tx_queues;
+ 	ops->validate		= macvlan_validate;
+ 	ops->maxtype		= IFLA_MACVLAN_MAX;
+ 	ops->policy		= macvlan_policy;
+diff --git a/include/linux/if_macvlan.h b/include/linux/if_macvlan.h
+index 8a2fd66..e28b2e4 100644
+--- a/include/linux/if_macvlan.h
++++ b/include/linux/if_macvlan.h
+@@ -25,19 +25,25 @@ struct macvlan_port;
+ struct macvtap_queue;
+ 
+ /**
+- *	struct macvlan_rx_stats - MACVLAN percpu rx stats
++ *	struct macvlan_pcpu_stats - MACVLAN percpu stats
+  *	@rx_packets: number of received packets
+  *	@rx_bytes: number of received bytes
+  *	@rx_multicast: number of received multicast packets
++ *	@tx_packets: number of transmitted packets
++ *	@tx_bytes: number of transmitted bytes
+  *	@syncp: synchronization point for 64bit counters
+- *	@rx_errors: number of errors
++ *	@rx_errors: number of rx errors
++ *	@tx_dropped: number of tx dropped packets
+  */
+-struct macvlan_rx_stats {
++struct macvlan_pcpu_stats {
+ 	u64			rx_packets;
+ 	u64			rx_bytes;
+ 	u64			rx_multicast;
++	u64			tx_packets;
++	u64			tx_bytes;
+ 	struct u64_stats_sync	syncp;
+-	unsigned long		rx_errors;
++	u32			rx_errors;
++	u32			tx_dropped;
+ };
+ 
+ /*
+@@ -52,7 +58,7 @@ struct macvlan_dev {
+ 	struct hlist_node	hlist;
+ 	struct macvlan_port	*port;
+ 	struct net_device	*lowerdev;
+-	struct macvlan_rx_stats __percpu *rx_stats;
++	struct macvlan_pcpu_stats __percpu *pcpu_stats;
+ 	enum macvlan_mode	mode;
+ 	int (*receive)(struct sk_buff *skb);
+ 	int (*forward)(struct net_device *dev, struct sk_buff *skb);
+@@ -64,18 +70,18 @@ static inline void macvlan_count_rx(const struct macvlan_dev *vlan,
+ 				    unsigned int len, bool success,
+ 				    bool multicast)
+ {
+-	struct macvlan_rx_stats *rx_stats;
+-
+-	rx_stats = this_cpu_ptr(vlan->rx_stats);
+ 	if (likely(success)) {
+-		u64_stats_update_begin(&rx_stats->syncp);
+-		rx_stats->rx_packets++;;
+-		rx_stats->rx_bytes += len;
++		struct macvlan_pcpu_stats *pcpu_stats;
++
++		pcpu_stats = this_cpu_ptr(vlan->pcpu_stats);
++		u64_stats_update_begin(&pcpu_stats->syncp);
++		pcpu_stats->rx_packets++;
++		pcpu_stats->rx_bytes += len;
+ 		if (multicast)
+-			rx_stats->rx_multicast++;
+-		u64_stats_update_end(&rx_stats->syncp);
++			pcpu_stats->rx_multicast++;
++		u64_stats_update_end(&pcpu_stats->syncp);
+ 	} else {
+-		rx_stats->rx_errors++;
++		this_cpu_inc(vlan->pcpu_stats->rx_errors);
+ 	}
+ }
+ 
 
 
