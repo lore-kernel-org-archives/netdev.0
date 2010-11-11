@@ -1,193 +1,97 @@
 From: Casey Leedom <leedom@chelsio.com>
-Subject: [PATCH net-26 3/6] cxgb4vf: fix some errors in Gather List to skb conversion
-Date: Thu, 11 Nov 2010 11:06:50 -0800
-Message-ID: <1289502413-9895-4-git-send-email-leedom@chelsio.com>
+Subject: [PATCH net-26 6/6] cxgb4vf: add call to Firmware to reset VF State.
+Date: Thu, 11 Nov 2010 11:06:53 -0800
+Message-ID: <1289502413-9895-7-git-send-email-leedom@chelsio.com>
 References: <1289502413-9895-1-git-send-email-leedom@chelsio.com>
 Cc: davem@davemloft.net, Casey Leedom <leedom@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:5002 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:19775 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753658Ab0KKTHB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Nov 2010 14:07:01 -0500
+	with ESMTP id S1754553Ab0KKTHD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Nov 2010 14:07:03 -0500
 In-Reply-To: <1289502413-9895-1-git-send-email-leedom@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There were some errors in the way that internal Gather Lists were being
-translated into skb's.  This also makes the VF Driver look more like the PF
-Driver to facilitate easier comarison.
+Add call to Firmware to reset its VF State when we first attach to the VF.
 
 Signed-off-by: Casey Leedom <leedom@chelsio.com>
 ---
- drivers/net/cxgb4vf/sge.c |  121 +++++++++++++++++++++++++++-----------------
- 1 files changed, 74 insertions(+), 47 deletions(-)
+ drivers/net/cxgb4vf/cxgb4vf_main.c |   16 ++++++++++++++++
+ drivers/net/cxgb4vf/t4vf_common.h  |    1 +
+ drivers/net/cxgb4vf/t4vf_hw.c      |   19 +++++++++++++++++++
+ 3 files changed, 36 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/cxgb4vf/sge.c b/drivers/net/cxgb4vf/sge.c
-index 6a6e18b..ecf0770 100644
---- a/drivers/net/cxgb4vf/sge.c
-+++ b/drivers/net/cxgb4vf/sge.c
-@@ -154,13 +154,14 @@ enum {
- 	 */
- 	RX_COPY_THRES = 256,
- 	RX_PULL_LEN = 128,
--};
+diff --git a/drivers/net/cxgb4vf/cxgb4vf_main.c b/drivers/net/cxgb4vf/cxgb4vf_main.c
+index 8da3bda..c3449bb 100644
+--- a/drivers/net/cxgb4vf/cxgb4vf_main.c
++++ b/drivers/net/cxgb4vf/cxgb4vf_main.c
+@@ -2065,6 +2065,22 @@ static int adap_init0(struct adapter *adapter)
+ 	}
  
--/*
-- * Can't define this in the above enum because PKTSHIFT isn't a constant in
-- * the VF Driver ...
-- */
--#define RX_PKT_PULL_LEN (RX_PULL_LEN + PKTSHIFT)
-+	/*
-+	 * Main body length for sk_buffs used for RX Ethernet packets with
-+	 * fragments.  Should be >= RX_PULL_LEN but possibly bigger to give
-+	 * pskb_may_pull() some room.
+ 	/*
++	 * Some environments do not properly handle PCIE FLRs -- e.g. in Linux
++	 * 2.6.31 and later we can't call pci_reset_function() in order to
++	 * issue an FLR because of a self- deadlock on the device semaphore.
++	 * Meanwhile, the OS infrastructure doesn't issue FLRs in all the
++	 * cases where they're needed -- for instance, some versions of KVM
++	 * fail to reset "Assigned Devices" when the VM reboots.  Therefore we
++	 * use the firmware based reset in order to reset any per function
++	 * state.
 +	 */
-+	RX_SKB_LEN = 512,
-+};
++	err = t4vf_fw_reset(adapter);
++	if (err < 0) {
++		dev_err(adapter->pdev_dev, "FW reset failed: err=%d\n", err);
++		return err;
++	}
++
++	/*
+ 	 * Grab basic operational parameters.  These will predominantly have
+ 	 * been set up by the Physical Function Driver or will be hard coded
+ 	 * into the adapter.  We just have to live with them ...  Note that
+diff --git a/drivers/net/cxgb4vf/t4vf_common.h b/drivers/net/cxgb4vf/t4vf_common.h
+index 873cb7d..a65c80a 100644
+--- a/drivers/net/cxgb4vf/t4vf_common.h
++++ b/drivers/net/cxgb4vf/t4vf_common.h
+@@ -235,6 +235,7 @@ static inline int t4vf_wr_mbox_ns(struct adapter *adapter, const void *cmd,
+ int __devinit t4vf_wait_dev_ready(struct adapter *);
+ int __devinit t4vf_port_init(struct adapter *, int);
  
- /*
-  * Software state per TX descriptor.
-@@ -1355,6 +1356,67 @@ out_free:
++int t4vf_fw_reset(struct adapter *);
+ int t4vf_query_params(struct adapter *, unsigned int, const u32 *, u32 *);
+ int t4vf_set_params(struct adapter *, unsigned int, const u32 *, const u32 *);
+ 
+diff --git a/drivers/net/cxgb4vf/t4vf_hw.c b/drivers/net/cxgb4vf/t4vf_hw.c
+index ea1c123..e306c20 100644
+--- a/drivers/net/cxgb4vf/t4vf_hw.c
++++ b/drivers/net/cxgb4vf/t4vf_hw.c
+@@ -326,6 +326,25 @@ int __devinit t4vf_port_init(struct adapter *adapter, int pidx)
  }
  
  /**
-+ *	t4vf_pktgl_to_skb - build an sk_buff from a packet gather list
-+ *	@gl: the gather list
-+ *	@skb_len: size of sk_buff main body if it carries fragments
-+ *	@pull_len: amount of data to move to the sk_buff's main body
++ *      t4vf_fw_reset - issue a reset to FW
++ *      @adapter: the adapter
 + *
-+ *	Builds an sk_buff from the given packet gather list.  Returns the
-+ *	sk_buff or %NULL if sk_buff allocation failed.
++ *	Issues a reset command to FW.  For a Physical Function this would
++ *	result in the Firmware reseting all of its state.  For a Virtual
++ *	Function this just resets the state associated with the VF.
 + */
-+struct sk_buff *t4vf_pktgl_to_skb(const struct pkt_gl *gl,
-+				  unsigned int skb_len, unsigned int pull_len)
++int t4vf_fw_reset(struct adapter *adapter)
 +{
-+	struct sk_buff *skb;
-+	struct skb_shared_info *ssi;
++	struct fw_reset_cmd cmd;
 +
-+	/*
-+	 * If the ingress packet is small enough, allocate an skb large enough
-+	 * for all of the data and copy it inline.  Otherwise, allocate an skb
-+	 * with enough room to pull in the header and reference the rest of
-+	 * the data via the skb fragment list.
-+	 *
-+	 * Below we rely on RX_COPY_THRES being less than the smallest Rx
-+	 * buff!  size, which is expected since buffers are at least
-+	 * PAGE_SIZEd.  In this case packets up to RX_COPY_THRES have only one
-+	 * fragment.
-+	 */
-+	if (gl->tot_len <= RX_COPY_THRES) {
-+		/* small packets have only one fragment */
-+		skb = alloc_skb(gl->tot_len, GFP_ATOMIC);
-+		if (unlikely(!skb))
-+			goto out;
-+		__skb_put(skb, gl->tot_len);
-+		skb_copy_to_linear_data(skb, gl->va, gl->tot_len);
-+	} else {
-+		skb = alloc_skb(skb_len, GFP_ATOMIC);
-+		if (unlikely(!skb))
-+			goto out;
-+		__skb_put(skb, pull_len);
-+		skb_copy_to_linear_data(skb, gl->va, pull_len);
-+
-+		ssi = skb_shinfo(skb);
-+		ssi->frags[0].page = gl->frags[0].page;
-+		ssi->frags[0].page_offset = gl->frags[0].page_offset + pull_len;
-+		ssi->frags[0].size = gl->frags[0].size - pull_len;
-+		if (gl->nfrags > 1)
-+			memcpy(&ssi->frags[1], &gl->frags[1],
-+			       (gl->nfrags-1) * sizeof(skb_frag_t));
-+		ssi->nr_frags = gl->nfrags;
-+
-+		skb->len = gl->tot_len;
-+		skb->data_len = skb->len - pull_len;
-+		skb->truesize += skb->data_len;
-+
-+		/* Get a reference for the last page, we don't own it */
-+		get_page(gl->frags[gl->nfrags - 1].page);
-+	}
-+
-+out:
-+	return skb;
++	memset(&cmd, 0, sizeof(cmd));
++	cmd.op_to_write = cpu_to_be32(FW_CMD_OP(FW_RESET_CMD) |
++				      FW_CMD_WRITE);
++	cmd.retval_len16 = cpu_to_be32(FW_LEN16(cmd));
++	return t4vf_wr_mbox(adapter, &cmd, sizeof(cmd), NULL);
 +}
 +
 +/**
-  *	t4vf_pktgl_free - free a packet gather list
-  *	@gl: the gather list
-  *
-@@ -1463,10 +1525,8 @@ int t4vf_ethrx_handler(struct sge_rspq *rspq, const __be64 *rsp,
- {
- 	struct sk_buff *skb;
- 	struct port_info *pi;
--	struct skb_shared_info *ssi;
- 	const struct cpl_rx_pkt *pkt = (void *)&rsp[1];
- 	bool csum_ok = pkt->csum_calc && !pkt->err_vec;
--	unsigned int len = be16_to_cpu(pkt->len);
- 	struct sge_eth_rxq *rxq = container_of(rspq, struct sge_eth_rxq, rspq);
- 
- 	/*
-@@ -1481,42 +1541,14 @@ int t4vf_ethrx_handler(struct sge_rspq *rspq, const __be64 *rsp,
- 	}
- 
- 	/*
--	 * If the ingress packet is small enough, allocate an skb large enough
--	 * for all of the data and copy it inline.  Otherwise, allocate an skb
--	 * with enough room to pull in the header and reference the rest of
--	 * the data via the skb fragment list.
-+	 * Convert the Packet Gather List into an skb.
- 	 */
--	if (len <= RX_COPY_THRES) {
--		/* small packets have only one fragment */
--		skb = alloc_skb(gl->frags[0].size, GFP_ATOMIC);
--		if (!skb)
--			goto nomem;
--		__skb_put(skb, gl->frags[0].size);
--		skb_copy_to_linear_data(skb, gl->va, gl->frags[0].size);
--	} else {
--		skb = alloc_skb(RX_PKT_PULL_LEN, GFP_ATOMIC);
--		if (!skb)
--			goto nomem;
--		__skb_put(skb, RX_PKT_PULL_LEN);
--		skb_copy_to_linear_data(skb, gl->va, RX_PKT_PULL_LEN);
--
--		ssi = skb_shinfo(skb);
--		ssi->frags[0].page = gl->frags[0].page;
--		ssi->frags[0].page_offset = (gl->frags[0].page_offset +
--					     RX_PKT_PULL_LEN);
--		ssi->frags[0].size = gl->frags[0].size - RX_PKT_PULL_LEN;
--		if (gl->nfrags > 1)
--			memcpy(&ssi->frags[1], &gl->frags[1],
--			       (gl->nfrags-1) * sizeof(skb_frag_t));
--		ssi->nr_frags = gl->nfrags;
--		skb->len = len + PKTSHIFT;
--		skb->data_len = skb->len - RX_PKT_PULL_LEN;
--		skb->truesize += skb->data_len;
--
--		/* Get a reference for the last page, we don't own it */
--		get_page(gl->frags[gl->nfrags - 1].page);
-+	skb = t4vf_pktgl_to_skb(gl, RX_SKB_LEN, RX_PULL_LEN);
-+	if (unlikely(!skb)) {
-+		t4vf_pktgl_free(gl);
-+		rxq->stats.rx_drops++;
-+		return 0;
- 	}
--
- 	__skb_pull(skb, PKTSHIFT);
- 	skb->protocol = eth_type_trans(skb, rspq->netdev);
- 	skb_record_rx_queue(skb, rspq->idx);
-@@ -1549,11 +1581,6 @@ int t4vf_ethrx_handler(struct sge_rspq *rspq, const __be64 *rsp,
- 		netif_receive_skb(skb);
- 
- 	return 0;
--
--nomem:
--	t4vf_pktgl_free(gl);
--	rxq->stats.rx_drops++;
--	return 0;
- }
- 
- /**
+  *	t4vf_query_params - query FW or device parameters
+  *	@adapter: the adapter
+  *	@nparams: the number of parameters
 -- 
 1.7.0.4
 
