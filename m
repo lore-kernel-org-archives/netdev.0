@@ -1,121 +1,102 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH] macvlan: lockless tx path
-Date: Thu, 11 Nov 2010 08:40:58 -0800
-Message-ID: <4CDC1C9A.3070102@candelatech.com>
-References: <1289403709.2860.216.camel@edumazet-laptop>	 <4CDAD8C8.20807@candelatech.com>	 <1289411027.2860.248.camel@edumazet-laptop>	 <4CDADC17.6070506@candelatech.com>	 <1289413120.2469.12.camel@edumazet-laptop>	 <4CDAE713.7020309@candelatech.com>	 <1289421187.2469.127.camel@edumazet-laptop> <4CDB1021.507@candelatech.com>	 <1289427705.17691.52.camel@edumazet-laptop>	 <4CDB226A.8080903@candelatech.com>	 <1289432184.17691.141.camel@edumazet-laptop>	 <4CDB2EBC.2090905@candelatech.com> <1289459012.17691.1001.camel@edumazet-laptop>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: [PATCH] net: b43legacy: fix compile error
+Date: Thu, 11 Nov 2010 11:35:31 -0500
+Message-ID: <20101111163531.GB2559@tuxdriver.com>
+References: <1288017690-31248-1-git-send-email-arnd@arndnet.de>
+ <4CC5A301.1080606@lwfinger.net>
+ <4CC5CBC4.7060308@arndnet.de>
+ <4CC5CE47.2020607@lwfinger.net>
+ <4CC5D01C.20804@arndnet.de>
+ <4CC5D3A7.3080709@lwfinger.net>
+ <4CC5E4D2.6080606@arndnet.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:44109 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754510Ab0KKQlA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Nov 2010 11:41:00 -0500
-In-Reply-To: <1289459012.17691.1001.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Arnd Hannemann <arnd-BCMAnToX5e2ELgA04lAiVw@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <4CC5E4D2.6080606-BCMAnToX5e2ELgA04lAiVw@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 11/10/2010 11:03 PM, Eric Dumazet wrote:
-> Le mercredi 10 novembre 2010 =C3=A0 15:46 -0800, Ben Greear a =C3=A9c=
-rit :
->> On 11/10/2010 03:36 PM, Eric Dumazet wrote:
->>> Le mercredi 10 novembre 2010 =C3=A0 14:53 -0800, Ben Greear a =C3=A9=
-crit :
->>>
->>>> I did similar, and then wrote extra code to detect a 64-bit kernel=
- and if
->>>> so assume that the counters wrap at 64 bits so I didn't have to po=
-ll so
->>>> often to make sure I didn't miss a wrap for a 10G NIC.  If instead=
- one wraps at 33
->>>> bits and the other at 36, there is no way for me to deal with the =
-wrap
->>>> properly w/out explicitly knowing about that 33 and 36.
->>>>
->>>
->>> How do you define 'wrap around' ? Maybe your definition is wrong.
->>
->> Maybe so.  My algorithm looks like:
->>
->>    // uint64 accum;
->>    // uint32 old;
->>    // uint32 new;
->>    if (old>  new) {
->>        // This assumes counters wrap at 32 bits (ie, 0xFFFFFFFF).
->>        accum +=3D ((uint32)(0xFFFFFFFF) - old) + new;
->>    }
->>    else if (old<  new) {
->>        accum +=3D new - old;
->>    }
->>    old =3D new;
->>
->> ...
->>
->> Is there some way I can do this w/out the (0xFFFFFFFF - old),
->> and thus the assumption of 32-bit counters?
->>
->
-> Yes, please take a look at RRD for an example, then you can adapt to
-> your needs.
->
-> <quote>
->
-> http://www.mrtg.org/rrdtool/tut/rrdtutorial.en.html
->
-> At the time of writing this document, RRDtool knows of counters that =
-are
-> either 32 bits or 64 bits of size. These counters can handle the
-> following different values:
->
->   - 32 bits: 0 ..           4294967295
->   - 64 bits: 0 .. 18446744073709551615
->
-> If these numbers look strange to you, you can view them in their
-> hexadecimal form:
->
->   - 32 bits: 0 ..         FFFFFFFF
->   - 64 bits: 0 .. FFFFFFFFFFFFFFFF
->
-> RRDtool handles both counters the same. If an overflow occurs and the
-> delta would be negative, RRDtool first adds the maximum of a small
-> counter + 1 to the delta. If the delta is still negative, it had to b=
-e
-> the large counter that wrapped. Add the maximum possible value of the
-> large counter + 1 and subtract the erroneously added small value.
->
-> There is a risk in this: suppose the large counter wrapped while addi=
-ng
-> a huge delta, it could happen, theoretically, that adding the smaller
-> value would make the delta positive. In this unlikely case the result=
-s
-> would not be correct. The increase should be nearly as high as the
-> maximum counter value for that to happen, so chances are you would ha=
-ve
-> several other problems as well and this particular problem would not
-> even be worth thinking about. Even though, I did include an example, =
-so
-> you can judge for yourself.
+On Mon, Oct 25, 2010 at 10:13:06PM +0200, Arnd Hannemann wrote:
+> Am 25.10.2010 20:59, schrieb Larry Finger:
+> > On 10/25/2010 01:44 PM, Arnd Hannemann wrote:
+> >> Am 25.10.2010 20:36, schrieb Larry Finger:
+> >>> On 10/25/2010 01:26 PM, Arnd Hannemann wrote:
+> >>>> Am 25.10.2010 17:32, schrieb Larry Finger:
+> >>>>> On 10/25/2010 09:41 AM, Arnd Hannemann wrote:
+> >>>>>> On todays linus tree the following compile error happened to me:
+> >>>>>>
+> >>>>>>   CC [M]  drivers/net/wireless/b43legacy/xmit.o
+> >>>>>> In file included from include/net/dst.h:11,
+> >>>>>>                  from drivers/net/wireless/b43legacy/xmit.c:31:
+> >>>>>> include/net/dst_ops.h:28: error: expected ':', ',', ';', '}' or '__attribute__' before '____cacheline_aligned_in_smp'
+> >>>>>> include/net/dst_ops.h: In function 'dst_entries_get_fast':
+> >>>>>> include/net/dst_ops.h:33: error: 'struct dst_ops' has no member named 'pcpuc_entries'
+> >>>>>> include/net/dst_ops.h: In function 'dst_entries_get_slow':
+> >>>>>> include/net/dst_ops.h:41: error: 'struct dst_ops' has no member named 'pcpuc_entries'
+> >>>>>> include/net/dst_ops.h: In function 'dst_entries_add':
+> >>>>>> include/net/dst_ops.h:49: error: 'struct dst_ops' has no member named 'pcpuc_entries'
+> >>>>>> include/net/dst_ops.h: In function 'dst_entries_init':
+> >>>>>> include/net/dst_ops.h:55: error: 'struct dst_ops' has no member named 'pcpuc_entries'
+> >>>>>> include/net/dst_ops.h: In function 'dst_entries_destroy':
+> >>>>>> include/net/dst_ops.h:60: error: 'struct dst_ops' has no member named 'pcpuc_entries'
+> >>>>>> make[4]: *** [drivers/net/wireless/b43legacy/xmit.o] Error 1
+> >>>>>> make[3]: *** [drivers/net/wireless/b43legacy] Error 2
+> >>>>>> make[2]: *** [drivers/net/wireless] Error 2
+> >>>>>> make[1]: *** [drivers/net] Error 2
+> >>>>>> make: *** [drivers] Error 2
+> >>>>>>
+> >>>>>> This patch fixes this issue by adding "linux/cache.h" as an include to
+> >>>>>> "include/net/dst_ops.h".
+> >>>>>
+> >>>>> Strange. Compiling b43legacy from the linux-2.6.git tree (git describe is
+> >>>>> v2.6.36-4464-g229aebb) works fine on x86_64. I wonder what is different.
+> >>>>
+> >>>> Exactly the same git describe here.
+> >>>> Maybe your arch includes cache.h already, in my case its a compile for ARM (shmobile).
+> >>>
+> >>> That probably makes the difference. Using Eric's fix that removes the #include
+> >>> <linux/dst.h> should be better. Does it work for you?
+> >>>
+> >>> There are probably a lot more of the system includes that may not be needed. If
+> >>> I send you a patch removing them, could you test?
+> >>
+> >> As it turns out my card is not supported by b43legacy, but compilation testing,
+> >> sure I can test that.
+> > 
+> > If it is a Broadcom card, it is likely handled by b43.
+> 
+> Yes. It seems it should work with b43 (its an SDIO card) and it almost does...
+> 
+> > Attached is a trial removal of a number of include statements. Does it compile?
+> 
+> Nope:
+> NSTALL_MOD_PATH=/home/arnd/projekte/renesas-2/nfs modules
+>   CHK     include/linux/version.h
+>   CHK     include/generated/utsrelease.h
+> make[1]: `include/generated/mach-types.h' is up to date.
+>   CALL    scripts/checksyscalls.sh
+>   CC [M]  drivers/net/wireless/b43legacy/main.o
+> drivers/net/wireless/b43legacy/main.c: In function 'b43legacy_upload_microcode':
+> drivers/net/wireless/b43legacy/main.c:1688: error: implicit declaration of function 'signal_pending'
+> make[4]: *** [drivers/net/wireless/b43legacy/main.o] Error 1
+> make[3]: *** [drivers/net/wireless/b43legacy] Error 2
+> make[2]: *** [drivers/net/wireless] Error 2
+> make[1]: *** [drivers/net] Error 2
+> make: *** [drivers] Error 2
 
-So, they assume counters are exactly 32 or 64 bits.
-Your example of the 36-bit counter would break their
-assumptions of 32 or 64 bits.
+Is this issue resolved?  Should I be expecting a b43 patch?
 
-I agree that you can guess if the counter is 32 or 64, at least with to=
-day's
-hardware and relatively normal poll times, and the requirement that the
-counters can ONLY be 32 or 64 bits.  I still consider it a kludge to
-return 32 bit counters in stats64, however.  Would you consider
-a patch to have netlink pay attention to whether the stats are 32 or
-64 (based on a flag returned from dev_get_stats perhaps)?
-
-Thanks,
-Ben
-
-
---=20
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+John
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
