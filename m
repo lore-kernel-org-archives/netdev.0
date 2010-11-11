@@ -1,67 +1,74 @@
 From: Casey Leedom <leedom@chelsio.com>
-Subject: [PATCH 02/10] cxgb4vf: don't implement trivial (and incorrect) ndo_select_queue()
-Date: Wed, 10 Nov 2010 18:04:04 -0800
-Message-ID: <1289441052-4925-2-git-send-email-leedom@chelsio.com>
+Subject: [PATCH 09/10] cxgb4vf: Mark "UDP [RSS Hash] Enable" as a 1-bit field.
+Date: Wed, 10 Nov 2010 18:04:11 -0800
+Message-ID: <1289441052-4925-9-git-send-email-leedom@chelsio.com>
 References: <450C6E98-D0D9-42A6-9F15-4DB98647DB04@chelsio.com>
 Cc: davem@davemloft.net, Casey Leedom <leedom@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:19117 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:22059 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932224Ab0KKCET (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Nov 2010 21:04:19 -0500
+	with ESMTP id S932278Ab0KKCEX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Nov 2010 21:04:23 -0500
 In-Reply-To: <450C6E98-D0D9-42A6-9F15-4DB98647DB04@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Don't implement (struct net_device_ops *)->ndo_select_queue() with simple
-call to skb_tx_hash().  This leads to non-persistent TX queue selection in
-the Linux dev_pick_tx() routine for TCP connections.
+Mark the UDP RSS Hash Enable field as 1-bit in length.  Also clean up
+formatting from previous changeset which changed the RSS 1-bit fields from
+"int" to "unsigned int".
 
 Signed-off-by: Casey Leedom <leedom@chelsio.com>
 ---
- drivers/net/cxgb4vf/cxgb4vf_main.c |   14 --------------
- 1 files changed, 0 insertions(+), 14 deletions(-)
+ drivers/net/cxgb4vf/t4vf_common.h |   28 ++++++++++++++--------------
+ 1 files changed, 14 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/cxgb4vf/cxgb4vf_main.c b/drivers/net/cxgb4vf/cxgb4vf_main.c
-index f5259a1..224b36c 100644
---- a/drivers/net/cxgb4vf/cxgb4vf_main.c
-+++ b/drivers/net/cxgb4vf/cxgb4vf_main.c
-@@ -1103,18 +1103,6 @@ static int cxgb4vf_set_mac_addr(struct net_device *dev, void *_addr)
- 	return 0;
- }
+diff --git a/drivers/net/cxgb4vf/t4vf_common.h b/drivers/net/cxgb4vf/t4vf_common.h
+index 873cb7d..659616b 100644
+--- a/drivers/net/cxgb4vf/t4vf_common.h
++++ b/drivers/net/cxgb4vf/t4vf_common.h
+@@ -132,15 +132,15 @@ struct rss_params {
+ 	unsigned int mode;		/* RSS mode */
+ 	union {
+ 	    struct {
+-		unsigned int synmapen:1;	/* SYN Map Enable */
+-		unsigned int syn4tupenipv6:1;	/* enable hashing 4-tuple IPv6 SYNs */
+-		unsigned int syn2tupenipv6:1;	/* enable hashing 2-tuple IPv6 SYNs */
+-		unsigned int syn4tupenipv4:1;	/* enable hashing 4-tuple IPv4 SYNs */
+-		unsigned int syn2tupenipv4:1;	/* enable hashing 2-tuple IPv4 SYNs */
+-		unsigned int ofdmapen:1;	/* Offload Map Enable */
+-		unsigned int tnlmapen:1;	/* Tunnel Map Enable */
+-		unsigned int tnlalllookup:1;	/* Tunnel All Lookup */
+-		unsigned int hashtoeplitz:1;	/* use Toeplitz hash */
++		uint synmapen:1;	/* SYN Map Enable */
++		uint syn4tupenipv6:1;	/* enable hashing 4-tuple IPv6 SYNs */
++		uint syn2tupenipv6:1;	/* enable hashing 2-tuple IPv6 SYNs */
++		uint syn4tupenipv4:1;	/* enable hashing 4-tuple IPv4 SYNs */
++		uint syn2tupenipv4:1;	/* enable hashing 2-tuple IPv4 SYNs */
++		uint ofdmapen:1;	/* Offload Map Enable */
++		uint tnlmapen:1;	/* Tunnel Map Enable */
++		uint tnlalllookup:1;	/* Tunnel All Lookup */
++		uint hashtoeplitz:1;	/* use Toeplitz hash */
+ 	    } basicvirtual;
+ 	} u;
+ };
+@@ -151,11 +151,11 @@ struct rss_params {
+ union rss_vi_config {
+     struct {
+ 	u16 defaultq;			/* Ingress Queue ID for !tnlalllookup */
+-	unsigned int ip6fourtupen:1;	/* hash 4-tuple IPv6 ingress packets */
+-	unsigned int ip6twotupen:1;	/* hash 2-tuple IPv6 ingress packets */
+-	unsigned int ip4fourtupen:1;	/* hash 4-tuple IPv4 ingress packets */
+-	unsigned int ip4twotupen:1;	/* hash 2-tuple IPv4 ingress packets */
+-	int udpen;			/* hash 4-tuple UDP ingress packets */
++	uint ip6fourtupen:1;		/* hash 4-tuple IPv6 ingress packets */
++	uint ip6twotupen:1;		/* hash 2-tuple IPv6 ingress packets */
++	uint ip4fourtupen:1;		/* hash 4-tuple IPv4 ingress packets */
++	uint ip4twotupen:1;		/* hash 2-tuple IPv4 ingress packets */
++	uint udpen:1;			/* hash 4-tuple UDP ingress packets */
+     } basicvirtual;
+ };
  
--/*
-- * Return a TX Queue on which to send the specified skb.
-- */
--static u16 cxgb4vf_select_queue(struct net_device *dev, struct sk_buff *skb)
--{
--	/*
--	 * XXX For now just use the default hash but we probably want to
--	 * XXX look at other possibilities ...
--	 */
--	return skb_tx_hash(dev, skb);
--}
--
- #ifdef CONFIG_NET_POLL_CONTROLLER
- /*
-  * Poll all of our receive queues.  This is called outside of normal interrupt
-@@ -2417,7 +2405,6 @@ static const struct net_device_ops cxgb4vf_netdev_ops	= {
- 	.ndo_get_stats		= cxgb4vf_get_stats,
- 	.ndo_set_rx_mode	= cxgb4vf_set_rxmode,
- 	.ndo_set_mac_address	= cxgb4vf_set_mac_addr,
--	.ndo_select_queue	= cxgb4vf_select_queue,
- 	.ndo_validate_addr	= eth_validate_addr,
- 	.ndo_do_ioctl		= cxgb4vf_do_ioctl,
- 	.ndo_change_mtu		= cxgb4vf_change_mtu,
-@@ -2623,7 +2610,6 @@ static int __devinit cxgb4vf_pci_probe(struct pci_dev *pdev,
- 		netdev->do_ioctl = cxgb4vf_do_ioctl;
- 		netdev->change_mtu = cxgb4vf_change_mtu;
- 		netdev->set_mac_address = cxgb4vf_set_mac_addr;
--		netdev->select_queue = cxgb4vf_select_queue;
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 		netdev->poll_controller = cxgb4vf_poll_controller;
- #endif
 -- 
 1.7.0.4
 
