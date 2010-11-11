@@ -1,45 +1,61 @@
 From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [RESEND PATCH] virtio-net: init link state correctly
-Date: Thu, 11 Nov 2010 11:15:05 +1030
-Message-ID: <201011111115.06161.rusty@rustcorp.com.au>
-References: <20101105094718.19101.58898.stgit@dhcp-91-158.nay.redhat.com> <201011080941.28190.rusty@rustcorp.com.au> <20101110150823.GA5622@redhat.com>
+Subject: [PATCH] virtio-net: init link state correctly
+Date: Thu, 11 Nov 2010 11:15:41 +1030
+Message-ID: <201011111115.41256.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Jason Wang <jasowang@redhat.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, davem@davemloft.net,
-	markmc@redhat.com, kvm@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20101110150823.GA5622@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	Jason Wang <jasowang@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([203.10.76.45]:51556 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757607Ab0KKApr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Nov 2010 19:45:47 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 11 Nov 2010 01:38:23 am Michael S. Tsirkin wrote:
-> On Mon, Nov 08, 2010 at 09:41:27AM +1030, Rusty Russell wrote:
-> > On Fri, 5 Nov 2010 08:17:18 pm Jason Wang wrote:
-> > > For device that supports VIRTIO_NET_F_STATUS, there's no need to
-> > > assume the link is up and we need to call nerif_carrier_off() before
-> > > querying device status, otherwise we may get wrong operstate after
-> > > diver was loaded because the link watch event was not fired as
-> > > expected.
-> > > 
-> > > For device that does not support VIRITO_NET_F_STATUS, we could not get
-> > > its status through virtnet_update_status() and what we can only do is
-> > > always assuming the link is up.
-> > > 
-> > > Acked-by: Michael S. Tsirkin <mst@redhat.com>
-> > > Signed-off-by: Jason Wang <jasowang@redhat.com>
-> > 
-> > Acked-by: Rusty Russell <rusty@rustcorp.com.au>
-> > 
-> > Thanks!
-> > Rusty.
-> 
-> Rusty, just to verify: who shall be queueing this up?
+From: Jason Wang <jasowang@redhat.com>
 
-Sorry, that was sloppy of me; was meant for DaveM to take.
+For device that supports VIRTIO_NET_F_STATUS, there's no need to
+assume the link is up and we need to call nerif_carrier_off() before
+querying device status, otherwise we may get wrong operstate after
+diver was loaded because the link watch event was not fired as
+expected.
 
-Sending explicitly now...
-Rusty.
+For device that does not support VIRITO_NET_F_STATUS, we could not get
+its status through virtnet_update_status() and what we can only do is
+always assuming the link is up.
+
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+---
+ drivers/net/virtio_net.c |   12 +++++++++---
+ 1 files changed, 9 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index bb6b67f..b6d4028 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -986,9 +986,15 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 		goto unregister;
+ 	}
+ 
+-	vi->status = VIRTIO_NET_S_LINK_UP;
+-	virtnet_update_status(vi);
+-	netif_carrier_on(dev);
++	/* Assume link up if device can't report link status,
++	   otherwise get link status from config. */
++	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_STATUS)) {
++		netif_carrier_off(dev);
++		virtnet_update_status(vi);
++	} else {
++		vi->status = VIRTIO_NET_S_LINK_UP;
++		netif_carrier_on(dev);
++	}
+ 
+ 	pr_debug("virtnet: registered device %s\n", dev->name);
+ 	return 0;
