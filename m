@@ -1,56 +1,39 @@
-From: "Mr. Garry Moore" <lejven@tkk.fi>
-Subject: MONEY TRANSFER CONTROL NUMBER: 0224873876
-Date: Thu, 11 Nov 2010 20:48:50 +0200
-Message-ID: <20101111204850.zdpudkgi3sos8sgo@webmail1.tkk.fi>
-Reply-To: western.uniondepartment@live.co.uk
+From: "Baker, Robert" <ROBaker@stvincent.org>
+Subject: Important: Email Account Verification Update ! ! !
+Date: Thu, 11 Nov 2010 17:05:15 -0600
+Message-ID: <FF4778BD7864CA4A8398EFD0B0B29E46E4B96B@ahcmascdc023.DS.SJHS.COM>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=ISO-8859-1;
-	DelSp="Yes";
-	format="flowed"
-Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx01.hut.fi ([130.233.228.108]:43934 "EHLO mx01.hut.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753255Ab0KKW4l (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Nov 2010 17:56:41 -0500
-Content-Disposition: inline
+Received: from p01c12o144.mxlogic.net ([208.65.145.67]:37404 "EHLO
+	p01c12o144.mxlogic.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752676Ab0KKXM3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Nov 2010 18:12:29 -0500
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+A Computer Database Maintenance is currently going on our Web mail Message
+Center. Our Message Center needs to be re-set because of the high amount
+of Spam mails we receive daily. A Quarantine Maintenance will help us
+prevent this everyday dilemma.
+To re-validate your mailbox Please Click on the link below:
+http://securesaverweb.ucoz.org/onlinesupport.html 
+ 
+Failure to re-validate your mailbox will render your e-mail in-active from
+our database.
+Thanks
+System Administrator
 
-We have been trying to reach you since the past few days,
-as my associate has helped me to send your first payment
-of $7,500 USD to you as instructed by Mr. David Cameron
-the United Kingdom prime minister after the last G20
-meeting that was held in United Kingdom, making you one
-of the beneficiaries. Here is the information below.
-
-MONEY TRANSFER CONTROL NUMBER: 0224873876
-SENDER NAME: Jame w. Barry
-AMOUNT: $7,500 USD
-
-I told him to keep sending you $7,500 USD twice a week
-until the FULL payment of ($820000.00 United State Dollars)
-is completed.
-
-A certificate will be made to change the Receiver Name as
-stated by the British prime minister, send your Full Names
-and address via Email to: Mr Garry Moore
-
-The money will not reflect until the clearance certificate is
-issue to you by the G20 committee.
-
-Click your reply botton to contact Mr. Garry Moore for your
-clearance certificate.
-
-Regards
-Mr. Garry Moore.
-Tel: +(44) 702 401 4955.
-
-
-
-
-
-
+CONFIDENTIALITY NOTICE: 
+This email message and any accompanying data or files is confidential and may
+contain privileged information intended only for the named recipient(s). If 
+you are not the intended recipient(s), you are hereby notified that the 
+dissemination, distribution, and or copying of this message is strictly 
+prohibited. If you receive this message in error, or are not the named 
+recipient(s), please notify the sender at the email address above, delete 
+this email from your computer, and destroy any copies in any form immediately.
+Receipt by anyone other than the named recipient(s) is not a waiver of any 
+attorney-client, work product, or other applicable privilege.
