@@ -1,377 +1,336 @@
-From: Shawn Lin <shawn@dmp.com.tw>
-Subject: Re: [PATCH 1/2] r6040: fix multicast operations
-Date: Thu, 11 Nov 2010 16:39:47 +0800
-Message-ID: <1289464787.2169.107.camel@shawn-desktop>
-References: <201010202309.43812.florian@openwrt.org>
-	 <1288788689.1837.141.camel@shawn-desktop>
-	 <201011041104.24681.florian@openwrt.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] vlan: lockless transmit path
+Date: Thu, 11 Nov 2010 10:42:00 +0100
+Message-ID: <1289468520.17691.1018.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Marc Leclerc <marc-leclerc@signaturealpha.com>,
-	Albert Chen <albert.chen@rdc.com.tw>,
-	David Miller <davem@davemloft.net>,
-	Ben Hutchings <ben@decadent.org.uk>
-To: Florian Fainelli <florian@openwrt.org>
+Cc: netdev <netdev@vger.kernel.org>, Patrick McHardy <kaber@trash.net>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 59-120-27-67.HINET-IP.hinet.net ([59.120.27.67]:3312 "EHLO
-	www.dmp.com.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932367Ab0KKIj4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Nov 2010 03:39:56 -0500
-Received: from [59.120.27.68] by www.dmp.com.tw (GMS
- 15.00.3626/AB6032.00.96a8e532) with ESMTP id ezbrcbaa for
- netdev@vger.kernel.org; Thu, 11 Nov 2010 16:39:50 +0800
-In-Reply-To: <201011041104.24681.florian@openwrt.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:56709 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753828Ab0KKJmE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Nov 2010 04:42:04 -0500
+Received: by wyb28 with SMTP id 28so466902wyb.19
+        for <netdev@vger.kernel.org>; Thu, 11 Nov 2010 01:42:02 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The original code does not work well when the number of mulitcast
-address to handle is greater than MCAST_MAX. It only enable promiscous
-mode instead of multicast hash table mode, so the hash table function
-will not be activated and all multicast frames will be recieved in this
-condition.
+vlan is a stacked device, like tunnels. We should use the lockless
+mechanism we are using in tunnels and loopback.
 
-This patch fixes the following issues with the r6040 NIC operating in
-multicast:
+This patch completely removes locking in TX path.
 
-1) When the IFF_ALLMULTI flag is set, we should write 0xffff to the NIC
-hash table registers to make it process multicast traffic.
+tx stat counters are added into existing percpu stat structure, renamed
+from vlan_rx_stats to vlan_pcpu_stats.
 
-2) When the number of multicast address to handle is smaller than
-MCAST_MAX, we should use the NIC multicast registers MID1_{L,M,H}.
+Note : this partially reverts commit 2e59af3dcbdf (vlan: multiqueue vlan
+device)
 
-3) The hashing of the address was not correct, due to an invalid
-substraction (15 - (crc & 0x0f)) instead of (crc & 0x0f) and an
-incorrect crc algorithm (ether_crc_le) instead of (ether_crc).
-
-4) If necessary, we should set HASH_EN flag in MCR0 to enable multicast
-hash table function.
-
-
-The version is for net-next-2.6:
-
-Reported-by: Marc Leclerc <marc-leclerc@signaturealpha.com>
-Tested-by: Marc Leclerc <marc-leclerc@signaturealpha.com>
-Signed-off-by: Shawn Lin <shawn@dmp.com.tw>
-Signed-off-by: Albert Chen <albert.chen@rdc.com.tw>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Patrick McHardy <kaber@trash.net>
 ---
-diff --git a/drivers/net/r6040.c b/drivers/net/r6040.c
-index 0b014c8..e88e171 100644
---- a/drivers/net/r6040.c
-+++ b/drivers/net/r6040.c
-@@ -69,6 +69,8 @@
+ net/8021q/vlan.c         |    4 -
+ net/8021q/vlan.h         |   16 +++++--
+ net/8021q/vlan_core.c    |    4 -
+ net/8021q/vlan_dev.c     |   78 +++++++++++++++++++++----------------
+ net/8021q/vlan_netlink.c |   20 ---------
+ 5 files changed, 59 insertions(+), 63 deletions(-)
+
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index 52077ca..2f54ce8 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -272,13 +272,11 @@ static int register_vlan_device(struct net_device *real_dev, u16 vlan_id)
+ 		snprintf(name, IFNAMSIZ, "vlan%.4i", vlan_id);
+ 	}
  
- /* MAC registers */
- #define MCR0           0x00    /* Control register 0 */
-+#define  PROMISC       0x0020  /* Promiscuous mode */
-+#define  HASH_EN       0x0100  /* Enable multicast hash table function
-*/
- #define MCR1           0x04    /* Control register 1 */
- #define  MAC_RST       0x0001  /* Reset the MAC */
- #define MBCR           0x08    /* Bus control */
-@@ -851,77 +853,84 @@ static void r6040_multicast_list(struct net_device
-*dev)
+-	new_dev = alloc_netdev_mq(sizeof(struct vlan_dev_info), name,
+-				  vlan_setup, real_dev->num_tx_queues);
++	new_dev = alloc_netdev(sizeof(struct vlan_dev_info), name, vlan_setup);
+ 
+ 	if (new_dev == NULL)
+ 		return -ENOBUFS;
+ 
+-	netif_copy_real_num_queues(new_dev, real_dev);
+ 	dev_net_set(new_dev, net);
+ 	/* need 4 bytes for extra VLAN header info,
+ 	 * hope the underlying device can handle it.
+diff --git a/net/8021q/vlan.h b/net/8021q/vlan.h
+index db01b31..a2dafb1 100644
+--- a/net/8021q/vlan.h
++++ b/net/8021q/vlan.h
+@@ -19,19 +19,25 @@ struct vlan_priority_tci_mapping {
+ 
+ 
+ /**
+- *	struct vlan_rx_stats - VLAN percpu rx stats
++ *	struct vlan_pcpu_stats - VLAN percpu rx/tx stats
+  *	@rx_packets: number of received packets
+  *	@rx_bytes: number of received bytes
+  *	@rx_multicast: number of received multicast packets
++ *	@tx_packets: number of transmitted packets
++ *	@tx_bytes: number of transmitted bytes
+  *	@syncp: synchronization point for 64bit counters
+- *	@rx_errors: number of errors
++ *	@rx_errors: number of rx errors
++ *	@tx_dropped: number of tx drops
+  */
+-struct vlan_rx_stats {
++struct vlan_pcpu_stats {
+ 	u64			rx_packets;
+ 	u64			rx_bytes;
+ 	u64			rx_multicast;
++	u64			tx_packets;
++	u64			tx_bytes;
+ 	struct u64_stats_sync	syncp;
+-	unsigned long		rx_errors;
++	u32			rx_errors;
++	u32			tx_dropped;
+ };
+ 
+ /**
+@@ -64,7 +70,7 @@ struct vlan_dev_info {
+ 	struct proc_dir_entry			*dent;
+ 	unsigned long				cnt_inc_headroom_on_tx;
+ 	unsigned long				cnt_encap_on_xmit;
+-	struct vlan_rx_stats __percpu		*vlan_rx_stats;
++	struct vlan_pcpu_stats __percpu		*vlan_pcpu_stats;
+ };
+ 
+ static inline struct vlan_dev_info *vlan_dev_info(const struct net_device *dev)
+diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
+index 69b2f79..ce8e3ab 100644
+--- a/net/8021q/vlan_core.c
++++ b/net/8021q/vlan_core.c
+@@ -9,7 +9,7 @@ bool vlan_hwaccel_do_receive(struct sk_buff **skbp)
+ 	struct sk_buff *skb = *skbp;
+ 	u16 vlan_id = skb->vlan_tci & VLAN_VID_MASK;
+ 	struct net_device *vlan_dev;
+-	struct vlan_rx_stats *rx_stats;
++	struct vlan_pcpu_stats *rx_stats;
+ 
+ 	vlan_dev = vlan_find_dev(skb->dev, vlan_id);
+ 	if (!vlan_dev) {
+@@ -26,7 +26,7 @@ bool vlan_hwaccel_do_receive(struct sk_buff **skbp)
+ 	skb->priority = vlan_get_ingress_priority(vlan_dev, skb->vlan_tci);
+ 	skb->vlan_tci = 0;
+ 
+-	rx_stats = this_cpu_ptr(vlan_dev_info(vlan_dev)->vlan_rx_stats);
++	rx_stats = this_cpu_ptr(vlan_dev_info(vlan_dev)->vlan_pcpu_stats);
+ 
+ 	u64_stats_update_begin(&rx_stats->syncp);
+ 	rx_stats->rx_packets++;
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index 14e3d1f..3a67483 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -141,7 +141,7 @@ int vlan_skb_recv(struct sk_buff *skb, struct net_device *dev,
+ 		  struct packet_type *ptype, struct net_device *orig_dev)
  {
-        struct r6040_private *lp = netdev_priv(dev);
-        void __iomem *ioaddr = lp->base;
--       u16 *adrp;
--       u16 reg;
-        unsigned long flags;
-        struct netdev_hw_addr *ha;
-        int i;
-+       u16 hash_table[4] = { 0, };
+ 	struct vlan_hdr *vhdr;
+-	struct vlan_rx_stats *rx_stats;
++	struct vlan_pcpu_stats *rx_stats;
+ 	struct net_device *vlan_dev;
+ 	u16 vlan_id;
+ 	u16 vlan_tci;
+@@ -177,7 +177,7 @@ int vlan_skb_recv(struct sk_buff *skb, struct net_device *dev,
+ 	} else {
+ 		skb->dev = vlan_dev;
  
--       /* MAC Address */
--       adrp = (u16 *)dev->dev_addr;
--       iowrite16(adrp[0], ioaddr + MID_0L);
--       iowrite16(adrp[1], ioaddr + MID_0M);
--       iowrite16(adrp[2], ioaddr + MID_0H);
--
--       /* Promiscous Mode */
-        spin_lock_irqsave(&lp->lock, flags);
+-		rx_stats = this_cpu_ptr(vlan_dev_info(skb->dev)->vlan_rx_stats);
++		rx_stats = this_cpu_ptr(vlan_dev_info(skb->dev)->vlan_pcpu_stats);
  
-        /* Clear AMCP & PROM bits */
--       reg = ioread16(ioaddr) & ~0x0120;
-+       lp->mcr0 = ioread16(ioaddr + MCR0) & ~(PROMISC | HASH_EN);
-+
-+       /* Promiscuous Mode */
-        if (dev->flags & IFF_PROMISC) {
--               reg |= 0x0020;
--               lp->mcr0 |= 0x0020;
-+               lp->mcr0 |= PROMISC;
-        }
--       /* Too many multicast addresses
--        * accept all traffic */
--       else if ((netdev_mc_count(dev) > MCAST_MAX) ||
--                (dev->flags & IFF_ALLMULTI))
--               reg |= 0x0020;
--
--       iowrite16(reg, ioaddr);
--       spin_unlock_irqrestore(&lp->lock, flags);
-+       /* Enable multicast hash table function to
-+        * receive all multicast packets. */
-+       else if (dev->flags & IFF_ALLMULTI) {
-+               lp->mcr0 |= HASH_EN;
-+
-+               for (i = 0; i < MCAST_MAX ; i++) {
-+                       iowrite16(0, ioaddr + MID_1L + 8 * i);
-+                       iowrite16(0, ioaddr + MID_1M + 8 * i);
-+                       iowrite16(0, ioaddr + MID_1H + 8 * i);
-+               }
+ 		u64_stats_update_begin(&rx_stats->syncp);
+ 		rx_stats->rx_packets++;
+@@ -313,8 +313,6 @@ static int vlan_dev_hard_header(struct sk_buff *skb, struct net_device *dev,
+ static netdev_tx_t vlan_dev_hard_start_xmit(struct sk_buff *skb,
+ 					    struct net_device *dev)
+ {
+-	int i = skb_get_queue_mapping(skb);
+-	struct netdev_queue *txq = netdev_get_tx_queue(dev, i);
+ 	struct vlan_ethhdr *veth = (struct vlan_ethhdr *)(skb->data);
+ 	unsigned int len;
+ 	int ret;
+@@ -335,7 +333,7 @@ static netdev_tx_t vlan_dev_hard_start_xmit(struct sk_buff *skb,
+ 		vlan_tci |= vlan_dev_get_egress_qos_mask(dev, skb);
+ 		skb = __vlan_put_tag(skb, vlan_tci);
+ 		if (!skb) {
+-			txq->tx_dropped++;
++			this_cpu_inc(vlan_dev_info(dev)->vlan_pcpu_stats->tx_dropped);
+ 			return NETDEV_TX_OK;
+ 		}
  
--       /* Build the hash table */
--       if (netdev_mc_count(dev) > MCAST_MAX) {
--               u16 hash_table[4];
-+               for (i = 0; i < 4; i++)
-+                       hash_table[i] = 0xffff;
-+       }
-+       /* Use internal multicast address registers if the number of
-+        * multicast addresses is not greater than MCAST_MAX. */
-+       else if (netdev_mc_count(dev) <= MCAST_MAX) {
-+               i = 0;
-+               netdev_for_each_mc_addr(ha, dev) {
-+                       u16 *adrp = (u16 *) ha->addr;
-+                       iowrite16(adrp[0], ioaddr + MID_1L + 8 * i);
-+                       iowrite16(adrp[1], ioaddr + MID_1M + 8 * i);
-+                       iowrite16(adrp[2], ioaddr + MID_1H + 8 * i);
-+                       i++;
-+               }
-+               while (i < MCAST_MAX) {
-+                       iowrite16(0, ioaddr + MID_1L + 8 * i);
-+                       iowrite16(0, ioaddr + MID_1M + 8 * i);
-+                       iowrite16(0, ioaddr + MID_1H + 8 * i);
-+                       i++;
-+               }
-+       }
-+       /* Otherwise, Enable multicast hash table function. */
-+       else {
-                u32 crc;
+@@ -349,19 +347,22 @@ static netdev_tx_t vlan_dev_hard_start_xmit(struct sk_buff *skb,
+ 	ret = dev_queue_xmit(skb);
  
--               for (i = 0; i < 4; i++)
--                       hash_table[i] = 0;
-+               lp->mcr0 |= HASH_EN;
+ 	if (likely(ret == NET_XMIT_SUCCESS || ret == NET_XMIT_CN)) {
+-		txq->tx_packets++;
+-		txq->tx_bytes += len;
+-	} else
+-		txq->tx_dropped++;
++		struct vlan_pcpu_stats *stats;
  
--               netdev_for_each_mc_addr(ha, dev) {
--                       char *addrs = ha->addr;
-+               for (i = 0; i < MCAST_MAX ; i++) {
-+                       iowrite16(0, ioaddr + MID_1L + 8 * i);
-+                       iowrite16(0, ioaddr + MID_1M + 8 * i);
-+                       iowrite16(0, ioaddr + MID_1H + 8 * i);
-+               }
- 
--                       if (!(*addrs & 1))
--                               continue;
-+               /* Build multicast hash table */
-+               netdev_for_each_mc_addr(ha, dev) {
-+                       u8 *addrs = ha->addr;
- 
--                       crc = ether_crc_le(6, addrs);
-+                       crc = ether_crc(ETH_ALEN, addrs);
-                        crc >>= 26;
--                       hash_table[crc >> 4] |= 1 << (15 - (crc & 0xf));
-+                       hash_table[crc >> 4] |= 1 << (crc & 0xf);
-                }
--               /* Fill the MAC hash tables with their values */
-+       }
-+       iowrite16(lp->mcr0, ioaddr + MCR0);
-+
-+       /* Fill the MAC hash tables with their values */
-+       if (lp->mcr0 && HASH_EN) {
-                iowrite16(hash_table[0], ioaddr + MAR0);
-                iowrite16(hash_table[1], ioaddr + MAR1);
-                iowrite16(hash_table[2], ioaddr + MAR2);
-                iowrite16(hash_table[3], ioaddr + MAR3);
-        }
--       /* Multicast Address 1~4 case */
--       i = 0;
--       netdev_for_each_mc_addr(ha, dev) {
--               if (i >= MCAST_MAX)
--                       break;
--               adrp = (u16 *) ha->addr;
--               iowrite16(adrp[0], ioaddr + MID_1L + 8 * i);
--               iowrite16(adrp[1], ioaddr + MID_1M + 8 * i);
--               iowrite16(adrp[2], ioaddr + MID_1H + 8 * i);
--               i++;
--       }
--       while (i < MCAST_MAX) {
--               iowrite16(0xffff, ioaddr + MID_1L + 8 * i);
--               iowrite16(0xffff, ioaddr + MID_1M + 8 * i);
--               iowrite16(0xffff, ioaddr + MID_1H + 8 * i);
--               i++;
--       }
-+
-+       spin_unlock_irqrestore(&lp->lock, flags);
++		stats = this_cpu_ptr(vlan_dev_info(dev)->vlan_pcpu_stats);
++		u64_stats_update_begin(&stats->syncp);
++		stats->tx_packets++;
++		stats->tx_bytes += len;
++		u64_stats_update_begin(&stats->syncp);
++	} else {
++		this_cpu_inc(vlan_dev_info(dev)->vlan_pcpu_stats->tx_dropped);
++	}
+ 	return ret;
  }
  
- static void netdev_get_drvinfo(struct net_device *dev,
----
-
-
-The version is for 2.6.32.y and 2.6.27.y:
-
-Reported-by: Marc Leclerc <marc-leclerc@signaturealpha.com>
-Tested-by: Marc Leclerc <marc-leclerc@signaturealpha.com>
-Signed-off-by: Shawn Lin <shawn@dmp.com.tw>
-Signed-off-by: Albert Chen <albert.chen@rdc.com.tw>
----
-diff --git a/drivers/net/r6040.c b/drivers/net/r6040.c
-index 9ee9f01..f9af419 100644
---- a/drivers/net/r6040.c
-+++ b/drivers/net/r6040.c
-@@ -69,6 +69,8 @@
- 
- /* MAC registers */
- #define MCR0           0x00    /* Control register 0 */
-+#define  PROMISC       0x0020  /* Promiscuous mode */
-+#define  HASH_EN       0x0100  /* Enable multicast hash table function
-*/
- #define MCR1           0x04    /* Control register 1 */
- #define  MAC_RST       0x0001  /* Reset the MAC */
- #define MBCR           0x08    /* Bus control */
-@@ -935,76 +937,88 @@ static void r6040_multicast_list(struct net_device
-*dev)
+ static netdev_tx_t vlan_dev_hwaccel_hard_start_xmit(struct sk_buff *skb,
+ 						    struct net_device *dev)
  {
-        struct r6040_private *lp = netdev_priv(dev);
-        void __iomem *ioaddr = lp->base;
--       u16 *adrp;
--       u16 reg;
-        unsigned long flags;
-        struct dev_mc_list *dmi = dev->mc_list;
-        int i;
-+       u16 hash_table[4] = { 0, };
+-	int i = skb_get_queue_mapping(skb);
+-	struct netdev_queue *txq = netdev_get_tx_queue(dev, i);
+ 	u16 vlan_tci;
+ 	unsigned int len;
+ 	int ret;
+@@ -375,10 +376,16 @@ static netdev_tx_t vlan_dev_hwaccel_hard_start_xmit(struct sk_buff *skb,
+ 	ret = dev_queue_xmit(skb);
  
--       /* MAC Address */
--       adrp = (u16 *)dev->dev_addr;
--       iowrite16(adrp[0], ioaddr + MID_0L);
--       iowrite16(adrp[1], ioaddr + MID_0M);
--       iowrite16(adrp[2], ioaddr + MID_0H);
--
--       /* Promiscous Mode */
-        spin_lock_irqsave(&lp->lock, flags);
- 
-        /* Clear AMCP & PROM bits */
--       reg = ioread16(ioaddr) & ~0x0120;
-+       lp->mcr0 = ioread16(ioaddr + MCR0) & ~(PROMISC | HASH_EN);
+ 	if (likely(ret == NET_XMIT_SUCCESS || ret == NET_XMIT_CN)) {
+-		txq->tx_packets++;
+-		txq->tx_bytes += len;
+-	} else
+-		txq->tx_dropped++;
++		struct vlan_pcpu_stats *stats;
 +
-+       /* Promiscuous Mode */
-        if (dev->flags & IFF_PROMISC) {
--               reg |= 0x0020;
--               lp->mcr0 |= 0x0020;
-+               lp->mcr0 |= PROMISC;
-        }
--       /* Too many multicast addresses
--        * accept all traffic */
--       else if ((dev->mc_count > MCAST_MAX)
--               || (dev->flags & IFF_ALLMULTI))
--               reg |= 0x0020;
-+       /* Enable multicast hash table function to
-+        * receive all multicast packets. */
-+       else if (dev->flags & IFF_ALLMULTI) {
-+               lp->mcr0 |= HASH_EN;
++		stats = this_cpu_ptr(vlan_dev_info(dev)->vlan_pcpu_stats);
++		u64_stats_update_begin(&stats->syncp);
++		stats->tx_packets++;
++		stats->tx_bytes += len;
++		u64_stats_update_begin(&stats->syncp);
++	} else {
++		this_cpu_inc(vlan_dev_info(dev)->vlan_pcpu_stats->tx_dropped);
++	}
+ 
+ 	return ret;
+ }
+@@ -738,6 +745,7 @@ static int vlan_dev_init(struct net_device *dev)
+ 		      (1<<__LINK_STATE_PRESENT);
+ 
+ 	dev->features |= real_dev->features & real_dev->vlan_features;
++	dev->features |= NETIF_F_LLTX;
+ 	dev->gso_max_size = real_dev->gso_max_size;
+ 
+ 	/* ipv6 shared card related stuff */
+@@ -773,8 +781,8 @@ static int vlan_dev_init(struct net_device *dev)
+ 
+ 	vlan_dev_set_lockdep_class(dev, subclass);
+ 
+-	vlan_dev_info(dev)->vlan_rx_stats = alloc_percpu(struct vlan_rx_stats);
+-	if (!vlan_dev_info(dev)->vlan_rx_stats)
++	vlan_dev_info(dev)->vlan_pcpu_stats = alloc_percpu(struct vlan_pcpu_stats);
++	if (!vlan_dev_info(dev)->vlan_pcpu_stats)
+ 		return -ENOMEM;
+ 
+ 	return 0;
+@@ -786,8 +794,8 @@ static void vlan_dev_uninit(struct net_device *dev)
+ 	struct vlan_dev_info *vlan = vlan_dev_info(dev);
+ 	int i;
+ 
+-	free_percpu(vlan->vlan_rx_stats);
+-	vlan->vlan_rx_stats = NULL;
++	free_percpu(vlan->vlan_pcpu_stats);
++	vlan->vlan_pcpu_stats = NULL;
+ 	for (i = 0; i < ARRAY_SIZE(vlan->egress_priority_map); i++) {
+ 		while ((pm = vlan->egress_priority_map[i]) != NULL) {
+ 			vlan->egress_priority_map[i] = pm->next;
+@@ -825,33 +833,37 @@ static u32 vlan_ethtool_get_flags(struct net_device *dev)
+ 
+ static struct rtnl_link_stats64 *vlan_dev_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
+ {
+-	dev_txq_stats_fold(dev, stats);
+ 
+-	if (vlan_dev_info(dev)->vlan_rx_stats) {
+-		struct vlan_rx_stats *p, accum = {0};
++	if (vlan_dev_info(dev)->vlan_pcpu_stats) {
++		struct vlan_pcpu_stats *p;
++		u32 rx_errors = 0, tx_dropped = 0;
+ 		int i;
+ 
+ 		for_each_possible_cpu(i) {
+-			u64 rxpackets, rxbytes, rxmulticast;
++			u64 rxpackets, rxbytes, rxmulticast, txpackets, txbytes;
+ 			unsigned int start;
+ 
+-			p = per_cpu_ptr(vlan_dev_info(dev)->vlan_rx_stats, i);
++			p = per_cpu_ptr(vlan_dev_info(dev)->vlan_pcpu_stats, i);
+ 			do {
+ 				start = u64_stats_fetch_begin_bh(&p->syncp);
+ 				rxpackets	= p->rx_packets;
+ 				rxbytes		= p->rx_bytes;
+ 				rxmulticast	= p->rx_multicast;
++				txpackets	= p->tx_packets;
++				txbytes		= p->tx_bytes;
+ 			} while (u64_stats_fetch_retry_bh(&p->syncp, start));
+-			accum.rx_packets += rxpackets;
+-			accum.rx_bytes   += rxbytes;
+-			accum.rx_multicast += rxmulticast;
+-			/* rx_errors is ulong, not protected by syncp */
+-			accum.rx_errors  += p->rx_errors;
 +
-+               for (i = 0; i < MCAST_MAX ; i++) {
-+                       iowrite16(0, ioaddr + MID_1L + 8 * i);
-+                       iowrite16(0, ioaddr + MID_1M + 8 * i);
-+                       iowrite16(0, ioaddr + MID_1H + 8 * i);
-+               }
- 
--       iowrite16(reg, ioaddr);
--       spin_unlock_irqrestore(&lp->lock, flags);
-+               for (i = 0; i < 4; i++)
-+                       hash_table[i] = 0xffff;
-+       }
-+       /* Use internal multicast address registers if the number of
-+        * multicast addresses is not greater than MCAST_MAX. */
-+       else if (dev->mc_count <= MCAST_MAX) {
-+               i = 0;
-+               while (i < dev->mc_count) {
-+                       u16 *adrp = (u16 *) dmi->dmi_addr;
-+                       dmi = dmi->next;
- 
--       /* Build the hash table */
--       if (dev->mc_count > MCAST_MAX) {
--               u16 hash_table[4];
-+                       iowrite16(adrp[0], ioaddr + MID_1L + 8 * i);
-+                       iowrite16(adrp[1], ioaddr + MID_1M + 8 * i);
-+                       iowrite16(adrp[2], ioaddr + MID_1H + 8 * i);
-+                       i++;
-+               }
-+               while (i < MCAST_MAX) {
-+                       iowrite16(0, ioaddr + MID_1L + 8 * i);
-+                       iowrite16(0, ioaddr + MID_1M + 8 * i);
-+                       iowrite16(0, ioaddr + MID_1H + 8 * i);
-+                       i++;
-+               }
-+       }
-+       /* Otherwise, Enable multicast hash table function. */
-+       else {
-                u32 crc;
- 
--               for (i = 0; i < 4; i++)
--                       hash_table[i] = 0;
-+               lp->mcr0 |= HASH_EN;
- 
--               for (i = 0; i < dev->mc_count; i++) {
--                       char *addrs = dmi->dmi_addr;
-+               for (i = 0; i < MCAST_MAX ; i++) {
-+                       iowrite16(0, ioaddr + MID_1L + 8 * i);
-+                       iowrite16(0, ioaddr + MID_1M + 8 * i);
-+                       iowrite16(0, ioaddr + MID_1H + 8 * i);
-+               }
- 
-+               /* Build multicast hash table */
-+               for (i = 0; i < dev->mc_count; i++) {
-+                       u8 *addrs = dmi->dmi_addr;
-                        dmi = dmi->next;
- 
--                       if (!(*addrs & 1))
--                               continue;
--
--                       crc = ether_crc_le(6, addrs);
-+                       crc = ether_crc(ETH_ALEN, addrs);
-                        crc >>= 26;
--                       hash_table[crc >> 4] |= 1 << (15 - (crc & 0xf));
-+                       hash_table[crc >> 4] |= 1 << (crc & 0xf);
-                }
--               /* Fill the MAC hash tables with their values */
-+
-+       }
-+       iowrite16(lp->mcr0, ioaddr + MCR0);
-+
-+       /* Fill the MAC hash tables with their values */
-+       if (lp->mcr0 && HASH_EN) {
-                iowrite16(hash_table[0], ioaddr + MAR0);
-                iowrite16(hash_table[1], ioaddr + MAR1);
-                iowrite16(hash_table[2], ioaddr + MAR2);
-                iowrite16(hash_table[3], ioaddr + MAR3);
-        }
--       /* Multicast Address 1~4 case */
--       dmi = dev->mc_list;
--       for (i = 0, dmi; (i < dev->mc_count) && (i < MCAST_MAX); i++) {
--               adrp = (u16 *)dmi->dmi_addr;
--               iowrite16(adrp[0], ioaddr + MID_1L + 8*i);
--               iowrite16(adrp[1], ioaddr + MID_1M + 8*i);
--               iowrite16(adrp[2], ioaddr + MID_1H + 8*i);
--               dmi = dmi->next;
--       }
--       for (i = dev->mc_count; i < MCAST_MAX; i++) {
--               iowrite16(0xffff, ioaddr + MID_1L + 8*i);
--               iowrite16(0xffff, ioaddr + MID_1M + 8*i);
--               iowrite16(0xffff, ioaddr + MID_1H + 8*i);
--       }
-+
-+       spin_unlock_irqrestore(&lp->lock, flags);
++			stats->rx_packets	+= rxpackets;
++			stats->rx_bytes		+= rxbytes;
++			stats->multicast	+= rxmulticast;
++			stats->tx_packets	+= txpackets;
++			stats->tx_bytes		+= txbytes;
++			/* rx_errors & tx_dropped are u32 */
++			rx_errors	+= p->rx_errors;
++			tx_dropped	+= p->tx_dropped;
+ 		}
+-		stats->rx_packets = accum.rx_packets;
+-		stats->rx_bytes   = accum.rx_bytes;
+-		stats->rx_errors  = accum.rx_errors;
+-		stats->multicast  = accum.rx_multicast;
++		stats->rx_errors  = rx_errors;
++		stats->tx_dropped = tx_dropped;
+ 	}
+ 	return stats;
+ }
+diff --git a/net/8021q/vlan_netlink.c b/net/8021q/vlan_netlink.c
+index ddc1057..be9a5c1 100644
+--- a/net/8021q/vlan_netlink.c
++++ b/net/8021q/vlan_netlink.c
+@@ -101,25 +101,6 @@ static int vlan_changelink(struct net_device *dev,
+ 	return 0;
  }
  
- static void netdev_get_drvinfo(struct net_device *dev,
----
+-static int vlan_get_tx_queues(struct net *net,
+-			      struct nlattr *tb[],
+-			      unsigned int *num_tx_queues,
+-			      unsigned int *real_num_tx_queues)
+-{
+-	struct net_device *real_dev;
+-
+-	if (!tb[IFLA_LINK])
+-		return -EINVAL;
+-
+-	real_dev = __dev_get_by_index(net, nla_get_u32(tb[IFLA_LINK]));
+-	if (!real_dev)
+-		return -ENODEV;
+-
+-	*num_tx_queues      = real_dev->num_tx_queues;
+-	*real_num_tx_queues = real_dev->real_num_tx_queues;
+-	return 0;
+-}
+-
+ static int vlan_newlink(struct net *src_net, struct net_device *dev,
+ 			struct nlattr *tb[], struct nlattr *data[])
+ {
+@@ -237,7 +218,6 @@ struct rtnl_link_ops vlan_link_ops __read_mostly = {
+ 	.maxtype	= IFLA_VLAN_MAX,
+ 	.policy		= vlan_policy,
+ 	.priv_size	= sizeof(struct vlan_dev_info),
+-	.get_tx_queues  = vlan_get_tx_queues,
+ 	.setup		= vlan_setup,
+ 	.validate	= vlan_validate,
+ 	.newlink	= vlan_newlink,
 
 
-
-===========================================================================================
-The privileged confidential information contained in this email is intended for use only by the addressees as indicated by the original sender of this email. 
-If you are not the addressee indicated in this email or are not responsible for delivery of the email to such a person, please kindly reply to the sender indicating this fact and delete all copies of it from your computer and network server immediately. 
-Your cooperation is highly appreciated. It is advised that any unauthorized use of confidential information of DM&P Group is strictly prohibited; and any information in this email irrelevant to the official business of DM&P Group shall be deemed as neither given nor endorsed by DM&P Group.
-
-===========================================================================================
