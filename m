@@ -1,273 +1,181 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6 v2] macvlan: lockless tx path
-Date: Thu, 11 Nov 2010 08:14:04 +0100
-Message-ID: <1289459644.17691.1011.camel@edumazet-laptop>
-References: <1289403709.2860.216.camel@edumazet-laptop>
-	 <4CDAD8C8.20807@candelatech.com>
-	 <1289411027.2860.248.camel@edumazet-laptop>
+From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
+Subject: Re: [PATCH] Enhance AF_PACKET implementation to not require high
+ order contiguous memory allocation (v4)
+Date: Thu, 11 Nov 2010 00:03:37 -0800
+Message-ID: <AANLkTinbRskeVPncsqsBQgHYxcKVLWYiWzkrrYEKG2g3@mail.gmail.com>
+References: <1288033566-2091-1-git-send-email-nhorman@tuxdriver.com>
+	<1289416194-1844-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>, netdev <netdev@vger.kernel.org>,
-	Ben Greear <greearb@candelatech.com>,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, davem@davemloft.net, eric.dumazet@gmail.com
+To: nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:34009 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757725Ab0KKHOJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Nov 2010 02:14:09 -0500
-Received: by wwb28 with SMTP id 28so223679wwb.1
-        for <netdev@vger.kernel.org>; Wed, 10 Nov 2010 23:14:07 -0800 (PST)
-In-Reply-To: <1289411027.2860.248.camel@edumazet-laptop>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:56894 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757752Ab0KKIDj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Nov 2010 03:03:39 -0500
+Received: by wyb28 with SMTP id 28so382729wyb.19
+        for <netdev@vger.kernel.org>; Thu, 11 Nov 2010 00:03:38 -0800 (PST)
+In-Reply-To: <1289416194-1844-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-macvlan is a stacked device, like tunnels. We should use the lockless
-mechanism we are using in tunnels and loopback.
-
-This patch completely removes locking in TX path.
-
-tx stat counters are added into existing percpu stat structure, renamed
-from rx_stats to pcpu_stats.
-
-Note : this reverts commit 2c11455321f37 (macvlan: add multiqueue
-capability)
-
-Note : rx_errors converted to a 32bit counter, like tx_dropped, since
-they dont need 64bit range.
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: Ben Greear <greearb@candelatech.com>
-Cc: Ben Hutchings <bhutchings@solarflare.com>
----
-V2: correct kerneldoc
-    u32 for tx_dropped and rx_errors
-
- drivers/net/macvlan.c      |   80 +++++++++++++++--------------------
- include/linux/if_macvlan.h |   34 ++++++++------
- 2 files changed, 55 insertions(+), 59 deletions(-)
-
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 0fc9dc7..93f0ba2 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -243,18 +243,22 @@ xmit_world:
- netdev_tx_t macvlan_start_xmit(struct sk_buff *skb,
- 			       struct net_device *dev)
- {
--	int i = skb_get_queue_mapping(skb);
--	struct netdev_queue *txq = netdev_get_tx_queue(dev, i);
- 	unsigned int len = skb->len;
- 	int ret;
-+	const struct macvlan_dev *vlan = netdev_priv(dev);
- 
- 	ret = macvlan_queue_xmit(skb, dev);
- 	if (likely(ret == NET_XMIT_SUCCESS || ret == NET_XMIT_CN)) {
--		txq->tx_packets++;
--		txq->tx_bytes += len;
--	} else
--		txq->tx_dropped++;
-+		struct macvlan_pcpu_stats *pcpu_stats;
- 
-+		pcpu_stats = this_cpu_ptr(vlan->pcpu_stats);
-+		u64_stats_update_begin(&pcpu_stats->syncp);
-+		pcpu_stats->tx_packets++;
-+		pcpu_stats->tx_bytes += len;
-+		u64_stats_update_end(&pcpu_stats->syncp);
-+	} else {
-+		this_cpu_inc(vlan->pcpu_stats->tx_dropped);
-+	}
- 	return ret;
- }
- EXPORT_SYMBOL_GPL(macvlan_start_xmit);
-@@ -414,14 +418,15 @@ static int macvlan_init(struct net_device *dev)
- 	dev->state		= (dev->state & ~MACVLAN_STATE_MASK) |
- 				  (lowerdev->state & MACVLAN_STATE_MASK);
- 	dev->features 		= lowerdev->features & MACVLAN_FEATURES;
-+	dev->features		|= NETIF_F_LLTX;
- 	dev->gso_max_size	= lowerdev->gso_max_size;
- 	dev->iflink		= lowerdev->ifindex;
- 	dev->hard_header_len	= lowerdev->hard_header_len;
- 
- 	macvlan_set_lockdep_class(dev);
- 
--	vlan->rx_stats = alloc_percpu(struct macvlan_rx_stats);
--	if (!vlan->rx_stats)
-+	vlan->pcpu_stats = alloc_percpu(struct macvlan_pcpu_stats);
-+	if (!vlan->pcpu_stats)
- 		return -ENOMEM;
- 
- 	return 0;
-@@ -431,7 +436,7 @@ static void macvlan_uninit(struct net_device *dev)
- {
- 	struct macvlan_dev *vlan = netdev_priv(dev);
- 
--	free_percpu(vlan->rx_stats);
-+	free_percpu(vlan->pcpu_stats);
- }
- 
- static struct rtnl_link_stats64 *macvlan_dev_get_stats64(struct net_device *dev,
-@@ -439,33 +444,38 @@ static struct rtnl_link_stats64 *macvlan_dev_get_stats64(struct net_device *dev,
- {
- 	struct macvlan_dev *vlan = netdev_priv(dev);
- 
--	dev_txq_stats_fold(dev, stats);
--
--	if (vlan->rx_stats) {
--		struct macvlan_rx_stats *p, accum = {0};
--		u64 rx_packets, rx_bytes, rx_multicast;
-+	if (vlan->pcpu_stats) {
-+		struct macvlan_pcpu_stats *p;
-+		u64 rx_packets, rx_bytes, rx_multicast, tx_packets, tx_bytes;
-+		u32 rx_errors = 0, tx_dropped = 0;
- 		unsigned int start;
- 		int i;
- 
- 		for_each_possible_cpu(i) {
--			p = per_cpu_ptr(vlan->rx_stats, i);
-+			p = per_cpu_ptr(vlan->pcpu_stats, i);
- 			do {
- 				start = u64_stats_fetch_begin_bh(&p->syncp);
- 				rx_packets	= p->rx_packets;
- 				rx_bytes	= p->rx_bytes;
- 				rx_multicast	= p->rx_multicast;
-+				tx_packets	= p->tx_packets;
-+				tx_bytes	= p->tx_bytes;
- 			} while (u64_stats_fetch_retry_bh(&p->syncp, start));
--			accum.rx_packets	+= rx_packets;
--			accum.rx_bytes		+= rx_bytes;
--			accum.rx_multicast	+= rx_multicast;
--			/* rx_errors is an ulong, updated without syncp protection */
--			accum.rx_errors		+= p->rx_errors;
-+
-+			stats->rx_packets	+= rx_packets;
-+			stats->rx_bytes		+= rx_bytes;
-+			stats->multicast	+= rx_multicast;
-+			stats->tx_packets	+= tx_packets;
-+			stats->tx_bytes		+= tx_bytes;
-+			/* rx_errors & tx_dropped are u32, updated
-+			 * without syncp protection.
-+			 */
-+			rx_errors	+= p->rx_errors;
-+			tx_dropped	+= p->tx_dropped;
- 		}
--		stats->rx_packets = accum.rx_packets;
--		stats->rx_bytes   = accum.rx_bytes;
--		stats->rx_errors  = accum.rx_errors;
--		stats->rx_dropped = accum.rx_errors;
--		stats->multicast  = accum.rx_multicast;
-+		stats->rx_errors	= rx_errors;
-+		stats->rx_dropped	= rx_errors;
-+		stats->tx_dropped	= tx_dropped;
- 	}
- 	return stats;
- }
-@@ -601,25 +611,6 @@ static int macvlan_validate(struct nlattr *tb[], struct nlattr *data[])
- 	return 0;
- }
- 
--static int macvlan_get_tx_queues(struct net *net,
--				 struct nlattr *tb[],
--				 unsigned int *num_tx_queues,
--				 unsigned int *real_num_tx_queues)
--{
--	struct net_device *real_dev;
--
--	if (!tb[IFLA_LINK])
--		return -EINVAL;
--
--	real_dev = __dev_get_by_index(net, nla_get_u32(tb[IFLA_LINK]));
--	if (!real_dev)
--		return -ENODEV;
--
--	*num_tx_queues      = real_dev->num_tx_queues;
--	*real_num_tx_queues = real_dev->real_num_tx_queues;
--	return 0;
--}
--
- int macvlan_common_newlink(struct net *src_net, struct net_device *dev,
- 			   struct nlattr *tb[], struct nlattr *data[],
- 			   int (*receive)(struct sk_buff *skb),
-@@ -743,7 +734,6 @@ int macvlan_link_register(struct rtnl_link_ops *ops)
- {
- 	/* common fields */
- 	ops->priv_size		= sizeof(struct macvlan_dev);
--	ops->get_tx_queues	= macvlan_get_tx_queues;
- 	ops->validate		= macvlan_validate;
- 	ops->maxtype		= IFLA_MACVLAN_MAX;
- 	ops->policy		= macvlan_policy;
-diff --git a/include/linux/if_macvlan.h b/include/linux/if_macvlan.h
-index 8a2fd66..e28b2e4 100644
---- a/include/linux/if_macvlan.h
-+++ b/include/linux/if_macvlan.h
-@@ -25,19 +25,25 @@ struct macvlan_port;
- struct macvtap_queue;
- 
- /**
-- *	struct macvlan_rx_stats - MACVLAN percpu rx stats
-+ *	struct macvlan_pcpu_stats - MACVLAN percpu stats
-  *	@rx_packets: number of received packets
-  *	@rx_bytes: number of received bytes
-  *	@rx_multicast: number of received multicast packets
-+ *	@tx_packets: number of transmitted packets
-+ *	@tx_bytes: number of transmitted bytes
-  *	@syncp: synchronization point for 64bit counters
-- *	@rx_errors: number of errors
-+ *	@rx_errors: number of rx errors
-+ *	@tx_dropped: number of tx dropped packets
-  */
--struct macvlan_rx_stats {
-+struct macvlan_pcpu_stats {
- 	u64			rx_packets;
- 	u64			rx_bytes;
- 	u64			rx_multicast;
-+	u64			tx_packets;
-+	u64			tx_bytes;
- 	struct u64_stats_sync	syncp;
--	unsigned long		rx_errors;
-+	u32			rx_errors;
-+	u32			tx_dropped;
- };
- 
- /*
-@@ -52,7 +58,7 @@ struct macvlan_dev {
- 	struct hlist_node	hlist;
- 	struct macvlan_port	*port;
- 	struct net_device	*lowerdev;
--	struct macvlan_rx_stats __percpu *rx_stats;
-+	struct macvlan_pcpu_stats __percpu *pcpu_stats;
- 	enum macvlan_mode	mode;
- 	int (*receive)(struct sk_buff *skb);
- 	int (*forward)(struct net_device *dev, struct sk_buff *skb);
-@@ -64,18 +70,18 @@ static inline void macvlan_count_rx(const struct macvlan_dev *vlan,
- 				    unsigned int len, bool success,
- 				    bool multicast)
- {
--	struct macvlan_rx_stats *rx_stats;
--
--	rx_stats = this_cpu_ptr(vlan->rx_stats);
- 	if (likely(success)) {
--		u64_stats_update_begin(&rx_stats->syncp);
--		rx_stats->rx_packets++;;
--		rx_stats->rx_bytes += len;
-+		struct macvlan_pcpu_stats *pcpu_stats;
-+
-+		pcpu_stats = this_cpu_ptr(vlan->pcpu_stats);
-+		u64_stats_update_begin(&pcpu_stats->syncp);
-+		pcpu_stats->rx_packets++;
-+		pcpu_stats->rx_bytes += len;
- 		if (multicast)
--			rx_stats->rx_multicast++;
--		u64_stats_update_end(&rx_stats->syncp);
-+			pcpu_stats->rx_multicast++;
-+		u64_stats_update_end(&pcpu_stats->syncp);
- 	} else {
--		rx_stats->rx_errors++;
-+		this_cpu_inc(vlan->pcpu_stats->rx_errors);
- 	}
- }
- 
-
-
+T24gV2VkLCBOb3YgMTAsIDIwMTAgYXQgMTE6MDksICA8bmhvcm1hbkB0dXhkcml2ZXIuY29tPiB3
+cm90ZToKPiBGcm9tOiBOZWlsIEhvcm1hbiA8bmhvcm1hbkB0dXhkcml2ZXIuY29tPgo+Cj4gVmVy
+c2lvbiA0IG9mIHRoaXMgcGF0Y2guCj4KPiBDaGFuZ2Ugbm90ZXM6Cj4gMSkgUmVtb3ZlZCBleHRy
+YSBtZW1zZXQuIMKgRGlkbid0IHRoaW5rIGtjYWxsb2MgYWRkZWQgYSBHRlBfWkVSTyB0aGUgd2F5
+IGt6YWxsb2MgZGlkIDopCj4KPiBTdW1tYXJ5Ogo+IEl0IHdhcyBzaG93biB0byBtZSByZWNlbnRs
+eSB0aGF0IHN5c3RlbXMgdW5kZXIgaGlnaCBsb2FkIHdlcmUgZHJpdmVuIHZlcnkgZGVlcAo+IGlu
+dG8gc3dhcCB3aGVuIHRjcGR1bXAgd2FzIHJ1bi4gwqBUaGUgcmVhc29uIHRoaXMgaGFwcGVuZWQg
+d2FzIGJlY2F1c2UgdGhlCj4gQUZfUEFDS0VUIHByb3RvY29sIGhhcyBhIFNFVF9SSU5HQlVGRkVS
+IHNvY2tldCBvcHRpb24gdGhhdCBhbGxvd3MgdGhlIHVzZXIgc3BhY2UKPiBhcHBsaWNhdGlvbiB0
+byBzcGVjaWZ5IGhvdyBtYW55IGVudHJpZXMgYW4gQUZfUEFDS0VUIHNvY2tldCB3aWxsIGhhdmUg
+YW5kIGhvdwo+IGxhcmdlIGVhY2ggZW50cnkgd2lsbCBiZS4gwqBJdCBzZWVtcyB0aGUgZGVmYXVs
+dCBzZXR0aW5nIGZvciB0Y3BkdW1wIGlzIHRvIHNldAo+IHRoZSByaW5nIGJ1ZmZlciB0byAzMiBl
+bnRyaWVzIG9mIDY0IEtiIGVhY2gsIHdoaWNoIGltcGxpZXMgMzIgb3JkZXIgNQo+IGFsbG9jYXRp
+b24uIMKgVGhhdHMgZGlmZmljdWx0IHVuZGVyIGdvb2QgY2lyY3Vtc3RhbmNlcywgYW5kIGhvcnJp
+ZCB1bmRlciBtZW1vcnkKPiBwcmVzc3VyZS4KPgo+IEkgdGhvdWdodCBpdCB3b3VsZCBiZSBnb29k
+IHRvIG1ha2UgdGhhdCBhIGJpdCBtb3JlIHVzYWJsZS4gwqBJIHdhcyBnb2luZyB0byBkbyBhCj4g
+c2ltcGxlIGNvbnZlcnNpb24gb2YgdGhlIHJpbmcgYnVmZmVyIGZyb20gY29udGlnb3VzIHBhZ2Vz
+IHRvIGlvdmVjcywgYnV0Cj4gdW5mb3J0dW5hdGVseSwgdGhlIG1ldGFkYXRhIHdoaWNoIEFGX1BB
+Q0tFVCBwbGFjZXMgaW4gdGhlc2UgYnVmZmVycyBjYW4gZWFzaWx5Cj4gc3BhbiBhIHBhZ2UgYm91
+bmRhcnksIGFuZCBnaXZlbiB0aGF0IHRoZXNlIGJ1ZmZlcnMgZ2V0IG1hcHBlZCBpbnRvIHVzZXIg
+c3BhY2UsCj4gYW5kIHRoZSBkYXRhIGxheW91dCBkb2Vzbid0IGVhc2lseSBhbGxvdyBmb3IgYSBj
+aGFuZ2UgdG8gcGFkZGluZyBiZXR3ZWVuIGZyYW1lcwo+IHRvIGF2b2lkIHRoYXQsIGEgc2ltcGxl
+IGlvdmVjIGNoYW5nZSBpcyBqdXN0IGdvaW5nIHRvIGJyZWFrIHVzZXIgc3BhY2UgQUJJCj4gY29u
+c2lzdGVuY3kuCj4KPiBTbyBJJ3ZlIGRvbmUgdGhpcywgSSd2ZSBhZGRlZCBhIHRocmVlIHRpZXJl
+ZCBtZWNoYW5pc20gdG8gdGhlIGFmX3BhY2tldCBzZXRfcmluZwo+IHNvY2tldCBvcHRpb24uIMKg
+SXQgYXR0ZW1wdHMgdG8gYWxsb2NhdGUgbWVtb3J5IGluIHRoZSBmb2xsb3dpbmcgb3JkZXI6Cj4K
+PiAxKSBVc2luZyBfX2dldF9mcmVlX3BhZ2VzIHdpdGggR0ZQX05PUkVUUlkgc2V0LCBzbyBhcyB0
+byBmYWlsIHF1aWNrbHkgd2l0aG91dAo+IGRpZ2dpbmcgaW50byBzd2FwCj4KPiAyKSBVc2luZyB2
+bWFsbG9jCj4KPiAzKSBVc2luZyBfX2dldF9mcmVlX3BhZ2VzIHdpdGggR0ZQX05PUkVUUlkgY2xl
+YXIsIGNhdXNpbmcgdXMgdG8gdHJ5IGFzIGhhcmQgYXMKPiBuZWVkZWQgdG8gZ2V0IHRoZSBtZW1v
+cnkKPgo+IFRoZSBlZmZlY3QgaXMgdGhhdCB3ZSBkb24ndCBkaXN0dXJiIHRoZSBzeXN0ZW0gYXMg
+bXVjaCB3aGVuIHdlJ3JlIHVuZGVyIGxvYWQsCj4gd2hpbGUgc3RpbGwgYmVpbmcgYWJsZSB0byBj
+b25kdWN0IHRjcGR1bXBzIGVmZmVjdGl2ZWx5Lgo+Cj4gVGVzdGVkIHN1Y2Nlc3NmdWxseSBieSBt
+ZS4KPgo+IFNpZ25lZC1vZmYtYnk6IE5laWwgSG9ybWFuIDxuaG9ybWFuQHR1eGRyaXZlci5jb20+
+Cj4gLS0tCj4gwqBuZXQvcGFja2V0L2FmX3BhY2tldC5jIHwgwqAgODQgKysrKysrKysrKysrKysr
+KysrKysrKysrKysrKysrKysrKysrKystLS0tLS0tLS0KPiDCoDEgZmlsZXMgY2hhbmdlZCwgNjgg
+aW5zZXJ0aW9ucygrKSwgMTYgZGVsZXRpb25zKC0pCj4KPiBkaWZmIC0tZ2l0IGEvbmV0L3BhY2tl
+dC9hZl9wYWNrZXQuYyBiL25ldC9wYWNrZXQvYWZfcGFja2V0LmMKPiBpbmRleCAzNjE2ZjI3Li5h
+MzcyMzkwIDEwMDY0NAo+IC0tLSBhL25ldC9wYWNrZXQvYWZfcGFja2V0LmMKPiArKysgYi9uZXQv
+cGFja2V0L2FmX3BhY2tldC5jCj4gQEAgLTE2Myw4ICsxNjMsMTQgQEAgc3RydWN0IHBhY2tldF9t
+cmVxX21heCB7Cj4gwqBzdGF0aWMgaW50IHBhY2tldF9zZXRfcmluZyhzdHJ1Y3Qgc29jayAqc2ss
+IHN0cnVjdCB0cGFja2V0X3JlcSAqcmVxLAo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgaW50IGNs
+b3NpbmcsIGludCB0eF9yaW5nKTsKPgo+ICsjZGVmaW5lIFBHVl9GUk9NX1ZNQUxMT0MgMQo+ICtz
+dHJ1Y3QgcGd2IHsKPiArIMKgIMKgIMKgIGNoYXIgKmJ1ZmZlcjsKPiArIMKgIMKgIMKgIHVuc2ln
+bmVkIGNoYXIgZmxhZ3M7Cj4gK307Cj4gKwo+IMKgc3RydWN0IHBhY2tldF9yaW5nX2J1ZmZlciB7
+Cj4gLSDCoCDCoCDCoCBjaGFyIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgKipwZ192ZWM7
+Cj4gKyDCoCDCoCDCoCBzdHJ1Y3QgcGd2IMKgIMKgIMKgIMKgIMKgIMKgIMKgKnBnX3ZlYzsKPiDC
+oCDCoCDCoCDCoHVuc2lnbmVkIGludCDCoCDCoCDCoCDCoCDCoCDCoGhlYWQ7Cj4gwqAgwqAgwqAg
+wqB1bnNpZ25lZCBpbnQgwqAgwqAgwqAgwqAgwqAgwqBmcmFtZXNfcGVyX2Jsb2NrOwo+IMKgIMKg
+IMKgIMKgdW5zaWduZWQgaW50IMKgIMKgIMKgIMKgIMKgIMKgZnJhbWVfc2l6ZTsKPiBAQCAtMjgz
+LDcgKzI4OSw4IEBAIHN0YXRpYyB2b2lkICpwYWNrZXRfbG9va3VwX2ZyYW1lKHN0cnVjdCBwYWNr
+ZXRfc29jayAqcG8sCj4gwqAgwqAgwqAgwqBwZ192ZWNfcG9zID0gcG9zaXRpb24gLyByYi0+ZnJh
+bWVzX3Blcl9ibG9jazsKPiDCoCDCoCDCoCDCoGZyYW1lX29mZnNldCA9IHBvc2l0aW9uICUgcmIt
+PmZyYW1lc19wZXJfYmxvY2s7Cj4KPiAtIMKgIMKgIMKgIGgucmF3ID0gcmItPnBnX3ZlY1twZ192
+ZWNfcG9zXSArIChmcmFtZV9vZmZzZXQgKiByYi0+ZnJhbWVfc2l6ZSk7Cj4gKyDCoCDCoCDCoCBo
+LnJhdyA9IHJiLT5wZ192ZWNbcGdfdmVjX3Bvc10uYnVmZmVyICsKPiArIMKgIMKgIMKgIMKgIMKg
+IMKgIMKgIChmcmFtZV9vZmZzZXQgKiByYi0+ZnJhbWVfc2l6ZSk7Cj4KPiDCoCDCoCDCoCDCoGlm
+IChzdGF0dXMgIT0gX19wYWNrZXRfZ2V0X3N0YXR1cyhwbywgaC5yYXcpKQo+IMKgIMKgIMKgIMKg
+IMKgIMKgIMKgIMKgcmV0dXJuIE5VTEw7Cj4gQEAgLTIzMjIsMzcgKzIzMjksNzQgQEAgc3RhdGlj
+IGNvbnN0IHN0cnVjdCB2bV9vcGVyYXRpb25zX3N0cnVjdCBwYWNrZXRfbW1hcF9vcHMgPSB7Cj4g
+wqAgwqAgwqAgwqAuY2xvc2UgwqA9IMKgIMKgIMKgIHBhY2tldF9tbV9jbG9zZSwKPiDCoH07Cj4K
+PiAtc3RhdGljIHZvaWQgZnJlZV9wZ192ZWMoY2hhciAqKnBnX3ZlYywgdW5zaWduZWQgaW50IG9y
+ZGVyLCB1bnNpZ25lZCBpbnQgbGVuKQo+ICtzdGF0aWMgdm9pZCBmcmVlX3BnX3ZlYyhzdHJ1Y3Qg
+cGd2ICpwZ192ZWMsIHVuc2lnbmVkIGludCBvcmRlciwKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKg
+IMKgIMKgIMKgIMKgIHVuc2lnbmVkIGludCBsZW4pCj4gwqB7Cj4gwqAgwqAgwqAgwqBpbnQgaTsK
+Pgo+IMKgIMKgIMKgIMKgZm9yIChpID0gMDsgaSA8IGxlbjsgaSsrKSB7Cj4gLSDCoCDCoCDCoCDC
+oCDCoCDCoCDCoCBpZiAobGlrZWx5KHBnX3ZlY1tpXSkpCj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDC
+oCDCoCDCoCDCoCDCoCBmcmVlX3BhZ2VzKCh1bnNpZ25lZCBsb25nKSBwZ192ZWNbaV0sIG9yZGVy
+KTsKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIGlmIChsaWtlbHkocGdfdmVjW2ldLmJ1ZmZlcikp
+IHsKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIGlmIChwZ192ZWNbaV0uZmxh
+Z3MgJiBQR1ZfRlJPTV9WTUFMTE9DKQo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
+wqAgwqAgwqAgwqAgwqAgdmZyZWUocGdfdmVjW2ldLmJ1ZmZlcik7Cj4gKyDCoCDCoCDCoCDCoCDC
+oCDCoCDCoCDCoCDCoCDCoCDCoCBlbHNlCj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
+oCDCoCDCoCDCoCDCoCDCoCBmcmVlX3BhZ2VzKCh1bnNpZ25lZCBsb25nKXBnX3ZlY1tpXS5idWZm
+ZXIsCj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
+oCDCoCDCoCDCoCDCoG9yZGVyKTsKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
+IHBnX3ZlY1tpXS5idWZmZXIgPSBOVUxMOwo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgfQo+IMKg
+IMKgIMKgIMKgfQo+IMKgIMKgIMKgIMKga2ZyZWUocGdfdmVjKTsKPiDCoH0KPgo+IC1zdGF0aWMg
+aW5saW5lIGNoYXIgKmFsbG9jX29uZV9wZ192ZWNfcGFnZSh1bnNpZ25lZCBsb25nIG9yZGVyKQo+
+ICtzdGF0aWMgaW5saW5lIGNoYXIgKmFsbG9jX29uZV9wZ192ZWNfcGFnZSh1bnNpZ25lZCBsb25n
+IG9yZGVyLAo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
+wqAgwqAgwqAgwqAgwqAgdW5zaWduZWQgY2hhciAqZmxhZ3MpCj4gwqB7Cj4gLSDCoCDCoCDCoCBn
+ZnBfdCBnZnBfZmxhZ3MgPSBHRlBfS0VSTkVMIHwgX19HRlBfQ09NUCB8IF9fR0ZQX1pFUk8gfCBf
+X0dGUF9OT1dBUk47Cj4gKyDCoCDCoCDCoCBjaGFyICpidWZmZXIgPSBOVUxMOwo+ICsgwqAgwqAg
+wqAgZ2ZwX3QgZ2ZwX2ZsYWdzID0gR0ZQX0tFUk5FTCB8IF9fR0ZQX0NPTVAgfAo+ICsgwqAgwqAg
+wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgX19HRlBfWkVSTyB8IF9fR0ZQX05PV0FSTiB8
+IF9fR0ZQX05PUkVUUlk7Cj4gKwo+ICsgwqAgwqAgwqAgYnVmZmVyID0gKGNoYXIgKikgX19nZXRf
+ZnJlZV9wYWdlcyhnZnBfZmxhZ3MsIG9yZGVyKTsKPiArCj4gKyDCoCDCoCDCoCBpZiAoYnVmZmVy
+KQo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgcmV0dXJuIGJ1ZmZlcjsKPiArCj4gKyDCoCDCoCDC
+oCAvKgo+ICsgwqAgwqAgwqAgwqAqIF9fZ2V0X2ZyZWVfcGFnZXMgZmFpbGVkLCBmYWxsIGJhY2sg
+dG8gdm1hbGxvYwo+ICsgwqAgwqAgwqAgwqAqLwo+ICsgwqAgwqAgwqAgKmZsYWdzIHw9IFBHVl9G
+Uk9NX1ZNQUxMT0M7Cj4gKyDCoCDCoCDCoCBidWZmZXIgPSB2bWFsbG9jKCgxIDw8IG9yZGVyKSAq
+IFBBR0VfU0laRSk7Cj4KPiAtIMKgIMKgIMKgIHJldHVybiAoY2hhciAqKSBfX2dldF9mcmVlX3Bh
+Z2VzKGdmcF9mbGFncywgb3JkZXIpOwo+ICsgwqAgwqAgwqAgaWYgKGJ1ZmZlcikKPiArIMKgIMKg
+IMKgIMKgIMKgIMKgIMKgIHJldHVybiBidWZmZXI7Cj4gKwo+ICsgwqAgwqAgwqAgLyoKPiArIMKg
+IMKgIMKgIMKgKiB2bWFsbG9jIGZhaWxlZCwgbGV0cyBkaWcgaW50byBzd2FwIGhlcmUKPiArIMKg
+IMKgIMKgIMKgKi8KPiArIMKgIMKgIMKgICpmbGFncyA9IDA7Cj4gKyDCoCDCoCDCoCBnZnBfZmxh
+Z3MgJj0gfl9fR0ZQX05PUkVUUlk7Cj4gKyDCoCDCoCDCoCBidWZmZXIgPSAoY2hhciAqKV9fZ2V0
+X2ZyZWVfcGFnZXMoZ2ZwX2ZsYWdzLCBvcmRlcik7Cj4gKyDCoCDCoCDCoCBpZiAoYnVmZmVyKQo+
+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgcmV0dXJuIGJ1ZmZlcjsKPiArCj4gKyDCoCDCoCDCoCAv
+Kgo+ICsgwqAgwqAgwqAgwqAqIGNvbXBsZXRlIGFuZCB1dHRlciBmYWlsdXJlCj4gKyDCoCDCoCDC
+oCDCoCovCj4gKyDCoCDCoCDCoCByZXR1cm4gTlVMTDsKPiDCoH0KPgo+IC1zdGF0aWMgY2hhciAq
+KmFsbG9jX3BnX3ZlYyhzdHJ1Y3QgdHBhY2tldF9yZXEgKnJlcSwgaW50IG9yZGVyKQo+ICtzdGF0
+aWMgc3RydWN0IHBndiAqYWxsb2NfcGdfdmVjKHN0cnVjdCB0cGFja2V0X3JlcSAqcmVxLCBpbnQg
+b3JkZXIpCj4gwqB7Cj4gwqAgwqAgwqAgwqB1bnNpZ25lZCBpbnQgYmxvY2tfbnIgPSByZXEtPnRw
+X2Jsb2NrX25yOwo+IC0gwqAgwqAgwqAgY2hhciAqKnBnX3ZlYzsKPiArIMKgIMKgIMKgIHN0cnVj
+dCBwZ3YgKnBnX3ZlYzsKPiDCoCDCoCDCoCDCoGludCBpOwo+Cj4gLSDCoCDCoCDCoCBwZ192ZWMg
+PSBremFsbG9jKGJsb2NrX25yICogc2l6ZW9mKGNoYXIgKiksIEdGUF9LRVJORUwpOwo+ICsgwqAg
+wqAgwqAgcGdfdmVjID0ga2NhbGxvYyhibG9ja19uciwgc2l6ZW9mKHN0cnVjdCBwZ3YpLCBHRlBf
+S0VSTkVMKTsKPiDCoCDCoCDCoCDCoGlmICh1bmxpa2VseSghcGdfdmVjKSkKPiDCoCDCoCDCoCDC
+oCDCoCDCoCDCoCDCoGdvdG8gb3V0Owo+Cj4gwqAgwqAgwqAgwqBmb3IgKGkgPSAwOyBpIDwgYmxv
+Y2tfbnI7IGkrKykgewo+IC0gwqAgwqAgwqAgwqAgwqAgwqAgwqAgcGdfdmVjW2ldID0gYWxsb2Nf
+b25lX3BnX3ZlY19wYWdlKG9yZGVyKTsKPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIGlmICh1bmxp
+a2VseSghcGdfdmVjW2ldKSkKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIHBnX3ZlY1tpXS5idWZm
+ZXIgPSBhbGxvY19vbmVfcGdfdmVjX3BhZ2Uob3JkZXIsCj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDC
+oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
+oCDCoCDCoCZwZ192ZWNbaV0uZmxhZ3MpOwo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgaWYgKHVu
+bGlrZWx5KCFwZ192ZWNbaV0uYnVmZmVyKSkKPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
+oCDCoCDCoGdvdG8gb3V0X2ZyZWVfcGd2ZWM7Cj4gwqAgwqAgwqAgwqB9Cj4KPiBAQCAtMjM2MSw2
+ICsyNDA1LDcgQEAgb3V0Ogo+Cj4gwqBvdXRfZnJlZV9wZ3ZlYzoKPiDCoCDCoCDCoCDCoGZyZWVf
+cGdfdmVjKHBnX3ZlYywgb3JkZXIsIGJsb2NrX25yKTsKPiArIMKgIMKgIMKgIGtmcmVlKHBnX3Zl
+Yyk7Cj4gwqAgwqAgwqAgwqBwZ192ZWMgPSBOVUxMOwo+IMKgIMKgIMKgIMKgZ290byBvdXQ7Cj4g
+wqB9Cj4gQEAgLTIzNjgsNyArMjQxMyw3IEBAIG91dF9mcmVlX3BndmVjOgo+IMKgc3RhdGljIGlu
+dCBwYWNrZXRfc2V0X3Jpbmcoc3RydWN0IHNvY2sgKnNrLCBzdHJ1Y3QgdHBhY2tldF9yZXEgKnJl
+cSwKPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoGludCBjbG9zaW5nLCBpbnQgdHhfcmluZykKPiDC
+oHsKPiAtIMKgIMKgIMKgIGNoYXIgKipwZ192ZWMgPSBOVUxMOwo+ICsgwqAgwqAgwqAgc3RydWN0
+IHBndiAqcGdfdmVjID0gTlVMTDsKPiDCoCDCoCDCoCDCoHN0cnVjdCBwYWNrZXRfc29jayAqcG8g
+PSBwa3Rfc2soc2spOwo+IMKgIMKgIMKgIMKgaW50IHdhc19ydW5uaW5nLCBvcmRlciA9IDA7Cj4g
+wqAgwqAgwqAgwqBzdHJ1Y3QgcGFja2V0X3JpbmdfYnVmZmVyICpyYjsKPiBAQCAtMjUzMCwxNSAr
+MjU3NSwyMiBAQCBzdGF0aWMgaW50IHBhY2tldF9tbWFwKHN0cnVjdCBmaWxlICpmaWxlLCBzdHJ1
+Y3Qgc29ja2V0ICpzb2NrLAo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgY29u
+dGludWU7Cj4KPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoGZvciAoaSA9IDA7IGkgPCByYi0+cGdf
+dmVjX2xlbjsgaSsrKSB7Cj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCBzdHJ1
+Y3QgcGFnZSAqcGFnZSA9IHZpcnRfdG9fcGFnZShyYi0+cGdfdmVjW2ldKTsKPiArIMKgIMKgIMKg
+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIHN0cnVjdCBwYWdlICpwYWdlOwo+ICsgwqAgwqAgwqAg
+wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgdm9pZCAqa2FkZHIgPSByYi0+cGdfdmVjW2ldLmJ1ZmZl
+cjsKPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoGludCBwZ19udW07Cj4KPiDC
+oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoGZvciAocGdfbnVtID0gMDsgcGdfbnVt
+IDwgcmItPnBnX3ZlY19wYWdlczsKPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIHBnX251bSsrLCBwYWdlKyspIHsKPiArIMKgIMKgIMKg
+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIHBnX251bSsr
+KSB7Cj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCBpZiAo
+cmItPnBnX3ZlY1tpXS5mbGFncyAmIFBHVl9GUk9NX1ZNQUxMT0MpCj4gKyDCoCDCoCDCoCDCoCDC
+oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCBwYWdlID0gdm1hbGxv
+Y190b19wYWdlKGthZGRyKTsKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
+IMKgIMKgIMKgIGVsc2UKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
+IMKgIMKgIMKgIMKgIMKgIMKgIHBhZ2UgPSB2aXJ0X3RvX3BhZ2Uoa2FkZHIpOwo+ICsKPiDCoCDC
+oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoGVyciA9IHZtX2luc2Vy
+dF9wYWdlKHZtYSwgc3RhcnQsIHBhZ2UpOwo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
+IMKgIMKgIMKgIMKgIMKgIMKgaWYgKHVubGlrZWx5KGVycikpCj4gwqAgwqAgwqAgwqAgwqAgwqAg
+wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqBnb3RvIG91dDsKPiDCoCDC
+oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoHN0YXJ0ICs9IFBBR0Vf
+U0laRTsKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIGth
+ZGRyICs9IFBBR0VfU0laRTsKPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoH0K
+PiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoH0KPiDCoCDCoCDCoCDCoH0KPiAtLQo+IDEuNy4yLjMK
+Pgo+CkFja2VkLWJ5OiBNYWNpZWogxbtlbmN6eWtvd3NraSA8emVuY3p5a293c2tpQGdtYWlsLmNv
+bT4KUmVwb3J0ZWQtYnk6IE1hY2llaiDFu2VuY3p5a293c2tpIDx6ZW5jenlrb3dza2lAZ21haWwu
+Y29tPgoKTmljZSB0byBzZWUgdGhpcy4KCi0tIE1hY2llago=
