@@ -1,63 +1,45 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH] macvlan: lockless tx path
-Date: Wed, 10 Nov 2010 15:46:04 -0800
-Message-ID: <4CDB2EBC.2090905@candelatech.com>
-References: <1289403709.2860.216.camel@edumazet-laptop>	 <4CDAD8C8.20807@candelatech.com>	 <1289411027.2860.248.camel@edumazet-laptop>	 <4CDADC17.6070506@candelatech.com>	 <1289413120.2469.12.camel@edumazet-laptop>	 <4CDAE713.7020309@candelatech.com>	 <1289421187.2469.127.camel@edumazet-laptop> <4CDB1021.507@candelatech.com>	 <1289427705.17691.52.camel@edumazet-laptop>	 <4CDB226A.8080903@candelatech.com> <1289432184.17691.141.camel@edumazet-laptop>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [RESEND PATCH] virtio-net: init link state correctly
+Date: Thu, 11 Nov 2010 11:15:05 +1030
+Message-ID: <201011111115.06161.rusty@rustcorp.com.au>
+References: <20101105094718.19101.58898.stgit@dhcp-91-158.nay.redhat.com> <201011080941.28190.rusty@rustcorp.com.au> <20101110150823.GA5622@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:41297 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757322Ab0KJXqG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Nov 2010 18:46:06 -0500
-In-Reply-To: <1289432184.17691.141.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Jason Wang <jasowang@redhat.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, davem@davemloft.net,
+	markmc@redhat.com, kvm@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20101110150823.GA5622@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/10/2010 03:36 PM, Eric Dumazet wrote:
-> Le mercredi 10 novembre 2010 =C3=A0 14:53 -0800, Ben Greear a =C3=A9c=
-rit :
->
->> I did similar, and then wrote extra code to detect a 64-bit kernel a=
-nd if
->> so assume that the counters wrap at 64 bits so I didn't have to poll=
- so
->> often to make sure I didn't miss a wrap for a 10G NIC.  If instead o=
-ne wraps at 33
->> bits and the other at 36, there is no way for me to deal with the wr=
-ap
->> properly w/out explicitly knowing about that 33 and 36.
->>
->
-> How do you define 'wrap around' ? Maybe your definition is wrong.
+On Thu, 11 Nov 2010 01:38:23 am Michael S. Tsirkin wrote:
+> On Mon, Nov 08, 2010 at 09:41:27AM +1030, Rusty Russell wrote:
+> > On Fri, 5 Nov 2010 08:17:18 pm Jason Wang wrote:
+> > > For device that supports VIRTIO_NET_F_STATUS, there's no need to
+> > > assume the link is up and we need to call nerif_carrier_off() before
+> > > querying device status, otherwise we may get wrong operstate after
+> > > diver was loaded because the link watch event was not fired as
+> > > expected.
+> > > 
+> > > For device that does not support VIRITO_NET_F_STATUS, we could not get
+> > > its status through virtnet_update_status() and what we can only do is
+> > > always assuming the link is up.
+> > > 
+> > > Acked-by: Michael S. Tsirkin <mst@redhat.com>
+> > > Signed-off-by: Jason Wang <jasowang@redhat.com>
+> > 
+> > Acked-by: Rusty Russell <rusty@rustcorp.com.au>
+> > 
+> > Thanks!
+> > Rusty.
+> 
+> Rusty, just to verify: who shall be queueing this up?
 
-Maybe so.  My algorithm looks like:
+Sorry, that was sloppy of me; was meant for DaveM to take.
 
-  // uint64 accum;
-  // uint32 old;
-  // uint32 new;
-  if (old > new) {
-      // This assumes counters wrap at 32 bits (ie, 0xFFFFFFFF).
-      accum +=3D ((uint32)(0xFFFFFFFF) - old) + new;
-  }
-  else if (old < new) {
-      accum +=3D new - old;
-  }
-  old =3D new;
-
-=2E..
-
-Is there some way I can do this w/out the (0xFFFFFFFF - old),
-and thus the assumption of 32-bit counters?
-
-Thanks,
-Ben
-
---=20
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+Sending explicitly now...
+Rusty.
