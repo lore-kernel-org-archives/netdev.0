@@ -1,24 +1,39 @@
 From: Casey Leedom <leedom@chelsio.com>
-Subject: [PATCH net-26 0/6] cxgb4vf: a number of bug fixes
-Date: Thu, 11 Nov 2010 11:06:47 -0800
-Message-ID: <1289502413-9895-1-git-send-email-leedom@chelsio.com>
-Cc: davem@davemloft.net
+Subject: [PATCH net-26 2/6] cxgb4vf: fix bug in Generic Receive Offload
+Date: Thu, 11 Nov 2010 11:06:49 -0800
+Message-ID: <1289502413-9895-3-git-send-email-leedom@chelsio.com>
+References: <1289502413-9895-1-git-send-email-leedom@chelsio.com>
+Cc: davem@davemloft.net, Casey Leedom <leedom@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:12387 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:27702 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753259Ab0KKTG7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Nov 2010 14:06:59 -0500
+	with ESMTP id S1753259Ab0KKTHA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Nov 2010 14:07:00 -0500
+In-Reply-To: <1289502413-9895-1-git-send-email-leedom@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following patch set includes a number of bug fixes for the cxgb4vf
-network driver.  As always, please toss these in the bin if they're not
-right.
+Fix botch in Generic Receive Offload (the Packet Gather List Total length
+field wasn't being initialized).
 
- drivers/net/cxgb4vf/cxgb4vf_main.c |   42 ++++++++-----
- drivers/net/cxgb4vf/sge.c          |  122 ++++++++++++++++++++++--------------
- drivers/net/cxgb4vf/t4vf_common.h  |    1 +
- drivers/net/cxgb4vf/t4vf_hw.c      |   19 ++++++
- 4 files changed, 122 insertions(+), 62 deletions(-)
+Signed-off-by: Casey Leedom <leedom@chelsio.com>
+---
+ drivers/net/cxgb4vf/sge.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/cxgb4vf/sge.c b/drivers/net/cxgb4vf/sge.c
+index f10864d..6a6e18b 100644
+--- a/drivers/net/cxgb4vf/sge.c
++++ b/drivers/net/cxgb4vf/sge.c
+@@ -1679,6 +1679,7 @@ int process_responses(struct sge_rspq *rspq, int budget)
+ 				}
+ 				len = RSPD_LEN(len);
+ 			}
++			gl.tot_len = len;
+ 
+ 			/*
+ 			 * Gather packet fragments.
+-- 
+1.7.0.4
 
