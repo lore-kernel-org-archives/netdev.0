@@ -1,297 +1,279 @@
 From: Jon Mason <jon.mason@exar.com>
-Subject: [PATCH 01/12] vxge: enable rxhash
-Date: Thu, 11 Nov 2010 08:25:53 -0600
-Message-ID: <1289485564-8822-2-git-send-email-jon.mason@exar.com>
+Subject: [PATCH 02/12] vxge: Wait for Rx to become idle before reseting or closing
+Date: Thu, 11 Nov 2010 08:25:54 -0600
+Message-ID: <1289485564-8822-3-git-send-email-jon.mason@exar.com>
 Cc: netdev@vger.kernel.org,
 	Sivakumar Subramani <sivakumar.subramani@exar.com>,
 	Sreenivasa Honnur <sreenivasa.honnur@exar.com>,
 	Ram Vepa <ram.vepa@exar.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gy0-f174.google.com ([209.85.160.174]:63608 "EHLO
-	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755888Ab0KKO0a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Nov 2010 09:26:30 -0500
-Received: by gyh4 with SMTP id 4so1178293gyh.19
-        for <netdev@vger.kernel.org>; Thu, 11 Nov 2010 06:26:30 -0800 (PST)
+Received: from mail-gx0-f174.google.com ([209.85.161.174]:59414 "EHLO
+	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756568Ab0KKO0i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Nov 2010 09:26:38 -0500
+Received: by gxk23 with SMTP id 23so1162393gxk.19
+        for <netdev@vger.kernel.org>; Thu, 11 Nov 2010 06:26:36 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Enable RSS hashing and add ability to pass up the adapter calculated rx
-hash up the network stack (if feature is available).  Add the ability to
-enable/disable feature via ethtool, which requires that the adapter is
-not running at the time.  Other miscellaneous cleanups and fixes
-required to get RSS working.
+Wait for the receive traffic to become idle before attempting to close
+or reset the adapter.  To enable the processing of packets while Receive
+Idle, move the clearing of __VXGE_STATE_CARD_UP bit in vxge_close to
+after it.  Also, modify the return value of the ISR when the adapter is
+down to IRQ_HANDLED.  Otherwise there are unhandled interrupts for the
+device.
 
 Signed-off-by: Jon Mason <jon.mason@exar.com>
 Signed-off-by: Ram Vepa <ram.vepa@exar.com>
 ---
- drivers/net/vxge/vxge-config.c  |    2 +
- drivers/net/vxge/vxge-config.h  |   12 ++++----
- drivers/net/vxge/vxge-ethtool.c |   35 +++++++++++++++++++++++++
- drivers/net/vxge/vxge-main.c    |   54 ++++++++++++++++++++++++--------------
- drivers/net/vxge/vxge-main.h    |   18 ++++++------
- drivers/net/vxge/vxge-traffic.h |   28 --------------------
- 6 files changed, 86 insertions(+), 63 deletions(-)
+ drivers/net/vxge/vxge-config.c |   86 ++++++++++++++++++++++++++++++++++++++-
+ drivers/net/vxge/vxge-config.h |    7 +++
+ drivers/net/vxge/vxge-main.c   |   19 ++++++---
+ drivers/net/vxge/vxge-main.h   |    2 +
+ drivers/net/vxge/vxge-reg.h    |    1 +
+ 5 files changed, 106 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/vxge/vxge-config.c b/drivers/net/vxge/vxge-config.c
-index 906a3ca..0a35ab1 100644
+index 0a35ab1..212e301 100644
 --- a/drivers/net/vxge/vxge-config.c
 +++ b/drivers/net/vxge/vxge-config.c
-@@ -3204,6 +3204,8 @@ enum vxge_hw_status vxge_hw_vpath_rts_rth_set(
- 		     VXGE_HW_RTS_ACCESS_STEER_CTRL_ACTION_READ_ENTRY,
- 		     VXGE_HW_RTS_ACCESS_STEER_CTRL_DATA_STRUCT_SEL_RTH_GEN_CFG,
- 			0, &data0, &data1);
-+	if (status != VXGE_HW_OK)
-+		goto exit;
+@@ -193,6 +193,88 @@ static enum vxge_hw_status
+ __vxge_hw_vpath_xmac_rx_stats_get(struct __vxge_hw_virtualpath	*vpath,
+ 				  struct vxge_hw_xmac_vpath_rx_stats *vpath_rx_stats);
  
- 	data0 &= ~(VXGE_HW_RTS_ACCESS_STEER_DATA0_RTH_GEN_BUCKET_SIZE(0xf) |
- 			VXGE_HW_RTS_ACCESS_STEER_DATA0_RTH_GEN_ALG_SEL(0x3));
-diff --git a/drivers/net/vxge/vxge-config.h b/drivers/net/vxge/vxge-config.h
-index 5c00861..5d77905 100644
---- a/drivers/net/vxge/vxge-config.h
-+++ b/drivers/net/vxge/vxge-config.h
-@@ -1413,12 +1413,12 @@ enum vxge_hw_rth_algoritms {
-  * See also: vxge_hw_vpath_rts_rth_set(), vxge_hw_vpath_rts_rth_get().
-  */
- struct vxge_hw_rth_hash_types {
--	u8 hash_type_tcpipv4_en;
--	u8 hash_type_ipv4_en;
--	u8 hash_type_tcpipv6_en;
--	u8 hash_type_ipv6_en;
--	u8 hash_type_tcpipv6ex_en;
--	u8 hash_type_ipv6ex_en;
-+	u8 hash_type_tcpipv4_en:1,
-+	   hash_type_ipv4_en:1,
-+	   hash_type_tcpipv6_en:1,
-+	   hash_type_ipv6_en:1,
-+	   hash_type_tcpipv6ex_en:1,
-+	   hash_type_ipv6ex_en:1;
- };
- 
- void vxge_hw_device_debug_set(
-diff --git a/drivers/net/vxge/vxge-ethtool.c b/drivers/net/vxge/vxge-ethtool.c
-index b67746e..f8fd8da 100644
---- a/drivers/net/vxge/vxge-ethtool.c
-+++ b/drivers/net/vxge/vxge-ethtool.c
-@@ -1119,6 +1119,40 @@ static int vxge_ethtool_get_sset_count(struct net_device *dev, int sset)
- 	}
- }
- 
-+static int vxge_set_flags(struct net_device *dev, u32 data)
++static void
++vxge_hw_vpath_set_zero_rx_frm_len(struct vxge_hw_vpath_reg __iomem *vp_reg)
 +{
-+	struct vxgedev *vdev = (struct vxgedev *)netdev_priv(dev);
-+	enum vxge_hw_status status;
++	u64 val64;
 +
-+	if (data & ~ETH_FLAG_RXHASH)
-+		return -EOPNOTSUPP;
++	val64 = readq(&vp_reg->rxmac_vcfg0);
++	val64 &= ~VXGE_HW_RXMAC_VCFG0_RTS_MAX_FRM_LEN(0x3fff);
++	writeq(val64, &vp_reg->rxmac_vcfg0);
++	val64 = readq(&vp_reg->rxmac_vcfg0);
 +
-+	if (!!(data & ETH_FLAG_RXHASH) == vdev->devh->config.rth_en)
-+		return 0;
-+
-+	if (netif_running(dev) || (vdev->config.rth_steering == NO_STEERING))
-+		return -EINVAL;
-+
-+	vdev->devh->config.rth_en = !!(data & ETH_FLAG_RXHASH);
-+
-+	/* Enabling RTH requires some of the logic in vxge_device_register and a
-+	 * vpath reset.  Due to these restrictions, only allow modification
-+	 * while the interface is down.
-+	 */
-+	status = vxge_reset_all_vpaths(vdev);
-+	if (status != VXGE_HW_OK) {
-+		vdev->devh->config.rth_en = !vdev->devh->config.rth_en;
-+		return -EFAULT;
-+	}
-+
-+	if (vdev->devh->config.rth_en)
-+		dev->features |= NETIF_F_RXHASH;
-+	else
-+		dev->features &= ~NETIF_F_RXHASH;
-+
-+	return 0;
++	return;
 +}
 +
- static const struct ethtool_ops vxge_ethtool_ops = {
- 	.get_settings		= vxge_ethtool_gset,
- 	.set_settings		= vxge_ethtool_sset,
-@@ -1140,6 +1174,7 @@ static const struct ethtool_ops vxge_ethtool_ops = {
- 	.phys_id		= vxge_ethtool_idnic,
- 	.get_sset_count		= vxge_ethtool_get_sset_count,
- 	.get_ethtool_stats	= vxge_get_ethtool_stats,
-+	.set_flags		= vxge_set_flags,
- };
++/*
++ * vxge_hw_vpath_wait_receive_idle - Wait for Rx to become idle
++ */
++int vxge_hw_vpath_wait_receive_idle(struct __vxge_hw_device *hldev, u32 vp_id)
++{
++	struct vxge_hw_vpath_reg __iomem *vp_reg;
++	struct __vxge_hw_virtualpath *vpath;
++	u64 val64, rxd_count, rxd_spat;
++	int count = 0, total_count = 0;
++
++	vpath = &hldev->virtual_paths[vp_id];
++	vp_reg = vpath->vp_reg;
++
++	vxge_hw_vpath_set_zero_rx_frm_len(vp_reg);
++
++	/* Check that the ring controller for this vpath has enough free RxDs
++	 * to send frames to the host.  This is done by reading the
++	 * PRC_RXD_DOORBELL_VPn register and comparing the read value to the
++	 * RXD_SPAT value for the vpath.
++	 */
++	val64 = readq(&vp_reg->prc_cfg6);
++	rxd_spat = VXGE_HW_PRC_CFG6_GET_RXD_SPAT(val64) + 1;
++	/* Use a factor of 2 when comparing rxd_count against rxd_spat for some
++	 * leg room.
++	 */
++	rxd_spat *= 2;
++
++	do {
++		mdelay(1);
++
++		rxd_count = readq(&vp_reg->prc_rxd_doorbell);
++
++		/* Check that the ring controller for this vpath does
++		 * not have any frame in its pipeline.
++		 */
++		val64 = readq(&vp_reg->frm_in_progress_cnt);
++		if ((rxd_count <= rxd_spat) || (val64 > 0))
++			count = 0;
++		else
++			count++;
++		total_count++;
++	} while ((count < VXGE_HW_MIN_SUCCESSIVE_IDLE_COUNT) &&
++			(total_count < VXGE_HW_MAX_POLLING_COUNT));
++
++	if (total_count >= VXGE_HW_MAX_POLLING_COUNT)
++		printk(KERN_ALERT "%s: Still Receiving traffic. Abort wait\n",
++			__func__);
++
++	return total_count;
++}
++
++/* vxge_hw_device_wait_receive_idle - This function waits until all frames
++ * stored in the frame buffer for each vpath assigned to the given
++ * function (hldev) have been sent to the host.
++ */
++void vxge_hw_device_wait_receive_idle(struct __vxge_hw_device *hldev)
++{
++	int i, total_count = 0;
++
++	for (i = 0; i < VXGE_HW_MAX_VIRTUAL_PATHS; i++) {
++		if (!(hldev->vpaths_deployed & vxge_mBIT(i)))
++			continue;
++
++		total_count += vxge_hw_vpath_wait_receive_idle(hldev, i);
++		if (total_count >= VXGE_HW_MAX_POLLING_COUNT)
++			break;
++	}
++}
++
+ /*
+  * __vxge_hw_channel_allocate - Allocate memory for channel
+  * This function allocates required memory for the channel and various arrays
+@@ -390,7 +472,7 @@ __vxge_hw_device_register_poll(void __iomem *reg, u64 mask, u32 max_millis)
+ 	return ret;
+ }
  
- void vxge_initialize_ethtool_ops(struct net_device *ndev)
+- /* __vxge_hw_device_vpath_reset_in_prog_check - Check if vpath reset
++/* __vxge_hw_device_vpath_reset_in_prog_check - Check if vpath reset
+  * in progress
+  * This routine checks the vpath reset in progress register is turned zero
+  */
+@@ -1165,7 +1247,6 @@ exit:
+  * It can be used to set or reset Pause frame generation or reception
+  * support of the NIC.
+  */
+-
+ enum vxge_hw_status vxge_hw_device_setpause_data(struct __vxge_hw_device *hldev,
+ 						 u32 port, u32 tx, u32 rx)
+ {
+@@ -1409,7 +1490,6 @@ exit:
+ /*
+  * __vxge_hw_ring_create - Create a Ring
+  * This function creates Ring and initializes it.
+- *
+  */
+ static enum vxge_hw_status
+ __vxge_hw_ring_create(struct __vxge_hw_vpath_handle *vp,
+diff --git a/drivers/net/vxge/vxge-config.h b/drivers/net/vxge/vxge-config.h
+index 5d77905..95e7021 100644
+--- a/drivers/net/vxge/vxge-config.h
++++ b/drivers/net/vxge/vxge-config.h
+@@ -2051,4 +2051,11 @@ enum vxge_hw_status vxge_hw_vpath_rts_rth_set(
+ 
+ enum vxge_hw_status
+ __vxge_hw_device_is_privilaged(u32 host_type, u32 func_id);
++
++#define VXGE_HW_MIN_SUCCESSIVE_IDLE_COUNT 5
++#define VXGE_HW_MAX_POLLING_COUNT 100
++
++int vxge_hw_vpath_wait_receive_idle(struct __vxge_hw_device *hldev, u32 vp_id);
++
++void  vxge_hw_device_wait_receive_idle(struct __vxge_hw_device *hldev);
+ #endif
 diff --git a/drivers/net/vxge/vxge-main.c b/drivers/net/vxge/vxge-main.c
-index 813829f..2f26c37 100644
+index 2f26c37..53db6a4 100644
 --- a/drivers/net/vxge/vxge-main.c
 +++ b/drivers/net/vxge/vxge-main.c
-@@ -513,6 +513,13 @@ vxge_rx_1b_compl(struct __vxge_hw_ring *ringh, void *dtr,
- 		else
- 			skb_checksum_none_assert(skb);
+@@ -90,7 +90,6 @@ static int vxge_mac_list_add(struct vxge_vpath *vpath, struct macInfo *mac);
+ static int vxge_mac_list_del(struct vxge_vpath *vpath, struct macInfo *mac);
+ static enum vxge_hw_status vxge_restore_vpath_vid_table(struct vxge_vpath *vpath);
+ static enum vxge_hw_status vxge_restore_vpath_mac_addr(struct vxge_vpath *vpath);
+-static enum vxge_hw_status vxge_reset_all_vpaths(struct vxgedev *vdev);
  
-+		/* rth_hash_type and rth_it_hit are non-zero regardless of
-+		 * whether rss is enabled.  Only the rth_value is zero/non-zero
-+		 * if rss is disabled/enabled, so key off of that.
-+		 */
-+		if (ext_info.rth_value)
-+			skb->rxhash = ext_info.rth_value;
+ static inline int is_vxge_card_up(struct vxgedev *vdev)
+ {
+@@ -1299,8 +1298,13 @@ static void vxge_vpath_intr_enable(struct vxgedev *vdev, int vp_id)
+ static void vxge_vpath_intr_disable(struct vxgedev *vdev, int vp_id)
+ {
+ 	struct vxge_vpath *vpath = &vdev->vpaths[vp_id];
++	struct __vxge_hw_device *hldev;
+ 	int msix_id;
+ 
++	hldev = (struct __vxge_hw_device *)pci_get_drvdata(vdev->pdev);
 +
- 		vxge_rx_complete(ring, skb, ext_info.vlan,
- 			pkt_length, &ext_info);
++	vxge_hw_vpath_wait_receive_idle(hldev, vpath->device_id);
++
+ 	vxge_hw_vpath_intr_disable(vpath->handle);
  
-@@ -1689,15 +1696,6 @@ static enum vxge_hw_status vxge_rth_configure(struct vxgedev *vdev)
- 		mtable[index] = index % vdev->no_of_vpath;
+ 	if (vdev->config.intr_type == INTA)
+@@ -1430,6 +1434,7 @@ static int do_vxge_reset(struct vxgedev *vdev, int event)
  	}
  
--	/* Fill RTH hash types */
--	hash_types.hash_type_tcpipv4_en   = vdev->config.rth_hash_type_tcpipv4;
--	hash_types.hash_type_ipv4_en      = vdev->config.rth_hash_type_ipv4;
--	hash_types.hash_type_tcpipv6_en   = vdev->config.rth_hash_type_tcpipv6;
--	hash_types.hash_type_ipv6_en      = vdev->config.rth_hash_type_ipv6;
--	hash_types.hash_type_tcpipv6ex_en =
--					vdev->config.rth_hash_type_tcpipv6ex;
--	hash_types.hash_type_ipv6ex_en    = vdev->config.rth_hash_type_ipv6ex;
+ 	if (event == VXGE_LL_FULL_RESET) {
++		vxge_hw_device_wait_receive_idle(vdev->devh);
+ 		vxge_hw_device_intr_disable(vdev->devh);
+ 
+ 		switch (vdev->cric_err_event) {
+@@ -1935,7 +1940,7 @@ static enum vxge_hw_status vxge_restore_vpath_mac_addr(struct vxge_vpath *vpath)
+ }
+ 
+ /* reset vpaths */
+-static enum vxge_hw_status vxge_reset_all_vpaths(struct vxgedev *vdev)
++enum vxge_hw_status vxge_reset_all_vpaths(struct vxgedev *vdev)
+ {
+ 	enum vxge_hw_status status = VXGE_HW_OK;
+ 	struct vxge_vpath *vpath;
+@@ -2080,7 +2085,7 @@ static irqreturn_t vxge_isr_napi(int irq, void *dev_id)
+ 		return IRQ_NONE;
+ 
+ 	if (unlikely(!is_vxge_card_up(vdev)))
+-		return IRQ_NONE;
++		return IRQ_HANDLED;
+ 
+ 	status = vxge_hw_device_begin_irq(hldev, vdev->exec_mode,
+ 			&reason);
+@@ -2787,7 +2792,6 @@ static int do_vxge_close(struct net_device *dev, int do_io)
+ 	while (test_and_set_bit(__VXGE_STATE_RESET_CARD, &vdev->state))
+ 		msleep(50);
+ 
+-	clear_bit(__VXGE_STATE_CARD_UP, &vdev->state);
+ 	if (do_io) {
+ 		/* Put the vpath back in normal mode */
+ 		vpath_vector = vxge_mBIT(vdev->vpaths[0].device_id);
+@@ -2831,6 +2835,11 @@ static int do_vxge_close(struct net_device *dev, int do_io)
+ 
+ 	del_timer_sync(&vdev->vp_reset_timer);
+ 
++	if (do_io)
++		vxge_hw_device_wait_receive_idle(hldev);
++
++	clear_bit(__VXGE_STATE_CARD_UP, &vdev->state);
++
+ 	/* Disable napi */
+ 	if (vdev->config.intr_type != MSI_X)
+ 		napi_disable(&vdev->napi);
+@@ -2847,8 +2856,6 @@ static int do_vxge_close(struct net_device *dev, int do_io)
+ 	if (do_io)
+ 		vxge_hw_device_intr_disable(vdev->devh);
+ 
+-	mdelay(1000);
 -
- 	/* set indirection table, bucket-to-vpath mapping */
- 	status = vxge_hw_vpath_rts_rth_itable_set(vdev->vp_handles,
- 						vdev->no_of_vpath,
-@@ -1710,12 +1708,21 @@ static enum vxge_hw_status vxge_rth_configure(struct vxgedev *vdev)
- 		return status;
- 	}
+ 	vxge_rem_isr(vdev);
  
-+	/* Fill RTH hash types */
-+	hash_types.hash_type_tcpipv4_en   = vdev->config.rth_hash_type_tcpipv4;
-+	hash_types.hash_type_ipv4_en      = vdev->config.rth_hash_type_ipv4;
-+	hash_types.hash_type_tcpipv6_en   = vdev->config.rth_hash_type_tcpipv6;
-+	hash_types.hash_type_ipv6_en      = vdev->config.rth_hash_type_ipv6;
-+	hash_types.hash_type_tcpipv6ex_en =
-+					vdev->config.rth_hash_type_tcpipv6ex;
-+	hash_types.hash_type_ipv6ex_en    = vdev->config.rth_hash_type_ipv6ex;
-+
- 	/*
--	* Because the itable_set() method uses the active_table field
--	* for the target virtual path the RTH config should be updated
--	* for all VPATHs. The h/w only uses the lowest numbered VPATH
--	* when steering frames.
--	*/
-+	 * Because the itable_set() method uses the active_table field
-+	 * for the target virtual path the RTH config should be updated
-+	 * for all VPATHs. The h/w only uses the lowest numbered VPATH
-+	 * when steering frames.
-+	 */
- 	 for (index = 0; index < vdev->no_of_vpath; index++) {
- 		status = vxge_hw_vpath_rts_rth_set(
- 				vdev->vpaths[index].handle,
-@@ -2598,6 +2605,8 @@ vxge_open(struct net_device *dev)
- 			goto out2;
- 		}
- 	}
-+	printk(KERN_INFO "%s: Receive Hashing Offload %s\n", dev->name,
-+	       hldev->config.rth_en ? "enabled" : "disabled");
- 
- 	for (i = 0; i < vdev->no_of_vpath; i++) {
- 		vpath = &vdev->vpaths[i];
-@@ -3178,6 +3187,11 @@ static int __devinit vxge_device_register(struct __vxge_hw_device *hldev,
- 
- 	vxge_initialize_ethtool_ops(ndev);
- 
-+	if (vdev->config.rth_steering != NO_STEERING) {
-+		ndev->features |= NETIF_F_RXHASH;
-+		hldev->config.rth_en = VXGE_HW_RTH_ENABLE;
-+	}
-+
- 	/* Allocate memory for vpath */
- 	vdev->vpaths = kzalloc((sizeof(struct vxge_vpath)) *
- 				no_of_vpath, GFP_KERNEL);
-@@ -4163,12 +4177,12 @@ vxge_probe(struct pci_dev *pdev, const struct pci_device_id *pre)
- 	ll_config->fifo_indicate_max_pkts = VXGE_FIFO_INDICATE_MAX_PKTS;
- 	ll_config->addr_learn_en = addr_learn_en;
- 	ll_config->rth_algorithm = RTH_ALG_JENKINS;
--	ll_config->rth_hash_type_tcpipv4 = VXGE_HW_RING_HASH_TYPE_TCP_IPV4;
--	ll_config->rth_hash_type_ipv4 = VXGE_HW_RING_HASH_TYPE_NONE;
--	ll_config->rth_hash_type_tcpipv6 = VXGE_HW_RING_HASH_TYPE_NONE;
--	ll_config->rth_hash_type_ipv6 = VXGE_HW_RING_HASH_TYPE_NONE;
--	ll_config->rth_hash_type_tcpipv6ex = VXGE_HW_RING_HASH_TYPE_NONE;
--	ll_config->rth_hash_type_ipv6ex = VXGE_HW_RING_HASH_TYPE_NONE;
-+	ll_config->rth_hash_type_tcpipv4 = 1;
-+	ll_config->rth_hash_type_ipv4 = 0;
-+	ll_config->rth_hash_type_tcpipv6 = 0;
-+	ll_config->rth_hash_type_ipv6 = 0;
-+	ll_config->rth_hash_type_tcpipv6ex = 0;
-+	ll_config->rth_hash_type_ipv6ex = 0;
- 	ll_config->rth_bkt_sz = RTH_BUCKET_SIZE;
- 	ll_config->tx_pause_enable = VXGE_PAUSE_CTRL_ENABLE;
- 	ll_config->rx_pause_enable = VXGE_PAUSE_CTRL_ENABLE;
+ 	vxge_napi_del_all(vdev);
 diff --git a/drivers/net/vxge/vxge-main.h b/drivers/net/vxge/vxge-main.h
-index de64536..a4f6d86 100644
+index a4f6d86..54989d0 100644
 --- a/drivers/net/vxge/vxge-main.h
 +++ b/drivers/net/vxge/vxge-main.h
-@@ -145,15 +145,15 @@ struct vxge_config {
+@@ -397,6 +397,8 @@ struct vxge_tx_priv {
+ 	} while (0);
  
- 	int		addr_learn_en;
- 
--	int		rth_steering;
--	int		rth_algorithm;
--	int		rth_hash_type_tcpipv4;
--	int		rth_hash_type_ipv4;
--	int		rth_hash_type_tcpipv6;
--	int		rth_hash_type_ipv6;
--	int		rth_hash_type_tcpipv6ex;
--	int		rth_hash_type_ipv6ex;
--	int		rth_bkt_sz;
-+	u32		rth_steering:2,
-+			rth_algorithm:2,
-+			rth_hash_type_tcpipv4:1,
-+			rth_hash_type_ipv4:1,
-+			rth_hash_type_tcpipv6:1,
-+			rth_hash_type_ipv6:1,
-+			rth_hash_type_tcpipv6ex:1,
-+			rth_hash_type_ipv6ex:1,
-+			rth_bkt_sz:8;
- 	int		rth_jhash_golden_ratio;
- 	int		tx_steering_type;
- 	int 	fifo_indicate_max_pkts;
-diff --git a/drivers/net/vxge/vxge-traffic.h b/drivers/net/vxge/vxge-traffic.h
-index 9890d4d..1fceee8 100644
---- a/drivers/net/vxge/vxge-traffic.h
-+++ b/drivers/net/vxge/vxge-traffic.h
-@@ -1904,34 +1904,6 @@ enum vxge_hw_ring_tcode {
- 	VXGE_HW_RING_T_CODE_MULTI_ERR			= 0xF
- };
- 
--/**
-- * enum enum vxge_hw_ring_hash_type - RTH hash types
-- * @VXGE_HW_RING_HASH_TYPE_NONE: No Hash
-- * @VXGE_HW_RING_HASH_TYPE_TCP_IPV4: TCP IPv4
-- * @VXGE_HW_RING_HASH_TYPE_UDP_IPV4: UDP IPv4
-- * @VXGE_HW_RING_HASH_TYPE_IPV4: IPv4
-- * @VXGE_HW_RING_HASH_TYPE_TCP_IPV6: TCP IPv6
-- * @VXGE_HW_RING_HASH_TYPE_UDP_IPV6: UDP IPv6
-- * @VXGE_HW_RING_HASH_TYPE_IPV6: IPv6
-- * @VXGE_HW_RING_HASH_TYPE_TCP_IPV6_EX: TCP IPv6 extension
-- * @VXGE_HW_RING_HASH_TYPE_UDP_IPV6_EX: UDP IPv6 extension
-- * @VXGE_HW_RING_HASH_TYPE_IPV6_EX: IPv6 extension
-- *
-- * RTH hash types
-- */
--enum vxge_hw_ring_hash_type {
--	VXGE_HW_RING_HASH_TYPE_NONE			= 0x0,
--	VXGE_HW_RING_HASH_TYPE_TCP_IPV4		= 0x1,
--	VXGE_HW_RING_HASH_TYPE_UDP_IPV4		= 0x2,
--	VXGE_HW_RING_HASH_TYPE_IPV4			= 0x3,
--	VXGE_HW_RING_HASH_TYPE_TCP_IPV6		= 0x4,
--	VXGE_HW_RING_HASH_TYPE_UDP_IPV6		= 0x5,
--	VXGE_HW_RING_HASH_TYPE_IPV6			= 0x6,
--	VXGE_HW_RING_HASH_TYPE_TCP_IPV6_EX	= 0x7,
--	VXGE_HW_RING_HASH_TYPE_UDP_IPV6_EX	= 0x8,
--	VXGE_HW_RING_HASH_TYPE_IPV6_EX		= 0x9
--};
--
- enum vxge_hw_status vxge_hw_ring_rxd_reserve(
- 	struct __vxge_hw_ring *ring_handle,
- 	void **rxdh);
+ extern void vxge_initialize_ethtool_ops(struct net_device *ndev);
++enum vxge_hw_status vxge_reset_all_vpaths(struct vxgedev *vdev);
++
+ /**
+  * #define VXGE_DEBUG_INIT: debug for initialization functions
+  * #define VXGE_DEBUG_TX	 : debug transmit related functions
+diff --git a/drivers/net/vxge/vxge-reg.h b/drivers/net/vxge/vxge-reg.h
+index 3dd5c96..93fd752 100644
+--- a/drivers/net/vxge/vxge-reg.h
++++ b/drivers/net/vxge/vxge-reg.h
+@@ -3998,6 +3998,7 @@ struct vxge_hw_vpath_reg {
+ #define	VXGE_HW_PRC_CFG6_L4_CPC_TRSFR_CODE_EN	vxge_mBIT(9)
+ #define VXGE_HW_PRC_CFG6_RXD_CRXDT(val) vxge_vBIT(val, 23, 9)
+ #define VXGE_HW_PRC_CFG6_RXD_SPAT(val) vxge_vBIT(val, 36, 9)
++#define VXGE_HW_PRC_CFG6_GET_RXD_SPAT(val)	vxge_bVALn(val, 36, 9)
+ /*0x00a78*/	u64	prc_cfg7;
+ #define VXGE_HW_PRC_CFG7_SCATTER_MODE(val) vxge_vBIT(val, 6, 2)
+ #define	VXGE_HW_PRC_CFG7_SMART_SCAT_EN	vxge_mBIT(11)
 -- 
 1.7.0.4
 
