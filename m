@@ -1,48 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6 v2 3/3] ixgbe: Look inside vlan when
- determining offload protocol.
-Date: Fri, 12 Nov 2010 12:24:33 -0800 (PST)
-Message-ID: <20101112.122433.115917799.davem@davemloft.net>
-References: <1289519279-20641-1-git-send-email-jesse@nicira.com>
-	<1289519279-20641-3-git-send-email-jesse@nicira.com>
+Subject: Re: [PATCH 1/2] ucc_geth: Do not bring the whole IF down when TX
+ failure.
+Date: Fri, 12 Nov 2010 12:24:54 -0800 (PST)
+Message-ID: <20101112.122454.48521600.davem@davemloft.net>
+References: <1289570109-8160-1-git-send-email-Joakim.Tjernlund@transmode.se>
+	<20101112140515.GA28223@oksana.dev.rtsoft.ru>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hzheng@nicira.com,
-	jeffrey.t.kirsher@intel.com, alexander.h.duyck@intel.com,
-	jesse.brandeburg@intel.com
-To: jesse@nicira.com
+Cc: Joakim.Tjernlund@transmode.se, linuxppc-dev@lists.ozlabs.org,
+	netdev@vger.kernel.org
+To: cbouatmailru@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47677
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47682
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932661Ab0KLUYJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Nov 2010 15:24:09 -0500
-In-Reply-To: <1289519279-20641-3-git-send-email-jesse@nicira.com>
+	by vger.kernel.org with ESMTP id S932661Ab0KLUYa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Nov 2010 15:24:30 -0500
+In-Reply-To: <20101112140515.GA28223@oksana.dev.rtsoft.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Gross <jesse@nicira.com>
-Date: Thu, 11 Nov 2010 15:47:59 -0800
+From: Anton Vorontsov <cbouatmailru@gmail.com>
+Date: Fri, 12 Nov 2010 17:05:15 +0300
 
-> From: Hao Zheng <hzheng@nicira.com>
+> On Fri, Nov 12, 2010 at 02:55:08PM +0100, Joakim Tjernlund wrote:
+>> ucc_geth_close lacks a cancel_work_sync(&ugeth->timeout_work)
+>> to stop any outstanding processing of TX fail. However, one
+>> can not call cancel_work_sync without fixing the timeout function
+>> otherwise it will deadlock. This patch brings ucc_geth in line with
+>> gianfar:
+>> 
+>> Don't bring the interface down and up, just reinit controller HW
+>> and PHY.
+>> 
+>> Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
 > 
-> Currently the skb->protocol field is used to setup various
-> offloading parameters on transmit for the correct protocol.
-> However, if vlan offloading is disabled or otherwise not used,
-> the protocol field will be ETH_P_8021Q, not the actual protocol.
-> This will cause the offloading to be not performed correctly,
-> even though the hardware is capable of looking inside vlan tags.
-> Instead, look inside the header if necessary to determine the
-> correct protocol type.
+> Looks sane, thanks!
 > 
-> To some extent this fixes a regression from 2.6.36 because it
-> was previously not possible to disable vlan offloading and this
-> error case was not exposed.
-> 
-> Signed-off-by: Hao Zheng <hzheng@nicira.com>
-> CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> CC: Alex Duyck <alexander.h.duyck@intel.com>
-> CC: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Signed-off-by: Jesse Gross <jesse@nicira.com>
+> Reviewed-by: Anton Vorontsov <cbouatmailru@gmail.com>
 
 Applied.
