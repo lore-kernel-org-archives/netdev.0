@@ -1,70 +1,100 @@
-From: Anton Vorontsov <cbouatmailru@gmail.com>
-Subject: Re: [PATCH 2/2] ucc_geth: Fix deadlock
-Date: Fri, 12 Nov 2010 17:09:47 +0300
-Message-ID: <20101112140947.GB28223@oksana.dev.rtsoft.ru>
-References: <1289570109-8160-1-git-send-email-Joakim.Tjernlund@transmode.se>
- <1289570109-8160-2-git-send-email-Joakim.Tjernlund@transmode.se>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6] igmp: RCU conversion of in_dev->mc_list
+Date: Fri, 12 Nov 2010 15:26:14 +0100
+Message-ID: <1289571974.3185.254.camel@edumazet-laptop>
+References: <AANLkTikvT=x9eBovn2-m6HLqk7wyXSAR3sc9jCQ0C6mL@mail.gmail.com>
+	 <1289489007.17691.1310.camel@edumazet-laptop>
+	 <AANLkTik93QUQxSDmwd4Qj-gXQiWWPzd68JPAYAHBAsHR@mail.gmail.com>
+	 <20101112071323.GB5660@cr0.nay.redhat.com>
+	 <1289546874.17691.1774.camel@edumazet-laptop>
+	 <20101112081945.GA5949@cr0.nay.redhat.com>
+	 <1289553759.3185.1.camel@edumazet-laptop>
+	 <1289568858.3185.252.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org
-To: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Cypher Wu <cypher.w@gmail.com>, linux-kernel@vger.kernel.org,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: =?ISO-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f46.google.com ([209.85.215.46]:63356 "EHLO
+Received: from mail-ew0-f46.google.com ([209.85.215.46]:33105 "EHLO
 	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753493Ab0KLOJx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Nov 2010 09:09:53 -0500
-Received: by ewy7 with SMTP id 7so1814691ewy.19
-        for <netdev@vger.kernel.org>; Fri, 12 Nov 2010 06:09:52 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1289570109-8160-2-git-send-email-Joakim.Tjernlund@transmode.se>
+	with ESMTP id S1752464Ab0KLO0Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Nov 2010 09:26:25 -0500
+In-Reply-To: <1289568858.3185.252.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 12, 2010 at 02:55:09PM +0100, Joakim Tjernlund wrote:
-> This script:
->  while [ 1==1 ] ; do ifconfig eth0 up; usleep 1950000 ;ifconfig eth0 down; dmesg -c ;done
-> causes in just a second or two:
-> INFO: task ifconfig:572 blocked for more than 120 seconds.
-[...]
-> The reason appears to be ucc_geth_stop meets adjust_link as the
-> PHY reports PHY changes. I belive adjust_link hangs somewhere,
-> holding the PHY lock, because ucc_geth_stop disabled the
-> controller HW.
-> Fix is to stop the PHY before disabling the controller.
-> 
-> Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-
-It's unclear where exactly adjust_link() hangs, but the patch
-looks as the right thing overall.
-
-Thanks!
-
-Reviewed-by: Anton Vorontsov <cbouatmailru@gmail.com>
-
+Le vendredi 12 novembre 2010 =C3=A0 14:34 +0100, Eric Dumazet a =C3=A9c=
+rit :
+> Le vendredi 12 novembre 2010 =C3=A0 10:22 +0100, Eric Dumazet a =C3=A9=
+crit :
+> > Le vendredi 12 novembre 2010 =C3=A0 16:19 +0800, Am=C3=A9rico Wang =
+a =C3=A9crit :
+> > > On Fri, Nov 12, 2010 at 08:27:54AM +0100, Eric Dumazet wrote:
+> >=20
+> > > >A RCU conversion is far more complex.
+> > > >
+> > >=20
+> > > Yup.
+> >=20
+> >=20
+> > Well, actually this is easy in this case.
+> >=20
+> > I'll post a patch to do this RCU conversion.
+> >=20
+> >=20
+>=20
+> Note : compile tested only, I'll appreciate if someone can test it ;)
+>=20
+> Note: one patch from net-2.6 is not yet included in net-next-2.6, so
+> please make sure you have it before testing ;)
+>=20
+> ( http://git.kernel.org/?p=3Dlinux/kernel/git/davem/net-2.6.git;a=3Dc=
+ommitdiff;h=3D18943d292facbc70e6a36fc62399ae833f64671b )
+>=20
+>=20
+> Thanks
+>=20
+> [PATCH net-next-2.6] igmp: RCU conversion of in_dev->mc_list
+>=20
+> in_dev->mc_list is protected by one rwlock (in_dev->mc_list_lock).
+>=20
+> This can easily be converted to a RCU protection.
+>=20
+> Writers hold RTNL, so mc_list_lock is removed, not replaced by a
+> spinlock.
+>=20
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Cypher Wu <cypher.w@gmail.com>
+> Cc: Am=C3=A9rico Wang <xiyou.wangcong@gmail.com>
 > ---
->  drivers/net/ucc_geth.c |   10 +++++++---
->  1 files changed, 7 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-> index 6c254ed..06a5db3 100644
-> --- a/drivers/net/ucc_geth.c
-> +++ b/drivers/net/ucc_geth.c
-> @@ -2050,12 +2050,16 @@ static void ucc_geth_stop(struct ucc_geth_private *ugeth)
->  
->  	ugeth_vdbg("%s: IN", __func__);
->  
-> +	/*
-> +	 * Tell the kernel the link is down.
-> +	 * Must be done before disabling the controller
-> +	 * or deadlock may happen.
-> +	 */
-> +	phy_stop(phydev);
-> +
->  	/* Disable the controller */
->  	ugeth_disable(ugeth, COMM_DIR_RX_AND_TX);
->  
-> -	/* Tell the kernel the link is down */
-> -	phy_stop(phydev);
-> -
->  	/* Mask all interrupts */
->  	out_be32(ugeth->uccf->p_uccm, 0x00000000);
+
+=2E..
+
+>  void ip_mc_up(struct in_device *in_dev)
+>  {
+> -	struct ip_mc_list *i;
+> +	struct ip_mc_list *pmc;
+> =20
+>  	ASSERT_RTNL();
+> =20
+>  	ip_mc_inc_group(in_dev, IGMP_ALL_HOSTS);
+> =20
+> -	for (i=3Din_dev->mc_list; i; i=3Di->next)
+> -		igmp_group_added(i);
+> +	for_each_pmc_rtnl(in_dev, pmc);
+> +		igmp_group_added(pmc);
+>  }
+
+
+Oops there is an extra ; after the for_each_pmc_rtnl(in_dev, pmc)
+
+should be
+
+	for_each_pmc_rtnl(in_dev, pmc)
+		igmp_group_added(pmc);
+
+
+
