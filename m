@@ -1,64 +1,59 @@
 From: Thomas Graf <tgraf@infradead.org>
-Subject: Re: [PATCH 3/10] Fix leaking of kernel heap addresses in net/
-Date: Thu, 11 Nov 2010 20:44:41 -0500
-Message-ID: <20101112014441.GA6804@canuck.infradead.org>
-References: <1289524023.5167.67.camel@dan>
- <20101112012039.GB4683@canuck.infradead.org>
- <1289525049.5167.82.camel@dan>
+Subject: [PATCH] rtnetlink: Fix message size calculation for link messages
+Date: Thu, 11 Nov 2010 20:47:59 -0500
+Message-ID: <20101112014759.GA8491@canuck.infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Urs Thuermann <urs.thuermann@volkswagen.de>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	James Morris <jmorris@namei.org>,
-	Remi Denis-Courmont <remi.denis-courmont@nokia.com>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	Vlad Yasevich <vladislav.yasevich@hp.com>,
-	Tejun Heo <tj@kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Li Zefan <lizf@cn.fujitsu.com>, Joe Perches <joe@perches.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Jamal Hadi Salim <hadi@mojatatu.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Alexey Dobriyan <adobriyan@gmail.com>,
-	Jiri Pirko <jpirko@redhat.com>,
-	Johannes Berg <johannes.berg@intel.com>,
-	Daniel Lezcano <daniel.lezcano@free.fr>,
-	Pavel Eme
-To: Dan Rosenberg <drosenberg@vsecurity.com>
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canuck.infradead.org ([134.117.69.58]:38258 "EHLO
+Received: from canuck.infradead.org ([134.117.69.58]:55667 "EHLO
 	canuck.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756114Ab0KLBp1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Nov 2010 20:45:27 -0500
+	with ESMTP id S1756147Ab0KLBsA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Nov 2010 20:48:00 -0500
 Content-Disposition: inline
-In-Reply-To: <1289525049.5167.82.camel@dan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 11, 2010 at 08:24:09PM -0500, Dan Rosenberg wrote:
-> > If we really have to do this. At least don't duplicate all this code. Do
-> > the check in the printf argument:
-> > 
-> > 	seq_printf(seq, "%4d: %08X:%04X %08X:%04X"
-> > 		...
-> > 		capable(CAP_NET_ADMIN) ? sp : 0,
-> > 
-> > I would even move the decision whether to expose kernel addresses or not
-> > to a function so we can change behavior in one place.
-> 
-> I wrote it this way because the format specifier must also be changed,
-> or the %p output will print "(null)", which cannot be parsed by
-> userspace programs expecting "(nil)" or 0.  I could include another
-> check inside the format specifier, but that seemed pretty ugly.  But
-> then again, it's ugly either way.
+nlmsg_total_size() calculates the length of a netlink message
+including header and alignment. nla_total_size() calculates the
+space an individual attribute consumes which was meant to be used
+in this context.
 
-Considering the amount of duplication you are about to do, you may
-want to think about adding a new pointer format extension then. We
-already have special '%p' modes for IPv6 addresse, MAC addresses and
-various other pointer types. It wouldn't be hard to add one which
-does not print (null).
+Also, ensure to account for the attribute header for the
+IFLA_INFO_XSTATS attribute as implementations of get_xstats_size()
+seem to assume that we do so.
+
+The addition of two message headers minus the missing attribute
+header resulted in a calculated message size that was larger than
+required. Therefore we never risked running out of skb tailroom.
+
+Signed-off-by: Thomas Graf <tgraf@infradead.org>
+Cc: Patrick McHardy <kaber@trash.net>
+
+Index: net-2.6/net/core/rtnetlink.c
+===================================================================
+--- net-2.6.orig/net/core/rtnetlink.c
++++ net-2.6/net/core/rtnetlink.c
+@@ -347,16 +347,17 @@ static size_t rtnl_link_get_size(const s
+ 	if (!ops)
+ 		return 0;
+ 
+-	size = nlmsg_total_size(sizeof(struct nlattr)) + /* IFLA_LINKINFO */
+-	       nlmsg_total_size(strlen(ops->kind) + 1);	 /* IFLA_INFO_KIND */
++	size = nla_total_size(sizeof(struct nlattr)) + /* IFLA_LINKINFO */
++	       nla_total_size(strlen(ops->kind) + 1);  /* IFLA_INFO_KIND */
+ 
+ 	if (ops->get_size)
+ 		/* IFLA_INFO_DATA + nested data */
+-		size += nlmsg_total_size(sizeof(struct nlattr)) +
++		size += nla_total_size(sizeof(struct nlattr)) +
+ 			ops->get_size(dev);
+ 
+ 	if (ops->get_xstats_size)
+-		size += ops->get_xstats_size(dev);	/* IFLA_INFO_XSTATS */
++		/* IFLA_INFO_XSTATS */
++		size += nla_total_size(ops->get_xstats_size(dev));
+ 
+ 	return size;
+ }
