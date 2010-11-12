@@ -1,84 +1,84 @@
-From: Eric Paris <eparis@redhat.com>
-Subject: [RFC PATCH] network: return errors if we know tcp_connect failed
-Date: Thu, 11 Nov 2010 16:03:41 -0500
-Message-ID: <20101111210341.31350.86916.stgit@paris.rdu.redhat.com>
+From: Dan Rosenberg <drosenberg@vsecurity.com>
+Subject: [PATCH v3] Prevent crashing when parsing bad X.25 facilities
+Date: Fri, 12 Nov 2010 15:42:28 -0500
+Message-ID: <1289594548.3090.334.camel@Dan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: andrew.hendry@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.vsecurity.com ([209.67.252.12]:51790 "EHLO
+	mx1.vsecurity.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932783Ab0KLUmd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Nov 2010 15:42:33 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-THIS PATCH IS VERY POSSIBLY WRONG!  But if it is I want some feedback.
+Now with improved comma support.
 
-Basically what I found was that if I added an iptables rule like so:
+On parsing malformed X.25 facilities, decrementing the remaining length
+may cause it to underflow.  Since the length is an unsigned integer,
+this will result in the loop continuing until the kernel crashes.
 
-iptables -A OUTPUT -p tcp --dport 80 -j DROP
+This patch adds checks to ensure decrementing the remaining length does
+not cause it to wrap around.
 
-And then ran a web browser like links it would just hang on 'establishing
-connection.'  I expected that the application would immediately, or at least
-very quickly, get notified that the connect failed.   This waiting for timeout
-would be expected if something else dropped the SYN or if we were dropping the
-SYN/ACK packet coming back, but I figured if we knew we threw away the SYN we knew
-right away that the connection was denied and we should be able to indicate
-that to the application.  Yes, I realize this is little different than if the
-SYN was dropped in the first network device, but it is different because we
-know what happened!  We know that connect() call failed and that there isn't
-anything coming back.
-
-What I discovered was that we actually had 2 problems in making it possible.
-For userspace to quickly realize the connect failed.  The first was a problem
-in the netfilter code which wasn't passing errors back up the stack correctly,
-due to what I believe to be a mistake in precedence rules.
-
-http://marc.info/?l=netfilter-devel&m=128950262021804&w=2
-
-And the second was that tcp_connect() was just ignoring the return value from
-tcp_transmit_skb().  Maybe this was intentional but I really wish we could
-find out that connect failed long before the minutes long timeout.  Once I
-fixed both of those issues I find that links gets denied (with EPERM)
-immediately when it calls connect().  Is this wrong?  Is this bad to tell
-userspace more quickly what happened?  Does passing this error code back up
-the stack here break something else?  Why do some functions seem to pay
-attention to tcp_transmit_skb() return codes and some functions just ignore
-it?  What do others think?
-
-NOT-AT-ALL-SIGNED-OFF-BY
+Signed-off-by: Dan Rosenberg <drosenberg@vsecurity.com>
 ---
+ net/x25/x25_facilities.c |   12 +++++++++---
+ 1 files changed, 9 insertions(+), 3 deletions(-)
 
- net/ipv4/tcp_output.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+diff --git a/net/x25/x25_facilities.c b/net/x25/x25_facilities.c
+index 3a8c4c4..55187c8 100644
+--- a/net/x25/x25_facilities.c
++++ b/net/x25/x25_facilities.c
+@@ -61,6 +61,8 @@ int x25_parse_facilities(struct sk_buff *skb, struct x25_facilities *facilities,
+ 	while (len > 0) {
+ 		switch (*p & X25_FAC_CLASS_MASK) {
+ 		case X25_FAC_CLASS_A:
++			if (len < 2)
++				return 0;
+ 			switch (*p) {
+ 			case X25_FAC_REVERSE:
+ 				if((p[1] & 0x81) == 0x81) {
+@@ -104,6 +106,8 @@ int x25_parse_facilities(struct sk_buff *skb, struct x25_facilities *facilities,
+ 			len -= 2;
+ 			break;
+ 		case X25_FAC_CLASS_B:
++			if (len < 3)
++				return 0;
+ 			switch (*p) {
+ 			case X25_FAC_PACKET_SIZE:
+ 				facilities->pacsize_in  = p[1];
+@@ -125,6 +129,8 @@ int x25_parse_facilities(struct sk_buff *skb, struct x25_facilities *facilities,
+ 			len -= 3;
+ 			break;
+ 		case X25_FAC_CLASS_C:
++			if (len < 4)
++				return 0;
+ 			printk(KERN_DEBUG "X.25: unknown facility %02X, "
+ 			       "values %02X, %02X, %02X\n",
+ 			       p[0], p[1], p[2], p[3]);
+@@ -132,6 +138,8 @@ int x25_parse_facilities(struct sk_buff *skb, struct x25_facilities *facilities,
+ 			len -= 4;
+ 			break;
+ 		case X25_FAC_CLASS_D:
++			if (len < p[1] + 2)
++				return 0;
+ 			switch (*p) {
+ 			case X25_FAC_CALLING_AE:
+ 				if (p[1] > X25_MAX_DTE_FACIL_LEN || p[1] <= 1)
+@@ -149,9 +157,7 @@ int x25_parse_facilities(struct sk_buff *skb, struct x25_facilities *facilities,
+ 				break;
+ 			default:
+ 				printk(KERN_DEBUG "X.25: unknown facility %02X,"
+-					"length %d, values %02X, %02X, "
+-					"%02X, %02X\n",
+-					p[0], p[1], p[2], p[3], p[4], p[5]);
++					"length %d\n", p[0], p[1]);
+ 				break;
+ 			}
+ 			len -= p[1] + 2;
 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index e961522..67b8535 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2592,6 +2592,7 @@ int tcp_connect(struct sock *sk)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	struct sk_buff *buff;
-+	int ret;
- 
- 	tcp_connect_init(sk);
- 
-@@ -2614,7 +2615,7 @@ int tcp_connect(struct sock *sk)
- 	sk->sk_wmem_queued += buff->truesize;
- 	sk_mem_charge(sk, buff->truesize);
- 	tp->packets_out += tcp_skb_pcount(buff);
--	tcp_transmit_skb(sk, buff, 1, sk->sk_allocation);
-+	ret = tcp_transmit_skb(sk, buff, 1, sk->sk_allocation);
- 
- 	/* We change tp->snd_nxt after the tcp_transmit_skb() call
- 	 * in order to make this packet get counted in tcpOutSegs.
-@@ -2626,7 +2627,7 @@ int tcp_connect(struct sock *sk)
- 	/* Timer for repeating the SYN until an answer. */
- 	inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS,
- 				  inet_csk(sk)->icsk_rto, TCP_RTO_MAX);
--	return 0;
-+	return ret;
- }
- EXPORT_SYMBOL(tcp_connect);
- 
+
