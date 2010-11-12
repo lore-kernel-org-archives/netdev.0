@@ -1,29 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 2/2] ipv6: Warn users if maximum number of routes is
- reached.
-Date: Fri, 12 Nov 2010 14:04:11 -0800 (PST)
-Message-ID: <20101112.140411.91327842.davem@davemloft.net>
-References: <1289255628-9596-1-git-send-email-greearb@candelatech.com>
+Subject: Re: [PATCH] gianfar: Do not call device_set_wakeup_enable() under
+ a spinlock
+Date: Fri, 12 Nov 2010 14:06:13 -0800 (PST)
+Message-ID: <20101112.140613.45885023.davem@davemloft.net>
+References: <AANLkTimf_mVrRPEcj8qBbYw1iYHfWdeKUNS3Kk-dfhTT@mail.gmail.com>
+	<201011090030.42693.rjw@sisk.pl>
+	<201011092254.19550.rjw@sisk.pl>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: greearb@candelatech.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37147
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932771Ab0KLWDr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Nov 2010 17:03:47 -0500
-In-Reply-To: <1289255628-9596-1-git-send-email-greearb@candelatech.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: daniel.blueman@gmail.com, romieu@fr.zoreil.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: rjw@sisk.pl
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201011092254.19550.rjw@sisk.pl>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ben Greear <greearb@candelatech.com>
-Date: Mon,  8 Nov 2010 14:33:48 -0800
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Date: Tue, 9 Nov 2010 22:54:19 +0100
 
-> This gives users at least some clue as to what the problem
-> might be and how to go about fixing it.
+> The gianfar driver calls device_set_wakeup_enable() under a spinlock,
+> which causes a problem to happen after the recent core power
+> management changes, because this function can sleep now.  Fix this
+> by moving the device_set_wakeup_enable() call out of the
+> spinlock-protected area.
 > 
-> Signed-off-by: Ben Greear <greearb@candelatech.com>
+> Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
 
-Applied.
+Patch applied, thank you.
