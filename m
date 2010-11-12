@@ -1,29 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/10] Fix leaking of kernel heap addresses in net/
-Date: Fri, 12 Nov 2010 14:46:02 -0800 (PST)
-Message-ID: <20101112.144602.232909145.davem@davemloft.net>
-References: <20101112201850.GA5625@core2.telecom.by>
-	<20101112.123738.179940542.davem@davemloft.net>
-	<20101112224026.GA21134@core2.telecom.by>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] r8169: fix checksum broken
+Date: Fri, 12 Nov 2010 23:47:46 +0100
+Message-ID: <20101112224746.GA6676@electric-eye.fr.zoreil.com>
+References: <4CDD13BD.7060109@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: adobriyan@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Shan Wei <shanwei@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33920
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932147Ab0KLWph (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Nov 2010 17:45:37 -0500
-In-Reply-To: <20101112224026.GA21134@core2.telecom.by>
+Received: from 254.185.140-88.rev.gaoland.net ([88.140.185.254]:47066 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1757572Ab0KLWs2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Nov 2010 17:48:28 -0500
+Content-Disposition: inline
+In-Reply-To: <4CDD13BD.7060109@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Date: Sat, 13 Nov 2010 00:40:27 +0200
+Shan Wei <shanwei@cn.fujitsu.com> :
+> If r8196 received packets with invalid sctp/igmp(not tcp, udp) checksum, r8196 set skb->ip_summed
+> wit CHECKSUM_UNNECESSARY. This cause that upper protocol don't check checksum field.
 
-> I think we should not expose kernel pointers in future interfaces,
-> but leave existing ones alone.
+...
 
-That seems like the most reasonable and pragmatic position I've seen
-thus far :-)
+Which kind of device do you use : PCI-E 8168 / 810x or PCI 8169 ?
+
+Have a nice night.
+
+-- 
+Ueimor
