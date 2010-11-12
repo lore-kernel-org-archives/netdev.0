@@ -1,49 +1,42 @@
-From: Dan Rosenberg <drosenberg@vsecurity.com>
-Subject: Re: [PATCH 4/10] Fix leaking of kernel heap addresses in net/
-Date: Fri, 12 Nov 2010 12:24:42 -0500
-Message-ID: <1289582682.3090.323.camel@Dan>
-References: <2129857903-1289528127-cardhu_decombobulator_blackberry.rim.net-1506931048-@bda083.bisx.prod.on.blackberry>
-	 <20101111.182939.258124014.davem@davemloft.net>
-	 <1289529269.3090.207.camel@Dan>
-	 <1289546610.17691.1770.camel@edumazet-laptop>
-	 <20101112083315.096dfaa3@nehalam>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: [RFC PATCH] network: return errors if we know tcp_connect failed
+Date: Fri, 12 Nov 2010 20:46:20 +0300
+Message-ID: <20101112174620.GA16544@ms2.inr.ac.ru>
+References: <20101111210341.31350.86916.stgit@paris.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>, socketcan@hartkopp.net,
-	kuznet@ms2.inr.ac.ru, urs.thuermann@volkswagen.de,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, jmorris@namei.org,
-	remi.denis-courmont@nokia.com, pekkas@netcore.fi, sri@us.ibm.com,
-	vladislav.yasevich@hp.com, tj@kernel.org, lizf@cn.fujitsu.com,
-	joe@perches.com, hadi@mojatatu.com, ebiederm@xmission.com,
-	adobriyan@gmail.com, jpirko@redhat.com, johannes.berg@intel.com,
-	daniel.lezcano@free.fr, xemul@openvz.org,
-	socketcan-core@lists.berlios.de, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org, torvalds@linux-foundation.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, pekkas@netcore.fi, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net
+To: Eric Paris <eparis@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.vsecurity.com ([209.67.252.12]:49976 "EHLO
-	mx1.vsecurity.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752861Ab0KLRYr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Nov 2010 12:24:47 -0500
-In-Reply-To: <20101112083315.096dfaa3@nehalam>
+Received: from minus.inr.ac.ru ([194.67.69.97]:43331 "HELO ms2.inr.ac.ru"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1755400Ab0KLRql (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Nov 2010 12:46:41 -0500
+Content-Disposition: inline
+In-Reply-To: <20101111210341.31350.86916.stgit@paris.rdu.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hello!
 
-> 
-> Also, the whole idea needs to be under a config option, so only
-> the paranoid idiots turn it on.
+On Thu, Nov 11, 2010 at 04:03:41PM -0500, Eric Paris wrote:
+> immediately when it calls connect().  Is this wrong?  Is this bad to tell
+> userspace more quickly what happened?  Does passing this error code back up
+> the stack here break something else?  Why do some functions seem to pay
+> attention to tcp_transmit_skb() return codes and some functions just ignore
+> it?
 
-If that's what's necessary to get it accepted, I'm willing to do that.
-But when a solution does not negatively impact usability or performance
-and improves security, even in a small way, why should it not be enabled
-by default?  Of course it's my responsibility to first propose a
-solution that is acceptable from a usability/debugging standpoint, but
-assuming that can be achieved, I don't really see what the problem is.
-There's a difference between being a "paranoid idiot" and wanting to
-protect users from unnecessary exposure.
+Essentially, return value of tcp_transmit_skb() is always ignored.
+It is used only for accounting and for some optimization of retransmission behaviour.
+Generally, tcp does not react on errors coming outside of tcp protocol.
 
--Dan
+The only loophole is ICMP error in the same case as yours. In _violation_ of specs
+linux immediately aborts unestablished connect on an icmp error. IMHO that thing
+which you suggest is correct (of course, provided you filter out transient errors and react only
+to EPERM or something like this). It was not done because it was expected
+firewall rule prescribing immediate abort is configured with "--reject-with icmp-port-unreachable",
+otherwise the rule orders real blackhole.
 
+Alexey
