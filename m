@@ -1,38 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] r8169: fix checksum broken
-Date: Fri, 12 Nov 2010 12:44:01 -0800 (PST)
-Message-ID: <20101112.124401.35026128.davem@davemloft.net>
-References: <4CDD13BD.7060109@cn.fujitsu.com>
+From: Dan Rosenberg <drosenberg@vsecurity.com>
+Subject: Re: [PATCH v2] Prevent crashing when parsing bad X.25 facilities
+Date: Fri, 12 Nov 2010 15:44:25 -0500
+Message-ID: <1289594665.3090.336.camel@Dan>
+References: <1289570877.3090.274.camel@Dan>
+	 <20101112.122946.102556009.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org
-To: shanwei@cn.fujitsu.com
+Cc: andrew.hendry@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50874
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932417Ab0KLUng (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Nov 2010 15:43:36 -0500
-In-Reply-To: <4CDD13BD.7060109@cn.fujitsu.com>
+Received: from mx1.vsecurity.com ([209.67.252.12]:59592 "EHLO
+	mx1.vsecurity.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932417Ab0KLUo2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Nov 2010 15:44:28 -0500
+In-Reply-To: <20101112.122946.102556009.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shan Wei <shanwei@cn.fujitsu.com>
-Date: Fri, 12 Nov 2010 18:15:25 +0800
 
-> If r8196 received packets with invalid sctp/igmp(not tcp, udp) checksum, r8196 set skb->ip_summed
-> wit CHECKSUM_UNNECESSARY. This cause that upper protocol don't check checksum field.
-> 
-> I am not family with r8196 driver. I try to guess the meaning of RxProtoIP and IPFail.
-> RxProtoIP stands for received IPv4 packet that upper protocol is not tcp and udp. 
-> !(opts1 & IPFail) is true means that driver correctly to check checksum in IPv4 header.
-> 
-> If it's right, I think we should not set ip_summed wit CHECKSUM_UNNECESSARY for my sctp packets
-> with invalid checksum. 
-> 
-> If it's not right, please tell me. 
-> 
-> 
-> Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
+> I find this kind of carelessness extremely amusing coming from someone
+> who is so big on security theatre.
 
-Francois, please review, it looks correct to my eyes.
+You know what I find amusing?  The sheer number of security issues a
+single person can find in his spare time.  Congratulations on your
+attention to detail.
+
+-Dan
+
