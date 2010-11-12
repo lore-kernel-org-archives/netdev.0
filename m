@@ -1,117 +1,113 @@
-From: Dan Rosenberg <drosenberg@vsecurity.com>
-Subject: Re: [PATCH 4/10] Fix leaking of kernel heap addresses in net/
-Date: Fri, 12 Nov 2010 07:37:32 -0500
-Message-ID: <1289565452.3090.222.camel@Dan>
-References: <2129857903-1289528127-cardhu_decombobulator_blackberry.rim.net-1506931048-@bda083.bisx.prod.on.blackberry>
-	 <20101111.182939.258124014.davem@davemloft.net>
-	 <1289529269.3090.207.camel@Dan>
-	 <1289546610.17691.1770.camel@edumazet-laptop>
+From: Yong Zhang <yong.zhang0@gmail.com>
+Subject: Re: Kernel rwlock design, Multicore and IGMP
+Date: Fri, 12 Nov 2010 21:00:17 +0800
+Message-ID: <20101112130017.GA9752@zhy>
+References: <AANLkTikvT=x9eBovn2-m6HLqk7wyXSAR3sc9jCQ0C6mL@mail.gmail.com>
+ <1289489007.17691.1310.camel@edumazet-laptop>
+ <AANLkTik93QUQxSDmwd4Qj-gXQiWWPzd68JPAYAHBAsHR@mail.gmail.com>
+ <20101112071323.GB5660@cr0.nay.redhat.com>
+ <1289546874.17691.1774.camel@edumazet-laptop>
+ <20101112081945.GA5949@cr0.nay.redhat.com>
+ <AANLkTik-KDvc2fgH91vBHGT6vqxbZrv=9DoQknujPWy2@mail.gmail.com>
+ <20101112091818.GB5949@cr0.nay.redhat.com>
+Reply-To: Yong Zhang <yong.zhang0@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, socketcan@hartkopp.net,
-	kuznet@ms2.inr.ac.ru, urs.thuermann@volkswagen.de,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, jmorris@namei.org,
-	remi.denis-courmont@nokia.com, pekkas@netcore.fi, sri@us.ibm.com,
-	vladislav.yasevich@hp.com, tj@kernel.org, lizf@cn.fujitsu.com,
-	joe@perches.com, shemminger@vyatta.com, hadi@mojatatu.com,
-	ebiederm@xmission.com, adobriyan@gmail.com, jpirko@redhat.com,
-	johannes.berg@intel.com, daniel.lezcano@free.fr, xemul@openvz.org,
-	socketcan-core@lists.berlios.de, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org, torvalds@linux-foundation.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.vsecurity.com ([209.67.252.12]:65216 "EHLO
-	mx1.vsecurity.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757119Ab0KLMhh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Nov 2010 07:37:37 -0500
-In-Reply-To: <1289546610.17691.1770.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Cypher Wu <cypher.w@gmail.com>, linux-kernel@vger.kernel.org,
+	netdev <netdev@vger.kernel.org>
+To: =?utf-8?Q?Am=C3=A9rico?= Wang <xiyou.wangcong@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20101112091818.GB5949@cr0.nay.redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Fri, Nov 12, 2010 at 05:18:18PM +0800, Am=C3=A9rico Wang wrote:
+> On Fri, Nov 12, 2010 at 05:09:45PM +0800, Yong Zhang wrote:
+> >On Fri, Nov 12, 2010 at 4:19 PM, Am=C3=A9rico Wang <xiyou.wangcong@g=
+mail.com> wrote:
+> >> On Fri, Nov 12, 2010 at 08:27:54AM +0100, Eric Dumazet wrote:
+> >>>Le vendredi 12 novembre 2010 =C3=A0 15:13 +0800, Am=C3=A9rico Wang=
+ a =C3=A9crit :
+> >>>> On Fri, Nov 12, 2010 at 11:32:59AM +0800, Cypher Wu wrote:
+> >>>> >On Thu, Nov 11, 2010 at 11:23 PM, Eric Dumazet <eric.dumazet@gm=
+ail.com> wrote:
+> >>>> >> Le jeudi 11 novembre 2010 =C3=A0 21:49 +0800, Cypher Wu a =C3=
+=A9crit :
+> >>>> >>
+> >>>> >> Hi
+> >>>> >>
+> >>>> >> CC netdev, since you ask questions about network stuff _and_ =
+rwlock
+> >>>> >>
+> >>>> >>
+> >>>> >>> I'm using TILEPro and its rwlock in kernel is a liitle diffe=
+rent than
+> >>>> >>> other platforms. It have a priority for write lock that when=
+ tried it
+> >>>> >>> will block the following read lock even if read lock is hold=
+ by
+> >>>> >>> others. Its code can be read in Linux Kernel 2.6.36 in
+> >>>> >>> arch/tile/lib/spinlock_32.c.
+> >>>> >>
+> >>>> >> This seems a bug to me.
+> >>>> >>
+> >>>> >> read_lock() can be nested. We used such a schem in the past i=
+n iptables
+> >>>> >> (it can re-enter itself),
+> >>>> >> and we used instead a spinlock(), but with many discussions w=
+ith lkml
+> >>>> >> and Linus himself if I remember well.
+> >>>> >>
+> >>>> >It seems not a problem that read_lock() can be nested or not si=
+nce
+> >>>> >rwlock doesn't have 'owner', it's just that should we give
+> >>>> >write_lock() a priority than read_lock() since if there have a =
+lot
+> >>>> >read_lock()s then they'll starve write_lock().
+> >>>> >We should work out a well defined behavior so all the
+> >>>> >platform-dependent raw_rwlock has to design under that principl=
+e.
+> >>>>
+> >>>
+> >>>AFAIK, Lockdep allows read_lock() to be nested.
+> >>>
+> >>>> It is a known weakness of rwlock, it is designed like that. :)
+> >>>>
+> >>>
+> >>>Agreed.
+> >>>
+> >>
+> >> Just for record, both Tile and X86 implement rwlock with a write-b=
+ias,
+> >> this somewhat reduces the write-starvation problem.
+> >
+> >Are you sure(on x86)?
+> >
+> >It seems that we never realize writer-bias rwlock.
+> >
+>=20
+> Try
+>=20
+> % grep RW_LOCK_BIAS -nr arch/x86
+>=20
+> *And* read the code to see how it works. :)
 
-> 
-> 1) Inode numbers are not guaranteed to be unique. Its a 32bit seq
-> number, and we dont check another socket inode use the same inode number
-> (after 2^32 allocations it can happens)
-> 
+If read_lock()/write_lock() fails, the subtracted value(1 for
+read_lock() and RW_LOCK_BIAS for write_lock()) is added back.
+So reader and writer will contend on the same lock fairly.
 
-Ok...this is a bit far-fetched, but I see your point.
+And RW_LOCK_BIAS based rwlock is a variant of sighed-test
+rwlock, so it works in the same way to highest-bit-set mode
+rwlock.
 
-> 2) /proc/net/ files can deliver same "line" of information several
-> times, because of their implementation.
-> 
-> 3) Because of SLAB_DESTROY_BY_RCU, same 'kernel socket pointer' can be
-> seen several times in /proc/net/tcp & /proc/net/udp, but really on
-> different "sockets"
-> 
-> 4) Some good applications use both the socket pointer and inode number
-> (tuple) to filter out the [2] problem. Dont break them, please ?
-> Anything that might break an application must be at the very least
-> tunable.
-> 
-> In my opinion, a good thing would be :
-> 
-> - Use a special printf() format , aka "secure pointer", as Thomas
-> suggested.
-> 
+Seem you're cheated by it's name(RW_LOCK_BIAS). :)
+Or am I missing something?
 
-I am happy to write this, but just to be sure, you're sure we're ok with
-a printf() format that cannot be used in interrupt context?  %pS and %ps
-are taken, so I'm thinking %pH ("hidden").
+Thanks,
+Yong
 
-> - Make sure you print different opaque values for two different kernel
-> pointers. This is mandatory.
-> 
-> - Make sure the NULL pointer stay as a NULL pointer to not let the
-> hostile user know your secret, and to ease debugging stuff.
-> 
-
-Alright, this is fine by me.
-
-> - Have security experts advice to chose a nice crypto function, maybe
-> jenkin hash. Not too slow would be nice.
-> 
-> 
-> static unsigned long securize_kpointers_rnd;
-> 
-> At boot time, stick a random value in this variable.
-> (Maybe make sure the 5 low order bits are 0)
-> 
-
-I don't really like the approach of relying on a global secret value
-that's used repeatedly.  Sure, it's better than not obfuscating the
-pointers at all, but it seems like it will be difficult to prevent its
-value from being inferred or discovered.
-
-> unsigned long opacify_kptr(unsigned long ptr)
-> {
-> 	if (ptr == 0)
-> 		return ptr;
-> 	if (capable(CAP_NET_ADMIN))
-> 		return ptr;
-> 
-> 	return some_crypto_hash(ptr, &securize_kpointers_rnd);
-> }
-> 
-
-I question the use of CAP_NET_ADMIN.  Sure, that makes sense in this
-context, but wouldn't it be useful to be able to use this format
-specifier outside of net?  In fact, I'm not sure that CAP_SYS_ADMIN is
-appropriate either - perhaps just going off current_euid()?
-
-> At least, use a central point, so that we can easily add/change the
-> logic if needed.
-> 
-> Please provide this patch in kernel/printk.c for initial review, then
-> once everybody is OK, you can send one patch for net tree.
-> 
-
-Do you mean lib/vsprintf.c?
-
-> No need to send 10 patches if we dont agree on the general principle.
-
-Agreed.
-
--Dan
-
+>=20
+> Note, on Tile, it uses a little different algorithm.
