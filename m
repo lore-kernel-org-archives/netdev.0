@@ -1,7 +1,7 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: a problem tcp_v4_err()
-Date: Fri, 12 Nov 2010 19:21:54 +0100
-Message-ID: <1289586114.3185.271.camel@edumazet-laptop>
+Date: Fri, 12 Nov 2010 19:27:57 +0100
+Message-ID: <1289586477.3185.273.camel@edumazet-laptop>
 References: <20101111210341.31350.86916.stgit@paris.rdu.redhat.com>
 	 <00c201cb81eb$84e18160$8ea48420$@com>
 	 <1289578108.3083.95.camel@localhost.localdomain>
@@ -9,6 +9,7 @@ References: <20101111210341.31350.86916.stgit@paris.rdu.redhat.com>
 	 <20101112163543.GB122902@jupiter.n2.diac24.net>
 	 <4CDD7145.8070606@trash.net>  <20101112175715.GB16544@ms2.inr.ac.ru>
 	 <1289585578.3185.268.camel@edumazet-laptop>
+	 <1289586114.3185.271.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -17,55 +18,66 @@ Cc: Patrick McHardy <kaber@trash.net>,
 	Eric Paris <eparis@redhat.com>, Hua Zhong <hzhong@gmail.com>,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	davem@davemloft.net, pekkas@netcore.fi, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, paul.moore@hp.com
+	yoshfuji@linux-ipv6.org, paul.moore@hp.com,
+	Damian Lukowski <damian@tvk.rwth-aachen.de>
 To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1289585578.3185.268.camel@edumazet-laptop>
+In-Reply-To: <1289586114.3185.271.camel@edumazet-laptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le vendredi 12 novembre 2010 =C3=A0 19:12 +0100, Eric Dumazet a =C3=A9c=
+Le vendredi 12 novembre 2010 =C3=A0 19:21 +0100, Eric Dumazet a =C3=A9c=
 rit :
-> Le vendredi 12 novembre 2010 =C3=A0 20:57 +0300, Alexey Kuznetsov a =C3=
-=A9crit :
-> > Hello!
+> Le vendredi 12 novembre 2010 =C3=A0 19:12 +0100, Eric Dumazet a =C3=A9=
+crit :
+> > Le vendredi 12 novembre 2010 =C3=A0 20:57 +0300, Alexey Kuznetsov a=
+ =C3=A9crit :
+> > > Hello!
+> > >=20
+> > > I looked at tcp_v4_err() and found something strange. Quite non-t=
+rivial operations
+> > > are performed on unlocked sockets. It looks like at least this BU=
+G_ON():
+> > >=20
+> > >                 skb =3D tcp_write_queue_head(sk);
+> > >                 BUG_ON(!skb);
+> > >=20
+> > > can be easily triggered.
+> > >=20
+> > > Do I miss something?
+> > >=20
 > >=20
-> > I looked at tcp_v4_err() and found something strange. Quite non-tri=
-vial operations
-> > are performed on unlocked sockets. It looks like at least this BUG_=
-ON():
+> > Hi Alexey !
 > >=20
-> >                 skb =3D tcp_write_queue_head(sk);
-> >                 BUG_ON(!skb);
+> > I see socket is locked around line 368,
 > >=20
-> > can be easily triggered.
+> >         bh_lock_sock(sk);
+> >         /* If too many ICMPs get dropped on busy
+> >          * servers this needs to be solved differently.
+> >          */
+> >         if (sock_owned_by_user(sk))
+> >                 NET_INC_STATS_BH(net, LINUX_MIB_LOCKDROPPEDICMPS);
 > >=20
-> > Do I miss something?
+> >=20
+> > Hmm, maybe some goto is missing ;)
 > >=20
 >=20
-> Hi Alexey !
+> Well, goto is not missing.
 >=20
-> I see socket is locked around line 368,
+> Why do you think BUG_ON(!skb) can be triggered ?
 >=20
->         bh_lock_sock(sk);
->         /* If too many ICMPs get dropped on busy
->          * servers this needs to be solved differently.
->          */
->         if (sock_owned_by_user(sk))
->                 NET_INC_STATS_BH(net, LINUX_MIB_LOCKDROPPEDICMPS);
+> We test before :
 >=20
+> 	if (seq !=3D tp->snd_una  || !icsk->icsk_retransmits ||
+> 		!icsk->icsk_backoff)
+> 		break;
 >=20
-> Hmm, maybe some goto is missing ;)
+> So a concurrent user only can add new skb(s) in the (non empty) queue=
+ ?
+>=20
 >=20
 
-Well, goto is not missing.
+Oh well, it seems you are right (backlog processing)
 
-Why do you think BUG_ON(!skb) can be triggered ?
-
-We test before :
-
-	if (seq !=3D tp->snd_una  || !icsk->icsk_retransmits ||
-		!icsk->icsk_backoff)
-		break;
-
-So a concurrent user only can add new skb(s) in the (non empty) queue ?
+Bug was introduced in commit f1ecd5d9e736660 (Revert Backoff [v3]:
+Revert RTO on ICMP destination unreachable) from Damian Lukowski
