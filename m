@@ -1,31 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] gianfar: Do not call device_set_wakeup_enable() under
- a spinlock
-Date: Fri, 12 Nov 2010 14:06:13 -0800 (PST)
-Message-ID: <20101112.140613.45885023.davem@davemloft.net>
-References: <AANLkTimf_mVrRPEcj8qBbYw1iYHfWdeKUNS3Kk-dfhTT@mail.gmail.com>
-	<201011090030.42693.rjw@sisk.pl>
-	<201011092254.19550.rjw@sisk.pl>
+Subject: Re: can-bcm: fix minor heap overflow
+Date: Fri, 12 Nov 2010 14:07:34 -0800 (PST)
+Message-ID: <20101112.140734.57456267.davem@davemloft.net>
+References: <4CDB1856.4040001@hartkopp.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: daniel.blueman@gmail.com, romieu@fr.zoreil.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: rjw@sisk.pl
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201011092254.19550.rjw@sisk.pl>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, drosenberg@vsecurity.com,
+	torvalds@linux-foundation.org, urs@isnogud.escape.de,
+	security@kernel.org
+To: socketcan@hartkopp.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43265
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757467Ab0KLWHK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Nov 2010 17:07:10 -0500
+In-Reply-To: <4CDB1856.4040001@hartkopp.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Date: Tue, 9 Nov 2010 22:54:19 +0100
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Date: Wed, 10 Nov 2010 23:10:30 +0100
 
-> The gianfar driver calls device_set_wakeup_enable() under a spinlock,
-> which causes a problem to happen after the recent core power
-> management changes, because this function can sleep now.  Fix this
-> by moving the device_set_wakeup_enable() call out of the
-> spinlock-protected area.
+> On 64-bit platforms the ASCII representation of a pointer may be up to 17
+> bytes long. This patch increases the length of the buffer accordingly.
 > 
-> Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
+> http://marc.info/?l=linux-netdev&m=128872251418192&w=2
+> 
+> Reported-by: Dan Rosenberg <drosenberg@vsecurity.com>
+> Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
+> CC: Linus Torvalds <torvalds@linux-foundation.org>
 
-Patch applied, thank you.
+Patch applied, thanks.
