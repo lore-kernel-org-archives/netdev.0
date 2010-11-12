@@ -1,38 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH] network: return errors if we know tcp_connect
- failed
-Date: Fri, 12 Nov 2010 11:28:36 -0800 (PST)
-Message-ID: <20101112.112836.183042210.davem@davemloft.net>
-References: <20101111210341.31350.86916.stgit@paris.rdu.redhat.com>
-	<20101112174620.GA16544@ms2.inr.ac.ru>
+From: David Teigland <teigland@redhat.com>
+Subject: Re: [PATCH] dlm: Handle application limited situations properly.
+Date: Fri, 12 Nov 2010 15:03:33 -0500
+Message-ID: <20101112200333.GD11037@redhat.com>
+References: <20101110.215639.189706684.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eparis@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, pekkas@netcore.fi, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net
-To: kuznet@ms2.inr.ac.ru
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54549
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756825Ab0KLT2L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Nov 2010 14:28:11 -0500
-In-Reply-To: <20101112174620.GA16544@ms2.inr.ac.ru>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: ccaulfie@redhat.com, cluster-devel@redhat.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20101110.215639.189706684.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Date: Fri, 12 Nov 2010 20:46:20 +0300
+On Wed, Nov 10, 2010 at 09:56:39PM -0800, David Miller wrote:
+> 
+> In the normal regime where an application uses non-blocking I/O
+> writes on a socket, they will handle -EAGAIN and use poll() to
+> wait for send space.
+> 
+> They don't actually sleep on the socket I/O write.
+> 
+> But kernel level RPC layers that do socket I/O operations directly
+> and key off of -EAGAIN on the write() to "try again later" don't
+> use poll(), they instead have their own sleeping mechanism and
+> rely upon ->sk_write_space() to trigger the wakeup.
+> 
+> So they do effectively sleep on the write(), but this mechanism
+> alone does not let the socket layers know what's going on.
+> 
+> Therefore they must emulate what would have happened, otherwise
+> TCP cannot possibly see that the connection is application window
+> size limited.
+> 
+> Handle this, therefore, like SUNRPC by setting SOCK_NOSPACE and
+> bumping the ->sk_write_count as needed when we hit the send buffer
+> limits.
+> 
+> This should make TCP send buffer size auto-tuning and the
+> ->sk_write_space() callback invocations actually happen.
 
-> The only loophole is ICMP error in the same case as yours. In
-> _violation_ of specs linux immediately aborts unestablished connect
-> on an icmp error. IMHO that thing which you suggest is correct (of
-> course, provided you filter out transient errors and react only to
-> EPERM or something like this). It was not done because it was
-> expected firewall rule prescribing immediate abort is configured
-> with "--reject-with icmp-port-unreachable", otherwise the rule
-> orders real blackhole.
-
-The idea to signal on -EPERM might be OK, but if that's also
-what things like "-m statistical" and friends end up reporting
-then we still cannot do it.
+Thanks, pushed to
+git://git.kernel.org/pub/scm/linux/kernel/git/teigland/dlm.git#next
