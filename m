@@ -1,71 +1,70 @@
-From: Dan Rosenberg <drosenberg@vsecurity.com>
-Subject: [PATCH 10/10] Fix leaking of kernel heap addresses in net/
-Date: Thu, 11 Nov 2010 20:07:25 -0500
-Message-ID: <1289524045.5167.74.camel@dan>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 2/10] Fix leaking of kernel heap addresses in net/
+Date: Thu, 11 Nov 2010 17:17:54 -0800
+Message-ID: <20101111171754.0198e151@nehalam>
+References: <1289524019.5167.66.camel@dan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: "David S. Miller" <davem@davemloft.net>,
+Cc: "David S. Miller" <davem@davemloft.net>,
 	Oliver Hartkopp <socketcan@hartkopp.net>,
 	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
 	Urs Thuermann <urs.thuermann@volkswagen.de>,
-	Hideaki YOSHI
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	James Morris <jmorris@namei.org>,
+	Remi Denis-Courmont <remi.denis-courmont@nokia.com>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	Sridhar Samudrala <sri@us.ibm.com>,
+	Vlad Yasevich <vladislav.yasevich@hp.com>,
+	Tejun Heo <tj@kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Li Zefan <lizf@cn.fujitsu.com>, Joe Perches <joe@perches.com>,
+	Jamal Hadi Salim <hadi@mojatatu.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Alexey Dobriyan <adobriyan@gmail.com>,
+	Jiri Pirko <jpirko@redhat.com>,
+	Johannes Berg <johannes.berg@intel.com>,
+	Daniel Lezcano <daniel.lezcano@free.fr>,
+	Pavel Emelyanov <xemul@openvz.org>,
+	socketcan-core@l
+To: Dan Rosenberg <drosenberg@vsecurity.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.vsecurity.com ([209.67.252.12]:60919 "EHLO
-	mx1.vsecurity.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755068Ab0KLBLF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Nov 2010 20:11:05 -0500
+Received: from mail.vyatta.com ([76.74.103.46]:52656 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757366Ab0KLBR6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Nov 2010 20:17:58 -0500
+In-Reply-To: <1289524019.5167.66.camel@dan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 3c95304..ba7cf7c 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -2198,16 +2198,33 @@ static int unix_seq_show(struct seq_file *seq, void *v)
- 		struct unix_sock *u = unix_sk(s);
- 		unix_state_lock(s);
- 
--		seq_printf(seq, "%p: %08X %08X %08X %04X %02X %5lu",
--			s,
--			atomic_read(&s->sk_refcnt),
--			0,
--			s->sk_state == TCP_LISTEN ? __SO_ACCEPTCON : 0,
--			s->sk_type,
--			s->sk_socket ?
--			(s->sk_state == TCP_ESTABLISHED ? SS_CONNECTED : SS_UNCONNECTED) :
--			(s->sk_state == TCP_ESTABLISHED ? SS_CONNECTING : SS_DISCONNECTING),
--			sock_i_ino(s));
-+		/* Only expose kernel addresses to privileged readers */
-+		if (capable(CAP_NET_ADMIN))
-+			seq_printf(seq, "%p: %08X %08X %08X %04X %02X %5lu",
-+				s,
-+				atomic_read(&s->sk_refcnt),
-+				0,
-+				s->sk_state == TCP_LISTEN ? __SO_ACCEPTCON : 0,
-+				s->sk_type,
-+				s->sk_socket ?
-+				(s->sk_state == TCP_ESTABLISHED ?
-+				SS_CONNECTED : SS_UNCONNECTED) :
-+				(s->sk_state == TCP_ESTABLISHED ?
-+				SS_CONNECTING : SS_DISCONNECTING),
-+				sock_i_ino(s));
-+		else
-+			seq_printf(seq, "%d: %08X %08X %08X %04X %02X %5lu",
-+				0,
-+				atomic_read(&s->sk_refcnt),
-+				0,
-+				s->sk_state == TCP_LISTEN ? __SO_ACCEPTCON : 0,
-+				s->sk_type,
-+				s->sk_socket ?
-+				(s->sk_state == TCP_ESTABLISHED ?
-+				SS_CONNECTED : SS_UNCONNECTED) :
-+				(s->sk_state == TCP_ESTABLISHED ?
-+				SS_CONNECTING : SS_DISCONNECTING),
-+				sock_i_ino(s));
- 
- 		if (u->addr) {
- 			int i, len;
+On Thu, 11 Nov 2010 20:06:59 -0500
+Dan Rosenberg <drosenberg@vsecurity.com> wrote:
+
+> diff --git a/net/can/bcm.c b/net/can/bcm.c
+> index 08ffe9e..5960ad7 100644
+> --- a/net/can/bcm.c
+> +++ b/net/can/bcm.c
+> @@ -165,9 +165,16 @@ static int bcm_proc_show(struct seq_file *m, void *v)
+>  	struct bcm_sock *bo = bcm_sk(sk);
+>  	struct bcm_op *op;
+>  
+> -	seq_printf(m, ">>> socket %p", sk->sk_socket);
+> -	seq_printf(m, " / sk %p", sk);
+> -	seq_printf(m, " / bo %p", bo);
+> +	/* Only expose kernel addresses to privileged readers */
+> +	if (capable(CAP_NET_ADMIN))
+> +		seq_printf(m, ">>> socket %p", sk->sk_socket);
+> +		seq_printf(m, " / sk %p", sk);
+> +		seq_printf(m, " / bo %p", bo);
+> +	else
+> +		seq_printf(m, ">>> socket %lu", sock_i_ino(sk));
+> +		seq_printf(m, " / sk %d", 0);
+> +		seq_printf(m, " / bo %d", 0);
+> +
+
+Printing different data based on security state seems like an ABI
+nightmare.
 
 
-
+-- 
