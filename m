@@ -1,45 +1,68 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: request_threaded_irq()
-Date: Fri, 12 Nov 2010 08:35:26 -0800
-Message-ID: <20101112083526.1c3784b1@nehalam>
-References: <AANLkTikCQRiW3oWYSXK7yTxLWd3us+8wdwfuOs1k71VD@mail.gmail.com>
+From: David Lamparter <equinox@diac24.net>
+Subject: Re: [RFC PATCH] network: return errors if we know tcp_connect failed
+Date: Fri, 12 Nov 2010 17:35:43 +0100
+Message-ID: <20101112163543.GB122902@jupiter.n2.diac24.net>
+References: <20101111210341.31350.86916.stgit@paris.rdu.redhat.com>
+ <00c201cb81eb$84e18160$8ea48420$@com>
+ <1289578108.3083.95.camel@localhost.localdomain>
+ <1289578532.3185.265.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Mark Ryden <markryde@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:51996 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932557Ab0KLQf2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Nov 2010 11:35:28 -0500
-In-Reply-To: <AANLkTikCQRiW3oWYSXK7yTxLWd3us+8wdwfuOs1k71VD@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Paris <eparis@redhat.com>, Hua Zhong <hzhong@gmail.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	paul.moore@hp.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1289578532.3185.265.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 12 Nov 2010 14:27:11 +0200
-Mark Ryden <markryde@gmail.com> wrote:
+On Fri, Nov 12, 2010 at 05:15:32PM +0100, Eric Dumazet wrote:
+> Le vendredi 12 novembre 2010 =C3=A0 11:08 -0500, Eric Paris a =C3=A9c=
+rit :
+>=20
+> > 2) What should the generic TCP code (tcp_connect()) do if the skb f=
+ailed
+> > to send.  Should it return error codes back up the stack somehow or
+> > should they continue to be ignored?  Obviously continuing to just i=
+gnore
+> > information we have doesn't make me happy (otherwise I wouldn't hav=
+e
+> > started scratching this itch).  But the point about ENOBUFS is well
+> > taken.  Maybe I should make tcp_connect(), or the caller to
+> > tcp_connect() more intelligent about specific error codes?
+> >=20
+> > I'm looking for a path forward.  If SELinux is rejecting the SYN pa=
+ckets
+> > on connect() I want to pass that info to userspace rather than just
+> > hanging.  What's the best way to accomplish that?
+> >=20
+>=20
+> Eric, if you can differentiate a permanent reject, instead of a
+> temporary one (congestion, or rate limiting, or ENOBUF, or ...), then
+> yes, you could make tcp_connect() report to user the permanent error,
+> and ignore the temporary one.
 
-> Hello netdev,
-> 
-> grepping under net-next-2.6/drivers/net for request_threaded_irq() ,
-> shows that it appears only in 3 drivers:
-> 
-> can/mcp251x.c
-> wireless/b43/main.c
-> wireless/rt2x00/rt2x00pci.c
-> 
-> I was wondering: when thinking about performance, is it worthwhile to use this
-> API instead of ordinary request_irq() . It seems to me that
-> request_threaded_irq()  might
-> be better in some cases than NAPI polling forr network drivers (or at
-> list it might be so in some systems, maybe multicore ?)
+If the netfilter targets DROP/REJECT match the NF_DROP/NF_REJECT
+counterparts, which i guess they do but i didn't read the source ;),
+then SELinux should use NF_REJECT in my opinion.
 
-Threaded irq is not needed for properly written NAPI driver.
-A NAPI driver should do minimum work in real irq and the whole NAPI processing
-will happen in soft-irq.
+NF_DROP does exactly what the name says, it drops the packet aka
+basically puts it in /dev/null. As with writing to /dev/null, you don't
+get an error for that. Even more, if in the meantime the DROP rule does
+not match anymore, the 2nd or 3rd SYN from the connect() can come
+through and establish a connection (think of "-m statistic" & co.)
 
-There has been discussion of moving NAPI softirq into a high
-priority thread. But last time I tried it, the performance was noticably
-worse on network intensive benchmarks.
+This is very different from REJECT.
 
+If REJECT doesn't immediately get reported to the application, that *is=
+*
+a bug, but last time i checked i got EPERM immediately. I would fix
+SELinux to use the same mechanism.
+
+
+-David
