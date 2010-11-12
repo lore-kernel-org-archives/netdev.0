@@ -1,37 +1,86 @@
-From: Anton Vorontsov <cbouatmailru@gmail.com>
-Subject: Re: [PATCH 1/2] ucc_geth: Do not bring the whole IF down when TX
- failure.
-Date: Fri, 12 Nov 2010 17:05:15 +0300
-Message-ID: <20101112140515.GA28223@oksana.dev.rtsoft.ru>
-References: <1289570109-8160-1-git-send-email-Joakim.Tjernlund@transmode.se>
+From: Dan Rosenberg <drosenberg@vsecurity.com>
+Subject: [PATCH v2] Prevent crashing when parsing bad X.25 facilities
+Date: Fri, 12 Nov 2010 09:07:57 -0500
+Message-ID: <1289570877.3090.274.camel@Dan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org
-To: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: andrew.hendry@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:40843 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932094Ab0KLOFX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Nov 2010 09:05:23 -0500
-Received: by eye27 with SMTP id 27so1825742eye.19
-        for <netdev@vger.kernel.org>; Fri, 12 Nov 2010 06:05:22 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1289570109-8160-1-git-send-email-Joakim.Tjernlund@transmode.se>
+Received: from mx1.vsecurity.com ([209.67.252.12]:62408 "EHLO
+	mx1.vsecurity.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757301Ab0KLOH7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Nov 2010 09:07:59 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 12, 2010 at 02:55:08PM +0100, Joakim Tjernlund wrote:
-> ucc_geth_close lacks a cancel_work_sync(&ugeth->timeout_work)
-> to stop any outstanding processing of TX fail. However, one
-> can not call cancel_work_sync without fixing the timeout function
-> otherwise it will deadlock. This patch brings ucc_geth in line with
-> gianfar:
-> 
-> Don't bring the interface down and up, just reinit controller HW
-> and PHY.
-> 
-> Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+On parsing malformed X.25 facilities, decrementing the remaining length
+may cause it to underflow.  Since the length is an unsigned integer,
+this will result in the loop continuing until the kernel crashes.
 
-Looks sane, thanks!
+This patch adds checks to ensure decrementing the remaining length does
+not cause it to wrap around.
 
-Reviewed-by: Anton Vorontsov <cbouatmailru@gmail.com>
+v2 prevents printing values outside the appropriate range.
+
+Signed-off-by: Dan Rosenberg <drosenberg@vsecurity.com>
+CC: stable <stable@kernel.org>
+---
+ net/x25/x25_facilities.c |   13 ++++++++++---
+ 1 files changed, 10 insertions(+), 3 deletions(-)
+
+diff --git a/net/x25/x25_facilities.c b/net/x25/x25_facilities.c
+index 3a8c4c4..7f18e7d 100644
+--- a/net/x25/x25_facilities.c
++++ b/net/x25/x25_facilities.c
+@@ -61,6 +61,8 @@ int x25_parse_facilities(struct sk_buff *skb, struct x25_facilities *facilities,
+ 	while (len > 0) {
+ 		switch (*p & X25_FAC_CLASS_MASK) {
+ 		case X25_FAC_CLASS_A:
++			if (len < 2)
++				return 0;
+ 			switch (*p) {
+ 			case X25_FAC_REVERSE:
+ 				if((p[1] & 0x81) == 0x81) {
+@@ -104,6 +106,8 @@ int x25_parse_facilities(struct sk_buff *skb, struct x25_facilities *facilities,
+ 			len -= 2;
+ 			break;
+ 		case X25_FAC_CLASS_B:
++			if (len < 3)
++				return 0;
+ 			switch (*p) {
+ 			case X25_FAC_PACKET_SIZE:
+ 				facilities->pacsize_in  = p[1];
+@@ -125,6 +129,8 @@ int x25_parse_facilities(struct sk_buff *skb, struct x25_facilities *facilities,
+ 			len -= 3;
+ 			break;
+ 		case X25_FAC_CLASS_C:
++			if (len < 4)
++				return 0;
+ 			printk(KERN_DEBUG "X.25: unknown facility %02X, "
+ 			       "values %02X, %02X, %02X\n",
+ 			       p[0], p[1], p[2], p[3]);
+@@ -132,6 +138,8 @@ int x25_parse_facilities(struct sk_buff *skb, struct x25_facilities *facilities,
+ 			len -= 4;
+ 			break;
+ 		case X25_FAC_CLASS_D:
++			if (len < p[1] + 2)
++				return 0;
+ 			switch (*p) {
+ 			case X25_FAC_CALLING_AE:
+ 				if (p[1] > X25_MAX_DTE_FACIL_LEN || p[1] <= 1)
+@@ -149,9 +157,8 @@ int x25_parse_facilities(struct sk_buff *skb, struct x25_facilities *facilities,
+ 				break;
+ 			default:
+ 				printk(KERN_DEBUG "X.25: unknown facility %02X,"
+-					"length %d, values %02X, %02X, "
+-					"%02X, %02X\n",
+-					p[0], p[1], p[2], p[3], p[4], p[5]);
++					"length %d\n"
++					p[0], p[1]);
+ 				break;
+ 			}
+ 			len -= p[1] + 2;
+
+
