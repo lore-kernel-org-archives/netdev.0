@@ -1,34 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: Make rt->fl.iif tests lest obscure.
-Date: Thu, 11 Nov 2010 16:36:17 -0800 (PST)
-Message-ID: <20101111.163617.15250206.davem@davemloft.net>
-References: <20101111.162814.35035010.davem@davemloft.net>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: Re: [e1000e] BUG triggered in blink path
+Date: Thu, 11 Nov 2010 16:40:28 -0800 (Pacific Standard Time)
+Message-ID: <alpine.WNT.2.00.1011111638570.14720@jbrandeb-desk1.amr.corp.intel.com>
+References: <20101109083954.GB11829@mail.eitzenberger.org> <alpine.WNT.2.00.1011101030130.14720@jbrandeb-desk1.amr.corp.intel.com> <20101111101738.GA2972@mail.eitzenberger.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Holger Eitzenberger <holger@eitzenberger.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60242
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751505Ab0KLAfw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Nov 2010 19:35:52 -0500
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 985C424C089
-	for <netdev@vger.kernel.org>; Thu, 11 Nov 2010 16:36:17 -0800 (PST)
-In-Reply-To: <20101111.162814.35035010.davem@davemloft.net>
+Received: from mga03.intel.com ([143.182.124.21]:42460 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755202Ab0KLAka (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Nov 2010 19:40:30 -0500
+In-Reply-To: <20101111101738.GA2972@mail.eitzenberger.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Thu, 11 Nov 2010 16:28:14 -0800 (PST)
 
-> diff --git a/net/decnet/dn_route.c b/net/decnet/dn_route.c
-> index 94a9eb1..9aad1c0 100644
-> --- a/net/decnet/dn_route.c
-> +++ b/net/decnet/dn_route.c
-> @@ -1181,7 +1181,7 @@ static int __dn_route_output_key(struct dst_entry **pprt, const struct flowi *fl
 
-Anyone looking at this closely will notice that I need to redo these
-decnet parts.
+On Thu, 11 Nov 2010, Holger Eitzenberger wrote:
+> I've attached the patch against net-next-2.6.  Please check if it's ok
+> for you.  I checked e1000, igb and ixgbe as well, they don't have that
+> problem.
 
-Updated patch coming up.
+Holger, 
+
+I think the patch looks good and thanks.  Great catch too!  I see Jeff has 
+put it into our testing process.
+
+Reviewed-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
