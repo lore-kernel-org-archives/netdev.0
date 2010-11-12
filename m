@@ -1,47 +1,42 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH 09/14] drivers/net/can/sja1000: Use printf extension %pR for struct resource
-Date: Fri, 12 Nov 2010 13:37:59 -0800
-Message-ID: <199bf35f52ea48bef79d4b40b504b0c85dca6fad.1289597644.git.joe@perches.com>
-References: <cover.1289597644.git.joe@perches.com>
-Cc: Wolfgang Grandegger <wg@grandegger.com>,
-	socketcan-core@lists.berlios.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jiri Kosina <trivial@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1289597644.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipv6: addrconf: don't remove address state on ifdown
+ if the address is being kept
+Date: Fri, 12 Nov 2010 13:45:19 -0800 (PST)
+Message-ID: <20101112.134519.52180921.davem@davemloft.net>
+References: <AANLkTimyqFoUvjQM_qLS2YeVmJQ_6-LJc6KfLVE-mzH3@mail.gmail.com>
+	<AANLkTimLicmgC3BptZvXGoA0aN6-cFJtRG3DpqJ3NTpJ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, maze@google.com, brian.haley@hp.com
+To: lorenzo@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40974
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932627Ab0KLVoz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Nov 2010 16:44:55 -0500
+In-Reply-To: <AANLkTimLicmgC3BptZvXGoA0aN6-cFJtRG3DpqJ3NTpJ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Using %pR standardizes the struct resource output.
+From: Lorenzo Colitti <lorenzo@google.com>
+Date: Wed, 27 Oct 2010 23:45:17 -0700
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- drivers/net/can/sja1000/sja1000_of_platform.c |    8 ++------
- 1 files changed, 2 insertions(+), 6 deletions(-)
+> On Wed, Oct 27, 2010 at 9:16 PM, Lorenzo Colitti <lorenzo@google.com> wrote:
+>> Fix it so that none of this state is updated if the address is being kept on the interface.
+> 
+> Or, since the logic of the patched code is a little hard to follow,
+> here's an alternative patch against 2.6.36. I think it does exactly
+> the same as the previous patch, but it moves things around to make the
+> result more readable.
+> 
+> Tested: Added a statically configured IPv6 address to an interface,
+> started ping, brought link down, brought link up again. When link came
+> up ping kept on going and "ip -6 maddr" showed that the host was still
+> subscribed to there
+> 
+> Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
 
-diff --git a/drivers/net/can/sja1000/sja1000_of_platform.c b/drivers/net/can/sja1000/sja1000_of_platform.c
-index 5bfccfd..09c3e9d 100644
---- a/drivers/net/can/sja1000/sja1000_of_platform.c
-+++ b/drivers/net/can/sja1000/sja1000_of_platform.c
-@@ -107,17 +107,13 @@ static int __devinit sja1000_ofp_probe(struct platform_device *ofdev,
- 	res_size = resource_size(&res);
- 
- 	if (!request_mem_region(res.start, res_size, DRV_NAME)) {
--		dev_err(&ofdev->dev, "couldn't request %#llx..%#llx\n",
--			(unsigned long long)res.start,
--			(unsigned long long)res.end);
-+		dev_err(&ofdev->dev, "couldn't request %pR\n", &res);
- 		return -EBUSY;
- 	}
- 
- 	base = ioremap_nocache(res.start, res_size);
- 	if (!base) {
--		dev_err(&ofdev->dev, "couldn't ioremap %#llx..%#llx\n",
--			(unsigned long long)res.start,
--			(unsigned long long)res.end);
-+		dev_err(&ofdev->dev, "couldn't ioremap %pR\n", &res);
- 		err = -ENOMEM;
- 		goto exit_release_mem;
- 	}
--- 
-1.7.3.1.g432b3.dirty
+Ok, this looks good, applied.
+
+Thanks for your patience.
