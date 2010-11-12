@@ -1,86 +1,70 @@
-From: Dan Rosenberg <drosenberg@vsecurity.com>
-Subject: [PATCH v2] Prevent crashing when parsing bad X.25 facilities
-Date: Fri, 12 Nov 2010 09:07:57 -0500
-Message-ID: <1289570877.3090.274.camel@Dan>
+From: Anton Vorontsov <cbouatmailru@gmail.com>
+Subject: Re: [PATCH 2/2] ucc_geth: Fix deadlock
+Date: Fri, 12 Nov 2010 17:09:47 +0300
+Message-ID: <20101112140947.GB28223@oksana.dev.rtsoft.ru>
+References: <1289570109-8160-1-git-send-email-Joakim.Tjernlund@transmode.se>
+ <1289570109-8160-2-git-send-email-Joakim.Tjernlund@transmode.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: andrew.hendry@gmail.com
+Content-Type: text/plain; charset=utf-8
+Cc: linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org
+To: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.vsecurity.com ([209.67.252.12]:62408 "EHLO
-	mx1.vsecurity.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757301Ab0KLOH7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Nov 2010 09:07:59 -0500
+Received: from mail-ew0-f46.google.com ([209.85.215.46]:63356 "EHLO
+	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753493Ab0KLOJx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Nov 2010 09:09:53 -0500
+Received: by ewy7 with SMTP id 7so1814691ewy.19
+        for <netdev@vger.kernel.org>; Fri, 12 Nov 2010 06:09:52 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1289570109-8160-2-git-send-email-Joakim.Tjernlund@transmode.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On parsing malformed X.25 facilities, decrementing the remaining length
-may cause it to underflow.  Since the length is an unsigned integer,
-this will result in the loop continuing until the kernel crashes.
+On Fri, Nov 12, 2010 at 02:55:09PM +0100, Joakim Tjernlund wrote:
+> This script:
+>  while [ 1==1 ] ; do ifconfig eth0 up; usleep 1950000 ;ifconfig eth0 down; dmesg -c ;done
+> causes in just a second or two:
+> INFO: task ifconfig:572 blocked for more than 120 seconds.
+[...]
+> The reason appears to be ucc_geth_stop meets adjust_link as the
+> PHY reports PHY changes. I belive adjust_link hangs somewhere,
+> holding the PHY lock, because ucc_geth_stop disabled the
+> controller HW.
+> Fix is to stop the PHY before disabling the controller.
+> 
+> Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
 
-This patch adds checks to ensure decrementing the remaining length does
-not cause it to wrap around.
+It's unclear where exactly adjust_link() hangs, but the patch
+looks as the right thing overall.
 
-v2 prevents printing values outside the appropriate range.
+Thanks!
 
-Signed-off-by: Dan Rosenberg <drosenberg@vsecurity.com>
-CC: stable <stable@kernel.org>
----
- net/x25/x25_facilities.c |   13 ++++++++++---
- 1 files changed, 10 insertions(+), 3 deletions(-)
+Reviewed-by: Anton Vorontsov <cbouatmailru@gmail.com>
 
-diff --git a/net/x25/x25_facilities.c b/net/x25/x25_facilities.c
-index 3a8c4c4..7f18e7d 100644
---- a/net/x25/x25_facilities.c
-+++ b/net/x25/x25_facilities.c
-@@ -61,6 +61,8 @@ int x25_parse_facilities(struct sk_buff *skb, struct x25_facilities *facilities,
- 	while (len > 0) {
- 		switch (*p & X25_FAC_CLASS_MASK) {
- 		case X25_FAC_CLASS_A:
-+			if (len < 2)
-+				return 0;
- 			switch (*p) {
- 			case X25_FAC_REVERSE:
- 				if((p[1] & 0x81) == 0x81) {
-@@ -104,6 +106,8 @@ int x25_parse_facilities(struct sk_buff *skb, struct x25_facilities *facilities,
- 			len -= 2;
- 			break;
- 		case X25_FAC_CLASS_B:
-+			if (len < 3)
-+				return 0;
- 			switch (*p) {
- 			case X25_FAC_PACKET_SIZE:
- 				facilities->pacsize_in  = p[1];
-@@ -125,6 +129,8 @@ int x25_parse_facilities(struct sk_buff *skb, struct x25_facilities *facilities,
- 			len -= 3;
- 			break;
- 		case X25_FAC_CLASS_C:
-+			if (len < 4)
-+				return 0;
- 			printk(KERN_DEBUG "X.25: unknown facility %02X, "
- 			       "values %02X, %02X, %02X\n",
- 			       p[0], p[1], p[2], p[3]);
-@@ -132,6 +138,8 @@ int x25_parse_facilities(struct sk_buff *skb, struct x25_facilities *facilities,
- 			len -= 4;
- 			break;
- 		case X25_FAC_CLASS_D:
-+			if (len < p[1] + 2)
-+				return 0;
- 			switch (*p) {
- 			case X25_FAC_CALLING_AE:
- 				if (p[1] > X25_MAX_DTE_FACIL_LEN || p[1] <= 1)
-@@ -149,9 +157,8 @@ int x25_parse_facilities(struct sk_buff *skb, struct x25_facilities *facilities,
- 				break;
- 			default:
- 				printk(KERN_DEBUG "X.25: unknown facility %02X,"
--					"length %d, values %02X, %02X, "
--					"%02X, %02X\n",
--					p[0], p[1], p[2], p[3], p[4], p[5]);
-+					"length %d\n"
-+					p[0], p[1]);
- 				break;
- 			}
- 			len -= p[1] + 2;
-
-
+> ---
+>  drivers/net/ucc_geth.c |   10 +++++++---
+>  1 files changed, 7 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+> index 6c254ed..06a5db3 100644
+> --- a/drivers/net/ucc_geth.c
+> +++ b/drivers/net/ucc_geth.c
+> @@ -2050,12 +2050,16 @@ static void ucc_geth_stop(struct ucc_geth_private *ugeth)
+>  
+>  	ugeth_vdbg("%s: IN", __func__);
+>  
+> +	/*
+> +	 * Tell the kernel the link is down.
+> +	 * Must be done before disabling the controller
+> +	 * or deadlock may happen.
+> +	 */
+> +	phy_stop(phydev);
+> +
+>  	/* Disable the controller */
+>  	ugeth_disable(ugeth, COMM_DIR_RX_AND_TX);
+>  
+> -	/* Tell the kernel the link is down */
+> -	phy_stop(phydev);
+> -
+>  	/* Mask all interrupts */
+>  	out_be32(ugeth->uccf->p_uccm, 0x00000000);
