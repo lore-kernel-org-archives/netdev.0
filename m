@@ -1,86 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: a problem tcp_v4_err()
-Date: Fri, 12 Nov 2010 13:36:20 -0800 (PST)
-Message-ID: <20101112.133620.241452814.davem@davemloft.net>
-References: <1289586803.3185.275.camel@edumazet-laptop>
-	<20101112.112224.112610807.davem@davemloft.net>
-	<1289596718.2743.2.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, kaber@trash.net, equinox@diac24.net,
-	eparis@redhat.com, hzhong@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, pekkas@netcore.fi, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, paul.moore@hp.com,
-	damian@tvk.rwth-aachen.de
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50259
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752733Ab0KLVf4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Nov 2010 16:35:56 -0500
-In-Reply-To: <1289596718.2743.2.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH 00/14] Use printf extension %pR for struct resource
+Date: Fri, 12 Nov 2010 13:37:50 -0800
+Message-ID: <cover.1289597644.git.joe@perches.com>
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org,
+	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-mtd-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-parisc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org
+To: Jiri Kosina <trivial-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 12 Nov 2010 22:18:38 +0100
+Yet more trivia...
 
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+Joe Perches (14):
+  arch/frv: Use printf extension %pR for struct resource
+  arch/mips: Use printf extension %pR for struct resource
+  arch/powerpc: Use printf extension %pR for struct resource
+  drivers/dma/ppc4xx: Use printf extension %pR for struct resource
+  drivers/infiniband: Use printf extension %pR for struct resource
+  drivers/mfd: Use printf extension %pR for struct resource
+  drivers/mtd/maps: Use printf extension %pR for struct resource
+  drivers/mtd/nand: Use printf extension %pR for struct resource
+  drivers/net/can/sja1000: Use printf extension %pR for struct resource
+  drivers/parisc: Use printf extension %pR for struct resource
+  drivers/rapidio: Use printf extension %pR for struct resource
+  drivers/uwb: Use printf extension %pR for struct resource
+  drivers/video: Use printf extension %pR for struct resource
+  sound/ppc: Use printf extension %pR for struct resource
 
-Thanks for reviewing, here is the final bit I committed and
-I'll queue this up for whatever -stable trees need this.
+ arch/frv/mb93090-mb00/pci-vdk.c               |    8 ++------
+ arch/mips/txx9/generic/pci.c                  |    7 ++-----
+ arch/powerpc/kernel/pci_64.c                  |    3 +--
+ arch/powerpc/sysdev/tsi108_dev.c              |    8 ++++----
+ drivers/dma/ppc4xx/adma.c                     |    5 ++---
+ drivers/infiniband/hw/ipath/ipath_driver.c    |    5 ++---
+ drivers/mfd/sm501.c                           |    7 ++-----
+ drivers/mtd/maps/amd76xrom.c                  |    7 ++-----
+ drivers/mtd/maps/ck804xrom.c                  |    7 ++-----
+ drivers/mtd/maps/esb2rom.c                    |    9 +++------
+ drivers/mtd/maps/ichxrom.c                    |    9 +++------
+ drivers/mtd/maps/physmap_of.c                 |    4 +---
+ drivers/mtd/maps/scx200_docflash.c            |    5 ++---
+ drivers/mtd/nand/pasemi_nand.c                |    2 +-
+ drivers/net/can/sja1000/sja1000_of_platform.c |    8 ++------
+ drivers/parisc/dino.c                         |   13 +++++--------
+ drivers/parisc/hppb.c                         |    6 ++----
+ drivers/rapidio/rio.c                         |    4 ++--
+ drivers/uwb/umc-dev.c                         |    7 ++-----
+ drivers/video/platinumfb.c                    |    8 ++------
+ sound/ppc/pmac.c                              |   12 ++++--------
+ 21 files changed, 48 insertions(+), 96 deletions(-)
 
---------------------
-tcp: Don't change unlocked socket state in tcp_v4_err().
-
-Alexey Kuznetsov noticed a regression introduced by
-commit f1ecd5d9e7366609d640ff4040304ea197fbc618
-("Revert Backoff [v3]: Revert RTO on ICMP destination unreachable")
-
-The RTO and timer modification code added to tcp_v4_err()
-doesn't check sock_owned_by_user(), which if true means we
-don't have exclusive access to the socket and therefore cannot
-modify it's critical state.
-
-Just skip this new code block if sock_owned_by_user() is true
-and eliminate the now superfluous sock_owned_by_user() code
-block contained within.
-
-Reported-by: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-CC: Damian Lukowski <damian@tvk.rwth-aachen.de>
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/ipv4/tcp_ipv4.c |    8 +++-----
- 1 files changed, 3 insertions(+), 5 deletions(-)
-
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 8f8527d..69ccbc1 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -415,6 +415,9 @@ void tcp_v4_err(struct sk_buff *icmp_skb, u32 info)
- 		    !icsk->icsk_backoff)
- 			break;
- 
-+		if (sock_owned_by_user(sk))
-+			break;
-+
- 		icsk->icsk_backoff--;
- 		inet_csk(sk)->icsk_rto = __tcp_set_rto(tp) <<
- 					 icsk->icsk_backoff;
-@@ -429,11 +432,6 @@ void tcp_v4_err(struct sk_buff *icmp_skb, u32 info)
- 		if (remaining) {
- 			inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS,
- 						  remaining, TCP_RTO_MAX);
--		} else if (sock_owned_by_user(sk)) {
--			/* RTO revert clocked out retransmission,
--			 * but socket is locked. Will defer. */
--			inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS,
--						  HZ/20, TCP_RTO_MAX);
- 		} else {
- 			/* RTO revert clocked out retransmission.
- 			 * Will retransmit now */
 -- 
-1.7.3.2
+1.7.3.1.g432b3.dirty
 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
