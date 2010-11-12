@@ -1,27 +1,38 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFC PATCH] network: return errors if we know tcp_connect failed
-Date: Fri, 12 Nov 2010 08:36:05 +0100
-Message-ID: <4CDCEE65.3060105@trash.net>
-References: <20101111210341.31350.86916.stgit@paris.rdu.redhat.com> <00c201cb81eb$84e18160$8ea48420$@com>
+Subject: Re: [PATCH] rtnetlink: Fix message size calculation for link messages
+Date: Fri, 12 Nov 2010 08:43:46 +0100
+Message-ID: <4CDCF032.7040802@trash.net>
+References: <20101112014759.GA8491@canuck.infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: 'Eric Paris' <eparis@redhat.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, davem@davemloft.net,
-	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org
-To: Hua Zhong <hzhong@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <00c201cb81eb$84e18160$8ea48420$@com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:56103 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752052Ab0KLHnr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Nov 2010 02:43:47 -0500
+In-Reply-To: <20101112014759.GA8491@canuck.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11.11.2010 22:58, Hua Zhong wrote:
->> Yes, I realize this is little different than if the
->> SYN was dropped in the first network device, but it is different
->> because we know what happened!  We know that connect() call failed
->> and that there isn't anything coming back.
+On 12.11.2010 02:47, Thomas Graf wrote:
+> nlmsg_total_size() calculates the length of a netlink message
+> including header and alignment. nla_total_size() calculates the
+> space an individual attribute consumes which was meant to be used
+> in this context.
 > 
-> I would argue that -j DROP should behave exactly as the packet is dropped in the network, while -j REJECT should signal the failure to the application as soon as possible (which it doesn't seem to do).
+> Also, ensure to account for the attribute header for the
+> IFLA_INFO_XSTATS attribute as implementations of get_xstats_size()
+> seem to assume that we do so.
+> 
+> The addition of two message headers minus the missing attribute
+> header resulted in a calculated message size that was larger than
+> required. Therefore we never risked running out of skb tailroom.
+> 
+> Signed-off-by: Thomas Graf <tgraf@infradead.org>
+> Cc: Patrick McHardy <kaber@trash.net>
 
-It sends an ICMP error or TCP reset. Interpretation is up to TCP.
+Looks good to me, thanks Thomas.
+
+Acked-by: Patrick McHardy <kaber@trash.net>
