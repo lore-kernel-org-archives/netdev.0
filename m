@@ -1,42 +1,33 @@
 From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: [RFC PATCH] network: return errors if we know tcp_connect failed
-Date: Fri, 12 Nov 2010 20:46:20 +0300
-Message-ID: <20101112174620.GA16544@ms2.inr.ac.ru>
-References: <20101111210341.31350.86916.stgit@paris.rdu.redhat.com>
+Subject: a problem tcp_v4_err()
+Date: Fri, 12 Nov 2010 20:57:15 +0300
+Message-ID: <20101112175715.GB16544@ms2.inr.ac.ru>
+References: <20101111210341.31350.86916.stgit@paris.rdu.redhat.com> <00c201cb81eb$84e18160$8ea48420$@com> <1289578108.3083.95.camel@localhost.localdomain> <1289578532.3185.265.camel@edumazet-laptop> <20101112163543.GB122902@jupiter.n2.diac24.net> <4CDD7145.8070606@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+Cc: David Lamparter <equinox@diac24.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Eric Paris <eparis@redhat.com>, Hua Zhong <hzhong@gmail.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	davem@davemloft.net, pekkas@netcore.fi, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net
-To: Eric Paris <eparis@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from minus.inr.ac.ru ([194.67.69.97]:43331 "HELO ms2.inr.ac.ru"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1755400Ab0KLRql (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Nov 2010 12:46:41 -0500
+	yoshfuji@linux-ipv6.org, paul.moore@hp.com
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20101111210341.31350.86916.stgit@paris.rdu.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <4CDD7145.8070606@trash.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Hello!
 
-On Thu, Nov 11, 2010 at 04:03:41PM -0500, Eric Paris wrote:
-> immediately when it calls connect().  Is this wrong?  Is this bad to tell
-> userspace more quickly what happened?  Does passing this error code back up
-> the stack here break something else?  Why do some functions seem to pay
-> attention to tcp_transmit_skb() return codes and some functions just ignore
-> it?
+I looked at tcp_v4_err() and found something strange. Quite non-trivial operations
+are performed on unlocked sockets. It looks like at least this BUG_ON():
 
-Essentially, return value of tcp_transmit_skb() is always ignored.
-It is used only for accounting and for some optimization of retransmission behaviour.
-Generally, tcp does not react on errors coming outside of tcp protocol.
+                skb = tcp_write_queue_head(sk);
+                BUG_ON(!skb);
 
-The only loophole is ICMP error in the same case as yours. In _violation_ of specs
-linux immediately aborts unestablished connect on an icmp error. IMHO that thing
-which you suggest is correct (of course, provided you filter out transient errors and react only
-to EPERM or something like this). It was not done because it was expected
-firewall rule prescribing immediate abort is configured with "--reject-with icmp-port-unreachable",
-otherwise the rule orders real blackhole.
+can be easily triggered.
+
+Do I miss something?
 
 Alexey
