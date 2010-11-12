@@ -1,54 +1,35 @@
-From: Ramkrishna Vepa <Ramkrishna.Vepa@exar.com>
+From: David Woodhouse <dwmw2@infradead.org>
 Subject: RE: [PATCH] vxge: update firmware to version 1.8.1
-Date: Thu, 11 Nov 2010 16:52:08 -0800
-Message-ID: <FCA91A92EE52B041906A0358FC28FCC38EF64B4A15@FRE1EXCH02.hq.exar.com>
+Date: Fri, 12 Nov 2010 01:02:31 +0000
+Message-ID: <1289523752.9408.96.camel@i7.infradead.org>
 References: <1289521154-16377-1-git-send-email-jon.mason@exar.com>
- <1289521353.9408.92.camel@i7.infradead.org>
+	 <1289521353.9408.92.camel@i7.infradead.org>
+	 <FCA91A92EE52B041906A0358FC28FCC38EF64B4A15@FRE1EXCH02.hq.exar.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jon Mason <Jon.Mason@exar.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	Sivakumar Subramani <Sivakumar.Subramani@exar.com>,
 	Sreenivasa Honnur <Sreenivasa.Honnur@exar.com>
-To: David Woodhouse <dwmw2@infradead.org>,
-	Jon Mason <Jon.Mason@exar.com>
+To: Ramkrishna Vepa <Ramkrishna.Vepa@exar.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.exar.com ([204.154.183.83]:7923 "EHLO smtp1.exar.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751505Ab0KLA5P convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Nov 2010 19:57:15 -0500
-In-Reply-To: <1289521353.9408.92.camel@i7.infradead.org>
-Content-Language: en-US
+Received: from casper.infradead.org ([85.118.1.10]:57559 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755236Ab0KLBCd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Nov 2010 20:02:33 -0500
+In-Reply-To: <FCA91A92EE52B041906A0358FC28FCC38EF64B4A15@FRE1EXCH02.hq.exar.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+On Thu, 2010-11-11 at 16:52 -0800, Ramkrishna Vepa wrote:
+> 
+> Yes, this firmware is compatible with the driver currently in the
+> kernel. No driver change is required to work with this firmware
+> version. 
 
-Yes, this firmware is compatible with the driver currently in the kernel. No driver change is required to work with this firmware version.
+Thanks. Pushed.
 
-Thanks,
-Ram
-> -----Original Message-----
-> From: David Woodhouse [mailto:dwmw2@infradead.org]
-> Sent: Thursday, November 11, 2010 4:23 PM
-> To: Jon Mason
-> Cc: netdev@vger.kernel.org; Sivakumar Subramani; Sreenivasa Honnur;
-> Ramkrishna Vepa
-> Subject: Re: [PATCH] vxge: update firmware to version 1.8.1
->
-> On Thu, 2010-11-11 at 18:19 -0600, Jon Mason wrote:
-> > Update firmware for the Exar X3100 10Gbps adapters to version 1.8.1
->
-> This is a compatible change which doesn't require driver changes?
->
-> --
-> dwmw2
+-- 
+dwmw2
 
-
-The information and any attached documents contained in this message
-may be confidential and/or legally privileged.  The message is
-intended solely for the addressee(s).  If you are not the intended
-recipient, you are hereby notified that any use, dissemination, or
-reproduction is strictly prohibited and may be unlawful.  If you are
-not the intended recipient, please contact the sender immediately by
-return e-mail and destroy all copies of the original message.
