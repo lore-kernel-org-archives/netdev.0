@@ -1,62 +1,47 @@
-From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH 00/14] Use printf extension %pR for struct resource
-Date: Fri, 12 Nov 2010 13:37:50 -0800
-Message-ID: <cover.1289597644.git.joe@perches.com>
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org,
-	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-mtd-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-parisc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org
-To: Jiri Kosina <trivial-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 09/14] drivers/net/can/sja1000: Use printf extension %pR for struct resource
+Date: Fri, 12 Nov 2010 13:37:59 -0800
+Message-ID: <199bf35f52ea48bef79d4b40b504b0c85dca6fad.1289597644.git.joe@perches.com>
+References: <cover.1289597644.git.joe@perches.com>
+Cc: Wolfgang Grandegger <wg@grandegger.com>,
+	socketcan-core@lists.berlios.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jiri Kosina <trivial@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1289597644.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Yet more trivia...
+Using %pR standardizes the struct resource output.
 
-Joe Perches (14):
-  arch/frv: Use printf extension %pR for struct resource
-  arch/mips: Use printf extension %pR for struct resource
-  arch/powerpc: Use printf extension %pR for struct resource
-  drivers/dma/ppc4xx: Use printf extension %pR for struct resource
-  drivers/infiniband: Use printf extension %pR for struct resource
-  drivers/mfd: Use printf extension %pR for struct resource
-  drivers/mtd/maps: Use printf extension %pR for struct resource
-  drivers/mtd/nand: Use printf extension %pR for struct resource
-  drivers/net/can/sja1000: Use printf extension %pR for struct resource
-  drivers/parisc: Use printf extension %pR for struct resource
-  drivers/rapidio: Use printf extension %pR for struct resource
-  drivers/uwb: Use printf extension %pR for struct resource
-  drivers/video: Use printf extension %pR for struct resource
-  sound/ppc: Use printf extension %pR for struct resource
-
- arch/frv/mb93090-mb00/pci-vdk.c               |    8 ++------
- arch/mips/txx9/generic/pci.c                  |    7 ++-----
- arch/powerpc/kernel/pci_64.c                  |    3 +--
- arch/powerpc/sysdev/tsi108_dev.c              |    8 ++++----
- drivers/dma/ppc4xx/adma.c                     |    5 ++---
- drivers/infiniband/hw/ipath/ipath_driver.c    |    5 ++---
- drivers/mfd/sm501.c                           |    7 ++-----
- drivers/mtd/maps/amd76xrom.c                  |    7 ++-----
- drivers/mtd/maps/ck804xrom.c                  |    7 ++-----
- drivers/mtd/maps/esb2rom.c                    |    9 +++------
- drivers/mtd/maps/ichxrom.c                    |    9 +++------
- drivers/mtd/maps/physmap_of.c                 |    4 +---
- drivers/mtd/maps/scx200_docflash.c            |    5 ++---
- drivers/mtd/nand/pasemi_nand.c                |    2 +-
+Signed-off-by: Joe Perches <joe@perches.com>
+---
  drivers/net/can/sja1000/sja1000_of_platform.c |    8 ++------
- drivers/parisc/dino.c                         |   13 +++++--------
- drivers/parisc/hppb.c                         |    6 ++----
- drivers/rapidio/rio.c                         |    4 ++--
- drivers/uwb/umc-dev.c                         |    7 ++-----
- drivers/video/platinumfb.c                    |    8 ++------
- sound/ppc/pmac.c                              |   12 ++++--------
- 21 files changed, 48 insertions(+), 96 deletions(-)
+ 1 files changed, 2 insertions(+), 6 deletions(-)
 
+diff --git a/drivers/net/can/sja1000/sja1000_of_platform.c b/drivers/net/can/sja1000/sja1000_of_platform.c
+index 5bfccfd..09c3e9d 100644
+--- a/drivers/net/can/sja1000/sja1000_of_platform.c
++++ b/drivers/net/can/sja1000/sja1000_of_platform.c
+@@ -107,17 +107,13 @@ static int __devinit sja1000_ofp_probe(struct platform_device *ofdev,
+ 	res_size = resource_size(&res);
+ 
+ 	if (!request_mem_region(res.start, res_size, DRV_NAME)) {
+-		dev_err(&ofdev->dev, "couldn't request %#llx..%#llx\n",
+-			(unsigned long long)res.start,
+-			(unsigned long long)res.end);
++		dev_err(&ofdev->dev, "couldn't request %pR\n", &res);
+ 		return -EBUSY;
+ 	}
+ 
+ 	base = ioremap_nocache(res.start, res_size);
+ 	if (!base) {
+-		dev_err(&ofdev->dev, "couldn't ioremap %#llx..%#llx\n",
+-			(unsigned long long)res.start,
+-			(unsigned long long)res.end);
++		dev_err(&ofdev->dev, "couldn't ioremap %pR\n", &res);
+ 		err = -ENOMEM;
+ 		goto exit_release_mem;
+ 	}
 -- 
 1.7.3.1.g432b3.dirty
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
