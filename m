@@ -1,9 +1,8 @@
-From: Dan Rosenberg <drosenberg@vsecurity.com>
-Subject: Re: [PATCH 2/10] Fix leaking of kernel heap addresses in net/
-Date: Fri, 12 Nov 2010 10:11:51 -0500
-Message-ID: <1289574711.3090.285.camel@Dan>
-References: <1289524019.5167.66.camel@dan>
-	 <1289574562.2247.1.camel@achroite.uk.solarflarecom.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 3/10] Fix leaking of kernel heap addresses in net/
+Date: Fri, 12 Nov 2010 15:11:46 +0000
+Message-ID: <1289574706.2247.4.camel@achroite.uk.solarflarecom.com>
+References: <1289524023.5167.67.camel@dan>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -29,39 +28,62 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Johannes Berg <johannes.berg@intel.com>,
 	Daniel Lezcano <daniel.lezcano@free.fr>,
 	Pavel Eme
-To: Ben Hutchings <bhutchings@solarflare.com>
+To: Dan Rosenberg <drosenberg@vsecurity.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.vsecurity.com ([209.67.252.12]:52774 "EHLO
-	mx1.vsecurity.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932100Ab0KLPLy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Nov 2010 10:11:54 -0500
-In-Reply-To: <1289574562.2247.1.camel@achroite.uk.solarflarecom.com>
+Received: from mail.solarflare.com ([216.237.3.220]:20766 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757099Ab0KLPLx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Nov 2010 10:11:53 -0500
+In-Reply-To: <1289524023.5167.67.camel@dan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, 2010-11-11 at 20:07 -0500, Dan Rosenberg wrote:
+> diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
+> index 1f85ef2..0ac8ff2 100644
+> --- a/net/ipv4/raw.c
+> +++ b/net/ipv4/raw.c
+[...]
+> +	/* Only expose kernel addresses to privileged readers */
+> +	if (capable(CAP_NET_ADMIN))
+> +		seq_printf(seq, "%4d: %08X:%04X %08X:%04X"
+> +			" %02X %08X:%08X %02X:%08lX %08X %5d %8d %lu %d %p %d\n",
+> +			i, src, srcp, dest, destp, sp->sk_state,
+> +			sk_wmem_alloc_get(sp),
+> +			sk_rmem_alloc_get(sp),
+> +			0, 0L, 0, sock_i_uid(sp), 0, sock_i_ino(sp),
+> +			atomic_read(&sp->sk_refcnt),
+> +			sp, atomic_read(&sp->sk_drops));
+> +	else
+> +		seq_printf(seq, "%4d: %08X:%04X %08X:%04X"
+> +			" %02X %08X:%08X %02X:%08lX %08X %5d %8d %lu %d %d %d\n",
+> +			i, src, srcp, dest, destp, sp->sk_state,
+> +			sk_wmem_alloc_get(sp),
+> +			sk_rmem_alloc_get(sp),
+> +			0, 0L, 0, sock_i_uid(sp), 0, sock_i_ino(sp),
+> +			atomic_read(&sp->sk_refcnt),
+> +			0, atomic_read(&sp->sk_drops));
+[...]
 
-> On Thu, 2010-11-11 at 20:06 -0500, Dan Rosenberg wrote:
-> > diff --git a/net/can/bcm.c b/net/can/bcm.c
-> > index 08ffe9e..5960ad7 100644
-> > --- a/net/can/bcm.c
-> > +++ b/net/can/bcm.c
-> [...]
-> > +		seq_printf(m, ">>> socket %lu", sock_i_ino(sk));
-> 
-> Why decimal here...
-> 
-> [...]
-> > +		/* unique socket inode as filename */
-> > +		sprintf(bo->procname, "%lx", sock_i_ino(sk));
-> 
-> ...and hexadecimal here?
-> 
-> Ben.
-> 
+This could just be written as:
 
-You're right, it should be consistent.  I avoided decimal in the /proc
-filename because it may be too long - the next version will do the same
-for the seq_print output.
+	seq_printf(seq, "%4d: %08X:%04X %08X:%04X"
+		" %02X %08X:%08X %02X:%08lX %08X %5d %8d %lu %d %lx %d\n",
+		i, src, srcp, dest, destp, sp->sk_state,
+		sk_wmem_alloc_get(sp),
+		sk_rmem_alloc_get(sp),
+		0, 0L, 0, sock_i_uid(sp), 0, sock_i_ino(sp),
+		atomic_read(&sp->sk_refcnt),
+		capable(CAP_NET_ADMIN) ? (unsigned long)sp : 0UL,
+		atomic_read(&sp->sk_drops));
 
--Dan
+Similarly for other formats that you want to make conditional on
+CAP_NET_ADMIN.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
