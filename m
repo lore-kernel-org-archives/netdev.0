@@ -1,40 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6 V2] igmp: RCU conversion of in_dev->mc_list
-Date: Fri, 12 Nov 2010 13:19:36 -0800 (PST)
-Message-ID: <20101112.131936.191390015.davem@davemloft.net>
-References: <1289568858.3185.252.camel@edumazet-laptop>
-	<1289571974.3185.254.camel@edumazet-laptop>
-	<1289576810.3185.261.camel@edumazet-laptop>
+Subject: Re: [PATCH] net: Kconfig whitespace cleanup
+Date: Fri, 12 Nov 2010 13:21:31 -0800 (PST)
+Message-ID: <20101112.132131.241914428.davem@davemloft.net>
+References: <1289514681-3940-1-git-send-email-phdm@macqel.be>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, cypher.w@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org
+To: phdm@macqel.be
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39746
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56319
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932796Ab0KLVTM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Nov 2010 16:19:12 -0500
-In-Reply-To: <1289576810.3185.261.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S932837Ab0KLVVH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Nov 2010 16:21:07 -0500
+In-Reply-To: <1289514681-3940-1-git-send-email-phdm@macqel.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 12 Nov 2010 16:46:50 +0100
+From: Philippe De Muyter <phdm@macqel.be>
+Date: Thu, 11 Nov 2010 23:31:21 +0100
 
-> [PATCH net-next-2.6 V2] igmp: RCU conversion of in_dev->mc_list
+> Many lines in Kconfig start withe 8 spaces instead of a TAB, and even
+> sometimes with 7 spaces.  Replace 10 or 9 spaces, or TAB + 1 space,
+> by TAB + 2 spaces, and 8 or 7 spaces by TAB.
 > 
-> in_dev->mc_list is protected by one rwlock (in_dev->mc_list_lock).
-> 
-> This can easily be converted to a RCU protection.
-> 
-> Writers hold RTNL, so mc_list_lock is removed, not replaced by a
-> spinlock.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Philippe De Muyter <phdm@macqel.be>
 
-This looks good to me, so I've applied it to net-next-2.6
-
-We have enough time there to fix any fallout or revert if
-necessary.
+Applied, thanks.
