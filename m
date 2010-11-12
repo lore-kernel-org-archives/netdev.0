@@ -1,28 +1,56 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: a problem tcp_v4_err()
-Date: Fri, 12 Nov 2010 21:31:08 +0300
-Message-ID: <20101112183108.GB20459@ms2.inr.ac.ru>
-References: <20101111210341.31350.86916.stgit@paris.rdu.redhat.com> <00c201cb81eb$84e18160$8ea48420$@com> <1289578108.3083.95.camel@localhost.localdomain> <1289578532.3185.265.camel@edumazet-laptop> <20101112163543.GB122902@jupiter.n2.diac24.net> <4CDD7145.8070606@trash.net> <20101112175715.GB16544@ms2.inr.ac.ru> <1289585578.3185.268.camel@edumazet-laptop> <1289586114.3185.271.camel@edumazet-laptop> <1289586477.3185.273.camel@edumazet-laptop>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 4/10] Fix leaking of kernel heap addresses in net/
+Date: Fri, 12 Nov 2010 10:33:10 -0800
+Message-ID: <20101112103310.5504cf77@nehalam>
+References: <2129857903-1289528127-cardhu_decombobulator_blackberry.rim.net-1506931048-@bda083.bisx.prod.on.blackberry>
+	<20101111.182939.258124014.davem@davemloft.net>
+	<1289529269.3090.207.camel@Dan>
+	<1289546610.17691.1770.camel@edumazet-laptop>
+	<20101112083315.096dfaa3@nehalam>
+	<1289582682.3090.323.camel@Dan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-	David Lamparter <equinox@diac24.net>,
-	Eric Paris <eparis@redhat.com>, Hua Zhong <hzhong@gmail.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davem@davemloft.net, pekkas@netcore.fi, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, paul.moore@hp.com,
-	Damian Lukowski <damian@tvk.rwth-aachen.de>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1289586477.3185.273.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>, socketcan@hartkopp.net,
+	kuznet@ms2.inr.ac.ru, urs.thuermann@volkswagen.de,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, jmorris@namei.org,
+	remi.denis-courmont@nokia.com, pekkas@netcore.fi, sri@us.ibm.com,
+	vladislav.yasevich@hp.com, tj@kernel.org, lizf@cn.fujitsu.com,
+	joe@perches.com, hadi@mojatatu.com, ebiederm@xmission.com,
+	adobriyan@gmail.com, jpirko@redhat.com, johannes.berg@intel.com,
+	daniel.lezcano@free.fr, xemul@openvz.org,
+	socketcan-core@lists.berlios.de, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org, torvalds@linux-foundation.org
+To: Dan Rosenberg <drosenberg@vsecurity.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:57517 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751829Ab0KLSdS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Nov 2010 13:33:18 -0500
+In-Reply-To: <1289582682.3090.323.camel@Dan>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello!
+On Fri, 12 Nov 2010 12:24:42 -0500
+Dan Rosenberg <drosenberg@vsecurity.com> wrote:
 
-> Oh well, it seems you are right (backlog processing)
+> 
+> > 
+> > Also, the whole idea needs to be under a config option, so only
+> > the paranoid idiots turn it on.
+> 
+> If that's what's necessary to get it accepted, I'm willing to do that.
+> But when a solution does not negatively impact usability or performance
+> and improves security, even in a small way, why should it not be enabled
+> by default?  Of course it's my responsibility to first propose a
+> solution that is acceptable from a usability/debugging standpoint, but
+> assuming that can be achieved, I don't really see what the problem is.
+> There's a difference between being a "paranoid idiot" and wanting to
+> protect users from unnecessary exposure.
 
-Exactly.
+See earlier discussion about automatically running crypto tests on boot
+which caused Linus to flame. This is more intrusive, and is not something
+most developers would want; but it might make sense in production
+environment.
 
-Alexey
