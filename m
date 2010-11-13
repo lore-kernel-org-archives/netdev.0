@@ -1,63 +1,72 @@
-From: Chris Metcalf <cmetcalf@tilera.com>
-Subject: Re: Kernel rwlock design, Multicore and IGMP
-Date: Sat, 13 Nov 2010 18:03:33 -0500
-Message-ID: <4CDF1945.8090101@tilera.com>
-References: <AANLkTikvT=x9eBovn2-m6HLqk7wyXSAR3sc9jCQ0C6mL@mail.gmail.com> <1289489007.17691.1310.camel@edumazet-laptop> <AANLkTik93QUQxSDmwd4Qj-gXQiWWPzd68JPAYAHBAsHR@mail.gmail.com> <ZXmP8hjgLHA.4648@exchange1.tad.internal.tilera.com>
+From: Mike Frysinger <vapier.adi@gmail.com>
+Subject: bridge netpoll support: mismatch between net core and bridge headers
+Date: Sat, 13 Nov 2010 18:26:27 -0500
+Message-ID: <AANLkTimbf+yfJFU29rNWAc-hXBxj92J=dNaShM04GNZ7@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Cypher Wu <cypher.w@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: =?UTF-8?B?QW3DqXJpY28gV2FuZw==?= <xiyou.wangcong@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <ZXmP8hjgLHA.4648@exchange1.tad.internal.tilera.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:41861 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754053Ab0KMX0x convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Nov 2010 18:26:53 -0500
+Received: by wyb28 with SMTP id 28so3205790wyb.19
+        for <netdev@vger.kernel.org>; Sat, 13 Nov 2010 15:26:51 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/12/2010 2:13 AM, Am=C3=A9rico Wang wrote:
-> On Fri, Nov 12, 2010 at 11:32:59AM +0800, Cypher Wu wrote:
->> On Thu, Nov 11, 2010 at 11:23 PM, Eric Dumazet <eric.dumazet@gmail.c=
-om> wrote:
->>> Le jeudi 11 novembre 2010 =C3=A0 21:49 +0800, Cypher Wu a =C3=A9cri=
-t :
->>>> I'm using TILEPro and its rwlock in kernel is a liitle different t=
-han
->>>> other platforms. It have a priority for write lock that when tried=
- it
->>>> will block the following read lock even if read lock is hold by
->>>> others. Its code can be read in Linux Kernel 2.6.36 in
->>>> arch/tile/lib/spinlock_32.c.
->>>
->>> This seems a bug to me.
->>> [...]
->>>
->> It seems not a problem that read_lock() can be nested or not since
->> rwlock doesn't have 'owner', it's just that should we give
->> write_lock() a priority than read_lock() since if there have a lot
->> read_lock()s then they'll starve write_lock().
->> We should work out a well defined behavior so all the
->> platform-dependent raw_rwlock has to design under that principle.
->=20
-> It is a known weakness of rwlock, it is designed like that. :)
+commit 91d2c34a4eed32876ca333b0ca44f3bc56645805 added this bit of code
+to net/bridge/br_private.h:
+struct net_bridge_port {
+    ....
++#ifdef CONFIG_NET_POLL_CONTROLLER
++   struct netpoll          *np;
++#endif
+};
+=2E...
+#ifdef CONFIG_NET_POLL_CONTROLLER
++static inline struct netpoll_info *br_netpoll_info(struct net_bridge *=
+br)
++{
++   return br->dev->npinfo;
++}
+=2E...
 
-Exactly.  The tile rwlock correctly allows recursively reacquiring the =
-read
-lock.  But it does give priority to writers, for the (unfortunately
-incorrect) reasons Cypher Wu outlined above, e.g.:
+unfortunately, this is not the define protection that is used in the
+core net code (include/linux/netdevice.h):
+#ifdef CONFIG_NETPOLL
+    struct netpoll_info *npinfo;
+#endif
 
-- Core A takes a read lock
-- Core B tries for a write lock and blocks new read locks
-- Core A tries for a (recursive) read lock and blocks
+so in my randconfig builds, i'm now seeing frequent failures along the =
+lines of:
 
-Core A and B are now deadlocked.
+In file included from net/bridge/br.c:24:
+net/bridge/br_private.h: In function =E2=80=98br_netpoll_info=E2=80=99:
+net/bridge/br_private.h:293: error: =E2=80=98struct net_device=E2=80=99=
+ has no member
+named =E2=80=98npinfo=E2=80=99
+make[2]: *** [net/bridge/br.o] Error 1
+In file included from net/bridge/br_device.c:24:
+net/bridge/br_private.h: In function =E2=80=98br_netpoll_info=E2=80=99:
+net/bridge/br_private.h:293: error: =E2=80=98struct net_device=E2=80=99=
+ has no member
+named =E2=80=98npinfo=E2=80=99
+In file included from net/bridge/br_fdb.c:27:
+net/bridge/br_private.h: In function =E2=80=98br_netpoll_info=E2=80=99:
+net/bridge/br_private.h:293: error: =E2=80=98struct net_device=E2=80=99=
+ has no member
+named =E2=80=98npinfo=E2=80=99
+make[2]: *** [net/bridge/br_fdb.o] Error 1
+make[2]: *** [net/bridge/br_device.o] Error 1
+In file included from net/bridge/br_forward.c:23:
+net/bridge/br_private.h: In function =E2=80=98br_netpoll_info=E2=80=99:
+net/bridge/br_private.h:293: error: =E2=80=98struct net_device=E2=80=99=
+ has no member
+named =E2=80=98npinfo=E2=80=99
+make[2]: *** [net/bridge/br_forward.o] Error 1
 
-The solution is actually to simplify the tile rwlock implementation so =
-that
-both readers and writers contend fairly for the lock.
-
-I'll post a patch in the next day or two for tile.
-
---=20
-Chris Metcalf, Tilera Corp.
-http://www.tilera.com
+seems to be a regression introduced during the 2.6.36 cycle
+-mike
