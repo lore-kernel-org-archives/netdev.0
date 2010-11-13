@@ -1,81 +1,59 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH net-next-2.6] bridge: add __rcu annotations
-Date: Sat, 13 Nov 2010 10:13:20 -0800
-Message-ID: <20101113101320.4b1c9ba7@nehalam>
-References: <1289636128.2743.15.camel@edumazet-laptop>
-	<20101113093545.6fe9c077@nehalam>
-	<1289671130.2743.28.camel@edumazet-laptop>
+From: Dan Rosenberg <drosenberg@vsecurity.com>
+Subject: Re: [PATCH 4/10] Fix leaking of kernel heap addresses in net/
+Date: Sat, 13 Nov 2010 13:42:34 -0500
+Message-ID: <1289673754.3090.362.camel@Dan>
+References: <1289673008.3090.350.camel@Dan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:58600 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754644Ab0KMSNg convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 13 Nov 2010 13:13:36 -0500
-In-Reply-To: <1289671130.2743.28.camel@edumazet-laptop>
+Received: from mx1.vsecurity.com ([209.67.252.12]:50528 "EHLO
+	mx1.vsecurity.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754197Ab0KMSnl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Nov 2010 13:43:41 -0500
+In-Reply-To: <1289673008.3090.350.camel@Dan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 13 Nov 2010 18:58:50 +0100
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> Actually, this is not even a joke.
+> 
+> Take a look at how we track what sockets a user wants dumped via
+> the inet_diag netlink facility, the socket pointer is used as
+> the identification cookie.
+> 
+> I'm sure we'll now get some more security theatre about how we
+> have to undo that too.
+> 
+> More and more I see this whole idea as extremely rediculious.
+> 
+> If I can write to or read kernel memory, I can look up the
+> sockets, inodes, and whatever else we're currently exposing
+> the addresses of.  Even without a symbol table, which is
+> readily available, I can easily find the ksymtab and find the
+> inode and socket hash table addresses there.
+> 
+> This whole exercise is closing the barn door after the horses have
+> already escaped, and it's causing all kinds of inconveniences
+> that we really have no need for.
 
-> Le samedi 13 novembre 2010 =E0 09:35 -0800, Stephen Hemminger a =E9cr=
-it :
-> > On Sat, 13 Nov 2010 09:15:28 +0100
-> > Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> >=20
-> > > diff --git a/include/linux/netdevice.h b/include/linux/netdevice.=
-h
-> > > index 578debb..ffbd177 100644
-> > > --- a/include/linux/netdevice.h
-> > > +++ b/include/linux/netdevice.h
-> > > @@ -996,7 +996,10 @@ struct net_device {
-> > >  #endif
-> > > =20
-> > >  	rx_handler_func_t	*rx_handler;
-> > > -	void			*rx_handler_data;
-> > > +	union {
-> > > +		void				*rx_handler_data;
-> > > +		struct net_bridge_port __rcu	*br_port_rcu;
-> > > +	};
-> > > =20
-> > >  	struct netdev_queue __rcu *ingress_queue;
-> >=20
-> > I don't like making the generic hook typed again.
-> > We don't do this for other callbacks, timers, workqueues, ...
-> > Why is it necessary for RCU notation.
-> >=20
->=20
-> because rcu_dereference() needs the type for __CHECKER__/sparse check=
-s
->=20
-> #define __rcu_dereference_check(p, c, space) \
->         ({ \
->                 typeof(*p) *_________p1 =3D (typeof(*p)*__force )ACCE=
-SS_ONCE(p); \
->                 rcu_lockdep_assert(c); \
->                 rcu_dereference_sparse(p, space); \
->                 smp_read_barrier_depends(); \
->                 ((typeof(*p) __force __kernel *)(_________p1)); \
->         })
->=20
-> So using a "void *ptr" is not an option
->=20
-> Its also cleaner to use
->=20
-> rcu_dereference(dev->br_port_rcu)
->=20
-> instead of=20
->=20
-> (struct net_bridge_port *)rcu_dereference(dev->rx_handler_data)
+Of course if you can both write and read to kernel memory, this is a
+pointless exercise, but those are not the conditions I am trying to
+defend against.  Proactive security assumes that individual bugs will
+continue to be found, and takes steps to prevent exploitation of classes
+of bugs on a broader scale.  In this case, the goal is for it to be
+difficult to exploit arbitrary write bugs WITHOUT having a separate
+arbitrary read bug.  Several other steps are being taken in this
+direction - there is open discussion about the merits of hiding symbol
+information, address space randomization, marking various likely targets
+as read-only, and restricting access to debugging information.  However,
+none of this really accomplishes much if addresses are still exposed
+via /proc.
 
-There must be a better way. What about use of that hook by macvlan and =
-openvswitch?
+I'm sorry that you see all this as "security theatre".  It's clear that
+there's too much resistance to this effort for it to ever succeed, so
+I'm ceasing attempts to get this patch series through.
 
+-Dan
 
-
---=20
