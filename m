@@ -1,72 +1,71 @@
-From: Mike Frysinger <vapier.adi@gmail.com>
-Subject: bridge netpoll support: mismatch between net core and bridge headers
-Date: Sat, 13 Nov 2010 18:26:27 -0500
-Message-ID: <AANLkTimbf+yfJFU29rNWAc-hXBxj92J=dNaShM04GNZ7@mail.gmail.com>
+From: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
+Subject: [PATCH  kernel 2.6.37-rc1]ipg.c: remove id [SUNDANCE, 0x1021]
+Date: Sun, 14 Nov 2010 08:42:08 +0900
+Message-ID: <20101114084208.b3ee991d.ken_kawasaki@spring.nifty.jp>
+References: <20090405094907.5f6a5fea.ken_kawasaki@spring.nifty.jp>
+	<20090419084444.4ee7ddee.ken_kawasaki@spring.nifty.jp>
+	<20090426162929.3d036f26.ken_kawasaki@spring.nifty.jp>
+	<20090913172257.6c1976ec.ken_kawasaki@spring.nifty.jp>
+	<20091004073257.52a6624b.ken_kawasaki@spring.nifty.jp>
+	<20091221205849.dae4e929.ken_kawasaki@spring.nifty.jp>
+	<20091223171004.77316fa5.ken_kawasaki@spring.nifty.jp>
+	<20100123065625.db751a12.ken_kawasaki@spring.nifty.jp>
+	<20100228083420.9ca8e285.ken_kawasaki@spring.nifty.jp>
+	<20100612191728.2d272cc1.ken_kawasaki@spring.nifty.jp>
+	<20100620102427.77d2c7d3.ken_kawasaki@spring.nifty.jp>
+	<20100706202243.95319ab4.ken_kawasaki@spring.nifty.jp>
+	<20100710201813.a3e5c79c.ken_kawasaki@spring.nifty.jp>
+	<20100829074501.946ebcb8.ken_kawasaki@spring.nifty.jp>
+	<20101030071751.63611ede.ken_kawasaki@spring.nifty.jp>
+	<20101107001124.7d8ef6c4.ken_kawasaki@spring.nifty.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:41861 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754053Ab0KMX0x convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Nov 2010 18:26:53 -0500
-Received: by wyb28 with SMTP id 28so3205790wyb.19
-        for <netdev@vger.kernel.org>; Sat, 13 Nov 2010 15:26:51 -0800 (PST)
+Received: from userg506.nifty.com ([202.248.238.86]:55820 "EHLO
+	userg506.nifty.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754156Ab0KMXnL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Nov 2010 18:43:11 -0500
+Received: from localhost.localdomain (eaoska105173.adsl.ppp.infoweb.ne.jp [218.226.24.173])by userg506.nifty.com with SMTP id oADNh1b3009650
+	for <netdev@vger.kernel.org>; Sun, 14 Nov 2010 08:43:01 +0900
+In-Reply-To: <20101107001124.7d8ef6c4.ken_kawasaki@spring.nifty.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit 91d2c34a4eed32876ca333b0ca44f3bc56645805 added this bit of code
-to net/bridge/br_private.h:
-struct net_bridge_port {
-    ....
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+   struct netpoll          *np;
-+#endif
-};
-=2E...
-#ifdef CONFIG_NET_POLL_CONTROLLER
-+static inline struct netpoll_info *br_netpoll_info(struct net_bridge *=
-br)
-+{
-+   return br->dev->npinfo;
-+}
-=2E...
 
-unfortunately, this is not the define protection that is used in the
-core net code (include/linux/netdevice.h):
-#ifdef CONFIG_NETPOLL
-    struct netpoll_info *npinfo;
-#endif
+ipg.c:
+  The id [SUNDANCE, 0x1021] (=[0x13f0, 0x1021]) is defined
+  at dl2k.h and ipg.c.
+  But this device works better with dl2k driver.
+  
+  This problem is similar with the commit 
+  [25cca5352712561fba97bd37c495593d641c1d39
+  ipg: Remove device claimed by dl2k from pci id table]
+  at 11 Feb 2010.
 
-so in my randconfig builds, i'm now seeing frequent failures along the =
-lines of:
+Signed-off-by: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
 
-In file included from net/bridge/br.c:24:
-net/bridge/br_private.h: In function =E2=80=98br_netpoll_info=E2=80=99:
-net/bridge/br_private.h:293: error: =E2=80=98struct net_device=E2=80=99=
- has no member
-named =E2=80=98npinfo=E2=80=99
-make[2]: *** [net/bridge/br.o] Error 1
-In file included from net/bridge/br_device.c:24:
-net/bridge/br_private.h: In function =E2=80=98br_netpoll_info=E2=80=99:
-net/bridge/br_private.h:293: error: =E2=80=98struct net_device=E2=80=99=
- has no member
-named =E2=80=98npinfo=E2=80=99
-In file included from net/bridge/br_fdb.c:27:
-net/bridge/br_private.h: In function =E2=80=98br_netpoll_info=E2=80=99:
-net/bridge/br_private.h:293: error: =E2=80=98struct net_device=E2=80=99=
- has no member
-named =E2=80=98npinfo=E2=80=99
-make[2]: *** [net/bridge/br_fdb.o] Error 1
-make[2]: *** [net/bridge/br_device.o] Error 1
-In file included from net/bridge/br_forward.c:23:
-net/bridge/br_private.h: In function =E2=80=98br_netpoll_info=E2=80=99:
-net/bridge/br_private.h:293: error: =E2=80=98struct net_device=E2=80=99=
- has no member
-named =E2=80=98npinfo=E2=80=99
-make[2]: *** [net/bridge/br_forward.o] Error 1
+---
 
-seems to be a regression introduced during the 2.6.36 cycle
--mike
+--- linux-2.6.37-rc1/drivers/net/ipg.c.orig	2010-11-13 19:54:53.000000000 +0900
++++ linux-2.6.37-rc1/drivers/net/ipg.c	2010-11-13 19:57:03.000000000 +0900
+@@ -88,16 +88,14 @@ static const char *ipg_brand_name[] = {
+ 	"IC PLUS IP1000 1000/100/10 based NIC",
+ 	"Sundance Technology ST2021 based NIC",
+ 	"Tamarack Microelectronics TC9020/9021 based NIC",
+-	"Tamarack Microelectronics TC9020/9021 based NIC",
+ 	"D-Link NIC IP1000A"
+ };
+ 
+ static DEFINE_PCI_DEVICE_TABLE(ipg_pci_tbl) = {
+ 	{ PCI_VDEVICE(SUNDANCE,	0x1023), 0 },
+ 	{ PCI_VDEVICE(SUNDANCE,	0x2021), 1 },
+-	{ PCI_VDEVICE(SUNDANCE,	0x1021), 2 },
+-	{ PCI_VDEVICE(DLINK,	0x9021), 3 },
+-	{ PCI_VDEVICE(DLINK,	0x4020), 4 },
++	{ PCI_VDEVICE(DLINK,	0x9021), 2 },
++	{ PCI_VDEVICE(DLINK,	0x4020), 3 },
+ 	{ 0, }
+ };
+ 
