@@ -1,42 +1,40 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH] atomic: add atomic_inc_not_zero_hint()
-Date: Sat, 13 Nov 2010 14:26:12 -0800
-Message-ID: <20101113222612.GD2825@linux.vnet.ibm.com>
-References: <1288975980.2882.877.camel@edumazet-laptop>
- <20101105102038.53e36f9e.akpm@linux-foundation.org>
- <1288980046.2882.1054.camel@edumazet-laptop>
- <20101105110828.52f061b3.akpm@linux-foundation.org>
- <1288981224.2882.1105.camel@edumazet-laptop>
- <20101105112821.57f80481.akpm@linux-foundation.org>
- <1288984844.2665.52.camel@edumazet-laptop>
- <20101105195101.GC15561@linux.vnet.ibm.com>
- <alpine.DEB.2.00.1011121313001.16754@router.home>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: Kernel rwlock design, Multicore and IGMP
+Date: Sat, 13 Nov 2010 23:53:46 +0100
+Message-ID: <1289688826.2109.400.camel@laptop>
+References: <AANLkTikvT=x9eBovn2-m6HLqk7wyXSAR3sc9jCQ0C6mL@mail.gmail.com>
+	 <1289489007.17691.1310.camel@edumazet-laptop>
+	 <AANLkTik93QUQxSDmwd4Qj-gXQiWWPzd68JPAYAHBAsHR@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
 Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Ingo Molnar <mingo@elte.hu>, Andi Kleen <andi@firstfloor.org>,
-	Nick Piggin <npiggin@kernel.dk>
-To: Christoph Lameter <cl@linux.com>
+	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Cypher Wu <cypher.w@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e4.ny.us.ibm.com ([32.97.182.144]:60301 "EHLO e4.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753209Ab0KMW03 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 13 Nov 2010 17:26:29 -0500
-Content-Disposition: inline
-In-Reply-To: <alpine.DEB.2.00.1011121313001.16754@router.home>
+Received: from casper.infradead.org ([85.118.1.10]:51984 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754348Ab0KMWxb convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Nov 2010 17:53:31 -0500
+In-Reply-To: <AANLkTik93QUQxSDmwd4Qj-gXQiWWPzd68JPAYAHBAsHR@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 12, 2010 at 01:14:12PM -0600, Christoph Lameter wrote:
-> 
-> prefetchw() would be too much overhead?
+On Fri, 2010-11-12 at 11:32 +0800, Cypher Wu wrote:
+> It seems not a problem that read_lock() can be nested or not since
+> rwlock doesn't have 'owner', 
 
-No idea.  Where do you believe that prefetchw() should be added?
+You're mistaken.
 
-							Thanx, Paul
+> it's just that should we give
+> write_lock() a priority than read_lock() since if there have a lot
+> read_lock()s then they'll starve write_lock().
+
+We rely on that behaviour. FWIW write preference locks will starve
+readers.
+
+> We should work out a well defined behavior so all the
+> platform-dependent raw_rwlock has to design under that principle. 
+
+We have that, all archs have read preference rwlock_t, they have to,
+code relies on it.
