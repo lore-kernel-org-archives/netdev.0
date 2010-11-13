@@ -1,45 +1,26 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: ethtool maintenance
-Date: Sat, 13 Nov 2010 14:30:14 +0000
-Message-ID: <1289658614.2816.105.camel@localhost>
-References: <4CDE502D.6000506@garzik.org>
+From: "MICROSOFT AWARD 2010 PROMO" <info@microsoft.co.uk>
+Subject: YOU HAVE WON $1,900,000 USD
+Date: Sat, 13 Nov 2010 07:55:25 -0600
+Message-ID: <20101113015955.M4386__19934.218368917$1289665076$gmane$org@mail.txwes.edu>
+Reply-To: mic.awardmicrosoft21@yahoo.com.hk
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: NetDev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Peter Martuccelli <peterm@redhat.com>
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain;
+	charset=windows-1252
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:58146 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752702Ab0KMOc6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Nov 2010 09:32:58 -0500
-In-Reply-To: <4CDE502D.6000506@garzik.org>
+Received: from smtp2.txwes.edu ([67.99.36.14]:41301 "EHLO smtp2.txwes.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753411Ab0KMQRM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 13 Nov 2010 11:17:12 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2010-11-13 at 03:45 -0500, Jeff Garzik wrote:
-> So, a recent emergency surgery has really set me back, work-wise. 
-> ethtool [the userspace utility] 2.6.36 is still not out, and personally 
-> it remains a third or fourth priority.
-> 
-> While it's likely that I could get back to ethtool's patch queue next 
-> week, it continues to be low man on the totem pole.  Seems only fair to 
-> see if anyone else is interested in maintaining it.
-> 
-> I emailed Ben Hutchings privately about this, but haven't heard back, so 
-> I thought I'd go ahead and email the list.
-> 
-> Anyone interested?
+You have just been selected as a lucky winner from the Microsoft monthly 
+draws and you have won $1,900,000 USD, please contact
+(mic.awardmicrosoft21@yahoo.com.hk ) with your name address, and telephone numbers 
+for claims for claims. 
 
-I am interested, but will need to clear it with my boss before making
-such a commitment.
+Congratulation!! Once again. 
 
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Yours in service, 
+The Award Team (Microsoft Corporation)
