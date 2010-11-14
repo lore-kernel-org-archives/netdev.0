@@ -1,113 +1,82 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH net-next-2.6] bridge: add __rcu annotations
-Date: Sun, 14 Nov 2010 10:47:56 -0800
-Message-ID: <20101114104756.1b21deb1@nehalam>
-References: <1289636128.2743.15.camel@edumazet-laptop>
-	<20101113093545.6fe9c077@nehalam>
-	<1289671130.2743.28.camel@edumazet-laptop>
-	<20101113101320.4b1c9ba7@nehalam>
-	<1289685861.2743.38.camel@edumazet-laptop>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: sky2 for on-board 88e8055 fails to detect mac address
+Date: Sun, 14 Nov 2010 10:58:44 -0800
+Message-ID: <20101114105844.5f708321@nehalam>
+References: <AANLkTinR9vpuGoizvNsvnpMBM-UnWS66yMjwMQaKSk_c@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org
+To: Guillaume Leclanche <guillaume@leclanche.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:33454 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756779Ab0KNSsK convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 14 Nov 2010 13:48:10 -0500
-In-Reply-To: <1289685861.2743.38.camel@edumazet-laptop>
+Received: from mail.vyatta.com ([76.74.103.46]:33035 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756776Ab0KNS6s convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Nov 2010 13:58:48 -0500
+In-Reply-To: <AANLkTinR9vpuGoizvNsvnpMBM-UnWS66yMjwMQaKSk_c@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 13 Nov 2010 23:04:21 +0100
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Sun, 14 Nov 2010 12:42:06 +0100
+Guillaume Leclanche <guillaume@leclanche.net> wrote:
 
-> Le samedi 13 novembre 2010 =E0 10:13 -0800, Stephen Hemminger a =E9cr=
-it :
-> > On Sat, 13 Nov 2010 18:58:50 +0100
-> > Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> >=20
-> > > Le samedi 13 novembre 2010 =E0 09:35 -0800, Stephen Hemminger a =E9=
-crit :
-> > > > On Sat, 13 Nov 2010 09:15:28 +0100
-> > > > Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > > >=20
-> > > > > diff --git a/include/linux/netdevice.h b/include/linux/netdev=
-ice.h
-> > > > > index 578debb..ffbd177 100644
-> > > > > --- a/include/linux/netdevice.h
-> > > > > +++ b/include/linux/netdevice.h
-> > > > > @@ -996,7 +996,10 @@ struct net_device {
-> > > > >  #endif
-> > > > > =20
-> > > > >  	rx_handler_func_t	*rx_handler;
-> > > > > -	void			*rx_handler_data;
-> > > > > +	union {
-> > > > > +		void				*rx_handler_data;
-> > > > > +		struct net_bridge_port __rcu	*br_port_rcu;
-> > > > > +	};
-> > > > > =20
-> > > > >  	struct netdev_queue __rcu *ingress_queue;
-> > > >=20
-> > > > I don't like making the generic hook typed again.
-> > > > We don't do this for other callbacks, timers, workqueues, ...
-> > > > Why is it necessary for RCU notation.
-> > > >=20
-> > >=20
-> > > because rcu_dereference() needs the type for __CHECKER__/sparse c=
-hecks
-> > >=20
-> > > #define __rcu_dereference_check(p, c, space) \
-> > >         ({ \
-> > >                 typeof(*p) *_________p1 =3D (typeof(*p)*__force )=
-ACCESS_ONCE(p); \
-> > >                 rcu_lockdep_assert(c); \
-> > >                 rcu_dereference_sparse(p, space); \
-> > >                 smp_read_barrier_depends(); \
-> > >                 ((typeof(*p) __force __kernel *)(_________p1)); \
-> > >         })
-> > >=20
-> > > So using a "void *ptr" is not an option
-> > >=20
-> > > Its also cleaner to use
-> > >=20
-> > > rcu_dereference(dev->br_port_rcu)
-> > >=20
-> > > instead of=20
-> > >=20
-> > > (struct net_bridge_port *)rcu_dereference(dev->rx_handler_data)
-> >=20
-> > There must be a better way. What about use of that hook by macvlan =
-and openvswitch?
+> Hello,
 >=20
-> macvlan and openvswitch (is it part of linux yet ???)
+> I use a "Marvell Technology Group Ltd. 88E8055 PCI-E Gigabit Ethernet
+> Controller".
+> It seems that=A0the sky2 module doesn't manage to grab the mac addres=
+s
+> from the HW :
 >=20
-> I honestly dont understand your point Stephen, maybe you could explai=
-n a
-> bit more what is the problem ?
+> [    0.741173] sky2: driver version 1.28
+> [    0.741206] sky2 0000:02:00.0: PCI INT A -> GSI 17 (level, low) ->=
+ IRQ 17
+> [    0.741216] sky2 0000:02:00.0: setting latency timer to 64
+> [    0.741244] sky2 0000:02:00.0: Yukon-2 EC Ultra chip revision 2
+> [    0.741339] sky2 0000:02:00.0: irq 44 for MSI/MSI-X
+> [    0.744781] sky2 0000:02:00.0: eth0: addr 00:00:00:00:00:00
 >=20
-> I use a union, like many other ones in the kernel. This is the first
-> time I ear this is not good to add type safety.
+> Of course I can set the mac address manually with "ip link set eth0
+> addr ..." (and then it works fine) but I guess that's not the normal
+> behavior from the driver?
 >=20
-> You can use either one or other field at your convenience.
+> I'd be happy to troubleshoot but I'm not very used to kernel
+> internals, so tell me if you need some output.
+> Below a few targeted info about my system.
 >=20
-> If you are talking about stacking hooks, that has nothing to do with
-> this (cleanup) rcu patch, but previous introduction of
-> rx_handler_data/rx_handler ?
+> Guillaume
 >=20
-> Please run sparse on x86_64 machine and watch all the warnings in bri=
-dge
-> code. (with CONFIG_SPARSE_RCU_POINTER=3Dy)
+> 2.6.35-22-generic #35-Ubuntu SMP Sat Oct 16 20:36:48 UTC 2010 i686 GN=
+U/Linux
 >=20
-> Me confused.
->=20
->=20
+> 02:00.0 Ethernet controller: Marvell Technology Group Ltd. 88E8055
+> PCI-E Gigabit Ethernet Controller
+> 	Subsystem: Marvell Technology Group Ltd. 88E8055 PCI-E Gigabit
+> Ethernet Controller
+> 	Flags: bus master, fast devsel, latency 0, IRQ 44
+> 	Memory at fe8fc000 (64-bit, non-prefetchable) [size=3D16K]
+> 	I/O ports at a800 [size=3D256]
+> 	Expansion ROM at fe8c0000 [disabled] [size=3D128K]
+> 	Capabilities: [48] Power Management version 3
+> 	Capabilities: [50] Vital Product Data
+> 	Capabilities: [5c] MSI: Enable+ Count=3D1/1 Maskable- 64bit+
+> 	Capabilities: [e0] Express Legacy Endpoint, MSI 00
+> 	Capabilities: [100] Advanced Error Reporting
+> 	Kernel driver in use: sky2
+> 	Kernel modules: sky2
 
-You combined three different sets of changes and introduced a needless
-union. I will split them up and show you what I want.
+The driver reads the MAC address from EEPROM.
+There are a couple of possibilities:
+1. The driver could have problem when reading the value because of a ti=
+ming issue.
+   BUT I doubt that because when that happens the driver would see ff:f=
+f:ff:ff:ff:ff
+2. The BIOS is screwing it up on boot.
+   Did you enable the device in the BIOS?
+3. The vendor screwed up and didn't program the address into the hardwa=
+re.
+
+It doesn't look like a kernel/driver problem at all.
 
 
---=20
+
