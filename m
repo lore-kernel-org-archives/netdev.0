@@ -1,226 +1,112 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 4/5] bridge: fix RCU races with bridge port
-Date: Sun, 14 Nov 2010 13:12:05 -0800
-Message-ID: <20101114211515.424372255@vyatta.com>
+Subject: [PATCH 2/5] bridge: add proper RCU annotation to should_route_hook
+Date: Sun, 14 Nov 2010 13:12:03 -0800
+Message-ID: <20101114211515.189232651@vyatta.com>
 References: <20101114211201.678755903@vyatta.com>
 Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
 To: David Miller <davem@davemloft.net>,
 	Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:52961 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:52960 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756938Ab0KNVSM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755473Ab0KNVSM (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sun, 14 Nov 2010 16:18:12 -0500
-Content-Disposition: inline; filename=br-port-rcu-race.patch
+Content-Disposition: inline; filename=bridge-hook-typedef.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The macro br_port_exists() is not enough protection when only
-RCU is being used. There is a tiny race where other CPU has cleared port
-handler hook, but is bridge port flag might still be set.
+From: Eric Dumazet <eric.dumazet@gmail.com>
 
+Add br_should_route_hook_t typedef, this is the only way we can
+get a clean RCU implementation for function pointer.
 
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
 ---
- net/bridge/br_fdb.c             |   15 +++++++++------
- net/bridge/br_if.c              |    5 +----
- net/bridge/br_netfilter.c       |   13 +++++++------
- net/bridge/br_netlink.c         |   10 ++++++----
- net/bridge/br_notify.c          |    2 +-
- net/bridge/br_private.h         |   16 +++++++++++++---
- net/bridge/br_stp_bpdu.c        |    8 ++++----
- net/bridge/netfilter/ebtables.c |   11 +++++------
- 8 files changed, 46 insertions(+), 34 deletions(-)
+ include/linux/if_bridge.h             |    4 +++-
+ net/bridge/br.c                       |    4 ----
+ net/bridge/br_input.c                 |   10 +++++++---
+ net/bridge/netfilter/ebtable_broute.c |    3 ++-
+ 4 files changed, 12 insertions(+), 9 deletions(-)
 
---- a/net/bridge/br_netfilter.c	2010-11-14 12:36:22.970441653 -0800
-+++ b/net/bridge/br_netfilter.c	2010-11-14 12:44:55.666987357 -0800
-@@ -131,17 +131,18 @@ void br_netfilter_rtable_init(struct net
+--- a/net/bridge/br.c	2010-11-14 11:18:54.048692005 -0800
++++ b/net/bridge/br.c	2010-11-14 11:19:47.347027185 -0800
+@@ -22,8 +22,6 @@
  
- static inline struct rtable *bridge_parent_rtable(const struct net_device *dev)
- {
--	if (!br_port_exists(dev))
--		return NULL;
--	return &br_port_get_rcu(dev)->br->fake_rtable;
-+	struct net_bridge_port *port;
-+
-+	port = br_port_get_rcu(dev);
-+	return port ? &port->br->fake_rtable : NULL;
- }
+ #include "br_private.h"
  
- static inline struct net_device *bridge_parent(const struct net_device *dev)
- {
--	if (!br_port_exists(dev))
--		return NULL;
-+	struct net_bridge_port *port;
- 
--	return br_port_get_rcu(dev)->br->dev;
-+	port = br_port_get_rcu(dev);
-+	return port ? port->br->dev : NULL;
- }
- 
- static inline struct nf_bridge_info *nf_bridge_alloc(struct sk_buff *skb)
---- a/net/bridge/br_stp_bpdu.c	2010-11-14 12:36:22.982443121 -0800
-+++ b/net/bridge/br_stp_bpdu.c	2010-11-14 12:44:55.666987357 -0800
-@@ -141,10 +141,6 @@ void br_stp_rcv(const struct stp_proto *
- 	struct net_bridge *br;
- 	const unsigned char *buf;
- 
--	if (!br_port_exists(dev))
--		goto err;
--	p = br_port_get_rcu(dev);
+-int (*br_should_route_hook)(struct sk_buff *skb);
 -
- 	if (!pskb_may_pull(skb, 4))
- 		goto err;
- 
-@@ -153,6 +149,10 @@ void br_stp_rcv(const struct stp_proto *
- 	if (buf[0] != 0 || buf[1] != 0 || buf[2] != 0)
- 		goto err;
- 
-+	p = br_port_get_rcu(dev);
-+	if (!p)
-+		goto err;
-+
- 	br = p->br;
- 	spin_lock(&br->lock);
- 
---- a/net/bridge/netfilter/ebtables.c	2010-11-14 12:36:22.998445081 -0800
-+++ b/net/bridge/netfilter/ebtables.c	2010-11-14 12:45:49.393153060 -0800
-@@ -128,6 +128,7 @@ ebt_basic_match(const struct ebt_entry *
-                 const struct net_device *in, const struct net_device *out)
- {
- 	const struct ethhdr *h = eth_hdr(skb);
-+	const struct net_bridge_port *p;
- 	__be16 ethproto;
- 	int verdict, i;
- 
-@@ -148,13 +149,11 @@ ebt_basic_match(const struct ebt_entry *
- 	if (FWINV2(ebt_dev_check(e->out, out), EBT_IOUT))
- 		return 1;
- 	/* rcu_read_lock()ed by nf_hook_slow */
--	if (in && br_port_exists(in) &&
--	    FWINV2(ebt_dev_check(e->logical_in, br_port_get_rcu(in)->br->dev),
--		   EBT_ILOGICALIN))
-+	if (in && (p = br_port_get_rcu(in)) != NULL &&
-+	    FWINV2(ebt_dev_check(e->logical_in, p->br->dev), EBT_ILOGICALIN))
- 		return 1;
--	if (out && br_port_exists(out) &&
--	    FWINV2(ebt_dev_check(e->logical_out, br_port_get_rcu(out)->br->dev),
--		   EBT_ILOGICALOUT))
-+	if (out && (p = br_port_get_rcu(out)) != NULL &&
-+	    FWINV2(ebt_dev_check(e->logical_out, p->br->dev), EBT_ILOGICALOUT))
- 		return 1;
- 
- 	if (e->bitmask & EBT_SOURCEMAC) {
---- a/net/bridge/br_fdb.c	2010-11-14 12:36:23.022448019 -0800
-+++ b/net/bridge/br_fdb.c	2010-11-14 12:44:55.670987817 -0800
-@@ -238,15 +238,18 @@ struct net_bridge_fdb_entry *__br_fdb_ge
- int br_fdb_test_addr(struct net_device *dev, unsigned char *addr)
- {
- 	struct net_bridge_fdb_entry *fdb;
-+	struct net_bridge_port *port;
- 	int ret;
- 
--	if (!br_port_exists(dev))
--		return 0;
--
- 	rcu_read_lock();
--	fdb = __br_fdb_get(br_port_get_rcu(dev)->br, addr);
--	ret = fdb && fdb->dst->dev != dev &&
--		fdb->dst->state == BR_STATE_FORWARDING;
-+	port = br_port_get_rcu(dev);
-+	if (!port)
-+		ret = 0;
-+	else {
-+		fdb = __br_fdb_get(port->br, addr);
-+		ret = fdb && fdb->dst->dev != dev &&
-+			fdb->dst->state == BR_STATE_FORWARDING;
-+	}
- 	rcu_read_unlock();
- 
- 	return ret;
---- a/net/bridge/br_notify.c	2010-11-14 12:36:23.034449489 -0800
-+++ b/net/bridge/br_notify.c	2010-11-14 12:44:55.670987817 -0800
-@@ -32,7 +32,7 @@ struct notifier_block br_device_notifier
- static int br_device_event(struct notifier_block *unused, unsigned long event, void *ptr)
- {
- 	struct net_device *dev = ptr;
--	struct net_bridge_port *p = br_port_get(dev);
-+	struct net_bridge_port *p;
- 	struct net_bridge *br;
- 	int err;
- 
---- a/net/bridge/br_private.h	2010-11-14 12:44:07.257410977 -0800
-+++ b/net/bridge/br_private.h	2010-11-14 12:44:55.670987817 -0800
-@@ -151,11 +151,21 @@ struct net_bridge_port
- #endif
+ static const struct stp_proto br_stp_proto = {
+ 	.rcv	= br_stp_rcv,
  };
+@@ -102,8 +100,6 @@ static void __exit br_deinit(void)
+ 	br_fdb_fini();
+ }
  
--#define br_port_get_rcu(dev) \
--	((struct net_bridge_port *) rcu_dereference(dev->rx_handler_data))
--#define br_port_get(dev) ((struct net_bridge_port *) dev->rx_handler_data)
- #define br_port_exists(dev) (dev->priv_flags & IFF_BRIDGE_PORT)
+-EXPORT_SYMBOL(br_should_route_hook);
+-
+ module_init(br_init)
+ module_exit(br_deinit)
+ MODULE_LICENSE("GPL");
+--- a/net/bridge/br_input.c	2010-11-14 11:18:54.048692005 -0800
++++ b/net/bridge/br_input.c	2010-11-14 11:41:40.558700481 -0800
+@@ -21,6 +21,10 @@
+ /* Bridge group multicast address 802.1d (pg 51). */
+ const u8 br_group_address[ETH_ALEN] = { 0x01, 0x80, 0xc2, 0x00, 0x00, 0x00 };
  
-+static inline struct net_bridge_port *br_port_get_rcu(const struct net_device *dev)
-+{
-+	return br_port_exists(dev) ?
-+		rcu_dereference(dev->rx_handler_data) : NULL;
-+}
++/* Hook for brouter */
++br_should_route_hook_t __rcu *br_should_route_hook __read_mostly;
++EXPORT_SYMBOL(br_should_route_hook);
 +
-+static inline struct net_bridge_port *br_port_get(struct net_device *dev)
-+{
-+	return br_port_exists(dev) ? dev->rx_handler_data : NULL;
-+}
-+
-+#define br_port_get(dev) ((struct net_bridge_port *) dev->rx_handler_data)
-+
- struct br_cpu_netstats {
- 	u64			rx_packets;
- 	u64			rx_bytes;
---- a/net/bridge/br_if.c	2010-11-14 12:36:23.046450958 -0800
-+++ b/net/bridge/br_if.c	2010-11-14 12:44:55.670987817 -0800
-@@ -475,11 +475,8 @@ int br_del_if(struct net_bridge *br, str
+ static int br_pass_frame_up(struct sk_buff *skb)
+ {
+ 	struct net_device *indev, *brdev = BR_INPUT_SKB_CB(skb)->brdev;
+@@ -139,7 +143,7 @@ struct sk_buff *br_handle_frame(struct s
  {
  	struct net_bridge_port *p;
+ 	const unsigned char *dest = eth_hdr(skb)->h_dest;
+-	int (*rhook)(struct sk_buff *skb);
++	br_should_route_hook_t *rhook;
  
--	if (!br_port_exists(dev))
--		return -EINVAL;
--
- 	p = br_port_get(dev);
--	if (p->br != br)
-+	if (!p || p->br != br)
- 		return -EINVAL;
+ 	if (unlikely(skb->pkt_type == PACKET_LOOPBACK))
+ 		return skb;
+@@ -173,8 +177,8 @@ forward:
+ 	switch (p->state) {
+ 	case BR_STATE_FORWARDING:
+ 		rhook = rcu_dereference(br_should_route_hook);
+-		if (rhook != NULL) {
+-			if (rhook(skb))
++		if (rhook) {
++			if ((*rhook)(skb))
+ 				return skb;
+ 			dest = eth_hdr(skb)->h_dest;
+ 		}
+--- a/include/linux/if_bridge.h	2010-11-14 11:18:54.048692005 -0800
++++ b/include/linux/if_bridge.h	2010-11-14 11:19:47.351028008 -0800
+@@ -102,7 +102,9 @@ struct __fdb_entry {
+ #include <linux/netdevice.h>
  
- 	del_nbp(p);
---- a/net/bridge/br_netlink.c	2010-11-14 12:36:23.062452917 -0800
-+++ b/net/bridge/br_netlink.c	2010-11-14 12:44:55.670987817 -0800
-@@ -119,11 +119,13 @@ static int br_dump_ifinfo(struct sk_buff
- 
- 	idx = 0;
- 	for_each_netdev(net, dev) {
-+		struct net_bridge_port *port = br_port_get(dev);
+ extern void brioctl_set(int (*ioctl_hook)(struct net *, unsigned int, void __user *));
+-extern int (*br_should_route_hook)(struct sk_buff *skb);
 +
- 		/* not a bridge port */
--		if (!br_port_exists(dev) || idx < cb->args[0])
-+		if (!port || idx < cb->args[0])
- 			goto skip;
++typedef int (*br_should_route_hook_t)(struct sk_buff *skb);
++extern br_should_route_hook_t __rcu *br_should_route_hook;
  
--		if (br_fill_ifinfo(skb, br_port_get(dev),
-+		if (br_fill_ifinfo(skb, port,
- 				   NETLINK_CB(cb->skb).pid,
- 				   cb->nlh->nlmsg_seq, RTM_NEWLINK,
- 				   NLM_F_MULTI) < 0)
-@@ -169,9 +171,9 @@ static int br_rtm_setlink(struct sk_buff
- 	if (!dev)
- 		return -ENODEV;
+ #endif
  
--	if (!br_port_exists(dev))
--		return -EINVAL;
- 	p = br_port_get(dev);
-+	if (!p)
-+		return -EINVAL;
+--- a/net/bridge/netfilter/ebtable_broute.c	2010-11-14 11:20:39.745149494 -0800
++++ b/net/bridge/netfilter/ebtable_broute.c	2010-11-14 11:21:01.020917528 -0800
+@@ -87,7 +87,8 @@ static int __init ebtable_broute_init(vo
+ 	if (ret < 0)
+ 		return ret;
+ 	/* see br_input.c */
+-	rcu_assign_pointer(br_should_route_hook, ebt_broute);
++	rcu_assign_pointer(br_should_route_hook,
++			   (br_should_route_hook_t *)ebt_broute);
+ 	return 0;
+ }
  
- 	/* if kernel STP is running, don't allow changes */
- 	if (p->br->stp_enabled == BR_KERNEL_STP)
 
 
