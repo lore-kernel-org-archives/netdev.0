@@ -1,71 +1,87 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH] tcp: restrict net.ipv4.tcp_adv_min_scale (#20312)
-Date: Sun, 14 Nov 2010 17:18:25 +0200
-Message-ID: <20101114151825.GA25137@core2.telecom.by>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f46.google.com ([209.85.215.46]:47388 "EHLO
-	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755826Ab0KNPSc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Nov 2010 10:18:32 -0500
-Received: by ewy8 with SMTP id 8so389252ewy.19
-        for <netdev@vger.kernel.org>; Sun, 14 Nov 2010 07:18:31 -0800 (PST)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vasiliy Kulikov <segoon@openwall.com>
+Subject: [PATCH] net: ipv4: tcp_probe: cleanup snprintf() use
+Date: Sun, 14 Nov 2010 20:06:08 +0300
+Message-ID: <1289754368-31660-1-git-send-email-segoon@openwall.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: kernel-janitors@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-tcp_win_from_space() does the following:
+snprintf() returns number of bytes that were copied if there is no overflow.
+This code uses return value as number of copied bytes.  Theoretically format
+string '%lu.%09lu %pI4:%u %pI4:%u %d %#x %#x %u %u %u %u\n' may be expanded
+up to 163 bytes.  In reality tv.tv_sec is just few bytes instead of 20, 2 ports
+are just 5 bytes each instead of 10, length is 5 bytes instead of 10.  The rest
+is an unstrusted input.  Theoretically if tv_sec is big then copy_to_user() would
+overflow tbuf.
 
-	if (sysctl_tcp_adv_win_scale <= 0)
-		return space >> (-sysctl_tcp_adv_win_scale);
-	else
-		return space - (space >> sysctl_tcp_adv_win_scale);
+tbuf was increased to fit in 163 bytes.  snprintf() is used to follow return
+value semantic.
 
-"space" is int.
-
-As per C99 6.5.7 (3) shifting int for 32 or more bits is
-undefined behaviour.
-
-Indeed, if sysctl_tcp_adv_win_scale is exactly 32, space >> 32 equals
-space and function returns 0;
-
-Which means we busyloop in tcp_fixup_rcvbuf().
-
-Restrict net.ipv4.tcp_adv_win_scale to [-31, 31].
-
-Fix https://bugzilla.kernel.org/show_bug.cgi?id=20312
-
-Steps to reproduce:
-
-	echo 32 >/proc/sys/net/ipv4/tcp_adv_win_scale
-	wget www.kernel.org
-	[softlockup]
-
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+Signed-off-by: Vasiliy Kulikov <segoon@openwall.com>
 ---
+ Compile tested.
 
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -26,6 +26,8 @@ static int zero;
- static int tcp_retr1_max = 255;
- static int ip_local_port_range_min[] = { 1, 1 };
- static int ip_local_port_range_max[] = { 65535, 65535 };
-+static int _minus_31 = -31;
-+static int _31 = 31;
+Format length:
+	20 for '%lu'
+	1 for '.'
+	9 for '%09lu'
+	1 for ' '
+	15 for '%pI4'
+	1 for ':'
+	10 for '%u'
+	1 for ' '
+	15 for '%pI4'
+	1 for ':'
+	10 for '%u'
+	1 for ' '
+	11 for '%d'
+	1 for ' '
+	10 for '%#x'
+	1 for ' '
+	10 for '%#x'
+	1 for ' '
+	10 for '%u'
+	1 for ' '
+	10 for '%u'
+	1 for ' '
+	10 for '%u'
+	1 for ' '
+	10 for '%u'
+	1 for '\n'
+163 for '%lu.%09lu %pI4:%u %pI4:%u %d %#x %#x %u %u %u %u\n'
+
+ net/ipv4/tcp_probe.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/tcp_probe.c b/net/ipv4/tcp_probe.c
+index 6211e21..3b7bf19 100644
+--- a/net/ipv4/tcp_probe.c
++++ b/net/ipv4/tcp_probe.c
+@@ -154,7 +154,7 @@ static int tcpprobe_sprint(char *tbuf, int n)
+ 	struct timespec tv
+ 		= ktime_to_timespec(ktime_sub(p->tstamp, tcp_probe.start));
  
- /* Update system visible IP port range */
- static void set_local_port_range(int range[2])
-@@ -426,7 +428,9 @@ static struct ctl_table ipv4_table[] = {
- 		.data		= &sysctl_tcp_adv_win_scale,
- 		.maxlen		= sizeof(int),
- 		.mode		= 0644,
--		.proc_handler	= proc_dointvec
-+		.proc_handler	= proc_dointvec_minmax,
-+		.extra1		= &_minus_31,
-+		.extra2		= &_31,
- 	},
- 	{
- 		.procname	= "tcp_tw_reuse",
+-	return snprintf(tbuf, n,
++	return scnprintf(tbuf, n,
+ 			"%lu.%09lu %pI4:%u %pI4:%u %d %#x %#x %u %u %u %u\n",
+ 			(unsigned long) tv.tv_sec,
+ 			(unsigned long) tv.tv_nsec,
+@@ -174,7 +174,7 @@ static ssize_t tcpprobe_read(struct file *file, char __user *buf,
+ 		return -EINVAL;
+ 
+ 	while (cnt < len) {
+-		char tbuf[128];
++		char tbuf[164];
+ 		int width;
+ 
+ 		/* Wait for data in buffer */
+-- 
+1.7.0.4
