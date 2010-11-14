@@ -1,111 +1,113 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ipv4: mitigate an integer underflow when comparing tcp
- timestamps
-Date: Sun, 14 Nov 2010 09:52:25 +0100
-Message-ID: <1289724745.2743.61.camel@edumazet-laptop>
-References: <1289720156-30118-1-git-send-email-r0bertz@gentoo.org>
+Subject: Re: [PATCH/RFC] netfilter: nf_conntrack_sip: Handle quirky Cisco
+ phones
+Date: Sun, 14 Nov 2010 09:59:35 +0100
+Message-ID: <1289725175.2743.65.camel@edumazet-laptop>
+References: <28d666269c390965f1a4edca42f93c12@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+Cc: Patrick McHardy <kaber@trash.net>,
 	"David S. Miller" <davem@davemloft.net>,
 	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
 	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
 	James Morris <jmorris@namei.org>,
 	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Zhang Le <r0bertz@gentoo.org>
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Kevin Cernekee <cernekee@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:56290 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753989Ab0KNIwc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Nov 2010 03:52:32 -0500
-In-Reply-To: <1289720156-30118-1-git-send-email-r0bertz@gentoo.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:59156 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754317Ab0KNI7o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Nov 2010 03:59:44 -0500
+In-Reply-To: <28d666269c390965f1a4edca42f93c12@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le dimanche 14 novembre 2010 =C3=A0 15:35 +0800, Zhang Le a =C3=A9crit =
-:
-> Behind a loadbalancer which does NAT, peer->tcp_ts could be much smal=
-ler than
-> req->ts_recent. In this case, theoretically the req should not be ign=
-ored.
->=20
-> But in fact, it could be ignored, if peer->tcp_ts is so small that th=
+Le dimanche 14 novembre 2010 =C3=A0 00:32 -0800, Kevin Cernekee a =C3=A9=
+crit :
+> Most SIP devices use a source port of 5060/udp on SIP requests, so th=
 e
-> difference between this two number is larger than 2 to the power of 3=
-1.
+> response automatically comes back to port 5060:
 >=20
-> I understand that under this situation, timestamp does not make sense=
- any more,
-> because it actually comes from difference machines. However, if anyon=
-e
-> ever need to do the same investigation which I have done, this will
-> save some time for him.
+> phone_ip:5060 -> proxy_ip:5060   REGISTER
+> proxy_ip:5060 -> phone_ip:5060   100 Trying
 >=20
-> Signed-off-by: Zhang Le <r0bertz@gentoo.org>
-> ---
->  net/ipv4/tcp_ipv4.c |    4 ++--
->  1 files changed, 2 insertions(+), 2 deletions(-)
+> The newer Cisco IP phones, however, use a randomly chosen high source
+> port for the SIP request but expect the response on port 5060:
 >=20
-> diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-> index 8f8527d..1eb4974 100644
-> --- a/net/ipv4/tcp_ipv4.c
-> +++ b/net/ipv4/tcp_ipv4.c
-> @@ -1352,8 +1352,8 @@ int tcp_v4_conn_request(struct sock *sk, struct=
- sk_buff *skb)
->  		    peer->v4daddr =3D=3D saddr) {
->  			inet_peer_refcheck(peer);
->  			if ((u32)get_seconds() - peer->tcp_ts_stamp < TCP_PAWS_MSL &&
-> -			    (s32)(peer->tcp_ts - req->ts_recent) >
-> -							TCP_PAWS_WINDOW) {
-> +			    ((s32)(peer->tcp_ts - req->ts_recent) > TCP_PAWS_WINDOW &&
-> +			     peer->tcp_ts > req->ts_recent)) {
->  				NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_PAWSPASSIVEREJECTED);
->  				goto drop_and_release;
->  			}
+> phone_ip:49173 -> proxy_ip:5060  REGISTER
+> proxy_ip:5060 -> phone_ip:5060   100 Trying
+>=20
+> Standard Linux NAT, with or without nf_nat_sip, will send the reply b=
+ack
+> to port 49173, not 5060:
+>=20
+> phone_ip:49173 -> proxy_ip:5060  REGISTER
+> proxy_ip:5060 -> phone_ip:49173  100 Trying
+>=20
+> But the phone is not listening on 49173, so it will never see the rep=
+ly.
+>=20
+> This issue was seen on a Cisco CP-7965G, firmware 8-5(3).  It appears
+> to be a well-known problem on 7941 and newer:
+>=20
+> http://www.voip-info.org/wiki/view/Standalone+Cisco+7941%252F7961+wit=
+hout+a+local+PBX
+>=20
+> Search for "Connecting to the outside world"
+>=20
+> I contacted Cisco support and they were not amenable to changing the
+> behavior.  It appears to be RFC3261-compliant, as the "Sent-by port"
+> field in the request specifies 5060:
+>=20
 
-This seems very wrong to me.
+There is a difference between being RFC compliant, and being usable.
 
-Adding a : if (peer->tcp_ts > req->ts_recent) condition is _not_ going
-to help. And it might break some working setups, because of wrap around=
-=2E
+Most SIP sotfwares I know will break with such a stupid CISCO behavior.
 
-Really, if you have multiple clients behind a common NAT, you cannot us=
-e
-this code at all, since NAT doesnt usually change TCP timestamps.
 
-What about following patch instead ?
 
-[PATCH] doc: extend tcp_tw_recycle documentation
+> 18.2.2 Sending Responses
+>=20
+>    The server transport uses the value of the top Via header field in
+>    order to determine where to send a response.  It MUST follow the
+>    following process:
+>=20
+> ...
+>=20
+>       o  Otherwise (for unreliable unicast transports), if the top Vi=
+a
+>          has a "received" parameter, the response MUST be sent to the
+>          address in the "received" parameter, using the port indicate=
+d
+>          in the "sent-by" value, or using port 5060 if none is specif=
+ied
+>          explicitly.  If this fails, for example, elicits an ICMP "po=
+rt
+>          unreachable" response, the procedures of Section 5 of [4]
+>          SHOULD be used to determine where to send the response.
+>=20
+> This patch modifies nf_*_sip to work around this quirk, by rewriting
+> the response port to 5060 when the following conditions are met:
+>=20
+>  - User-Agent starts with "Cisco"
+>=20
+>  - Incoming TTL was exactly 64 (meaning that our system is the phone'=
+s
+>    local router, not an intermediate router)
+>=20
 
-tcp_tw_recycle should not be used on a server if there is a chance
-clients are behind a same NAT. Document this fact before too many users
-discover this too late.
+This seems a hack to me, sorry. How many different vendors will switch
+to "Cisco" broken way, and we have to patch over and over ?
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- Documentation/networking/ip-sysctl.txt |    7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
+I would like to get an exact SIP exchange to make sure their is not
+another way to handle this without adding a "Cisco" string somewhere...
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/net=
-working/ip-sysctl.txt
-index c7165f4..406f0d5 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -446,7 +446,12 @@ tcp_tso_win_divisor - INTEGER
- tcp_tw_recycle - BOOLEAN
- 	Enable fast recycling TIME-WAIT sockets. Default value is 0.
- 	It should not be changed without advice/request of technical
--	experts.
-+	experts. If you set it to 1, make sure you dont miss connections
-+	attempts (check LINUX_MIB_PAWSPASSIVEREJECTED netstat counter).
-+	In particular, this might break if several clients are behind
-+	a common NAT device, since their TCP timestamp wont be changed
-+	by the NAT. tcp_tw_recycle should be used with care, most
-+	probably in private networks.
-=20
- tcp_tw_reuse - BOOLEAN
- 	Allow to reuse TIME-WAIT sockets for new connections when it is
+Please provide a pcap or tcpdump -A
+
+Thanks
 
 
