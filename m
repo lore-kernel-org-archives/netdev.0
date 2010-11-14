@@ -1,52 +1,35 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH] netfilter: don't use atomic bit operation
-Date: Sun, 14 Nov 2010 17:05:34 +0800
-Message-ID: <1289725534-8439-1-git-send-email-xiaosuo@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Changli Gao <xiaosuo@gmail.com>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Marcos <stalkingtime@gmail.com>
+Subject: Re: Fwd: a Great Idea - include Kademlia networking protocol in
+ kernel -- REVISITED
+Date: Sun, 14 Nov 2010 02:14:24 -0700
+Message-ID: <AANLkTimkPpWob8ANySeWBvDE+Pq2wy4SQWJOSYzbS7QG@mail.gmail.com>
+References: <AANLkTi=VgBQ5rwkjZeo2zsRx1dSBy+4PBXeLLPQ4LRES@mail.gmail.com>
+	<AANLkTinWUmQ91cCULC8ZXFLwSKz6SNt3BpszrBEhbgcu@mail.gmail.com>
+	<1289724643.2743.58.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, Stephen Guerin <stephen@sfcomplex.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:38563 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754260Ab0KNJO0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Nov 2010 04:14:26 -0500
+Received: by bwz15 with SMTP id 15so4364308bwz.19
+        for <netdev@vger.kernel.org>; Sun, 14 Nov 2010 01:14:25 -0800 (PST)
+In-Reply-To: <1289724643.2743.58.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-As we own ct, and the others can't see it until we confirm it, we don't
-need to use atomic bit operation on ct->status.
+> I have no idea why and how kademlia would be added to "linux kernel"
+>
+> Its a protocol based on UDP, and probably already done on userland.
+>
+> What am I missing ?
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
----
- include/net/netfilter/nf_nat_core.h |    4 ++--
- net/ipv4/netfilter/nf_nat_core.c    |    4 ++--
- 2 files changed, 4 insertions(+), 4 deletions(-)
-diff --git a/include/net/netfilter/nf_nat_core.h b/include/net/netfilter/nf_nat_core.h
-index 33602ab..52ac1d8 100644
---- a/include/net/netfilter/nf_nat_core.h
-+++ b/include/net/netfilter/nf_nat_core.h
-@@ -21,9 +21,9 @@ static inline int nf_nat_initialized(struct nf_conn *ct,
- 				     enum nf_nat_manip_type manip)
- {
- 	if (manip == IP_NAT_MANIP_SRC)
--		return test_bit(IPS_SRC_NAT_DONE_BIT, &ct->status);
-+		return IPS_SRC_NAT_DONE_BIT & ct->status;
- 	else
--		return test_bit(IPS_DST_NAT_DONE_BIT, &ct->status);
-+		return IPS_DST_NAT_DONE_BIT & ct->status;
- }
- 
- struct nlattr;
-diff --git a/net/ipv4/netfilter/nf_nat_core.c b/net/ipv4/netfilter/nf_nat_core.c
-index c04787c..ab877ac 100644
---- a/net/ipv4/netfilter/nf_nat_core.c
-+++ b/net/ipv4/netfilter/nf_nat_core.c
-@@ -323,9 +323,9 @@ nf_nat_setup_info(struct nf_conn *ct,
- 
- 	/* It's done. */
- 	if (maniptype == IP_NAT_MANIP_DST)
--		set_bit(IPS_DST_NAT_DONE_BIT, &ct->status);
-+		ct->status |= IPS_DST_NAT_DONE_BIT;
- 	else
--		set_bit(IPS_SRC_NAT_DONE_BIT, &ct->status);
-+		ct->status |= IPS_SRC_NAT_DONE_BIT;
- 
- 	return NF_ACCEPT;
- }
+The idea is to tightly couple it to the operating system to create a
+sort of "super operating system" that is seamless to the application
+layers above.  Just like memory stores are tightly integrated as to be
+unnoticeable....
+
+marcos
