@@ -1,355 +1,226 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 1/5] bridge: add RCU annotation to bridge multicast table
-Date: Sun, 14 Nov 2010 13:12:02 -0800
-Message-ID: <20101114211515.070894883@vyatta.com>
+Subject: [PATCH 4/5] bridge: fix RCU races with bridge port
+Date: Sun, 14 Nov 2010 13:12:05 -0800
+Message-ID: <20101114211515.424372255@vyatta.com>
 References: <20101114211201.678755903@vyatta.com>
 Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
 To: David Miller <davem@davemloft.net>,
 	Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:52962 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:52961 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756945Ab0KNVSM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1756938Ab0KNVSM (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sun, 14 Nov 2010 16:18:12 -0500
-Content-Disposition: inline; filename=bridge-mlock-rcu.patch
+Content-Disposition: inline; filename=br-port-rcu-race.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
+The macro br_port_exists() is not enough protection when only
+RCU is being used. There is a tiny race where other CPU has cleared port
+handler hook, but is bridge port flag might still be set.
 
-Add modern __rcu annotatations to bridge multicast table.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-
 ---
- net/bridge/br_forward.c   |    4 +-
- net/bridge/br_multicast.c |   78 ++++++++++++++++++++++++++++++----------------
- net/bridge/br_private.h   |    6 +--
- 3 files changed, 56 insertions(+), 32 deletions(-)
+ net/bridge/br_fdb.c             |   15 +++++++++------
+ net/bridge/br_if.c              |    5 +----
+ net/bridge/br_netfilter.c       |   13 +++++++------
+ net/bridge/br_netlink.c         |   10 ++++++----
+ net/bridge/br_notify.c          |    2 +-
+ net/bridge/br_private.h         |   16 +++++++++++++---
+ net/bridge/br_stp_bpdu.c        |    8 ++++----
+ net/bridge/netfilter/ebtables.c |   11 +++++------
+ 8 files changed, 46 insertions(+), 34 deletions(-)
 
---- a/net/bridge/br_multicast.c	2010-11-14 12:36:30.383348571 -0800
-+++ b/net/bridge/br_multicast.c	2010-11-14 12:36:37.084167303 -0800
-@@ -33,6 +33,9 @@
+--- a/net/bridge/br_netfilter.c	2010-11-14 12:36:22.970441653 -0800
++++ b/net/bridge/br_netfilter.c	2010-11-14 12:44:55.666987357 -0800
+@@ -131,17 +131,18 @@ void br_netfilter_rtable_init(struct net
  
- #include "br_private.h"
- 
-+#define mlock_dereference(X, br) \
-+	rcu_dereference_protected(X, lockdep_is_held(&br->multicast_lock))
-+
- #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
- static inline int ipv6_is_local_multicast(const struct in6_addr *addr)
+ static inline struct rtable *bridge_parent_rtable(const struct net_device *dev)
  {
-@@ -135,7 +138,7 @@ static struct net_bridge_mdb_entry *br_m
- struct net_bridge_mdb_entry *br_mdb_get(struct net_bridge *br,
- 					struct sk_buff *skb)
- {
--	struct net_bridge_mdb_htable *mdb = br->mdb;
-+	struct net_bridge_mdb_htable *mdb = rcu_dereference(br->mdb);
- 	struct br_ip ip;
- 
- 	if (br->multicast_disabled)
-@@ -235,7 +238,8 @@ static void br_multicast_group_expired(u
- 	if (mp->ports)
- 		goto out;
- 
--	mdb = br->mdb;
-+	mdb = mlock_dereference(br->mdb, br);
+-	if (!br_port_exists(dev))
+-		return NULL;
+-	return &br_port_get_rcu(dev)->br->fake_rtable;
++	struct net_bridge_port *port;
 +
- 	hlist_del_rcu(&mp->hlist[mdb->ver]);
- 	mdb->size--;
- 
-@@ -249,16 +253,20 @@ out:
- static void br_multicast_del_pg(struct net_bridge *br,
- 				struct net_bridge_port_group *pg)
- {
--	struct net_bridge_mdb_htable *mdb = br->mdb;
-+	struct net_bridge_mdb_htable *mdb;
- 	struct net_bridge_mdb_entry *mp;
- 	struct net_bridge_port_group *p;
--	struct net_bridge_port_group **pp;
-+	struct net_bridge_port_group __rcu **pp;
-+
-+	mdb = mlock_dereference(br->mdb, br);
- 
- 	mp = br_mdb_ip_get(mdb, &pg->addr);
- 	if (WARN_ON(!mp))
- 		return;
- 
--	for (pp = &mp->ports; (p = *pp); pp = &p->next) {
-+	for (pp = &mp->ports;
-+	     (p = mlock_dereference(*pp, br)) != NULL;
-+	     pp = &p->next) {
- 		if (p != pg)
- 			continue;
- 
-@@ -294,10 +302,10 @@ out:
- 	spin_unlock(&br->multicast_lock);
++	port = br_port_get_rcu(dev);
++	return port ? &port->br->fake_rtable : NULL;
  }
  
--static int br_mdb_rehash(struct net_bridge_mdb_htable **mdbp, int max,
-+static int br_mdb_rehash(struct net_bridge_mdb_htable __rcu **mdbp, int max,
- 			 int elasticity)
+ static inline struct net_device *bridge_parent(const struct net_device *dev)
  {
--	struct net_bridge_mdb_htable *old = *mdbp;
-+	struct net_bridge_mdb_htable *old = rcu_dereference_protected(*mdbp, 1);
- 	struct net_bridge_mdb_htable *mdb;
- 	int err;
+-	if (!br_port_exists(dev))
+-		return NULL;
++	struct net_bridge_port *port;
  
-@@ -569,7 +577,7 @@ static struct net_bridge_mdb_entry *br_m
- 	struct net_bridge *br, struct net_bridge_port *port,
- 	struct br_ip *group, int hash)
- {
--	struct net_bridge_mdb_htable *mdb = br->mdb;
-+	struct net_bridge_mdb_htable *mdb;
- 	struct net_bridge_mdb_entry *mp;
- 	struct hlist_node *p;
- 	unsigned count = 0;
-@@ -577,6 +585,7 @@ static struct net_bridge_mdb_entry *br_m
- 	int elasticity;
- 	int err;
+-	return br_port_get_rcu(dev)->br->dev;
++	port = br_port_get_rcu(dev);
++	return port ? port->br->dev : NULL;
+ }
  
-+	mdb = rcu_dereference_protected(br->mdb, 1);
- 	hlist_for_each_entry(mp, p, &mdb->mhash[hash], hlist[mdb->ver]) {
- 		count++;
- 		if (unlikely(br_ip_equal(group, &mp->addr)))
-@@ -642,10 +651,11 @@ static struct net_bridge_mdb_entry *br_m
- 	struct net_bridge *br, struct net_bridge_port *port,
- 	struct br_ip *group)
- {
--	struct net_bridge_mdb_htable *mdb = br->mdb;
-+	struct net_bridge_mdb_htable *mdb;
- 	struct net_bridge_mdb_entry *mp;
- 	int hash;
+ static inline struct nf_bridge_info *nf_bridge_alloc(struct sk_buff *skb)
+--- a/net/bridge/br_stp_bpdu.c	2010-11-14 12:36:22.982443121 -0800
++++ b/net/bridge/br_stp_bpdu.c	2010-11-14 12:44:55.666987357 -0800
+@@ -141,10 +141,6 @@ void br_stp_rcv(const struct stp_proto *
+ 	struct net_bridge *br;
+ 	const unsigned char *buf;
  
-+	mdb = rcu_dereference_protected(br->mdb, 1);
- 	if (!mdb) {
- 		if (br_mdb_rehash(&br->mdb, BR_HASH_SIZE, 0))
- 			return NULL;
-@@ -660,7 +670,7 @@ static struct net_bridge_mdb_entry *br_m
+-	if (!br_port_exists(dev))
+-		goto err;
+-	p = br_port_get_rcu(dev);
+-
+ 	if (!pskb_may_pull(skb, 4))
+ 		goto err;
  
- 	case -EAGAIN:
- rehash:
--		mdb = br->mdb;
-+		mdb = rcu_dereference_protected(br->mdb, 1);
- 		hash = br_ip_hash(mdb, group);
- 		break;
+@@ -153,6 +149,10 @@ void br_stp_rcv(const struct stp_proto *
+ 	if (buf[0] != 0 || buf[1] != 0 || buf[2] != 0)
+ 		goto err;
  
-@@ -692,7 +702,7 @@ static int br_multicast_add_group(struct
- {
- 	struct net_bridge_mdb_entry *mp;
- 	struct net_bridge_port_group *p;
--	struct net_bridge_port_group **pp;
-+	struct net_bridge_port_group __rcu **pp;
- 	unsigned long now = jiffies;
- 	int err;
- 
-@@ -712,7 +722,9 @@ static int br_multicast_add_group(struct
- 		goto out;
- 	}
- 
--	for (pp = &mp->ports; (p = *pp); pp = &p->next) {
-+	for (pp = &mp->ports;
-+	     (p = mlock_dereference(*pp, br)) != NULL;
-+	     pp = &p->next) {
- 		if (p->port == port)
- 			goto found;
- 		if ((unsigned long)p->port < (unsigned long)port)
-@@ -1106,7 +1118,7 @@ static int br_ip4_multicast_query(struct
- 	struct net_bridge_mdb_entry *mp;
- 	struct igmpv3_query *ih3;
- 	struct net_bridge_port_group *p;
--	struct net_bridge_port_group **pp;
-+	struct net_bridge_port_group __rcu **pp;
- 	unsigned long max_delay;
- 	unsigned long now = jiffies;
- 	__be32 group;
-@@ -1145,7 +1157,7 @@ static int br_ip4_multicast_query(struct
- 	if (!group)
- 		goto out;
- 
--	mp = br_mdb_ip4_get(br->mdb, group);
-+	mp = br_mdb_ip4_get(mlock_dereference(br->mdb, br), group);
- 	if (!mp)
- 		goto out;
- 
-@@ -1157,7 +1169,9 @@ static int br_ip4_multicast_query(struct
- 	     try_to_del_timer_sync(&mp->timer) >= 0))
- 		mod_timer(&mp->timer, now + max_delay);
- 
--	for (pp = &mp->ports; (p = *pp); pp = &p->next) {
-+	for (pp = &mp->ports;
-+	     (p = mlock_dereference(*pp, br)) != NULL;
-+	     pp = &p->next) {
- 		if (timer_pending(&p->timer) ?
- 		    time_after(p->timer.expires, now + max_delay) :
- 		    try_to_del_timer_sync(&p->timer) >= 0)
-@@ -1178,7 +1192,8 @@ static int br_ip6_multicast_query(struct
- 	struct mld_msg *mld = (struct mld_msg *) icmp6_hdr(skb);
- 	struct net_bridge_mdb_entry *mp;
- 	struct mld2_query *mld2q;
--	struct net_bridge_port_group *p, **pp;
-+	struct net_bridge_port_group *p;
-+	struct net_bridge_port_group __rcu **pp;
- 	unsigned long max_delay;
- 	unsigned long now = jiffies;
- 	struct in6_addr *group = NULL;
-@@ -1214,7 +1229,7 @@ static int br_ip6_multicast_query(struct
- 	if (!group)
- 		goto out;
- 
--	mp = br_mdb_ip6_get(br->mdb, group);
-+	mp = br_mdb_ip6_get(mlock_dereference(br->mdb, br), group);
- 	if (!mp)
- 		goto out;
- 
-@@ -1225,7 +1240,9 @@ static int br_ip6_multicast_query(struct
- 	     try_to_del_timer_sync(&mp->timer) >= 0))
- 		mod_timer(&mp->timer, now + max_delay);
- 
--	for (pp = &mp->ports; (p = *pp); pp = &p->next) {
-+	for (pp = &mp->ports;
-+	     (p = mlock_dereference(*pp, br)) != NULL;
-+	     pp = &p->next) {
- 		if (timer_pending(&p->timer) ?
- 		    time_after(p->timer.expires, now + max_delay) :
- 		    try_to_del_timer_sync(&p->timer) >= 0)
-@@ -1254,7 +1271,7 @@ static void br_multicast_leave_group(str
- 	    timer_pending(&br->multicast_querier_timer))
- 		goto out;
- 
--	mdb = br->mdb;
-+	mdb = mlock_dereference(br->mdb, br);
- 	mp = br_mdb_ip_get(mdb, group);
- 	if (!mp)
- 		goto out;
-@@ -1277,7 +1294,9 @@ static void br_multicast_leave_group(str
- 		goto out;
- 	}
- 
--	for (p = mp->ports; p; p = p->next) {
-+	for (p = mlock_dereference(mp->ports, br);
-+	     p != NULL;
-+	     p = mlock_dereference(p->next, br)) {
- 		if (p->port != port)
- 			continue;
- 
-@@ -1625,7 +1644,7 @@ void br_multicast_stop(struct net_bridge
- 	del_timer_sync(&br->multicast_query_timer);
- 
- 	spin_lock_bh(&br->multicast_lock);
--	mdb = br->mdb;
-+	mdb = mlock_dereference(br->mdb, br);
- 	if (!mdb)
- 		goto out;
- 
-@@ -1729,6 +1748,7 @@ int br_multicast_toggle(struct net_bridg
- {
- 	struct net_bridge_port *port;
- 	int err = 0;
-+	struct net_bridge_mdb_htable *mdb;
- 
- 	spin_lock(&br->multicast_lock);
- 	if (br->multicast_disabled == !val)
-@@ -1741,15 +1761,16 @@ int br_multicast_toggle(struct net_bridg
- 	if (!netif_running(br->dev))
- 		goto unlock;
- 
--	if (br->mdb) {
--		if (br->mdb->old) {
-+	mdb = mlock_dereference(br->mdb, br);
-+	if (mdb) {
-+		if (mdb->old) {
- 			err = -EEXIST;
- rollback:
- 			br->multicast_disabled = !!val;
- 			goto unlock;
- 		}
- 
--		err = br_mdb_rehash(&br->mdb, br->mdb->max,
-+		err = br_mdb_rehash(&br->mdb, mdb->max,
- 				    br->hash_elasticity);
- 		if (err)
- 			goto rollback;
-@@ -1774,6 +1795,7 @@ int br_multicast_set_hash_max(struct net
- {
- 	int err = -ENOENT;
- 	u32 old;
-+	struct net_bridge_mdb_htable *mdb;
- 
- 	spin_lock(&br->multicast_lock);
- 	if (!netif_running(br->dev))
-@@ -1782,7 +1804,9 @@ int br_multicast_set_hash_max(struct net
- 	err = -EINVAL;
- 	if (!is_power_of_2(val))
- 		goto unlock;
--	if (br->mdb && val < br->mdb->size)
++	p = br_port_get_rcu(dev);
++	if (!p)
++		goto err;
 +
-+	mdb = mlock_dereference(br->mdb, br);
-+	if (mdb && val < mdb->size)
- 		goto unlock;
+ 	br = p->br;
+ 	spin_lock(&br->lock);
  
- 	err = 0;
-@@ -1790,8 +1814,8 @@ int br_multicast_set_hash_max(struct net
- 	old = br->hash_max;
- 	br->hash_max = val;
+--- a/net/bridge/netfilter/ebtables.c	2010-11-14 12:36:22.998445081 -0800
++++ b/net/bridge/netfilter/ebtables.c	2010-11-14 12:45:49.393153060 -0800
+@@ -128,6 +128,7 @@ ebt_basic_match(const struct ebt_entry *
+                 const struct net_device *in, const struct net_device *out)
+ {
+ 	const struct ethhdr *h = eth_hdr(skb);
++	const struct net_bridge_port *p;
+ 	__be16 ethproto;
+ 	int verdict, i;
  
--	if (br->mdb) {
--		if (br->mdb->old) {
-+	if (mdb) {
-+		if (mdb->old) {
- 			err = -EEXIST;
- rollback:
- 			br->hash_max = old;
---- a/net/bridge/br_private.h	2010-11-14 12:36:30.399350527 -0800
-+++ b/net/bridge/br_private.h	2010-11-14 12:44:07.257410977 -0800
-@@ -72,7 +72,7 @@ struct net_bridge_fdb_entry
+@@ -148,13 +149,11 @@ ebt_basic_match(const struct ebt_entry *
+ 	if (FWINV2(ebt_dev_check(e->out, out), EBT_IOUT))
+ 		return 1;
+ 	/* rcu_read_lock()ed by nf_hook_slow */
+-	if (in && br_port_exists(in) &&
+-	    FWINV2(ebt_dev_check(e->logical_in, br_port_get_rcu(in)->br->dev),
+-		   EBT_ILOGICALIN))
++	if (in && (p = br_port_get_rcu(in)) != NULL &&
++	    FWINV2(ebt_dev_check(e->logical_in, p->br->dev), EBT_ILOGICALIN))
+ 		return 1;
+-	if (out && br_port_exists(out) &&
+-	    FWINV2(ebt_dev_check(e->logical_out, br_port_get_rcu(out)->br->dev),
+-		   EBT_ILOGICALOUT))
++	if (out && (p = br_port_get_rcu(out)) != NULL &&
++	    FWINV2(ebt_dev_check(e->logical_out, p->br->dev), EBT_ILOGICALOUT))
+ 		return 1;
  
- struct net_bridge_port_group {
- 	struct net_bridge_port		*port;
--	struct net_bridge_port_group	*next;
-+	struct net_bridge_port_group __rcu *next;
- 	struct hlist_node		mglist;
- 	struct rcu_head			rcu;
- 	struct timer_list		timer;
-@@ -86,7 +86,7 @@ struct net_bridge_mdb_entry
- 	struct hlist_node		hlist[2];
- 	struct hlist_node		mglist;
- 	struct net_bridge		*br;
--	struct net_bridge_port_group	*ports;
-+	struct net_bridge_port_group __rcu *ports;
- 	struct rcu_head			rcu;
- 	struct timer_list		timer;
- 	struct timer_list		query_timer;
-@@ -227,7 +227,7 @@ struct net_bridge
- 	unsigned long			multicast_startup_query_interval;
+ 	if (e->bitmask & EBT_SOURCEMAC) {
+--- a/net/bridge/br_fdb.c	2010-11-14 12:36:23.022448019 -0800
++++ b/net/bridge/br_fdb.c	2010-11-14 12:44:55.670987817 -0800
+@@ -238,15 +238,18 @@ struct net_bridge_fdb_entry *__br_fdb_ge
+ int br_fdb_test_addr(struct net_device *dev, unsigned char *addr)
+ {
+ 	struct net_bridge_fdb_entry *fdb;
++	struct net_bridge_port *port;
+ 	int ret;
  
- 	spinlock_t			multicast_lock;
--	struct net_bridge_mdb_htable	*mdb;
-+	struct net_bridge_mdb_htable __rcu *mdb;
- 	struct hlist_head		router_list;
- 	struct hlist_head		mglist;
+-	if (!br_port_exists(dev))
+-		return 0;
+-
+ 	rcu_read_lock();
+-	fdb = __br_fdb_get(br_port_get_rcu(dev)->br, addr);
+-	ret = fdb && fdb->dst->dev != dev &&
+-		fdb->dst->state == BR_STATE_FORWARDING;
++	port = br_port_get_rcu(dev);
++	if (!port)
++		ret = 0;
++	else {
++		fdb = __br_fdb_get(port->br, addr);
++		ret = fdb && fdb->dst->dev != dev &&
++			fdb->dst->state == BR_STATE_FORWARDING;
++	}
+ 	rcu_read_unlock();
  
---- a/net/bridge/br_forward.c	2010-11-14 12:36:47.833478598 -0800
-+++ b/net/bridge/br_forward.c	2010-11-14 12:42:22.001208297 -0800
-@@ -223,7 +223,7 @@ static void br_multicast_flood(struct ne
- 	struct net_bridge_port_group *p;
- 	struct hlist_node *rp;
+ 	return ret;
+--- a/net/bridge/br_notify.c	2010-11-14 12:36:23.034449489 -0800
++++ b/net/bridge/br_notify.c	2010-11-14 12:44:55.670987817 -0800
+@@ -32,7 +32,7 @@ struct notifier_block br_device_notifier
+ static int br_device_event(struct notifier_block *unused, unsigned long event, void *ptr)
+ {
+ 	struct net_device *dev = ptr;
+-	struct net_bridge_port *p = br_port_get(dev);
++	struct net_bridge_port *p;
+ 	struct net_bridge *br;
+ 	int err;
  
--	rp = rcu_dereference(br->router_list.first);
-+	rp = rcu_dereference(hlist_first_rcu(&br->router_list));
- 	p = mdst ? rcu_dereference(mdst->ports) : NULL;
- 	while (p || rp) {
- 		struct net_bridge_port *port, *lport, *rport;
-@@ -242,7 +242,7 @@ static void br_multicast_flood(struct ne
- 		if ((unsigned long)lport >= (unsigned long)port)
- 			p = rcu_dereference(p->next);
- 		if ((unsigned long)rport >= (unsigned long)port)
--			rp = rcu_dereference(rp->next);
-+			rp = rcu_dereference(hlist_next_rcu(rp->next));
- 	}
+--- a/net/bridge/br_private.h	2010-11-14 12:44:07.257410977 -0800
++++ b/net/bridge/br_private.h	2010-11-14 12:44:55.670987817 -0800
+@@ -151,11 +151,21 @@ struct net_bridge_port
+ #endif
+ };
  
- 	if (!prev)
+-#define br_port_get_rcu(dev) \
+-	((struct net_bridge_port *) rcu_dereference(dev->rx_handler_data))
+-#define br_port_get(dev) ((struct net_bridge_port *) dev->rx_handler_data)
+ #define br_port_exists(dev) (dev->priv_flags & IFF_BRIDGE_PORT)
+ 
++static inline struct net_bridge_port *br_port_get_rcu(const struct net_device *dev)
++{
++	return br_port_exists(dev) ?
++		rcu_dereference(dev->rx_handler_data) : NULL;
++}
++
++static inline struct net_bridge_port *br_port_get(struct net_device *dev)
++{
++	return br_port_exists(dev) ? dev->rx_handler_data : NULL;
++}
++
++#define br_port_get(dev) ((struct net_bridge_port *) dev->rx_handler_data)
++
+ struct br_cpu_netstats {
+ 	u64			rx_packets;
+ 	u64			rx_bytes;
+--- a/net/bridge/br_if.c	2010-11-14 12:36:23.046450958 -0800
++++ b/net/bridge/br_if.c	2010-11-14 12:44:55.670987817 -0800
+@@ -475,11 +475,8 @@ int br_del_if(struct net_bridge *br, str
+ {
+ 	struct net_bridge_port *p;
+ 
+-	if (!br_port_exists(dev))
+-		return -EINVAL;
+-
+ 	p = br_port_get(dev);
+-	if (p->br != br)
++	if (!p || p->br != br)
+ 		return -EINVAL;
+ 
+ 	del_nbp(p);
+--- a/net/bridge/br_netlink.c	2010-11-14 12:36:23.062452917 -0800
++++ b/net/bridge/br_netlink.c	2010-11-14 12:44:55.670987817 -0800
+@@ -119,11 +119,13 @@ static int br_dump_ifinfo(struct sk_buff
+ 
+ 	idx = 0;
+ 	for_each_netdev(net, dev) {
++		struct net_bridge_port *port = br_port_get(dev);
++
+ 		/* not a bridge port */
+-		if (!br_port_exists(dev) || idx < cb->args[0])
++		if (!port || idx < cb->args[0])
+ 			goto skip;
+ 
+-		if (br_fill_ifinfo(skb, br_port_get(dev),
++		if (br_fill_ifinfo(skb, port,
+ 				   NETLINK_CB(cb->skb).pid,
+ 				   cb->nlh->nlmsg_seq, RTM_NEWLINK,
+ 				   NLM_F_MULTI) < 0)
+@@ -169,9 +171,9 @@ static int br_rtm_setlink(struct sk_buff
+ 	if (!dev)
+ 		return -ENODEV;
+ 
+-	if (!br_port_exists(dev))
+-		return -EINVAL;
+ 	p = br_port_get(dev);
++	if (!p)
++		return -EINVAL;
+ 
+ 	/* if kernel STP is running, don't allow changes */
+ 	if (p->br->stp_enabled == BR_KERNEL_STP)
 
 
