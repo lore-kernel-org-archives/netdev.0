@@ -1,114 +1,113 @@
-From: Kevin Cernekee <cernekee@gmail.com>
-Subject: Re: [PATCH/RFC] netfilter: nf_conntrack_sip: Handle quirky Cisco phones
-Date: Sun, 14 Nov 2010 10:33:06 -0800
-Message-ID: <AANLkTik4PLga8mX73c8iONPeOtpDiuDhfu3xiPmF07jC@mail.gmail.com>
-References: <28d666269c390965f1a4edca42f93c12@localhost>
-	<1289725175.2743.65.camel@edumazet-laptop>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH net-next-2.6] bridge: add __rcu annotations
+Date: Sun, 14 Nov 2010 10:47:56 -0800
+Message-ID: <20101114104756.1b21deb1@nehalam>
+References: <1289636128.2743.15.camel@edumazet-laptop>
+	<20101113093545.6fe9c077@nehalam>
+	<1289671130.2743.28.camel@edumazet-laptop>
+	<20101113101320.4b1c9ba7@nehalam>
+	<1289685861.2743.38.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
 To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1289725175.2743.65.camel@edumazet-laptop>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:33454 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756779Ab0KNSsK convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 14 Nov 2010 13:48:10 -0500
+In-Reply-To: <1289685861.2743.38.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Nov 14, 2010 at 12:59 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> I would like to get an exact SIP exchange to make sure their is not
-> another way to handle this without adding a "Cisco" string somewhere...
->
-> Please provide a pcap or tcpdump -A
+On Sat, 13 Nov 2010 23:04:21 +0100
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-Existing nf_nat_sip: phone sends unauthenticated REGISTER requests
-over and over again, because it is not seeing the replies sent back to
-port 50070:
+> Le samedi 13 novembre 2010 =E0 10:13 -0800, Stephen Hemminger a =E9cr=
+it :
+> > On Sat, 13 Nov 2010 18:58:50 +0100
+> > Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> >=20
+> > > Le samedi 13 novembre 2010 =E0 09:35 -0800, Stephen Hemminger a =E9=
+crit :
+> > > > On Sat, 13 Nov 2010 09:15:28 +0100
+> > > > Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > > >=20
+> > > > > diff --git a/include/linux/netdevice.h b/include/linux/netdev=
+ice.h
+> > > > > index 578debb..ffbd177 100644
+> > > > > --- a/include/linux/netdevice.h
+> > > > > +++ b/include/linux/netdevice.h
+> > > > > @@ -996,7 +996,10 @@ struct net_device {
+> > > > >  #endif
+> > > > > =20
+> > > > >  	rx_handler_func_t	*rx_handler;
+> > > > > -	void			*rx_handler_data;
+> > > > > +	union {
+> > > > > +		void				*rx_handler_data;
+> > > > > +		struct net_bridge_port __rcu	*br_port_rcu;
+> > > > > +	};
+> > > > > =20
+> > > > >  	struct netdev_queue __rcu *ingress_queue;
+> > > >=20
+> > > > I don't like making the generic hook typed again.
+> > > > We don't do this for other callbacks, timers, workqueues, ...
+> > > > Why is it necessary for RCU notation.
+> > > >=20
+> > >=20
+> > > because rcu_dereference() needs the type for __CHECKER__/sparse c=
+hecks
+> > >=20
+> > > #define __rcu_dereference_check(p, c, space) \
+> > >         ({ \
+> > >                 typeof(*p) *_________p1 =3D (typeof(*p)*__force )=
+ACCESS_ONCE(p); \
+> > >                 rcu_lockdep_assert(c); \
+> > >                 rcu_dereference_sparse(p, space); \
+> > >                 smp_read_barrier_depends(); \
+> > >                 ((typeof(*p) __force __kernel *)(_________p1)); \
+> > >         })
+> > >=20
+> > > So using a "void *ptr" is not an option
+> > >=20
+> > > Its also cleaner to use
+> > >=20
+> > > rcu_dereference(dev->br_port_rcu)
+> > >=20
+> > > instead of=20
+> > >=20
+> > > (struct net_bridge_port *)rcu_dereference(dev->rx_handler_data)
+> >=20
+> > There must be a better way. What about use of that hook by macvlan =
+and openvswitch?
+>=20
+> macvlan and openvswitch (is it part of linux yet ???)
+>=20
+> I honestly dont understand your point Stephen, maybe you could explai=
+n a
+> bit more what is the problem ?
+>=20
+> I use a union, like many other ones in the kernel. This is the first
+> time I ear this is not good to add type safety.
+>=20
+> You can use either one or other field at your convenience.
+>=20
+> If you are talking about stacking hooks, that has nothing to do with
+> this (cleanup) rcu patch, but previous introduction of
+> rx_handler_data/rx_handler ?
+>=20
+> Please run sparse on x86_64 machine and watch all the warnings in bri=
+dge
+> code. (with CONFIG_SPARSE_RCU_POINTER=3Dy)
+>=20
+> Me confused.
+>=20
+>=20
 
-10:05:53.496479 IP 192.168.2.28.50070 > 67.215.241.250.5060: SIP, length: 723
-E`...[..@.r.....C...........REGISTER sip:losangeles.voip.ms SIP/2.0
-Via: SIP/2.0/
-
-10:05:53.587370 IP 67.215.241.250.5060 > 192.168.2.28.50070: SIP, length: 486
-E.......3..fC...............SIP/2.0 100 Trying
-Via: SIP/2.0/UDP 192.168.2.28:5060
-
-10:05:53.587807 IP 67.215.241.250.5060 > 192.168.2.28.50070: SIP, length: 550
-E..B....3..%C...............SIP/2.0 401 Unauthorized
-Via: SIP/2.0/UDP 192.168.2.2
-
-10:05:57.496541 IP 192.168.2.28.50070 > 67.215.241.250.5060: SIP, length: 723
-E`...\..@.r.....C...........REGISTER sip:losangeles.voip.ms SIP/2.0
-Via: SIP/2.0/
-
-10:05:57.526716 IP 67.215.241.250.5060 > 192.168.2.28.50070: SIP, length: 486
-E.......3..dC...............SIP/2.0 100 Trying
-Via: SIP/2.0/UDP 192.168.2.28:5060
-
-10:05:57.527162 IP 67.215.241.250.5060 > 192.168.2.28.50070: SIP, length: 550
-E..B....3..#C...............SIP/2.0 401 Unauthorized
-Via: SIP/2.0/UDP 192.168.2.2
-
-10:06:01.486821 IP 192.168.2.28.50070 > 67.215.241.250.5060: SIP, length: 723
-E`...]..@.r.....C...........REGISTER sip:losangeles.voip.ms SIP/2.0
-Via: SIP/2.0/
-
-10:06:01.515611 IP 67.215.241.250.5060 > 192.168.2.28.50070: SIP, length: 486
-E.......3..bC...............SIP/2.0 100 Trying
-Via: SIP/2.0/UDP 192.168.2.28:5060
-
-10:06:01.516024 IP 67.215.241.250.5060 > 192.168.2.28.50070: SIP, length: 550
-E..B....3..!C...............SIP/2.0 401 Unauthorized
-Via: SIP/2.0/UDP 192.168.2.2
-
-... continues forever ...
+You combined three different sets of changes and introduced a needless
+union. I will split them up and show you what I want.
 
 
-Patched nf_nat_sip: router sends the replies back to port 5060, so the
-phone is now able to register itself and make calls:
-
-10:09:46.221631 IP 192.168.2.28.50618 > 67.215.241.250.5060: SIP, length: 723
-E`...G..@.p.....C...........REGISTER sip:losangeles.voip.ms SIP/2.0
-Via: SIP/2.0/
-
-10:09:46.253052 IP 67.215.241.250.5060 > 192.168.2.28.5060: SIP, length: 491
-E....+..4..$C...............SIP/2.0 100 Trying
-Via: SIP/2.0/UDP 192.168.2.28:5060
-
-10:09:46.253472 IP 67.215.241.250.5060 > 192.168.2.28.5060: SIP, length: 550
-E..B.,..4...C...............SIP/2.0 401 Unauthorized
-Via: SIP/2.0/UDP 192.168.2.2
-
-10:09:46.261602 IP 192.168.2.28.50618 > 67.215.241.250.5060: SIP, length: 900
-E`...H..@.p.....C...........REGISTER sip:losangeles.voip.ms SIP/2.0
-Via: SIP/2.0/
-
-10:09:46.290211 IP 67.215.241.250.5060 > 192.168.2.28.5060: SIP, length: 491
-E....-..4.."C...............SIP/2.0 100 Trying
-Via: SIP/2.0/UDP 192.168.2.28:5060
-
-10:09:46.295041 IP 67.215.241.250.5060 > 192.168.2.28.5060: SIP, length: 579
-E.._....4...C............K..SIP/2.0 200 OK
-Via: SIP/2.0/UDP 192.168.2.28:5060;bra
-
-
-BTW, I thought of two possible issues with the original patch:
-
-1) Might need to call skb_make_writable() prior to modifying the
-packet.  Presumably the second invocation inside
-nf_nat_mangle_udp_packet() will have no effect.
-
-(Is there a cleaner way to mangle just the port number?  Most of the
-utility functions only help with modifying the data area.)
-
-2) I should probably be checking to make sure request == 0 before
-mangling the packet.  The current behavior is harmless if the SIP
-proxy is on port 5060, but that might not always be the case.
-
-I can roll these, along with any other suggestions, into v2.
+--=20
