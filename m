@@ -1,51 +1,89 @@
-From: Eliad Peller <eliad@wizery.com>
-Subject: Re: netlink_carrier_on() race condition?
-Date: Mon, 15 Nov 2010 02:15:12 +0200
-Message-ID: <AANLkTi=cxAYXPKDMfURNX_=xU4Leqp6s6Dmbzam3q56_@mail.gmail.com>
-References: <AANLkTin4VvU9vXKT=5mmJFYN==YB5QfjOMo2cHQ0b5bJ@mail.gmail.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the final tree (net tree
+ related)
+Date: Mon, 15 Nov 2010 11:46:51 +1100
+Message-ID: <20101115114651.8e6bad6c.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jamal Hadi Salim <hadi@cyberus.ca>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gy0-f174.google.com ([209.85.160.174]:38875 "EHLO
-	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753587Ab0KOAPO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Nov 2010 19:15:14 -0500
-Received: by gyh4 with SMTP id 4so2714794gyh.19
-        for <netdev@vger.kernel.org>; Sun, 14 Nov 2010 16:15:13 -0800 (PST)
-In-Reply-To: <AANLkTin4VvU9vXKT=5mmJFYN==YB5QfjOMo2cHQ0b5bJ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Mon__15_Nov_2010_11_46_51_+1100_70vNeCZ14/1f.Dlc"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-hi,
+--Signature=_Mon__15_Nov_2010_11_46_51_+1100_70vNeCZ14/1f.Dlc
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-i'm still waiting for some response regarding this issue.
-i've encountered this concrete issue, and i want to make sure i fully
-understand the situation before submitting some redundant patch.
+Hi Dave,
 
-thanks,
-Eliad.
+After merging the final tree, today's linux-next build (powerpc
+ppc44x_defconfig) failed like this:
 
-On Thu, Nov 4, 2010 at 9:43 PM, Eliad Peller <eliad@wizery.com> wrote:
-> hi,
->
-> i might be missing something, but i think there is some race conditio=
-n
-> in netlink_carrier_on():
-> when calling it, it clears the __LINK_STATE_NOCARRIER flag and
-> enqueues a work to do everything needed.
-> this cause a period, in which =A0__LINK_STATE_NOCARRIER is unset (whi=
-ch
-> implies IFF_LOWER_UP), but the default qdiscs are not attached yet
-> (since the work hasn't been executed yet).
-> userspace might get some netlink events (e.g. wireless wext) in which
-> the IFF_LOWER_UP flag is set, but the queues are not ready.
->
-> shouldn't we clear the flag only after all the work is done?
->
-> thanks,
-> Eliad.
->
+net/ipv4/igmp.c: In function 'ip_mc_inc_group':
+net/ipv4/igmp.c:1228: error: implicit declaration of function 'for_each_pmc=
+_rtnl'
+net/ipv4/igmp.c:1228: error: expected ';' before '{' token
+net/ipv4/igmp.c: In function 'ip_mc_unmap':
+net/ipv4/igmp.c:1333: error: expected ';' before 'igmp_group_dropped'
+net/ipv4/igmp.c: In function 'ip_mc_remap':
+net/ipv4/igmp.c:1343: error: expected ';' before 'igmp_group_added'
+net/ipv4/igmp.c: In function 'ip_mc_down':
+net/ipv4/igmp.c:1355: error: expected ';' before 'igmp_group_dropped'
+net/ipv4/igmp.c: In function 'ip_mc_up':
+net/ipv4/igmp.c:1400: error: expected ';' before 'igmp_group_added'
+net/ipv4/igmp.c: In function 'ip_mc_del_src':
+net/ipv4/igmp.c:1521: error: implicit declaration of function 'for_each_pmc=
+_rcu'
+net/ipv4/igmp.c:1521: error: expected ';' before '{' token
+net/ipv4/igmp.c: In function 'ip_mc_add_src':
+net/ipv4/igmp.c:1693: error: expected ';' before '{' token
+net/ipv4/igmp.c: In function 'ip_mc_join_group':
+net/ipv4/igmp.c:1800: error: expected ';' before '{' token
+net/ipv4/igmp.c: In function 'ip_mc_source':
+net/ipv4/igmp.c:1938: error: expected ';' before '{' token
+net/ipv4/igmp.c: In function 'ip_mc_msfilter':
+net/ipv4/igmp.c:2081: error: expected ';' before '{' token
+net/ipv4/igmp.c: In function 'ip_mc_msfget':
+net/ipv4/igmp.c:2159: error: expected ';' before '{' token
+net/ipv4/igmp.c: In function 'ip_mc_gsfget':
+net/ipv4/igmp.c:2212: error: expected ';' before '{' token
+net/ipv4/igmp.c:2240: warning: label 'done' defined but not used
+net/ipv4/igmp.c: In function 'ip_mc_sf_allow':
+net/ipv4/igmp.c:2261: error: expected ';' before '{' token
+net/ipv4/igmp.c: In function 'ip_check_mc':
+net/ipv4/igmp.c:2326: error: expected ';' before '{' token
+net/ipv4/igmp.c:2322: warning: unused variable 'psf'
+
+Caused by commit 1d7138de878d1d4210727c1200193e69596f93b3 ("igmp: RCU
+conversion of in_dev->mc_list").  The for_each_pmc_rtnl and
+for_each_pmc_rcu definitions are protected by  CONFIG_IP_MULTICAST, but
+the uses are not ...
+
+I have reverted that commit for today.
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Mon__15_Nov_2010_11_46_51_+1100_70vNeCZ14/1f.Dlc
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iQEcBAEBAgAGBQJM4IL7AAoJEDMEi1NhKgbsiXcH/1ae7ygSHpHgwuE4QD0Mmy1E
+o2PGaFIYYR7jBdcUZ2OEnH/+oY49ES48lZVU8uIZPejlzR0mFbb/bIL7r6Yp8kfb
+4oGA92APu97u38vWFeOVCH2yGAaZJsfzm7W3hieSHfI/Gh+qsWEG5S49rX1mXh/f
+iSu3hE6nZi2WbNlCE9JHAGCqJHAHnKq2Iw1SNtA9cMac699ZXnySClNFvIAG1eQe
+e8fCKZk0SQkazvJXMSWeFRgjoq4he3sIydxd6u77aObHTS2SlV8NPMYyhLCI7aQB
+Afz/tk/b8jdLEeBNyTjk+SEpOWSDHYZi9Ph3N08W5GwQMTa1EF92FJ/xFm2gHS0=
+=r6UA
+-----END PGP SIGNATURE-----
+
+--Signature=_Mon__15_Nov_2010_11_46_51_+1100_70vNeCZ14/1f.Dlc--
