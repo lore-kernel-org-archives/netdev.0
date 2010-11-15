@@ -1,68 +1,70 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH 1/1] UDEV - Add 'udevlom' command line param to start_udev
-Date: Mon, 15 Nov 2010 11:32:28 -0800
-Message-ID: <4CE18ACC.3020508@hp.com>
-References: <20101103165505.GA3281@fedora-14-r710.oslab.blr.amer.dell.com>	<20101103180500.GA7441@kroah.com>	<20101105025848.GA14021@pws490.domsch.com>	<20101115164714.GB7030@auslistsprd01.us.dell.com> <1289841399.2586.18.camel@bwh-desktop>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: the future of ethtool
+Date: Mon, 15 Nov 2010 14:41:30 -0500
+Message-ID: <4CE18CEA.5080502@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Matt Domsch <Matt_Domsch@Dell.com>, Greg KH <greg@kroah.com>,
-	"K, Narendra" <Narendra_K@Dell.com>,
-	"linux-hotplug@vger.kernel.org" <linux-hotplug@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Hargrave, Jordan" <Jordan_Hargrave@Dell.com>,
-	"Rose, Charles" <Charles_Rose@Dell.com>
+Cc: NetDev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
 To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-hotplug-owner@vger.kernel.org>
-In-Reply-To: <1289841399.2586.18.camel@bwh-desktop>
-Sender: linux-hotplug-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:52705 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757936Ab0KOTle (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Nov 2010 14:41:34 -0500
+Received: by vws13 with SMTP id 13so1858631vws.19
+        for <netdev@vger.kernel.org>; Mon, 15 Nov 2010 11:41:33 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->>I'm getting a lot of pushback from Dell customers on our
->>linux-poweredge mailing list (thread starts [1]) that the choice of
->>name "lomX" is poor, due to HP's extensive use of LOM meaning Lights
->>Out Management, rather than my intended meaning of "LAN on
->>Motherboard".  Gotta hate TLA collisions.
+Thanks for accepting ethtool maintainership.
 
-I think Sun (sorry, Oracle) push LOM for Lights-Out Management quite a lot - 
-calling their service processor an iLOM IIRC.
+There are two key unresolved issues with ethtool that are worth noting 
+to the next maintainer.  Both of these come from years of user and 
+customer complaints.
 
->>So, I'm open to new ideas for naming these.  At LPC, Ted noted that
->>2- and 3-letter names are expected.  "nic[1234]" or "en[1234]" ?
-> 
-> [...]
-> 
-> I would suggest avoiding "nic" since some people use "NIC" to mean
-> specifically an add-in card rather than LOM.  In addition there is some
-> ambiguity with multi-port cards/controllers of whether NIC means a
-> controller or a port.
-> 
-> Other options for the prefix:
-> - "lan".  Maybe too generic.
+1) ethtool command line interface.
 
-yes and no - that is the prefix for "ethernet" network interface names in HP-UX, 
-going back decades.  so, there is precedent for that, and given the way HP-UX 
-device name persistence works, 99 times out of ten, the "built-in" or "core" LAN 
-interfaces ended-up being enumerated starting from zero - lan0, lan1, etc. 
-(There are exceptions relating to certain modles of systems and a full 
-re-install of the OS with add-on cards present but that is a story for another 
-thread).
+For 1,001 minor reasons of user taste and expectation, people tend to 
+complain about the command line interface.  Due to script usage it is 
+set in stone, and has been since before my tenure.  But users 
+continually request something more flexible, often, in particular, 
+wanting to set multiple settings in one execution, or wanting to apply 
+the same setting to multiple interface in one execution.
 
-> - "mbe" = MotherBoard Ethernet. Looks a bit like "GbE" as some OEMs put
-> on the port labels.
+Obviously one can script this, but, it is probably the #1 user request.
 
-Collides with Multi-Bit Error.
+My thought was to create "nictool", a new tool with more flexible 
+command line interface, using the same old ethtool ioctls currently in 
+use today.  ('nictool' also solves a minor naming complaint from 
+wireless and other people, who use ethtool on non-ethernet network 
+interfaces)
 
-> - "eom" = Ethernet On Motherboard
 
-Collides with End of Message.
+2) multiple settings and the ethtool kernel interface
 
-If there is indeed *no* way to get then named eth[1-N], and "lan" doesn't 
-resonate well-enough, then my contribution to the bikeshed would be "cor" simply 
-because I don't know the TLA with which that collides :)
+Another common complaint is related to multiple settings, and associated 
+hardware NIC resets.
 
-Are folks sufficently confident that using anything other than "eth" won't cause 
-some unpleasant "our app always ass-u-me-d interfaces started with 'eth'" 
-situations?
+Many ethtool driver implementations look like this:
 
-rick jones
+	ethtool_op_do_something()
+		stop RX/TX
+		apply settings
+		perform full NIC reset, consuming much time
+		start RX/TX
+
+The problem arises when the user wishes to change multiple hardware 
+attributes at the same time.  A user wishing to change 4 attributes 
+could wind up with 4 ethtool(1) invocations, with 4 accompanying 
+hardware NIC resets.  Time consuming, inefficient, and unnecessary.
+
+
+Obviously the world has not ended without these changes, but these items 
+do cause continued complaints from users, and we're here to be 
+responsive to users presumably ;-)
+
+	Jeff
+
+
+
