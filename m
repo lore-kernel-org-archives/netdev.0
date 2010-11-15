@@ -1,32 +1,31 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Kernel rwlock design, Multicore and IGMP
-Date: Mon, 15 Nov 2010 12:31:12 +0100
-Message-ID: <1289820672.2607.10.camel@edumazet-laptop>
-References: <AANLkTikvT=x9eBovn2-m6HLqk7wyXSAR3sc9jCQ0C6mL@mail.gmail.com>
-	 <1289489007.17691.1310.camel@edumazet-laptop>
-	 <AANLkTik93QUQxSDmwd4Qj-gXQiWWPzd68JPAYAHBAsHR@mail.gmail.com>
-	 <ZXmP8hjgLHA.4648@exchange1.tad.internal.tilera.com>
-	 <4CDF1945.8090101@tilera.com>
-	 <AANLkTind92uwcigzmDn8yn9a22exDy7zcreGQ5-6NLV-@mail.gmail.com>
-	 <AANLkTinzRm_5WW5HwxzXqZZD4255GDpR4yzELqz66Dfn@mail.gmail.com>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH] netfilter: guard the size of the nf_ct_ext
+Date: Mon, 15 Nov 2010 19:35:33 +0800
+Message-ID: <AANLkTi=pJG=Z8R2qLUm6m8wnCyZiKaZzmTxLZm08Jitj@mail.gmail.com>
+References: <1289801749-8993-1-git-send-email-xiaosuo@gmail.com> <4CE1150D.1080302@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Chris Metcalf <cmetcalf@tilera.com>,
-	=?ISO-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Cypher Wu <cypher.w@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTinzRm_5WW5HwxzXqZZD4255GDpR4yzELqz66Dfn@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4CE1150D.1080302@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le lundi 15 novembre 2010 =C3=A0 19:18 +0800, Cypher Wu a =C3=A9crit :
-> In that post I want to confirm another thing: if we join/leave on
-> different cores that every call will start the timer for IGMP message
-> using the same in_dev->mc_list, could that be optimized?
->=20
+On Mon, Nov 15, 2010 at 7:10 PM, Patrick McHardy <kaber@trash.net> wrote:
+> On 15.11.2010 07:15, Changli Gao wrote:
+>> We'd better guard the size of the nf_ct_ext, as the nf_ct_ext.len is u8.
+>> If the size is bigger than 255, a warning will be printed.
+>
+> Why are you checking this in basically every possible spot?
+> Just checking once during registration (assuming the worst
+> case of a conntrack using every possible extension) should
+> be enough.
+>
 
-Which timer exactly ? Is it a real scalability problem ?
+Yes. It is enough, if we check every patch carefully. Thanks.
 
-I believe RTNL would be the blocking point actually...
+-- 
+Regards,
+Changli Gao(xiaosuo@gmail.com)
