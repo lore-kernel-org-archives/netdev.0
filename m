@@ -1,33 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3] offloading: Force software GSO for multiple vlan
- tags.
-Date: Mon, 15 Nov 2010 09:23:49 -0800 (PST)
-Message-ID: <20101115.092349.260082562.davem@davemloft.net>
-References: <1288390495-28923-1-git-send-email-jesse@nicira.com>
-	<1288390495-28923-3-git-send-email-jesse@nicira.com>
+From: <amandasaleeby1@centrum.sk>
+Subject: hello
+Date: Mon, 15 Nov 2010 18:33:04 +0100
+Message-ID: <201011151833.25978__45954.256054438$1289842468$gmane$org@centrum.cz>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bhutchings@solarflare.com
-To: jesse@nicira.com
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+To: "amandasaleeby1" <amandasaleeby1@centrum.sk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35790
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932303Ab0KORXY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Nov 2010 12:23:24 -0500
-In-Reply-To: <1288390495-28923-3-git-send-email-jesse@nicira.com>
+Received: from farizej.centrum.cz ([90.183.38.130]:48993 "EHLO
+	farizej.centrum.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933013Ab0KOReI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Nov 2010 12:34:08 -0500
+Received: by mail255.centrum.cz id S50332648Ab0KORdE (ORCPT
+	<rfc822;netdev@vger.kernel.org> + 2 others);
+	Mon, 15 Nov 2010 18:33:04 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Gross <jesse@nicira.com>
-Date: Fri, 29 Oct 2010 15:14:55 -0700
+hello with love and trust
+my dearest friend compliment of the day to you.my name is Amanda favour a
+girl of 23years old honest trusting kind caring loving and fun with
+compassionate and generous nature viewing your email address which really interest
+me to know more about you that is having communication friendship with you
+if you will have the desire with me.so that we can get to know each other
+better sharing feelings and thought together .i will like you to write me
+through my email for easiest communication.i will be waiting to read from
+you.I will be waiting for your mail;please make sure you replied to me with the email address below,it is very confidential and private,thanks and have a nice day.
+here is my email address
+Amandasaleeby@she.com
 
-> We currently use vlan_features to check for TSO support if there is
-> a vlan tag.  However, it's quite likely that the NIC is not able to
-> do TSO when there is an arbitrary number of tags.  Therefore if there
-> is more than one tag (in-band or out-of-band), fall back to software
-> emulation.
-> 
-> Signed-off-by: Jesse Gross <jesse@nicira.com>
 
-Applied.
+
