@@ -1,37 +1,117 @@
-From: Richard Hartmann <richih.mailinglist@gmail.com>
-Subject: Re: [Patch] fix packet loss and massive ping spikes with PPP multi-link
-Date: Mon, 15 Nov 2010 13:07:39 +0100
-Message-ID: <AANLkTimffqwa7cjJkbZbQ5whGu51znAwAHtR2+XeT7q0@mail.gmail.com>
-References: <2d460de71003260850x7f90d04cy79ac853464108182@mail.gmail.com>
- <20100326160226.0159ac3b@lxorguk.ukuu.org.uk> <4BACE827.4070006@gmail.com>
- <20100326170428.6c1ad66c@lxorguk.ukuu.org.uk> <4BB31E00.8060204@netservers.co.uk>
- <20100529021624.GA2538@brick.ozlabs.ibm.com> <4C03E1CD.4000809@netservers.co.uk>
- <4C0670E2.1090708@netservers.co.uk> <AANLkTi=GHmqeb=8rMZAnpqdKGbTEf2mRYhygX1aC2hyD@mail.gmail.com>
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Subject: Re: [PATCH 0/5] bridge: RCU annotation and cleanup
+Date: Mon, 15 Nov 2010 21:23:37 +0900
+Message-ID: <201011152123.HHB21896.HFOOVSMFOtLJQF@I-love.SAKURA.ne.jp>
+References: <20101114211201.678755903@vyatta.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Paul Mackerras <paulus@samba.org>, netdev@vger.kernel.org,
-	linux-ppp@vger.kernel.org, Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	"Alexander E. Patrakov" <patrakov@gmail.com>,
-	linux-kernel@vger.kernel.org, gabriele.paoloni@intel.com
-To: Ben McKeegan <ben@netservers.co.uk>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
+To: shemminger@vyatta.com, davem@davemloft.net, eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f174.google.com ([209.85.161.174]:48884 "EHLO
-	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751450Ab0KOMMo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Nov 2010 07:12:44 -0500
-In-Reply-To: <AANLkTi=GHmqeb=8rMZAnpqdKGbTEf2mRYhygX1aC2hyD@mail.gmail.com>
+Received: from wine.ocn.ne.jp ([122.1.235.145]:64649 "EHLO smtp.wine.ocn.ne.jp"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754072Ab0KOMXl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Nov 2010 07:23:41 -0500
+In-Reply-To: <20101114211201.678755903@vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 8, 2010 at 15:05, Richard Hartmann
-<richih.mailinglist@gmail.com> wrote:
+Stephen Hemminger wrote:
+> This is a split up of what Eric did with a couple of small changes and additions.
+Something seems to be wrong with this patchset.
 
-> Is there any update on this? It's been quite some time since you last updated
-> on this issue.
+--- a/net/bridge/br_input.c
++++ b/net/bridge/br_input.c
+> @@ -173,8 +177,8 @@ forward:
+>  	switch (p->state) {
+>  	case BR_STATE_FORWARDING:
+>  		rhook = rcu_dereference(br_should_route_hook);
+> -		if (rhook != NULL) {
+> -			if (rhook(skb))
+> +		if (rhook) {
+> +			if ((*rhook)(skb))
 
-As it's been a week without any reply and as I know how stuff can
-drown in more important work & projects, I am tentatively poking again
-:)
+Is *rhook != NULL guaranteed when rhook != NULL?
 
+>  				return skb;
+>  			dest = eth_hdr(skb)->h_dest;
+>  		}
 
-RIchard
+--- a/net/bridge/br_forward.c
++++ b/net/bridge/br_forward.c
+> @@ -242,7 +242,7 @@ static void br_multicast_flood(struct ne
+>  		if ((unsigned long)lport >= (unsigned long)port)
+>  			p = rcu_dereference(p->next);
+>  		if ((unsigned long)rport >= (unsigned long)port)
+> -			rp = rcu_dereference(rp->next);
+> +			rp = rcu_dereference(hlist_next_rcu(rp->next));
+
+I think this one is hlist_next_rcu(rp).
+
+>  	}
+>  
+>  	if (!prev)
+
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+> @@ -475,11 +475,8 @@ int br_del_if(struct net_bridge *br, str
+>  {
+>  	struct net_bridge_port *p;
+>  
+> -	if (!br_port_exists(dev))
+> -		return -EINVAL;
+> -
+>  	p = br_port_get(dev);
+
+Don't you need to use br_port_get_rtnl()?  (I don't know.)
+
+> -	if (p->br != br)
+> +	if (!p || p->br != br)
+>  		return -EINVAL;
+>  
+>  	del_nbp(p);
+
+--- a/net/bridge/br_netlink.c
++++ b/net/bridge/br_netlink.c
+> @@ -169,9 +171,9 @@ static int br_rtm_setlink(struct sk_buff
+>  	if (!dev)
+>  		return -ENODEV;
+>  
+> -	if (!br_port_exists(dev))
+> -		return -EINVAL;
+>  	p = br_port_get(dev);
+
+Don't you need to use br_port_get_rtnl()?  (I don't know.)
+
+> +	if (!p)
+> +		return -EINVAL;
+>  
+>  	/* if kernel STP is running, don't allow changes */
+>  	if (p->br->stp_enabled == BR_KERNEL_STP)
+
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+> @@ -151,11 +151,21 @@ struct net_bridge_port
+>  #endif
+>  };
+>  
+> -#define br_port_get_rcu(dev) \
+> -	((struct net_bridge_port *) rcu_dereference(dev->rx_handler_data))
+> -#define br_port_get(dev) ((struct net_bridge_port *) dev->rx_handler_data)
+>  #define br_port_exists(dev) (dev->priv_flags & IFF_BRIDGE_PORT)
+>  
+> +static inline struct net_bridge_port *br_port_get_rcu(const struct net_device *dev)
+> +{
+> +	return br_port_exists(dev) ?
+> +		rcu_dereference(dev->rx_handler_data) : NULL;
+> +}
+> +
+> +static inline struct net_bridge_port *br_port_get(struct net_device *dev)
+> +{
+> +	return br_port_exists(dev) ? dev->rx_handler_data : NULL;
+> +}
+> +
+> +#define br_port_get(dev) ((struct net_bridge_port *) dev->rx_handler_data)
+
+Why are you defining br_port_get() twice, once as macro and once as inlined
+function?
