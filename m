@@ -1,88 +1,112 @@
 From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH] netfilter: make rcu read section smaller
-Date: Mon, 15 Nov 2010 12:48:55 +0800
-Message-ID: <1289796535-3009-1-git-send-email-xiaosuo@gmail.com>
+Subject: [PATCH] netfilter: guard the size of the nf_ct_ext
+Date: Mon, 15 Nov 2010 14:15:49 +0800
+Message-ID: <1289801749-8993-1-git-send-email-xiaosuo@gmail.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
 	Changli Gao <xiaosuo@gmail.com>
 To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f174.google.com ([209.85.213.174]:62463 "EHLO
-	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932585Ab0KOEtS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Nov 2010 23:49:18 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+We'd better guard the size of the nf_ct_ext, as the nf_ct_ext.len is u8.
+If the size is bigger than 255, a warning will be printed.
 
 Signed-off-by: Changli Gao <xiaosuo@gmail.com>
 ---
- net/ipv4/netfilter/nf_nat_core.c |   38 +++++++++++++++++++-------------------
- 1 file changed, 19 insertions(+), 19 deletions(-)
-diff --git a/net/ipv4/netfilter/nf_nat_core.c b/net/ipv4/netfilter/nf_nat_core.c
-index c04787c..7300611 100644
---- a/net/ipv4/netfilter/nf_nat_core.c
-+++ b/net/ipv4/netfilter/nf_nat_core.c
-@@ -85,7 +85,7 @@ in_range(const struct nf_conntrack_tuple *tuple,
- 	 const struct nf_nat_range *range)
- {
- 	const struct nf_nat_protocol *proto;
--	int ret = 0;
-+	int ret = 1;
+ net/netfilter/nf_conntrack_extend.c |   41 +++++++++++++++++++++++++++++-------
+ 1 file changed, 34 insertions(+), 7 deletions(-)
+diff --git a/net/netfilter/nf_conntrack_extend.c b/net/netfilter/nf_conntrack_extend.c
+index bd82450..6a404f9 100644
+--- a/net/netfilter/nf_conntrack_extend.c
++++ b/net/netfilter/nf_conntrack_extend.c
+@@ -8,6 +8,7 @@
+  *      as published by the Free Software Foundation; either version
+  *      2 of the License, or (at your option) any later version.
+  */
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+ #include <linux/kernel.h>
+ #include <linux/module.h>
+ #include <linux/mutex.h>
+@@ -98,6 +99,11 @@ void *__nf_ct_ext_add(struct nf_conn *ct, enum nf_ct_ext_id id, gfp_t gfp)
+ 	newlen = newoff + t->len;
+ 	rcu_read_unlock();
  
- 	/* If we are supposed to map IPs, then we must be in the
- 	   range specified, otherwise let this drag us onto a new src IP. */
-@@ -95,13 +95,14 @@ in_range(const struct nf_conntrack_tuple *tuple,
- 			return 0;
- 	}
- 
--	rcu_read_lock();
--	proto = __nf_nat_proto_find(tuple->dst.protonum);
--	if (!(range->flags & IP_NAT_RANGE_PROTO_SPECIFIED) ||
--	    proto->in_range(tuple, IP_NAT_MANIP_SRC,
--			    &range->min, &range->max))
--		ret = 1;
--	rcu_read_unlock();
-+	if (range->flags & IP_NAT_RANGE_PROTO_SPECIFIED) {
-+		rcu_read_lock();
-+		proto = __nf_nat_proto_find(tuple->dst.protonum);
-+		if (!proto->in_range(tuple, IP_NAT_MANIP_SRC, &range->min,
-+				     &range->max))
-+			ret = 0;
-+		rcu_read_unlock();
++	if (unlikely(newlen > 255)) {
++		pr_warn_ratelimited("the size of nf_ct_ext is %d, "
++				    "bigger than 255\n", newlen);
++		return NULL;
 +	}
- 
- 	return ret;
+ 	new = __krealloc(old, newlen, gfp);
+ 	if (!new)
+ 		return NULL;
+@@ -125,9 +131,9 @@ void *__nf_ct_ext_add(struct nf_conn *ct, enum nf_ct_ext_id id, gfp_t gfp)
  }
-@@ -235,22 +236,21 @@ get_unique_tuple(struct nf_conntrack_tuple *tuple,
+ EXPORT_SYMBOL(__nf_ct_ext_add);
  
- 	/* 3) The per-protocol part of the manip is made to map into
- 	   the range to make a unique tuple. */
-+	if (!(range->flags & (IP_NAT_RANGE_PROTO_RANDOM |
-+			      IP_NAT_RANGE_PROTO_SPECIFIED)) &&
-+	    !nf_nat_used_tuple(tuple, ct))
-+		return;
+-static void update_alloc_size(struct nf_ct_ext_type *type)
++static bool update_alloc_size(struct nf_ct_ext_type *type)
+ {
+-	int i, j;
++	int i, j, alloc_size;
+ 	struct nf_ct_ext_type *t1, *t2;
+ 	enum nf_ct_ext_id min = 0, max = NF_CT_EXT_NUM - 1;
  
- 	rcu_read_lock();
- 	proto = __nf_nat_proto_find(orig_tuple->dst.protonum);
+@@ -153,16 +159,24 @@ static void update_alloc_size(struct nf_ct_ext_type *type)
+ 			    (t2->flags & NF_CT_EXT_F_PREALLOC) == 0)
+ 				continue;
  
- 	/* Only bother mapping if it's not already in range and unique */
--	if (!(range->flags & IP_NAT_RANGE_PROTO_RANDOM)) {
--		if (range->flags & IP_NAT_RANGE_PROTO_SPECIFIED) {
--			if (proto->in_range(tuple, maniptype, &range->min,
--					    &range->max) &&
--			    (range->min.all == range->max.all ||
--			     !nf_nat_used_tuple(tuple, ct)))
--				goto out;
--		} else if (!nf_nat_used_tuple(tuple, ct)) {
--			goto out;
--		}
--	}
-+	if ((range->flags & (IP_NAT_RANGE_PROTO_RANDOM |
-+			     IP_NAT_RANGE_PROTO_SPECIFIED)) ==
-+	    IP_NAT_RANGE_PROTO_SPECIFIED &&
-+	    proto->in_range(tuple, maniptype, &range->min, &range->max) &&
-+	    (range->min.all == range->max.all || !nf_nat_used_tuple(tuple, ct)))
+-			t1->alloc_size = ALIGN(t1->alloc_size, t2->align)
+-					 + t2->len;
++			alloc_size = ALIGN(t1->alloc_size, t2->align) + t2->len;
++			if (unlikely(alloc_size > 255)) {
++				pr_warn("the size of nf_ct_ext is %d, "
++					"bigger than 255\n", alloc_size);
++				return false;
++			}
++			t1->alloc_size = alloc_size;
+ 		}
+ 	}
++
++	return true;
+ }
+ 
+ /* This MUST be called in process context. */
+ int nf_ct_extend_register(struct nf_ct_ext_type *type)
+ {
+ 	int ret = 0;
++	int alloc_size;
+ 
+ 	mutex_lock(&nf_ct_ext_type_mutex);
+ 	if (nf_ct_ext_types[type->id]) {
+@@ -172,13 +186,26 @@ int nf_ct_extend_register(struct nf_ct_ext_type *type)
+ 
+ 	/* This ensures that nf_ct_ext_create() can allocate enough area
+ 	   before updating alloc_size */
+-	type->alloc_size = ALIGN(sizeof(struct nf_ct_ext), type->align)
+-			   + type->len;
++	alloc_size = ALIGN(sizeof(struct nf_ct_ext), type->align) + type->len;
++	if (unlikely(alloc_size > 255)) {
++		pr_warn("the size of nf_ct_ext is %d, bigger than 255\n",
++			alloc_size);
++		ret = -EINVAL;
 +		goto out;
++	}
++	type->alloc_size = alloc_size;
+ 	rcu_assign_pointer(nf_ct_ext_types[type->id], type);
+-	update_alloc_size(type);
++	if (!update_alloc_size(type))
++		goto err;
+ out:
+ 	mutex_unlock(&nf_ct_ext_type_mutex);
+ 	return ret;
++err:
++	rcu_assign_pointer(nf_ct_ext_types[type->id], NULL);
++	update_alloc_size(type);
++	mutex_unlock(&nf_ct_ext_type_mutex);
++	rcu_barrier();
++	return -EINVAL;
+ }
+ EXPORT_SYMBOL_GPL(nf_ct_extend_register);
  
- 	/* Last change: get protocol to try to obtain unique tuple. */
- 	proto->unique_tuple(tuple, range, maniptype, ct);
