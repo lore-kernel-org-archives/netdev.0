@@ -1,32 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] xfrm: use gre key as flow upper protocol info
-Date: Mon, 15 Nov 2010 10:43:22 -0800 (PST)
-Message-ID: <20101115.104322.212675424.davem@davemloft.net>
-References: <1288795298-323-1-git-send-email-timo.teras@iki.fi>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: network device reference leak with net-next
+Date: Mon, 15 Nov 2010 10:56:46 -0800
+Message-ID: <20101115105646.0cc823ce@nehalam>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au
-To: timo.teras@iki.fi
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39334
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756959Ab0KOSm5 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Nov 2010 13:42:57 -0500
-In-Reply-To: <1288795298-323-1-git-send-email-timo.teras@iki.fi>
+Received: from mail.vyatta.com ([76.74.103.46]:58312 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758162Ab0KOS4v (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Nov 2010 13:56:51 -0500
+Received: from localhost (localhost.localdomain [127.0.0.1])
+	by mail.vyatta.com (Postfix) with ESMTP id 97952182894E
+	for <netdev@vger.kernel.org>; Mon, 15 Nov 2010 10:56:50 -0800 (PST)
+Received: from mail.vyatta.com ([127.0.0.1])
+	by localhost (mail.vyatta.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id nr5basbsF1ba for <netdev@vger.kernel.org>;
+	Mon, 15 Nov 2010 10:56:50 -0800 (PST)
+Received: from nehalam (unknown [10.250.0.103])
+	by mail.vyatta.com (Postfix) with ESMTPSA id 911D71828906
+	for <netdev@vger.kernel.org>; Mon, 15 Nov 2010 10:56:49 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Timo Ter=E4s <timo.teras@iki.fi>
-Date: Wed,  3 Nov 2010 16:41:38 +0200
+This is a new regression (doesn't exist with 2.6.36)
 
-> The GRE Key field is intended to be used for identifying an individua=
-l
-> traffic flow within a tunnel. It is useful to be able to have XFRM
-> policy selector matches to have different policies for different
-> GRE tunnels.
->=20
-> Signed-off-by: Timo Ter=E4s <timo.teras@iki.fi>
+If I shutdown KVM instance with Virt manager, the virtual
+interfaces in the bridge aren't getting cleaned up because
+of leftover reference count.
 
-I'll apply this to net-next-2.6, thanks.
+
+[ 9781.050474] unregister_netdevice: waiting for vnet1 to become free. Usage count = 1
+[ 9785.143400] virbr4: port 3(vnet6) entering forwarding state
+[ 9785.177194] virbr4: port 3(vnet6) entering disabled state
+[ 9785.201129] device vnet6 left promiscuous mode
+[ 9785.201135] virbr4: port 3(vnet6) entering disabled state
+[ 9791.286950] unregister_netdevice: waiting for vnet1 to become free. Usage count = 1
+[ 9795.461526] unregister_netdevice: waiting for vnet6 to become free. Usage count = 1
+[ 9801.523398] unregister_netdevice: waiting for vnet1 to become free. Usage count = 1
