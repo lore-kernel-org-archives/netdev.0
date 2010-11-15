@@ -1,80 +1,84 @@
-From: Cypher Wu <cypher.w@gmail.com>
-Subject: Re: Kernel rwlock design, Multicore and IGMP
-Date: Mon, 15 Nov 2010 15:22:02 +0800
-Message-ID: <AANLkTind92uwcigzmDn8yn9a22exDy7zcreGQ5-6NLV-@mail.gmail.com>
-References: <AANLkTikvT=x9eBovn2-m6HLqk7wyXSAR3sc9jCQ0C6mL@mail.gmail.com>
-	<1289489007.17691.1310.camel@edumazet-laptop>
-	<AANLkTik93QUQxSDmwd4Qj-gXQiWWPzd68JPAYAHBAsHR@mail.gmail.com>
-	<ZXmP8hjgLHA.4648@exchange1.tad.internal.tilera.com>
-	<4CDF1945.8090101@tilera.com>
+From: "Tomoya MORINAGA" <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6 v2] can: Topcliff: PCH_CAN driver: Fix build
+	warnings
+Date: Mon, 15 Nov 2010 16:39:28 +0900
+Message-ID: <000e01cb8498$3ec2cb80$66f8800a@maildom.okisemi.com>
+References: <4CCAA3D4.8070408@dsn.okisemi.com>	<4CCAC4CD.7000503@pengutronix.de>
+	<4CCAF517.2000409@pengutronix.de>	<4CCB213A.2020206@grandegger.com>
+	<004a01cb825a$3a8bd060$66f8800a@maildom.okisemi.com>
+	<4CDD28E6.9060006@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?ISO-8859-1?Q?Am=E9rico_Wang?= <xiyou.wangcong@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Chris Metcalf <cmetcalf@tilera.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f174.google.com ([209.85.216.174]:63869 "EHLO
-	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757527Ab0KOHWE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Nov 2010 02:22:04 -0500
-In-Reply-To: <4CDF1945.8090101@tilera.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>, margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Masayuki Ohtake <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>,
+	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>, kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+To: "Wolfgang Grandegger" <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Nov 14, 2010 at 7:03 AM, Chris Metcalf <cmetcalf@tilera.com> wr=
-ote:
-> On 11/12/2010 2:13 AM, Am=E9rico Wang wrote:
->> On Fri, Nov 12, 2010 at 11:32:59AM +0800, Cypher Wu wrote:
->>> On Thu, Nov 11, 2010 at 11:23 PM, Eric Dumazet <eric.dumazet@gmail.=
-com> wrote:
->>>> Le jeudi 11 novembre 2010 =E0 21:49 +0800, Cypher Wu a =E9crit :
->>>>> I'm using TILEPro and its rwlock in kernel is a liitle different =
-than
->>>>> other platforms. It have a priority for write lock that when trie=
-d it
->>>>> will block the following read lock even if read lock is hold by
->>>>> others. Its code can be read in Linux Kernel 2.6.36 in
->>>>> arch/tile/lib/spinlock_32.c.
->>>>
->>>> This seems a bug to me.
->>>> [...]
->>>>
->>> It seems not a problem that read_lock() can be nested or not since
->>> rwlock doesn't have 'owner', it's just that should we give
->>> write_lock() a priority than read_lock() since if there have a lot
->>> read_lock()s then they'll starve write_lock().
->>> We should work out a well defined behavior so all the
->>> platform-dependent raw_rwlock has to design under that principle.
->>
->> It is a known weakness of rwlock, it is designed like that. :)
->
-> Exactly.  The tile rwlock correctly allows recursively reacquiring th=
-e read
-> lock.  But it does give priority to writers, for the (unfortunately
-> incorrect) reasons Cypher Wu outlined above, e.g.:
->
-> - Core A takes a read lock
-> - Core B tries for a write lock and blocks new read locks
-> - Core A tries for a (recursive) read lock and blocks
->
-> Core A and B are now deadlocked.
->
-> The solution is actually to simplify the tile rwlock implementation s=
-o that
-> both readers and writers contend fairly for the lock.
->
-> I'll post a patch in the next day or two for tile.
->
-> --
-> Chris Metcalf, Tilera Corp.
-> http://www.tilera.com
->
+On Friday, November 12, 2010 8:45 PM, Wolfgang Grandegger wrote:
 
-We're looking forward to you patch. BTW: could your fix it up in Linux
-2.6.26.7 which is not release in the normal kernel?
+> >> This is an enumeration:
+> >>
+> >> enum {
+> >> PCH_STUF_ERR = 1,
+> >> PCH_FORM_ERR,
+> >> PCH_ACK_ERR,
+> >> PCH_BIT1_ERR;
+> >> PCH_BIT0_ERR,
+> >> PCH_CRC_ERR,
+> >> PCH_LEC_ALL;
+> >> }
+> > 
+> > No, 
+> > LEC is for bit assignment.
+> > Thus, "enum" can't be used.
+> 
+> Why? For me it's a classical enum because the value matters, and *not*
+> the individual bit. Do you agree?
 
---=20
-Cyberman Wu
-http://www.meganovo.com
+Sorry, at last, I understand your saying.
+I agree.
+
+
+
+> >> Also, could you please add the TEC and REC:
+> >>
+> >> cf->data[6] = ioread32(&priv->regs->errc) & CAN_TEC;
+> >> cf->data[7] = (ioread32(&priv->regs->errc) & CAN_REC) >> 8;
+> > 
+> > I will add.
+> 
+> BTW: it could be done with one I/O call:
+> 
+>   errc = ioread32(&priv->regs->errc);
+>   cf->data[6] = errc & CAN_TEC;
+>   cf->data[7] = (errc & CAN_REC) >> 8;
+> 
+> > But I couldn't find 
+> 
+> Don't understand? It's also implemented for the SJA1000 driver:
+
+Sorry, the above my line is fogotten to delete.
+I can uderstand your saying.
+
+---
+Thanks,
+
+Tomoya MORINAGA
+OKI SEMICONDUCTOR CO., LTD.
