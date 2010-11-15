@@ -1,41 +1,43 @@
-From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH 42/44] net/sunrpc/addr.c: Remove unnecessary semicolons
-Date: Sun, 14 Nov 2010 19:05:01 -0800
-Message-ID: <aca92092a705e0d21176b5ac7d3581c4f9140dbc.1289789605.git.joe@perches.com>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 41/44] net/ipv6/mcast.c: Remove unnecessary semicolons
+Date: Sun, 14 Nov 2010 19:05:00 -0800
+Message-ID: <1f3e1f7e454f3c62b66fc5f3e1e1ed90d62b7fb0.1289789605.git.joe@perches.com>
 References: <cover.1289789604.git.joe@perches.com>
-Cc: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>,
-	Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Jiri Kosina <trivial-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <cover.1289789604.git.joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jiri Kosina <trivial@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.perches.com ([173.55.12.10]:1258 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932980Ab0KODGC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 14 Nov 2010 22:06:02 -0500
+In-Reply-To: <cover.1289789604.git.joe@perches.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Signed-off-by: Joe Perches <joe@perches.com>
 ---
- net/sunrpc/addr.c |    2 +-
+ net/ipv6/mcast.c |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/net/sunrpc/addr.c b/net/sunrpc/addr.c
-index 1419d0c..4195233 100644
---- a/net/sunrpc/addr.c
-+++ b/net/sunrpc/addr.c
-@@ -151,7 +151,7 @@ static size_t rpc_pton4(const char *buf, const size_t buflen,
- 		return 0;
- 
- 	sin->sin_family = AF_INET;
--	return sizeof(struct sockaddr_in);;
-+	return sizeof(struct sockaddr_in);
- }
- 
- #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
+index d1444b9..9c50745 100644
+--- a/net/ipv6/mcast.c
++++ b/net/ipv6/mcast.c
+@@ -257,7 +257,7 @@ static struct inet6_dev *ip6_mc_find_dev_rcu(struct net *net,
+ 		return NULL;
+ 	idev = __in6_dev_get(dev);
+ 	if (!idev)
+-		return NULL;;
++		return NULL;
+ 	read_lock_bh(&idev->lock);
+ 	if (idev->dead) {
+ 		read_unlock_bh(&idev->lock);
 -- 
 1.7.3.1.g432b3.dirty
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
