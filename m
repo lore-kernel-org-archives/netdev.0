@@ -1,28 +1,60 @@
-From: Cypher Wu <cypher.w@gmail.com>
-Subject: Re: Kernel rwlock design, Multicore and IGMP
-Date: Mon, 15 Nov 2010 19:18:38 +0800
-Message-ID: <AANLkTinzRm_5WW5HwxzXqZZD4255GDpR4yzELqz66Dfn@mail.gmail.com>
-References: <AANLkTikvT=x9eBovn2-m6HLqk7wyXSAR3sc9jCQ0C6mL@mail.gmail.com>
-	<1289489007.17691.1310.camel@edumazet-laptop>
-	<AANLkTik93QUQxSDmwd4Qj-gXQiWWPzd68JPAYAHBAsHR@mail.gmail.com>
-	<ZXmP8hjgLHA.4648@exchange1.tad.internal.tilera.com>
-	<4CDF1945.8090101@tilera.com>
-	<AANLkTind92uwcigzmDn8yn9a22exDy7zcreGQ5-6NLV-@mail.gmail.com>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH] netfilter: define NF_CT_EXT_* as needed
+Date: Mon, 15 Nov 2010 19:19:09 +0800
+Message-ID: <AANLkTikxaZ0p4idy5qQmoi9R6Obz1UKECFHS-8LV_vKT@mail.gmail.com>
+References: <1289813149-22897-1-git-send-email-xiaosuo@gmail.com> <4CE115C5.20302@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: =?ISO-8859-1?Q?Am=E9rico_Wang?= <xiyou.wangcong@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Chris Metcalf <cmetcalf@tilera.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTind92uwcigzmDn8yn9a22exDy7zcreGQ5-6NLV-@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4CE115C5.20302@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In that post I want to confirm another thing: if we join/leave on
-different cores that every call will start the timer for IGMP message
-using the same in_dev->mc_list, could that be optimized?
+On Mon, Nov 15, 2010 at 7:13 PM, Patrick McHardy <kaber@trash.net> wrot=
+e:
+> On 15.11.2010 10:25, Changli Gao wrote:
+>> =A0#ifdef CONFIG_NF_CONNTRACK_EVENTS
+>> diff --git a/include/net/netfilter/nf_conntrack_extend.h b/include/n=
+et/netfilter/nf_conntrack_extend.h
+>> index 0772d29..1a9f96d 100644
+>> --- a/include/net/netfilter/nf_conntrack_extend.h
+>> +++ b/include/net/netfilter/nf_conntrack_extend.h
+>> @@ -7,10 +7,16 @@
+>>
+>> =A0enum nf_ct_ext_id {
+>> =A0 =A0 =A0 NF_CT_EXT_HELPER,
+>> +#if defined(CONFIG_NF_NAT) || defined(CONFIG_NF_NAT_MODULE)
+>> =A0 =A0 =A0 NF_CT_EXT_NAT,
+>> +#endif
+>> =A0 =A0 =A0 NF_CT_EXT_ACCT,
+>> +#ifdef CONFIG_NF_CONNTRACK_EVENTS
+>> =A0 =A0 =A0 NF_CT_EXT_ECACHE,
+>> +#endif
+>> +#ifdef CONFIG_NF_CONNTRACK_ZONES
+>> =A0 =A0 =A0 NF_CT_EXT_ZONE,
+>> +#endif
+>> =A0 =A0 =A0 NF_CT_EXT_NUM,
+>
+> What is the purpose of #ifdef'ing the extension IDs?
+>
 
--- 
-Cyberman Wu
-http://www.meganovo.com
+struct nf_ct_ext {
+        struct rcu_head rcu;
+        u8 offset[NF_CT_EXT_NUM];
+        u8 len;
+        char data[0];
+};
+
+Less IDs make nf_ct_ext smaller.
+--=20
+Regards,
+Changli Gao(xiaosuo@gmail.com)
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
