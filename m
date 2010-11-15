@@ -1,60 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: use the macros defined for the members of flowi
-Date: Mon, 15 Nov 2010 22:38:46 +0100
-Message-ID: <1289857126.3364.14.camel@edumazet-laptop>
-References: <1289623435-22713-1-git-send-email-xiaosuo@gmail.com>
-	 <4CE1A710.9040603@hp.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: the future of ethtool
+Date: Mon, 15 Nov 2010 21:52:16 +0000
+Message-ID: <1289857936.2586.51.camel@bwh-desktop>
+References: <4CE18CEA.5080502@garzik.org>
+	 <1289852326.2586.32.camel@bwh-desktop> <20101115124428.7b857ccb@nehalam>
+	 <1289855642.2586.38.camel@bwh-desktop>  <20101115131453.16958d68@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Changli Gao <xiaosuo@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Brian Haley <brian.haley@hp.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jeff@garzik.org>, NetDev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:42582 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751823Ab0KOViw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Nov 2010 16:38:52 -0500
-Received: by wwa36 with SMTP id 36so521830wwa.1
-        for <netdev@vger.kernel.org>; Mon, 15 Nov 2010 13:38:51 -0800 (PST)
-In-Reply-To: <4CE1A710.9040603@hp.com>
+Received: from exchange.solarflare.com ([216.237.3.220]:5817 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755605Ab0KOVwT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Nov 2010 16:52:19 -0500
+In-Reply-To: <20101115131453.16958d68@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 15 novembre 2010 =C3=A0 16:33 -0500, Brian Haley a =C3=A9crit =
-:
-> On 11/12/2010 11:43 PM, Changli Gao wrote:
-> > Use the macros defined for the members of flowi to clean the code u=
-p.
-> >=20
-> > diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-> > index 865fd76..36cd0b7 100644
-> > --- a/net/bridge/br_netfilter.c
-> > +++ b/net/bridge/br_netfilter.c
-> > @@ -412,13 +412,8 @@ static int br_nf_pre_routing_finish(struct sk_=
-buff *skb)
-> >  	if (dnat_took_place(skb)) {
-> >  		if ((err =3D ip_route_input(skb, iph->daddr, iph->saddr, iph->to=
-s, dev))) {
-> >  			struct flowi fl =3D {
-> > -				.nl_u =3D {
-> > -					.ip4_u =3D {
-> > -						 .daddr =3D iph->daddr,
-> > -						 .saddr =3D 0,
-> > -						 .tos =3D RT_TOS(iph->tos) },
-> > -				},
-> > -				.proto =3D 0,
-> > +				.fl4_dst =3D iph->daddr,
-> > +				.fl4_tos =3D RT_TOS(iph->tos),
-> >  			};
->=20
-> Are these actually equivalent?  You dropped two assignments to zero.
-> I always thought things on the stack weren't.
+On Mon, 2010-11-15 at 13:14 -0800, Stephen Hemminger wrote:
+> On Mon, 15 Nov 2010 21:14:02 +0000
+> Ben Hutchings <bhutchings@solarflare.com> wrote:
+> 
+> > On Mon, 2010-11-15 at 12:44 -0800, Stephen Hemminger wrote:
+> > [...]
+> > > My views are simple:
+> > > 
+> > > Ethtool needs to be an extension of existing netlink API for interfaces.
+> > >   - handles multiple values per transaction
+> > >   - extensible
+> > [...]
+> > 
+> > Are you suggesting to send and receive the existing ethtool command and
+> > result structures (with some wrapping) through netlink?  Or some larger
+> > change to the API?
+> 
+> The existing ioctl base API should be kept as legacy and something
+> better developed.
 
-Same question on lkml few hours ago. I think gcc does the assignement t=
-o
-zero, even on automatic variables (at least done on x86), but could not
-find a doc on it.
+So you're saying: expose all new operations through netlink (and only
+netlink) while keeping the old operations exposed only through ioctl?
+That's hardly an improvement as it means ethtool or any other
+configuration utility will have to support both APIs indefinitely.
 
+Ben.
 
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
