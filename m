@@ -1,90 +1,106 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] atomic: add atomic_inc_not_zero_hint()
-Date: Mon, 15 Nov 2010 15:47:07 +0100
-Message-ID: <1289832427.2607.84.camel@edumazet-laptop>
-References: <1288975980.2882.877.camel@edumazet-laptop>
-	 <20101105102038.53e36f9e.akpm@linux-foundation.org>
-	 <1288980046.2882.1054.camel@edumazet-laptop>
-	 <20101105110828.52f061b3.akpm@linux-foundation.org>
-	 <1288981224.2882.1105.camel@edumazet-laptop>
-	 <20101105112821.57f80481.akpm@linux-foundation.org>
-	 <1288984844.2665.52.camel@edumazet-laptop>
-	 <20101105195101.GC15561@linux.vnet.ibm.com>
-	 <alpine.DEB.2.00.1011121313001.16754@router.home>
-	 <20101113222612.GD2825@linux.vnet.ibm.com>
-	 <alpine.DEB.2.00.1011150756130.19175@router.home>
-	 <1289830636.2607.70.camel@edumazet-laptop>
-	 <alpine.DEB.2.00.1011150821000.19175@router.home>
+Subject: Re: [PATCH] arch/tile: fix rwlock so would-be write lockers don't
+ block new readers
+Date: Mon, 15 Nov 2010 15:52:10 +0100
+Message-ID: <1289832730.2607.87.camel@edumazet-laptop>
+References: <AANLkTikvT=x9eBovn2-m6HLqk7wyXSAR3sc9jCQ0C6mL@mail.gmail.com>
+	 <1289489007.17691.1310.camel@edumazet-laptop>
+	 <AANLkTik93QUQxSDmwd4Qj-gXQiWWPzd68JPAYAHBAsHR@mail.gmail.com>
+	 <ZXmP8hjgLHA.4648@exchange1.tad.internal.tilera.com>
+	 <4CDF1945.8090101@tilera.com>
+	 <AANLkTind92uwcigzmDn8yn9a22exDy7zcreGQ5-6NLV-@mail.gmail.com>
+	 <201011151425.oAFEPU3W005682@farm-0010.internal.tilera.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Ingo Molnar <mingo@elte.hu>, Andi Kleen <andi@firstfloor.org>,
-	Nick Piggin <npiggin@kernel.dk>
-To: Christoph Lameter <cl@linux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.00.1011150821000.19175@router.home>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-kernel@vger.kernel.org,
+	=?ISO-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>,
+	netdev <netdev@vger.kernel.org>, Cypher Wu <cypher.w@gmail.com>
+To: Chris Metcalf <cmetcalf@tilera.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:58962 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754435Ab0KOOwP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Nov 2010 09:52:15 -0500
+In-Reply-To: <201011151425.oAFEPU3W005682@farm-0010.internal.tilera.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le lundi 15 novembre 2010 =C3=A0 08:25 -0600, Christoph Lameter a =C3=A9=
-crit :
-> On Mon, 15 Nov 2010, Eric Dumazet wrote:
+Le lundi 15 novembre 2010 =C3=A0 09:18 -0500, Chris Metcalf a =C3=A9cri=
+t :
+> This avoids a deadlock in the IGMP code where one core gets a read
+> lock, another core starts trying to get a write lock (thus blocking
+> new readers), and then the first core tries to recursively re-acquire
+> the read lock.
 >=20
-> > Exclusive access ? As soon as another cpu takes it again, you lose.
+> We still try to preserve some degree of balance by giving priority
+> to additional write lockers that come along while the lock is held
+> for write, so they can all complete quickly and return the lock to
+> the readers.
 >=20
-> Sure but you want to avoid the fetch in shared mode here.
+> Signed-off-by: Chris Metcalf <cmetcalf@tilera.com>
+> ---
+> This should apply relatively cleanly to 2.6.26.7 source code too.
 >=20
-
-Yes, this is what cmpxchg() does for sure.
-
-> > Its not really the same thing... Maybe you miss the 'hint' intentio=
-n at
-> > all. We know the probable value of the counter, we dont want to rea=
-d it.
+>  arch/tile/lib/spinlock_32.c |   29 ++++++++++++++++++-----------
+>  1 files changed, 18 insertions(+), 11 deletions(-)
 >=20
-> Ok may be in thise case you can predict the value but in general it i=
-s
-> difficult to always provide an expected value. It would be easier to =
-be
-> able to tell the processor that the cacheline should not be fetched a=
-s
-> shared but immediately in exclusive state.
->=20
+> diff --git a/arch/tile/lib/spinlock_32.c b/arch/tile/lib/spinlock_32.=
+c
+> index 485e24d..5cd1c40 100644
+> --- a/arch/tile/lib/spinlock_32.c
+> +++ b/arch/tile/lib/spinlock_32.c
+> @@ -167,23 +167,30 @@ void arch_write_lock_slow(arch_rwlock_t *rwlock=
+, u32 val)
+>  	 * when we compare them.
+>  	 */
+>  	u32 my_ticket_;
+> +	u32 iterations =3D 0;
+> =20
+> -	/* Take out the next ticket; this will also stop would-be readers. =
+*/
+> -	if (val & 1)
+> -		val =3D get_rwlock(rwlock);
+> -	rwlock->lock =3D __insn_addb(val, 1 << WR_NEXT_SHIFT);
+> +	/*
+> +	 * Wait until there are no readers, then bump up the next
+> +	 * field and capture the ticket value.
+> +	 */
+> +	for (;;) {
+> +		if (!(val & 1)) {
+> +			if ((val >> RD_COUNT_SHIFT) =3D=3D 0)
+> +				break;
+> +			rwlock->lock =3D val;
+> +		}
+> +		delay_backoff(iterations++);
 
-Maybe its not clear, but atomic_inc_not_zero_hint() is going to be used
-only in contexts we know the expected value, and not as a generic
-replacement for atomic_inc_not_zero(). Even if cache line is already ho=
-t
-in this cpu cache, it should be faster or same speed.
+Are you sure a writer should have a growing delay_backoff() ?
 
-Then, in high contention contexts, using atomic_inc_not_zero_hint() wit=
-h
-whatever initial hint might also be a win over atomic_inc_not_zero(),
-but we try to remove such contexts ;)
+It seems to me this only allow new readers to come (so adding more
+unfairness to the rwlock, that already favor readers against writer[s])
 
-And two atomic_cmpxchg() are probably slower in non contended contexts,
-in particular is cache line is already hot in this cpu cache.
+Maybe allow one cpu to spin, and eventually other 'writers' be queued ?
 
-> > atomic_read() and atomic_cmpxchg(). We tried prefetchw() and it was=
- a
-> > performance drop. It was with only 16 cpus contending on neighbour
->=20
-> Does prefetchw work? Andi claims that prefetchw is not working on
-> x86 and I doubt that you ran tests on Itanium.
+> +		val =3D __insn_tns((int *)&rwlock->lock);
+> +	}
+> =20
+> -	/* Extract my ticket value from the original word. */
+> +	/* Take out the next ticket and extract my ticket value. */
+> +	rwlock->lock =3D __insn_addb(val, 1 << WR_NEXT_SHIFT);
+>  	my_ticket_ =3D val >> WR_NEXT_SHIFT;
+> =20
+> -	/*
+> -	 * Wait until the "current" field matches our ticket, and
+> -	 * there are no remaining readers.
+> -	 */
+> +	/* Wait until the "current" field matches our ticket. */
+>  	for (;;) {
+>  		u32 curr_ =3D val >> WR_CURR_SHIFT;
+> -		u32 readers =3D val >> RD_COUNT_SHIFT;
+> -		u32 delta =3D ((my_ticket_ - curr_) & WR_MASK) + !!readers;
+> +		u32 delta =3D ((my_ticket_ - curr_) & WR_MASK);
+>  		if (likely(delta =3D=3D 0))
+>  			break;
+> =20
 
-In fact, in benchmarks, prefetch() or prefetchw() are a pain on x86, or
-at least "perf tools" show artifact on them (high number of cycles
-consumed on these instructions)
 
-Andi had a patch to disable prefetch() in list iterators, and its a win=
-=2E
-
-I dont have Itanium platform to run tests. Is cmpxchg() that bad on
-ia64 ? I also have old AMD cpus, so I cannot say if recent ones handle
-prefetchw() better...
