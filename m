@@ -1,31 +1,37 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH] netfilter: guard the size of the nf_ct_ext
-Date: Mon, 15 Nov 2010 19:35:33 +0800
-Message-ID: <AANLkTi=pJG=Z8R2qLUm6m8wnCyZiKaZzmTxLZm08Jitj@mail.gmail.com>
-References: <1289801749-8993-1-git-send-email-xiaosuo@gmail.com> <4CE1150D.1080302@trash.net>
+From: Richard Hartmann <richih.mailinglist@gmail.com>
+Subject: Re: [Patch] fix packet loss and massive ping spikes with PPP multi-link
+Date: Mon, 15 Nov 2010 13:07:39 +0100
+Message-ID: <AANLkTimffqwa7cjJkbZbQ5whGu51znAwAHtR2+XeT7q0@mail.gmail.com>
+References: <2d460de71003260850x7f90d04cy79ac853464108182@mail.gmail.com>
+ <20100326160226.0159ac3b@lxorguk.ukuu.org.uk> <4BACE827.4070006@gmail.com>
+ <20100326170428.6c1ad66c@lxorguk.ukuu.org.uk> <4BB31E00.8060204@netservers.co.uk>
+ <20100529021624.GA2538@brick.ozlabs.ibm.com> <4C03E1CD.4000809@netservers.co.uk>
+ <4C0670E2.1090708@netservers.co.uk> <AANLkTi=GHmqeb=8rMZAnpqdKGbTEf2mRYhygX1aC2hyD@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4CE1150D.1080302@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Paul Mackerras <paulus@samba.org>, netdev@vger.kernel.org,
+	linux-ppp@vger.kernel.org, Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	"Alexander E. Patrakov" <patrakov@gmail.com>,
+	linux-kernel@vger.kernel.org, gabriele.paoloni@intel.com
+To: Ben McKeegan <ben@netservers.co.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gx0-f174.google.com ([209.85.161.174]:48884 "EHLO
+	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751450Ab0KOMMo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Nov 2010 07:12:44 -0500
+In-Reply-To: <AANLkTi=GHmqeb=8rMZAnpqdKGbTEf2mRYhygX1aC2hyD@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 15, 2010 at 7:10 PM, Patrick McHardy <kaber@trash.net> wrote:
-> On 15.11.2010 07:15, Changli Gao wrote:
->> We'd better guard the size of the nf_ct_ext, as the nf_ct_ext.len is u8.
->> If the size is bigger than 255, a warning will be printed.
->
-> Why are you checking this in basically every possible spot?
-> Just checking once during registration (assuming the worst
-> case of a conntrack using every possible extension) should
-> be enough.
->
+On Mon, Nov 8, 2010 at 15:05, Richard Hartmann
+<richih.mailinglist@gmail.com> wrote:
 
-Yes. It is enough, if we check every patch carefully. Thanks.
+> Is there any update on this? It's been quite some time since you last updated
+> on this issue.
 
--- 
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+As it's been a week without any reply and as I know how stuff can
+drown in more important work & projects, I am tentatively poking again
+:)
+
+
+RIchard
