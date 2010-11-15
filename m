@@ -1,73 +1,63 @@
-From: "Catalin(ux) M. BOIE" <catab@embedromix.ro>
-Subject: bnx2 drops bigger packets (GRO related) between 2.6.34.7 and
- 2.6.35.6
-Date: Mon, 15 Nov 2010 10:56:29 +0200 (EET)
-Message-ID: <alpine.LFD.2.00.1011151029080.5987@mail.embedromix.ro>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH/RFC] netfilter: nf_conntrack_sip: Handle quirky Cisco
+ phones
+Date: Mon, 15 Nov 2010 10:51:50 +0100
+Message-ID: <4CE102B6.9020707@trash.net>
+References: <28d666269c390965f1a4edca42f93c12@localhost>	 <1289725175.2743.65.camel@edumazet-laptop>	 <AANLkTik4PLga8mX73c8iONPeOtpDiuDhfu3xiPmF07jC@mail.gmail.com> <1289764664.2743.110.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
-Cc: davem@davemloft.net, mchan@broadcom.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Kevin Cernekee <cernekee@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.embedromix.ro ([80.96.69.110]:50484 "EHLO
-	mail.embedromix.ro" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754550Ab0KOJur (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Nov 2010 04:50:47 -0500
+Received: from stinky.trash.net ([213.144.137.162]:61105 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753516Ab0KOJvu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Nov 2010 04:51:50 -0500
+In-Reply-To: <1289764664.2743.110.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
+On 14.11.2010 20:57, Eric Dumazet wrote:
+> Le dimanche 14 novembre 2010 =E0 10:33 -0800, Kevin Cernekee a =E9cri=
+t :
+>> On Sun, Nov 14, 2010 at 12:59 AM, Eric Dumazet <eric.dumazet@gmail.c=
+om> wrote:
+>>> I would like to get an exact SIP exchange to make sure their is not
+>>> another way to handle this without adding a "Cisco" string somewher=
+e...
+>>>
+>>> Please provide a pcap or tcpdump -A
+>>
+>> Existing nf_nat_sip: phone sends unauthenticated REGISTER requests
+>> over and over again, because it is not seeing the replies sent back =
+to
+>> port 50070:
+>>
+>> 10:05:53.496479 IP 192.168.2.28.50070 > 67.215.241.250.5060: SIP, le=
+ngth: 723
+>> E`...[..@.r.....C...........REGISTER sip:losangeles.voip.ms SIP/2.0
+>> Via: SIP/2.0/
+>>
+>=20
+> Hmm, partial tcpdump... you should use" tcpdump -s 1000 -A"=20
+>=20
+> We miss the
+>=20
+> Via: SIP/2.0/UDP 192.168.2.28:5060;branch=3Dxxxxxxxx
+>=20
+>=20
+> Maybe a fix would be to use this "5060" port, instead of hardcoding i=
+t
+> like you did ?
 
-OS: Fedora 14
-Kernel: 2.6.35.6-48.fc14.x86_64 -> not working
-Kernel 2.6.34.7-61.fc13.x86_64 -> working
-Router doing LVS, 2 bnx2 cards:
-bnx2: Broadcom NetXtreme II Gigabit Ethernet Driver bnx2 v2.0.15 (May 4, 2010)
-Nov 12 13:40:14 nld-gate2 kernel: [   10.932944] bnx2 0000:03:00.0: PCI INT A -> GSI 18 (level, low) -> IRQ 18
-Nov 12 13:40:14 nld-gate2 kernel: [   11.385796] bnx2 0000:03:00.0: eth0: Broadcom NetXtreme II BCM5708 1000Base-T (B2) PCI-X 64-bit 133MHz found at mem f8000000, IRQ 18, node addr 00:1b:78:02:50:f4
-Nov 12 13:40:14 nld-gate2 kernel: [   11.385837] bnx2 0000:05:00.0: PCI INT A -> GSI 19 (level, low) -> IRQ 19
-Nov 12 13:40:14 nld-gate2 kernel: [   11.720153] bnx2 0000:05:00.0: eth1: Broadcom NetXtreme II BCM5708 1000Base-T (B2) PCI-X 64-bit 133MHz found at mem fa000000, IRQ 19, node addr 00:1b:78:02:e0:62
-Nov 12 13:40:14 nld-gate2 kernel: [   17.266011] bnx2 0000:03:00.0: eth0: using MSI
-Nov 12 13:40:14 nld-gate2 kernel: [   19.507112] bnx2 0000:05:00.0: eth1: using MSI
-Nov 12 13:40:14 nld-gate2 kernel: [   20.466635] bnx2 0000:03:00.0: eth0: NIC Copper Link is Up, 1000 Mbps full duplex
-Nov 12 13:40:14 nld-gate2 kernel: [   22.759590] bnx2 0000:05:00.0: eth1: NIC Copper Link is Up, 1000 Mbps full duplex
+I agree, using the Via header to route the response makes more sense.
 
-If I disable GRO, everything is OK.
-
-What I observed is that big packets (3 * 1460) are received on eth0, 
-passed to eth1 and probably droped because they do not arrive at 
-destination.
-
-A dump (one way):
-
-09:04:54.364906 IP (tos 0x0, ttl 63, id 0, offset 0, flags [DF], proto TCP (6), length 52)
-     B.B.B.B.http > A.A.A.A.49265: Flags [S.], cksum 0x4ef2 (correct), seq 2561113748, ack 2289616327, win 5840, options [mss 1460,nop,nop,sackOK,nop,wscale 5], length 0
-09:04:54.401265 IP (tos 0x0, ttl 63, id 11216, offset 0, flags [DF], proto TCP (6), length 40)
-     B.B.B.B.http > A.A.A.A.49265: Flags [.], cksum 0xa445 (correct), seq 1, ack 374, win 216, length 0
-09:04:54.506141 IP (tos 0x0, ttl 63, id 11217, offset 0, flags [DF], proto TCP (6), length 4420)
-
-=== Here is a big packet:
-
-     B.B.B.B.http > A.A.A.A.49265: Flags [.], cksum 0xb7ed (incorrect -> 0x7e77), seq 1:4381, ack 374, win 216, length 4380
-09:04:57.515501 IP (tos 0x0, ttl 63, id 11220, offset 0, flags [DF], proto TCP (6), length 1500)
-
-=== Here is retransmitted with 1460 bytes instead of 4380, after 3 seconds:
-
-     B.B.B.B.http > A.A.A.A.49265: Flags [.], cksum 0xc841 (correct), seq 1:1461, ack 374, win 216, length 1460
-09:04:57.578489 IP (tos 0x0, ttl 63, id 0, offset 0, flags [DF], proto TCP (6), length 52)
-     B.B.B.B.http > A.A.A.A.49266: Flags [S.], cksum 0x8c70 (correct), seq 2597744105, ack 3136906307, win 5840, options [mss 1460,nop,nop,sackOK,nop,wscale 5], length 0
-09:04:57.615500 IP (tos 0x0, ttl 63, id 3129, offset 0, flags [DF], proto TCP (6), length 40)
-     B.B.B.B.http > A.A.A.A.49266: Flags [.], cksum 0xe178 (correct), seq 1, ack 449, win 216, length 0
-09:04:57.630306 IP (tos 0x0, ttl 63, id 3130, offset 0, flags [DF], proto TCP (6), length 2780)
-     B.B.B.B.http > A.A.A.A.49266: Flags [P.], cksum 0xb185 (incorrect -> 0x8cf0), seq 1:2741, ack 449, win 216, length 2740
-09:04:57.750804 IP (tos 0x0, ttl 63, id 11221, offset 0, flags [DF], proto TCP (6), length 2960)
-     B.B.B.B.http > A.A.A.A.49265: Flags [.], cksum 0xb239 (incorrect -> 0x7426), seq 4381:7301, ack 374, win 216, length 2920
-09:05:00.635704 IP (tos 0x0, ttl 63, id 3132, offset 0, flags [DF], proto TCP (6), length 1500)
-     B.B.B.B.http > A.A.A.A.49266: Flags [.], cksum 0x43b9 (correct), seq 1:1461, ack 449, win 216, length 1460
-
-Let me know if you need more info.
-
-Thank you.
-
---
-Catalin(ux) M. BOIE
-http://kernel.embedromix.ro/
