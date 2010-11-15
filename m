@@ -1,29 +1,45 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: [RFC PATCH] network: return errors if we know tcp_connect failed
-Date: Mon, 15 Nov 2010 23:00:30 +0300
-Message-ID: <20101115200030.GA14551@ms2.inr.ac.ru>
-References: <20101111210341.31350.86916.stgit@paris.rdu.redhat.com> <00c201cb81eb$84e18160$8ea48420$@com> <4CDCEE65.3060105@trash.net> <017301cb82bf$54540cf0$fcfc26d0$@com> <4CE10C2A.1050801@trash.net> <1289836066.14282.7.camel@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, Hua Zhong <hzhong@gmail.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davem@davemloft.net, pekkas@netcore.fi, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org
-To: Eric Paris <eparis@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1289836066.14282.7.camel@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH 00/11] Remove unnecessary casts of pci_get_drvdata
+Date: Mon, 15 Nov 2010 12:13:51 -0800
+Message-ID: <cover.1289851770.git.joe@perches.com>
+Cc: linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-ide-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org
+To: Jiri Kosina <trivial-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
+Joe Perches (11):
+  drivers/i2c/busses/i2c-nforce2.c: Remove unnecessary casts of pci_get_drvdata
+  drivers/ide/pmac.c: Remove unnecessary casts of pci_get_drvdata
+  drivers/media/dvb/ngene/ngene-core.c: Remove unnecessary casts of pci_get_drvdata
+  drivers/misc/ibmasm/module.c: Remove unnecessary casts of pci_get_drvdata
+  drivers/net/irda: Remove unnecessary casts of pci_get_drvdata
+  drivers/net/s2io.c: Remove unnecessary casts of pci_get_drvdata
+  drivers/net/vxge/vxge-main.c: Remove unnecessary casts of pci_get_drvdata
+  drivers/scsi/be2iscsi/be_main.c: Remove unnecessary casts of pci_get_drvdata
+  drivers/staging: Remove unnecessary casts of pci_get_drvdata
+  drivers/usb/host/uhci-hcd.c: Remove unnecessary casts of pci_get_drvdata
+  sound/pci/asihpi/hpioctl.c: Remove unnecessary casts of pci_get_drvdata
 
-On Mon, Nov 15, 2010 at 10:47:46AM -0500, Eric Paris wrote:
-> Well I'm (I guess?) surprised that the --reject-with icmp doesn't do
-> anything with a local outgoing connection
+ drivers/i2c/busses/i2c-nforce2.c          |    2 +-
+ drivers/ide/pmac.c                        |    4 ++--
+ drivers/media/dvb/ngene/ngene-core.c      |    2 +-
+ drivers/misc/ibmasm/module.c              |    2 +-
+ drivers/net/irda/donauboe.c               |    6 +++---
+ drivers/net/irda/vlsi_ir.c                |    2 +-
+ drivers/net/s2io.c                        |    3 +--
+ drivers/net/vxge/vxge-main.c              |   28 ++++++++++++----------------
+ drivers/scsi/be2iscsi/be_main.c           |    2 +-
+ drivers/staging/crystalhd/crystalhd_lnx.c |    6 +++---
+ drivers/staging/et131x/et131x_initpci.c   |    2 +-
+ drivers/staging/wlags49_h2/wl_pci.c       |    2 +-
+ drivers/usb/host/uhci-hcd.c               |    2 +-
+ sound/pci/asihpi/hpioctl.c                |    2 +-
+ 14 files changed, 30 insertions(+), 35 deletions(-)
 
-Yeah. This was "an obvious surpise": for local socket the first icmp error always
-arrives on locked socket and gets dropped. I even forgot about this (tcp-reset
-still works ok due to backlog) This makes the idea to respect error more attractive.
-
-Alexey
+-- 
+1.7.3.1.g432b3.dirty
