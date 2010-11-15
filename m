@@ -1,65 +1,52 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH/RFC] netfilter: nf_conntrack_sip: Handle quirky Cisco
- phones
-Date: Mon, 15 Nov 2010 17:58:01 +0100
-Message-ID: <4CE16699.1050604@trash.net>
-References: <28d666269c390965f1a4edca42f93c12@localhost>	<1289725175.2743.65.camel@edumazet-laptop>	<AANLkTik4PLga8mX73c8iONPeOtpDiuDhfu3xiPmF07jC@mail.gmail.com>	<1289764664.2743.110.camel@edumazet-laptop>	<AANLkTi==8nwn3g5t1uw=CP1K0vegUE2hAdDxOq-fkVRW@mail.gmail.com>	<4CE1084A.3070100@trash.net> <AANLkTinELGUzDJ8TTTfA8sfiYiLJV-2ZPujwbuQWTPWd@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: linux-next: build failure after merge of the final tree (net
+ tree related)
+Date: Mon, 15 Nov 2010 17:58:09 +0100
+Message-ID: <1289840289.2607.92.camel@edumazet-laptop>
+References: <20101115114651.8e6bad6c.sfr@canb.auug.org.au>
+	 <20101115.085254.104057401.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Kevin Cernekee <cernekee@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTinELGUzDJ8TTTfA8sfiYiLJV-2ZPujwbuQWTPWd@mail.gmail.com>
+In-Reply-To: <20101115.085254.104057401.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 15.11.2010 17:46, Kevin Cernekee wrote:
-> On Mon, Nov 15, 2010 at 2:15 AM, Patrick McHardy <kaber@trash.net> wrote:
->> The problem in doing this is that further packets from port 49xxx
->> wouldn't be recognized as belonging to the same connection.
-> 
-> OK, makes sense.
-> 
->> The same problem exists with your current patch, packets from port
->> 5060 to the same destination won't be recognized as belonging to the
->> connection that sent the REGISTER and thus won't be able to modify the
->> timeout or unregister.
->>
->> Basically we would need three-legged connections to handle this
->> situation correctly.
-> 
-> Just to clarify: the actual source port on a given device will be
-> EITHER a high-numbered port (Cisco) or 5060 (others).  I have not come
-> across any devices that send from a "mix" of source ports, e.g. 49xxx
-> for REGISTER and then 5060 for INVITE.
-> 
->>From what I have seen, subsequent SIP requests from the Cisco phone
-> are indeed getting associated with the original connection.  My phone
-> is logging into two different SIP accounts, and each account seems to
-> use its own unique UDP source port for all control traffic (both
-> expecting replies on 5060).
+Le lundi 15 novembre 2010 =C3=A0 08:52 -0800, David Miller a =C3=A9crit=
+ :
+> From: Stephen Rothwell <sfr@canb.auug.org.au>
+> Date: Mon, 15 Nov 2010 11:46:51 +1100
+>=20
+> > Caused by commit 1d7138de878d1d4210727c1200193e69596f93b3 ("igmp: R=
+CU
+> > conversion of in_dev->mc_list").  The for_each_pmc_rtnl and
+> > for_each_pmc_rcu definitions are protected by  CONFIG_IP_MULTICAST,=
+ but
+> > the uses are not ...
+>=20
+> Thanks for the report, I've pushed the following fix:
+>=20
+> --------------------
+> ipv4: Fix build with multicast disabled.
+>=20
+> net/ipv4/igmp.c: In function 'ip_mc_inc_group':
+> net/ipv4/igmp.c:1228: error: implicit declaration of function 'for_ea=
+ch_pmc_rtnl'
+> net/ipv4/igmp.c:1228: error: expected ';' before '{' token
+> net/ipv4/igmp.c: In function 'ip_mc_unmap':
+> net/ipv4/igmp.c:1333: error: expected ';' before 'igmp_group_dropped'
+>  ...
+>=20
+> Move for_each_pmc_rcu and for_each_pmc_rtnl macro definitions
+> outside of multicast ifdef protection.
+>=20
+> Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> ---
+> =20
 
-Could you provide a binary tcpdump (-w file -s0) of registration
-and a subsequent call please?
-
-> If Netfilter adds support for three-legged connections, will the third
-> leg show up in the tuplehash so I don't have to track it in the "help"
-> structure?
-
-Yes, basically by default all connections would only have a single
-tuplehash. The lookup would look up the tuple based on the packet
-and, if not found, reverse it and retry the lookup. When the tuples are
-asymetric (NAT and ICMP/ICMPv6) a second one would be added in the
-ct_extend area and would be added to the hash table as usual. For the
-SIP case, we could simply add a third one in a ct_extend area.
-
-Unfortunately I wasn't able to find my old patch so far.
+Oops thats right, sorry David, I missed this message.
