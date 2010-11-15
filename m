@@ -1,52 +1,81 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: linux-next: build failure after merge of the final tree (net
- tree related)
-Date: Mon, 15 Nov 2010 17:58:09 +0100
-Message-ID: <1289840289.2607.92.camel@edumazet-laptop>
-References: <20101115114651.8e6bad6c.sfr@canb.auug.org.au>
-	 <20101115.085254.104057401.davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 1/1] UDEV - Add 'udevlom' command line param to
+ start_udev
+Date: Mon, 15 Nov 2010 17:16:39 +0000
+Message-ID: <1289841399.2586.18.camel@bwh-desktop>
+References: <20101103165505.GA3281@fedora-14-r710.oslab.blr.amer.dell.com>
+	 <20101103180500.GA7441@kroah.com>
+	 <20101105025848.GA14021@pws490.domsch.com>
+	 <20101115164714.GB7030@auslistsprd01.us.dell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20101115.085254.104057401.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Greg KH <greg@kroah.com>, "K, Narendra" <Narendra_K@Dell.com>,
+	"linux-hotplug@vger.kernel.org" <linux-hotplug@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Hargrave, Jordan" <Jordan_Hargrave@Dell.com>,
+	"Rose, Charles" <Charles_Rose@Dell.com>
+To: Matt Domsch <Matt_Domsch@Dell.com>
+Return-path: <linux-hotplug-owner@vger.kernel.org>
+In-Reply-To: <20101115164714.GB7030@auslistsprd01.us.dell.com>
+Sender: linux-hotplug-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le lundi 15 novembre 2010 =C3=A0 08:52 -0800, David Miller a =C3=A9crit=
- :
-> From: Stephen Rothwell <sfr@canb.auug.org.au>
-> Date: Mon, 15 Nov 2010 11:46:51 +1100
->=20
-> > Caused by commit 1d7138de878d1d4210727c1200193e69596f93b3 ("igmp: R=
-CU
-> > conversion of in_dev->mc_list").  The for_each_pmc_rtnl and
-> > for_each_pmc_rcu definitions are protected by  CONFIG_IP_MULTICAST,=
- but
-> > the uses are not ...
->=20
-> Thanks for the report, I've pushed the following fix:
->=20
-> --------------------
-> ipv4: Fix build with multicast disabled.
->=20
-> net/ipv4/igmp.c: In function 'ip_mc_inc_group':
-> net/ipv4/igmp.c:1228: error: implicit declaration of function 'for_ea=
-ch_pmc_rtnl'
-> net/ipv4/igmp.c:1228: error: expected ';' before '{' token
-> net/ipv4/igmp.c: In function 'ip_mc_unmap':
-> net/ipv4/igmp.c:1333: error: expected ';' before 'igmp_group_dropped'
->  ...
->=20
-> Move for_each_pmc_rcu and for_each_pmc_rtnl macro definitions
-> outside of multicast ifdef protection.
->=20
-> Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> ---
-> =20
+On Mon, 2010-11-15 at 10:47 -0600, Matt Domsch wrote:
+> On Thu, Nov 04, 2010 at 09:58:48PM -0500, Matt Domsch wrote:
+> > On Wed, Nov 03, 2010 at 11:05:00AM -0700, Greg KH wrote:
+> > > On Wed, Nov 03, 2010 at 10:25:25PM +0530, Narendra_K@Dell.com wrote:
+> > > > Hello,
+> > > > 
+> > > > This patch allows users to specify if they want the onboard network
+> > > > interfaces to be renamed to lomN by implementing a command line param
+> > > > 'udevlom'.
+> > > 
+> > > Ick ick ick.
+> > > 
+> > > Why not do this in some other configuration file?  Don't rely on udev
+> > > being started with a different option, that is only ripe for abuse by
+> > > everyone else who wants their pet-project to get into the udev
+> > > environment.
+> > > 
+> > > Please, surely there's a different way to do this.
+> > 
+> > At Linux Plumbers Conference today, this problem space was discussed
+> > once again, and I believe concensus on approach was reached.  Here
+> > goes:
+> > 
+> > * If a 70-persistent-net.rules file sets a name, honor that.  This
+> >   preserves existing installs.
+> > 
+> > * If BIOS provides indexes for onboard devices, honor that.
+> > ** Rename onboard NICs "lom[1-N]" as BIOS reports (# matches chassis labels)
+> > ** No rename for all others "ethX" (no change for NICs in PCI slots/USB/others)
+> 
+> I'm getting a lot of pushback from Dell customers on our
+> linux-poweredge mailing list (thread starts [1]) that the choice of
+> name "lomX" is poor, due to HP's extensive use of LOM meaning Lights
+> Out Management, rather than my intended meaning of "LAN on
+> Motherboard".  Gotta hate TLA collisions.
+> 
+> So, I'm open to new ideas for naming these.  At LPC, Ted noted that
+> 2- and 3-letter names are expected.  "nic[1234]" or "en[1234]" ?
+[...]
 
-Oops thats right, sorry David, I missed this message.
+I would suggest avoiding "nic" since some people use "NIC" to mean
+specifically an add-in card rather than LOM.  In addition there is some
+ambiguity with multi-port cards/controllers of whether NIC means a
+controller or a port.
+
+Other options for the prefix:
+- "lan".  Maybe too generic.
+- "mbe" = MotherBoard Ethernet. Looks a bit like "GbE" as some OEMs put
+on the port labels.
+- "eom" = Ethernet On Motherboard
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
