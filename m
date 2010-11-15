@@ -1,50 +1,65 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH 0/2] net: Changes in queue allocation and freeing
-Date: Mon, 15 Nov 2010 13:04:43 -0800
-Message-ID: <AANLkTimk5iGMdQOB=0xjpVq5Zz9kBSunhmB_RXoGmuZT@mail.gmail.com>
-References: <alpine.DEB.1.00.1011091240470.18565@pokey.mtv.corp.google.com>
-	<20101115.105822.233710935.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 00/10] Remove unnecessary casts of netdev_priv
+Date: Mon, 15 Nov 2010 13:12:23 -0800
+Message-ID: <cover.1289855436.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.35]:62082 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754081Ab0KOVEr convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Nov 2010 16:04:47 -0500
-Received: from kpbe16.cbf.corp.google.com (kpbe16.cbf.corp.google.com [172.25.105.80])
-	by smtp-out.google.com with ESMTP id oAFL4jLv010990
-	for <netdev@vger.kernel.org>; Mon, 15 Nov 2010 13:04:46 -0800
-Received: from gxk25 (gxk25.prod.google.com [10.202.11.25])
-	by kpbe16.cbf.corp.google.com with ESMTP id oAFL4gZt007298
-	for <netdev@vger.kernel.org>; Mon, 15 Nov 2010 13:04:44 -0800
-Received: by gxk25 with SMTP id 25so4135660gxk.22
-        for <netdev@vger.kernel.org>; Mon, 15 Nov 2010 13:04:44 -0800 (PST)
-In-Reply-To: <20101115.105822.233710935.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org,
+	bonding-devel@lists.sourceforge.net
+To: Jiri Kosina <trivial@kernel.org>
+Return-path: <devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/devel>,
+	<mailto:devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/devel>
+List-Post: <mailto:devel@linuxdriverproject.org>
+List-Help: <mailto:devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/devel>,
+	<mailto:devel-request@linuxdriverproject.org?subject=subscribe>
+Sender: devel-bounces@linuxdriverproject.org
+Errors-To: devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 15, 2010 at 10:58 AM, David Miller <davem@davemloft.net> wr=
-ote:
-> From: Tom Herbert <therbert@google.com>
-> Date: Tue, 9 Nov 2010 12:47:26 -0800 (PST)
->
->> Changes to both RX and TX queue allocation. =A0In both cases allocat=
-e
->> in alloc_netdev_mq and free in free_netdev. =A0For RX the reference
->> couting also changed, the device reference count can now be used.
->
-> Both applied, with the comment removal added as promised.
->
-Thanks.
+Joe Perches (10):
+  drivers/isdn/i4l: Remove unnecessary casts of netdev_priv
+  drivers/net/bonding: Remove unnecessary casts of netdev_priv
+  drivers/net/pcmcia: Remove unnecessary casts of netdev_priv
+  drivers/net/qla3xxx.c: Remove unnecessary casts of netdev_priv
+  drivers/net/qlge: Remove unnecessary casts of netdev_priv
+  drivers/net/usb: Remove unnecessary casts of netdev_priv
+  drivers/net/vxge: Remove unnecessary casts of netdev_priv
+  drivers/net: Remove unnecessary casts of netdev_priv
+  drivers/staging: Remove unnecessary casts of netdev_priv
+  net/atm: Remove unnecessary casts of netdev_priv
 
-> I assume you'll spin a new version of the XPS patches
-> against this?
->
+ drivers/isdn/i4l/isdn_concap.c                     |    2 +-
+ drivers/isdn/i4l/isdn_net.c                        |   20 ++++----
+ drivers/isdn/i4l/isdn_ppp.c                        |   12 ++--
+ drivers/net/ax88796.c                              |    8 ++--
+ drivers/net/bonding/bond_3ad.c                     |    3 +-
+ drivers/net/bonding/bonding.h                      |    2 +-
+ drivers/net/dm9000.c                               |    2 +-
+ drivers/net/iseries_veth.c                         |    2 +-
+ drivers/net/lib8390.c                              |   24 ++++----
+ drivers/net/ne-h8300.c                             |   12 ++--
+ drivers/net/pcmcia/axnet_cs.c                      |   18 +++---
+ drivers/net/qla3xxx.c                              |    8 ++--
+ drivers/net/qlge/qlge_main.c                       |    8 ++--
+ drivers/net/usb/pegasus.c                          |    4 +-
+ drivers/net/vxge/vxge-ethtool.c                    |   26 +++++-----
+ drivers/net/vxge/vxge-main.c                       |   26 +++++-----
+ drivers/net/xilinx_emaclite.c                      |   20 ++++----
+ drivers/staging/ft1000/ft1000-pcmcia/ft1000_hw.c   |   54 ++++++++++----------
+ drivers/staging/ft1000/ft1000-pcmcia/ft1000_proc.c |    8 ++--
+ drivers/staging/ft1000/ft1000-usb/ft1000_chdev.c   |    8 ++--
+ drivers/staging/ft1000/ft1000-usb/ft1000_hw.c      |   16 +++---
+ drivers/staging/ft1000/ft1000-usb/ft1000_proc.c    |    6 +-
+ drivers/staging/ft1000/ft1000-usb/ft1000_usb.c     |    2 +-
+ drivers/staging/rtl8712/usb_intf.c                 |    2 +-
+ net/atm/br2684.c                                   |    2 +-
+ net/atm/lec.c                                      |    3 +-
+ 26 files changed, 148 insertions(+), 150 deletions(-)
 
-Yes, those will be forthcoming.
-
-> Thanks!
->
+-- 
+1.7.3.1.g432b3.dirty
