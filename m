@@ -1,84 +1,65 @@
-From: "Tomoya MORINAGA" <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Subject: Re: [PATCH net-next-2.6 v2] can: Topcliff: PCH_CAN driver: Fix build
-	warnings
-Date: Mon, 15 Nov 2010 16:39:28 +0900
-Message-ID: <000e01cb8498$3ec2cb80$66f8800a@maildom.okisemi.com>
-References: <4CCAA3D4.8070408@dsn.okisemi.com>	<4CCAC4CD.7000503@pengutronix.de>
-	<4CCAF517.2000409@pengutronix.de>	<4CCB213A.2020206@grandegger.com>
-	<004a01cb825a$3a8bd060$66f8800a@maildom.okisemi.com>
-	<4CDD28E6.9060006@grandegger.com>
+From: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Subject: Re: Remaining problems in firewire-net
+Date: Mon, 15 Nov 2010 09:01:03 +0100
+Message-ID: <20101115090103.0df0b5ef@stein>
+References: <tkrat.036c5d10fb83f85d@s5r6.in-berlin.de>
+	<1289795401.11881.62.camel@maxim-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>, margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Masayuki Ohtake <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>,
-	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>, kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-To: "Wolfgang Grandegger" <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux1394-devel@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Maxim Levitsky <maximlevitsky@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from einhorn.in-berlin.de ([192.109.42.8]:51409 "EHLO
+	einhorn.in-berlin.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757692Ab0KOIBT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Nov 2010 03:01:19 -0500
+In-Reply-To: <1289795401.11881.62.camel@maxim-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday, November 12, 2010 8:45 PM, Wolfgang Grandegger wrote:
+On Nov 15 Maxim Levitsky wrote:
+> That is because 1394 spec specifies that first of all the ISO channel
+> must be allocated from the IRM node. The firewire stack currently just
+> uses hardcoded numbers in two places the ISO is used 
+> (firewire-net, and firedtv)
+> However it has all functions implemented for this.
 
-> >> This is an enumeration:
-> >>
-> >> enum {
-> >> PCH_STUF_ERR = 1,
-> >> PCH_FORM_ERR,
-> >> PCH_ACK_ERR,
-> >> PCH_BIT1_ERR;
-> >> PCH_BIT0_ERR,
-> >> PCH_CRC_ERR,
-> >> PCH_LEC_ALL;
-> >> }
-> > 
-> > No, 
-> > LEC is for bit assignment.
-> > Thus, "enum" can't be used.
+This is a bug (missing feature) in firedtv but not in firewire-net. The
+broadcast channel is allocated and reallocated by the bus manager, not
+by an IP-over-1394 user.  But you found that out already, below.
+
+Channel allocation and DMA context allocation and control are unrelated
+issues, on the other hand.  One is a higher-level cooperative protocol
+for bus-wide resource management (in which the nodes' roles are defined
+in various different ways by protocols such as AV/C's CMP or by IIDC).
+The other is about hardware control locally in the OHCI bus bridge
+hardware.
+
+[...]
+> In case of firewire-net, it is simpler, because it uses the broadcast
+> channel, so it only has to find who is the IRM and read its
+> BROADCAST_CHANNEL.
 > 
-> Why? For me it's a classical enum because the value matters, and *not*
-> the individual bit. Do you agree?
+> However, I think I need to write a function to query the IRM its
+> broadcast channel, don't think it has one.
 
-Sorry, at last, I understand your saying.
-I agree.
+Overkill.  Just leave it as is:
+  1.) We know which number the broadcast channel has.
+  2.) We optimistically assume that a 1394a compliant IRM or bus
+      manager exists and allocated that channel.
 
+Why introduce entirely unnecessary fragility?
 
+> Speaking of IRM discovery, the spec says it should be a node with
+> contender bit and largest node id. However, the code in
+> core-topology.c, build_tree seems to take the node that sent the
+> selfID packet last.
 
-> >> Also, could you please add the TEC and REC:
-> >>
-> >> cf->data[6] = ioread32(&priv->regs->errc) & CAN_TEC;
-> >> cf->data[7] = (ioread32(&priv->regs->errc) & CAN_REC) >> 8;
-> > 
-> > I will add.
-> 
-> BTW: it could be done with one I/O call:
-> 
->   errc = ioread32(&priv->regs->errc);
->   cf->data[6] = errc & CAN_TEC;
->   cf->data[7] = (errc & CAN_REC) >> 8;
-> 
-> > But I couldn't find 
-> 
-> Don't understand? It's also implemented for the SJA1000 driver:
-
-Sorry, the above my line is fogotten to delete.
-I can uderstand your saying.
-
----
-Thanks,
-
-Tomoya MORINAGA
-OKI SEMICONDUCTOR CO., LTD.
+This is because of a monotony rule of how self ID packets arrive during
+self identification phase.
+-- 
+Stefan Richter
+-=====-==-=- =-== -====
+http://arcgraph.de/sr/
