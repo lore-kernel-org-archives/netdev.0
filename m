@@ -1,54 +1,44 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: the future of ethtool
-Date: Mon, 15 Nov 2010 21:52:16 +0000
-Message-ID: <1289857936.2586.51.camel@bwh-desktop>
-References: <4CE18CEA.5080502@garzik.org>
-	 <1289852326.2586.32.camel@bwh-desktop> <20101115124428.7b857ccb@nehalam>
-	 <1289855642.2586.38.camel@bwh-desktop>  <20101115131453.16958d68@nehalam>
+From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: pull request: wireless-next-2.6 2010-11-15
+Date: Mon, 15 Nov 2010 22:55:55 +0100
+Message-ID: <AANLkTikZyvZ+vNti_9FTg3JgAC19QFkXDX4nTvaA-YaX@mail.gmail.com>
+References: <20101115212520.GD2297@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, NetDev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:5817 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755605Ab0KOVwT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Nov 2010 16:52:19 -0500
-In-Reply-To: <20101115131453.16958d68@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20101115212520.GD2297-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2010-11-15 at 13:14 -0800, Stephen Hemminger wrote:
-> On Mon, 15 Nov 2010 21:14:02 +0000
-> Ben Hutchings <bhutchings@solarflare.com> wrote:
-> 
-> > On Mon, 2010-11-15 at 12:44 -0800, Stephen Hemminger wrote:
-> > [...]
-> > > My views are simple:
-> > > 
-> > > Ethtool needs to be an extension of existing netlink API for interfaces.
-> > >   - handles multiple values per transaction
-> > >   - extensible
-> > [...]
-> > 
-> > Are you suggesting to send and receive the existing ethtool command and
-> > result structures (with some wrapping) through netlink?  Or some larger
-> > change to the API?
-> 
-> The existing ioctl base API should be kept as legacy and something
-> better developed.
+2010/11/15 John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>:
+> Here is the traditional first huge pull request intended for the 2.6.=
+38!
+>
+> Included are the usual batch of updates to various wireless drivers.
+> For good measure, Luis also gives us a few wireless regulatory contro=
+l
+> patches as well.
+>
+> Please let me know if there are problems!
 
-So you're saying: expose all new operations through netlink (and only
-netlink) while keeping the old operations exposed only through ioctl?
-That's hardly an improvement as it means ethtool or any other
-configuration utility will have to support both APIs indefinitely.
+Nothing that should postpone this pull, but could you check for
+following patches?
+[PATCH] ssb: workarounds: be verbose about hacking SPROM revision,
+don't duplicate code
+[PATCH] ssb: return -ENOMEM on alloc fail (instead of CRC check's resul=
+t)
+[PATCH] ssb: fail registration for unknown SPROM revision
 
-Ben.
+It looks like you missed them. All 3 were sent on 3.11.2010
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+--=20
+Rafa=C5=82
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
