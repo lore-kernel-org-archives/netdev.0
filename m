@@ -1,39 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: vmxnet3 multiqueue
-Date: Mon, 15 Nov 2010 10:16:49 -0800 (PST)
-Message-ID: <20101115.101649.245385009.davem@davemloft.net>
+Subject: Re: [PATCH] net: sh_eth: Move off of deprecated I/O routines.
+Date: Mon, 15 Nov 2010 10:19:35 -0800 (PST)
+Message-ID: <20101115.101935.15229475.davem@davemloft.net>
+References: <20101101192923.GA3176@linux-sh.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: bhatewara@vmware.com
+Cc: iwamatsu@nigauri.org, netdev@vger.kernel.org
+To: lethal@linux-sh.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43322
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43330
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932974Ab0KOSQY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Nov 2010 13:16:24 -0500
+	by vger.kernel.org with ESMTP id S1756765Ab0KOSTK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Nov 2010 13:19:10 -0500
+In-Reply-To: <20101101192923.GA3176@linux-sh.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Paul Mundt <lethal@linux-sh.org>
+Date: Tue, 2 Nov 2010 04:29:24 +0900
 
-Two things:
+> sh_eth is the last in-tree user of the ctrl_xxx I/O routines. This simply
+> converts them over to regular MMIO accesors.
+> 
+> Signed-off-by: Paul Mundt <lethal@linux-sh.org>
 
-1) Do not quote the entire patch when asking for feedback,
-   that adds needless scrolling for people trying to read
-   through either the thread on an archive site or me trying
-   to skim through the feedback in the patchwork entry.
-
-   You are not adding any new information at all by quoting
-   the entire patch, and in fact you are making it more difficult
-   for the very people you want replies from.
-
-2) You're still adding driver specific module option knobs
-   which we have consistently stated are not to be added to
-   any driver.  Instead create generic facilities that any
-   driver, not just your's, can make use of.
-
-For now I would simply rip out the module option knobs and
-submit the simplest patch possible which always turns on
-multiqueue and never acts conditionally.
-
-You can add the knobs via a kernel wide facility later.
+Applied.
