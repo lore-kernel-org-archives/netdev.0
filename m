@@ -1,60 +1,31 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFC PATCH] network: return errors if we know tcp_connect failed
-Date: Mon, 15 Nov 2010 17:04:49 +0100
-Message-ID: <4CE15A21.4030507@trash.net>
-References: <20101111210341.31350.86916.stgit@paris.rdu.redhat.com>	 <00c201cb81eb$84e18160$8ea48420$@com> <4CDCEE65.3060105@trash.net>	 <017301cb82bf$54540cf0$fcfc26d0$@com>  <4CE10C2A.1050801@trash.net> <1289836066.14282.7.camel@localhost.localdomain> <4CE15885.90003@trash.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 0/5] bridge: RCU annotation and cleanup
+Date: Mon, 15 Nov 2010 08:19:27 -0800
+Message-ID: <20101115081927.0fd8e614@nehalam>
+References: <20101114211201.678755903@vyatta.com>
+	<201011152123.HHB21896.HFOOVSMFOtLJQF@I-love.SAKURA.ne.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Hua Zhong <hzhong@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, davem@davemloft.net,
-	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org
-To: Eric Paris <eparis@redhat.com>
+Cc: davem@davemloft.net, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, bridge@lists.linux-foundation.org
+To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:34753 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754989Ab0KOQEr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Nov 2010 11:04:47 -0500
-In-Reply-To: <4CE15885.90003@trash.net>
+Received: from mail.vyatta.com ([76.74.103.46]:47931 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932388Ab0KOQTa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Nov 2010 11:19:30 -0500
+In-Reply-To: <201011152123.HHB21896.HFOOVSMFOtLJQF@I-love.SAKURA.ne.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 15.11.2010 16:57, Patrick McHardy wrote:
-> On 15.11.2010 16:47, Eric Paris wrote:
->>> iptables -A OUTPUT -p tcp -j REJECT --reject-with tcp-reset
->>>
->>> The second one will cause a hard error for the connection.
->>
->> Well I'm (I guess?) surprised that the --reject-with icmp doesn't do
->> anything with a local outgoing connection but --reject-with tcp-reset
->> does something like what I'm looking for.
->>
->> I notice the heavy lifting for this is done in 
->> net/ipv4/netfilter/ipt_REJECT.c::send_rest()
->> (and something very similar for IPv6)
->>
->> I really don't want to duplicate that code into SELinux (for obvious
->> reasons) and I'm wondering if anyone has objections to me making it
->> available outside of netlink and/or suggestions on how to make that code
->> available outside of netfilter (aka what header to expose it, and does
->> it still make logical sense in ipt_REJECT.c or somewhere else?)
+On Mon, 15 Nov 2010 21:23:37 +0900
+Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp> wrote:
+
+> > +			rp = rcu_dereference(hlist_next_rcu(rp->next));  
 > 
-> I don't think having SELinux sending packets to handle local
-> connections is a very elegant design, its not a firewall after
-> all. What's wrong with reacting only to specific errno codes
-> in tcp_connect()? You could f.i. return -ECONNREFUSED from
-> SELinux, that one is pretty much guaranteed not to occur in
-> the network stack itself and can be returned directly.
+> I think this one is hlist_next_rcu(rp).
 
-One more note: there is also the problem that the RST might never
-reach the socket, f.i. because netfilter drops it, or TC actions
-reroute it etc. With netfilter users are expected to make sure the
-entire combination of network features does what the expect, but
-that's probably not what you want for SELinux.
+Yes, you are correct.
 
-> That would need minor changes to nf_hook_slow so we can
-> encode errno values in the upper 16 bits of the verdict,
-> as we already do with the queue number. The added benefit
-> is that we don't have to return EPERM anymore when f.i.
-> rerouting fails.
+-- 
