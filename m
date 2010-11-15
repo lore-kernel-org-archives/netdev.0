@@ -1,65 +1,89 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH 05/11] drivers/net/irda: Remove unnecessary casts of pci_get_drvdata
-Date: Mon, 15 Nov 2010 12:13:56 -0800
-Message-ID: <11b30b9512bf0438efaf70d6c0a819756dbf0e2f.1289851770.git.joe@perches.com>
-References: <cover.1289851770.git.joe@perches.com>
-Cc: Samuel Ortiz <samuel@sortiz.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jiri Kosina <trivial@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1289851770.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: the future of ethtool
+Date: Mon, 15 Nov 2010 20:18:46 +0000
+Message-ID: <1289852326.2586.32.camel@bwh-desktop>
+References: <4CE18CEA.5080502@garzik.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: NetDev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+To: Jeff Garzik <jeff@garzik.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:52348 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932833Ab0KOUSt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Nov 2010 15:18:49 -0500
+In-Reply-To: <4CE18CEA.5080502@garzik.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- drivers/net/irda/donauboe.c |    6 +++---
- drivers/net/irda/vlsi_ir.c  |    2 +-
- 2 files changed, 4 insertions(+), 4 deletions(-)
+On Mon, 2010-11-15 at 14:41 -0500, Jeff Garzik wrote:
+> Thanks for accepting ethtool maintainership.
+> 
+> There are two key unresolved issues with ethtool that are worth noting 
+> to the next maintainer.  Both of these come from years of user and 
+> customer complaints.
+> 
+> 1) ethtool command line interface.
+> 
+> For 1,001 minor reasons of user taste and expectation, people tend to 
+> complain about the command line interface.  Due to script usage it is 
+> set in stone, and has been since before my tenure.  But users 
+> continually request something more flexible, often, in particular, 
+> wanting to set multiple settings in one execution, or wanting to apply 
+> the same setting to multiple interface in one execution.
+> 
+> Obviously one can script this, but, it is probably the #1 user request.
 
-diff --git a/drivers/net/irda/donauboe.c b/drivers/net/irda/donauboe.c
-index b626ccc..bee5ccc 100644
---- a/drivers/net/irda/donauboe.c
-+++ b/drivers/net/irda/donauboe.c
-@@ -1488,7 +1488,7 @@ static void
- toshoboe_close (struct pci_dev *pci_dev)
- {
-   int i;
--  struct toshoboe_cb *self = (struct toshoboe_cb*)pci_get_drvdata(pci_dev);
-+  struct toshoboe_cb *self = pci_get_drvdata(pci_dev);
- 
-   IRDA_DEBUG (4, "%s()\n", __func__);
- 
-@@ -1698,7 +1698,7 @@ freeself:
- static int
- toshoboe_gotosleep (struct pci_dev *pci_dev, pm_message_t crap)
- {
--  struct toshoboe_cb *self = (struct toshoboe_cb*)pci_get_drvdata(pci_dev);
-+  struct toshoboe_cb *self = pci_get_drvdata(pci_dev);
-   unsigned long flags;
-   int i = 10;
- 
-@@ -1727,7 +1727,7 @@ toshoboe_gotosleep (struct pci_dev *pci_dev, pm_message_t crap)
- static int
- toshoboe_wakeup (struct pci_dev *pci_dev)
- {
--  struct toshoboe_cb *self = (struct toshoboe_cb*)pci_get_drvdata(pci_dev);
-+  struct toshoboe_cb *self = pci_get_drvdata(pci_dev);
-   unsigned long flags;
- 
-   IRDA_DEBUG (4, "%s()\n", __func__);
-diff --git a/drivers/net/irda/vlsi_ir.c b/drivers/net/irda/vlsi_ir.c
-index c3d0738..62f2d12 100644
---- a/drivers/net/irda/vlsi_ir.c
-+++ b/drivers/net/irda/vlsi_ir.c
-@@ -542,7 +542,7 @@ static int vlsi_process_rx(struct vlsi_ring *r, struct ring_descr *rd)
- 	int		crclen, len = 0;
- 	struct sk_buff	*skb;
- 	int		ret = 0;
--	struct net_device *ndev = (struct net_device *)pci_get_drvdata(r->pdev);
-+	struct net_device *ndev = pci_get_drvdata(r->pdev);
- 	vlsi_irda_dev_t *idev = netdev_priv(ndev);
- 
- 	pci_dma_sync_single_for_cpu(r->pdev, rd_get_addr(rd), r->len, r->dir);
+Thinking further along those lines, it would be useful to have ethtool
+API bindings for Perl/Python/whatever, though those belong outside of
+the current ethtool package.  I tried doing that for use in my own
+scripts and it looks reasonably practical, though I'm not volunteering
+to maintain such bindings.
+
+> My thought was to create "nictool", a new tool with more flexible 
+> command line interface, using the same old ethtool ioctls currently in 
+> use today.  ('nictool' also solves a minor naming complaint from 
+> wireless and other people, who use ethtool on non-ethernet network 
+> interfaces)
+
+I agree, some of the ethtool operations are very Ethernet-specific but
+enough of them are applicable to other media that this makes sense.
+
+I've recently been looking at FreeBSD where the sort of configuration we
+do through ethtool is invoked through ifconfig, but then ifconfig is
+effectively deprecated on Linux...
+
+> 2) multiple settings and the ethtool kernel interface
+> 
+> Another common complaint is related to multiple settings, and associated 
+> hardware NIC resets.
+> 
+> Many ethtool driver implementations look like this:
+> 
+> 	ethtool_op_do_something()
+> 		stop RX/TX
+> 		apply settings
+> 		perform full NIC reset, consuming much time
+> 		start RX/TX
+> 
+> The problem arises when the user wishes to change multiple hardware 
+> attributes at the same time.  A user wishing to change 4 attributes 
+> could wind up with 4 ethtool(1) invocations, with 4 accompanying 
+> hardware NIC resets.  Time consuming, inefficient, and unnecessary.
+
+Right.  In fact the begin() and complete() operations look like they
+were meant to support this sort of optimisation.  Is that the case?
+
+Ben.
+
+> Obviously the world has not ended without these changes, but these items 
+> do cause continued complaints from users, and we're here to be 
+> responsive to users presumably ;-)
+
+
 -- 
-1.7.3.1.g432b3.dirty
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
