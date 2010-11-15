@@ -1,269 +1,361 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 07/10] drivers/net/vxge: Remove unnecessary casts of netdev_priv
-Date: Mon, 15 Nov 2010 13:12:30 -0800
-Message-ID: <5aee4bf89b5baa6e1d32c99be560893925ed2e19.1289855436.git.joe@perches.com>
+Subject: [PATCH 08/10] drivers/net: Remove unnecessary casts of netdev_priv
+Date: Mon, 15 Nov 2010 13:12:31 -0800
+Message-ID: <8b57be072e62f8f7d39d4ecd9ce5c999e4f8bbdc.1289855436.git.joe@perches.com>
 References: <cover.1289855436.git.joe@perches.com>
-Cc: Ramkrishna Vepa <ramkrishna.vepa@exar.com>,
-	Sivakumar Subramani <sivakumar.subramani@exar.com>,
-	Sreenivasa Honnur <sreenivasa.honnur@exar.com>,
-	Jon Mason <jon.mason@exar.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: Paul Gortmaker <p_gortmaker@yahoo.com>,
+	Yoshinori Sato <ysato@users.sourceforge.jp>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: Jiri Kosina <trivial@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1390 "EHLO mail.perches.com"
+Received: from mail.perches.com ([173.55.12.10]:1393 "EHLO mail.perches.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758542Ab0KOVMq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Nov 2010 16:12:46 -0500
+	id S1758323Ab0KOVMs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Nov 2010 16:12:48 -0500
 In-Reply-To: <cover.1289855436.git.joe@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/vxge/vxge-ethtool.c |   26 +++++++++++++-------------
- drivers/net/vxge/vxge-main.c    |   26 +++++++++++++-------------
- 2 files changed, 26 insertions(+), 26 deletions(-)
+ drivers/net/ax88796.c         |    8 ++++----
+ drivers/net/dm9000.c          |    2 +-
+ drivers/net/iseries_veth.c    |    2 +-
+ drivers/net/lib8390.c         |   24 ++++++++++++------------
+ drivers/net/ne-h8300.c        |   12 ++++++------
+ drivers/net/xilinx_emaclite.c |   20 ++++++++++----------
+ 6 files changed, 34 insertions(+), 34 deletions(-)
 
-diff --git a/drivers/net/vxge/vxge-ethtool.c b/drivers/net/vxge/vxge-ethtool.c
-index 09f721e..bc9bd10 100644
---- a/drivers/net/vxge/vxge-ethtool.c
-+++ b/drivers/net/vxge/vxge-ethtool.c
-@@ -80,7 +80,7 @@ static int vxge_ethtool_gset(struct net_device *dev, struct ethtool_cmd *info)
- static void vxge_ethtool_gdrvinfo(struct net_device *dev,
- 				  struct ethtool_drvinfo *info)
+diff --git a/drivers/net/ax88796.c b/drivers/net/ax88796.c
+index b6da4cf..4bebff3 100644
+--- a/drivers/net/ax88796.c
++++ b/drivers/net/ax88796.c
+@@ -325,7 +325,7 @@ static void ax_block_output(struct net_device *dev, int count,
+ static void
+ ax_mii_ei_outbits(struct net_device *dev, unsigned int bits, int len)
  {
--	struct vxgedev *vdev = (struct vxgedev *)netdev_priv(dev);
-+	struct vxgedev *vdev = netdev_priv(dev);
- 	strlcpy(info->driver, VXGE_DRIVER_NAME, sizeof(VXGE_DRIVER_NAME));
- 	strlcpy(info->version, DRV_VERSION, sizeof(DRV_VERSION));
- 	strlcpy(info->fw_version, vdev->fw_version, VXGE_HW_FW_STRLEN);
-@@ -108,7 +108,7 @@ static void vxge_ethtool_gregs(struct net_device *dev,
- 	enum vxge_hw_status status;
- 	u64 reg;
- 	u64 *reg_space = (u64 *)space;
--	struct vxgedev *vdev = (struct vxgedev *)netdev_priv(dev);
-+	struct vxgedev *vdev = netdev_priv(dev);
- 	struct __vxge_hw_device *hldev = vdev->devh;
+-	struct ei_device *ei_local = (struct ei_device *) netdev_priv(dev);
++	struct ei_device *ei_local = netdev_priv(dev);
+ 	void __iomem *memr_addr = (void __iomem *)dev->base_addr + AX_MEMR;
+ 	unsigned int memr;
  
- 	regs->len = sizeof(struct vxge_hw_vpath_reg) * vdev->no_of_vpath;
-@@ -144,7 +144,7 @@ static void vxge_ethtool_gregs(struct net_device *dev,
-  */
- static int vxge_ethtool_idnic(struct net_device *dev, u32 data)
+@@ -364,7 +364,7 @@ ax_mii_ei_outbits(struct net_device *dev, unsigned int bits, int len)
+ static unsigned int
+ ax_phy_ei_inbits(struct net_device *dev, int no)
  {
--	struct vxgedev *vdev = (struct vxgedev *)netdev_priv(dev);
-+	struct vxgedev *vdev = netdev_priv(dev);
- 	struct __vxge_hw_device *hldev = vdev->devh;
- 
- 	vxge_hw_device_flick_link_led(hldev, VXGE_FLICKER_ON);
-@@ -166,7 +166,7 @@ static int vxge_ethtool_idnic(struct net_device *dev, u32 data)
- static void vxge_ethtool_getpause_data(struct net_device *dev,
- 				       struct ethtool_pauseparam *ep)
+-	struct ei_device *ei_local = (struct ei_device *) netdev_priv(dev);
++	struct ei_device *ei_local = netdev_priv(dev);
+ 	void __iomem *memr_addr = (void __iomem *)dev->base_addr + AX_MEMR;
+ 	unsigned int memr;
+ 	unsigned int result = 0;
+@@ -412,7 +412,7 @@ ax_phy_issueaddr(struct net_device *dev, int phy_addr, int reg, int opc)
+ static int
+ ax_phy_read(struct net_device *dev, int phy_addr, int reg)
  {
--	struct vxgedev *vdev = (struct vxgedev *)netdev_priv(dev);
-+	struct vxgedev *vdev = netdev_priv(dev);
- 	struct __vxge_hw_device *hldev = vdev->devh;
+-	struct ei_device *ei_local = (struct ei_device *) netdev_priv(dev);
++	struct ei_device *ei_local = netdev_priv(dev);
+ 	unsigned long flags;
+  	unsigned int result;
  
- 	vxge_hw_device_getpause_data(hldev, 0, &ep->tx_pause, &ep->rx_pause);
-@@ -185,7 +185,7 @@ static void vxge_ethtool_getpause_data(struct net_device *dev,
- static int vxge_ethtool_setpause_data(struct net_device *dev,
- 				      struct ethtool_pauseparam *ep)
+@@ -435,7 +435,7 @@ ax_phy_read(struct net_device *dev, int phy_addr, int reg)
+ static void
+ ax_phy_write(struct net_device *dev, int phy_addr, int reg, int value)
  {
--	struct vxgedev *vdev = (struct vxgedev *)netdev_priv(dev);
-+	struct vxgedev *vdev = netdev_priv(dev);
- 	struct __vxge_hw_device *hldev = vdev->devh;
+-	struct ei_device *ei = (struct ei_device *) netdev_priv(dev);
++	struct ei_device *ei = netdev_priv(dev);
+ 	struct ax_device  *ax = to_ax_dev(dev);
+ 	unsigned long flags;
  
- 	vxge_hw_device_setpause_data(hldev, 0, ep->tx_pause, ep->rx_pause);
-@@ -203,7 +203,7 @@ static void vxge_get_ethtool_stats(struct net_device *dev,
- 	enum vxge_hw_status status;
- 	enum vxge_hw_status swstatus;
- 	struct vxge_vpath *vpath = NULL;
--	struct vxgedev *vdev = (struct vxgedev *)netdev_priv(dev);
-+	struct vxgedev *vdev = netdev_priv(dev);
- 	struct __vxge_hw_device *hldev = vdev->devh;
- 	struct vxge_hw_xmac_stats *xmac_stats;
- 	struct vxge_hw_device_stats_sw_info *sw_stats;
-@@ -572,7 +572,7 @@ static void vxge_ethtool_get_strings(struct net_device *dev, u32 stringset,
- {
- 	int stat_size = 0;
- 	int i, j;
--	struct vxgedev *vdev = (struct vxgedev *)netdev_priv(dev);
-+	struct vxgedev *vdev = netdev_priv(dev);
- 	switch (stringset) {
- 	case ETH_SS_STATS:
- 		vxge_add_string("VPATH STATISTICS%s\t\t\t",
-@@ -1059,21 +1059,21 @@ static void vxge_ethtool_get_strings(struct net_device *dev, u32 stringset,
+diff --git a/drivers/net/dm9000.c b/drivers/net/dm9000.c
+index 9f6aeef..2d4c4fc 100644
+--- a/drivers/net/dm9000.c
++++ b/drivers/net/dm9000.c
+@@ -1675,7 +1675,7 @@ dm9000_drv_remove(struct platform_device *pdev)
+ 	platform_set_drvdata(pdev, NULL);
  
- static int vxge_ethtool_get_regs_len(struct net_device *dev)
- {
--	struct vxgedev *vdev = (struct vxgedev *)netdev_priv(dev);
-+	struct vxgedev *vdev = netdev_priv(dev);
+ 	unregister_netdev(ndev);
+-	dm9000_release_board(pdev, (board_info_t *) netdev_priv(ndev));
++	dm9000_release_board(pdev, netdev_priv(ndev));
+ 	free_netdev(ndev);		/* free device structure */
  
- 	return sizeof(struct vxge_hw_vpath_reg) * vdev->no_of_vpath;
- }
- 
- static u32 vxge_get_rx_csum(struct net_device *dev)
- {
--	struct vxgedev *vdev = (struct vxgedev *)netdev_priv(dev);
-+	struct vxgedev *vdev = netdev_priv(dev);
- 
- 	return vdev->rx_csum;
- }
- 
- static int vxge_set_rx_csum(struct net_device *dev, u32 data)
- {
--	struct vxgedev *vdev = (struct vxgedev *)netdev_priv(dev);
-+	struct vxgedev *vdev = netdev_priv(dev);
- 
- 	if (data)
- 		vdev->rx_csum = 1;
-@@ -1095,7 +1095,7 @@ static int vxge_ethtool_op_set_tso(struct net_device *dev, u32 data)
- 
- static int vxge_ethtool_get_sset_count(struct net_device *dev, int sset)
- {
--	struct vxgedev *vdev = (struct vxgedev *)netdev_priv(dev);
-+	struct vxgedev *vdev = netdev_priv(dev);
- 
- 	switch (sset) {
- 	case ETH_SS_STATS:
-@@ -1114,7 +1114,7 @@ static int vxge_ethtool_get_sset_count(struct net_device *dev, int sset)
- 
- static int vxge_set_flags(struct net_device *dev, u32 data)
- {
--	struct vxgedev *vdev = (struct vxgedev *)netdev_priv(dev);
-+	struct vxgedev *vdev = netdev_priv(dev);
- 	enum vxge_hw_status status;
- 
- 	if (data & ~ETH_FLAG_RXHASH)
-@@ -1148,7 +1148,7 @@ static int vxge_set_flags(struct net_device *dev, u32 data)
- 
- static int vxge_fw_flash(struct net_device *dev, struct ethtool_flash *parms)
- {
--	struct vxgedev *vdev = (struct vxgedev *)netdev_priv(dev);
-+	struct vxgedev *vdev = netdev_priv(dev);
- 
- 	if (vdev->max_vpath_supported != VXGE_HW_MAX_VIRTUAL_PATHS) {
- 		printk(KERN_INFO "Single Function Mode is required to flash the"
-diff --git a/drivers/net/vxge/vxge-main.c b/drivers/net/vxge/vxge-main.c
-index 22c7d79..5cba4a6 100644
---- a/drivers/net/vxge/vxge-main.c
-+++ b/drivers/net/vxge/vxge-main.c
-@@ -153,7 +153,7 @@ static void
- vxge_callback_link_up(struct __vxge_hw_device *hldev)
- {
- 	struct net_device *dev = hldev->ndev;
--	struct vxgedev *vdev = (struct vxgedev *)netdev_priv(dev);
-+	struct vxgedev *vdev = netdev_priv(dev);
- 
- 	vxge_debug_entryexit(VXGE_TRACE, "%s: %s:%d",
- 		vdev->ndev->name, __func__, __LINE__);
-@@ -177,7 +177,7 @@ static void
- vxge_callback_link_down(struct __vxge_hw_device *hldev)
- {
- 	struct net_device *dev = hldev->ndev;
--	struct vxgedev *vdev = (struct vxgedev *)netdev_priv(dev);
-+	struct vxgedev *vdev = netdev_priv(dev);
- 
- 	vxge_debug_entryexit(VXGE_TRACE,
- 		"%s: %s:%d", vdev->ndev->name, __func__, __LINE__);
-@@ -787,7 +787,7 @@ vxge_xmit(struct sk_buff *skb, struct net_device *dev)
- 		return NETDEV_TX_OK;
+ 	dev_dbg(&pdev->dev, "released and freed device\n");
+diff --git a/drivers/net/iseries_veth.c b/drivers/net/iseries_veth.c
+index 8df645e..38e15be 100644
+--- a/drivers/net/iseries_veth.c
++++ b/drivers/net/iseries_veth.c
+@@ -1605,7 +1605,7 @@ static int veth_probe(struct vio_dev *vdev, const struct vio_device_id *id)
  	}
+ 	veth_dev[i] = dev;
  
--	vdev = (struct vxgedev *)netdev_priv(dev);
-+	vdev = netdev_priv(dev);
+-	port = (struct veth_port*)netdev_priv(dev);
++	port = netdev_priv(dev);
  
- 	if (unlikely(!is_vxge_card_up(vdev))) {
- 		vxge_debug_tx(VXGE_ERR,
-@@ -1052,7 +1052,7 @@ static void vxge_set_multicast(struct net_device *dev)
- 	vxge_debug_entryexit(VXGE_TRACE,
- 		"%s:%d", __func__, __LINE__);
- 
--	vdev = (struct vxgedev *)netdev_priv(dev);
-+	vdev = netdev_priv(dev);
- 	hldev = (struct __vxge_hw_device  *)vdev->devh;
- 
- 	if (unlikely(!is_vxge_card_up(vdev)))
-@@ -1209,7 +1209,7 @@ static int vxge_set_mac_addr(struct net_device *dev, void *p)
- 
- 	vxge_debug_entryexit(VXGE_TRACE, "%s:%d", __func__, __LINE__);
- 
--	vdev = (struct vxgedev *)netdev_priv(dev);
-+	vdev = netdev_priv(dev);
- 	hldev = vdev->devh;
- 
- 	if (!is_valid_ether_addr(addr->sa_data))
-@@ -1671,7 +1671,7 @@ static void vxge_netpoll(struct net_device *dev)
- 	struct __vxge_hw_device *hldev;
- 	struct vxgedev *vdev;
- 
--	vdev = (struct vxgedev *)netdev_priv(dev);
-+	vdev = netdev_priv(dev);
- 	hldev = pci_get_drvdata(vdev->pdev);
- 
- 	vxge_debug_entryexit(VXGE_TRACE, "%s:%d", __func__, __LINE__);
-@@ -2581,7 +2581,7 @@ vxge_open(struct net_device *dev)
- 	vxge_debug_entryexit(VXGE_TRACE,
- 		"%s: %s:%d", dev->name, __func__, __LINE__);
- 
--	vdev = (struct vxgedev *)netdev_priv(dev);
-+	vdev = netdev_priv(dev);
- 	hldev = pci_get_drvdata(vdev->pdev);
- 	function_mode = vdev->config.device_hw_info.function_mode;
- 
-@@ -2809,7 +2809,7 @@ static int do_vxge_close(struct net_device *dev, int do_io)
- 	vxge_debug_entryexit(VXGE_TRACE, "%s: %s:%d",
- 		dev->name, __func__, __LINE__);
- 
--	vdev = (struct vxgedev *)netdev_priv(dev);
-+	vdev = netdev_priv(dev);
- 	hldev = pci_get_drvdata(vdev->pdev);
- 
- 	if (unlikely(!is_vxge_card_up(vdev)))
-@@ -3138,7 +3138,7 @@ vxge_tx_watchdog(struct net_device *dev)
- 
- 	vxge_debug_entryexit(VXGE_TRACE, "%s:%d", __func__, __LINE__);
- 
--	vdev = (struct vxgedev *)netdev_priv(dev);
-+	vdev = netdev_priv(dev);
- 
- 	vdev->cric_err_event = VXGE_HW_EVENT_RESET_START;
- 
-@@ -3166,7 +3166,7 @@ vxge_vlan_rx_register(struct net_device *dev, struct vlan_group *grp)
- 
- 	vxge_debug_entryexit(VXGE_TRACE, "%s:%d", __func__, __LINE__);
- 
--	vdev = (struct vxgedev *)netdev_priv(dev);
-+	vdev = netdev_priv(dev);
- 
- 	vpath = &vdev->vpaths[0];
- 	if ((NULL == grp) && (vpath->is_open)) {
-@@ -3215,7 +3215,7 @@ vxge_vlan_rx_add_vid(struct net_device *dev, unsigned short vid)
- 	struct vxge_vpath *vpath;
- 	int vp_id;
- 
--	vdev = (struct vxgedev *)netdev_priv(dev);
-+	vdev = netdev_priv(dev);
- 
- 	/* Add these vlan to the vid table */
- 	for (vp_id = 0; vp_id < vdev->no_of_vpath; vp_id++) {
-@@ -3242,7 +3242,7 @@ vxge_vlan_rx_kill_vid(struct net_device *dev, unsigned short vid)
- 
- 	vxge_debug_entryexit(VXGE_TRACE, "%s:%d", __func__, __LINE__);
- 
--	vdev = (struct vxgedev *)netdev_priv(dev);
-+	vdev = netdev_priv(dev);
- 
- 	vlan_group_set_device(vdev->vlgrp, vid, NULL);
- 
-@@ -3475,7 +3475,7 @@ vxge_callback_crit_err(struct __vxge_hw_device *hldev,
- 			enum vxge_hw_event type, u64 vp_id)
+ 	/* Start the state machine on each connection on this vlan. If we're
+ 	 * the first dev to do so this will commence link negotiation */
+diff --git a/drivers/net/lib8390.c b/drivers/net/lib8390.c
+index e7030ce..da74db4 100644
+--- a/drivers/net/lib8390.c
++++ b/drivers/net/lib8390.c
+@@ -203,7 +203,7 @@ static void __NS8390_init(struct net_device *dev, int startp);
+ static int __ei_open(struct net_device *dev)
  {
- 	struct net_device *dev = hldev->ndev;
--	struct vxgedev *vdev = (struct vxgedev *)netdev_priv(dev);
-+	struct vxgedev *vdev = netdev_priv(dev);
- 	struct vxge_vpath *vpath = NULL;
- 	int vpath_idx;
+ 	unsigned long flags;
+-	struct ei_device *ei_local = (struct ei_device *) netdev_priv(dev);
++	struct ei_device *ei_local = netdev_priv(dev);
  
+ 	if (dev->watchdog_timeo <= 0)
+ 		 dev->watchdog_timeo = TX_TIMEOUT;
+@@ -231,7 +231,7 @@ static int __ei_open(struct net_device *dev)
+  */
+ static int __ei_close(struct net_device *dev)
+ {
+-	struct ei_device *ei_local = (struct ei_device *) netdev_priv(dev);
++	struct ei_device *ei_local = netdev_priv(dev);
+ 	unsigned long flags;
+ 
+ 	/*
+@@ -256,7 +256,7 @@ static int __ei_close(struct net_device *dev)
+ static void __ei_tx_timeout(struct net_device *dev)
+ {
+ 	unsigned long e8390_base = dev->base_addr;
+-	struct ei_device *ei_local = (struct ei_device *) netdev_priv(dev);
++	struct ei_device *ei_local = netdev_priv(dev);
+ 	int txsr, isr, tickssofar = jiffies - dev_trans_start(dev);
+ 	unsigned long flags;
+ 
+@@ -303,7 +303,7 @@ static netdev_tx_t __ei_start_xmit(struct sk_buff *skb,
+ 				   struct net_device *dev)
+ {
+ 	unsigned long e8390_base = dev->base_addr;
+-	struct ei_device *ei_local = (struct ei_device *) netdev_priv(dev);
++	struct ei_device *ei_local = netdev_priv(dev);
+ 	int send_length = skb->len, output_page;
+ 	unsigned long flags;
+ 	char buf[ETH_ZLEN];
+@@ -592,7 +592,7 @@ static void ei_tx_err(struct net_device *dev)
+ static void ei_tx_intr(struct net_device *dev)
+ {
+ 	unsigned long e8390_base = dev->base_addr;
+-	struct ei_device *ei_local = (struct ei_device *) netdev_priv(dev);
++	struct ei_device *ei_local = netdev_priv(dev);
+ 	int status = ei_inb(e8390_base + EN0_TSR);
+ 
+ 	ei_outb_p(ENISR_TX, e8390_base + EN0_ISR); /* Ack intr. */
+@@ -675,7 +675,7 @@ static void ei_tx_intr(struct net_device *dev)
+ static void ei_receive(struct net_device *dev)
+ {
+ 	unsigned long e8390_base = dev->base_addr;
+-	struct ei_device *ei_local = (struct ei_device *) netdev_priv(dev);
++	struct ei_device *ei_local = netdev_priv(dev);
+ 	unsigned char rxing_page, this_frame, next_frame;
+ 	unsigned short current_offset;
+ 	int rx_pkt_count = 0;
+@@ -879,7 +879,7 @@ static void ei_rx_overrun(struct net_device *dev)
+ static struct net_device_stats *__ei_get_stats(struct net_device *dev)
+ {
+ 	unsigned long ioaddr = dev->base_addr;
+-	struct ei_device *ei_local = (struct ei_device *) netdev_priv(dev);
++	struct ei_device *ei_local = netdev_priv(dev);
+ 	unsigned long flags;
+ 
+ 	/* If the card is stopped, just return the present stats. */
+@@ -927,7 +927,7 @@ static void do_set_multicast_list(struct net_device *dev)
+ {
+ 	unsigned long e8390_base = dev->base_addr;
+ 	int i;
+-	struct ei_device *ei_local = (struct ei_device*)netdev_priv(dev);
++	struct ei_device *ei_local = netdev_priv(dev);
+ 
+ 	if (!(dev->flags&(IFF_PROMISC|IFF_ALLMULTI)))
+ 	{
+@@ -981,7 +981,7 @@ static void do_set_multicast_list(struct net_device *dev)
+ static void __ei_set_multicast_list(struct net_device *dev)
+ {
+ 	unsigned long flags;
+-	struct ei_device *ei_local = (struct ei_device*)netdev_priv(dev);
++	struct ei_device *ei_local = netdev_priv(dev);
+ 
+ 	spin_lock_irqsave(&ei_local->page_lock, flags);
+ 	do_set_multicast_list(dev);
+@@ -998,7 +998,7 @@ static void __ei_set_multicast_list(struct net_device *dev)
+ 
+ static void ethdev_setup(struct net_device *dev)
+ {
+-	struct ei_device *ei_local = (struct ei_device *) netdev_priv(dev);
++	struct ei_device *ei_local = netdev_priv(dev);
+ 	if (ei_debug > 1)
+ 		printk(version);
+ 
+@@ -1036,7 +1036,7 @@ static struct net_device *____alloc_ei_netdev(int size)
+ static void __NS8390_init(struct net_device *dev, int startp)
+ {
+ 	unsigned long e8390_base = dev->base_addr;
+-	struct ei_device *ei_local = (struct ei_device *) netdev_priv(dev);
++	struct ei_device *ei_local = netdev_priv(dev);
+ 	int i;
+ 	int endcfg = ei_local->word16
+ 	    ? (0x48 | ENDCFG_WTS | (ei_local->bigendian ? ENDCFG_BOS : 0))
+@@ -1099,7 +1099,7 @@ static void NS8390_trigger_send(struct net_device *dev, unsigned int length,
+ 								int start_page)
+ {
+ 	unsigned long e8390_base = dev->base_addr;
+- 	struct ei_device *ei_local __attribute((unused)) = (struct ei_device *) netdev_priv(dev);
++ 	struct ei_device *ei_local __attribute((unused)) = netdev_priv(dev);
+ 
+ 	ei_outb_p(E8390_NODMA+E8390_PAGE0, e8390_base+E8390_CMD);
+ 
+diff --git a/drivers/net/ne-h8300.c b/drivers/net/ne-h8300.c
+index e0b0ef1..30be8c6 100644
+--- a/drivers/net/ne-h8300.c
++++ b/drivers/net/ne-h8300.c
+@@ -86,7 +86,7 @@ static u32 reg_offset[16];
+ 
+ static int __init init_reg_offset(struct net_device *dev,unsigned long base_addr)
+ {
+-	struct ei_device *ei_local = (struct ei_device *) netdev_priv(dev);
++	struct ei_device *ei_local = netdev_priv(dev);
+ 	int i;
+ 	unsigned char bus_width;
+ 
+@@ -218,7 +218,7 @@ static int __init ne_probe1(struct net_device *dev, int ioaddr)
+ 	int start_page, stop_page;
+ 	int reg0, ret;
+ 	static unsigned version_printed;
+-	struct ei_device *ei_local = (struct ei_device *) netdev_priv(dev);
++	struct ei_device *ei_local = netdev_priv(dev);
+ 	unsigned char bus_width;
+ 
+ 	if (!request_region(ioaddr, NE_IO_EXTENT, DRV_NAME))
+@@ -371,7 +371,7 @@ static int ne_close(struct net_device *dev)
+ static void ne_reset_8390(struct net_device *dev)
+ {
+ 	unsigned long reset_start_time = jiffies;
+-	struct ei_device *ei_local = (struct ei_device *) netdev_priv(dev);
++	struct ei_device *ei_local = netdev_priv(dev);
+ 
+ 	if (ei_debug > 1)
+ 		printk(KERN_DEBUG "resetting the 8390 t=%ld...", jiffies);
+@@ -397,7 +397,7 @@ static void ne_reset_8390(struct net_device *dev)
+ 
+ static void ne_get_8390_hdr(struct net_device *dev, struct e8390_pkt_hdr *hdr, int ring_page)
+ {
+-	struct ei_device *ei_local = (struct ei_device *) netdev_priv(dev);
++	struct ei_device *ei_local = netdev_priv(dev);
+ 	/* This *shouldn't* happen. If it does, it's the last thing you'll see */
+ 
+ 	if (ei_status.dmaing)
+@@ -437,7 +437,7 @@ static void ne_get_8390_hdr(struct net_device *dev, struct e8390_pkt_hdr *hdr, i
+ 
+ static void ne_block_input(struct net_device *dev, int count, struct sk_buff *skb, int ring_offset)
+ {
+-	struct ei_device *ei_local = (struct ei_device *) netdev_priv(dev);
++	struct ei_device *ei_local = netdev_priv(dev);
+ #ifdef NE_SANITY_CHECK
+ 	int xfer_count = count;
+ #endif
+@@ -507,7 +507,7 @@ static void ne_block_input(struct net_device *dev, int count, struct sk_buff *sk
+ static void ne_block_output(struct net_device *dev, int count,
+ 		const unsigned char *buf, const int start_page)
+ {
+-	struct ei_device *ei_local = (struct ei_device *) netdev_priv(dev);
++	struct ei_device *ei_local = netdev_priv(dev);
+ 	unsigned long dma_start;
+ #ifdef NE_SANITY_CHECK
+ 	int retries = 0;
+diff --git a/drivers/net/xilinx_emaclite.c b/drivers/net/xilinx_emaclite.c
+index 14f0955..2de52d1 100644
+--- a/drivers/net/xilinx_emaclite.c
++++ b/drivers/net/xilinx_emaclite.c
+@@ -515,7 +515,7 @@ static void xemaclite_update_address(struct net_local *drvdata,
+  */
+ static int xemaclite_set_mac_address(struct net_device *dev, void *address)
+ {
+-	struct net_local *lp = (struct net_local *) netdev_priv(dev);
++	struct net_local *lp = netdev_priv(dev);
+ 	struct sockaddr *addr = address;
+ 
+ 	if (netif_running(dev))
+@@ -534,7 +534,7 @@ static int xemaclite_set_mac_address(struct net_device *dev, void *address)
+  */
+ static void xemaclite_tx_timeout(struct net_device *dev)
+ {
+-	struct net_local *lp = (struct net_local *) netdev_priv(dev);
++	struct net_local *lp = netdev_priv(dev);
+ 	unsigned long flags;
+ 
+ 	dev_err(&lp->ndev->dev, "Exceeded transmit timeout of %lu ms\n",
+@@ -578,7 +578,7 @@ static void xemaclite_tx_timeout(struct net_device *dev)
+  */
+ static void xemaclite_tx_handler(struct net_device *dev)
+ {
+-	struct net_local *lp = (struct net_local *) netdev_priv(dev);
++	struct net_local *lp = netdev_priv(dev);
+ 
+ 	dev->stats.tx_packets++;
+ 	if (lp->deferred_skb) {
+@@ -605,7 +605,7 @@ static void xemaclite_tx_handler(struct net_device *dev)
+  */
+ static void xemaclite_rx_handler(struct net_device *dev)
+ {
+-	struct net_local *lp = (struct net_local *) netdev_priv(dev);
++	struct net_local *lp = netdev_priv(dev);
+ 	struct sk_buff *skb;
+ 	unsigned int align;
+ 	u32 len;
+@@ -661,7 +661,7 @@ static irqreturn_t xemaclite_interrupt(int irq, void *dev_id)
+ {
+ 	bool tx_complete = 0;
+ 	struct net_device *dev = dev_id;
+-	struct net_local *lp = (struct net_local *) netdev_priv(dev);
++	struct net_local *lp = netdev_priv(dev);
+ 	void __iomem *base_addr = lp->base_addr;
+ 	u32 tx_status;
+ 
+@@ -918,7 +918,7 @@ void xemaclite_adjust_link(struct net_device *ndev)
+  */
+ static int xemaclite_open(struct net_device *dev)
+ {
+-	struct net_local *lp = (struct net_local *) netdev_priv(dev);
++	struct net_local *lp = netdev_priv(dev);
+ 	int retval;
+ 
+ 	/* Just to be safe, stop the device first */
+@@ -987,7 +987,7 @@ static int xemaclite_open(struct net_device *dev)
+  */
+ static int xemaclite_close(struct net_device *dev)
+ {
+-	struct net_local *lp = (struct net_local *) netdev_priv(dev);
++	struct net_local *lp = netdev_priv(dev);
+ 
+ 	netif_stop_queue(dev);
+ 	xemaclite_disable_interrupts(lp);
+@@ -1031,7 +1031,7 @@ static struct net_device_stats *xemaclite_get_stats(struct net_device *dev)
+  */
+ static int xemaclite_send(struct sk_buff *orig_skb, struct net_device *dev)
+ {
+-	struct net_local *lp = (struct net_local *) netdev_priv(dev);
++	struct net_local *lp = netdev_priv(dev);
+ 	struct sk_buff *new_skb;
+ 	unsigned int len;
+ 	unsigned long flags;
+@@ -1068,7 +1068,7 @@ static int xemaclite_send(struct sk_buff *orig_skb, struct net_device *dev)
+ static void xemaclite_remove_ndev(struct net_device *ndev)
+ {
+ 	if (ndev) {
+-		struct net_local *lp = (struct net_local *) netdev_priv(ndev);
++		struct net_local *lp = netdev_priv(ndev);
+ 
+ 		if (lp->base_addr)
+ 			iounmap((void __iomem __force *) (lp->base_addr));
+@@ -1245,7 +1245,7 @@ static int __devexit xemaclite_of_remove(struct platform_device *of_dev)
+ 	struct device *dev = &of_dev->dev;
+ 	struct net_device *ndev = dev_get_drvdata(dev);
+ 
+-	struct net_local *lp = (struct net_local *) netdev_priv(ndev);
++	struct net_local *lp = netdev_priv(ndev);
+ 
+ 	/* Un-register the mii_bus, if configured */
+ 	if (lp->has_mdio) {
 -- 
 1.7.3.1.g432b3.dirty
 
