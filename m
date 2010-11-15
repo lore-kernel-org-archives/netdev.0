@@ -1,29 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-26 5/5] cxgb4vf: Mark "UDP [RSS Hash] Enable"
- as a 1-bit field.
-Date: Mon, 15 Nov 2010 09:20:59 -0800 (PST)
-Message-ID: <20101115.092059.59691885.davem@davemloft.net>
-References: <1289503844-18059-1-git-send-email-leedom@chelsio.com>
-	<1289503844-18059-6-git-send-email-leedom@chelsio.com>
+Subject: Re: [PATCH 1/3] offloading: Make scatter/gather more tolerant of
+ vlans.
+Date: Mon, 15 Nov 2010 09:23:37 -0800 (PST)
+Message-ID: <20101115.092337.115944173.davem@davemloft.net>
+References: <1288390495-28923-1-git-send-email-jesse@nicira.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: leedom@chelsio.com
+Cc: netdev@vger.kernel.org, bhutchings@solarflare.com
+To: jesse@nicira.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47862
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35779
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757516Ab0KORUe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Nov 2010 12:20:34 -0500
-In-Reply-To: <1289503844-18059-6-git-send-email-leedom@chelsio.com>
+	by vger.kernel.org with ESMTP id S932303Ab0KORXN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Nov 2010 12:23:13 -0500
+In-Reply-To: <1288390495-28923-1-git-send-email-jesse@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Casey Leedom <leedom@chelsio.com>
-Date: Thu, 11 Nov 2010 11:30:44 -0800
+From: Jesse Gross <jesse@nicira.com>
+Date: Fri, 29 Oct 2010 15:14:53 -0700
 
-> +		uint synmapen:1;	/* SYN Map Enable */
+> When checking if it is necessary to linearize a packet, we currently
+> use vlan_features if the packet contains either an in-band or out-
+> of-band vlan tag.  However, in-band tags aren't special in any way
+> for scatter/gather since they are part of the packet buffer and are
+> simply more data to DMA.  Therefore, only use vlan_features for out-
+> of-band tags, which could potentially have some interaction with
+> scatter/gather.
+> 
+> Signed-off-by: Jesse Gross <jesse@nicira.com>
 
-Please do not use the "uint" shorthand for "unsigned int", I know it's
-in linux/types.h but that is there for sysv compatibility in
-userspace and is ugly as hell.
+Applied.
