@@ -1,48 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: network device reference leak with net-next
-Date: Mon, 15 Nov 2010 20:04:00 +0100
-Message-ID: <1289847840.2607.120.camel@edumazet-laptop>
-References: <20101115105646.0cc823ce@nehalam>
+From: David Miller <davem@davemloft.net>
+Subject: Re: net-next-2.6 [PATCH 0/6]: dccp ccid-2: Ack Vector patch set
+ second/concluding part II
+Date: Mon, 15 Nov 2010 11:04:59 -0800 (PST)
+Message-ID: <20101115.110459.68121782.davem@davemloft.net>
+References: <dccp_ccid2_ack_vector_patch_set_concluding_part_II>
+	<1289802547-5617-1-git-send-email-gerrit@erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: gerrit@erg.abdn.ac.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:46270 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932703Ab0KOTET (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Nov 2010 14:04:19 -0500
-Received: by eye27 with SMTP id 27so3127174eye.19
-        for <netdev@vger.kernel.org>; Mon, 15 Nov 2010 11:04:17 -0800 (PST)
-In-Reply-To: <20101115105646.0cc823ce@nehalam>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33002
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932217Ab0KOTEe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Nov 2010 14:04:34 -0500
+In-Reply-To: <1289802547-5617-1-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 15 novembre 2010 =C3=A0 10:56 -0800, Stephen Hemminger a =C3=A9=
-crit :
-> This is a new regression (doesn't exist with 2.6.36)
->=20
-> If I shutdown KVM instance with Virt manager, the virtual
-> interfaces in the bridge aren't getting cleaned up because
-> of leftover reference count.
->=20
->=20
-> [ 9781.050474] unregister_netdevice: waiting for vnet1 to become free=
-=2E Usage count =3D 1
-> [ 9785.143400] virbr4: port 3(vnet6) entering forwarding state
-> [ 9785.177194] virbr4: port 3(vnet6) entering disabled state
-> [ 9785.201129] device vnet6 left promiscuous mode
-> [ 9785.201135] virbr4: port 3(vnet6) entering disabled state
-> [ 9791.286950] unregister_netdevice: waiting for vnet1 to become free=
-=2E Usage count =3D 1
-> [ 9795.461526] unregister_netdevice: waiting for vnet6 to become free=
-=2E Usage count =3D 1
-> [ 9801.523398] unregister_netdevice: waiting for vnet1 to become free=
-=2E Usage count =3D 1
-> --
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Date: Mon, 15 Nov 2010 07:29:01 +0100
 
-Is the refcount stay forever to 1, or eventually reaches 0 ?
+> Hi Dave,
+> 
+> please find attached part II of the Ack Vector patch set, concluding
+> the submission (part I) begun last week.
+> 
+>  Patch #1: algorithm to update/clear Ack Vector state in the circular buffer.
+>  Patch #2: algorithm to register new packets as received in the circular buffer.
+>  Patch #3: consolidates/updates Ack Vector processing in the main DCCP module.
+>  Patch #4: schedules DCCP-Sync in case there is no space left for Ack Vectors.
+>  Patch #5: removes the replaced parts of the old Ack Vector infrastructure.
+>  Patch #6: Ack Vectors provide information specific to CCIDs; this patch thus
+>            moves Ack Vector processing from main DCCP into the CCID module(s).
+>  
+> 
+> I have also placed this in into a fresh (today's) copy of net-next-2.6, on
+> 
+>     git://eden-feed.erg.abdn.ac.uk/net-next-2.6        [subtree 'dccp']
 
+Pulled, thanks a lot Gerrit.
 
+Some of the new functions you added had some coding style quirks,
+for example the openning brace for dccp_ackvec_clear_state()
+has an unnecessary space before it on that line.
 
+Please fix those sorts of things up, thanks.
