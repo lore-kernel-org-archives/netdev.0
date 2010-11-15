@@ -1,76 +1,155 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: the future of ethtool
-Date: Mon, 15 Nov 2010 17:49:33 -0500
-Message-ID: <4CE1B8FD.3000007@garzik.org>
-References: <4CE18CEA.5080502@garzik.org> <1289852326.2586.32.camel@bwh-desktop> <20101115124428.7b857ccb@nehalam> <1289855642.2586.38.camel@bwh-desktop>  <20101115131453.16958d68@nehalam> <1289857936.2586.51.camel@bwh-desktop>
+From: Jon Mason <jon.mason@exar.com>
+Subject: Re: [PATCH 07/11] drivers/net/vxge/vxge-main.c: Remove unnecessary
+ casts of pci_get_drvdata
+Date: Mon, 15 Nov 2010 16:50:56 -0600
+Message-ID: <20101115225056.GA12891@exar.com>
+References: <cover.1289851770.git.joe@perches.com>
+ <41a52736f96be0f61003a830b6e23e00f9a5d53b.1289851770.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	NetDev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Kosina <trivial@kernel.org>,
+	Ramkrishna Vepa <Ramkrishna.Vepa@exar.com>,
+	Sivakumar Subramani <Sivakumar.Subramani@exar.com>,
+	Sreenivasa Honnur <Sreenivasa.Honnur@exar.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:60988 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757915Ab0KOWtg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Nov 2010 17:49:36 -0500
-Received: by vws13 with SMTP id 13so6299vws.19
-        for <netdev@vger.kernel.org>; Mon, 15 Nov 2010 14:49:35 -0800 (PST)
-In-Reply-To: <1289857936.2586.51.camel@bwh-desktop>
+Received: from mail-gx0-f174.google.com ([209.85.161.174]:47273 "EHLO
+	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755033Ab0KOWvE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Nov 2010 17:51:04 -0500
+Content-Disposition: inline
+In-Reply-To: <41a52736f96be0f61003a830b6e23e00f9a5d53b.1289851770.git.joe@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/15/2010 04:52 PM, Ben Hutchings wrote:
-> On Mon, 2010-11-15 at 13:14 -0800, Stephen Hemminger wrote:
->> On Mon, 15 Nov 2010 21:14:02 +0000
->> Ben Hutchings<bhutchings@solarflare.com>  wrote:
->>
->>> On Mon, 2010-11-15 at 12:44 -0800, Stephen Hemminger wrote:
->>> [...]
->>>> My views are simple:
->>>>
->>>> Ethtool needs to be an extension of existing netlink API for interfaces.
->>>>    - handles multiple values per transaction
->>>>    - extensible
->>> [...]
->>>
->>> Are you suggesting to send and receive the existing ethtool command and
->>> result structures (with some wrapping) through netlink?  Or some larger
->>> change to the API?
->>
->> The existing ioctl base API should be kept as legacy and something
->> better developed.
->
-> So you're saying: expose all new operations through netlink (and only
-> netlink) while keeping the old operations exposed only through ioctl?
-> That's hardly an improvement as it means ethtool or any other
-> configuration utility will have to support both APIs indefinitely.
+On Mon, Nov 15, 2010 at 12:13:58PM -0800, Joe Perches wrote:
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-s/only//   I don't think Stephen is suggesting sending _some_ ops 
-through netlink and others through old-ioctl.  That's just silly.  Any 
-new netlink interface should transit all existing ETHTOOL_xxx 
-commands/structures.
+Looks good to me.
 
-But presumably, one would have the ability to send multiple ETHTOOL_xxx 
-bundled together into a single netlink transaction, facilitating the 
-kernel's calling of struct ethtool_ops'
-	->begin()
-	... first operation specified by userspace via netlink ...
-	... second operation specified by userspace via netlink ...
-	... etc.
-	->end()
-
-The underlying struct ethtool_ops remains unchanged; you're only 
-changing the transit method.
-
-Thus, the ethtool userspace utility would switch entirely to netlink, 
-while the ioctl processing code remains for binary compatibility.
-
-Or... ethtool userspace utility could remain unchanged, and a new 
-'nictool' utility provides the same features but with (a) a new CLI and 
-(b) exclusively uses netlink rather than ioctl.
-
-	Jeff
-
-
+Acked-by: Jon Mason <jon.mason@exar.com>
+> ---
+>  drivers/net/vxge/vxge-main.c |   28 ++++++++++++----------------
+>  1 files changed, 12 insertions(+), 16 deletions(-)
+> 
+> diff --git a/drivers/net/vxge/vxge-main.c b/drivers/net/vxge/vxge-main.c
+> index 3f2d6ed..22c7d79 100644
+> --- a/drivers/net/vxge/vxge-main.c
+> +++ b/drivers/net/vxge/vxge-main.c
+> @@ -688,7 +688,7 @@ static int vxge_learn_mac(struct vxgedev *vdev, u8 *mac_header)
+>  	struct vxge_vpath *vpath = NULL;
+>  	struct __vxge_hw_device *hldev;
+>  
+> -	hldev = (struct __vxge_hw_device *)pci_get_drvdata(vdev->pdev);
+> +	hldev = pci_get_drvdata(vdev->pdev);
+>  
+>  	mac_address = (u8 *)&mac_addr;
+>  	memcpy(mac_address, mac_header, ETH_ALEN);
+> @@ -1313,7 +1313,7 @@ static void vxge_vpath_intr_disable(struct vxgedev *vdev, int vp_id)
+>  	struct __vxge_hw_device *hldev;
+>  	int msix_id;
+>  
+> -	hldev = (struct __vxge_hw_device *)pci_get_drvdata(vdev->pdev);
+> +	hldev = pci_get_drvdata(vdev->pdev);
+>  
+>  	vxge_hw_vpath_wait_receive_idle(hldev, vpath->device_id);
+>  
+> @@ -1632,8 +1632,7 @@ static int vxge_poll_inta(struct napi_struct *napi, int budget)
+>  	int budget_org = budget;
+>  	struct vxge_ring *ring;
+>  
+> -	struct __vxge_hw_device *hldev = (struct __vxge_hw_device *)
+> -		pci_get_drvdata(vdev->pdev);
+> +	struct __vxge_hw_device *hldev = pci_get_drvdata(vdev->pdev);
+>  
+>  	for (i = 0; i < vdev->no_of_vpath; i++) {
+>  		ring = &vdev->vpaths[i].ring;
+> @@ -1673,7 +1672,7 @@ static void vxge_netpoll(struct net_device *dev)
+>  	struct vxgedev *vdev;
+>  
+>  	vdev = (struct vxgedev *)netdev_priv(dev);
+> -	hldev = (struct __vxge_hw_device  *)pci_get_drvdata(vdev->pdev);
+> +	hldev = pci_get_drvdata(vdev->pdev);
+>  
+>  	vxge_debug_entryexit(VXGE_TRACE, "%s:%d", __func__, __LINE__);
+>  
+> @@ -2107,7 +2106,7 @@ static irqreturn_t vxge_isr_napi(int irq, void *dev_id)
+>  	vxge_debug_intr(VXGE_TRACE, "%s:%d", __func__, __LINE__);
+>  
+>  	dev = vdev->ndev;
+> -	hldev = (struct __vxge_hw_device *)pci_get_drvdata(vdev->pdev);
+> +	hldev = pci_get_drvdata(vdev->pdev);
+>  
+>  	if (pci_channel_offline(vdev->pdev))
+>  		return IRQ_NONE;
+> @@ -2342,7 +2341,7 @@ static void vxge_rem_msix_isr(struct vxgedev *vdev)
+>  static void vxge_rem_isr(struct vxgedev *vdev)
+>  {
+>  	struct __vxge_hw_device *hldev;
+> -	hldev = (struct __vxge_hw_device  *)pci_get_drvdata(vdev->pdev);
+> +	hldev = pci_get_drvdata(vdev->pdev);
+>  
+>  #ifdef CONFIG_PCI_MSI
+>  	if (vdev->config.intr_type == MSI_X) {
+> @@ -2583,7 +2582,7 @@ vxge_open(struct net_device *dev)
+>  		"%s: %s:%d", dev->name, __func__, __LINE__);
+>  
+>  	vdev = (struct vxgedev *)netdev_priv(dev);
+> -	hldev = (struct __vxge_hw_device *)pci_get_drvdata(vdev->pdev);
+> +	hldev = pci_get_drvdata(vdev->pdev);
+>  	function_mode = vdev->config.device_hw_info.function_mode;
+>  
+>  	/* make sure you have link off by default every time Nic is
+> @@ -2811,7 +2810,7 @@ static int do_vxge_close(struct net_device *dev, int do_io)
+>  		dev->name, __func__, __LINE__);
+>  
+>  	vdev = (struct vxgedev *)netdev_priv(dev);
+> -	hldev = (struct __vxge_hw_device *)pci_get_drvdata(vdev->pdev);
+> +	hldev = pci_get_drvdata(vdev->pdev);
+>  
+>  	if (unlikely(!is_vxge_card_up(vdev)))
+>  		return 0;
+> @@ -3985,8 +3984,7 @@ static int vxge_pm_resume(struct pci_dev *pdev)
+>  static pci_ers_result_t vxge_io_error_detected(struct pci_dev *pdev,
+>  						pci_channel_state_t state)
+>  {
+> -	struct __vxge_hw_device *hldev =
+> -		(struct __vxge_hw_device  *)pci_get_drvdata(pdev);
+> +	struct __vxge_hw_device *hldev = pci_get_drvdata(pdev);
+>  	struct net_device *netdev = hldev->ndev;
+>  
+>  	netif_device_detach(netdev);
+> @@ -4015,8 +4013,7 @@ static pci_ers_result_t vxge_io_error_detected(struct pci_dev *pdev,
+>   */
+>  static pci_ers_result_t vxge_io_slot_reset(struct pci_dev *pdev)
+>  {
+> -	struct __vxge_hw_device *hldev =
+> -		(struct __vxge_hw_device  *)pci_get_drvdata(pdev);
+> +	struct __vxge_hw_device *hldev = pci_get_drvdata(pdev);
+>  	struct net_device *netdev = hldev->ndev;
+>  
+>  	struct vxgedev *vdev = netdev_priv(netdev);
+> @@ -4041,8 +4038,7 @@ static pci_ers_result_t vxge_io_slot_reset(struct pci_dev *pdev)
+>   */
+>  static void vxge_io_resume(struct pci_dev *pdev)
+>  {
+> -	struct __vxge_hw_device *hldev =
+> -		(struct __vxge_hw_device  *)pci_get_drvdata(pdev);
+> +	struct __vxge_hw_device *hldev = pci_get_drvdata(pdev);
+>  	struct net_device *netdev = hldev->ndev;
+>  
+>  	if (netif_running(netdev)) {
+> @@ -4689,7 +4685,7 @@ static void __devexit vxge_remove(struct pci_dev *pdev)
+>  	struct net_device *dev;
+>  	int i = 0;
+>  
+> -	hldev = (struct __vxge_hw_device  *)pci_get_drvdata(pdev);
+> +	hldev = pci_get_drvdata(pdev);
+>  
+>  	if (hldev == NULL)
+>  		return;
+> -- 
+> 1.7.3.1.g432b3.dirty
+> 
