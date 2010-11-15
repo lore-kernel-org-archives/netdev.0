@@ -1,9 +1,15 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 18/44] drivers/net/cnic.c: Remove unnecessary semicolons
-Date: Sun, 14 Nov 2010 19:04:37 -0800
-Message-ID: <950331e47b16c2ad28d73502f30f5a0f017b5493.1289789604.git.joe@perches.com>
+Subject: [PATCH 16/44] drivers/net/wireless/ath: Remove unnecessary semicolons
+Date: Sun, 14 Nov 2010 19:04:35 -0800
+Message-ID: <c375cdc1175018f00066e2220f1d659ca70cde16.1289789604.git.joe@perches.com>
 References: <cover.1289789604.git.joe@perches.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: "Luis R. Rodriguez" <lrodriguez@atheros.com>,
+	Jouni Malinen <jmalinen@atheros.com>,
+	Vasanthakumar Thiagarajan <vasanth@atheros.com>,
+	Senthil Balasubramanian <senthilkumar@atheros.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, ath9k-devel@lists.ath9k.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: Jiri Kosina <trivial@kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1289789604.git.joe@perches.com>
@@ -12,21 +18,21 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/cnic.c |    2 +-
+ drivers/net/wireless/ath/ath9k/htc.h |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/cnic.c b/drivers/net/cnic.c
-index 92bac19..594ca9c 100644
---- a/drivers/net/cnic.c
-+++ b/drivers/net/cnic.c
-@@ -1695,7 +1695,7 @@ static int cnic_bnx2x_iscsi_ofld1(struct cnic_dev *dev, struct kwqe *wqes[],
- 		*work = num;
- 		return -EINVAL;
- 	}
--	*work = 2 + req2->num_additional_wqes;;
-+	*work = 2 + req2->num_additional_wqes;
+diff --git a/drivers/net/wireless/ath/ath9k/htc.h b/drivers/net/wireless/ath/ath9k/htc.h
+index 75ecf6a..4c98b93 100644
+--- a/drivers/net/wireless/ath/ath9k/htc.h
++++ b/drivers/net/wireless/ath/ath9k/htc.h
+@@ -434,7 +434,7 @@ void ath9k_htc_beaconep(void *drv_priv, struct sk_buff *skb,
  
- 	l5_cid = req1->iscsi_conn_id;
- 	if (l5_cid >= MAX_ISCSI_TBL_SZ)
+ void ath9k_htc_station_work(struct work_struct *work);
+ void ath9k_htc_aggr_work(struct work_struct *work);
+-void ath9k_ani_work(struct work_struct *work);;
++void ath9k_ani_work(struct work_struct *work);
+ 
+ int ath9k_tx_init(struct ath9k_htc_priv *priv);
+ void ath9k_tx_tasklet(unsigned long data);
 -- 
 1.7.3.1.g432b3.dirty
