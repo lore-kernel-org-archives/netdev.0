@@ -1,47 +1,42 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] netfilter: don't use atomic bit operation
-Date: Mon, 15 Nov 2010 11:59:42 +0100
-Message-ID: <4CE1129E.5040505@trash.net>
-References: <1289725534-8439-1-git-send-email-xiaosuo@gmail.com>
+Subject: Re: [PATCH] netfilter: place in source hash after SNAT is done
+Date: Mon, 15 Nov 2010 12:07:33 +0100
+Message-ID: <4CE11475.30905@trash.net>
+References: <1289796483-2970-1-git-send-email-xiaosuo@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
 Cc: "David S. Miller" <davem@davemloft.net>,
 	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: Changli Gao <xiaosuo@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:62216 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755562Ab0KOK7n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Nov 2010 05:59:43 -0500
-In-Reply-To: <1289725534-8439-1-git-send-email-xiaosuo@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1289796483-2970-1-git-send-email-xiaosuo@gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 14.11.2010 10:05, Changli Gao wrote:
-> As we own ct, and the others can't see it until we confirm it, we don't
-> need to use atomic bit operation on ct->status.
+On 15.11.2010 05:48, Changli Gao wrote:
+> If SNAT isn't done, the wrong info maybe got by the other cts.
+> 
+> As the filter table is after DNAT table, the packets dropped in filter
+> table also bother bysource hash table.
 > 
 > Signed-off-by: Changli Gao <xiaosuo@gmail.com>
 > ---
->  include/net/netfilter/nf_nat_core.h |    4 ++--
->  net/ipv4/netfilter/nf_nat_core.c    |    4 ++--
->  2 files changed, 4 insertions(+), 4 deletions(-)
-> diff --git a/include/net/netfilter/nf_nat_core.h b/include/net/netfilter/nf_nat_core.h
-> index 33602ab..52ac1d8 100644
-> --- a/include/net/netfilter/nf_nat_core.h
-> +++ b/include/net/netfilter/nf_nat_core.h
-> @@ -21,9 +21,9 @@ static inline int nf_nat_initialized(struct nf_conn *ct,
->  				     enum nf_nat_manip_type manip)
->  {
->  	if (manip == IP_NAT_MANIP_SRC)
-> -		return test_bit(IPS_SRC_NAT_DONE_BIT, &ct->status);
-> +		return IPS_SRC_NAT_DONE_BIT & ct->status;
->  	else
-> -		return test_bit(IPS_DST_NAT_DONE_BIT, &ct->status);
-> +		return IPS_DST_NAT_DONE_BIT & ct->status;
->  }
+>  net/ipv4/netfilter/nf_nat_core.c |   18 +++++++++++-------
+>  1 file changed, 11 insertions(+), 7 deletions(-)
+> diff --git a/net/ipv4/netfilter/nf_nat_core.c b/net/ipv4/netfilter/nf_nat_core.c
+> index c04787c..51ce55a 100644
+> --- a/net/ipv4/netfilter/nf_nat_core.c
+> +++ b/net/ipv4/netfilter/nf_nat_core.c
+> @@ -545,11 +550,10 @@ static void nf_nat_move_storage(void *new, void *old)
+>  	struct nf_conn_nat *old_nat = old;
+>  	struct nf_conn *ct = old_nat->ct;
+>  
+> -	if (!ct || !(ct->status & IPS_NAT_DONE_MASK))
+> +	if (!ct || !(ct->status & IPS_SRC_NAT_DONE))
+>  		return;
+>  
+>  	spin_lock_bh(&nf_nat_lock);
+> -	new_nat->ct = ct;
 
-Looks fine, but I changed the order to ct->status & ...
-
-Applied.
+Why are you removing this?
