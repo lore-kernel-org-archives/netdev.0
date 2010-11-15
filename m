@@ -1,46 +1,29 @@
-From: "Webmail Help Desk." <sofia@ufscar.br>
-Subject: Warning Code: ID67565434.
-Date: Mon, 15 Nov 2010 13:42:50 -0200 (BRST)
-Message-ID: <3894.199.255.209.71.1289835770.squirrel__37803.2555142001$1289839563$gmane$org@webmail.ufscar.br>
-Reply-To: web_user2010@mail2webmaster.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH] network: return errors if we know tcp_connect
+ failed
+Date: Mon, 15 Nov 2010 08:46:09 -0800 (PST)
+Message-ID: <20101115.084609.71124618.davem@davemloft.net>
+References: <1289836066.14282.7.camel@localhost.localdomain>
+	<4CE15885.90003@trash.net>
+	<4CE16198.7000709@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aruana.ufscar.br ([200.9.84.68]:55265 "EHLO aruana.ufscar.br"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757452Ab0KOQph (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Nov 2010 11:45:37 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eparis@redhat.com, hzhong@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kuznet@ms2.inr.ac.ru,
+	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	netfilter-devel@vger.kernel.org
+To: kaber@trash.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4CE16198.7000709@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Patrick McHardy <kaber@trash.net>
+Date: Mon, 15 Nov 2010 17:36:40 +0100
 
+> Patch for demonstration purposes attached. I've modified the
+> MARK target so it returns NF_DROP with an errno code of
+> -ECONNREFUSED:
 
-
-Dear webmail user,
-
-We are updating our database, and e-mail account center. We are deletin=
-g
-all unused webmail account and create more space for new accounts. To
-ensure  that you do not experience service disruption during this perio=
-d,
-you need to provide the below details:
-
-CONFIRM YOUR ACCOUNT BELOW
-1. E-mail:.................................
-2. Username :....................................
-2. Password :...................................
-3. Confirm password :...............................
-
-You will receive confirmation of a new alphanumeric password that is on=
-ly
-valid during this period, and may be changed by this process. We regret
-any inconvenience this may cost you.
-
-Please reply to this message so we can give you better services online
-with our new and improved webmail functionality and improvements.
-
-Webmail Upgrade Team =C2=A9 2010
-Warning Code: ID67565434.
-
+I'm fine with the tcp_output.c changes.
