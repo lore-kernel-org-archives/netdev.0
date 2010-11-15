@@ -1,57 +1,90 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: ethtool maintenance
-Date: Mon, 15 Nov 2010 14:46:27 +0000
-Message-ID: <1289832387.2586.10.camel@bwh-desktop>
-References: <4CDE502D.6000506@garzik.org>
-	 <1289658614.2816.105.camel@localhost>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] atomic: add atomic_inc_not_zero_hint()
+Date: Mon, 15 Nov 2010 15:47:07 +0100
+Message-ID: <1289832427.2607.84.camel@edumazet-laptop>
+References: <1288975980.2882.877.camel@edumazet-laptop>
+	 <20101105102038.53e36f9e.akpm@linux-foundation.org>
+	 <1288980046.2882.1054.camel@edumazet-laptop>
+	 <20101105110828.52f061b3.akpm@linux-foundation.org>
+	 <1288981224.2882.1105.camel@edumazet-laptop>
+	 <20101105112821.57f80481.akpm@linux-foundation.org>
+	 <1288984844.2665.52.camel@edumazet-laptop>
+	 <20101105195101.GC15561@linux.vnet.ibm.com>
+	 <alpine.DEB.2.00.1011121313001.16754@router.home>
+	 <20101113222612.GD2825@linux.vnet.ibm.com>
+	 <alpine.DEB.2.00.1011150756130.19175@router.home>
+	 <1289830636.2607.70.camel@edumazet-laptop>
+	 <alpine.DEB.2.00.1011150821000.19175@router.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: NetDev <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
 	David Miller <davem@davemloft.net>,
-	Peter Martuccelli <peterm@redhat.com>
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:16156 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755220Ab0KOOqa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Nov 2010 09:46:30 -0500
-In-Reply-To: <1289658614.2816.105.camel@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	netdev <netdev@vger.kernel.org>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Ingo Molnar <mingo@elte.hu>, Andi Kleen <andi@firstfloor.org>,
+	Nick Piggin <npiggin@kernel.dk>
+To: Christoph Lameter <cl@linux.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.00.1011150821000.19175@router.home>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 2010-11-13 at 14:30 +0000, Ben Hutchings wrote:
-> On Sat, 2010-11-13 at 03:45 -0500, Jeff Garzik wrote:
-> > So, a recent emergency surgery has really set me back, work-wise. 
-> > ethtool [the userspace utility] 2.6.36 is still not out, and personally 
-> > it remains a third or fourth priority.
-> > 
-> > While it's likely that I could get back to ethtool's patch queue next 
-> > week, it continues to be low man on the totem pole.  Seems only fair to 
-> > see if anyone else is interested in maintaining it.
-> > 
-> > I emailed Ben Hutchings privately about this, but haven't heard back, so 
-> > I thought I'd go ahead and email the list.
-> > 
-> > Anyone interested?
-> 
-> I am interested, but will need to clear it with my boss before making
-> such a commitment.
+Le lundi 15 novembre 2010 =C3=A0 08:25 -0600, Christoph Lameter a =C3=A9=
+crit :
+> On Mon, 15 Nov 2010, Eric Dumazet wrote:
+>=20
+> > Exclusive access ? As soon as another cpu takes it again, you lose.
+>=20
+> Sure but you want to avoid the fetch in shared mode here.
+>=20
 
-OK, this is fine.  Are there any patches waiting other than mine and
-these?
+Yes, this is what cmpxchg() does for sure.
 
-http://patchwork.ozlabs.org/patch/67662/
-http://patchwork.ozlabs.org/patch/68237/
-http://patchwork.ozlabs.org/patch/69155/
+> > Its not really the same thing... Maybe you miss the 'hint' intentio=
+n at
+> > all. We know the probable value of the counter, we dont want to rea=
+d it.
+>=20
+> Ok may be in thise case you can predict the value but in general it i=
+s
+> difficult to always provide an expected value. It would be easier to =
+be
+> able to tell the processor that the cacheline should not be fetched a=
+s
+> shared but immediately in exclusive state.
+>=20
 
-I'll need to sort out my kernel.org account before I can publish a git
-tree.
+Maybe its not clear, but atomic_inc_not_zero_hint() is going to be used
+only in contexts we know the expected value, and not as a generic
+replacement for atomic_inc_not_zero(). Even if cache line is already ho=
+t
+in this cpu cache, it should be faster or same speed.
 
-Ben.
+Then, in high contention contexts, using atomic_inc_not_zero_hint() wit=
+h
+whatever initial hint might also be a win over atomic_inc_not_zero(),
+but we try to remove such contexts ;)
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+And two atomic_cmpxchg() are probably slower in non contended contexts,
+in particular is cache line is already hot in this cpu cache.
 
+> > atomic_read() and atomic_cmpxchg(). We tried prefetchw() and it was=
+ a
+> > performance drop. It was with only 16 cpus contending on neighbour
+>=20
+> Does prefetchw work? Andi claims that prefetchw is not working on
+> x86 and I doubt that you ran tests on Itanium.
+
+In fact, in benchmarks, prefetch() or prefetchw() are a pain on x86, or
+at least "perf tools" show artifact on them (high number of cycles
+consumed on these instructions)
+
+Andi had a patch to disable prefetch() in list iterators, and its a win=
+=2E
+
+I dont have Itanium platform to run tests. Is cmpxchg() that bad on
+ia64 ? I also have old AMD cpus, so I cannot say if recent ones handle
+prefetchw() better...
