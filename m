@@ -1,45 +1,37 @@
-From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH 00/11] Remove unnecessary casts of pci_get_drvdata
-Date: Mon, 15 Nov 2010 12:13:51 -0800
-Message-ID: <cover.1289851770.git.joe@perches.com>
-Cc: linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-ide-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org
-To: Jiri Kosina <trivial-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 06/11] drivers/net/s2io.c: Remove unnecessary casts of pci_get_drvdata
+Date: Mon, 15 Nov 2010 12:13:57 -0800
+Message-ID: <5add1304ab2cd7f730a81a85598ef7357b087a86.1289851770.git.joe@perches.com>
+References: <cover.1289851770.git.joe@perches.com>
+Cc: Ramkrishna Vepa <ramkrishna.vepa@exar.com>,
+	Sivakumar Subramani <sivakumar.subramani@exar.com>,
+	Sreenivasa Honnur <sreenivasa.honnur@exar.com>,
+	Jon Mason <jon.mason@exar.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jiri Kosina <trivial@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1289851770.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Joe Perches (11):
-  drivers/i2c/busses/i2c-nforce2.c: Remove unnecessary casts of pci_get_drvdata
-  drivers/ide/pmac.c: Remove unnecessary casts of pci_get_drvdata
-  drivers/media/dvb/ngene/ngene-core.c: Remove unnecessary casts of pci_get_drvdata
-  drivers/misc/ibmasm/module.c: Remove unnecessary casts of pci_get_drvdata
-  drivers/net/irda: Remove unnecessary casts of pci_get_drvdata
-  drivers/net/s2io.c: Remove unnecessary casts of pci_get_drvdata
-  drivers/net/vxge/vxge-main.c: Remove unnecessary casts of pci_get_drvdata
-  drivers/scsi/be2iscsi/be_main.c: Remove unnecessary casts of pci_get_drvdata
-  drivers/staging: Remove unnecessary casts of pci_get_drvdata
-  drivers/usb/host/uhci-hcd.c: Remove unnecessary casts of pci_get_drvdata
-  sound/pci/asihpi/hpioctl.c: Remove unnecessary casts of pci_get_drvdata
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ drivers/net/s2io.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
 
- drivers/i2c/busses/i2c-nforce2.c          |    2 +-
- drivers/ide/pmac.c                        |    4 ++--
- drivers/media/dvb/ngene/ngene-core.c      |    2 +-
- drivers/misc/ibmasm/module.c              |    2 +-
- drivers/net/irda/donauboe.c               |    6 +++---
- drivers/net/irda/vlsi_ir.c                |    2 +-
- drivers/net/s2io.c                        |    3 +--
- drivers/net/vxge/vxge-main.c              |   28 ++++++++++++----------------
- drivers/scsi/be2iscsi/be_main.c           |    2 +-
- drivers/staging/crystalhd/crystalhd_lnx.c |    6 +++---
- drivers/staging/et131x/et131x_initpci.c   |    2 +-
- drivers/staging/wlags49_h2/wl_pci.c       |    2 +-
- drivers/usb/host/uhci-hcd.c               |    2 +-
- sound/pci/asihpi/hpioctl.c                |    2 +-
- 14 files changed, 30 insertions(+), 35 deletions(-)
-
+diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
+index ecc25aa..0f4219c 100644
+--- a/drivers/net/s2io.c
++++ b/drivers/net/s2io.c
+@@ -8321,8 +8321,7 @@ mem_alloc_failed:
+ 
+ static void __devexit s2io_rem_nic(struct pci_dev *pdev)
+ {
+-	struct net_device *dev =
+-		(struct net_device *)pci_get_drvdata(pdev);
++	struct net_device *dev = pci_get_drvdata(pdev);
+ 	struct s2io_nic *sp;
+ 
+ 	if (dev == NULL) {
 -- 
 1.7.3.1.g432b3.dirty
