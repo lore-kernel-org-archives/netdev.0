@@ -1,43 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: vlan: Fix build warning in vlandev_seq_show()
-Date: Mon, 15 Nov 2010 10:38:39 -0800 (PST)
-Message-ID: <20101115.103839.200362428.davem@davemloft.net>
+Subject: Re: [PATCH] xfrm: use gre key as flow upper protocol info
+Date: Mon, 15 Nov 2010 10:43:22 -0800 (PST)
+Message-ID: <20101115.104322.212675424.davem@davemloft.net>
+References: <1288795298-323-1-git-send-email-timo.teras@iki.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au
+To: timo.teras@iki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33720
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39334
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757885Ab0KOSiO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Nov 2010 13:38:14 -0500
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 40BDF24C088
-	for <netdev@vger.kernel.org>; Mon, 15 Nov 2010 10:38:39 -0800 (PST)
+	by vger.kernel.org with ESMTP id S1756959Ab0KOSm5 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Nov 2010 13:42:57 -0500
+In-Reply-To: <1288795298-323-1-git-send-email-timo.teras@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+=46rom: Timo Ter=E4s <timo.teras@iki.fi>
+Date: Wed,  3 Nov 2010 16:41:38 +0200
 
-net/8021q/vlanproc.c: In function 'vlandev_seq_show':
-net/8021q/vlanproc.c:283:20: warning: unused variable 'fmt'
+> The GRE Key field is intended to be used for identifying an individua=
+l
+> traffic flow within a tunnel. It is useful to be able to have XFRM
+> policy selector matches to have different policies for different
+> GRE tunnels.
+>=20
+> Signed-off-by: Timo Ter=E4s <timo.teras@iki.fi>
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/8021q/vlanproc.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
-
-diff --git a/net/8021q/vlanproc.c b/net/8021q/vlanproc.c
-index 8a64db1..d1314cf 100644
---- a/net/8021q/vlanproc.c
-+++ b/net/8021q/vlanproc.c
-@@ -280,7 +280,6 @@ static int vlandev_seq_show(struct seq_file *seq, void *offset)
- 	const struct vlan_dev_info *dev_info = vlan_dev_info(vlandev);
- 	struct rtnl_link_stats64 temp;
- 	const struct rtnl_link_stats64 *stats;
--	static const char fmt[] = "%30s %12lu\n";
- 	static const char fmt64[] = "%30s %12llu\n";
- 	int i;
- 
--- 
-1.7.3.2
-
+I'll apply this to net-next-2.6, thanks.
