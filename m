@@ -1,45 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] net: rtnetlink.h -- only include linux/netdevice.h
- when used by the kernel
-Date: Mon, 15 Nov 2010 11:30:05 -0800 (PST)
-Message-ID: <20101115.113005.71581078.davem@davemloft.net>
-References: <1289836919-19153-1-git-send-email-apw@canonical.com>
-	<1289836919-19153-2-git-send-email-apw@canonical.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH 1/1] UDEV - Add 'udevlom' command line param to start_udev
+Date: Mon, 15 Nov 2010 11:32:28 -0800
+Message-ID: <4CE18ACC.3020508@hp.com>
+References: <20101103165505.GA3281@fedora-14-r710.oslab.blr.amer.dell.com>	<20101103180500.GA7441@kroah.com>	<20101105025848.GA14021@pws490.domsch.com>	<20101115164714.GB7030@auslistsprd01.us.dell.com> <1289841399.2586.18.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, tim.gardner@canonical.com
-To: apw@canonical.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60503
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933579Ab0KOT3l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Nov 2010 14:29:41 -0500
-In-Reply-To: <1289836919-19153-2-git-send-email-apw@canonical.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Matt Domsch <Matt_Domsch@Dell.com>, Greg KH <greg@kroah.com>,
+	"K, Narendra" <Narendra_K@Dell.com>,
+	"linux-hotplug@vger.kernel.org" <linux-hotplug@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Hargrave, Jordan" <Jordan_Hargrave@Dell.com>,
+	"Rose, Charles" <Charles_Rose@Dell.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-hotplug-owner@vger.kernel.org>
+In-Reply-To: <1289841399.2586.18.camel@bwh-desktop>
+Sender: linux-hotplug-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogQW5keSBXaGl0Y3JvZnQgPGFwd0BjYW5vbmljYWwuY29tPg0KRGF0ZTogTW9uLCAxNSBO
-b3YgMjAxMCAxNjowMTo1OSArMDAwMA0KDQo+IFRoZSBjb21taXQgYmVsb3cgYWRkZWQgYSBuZXcg
-aGVscGVyIGRldl9pbmdyZXNzX3F1ZXVlIHRvIGNsZWFubHkgb2J0YWluIHRoZQ0KPiBpbmdyZXNz
-IHF1ZXVlIHBvaW50ZXIuICBUaGlzIG5lY2Vzc2l0YXRlZCBpbmNsdWRpbmcgJ2xpbnV4L25ldGRl
-dmljZS5oJzoNCiAuLi4NCj4gSG93ZXZlciB0aGlzIGluY2x1ZGUgdHJpZ2dlcnMgaXNzdWVzIGZv
-ciBhcHBsaWNhdGlvbnMgaW4gdXNlcnNwYWNlDQo+IHdoaWNoIHVzZSB0aGUgcnRuZXRsaW5rIGlu
-dGVyZmFjZXMuICBDb21tb25seSB0aGlzIHJlcXVpcmVzIHRoZXkgaW5jbHVkZQ0KPiAnbmV0L2lm
-LmgnIGFuZCAnbGludXgvcnRuZXRsaW5rLmgnIGxlYWRpbmcgdG8gYSBjb21waWxlciBlcnJvciBh
-cyBiZWxvdzoNCj4gDQo+ICAgSW4gZmlsZSBpbmNsdWRlZCBmcm9tIC91c3IvaW5jbHVkZS9saW51
-eC9uZXRkZXZpY2UuaDoyODowLA0KPiAgICAgICAgICAgICAgICAgICAgZnJvbSAvdXNyL2luY2x1
-ZGUvbGludXgvcnRuZXRsaW5rLmg6OSwNCj4gICAgICAgICAgICAgICAgICAgIGZyb20gdC5jOjI6
-DQo+ICAgL3Vzci9pbmNsdWRlL2xpbnV4L2lmLmg6MTM1Ojg6IGVycm9yOiByZWRlZmluaXRpb24g
-b2YgoXN0cnVjdCBpZm1hcKINCj4gICAvdXNyL2luY2x1ZGUvbmV0L2lmLmg6MTEyOjg6IG5vdGU6
-IG9yaWdpbmFsbHkgZGVmaW5lZCBoZXJlDQo+ICAgL3Vzci9pbmNsdWRlL2xpbnV4L2lmLmg6MTY5
-Ojg6IGVycm9yOiByZWRlZmluaXRpb24gb2YgoXN0cnVjdCBpZnJlcaINCj4gICAvdXNyL2luY2x1
-ZGUvbmV0L2lmLmg6MTI3Ojg6IG5vdGU6IG9yaWdpbmFsbHkgZGVmaW5lZCBoZXJlDQo+ICAgL3Vz
-ci9pbmNsdWRlL2xpbnV4L2lmLmg6MjE4Ojg6IGVycm9yOiByZWRlZmluaXRpb24gb2YgoXN0cnVj
-dCBpZmNvbmaiDQo+ICAgL3Vzci9pbmNsdWRlL25ldC9pZi5oOjE3Nzo4OiBub3RlOiBvcmlnaW5h
-bGx5IGRlZmluZWQgaGVyZQ0KPiANCj4gVGhlIG5ldyBoZWxwZXIgaXMgb25seSBkZWZpbmVkIGZv
-ciB0aGUga2VybmVsIGFuZCBwcm90ZWN0ZWQgYnkgX19LRVJORUxfXw0KPiB0aGVyZWZvcmUgd2Ug
-Y2FuIHNpbXBseSBwdWxsIHRoZSBpbmNsdWRlIGRvd24gaW50byB0aGUgc2FtZSBwcm90ZWN0ZWQN
-Cj4gc2VjdGlvbi4NCj4gDQo+IFNpZ25lZC1vZmYtYnk6IEFuZHkgV2hpdGNyb2Z0IDxhcHdAY2Fu
-b25pY2FsLmNvbT4NCg0KQXBwbGllZCwgdGhhbmtzIEFuZHkuDQo=
+>>I'm getting a lot of pushback from Dell customers on our
+>>linux-poweredge mailing list (thread starts [1]) that the choice of
+>>name "lomX" is poor, due to HP's extensive use of LOM meaning Lights
+>>Out Management, rather than my intended meaning of "LAN on
+>>Motherboard".  Gotta hate TLA collisions.
+
+I think Sun (sorry, Oracle) push LOM for Lights-Out Management quite a lot - 
+calling their service processor an iLOM IIRC.
+
+>>So, I'm open to new ideas for naming these.  At LPC, Ted noted that
+>>2- and 3-letter names are expected.  "nic[1234]" or "en[1234]" ?
+> 
+> [...]
+> 
+> I would suggest avoiding "nic" since some people use "NIC" to mean
+> specifically an add-in card rather than LOM.  In addition there is some
+> ambiguity with multi-port cards/controllers of whether NIC means a
+> controller or a port.
+> 
+> Other options for the prefix:
+> - "lan".  Maybe too generic.
+
+yes and no - that is the prefix for "ethernet" network interface names in HP-UX, 
+going back decades.  so, there is precedent for that, and given the way HP-UX 
+device name persistence works, 99 times out of ten, the "built-in" or "core" LAN 
+interfaces ended-up being enumerated starting from zero - lan0, lan1, etc. 
+(There are exceptions relating to certain modles of systems and a full 
+re-install of the OS with add-on cards present but that is a story for another 
+thread).
+
+> - "mbe" = MotherBoard Ethernet. Looks a bit like "GbE" as some OEMs put
+> on the port labels.
+
+Collides with Multi-Bit Error.
+
+> - "eom" = Ethernet On Motherboard
+
+Collides with End of Message.
+
+If there is indeed *no* way to get then named eth[1-N], and "lan" doesn't 
+resonate well-enough, then my contribution to the bikeshed would be "cor" simply 
+because I don't know the TLA with which that collides :)
+
+Are folks sufficently confident that using anything other than "eth" won't cause 
+some unpleasant "our app always ass-u-me-d interfaces started with 'eth'" 
+situations?
+
+rick jones
