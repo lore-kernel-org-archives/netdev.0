@@ -1,36 +1,48 @@
-From: Chris Metcalf <cmetcalf@tilera.com>
-Subject: Re: [PATCH v2] drivers/net/tile/: on-chip network drivers for the
- tile architecture
-Date: Mon, 15 Nov 2010 14:01:40 -0500
-Message-ID: <4CE18394.5060606@tilera.com>
-References: <4CD1CE62.9010307@tilera.com>	<201011140335.oAE3Zuqg032279@farm-0027.internal.tilera.com>	<20101114075213.GA15495@merkur.ravnborg.org> <20101115.102210.242124777.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: network device reference leak with net-next
+Date: Mon, 15 Nov 2010 20:04:00 +0100
+Message-ID: <1289847840.2607.120.camel@edumazet-laptop>
+References: <20101115105646.0cc823ce@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <sam@ravnborg.org>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <shemminger@vyatta.com>,
-	<eric.dumazet@gmail.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usmamail.tilera.com ([72.1.168.231]:19398 "EHLO
-	USMAMAIL.TILERA.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757997Ab0KOTBm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Nov 2010 14:01:42 -0500
-In-Reply-To: <20101115.102210.242124777.davem@davemloft.net>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:46270 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932703Ab0KOTET (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Nov 2010 14:04:19 -0500
+Received: by eye27 with SMTP id 27so3127174eye.19
+        for <netdev@vger.kernel.org>; Mon, 15 Nov 2010 11:04:17 -0800 (PST)
+In-Reply-To: <20101115105646.0cc823ce@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/15/2010 1:22 PM, David Miller wrote:
-> Also please fix the date on your computer, or please change whatever
-> it is that makes your patch postings use a date in the past.
+Le lundi 15 novembre 2010 =C3=A0 10:56 -0800, Stephen Hemminger a =C3=A9=
+crit :
+> This is a new regression (doesn't exist with 2.6.36)
+>=20
+> If I shutdown KVM instance with Virt manager, the virtual
+> interfaces in the bridge aren't getting cleaned up because
+> of leftover reference count.
+>=20
+>=20
+> [ 9781.050474] unregister_netdevice: waiting for vnet1 to become free=
+=2E Usage count =3D 1
+> [ 9785.143400] virbr4: port 3(vnet6) entering forwarding state
+> [ 9785.177194] virbr4: port 3(vnet6) entering disabled state
+> [ 9785.201129] device vnet6 left promiscuous mode
+> [ 9785.201135] virbr4: port 3(vnet6) entering disabled state
+> [ 9791.286950] unregister_netdevice: waiting for vnet1 to become free=
+=2E Usage count =3D 1
+> [ 9795.461526] unregister_netdevice: waiting for vnet6 to become free=
+=2E Usage count =3D 1
+> [ 9801.523398] unregister_netdevice: waiting for vnet1 to become free=
+=2E Usage count =3D 1
+> --
 
-Oops!  I put together my email with git format-patch, and edited the
-"Reference:" and "In-Reply-To:" headers to point to my previous patch, and
-I apparently pulled in the Date field from that previous email as well.  I
-think that was likely the only instance of a bad date on patch postings
-from me, but I'll be more vigilant going forwards.
+Is the refcount stay forever to 1, or eventually reaches 0 ?
 
--- 
-Chris Metcalf, Tilera Corp.
-http://www.tilera.com
+
 
