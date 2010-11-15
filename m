@@ -1,92 +1,91 @@
-From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: Re: [PATCH net-next-2.6 v2] can: Topcliff: PCH_CAN driver: Add Flow
-	control,
-Date: Mon, 15 Nov 2010 10:11:06 +0100
-Message-ID: <4CE0F92A.40308@pengutronix.de>
-References: <4CE0EFA7.9020007@dsn.okisemi.com>
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============6855660425389560139=="
-Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	Masayuki Ohtake <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>,
-	Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>, margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
-	joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-To: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4CE0EFA7.9020007-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH] netfilter: define NF_CT_EXT_* as needed
+Date: Mon, 15 Nov 2010 17:25:49 +0800
+Message-ID: <1289813149-22897-1-git-send-email-xiaosuo@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	Changli Gao <xiaosuo@gmail.com>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gx0-f174.google.com ([209.85.161.174]:64149 "EHLO
+	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754499Ab0KOJ0L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Nov 2010 04:26:11 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---===============6855660425389560139==
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig837C208F5ECAE2AD23298E98"
-
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig837C208F5ECAE2AD23298E98
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-
-On 11/15/2010 09:30 AM, Tomoya MORINAGA wrote:
->  * Add Flow control
->  * Fix Data copy issue (endianness)
->  * Add Macro prefix "PCH_"
->  * Separate interface register structure
->  * Some functions are unified.
->  * Change MessageObject indication(PCH_RX_OBJ_START, etc..)
->  * Enumerate LEC macro
->  * Move MSI processing from open/close to probe/remove processing
->  * Use BIT(x)
->  * and more...
-
-Please make it one patch per topic. A review of your patch will follow.
-
-cheers, Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---------------enig837C208F5ECAE2AD23298E98
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAkzg+S4ACgkQjTAFq1RaXHMgIwCfXwePmvqOFLnytV6I1CzxNvWI
-1+sAn0fS+NBszgu5O6SUVUBItwe4+WXC
-=zJi5
------END PGP SIGNATURE-----
-
---------------enig837C208F5ECAE2AD23298E98--
-
---===============6855660425389560139==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Socketcan-core mailing list
-Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-https://lists.berlios.de/mailman/listinfo/socketcan-core
-
---===============6855660425389560139==--
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+---
+ include/net/netfilter/nf_conntrack_ecache.h |    8 ++++++++
+ include/net/netfilter/nf_conntrack_extend.h |    6 ++++++
+ include/net/netfilter/nf_nat.h              |    4 ++++
+ 3 files changed, 18 insertions(+)
+diff --git a/include/net/netfilter/nf_conntrack_ecache.h b/include/net/netfilter/nf_conntrack_ecache.h
+index 96ba5f7..f596b60 100644
+--- a/include/net/netfilter/nf_conntrack_ecache.h
++++ b/include/net/netfilter/nf_conntrack_ecache.h
+@@ -23,12 +23,17 @@ struct nf_conntrack_ecache {
+ static inline struct nf_conntrack_ecache *
+ nf_ct_ecache_find(const struct nf_conn *ct)
+ {
++#ifdef CONFIG_NF_CONNTRACK_EVENTS
+ 	return nf_ct_ext_find(ct, NF_CT_EXT_ECACHE);
++#else
++	return NULL;
++#endif
+ }
+ 
+ static inline struct nf_conntrack_ecache *
+ nf_ct_ecache_ext_add(struct nf_conn *ct, u16 ctmask, u16 expmask, gfp_t gfp)
+ {
++#ifdef CONFIG_NF_CONNTRACK_EVENTS
+ 	struct net *net = nf_ct_net(ct);
+ 	struct nf_conntrack_ecache *e;
+ 
+@@ -45,6 +50,9 @@ nf_ct_ecache_ext_add(struct nf_conn *ct, u16 ctmask, u16 expmask, gfp_t gfp)
+ 		e->expmask = expmask;
+ 	}
+ 	return e;
++#else
++	return NULL;
++#endif
+ };
+ 
+ #ifdef CONFIG_NF_CONNTRACK_EVENTS
+diff --git a/include/net/netfilter/nf_conntrack_extend.h b/include/net/netfilter/nf_conntrack_extend.h
+index 0772d29..1a9f96d 100644
+--- a/include/net/netfilter/nf_conntrack_extend.h
++++ b/include/net/netfilter/nf_conntrack_extend.h
+@@ -7,10 +7,16 @@
+ 
+ enum nf_ct_ext_id {
+ 	NF_CT_EXT_HELPER,
++#if defined(CONFIG_NF_NAT) || defined(CONFIG_NF_NAT_MODULE)
+ 	NF_CT_EXT_NAT,
++#endif
+ 	NF_CT_EXT_ACCT,
++#ifdef CONFIG_NF_CONNTRACK_EVENTS
+ 	NF_CT_EXT_ECACHE,
++#endif
++#ifdef CONFIG_NF_CONNTRACK_ZONES
+ 	NF_CT_EXT_ZONE,
++#endif
+ 	NF_CT_EXT_NUM,
+ };
+ 
+diff --git a/include/net/netfilter/nf_nat.h b/include/net/netfilter/nf_nat.h
+index f5f09f0..e966092 100644
+--- a/include/net/netfilter/nf_nat.h
++++ b/include/net/netfilter/nf_nat.h
+@@ -84,7 +84,11 @@ extern int nf_nat_used_tuple(const struct nf_conntrack_tuple *tuple,
+ 
+ static inline struct nf_conn_nat *nfct_nat(const struct nf_conn *ct)
+ {
++#if defined(CONFIG_NF_NAT) || defined(CONFIG_NF_NAT_MODULE)
+ 	return nf_ct_ext_find(ct, NF_CT_EXT_NAT);
++#else
++	return NULL;
++#endif
+ }
+ 
+ #else  /* !__KERNEL__: iptables wants this to compile. */
