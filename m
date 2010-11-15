@@ -1,47 +1,54 @@
-From: Maciej Rutecki <maciej.rutecki@gmail.com>
-Subject: Re: [BUG]: skge not working (as module) in 2.6.37-rc1
-Date: Mon, 15 Nov 2010 20:07:57 +0100
-Message-ID: <201011152007.58264.maciej.rutecki@gmail.com>
-References: <201011072345.52784.mitov@issp.bas.bg> <201011142045.14627.maciej.rutecki@gmail.com> <201011150555.59407.mitov@issp.bas.bg>
-Reply-To: maciej.rutecki@gmail.com
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: network device reference leak with net-next
+Date: Mon, 15 Nov 2010 11:10:24 -0800
+Message-ID: <20101115111024.3b3377be@nehalam>
+References: <20101115105646.0cc823ce@nehalam>
+	<1289847840.2607.120.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@osdl.org>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Marin Mitov <mitov@issp.bas.bg>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201011150555.59407.mitov@issp.bas.bg>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:42340 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932217Ab0KOTKa convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Nov 2010 14:10:30 -0500
+In-Reply-To: <1289847840.2607.120.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On poniedzia=C5=82ek, 15 listopada 2010 o 04:55:58 Marin Mitov wrote:
-> On Sunday, November 14, 2010 09:45:14 pm Maciej Rutecki wrote:
-> > On niedziela, 7 listopada 2010 o 22:45:52 Marin Mitov wrote:
-> > > Hi Stephen,
-> > >=20
-> > > skge as in 2.6.36 (and before) is working.
+On Mon, 15 Nov 2010 20:04:00 +0100
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
+
+> Le lundi 15 novembre 2010 =E0 10:56 -0800, Stephen Hemminger a =E9cri=
+t :
+> > This is a new regression (doesn't exist with 2.6.36)
 > >=20
-> > > As in 2.6.37-rc1 it is not:
-> > I created a Bugzilla entry at
-> > https://bugzilla.kernel.org/show_bug.cgi?id=3D22892
-> > for your bug report, please add your address to the CC list in ther=
-e,
-> > thanks!
+> > If I shutdown KVM instance with Virt manager, the virtual
+> > interfaces in the bridge aren't getting cleaned up because
+> > of leftover reference count.
+> >=20
+> >=20
+> > [ 9781.050474] unregister_netdevice: waiting for vnet1 to become fr=
+ee. Usage count =3D 1
+> > [ 9785.143400] virbr4: port 3(vnet6) entering forwarding state
+> > [ 9785.177194] virbr4: port 3(vnet6) entering disabled state
+> > [ 9785.201129] device vnet6 left promiscuous mode
+> > [ 9785.201135] virbr4: port 3(vnet6) entering disabled state
+> > [ 9791.286950] unregister_netdevice: waiting for vnet1 to become fr=
+ee. Usage count =3D 1
+> > [ 9795.461526] unregister_netdevice: waiting for vnet6 to become fr=
+ee. Usage count =3D 1
+> > [ 9801.523398] unregister_netdevice: waiting for vnet1 to become fr=
+ee. Usage count =3D 1
+> > --
 >=20
-> Hi Maciej,
+> Is the refcount stay forever to 1, or eventually reaches 0 ?
 >=20
-> It is already corrected, as in 2.6.37-rc1-git11.
 >=20
-> Thanks.
 >=20
-> Marin Mitov
 
-Thanks for the update.
+Stays 1 for as long as I waited about 10 minutes
 
-Regards
 --=20
-Maciej Rutecki
-http://www.maciek.unixy.pl
