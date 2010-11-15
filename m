@@ -1,28 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: sh_eth: Move off of deprecated I/O routines.
-Date: Mon, 15 Nov 2010 10:19:35 -0800 (PST)
-Message-ID: <20101115.101935.15229475.davem@davemloft.net>
-References: <20101101192923.GA3176@linux-sh.org>
+Subject: Re: [PATCH v2] drivers/net/tile/: on-chip network drivers for the
+ tile architecture
+Date: Mon, 15 Nov 2010 10:22:10 -0800 (PST)
+Message-ID: <20101115.102210.242124777.davem@davemloft.net>
+References: <4CD1CE62.9010307@tilera.com>
+	<201011140335.oAE3Zuqg032279@farm-0027.internal.tilera.com>
+	<20101114075213.GA15495@merkur.ravnborg.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: iwamatsu@nigauri.org, netdev@vger.kernel.org
-To: lethal@linux-sh.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43330
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756765Ab0KOSTK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Nov 2010 13:19:10 -0500
-In-Reply-To: <20101101192923.GA3176@linux-sh.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: cmetcalf@tilera.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, shemminger@vyatta.com,
+	eric.dumazet@gmail.com
+To: sam@ravnborg.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20101114075213.GA15495@merkur.ravnborg.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Paul Mundt <lethal@linux-sh.org>
-Date: Tue, 2 Nov 2010 04:29:24 +0900
+From: Sam Ravnborg <sam@ravnborg.org>
+Date: Sun, 14 Nov 2010 08:52:13 +0100
 
-> sh_eth is the last in-tree user of the ctrl_xxx I/O routines. This simply
-> converts them over to regular MMIO accesors.
+>> diff --git a/drivers/net/tile/Makefile b/drivers/net/tile/Makefile
+>> new file mode 100644
+>> index 0000000..f634f14
+>> --- /dev/null
+>> +++ b/drivers/net/tile/Makefile
+>> @@ -0,0 +1,10 @@
+>> +#
+>> +# Makefile for the TILE on-chip networking support.
+>> +#
+>> +
+>> +obj-$(CONFIG_TILE_NET) += tile_net.o
+>> +ifdef CONFIG_TILEGX
+>> +tile_net-objs := tilegx.o mpipe.o iorpc_mpipe.o dma_queue.o
+>> +else
+>> +tile_net-objs := tilepro.o
+>> +endif
 > 
-> Signed-off-by: Paul Mundt <lethal@linux-sh.org>
+> The -objs syntax is deprecated these days.
+> Preferred syntax for the above is:
 
-Applied.
+Also please fix the date on your computer, or please change whatever
+it is that makes your patch postings use a date in the past.
+
+Thanks.
