@@ -1,47 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] drivers/net/tile/: on-chip network drivers for the
- tile architecture
-Date: Mon, 15 Nov 2010 10:22:10 -0800 (PST)
-Message-ID: <20101115.102210.242124777.davem@davemloft.net>
-References: <4CD1CE62.9010307@tilera.com>
-	<201011140335.oAE3Zuqg032279@farm-0027.internal.tilera.com>
-	<20101114075213.GA15495@merkur.ravnborg.org>
+From: "Web Administrator" <upgrade@webmaster.org>
+Subject: Important: Email Account Verification Update ! ! !
+Date: Mon, 15 Nov 2010 20:23:31 +0300
+Message-ID: <20101115202331.13845sqtldcesckk@mail.redcrossug.org>
+Reply-To: help_web@live.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+	charset=ISO-8859-1;
+	DelSp="Yes";
+	format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: cmetcalf@tilera.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, shemminger@vyatta.com,
-	eric.dumazet@gmail.com
-To: sam@ravnborg.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20101114075213.GA15495@merkur.ravnborg.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp12.iwayafrica.com ([41.72.175.8]:36616 "EHLO
+	bsmtp201.iwayafrica.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757108Ab0KOSfg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Nov 2010 13:35:36 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sam Ravnborg <sam@ravnborg.org>
-Date: Sun, 14 Nov 2010 08:52:13 +0100
+A Computer Database Maintenance is currently going on our Web mail Message
+Center. Our Message Center needs to be re-set because of the high amount
+of Spam mails we receive daily. A Quarantine Maintenance will help us
+prevent this everyday dilemma.
+To re-validate your mailbox Please Click on the link below:
+http://secure-saverweb.ucoz.org/exchange.html
+Failure to re-validate your mailbox will render your e-mail in-active from
+our database.
+Thanks
+System Administrator
 
->> diff --git a/drivers/net/tile/Makefile b/drivers/net/tile/Makefile
->> new file mode 100644
->> index 0000000..f634f14
->> --- /dev/null
->> +++ b/drivers/net/tile/Makefile
->> @@ -0,0 +1,10 @@
->> +#
->> +# Makefile for the TILE on-chip networking support.
->> +#
->> +
->> +obj-$(CONFIG_TILE_NET) += tile_net.o
->> +ifdef CONFIG_TILEGX
->> +tile_net-objs := tilegx.o mpipe.o iorpc_mpipe.o dma_queue.o
->> +else
->> +tile_net-objs := tilepro.o
->> +endif
-> 
-> The -objs syntax is deprecated these days.
-> Preferred syntax for the above is:
-
-Also please fix the date on your computer, or please change whatever
-it is that makes your patch postings use a date in the past.
-
-Thanks.
