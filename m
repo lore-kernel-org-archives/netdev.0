@@ -1,55 +1,75 @@
-From: Kevin Cernekee <cernekee@gmail.com>
-Subject: Re: [PATCH/RFC] netfilter: nf_conntrack_sip: Handle quirky Cisco phones
-Date: Mon, 15 Nov 2010 08:46:50 -0800
-Message-ID: <AANLkTinELGUzDJ8TTTfA8sfiYiLJV-2ZPujwbuQWTPWd@mail.gmail.com>
-References: <28d666269c390965f1a4edca42f93c12@localhost>
-	<1289725175.2743.65.camel@edumazet-laptop>
-	<AANLkTik4PLga8mX73c8iONPeOtpDiuDhfu3xiPmF07jC@mail.gmail.com>
-	<1289764664.2743.110.camel@edumazet-laptop>
-	<AANLkTi==8nwn3g5t1uw=CP1K0vegUE2hAdDxOq-fkVRW@mail.gmail.com>
-	<4CE1084A.3070100@trash.net>
+From: Matt Domsch <Matt_Domsch@Dell.com>
+Subject: Re: [PATCH 1/1] UDEV - Add 'udevlom' command line param to start_udev
+Date: Mon, 15 Nov 2010 10:47:14 -0600
+Message-ID: <20101115164714.GB7030@auslistsprd01.us.dell.com>
+References: <20101103165505.GA3281@fedora-14-r710.oslab.blr.amer.dell.com> <20101103180500.GA7441@kroah.com> <20101105025848.GA14021@pws490.domsch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-owner@vger.kernel.org>
-In-Reply-To: <4CE1084A.3070100@trash.net>
-Sender: netfilter-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "K, Narendra" <Narendra_K@Dell.com>,
+	"linux-hotplug@vger.kernel.org" <linux-hotplug@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Hargrave, Jordan" <Jordan_Hargrave@Dell.com>,
+	"Rose, Charles" <Charles_Rose@Dell.com>
+To: Greg KH <greg@kroah.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ausc60ps301.us.dell.com ([143.166.148.206]:38259 "EHLO
+	ausc60ps301.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932132Ab0KOQrQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Nov 2010 11:47:16 -0500
+Content-Disposition: inline
+In-Reply-To: <20101105025848.GA14021@pws490.domsch.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 15, 2010 at 2:15 AM, Patrick McHardy <kaber@trash.net> wrote:
-> The problem in doing this is that further packets from port 49xxx
-> wouldn't be recognized as belonging to the same connection.
+On Thu, Nov 04, 2010 at 09:58:48PM -0500, Matt Domsch wrote:
+> On Wed, Nov 03, 2010 at 11:05:00AM -0700, Greg KH wrote:
+> > On Wed, Nov 03, 2010 at 10:25:25PM +0530, Narendra_K@Dell.com wrote:
+> > > Hello,
+> > > 
+> > > This patch allows users to specify if they want the onboard network
+> > > interfaces to be renamed to lomN by implementing a command line param
+> > > 'udevlom'.
+> > 
+> > Ick ick ick.
+> > 
+> > Why not do this in some other configuration file?  Don't rely on udev
+> > being started with a different option, that is only ripe for abuse by
+> > everyone else who wants their pet-project to get into the udev
+> > environment.
+> > 
+> > Please, surely there's a different way to do this.
+> 
+> At Linux Plumbers Conference today, this problem space was discussed
+> once again, and I believe concensus on approach was reached.  Here
+> goes:
+> 
+> * If a 70-persistent-net.rules file sets a name, honor that.  This
+>   preserves existing installs.
+> 
+> * If BIOS provides indexes for onboard devices, honor that.
+> ** Rename onboard NICs "lom[1-N]" as BIOS reports (# matches chassis labels)
+> ** No rename for all others "ethX" (no change for NICs in PCI slots/USB/others)
 
-OK, makes sense.
+I'm getting a lot of pushback from Dell customers on our
+linux-poweredge mailing list (thread starts [1]) that the choice of
+name "lomX" is poor, due to HP's extensive use of LOM meaning Lights
+Out Management, rather than my intended meaning of "LAN on
+Motherboard".  Gotta hate TLA collisions.
 
-> The same problem exists with your current patch, packets from port
-> 5060 to the same destination won't be recognized as belonging to the
-> connection that sent the REGISTER and thus won't be able to modify the
-> timeout or unregister.
->
-> Basically we would need three-legged connections to handle this
-> situation correctly.
+So, I'm open to new ideas for naming these.  At LPC, Ted noted that
+2- and 3-letter names are expected.  "nic[1234]" or "en[1234]" ?
 
-Just to clarify: the actual source port on a given device will be
-EITHER a high-numbered port (Cisco) or 5060 (others).  I have not come
-across any devices that send from a "mix" of source ports, e.g. 49xxx
-for REGISTER and then 5060 for INVITE.
+And yes, they'd prefer that we keep "eth[0123]" for the onboard
+devices, but I simply don't see how to do that without kernel changes,
+due to the races in both naming them in the kernel vs udev renaming,
+and simple races between two udev processes.
 
->From what I have seen, subsequent SIP requests from the Cisco phone
-are indeed getting associated with the original connection.  My phone
-is logging into two different SIP accounts, and each account seems to
-use its own unique UDP source port for all control traffic (both
-expecting replies on 5060).
+Thanks,
+Matt
 
-If Netfilter adds support for three-legged connections, will the third
-leg show up in the tuplehash so I don't have to track it in the "help"
-structure?
+[1] http://lists.us.dell.com/pipermail/linux-poweredge/2010-November/043576.html
+
+-- 
+Matt Domsch
+Technology Strategist
+Dell | Office of the CTO
