@@ -1,89 +1,42 @@
-From: Chris Metcalf <cmetcalf@tilera.com>
-Subject: [PATCH] arch/tile: fix rwlock so would-be write lockers don't block new readers
-Date: Mon, 15 Nov 2010 09:18:49 -0500
-Message-ID: <201011151425.oAFEPU3W005682@farm-0010.internal.tilera.com>
-References: <AANLkTikvT=x9eBovn2-m6HLqk7wyXSAR3sc9jCQ0C6mL@mail.gmail.com>
-	<1289489007.17691.1310.camel@edumazet-laptop>
-	<AANLkTik93QUQxSDmwd4Qj-gXQiWWPzd68JPAYAHBAsHR@mail.gmail.com>
-	<ZXmP8hjgLHA.4648@exchange1.tad.internal.tilera.com>
-	<4CDF1945.8090101@tilera.com>
-	<AANLkTind92uwcigzmDn8yn9a22exDy7zcreGQ5-6NLV-@mail.gmail.com>
-Cc: =?ISO-8859-1?Q?Am=E9rico_Wang?= <xiyou.wangcong@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>, Cypher Wu <cypher.w@gmail.com>
-To: <linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from king.tilera.com ([72.1.168.226]:30224 "EHLO king.tilera.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757075Ab0KOOZb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Nov 2010 09:25:31 -0500
-In-Reply-To: <AANLkTind92uwcigzmDn8yn9a22exDy7zcreGQ5-6NLV-@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Christoph Lameter <cl@linux.com>
+Subject: Re: [PATCH] atomic: add atomic_inc_not_zero_hint()
+Date: Mon, 15 Nov 2010 08:25:37 -0600 (CST)
+Message-ID: <alpine.DEB.2.00.1011150821000.19175@router.home>
+References: <1288975980.2882.877.camel@edumazet-laptop>  <20101105102038.53e36f9e.akpm@linux-foundation.org>  <1288980046.2882.1054.camel@edumazet-laptop>  <20101105110828.52f061b3.akpm@linux-foundation.org>  <1288981224.2882.1105.camel@edumazet-laptop>
+ <20101105112821.57f80481.akpm@linux-foundation.org>  <1288984844.2665.52.camel@edumazet-laptop>  <20101105195101.GC15561@linux.vnet.ibm.com>  <alpine.DEB.2.00.1011121313001.16754@router.home>  <20101113222612.GD2825@linux.vnet.ibm.com>
+ <alpine.DEB.2.00.1011150756130.19175@router.home> <1289830636.2607.70.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Ingo Molnar <mingo@elte.hu>, Andi Kleen <andi@firstfloor.org>,
+	Nick Piggin <npiggin@kernel.dk>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1289830636.2607.70.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This avoids a deadlock in the IGMP code where one core gets a read
-lock, another core starts trying to get a write lock (thus blocking
-new readers), and then the first core tries to recursively re-acquire
-the read lock.
+On Mon, 15 Nov 2010, Eric Dumazet wrote:
 
-We still try to preserve some degree of balance by giving priority
-to additional write lockers that come along while the lock is held
-for write, so they can all complete quickly and return the lock to
-the readers.
+> Exclusive access ? As soon as another cpu takes it again, you lose.
 
-Signed-off-by: Chris Metcalf <cmetcalf@tilera.com>
----
-This should apply relatively cleanly to 2.6.26.7 source code too.
+Sure but you want to avoid the fetch in shared mode here.
 
- arch/tile/lib/spinlock_32.c |   29 ++++++++++++++++++-----------
- 1 files changed, 18 insertions(+), 11 deletions(-)
+> Its not really the same thing... Maybe you miss the 'hint' intention at
+> all. We know the probable value of the counter, we dont want to read it.
 
-diff --git a/arch/tile/lib/spinlock_32.c b/arch/tile/lib/spinlock_32.c
-index 485e24d..5cd1c40 100644
---- a/arch/tile/lib/spinlock_32.c
-+++ b/arch/tile/lib/spinlock_32.c
-@@ -167,23 +167,30 @@ void arch_write_lock_slow(arch_rwlock_t *rwlock, u32 val)
- 	 * when we compare them.
- 	 */
- 	u32 my_ticket_;
-+	u32 iterations = 0;
- 
--	/* Take out the next ticket; this will also stop would-be readers. */
--	if (val & 1)
--		val = get_rwlock(rwlock);
--	rwlock->lock = __insn_addb(val, 1 << WR_NEXT_SHIFT);
-+	/*
-+	 * Wait until there are no readers, then bump up the next
-+	 * field and capture the ticket value.
-+	 */
-+	for (;;) {
-+		if (!(val & 1)) {
-+			if ((val >> RD_COUNT_SHIFT) == 0)
-+				break;
-+			rwlock->lock = val;
-+		}
-+		delay_backoff(iterations++);
-+		val = __insn_tns((int *)&rwlock->lock);
-+	}
- 
--	/* Extract my ticket value from the original word. */
-+	/* Take out the next ticket and extract my ticket value. */
-+	rwlock->lock = __insn_addb(val, 1 << WR_NEXT_SHIFT);
- 	my_ticket_ = val >> WR_NEXT_SHIFT;
- 
--	/*
--	 * Wait until the "current" field matches our ticket, and
--	 * there are no remaining readers.
--	 */
-+	/* Wait until the "current" field matches our ticket. */
- 	for (;;) {
- 		u32 curr_ = val >> WR_CURR_SHIFT;
--		u32 readers = val >> RD_COUNT_SHIFT;
--		u32 delta = ((my_ticket_ - curr_) & WR_MASK) + !!readers;
-+		u32 delta = ((my_ticket_ - curr_) & WR_MASK);
- 		if (likely(delta == 0))
- 			break;
- 
--- 
-1.6.5.2
+Ok may be in thise case you can predict the value but in general it is
+difficult to always provide an expected value. It would be easier to be
+able to tell the processor that the cacheline should not be fetched as
+shared but immediately in exclusive state.
 
+> atomic_read() and atomic_cmpxchg(). We tried prefetchw() and it was a
+> performance drop. It was with only 16 cpus contending on neighbour
+
+Does prefetchw work? Andi claims that prefetchw is not working on
+x86 and I doubt that you ran tests on Itanium.
