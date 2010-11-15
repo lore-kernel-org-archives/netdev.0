@@ -1,8 +1,8 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 13/44] drivers/net/e1000e: Remove unnecessary
+Subject: [PATCH 14/44] drivers/net/ixgbe: Remove unnecessary
 	semicolons
-Date: Sun, 14 Nov 2010 19:04:32 -0800
-Message-ID: <e5cf92d50de7924930d660a5865c3d60d9cd9dc5.1289789604.git.joe@perches.com>
+Date: Sun, 14 Nov 2010 19:04:33 -0800
+Message-ID: <7d2c334daa75c5221946a17d45c9de1901cf06e7.1289789604.git.joe@perches.com>
 References: <cover.1289789604.git.joe@perches.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -27,22 +27,22 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/e1000e/netdev.c |    2 +-
+ drivers/net/ixgbe/ixgbe_sriov.c |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index c4ca162..a6d54e4 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -4595,7 +4595,7 @@ dma_error:
- 			i += tx_ring->count;
- 		i--;
- 		buffer_info = &tx_ring->buffer_info[i];
--		e1000_put_txbuf(adapter, buffer_info);;
-+		e1000_put_txbuf(adapter, buffer_info);
+diff --git a/drivers/net/ixgbe/ixgbe_sriov.c b/drivers/net/ixgbe/ixgbe_sriov.c
+index 5428153..93f40bc 100644
+--- a/drivers/net/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ixgbe/ixgbe_sriov.c
+@@ -68,7 +68,7 @@ static int ixgbe_set_vf_multicasts(struct ixgbe_adapter *adapter,
+ 	 * addresses
+ 	 */
+ 	for (i = 0; i < entries; i++) {
+-		vfinfo->vf_mc_hashes[i] = hash_list[i];;
++		vfinfo->vf_mc_hashes[i] = hash_list[i];
  	}
  
- 	return 0;
+ 	for (i = 0; i < vfinfo->num_vf_mc_hashes; i++) {
 -- 
 1.7.3.1.g432b3.dirty
 
