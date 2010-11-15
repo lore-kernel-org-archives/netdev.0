@@ -1,48 +1,48 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH 10/10] net/atm: Remove unnecessary casts of netdev_priv
-Date: Mon, 15 Nov 2010 13:12:33 -0800
-Message-ID: <0953cd1e1042f41ae839f5b9e4adaffd555c71eb.1289855436.git.joe@perches.com>
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH 06/10] drivers/net/usb: Remove unnecessary casts of netdev_priv
+Date: Mon, 15 Nov 2010 13:12:29 -0800
+Message-ID: <66a3d7996e4ce8a84610237e86adf4b15a48514a.1289855436.git.joe@perches.com>
 References: <cover.1289855436.git.joe@perches.com>
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jiri Kosina <trivial@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1289855436.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Petko Manolov <petkan-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jiri Kosina <trivial-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <cover.1289855436.git.joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Joe Perches <joe@perches.com>
+Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
 ---
- net/atm/br2684.c |    2 +-
- net/atm/lec.c    |    3 +--
- 2 files changed, 2 insertions(+), 3 deletions(-)
+ drivers/net/usb/pegasus.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/atm/br2684.c b/net/atm/br2684.c
-index ad2b232..fce2eae 100644
---- a/net/atm/br2684.c
-+++ b/net/atm/br2684.c
-@@ -97,7 +97,7 @@ static LIST_HEAD(br2684_devs);
+diff --git a/drivers/net/usb/pegasus.c b/drivers/net/usb/pegasus.c
+index 6710f093..ef36676 100644
+--- a/drivers/net/usb/pegasus.c
++++ b/drivers/net/usb/pegasus.c
+@@ -359,7 +359,7 @@ fail:
  
- static inline struct br2684_dev *BRPRIV(const struct net_device *net_dev)
+ static int mdio_read(struct net_device *dev, int phy_id, int loc)
  {
--	return (struct br2684_dev *)netdev_priv(net_dev);
-+	return netdev_priv(net_dev);
- }
+-	pegasus_t *pegasus = (pegasus_t *) netdev_priv(dev);
++	pegasus_t *pegasus = netdev_priv(dev);
+ 	u16 res;
  
- static inline struct net_device *list_entry_brdev(const struct list_head *le)
-diff --git a/net/atm/lec.c b/net/atm/lec.c
-index 181d70c..179e04b 100644
---- a/net/atm/lec.c
-+++ b/net/atm/lec.c
-@@ -816,8 +816,7 @@ static int lec_mcast_attach(struct atm_vcc *vcc, int arg)
- 	if (arg < 0 || arg >= MAX_LEC_ITF || !dev_lec[arg])
- 		return -EINVAL;
- 	vcc->proto_data = dev_lec[arg];
--	return lec_mcast_make((struct lec_priv *)netdev_priv(dev_lec[arg]),
--				vcc);
-+	return lec_mcast_make(netdev_priv(dev_lec[arg]), vcc);
- }
+ 	read_mii_word(pegasus, phy_id, loc, &res);
+@@ -397,7 +397,7 @@ fail:
  
- /* Initialize device. */
+ static void mdio_write(struct net_device *dev, int phy_id, int loc, int val)
+ {
+-	pegasus_t *pegasus = (pegasus_t *) netdev_priv(dev);
++	pegasus_t *pegasus = netdev_priv(dev);
+ 
+ 	write_mii_word(pegasus, phy_id, loc, val);
+ }
 -- 
 1.7.3.1.g432b3.dirty
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
