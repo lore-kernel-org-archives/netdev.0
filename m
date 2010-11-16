@@ -1,319 +1,332 @@
-From: Thomas Graf <tgraf@infradead.org>
-Subject: [PATCH net-next 1/4] rtnetlink: Link address family API
-Date: Tue, 16 Nov 2010 09:30:14 -0500
-Message-ID: <20101116143014.GA26669@canuck.infradead.org>
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Subject: [PATCH v2] filter: Optimize instruction revalidation code.
+Date: Tue, 16 Nov 2010 23:31:49 +0900
+Message-ID: <201011162331.CGH00026.OFOSFVMFQtLHOJ@I-love.SAKURA.ne.jp>
+References: <20101110.102129.112602843.davem@davemloft.net>
+	<1289414024.2469.20.camel@edumazet-laptop>
+	<20101110.103807.39173013.davem@davemloft.net>
+	<201011162208.BHC17628.SVtFMJOOLFQFOH@I-love.SAKURA.ne.jp>
+	<1289915053.5372.183.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Cc: davem@davemloft.net, drosenberg@vsecurity.com,
+	netdev@vger.kernel.org
+To: eric.dumazet@gmail.com, mjt@tls.msk.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canuck.infradead.org ([134.117.69.58]:32991 "EHLO
-	canuck.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933907Ab0KPOaP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Nov 2010 09:30:15 -0500
-Content-Disposition: inline
+Received: from wine.ocn.ne.jp ([122.1.235.145]:55917 "EHLO smtp.wine.ocn.ne.jp"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754749Ab0KPOby (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Nov 2010 09:31:54 -0500
+In-Reply-To: <1289915053.5372.183.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Each net_device contains address family specific data such as
-per device settings and statistics. We already expose this data
-via procfs/sysfs and partially netlink.
+Eric Dumazet wrote:
+> Patch seems fine to me, with the 'const' codes[] Michael Tokarev already
+> spotted.
 
-The netlink method requires the requester to send one RTM_GETLINK
-request for each address family it wishes to receive data of
-and then merge this data itself.
+Sorry, I forgot to evaluate
 
-This patch implements a new API which combines all address family
-specific link data in a new netlink attribute IFLA_AF_SPEC.
-IFLA_AF_SPEC contains a sequence of nested attributes, one for each
-address family which in turn defines the structure of its own
-attribute. Example:
+	default:
+		return -EINVAL;
+	}
 
-   [IFLA_AF_SPEC] = {
-       [AF_INET] = {
-           [IFLA_INET_CONF] = ...,
-       },
-       [AF_INET6] = {
-           [IFLA_INET6_FLAGS] = ...,
-           [IFLA_INET6_CONF] = ...,
-       }
-   }
+case. If caller passed ftest->code == BPF_S_ALU_DIV_K (translated value)
+rather than ftest->code == BPF_ALU|BPF_DIV|BPF_K (original value), the check
 
-The API also allows for address families to implement a function
-which parses the IFLA_AF_SPEC attribute sent by userspace to
-implement address family specific link options.
+	case BPF_ALU|BPF_DIV|BPF_K:
+		if (ftest->k == 0)
+			return -EINVAL;
+		ftest->code = BPF_S_ALU_DIV_K;
+		break;
 
-Signed-off-by: Thomas Graf <tgraf@infradead.org>
+is bypassed. The problem is that original value and translated value overwraps.
+Can we change translated value in order to guarantee that these values never
+overwraps?
+----------------------------------------
+ From 7b6a7b784fa096383aadc86d32bff6b8329a2e66 Mon Sep 17 00:00:00 2001
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Date: Tue, 16 Nov 2010 22:37:45 +0900
+Subject: [PATCH v2] filter: optimize instruction revalidation code.
 
-Index: net-2.6/include/linux/if_link.h
-===================================================================
---- net-2.6.orig/include/linux/if_link.h
-+++ net-2.6/include/linux/if_link.h
-@@ -80,6 +80,24 @@ struct rtnl_link_ifmap {
- 	__u8	port;
- };
- 
-+/*
-+ * IFLA_AF_SPEC
-+ *   Contains nested attributes for address family specific attributes.
-+ *   Each address family may create a attribute with the address family
-+ *   number as type and create its own attribute structure in it.
-+ *
-+ *   Example:
-+ *   [IFLA_AF_SPEC] = {
-+ *       [AF_INET] = {
-+ *           [IFLA_INET_CONF] = ...,
-+ *       },
-+ *       [AF_INET6] = {
-+ *           [IFLA_INET6_FLAGS] = ...,
-+ *           [IFLA_INET6_CONF] = ...,
-+ *       }
-+ *   }
-+ */
-+
- enum {
- 	IFLA_UNSPEC,
- 	IFLA_ADDRESS,
-@@ -116,6 +134,7 @@ enum {
- 	IFLA_STATS64,
- 	IFLA_VF_PORTS,
- 	IFLA_PORT_SELF,
-+	IFLA_AF_SPEC,
- 	__IFLA_MAX
- };
- 
-Index: net-2.6/include/net/rtnetlink.h
-===================================================================
---- net-2.6.orig/include/net/rtnetlink.h
-+++ net-2.6/include/net/rtnetlink.h
-@@ -83,6 +83,37 @@ extern void	__rtnl_link_unregister(struc
- extern int	rtnl_link_register(struct rtnl_link_ops *ops);
- extern void	rtnl_link_unregister(struct rtnl_link_ops *ops);
- 
-+/**
-+ * 	struct rtnl_af_ops - rtnetlink address family operations
-+ *
-+ *	@list: Used internally
-+ * 	@family: Address family
-+ * 	@fill_link_af: Function to fill IFLA_AF_SPEC with address family
-+ * 		       specific netlink attributes.
-+ * 	@get_link_af_size: Function to calculate size of address family specific
-+ * 			   netlink attributes exlusive the container attribute.
-+ * 	@parse_link_af: Function to parse a IFLA_AF_SPEC attribute and modify
-+ *			net_device accordingly.
-+ */
-+struct rtnl_af_ops {
-+	struct list_head	list;
-+	int			family;
-+
-+	int			(*fill_link_af)(struct sk_buff *skb,
-+						const struct net_device *dev);
-+	size_t			(*get_link_af_size)(const struct net_device *dev);
-+
-+	int			(*parse_link_af)(struct net_device *dev,
-+						 const struct nlattr *attr);
-+};
-+
-+extern int	__rtnl_af_register(struct rtnl_af_ops *ops);
-+extern void	__rtnl_af_unregister(struct rtnl_af_ops *ops);
-+
-+extern int	rtnl_af_register(struct rtnl_af_ops *ops);
-+extern void	rtnl_af_unregister(struct rtnl_af_ops *ops);
-+
-+
- extern struct net *rtnl_link_get_net(struct net *src_net, struct nlattr *tb[]);
- extern struct net_device *rtnl_create_link(struct net *src_net, struct net *net,
- 	char *ifname, const struct rtnl_link_ops *ops, struct nlattr *tb[]);
-Index: net-2.6/net/core/rtnetlink.c
-===================================================================
---- net-2.6.orig/net/core/rtnetlink.c
-+++ net-2.6/net/core/rtnetlink.c
-@@ -362,6 +362,95 @@ static size_t rtnl_link_get_size(const s
- 	return size;
- }
- 
-+static LIST_HEAD(rtnl_af_ops);
-+
-+static const struct rtnl_af_ops *rtnl_af_lookup(const int family)
-+{
-+	const struct rtnl_af_ops *ops;
-+
-+	list_for_each_entry(ops, &rtnl_af_ops, list) {
-+		if (ops->family == family)
-+			return ops;
-+	}
-+
-+	return NULL;
-+}
-+
-+/**
-+ * __rtnl_af_register - Register rtnl_af_ops with rtnetlink.
-+ * @ops: struct rtnl_af_ops * to register
-+ *
-+ * The caller must hold the rtnl_mutex.
-+ *
-+ * Returns 0 on success or a negative error code.
-+ */
-+int __rtnl_af_register(struct rtnl_af_ops *ops)
-+{
-+	list_add_tail(&ops->list, &rtnl_af_ops);
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(__rtnl_af_register);
-+
-+/**
-+ * rtnl_af_register - Register rtnl_af_ops with rtnetlink.
-+ * @ops: struct rtnl_af_ops * to register
-+ *
-+ * Returns 0 on success or a negative error code.
-+ */
-+int rtnl_af_register(struct rtnl_af_ops *ops)
-+{
-+	int err;
-+
-+	rtnl_lock();
-+	err = __rtnl_af_register(ops);
-+	rtnl_unlock();
-+	return err;
-+}
-+EXPORT_SYMBOL_GPL(rtnl_af_register);
-+
-+/**
-+ * __rtnl_af_unregister - Unregister rtnl_af_ops from rtnetlink.
-+ * @ops: struct rtnl_af_ops * to unregister
-+ *
-+ * The caller must hold the rtnl_mutex.
-+ */
-+void __rtnl_af_unregister(struct rtnl_af_ops *ops)
-+{
-+	list_del(&ops->list);
-+}
-+EXPORT_SYMBOL_GPL(__rtnl_af_unregister);
-+
-+/**
-+ * rtnl_af_unregister - Unregister rtnl_af_ops from rtnetlink.
-+ * @ops: struct rtnl_af_ops * to unregister
-+ */
-+void rtnl_af_unregister(struct rtnl_af_ops *ops)
-+{
-+	rtnl_lock();
-+	__rtnl_af_unregister(ops);
-+	rtnl_unlock();
-+}
-+EXPORT_SYMBOL_GPL(rtnl_af_unregister);
-+
-+static size_t rtnl_link_get_af_size(const struct net_device *dev)
-+{
-+	struct rtnl_af_ops *af_ops;
-+	size_t size;
-+
-+	/* IFLA_AF_SPEC */
-+	size = nla_total_size(sizeof(struct nlattr));
-+
-+	list_for_each_entry(af_ops, &rtnl_af_ops, list) {
-+		if (af_ops->get_link_af_size) {
-+			/* AF_* + nested data */
-+			size += nla_total_size(sizeof(struct nlattr)) +
-+				af_ops->get_link_af_size(dev);
-+		}
-+	}
-+
-+	return size;
-+}
-+
- static int rtnl_link_fill(struct sk_buff *skb, const struct net_device *dev)
+Since repeating small value to small value conversion using switch() clause's
+case statement is wasteful, this patch instroduces u16 to u16 mapping table
+and removes most of case statements. As a result, the size of net/core/filter.o
+is reduced by about 27% on x86.
+
+Signed-off-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+---
+ net/core/filter.c |  223 ++++++++++++++++-------------------------------------
+ 1 files changed, 68 insertions(+), 155 deletions(-)
+
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 23e9b2a..ef1d226 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -383,7 +383,57 @@ EXPORT_SYMBOL(sk_run_filter);
+  */
+ int sk_chk_filter(struct sock_filter *filter, int flen)
  {
- 	const struct rtnl_link_ops *ops = dev->rtnl_link_ops;
-@@ -671,7 +760,8 @@ static noinline size_t if_nlmsg_size(con
- 	       + nla_total_size(4) /* IFLA_NUM_VF */
- 	       + rtnl_vfinfo_size(dev) /* IFLA_VFINFO_LIST */
- 	       + rtnl_port_size(dev) /* IFLA_VF_PORTS + IFLA_PORT_SELF */
--	       + rtnl_link_get_size(dev); /* IFLA_LINKINFO */
-+	       + rtnl_link_get_size(dev) /* IFLA_LINKINFO */
-+	       + rtnl_link_get_af_size(dev); /* IFLA_AF_SPEC */
- }
+-	struct sock_filter *ftest;
++	/*
++	 * Valid instructions are initialized to non-0.
++	 * Invalid instructions are initialized to 0.
++	 */
++	static const u16 codes[] = {
++		[BPF_ALU|BPF_ADD|BPF_K]  = BPF_S_ALU_ADD_K + 1,
++		[BPF_ALU|BPF_ADD|BPF_X]  = BPF_S_ALU_ADD_X + 1,
++		[BPF_ALU|BPF_SUB|BPF_K]  = BPF_S_ALU_SUB_K + 1,
++		[BPF_ALU|BPF_SUB|BPF_X]  = BPF_S_ALU_SUB_X + 1,
++		[BPF_ALU|BPF_MUL|BPF_K]  = BPF_S_ALU_MUL_K + 1,
++		[BPF_ALU|BPF_MUL|BPF_X]  = BPF_S_ALU_MUL_X + 1,
++		[BPF_ALU|BPF_DIV|BPF_X]  = BPF_S_ALU_DIV_X + 1,
++		[BPF_ALU|BPF_AND|BPF_K]  = BPF_S_ALU_AND_K + 1,
++		[BPF_ALU|BPF_AND|BPF_X]  = BPF_S_ALU_AND_X + 1,
++		[BPF_ALU|BPF_OR|BPF_K]   = BPF_S_ALU_OR_K + 1,
++		[BPF_ALU|BPF_OR|BPF_X]   = BPF_S_ALU_OR_X + 1,
++		[BPF_ALU|BPF_LSH|BPF_K]  = BPF_S_ALU_LSH_K + 1,
++		[BPF_ALU|BPF_LSH|BPF_X]  = BPF_S_ALU_LSH_X + 1,
++		[BPF_ALU|BPF_RSH|BPF_K]  = BPF_S_ALU_RSH_K + 1,
++		[BPF_ALU|BPF_RSH|BPF_X]  = BPF_S_ALU_RSH_X + 1,
++		[BPF_ALU|BPF_NEG]        = BPF_S_ALU_NEG + 1,
++		[BPF_LD|BPF_W|BPF_ABS]   = BPF_S_LD_W_ABS + 1,
++		[BPF_LD|BPF_H|BPF_ABS]   = BPF_S_LD_H_ABS + 1,
++		[BPF_LD|BPF_B|BPF_ABS]   = BPF_S_LD_B_ABS + 1,
++		[BPF_LD|BPF_W|BPF_LEN]   = BPF_S_LD_W_LEN + 1,
++		[BPF_LD|BPF_W|BPF_IND]   = BPF_S_LD_W_IND + 1,
++		[BPF_LD|BPF_H|BPF_IND]   = BPF_S_LD_H_IND + 1,
++		[BPF_LD|BPF_B|BPF_IND]   = BPF_S_LD_B_IND + 1,
++		[BPF_LD|BPF_IMM]         = BPF_S_LD_IMM + 1,
++		[BPF_LDX|BPF_W|BPF_LEN]  = BPF_S_LDX_W_LEN + 1,
++		[BPF_LDX|BPF_B|BPF_MSH]  = BPF_S_LDX_B_MSH + 1,
++		[BPF_LDX|BPF_IMM]        = BPF_S_LDX_IMM + 1,
++		[BPF_MISC|BPF_TAX]       = BPF_S_MISC_TAX + 1,
++		[BPF_MISC|BPF_TXA]       = BPF_S_MISC_TXA + 1,
++		[BPF_RET|BPF_K]          = BPF_S_RET_K + 1,
++		[BPF_RET|BPF_A]          = BPF_S_RET_A + 1,
++		[BPF_ALU|BPF_DIV|BPF_K]  = BPF_S_ALU_DIV_K + 1,
++		[BPF_LD|BPF_MEM]         = BPF_S_LD_MEM + 1,
++		[BPF_LDX|BPF_MEM]        = BPF_S_LDX_MEM + 1,
++		[BPF_ST]                 = BPF_S_ST + 1,
++		[BPF_STX]                = BPF_S_STX + 1,
++		[BPF_JMP|BPF_JA]         = BPF_S_JMP_JA + 1,
++		[BPF_JMP|BPF_JEQ|BPF_K]  = BPF_S_JMP_JEQ_K + 1,
++		[BPF_JMP|BPF_JEQ|BPF_X]  = BPF_S_JMP_JEQ_X + 1,
++		[BPF_JMP|BPF_JGE|BPF_K]  = BPF_S_JMP_JGE_K + 1,
++		[BPF_JMP|BPF_JGE|BPF_X]  = BPF_S_JMP_JGE_X + 1,
++		[BPF_JMP|BPF_JGT|BPF_K]  = BPF_S_JMP_JGT_K + 1,
++		[BPF_JMP|BPF_JGT|BPF_X]  = BPF_S_JMP_JGT_X + 1,
++		[BPF_JMP|BPF_JSET|BPF_K] = BPF_S_JMP_JSET_K + 1,
++		[BPF_JMP|BPF_JSET|BPF_X] = BPF_S_JMP_JSET_X + 1,
++	};
+ 	int pc;
  
- static int rtnl_vf_ports_fill(struct sk_buff *skb, struct net_device *dev)
-@@ -757,7 +847,8 @@ static int rtnl_fill_ifinfo(struct sk_bu
- 	struct nlmsghdr *nlh;
- 	struct rtnl_link_stats64 temp;
- 	const struct rtnl_link_stats64 *stats;
--	struct nlattr *attr;
-+	struct nlattr *attr, *af_spec;
-+	struct rtnl_af_ops *af_ops;
+ 	if (flen == 0 || flen > BPF_MAXINSNS)
+@@ -391,136 +441,30 @@ int sk_chk_filter(struct sock_filter *filter, int flen)
  
- 	nlh = nlmsg_put(skb, pid, seq, type, sizeof(*ifm), flags);
- 	if (nlh == NULL)
-@@ -866,6 +957,36 @@ static int rtnl_fill_ifinfo(struct sk_bu
- 			goto nla_put_failure;
+ 	/* check the filter code now */
+ 	for (pc = 0; pc < flen; pc++) {
+-		ftest = &filter[pc];
+-
+-		/* Only allow valid instructions */
+-		switch (ftest->code) {
+-		case BPF_ALU|BPF_ADD|BPF_K:
+-			ftest->code = BPF_S_ALU_ADD_K;
+-			break;
+-		case BPF_ALU|BPF_ADD|BPF_X:
+-			ftest->code = BPF_S_ALU_ADD_X;
+-			break;
+-		case BPF_ALU|BPF_SUB|BPF_K:
+-			ftest->code = BPF_S_ALU_SUB_K;
+-			break;
+-		case BPF_ALU|BPF_SUB|BPF_X:
+-			ftest->code = BPF_S_ALU_SUB_X;
+-			break;
+-		case BPF_ALU|BPF_MUL|BPF_K:
+-			ftest->code = BPF_S_ALU_MUL_K;
+-			break;
+-		case BPF_ALU|BPF_MUL|BPF_X:
+-			ftest->code = BPF_S_ALU_MUL_X;
+-			break;
+-		case BPF_ALU|BPF_DIV|BPF_X:
+-			ftest->code = BPF_S_ALU_DIV_X;
+-			break;
+-		case BPF_ALU|BPF_AND|BPF_K:
+-			ftest->code = BPF_S_ALU_AND_K;
+-			break;
+-		case BPF_ALU|BPF_AND|BPF_X:
+-			ftest->code = BPF_S_ALU_AND_X;
+-			break;
+-		case BPF_ALU|BPF_OR|BPF_K:
+-			ftest->code = BPF_S_ALU_OR_K;
+-			break;
+-		case BPF_ALU|BPF_OR|BPF_X:
+-			ftest->code = BPF_S_ALU_OR_X;
+-			break;
+-		case BPF_ALU|BPF_LSH|BPF_K:
+-			ftest->code = BPF_S_ALU_LSH_K;
+-			break;
+-		case BPF_ALU|BPF_LSH|BPF_X:
+-			ftest->code = BPF_S_ALU_LSH_X;
+-			break;
+-		case BPF_ALU|BPF_RSH|BPF_K:
+-			ftest->code = BPF_S_ALU_RSH_K;
+-			break;
+-		case BPF_ALU|BPF_RSH|BPF_X:
+-			ftest->code = BPF_S_ALU_RSH_X;
+-			break;
+-		case BPF_ALU|BPF_NEG:
+-			ftest->code = BPF_S_ALU_NEG;
+-			break;
+-		case BPF_LD|BPF_W|BPF_ABS:
+-			ftest->code = BPF_S_LD_W_ABS;
+-			break;
+-		case BPF_LD|BPF_H|BPF_ABS:
+-			ftest->code = BPF_S_LD_H_ABS;
+-			break;
+-		case BPF_LD|BPF_B|BPF_ABS:
+-			ftest->code = BPF_S_LD_B_ABS;
+-			break;
+-		case BPF_LD|BPF_W|BPF_LEN:
+-			ftest->code = BPF_S_LD_W_LEN;
+-			break;
+-		case BPF_LD|BPF_W|BPF_IND:
+-			ftest->code = BPF_S_LD_W_IND;
+-			break;
+-		case BPF_LD|BPF_H|BPF_IND:
+-			ftest->code = BPF_S_LD_H_IND;
+-			break;
+-		case BPF_LD|BPF_B|BPF_IND:
+-			ftest->code = BPF_S_LD_B_IND;
+-			break;
+-		case BPF_LD|BPF_IMM:
+-			ftest->code = BPF_S_LD_IMM;
+-			break;
+-		case BPF_LDX|BPF_W|BPF_LEN:
+-			ftest->code = BPF_S_LDX_W_LEN;
+-			break;
+-		case BPF_LDX|BPF_B|BPF_MSH:
+-			ftest->code = BPF_S_LDX_B_MSH;
+-			break;
+-		case BPF_LDX|BPF_IMM:
+-			ftest->code = BPF_S_LDX_IMM;
+-			break;
+-		case BPF_MISC|BPF_TAX:
+-			ftest->code = BPF_S_MISC_TAX;
+-			break;
+-		case BPF_MISC|BPF_TXA:
+-			ftest->code = BPF_S_MISC_TXA;
+-			break;
+-		case BPF_RET|BPF_K:
+-			ftest->code = BPF_S_RET_K;
+-			break;
+-		case BPF_RET|BPF_A:
+-			ftest->code = BPF_S_RET_A;
+-			break;
++		struct sock_filter *ftest = &filter[pc];
++		u16 code = ftest->code;
+ 
++		if (code >= ARRAY_SIZE(codes))
++			return -EINVAL;
++		code = codes[code];
++		if (!code--)
++			return -EINVAL;
+ 		/* Some instructions need special checks */
+-
++		switch (code) {
++		case BPF_S_ALU_DIV_K:
+ 			/* check for division by zero */
+-		case BPF_ALU|BPF_DIV|BPF_K:
+ 			if (ftest->k == 0)
+ 				return -EINVAL;
+-			ftest->code = BPF_S_ALU_DIV_K;
+-			break;
+-
+-		/* check for invalid memory addresses */
+-		case BPF_LD|BPF_MEM:
+-			if (ftest->k >= BPF_MEMWORDS)
+-				return -EINVAL;
+-			ftest->code = BPF_S_LD_MEM;
+-			break;
+-		case BPF_LDX|BPF_MEM:
+-			if (ftest->k >= BPF_MEMWORDS)
+-				return -EINVAL;
+-			ftest->code = BPF_S_LDX_MEM;
+ 			break;
+-		case BPF_ST:
+-			if (ftest->k >= BPF_MEMWORDS)
+-				return -EINVAL;
+-			ftest->code = BPF_S_ST;
+-			break;
+-		case BPF_STX:
++		case BPF_S_LD_MEM:
++		case BPF_S_LDX_MEM:
++		case BPF_S_ST:
++		case BPF_S_STX:
++			/* check for invalid memory addresses */
+ 			if (ftest->k >= BPF_MEMWORDS)
+ 				return -EINVAL;
+-			ftest->code = BPF_S_STX;
+ 			break;
+-
+-		case BPF_JMP|BPF_JA:
++		case BPF_S_JMP_JA:
+ 			/*
+ 			 * Note, the large ftest->k might cause loops.
+ 			 * Compare this with conditional jumps below,
+@@ -528,40 +472,7 @@ int sk_chk_filter(struct sock_filter *filter, int flen)
+ 			 */
+ 			if (ftest->k >= (unsigned)(flen-pc-1))
+ 				return -EINVAL;
+-			ftest->code = BPF_S_JMP_JA;
+-			break;
+-
+-		case BPF_JMP|BPF_JEQ|BPF_K:
+-			ftest->code = BPF_S_JMP_JEQ_K;
+-			break;
+-		case BPF_JMP|BPF_JEQ|BPF_X:
+-			ftest->code = BPF_S_JMP_JEQ_X;
+-			break;
+-		case BPF_JMP|BPF_JGE|BPF_K:
+-			ftest->code = BPF_S_JMP_JGE_K;
+-			break;
+-		case BPF_JMP|BPF_JGE|BPF_X:
+-			ftest->code = BPF_S_JMP_JGE_X;
+-			break;
+-		case BPF_JMP|BPF_JGT|BPF_K:
+-			ftest->code = BPF_S_JMP_JGT_K;
+-			break;
+-		case BPF_JMP|BPF_JGT|BPF_X:
+-			ftest->code = BPF_S_JMP_JGT_X;
+-			break;
+-		case BPF_JMP|BPF_JSET|BPF_K:
+-			ftest->code = BPF_S_JMP_JSET_K;
+ 			break;
+-		case BPF_JMP|BPF_JSET|BPF_X:
+-			ftest->code = BPF_S_JMP_JSET_X;
+-			break;
+-
+-		default:
+-			return -EINVAL;
+-		}
+-
+-			/* for conditionals both must be safe */
+-		switch (ftest->code) {
+ 		case BPF_S_JMP_JEQ_K:
+ 		case BPF_S_JMP_JEQ_X:
+ 		case BPF_S_JMP_JGE_K:
+@@ -570,10 +481,12 @@ int sk_chk_filter(struct sock_filter *filter, int flen)
+ 		case BPF_S_JMP_JGT_X:
+ 		case BPF_S_JMP_JSET_X:
+ 		case BPF_S_JMP_JSET_K:
++			/* for conditionals both must be safe */
+ 			if (pc + ftest->jt + 1 >= flen ||
+ 			    pc + ftest->jf + 1 >= flen)
+ 				return -EINVAL;
+ 		}
++		ftest->code = code;
  	}
  
-+	if (!(af_spec = nla_nest_start(skb, IFLA_AF_SPEC)))
-+		goto nla_put_failure;
-+
-+	list_for_each_entry(af_ops, &rtnl_af_ops, list) {
-+		if (af_ops->fill_link_af) {
-+			struct nlattr *af;
-+			int err;
-+
-+			if (!(af = nla_nest_start(skb, af_ops->family)))
-+				goto nla_put_failure;
-+
-+			err = af_ops->fill_link_af(skb, dev);
-+
-+			/*
-+			 * Caller may return ENODATA to indicate that there
-+			 * was no data to be dumped. This is not an error, it
-+			 * means we should trim the attribute header and
-+			 * continue.
-+			 */
-+			if (err == -ENODATA)
-+				nla_nest_cancel(skb, af);
-+			else if (err < 0)
-+				goto nla_put_failure;
-+
-+			nla_nest_end(skb, af);
-+		}
-+	}
-+
-+	nla_nest_end(skb, af_spec);
-+
- 	return nlmsg_end(skb, nlh);
- 
- nla_put_failure:
-@@ -924,6 +1045,7 @@ const struct nla_policy ifla_policy[IFLA
- 	[IFLA_VFINFO_LIST]	= {. type = NLA_NESTED },
- 	[IFLA_VF_PORTS]		= { .type = NLA_NESTED },
- 	[IFLA_PORT_SELF]	= { .type = NLA_NESTED },
-+	[IFLA_AF_SPEC]		= { .type = NLA_NESTED },
- };
- EXPORT_SYMBOL(ifla_policy);
- 
-@@ -1225,6 +1347,27 @@ static int do_setlink(struct net_device 
- 			goto errout;
- 		modified = 1;
- 	}
-+
-+	if (tb[IFLA_AF_SPEC]) {
-+		struct nlattr *af;
-+		int rem;
-+
-+		nla_for_each_nested(af, tb[IFLA_AF_SPEC], rem) {
-+			const struct rtnl_af_ops *af_ops;
-+
-+			if (!(af_ops = rtnl_af_lookup(nla_type(af))))
-+				continue;
-+
-+			if (!af_ops->parse_link_af)
-+				continue;
-+
-+			err = af_ops->parse_link_af(dev, af);
-+			if (err < 0)
-+				goto errout;
-+
-+			modified = 1;
-+		}
-+	}
- 	err = 0;
- 
- errout:
+ 	/* last instruction must be a RET code */
+-- 
+1.6.1
