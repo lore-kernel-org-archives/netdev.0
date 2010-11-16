@@ -1,63 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: use the macros defined for the members of flowi
-Date: Mon, 15 Nov 2010 17:56:48 -0800 (PST)
-Message-ID: <20101115.175648.226754712.davem@davemloft.net>
-References: <1289623435-22713-1-git-send-email-xiaosuo@gmail.com>
-	<4CE1A710.9040603@hp.com>
-	<1289857126.3364.14.camel@edumazet-laptop>
+Subject: Re: the future of ethtool
+Date: Mon, 15 Nov 2010 18:02:25 -0800 (PST)
+Message-ID: <20101115.180225.189678628.davem@davemloft.net>
+References: <1289857936.2586.51.camel@bwh-desktop>
+	<4CE1B8FD.3000007@garzik.org>
+	<20101115233335.GB24292@canuck.infradead.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: brian.haley@hp.com, xiaosuo@gmail.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jeff@garzik.org, bhutchings@solarflare.com, shemminger@vyatta.com,
+	netdev@vger.kernel.org
+To: tgraf@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53342
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33525
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759098Ab0KPB4X convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Nov 2010 20:56:23 -0500
-In-Reply-To: <1289857126.3364.14.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1754847Ab0KPCCA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Nov 2010 21:02:00 -0500
+In-Reply-To: <20101115233335.GB24292@canuck.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 15 Nov 2010 22:38:46 +0100
+From: Thomas Graf <tgraf@infradead.org>
+Date: Mon, 15 Nov 2010 18:33:35 -0500
 
-> Le lundi 15 novembre 2010 =E0 16:33 -0500, Brian Haley a =E9crit :
->> On 11/12/2010 11:43 PM, Changli Gao wrote:
->> > Use the macros defined for the members of flowi to clean the code =
-up.
->> >=20
->> > diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
->> > index 865fd76..36cd0b7 100644
->> > --- a/net/bridge/br_netfilter.c
->> > +++ b/net/bridge/br_netfilter.c
->> > @@ -412,13 +412,8 @@ static int br_nf_pre_routing_finish(struct sk=
-_buff *skb)
->> >  	if (dnat_took_place(skb)) {
->> >  		if ((err =3D ip_route_input(skb, iph->daddr, iph->saddr, iph->t=
-os, dev))) {
->> >  			struct flowi fl =3D {
->> > -				.nl_u =3D {
->> > -					.ip4_u =3D {
->> > -						 .daddr =3D iph->daddr,
->> > -						 .saddr =3D 0,
->> > -						 .tos =3D RT_TOS(iph->tos) },
->> > -				},
->> > -				.proto =3D 0,
->> > +				.fl4_dst =3D iph->daddr,
->> > +				.fl4_tos =3D RT_TOS(iph->tos),
->> >  			};
->>=20
->> Are these actually equivalent?  You dropped two assignments to zero.
->> I always thought things on the stack weren't.
->=20
-> Same question on lkml few hours ago. I think gcc does the assignement=
- to
-> zero, even on automatic variables (at least done on x86), but could n=
-ot
-> find a doc on it.
+> I tried to solve this by splitting the validate/change operation and
+> thus be able to validate all requests before starting to commit
+> them. This would mean changing all drivers though which I wasn't
+> willing to do.
 
-It always has, it always will.  "type var =3D { };" always zeros
-out the structure.
+It isn't sufficient.  You can still get into unwindable failures.
 
+Earlier operations can consume fixed resources like TCAM filter
+slots or rx/tx queues, making a subsequent operation in the
+sequence fail.
+
+A validate/commit scheme cannot detect this effectively.
