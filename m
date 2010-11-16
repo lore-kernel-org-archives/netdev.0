@@ -1,59 +1,41 @@
-From: Marcos <stalkingtime@gmail.com>
-Subject: Re: Fwd: a Great Idea - include Kademlia networking protocol in
- kernel -- REVISITED
-Date: Mon, 15 Nov 2010 23:21:19 -0700
-Message-ID: <AANLkTimoZRYssbop-JhryUVae5zy+KFsxny9T4ssHnqE@mail.gmail.com>
-References: <AANLkTi=VgBQ5rwkjZeo2zsRx1dSBy+4PBXeLLPQ4LRES@mail.gmail.com>
-	<AANLkTinWUmQ91cCULC8ZXFLwSKz6SNt3BpszrBEhbgcu@mail.gmail.com>
-	<1289724643.2743.58.camel@edumazet-laptop>
-	<AANLkTimkPpWob8ANySeWBvDE+Pq2wy4SQWJOSYzbS7QG@mail.gmail.com>
-	<1289727544.2743.72.camel@edumazet-laptop>
+From: Thomas Graf <tgraf@infradead.org>
+Subject: Re: the future of ethtool
+Date: Tue, 16 Nov 2010 01:25:53 -0500
+Message-ID: <20101116062553.GD24292@canuck.infradead.org>
+References: <4CE18CEA.5080502@garzik.org>
+ <1289852326.2586.32.camel@bwh-desktop>
+ <20101115124428.7b857ccb@nehalam>
+ <1289855642.2586.38.camel@bwh-desktop>
+ <20101115131453.16958d68@nehalam>
+ <1289857936.2586.51.camel@bwh-desktop>
+ <4CE1B8FD.3000007@garzik.org>
+ <20101115233335.GB24292@canuck.infradead.org>
+ <1289866230.2586.65.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jeff@garzik.org>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	NetDev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:52346 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755529Ab0KPGVV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Nov 2010 01:21:21 -0500
-Received: by bwz15 with SMTP id 15so323293bwz.19
-        for <netdev@vger.kernel.org>; Mon, 15 Nov 2010 22:21:20 -0800 (PST)
-In-Reply-To: <1289727544.2743.72.camel@edumazet-laptop>
+Received: from canuck.infradead.org ([134.117.69.58]:39150 "EHLO
+	canuck.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932264Ab0KPGZ5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Nov 2010 01:25:57 -0500
+Content-Disposition: inline
+In-Reply-To: <1289866230.2586.65.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[Eric Dumazet wrote:]
-> But we dont want a "super operating system". We want a good one.
+On Tue, Nov 16, 2010 at 12:10:30AM +0000, Ben Hutchings wrote:
+> I would expect to treat each operation in a multiple-set as conditional
+> on the success of all previous operations.  ethtool or other utilities
+> should then take care to put operations in a sensible order (e.g. enable
+> TX checksum before TSO, if those remain separate operations).  Error
+> reporting in the core is then as simple as reporting how many operations
+> were successful plus the error code for the one that failed.
 
-Yes, well you have that, I think, speaking at the kernel level.  But
-the thing is, people are building tools that mimic such anyway, and
-the next wave of new value will be found there.
-
-> Memory stores done in userland are as fast as memory stores done in
-> kernel.
-
-Really? And how about the abstraction-level?  because that will either
-make it lucrative or not for developers to build applications for
-it.....
-
-> Once you need to access files, perform complex searches, timers,
-> logging, and all the stuff, you really want to do it from userland, in
-> high level language that many programmers master, or get something that
-> is too complex/buggy.
-
-Yes, of course, all that will have to be considered.   But I'm
-suggesting that such a move is an investment in the future, that the
-the number of machines that will want or request peer-2-peer
-connectivity will (or should) only increase.  Done right, such a move
-should *simplify* things.  We're biased to think in centralized ways
-because of the centuries-old history of *who* has the resources.  But
-as networking, computation, and storage become commodified further,
-whole new topologies for the *right* architecture become available.
-The idea of "the OS" itself morphs.   And the *only* way maximize the
-value of the network is to make it easy to connect and communicate
-between peers -- what happens after that is so radical it can hardly
-be speculated because it gets into the realm of emergent complexity.
-Again, I refer you to Reed's law on the value of such networks.
-
-marcos
+This is already not that trivial with current netlink limitations.
+We are pretty much limited to a single int when returning error
+states. One more reason to rethink current netlink error semantics.
