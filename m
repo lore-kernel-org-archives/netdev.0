@@ -1,81 +1,110 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: MQ performance on other cards (cxgb3)
-Date: Tue, 16 Nov 2010 12:55:14 +0530
-Message-ID: <OF81531A43.39EC6856-ON652577DD.001BBEB0-652577DD.002851D7@in.ibm.com>
-References: <20101020085452.15579.76002.sendpatchset@krkumar2.in.ibm.com> <OF8735A2A4.74B4EE91-ON652577C5.0040D90B-652577C7.0056B99D@in.ibm.com> <20101026085709.GC23530@redhat.com> <OF529E89EE.84DB37B8-ON652577D6.001665CF-652577D6.00192784@in.ibm.com> <20101109132239.GF22705@redhat.com> <OF24E08752.2087FFA4-ON652577D6.00532DF1-652577D6.0054B291@LocalDomain>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next-2.6 PATCH] net: zero kobject in rx_queue_release
+Date: Tue, 16 Nov 2010 08:38:45 +0100
+Message-ID: <1289893125.3364.234.camel@edumazet-laptop>
+References: <20101116065906.31611.36938.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: anthony@codemonkey.ws, arnd@arndb.de, avi@redhat.com,
-	eric.dumazet@gmail.com, kvm@vger.kernel.org,
-	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	rusty@rustcorp.com.au
-To: davem@davemloft.net, Divy Le Ray <divy@chelsio.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <OF24E08752.2087FFA4-ON652577D6.00532DF1-652577D6.0054B291@LocalDomain>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org, therbert@google.com
+To: John Fastabend <john.r.fastabend@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:51978 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756425Ab0KPHiz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Nov 2010 02:38:55 -0500
+Received: by wwa36 with SMTP id 36so432207wwa.1
+        for <netdev@vger.kernel.org>; Mon, 15 Nov 2010 23:38:54 -0800 (PST)
+In-Reply-To: <20101116065906.31611.36938.stgit@jf-dev1-dcblab>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I had sent this mail to Michael last week - he agrees that I should
-share this information on the list:
+Le lundi 15 novembre 2010 =C3=A0 22:59 -0800, John Fastabend a =C3=A9cr=
+it :
+> netif_set_real_num_rx_queues() can decrement and increment
+> the number of rx queues. For example ixgbe does this as
+> features and offloads are toggled. Presumably this could
+> also happen across down/up on most devices if the available
+> resources changed (cpu offlined).
+>=20
+> The kobject needs to be zero'd in this case so that the
+> state is not preserved across kobject_put()/kobject_init_and_add().
+>=20
+> This resolves the following error report.
+>=20
+> ixgbe 0000:03:00.0: eth2: NIC Link is Up 10 Gbps, Flow Control: RX/TX
+> kobject (ffff880324b83210): tried to init an initialized object, some=
+thing is seriously wrong.
+> Pid: 1972, comm: lldpad Not tainted 2.6.37-rc18021qaz+ #169
+> Call Trace:
+>  [<ffffffff8121c940>] kobject_init+0x3a/0x83
+>  [<ffffffff8121cf77>] kobject_init_and_add+0x23/0x57
+>  [<ffffffff8107b800>] ? mark_lock+0x21/0x267
+>  [<ffffffff813c6d11>] net_rx_queue_update_kobjects+0x63/0xc6
+>  [<ffffffff813b5e0e>] netif_set_real_num_rx_queues+0x5f/0x78
+>  [<ffffffffa0261d49>] ixgbe_set_num_queues+0x1c6/0x1ca [ixgbe]
+>  [<ffffffffa0262509>] ixgbe_init_interrupt_scheme+0x1e/0x79c [ixgbe]
+>  [<ffffffffa0274596>] ixgbe_dcbnl_set_state+0x167/0x189 [ixgbe]
+>=20
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> ---
+>=20
+>  net/core/net-sysfs.c |    9 +++++++--
+>  1 files changed, 7 insertions(+), 2 deletions(-)
+>=20
+> diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+> index 3ba526b..960c075 100644
+> --- a/net/core/net-sysfs.c
+> +++ b/net/core/net-sysfs.c
+> @@ -711,13 +711,18 @@ static void rx_queue_release(struct kobject *ko=
+bj)
+> =20
+>=20
+>  	map =3D rcu_dereference_raw(queue->rps_map);
+> -	if (map)
+> +	if (map) {
+> +		rcu_assign_pointer(queue->rps_map, NULL);
 
-On latest net-next-2.6, virtio-net (guest->host) results are:
-______________________________________________________________
-                         SQ vs MQ (#txqs=8)
-#      BW1      BW2 (%)          CPU1     CPU2 (%)   RCPU1   RCPU2 (%)
-_______________________________________________________________
-1      105774  112256 (6.1)   257      255 (-.7)     532     549 (3.1)
-2      20842   30674 (47.1)   107      150 (40.1)    208     279 (34.1)
-4      22500   31953 (42.0)   241      409 (69.7)    467     619 (32.5)
-8      22416   44507 (98.5)   477      1039 (117.8)  960     1459 (51.9)
-16     22605   45372 (100.7)  905      2060 (127.6)  1895    2962 (56.3)
-24     23192   44201 (90.5)   1360     3028 (122.6)  2833    4437 (56.6)
-32     23158   43394 (87.3)   1811     3957 (118.4)  3770    5936 (57.4)
-40     23322   42550 (82.4)   2276     4986 (119.0)  4711    7417 (57.4)
-48     23564   41931 (77.9)   2757     5966 (116.3)  5653    8896 (57.3)
-64     23949   41092 (71.5)   3788     7898 (108.5)  7609    11826 (55.4)
-80     23256   41343 (77.7)   4597     9887 (115.0)  9503    14801 (55.7)
-96     23310   40645 (74.3)   5588     11758 (110.4) 11381   17761 (56.0)
-128    24095   41082 (70.5)   7587     15574 (105.2) 15029   23716 (57.8)
-______________________________________________________________
-Avg:      BW: (58.3)      CPU: (110.8)      RCPU: (55.9)
+Hmm, yes this works, but I am not sure queue->rps_map can be read by
+other cpus at this point.
 
-It's true that average CPU% on guest is almost double that of the BW
-improvement. But I don't think this is due to the patch (driver does no
-synchronization, etc). To compare MQ vs SQ on a 10G card, I ran the
-same test from host to remote host across cxgb3. The results are
-somewhat similar:
+rcu_assign_pointer() is a documented interface with implied semantic : =
+I
+put a NULL pointer on a RCU protected variable, and avoid a memory
+barrier because NULL is special.
 
-(I changed cxgb_open on the client system to:
-	netif_set_real_num_tx_queues(dev, 1);
-	err = netif_set_real_num_rx_queues(dev, 1);
-to simulate single queue (SQ))
-_____________________________________
-            cxgb3 SQ vs cxgb3 MQ
-#     BW1      BW2 (%)      CPU1   CPU2 (%)
-_____________________________________
-1     8301    8315 (.1)        5         4.66 (-6.6)
-2     9395    9380 (-.1)      16        16 (0)
-4     9411    9414 (0)        33        26 (-21.2)
-8     9411    9398 (-.1)      60        62 (3.3)
-16   9412    9413 (0)        116      117 (.8)
-24   9442    9963 (5.5)     179      198 (10.6)
-32   10031  10025 (0)       230     249 (8.2)
-40   9953    10024 (.7)      300     312 (4.0)
-48   10002  10015 (.1)      351     376 (7.1)
-64   10022  10024 (0)       494     515 (4.2)
-80   8894    10011 (12.5)   537    630 (17.3)
-96   8465    9907 (17.0)     612    749 (22.3)
-128  7541   9617 (27.5)     760    989 (30.1)
-_____________________________________
-Avg:     BW: (3.8)     CPU: (14.8)
+If this patch is for current kernel, I advise using RCU_INIT_POINTER()
+instead to make clear we only want to set the pointer to NULL, and avoi=
+d
+sparse warnings :)
 
-(Each case runs runs once for 60 secs)
 
-The BW increased modestly but CPU increased much more. I assume
-the change I made above to convert the driver from MQ to SQ is not
-incorrect.
 
-Thanks,
 
-- KK
+>  		call_rcu(&map->rcu, rps_map_release);
+> +	}
+> =20
+>  	flow_table =3D rcu_dereference_raw(queue->rps_flow_table);
+> -	if (flow_table)
+> +	if (flow_table) {
+> +		rcu_assign_pointer(queue->rps_flow_table, NULL);
+
+
+same here ?
+
+>  		call_rcu(&flow_table->rcu, rps_dev_flow_table_release);
+> +	}
+> =20
+> +	memset(kobj, 0, sizeof(*kobj));
+
+Is it the regular way to perform this, no kobject_{clear|del|deinit}() =
+?
+
+>  	dev_put(queue->dev);
+>  }
+> =20
+>=20
+
+Thanks=20
+
 
