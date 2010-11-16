@@ -1,7 +1,7 @@
 From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH 1/6] IPVS: Only match pe_data created by the same pe
-Date: Tue, 16 Nov 2010 15:34:53 +0900
-Message-ID: <1289889298-17287-2-git-send-email-horms__3080.02425958893$1289889349$gmane$org@verge.net.au>
+Subject: [PATCH 2/6] IPVS: Make the cp argument to ip_vs_sync_conn() static
+Date: Tue, 16 Nov 2010 15:34:54 +0900
+Message-ID: <1289889298-17287-3-git-send-email-horms@verge.net.au>
 References: <1289889298-17287-1-git-send-email-horms@verge.net.au>
 Cc: Simon Horman <horms@verge.net.au>
 To: Eric Dumazet <eric.dumazet@gmail.com>,
@@ -10,36 +10,47 @@ To: Eric Dumazet <eric.dumazet@gmail.com>,
 	Patrick McHardy <kaber@trash.net>, lvs-devel@vger.kernel.org,
 	n
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:32994 "EHLO
+Received: from kirsty.vergenet.net ([202.4.237.240]:32999 "EHLO
 	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932222Ab0KPGfb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Nov 2010 01:35:31 -0500
+	with ESMTP id S932470Ab0KPGfc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Nov 2010 01:35:32 -0500
 In-Reply-To: <1289889298-17287-1-git-send-email-horms@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Only match persistence engine data if it was
-created by the same persistence engine.
-
-Reported-by: Julian Anastasov <ja@ssi.bg>
+Acked-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
 Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- net/netfilter/ipvs/ip_vs_conn.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ include/net/ip_vs.h             |    2 +-
+ net/netfilter/ipvs/ip_vs_sync.c |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
-index 64a9ca3..261db1a 100644
---- a/net/netfilter/ipvs/ip_vs_conn.c
-+++ b/net/netfilter/ipvs/ip_vs_conn.c
-@@ -354,7 +354,7 @@ struct ip_vs_conn *ip_vs_ct_in_get(const struct ip_vs_conn_param *p)
+diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+index be2b569..d5a32e4 100644
+--- a/include/net/ip_vs.h
++++ b/include/net/ip_vs.h
+@@ -916,7 +916,7 @@ extern char ip_vs_master_mcast_ifn[IP_VS_IFNAME_MAXLEN];
+ extern char ip_vs_backup_mcast_ifn[IP_VS_IFNAME_MAXLEN];
+ extern int start_sync_thread(int state, char *mcast_ifn, __u8 syncid);
+ extern int stop_sync_thread(int state);
+-extern void ip_vs_sync_conn(struct ip_vs_conn *cp);
++extern void ip_vs_sync_conn(const struct ip_vs_conn *cp);
  
- 	list_for_each_entry(cp, &ip_vs_conn_tab[hash], c_list) {
- 		if (p->pe_data && p->pe->ct_match) {
--			if (p->pe->ct_match(p, cp))
-+			if (p->pe == cp->pe && p->pe->ct_match(p, cp))
- 				goto out;
- 			continue;
- 		}
+ 
+ /*
+diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
+index ab85aed..a4dccbc 100644
+--- a/net/netfilter/ipvs/ip_vs_sync.c
++++ b/net/netfilter/ipvs/ip_vs_sync.c
+@@ -236,7 +236,7 @@ get_curr_sync_buff(unsigned long time)
+  *      Add an ip_vs_conn information into the current sync_buff.
+  *      Called by ip_vs_in.
+  */
+-void ip_vs_sync_conn(struct ip_vs_conn *cp)
++void ip_vs_sync_conn(const struct ip_vs_conn *cp)
+ {
+ 	struct ip_vs_sync_mesg *m;
+ 	struct ip_vs_sync_conn *s;
 -- 
 1.7.2.3
 
