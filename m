@@ -1,66 +1,66 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: iproute2: use automake
-Date: Tue, 16 Nov 2010 21:12:35 +0100 (CET)
-Message-ID: <alpine.LNX.2.01.1011162111570.24880@obet.zrqbmnf.qr>
-References: <20101115.175928.104078108.davem@davemloft.net> <alpine.LNX.2.01.1011161108330.25859@obet.zrqbmnf.qr> <20101116075851.0de8d177@nehalam> <20101116.094132.59704380.davem@davemloft.net> <alpine.LNX.2.01.1011162017320.24880@obet.zrqbmnf.qr>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6 v4] can: Topcliff: PCH_CAN driver: Add	Flow
+	control/Fix Endianess issue/Separate IF register/Enumerate
+	LEC	macro/Move
+	MSI processing/Use BIT(X)/Change Message Object index/Add	prefix PCH_
+Date: Tue, 16 Nov 2010 21:39:47 +0100
+Message-ID: <4CE2EC13.9090707@grandegger.com>
+References: <4CE275A4.9010400@dsn.okisemi.com>
+	<20101116.091443.226753420.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: shemminger@vyatta.com, stephen.hemminger@vyatta.com,
-	Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from borg.medozas.de ([188.40.89.202]:37150 "EHLO borg.medozas.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759402Ab0KPUMg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Nov 2010 15:12:36 -0500
-In-Reply-To: <alpine.LNX.2.01.1011162017320.24880@obet.zrqbmnf.qr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org,
+	kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, chripell-VaTbYqLCNhc@public.gmane.org, joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <20101116.091443.226753420.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tuesday 2010-11-16 18:41, David Miller wrote:
->
->> Until you make a convincing case that the existing infrastructure
->> is a problem, choosing an alternative solution is bogus.
->
->I can't count the amount of times I've seen major source trees
->invest tons of engineering into things to decrease the pain of
->using things like automake and libtool.
+Hi David,
 
-The pro argument for a build system is not that Linux-only projects
-receive unneeded portability work, but that the work involved with
-maintaining all the commands in Makefiles, which tend to be a source
-of update anomalies, gets reduced.
+On 11/16/2010 06:14 PM, David Miller wrote:
+> 
+> Way too many changes in one patch.
+> 
+> Please post one that fixes the endianness issues.
+> 
+> One that fixes the register interface seperation.
+> 
+> One that adds flow control processing.
+> 
+> etc.
+> 
+> When you combine many tasks into one patch it's impossible
+> to bisect through your changes to debug problems in order
+> to figure out which changed introduced a bug.
+> 
+> I am not applying this, and I will not apply your patches
+> until you split them up properly.
+> 
+> You may think that there is zero value in this, but there
+> is huge value in it for anyone who tries to debug your
+> changes in the future.  Right now you are making that a
+> nearly impossible task.
 
->X11 even has a script that basically turns libtool into one big
->fat NOP, because on Linux everything libtool tries to figure out
->is completely superfluous.
+Please take into account that this patch got accepted by accident
+(because the maintainer did not respond properly in time). At that time
+the driver was incomplete, not ready for mainline and did not even work
+properly. Therefore it makes little sense to debug or even bisec these
+changes. Just for that reason I made an exemption and added my
+"Acked-by". Hope you can share my arguments.
 
-(I was not trying to make a case for Libtool specifically.)
-
-And yet they do use a build system (which happens to be Automake, but
-that's not my point). Was their time spent just to produce,
-"unnecessary non-sense", as you call it? I can imagine they will
-disagree with you.
-
->Don't crap up the tree with unnecessary non-sense just for some
->theoretical gain.  Things work just fine right now.
-
-They do not.
-
-* running make in subdirs is broken
-* iproute2/arpd compilation fails if db_185.h, atm.h is not present
-  and
-* people could not quite opt out building arpd when they are
-  fine with not having it
-* the DESTDIR variable was completely abused
-* data files were shoven into /usr/lib where they don't even belong
-  (that is, if you care about FHS even a tiny bit)
-* NO_SHARED_LIBS=y is broken
-* -lresolv was added unconditionally when it's not even needed
-* CFLAGS was overriden, which means a user running make CFLAGS="-g"
-  will kill the all-important -Wall and -I../include
-* Out-of-tree building, anyone?
-
-But what do I say; if it works _for you_, I must be wrong by
-definition.
+Wolfgang.
