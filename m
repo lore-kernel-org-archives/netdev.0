@@ -1,38 +1,38 @@
-From: Liew Kian Yang <kianyang@agroup.com.my>
-Subject: Vlan communication
-Date: Wed, 17 Nov 2010 15:15:24 +0800
-Message-ID: <1289978124.3250.2.camel@localhost.localdomain>
-Reply-To: kianyang@agroup.com.my
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Vlan communication
+Date: Tue, 16 Nov 2010 08:52:15 +0100
+Message-ID: <1289893935.3364.255.camel@edumazet-laptop>
+References: <1289978124.3250.2.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7BIT
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: kianyang@agroup.com.my
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from venus.localdns.com ([202.190.203.180]:47102 "EHLO
-	dedge-245.localdns.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756425Ab0KPHpq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Nov 2010 02:45:46 -0500
-Received: from mercury.localdns.com (venus.localdns.com [202.190.203.180])
-	by dedge-245.localdns.com (Postfix) with ESMTP id 19C9F8C094F
-	for <netdev@vger.kernel.org>; Tue, 16 Nov 2010 15:17:07 +0800 (MYT)
-Received: from [192.168.8.98] ([175.136.197.14])
- by mercury.localdns.com (Sun Java System Messaging Server 6.2-4.03 (built Sep
- 22 2005)) with ESMTPA id <0LBY008P4UWITHS0@mercury.localdns.com> for
- netdev@vger.kernel.org; Tue, 16 Nov 2010 15:17:07 +0800 (MYT)
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:58339 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759013Ab0KPHwY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Nov 2010 02:52:24 -0500
+Received: by wyb28 with SMTP id 28so398200wyb.19
+        for <netdev@vger.kernel.org>; Mon, 15 Nov 2010 23:52:23 -0800 (PST)
+In-Reply-To: <1289978124.3250.2.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear All,
+Le mercredi 17 novembre 2010 =C3=A0 15:15 +0800, Liew Kian Yang a =C3=A9=
+crit :
+> Dear All,
+>=20
+> Can I know is there any ways to make the vlan 1 interface able to sen=
+d
+> and receive data from the other vlan without using the vconfig to add
+> the vlan in linux?
 
-Can I know is there any ways to make the vlan 1 interface able to send
-and receive data from the other vlan without using the vconfig to add
-the vlan in linux?
+I dont understand your question.
 
-Thank you
+If your problem is vconfig being not available, the answer is
 
-
-Regards,
-Kian Yang, Liew
+ip link add link eth0 eth0.1 type vlan id 1
 
 
 
