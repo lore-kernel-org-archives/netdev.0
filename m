@@ -1,53 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6 v2] macvlan: lockless tx path
-Date: Tue, 16 Nov 2010 10:59:31 -0800 (PST)
-Message-ID: <20101116.105931.28828795.davem@davemloft.net>
-References: <1289411027.2860.248.camel@edumazet-laptop>
-	<1289459644.17691.1011.camel@edumazet-laptop>
-	<4CDCF8C3.6010007@trash.net>
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: Re: network device reference leak with net-next
+Date: Tue, 16 Nov 2010 20:21:40 +0100
+Message-ID: <AANLkTi=nCmL+09CAnTHn6Yn8dcrvkRxxnAgUNHPQbUeM@mail.gmail.com>
+References: <20101115105646.0cc823ce@nehalam> <1289847840.2607.120.camel@edumazet-laptop>
+ <20101115111024.3b3377be@nehalam> <4CE1BFCE.70105@intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	greearb@candelatech.com, bhutchings@solarflare.com
-To: kaber@trash.net
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	brian.haley@hp.com, maze@google.com
+To: John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32926
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757229Ab0KPS7H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Nov 2010 13:59:07 -0500
-In-Reply-To: <4CDCF8C3.6010007@trash.net>
+Received: from smtp-out.google.com ([216.239.44.51]:56931 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752929Ab0KPTWE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Nov 2010 14:22:04 -0500
+Received: from kpbe16.cbf.corp.google.com (kpbe16.cbf.corp.google.com [172.25.105.80])
+	by smtp-out.google.com with ESMTP id oAGJM2Ng020831
+	for <netdev@vger.kernel.org>; Tue, 16 Nov 2010 11:22:02 -0800
+Received: from gwb10 (gwb10.prod.google.com [10.200.2.10])
+	by kpbe16.cbf.corp.google.com with ESMTP id oAGJM1Yi024364
+	for <netdev@vger.kernel.org>; Tue, 16 Nov 2010 11:22:01 -0800
+Received: by gwb10 with SMTP id 10so649101gwb.29
+        for <netdev@vger.kernel.org>; Tue, 16 Nov 2010 11:22:01 -0800 (PST)
+In-Reply-To: <4CE1BFCE.70105@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Fri, 12 Nov 2010 09:20:19 +0100
+On Tue, Nov 16, 2010 at 12:18 AM, John Fastabend
+<john.r.fastabend@intel.com> wrote:
+> Quick glance looks like an in6_ifa_put is missed?
 
-> On 11.11.2010 08:14, Eric Dumazet wrote:
->> macvlan is a stacked device, like tunnels. We should use the lockless
->> mechanism we are using in tunnels and loopback.
->> 
->> This patch completely removes locking in TX path.
->> 
->> tx stat counters are added into existing percpu stat structure, renamed
->> from rx_stats to pcpu_stats.
->> 
->> Note : this reverts commit 2c11455321f37 (macvlan: add multiqueue
->> capability)
->> 
->> Note : rx_errors converted to a 32bit counter, like tx_dropped, since
->> they dont need 64bit range.
->> 
->> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
->> Cc: Patrick McHardy <kaber@trash.net>
->> Cc: Ben Greear <greearb@candelatech.com>
->> Cc: Ben Hutchings <bhutchings@solarflare.com>
->> ---
->> V2: correct kerneldoc
->>     u32 for tx_dropped and rx_errors
-> 
-> Looks good to me.
-> 
-> Acked-by: Patrick McHardy <kaber@trash.net>
+Oops. Sorry about that.
 
-Applied, thanks everyone.
+I'm testing your fix, it seems to work so far.
