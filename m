@@ -1,41 +1,60 @@
-From: Thomas Graf <tgraf@infradead.org>
-Subject: Re: the future of ethtool
-Date: Tue, 16 Nov 2010 01:25:53 -0500
-Message-ID: <20101116062553.GD24292@canuck.infradead.org>
-References: <4CE18CEA.5080502@garzik.org>
- <1289852326.2586.32.camel@bwh-desktop>
- <20101115124428.7b857ccb@nehalam>
- <1289855642.2586.38.camel@bwh-desktop>
- <20101115131453.16958d68@nehalam>
- <1289857936.2586.51.camel@bwh-desktop>
- <4CE1B8FD.3000007@garzik.org>
- <20101115233335.GB24292@canuck.infradead.org>
- <1289866230.2586.65.camel@bwh-desktop>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: [net-2.6 PATCH] ipv6: fix missing in6_ifa_put in addrconf
+Date: Mon, 15 Nov 2010 22:29:21 -0800
+Message-ID: <20101116062921.31164.70903.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jeff@garzik.org>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	NetDev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: john.r.fastabend@intel.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, shemminger@vyatta.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canuck.infradead.org ([134.117.69.58]:39150 "EHLO
-	canuck.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932264Ab0KPGZ5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Nov 2010 01:25:57 -0500
-Content-Disposition: inline
-In-Reply-To: <1289866230.2586.65.camel@bwh-desktop>
+Received: from mga11.intel.com ([192.55.52.93]:17163 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756275Ab0KPGb5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Nov 2010 01:31:57 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 16, 2010 at 12:10:30AM +0000, Ben Hutchings wrote:
-> I would expect to treat each operation in a multiple-set as conditional
-> on the success of all previous operations.  ethtool or other utilities
-> should then take care to put operations in a sensible order (e.g. enable
-> TX checksum before TSO, if those remain separate operations).  Error
-> reporting in the core is then as simple as reporting how many operations
-> were successful plus the error code for the one that failed.
+Fix ref count bug introduced by
 
-This is already not that trivial with current netlink limitations.
-We are pretty much limited to a single int when returning error
-states. One more reason to rethink current netlink error semantics.
+commit 2de795707294972f6c34bae9de713e502c431296
+Author: Lorenzo Colitti <lorenzo@google.com>
+Date:   Wed Oct 27 18:16:49 2010 +0000
+
+ipv6: addrconf: don't remove address state on ifdown if the address
+is being kept
+
+
+Fix logic so that addrconf_ifdown() decrements the inet6_ifaddr
+refcnt correctly with in6_ifa_put().
+
+Reported-by: Stephen Hemminger <shemminger@vyatta.com>
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+---
+
+ net/ipv6/addrconf.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index b41ce0f..aaa3ca4 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -2754,13 +2754,13 @@ static int addrconf_ifdown(struct net_device *dev, int how)
+ 			ifa->state = INET6_IFADDR_STATE_DEAD;
+ 			spin_unlock_bh(&ifa->state_lock);
+ 
+-			if (state == INET6_IFADDR_STATE_DEAD) {
+-				in6_ifa_put(ifa);
+-			} else {
++			if (state != INET6_IFADDR_STATE_DEAD) {
+ 				__ipv6_ifa_notify(RTM_DELADDR, ifa);
+ 				atomic_notifier_call_chain(&inet6addr_chain,
+ 							   NETDEV_DOWN, ifa);
+ 			}
++
++			in6_ifa_put(ifa);
+ 			write_lock_bh(&idev->lock);
+ 		}
+ 	}
+
