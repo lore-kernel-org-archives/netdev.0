@@ -1,61 +1,45 @@
-From: Petko Manolov <petkan@nucleusys.com>
-Subject: Re: [PATCH 06/10] drivers/net/usb: Remove unnecessary casts of
- netdev_priv
-Date: Tue, 16 Nov 2010 19:59:29 +0200 (EET)
-Message-ID: <alpine.DEB.2.00.1011161958320.1392@gabi>
-References: <cover.1289855436.git.joe@perches.com> <66a3d7996e4ce8a84610237e86adf4b15a48514a.1289855436.git.joe@perches.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6 v2] can: Topcliff: PCH_CAN driver: Add
+	Flow control,
+Date: Tue, 16 Nov 2010 09:11:32 -0800 (PST)
+Message-ID: <20101116.091132.193732351.davem@davemloft.net>
+References: <4CE0EFA7.9020007@dsn.okisemi.com> <4CE0F92A.40308@pengutronix.de>
+	<001401cb854d$b46e13c0$66f8800a@maildom.okisemi.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Jiri Kosina <trivial@kernel.org>,
-	Petko Manolov <petkan@users.sourceforge.net>,
-	Greg Kroah-Hartman <gregkh@suse.de>, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lan.nucleusys.com ([78.83.248.164]:47077 "EHLO
-	zztop.nucleusys.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754516Ab0KPQjf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Nov 2010 11:39:35 -0500
-In-Reply-To: <66a3d7996e4ce8a84610237e86adf4b15a48514a.1289855436.git.joe@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org,
+	sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org,
+	wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org, kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, chripell-VaTbYqLCNhc@public.gmane.org, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+To: tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <001401cb854d$b46e13c0$66f8800a-a06+6cuVnkTSQfdrb5gaxUEOCMrvLtNR@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-ACK! :-)
+From: "Tomoya MORINAGA" <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Date: Tue, 16 Nov 2010 14:18:26 +0900
 
+> On Monday, November 15, 2010 6:11 PM, Marc Kleine-Budde wrote:
+>> Please make it one patch per topic. A review of your patch will follow.
+> 
+> It's too late now.
+> This is difficult to separete patch per topic from current our CAN driver.
 
- 		Petko
+I am not applying your patches unless you split them up properly.
 
+None of your excuses for not doing this fundamental task are
+reasonable.
 
-On Mon, 15 Nov 2010, Joe Perches wrote:
-
-> Signed-off-by: Joe Perches <joe@perches.com>
-> ---
-> drivers/net/usb/pegasus.c |    4 ++--
-> 1 files changed, 2 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/usb/pegasus.c b/drivers/net/usb/pegasus.c
-> index 6710f093..ef36676 100644
-> --- a/drivers/net/usb/pegasus.c
-> +++ b/drivers/net/usb/pegasus.c
-> @@ -359,7 +359,7 @@ fail:
->
-> static int mdio_read(struct net_device *dev, int phy_id, int loc)
-> {
-> -	pegasus_t *pegasus = (pegasus_t *) netdev_priv(dev);
-> +	pegasus_t *pegasus = netdev_priv(dev);
-> 	u16 res;
->
-> 	read_mii_word(pegasus, phy_id, loc, &res);
-> @@ -397,7 +397,7 @@ fail:
->
-> static void mdio_write(struct net_device *dev, int phy_id, int loc, int val)
-> {
-> -	pegasus_t *pegasus = (pegasus_t *) netdev_priv(dev);
-> +	pegasus_t *pegasus = netdev_priv(dev);
->
-> 	write_mii_word(pegasus, phy_id, loc, val);
-> }
-> -- 
-> 1.7.3.1.g432b3.dirty
->
->
+Thanks.
