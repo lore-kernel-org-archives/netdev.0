@@ -1,38 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] irda: irttp: allow zero byte packets
-Date: Tue, 16 Nov 2010 09:51:01 -0800 (PST)
-Message-ID: <20101116.095101.115945762.davem@davemloft.net>
-References: <1289344787-12160-1-git-send-email-w.sang@pengutronix.de>
+Subject: Re: [patch] netlink: let nlmsg and nla functions take
+ pointer-to-const args
+Date: Tue, 16 Nov 2010 09:52:47 -0800 (PST)
+Message-ID: <20101116.095247.48487805.davem@davemloft.net>
+References: <alpine.LNX.2.01.1011100106010.10874@obet.zrqbmnf.qr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: irda-users@lists.sourceforge.net, netdev@vger.kernel.org,
-	samuel@sortiz.org
-To: w.sang@pengutronix.de
+Cc: netdev@vger.kernel.org
+To: jengelh@medozas.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39734
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60220
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753696Ab0KPRuh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Nov 2010 12:50:37 -0500
-In-Reply-To: <1289344787-12160-1-git-send-email-w.sang@pengutronix.de>
+	by vger.kernel.org with ESMTP id S1753966Ab0KPRwW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Nov 2010 12:52:22 -0500
+In-Reply-To: <alpine.LNX.2.01.1011100106010.10874@obet.zrqbmnf.qr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wolfram Sang <w.sang@pengutronix.de>
-Date: Wed, 10 Nov 2010 00:19:47 +0100
+From: Jan Engelhardt <jengelh@medozas.de>
+Date: Wed, 10 Nov 2010 01:06:36 +0100 (CET)
 
-> Sending zero byte packets is not neccessarily an error (AF_INET accepts it,
-> too), so just apply a shortcut. This was discovered because of a non-working
-> software with WINE. See
+> parent 2531add5568de01edcabf321d1bbb69a6a6d6c27 (v2.6.36-4468-g2531add)
+> commit f87d7f1b74689c96cc2f53b8cabfd309d7ad1bda
+> Author: Jan Engelhardt <jengelh@medozas.de>
+> Date:   Wed Nov 10 00:10:55 2010 +0100
 > 
->   http://bugs.winehq.org/show_bug.cgi?id=19397#c86
->   http://thread.gmane.org/gmane.linux.irda.general/1643
+> netlink: let nlmsg and nla functions take pointer-to-const args
 > 
-> for very detailed debugging information and a testcase. Kudos to Wolfgang for
-> those!
+> The changed functions do not modify the NL messages and/or attributes
+> at all. They should use const (similar to strchr), so that callers
+> which have a const nlmsg/nlattr around can make use of them without
+> casting.
 > 
-> Reported-by: Wolfgang Schwotzer <wolfgang.schwotzer@gmx.net>
-> Signed-off-by: Wolfram Sang <w.sang@pengutronix.de>
-> Tested-by: Mike Evans <mike.evans@cardolan.com>
+> While at it, constify a data array.
+> 
+> Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
 
-This looks good to me, applied, thanks!
+Applied.
