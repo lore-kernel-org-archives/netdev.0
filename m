@@ -1,42 +1,23 @@
-From: Nikola Ciprich <extmaillist@linuxbox.cz>
-Subject: 2.6.37-rc2 after KVM shutdown - unregister_netdevice: waiting for
-	vmtst01eth0 to become free. Usage count = 1
-Date: Tue, 16 Nov 2010 09:41:48 +0100
-Message-ID: <20101116084148.GA3781@pcnci.linuxbox.cz>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: ipvs: ipvs update for nf-next-2.6
+Date: Tue, 16 Nov 2010 10:21:53 +0100
+Message-ID: <4CE24D31.9000906@trash.net>
+References: <1289889298-17287-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: nikola.ciprich@linuxbox.cz,
-	Linux kernel list <linux-kernel@vger.kernel.org>
-To: KVM list <kvm@vger.kernel.org>,
-	netdev list <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gwu.lbox.cz ([62.245.111.132]:52090 "EHLO gwu.lbox.cz"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757284Ab0KPInX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Nov 2010 03:43:23 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>,
+	Julian Anastasov <ja@ssi.bg>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <1289889298-17287-1-git-send-email-horms@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
-I just tried running KVM on 2.6.37-rc2 host, and when trying to shutdown guest, it
-got to unterruptible state (D) and I'm getting lots of following messages:
-[ 1269.392009] unregister_netdevice: waiting for vmtst01eth0 to become free. Usage count = 1
-So I just want to report..
-n.
+On 16.11.2010 07:34, Simon Horman wrote:
+> git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-test-2.6.git for-patrick
 
-
--- 
--------------------------------------
-Ing. Nikola CIPRICH
-LinuxBox.cz, s.r.o.
-28. rijna 168, 709 01 Ostrava
-
-tel.:   +420 596 603 142
-fax:    +420 596 621 273
-mobil:  +420 777 093 799
-www.linuxbox.cz
-
-mobil servis: +420 737 238 656
-email servis: servis@linuxbox.cz
--------------------------------------
+Pulled, thanks Simon!
