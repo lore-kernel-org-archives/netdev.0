@@ -1,9 +1,8 @@
 From: Eric Paris <eparis@redhat.com>
-Subject: [PATCH 2/3] network: tcp_connect should return certain errors up the
+Subject: [PATCH 1/3] netfilter: allow hooks to pass error code back up the
 	stack
-Date: Tue, 16 Nov 2010 16:52:49 -0500
-Message-ID: <20101116215249.6727.89763.stgit@paris.rdu.redhat.com>
-References: <20101116215238.6727.39248.stgit@paris.rdu.redhat.com>
+Date: Tue, 16 Nov 2010 16:52:38 -0500
+Message-ID: <20101116215238.6727.39248.stgit@paris.rdu.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -13,45 +12,49 @@ Cc: eparis@redhat.com, equinox@diac24.net, eric.dumazet@gmail.com,
 	pekkas@netcore.fi, sds@tycho.nsa.gov, yoshfuji@linux-ipv6.org
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	selinux@tycho.nsa.gov, netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20101116215238.6727.39248.stgit@paris.rdu.redhat.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The current tcp_connect code completely ignores errors from sending an skb.
-This makes sense in many situations (like -ENOBUFFS) but I want to be able to
-immediately fail connections if they are denied by the SELinux netfilter hook.
-Netfilter does not normally return ECONNREFUSED when it drops a packet so we
-respect that error code as a final and fatal error that can not be recovered.
+SELinux would like to pass certain fatal errors back up the stack.  This patch
+implements the generic netfilter support for this functionality.
 
 Based-on-patch-by: Patrick McHardy <kaber@trash.net>
 Signed-off-by: Eric Paris <eparis@redhat.com>
 ---
 
- net/ipv4/tcp_output.c |    5 ++++-
- 1 files changed, 4 insertions(+), 1 deletions(-)
+ include/linux/netfilter.h |    2 ++
+ net/netfilter/core.c      |    6 ++++--
+ 2 files changed, 6 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index e961522..15dcd7b 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2592,6 +2592,7 @@ int tcp_connect(struct sock *sk)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	struct sk_buff *buff;
-+	int err;
+diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
+index 03317c8..1893837 100644
+--- a/include/linux/netfilter.h
++++ b/include/linux/netfilter.h
+@@ -33,6 +33,8 @@
  
- 	tcp_connect_init(sk);
+ #define NF_QUEUE_NR(x) ((((x) << NF_VERDICT_BITS) & NF_VERDICT_QMASK) | NF_QUEUE)
  
-@@ -2614,7 +2615,9 @@ int tcp_connect(struct sock *sk)
- 	sk->sk_wmem_queued += buff->truesize;
- 	sk_mem_charge(sk, buff->truesize);
- 	tp->packets_out += tcp_skb_pcount(buff);
--	tcp_transmit_skb(sk, buff, 1, sk->sk_allocation);
-+	err = tcp_transmit_skb(sk, buff, 1, sk->sk_allocation);
-+	if (err == -ECONNREFUSED)
-+		return err;
- 
- 	/* We change tp->snd_nxt after the tcp_transmit_skb() call
- 	 * in order to make this packet get counted in tcpOutSegs.
-
++#define NF_DROP_ERR(x) (((-x) << NF_VERDICT_BITS) | NF_DROP)
++
+ /* only for userspace compatibility */
+ #ifndef __KERNEL__
+ /* Generic cache responses from hook functions.
+diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+index 85dabb8..32fcbe2 100644
+--- a/net/netfilter/core.c
++++ b/net/netfilter/core.c
+@@ -173,9 +173,11 @@ next_hook:
+ 			     outdev, &elem, okfn, hook_thresh);
+ 	if (verdict == NF_ACCEPT || verdict == NF_STOP) {
+ 		ret = 1;
+-	} else if (verdict == NF_DROP) {
++	} else if ((verdict & NF_VERDICT_MASK) == NF_DROP) {
+ 		kfree_skb(skb);
+-		ret = -EPERM;
++		ret = -(verdict >> NF_VERDICT_BITS);
++		if (ret == 0)
++			ret = -EPERM;
+ 	} else if ((verdict & NF_VERDICT_MASK) == NF_QUEUE) {
+ 		if (!nf_queue(skb, elem, pf, hook, indev, outdev, okfn,
+ 			      verdict >> NF_VERDICT_BITS))
