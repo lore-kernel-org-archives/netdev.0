@@ -1,156 +1,215 @@
 From: Thomas Graf <tgraf@infradead.org>
-Subject: [PATCH net-next 3/4] ipv4: AF_INET link address family
-Date: Tue, 16 Nov 2010 09:32:48 -0500
-Message-ID: <20101116143248.GC26669@canuck.infradead.org>
+Subject: [PATCH net-next 4/4] ipv6: AF_INET6 link address family
+Date: Tue, 16 Nov 2010 09:33:57 -0500
+Message-ID: <20101116143357.GD26669@canuck.infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canuck.infradead.org ([134.117.69.58]:47281 "EHLO
+Received: from canuck.infradead.org ([134.117.69.58]:47496 "EHLO
 	canuck.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754749Ab0KPOcs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Nov 2010 09:32:48 -0500
+	with ESMTP id S933174Ab0KPOd6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Nov 2010 09:33:58 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Implements the AF_INET link address family exposing the per
-device configuration settings via netlink using the attribute
-IFLA_INET_CONF.
-
-The format of IFLA_INET_CONF differs depending on the direction
-the attribute is sent. The attribute sent by the kernel consists
-of a u32 array, basically a 1:1 copy of in_device->cnf.data[].
-The attribute expected by the kernel must consist of a sequence
-of nested u32 attributes, each representing a change request,
-e.g.
-	[IFLA_INET_CONF] = {
-		[IPV4_DEVCONF_FORWARDING] = 1,
-		[IPV4_DEVCONF_NOXFRM] = 0,
-	}
-
-libnl userspace API documentation and example available from:
-http://www.infradead.org/~tgr/libnl/doc-git/group__link__inet.html
+IPv6 already exposes some address family data via netlink in the
+IFLA_PROTINFO attribute if RTM_GETLINK request is sent with the
+address family set to AF_INET6. We take over this format and
+reuse all the code.
 
 Signed-off-by: Thomas Graf <tgraf@infradead.org>
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-Index: net-next-2.6/net/ipv4/devinet.c
+Index: net-next-2.6/net/ipv6/addrconf.c
 ===================================================================
---- net-next-2.6.orig/net/ipv4/devinet.c
-+++ net-next-2.6/net/ipv4/devinet.c
-@@ -1256,6 +1256,72 @@ errout:
- 		rtnl_set_sk_err(net, RTNLGRP_IPV4_IFADDR, err);
+--- net-next-2.6.orig/net/ipv6/addrconf.c
++++ net-next-2.6/net/ipv6/addrconf.c
+@@ -3831,6 +3831,15 @@ static inline void ipv6_store_devconf(st
+ 	array[DEVCONF_FORCE_TLLAO] = cnf->force_tllao;
  }
  
-+static size_t inet_get_link_af_size(const struct net_device *dev)
++static inline size_t inet6_ifla6_size(void)
 +{
-+	struct in_device *in_dev = __in_dev_get_rcu(dev);
++	return nla_total_size(4) /* IFLA_INET6_FLAGS */
++	     + nla_total_size(sizeof(struct ifla_cacheinfo))
++	     + nla_total_size(DEVCONF_MAX * 4) /* IFLA_INET6_CONF */
++	     + nla_total_size(IPSTATS_MIB_MAX * 8) /* IFLA_INET6_STATS */
++	     + nla_total_size(ICMP6_MIB_MAX * 8); /* IFLA_INET6_ICMP6STATS */
++}
 +
-+	if (!in_dev)
+ static inline size_t inet6_if_nlmsg_size(void)
+ {
+ 	return NLMSG_ALIGN(sizeof(struct ifinfomsg))
+@@ -3838,13 +3847,7 @@ static inline size_t inet6_if_nlmsg_size
+ 	       + nla_total_size(MAX_ADDR_LEN) /* IFLA_ADDRESS */
+ 	       + nla_total_size(4) /* IFLA_MTU */
+ 	       + nla_total_size(4) /* IFLA_LINK */
+-	       + nla_total_size( /* IFLA_PROTINFO */
+-			nla_total_size(4) /* IFLA_INET6_FLAGS */
+-			+ nla_total_size(sizeof(struct ifla_cacheinfo))
+-			+ nla_total_size(DEVCONF_MAX * 4) /* IFLA_INET6_CONF */
+-			+ nla_total_size(IPSTATS_MIB_MAX * 8) /* IFLA_INET6_STATS */
+-			+ nla_total_size(ICMP6_MIB_MAX * 8) /* IFLA_INET6_ICMP6STATS */
+-		 );
++	       + nla_total_size(inet6_ifla6_size()); /* IFLA_PROTINFO */
+ }
+ 
+ static inline void __snmp6_fill_stats(u64 *stats, void __percpu **mib,
+@@ -3891,15 +3894,76 @@ static void snmp6_fill_stats(u64 *stats,
+ 	}
+ }
+ 
++static int inet6_fill_ifla6_attrs(struct sk_buff *skb, struct inet6_dev *idev)
++{
++	struct nlattr *nla;
++	struct ifla_cacheinfo ci;
++
++	NLA_PUT_U32(skb, IFLA_INET6_FLAGS, idev->if_flags);
++
++	ci.max_reasm_len = IPV6_MAXPLEN;
++	ci.tstamp = (__u32)(TIME_DELTA(idev->tstamp, INITIAL_JIFFIES) / HZ * 100
++		    + TIME_DELTA(idev->tstamp, INITIAL_JIFFIES) % HZ * 100 / HZ);
++	ci.reachable_time = idev->nd_parms->reachable_time;
++	ci.retrans_time = idev->nd_parms->retrans_time;
++	NLA_PUT(skb, IFLA_INET6_CACHEINFO, sizeof(ci), &ci);
++
++	nla = nla_reserve(skb, IFLA_INET6_CONF, DEVCONF_MAX * sizeof(s32));
++	if (nla == NULL)
++		goto nla_put_failure;
++	ipv6_store_devconf(&idev->cnf, nla_data(nla), nla_len(nla));
++
++	/* XXX - MC not implemented */
++
++	nla = nla_reserve(skb, IFLA_INET6_STATS, IPSTATS_MIB_MAX * sizeof(u64));
++	if (nla == NULL)
++		goto nla_put_failure;
++	snmp6_fill_stats(nla_data(nla), idev, IFLA_INET6_STATS, nla_len(nla));
++
++	nla = nla_reserve(skb, IFLA_INET6_ICMP6STATS, ICMP6_MIB_MAX * sizeof(u64));
++	if (nla == NULL)
++		goto nla_put_failure;
++	snmp6_fill_stats(nla_data(nla), idev, IFLA_INET6_ICMP6STATS, nla_len(nla));
++
++	return 0;
++
++nla_put_failure:
++	return -EMSGSIZE;
++}
++
++static size_t inet6_get_link_af_size(const struct net_device *dev)
++{
++	if (!__in6_dev_get(dev))
 +		return 0;
 +
-+	return nla_total_size(IPV4_DEVCONF_MAX * 4); /* IFLA_INET_CONF */
++	return inet6_ifla6_size();
 +}
 +
-+static int inet_fill_link_af(struct sk_buff *skb, const struct net_device *dev)
++static int inet6_fill_link_af(struct sk_buff *skb, const struct net_device *dev)
 +{
-+	struct in_device *in_dev = __in_dev_get_rcu(dev);
-+	struct nlattr *nla;
-+	int i;
++	struct inet6_dev *idev = __in6_dev_get(dev);
 +
-+	if (!in_dev)
++	if (!idev)
 +		return -ENODATA;
 +
-+	nla = nla_reserve(skb, IFLA_INET_CONF, IPV4_DEVCONF_MAX * 4);
-+	if (nla == NULL)
++	if (inet6_fill_ifla6_attrs(skb, idev) < 0)
 +		return -EMSGSIZE;
 +
-+	for (i = 0; i < IPV4_DEVCONF_MAX; i++)
-+		((u32 *) nla_data(nla))[i] = in_dev->cnf.data[i];
-+
 +	return 0;
 +}
 +
-+static const struct nla_policy inet_af_policy[IFLA_INET_MAX+1] = {
-+	[IFLA_INET_CONF]	= { .type = NLA_NESTED },
-+};
-+
-+static int inet_parse_link_af(struct net_device *dev, const struct nlattr *nla)
++static int inet6_parse_link_af(struct net_device *dev, const struct nlattr *nla)
 +{
-+	struct in_device *in_dev = __in_dev_get_rcu(dev);
-+	struct nlattr *a, *tb[IFLA_INET_MAX+1];
-+	int err, rem;
-+
-+	if (!in_dev)
-+		return -EOPNOTSUPP;
-+
-+	err = nla_parse_nested(tb, IFLA_INET_MAX, nla, inet_af_policy);
-+	if (err < 0)
-+		return err;
-+
-+	if (tb[IFLA_INET_CONF]) {
-+		nla_for_each_nested(a, tb[IFLA_INET_CONF], rem) {
-+			int cfgid = nla_type(a);
-+
-+			if (nla_len(a) < 4)
-+				return -EINVAL;
-+
-+			if (cfgid <= 0 || cfgid > IPV4_DEVCONF_MAX)
-+				return -EINVAL;
-+		}
-+	}
-+
-+	if (tb[IFLA_INET_CONF]) {
-+		nla_for_each_nested(a, tb[IFLA_INET_CONF], rem)
-+			ipv4_devconf_set(in_dev, nla_type(a), nla_get_u32(a));
-+	}
-+
-+	return 0;
++	return -EOPNOTSUPP;
 +}
 +
- #ifdef CONFIG_SYSCTL
- 
- static void devinet_copy_dflt_conf(struct net *net, int i)
-@@ -1619,6 +1685,13 @@ static __net_initdata struct pernet_oper
- 	.exit = devinet_exit_net,
- };
- 
-+static struct rtnl_af_ops inet_af_ops = {
-+	.family		  = AF_INET,
-+	.fill_link_af	  = inet_fill_link_af,
-+	.get_link_af_size = inet_get_link_af_size,
-+	.parse_link_af	  = inet_parse_link_af,
-+};
-+
- void __init devinet_init(void)
+ static int inet6_fill_ifinfo(struct sk_buff *skb, struct inet6_dev *idev,
+ 			     u32 pid, u32 seq, int event, unsigned int flags)
  {
- 	register_pernet_subsys(&devinet_ops);
-@@ -1626,6 +1699,8 @@ void __init devinet_init(void)
- 	register_gifconf(PF_INET, inet_gifconf);
- 	register_netdevice_notifier(&ip_netdev_notifier);
+ 	struct net_device *dev = idev->dev;
+-	struct nlattr *nla;
+ 	struct ifinfomsg *hdr;
+ 	struct nlmsghdr *nlh;
+ 	void *protoinfo;
+-	struct ifla_cacheinfo ci;
  
-+	rtnl_af_register(&inet_af_ops);
-+
- 	rtnl_register(PF_INET, RTM_NEWADDR, inet_rtm_newaddr, NULL);
- 	rtnl_register(PF_INET, RTM_DELADDR, inet_rtm_deladdr, NULL);
- 	rtnl_register(PF_INET, RTM_GETADDR, NULL, inet_dump_ifaddr);
-Index: net-next-2.6/include/linux/if_link.h
-===================================================================
---- net-next-2.6.orig/include/linux/if_link.h
-+++ net-next-2.6/include/linux/if_link.h
-@@ -147,6 +147,14 @@ enum {
- #define IFLA_PAYLOAD(n) NLMSG_PAYLOAD(n,sizeof(struct ifinfomsg))
- #endif
+ 	nlh = nlmsg_put(skb, pid, seq, event, sizeof(*hdr), flags);
+ 	if (nlh == NULL)
+@@ -3926,31 +3990,8 @@ static int inet6_fill_ifinfo(struct sk_b
+ 	if (protoinfo == NULL)
+ 		goto nla_put_failure;
  
-+enum {
-+	IFLA_INET_UNSPEC,
-+	IFLA_INET_CONF,
-+	__IFLA_INET_MAX,
+-	NLA_PUT_U32(skb, IFLA_INET6_FLAGS, idev->if_flags);
+-
+-	ci.max_reasm_len = IPV6_MAXPLEN;
+-	ci.tstamp = (__u32)(TIME_DELTA(idev->tstamp, INITIAL_JIFFIES) / HZ * 100
+-		    + TIME_DELTA(idev->tstamp, INITIAL_JIFFIES) % HZ * 100 / HZ);
+-	ci.reachable_time = idev->nd_parms->reachable_time;
+-	ci.retrans_time = idev->nd_parms->retrans_time;
+-	NLA_PUT(skb, IFLA_INET6_CACHEINFO, sizeof(ci), &ci);
+-
+-	nla = nla_reserve(skb, IFLA_INET6_CONF, DEVCONF_MAX * sizeof(s32));
+-	if (nla == NULL)
++	if (inet6_fill_ifla6_attrs(skb, idev) < 0)
+ 		goto nla_put_failure;
+-	ipv6_store_devconf(&idev->cnf, nla_data(nla), nla_len(nla));
+-
+-	/* XXX - MC not implemented */
+-
+-	nla = nla_reserve(skb, IFLA_INET6_STATS, IPSTATS_MIB_MAX * sizeof(u64));
+-	if (nla == NULL)
+-		goto nla_put_failure;
+-	snmp6_fill_stats(nla_data(nla), idev, IFLA_INET6_STATS, nla_len(nla));
+-
+-	nla = nla_reserve(skb, IFLA_INET6_ICMP6STATS, ICMP6_MIB_MAX * sizeof(u64));
+-	if (nla == NULL)
+-		goto nla_put_failure;
+-	snmp6_fill_stats(nla_data(nla), idev, IFLA_INET6_ICMP6STATS, nla_len(nla));
+ 
+ 	nla_nest_end(skb, protoinfo);
+ 	return nlmsg_end(skb, nlh);
+@@ -4621,6 +4662,13 @@ int unregister_inet6addr_notifier(struct
+ }
+ EXPORT_SYMBOL(unregister_inet6addr_notifier);
+ 
++static struct rtnl_af_ops inet6_ops = {
++	.family		  = AF_INET6,
++	.fill_link_af	  = inet6_fill_link_af,
++	.get_link_af_size = inet6_get_link_af_size,
++	.parse_link_af	  = inet6_parse_link_af,
 +};
 +
-+#define IFLA_INET_MAX (__IFLA_INET_MAX - 1)
-+
- /* ifi_flags.
+ /*
+  *	Init / cleanup code
+  */
+@@ -4672,6 +4720,10 @@ int __init addrconf_init(void)
  
-    IFF_* flags.
+ 	addrconf_verify(0);
+ 
++	err = rtnl_af_register(&inet6_ops);
++	if (err < 0)
++		goto errout_af;
++
+ 	err = __rtnl_register(PF_INET6, RTM_GETLINK, NULL, inet6_dump_ifinfo);
+ 	if (err < 0)
+ 		goto errout;
+@@ -4687,6 +4739,8 @@ int __init addrconf_init(void)
+ 
+ 	return 0;
+ errout:
++	rtnl_af_unregister(&inet6_ops);
++errout_af:
+ 	unregister_netdevice_notifier(&ipv6_dev_notf);
+ errlo:
+ 	unregister_pernet_subsys(&addrconf_ops);
+@@ -4707,6 +4761,8 @@ void addrconf_cleanup(void)
+ 
+ 	rtnl_lock();
+ 
++	__rtnl_af_unregister(&inet6_ops);
++
+ 	/* clean dev list */
+ 	for_each_netdev(&init_net, dev) {
+ 		if (__in6_dev_get(dev) == NULL)
