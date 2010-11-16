@@ -1,69 +1,59 @@
-From: Changli Gao <xiaosuo@gmail.com>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
 Subject: Re: [PATCH] filter: Optimize instruction revalidation code.
-Date: Wed, 17 Nov 2010 07:31:51 +0800
-Message-ID: <AANLkTi=-Kr7OpSSz1aTQxTEwaOwf_m6hPDr24vYw_z75@mail.gmail.com>
+Date: Wed, 17 Nov 2010 00:45:05 +0100
+Message-ID: <20101116234505.GC3058@nuttenaction>
 References: <1695276347-1289413089-cardhu_decombobulator_blackberry.rim.net-434693855-@bda083.bisx.prod.on.blackberry>
- <20101110.102129.112602843.davem@davemloft.net> <1289414024.2469.20.camel@edumazet-laptop>
- <20101110.103807.39173013.davem@davemloft.net> <201011162208.BHC17628.SVtFMJOOLFQFOH@I-love.SAKURA.ne.jp>
+ <20101110.102129.112602843.davem@davemloft.net>
+ <1289414024.2469.20.camel@edumazet-laptop>
+ <20101110.103807.39173013.davem@davemloft.net>
+ <201011162208.BHC17628.SVtFMJOOLFQFOH@I-love.SAKURA.ne.jp>
  <20101116221310.GA3058@nuttenaction>
+ <AANLkTi=-Kr7OpSSz1aTQxTEwaOwf_m6hPDr24vYw_z75@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=us-ascii
 Cc: Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
 	davem@davemloft.net, eric.dumazet@gmail.com,
 	drosenberg@vsecurity.com, netdev@vger.kernel.org
-To: Hagen Paul Pfeifer <hagen@jauu.net>
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f46.google.com ([209.85.215.46]:63351 "EHLO
-	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932745Ab0KPXcM convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Nov 2010 18:32:12 -0500
-Received: by ewy8 with SMTP id 8so813298ewy.19
-        for <netdev@vger.kernel.org>; Tue, 16 Nov 2010 15:32:11 -0800 (PST)
-In-Reply-To: <20101116221310.GA3058@nuttenaction>
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:51341 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753121Ab0KPXpH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Nov 2010 18:45:07 -0500
+Content-Disposition: inline
+In-Reply-To: <AANLkTi=-Kr7OpSSz1aTQxTEwaOwf_m6hPDr24vYw_z75@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 17, 2010 at 6:13 AM, Hagen Paul Pfeifer <hagen@jauu.net> wr=
-ote:
-> * Tetsuo Handa | 2010-11-16 22:08:50 [+0900]:
+* Changli Gao | 2010-11-17 07:31:51 [+0800]:
+
+>> Maybe I don't get it, but you increment the opcode by one, but you never
+>> increment the opcode in sk_run_filter() - do I miss something? Did you test
+>> the your patch (a trivial tcpdump rule should be sufficient)?
+>>
 >
->>--- a/net/core/filter.c
->>+++ b/net/core/filter.c
->>@@ -383,7 +383,57 @@ EXPORT_SYMBOL(sk_run_filter);
->> =A0*/
->> int sk_chk_filter(struct sock_filter *filter, int flen)
->> {
->>- =A0 =A0 =A0struct sock_filter *ftest;
->>+ =A0 =A0 =A0/*
->>+ =A0 =A0 =A0 * Valid instructions are initialized to non-0.
->>+ =A0 =A0 =A0 * Invalid instructions are initialized to 0.
->>+ =A0 =A0 =A0 */
->>+ =A0 =A0 =A0static u16 codes[] =3D {
->>+ =A0 =A0 =A0 =A0 =A0 =A0 =A0[BPF_ALU|BPF_ADD|BPF_K] =A0=3D BPF_S_ALU=
-_ADD_K + 1,
->>+ =A0 =A0 =A0 =A0 =A0 =A0 =A0[BPF_ALU|BPF_ADD|BPF_X] =A0=3D BPF_S_ALU=
-_ADD_X + 1,
->>+ =A0 =A0 =A0 =A0 =A0 =A0 =A0[BPF_ALU|BPF_SUB|BPF_K] =A0=3D BPF_S_ALU=
-_SUB_K + 1,
-> [...]
+>+               code = codes[code];
+>+               if (!code--)
+>+                       return -EINVAL;
+
+Right, temporary in sk_chk_filter() but as I wrote earlier not in sk_run_filter().
+
+>But how about this:
 >
-> Maybe I don't get it, but you increment the opcode by one, but you ne=
-ver
-> increment the opcode in sk_run_filter() - do I miss something? Did yo=
-u test
-> the your patch (a trivial tcpdump rule should be sufficient)?
->
+>enum {
+>        BPF_S_RET_K = 1,
 
-+               code =3D codes[code];
-+               if (!code--)
-+                       return -EINVAL;
+better.
 
-But how about this:
+Best regards, Hagen
 
-enum {
-        BPF_S_RET_K =3D 1,
+BTW: you can verify your code by construct some artificial filter rules via
 
---=20
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+struct sock_filter {
+	uint16_t  code;   /* Actual filter code */
+	uint8_t   jt;     /* Jump true */
+	uint8_t   jf;     /* Jump false */
+	uint32_t  k;      /* Generic multiuse field
+};
+
+and attach them to a socket with setsockopt.
