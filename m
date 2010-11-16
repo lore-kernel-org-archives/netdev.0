@@ -1,9 +1,10 @@
 From: "Tomoya MORINAGA" <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
 Subject: Re: [PATCH net-next-2.6 v2] can: Topcliff: PCH_CAN driver: Add Flow
 	control,
-Date: Tue, 16 Nov 2010 14:18:26 +0900
-Message-ID: <001401cb854d$b46e13c0$66f8800a@maildom.okisemi.com>
-References: <4CE0EFA7.9020007@dsn.okisemi.com> <4CE0F92A.40308@pengutronix.de>
+Date: Tue, 16 Nov 2010 14:30:03 +0900
+Message-ID: <001801cb854f$527a2bc0$66f8800a@maildom.okisemi.com>
+References: <4CE0EFA7.9020007@dsn.okisemi.com>
+	<4CE0FF5A.3000100@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -28,13 +29,16 @@ Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Monday, November 15, 2010 6:11 PM, Marc Kleine-Budde wrote:
-> Please make it one patch per topic. A review of your patch will follow.
+Hi Marc,
 
-It's too late now.
-This is difficult to separete patch per topic from current our CAN driver.
+On Monday, November 15, 2010 6:37 PM, Marc Kleine-Budde wrote :
 
-Next time posting another patch, I will do like so.
+> Either use ioread8 or ioread16 in both the rx and tx path.
+I will modify to ioread16
+
+>> +  if (ioread32(&priv->regs->treq2) & 0xfc00) {
+> what does this if check?
+This is for whether all tx requests are complete or not.
 
 ---
 Thanks,
