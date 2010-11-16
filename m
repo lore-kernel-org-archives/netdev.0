@@ -1,40 +1,49 @@
-From: Ming-Yang Lee <ming.yangfundsservice@qatar.io>
-Subject: (unknown)
-Date: Tue, 16 Nov 2010 13:59:33 +0000
-Message-ID: <20101116135933.9lfnni1reokcgc0o__19512.5853912488$1289917845$gmane$org@mail.idngh.com>
+From: Thomas Graf <tgraf@infradead.org>
+Subject: [PATCH net-next 2/4] inet: Define IPV4_DEVCONF_MAX
+Date: Tue, 16 Nov 2010 09:31:20 -0500
+Message-ID: <20101116143120.GB26669@canuck.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=ISO-8859-1;
-	DelSp="Yes";
-	format="flowed"
-Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.idngh.com ([41.204.36.5]:50536 "EHLO idngh.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755183Ab0KPOaG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Nov 2010 09:30:06 -0500
-Subject: 
+Received: from canuck.infradead.org ([134.117.69.58]:46857 "EHLO
+	canuck.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933047Ab0KPObU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Nov 2010 09:31:20 -0500
 Content-Disposition: inline
-Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Define IPV4_DEVCONF_MAX to get rid of MAX - 1 notation.
 
+Signed-off-by: Thomas Graf <tgraf@infradead.org>
 
-Do you need a loan to pay your bills or to start up a business or for Xmas?.
-Kindly apply now for a low rate loan of 3%. for more information contact:
-ming.yangfundsservice@qatar.io
-We Await Your Response.
-Mr Ming-Yang Lee
-
-----------------------------------------------------------------
-This message was sent using IMP, the Internet Messaging Program.
-
-
-
--- 
-This message has been scanned for viruses and
-dangerous content by MailScanner, and is
-believed to be clean.
-
+Index: net-next-2.6/include/linux/inetdevice.h
+===================================================================
+--- net-next-2.6.orig/include/linux/inetdevice.h
++++ net-next-2.6/include/linux/inetdevice.h
+@@ -41,10 +41,12 @@ enum
+ 	__IPV4_DEVCONF_MAX
+ };
+ 
++#define IPV4_DEVCONF_MAX (__IPV4_DEVCONF_MAX - 1)
++
+ struct ipv4_devconf {
+ 	void	*sysctl;
+-	int	data[__IPV4_DEVCONF_MAX - 1];
+-	DECLARE_BITMAP(state, __IPV4_DEVCONF_MAX - 1);
++	int	data[IPV4_DEVCONF_MAX];
++	DECLARE_BITMAP(state, IPV4_DEVCONF_MAX);
+ };
+ 
+ struct in_device {
+@@ -90,7 +92,7 @@ static inline void ipv4_devconf_set(stru
+ 
+ static inline void ipv4_devconf_setall(struct in_device *in_dev)
+ {
+-	bitmap_fill(in_dev->cnf.state, __IPV4_DEVCONF_MAX - 1);
++	bitmap_fill(in_dev->cnf.state, IPV4_DEVCONF_MAX);
+ }
+ 
+ #define IN_DEV_CONF_GET(in_dev, attr) \
