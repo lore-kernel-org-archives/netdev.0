@@ -1,23 +1,23 @@
-From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+From: "Tomoya MORINAGA" <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
 Subject: Re: [PATCH net-next-2.6 v2] can: Topcliff: PCH_CAN driver: Add Flow
 	control,
-Date: Tue, 16 Nov 2010 09:14:18 +0100
-Message-ID: <4CE23D5A.5080606@pengutronix.de>
-References: <4CE0EFA7.9020007@dsn.okisemi.com> <4CE0F92A.40308@pengutronix.de>
-	<001401cb854d$b46e13c0$66f8800a@maildom.okisemi.com>
+Date: Tue, 16 Nov 2010 17:25:06 +0900
+Message-ID: <001501cb8567$c7a38820$66f8800a@maildom.okisemi.com>
+References: <4CE0EFA7.9020007@dsn.okisemi.com>
+	<4CE141EA.5070702@grandegger.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============9047370706406694175=="
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
 	Masayuki Ohtake <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>,
 	Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>, margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
-	joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
 	Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-To: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+To: "Wolfgang Grandegger" <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
 Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <001401cb854d$b46e13c0$66f8800a-a06+6cuVnkTSQfdrb5gaxUEOCMrvLtNR@public.gmane.org>
 List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
 	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
 List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
@@ -29,65 +29,67 @@ Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---===============9047370706406694175==
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig7FF810E18DA6D1AC9D6D4A36"
+On Monday, November 15, 2010 11:21 PM, Wolfgang Grandegger wrote:
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig7FF810E18DA6D1AC9D6D4A36
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+> 
+> More comments to the lec handling below.
+> 
+> > + cf->data[6] = ioread32(&priv->regs->errc) & PCH_TEC;
+> > + cf->data[7] = (ioread32(&priv->regs->errc) & PCH_REC) >> 8;
+> 
+> Could be handle with just *one* register access.
 
-On 11/16/2010 06:18 AM, Tomoya MORINAGA wrote:
-> On Monday, November 15, 2010 6:11 PM, Marc Kleine-Budde wrote:
->> Please make it one patch per topic. A review of your patch will follow=
-=2E
->=20
-> It's too late now.
-> This is difficult to separete patch per topic from current our CAN driv=
-er.
->=20
-> Next time posting another patch, I will do like so.
+I will modify.
 
-Sorry, but there is little chance to get a "this patch changes about 10
-things" into the kernel, please try to split up the patch.
+>   if (reg_stat & PCH_BUS_OFF ||
+>     (reg_stat & PCH_LEC_ALL) != PCH_LEC_ALL) {
+> 
+> Your lec handling is still not correc, 
 
-regards Marc
+I will modify like above.
 
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+> I believe. The driver needs to
+> write PCH_LEC_ALL to the "stat" register once in the initialization code
+This is NOT true.
+I heard even if CAN driver detects PCH_LEC_ALL, the driver doesn't have to
+write PCH_LEC_ALL to LEC.
+"PCH_LEC_ALL" means there is no error event.
+In case error is occurred, lec value is updated automatically.
 
 
---------------enig7FF810E18DA6D1AC9D6D4A36
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+> and then after each error observed (lec != PCH_LEC_ALL). I still do not
+> find such code. Could you show us the output of
+> 
+>   "# candump any,0:0,#FFFFFFFF"
+> 
+> when yo send CAN messages *without* a cable connected?.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
 
-iEYEARECAAYFAkziPWAACgkQjTAFq1RaXHP8dgCfbDbriNp1NHjBsjsVQ/6B4cSt
-T8MAn05EZ0MDiSUI81Fqg36vH26ooAfd
-=znnS
------END PGP SIGNATURE-----
+[root@localhost can-utils]# ./candump any,0:0,#FFFFFFFF
+  can0  20000024  [8] 00 28 00 00 00 00 88 00   ERRORFRAME
+  can0  20000024  [8] 00 28 00 00 00 00 88 00   ERRORFRAME
+  can0  20000024  [8] 00 28 00 00 00 00 88 00   ERRORFRAME
+  can0  20000024  [8] 00 28 00 00 00 00 88 00   ERRORFRAME
+  can0  20000024  [8] 00 28 00 00 00 00 88 00   ERRORFRAME
+  can0  20000024  [8] 00 28 00 00 00 00 88 00   ERRORFRAME
+  can0  20000024  [8] 00 28 00 00 00 00 88 00   ERRORFRAME
+  can0  20000024  [8] 00 28 00 00 00 00 88 00   ERRORFRAME
+  can0  20000024  [8] 00 28 00 00 00 00 88 00   ERRORFRAME
+  can0  20000024  [8] 00 28 00 00 00 00 88 00   ERRORFRAME
+  can0  20000024  [8] 00 28 00 00 00 00 88 00   ERRORFRAME
+  can0  20000024  [8] 00 28 00 00 00 00 88 00   ERRORFRAME
+  can0  20000024  [8] 00 28 00 00 00 00 88 00   ERRORFRAME
+  can0  20000024  [8] 00 28 00 00 00 00 88 00   ERRORFRAME
+  can0  20000024  [8] 00 28 00 00 00 00 88 00   ERRORFRAME
+  can0  20000024  [8] 00 28 00 00 00 00 88 00   ERRORFRAME
+  can0  20000024  [8] 00 28 00 00 00 00 88 00   ERRORFRAME
+  can0  20000024  [8] 00 28 00 00 00 00 88 00   ERRORFRAME
+  can0  20000024  [8] 00 28 00 00 00 00 88 00   ERRORFRAME
 
---------------enig7FF810E18DA6D1AC9D6D4A36--
+......It seems the same line continues forever.
 
---===============9047370706406694175==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+---
+Thanks,
 
-_______________________________________________
-Socketcan-core mailing list
-Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-https://lists.berlios.de/mailman/listinfo/socketcan-core
-
---===============9047370706406694175==--
+Tomoya MORINAGA
+OKI SEMICONDUCTOR CO., LTD.
