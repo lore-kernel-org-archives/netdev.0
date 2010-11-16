@@ -1,37 +1,39 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: Re: network device reference leak with net-next
-Date: Tue, 16 Nov 2010 20:21:40 +0100
-Message-ID: <AANLkTi=nCmL+09CAnTHn6Yn8dcrvkRxxnAgUNHPQbUeM@mail.gmail.com>
-References: <20101115105646.0cc823ce@nehalam> <1289847840.2607.120.camel@edumazet-laptop>
- <20101115111024.3b3377be@nehalam> <4CE1BFCE.70105@intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6] vlan: lockless transmit path
+Date: Tue, 16 Nov 2010 11:24:24 -0800 (PST)
+Message-ID: <20101116.112424.102532013.davem@davemloft.net>
+References: <1289468520.17691.1018.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	brian.haley@hp.com, maze@google.com
-To: John Fastabend <john.r.fastabend@intel.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kaber@trash.net
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:56931 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752929Ab0KPTWE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Nov 2010 14:22:04 -0500
-Received: from kpbe16.cbf.corp.google.com (kpbe16.cbf.corp.google.com [172.25.105.80])
-	by smtp-out.google.com with ESMTP id oAGJM2Ng020831
-	for <netdev@vger.kernel.org>; Tue, 16 Nov 2010 11:22:02 -0800
-Received: from gwb10 (gwb10.prod.google.com [10.200.2.10])
-	by kpbe16.cbf.corp.google.com with ESMTP id oAGJM1Yi024364
-	for <netdev@vger.kernel.org>; Tue, 16 Nov 2010 11:22:01 -0800
-Received: by gwb10 with SMTP id 10so649101gwb.29
-        for <netdev@vger.kernel.org>; Tue, 16 Nov 2010 11:22:01 -0800 (PST)
-In-Reply-To: <4CE1BFCE.70105@intel.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47960
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753636Ab0KPTYA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Nov 2010 14:24:00 -0500
+In-Reply-To: <1289468520.17691.1018.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 16, 2010 at 12:18 AM, John Fastabend
-<john.r.fastabend@intel.com> wrote:
-> Quick glance looks like an in6_ifa_put is missed?
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 11 Nov 2010 10:42:00 +0100
 
-Oops. Sorry about that.
+> vlan is a stacked device, like tunnels. We should use the lockless
+> mechanism we are using in tunnels and loopback.
+> 
+> This patch completely removes locking in TX path.
+> 
+> tx stat counters are added into existing percpu stat structure, renamed
+> from vlan_rx_stats to vlan_pcpu_stats.
+> 
+> Note : this partially reverts commit 2e59af3dcbdf (vlan: multiqueue vlan
+> device)
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-I'm testing your fix, it seems to work so far.
+Applied, although there were some conflicts since John Fastabend
+made some vlan changes recently.
+
+Please double check my work.
