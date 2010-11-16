@@ -1,85 +1,52 @@
-From: Eric Paris <eparis@redhat.com>
-Subject: [PATCH 3/3] SELinux: return -ECONNREFUSED from ip_postroute to signal
-	fatal error
-Date: Tue, 16 Nov 2010 16:52:57 -0500
-Message-ID: <20101116215257.6727.12163.stgit@paris.rdu.redhat.com>
-References: <20101116215238.6727.39248.stgit@paris.rdu.redhat.com>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: [PATCH] filter: Optimize instruction revalidation code.
+Date: Tue, 16 Nov 2010 23:13:10 +0100
+Message-ID: <20101116221310.GA3058@nuttenaction>
+References: <1695276347-1289413089-cardhu_decombobulator_blackberry.rim.net-434693855-@bda083.bisx.prod.on.blackberry>
+ <20101110.102129.112602843.davem@davemloft.net>
+ <1289414024.2469.20.camel@edumazet-laptop>
+ <20101110.103807.39173013.davem@davemloft.net>
+ <201011162208.BHC17628.SVtFMJOOLFQFOH@I-love.SAKURA.ne.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: eparis@redhat.com, equinox@diac24.net, eric.dumazet@gmail.com,
-	davem@davemloft.net, hzhong@gmail.com, jmorris@namei.org,
-	kaber@trash.net, kuznet@ms2.inr.ac.ru, paul.moore@hp.com,
-	pekkas@netcore.fi, sds@tycho.nsa.gov, yoshfuji@linux-ipv6.org
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	selinux@tycho.nsa.gov, netfilter-devel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20101116215238.6727.39248.stgit@paris.rdu.redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, eric.dumazet@gmail.com,
+	drosenberg@vsecurity.com, netdev@vger.kernel.org
+To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:58045 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S932772Ab0KPWWM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Nov 2010 17:22:12 -0500
+Content-Disposition: inline
+In-Reply-To: <201011162208.BHC17628.SVtFMJOOLFQFOH@I-love.SAKURA.ne.jp>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The SELinux netfilter hooks just return NF_DROP if they drop a packet.  We
-want to signal that a drop in this hook is a permanant fatal error and is not
-transient.  If we do this the error will be passed back up the stack in some
-places and applications will get a faster interaction that something went
-wrong.
+* Tetsuo Handa | 2010-11-16 22:08:50 [+0900]:
 
-Signed-off-by: Eric Paris <eparis@redhat.com>
----
+>--- a/net/core/filter.c
+>+++ b/net/core/filter.c
+>@@ -383,7 +383,57 @@ EXPORT_SYMBOL(sk_run_filter);
+>  */
+> int sk_chk_filter(struct sock_filter *filter, int flen)
+> {
+>-	struct sock_filter *ftest;
+>+	/*
+>+	 * Valid instructions are initialized to non-0.
+>+	 * Invalid instructions are initialized to 0.
+>+	 */
+>+	static u16 codes[] = {
+>+		[BPF_ALU|BPF_ADD|BPF_K]  = BPF_S_ALU_ADD_K + 1,
+>+		[BPF_ALU|BPF_ADD|BPF_X]  = BPF_S_ALU_ADD_X + 1,
+>+		[BPF_ALU|BPF_SUB|BPF_K]  = BPF_S_ALU_SUB_K + 1,
+[...]
 
- security/selinux/hooks.c |   16 ++++++++--------
- 1 files changed, 8 insertions(+), 8 deletions(-)
+Maybe I don't get it, but you increment the opcode by one, but you never
+increment the opcode in sk_run_filter() - do I miss something? Did you test
+the your patch (a trivial tcpdump rule should be sufficient)?
 
-diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
-index 8ba5001..b1104f9 100644
---- a/security/selinux/hooks.c
-+++ b/security/selinux/hooks.c
-@@ -4594,11 +4594,11 @@ static unsigned int selinux_ip_postroute(struct sk_buff *skb, int ifindex,
- 				secmark_perm = PACKET__SEND;
- 			break;
- 		default:
--			return NF_DROP;
-+			return NF_DROP_ERR(-ECONNREFUSED);
- 		}
- 		if (secmark_perm == PACKET__FORWARD_OUT) {
- 			if (selinux_skb_peerlbl_sid(skb, family, &peer_sid))
--				return NF_DROP;
-+				return NF_DROP_ERR(-ECONNREFUSED);
- 		} else
- 			peer_sid = SECINITSID_KERNEL;
- 	} else {
-@@ -4611,28 +4611,28 @@ static unsigned int selinux_ip_postroute(struct sk_buff *skb, int ifindex,
- 	ad.u.net.netif = ifindex;
- 	ad.u.net.family = family;
- 	if (selinux_parse_skb(skb, &ad, &addrp, 0, NULL))
--		return NF_DROP;
-+		return NF_DROP_ERR(-ECONNREFUSED);
- 
- 	if (secmark_active)
- 		if (avc_has_perm(peer_sid, skb->secmark,
- 				 SECCLASS_PACKET, secmark_perm, &ad))
--			return NF_DROP;
-+			return NF_DROP_ERR(-ECONNREFUSED);
- 
- 	if (peerlbl_active) {
- 		u32 if_sid;
- 		u32 node_sid;
- 
- 		if (sel_netif_sid(ifindex, &if_sid))
--			return NF_DROP;
-+			return NF_DROP_ERR(-ECONNREFUSED);
- 		if (avc_has_perm(peer_sid, if_sid,
- 				 SECCLASS_NETIF, NETIF__EGRESS, &ad))
--			return NF_DROP;
-+			return NF_DROP_ERR(-ECONNREFUSED);
- 
- 		if (sel_netnode_sid(addrp, family, &node_sid))
--			return NF_DROP;
-+			return NF_DROP_ERR(-ECONNREFUSED);
- 		if (avc_has_perm(peer_sid, node_sid,
- 				 SECCLASS_NODE, NODE__SENDTO, &ad))
--			return NF_DROP;
-+			return NF_DROP_ERR(-ECONNREFUSED);
- 	}
- 
- 	return NF_ACCEPT;
+If this question is answered (or fixed):
+
+Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
+
+HGN
