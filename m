@@ -1,95 +1,56 @@
-From: Maxim Levitsky <maximlevitsky@gmail.com>
-Subject: Re: Remaining problems in firewire-net
-Date: Tue, 16 Nov 2010 05:31:15 +0200
-Message-ID: <1289878275.16486.57.camel@maxim-laptop>
-References: <tkrat.036c5d10fb83f85d@s5r6.in-berlin.de>
-	<1289795401.11881.62.camel@maxim-laptop>
-	<20101115090103.0df0b5ef@stein>
+From: David Miller <davem@davemloft.net>
+Subject: Re: linux-next: build failure after merge of the net tree
+Date: Mon, 15 Nov 2010 20:15:47 -0800 (PST)
+Message-ID: <20101115.201547.193717949.davem@davemloft.net>
+References: <20101116113437.4f536d16.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux1394-devel@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org
-To: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Return-path: <linux1394-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20101115090103.0df0b5ef@stein>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
-	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux1394-devel>
-List-Post: <mailto:linux1394-devel@lists.sourceforge.net>
-List-Help: <mailto:linux1394-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
-	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: linux1394-devel-bounces@lists.sourceforge.net
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jesse@nicira.com
+To: sfr@canb.auug.org.au
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20101116113437.4f536d16.sfr@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2010-11-15 at 09:01 +0100, Stefan Richter wrote:
-> On Nov 15 Maxim Levitsky wrote:
-> > That is because 1394 spec specifies that first of all the ISO channel
-> > must be allocated from the IRM node. The firewire stack currently just
-> > uses hardcoded numbers in two places the ISO is used 
-> > (firewire-net, and firedtv)
-> > However it has all functions implemented for this.
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Tue, 16 Nov 2010 11:34:37 +1100
+
+> After merging the net tree, today's linux-next build (x86_64 allmodconfig)
+> failed like this:
 > 
-> This is a bug (missing feature) in firedtv but not in firewire-net. The
-> broadcast channel is allocated and reallocated by the bus manager, not
-> by an IP-over-1394 user.  But you found that out already, below.
-Agree fully.
-
+> ERROR: "netif_get_vlan_features" [drivers/net/xen-netfront.ko] undefined!
 > 
-> Channel allocation and DMA context allocation and control are unrelated
-> issues, on the other hand.  One is a higher-level cooperative protocol
-> for bus-wide resource management (in which the nodes' roles are defined
-> in various different ways by protocols such as AV/C's CMP or by IIDC).
-> The other is about hardware control locally in the OHCI bus bridge
-> hardware.
+> Caused by commit 58e998c6d23988490162cef0784b19ea274d90bb ("offloading:
+> Force software GSO for multiple vlan tags").
 > 
-> [...]
-> > In case of firewire-net, it is simpler, because it uses the broadcast
-> > channel, so it only has to find who is the IRM and read its
-> > BROADCAST_CHANNEL.
-> > 
-> > However, I think I need to write a function to query the IRM its
-> > broadcast channel, don't think it has one.
-> 
-> Overkill.  Just leave it as is:
->   1.) We know which number the broadcast channel has.
->   2.) We optimistically assume that a 1394a compliant IRM or bus
->       manager exists and allocated that channel.
-> 
-> Why introduce entirely unnecessary fragility?
-Looking at spec again, indeed 31 the the default broadcast channel, and
-probably nobody ever changes it by writing the BROADCAST_CHANNEL.
-The BROADCAST_CHANNEL register was actually added in 1394a.
+> Presumably netif_get_vlan_features needs exporting.
 
+Thanks Stephen, I've just pushed the following fix.
 
-> 
-> > Speaking of IRM discovery, the spec says it should be a node with
-> > contender bit and largest node id. However, the code in
-> > core-topology.c, build_tree seems to take the node that sent the
-> > selfID packet last.
-> 
-> This is because of a monotony rule of how self ID packets arrive during
-> self identification phase.
-Ah, ok, found this bit in spec too.
+--------------------
+net: Export netif_get_vlan_features().
 
-Btw, according to spec the firewire appears to be half-duplex.
+ERROR: "netif_get_vlan_features" [drivers/net/xen-netfront.ko] undefined!
 
+Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/core/dev.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-Also one note I wanted to say in previous mail. but forgot.
-The IP over 1394 tells that unicast can also use ISO transactions.
-However, it doesn't say how to negotiate the ISO channel number, thus a
-logical conclusion is that its not possible to use ISO transactions for
-unicast.
-Is that right?
-
-Best regards,
-	Maxim Levitsky
-
-
-------------------------------------------------------------------------------
-Beautiful is writing same markup. Internet Explorer 9 supports
-standards for HTML5, CSS3, SVG 1.1,  ECMAScript5, and DOM L2 & L3.
-Spend less time writing and  rewriting code and more time creating great
-experiences on the web. Be a part of the beta today
-http://p.sf.net/sfu/msIE9-sfdev2dev
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 8725d16..381b8e2 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1983,6 +1983,7 @@ int netif_get_vlan_features(struct sk_buff *skb, struct net_device *dev)
+ 	else
+ 		return 0;
+ }
++EXPORT_SYMBOL(netif_get_vlan_features);
+ 
+ /*
+  * Returns true if either:
+-- 
+1.7.3.2
