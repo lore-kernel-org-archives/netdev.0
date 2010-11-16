@@ -1,74 +1,61 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: [net-next-2.6 PATCH v2] net: zero kobject in rx_queue_release
-Date: Tue, 16 Nov 2010 08:31:39 -0800
-Message-ID: <20101116163139.2084.20075.stgit@jf-dev1-dcblab>
+From: Petko Manolov <petkan@nucleusys.com>
+Subject: Re: [PATCH 06/10] drivers/net/usb: Remove unnecessary casts of
+ netdev_priv
+Date: Tue, 16 Nov 2010 19:59:29 +0200 (EET)
+Message-ID: <alpine.DEB.2.00.1011161958320.1392@gabi>
+References: <cover.1289855436.git.joe@perches.com> <66a3d7996e4ce8a84610237e86adf4b15a48514a.1289855436.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
-	eric.dumazet@gmail.com, therbert@google.com
-To: davem@davemloft.net
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Jiri Kosina <trivial@kernel.org>,
+	Petko Manolov <petkan@users.sourceforge.net>,
+	Greg Kroah-Hartman <gregkh@suse.de>, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:5380 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753064Ab0KPQeQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Nov 2010 11:34:16 -0500
+Received: from lan.nucleusys.com ([78.83.248.164]:47077 "EHLO
+	zztop.nucleusys.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754516Ab0KPQjf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Nov 2010 11:39:35 -0500
+In-Reply-To: <66a3d7996e4ce8a84610237e86adf4b15a48514a.1289855436.git.joe@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-netif_set_real_num_rx_queues() can decrement and increment
-the number of rx queues. For example ixgbe does this as
-features and offloads are toggled. Presumably this could
-also happen across down/up on most devices if the available
-resources changed (cpu offlined).
+ACK! :-)
 
-The kobject needs to be zero'd in this case so that the
-state is not preserved across kobject_put()/kobject_init_and_add().
 
-This resolves the following error report.
+ 		Petko
 
-ixgbe 0000:03:00.0: eth2: NIC Link is Up 10 Gbps, Flow Control: RX/TX
-kobject (ffff880324b83210): tried to init an initialized object, something is seriously wrong.
-Pid: 1972, comm: lldpad Not tainted 2.6.37-rc18021qaz+ #169
-Call Trace:
- [<ffffffff8121c940>] kobject_init+0x3a/0x83
- [<ffffffff8121cf77>] kobject_init_and_add+0x23/0x57
- [<ffffffff8107b800>] ? mark_lock+0x21/0x267
- [<ffffffff813c6d11>] net_rx_queue_update_kobjects+0x63/0xc6
- [<ffffffff813b5e0e>] netif_set_real_num_rx_queues+0x5f/0x78
- [<ffffffffa0261d49>] ixgbe_set_num_queues+0x1c6/0x1ca [ixgbe]
- [<ffffffffa0262509>] ixgbe_init_interrupt_scheme+0x1e/0x79c [ixgbe]
- [<ffffffffa0274596>] ixgbe_dcbnl_set_state+0x167/0x189 [ixgbe]
 
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
----
+On Mon, 15 Nov 2010, Joe Perches wrote:
 
- net/core/net-sysfs.c |    9 +++++++--
- 1 files changed, 7 insertions(+), 2 deletions(-)
-
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index 3ba526b..7abeb7c 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -711,13 +711,18 @@ static void rx_queue_release(struct kobject *kobj)
- 
- 
- 	map = rcu_dereference_raw(queue->rps_map);
--	if (map)
-+	if (map) {
-+		RCU_INIT_POINTER(queue->rps_map, NULL);
- 		call_rcu(&map->rcu, rps_map_release);
-+	}
- 
- 	flow_table = rcu_dereference_raw(queue->rps_flow_table);
--	if (flow_table)
-+	if (flow_table) {
-+		RCU_INIT_POINTER(queue->rps_flow_table, NULL);
- 		call_rcu(&flow_table->rcu, rps_dev_flow_table_release);
-+	}
- 
-+	memset(kobj, 0, sizeof(*kobj));
- 	dev_put(queue->dev);
- }
- 
-
+> Signed-off-by: Joe Perches <joe@perches.com>
+> ---
+> drivers/net/usb/pegasus.c |    4 ++--
+> 1 files changed, 2 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/usb/pegasus.c b/drivers/net/usb/pegasus.c
+> index 6710f093..ef36676 100644
+> --- a/drivers/net/usb/pegasus.c
+> +++ b/drivers/net/usb/pegasus.c
+> @@ -359,7 +359,7 @@ fail:
+>
+> static int mdio_read(struct net_device *dev, int phy_id, int loc)
+> {
+> -	pegasus_t *pegasus = (pegasus_t *) netdev_priv(dev);
+> +	pegasus_t *pegasus = netdev_priv(dev);
+> 	u16 res;
+>
+> 	read_mii_word(pegasus, phy_id, loc, &res);
+> @@ -397,7 +397,7 @@ fail:
+>
+> static void mdio_write(struct net_device *dev, int phy_id, int loc, int val)
+> {
+> -	pegasus_t *pegasus = (pegasus_t *) netdev_priv(dev);
+> +	pegasus_t *pegasus = netdev_priv(dev);
+>
+> 	write_mii_word(pegasus, phy_id, loc, val);
+> }
+> -- 
+> 1.7.3.1.g432b3.dirty
+>
+>
