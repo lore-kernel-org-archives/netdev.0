@@ -1,40 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-2.6 PATCH] ipv6: fix missing in6_ifa_put in addrconf
-Date: Tue, 16 Nov 2010 09:35:22 -0800 (PST)
-Message-ID: <20101116.093522.112573959.davem@davemloft.net>
-References: <20101116062921.31164.70903.stgit@jf-dev1-dcblab>
+Subject: Re: [RFC] irda: irttp: allow zero byte packets
+Date: Tue, 16 Nov 2010 09:51:01 -0800 (PST)
+Message-ID: <20101116.095101.115945762.davem@davemloft.net>
+References: <1289344787-12160-1-git-send-email-w.sang@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	shemminger@vyatta.com
-To: john.r.fastabend@intel.com
+Cc: irda-users@lists.sourceforge.net, netdev@vger.kernel.org,
+	samuel@sortiz.org
+To: w.sang@pengutronix.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43477
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39734
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755973Ab0KPRe5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Nov 2010 12:34:57 -0500
-In-Reply-To: <20101116062921.31164.70903.stgit@jf-dev1-dcblab>
+	by vger.kernel.org with ESMTP id S1753696Ab0KPRuh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Nov 2010 12:50:37 -0500
+In-Reply-To: <1289344787-12160-1-git-send-email-w.sang@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Fastabend <john.r.fastabend@intel.com>
-Date: Mon, 15 Nov 2010 22:29:21 -0800
+From: Wolfram Sang <w.sang@pengutronix.de>
+Date: Wed, 10 Nov 2010 00:19:47 +0100
 
-> Fix ref count bug introduced by
+> Sending zero byte packets is not neccessarily an error (AF_INET accepts it,
+> too), so just apply a shortcut. This was discovered because of a non-working
+> software with WINE. See
 > 
-> commit 2de795707294972f6c34bae9de713e502c431296
-> Author: Lorenzo Colitti <lorenzo@google.com>
-> Date:   Wed Oct 27 18:16:49 2010 +0000
+>   http://bugs.winehq.org/show_bug.cgi?id=19397#c86
+>   http://thread.gmane.org/gmane.linux.irda.general/1643
 > 
-> ipv6: addrconf: don't remove address state on ifdown if the address
-> is being kept
+> for very detailed debugging information and a testcase. Kudos to Wolfgang for
+> those!
 > 
-> 
-> Fix logic so that addrconf_ifdown() decrements the inet6_ifaddr
-> refcnt correctly with in6_ifa_put().
-> 
-> Reported-by: Stephen Hemminger <shemminger@vyatta.com>
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> Reported-by: Wolfgang Schwotzer <wolfgang.schwotzer@gmx.net>
+> Signed-off-by: Wolfram Sang <w.sang@pengutronix.de>
+> Tested-by: Mike Evans <mike.evans@cardolan.com>
 
-Applied, thanks a lot.
+This looks good to me, applied, thanks!
