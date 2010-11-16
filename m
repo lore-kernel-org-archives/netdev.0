@@ -1,65 +1,72 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH 3/6] IPVS: Remove useless { } block from ip_vs_process_message()
-Date: Tue, 16 Nov 2010 15:34:55 +0900
-Message-ID: <1289889298-17287-4-git-send-email-horms__11793.00444569$1289889364$gmane$org@verge.net.au>
-References: <1289889298-17287-1-git-send-email-horms@verge.net.au>
-Cc: Simon Horman <horms@verge.net.au>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>,
-	Julian Anastasov <ja@ssi.bg>,
-	Patrick McHardy <kaber@trash.net>, lvs-devel@vger.kernel.org,
-	n
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-2.6 PATCH] ipv6: fix missing in6_ifa_put in addrconf
+Date: Tue, 16 Nov 2010 07:37:34 +0100
+Message-ID: <1289889454.3364.122.camel@edumazet-laptop>
+References: <20101116062921.31164.70903.stgit@jf-dev1-dcblab>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org, shemminger@vyatta.com
+To: John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:33004 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932222Ab0KPGfd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Nov 2010 01:35:33 -0500
-In-Reply-To: <1289889298-17287-1-git-send-email-horms@verge.net.au>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:47980 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932222Ab0KPGhn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Nov 2010 01:37:43 -0500
+Received: by wyb28 with SMTP id 28so348721wyb.19
+        for <netdev@vger.kernel.org>; Mon, 15 Nov 2010 22:37:42 -0800 (PST)
+In-Reply-To: <20101116062921.31164.70903.stgit@jf-dev1-dcblab>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Acked-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Signed-off-by: Simon Horman <horms@verge.net.au>
----
- net/netfilter/ipvs/ip_vs_sync.c |   24 +++++++++++-------------
- 1 files changed, 11 insertions(+), 13 deletions(-)
+Le lundi 15 novembre 2010 =C3=A0 22:29 -0800, John Fastabend a =C3=A9cr=
+it :
+> Fix ref count bug introduced by
+>=20
+> commit 2de795707294972f6c34bae9de713e502c431296
+> Author: Lorenzo Colitti <lorenzo@google.com>
+> Date:   Wed Oct 27 18:16:49 2010 +0000
+>=20
+> ipv6: addrconf: don't remove address state on ifdown if the address
+> is being kept
+>=20
+>=20
+> Fix logic so that addrconf_ifdown() decrements the inet6_ifaddr
+> refcnt correctly with in6_ifa_put().
+>=20
+> Reported-by: Stephen Hemminger <shemminger@vyatta.com>
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> ---
+>=20
+>  net/ipv6/addrconf.c |    6 +++---
+>  1 files changed, 3 insertions(+), 3 deletions(-)
+>=20
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index b41ce0f..aaa3ca4 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -2754,13 +2754,13 @@ static int addrconf_ifdown(struct net_device =
+*dev, int how)
+>  			ifa->state =3D INET6_IFADDR_STATE_DEAD;
+>  			spin_unlock_bh(&ifa->state_lock);
+> =20
+> -			if (state =3D=3D INET6_IFADDR_STATE_DEAD) {
+> -				in6_ifa_put(ifa);
+> -			} else {
+> +			if (state !=3D INET6_IFADDR_STATE_DEAD) {
+>  				__ipv6_ifa_notify(RTM_DELADDR, ifa);
+>  				atomic_notifier_call_chain(&inet6addr_chain,
+>  							   NETDEV_DOWN, ifa);
+>  			}
+> +
+> +			in6_ifa_put(ifa);
+>  			write_lock_bh(&idev->lock);
+>  		}
+>  	}
+>=20
 
-diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
-index a4dccbc..72b3d88 100644
---- a/net/netfilter/ipvs/ip_vs_sync.c
-+++ b/net/netfilter/ipvs/ip_vs_sync.c
-@@ -381,20 +381,18 @@ static void ip_vs_process_message(const char *buffer, const size_t buflen)
- 			}
- 		}
- 
--		{
--			if (ip_vs_conn_fill_param_sync(AF_INET, s->protocol,
--					      (union nf_inet_addr *)&s->caddr,
--					      s->cport,
--					      (union nf_inet_addr *)&s->vaddr,
--					      s->vport, &param)) {
--				pr_err("ip_vs_conn_fill_param_sync failed");
--				return;
--			}
--			if (!(flags & IP_VS_CONN_F_TEMPLATE))
--				cp = ip_vs_conn_in_get(&param);
--			else
--				cp = ip_vs_ct_in_get(&param);
-+		if (ip_vs_conn_fill_param_sync(AF_INET, s->protocol,
-+					       (union nf_inet_addr *)&s->caddr,
-+					       s->cport,
-+					       (union nf_inet_addr *)&s->vaddr,
-+					       s->vport, &param)) {
-+			pr_err("ip_vs_conn_fill_param_sync failed");
-+			return;
- 		}
-+		if (!(flags & IP_VS_CONN_F_TEMPLATE))
-+			cp = ip_vs_conn_in_get(&param);
-+		else
-+			cp = ip_vs_ct_in_get(&param);
- 		if (!cp) {
- 			/*
- 			 * Find the appropriate destination for the connection.
--- 
-1.7.2.3
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+
+Thanks again John
+
 
