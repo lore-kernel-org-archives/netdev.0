@@ -1,332 +1,156 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: [PATCH v2] filter: Optimize instruction revalidation code.
-Date: Tue, 16 Nov 2010 23:31:49 +0900
-Message-ID: <201011162331.CGH00026.OFOSFVMFQtLHOJ@I-love.SAKURA.ne.jp>
-References: <20101110.102129.112602843.davem@davemloft.net>
-	<1289414024.2469.20.camel@edumazet-laptop>
-	<20101110.103807.39173013.davem@davemloft.net>
-	<201011162208.BHC17628.SVtFMJOOLFQFOH@I-love.SAKURA.ne.jp>
-	<1289915053.5372.183.camel@edumazet-laptop>
+From: Thomas Graf <tgraf@infradead.org>
+Subject: [PATCH net-next 3/4] ipv4: AF_INET link address family
+Date: Tue, 16 Nov 2010 09:32:48 -0500
+Message-ID: <20101116143248.GC26669@canuck.infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, drosenberg@vsecurity.com,
-	netdev@vger.kernel.org
-To: eric.dumazet@gmail.com, mjt@tls.msk.ru
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wine.ocn.ne.jp ([122.1.235.145]:55917 "EHLO smtp.wine.ocn.ne.jp"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754749Ab0KPOby (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Nov 2010 09:31:54 -0500
-In-Reply-To: <1289915053.5372.183.camel@edumazet-laptop>
+Received: from canuck.infradead.org ([134.117.69.58]:47281 "EHLO
+	canuck.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754749Ab0KPOcs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Nov 2010 09:32:48 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> Patch seems fine to me, with the 'const' codes[] Michael Tokarev already
-> spotted.
+Implements the AF_INET link address family exposing the per
+device configuration settings via netlink using the attribute
+IFLA_INET_CONF.
 
-Sorry, I forgot to evaluate
-
-	default:
-		return -EINVAL;
+The format of IFLA_INET_CONF differs depending on the direction
+the attribute is sent. The attribute sent by the kernel consists
+of a u32 array, basically a 1:1 copy of in_device->cnf.data[].
+The attribute expected by the kernel must consist of a sequence
+of nested u32 attributes, each representing a change request,
+e.g.
+	[IFLA_INET_CONF] = {
+		[IPV4_DEVCONF_FORWARDING] = 1,
+		[IPV4_DEVCONF_NOXFRM] = 0,
 	}
 
-case. If caller passed ftest->code == BPF_S_ALU_DIV_K (translated value)
-rather than ftest->code == BPF_ALU|BPF_DIV|BPF_K (original value), the check
+libnl userspace API documentation and example available from:
+http://www.infradead.org/~tgr/libnl/doc-git/group__link__inet.html
 
-	case BPF_ALU|BPF_DIV|BPF_K:
-		if (ftest->k == 0)
-			return -EINVAL;
-		ftest->code = BPF_S_ALU_DIV_K;
-		break;
+Signed-off-by: Thomas Graf <tgraf@infradead.org>
 
-is bypassed. The problem is that original value and translated value overwraps.
-Can we change translated value in order to guarantee that these values never
-overwraps?
-----------------------------------------
- From 7b6a7b784fa096383aadc86d32bff6b8329a2e66 Mon Sep 17 00:00:00 2001
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Date: Tue, 16 Nov 2010 22:37:45 +0900
-Subject: [PATCH v2] filter: optimize instruction revalidation code.
-
-Since repeating small value to small value conversion using switch() clause's
-case statement is wasteful, this patch instroduces u16 to u16 mapping table
-and removes most of case statements. As a result, the size of net/core/filter.o
-is reduced by about 27% on x86.
-
-Signed-off-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
----
- net/core/filter.c |  223 ++++++++++++++++-------------------------------------
- 1 files changed, 68 insertions(+), 155 deletions(-)
-
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 23e9b2a..ef1d226 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -383,7 +383,57 @@ EXPORT_SYMBOL(sk_run_filter);
-  */
- int sk_chk_filter(struct sock_filter *filter, int flen)
+Index: net-next-2.6/net/ipv4/devinet.c
+===================================================================
+--- net-next-2.6.orig/net/ipv4/devinet.c
++++ net-next-2.6/net/ipv4/devinet.c
+@@ -1256,6 +1256,72 @@ errout:
+ 		rtnl_set_sk_err(net, RTNLGRP_IPV4_IFADDR, err);
+ }
+ 
++static size_t inet_get_link_af_size(const struct net_device *dev)
++{
++	struct in_device *in_dev = __in_dev_get_rcu(dev);
++
++	if (!in_dev)
++		return 0;
++
++	return nla_total_size(IPV4_DEVCONF_MAX * 4); /* IFLA_INET_CONF */
++}
++
++static int inet_fill_link_af(struct sk_buff *skb, const struct net_device *dev)
++{
++	struct in_device *in_dev = __in_dev_get_rcu(dev);
++	struct nlattr *nla;
++	int i;
++
++	if (!in_dev)
++		return -ENODATA;
++
++	nla = nla_reserve(skb, IFLA_INET_CONF, IPV4_DEVCONF_MAX * 4);
++	if (nla == NULL)
++		return -EMSGSIZE;
++
++	for (i = 0; i < IPV4_DEVCONF_MAX; i++)
++		((u32 *) nla_data(nla))[i] = in_dev->cnf.data[i];
++
++	return 0;
++}
++
++static const struct nla_policy inet_af_policy[IFLA_INET_MAX+1] = {
++	[IFLA_INET_CONF]	= { .type = NLA_NESTED },
++};
++
++static int inet_parse_link_af(struct net_device *dev, const struct nlattr *nla)
++{
++	struct in_device *in_dev = __in_dev_get_rcu(dev);
++	struct nlattr *a, *tb[IFLA_INET_MAX+1];
++	int err, rem;
++
++	if (!in_dev)
++		return -EOPNOTSUPP;
++
++	err = nla_parse_nested(tb, IFLA_INET_MAX, nla, inet_af_policy);
++	if (err < 0)
++		return err;
++
++	if (tb[IFLA_INET_CONF]) {
++		nla_for_each_nested(a, tb[IFLA_INET_CONF], rem) {
++			int cfgid = nla_type(a);
++
++			if (nla_len(a) < 4)
++				return -EINVAL;
++
++			if (cfgid <= 0 || cfgid > IPV4_DEVCONF_MAX)
++				return -EINVAL;
++		}
++	}
++
++	if (tb[IFLA_INET_CONF]) {
++		nla_for_each_nested(a, tb[IFLA_INET_CONF], rem)
++			ipv4_devconf_set(in_dev, nla_type(a), nla_get_u32(a));
++	}
++
++	return 0;
++}
++
+ #ifdef CONFIG_SYSCTL
+ 
+ static void devinet_copy_dflt_conf(struct net *net, int i)
+@@ -1619,6 +1685,13 @@ static __net_initdata struct pernet_oper
+ 	.exit = devinet_exit_net,
+ };
+ 
++static struct rtnl_af_ops inet_af_ops = {
++	.family		  = AF_INET,
++	.fill_link_af	  = inet_fill_link_af,
++	.get_link_af_size = inet_get_link_af_size,
++	.parse_link_af	  = inet_parse_link_af,
++};
++
+ void __init devinet_init(void)
  {
--	struct sock_filter *ftest;
-+	/*
-+	 * Valid instructions are initialized to non-0.
-+	 * Invalid instructions are initialized to 0.
-+	 */
-+	static const u16 codes[] = {
-+		[BPF_ALU|BPF_ADD|BPF_K]  = BPF_S_ALU_ADD_K + 1,
-+		[BPF_ALU|BPF_ADD|BPF_X]  = BPF_S_ALU_ADD_X + 1,
-+		[BPF_ALU|BPF_SUB|BPF_K]  = BPF_S_ALU_SUB_K + 1,
-+		[BPF_ALU|BPF_SUB|BPF_X]  = BPF_S_ALU_SUB_X + 1,
-+		[BPF_ALU|BPF_MUL|BPF_K]  = BPF_S_ALU_MUL_K + 1,
-+		[BPF_ALU|BPF_MUL|BPF_X]  = BPF_S_ALU_MUL_X + 1,
-+		[BPF_ALU|BPF_DIV|BPF_X]  = BPF_S_ALU_DIV_X + 1,
-+		[BPF_ALU|BPF_AND|BPF_K]  = BPF_S_ALU_AND_K + 1,
-+		[BPF_ALU|BPF_AND|BPF_X]  = BPF_S_ALU_AND_X + 1,
-+		[BPF_ALU|BPF_OR|BPF_K]   = BPF_S_ALU_OR_K + 1,
-+		[BPF_ALU|BPF_OR|BPF_X]   = BPF_S_ALU_OR_X + 1,
-+		[BPF_ALU|BPF_LSH|BPF_K]  = BPF_S_ALU_LSH_K + 1,
-+		[BPF_ALU|BPF_LSH|BPF_X]  = BPF_S_ALU_LSH_X + 1,
-+		[BPF_ALU|BPF_RSH|BPF_K]  = BPF_S_ALU_RSH_K + 1,
-+		[BPF_ALU|BPF_RSH|BPF_X]  = BPF_S_ALU_RSH_X + 1,
-+		[BPF_ALU|BPF_NEG]        = BPF_S_ALU_NEG + 1,
-+		[BPF_LD|BPF_W|BPF_ABS]   = BPF_S_LD_W_ABS + 1,
-+		[BPF_LD|BPF_H|BPF_ABS]   = BPF_S_LD_H_ABS + 1,
-+		[BPF_LD|BPF_B|BPF_ABS]   = BPF_S_LD_B_ABS + 1,
-+		[BPF_LD|BPF_W|BPF_LEN]   = BPF_S_LD_W_LEN + 1,
-+		[BPF_LD|BPF_W|BPF_IND]   = BPF_S_LD_W_IND + 1,
-+		[BPF_LD|BPF_H|BPF_IND]   = BPF_S_LD_H_IND + 1,
-+		[BPF_LD|BPF_B|BPF_IND]   = BPF_S_LD_B_IND + 1,
-+		[BPF_LD|BPF_IMM]         = BPF_S_LD_IMM + 1,
-+		[BPF_LDX|BPF_W|BPF_LEN]  = BPF_S_LDX_W_LEN + 1,
-+		[BPF_LDX|BPF_B|BPF_MSH]  = BPF_S_LDX_B_MSH + 1,
-+		[BPF_LDX|BPF_IMM]        = BPF_S_LDX_IMM + 1,
-+		[BPF_MISC|BPF_TAX]       = BPF_S_MISC_TAX + 1,
-+		[BPF_MISC|BPF_TXA]       = BPF_S_MISC_TXA + 1,
-+		[BPF_RET|BPF_K]          = BPF_S_RET_K + 1,
-+		[BPF_RET|BPF_A]          = BPF_S_RET_A + 1,
-+		[BPF_ALU|BPF_DIV|BPF_K]  = BPF_S_ALU_DIV_K + 1,
-+		[BPF_LD|BPF_MEM]         = BPF_S_LD_MEM + 1,
-+		[BPF_LDX|BPF_MEM]        = BPF_S_LDX_MEM + 1,
-+		[BPF_ST]                 = BPF_S_ST + 1,
-+		[BPF_STX]                = BPF_S_STX + 1,
-+		[BPF_JMP|BPF_JA]         = BPF_S_JMP_JA + 1,
-+		[BPF_JMP|BPF_JEQ|BPF_K]  = BPF_S_JMP_JEQ_K + 1,
-+		[BPF_JMP|BPF_JEQ|BPF_X]  = BPF_S_JMP_JEQ_X + 1,
-+		[BPF_JMP|BPF_JGE|BPF_K]  = BPF_S_JMP_JGE_K + 1,
-+		[BPF_JMP|BPF_JGE|BPF_X]  = BPF_S_JMP_JGE_X + 1,
-+		[BPF_JMP|BPF_JGT|BPF_K]  = BPF_S_JMP_JGT_K + 1,
-+		[BPF_JMP|BPF_JGT|BPF_X]  = BPF_S_JMP_JGT_X + 1,
-+		[BPF_JMP|BPF_JSET|BPF_K] = BPF_S_JMP_JSET_K + 1,
-+		[BPF_JMP|BPF_JSET|BPF_X] = BPF_S_JMP_JSET_X + 1,
-+	};
- 	int pc;
+ 	register_pernet_subsys(&devinet_ops);
+@@ -1626,6 +1699,8 @@ void __init devinet_init(void)
+ 	register_gifconf(PF_INET, inet_gifconf);
+ 	register_netdevice_notifier(&ip_netdev_notifier);
  
- 	if (flen == 0 || flen > BPF_MAXINSNS)
-@@ -391,136 +441,30 @@ int sk_chk_filter(struct sock_filter *filter, int flen)
++	rtnl_af_register(&inet_af_ops);
++
+ 	rtnl_register(PF_INET, RTM_NEWADDR, inet_rtm_newaddr, NULL);
+ 	rtnl_register(PF_INET, RTM_DELADDR, inet_rtm_deladdr, NULL);
+ 	rtnl_register(PF_INET, RTM_GETADDR, NULL, inet_dump_ifaddr);
+Index: net-next-2.6/include/linux/if_link.h
+===================================================================
+--- net-next-2.6.orig/include/linux/if_link.h
++++ net-next-2.6/include/linux/if_link.h
+@@ -147,6 +147,14 @@ enum {
+ #define IFLA_PAYLOAD(n) NLMSG_PAYLOAD(n,sizeof(struct ifinfomsg))
+ #endif
  
- 	/* check the filter code now */
- 	for (pc = 0; pc < flen; pc++) {
--		ftest = &filter[pc];
--
--		/* Only allow valid instructions */
--		switch (ftest->code) {
--		case BPF_ALU|BPF_ADD|BPF_K:
--			ftest->code = BPF_S_ALU_ADD_K;
--			break;
--		case BPF_ALU|BPF_ADD|BPF_X:
--			ftest->code = BPF_S_ALU_ADD_X;
--			break;
--		case BPF_ALU|BPF_SUB|BPF_K:
--			ftest->code = BPF_S_ALU_SUB_K;
--			break;
--		case BPF_ALU|BPF_SUB|BPF_X:
--			ftest->code = BPF_S_ALU_SUB_X;
--			break;
--		case BPF_ALU|BPF_MUL|BPF_K:
--			ftest->code = BPF_S_ALU_MUL_K;
--			break;
--		case BPF_ALU|BPF_MUL|BPF_X:
--			ftest->code = BPF_S_ALU_MUL_X;
--			break;
--		case BPF_ALU|BPF_DIV|BPF_X:
--			ftest->code = BPF_S_ALU_DIV_X;
--			break;
--		case BPF_ALU|BPF_AND|BPF_K:
--			ftest->code = BPF_S_ALU_AND_K;
--			break;
--		case BPF_ALU|BPF_AND|BPF_X:
--			ftest->code = BPF_S_ALU_AND_X;
--			break;
--		case BPF_ALU|BPF_OR|BPF_K:
--			ftest->code = BPF_S_ALU_OR_K;
--			break;
--		case BPF_ALU|BPF_OR|BPF_X:
--			ftest->code = BPF_S_ALU_OR_X;
--			break;
--		case BPF_ALU|BPF_LSH|BPF_K:
--			ftest->code = BPF_S_ALU_LSH_K;
--			break;
--		case BPF_ALU|BPF_LSH|BPF_X:
--			ftest->code = BPF_S_ALU_LSH_X;
--			break;
--		case BPF_ALU|BPF_RSH|BPF_K:
--			ftest->code = BPF_S_ALU_RSH_K;
--			break;
--		case BPF_ALU|BPF_RSH|BPF_X:
--			ftest->code = BPF_S_ALU_RSH_X;
--			break;
--		case BPF_ALU|BPF_NEG:
--			ftest->code = BPF_S_ALU_NEG;
--			break;
--		case BPF_LD|BPF_W|BPF_ABS:
--			ftest->code = BPF_S_LD_W_ABS;
--			break;
--		case BPF_LD|BPF_H|BPF_ABS:
--			ftest->code = BPF_S_LD_H_ABS;
--			break;
--		case BPF_LD|BPF_B|BPF_ABS:
--			ftest->code = BPF_S_LD_B_ABS;
--			break;
--		case BPF_LD|BPF_W|BPF_LEN:
--			ftest->code = BPF_S_LD_W_LEN;
--			break;
--		case BPF_LD|BPF_W|BPF_IND:
--			ftest->code = BPF_S_LD_W_IND;
--			break;
--		case BPF_LD|BPF_H|BPF_IND:
--			ftest->code = BPF_S_LD_H_IND;
--			break;
--		case BPF_LD|BPF_B|BPF_IND:
--			ftest->code = BPF_S_LD_B_IND;
--			break;
--		case BPF_LD|BPF_IMM:
--			ftest->code = BPF_S_LD_IMM;
--			break;
--		case BPF_LDX|BPF_W|BPF_LEN:
--			ftest->code = BPF_S_LDX_W_LEN;
--			break;
--		case BPF_LDX|BPF_B|BPF_MSH:
--			ftest->code = BPF_S_LDX_B_MSH;
--			break;
--		case BPF_LDX|BPF_IMM:
--			ftest->code = BPF_S_LDX_IMM;
--			break;
--		case BPF_MISC|BPF_TAX:
--			ftest->code = BPF_S_MISC_TAX;
--			break;
--		case BPF_MISC|BPF_TXA:
--			ftest->code = BPF_S_MISC_TXA;
--			break;
--		case BPF_RET|BPF_K:
--			ftest->code = BPF_S_RET_K;
--			break;
--		case BPF_RET|BPF_A:
--			ftest->code = BPF_S_RET_A;
--			break;
-+		struct sock_filter *ftest = &filter[pc];
-+		u16 code = ftest->code;
++enum {
++	IFLA_INET_UNSPEC,
++	IFLA_INET_CONF,
++	__IFLA_INET_MAX,
++};
++
++#define IFLA_INET_MAX (__IFLA_INET_MAX - 1)
++
+ /* ifi_flags.
  
-+		if (code >= ARRAY_SIZE(codes))
-+			return -EINVAL;
-+		code = codes[code];
-+		if (!code--)
-+			return -EINVAL;
- 		/* Some instructions need special checks */
--
-+		switch (code) {
-+		case BPF_S_ALU_DIV_K:
- 			/* check for division by zero */
--		case BPF_ALU|BPF_DIV|BPF_K:
- 			if (ftest->k == 0)
- 				return -EINVAL;
--			ftest->code = BPF_S_ALU_DIV_K;
--			break;
--
--		/* check for invalid memory addresses */
--		case BPF_LD|BPF_MEM:
--			if (ftest->k >= BPF_MEMWORDS)
--				return -EINVAL;
--			ftest->code = BPF_S_LD_MEM;
--			break;
--		case BPF_LDX|BPF_MEM:
--			if (ftest->k >= BPF_MEMWORDS)
--				return -EINVAL;
--			ftest->code = BPF_S_LDX_MEM;
- 			break;
--		case BPF_ST:
--			if (ftest->k >= BPF_MEMWORDS)
--				return -EINVAL;
--			ftest->code = BPF_S_ST;
--			break;
--		case BPF_STX:
-+		case BPF_S_LD_MEM:
-+		case BPF_S_LDX_MEM:
-+		case BPF_S_ST:
-+		case BPF_S_STX:
-+			/* check for invalid memory addresses */
- 			if (ftest->k >= BPF_MEMWORDS)
- 				return -EINVAL;
--			ftest->code = BPF_S_STX;
- 			break;
--
--		case BPF_JMP|BPF_JA:
-+		case BPF_S_JMP_JA:
- 			/*
- 			 * Note, the large ftest->k might cause loops.
- 			 * Compare this with conditional jumps below,
-@@ -528,40 +472,7 @@ int sk_chk_filter(struct sock_filter *filter, int flen)
- 			 */
- 			if (ftest->k >= (unsigned)(flen-pc-1))
- 				return -EINVAL;
--			ftest->code = BPF_S_JMP_JA;
--			break;
--
--		case BPF_JMP|BPF_JEQ|BPF_K:
--			ftest->code = BPF_S_JMP_JEQ_K;
--			break;
--		case BPF_JMP|BPF_JEQ|BPF_X:
--			ftest->code = BPF_S_JMP_JEQ_X;
--			break;
--		case BPF_JMP|BPF_JGE|BPF_K:
--			ftest->code = BPF_S_JMP_JGE_K;
--			break;
--		case BPF_JMP|BPF_JGE|BPF_X:
--			ftest->code = BPF_S_JMP_JGE_X;
--			break;
--		case BPF_JMP|BPF_JGT|BPF_K:
--			ftest->code = BPF_S_JMP_JGT_K;
--			break;
--		case BPF_JMP|BPF_JGT|BPF_X:
--			ftest->code = BPF_S_JMP_JGT_X;
--			break;
--		case BPF_JMP|BPF_JSET|BPF_K:
--			ftest->code = BPF_S_JMP_JSET_K;
- 			break;
--		case BPF_JMP|BPF_JSET|BPF_X:
--			ftest->code = BPF_S_JMP_JSET_X;
--			break;
--
--		default:
--			return -EINVAL;
--		}
--
--			/* for conditionals both must be safe */
--		switch (ftest->code) {
- 		case BPF_S_JMP_JEQ_K:
- 		case BPF_S_JMP_JEQ_X:
- 		case BPF_S_JMP_JGE_K:
-@@ -570,10 +481,12 @@ int sk_chk_filter(struct sock_filter *filter, int flen)
- 		case BPF_S_JMP_JGT_X:
- 		case BPF_S_JMP_JSET_X:
- 		case BPF_S_JMP_JSET_K:
-+			/* for conditionals both must be safe */
- 			if (pc + ftest->jt + 1 >= flen ||
- 			    pc + ftest->jf + 1 >= flen)
- 				return -EINVAL;
- 		}
-+		ftest->code = code;
- 	}
- 
- 	/* last instruction must be a RET code */
--- 
-1.6.1
+    IFF_* flags.
