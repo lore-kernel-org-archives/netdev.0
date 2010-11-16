@@ -1,45 +1,122 @@
-From: Liew Kian Yang <kianyang@agroup.com.my>
-Subject: Re: Vlan communication
-Date: Wed, 17 Nov 2010 17:57:07 +0800
-Message-ID: <1289987827.4215.3.camel@localhost.localdomain>
-References: <1289978124.3250.2.camel@localhost.localdomain>
- <1289893935.3364.255.camel@edumazet-laptop>
-Reply-To: kianyang@agroup.com.my
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6 v2] can: Topcliff: PCH_CAN driver: Add Flow
+	control,
+Date: Tue, 16 Nov 2010 11:16:27 +0100
+Message-ID: <4CE259FB.5090402@grandegger.com>
+References: <4CE0EFA7.9020007@dsn.okisemi.com>
+	<4CE141EA.5070702@grandegger.com>
+	<001501cb8567$c7a38820$66f8800a@maildom.okisemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from venus.localdns.com ([202.190.203.180]:54185 "EHLO
-	dedge-246.localdns.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932509Ab0KPJ6w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Nov 2010 04:58:52 -0500
-Received: from mercury.localdns.com (venus.localdns.com [202.190.203.180])
-	by dedge-246.localdns.com (Postfix) with ESMTP id C3B6912E8C8
-	for <netdev@vger.kernel.org>; Tue, 16 Nov 2010 17:58:48 +0800 (MYT)
-Received: from [192.168.8.98] ([175.136.197.14])
- by mercury.localdns.com (Sun Java System Messaging Server 6.2-4.03 (built Sep
- 22 2005)) with ESMTPA id <0LBZ009DQ2E0BV30@mercury.localdns.com> for
- netdev@vger.kernel.org; Tue, 16 Nov 2010 17:58:49 +0800 (MYT)
-In-reply-to: <1289893935.3364.255.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	Masayuki Ohtake <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>,
+	Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>, margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+To: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <001501cb8567$c7a38820$66f8800a-a06+6cuVnkTSQfdrb5gaxUEOCMrvLtNR@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Dear Eric,
+Hi Tomoya,
 
-My question is, can i have vlan function enable without using the
-vconfig command?
+On 11/16/2010 09:25 AM, Tomoya MORINAGA wrote:
+> On Monday, November 15, 2010 11:21 PM, Wolfgang Grandegger wrote:
+> 
+>>
+>> More comments to the lec handling below.
+>>
+>>> + cf->data[6] = ioread32(&priv->regs->errc) & PCH_TEC;
+>>> + cf->data[7] = (ioread32(&priv->regs->errc) & PCH_REC) >> 8;
+>>
+>> Could be handle with just *one* register access.
+> 
+> I will modify.
+> 
+>>   if (reg_stat & PCH_BUS_OFF ||
+>>     (reg_stat & PCH_LEC_ALL) != PCH_LEC_ALL) {
+>>
+>> Your lec handling is still not correc, 
+> 
+> I will modify like above.
+> 
+>> I believe. The driver needs to
+>> write PCH_LEC_ALL to the "stat" register once in the initialization code
+> This is NOT true.
+> I heard even if CAN driver detects PCH_LEC_ALL, the driver doesn't have to
+> write PCH_LEC_ALL to LEC.
+> "PCH_LEC_ALL" means there is no error event.
 
-Thank you
+OK, but...
 
+> In case error is occurred, lec value is updated automatically.
 
-Regards,
-Kian Yang, Liew
+... I doubt that it's updated automatically. At least I understand
+chapter "13.4.2.2 CAN Status Register (CANSTAT)" and "Table 507. Last
+Error Code (LEC) Details of Operation" differently. Please *check* the
+real behavior by adding debugging code.
 
-On Tue, 2010-11-16 at 08:52 +0100, Eric Dumazet wrote:
-> ip link add link eth0 eth0.1 type vlan id 1
+>> and then after each error observed (lec != PCH_LEC_ALL). I still do not
+>> find such code. Could you show us the output of
+>>
+>>   "# candump any,0:0,#FFFFFFFF"
+>>
+>> when yo send CAN messages *without* a cable connected?.
 > 
 > 
-> 
+> [root@localhost can-utils]# ./candump any,0:0,#FFFFFFFF
+>   can0  20000024  [8] 00 28 00 00 00 00 88 00   ERRORFRAME
+>   can0  20000024  [8] 00 28 00 00 00 00 88 00   ERRORFRAME
+>   can0  20000024  [8] 00 28 00 00 00 00 88 00   ERRORFRAME
+>   can0  20000024  [8] 00 28 00 00 00 00 88 00   ERRORFRAME
+>   can0  20000024  [8] 00 28 00 00 00 00 88 00   ERRORFRAME
+>   can0  20000024  [8] 00 28 00 00 00 00 88 00   ERRORFRAME
+>   can0  20000024  [8] 00 28 00 00 00 00 88 00   ERRORFRAME
+>   can0  20000024  [8] 00 28 00 00 00 00 88 00   ERRORFRAME
+>   can0  20000024  [8] 00 28 00 00 00 00 88 00   ERRORFRAME
+>   can0  20000024  [8] 00 28 00 00 00 00 88 00   ERRORFRAME
+>   can0  20000024  [8] 00 28 00 00 00 00 88 00   ERRORFRAME
+>   can0  20000024  [8] 00 28 00 00 00 00 88 00   ERRORFRAME
+>   can0  20000024  [8] 00 28 00 00 00 00 88 00   ERRORFRAME
+>   can0  20000024  [8] 00 28 00 00 00 00 88 00   ERRORFRAME
+>   can0  20000024  [8] 00 28 00 00 00 00 88 00   ERRORFRAME
+>   can0  20000024  [8] 00 28 00 00 00 00 88 00   ERRORFRAME
+>   can0  20000024  [8] 00 28 00 00 00 00 88 00   ERRORFRAME
+>   can0  20000024  [8] 00 28 00 00 00 00 88 00   ERRORFRAME
+>   can0  20000024  [8] 00 28 00 00 00 00 88 00   ERRORFRAME
 
+To inteprete the error messages, please have a look to
+http://lxr.linux.no/#linux/include/linux/can/error.h
+
+The id is "CAN_EFF_FLAG | CAN_ERR_ACK | CAN_ERR_CRTL" and data[1] is
+"CAN_ERR_CRTL_TX_PASSIVE | CAN_ERR_CRTL_TX_WARNING".
+
+Which is *not* 100% OK.
+
+> ......It seems the same line continues forever.
+
+Yes, it will continue until you connect the cable, that's normal
+behavior. But that's not the full sequence. Could you please repeat the
+test as shown below:
+
+  First start the following command in a *separate* session.
+  # candump any,0:0,#FFFFFFFF"
+
+  Then setup and start the CAN controller:
+  # ip link set can0 up type can bitrate 125000
+  # cansend can0 123#deadbeef
+
+Wolfgang.
