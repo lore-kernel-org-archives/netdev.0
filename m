@@ -1,44 +1,74 @@
 From: Simon Horman <horms@verge.net.au>
-Subject: ipvs: ipvs update for nf-next-2.6
-Date: Tue, 16 Nov 2010 15:34:52 +0900
-Message-ID: <1289889298-17287-1-git-send-email-horms__32601.0559023873$1289889335$gmane$org@verge.net.au>
+Subject: [PATCH 5/6] ipvs: add static and read_mostly attributes
+Date: Tue, 16 Nov 2010 15:34:57 +0900
+Message-ID: <1289889298-17287-6-git-send-email-horms__22778.1854257502$1289889348$gmane$org@verge.net.au>
+References: <1289889298-17287-1-git-send-email-horms@verge.net.au>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Simon Horman <horms@verge.net.au>
 To: Eric Dumazet <eric.dumazet@gmail.com>,
 	Hans Schillstrom <hans.schillstrom@ericsson.com>,
 	Julian Anastasov <ja@ssi.bg>,
 	Patrick McHardy <kaber@trash.net>, lvs-devel@vger.kernel.org,
 	n
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:32982 "EHLO
+Received: from kirsty.vergenet.net ([202.4.237.240]:33019 "EHLO
 	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759246Ab0KPGfQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Nov 2010 01:35:16 -0500
+	with ESMTP id S932470Ab0KPGff (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Nov 2010 01:35:35 -0500
+In-Reply-To: <1289889298-17287-1-git-send-email-horms@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Patrick,
+From: Eric Dumazet <eric.dumazet@gmail.com>
 
-the following patches contain updates to IPVS since 2.6.37-rc1
-and are targeted at nf-next-2.6.
+ip_vs_conn_tab_bits & ip_vs_conn_tab_mask are static to
+ipvs/ip_vs_conn.c
 
-- Static and shadow variable clean-ups from Eric
+ip_vs_conn_tab_size, ip_vs_conn_tab_mask, ip_vs_conn_tab [the pointer],
+ip_vs_conn_rnd are mostly read.
 
-- Preparation for persistence engine syncrhonisation
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Simon Horman <horms@verge.net.au>
+---
+ net/netfilter/ipvs/ip_vs_conn.c |   10 +++++-----
+ 1 files changed, 5 insertions(+), 5 deletions(-)
 
-- Correctness fix for persistence engine match.
-  I do not consider this a bug as it can only manifest in a problem
-  if there is more than one persistence engine loaded and
-  currently only one exists.
+diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
+index 261db1a..7615f9e 100644
+--- a/net/netfilter/ipvs/ip_vs_conn.c
++++ b/net/netfilter/ipvs/ip_vs_conn.c
+@@ -48,18 +48,18 @@
+ /*
+  * Connection hash size. Default is what was selected at compile time.
+ */
+-int ip_vs_conn_tab_bits = CONFIG_IP_VS_TAB_BITS;
++static int ip_vs_conn_tab_bits = CONFIG_IP_VS_TAB_BITS;
+ module_param_named(conn_tab_bits, ip_vs_conn_tab_bits, int, 0444);
+ MODULE_PARM_DESC(conn_tab_bits, "Set connections' hash size");
+ 
+ /* size and mask values */
+-int ip_vs_conn_tab_size;
+-int ip_vs_conn_tab_mask;
++int ip_vs_conn_tab_size __read_mostly;
++static int ip_vs_conn_tab_mask __read_mostly;
+ 
+ /*
+  *  Connection hash table: for input and output packets lookups of IPVS
+  */
+-static struct list_head *ip_vs_conn_tab;
++static struct list_head *ip_vs_conn_tab __read_mostly;
+ 
+ /*  SLAB cache for IPVS connections */
+ static struct kmem_cache *ip_vs_conn_cachep __read_mostly;
+@@ -71,7 +71,7 @@ static atomic_t ip_vs_conn_count = ATOMIC_INIT(0);
+ static atomic_t ip_vs_conn_no_cport_cnt = ATOMIC_INIT(0);
+ 
+ /* random value for IPVS connection hash */
+-static unsigned int ip_vs_conn_rnd;
++static unsigned int ip_vs_conn_rnd __read_mostly;
+ 
+ /*
+  *  Fine locking granularity for big connection hash table
+-- 
+1.7.2.3
 
-- Code cleanps for ip_vs_sync_conn(), ip_vs_process_message()
-  and ip_vs_process_message()
-
-- Handle GRO aggregated skbs
-  The previous behaviour was to send a needs frag ICMP.
-  This is probably stable material.
-
-Please pull from:
-
-git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-test-2.6.git for-patrick
-
-I expect more activity before 2.6.37-rc1. In particular Hans is working
-heavily with Julian and myself on the new synchronisation code.
