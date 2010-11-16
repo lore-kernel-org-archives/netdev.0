@@ -1,39 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] vlan: lockless transmit path
-Date: Tue, 16 Nov 2010 11:24:24 -0800 (PST)
-Message-ID: <20101116.112424.102532013.davem@davemloft.net>
-References: <1289468520.17691.1018.camel@edumazet-laptop>
+Subject: Re: [PATCH net-next-2.6] vlan: remove ndo_select_queue() logic
+Date: Tue, 16 Nov 2010 11:24:54 -0800 (PST)
+Message-ID: <20101116.112454.179916339.davem@davemloft.net>
+References: <1289497978.17691.1582.camel@edumazet-laptop>
+	<AANLkTik-b5jYgN9e2cgYQvW1V3kuHem2x6wDpw4_=GJJ@mail.gmail.com>
+	<1289504565.17691.1710.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kaber@trash.net
+Cc: jesse@nicira.com, netdev@vger.kernel.org, kaber@trash.net
 To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47960
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47964
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753636Ab0KPTYA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Nov 2010 14:24:00 -0500
-In-Reply-To: <1289468520.17691.1018.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1757478Ab0KPTYa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Nov 2010 14:24:30 -0500
+In-Reply-To: <1289504565.17691.1710.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 11 Nov 2010 10:42:00 +0100
+Date: Thu, 11 Nov 2010 20:42:45 +0100
 
-> vlan is a stacked device, like tunnels. We should use the lockless
-> mechanism we are using in tunnels and loopback.
+> [PATCH] vlan: remove ndo_select_queue() logic
 > 
-> This patch completely removes locking in TX path.
+> Now vlan are lockless, we dont need special ndo_select_queue() logic.
+> dev_pick_tx() will do the multiqueue stuff on the real device transmit.
 > 
-> tx stat counters are added into existing percpu stat structure, renamed
-> from vlan_rx_stats to vlan_pcpu_stats.
-> 
-> Note : this partially reverts commit 2e59af3dcbdf (vlan: multiqueue vlan
-> device)
-> 
+> Suggested-by: Jesse Gross <jesse@nicira.com>
 > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Applied, although there were some conflicts since John Fastabend
-made some vlan changes recently.
+Also applied, but again there were conflicts I had to resolve,
+please check that I got it right.
 
-Please double check my work.
+Thanks.
