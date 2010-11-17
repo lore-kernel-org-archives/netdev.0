@@ -1,71 +1,65 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-2.6 PATCH] ipv6: fix missing in6_ifa_put in addrconf
-Date: Wed, 17 Nov 2010 16:38:00 +0100
-Message-ID: <1290008280.2687.49.camel@edumazet-laptop>
-References: <20101116062921.31164.70903.stgit@jf-dev1-dcblab>
-	 <1289889454.3364.122.camel@edumazet-laptop>
-	 <1290007231.2222.10.camel@seasc7941.dyn.rnd.as.sw.ericsson.se>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: [PATCH] 3c59x: fix build failure on !CONFIG_PCI
+Date: Wed, 17 Nov 2010 07:58:36 -0800
+Message-ID: <4CE3FBAC.3030503@oracle.com>
+References: <1289921271-15295-1-git-send-email-namhyung@gmail.com>	 <20101116091408.abd36ec8.randy.dunlap@oracle.com> <1289960532.1663.24.camel@leonhard>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: John Fastabend <john.r.fastabend@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"shemminger@vyatta.com" <shemminger@vyatta.com>
-To: Anders Franzen <Anders.Franzen@ericsson.com>
+Cc: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Namhyung Kim <namhyung@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:45170 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752871Ab0KQPiF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Nov 2010 10:38:05 -0500
-Received: by wyb28 with SMTP id 28so2097645wyb.19
-        for <netdev@vger.kernel.org>; Wed, 17 Nov 2010 07:38:04 -0800 (PST)
-In-Reply-To: <1290007231.2222.10.camel@seasc7941.dyn.rnd.as.sw.ericsson.se>
+Received: from rcsinet10.oracle.com ([148.87.113.121]:59593 "EHLO
+	rcsinet10.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934749Ab0KQP7s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Nov 2010 10:59:48 -0500
+In-Reply-To: <1289960532.1663.24.camel@leonhard>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 17 novembre 2010 =C3=A0 16:20 +0100, Anders Franzen a =C3=A9=
-crit :
-> Hi, I was hunting for a bug that a colleague discovered.
-> When we exit a network namespace, the ns was hanging with dangling
-> references to dev lo.
+On 11/16/10 18:22, Namhyung Kim wrote:
+> 2010-11-16 (=ED=99=94), 09:14 -0800, Randy Dunlap:
+>> Hi,
+>>
 >=20
-> When I saw the patch below, I fetched the latest net-next from Daves
-> repository.
->=20
-> And the problem is gone. Was this really the fix, since it seems to m=
-e
-> that this is a fix to a recently added patch (dont remove address ...=
-=2E).
->=20
-> Did you fix anything else in the Ipv6 addrconf w.r.g dev_hold/dev_put=
-?
->=20
-> netns still have problems with slab corruption during exit though:
->=20
->  Nov 17 15:00:20 p04 user.err kernel: Slab corruption: size-4096
-> start=3Dffff88000612a000, len=3D4096
-> Nov 17 15:00:20 p04 user.err kernel: 020: 6b 6b 6b 6b 6b 6b
-> Nov 17 15:00:20 p04 user.info kernel:  6b 6b 00 00 00 00 00 00 00
-> Nov 17 15:00:20 p04 user.info kernel:  00
->=20
-> BR
->   Anders
+> Hi, Randy
 >=20
 >=20
+>> Interesting patch.  I have reported this build error and looked
+>> into fixing it, but did not come up with this solution.
+>>
+>> Looking at it more:  if CONFIG_PCI is not enabled, DEVICE_PCI() is N=
+ULL.
+>> That makes VORTEX_PCI() (with or without your patch) have a value of=
+ NULL.
+>>
+>> Is the line with the reported syntax error (3211) executed in
+>> function acpi_set_WOL() ?  If so, let's assume that vp->enable_wol i=
+s true.
+>> Then what happens on line 3211 (or 3213 after your patch)?
+>>
+>> 		if (VORTEX_PCI(vp)->current_state < PCI_D3hot)
+>> 			return;
+>>
+>> or if I am really confuzed this morning, please tell me how it works=
+=2E
+>>
+>=20
+> At first glance, I've noticed that the code above could make a NULL
+> dereference so I added NULL check prior to the line.
+>=20
+> But after reading more code I realized that other pci-functions calle=
+d
+> in acpi_set_WOL() would not work with NULL pci_dev pointer also. And =
+I
+> found all callers of the acpi_set_WOL() already checked NULL pointer
+> before the call. Finally I could remove the NULL check and leave the
+> code as is. That's how it works. :)
 
-Hi Anders
+I see.  and concur.  Thanks for the explanation.
 
-Several patches of interest :
-
-
-commit 9d82ca98f71fd686ef2f3017c5e3e6a4871b6e46
-(ipv6: fix missing in6_ifa_put in addrconf)
-
-commit 332dd96f7ac15e937088fe11f15cfe0210e8edd1
-(net/dst: dst_dev_event() called after other notifiers)
-
-commit ef885afbf8a37689afc1d9d545e2f3e7a8276c17
-(net: use rcu_barrier() in rollback_registered_many)
-
-
+--=20
+~Randy
+*** Remember to use Documentation/SubmitChecklist when testing your cod=
+e ***
