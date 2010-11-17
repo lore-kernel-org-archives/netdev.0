@@ -1,143 +1,88 @@
 From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Subject: [RFC PATCH] ethtool: allow setting MDI-X state
-Date: Wed, 17 Nov 2010 15:16:55 -0800
-Message-ID: <20101117231655.30673.37157.stgit@jbrandeb-ich9b.jf.intel.com>
+Subject: [RFC PATCH 2/3] igb: update to allow reading/setting mdix
+Date: Wed, 17 Nov 2010 15:29:16 -0800
+Message-ID: <20101117232915.3513.29988.stgit@jbrandeb-ich9b.jf.intel.com>
+References: <20101117232645.3513.20655.stgit@jbrandeb-ich9b.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, bhutchings@solarflare.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:39616 "EHLO mga11.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:55694 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750698Ab0KQXQ4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Nov 2010 18:16:56 -0500
+	id S1751373Ab0KQX30 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Nov 2010 18:29:26 -0500
+Received: from jbrandeb-ich9b.jf.intel.com (localhost.localdomain [127.0.0.1])
+	by jbrandeb-ich9b.jf.intel.com (8.14.4/8.14.4) with ESMTP id oAHNTGu9003574
+	for <netdev@vger.kernel.org>; Wed, 17 Nov 2010 15:29:16 -0800
+In-Reply-To: <20101117232645.3513.20655.stgit@jbrandeb-ich9b.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ethtool recently added support for reading MDI-X state, this
-patch finishes the implementation, adding the complementary write
-command.
-
-Add support to ethtool for controlling the MDI-X (crossover)
-state of a network port.  Most adapters correctly negotiate
-MDI-X, but some ill-behaved switches have trouble and end up
-picking the wrong MDI setting, which results in complete loss of
-link.  Usually this error condition can be observed with multiple
-ethtool -r ethX required before link is achieved.
-
-usage is ethtool -s eth0 mdix [auto|on|off]
-
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+CC: Carolyn Wyborny <carolyn.wyborny@intel.com>
 ---
 
- ethtool.8 |    8 ++++++++
- ethtool.c |   34 ++++++++++++++++++++++++++++++++++
- 2 files changed, 42 insertions(+), 0 deletions(-)
+ drivers/net/igb/igb.h         |    1 -
+ drivers/net/igb/igb_ethtool.c |   14 ++++++++++++++
+ drivers/net/igb/igb_main.c    |    2 +-
+ 3 files changed, 15 insertions(+), 2 deletions(-)
 
-diff --git a/ethtool.8 b/ethtool.8
-index 1760924..c96e35d 100644
---- a/ethtool.8
-+++ b/ethtool.8
-@@ -196,6 +196,7 @@ ethtool \- Display or change ethernet card settings
- .BI speed \ N
- .B2 duplex half full
- .B4 port tp aui bnc mii fibre
-+.B3 mdix auto on off
- .B2 autoneg on off
- .RB [ advertise
- .IR N ]
-@@ -452,6 +453,13 @@ Sets full or half duplex mode.
- .A4 port tp aui bnc mii fibre
- Selects device port.
- .TP
-+.A3 mdix auto on off
-+Selects MDI-X mode for port. May be used to override the automatic detection
-+feature of most adapters.  Auto means automatic detection of MDI status, on
-+forces MDI-X (crossover) mode, while off means MDI (straight through) mode.
-+Depending on implementation an ethtool -r ethX command may be necessary to
-+cause the change to take effect.
-+.TP
- .A2 autoneg on off
- Specifies whether autonegotiation should be enabled. Autonegotiation 
- is enabled by deafult, but in some network devices may have trouble
-diff --git a/ethtool.c b/ethtool.c
-index 239912b..fcc7998 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -157,6 +157,7 @@ static struct option {
- 		"		[ speed %d ]\n"
- 		"		[ duplex half|full ]\n"
- 		"		[ port tp|aui|bnc|mii|fibre ]\n"
-+		"		[ mdix auto|on|off ]\n"
- 		"		[ autoneg on|off ]\n"
- 		"		[ advertise %x ]\n"
- 		"		[ phyad %d ]\n"
-@@ -353,6 +354,7 @@ static s32 coal_tx_frames_high_wanted = -1;
- static int speed_wanted = -1;
- static int duplex_wanted = -1;
- static int port_wanted = -1;
-+static int mdix_wanted = -1;
- static int autoneg_wanted = -1;
- static int phyad_wanted = -1;
- static int xcvr_wanted = -1;
-@@ -1048,6 +1050,20 @@ static void parse_cmdline(int argc, char **argp)
- 				else
- 					show_usage(1);
- 				break;
-+			} else if (!strcmp(argp[i], "mdix")) {
-+				gset_changed = 1;
-+				i += 1;
-+				if (i >= argc)
-+					show_usage(1);
-+				if (!strcmp(argp[i], "auto"))
-+					mdix_wanted = ETH_TP_MDI_INVALID;
-+				else if (!strcmp(argp[i], "on"))
-+					mdix_wanted = ETH_TP_MDI_X;
-+				else if (!strcmp(argp[i], "off"))
-+					mdix_wanted = ETH_TP_MDI;
-+				else
-+					show_usage(1);
-+				break;
- 			} else if (!strcmp(argp[i], "autoneg")) {
- 				i += 1;
- 				if (i >= argc)
-@@ -1124,6 +1140,20 @@ static void parse_cmdline(int argc, char **argp)
- 					i = argc;
- 				}
- 				break;
-+			} else if (!strcmp(argp[i], "mdix")) {
-+				gset_changed = 1;
-+				i += 1;
-+				if (i >= argc)
-+					show_usage(1);
-+				if (!strcmp(argp[i], "auto"))
-+					mdix_wanted = ETH_TP_MDI_INVALID;
-+				else if (!strcmp(argp[i], "on"))
-+					mdix_wanted = ETH_TP_MDI_X;
-+				else if (!strcmp(argp[i], "off"))
-+					mdix_wanted = ETH_TP_MDI;
-+				else
-+					show_usage(1);
-+				break;
- 			}
- 			show_usage(1);
- 		}
-@@ -2525,6 +2555,8 @@ static int do_sset(int fd, struct ifreq *ifr)
- 				ecmd.duplex = duplex_wanted;
- 			if (port_wanted != -1)
- 				ecmd.port = port_wanted;
-+			if (mdix_wanted != -1)
-+				ecmd.eth_tp_mdix = mdix_wanted;
- 			if (autoneg_wanted != -1)
- 				ecmd.autoneg = autoneg_wanted;
- 			if (phyad_wanted != -1)
-@@ -2566,6 +2598,8 @@ static int do_sset(int fd, struct ifreq *ifr)
- 				fprintf(stderr, "  not setting phy_address\n");
- 			if (xcvr_wanted != -1)
- 				fprintf(stderr, "  not setting transceiver\n");
-+			if (mdix_wanted != -1)
-+				fprintf(stderr, "  not setting mdix\n");
+diff --git a/drivers/net/igb/igb.h b/drivers/net/igb/igb.h
+index edab9c4..04f7a05 100644
+--- a/drivers/net/igb/igb.h
++++ b/drivers/net/igb/igb.h
+@@ -120,7 +120,6 @@ struct vf_data_storage {
+ /* How many Rx Buffers do we bundle into one write to the hardware ? */
+ #define IGB_RX_BUFFER_WRITE	16	/* Must be power of 2 */
+ 
+-#define AUTO_ALL_MODES            0
+ #define IGB_EEPROM_APME         0x0400
+ 
+ #ifndef IGB_MASTER_SLAVE
+diff --git a/drivers/net/igb/igb_ethtool.c b/drivers/net/igb/igb_ethtool.c
+index a70e16b..bfeee01 100644
+--- a/drivers/net/igb/igb_ethtool.c
++++ b/drivers/net/igb/igb_ethtool.c
+@@ -191,6 +191,15 @@ static int igb_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
+ 	}
+ 
+ 	ecmd->autoneg = hw->mac.autoneg ? AUTONEG_ENABLE : AUTONEG_DISABLE;
++
++	/* MDI-X => 2; MDI =>1; Invalid =>0 */
++	if ((hw->phy.media_type == e1000_media_type_copper) &&
++	    netif_carrier_ok(netdev))
++		ecmd->eth_tp_mdix = hw->phy.is_mdix ? ETH_TP_MDI_X :
++		                                      ETH_TP_MDI;
++	else
++		ecmd->eth_tp_mdix = ETH_TP_MDI_INVALID;
++
+ 	return 0;
+ }
+ 
+@@ -225,6 +234,11 @@ static int igb_set_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
  		}
  	}
  
++	/* MDI-X => 2; MDI =>1; Auto =>0 */
++	if ((ecmd->eth_tp_mdix != -1) &&
++	    (hw->phy.media_type == e1000_media_type_copper))
++		hw->phy.mdix = ecmd->eth_tp_mdix;
++
+ 	/* reset the link */
+ 	if (netif_running(adapter->netdev)) {
+ 		igb_down(adapter);
+diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+index 892d196..338825f 100644
+--- a/drivers/net/igb/igb_main.c
++++ b/drivers/net/igb/igb_main.c
+@@ -1838,7 +1838,7 @@ static int __devinit igb_probe(struct pci_dev *pdev,
+ 
+ 	/* Copper options */
+ 	if (hw->phy.media_type == e1000_media_type_copper) {
+-		hw->phy.mdix = AUTO_ALL_MODES;
++		hw->phy.mdix = ETH_TP_MDI_INVALID;
+ 		hw->phy.disable_polarity_correction = false;
+ 		hw->phy.ms_type = e1000_ms_hw_default;
+ 	}
 
