@@ -1,144 +1,71 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH] net: move definitions of BPF_S_* to net/core/filter.c
-Date: Wed, 17 Nov 2010 14:28:24 +0800
-Message-ID: <1289975304-19796-1-git-send-email-xiaosuo@gmail.com>
-Cc: Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Hagen Paul Pfeifer <hagen@jauu.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	Changli Gao <xiaosuo@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] igmp: refine skb allocations
+Date: Wed, 17 Nov 2010 07:36:42 +0100
+Message-ID: <1289975802.2732.195.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f174.google.com ([209.85.214.174]:61648 "EHLO
-	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932824Ab0KQG2y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Nov 2010 01:28:54 -0500
-Received: by iwn35 with SMTP id 35so1745978iwn.19
-        for <netdev@vger.kernel.org>; Tue, 16 Nov 2010 22:28:53 -0800 (PST)
+Received: from mail-ww0-f42.google.com ([74.125.82.42]:55047 "EHLO
+	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933259Ab0KQGgs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Nov 2010 01:36:48 -0500
+Received: by wwb13 with SMTP id 13so201wwb.1
+        for <netdev@vger.kernel.org>; Tue, 16 Nov 2010 22:36:47 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-BPF_S_* are used internally, should not be exposed to the others.
+IGMP allocates MTU sized skbs. This may fail for large MTU (order-2
+allocations), so add a fallback to try lower sizes.
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 ---
- include/linux/filter.h |   48 ------------------------------------------------
- net/core/filter.c      |   48 ++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 48 insertions(+), 48 deletions(-)
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index 69b43db..151f5d7 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -91,54 +91,6 @@ struct sock_fprog {	/* Required for SO_ATTACH_FILTER. */
- #define         BPF_TAX         0x00
- #define         BPF_TXA         0x80
+ net/ipv4/igmp.c |   17 +++++++++++++----
+ 1 file changed, 13 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
+index a1bf2f4..caff2fc 100644
+--- a/net/ipv4/igmp.c
++++ b/net/ipv4/igmp.c
+@@ -300,6 +300,8 @@ igmp_scount(struct ip_mc_list *pmc, int type, int gdeleted, int sdeleted)
+ 	return scount;
+ }
  
--enum {
--	BPF_S_RET_K = 0,
--	BPF_S_RET_A,
--	BPF_S_ALU_ADD_K,
--	BPF_S_ALU_ADD_X,
--	BPF_S_ALU_SUB_K,
--	BPF_S_ALU_SUB_X,
--	BPF_S_ALU_MUL_K,
--	BPF_S_ALU_MUL_X,
--	BPF_S_ALU_DIV_X,
--	BPF_S_ALU_AND_K,
--	BPF_S_ALU_AND_X,
--	BPF_S_ALU_OR_K,
--	BPF_S_ALU_OR_X,
--	BPF_S_ALU_LSH_K,
--	BPF_S_ALU_LSH_X,
--	BPF_S_ALU_RSH_K,
--	BPF_S_ALU_RSH_X,
--	BPF_S_ALU_NEG,
--	BPF_S_LD_W_ABS,
--	BPF_S_LD_H_ABS,
--	BPF_S_LD_B_ABS,
--	BPF_S_LD_W_LEN,
--	BPF_S_LD_W_IND,
--	BPF_S_LD_H_IND,
--	BPF_S_LD_B_IND,
--	BPF_S_LD_IMM,
--	BPF_S_LDX_W_LEN,
--	BPF_S_LDX_B_MSH,
--	BPF_S_LDX_IMM,
--	BPF_S_MISC_TAX,
--	BPF_S_MISC_TXA,
--	BPF_S_ALU_DIV_K,
--	BPF_S_LD_MEM,
--	BPF_S_LDX_MEM,
--	BPF_S_ST,
--	BPF_S_STX,
--	BPF_S_JMP_JA,
--	BPF_S_JMP_JEQ_K,
--	BPF_S_JMP_JEQ_X,
--	BPF_S_JMP_JGE_K,
--	BPF_S_JMP_JGE_X,
--	BPF_S_JMP_JGT_K,
--	BPF_S_JMP_JGT_X,
--	BPF_S_JMP_JSET_K,
--	BPF_S_JMP_JSET_X,
--};
--
- #ifndef BPF_MAXINSNS
- #define BPF_MAXINSNS 4096
- #endif
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 23e9b2a..ceb36ea 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -38,6 +38,54 @@
- #include <asm/unaligned.h>
- #include <linux/filter.h>
- 
-+enum {
-+	BPF_S_RET_K = 0,
-+	BPF_S_RET_A,
-+	BPF_S_ALU_ADD_K,
-+	BPF_S_ALU_ADD_X,
-+	BPF_S_ALU_SUB_K,
-+	BPF_S_ALU_SUB_X,
-+	BPF_S_ALU_MUL_K,
-+	BPF_S_ALU_MUL_X,
-+	BPF_S_ALU_DIV_X,
-+	BPF_S_ALU_AND_K,
-+	BPF_S_ALU_AND_X,
-+	BPF_S_ALU_OR_K,
-+	BPF_S_ALU_OR_X,
-+	BPF_S_ALU_LSH_K,
-+	BPF_S_ALU_LSH_X,
-+	BPF_S_ALU_RSH_K,
-+	BPF_S_ALU_RSH_X,
-+	BPF_S_ALU_NEG,
-+	BPF_S_LD_W_ABS,
-+	BPF_S_LD_H_ABS,
-+	BPF_S_LD_B_ABS,
-+	BPF_S_LD_W_LEN,
-+	BPF_S_LD_W_IND,
-+	BPF_S_LD_H_IND,
-+	BPF_S_LD_B_IND,
-+	BPF_S_LD_IMM,
-+	BPF_S_LDX_W_LEN,
-+	BPF_S_LDX_B_MSH,
-+	BPF_S_LDX_IMM,
-+	BPF_S_MISC_TAX,
-+	BPF_S_MISC_TXA,
-+	BPF_S_ALU_DIV_K,
-+	BPF_S_LD_MEM,
-+	BPF_S_LDX_MEM,
-+	BPF_S_ST,
-+	BPF_S_STX,
-+	BPF_S_JMP_JA,
-+	BPF_S_JMP_JEQ_K,
-+	BPF_S_JMP_JEQ_X,
-+	BPF_S_JMP_JGE_K,
-+	BPF_S_JMP_JGE_X,
-+	BPF_S_JMP_JGT_K,
-+	BPF_S_JMP_JGT_X,
-+	BPF_S_JMP_JSET_K,
-+	BPF_S_JMP_JSET_X,
-+};
++#define igmp_skb_size(skb) (*(unsigned int *)((skb)->cb))
 +
- /* No hurry in this branch */
- static void *__load_pointer(struct sk_buff *skb, int k)
+ static struct sk_buff *igmpv3_newpack(struct net_device *dev, int size)
  {
+ 	struct sk_buff *skb;
+@@ -308,9 +310,16 @@ static struct sk_buff *igmpv3_newpack(struct net_device *dev, int size)
+ 	struct igmpv3_report *pig;
+ 	struct net *net = dev_net(dev);
+ 
+-	skb = alloc_skb(size + LL_ALLOCATED_SPACE(dev), GFP_ATOMIC);
+-	if (skb == NULL)
+-		return NULL;
++	while (1) {
++		skb = alloc_skb(size + LL_ALLOCATED_SPACE(dev),
++				GFP_ATOMIC | __GFP_NOWARN);
++		if (skb)
++			break;
++		size >>= 1;
++		if (size < 256)
++			return NULL;
++	}
++	igmp_skb_size(skb) = size;
+ 
+ 	{
+ 		struct flowi fl = { .oif = dev->ifindex,
+@@ -400,7 +409,7 @@ static struct sk_buff *add_grhead(struct sk_buff *skb, struct ip_mc_list *pmc,
+ 	return skb;
+ }
+ 
+-#define AVAILABLE(skb) ((skb) ? ((skb)->dev ? (skb)->dev->mtu - (skb)->len : \
++#define AVAILABLE(skb) ((skb) ? ((skb)->dev ? igmp_skb_size(skb) - (skb)->len : \
+ 	skb_tailroom(skb)) : 0)
+ 
+ static struct sk_buff *add_grec(struct sk_buff *skb, struct ip_mc_list *pmc,
+
+
