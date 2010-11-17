@@ -1,31 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 4/4] ipv6: AF_INET6 link address family
-Date: Wed, 17 Nov 2010 11:30:54 -0800 (PST)
-Message-ID: <20101117.113054.242136515.davem@davemloft.net>
-References: <20101116143357.GD26669@canuck.infradead.org>
+Subject: Re: [PATCH net-next 0/5] qlcnic: Bug fixes
+Date: Wed, 17 Nov 2010 11:51:50 -0800 (PST)
+Message-ID: <20101117.115150.116368756.davem@davemloft.net>
+References: <alpine.OSX.2.00.1011161510040.88679@macintosh-2.local>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: tgraf@infradead.org
+Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com
+To: anirban.chakraborty@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47302
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43649
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S935370Ab0KQTaa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Nov 2010 14:30:30 -0500
-In-Reply-To: <20101116143357.GD26669@canuck.infradead.org>
+	by vger.kernel.org with ESMTP id S932364Ab0KQTvZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Nov 2010 14:51:25 -0500
+In-Reply-To: <alpine.OSX.2.00.1011161510040.88679@macintosh-2.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Graf <tgraf@infradead.org>
-Date: Tue, 16 Nov 2010 09:33:57 -0500
+From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+Date: Tue, 16 Nov 2010 16:07:38 -0800
 
-> IPv6 already exposes some address family data via netlink in the
-> IFLA_PROTINFO attribute if RTM_GETLINK request is sent with the
-> address family set to AF_INET6. We take over this format and
-> reuse all the code.
-> 
-> Signed-off-by: Thomas Graf <tgraf@infradead.org>
-> Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> Please apply following patches to net-next.
 
-Applied.
+All applied, thank you.
