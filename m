@@ -1,54 +1,57 @@
-From: Cypher Wu <cypher.w@gmail.com>
-Subject: Re: Kernel rwlock design, Multicore and IGMP
-Date: Wed, 17 Nov 2010 09:30:44 +0800
-Message-ID: <AANLkTimA3mnPQHYWVb_fzONXMz40WGTaWpf83uZTsYQ2@mail.gmail.com>
-References: <AANLkTikvT=x9eBovn2-m6HLqk7wyXSAR3sc9jCQ0C6mL@mail.gmail.com>
-	<1289489007.17691.1310.camel@edumazet-laptop>
-	<AANLkTik93QUQxSDmwd4Qj-gXQiWWPzd68JPAYAHBAsHR@mail.gmail.com>
-	<ZXmP8hjgLHA.4648@exchange1.tad.internal.tilera.com>
-	<4CDF1945.8090101@tilera.com>
-	<AANLkTind92uwcigzmDn8yn9a22exDy7zcreGQ5-6NLV-@mail.gmail.com>
-	<AANLkTinzRm_5WW5HwxzXqZZD4255GDpR4yzELqz66Dfn@mail.gmail.com>
-	<1289820672.2607.10.camel@edumazet-laptop>
+From: Namhyung Kim <namhyung@gmail.com>
+Subject: Re: [PATCH] 3c59x: fix build failure on !CONFIG_PCI
+Date: Wed, 17 Nov 2010 11:22:12 +0900
+Message-ID: <1289960532.1663.24.camel@leonhard>
+References: <1289921271-15295-1-git-send-email-namhyung@gmail.com>
+	 <20101116091408.abd36ec8.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Chris Metcalf <cmetcalf@tilera.com>,
-	=?ISO-8859-1?Q?Am=E9rico_Wang?= <xiyou.wangcong@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Randy Dunlap <randy.dunlap@oracle.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1289820672.2607.10.camel@edumazet-laptop>
+In-Reply-To: <20101116091408.abd36ec8.randy.dunlap@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 15, 2010 at 7:31 PM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
-> Le lundi 15 novembre 2010 =E0 19:18 +0800, Cypher Wu a =E9crit :
->> In that post I want to confirm another thing: if we join/leave on
->> different cores that every call will start the timer for IGMP messag=
-e
->> using the same in_dev->mc_list, could that be optimized?
->>
->
-> Which timer exactly ? Is it a real scalability problem ?
->
-> I believe RTNL would be the blocking point actually...
->
->
->
->
+2010-11-16 (=ED=99=94), 09:14 -0800, Randy Dunlap:
+> Hi,
+>=20
 
-struct in_device::mr_ifc_timer. Every time when a process join/leave a
-MC group, igmp_ifc_event() -> igmp_ifc_start_timer() will start the
-timer on the core that the system call issued, and
-igmp_ifc_timer_expire() will be called on that core in the bottem halt
-of timer interrupt.
-If we call join/leave on mutlicores that timers will run on all these
-cores, but it seems only one or two will generate IGMP message, others
-will only lock the list and loop throught it with nothing generated.
+Hi, Randy
 
+
+> Interesting patch.  I have reported this build error and looked
+> into fixing it, but did not come up with this solution.
+>=20
+> Looking at it more:  if CONFIG_PCI is not enabled, DEVICE_PCI() is NU=
+LL.
+> That makes VORTEX_PCI() (with or without your patch) have a value of =
+NULL.
+>=20
+> Is the line with the reported syntax error (3211) executed in
+> function acpi_set_WOL() ?  If so, let's assume that vp->enable_wol is=
+ true.
+> Then what happens on line 3211 (or 3213 after your patch)?
+>=20
+> 		if (VORTEX_PCI(vp)->current_state < PCI_D3hot)
+> 			return;
+>=20
+> or if I am really confuzed this morning, please tell me how it works.
+>=20
+
+At first glance, I've noticed that the code above could make a NULL
+dereference so I added NULL check prior to the line.
+
+But after reading more code I realized that other pci-functions called
+in acpi_set_WOL() would not work with NULL pci_dev pointer also. And I
+found all callers of the acpi_set_WOL() already checked NULL pointer
+before the call. Finally I could remove the NULL check and leave the
+code as is. That's how it works. :)
+
+Thanks.
 
 --=20
-Cyberman Wu
-http://www.meganovo.com
+Regards,
+Namhyung Kim
