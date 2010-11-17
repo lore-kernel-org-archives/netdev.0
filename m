@@ -1,42 +1,60 @@
-From: Changli Gao <xiaosuo@gmail.com>
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
 Subject: Re: [PATCH v3] filter: Optimize instruction revalidation code.
-Date: Wed, 17 Nov 2010 15:54:47 +0800
-Message-ID: <AANLkTimi1AhXnqv8991Y3=HwoYwvYxEbPd0LroGouZp9@mail.gmail.com>
-References: <20101110.102129.112602843.davem@davemloft.net>
- <1289414024.2469.20.camel@edumazet-laptop> <20101110.103807.39173013.davem@davemloft.net>
- <201011162208.BHC17628.SVtFMJOOLFQFOH@I-love.SAKURA.ne.jp>
- <1289915053.5372.183.camel@edumazet-laptop> <201011162331.CGH00026.OFOSFVMFQtLHOJ@I-love.SAKURA.ne.jp>
- <1289925055.5372.484.camel@edumazet-laptop> <201011170119.oAH1JpES011121@www262.sakura.ne.jp>
- <1289980137.2732.280.camel@edumazet-laptop>
+Date: Wed, 17 Nov 2010 17:06:10 +0900
+Message-ID: <201011170806.oAH86AdI013337@www262.sakura.ne.jp>
+References: <20101110.102129.112602843.davem@davemloft.net> <1289414024.2469.20.camel@edumazet-laptop> <20101110.103807.39173013.davem@davemloft.net> <201011162208.BHC17628.SVtFMJOOLFQFOH@I-love.SAKURA.ne.jp> <1289915053.5372.183.camel@edumazet-laptop> <201011162331.CGH00026.OFOSFVMFQtLHOJ@I-love.SAKURA.ne.jp> <1289925055.5372.484.camel@edumazet-laptop> <201011170119.oAH1JpES011121@www262.sakura.ne.jp> <1289980137.2732.280.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>, mjt@tls.msk.ru,
-	davem@davemloft.net, drosenberg@vsecurity.com, hagen@jauu.net,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="ISO-2022-JP"
+Content-Transfer-Encoding: 7bit
+Cc: mjt@tls.msk.ru, davem@davemloft.net, drosenberg@vsecurity.com,
+	hagen@jauu.net, xiaosuo@gmail.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:40976 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759869Ab0KQHzJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Nov 2010 02:55:09 -0500
-Received: by bwz15 with SMTP id 15so1282243bwz.19
-        for <netdev@vger.kernel.org>; Tue, 16 Nov 2010 23:55:08 -0800 (PST)
+Received: from www262.sakura.ne.jp ([202.181.97.72]:49589 "EHLO
+	www262.sakura.ne.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758033Ab0KQIG0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Nov 2010 03:06:26 -0500
 In-Reply-To: <1289980137.2732.280.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 17, 2010 at 3:48 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
->
-> Please repost it when Changli patch is accepted by David
+Eric Dumazet wrote:
+> > > But how about this:
+> > > 
+> > > enum {
+> > >         BPF_S_RET_K = 1,
+> > 
+> > If BPF_S_* are only for kernel internal use, I think we don't need to translate
+> > from the beginning because only net/core/filter.c uses BPF_S_*.
+> > 
+> > BPF_S_* are exposed to userspace via /usr/include/linux/filter.h since 2.6.36.
+> > Is it no problem to change?
+> 
+> No problem, and Changli posted patch to move them to net/core/filter.c
+> anyway.
+
+> Please repost it when Changli patch is accepted by David 
 > (if accepted :)), to get rid of the "+ 1"
->
 
-Oh. No need, if David accepts this patch first, otherwise, there is
-just some offset, and patch can handle it. :)
+But if Changli's patch is accepted, we can remove BPF_S_* like below.
 
+ 	switch (fentry->code) {
+-	case BPF_S_ALU_ADD_X:
++	case BPF_ALU|BPF_ADD|BPF_X: /* BPF_S_ALU_ADD_X */
+ 		A += X;
+ 		continue;
+-	case BPF_S_ALU_ADD_K:
++	case BPF_ALU|BPF_ADD|BPF_K: /* BPF_S_ALU_ADD_K */
+ 		A += f_k;
+ 		continue;
+-	case BPF_S_ALU_SUB_X:
++	case BPF_ALU|BPF_SUB|BPF_X: /* BPF_S_ALU_SUB_X */
+ 		A -= X;
+ 		continue;
+-	case BPF_S_ALU_SUB_K:
++	case BPF_ALU|BPF_SUB|BPF_K: /* BPF_S_ALU_SUB_K */
+ 		A -= f_k;
+ 		continue;
 
--- 
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+If compilers can generate better code for continuous case values
+than discontinuous case values, then keeping BPF_S_* makes sense.
