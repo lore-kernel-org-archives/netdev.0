@@ -1,41 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: 2.6.37-rc2 after KVM shutdown - unregister_netdevice: waiting
- for vmtst01eth0 to become free. Usage count = 1
-Date: Tue, 16 Nov 2010 10:46:52 +0100
-Message-ID: <1289900812.5372.1.camel@edumazet-laptop>
-References: <20101116084148.GA3781@pcnci.linuxbox.cz>
+From: Liew Kian Yang <kianyang@agroup.com.my>
+Subject: Re: Vlan communication
+Date: Wed, 17 Nov 2010 17:57:07 +0800
+Message-ID: <1289987827.4215.3.camel@localhost.localdomain>
+References: <1289978124.3250.2.camel@localhost.localdomain>
+ <1289893935.3364.255.camel@edumazet-laptop>
+Reply-To: kianyang@agroup.com.my
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: KVM list <kvm@vger.kernel.org>,
-	netdev list <netdev@vger.kernel.org>,
-	nikola.ciprich@linuxbox.cz,
-	Linux kernel list <linux-kernel@vger.kernel.org>
-To: Nikola Ciprich <extmaillist@linuxbox.cz>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20101116084148.GA3781@pcnci.linuxbox.cz>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from venus.localdns.com ([202.190.203.180]:54185 "EHLO
+	dedge-246.localdns.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932509Ab0KPJ6w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Nov 2010 04:58:52 -0500
+Received: from mercury.localdns.com (venus.localdns.com [202.190.203.180])
+	by dedge-246.localdns.com (Postfix) with ESMTP id C3B6912E8C8
+	for <netdev@vger.kernel.org>; Tue, 16 Nov 2010 17:58:48 +0800 (MYT)
+Received: from [192.168.8.98] ([175.136.197.14])
+ by mercury.localdns.com (Sun Java System Messaging Server 6.2-4.03 (built Sep
+ 22 2005)) with ESMTPA id <0LBZ009DQ2E0BV30@mercury.localdns.com> for
+ netdev@vger.kernel.org; Tue, 16 Nov 2010 17:58:49 +0800 (MYT)
+In-reply-to: <1289893935.3364.255.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mardi 16 novembre 2010 =C3=A0 09:41 +0100, Nikola Ciprich a =C3=A9cr=
-it :
-> Hello,
-> I just tried running KVM on 2.6.37-rc2 host, and when trying to shutd=
-own guest, it
-> got to unterruptible state (D) and I'm getting lots of following mess=
-ages:
-> [ 1269.392009] unregister_netdevice: waiting for vmtst01eth0 to becom=
-e free. Usage count =3D 1
-> So I just want to report..
-> n.
->=20
->=20
+Dear Eric,
 
-Yep, this is a known problem, thanks !
+My question is, can i have vlan function enable without using the
+vconfig command?
 
-fix is there :=20
-
-http://patchwork.ozlabs.org/patch/71354/
+Thank you
 
 
+Regards,
+Kian Yang, Liew
+
+On Tue, 2010-11-16 at 08:52 +0100, Eric Dumazet wrote:
+> ip link add link eth0 eth0.1 type vlan id 1
+> 
+> 
+> 
 
