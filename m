@@ -1,46 +1,143 @@
-From: Thomas Graf <tgraf@infradead.org>
-Subject: Re: [PATCH net-next 1/4] rtnetlink: Link address family API
-Date: Wed, 17 Nov 2010 17:58:14 -0500
-Message-ID: <20101117225814.GB17546@canuck.infradead.org>
-References: <20101116143014.GA26669@canuck.infradead.org>
- <20101117.113035.229752488.davem@davemloft.net>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Subject: [RFC PATCH] ethtool: allow setting MDI-X state
+Date: Wed, 17 Nov 2010 15:16:55 -0800
+Message-ID: <20101117231655.30673.37157.stgit@jbrandeb-ich9b.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canuck.infradead.org ([134.117.69.58]:43189 "EHLO
-	canuck.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935513Ab0KQW6P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Nov 2010 17:58:15 -0500
-Content-Disposition: inline
-In-Reply-To: <20101117.113035.229752488.davem@davemloft.net>
+Received: from mga11.intel.com ([192.55.52.93]:39616 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750698Ab0KQXQ4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Nov 2010 18:16:56 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 17, 2010 at 11:30:35AM -0800, David Miller wrote:
-> Applied, but note that as-implemented it has the "partial update"
-> problem.  When we can't get the af-specific ops for a "parse"
-> operation, we just skip that AF yet we let the modifications of
-> the other AF's succeed and make it appear to the user that
-> everything got updated and all the attributes were consumed.
-> 
-> I don't know what we can do about this with how things work
-> right now.
+ethtool recently added support for reading MDI-X state, this
+patch finishes the implementation, adding the complementary write
+command.
 
-I absolutely agree and this problem isn't limited to this specific
-case at all. All netlink based implementations I am aware of will
-silently skip over any unknown attribute type and thus only apply
-updates partially.
+Add support to ethtool for controlling the MDI-X (crossover)
+state of a network port.  Most adapters correctly negotiate
+MDI-X, but some ill-behaved switches have trouble and end up
+picking the wrong MDI setting, which results in complete loss of
+link.  Usually this error condition can be observed with multiple
+ethtool -r ethX required before link is achieved.
 
-What I can will do in this specific case is check if all af ops
-can be looked up before starting to update things.
+usage is ethtool -s eth0 mdix [auto|on|off]
 
-Some of the newer netlink interfaces are actually both atomic and
-always leave a consistent state. For those which do not I strongly
-believe that we should limit inconsistency to a minimum were
-possible but leave any kind of fallback mechanism to userspace. I
-am experimenting with this in userspace. By listening to
-notifications and with the help of sequence numbers it is possible
-to reliably switch back to a previous "version" of a link, address,
-... even if there are multiple writers.
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+---
+
+ ethtool.8 |    8 ++++++++
+ ethtool.c |   34 ++++++++++++++++++++++++++++++++++
+ 2 files changed, 42 insertions(+), 0 deletions(-)
+
+diff --git a/ethtool.8 b/ethtool.8
+index 1760924..c96e35d 100644
+--- a/ethtool.8
++++ b/ethtool.8
+@@ -196,6 +196,7 @@ ethtool \- Display or change ethernet card settings
+ .BI speed \ N
+ .B2 duplex half full
+ .B4 port tp aui bnc mii fibre
++.B3 mdix auto on off
+ .B2 autoneg on off
+ .RB [ advertise
+ .IR N ]
+@@ -452,6 +453,13 @@ Sets full or half duplex mode.
+ .A4 port tp aui bnc mii fibre
+ Selects device port.
+ .TP
++.A3 mdix auto on off
++Selects MDI-X mode for port. May be used to override the automatic detection
++feature of most adapters.  Auto means automatic detection of MDI status, on
++forces MDI-X (crossover) mode, while off means MDI (straight through) mode.
++Depending on implementation an ethtool -r ethX command may be necessary to
++cause the change to take effect.
++.TP
+ .A2 autoneg on off
+ Specifies whether autonegotiation should be enabled. Autonegotiation 
+ is enabled by deafult, but in some network devices may have trouble
+diff --git a/ethtool.c b/ethtool.c
+index 239912b..fcc7998 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -157,6 +157,7 @@ static struct option {
+ 		"		[ speed %d ]\n"
+ 		"		[ duplex half|full ]\n"
+ 		"		[ port tp|aui|bnc|mii|fibre ]\n"
++		"		[ mdix auto|on|off ]\n"
+ 		"		[ autoneg on|off ]\n"
+ 		"		[ advertise %x ]\n"
+ 		"		[ phyad %d ]\n"
+@@ -353,6 +354,7 @@ static s32 coal_tx_frames_high_wanted = -1;
+ static int speed_wanted = -1;
+ static int duplex_wanted = -1;
+ static int port_wanted = -1;
++static int mdix_wanted = -1;
+ static int autoneg_wanted = -1;
+ static int phyad_wanted = -1;
+ static int xcvr_wanted = -1;
+@@ -1048,6 +1050,20 @@ static void parse_cmdline(int argc, char **argp)
+ 				else
+ 					show_usage(1);
+ 				break;
++			} else if (!strcmp(argp[i], "mdix")) {
++				gset_changed = 1;
++				i += 1;
++				if (i >= argc)
++					show_usage(1);
++				if (!strcmp(argp[i], "auto"))
++					mdix_wanted = ETH_TP_MDI_INVALID;
++				else if (!strcmp(argp[i], "on"))
++					mdix_wanted = ETH_TP_MDI_X;
++				else if (!strcmp(argp[i], "off"))
++					mdix_wanted = ETH_TP_MDI;
++				else
++					show_usage(1);
++				break;
+ 			} else if (!strcmp(argp[i], "autoneg")) {
+ 				i += 1;
+ 				if (i >= argc)
+@@ -1124,6 +1140,20 @@ static void parse_cmdline(int argc, char **argp)
+ 					i = argc;
+ 				}
+ 				break;
++			} else if (!strcmp(argp[i], "mdix")) {
++				gset_changed = 1;
++				i += 1;
++				if (i >= argc)
++					show_usage(1);
++				if (!strcmp(argp[i], "auto"))
++					mdix_wanted = ETH_TP_MDI_INVALID;
++				else if (!strcmp(argp[i], "on"))
++					mdix_wanted = ETH_TP_MDI_X;
++				else if (!strcmp(argp[i], "off"))
++					mdix_wanted = ETH_TP_MDI;
++				else
++					show_usage(1);
++				break;
+ 			}
+ 			show_usage(1);
+ 		}
+@@ -2525,6 +2555,8 @@ static int do_sset(int fd, struct ifreq *ifr)
+ 				ecmd.duplex = duplex_wanted;
+ 			if (port_wanted != -1)
+ 				ecmd.port = port_wanted;
++			if (mdix_wanted != -1)
++				ecmd.eth_tp_mdix = mdix_wanted;
+ 			if (autoneg_wanted != -1)
+ 				ecmd.autoneg = autoneg_wanted;
+ 			if (phyad_wanted != -1)
+@@ -2566,6 +2598,8 @@ static int do_sset(int fd, struct ifreq *ifr)
+ 				fprintf(stderr, "  not setting phy_address\n");
+ 			if (xcvr_wanted != -1)
+ 				fprintf(stderr, "  not setting transceiver\n");
++			if (mdix_wanted != -1)
++				fprintf(stderr, "  not setting mdix\n");
+ 		}
+ 	}
+ 
+
