@@ -1,30 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drivers/isdn/hisax: Add printf format/argument
- verification and fix fallout
-Date: Wed, 17 Nov 2010 10:58:37 -0800 (PST)
-Message-ID: <20101117.105837.70199643.davem@davemloft.net>
-References: <f92d95e7dc0afca09c2d76880b76973e4eafb169.1289451201.git.joe@perches.com>
+Subject: Re: [PATCH net-next-2.6] clarify documentation for
+ net.ipv4.igmp_max_memberships
+Date: Wed, 17 Nov 2010 11:22:10 -0800 (PST)
+Message-ID: <20101117.112210.232752115.davem@davemloft.net>
+References: <1289835691.8257.1274.camel@jerms-wks.usersys.redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, isdn@linux-pingi.de,
-	netdev@vger.kernel.org
-To: joe@perches.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46622
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S935040Ab0KQS6N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Nov 2010 13:58:13 -0500
-In-Reply-To: <f92d95e7dc0afca09c2d76880b76973e4eafb169.1289451201.git.joe@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, rdunlap@xenotime.net, opurdila@ixiacom.com,
+	apetlund@simula.no, William.Allen.Simpson@gmail.com,
+	ian.campbell@citrix.com, linux-doc@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jpirko@redhat.com
+To: jeder@redhat.com
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <1289835691.8257.1274.camel@jerms-wks.usersys.redhat.com>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Joe Perches <joe@perches.com>
-Date: Wed, 10 Nov 2010 20:54:58 -0800
+From: Jeremy Eder <jeder@redhat.com>
+Date: Mon, 15 Nov 2010 10:41:31 -0500
 
-> Add __attribute__((format... to several functins
-> Make formats and arguments match.
+> This patch helps clarify documentation for
+> net.ipv4.igmp_max_memberships by providing a formula for
+> calculating the maximum number of multicast groups that can be
+> subscribed to, plus defining the theoretical limit.
 > 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+> Signed-off-by: Jeremy Eder <jeder@redhat.com>
 
-Applied, thanks.
+Applied, thanks Jeremy.
