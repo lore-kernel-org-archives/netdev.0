@@ -1,57 +1,70 @@
-From: Namhyung Kim <namhyung@gmail.com>
-Subject: Re: [PATCH] 3c59x: fix build failure on !CONFIG_PCI
-Date: Wed, 17 Nov 2010 11:22:12 +0900
-Message-ID: <1289960532.1663.24.camel@leonhard>
-References: <1289921271-15295-1-git-send-email-namhyung@gmail.com>
-	 <20101116091408.abd36ec8.randy.dunlap@oracle.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Bugme-new] [Bug 22962] New: building (e)glibc against
+ 2.6.37-rc1 headers fails
+Date: Tue, 16 Nov 2010 18:33:20 -0800 (PST)
+Message-ID: <20101116.183320.193704193.davem@davemloft.net>
+References: <bug-22962-10286@https.bugzilla.kernel.org/>
+	<20101116143349.2fbb6ed8.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Randy Dunlap <randy.dunlap@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20101116091408.abd36ec8.randy.dunlap@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: stephan@openelec.tv, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org
+To: akpm@linux-foundation.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45308
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756319Ab0KQCcz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Nov 2010 21:32:55 -0500
+In-Reply-To: <20101116143349.2fbb6ed8.akpm@linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2010-11-16 (=ED=99=94), 09:14 -0800, Randy Dunlap:
-> Hi,
->=20
-
-Hi, Randy
-
-
-> Interesting patch.  I have reported this build error and looked
-> into fixing it, but did not come up with this solution.
->=20
-> Looking at it more:  if CONFIG_PCI is not enabled, DEVICE_PCI() is NU=
-LL.
-> That makes VORTEX_PCI() (with or without your patch) have a value of =
-NULL.
->=20
-> Is the line with the reported syntax error (3211) executed in
-> function acpi_set_WOL() ?  If so, let's assume that vp->enable_wol is=
- true.
-> Then what happens on line 3211 (or 3213 after your patch)?
->=20
-> 		if (VORTEX_PCI(vp)->current_state < PCI_D3hot)
-> 			return;
->=20
-> or if I am really confuzed this morning, please tell me how it works.
->=20
-
-At first glance, I've noticed that the code above could make a NULL
-dereference so I added NULL check prior to the line.
-
-But after reading more code I realized that other pci-functions called
-in acpi_set_WOL() would not work with NULL pci_dev pointer also. And I
-found all callers of the acpi_set_WOL() already checked NULL pointer
-before the call. Finally I could remove the NULL check and leave the
-code as is. That's how it works. :)
-
-Thanks.
-
---=20
-Regards,
-Namhyung Kim
+RnJvbTogQW5kcmV3IE1vcnRvbiA8YWtwbUBsaW51eC1mb3VuZGF0aW9uLm9yZz4NCkRhdGU6IFR1
+ZSwgMTYgTm92IDIwMTAgMTQ6MzM6NDkgLTA4MDANCg0KPiBNYXliZSB3ZSBuZWVkIHNvbWUgX19L
+RVJORUxfXyBndWFyZHMgaW4gaWYuaC4NCg0KQWxyZWFkeSBmaXhlZCBpbiBuZXQtMi42Og0KDQpG
+cm9tIDNiNDJhOTZkYzc4NzBjNTNkMjBiNDE5MTg1NzM3ZDNiOGY3YTdiNzQgTW9uIFNlcCAxNyAw
+MDowMDowMCAyMDAxDQpGcm9tOiBBbmR5IFdoaXRjcm9mdCA8YXB3QGNhbm9uaWNhbC5jb20+DQpE
+YXRlOiBNb24sIDE1IE5vdiAyMDEwIDA2OjAxOjU5ICswMDAwDQpTdWJqZWN0OiBbUEFUQ0ggMS8z
+XSBuZXQ6IHJ0bmV0bGluay5oIC0tIG9ubHkgaW5jbHVkZSBsaW51eC9uZXRkZXZpY2UuaCB3aGVu
+IHVzZWQgYnkgdGhlIGtlcm5lbA0KTUlNRS1WZXJzaW9uOiAxLjANCkNvbnRlbnQtVHlwZTogdGV4
+dC9wbGFpbjsgY2hhcnNldD1VVEYtOA0KQ29udGVudC1UcmFuc2Zlci1FbmNvZGluZzogOGJpdA0K
+DQpUaGUgY29tbWl0IGJlbG93IGFkZGVkIGEgbmV3IGhlbHBlciBkZXZfaW5ncmVzc19xdWV1ZSB0
+byBjbGVhbmx5IG9idGFpbiB0aGUNCmluZ3Jlc3MgcXVldWUgcG9pbnRlci4gIFRoaXMgbmVjZXNz
+aXRhdGVkIGluY2x1ZGluZyAnbGludXgvbmV0ZGV2aWNlLmgnOg0KDQogIGNvbW1pdCAyNDgyNGEw
+OWUzNTQwMmI4ZDU4ZGNjNWJlODAzYTVhZDM5MzdiZGJhDQogIEF1dGhvcjogRXJpYyBEdW1hemV0
+IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPg0KICBEYXRlOiAgIFNhdCBPY3QgMiAwNjoxMTo1NSAy
+MDEwICswMDAwDQoNCiAgICBuZXQ6IGR5bmFtaWMgaW5ncmVzc19xdWV1ZSBhbGxvY2F0aW9uDQoN
+Ckhvd2V2ZXIgdGhpcyBpbmNsdWRlIHRyaWdnZXJzIGlzc3VlcyBmb3IgYXBwbGljYXRpb25zIGlu
+IHVzZXJzcGFjZQ0Kd2hpY2ggdXNlIHRoZSBydG5ldGxpbmsgaW50ZXJmYWNlcy4gIENvbW1vbmx5
+IHRoaXMgcmVxdWlyZXMgdGhleSBpbmNsdWRlDQonbmV0L2lmLmgnIGFuZCAnbGludXgvcnRuZXRs
+aW5rLmgnIGxlYWRpbmcgdG8gYSBjb21waWxlciBlcnJvciBhcyBiZWxvdzoNCg0KICBJbiBmaWxl
+IGluY2x1ZGVkIGZyb20gL3Vzci9pbmNsdWRlL2xpbnV4L25ldGRldmljZS5oOjI4OjAsDQogICAg
+ICAgICAgICAgICAgICAgZnJvbSAvdXNyL2luY2x1ZGUvbGludXgvcnRuZXRsaW5rLmg6OSwNCiAg
+ICAgICAgICAgICAgICAgICBmcm9tIHQuYzoyOg0KICAvdXNyL2luY2x1ZGUvbGludXgvaWYuaDox
+MzU6ODogZXJyb3I6IHJlZGVmaW5pdGlvbiBvZiChc3RydWN0IGlmbWFwog0KICAvdXNyL2luY2x1
+ZGUvbmV0L2lmLmg6MTEyOjg6IG5vdGU6IG9yaWdpbmFsbHkgZGVmaW5lZCBoZXJlDQogIC91c3Iv
+aW5jbHVkZS9saW51eC9pZi5oOjE2OTo4OiBlcnJvcjogcmVkZWZpbml0aW9uIG9mIKFzdHJ1Y3Qg
+aWZyZXGiDQogIC91c3IvaW5jbHVkZS9uZXQvaWYuaDoxMjc6ODogbm90ZTogb3JpZ2luYWxseSBk
+ZWZpbmVkIGhlcmUNCiAgL3Vzci9pbmNsdWRlL2xpbnV4L2lmLmg6MjE4Ojg6IGVycm9yOiByZWRl
+ZmluaXRpb24gb2YgoXN0cnVjdCBpZmNvbmaiDQogIC91c3IvaW5jbHVkZS9uZXQvaWYuaDoxNzc6
+ODogbm90ZTogb3JpZ2luYWxseSBkZWZpbmVkIGhlcmUNCg0KVGhlIG5ldyBoZWxwZXIgaXMgb25s
+eSBkZWZpbmVkIGZvciB0aGUga2VybmVsIGFuZCBwcm90ZWN0ZWQgYnkgX19LRVJORUxfXw0KdGhl
+cmVmb3JlIHdlIGNhbiBzaW1wbHkgcHVsbCB0aGUgaW5jbHVkZSBkb3duIGludG8gdGhlIHNhbWUg
+cHJvdGVjdGVkDQpzZWN0aW9uLg0KDQpTaWduZWQtb2ZmLWJ5OiBBbmR5IFdoaXRjcm9mdCA8YXB3
+QGNhbm9uaWNhbC5jb20+DQpTaWduZWQtb2ZmLWJ5OiBEYXZpZCBTLiBNaWxsZXIgPGRhdmVtQGRh
+dmVtbG9mdC5uZXQ+DQotLS0NCiBpbmNsdWRlL2xpbnV4L3J0bmV0bGluay5oIHwgICAgMiArLQ0K
+IDEgZmlsZXMgY2hhbmdlZCwgMSBpbnNlcnRpb25zKCspLCAxIGRlbGV0aW9ucygtKQ0KDQpkaWZm
+IC0tZ2l0IGEvaW5jbHVkZS9saW51eC9ydG5ldGxpbmsuaCBiL2luY2x1ZGUvbGludXgvcnRuZXRs
+aW5rLmgNCmluZGV4IGQ0MmYyNzQ0Li5iYmFkNjU3IDEwMDY0NA0KLS0tIGEvaW5jbHVkZS9saW51
+eC9ydG5ldGxpbmsuaA0KKysrIGIvaW5jbHVkZS9saW51eC9ydG5ldGxpbmsuaA0KQEAgLTYsNyAr
+Niw2IEBADQogI2luY2x1ZGUgPGxpbnV4L2lmX2xpbmsuaD4NCiAjaW5jbHVkZSA8bGludXgvaWZf
+YWRkci5oPg0KICNpbmNsdWRlIDxsaW51eC9uZWlnaGJvdXIuaD4NCi0jaW5jbHVkZSA8bGludXgv
+bmV0ZGV2aWNlLmg+DQogDQogLyogcnRuZXRsaW5rIGZhbWlsaWVzLiBWYWx1ZXMgdXAgdG8gMTI3
+IGFyZSByZXNlcnZlZCBmb3IgcmVhbCBhZGRyZXNzDQogICogZmFtaWxpZXMsIHZhbHVlcyBhYm92
+ZSAxMjggbWF5IGJlIHVzZWQgYXJiaXRyYXJpbHkuDQpAQCAtNjA2LDYgKzYwNSw3IEBAIHN0cnVj
+dCB0Y2Ftc2cgew0KICNpZmRlZiBfX0tFUk5FTF9fDQogDQogI2luY2x1ZGUgPGxpbnV4L211dGV4
+Lmg+DQorI2luY2x1ZGUgPGxpbnV4L25ldGRldmljZS5oPg0KIA0KIHN0YXRpYyBfX2lubGluZV9f
+IGludCBydGF0dHJfc3RyY21wKGNvbnN0IHN0cnVjdCBydGF0dHIgKnJ0YSwgY29uc3QgY2hhciAq
+c3RyKQ0KIHsNCi0tIA0KMS43LjMuMg0KDQo=
