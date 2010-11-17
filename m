@@ -1,30 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 06/11] drivers/net/s2io.c: Remove unnecessary casts of
- pci_get_drvdata
-Date: Wed, 17 Nov 2010 12:28:35 -0800 (PST)
-Message-ID: <20101117.122835.02291845.davem@davemloft.net>
-References: <cover.1289851770.git.joe@perches.com>
-	<5add1304ab2cd7f730a81a85598ef7357b087a86.1289851770.git.joe@perches.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 09/14] drivers/net/can/sja1000: Use printf extension
+	%pR for struct resource
+Date: Wed, 17 Nov 2010 12:29:12 -0800 (PST)
+Message-ID: <20101117.122912.27795111.davem@davemloft.net>
+References: <cover.1289597644.git.joe@perches.com>
+	<199bf35f52ea48bef79d4b40b504b0c85dca6fad.1289597644.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: trivial@kernel.org, ramkrishna.vepa@exar.com,
-	sivakumar.subramani@exar.com, sreenivasa.honnur@exar.com,
-	jon.mason@exar.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: joe@perches.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52445
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S935490Ab0KQU2K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Nov 2010 15:28:10 -0500
-In-Reply-To: <5add1304ab2cd7f730a81a85598ef7357b087a86.1289851770.git.joe@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, trivial-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org
+To: joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <199bf35f52ea48bef79d4b40b504b0c85dca6fad.1289597644.git.joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Joe Perches <joe@perches.com>
-Date: Mon, 15 Nov 2010 12:13:57 -0800
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Date: Fri, 12 Nov 2010 13:37:59 -0800
 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> Using %pR standardizes the struct resource output.
+> 
+> Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
 
 Applied.
