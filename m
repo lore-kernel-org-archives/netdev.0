@@ -1,60 +1,78 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: Re: [PATCH v3] filter: Optimize instruction revalidation code.
-Date: Wed, 17 Nov 2010 17:06:10 +0900
-Message-ID: <201011170806.oAH86AdI013337@www262.sakura.ne.jp>
-References: <20101110.102129.112602843.davem@davemloft.net> <1289414024.2469.20.camel@edumazet-laptop> <20101110.103807.39173013.davem@davemloft.net> <201011162208.BHC17628.SVtFMJOOLFQFOH@I-love.SAKURA.ne.jp> <1289915053.5372.183.camel@edumazet-laptop> <201011162331.CGH00026.OFOSFVMFQtLHOJ@I-love.SAKURA.ne.jp> <1289925055.5372.484.camel@edumazet-laptop> <201011170119.oAH1JpES011121@www262.sakura.ne.jp> <1289980137.2732.280.camel@edumazet-laptop>
+From: "Xin, Xiaohui" <xiaohui.xin@intel.com>
+Subject: RE: [PATCH v15 00/17] Provide a zero-copy method on KVM virtio-net.
+Date: Wed, 17 Nov 2010 16:09:12 +0800
+Message-ID: <F2E9EB7348B8264F86B6AB8151CE2D7934FF8D1D57@shsmsx502.ccr.corp.intel.com>
+References: <20101109.091516.112581012.davem@davemloft.net>
+	<1289381008-5484-1-git-send-email-xiaohui.xin@intel.com>
+ <20101110.094641.193701683.davem@davemloft.net>
+ <F2E9EB7348B8264F86B6AB8151CE2D793498A31E75@shsmsx502.ccr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-2022-JP"
-Content-Transfer-Encoding: 7bit
-Cc: mjt@tls.msk.ru, davem@davemloft.net, drosenberg@vsecurity.com,
-	hagen@jauu.net, xiaosuo@gmail.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www262.sakura.ne.jp ([202.181.97.72]:49589 "EHLO
-	www262.sakura.ne.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758033Ab0KQIG0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Nov 2010 03:06:26 -0500
-In-Reply-To: <1289980137.2732.280.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"mst@redhat.com" <mst@redhat.com>, "mingo@elte.hu" <mingo@elte.hu>,
+	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
+	"jdike@linux.intel.com" <jdike@linux.intel.com>
+To: "Xin, Xiaohui" <xiaohui.xin@intel.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <F2E9EB7348B8264F86B6AB8151CE2D793498A31E75@shsmsx502.ccr.corp.intel.com>
+Content-Language: en-US
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Eric Dumazet wrote:
-> > > But how about this:
-> > > 
-> > > enum {
-> > >         BPF_S_RET_K = 1,
-> > 
-> > If BPF_S_* are only for kernel internal use, I think we don't need to translate
-> > from the beginning because only net/core/filter.c uses BPF_S_*.
-> > 
-> > BPF_S_* are exposed to userspace via /usr/include/linux/filter.h since 2.6.36.
-> > Is it no problem to change?
-> 
-> No problem, and Changli posted patch to move them to net/core/filter.c
-> anyway.
+>-----Original Message-----
+>From: kvm-owner@vger.kernel.org [mailto:kvm-owner@vger.kernel.org] On Behalf Of Xin,
+>Xiaohui
+>Sent: Thursday, November 11, 2010 4:28 PM
+>To: David Miller
+>Cc: netdev@vger.kernel.org; kvm@vger.kernel.org; linux-kernel@vger.kernel.org;
+>mst@redhat.com; mingo@elte.hu; herbert@gondor.apana.org.au; jdike@linux.intel.com
+>Subject: RE: [PATCH v15 00/17] Provide a zero-copy method on KVM virtio-net.
+>
+>>-----Original Message-----
+>>From: David Miller [mailto:davem@davemloft.net]
+>>Sent: Thursday, November 11, 2010 1:47 AM
+>>To: Xin, Xiaohui
+>>Cc: netdev@vger.kernel.org; kvm@vger.kernel.org; linux-kernel@vger.kernel.org;
+>>mst@redhat.com; mingo@elte.hu; herbert@gondor.apana.org.au; jdike@linux.intel.com
+>>Subject: Re: [PATCH v15 00/17] Provide a zero-copy method on KVM virtio-net.
+>>
+>>From: xiaohui.xin@intel.com
+>>Date: Wed, 10 Nov 2010 17:23:28 +0800
+>>
+>>> From: Xin Xiaohui <xiaohui.xin@intel.com>
+>>>
+>>>>2) The idea to key off of skb->dev in skb_release_data() is
+>>>>   fundamentally flawed since many actions can change skb->dev on you,
+>>>>   which will end up causing a leak of your external data areas.
+>>>
+>>> How about this one? If the destructor_arg is not a good candidate,
+>>> then I have to add an apparent field in shinfo.
+>>
+>>If destructor_arg is actually a net_device pointer or similar,
+>>you will need to take a reference count on it or similar.
+>>
+>Do you mean destructor_arg will be consumed by other user?
+>If that case, may I add a new structure member in shinfo?
+>Thus only zero-copy will use it, and no need for the reference count.
+>
+How about this? It really needs somewhere to track the external data area,
+and if something wrong with it, we can also release the data area. We think 
+skb_release_data() is the right place to deal with it. If I understood right,
+that destructor_arg will be used by other else that why reference count is
+needed, then how about add a new structure member in shinfo?
 
-> Please repost it when Changli patch is accepted by David 
-> (if accepted :)), to get rid of the "+ 1"
+Thanks
+Xiaohui 
 
-But if Changli's patch is accepted, we can remove BPF_S_* like below.
-
- 	switch (fentry->code) {
--	case BPF_S_ALU_ADD_X:
-+	case BPF_ALU|BPF_ADD|BPF_X: /* BPF_S_ALU_ADD_X */
- 		A += X;
- 		continue;
--	case BPF_S_ALU_ADD_K:
-+	case BPF_ALU|BPF_ADD|BPF_K: /* BPF_S_ALU_ADD_K */
- 		A += f_k;
- 		continue;
--	case BPF_S_ALU_SUB_X:
-+	case BPF_ALU|BPF_SUB|BPF_X: /* BPF_S_ALU_SUB_X */
- 		A -= X;
- 		continue;
--	case BPF_S_ALU_SUB_K:
-+	case BPF_ALU|BPF_SUB|BPF_K: /* BPF_S_ALU_SUB_K */
- 		A -= f_k;
- 		continue;
-
-If compilers can generate better code for continuous case values
-than discontinuous case values, then keeping BPF_S_* makes sense.
+>>Which means --> good bye performance especially on SMP.
+>>
+>>You're going to be adding new serialization points and at
+>>least two new atomics per packet.
+>--
+>To unsubscribe from this list: send the line "unsubscribe kvm" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
