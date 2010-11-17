@@ -1,7 +1,8 @@
 From: John Fastabend <john.r.fastabend@intel.com>
-Subject: [RFC PATCH v1 1/2] net: implement mechanism for HW based QOS
-Date: Tue, 16 Nov 2010 21:15:45 -0800
-Message-ID: <20101117051544.19800.97654.stgit@jf-dev1-dcblab>
+Subject: [RFC PATCH v1 2/2] ixgbe: add multiple txqs per tc
+Date: Tue, 16 Nov 2010 21:15:50 -0800
+Message-ID: <20101117051550.19800.64236.stgit@jf-dev1-dcblab>
+References: <20101117051544.19800.97654.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -9,224 +10,465 @@ Cc: john.r.fastabend@intel.com, nhorman@tuxdriver.com,
 	davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:46831 "EHLO mga09.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:59372 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751270Ab0KQFSa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Nov 2010 00:18:30 -0500
+	id S1751766Ab0KQFSg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Nov 2010 00:18:36 -0500
+In-Reply-To: <20101117051544.19800.97654.stgit@jf-dev1-dcblab>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch provides a mechanism for lower layer devices to
-steer traffic using skb->priority to tx queues. This allows
-for hardware based QOS schemes to use the default qdisc without
-incurring the penalties related to global state and the qdisc
-lock. While reliably receiving skbs on the correct tx ring
-to avoid head of line blocking resulting from shuffling in
-the LLD. Finally, all the goodness from txq caching and xps/rps
-can still be leveraged.
+This is sample code to illustrate the usage model for hardware
+QOS offloading. It needs some polishing, but should be good
+enough to illustrate how the API can be used.
 
-Many drivers and hardware exist with the ability to implement
-QOS schemes in the hardware but currently these drivers tend
-to rely on firmware to reroute specific traffic, a driver
-specific select_queue or the queue_mapping action in the
-qdisc.
+Currently, DCB only enables a single queue per tc. Due to
+complications with how to map tc filter rules to traffic classes
+when multiple queues are enabled. And previously there was no
+mechanism to map flows to multiple queues by priority.
 
-None of these solutions are ideal or generic so we end up
-with driver specific solutions that one-off traffic types
-for example FCoE traffic is steered in ixgbe with the
-queue_select routine. By using select_queue for this drivers
-need to be updated for each and every traffic type and we
-loose the goodness of much of the upstream work. For example
-txq caching.
-
-Firmware solutions are inherently inflexible. And finally if
-admins are expected to build a qdisc and filter rules to steer
-traffic this requires knowledge of how the hardware is currently
-configured. The number of tx queues and the queue offsets may
-change depending on resources. Also this approach incurs all the
-overhead of a qdisc with filters.
-
-With this mechanism users can set skb priority using expected
-methods either socket options or the stack can set this directly.
-Then the skb will be steered to the correct tx queues aligned
-with hardware QOS traffic classes. In the normal case with a
-single traffic class and all queues in this class every thing
-works as is until the LLD enables multiple tcs.
-
-To steer the skb we mask out the lower 8 bits of the priority
-and allow the hardware to configure upto 15 distinct classes
-of traffic. This is expected to be sufficient for most applications
-at any rate it is more then the 8021Q spec designates and is
-equal to the number of prio bands currently implemented in
-the default qdisc.
-
-This in conjunction with a userspace application such as
-lldpad can be used to implement 8021Q transmission selection
-algorithms one of these algorithms being the extended transmission
-selection algorithm currently being used for DCB.
-
-If this approach seems reasonable I'll go ahead and finish
-this up. The priority to tc mapping should probably be exposed
-to userspace either through sysfs or rtnetlink. Any thoughts?
+Using the above mentioned API we allocate multiple queues per
+tc and configure the stack to hash across these queues. The
+hardware then offloads the DCB extended transmission selection
+algorithm. Sockets can set the priority using the SO_PRIORITY
+socket option.
 
 Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 ---
 
- include/linux/netdevice.h |   47 +++++++++++++++++++++++++++++++++++++++++++++
- net/core/dev.c            |   43 ++++++++++++++++++++++++++++++++++++++++-
- 2 files changed, 89 insertions(+), 1 deletions(-)
+ drivers/net/ixgbe/ixgbe.h        |    5 -
+ drivers/net/ixgbe/ixgbe_dcb_nl.c |    3 
+ drivers/net/ixgbe/ixgbe_main.c   |  254 +++++++++++++++-----------------------
+ 3 files changed, 105 insertions(+), 157 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index b45c1b8..8a2adeb 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1092,6 +1092,12 @@ struct net_device {
- 	/* Data Center Bridging netlink ops */
- 	const struct dcbnl_rtnl_ops *dcbnl_ops;
- #endif
-+	u8 max_tcs;
-+	u8 num_tcs;
-+	unsigned int *_tc_txqcount;
-+	unsigned int *_tc_txqoffset;
-+	u64 prio_tc_map;
-+
+diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
+index ed8703c..2ac7bf7 100644
+--- a/drivers/net/ixgbe/ixgbe.h
++++ b/drivers/net/ixgbe/ixgbe.h
+@@ -207,11 +207,12 @@ enum ixgbe_ring_f_enum {
+ 	RING_F_ARRAY_SIZE      /* must be last in enum set */
+ };
  
- #if defined(CONFIG_FCOE) || defined(CONFIG_FCOE_MODULE)
- 	/* max exchange id for FCoE LRO by ddp */
-@@ -1108,6 +1114,44 @@ struct net_device {
- #define	NETDEV_ALIGN		32
+-#define IXGBE_MAX_DCB_INDICES   8
++#define IXGBE_MAX_DCB_INDICES  64
+ #define IXGBE_MAX_RSS_INDICES  16
+ #define IXGBE_MAX_VMDQ_INDICES 64
+ #define IXGBE_MAX_FDIR_INDICES 64
+-#ifdef IXGBE_FCOE
++
++#if defined(IXGBE_FCOE)
+ #define IXGBE_MAX_FCOE_INDICES  8
+ #define MAX_RX_QUEUES (IXGBE_MAX_FDIR_INDICES + IXGBE_MAX_FCOE_INDICES)
+ #define MAX_TX_QUEUES (IXGBE_MAX_FDIR_INDICES + IXGBE_MAX_FCOE_INDICES)
+diff --git a/drivers/net/ixgbe/ixgbe_dcb_nl.c b/drivers/net/ixgbe/ixgbe_dcb_nl.c
+index b53b465..7c85f3c 100644
+--- a/drivers/net/ixgbe/ixgbe_dcb_nl.c
++++ b/drivers/net/ixgbe/ixgbe_dcb_nl.c
+@@ -140,6 +140,7 @@ static u8 ixgbe_dcbnl_set_state(struct net_device *netdev, u8 state)
+ 			adapter->flags &= ~IXGBE_FLAG_FDIR_PERFECT_CAPABLE;
+ 		}
+ 		adapter->flags |= IXGBE_FLAG_DCB_ENABLED;
++
+ 		ixgbe_init_interrupt_scheme(adapter);
+ 		if (netif_running(netdev))
+ 			netdev->netdev_ops->ndo_open(netdev);
+@@ -342,7 +343,7 @@ static u8 ixgbe_dcbnl_set_all(struct net_device *netdev)
+ 		return DCB_NO_HW_CHG;
  
- static inline
-+int netdev_get_prio_tc_map(const struct net_device *dev, u32 prio)
-+{
-+	return (dev->prio_tc_map >> (4 * (prio & 0xF))) & 0xF;
-+}
-+
-+static inline
-+void netdev_set_prio_tc_map(struct net_device *dev, u8 prio, u8 tc)
-+{
-+	u64 mask = ~(-1 & (0xF << (4 * prio)));
-+	/* Zero the 4 bit prio map and set traffic class */
-+	dev->prio_tc_map &= mask;
-+	dev->prio_tc_map |= tc << (4 * prio);
-+}
-+
-+static inline
-+void netdev_set_tc_queue(struct net_device *dev, u8 tc, u16 count, u16 offset)
-+{
-+	dev->_tc_txqcount[tc] = count;
-+	dev->_tc_txqoffset[tc] = offset;
-+}
-+
-+static inline
-+int netdev_set_num_tc(struct net_device *dev, u8 num_tc)
-+{
-+	if (num_tc > dev->max_tcs)
-+		return -EINVAL;
-+
-+	dev->num_tcs = num_tc;
-+	return 0;
-+}
-+
-+static inline
-+u8 netdev_get_num_tc(struct net_device *dev)
-+{
-+	return dev->num_tcs;
-+}
-+
-+static inline
- struct netdev_queue *netdev_get_tx_queue(const struct net_device *dev,
- 					 unsigned int index)
- {
-@@ -1332,6 +1376,9 @@ static inline void unregister_netdevice(struct net_device *dev)
- 	unregister_netdevice_queue(dev, NULL);
+ 	ret = ixgbe_copy_dcb_cfg(&adapter->temp_dcb_cfg, &adapter->dcb_cfg,
+-				 adapter->ring_feature[RING_F_DCB].indices);
++				 netdev->num_tcs);
+ 
+ 	if (ret)
+ 		return DCB_NO_HW_CHG;
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index fbad4d8..2c0cfb8 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -644,7 +644,7 @@ static inline bool ixgbe_tx_xon_state(struct ixgbe_adapter *adapter,
+ 	if (adapter->dcb_cfg.pfc_mode_enable) {
+ 		int tc;
+ 		int reg_idx = tx_ring->reg_idx;
+-		int dcb_i = adapter->ring_feature[RING_F_DCB].indices;
++		int dcb_i = MAX_TRAFFIC_CLASS;
+ 
+ 		switch (adapter->hw.mac.type) {
+ 		case ixgbe_mac_82598EB:
+@@ -3978,14 +3978,64 @@ static void ixgbe_reset_task(struct work_struct *work)
  }
  
-+extern int		netdev_alloc_max_tcs(struct net_device *dev, u8 tcs);
-+extern void		netdev_free_tcs(struct net_device *dev);
+ #ifdef CONFIG_IXGBE_DCB
++/*
++ * Queue to TC Mapping Layout 82599:
++ *
++ * Tx TC0 starts at: descriptor queue 0
++ * Tx TC1 starts at: descriptor queue 32
++ * Tx TC2 starts at: descriptor queue 64
++ * Tx TC3 starts at: descriptor queue 80
++ * Tx TC4 starts at: descriptor queue 96
++ * Tx TC5 starts at: descriptor queue 104
++ * Tx TC6 starts at: descriptor queue 112
++ * Tx TC7 starts at: descriptor queue 120
++ *
++ * Rx TC0-TC7 are offset by 16 queues each
++ *
++ * Queue to TC Mapping Layout 82598:
++ *
++ * TX TC0-TC7 are offset by 4 queues each
++ * RX TC0-TC7 are offset by 4 queues each
++ */
++static unsigned int Q_TC8_82599[] = {0, 32, 64, 80, 96, 104, 112, 120, 128};
++static unsigned int Q_TC4_82599[] = {0, 64, 96, 104, 128};
++static unsigned int Q_TC8_82598[] = {0, 4, 8, 12, 16, 20, 24, 28, 32};
 +
- extern int 		netdev_refcnt_read(const struct net_device *dev);
- extern void		free_netdev(struct net_device *dev);
- extern void		synchronize_net(void);
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 4a587b3..4565afc 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2111,6 +2111,8 @@ static u32 hashrnd __read_mostly;
- u16 skb_tx_hash(const struct net_device *dev, const struct sk_buff *skb)
++#define MAX_Q_PER_TC 4
++
+ static inline bool ixgbe_set_dcb_queues(struct ixgbe_adapter *adapter)
  {
- 	u32 hash;
-+	u16 qoffset = 0;
-+	u16 qcount = dev->real_num_tx_queues;
+ 	bool ret = false;
+ 	struct ixgbe_ring_feature *f = &adapter->ring_feature[RING_F_DCB];
++	int num_tcs;
++	unsigned int *__tc;
++	int i, q;
  
- 	if (skb_rx_queue_recorded(skb)) {
- 		hash = skb_get_rx_queue(skb);
-@@ -2119,13 +2121,20 @@ u16 skb_tx_hash(const struct net_device *dev, const struct sk_buff *skb)
- 		return hash;
+ 	if (!(adapter->flags & IXGBE_FLAG_DCB_ENABLED))
+ 		return ret;
+ 
++	if (adapter->hw.mac.type == ixgbe_mac_82598EB) {
++		num_tcs = 4;
++		__tc = Q_TC8_82598;
++	} else {
++		num_tcs = 8;
++		if (num_tcs == 8)
++			__tc = Q_TC8_82599;
++		else
++			__tc = Q_TC4_82599;
++	}
++
++	netdev_set_num_tc(adapter->netdev, num_tcs);
++
++	f->indices = 0;
++	for (i = 0; i < num_tcs; i++) {
++		q = min((unsigned int)num_online_cpus(), __tc[i+1] - __tc[i]);
++		q = min(q, MAX_Q_PER_TC);
++		netdev_set_prio_tc_map(adapter->netdev, i, i);
++		netdev_set_tc_queue(adapter->netdev, i, q, f->indices);
++		f->indices += q;
++	}
++
+ 	f->mask = 0x7 << 3;
+ 	adapter->num_rx_queues = f->indices;
+ 	adapter->num_tx_queues = f->indices;
+@@ -4072,12 +4122,7 @@ static inline bool ixgbe_set_fcoe_queues(struct ixgbe_adapter *adapter)
+ 	if (adapter->flags & IXGBE_FLAG_FCOE_ENABLED) {
+ 		adapter->num_rx_queues = 1;
+ 		adapter->num_tx_queues = 1;
+-#ifdef CONFIG_IXGBE_DCB
+-		if (adapter->flags & IXGBE_FLAG_DCB_ENABLED) {
+-			e_info(probe, "FCoE enabled with DCB\n");
+-			ixgbe_set_dcb_queues(adapter);
+-		}
+-#endif
++
+ 		if (adapter->flags & IXGBE_FLAG_RSS_ENABLED) {
+ 			e_info(probe, "FCoE enabled with RSS\n");
+ 			if ((adapter->flags & IXGBE_FLAG_FDIR_HASH_CAPABLE) ||
+@@ -4133,16 +4178,16 @@ static int ixgbe_set_num_queues(struct ixgbe_adapter *adapter)
+ 	if (ixgbe_set_sriov_queues(adapter))
+ 		goto done;
+ 
++#ifdef CONFIG_IXGBE_DCB
++	if (ixgbe_set_dcb_queues(adapter))
++		goto done;
++#endif
++
+ #ifdef IXGBE_FCOE
+ 	if (ixgbe_set_fcoe_queues(adapter))
+ 		goto done;
+ 
+ #endif /* IXGBE_FCOE */
+-#ifdef CONFIG_IXGBE_DCB
+-	if (ixgbe_set_dcb_queues(adapter))
+-		goto done;
+-
+-#endif
+ 	if (ixgbe_set_fdir_queues(adapter))
+ 		goto done;
+ 
+@@ -4246,73 +4291,35 @@ static inline bool ixgbe_cache_ring_rss(struct ixgbe_adapter *adapter)
+  **/
+ static inline bool ixgbe_cache_ring_dcb(struct ixgbe_adapter *adapter)
+ {
+-	int i;
++	struct net_device *dev = adapter->netdev;
++	int i, j, rx_off, qcount, index;
+ 	bool ret = false;
+-	int dcb_i = adapter->ring_feature[RING_F_DCB].indices;
++	u8 num_tcs = netdev_get_num_tc(dev);
++	unsigned int *__tc;
+ 
+ 	if (adapter->flags & IXGBE_FLAG_DCB_ENABLED) {
+ 		if (adapter->hw.mac.type == ixgbe_mac_82598EB) {
+-			/* the number of queues is assumed to be symmetric */
+-			for (i = 0; i < dcb_i; i++) {
+-				adapter->rx_ring[i]->reg_idx = i << 3;
+-				adapter->tx_ring[i]->reg_idx = i << 2;
++			rx_off = 2;
++			__tc = Q_TC8_82598;
++		} else {
++			if (num_tcs == 8) {
++				rx_off = 4;
++				__tc = Q_TC8_82599;
++			} else if (num_tcs == 4) {
++				rx_off = 5;
++				__tc = Q_TC4_82599;
+ 			}
+-			ret = true;
+-		} else if (adapter->hw.mac.type == ixgbe_mac_82599EB) {
+-			if (dcb_i == 8) {
+-				/*
+-				 * Tx TC0 starts at: descriptor queue 0
+-				 * Tx TC1 starts at: descriptor queue 32
+-				 * Tx TC2 starts at: descriptor queue 64
+-				 * Tx TC3 starts at: descriptor queue 80
+-				 * Tx TC4 starts at: descriptor queue 96
+-				 * Tx TC5 starts at: descriptor queue 104
+-				 * Tx TC6 starts at: descriptor queue 112
+-				 * Tx TC7 starts at: descriptor queue 120
+-				 *
+-				 * Rx TC0-TC7 are offset by 16 queues each
+-				 */
+-				for (i = 0; i < 3; i++) {
+-					adapter->tx_ring[i]->reg_idx = i << 5;
+-					adapter->rx_ring[i]->reg_idx = i << 4;
+-				}
+-				for ( ; i < 5; i++) {
+-					adapter->tx_ring[i]->reg_idx =
+-								 ((i + 2) << 4);
+-					adapter->rx_ring[i]->reg_idx = i << 4;
+-				}
+-				for ( ; i < dcb_i; i++) {
+-					adapter->tx_ring[i]->reg_idx =
+-								 ((i + 8) << 3);
+-					adapter->rx_ring[i]->reg_idx = i << 4;
+-				}
++		}
+ 
+-				ret = true;
+-			} else if (dcb_i == 4) {
+-				/*
+-				 * Tx TC0 starts at: descriptor queue 0
+-				 * Tx TC1 starts at: descriptor queue 64
+-				 * Tx TC2 starts at: descriptor queue 96
+-				 * Tx TC3 starts at: descriptor queue 112
+-				 *
+-				 * Rx TC0-TC3 are offset by 32 queues each
+-				 */
+-				adapter->tx_ring[0]->reg_idx = 0;
+-				adapter->tx_ring[1]->reg_idx = 64;
+-				adapter->tx_ring[2]->reg_idx = 96;
+-				adapter->tx_ring[3]->reg_idx = 112;
+-				for (i = 0 ; i < dcb_i; i++)
+-					adapter->rx_ring[i]->reg_idx = i << 5;
+-
+-				ret = true;
+-			} else {
+-				ret = false;
++		for (i = 0, index = 0; i < num_tcs; i++) {
++			qcount = dev->_tc_txqcount[i];
++			for (j = 0; j < qcount; j++, index++) {
++				adapter->tx_ring[index]->reg_idx = __tc[i] + j;
++				adapter->rx_ring[index]->reg_idx =
++					(i << (rx_off + (num_tcs == 4))) + j;
+ 			}
+-		} else {
+-			ret = false;
+ 		}
+-	} else {
+-		ret = false;
++		ret = true;
  	}
  
-+	if (dev->num_tcs) {
-+		u8 tc;
-+		tc = netdev_get_prio_tc_map(dev, skb->priority);
-+		qoffset = dev->_tc_txqoffset[tc];
-+		qcount = dev->_tc_txqcount[tc];
-+	}
-+
- 	if (skb->sk && skb->sk->sk_hash)
- 		hash = skb->sk->sk_hash;
- 	else
- 		hash = (__force u16) skb->protocol ^ skb->rxhash;
- 	hash = jhash_1word(hash, hashrnd);
+ 	return ret;
+@@ -4359,33 +4366,6 @@ static inline bool ixgbe_cache_ring_fcoe(struct ixgbe_adapter *adapter)
+ 	struct ixgbe_ring_feature *f = &adapter->ring_feature[RING_F_FCOE];
  
--	return (u16) (((u64) hash * dev->real_num_tx_queues) >> 32);
-+	return (u16) ((((u64) hash * qcount)) >> 32) + qoffset;
- }
- EXPORT_SYMBOL(skb_tx_hash);
+ 	if (adapter->flags & IXGBE_FLAG_FCOE_ENABLED) {
+-#ifdef CONFIG_IXGBE_DCB
+-		if (adapter->flags & IXGBE_FLAG_DCB_ENABLED) {
+-			struct ixgbe_fcoe *fcoe = &adapter->fcoe;
+-
+-			ixgbe_cache_ring_dcb(adapter);
+-			/* find out queues in TC for FCoE */
+-			fcoe_rx_i = adapter->rx_ring[fcoe->tc]->reg_idx + 1;
+-			fcoe_tx_i = adapter->tx_ring[fcoe->tc]->reg_idx + 1;
+-			/*
+-			 * In 82599, the number of Tx queues for each traffic
+-			 * class for both 8-TC and 4-TC modes are:
+-			 * TCs  : TC0 TC1 TC2 TC3 TC4 TC5 TC6 TC7
+-			 * 8 TCs:  32  32  16  16   8   8   8   8
+-			 * 4 TCs:  64  64  32  32
+-			 * We have max 8 queues for FCoE, where 8 the is
+-			 * FCoE redirection table size. If TC for FCoE is
+-			 * less than or equal to TC3, we have enough queues
+-			 * to add max of 8 queues for FCoE, so we start FCoE
+-			 * tx descriptor from the next one, i.e., reg_idx + 1.
+-			 * If TC for FCoE is above TC3, implying 8 TC mode,
+-			 * and we need 8 for FCoE, we have to take all queues
+-			 * in that traffic class for FCoE.
+-			 */
+-			if ((f->indices == IXGBE_FCRETA_SIZE) && (fcoe->tc > 3))
+-				fcoe_tx_i--;
+-		}
+-#endif /* CONFIG_IXGBE_DCB */
+ 		if (adapter->flags & IXGBE_FLAG_RSS_ENABLED) {
+ 			if ((adapter->flags & IXGBE_FLAG_FDIR_HASH_CAPABLE) ||
+ 			    (adapter->flags & IXGBE_FLAG_FDIR_PERFECT_CAPABLE))
+@@ -4443,17 +4423,15 @@ static void ixgbe_cache_ring_register(struct ixgbe_adapter *adapter)
  
-@@ -5037,6 +5046,37 @@ void netif_stacked_transfer_operstate(const struct net_device *rootdev,
- }
- EXPORT_SYMBOL(netif_stacked_transfer_operstate);
+ 	if (ixgbe_cache_ring_sriov(adapter))
+ 		return;
+-
++#ifdef CONFIG_IXGBE_DCB
++	if (ixgbe_cache_ring_dcb(adapter))
++		return;
++#endif /* IXGBE_DCB */
+ #ifdef IXGBE_FCOE
+ 	if (ixgbe_cache_ring_fcoe(adapter))
+ 		return;
  
-+int netdev_alloc_max_tcs(struct net_device *dev, u8 tcs)
-+{
-+	unsigned int *count, *offset;
-+	count = kcalloc(tcs, sizeof(unsigned int), GFP_KERNEL);
-+	if (!count)
-+		return -ENOMEM;
-+	offset = kcalloc(tcs, sizeof(unsigned int), GFP_KERNEL);
-+	if (!offset) {
-+		kfree(count);
-+		return -ENOMEM;
-+	}
-+
-+	dev->_tc_txqcount = count;
-+	dev->_tc_txqoffset = offset;
-+	dev->max_tcs = tcs;
-+	return tcs;
-+}
-+EXPORT_SYMBOL(netdev_alloc_max_tcs);
-+
-+void netdev_free_tcs(struct net_device *dev)
-+{
-+	dev->max_tcs = 0;
-+	dev->num_tcs = 0;
-+	dev->prio_tc_map = 0;
-+	kfree(dev->_tc_txqcount);
-+	kfree(dev->_tc_txqoffset);
-+	dev->_tc_txqcount = NULL;
-+	dev->_tc_txqoffset = NULL;
-+}
-+EXPORT_SYMBOL(netdev_free_tcs);
-+
- static int netif_alloc_rx_queues(struct net_device *dev)
- {
- #ifdef CONFIG_RPS
-@@ -5641,6 +5681,7 @@ void free_netdev(struct net_device *dev)
- #ifdef CONFIG_RPS
- 	kfree(dev->_rx);
+ #endif /* IXGBE_FCOE */
+-#ifdef CONFIG_IXGBE_DCB
+-	if (ixgbe_cache_ring_dcb(adapter))
+-		return;
+-
+-#endif
+ 	if (ixgbe_cache_ring_fdir(adapter))
+ 		return;
+ 
+@@ -4910,7 +4888,7 @@ static int __devinit ixgbe_sw_init(struct ixgbe_adapter *adapter)
+ 	adapter->dcb_cfg.round_robin_enable = false;
+ 	adapter->dcb_set_bitmap = 0x00;
+ 	ixgbe_copy_dcb_cfg(&adapter->dcb_cfg, &adapter->temp_dcb_cfg,
+-			   adapter->ring_feature[RING_F_DCB].indices);
++			   MAX_TRAFFIC_CLASS);
+ 
  #endif
-+	netdev_free_tcs(dev);
  
- 	kfree(rcu_dereference_raw(dev->ingress_queue));
+@@ -6253,25 +6231,6 @@ static u16 ixgbe_select_queue(struct net_device *dev, struct sk_buff *skb)
+ {
+ 	struct ixgbe_adapter *adapter = netdev_priv(dev);
+ 	int txq = smp_processor_id();
+-#ifdef IXGBE_FCOE
+-	__be16 protocol;
+-
+-	protocol = vlan_get_protocol(skb);
+-
+-	if ((protocol == htons(ETH_P_FCOE)) ||
+-	    (protocol == htons(ETH_P_FIP))) {
+-		if (adapter->flags & IXGBE_FLAG_FCOE_ENABLED) {
+-			txq &= (adapter->ring_feature[RING_F_FCOE].indices - 1);
+-			txq += adapter->ring_feature[RING_F_FCOE].mask;
+-			return txq;
+-#ifdef CONFIG_IXGBE_DCB
+-		} else if (adapter->flags & IXGBE_FLAG_DCB_ENABLED) {
+-			txq = adapter->fcoe.up;
+-			return txq;
+-#endif
+-		}
+-	}
+-#endif
  
+ 	if (adapter->flags & IXGBE_FLAG_FDIR_HASH_CAPABLE) {
+ 		while (unlikely(txq >= dev->real_num_tx_queues))
+@@ -6279,14 +6238,20 @@ static u16 ixgbe_select_queue(struct net_device *dev, struct sk_buff *skb)
+ 		return txq;
+ 	}
+ 
+-	if (adapter->flags & IXGBE_FLAG_DCB_ENABLED) {
+-		if (skb->priority == TC_PRIO_CONTROL)
+-			txq = adapter->ring_feature[RING_F_DCB].indices-1;
+-		else
+-			txq = (skb->vlan_tci & IXGBE_TX_FLAGS_VLAN_PRIO_MASK)
+-			       >> 13;
++#ifdef IXGBE_FCOE
++	/*
++	 * If DCB is not enabled to assign FCoE a priority mapping
++	 * we need to steer the skb to FCoE enabled tx rings.
++	 */
++	if ((adapter->flags & IXGBE_FLAG_FCOE_ENABLED) &&
++	    !(adapter->flags & IXGBE_FLAG_DCB_ENABLED) &&
++	    ((skb->protocol == htons(ETH_P_FCOE)) ||
++	     (skb->protocol == htons(ETH_P_FIP)))) {
++		txq &= (adapter->ring_feature[RING_F_FCOE].indices - 1);
++		txq += adapter->ring_feature[RING_F_FCOE].mask;
+ 		return txq;
+ 	}
++#endif
+ 
+ 	return skb_tx_hash(dev, skb);
+ }
+@@ -6308,33 +6273,12 @@ netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *skb, struct net_device *netdev
+ 
+ 	if (vlan_tx_tag_present(skb)) {
+ 		tx_flags |= vlan_tx_tag_get(skb);
+-		if (adapter->flags & IXGBE_FLAG_DCB_ENABLED) {
+-			tx_flags &= ~IXGBE_TX_FLAGS_VLAN_PRIO_MASK;
+-			tx_flags |= ((skb->queue_mapping & 0x7) << 13);
+-		}
+-		tx_flags <<= IXGBE_TX_FLAGS_VLAN_SHIFT;
+-		tx_flags |= IXGBE_TX_FLAGS_VLAN;
+-	} else if (adapter->flags & IXGBE_FLAG_DCB_ENABLED &&
+-		   skb->priority != TC_PRIO_CONTROL) {
+-		tx_flags |= ((skb->queue_mapping & 0x7) << 13);
+ 		tx_flags <<= IXGBE_TX_FLAGS_VLAN_SHIFT;
+ 		tx_flags |= IXGBE_TX_FLAGS_VLAN;
+ 	}
+ 
+ #ifdef IXGBE_FCOE
+-	/* for FCoE with DCB, we force the priority to what
+-	 * was specified by the switch */
+-	if (adapter->flags & IXGBE_FLAG_FCOE_ENABLED &&
+-	    (protocol == htons(ETH_P_FCOE) ||
+-	     protocol == htons(ETH_P_FIP))) {
+-#ifdef CONFIG_IXGBE_DCB
+-		if (adapter->flags & IXGBE_FLAG_DCB_ENABLED) {
+-			tx_flags &= ~(IXGBE_TX_FLAGS_VLAN_PRIO_MASK
+-				      << IXGBE_TX_FLAGS_VLAN_SHIFT);
+-			tx_flags |= ((adapter->fcoe.up << 13)
+-				      << IXGBE_TX_FLAGS_VLAN_SHIFT);
+-		}
+-#endif
++	if (adapter->flags & IXGBE_FLAG_FCOE_ENABLED) {
+ 		/* flag for FCoE offloads */
+ 		if (protocol == htons(ETH_P_FCOE))
+ 			tx_flags |= IXGBE_TX_FLAGS_FCOE;
+@@ -6744,9 +6688,9 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
+ 		indices = min_t(unsigned int, indices, IXGBE_MAX_RSS_INDICES);
+ 	else
+ 		indices = min_t(unsigned int, indices, IXGBE_MAX_FDIR_INDICES);
+-
++#if defined(CONFIG_IXGBE_DCB)
+ 	indices = max_t(unsigned int, indices, IXGBE_MAX_DCB_INDICES);
+-#ifdef IXGBE_FCOE
++#elif defined(IXGBE_FCOE)
+ 	indices += min_t(unsigned int, num_possible_cpus(),
+ 			 IXGBE_MAX_FCOE_INDICES);
+ #endif
+@@ -6901,6 +6845,7 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
+ 
+ #ifdef CONFIG_IXGBE_DCB
+ 	netdev->dcbnl_ops = &dcbnl_ops;
++	netdev_alloc_max_tcs(netdev, MAX_TRAFFIC_CLASS);
+ #endif
+ 
+ #ifdef IXGBE_FCOE
+@@ -7043,6 +6988,7 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
+ 	/* add san mac addr to netdev */
+ 	ixgbe_add_sanmac_netdev(netdev);
+ 
++
+ 	e_dev_info("Intel(R) 10 Gigabit Network Connection\n");
+ 	cards_found++;
+ 	return 0;
 
