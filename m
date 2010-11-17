@@ -1,172 +1,72 @@
-From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
-Subject: Re: ping -I eth1 ....
-Date: Wed, 17 Nov 2010 15:03:59 +0100
-Message-ID: <OF02A603A2.70D9639B-ONC12577DE.004C19D8-C12577DE.004D44FE@transmode.se>
-References: <OF339BCA8A.B674D6AE-ONC12577D2.00481B5E-C12577D2.0048B214@transmode.se>	 <OF22F5901E.A7276220-ONC12577D2.004C79CB-C12577D2.004D1571@transmode.se>
-	 <20101105142510.GA14986@canuck.infradead.org>	 <1288967665.2882.522.camel@edumazet-laptop>
-	 <OF6C6C2970.245A64ED-ONC12577D2.00518CF6-C12577D2.00522AAD@transmode.se>
-	 <1288969614.2882.590.camel@edumazet-laptop>	 <OFAA7963DE.C3F04675-ONC12577D2.0056F55C-C12577D2.00575EC2@transmode.se>
-	 <20101105203150.GA12118@canuck.infradead.org>	 <OF921B3329.67FE598A-ONC12577D3.0033387A-C12577D3.00355AC4@LocalDomain>
-	 <OFC0986D69.B0E22D17-ONC12577D6.006B4A38-C12577D6.006B72F9@LocalDomain>
-	 <OFDE99BE0E.BC2CFBA0-ONC12577DE.00341E5C-C12577DE.00342E2E@transmode.se>
-	 <1289987467.2687.15.camel@edumazet-laptop>	 <OF76197E <1289989412.2687.18.camel@edumazet-laptop>
+From: Thomas Graf <tgraf@infradead.org>
+Subject: [PATCH net-2.6] ipv6: Expose reachable and retrans timer values as
+ msecs
+Date: Wed, 17 Nov 2010 09:12:02 -0500
+Message-ID: <20101117141202.GA17546@canuck.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Thomas Graf <tgraf@infradead.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.transmode.se ([213.115.205.20]:38630 "EHLO gw1.transmode.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754071Ab0KQOED convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Nov 2010 09:04:03 -0500
-In-Reply-To: <1289989412.2687.18.camel@edumazet-laptop>
+Received: from canuck.infradead.org ([134.117.69.58]:58439 "EHLO
+	canuck.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932380Ab0KQOME (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Nov 2010 09:12:04 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> wrote on 2010/11/17 11:23:32:
->
-> Le mercredi 17 novembre 2010 =E0 11:09 +0100, Joakim Tjernlund a =E9c=
-rit :
-> > Eric Dumazet <eric.dumazet@gmail.com> wrote on 2010/11/17 10:51:07:
-> > >
-> > > Le mercredi 17 novembre 2010 =E0 10:29 +0100, Joakim Tjernlund a =
-=E9crit :
-> > > > Joakim Tjernlund/Transmode wrote on 2010/11/09 20:33:37:
-> > > > >
-> > > > > Joakim Tjernlund/Transmode wrote on 2010/11/06 10:42:46:
-> > > > > > Thomas Graf <tgr@infradead.org> wrote on 2010/11/05 21:31:5=
-0:
-> > > > > > >
-> > > > > > > On Fri, Nov 05, 2010 at 04:54:18PM +0100, Joakim Tjernlun=
-d wrote:
-> > > > > > > > Eric Dumazet <eric.dumazet@gmail.com> wrote on 2010/11/=
-05 16:06:54:
-> > > > > > > > >
-> > > > > > > > > > Hopefully most of that is legacy or just plain wron=
-g? Unless
-> > > > > > > > > > someone can say why only test IFF_UP one should con=
-sider changing them.
-> > > > > > > > > >
-> > > > > > > > >
-> > > > > > > > > Most of the places are hot path.
-> > > > > > > > >
-> > > > > > > > > You dont want to replace one test by four tests.
-> > > > > > > > >
-> > > > > > > > > _This_ would be wrong :)
-> > > > > > > >
-> > > > > > > > Wrong is wrong, even if it is in the hot path :)
-> > > > > > > > Perhaps it is time define and internal IFF_OPERATIONAL =
-flag
-> > > > > > > > which is the sum of IFF_UP, IFF_RUNNING etc.? Tht
-> > > > > > > > way you still get one test in the hot path and can abst=
-ract
-> > > > > > > > what defines an operational link.
-> > > > > > >
-> > > > > > > You definitely don't want to have your send() call fail s=
-imply because
-> > > > > > > the carrier was off for a few msec or the routing daemon =
-has put a link
-> > > > > > > down temporarly. Also, the outgoing interface looked up a=
-t routing
-> > > > > > > decision is not necessarly the interface used for sending=
- in the end.
-> > > > > > > The packet may get mangled and rerouted by netfilter or t=
-c on the way.
-> > > > > >
-> > > > > > But do you handle the case when the link is non operational=
- for a long time?
-> > > > > >
-> > > > > > >
-> > > > > > > Personally I'm even ok with the current behaviour of send=
-to() while the
-> > > > > > > socket is bound to an interface but if we choose to retur=
-n an error
-> > > > > > > if the interface is down we might as well do so based on =
-the operational
-> > > > > > > status.
-> > > >
-> > > > > > Perhaps there is a better way. This all started when pppd h=
-ung because
-> > > > > > of ping -I <ppp interface>, then someone pulled the cable f=
-or the on the link.
-> > > > > >
-> > > > > > This is a strace where we have two ping -I,
-> > > > > > ping -I p1-2-1-2-2 .. and ping -I p1-2-3-2-4 ..
-> > > > > > Notice how pppd hangs for a long time in PPPIOCDETACH
-> > > > > > As far as I can tell this is due to ping -I has claimed the=
- ppp interfaces
-> > > > > > and doesn't noticed that the link is down. Ideally ping sho=
-uld receive
-> > > > > > a ENODEV as soon as pppd calls PPPIOCDETACH.
-> > > > > >
-> > > > > >    0.000908 write(0, "Connection terminated.\n", 23) =3D 23
-> > > > > >      0.000481 gettimeofday({1288952770, 566048}, NULL) =3D =
-0
-> > > > > >      0.001553 ioctl(7, PPPIOCDETACH
-> > > > > > Message from syslogd@Brazil at Fri Nov  5 11:26:20 2010 ...
-> > > > > > Brazil kernel: unregister_netdevice: waiting for p1-2-1-2-2=
- to become free. Usage count =3D 3
-> > > > > > Message from syslogd@Brazil at Fri Nov  5 11:26:20 2010 ...
-> > > > > > Brazil kernel: unregister_netdevice: waiting for p1-2-3-2-4=
- to become free. Usage count =3D 3
-> > > > > > Message from syslogd@Brazil at Fri Nov  5 11:26:51 2010 ...
-> > > > > > Brazil last message repeated 3 times
-> > > > > > , 0xbfbc3398) =3D 0
-> > > > > >     66.559216 connect(9, {sa_family=3DAF_PPPOX, sa_data=3D"=
-\0\0\0\0\0\0\0\252\273\314\335\356hd"}, 30) =3D 0
-> > > > > >      0.000693 close(10)                 =3D 0
-> > > > > >      0.000449 close(7)                  =3D 0
-> > > > > >      0.009801 close(9)                  =3D 0
-> > > > >
-> > > > > Any comment on this last strace? It is expected that ping -I =
-should
-> > > > > hold pppd hostage?
-> > > > >
-> > > >
-> > > > Ping?
-> > > >
-> > >
-> > > I thought I posted a patch, is there something else ?
-> >
-> > yes, I wondered about the above strace and if it is expected that p=
-ing -I
-> > should hold pppd hostage? Should not ping receive a ENODEV as soon =
-as
-> > pppd detaches an interface?
-> >
-> > >
-> > > Could you please test with latest net-next-2.6 and following patc=
-h ?
-> >
-> > I tested the first patch you sent and that one worked well. I can t=
-ry
-> > again on 2.6.35( our boards takes a while to move forward)?
->
-> Well, in this case, apply commit :
->
-> 332dd96f7ac15e937088fe11f15cfe0210e8edd1
->
-> (net/dst: dst_dev_event() called after other notifiers)
->
-> http://git2.kernel.org/?p=3Dlinux/kernel/git/torvalds/linux-2.6.git;a=
-=3Dcommit;h=3D332dd96f7ac15e937088fe11f15cfe0210e8edd1
+Expose reachable and retrans timer values in msecs instead of jiffies.
+Both timer values are already exposed as msecs in the neighbour table
+netlink interface.
 
-hmm, with (or without) this and/or your other patch I get:
-  vconfig add eth0 1
-  ifconfig eth0.1 up
-  ping -I eth0.1
-<in other session do>
-  vconfig rem eth0.1
+The creation timestamp format with increased precision is kept but
+cleaned up.
 
-Now vconfig rem eth0.1 hangs and I get several:
-localhost kernel: unregister_netdevice: waiting for eth0.1 to become fr=
-ee. Usage count =3D 3
-After some time vconfig rem eth0.1 succeeds
-hmm, last test I did is still stuck, vconfig rem eth0.1 still hangs aft=
-er 5 minutes.
+Signed-off-by: Thomas Graf <tgraf@infradead.org>
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-The ping -I dies right after vconfig rem eth0.1
-
-kernel 2.6.35
-
+Index: net-2.6/net/ipv6/addrconf.c
+===================================================================
+--- net-2.6.orig/net/ipv6/addrconf.c
++++ net-2.6/net/ipv6/addrconf.c
+@@ -98,7 +98,11 @@
+ #endif
+ 
+ #define	INFINITY_LIFE_TIME	0xFFFFFFFF
+-#define TIME_DELTA(a, b) ((unsigned long)((long)(a) - (long)(b)))
++
++static inline u32 cstamp_delta(unsigned long cstamp)
++{
++	return (cstamp - INITIAL_JIFFIES) * 100UL / HZ;
++}
+ 
+ #define ADDRCONF_TIMER_FUZZ_MINUS	(HZ > 50 ? HZ/50 : 1)
+ #define ADDRCONF_TIMER_FUZZ		(HZ / 4)
+@@ -3444,10 +3448,8 @@ static int put_cacheinfo(struct sk_buff 
+ {
+ 	struct ifa_cacheinfo ci;
+ 
+-	ci.cstamp = (u32)(TIME_DELTA(cstamp, INITIAL_JIFFIES) / HZ * 100
+-			+ TIME_DELTA(cstamp, INITIAL_JIFFIES) % HZ * 100 / HZ);
+-	ci.tstamp = (u32)(TIME_DELTA(tstamp, INITIAL_JIFFIES) / HZ * 100
+-			+ TIME_DELTA(tstamp, INITIAL_JIFFIES) % HZ * 100 / HZ);
++	ci.cstamp = cstamp_delta(cstamp);
++	ci.tstamp = cstamp_delta(tstamp);
+ 	ci.ifa_prefered = preferred;
+ 	ci.ifa_valid = valid;
+ 
+@@ -3905,10 +3907,9 @@ static int inet6_fill_ifla6_attrs(struct
+ 	NLA_PUT_U32(skb, IFLA_INET6_FLAGS, idev->if_flags);
+ 
+ 	ci.max_reasm_len = IPV6_MAXPLEN;
+-	ci.tstamp = (__u32)(TIME_DELTA(idev->tstamp, INITIAL_JIFFIES) / HZ * 100
+-		    + TIME_DELTA(idev->tstamp, INITIAL_JIFFIES) % HZ * 100 / HZ);
+-	ci.reachable_time = idev->nd_parms->reachable_time;
+-	ci.retrans_time = idev->nd_parms->retrans_time;
++	ci.tstamp = cstamp_delta(idev->tstamp);
++	ci.reachable_time = jiffies_to_msecs(idev->nd_parms->reachable_time);
++	ci.retrans_time = jiffies_to_msecs(idev->nd_parms->retrans_time);
+ 	NLA_PUT(skb, IFLA_INET6_CACHEINFO, sizeof(ci), &ci);
+ 
+ 	nla = nla_reserve(skb, IFLA_INET6_CONF, DEVCONF_MAX * sizeof(s32));
