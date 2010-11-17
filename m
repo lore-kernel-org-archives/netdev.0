@@ -1,103 +1,36 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next-2.6 v2] filter: optimize sk_run_filter
-Date: Fri, 19 Nov 2010 15:35:06 +0100
-Message-ID: <1290177306.3034.129.camel@edumazet-laptop>
-References: <1290160467.3034.33.camel@edumazet-laptop>
-	 <1290165472.3034.109.camel@edumazet-laptop>
-	 <AANLkTi=ed79a5HjGULPdwuqmUhj=W8BGzRh7tm2L11ef@mail.gmail.com>
-	 <AANLkTi==Ovw8xFA1K6rVabg9MW0w6wd=2qvo=XojUXpM@mail.gmail.com>
-	 <1290172607.3034.124.camel@edumazet-laptop>
-	 <201011192317.CFB48465.OtLFOJOMHQSFFV@I-love.SAKURA.ne.jp>
+From: "Jerrold R. David Esq." <jerolddavid@mail.bg>
+Subject: Re:Proposal
+Date: Thu, 18 Nov 2010 00:43:10 +0200
+Message-ID: <201011172243.oAHMOpx5023584@msys.spole.com.tw>
+Reply-To: esq.jerrold@yahoo.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: xiaosuo@gmail.com, davem@davemloft.net, hagen@jauu.net,
-	netdev@vger.kernel.org
-To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:44799 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752255Ab0KSOfL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Nov 2010 09:35:11 -0500
-Received: by wyb28 with SMTP id 28so4520284wyb.19
-        for <netdev@vger.kernel.org>; Fri, 19 Nov 2010 06:35:09 -0800 (PST)
-In-Reply-To: <201011192317.CFB48465.OtLFOJOMHQSFFV@I-love.SAKURA.ne.jp>
+Received: from h15-203-67-242.salmat.com.tw ([203.67.242.15]:58057 "EHLO
+	msys.spole.com.tw" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754507Ab0KSPJc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Nov 2010 10:09:32 -0500
+Received: from easy-e99170a6ba ([41.153.136.1])
+	(authenticated bits=0)
+	by msys.spole.com.tw (8.13.8/8.13.8) with ESMTP id oAHMOpx5023584
+	for <netdev@vger.kernel.org>; Thu, 18 Nov 2010 06:43:03 +0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 19 novembre 2010 =C3=A0 23:17 +0900, Tetsuo Handa a =C3=A9c=
-rit :
-> Just my thought again...
->=20
-> Eric Dumazet wrote:
-> > @@ -167,34 +168,36 @@ unsigned int sk_run_filter(struct sk_buff *sk=
-b, struct sock_filter *filter, int
-> >  	unsigned long memvalid =3D 0;
-> >  	u32 tmp;
-> >  	int k;
->=20
-> Is this 'k' useful?
->=20
+Attention:   
 
-Yes this is useful, please read later we have :
-
-	k =3D X + K;
-	goto load_w;
-
-K is readonly, k is a rw temp variable (on stack)
-
-> > -	int pc;
-> > =20
-> >  	BUILD_BUG_ON(BPF_MEMWORDS > BITS_PER_LONG);
-> >  	/*
-> >  	 * Process array of filter instructions.
-> >  	 */
-> > -	for (pc =3D 0; pc < flen; pc++) {
-> > -		const struct sock_filter *fentry =3D &filter[pc];
-> > -		u32 f_k =3D fentry->k;
-> > +	for (;; fentry++) {
-> > +#if defined(CONFIG_X86_32)
-> > +#define	K (fentry->k)
-> > +#else
-> > +		const u32 K =3D fentry->k;
->=20
-> What happens if we use
->=20
-> 	u32 f_k =3D fentry->k;
->=20
-> and
->=20
-> >  		case BPF_S_LD_W_ABS:
-> > -			k =3D f_k;
-> > +			k =3D K;
->=20
-> remove this assignment and
->=20
-> >  load_w:
-> >  			ptr =3D load_pointer(skb, k, 4, &tmp);
->=20
-> change to
->=20
-> 	ptr =3D load_pointer(skb, (int) f_k, 4, &tmp);
->=20
-> and
->=20
-> >  		case BPF_S_LD_W_IND:
-> > -			k =3D X + f_k;
-> > +			k =3D X + K;
->=20
-> change to
->=20
-> 	f_k +=3D X;
->=20
-> ?
-> >  			goto load_w;
+I am Jerrold David Esq., an Attorney at Law, I would like to present a proposal to you that we will both benefit from only if you will permit me. Although, this medium (Internet) has been greatly abused, but i chose to reach you through it because it still remains the fastest medium of communication so far, I shall release the details of my proposal in your positive response to this mail.
+ Regards,
 
 
-This wont work, K is really a constant, part of the filter program,
-while k is the (existing) temp variable.
-
-
-=20
-
+Jerrold R. David Esq.
+Jerrold  & Co. sub. JH.Ltd. UK
+Bracken House,Charles Street
+Manchester,M1 7BD.UK
+Gleneida Avenue,Carmel,NY, USA
+Tel. UK: 0044 70 31813794
+Fax: 0044 84 47743889
+USA: 001 914 205 8012
 
