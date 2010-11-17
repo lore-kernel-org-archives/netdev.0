@@ -1,49 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH v2] net: zero kobject in rx_queue_release
-Date: Wed, 17 Nov 2010 12:29:49 -0800 (PST)
-Message-ID: <20101117.122949.98878193.davem@davemloft.net>
-References: <20101116163139.2084.20075.stgit@jf-dev1-dcblab>
+Subject: Re: [PATCH] net: ipv4: tcp_probe: cleanup snprintf() use
+Date: Wed, 17 Nov 2010 12:30:21 -0800 (PST)
+Message-ID: <20101117.123021.241451290.davem@davemloft.net>
+References: <1289754368-31660-1-git-send-email-segoon@openwall.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, therbert@google.com
-To: john.r.fastabend@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52471
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932364Ab0KQU3Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Nov 2010 15:29:24 -0500
-In-Reply-To: <20101116163139.2084.20075.stgit@jf-dev1-dcblab>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kernel-janitors@vger.kernel.org, kuznet@ms2.inr.ac.ru,
+	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: segoon@openwall.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1289754368-31660-1-git-send-email-segoon@openwall.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: John Fastabend <john.r.fastabend@intel.com>
-Date: Tue, 16 Nov 2010 08:31:39 -0800
+From: Vasiliy Kulikov <segoon@openwall.com>
+Date: Sun, 14 Nov 2010 20:06:08 +0300
 
-> netif_set_real_num_rx_queues() can decrement and increment
-> the number of rx queues. For example ixgbe does this as
-> features and offloads are toggled. Presumably this could
-> also happen across down/up on most devices if the available
-> resources changed (cpu offlined).
+> snprintf() returns number of bytes that were copied if there is no overflow.
+> This code uses return value as number of copied bytes.  Theoretically format
+> string '%lu.%09lu %pI4:%u %pI4:%u %d %#x %#x %u %u %u %u\n' may be expanded
+> up to 163 bytes.  In reality tv.tv_sec is just few bytes instead of 20, 2 ports
+> are just 5 bytes each instead of 10, length is 5 bytes instead of 10.  The rest
+> is an unstrusted input.  Theoretically if tv_sec is big then copy_to_user() would
+> overflow tbuf.
 > 
-> The kobject needs to be zero'd in this case so that the
-> state is not preserved across kobject_put()/kobject_init_and_add().
+> tbuf was increased to fit in 163 bytes.  snprintf() is used to follow return
+> value semantic.
 > 
-> This resolves the following error report.
-> 
-> ixgbe 0000:03:00.0: eth2: NIC Link is Up 10 Gbps, Flow Control: RX/TX
-> kobject (ffff880324b83210): tried to init an initialized object, something is seriously wrong.
-> Pid: 1972, comm: lldpad Not tainted 2.6.37-rc18021qaz+ #169
-> Call Trace:
->  [<ffffffff8121c940>] kobject_init+0x3a/0x83
->  [<ffffffff8121cf77>] kobject_init_and_add+0x23/0x57
->  [<ffffffff8107b800>] ? mark_lock+0x21/0x267
->  [<ffffffff813c6d11>] net_rx_queue_update_kobjects+0x63/0xc6
->  [<ffffffff813b5e0e>] netif_set_real_num_rx_queues+0x5f/0x78
->  [<ffffffffa0261d49>] ixgbe_set_num_queues+0x1c6/0x1ca [ixgbe]
->  [<ffffffffa0262509>] ixgbe_init_interrupt_scheme+0x1e/0x79c [ixgbe]
->  [<ffffffffa0274596>] ixgbe_dcbnl_set_state+0x167/0x189 [ixgbe]
-> 
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> Signed-off-by: Vasiliy Kulikov <segoon@openwall.com>
 
-Applied.
+Applied, thanks.
