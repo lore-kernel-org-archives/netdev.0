@@ -1,36 +1,57 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 3/3] SELinux: return -ECONNREFUSED from ip_postroute to
- signal	fatal error
-Date: Wed, 17 Nov 2010 12:43:00 +0100
-Message-ID: <4CE3BFC4.1010706@trash.net>
-References: <20101116215238.6727.39248.stgit@paris.rdu.redhat.com> <20101116215257.6727.12163.stgit@paris.rdu.redhat.com>
+From: Thomas Graf <tgraf@infradead.org>
+Subject: [PATCH net-2.6] ipv6: Expose IFLA_PROTINFO timer values in msecs
+ instead of jiffies
+Date: Wed, 17 Nov 2010 06:44:24 -0500
+Message-ID: <20101117114424.GA5838@canuck.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	selinux@tycho.nsa.gov, netfilter-devel@vger.kernel.org,
-	equinox@diac24.net, eric.dumazet@gmail.com, davem@davemloft.net,
-	hzhong@gmail.com, jmorris@namei.org, kuznet@ms2.inr.ac.ru,
-	paul.moore@hp.com, pekkas@netcore.fi, sds@tycho.nsa.gov,
-	yoshfuji@linux-ipv6.org
-To: Eric Paris <eparis@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:43029 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934163Ab0KQLnF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Nov 2010 06:43:05 -0500
-In-Reply-To: <20101116215257.6727.12163.stgit@paris.rdu.redhat.com>
+Received: from canuck.infradead.org ([134.117.69.58]:58230 "EHLO
+	canuck.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932962Ab0KQLoZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Nov 2010 06:44:25 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16.11.2010 22:52, Eric Paris wrote:
-> The SELinux netfilter hooks just return NF_DROP if they drop a packet.  We
-> want to signal that a drop in this hook is a permanant fatal error and is not
-> transient.  If we do this the error will be passed back up the stack in some
-> places and applications will get a faster interaction that something went
-> wrong.
+IFLA_PROTINFO exposes timer related per device settings in jiffies.
+Change it to expose these values in msecs like the sysctl interface
+does.
 
-Looks good to me. I'd suggest to have these patches go through Dave's
-tree since I want to make use of the netfilter error propagation
-mechanism to return proper errno codes for netfilter re-routing
-failures.
+I did not find any users of IFLA_PROTINFO which rely on any of these
+values and even if there are, they are likely already broken because
+there is no way for them to reliably convert such a value to another
+time format.
+
+Signed-off-by: Thomas Graf <tgraf@infradead.org>
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+
+Index: net-2.6/net/ipv6/addrconf.c
+===================================================================
+--- net-2.6.orig/net/ipv6/addrconf.c
++++ net-2.6/net/ipv6/addrconf.c
+@@ -3798,8 +3798,10 @@ static inline void ipv6_store_devconf(st
+ 	array[DEVCONF_AUTOCONF] = cnf->autoconf;
+ 	array[DEVCONF_DAD_TRANSMITS] = cnf->dad_transmits;
+ 	array[DEVCONF_RTR_SOLICITS] = cnf->rtr_solicits;
+-	array[DEVCONF_RTR_SOLICIT_INTERVAL] = cnf->rtr_solicit_interval;
+-	array[DEVCONF_RTR_SOLICIT_DELAY] = cnf->rtr_solicit_delay;
++	array[DEVCONF_RTR_SOLICIT_INTERVAL] =
++		jiffies_to_msecs(cnf->rtr_solicit_interval);
++	array[DEVCONF_RTR_SOLICIT_DELAY] =
++		jiffies_to_msecs(cnf->rtr_solicit_delay);
+ 	array[DEVCONF_FORCE_MLD_VERSION] = cnf->force_mld_version;
+ #ifdef CONFIG_IPV6_PRIVACY
+ 	array[DEVCONF_USE_TEMPADDR] = cnf->use_tempaddr;
+@@ -3813,7 +3815,8 @@ static inline void ipv6_store_devconf(st
+ 	array[DEVCONF_ACCEPT_RA_PINFO] = cnf->accept_ra_pinfo;
+ #ifdef CONFIG_IPV6_ROUTER_PREF
+ 	array[DEVCONF_ACCEPT_RA_RTR_PREF] = cnf->accept_ra_rtr_pref;
+-	array[DEVCONF_RTR_PROBE_INTERVAL] = cnf->rtr_probe_interval;
++	array[DEVCONF_RTR_PROBE_INTERVAL] =
++		jiffies_to_msecs(cnf->rtr_probe_interval);
+ #ifdef CONFIG_IPV6_ROUTE_INFO
+ 	array[DEVCONF_ACCEPT_RA_RT_INFO_MAX_PLEN] = cnf->accept_ra_rt_info_max_plen;
+ #endif
