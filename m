@@ -1,84 +1,58 @@
-From: "Tomoya MORINAGA" <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Subject: Re: [PATCH net-next-2.6 v4] can: Topcliff: PCH_CAN driver: Add Flow
-	control/Fix Endianess issue/Separate IF register/Enumerate LEC
-	macro/Move MSI processing/Use BIT(X)/Change Message Object
-	index/Add prefix PCH_
-Date: Wed, 17 Nov 2010 12:00:37 +0900
-Message-ID: <00d101cb8603$9e2f3970$66f8800a@maildom.okisemi.com>
-References: <4CE2EC13.9090707@grandegger.com><20101116.124325.116396459.davem@davemloft.net><20101116210716.GA19893@pengutronix.de>
-	<20101116.131008.212663108.davem@davemloft.net>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [PATCH net-next-2.6] vlan: remove ndo_select_queue() logic
+Date: Tue, 16 Nov 2010 20:12:03 -0800
+Message-ID: <4CE35613.8090307@intel.com>
+References: <1289497978.17691.1582.camel@edumazet-laptop>	 <AANLkTik-b5jYgN9e2cgYQvW1V3kuHem2x6wDpw4_=GJJ@mail.gmail.com>	 <1289504565.17691.1710.camel@edumazet-laptop>	 <20101116.112454.179916339.davem@davemloft.net> <1289937251.2732.4.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
-	margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	chripell-VaTbYqLCNhc@public.gmane.org, joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-To: <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, "David Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	<wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	"jesse@nicira.com" <jesse@nicira.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kaber@trash.net" <kaber@trash.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:9397 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755112Ab0KQEMP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Nov 2010 23:12:15 -0500
+In-Reply-To: <1289937251.2732.4.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David Miller,
+On 11/16/2010 11:54 AM, Eric Dumazet wrote:
+> Le mardi 16 novembre 2010 =C3=A0 11:24 -0800, David Miller a =C3=A9cr=
+it :
+>> From: Eric Dumazet <eric.dumazet@gmail.com>
+>> Date: Thu, 11 Nov 2010 20:42:45 +0100
+>>
+>>> [PATCH] vlan: remove ndo_select_queue() logic
+>>>
+>>> Now vlan are lockless, we dont need special ndo_select_queue() logi=
+c.
+>>> dev_pick_tx() will do the multiqueue stuff on the real device trans=
+mit.
+>>>
+>>> Suggested-by: Jesse Gross <jesse@nicira.com>
+>>> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+>>
+>> Also applied, but again there were conflicts I had to resolve,
+>> please check that I got it right.
+>>
+>=20
+> Both patches seem fine to me.
+>=20
+> I am going to test them.
+>=20
+> Thanks !
+>=20
+>=20
 
-I see, I just have to obey your saying.
-I will split our patch per issue/indicated item and re-submit to you.
+Everything seems in order as far as I can tell. I've had io running ove=
+r 50 VLANs for a few hours now.=20
 
-Thanks,
-Tomoya MORINAGA
-OKI SEMICONDUCTOR CO., LTD.
------ Original Message ----- 
-From: "David Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Cc: <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>; <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>; <andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>; <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>;
-<sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>; <margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>; <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>; <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>;
-<socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>; <kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>; <joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>; <yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>;
-<chripell-VaTbYqLCNhc@public.gmane.org>; <qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Sent: Wednesday, November 17, 2010 6:10 AM
-Subject: Re: [PATCH net-next-2.6 v4] can: Topcliff: PCH_CAN driver: Add Flow control/Fix Endianess issue/Separate IF
-register/Enumerate LEC macro/Move MSI processing/Use BIT(X)/Change Message Object index/Add prefix PCH_
-
-
-> From: Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-> Date: Tue, 16 Nov 2010 22:07:16 +0100
->
-> > On Tue, Nov 16, 2010 at 12:43:25PM -0800, David Miller wrote:
-> >> From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-> >> Date: Tue, 16 Nov 2010 21:39:47 +0100
-> >>
-> >> > Please take into account that this patch got accepted by accident
-> >> > (because the maintainer did not respond properly in time). At that time
-> >> > the driver was incomplete, not ready for mainline and did not even work
-> >> > properly. Therefore it makes little sense to debug or even bisec these
-> >> > changes. Just for that reason I made an exemption and added my
-> >> > "Acked-by". Hope you can share my arguments.
-> >>
-> >> You don't put stupid on top of stupid and justify the latter using
-> >> the former.
-> >
-> > Is reverting the incomplete driver an option?
->
-> I told everyone that the plan was that we had several months
-> to fix this, and that's what we should do.
->
-> But yes if people are going to be maximally difficult about this and
-> refuse to split up the bug fixes, I will have to regrettably revert
-> the driver.
->
-> But let's avoid that if we can.
 > --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
 > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
->
+
