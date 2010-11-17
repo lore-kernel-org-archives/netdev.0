@@ -1,70 +1,144 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [net-2.6 PATCH v2] net: zero kobject in rx_queue_release
-Date: Tue, 16 Nov 2010 22:01:02 -0800
-Message-ID: <4CE36F9E.4070508@intel.com>
-References: <20101117054253.8714.24548.stgit@jf-dev1-dcblab> <1289973119.2732.104.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"therbert@google.com" <therbert@google.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH] net: move definitions of BPF_S_* to net/core/filter.c
+Date: Wed, 17 Nov 2010 14:28:24 +0800
+Message-ID: <1289975304-19796-1-git-send-email-xiaosuo@gmail.com>
+Cc: Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+	Hagen Paul Pfeifer <hagen@jauu.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	Changli Gao <xiaosuo@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:60554 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751996Ab0KQGBD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Nov 2010 01:01:03 -0500
-In-Reply-To: <1289973119.2732.104.camel@edumazet-laptop>
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:61648 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932824Ab0KQG2y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Nov 2010 01:28:54 -0500
+Received: by iwn35 with SMTP id 35so1745978iwn.19
+        for <netdev@vger.kernel.org>; Tue, 16 Nov 2010 22:28:53 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/16/2010 9:51 PM, Eric Dumazet wrote:
-> Le mardi 16 novembre 2010 =C3=A0 21:42 -0800, John Fastabend a =C3=A9=
-crit :
->> netif_set_real_num_rx_queues() can decrement and increment
->> the number of rx queues. For example ixgbe does this as
->> features and offloads are toggled. Presumably this could
->> also happen across down/up on most devices if the available
->> resources changed (cpu offlined).
->>
->> The kobject needs to be zero'd in this case so that the
->> state is not preserved across kobject_put()/kobject_init_and_add().
->>
->> This resolves the following error report.
->>
->> ixgbe 0000:03:00.0: eth2: NIC Link is Up 10 Gbps, Flow Control: RX/T=
-X
->> kobject (ffff880324b83210): tried to init an initialized object, som=
-ething is seriously wrong.
->> Pid: 1972, comm: lldpad Not tainted 2.6.37-rc18021qaz+ #169
->> Call Trace:
->>  [<ffffffff8121c940>] kobject_init+0x3a/0x83
->>  [<ffffffff8121cf77>] kobject_init_and_add+0x23/0x57
->>  [<ffffffff8107b800>] ? mark_lock+0x21/0x267
->>  [<ffffffff813c6d11>] net_rx_queue_update_kobjects+0x63/0xc6
->>  [<ffffffff813b5e0e>] netif_set_real_num_rx_queues+0x5f/0x78
->>  [<ffffffffa0261d49>] ixgbe_set_num_queues+0x1c6/0x1ca [ixgbe]
->>  [<ffffffffa0262509>] ixgbe_init_interrupt_scheme+0x1e/0x79c [ixgbe]
->>  [<ffffffffa0274596>] ixgbe_dcbnl_set_state+0x167/0x189 [ixgbe]
->>
->> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
->> ---
->=20
-> I am not sure why you resent it, anyway, I ack it
->=20
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
->=20
-> Thanks
->=20
->=20
+BPF_S_* are used internally, should not be exposed to the others.
 
-net-next has Tom's changes for queue allocation and freeing. So the net=
--2.6 patch and net-next-2.6 patches are slightly different. I wanted to=
- get the RCU_INIT_POINTER update in both and thought it would be easies=
-t for Dave if they applied cleanly on both tree's. Let me know if there=
- is a better way to indicate that here I just used the prefix net and n=
-et-next.
-
-Thanks,
-John.
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+---
+ include/linux/filter.h |   48 ------------------------------------------------
+ net/core/filter.c      |   48 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 48 insertions(+), 48 deletions(-)
+diff --git a/include/linux/filter.h b/include/linux/filter.h
+index 69b43db..151f5d7 100644
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@ -91,54 +91,6 @@ struct sock_fprog {	/* Required for SO_ATTACH_FILTER. */
+ #define         BPF_TAX         0x00
+ #define         BPF_TXA         0x80
+ 
+-enum {
+-	BPF_S_RET_K = 0,
+-	BPF_S_RET_A,
+-	BPF_S_ALU_ADD_K,
+-	BPF_S_ALU_ADD_X,
+-	BPF_S_ALU_SUB_K,
+-	BPF_S_ALU_SUB_X,
+-	BPF_S_ALU_MUL_K,
+-	BPF_S_ALU_MUL_X,
+-	BPF_S_ALU_DIV_X,
+-	BPF_S_ALU_AND_K,
+-	BPF_S_ALU_AND_X,
+-	BPF_S_ALU_OR_K,
+-	BPF_S_ALU_OR_X,
+-	BPF_S_ALU_LSH_K,
+-	BPF_S_ALU_LSH_X,
+-	BPF_S_ALU_RSH_K,
+-	BPF_S_ALU_RSH_X,
+-	BPF_S_ALU_NEG,
+-	BPF_S_LD_W_ABS,
+-	BPF_S_LD_H_ABS,
+-	BPF_S_LD_B_ABS,
+-	BPF_S_LD_W_LEN,
+-	BPF_S_LD_W_IND,
+-	BPF_S_LD_H_IND,
+-	BPF_S_LD_B_IND,
+-	BPF_S_LD_IMM,
+-	BPF_S_LDX_W_LEN,
+-	BPF_S_LDX_B_MSH,
+-	BPF_S_LDX_IMM,
+-	BPF_S_MISC_TAX,
+-	BPF_S_MISC_TXA,
+-	BPF_S_ALU_DIV_K,
+-	BPF_S_LD_MEM,
+-	BPF_S_LDX_MEM,
+-	BPF_S_ST,
+-	BPF_S_STX,
+-	BPF_S_JMP_JA,
+-	BPF_S_JMP_JEQ_K,
+-	BPF_S_JMP_JEQ_X,
+-	BPF_S_JMP_JGE_K,
+-	BPF_S_JMP_JGE_X,
+-	BPF_S_JMP_JGT_K,
+-	BPF_S_JMP_JGT_X,
+-	BPF_S_JMP_JSET_K,
+-	BPF_S_JMP_JSET_X,
+-};
+-
+ #ifndef BPF_MAXINSNS
+ #define BPF_MAXINSNS 4096
+ #endif
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 23e9b2a..ceb36ea 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -38,6 +38,54 @@
+ #include <asm/unaligned.h>
+ #include <linux/filter.h>
+ 
++enum {
++	BPF_S_RET_K = 0,
++	BPF_S_RET_A,
++	BPF_S_ALU_ADD_K,
++	BPF_S_ALU_ADD_X,
++	BPF_S_ALU_SUB_K,
++	BPF_S_ALU_SUB_X,
++	BPF_S_ALU_MUL_K,
++	BPF_S_ALU_MUL_X,
++	BPF_S_ALU_DIV_X,
++	BPF_S_ALU_AND_K,
++	BPF_S_ALU_AND_X,
++	BPF_S_ALU_OR_K,
++	BPF_S_ALU_OR_X,
++	BPF_S_ALU_LSH_K,
++	BPF_S_ALU_LSH_X,
++	BPF_S_ALU_RSH_K,
++	BPF_S_ALU_RSH_X,
++	BPF_S_ALU_NEG,
++	BPF_S_LD_W_ABS,
++	BPF_S_LD_H_ABS,
++	BPF_S_LD_B_ABS,
++	BPF_S_LD_W_LEN,
++	BPF_S_LD_W_IND,
++	BPF_S_LD_H_IND,
++	BPF_S_LD_B_IND,
++	BPF_S_LD_IMM,
++	BPF_S_LDX_W_LEN,
++	BPF_S_LDX_B_MSH,
++	BPF_S_LDX_IMM,
++	BPF_S_MISC_TAX,
++	BPF_S_MISC_TXA,
++	BPF_S_ALU_DIV_K,
++	BPF_S_LD_MEM,
++	BPF_S_LDX_MEM,
++	BPF_S_ST,
++	BPF_S_STX,
++	BPF_S_JMP_JA,
++	BPF_S_JMP_JEQ_K,
++	BPF_S_JMP_JEQ_X,
++	BPF_S_JMP_JGE_K,
++	BPF_S_JMP_JGE_X,
++	BPF_S_JMP_JGT_K,
++	BPF_S_JMP_JGT_X,
++	BPF_S_JMP_JSET_K,
++	BPF_S_JMP_JSET_X,
++};
++
+ /* No hurry in this branch */
+ static void *__load_pointer(struct sk_buff *skb, int k)
+ {
