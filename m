@@ -1,81 +1,208 @@
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Subject: [RFC PATCH 1/3] e1000e: implement MDI-X control
-Date: Wed, 17 Nov 2010 15:29:10 -0800
-Message-ID: <20101117232910.3513.99143.stgit@jbrandeb-ich9b.jf.intel.com>
-References: <20101117232645.3513.20655.stgit@jbrandeb-ich9b.jf.intel.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [RFC PATCH] ethtool: allow setting MDI-X state
+Date: Wed, 17 Nov 2010 23:53:10 +0000
+Message-ID: <1290037990.30433.82.camel@localhost>
+References: <20101117231655.30673.37157.stgit@jbrandeb-ich9b.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:1634 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751142Ab0KQX3L (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Nov 2010 18:29:11 -0500
-Received: from jbrandeb-ich9b.jf.intel.com (localhost.localdomain [127.0.0.1])
-	by jbrandeb-ich9b.jf.intel.com (8.14.4/8.14.4) with ESMTP id oAHNTAZ9003560
-	for <netdev@vger.kernel.org>; Wed, 17 Nov 2010 15:29:10 -0800
-In-Reply-To: <20101117232645.3513.20655.stgit@jbrandeb-ich9b.jf.intel.com>
+Received: from mail.solarflare.com ([216.237.3.220]:44146 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752255Ab0KQXxQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Nov 2010 18:53:16 -0500
+In-Reply-To: <20101117231655.30673.37157.stgit@jbrandeb-ich9b.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-some users report issues with link failing when connected
-to certain switches.  This gives the user the ability to
-control the MDI-X state from the driver.
+On Wed, 2010-11-17 at 15:16 -0800, Jesse Brandeburg wrote:
+> ethtool recently added support for reading MDI-X state, this
+> patch finishes the implementation, adding the complementary write
+> command.
+> 
+> Add support to ethtool for controlling the MDI-X (crossover)
+> state of a network port.  Most adapters correctly negotiate
+> MDI-X, but some ill-behaved switches have trouble and end up
+> picking the wrong MDI setting, which results in complete loss of
+> link.  Usually this error condition can be observed with multiple
+> ethtool -r ethX required before link is achieved.
+> 
+> usage is ethtool -s eth0 mdix [auto|on|off]
+>
+> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> ---
+> 
+>  ethtool.8 |    8 ++++++++
+>  ethtool.c |   34 ++++++++++++++++++++++++++++++++++
+>  2 files changed, 42 insertions(+), 0 deletions(-)
+> 
+> diff --git a/ethtool.8 b/ethtool.8
+> index 1760924..c96e35d 100644
+> --- a/ethtool.8
+> +++ b/ethtool.8
+> @@ -196,6 +196,7 @@ ethtool \- Display or change ethernet card settings
+>  .BI speed \ N
+>  .B2 duplex half full
+>  .B4 port tp aui bnc mii fibre
+> +.B3 mdix auto on off
+>  .B2 autoneg on off
+>  .RB [ advertise
+>  .IR N ]
+> @@ -452,6 +453,13 @@ Sets full or half duplex mode.
+>  .A4 port tp aui bnc mii fibre
+>  Selects device port.
+>  .TP
+> +.A3 mdix auto on off
+> +Selects MDI-X mode for port. May be used to override the automatic detection
+> +feature of most adapters.  Auto means automatic detection of MDI status, on
+> +forces MDI-X (crossover) mode, while off means MDI (straight through) mode.
+> +Depending on implementation an ethtool -r ethX command may be necessary to
+> +cause the change to take effect.
 
-This is in regards to the related ethtool patch and
-bugzilla.kernel.org bug 11998
+This is stupid, we should specify whether this should trigger
+renegotiation or not.  (And that should be done in ethtool.h as well,
+since that's the specification that driver writers look at.)
 
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-CC: bruce.w.allan@intel.com
-CC: n.poppelier@xs4all.nl
-CC: bastien@durel.org
-CC: jsveiga@it.eng.br
----
+> +.TP
+>  .A2 autoneg on off
+>  Specifies whether autonegotiation should be enabled. Autonegotiation 
+>  is enabled by deafult, but in some network devices may have trouble
+> diff --git a/ethtool.c b/ethtool.c
+> index 239912b..fcc7998 100644
+> --- a/ethtool.c
+> +++ b/ethtool.c
+> @@ -157,6 +157,7 @@ static struct option {
+>  		"		[ speed %d ]\n"
+>  		"		[ duplex half|full ]\n"
+>  		"		[ port tp|aui|bnc|mii|fibre ]\n"
+> +		"		[ mdix auto|on|off ]\n"
+>  		"		[ autoneg on|off ]\n"
+>  		"		[ advertise %x ]\n"
+>  		"		[ phyad %d ]\n"
+> @@ -353,6 +354,7 @@ static s32 coal_tx_frames_high_wanted = -1;
+>  static int speed_wanted = -1;
+>  static int duplex_wanted = -1;
+>  static int port_wanted = -1;
+> +static int mdix_wanted = -1;
+>  static int autoneg_wanted = -1;
+>  static int phyad_wanted = -1;
+>  static int xcvr_wanted = -1;
+> @@ -1048,6 +1050,20 @@ static void parse_cmdline(int argc, char **argp)
+>  				else
+>  					show_usage(1);
+>  				break;
+> +			} else if (!strcmp(argp[i], "mdix")) {
+> +				gset_changed = 1;
+> +				i += 1;
+> +				if (i >= argc)
+> +					show_usage(1);
+> +				if (!strcmp(argp[i], "auto"))
+> +					mdix_wanted = ETH_TP_MDI_INVALID;
+> +				else if (!strcmp(argp[i], "on"))
+> +					mdix_wanted = ETH_TP_MDI_X;
+> +				else if (!strcmp(argp[i], "off"))
+> +					mdix_wanted = ETH_TP_MDI;
+> +				else
+> +					show_usage(1);
+> +				break;
+>  			} else if (!strcmp(argp[i], "autoneg")) {
+>  				i += 1;
+>  				if (i >= argc)
+> @@ -1124,6 +1140,20 @@ static void parse_cmdline(int argc, char **argp)
+>  					i = argc;
+>  				}
+>  				break;
+> +			} else if (!strcmp(argp[i], "mdix")) {
+> +				gset_changed = 1;
+> +				i += 1;
+> +				if (i >= argc)
+> +					show_usage(1);
+> +				if (!strcmp(argp[i], "auto"))
+> +					mdix_wanted = ETH_TP_MDI_INVALID;
+> +				else if (!strcmp(argp[i], "on"))
+> +					mdix_wanted = ETH_TP_MDI_X;
+> +				else if (!strcmp(argp[i], "off"))
+> +					mdix_wanted = ETH_TP_MDI;
+> +				else
+> +					show_usage(1);
+> +				break;
+>  			}
+>  			show_usage(1);
+>  		}
 
- drivers/net/e1000e/e1000.h   |    1 -
- drivers/net/e1000e/ethtool.c |    4 ++++
- drivers/net/e1000e/netdev.c  |    2 +-
- 3 files changed, 5 insertions(+), 2 deletions(-)
+I'm seeing double!
 
-diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
-index fdc67fe..10469b2 100644
---- a/drivers/net/e1000e/e1000.h
-+++ b/drivers/net/e1000e/e1000.h
-@@ -81,7 +81,6 @@ struct e1000_info;
- /* How many Rx Buffers do we bundle into one write to the hardware ? */
- #define E1000_RX_BUFFER_WRITE		16 /* Must be power of 2 */
+> @@ -2525,6 +2555,8 @@ static int do_sset(int fd, struct ifreq *ifr)
+>  				ecmd.duplex = duplex_wanted;
+>  			if (port_wanted != -1)
+>  				ecmd.port = port_wanted;
+> +			if (mdix_wanted != -1)
+> +				ecmd.eth_tp_mdix = mdix_wanted;
+
+There are two serious problems with this:
+1. All existing drivers will silently ignore this.
+2. If the user doesn't specify it, the MDI-X setting will be forced to
+whatever was last automatically selected.
+
+There needs to be some way for ethtool (or other client) to detect
+whether the driver actually supports forcing MDI-X, and for the driver
+to detect whether the client is trying to do it.  And I would suggest
+using a second field for this:
+
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -31,9 +31,9 @@ struct ethtool_cmd {
+ 	__u32	maxtxpkt;	/* Tx pkts before generating tx int */
+ 	__u32	maxrxpkt;	/* Rx pkts before generating rx int */
+ 	__u16	speed_hi;
+-	__u8	eth_tp_mdix;
+-	__u8	reserved2;
++	__u8	eth_tp_mdix;	/* Twisted-pair MDI-X status */
++	__u8	eth_tp_mdix_ctrl; /* Twisted-pair MDI-X control */
+ 	__u32	lp_advertising;	/* Features the link partner advertises */
+ 	__u32	reserved[2];
+ };
+@@ -653,10 +653,11 @@ struct ethtool_ops {
+ #define AUTONEG_DISABLE		0x00
+ #define AUTONEG_ENABLE		0x01
  
--#define AUTO_ALL_MODES			0
- #define E1000_EEPROM_APME		0x0400
+-/* Mode MDI or MDI-X */
+-#define ETH_TP_MDI_INVALID	0x00
+-#define ETH_TP_MDI		0x01
+-#define ETH_TP_MDI_X		0x02
++/* MDI or MDI-X status/control */
++#define ETH_TP_MDI_INVALID	0x00	/* status: unknown; control: unsupported */
++#define ETH_TP_MDI		0x01	/* status: MDI;     control: force MDI */
++#define ETH_TP_MDI_X		0x02	/* status: MDI-X;   control: force MDI-X */
++#define ETH_TP_MDI_AUTO		0x03	/*                  control: auto-select */
  
- #define E1000_MNG_VLAN_NONE		(-1)
-diff --git a/drivers/net/e1000e/ethtool.c b/drivers/net/e1000e/ethtool.c
-index 8984d16..f518c9b 100644
---- a/drivers/net/e1000e/ethtool.c
-+++ b/drivers/net/e1000e/ethtool.c
-@@ -285,6 +285,10 @@ static int e1000_set_settings(struct net_device *netdev,
- 		}
- 	}
- 
-+	/* MDI-X => 2; MDI =>1; Auto =>0 */
-+	if (ecmd->eth_tp_mdix && (hw->phy.media_type == e1000_media_type_copper))
-+		hw->phy.mdix = ecmd->eth_tp_mdix;
-+
- 	/* reset the link */
- 
- 	if (netif_running(adapter->netdev)) {
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index 68e79c2..9e7d864 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -5842,7 +5842,7 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
- 
- 	/* Copper options */
- 	if (adapter->hw.phy.media_type == e1000_media_type_copper) {
--		adapter->hw.phy.mdix = AUTO_ALL_MODES;
-+		adapter->hw.phy.mdix = ETH_TP_MDI_INVALID;
- 		adapter->hw.phy.disable_polarity_correction = 0;
- 		adapter->hw.phy.ms_type = e1000_ms_hw_default;
- 	}
+ /* Wake-On-Lan options. */
+ #define WAKE_PHY		(1 << 0)
+--- END ---
+
+ethtool should then fail if the user attempts to control MDI-X and
+ETHTOOL_GSET yields eth_tp_mdix_ctrl == ETH_TP_MDI_INVALID.
+
+Ben.
+
+>  			if (autoneg_wanted != -1)
+>  				ecmd.autoneg = autoneg_wanted;
+>  			if (phyad_wanted != -1)
+> @@ -2566,6 +2598,8 @@ static int do_sset(int fd, struct ifreq *ifr)
+>  				fprintf(stderr, "  not setting phy_address\n");
+>  			if (xcvr_wanted != -1)
+>  				fprintf(stderr, "  not setting transceiver\n");
+> +			if (mdix_wanted != -1)
+> +				fprintf(stderr, "  not setting mdix\n");
+>  		}
+>  	}
+>  
+> 
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
