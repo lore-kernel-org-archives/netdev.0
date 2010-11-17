@@ -1,70 +1,84 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bugme-new] [Bug 22962] New: building (e)glibc against
- 2.6.37-rc1 headers fails
-Date: Tue, 16 Nov 2010 18:33:20 -0800 (PST)
-Message-ID: <20101116.183320.193704193.davem@davemloft.net>
-References: <bug-22962-10286@https.bugzilla.kernel.org/>
-	<20101116143349.2fbb6ed8.akpm@linux-foundation.org>
+From: "Tomoya MORINAGA" <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6 v4] can: Topcliff: PCH_CAN driver: Add Flow
+	control/Fix Endianess issue/Separate IF register/Enumerate LEC
+	macro/Move MSI processing/Use BIT(X)/Change Message Object
+	index/Add prefix PCH_
+Date: Wed, 17 Nov 2010 12:00:37 +0900
+Message-ID: <00d101cb8603$9e2f3970$66f8800a@maildom.okisemi.com>
+References: <4CE2EC13.9090707@grandegger.com><20101116.124325.116396459.davem@davemloft.net><20101116210716.GA19893@pengutronix.de>
+	<20101116.131008.212663108.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: stephan@openelec.tv, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org
-To: akpm@linux-foundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45308
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756319Ab0KQCcz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Nov 2010 21:32:55 -0500
-In-Reply-To: <20101116143349.2fbb6ed8.akpm@linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
+	margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	chripell-VaTbYqLCNhc@public.gmane.org, joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+To: <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, "David Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	<wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogQW5kcmV3IE1vcnRvbiA8YWtwbUBsaW51eC1mb3VuZGF0aW9uLm9yZz4NCkRhdGU6IFR1
-ZSwgMTYgTm92IDIwMTAgMTQ6MzM6NDkgLTA4MDANCg0KPiBNYXliZSB3ZSBuZWVkIHNvbWUgX19L
-RVJORUxfXyBndWFyZHMgaW4gaWYuaC4NCg0KQWxyZWFkeSBmaXhlZCBpbiBuZXQtMi42Og0KDQpG
-cm9tIDNiNDJhOTZkYzc4NzBjNTNkMjBiNDE5MTg1NzM3ZDNiOGY3YTdiNzQgTW9uIFNlcCAxNyAw
-MDowMDowMCAyMDAxDQpGcm9tOiBBbmR5IFdoaXRjcm9mdCA8YXB3QGNhbm9uaWNhbC5jb20+DQpE
-YXRlOiBNb24sIDE1IE5vdiAyMDEwIDA2OjAxOjU5ICswMDAwDQpTdWJqZWN0OiBbUEFUQ0ggMS8z
-XSBuZXQ6IHJ0bmV0bGluay5oIC0tIG9ubHkgaW5jbHVkZSBsaW51eC9uZXRkZXZpY2UuaCB3aGVu
-IHVzZWQgYnkgdGhlIGtlcm5lbA0KTUlNRS1WZXJzaW9uOiAxLjANCkNvbnRlbnQtVHlwZTogdGV4
-dC9wbGFpbjsgY2hhcnNldD1VVEYtOA0KQ29udGVudC1UcmFuc2Zlci1FbmNvZGluZzogOGJpdA0K
-DQpUaGUgY29tbWl0IGJlbG93IGFkZGVkIGEgbmV3IGhlbHBlciBkZXZfaW5ncmVzc19xdWV1ZSB0
-byBjbGVhbmx5IG9idGFpbiB0aGUNCmluZ3Jlc3MgcXVldWUgcG9pbnRlci4gIFRoaXMgbmVjZXNz
-aXRhdGVkIGluY2x1ZGluZyAnbGludXgvbmV0ZGV2aWNlLmgnOg0KDQogIGNvbW1pdCAyNDgyNGEw
-OWUzNTQwMmI4ZDU4ZGNjNWJlODAzYTVhZDM5MzdiZGJhDQogIEF1dGhvcjogRXJpYyBEdW1hemV0
-IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPg0KICBEYXRlOiAgIFNhdCBPY3QgMiAwNjoxMTo1NSAy
-MDEwICswMDAwDQoNCiAgICBuZXQ6IGR5bmFtaWMgaW5ncmVzc19xdWV1ZSBhbGxvY2F0aW9uDQoN
-Ckhvd2V2ZXIgdGhpcyBpbmNsdWRlIHRyaWdnZXJzIGlzc3VlcyBmb3IgYXBwbGljYXRpb25zIGlu
-IHVzZXJzcGFjZQ0Kd2hpY2ggdXNlIHRoZSBydG5ldGxpbmsgaW50ZXJmYWNlcy4gIENvbW1vbmx5
-IHRoaXMgcmVxdWlyZXMgdGhleSBpbmNsdWRlDQonbmV0L2lmLmgnIGFuZCAnbGludXgvcnRuZXRs
-aW5rLmgnIGxlYWRpbmcgdG8gYSBjb21waWxlciBlcnJvciBhcyBiZWxvdzoNCg0KICBJbiBmaWxl
-IGluY2x1ZGVkIGZyb20gL3Vzci9pbmNsdWRlL2xpbnV4L25ldGRldmljZS5oOjI4OjAsDQogICAg
-ICAgICAgICAgICAgICAgZnJvbSAvdXNyL2luY2x1ZGUvbGludXgvcnRuZXRsaW5rLmg6OSwNCiAg
-ICAgICAgICAgICAgICAgICBmcm9tIHQuYzoyOg0KICAvdXNyL2luY2x1ZGUvbGludXgvaWYuaDox
-MzU6ODogZXJyb3I6IHJlZGVmaW5pdGlvbiBvZiChc3RydWN0IGlmbWFwog0KICAvdXNyL2luY2x1
-ZGUvbmV0L2lmLmg6MTEyOjg6IG5vdGU6IG9yaWdpbmFsbHkgZGVmaW5lZCBoZXJlDQogIC91c3Iv
-aW5jbHVkZS9saW51eC9pZi5oOjE2OTo4OiBlcnJvcjogcmVkZWZpbml0aW9uIG9mIKFzdHJ1Y3Qg
-aWZyZXGiDQogIC91c3IvaW5jbHVkZS9uZXQvaWYuaDoxMjc6ODogbm90ZTogb3JpZ2luYWxseSBk
-ZWZpbmVkIGhlcmUNCiAgL3Vzci9pbmNsdWRlL2xpbnV4L2lmLmg6MjE4Ojg6IGVycm9yOiByZWRl
-ZmluaXRpb24gb2YgoXN0cnVjdCBpZmNvbmaiDQogIC91c3IvaW5jbHVkZS9uZXQvaWYuaDoxNzc6
-ODogbm90ZTogb3JpZ2luYWxseSBkZWZpbmVkIGhlcmUNCg0KVGhlIG5ldyBoZWxwZXIgaXMgb25s
-eSBkZWZpbmVkIGZvciB0aGUga2VybmVsIGFuZCBwcm90ZWN0ZWQgYnkgX19LRVJORUxfXw0KdGhl
-cmVmb3JlIHdlIGNhbiBzaW1wbHkgcHVsbCB0aGUgaW5jbHVkZSBkb3duIGludG8gdGhlIHNhbWUg
-cHJvdGVjdGVkDQpzZWN0aW9uLg0KDQpTaWduZWQtb2ZmLWJ5OiBBbmR5IFdoaXRjcm9mdCA8YXB3
-QGNhbm9uaWNhbC5jb20+DQpTaWduZWQtb2ZmLWJ5OiBEYXZpZCBTLiBNaWxsZXIgPGRhdmVtQGRh
-dmVtbG9mdC5uZXQ+DQotLS0NCiBpbmNsdWRlL2xpbnV4L3J0bmV0bGluay5oIHwgICAgMiArLQ0K
-IDEgZmlsZXMgY2hhbmdlZCwgMSBpbnNlcnRpb25zKCspLCAxIGRlbGV0aW9ucygtKQ0KDQpkaWZm
-IC0tZ2l0IGEvaW5jbHVkZS9saW51eC9ydG5ldGxpbmsuaCBiL2luY2x1ZGUvbGludXgvcnRuZXRs
-aW5rLmgNCmluZGV4IGQ0MmYyNzQ0Li5iYmFkNjU3IDEwMDY0NA0KLS0tIGEvaW5jbHVkZS9saW51
-eC9ydG5ldGxpbmsuaA0KKysrIGIvaW5jbHVkZS9saW51eC9ydG5ldGxpbmsuaA0KQEAgLTYsNyAr
-Niw2IEBADQogI2luY2x1ZGUgPGxpbnV4L2lmX2xpbmsuaD4NCiAjaW5jbHVkZSA8bGludXgvaWZf
-YWRkci5oPg0KICNpbmNsdWRlIDxsaW51eC9uZWlnaGJvdXIuaD4NCi0jaW5jbHVkZSA8bGludXgv
-bmV0ZGV2aWNlLmg+DQogDQogLyogcnRuZXRsaW5rIGZhbWlsaWVzLiBWYWx1ZXMgdXAgdG8gMTI3
-IGFyZSByZXNlcnZlZCBmb3IgcmVhbCBhZGRyZXNzDQogICogZmFtaWxpZXMsIHZhbHVlcyBhYm92
-ZSAxMjggbWF5IGJlIHVzZWQgYXJiaXRyYXJpbHkuDQpAQCAtNjA2LDYgKzYwNSw3IEBAIHN0cnVj
-dCB0Y2Ftc2cgew0KICNpZmRlZiBfX0tFUk5FTF9fDQogDQogI2luY2x1ZGUgPGxpbnV4L211dGV4
-Lmg+DQorI2luY2x1ZGUgPGxpbnV4L25ldGRldmljZS5oPg0KIA0KIHN0YXRpYyBfX2lubGluZV9f
-IGludCBydGF0dHJfc3RyY21wKGNvbnN0IHN0cnVjdCBydGF0dHIgKnJ0YSwgY29uc3QgY2hhciAq
-c3RyKQ0KIHsNCi0tIA0KMS43LjMuMg0KDQo=
+Hi David Miller,
+
+I see, I just have to obey your saying.
+I will split our patch per issue/indicated item and re-submit to you.
+
+Thanks,
+Tomoya MORINAGA
+OKI SEMICONDUCTOR CO., LTD.
+----- Original Message ----- 
+From: "David Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Cc: <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>; <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>; <andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>; <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>;
+<sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>; <margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>; <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>; <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>;
+<socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>; <kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>; <joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>; <yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>;
+<chripell-VaTbYqLCNhc@public.gmane.org>; <qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Sent: Wednesday, November 17, 2010 6:10 AM
+Subject: Re: [PATCH net-next-2.6 v4] can: Topcliff: PCH_CAN driver: Add Flow control/Fix Endianess issue/Separate IF
+register/Enumerate LEC macro/Move MSI processing/Use BIT(X)/Change Message Object index/Add prefix PCH_
+
+
+> From: Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+> Date: Tue, 16 Nov 2010 22:07:16 +0100
+>
+> > On Tue, Nov 16, 2010 at 12:43:25PM -0800, David Miller wrote:
+> >> From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+> >> Date: Tue, 16 Nov 2010 21:39:47 +0100
+> >>
+> >> > Please take into account that this patch got accepted by accident
+> >> > (because the maintainer did not respond properly in time). At that time
+> >> > the driver was incomplete, not ready for mainline and did not even work
+> >> > properly. Therefore it makes little sense to debug or even bisec these
+> >> > changes. Just for that reason I made an exemption and added my
+> >> > "Acked-by". Hope you can share my arguments.
+> >>
+> >> You don't put stupid on top of stupid and justify the latter using
+> >> the former.
+> >
+> > Is reverting the incomplete driver an option?
+>
+> I told everyone that the plan was that we had several months
+> to fix this, and that's what we should do.
+>
+> But yes if people are going to be maximally difficult about this and
+> refuse to split up the bug fixes, I will have to regrettably revert
+> the driver.
+>
+> But let's avoid that if we can.
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
+>
