@@ -1,42 +1,37 @@
-From: Clemens Ladisch <clemens@ladisch.de>
-Subject: Re: [alsa-devel] sound playback became chopping on nfs rootfs
-Date: Thu, 18 Nov 2010 10:03:36 +0100
-Message-ID: <4CE4EBE8.8030702@ladisch.de>
-References: <w3ptyjfrqde.wl%kuninori.morimoto.gx@renesas.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: 2.6.37-rc2 after KVM shutdown - unregister_netdevice: waiting
+ for vmtst01eth0 to become free. Usage count = 1
+Date: Thu, 18 Nov 2010 10:16:53 +0100
+Message-ID: <1290071813.2781.1.camel@edumazet-laptop>
+References: <20101116084148.GA3781@pcnci.linuxbox.cz>
+	 <1289900812.5372.1.camel@edumazet-laptop>
+	 <20101118062822.GB3781@pcnci.linuxbox.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Chuck Lever <chuck.lever@oracle.com>,
-	Linux-Net <netdev@vger.kernel.org>,
-	Linux-ALSA <alsa-devel@alsa-project.org>
-To: Kuninori Morimoto <kuninori.morimoto.gx@renesas.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1.smtp.messagingengine.com ([66.111.4.25]:51070 "EHLO
-	out1.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751412Ab0KRJBw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Nov 2010 04:01:52 -0500
-In-Reply-To: <w3ptyjfrqde.wl%kuninori.morimoto.gx@renesas.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: KVM list <kvm@vger.kernel.org>,
+	netdev list <netdev@vger.kernel.org>,
+	nikola.ciprich@linuxbox.cz,
+	Linux kernel list <linux-kernel@vger.kernel.org>
+To: Nikola Ciprich <extmaillist@linuxbox.cz>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20101118062822.GB3781@pcnci.linuxbox.cz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Kuninori Morimoto wrote:
-> I noticed that sound playback became chopping on latest Linux kernel.
-> ...
-> This chopping seems happen from below patch.
-> 
-> 	commit 56463e50d1fc3f070492434cea6303b35ea000de
-> 	Author: Chuck Lever <chuck.lever@oracle.com>
-> 
-> 	NFS: Use super.c for NFSROOT mount option parsing
->       ...
-> 	Note that this means NFSROOT mounts now use the same default settings
-> 	as v2/v3 mounts done via mount(2) from user space.
+Le jeudi 18 novembre 2010 =C3=A0 07:28 +0100, Nikola Ciprich a =C3=A9cr=
+it :
+> > Yep, this is a known problem, thanks !
+> >=20
+> > fix is there :=20
+> >=20
+> > http://patchwork.ozlabs.org/patch/71354/
+> Thanks Eric, this indeed fixes the problem..
+> I noticed the fix didn't make it to 2.6.37-rc2-git3 though,
+> maybe it just got omited?
+> anyways, thanks for help!
+> n.
 
-Apparently, the latest kernel uses different mount options.
-
-Try to find out what mount options your root FS had in the old kernel,
-and manually set them in some startup script.
-
-
-Regards,
-Clemens
+Its in David Miller net-2.6 tree (all pending network patches for
+current linux-2.6 version), so it'll be included next time David push
+its tree to Linus, dont worry ;)
