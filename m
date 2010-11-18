@@ -1,402 +1,414 @@
-From: Alex Deucher <alexdeucher@gmail.com>
-Subject: Re: 2.6.37-rc2-git4: Reported regressions from 2.6.36
-Date: Thu, 18 Nov 2010 18:52:43 -0500
-Message-ID: <AANLkTimBJAKUEe3POB49DFSxqZzQAd03e_3Rn-0mP4wY@mail.gmail.com>
-References: <sKkKYVppECN.A.KhC.Phb5MB@chimera>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: 2.6.37-rc2-git4: Reported regressions 2.6.35 -> 2.6.36
+Date: Fri, 19 Nov 2010 00:50:56 +0100 (CET)
+Message-ID: <tTUH_XeInOH.A.dMF.c3b5MB@chimera>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Linux SCSI List <linux-scsi@vger.kernel.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Wireless List <linux-wireless@vger.kernel.org>,
-	DRI <dri-devel@lists.freedesktop.org>,
+Cc: Maciej Rutecki <maciej.rutecki@gmail.com>,
 	Florian Mickler <florian@mickler.org>,
 	Andrew Morton <akpm@linux-foundation.org>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
 	Linus Torvalds <torvalds@linux-foundation.org>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
 	Linux PM List <linux-pm@lists.linux-foundation.org>,
-	Maciej Rutecki <maciej.rutecki@gmail.com>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:49312 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758664Ab0KRXwq convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Nov 2010 18:52:46 -0500
-In-Reply-To: <sKkKYVppECN.A.KhC.Phb5MB@chimera>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Linux SCSI List <linux-scsi@vger.kernel.org>,
+	Linux Wireless List <linux-wireless@vger.kernel.org>,
+	DRI <dri-devel@lists.freedesktop.org>
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-acpi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 18, 2010 at 6:23 PM, Rafael J. Wysocki <rjw@sisk.pl> wrote:
-> This message contains a list of some regressions from 2.6.36,
-> for which there are no fixes in the mainline known to the tracking te=
-am.
-> If any of them have been fixed already, please let us know.
->
-> If you know of any other unresolved regressions from 2.6.36, please l=
-et us
-> know either and we'll add them to the list. =A0Also, please let us kn=
-ow
-> if any of the entries below are invalid.
->
-> Each entry from the list will be sent additionally in an automatic re=
-ply
-> to this message with CCs to the people involved in reporting and hand=
-ling
-> the issue.
->
->
-> Listed regressions statistics:
->
-> =A0Date =A0 =A0 =A0 =A0 =A0Total =A0Pending =A0Unresolved
-> =A0----------------------------------------
-> =A02010-11-19 =A0 =A0 =A0 39 =A0 =A0 =A0 29 =A0 =A0 =A0 =A0 =A025
->
->
-> Unresolved regressions
-> ----------------------
->
-> Bug-Entry =A0 =A0 =A0 : http://bugzilla.kernel.org/show_bug.cgi?id=3D=
-23222
-> Subject =A0 =A0 =A0 =A0 : 2.6.36 radeon KMS: [drm] Cannot find any cr=
-tc or sizes
-> Submitter =A0 =A0 =A0 : J=E1n Bedn=E1r <jan.bednar@gmail.com>
-> Date =A0 =A0 =A0 =A0 =A0 =A0: 2010-11-18 15:33 (1 days old)
->
+This message contains a list of some post-2.6.35 regressions introduced=
+ before
+2.6.36, for which there are no fixes in the mainline known to the track=
+ing team.
+If any of them have been fixed already, please let us know.
 
-I've added a fix to that bug.
+If you know of any other unresolved post-2.6.35 regressions, please let=
+ us know
+either and we'll add them to the list.  Also, please let us know if any
+of the entries below are invalid.
 
-Alex
+Each entry from the list will be sent additionally in an automatic repl=
+y to
+this message with CCs to the people involved in reporting and handling =
+the
+issue.
 
->
-> Bug-Entry =A0 =A0 =A0 : http://bugzilla.kernel.org/show_bug.cgi?id=3D=
-23142
-> Subject =A0 =A0 =A0 =A0 : autofs4 hang in 2.6.37-rc1
-> Submitter =A0 =A0 =A0 : Avi Kivity <avi@redhat.com>
-> Date =A0 =A0 =A0 =A0 =A0 =A0: 2010-11-14 12:55 (5 days old)
-> Message-ID =A0 =A0 =A0: <4CDFDC2B.6040205@redhat.com>
-> References =A0 =A0 =A0: http://marc.info/?l=3Dlinux-kernel&m=3D128973=
-936026185&w=3D2
->
->
-> Bug-Entry =A0 =A0 =A0 : http://bugzilla.kernel.org/show_bug.cgi?id=3D=
-23122
-> Subject =A0 =A0 =A0 =A0 : Regression in 2.6.37-rc1 for Intel 915 Grap=
-hics Adapter - bisected to commit e9e331a
-> Submitter =A0 =A0 =A0 : Larry Finger <Larry.Finger@lwfinger.net>
-> Date =A0 =A0 =A0 =A0 =A0 =A0: 2010-11-11 1:47 (8 days old)
-> Message-ID =A0 =A0 =A0: <4CDB4B1D.7000503@lwfinger.net>
-> References =A0 =A0 =A0: http://marc.info/?l=3Dlinux-kernel&m=3D128944=
-001311444&w=3D2
->
->
-> Bug-Entry =A0 =A0 =A0 : http://bugzilla.kernel.org/show_bug.cgi?id=3D=
-23102
-> Subject =A0 =A0 =A0 =A0 : [bisected] i915 regression in post 2.6.36 k=
-ernels
-> Submitter =A0 =A0 =A0 : Johannes Hirte <johannes.hirte@fem.tu-ilmenau=
-=2Ede>
-> Date =A0 =A0 =A0 =A0 =A0 =A0: 2010-11-10 7:02 (9 days old)
-> Message-ID =A0 =A0 =A0: <201011100802.20332.johannes.hirte@fem.tu-ilm=
-enau.de>
-> References =A0 =A0 =A0: http://marc.info/?l=3Dlinux-kernel&m=3D128937=
-310017057&w=3D2
->
->
-> Bug-Entry =A0 =A0 =A0 : http://bugzilla.kernel.org/show_bug.cgi?id=3D=
-23092
-> Subject =A0 =A0 =A0 =A0 : WARNING in tty_io.c
-> Submitter =A0 =A0 =A0 : Shan Wei <shanwei@cn.fujitsu.com>
-> Date =A0 =A0 =A0 =A0 =A0 =A0: 2010-11-10 8:06 (9 days old)
-> Message-ID =A0 =A0 =A0: <4CDA5291.4010802@cn.fujitsu.com>
-> References =A0 =A0 =A0: http://marc.info/?l=3Dlinux-kernel&m=3D128937=
-645120159&w=3D2
->
->
-> Bug-Entry =A0 =A0 =A0 : http://bugzilla.kernel.org/show_bug.cgi?id=3D=
-23012
-> Subject =A0 =A0 =A0 =A0 : ftdi_sio /dev/ttyUSB error: =A0"Resource Te=
-mporarily Unavailable"
-> Submitter =A0 =A0 =A0 : Kevin Smith <thirdwiggin@gmail.com>
-> Date =A0 =A0 =A0 =A0 =A0 =A0: 2010-11-16 06:25 (3 days old)
->
->
-> Bug-Entry =A0 =A0 =A0 : http://bugzilla.kernel.org/show_bug.cgi?id=3D=
-22942
-> Subject =A0 =A0 =A0 =A0 : [2.6.37-rc1, OOM] virtblk: OOM in do_virtbl=
-k_request()
-> Submitter =A0 =A0 =A0 : Dave Chinner <david@fromorbit.com>
-> Date =A0 =A0 =A0 =A0 =A0 =A0: 2010-11-05 1:30 (14 days old)
-> Message-ID =A0 =A0 =A0: <20101105013003.GE13830@dastard>
-> References =A0 =A0 =A0: http://marc.info/?l=3Dlinux-kernel&m=3D128892=
-062917641&w=3D2
->
->
-> Bug-Entry =A0 =A0 =A0 : http://bugzilla.kernel.org/show_bug.cgi?id=3D=
-22912
-> Subject =A0 =A0 =A0 =A0 : spi_lm70llp module crash on unload (2.6.37-=
-rc1)
-> Submitter =A0 =A0 =A0 : Randy Dunlap <randy.dunlap@oracle.com>
-> Date =A0 =A0 =A0 =A0 =A0 =A0: 2010-11-05 0:16 (14 days old)
-> Message-ID =A0 =A0 =A0: <20101104171620.00d8c95d.randy.dunlap@oracle.=
+
+Listed regressions statistics:
+
+  Date          Total  Pending  Unresolved
+  ----------------------------------------
+  2010-11-19       92       38          34
+  2010-10-17       70       27          27
+  2010-10-10       56       16          15
+  2010-10-03       52       16          14
+  2010-09-26       46       15          13
+  2010-09-20       38       15          15
+  2010-09-12       28       14          13
+  2010-08-30       21       16          15
+
+
+Unresolved regressions
+----------------------
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D23212
+Subject		: multifunction card reader of acer aspire one stopped working
+Submitter	: Thibault Mondary <thibm@free.fr>
+Date		: 2010-11-18 14:03 (1 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D23132
+Subject		: without "pci=3Dnocrs", Dell Inspiron 1545 hangs
+Submitter	: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date		: 2010-11-17 19:18 (2 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D23062
+Subject		: kvm segfaults on 2.6.36-64bit kernel with 32 bit userspace
+Submitter	: Jorge Boncompte <jorge@dti2.net>
+Date		: 2010-11-17 11:59 (2 days old)
+=46irst-Bad-Commit: http://git.kernel.org/linus/9581d442b905
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D22842
+Subject		: iwl3945 suddenly stops working
+Submitter	: Felipe Contreras <felipe.contreras@gmail.com>
+Date		: 2010-11-14 11:14 (5 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D22782
+Subject		: 2.6.36: general protection fault during lockfs lockspace rem=
+oval
+Submitter	: nik@linuxbox.cz <nik@linuxbox.cz>
+Date		: 2010-11-12 12:05 (7 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D22732
+Subject		: 2.6.37-rc1: hibernation breaks swap
+Submitter	: Zhang Rui <rui.zhang@intel.com>
+Date		: 2010-11-11 08:38 (8 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D22272
+Subject		: High [extra timer interrupt] count in powertop since 2.6.36
+Submitter	: Ian Kumlien <pomac@demius.net>
+Date		: 2010-10-30 23:52 (20 days old)
+Message-ID	: <alpine.LNX.2.00.1010310148450.24290@twilight.pomac.com>
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D128848330304431&w=3D=
+2
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D22172
+Subject		: alsa-util.c: snd_pcm_avail_delay() returned strange values: =
+delay 0 is less than avail 32
+Submitter	: Tobias <devnull@plzk.org>
+Date		: 2010-11-06 09:33 (13 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D22092
+Subject		: Kernel v2.6.36 trouble on USB disconnect
+Submitter	: Ketil Froyn <ketil@froyn.name>
+Date		: 2010-10-29 8:05 (21 days old)
+Message-ID	: <AANLkTik5qVxkEGVAA1PSOGk2KTW+ekHpSwttsQEWzWj+@mail.gmail.=
 com>
-> References =A0 =A0 =A0: http://marc.info/?l=3Dlinux-kernel&m=3D128891=
-627913647&w=3D2
->
->
-> Bug-Entry =A0 =A0 =A0 : http://bugzilla.kernel.org/show_bug.cgi?id=3D=
-22882
-> Subject =A0 =A0 =A0 =A0 : (2.6.37-rc1) amd64-agp module crashed on se=
-cond load
-> Submitter =A0 =A0 =A0 : Randy Dunlap <randy.dunlap@oracle.com>
-> Date =A0 =A0 =A0 =A0 =A0 =A0: 2010-11-05 0:13 (14 days old)
-> Message-ID =A0 =A0 =A0: <20101104171333.fea1f498.randy.dunlap@oracle.=
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D128833956503607&w=3D=
+2
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D21932
+Subject		: Regression in 2.6.36 in single stepping over hardware breakp=
+oint (Wine)
+Submitter	: Michael Stefaniuc <mstefani@redhat.com>
+Date		: 2010-10-28 0:12 (22 days old)
+Message-ID	: <4CC8BFDD.8080600@redhat.com>
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D128822477714448&w=3D=
+2
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D21662
+Subject		: 2.6.35->2.6.36 regression, vanilla kernel panic, ppp or hrti=
+mers crashing
+Submitter	: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+Date		: 2010-10-25 9:22 (25 days old)
+Message-ID	: <201010251222.37191.nuclearcat@nuclearcat.com>
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D128799855826011&w=3D=
+2
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D21652
+Subject		: several problems with intel graphics since 2.6.36
+Submitter	: Norbert Preining <preining@logic.at>
+Date		: 2010-10-27 14:32 (23 days old)
+Message-ID	: <20101027143252.GA8676@gamma.logic.tuwien.ac.at>
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D128818998630241&w=3D=
+2
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D21402
+Subject		: [KVM] Noacpi Windows guest can not boot up on 32bit KVM host
+Submitter	: xudong <xudong.hao@intel.com>
+Date		: 2010-10-29 03:01 (21 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D21372
+Subject		: NULL pointer deference at disk_replace_part_tbl+0x32
+Submitter	: Luis R. Rodriguez <mcgrof@gmail.com>
+Date		: 2010-10-28 17:22 (22 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D21332
+Subject		: Regression in single stepping over hardware breakpoint (Wine=
+)
+Submitter	: Michael Stefaniuc <mstefani@redhat.com>
+Date		: 2010-10-27 23:41 (23 days old)
+=46irst-Bad-Commit: http://git.kernel.org/linus/0c4519e825c9e2b6a8310de=
+ff8582f8c35bfbba9
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D20462
+Subject		: 2.6.36-rc7-git2 - panic/GPF: e1000e/vlans?
+Submitter	: Nikola Ciprich <extmaillist@linuxbox.cz>
+Date		: 2010-10-15 7:10 (35 days old)
+Message-ID	: <20101015071008.GA8714@pcnci.linuxbox.cz>
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D128712984831303&w=3D=
+2
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D20352
+Subject		: Fwd: Re: UML kernel crash of v2.6.36-rcX kernel
+Submitter	: Toralf F=C3=B6rster <toralf.foerster@gmx.de>
+Date		: 2010-10-13 11:28 (37 days old)
+=46irst-Bad-Commit: http://git.kernel.org/linus/365b18189789bfa1acd9939=
+e6312b8a4b4577b28
+Message-ID	: <201010131328.06465.toralf.foerster@gmx.de>
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D128696930132503&w=3D=
+2
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D20342
+Subject		: [LogFS] [2.6.36-rc7] Deadlock in logfs_get_wblocks, hold and=
+ wait on same lock super->s_write_mutex
+Submitter	: Prasad Joshi <prasadjoshi124@gmail.com>
+Date		: 2010-10-13 9:49 (37 days old)
+Message-ID	: <AANLkTinvsMxTxEbDEFmb5M-6fYjdRvErU=3D=3DZs7+qANkV@mail.gm=
+ail.com>
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D128696335024718&w=3D=
+2
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D20332
+Subject		: [LogFS] [2.6.36-rc7] Kernel BUG at lib/btree.c:465!
+Submitter	: Prasad Joshi <prasadjoshi124@gmail.com>
+Date		: 2010-10-12 18:56 (38 days old)
+Message-ID	: <AANLkTimAbCZNhLQ5nADUiAC+7JpAeJBEmjFwdxyZ-FxO@mail.gmail.=
 com>
-> References =A0 =A0 =A0: http://marc.info/?l=3Dlinux-kernel&m=3D128891=
-605213447&w=3D2
->
->
-> Bug-Entry =A0 =A0 =A0 : http://bugzilla.kernel.org/show_bug.cgi?id=3D=
-22812
-> Subject =A0 =A0 =A0 =A0 : kernel oops on 2.6.37-rc1
-> Submitter =A0 =A0 =A0 : Andrew <atswartz@gmail.com>
-> Date =A0 =A0 =A0 =A0 =A0 =A0: 2010-11-12 16:05 (7 days old)
-> First-Bad-Commit: http://git.kernel.org/linus/a68c439b1966c91f0ef474e=
-2bf275d6792312726
->
->
-> Bug-Entry =A0 =A0 =A0 : http://bugzilla.kernel.org/show_bug.cgi?id=3D=
-22692
-> Subject =A0 =A0 =A0 =A0 : [regression, 2.6.37-rc1] 'ip link tap0 up' =
-stuck in do_exit()
-> Submitter =A0 =A0 =A0 : Dave Chinner <david@fromorbit.com>
-> Date =A0 =A0 =A0 =A0 =A0 =A0: 2010-11-03 6:26 (16 days old)
-> Message-ID =A0 =A0 =A0: <20101103062609.GB31163@dastard>
-> References =A0 =A0 =A0: http://marc.info/?l=3Dlinux-kernel&m=3D128876=
-560131870&w=3D2
->
->
-> Bug-Entry =A0 =A0 =A0 : http://bugzilla.kernel.org/show_bug.cgi?id=3D=
-22682
-> Subject =A0 =A0 =A0 =A0 : [oops, 2.6.37-rc1] Unpacking initramfs fail=
-ed, oops in free_init_pages()
-> Submitter =A0 =A0 =A0 : Dave Chinner <david@fromorbit.com>
-> Date =A0 =A0 =A0 =A0 =A0 =A0: 2010-11-03 1:54 (16 days old)
-> Message-ID =A0 =A0 =A0: <20101103015427.GA31163@dastard>
-> References =A0 =A0 =A0: http://marc.info/?l=3Dlinux-kernel&m=3D128874=
-930119723&w=3D2
->
->
-> Bug-Entry =A0 =A0 =A0 : http://bugzilla.kernel.org/show_bug.cgi?id=3D=
-22672
-> Subject =A0 =A0 =A0 =A0 : Regression in 2.6.37-rc1 for Intel 945 Grap=
-hics Adapter - bisected to commit e9e331a
-> Submitter =A0 =A0 =A0 : Larry Finger <Larry.Finger@lwfinger.net>
-> Date =A0 =A0 =A0 =A0 =A0 =A0: 2010-11-11 01:56 (8 days old)
->
->
-> Bug-Entry =A0 =A0 =A0 : http://bugzilla.kernel.org/show_bug.cgi?id=3D=
-22652
-> Subject =A0 =A0 =A0 =A0 : [drm:i915_gem_mmap_gtt_ioctl] *ERROR* Attem=
-pting to mmap a purgeable buffer
-> Submitter =A0 =A0 =A0 : Tobias <devnull@plzk.org>
-> Date =A0 =A0 =A0 =A0 =A0 =A0: 2010-11-10 21:59 (9 days old)
->
->
-> Bug-Entry =A0 =A0 =A0 : http://bugzilla.kernel.org/show_bug.cgi?id=3D=
-22642
-> Subject =A0 =A0 =A0 =A0 : 2.6.37-rc1: Disk takes 10 seconds to resume=
- - MacBook2,1
-> Submitter =A0 =A0 =A0 : Tobias <devnull@plzk.org>
-> Date =A0 =A0 =A0 =A0 =A0 =A0: 2010-11-10 19:33 (9 days old)
->
->
-> Bug-Entry =A0 =A0 =A0 : http://bugzilla.kernel.org/show_bug.cgi?id=3D=
-22572
-> Subject =A0 =A0 =A0 =A0 : Linux 2.6.37-rc1 (acpi_video)
-> Submitter =A0 =A0 =A0 : Randy Dunlap <randy.dunlap@oracle.com>
-> Date =A0 =A0 =A0 =A0 =A0 =A0: 2010-11-02 18:51 (17 days old)
-> Message-ID =A0 =A0 =A0: <20101102115106.bac57d21.randy.dunlap@oracle.=
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D128690910501830&w=3D=
+2
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D20322
+Subject		: 2.6.36-rc7: inconsistent lock state: inconsistent {IN-RECLAI=
+M_FS-R} -> {RECLAIM_FS-ON-W} usage.
+Submitter	: Dave Jones <davej@redhat.com>
+Date		: 2010-10-11 20:10 (39 days old)
+Message-ID	: <20101011201007.GA29707@redhat.com>
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D128682782828453&w=3D=
+2
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D20232
+Subject		: kworker consumes ~100% CPU on HP Elitebook 8540w running 2.6=
+=2E36_rc6-git4
+Submitter	: Ozan Caglayan <ozan@pardus.org.tr>
+Date		: 2010-10-13 06:13 (37 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D20172
+Subject		: 2.6.36-rc7 boot stalls unless nolapic_timer - Lenovo S12
+Submitter	: Chris Vine <chris@cvine.freeserve.co.uk>
+Date		: 2010-10-10 12:59 (40 days old)
+Message-ID	: <<20101010135912.76eb61b7@boulder.homenet>>
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D128671620721712&w=3D=
+2
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D19802
+Subject		: [drm:init_ring_common] *ERROR* render ring head not reset to=
+ zero
+Submitter	: Thomas Meyer <thomas@m3y3r.de>
+Date		: 2010-10-04 20:31 (46 days old)
+Message-ID	: <201010042231.20320.thomas@m3y3r.de>
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D128622441331199&w=3D=
+2
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D19782
+Subject		: 2.6.36-rc6-git2 -- BUG dentry: Poison overwritten (after res=
+ume from hibernation)
+Submitter	: Miles Lane <miles.lane@gmail.com>
+Date		: 2010-10-03 3:54 (47 days old)
+Message-ID	: <AANLkTimrqtzBHAZSuDhEs_3CKA6pCbM35b1BtKH=3DMvC_@mail.gmai=
+l.com>
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D128607809314079&w=3D=
+2
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D19632
+Subject		: 2.6.36-rc6: modprobe Not tainted warning
+Submitter	: Heinz Diehl <htd@fritha.org>
+Date		: 2010-09-30 18:25 (50 days old)
+Message-ID	: <20100930182516.GA15089@fritha.org>
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D128587114004680&w=3D=
+2
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D19392
+Subject		: WARNING: at drivers/net/wireless/ath/ath5k/base.c:3475 ath5k=
+_bss_info_changed+0x44/0x168 [ath5k]()
+Submitter	: Justin Mattock <justinmattock@gmail.com>
+Date		: 2010-09-28 22:30 (52 days old)
+Message-ID	: <AANLkTim5WCGKPvEkOkO_YnMF9pg8mvLfQoFBNUFpfa_k@mail.gmail.=
 com>
-> References =A0 =A0 =A0: http://marc.info/?l=3Dlinux-kernel&m=3D128872=
-403920449&w=3D2
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0http://marc.info/?l=3Dlinux-acpi&m=
-=3D128874714517914&w=3D2
->
->
-> Bug-Entry =A0 =A0 =A0 : http://bugzilla.kernel.org/show_bug.cgi?id=3D=
-22562
-> Subject =A0 =A0 =A0 =A0 : Regression in 2.6.37-rc1 - logs spammed wit=
-h "unable to enumerate USB port" - bisected to commit 3df7169e
-> Submitter =A0 =A0 =A0 : Larry Finger <Larry.Finger@lwfinger.net>
-> Date =A0 =A0 =A0 =A0 =A0 =A0: 2010-11-02 22:32 (17 days old)
-> First-Bad-Commit: http://git.kernel.org/linus/3df7169e73fc1d71a39cffe=
-acc969f6840cdf52b
-> Message-ID =A0 =A0 =A0: <4CD09166.4060202@lwfinger.net>
-> References =A0 =A0 =A0: http://marc.info/?l=3Dlinux-kernel&m=3D128873=
-713207906&w=3D2
->
->
-> Bug-Entry =A0 =A0 =A0 : http://bugzilla.kernel.org/show_bug.cgi?id=3D=
-22552
-> Subject =A0 =A0 =A0 =A0 : AMD boot freeze bisected to b126b4703afa401=
-0b161784a43650337676dd03b
-> Submitter =A0 =A0 =A0 : Borislav Petkov <bp@amd64.org>
-> Date =A0 =A0 =A0 =A0 =A0 =A0: 2010-11-02 17:03 (17 days old)
-> First-Bad-Commit: http://git.kernel.org/linus/b126b4703afa4010b161784=
-a43650337676dd03b
-> Message-ID =A0 =A0 =A0: <20101102170335.GC24927@aftab>
-> References =A0 =A0 =A0: http://marc.info/?l=3Dlinux-kernel&m=3D128871=
-752109913&w=3D2
->
->
-> Bug-Entry =A0 =A0 =A0 : http://bugzilla.kernel.org/show_bug.cgi?id=3D=
-22542
-> Subject =A0 =A0 =A0 =A0 : [2.6.37-rc1] drm:i195 errors
-> Submitter =A0 =A0 =A0 : Paul Rolland <rol@witbe.net>
-> Date =A0 =A0 =A0 =A0 =A0 =A0: 2010-11-02 14:58 (17 days old)
-> Message-ID =A0 =A0 =A0: <20101102155813.09cb2c6e@tux.DEF.witbe.net>
-> References =A0 =A0 =A0: http://marc.info/?l=3Dlinux-kernel&m=3D128870=
-991628970&w=3D2
->
->
-> Bug-Entry =A0 =A0 =A0 : http://bugzilla.kernel.org/show_bug.cgi?id=3D=
-22532
-> Subject =A0 =A0 =A0 =A0 : 2.6.37-rc1: BUG: scheduling while atomic (k=
-vm_init)
-> Submitter =A0 =A0 =A0 : Thomas Meyer <thomas@m3y3r.de>
-> Date =A0 =A0 =A0 =A0 =A0 =A0: 2010-11-02 19:06 (17 days old)
-> Message-ID =A0 =A0 =A0: <50AA24C585B14210A44AB599605C7CBD@hugo>
-> References =A0 =A0 =A0: http://marc.info/?l=3Dlinux-kernel&m=3D128872=
-479921559&w=3D2
->
->
-> Bug-Entry =A0 =A0 =A0 : http://bugzilla.kernel.org/show_bug.cgi?id=3D=
-22522
-> Subject =A0 =A0 =A0 =A0 : 2.6.37-rc1 boot Problem - BUG: unable to ha=
-ndle kernel null pointer - dmesg und config Datei
-> Submitter =A0 =A0 =A0 : werner <w.landgraf@ru.ru>
-> Date =A0 =A0 =A0 =A0 =A0 =A0: 2010-11-02 2:09 (17 days old)
-> Message-ID =A0 =A0 =A0: <web-395697375@zbackend1.aha.ru>
-> References =A0 =A0 =A0: http://marc.info/?l=3Dlinux-kernel&m=3D128866=
-380110940&w=3D2
->
->
-> Bug-Entry =A0 =A0 =A0 : http://bugzilla.kernel.org/show_bug.cgi?id=3D=
-22472
-> Subject =A0 =A0 =A0 =A0 : vga_switcheroo fails to switch from intel t=
-o ati
-> Submitter =A0 =A0 =A0 : Radu Andries <admiral0@tuxfamily.org>
-> Date =A0 =A0 =A0 =A0 =A0 =A0: 2010-11-08 16:46 (11 days old)
->
->
-> Bug-Entry =A0 =A0 =A0 : http://bugzilla.kernel.org/show_bug.cgi?id=3D=
-22282
-> Subject =A0 =A0 =A0 =A0 : 2.6.37-rc1: WARNING..debugobjects: ODEBUG: =
-free active (active state 0) object type: percpu_counter
-> Submitter =A0 =A0 =A0 : Randy Dunlap <randy.dunlap@oracle.com>
-> Date =A0 =A0 =A0 =A0 =A0 =A0: 2010-11-01 21:58 (18 days old)
-> Message-ID =A0 =A0 =A0: <4CCF37E8.1070208@oracle.com>
-> References =A0 =A0 =A0: http://marc.info/?l=3Dlinux-kernel&m=3D128864=
-879328429&w=3D2
->
->
-> Bug-Entry =A0 =A0 =A0 : http://bugzilla.kernel.org/show_bug.cgi?id=3D=
-22102
-> Subject =A0 =A0 =A0 =A0 : [2.6.36-09452-g2d10d87] BUG: unable to hand=
-le kernel NULL pointer dereference at (null)
-> Submitter =A0 =A0 =A0 : Carlos R. Mafra <crmafra2@gmail.com>
-> Date =A0 =A0 =A0 =A0 =A0 =A0: 2010-10-30 20:07 (20 days old)
-> Message-ID =A0 =A0 =A0: <20101030200751.GA2866@Pilar.aei.mpg.de>
-> References =A0 =A0 =A0: http://marc.info/?l=3Dlinux-kernel&m=3D128846=
-935825136&w=3D2
->
->
-> Bug-Entry =A0 =A0 =A0 : http://bugzilla.kernel.org/show_bug.cgi?id=3D=
-22082
-> Subject =A0 =A0 =A0 =A0 : 2.6.36-git11 -- kernel/pid.c:419 invoked rc=
-u_dereference_check() without protection!
-> Submitter =A0 =A0 =A0 : Miles Lane <miles.lane@gmail.com>
-> Date =A0 =A0 =A0 =A0 =A0 =A0: 2010-10-29 5:22 (21 days old)
-> Message-ID =A0 =A0 =A0: <AANLkTimGgzOZb8EwUQO16cZcL+ycveKTYzg_AAX+D+K=
-w@mail.gmail.com>
-> References =A0 =A0 =A0: http://marc.info/?l=3Dlinux-kernel&m=3D128832=
-975924288&w=3D2
->
->
-> Regressions with patches
-> ------------------------
->
-> Bug-Entry =A0 =A0 =A0 : http://bugzilla.kernel.org/show_bug.cgi?id=3D=
-22962
-> Subject =A0 =A0 =A0 =A0 : building (e)glibc against 2.6.37-rc1 header=
-s fails
-> Submitter =A0 =A0 =A0 : =A0<stephan@openelec.tv>
-> Date =A0 =A0 =A0 =A0 =A0 =A0: 2010-11-15 00:09 (4 days old)
-> Patch =A0 =A0 =A0 =A0 =A0 : https://bugzilla.kernel.org/show_bug.cgi?=
-id=3D22962#c5
->
->
-> Bug-Entry =A0 =A0 =A0 : http://bugzilla.kernel.org/show_bug.cgi?id=3D=
-22932
-> Subject =A0 =A0 =A0 =A0 : [REGRESSION] [2.6.37-rc1] Fan noise after s=
-uspend to ram/disk
-> Submitter =A0 =A0 =A0 : Maciej Rutecki <maciej.rutecki@gmail.com>
-> Date =A0 =A0 =A0 =A0 =A0 =A0: 2010-11-04 16:06 (15 days old)
-> First-Bad-Commit: http://git.kernel.org/linus/3e384ee6c687cb397581ee8=
-f9440fc8220cfac80
-> Message-ID =A0 =A0 =A0: <201011041706.59046.maciej.rutecki@gmail.com>
-> References =A0 =A0 =A0: http://marc.info/?l=3Dlinux-kernel&m=3D128888=
-684308982&w=3D2
-> Handled-By =A0 =A0 =A0: Rafael J. Wysocki <rjw@sisk.pl>
-> Patch =A0 =A0 =A0 =A0 =A0 : https://bugzilla.kernel.org/attachment.cg=
-i?id=3D37372
->
->
-> Bug-Entry =A0 =A0 =A0 : http://bugzilla.kernel.org/show_bug.cgi?id=3D=
-22722
-> Subject =A0 =A0 =A0 =A0 : regression since 2.6.36: backlight in sony-=
-laptop not working
-> Submitter =A0 =A0 =A0 : Norbert Preining <preining@logic.at>
-> Date =A0 =A0 =A0 =A0 =A0 =A0: 2010-11-04 14:29 (15 days old)
-> Message-ID =A0 =A0 =A0: <20101104142915.GC7650@gamma.logic.tuwien.ac.=
-at>
-> References =A0 =A0 =A0: http://marc.info/?l=3Dlinux-kernel&m=3D128888=
-097600601&w=3D2
-> Handled-By =A0 =A0 =A0: Mattia Dongili <malattia@linux.it>
-> Patch =A0 =A0 =A0 =A0 =A0 : https://bugzilla.kernel.org/attachment.cg=
-i?id=3D37442
->
->
-> Bug-Entry =A0 =A0 =A0 : http://bugzilla.kernel.org/show_bug.cgi?id=3D=
-22662
-> Subject =A0 =A0 =A0 =A0 : divide error in select_task_rq_fair()
-> Submitter =A0 =A0 =A0 : Myron Stowe <myron.stowe@hp.com>
-> Date =A0 =A0 =A0 =A0 =A0 =A0: 2010-11-10 23:58 (9 days old)
-> Patch =A0 =A0 =A0 =A0 =A0 : http://lkml.org/lkml/2010/11/13/176
->
->
-> For details, please visit the bug entries and follow the links given =
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D128571307018635&w=3D=
+2
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D19372
+Subject		: 2.6.36-rc6: WARNING: at drivers/gpu/drm/radeon/radeon_fence.=
+c:235 radeon_fence_wait+0x35a/0x3c0
+Submitter	: Alexey Dobriyan <adobriyan@gmail.com>
+Date		: 2010-09-29 21:29 (51 days old)
+Message-ID	: <20100929212923.GA5578@core2.telecom.by>
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D128579579400315&w=3D=
+2
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D19142
+Subject		: Screen flickers when switching from the console to X
+Submitter	: Andrey Rahmatullin <wrar@altlinux.org>
+Date		: 2010-09-27 12:05 (53 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D19052
+Subject		: 2.6.36-rc5-git1 -- [drm:i915_report_and_clear_eir] *ERROR* E=
+IR stuck: 0x00000010, masking
+Submitter	: Miles Lane <miles.lane@gmail.com>
+Date		: 2010-09-22 23:47 (58 days old)
+Message-ID	: <AANLkTikWQjUQjFJU9MO1+XbSLAEE-GARz+S+Dz2Fgu4h@mail.gmail.=
+com>
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D128519926626322&w=3D=
+2
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D19002
+Subject		: Radeon rv730 AGP/KMS/DRM kernel lockup
+Submitter	: Duncan <1i5t5.duncan@cox.net>
+Date		: 2010-09-23 16:48 (57 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D17121
+Subject		: Two blank rectangles more than 10 cm long when booting
+Submitter	: Eric Valette <eric.valette@free.fr>
+Date		: 2010-08-26 17:24 (85 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D17061
+Subject		: 2.6.36-rc1 on zaurus: bluetooth regression
+Submitter	: Pavel Machek <pavel@ucw.cz>
+Date		: 2010-08-21 15:24 (90 days old)
+Message-ID	: <20100821152445.GA1536@ucw.cz>
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D128240433828087&w=3D=
+2
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D16971
+Subject		: qla4xxx compile failure on 32-bit PowerPC: missing readq and=
+ writeq
+Submitter	: Meelis Roos <mroos@linux.ee>
+Date		: 2010-08-19 21:03 (92 days old)
+Message-ID	: <<alpine.SOC.1.00.1008192359310.19654@math.ut.ee>>
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D128225184900892&w=3D=
+2
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D16951
+Subject		: hackbench regression with 2.6.36-rc1
+Submitter	: Zhang, Yanmin <yanmin_zhang@linux.intel.com>
+Date		: 2010-08-18 6:18 (93 days old)
+Message-ID	: <1282112318.21202.8.camel@ymzhang.sh.intel.com>
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D128211235904910&w=3D=
+2
+
+
+Regressions with patches
+------------------------
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D22452
+Subject		: data corruption after mmap()ing a file and writev() some dat=
+a to another file
+Submitter	: Marius Tolzmann <tolzmann@molgen.mpg.de>
+Date		: 2010-11-08 10:33 (11 days old)
+Patch		: http://www.spinics.net/lists/xfs/msg02126.html
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D21092
+Subject		: Kernel 2.6.36 Bug during quotaon on reiserfs
+Submitter	:  <markus.gapp@gmx.net>
+Date		: 2010-10-24 16:57 (26 days old)
+Handled-By	: Jan Kara <jack@suse.cz>
+Patch		: https://bugzilla.kernel.org/attachment.cgi?id=3D35292
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D20182
+Subject		: 2.6.36-rc7: NULL pointer dereference in ehci_clear_tt_buffer=
+_complete
+Submitter	: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Date		: 2010-10-11 20:56 (39 days old)
+Message-ID	: <tkrat.9f585ea47331a2a2@s5r6.in-berlin.de>
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D128683064431749&w=3D=
+2
+Handled-By	: Alan Stern <stern@rowland.harvard.edu>
+Patch		: https://patchwork.kernel.org/patch/250761/
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D20162
+Subject		: [LogFS][2.6.36.rc7+] Kernel BUG at readwrite.c:1193
+Submitter	: Prasad Joshi <prasadjoshi124@gmail.com>
+Date		: 2010-10-10 17:44 (40 days old)
+Message-ID	: <AANLkTi=3DJkcuWBPo+X-i+9o-BJFVqjea1J3e=3DMr=3DHvAWF@mail.=
+gmail.com>
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D128673196203340&w=3D=
+2
+Handled-By	:  Prasad Gajanan Joshi <prasadjoshi124@gmail.com>
+Patch		: https://bugzilla.kernel.org/show_bug.cgi?id=3D20162#c1
+
+
+=46or details, please visit the bug entries and follow the links given =
 in
-> references.
->
-> As you can see, there is a Bugzilla entry for each of the listed regr=
-essions.
-> There also is a Bugzilla entry used for tracking the regressions from=
- 2.6.36,
-> unresolved as well as resolved, at:
->
-> http://bugzilla.kernel.org/show_bug.cgi?id=3D21782
->
-> Please let the tracking team know if there are any Bugzilla entries t=
-hat
-> should be added to the list in there.
->
-> Thanks!
->
-> _______________________________________________
-> dri-devel mailing list
-> dri-devel@lists.freedesktop.org
-> http://lists.freedesktop.org/mailman/listinfo/dri-devel
->
+references.
+
+As you can see, there is a Bugzilla entry for each of the listed regres=
+sions.
+There also is a Bugzilla entry used for tracking the regressions introd=
+uced
+between 2.6.35 and 2.6.36, unresolved as well as resolved, at:
+
+http://bugzilla.kernel.org/show_bug.cgi?id=3D16444
+
+Please let the tracking team know if there are any Bugzilla entries tha=
+t
+should be added to the list in there.
+
+Thanks!
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-acpi" i=
+n
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
