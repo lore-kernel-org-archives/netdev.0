@@ -1,33 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: net-next-2.6 [PATCH 0/6]: dccp ccid-2: Ack Vector patch set
- second/concluding part II
-Date: Thu, 18 Nov 2010 09:37:26 -0800 (PST)
-Message-ID: <20101118.093726.59679212.davem@davemloft.net>
-References: <1289802547-5617-1-git-send-email-gerrit@erg.abdn.ac.uk>
-	<20101115.110459.68121782.davem@davemloft.net>
-	<20101118064200.GA5457@gerrit.erg.abdn.ac.uk>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH v1 1/2] net: implement mechanism for HW based QOS
+Date: Thu, 18 Nov 2010 18:39:23 +0100
+Message-ID: <1290101963.2781.234.camel@edumazet-laptop>
+References: <20101117051544.19800.97654.stgit@jf-dev1-dcblab>
+	 <1289976990.2732.226.camel@edumazet-laptop>  <4CE5621F.8040503@intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
-To: gerrit@erg.abdn.ac.uk
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37407
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753019Ab0KRRhB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Nov 2010 12:37:01 -0500
-In-Reply-To: <20101118064200.GA5457@gerrit.erg.abdn.ac.uk>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:43991 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755267Ab0KRRjh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Nov 2010 12:39:37 -0500
+Received: by wwa36 with SMTP id 36so3593983wwa.1
+        for <netdev@vger.kernel.org>; Thu, 18 Nov 2010 09:39:36 -0800 (PST)
+In-Reply-To: <4CE5621F.8040503@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Date: Thu, 18 Nov 2010 07:42:00 +0100
+Le jeudi 18 novembre 2010 =C3=A0 09:27 -0800, John Fastabend a =C3=A9cr=
+it :
 
-> dccp ccid-2: whitespace fix-up
-> 
-> This fixes whitespace noise introduced in commit "dccp ccid-2: Algorithm to
-> update buffer state", 5753fdfe8bd8e9a2ff9e5af19b0ffc78bfcd502a, 14 Nov 2010.
-> 
-> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>  
+> Thanks for the feedback!
+>=20
+> num_tx_queues is an unsigned int in net_device and I can't see any
+> place that would limit it to 16bits. So I think we need 32 bits here.
+> Otherwise I will make these changes and fix the fallout. This is much
+> cleaner.
+>=20
+>=20
 
-Applied, but btw your Signed-off-by has trailing whitespace :-)
+Hmm...
+
+include/linux/skbuff.h
+
+__u16           queue_mapping:16;
+
+
+static inline void skb_record_rx_queue(struct sk_buff *skb, u16 rx_queu=
+e)
+
+Anyway, we dont want to have more than 32768 queues, not before year
+2020 at least
+
+Thanks
+
+
+
