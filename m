@@ -1,21 +1,28 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: extended netdevice naming proposal
-Date: Thu, 18 Nov 2010 10:34:29 -0800
-Message-ID: <4CE571B5.9070600@hp.com>
-References: <20101117220659.GA12177@auslistsprd01.us.dell.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 4/4] net: caif: spi: fix potential NULL dereference
+Date: Thu, 18 Nov 2010 10:36:18 -0800 (PST)
+Message-ID: <20101118.103618.102550300.davem@davemloft.net>
+References: <1290104226-31428-1-git-send-email-segoon@openwall.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-hotplug@vger.kernel.org, netdev@vger.kernel.org,
-	narendra_k@dell.com, jcm@redhat.com, notting@redhat.com
-To: Matt Domsch <Matt_Domsch@dell.com>
-Return-path: <linux-hotplug-owner@vger.kernel.org>
-In-Reply-To: <20101117220659.GA12177@auslistsprd01.us.dell.com>
-Sender: linux-hotplug-owner@vger.kernel.org
+Cc: kernel-janitors@vger.kernel.org, sjur.brandeland@stericsson.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: segoon@openwall.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1290104226-31428-1-git-send-email-segoon@openwall.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-With the presence of the pci_slot driver to allow association of the PCI address 
-with a "slot name" is encoding such information into the interface name really 
-necessary?
+From: Vasiliy Kulikov <segoon@openwall.com>
+Date: Thu, 18 Nov 2010 21:17:05 +0300
 
-rick jones
+> alloc_netdev() is not checked here for NULL return value.  dev is
+> check instead.  It might lead to NULL dereference of ndev.
+> 
+> Signed-off-by: Vasiliy Kulikov <segoon@openwall.com>
+> ---
+>  Compile tested.
+>  Maybe dev is also must be checked here, but it looks like a trivial typo.
+
+Definitely looks correct to me, applied, thanks!
