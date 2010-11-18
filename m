@@ -1,72 +1,127 @@
-From: David Daney <ddaney-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH 1/2] of/phylib: Use device tree properties to initialize
-	Marvell PHYs.
-Date: Wed, 17 Nov 2010 16:01:19 -0800
-Message-ID: <4CE46CCF.4080707@caviumnetworks.com>
-References: <1290038071-13296-1-git-send-email-ddaney@caviumnetworks.com>
-	<1290038071-13296-2-git-send-email-ddaney@caviumnetworks.com>
+From: Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
+Subject: [PATCH net-next-2.6] can: EG20T PCH: use BIT(X)
+Date: Thu, 18 Nov 2010 09:06:25 +0900
+Message-ID: <4CE46E01.9030505__3693.18026719174$1290038840$gmane$org@dsn.okisemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Cyril Chemparathy <cyril-l0cyMroinI0@public.gmane.org>,
-	Arnaud Patard <arnaud.patard-dQbF7i+pzddAfugRpC6u6w@public.gmane.org>
-To: David Daney <ddaney-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <1290038071-13296-2-git-send-email-ddaney-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: qi.wang@intel.com, yong.y.wang@intel.com,
+	andrew.chih.howe.khor@intel.com, joel.clark@intel.com,
+	kok.howg.ewe@intel.com, margie.foster@intel.com
+To: Wolfgang Grandegger <wg@grandegger.com>,
+	Wolfram Sang <w.sang@pengutronix.de>,
+	Christian Pellegrin <chripell@fsfe.org>,
+	Barry Song <21cnbao@gmail.com>,
+	Samuel Ortiz <sameo@linux.inte
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sm-d311v.smileserver.ne.jp ([203.211.202.206]:18540 "EHLO
+	sm-d311v.smileserver.ne.jp" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751096Ab0KRAGq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Nov 2010 19:06:46 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/17/2010 03:54 PM, David Daney wrote:
-> Some aspects of PHY initialization are board dependent, things like
-> indicator LED connections and some clocking modes cannot be determined
-> by probing.  The dev_flags element of struct phy_device can be used to
-> control these things if an appropriate value can be passed from the
-> Ethernet driver.  We run into problems however if the PHY connections
-> are specified by the device tree.  There is no way for the Ethernet
-> driver to know what flags it should pass.
->
-> If we are using the device tree, the struct phy_device will be
-> populated with the device tree node corresponding to the PHY, and we
-> can extract extra configuration information from there.
->
-> The next question is what should the format of that information be?
-> It is highly device specific, and the device tree representation
-> should not be tied to any arbitrary kernel defined constants.  A
-> straight forward representation is just to specify the exact bits that
-> should be set using the "marvell,reg-init" property:
->
->        phy5: ethernet-phy@5 {
-> 	reg =<5>;
-> 	device_type = "ethernet-phy";
-> 	marvell,reg-init =
-> 		<0x00030010 0x5777>, /* Reg 3,16<- 0x5777 */
-> 		<0x00030011 0x00aa>, /* Reg 3,17<- 0x00aa */
-> 		<0x00030012 0x4105>, /* Reg 3,18<- 0x4105 */
-> 		<0x00030013 0x0060>; /* Reg 3,19<- 0x0060 */
-> 		<0x00020015 0x00300000>; /* clear bits 4..5 of Reg 2,21 */
+Replace bit assignment value to BIT(X).
+For easy to readable/identifiable, replace all bit assigned macros to BIT(X)
 
-Well, of course these mask bits are reversed.  That last line should 
-really be:
+Signed-off-by: Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
+Acked-by: Marc Kleine-Budde <mkl@pengutronix.de>
+---
+ drivers/net/can/pch_can.c |   73 +++++++++++++++++++++++----------------------
+ 1 files changed, 37 insertions(+), 36 deletions(-)
 
-  	<0x00020015 0xffcf0000>; /* clear bits 4..5 of Reg 2,21 */
+diff --git a/drivers/net/can/pch_can.c b/drivers/net/can/pch_can.c
+index c523e3d..238622a 100644
+--- a/drivers/net/can/pch_can.c
++++ b/drivers/net/can/pch_can.c
+@@ -38,50 +38,51 @@
+ 
+ #define PCH_ENABLE		1 /* The enable flag */
+ #define PCH_DISABLE		0 /* The disable flag */
+-#define PCH_CTRL_INIT		0x0001 /* The INIT bit of CANCONT register. */
+-#define PCH_CTRL_IE		0x0002 /* The IE bit of CAN control register */
+-#define PCH_CTRL_IE_SIE_EIE	0x000e
+-#define PCH_CTRL_CCE		0x0040
+-#define PCH_CTRL_OPT		0x0080 /* The OPT bit of CANCONT register. */
+-#define PCH_OPT_SILENT		0x0008 /* The Silent bit of CANOPT reg. */
+-#define PCH_OPT_LBACK		0x0010 /* The LoopBack bit of CANOPT reg. */
++#define PCH_CTRL_INIT		BIT(0) /* The INIT bit of CANCONT register. */
++#define PCH_CTRL_IE		BIT(1) /* The IE bit of CAN control register */
++#define PCH_CTRL_IE_SIE_EIE	(BIT(3) | BIT(2) | BIT(1))
++#define PCH_CTRL_CCE		BIT(6)
++#define PCH_CTRL_OPT		BIT(7) /* The OPT bit of CANCONT register. */
++#define PCH_OPT_SILENT		BIT(3) /* The Silent bit of CANOPT reg. */
++#define PCH_OPT_LBACK		BIT(4) /* The LoopBack bit of CANOPT reg. */
++
+ #define PCH_CMASK_RX_TX_SET	0x00f3
+ #define PCH_CMASK_RX_TX_GET	0x0073
+ #define PCH_CMASK_ALL		0xff
+-#define PCH_CMASK_RDWR		0x80
+-#define PCH_CMASK_ARB		0x20
+-#define PCH_CMASK_CTRL		0x10
+-#define PCH_CMASK_MASK		0x40
+-#define PCH_CMASK_NEWDAT	0x04
+-#define PCH_CMASK_CLRINTPND	0x08
+-#define PCH_IF_MCONT_NEWDAT	0x8000
+-#define PCH_IF_MCONT_INTPND	0x2000
+-#define PCH_IF_MCONT_UMASK	0x1000
+-#define PCH_IF_MCONT_TXIE	0x0800
+-#define PCH_IF_MCONT_RXIE	0x0400
+-#define PCH_IF_MCONT_RMTEN	0x0200
+-#define PCH_IF_MCONT_TXRQXT	0x0100
+-#define PCH_IF_MCONT_EOB	0x0080
+-#define PCH_IF_MCONT_DLC	0x000f
+-#define PCH_IF_MCONT_MSGLOST	0x4000
+-#define PCH_MASK2_MDIR_MXTD	0xc000
+-#define PCH_ID2_DIR		0x2000
+-#define PCH_ID2_XTD		0x4000
+-#define PCH_ID_MSGVAL		0x8000
+-#define PCH_IF_CREQ_BUSY	0x8000
++#define PCH_CMASK_NEWDAT	BIT(2)
++#define PCH_CMASK_CLRINTPND	BIT(3)
++#define PCH_CMASK_CTRL		BIT(4)
++#define PCH_CMASK_ARB		BIT(5)
++#define PCH_CMASK_MASK		BIT(6)
++#define PCH_CMASK_RDWR		BIT(7)
++#define PCH_IF_MCONT_NEWDAT	BIT(15)
++#define PCH_IF_MCONT_MSGLOST	BIT(14)
++#define PCH_IF_MCONT_INTPND	BIT(13)
++#define PCH_IF_MCONT_UMASK	BIT(12)
++#define PCH_IF_MCONT_TXIE	BIT(11)
++#define PCH_IF_MCONT_RXIE	BIT(10)
++#define PCH_IF_MCONT_RMTEN	BIT(9)
++#define PCH_IF_MCONT_TXRQXT	BIT(8)
++#define PCH_IF_MCONT_EOB	BIT(7)
++#define PCH_IF_MCONT_DLC	(BIT(0) | BIT(1) | BIT(2) | BIT(3))
++#define PCH_MASK2_MDIR_MXTD	(BIT(14) | BIT(15))
++#define PCH_ID2_DIR		BIT(13)
++#define PCH_ID2_XTD		BIT(14)
++#define PCH_ID_MSGVAL		BIT(15)
++#define PCH_IF_CREQ_BUSY	BIT(15)
+ 
+ #define PCH_STATUS_INT		0x8000
+ #define PCH_REC			0x00007f00
+ #define PCH_TEC			0x000000ff
+ 
+-#define PCH_RX_OK		0x00000010
+-#define PCH_TX_OK		0x00000008
+-#define PCH_BUS_OFF		0x00000080
+-#define PCH_EWARN		0x00000040
+-#define PCH_EPASSIV		0x00000020
+-#define PCH_LEC0		0x00000001
+-#define PCH_LEC1		0x00000002
+-#define PCH_LEC2		0x00000004
++#define PCH_TX_OK		BIT(3)
++#define PCH_RX_OK		BIT(4)
++#define PCH_EPASSIV		BIT(5)
++#define PCH_EWARN		BIT(6)
++#define PCH_BUS_OFF		BIT(7)
++#define PCH_LEC0		BIT(0)
++#define PCH_LEC1		BIT(1)
++#define PCH_LEC2		BIT(2)
+ #define PCH_LEC_ALL		(PCH_LEC0 | PCH_LEC1 | PCH_LEC2)
+ #define PCH_STUF_ERR		PCH_LEC0
+ #define PCH_FORM_ERR		PCH_LEC1
+-- 
+1.6.0.6
 
-
->        };
->
-> The Marvell PHYs have a page select register at register 22 (0x16), we
-> can specify any register by its page and register number.  These are
-> encoded in the high and low parts of the first word.  The second word
-> contains a mask and value to be ORed in its high and low parts.
-> property, the PHY initialization is unchanged.
-[...]
-
-David Daney
