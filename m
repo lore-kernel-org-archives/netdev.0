@@ -1,82 +1,77 @@
-From: Daniel Turull <daniel.turull@gmail.com>
-Subject: Re: [PATH] dev: reusing unregistered ifindex values in net_device
-Date: Thu, 18 Nov 2010 16:43:30 +0100
-Message-ID: <AANLkTi=p84Y3o+AgUX-59nvGzqZacm8nR0-GvstR6KmO@mail.gmail.com>
-References: <AANLkTinx6Ww4ZwRUTyYD_STPSRsSFck8O=W5yeJSbBs_@mail.gmail.com> <1290094628.2781.195.camel@edumazet-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH] netfilter: remove the duplicate tables
+Date: Thu, 18 Nov 2010 16:43:40 +0100
+Message-ID: <1290095020.2781.203.camel@edumazet-laptop>
+References: <1290091194-1590-1-git-send-email-xiaosuo@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, "Voravit T." <voravit@kth.se>,
-	Robert Olsson <robert@herjulf.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:65231 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759233Ab0KRPnw convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Nov 2010 10:43:52 -0500
-Received: by fxm10 with SMTP id 10so35338fxm.19
-        for <netdev@vger.kernel.org>; Thu, 18 Nov 2010 07:43:51 -0800 (PST)
-In-Reply-To: <1290094628.2781.195.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1290091194-1590-1-git-send-email-xiaosuo@gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Ok,
-thanks you for you quick response.
+Le jeudi 18 novembre 2010 =C3=A0 22:39 +0800, Changli Gao a =C3=A9crit =
+:
+> As only xt_counters are private to each CPU, we don't need to maintai=
+n
+> a whole individual table for each CPU.
+>=20
+> In the kernel space, we use the memory of ipt_entry.counters to save =
+a
+> pointer to a percpu xt_counters. When iptables runs, it only update t=
+he
+> counters on its own CPU.
+>=20
+> On non SMP platforms, no change is made.
+>=20
+> Only the code of iptables is converted. Thanks for reviews.
+>=20
 
-//Daniel
+Changli
+
+I answered you a (difficult) work was in progress, still you post a
+patch that needs our review and time ? This is crazy.
+
+I am tempted to stop here. Oh well...
+
+Your way of allocating a percpu counter for each counter is a pure TLB
+and cache line blower (up to two cache lines per counter), not counting
+the time needed to load a new table with 10.000 entries. Some people
+still use scripts with hundred of calls to iptables.
+
+percpu_alloc() is not meant to be used thousand of times per second. It
+is not scalable.
+
+You consume 16 bytes per counter in the main table, while 4 bytes index
+should be enough on SMP build. Most firewalls I know use two or four
+cpus at most.
+
+They care about speed, not really because iptables duplicates table on
+each cpu. By the way, not using NUMA can definitly hurt firewalls with
+many rules, unless you make sure the main table is vmalloced() with nod=
+e
+distribution, not a single node. Even with this, this can hurt
+latencies.
+
+Allocating one contiguous percpu var for all counters is a must.
+
+Problem is : percpu alloc doesnt allow big allocations.
+
+#define PCPU_MIN_UNIT_SIZE      PFN_ALIGN(32 << 10)
+
+So max allocation is 32 Kbytes, thats 2048 'xt_counters' only.
+-> cannot really use pcpu-alloc, but a kmalloc_node() or vmalloc_node()
+per cpu
 
 
 
-On Thu, Nov 18, 2010 at 16:37, Eric Dumazet <eric.dumazet@gmail.com> wr=
-ote:
-> Le jeudi 18 novembre 2010 =E0 16:25 +0100, Daniel Turull a =E9crit :
->> When a new index is going to be assigned in register_netdevice,
->> the dev_new_index starts to search possible values from the last ind=
-ex
->> given to a device although there might be some free ifindex that has=
- been
->> previously unregistered. =A0This behaviour may create gap(s) in the =
-ifindex list.
->>
->> This patch checks for unused values from 1 and gives to the new devi=
-ce the
->> first available value. This limits the maximum ifindex to a smaller =
-value.
->>
->> The ifindex will still be unique since the old value is no longer in=
- use.
->>
->> Reported-by: Voravit Tanyingyong =A0<voravit@kth.se>
->> Signed-off-by: Daniel Turull <daniel.turull@gmail.com>
->>
->> ---
->> diff --git a/net/core/dev.c b/net/core/dev.c
->> index 381b8e2..a7babab 100644
->> --- a/net/core/dev.c
->> +++ b/net/core/dev.c
->> @@ -4871,7 +4871,7 @@ int dev_ioctl(struct net *net, unsigned int cm=
-d,
->> void __user *arg)
->> =A0 */
->> =A0static int dev_new_index(struct net *net)
->> =A0{
->> - =A0 =A0 static int ifindex;
->> + =A0 =A0 int ifindex;
->> =A0 =A0 =A0 for (;;) {
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (++ifindex <=3D 0)
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 ifindex =3D 1;
->> --
->
-> NACK
->
-> Two bugs
->
-> 1) ifindex is not initialized : you'll be suprised of random values
->
-> 2) ifindex should not be reused. You'll be surprised so applications =
-can
-> break. SNMP comes to mind.
->
->
->
->
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
