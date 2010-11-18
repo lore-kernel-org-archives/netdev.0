@@ -1,56 +1,100 @@
-From: Andrew Hendry <andrew.hendry@gmail.com>
-Subject: [PATCH 4/4] X25: remove bkl in routing ioctls
-Date: Fri, 19 Nov 2010 10:21:35 +1100
-Message-ID: <1290122495.20070.63.camel@jaunty>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [RFC PATCH] netfilter: remove the duplicate tables
+Date: Fri, 19 Nov 2010 07:36:51 +0800
+Message-ID: <AANLkTi=w8vvVNYMa5D-_4UDoVJABbvM9CVYjABrVoWPY@mail.gmail.com>
+References: <1290091194-1590-1-git-send-email-xiaosuo@gmail.com> <1290095020.2781.203.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:56454 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760816Ab0KRXVk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Nov 2010 18:21:40 -0500
-Received: by mail-vw0-f46.google.com with SMTP id 13so2163943vws.19
-        for <netdev@vger.kernel.org>; Thu, 18 Nov 2010 15:21:39 -0800 (PST)
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:61765 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756263Ab0KRXhO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Nov 2010 18:37:14 -0500
+In-Reply-To: <1290095020.2781.203.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, Nov 18, 2010 at 11:43 PM, Eric Dumazet <eric.dumazet@gmail.com>=
+ wrote:
+> Le jeudi 18 novembre 2010 =E0 22:39 +0800, Changli Gao a =E9crit :
+>> As only xt_counters are private to each CPU, we don't need to mainta=
+in
+>> a whole individual table for each CPU.
+>>
+>> In the kernel space, we use the memory of ipt_entry.counters to save=
+ a
+>> pointer to a percpu xt_counters. When iptables runs, it only update =
+the
+>> counters on its own CPU.
+>>
+>> On non SMP platforms, no change is made.
+>>
+>> Only the code of iptables is converted. Thanks for reviews.
+>>
+>
+> Changli
+>
+> I answered you a (difficult) work was in progress, still you post a
+> patch that needs our review and time ? This is crazy.
 
-Routing doesn't use the socket data and is protected by x25_route_list_lock
+Sorry for interrupt, and thanks for review. I posted this patch to
+check if I was in the right direction.
 
-Signed-off-by: Andrew Hendry <andrew.hendry@gmail.com>
+>
+> I am tempted to stop here. Oh well...
+>
+> Your way of allocating a percpu counter for each counter is a pure TL=
+B
+> and cache line blower (up to two cache lines per counter), not counti=
+ng
+> the time needed to load a new table with 10.000 entries. Some people
+> still use scripts with hundred of calls to iptables.
+>
+> percpu_alloc() is not meant to be used thousand of times per second. =
+It
+> is not scalable.
+>
+> You consume 16 bytes per counter in the main table, while 4 bytes ind=
+ex
+> should be enough on SMP build. Most firewalls I know use two or four
+> cpus at most.
 
----
- net/x25/af_x25.c |    4 ----
- 1 files changed, 0 insertions(+), 4 deletions(-)
+I think we can't change the structure of ipt_entry, as it is exposed
+to userspace as an ABI. Though there is no need to keep the same
+structure in the kernel space, converting is a big work. :)
 
-diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
-index 2f235a6..2351ace 100644
---- a/net/x25/af_x25.c
-+++ b/net/x25/af_x25.c
-@@ -1412,9 +1412,7 @@ static int x25_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
- 			rc = -EPERM;
- 			if (!capable(CAP_NET_ADMIN))
- 				break;
--			lock_kernel();
- 			rc = x25_route_ioctl(cmd, argp);
--			unlock_kernel();
- 			break;
- 		case SIOCX25GSUBSCRIP:
- 			lock_kernel();
-@@ -1710,9 +1708,7 @@ static int compat_x25_ioctl(struct socket *sock, unsigned int cmd,
- 		rc = -EPERM;
- 		if (!capable(CAP_NET_ADMIN))
- 			break;
--		lock_kernel();
- 		rc = x25_route_ioctl(cmd, argp);
--		unlock_kernel();
- 		break;
- 	case SIOCX25GSUBSCRIP:
- 		lock_kernel();
--- 
-1.7.1
+>
+> They care about speed, not really because iptables duplicates table o=
+n
+> each cpu. By the way, not using NUMA can definitly hurt firewalls wit=
+h
+> many rules, unless you make sure the main table is vmalloced() with n=
+ode
+> distribution, not a single node. Even with this, this can hurt
+> latencies.
 
+This is what I worry about. I think only test can verify it.
 
+>
+> Allocating one contiguous percpu var for all counters is a must.
+>
+> Problem is : percpu alloc doesnt allow big allocations.
+>
+> #define PCPU_MIN_UNIT_SIZE =A0 =A0 =A0PFN_ALIGN(32 << 10)
+>
+> So max allocation is 32 Kbytes, thats 2048 'xt_counters' only.
+> -> cannot really use pcpu-alloc, but a kmalloc_node() or vmalloc_node=
+()
+> per cpu
+>
 
+Thanks. I'll try.
+
+--=20
+Regards,
+Changli Gao(xiaosuo@gmail.com)
