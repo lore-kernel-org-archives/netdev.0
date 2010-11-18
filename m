@@ -1,56 +1,68 @@
-From: "Justin P. Mattock" <justinmattock@gmail.com>
-Subject: Re: error while building the kernel Mainline
-Date: Thu, 18 Nov 2010 11:18:30 -0800
-Message-ID: <4CE57C06.4080105@gmail.com>
-References: <1290093135.2781.167.camel@edumazet-laptop>	<4CE561A2.2020600@gmail.com>	<1290102497.2781.242.camel@edumazet-laptop> <20101118.095046.28818361.davem@davemloft.net> <4CE56CC4.4020107@gmail.com> <4CE56E89.4000902@trash.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	linux-net@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, horms@verge.net.au,
-	netfilter-devel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <linux-net-owner@vger.kernel.org>
-In-Reply-To: <4CE56E89.4000902@trash.net>
-Sender: linux-net-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sonny Rao <sonnyrao@linux.vnet.ibm.com>
+Subject: [PATCH] qlge: Fix incorrect usage of module parameters and netdev msg
+ level
+Date: Thu, 18 Nov 2010 04:25:03 -0600
+Message-ID: <1290075903-3038-1-git-send-email-sonnyrao@linux.vnet.ibm.com>
+Cc: Sonny Rao <sonnyrao@linux.vnet.ibm.com>,
+	Milton Miller <miltonm@bga.com>,
+	Ron Mercer <ron.mercer@qlogic.com>, linux-driver@qlogic.com,
+	linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e9.ny.us.ibm.com ([32.97.182.139]:35941 "EHLO e9.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754498Ab0KRTVl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Nov 2010 14:21:41 -0500
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e9.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id oAIIxvXW029561
+	for <netdev@vger.kernel.org>; Thu, 18 Nov 2010 13:59:57 -0500
+Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id oAIJLeOk189350
+	for <netdev@vger.kernel.org>; Thu, 18 Nov 2010 14:21:40 -0500
+Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av03.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id oAIJLeqv017633
+	for <netdev@vger.kernel.org>; Thu, 18 Nov 2010 12:21:40 -0700
+Received: from us.ibm.com (dyn9414181.austin.ibm.com [9.41.41.81])
+	by d03av03.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVin) with ESMTP id oAIJLdNW017604
+	for <netdev@vger.kernel.org>; Thu, 18 Nov 2010 12:21:39 -0700
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/18/2010 10:20 AM, Patrick McHardy wrote:
-> Am 18.11.2010 19:13, schrieb Justin P. Mattock:
->> On 11/18/2010 09:50 AM, David Miller wrote:
->>> From: Eric Dumazet<eric.dumazet@gmail.com>
->>> Date: Thu, 18 Nov 2010 18:48:17 +0100
->>>
->>>> Let me guess...
->>>>
->>>> net/netfilter/nf_conntrack_core is compiled as a module, and ip_vs
->>>> statically (in vmlinux) ?
->>>>
->>>> CONFIG_NF_CONNTRACK=m
->>>> CONFIG_IP_VS=y
->>>>
->>>> We probably need some Kconfig magic ;)
->>>
->
-> Please try whether this patch fixes the problem.
->
-> netfilter: fix IP_VS dependencies
->
-> When NF_CONNTRACK is enabled, IP_VS uses conntrack symbols.
-> Therefore IP_VS can't be linked statically when conntrack
-> is built modular.
->
-> Reported-by: Justin P. Mattock<justinmattock@gmail.com>
-> Signed-off-by: Patrick McHardy<kaber@trash.net>
->
->
+Driver appears to be mistaking the permission field with default value
+in the case of debug and qlge_irq_type.
 
+Driver is also passing debug as a bitmask into netif_msg_init()
+which really wants a number of bits, so fix that.
 
-alright!! doing the above change
-CONFIG_NF_CONNTRACK=y gets a clean build.. as well as reverting 
-everything and using your patch..
+Signed-off-by: Milton Miller <miltonm@bga.com>
+Signed-off-by: Sonny Rao <sonnyrao@linux.vnet.ibm.com>
+---
+ drivers/net/qlge/qlge_main.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-Thanks for the fix..
+diff --git a/drivers/net/qlge/qlge_main.c b/drivers/net/qlge/qlge_main.c
+index d9a7626..66878bb 100644
+--- a/drivers/net/qlge/qlge_main.c
++++ b/drivers/net/qlge/qlge_main.c
+@@ -62,15 +62,15 @@ static const u32 default_msg =
+ /* NETIF_MSG_PKTDATA | */
+     NETIF_MSG_HW | NETIF_MSG_WOL | 0;
 
-Justin P. Mattock
+-static int debug = 0x00007fff;	/* defaults above */
+-module_param(debug, int, 0);
++static int debug = 15;	/* defaults above */
++module_param(debug, int, 0664);
+ MODULE_PARM_DESC(debug, "Debug level (0=none,...,16=all)");
+
+ #define MSIX_IRQ 0
+ #define MSI_IRQ 1
+ #define LEG_IRQ 2
+ static int qlge_irq_type = MSIX_IRQ;
+-module_param(qlge_irq_type, int, MSIX_IRQ);
++module_param(qlge_irq_type, int, 0664);
+ MODULE_PARM_DESC(qlge_irq_type, "0 = MSI-X, 1 = MSI, 2 = Legacy.");
+
+ static int qlge_mpi_coredump;
+-- 
+1.5.6.5
+
