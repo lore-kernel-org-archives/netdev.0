@@ -1,53 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH v1 1/2] net: implement mechanism for HW based QOS
-Date: Thu, 18 Nov 2010 18:39:23 +0100
-Message-ID: <1290101963.2781.234.camel@edumazet-laptop>
-References: <20101117051544.19800.97654.stgit@jf-dev1-dcblab>
-	 <1289976990.2732.226.camel@edumazet-laptop>  <4CE5621F.8040503@intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2.6.37-rc2] Fix duplicate volatile warning.
+Date: Thu, 18 Nov 2010 09:40:22 -0800 (PST)
+Message-ID: <20101118.094022.115931453.davem@davemloft.net>
+References: <201011180403.oAI43JBT005077@www262.sakura.ne.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: John Fastabend <john.r.fastabend@intel.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: penguin-kernel@I-love.SAKURA.ne.jp
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:43991 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755267Ab0KRRjh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Nov 2010 12:39:37 -0500
-Received: by wwa36 with SMTP id 36so3593983wwa.1
-        for <netdev@vger.kernel.org>; Thu, 18 Nov 2010 09:39:36 -0800 (PST)
-In-Reply-To: <4CE5621F.8040503@intel.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37410
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755267Ab0KRRj6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Nov 2010 12:39:58 -0500
+In-Reply-To: <201011180403.oAI43JBT005077@www262.sakura.ne.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 18 novembre 2010 =C3=A0 09:27 -0800, John Fastabend a =C3=A9cr=
-it :
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Date: Thu, 18 Nov 2010 13:03:19 +0900
 
-> Thanks for the feedback!
->=20
-> num_tx_queues is an unsigned int in net_device and I can't see any
-> place that would limit it to 16bits. So I think we need 32 bits here.
-> Otherwise I will make these changes and fix the fallout. This is much
-> cleaner.
->=20
->=20
+>>From a391f571f21bfa81369599f03e86fa75589291a3 Mon Sep 17 00:00:00 2001
+> From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+> Date: Thu, 18 Nov 2010 12:44:26 +0900
+> Subject: [PATCH 2.6.37-rc2] Fix duplicate volatile warning.
+> 
+> jiffies is defined as "volatile".
+> 
+>   extern unsigned long volatile __jiffy_data jiffies;
+> 
+> ACCESS_ONCE() uses "volatile".
+> As a result, some compilers warn duplicate `volatile' for ACCESS_ONCE(jiffies).
+> 
+> Signed-off-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
 
-Hmm...
-
-include/linux/skbuff.h
-
-__u16           queue_mapping:16;
-
-
-static inline void skb_record_rx_queue(struct sk_buff *skb, u16 rx_queu=
-e)
-
-Anyway, we dont want to have more than 32768 queues, not before year
-2020 at least
-
-Thanks
-
-
-
+Fair enough, applied, thanks.
