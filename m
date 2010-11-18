@@ -1,53 +1,49 @@
-From: "Justin P. Mattock" <justinmattock@gmail.com>
-Subject: Re: error while building the kernel Mainline
-Date: Thu, 18 Nov 2010 10:28:05 -0800
-Message-ID: <4CE57035.60204@gmail.com>
-References: <1290093135.2781.167.camel@edumazet-laptop>	<4CE561A2.2020600@gmail.com>	<1290102497.2781.242.camel@edumazet-laptop> <20101118.095046.28818361.davem@davemloft.net> <4CE56CC4.4020107@gmail.com> <4CE56E89.4000902@trash.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: linux-next: Tree for November 18 (netfilter)
+Date: Thu, 18 Nov 2010 19:32:11 +0100
+Message-ID: <4CE5712B.2080909@trash.net>
+References: <20101118134256.fe132215.sfr@canb.auug.org.au> <20101118092520.6ad964c7.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	linux-net@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, horms@verge.net.au,
-	netfilter-devel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <linux-net-owner@vger.kernel.org>
-In-Reply-To: <4CE56E89.4000902@trash.net>
-Sender: linux-net-owner@vger.kernel.org
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+	netfilter-devel@vger.kernel.org, linux-next@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	KOVACS Krisztian <hidden@balabit.hu>,
+	Balazs Scheidler <bazsi@balabit.hu>
+To: Randy Dunlap <randy.dunlap@oracle.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20101118092520.6ad964c7.randy.dunlap@oracle.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/18/2010 10:20 AM, Patrick McHardy wrote:
-> Am 18.11.2010 19:13, schrieb Justin P. Mattock:
->> On 11/18/2010 09:50 AM, David Miller wrote:
->>> From: Eric Dumazet<eric.dumazet@gmail.com>
->>> Date: Thu, 18 Nov 2010 18:48:17 +0100
->>>
->>>> Let me guess...
->>>>
->>>> net/netfilter/nf_conntrack_core is compiled as a module, and ip_vs
->>>> statically (in vmlinux) ?
->>>>
->>>> CONFIG_NF_CONNTRACK=m
->>>> CONFIG_IP_VS=y
->>>>
->>>> We probably need some Kconfig magic ;)
->>>
->
-> Please try whether this patch fixes the problem.
+Am 18.11.2010 18:25, schrieb Randy Dunlap:
+> On Thu, 18 Nov 2010 13:42:56 +1100 Stephen Rothwell wrote:
+> 
+>> Hi all,
+>>
+>> Changes since 20101117:
+> 
+> 
+> include/net/netfilter/nf_conntrack.h:94: error: field 'ct_general' has incomplete type
+> include/net/netfilter/nf_conntrack.h:174: error: 'const struct sk_buff' has no member named 'nfct'
+> include/net/netfilter/nf_conntrack.h:181: error: implicit declaration of function 'nf_conntrack_put'
+> include/net/netfilter/nf_conntrack_ecache.h:35: error: 'struct net' has no member named 'ct'
+> include/net/netfilter/nf_conntrack_core.h:60: error: 'struct sk_buff' has no member named 'nfct'
+> net/ipv6/netfilter/nf_defrag_ipv6_hooks.c:36: error: 'struct sk_buff' has no member named 'nfct'
+> net/ipv6/netfilter/nf_defrag_ipv6_hooks.c:37: error: implicit declaration of function 'nf_ct_zone'
+> net/ipv6/netfilter/nf_defrag_ipv6_hooks.c:37: error: 'struct sk_buff' has no member named 'nfct'
+> net/ipv6/netfilter/nf_defrag_ipv6_hooks.c:60: error: 'struct sk_buff' has no member named 'nfct'
+> net/ipv6/netfilter/nf_defrag_ipv6_hooks.c:60: error: 'struct sk_buff' has no member named 'nfct'
+> net/ipv6/netfilter/nf_conntrack_reasm.c:598: error: implicit declaration of function 'nf_conntrack_put_reasm'
+> net/ipv6/netfilter/nf_conntrack_reasm.c:598: error: 'struct sk_buff' has no member named 'nfct_reasm'
+> net/ipv6/netfilter/nf_conntrack_reasm.c:599: error: implicit declaration of function 'nf_conntrack_get_reasm'
+> net/ipv6/netfilter/nf_conntrack_reasm.c:600: error: 'struct sk_buff' has no member named 'nfct_reasm'
+> 
+> 
+> randconfig file is attached.
 
-sure.. right now I'm rebuilding with conntract built-in as suggested by 
-eric. then ill go back and test your patch out
-
->
-> netfilter: fix IP_VS dependencies
->
-> When NF_CONNTRACK is enabled, IP_VS uses conntrack symbols.
-> Therefore IP_VS can't be linked statically when conntrack
-> is built modular.
->
-> Reported-by: Justin P. Mattock<justinmattock@gmail.com>
-> Signed-off-by: Patrick McHardy<kaber@trash.net>
->
->
-
-Justin P. Mattock
+Krisztian, Balazs, could you please have a look at this? If the
+intention is to use NF_DEFRAG_IPV6 without conntrack, we probably
+need a couple of ifdefs.
