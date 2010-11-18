@@ -1,37 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: error while building the kernel Mainline
-Date: Thu, 18 Nov 2010 09:50:46 -0800 (PST)
-Message-ID: <20101118.095046.28818361.davem@davemloft.net>
-References: <1290093135.2781.167.camel@edumazet-laptop>
-	<4CE561A2.2020600@gmail.com>
-	<1290102497.2781.242.camel@edumazet-laptop>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [RFC PATCH v1 1/2] net: implement mechanism for HW based QOS
+Date: Thu, 18 Nov 2010 10:00:51 -0800
+Message-ID: <4CE569D3.7060504@intel.com>
+References: <20101117051544.19800.97654.stgit@jf-dev1-dcblab>	 <1289976990.2732.226.camel@edumazet-laptop>  <4CE5621F.8040503@intel.com> <1290101963.2781.234.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: justinmattock@gmail.com, linux-net@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	horms@verge.net.au, netfilter-devel@vger.kernel.org,
-	kaber@trash.net
-To: eric.dumazet@gmail.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1290102497.2781.242.camel@edumazet-laptop>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([143.182.124.37]:60904 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759984Ab0KRSAx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Nov 2010 13:00:53 -0500
+In-Reply-To: <1290101963.2781.234.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 18 Nov 2010 18:48:17 +0100
+On 11/18/2010 9:39 AM, Eric Dumazet wrote:
+> Le jeudi 18 novembre 2010 =C3=A0 09:27 -0800, John Fastabend a =C3=A9=
+crit :
+>=20
+>> Thanks for the feedback!
+>>
+>> num_tx_queues is an unsigned int in net_device and I can't see any
+>> place that would limit it to 16bits. So I think we need 32 bits here=
+=2E
+>> Otherwise I will make these changes and fix the fallout. This is muc=
+h
+>> cleaner.
+>>
+>>
+>=20
+> Hmm...
+>=20
+> include/linux/skbuff.h
+>=20
+> __u16           queue_mapping:16;
+>=20
+>=20
+> static inline void skb_record_rx_queue(struct sk_buff *skb, u16 rx_qu=
+eue)
+>=20
+> Anyway, we dont want to have more than 32768 queues, not before year
+> 2020 at least
+>=20
+> Thanks
+>=20
+>=20
+>=20
 
-> Let me guess...
-> 
-> net/netfilter/nf_conntrack_core is compiled as a module, and ip_vs
-> statically (in vmlinux) ?
-> 
-> CONFIG_NF_CONNTRACK=m
-> CONFIG_IP_VS=y
-> 
-> We probably need some Kconfig magic ;)
-
-Randy Dunlap made a similar report today with a sample .config
-that triggers the problem.
-
-I'll look into it after lunch.
+Ah a u16 it is then. And more then 32768 queues would be a bit much.
