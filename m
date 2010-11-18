@@ -1,52 +1,61 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: error while building the kernel Mainline
-Date: Thu, 18 Nov 2010 22:48:47 +0100
-Message-ID: <4CE59F3F.3080407@trash.net>
-References: <20101118.125451.98885354.davem@davemloft.net>	<20101118130318.073f6beb.randy.dunlap@oracle.com>	<20101118.131004.58430322.davem@davemloft.net> <20101118.131527.45904827.davem@davemloft.net>
+From: Sonny Rao <sonnyrao@us.ibm.com>
+Subject: [PATCH] qlge: Fix incorrect usage of module parameters and netdev
+ msg level
+Date: Thu, 18 Nov 2010 15:50:02 -0600
+Message-ID: <20101118215002.GS32203@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: randy.dunlap@oracle.com, justinmattock@gmail.com,
-	eric.dumazet@gmail.com, linux-net@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	horms@verge.net.au, netfilter-devel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20101118.131527.45904827.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Milton Miller <miltonm@bga.com>,
+	Linux Driver <Linux-Driver@qlogic.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Ron Mercer <ron.mercer@qlogic.com>, sonnyrao@linux.vnet.ibm.com
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e38.co.us.ibm.com ([32.97.110.159]:51910 "EHLO
+	e38.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760708Ab0KRVuL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Nov 2010 16:50:11 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am 18.11.2010 22:15, schrieb David Miller:
-> From: David Miller <davem@davemloft.net>
-> Date: Thu, 18 Nov 2010 13:10:04 -0800 (PST)
-> 
->> From: Randy Dunlap <randy.dunlap@oracle.com>
->> Date: Thu, 18 Nov 2010 13:03:18 -0800
->>
->>> On Thu, 18 Nov 2010 12:54:51 -0800 (PST) David Miller wrote:
->>>
->>>> From: Patrick McHardy <kaber@trash.net>
->>>> Date: Thu, 18 Nov 2010 21:32:11 +0100
->>>>
->>>>> Thanks for testing. Dave, please apply directly, thanks!
->>>
->>> Dave,
->>>
->>> This patch does not fix the config/build error that I posted for linux-next.
->>
->> And it has bugs, now when NF_CONNTRACT is set to "m" IPVS isn't offered
->> at all.
->>
->> So I'm reverting.
-> 
-> Ignore this, I was looking for "*_IPVS" in the config instead of
-> "*_IP_VS" for some stupid reason.
+Driver appears to be mistaking the permission field with default value
+in the case of debug and qlge_irq_type.
 
-I always make the same mistake :)
+Driver is also passing debug as a bitmask into netif_msg_init()
+which wants a number of bits.  Ron Mercer suggests we should
+change this to pass in -1 so the defaults get used instead,
+which makes the default much less verbose.
 
-> Patch is sane and I'll look into Randy's problem when I get a chance.
-> :-)
+Signed-off-by: Milton Miller <miltonm@bga.com>
+Signed-off-by: Sonny Rao <sonnyrao@linux.vnet.ibm.com>
+---
 
-I've already asked the tproxy guys to look into this, it's a
-different problem that requires more tproxy knowledge than
-have.
+v2: Changed debug to be -1 and updated changelog
+
+ drivers/net/qlge/qlge_main.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/qlge/qlge_main.c b/drivers/net/qlge/qlge_main.c
+index d9a7626..66878bb 100644
+--- a/drivers/net/qlge/qlge_main.c
++++ b/drivers/net/qlge/qlge_main.c
+@@ -62,15 +62,15 @@ static const u32 default_msg =
+ /* NETIF_MSG_PKTDATA | */
+     NETIF_MSG_HW | NETIF_MSG_WOL | 0;
+ 
+-static int debug = 0x00007fff;	/* defaults above */
+-module_param(debug, int, 0);
++static int debug = -1;	/* defaults above */
++module_param(debug, int, 0664);
+ MODULE_PARM_DESC(debug, "Debug level (0=none,...,16=all)");
+ 
+ #define MSIX_IRQ 0
+ #define MSI_IRQ 1
+ #define LEG_IRQ 2
+ static int qlge_irq_type = MSIX_IRQ;
+-module_param(qlge_irq_type, int, MSIX_IRQ);
++module_param(qlge_irq_type, int, 0664);
+ MODULE_PARM_DESC(qlge_irq_type, "0 = MSI-X, 1 = MSI, 2 = Legacy.");
+ 
+ static int qlge_mpi_coredump;
