@@ -1,52 +1,35 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: alchemy/gpr: au1000_eth regression with v2.6.37rc2
-Date: Thu, 18 Nov 2010 20:59:15 +0100
-Message-ID: <4CE58593.50509@grandegger.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: wireless-2.6 2010-11-18
+Date: Thu, 18 Nov 2010 12:02:09 -0800 (PST)
+Message-ID: <20101118.120209.02273225.davem@davemloft.net>
+References: <20101118184116.GD2468@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Netdev@vger.kernel.org, Florian Fainelli <florian@openwrt.org>
-To: Linux-MIPS <linux-mips@linux-mips.org>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60273
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759333Ab0KRUBo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Nov 2010 15:01:44 -0500
+In-Reply-To: <20101118184116.GD2468@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Thu, 18 Nov 2010 13:41:16 -0500
 
-I just realized that the v2.6.37-rc2 kernel does not boot any more on
-the Alchemy GPR board. It works fine with v2.6.36. It hangs in the
-probe function of the au1000_eth driver when probing the second
-ethernet port (eth1):
+> Included is an build fix for b43legacy on ARM, a correction of a
+> misnumbered WIPHY_FLAG_* value, a fix for the units passed to
+> usb_wait_anchor_empty_timeout in carl9170, a relocation of ath9k's
+> pm_qos request to avoid a warning about an unknown object, some device
+> ID stuff for ath9k_htc, a corrected eeprom offset for AR9287 devices, a
+> regulatory fix for extension channels, a fix on top of the regulatory
+> fix that restores HT40 functionality, and an ath9k_htc fix for non-QoS
+> frame handling that avoids "severe data loss with some APs".
+> 
+> Please let me know if there are problems!
 
-  au1000_eth_mii: probed
-  au1000-eth au1000-eth.0: (unregistered net_device): attached PHY driver [Generic PHY] (mii_bus:phy_addr=0:00, irq=-1)
-  au1000-eth au1000-eth.0: eth0: Au1xx0 Ethernet found at 0x10500000, irq 35
-  au1000_eth: au1000_eth version 1.7 Pete Popov <ppopov@embeddedalley.com>
-  ... hangs ...
-
-Similar messages should follow for eth1. I narrowed down (bisect'ed) the
-problem to commit:
-
-  commit d0e7cb5d401695809ba8c980124ab1d8c66efc8b
-  Author: Florian Fainelli <florian@openwrt.org>
-  Date:   Wed Sep 8 11:15:13 2010 +0000
-
-    au1000-eth: remove volatiles, switch to I/O accessors
-    
-    Remove all the volatile keywords where they were used, switch to using the
-    proper readl/writel accessors.
-    
-    Signed-off-by: Florian Fainelli <florian@openwrt.org>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-The kernel actually hangs when accessing "&aup->mac->mii_control" in
-au1000_mdio_read(), but only for eth1. Any idea what does go wrong?
-
-In principle, I do not want to access the MII regs of the MAC because
-eth0 and eth1 are connected to switches. But that's not possible, even
-with "aup->phy_static_config=1" and "aup->phy_addr=0".
-
-TIA,
-
-Wolfgang.
-
+Pulled, thanks John.
