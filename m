@@ -1,42 +1,46 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: [PATCH] net: fix kernel-doc for sk_filter_rcu_release
-Date: Thu, 18 Nov 2010 15:02:37 -0800
-Message-ID: <20101118150237.1f0ba4b5.randy.dunlap@oracle.com>
+From: Sonny Rao <sonnyrao@us.ibm.com>
+Subject: Re: [PATCH] qlge: Fix incorrect usage of module parameters and
+	netdev msg level
+Date: Thu, 18 Nov 2010 17:12:12 -0600
+Message-ID: <20101118231212.GU32203@us.ibm.com>
+References: <20101118215002.GS32203@us.ibm.com>
+ <20101118221713.GB14333@linux-ox1b.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+To: ron.mercer@qlogic.com,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Milton Miller <miltonm@bga.com>,
+	Linux Driver <Linux-Driver@qlogic.com>,
+	"linux-kernel@vger.kernel.org" <lin
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet10.oracle.com ([148.87.113.121]:33674 "EHLO
-	rcsinet10.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760814Ab0KRXD6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Nov 2010 18:03:58 -0500
+Received: from e9.ny.us.ibm.com ([32.97.182.139]:49658 "EHLO e9.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758239Ab0KRXMP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Nov 2010 18:12:15 -0500
+Content-Disposition: inline
+In-Reply-To: <20101118221713.GB14333@linux-ox1b.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
+On Thu, Nov 18, 2010 at 02:17:14PM -0800, Ron Mercer wrote:
+> On Thu, Nov 18, 2010 at 01:50:02PM -0800, Sonny Rao wrote:
+> > Driver appears to be mistaking the permission field with default value
+> > in the case of debug and qlge_irq_type.
+> > 
+> > Driver is also passing debug as a bitmask into netif_msg_init()
+> > which wants a number of bits.  Ron Mercer suggests we should
+> > change this to pass in -1 so the defaults get used instead,
+> > which makes the default much less verbose.
+> > 
+> > Signed-off-by: Milton Miller <miltonm@bga.com>
+> > Signed-off-by: Sonny Rao <sonnyrao@linux.vnet.ibm.com>
+> 
+> Milton/Sonny,
+> Did you happen to test this to see if the log output was the same? 
 
-Fix kernel-doc warning for sk_filter_rcu_release():
+Well, I haven't tried the -1 but I suspect it is much more sane than
+the 15 I had before because that was excessively verbose and I always
+ended up turning it down.  I'll try it out and see.
 
-Warning(net/core/filter.c:586): missing initial short description on line:
- * 	sk_filter_rcu_release: Release a socket filter by rcu_head
-
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
-Cc:	"David S. Miller" <davem@davemloft.net>
-Cc:	netdev@vger.kernel.org
----
- net/core/filter.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
---- lnx-2637-r2g4-kerndoc.orig/net/core/filter.c
-+++ lnx-2637-r2g4-kerndoc/net/core/filter.c
-@@ -589,7 +589,7 @@ int sk_chk_filter(struct sock_filter *fi
- EXPORT_SYMBOL(sk_chk_filter);
- 
- /**
-- * 	sk_filter_rcu_release: Release a socket filter by rcu_head
-+ * 	sk_filter_rcu_release - Release a socket filter by rcu_head
-  *	@rcu: rcu_head that contains the sk_filter to free
-  */
- static void sk_filter_rcu_release(struct rcu_head *rcu)
+-- 
+Sonny Rao, LTC OzLabs, BML team
