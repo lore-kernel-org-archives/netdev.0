@@ -1,48 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6] bonding: fix a race in IGMP handling
-Date: Thu, 18 Nov 2010 09:31:19 -0800 (PST)
-Message-ID: <20101118.093119.112598596.davem@davemloft.net>
-References: <1290072794.2781.10.camel@edumazet-laptop>
-	<1290073388.2781.12.camel@edumazet-laptop>
-	<1290075978.2781.36.camel@edumazet-laptop>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [RFC PATCH v1 1/2] net: implement mechanism for HW based QOS
+Date: Thu, 18 Nov 2010 09:31:09 -0800
+Message-ID: <4CE562DD.8060904@intel.com>
+References: <20101117051544.19800.97654.stgit@jf-dev1-dcblab> <20101117091828.GA14773@canuck.infradead.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: sachinp@in.ibm.com, netdev@vger.kernel.org,
-	linux-s390@vger.kernel.org, linux-next@vger.kernel.org,
-	ursula.braun@de.ibm.com, fubar@us.ibm.com
-To: eric.dumazet@gmail.com
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <1290075978.2781.36.camel@edumazet-laptop>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org, nhorman@tuxdriver.com, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:2873 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755489Ab0KRRbL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Nov 2010 12:31:11 -0500
+In-Reply-To: <20101117091828.GA14773@canuck.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 18 Nov 2010 11:26:18 +0100
+On 11/17/2010 1:18 AM, Thomas Graf wrote:
+> On Tue, Nov 16, 2010 at 09:15:45PM -0800, John Fastabend wrote:
+>> This patch provides a mechanism for lower layer devices to
+>> steer traffic using skb->priority to tx queues. This allows
+>> for hardware based QOS schemes to use the default qdisc without
+>> incurring the penalties related to global state and the qdisc
+>> lock. While reliably receiving skbs on the correct tx ring
+>> to avoid head of line blocking resulting from shuffling in
+>> the LLD. Finally, all the goodness from txq caching and xps/rps
+>> can still be leveraged.
+> 
+> Nice.
+> 
+>> If this approach seems reasonable I'll go ahead and finish
+>> this up. The priority to tc mapping should probably be exposed
+>> to userspace either through sysfs or rtnetlink. Any thoughts?
+> 
+> Please use netlink for this and add a new IFLA_ attribute. I
+> suggest you put nested attributes into it so you can extend it
+> later on and/or obsolete attributes:
+> 
+> [IFLA_TC] = {
+>   [IFLA_TC_MAX_TCS]
+>   [IFLA_TC_NUM_TCS]
+>   [IFLA_TC_TXQCOUNT]
+>   [IFLA_TC_TXQOFFSET]
+>   [IFLA_TC_MAP]
+> }
+> 
+> Or whatever is reasonable to export to userspace.
 
-> Actually this raises an interesting case for bonding as well.
-> 
-> Before my RCU conversion __bond_resend_igmp_join_requests() was unsafe.
-> 
-> For net-next-2.6, it is now safe (RCU is held), but needs a cleanup
-> patch to avoid sparse errors.
-> 
-> Thanks
-> 
-> [PATCH net-2.6] bonding: fix a race in IGMP handling
-> 
-> RCU conversion in IGMP code done in net-next-2.6 raised a race in
-> __bond_resend_igmp_join_requests().
-> 
-> It iterates in_dev->mc_list without appropriate protection (RTNL, or
-> read_lock on in_dev->mc_list_lock).
-> 
-> Another cpu might delete an entry while we use it and trigger a fault.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: Jay Vosburgh <fubar@us.ibm.com>
+Sounds good. I'll do this and post an update.
 
-Applied, but I'm going to have to be careful and make sure I undo
-this the next time I pull net-2.6 into net-next-2.6
+Thanks,
+John.
 
-Thanks.
