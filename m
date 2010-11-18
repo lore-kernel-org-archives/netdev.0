@@ -1,60 +1,72 @@
-From: Marcos <stalkingtime@gmail.com>
-Subject: Re: Fwd: a Great Idea - include Kademlia networking protocol in
- kernel -- REVISITED
-Date: Thu, 18 Nov 2010 15:21:25 -0700
-Message-ID: <AANLkTik-oLx5B2t0E3XKsseHi7tJF2hDMkOw21Mt=i0F@mail.gmail.com>
-References: <AANLkTi=VgBQ5rwkjZeo2zsRx1dSBy+4PBXeLLPQ4LRES@mail.gmail.com>
-	<AANLkTinWUmQ91cCULC8ZXFLwSKz6SNt3BpszrBEhbgcu@mail.gmail.com>
-	<1289724643.2743.58.camel@edumazet-laptop>
-	<AANLkTimkPpWob8ANySeWBvDE+Pq2wy4SQWJOSYzbS7QG@mail.gmail.com>
-	<1289727544.2743.72.camel@edumazet-laptop>
-	<AANLkTimoZRYssbop-JhryUVae5zy+KFsxny9T4ssHnqE@mail.gmail.com>
-	<AANLkTi=RQjvwpTwZtkjcyjgMVsZbYfi=34wSd-_JE3pP@mail.gmail.com>
+From: Florian Fainelli <florian@openwrt.org>
+Subject: Re: alchemy/gpr: au1000_eth regression with v2.6.37rc2
+Date: Thu, 18 Nov 2010 23:30:07 +0100
+Message-ID: <201011182330.08488.florian@openwrt.org>
+References: <4CE58593.50509@grandegger.com>
+Reply-To: Florian Fainelli <florian@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Honglei Cong <conghonglei@gmail.com>, netdev@vger.kernel.org
+Cc: "Linux-MIPS" <linux-mips@linux-mips.org>, Netdev@vger.kernel.org
+To: Wolfgang Grandegger <wg@grandegger.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:40611 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756160Ab0KRWV1 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Nov 2010 17:21:27 -0500
-Received: by bwz15 with SMTP id 15so3268104bwz.19
-        for <netdev@vger.kernel.org>; Thu, 18 Nov 2010 14:21:26 -0800 (PST)
-In-Reply-To: <AANLkTi=RQjvwpTwZtkjcyjgMVsZbYfi=34wSd-_JE3pP@mail.gmail.com>
+In-Reply-To: <4CE58593.50509@grandegger.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> Yes, of course, all that will have to be considered. =A0 But I'm
->> suggesting that such a move is an investment in the future, that the
->> the number of machines that will want or request peer-2-peer
->> connectivity will (or should) only increase. =A0Done right, such a m=
-ove
->> should *simplify* things. =A0We're biased to think in centralized wa=
-ys
->> because of the centuries-old history of *who* has the resources. =A0=
-But
->> as networking, computation, and storage become commodified further,
->> whole new topologies for the *right* architecture become available.
->> The idea of "the OS" itself morphs. =A0 And the *only* way maximize =
+Hello Wolfgang,
+
+Le Thursday 18 November 2010 20:59:15, Wolfgang Grandegger a =E9crit :
+> Hello,
+>=20
+> I just realized that the v2.6.37-rc2 kernel does not boot any more on
+> the Alchemy GPR board. It works fine with v2.6.36. It hangs in the
+> probe function of the au1000_eth driver when probing the second
+> ethernet port (eth1):
+>=20
+>   au1000_eth_mii: probed
+>   au1000-eth au1000-eth.0: (unregistered net_device): attached PHY dr=
+iver
+> [Generic PHY] (mii_bus:phy_addr=3D0:00, irq=3D-1) au1000-eth au1000-e=
+th.0:
+> eth0: Au1xx0 Ethernet found at 0x10500000, irq 35 au1000_eth: au1000_=
+eth
+> version 1.7 Pete Popov <ppopov@embeddedalley.com> ... hangs ...
+>=20
+> Similar messages should follow for eth1. I narrowed down (bisect'ed) =
 the
-> Agree with u. =A0But 'kernel' is not.
+> problem to commit:
+>=20
+>   commit d0e7cb5d401695809ba8c980124ab1d8c66efc8b
+>   Author: Florian Fainelli <florian@openwrt.org>
+>   Date:   Wed Sep 8 11:15:13 2010 +0000
+>=20
+>     au1000-eth: remove volatiles, switch to I/O accessors
+>=20
+>     Remove all the volatile keywords where they were used, switch to =
+using
+> the proper readl/writel accessors.
+>=20
+>     Signed-off-by: Florian Fainelli <florian@openwrt.org>
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
+>=20
+> The kernel actually hangs when accessing "&aup->mac->mii_control" in
+> au1000_mdio_read(), but only for eth1. Any idea what does go wrong?
 
-=2E..Consider a unified model of two orthogonal resources: processor --
-memory.  In theory such a unified model should be realizable.  For
-example, if we fix the processor side (say the user's machine), then
-you can move around the memory side, unify different memory stores:
-cache, RAM, local HD, Networked file storage (naturally logarithmic
-scaling).  There's no more need to "install applications":  it's all
-installed out there somewhere (probably from the same place where it
-was created), you just need to "page it in".  Create an abstract,
-user-controlled, peer grouping model that allows arbitrary "trust (or
-privacy) groups" where "node discovery" (say new annoucements) and
-"shared memory" is allowed and watch the Social Linux Network Brain
-evolve.  (I better not even mention an integrated voting model
-yet....)
+I do not understand so far while it hangs only for eth1. My device only=
+ has=20
+one ethernet MAC, so I could not notice the problem. Looking at this cl=
+ose,=20
+there are a couple of u32 const* usages in au1000_mdio_{read,write} whi=
+ch are=20
+looking wrong to me now. Can you try to remove these?
 
-Too idealistic?
+>=20
+> In principle, I do not want to access the MII regs of the MAC because
+> eth0 and eth1 are connected to switches. But that's not possible, eve=
+n
+> with "aup->phy_static_config=3D1" and "aup->phy_addr=3D0".
 
-marcos
-pangaia.sourceforge.net
+If you think this is another issue, I will fix it in another patch.
+--
+=46lorian
