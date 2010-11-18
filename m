@@ -1,38 +1,67 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH kernel 2.6.37-rc1]ipg.c: remove id [SUNDANCE, 0x1021]
-Date: Thu, 18 Nov 2010 10:45:37 -0800 (PST)
-Message-ID: <20101118.104537.245394940.davem@davemloft.net>
-References: <20101030071751.63611ede.ken_kawasaki@spring.nifty.jp>
-	<20101107001124.7d8ef6c4.ken_kawasaki@spring.nifty.jp>
-	<20101114084208.b3ee991d.ken_kawasaki@spring.nifty.jp>
+Subject: Re: [PATCH] 3c59x: fix build failure on !CONFIG_PCI
+Date: Thu, 18 Nov 2010 10:48:00 -0800 (PST)
+Message-ID: <20101118.104800.70193768.davem@davemloft.net>
+References: <20101116091408.abd36ec8.randy.dunlap@oracle.com>
+	<1289960532.1663.24.camel@leonhard>
+	<4CE3FBAC.3030503@oracle.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ken_kawasaki@spring.nifty.jp
+Content-Type: Text/Plain; charset=euc-kr
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: namhyung@gmail.com, klassert@mathematik.tu-chemnitz.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: randy.dunlap@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40721
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33091
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1760151Ab0KRSpM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Nov 2010 13:45:12 -0500
-In-Reply-To: <20101114084208.b3ee991d.ken_kawasaki@spring.nifty.jp>
+	by vger.kernel.org with ESMTP id S1755887Ab0KRSrf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Nov 2010 13:47:35 -0500
+In-Reply-To: <4CE3FBAC.3030503@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
-Date: Sun, 14 Nov 2010 08:42:08 +0900
+=46rom: Randy Dunlap <randy.dunlap@oracle.com>
+Date: Wed, 17 Nov 2010 07:58:36 -0800
 
-> 
-> ipg.c:
->   The id [SUNDANCE, 0x1021] (=[0x13f0, 0x1021]) is defined
->   at dl2k.h and ipg.c.
->   But this device works better with dl2k driver.
->   
->   This problem is similar with the commit 
->   [25cca5352712561fba97bd37c495593d641c1d39
->   ipg: Remove device claimed by dl2k from pci id table]
->   at 11 Feb 2010.
-> 
-> Signed-off-by: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
+> On 11/16/10 18:22, Namhyung Kim wrote:
+>> 2010-11-16 (=C8=AD), 09:14 -0800, Randy Dunlap:
+>>> Hi,
+>>>
+>>=20
+>> Hi, Randy
+>>=20
+>>=20
+>>> Interesting patch.  I have reported this build error and looked
+>>> into fixing it, but did not come up with this solution.
+>>>
+>>> Looking at it more:  if CONFIG_PCI is not enabled, DEVICE_PCI() is =
+NULL.
+>>> That makes VORTEX_PCI() (with or without your patch) have a value o=
+f NULL.
+>>>
+>>> Is the line with the reported syntax error (3211) executed in
+>>> function acpi_set_WOL() ?  If so, let's assume that vp->enable_wol =
+is true.
+>>> Then what happens on line 3211 (or 3213 after your patch)?
+>>>
+>>> 		if (VORTEX_PCI(vp)->current_state < PCI_D3hot)
+>>> 			return;
+>>>
+>>> or if I am really confuzed this morning, please tell me how it work=
+s.
+>>>
+>>=20
+>> At first glance, I've noticed that the code above could make a NULL
+>> dereference so I added NULL check prior to the line.
+>>=20
+>> But after reading more code I realized that other pci-functions call=
+ed
+>> in acpi_set_WOL() would not work with NULL pci_dev pointer also. And=
+ I
+>> found all callers of the acpi_set_WOL() already checked NULL pointer
+>> before the call. Finally I could remove the NULL check and leave the
+>> code as is. That's how it works. :)
+>=20
+> I see.  and concur.  Thanks for the explanation.
 
-Applied, thank you.
+Looks good to me too, applied, thanks!
