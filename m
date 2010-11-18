@@ -1,44 +1,73 @@
-From: Vasiliy Kulikov <segoon@openwall.com>
-Subject: [PATCH 4/4] net: caif: spi: fix potential NULL dereference
-Date: Thu, 18 Nov 2010 21:17:05 +0300
-Message-ID: <1290104226-31428-1-git-send-email-segoon@openwall.com>
-Cc: Sjur Braendeland <sjur.brandeland@stericsson.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: kernel-janitors@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f46.google.com ([209.85.215.46]:63347 "EHLO
-	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760095Ab0KRSRL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Nov 2010 13:17:11 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: error while building the kernel Mainline
+Date: Thu, 18 Nov 2010 19:20:57 +0100
+Message-ID: <4CE56E89.4000902@trash.net>
+References: <1290093135.2781.167.camel@edumazet-laptop>	<4CE561A2.2020600@gmail.com>	<1290102497.2781.242.camel@edumazet-laptop> <20101118.095046.28818361.davem@davemloft.net> <4CE56CC4.4020107@gmail.com>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+ boundary="------------060907090306050204040309"
+Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
+	linux-net@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, horms@verge.net.au,
+	netfilter-devel@vger.kernel.org
+To: "Justin P. Mattock" <justinmattock@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4CE56CC4.4020107@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-alloc_netdev() is not checked here for NULL return value.  dev is
-check instead.  It might lead to NULL dereference of ndev.
+This is a multi-part message in MIME format.
+--------------060907090306050204040309
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 
-Signed-off-by: Vasiliy Kulikov <segoon@openwall.com>
----
- Compile tested.
- Maybe dev is also must be checked here, but it looks like a trivial typo.
+Am 18.11.2010 19:13, schrieb Justin P. Mattock:
+> On 11/18/2010 09:50 AM, David Miller wrote:
+>> From: Eric Dumazet<eric.dumazet@gmail.com>
+>> Date: Thu, 18 Nov 2010 18:48:17 +0100
+>>
+>>> Let me guess...
+>>>
+>>> net/netfilter/nf_conntrack_core is compiled as a module, and ip_vs
+>>> statically (in vmlinux) ?
+>>>
+>>> CONFIG_NF_CONNTRACK=m
+>>> CONFIG_IP_VS=y
+>>>
+>>> We probably need some Kconfig magic ;)
+>>
 
- drivers/net/caif/caif_spi.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+Please try whether this patch fixes the problem.
 
-diff --git a/drivers/net/caif/caif_spi.c b/drivers/net/caif/caif_spi.c
-index 8b4cea5..20da199 100644
---- a/drivers/net/caif/caif_spi.c
-+++ b/drivers/net/caif/caif_spi.c
-@@ -635,8 +635,8 @@ int cfspi_spi_probe(struct platform_device *pdev)
- 
- 	ndev = alloc_netdev(sizeof(struct cfspi),
- 			"cfspi%d", cfspi_setup);
--	if (!dev)
--		return -ENODEV;
-+	if (!ndev)
-+		return -ENOMEM;
- 
- 	cfspi = netdev_priv(ndev);
- 	netif_stop_queue(ndev);
--- 
-1.7.0.4
+netfilter: fix IP_VS dependencies
 
+When NF_CONNTRACK is enabled, IP_VS uses conntrack symbols.
+Therefore IP_VS can't be linked statically when conntrack
+is built modular.
+
+Reported-by: Justin P. Mattock <justinmattock@gmail.com>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+
+
+--------------060907090306050204040309
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="x"
+
+diff --git a/net/netfilter/ipvs/Kconfig b/net/netfilter/ipvs/Kconfig
+index a22dac2..70bd1d0 100644
+--- a/net/netfilter/ipvs/Kconfig
++++ b/net/netfilter/ipvs/Kconfig
+@@ -4,6 +4,7 @@
+ menuconfig IP_VS
+ 	tristate "IP virtual server support"
+ 	depends on NET && INET && NETFILTER
++	depends on (NF_CONNTRACK || NF_CONNTRACK=n)
+ 	---help---
+ 	  IP Virtual Server support will let you build a high-performance
+ 	  virtual server based on cluster of two or more real servers. This
+
+--------------060907090306050204040309--
