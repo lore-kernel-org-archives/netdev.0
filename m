@@ -1,29 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: ethtool 2.6.36 released
-Date: Thu, 18 Nov 2010 09:49:56 -0800 (PST)
-Message-ID: <20101118.094956.246531187.davem@davemloft.net>
-References: <1290041901.30433.119.camel@localhost>
+Subject: Re: error while building the kernel Mainline
+Date: Thu, 18 Nov 2010 09:50:46 -0800 (PST)
+Message-ID: <20101118.095046.28818361.davem@davemloft.net>
+References: <1290093135.2781.167.camel@edumazet-laptop>
+	<4CE561A2.2020600@gmail.com>
+	<1290102497.2781.242.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeff@garzik.org
-To: bhutchings@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55700
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755048Ab0KRRtb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Nov 2010 12:49:31 -0500
-In-Reply-To: <1290041901.30433.119.camel@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: justinmattock@gmail.com, linux-net@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	horms@verge.net.au, netfilter-devel@vger.kernel.org,
+	kaber@trash.net
+To: eric.dumazet@gmail.com
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1290102497.2781.242.camel@edumazet-laptop>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Thu, 18 Nov 2010 00:58:21 +0000
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 18 Nov 2010 18:48:17 +0100
 
-> Jeff Garzik has handed over ongoing maintenance to me.  Jeff, thanks for
-> all your work on ethtool over the past 10 years and for your help with
-> making this release.
+> Let me guess...
+> 
+> net/netfilter/nf_conntrack_core is compiled as a module, and ip_vs
+> statically (in vmlinux) ?
+> 
+> CONFIG_NF_CONNTRACK=m
+> CONFIG_IP_VS=y
+> 
+> We probably need some Kconfig magic ;)
 
-Indeed, thanks a lot to Jeff for maintaining ethtool all these years.
+Randy Dunlap made a similar report today with a sample .config
+that triggers the problem.
 
-And thanks to Ben for taking on this task.
+I'll look into it after lunch.
