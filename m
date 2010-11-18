@@ -1,38 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH] net: add priority field to pktgen
-Date: Thu, 18 Nov 2010 10:43:36 -0800 (PST)
-Message-ID: <20101118.104336.179929345.davem@davemloft.net>
-References: <20101117051228.19479.8267.stgit@jf-dev1-dcblab>
-	<1289971637.2732.83.camel@edumazet-laptop>
+Subject: Re: [PATCH kernel 2.6.37-rc1]ipg.c: remove id [SUNDANCE, 0x1021]
+Date: Thu, 18 Nov 2010 10:45:37 -0800 (PST)
+Message-ID: <20101118.104537.245394940.davem@davemloft.net>
+References: <20101030071751.63611ede.ken_kawasaki@spring.nifty.jp>
+	<20101107001124.7d8ef6c4.ken_kawasaki@spring.nifty.jp>
+	<20101114084208.b3ee991d.ken_kawasaki@spring.nifty.jp>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: ken_kawasaki@spring.nifty.jp
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40716
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40721
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1760127Ab0KRSnL convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Nov 2010 13:43:11 -0500
-In-Reply-To: <1289971637.2732.83.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1760151Ab0KRSpM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Nov 2010 13:45:12 -0500
+In-Reply-To: <20101114084208.b3ee991d.ken_kawasaki@spring.nifty.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 17 Nov 2010 06:27:17 +0100
+From: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
+Date: Sun, 14 Nov 2010 08:42:08 +0900
 
-> Le mardi 16 novembre 2010 =E0 21:12 -0800, John Fastabend a =E9crit :
->> Add option to set skb priority to pktgen. Useful for testing
->> QOS features. Also by running pktgen on the vlan device the
->> qdisc on the real device can be tested.
->>=20
->> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
->> ---
->=20
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+> 
+> ipg.c:
+>   The id [SUNDANCE, 0x1021] (=[0x13f0, 0x1021]) is defined
+>   at dl2k.h and ipg.c.
+>   But this device works better with dl2k driver.
+>   
+>   This problem is similar with the commit 
+>   [25cca5352712561fba97bd37c495593d641c1d39
+>   ipg: Remove device claimed by dl2k from pci id table]
+>   at 11 Feb 2010.
+> 
+> Signed-off-by: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
 
-Applied, thanks everyone.
-
-This will be useful for stressing things like VLAN qos I guess
-:-)
+Applied, thank you.
