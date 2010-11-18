@@ -1,46 +1,70 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] bonding: IGMP handling cleanup
-Date: Thu, 18 Nov 2010 09:33:30 -0800 (PST)
-Message-ID: <20101118.093330.39181120.davem@davemloft.net>
-References: <1290073388.2781.12.camel@edumazet-laptop>
-	<1290075978.2781.36.camel@edumazet-laptop>
-	<1290077352.2781.47.camel@edumazet-laptop>
+From: Ron Mercer <ron.mercer@qlogic.com>
+Subject: Re: [PATCH] qlge: Fix incorrect usage of module parameters and
+	netdev msg level
+Date: Thu, 18 Nov 2010 09:22:24 -0800
+Message-ID: <20101118172224.GA14333@linux-ox1b.qlogic.org>
+References: <1290075903-3038-1-git-send-email-sonnyrao@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: sachinp@in.ibm.com, netdev@vger.kernel.org,
-	linux-s390@vger.kernel.org, linux-next@vger.kernel.org,
-	ursula.braun@de.ibm.com, fubar@us.ibm.com
-To: eric.dumazet@gmail.com
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <1290077352.2781.47.camel@edumazet-laptop>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Milton Miller <miltonm@bga.com>,
+	Linux Driver <Linux-Driver@qlogic.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Sonny Rao <sonnyrao@linux.vnet.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cain.qlogic.com ([198.70.193.223]:54957 "EHLO cain.qlc.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755489Ab0KRRe4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Nov 2010 12:34:56 -0500
+Content-Disposition: inline
+In-Reply-To: <1290075903-3038-1-git-send-email-sonnyrao@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 18 Nov 2010 11:49:12 +0100
+On Thu, Nov 18, 2010 at 02:25:03AM -0800, Sonny Rao wrote:
+> Driver appears to be mistaking the permission field with default value
+> in the case of debug and qlge_irq_type.
+> 
+> Driver is also passing debug as a bitmask into netif_msg_init()
+> which really wants a number of bits, so fix that.
+> 
+> Signed-off-by: Milton Miller <miltonm@bga.com>
+> Signed-off-by: Sonny Rao <sonnyrao@linux.vnet.ibm.com>
+> ---
+>  drivers/net/qlge/qlge_main.c |    6 +++---
+>  1 files changed, 3 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/qlge/qlge_main.c b/drivers/net/qlge/qlge_main.c
+> index d9a7626..66878bb 100644
+> --- a/drivers/net/qlge/qlge_main.c
+> +++ b/drivers/net/qlge/qlge_main.c
+> @@ -62,15 +62,15 @@ static const u32 default_msg =
+>  /* NETIF_MSG_PKTDATA | */
+>      NETIF_MSG_HW | NETIF_MSG_WOL | 0;
+>  
+> -static int debug = 0x00007fff;	/* defaults above */
+> -module_param(debug, int, 0);
+> +static int debug = 15;	/* defaults above */
 
-> Le jeudi 18 novembre 2010 =E0 11:26 +0100, Eric Dumazet a =E9crit :
->=20
->> Actually this raises an interesting case for bonding as well.
->>=20
->> Before my RCU conversion __bond_resend_igmp_join_requests() was unsa=
-fe.
->>=20
->> For net-next-2.6, it is now safe (RCU is held), but needs a cleanup
->> patch to avoid sparse errors.
->=20
-> [PATCH net-next-2.6] bonding: IGMP handling cleanup
->=20
-> Instead of iterating in_dev->mc_list from bonding driver, its better
-> to call a helper function provided by igmp.c
-> Details of implementation (locking) are private to igmp code.
->=20
-> ip_mc_rejoin_group(struct ip_mc_list *im) becomes
-> ip_mc_rejoin_groups(struct in_device *in_dev);
->=20
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: Jay Vosburgh <fubar@us.ibm.com>
-> Cc: Sachin Sant <sachinp@in.ibm.com>
 
-Applied, thanks Eric.
+I think what we want here is:
+
+> +static int debug = -1;	/* defaults above */
+
+This will correct it and maintain the current behavior.
+By passing in the 0x00007ffff we were getting the passed in default
+paramter from the 2nd compare in the first if statement below. If we set
+debug to 15 then it looks like we would turn on all bits rather than
+qlge default.
+
+static inline u32 netif_msg_init(int debug_value, int default_msg_enable_bits)
+{
+        /* use default */
+        if (debug_value < 0 || debug_value >= (sizeof(u32) * 8))
+                return default_msg_enable_bits;
+        if (debug_value == 0)   /* no output */
+                return 0;
+        /* set low N bits */
+        return (1 << debug_value) - 1;
+}
+
