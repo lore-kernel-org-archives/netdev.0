@@ -1,33 +1,42 @@
-From: Postmaster@hpport.com.vn
-Subject: MDaemon Notification -- Attachment Removed
-Date: Thu, 18 Nov 2010 15:26:15 +0700
-Message-ID: <MDAEMON4413201011181526.AA2615687@hpport.com.vn>
-Reply-To: Postmaster@hpport.com.vn
+From: Clemens Ladisch <clemens@ladisch.de>
+Subject: Re: [alsa-devel] sound playback became chopping on nfs rootfs
+Date: Thu, 18 Nov 2010 10:03:36 +0100
+Message-ID: <4CE4EBE8.8030702@ladisch.de>
+References: <w3ptyjfrqde.wl%kuninori.morimoto.gx@renesas.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Chuck Lever <chuck.lever@oracle.com>,
+	Linux-Net <netdev@vger.kernel.org>,
+	Linux-ALSA <alsa-devel@alsa-project.org>
+To: Kuninori Morimoto <kuninori.morimoto.gx@renesas.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.haiphongport.com.vn ([203.210.158.155]:46033 "EHLO
-	hpport.com.vn" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755877Ab0KRIr3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Nov 2010 03:47:29 -0500
-Received: from hpport.com.vn by hpport.com.vn (via RAW) (MDaemon PRO v10.0.0)
-	for <netdev@vger.kernel.org>; Thu, 18 Nov 2010 15:26:15 +0700
+Received: from out1.smtp.messagingengine.com ([66.111.4.25]:51070 "EHLO
+	out1.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751412Ab0KRJBw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Nov 2010 04:01:52 -0500
+In-Reply-To: <w3ptyjfrqde.wl%kuninori.morimoto.gx@renesas.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
--------------------------------------------------------------------
-MDaemon has detected restricted attachments within an email message
--------------------------------------------------------------------
+Kuninori Morimoto wrote:
+> I noticed that sound playback became chopping on latest Linux kernel.
+> ...
+> This chopping seems happen from below patch.
+> 
+> 	commit 56463e50d1fc3f070492434cea6303b35ea000de
+> 	Author: Chuck Lever <chuck.lever@oracle.com>
+> 
+> 	NFS: Use super.c for NFSROOT mount option parsing
+>       ...
+> 	Note that this means NFSROOT mounts now use the same default settings
+> 	as v2/v3 mounts done via mount(2) from user space.
 
->From      : netdev@vger.kernel.org
-To        : ngocht.ktkd.cv@hpport.com.vn
-Subject   : Message could not be delivered
-Message-ID: 
+Apparently, the latest kernel uses different mount options.
 
----------------------
-Attachment(s) removed
----------------------
-ngocht.ktkd.cv@hpport.com.vn.zip (ngocht.ktkd.cv@hpport.com.vn.doc                                                                        .com)
+Try to find out what mount options your root FS had in the old kernel,
+and manually set them in some startup script.
 
 
+Regards,
+Clemens
