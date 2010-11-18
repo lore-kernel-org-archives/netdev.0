@@ -1,35 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-2.6 2010-11-18
-Date: Thu, 18 Nov 2010 12:02:09 -0800 (PST)
-Message-ID: <20101118.120209.02273225.davem@davemloft.net>
-References: <20101118184116.GD2468@tuxdriver.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6 v2] can: EG20T PCH: add prefix to macro
+Date: Thu, 18 Nov 2010 12:05:59 -0800 (PST)
+Message-ID: <20101118.120559.68132582.davem@davemloft.net>
+References: <4CE3B8CC.5060208@dsn.okisemi.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60273
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759333Ab0KRUBo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Nov 2010 15:01:44 -0500
-In-Reply-To: <20101118184116.GD2468@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
+	margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org, joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, chripell-VaTbYqLCNhc@public.gmane.org, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+To: tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4CE3B8CC.5060208-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Thu, 18 Nov 2010 13:41:16 -0500
+From: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Date: Wed, 17 Nov 2010 20:13:16 +0900
 
-> Included is an build fix for b43legacy on ARM, a correction of a
-> misnumbered WIPHY_FLAG_* value, a fix for the units passed to
-> usb_wait_anchor_empty_timeout in carl9170, a relocation of ath9k's
-> pm_qos request to avoid a warning about an unknown object, some device
-> ID stuff for ath9k_htc, a corrected eeprom offset for AR9287 devices, a
-> regulatory fix for extension channels, a fix on top of the regulatory
-> fix that restores HT40 functionality, and an ath9k_htc fix for non-QoS
-> frame handling that avoids "severe data loss with some APs".
+> For easy to readable/identifiable, add prefix "PCH_" to all of #define macros.
 > 
-> Please let me know if there are problems!
+> Signed-off-by: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+> Acked-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
 
-Pulled, thanks John.
+Applied.
