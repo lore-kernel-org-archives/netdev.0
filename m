@@ -1,54 +1,30 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: extended netdevice naming proposal
-Date: Thu, 18 Nov 2010 19:00:49 +0000
-Message-ID: <1290106849.2573.11.camel@bwh-desktop>
-References: <20101117220659.GA12177@auslistsprd01.us.dell.com>
-	 <20101118021039.GA18707@nostromo.devel.redhat.com>
-	 <1290047397.3818.3.camel@localhost>
-	 <20101118185125.GA4952@auslistsprd01.us.dell.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6] igmp: refine skb allocations
+Date: Thu, 18 Nov 2010 11:02:52 -0800 (PST)
+Message-ID: <20101118.110252.35044756.davem@davemloft.net>
+References: <1289975802.2732.195.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Bill Nottingham <notting@redhat.com>,
-	linux-hotplug@vger.kernel.org, netdev@vger.kernel.org,
-	narendra_k@dell.com, jcm@redhat.com
-To: Matt Domsch <Matt_Domsch@dell.com>
-Return-path: <linux-hotplug-owner@vger.kernel.org>
-In-Reply-To: <20101118185125.GA4952@auslistsprd01.us.dell.com>
-Sender: linux-hotplug-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45781
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757350Ab0KRTC1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Nov 2010 14:02:27 -0500
+In-Reply-To: <1289975802.2732.195.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-11-18 at 12:51 -0600, Matt Domsch wrote:
-> On Thu, Nov 18, 2010 at 02:29:57AM +0000, Ben Hutchings wrote:
-> > On Wed, 2010-11-17 at 21:10 -0500, Bill Nottingham wrote:
-> > > Matt Domsch (Matt_Domsch@dell.com) said: 
-> > > > (location)(slot)#(port)/(instance).(vlan)
-> > > 
-> > > AIUI, the kernel explicitly rejects '/' in the name (for fairly obvious
-> > > sysfs reasons.) So you'd at least need a different delimiter. There may
-> > > also be potential confusion with pci01#03:02.0001 with someone thinking
-> > > that's bus/dev/fn, if we're being really petty.
-> > 
-> > ':' is also reserved for alias interfaces, the old way of assigning
-> > multiple IP addresses.
-> > 
-> > I would say '-' is a good separator, but that might result in ambiguity
-> > in IRQ names.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 17 Nov 2010 07:36:42 +0100
+
+> IGMP allocates MTU sized skbs. This may fail for large MTU (order-2
+> allocations), so add a fallback to try lower sizes.
 > 
-> How about underscore to separate VFs? 
-> (location)(slot)#(port)_(instance).(vlan)
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-That does seem like the best separator available.
-
-> And 'em' as prefix for embedded?
-[...]
-
-That also fits the mnemonic Ethernet on Motherboard, which is nice.
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Applied, although in the long run we need to be a lot more
+intelligent here.  However, this is a good start. :-)
 
