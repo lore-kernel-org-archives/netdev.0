@@ -1,78 +1,70 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: extended netdevice naming proposal
-Date: Thu, 18 Nov 2010 00:39:55 +0000
-Message-ID: <1290040795.30433.101.camel@localhost>
-References: <20101117220659.GA12177@auslistsprd01.us.dell.com>
+Subject: ethtool 2.6.36 released
+Date: Thu, 18 Nov 2010 00:58:21 +0000
+Message-ID: <1290041901.30433.119.camel@localhost>
 Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-I5MMD19hWjG1WewKHnkH"
+Cc: Jeff Garzik <jeff@garzik.org>
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.solarflare.com ([216.237.3.220]:49820 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753232Ab0KRA6Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Nov 2010 19:58:24 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+
+
+--=-I5MMD19hWjG1WewKHnkH
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-hotplug@vger.kernel.org, netdev@vger.kernel.org,
-	narendra_k@dell.com, jcm@redhat.com, notting@redhat.com
-To: Matt Domsch <Matt_Domsch@dell.com>
-Return-path: <linux-hotplug-owner@vger.kernel.org>
-In-Reply-To: <20101117220659.GA12177@auslistsprd01.us.dell.com>
-Sender: linux-hotplug-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: quoted-printable
 
-On Wed, 2010-11-17 at 16:06 -0600, Matt Domsch wrote:
-> While this _is_ the original bikeshedding problem, as long as I'm
-> going to use biosdevname to change names for embedded NICs, perhaps I
-> can be so bold as to change them for USB add-in cards too?
-> 
-> There are quite a few dimensions to the problem:
-> * device location (onboard, PCI, other bus)
-> * multiple ports on a single add-in card
-> * with Network Partitioning (NPAR) and SR-IOV, the OS sees multiple
->   network interfaces (physical or virtual interfaces) but a single external port
-> * the suffix .1234 currently used for vlans (ala vconfig)
-> * A single PCI device may drive multiple external ports
-> 
-> As such, here is a naming proposal, aimed to keep within 15
-> characters for most configurations.
-> 
-> (location)(slot)#(port)/(instance).(vlan)
-> 
-> location := NIC on Motherboard = net1, net2, net3, net4
+ethtool version 2.6.36 has been released.
 
-"net", really?!  I can't say I care that much, but this just doesn't
-seem like a helpful prefix.
+Home page: https://sourceforge.net/projects/gkernel/
+Download link:
+https://sourceforge.net/projects/gkernel/files/ethtool/2.6.36/ethtool-2.6.3=
+6.tar.gz/download
 
->    (note: people hated the TLA collision with 'lom', so avoiding that here).
->          := PCI slot = pci1, pci2, pci3, pci4
->  these correspond to chassis labels, information is available in
->  $PIRQ, SMBIOS or ACPI, which biosdevname retrieves and uses.
-> 
-> For single- or multi-port cards in PCI slots, append #(port):
->    pci1#1, pci1#2, pci1#3, pci1#4  for 4 ports on a card in PCI slot 1
+This will be the last release via Sourceforge.  A new home page will
+shortly be created on kernel.org resources, probably at
+<https://ftp.kernel.org/pub/software/network/ethtool/>.
 
-'#' might be problematic but I don't have any concrete evidence of that.
+Release notes:
 
-> There is currently no way to get this port info from BIOS.  Several people
-> have suggested using adding a PCI capabilities field to expose this
-> info in a standard way, but that's a ways off. Until then, biosdevname
-> can guess (assume ascending MAC order on the single card).
+	* Fix: RX n-tuple masks and documentation
+	* Feature: Ethernet-level RX n-tuple filtering and 'clear' action
+	* Feature: stmmac register dump support
+	* Feature: get permanent address (-P) option
+	* Feature: VLAN acceleration control
 
-You could try using the dev_id attribute first; it's supposed to be a
-0-based index of a net device on a board.  It won't be unique in all
-cases, e.g. if a NIC vendor has used a bridge chip to connect multiple
-controllers on a single board or if the driver just doesn't set it.  So
-you would need to fall back to MAC order in tha tcase.
-
-> For NPAR/SR-IOV where the physical port is shared by several
-> instances, append /(instance):
->    net1/1, net1/2 pci1#1/1, pci1#1/2,
->    pci1#1/2, pci1#1/3, ...
-[...]
-
-Surely VFs are normally passed through to a guest, in which case:
-1. The host/console/dom0 won't create a net device for them.
-2. The guest won't (and shouldn't) have such information about the
-physical location of the PCI function.
+Jeff Garzik has handed over ongoing maintenance to me.  Jeff, thanks for
+all your work on ethtool over the past 10 years and for your help with
+making this release.
 
 Ben.
 
--- 
+--=20
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
 Not speaking for my employer; that's the marketing department's job.
 They asked us to note that Solarflare product names are trademarked.
+
+--=-I5MMD19hWjG1WewKHnkH
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iQEVAwUATOR6KGkILBsOca60AQJUigf+OEWw6BYy70BZjwp9i4b2Eq0k6VViA4Y+
+tZp8uTdSNhPMAVXCW7wYV2tA80QlbTtR/kUHbgBRxxgYL69JZTw3IzVXQ1XfYXjT
+KLbpeTnOAJOlsAmwystKuPBgjYlpHtN6czXdTruGQrA5y2KD7O4lQMeYLPLaJLIC
+7wCrwQCCSbTQxHN9LGyN01OQBPB93PMsbrYUAQIpW0EZ+7/795vEclKNSGtzTxEv
+gyedkt2aoQdFdJEKAt7LqX1N9QToGde+dCfnoPI1PuJO5uezLGegaKyBp7WkgXWQ
+FXjBJFAoVZII6yqNhgOl/2uDj5WITNiEEqqk2NDXyMyh/2aavGKyOw==
+=PS90
+-----END PGP SIGNATURE-----
+
+--=-I5MMD19hWjG1WewKHnkH--
 
