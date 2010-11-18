@@ -1,82 +1,46 @@
-From: Michael Monnerie <michael.monnerie@is.it-management.at>
-Subject: Regression 2.6.36 - driver rtl8169 crashes kernel, triggered by user app
-Date: Thu, 18 Nov 2010 15:49:07 +0100
-Message-ID: <201011181549.08545@zmi.at>
+From: Daniel Turull <daniel.turull@gmail.com>
+Subject: [PATH] dev: reusing unregistered ifindex values in net_device
+Date: Thu, 18 Nov 2010 16:25:54 +0100
+Message-ID: <AANLkTinx6Ww4ZwRUTyYD_STPSRsSFck8O=W5yeJSbBs_@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1324460.k5j5z1qcUa";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "Voravit T." <voravit@kth.se>, Robert Olsson <robert@herjulf.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:41553 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753749Ab0KRP0P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Nov 2010 10:26:15 -0500
+Received: by fxm10 with SMTP id 10so15624fxm.19
+        for <netdev@vger.kernel.org>; Thu, 18 Nov 2010 07:26:14 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---nextPart1324460.k5j5z1qcUa
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
+When a new index is going to be assigned in register_netdevice,
+the dev_new_index starts to search possible values from the last index
+given to a device although there might be some free ifindex that has been
+previously unregistered.  This behaviour may create gap(s) in the ifindex list.
 
-I did not get any answer, so here again:
+This patch checks for unused values from 1 and gives to the new device the
+first available value. This limits the maximum ifindex to a smaller value.
 
-Dear list, I've hunted down a bug which does *NOT* occur in kernel=20
-2.6.34.7-0.5-desktop from openSUSE 11.3, but crashes stock kernel 2.6.36=20
-triggered by a user!
+The ifindex will still be unique since the old value is no longer in use.
 
-It's actually very simple. From my desktop (kernel 2.6.36) I "cd" to an=20
-NFS4 share, where a xz compressed image of Win7-64.iso.xz is located.
+Reported-by: Voravit Tanyingyong  <voravit@kth.se>
+Signed-off-by: Daniel Turull <daniel.turull@gmail.com>
 
-# cd /q/iso-images
-
-and then I try to uncompress it there (as user, not root!):
-
-# xz -kv Win7-64.iso.xz
-
-With kernel 2.6.34.7-0.5-desktop, this runs with ~41MiB/s without=20
-problems.
-
-With kernel 2.6.36, it runs at ~26MiB/s, and while doing so, dmesg shows=20
-a lot of noise about r8169 complaining:
-http://zmi.at/x/kernel2.6.36-crash86.jpg
-
-Here are 2 pictures of different crashes:
-http://zmi.at/x/kernel2.6.36-crash84.jpg
-http://zmi.at/x/kernel2.6.36-crash85.jpg
-
-Neither the dmesg-messages nor the crash happens with kernel=20
-2.6.34.7-0.5-desktop as delivered by openSUSE 11.3, but it always fully=20
-crashes 2.6.36. I've retried about 10 times, it *never* finished to=20
-uncompress the ~3GB image. At around 500-1000MB the kernel was gone.
-
-I'm sure someone knows how to fix it. :-)
-
-=2D-=20
-mit freundlichen Gr=C3=BCssen,
-Michael Monnerie, Ing. BSc
-
-it-management Internet Services
-http://proteger.at [gesprochen: Prot-e-schee]
-Tel: 0660 / 415 65 31
-
-****** Radiointerview zum Thema Spam ******
-http://www.it-podcast.at/archiv.html#podcast-100716
-
-// Wir haben im Moment zwei H=C3=A4user zu verkaufen:
-// http://zmi.at/langegg/
-// http://zmi.at/haus2009/
-
---nextPart1324460.k5j5z1qcUa
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.15 (GNU/Linux)
-
-iEYEABECAAYFAkzlPOQACgkQzhSR9xwSCbSqTwCgj/IHD4/1uBubbJhlAZ6BOXUZ
-vW4AnRhFzEcz0WetzXxRzq8YGyXaa/NC
-=o2+a
------END PGP SIGNATURE-----
-
---nextPart1324460.k5j5z1qcUa--
+---
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 381b8e2..a7babab 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4871,7 +4871,7 @@ int dev_ioctl(struct net *net, unsigned int cmd,
+void __user *arg)
+  */
+ static int dev_new_index(struct net *net)
+ {
+-	static int ifindex;
++	int ifindex;
+ 	for (;;) {
+ 		if (++ifindex <= 0)
+ 			ifindex = 1;
