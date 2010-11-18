@@ -1,60 +1,37 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: net-next-2.6 [PATCH 0/6]: dccp ccid-2: Ack Vector patch set
-	second/concluding part II
-Date: Thu, 18 Nov 2010 07:42:00 +0100
-Message-ID: <20101118064200.GA5457@gerrit.erg.abdn.ac.uk>
-References: <1289802547-5617-1-git-send-email-gerrit@erg.abdn.ac.uk> <20101115.110459.68121782.davem@davemloft.net>
+From: Petko Manolov <petkan@nucleusys.com>
+Subject: Re: [PATCH 06/10] drivers/net/usb: Remove unnecessary casts of
+ netdev_priv
+Date: Thu, 18 Nov 2010 09:24:49 +0200 (EET)
+Message-ID: <alpine.DEB.2.00.1011180918420.2169@bender.nucleusys.com>
+References: <cover.1289855436.git.joe@perches.com> <66a3d7996e4ce8a84610237e86adf4b15a48514a.1289855436.git.joe@perches.com> <alpine.DEB.2.00.1011161958320.1392@gabi> <20101117.104555.246530412.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: joe@perches.com, trivial@kernel.org, petkan@users.sourceforge.net,
+	gregkh@suse.de, linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:39234 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752216Ab0KRGxc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Nov 2010 01:53:32 -0500
-Content-Disposition: inline
-In-Reply-To: <20101115.110459.68121782.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20101117.104555.246530412.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> Some of the new functions you added had some coding style quirks,
-> for example the openning brace for dccp_ackvec_clear_state()
-> has an unnecessary space before it on that line.
-> 
-> Please fix those sorts of things up, thanks.
+On Wed, 17 Nov 2010, David Miller wrote:
 
-I am sorry, this glitch must have occurred since I last ran checkpatch.pl.  
+> From: Petko Manolov <petkan@nucleusys.com>
+> Date: Tue, 16 Nov 2010 19:59:29 +0200 (EET)
+>
+>> ACK! :-)
+>
+> Please do not top post.
 
-Please find a fix attached. I have checked all patches again, line-by-line
-and using checkpatch.pl. I found only this one occurrence, checking twice.
+Sorry about that.
 
-It is also on top today's copy of net-next-2.6, on
+> Also, please use a properly formed "Acked-by: " tag if you want
+> your ACK to actually show up in the commit log message.
 
-    git://eden-feed.erg.abdn.ac.uk/net-next-2.6        [subtree 'dccp']
+My "ack" was only a notification that i've checked the patch.  It was not 
+meant to go into the logs.
 
-(I tried to put up the patches on top of this, but this did not work cleanly,
- due to inter-dependencies. I apologize for this.)
 
->>>>>>>>>>>>>>>>>>>>>>>>>> Patch <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<    
-dccp ccid-2: whitespace fix-up
-
-This fixes whitespace noise introduced in commit "dccp ccid-2: Algorithm to
-update buffer state", 5753fdfe8bd8e9a2ff9e5af19b0ffc78bfcd502a, 14 Nov 2010.
-
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>  
----
- ackvec.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
---- a/net/dccp/ackvec.c
-+++ b/net/dccp/ackvec.c
-@@ -282,7 +282,7 @@ void dccp_ackvec_input(struct dccp_ackvec *av, struct sk_buff *skb)
-  * packet of group (2) in 11.4.2.
-  */
- void dccp_ackvec_clear_state(struct dccp_ackvec *av, const u64 ackno)
-- {
-+{
- 	struct dccp_ackvec_record *avr, *next;
- 	u8 runlen_now, eff_runlen;
- 	s64 delta;
+cheers,
+Petko
