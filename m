@@ -1,28 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/4] net: caif: spi: fix potential NULL dereference
-Date: Thu, 18 Nov 2010 10:36:18 -0800 (PST)
-Message-ID: <20101118.103618.102550300.davem@davemloft.net>
-References: <1290104226-31428-1-git-send-email-segoon@openwall.com>
+Subject: Re: [net-next-2.6 PATCH] net: add priority field to pktgen
+Date: Thu, 18 Nov 2010 10:43:36 -0800 (PST)
+Message-ID: <20101118.104336.179929345.davem@davemloft.net>
+References: <20101117051228.19479.8267.stgit@jf-dev1-dcblab>
+	<1289971637.2732.83.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@vger.kernel.org, sjur.brandeland@stericsson.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: segoon@openwall.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1290104226-31428-1-git-send-email-segoon@openwall.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40716
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1760127Ab0KRSnL convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Nov 2010 13:43:11 -0500
+In-Reply-To: <1289971637.2732.83.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vasiliy Kulikov <segoon@openwall.com>
-Date: Thu, 18 Nov 2010 21:17:05 +0300
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 17 Nov 2010 06:27:17 +0100
 
-> alloc_netdev() is not checked here for NULL return value.  dev is
-> check instead.  It might lead to NULL dereference of ndev.
-> 
-> Signed-off-by: Vasiliy Kulikov <segoon@openwall.com>
-> ---
->  Compile tested.
->  Maybe dev is also must be checked here, but it looks like a trivial typo.
+> Le mardi 16 novembre 2010 =E0 21:12 -0800, John Fastabend a =E9crit :
+>> Add option to set skb priority to pktgen. Useful for testing
+>> QOS features. Also by running pktgen on the vlan device the
+>> qdisc on the real device can be tested.
+>>=20
+>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+>> ---
+>=20
+> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Definitely looks correct to me, applied, thanks!
+Applied, thanks everyone.
+
+This will be useful for stressing things like VLAN qos I guess
+:-)
