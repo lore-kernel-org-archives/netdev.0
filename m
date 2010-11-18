@@ -1,31 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6] CAIF: Fix U5500 compile error for shared
- memory driver
-Date: Thu, 18 Nov 2010 09:29:38 -0800 (PST)
-Message-ID: <20101118.092938.189700640.davem@davemloft.net>
-References: <1290076936-1946-1-git-send-email-sjur.brandeland@stericsson.com>
+Subject: Re: [PATCH net-2.6] bonding: fix a race in IGMP handling
+Date: Thu, 18 Nov 2010 09:31:19 -0800 (PST)
+Message-ID: <20101118.093119.112598596.davem@davemloft.net>
+References: <1290072794.2781.10.camel@edumazet-laptop>
+	<1290073388.2781.12.camel@edumazet-laptop>
+	<1290075978.2781.36.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kim.xx.lilliestierna@stericsson.com
-To: sjur.brandeland@stericsson.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51674
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755182Ab0KRR3N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Nov 2010 12:29:13 -0500
-In-Reply-To: <1290076936-1946-1-git-send-email-sjur.brandeland@stericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sachinp@in.ibm.com, netdev@vger.kernel.org,
+	linux-s390@vger.kernel.org, linux-next@vger.kernel.org,
+	ursula.braun@de.ibm.com, fubar@us.ibm.com
+To: eric.dumazet@gmail.com
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <1290075978.2781.36.camel@edumazet-laptop>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sjur Braendeland <sjur.brandeland@stericsson.com>
-Date: Thu, 18 Nov 2010 11:42:16 +0100
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 18 Nov 2010 11:26:18 +0100
 
-> From: Kim Lilliestierna XX <kim.xx.lilliestierna@stericsson.com>
+> Actually this raises an interesting case for bonding as well.
 > 
-> Rearrange pr_fmt as __func__ is a variable and not a constant
+> Before my RCU conversion __bond_resend_igmp_join_requests() was unsafe.
+> 
+> For net-next-2.6, it is now safe (RCU is held), but needs a cleanup
+> patch to avoid sparse errors.
+> 
+> Thanks
+> 
+> [PATCH net-2.6] bonding: fix a race in IGMP handling
+> 
+> RCU conversion in IGMP code done in net-next-2.6 raised a race in
+> __bond_resend_igmp_join_requests().
+> 
+> It iterates in_dev->mc_list without appropriate protection (RTNL, or
+> read_lock on in_dev->mc_list_lock).
+> 
+> Another cpu might delete an entry while we use it and trigger a fault.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Jay Vosburgh <fubar@us.ibm.com>
 
-Just remove the __func__ thing, it's just noise.
+Applied, but I'm going to have to be careful and make sure I undo
+this the next time I pull net-2.6 into net-next-2.6
 
-Also, you didn't include a proper "Signed-off-by: " tag in your
-commit message.
+Thanks.
