@@ -1,64 +1,95 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Loopback performance from kernel 2.6.12 to 2.6.37
-Date: Thu, 18 Nov 2010 09:48:37 -0800 (PST)
-Message-ID: <20101118.094837.260089185.davem@davemloft.net>
-References: <1289312742.18992.21.camel@edumazet-laptop>
-	<1290088353.2781.137.camel@edumazet-laptop>
-	<1290102113.2781.237.camel@edumazet-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: error while building the kernel Mainline
+Date: Thu, 18 Nov 2010 18:48:17 +0100
+Message-ID: <1290102497.2781.242.camel@edumazet-laptop>
+References: <AANLkTikToBjx-4go9mAFCcnTQ5X4Su+57ODoY9C5y_7f@mail.gmail.com>
+	 <1290093135.2781.167.camel@edumazet-laptop>  <4CE561A2.2020600@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: jdb@comx.dk, netdev@vger.kernel.org, lawrence@brakmo.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55697
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755048Ab0KRRsS convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Nov 2010 12:48:18 -0500
-In-Reply-To: <1290102113.2781.237.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-net@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Simon Horman <horms@verge.net.au>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>
+To: "Justin P. Mattock" <justinmattock@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4CE561A2.2020600@gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 18 Nov 2010 18:41:53 +0100
+Le jeudi 18 novembre 2010 =C3=A0 09:25 -0800, Justin P. Mattock a =C3=A9=
+crit :
+> On 11/18/2010 07:12 AM, Eric Dumazet wrote:
+> > Le jeudi 18 novembre 2010 =C3=A0 06:36 -0800, Justin Mattock a =C3=A9=
+crit :
+> >> hit this yesterday, and havent had time to look at it, to see if i=
+ts a
+> >> simple fix
+> >>
+> >>    MODPOST vmlinux.o
+> >> WARNING: modpost: Found 1 section mismatch(es).
+> >> To see full details build your kernel with:
+> >> 'make CONFIG_DEBUG_SECTION_MISMATCH=3Dy'
+> >>    GEN     .version
+> >>    CHK     include/generated/compile.h
+> >>    UPD     include/generated/compile.h
+> >>    CC      init/version.o
+> >>    LD      init/built-in.o
+> >>    LD      .tmp_vmlinux1
+> >> net/built-in.o: In function `handle_response_icmp':
+> >> ip_vs_core.c:(.text+0x2b5c4): undefined reference to `nf_conntrack=
+_untracked'
+> >> net/built-in.o: In function `T.925':
+> >> ip_vs_core.c:(.text+0x2cbbd): undefined reference to `nf_conntrack=
+_untracked'
+> >> net/built-in.o: In function `ip_vs_null_xmit':
+> >> (.text+0x310da): undefined reference to `nf_conntrack_untracked'
+> >> net/built-in.o: In function `ip_vs_tunnel_xmit':
+> >> (.text+0x311e3): undefined reference to `nf_conntrack_untracked'
+> >> net/built-in.o: In function `ip_vs_nat_xmit':
+> >> (.text+0x3176f): undefined reference to `nf_conntrack_untracked'
+> >> net/built-in.o:(.text+0x3199d): more undefined references to
+> >> `nf_conntrack_untracked' follow
+> >> make: *** [.tmp_vmlinux1] Error 1
+> >>
+> >> has there been anything sent forward for this yet?
+> >>
+> >
+> > Try to find out why net/netfilter/nf_conntrack_core.c is not compil=
+ed ?
+>=20
+> seems it is compiling, it's after the compiling when this breaks
+>=20
+> >
+> > ./net/netfilter/nf_conntrack_core.c:65:DEFINE_PER_CPU(struct nf_con=
+n, nf_conntrack_untracked);
+> > ./net/netfilter/nf_conntrack_core.c:66:EXPORT_PER_CPU_SYMBOL(nf_con=
+ntrack_untracked);
+> >
+> >
+> >
+> >
+>=20
+> Justin P. Mattock
 
-> Le jeudi 18 novembre 2010 =E0 14:52 +0100, Eric Dumazet a =E9crit :
->> Le mardi 09 novembre 2010 =E0 15:25 +0100, Eric Dumazet a =E9crit :
->>=20
->> My tests show a problem with backlog processing, and too big TCP
->> windows. (at least on loopback and wild senders)
->>=20
->> Basically, with huge tcp windows we have now (default 4 Mbytes),
->> the reader process can have to process up to 4Mbytes of backlogged d=
-ata
->> in __release_sock() before returning from its 'small' read(fd, buffe=
-r,
->> 1024) done by netcat.
->>=20
->> While it processes this backlog, it sends tcp ACKS, allowing sender =
-to
->> send new frames that might be dropped because of sk_rcvqueues_full()=
-, or
->> continue to fill receive queue up to the receiver window, feeding th=
-e
->> task in __release_sock() [loop]
->>=20
->>=20
->> This blows cpu caches completely [data is queued, and the dequeue is
->> done long after], and latency of a single read() can be very high. T=
-his
->> blocks the pipeline of user processing eventually.
 
-Thanks for looking into this Eric.
+Let me guess...
 
-We definitely need some kind of choke point so that TCP never
-significantly exceeds the congestion window point at which throughput
-stops increasing (and only latency does).
+net/netfilter/nf_conntrack_core is compiled as a module, and ip_vs
+statically (in vmlinux) ?
 
-One idea is that when we integrate Lawrence Brakmo's TCP-NV congestion
-control algorithm, we can try enabling it by default over loopback.
+CONFIG_NF_CONNTRACK=3Dm
+CONFIG_IP_VS=3Dy
 
-Loopback is kind of an interesting case of the problem scenerio
-Lawrence is trying to solve.
+We probably need some Kconfig magic ;)
 
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
