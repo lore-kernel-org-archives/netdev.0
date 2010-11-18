@@ -1,70 +1,33 @@
-From: Ron Mercer <ron.mercer@qlogic.com>
-Subject: Re: [PATCH] qlge: Fix incorrect usage of module parameters and
-	netdev msg level
-Date: Thu, 18 Nov 2010 09:22:24 -0800
-Message-ID: <20101118172224.GA14333@linux-ox1b.qlogic.org>
-References: <1290075903-3038-1-git-send-email-sonnyrao@linux.vnet.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: net-next-2.6 [PATCH 0/6]: dccp ccid-2: Ack Vector patch set
+ second/concluding part II
+Date: Thu, 18 Nov 2010 09:37:26 -0800 (PST)
+Message-ID: <20101118.093726.59679212.davem@davemloft.net>
+References: <1289802547-5617-1-git-send-email-gerrit@erg.abdn.ac.uk>
+	<20101115.110459.68121782.davem@davemloft.net>
+	<20101118064200.GA5457@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Milton Miller <miltonm@bga.com>,
-	Linux Driver <Linux-Driver@qlogic.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Sonny Rao <sonnyrao@linux.vnet.ibm.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: gerrit@erg.abdn.ac.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cain.qlogic.com ([198.70.193.223]:54957 "EHLO cain.qlc.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755489Ab0KRRe4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Nov 2010 12:34:56 -0500
-Content-Disposition: inline
-In-Reply-To: <1290075903-3038-1-git-send-email-sonnyrao@linux.vnet.ibm.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37407
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753019Ab0KRRhB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Nov 2010 12:37:01 -0500
+In-Reply-To: <20101118064200.GA5457@gerrit.erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 18, 2010 at 02:25:03AM -0800, Sonny Rao wrote:
-> Driver appears to be mistaking the permission field with default value
-> in the case of debug and qlge_irq_type.
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Date: Thu, 18 Nov 2010 07:42:00 +0100
+
+> dccp ccid-2: whitespace fix-up
 > 
-> Driver is also passing debug as a bitmask into netif_msg_init()
-> which really wants a number of bits, so fix that.
+> This fixes whitespace noise introduced in commit "dccp ccid-2: Algorithm to
+> update buffer state", 5753fdfe8bd8e9a2ff9e5af19b0ffc78bfcd502a, 14 Nov 2010.
 > 
-> Signed-off-by: Milton Miller <miltonm@bga.com>
-> Signed-off-by: Sonny Rao <sonnyrao@linux.vnet.ibm.com>
-> ---
->  drivers/net/qlge/qlge_main.c |    6 +++---
->  1 files changed, 3 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/qlge/qlge_main.c b/drivers/net/qlge/qlge_main.c
-> index d9a7626..66878bb 100644
-> --- a/drivers/net/qlge/qlge_main.c
-> +++ b/drivers/net/qlge/qlge_main.c
-> @@ -62,15 +62,15 @@ static const u32 default_msg =
->  /* NETIF_MSG_PKTDATA | */
->      NETIF_MSG_HW | NETIF_MSG_WOL | 0;
->  
-> -static int debug = 0x00007fff;	/* defaults above */
-> -module_param(debug, int, 0);
-> +static int debug = 15;	/* defaults above */
+> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>  
 
-
-I think what we want here is:
-
-> +static int debug = -1;	/* defaults above */
-
-This will correct it and maintain the current behavior.
-By passing in the 0x00007ffff we were getting the passed in default
-paramter from the 2nd compare in the first if statement below. If we set
-debug to 15 then it looks like we would turn on all bits rather than
-qlge default.
-
-static inline u32 netif_msg_init(int debug_value, int default_msg_enable_bits)
-{
-        /* use default */
-        if (debug_value < 0 || debug_value >= (sizeof(u32) * 8))
-                return default_msg_enable_bits;
-        if (debug_value == 0)   /* no output */
-                return 0;
-        /* set low N bits */
-        return (1 << debug_value) - 1;
-}
-
+Applied, but btw your Signed-off-by has trailing whitespace :-)
