@@ -1,16 +1,19 @@
 From: David Daney <ddaney-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>
-Subject: [PATCH 2/2] phylib: Add support for Marvell 88E1149R devices.
-Date: Wed, 17 Nov 2010 15:54:31 -0800
-Message-ID: <1290038071-13296-3-git-send-email-ddaney@caviumnetworks.com>
+Subject: Re: [PATCH 1/2] of/phylib: Use device tree properties to initialize
+	Marvell PHYs.
+Date: Wed, 17 Nov 2010 16:01:19 -0800
+Message-ID: <4CE46CCF.4080707@caviumnetworks.com>
 References: <1290038071-13296-1-git-send-email-ddaney@caviumnetworks.com>
+	<1290038071-13296-2-git-send-email-ddaney@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: David Daney <ddaney-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>
-To: devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Cyril Chemparathy <cyril-l0cyMroinI0@public.gmane.org>,
+	Arnaud Patard <arnaud.patard-dQbF7i+pzddAfugRpC6u6w@public.gmane.org>
+To: David Daney <ddaney-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>
 Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <1290038071-13296-1-git-send-email-ddaney-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>
+In-Reply-To: <1290038071-13296-2-git-send-email-ddaney-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>
 List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
 	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
@@ -22,96 +25,48 @@ Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDA
 Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The 88E1149R is 10/100/1000 quad-gigabit Ethernet PHY.  The
-.config_aneg function can be shared with 88E1118, but it needs its own
-.config_init.
+On 11/17/2010 03:54 PM, David Daney wrote:
+> Some aspects of PHY initialization are board dependent, things like
+> indicator LED connections and some clocking modes cannot be determined
+> by probing.  The dev_flags element of struct phy_device can be used to
+> control these things if an appropriate value can be passed from the
+> Ethernet driver.  We run into problems however if the PHY connections
+> are specified by the device tree.  There is no way for the Ethernet
+> driver to know what flags it should pass.
+>
+> If we are using the device tree, the struct phy_device will be
+> populated with the device tree node corresponding to the PHY, and we
+> can extract extra configuration information from there.
+>
+> The next question is what should the format of that information be?
+> It is highly device specific, and the device tree representation
+> should not be tied to any arbitrary kernel defined constants.  A
+> straight forward representation is just to specify the exact bits that
+> should be set using the "marvell,reg-init" property:
+>
+>        phy5: ethernet-phy@5 {
+> 	reg =<5>;
+> 	device_type = "ethernet-phy";
+> 	marvell,reg-init =
+> 		<0x00030010 0x5777>, /* Reg 3,16<- 0x5777 */
+> 		<0x00030011 0x00aa>, /* Reg 3,17<- 0x00aa */
+> 		<0x00030012 0x4105>, /* Reg 3,18<- 0x4105 */
+> 		<0x00030013 0x0060>; /* Reg 3,19<- 0x0060 */
+> 		<0x00020015 0x00300000>; /* clear bits 4..5 of Reg 2,21 */
 
-Signed-off-by: David Daney <ddaney-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>
----
- drivers/net/phy/marvell.c   |   44 +++++++++++++++++++++++++++++++++++++++++++
- include/linux/marvell_phy.h |    1 +
- 2 files changed, 45 insertions(+), 0 deletions(-)
+Well, of course these mask bits are reversed.  That last line should 
+really be:
 
-diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-index 33ad654..a0851c7 100644
---- a/drivers/net/phy/marvell.c
-+++ b/drivers/net/phy/marvell.c
-@@ -519,6 +519,36 @@ static int m88e1118_config_init(struct phy_device *phydev)
- 	return 0;
- }
- 
-+static int m88e1149_config_init(struct phy_device *phydev)
-+{
-+	int err;
-+
-+	/* Change address */
-+	err = phy_write(phydev, 0x16, 0x0002);
-+	if (err < 0)
-+		return err;
-+
-+	/* Enable 1000 Mbit */
-+	err = phy_write(phydev, 0x15, 0x1048);
-+	if (err < 0)
-+		return err;
-+
-+	err = marvell_of_reg_init(phydev);
-+	if (err < 0)
-+		return err;
-+
-+	/* Reset address */
-+	err = phy_write(phydev, 0x16, 0x0);
-+	if (err < 0)
-+		return err;
-+
-+	err = phy_write(phydev, MII_BMCR, BMCR_RESET);
-+	if (err < 0)
-+		return err;
-+
-+	return 0;
-+}
-+
- static int m88e1145_config_init(struct phy_device *phydev)
- {
- 	int err;
-@@ -776,6 +806,19 @@ static struct phy_driver marvell_drivers[] = {
- 		.driver = { .owner = THIS_MODULE },
- 	},
- 	{
-+		.phy_id = MARVELL_PHY_ID_88E1149R,
-+		.phy_id_mask = MARVELL_PHY_ID_MASK,
-+		.name = "Marvell 88E1149R",
-+		.features = PHY_GBIT_FEATURES,
-+		.flags = PHY_HAS_INTERRUPT,
-+		.config_init = &m88e1149_config_init,
-+		.config_aneg = &m88e1118_config_aneg,
-+		.read_status = &genphy_read_status,
-+		.ack_interrupt = &marvell_ack_interrupt,
-+		.config_intr = &marvell_config_intr,
-+		.driver = { .owner = THIS_MODULE },
-+	},
-+	{
- 		.phy_id = MARVELL_PHY_ID_88E1240,
- 		.phy_id_mask = MARVELL_PHY_ID_MASK,
- 		.name = "Marvell 88E1240",
-@@ -826,6 +869,7 @@ static struct mdio_device_id __maybe_unused marvell_tbl[] = {
- 	{ 0x01410e10, 0xfffffff0 },
- 	{ 0x01410cb0, 0xfffffff0 },
- 	{ 0x01410cd0, 0xfffffff0 },
-+	{ 0x01410e50, 0xfffffff0 },
- 	{ 0x01410e30, 0xfffffff0 },
- 	{ 0x01410e90, 0xfffffff0 },
- 	{ }
-diff --git a/include/linux/marvell_phy.h b/include/linux/marvell_phy.h
-index 1ff81b5..dd3c34e 100644
---- a/include/linux/marvell_phy.h
-+++ b/include/linux/marvell_phy.h
-@@ -11,6 +11,7 @@
- #define MARVELL_PHY_ID_88E1118		0x01410e10
- #define MARVELL_PHY_ID_88E1121R		0x01410cb0
- #define MARVELL_PHY_ID_88E1145		0x01410cd0
-+#define MARVELL_PHY_ID_88E1149R		0x01410e50
- #define MARVELL_PHY_ID_88E1240		0x01410e30
- #define MARVELL_PHY_ID_88E1318S		0x01410e90
- 
--- 
-1.7.2.3
+  	<0x00020015 0xffcf0000>; /* clear bits 4..5 of Reg 2,21 */
+
+
+>        };
+>
+> The Marvell PHYs have a page select register at register 22 (0x16), we
+> can specify any register by its page and register number.  These are
+> encoded in the high and low parts of the first word.  The second word
+> contains a mask and value to be ORed in its high and low parts.
+> property, the PHY initialization is unchanged.
+[...]
+
+David Daney
