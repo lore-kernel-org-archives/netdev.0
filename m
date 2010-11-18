@@ -1,38 +1,56 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 2/2] phylib: Add support for Marvell 88E1149R devices.
-Date: Thu, 18 Nov 2010 11:46:16 -0800 (PST)
-Message-ID: <20101118.114616.258106719.davem@davemloft.net>
-References: <1290038071-13296-1-git-send-email-ddaney@caviumnetworks.com>
-	<1290038071-13296-3-git-send-email-ddaney@caviumnetworks.com>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH] atm: fore200e: Fix build warning.
+Date: Thu, 18 Nov 2010 11:53:31 -0800 (PST)
+Message-ID: <20101118.115331.233701526.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: ddaney-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <1290038071-13296-3-git-send-email-ddaney-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54558
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758493Ab0KRTxG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Nov 2010 14:53:06 -0500
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id BD2F124C088
+	for <netdev@vger.kernel.org>; Thu, 18 Nov 2010 11:53:31 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Daney <ddaney-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>
-Date: Wed, 17 Nov 2010 15:54:31 -0800
 
-> The 88E1149R is 10/100/1000 quad-gigabit Ethernet PHY.  The
-> .config_aneg function can be shared with 88E1118, but it needs its own
-> .config_init.
-> 
-> Signed-off-by: David Daney <ddaney-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>
+GCC (rightfully) complains that:
 
-Please resend this when you've respun patch #1 based upon the feedback
-you've been given.
+drivers/atm/fore200e.c:614:5: warning: operation on 'cmdq->head' may be undefined
 
-Thanks.
+This is due to the FORE200E_NEXT_ENTRY macro, which essentially
+evaluates to:
+
+	i = ++i % m
+
+Make it what's explicitly intended here which is:
+
+	i = (i + 1) % m
+
+and the warning goes away.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/atm/fore200e.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/atm/fore200e.c b/drivers/atm/fore200e.c
+index c8fc69c..c097619 100644
+--- a/drivers/atm/fore200e.c
++++ b/drivers/atm/fore200e.c
+@@ -92,7 +92,7 @@
+ 
+ #define FORE200E_INDEX(virt_addr, type, index)     (&((type *)(virt_addr))[ index ])
+ 
+-#define FORE200E_NEXT_ENTRY(index, modulo)         (index = ++(index) % (modulo))
++#define FORE200E_NEXT_ENTRY(index, modulo)         (index = ((index) + 1) % (modulo))
+ 
+ #if 1
+ #define ASSERT(expr)     if (!(expr)) { \
+-- 
+1.7.3.2
+
