@@ -1,31 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] can: EG20T PCH: use BIT(X)
-Date: Thu, 18 Nov 2010 12:09:09 -0800 (PST)
-Message-ID: <20101118.120909.27809796.davem@davemloft.net>
-References: <4CE46E01.9030505@dsn.okisemi.com>
+Subject: Re: [PATCH] net: irda: irttp: sync error paths of data- and
+ udata-requests
+Date: Thu, 18 Nov 2010 12:24:51 -0800 (PST)
+Message-ID: <20101118.122451.191398084.davem@davemloft.net>
+References: <20101116.095101.115945762.davem@davemloft.net>
+	<1289936402-25277-1-git-send-email-w.sang@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: wg@grandegger.com, w.sang@pengutronix.de, chripell@fsfe.org,
-	21cnbao@gmail.com, sameo@linux.intel.com,
-	socketcan-core@lists.berlios.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, qi.wang@intel.com,
-	yong.y.wang@intel.com, andrew.chih.howe.khor@intel.com,
-	joel.clark@intel.com, kok.howg.ewe@intel.com,
-	margie.foster@intel.com
-To: tomoya-linux@dsn.okisemi.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4CE46E01.9030505@dsn.okisemi.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, sameo@linux.intel.com
+To: w.sang@pengutronix.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51621
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756773Ab0KRUY2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Nov 2010 15:24:28 -0500
+In-Reply-To: <1289936402-25277-1-git-send-email-w.sang@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
-Date: Thu, 18 Nov 2010 09:06:25 +0900
+From: Wolfram Sang <w.sang@pengutronix.de>
+Date: Tue, 16 Nov 2010 20:40:02 +0100
 
-> Replace bit assignment value to BIT(X).
-> For easy to readable/identifiable, replace all bit assigned macros to BIT(X)
+> irttp_data_request() returns meaningful errorcodes, while irttp_udata_request()
+> just returns -1 in similar situations. Sync the two and the loglevels of the
+> accompanying output.
 > 
-> Signed-off-by: Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
-> Acked-by: Marc Kleine-Budde <mkl@pengutronix.de>
+> Signed-off-by: Wolfram Sang <w.sang@pengutronix.de>
+> Cc: Samuel Ortiz <sameo@linux.intel.com>
+> Cc: David Miller <davem@davemloft.net>
+> ---
+> 
+> Thank you David for picking up the zero-byte-packet-patch. Now as it was
+> applied, this one might be interesting, too (on top of it)? Nothing seriously
+> needed, but looks more proper IMHO. LXR says that are callers of these
+> functions check with < 0 anyhow.
 
-Also applied, thanks.
+Better error code reporting is always appreciated :-)
+
+Applied, thanks.
