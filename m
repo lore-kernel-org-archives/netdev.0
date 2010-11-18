@@ -1,42 +1,40 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATH] dev: reusing unregistered ifindex values in net_device
-Date: Thu, 18 Nov 2010 08:14:52 -0800
-Message-ID: <20101118081452.7a38deb7@nehalam>
-References: <AANLkTinx6Ww4ZwRUTyYD_STPSRsSFck8O=W5yeJSbBs_@mail.gmail.com>
-	<1290094628.2781.195.camel@edumazet-laptop>
-	<20101118.080139.193717791.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-2.6 PATCH] be2net: Fix to avoid firmware update when
+ interface is not open.
+Date: Thu, 18 Nov 2010 09:26:03 -0800 (PST)
+Message-ID: <20101118.092603.104065601.davem@davemloft.net>
+References: <20101118140755.GA9686@emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, voravit@kth.se, robert@herjulf.net
-To: daniel.turull@gmail.com
+Cc: netdev@vger.kernel.org
+To: Sarveshwar.Bandi@emulex.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:47298 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932153Ab0KRQOz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Nov 2010 11:14:55 -0500
-In-Reply-To: <20101118.080139.193717791.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50039
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758134Ab0KRRZj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Nov 2010 12:25:39 -0500
+In-Reply-To: <20101118140755.GA9686@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 18 Nov 2010 08:01:39 -0800 (PST)
-David Miller <davem@davemloft.net> wrote:
+From: Sarveshwar Bandi <Sarveshwar.Bandi@emulex.com>
+Date: Thu, 18 Nov 2010 19:37:56 +0530
 
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Thu, 18 Nov 2010 16:37:08 +0100
+> Since interrupts are enabled only when open is called on the interface,
+> Attempting a firmware update operation when interface is down could lead to
+> partial success or failure of operation. This fix fails the request if
+> netif_running is false.
 > 
-> > Two bugs 
-> > 
-> > 1) ifindex is not initialized : you'll be suprised of random values
-> > 
-> > 2) ifindex should not be reused. You'll be surprised so applications can
-> > break. SNMP comes to mind.
-> 
-> Right, the current algorithm is intentionally trying to avoid new
-> devices from using indexes that were used by another device in the
-> past.
+> Signed-off-by: Sarveshwar Bandi <Sarveshwar.Bandi@emulex.com>
 
-Also think of the case of adding 10,000 VLAN's. If the search started from
-beginning on each insertion dev_new_index would go from O(N) to O(N^2) which
-really hurts.
+These status values you are returning from be_load_fw() go all
+the way back to userspace.
+
+Therefore "-1" is not appropriate, and instead you should return
+real negative errno error values such as -EINVAL, -ENODEV, and
+the like.
+
+Please fix this up and resubmit your patch.
+
+Thank you.
