@@ -1,61 +1,60 @@
-From: Sonny Rao <sonnyrao@us.ibm.com>
-Subject: [PATCH] qlge: Fix incorrect usage of module parameters and netdev
- msg level
-Date: Thu, 18 Nov 2010 15:50:02 -0600
-Message-ID: <20101118215002.GS32203@us.ibm.com>
+From: Marcos <stalkingtime@gmail.com>
+Subject: Re: Fwd: a Great Idea - include Kademlia networking protocol in
+ kernel -- REVISITED
+Date: Thu, 18 Nov 2010 15:21:25 -0700
+Message-ID: <AANLkTik-oLx5B2t0E3XKsseHi7tJF2hDMkOw21Mt=i0F@mail.gmail.com>
+References: <AANLkTi=VgBQ5rwkjZeo2zsRx1dSBy+4PBXeLLPQ4LRES@mail.gmail.com>
+	<AANLkTinWUmQ91cCULC8ZXFLwSKz6SNt3BpszrBEhbgcu@mail.gmail.com>
+	<1289724643.2743.58.camel@edumazet-laptop>
+	<AANLkTimkPpWob8ANySeWBvDE+Pq2wy4SQWJOSYzbS7QG@mail.gmail.com>
+	<1289727544.2743.72.camel@edumazet-laptop>
+	<AANLkTimoZRYssbop-JhryUVae5zy+KFsxny9T4ssHnqE@mail.gmail.com>
+	<AANLkTi=RQjvwpTwZtkjcyjgMVsZbYfi=34wSd-_JE3pP@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Milton Miller <miltonm@bga.com>,
-	Linux Driver <Linux-Driver@qlogic.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Ron Mercer <ron.mercer@qlogic.com>, sonnyrao@linux.vnet.ibm.com
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Honglei Cong <conghonglei@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e38.co.us.ibm.com ([32.97.110.159]:51910 "EHLO
-	e38.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760708Ab0KRVuL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Nov 2010 16:50:11 -0500
-Content-Disposition: inline
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:40611 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756160Ab0KRWV1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Nov 2010 17:21:27 -0500
+Received: by bwz15 with SMTP id 15so3268104bwz.19
+        for <netdev@vger.kernel.org>; Thu, 18 Nov 2010 14:21:26 -0800 (PST)
+In-Reply-To: <AANLkTi=RQjvwpTwZtkjcyjgMVsZbYfi=34wSd-_JE3pP@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Driver appears to be mistaking the permission field with default value
-in the case of debug and qlge_irq_type.
+>> Yes, of course, all that will have to be considered. =A0 But I'm
+>> suggesting that such a move is an investment in the future, that the
+>> the number of machines that will want or request peer-2-peer
+>> connectivity will (or should) only increase. =A0Done right, such a m=
+ove
+>> should *simplify* things. =A0We're biased to think in centralized wa=
+ys
+>> because of the centuries-old history of *who* has the resources. =A0=
+But
+>> as networking, computation, and storage become commodified further,
+>> whole new topologies for the *right* architecture become available.
+>> The idea of "the OS" itself morphs. =A0 And the *only* way maximize =
+the
+> Agree with u. =A0But 'kernel' is not.
 
-Driver is also passing debug as a bitmask into netif_msg_init()
-which wants a number of bits.  Ron Mercer suggests we should
-change this to pass in -1 so the defaults get used instead,
-which makes the default much less verbose.
+=2E..Consider a unified model of two orthogonal resources: processor --
+memory.  In theory such a unified model should be realizable.  For
+example, if we fix the processor side (say the user's machine), then
+you can move around the memory side, unify different memory stores:
+cache, RAM, local HD, Networked file storage (naturally logarithmic
+scaling).  There's no more need to "install applications":  it's all
+installed out there somewhere (probably from the same place where it
+was created), you just need to "page it in".  Create an abstract,
+user-controlled, peer grouping model that allows arbitrary "trust (or
+privacy) groups" where "node discovery" (say new annoucements) and
+"shared memory" is allowed and watch the Social Linux Network Brain
+evolve.  (I better not even mention an integrated voting model
+yet....)
 
-Signed-off-by: Milton Miller <miltonm@bga.com>
-Signed-off-by: Sonny Rao <sonnyrao@linux.vnet.ibm.com>
----
+Too idealistic?
 
-v2: Changed debug to be -1 and updated changelog
-
- drivers/net/qlge/qlge_main.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/qlge/qlge_main.c b/drivers/net/qlge/qlge_main.c
-index d9a7626..66878bb 100644
---- a/drivers/net/qlge/qlge_main.c
-+++ b/drivers/net/qlge/qlge_main.c
-@@ -62,15 +62,15 @@ static const u32 default_msg =
- /* NETIF_MSG_PKTDATA | */
-     NETIF_MSG_HW | NETIF_MSG_WOL | 0;
- 
--static int debug = 0x00007fff;	/* defaults above */
--module_param(debug, int, 0);
-+static int debug = -1;	/* defaults above */
-+module_param(debug, int, 0664);
- MODULE_PARM_DESC(debug, "Debug level (0=none,...,16=all)");
- 
- #define MSIX_IRQ 0
- #define MSI_IRQ 1
- #define LEG_IRQ 2
- static int qlge_irq_type = MSIX_IRQ;
--module_param(qlge_irq_type, int, MSIX_IRQ);
-+module_param(qlge_irq_type, int, 0664);
- MODULE_PARM_DESC(qlge_irq_type, "0 = MSI-X, 1 = MSI, 2 = Legacy.");
- 
- static int qlge_mpi_coredump;
+marcos
+pangaia.sourceforge.net
