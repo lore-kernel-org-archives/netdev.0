@@ -1,68 +1,49 @@
-From: Sachin Sant <sachinp@in.ibm.com>
-Subject: [Patch -next] Adapt s390 qeth & lcs driver code to use RCU
-Date: Thu, 18 Nov 2010 14:48:46 +0530
-Message-ID: <20101118091846.26534.38865.sendpatchset@localhost.localdomain>
-Cc: Sachin Sant <sachinp@in.ibm.com>, linux-s390@vger.kernel.org,
-	linux-next@vger.kernel.org, ursula.braun@de.ibm.com,
-	eric.dumazet@gmail.com
-To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: [net-next] MAINTAINERS: Add stmmac maintainer
+Date: Thu, 18 Nov 2010 10:19:02 +0100
+Message-ID: <1290071942-28179-1-git-send-email-peppe.cavallaro@st.com>
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog116.obsmtp.com ([207.126.144.141]:43207 "EHLO
+	eu1sys200aog116.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751210Ab0KRJTM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Nov 2010 04:19:12 -0500
+Received: from zeta.dmz-eu.st.com (ns2.st.com [164.129.230.9])
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 9F00C92
+	for <netdev@vger.kernel.org>; Thu, 18 Nov 2010 09:19:08 +0000 (GMT)
+Received: from mail1.ctn.st.com (mail1.ctn.st.com [164.130.116.128])
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 552A01D4D
+	for <netdev@vger.kernel.org>; Thu, 18 Nov 2010 09:19:08 +0000 (GMT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit 1d7138de878d1d4210727c1200193e69596f93b3
-igmp: RCU conversion of in_dev->mc_list
+Add STMMAC to the list of supported Ethernet drivers
+and myself as maintainer.
 
-converted rwlock to RCU.
-
-Update the s390 network drivers(qeth & lcs) code to adapt to this change.
-
-Signed-off-by : Sachin Sant <sachinp@in.ibm.com>
+Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
+ MAINTAINERS |    7 +++++++
+ 1 files changed, 7 insertions(+), 0 deletions(-)
 
-Only compile tested.
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 88b74a7..8b6ca96 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -1829,6 +1829,13 @@ W:	http://www.chelsio.com
+ S:	Supported
+ F:	drivers/net/cxgb4vf/
+ 
++STMMAC ETHERNET DRIVER
++M:	Giuseppe Cavallaro <peppe.cavallaro@st.com>
++L:	netdev@vger.kernel.org
++W:	http://www.stlinux.com
++S:	Supported
++F:	drivers/net/stmmac/
++
+ CYBERPRO FB DRIVER
+ M:	Russell King <linux@arm.linux.org.uk>
+ L:	linux-arm-kernel@lists.infradead.org (moderated for non-subscribers)
+-- 
+1.5.5.6
 
-diff -Narup linux-2.6-next/drivers/s390/net/lcs.c linux-2.6-next-new/drivers/s390/net/lcs.c
---- linux-2.6-next/drivers/s390/net/lcs.c	2010-11-17 11:38:25.000000000 +0530
-+++ linux-2.6-next-new/drivers/s390/net/lcs.c	2010-11-18 11:59:46.000000000 +0530
-@@ -1269,10 +1269,10 @@ lcs_register_mc_addresses(void *data)
- 	in4_dev = in_dev_get(card->dev);
- 	if (in4_dev == NULL)
- 		goto out;
--	read_lock(&in4_dev->mc_list_lock);
-+	rcu_read_lock();
- 	lcs_remove_mc_addresses(card,in4_dev);
- 	lcs_set_mc_addresses(card, in4_dev);
--	read_unlock(&in4_dev->mc_list_lock);
-+	rcu_read_unlock();
- 	in_dev_put(in4_dev);
- 
- 	netif_carrier_off(card->dev);
-diff -Narup linux-2.6-next/drivers/s390/net/qeth_l3_main.c linux-2.6-next-new/drivers/s390/net/qeth_l3_main.c
---- linux-2.6-next/drivers/s390/net/qeth_l3_main.c	2010-10-30 12:54:22.000000000 +0530
-+++ linux-2.6-next-new/drivers/s390/net/qeth_l3_main.c	2010-11-18 11:59:13.000000000 +0530
-@@ -1828,9 +1828,9 @@ static void qeth_l3_add_vlan_mc(struct q
- 		in_dev = in_dev_get(netdev);
- 		if (!in_dev)
- 			continue;
--		read_lock(&in_dev->mc_list_lock);
-+		rcu_read_lock();
- 		qeth_l3_add_mc(card, in_dev);
--		read_unlock(&in_dev->mc_list_lock);
-+		rcu_read_unlock();
- 		in_dev_put(in_dev);
- 	}
- }
-@@ -1843,10 +1843,10 @@ static void qeth_l3_add_multicast_ipv4(s
- 	in4_dev = in_dev_get(card->dev);
- 	if (in4_dev == NULL)
- 		return;
--	read_lock(&in4_dev->mc_list_lock);
-+	rcu_read_lock();
- 	qeth_l3_add_mc(card, in4_dev);
- 	qeth_l3_add_vlan_mc(card);
--	read_unlock(&in4_dev->mc_list_lock);
-+	rcu_read_unlock();
- 	in_dev_put(in4_dev);
- }
- 
