@@ -1,27 +1,23 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH net-next-2.6 v2] can: Topcliff: PCH_CAN driver: Add Flow
+From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6 v3] can: Topcliff: PCH_CAN driver: Add Flow
 	control,
-Date: Fri, 19 Nov 2010 09:57:41 +0100
-Message-ID: <4CE63C05.6060101@grandegger.com>
-References: <4CE0EFA7.9020007@dsn.okisemi.com>
-	<4CE141EA.5070702@grandegger.com>
-	<001501cb8567$c7a38820$66f8800a@maildom.okisemi.com>
-	<4CE259FB.5090402@grandegger.com>
-	<00bf01cb87bc$8ed6e300$66f8800a@maildom.okisemi.com>
+Date: Fri, 19 Nov 2010 10:20:39 +0100
+Message-ID: <4CE64167.2030405@pengutronix.de>
+References: <4CE2434B.5050701@dsn.okisemi.com>	<4CE27796.2000206@pengutronix.de>
+	<007401cb87b1$a773b3d0$66f8800a@maildom.okisemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	Masayuki Ohtake <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>,
+Content-Type: multipart/mixed; boundary="===============8038944472932531440=="
+Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
 	Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>, margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	Masayuki Ohtake <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>,
 	kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
 	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
 To: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
 Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <00bf01cb87bc$8ed6e300$66f8800a-a06+6cuVnkTSQfdrb5gaxUEOCMrvLtNR@public.gmane.org>
+In-Reply-To: <007401cb87b1$a773b3d0$66f8800a-a06+6cuVnkTSQfdrb5gaxUEOCMrvLtNR@public.gmane.org>
 List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
 	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
 List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
@@ -33,73 +29,80 @@ Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Tomoya,
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--===============8038944472932531440==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig481C658EA4710B7EF4A365C4"
 
-On 11/19/2010 08:36 AM, Tomoya MORINAGA wrote:
-> On Tuesday, November 16, 2010 7:16 PM, Wolfgang Grandegger wrote :
-> 
->>> ......It seems the same line continues forever.
->>
->> Yes, it will continue until you connect the cable, that's normal
->> behavior. But that's not the full sequence. Could you please repeat the
->> test as shown below:
->>
->>   First start the following command in a *separate* session.
->>   # candump any,0:0,#FFFFFFFF"
->>
->>   Then setup and start the CAN controller:
->>   # ip link set can0 up type can bitrate 125000
->>   # cansend can0 123#deadbeef
->>
-> 
-> I show the result of the above command below,
-> 
-> [root@localhost can-utils]# candump any,0:0,#FFFFFFFF
->   can0  20000020  [8] 00 00 00 00 00 00 08 00   ERRORFRAME
->   can0  20000020  [8] 00 00 00 00 00 00 10 00   ERRORFRAME
->   can0  20000020  [8] 00 00 00 00 00 00 18 00   ERRORFRAME
->   can0  20000020  [8] 00 00 00 00 00 00 20 00   ERRORFRAME
->   can0  20000020  [8] 00 00 00 00 00 00 28 00   ERRORFRAME
->   can0  20000020  [8] 00 00 00 00 00 00 30 00   ERRORFRAME
->   can0  20000020  [8] 00 00 00 00 00 00 38 00   ERRORFRAME
->   can0  20000020  [8] 00 00 00 00 00 00 40 00   ERRORFRAME
->   can0  20000020  [8] 00 00 00 00 00 00 48 00   ERRORFRAME
->   can0  20000020  [8] 00 00 00 00 00 00 50 00   ERRORFRAME
->   can0  20000020  [8] 00 00 00 00 00 00 58 00   ERRORFRAME
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig481C658EA4710B7EF4A365C4
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-The above lines describe bus errors. Therefore it should be
+On 11/19/2010 07:18 AM, Tomoya MORINAGA wrote:
+> On Tuesday, November 16, 2010 9:22 PM, Marc Kleine-Budde wrote :
+>=20
+> Except the following, I have updated/resubmitted already .
+>=20
+>>>  static int pch_can_rx_poll(struct napi_struct *napi, int quota)
+>>>  {
+>>>   struct net_device *ndev =3D napi->dev;
+>>>   struct pch_can_priv *priv =3D netdev_priv(ndev);
+>>> - struct net_device_stats *stats =3D &(priv->ndev->stats);
+>>> - u32 dlc;
+>>>   u32 int_stat;
+>>>   int rcv_pkts =3D 0;
+>                     ^^^^
+>> can be removed...if you remove the +=3D below
+> Since there is "goto" code, "=3D0" is better.
 
-    can0  20000088  [8] 00 00 80 19 00 00 58 00   ERRORFRAME
+The compiler would complain, if there's an unused variable.
 
->   can0  20000024  [8] 00 00 00 00 00 00 60 00   ERRORFRAME
+>>> - spin_unlock_irqrestore(&priv->msgif_reg_lock, flags);
+>>> + pch_can_rw_msg_obj(&priv->regs->ifregs[1].creq, tx_obj_no);
+>> Still we have the busy waiting in the TX path. Maybe you can move the
+>> waiting before accessing the if[1] and remove the busy waiting here.
+> I can't understand your saying.
+> For transmitting data, calling pch_can_rw_msg_obj is mandatory.
 
-The TX error counter has reached 96 signaling a can error state change
-to "error warning".
+Yes, but the busy wait is not needed. It should be enough to do the
+busy-waiting _before_ accessing the if[1].
 
->   can0  20000024  [8] 00 08 00 00 00 00 68 00   ERRORFRAME
+cheers, Marc
 
-CAN_ERR_CRTL in the id and CAN_ERR_CRTL_TX_WARNING in data[1], but ...
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
->   can0  20000024  [8] 00 08 00 00 00 00 70 00   ERRORFRAME
 
-the state change should be signaled only *once*.
+--------------enig481C658EA4710B7EF4A365C4
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
->   can0  20000024  [8] 00 08 00 00 00 00 78 00   ERRORFRAME
->   can0  20000024  [8] 00 28 00 00 00 00 80 00   ERRORFRAME
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
 
-"Error passive" state is reached and CAN_ERR_CRTL_TX_PASSIVE sould be
-set in data[1], but CAN_ERR_CRTL_TX_WARNING should be removed.
+iEYEARECAAYFAkzmQWsACgkQjTAFq1RaXHPkwwCfdeoXbCQXNSFKlyoVdbVS88NR
+psYAnA1lODl3wx4Au1rUCythjd8CYMBU
+=9P+L
+-----END PGP SIGNATURE-----
 
->   can0  20000024  [8] 00 28 00 00 00 00 80 00   ERRORFRAME
->   can0  20000024  [8] 00 28 00 00 00 00 80 00   ERRORFRAME
->   can0  20000024  [8] 00 28 00 00 00 00 80 00   ERRORFRAME
+--------------enig481C658EA4710B7EF4A365C4--
 
-Sounds magic, well, I'm going to prepare a patch as soon as your pending
-patch series is applied.
+--===============8038944472932531440==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-Could you please do the same testing while triggering a bus-off? After
-the test, the output of "ip -d -s link" would be interesting as well.
+_______________________________________________
+Socketcan-core mailing list
+Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+https://lists.berlios.de/mailman/listinfo/socketcan-core
 
-Thanks,
-
-Wolfgang.
+--===============8038944472932531440==--
