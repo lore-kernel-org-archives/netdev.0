@@ -1,78 +1,103 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH net-next-2.6 v2] filter: optimize sk_run_filter
-Date: Fri, 19 Nov 2010 23:17:18 +0900
-Message-ID: <201011192317.CFB48465.OtLFOJOMHQSFFV@I-love.SAKURA.ne.jp>
+Date: Fri, 19 Nov 2010 15:35:06 +0100
+Message-ID: <1290177306.3034.129.camel@edumazet-laptop>
 References: <1290160467.3034.33.camel@edumazet-laptop>
-	<1290165472.3034.109.camel@edumazet-laptop>
-	<AANLkTi=ed79a5HjGULPdwuqmUhj=W8BGzRh7tm2L11ef@mail.gmail.com>
-	<AANLkTi==Ovw8xFA1K6rVabg9MW0w6wd=2qvo=XojUXpM@mail.gmail.com>
-	<1290172607.3034.124.camel@edumazet-laptop>
+	 <1290165472.3034.109.camel@edumazet-laptop>
+	 <AANLkTi=ed79a5HjGULPdwuqmUhj=W8BGzRh7tm2L11ef@mail.gmail.com>
+	 <AANLkTi==Ovw8xFA1K6rVabg9MW0w6wd=2qvo=XojUXpM@mail.gmail.com>
+	 <1290172607.3034.124.camel@edumazet-laptop>
+	 <201011192317.CFB48465.OtLFOJOMHQSFFV@I-love.SAKURA.ne.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, hagen@jauu.net, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com, xiaosuo@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: xiaosuo@gmail.com, davem@davemloft.net, hagen@jauu.net,
+	netdev@vger.kernel.org
+To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wine.ocn.ne.jp ([122.1.235.145]:64672 "EHLO smtp.wine.ocn.ne.jp"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754378Ab0KSORY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Nov 2010 09:17:24 -0500
-In-Reply-To: <1290172607.3034.124.camel@edumazet-laptop>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:44799 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752255Ab0KSOfL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Nov 2010 09:35:11 -0500
+Received: by wyb28 with SMTP id 28so4520284wyb.19
+        for <netdev@vger.kernel.org>; Fri, 19 Nov 2010 06:35:09 -0800 (PST)
+In-Reply-To: <201011192317.CFB48465.OtLFOJOMHQSFFV@I-love.SAKURA.ne.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Just my thought again...
+Le vendredi 19 novembre 2010 =C3=A0 23:17 +0900, Tetsuo Handa a =C3=A9c=
+rit :
+> Just my thought again...
+>=20
+> Eric Dumazet wrote:
+> > @@ -167,34 +168,36 @@ unsigned int sk_run_filter(struct sk_buff *sk=
+b, struct sock_filter *filter, int
+> >  	unsigned long memvalid =3D 0;
+> >  	u32 tmp;
+> >  	int k;
+>=20
+> Is this 'k' useful?
+>=20
 
-Eric Dumazet wrote:
-> @@ -167,34 +168,36 @@ unsigned int sk_run_filter(struct sk_buff *skb, struct sock_filter *filter, int
->  	unsigned long memvalid = 0;
->  	u32 tmp;
->  	int k;
+Yes this is useful, please read later we have :
 
-Is this 'k' useful?
+	k =3D X + K;
+	goto load_w;
 
-> -	int pc;
->  
->  	BUILD_BUG_ON(BPF_MEMWORDS > BITS_PER_LONG);
->  	/*
->  	 * Process array of filter instructions.
->  	 */
-> -	for (pc = 0; pc < flen; pc++) {
-> -		const struct sock_filter *fentry = &filter[pc];
-> -		u32 f_k = fentry->k;
-> +	for (;; fentry++) {
-> +#if defined(CONFIG_X86_32)
-> +#define	K (fentry->k)
-> +#else
-> +		const u32 K = fentry->k;
+K is readonly, k is a rw temp variable (on stack)
 
-What happens if we use
+> > -	int pc;
+> > =20
+> >  	BUILD_BUG_ON(BPF_MEMWORDS > BITS_PER_LONG);
+> >  	/*
+> >  	 * Process array of filter instructions.
+> >  	 */
+> > -	for (pc =3D 0; pc < flen; pc++) {
+> > -		const struct sock_filter *fentry =3D &filter[pc];
+> > -		u32 f_k =3D fentry->k;
+> > +	for (;; fentry++) {
+> > +#if defined(CONFIG_X86_32)
+> > +#define	K (fentry->k)
+> > +#else
+> > +		const u32 K =3D fentry->k;
+>=20
+> What happens if we use
+>=20
+> 	u32 f_k =3D fentry->k;
+>=20
+> and
+>=20
+> >  		case BPF_S_LD_W_ABS:
+> > -			k =3D f_k;
+> > +			k =3D K;
+>=20
+> remove this assignment and
+>=20
+> >  load_w:
+> >  			ptr =3D load_pointer(skb, k, 4, &tmp);
+>=20
+> change to
+>=20
+> 	ptr =3D load_pointer(skb, (int) f_k, 4, &tmp);
+>=20
+> and
+>=20
+> >  		case BPF_S_LD_W_IND:
+> > -			k =3D X + f_k;
+> > +			k =3D X + K;
+>=20
+> change to
+>=20
+> 	f_k +=3D X;
+>=20
+> ?
+> >  			goto load_w;
 
-	u32 f_k = fentry->k;
 
-and
+This wont work, K is really a constant, part of the filter program,
+while k is the (existing) temp variable.
 
->  		case BPF_S_LD_W_ABS:
-> -			k = f_k;
-> +			k = K;
 
-remove this assignment and
+=20
 
->  load_w:
->  			ptr = load_pointer(skb, k, 4, &tmp);
 
-change to
-
-	ptr = load_pointer(skb, (int) f_k, 4, &tmp);
-
-and
-
->  		case BPF_S_LD_W_IND:
-> -			k = X + f_k;
-> +			k = X + K;
-
-change to
-
-	f_k += X;
-
-?
->  			goto load_w;
