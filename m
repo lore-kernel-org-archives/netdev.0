@@ -1,37 +1,109 @@
 From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH net-next-2.6] filter: cleanup codes[] init
-Date: Fri, 19 Nov 2010 20:21:57 +0800
-Message-ID: <AANLkTi=GLX-biB0ApDFMD2GOYyqb2qghMSHScmBTJv-O@mail.gmail.com>
+Subject: Re: [PATCH net-next-2.6] filter: optimize sk_run_filter
+Date: Fri, 19 Nov 2010 20:32:24 +0800
+Message-ID: <AANLkTi=ed79a5HjGULPdwuqmUhj=W8BGzRh7tm2L11ef@mail.gmail.com>
 References: <1290132284-12328-1-git-send-email-xiaosuo@gmail.com>
  <b2c34db84e88366e465af590900ae3db@localhost> <AANLkTinccn2Biwh7d6d4kZJrJTgGbLjKApi2+dwGnvVL@mail.gmail.com>
  <1290153111.29509.2.camel@edumazet-laptop> <1290153398.29509.7.camel@edumazet-laptop>
- <AANLkTikxUnj-_ov_5o6zDffv2M8J8JJg-M5HS6dr4s=a@mail.gmail.com> <1290160467.3034.33.camel@edumazet-laptop>
+ <AANLkTikxUnj-_ov_5o6zDffv2M8J8JJg-M5HS6dr4s=a@mail.gmail.com>
+ <1290160467.3034.33.camel@edumazet-laptop> <1290165472.3034.109.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem@davemloft.net>,
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
 	Hagen Paul Pfeifer <hagen@jauu.net>, netdev@vger.kernel.org
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:55700 "EHLO
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:45069 "EHLO
 	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753239Ab0KSM1H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Nov 2010 07:27:07 -0500
-Received: by fxm13 with SMTP id 13so597877fxm.19
-        for <netdev@vger.kernel.org>; Fri, 19 Nov 2010 04:27:06 -0800 (PST)
-In-Reply-To: <1290160467.3034.33.camel@edumazet-laptop>
+	with ESMTP id S1751559Ab0KSMcp convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Nov 2010 07:32:45 -0500
+Received: by fxm13 with SMTP id 13so601415fxm.19
+        for <netdev@vger.kernel.org>; Fri, 19 Nov 2010 04:32:44 -0800 (PST)
+In-Reply-To: <1290165472.3034.109.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 19, 2010 at 5:54 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Fri, Nov 19, 2010 at 7:17 PM, Eric Dumazet <eric.dumazet@gmail.com> =
+wrote:
+> Le vendredi 19 novembre 2010 =E0 10:54 +0100, Eric Dumazet a =E9crit =
+:
 >
-> Most probably you have "CONFIG_CC_OPTIMIZE_FOR_SIZE=y" which
-> unfortunately is known to generate poor looking code.
+>> I believe we should revert the u32 f_k =3D fentry->k; part
+>>
+>> fentry->k as is fast as f_k if stored on stack, and avoids one
+>> instruction if fentry->k is not needed.
+>>
+>>
+>
+> A revert is not good on arches with decent number of registers (x86_6=
+4
+> for example).
+>
+> Maybe have some CONFIG_ARCH_HAS_{FEW|MANY}_REGISTERS is needed, (or
+> already exist ?)
+>
+> Here is the patch to save 400 bytes on x86_32, and really speedup the
+> damn thing on all arches.
+>
+> Thanks
+>
+> [PATCH net-next-2.6] filter: optimize sk_run_filter
+>
+> remove pc variable to avoid arithmetic to compute fentry at each filt=
+er
+> instruction. Jumps directly manipulate fentry pointer.
+>
+> As the last instruction of filter[] is guaranteed to be a RETURN, and
+> all jumps are before the last instruction, we dont need to check filt=
+er
+> bounds (number of instructions in filter array) at each iteration, so=
+ we
+> remove it from sk_run_filter() params.
+>
+> On x86_32 remove f_k var introduced in commit 57fe93b374a6b871
+> (filter: make sure filters dont read uninitialized memory)
+>
+> Note : We could use a CONFIG_ARCH_HAS_{FEW|MANY}_REGISTERS in order t=
+o
+> avoid too many ifdefs in this code.
+>
+> This helps compiler to use cpu registers to hold fentry and A
+> accumulator.
+>
+> On x86_32, this saves 401 bytes, and more important, sk_run_filter()
+> runs much faster because less register pressure (One less conditional
+> branch per BPF instruction)
+>
+> # size net/core/filter.o net/core/filter_pre.o
+> =A0 text =A0 =A0data =A0 =A0 bss =A0 =A0 dec =A0 =A0 hex filename
+> =A0 2948 =A0 =A0 =A0 0 =A0 =A0 =A0 0 =A0 =A02948 =A0 =A0 b84 net/core=
+/filter.o
+> =A0 3349 =A0 =A0 =A0 0 =A0 =A0 =A0 0 =A0 =A03349 =A0 =A0 d15 net/core=
+/filter_pre.o
+>
+> on x86_64 :
+> # size net/core/filter.o net/core/filter_pre.o
+> =A0 text =A0 =A0data =A0 =A0 bss =A0 =A0 dec =A0 =A0 hex filename
+> =A0 5173 =A0 =A0 =A0 0 =A0 =A0 =A0 0 =A0 =A05173 =A0 =A01435 net/core=
+/filter.o
+> =A0 5224 =A0 =A0 =A0 0 =A0 =A0 =A0 0 =A0 =A05224 =A0 =A01468 net/core=
+/filter_pre.o
+>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Changli Gao <xiaosuo@gmail.com>
+> Cc: Hagen Paul Pfeifer <hagen@jauu.net>
+> ---
+> =A0include/linux/filter.h =A0| =A0 =A02
+> =A0net/core/filter.c =A0 =A0 =A0 | =A0 93 +++++++++++++++++++--------=
+-----------
+> =A0net/core/timestamping.c | =A0 =A02
+> =A0net/packet/af_packet.c =A0| =A0 =A02
+> =A04 files changed, 51 insertions(+), 48 deletions(-)
+>
 
-Yes. So
+you missed the users of sk_run_filter in directory dev/.
 
-Acked-by: Changli Gao <xiaosuo@gmail.com>
-
-
--- 
+--=20
 Regards,
 Changli Gao(xiaosuo@gmail.com)
