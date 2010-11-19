@@ -1,94 +1,57 @@
-From: "Tomoya MORINAGA" <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Subject: Re: [PATCH net-next-2.6 v2] can: Topcliff: PCH_CAN driver: Add Flow
-	control,
-Date: Fri, 19 Nov 2010 16:36:58 +0900
-Message-ID: <00bf01cb87bc$8ed6e300$66f8800a@maildom.okisemi.com>
-References: <4CE0EFA7.9020007@dsn.okisemi.com>
-	<4CE141EA.5070702@grandegger.com>
-	<001501cb8567$c7a38820$66f8800a@maildom.okisemi.com>
-	<4CE259FB.5090402@grandegger.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: reduce the lines of code
+Date: Fri, 19 Nov 2010 08:51:51 +0100
+Message-ID: <1290153111.29509.2.camel@edumazet-laptop>
+References: <1290132284-12328-1-git-send-email-xiaosuo@gmail.com>
+	 <b2c34db84e88366e465af590900ae3db@localhost>
+	 <AANLkTinccn2Biwh7d6d4kZJrJTgGbLjKApi2+dwGnvVL@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	Masayuki Ohtake <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>,
-	Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>, margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-To: "Wolfgang Grandegger" <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Hagen Paul Pfeifer <hagen@jauu.net>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:40292 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751293Ab0KSHv7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Nov 2010 02:51:59 -0500
+Received: by wyb28 with SMTP id 28so4151394wyb.19
+        for <netdev@vger.kernel.org>; Thu, 18 Nov 2010 23:51:58 -0800 (PST)
+In-Reply-To: <AANLkTinccn2Biwh7d6d4kZJrJTgGbLjKApi2+dwGnvVL@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday, November 16, 2010 7:16 PM, Wolfgang Grandegger wrote :
+Le vendredi 19 novembre 2010 =C3=A0 15:17 +0800, Changli Gao a =C3=A9cr=
+it :=20
+> On Fri, Nov 19, 2010 at 2:35 PM, Hagen Paul Pfeifer <hagen@jauu.net> =
+wrote:
+> >
+> > On Fri, 19 Nov 2010 10:04:44 +0800, Changli Gao <xiaosuo@gmail.com>=
+ wrote:
+> >> Use macros to reduce the regularity lines.
+> >
+> > This is complete awkward and does not fix anything - on the contrar=
+y it
+> > makes it harder to understand the code and no advantage is achieved=
+=2E
+> >
+>=20
+> Although it doesn't fix anything, It can simplify the adding of new
+> BPF instructions, one place in filter_def.h instead of two in
+> filter.c. I think if some code can be generated automatically, we'd
+> better not write it manually, as the chance of error is less when the
+> code is generated automatically.
+>=20
 
-> > ......It seems the same line continues forever.
-> 
-> Yes, it will continue until you connect the cable, that's normal
-> behavior. But that's not the full sequence. Could you please repeat the
-> test as shown below:
-> 
->   First start the following command in a *separate* session.
->   # candump any,0:0,#FFFFFFFF"
-> 
->   Then setup and start the CAN controller:
->   # ip link set can0 up type can bitrate 125000
->   # cansend can0 123#deadbeef
-> 
+Idea is good, but the way you did it is not.
 
-I show the result of the above command below,
+I have two patches in testing. I'll post them today.
 
-[root@localhost can-utils]# candump any,0:0,#FFFFFFFF
-  can0  20000020  [8] 00 00 00 00 00 00 08 00   ERRORFRAME
-  can0  20000020  [8] 00 00 00 00 00 00 10 00   ERRORFRAME
-  can0  20000020  [8] 00 00 00 00 00 00 18 00   ERRORFRAME
-  can0  20000020  [8] 00 00 00 00 00 00 20 00   ERRORFRAME
-  can0  20000020  [8] 00 00 00 00 00 00 28 00   ERRORFRAME
-  can0  20000020  [8] 00 00 00 00 00 00 30 00   ERRORFRAME
-  can0  20000020  [8] 00 00 00 00 00 00 38 00   ERRORFRAME
-  can0  20000020  [8] 00 00 00 00 00 00 40 00   ERRORFRAME
-  can0  20000020  [8] 00 00 00 00 00 00 48 00   ERRORFRAME
-  can0  20000020  [8] 00 00 00 00 00 00 50 00   ERRORFRAME
-  can0  20000020  [8] 00 00 00 00 00 00 58 00   ERRORFRAME
-  can0  20000024  [8] 00 00 00 00 00 00 60 00   ERRORFRAME
-  can0  20000024  [8] 00 08 00 00 00 00 68 00   ERRORFRAME
-  can0  20000024  [8] 00 08 00 00 00 00 70 00   ERRORFRAME
-  can0  20000024  [8] 00 08 00 00 00 00 78 00   ERRORFRAME
-  can0  20000024  [8] 00 28 00 00 00 00 80 00   ERRORFRAME
-  can0  20000024  [8] 00 28 00 00 00 00 80 00   ERRORFRAME
-  can0  20000024  [8] 00 28 00 00 00 00 80 00   ERRORFRAME
-  can0  20000024  [8] 00 28 00 00 00 00 80 00   ERRORFRAME
-  can0  20000024  [8] 00 28 00 00 00 00 80 00   ERRORFRAME
-  can0  20000024  [8] 00 28 00 00 00 00 80 00   ERRORFRAME
-  can0  20000024  [8] 00 28 00 00 00 00 80 00   ERRORFRAME
-  can0  20000024  [8] 00 28 00 00 00 00 80 00   ERRORFRAME
-  can0  20000024  [8] 00 28 00 00 00 00 80 00   ERRORFRAME
-  can0  20000024  [8] 00 28 00 00 00 00 80 00   ERRORFRAME
-  can0  20000024  [8] 00 28 00 00 00 00 80 00   ERRORFRAME
-  can0  20000024  [8] 00 28 00 00 00 00 80 00   ERRORFRAME
-  can0  20000024  [8] 00 28 00 00 00 00 80 00   ERRORFRAME
-  can0  20000024  [8] 00 28 00 00 00 00 80 00   ERRORFRAME
-  can0  20000024  [8] 00 28 00 00 00 00 80 00   ERRORFRAME
-  can0  20000024  [8] 00 28 00 00 00 00 80 00   ERRORFRAME
-  can0  20000024  [8] 00 28 00 00 00 00 80 00   ERRORFRAME
-  can0  20000024  [8] 00 28 00 00 00 00 80 00   ERRORFRAME
-  can0  20000024  [8] 00 28 00 00 00 00 80 00   ERRORFRAME
+One to remove all the "+ 1" we do in codes[] init
 
-.....continue forever
+One at check time to replace the divide by a constant instruction
+(DIV_K) by a reciprocal one (a multiply at exec time)
 
-------
-Thanks,
 
-Tomoya MORINAGA
-OKI SEMICONDUCTOR CO., LTD.
+
