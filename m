@@ -1,107 +1,72 @@
-From: Alex Deucher <alexdeucher@gmail.com>
-Subject: Re: 2.6.37-rc2-git4: Reported regressions 2.6.35 -> 2.6.36
-Date: Fri, 19 Nov 2010 11:39:26 -0500
-Message-ID: <AANLkTi=8G7pNA7QTxaXDWKrWrCERPfmKU+nLJWCA=JUH@mail.gmail.com>
-References: <tTUH_XeInOH.A.dMF.c3b5MB@chimera>
-	<4CE5C919.7090504@teksavvy.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6] filter: optimize sk_run_filter
+Date: Fri, 19 Nov 2010 17:55:59 +0100
+Message-ID: <1290185759.3034.179.camel@edumazet-laptop>
+References: <AANLkTikxUnj-_ov_5o6zDffv2M8J8JJg-M5HS6dr4s=a@mail.gmail.com>
+	 <1290160467.3034.33.camel@edumazet-laptop>
+	 <1290165472.3034.109.camel@edumazet-laptop>
+	 <20101119.082125.193710226.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Rafael J. Wysocki" <rjw@sisk.pl>,
-	Linux SCSI List <linux-scsi@vger.kernel.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Wireless List <linux-wireless@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	DRI <dri-devel@lists.freedesktop.org>,
-	Florian Mickler <florian@mickler.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>,
-	Maciej Rutecki <maciej.rutecki@gmail.com>
-To: Mark Lord <kernel@teksavvy.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4CE5C919.7090504@teksavvy.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: hagen@jauu.net, netdev@vger.kernel.org, xiaosuo@gmail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:58946 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754590Ab0KSQ4E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Nov 2010 11:56:04 -0500
+Received: by wwa36 with SMTP id 36so4843850wwa.1
+        for <netdev@vger.kernel.org>; Fri, 19 Nov 2010 08:56:03 -0800 (PST)
+In-Reply-To: <20101119.082125.193710226.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 18, 2010 at 7:47 PM, Mark Lord <kernel@teksavvy.com> wrote:
-> On 10-11-18 06:50 PM, Rafael J. Wysocki wrote:
->>
->> This message contains a list of some post-2.6.35 regressions introdu=
-ced
->> before
->> 2.6.36, for which there are no fixes in the mainline known to the tr=
-acking
->> team.
->> If any of them have been fixed already, please let us know.
->>
->> If you know of any other unresolved post-2.6.35 regressions, please =
-let us
->> know
->> either and we'll add them to the list. =A0Also, please let us know i=
-f any
->> of the entries below are invalid.
->
->> Bug-Entry =A0 =A0 =A0 : http://bugzilla.kernel.org/show_bug.cgi?id=3D=
-21652
->> Subject =A0 =A0 =A0 =A0 : several problems with intel graphics since=
- 2.6.36
->> Submitter =A0 =A0 =A0 : Norbert Preining<preining@logic.at>
->> Date =A0 =A0 =A0 =A0 =A0 =A0: 2010-10-27 14:32 (23 days old)
->> Message-ID =A0 =A0 =A0:<20101027143252.GA8676@gamma.logic.tuwien.ac.=
-at>
->> References =A0 =A0 =A0: http://marc.info/?l=3Dlinux-kernel&m=3D12881=
-8998630241&w=3D2
->
-> That one is interesting to me.. I suspect it may be the same cause
-> as for https://bugzilla.kernel.org/show_bug.cgi?id=3D21952
->
-> I have one of those Samsung (N210) Netbooks here: works fine with 2.6=
-=2E34 and
-> earlier,
-> but fails to come out of suspend on 2.6.35/2.6.36 (haven't tried 2.6.=
-37).
->
-> So perhaps add 21952 to the list, or link it to the 21652
-> (kind of amusing how similar the bug numbers are..).
->
->
-> My non-Intel graphics notebook (has ATI X1400 graphics) also has a re=
-sume
-> regression with 2.6.36. =A0But it does work fine with 2.6.35 (and ear=
-lier,
-> back many years). =A0As a result, I'm stuck with 2.6.35 for the time =
-being,
-> and lack the time for a concerted debug effort on 2.6.36+ right now.
->
+Le vendredi 19 novembre 2010 =C3=A0 08:21 -0800, David Miller a =C3=A9c=
+rit :
 
-Can you bisect?  Does this patch help?
+> -EFIX_THE_DAMN_COMPILER
+>=20
+> We never make calls out of this function or touch volatile memory or
+> create a full memory barrier between the assignment of f_k and it's
+> uses.
+>=20
+> Therefore if common sub-expression elimination is working the compile=
+r
+> will be able to decide properly whether to access things via memory o=
+r
+> use a register for the value.
+>=20
+> Remember this is why we have that ACCESS_ONCE() thing.
+>=20
+> We can't have it both ways, either ACCESS_ONCE() should be removed or
+> we should never make changes like your's and instead should submit
+> compiler bug reports :-)
 
-diff --git a/drivers/gpu/drm/radeon/atom.c b/drivers/gpu/drm/radeon/ato=
-m.c
-index 8e421f6..05efb5b 100644
---- a/drivers/gpu/drm/radeon/atom.c
-+++ b/drivers/gpu/drm/radeon/atom.c
-@@ -112,6 +112,7 @@ static uint32_t atom_iio_execute(struct
-atom_context *ctx, int base,
-                        base +=3D 3;
-                        break;
-                case ATOM_IIO_WRITE:
-+                       (void)ctx->card->ioreg_read(ctx->card, CU16(bas=
-e + 1));
-                        ctx->card->ioreg_write(ctx->card, CU16(base + 1=
-), temp);
-                        base +=3D 3;
-                        break;
+Compiler is OK IMHO in this case. It does exactly what is required.
+
+Compiler cannot load fentry->k before the switch() if some expression
+dont use it, as it could trigger a fault.
+
+After the "f_k =3D fentry->k;" commit, it was requested to do so.
+
+Unfortunatly on x86_32 it also chose that f_k was more valuable in a cp=
+u
+register and accumulator A lost its register to get a stack slot
+instead.
+
+Not many BPF instructions use K, and if used, its used _once_ per BPF
+instruction. There is no real gain to put it on a register, but code
+size if (and only if) it is held in a cpu register, because each
+assembler instruction using a register instead of stack is a bit
+shorter.
+
+In the end, I believe the "f_k =3D fentry->k;" was a good looking idea,
+and good for some arches, but we forgot x86_32 (and probably some other=
+s)
+have few available registers to play with.
+
+Have a good week end !
 
 
-Alex
 
-> Cheers
-> _______________________________________________
-> dri-devel mailing list
-> dri-devel@lists.freedesktop.org
-> http://lists.freedesktop.org/mailman/listinfo/dri-devel
->
