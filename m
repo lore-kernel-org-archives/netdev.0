@@ -1,36 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] filter: use reciprocal divide
-Date: Fri, 19 Nov 2010 10:07:26 -0800 (PST)
-Message-ID: <20101119.100726.48508760.davem@davemloft.net>
-References: <1290153398.29509.7.camel@edumazet-laptop>
-	<1290153886.29509.10.camel@edumazet-laptop>
-	<AANLkTi=qR==8g2Z_GeAOsczVmUS3yj1PnsOfoU7zbudG@mail.gmail.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: netlink stats and message ordering.
+Date: Fri, 19 Nov 2010 10:20:17 -0800
+Message-ID: <4CE6BFE1.6020404@candelatech.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, hagen@jauu.net, netdev@vger.kernel.org
-To: xiaosuo@gmail.com
+To: NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35791
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756194Ab0KSSHA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Nov 2010 13:07:00 -0500
-In-Reply-To: <AANLkTi=qR==8g2Z_GeAOsczVmUS3yj1PnsOfoU7zbudG@mail.gmail.com>
+Received: from mail.candelatech.com ([208.74.158.172]:40066 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751705Ab0KSSUS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Nov 2010 13:20:18 -0500
+Received: from [192.168.100.195] (firewall.candelatech.com [70.89.124.249])
+	(authenticated bits=0)
+	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id oAJIKHnp021246
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Fri, 19 Nov 2010 10:20:17 -0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Changli Gao <xiaosuo@gmail.com>
-Date: Fri, 19 Nov 2010 16:18:05 +0800
+I have a single netlink socket that listens for various things,
+as well as requests netdev stats and such.
 
-> On Fri, Nov 19, 2010 at 4:04 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> At compile time, we can replace the DIV_K instruction (divide by a
->> constant value) by a reciprocal divide.
->>
->> At exec time, the expensive divide is replaced by a multiply, a less
->> expensive operation on most processors.
->>
->> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> 
-> Acked-by: Changli Gao <xiaosuo@gmail.com>
+I am seeing a case during interface creation (mac-vlans) where I get one set of stats
+that appears to show 1 packet transmitted, and then immediately after that,
+a second set of stats for the same device that shows all zero counters.
 
-Applied.
+Since I'm trying to handle wraps properly, my code tends to consider this
+a wrap and of course the numbers go all wrong since it wasn't really a wrap.
+
+I am wondering if it's possible that netlink messages are somehow being
+re-ordered before they are sent to my application?
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
