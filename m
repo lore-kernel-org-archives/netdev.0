@@ -1,70 +1,38 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH 0/15] RFC: create drivers/net/legacy for ISA, EISA, MCA
- drivers
-Date: Thu, 18 Nov 2010 16:34:24 -0800
-Message-ID: <1290126864.29524.6.camel@jtkirshe-MOBL1>
-References: <1288315159-1350-1-git-send-email-paul.gortmaker@windriver.com>
-	 <1288316896.1836.41.camel@Joe-Laptop> <4CCB3BF1.7070000@windriver.com>
-	 <1288390127.28828.225.camel@Joe-Laptop>
-	 <1288396919.15283.23.camel@jtkirshe-MOBL1> <4CD323AF.20609@windriver.com>
-	 <AANLkTim2yH7eAqqYQW+JVC5GtFR5mX4uZnMa02+yubFk@mail.gmail.com>
-	 <1290124345.1817.53.camel@Joe-Laptop>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: 2.6.37-rc2-git4: Reported regressions 2.6.35 -> 2.6.36
+Date: Thu, 18 Nov 2010 16:36:54 -0800
+Message-ID: <AANLkTinzHyWcfS++R_d+yqR9JQu7W51h0XRr-ikd_6y1@mail.gmail.com>
+References: <tTUH_XeInOH.A.dMF.c3b5MB@chimera>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-OjTJCQ/bVDJbWtmORbfB"
-Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:15386 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751107Ab0KSAe0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Nov 2010 19:34:26 -0500
-In-Reply-To: <1290124345.1817.53.camel@Joe-Laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Maciej Rutecki <maciej.rutecki@gmail.com>,
+	Florian Mickler <florian@mickler.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Linux SCSI List <linux-scsi@vger.kernel.org>,
+	Linux Wireless List <linux-wireless@vger.kernel.org>,
+	DRI <dri-devel@lists.freedesktop.org>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <tTUH_XeInOH.A.dMF.c3b5MB@chimera>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Thu, Nov 18, 2010 at 3:50 PM, Rafael J. Wysocki <rjw@sisk.pl> wrote:
+> Bug-Entry =A0 =A0 =A0 : http://bugzilla.kernel.org/show_bug.cgi?id=3D=
+20462
+> Subject =A0 =A0 =A0 =A0 : 2.6.36-rc7-git2 - panic/GPF: e1000e/vlans?
+> Submitter =A0 =A0 =A0 : Nikola Ciprich <extmaillist@linuxbox.cz>
+> Date =A0 =A0 =A0 =A0 =A0 =A0: 2010-10-15 7:10 (35 days old)
+> Message-ID =A0 =A0 =A0: <20101015071008.GA8714@pcnci.linuxbox.cz>
+> References =A0 =A0 =A0: http://marc.info/?l=3Dlinux-kernel&m=3D128712=
+984831303&w=3D2
 
---=-OjTJCQ/bVDJbWtmORbfB
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Thu, 2010-11-18 at 15:52 -0800, Joe Perches wrote:
-> On Thu, 2010-11-04 at 19:28 -0700, Jeff Kirsher wrote:
-> > Joe and I are working to organize the drivers into
-> > /drivers/net/<technology> directories and to cleanup the Kconfig to
-> > reflect the organization.  Ethernet drivers will be in
-> > /drivers/net/ethernet, and so on.
-> []
-> > We are hoping not to drag this out and plan on getting this into
-> > 2.6.38 (net-next) within the couple of weeks.
->=20
-> What is an appropriate time frame for doing these
-> reorganization file/directory moves for net-next?
->=20
-> David, do you have a preference?
->=20
-
-I am almost ~50% done with the patch, I am hoping to get the patch out
-this weekend.  I have been testing as I go to ensure that there are no
-breakages,that has been the reason for the delay.
-
---=-OjTJCQ/bVDJbWtmORbfB
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQEcBAABAgAGBQJM5cYCAAoJECTsCADr/EWUxEUH/0mMApvbygWeEEc4QXul2eFr
-+7L1/UyJ2GaMgC5QN/A0fqDjym/7lQIpxGQyFhmYI6vDDOSFW9zFE2gQlFoEQijb
-f9Crx8qf9gNL+3RsEjfoTsuBN4xNAGR8mzMopS6iXcdeuBIAFGG7WIly3X9avQ45
-OlJRv/0k6ZNdnKW/0/ySKIMORBENIqi4vN3zrl+5j5oZMul+9wSLGJ/eyKwyW8Kp
-ynHE6t7qJuQDcZ1OZgWwwskO/xQq2Jz2fVn3/N8SU2C93xVuQwEZ/+NR5/1oW6hE
-DF4nGpMsf3vD/kYEJDaSUFK0QwGRfNJDUCkQeQd8jDwaFMZCjm44F977TwJlrjc=
-=3RAk
------END PGP SIGNATURE-----
-
---=-OjTJCQ/bVDJbWtmORbfB--
-
+A fix for this has been sent to -stable:
+http://www.spinics.net/lists/netdev/msg146227.html
