@@ -1,85 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH] netfilter: remove the duplicate tables
-Date: Fri, 19 Nov 2010 12:29:40 +0100
-Message-ID: <1290166180.3034.119.camel@edumazet-laptop>
-References: <1290091194-1590-1-git-send-email-xiaosuo@gmail.com>
-	 <1290095020.2781.203.camel@edumazet-laptop>
-	 <alpine.LNX.2.01.1011191210290.29394@obet.zrqbmnf.qr>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH net-next-2.6] filter: cleanup codes[] init
+Date: Fri, 19 Nov 2010 20:21:57 +0800
+Message-ID: <AANLkTi=GLX-biB0ApDFMD2GOYyqb2qghMSHScmBTJv-O@mail.gmail.com>
+References: <1290132284-12328-1-git-send-email-xiaosuo@gmail.com>
+ <b2c34db84e88366e465af590900ae3db@localhost> <AANLkTinccn2Biwh7d6d4kZJrJTgGbLjKApi2+dwGnvVL@mail.gmail.com>
+ <1290153111.29509.2.camel@edumazet-laptop> <1290153398.29509.7.camel@edumazet-laptop>
+ <AANLkTikxUnj-_ov_5o6zDffv2M8J8JJg-M5HS6dr4s=a@mail.gmail.com> <1290160467.3034.33.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Changli Gao <xiaosuo@gmail.com>, Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.01.1011191210290.29394@obet.zrqbmnf.qr>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Hagen Paul Pfeifer <hagen@jauu.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:55700 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753239Ab0KSM1H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Nov 2010 07:27:07 -0500
+Received: by fxm13 with SMTP id 13so597877fxm.19
+        for <netdev@vger.kernel.org>; Fri, 19 Nov 2010 04:27:06 -0800 (PST)
+In-Reply-To: <1290160467.3034.33.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 19 novembre 2010 =C3=A0 12:15 +0100, Jan Engelhardt a =C3=A9=
-crit :
+On Fri, Nov 19, 2010 at 5:54 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>
+> Most probably you have "CONFIG_CC_OPTIMIZE_FOR_SIZE=y" which
+> unfortunately is known to generate poor looking code.
 
-> Was it? Quoting Patrick from 24h prior to this post:
->=20
-> |so patches to get rid of the table duplication are highly welcome.
->=20
-> >still you post a patch that needs our review and time ? This is craz=
-y.
->=20
-> You do not need to do it, but I will happily look at this.
-> Of course my observations are the same as yours:
->=20
-> >Your way of allocating a percpu counter for each counter is a pure T=
-LB
-> >and cache line blower (up to two cache lines per counter), not count=
-ing
-> >the time needed to load a new table with 10.000 entries. Some people
-> >still use scripts with hundred of calls to iptables.
->=20
-> The two are statistically independent though. Even for a loaded=20
-> ruleset, the TLB/DC miss accumulation will be desastrous - as I've fo=
-und=20
-> with linked-list rules/small allocs.
->=20
-> >Allocating one contiguous percpu var for all counters is a must.
-> >
-> >Problem is : percpu alloc doesnt allow big allocations.
-> >
-> >#define PCPU_MIN_UNIT_SIZE      PFN_ALIGN(32 << 10)
-> >
-> >So max allocation is 32 Kbytes, thats 2048 'xt_counters' only.
-> >-> cannot really use pcpu-alloc, but a kmalloc_node() or vmalloc_nod=
-e()
-> >per cpu
->=20
-> .. as is already done for jumpstack ;-)
+Yes. So
 
-IMHO, the real problem is not the table duplication. We know that addin=
-g
-a level of indirection is going to hurt a lot because of cache misses.
-
-Its the atomic op (spinlock) done for every packet, entering every
-filter, with the conditional branch we do because of possible recursion=
-=2E
-
-per cpu variable, and spinlock... its really expensive.
-
-Stephen tried an RCU conversion some time ago, that aborted because of
-RCU drawbacks (too much memory was possibly waiting to be freed after a
-grace period). Maybe RCU infrastructure is now ready to try again.
-
-We should do what we did for u64 stats counters in network stack, using
-the u64_stats_sync.h infrastructure. No more synchro between the thread=
-s
-running through rules, and one gathering counters. Better latencies in
-particular.
+Acked-by: Changli Gao <xiaosuo@gmail.com>
 
 
-
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+Regards,
+Changli Gao(xiaosuo@gmail.com)
