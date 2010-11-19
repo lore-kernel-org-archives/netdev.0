@@ -1,54 +1,107 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] filter: optimize sk_run_filter
-Date: Fri, 19 Nov 2010 08:21:25 -0800 (PST)
-Message-ID: <20101119.082125.193710226.davem@davemloft.net>
-References: <AANLkTikxUnj-_ov_5o6zDffv2M8J8JJg-M5HS6dr4s=a@mail.gmail.com>
-	<1290160467.3034.33.camel@edumazet-laptop>
-	<1290165472.3034.109.camel@edumazet-laptop>
+From: Alex Deucher <alexdeucher@gmail.com>
+Subject: Re: 2.6.37-rc2-git4: Reported regressions 2.6.35 -> 2.6.36
+Date: Fri, 19 Nov 2010 11:39:26 -0500
+Message-ID: <AANLkTi=8G7pNA7QTxaXDWKrWrCERPfmKU+nLJWCA=JUH@mail.gmail.com>
+References: <tTUH_XeInOH.A.dMF.c3b5MB@chimera>
+	<4CE5C919.7090504@teksavvy.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: hagen@jauu.net, netdev@vger.kernel.org, xiaosuo@gmail.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55723
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755319Ab0KSQVA convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Nov 2010 11:21:00 -0500
-In-Reply-To: <1290165472.3034.109.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Rafael J. Wysocki" <rjw@sisk.pl>,
+	Linux SCSI List <linux-scsi@vger.kernel.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Wireless List <linux-wireless@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	DRI <dri-devel@lists.freedesktop.org>,
+	Florian Mickler <florian@mickler.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Maciej Rutecki <maciej.rutecki@gmail.com>
+To: Mark Lord <kernel@teksavvy.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4CE5C919.7090504@teksavvy.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 19 Nov 2010 12:17:52 +0100
+On Thu, Nov 18, 2010 at 7:47 PM, Mark Lord <kernel@teksavvy.com> wrote:
+> On 10-11-18 06:50 PM, Rafael J. Wysocki wrote:
+>>
+>> This message contains a list of some post-2.6.35 regressions introdu=
+ced
+>> before
+>> 2.6.36, for which there are no fixes in the mainline known to the tr=
+acking
+>> team.
+>> If any of them have been fixed already, please let us know.
+>>
+>> If you know of any other unresolved post-2.6.35 regressions, please =
+let us
+>> know
+>> either and we'll add them to the list. =A0Also, please let us know i=
+f any
+>> of the entries below are invalid.
+>
+>> Bug-Entry =A0 =A0 =A0 : http://bugzilla.kernel.org/show_bug.cgi?id=3D=
+21652
+>> Subject =A0 =A0 =A0 =A0 : several problems with intel graphics since=
+ 2.6.36
+>> Submitter =A0 =A0 =A0 : Norbert Preining<preining@logic.at>
+>> Date =A0 =A0 =A0 =A0 =A0 =A0: 2010-10-27 14:32 (23 days old)
+>> Message-ID =A0 =A0 =A0:<20101027143252.GA8676@gamma.logic.tuwien.ac.=
+at>
+>> References =A0 =A0 =A0: http://marc.info/?l=3Dlinux-kernel&m=3D12881=
+8998630241&w=3D2
+>
+> That one is interesting to me.. I suspect it may be the same cause
+> as for https://bugzilla.kernel.org/show_bug.cgi?id=3D21952
+>
+> I have one of those Samsung (N210) Netbooks here: works fine with 2.6=
+=2E34 and
+> earlier,
+> but fails to come out of suspend on 2.6.35/2.6.36 (haven't tried 2.6.=
+37).
+>
+> So perhaps add 21952 to the list, or link it to the 21652
+> (kind of amusing how similar the bug numbers are..).
+>
+>
+> My non-Intel graphics notebook (has ATI X1400 graphics) also has a re=
+sume
+> regression with 2.6.36. =A0But it does work fine with 2.6.35 (and ear=
+lier,
+> back many years). =A0As a result, I'm stuck with 2.6.35 for the time =
+being,
+> and lack the time for a concerted debug effort on 2.6.36+ right now.
+>
 
-> Le vendredi 19 novembre 2010 =E0 10:54 +0100, Eric Dumazet a =E9crit =
-:
->=20
->> I believe we should revert the u32 f_k =3D fentry->k; part
->>=20
->> fentry->k as is fast as f_k if stored on stack, and avoids one
->> instruction if fentry->k is not needed.
->>=20
->>=20
->=20
-> A revert is not good on arches with decent number of registers (x86_6=
-4
-> for example).
+Can you bisect?  Does this patch help?
 
--EFIX_THE_DAMN_COMPILER
+diff --git a/drivers/gpu/drm/radeon/atom.c b/drivers/gpu/drm/radeon/ato=
+m.c
+index 8e421f6..05efb5b 100644
+--- a/drivers/gpu/drm/radeon/atom.c
++++ b/drivers/gpu/drm/radeon/atom.c
+@@ -112,6 +112,7 @@ static uint32_t atom_iio_execute(struct
+atom_context *ctx, int base,
+                        base +=3D 3;
+                        break;
+                case ATOM_IIO_WRITE:
++                       (void)ctx->card->ioreg_read(ctx->card, CU16(bas=
+e + 1));
+                        ctx->card->ioreg_write(ctx->card, CU16(base + 1=
+), temp);
+                        base +=3D 3;
+                        break;
 
-We never make calls out of this function or touch volatile memory or
-create a full memory barrier between the assignment of f_k and it's
-uses.
 
-Therefore if common sub-expression elimination is working the compiler
-will be able to decide properly whether to access things via memory or
-use a register for the value.
+Alex
 
-Remember this is why we have that ACCESS_ONCE() thing.
-
-We can't have it both ways, either ACCESS_ONCE() should be removed or
-we should never make changes like your's and instead should submit
-compiler bug reports :-)
+> Cheers
+> _______________________________________________
+> dri-devel mailing list
+> dri-devel@lists.freedesktop.org
+> http://lists.freedesktop.org/mailman/listinfo/dri-devel
+>
