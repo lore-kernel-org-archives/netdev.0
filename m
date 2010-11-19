@@ -1,35 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: manual merge of the net tree with the net-current
- tree
-Date: Fri, 19 Nov 2010 13:14:43 -0800 (PST)
-Message-ID: <20101119.131443.35039425.davem@davemloft.net>
-References: <20101119111706.d68efe13.sfr@canb.auug.org.au>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [RFC][PATCH 0/5] RFS hardware acceleration (v2)
+Date: Fri, 19 Nov 2010 13:16:46 -0800
+Message-ID: <4CE6E93E.7000901@hp.com>
+References: <1290192176.2671.38.camel@bwh-desktop> <1290194386.2671.59.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, eric.dumazet@gmail.com
-To: sfr@canb.auug.org.au
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20101119111706.d68efe13.sfr@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	Tom Herbert <therbert@google.com>, netdev@vger.kernel.org,
+	linux-net-drivers@solarflare.com
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g6t0184.atlanta.hp.com ([15.193.32.61]:20227 "EHLO
+	g6t0184.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755662Ab0KSVXz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Nov 2010 16:23:55 -0500
+In-Reply-To: <1290194386.2671.59.camel@bwh-desktop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Fri, 19 Nov 2010 11:17:06 +1100
-
-> Hi all,
+Ben Hutchings wrote:
+> So, some preliminary benchmark results.
 > 
-> Today's linux-next merge of the net tree got a conflict in
-> drivers/net/bonding/bond_main.c between commit
-> 3006bc38895895f1a0352c2e17e1a503f35f7e2f ("bonding: fix a race in IGMP
-> handling") from the net-current tree and commit
-> 866f3b25a2eb60d7529c227a0ecd80c3aba443fd ("bonding: IGMP handling
-> cleanup") from the net tree.
-> 
-> I just assumed that the latter is a better solution and used that.
+> Tom said he was using 200 concurrent netperf TCP_RR tests, so I've done
+> the same, using netperf 2.4.1 (a bit out of date, I know).
 
-Yep, that's correct, and I'm doing the same as I merge things myself
-right now.
+Not a huge deal for a basic TCP_RR test though.
 
-Thanks!
+<data snipped>
+
+> So accelerated RFS gave a 6-13% improvement over software RFS in
+> transaction rate for these various cases.
+
+Do you have any data on frequency with which unpinned netperf processes migrated 
+from one core to another?  Or PCIe utilization?
+
+rick jones
