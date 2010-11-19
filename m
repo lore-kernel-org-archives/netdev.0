@@ -1,43 +1,57 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: 2.6.37-rc2-git4: Reported regressions 2.6.35 -> 2.6.36
-Date: Fri, 19 Nov 2010 21:27:30 +0100
-Message-ID: <201011192127.30556.rjw@sisk.pl>
-References: <tTUH_XeInOH.A.dMF.c3b5MB@chimera> <AANLkTinzHyWcfS++R_d+yqR9JQu7W51h0XRr-ikd_6y1@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2.6.37-rc1] net-next: Add multiqueue support to vmxnet3
+ driver
+Date: Fri, 19 Nov 2010 12:37:35 -0800 (PST)
+Message-ID: <20101119.123735.246535099.davem@davemloft.net>
+References: <alpine.LRH.2.00.1011191023500.8304@sbhatewara-dev1.eng.vmware.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Maciej Rutecki <maciej.rutecki@gmail.com>,
-	Florian Mickler <florian@mickler.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>,
-	Linux SCSI List <linux-scsi@vger.kernel.org>,
-	Linux Wireless List <linux-wireless@vger.kernel.org>,
-	DRI <dri-devel@lists.freedesktop.org>
-To: Jesse Gross <jesse@nicira.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <AANLkTinzHyWcfS++R_d+yqR9JQu7W51h0XRr-ikd_6y1@mail.gmail.com>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: bhutchings@solarflare.com, shemminger@vyatta.com,
+	netdev@vger.kernel.org, pv-drivers@vmware.com,
+	linux-kernel@vger.kernel.org
+To: sbhatewara@vmware.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33543
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753301Ab0KSUhK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Nov 2010 15:37:10 -0500
+In-Reply-To: <alpine.LRH.2.00.1011191023500.8304@sbhatewara-dev1.eng.vmware.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday, November 19, 2010, Jesse Gross wrote:
-> On Thu, Nov 18, 2010 at 3:50 PM, Rafael J. Wysocki <rjw@sisk.pl> wrote:
-> > Bug-Entry       : http://bugzilla.kernel.org/show_bug.cgi?id=20462
-> > Subject         : 2.6.36-rc7-git2 - panic/GPF: e1000e/vlans?
-> > Submitter       : Nikola Ciprich <extmaillist@linuxbox.cz>
-> > Date            : 2010-10-15 7:10 (35 days old)
-> > Message-ID      : <20101015071008.GA8714@pcnci.linuxbox.cz>
-> > References      : http://marc.info/?l=linux-kernel&m=128712984831303&w=2
+From: Shreyas Bhatewara <sbhatewara@vmware.com>
+Date: Fri, 19 Nov 2010 10:46:59 -0800 (PST)
+
 > 
-> A fix for this has been sent to -stable:
-> http://www.spinics.net/lists/netdev/msg146227.html
+> From: Shreyas Bhatewara <sbhatewara@vmware.com>
+> 
+> Add multiqueue support to vmxnet3 driver
+> 
+> This change adds multiqueue and thus receive side scaling support
+> to vmxnet3 device driver. Number of rx queues is limited to 1 in cases
+> where MSI is not configured or one MSIx vector is not available per rx 
+> queue
+> 
+> Signed-off-by: Shreyas Bhatewara <sbhatewara@vmware.com>
+> Reviewed-by: Bhavesh Davda <bhavesh@vmware.com>
 
-OK, status updated.
+Your patch is corrupted:
 
-Thanks,
-Rafael
+> @@ -107,7 +110,7 @@ static void
+>  vmxnet3_tq_start(struct vmxnet3_tx_queue *tq, struct vmxnet3_adapter *adapter)
+>  {
+>  	tq->stopped = false;
+> -	netif_start_queue(adapter->netdev);
+> +	netif_start_subqueue(adapter->netdev, tq - adapter->tx_queue);
+>  }
+>  
+>  
+
+This hunk has an incorrect header, the hunk header states that
+both before and after the change there should be 7 lines in the
+code block, but there are 8.
+
+One way this can happen is if you edit the patch in emacs since
+it has a patch editing mode which kicks which tries to "fix up"
+the hunk headers, but most of the time it actually corrupts them.
