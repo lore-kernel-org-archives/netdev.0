@@ -1,48 +1,45 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: Generalizing mmap'ed sockets
-Date: Fri, 19 Nov 2010 13:55:15 -0800
-Message-ID: <AANLkTinCS2LuNv3opCvTcTrxbm5HzFy7JESdu_CzyrFB@mail.gmail.com>
-References: <AANLkTi=WF2hAGAufv_Anc=b=Fm2WOpOMOv1UrDRvaTHp@mail.gmail.com>
-	<4CE6ED09.70602@hp.com>
-	<20101119.135213.15239226.davem@davemloft.net>
+From: David Daney <ddaney-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>
+Subject: [PATCH 0/2] phylib: Cleanup marvell.c and add 88E1149R support.
+Date: Fri, 19 Nov 2010 13:58:51 -0800
+Message-ID: <1290203933-28251-1-git-send-email-ddaney@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: rick.jones2@hp.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:55219 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750799Ab0KSVzT convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Nov 2010 16:55:19 -0500
-Received: from wpaz17.hot.corp.google.com (wpaz17.hot.corp.google.com [172.24.198.81])
-	by smtp-out.google.com with ESMTP id oAJLtHgm001107
-	for <netdev@vger.kernel.org>; Fri, 19 Nov 2010 13:55:17 -0800
-Received: from pwi10 (pwi10.prod.google.com [10.241.219.10])
-	by wpaz17.hot.corp.google.com with ESMTP id oAJLtGi8003504
-	for <netdev@vger.kernel.org>; Fri, 19 Nov 2010 13:55:16 -0800
-Received: by pwi10 with SMTP id 10so1455228pwi.41
-        for <netdev@vger.kernel.org>; Fri, 19 Nov 2010 13:55:16 -0800 (PST)
-In-Reply-To: <20101119.135213.15239226.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: David Daney <ddaney-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>,
+	Arnaud Patard <arnaud.patard-dQbF7i+pzddAfugRpC6u6w@public.gmane.org>, Cyril Chemparathy <cyril-l0cyMroinI0@public.gmane.org>
+To: devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 19, 2010 at 1:52 PM, David Miller <davem@davemloft.net> wro=
-te:
-> From: Rick Jones <rick.jones2@hp.com>
-> Date: Fri, 19 Nov 2010 13:32:57 -0800
->
->> I suppose then one would be able to track the consumer pointer (on t=
-x)
->> to "know" that certain data had been ACKed by the remote? =A0For TCP
->> anyway - and assuming there wouldn't be a case where TCP might copy
->> the data out of the ring and assert "completion."
->
-> Yes, that's implicit in his design, the kernel manages the consumer
-> pointer in the ring and this is how userspace can see when ring entri=
-es
-> are reusable.
->
+This is the second iteration of this patch.  I have split out the
+device tree support from the first version to a different patch set.
+The 88E1149R support is useful 'stand alone', so if it is acceptable,
+it can be merged first.
 
-And, for stream sockets the ring would be one big contiguous buffer,
-for datagram would be packetized buffer like with packet interface.
+The first patch is a small cleanup suggested by Cyril Chemparathy, the
+second one adds basic 88E1149R support.
+
+David Daney (2):
+  phylib: Use common page register definition for Marvell PHYs.
+  phylib: Add support for Marvell 88E1149R devices.
+
+ drivers/net/phy/marvell.c   |   67 ++++++++++++++++++++++++++++++++++--------
+ include/linux/marvell_phy.h |    1 +
+ 2 files changed, 55 insertions(+), 13 deletions(-)
+
+Cc: Cyril Chemparathy <cyril-l0cyMroinI0@public.gmane.org>
+Cc: Arnaud Patard <arnaud.patard-dQbF7i+pzddAfugRpC6u6w@public.gmane.org>
+Cc: Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
+Cc: Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+-- 
+1.7.2.3
