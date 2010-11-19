@@ -1,43 +1,70 @@
-From: Nicolas Kaiser <nikai@nikai.net>
-Subject: [PATCH] SuperH IrDA: correct Baud rate error correction
-Date: Fri, 19 Nov 2010 01:24:02 +0100
-Message-ID: <20101119012402.43e9aa61@absol.kitzblitz>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH 0/15] RFC: create drivers/net/legacy for ISA, EISA, MCA
+ drivers
+Date: Thu, 18 Nov 2010 16:34:24 -0800
+Message-ID: <1290126864.29524.6.camel@jtkirshe-MOBL1>
+References: <1288315159-1350-1-git-send-email-paul.gortmaker@windriver.com>
+	 <1288316896.1836.41.camel@Joe-Laptop> <4CCB3BF1.7070000@windriver.com>
+	 <1288390127.28828.225.camel@Joe-Laptop>
+	 <1288396919.15283.23.camel@jtkirshe-MOBL1> <4CD323AF.20609@windriver.com>
+	 <AANLkTim2yH7eAqqYQW+JVC5GtFR5mX4uZnMa02+yubFk@mail.gmail.com>
+	 <1290124345.1817.53.camel@Joe-Laptop>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Kuninori Morimoto <morimoto.kuninori@renesas.com>,
-	irda-users@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Samuel Ortiz <samuel@sortiz.org>
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-OjTJCQ/bVDJbWtmORbfB"
+Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webhosting01.bon.m2soft.com ([195.38.20.32]:35073 "EHLO
-	webhosting01.bon.m2soft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758097Ab0KSA2Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Nov 2010 19:28:25 -0500
+Received: from mga14.intel.com ([143.182.124.37]:15386 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751107Ab0KSAe0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Nov 2010 19:34:26 -0500
+In-Reply-To: <1290124345.1817.53.camel@Joe-Laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It looks to me as if the second value of rate_err_array is intended
-to be a decimal 625. However, with a leading 0 it becomes an octal
-constant, and as such evaluates to a decimal 405.
 
-Signed-off-by: Nicolas Kaiser <nikai@nikai.net>
----
- drivers/net/irda/sh_sir.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+--=-OjTJCQ/bVDJbWtmORbfB
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/drivers/net/irda/sh_sir.c b/drivers/net/irda/sh_sir.c
-index 00b38bc..52a7c86 100644
---- a/drivers/net/irda/sh_sir.c
-+++ b/drivers/net/irda/sh_sir.c
-@@ -258,7 +258,7 @@ static int sh_sir_set_baudrate(struct sh_sir_self *self, u32 baudrate)
- 
- 	/* Baud Rate Error Correction x 10000 */
- 	u32 rate_err_array[] = {
--		0000, 0625, 1250, 1875,
-+		   0,  625, 1250, 1875,
- 		2500, 3125, 3750, 4375,
- 		5000, 5625, 6250, 6875,
- 		7500, 8125, 8750, 9375,
--- 
-1.7.2.2
+On Thu, 2010-11-18 at 15:52 -0800, Joe Perches wrote:
+> On Thu, 2010-11-04 at 19:28 -0700, Jeff Kirsher wrote:
+> > Joe and I are working to organize the drivers into
+> > /drivers/net/<technology> directories and to cleanup the Kconfig to
+> > reflect the organization.  Ethernet drivers will be in
+> > /drivers/net/ethernet, and so on.
+> []
+> > We are hoping not to drag this out and plan on getting this into
+> > 2.6.38 (net-next) within the couple of weeks.
+>=20
+> What is an appropriate time frame for doing these
+> reorganization file/directory moves for net-next?
+>=20
+> David, do you have a preference?
+>=20
+
+I am almost ~50% done with the patch, I am hoping to get the patch out
+this weekend.  I have been testing as I go to ensure that there are no
+breakages,that has been the reason for the delay.
+
+--=-OjTJCQ/bVDJbWtmORbfB
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQEcBAABAgAGBQJM5cYCAAoJECTsCADr/EWUxEUH/0mMApvbygWeEEc4QXul2eFr
++7L1/UyJ2GaMgC5QN/A0fqDjym/7lQIpxGQyFhmYI6vDDOSFW9zFE2gQlFoEQijb
+f9Crx8qf9gNL+3RsEjfoTsuBN4xNAGR8mzMopS6iXcdeuBIAFGG7WIly3X9avQ45
+OlJRv/0k6ZNdnKW/0/ySKIMORBENIqi4vN3zrl+5j5oZMul+9wSLGJ/eyKwyW8Kp
+ynHE6t7qJuQDcZ1OZgWwwskO/xQq2Jz2fVn3/N8SU2C93xVuQwEZ/+NR5/1oW6hE
+DF4nGpMsf3vD/kYEJDaSUFK0QwGRfNJDUCkQeQd8jDwaFMZCjm44F977TwJlrjc=
+=3RAk
+-----END PGP SIGNATURE-----
+
+--=-OjTJCQ/bVDJbWtmORbfB--
+
