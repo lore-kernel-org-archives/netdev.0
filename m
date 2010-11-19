@@ -1,46 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.37-rc1] net-next: Add multiqueue support to vmxnet3
- driver
-Date: Fri, 19 Nov 2010 14:24:39 -0800 (PST)
-Message-ID: <20101119.142439.116367673.davem@davemloft.net>
-References: <alpine.LRH.2.00.1011191023500.8304@sbhatewara-dev1.eng.vmware.com>
-	<20101119.123735.246535099.davem@davemloft.net>
-	<alpine.LRH.2.00.1011191252070.22641@sbhatewara-dev1.eng.vmware.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: Generalizing mmap'ed sockets
+Date: Fri, 19 Nov 2010 13:58:21 -0800
+Message-ID: <4CE6F2FD.8080301@hp.com>
+References: <AANLkTi=WF2hAGAufv_Anc=b=Fm2WOpOMOv1UrDRvaTHp@mail.gmail.com>	<4CE6ED09.70602@hp.com> <20101119.135213.15239226.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, shemminger@vyatta.com,
-	netdev@vger.kernel.org, pv-drivers@vmware.com,
-	linux-kernel@vger.kernel.org
-To: sbhatewara@vmware.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LRH.2.00.1011191252070.22641@sbhatewara-dev1.eng.vmware.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: therbert@google.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g4t0017.houston.hp.com ([15.201.24.20]:36544 "EHLO
+	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932512Ab0KSV6Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Nov 2010 16:58:24 -0500
+In-Reply-To: <20101119.135213.15239226.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Shreyas Bhatewara <sbhatewara@vmware.com>
-Date: Fri, 19 Nov 2010 12:55:24 -0800 (PST)
-
-> From: Shreyas Bhatewara <sbhatewara@vmware.com>
+David Miller wrote:
+> From: Rick Jones <rick.jones2@hp.com>
+> Date: Fri, 19 Nov 2010 13:32:57 -0800
 > 
-> Add multiqueue support to vmxnet3 driver
+>>I suppose then one would be able to track the consumer pointer (on tx)
+>>to "know" that certain data had been ACKed by the remote?  For TCP
+>>anyway - and assuming there wouldn't be a case where TCP might copy
+>>the data out of the ring and assert "completion."
 > 
-> This change adds multiqueue and thus receive side scaling support
-> to vmxnet3 device driver. Number of rx queues is limited to 1 in cases
-> where MSI is not configured or one MSIx vector is not available per rx
-> queue
-> 
-> Signed-off-by: Shreyas Bhatewara <sbhatewara@vmware.com>
-> Reviewed-by: Bhavesh Davda <bhavesh@vmware.com>
+> Yes, that's implicit in his design, the kernel manages the consumer
+> pointer in the ring and this is how userspace can see when ring entries
+> are reusable.
 
-Applied, but I still had to fix something up:
+But does one really want to lock-in that the update to the consumer pointer 
+means the data has been ACKed by the remote (or I suppose that DMA have 
+completed if it were UDP)?  We can think of no case where the stack will want to 
+copy out of the ring and assert completion to the user before it got ACKed by 
+the remote?  Say when the stack wants to autotune the send socket buffer size to 
+something larger than the tx ring?
 
-> @@ -2726,3 +3277,5 @@ MODULE_AUTHOR("VMware, Inc.");
->  MODULE_DESCRIPTION(VMXNET3_DRIVER_DESC);
->  MODULE_LICENSE("GPL v2");
->  MODULE_VERSION(VMXNET3_DRIVER_VERSION_STRING);
-> +
-> +
-
-Extraneous blank lines added to the end of a file are considered
-errors by GIT, so I removed this hunk.
+rick
