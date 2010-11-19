@@ -1,38 +1,95 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: 2.6.37-rc2-git4: Reported regressions 2.6.35 -> 2.6.36
-Date: Thu, 18 Nov 2010 16:36:54 -0800
-Message-ID: <AANLkTinzHyWcfS++R_d+yqR9JQu7W51h0XRr-ikd_6y1@mail.gmail.com>
-References: <tTUH_XeInOH.A.dMF.c3b5MB@chimera>
+From: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
+Subject: Re: [PATCH 1/2] of/phylib: Use device tree properties to
+	initialize Marvell PHYs.
+Date: Thu, 18 Nov 2010 17:39:29 -0700
+Message-ID: <20101119003929.GA18558@angua.secretlab.ca>
+References: <1290038071-13296-1-git-send-email-ddaney@caviumnetworks.com>
+	<1290038071-13296-2-git-send-email-ddaney@caviumnetworks.com>
+	<20101118204036.GA16908@angua.secretlab.ca>
+	<4CE5BB56.4040605@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Maciej Rutecki <maciej.rutecki@gmail.com>,
-	Florian Mickler <florian@mickler.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>,
-	Linux SCSI List <linux-scsi@vger.kernel.org>,
-	Linux Wireless List <linux-wireless@vger.kernel.org>,
-	DRI <dri-devel@lists.freedesktop.org>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <tTUH_XeInOH.A.dMF.c3b5MB@chimera>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	Cyril Chemparathy <cyril-l0cyMroinI0@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Arnaud Patard <arnaud.patard-dQbF7i+pzddAfugRpC6u6w@public.gmane.org>
+To: David Daney <ddaney-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <4CE5BB56.4040605-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 18, 2010 at 3:50 PM, Rafael J. Wysocki <rjw@sisk.pl> wrote:
-> Bug-Entry =A0 =A0 =A0 : http://bugzilla.kernel.org/show_bug.cgi?id=3D=
-20462
-> Subject =A0 =A0 =A0 =A0 : 2.6.36-rc7-git2 - panic/GPF: e1000e/vlans?
-> Submitter =A0 =A0 =A0 : Nikola Ciprich <extmaillist@linuxbox.cz>
-> Date =A0 =A0 =A0 =A0 =A0 =A0: 2010-10-15 7:10 (35 days old)
-> Message-ID =A0 =A0 =A0: <20101015071008.GA8714@pcnci.linuxbox.cz>
-> References =A0 =A0 =A0: http://marc.info/?l=3Dlinux-kernel&m=3D128712=
-984831303&w=3D2
+On Thu, Nov 18, 2010 at 03:48:38PM -0800, David Daney wrote:
+> On 11/18/2010 12:40 PM, Grant Likely wrote:
+> >On Wed, Nov 17, 2010 at 03:54:30PM -0800, David Daney wrote:
+> >>Some aspects of PHY initialization are board dependent, things like
+> >>indicator LED connections and some clocking modes cannot be determined
+> >>by probing.  The dev_flags element of struct phy_device can be used to
+> >>control these things if an appropriate value can be passed from the
+> >>Ethernet driver.  We run into problems however if the PHY connections
+> >>are specified by the device tree.  There is no way for the Ethernet
+> >>driver to know what flags it should pass.
+> >>
+> >>If we are using the device tree, the struct phy_device will be
+> >>populated with the device tree node corresponding to the PHY, and we
+> >>can extract extra configuration information from there.
+> >>
+> >>The next question is what should the format of that information be?
+> >>It is highly device specific, and the device tree representation
+> >>should not be tied to any arbitrary kernel defined constants.  A
+> >>straight forward representation is just to specify the exact bits that
+> >>should be set using the "marvell,reg-init" property:
+> >>
+> >>       phy5: ethernet-phy@5 {
+> >>	reg =<5>;
+> >>	device_type = "ethernet-phy";
+> >
+> >Some notes:
+> >- device_type is only relevant for real openfirmware platforms.  It
+> >   should not appear in dts files.
+> 
+> Documentation/powerpc/dts-bindings/phy.txt says device_type should
+> be here.  I can remove it from my patch comment, but should it also
+> be removed from the phy.txt file?
 
-A fix for this has been sent to -stable:
-http://www.spinics.net/lists/netdev/msg146227.html
+Heh, I didn't realize it was there.  Yes, it should be removed from
+the phy.txt file.  It is clearly wrong.
+
+> 
+> >- This example phy node needs a compatible property
+> 
+> Ok, what would you suggest?  Something like:
+> 
+>      compatible = "marvell,88e1145";
+
+Yes.
+
+> 
+> I can certainly do that, but I would note that the kernel probes
+> these things and would completely ignore the compatible property.
+
+That's okay.
+
+> 
+> >- This new binding needs to be documented.  You can use devicetree.org.
+> >
+> 
+> Agreed, I was planning to do that once the patch was approved.
+> 
+> Where would that go?  Vendor:Marvell, or
+> Type:PHY/compatible=marvell,* ... or somewhere else?
+
+The page name should be compatible=marvell,88e1145, and it should be
+have the vendor and type tags added so it appears in the category
+pages.
+
+g.
