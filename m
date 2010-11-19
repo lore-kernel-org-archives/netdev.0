@@ -1,7 +1,7 @@
 From: Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
-Subject: [PATCH net-next-2.6 3/17] can: EG20T PCH: Enumerate some macros
-Date: Fri, 19 Nov 2010 14:44:54 +0900
-Message-ID: <4CE60ED6.8040506__43020.1096031398$1290145556$gmane$org@dsn.okisemi.com>
+Subject: [PATCH net-next-2.6 4/17] can: EG20T PCH: Add Tx Flow Control
+Date: Fri, 19 Nov 2010 14:45:12 +0900
+Message-ID: <4CE60EE8.2060906__32815.634008921$1290145560$gmane$org@dsn.okisemi.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
@@ -14,164 +14,112 @@ To: Wolfgang Grandegger <wg@grandegger.com>,
 	Barry Song <21cnbao@gmail.com>,
 	Samuel Ortiz <sameo@linux.inte
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sm-d311v.smileserver.ne.jp ([203.211.202.206]:30380 "EHLO
+Received: from sm-d311v.smileserver.ne.jp ([203.211.202.206]:30414 "EHLO
 	sm-d311v.smileserver.ne.jp" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750951Ab0KSFpO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Nov 2010 00:45:14 -0500
+	by vger.kernel.org with ESMTP id S1750951Ab0KSFpb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Nov 2010 00:45:31 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For easy to readable, LEC and interface register number macros are replaced to enums.
+Add flow control processing.
+Currently, there is no flow control processing.
+Thus, Add flow control processing as
+when there is no empty of tx buffer,
+netif_stop_queue is called.
+When there is empty buffer, netif_wake_queue is called.
 
 Signed-off-by: Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
 ---
- drivers/net/can/pch_can.c |   90 +++++++++++++++++++++++++--------------------
- 1 files changed, 50 insertions(+), 40 deletions(-)
+ drivers/net/can/pch_can.c |   37 +++++++++++++------------------------
+ 1 files changed, 13 insertions(+), 24 deletions(-)
 
 diff --git a/drivers/net/can/pch_can.c b/drivers/net/can/pch_can.c
-index b028ae4..5c21f5c 100644
+index 5c21f5c..7c182b8 100644
 --- a/drivers/net/can/pch_can.c
 +++ b/drivers/net/can/pch_can.c
-@@ -69,21 +69,12 @@
- #define PCH_REC			0x00007f00
- #define PCH_TEC			0x000000ff
+@@ -900,6 +900,8 @@ MSG_OBJ:
+ 			dlc = 8;
+ 		stats->tx_bytes += dlc;
+ 		stats->tx_packets++;
++		if (int_stat == PCH_TX_OBJ_END)
++			netif_wake_queue(ndev);
+ 	}
  
-+
- #define PCH_TX_OK		BIT(3)
- #define PCH_RX_OK		BIT(4)
- #define PCH_EPASSIV		BIT(5)
- #define PCH_EWARN		BIT(6)
- #define PCH_BUS_OFF		BIT(7)
--#define PCH_LEC0		BIT(0)
--#define PCH_LEC1		BIT(1)
--#define PCH_LEC2		BIT(2)
--#define PCH_LEC_ALL		(PCH_LEC0 | PCH_LEC1 | PCH_LEC2)
--#define PCH_STUF_ERR		PCH_LEC0
--#define PCH_FORM_ERR		PCH_LEC1
--#define PCH_ACK_ERR		(PCH_LEC0 | PCH_LEC1)
--#define PCH_BIT1_ERR		PCH_LEC2
--#define PCH_BIT0_ERR		(PCH_LEC0 | PCH_LEC2)
--#define PCH_CRC_ERR		(PCH_LEC1 | PCH_LEC2)
- 
- /* bit position of certain controller bits. */
- #define PCH_BIT_BRP		0
-@@ -96,9 +87,6 @@
- #define PCH_MSK_CTRL_IE_SIE_EIE	0x07
- #define PCH_COUNTER_LIMIT	10
- 
--#define PCH_RX_IFREG			0
--#define PCH_TX_IFREG			1
--
- #define PCH_CAN_CLK		50000000	/* 50MHz */
- 
- /* Define the number of message object.
-@@ -113,6 +101,21 @@
- 
- #define PCH_FIFO_THRESH		16
- 
-+enum pch_ifreg {
-+	PCH_RX_IFREG,
-+	PCH_TX_IFREG,
-+};
-+
-+enum pch_can_err {
-+	PCH_STUF_ERR = 1,
-+	PCH_FORM_ERR,
-+	PCH_ACK_ERR,
-+	PCH_BIT1_ERR,
-+	PCH_BIT0_ERR,
-+	PCH_CRC_ERR,
-+	PCH_LEC_ALL,
-+};
-+
- enum pch_can_mode {
- 	PCH_CAN_ENABLE,
- 	PCH_CAN_DISABLE,
-@@ -302,7 +305,7 @@ static void pch_can_check_if_busy(u32 __iomem *creq_addr, u32 num)
+ 	int_stat = pch_can_int_pending(priv);
+@@ -1038,47 +1040,34 @@ static int pch_close(struct net_device *ndev)
+ 	return 0;
  }
  
- static void pch_can_set_rxtx(struct pch_can_priv *priv, u32 buff_num,
--				  int set, u32 dir)
-+			     int set, enum pch_ifreg dir)
- {
- 	unsigned long flags;
- 	u32 ie;
-@@ -616,7 +619,7 @@ static void pch_can_error(struct net_device *ndev, u32 status)
- 	struct sk_buff *skb;
- 	struct pch_can_priv *priv = netdev_priv(ndev);
- 	struct can_frame *cf;
--	u32 errc;
-+	u32 errc, lec;
- 	struct net_device_stats *stats = &(priv->ndev->stats);
- 	enum can_state state = priv->can.state;
- 
-@@ -661,35 +664,42 @@ static void pch_can_error(struct net_device *ndev, u32 status)
- 			"%s -> CAN controller is ERROR PASSIVE .\n", __func__);
- 	}
- 
--	if (status & PCH_LEC_ALL) {
-+	lec = status & PCH_LEC_ALL;
-+	switch (lec) {
-+	case PCH_STUF_ERR:
-+		cf->data[2] |= CAN_ERR_PROT_STUFF;
- 		priv->can.can_stats.bus_error++;
- 		stats->rx_errors++;
--		switch (status & PCH_LEC_ALL) {
--		case PCH_STUF_ERR:
--			cf->data[2] |= CAN_ERR_PROT_STUFF;
--			break;
--		case PCH_FORM_ERR:
--			cf->data[2] |= CAN_ERR_PROT_FORM;
--			break;
--		case PCH_ACK_ERR:
--			cf->data[2] |= CAN_ERR_PROT_LOC_ACK |
--				       CAN_ERR_PROT_LOC_ACK_DEL;
--			break;
--		case PCH_BIT1_ERR:
--		case PCH_BIT0_ERR:
--			cf->data[2] |= CAN_ERR_PROT_BIT;
--			break;
--		case PCH_CRC_ERR:
--			cf->data[2] |= CAN_ERR_PROT_LOC_CRC_SEQ |
--				       CAN_ERR_PROT_LOC_CRC_DEL;
--			break;
--		default:
--			iowrite32(status | PCH_LEC_ALL, &priv->regs->stat);
--			break;
--		}
+-static int pch_get_msg_obj_sts(struct net_device *ndev, u32 obj_id)
+-{
+-	u32 buffer_status = 0;
+-	struct pch_can_priv *priv = netdev_priv(ndev);
 -
-+		break;
-+	case PCH_FORM_ERR:
-+		cf->data[2] |= CAN_ERR_PROT_FORM;
-+		priv->can.can_stats.bus_error++;
-+		stats->rx_errors++;
-+		break;
-+	case PCH_ACK_ERR:
-+		cf->can_id |= CAN_ERR_ACK;
-+		priv->can.can_stats.bus_error++;
-+		stats->rx_errors++;
-+		break;
-+	case PCH_BIT1_ERR:
-+	case PCH_BIT0_ERR:
-+		cf->data[2] |= CAN_ERR_PROT_BIT;
-+		priv->can.can_stats.bus_error++;
-+		stats->rx_errors++;
-+		break;
-+	case PCH_CRC_ERR:
-+		cf->data[2] |= CAN_ERR_PROT_LOC_CRC_SEQ |
-+			       CAN_ERR_PROT_LOC_CRC_DEL;
-+		priv->can.can_stats.bus_error++;
-+		stats->rx_errors++;
-+		break;
-+	case PCH_LEC_ALL: /* Written by CPU. No error status */
-+		break;
+-	/* Getting the message object status. */
+-	buffer_status = (u32) pch_can_get_buffer_status(priv);
+-
+-	return buffer_status & obj_id;
+-}
+-
+-
+ static netdev_tx_t pch_xmit(struct sk_buff *skb, struct net_device *ndev)
+ {
+ 	int i, j;
+ 	unsigned long flags;
+ 	struct pch_can_priv *priv = netdev_priv(ndev);
+ 	struct can_frame *cf = (struct can_frame *)skb->data;
+-	int tx_buffer_avail = 0;
++	int tx_obj_no = 0;
+ 
+ 	if (can_dropped_invalid_skb(ndev, skb))
+ 		return NETDEV_TX_OK;
+ 
+-	if (priv->tx_obj == PCH_TX_OBJ_END) { /* Point tail Obj */
+-		while (pch_get_msg_obj_sts(ndev, (((1 << PCH_TX_OBJ_NUM)-1) <<
+-					   PCH_RX_OBJ_NUM)))
+-			udelay(500);
++	if (priv->tx_obj == PCH_TX_OBJ_END) {
++		if (ioread32(&priv->regs->treq2) & 0xfc00)
++			netif_stop_queue(ndev);
+ 
+-		priv->tx_obj = PCH_TX_OBJ_START; /* Point head of Tx Obj ID */
+-		tx_buffer_avail = priv->tx_obj; /* Point Tail of Tx Obj */
++		tx_obj_no = priv->tx_obj;
++		priv->tx_obj = PCH_TX_OBJ_START;
+ 	} else {
+-		tx_buffer_avail = priv->tx_obj;
++		tx_obj_no = priv->tx_obj;
++		priv->tx_obj++;
+ 	}
+-	priv->tx_obj++;
+ 
+ 	/* Attaining the lock. */
+ 	spin_lock_irqsave(&priv->msgif_reg_lock, flags);
+ 
+ 	/* Reading the Msg Obj from the Msg RAM to the Interface register. */
+ 	iowrite32(PCH_CMASK_RX_TX_GET, &priv->regs->ifregs[1].cmask);
+-	pch_can_check_if_busy(&priv->regs->ifregs[1].creq, tx_buffer_avail);
++	pch_can_check_if_busy(&priv->regs->ifregs[1].creq, tx_obj_no);
+ 
+ 	/* Setting the CMASK register. */
+ 	pch_can_bit_set(&priv->regs->ifregs[1].cmask, PCH_CMASK_ALL);
+@@ -1110,7 +1099,7 @@ static netdev_tx_t pch_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 			 (&priv->regs->ifregs[1].dataa1) + j*4);
  	}
  
-+	cf->data[6] = errc & PCH_TEC;
-+	cf->data[7] = (errc & PCH_REC) >> 8;
-+
- 	priv->can.state = state;
- 	netif_rx(skb);
+-	can_put_echo_skb(skb, ndev, tx_buffer_avail - PCH_RX_OBJ_END - 1);
++	can_put_echo_skb(skb, ndev, tx_obj_no - PCH_RX_OBJ_END - 1);
+ 
+ 	/* Updating the size of the data. */
+ 	pch_can_bit_clear(&priv->regs->ifregs[1].mcont, 0x0f);
+@@ -1125,7 +1114,7 @@ static netdev_tx_t pch_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 	pch_can_bit_set(&priv->regs->ifregs[1].mcont,
+ 			PCH_IF_MCONT_NEWDAT | PCH_IF_MCONT_TXRQXT);
+ 
+-	pch_can_check_if_busy(&priv->regs->ifregs[1].creq, tx_buffer_avail);
++	pch_can_check_if_busy(&priv->regs->ifregs[1].creq, tx_obj_no);
+ 
+ 	spin_unlock_irqrestore(&priv->msgif_reg_lock, flags);
  
 -- 
 1.6.0.6
