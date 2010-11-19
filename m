@@ -1,32 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] filter: optimize sk_run_filter
-Date: Fri, 19 Nov 2010 09:05:16 -0800 (PST)
-Message-ID: <20101119.090516.104057453.davem@davemloft.net>
-References: <1290165472.3034.109.camel@edumazet-laptop>
-	<20101119.082125.193710226.davem@davemloft.net>
-	<1290185759.3034.179.camel@edumazet-laptop>
+Subject: Re: [net-2.6 PATCH] be2net: Fix to avoid firmware update when
+ interface is not open.
+Date: Fri, 19 Nov 2010 09:06:07 -0800 (PST)
+Message-ID: <20101119.090607.189703695.davem@davemloft.net>
+References: <20101119094445.GA10165@emulex.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hagen@jauu.net, netdev@vger.kernel.org, xiaosuo@gmail.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org
+To: Sarveshwar.Bandi@emulex.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52616
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52619
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754539Ab0KSREv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Nov 2010 12:04:51 -0500
-In-Reply-To: <1290185759.3034.179.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1754539Ab0KSRFm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Nov 2010 12:05:42 -0500
+In-Reply-To: <20101119094445.GA10165@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 19 Nov 2010 17:55:59 +0100
+From: Sarveshwar Bandi <Sarveshwar.Bandi@emulex.com>
+Date: Fri, 19 Nov 2010 15:14:45 +0530
 
-> Unfortunatly on x86_32 it also chose that f_k was more valuable in a cpu
-> register and accumulator A lost its register to get a stack slot
-> instead.
+> Since interrupts are enabled only when open is called on the interface,
+> Attempting a firmware update operation when interface is down could lead to
+> partial success or failure of operation. This fix fails the request if
+> netif_running is false.
+> 
+> Signed-off-by: Sarveshwar Bandi <Sarveshwar.Bandi@emulex.com>
 
-Ok that tradeoff is terrible, but it depends upon knowledge we haven't
-given to the compiler (yet).
-
-Let me think about this a bit...
+Applied, thank you.
