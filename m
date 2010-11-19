@@ -1,112 +1,77 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: alchemy/gpr: au1000_eth regression with v2.6.37rc2
-Date: Fri, 19 Nov 2010 11:46:01 +0100
-Message-ID: <201011191146.01454.florian@openwrt.org>
-References: <4CE58593.50509@grandegger.com> <201011182330.08488.florian@openwrt.org> <4CE65199.7030007@grandegger.com>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: [RFC PATCH] netfilter: remove the duplicate tables
+Date: Fri, 19 Nov 2010 12:15:06 +0100 (CET)
+Message-ID: <alpine.LNX.2.01.1011191210290.29394@obet.zrqbmnf.qr>
+References: <1290091194-1590-1-git-send-email-xiaosuo@gmail.com> <1290095020.2781.203.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
+Content-Type: TEXT/PLAIN; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Linux-MIPS" <linux-mips@linux-mips.org>, Netdev@vger.kernel.org
-To: Wolfgang Grandegger <wg@grandegger.com>
-Return-path: <netdev-owner@vger.kernel.org>
-In-Reply-To: <4CE65199.7030007@grandegger.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Changli Gao <xiaosuo@gmail.com>, Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1290095020.2781.203.camel@edumazet-laptop>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello Wolfgang,
+On Thursday 2010-11-18 16:43, Eric Dumazet wrote:
 
-On Friday 19 November 2010 11:29:45 Wolfgang Grandegger wrote:
-> Hello Florian,
->=20
-> On 11/18/2010 11:30 PM, Florian Fainelli wrote:
-> > Hello Wolfgang,
-> >=20
-> > Le Thursday 18 November 2010 20:59:15, Wolfgang Grandegger a =E9cri=
-t :
-> >> Hello,
-> >>=20
-> >> I just realized that the v2.6.37-rc2 kernel does not boot any more=
- on
-> >> the Alchemy GPR board. It works fine with v2.6.36. It hangs in the
-> >> probe function of the au1000_eth driver when probing the second
-> >>=20
-> >> ethernet port (eth1):
-> >>   au1000_eth_mii: probed
-> >>   au1000-eth au1000-eth.0: (unregistered net_device): attached PHY
-> >>   driver
-> >>=20
-> >> [Generic PHY] (mii_bus:phy_addr=3D0:00, irq=3D-1) au1000-eth au100=
-0-eth.0:
-> >> eth0: Au1xx0 Ethernet found at 0x10500000, irq 35 au1000_eth: au10=
-00_eth
-> >> version 1.7 Pete Popov <ppopov@embeddedalley.com> ... hangs ...
-> >>=20
-> >> Similar messages should follow for eth1. I narrowed down (bisect'e=
-d) the
-> >>=20
-> >> problem to commit:
-> >>   commit d0e7cb5d401695809ba8c980124ab1d8c66efc8b
-> >>   Author: Florian Fainelli <florian@openwrt.org>
-> >>   Date:   Wed Sep 8 11:15:13 2010 +0000
-> >>  =20
-> >>     au1000-eth: remove volatiles, switch to I/O accessors
-> >>    =20
-> >>     Remove all the volatile keywords where they were used, switch =
-to
-> >>     using
-> >>=20
-> >> the proper readl/writel accessors.
-> >>=20
-> >>     Signed-off-by: Florian Fainelli <florian@openwrt.org>
-> >>     Signed-off-by: David S. Miller <davem@davemloft.net>
-> >>=20
-> >> The kernel actually hangs when accessing "&aup->mac->mii_control" =
+>Le jeudi 18 novembre 2010 =C3=A0 22:39 +0800, Changli Gao a =C3=A9crit=
+ :
+>> As only xt_counters are private to each CPU, we don't need to mainta=
 in
-> >> au1000_mdio_read(), but only for eth1. Any idea what does go wrong=
-?
-> >=20
-> > I do not understand so far while it hangs only for eth1. My device =
-only
-> > has one ethernet MAC, so I could not notice the problem. Looking at=
- this
-> > close, there are a couple of u32 const* usages in
-> > au1000_mdio_{read,write} which are looking wrong to me now. Can you=
- try
-> > to remove these?
->=20
-> That did not help.
+>> a whole individual table for each CPU.
+>>=20
+>> In the kernel space, we use the memory of ipt_entry.counters to save=
+ a
+>> pointer to a percpu xt_counters. When iptables runs, it only update =
+the
+>> counters on its own CPU.
+>>=20
+>> On non SMP platforms, no change is made.
+>>=20
+>> Only the code of iptables is converted. Thanks for reviews.
+>>=20
+>
+>Changli
+>
+>I answered you a (difficult) work was in progress
 
-I suspected it, but thanks for the confirmation.
+Was it? Quoting Patrick from 24h prior to this post:
 
->=20
-> >> In principle, I do not want to access the MII regs of the MAC beca=
-use
-> >> eth0 and eth1 are connected to switches. But that's not possible, =
-even
-> >> with "aup->phy_static_config=3D1" and "aup->phy_addr=3D0".
-> >=20
-> > If you think this is another issue, I will fix it in another patch.
->=20
-> Accessing the MII registers of the MAC should not hang the system eve=
-n
-> if I do not need to. First I want to  understand why. Looks like a wi=
-red
-> optimizer issue.
+|so patches to get rid of the table duplication are highly welcome.
 
-I definitively agree, furthermore since there is a timeout for read and=
- write=20
-operations. I will look at the assembly and see if I can see anything=20
-different.
+>still you post a patch that needs our review and time ? This is crazy.
 
->=20
-> BTW: why do you use readl() and writel() instead of the usual au_read=
-l()
-> and au_writel() to access memory mapped cpu registers? It did not hel=
-p,
-> anyway.
+You do not need to do it, but I will happily look at this.
+Of course my observations are the same as yours:
 
-This is just because they are generic accessors, and the au_{readl,writ=
-el}=20
-variants were not different.
+>Your way of allocating a percpu counter for each counter is a pure TLB
+>and cache line blower (up to two cache lines per counter), not countin=
+g
+>the time needed to load a new table with 10.000 entries. Some people
+>still use scripts with hundred of calls to iptables.
+
+The two are statistically independent though. Even for a loaded=20
+ruleset, the TLB/DC miss accumulation will be desastrous - as I've foun=
+d=20
+with linked-list rules/small allocs.
+
+>Allocating one contiguous percpu var for all counters is a must.
+>
+>Problem is : percpu alloc doesnt allow big allocations.
+>
+>#define PCPU_MIN_UNIT_SIZE      PFN_ALIGN(32 << 10)
+>
+>So max allocation is 32 Kbytes, thats 2048 'xt_counters' only.
+>-> cannot really use pcpu-alloc, but a kmalloc_node() or vmalloc_node(=
+)
+>per cpu
+
+=2E. as is already done for jumpstack ;-)
 --
-=46lorian
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
