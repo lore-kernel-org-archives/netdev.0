@@ -1,64 +1,81 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: Generalizing mmap'ed sockets
-Date: Fri, 19 Nov 2010 14:49:46 -0800
-Message-ID: <AANLkTik7HU0wyub3krZb_aABsHp-_LvNLtAr5CaAo4_A@mail.gmail.com>
-References: <4CE6ED09.70602@hp.com>
-	<20101119.135213.15239226.davem@davemloft.net>
-	<4CE6F2FD.8080301@hp.com>
-	<20101119.140818.242132853.davem@davemloft.net>
+From: Mark Lord <kernel-R6A+fiHC8nRWk0Htik3J/w@public.gmane.org>
+Subject: Re: 2.6.37-rc2-git4: Reported regressions 2.6.35 -> 2.6.36
+Date: Fri, 19 Nov 2010 17:55:42 -0500
+Message-ID: <4CE7006E.4040102@teksavvy.com>
+References: <tTUH_XeInOH.A.dMF.c3b5MB@chimera>	<4CE5C919.7090504@teksavvy.com> <AANLkTi=8G7pNA7QTxaXDWKrWrCERPfmKU+nLJWCA=JUH@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: rick.jones2@hp.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:23261 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757161Ab0KSWuB convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Nov 2010 17:50:01 -0500
-Received: from kpbe15.cbf.corp.google.com (kpbe15.cbf.corp.google.com [172.25.105.79])
-	by smtp-out.google.com with ESMTP id oAJMo0Vg003811
-	for <netdev@vger.kernel.org>; Fri, 19 Nov 2010 14:50:00 -0800
-Received: from pvg2 (pvg2.prod.google.com [10.241.210.130])
-	by kpbe15.cbf.corp.google.com with ESMTP id oAJMnkpd004590
-	for <netdev@vger.kernel.org>; Fri, 19 Nov 2010 14:49:57 -0800
-Received: by pvg2 with SMTP id 2so1439314pvg.2
-        for <netdev@vger.kernel.org>; Fri, 19 Nov 2010 14:49:46 -0800 (PST)
-In-Reply-To: <20101119.140818.242132853.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
+	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	DRI <dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org>,
+	Florian Mickler <florian-sVu6HhrpSfRAfugRpC6u6w@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	Maciej Rutecki <maciej.rutecki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Alex Deucher <alexdeucher-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <AANLkTi=8G7pNA7QTxaXDWKrWrCERPfmKU+nLJWCA=JUH-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> I think the ACK (or for UDP, the kfree_skb() after TX completes) shou=
-ld
-> move the consumer pointer. =A0Otherwise you have to copy, and the ACK=
-s
-> do not clock the sender process properly.
+On 10-11-19 11:39 AM, Alex Deucher wrote:
+> On Thu, Nov 18, 2010 at 7:47 PM, Mark Lord<kernel-R6A+fiHC8nRWk0Htik3J/w@public.gmane.org>  wrote:
 >
-Right, with the caveats that even ACK'ed data might still go out on
-the with that was discussed in the vmsplice() related patches.  I
-don't think this should make the problem any worse.
-
-> But you do bring up an interesting point about TX buffer space sizing=
-=2E
+>> My non-Intel graphics notebook (has ATI X1400 graphics) also has a resume
+>> regression with 2.6.36.  But it does work fine with 2.6.35 (and earlier,
+>> back many years).  As a result, I'm stuck with 2.6.35 for the time being,
+>> and lack the time for a concerted debug effort on 2.6.36+ right now.
+>>
 >
-> This whole scheme currently seems to completely ignore buffer size
-> auto-tuning done by TCP, and that won't fly I think. :-)
+> Can you bisect?  Does this patch help?
 >
-> The whole point is to make it so that applications do not need to kno=
-w
-> about that aspect of buffering at all. =A0With the current mmap desig=
-n
-> we're back to the stone ages where the app essentially has to pick an
-> explicit send buffer size.
+> diff --git a/drivers/gpu/drm/radeon/atom.c b/drivers/gpu/drm/radeon/atom.c
+> index 8e421f6..05efb5b 100644
+> --- a/drivers/gpu/drm/radeon/atom.c
+> +++ b/drivers/gpu/drm/radeon/atom.c
+> @@ -112,6 +112,7 @@ static uint32_t atom_iio_execute(struct
+> atom_context *ctx, int base,
+>                          base += 3;
+>                          break;
+>                  case ATOM_IIO_WRITE:
+> +                       (void)ctx->card->ioreg_read(ctx->card, CU16(base + 1));
+>                          ctx->card->ioreg_write(ctx->card, CU16(base + 1), temp);
+>                          base += 3;
+>                          break;
 
-True, and I would never say that this is suitable replacement for all
-TCP transmit.  However, there are specialized applications where this
-could be applied.  Note that the buffer is not just a kernel buffer,
-it is also an application visible buffer with more purpose than just
-buffering data for transmit.  For instance, an application using RPC
-could assemble it's message directly into this buffer (which is cool).
- The obvious alternative would be to malloc a buffer and then just use
-vmsplice(), either way the application will be allocating a send
-buffer for its work.
+It now comes back at resume time.
 
-Tom
+But suffers long delays (also sometimes with 2.6.35) doing this:
+
+[drm:atom_op_jump] *ERROR* atombios stuck in loop for more than 5secs aborting
+[drm:atom_execute_table_locked] *ERROR* atombios stuck executing E576 (len 105, 
+WS 12, PS 8) @ 0xE5C4
+[drm:atom_op_jump] *ERROR* atombios stuck in loop for more than 5secs aborting
+[drm:atom_execute_table_locked] *ERROR* atombios stuck executing ECD2 (len 86, 
+WS 4, PS 0) @ 0xED05
+[drm:atom_op_jump] *ERROR* atombios stuck in loop for more than 5secs aborting
+[drm:atom_execute_table_locked] *ERROR* atombios stuck executing E576 (len 105, 
+WS 12, PS 8) @ 0xE5C4
+PM: resume of devices complete after 15718.253 msecs
+
+So I did this (local hack only, obviously NOT for mainline) to work around that 
+issue:
+
+--- linux-2.6.36/drivers/gpu/drm/radeon/atom.c  2010-10-20 16:30:22.000000000 -0400
++++ linux/drivers/gpu/drm/radeon/atom.c 2010-11-19 17:14:21.141807003 -0500
+@@ -1150,6 +1151,7 @@
+
+         if (!base)
+                 return -EINVAL;
++       if (base == 0xe576 || base == 0xecd2) return 0;  /* prevent freezes on 
+Dell i9400 w/X1400 */
+
+         len = CU16(base + ATOM_CT_SIZE_PTR);
+         ws = CU8(base + ATOM_CT_WS_PTR);
