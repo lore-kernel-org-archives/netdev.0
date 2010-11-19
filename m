@@ -1,102 +1,88 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next-2.6] filter: cleanup codes[] init
-Date: Fri, 19 Nov 2010 10:54:27 +0100
-Message-ID: <1290160467.3034.33.camel@edumazet-laptop>
-References: <1290132284-12328-1-git-send-email-xiaosuo@gmail.com>
-	 <b2c34db84e88366e465af590900ae3db@localhost>
-	 <AANLkTinccn2Biwh7d6d4kZJrJTgGbLjKApi2+dwGnvVL@mail.gmail.com>
-	 <1290153111.29509.2.camel@edumazet-laptop>
-	 <1290153398.29509.7.camel@edumazet-laptop>
-	 <AANLkTikxUnj-_ov_5o6zDffv2M8J8JJg-M5HS6dr4s=a@mail.gmail.com>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: alchemy/gpr: au1000_eth regression with v2.6.37rc2
+Date: Fri, 19 Nov 2010 11:29:45 +0100
+Message-ID: <4CE65199.7030007@grandegger.com>
+References: <4CE58593.50509@grandegger.com> <201011182330.08488.florian@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Hagen Paul Pfeifer <hagen@jauu.net>, netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
+Cc: Linux-MIPS <linux-mips@linux-mips.org>, Netdev@vger.kernel.org
+To: Florian Fainelli <florian@openwrt.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:60695 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752168Ab0KSJyc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Nov 2010 04:54:32 -0500
-Received: by wyb28 with SMTP id 28so4248998wyb.19
-        for <netdev@vger.kernel.org>; Fri, 19 Nov 2010 01:54:31 -0800 (PST)
-In-Reply-To: <AANLkTikxUnj-_ov_5o6zDffv2M8J8JJg-M5HS6dr4s=a@mail.gmail.com>
+In-Reply-To: <201011182330.08488.florian@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 19 novembre 2010 =C3=A0 16:38 +0800, Changli Gao a =C3=A9cr=
-it :
+Hello Florian,
 
-> I compared the asm code of sk_run_filter.
-
-> As you see, an additional 'dec %edx' instruction is inserted.
-> sk_chk_filter() only runs 1 times, I think we can afford the 'dec
-> instruction' and 'dirty' code, but sk_run_filter() runs much often,
-> this additional dec instruction isn't affordable.
+On 11/18/2010 11:30 PM, Florian Fainelli wrote:
+> Hello Wolfgang,
 >=20
+> Le Thursday 18 November 2010 20:59:15, Wolfgang Grandegger a =E9crit =
+:
+>> Hello,
+>>
+>> I just realized that the v2.6.37-rc2 kernel does not boot any more o=
+n
+>> the Alchemy GPR board. It works fine with v2.6.36. It hangs in the
+>> probe function of the au1000_eth driver when probing the second
+>> ethernet port (eth1):
+>>
+>>   au1000_eth_mii: probed
+>>   au1000-eth au1000-eth.0: (unregistered net_device): attached PHY d=
+river
+>> [Generic PHY] (mii_bus:phy_addr=3D0:00, irq=3D-1) au1000-eth au1000-=
+eth.0:
+>> eth0: Au1xx0 Ethernet found at 0x10500000, irq 35 au1000_eth: au1000=
+_eth
+>> version 1.7 Pete Popov <ppopov@embeddedalley.com> ... hangs ...
+>>
+>> Similar messages should follow for eth1. I narrowed down (bisect'ed)=
+ the
+>> problem to commit:
+>>
+>>   commit d0e7cb5d401695809ba8c980124ab1d8c66efc8b
+>>   Author: Florian Fainelli <florian@openwrt.org>
+>>   Date:   Wed Sep 8 11:15:13 2010 +0000
+>>
+>>     au1000-eth: remove volatiles, switch to I/O accessors
+>>
+>>     Remove all the volatile keywords where they were used, switch to=
+ using
+>> the proper readl/writel accessors.
+>>
+>>     Signed-off-by: Florian Fainelli <florian@openwrt.org>
+>>     Signed-off-by: David S. Miller <davem@davemloft.net>
+>>
+>> The kernel actually hangs when accessing "&aup->mac->mii_control" in
+>> au1000_mdio_read(), but only for eth1. Any idea what does go wrong?
+>=20
+> I do not understand so far while it hangs only for eth1. My device on=
+ly has=20
+> one ethernet MAC, so I could not notice the problem. Looking at this =
+close,=20
+> there are a couple of u32 const* usages in au1000_mdio_{read,write} w=
+hich are=20
+> looking wrong to me now. Can you try to remove these?
 
-Maybe on your setup. By the way, the=20
+That did not help.
 
-u32 f_k =3D fentry->k;
+>> In principle, I do not want to access the MII regs of the MAC becaus=
+e
+>> eth0 and eth1 are connected to switches. But that's not possible, ev=
+en
+>> with "aup->phy_static_config=3D1" and "aup->phy_addr=3D0".
+>=20
+> If you think this is another issue, I will fix it in another patch.
 
-that David added in commit 57fe93b374a6b871
+Accessing the MII registers of the MAC should not hang the system even
+if I do not need to. First I want to  understand why. Looks like a wire=
+d
+optimizer issue.
 
-was much more a problem on arches with not enough registers.
+BTW: why do you use readl() and writel() instead of the usual au_readl(=
+)
+and au_writel() to access memory mapped cpu registers? It did not help,
+anyway.
 
-x86_32 for example : compiler use a register (%esi on my gcc-4.5.1) to
-store f_k, and more important A register is now stored in stack instead
-of a cpu register.
-
-
-
-On my compilers
-
- gcc version 4.4.5 (Ubuntu/Linaro 4.4.4-14ubuntu5) 64bit
- gcc-4.5.1 (self compiled) 32bit
-
-result code was the same, before and after patch
-
-Most probably you have "CONFIG_CC_OPTIMIZE_FOR_SIZE=3Dy" which
-unfortunately is known to generate poor looking code.
-
- 39b:	49 8d 14 c6          	lea    (%r14,%rax,8),%rdx
- 39f:	66 83 3a 2d          	cmpw   $0x2d,(%rdx)
- 3a3:	8b 42 04             	mov    0x4(%rdx),%eax             // f_k =3D=
- fentry->k;
- 3a6:	76 28                	jbe    3d0 <sk_run_filter+0x70>
-
- 3d0:	0f b7 0a             	movzwl (%rdx),%ecx
- 3d3:	ff 24 cd 00 00 00 00 	jmpq   *0x0(,%rcx,8)
-
-
-32bit code:
-
- 2e0:	8d 04 df             	lea    (%edi,%ebx,8),%eax
- 2e3:	66 83 38 2d          	cmpw   $0x2d,(%eax)
- 2e7:	8b 70 04             	mov    0x4(%eax),%esi  // f_k =3D fentry->k=
-;
- 2ea:	76 1c                	jbe    308 <sk_run_filter+0x58>
-
- 308:	0f b7 10             	movzwl (%eax),%edx
- 30b:	ff 24 95 38 00 00 00 	jmp    *0x38(,%edx,4)
-
-
-DIV_X instruction :
- 480:	8b 45 a4             	mov    -0x5c(%ebp),%eax
- 483:	85 c0                	test   %eax,%eax
- 485:	0f 84 9d fe ff ff    	je     328 <sk_run_filter+0x78>
- 48b:	8b 45 ac             	mov    -0x54(%ebp),%eax   // A
- 48e:	31 d2                	xor    %edx,%edx
- 490:	f7 75 a4             	divl   -0x5c(%ebp)
- 493:	89 45 ac             	mov    %eax,-0x54(%ebp)  // A
- 496:	e9 85 fe ff ff       	jmp    320 <sk_run_filter+0x70>
-
-
-I believe we should revert the u32 f_k =3D fentry->k; part
-
-fentry->k as is fast as f_k if stored on stack, and avoids one
-instruction if fentry->k is not needed.
-
-
-
+Wolfgang
