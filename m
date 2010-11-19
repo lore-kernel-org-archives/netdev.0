@@ -1,94 +1,62 @@
-From: Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
-Subject: [PATCH net-next-2.6 17/17] can: EG20T PCH: Optimize "if" condition
- in rx/tx processing
-Date: Fri, 19 Nov 2010 14:51:35 +0900
-Message-ID: <4CE61067.4080801__30863.4356050336$1290145958$gmane$org@dsn.okisemi.com>
+From: "Tomoya MORINAGA" <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6 v3] can: Topcliff: PCH_CAN driver: Add Flow
+	control,
+Date: Fri, 19 Nov 2010 15:18:58 +0900
+Message-ID: <007401cb87b1$a773b3d0$66f8800a@maildom.okisemi.com>
+References: <4CE2434B.5050701@dsn.okisemi.com>
+	<4CE27796.2000206@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: qi.wang@intel.com, yong.y.wang@intel.com,
-	andrew.chih.howe.khor@intel.com, joel.clark@intel.com,
-	kok.howg.ewe@intel.com, margie.foster@intel.com
-To: Wolfgang Grandegger <wg@grandegger.com>,
-	Wolfram Sang <w.sang@pengutronix.de>,
-	Christian Pellegrin <chripell@fsfe.org>,
-	Barry Song <21cnbao@gmail.com>,
-	Samuel Ortiz <sameo@linux.inte
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sm-d311v.smileserver.ne.jp ([203.211.202.206]:15232 "EHLO
-	sm-d311v.smileserver.ne.jp" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751936Ab0KSFvy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Nov 2010 00:51:54 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	Masayuki Ohtake <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>,
+	Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>, margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
+	joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+To: "Marc Kleine-Budde" <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-For reduce "if" condition, easy to read/understand the code,
-optimize "if" condition in rx/tx processing.
+On Tuesday, November 16, 2010 9:22 PM, Marc Kleine-Budde wrote :
 
-Signed-off-by: Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
+Except the following, I have updated/resubmitted already .
+
+>>  static int pch_can_rx_poll(struct napi_struct *napi, int quota)
+>>  {
+>>   struct net_device *ndev = napi->dev;
+>>   struct pch_can_priv *priv = netdev_priv(ndev);
+>> - struct net_device_stats *stats = &(priv->ndev->stats);
+>> - u32 dlc;
+>>   u32 int_stat;
+>>   int rcv_pkts = 0;
+                    ^^^^
+>can be removed...if you remove the += below
+Since there is "goto" code, "=0" is better.
+
+
+
+>> - spin_unlock_irqrestore(&priv->msgif_reg_lock, flags);
+>> + pch_can_rw_msg_obj(&priv->regs->ifregs[1].creq, tx_obj_no);
+>Still we have the busy waiting in the TX path. Maybe you can move the
+>waiting before accessing the if[1] and remove the busy waiting here.
+I can't understand your saying.
+For transmitting data, calling pch_can_rw_msg_obj is mandatory.
+
+
 ---
- drivers/net/can/pch_can.c |   26 ++++++++++----------------
- 1 files changed, 10 insertions(+), 16 deletions(-)
+Thanks,
 
-diff --git a/drivers/net/can/pch_can.c b/drivers/net/can/pch_can.c
-index 48f4a2e..0ecb0d5 100644
---- a/drivers/net/can/pch_can.c
-+++ b/drivers/net/can/pch_can.c
-@@ -758,19 +758,16 @@ static int pch_can_poll(struct napi_struct *napi, int quota)
- 
- 	if (int_stat == PCH_STATUS_INT) {
- 		reg_stat = ioread32(&priv->regs->stat);
--		if (reg_stat & (PCH_BUS_OFF | PCH_LEC_ALL)) {
--			if (reg_stat & PCH_BUS_OFF ||
--			   (reg_stat & PCH_LEC_ALL) != PCH_LEC_ALL) {
--				pch_can_error(ndev, reg_stat);
--				quota--;
--			}
--		}
- 
--		if (reg_stat & PCH_TX_OK)
--			pch_can_bit_clear(&priv->regs->stat, PCH_TX_OK);
-+		if ((reg_stat & (PCH_BUS_OFF | PCH_LEC_ALL)) &&
-+		   ((reg_stat & PCH_LEC_ALL) != PCH_LEC_ALL)) {
-+			pch_can_error(ndev, reg_stat);
-+			quota--;
-+		}
- 
--		if (reg_stat & PCH_RX_OK)
--			pch_can_bit_clear(&priv->regs->stat, PCH_RX_OK);
-+		if (reg_stat & (PCH_TX_OK | PCH_RX_OK))
-+			pch_can_bit_clear(&priv->regs->stat,
-+					  reg_stat & (PCH_TX_OK | PCH_RX_OK));
- 
- 		int_stat = pch_can_int_pending(priv);
- 	}
-@@ -917,14 +914,13 @@ static netdev_tx_t pch_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	if (can_dropped_invalid_skb(ndev, skb))
- 		return NETDEV_TX_OK;
- 
-+	tx_obj_no = priv->tx_obj;
- 	if (priv->tx_obj == PCH_TX_OBJ_END) {
- 		if (ioread32(&priv->regs->treq2) & PCH_TREQ2_TX_MASK)
- 			netif_stop_queue(ndev);
- 
--		tx_obj_no = priv->tx_obj;
- 		priv->tx_obj = PCH_TX_OBJ_START;
- 	} else {
--		tx_obj_no = priv->tx_obj;
- 		priv->tx_obj++;
- 	}
- 
-@@ -947,9 +943,7 @@ static netdev_tx_t pch_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	id2 |= PCH_ID_MSGVAL;
- 
- 	/* If remote frame has to be transmitted.. */
--	if (cf->can_id & CAN_RTR_FLAG)
--		id2 &= ~PCH_ID2_DIR;
--	else
-+	if (!(cf->can_id & CAN_RTR_FLAG))
- 		id2 |= PCH_ID2_DIR;
- 
- 	iowrite32(id2, &priv->regs->ifregs[1].id2);
--- 
-1.6.0.6
-
+Tomoya MORINAGA
+OKI SEMICONDUCTOR CO., LTD.
