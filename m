@@ -1,38 +1,41 @@
 From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [RFC][PATCH 0/5] RFS hardware acceleration (v2)
-Date: Fri, 19 Nov 2010 13:16:46 -0800
-Message-ID: <4CE6E93E.7000901@hp.com>
-References: <1290192176.2671.38.camel@bwh-desktop> <1290194386.2671.59.camel@bwh-desktop>
+Subject: Re: Generalizing mmap'ed sockets
+Date: Fri, 19 Nov 2010 13:32:57 -0800
+Message-ID: <4CE6ED09.70602@hp.com>
+References: <AANLkTi=WF2hAGAufv_Anc=b=Fm2WOpOMOv1UrDRvaTHp@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Tom Herbert <therbert@google.com>, netdev@vger.kernel.org,
-	linux-net-drivers@solarflare.com
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g6t0184.atlanta.hp.com ([15.193.32.61]:20227 "EHLO
-	g6t0184.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755662Ab0KSVXz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Nov 2010 16:23:55 -0500
-In-Reply-To: <1290194386.2671.59.camel@bwh-desktop>
+Received: from g4t0016.houston.hp.com ([15.201.24.19]:7543 "EHLO
+	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752823Ab0KSVdJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Nov 2010 16:33:09 -0500
+In-Reply-To: <AANLkTi=WF2hAGAufv_Anc=b=Fm2WOpOMOv1UrDRvaTHp@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ben Hutchings wrote:
-> So, some preliminary benchmark results.
-> 
-> Tom said he was using 200 concurrent netperf TCP_RR tests, so I've done
-> the same, using netperf 2.4.1 (a bit out of date, I know).
+I suppose then one would be able to track the consumer pointer (on tx) to "know" 
+that certain data had been ACKed by the remote?  For TCP anyway - and assuming 
+there wouldn't be a case where TCP might copy the data out of the ring and 
+assert "completion."
 
-Not a huge deal for a basic TCP_RR test though.
+How would the mmap'ing interact with autotuning?  Particularly in the "future 
+case" of HW support for true zero copy on receive.
 
-<data snipped>
+Today I can be assured that data I receieve is on a "nice" boundary in my memory 
+by virtue of the buffer pointer I pass to the recv() call, but with the "rings" 
+(they are simply some chunk of virtually continguous data yes?) it will just be 
+bumped up against the end of the last one - I'm wondering if that might not be a 
+problem, especially for UDP datagrams, but even for TCP data?  It is one thing 
+to have people pad structures in the memory of a system, but telling them to 
+pad-out the messages they send across the network to maintain alignment is 
+rather different.
 
-> So accelerated RFS gave a 6-13% improvement over software RFS in
-> transaction rate for these various cases.
-
-Do you have any data on frequency with which unpinned netperf processes migrated 
-from one core to another?  Or PCIe utilization?
+How do you differentiate between a "there is data to send" and "I want to send a 
+zero-legnth datagram for a UDP socket?  I think you will have to do/overload 
+something other than a send() call for the trigger.
 
 rick jones
