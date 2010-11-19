@@ -1,41 +1,71 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: netlink stats and message ordering.
-Date: Fri, 19 Nov 2010 10:20:17 -0800
-Message-ID: <4CE6BFE1.6020404@candelatech.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [RFC][PATCH 0/5] RFS hardware acceleration (v2)
+Date: Fri, 19 Nov 2010 18:42:56 +0000
+Message-ID: <1290192176.2671.38.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: NetDev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:40066 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751705Ab0KSSUS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Nov 2010 13:20:18 -0500
-Received: from [192.168.100.195] (firewall.candelatech.com [70.89.124.249])
-	(authenticated bits=0)
-	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id oAJIKHnp021246
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Fri, 19 Nov 2010 10:20:17 -0800
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-net-drivers@solarflare.com
+To: David Miller <davem@davemloft.net>,
+	Tom Herbert <therbert@google.com>,
+	Thomas Gleixner <tglx@linutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I have a single netlink socket that listens for various things,
-as well as requests netdev stats and such.
+This patch series extends RFS to use hardware RX filters where
+available.  Depending on the number of hardware RX queues and their
+IRQs' affinity, this should reduce the need for IPIs or at least get
+packets delivered to the right NUMA node.
 
-I am seeing a case during interface creation (mac-vlans) where I get one set of stats
-that appears to show 1 packet transmitted, and then immediately after that,
-a second set of stats for the same device that shows all zero counters.
+The first patch implements IRQ affinity notifiers, based on the outline
+that Thomas Gleixner wrote in response to the previous version of this
+patch series.
 
-Since I'm trying to handle wraps properly, my code tends to consider this
-a wrap and of course the numbers go all wrong since it wasn't really a wrap.
+The second patch is a generalisation of the CPU affinity reverse-
+mapping, plus functions to maintain such a mapping based on the new IRQ
+affinity notifiers.
 
-I am wondering if it's possible that netlink messages are somehow being
-re-ordered before they are sent to my application?
+The remaining patches add the RFS acceleration hooks and an
+implementation in the sfc driver.  These are largely unchanged from the
+previous version of this patch series; I haven't yet had the time to do
+further tuning yet.  However I have done some more benchmarking and will
+send some results in a separate follow-up to this.
 
-Thanks,
-Ben
+Ben.
+
+Ben Hutchings (5):
+  genirq: Add IRQ affinity notifiers
+  lib: cpu_rmap: CPU affinity reverse-mapping
+  net: RPS: Enable hardware acceleration
+  sfc: Limit filter search depth further for performance hints (i.e.
+    RFS)
+  sfc: Implement RFS acceleration
+
+ drivers/net/sfc/Kconfig   |    4 +
+ drivers/net/sfc/efx.c     |   66 ++++++++++--
+ drivers/net/sfc/efx.h     |    9 ++
+ drivers/net/sfc/filter.c  |  113 ++++++++++++++++++-
+ include/linux/cpu_rmap.h  |   73 ++++++++++++
+ include/linux/interrupt.h |   41 +++++++
+ include/linux/irqdesc.h   |    3 +
+ include/linux/netdevice.h |   31 +++++-
+ kernel/irq/manage.c       |   81 +++++++++++++
+ lib/Kconfig               |    4 +
+ lib/Makefile              |    2 +
+ lib/cpu_rmap.c            |  272 +++++++++++++++++++++++++++++++++++++++++++++
+ net/Kconfig               |    1 +
+ net/core/dev.c            |   89 ++++++++++++++-
+ 14 files changed, 767 insertions(+), 22 deletions(-)
+ create mode 100644 include/linux/cpu_rmap.h
+ create mode 100644 lib/cpu_rmap.c
 
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+1.7.3.2
 
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
