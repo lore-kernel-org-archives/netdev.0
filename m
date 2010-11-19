@@ -1,38 +1,39 @@
-From: Clemens Ladisch <clemens@ladisch.de>
-Subject: Re: [alsa-devel] sound playback became chopping on nfs rootfs
-Date: Fri, 19 Nov 2010 09:15:11 +0100
-Message-ID: <4CE6320F.6060600@ladisch.de>
-References: <w3ptyjfrqde.wl%kuninori.morimoto.gx@renesas.com>	<4CE4EBE8.8030702@ladisch.de> <w3p39qx4ty8.wl%kuninori.morimoto.gx@renesas.com>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH net-next-2.6] filter: use reciprocal divide
+Date: Fri, 19 Nov 2010 16:18:05 +0800
+Message-ID: <AANLkTi=qR==8g2Z_GeAOsczVmUS3yj1PnsOfoU7zbudG@mail.gmail.com>
+References: <1290132284-12328-1-git-send-email-xiaosuo@gmail.com>
+ <b2c34db84e88366e465af590900ae3db@localhost> <AANLkTinccn2Biwh7d6d4kZJrJTgGbLjKApi2+dwGnvVL@mail.gmail.com>
+ <1290153111.29509.2.camel@edumazet-laptop> <1290153398.29509.7.camel@edumazet-laptop>
+ <1290153886.29509.10.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Linux-Net <netdev@vger.kernel.org>,
-	Linux-ALSA <alsa-devel@alsa-project.org>,
-	Chuck Lever <chuck.lever@oracle.com>
-To: Kuninori Morimoto <kuninori.morimoto.gx@renesas.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Hagen Paul Pfeifer <hagen@jauu.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1.smtp.messagingengine.com ([66.111.4.25]:32991 "EHLO
-	out1.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750887Ab0KSINa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Nov 2010 03:13:30 -0500
-In-Reply-To: <w3p39qx4ty8.wl%kuninori.morimoto.gx@renesas.com>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:63724 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751625Ab0KSIS2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Nov 2010 03:18:28 -0500
+Received: by fxm13 with SMTP id 13so440695fxm.19
+        for <netdev@vger.kernel.org>; Fri, 19 Nov 2010 00:18:27 -0800 (PST)
+In-Reply-To: <1290153886.29509.10.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Kuninori Morimoto wrote:
-> > Apparently, the latest kernel uses different mount options.
-> > 
-> > Try to find out what mount options your root FS had in the old kernel,
-> > and manually set them in some startup script.
-> 
-> OK. Thanks. I try it.
-> Does this "mount options" mean root_mountflags ?
+On Fri, Nov 19, 2010 at 4:04 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> At compile time, we can replace the DIV_K instruction (divide by a
+> constant value) by a reciprocal divide.
+>
+> At exec time, the expensive divide is replaced by a multiply, a less
+> expensive operation on most processors.
+>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-No; the defaults for options that are not set in root_mountflags
-have changed.
-
-Try /proc/mounts.
+Acked-by: Changli Gao <xiaosuo@gmail.com>
 
 
+-- 
 Regards,
-Clemens
+Changli Gao(xiaosuo@gmail.com)
