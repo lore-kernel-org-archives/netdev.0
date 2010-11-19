@@ -1,118 +1,107 @@
-From: David Daney <ddaney-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>
-Subject: [PATCH 2/2] phylib: Add support for Marvell 88E1149R devices.
-Date: Fri, 19 Nov 2010 13:58:53 -0800
-Message-ID: <1290203933-28251-3-git-send-email-ddaney@caviumnetworks.com>
-References: <1290203933-28251-1-git-send-email-ddaney@caviumnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: David Daney <ddaney-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>,
-	Arnaud Patard <arnaud.patard-dQbF7i+pzddAfugRpC6u6w@public.gmane.org>, Cyril Chemparathy <cyril-l0cyMroinI0@public.gmane.org>
-To: devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <1290203933-28251-1-git-send-email-ddaney-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+From: Greg KH <gregkh@suse.de>
+Subject: [70/82] Limit sysctl_tcp_mem and sysctl_udp_mem initializers to prevent integer overflows.
+Date: Fri, 19 Nov 2010 13:56:31 -0800
+Message-ID: <20101119215644.501636375@clark.site>
+Cc: stable-review@kernel.org, torvalds@linux-foundation.org,
+	akpm@linux-foundation.org, alan@lxorguk.ukuu.org.uk,
+	Robin Holt <holt@sgi.com>, Willy Tarreau <w@1wt.eu>,
+	netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Vlad Yasevich <vladislav.yasevich@hp.com>,
+	Sridhar Samudrala <sri@us.ibm.com>
+To: linux-kernel@vger.kernel.org, stable@kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20101119215658.GA7804@kroah.com
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The 88E1149R is 10/100/1000 quad-gigabit Ethernet PHY.  The
-.config_aneg function can be shared with 88E1118, but it needs its own
-.config_init.
+2.6.35-stable review patch.  If anyone has any objections, please let us know.
 
-Signed-off-by: David Daney <ddaney-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>
-Cc: Cyril Chemparathy <cyril-l0cyMroinI0@public.gmane.org>
-Cc: Arnaud Patard <arnaud.patard-dQbF7i+pzddAfugRpC6u6w@public.gmane.org>
-Cc: Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
-Cc: Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+------------------
+
+
+On a 16TB x86_64 machine, sysctl_tcp_mem[2], sysctl_udp_mem[2], and
+sysctl_sctp_mem[2] can integer overflow.  Set limit such that they are
+maximized without overflowing.
+
+Signed-off-by: Robin Holt <holt@sgi.com>
+To: "David S. Miller" <davem@davemloft.net>
+Cc: Willy Tarreau <w@1wt.eu>
+Cc: linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org
+Cc: linux-sctp@vger.kernel.org
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: "Pekka Savola (ipv6)" <pekkas@netcore.fi>
+Cc: James Morris <jmorris@namei.org>
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: Vlad Yasevich <vladislav.yasevich@hp.com>
+Cc: Sridhar Samudrala <sri@us.ibm.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
 ---
- drivers/net/phy/marvell.c   |   40 ++++++++++++++++++++++++++++++++++++++++
- include/linux/marvell_phy.h |    1 +
- 2 files changed, 41 insertions(+), 0 deletions(-)
+ net/ipv4/tcp.c      |    4 +++-
+ net/ipv4/udp.c      |    4 +++-
+ net/sctp/protocol.c |    4 +++-
+ 3 files changed, 9 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-index 3600b8b..def19d7 100644
---- a/drivers/net/phy/marvell.c
-+++ b/drivers/net/phy/marvell.c
-@@ -433,6 +433,32 @@ static int m88e1118_config_init(struct phy_device *phydev)
- 	return 0;
- }
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -3252,12 +3252,14 @@ void __init tcp_init(void)
  
-+static int m88e1149_config_init(struct phy_device *phydev)
-+{
-+	int err;
-+
-+	/* Change address */
-+	err = phy_write(phydev, MII_MARVELL_PHY_PAGE, 0x0002);
-+	if (err < 0)
-+		return err;
-+
-+	/* Enable 1000 Mbit */
-+	err = phy_write(phydev, 0x15, 0x1048);
-+	if (err < 0)
-+		return err;
-+
-+	/* Reset address */
-+	err = phy_write(phydev, MII_MARVELL_PHY_PAGE, 0x0);
-+	if (err < 0)
-+		return err;
-+
-+	err = phy_write(phydev, MII_BMCR, BMCR_RESET);
-+	if (err < 0)
-+		return err;
-+
-+	return 0;
-+}
-+
- static int m88e1145_config_init(struct phy_device *phydev)
- {
- 	int err;
-@@ -686,6 +712,19 @@ static struct phy_driver marvell_drivers[] = {
- 		.driver = { .owner = THIS_MODULE },
- 	},
- 	{
-+		.phy_id = MARVELL_PHY_ID_88E1149R,
-+		.phy_id_mask = MARVELL_PHY_ID_MASK,
-+		.name = "Marvell 88E1149R",
-+		.features = PHY_GBIT_FEATURES,
-+		.flags = PHY_HAS_INTERRUPT,
-+		.config_init = &m88e1149_config_init,
-+		.config_aneg = &m88e1118_config_aneg,
-+		.read_status = &genphy_read_status,
-+		.ack_interrupt = &marvell_ack_interrupt,
-+		.config_intr = &marvell_config_intr,
-+		.driver = { .owner = THIS_MODULE },
-+	},
-+	{
- 		.phy_id = MARVELL_PHY_ID_88E1240,
- 		.phy_id_mask = MARVELL_PHY_ID_MASK,
- 		.name = "Marvell 88E1240",
-@@ -736,6 +775,7 @@ static struct mdio_device_id __maybe_unused marvell_tbl[] = {
- 	{ 0x01410e10, 0xfffffff0 },
- 	{ 0x01410cb0, 0xfffffff0 },
- 	{ 0x01410cd0, 0xfffffff0 },
-+	{ 0x01410e50, 0xfffffff0 },
- 	{ 0x01410e30, 0xfffffff0 },
- 	{ 0x01410e90, 0xfffffff0 },
- 	{ }
-diff --git a/include/linux/marvell_phy.h b/include/linux/marvell_phy.h
-index 1ff81b5..dd3c34e 100644
---- a/include/linux/marvell_phy.h
-+++ b/include/linux/marvell_phy.h
-@@ -11,6 +11,7 @@
- #define MARVELL_PHY_ID_88E1118		0x01410e10
- #define MARVELL_PHY_ID_88E1121R		0x01410cb0
- #define MARVELL_PHY_ID_88E1145		0x01410cd0
-+#define MARVELL_PHY_ID_88E1149R		0x01410e50
- #define MARVELL_PHY_ID_88E1240		0x01410e30
- #define MARVELL_PHY_ID_88E1318S		0x01410e90
+ 	/* Set the pressure threshold to be a fraction of global memory that
+ 	 * is up to 1/2 at 256 MB, decreasing toward zero with the amount of
+-	 * memory, with a floor of 128 pages.
++	 * memory, with a floor of 128 pages, and a ceiling that prevents an
++	 * integer overflow.
+ 	 */
+ 	nr_pages = totalram_pages - totalhigh_pages;
+ 	limit = min(nr_pages, 1UL<<(28-PAGE_SHIFT)) >> (20-PAGE_SHIFT);
+ 	limit = (limit * (nr_pages >> (20-PAGE_SHIFT))) >> (PAGE_SHIFT-11);
+ 	limit = max(limit, 128UL);
++	limit = min(limit, INT_MAX * 4UL / 3 / 2);
+ 	sysctl_tcp_mem[0] = limit / 4 * 3;
+ 	sysctl_tcp_mem[1] = limit;
+ 	sysctl_tcp_mem[2] = sysctl_tcp_mem[0] * 2;
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -2167,12 +2167,14 @@ void __init udp_init(void)
+ 	udp_table_init(&udp_table, "UDP");
+ 	/* Set the pressure threshold up by the same strategy of TCP. It is a
+ 	 * fraction of global memory that is up to 1/2 at 256 MB, decreasing
+-	 * toward zero with the amount of memory, with a floor of 128 pages.
++	 * toward zero with the amount of memory, with a floor of 128 pages,
++	 * and a ceiling that prevents an integer overflow.
+ 	 */
+ 	nr_pages = totalram_pages - totalhigh_pages;
+ 	limit = min(nr_pages, 1UL<<(28-PAGE_SHIFT)) >> (20-PAGE_SHIFT);
+ 	limit = (limit * (nr_pages >> (20-PAGE_SHIFT))) >> (PAGE_SHIFT-11);
+ 	limit = max(limit, 128UL);
++	limit = min(limit, INT_MAX * 4UL / 3 / 2);
+ 	sysctl_udp_mem[0] = limit / 4 * 3;
+ 	sysctl_udp_mem[1] = limit;
+ 	sysctl_udp_mem[2] = sysctl_udp_mem[0] * 2;
+--- a/net/sctp/protocol.c
++++ b/net/sctp/protocol.c
+@@ -1161,7 +1161,8 @@ SCTP_STATIC __init int sctp_init(void)
  
--- 
-1.7.2.3
+ 	/* Set the pressure threshold to be a fraction of global memory that
+ 	 * is up to 1/2 at 256 MB, decreasing toward zero with the amount of
+-	 * memory, with a floor of 128 pages.
++	 * memory, with a floor of 128 pages, and a ceiling that prevents an
++	 * integer overflow.
+ 	 * Note this initalizes the data in sctpv6_prot too
+ 	 * Unabashedly stolen from tcp_init
+ 	 */
+@@ -1169,6 +1170,7 @@ SCTP_STATIC __init int sctp_init(void)
+ 	limit = min(nr_pages, 1UL<<(28-PAGE_SHIFT)) >> (20-PAGE_SHIFT);
+ 	limit = (limit * (nr_pages >> (20-PAGE_SHIFT))) >> (PAGE_SHIFT-11);
+ 	limit = max(limit, 128UL);
++	limit = min(limit, INT_MAX * 4UL / 3 / 2);
+ 	sysctl_sctp_mem[0] = limit / 4 * 3;
+ 	sysctl_sctp_mem[1] = limit;
+ 	sysctl_sctp_mem[2] = sysctl_sctp_mem[0] * 2;
