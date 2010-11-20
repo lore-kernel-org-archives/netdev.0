@@ -1,45 +1,26 @@
-From: "Michael D. Berger" <m_d_berger_1900@yahoo.com>
-Subject: Fail Transfer of Large Files
-Date: Fri, 19 Nov 2010 23:45:14 +0000 (UTC)
-Message-ID: <ic726a$dep$1@dough.gmane.org>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Regression 2.6.36 - driver rtl8169 crashes kernel, triggered by
+ user app
+Date: Sat, 20 Nov 2010 01:35:31 +0100
+Message-ID: <20101120003531.GA15167@electric-eye.fr.zoreil.com>
+References: <201011181549.08545@zmi.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lo.gmane.org ([80.91.229.12]:42979 "EHLO lo.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932558Ab0KSXp0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Nov 2010 18:45:26 -0500
-Received: from list by lo.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1PJadx-0002lX-9u
-	for netdev@vger.kernel.org; Sat, 20 Nov 2010 00:45:25 +0100
-Received: from static-71-246-219-24.washdc.fios.verizon.net ([71.246.219.24])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sat, 20 Nov 2010 00:45:25 +0100
-Received: from m_d_berger_1900 by static-71-246-219-24.washdc.fios.verizon.net with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sat, 20 Nov 2010 00:45:25 +0100
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Michael Monnerie <michael.monnerie@is.it-management.at>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <201011181549.08545@zmi.at>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On my intranet, I sometimes transfer large files, about 4G,
-to an CentOS old box that I use for a web server.  I transfer
-with ftp or sftp.  Usually, before the file is complete, the
-transfer "stalls".  At that point, ping from the destination box
-to the router fails.  I then deactivate the net interface on the
-destination box and then activate it.  Ping is then successful,
-and the transfer is completed.  The transferred file is correct,
-as verified with sha1sum.
+Michael Monnerie <michael.monnerie@is.it-management.at> :
+> I did not get any answer, so here again:
 
-All connections are via cat6 wire.
+I already answered one week ago, you were Cc:ed and I had my
+answer delivered through vger. Please check your spambox.
 
-So what do you think?  Should I try changing the net card?
-Any tests to run? Any other suggestions?
+Can you test again after reverting 801e147cde02f04b5c2f42764cd43a89fc7400a2 ?
 
-Thanks for your help.
-
-Mike.
-
+-- 
+Ueimor
