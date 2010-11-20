@@ -1,70 +1,44 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] netfilter: remove an atomic bit operation
-Date: Sat, 20 Nov 2010 17:50:04 +0100
-Message-ID: <1290271804.2756.78.camel@edumazet-laptop>
-References: <1290239717-12664-1-git-send-email-xiaosuo@gmail.com>
-	 <4CE7F160.9050107@canonical.com>
+Subject: [PATCH net-next-2.6] packet: use vzalloc()
+Date: Sat, 20 Nov 2010 18:31:54 +0100
+Message-ID: <1290274314.2756.84.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Changli Gao <xiaosuo@gmail.com>, Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: tim.gardner@canonical.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4CE7F160.9050107@canonical.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Neil Horman <nhorman@tuxdriver.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:53221 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754541Ab0KTRcG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Nov 2010 12:32:06 -0500
+Received: by wyb28 with SMTP id 28so5584496wyb.19
+        for <netdev@vger.kernel.org>; Sat, 20 Nov 2010 09:32:04 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le samedi 20 novembre 2010 =C3=A0 09:03 -0700, Tim Gardner a =C3=A9crit=
- :
-> On 11/20/2010 12:55 AM, Changli Gao wrote:
-> > As this ct won't be seen by the others, we don't need to set the
-> > IPS_CONFIRMED_BIT in atomic way.
-> >
-> > Signed-off-by: Changli Gao<xiaosuo@gmail.com>
-> > ---
-> >   net/netfilter/nf_conntrack_core.c |    2 +-
-> >   1 file changed, 1 insertion(+), 1 deletion(-)
-> > diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_c=
-onntrack_core.c
-> > index 27a5ea6..c708248 100644
-> > --- a/net/netfilter/nf_conntrack_core.c
-> > +++ b/net/netfilter/nf_conntrack_core.c
-> > @@ -486,7 +486,7 @@ __nf_conntrack_confirm(struct sk_buff *skb)
-> >   	ct->timeout.expires +=3D jiffies;
-> >   	add_timer(&ct->timeout);
-> >   	atomic_inc(&ct->ct_general.use);
-> > -	set_bit(IPS_CONFIRMED_BIT,&ct->status);
-> > +	ct->status |=3D IPS_CONFIRMED_BIT;
-> >
-> >   	/* Since the lookup is lockless, hash insertion must be done aft=
-er
-> >   	 * starting the timer and setting the CONFIRMED bit. The RCU bar=
-riers
-> > --
+alloc_one_pg_vec_page() is supposed to return zeroed memory, so use
+vzalloc() instead of vmalloc()
 
-> NAK, set_bit() takes a bit number, not a mask. That is, assuming you =
-can=20
-> get away with a non-atomic operation on this field. I'll defer to=20
-> Patrick on that.
->=20
-> I think you have to use IPS_CONFIRMED instead, e.g.,
->=20
-> 	ct->status |=3D IPS_CONFIRMED;
->=20
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>
+---
+ net/packet/af_packet.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Or
-
-	__set_bit(IPS_CONFIRMED_BIT, &ct->status);
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index b6372dd..422705d 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -2367,7 +2367,7 @@ static inline char *alloc_one_pg_vec_page(unsigned long order,
+ 	 * __get_free_pages failed, fall back to vmalloc
+ 	 */
+ 	*flags |= PGV_FROM_VMALLOC;
+-	buffer = vmalloc((1 << order) * PAGE_SIZE);
++	buffer = vzalloc((1 << order) * PAGE_SIZE);
+ 
+ 	if (buffer)
+ 		return buffer;
 
 
-set_bit() is atomic, while __set_bit() is not
-
-
-
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
