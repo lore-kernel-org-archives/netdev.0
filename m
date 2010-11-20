@@ -1,65 +1,60 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: netlink stats and message ordering.
-Date: Sat, 20 Nov 2010 05:49:02 +0100
-Message-ID: <1290228542.2756.57.camel@edumazet-laptop>
-References: <4CE6BFE1.6020404@candelatech.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: [PATCH net-2.6] atl1c: Fix hardware type check for enabling OTP CLK
+Date: Sat, 20 Nov 2010 04:55:36 +0000
+Message-ID: <1290228936.3818.135.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: NetDev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: "Luis R. Rodriguez" <lrodriguez@atheros.com>,
+	Jie Yang <Jie.Yang@atheros.com>, linux-team@atheros.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:56881 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932257Ab0KTEtH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Nov 2010 23:49:07 -0500
-Received: by wyb28 with SMTP id 28so5200108wyb.19
-        for <netdev@vger.kernel.org>; Fri, 19 Nov 2010 20:49:06 -0800 (PST)
-In-Reply-To: <4CE6BFE1.6020404@candelatech.com>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:53128 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932257Ab0KTEzn convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Nov 2010 23:55:43 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 19 novembre 2010 =C3=A0 10:20 -0800, Ben Greear a =C3=A9cri=
-t :
-> I have a single netlink socket that listens for various things,
-> as well as requests netdev stats and such.
->=20
-> I am seeing a case during interface creation (mac-vlans) where I get =
-one set of stats
-> that appears to show 1 packet transmitted, and then immediately after=
- that,
-> a second set of stats for the same device that shows all zero counter=
-s.
->=20
-> Since I'm trying to handle wraps properly, my code tends to consider =
-this
-> a wrap and of course the numbers go all wrong since it wasn't really =
-a wrap.
->=20
-> I am wondering if it's possible that netlink messages are somehow bei=
-ng
-> re-ordered before they are sent to my application?
+Commit 496c185c9495629ef1c65387cb2594578393cfe0 "atl1c: Add support
+for Atheros AR8152 and AR8152" added the condition:
 
-That's strange, maybe you could add a timestamp (or a sequence number)
-in the stats message to check if two messages are eventually re-ordered=
-=2E
+             if (hw->nic_type == athr_l1c || hw->nic_type == athr_l2c_b)
 
-As a fast check you could try to increment an error counter like this.
-If you see the rx_dropped going back, then for sure there is a
-problem...
+for enabling OTP CLK, and the condition:
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 93f0ba2..1d271ca 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -444,6 +444,7 @@ static struct rtnl_link_stats64 *macvlan_dev_get_st=
-ats64(struct net_device *dev,
- {
- 	struct macvlan_dev *vlan =3D netdev_priv(dev);
-=20
-+	atomic_long_inc(&dev->rx_dropped);
- 	if (vlan->pcpu_stats) {
- 		struct macvlan_pcpu_stats *p;
- 		u64 rx_packets, rx_bytes, rx_multicast, tx_packets, tx_bytes;
+             if (hw->nic_type == athr_l1c || hw->nic_type == athr_l2c)
+
+for disabling OTP CLK.  Since the two previously defined hardware
+types are athr_l1c and athr_l2c, the latter condition appears to be
+the correct one.  Change the former to match.
+
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+---
+This is compile-tested only.  It looks like the current code may fail to
+read non-volatile settings on the L2C hardware since the EEPROM will not
+be clocked.  Please check this.
+
+Ben.
+
+ drivers/net/atl1c/atl1c_hw.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/atl1c/atl1c_hw.c b/drivers/net/atl1c/atl1c_hw.c
+index 919080b..1bf6720 100644
+--- a/drivers/net/atl1c/atl1c_hw.c
++++ b/drivers/net/atl1c/atl1c_hw.c
+@@ -82,7 +82,7 @@ static int atl1c_get_permanent_address(struct atl1c_hw *hw)
+ 	addr[0] = addr[1] = 0;
+ 	AT_READ_REG(hw, REG_OTP_CTRL, &otp_ctrl_data);
+ 	if (atl1c_check_eeprom_exist(hw)) {
+-		if (hw->nic_type == athr_l1c || hw->nic_type == athr_l2c_b) {
++		if (hw->nic_type == athr_l1c || hw->nic_type == athr_l2c) {
+ 			/* Enable OTP CLK */
+ 			if (!(otp_ctrl_data & OTP_CTRL_CLK_EN)) {
+ 				otp_ctrl_data |= OTP_CTRL_CLK_EN;
+-- 
+1.7.2.3
 
 
