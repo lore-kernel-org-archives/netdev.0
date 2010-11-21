@@ -1,41 +1,48 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH 02/62] 3c503: Use static const
-Date: Sat, 20 Nov 2010 18:38:03 -0800
-Message-ID: <69724d82dfab68246d76ba62a0d4b9315fbdfeb3.1290305775.git.joe@perches.com>
-References: <cover.1290305773.git.joe@perches.com>
-Cc: linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1290305773.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: [patch] netns: let net_generic take pointer-to-const args
+Date: Sun, 21 Nov 2010 05:07:21 +0100 (CET)
+Message-ID: <alpine.LNX.2.01.1011210506110.9636@obet.zrqbmnf.qr>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from borg.medozas.de ([188.40.89.202]:38318 "EHLO borg.medozas.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752161Ab0KUEHW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 Nov 2010 23:07:22 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Using static const generally increases object text and decreases data size.
-It also generally decreases overall object size.
+parent 2801f1c311f8388ea80d78555747d449b46ea90d (v2.6.37-rc1-225-g2801f1c)
+commit 381a4560f0062f5c1919f8199772d7af7281349e
+Author: Jan Engelhardt <jengelh@medozas.de>
+Date:   Sun Nov 21 04:35:16 2010 +0100
 
-   text	   data	    bss	    dec	    hex	filename
-   7938	    140	   1688	   9766	   2626	drivers/net/3c503.o.new
-   7951	    140	   1688	   9779	   2633	drivers/net/3c503.o.old
+netns: let net_generic take pointer-to-const args
 
-Signed-off-by: Joe Perches <joe@perches.com>
+This commit is same in nature as v2.6.37-rc1-755-g3654654; the network
+namespace itself is not modified when calling net_generic, so the
+parameter can be const.
+
+Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
 ---
- drivers/net/3c503.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ include/net/netns/generic.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/3c503.c b/drivers/net/3c503.c
-index 4777a1c..d84f6e8 100644
---- a/drivers/net/3c503.c
-+++ b/drivers/net/3c503.c
-@@ -392,8 +392,8 @@ el2_open(struct net_device *dev)
-     int retval;
+diff --git a/include/net/netns/generic.h b/include/net/netns/generic.h
+index 81a31c0..3419bf5 100644
+--- a/include/net/netns/generic.h
++++ b/include/net/netns/generic.h
+@@ -30,7 +30,7 @@ struct net_generic {
+ 	void *ptr[0];
+ };
  
-     if (dev->irq < 2) {
--	int irqlist[] = {5, 9, 3, 4, 0};
--	int *irqp = irqlist;
-+	static const int irqlist[] = {5, 9, 3, 4, 0};
-+	const int *irqp = irqlist;
- 
- 	outb(EGACFR_NORM, E33G_GACFR);	/* Enable RAM and interrupts. */
- 	do {
+-static inline void *net_generic(struct net *net, int id)
++static inline void *net_generic(const struct net *net, int id)
+ {
+ 	struct net_generic *ng;
+ 	void *ptr;
 -- 
-1.7.3.2.245.g03276.dirty
+# Created with git-export-patch
+
