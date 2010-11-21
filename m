@@ -1,31 +1,36 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 50/62] ar9170: Use const
-Date: Sat, 20 Nov 2010 18:38:51 -0800
-Message-ID: <589b0a937f059a48a972d174c1cfd84b7578143a.1290305776.git.joe@perches.com>
+Subject: [PATCH 53/62] carl9170: Use static const
+Date: Sat, 20 Nov 2010 18:38:54 -0800
+Message-ID: <d94b7e1a273107e3b04709615cbf31ef1b92d87a.1290305776.git.joe@perches.com>
 References: <cover.1290305773.git.joe@perches.com>
 Cc: "John W. Linville" <linville@tuxdriver.com>,
 	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: Christian Lamparter <chunkeey@web.de>
+To: Christian Lamparter <chunkeey@googlemail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1290305773.git.joe@perches.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Mark an array const.
+Using static const generally increases object text and decreases data size.
+It also generally decreases overall object size.
+
+   text	   data	    bss	    dec	    hex	filename
+   1897	     56	    672	   2625	    a41	drivers/net/wireless/ath/carl9170/cmd.o.new
+   1897	     56	    672	   2625	    a41	drivers/net/wireless/ath/carl9170/cmd.o.old
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/wireless/ath/ar9170/cmd.c |    2 +-
+ drivers/net/wireless/ath/carl9170/cmd.c |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/wireless/ath/ar9170/cmd.c b/drivers/net/wireless/ath/ar9170/cmd.c
-index 4604de0..6452c50 100644
---- a/drivers/net/wireless/ath/ar9170/cmd.c
-+++ b/drivers/net/wireless/ath/ar9170/cmd.c
-@@ -54,7 +54,7 @@ int ar9170_write_mem(struct ar9170 *ar, const __le32 *data, size_t len)
+diff --git a/drivers/net/wireless/ath/carl9170/cmd.c b/drivers/net/wireless/ath/carl9170/cmd.c
+index c21f336..cdfc94c 100644
+--- a/drivers/net/wireless/ath/carl9170/cmd.c
++++ b/drivers/net/wireless/ath/carl9170/cmd.c
+@@ -41,7 +41,7 @@
  
- int ar9170_write_reg(struct ar9170 *ar, const u32 reg, const u32 val)
+ int carl9170_write_reg(struct ar9170 *ar, const u32 reg, const u32 val)
  {
 -	__le32 buf[2] = {
 +	const __le32 buf[2] = {
