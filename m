@@ -1,7 +1,7 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 27/62] ixgbevf: Use static const
-Date: Sat, 20 Nov 2010 18:38:28 -0800
-Message-ID: <2f0b47333ee780c36283db8b098a78285e7547fd.1290305776.git.joe@perches.com>
+Subject: [PATCH 28/62] ixgb: Use static const
+Date: Sat, 20 Nov 2010 18:38:29 -0800
+Message-ID: <aea63062901ce9f2380c2c20439fc51980a3da43.1290305776.git.joe@perches.com>
 References: <cover.1290305773.git.joe@perches.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -29,68 +29,65 @@ Using static const generally increases object text and decreases data size.
 It also generally decreases overall object size.
 
    text	   data	    bss	    dec	    hex	filename
-   8436	    372	   1728	  10536	   2928	drivers/net/ixgbevf/ethtool.o.old
-   8469	    252	   1728	  10449	   28d1	drivers/net/ixgbevf/ethtool.o.new
+   4115	    416	    448	   4979	   1373	drivers/net/ixgb/ixgb_param.o.old
+   3998	    416	    448	   4862	   12fe	drivers/net/ixgb/ixgb_param.o.new
 
-Make single file scope definition for register_test_patterns.
-Rename _test to register_test_patterns.
+Change struct ixgb_opt_list to const struct and
+change char *str to const char *str.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/ixgbevf/ethtool.c |   18 +++++++++++-------
- 1 files changed, 11 insertions(+), 7 deletions(-)
+ drivers/net/ixgb/ixgb_param.c |   21 +++++++++++----------
+ 1 files changed, 11 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ixgbevf/ethtool.c b/drivers/net/ixgbevf/ethtool.c
-index 4cc817a..fa29b3c 100644
---- a/drivers/net/ixgbevf/ethtool.c
-+++ b/drivers/net/ixgbevf/ethtool.c
-@@ -544,7 +544,7 @@ struct ixgbevf_reg_test {
- #define TABLE64_TEST_HI	6
+diff --git a/drivers/net/ixgb/ixgb_param.c b/drivers/net/ixgb/ixgb_param.c
+index 88a08f0..48765a1 100644
+--- a/drivers/net/ixgb/ixgb_param.c
++++ b/drivers/net/ixgb/ixgb_param.c
+@@ -191,9 +191,9 @@ struct ixgb_option {
+ 		} r;
+ 		struct {	/* list_option info */
+ 			int nr;
+-			struct ixgb_opt_list {
++			const struct ixgb_opt_list {
+ 				int i;
+-				char *str;
++				const char *str;
+ 			} *p;
+ 		} l;
+ 	} arg;
+@@ -226,7 +226,7 @@ ixgb_validate_option(unsigned int *value, const struct ixgb_option *opt)
+ 		break;
+ 	case list_option: {
+ 		int i;
+-		struct ixgb_opt_list *ent;
++		const struct ixgb_opt_list *ent;
  
- /* default VF register test */
--static struct ixgbevf_reg_test reg_test_vf[] = {
-+static const struct ixgbevf_reg_test reg_test_vf[] = {
- 	{ IXGBE_VFRDBAL(0), 2, PATTERN_TEST, 0xFFFFFF80, 0xFFFFFF80 },
- 	{ IXGBE_VFRDBAH(0), 2, PATTERN_TEST, 0xFFFFFFFF, 0xFFFFFFFF },
- 	{ IXGBE_VFRDLEN(0), 2, PATTERN_TEST, 0x000FFF80, 0x000FFFFF },
-@@ -557,19 +557,23 @@ static struct ixgbevf_reg_test reg_test_vf[] = {
- 	{ 0, 0, 0, 0 }
- };
+ 		for (i = 0; i < opt->arg.l.nr; i++) {
+ 			ent = &opt->arg.l.p[i];
+@@ -322,14 +322,15 @@ ixgb_check_options(struct ixgb_adapter *adapter)
+ 	}
+ 	{ /* Flow Control */
  
-+static const u32 register_test_patterns[] = {
-+	0x5A5A5A5A, 0xA5A5A5A5, 0x00000000, 0xFFFFFFFF
-+};
-+
- #define REG_PATTERN_TEST(R, M, W)                                             \
- {                                                                             \
- 	u32 pat, val, before;                                                 \
--	const u32 _test[] = {0x5A5A5A5A, 0xA5A5A5A5, 0x00000000, 0xFFFFFFFF}; \
--	for (pat = 0; pat < ARRAY_SIZE(_test); pat++) {                       \
-+	for (pat = 0; pat < ARRAY_SIZE(register_test_patterns); pat++) {      \
- 		before = readl(adapter->hw.hw_addr + R);                      \
--		writel((_test[pat] & W), (adapter->hw.hw_addr + R));          \
-+		writel((register_test_patterns[pat] & W),                     \
-+		       (adapter->hw.hw_addr + R));                            \
- 		val = readl(adapter->hw.hw_addr + R);                         \
--		if (val != (_test[pat] & W & M)) {                            \
-+		if (val != (register_test_patterns[pat] & W & M)) {           \
- 			hw_dbg(&adapter->hw,                                  \
- 			"pattern test reg %04X failed: got "                  \
- 			"0x%08X expected 0x%08X\n",                           \
--			R, val, (_test[pat] & W & M));                        \
-+			R, val, (register_test_patterns[pat] & W & M));       \
- 			*data = R;                                            \
- 			writel(before, adapter->hw.hw_addr + R);              \
- 			return 1;                                             \
-@@ -596,7 +600,7 @@ static struct ixgbevf_reg_test reg_test_vf[] = {
+-		struct ixgb_opt_list fc_list[] =
+-			{{ ixgb_fc_none,	"Flow Control Disabled" },
+-			 { ixgb_fc_rx_pause,"Flow Control Receive Only" },
+-			 { ixgb_fc_tx_pause,"Flow Control Transmit Only" },
+-			 { ixgb_fc_full,	"Flow Control Enabled" },
+-			 { ixgb_fc_default, "Flow Control Hardware Default" }};
++		static const struct ixgb_opt_list fc_list[] = {
++			{ ixgb_fc_none,     "Flow Control Disabled" },
++			{ ixgb_fc_rx_pause, "Flow Control Receive Only" },
++			{ ixgb_fc_tx_pause, "Flow Control Transmit Only" },
++			{ ixgb_fc_full,     "Flow Control Enabled" },
++			{ ixgb_fc_default,  "Flow Control Hardware Default" }
++		};
  
- static int ixgbevf_reg_test(struct ixgbevf_adapter *adapter, u64 *data)
- {
--	struct ixgbevf_reg_test *test;
-+	const struct ixgbevf_reg_test *test;
- 	u32 i;
- 
- 	test = reg_test_vf;
+-		const struct ixgb_option opt = {
++		static const struct ixgb_option opt = {
+ 			.type = list_option,
+ 			.name = "Flow Control",
+ 			.err  = "reading default settings from EEPROM",
 -- 
 1.7.3.2.245.g03276.dirty
 
