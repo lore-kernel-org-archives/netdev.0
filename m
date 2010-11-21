@@ -1,43 +1,44 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 05/62] at1700: Use static const
-Date: Sat, 20 Nov 2010 18:38:06 -0800
-Message-ID: <eeec670c8100c9b6c6dcf60f15806b635e129b39.1290305775.git.joe@perches.com>
+Subject: [PATCH 18/62] e2100: Use static const
+Date: Sat, 20 Nov 2010 18:38:19 -0800
+Message-ID: <7422d8e9b9abd27fb289637518494cfafd0c9db6.1290305776.git.joe@perches.com>
 References: <cover.1290305773.git.joe@perches.com>
 Cc: linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.perches.com ([173.55.12.10]:1661 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756322Ab0KUCj6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 Nov 2010 21:39:58 -0500
 In-Reply-To: <cover.1290305773.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Using static const generally increases object text and decreases data size.
 It also generally decreases overall object size.
 
    text	   data	    bss	    dec	    hex	filename
-   9083	    370	   2232	  11685	   2da5	drivers/net/at1700.o.new
-   9167	    370	   2232	  11769	   2df9	drivers/net/at1700.o.old
+   3447	     76	    784	   4307	   10d3	drivers/net/e2100.o.old
+   3484	     76	    784	   4344	   10f8	drivers/net/e2100.o.new
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/at1700.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/e2100.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/at1700.c b/drivers/net/at1700.c
-index 871b163..f4744fc 100644
---- a/drivers/net/at1700.c
-+++ b/drivers/net/at1700.c
-@@ -270,9 +270,9 @@ static const struct net_device_ops at1700_netdev_ops = {
+diff --git a/drivers/net/e2100.c b/drivers/net/e2100.c
+index 06e72fb..94ec973 100644
+--- a/drivers/net/e2100.c
++++ b/drivers/net/e2100.c
+@@ -216,7 +216,7 @@ static int __init e21_probe1(struct net_device *dev, int ioaddr)
+ 		printk(" %02X", station_addr[i]);
  
- static int __init at1700_probe1(struct net_device *dev, int ioaddr)
- {
--	char fmv_irqmap[4] = {3, 7, 10, 15};
--	char fmv_irqmap_pnp[8] = {3, 4, 5, 7, 9, 10, 11, 15};
--	char at1700_irqmap[8] = {3, 4, 5, 9, 10, 11, 14, 15};
-+	static const char fmv_irqmap[4] = {3, 7, 10, 15};
-+	static const char fmv_irqmap_pnp[8] = {3, 4, 5, 7, 9, 10, 11, 15};
-+	static const char at1700_irqmap[8] = {3, 4, 5, 9, 10, 11, 14, 15};
- 	unsigned int i, irq, is_fmv18x = 0, is_at1700 = 0;
- 	int slot, ret = -ENODEV;
- 	struct net_local *lp = netdev_priv(dev);
+ 	if (dev->irq < 2) {
+-		int irqlist[] = {15, 11, 10, 12, 5, 9, 3, 4};
++		static const int irqlist[] = {15, 11, 10, 12, 5, 9, 3, 4};
+ 		for (i = 0; i < ARRAY_SIZE(irqlist); i++)
+ 			if (request_irq (irqlist[i], NULL, 0, "bogus", NULL) != -EBUSY) {
+ 				dev->irq = irqlist[i];
 -- 
 1.7.3.2.245.g03276.dirty
+
