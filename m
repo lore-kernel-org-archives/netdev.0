@@ -1,39 +1,67 @@
-From: Roger Luethi <rl@hellgate.ch>
-Subject: Re: [PATCH] via-rhine: hardware VLAN support
-Date: Sun, 21 Nov 2010 14:17:57 +0100
-Message-ID: <20101121131756.GA18509@core.hellgate.ch>
-References: <20101105104303.GA8325@core.hellgate.ch>
- <AANLkTikUe9DR2QTU+72Q8vmGnDyvUtSm_wwCpGEq-M4s@mail.gmail.com>
- <20101108162132.GA32728@core.hellgate.ch>
- <AANLkTim40QH2AWz8YtW_y3=WjEU0_Rom9-CPFj-O5MCt@mail.gmail.com>
+From: Sergei Shtylyov <sshtylyov-Igf4POYTYCDQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 46/62] usb: Use static const
+Date: Sun, 21 Nov 2010 17:06:53 +0300
+Message-ID: <4CE9277D.9050505@ru.mvista.com>
+References: <cover.1290305773.git.joe@perches.com> <ed2a5bd07f07601ba12ce3c8fcbce2dd954c35aa.1290305776.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Jesse Gross <jesse@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail11.bluewin.ch ([195.186.18.61]:19939 "EHLO
-	mail11.bluewin.ch" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753083Ab0KUNSB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Nov 2010 08:18:01 -0500
-Content-Disposition: inline
-In-Reply-To: <AANLkTim40QH2AWz8YtW_y3=WjEU0_Rom9-CPFj-O5MCt@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jan Dumon <j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <ed2a5bd07f07601ba12ce3c8fcbce2dd954c35aa.1290305776.git.joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 08 Nov 2010 12:53:57 -0800, Jesse Gross wrote:
-> On Mon, Nov 8, 2010 at 8:21 AM, Roger Luethi <rl@hellgate.ch> wrote:
-> > On Fri, 05 Nov 2010 11:31:56 -0700, Jesse Gross wrote:
-> > Can you point me to a driver that has been switched to use the new methods
-> > already? Is there some other form of documentation?
-> 
-> bnx2 is an example of a driver that has been converted.  The commit
-> that actually made the change was
-> 7d0fd2117e3d0550d7987b3aff2bfbc0244cf7c6, which should highlight the
-> differences.  A key point is that drivers should no longer reference
-> vlan groups at all.
+Hello.
 
-bnx2 does not support hardware VLAN filters, but ixgbe does (converted by
-commit f62bbb5e62c6e4a91fb222d22bc46e8d4d7e59ef). ixgbe keeps a list of
-configured VLANs in a device private data structure (active_vlans). Is that
-the model to follow?
+On 21-11-2010 5:38, Joe Perches wrote:
 
+> Using static const generally increases object text and decreases data size.
+> It also generally decreases overall object size.
+
+>     text	   data	    bss	    dec	    hex	filename
+>    36120	    312	   9000	  45432	   b178	drivers/net/usb/hso.o.old
+>    36043	    312	   9008	  45363	   b133	drivers/net/usb/hso.o.new
+
+> Consolidate duplicated code into new fix_crc_bug function
+> and declare data in that function static const.
+
+> Signed-off-by: Joe Perches<joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+[...]
+
+> diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
+> index be8cc2a..c77d0ea 100644
+> --- a/drivers/net/usb/hso.c
+> +++ b/drivers/net/usb/hso.c
+> @@ -1001,6 +1001,18 @@ static void packetizeRx(struct hso_net *odev, unsigned char *ip_pkt,
+>   	}
+>   }
+>
+> +static void fix_crc_bug(struct urb *urb, __le16 max_packet_size)
+> +{
+> +	static const u8 crc_check[4] = { 0xDE, 0xAD, 0xBE, 0xEF };
+> +	u32 rest = urb->actual_length % le16_to_cpu(max_packet_size);
+> +
+> +	if (((rest == 5) || (rest == 6)) &&
+> +	    !memcmp(((u8 *)urb->transfer_buffer) + urb->actual_length - 4,
+
+    Parens around '(u8 *)urb->transfer_buffer' not needed. Could get rid of 
+them, while at it...
+
+> +		    crc_check, 4)) {
+> +		urb->actual_length -= 4;
+> +	}
+> +}
+> +
+>   /* Moving data from usb to kernel (in interrupt state) */
+>   static void read_bulk_callback(struct urb *urb)
+>   {
+
+WBR, Sergei
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
