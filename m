@@ -1,10 +1,11 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 43/62] tokenring: Use static const
-Date: Sat, 20 Nov 2010 18:38:44 -0800
-Message-ID: <b55a96baa14091337ec25c9b153a9aac42bab384.1290305776.git.joe@perches.com>
+Subject: [PATCH 42/62] tg3: Use static const
+Date: Sat, 20 Nov 2010 18:38:43 -0800
+Message-ID: <c0ef5b45823fa90cdf1ca498a5a8c830f9cc6b68.1290305776.git.joe@perches.com>
 References: <cover.1290305773.git.joe@perches.com>
-Cc: linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Matt Carlson <mcarlson@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1290305773.git.joe@perches.com>
 Sender: linux-kernel-owner@vger.kernel.org
@@ -14,29 +15,68 @@ Using static const generally increases object text and decreases data size.
 It also generally decreases overall object size.
 
    text	   data	    bss	    dec	    hex	filename
-  21834	    549	   5144	  27527	   6b87	drivers/net/tokenring/ibmtr.o.old
-  21834	    549	   5144	  27527	   6b87	drivers/net/tokenring/ibmtr.o.new
+ 168118	    970	  41008	 210096	  334b0	drivers/net/tg3.o.old
+ 168286	    802	  41008	 210096	  334b0	drivers/net/tg3.o.new
+
+Use DEFINE_PCI_DEVICE_TABLE not direct declarations.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/tokenring/ibmtr.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+ drivers/net/tg3.c |   26 ++++++++++++--------------
+ 1 files changed, 12 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/tokenring/ibmtr.c b/drivers/net/tokenring/ibmtr.c
-index 91e6c78..4786497 100644
---- a/drivers/net/tokenring/ibmtr.c
-+++ b/drivers/net/tokenring/ibmtr.c
-@@ -657,8 +657,9 @@ static int __devinit ibmtr_probe1(struct net_device *dev, int PIOaddr)
- #ifndef PCMCIA
- 	/* finish figuring the shared RAM address */
- 	if (cardpresent == TR_ISA) {
--		static __u32 ram_bndry_mask[] =
--			{ 0xffffe000, 0xffffc000, 0xffff8000, 0xffff0000 };
-+		static const __u32 ram_bndry_mask[] = {
-+			0xffffe000, 0xffffc000, 0xffff8000, 0xffff0000
-+		};
- 		__u32 new_base, rrr_32, chk_base, rbm;
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index 30ccbb6..93483a7 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -13047,17 +13047,15 @@ static inline u32 tg3_rx_ret_ring_size(struct tg3 *tp)
+ 		return 512;
+ }
  
- 		rrr_32=readb(ti->mmio+ACA_OFFSET+ACA_RW+RRR_ODD) >> 2 & 0x03;
++DEFINE_PCI_DEVICE_TABLE(write_reorder_chipsets) = {
++	{ PCI_DEVICE(PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_FE_GATE_700C) },
++	{ PCI_DEVICE(PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_8131_BRIDGE) },
++	{ PCI_DEVICE(PCI_VENDOR_ID_VIA, PCI_DEVICE_ID_VIA_8385_0) },
++	{ },
++};
++
+ static int __devinit tg3_get_invariants(struct tg3 *tp)
+ {
+-	static struct pci_device_id write_reorder_chipsets[] = {
+-		{ PCI_DEVICE(PCI_VENDOR_ID_AMD,
+-			     PCI_DEVICE_ID_AMD_FE_GATE_700C) },
+-		{ PCI_DEVICE(PCI_VENDOR_ID_AMD,
+-			     PCI_DEVICE_ID_AMD_8131_BRIDGE) },
+-		{ PCI_DEVICE(PCI_VENDOR_ID_VIA,
+-			     PCI_DEVICE_ID_VIA_8385_0) },
+-		{ },
+-	};
+ 	u32 misc_ctrl_reg;
+ 	u32 pci_state_reg, grc_misc_cfg;
+ 	u32 val;
+@@ -14153,6 +14151,11 @@ static int __devinit tg3_do_test_dma(struct tg3 *tp, u32 *buf, dma_addr_t buf_dm
+ 
+ #define TEST_BUFFER_SIZE	0x2000
+ 
++DEFINE_PCI_DEVICE_TABLE(dma_wait_state_chipsets) = {
++	{ PCI_DEVICE(PCI_VENDOR_ID_APPLE, PCI_DEVICE_ID_APPLE_UNI_N_PCI15) },
++	{ },
++};
++
+ static int __devinit tg3_test_dma(struct tg3 *tp)
+ {
+ 	dma_addr_t buf_dma;
+@@ -14321,11 +14324,6 @@ static int __devinit tg3_test_dma(struct tg3 *tp)
+ 	}
+ 	if ((tp->dma_rwctrl & DMA_RWCTRL_WRITE_BNDRY_MASK) !=
+ 	    DMA_RWCTRL_WRITE_BNDRY_16) {
+-		static struct pci_device_id dma_wait_state_chipsets[] = {
+-			{ PCI_DEVICE(PCI_VENDOR_ID_APPLE,
+-				     PCI_DEVICE_ID_APPLE_UNI_N_PCI15) },
+-			{ },
+-		};
+ 
+ 		/* DMA test passed without adjusting DMA boundary,
+ 		 * now look for chipsets that are known to expose the
 -- 
 1.7.3.2.245.g03276.dirty
