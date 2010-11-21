@@ -1,43 +1,47 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 61/62] wl12xx: Use static const
-Date: Sat, 20 Nov 2010 18:39:02 -0800
-Message-ID: <dd2fadcc20f85cb3da9e11db69353f67cb8ef064.1290305776.git.joe@perches.com>
+Subject: [PATCH 60/62] rt2x00: Use static const
+Date: Sat, 20 Nov 2010 18:39:01 -0800
+Message-ID: <d8bfaded20da2265673391a81536d63b0e81dc7f.1290305776.git.joe@perches.com>
 References: <cover.1290305773.git.joe@perches.com>
 Cc: "John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Luciano Coelho <luciano.coelho@nokia.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+	linux-wireless@vger.kernel.org, users@rt2x00.serialmonkey.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Ivo van Doorn <IvDoorn@gmail.com>,
+	Gertjan van Wingerde <gwingerde@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.perches.com ([173.55.12.10]:1759 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756972Ab0KUCkr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 Nov 2010 21:40:47 -0500
 In-Reply-To: <cover.1290305773.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Using static const generally increases object text and decreases data size.
 It also generally decreases overall object size.
 
    text	   data	    bss	    dec	    hex	filename
-  13071	     56	   2880	  16007	   3e87	drivers/net/wireless/wl12xx/wl1271_acx.o.old
-  13071	     56	   2880	  16007	   3e87	drivers/net/wireless/wl12xx/wl1271_acx.o.new
+  40197	     56	   8336	  48589	   bdcd	drivers/net/wireless/rt2x00/rt2800lib.o.new
+  40205	     56	   8336	  48597	   bdd5	drivers/net/wireless/rt2x00/rt2800lib.o.old
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/wireless/wl12xx/wl1271_acx.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
+ drivers/net/wireless/rt2x00/rt2800lib.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/wireless/wl12xx/wl1271_acx.c b/drivers/net/wireless/wl12xx/wl1271_acx.c
-index bd7f95f..c688471 100644
---- a/drivers/net/wireless/wl12xx/wl1271_acx.c
-+++ b/drivers/net/wireless/wl12xx/wl1271_acx.c
-@@ -1231,7 +1231,9 @@ int wl1271_acx_set_ht_capabilities(struct wl1271 *wl,
- 				    bool allow_ht_operation)
- {
- 	struct wl1271_acx_ht_capabilities *acx;
--	u8 mac_address[ETH_ALEN] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
-+	static const u8 mac_address[ETH_ALEN] = {
-+		0xff, 0xff, 0xff, 0xff, 0xff, 0xff
-+	};
- 	int ret = 0;
+diff --git a/drivers/net/wireless/rt2x00/rt2800lib.c b/drivers/net/wireless/rt2x00/rt2800lib.c
+index ce8df66..7563161 100644
+--- a/drivers/net/wireless/rt2x00/rt2800lib.c
++++ b/drivers/net/wireless/rt2x00/rt2800lib.c
+@@ -2166,7 +2166,7 @@ static int rt2800_init_registers(struct rt2x00_dev *rt2x00dev)
+ 					 SHARED_KEY_MODE_ENTRY(i), 0);
  
- 	wl1271_debug(DEBUG_ACX, "acx ht capabilities setting");
+ 	for (i = 0; i < 256; i++) {
+-		u32 wcid[2] = { 0xffffffff, 0x00ffffff };
++		static const u32 wcid[2] = { 0xffffffff, 0x00ffffff };
+ 		rt2800_register_multiwrite(rt2x00dev, MAC_WCID_ENTRY(i),
+ 					      wcid, sizeof(wcid));
+ 
 -- 
 1.7.3.2.245.g03276.dirty
+
