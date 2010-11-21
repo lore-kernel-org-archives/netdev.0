@@ -1,7 +1,7 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 16/62] e1000: Use static const
-Date: Sat, 20 Nov 2010 18:38:17 -0800
-Message-ID: <4aeb81ea2fe3e78609cb557286aa530715195e40.1290305776.git.joe@perches.com>
+Subject: [PATCH 17/62] e1000e: Use static const
+Date: Sat, 20 Nov 2010 18:38:18 -0800
+Message-ID: <09db4d88d103166998a131dca7e3e28b26618576.1290305776.git.joe@perches.com>
 References: <cover.1290305773.git.joe@perches.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -29,38 +29,36 @@ Using static const generally increases object text and decreases data size.
 It also generally decreases overall object size.
 
    text	   data	    bss	    dec	    hex	filename
-   9083	   1772	    936	  11791	   2e0f	drivers/net/e1000/e1000_param.o.new
-   9147	   1772	    936	  11855	   2e4f	drivers/net/e1000/e1000_param.o.old
+  30847	   1400	   7088	  39335	   99a7	drivers/net/e1000e/phy.o.new
+  30861	   1400	   7088	  39349	   99b5	drivers/net/e1000e/phy.o.old
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/e1000/e1000_param.c |   13 +++++++------
- 1 files changed, 7 insertions(+), 6 deletions(-)
+ drivers/net/e1000e/phy.c |   11 ++++++-----
+ 1 files changed, 6 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/e1000/e1000_param.c b/drivers/net/e1000/e1000_param.c
-index 10d8d98..6ba2aee 100644
---- a/drivers/net/e1000/e1000_param.c
-+++ b/drivers/net/e1000/e1000_param.c
-@@ -352,12 +352,13 @@ void __devinit e1000_check_options(struct e1000_adapter *adapter)
- 	}
- 	{ /* Flow Control */
+diff --git a/drivers/net/e1000e/phy.c b/drivers/net/e1000e/phy.c
+index b9bff5b..a7ea4e7 100644
+--- a/drivers/net/e1000e/phy.c
++++ b/drivers/net/e1000e/phy.c
+@@ -1840,11 +1840,12 @@ s32 e1000e_get_cable_length_igp_2(struct e1000_hw *hw)
+ 	u16 phy_data, i, agc_value = 0;
+ 	u16 cur_agc_index, max_agc_index = 0;
+ 	u16 min_agc_index = IGP02E1000_CABLE_LENGTH_TABLE_SIZE - 1;
+-	u16 agc_reg_array[IGP02E1000_PHY_CHANNEL_NUM] =
+-							 {IGP02E1000_PHY_AGC_A,
+-							  IGP02E1000_PHY_AGC_B,
+-							  IGP02E1000_PHY_AGC_C,
+-							  IGP02E1000_PHY_AGC_D};
++	static const u16 agc_reg_array[IGP02E1000_PHY_CHANNEL_NUM] = {
++		IGP02E1000_PHY_AGC_A,
++		IGP02E1000_PHY_AGC_B,
++		IGP02E1000_PHY_AGC_C,
++		IGP02E1000_PHY_AGC_D
++	};
  
--		struct e1000_opt_list fc_list[] =
--			{{ E1000_FC_NONE,    "Flow Control Disabled" },
--			 { E1000_FC_RX_PAUSE,"Flow Control Receive Only" },
--			 { E1000_FC_TX_PAUSE,"Flow Control Transmit Only" },
--			 { E1000_FC_FULL,    "Flow Control Enabled" },
--			 { E1000_FC_DEFAULT, "Flow Control Hardware Default" }};
-+		static const struct e1000_opt_list fc_list[] = {
-+			{ E1000_FC_NONE,     "Flow Control Disabled" },
-+			{ E1000_FC_RX_PAUSE, "Flow Control Receive Only" },
-+			{ E1000_FC_TX_PAUSE, "Flow Control Transmit Only" },
-+			{ E1000_FC_FULL,     "Flow Control Enabled" },
-+			{ E1000_FC_DEFAULT,  "Flow Control Hardware Default" }
-+		};
- 
- 		opt = (struct e1000_option) {
- 			.type = list_option,
+ 	/* Read the AGC registers for all channels */
+ 	for (i = 0; i < IGP02E1000_PHY_CHANNEL_NUM; i++) {
 -- 
 1.7.3.2.245.g03276.dirty
 
