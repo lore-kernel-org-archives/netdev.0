@@ -1,31 +1,30 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [patch] netns: let net_generic take pointer-to-const args
-Date: Sun, 21 Nov 2010 10:05:29 -0800 (PST)
-Message-ID: <20101121.100529.183060912.davem@davemloft.net>
+Date: Sun, 21 Nov 2010 10:05:43 -0800 (PST)
+Message-ID: <20101121.100543.39194352.davem@davemloft.net>
 References: <alpine.LNX.2.01.1011210506110.9636@obet.zrqbmnf.qr>
+	<1290328165.2756.102.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jengelh@medozas.de
+Cc: jengelh@medozas.de, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45200
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45205
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754645Ab0KUSFE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Nov 2010 13:05:04 -0500
-In-Reply-To: <alpine.LNX.2.01.1011210506110.9636@obet.zrqbmnf.qr>
+	by vger.kernel.org with ESMTP id S1754645Ab0KUSFS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Nov 2010 13:05:18 -0500
+In-Reply-To: <1290328165.2756.102.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jan Engelhardt <jengelh@medozas.de>
-Date: Sun, 21 Nov 2010 05:07:21 +0100 (CET)
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sun, 21 Nov 2010 09:29:25 +0100
 
-> netns: let net_generic take pointer-to-const args
+> While you are at it you could also use
 > 
-> This commit is same in nature as v2.6.37-rc1-755-g3654654; the network
-> namespace itself is not modified when calling net_generic, so the
-> parameter can be const.
+> const struct net_generic *ng;
 > 
-> Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
+> Just curious, if we could use __pure attribute as well.
 
-Applied.
+Sounds like a good idea for a follow-on patch.
