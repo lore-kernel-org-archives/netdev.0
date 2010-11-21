@@ -1,68 +1,39 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 21/62] gianfar: Use static const
-Date: Sat, 20 Nov 2010 18:38:22 -0800
-Message-ID: <e3ebafc0b5c921d2887c00678905d755f33d95d6.1290305776.git.joe@perches.com>
+Subject: [PATCH 20/62] eexpress: Use static const
+Date: Sat, 20 Nov 2010 18:38:21 -0800
+Message-ID: <58f58a1c0786269a4369629c7ef7debe7adf3b02.1290305776.git.joe@perches.com>
 References: <cover.1290305773.git.joe@perches.com>
-Cc: linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1665 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756447Ab0KUCkB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 20 Nov 2010 21:40:01 -0500
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Philip Blundell <philb@gnu.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1290305773.git.joe@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Using static const generally increases object text and decreases data size.
 It also generally decreases overall object size.
 
-Changed gfar_set_mac_for_addr to take const *
-
-Uncompiled.
+   text	   data	    bss	    dec	    hex	filename
+  20165	     73	   4400	  24638	   603e	drivers/net/eexpress.o.new
+  20165	     73	   4400	  24638	   603e	drivers/net/eexpress.o.old
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/gianfar.c |   10 ++++++----
- 1 files changed, 6 insertions(+), 4 deletions(-)
+ drivers/net/eexpress.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
-index d1bec62..45c4b7b 100644
---- a/drivers/net/gianfar.c
-+++ b/drivers/net/gianfar.c
-@@ -143,7 +143,8 @@ void gfar_halt(struct net_device *dev);
- static void gfar_halt_nodisable(struct net_device *dev);
- void gfar_start(struct net_device *dev);
- static void gfar_clear_exact_match(struct net_device *dev);
--static void gfar_set_mac_for_addr(struct net_device *dev, int num, u8 *addr);
-+static void gfar_set_mac_for_addr(struct net_device *dev, int num,
-+				  const u8 *addr);
- static int gfar_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
+diff --git a/drivers/net/eexpress.c b/drivers/net/eexpress.c
+index 12c37d2..48ee51b 100644
+--- a/drivers/net/eexpress.c
++++ b/drivers/net/eexpress.c
+@@ -1103,7 +1103,7 @@ static int __init eexp_hw_probe(struct net_device *dev, unsigned short ioaddr)
+ 		dev->dev_addr[i] = ((unsigned char *)hw_addr)[5-i];
  
- MODULE_AUTHOR("Freescale Semiconductor, Inc");
-@@ -3094,10 +3095,10 @@ static void gfar_set_multi(struct net_device *dev)
- static void gfar_clear_exact_match(struct net_device *dev)
- {
- 	int idx;
--	u8 zero_arr[MAC_ADDR_LEN] = {0,0,0,0,0,0};
-+	static const u8 zero_arr[MAC_ADDR_LEN] = {0, 0, 0, 0, 0, 0};
+ 	{
+-		static char irqmap[]={0, 9, 3, 4, 5, 10, 11, 0};
++		static const char irqmap[] = { 0, 9, 3, 4, 5, 10, 11, 0 };
+ 		unsigned short setupval = eexp_hw_readeeprom(ioaddr,0);
  
- 	for(idx = 1;idx < GFAR_EM_NUM + 1;idx++)
--		gfar_set_mac_for_addr(dev, idx, (u8 *)zero_arr);
-+		gfar_set_mac_for_addr(dev, idx, zero_arr);
- }
- 
- /* Set the appropriate hash bit for the given addr */
-@@ -3132,7 +3133,8 @@ static void gfar_set_hash_for_addr(struct net_device *dev, u8 *addr)
- /* There are multiple MAC Address register pairs on some controllers
-  * This function sets the numth pair to a given address
-  */
--static void gfar_set_mac_for_addr(struct net_device *dev, int num, u8 *addr)
-+static void gfar_set_mac_for_addr(struct net_device *dev, int num,
-+				  const u8 *addr)
- {
- 	struct gfar_private *priv = netdev_priv(dev);
- 	struct gfar __iomem *regs = priv->gfargrp[0].regs;
+ 		/* Use the IRQ from EEPROM if none was given */
 -- 
 1.7.3.2.245.g03276.dirty
-
