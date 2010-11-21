@@ -1,47 +1,64 @@
-From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH 58/62] ray_cs: Use static const
-Date: Sat, 20 Nov 2010 18:38:59 -0800
-Message-ID: <e530e506090e3de049ea79098ccaa7665575db52.1290305776.git.joe@perches.com>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 59/62] rndis_wlan: Use static const
+Date: Sat, 20 Nov 2010 18:39:00 -0800
+Message-ID: <0b953a3dc6bb044f9aee4033caeb1693ac0796fc.1290305776.git.joe@perches.com>
 References: <cover.1290305773.git.joe@perches.com>
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <cover.1290305773.git.joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>,
+	"John W. Linville" <linville@tuxdriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1290305773.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Using static const generally increases object text and decreases data size.
 It also generally decreases overall object size.
 
    text	   data	    bss	    dec	    hex	filename
-  42607	   3581	   8536	  54724	   d5c4	drivers/net/wireless/ray_cs.o.new
-  42603	   3585	   8536	  54724	   d5c4	drivers/net/wireless/ray_cs.o.old
+  41757	   2205	   9896	  53858	   d262	drivers/net/wireless/rndis_wlan.o.old
+  41653	   2205	   9880	  53738	   d1ea	drivers/net/wireless/rndis_wlan.o.new
 
-Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Changed functions rndis_set_oid and set_bssid to take const *'s.
+
+Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/wireless/ray_cs.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/wireless/rndis_wlan.c |    9 ++++++---
+ 1 files changed, 6 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/wireless/ray_cs.c b/drivers/net/wireless/ray_cs.c
-index 97007d9..2b1cbba 100644
---- a/drivers/net/wireless/ray_cs.c
-+++ b/drivers/net/wireless/ray_cs.c
-@@ -2286,8 +2286,8 @@ static void untranslate(ray_dev_t *local, struct sk_buff *skb, int len)
- 	struct ethhdr *peth;
- 	UCHAR srcaddr[ADDRLEN];
- 	UCHAR destaddr[ADDRLEN];
--	static UCHAR org_bridge[3] = { 0, 0, 0xf8 };
--	static UCHAR org_1042[3] = { 0, 0, 0 };
-+	static const UCHAR org_bridge[3] = { 0, 0, 0xf8 };
-+	static const UCHAR org_1042[3] = { 0, 0, 0 };
+diff --git a/drivers/net/wireless/rndis_wlan.c b/drivers/net/wireless/rndis_wlan.c
+index ee08bca..19f3d56 100644
+--- a/drivers/net/wireless/rndis_wlan.c
++++ b/drivers/net/wireless/rndis_wlan.c
+@@ -817,7 +817,8 @@ exit_unlock:
+ 	return ret;
+ }
  
- 	memcpy(destaddr, ieee80211_get_DA(pmac), ADDRLEN);
- 	memcpy(srcaddr, ieee80211_get_SA(pmac), ADDRLEN);
+-static int rndis_set_oid(struct usbnet *dev, __le32 oid, void *data, int len)
++static int rndis_set_oid(struct usbnet *dev, __le32 oid, const void *data,
++			 int len)
+ {
+ 	struct rndis_wlan_private *priv = get_rndis_wlan_priv(dev);
+ 	union {
+@@ -1033,7 +1034,7 @@ static int set_essid(struct usbnet *usbdev, struct ndis_80211_ssid *ssid)
+ 	return ret;
+ }
+ 
+-static int set_bssid(struct usbnet *usbdev, u8 bssid[ETH_ALEN])
++static int set_bssid(struct usbnet *usbdev, const u8 *bssid)
+ {
+ 	int ret;
+ 
+@@ -1049,7 +1050,9 @@ static int set_bssid(struct usbnet *usbdev, u8 bssid[ETH_ALEN])
+ 
+ static int clear_bssid(struct usbnet *usbdev)
+ {
+-	u8 broadcast_mac[ETH_ALEN] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
++	static const u8 broadcast_mac[ETH_ALEN] = {
++		0xff, 0xff, 0xff, 0xff, 0xff, 0xff
++	};
+ 
+ 	return set_bssid(usbdev, broadcast_mac);
+ }
 -- 
 1.7.3.2.245.g03276.dirty
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
