@@ -1,57 +1,68 @@
-From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH 54/62] atmel: Use static const
-Date: Sat, 20 Nov 2010 18:38:55 -0800
-Message-ID: <d9d7c32e0b5e38388ba25facf1350caa4abe8f3b.1290305776.git.joe@perches.com>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 45/62] tulip: Use static const
+Date: Sat, 20 Nov 2010 18:38:46 -0800
+Message-ID: <4c1199b4113c60eb7abe7c9063bc7acb7aab3888.1290305776.git.joe@perches.com>
 References: <cover.1290305773.git.joe@perches.com>
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Simon Kelley <simon-xn1N/tgparsycpQjotevgVpr/1R2p/CL@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <cover.1290305773.git.joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Grant Grundler <grundler@parisc-linux.org>,
+	Kyle McMartin <kyle@mcmartin.ca>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1290305773.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Using static const generally increases object text and decreases data size.
 It also generally decreases overall object size.
 
    text	   data	    bss	    dec	    hex	filename
-  42578	    720	   8528	  51826	   ca72	drivers/net/wireless/atmel.o.old
-  42578	    720	   8528	  51826	   ca72	drivers/net/wireless/atmel.o.new
+  26150	    657	   5416	  32223	   7ddf	drivers/net/tulip/tulip_core.o.new
+  26054	    741	   5416	  32211	   7dd3	drivers/net/tulip/tulip_core.o.old
 
-Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Use DEFINE_PCI_DEVICE_TABLE for local declaration.
+
+Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/wireless/atmel.c |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
+ drivers/net/tulip/tulip_core.c |   15 +++++++++------
+ 1 files changed, 9 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/wireless/atmel.c b/drivers/net/wireless/atmel.c
-index c8f7090..46e382e 100644
---- a/drivers/net/wireless/atmel.c
-+++ b/drivers/net/wireless/atmel.c
-@@ -1161,7 +1161,7 @@ static irqreturn_t service_interrupt(int irq, void *dev_id)
- 	struct atmel_private *priv = netdev_priv(dev);
- 	u8 isr;
- 	int i = -1;
--	static u8 irq_order[] = {
-+	static const u8 irq_order[] = {
- 		ISR_OUT_OF_RANGE,
- 		ISR_RxCOMPLETE,
- 		ISR_TxCOMPLETE,
-@@ -3771,7 +3771,9 @@ static int probe_atmel_card(struct net_device *dev)
+diff --git a/drivers/net/tulip/tulip_core.c b/drivers/net/tulip/tulip_core.c
+index 2c39f25..5c01e26 100644
+--- a/drivers/net/tulip/tulip_core.c
++++ b/drivers/net/tulip/tulip_core.c
+@@ -1302,17 +1302,18 @@ static const struct net_device_ops tulip_netdev_ops = {
+ #endif
+ };
  
- 	if (rc) {
- 		if (dev->dev_addr[0] == 0xFF) {
--			u8 default_mac[] = {0x00, 0x04, 0x25, 0x00, 0x00, 0x00};
-+			static const u8 default_mac[] = {
-+				0x00, 0x04, 0x25, 0x00, 0x00, 0x00
-+			};
- 			printk(KERN_ALERT "%s: *** Invalid MAC address. UPGRADE Firmware ****\n", dev->name);
- 			memcpy(dev->dev_addr, default_mac, 6);
- 		}
++DEFINE_PCI_DEVICE_TABLE(early_486_chipsets) = {
++	{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82424) },
++	{ PCI_DEVICE(PCI_VENDOR_ID_SI, PCI_DEVICE_ID_SI_496) },
++	{ },
++};
++
+ static int __devinit tulip_init_one (struct pci_dev *pdev,
+ 				     const struct pci_device_id *ent)
+ {
+ 	struct tulip_private *tp;
+ 	/* See note below on the multiport cards. */
+ 	static unsigned char last_phys_addr[6] = {0x00, 'L', 'i', 'n', 'u', 'x'};
+-	static struct pci_device_id early_486_chipsets[] = {
+-		{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82424) },
+-		{ PCI_DEVICE(PCI_VENDOR_ID_SI, PCI_DEVICE_ID_SI_496) },
+-		{ },
+-	};
+ 	static int last_irq;
+ 	static int multiport_cnt;	/* For four-port boards w/one EEPROM */
+ 	int i, irq;
+@@ -1682,7 +1683,9 @@ static int __devinit tulip_init_one (struct pci_dev *pdev,
+ 		tp->full_duplex_lock = 1;
+ 
+ 	if (tulip_media_cap[tp->default_port] & MediaIsMII) {
+-		u16 media2advert[] = { 0x20, 0x40, 0x03e0, 0x60, 0x80, 0x100, 0x200 };
++		static const u16 media2advert[] = {
++			0x20, 0x40, 0x03e0, 0x60, 0x80, 0x100, 0x200
++		};
+ 		tp->mii_advertise = media2advert[tp->default_port - 9];
+ 		tp->mii_advertise |= (tp->flags & HAS_8023X); /* Matching bits! */
+ 	}
 -- 
 1.7.3.2.245.g03276.dirty
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
