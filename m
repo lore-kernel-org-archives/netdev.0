@@ -1,7 +1,7 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 23/62] igb: Use static const
-Date: Sat, 20 Nov 2010 18:38:24 -0800
-Message-ID: <3c7a9986975c9eb2676f336d1be8bc5f00d3dd1c.1290305776.git.joe@perches.com>
+Subject: [PATCH 27/62] ixgbevf: Use static const
+Date: Sat, 20 Nov 2010 18:38:28 -0800
+Message-ID: <2f0b47333ee780c36283db8b098a78285e7547fd.1290305776.git.joe@perches.com>
 References: <cover.1290305773.git.joe@perches.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -29,36 +29,68 @@ Using static const generally increases object text and decreases data size.
 It also generally decreases overall object size.
 
    text	   data	    bss	    dec	    hex	filename
-  25448	   1280	   6176	  32904	   8088	drivers/net/igb/e1000_phy.o.new
-  25462	   1280	   6176	  32918	   8096	drivers/net/igb/e1000_phy.o.old
+   8436	    372	   1728	  10536	   2928	drivers/net/ixgbevf/ethtool.o.old
+   8469	    252	   1728	  10449	   28d1	drivers/net/ixgbevf/ethtool.o.new
+
+Make single file scope definition for register_test_patterns.
+Rename _test to register_test_patterns.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/igb/e1000_phy.c |   11 ++++++-----
- 1 files changed, 6 insertions(+), 5 deletions(-)
+ drivers/net/ixgbevf/ethtool.c |   18 +++++++++++-------
+ 1 files changed, 11 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/igb/e1000_phy.c b/drivers/net/igb/e1000_phy.c
-index ddd036a..2dc089e 100644
---- a/drivers/net/igb/e1000_phy.c
-+++ b/drivers/net/igb/e1000_phy.c
-@@ -1757,11 +1757,12 @@ s32 igb_get_cable_length_igp_2(struct e1000_hw *hw)
- 	u16 phy_data, i, agc_value = 0;
- 	u16 cur_agc_index, max_agc_index = 0;
- 	u16 min_agc_index = IGP02E1000_CABLE_LENGTH_TABLE_SIZE - 1;
--	u16 agc_reg_array[IGP02E1000_PHY_CHANNEL_NUM] =
--							 {IGP02E1000_PHY_AGC_A,
--							  IGP02E1000_PHY_AGC_B,
--							  IGP02E1000_PHY_AGC_C,
--							  IGP02E1000_PHY_AGC_D};
-+	static const u16 agc_reg_array[IGP02E1000_PHY_CHANNEL_NUM] = {
-+		IGP02E1000_PHY_AGC_A,
-+		IGP02E1000_PHY_AGC_B,
-+		IGP02E1000_PHY_AGC_C,
-+		IGP02E1000_PHY_AGC_D
-+	};
+diff --git a/drivers/net/ixgbevf/ethtool.c b/drivers/net/ixgbevf/ethtool.c
+index 4cc817a..fa29b3c 100644
+--- a/drivers/net/ixgbevf/ethtool.c
++++ b/drivers/net/ixgbevf/ethtool.c
+@@ -544,7 +544,7 @@ struct ixgbevf_reg_test {
+ #define TABLE64_TEST_HI	6
  
- 	/* Read the AGC registers for all channels */
- 	for (i = 0; i < IGP02E1000_PHY_CHANNEL_NUM; i++) {
+ /* default VF register test */
+-static struct ixgbevf_reg_test reg_test_vf[] = {
++static const struct ixgbevf_reg_test reg_test_vf[] = {
+ 	{ IXGBE_VFRDBAL(0), 2, PATTERN_TEST, 0xFFFFFF80, 0xFFFFFF80 },
+ 	{ IXGBE_VFRDBAH(0), 2, PATTERN_TEST, 0xFFFFFFFF, 0xFFFFFFFF },
+ 	{ IXGBE_VFRDLEN(0), 2, PATTERN_TEST, 0x000FFF80, 0x000FFFFF },
+@@ -557,19 +557,23 @@ static struct ixgbevf_reg_test reg_test_vf[] = {
+ 	{ 0, 0, 0, 0 }
+ };
+ 
++static const u32 register_test_patterns[] = {
++	0x5A5A5A5A, 0xA5A5A5A5, 0x00000000, 0xFFFFFFFF
++};
++
+ #define REG_PATTERN_TEST(R, M, W)                                             \
+ {                                                                             \
+ 	u32 pat, val, before;                                                 \
+-	const u32 _test[] = {0x5A5A5A5A, 0xA5A5A5A5, 0x00000000, 0xFFFFFFFF}; \
+-	for (pat = 0; pat < ARRAY_SIZE(_test); pat++) {                       \
++	for (pat = 0; pat < ARRAY_SIZE(register_test_patterns); pat++) {      \
+ 		before = readl(adapter->hw.hw_addr + R);                      \
+-		writel((_test[pat] & W), (adapter->hw.hw_addr + R));          \
++		writel((register_test_patterns[pat] & W),                     \
++		       (adapter->hw.hw_addr + R));                            \
+ 		val = readl(adapter->hw.hw_addr + R);                         \
+-		if (val != (_test[pat] & W & M)) {                            \
++		if (val != (register_test_patterns[pat] & W & M)) {           \
+ 			hw_dbg(&adapter->hw,                                  \
+ 			"pattern test reg %04X failed: got "                  \
+ 			"0x%08X expected 0x%08X\n",                           \
+-			R, val, (_test[pat] & W & M));                        \
++			R, val, (register_test_patterns[pat] & W & M));       \
+ 			*data = R;                                            \
+ 			writel(before, adapter->hw.hw_addr + R);              \
+ 			return 1;                                             \
+@@ -596,7 +600,7 @@ static struct ixgbevf_reg_test reg_test_vf[] = {
+ 
+ static int ixgbevf_reg_test(struct ixgbevf_adapter *adapter, u64 *data)
+ {
+-	struct ixgbevf_reg_test *test;
++	const struct ixgbevf_reg_test *test;
+ 	u32 i;
+ 
+ 	test = reg_test_vf;
 -- 
 1.7.3.2.245.g03276.dirty
 
