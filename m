@@ -1,32 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6] net: allow GFP_HIGHMEM in __vmalloc()
-Date: Sun, 21 Nov 2010 10:04:20 -0800 (PST)
-Message-ID: <20101121.100420.112583140.davem@davemloft.net>
-References: <1290275195.2756.94.camel@edumazet-laptop>
+Subject: Re: [patch] netns: let net_generic take pointer-to-const args
+Date: Sun, 21 Nov 2010 10:05:29 -0800 (PST)
+Message-ID: <20101121.100529.183060912.davem@davemloft.net>
+References: <alpine.LNX.2.01.1011210506110.9636@obet.zrqbmnf.qr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+To: jengelh@medozas.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45196
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45200
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755107Ab0KUSDz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Nov 2010 13:03:55 -0500
-In-Reply-To: <1290275195.2756.94.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1754645Ab0KUSFE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Nov 2010 13:05:04 -0500
+In-Reply-To: <alpine.LNX.2.01.1011210506110.9636@obet.zrqbmnf.qr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sat, 20 Nov 2010 18:46:35 +0100
+From: Jan Engelhardt <jengelh@medozas.de>
+Date: Sun, 21 Nov 2010 05:07:21 +0100 (CET)
 
-> We forgot to use __GFP_HIGHMEM in several __vmalloc() calls.
+> netns: let net_generic take pointer-to-const args
 > 
-> In ceph, add the missing flag.
+> This commit is same in nature as v2.6.37-rc1-755-g3654654; the network
+> namespace itself is not modified when calling net_generic, so the
+> parameter can be const.
 > 
-> In fib_trie.c, xfrm_hash.c and request_sock.c, using vzalloc() is
-> cleaner and allows using HIGHMEM pages as well.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
 
-Applied, thanks Eric.
+Applied.
