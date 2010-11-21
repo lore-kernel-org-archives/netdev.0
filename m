@@ -1,10 +1,10 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 37/62] r8169: Use static const
-Date: Sat, 20 Nov 2010 18:38:38 -0800
-Message-ID: <400a1fb40ac73a27cd214d535d312c372e961643.1290305776.git.joe@perches.com>
+Subject: [PATCH 40/62] skge: Use static const
+Date: Sat, 20 Nov 2010 18:38:41 -0800
+Message-ID: <2ddff3ba3e1582bddc3b544dfcd22d8317df59cc.1290305776.git.joe@perches.com>
 References: <cover.1290305773.git.joe@perches.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1290305773.git.joe@perches.com>
 Sender: linux-kernel-owner@vger.kernel.org
@@ -14,26 +14,35 @@ Using static const generally increases object text and decreases data size.
 It also generally decreases overall object size.
 
    text	   data	    bss	    dec	    hex	filename
-  43939	    232	   9904	  54075	   d33b	drivers/net/r8169.o.new
-  43974	    232	   9904	  54110	   d35e	drivers/net/r8169.o.old
+  52665	    927	  12680	  66272	  102e0	drivers/net/skge.o.new
+  52730	    927	  12680	  66337	  10321	drivers/net/skge.o.old
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/r8169.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/skge.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 7d33ef4..f9ad0d6 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -2516,7 +2516,7 @@ static void rtl8168d_2_hw_phy_config(void __iomem *ioaddr)
+diff --git a/drivers/net/skge.c b/drivers/net/skge.c
+index 220e039..e9dbe52 100644
+--- a/drivers/net/skge.c
++++ b/drivers/net/skge.c
+@@ -1191,7 +1191,7 @@ static void genesis_init(struct skge_hw *hw)
  
- 		val = mdio_read(ioaddr, 0x0d);
- 		if ((val & 0x00ff) != 0x006c) {
--			u32 set[] = {
-+			static const u32 set[] = {
- 				0x0065, 0x0066, 0x0067, 0x0068,
- 				0x0069, 0x006a, 0x006b, 0x006c
- 			};
+ static void genesis_reset(struct skge_hw *hw, int port)
+ {
+-	const u8 zero[8]  = { 0 };
++	static const u8 zero[8]  = { 0 };
+ 	u32 reg;
+ 
+ 	skge_write8(hw, SK_REG(port, GMAC_IRQ_MSK), 0);
+@@ -1557,7 +1557,7 @@ static void genesis_mac_init(struct skge_hw *hw, int port)
+ 	int jumbo = hw->dev[port]->mtu > ETH_DATA_LEN;
+ 	int i;
+ 	u32 r;
+-	const u8 zero[6]  = { 0 };
++	static const u8 zero[6]  = { 0 };
+ 
+ 	for (i = 0; i < 10; i++) {
+ 		skge_write16(hw, SK_REG(port, TX_MFF_CTRL1),
 -- 
 1.7.3.2.245.g03276.dirty
