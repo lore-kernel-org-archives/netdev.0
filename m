@@ -1,48 +1,67 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: [patch] netns: let net_generic take pointer-to-const args
-Date: Sun, 21 Nov 2010 05:07:21 +0100 (CET)
-Message-ID: <alpine.LNX.2.01.1011210506110.9636@obet.zrqbmnf.qr>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 00/62] drivers/net: Use static const
+Date: Sat, 20 Nov 2010 20:50:59 -0800 (PST)
+Message-ID: <20101120.205059.193725921.davem@davemloft.net>
+References: <cover.1290305773.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from borg.medozas.de ([188.40.89.202]:38318 "EHLO borg.medozas.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752161Ab0KUEHW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 20 Nov 2010 23:07:22 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: ath5k-devel-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org, libertas-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	e1000-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	users-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, ath9k-devel-xDcbHBWguxHbcTqmT+pZeQ@public.gmane.org
+To: joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <cover.1290305773.git.joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-parent 2801f1c311f8388ea80d78555747d449b46ea90d (v2.6.37-rc1-225-g2801f1c)
-commit 381a4560f0062f5c1919f8199772d7af7281349e
-Author: Jan Engelhardt <jengelh@medozas.de>
-Date:   Sun Nov 21 04:35:16 2010 +0100
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Date: Sat, 20 Nov 2010 18:38:01 -0800
 
-netns: let net_generic take pointer-to-const args
+> Using static const generally increases object text and decreases data size.
+> It also generally decreases overall object size.
 
-This commit is same in nature as v2.6.37-rc1-755-g3654654; the network
-namespace itself is not modified when calling net_generic, so the
-parameter can be const.
+Joe, I'm going to be frank and say that I'm not going to review and
+apply such a large chunk of networking patches.
 
-Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
----
- include/net/netns/generic.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Seperation is cool, splitting up patches is cool to make review
+perhaps easier and more distributed.
 
-diff --git a/include/net/netns/generic.h b/include/net/netns/generic.h
-index 81a31c0..3419bf5 100644
---- a/include/net/netns/generic.h
-+++ b/include/net/netns/generic.h
-@@ -30,7 +30,7 @@ struct net_generic {
- 	void *ptr[0];
- };
- 
--static inline void *net_generic(struct net *net, int id)
-+static inline void *net_generic(const struct net *net, int id)
- {
- 	struct net_generic *ng;
- 	void *ptr;
--- 
-# Created with git-export-patch
+But in the end _I_ have to purge through these things and submitting
+so many patches at a time, multiple times per release cycle, abuses me
+as a resource.
 
+Yes, Linus has to deal with perhaps a hundred patches, or more, at a
+time from Andrew Morton during the merge window.  But he has to do
+that _ONE_ time each release.  You crap large sets of patches on me
+multiple times per release cycle.
+
+This cannot continue, my sanity depends upon it.
+
+You therefore cannot funnel 40, 50, 60, or more patches at me at a
+time, multiple times per release.  It severely negatively effects my
+mood, because it makes me feel like me head is below water again
+_RIGHT_ after I've worked all damn week to finally made the networking
+patch backlog sane again.
+
+You also make this more difficult for me by not using GIT.  Even
+with patchwork helping me significantly, it's still a lot of work
+to apply large sets of patches.  If I had to take in John Linville's
+wireless stuff without GIT I'd be banging my head on a wall.
+
+And these incessant huge patch bombs also take time away from me for
+the things I'd like to at least occiasionally work on that involve
+more intellect than monkeying around with such mindless patches.
+
+Thanks for your understanding.  Feel free to submit this stuff in
+smaller chunks, say ~10 patches at a time.
