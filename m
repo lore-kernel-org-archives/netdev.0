@@ -1,48 +1,83 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 22/62] hp: Use static const
-Date: Sat, 20 Nov 2010 18:38:23 -0800
-Message-ID: <6a5db66ec82dab8c4438da5751874778d93b7f30.1290305776.git.joe@perches.com>
+Subject: [PATCH 07/62] bnx2: Use static const
+Date: Sat, 20 Nov 2010 18:38:08 -0800
+Message-ID: <667c5a9ea33b9883c450edaff9541d305619f6ca.1290305775.git.joe@perches.com>
 References: <cover.1290305773.git.joe@perches.com>
-Cc: linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1666 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756076Ab0KUCkC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 20 Nov 2010 21:40:02 -0500
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Michael Chan <mchan@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1290305773.git.joe@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Using static const generally increases object text and decreases data size.
 It also generally decreases overall object size.
 
    text	   data	    bss	    dec	    hex	filename
-   4743	    104	   1256	   6103	   17d7	drivers/net/hp.o.new
-   4720	    104	   1256	   6080	   17c0	drivers/net/hp.o.old
+  92097	    560	  22488	 115145	  1c1c9	drivers/net/bnx2.o.new
+  92133	    560	  22488	 115181	  1c1ed	drivers/net/bnx2.o.old
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/hp.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/bnx2.c |   46 ++++++++++++++++++++++++----------------------
+ 1 files changed, 24 insertions(+), 22 deletions(-)
 
-diff --git a/drivers/net/hp.c b/drivers/net/hp.c
-index d15d2f2..ef20143 100644
---- a/drivers/net/hp.c
-+++ b/drivers/net/hp.c
-@@ -162,9 +162,9 @@ static int __init hp_probe1(struct net_device *dev, int ioaddr)
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index 062600b..7805a4b 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -6801,28 +6801,30 @@ bnx2_get_regs(struct net_device *dev, struct ethtool_regs *regs, void *_p)
+ 	u32 *p = _p, i, offset;
+ 	u8 *orig_p = _p;
+ 	struct bnx2 *bp = netdev_priv(dev);
+-	u32 reg_boundaries[] = { 0x0000, 0x0098, 0x0400, 0x045c,
+-				 0x0800, 0x0880, 0x0c00, 0x0c10,
+-				 0x0c30, 0x0d08, 0x1000, 0x101c,
+-				 0x1040, 0x1048, 0x1080, 0x10a4,
+-				 0x1400, 0x1490, 0x1498, 0x14f0,
+-				 0x1500, 0x155c, 0x1580, 0x15dc,
+-				 0x1600, 0x1658, 0x1680, 0x16d8,
+-				 0x1800, 0x1820, 0x1840, 0x1854,
+-				 0x1880, 0x1894, 0x1900, 0x1984,
+-				 0x1c00, 0x1c0c, 0x1c40, 0x1c54,
+-				 0x1c80, 0x1c94, 0x1d00, 0x1d84,
+-				 0x2000, 0x2030, 0x23c0, 0x2400,
+-				 0x2800, 0x2820, 0x2830, 0x2850,
+-				 0x2b40, 0x2c10, 0x2fc0, 0x3058,
+-				 0x3c00, 0x3c94, 0x4000, 0x4010,
+-				 0x4080, 0x4090, 0x43c0, 0x4458,
+-				 0x4c00, 0x4c18, 0x4c40, 0x4c54,
+-				 0x4fc0, 0x5010, 0x53c0, 0x5444,
+-				 0x5c00, 0x5c18, 0x5c80, 0x5c90,
+-				 0x5fc0, 0x6000, 0x6400, 0x6428,
+-				 0x6800, 0x6848, 0x684c, 0x6860,
+-				 0x6888, 0x6910, 0x8000 };
++	static const u32 reg_boundaries[] = {
++		0x0000, 0x0098, 0x0400, 0x045c,
++		0x0800, 0x0880, 0x0c00, 0x0c10,
++		0x0c30, 0x0d08, 0x1000, 0x101c,
++		0x1040, 0x1048, 0x1080, 0x10a4,
++		0x1400, 0x1490, 0x1498, 0x14f0,
++		0x1500, 0x155c, 0x1580, 0x15dc,
++		0x1600, 0x1658, 0x1680, 0x16d8,
++		0x1800, 0x1820, 0x1840, 0x1854,
++		0x1880, 0x1894, 0x1900, 0x1984,
++		0x1c00, 0x1c0c, 0x1c40, 0x1c54,
++		0x1c80, 0x1c94, 0x1d00, 0x1d84,
++		0x2000, 0x2030, 0x23c0, 0x2400,
++		0x2800, 0x2820, 0x2830, 0x2850,
++		0x2b40, 0x2c10, 0x2fc0, 0x3058,
++		0x3c00, 0x3c94, 0x4000, 0x4010,
++		0x4080, 0x4090, 0x43c0, 0x4458,
++		0x4c00, 0x4c18, 0x4c40, 0x4c54,
++		0x4fc0, 0x5010, 0x53c0, 0x5444,
++		0x5c00, 0x5c18, 0x5c80, 0x5c90,
++		0x5fc0, 0x6000, 0x6400, 0x6428,
++		0x6800, 0x6848, 0x684c, 0x6860,
++		0x6888, 0x6910, 0x8000
++	};
  
- 	/* Snarf the interrupt now.  Someday this could be moved to open(). */
- 	if (dev->irq < 2) {
--		int irq_16list[] = { 11, 10, 5, 3, 4, 7, 9, 0};
--		int irq_8list[] = { 7, 5, 3, 4, 9, 0};
--		int *irqp = wordmode ? irq_16list : irq_8list;
-+		static const int irq_16list[] = { 11, 10, 5, 3, 4, 7, 9, 0};
-+		static const int irq_8list[] = { 7, 5, 3, 4, 9, 0};
-+		const int *irqp = wordmode ? irq_16list : irq_8list;
- 		do {
- 			int irq = *irqp;
- 			if (request_irq (irq, NULL, 0, "bogus", NULL) != -EBUSY) {
+ 	regs->version = 0;
+ 
 -- 
 1.7.3.2.245.g03276.dirty
-
