@@ -1,51 +1,41 @@
-From: Casey Leedom <leedom@chelsio.com>
-Subject: Re: [PATCH 14/62] cxgb4vf: Use static const
-Date: Mon, 22 Nov 2010 09:42:40 -0800
-Message-ID: <201011220942.40414.leedom@chelsio.com>
-References: <cover.1290305773.git.joe@perches.com> <d0a433aa6bbe20dfe4fd4f3ca9aec50f97601403.1290305776.git.joe@perches.com>
+From: Alban Crequy <alban.crequy@collabora.co.uk>
+Subject: [PATCH 0/9] RFC v2: Multicast and filtering features on AF_UNIX
+Date: Mon, 22 Nov 2010 18:34:47 +0000
+Message-ID: <20101122183447.124afce5@chocolatine.cbg.collabora.co.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
+To: Alban Crequy <alban.crequy@collabora.co.uk>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Cyrill Gorcuno
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:26775 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753602Ab0KVRmn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Nov 2010 12:42:43 -0500
-In-Reply-To: <d0a433aa6bbe20dfe4fd4f3ca9aec50f97601403.1290305776.git.joe@perches.com>
+Received: from bhuna.collabora.co.uk ([93.93.128.226]:38580 "EHLO
+	bhuna.collabora.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757066Ab0KVSgm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Nov 2010 13:36:42 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-| From: Joe Perches <joe@perches.com>
-| Date: Saturday, November 20, 2010 06:38 pm
-| 
-| Using static const generally increases object text and decreases data size.
-| It also generally decreases overall object size.
-| 
-|    text	   data	    bss	    dec	    hex	filename
-|   10179	     56	   2216	  12451	   30a3	drivers/net/cxgb4vf/t4vf_hw.o.new
-|   10179	     56	   2216	  12451	   30a3	drivers/net/cxgb4vf/t4vf_hw.o.old
-| 
-| Signed-off-by: Joe Perches <joe@perches.com>
-| ---
-|  drivers/net/cxgb4vf/t4vf_hw.c |    2 +-
-|  1 files changed, 1 insertions(+), 1 deletions(-)
-| 
-| diff --git a/drivers/net/cxgb4vf/t4vf_hw.c b/drivers/net/cxgb4vf/t4vf_hw.c
-| index f7d7f97..daedf6e 100644
-| --- a/drivers/net/cxgb4vf/t4vf_hw.c
-| +++ b/drivers/net/cxgb4vf/t4vf_hw.c
-| @@ -116,7 +116,7 @@ static void dump_mbox(struct adapter *adapter, const
-| char *tag, u32 mbox_data) int t4vf_wr_mbox_core(struct adapter *adapter,
-| const void *cmd, int size, void *rpl, bool sleep_ok)
-|  {
-| -	static int delay[] = {
-| +	static const int delay[] = {
-|  		1, 1, 3, 5, 10, 10, 20, 50, 100
-|  	};
+Hi,
 
-  Looks okay to me.  Thanks!
+This is a new serie of patches, following my first request for comments
+here: http://marc.info/?l=linux-netdev&m=128534977610124
 
-Casey
+It implements a new multicast features on AF_UNIX datagram and
+seqpacket sockets.
+
+My motivation is to use it for D-Bus. The kernel code here does not
+contain anything specific to D-Bus, so it could be used for other IPC
+mechanisms too.
+
+The patches apply on linux-next-20101122 and can be pulled from:
+
+  git://git.collabora.co.uk/git/user/alban/linux-2.6.35.y/.git unix-multicast5
+
+Comments & questions welcome! I would appreciate a review on the design
+and know if it goes in the right direction.
+
+Regards,
+Alban Crequy
