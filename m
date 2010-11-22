@@ -1,34 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] qlge: Fix incorrect usage of module parameters and
- netdev msg level
-Date: Mon, 22 Nov 2010 08:29:43 -0800 (PST)
-Message-ID: <20101122.082943.104076370.davem@davemloft.net>
-References: <1290075903-3038-1-git-send-email-sonnyrao@linux.vnet.ibm.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 0/2] phylib: Cleanup marvell.c and add 88E1149R support.
+Date: Mon, 22 Nov 2010 08:34:57 -0800 (PST)
+Message-ID: <20101122.083457.189683493.davem@davemloft.net>
+References: <1290203933-28251-1-git-send-email-ddaney@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, miltonm@bga.com, ron.mercer@qlogic.com,
-	linux-driver@qlogic.com, linux-kernel@vger.kernel.org
-To: sonnyrao@linux.vnet.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41994
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750790Ab0KVQ3S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Nov 2010 11:29:18 -0500
-In-Reply-To: <1290075903-3038-1-git-send-email-sonnyrao@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cyril-l0cyMroinI0@public.gmane.org, arnaud.patard-dQbF7i+pzddAfugRpC6u6w@public.gmane.org
+To: ddaney-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+In-Reply-To: <1290203933-28251-1-git-send-email-ddaney-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Sonny Rao <sonnyrao@linux.vnet.ibm.com>
-Date: Thu, 18 Nov 2010 04:25:03 -0600
+From: David Daney <ddaney-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>
+Date: Fri, 19 Nov 2010 13:58:51 -0800
 
-> Driver appears to be mistaking the permission field with default value
-> in the case of debug and qlge_irq_type.
+> This is the second iteration of this patch.  I have split out the
+> device tree support from the first version to a different patch set.
+> The 88E1149R support is useful 'stand alone', so if it is acceptable,
+> it can be merged first.
 > 
-> Driver is also passing debug as a bitmask into netif_msg_init()
-> which really wants a number of bits, so fix that.
-> 
-> Signed-off-by: Milton Miller <miltonm@bga.com>
-> Signed-off-by: Sonny Rao <sonnyrao@linux.vnet.ibm.com>
+> The first patch is a small cleanup suggested by Cyril Chemparathy, the
+> second one adds basic 88E1149R support.
 
-Applied, thanks Sonny.
+All applied to net-2.6, thanks.
