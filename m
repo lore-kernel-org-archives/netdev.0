@@ -1,63 +1,100 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3] netfilter: nf_conntrack_sip: Handle Cisco 7941/7945
- IP phones
-Date: Mon, 22 Nov 2010 08:52:14 +0100
-Message-ID: <1290412334.2756.141.camel@edumazet-laptop>
-References: <f0955e6c2110044fa058d0f3ecf945ca@localhost>
+From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6 v3] can: Topcliff: PCH_CAN driver: Add Flow
+	control,
+Date: Mon, 22 Nov 2010 09:27:50 +0100
+Message-ID: <4CEA2986.4080607@pengutronix.de>
+References: <4CE2434B.5050701@dsn.okisemi.com>	<4CE27796.2000206@pengutronix.de>	<007401cb87b1$a773b3d0$66f8800a@maildom.okisemi.com>	<4CE64167.2030405@pengutronix.de>
+	<003201cb8a02$f05b15e0$66f8800a@maildom.okisemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Kevin Cernekee <cernekee@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <f0955e6c2110044fa058d0f3ecf945ca@localhost>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/mixed; boundary="===============9021791802722147259=="
+Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	Masayuki Ohtake <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>,
+	Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>, margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>,
+	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+To: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <003201cb8a02$f05b15e0$66f8800a-a06+6cuVnkTSQfdrb5gaxUEOCMrvLtNR@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Le dimanche 21 novembre 2010 =C3=A0 18:40 -0800, Kevin Cernekee a =C3=A9=
-crit :
-> [v3:
->   Only activate the new forced_dport logic if the IP matches, but the
->   port does not. ]
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--===============9021791802722147259==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig6AB79154414CF0941E795E6A"
+
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig6AB79154414CF0941E795E6A
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+
+On 11/22/2010 06:05 AM, Tomoya MORINAGA wrote:
+> On Friday, November 19, 2010 6:20 PM,  Marc Kleine-Budde wrote :
 >=20
-> Most SIP devices use a source port of 5060/udp on SIP requests, so th=
+>>>>> - spin_unlock_irqrestore(&priv->msgif_reg_lock, flags);
+>>>>> + pch_can_rw_msg_obj(&priv->regs->ifregs[1].creq, tx_obj_no);
+>>>> Still we have the busy waiting in the TX path. Maybe you can move th=
 e
-> response automatically comes back to port 5060:
->=20
-> phone_ip:5060 -> proxy_ip:5060   REGISTER
-> proxy_ip:5060 -> phone_ip:5060   100 Trying
->=20
-> The newer Cisco IP phones, however, use a randomly chosen high source
-> port for the SIP request but expect the response on port 5060:
->=20
-> phone_ip:49173 -> proxy_ip:5060  REGISTER
-> proxy_ip:5060 -> phone_ip:5060   100 Trying
->=20
-> Standard Linux NAT, with or without nf_nat_sip, will send the reply b=
-ack
-> to port 49173, not 5060:
->=20
-> phone_ip:49173 -> proxy_ip:5060  REGISTER
-> proxy_ip:5060 -> phone_ip:49173  100 Trying
->=20
-> But the phone is not listening on 49173, so it will never see the rep=
-ly.
->=20
-> This patch modifies nf_*_sip to work around this quirk by extracting
-> the SIP response port from the Via: header, iff the source IP in the
-> packet header matches the source IP in the SIP request.
->=20
-> Signed-off-by: Kevin Cernekee <cernekee@gmail.com>
-> ---
+>>>> waiting before accessing the if[1] and remove the busy waiting here.=
 
-Thanks for doing this work Keven !
+>>> I can't understand your saying.
+>>> For transmitting data, calling pch_can_rw_msg_obj is mandatory.
+>> Yes, but the busy wait is not needed. It should be enough to do the
+>> busy-waiting _before_ accessing the if[1].
+>=20
+> Do you mean we should create other pch_can_rw_msg_obj which doesn't hav=
+e busy wait ?
 
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+ACK, and this non busy waiting is use in the TX path. But you add a busy
+wait only function before accessing the if[1] in the TX path.
+
+cheers, Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--------------enig6AB79154414CF0941E795E6A
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAkzqKYoACgkQjTAFq1RaXHOeXQCfT7VKvE6KPYvx51UzDh+mMJzd
+hD8An2psKQO3bRnvocjSPOu3zAqs8Blw
+=4RUa
+-----END PGP SIGNATURE-----
+
+--------------enig6AB79154414CF0941E795E6A--
+
+--===============9021791802722147259==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+Socketcan-core mailing list
+Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+https://lists.berlios.de/mailman/listinfo/socketcan-core
+
+--===============9021791802722147259==--
