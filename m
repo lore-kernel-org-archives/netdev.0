@@ -1,83 +1,78 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Mon, 22 Nov 2010 12:10:42 -0800 (PST)
-Message-ID: <20101122.121042.260064840.davem@davemloft.net>
+From: Alban Crequy <alban.crequy@collabora.co.uk>
+Subject: Re: [PATCH 7/9] AF_UNIX: Documentation on multicast Unix Sockets
+Date: Mon, 22 Nov 2010 20:09:31 +0000
+Message-ID: <20101122200931.106731cd@chocolatine.cbg.collabora.co.uk>
+References: <20101122183447.124afce5@chocolatine.cbg.collabora.co.uk>
+	<1290450982-17480-7-git-send-email-alban.crequy@collabora.co.uk>
+	<201011222107.41548.remi@remlab.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "=?UTF-8?B?UsOpbWk=?= Denis-Courmont" <remi@remlab.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32976
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757220Ab0KVUKR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Nov 2010 15:10:17 -0500
+Received: from bhuna.collabora.co.uk ([93.93.128.226]:52308 "EHLO
+	bhuna.collabora.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755512Ab0KVUL1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Nov 2010 15:11:27 -0500
+In-Reply-To: <201011222107.41548.remi@remlab.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Le Mon, 22 Nov 2010 21:07:40 +0200,
+"R=C3=A9mi Denis-Courmont" <remi@remlab.net> a =C3=A9crit :
 
-1) Fix screaming IRQ in e1000, from Anupam Chanda.
+> Le lundi 22 novembre 2010 20:36:20 Alban Crequy, vous avez =C3=A9crit=
+ :
+> > +Multicast Unix sockets
+> > +=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+> > +
+> > +Multicast group memberships are stored in struct unix_mcast nodes.
+> > An Unix +socket can join several multicast groups. Struct
+> > unix_mcast nodes are doubly +linked:
+> > +- In (struct unix_sock)->mcast_subscriptions
+> > +- In (struct unix_sock)->mcast_members
+>=20
+> I may be stupid, but I found this whole documentation very confusing,
+> and so the API it tries to describe. Traditionally:
+> - Senders may or not may be part of the group and are not kept track
+> of.
+> - Receivers join to the group then receive message sent to it.
+> - Loopback defines whether a sender receives its own echo if it sends
+> to a group that it has joined.
+> - If connected to a multicast group, messages from the socket are
+> routed to the group (in absence of a contradictoy socket address).
+> This has no effect on membership to the multicast group under any
+> circumstance.
 
-2) Fix module parameter bustage in qlge, from Sonny Rao.
+I keep these traditional properties for multicast on Unix sockets.
 
-3) Interface address leak in ipv6, fix from John Fastabend.
+> You cannot 'listen' or 'accept' on a multicast group.
 
-   This would have been merged sooner except that I erroneously
-   put this into my net-next-2.6 tree, oops.
+Datagram sockets cannot listen() or accept() but seqpacket sockets can.
+I would like multicast to work on seqpacket sockets too. In this case,
+there is a central daemon who listen(), and accept() returns a new
+socket. The central daemon controls the lifetime of the multicast
+group and can receive the messages from the peers on the socket
+returned by accept() if UNIX_MREQ_SEND_TO_PEER is set.
 
-4) Support for more Marvell PHY variants, from David Daney.
+The accepted socket could join the multicast group (and then receive
+messages addressed to the group) with the setsockopt() call, but then
+there would be a race that it may not receive the first messages if a
+peer connect() and send a message immediately afterwards. connect() can
+returns on the peer process before the daemon accept() and runs
+setsockopt(). I added the flag UNIX_MREQ_AUTOJOIN (to be set when
+creating the multicast group) to prevent that race.
 
-5) Chip variant checking fix in atl1c from Ben Hutchings.
+Using connected sockets (seqpacket) is useful for D-Bus because a
+central daemon can know when members are connecting and disconnecting
+and then emit the D-Bus signal 'NameOwnerChanged'.
 
-6) Baud rate correction fix in SH-irda driver, from Nicolas Kaiser.
+> So I am not entirely clear what semantics your patchset is following.
+> But it does not seem like "multicast" to me and therefore seems not
+> very well documented :-(
 
-Please pull, thanks a lot!
+I am willing to improve it.
 
-The following changes since commit b86db4744230c94e480de56f1b7f31117edbf193:
-
-  Merge branch 'for_linus' of git://git.kernel.org/pub/scm/linux/kernel/git/tytso/ext4 (2010-11-19 19:46:45 -0800)
-
-are available in the git repository at:
-
-  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
-
-Anupam Chanda (1):
-      e1000: fix screaming IRQ
-
-Ben Hutchings (1):
-      atl1c: Fix hardware type check for enabling OTP CLK
-
-David Daney (3):
-      phylib: Use common page register definition for Marvell PHYs.
-      phylib: Add support for Marvell 88E1149R devices.
-      of/phylib: Use device tree properties to initialize Marvell PHYs.
-
-Eric Dumazet (1):
-      net: allow GFP_HIGHMEM in __vmalloc()
-
-John Fastabend (1):
-      ipv6: fix missing in6_ifa_put in addrconf
-
-Nicolas Kaiser (1):
-      SuperH IrDA: correct Baud rate error correction
-
-Simon Horman (1):
-      bonding: change list contact to netdev@vger.kernel.org
-
-Sonny Rao (1):
-      qlge: Fix incorrect usage of module parameters and netdev msg level
-
- MAINTAINERS                    |    2 +-
- drivers/net/atl1c/atl1c_hw.c   |    2 +-
- drivers/net/e1000/e1000_main.c |   12 ++-
- drivers/net/irda/sh_sir.c      |    2 +-
- drivers/net/phy/marvell.c      |  164 ++++++++++++++++++++++++++++++++++++---
- drivers/net/qlge/qlge_main.c   |    6 +-
- include/linux/marvell_phy.h    |    1 +
- net/ceph/buffer.c              |    2 +-
- net/core/request_sock.c        |    4 +-
- net/ipv4/fib_trie.c            |    2 +-
- net/ipv6/addrconf.c            |    6 +-
- net/xfrm/xfrm_hash.c           |    2 +-
- 12 files changed, 173 insertions(+), 32 deletions(-)
+--=20
+Alban
