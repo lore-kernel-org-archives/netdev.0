@@ -1,110 +1,200 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: iwl3945: regression - unregister_netdevice: waiting for wlan0
- to become free. Usage count = 1
-Date: Mon, 22 Nov 2010 12:19:36 +0100
-Message-ID: <1290424776.2811.32.camel@edumazet-laptop>
-References: <20101122104341.GA3897@tiehlicka.suse.cz>
+From: Thomas Graf <tgraf@infradead.org>
+Subject: [PATCH net-next-2.6]: rtnl: make link af-specific updates atomic
+Date: Mon, 22 Nov 2010 06:31:54 -0500
+Message-ID: <20101122113154.GA16382@canuck.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-wireless@vger.kernel.org,
-	Reinette Chatre <reinette.chatre@intel.com>,
-	Wey-Yi Guy <wey-yi.w.guy@intel.com>,
-	Intel Linux Wireless <ilw@linux.intel.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Michal Hocko <mhocko@suse.cz>, David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20101122104341.GA3897@tiehlicka.suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canuck.infradead.org ([134.117.69.58]:33491 "EHLO
+	canuck.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753696Ab0KVLbz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Nov 2010 06:31:55 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le lundi 22 novembre 2010 =C3=A0 11:43 +0100, Michal Hocko a =C3=A9crit=
- :
-> Hi,
-> I am experiencing iwl3945 driver reference counting problem with the =
-current
-> 2.6.37-rc2 kernel release.=20
->=20
-> The problem can be easily reproduced by associating to an AP (I have
-> tried only wep and wpa based auth) and then rmmod iw3945 which gets
-> stuck in unregister_netdevice (in the endless loop as there is no way=
- -
-> I guess - to decrease the reference count to 0) spitting the followin=
-g
-> message:
->=20
-> unregister_netdevice: waiting for wlan0 to become free. Usage count =3D=
- 1
->=20
-> The situation is even worse as the rmmod process sits on the CPU and
-> cannot be killed and the loop never ends so the only solution is
-> rebooting.
->=20
-> 2.6.37-rc1 looks good. I have tried to bisect to the culprit but I am
-> failing to boot some of the kernels on the way (due to some unrelated
-> issue which is already fixed in rc2). This is a partial bisect log
-> (maybe it helps to narrow down the range of commits):
->=20
-> $ git bisect log
-> git bisect start
-> # bad: [e53beacd23d9cb47590da6a7a7f6d417b941a994] Linux 2.6.37-rc2
-> git bisect bad e53beacd23d9cb47590da6a7a7f6d417b941a994
-> # good: [151f52f09c5728ecfdd0c289da1a4b30bb416f2c] ipw2x00: remove th=
-e right /proc/net entry
-> git bisect good 151f52f09c5728ecfdd0c289da1a4b30bb416f2c
-> # good: [891cbd30ef456664e50bbd28436ef3006a81cf7c] Merge branch 'upst=
-ream/core' of git://git.kernel.org/pub/scm/linux/kernel/git/jeremy/xen
-> git bisect good 891cbd30ef456664e50bbd28436ef3006a81cf7c
-> # good: [80ef913f5e6a84551545016cea709f5e96d0cda6] Merge branch 'upst=
-ream-linus' of git://git.kernel.org/pub/scm/linux/kernel/git/jgarzik/li=
-bata-dev
-> git bisect good 80ef913f5e6a84551545016cea709f5e96d0cda6
-> # bad: [c22cff08db00ef0411be088956d7934681a1f988] Merge branch 'v4l_f=
-or_linus' of git://git.kernel.org/pub/scm/linux/kernel/git/mchehab/linu=
-x-2.6
-> git bisect bad c22cff08db00ef0411be088956d7934681a1f988
-> # skip: [8877870f8a8127b653f8c9a55c6b4de9f96f639b] Merge branch 'mast=
-er' of git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-=
-2.6
-> git bisect skip 8877870f8a8127b653f8c9a55c6b4de9f96f639b
-> # skip: [75e6047431872dadd0b13503b374e48ccd71a507] ucc_geth: Fix dead=
-lock
-> git bisect skip 75e6047431872dadd0b13503b374e48ccd71a507
-> # skip: [18943d292facbc70e6a36fc62399ae833f64671b] inet: fix ip_mc_dr=
-op_socket()
-> git bisect skip 18943d292facbc70e6a36fc62399ae833f64671b
-> [Here I gave up]
->=20
-> skipped steps are non-bootable kernels. From the log it looks like th=
-e last
-> good commit is 80ef913f5e6a845.
->=20
-> There is only one patch in that range for iwlwifi drivers:
-> $ git shortlog 80ef913f5e6a845..v2.6.37-rc2 -- drivers/net/wireless/i=
-wlwifi/
-> Wey-Yi Guy (1):
->       iwlwifi: dont use pci_dev before it being assign
->=20
-> and this one doesn't look to manipulate the reference counting so I
-> guess this is more general problem.
->=20
-> $ git shortlog 80ef913f5e6a845..v2.6.37-rc2 -- net/wireless/
-> Felix Fietkau (1):
->       cfg80211: fix a crash in dev lookup on dump commands
->=20
-> Doesn't look to be the culprit as well, though. Btw. I am getting the
-> same patches also in the v2.6.37-rc1..v2.6.37-rc2 range.
->=20
-> Please let me know if you need any further information.
-> Thanks!
+As David pointed out correctly, updates to af-specific attributes
+are currently not atomic. If multiple changes are requested and
+one of them fails, previous updates may have been applied already
+leaving the link behind in a undefined state.
 
+This patch splits the function parse_link_af() into two functions
+validate_link_af() and set_link_at(). validate_link_af() is placed
+to validate_linkmsg() check for errors as early as possible before
+any changes to the link have been made. set_link_af() is called to
+commit the changes later.
 
-Oh well, it seems David put the fix in net-next-2.6 instead of net-2.6
+This method is not fail proof, while it is currently sufficient
+to make set_link_af() inerrable and thus 100% atomic, the
+validation function method will not be able to detect all error
+scenarios in the future, there will likely always be errors
+depending on states which are f.e. not protected by rtnl_mutex
+and thus may change between validation and setting.
 
-Please try :
+Also, instead of silently ignoring unknown address families and
+config blocks for address families which did not register a set
+function the errors EAFNOSUPPORT respectively EOPNOSUPPORT are
+returned to avoid comitting 4 out of 5 update requests without
+notifying the user.
 
-http://git.kernel.org/?p=3Dlinux/kernel/git/davem/net-next-2.6.git;a=3D=
-commitdiff;h=3D9d82ca98f71fd686ef2f3017c5e3e6a4871b6e46
+Signed-off-by: Thomas Graf <tgraf@infradead.org>
 
-Thanks
+Index: net-next-2.6/include/net/rtnetlink.h
+===================================================================
+--- net-next-2.6.orig/include/net/rtnetlink.h
++++ net-next-2.6/include/net/rtnetlink.h
+@@ -92,8 +92,10 @@ extern void	rtnl_link_unregister(struct 
+  * 		       specific netlink attributes.
+  * 	@get_link_af_size: Function to calculate size of address family specific
+  * 			   netlink attributes exlusive the container attribute.
+- * 	@parse_link_af: Function to parse a IFLA_AF_SPEC attribute and modify
+- *			net_device accordingly.
++ *	@validate_link_af: Validate a IFLA_AF_SPEC attribute, must check attr
++ *			   for invalid configuration settings.
++ * 	@set_link_af: Function to parse a IFLA_AF_SPEC attribute and modify
++ *		      net_device accordingly.
+  */
+ struct rtnl_af_ops {
+ 	struct list_head	list;
+@@ -103,8 +105,10 @@ struct rtnl_af_ops {
+ 						const struct net_device *dev);
+ 	size_t			(*get_link_af_size)(const struct net_device *dev);
+ 
+-	int			(*parse_link_af)(struct net_device *dev,
+-						 const struct nlattr *attr);
++	int			(*validate_link_af)(const struct net_device *dev,
++						    const struct nlattr *attr);
++	int			(*set_link_af)(struct net_device *dev,
++					       const struct nlattr *attr);
+ };
+ 
+ extern int	__rtnl_af_register(struct rtnl_af_ops *ops);
+Index: net-next-2.6/net/core/rtnetlink.c
+===================================================================
+--- net-next-2.6.orig/net/core/rtnetlink.c
++++ net-next-2.6/net/core/rtnetlink.c
+@@ -1107,6 +1107,28 @@ static int validate_linkmsg(struct net_d
+ 			return -EINVAL;
+ 	}
+ 
++	if (tb[IFLA_AF_SPEC]) {
++		struct nlattr *af;
++		int rem, err;
++
++		nla_for_each_nested(af, tb[IFLA_AF_SPEC], rem) {
++			const struct rtnl_af_ops *af_ops;
++
++			if (!(af_ops = rtnl_af_lookup(nla_type(af))))
++				return -EAFNOSUPPORT;
++
++			if (!af_ops->set_link_af)
++				return -EOPNOTSUPP;
++
++			if (af_ops->validate_link_af) {
++				err = af_ops->validate_link_af(dev,
++			    				tb[IFLA_AF_SPEC]);
++				if (err < 0)
++					return err;
++			}
++		}
++	}
++
+ 	return 0;
+ }
+ 
+@@ -1356,12 +1378,9 @@ static int do_setlink(struct net_device 
+ 			const struct rtnl_af_ops *af_ops;
+ 
+ 			if (!(af_ops = rtnl_af_lookup(nla_type(af))))
+-				continue;
+-
+-			if (!af_ops->parse_link_af)
+-				continue;
++				BUG();
+ 
+-			err = af_ops->parse_link_af(dev, af);
++			err = af_ops->set_link_af(dev, af);
+ 			if (err < 0)
+ 				goto errout;
+ 
+Index: net-next-2.6/net/ipv4/devinet.c
+===================================================================
+--- net-next-2.6.orig/net/ipv4/devinet.c
++++ net-next-2.6/net/ipv4/devinet.c
+@@ -1289,14 +1289,14 @@ static const struct nla_policy inet_af_p
+ 	[IFLA_INET_CONF]	= { .type = NLA_NESTED },
+ };
+ 
+-static int inet_parse_link_af(struct net_device *dev, const struct nlattr *nla)
++static int inet_validate_link_af(const struct net_device *dev,
++				 const struct nlattr *nla)
+ {
+-	struct in_device *in_dev = __in_dev_get_rcu(dev);
+ 	struct nlattr *a, *tb[IFLA_INET_MAX+1];
+ 	int err, rem;
+ 
+-	if (!in_dev)
+-		return -EOPNOTSUPP;
++	if (dev && !__in_dev_get_rcu(dev))
++		return -EAFNOSUPPORT;
+ 
+ 	err = nla_parse_nested(tb, IFLA_INET_MAX, nla, inet_af_policy);
+ 	if (err < 0)
+@@ -1314,6 +1314,21 @@ static int inet_parse_link_af(struct net
+ 		}
+ 	}
+ 
++	return 0;
++}
++
++static int inet_set_link_af(struct net_device *dev, const struct nlattr *nla)
++{
++	struct in_device *in_dev = __in_dev_get_rcu(dev);
++	struct nlattr *a, *tb[IFLA_INET_MAX+1];
++	int rem;
++
++	if (!in_dev)
++		return -EAFNOSUPPORT;
++
++	if (nla_parse_nested(tb, IFLA_INET_MAX, nla, NULL) < 0)
++		BUG();
++
+ 	if (tb[IFLA_INET_CONF]) {
+ 		nla_for_each_nested(a, tb[IFLA_INET_CONF], rem)
+ 			ipv4_devconf_set(in_dev, nla_type(a), nla_get_u32(a));
+@@ -1689,7 +1704,8 @@ static struct rtnl_af_ops inet_af_ops = 
+ 	.family		  = AF_INET,
+ 	.fill_link_af	  = inet_fill_link_af,
+ 	.get_link_af_size = inet_get_link_af_size,
+-	.parse_link_af	  = inet_parse_link_af,
++	.validate_link_af = inet_validate_link_af,
++	.set_link_af	  = inet_set_link_af,
+ };
+ 
+ void __init devinet_init(void)
+Index: net-next-2.6/net/ipv6/addrconf.c
+===================================================================
+--- net-next-2.6.orig/net/ipv6/addrconf.c
++++ net-next-2.6/net/ipv6/addrconf.c
+@@ -3956,11 +3956,6 @@ static int inet6_fill_link_af(struct sk_
+ 	return 0;
+ }
+ 
+-static int inet6_parse_link_af(struct net_device *dev, const struct nlattr *nla)
+-{
+-	return -EOPNOTSUPP;
+-}
+-
+ static int inet6_fill_ifinfo(struct sk_buff *skb, struct inet6_dev *idev,
+ 			     u32 pid, u32 seq, int event, unsigned int flags)
+ {
+@@ -4670,7 +4665,6 @@ static struct rtnl_af_ops inet6_ops = {
+ 	.family		  = AF_INET6,
+ 	.fill_link_af	  = inet6_fill_link_af,
+ 	.get_link_af_size = inet6_get_link_af_size,
+-	.parse_link_af	  = inet6_parse_link_af,
+ };
+ 
+ /*
