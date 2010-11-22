@@ -1,98 +1,231 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH 2/2 v7] xps: Transmit Packet Steering
-Date: Mon, 22 Nov 2010 19:42:31 +0800
-Message-ID: <AANLkTin4q9oyeRB+ULgMt19sWZXxkVGt4iFDQOB1R8nf@mail.gmail.com>
-References: <alpine.DEB.2.00.1011211501430.14906@pokey.mtv.corp.google.com>
+From: KOVACS Krisztian <hidden@balabit.hu>
+Subject: Re: linux-next: Tree for November 18 (netfilter)
+Date: Mon, 22 Nov 2010 13:14:37 +0100
+Message-ID: <1290428077.725556.3.camel@nienna.balabit>
+References: <20101118134256.fe132215.sfr@canb.auug.org.au>
+	 <20101118092520.6ad964c7.randy.dunlap@oracle.com>
+	 <4CE5712B.2080909@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: Tom Herbert <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:64755 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755014Ab0KVLmx convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Nov 2010 06:42:53 -0500
-Received: by fxm13 with SMTP id 13so2515237fxm.19
-        for <netdev@vger.kernel.org>; Mon, 22 Nov 2010 03:42:51 -0800 (PST)
-In-Reply-To: <alpine.DEB.2.00.1011211501430.14906@pokey.mtv.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Randy Dunlap <randy.dunlap@oracle.com>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	netfilter-devel@vger.kernel.org, linux-next@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Balazs Scheidler <bazsi@balabit.hu>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4CE5712B.2080909@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 22, 2010 at 7:17 AM, Tom Herbert <therbert@google.com> wrot=
-e:
-> This patch implements transmit packet steering (XPS) for multiqueue
-> devices. =A0XPS selects a transmit queue during packet transmission b=
-ased
-> on configuration. =A0This is done by mapping the CPU transmitting the
-> packet to a queue. =A0This is the transmit side analogue to RPS-- whe=
-re
-> RPS is selecting a CPU based on receive queue, XPS selects a queue
-> based on the CPU (previously there was an XPS patch from Eric
-> Dumazet, but that might more appropriately be called transmit complet=
-ion
-> steering).
->
-> Each transmit queue can be associated with a number of CPUs which wil=
-l
-> use the queue to send packets. =A0This is configured as a CPU mask on=
- a
-> per queue basis in:
->
-> /sys/class/net/eth<n>/queues/tx-<n>/xps_cpus
->
-> The mappings are stored per device in an inverted data structure that
-> maps CPUs to queues. =A0In the netdevice structure this is an array o=
-f
-> num_possible_cpu structures where each structure holds and array of
-> queue_indexes for queues which that CPU can use.
->
-> The benefits of XPS are improved locality in the per queue data
-> structures. =A0Also, transmit completions are more likely to be done
-> nearer to the sending thread, so this should promote locality back
-> to the socket on free (e.g. UDP). =A0The benefits of XPS are dependen=
-t on
-> cache hierarchy, application load, and other factors. =A0XPS would
-> nominally be configured so that a queue would only be shared by CPUs
-> which are sharing a cache, the degenerative configuration woud be tha=
-t
-> each CPU has it's own queue.
->
-> Below are some benchmark results which show the potential benfit of
-> this patch. =A0The netperf test has 500 instances of netperf TCP_RR t=
-est
-> with 1 byte req. and resp.
->
-> bnx2x on 16 core AMD
-> =A0 XPS (16 queues, 1 TX queue per CPU) =A01234K at 100% CPU
-> =A0 No XPS (16 queues) =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 996K at 10=
-0% CPU
->
-> Signed-off-by: Tom Herbert <therbert@google.com>
-> ---
-> =A0include/linux/netdevice.h | =A0 30 ++++
-> =A0net/core/dev.c =A0 =A0 =A0 =A0 =A0 =A0| =A0 53 ++++++-
-> =A0net/core/net-sysfs.c =A0 =A0 =A0| =A0369 +++++++++++++++++++++++++=
-+++++++++++++++++++-
-> =A0net/core/net-sysfs.h =A0 =A0 =A0| =A0 =A03 +
-> =A04 files changed, 447 insertions(+), 8 deletions(-)
->
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index b45c1b8..badf928 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -503,6 +503,10 @@ struct netdev_queue {
-> =A0 =A0 =A0 =A0struct Qdisc =A0 =A0 =A0 =A0 =A0 =A0*qdisc;
-> =A0 =A0 =A0 =A0unsigned long =A0 =A0 =A0 =A0 =A0 state;
-> =A0 =A0 =A0 =A0struct Qdisc =A0 =A0 =A0 =A0 =A0 =A0*qdisc_sleeping;
-> +#ifdef CONFIG_RPS
-> + =A0 =A0 =A0 struct kobject =A0 =A0 =A0 =A0 =A0kobj;
-> +#endif
-> +
+Hi,
 
-Why do you reuse CONFIG_RPS? I think it is confusing, as the code
-enclosed is for XPS not RPS.
+On Thu, 2010-11-18 at 19:32 +0100, Patrick McHardy wrote:
+> Krisztian, Balazs, could you please have a look at this? If the
+> intention is to use NF_DEFRAG_IPV6 without conntrack, we probably
+> need a couple of ifdefs.
 
---=20
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+Indeed, we were missing quite a few of those ifdefs... The patch below
+seems to fix the issue for me.
+
+commit ec0ac6f3e7749e25f481c1e0f75766974820fe84
+Author: KOVACS Krisztian <hidden@balabit.hu>
+Date:   Mon Nov 22 13:07:15 2010 +0100
+
+    netfilter: fix compilation when conntrack is disabled but tproxy is
+enabled
+    
+    The IPv6 tproxy patches split IPv6 defragmentation off of conntrack,
+but
+    failed to update the #ifdef stanzas guarding the defragmentation
+related
+    fields and code in skbuff and conntrack related code in
+nf_defrag_ipv6.c.
+    
+    This patch adds the required #ifdefs so that IPv6 tproxy can truly
+be used
+    without connection tracking.
+    
+    Original report:
+    http://marc.info/?l=linux-netdev&m=129010118516341&w=2
+    
+    Reported-by: Randy Dunlap <randy.dunlap@oracle.com>
+    Signed-off-by: KOVACS Krisztian <hidden@balabit.hu>
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index e6ba898..4f2db79 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -255,6 +255,11 @@ typedef unsigned int sk_buff_data_t;
+ typedef unsigned char *sk_buff_data_t;
+ #endif
+ 
++#if defined(CONFIG_NF_DEFRAG_IPV4) ||
+defined(CONFIG_NF_DEFRAG_IPV4_MODULE) || \
++    defined(CONFIG_NF_DEFRAG_IPV6) ||
+defined(CONFIG_NF_DEFRAG_IPV6_MODULE)
++#define NET_SKBUFF_NF_DEFRAG_NEEDED 1
++#endif
++
+ /** 
+  *	struct sk_buff - socket buffer
+  *	@next: Next buffer in list
+@@ -362,6 +367,8 @@ struct sk_buff {
+ 	void			(*destructor)(struct sk_buff *skb);
+ #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+ 	struct nf_conntrack	*nfct;
++#endif
++#ifdef NET_SKBUFF_NF_DEFRAG_NEEDED
+ 	struct sk_buff		*nfct_reasm;
+ #endif
+ #ifdef CONFIG_BRIDGE_NETFILTER
+@@ -2051,6 +2058,8 @@ static inline void nf_conntrack_get(struct
+nf_conntrack *nfct)
+ 	if (nfct)
+ 		atomic_inc(&nfct->use);
+ }
++#endif
++#ifdef NET_SKBUFF_NF_DEFRAG_NEEDED
+ static inline void nf_conntrack_get_reasm(struct sk_buff *skb)
+ {
+ 	if (skb)
+@@ -2079,6 +2088,8 @@ static inline void nf_reset(struct sk_buff *skb)
+ #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+ 	nf_conntrack_put(skb->nfct);
+ 	skb->nfct = NULL;
++#endif
++#ifdef NET_SKBUFF_NF_DEFRAG_NEEDED
+ 	nf_conntrack_put_reasm(skb->nfct_reasm);
+ 	skb->nfct_reasm = NULL;
+ #endif
+@@ -2095,6 +2106,8 @@ static inline void __nf_copy(struct sk_buff *dst,
+const struct sk_buff *src)
+ 	dst->nfct = src->nfct;
+ 	nf_conntrack_get(src->nfct);
+ 	dst->nfctinfo = src->nfctinfo;
++#endif
++#ifdef NET_SKBUFF_NF_DEFRAG_NEEDED
+ 	dst->nfct_reasm = src->nfct_reasm;
+ 	nf_conntrack_get_reasm(src->nfct_reasm);
+ #endif
+@@ -2108,6 +2121,8 @@ static inline void nf_copy(struct sk_buff *dst,
+const struct sk_buff *src)
+ {
+ #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+ 	nf_conntrack_put(dst->nfct);
++#endif
++#ifdef NET_SKBUFF_NF_DEFRAG_NEEDED
+ 	nf_conntrack_put_reasm(dst->nfct_reasm);
+ #endif
+ #ifdef CONFIG_BRIDGE_NETFILTER
+diff --git a/include/net/netfilter/ipv6/nf_conntrack_ipv6.h
+b/include/net/netfilter/ipv6/nf_conntrack_ipv6.h
+index 1ee717e..a4c9936 100644
+--- a/include/net/netfilter/ipv6/nf_conntrack_ipv6.h
++++ b/include/net/netfilter/ipv6/nf_conntrack_ipv6.h
+@@ -7,16 +7,6 @@ extern struct nf_conntrack_l4proto
+nf_conntrack_l4proto_tcp6;
+ extern struct nf_conntrack_l4proto nf_conntrack_l4proto_udp6;
+ extern struct nf_conntrack_l4proto nf_conntrack_l4proto_icmpv6;
+ 
+-extern int nf_ct_frag6_init(void);
+-extern void nf_ct_frag6_cleanup(void);
+-extern struct sk_buff *nf_ct_frag6_gather(struct sk_buff *skb, u32
+user);
+-extern void nf_ct_frag6_output(unsigned int hooknum, struct sk_buff
+*skb,
+-			       struct net_device *in,
+-			       struct net_device *out,
+-			       int (*okfn)(struct sk_buff *));
+-
+-struct inet_frags_ctl;
+-
+ #include <linux/sysctl.h>
+ extern struct ctl_table nf_ct_ipv6_sysctl_table[];
+ 
+diff --git a/include/net/netfilter/ipv6/nf_defrag_ipv6.h
+b/include/net/netfilter/ipv6/nf_defrag_ipv6.h
+index 94dd54d..fd79c9a 100644
+--- a/include/net/netfilter/ipv6/nf_defrag_ipv6.h
++++ b/include/net/netfilter/ipv6/nf_defrag_ipv6.h
+@@ -3,4 +3,14 @@
+ 
+ extern void nf_defrag_ipv6_enable(void);
+ 
++extern int nf_ct_frag6_init(void);
++extern void nf_ct_frag6_cleanup(void);
++extern struct sk_buff *nf_ct_frag6_gather(struct sk_buff *skb, u32
+user);
++extern void nf_ct_frag6_output(unsigned int hooknum, struct sk_buff
+*skb,
++			       struct net_device *in,
++			       struct net_device *out,
++			       int (*okfn)(struct sk_buff *));
++
++struct inet_frags_ctl;
++
+ #endif /* _NF_DEFRAG_IPV6_H */
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 104f844..74ebf4b 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -380,6 +380,8 @@ static void skb_release_head_state(struct sk_buff
+*skb)
+ 	}
+ #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+ 	nf_conntrack_put(skb->nfct);
++#endif
++#ifdef NET_SKBUFF_NF_DEFRAG_NEEDED
+ 	nf_conntrack_put_reasm(skb->nfct_reasm);
+ #endif
+ #ifdef CONFIG_BRIDGE_NETFILTER
+diff --git a/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c
+b/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c
+index 99abfb5..97c5b21 100644
+--- a/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c
++++ b/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c
+@@ -19,13 +19,15 @@
+ 
+ #include <linux/netfilter_ipv6.h>
+ #include <linux/netfilter_bridge.h>
++#if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+ #include <net/netfilter/nf_conntrack.h>
+ #include <net/netfilter/nf_conntrack_helper.h>
+ #include <net/netfilter/nf_conntrack_l4proto.h>
+ #include <net/netfilter/nf_conntrack_l3proto.h>
+ #include <net/netfilter/nf_conntrack_core.h>
+-#include <net/netfilter/nf_conntrack_zones.h>
+ #include <net/netfilter/ipv6/nf_conntrack_ipv6.h>
++#endif
++#include <net/netfilter/nf_conntrack_zones.h>
+ #include <net/netfilter/ipv6/nf_defrag_ipv6.h>
+ 
+ static enum ip6_defrag_users nf_ct6_defrag_user(unsigned int hooknum,
+@@ -33,8 +35,10 @@ static enum ip6_defrag_users
+nf_ct6_defrag_user(unsigned int hooknum,
+ {
+ 	u16 zone = NF_CT_DEFAULT_ZONE;
+ 
++#if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+ 	if (skb->nfct)
+ 		zone = nf_ct_zone((struct nf_conn *)skb->nfct);
++#endif
+ 
+ #ifdef CONFIG_BRIDGE_NETFILTER
+ 	if (skb->nf_bridge &&
+@@ -56,9 +60,11 @@ static unsigned int ipv6_defrag(unsigned int hooknum,
+ {
+ 	struct sk_buff *reasm;
+ 
++#if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+ 	/* Previously seen (loopback)?	*/
+ 	if (skb->nfct && !nf_ct_is_template((struct nf_conn *)skb->nfct))
+ 		return NF_ACCEPT;
++#endif
+ 
+ 	reasm = nf_ct_frag6_gather(skb, nf_ct6_defrag_user(hooknum, skb));
+ 	/* queued */
+
+
