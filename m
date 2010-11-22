@@ -1,122 +1,53 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 2/2 v7] xps: Transmit Packet Steering
-Date: Mon, 22 Nov 2010 14:33:56 +0100
-Message-ID: <1290432836.2811.44.camel@edumazet-laptop>
-References: <alpine.DEB.2.00.1011211501430.14906@pokey.mtv.corp.google.com>
+From: Chris Metcalf <cmetcalf@tilera.com>
+Subject: Re: [PATCH] arch/tile: fix rwlock so would-be write lockers don't
+ block new readers
+Date: Mon, 22 Nov 2010 08:35:41 -0500
+Message-ID: <4CEA71AD.5010606@tilera.com>
+References: <AANLkTikvT=x9eBovn2-m6HLqk7wyXSAR3sc9jCQ0C6mL@mail.gmail.com>	<1289489007.17691.1310.camel@edumazet-laptop>	<AANLkTik93QUQxSDmwd4Qj-gXQiWWPzd68JPAYAHBAsHR@mail.gmail.com>	<ZXmP8hjgLHA.4648@exchange1.tad.internal.tilera.com>	<4CDF1945.8090101@tilera.com>	<AANLkTind92uwcigzmDn8yn9a22exDy7zcreGQ5-6NLV-@mail.gmail.com>	<201011151425.oAFEPU3W005682@farm-0010.internal.tilera.com> <AANLkTikGj+zG9OqVJseKh4fGqQNnqnJpHgcaaXOL8nNi@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:60862 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754156Ab0KVNeP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Nov 2010 08:34:15 -0500
-Received: by wyb28 with SMTP id 28so7019037wyb.19
-        for <netdev@vger.kernel.org>; Mon, 22 Nov 2010 05:34:14 -0800 (PST)
-In-Reply-To: <alpine.DEB.2.00.1011211501430.14906@pokey.mtv.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <linux-kernel@vger.kernel.org>,
+	=?ISO-8859-1?Q?Am=E9rico_Wang?= <xiyou.wangcong@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: Cypher Wu <cypher.w@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AANLkTikGj+zG9OqVJseKh4fGqQNnqnJpHgcaaXOL8nNi@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le dimanche 21 novembre 2010 =C3=A0 15:17 -0800, Tom Herbert a =C3=A9cr=
-it :
+On 11/22/2010 12:39 AM, Cypher Wu wrote:
+> 2010/11/15 Chris Metcalf <cmetcalf@tilera.com>:
+>> This avoids a deadlock in the IGMP code where one core gets a read
+>> lock, another core starts trying to get a write lock (thus blocking
+>> new readers), and then the first core tries to recursively re-acquire
+>> the read lock.
+>>
+>> We still try to preserve some degree of balance by giving priority
+>> to additional write lockers that come along while the lock is held
+>> for write, so they can all complete quickly and return the lock to
+>> the readers.
+>>
+>> Signed-off-by: Chris Metcalf <cmetcalf@tilera.com>
+>> ---
+>> This should apply relatively cleanly to 2.6.26.7 source code too.
+>> [...]
+>
+> I've finished my business trip and tested that patch for more than an
+> hour and it works. The test is still running now.
+>
+> But it seems there still has a potential problem: we used ticket lock
+> for write_lock(), and if there are so many write_lock() occurred, is
+> 256 ticket enough for 64 or even more cores to avoiding overflow?
+> Since is we try to write_unlock() and there's already write_lock()
+> waiting we'll only adding current ticket.
 
-=2E..
+This is OK, since each core can issue at most one (blocking) write_lock(),
+and we have only 64 cores.  Future >256 core machines will be based on
+TILE-Gx anyway, which doesn't have the 256-core limit since it doesn't use
+the spinlock_32.c implementation.
 
-> +
-> +static DEFINE_MUTEX(xps_map_mutex);
-> +
-> +static ssize_t store_xps_map(struct netdev_queue *queue,
-> +		      struct netdev_queue_attribute *attribute,
-> +		      const char *buf, size_t len)
-> +{
-> +	struct net_device *dev =3D queue->dev;
-> +	cpumask_var_t mask;
-> +	int err, i, cpu, pos, map_len, alloc_len, need_set;
-> +	unsigned long index;
-> +	struct xps_map *map, *new_map;
-> +	struct xps_dev_maps *dev_maps, *new_dev_maps;
-> +	int nonempty =3D 0;
-> +
-> +	if (!capable(CAP_NET_ADMIN))
-> +		return -EPERM;
-> +
-> +	if (!alloc_cpumask_var(&mask, GFP_KERNEL))
-> +		return -ENOMEM;
-> +
-> +	index =3D get_netdev_queue_index(queue);
-> +
-> +	err =3D bitmap_parse(buf, len, cpumask_bits(mask), nr_cpumask_bits)=
-;
-> +	if (err) {
-> +		free_cpumask_var(mask);
-> +		return err;
-> +	}
-> +
-> +	new_dev_maps =3D kzalloc(max_t(unsigned,
-> +	    XPS_DEV_MAPS_SIZE, L1_CACHE_BYTES), GFP_KERNEL);
-> +	if (!new_dev_maps) {
-> +		free_cpumask_var(mask);
-> +		return -ENOMEM;
-> +	}
-> +
-> +	mutex_lock(&xps_map_mutex);
-> +
-> +	dev_maps =3D dev->xps_maps;
-> +
-> +	for_each_possible_cpu(cpu) {
-> +		new_map =3D map =3D dev_maps ? dev_maps->cpu_map[cpu] : NULL;
-> +
-> +		if (map) {
-> +			for (pos =3D 0; pos < map->len; pos++)
-> +				if (map->queues[pos] =3D=3D index)
-> +					break;
-> +			map_len =3D map->len;
-> +			alloc_len =3D map->alloc_len;
-> +		} else
-> +			pos =3D map_len =3D alloc_len =3D 0;
-> +
-> +		need_set =3D cpu_isset(cpu, *mask) && cpu_online(cpu);
-> +
-> +		if (need_set && pos >=3D map_len) {
-> +			/* Need to add queue to this CPU's map */
-> +			if (map_len >=3D alloc_len) {
-> +				alloc_len =3D alloc_len ?
-> +				    2 * alloc_len : XPS_MIN_MAP_ALLOC;
-> +				new_map =3D kzalloc(XPS_MAP_SIZE(alloc_len),
-> +				    GFP_KERNEL);
-
-		kzalloc_node(size, GFP_KERNEL, cpu_to_node(cpu))=20
-
-to get memory close to the cpu ?
-
-> +				if (!new_map)
-> +					goto error;
-> +				new_map->alloc_len =3D alloc_len;
-> +				for (i =3D 0; i < map_len; i++)
-> +					new_map->queues[i] =3D map->queues[i];
-> +				new_map->len =3D map_len;
-> +			}
-> +			new_map->queues[new_map->len++] =3D index;
-> +		} else if (!need_set && pos < map_len) {
-> +			/* Need to remove queue from this CPU's map */
-> +			if (map_len > 1)
-> +				new_map->queues[pos] =3D
-> +				    new_map->queues[--new_map->len];
-> +			else
-> +				new_map =3D NULL;
-> +		}
-> +		new_dev_maps->cpu_map[cpu] =3D new_map;
-> +	}
-> +
-> +	/* Cleanup old maps */
-> +	for_each_possible_cpu(cpu) {
-> +		map =3D dev_maps ? dev_maps->cpu_map[cpu] : NULL;
-> +		if (map && new_dev_maps->cpu_map[cpu] !=3D map)
-> +			call_rcu(&map->rcu, xps_map_release);
-> +		if (new_dev_maps->cpu_map[cpu])
-> +			nonempty =3D 1;
-> +	}
-> +
-
+-- 
+Chris Metcalf, Tilera Corp.
+http://www.tilera.com
