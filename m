@@ -1,8 +1,8 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [RFC] [PATCH 05/11] xfrm: Use separate low and high order bits of
- the sequence numbers in xfrm_skb_cb
-Date: Mon, 22 Nov 2010 11:29:25 +0100
-Message-ID: <20101122102924.GH1868@secunet.com>
+Subject: [RFC] [PATCH 06/11] esp4: Add support for IPsec extended sequence
+ numbers
+Date: Mon, 22 Nov 2010 11:30:14 +0100
+Message-ID: <20101122103014.GI1868@secunet.com>
 References: <20101122102455.GC1868@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -17,147 +17,202 @@ In-Reply-To: <20101122102455.GC1868@secunet.com>
 Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-To support IPsec extended sequence numbers, we split the
-output sequence numbers of xfrm_skb_cb in low and high order 32 bits
-and we add the high order 32 bits to the input sequence numbers.
-All users are updated accordingly.
+This patch adds IPsec extended sequence numbers support to esp4.
+We use the authencesn crypto algorithm to handle esp with separate
+encryption/authentication algorithms.
 
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- include/net/xfrm.h     |   10 ++++++++--
- net/ipv4/ah4.c         |    2 +-
- net/ipv4/esp4.c        |    4 ++--
- net/ipv6/ah6.c         |    2 +-
- net/ipv6/esp6.c        |    4 ++--
- net/xfrm/xfrm_input.c  |    4 ++--
- net/xfrm/xfrm_output.c |    2 +-
- 7 files changed, 17 insertions(+), 11 deletions(-)
+ net/ipv4/esp4.c |   98 ++++++++++++++++++++++++++++++++++++++++++++----------
+ 1 files changed, 80 insertions(+), 18 deletions(-)
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 1456254..7f196e5 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -571,8 +571,14 @@ struct xfrm_skb_cb {
- 
-         /* Sequence number for replay protection. */
- 	union {
--		u64 output;
--		__be32 input;
-+		struct {
-+			__u32 low;
-+			__u32 hi;
-+		} output;
-+		struct {
-+			__be32 low;
-+			__be32 hi;
-+		} input;
- 	} seq;
- };
- 
-diff --git a/net/ipv4/ah4.c b/net/ipv4/ah4.c
-index 880a5ec..461ccac 100644
---- a/net/ipv4/ah4.c
-+++ b/net/ipv4/ah4.c
-@@ -205,7 +205,7 @@ static int ah_output(struct xfrm_state *x, struct sk_buff *skb)
- 
- 	ah->reserved = 0;
- 	ah->spi = x->id.spi;
--	ah->seq_no = htonl(XFRM_SKB_CB(skb)->seq.output);
-+	ah->seq_no = htonl(XFRM_SKB_CB(skb)->seq.output.low);
- 
- 	sg_init_table(sg, nfrags);
- 	skb_to_sgvec(skb, sg, 0, skb->len);
 diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
-index 14ca1f1..f986aee 100644
+index f986aee..1a4ac47 100644
 --- a/net/ipv4/esp4.c
 +++ b/net/ipv4/esp4.c
-@@ -199,7 +199,7 @@ static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
- 	}
+@@ -31,11 +31,14 @@ struct esp_skb_cb {
+  *
+  * TODO: Use spare space in skb for this where possible.
+  */
+-static void *esp_alloc_tmp(struct crypto_aead *aead, int nfrags)
++static void *esp_alloc_tmp(struct crypto_aead *aead, int nfrags, int seqhilen)
+ {
+ 	unsigned int len;
  
- 	esph->spi = x->id.spi;
--	esph->seq_no = htonl(XFRM_SKB_CB(skb)->seq.output);
-+	esph->seq_no = htonl(XFRM_SKB_CB(skb)->seq.output.low);
+-	len = crypto_aead_ivsize(aead);
++	len = seqhilen;
++
++	len += crypto_aead_ivsize(aead);
++
+ 	if (len) {
+ 		len += crypto_aead_alignmask(aead) &
+ 		       ~(crypto_tfm_ctx_alignment() - 1);
+@@ -50,10 +53,15 @@ static void *esp_alloc_tmp(struct crypto_aead *aead, int nfrags)
+ 	return kmalloc(len, GFP_ATOMIC);
+ }
  
- 	sg_init_table(sg, nfrags);
+-static inline u8 *esp_tmp_iv(struct crypto_aead *aead, void *tmp)
++static inline __be32 *esp_tmp_seqhi(void *tmp)
++{
++	return PTR_ALIGN((__be32 *)tmp, __alignof__(__be32));
++}
++static inline u8 *esp_tmp_iv(struct crypto_aead *aead, void *tmp, int seqhilen)
+ {
+ 	return crypto_aead_ivsize(aead) ?
+-	       PTR_ALIGN((u8 *)tmp, crypto_aead_alignmask(aead) + 1) : tmp;
++	       PTR_ALIGN((u8 *)tmp + seqhilen,
++			 crypto_aead_alignmask(aead) + 1) : tmp + seqhilen;
+ }
+ 
+ static inline struct aead_givcrypt_request *esp_tmp_givreq(
+@@ -118,6 +126,10 @@ static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	int clen;
+ 	int alen;
+ 	int nfrags;
++	int assoclen;
++	int sglists;
++	int seqhilen;
++	__be32 *seqhi;
+ 
+ 	/* skb is pure payload to encrypt */
+ 
+@@ -139,14 +151,25 @@ static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
+ 		goto error;
+ 	nfrags = err;
+ 
+-	tmp = esp_alloc_tmp(aead, nfrags + 1);
++	assoclen = sizeof(*esph);
++	sglists = 1;
++	seqhilen = 0;
++
++	if (x->props.flags & XFRM_STATE_ESN) {
++		sglists++;
++		seqhilen += sizeof(__be32);
++		assoclen += seqhilen;
++	}
++
++	tmp = esp_alloc_tmp(aead, nfrags + sglists, seqhilen);
+ 	if (!tmp)
+ 		goto error;
+ 
+-	iv = esp_tmp_iv(aead, tmp);
++	seqhi = esp_tmp_seqhi(tmp);
++	iv = esp_tmp_iv(aead, tmp, seqhilen);
+ 	req = esp_tmp_givreq(aead, iv);
+ 	asg = esp_givreq_sg(aead, req);
+-	sg = asg + 1;
++	sg = asg + sglists;
+ 
+ 	/* Fill padding... */
+ 	tail = skb_tail_pointer(trailer);
+@@ -205,11 +228,18 @@ static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
  	skb_to_sgvec(skb, sg,
-@@ -211,7 +211,7 @@ static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
+ 		     esph->enc_data + crypto_aead_ivsize(aead) - skb->data,
+ 		     clen + alen);
+-	sg_init_one(asg, esph, sizeof(*esph));
++
++	if ((x->props.flags & XFRM_STATE_ESN)) {
++		sg_init_table(asg, 2);
++		sg_set_buf(asg, esph, sizeof(*esph));
++		*seqhi = htonl(XFRM_SKB_CB(skb)->seq.output.hi);
++		sg_set_buf(asg + 1, seqhi, seqhilen);
++	} else
++		sg_init_one(asg, esph, sizeof(*esph));
+ 
+ 	aead_givcrypt_set_callback(req, 0, esp_output_done, skb);
  	aead_givcrypt_set_crypt(req, sg, sg, clen, iv);
- 	aead_givcrypt_set_assoc(req, asg, sizeof(*esph));
+-	aead_givcrypt_set_assoc(req, asg, sizeof(*esph));
++	aead_givcrypt_set_assoc(req, asg, assoclen);
  	aead_givcrypt_set_giv(req, esph->enc_data,
--			      XFRM_SKB_CB(skb)->seq.output);
-+			      XFRM_SKB_CB(skb)->seq.output.low);
+ 			      XFRM_SKB_CB(skb)->seq.output.low);
+ 
+@@ -330,6 +360,10 @@ static int esp_input(struct xfrm_state *x, struct sk_buff *skb)
+ 	struct sk_buff *trailer;
+ 	int elen = skb->len - sizeof(*esph) - crypto_aead_ivsize(aead);
+ 	int nfrags;
++	int assoclen;
++	int sglists;
++	int seqhilen;
++	__be32 *seqhi;
+ 	void *tmp;
+ 	u8 *iv;
+ 	struct scatterlist *sg;
+@@ -346,16 +380,27 @@ static int esp_input(struct xfrm_state *x, struct sk_buff *skb)
+ 		goto out;
+ 	nfrags = err;
+ 
++	assoclen = sizeof(*esph);
++	sglists = 1;
++	seqhilen = 0;
++
++	if (x->props.flags & XFRM_STATE_ESN) {
++		sglists++;
++		seqhilen += sizeof(__be32);
++		assoclen += seqhilen;
++	}
++
+ 	err = -ENOMEM;
+-	tmp = esp_alloc_tmp(aead, nfrags + 1);
++	tmp = esp_alloc_tmp(aead, nfrags + sglists, seqhilen);
+ 	if (!tmp)
+ 		goto out;
  
  	ESP_SKB_CB(skb)->tmp = tmp;
- 	err = crypto_aead_givencrypt(req);
-diff --git a/net/ipv6/ah6.c b/net/ipv6/ah6.c
-index ee82d4e..8fccce7 100644
---- a/net/ipv6/ah6.c
-+++ b/net/ipv6/ah6.c
-@@ -409,7 +409,7 @@ static int ah6_output(struct xfrm_state *x, struct sk_buff *skb)
+-	iv = esp_tmp_iv(aead, tmp);
++	seqhi = esp_tmp_seqhi(tmp);
++	iv = esp_tmp_iv(aead, tmp, seqhilen);
+ 	req = esp_tmp_req(aead, iv);
+ 	asg = esp_req_sg(aead, req);
+-	sg = asg + 1;
++	sg = asg + sglists;
  
- 	ah->reserved = 0;
- 	ah->spi = x->id.spi;
--	ah->seq_no = htonl(XFRM_SKB_CB(skb)->seq.output);
-+	ah->seq_no = htonl(XFRM_SKB_CB(skb)->seq.output.low);
+ 	skb->ip_summed = CHECKSUM_NONE;
  
- 	sg_init_table(sg, nfrags);
- 	skb_to_sgvec(skb, sg, 0, skb->len);
-diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
-index ee9b93b..672cb69 100644
---- a/net/ipv6/esp6.c
-+++ b/net/ipv6/esp6.c
-@@ -188,7 +188,7 @@ static int esp6_output(struct xfrm_state *x, struct sk_buff *skb)
- 	*skb_mac_header(skb) = IPPROTO_ESP;
- 
- 	esph->spi = x->id.spi;
--	esph->seq_no = htonl(XFRM_SKB_CB(skb)->seq.output);
-+	esph->seq_no = htonl(XFRM_SKB_CB(skb)->seq.output.low);
+@@ -366,11 +411,18 @@ static int esp_input(struct xfrm_state *x, struct sk_buff *skb)
  
  	sg_init_table(sg, nfrags);
- 	skb_to_sgvec(skb, sg,
-@@ -200,7 +200,7 @@ static int esp6_output(struct xfrm_state *x, struct sk_buff *skb)
- 	aead_givcrypt_set_crypt(req, sg, sg, clen, iv);
- 	aead_givcrypt_set_assoc(req, asg, sizeof(*esph));
- 	aead_givcrypt_set_giv(req, esph->enc_data,
--			      XFRM_SKB_CB(skb)->seq.output);
-+			      XFRM_SKB_CB(skb)->seq.output.low);
+ 	skb_to_sgvec(skb, sg, sizeof(*esph) + crypto_aead_ivsize(aead), elen);
+-	sg_init_one(asg, esph, sizeof(*esph));
++
++	if ((x->props.flags & XFRM_STATE_ESN)) {
++		sg_init_table(asg, 2);
++		sg_set_buf(asg, esph, sizeof(*esph));
++		*seqhi = XFRM_SKB_CB(skb)->seq.input.hi;
++		sg_set_buf(asg + 1, seqhi, seqhilen);
++	} else
++		sg_init_one(asg, esph, sizeof(*esph));
  
- 	ESP_SKB_CB(skb)->tmp = tmp;
- 	err = crypto_aead_givencrypt(req);
-diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
-index 45f1c98..b173b7f 100644
---- a/net/xfrm/xfrm_input.c
-+++ b/net/xfrm/xfrm_input.c
-@@ -118,7 +118,7 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
- 	if (encap_type < 0) {
- 		async = 1;
- 		x = xfrm_input_state(skb);
--		seq = XFRM_SKB_CB(skb)->seq.input;
-+		seq = XFRM_SKB_CB(skb)->seq.input.low;
- 		goto resume;
- 	}
+ 	aead_request_set_callback(req, 0, esp_input_done, skb);
+ 	aead_request_set_crypt(req, sg, sg, elen, iv);
+-	aead_request_set_assoc(req, asg, sizeof(*esph));
++	aead_request_set_assoc(req, asg, assoclen);
  
-@@ -184,7 +184,7 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
+ 	err = crypto_aead_decrypt(req);
+ 	if (err == -EINPROGRESS)
+@@ -484,10 +536,20 @@ static int esp_init_authenc(struct xfrm_state *x)
+ 		goto error;
  
- 		spin_unlock(&x->lock);
+ 	err = -ENAMETOOLONG;
+-	if (snprintf(authenc_name, CRYPTO_MAX_ALG_NAME, "authenc(%s,%s)",
+-		     x->aalg ? x->aalg->alg_name : "digest_null",
+-		     x->ealg->alg_name) >= CRYPTO_MAX_ALG_NAME)
+-		goto error;
++
++	if ((x->props.flags & XFRM_STATE_ESN)) {
++		if (snprintf(authenc_name, CRYPTO_MAX_ALG_NAME,
++			     "authencesn(%s,%s)",
++			     x->aalg ? x->aalg->alg_name : "digest_null",
++			     x->ealg->alg_name) >= CRYPTO_MAX_ALG_NAME)
++			goto error;
++	} else {
++		if (snprintf(authenc_name, CRYPTO_MAX_ALG_NAME,
++			     "authenc(%s,%s)",
++			     x->aalg ? x->aalg->alg_name : "digest_null",
++			     x->ealg->alg_name) >= CRYPTO_MAX_ALG_NAME)
++			goto error;
++	}
  
--		XFRM_SKB_CB(skb)->seq.input = seq;
-+		XFRM_SKB_CB(skb)->seq.input.low = seq;
- 
- 		nexthdr = x->type->input(x, skb);
- 
-diff --git a/net/xfrm/xfrm_output.c b/net/xfrm/xfrm_output.c
-index 64f2ae1..4b63776 100644
---- a/net/xfrm/xfrm_output.c
-+++ b/net/xfrm/xfrm_output.c
-@@ -68,7 +68,7 @@ static int xfrm_output_one(struct sk_buff *skb, int err)
- 		}
- 
- 		if (x->type->flags & XFRM_TYPE_REPLAY_PROT) {
--			XFRM_SKB_CB(skb)->seq.output = ++x->replay.oseq;
-+			XFRM_SKB_CB(skb)->seq.output.low = ++x->replay.oseq;
- 			if (unlikely(x->replay.oseq == 0)) {
- 				XFRM_INC_STATS(net, LINUX_MIB_XFRMOUTSTATESEQERROR);
- 				x->replay.oseq--;
+ 	aead = crypto_alloc_aead(authenc_name, 0, 0);
+ 	err = PTR_ERR(aead);
 -- 
 1.7.0.4
