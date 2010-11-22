@@ -1,7 +1,7 @@
 From: Alban Crequy <alban.crequy@collabora.co.uk>
-Subject: [PATCH 1/9] AF_UNIX: Add constant for Unix socket options level
-Date: Mon, 22 Nov 2010 18:36:14 +0000
-Message-ID: <1290450982-17480-1-git-send-email-alban.crequy@collabora.co.uk>
+Subject: [PATCH 2/9] AF_UNIX: add setsockopt on Unix sockets
+Date: Mon, 22 Nov 2010 18:36:15 +0000
+Message-ID: <1290450982-17480-2-git-send-email-alban.crequy@collabora.co.uk>
 References: <20101122183447.124afce5@chocolatine.cbg.collabora.co.uk>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Eric Dumazet <eric.dumazet@gmail.com>,
@@ -19,25 +19,64 @@ In-Reply-To: <20101122183447.124afce5@chocolatine.cbg.collabora.co.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Assign the next free socket options level to be used by the Unix
-protocol and address family.
-
 Signed-off-by: Alban Crequy <alban.crequy@collabora.co.uk>
 ---
- include/linux/socket.h |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ net/unix/af_unix.c |   15 ++++++++++++---
+ 1 files changed, 12 insertions(+), 3 deletions(-)
 
-diff --git a/include/linux/socket.h b/include/linux/socket.h
-index 86b652f..7c5a4da 100644
---- a/include/linux/socket.h
-+++ b/include/linux/socket.h
-@@ -307,6 +307,7 @@ struct ucred {
- #define SOL_RDS		276
- #define SOL_IUCV	277
- #define SOL_CAIF	278
-+#define SOL_UNIX	279
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 7ff31c6..6eca106 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -512,6 +512,8 @@ static unsigned int unix_dgram_poll(struct file *, struct socket *,
+ 				    poll_table *);
+ static int unix_ioctl(struct socket *, unsigned int, unsigned long);
+ static int unix_shutdown(struct socket *, int);
++static int unix_setsockopt(struct socket *, int, int,
++			   char __user *, unsigned int);
+ static int unix_stream_sendmsg(struct kiocb *, struct socket *,
+ 			       struct msghdr *, size_t);
+ static int unix_stream_recvmsg(struct kiocb *, struct socket *,
+@@ -538,7 +540,7 @@ static const struct proto_ops unix_stream_ops = {
+ 	.ioctl =	unix_ioctl,
+ 	.listen =	unix_listen,
+ 	.shutdown =	unix_shutdown,
+-	.setsockopt =	sock_no_setsockopt,
++	.setsockopt =	unix_setsockopt,
+ 	.getsockopt =	sock_no_getsockopt,
+ 	.sendmsg =	unix_stream_sendmsg,
+ 	.recvmsg =	unix_stream_recvmsg,
+@@ -559,7 +561,7 @@ static const struct proto_ops unix_dgram_ops = {
+ 	.ioctl =	unix_ioctl,
+ 	.listen =	sock_no_listen,
+ 	.shutdown =	unix_shutdown,
+-	.setsockopt =	sock_no_setsockopt,
++	.setsockopt =	unix_setsockopt,
+ 	.getsockopt =	sock_no_getsockopt,
+ 	.sendmsg =	unix_dgram_sendmsg,
+ 	.recvmsg =	unix_dgram_recvmsg,
+@@ -580,7 +582,7 @@ static const struct proto_ops unix_seqpacket_ops = {
+ 	.ioctl =	unix_ioctl,
+ 	.listen =	unix_listen,
+ 	.shutdown =	unix_shutdown,
+-	.setsockopt =	sock_no_setsockopt,
++	.setsockopt =	unix_setsockopt,
+ 	.getsockopt =	sock_no_getsockopt,
+ 	.sendmsg =	unix_seqpacket_sendmsg,
+ 	.recvmsg =	unix_dgram_recvmsg,
+@@ -1533,6 +1535,13 @@ out:
+ }
  
- /* IPX options */
- #define IPX_TYPE	1
+ 
++static int unix_setsockopt(struct socket *sock, int level, int optname,
++			   char __user *optval, unsigned int optlen)
++{
++	return -EOPNOTSUPP;
++}
++
++
+ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 			       struct msghdr *msg, size_t len)
+ {
 -- 
 1.7.1
