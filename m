@@ -1,198 +1,110 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [RFC] [PATCH] iproute2: Add IPsec extended sequence number support
-Date: Mon, 22 Nov 2010 11:37:13 +0100
-Message-ID: <20101122103713.GO1868@secunet.com>
-References: <20101122102455.GC1868@secunet.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: iwl3945: regression - unregister_netdevice: waiting for wlan0
+ to become free. Usage count = 1
+Date: Mon, 22 Nov 2010 12:19:36 +0100
+Message-ID: <1290424776.2811.32.camel@edumazet-laptop>
+References: <20101122104341.GA3897@tiehlicka.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andreas Gruenbacher <agruen@suse.de>,
-	Alex Badea <abadea@ixiacom.com>, netdev@vger.kernel.org,
-	linux-crypto@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20101122102455.GC1868@secunet.com>
-Sender: linux-crypto-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-wireless@vger.kernel.org,
+	Reinette Chatre <reinette.chatre@intel.com>,
+	Wey-Yi Guy <wey-yi.w.guy@intel.com>,
+	Intel Linux Wireless <ilw@linux.intel.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Michal Hocko <mhocko@suse.cz>, David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20101122104341.GA3897@tiehlicka.suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Le lundi 22 novembre 2010 =C3=A0 11:43 +0100, Michal Hocko a =C3=A9crit=
+ :
+> Hi,
+> I am experiencing iwl3945 driver reference counting problem with the =
+current
+> 2.6.37-rc2 kernel release.=20
+>=20
+> The problem can be easily reproduced by associating to an AP (I have
+> tried only wep and wpa based auth) and then rmmod iw3945 which gets
+> stuck in unregister_netdevice (in the endless loop as there is no way=
+ -
+> I guess - to decrease the reference count to 0) spitting the followin=
+g
+> message:
+>=20
+> unregister_netdevice: waiting for wlan0 to become free. Usage count =3D=
+ 1
+>=20
+> The situation is even worse as the rmmod process sits on the CPU and
+> cannot be killed and the loop never ends so the only solution is
+> rebooting.
+>=20
+> 2.6.37-rc1 looks good. I have tried to bisect to the culprit but I am
+> failing to boot some of the kernels on the way (due to some unrelated
+> issue which is already fixed in rc2). This is a partial bisect log
+> (maybe it helps to narrow down the range of commits):
+>=20
+> $ git bisect log
+> git bisect start
+> # bad: [e53beacd23d9cb47590da6a7a7f6d417b941a994] Linux 2.6.37-rc2
+> git bisect bad e53beacd23d9cb47590da6a7a7f6d417b941a994
+> # good: [151f52f09c5728ecfdd0c289da1a4b30bb416f2c] ipw2x00: remove th=
+e right /proc/net entry
+> git bisect good 151f52f09c5728ecfdd0c289da1a4b30bb416f2c
+> # good: [891cbd30ef456664e50bbd28436ef3006a81cf7c] Merge branch 'upst=
+ream/core' of git://git.kernel.org/pub/scm/linux/kernel/git/jeremy/xen
+> git bisect good 891cbd30ef456664e50bbd28436ef3006a81cf7c
+> # good: [80ef913f5e6a84551545016cea709f5e96d0cda6] Merge branch 'upst=
+ream-linus' of git://git.kernel.org/pub/scm/linux/kernel/git/jgarzik/li=
+bata-dev
+> git bisect good 80ef913f5e6a84551545016cea709f5e96d0cda6
+> # bad: [c22cff08db00ef0411be088956d7934681a1f988] Merge branch 'v4l_f=
+or_linus' of git://git.kernel.org/pub/scm/linux/kernel/git/mchehab/linu=
+x-2.6
+> git bisect bad c22cff08db00ef0411be088956d7934681a1f988
+> # skip: [8877870f8a8127b653f8c9a55c6b4de9f96f639b] Merge branch 'mast=
+er' of git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-=
+2.6
+> git bisect skip 8877870f8a8127b653f8c9a55c6b4de9f96f639b
+> # skip: [75e6047431872dadd0b13503b374e48ccd71a507] ucc_geth: Fix dead=
+lock
+> git bisect skip 75e6047431872dadd0b13503b374e48ccd71a507
+> # skip: [18943d292facbc70e6a36fc62399ae833f64671b] inet: fix ip_mc_dr=
+op_socket()
+> git bisect skip 18943d292facbc70e6a36fc62399ae833f64671b
+> [Here I gave up]
+>=20
+> skipped steps are non-bootable kernels. From the log it looks like th=
+e last
+> good commit is 80ef913f5e6a845.
+>=20
+> There is only one patch in that range for iwlwifi drivers:
+> $ git shortlog 80ef913f5e6a845..v2.6.37-rc2 -- drivers/net/wireless/i=
+wlwifi/
+> Wey-Yi Guy (1):
+>       iwlwifi: dont use pci_dev before it being assign
+>=20
+> and this one doesn't look to manipulate the reference counting so I
+> guess this is more general problem.
+>=20
+> $ git shortlog 80ef913f5e6a845..v2.6.37-rc2 -- net/wireless/
+> Felix Fietkau (1):
+>       cfg80211: fix a crash in dev lookup on dump commands
+>=20
+> Doesn't look to be the culprit as well, though. Btw. I am getting the
+> same patches also in the v2.6.37-rc1..v2.6.37-rc2 range.
+>=20
+> Please let me know if you need any further information.
+> Thanks!
 
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- include/linux/xfrm.h |   12 ++++++++++++
- ip/ipxfrm.c          |    8 +++++++-
- ip/xfrm_state.c      |   37 +++++++++++++++++++++++++++++--------
- 3 files changed, 48 insertions(+), 9 deletions(-)
 
-diff --git a/include/linux/xfrm.h b/include/linux/xfrm.h
-index 07f2b63..dd6928d 100644
---- a/include/linux/xfrm.h
-+++ b/include/linux/xfrm.h
-@@ -84,6 +84,16 @@ struct xfrm_replay_state {
- 	__u32	bitmap;
- };
- 
-+struct xfrm_replay_state_esn {
-+	unsigned int	len;
-+	__u32	oseq;
-+	__u32	oseq_hi;
-+	__u32	seq;
-+	__u32	seq_hi;
-+	__u32	replay_window;
-+	__u32	bmp[0];
-+};
-+
- struct xfrm_algo {
- 	char		alg_name[64];
- 	unsigned int	alg_key_len;    /* in bits */
-@@ -283,6 +293,7 @@ enum xfrm_attr_type_t {
- 	XFRMA_KMADDRESS,        /* struct xfrm_user_kmaddress */
- 	XFRMA_ALG_AUTH_TRUNC,	/* struct xfrm_algo_auth */
- 	XFRMA_MARK,		/* struct xfrm_mark */
-+	XFRMA_REPLAY_ESN_VAL,	/* struct xfrm_replay_esn */
- 	__XFRMA_MAX
- 
- #define XFRMA_MAX (__XFRMA_MAX - 1)
-@@ -349,6 +360,7 @@ struct xfrm_usersa_info {
- #define XFRM_STATE_WILDRECV	8
- #define XFRM_STATE_ICMP		16
- #define XFRM_STATE_AF_UNSPEC	32
-+#define XFRM_STATE_ESN          64
- };
- 
- struct xfrm_usersa_id {
-diff --git a/ip/ipxfrm.c b/ip/ipxfrm.c
-index 99a6756..548e4a4 100644
---- a/ip/ipxfrm.c
-+++ b/ip/ipxfrm.c
-@@ -665,6 +665,12 @@ done:
- void xfrm_xfrma_print(struct rtattr *tb[], __u16 family,
- 		      FILE *fp, const char *prefix)
- {
-+
-+	if (tb[XFRMA_REPLAY_ESN_VAL]) {
-+		struct rtattr *rta = tb[XFRMA_REPLAY_ESN_VAL];
-+		struct xfrm_replay_state_esn *repl = (struct xfrm_replay_state_esn *) RTA_DATA(rta);
-+		fprintf(fp, "\treplay-window %u\n", repl->replay_window);
-+	}
- 	if (tb[XFRMA_MARK]) {
- 		struct rtattr *rta = tb[XFRMA_MARK];
- 		struct xfrm_mark *m = (struct xfrm_mark *) RTA_DATA(rta);
-@@ -809,7 +815,6 @@ void xfrm_state_info_print(struct xfrm_usersa_info *xsinfo,
- 	STRBUF_CAT(buf, "\t");
- 
- 	fputs(buf, fp);
--	fprintf(fp, "replay-window %u ", xsinfo->replay_window);
- 	if (show_stats > 0)
- 		fprintf(fp, "seq 0x%08u ", xsinfo->seq);
- 	if (show_stats > 0 || xsinfo->flags) {
-@@ -822,6 +827,7 @@ void xfrm_state_info_print(struct xfrm_usersa_info *xsinfo,
- 		XFRM_FLAG_PRINT(fp, flags, XFRM_STATE_WILDRECV, "wildrecv");
- 		XFRM_FLAG_PRINT(fp, flags, XFRM_STATE_ICMP, "icmp");
- 		XFRM_FLAG_PRINT(fp, flags, XFRM_STATE_AF_UNSPEC, "af-unspec");
-+		XFRM_FLAG_PRINT(fp, flags, XFRM_STATE_ESN, "replay-esn");
- 		if (flags)
- 			fprintf(fp, "%x", flags);
- 	}
-diff --git a/ip/xfrm_state.c b/ip/xfrm_state.c
-index 38d4039..4c66923 100644
---- a/ip/xfrm_state.c
-+++ b/ip/xfrm_state.c
-@@ -50,15 +50,16 @@
- #define NLMSG_BUF_SIZE 4096
- #define RTA_BUF_SIZE 2048
- #define XFRM_ALGO_KEY_BUF_SIZE 512
-+#define XFRM_REPLAY_BMP_SIZE_U32 16
- 
- static void usage(void) __attribute__((noreturn));
- 
- static void usage(void)
- {
- 	fprintf(stderr, "Usage: ip xfrm state { add | update } ID [ XFRM_OPT ] [ mode MODE ]\n");
--	fprintf(stderr, "        [ reqid REQID ] [ seq SEQ ] [ replay-window SIZE ] [ flag FLAG-LIST ]\n");
-+	fprintf(stderr, "        [ reqid REQID ] [ seq SEQ ][ replay-window SIZE ] [ flag FLAG-LIST ]\n");
- 	fprintf(stderr, "        [ encap ENCAP ] [ sel SELECTOR ] [ replay-seq SEQ ]\n");
--	fprintf(stderr, "        [ replay-oseq SEQ ] [ LIMIT-LIST ]\n");
-+	fprintf(stderr, "        [ replay-oseq SEQ ] [ replay-seqhi SEQ ] [ replay-oseqhi SEQ ] [ LIMIT-LIST ]\n");
- 	fprintf(stderr, "Usage: ip xfrm state allocspi ID [ mode MODE ] [ reqid REQID ] [ seq SEQ ]\n");
- 	fprintf(stderr, "        [ min SPI max SPI ]\n");
- 	fprintf(stderr, "Usage: ip xfrm state { delete | get } ID\n");
-@@ -214,6 +215,8 @@ static int xfrm_state_flag_parse(__u8 *flags, int *argcp, char ***argvp)
- 				*flags |= XFRM_STATE_ICMP;
- 			else if (strcmp(*argv, "af-unspec") == 0)
- 				*flags |= XFRM_STATE_AF_UNSPEC;
-+			else if (strcmp(*argv, "replay-esn") == 0)
-+				*flags |= XFRM_STATE_ESN;
- 			else {
- 				PREV_ARG(); /* back track */
- 				break;
-@@ -239,7 +242,11 @@ static int xfrm_state_modify(int cmd, unsigned flags, int argc, char **argv)
- 		struct xfrm_usersa_info xsinfo;
- 		char   			buf[RTA_BUF_SIZE];
- 	} req;
--	struct xfrm_replay_state replay;
-+	struct {
-+		struct xfrm_replay_state_esn state;
-+		__u32 bmp[XFRM_REPLAY_BMP_SIZE_U32];
-+	} replay;
-+
- 	char *idp = NULL;
- 	char *aeadop = NULL;
- 	char *ealgop = NULL;
-@@ -249,8 +256,11 @@ static int xfrm_state_modify(int cmd, unsigned flags, int argc, char **argv)
- 	struct xfrm_mark mark = {0, 0};
- 
- 	memset(&req, 0, sizeof(req));
-+
- 	memset(&replay, 0, sizeof(replay));
- 
-+	replay.state.len = sizeof(replay);
-+
- 	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(req.xsinfo));
- 	req.n.nlmsg_flags = NLM_F_REQUEST|flags;
- 	req.n.nlmsg_type = cmd;
-@@ -275,16 +285,24 @@ static int xfrm_state_modify(int cmd, unsigned flags, int argc, char **argv)
- 			xfrm_seq_parse(&req.xsinfo.seq, &argc, &argv);
- 		} else if (strcmp(*argv, "replay-window") == 0) {
- 			NEXT_ARG();
--			if (get_u8(&req.xsinfo.replay_window, *argv, 0))
-+			if (get_u32(&replay.state.replay_window, *argv, 0))
- 				invarg("\"replay-window\" value is invalid", *argv);
- 		} else if (strcmp(*argv, "replay-seq") == 0) {
- 			NEXT_ARG();
--			if (get_u32(&replay.seq, *argv, 0))
-+			if (get_u32(&replay.state.seq, *argv, 0))
- 				invarg("\"replay-seq\" value is invalid", *argv);
- 		} else if (strcmp(*argv, "replay-oseq") == 0) {
- 			NEXT_ARG();
--			if (get_u32(&replay.oseq, *argv, 0))
-+			if (get_u32(&replay.state.oseq, *argv, 0))
- 				invarg("\"replay-oseq\" value is invalid", *argv);
-+		} else if (strcmp(*argv, "replay-seqhi") == 0) {
-+			NEXT_ARG();
-+			if (get_u32(&replay.state.seq_hi, *argv, 0))
-+				invarg("\"replay-seqhi\" value is invalid", *argv);
-+		} else if (strcmp(*argv, "replay-oseqhi") == 0) {
-+			NEXT_ARG();
-+			if (get_u32(&replay.state.oseq_hi, *argv, 0))
-+				invarg("\"replay-oseqhi\" value is invalid", *argv);
- 		} else if (strcmp(*argv, "flag") == 0) {
- 			NEXT_ARG();
- 			xfrm_state_flag_parse(&req.xsinfo.flags, &argc, &argv);
-@@ -434,9 +452,12 @@ parse_algo:
- 		argc--; argv++;
- 	}
- 
--	if (replay.seq || replay.oseq)
--		addattr_l(&req.n, sizeof(req.buf), XFRMA_REPLAY_VAL,
-+	if (replay.state.replay_window || replay.state.seq || replay.state.oseq ||
-+	    replay.state.seq_hi || replay.state.oseq_hi ) {
-+
-+		addattr_l(&req.n, sizeof(req.buf), XFRMA_REPLAY_ESN_VAL,
- 			  (void *)&replay, sizeof(replay));
-+	}
- 
- 	if (!idp) {
- 		fprintf(stderr, "Not enough information: \"ID\" is required\n");
--- 
-1.7.0.4
+Oh well, it seems David put the fix in net-next-2.6 instead of net-2.6
+
+Please try :
+
+http://git.kernel.org/?p=3Dlinux/kernel/git/davem/net-next-2.6.git;a=3D=
+commitdiff;h=3D9d82ca98f71fd686ef2f3017c5e3e6a4871b6e46
+
+Thanks
