@@ -1,9 +1,10 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+From: "Tomoya MORINAGA" <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
 Subject: Re: [PATCH net-next-2.6 7/17 v2] can: EG20T PCH: Modify
 	function/macro name/type
-Date: Sun, 21 Nov 2010 18:05:35 -0800 (PST)
-Message-ID: <20101121.180535.193735538.davem@davemloft.net>
+Date: Mon, 22 Nov 2010 11:26:19 +0900
+Message-ID: <00b201cb89ec$a7fa3170$66f8800a@maildom.okisemi.com>
 References: <4CE9C6A4.1090809@dsn.okisemi.com>
+	<20101121.180535.193735538.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -12,9 +13,8 @@ Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, sameo-VuQAYsv
 	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
 	kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org, joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
 	yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, chripell-VaTbYqLCNhc@public.gmane.org, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-To: tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org
+To: "David Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4CE9C6A4.1090809-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
 List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
 	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
 List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
@@ -26,11 +26,37 @@ Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+Hi David,
 
-In case it isn't clear, you need to resubmit this entire
-patch series after you've integrated all of our feedback.
+My previous v2 two patches don't influence subsequent patches.
 
-It doesn't make sense to just resubmit specific pieces
-that you fix, because each change you make causes
-subsequent patches in the series to no longer apply
-cleanly.
+---
+Thanks,
+
+Tomoya MORINAGA
+OKI SEMICONDUCTOR CO., LTD.
+
+----- Original Message ----- 
+From: "David Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Cc: <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>; <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>; <chripell-VaTbYqLCNhc@public.gmane.org>; <21cnbao-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>; <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>;
+<socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>; <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>; <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>; <qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>;
+<yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>; <andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>; <joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>; <kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>;
+<margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Sent: Monday, November 22, 2010 11:05 AM
+Subject: Re: [PATCH net-next-2.6 7/17 v2] can: EG20T PCH: Modify function/macro name/type
+
+
+>
+> In case it isn't clear, you need to resubmit this entire
+> patch series after you've integrated all of our feedback.
+>
+> It doesn't make sense to just resubmit specific pieces
+> that you fix, because each change you make causes
+> subsequent patches in the series to no longer apply
+> cleanly.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
