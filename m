@@ -1,64 +1,63 @@
-From: Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>
-Subject: [PATCH 2/2] pch_gbe driver: The wrong of initializer entry
-Date: Mon, 22 Nov 2010 14:58:53 +0900
-Message-ID: <4CEA069D.20009@dsn.okisemi.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3] netfilter: nf_conntrack_sip: Handle Cisco 7941/7945
+ IP phones
+Date: Mon, 22 Nov 2010 08:52:14 +0100
+Message-ID: <1290412334.2756.141.camel@edumazet-laptop>
+References: <f0955e6c2110044fa058d0f3ecf945ca@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	John Linn <john.linn@xilinx.com>,
-	Ralf Baechle <ralf@linux-mips.org>,
-	Kristoffer Glembo <kristoffer@gaisler.com>,
-	Maxime Bizon <mbizon@freebox.fr>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	ML netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Masayuki Ohtake <masa-korg@dsn.okisemi.com>,
-	"Wang, Qi" <qi.wang@intel.com>,
-	"Wang, Yong Y" <yong.y.wang@intel.com>,
-	Andrew <andrew.chih.howe.khor@intel.com>,
-	Intel OTC <joel.clark@intel.com>,
-	"Foster, Margie" <margie.foster@intel.com>,
-	"Ewe, Kok Howg" <kok.howg.ewe@intel.com>
-To: "Dr. David Alan Gilbert" <linux@treblig.org>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Kevin Cernekee <cernekee@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <f0955e6c2110044fa058d0f3ecf945ca@localhost>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The wrong of initializer entry was modified.
+Le dimanche 21 novembre 2010 =C3=A0 18:40 -0800, Kevin Cernekee a =C3=A9=
+crit :
+> [v3:
+>   Only activate the new forced_dport logic if the IP matches, but the
+>   port does not. ]
+>=20
+> Most SIP devices use a source port of 5060/udp on SIP requests, so th=
+e
+> response automatically comes back to port 5060:
+>=20
+> phone_ip:5060 -> proxy_ip:5060   REGISTER
+> proxy_ip:5060 -> phone_ip:5060   100 Trying
+>=20
+> The newer Cisco IP phones, however, use a randomly chosen high source
+> port for the SIP request but expect the response on port 5060:
+>=20
+> phone_ip:49173 -> proxy_ip:5060  REGISTER
+> proxy_ip:5060 -> phone_ip:5060   100 Trying
+>=20
+> Standard Linux NAT, with or without nf_nat_sip, will send the reply b=
+ack
+> to port 49173, not 5060:
+>=20
+> phone_ip:49173 -> proxy_ip:5060  REGISTER
+> proxy_ip:5060 -> phone_ip:49173  100 Trying
+>=20
+> But the phone is not listening on 49173, so it will never see the rep=
+ly.
+>=20
+> This patch modifies nf_*_sip to work around this quirk by extracting
+> the SIP response port from the Via: header, iff the source IP in the
+> packet header matches the source IP in the SIP request.
+>=20
+> Signed-off-by: Kevin Cernekee <cernekee@gmail.com>
+> ---
 
-Signed-off-by: Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>
----
- drivers/net/pch_gbe/pch_gbe_param.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+Thanks for doing this work Keven !
 
-diff --git a/drivers/net/pch_gbe/pch_gbe_param.c b/drivers/net/pch_gbe/pch_gbe_param.c
-index 2510146..ef0996a 100644
---- a/drivers/net/pch_gbe/pch_gbe_param.c
-+++ b/drivers/net/pch_gbe/pch_gbe_param.c
-@@ -434,8 +434,8 @@ void pch_gbe_check_options(struct pch_gbe_adapter *adapter)
- 			.err  = "using default of "
- 				__MODULE_STRING(PCH_GBE_DEFAULT_TXD),
- 			.def  = PCH_GBE_DEFAULT_TXD,
--			.arg  = { .r = { .min = PCH_GBE_MIN_TXD } },
--			.arg  = { .r = { .max = PCH_GBE_MAX_TXD } }
-+			.arg  = { .r = { .min = PCH_GBE_MIN_TXD,
-+					 .max = PCH_GBE_MAX_TXD } }
- 		};
- 		struct pch_gbe_tx_ring *tx_ring = adapter->tx_ring;
- 		tx_ring->count = TxDescriptors;
-@@ -450,8 +450,8 @@ void pch_gbe_check_options(struct pch_gbe_adapter *adapter)
- 			.err  = "using default of "
- 				__MODULE_STRING(PCH_GBE_DEFAULT_RXD),
- 			.def  = PCH_GBE_DEFAULT_RXD,
--			.arg  = { .r = { .min = PCH_GBE_MIN_RXD } },
--			.arg  = { .r = { .max = PCH_GBE_MAX_RXD } }
-+			.arg  = { .r = { .min = PCH_GBE_MIN_RXD,
-+					 .max = PCH_GBE_MAX_RXD } }
- 		};
- 		struct pch_gbe_rx_ring *rx_ring = adapter->rx_ring;
- 		rx_ring->count = RxDescriptors;
--- 
-1.6.2.5
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
