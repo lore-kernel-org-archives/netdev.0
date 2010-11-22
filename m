@@ -1,7 +1,7 @@
 From: Tracey Dent <tdent48227@gmail.com>
-Subject: [PATCH 15/17] Net: rxrpc: Makefile: Remove deprecated kbuild goal definitions
-Date: Sun, 21 Nov 2010 20:03:26 -0500
-Message-ID: <1290387808-2239-16-git-send-email-tdent48227@gmail.com>
+Subject: [PATCH 13/17] Net: phonet: Makefile: Remove deprecated kbuild goal definitions
+Date: Sun, 21 Nov 2010 20:03:24 -0500
+Message-ID: <1290387808-2239-14-git-send-email-tdent48227@gmail.com>
 References: <1290387808-2239-1-git-send-email-tdent48227@gmail.com>
 Cc: marcel@holtmann.org, padovan@profusion.mobi,
 	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
@@ -13,14 +13,10 @@ Cc: marcel@holtmann.org, padovan@profusion.mobi,
 	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
 	samuel@sortiz.org, Tracey Dent <tdent48227@gmail.com>
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f174.google.com ([209.85.214.174]:42017 "EHLO
-	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756452Ab0KVBEX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Nov 2010 20:04:23 -0500
+Return-path: <netfilter-owner@vger.kernel.org>
 In-Reply-To: <1290387808-2239-1-git-send-email-tdent48227@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Changed Makefile to use <modules>-y instead of <modules>-objs
 because -objs is deprecated and not mentioned in
@@ -28,31 +24,27 @@ Documentation/kbuild/makefiles.txt.
 
 Signed-off-by: Tracey Dent <tdent48227@gmail.com>
 ---
- net/rxrpc/Makefile |    4 ++--
+ net/phonet/Makefile |    4 ++--
  1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/rxrpc/Makefile b/net/rxrpc/Makefile
-index c46867c..d1c3429 100644
---- a/net/rxrpc/Makefile
-+++ b/net/rxrpc/Makefile
-@@ -2,7 +2,7 @@
- # Makefile for Linux kernel RxRPC
- #
+diff --git a/net/phonet/Makefile b/net/phonet/Makefile
+index d62bbba..e10b1b1 100644
+--- a/net/phonet/Makefile
++++ b/net/phonet/Makefile
+@@ -1,6 +1,6 @@
+ obj-$(CONFIG_PHONET) += phonet.o pn_pep.o
  
--af-rxrpc-objs := \
-+af-rxrpc-y := \
- 	af_rxrpc.o \
- 	ar-accept.o \
- 	ar-ack.o \
-@@ -21,7 +21,7 @@ af-rxrpc-objs := \
- 	ar-transport.o
+-phonet-objs := \
++phonet-y := \
+ 	pn_dev.o \
+ 	pn_netlink.o \
+ 	socket.o \
+@@ -8,4 +8,4 @@ phonet-objs := \
+ 	sysctl.o \
+ 	af_phonet.o
  
- ifeq ($(CONFIG_PROC_FS),y)
--af-rxrpc-objs += ar-proc.o
-+af-rxrpc-y += ar-proc.o
- endif
- 
- obj-$(CONFIG_AF_RXRPC) += af-rxrpc.o
+-pn_pep-objs := pep.o pep-gprs.o
++pn_pep-y := pep.o pep-gprs.o
 -- 
 1.7.3.2.245.g03276
 
