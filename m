@@ -1,58 +1,59 @@
 From: Tracey Dent <tdent48227@gmail.com>
-Subject: [PATCH 02/17] Net: caif: Makefile: Remove deprecated items
-Date: Sun, 21 Nov 2010 20:03:13 -0500
-Message-ID: <1290387808-2239-3-git-send-email-tdent48227@gmail.com>
-References: <1290387808-2239-1-git-send-email-tdent48227@gmail.com>
-Cc: marcel@holtmann.org, padovan@profusion.mobi,
-	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
-	sjur.brandeland@stericsson.com, socketcan@hartkopp.net,
-	urs.thuermann@volkswagen.de, socketcan-core@lists.berlios.de,
-	sage@newdream.net, ceph-devel@vger.kernel.org,
-	wang840925@gmail.com, jlayton@redhat.com, kaber@trash.net,
-	pekkas@netcore.fi, linux-kernel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	samuel@sortiz.org, Tracey Dent <tdent48227@gmail.com>
-To: davem@davemloft.net
-Return-path: <ceph-devel-owner@vger.kernel.org>
-In-Reply-To: <1290387808-2239-1-git-send-email-tdent48227@gmail.com>
-Sender: ceph-devel-owner@vger.kernel.org
+Subject: [PATCH] Net: ceph: Makefile: Remove unnessary code
+Date: Sun, 21 Nov 2010 20:23:50 -0500
+Message-ID: <1290389030-2743-1-git-send-email-tdent48227@gmail.com>
+Cc: ceph-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	Tracey Dent <tdent48227@gmail.com>
+To: sage@newdream.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Changed Makefile to use <modules>-y instead of <modules>-objs
-because -objs is deprecated and not mentioned in
-Documentation/kbuild/makefiles.txt.
-
-Also, use the ccflags-$ flag instead of EXTRA_CFLAGS because EXTRA_CFLAGS is
-deprecated and should now be switched.
-
-Last but not least, took out if-conditionals.
+Remove the if and else conditional because the code is in mainline and there
+is no need in it being there.
 
 Signed-off-by: Tracey Dent <tdent48227@gmail.com>
 ---
- net/caif/Makefile |    8 +++-----
- 1 files changed, 3 insertions(+), 5 deletions(-)
+ net/ceph/Makefile |   22 ----------------------
+ 1 files changed, 0 insertions(+), 22 deletions(-)
 
-diff --git a/net/caif/Makefile b/net/caif/Makefile
-index f87481f..9d38e40 100644
---- a/net/caif/Makefile
-+++ b/net/caif/Makefile
-@@ -1,8 +1,6 @@
--ifeq ($(CONFIG_CAIF_DEBUG),y)
--EXTRA_CFLAGS += -DDEBUG
+diff --git a/net/ceph/Makefile b/net/ceph/Makefile
+index 153bdec..e87ef43 100644
+--- a/net/ceph/Makefile
++++ b/net/ceph/Makefile
+@@ -1,9 +1,6 @@
+ #
+ # Makefile for CEPH filesystem.
+ #
+-
+-ifneq ($(KERNELRELEASE),)
+-
+ obj-$(CONFIG_CEPH_LIB) += libceph.o
+ 
+ libceph-y := ceph_common.o messenger.o msgpool.o buffer.o pagelist.o \
+@@ -16,22 +13,3 @@ libceph-y := ceph_common.o messenger.o msgpool.o buffer.o pagelist.o \
+ 	ceph_fs.o ceph_strings.o ceph_hash.o \
+ 	pagevec.o
+ 
+-else
+-#Otherwise we were called directly from the command
+-# line; invoke the kernel build system.
+-
+-KERNELDIR ?= /lib/modules/$(shell uname -r)/build
+-PWD := $(shell pwd)
+-
+-default: all
+-
+-all:
+-	$(MAKE) -C $(KERNELDIR) M=$(PWD) CONFIG_CEPH_LIB=m modules
+-
+-modules_install:
+-	$(MAKE) -C $(KERNELDIR) M=$(PWD) CONFIG_CEPH_LIB=m modules_install
+-
+-clean:
+-	$(MAKE) -C $(KERNELDIR) M=$(PWD) clean
+-
 -endif
-+ccflags-$(CONFIG_CAIF_DEBUG)     :=      -DDEBUG
- 
--caif-objs := caif_dev.o \
-+caif-y := caif_dev.o \
- 	cfcnfg.o cfmuxl.o cfctrl.o  \
- 	cffrml.o cfveil.o cfdbgl.o\
- 	cfserl.o cfdgml.o  \
-@@ -13,4 +11,4 @@ obj-$(CONFIG_CAIF) += caif.o
- obj-$(CONFIG_CAIF_NETDEV) += chnl_net.o
- obj-$(CONFIG_CAIF) += caif_socket.o
- 
--export-objs := caif.o
-+export-y := caif.o
 -- 
 1.7.3.2.245.g03276
-
