@@ -1,42 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] macvlan: Introduce 'passthru' mode to takeover the
- underlying device
-Date: Mon, 22 Nov 2010 08:24:41 -0800 (PST)
-Message-ID: <20101122.082441.71132032.davem@davemloft.net>
-References: <1288307450.30131.82.camel@sridhar.beaverton.ibm.com>
+Subject: Re: [PATCH] qlge: Fix incorrect usage of module parameters and
+ netdev msg level
+Date: Mon, 22 Nov 2010 08:29:43 -0800 (PST)
+Message-ID: <20101122.082943.104076370.davem@davemloft.net>
+References: <1290075903-3038-1-git-send-email-sonnyrao@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: arnd@arndb.de, kaber@trash.net, shemminger@vyatta.com,
-	mst@redhat.com, netdev@vger.kernel.org, kvm@vger.kernel.org
-To: sri@us.ibm.com
+Cc: netdev@vger.kernel.org, miltonm@bga.com, ron.mercer@qlogic.com,
+	linux-driver@qlogic.com, linux-kernel@vger.kernel.org
+To: sonnyrao@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37181
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41994
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750980Ab0KVQYQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Nov 2010 11:24:16 -0500
-In-Reply-To: <1288307450.30131.82.camel@sridhar.beaverton.ibm.com>
+	by vger.kernel.org with ESMTP id S1750790Ab0KVQ3S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Nov 2010 11:29:18 -0500
+In-Reply-To: <1290075903-3038-1-git-send-email-sonnyrao@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sridhar Samudrala <sri@us.ibm.com>
-Date: Thu, 28 Oct 2010 16:10:50 -0700
+From: Sonny Rao <sonnyrao@linux.vnet.ibm.com>
+Date: Thu, 18 Nov 2010 04:25:03 -0600
 
-> With the current default 'vepa' mode, a KVM guest using virtio with 
-> macvtap backend has the following limitations.
-> - cannot change/add a mac address on the guest virtio-net
-> - cannot create a vlan device on the guest virtio-net
-> - cannot enable promiscuous mode on guest virtio-net
+> Driver appears to be mistaking the permission field with default value
+> in the case of debug and qlge_irq_type.
 > 
-> To address these limitations, this patch introduces a new mode called
-> 'passthru' when creating a macvlan device which allows takeover of the
-> underlying device and passing it to a guest using virtio with macvtap
-> backend.
+> Driver is also passing debug as a bitmask into netif_msg_init()
+> which really wants a number of bits, so fix that.
 > 
-> Only one macvlan device is allowed in passthru mode and it inherits
-> the mac address from the underlying device and sets it in promiscuous 
-> mode to receive and forward all the packets.
-> 
-> Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+> Signed-off-by: Milton Miller <miltonm@bga.com>
+> Signed-off-by: Sonny Rao <sonnyrao@linux.vnet.ibm.com>
 
-Applied, thanks Sridhar.
+Applied, thanks Sonny.
