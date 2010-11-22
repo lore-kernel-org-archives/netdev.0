@@ -1,7 +1,7 @@
 From: Alban Crequy <alban.crequy@collabora.co.uk>
-Subject: [PATCH 4/9] AF_UNIX: find the recipients for multicast messages
-Date: Mon, 22 Nov 2010 18:36:17 +0000
-Message-ID: <1290450982-17480-4-git-send-email-alban.crequy@collabora.co.uk>
+Subject: [PATCH 3/9] AF_UNIX: create, join and leave multicast groups with setsockopt
+Date: Mon, 22 Nov 2010 18:36:16 +0000
+Message-ID: <1290450982-17480-3-git-send-email-alban.crequy@collabora.co.uk>
 References: <20101122183447.124afce5@chocolatine.cbg.collabora.co.uk>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Eric Dumazet <eric.dumazet@gmail.com>,
@@ -14,195 +14,337 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Alban Crequy <alban.crequy@collabora.co.uk>
 To: Alban Crequy <alban.crequy@collabora.co.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bhuna.collabora.co.uk ([93.93.128.226]:38610 "EHLO
-	bhuna.collabora.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757264Ab0KVSjk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Nov 2010 13:39:40 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20101122183447.124afce5@chocolatine.cbg.collabora.co.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-unix_find_multicast_recipients() builds an array of recipients. It can either
-find the peers of a specific multicast address, or find all the peers of all
-multicast group the sender is part of.
+Multicast is implemented on SOCK_DGRAM and SOCK_SEQPACKET Unix sockets.
+
+An userspace application can create a multicast group with:
+  struct unix_mreq mreq;
+  mreq.address.sun_family = AF_UNIX;
+  mreq.address.sun_path[0] = '\0';
+  strcpy(mreq.address.sun_path + 1, "socket-address");
+  mreq.flags = 0;
+
+  sockfd = socket(AF_UNIX, SOCK_DGRAM, 0);
+  ret = setsockopt(sockfd, SOL_UNIX, UNIX_CREATE_GROUP, &mreq, sizeof(mreq));
+
+Then a multicast group can be joined and left with:
+  ret = setsockopt(sockfd, SOL_UNIX, UNIX_JOIN_GROUP, &mreq, sizeof(mreq));
+  ret = setsockopt(sockfd, SOL_UNIX, UNIX_LEAVE_GROUP, &mreq, sizeof(mreq));
+
+A socket can be a member of several multicast group.
 
 Signed-off-by: Alban Crequy <alban.crequy@collabora.co.uk>
 ---
- net/unix/af_unix.c |  144 ++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 144 insertions(+), 0 deletions(-)
+ include/net/af_unix.h |   31 +++++++
+ net/unix/af_unix.c    |  217 ++++++++++++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 247 insertions(+), 1 deletions(-)
 
+diff --git a/include/net/af_unix.h b/include/net/af_unix.h
+index 90c9e28..bf114d5 100644
+--- a/include/net/af_unix.h
++++ b/include/net/af_unix.h
+@@ -40,6 +40,18 @@ struct unix_skb_parms {
+ 				spin_lock_nested(&unix_sk(s)->lock, \
+ 				SINGLE_DEPTH_NESTING)
+ 
++#define UNIX_MREQ_LOOPBACK	0x01
++struct unix_mreq
++{
++	struct sockaddr_un	address;
++	unsigned int		flags;
++};
++
++/* UNIX socket options */
++#define UNIX_CREATE_GROUP	1
++#define UNIX_JOIN_GROUP		2
++#define UNIX_LEAVE_GROUP	3
++
+ #ifdef __KERNEL__
+ /* The AF_UNIX socket */
+ struct unix_sock {
+@@ -56,8 +68,27 @@ struct unix_sock {
+ 	spinlock_t		lock;
+ 	unsigned int		gc_candidate : 1;
+ 	unsigned int		gc_maybe_cycle : 1;
++	unsigned int		is_mcast_addr : 1;
++
++	/* These multicast fields are protected by the global spinlock
++	 * unix_multicast_lock */
++	struct hlist_head	mcast_subscriptions;
++	struct hlist_head	mcast_members;
++	int			mcast_subscriptions_cnt;
++	int			mcast_members_cnt;
++
+ 	struct socket_wq	peer_wq;
+ };
++
++struct unix_mcast
++{
++	struct unix_sock	*member;
++	struct unix_sock	*addr;
++	unsigned int		flags;
++	struct hlist_node	subscription_node;
++	struct hlist_node	member_node;
++};
++
+ #define unix_sk(__sk) ((struct unix_sock *)__sk)
+ 
+ #define peer_wait peer_wq.wait
 diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 2278829..3cc9695 100644
+index 6eca106..2278829 100644
 --- a/net/unix/af_unix.c
 +++ b/net/unix/af_unix.c
-@@ -114,15 +114,48 @@
- #include <linux/mount.h>
- #include <net/checksum.h>
- #include <linux/security.h>
-+#include <linux/sort.h>
- 
- static struct hlist_head unix_socket_table[UNIX_HASH_SIZE + 1];
- static DEFINE_SPINLOCK(unix_table_lock);
-+static DEFINE_SPINLOCK(unix_multicast_lock);
- static atomic_long_t unix_nr_socks;
- 
- #define unix_sockets_unbound	(&unix_socket_table[UNIX_HASH_SIZE])
- 
- #define UNIX_ABSTRACT(sk)	(unix_sk(sk)->addr->hash != UNIX_HASH_SIZE)
- 
-+struct sock_item {
-+	struct sock *s;
-+	struct sk_buff *skb;
-+	int to_deliver;
-+};
-+
-+struct sock_set {
-+	int cnt;
-+	struct sock_item items[0];
-+};
-+
-+static void kfree_sock_set(struct sock_set *set)
-+{
-+	int i;
-+	for (i = 0 ; i < set->cnt ; i++)
-+		sock_put(set->items[i].s);
-+	kfree(set);
-+}
-+
-+static int sock_item_compare(const void *_a, const void *_b)
-+{
-+	const struct sock_item *a = _a;
-+	const struct sock_item *b = _b;
-+	if (a->s > b->s)
-+		return 1;
-+	else if (a->s < b->s)
-+		return -1;
-+	else
-+		return 0;
-+}
-+
- #ifdef CONFIG_SECURITY_NETWORK
- static void unix_get_secdata(struct scm_cookie *scm, struct sk_buff *skb)
- {
-@@ -824,6 +857,117 @@ fail:
- 	return NULL;
- }
- 
-+static int unix_find_multicast_members(struct sock_set *set,
-+				       int recipient_cnt,
-+				       struct sock *sender,
-+				       struct hlist_head *list)
-+{
+@@ -379,6 +379,9 @@ static int unix_release_sock(struct sock *sk, int embrion)
+ 	struct sock *skpair;
+ 	struct sk_buff *skb;
+ 	int state;
 +	struct unix_mcast *node;
 +	struct hlist_node *pos;
-+	hlist_for_each_entry(node, pos, list,
-+			     member_node) {
-+		if (set->cnt + 1 > recipient_cnt)
-+			return -ENOMEM;
-+		if (node->member == unix_sk(sender) &&
-+		    !(node->flags & UNIX_MREQ_LOOPBACK))
-+			continue;
-+
-+		sock_hold(&node->member->sk);
-+		set->items[set->cnt].s = &node->member->sk;
-+		set->items[set->cnt].skb = NULL;
-+		set->items[set->cnt].to_deliver = 1;
-+		set->cnt++;
++	struct hlist_node *pos_tmp;
+ 
+ 	unix_remove_socket(sk);
+ 
+@@ -392,6 +395,24 @@ static int unix_release_sock(struct sock *sk, int embrion)
+ 	u->mnt	     = NULL;
+ 	state = sk->sk_state;
+ 	sk->sk_state = TCP_CLOSE;
++	spin_lock(&unix_multicast_lock);
++	hlist_for_each_entry_safe(node, pos, pos_tmp, &u->mcast_subscriptions,
++				  subscription_node) {
++		hlist_del(&node->member_node);
++		hlist_del(&node->subscription_node);
++		node->addr->mcast_members_cnt--;
++		node->member->mcast_subscriptions_cnt--;
++		kfree(node);
 +	}
++	hlist_for_each_entry_safe(node, pos, pos_tmp, &u->mcast_members,
++				  member_node) {
++		hlist_del(&node->member_node);
++		hlist_del(&node->subscription_node);
++		node->addr->mcast_members_cnt--;
++		node->member->mcast_subscriptions_cnt--;
++		kfree(node);
++	}
++	spin_unlock(&unix_multicast_lock);
+ 	unix_state_unlock(sk);
+ 
+ 	wake_up_interruptible_all(&u->peer_wait);
+@@ -631,6 +652,8 @@ static struct sock *unix_create1(struct net *net, struct socket *sock)
+ 	atomic_long_set(&u->inflight, 0);
+ 	INIT_LIST_HEAD(&u->link);
+ 	mutex_init(&u->readlock); /* single task reading lock */
++	INIT_HLIST_HEAD(&u->mcast_subscriptions);
++	INIT_HLIST_HEAD(&u->mcast_members);
+ 	init_waitqueue_head(&u->peer_wait);
+ 	unix_insert_socket(unix_sockets_unbound, sk);
+ out:
+@@ -1535,10 +1558,202 @@ out:
+ }
+ 
+ 
++static int unix_mc_create(struct socket *sock, struct unix_mreq *mreq)
++{
++	struct sock *other;
++	int err;
++	unsigned hash;
++	int namelen;
++
++	if (mreq->address.sun_family != AF_UNIX ||
++	    mreq->address.sun_path[0] != '\0')
++		return -EINVAL;
++
++	err = unix_mkname(&mreq->address, sizeof(struct sockaddr_un), &hash);
++	if (err < 0)
++		return err;
++
++	namelen = err;
++	other = unix_find_other(sock_net(sock->sk), &mreq->address, namelen,
++				sock->type, hash, &err);
++	if (other)
++		return -EADDRINUSE;
++
++	err = sock->ops->bind(sock,
++		(struct sockaddr*)&mreq->address,
++		sizeof(struct sockaddr_un));
++	if (err < 0)
++		return err;
++
++	unix_state_lock(sock->sk);
++	unix_sk(sock->sk)->is_mcast_addr = 1;
++	unix_state_unlock(sock->sk);
++
 +	return 0;
 +}
 +
-+/* Find the recipients for a message sent by 'sender' to 'addr'. If 'dest' is
-+ * NULL, the recipients are peers of all subscribed groups.
-+ */
-+static struct sock_set *unix_find_multicast_recipients(struct sock *sender,
-+						       struct sock *dest,
-+						       int *err)
++
++static int unix_mc_join(struct socket *sock, struct unix_mreq *mreq)
 +{
-+	struct unix_sock *u = unix_sk(sender);
++	struct unix_sock *u = unix_sk(sock->sk);
++	struct sock *other;
++	struct unix_sock *otheru;
 +	struct unix_mcast *node;
-+	struct hlist_node *pos;
-+	struct sock_set *set;
-+	int recipient_cnt;
++	int err;
++	unsigned hash;
++	int namelen;
 +
-+	/* We cannot allocate in the spin lock. First, count the recipients */
-+try_again:
-+	spin_lock(&unix_multicast_lock);
-+	if (dest != NULL) {
-+		if (unix_sk(dest)->is_mcast_addr) {
-+			recipient_cnt = unix_sk(dest)->mcast_members_cnt;
-+		} else {
-+			recipient_cnt = 1;
-+		}
-+	} else {
-+		recipient_cnt = 0;
-+		hlist_for_each_entry(node, pos, &u->mcast_subscriptions,
-+				     subscription_node) {
-+			recipient_cnt += node->addr->mcast_members_cnt;
-+		}
++	if (mreq->address.sun_family != AF_UNIX ||
++	    mreq->address.sun_path[0] != '\0')
++		return -EINVAL;
++
++	err = unix_autobind(sock);
++	if (err < 0)
++		return err;
++
++	err = unix_mkname(&mreq->address, sizeof(struct sockaddr_un), &hash);
++	if (err < 0)
++		return err;
++
++	namelen = err;
++	other = unix_find_other(sock_net(sock->sk), &mreq->address, namelen,
++				sock->type, hash, &err);
++	if (!other)
++		return -EINVAL;
++
++	if (other && !unix_sk(other)->is_mcast_addr) {
++		err = -EADDRINUSE;
++		goto sock_put_out;
 +	}
++
++	otheru = unix_sk(other);
++
++	node = kmalloc(sizeof(struct unix_mcast), GFP_KERNEL);
++	if (!node) {
++		err = -ENOMEM;
++		goto sock_put_out;
++	}
++	node->member = u;
++	node->addr = otheru;
++	node->flags = mreq->flags;
++
++	spin_lock(&unix_multicast_lock);
++	hlist_add_head(&node->member_node, &otheru->mcast_members);
++	hlist_add_head(&node->subscription_node, &u->mcast_subscriptions);
++	otheru->mcast_members_cnt++;
++	u->mcast_subscriptions_cnt++;
 +	spin_unlock(&unix_multicast_lock);
 +
-+        /* Allocate for the set and hope the number of recipients does not
-+	 * change while the lock is released. If it changes, we have to try
-+	 * again... We allocate a bit more than needed, so if a _few_ members
-+	 * are added in a multicast group meanwhile, we don't always need to
-+	 * try again. */
-+	recipient_cnt += 5;
++	return 0;
 +
-+	set = kmalloc(sizeof(struct sock_set)
-+		      + sizeof(struct sock_item) * recipient_cnt,
-+	    GFP_KERNEL);
-+	if (!set) {
-+		*err = -ENOMEM;
-+		return NULL;
-+	}
-+	set->cnt = 0;
-+
-+	spin_lock(&unix_multicast_lock);
-+	if (dest && unix_sk(dest)->is_mcast_addr) {
-+		/* Message sent to a multicast address */
-+		if (unix_find_multicast_members(set, recipient_cnt,
-+				sender,
-+				&unix_sk(dest)->mcast_members)) {
-+			spin_unlock(&unix_multicast_lock);
-+			kfree_sock_set(set);
-+			goto try_again;
-+		}
-+	} else if (!dest) {
-+		/* Destination not specified, sending to all peers of
-+		 * subscribed groups */
-+		hlist_for_each_entry(node, pos, &u->mcast_subscriptions,
-+				     subscription_node) {
-+			if (unix_find_multicast_members(set, recipient_cnt,
-+					sender,
-+					&node->addr->mcast_members)) {
-+				spin_unlock(&unix_multicast_lock);
-+				kfree_sock_set(set);
-+				goto try_again;
-+			}
-+		}
-+	} else {
-+		/* Message sent to a non-multicast address */
-+		BUG_ON(recipient_cnt < 1);
-+		set->cnt = 1;
-+		sock_hold(dest);
-+		set->items[0].s = dest;
-+		set->items[0].skb = NULL;
-+		set->items[0].to_deliver = 1;
-+	}
-+	spin_unlock(&unix_multicast_lock);
-+
-+	/* Keep the array ordered to prevent deadlocks on circular waits */
-+	sort(set->items, set->cnt, sizeof(struct sock_item),
-+	     sock_item_compare, NULL);
-+	return set;
++sock_put_out:
++	sock_put(other);
++	return err;
 +}
 +
- 
- static int unix_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
++
++static int unix_mc_leave(struct socket *sock, struct unix_mreq *mreq)
++{
++	struct unix_sock *u = unix_sk(sock->sk);
++	struct sock *other;
++	struct unix_sock *otheru;
++	struct unix_mcast *node;
++	struct hlist_node *pos;
++	int err;
++	unsigned hash;
++	int namelen;
++
++	if (mreq->address.sun_family != AF_UNIX ||
++	    mreq->address.sun_path[0] != '\0')
++		return -EINVAL;
++
++	err = unix_mkname(&mreq->address, sizeof(struct sockaddr_un), &hash);
++	if (err < 0)
++		return err;
++
++	namelen = err;
++	other = unix_find_other(sock_net(sock->sk), &mreq->address, namelen,
++				sock->type, hash, &err);
++	if (!other)
++		return -EINVAL;
++
++	otheru = unix_sk(other);
++
++	if (!otheru->is_mcast_addr) {
++		err = -EINVAL;
++		goto sock_put_out;
++	}
++
++	spin_lock(&unix_multicast_lock);
++
++	hlist_for_each_entry(node, pos, &u->mcast_subscriptions,
++			     subscription_node) {
++		if (node->addr == otheru)
++			break;
++	}
++
++	if (!pos) {
++		spin_unlock(&unix_multicast_lock);
++		err = -EINVAL;
++		goto sock_put_out;
++	}
++
++	hlist_del(&node->member_node);
++	hlist_del(&node->subscription_node);
++	otheru->mcast_members_cnt--;
++	u->mcast_subscriptions_cnt--;
++	spin_unlock(&unix_multicast_lock);
++	kfree(node);
++	err = 0;
++
++sock_put_out:
++	sock_put(other);
++	return err;
++}
++
++
+ static int unix_setsockopt(struct socket *sock, int level, int optname,
+ 			   char __user *optval, unsigned int optlen)
  {
+-	return -EOPNOTSUPP;
++	struct unix_mreq mreq;
++	int err = 0;
++
++	if (level != SOL_UNIX)
++		return -ENOPROTOOPT;
++
++	switch (optname) {
++	case UNIX_CREATE_GROUP:
++	case UNIX_JOIN_GROUP:
++	case UNIX_LEAVE_GROUP:
++		if (optlen < sizeof(struct unix_mreq))
++			return -EINVAL;
++		if (copy_from_user(&mreq, optval, sizeof(struct unix_mreq)))
++			return -EFAULT;
++		break;
++
++	default:
++		break;
++	}
++
++	switch (optname) {
++	case UNIX_CREATE_GROUP:
++		err = unix_mc_create(sock, &mreq);
++		break;
++
++	case UNIX_JOIN_GROUP:
++		err = unix_mc_join(sock, &mreq);
++		break;
++
++	case UNIX_LEAVE_GROUP:
++		err = unix_mc_leave(sock, &mreq);
++		break;
++
++	default:
++		err = -ENOPROTOOPT;
++		break;
++	}
++
++	return err;
+ }
+ 
+ 
 -- 
 1.7.1
-
