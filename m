@@ -1,90 +1,128 @@
-From: Shan Wei <shanwei@cn.fujitsu.com>
-Subject: [PATCH net-next] sctp: kill unused macro definition
-Date: Tue, 23 Nov 2010 17:00:42 +0800
-Message-ID: <4CEB82BA.6030406@cn.fujitsu.com>
+From: Andi Kleen <andi-Vw/NltI1exuRpAAqCnN02g@public.gmane.org>
+Subject: Draft manpage for recvmmsg
+Date: Tue, 23 Nov 2010 11:15:51 +0100
+Message-ID: <20101123101551.GA20431@basil.fritz.box>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-sctp@vger.kernel.org,
-	Network-Maillist <netdev@vger.kernel.org>
-To: Vlad Yasevich <vladislav.yasevich@hp.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:62157 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1750953Ab0KWJDU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Nov 2010 04:03:20 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+To: linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, acme-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
-These macros have been existed for several years since v2.6.12-rc2.
-But they never be used. So remove them now.
+Here's a draft manpage for recvmmsg(2), which is one 
+of the last undocumented syscalls currently.
+Please review and comment.
 
-Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
----
- include/net/sctp/constants.h |   14 --------------
- 1 files changed, 0 insertions(+), 14 deletions(-)
+-Andi
 
-diff --git a/include/net/sctp/constants.h b/include/net/sctp/constants.h
-index 6390884..c70d8cc 100644
---- a/include/net/sctp/constants.h
-+++ b/include/net/sctp/constants.h
-@@ -61,7 +61,6 @@ enum { SCTP_DEFAULT_INSTREAMS = SCTP_MAX_STREAM };
-  * symbols.  CIDs are dense through SCTP_CID_BASE_MAX.
-  */
- #define SCTP_CID_BASE_MAX		SCTP_CID_SHUTDOWN_COMPLETE
--#define SCTP_CID_MAX			SCTP_CID_ASCONF_ACK
- 
- #define SCTP_NUM_BASE_CHUNK_TYPES	(SCTP_CID_BASE_MAX + 1)
- 
-@@ -86,9 +85,6 @@ typedef enum {
- 
- } sctp_event_t;
- 
--#define SCTP_EVENT_T_MAX SCTP_EVENT_T_PRIMITIVE
--#define SCTP_EVENT_T_NUM (SCTP_EVENT_T_MAX + 1)
--
- /* As a convenience for the state machine, we append SCTP_EVENT_* and
-  * SCTP_ULP_* to the list of possible chunks.
-  */
-@@ -162,9 +158,6 @@ SCTP_SUBTYPE_CONSTRUCTOR(PRIMITIVE,	sctp_event_primitive_t,	primitive)
- 		       		- (unsigned long)(c->chunk_hdr)\
- 				- sizeof(sctp_data_chunk_t)))
- 
--#define SCTP_MAX_ERROR_CAUSE  SCTP_ERROR_NONEXIST_IP
--#define SCTP_NUM_ERROR_CAUSE  10
--
- /* Internal error codes */
- typedef enum {
- 
-@@ -266,7 +259,6 @@ enum { SCTP_ARBITRARY_COOKIE_ECHO_LEN = 200 };
- #define SCTP_TSN_MAP_INITIAL BITS_PER_LONG
- #define SCTP_TSN_MAP_INCREMENT SCTP_TSN_MAP_INITIAL
- #define SCTP_TSN_MAP_SIZE 4096
--#define SCTP_TSN_MAX_GAP  65535
- 
- /* We will not record more than this many duplicate TSNs between two
-  * SACKs.  The minimum PMTU is 576.  Remove all the headers and there
-@@ -301,9 +293,6 @@ enum { SCTP_MAX_GABS = 16 };
- 
- #define SCTP_CLOCK_GRANULARITY	1	/* 1 jiffy */
- 
--#define SCTP_DEF_MAX_INIT 6
--#define SCTP_DEF_MAX_SEND 10
--
- #define SCTP_DEFAULT_COOKIE_LIFE	(60 * 1000) /* 60 seconds */
- 
- #define SCTP_DEFAULT_MINWINDOW	1500	/* default minimum rwnd size */
-@@ -317,9 +306,6 @@ enum { SCTP_MAX_GABS = 16 };
- 					 */
- #define SCTP_DEFAULT_MINSEGMENT 512	/* MTU size ... if no mtu disc */
- #define SCTP_HOW_MANY_SECRETS 2		/* How many secrets I keep */
--#define SCTP_HOW_LONG_COOKIE_LIVE 3600	/* How many seconds the current
--					 * secret will live?
--					 */
- #define SCTP_SECRET_SIZE 32		/* Number of octets in a 256 bits. */
- 
- #define SCTP_SIGNATURE_SIZE 20	        /* size of a SLA-1 signature */
+
+.TH RECVMMSG 2 2010-11-23 "Linux" "Linux Programmer's Manual"
+.SH NAME
+recvmmsg \- receive multiple messages on a socket
+.SH SYNOPSIS
+.BI "#include <sys/socket.h>"
+.br
+.BI "int recvmmsg(int " fd ", struct mmsghdr *" mmsghdr \
+", unsigned int " vlen ","
+.br
+.BI "             unsigned int " flags ", struct timespec *" timeout ");" 
+.SH DESCRIPTION
+The 
+.B recvmmsg 
+system call receives multiple messages in a socket.
+It acts similar to 
+.B recvmsg(2),
+but allows to batch multiple receive operations into a single syscall.
+In addition it support an explicit timeout. 
+
+.B fd 
+is the file descriptor of the socket to receive data from. 
+.B mmsghdr
+is a pointer to an array with length
+.B vlen
+of  
+.I mmsghdr
+structures. 
+.I struct mmsg 
+is defined in
+.I sys/socket.h
+as:
+.in +4n
+.nf
+struct mmsghdr {
+    struct msghdr msg_hdr;  /* Message header */
+    unsigned int  msg_len;  /* Number of received bytes for header */
+};
+.fi
+.in
+.PP
+.B msg_hdr 
+is a struct
+.I msghdr
+as described in
+.I recvmsg(2).
+.B msg_len
+is the number of bytes returned for the message in the entry.
+This field has the same value as the return value of a single
+.I recvmsg(2)
+on the header.
+
+.B flags
+contains flags ored together. The flags are the same
+as documented for
+.I recvmsg(2).
+The additional
+.B MSG_WAITFORONE
+turns one 
+.I MSG_DONTWAIT
+after the first message has been received.
+
+.B timeout
+points to a 
+.I struct timespec
+(see 
+.I clock_gettime(2)
+)
+defining a timeout for receiving, or 
+.I NULL 
+for no timeout. When the timeout expires
+.I recvmmsg
+returns.
+.SH RETURN VALUE
+.I recvmmsg
+returns the number of messages received in
+.I mmsghdr
+or 
+-1
+when an error occurs. The 
+.I msg_len
+members of 
+.I mmsghdr
+are updated for each received message,
+in addition to other fields in the msg_hdr for each message,
+as described in 
+.I recvmsg(2).
+.SH SEE ALSO
+.B recvmsg(2),
+.B sendmsg(2),
+.B socket(7),
+.B socket(2),
+.B clock_gettime(2)
+.SH VERSIONS
+The
+.I recvmmsg
+syscall was added with kernel 2.6.32.
+Support in glibc was added with 2.6.12.
+On earlier glibcs the function can be called
+manually using 
+.I syscall(2).
+
+
 -- 
-1.6.3.3
+ak-VuQAYsv1563Yd54FQh9/CA@public.gmane.org -- Speaking for myself only.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-man" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
