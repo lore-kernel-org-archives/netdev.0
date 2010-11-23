@@ -1,118 +1,154 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: alchemy/gpr: au1000_eth regression with v2.6.37rc2
-Date: Tue, 23 Nov 2010 16:33:49 +0100
-Message-ID: <201011231633.50040.florian@openwrt.org>
-References: <4CE58593.50509@grandegger.com> <201011191146.01454.florian@openwrt.org> <4CEBD751.7090807@grandegger.com>
+From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: Re: [PATCH] flexcan: fix NAPI for bus errors
+Date: Tue, 23 Nov 2010 16:39:05 +0100
+Message-ID: <4CEBE019.7070401@pengutronix.de>
+References: <80k4k45csy.fsf@merkur.tec.linutronix.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Linux-MIPS" <linux-mips@linux-mips.org>, Netdev@vger.kernel.org
-To: Wolfgang Grandegger <wg@grandegger.com>
-Return-path: <netdev-owner@vger.kernel.org>
-In-Reply-To: <4CEBD751.7090807@grandegger.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed; boundary="===============1671812936922187901=="
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+To: John Ogness <john.ogness-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <80k4k45csy.fsf-l77OnrVvfFAyMciVaGeJ0d53zsg1cpMQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hello Wolfgang,
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--===============1671812936922187901==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig0AD4551CBDA85E0F74DE3C6C"
 
-On Tuesday 23 November 2010 16:01:37 Wolfgang Grandegger wrote:
-> Hi Florian,
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig0AD4551CBDA85E0F74DE3C6C
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+
+Hello,
+
+On 11/23/2010 03:34 PM, John Ogness wrote:
+> If bus error reporting is disabled and bus errors occur, the flexcan
+> driver will hog the system because it continually re-enables the IRQs
+> (work_done =3D 0). This patch changes the driver to only re-enable the
+> IRQs if some work was actually done. This allows the features of NAPI t=
+o
+> be used for bus errors as well (when bus error reporting is disabled).
+
+Good idea, however the chip has IMHO a bug:
+
+The problem with the error interrupt is, when disabled the can core
+doesn't issue any can bus warning or bus passive interrupts.
+
+Can you ensure that you get both error warning and error passive can
+error messages with disabled BERR and you patch applied?
+
+> This patch is against Linux next-20101123.
 >=20
-> On 11/19/2010 11:46 AM, Florian Fainelli wrote:
-> > Hello Wolfgang,
-> >=20
-> > On Friday 19 November 2010 11:29:45 Wolfgang Grandegger wrote:
-> >> Hello Florian,
-> >>=20
-> >> On 11/18/2010 11:30 PM, Florian Fainelli wrote:
-> >>> Hello Wolfgang,
-> >>>=20
-> >>> Le Thursday 18 November 2010 20:59:15, Wolfgang Grandegger a =C3=A9=
-crit :
-> >>>> Hello,
-> >>>>=20
-> >>>> I just realized that the v2.6.37-rc2 kernel does not boot any mo=
-re on
-> >>>> the Alchemy GPR board. It works fine with v2.6.36. It hangs in t=
-he
-> >>>> probe function of the au1000_eth driver when probing the second
-> >>>>=20
-> >>>> ethernet port (eth1):
-> >>>>   au1000_eth_mii: probed
-> >>>>   au1000-eth au1000-eth.0: (unregistered net_device): attached P=
-HY
-> >>>>   driver
-> >>>>=20
-> >>>> [Generic PHY] (mii_bus:phy_addr=3D0:00, irq=3D-1) au1000-eth au1=
-000-eth.0:
-> >>>> eth0: Au1xx0 Ethernet found at 0x10500000, irq 35 au1000_eth:
-> >>>> au1000_eth version 1.7 Pete Popov <ppopov@embeddedalley.com> ...
-> >>>> hangs ...
-> >>>>=20
-> >>>> Similar messages should follow for eth1. I narrowed down (bisect=
-'ed)
-> >>>> the
-> >>>>=20
-> >>>> problem to commit:
-> >>>>   commit d0e7cb5d401695809ba8c980124ab1d8c66efc8b
-> >>>>   Author: Florian Fainelli <florian@openwrt.org>
-> >>>>   Date:   Wed Sep 8 11:15:13 2010 +0000
-> >>>>  =20
-> >>>>     au1000-eth: remove volatiles, switch to I/O accessors
-> >>>>    =20
-> >>>>     Remove all the volatile keywords where they were used, switc=
-h to
-> >>>>     using
-> >>>>=20
-> >>>> the proper readl/writel accessors.
-> >>>>=20
-> >>>>     Signed-off-by: Florian Fainelli <florian@openwrt.org>
-> >>>>     Signed-off-by: David S. Miller <davem@davemloft.net>
-> >>>>=20
-> >>>> The kernel actually hangs when accessing "&aup->mac->mii_control=
-" in
-> >>>> au1000_mdio_read(), but only for eth1. Any idea what does go wro=
-ng?
-> >>>=20
-> >>> I do not understand so far while it hangs only for eth1. My devic=
-e only
-> >>> has one ethernet MAC, so I could not notice the problem. Looking =
-at
-> >>> this close, there are a couple of u32 const* usages in
-> >>> au1000_mdio_{read,write} which are looking wrong to me now. Can y=
-ou try
-> >>> to remove these?
-> >>=20
-> >> That did not help.
-> >=20
-> > I suspected it, but thanks for the confirmation.
-> >=20
-> >>>> In principle, I do not want to access the MII regs of the MAC be=
-cause
-> >>>> eth0 and eth1 are connected to switches. But that's not possible=
-, even
-> >>>> with "aup->phy_static_config=3D1" and "aup->phy_addr=3D0".
-> >>>=20
-> >>> If you think this is another issue, I will fix it in another patc=
-h.
-> >>=20
-> >> Accessing the MII registers of the MAC should not hang the system =
-even
-> >> if I do not need to. First I want to  understand why. Looks like a=
- wired
-> >> optimizer issue.
-> >=20
-> > I definitively agree, furthermore since there is a timeout for read=
- and
-> > write operations. I will look at the assembly and see if I can see
-> > anything different.
+> Signed-off-by: John Ogness <john.ogness-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+> ---
+>  drivers/net/can/flexcan.c |    9 ++++++---
+>  1 file changed, 6 insertions(+), 3 deletions(-)
 >=20
-> The attached patch fixes the issue. It's caused by a simple porting
-> error. I'm going to prepare a proper patch later today.
+> --- next-20101123-a/drivers/net/can/flexcan.c
+> +++ next-20101123-b/drivers/net/can/flexcan.c
+> @@ -535,9 +535,12 @@ static int flexcan_poll(struct napi_stru
+> =20
+>  	if (work_done < quota) {
+>  		napi_complete(napi);
+> -		/* enable IRQs */
+> -		writel(FLEXCAN_IFLAG_DEFAULT, &regs->imask1);
+> -		writel(priv->reg_ctrl_default, &regs->ctrl);
+> +
+> +		if (work_done > 0) {
+> +			/* enable IRQs */
+> +			writel(FLEXCAN_IFLAG_DEFAULT, &regs->imask1);
+> +			writel(priv->reg_ctrl_default, &regs->ctrl);
+> +		}
+>  	}
+> =20
+>  	return work_done;
 
-Nasty and simple enough not to be noticed at compile time. Thanks for=20
-debugging this. Feel free to add my:
+If a bus error occurs and bus error reporting is disabled, work_done
+will stay 0, so both the RX and the ERR interrupt stay disabled (which
+is done in flexcan_irq). I think we should always enable the RX
+interrupt. (However, if the bus is working again the chip can probably
+send messages again, so we get a TX-complete IRQ, but this depends on
+the application.)
 
-Acked-by: Florian Fainelli <florian@openwrt.org>
---
-=46lorian
+Having a look at flexcan_irq:
+
+> 	/*
+> 	 * schedule NAPI in case of:
+> 	 * - rx IRQ
+> 	 * - state change IRQ
+> 	 * - bus error IRQ and bus error reporting is activated
+> 	 */
+
+This mean with disabled BERR NAPI should only be scheduled in case of a
+RX or a state change interrupt. Both of these interrupts should generate
+a can_frame in flexcan_poll and this the work_done shoud be > 0, modulo
+out of memory situations.
+
+> 	if ((reg_iflag1 & FLEXCAN_IFLAG_RX_FIFO_AVAILABLE) ||
+> 	    (reg_esr & FLEXCAN_ESR_ERR_STATE) ||
+> 	    flexcan_has_and_handle_berr(priv, reg_esr)) {
+> 		/*
+> 		 * The error bits are cleared on read,
+> 		 * save them for later use.
+> 		 */
+> 		priv->reg_esr =3D reg_esr & FLEXCAN_ESR_ERR_BUS;
+> 		writel(FLEXCAN_IFLAG_DEFAULT & ~FLEXCAN_IFLAG_RX_FIFO_AVAILABLE,
+> 		       &regs->imask1);
+> 		writel(priv->reg_ctrl_default & ~FLEXCAN_CTRL_ERR_ALL,
+> 		       &regs->ctrl);
+> 		napi_schedule(&priv->napi);
+> 	}
+
+So thinking about the problem I don't see how your patch works. But
+there might be a bug in the driver or my logic.
+
+Cheers, Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--------------enig0AD4551CBDA85E0F74DE3C6C
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAkzr4B4ACgkQjTAFq1RaXHMrYgCaA+38rnK0xgof4oKvR6hDNiH6
+9hsAniMkLlbYcKc7ioUkxmpuGfwyKNDy
+=iIWF
+-----END PGP SIGNATURE-----
+
+--------------enig0AD4551CBDA85E0F74DE3C6C--
+
+--===============1671812936922187901==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+Socketcan-core mailing list
+Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+https://lists.berlios.de/mailman/listinfo/socketcan-core
+
+--===============1671812936922187901==--
