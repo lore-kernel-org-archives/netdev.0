@@ -1,69 +1,49 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: [PATCH] au1000_eth: fix invalid address accessing the MAC enable
- register
-Date: Tue, 23 Nov 2010 17:40:25 +0100
-Message-ID: <4CEBEE79.8040507@grandegger.com>
+From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+Subject: Re: [PATCH] iproute2: support xfrm upper protocol gre key
+Date: Tue, 23 Nov 2010 18:44:44 +0200
+Message-ID: <4CEBEF7C.2060806@iki.fi>
+References: <1290524559-22086-1-git-send-email-timo.teras@iki.fi> <20101123082404.5b8ad019@nehalam>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux-MIPS <linux-mips@linux-mips.org>,
-	Florian Fainelli <florian@openwrt.org>
-To: Netdev@vger.kernel.org
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ew0-f46.google.com ([209.85.215.46]:51163 "EHLO
+	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753962Ab0KWQos (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Nov 2010 11:44:48 -0500
+Received: by ewy5 with SMTP id 5so2549068ewy.19
+        for <netdev@vger.kernel.org>; Tue, 23 Nov 2010 08:44:47 -0800 (PST)
+In-Reply-To: <20101123082404.5b8ad019@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-"aup->enable" holds already the address pointing to the MAC enable
-register. The bug was introduced by commit d0e7cb:
+On 11/23/2010 06:24 PM, Stephen Hemminger wrote:
+> On Tue, 23 Nov 2010 17:02:39 +0200
+> Timo Ter=E4s <timo.teras@iki.fi> wrote:
+>=20
+>> +	case IPPROTO_GRE:
+>> +		if (sel->sport_mask || sel->dport_mask) {
+>> +			struct in_addr key;
+>> +			key.s_addr =3D htonl((ntohs(sel->sport) << 16) + ntohs(sel->dpor=
+t));
+>> +			inet_ntop(AF_INET, &key, abuf, sizeof(abuf));
+>> +			fprintf(fp, "key %s ", abuf);
+>> +		}
+>=20
+> The GRE key is not really an IPv4 address. Why should the utilities
+> use IPv4 address manipulation to format/scan it.  It makes more sense
+> to me to just use u32 an do the necessary ntohl.
 
-"au1000-eth: remove volatiles, switch to I/O accessors".
+This is pretty much how iptunnel.c does it, so I copied the code. Would
+you prefer to format it as single u32 number? Or use something else for
+formatting it similar to IPv4?
 
-CC: Florian Fainelli <florian@openwrt.org>
-Signed-off-by: Wolfgang Grandegger <wg@denx.de>
-Acked-by: Florian Fainelli <florian@openwrt.org>
+In either case, we should change iptunnel.c to match ipxfrm.c. It'll be
+easier if both parts handling the gre key treat it equivalently.
 
----
- drivers/net/au1000_eth.c |   10 +++++-----
- 1 files changed, 5 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/au1000_eth.c b/drivers/net/au1000_eth.c
-index 43489f8..53eff9b 100644
---- a/drivers/net/au1000_eth.c
-+++ b/drivers/net/au1000_eth.c
-@@ -155,10 +155,10 @@ static void au1000_enable_mac(struct net_device *dev, int force_reset)
- 	spin_lock_irqsave(&aup->lock, flags);
- 
- 	if (force_reset || (!aup->mac_enabled)) {
--		writel(MAC_EN_CLOCK_ENABLE, &aup->enable);
-+		writel(MAC_EN_CLOCK_ENABLE, aup->enable);
- 		au_sync_delay(2);
- 		writel((MAC_EN_RESET0 | MAC_EN_RESET1 | MAC_EN_RESET2
--				| MAC_EN_CLOCK_ENABLE), &aup->enable);
-+				| MAC_EN_CLOCK_ENABLE), aup->enable);
- 		au_sync_delay(2);
- 
- 		aup->mac_enabled = 1;
-@@ -503,9 +503,9 @@ static void au1000_reset_mac_unlocked(struct net_device *dev)
- 
- 	au1000_hard_stop(dev);
- 
--	writel(MAC_EN_CLOCK_ENABLE, &aup->enable);
-+	writel(MAC_EN_CLOCK_ENABLE, aup->enable);
- 	au_sync_delay(2);
--	writel(0, &aup->enable);
-+	writel(0, aup->enable);
- 	au_sync_delay(2);
- 
- 	aup->tx_full = 0;
-@@ -1119,7 +1119,7 @@ static int __devinit au1000_probe(struct platform_device *pdev)
- 	/* set a random MAC now in case platform_data doesn't provide one */
- 	random_ether_addr(dev->dev_addr);
- 
--	writel(0, &aup->enable);
-+	writel(0, aup->enable);
- 	aup->mac_enabled = 0;
- 
- 	pd = pdev->dev.platform_data;
--- 
-1.7.2.3
-
+I think Cisco does indeed treat it as u32 number in the configurations.
+So I'm okay updating this patch, and fixing iptunnel.c side too. We
+might still want to keep the parsing of ipv4 format to keep backwards
+compatibility.
