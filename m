@@ -1,128 +1,74 @@
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: [PATCH net-2.6] net, ppp: Report correct error code if unit
-	allocation failed
-Date: Wed, 24 Nov 2010 00:43:44 +0300
-Message-ID: <20101123214344.GB1839@lenovo>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] iproute2: support xfrm upper protocol gre key
+Date: Tue, 23 Nov 2010 22:26:47 +0000
+Message-ID: <1290551207.3013.9.camel@localhost>
+References: <1290524559-22086-1-git-send-email-timo.teras@iki.fi>
+	 <20101123082404.5b8ad019@nehalam> <4CEBEF7C.2060806@iki.fi>
+	 <20101123101302.54a9e4be@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Paul Mackerras <paulus@samba.org>,
-	David Miller <davem@davemloft.net>, linux-ppp@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: LNML <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Timo =?ISO-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:64691 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751700Ab0KWVnt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Nov 2010 16:43:49 -0500
-Content-Disposition: inline
+Received: from exchange.solarflare.com ([216.237.3.220]:5590 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752575Ab0KWW0x convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Nov 2010 17:26:53 -0500
+In-Reply-To: <20101123101302.54a9e4be@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allocating unit from ird might return several error codes
-not only -EAGAIN, so it should not be changed and returned
-precisely. Same time unit release procedure should be invoked
-only if device is unregistering.
+On Tue, 2010-11-23 at 10:13 -0800, Stephen Hemminger wrote:
+> On Tue, 23 Nov 2010 18:44:44 +0200
+> Timo Ter=C3=A4s <timo.teras@iki.fi> wrote:
+>=20
+> > On 11/23/2010 06:24 PM, Stephen Hemminger wrote:
+> > > On Tue, 23 Nov 2010 17:02:39 +0200
+> > > Timo Ter=C3=A4s <timo.teras@iki.fi> wrote:
+> > >=20
+> > >> +	case IPPROTO_GRE:
+> > >> +		if (sel->sport_mask || sel->dport_mask) {
+> > >> +			struct in_addr key;
+> > >> +			key.s_addr =3D htonl((ntohs(sel->sport) << 16) + ntohs(sel->=
+dport));
+> > >> +			inet_ntop(AF_INET, &key, abuf, sizeof(abuf));
+> > >> +			fprintf(fp, "key %s ", abuf);
+> > >> +		}
+> > >=20
+> > > The GRE key is not really an IPv4 address. Why should the utiliti=
+es
+> > > use IPv4 address manipulation to format/scan it.  It makes more s=
+ense
+> > > to me to just use u32 an do the necessary ntohl.
+> >=20
+> > This is pretty much how iptunnel.c does it, so I copied the code. W=
+ould
+> > you prefer to format it as single u32 number? Or use something else=
+ for
+> > formatting it similar to IPv4?
+> >=20
+> > In either case, we should change iptunnel.c to match ipxfrm.c. It'l=
+l be
+> > easier if both parts handling the gre key treat it equivalently.
+> >=20
+> > I think Cisco does indeed treat it as u32 number in the configurati=
+ons.
+> > So I'm okay updating this patch, and fixing iptunnel.c side too. We
+> > might still want to keep the parsing of ipv4 format to keep backwar=
+ds
+> > compatibility.
+>=20
+> My preference would be to take both dotted quad and a single
+> number.
 
-Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
-CC: Paul Mackerras <paulus@samba.org>
----
-Please review, thanks! (I've tested it a bit but more tests would
-be really appreciated as well as comments)
+inet_aton() covers that.
 
- drivers/net/ppp_generic.c |   43 ++++++++++++++++++++++---------------------
- 1 file changed, 22 insertions(+), 21 deletions(-)
+Ben.
 
-Index: linux-2.6.git/drivers/net/ppp_generic.c
-=====================================================================
---- linux-2.6.git.orig/drivers/net/ppp_generic.c
-+++ linux-2.6.git/drivers/net/ppp_generic.c
-@@ -2584,16 +2584,16 @@ ppp_create_interface(struct net *net, in
- 	 */
- 	dev_net_set(dev, net);
- 
--	ret = -EEXIST;
- 	mutex_lock(&pn->all_ppp_mutex);
- 
- 	if (unit < 0) {
- 		unit = unit_get(&pn->units_idr, ppp);
- 		if (unit < 0) {
--			*retp = unit;
-+			ret = unit;
- 			goto out2;
- 		}
- 	} else {
-+		ret = -EEXIST;
- 		if (unit_find(&pn->units_idr, unit))
- 			goto out2; /* unit already exists */
- 		/*
-@@ -2668,10 +2668,10 @@ static void ppp_shutdown_interface(struc
- 		ppp->closing = 1;
- 		ppp_unlock(ppp);
- 		unregister_netdev(ppp->dev);
-+		unit_put(&pn->units_idr, ppp->file.index);
- 	} else
- 		ppp_unlock(ppp);
- 
--	unit_put(&pn->units_idr, ppp->file.index);
- 	ppp->file.dead = 1;
- 	ppp->owner = NULL;
- 	wake_up_interruptible(&ppp->file.rwait);
-@@ -2859,8 +2859,7 @@ static void __exit ppp_cleanup(void)
-  * by holding all_ppp_mutex
-  */
- 
--/* associate pointer with specified number */
--static int unit_set(struct idr *p, void *ptr, int n)
-+static int __unit_alloc(struct idr *p, void *ptr, int n)
- {
- 	int unit, err;
- 
-@@ -2871,10 +2870,24 @@ again:
- 	}
- 
- 	err = idr_get_new_above(p, ptr, n, &unit);
--	if (err == -EAGAIN)
--		goto again;
-+	if (err < 0) {
-+		if (err == -EAGAIN)
-+			goto again;
-+		return err;
-+	}
-+
-+	return unit;
-+}
-+
-+/* associate pointer with specified number */
-+static int unit_set(struct idr *p, void *ptr, int n)
-+{
-+	int unit;
- 
--	if (unit != n) {
-+	unit = __unit_alloc(p, ptr, n);
-+	if (unit < 0)
-+		return unit;
-+	else if (unit != n) {
- 		idr_remove(p, unit);
- 		return -EINVAL;
- 	}
-@@ -2885,19 +2898,7 @@ again:
- /* get new free unit number and associate pointer with it */
- static int unit_get(struct idr *p, void *ptr)
- {
--	int unit, err;
--
--again:
--	if (!idr_pre_get(p, GFP_KERNEL)) {
--		printk(KERN_ERR "PPP: No free memory for idr\n");
--		return -ENOMEM;
--	}
--
--	err = idr_get_new_above(p, ptr, 0, &unit);
--	if (err == -EAGAIN)
--		goto again;
--
--	return unit;
-+	return __unit_alloc(p, ptr, 0);
- }
- 
- /* put unit number back to a pool */
+--=20
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
