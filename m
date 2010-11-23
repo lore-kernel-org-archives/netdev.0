@@ -1,52 +1,119 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: net-2.6 [Patch 1/1][BUG-FIX] dccp: advancing the Ack window
-Date: Tue, 23 Nov 2010 13:36:56 +0100
-Message-ID: <20101123123656.GB3915@gerrit.erg.abdn.ac.uk>
+Subject: dccp-test-tree [RFC][Patch 1/1] dccp: requesting comments re	updating ARP/neighbour table state
+Date: Tue, 23 Nov 2010 13:44:14 +0100
+Message-ID: <20101123124414.GC3915@gerrit.erg.abdn.ac.uk>
+References: <20101123123656.GB3915@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: dccp@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:43309 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:43480 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753408Ab0KWMhF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Nov 2010 07:37:05 -0500
+	id S1752677Ab0KWMoW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Nov 2010 07:44:22 -0500
 Content-Disposition: inline
+In-Reply-To: <20101123123656.GB3915@gerrit.erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dave,
+I noted that DCCP apparently does not update the neighbour tables in the same
+way as TCP (or UDP with MSG_CONFIRM). 
 
-please can you consider the following bug fix (applies on both net-2.6 and
-net-next-2.6). I have no other dccp patches this week -- the second one that
-follows is for the test tree only and is meant for RFC.
+This patch adds the missing calls to dst_update(). I would appreciate review
+and comments in case I missed something.
 
-Best regards
-Gerrit
+DCCP does not have the equivalent of tcp_init_metrics()/tcp_update_metrics().
+It seems that this functionality would be more in the CCIDs than in the main
+DCCP module (for instance, CCID-3 does not understand ssthresh/cwnd and uses
+a different RTT sampling algorithm).
 
-(also on git://eden-feed.erg.abdn.ac.uk/net-next-2.6  [subtree 'dccp'])
+This patch is meant for RFC, not currently for submission. It is in the DCCP
+test tree, on 
+     
+     git://eden-feed.erg.abdn.ac.uk/dccp_exp    [subtree 'dccp']
 
->>>>>>>>>>>>>>>>>>>>>>>>>>>>  Patch / Fix <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-dccp: fix error in updating the GAR
 
-This fixes a bug in updating the Greatest Acknowledgment number Received (GAR): 
-the current implementation does not track the greatest received value -
-lower values in the range AWL..AWH (RFC 4340, 7.5.1) erase higher ones.
+>>>>>>>>>>>>>>>>>>>>>>>>> Patch <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+dccp: indicate forward progress of connection to lower layer
+
+This patch implements three cases of indicating forward progress:
+
+ 1. Peer acknowledging receipt of connection initiation.
+    This corresponds to the cases where tcp_init_metrics() is called:
+    * receiving Syn-Ack in response to Syn (tcp_rcv_synsent_state_process),
+    * receiving Ack to finish the handshake (TCP_SYN_RECV -> TCP_ESTABLISHED);
+    which in DCCP corresponds to
+    * receiving Response after Request (dccp_rcv_request_sent_state_process),
+    * moving from RESPOND/PARTOPEN to OPEN when receiving an Ack/DataAck
+      (RESPOND) or non-Sync/Reset (PARTOPEN).
+    The latter does no extra rebuild_header() as in tcp_rcv_state_process(),
+    since in DCCP an active (client) socket can not become a passive one later,
+    and since dccp_v{4,6}_request_recv_sock() already talk to the routing
+    system.
+
+ 2. Peer advancing GAR (greatest acknowledgment number received).
+    This is comparable to making forward progress in tcp_ack().
+
+ 3. Peer acknowledging request to terminate the connection.
+    This corresponds to TCP teardown -
+    * receiving Ack-of-Fin in FIN_WAIT1/LAST_ACK (tcp_rcv_state_process),
+    * entering TIME_WAIT (tcp_time_wait),
+    and is realized in DCCP when receiving
+    * a Reset packet with code "Closed" (in response to DCCP-Close),
+    * a Close packet after sending a CloseReq,
+    * a Close packet after sending a Close (simultaneous close).
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- net/dccp/input.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ net/dccp/input.c |   11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
 
 --- a/net/dccp/input.c
 +++ b/net/dccp/input.c
-@@ -241,7 +241,8 @@ static int dccp_check_seqno(struct sock 
- 		dccp_update_gsr(sk, seqno);
+@@ -71,6 +71,7 @@ static int dccp_rcv_close(struct sock *s
+ 		/* fall through */
+ 	case DCCP_REQUESTING:
+ 	case DCCP_ACTIVE_CLOSEREQ:
++		dst_confirm(__sk_dst_get(sk));
+ 		dccp_send_reset(sk, DCCP_RESET_CODE_CLOSED);
+ 		dccp_done(sk);
+ 		break;
+@@ -155,6 +156,8 @@ static void dccp_rcv_reset(struct sock *
+ 	/* Queue the equivalent of TCP fin so that dccp_recvmsg exits the loop */
+ 	dccp_fin(sk, skb);
+ 
++	if (dccp_hdr_reset(skb)->dccph_reset_code == DCCP_RESET_CODE_CLOSED)
++		dst_confirm(__sk_dst_get(sk));
+ 	if (err && !sock_flag(sk, SOCK_DEAD))
+ 		sk_wake_async(sk, SOCK_WAKE_IO, POLL_ERR);
+ 	dccp_time_wait(sk, DCCP_TIME_WAIT, 0);
+@@ -242,8 +245,10 @@ static int dccp_check_seqno(struct sock 
  
  		if (dh->dccph_type != DCCP_PKT_SYNC &&
--		    (ackno != DCCP_PKT_WITHOUT_ACK_SEQ))
-+		    ackno != DCCP_PKT_WITHOUT_ACK_SEQ &&
-+		    after48(ackno, dp->dccps_gar))
+ 		    ackno != DCCP_PKT_WITHOUT_ACK_SEQ &&
+-		    after48(ackno, dp->dccps_gar))
++		    after48(ackno, dp->dccps_gar)) {
++			dst_confirm(__sk_dst_get(sk));
  			dp->dccps_gar = ackno;
++		}
  	} else {
  		unsigned long now = jiffies;
+ 		/*
+@@ -475,6 +480,8 @@ static int dccp_rcv_request_sent_state_p
+ 		/* Make sure socket is routed, for correct metrics. */
+ 		icsk->icsk_af_ops->rebuild_header(sk);
+ 
++		dst_confirm(__sk_dst_get(sk));
++
+ 		if (!sock_flag(sk, SOCK_DEAD)) {
+ 			sk->sk_state_change(sk);
+ 			sk_wake_async(sk, SOCK_WAKE_IO, POLL_OUT);
+@@ -556,6 +563,8 @@ static int dccp_rcv_respond_partopen_sta
+ 			dp->dccps_syn_rtt = dccp_sample_rtt(sk, 10 * delta);
+ 		}
+ 
++		dst_confirm(__sk_dst_get(sk));
++
+ 		dp->dccps_osr = DCCP_SKB_CB(skb)->dccpd_seq;
+ 		dccp_set_state(sk, DCCP_OPEN);
+ 
