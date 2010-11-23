@@ -1,66 +1,54 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] iproute2: support xfrm upper protocol gre key
-Date: Tue, 23 Nov 2010 10:54:18 -0800
-Message-ID: <20101123105418.65072de8@nehalam>
-References: <1290524559-22086-1-git-send-email-timo.teras@iki.fi>
-	<20101123082404.5b8ad019@nehalam>
-	<4CEBEF7C.2060806@iki.fi>
-	<20101123101302.54a9e4be@nehalam>
-	<4CEC0A42.60209@iki.fi>
+From: David Brownell <david-b@pacbell.net>
+Subject: Re: [PATCH 1/2] usbnet: changes for upcoming cdc_ncm driver
+Date: Tue, 23 Nov 2010 10:58:40 -0800
+Message-ID: <1290538720.2529.109.camel@helium>
+References: <1290531088-2393-1-git-send-email-alexey.orishko@stericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Timo =?ISO-8859-1?B?VGVy5HM=?= <timo.teras@iki.fi>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: gregkh@suse.de, linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	oliver@neukum.org, yauheni.kaliuta@nokia.com,
+	felipe.balbi@nokia.com, sjur.brandeland@stericsson.com,
+	Alexey Orishko <alexey.orishko@stericsson.com>
+To: Alexey Orishko <alexey.orishko@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:45825 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754235Ab0KWSyj convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Nov 2010 13:54:39 -0500
-In-Reply-To: <4CEC0A42.60209@iki.fi>
+Received: from nm4.bullet.mail.ac4.yahoo.com ([98.139.52.201]:37762 "HELO
+	nm4.bullet.mail.ac4.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753050Ab0KWS6p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Nov 2010 13:58:45 -0500
+In-Reply-To: <1290531088-2393-1-git-send-email-alexey.orishko@stericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 23 Nov 2010 20:38:58 +0200
-Timo Ter=E4s <timo.teras@iki.fi> wrote:
+On Tue, 2010-11-23 at 17:51 +0100, Alexey Orishko wrote:
 
-> On 11/23/2010 08:13 PM, Stephen Hemminger wrote:
-> > On Tue, 23 Nov 2010 18:44:44 +0200
-> > Timo Ter=E4s <timo.teras@iki.fi> wrote:
-> >> On 11/23/2010 06:24 PM, Stephen Hemminger wrote:
-> >>> The GRE key is not really an IPv4 address. Why should the utiliti=
-es
-> >>> use IPv4 address manipulation to format/scan it.  It makes more s=
-ense
-> >>> to me to just use u32 an do the necessary ntohl.
-> >>
-> >> This is pretty much how iptunnel.c does it, so I copied the code. =
-Would
-> >> you prefer to format it as single u32 number? Or use something els=
-e for
-> >> formatting it similar to IPv4?
-> >>
-> >> In either case, we should change iptunnel.c to match ipxfrm.c. It'=
-ll be
-> >> easier if both parts handling the gre key treat it equivalently.
-> >>
-> >> I think Cisco does indeed treat it as u32 number in the configurat=
-ions.
-> >> So I'm okay updating this patch, and fixing iptunnel.c side too. W=
-e
-> >> might still want to keep the parsing of ipv4 format to keep backwa=
-rds
-> >> compatibility.
-> >=20
-> > My preference would be to take both dotted quad and a single
-> > number.
->=20
-> And I assume that when dumping stuff, it should be output as single
-> number. Or make that configurable with some switch?
->=20
-> I'll refresh my patch and fix iptunnel.c output tomorrow.
+> -		skb_queue_tail (&dev->done, skb);
+> +	if (skb->len) {
+> +		/* all data was already cloned inside NCM driver */
 
-Just show it as a decimal number. That is what Cisco and Juniper do.
+Fix this comment.  NCM isn't the only framing policy which un-batches
+RX packets ... RNDIS has done so for a number of years already, and
+more recently EEM needs it too ... plus at least one hardware driver.
 
---=20
+Also, check pending patches, since I seem to recall one that supports
+some hardware (SMSC?) that batches, and needed to update the calling
+convention you're using here (i.e. the original one).
+
+
+> +		if (dev->driver_info->flags & FLAG_MULTI_PACKET)
+
+except ... you documented this flag as affecting TX paths not RX...
+> +			dev_kfree_skb_any(skb);
+> +		else
+> +			usbnet_skb_return(dev, skb);
+> +		return;
+>  	}
+> +
+> +	netif_dbg(dev, rx_err, dev->net, "drop\n");
+> +error:
+> +	dev->net->stats.rx_errors++;
+> +	skb_queue_tail(&dev->done, skb);
+>  }
+>  
+
+
