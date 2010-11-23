@@ -1,45 +1,69 @@
-From: "Vladislav Zolotarov" <vladz@broadcom.com>
-Subject: RE: [PATCH net-next] bnx2x: Resolving a possible dead-lock
- situation
-Date: Tue, 23 Nov 2010 08:36:22 -0800
-Message-ID: <8628FE4E7912BF47A96AE7DD7BAC0AADDDEF920549@SJEXCHCCR02.corp.ad.broadcom.com>
-References: <1290528912.15453.3.camel@lb-tlvb-vladz>
- <1290529777.3046.99.camel@edumazet-laptop>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: [PATCH] au1000_eth: fix invalid address accessing the MAC enable
+ register
+Date: Tue, 23 Nov 2010 17:40:25 +0100
+Message-ID: <4CEBEE79.8040507@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: "Dave Miller" <davem@davemloft.net>,
-	"Eilon Greenstein" <eilong@broadcom.com>,
-	"netdev list" <netdev@vger.kernel.org>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux-MIPS <linux-mips@linux-mips.org>,
+	Florian Fainelli <florian@openwrt.org>
+To: Netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3259 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754098Ab0KWQg2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Nov 2010 11:36:28 -0500
-In-Reply-To: <1290529777.3046.99.camel@edumazet-laptop>
-Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiANCj4gVGhhdCBzZWVtcyBzdHJhbmdlLiBFdmVuIGlmIHBlcmZvcm1hbmNlIHBlbmFsdHkgaXMg
-bm90IG1pbmltYWwsIGl0DQo+IHNob3VsZCBiZSBhdm9pZGVkLg0KPiANCj4gSWYgcHJvYmxlbSBj
-b21lcyBmcm9tIGV0aHRvb2wsIHdoeSBub3QgcHJldmVudGluZyBCSCBpbiBldGh0b29sIGl0c2Vs
-Zg0KPiA/DQoNCkxvb2tzIGdvb2QuIExldCBtZSBydW4gYSBmZXcgY2hlY2tzIGJlZm9yZSB1IHN1
-Ym1pdCBhIHBhdGNoIHRvIERhdmUuIE9yIGRvIHUgcHJlZmVyIA0KbWUgdG8gcHVzaCBpdCBvbiB5
-b3VyIGJlaGFsZj8NCg0KVGhhbmtzLA0KdmxhZA0KDQo+IA0KPiBkaWZmIC0tZ2l0IGEvZHJpdmVy
-cy9uZXQvYm54MngvYm54MnhfZXRodG9vbC5jDQo+IGIvZHJpdmVycy9uZXQvYm54MngvYm54Mnhf
-ZXRodG9vbC5jDQo+IGluZGV4IGQwMmZmYmQuLjFmN2Q0ZTYgMTAwNjQ0DQo+IC0tLSBhL2RyaXZl
-cnMvbmV0L2JueDJ4L2JueDJ4X2V0aHRvb2wuYw0KPiArKysgYi9kcml2ZXJzL25ldC9ibngyeC9i
-bngyeF9ldGh0b29sLmMNCj4gQEAgLTE0OTksOSArMTQ5OSwxMSBAQCBzdGF0aWMgaW50IGJueDJ4
-X3J1bl9sb29wYmFjayhzdHJ1Y3QgYm54MnggKmJwLA0KPiBpbnQgbG9vcGJhY2tfbW9kZSwgdTgg
-bGlua191cCkNCj4gIAkgKiB1cGRhdGVzIHRoYXQgaGF2ZSBiZWVuIHBlcmZvcm1lZCB3aGlsZSBp
-bnRlcnJ1cHRzIHdlcmUNCj4gIAkgKiBkaXNhYmxlZC4NCj4gIAkgKi8NCj4gLQlpZiAoYnAtPmNv
-bW1vbi5pbnRfYmxvY2sgPT0gSU5UX0JMT0NLX0lHVSkNCj4gKwlpZiAoYnAtPmNvbW1vbi5pbnRf
-YmxvY2sgPT0gSU5UX0JMT0NLX0lHVSkgew0KPiArCQlsb2NhbF9iaF9kaXNhYmxlKCk7DQo+ICAJ
-CWJueDJ4X3R4X2ludChmcF90eCk7DQo+IC0NCj4gKwkJbG9jYWxfYmhfZW5hYmxlKCk7DQo+ICsJ
-fQ0KPiAgCXJ4X2lkeCA9IGxlMTZfdG9fY3B1KCpmcF9yeC0+cnhfY29uc19zYik7DQo+ICAJaWYg
-KHJ4X2lkeCAhPSByeF9zdGFydF9pZHggKyBudW1fcGt0cykNCj4gIAkJZ290byB0ZXN0X2xvb3Bi
-YWNrX2V4aXQ7DQo+IA0KPiANCg0K
+"aup->enable" holds already the address pointing to the MAC enable
+register. The bug was introduced by commit d0e7cb:
+
+"au1000-eth: remove volatiles, switch to I/O accessors".
+
+CC: Florian Fainelli <florian@openwrt.org>
+Signed-off-by: Wolfgang Grandegger <wg@denx.de>
+Acked-by: Florian Fainelli <florian@openwrt.org>
+
+---
+ drivers/net/au1000_eth.c |   10 +++++-----
+ 1 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/au1000_eth.c b/drivers/net/au1000_eth.c
+index 43489f8..53eff9b 100644
+--- a/drivers/net/au1000_eth.c
++++ b/drivers/net/au1000_eth.c
+@@ -155,10 +155,10 @@ static void au1000_enable_mac(struct net_device *dev, int force_reset)
+ 	spin_lock_irqsave(&aup->lock, flags);
+ 
+ 	if (force_reset || (!aup->mac_enabled)) {
+-		writel(MAC_EN_CLOCK_ENABLE, &aup->enable);
++		writel(MAC_EN_CLOCK_ENABLE, aup->enable);
+ 		au_sync_delay(2);
+ 		writel((MAC_EN_RESET0 | MAC_EN_RESET1 | MAC_EN_RESET2
+-				| MAC_EN_CLOCK_ENABLE), &aup->enable);
++				| MAC_EN_CLOCK_ENABLE), aup->enable);
+ 		au_sync_delay(2);
+ 
+ 		aup->mac_enabled = 1;
+@@ -503,9 +503,9 @@ static void au1000_reset_mac_unlocked(struct net_device *dev)
+ 
+ 	au1000_hard_stop(dev);
+ 
+-	writel(MAC_EN_CLOCK_ENABLE, &aup->enable);
++	writel(MAC_EN_CLOCK_ENABLE, aup->enable);
+ 	au_sync_delay(2);
+-	writel(0, &aup->enable);
++	writel(0, aup->enable);
+ 	au_sync_delay(2);
+ 
+ 	aup->tx_full = 0;
+@@ -1119,7 +1119,7 @@ static int __devinit au1000_probe(struct platform_device *pdev)
+ 	/* set a random MAC now in case platform_data doesn't provide one */
+ 	random_ether_addr(dev->dev_addr);
+ 
+-	writel(0, &aup->enable);
++	writel(0, aup->enable);
+ 	aup->mac_enabled = 0;
+ 
+ 	pd = pdev->dev.platform_data;
+-- 
+1.7.2.3
 
