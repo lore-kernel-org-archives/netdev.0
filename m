@@ -1,28 +1,52 @@
-From: Arnaldo Carvalho de Melo <acme-f8uhVLnGfZaxAyOMLChx1axOck334EZe@public.gmane.org>
-Subject: Re: Draft manpage for recvmmsg
-Date: Tue, 23 Nov 2010 10:36:56 -0200
-Message-ID: <20101123123656.GA23890@ghostprotocols.net>
-References: <20101123101551.GA20431@basil.fritz.box>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: net-2.6 [Patch 1/1][BUG-FIX] dccp: advancing the Ack window
+Date: Tue, 23 Nov 2010 13:36:56 +0100
+Message-ID: <20101123123656.GB3915@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Andi Kleen <andi-Vw/NltI1exuRpAAqCnN02g@public.gmane.org>
-Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:43309 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753408Ab0KWMhF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Nov 2010 07:37:05 -0500
 Content-Disposition: inline
-In-Reply-To: <20101123101551.GA20431-u0/ZJuX+froe6aEkudXLsA@public.gmane.org>
-Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Em Tue, Nov 23, 2010 at 11:15:51AM +0100, Andi Kleen escreveu:
-> 
-> Here's a draft manpage for recvmmsg(2), which is one 
-> of the last undocumented syscalls currently.
-> Please review and comment.
+Dave,
 
-Looks ok, thanks for writing it.
+please can you consider the following bug fix (applies on both net-2.6 and
+net-next-2.6). I have no other dccp patches this week -- the second one that
+follows is for the test tree only and is meant for RFC.
 
-- Arnaldo
---
-To unsubscribe from this list: send the line "unsubscribe linux-man" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Best regards
+Gerrit
+
+(also on git://eden-feed.erg.abdn.ac.uk/net-next-2.6  [subtree 'dccp'])
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>  Patch / Fix <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+dccp: fix error in updating the GAR
+
+This fixes a bug in updating the Greatest Acknowledgment number Received (GAR): 
+the current implementation does not track the greatest received value -
+lower values in the range AWL..AWH (RFC 4340, 7.5.1) erase higher ones.
+
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+---
+ net/dccp/input.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+--- a/net/dccp/input.c
++++ b/net/dccp/input.c
+@@ -241,7 +241,8 @@ static int dccp_check_seqno(struct sock 
+ 		dccp_update_gsr(sk, seqno);
+ 
+ 		if (dh->dccph_type != DCCP_PKT_SYNC &&
+-		    (ackno != DCCP_PKT_WITHOUT_ACK_SEQ))
++		    ackno != DCCP_PKT_WITHOUT_ACK_SEQ &&
++		    after48(ackno, dp->dccps_gar))
+ 			dp->dccps_gar = ackno;
+ 	} else {
+ 		unsigned long now = jiffies;
