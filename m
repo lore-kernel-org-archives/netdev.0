@@ -1,54 +1,54 @@
-From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: Re: [PATCH] iproute2: support xfrm upper protocol gre key
-Date: Tue, 23 Nov 2010 20:38:58 +0200
-Message-ID: <4CEC0A42.60209@iki.fi>
-References: <1290524559-22086-1-git-send-email-timo.teras@iki.fi>	<20101123082404.5b8ad019@nehalam>	<4CEBEF7C.2060806@iki.fi> <20101123101302.54a9e4be@nehalam>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 4/9] AF_UNIX: find the recipients for multicast messages
+Date: Tue, 23 Nov 2010 10:39:49 -0800 (PST)
+Message-ID: <20101123.103949.39186245.davem@davemloft.net>
+References: <20101123150315.4e67a139@chocolatine.cbg.collabora.co.uk>
+	<1290528517.3046.91.camel@edumazet-laptop>
+	<20101123174701.1b2f6f16@chocolatine.cbg.collabora.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: eric.dumazet@gmail.com, shemminger@vyatta.com, gorcunov@openvz.org,
+	adobriyan@gmail.com, lennart@poettering.net, kay.sievers@vrfy.org,
+	ian.molton@collabora.co.uk, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: alban.crequy@collabora.co.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:51282 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754415Ab0KWSjD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Nov 2010 13:39:03 -0500
-Received: by eye27 with SMTP id 27so4858031eye.19
-        for <netdev@vger.kernel.org>; Tue, 23 Nov 2010 10:39:01 -0800 (PST)
-In-Reply-To: <20101123101302.54a9e4be@nehalam>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60953
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756352Ab0KWSjX convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Nov 2010 13:39:23 -0500
+In-Reply-To: <20101123174701.1b2f6f16@chocolatine.cbg.collabora.co.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/23/2010 08:13 PM, Stephen Hemminger wrote:
-> On Tue, 23 Nov 2010 18:44:44 +0200
-> Timo Ter=E4s <timo.teras@iki.fi> wrote:
->> On 11/23/2010 06:24 PM, Stephen Hemminger wrote:
->>> The GRE key is not really an IPv4 address. Why should the utilities
->>> use IPv4 address manipulation to format/scan it.  It makes more sen=
-se
->>> to me to just use u32 an do the necessary ntohl.
->>
->> This is pretty much how iptunnel.c does it, so I copied the code. Wo=
-uld
->> you prefer to format it as single u32 number? Or use something else =
-for
->> formatting it similar to IPv4?
->>
->> In either case, we should change iptunnel.c to match ipxfrm.c. It'll=
- be
->> easier if both parts handling the gre key treat it equivalently.
->>
->> I think Cisco does indeed treat it as u32 number in the configuratio=
-ns.
->> So I'm okay updating this patch, and fixing iptunnel.c side too. We
->> might still want to keep the parsing of ipv4 format to keep backward=
-s
->> compatibility.
+=46rom: Alban Crequy <alban.crequy@collabora.co.uk>
+Date: Tue, 23 Nov 2010 17:47:01 +0000
+
+> Le Tue, 23 Nov 2010 17:08:37 +0100,
+> Eric Dumazet <eric.dumazet@gmail.com> a =E9crit :
+>> I am not sure if doing 90 clones of skb and filtering them one by on=
+e
+>> is going to be fast :-(
 >=20
-> My preference would be to take both dotted quad and a single
-> number.
+> Yes... I think it can be optimized. Run the socket filter first by
+> calling sk_run_filter() directly and then call skb_clone() + pskb_tri=
+m()
+> only on the few remaining sockets.
 
-And I assume that when dumping stuff, it should be output as single
-number. Or make that configurable with some switch?
+BTW, we have and have talked about the same exact problem with
+AF_PACKET socket users such as DHCP.
 
-I'll refresh my patch and fix iptunnel.c output tomorrow.
+We clone and push the packet down into the AF_PACKET protocol
+code from the pt_type callback when %99 of the time the socket
+filter doesn't match and thus the clone is completely wasted
+work.
+
+If we know the socket, or more specifically the filter, early enough,
+we could have a special interface like:
+
+	struct sk_buff *skb_filter_or_clone(struct sk_buff *skb, ...)
+
+Which returns a non-NULL cloned SKB if the filter accepts the
+packet.
