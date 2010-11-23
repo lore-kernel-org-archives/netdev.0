@@ -1,90 +1,118 @@
-From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: Re: [PATCH] xfrm: use gre key as flow upper protocol info
-Date: Tue, 23 Nov 2010 16:03:45 +0200
-Message-ID: <4CEBC9C1.8080101@iki.fi>
-References: <1288795298-323-1-git-send-email-timo.teras@iki.fi> <20101115.104322.212675424.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: addrconf: refcnt with  IPV6_PRIVACY enabled
+Date: Tue, 23 Nov 2010 15:33:23 +0100
+Message-ID: <1290522803.3046.11.camel@edumazet-laptop>
+References: <20101123134003.GB4142@swordfish.minsk.epam.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f46.google.com ([209.85.215.46]:33450 "EHLO
-	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751061Ab0KWODs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Nov 2010 09:03:48 -0500
-Received: by ewy5 with SMTP id 5so2435191ewy.19
-        for <netdev@vger.kernel.org>; Tue, 23 Nov 2010 06:03:47 -0800 (PST)
-In-Reply-To: <20101115.104322.212675424.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+To: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20101123134003.GB4142@swordfish.minsk.epam.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/15/2010 08:43 PM, David Miller wrote:
-> From: Timo Ter=E4s <timo.teras@iki.fi>
-> Date: Wed,  3 Nov 2010 16:41:38 +0200
+Le mardi 23 novembre 2010 =C3=A0 15:40 +0200, Sergey Senozhatsky a =C3=A9=
+crit :
+> Hello,
 >=20
->> The GRE Key field is intended to be used for identifying an individu=
-al
->> traffic flow within a tunnel. It is useful to be able to have XFRM
->> policy selector matches to have different policies for different
->> GRE tunnels.
->>
->> Signed-off-by: Timo Ter=E4s <timo.teras@iki.fi>
+> I've sent a patch http://lkml.org/lkml/2010/11/21/124=20
+> "[PATCH] ipv6: fix inet6_dev refcnt with IPV6_PRIVACY enabled" relate=
+d
+> to wrong in6_dev refcnt value when IPV6_PRIVACY enabled.
 >=20
-> I'll apply this to net-next-2.6, thanks.
-
-Hmm.. I tested this with using the "ip xfrm" sport and dport manually
-(without doing the actual userland support for this), and checking it i=
-n
-kernel with printk's in various places that the stuff matches. In these
-tests I checked the sport/dport by hand and apparently messed up the
-byte order.
-
-Now that I'm writing the GRE support for "ip xfrm" I think that missed
-two htons() calls.
-
-I was confused if xfrm_flowi_{s|d}port was supposed to return host or
-net byte order for non-TCP/UDP packets.
-
-I was under the assumption that host byte order since case IPPROTO_ICMP
-swaps the byte order. But it would appear that the fl->fl_icmp_* is
-actually host order and it's turned to network order; this is also
-implied by using htons instead of ntohs. Since I decided to keep
-fl_gre_key in network order, the return value would now be inconsistent=
+> I've took a second look, and question arised -=20
+> Is it actually necessary to in6_dev_hold/in6_dev_put in ipv6_regen_rn=
+did?
+> In ipv6_regen_rndid we call in6_dev_hold only when mod_timer =3D=3D 0=
 ,
-and make userland abi endianess dependent.
+> and always in6_dev_put.=20
+>=20
+>=20
+> I've removed check for < 0 and goto from __ipv6_regen_rndid call, sin=
+ce it=20
+> always return 0.
+>=20
+>=20
+> Please, kindly review V2.
+>=20
+> ---
+>=20
+>  net/ipv6/addrconf.c |   10 +++-------
+>  1 files changed, 3 insertions(+), 7 deletions(-)
+>=20
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index 2fc35b3..8187d14 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -425,7 +425,6 @@ static struct inet6_dev * ipv6_add_dev(struct net=
+_device *dev)
+>  		       dev->name);
+>  		ndev->cnf.use_tempaddr =3D -1;
+>  	} else {
+> -		in6_dev_hold(ndev);
+>  		ipv6_regen_rndid((unsigned long) ndev);
+>  	}
+>  #endif
+> @@ -1653,8 +1652,7 @@ static void ipv6_regen_rndid(unsigned long data=
+)
+>  	if (idev->dead)
+>  		goto out;
+> =20
+> -	if (__ipv6_regen_rndid(idev) < 0)
+> -		goto out;
+> +	__ipv6_regen_rndid(idev);
+> =20
+>  	expires =3D jiffies +
+>  		idev->cnf.temp_prefered_lft * HZ -
+> @@ -1667,13 +1665,11 @@ static void ipv6_regen_rndid(unsigned long da=
+ta)
+>  		goto out;
+>  	}
+> =20
+> -	if (!mod_timer(&idev->regen_timer, expires))
+> -		in6_dev_hold(idev);
+> -
+> +	mod_timer(&idev->regen_timer, expires);
+> +=09
+>  out:
+>  	write_unlock_bh(&idev->lock);
+>  	rcu_read_unlock_bh();
+> -	in6_dev_put(idev);
+>  }
+> =20
+>  static int __ipv6_try_regen_rndid(struct inet6_dev *idev, struct in6=
+_addr *tmpaddr) {
+>=20
 
-I'll follow up with iproute2 patch soon.
 
-So we probably would need to do:
+Sergey, I dont think your patches (V1 or V2) are correct.
 
-xfrm: fix gre key endianess
+You leak a refcount if (idev->dead) is true
 
-fl->fl_gre_key is network byte order contrary to fl->fl_icmp_*.
-Make xfrm_flowi_{s|d}port return network byte order values for gre
-key too.
+ipv6_regen_rndid() is the timer handler function, it must call
+in6_dev_put() at the end, unless we rearm the timer.
 
-Signed-off-by: Timo Ter=E4s <timo.teras@iki.fi>
+So this code is correct.
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 1a57ff9..916ac47 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -806,7 +806,7 @@ __be16 xfrm_flowi_sport(struct flowi *fl)
- 		port =3D htons(fl->fl_mh_type);
- 		break;
- 	case IPPROTO_GRE:
--		port =3D htonl(fl->fl_gre_key) >> 16;
-+		port =3D htons(ntohl(fl->fl_gre_key) >> 16);
- 		break;
- 	default:
- 		port =3D 0;	/*XXX*/
-@@ -830,7 +830,7 @@ __be16 xfrm_flowi_dport(struct flowi *fl)
- 		port =3D htons(fl->fl_icmp_code);
- 		break;
- 	case IPPROTO_GRE:
--		port =3D htonl(fl->fl_gre_key) & 0xffff;
-+		port =3D htons(ntohl(fl->fl_gre_key) & 0xffff);
- 		break;
- 	default:
- 		port =3D 0;	/*XXX*/
+
+if (!mod_timer(&idev->regen_timer, expires))
+	in6_dev_hold(idev);
+=2E..
+in6_dev_put(idev);
+
+
+And we must call in6_dev_hold() before calling the handler, either
+directly from ipv6_add_dev() [Where your first patch tried to remove th=
+e
+dev_hold() call], or when arming the timer.
+
+Are you sure the problem you try to solve is not already solved in
+commit 88b2a9a3d98a19496d64aadda7158c0ad51cbe7d in net-2.6 tree ?
+
+http://git.kernel.org/?p=3Dlinux/kernel/git/davem/net-2.6.git;a=3Dcommi=
+tdiff;h=3D88b2a9a3d98a19496d64aadda7158c0ad51cbe7d
