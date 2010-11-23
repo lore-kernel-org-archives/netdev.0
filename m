@@ -1,86 +1,83 @@
-From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
-Subject: RE: ixgbe dump
-Date: Mon, 22 Nov 2010 19:31:12 -0800
-Message-ID: <29F4ED941D916B48B88B4D2A4F3D1B9C01CC08FBCF@orsmsx509.amr.corp.intel.com>
-References: <4CE47FA6.8050600@kernel.org>
-	<29F4ED941D916B48B88B4D2A4F3D1B9C01CBFC68C5@orsmsx509.amr.corp.intel.com>
-	<AANLkTinQ-6CaUY3bYd+SMBCaNvU5YiXL2P+gh7N1tM-x@mail.gmail.com>
-	<1290468133.2603.2.camel@jtkirshe-MOBL1>
- <AANLkTi=Esp=y2ci=RrCeXYVaxnbrJY3NXpaBgPOBqc7p@mail.gmail.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: [PATCH 1/3] decnet: Move to staging
+Date: Tue, 23 Nov 2010 03:51:53 +0000
+Message-ID: <1290484313.6770.1328.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	David Miller <davem@davemloft.net>,
-	NetDev <netdev@vger.kernel.org>
-To: Yinghai Lu <yinghai@kernel.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:12115 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750756Ab0KWDbO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Nov 2010 22:31:14 -0500
-In-Reply-To: <AANLkTi=Esp=y2ci=RrCeXYVaxnbrJY3NXpaBgPOBqc7p@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev <netdev@vger.kernel.org>, devel@driverdev.osuosl.org, Debian
+ kernel maintainers <debian-kernel@lists.debian.org>
+To: David Miller <davem@davemloft.net>, Greg Kroah-Hartman <gregkh@suse.de>
+Return-path: <bounce-debian-kernel=glddk-debian-kernel=m.gmane.org@lists.debian.org>
+Resent-Message-ID: <L14j6eGMF9K.A.gGC.xpz6MB@liszt>
+List-URL: <http://lists.debian.org/debian-kernel/>
+List-Post: <mailto:debian-kernel@lists.debian.org>
+List-Help: <mailto:debian-kernel-request@lists.debian.org?subject=help>
+List-Subscribe: <mailto:debian-kernel-request@lists.debian.org?subject=subscribe>
+List-Unsubscribe: <mailto:debian-kernel-request@lists.debian.org?subject=unsubscribe>
+List-Id: netdev.vger.kernel.org
 
+Recent review has revealed several bugs in obscure protocol
+implementations that can be exploited by local users for denial of
+service or privilege escalation.
 
-Hi Yinghai,
+The decnet protocol (PF_DECnet) is unmaintained.  Since 2.6.12-rc2 the
+only changes appear to be adjustments for net API changes and fixes
+for bugs found by inspection.
 
-I was hoping we could have had this patch pushed upstream sooner, but we have quite a few in our internal queue right now.
+This protocol generally should not be enabled by distributions, since
+the cost of a security flaw affecting all installed systems presumably
+outweighs the benefit to the few (if any) legitimate users.
 
-If this doesn't solve your issue please let me know.
-
-Thanks,
--Don Skidmore <donald.c.skidmore@intel.com>
-
-
-
-
-After freeing the rings we were not zeroing out the ring count values.
-This patch now clears these counts correctly.
-
-Reported-by: Yinghai Lu <yinghai@kernel.org>
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 ---
+ drivers/staging/Kconfig |    2 ++
+ net/Kconfig             |    2 --
+ net/decnet/Kconfig      |    3 +++
+ 3 files changed, 5 insertions(+), 2 deletions(-)
 
- drivers/net/ixgbe/ixgbe_main.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index fbad4d8..eee0b29 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -4771,6 +4771,9 @@ void ixgbe_clear_interrupt_scheme(struct ixgbe_adapter *adapter)
- 		adapter->rx_ring[i] = NULL;
- 	}
- 
-+	adapter->num_tx_queues = 0;
-+	adapter->num_rx_queues = 0;
+diff --git a/drivers/staging/Kconfig b/drivers/staging/Kconfig
+index 5eafdf4..dd94cb2 100644
+--- a/drivers/staging/Kconfig
++++ b/drivers/staging/Kconfig
+@@ -175,5 +175,7 @@ source "drivers/staging/intel_sst/Kconfig"
+=20
+ source "drivers/staging/speakup/Kconfig"
+=20
++source "net/decnet/Kconfig"
 +
- 	ixgbe_free_q_vectors(adapter);
- 	ixgbe_reset_interrupt_capability(adapter);
- }
-
-
->-----Original Message-----
->From: yhlu.kernel@gmail.com [mailto:yhlu.kernel@gmail.com] On Behalf Of
->Yinghai Lu
->Sent: Monday, November 22, 2010 3:28 PM
->To: Kirsher, Jeffrey T
->Cc: Skidmore, Donald C; Brandeburg, Jesse; David Miller; NetDev
->Subject: Re: ixgbe dump
->
->On Mon, Nov 22, 2010 at 3:22 PM, Jeff Kirsher
-><jeffrey.t.kirsher@intel.com> wrote:
->>
->> It is not posted yet. Don got the patch to our testers and they are
->> doing a quick validation on the patch before I post it to netdev.
->>
->> I can send you the patch, so that you can assist in letting us know if
->> it resolves the issue.
->
->sure. please send that to me.
->
->Thanks
+ endif # !STAGING_EXCLUDE_BUILD
+ endif # STAGING
+diff --git a/net/Kconfig b/net/Kconfig
+index 55fd82e..9e4fc29 100644
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -186,7 +186,6 @@ config BRIDGE_NETFILTER
+ source "net/netfilter/Kconfig"
+ source "net/ipv4/netfilter/Kconfig"
+ source "net/ipv6/netfilter/Kconfig"
+-source "net/decnet/netfilter/Kconfig"
+ source "net/bridge/netfilter/Kconfig"
+=20
+ endif
+@@ -201,7 +200,6 @@ source "net/802/Kconfig"
+ source "net/bridge/Kconfig"
+ source "net/dsa/Kconfig"
+ source "net/8021q/Kconfig"
+-source "net/decnet/Kconfig"
+ source "net/llc/Kconfig"
+ source "net/ipx/Kconfig"
+ source "drivers/net/appletalk/Kconfig"
+diff --git a/net/decnet/Kconfig b/net/decnet/Kconfig
+index 7914fd6..9d17166 100644
+--- a/net/decnet/Kconfig
++++ b/net/decnet/Kconfig
+@@ -41,3 +41,6 @@ config DECNET_ROUTER
+=20
+ 	  See <file:Documentation/networking/decnet.txt> for more information.
+=20
++if NETFILTER
++source "net/decnet/netfilter/Kconfig"
++endif
+--=20
+1.7.2.3
