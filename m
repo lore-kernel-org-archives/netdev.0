@@ -1,51 +1,42 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH] via-rhine: hardware VLAN support
-Date: Mon, 22 Nov 2010 18:02:04 -0800
-Message-ID: <AANLkTinD7fTvX4yfVWJs4oxx6fYA0m5snct6d+qFUg8D@mail.gmail.com>
-References: <20101105104303.GA8325@core.hellgate.ch>
-	<AANLkTikUe9DR2QTU+72Q8vmGnDyvUtSm_wwCpGEq-M4s@mail.gmail.com>
-	<20101108162132.GA32728@core.hellgate.ch>
-	<AANLkTim40QH2AWz8YtW_y3=WjEU0_Rom9-CPFj-O5MCt@mail.gmail.com>
-	<20101121131756.GA18509@core.hellgate.ch>
+From: Li Yewang <lyw@cn.fujitsu.com>
+Subject: Re: possible kernel oops from user MSS
+Date: Tue, 23 Nov 2010 10:48:46 +0800
+Message-ID: <4CEB2B8E.3090904@cn.fujitsu.com>
+References: <20101110.124119.102563803.davem@davemloft.net>	<AANLkTin-gXceUQxKvQeP8Nc8oXZDJnyjoFUjYD5x_g_y@mail.gmail.com>	<4CDDC6EE.2010005@mvista.com> <20101112.152607.193708973.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Roger Luethi <rl@hellgate.ch>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: mzhang@mvista.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:48904 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750782Ab0KWCCG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Nov 2010 21:02:06 -0500
-Received: by fxm13 with SMTP id 13so3339516fxm.19
-        for <netdev@vger.kernel.org>; Mon, 22 Nov 2010 18:02:04 -0800 (PST)
-In-Reply-To: <20101121131756.GA18509@core.hellgate.ch>
+Received: from cn.fujitsu.com ([222.73.24.84]:54774 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751016Ab0KWCti (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Nov 2010 21:49:38 -0500
+In-Reply-To: <20101112.152607.193708973.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Nov 21, 2010 at 5:17 AM, Roger Luethi <rl@hellgate.ch> wrote:
-> On Mon, 08 Nov 2010 12:53:57 -0800, Jesse Gross wrote:
->> On Mon, Nov 8, 2010 at 8:21 AM, Roger Luethi <rl@hellgate.ch> wrote:
->> > On Fri, 05 Nov 2010 11:31:56 -0700, Jesse Gross wrote:
->> > Can you point me to a driver that has been switched to use the new=
- methods
->> > already? Is there some other form of documentation?
->>
->> bnx2 is an example of a driver that has been converted. =A0The commi=
-t
->> that actually made the change was
->> 7d0fd2117e3d0550d7987b3aff2bfbc0244cf7c6, which should highlight the
->> differences. =A0A key point is that drivers should no longer referen=
-ce
->> vlan groups at all.
->
-> bnx2 does not support hardware VLAN filters, but ixgbe does (converte=
-d by
-> commit f62bbb5e62c6e4a91fb222d22bc46e8d4d7e59ef). ixgbe keeps a list =
-of
-> configured VLANs in a device private data structure (active_vlans). I=
-s that
-> the model to follow?
 
-Yes, that's right.  The driver should store whatever information it
-requires to manage the CAM or restore the state after a board reset.
+
+At 2010-11-13 7:26, David Miller wrote:
+> From: Min Zhang<mzhang@mvista.com>
+> Date: Fri, 12 Nov 2010 14:59:58 -0800
+>
+>> Regarding commit 7a1abd08d52fdeddb3e9a5a33f2f15cc6a5674d2 ("tcp:
+>> Increase TCP_MAXSEG socket option minimum"). What is the reason
+>> TCP_MAXSEG minimum be 64? Isn't the exact be 40 which is
+>> TCPOLEN_MD5SIG_ALIGNED(20) + TCPOLEN_TSTAMP_ALIGNED(12) + 8?
+>>
+>> Or is it better to use TCP_MIN_MSS from tcp.h:
+>>
+>> /* Minimal accepted MSS. It is (60+60+8) - (20+20). */
+>> #define TCP_MIN_MSS        88U
+>
+> I suppose TCP_MIN_MSS would be better to use, I'll make that
+> change, thanks.
+
+   David, do you have plan to fix this bug using TCP_MIN_MSS?
+
+
+
