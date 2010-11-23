@@ -1,119 +1,78 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: dccp-test-tree [RFC][Patch 1/1] dccp: requesting comments re	updating ARP/neighbour table state
-Date: Tue, 23 Nov 2010 13:44:14 +0100
-Message-ID: <20101123124414.GC3915@gerrit.erg.abdn.ac.uk>
-References: <20101123123656.GB3915@gerrit.erg.abdn.ac.uk>
+From: Tetsuo Handa <penguin-kernel-JPay3/Yim36HaxMnTkn67Xf5DAMn2ifp@public.gmane.org>
+Subject: Patch for man unix(7)
+Date: Tue, 23 Nov 2010 21:59:51 +0900
+Message-ID: <201011232159.DFE78143.tSHMFQOLFVFJOO@I-love.SAKURA.ne.jp>
+References: <AANLkTimtTazMmDvQFgASsVGa=AYvPZqUaUmyg5p7VVY1@mail.gmail.com>
+	<201010171428.DDC17187.FFFJSLtOOHOMQV@I-love.SAKURA.ne.jp>
+	<201010262115.FEH09326.OMFJHSVOFLQFOt@I-love.SAKURA.ne.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: dccp@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:43480 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752677Ab0KWMoW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Nov 2010 07:44:22 -0500
-Content-Disposition: inline
-In-Reply-To: <20101123123656.GB3915@gerrit.erg.abdn.ac.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <201010262115.FEH09326.OMFJHSVOFLQFOt-JPay3/Yim36HaxMnTkn67Xf5DAMn2ifp@public.gmane.org>
+Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-I noted that DCCP apparently does not update the neighbour tables in the same
-way as TCP (or UDP with MSG_CONFIRM). 
+ From f388eedbdc0b099bb9f36ab007f9370432abb300 Mon Sep 17 00:00:00 2001
+ From: Tetsuo Handa <penguin-kernel-JPay3/Yim36HaxMnTkn67Xf5DAMn2ifp@public.gmane.org>
+Date: Tue, 23 Nov 2010 21:34:25 +0900
+Subject: [PATCH] unix.7: Fix description of "pathname" sockets
 
-This patch adds the missing calls to dst_update(). I would appreciate review
-and comments in case I missed something.
+Since unix_mkname() in net/unix/af_unix.c does
 
-DCCP does not have the equivalent of tcp_init_metrics()/tcp_update_metrics().
-It seems that this functionality would be more in the CCIDs than in the main
-DCCP module (for instance, CCID-3 does not understand ssthresh/cwnd and uses
-a different RTT sampling algorithm).
+  ((char *)sunaddr)[len] = 0;
 
-This patch is meant for RFC, not currently for submission. It is in the DCCP
-test tree, on 
-     
-     git://eden-feed.erg.abdn.ac.uk/dccp_exp    [subtree 'dccp']
+rather than
 
+  ((char *)sunaddr)[len - 1] = 0;
 
->>>>>>>>>>>>>>>>>>>>>>>>> Patch <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-dccp: indicate forward progress of connection to lower layer
+, sunaddr->sun_path may not be terminated with a null byte if
+len == sizeof(*sunaddr).
 
-This patch implements three cases of indicating forward progress:
+Therefore, the caller of getsockname(), getpeername(), accept() must not assume
+that sunaddr->sun_path contains a null-terminated pathname even if the returned
+addrlen is greater than sizeof(sa_family_t) and sun_path[0] != '\0'.
 
- 1. Peer acknowledging receipt of connection initiation.
-    This corresponds to the cases where tcp_init_metrics() is called:
-    * receiving Syn-Ack in response to Syn (tcp_rcv_synsent_state_process),
-    * receiving Ack to finish the handshake (TCP_SYN_RECV -> TCP_ESTABLISHED);
-    which in DCCP corresponds to
-    * receiving Response after Request (dccp_rcv_request_sent_state_process),
-    * moving from RESPOND/PARTOPEN to OPEN when receiving an Ack/DataAck
-      (RESPOND) or non-Sync/Reset (PARTOPEN).
-    The latter does no extra rebuild_header() as in tcp_rcv_state_process(),
-    since in DCCP an active (client) socket can not become a passive one later,
-    and since dccp_v{4,6}_request_recv_sock() already talk to the routing
-    system.
-
- 2. Peer advancing GAR (greatest acknowledgment number received).
-    This is comparable to making forward progress in tcp_ack().
-
- 3. Peer acknowledging request to terminate the connection.
-    This corresponds to TCP teardown -
-    * receiving Ack-of-Fin in FIN_WAIT1/LAST_ACK (tcp_rcv_state_process),
-    * entering TIME_WAIT (tcp_time_wait),
-    and is realized in DCCP when receiving
-    * a Reset packet with code "Closed" (in response to DCCP-Close),
-    * a Close packet after sending a CloseReq,
-    * a Close packet after sending a Close (simultaneous close).
-
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Signed-off-by: Tetsuo Handa <penguin-kernel-JPay3/Yim36HaxMnTkn67Xf5DAMn2ifp@public.gmane.org>
 ---
- net/dccp/input.c |   11 ++++++++++-
- 1 file changed, 10 insertions(+), 1 deletion(-)
+ man7/unix.7 |   19 ++++++++++++++++---
+ 1 files changed, 16 insertions(+), 3 deletions(-)
 
---- a/net/dccp/input.c
-+++ b/net/dccp/input.c
-@@ -71,6 +71,7 @@ static int dccp_rcv_close(struct sock *s
- 		/* fall through */
- 	case DCCP_REQUESTING:
- 	case DCCP_ACTIVE_CLOSEREQ:
-+		dst_confirm(__sk_dst_get(sk));
- 		dccp_send_reset(sk, DCCP_RESET_CODE_CLOSED);
- 		dccp_done(sk);
- 		break;
-@@ -155,6 +156,8 @@ static void dccp_rcv_reset(struct sock *
- 	/* Queue the equivalent of TCP fin so that dccp_recvmsg exits the loop */
- 	dccp_fin(sk, skb);
- 
-+	if (dccp_hdr_reset(skb)->dccph_reset_code == DCCP_RESET_CODE_CLOSED)
-+		dst_confirm(__sk_dst_get(sk));
- 	if (err && !sock_flag(sk, SOCK_DEAD))
- 		sk_wake_async(sk, SOCK_WAKE_IO, POLL_ERR);
- 	dccp_time_wait(sk, DCCP_TIME_WAIT, 0);
-@@ -242,8 +245,10 @@ static int dccp_check_seqno(struct sock 
- 
- 		if (dh->dccph_type != DCCP_PKT_SYNC &&
- 		    ackno != DCCP_PKT_WITHOUT_ACK_SEQ &&
--		    after48(ackno, dp->dccps_gar))
-+		    after48(ackno, dp->dccps_gar)) {
-+			dst_confirm(__sk_dst_get(sk));
- 			dp->dccps_gar = ackno;
-+		}
- 	} else {
- 		unsigned long now = jiffies;
- 		/*
-@@ -475,6 +480,8 @@ static int dccp_rcv_request_sent_state_p
- 		/* Make sure socket is routed, for correct metrics. */
- 		icsk->icsk_af_ops->rebuild_header(sk);
- 
-+		dst_confirm(__sk_dst_get(sk));
-+
- 		if (!sock_flag(sk, SOCK_DEAD)) {
- 			sk->sk_state_change(sk);
- 			sk_wake_async(sk, SOCK_WAKE_IO, POLL_OUT);
-@@ -556,6 +563,8 @@ static int dccp_rcv_respond_partopen_sta
- 			dp->dccps_syn_rtt = dccp_sample_rtt(sk, 10 * delta);
- 		}
- 
-+		dst_confirm(__sk_dst_get(sk));
-+
- 		dp->dccps_osr = DCCP_SKB_CB(skb)->dccpd_seq;
- 		dccp_set_state(sk, DCCP_OPEN);
- 
+diff --git a/man7/unix.7 b/man7/unix.7
+index b53328b..7b0b47c 100644
+--- a/man7/unix.7
++++ b/man7/unix.7
+@@ -80,10 +80,23 @@ When the address of the socket is returned by
+ and
+ .BR accept (2),
+ its length is
+-.IR "offsetof(struct sockaddr_un, sun_path) + strlen(sun_path) + 1" ,
++.IR "offsetof(struct sockaddr_un, sun_path) + strlen(sun_path) + 1".
++Note that this length can be one byte larger than
++.IR "sizeof(struct sockaddr_un)"
++because
++.BR bind (2)
++accepts
++.IR sun_path
++which is not terminated with a null byte ('\\0').
++Therefore, you must not use string manipulation functions (e.g. strlen(),
++printf("%s")) against
++.IR sun_path
++because
++.BR getsockname (2),
++.BR getpeername (2),
+ and
+-.I sun_path
+-contains the null-terminated pathname.
++.BR accept (2)
++may not have stored a null-terminated string.
+ .IP *
+ .IR unnamed :
+ A stream socket that has not been bound to a pathname using
+-- 
+1.6.1
+--
+To unsubscribe from this list: send the line "unsubscribe linux-man" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
