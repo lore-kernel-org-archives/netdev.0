@@ -1,63 +1,38 @@
-From: "Vladislav Zolotarov" <vladz@broadcom.com>
-Subject: [PATCH net-next] bnx2x: Resolving a possible dead-lock
- situation
-Date: Tue, 23 Nov 2010 18:15:12 +0200
-Message-ID: <1290528912.15453.3.camel@lb-tlvb-vladz>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] iproute2: support xfrm upper protocol gre key
+Date: Tue, 23 Nov 2010 08:24:04 -0800
+Message-ID: <20101123082404.5b8ad019@nehalam>
+References: <1290524559-22086-1-git-send-email-timo.teras@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "Eilon Greenstein" <eilong@broadcom.com>,
-	"netdev list" <netdev@vger.kernel.org>
-To: "Dave Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Timo =?ISO-8859-1?B?VGVy5HM=?= <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1771 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753708Ab0KWQPt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Nov 2010 11:15:49 -0500
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:56531 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753962Ab0KWQY2 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Nov 2010 11:24:28 -0500
+In-Reply-To: <1290524559-22086-1-git-send-email-timo.teras@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is a possible dead-lock situation between sch_direct_xmit() 
-(called from soft_IRQ context) and bnx2x_tx_int() when called from 
-an ethtool self-test flow (syscall context).
+On Tue, 23 Nov 2010 17:02:39 +0200
+Timo Ter=E4s <timo.teras@iki.fi> wrote:
 
-To prevent a dead-lock, disable bottom-halves on a local CPU when taking
-a tx_lock from bnx2x_tx_int() (use __netif_tx_lock_bh(txq)).
+> +	case IPPROTO_GRE:
+> +		if (sel->sport_mask || sel->dport_mask) {
+> +			struct in_addr key;
+> +			key.s_addr =3D htonl((ntohs(sel->sport) << 16) + ntohs(sel->dport=
+));
+> +			inet_ntop(AF_INET, &key, abuf, sizeof(abuf));
+> +			fprintf(fp, "key %s ", abuf);
+> +		}
 
-The flow in the bnx2x_tx_int() where tx_lock is taken should be hit
-very rarely thus performance penalty of this change should be minimal.
-
-Signed-off-by: Vladislav Zolotarov <vladz@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/bnx2x/bnx2x_cmn.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/bnx2x/bnx2x_cmn.c b/drivers/net/bnx2x/bnx2x_cmn.c
-index 94d5f59..5189788 100644
---- a/drivers/net/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/bnx2x/bnx2x_cmn.c
-@@ -144,14 +144,14 @@ int bnx2x_tx_int(struct bnx2x_fastpath *fp)
- 		 * stops the queue
- 		 */
- 
--		__netif_tx_lock(txq, smp_processor_id());
-+		__netif_tx_lock_bh(txq);
- 
- 		if ((netif_tx_queue_stopped(txq)) &&
- 		    (bp->state == BNX2X_STATE_OPEN) &&
- 		    (bnx2x_tx_avail(fp) >= MAX_SKB_FRAGS + 3))
- 			netif_tx_wake_queue(txq);
- 
--		__netif_tx_unlock(txq);
-+		__netif_tx_unlock_bh(txq);
- 	}
- 	return 0;
- }
--- 
-1.7.0.4
+The GRE key is not really an IPv4 address. Why should the utilities
+use IPv4 address manipulation to format/scan it.  It makes more sense
+to me to just use u32 an do the necessary ntohl.
 
 
-
-
+--=20
