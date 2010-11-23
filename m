@@ -1,146 +1,208 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: Re: alchemy/gpr: au1000_eth regression with v2.6.37rc2
-Date: Tue, 23 Nov 2010 16:01:37 +0100
-Message-ID: <4CEBD751.7090807@grandegger.com>
-References: <4CE58593.50509@grandegger.com> <201011182330.08488.florian@openwrt.org> <4CE65199.7030007@grandegger.com> <201011191146.01454.florian@openwrt.org>
+From: =?UTF-8?q?Timo=20Ter=C3=A4s?= <timo.teras@iki.fi>
+Subject: [PATCH] iproute2: support xfrm upper protocol gre key
+Date: Tue, 23 Nov 2010 17:02:39 +0200
+Message-ID: <1290524559-22086-1-git-send-email-timo.teras@iki.fi>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------080703020109020809040101"
-Cc: Linux-MIPS <linux-mips@linux-mips.org>, Netdev@vger.kernel.org
-To: Florian Fainelli <florian@openwrt.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?q?Timo=20Ter=C3=A4s?= <timo.teras@iki.fi>
+To: shemminger@osdl.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-In-Reply-To: <201011191146.01454.florian@openwrt.org>
+Received: from mail-ew0-f46.google.com ([209.85.215.46]:45460 "EHLO
+	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754744Ab0KWPDA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Nov 2010 10:03:00 -0500
+Received: by ewy5 with SMTP id 5so2473743ewy.19
+        for <netdev@vger.kernel.org>; Tue, 23 Nov 2010 07:02:59 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------080703020109020809040101
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
+The gre key handling is consistent with ip tunnel side: both
+dotted-quad and number are accepted, but dotted-quad is used
+for printing.
 
-Hi Florian,
+Signed-off-by: Timo Ter=C3=A4s <timo.teras@iki.fi>
+---
+This is the userland part for:
+  http://git.kernel.org/?p=3Dlinux/kernel/git/davem/net-next-2.6.git;a=3D=
+commitdiff;h=3Dcc9ff19da9bf76a2f70bcb80225a1c587c162e52
 
-On 11/19/2010 11:46 AM, Florian Fainelli wrote:
-> Hello Wolfgang,
-> 
-> On Friday 19 November 2010 11:29:45 Wolfgang Grandegger wrote:
->> Hello Florian,
->>
->> On 11/18/2010 11:30 PM, Florian Fainelli wrote:
->>> Hello Wolfgang,
->>>
->>> Le Thursday 18 November 2010 20:59:15, Wolfgang Grandegger a écrit :
->>>> Hello,
->>>>
->>>> I just realized that the v2.6.37-rc2 kernel does not boot any more on
->>>> the Alchemy GPR board. It works fine with v2.6.36. It hangs in the
->>>> probe function of the au1000_eth driver when probing the second
->>>>
->>>> ethernet port (eth1):
->>>>   au1000_eth_mii: probed
->>>>   au1000-eth au1000-eth.0: (unregistered net_device): attached PHY
->>>>   driver
->>>>
->>>> [Generic PHY] (mii_bus:phy_addr=0:00, irq=-1) au1000-eth au1000-eth.0:
->>>> eth0: Au1xx0 Ethernet found at 0x10500000, irq 35 au1000_eth: au1000_eth
->>>> version 1.7 Pete Popov <ppopov@embeddedalley.com> ... hangs ...
->>>>
->>>> Similar messages should follow for eth1. I narrowed down (bisect'ed) the
->>>>
->>>> problem to commit:
->>>>   commit d0e7cb5d401695809ba8c980124ab1d8c66efc8b
->>>>   Author: Florian Fainelli <florian@openwrt.org>
->>>>   Date:   Wed Sep 8 11:15:13 2010 +0000
->>>>   
->>>>     au1000-eth: remove volatiles, switch to I/O accessors
->>>>     
->>>>     Remove all the volatile keywords where they were used, switch to
->>>>     using
->>>>
->>>> the proper readl/writel accessors.
->>>>
->>>>     Signed-off-by: Florian Fainelli <florian@openwrt.org>
->>>>     Signed-off-by: David S. Miller <davem@davemloft.net>
->>>>
->>>> The kernel actually hangs when accessing "&aup->mac->mii_control" in
->>>> au1000_mdio_read(), but only for eth1. Any idea what does go wrong?
->>>
->>> I do not understand so far while it hangs only for eth1. My device only
->>> has one ethernet MAC, so I could not notice the problem. Looking at this
->>> close, there are a couple of u32 const* usages in
->>> au1000_mdio_{read,write} which are looking wrong to me now. Can you try
->>> to remove these?
->>
->> That did not help.
-> 
-> I suspected it, but thanks for the confirmation.
-> 
->>
->>>> In principle, I do not want to access the MII regs of the MAC because
->>>> eth0 and eth1 are connected to switches. But that's not possible, even
->>>> with "aup->phy_static_config=1" and "aup->phy_addr=0".
->>>
->>> If you think this is another issue, I will fix it in another patch.
->>
->> Accessing the MII registers of the MAC should not hang the system even
->> if I do not need to. First I want to  understand why. Looks like a wired
->> optimizer issue.
-> 
-> I definitively agree, furthermore since there is a timeout for read and write 
-> operations. I will look at the assembly and see if I can see anything 
-> different.
+However, that commit is flawed, and for this patch to work
+properly, the following patch is needed:
+  http://patchwork.ozlabs.org/patch/72668/
 
-The attached patch fixes the issue. It's caused by a simple porting
-error. I'm going to prepare a proper patch later today.
+ ip/ipxfrm.c      |   42 ++++++++++++++++++++++++++++++++++++++++++
+ ip/xfrm_policy.c |    3 ++-
+ man/man8/ip.8    |   25 ++++++++++++++++---------
+ 3 files changed, 60 insertions(+), 10 deletions(-)
 
-Wolfgang.
+diff --git a/ip/ipxfrm.c b/ip/ipxfrm.c
+index 99a6756..cf4b7c7 100644
+--- a/ip/ipxfrm.c
++++ b/ip/ipxfrm.c
+@@ -35,6 +35,7 @@
+ #include <linux/netlink.h>
+ #include <linux/rtnetlink.h>
+ #include <linux/xfrm.h>
++#include <arpa/inet.h>
+=20
+ #include "utils.h"
+ #include "xfrm.h"
+@@ -483,6 +484,14 @@ void xfrm_selector_print(struct xfrm_selector *sel=
+, __u16 family,
+ 		if (sel->dport_mask)
+ 			fprintf(fp, "code %u ", ntohs(sel->dport));
+ 		break;
++	case IPPROTO_GRE:
++		if (sel->sport_mask || sel->dport_mask) {
++			struct in_addr key;
++			key.s_addr =3D htonl((ntohs(sel->sport) << 16) + ntohs(sel->dport))=
+;
++			inet_ntop(AF_INET, &key, abuf, sizeof(abuf));
++			fprintf(fp, "key %s ", abuf);
++		}
++		break;
+ 	case IPPROTO_MH:
+ 		if (sel->sport_mask)
+ 			fprintf(fp, "type %u ", ntohs(sel->sport));
+@@ -1086,6 +1095,7 @@ static int xfrm_selector_upspec_parse(struct xfrm=
+_selector *sel,
+ 	char *dportp =3D NULL;
+ 	char *typep =3D NULL;
+ 	char *codep =3D NULL;
++	char *grekey =3D NULL;
+=20
+ 	while (1) {
+ 		if (strcmp(*argv, "proto") =3D=3D 0) {
+@@ -1162,6 +1172,29 @@ static int xfrm_selector_upspec_parse(struct xfr=
+m_selector *sel,
+=20
+ 			filter.upspec_dport_mask =3D XFRM_FILTER_MASK_FULL;
+=20
++		} else if (strcmp(*argv, "key") =3D=3D 0) {
++			unsigned key;
++
++			grekey =3D *argv;
++
++			NEXT_ARG();
++
++			if (strchr(*argv, '.'))
++				key =3D htonl(get_addr32(*argv));
++			else {
++				if (get_unsigned(&key, *argv, 0)<0) {
++					fprintf(stderr, "invalid value of \"key\"\n");
++					exit(-1);
++				}
++			}
++
++			sel->sport =3D htons(key >> 16);
++			sel->dport =3D htons(key & 0xffff);
++			sel->sport_mask =3D ~((__u16)0);
++			sel->dport_mask =3D ~((__u16)0);
++
++			filter.upspec_dport_mask =3D XFRM_FILTER_MASK_FULL;
++
+ 		} else {
+ 			PREV_ARG(); /* back track */
+ 			break;
+@@ -1196,6 +1229,15 @@ static int xfrm_selector_upspec_parse(struct xfr=
+m_selector *sel,
+ 			exit(1);
+ 		}
+ 	}
++	if (grekey) {
++		switch (sel->proto) {
++		case IPPROTO_GRE:
++			break;
++		default:
++			fprintf(stderr, "\"key\" is invalid with proto=3D%s\n", strxf_proto=
+(sel->proto));
++			exit(1);
++		}
++	}
+=20
+ 	*argcp =3D argc;
+ 	*argvp =3D argv;
+diff --git a/ip/xfrm_policy.c b/ip/xfrm_policy.c
+index 121afa1..dcb3da4 100644
+--- a/ip/xfrm_policy.c
++++ b/ip/xfrm_policy.c
+@@ -66,7 +66,8 @@ static void usage(void)
+ 	fprintf(stderr, "SELECTOR :=3D src ADDR[/PLEN] dst ADDR[/PLEN] [ UPSP=
+EC ] [ dev DEV ]\n");
+=20
+ 	fprintf(stderr, "UPSPEC :=3D proto PROTO [ [ sport PORT ] [ dport POR=
+T ] |\n");
+-	fprintf(stderr, "                        [ type NUMBER ] [ code NUMBE=
+R ] ]\n");
++	fprintf(stderr, "                        [ type NUMBER ] [ code NUMBE=
+R ] |\n");
++	fprintf(stderr, "                        [ key { DOTTED_QUAD | NUMBER=
+ } ] ]\n");
+=20
+ 	//fprintf(stderr, "DEV - device name(default=3Dnone)\n");
+=20
+diff --git a/man/man8/ip.8 b/man/man8/ip.8
+index 1a73efa..c1e03f3 100644
+--- a/man/man8/ip.8
++++ b/man/man8/ip.8
+@@ -547,7 +547,10 @@ throw " | " unreachable " | " prohibit " | " black=
+hole " | " nat " ]"
+ .RB " [ " type
+ .IR NUMBER " ] "
+ .RB " [ " code
+-.IR NUMBER " ]] "
++.IR NUMBER " ] | "
++.br
++.RB " [ " key
++.IR KEY " ]] "
+=20
+ .ti -8
+ .IR LIMIT-LIST " :=3D [ " LIMIT-LIST " ] |"
+@@ -642,7 +645,10 @@ throw " | " unreachable " | " prohibit " | " black=
+hole " | " nat " ]"
+ .RB " [ " type
+ .IR NUMBER " ] "
+ .RB " [ " code
+-.IR NUMBER " ] ] "
++.IR NUMBER " ] | "
++.br
++.RB " [ " key
++.IR KEY " ] ] "
+=20
+ .ti -8
+ .IR ACTION " :=3D "
+@@ -2487,9 +2493,11 @@ is defined by source port
+ .BR sport ", "
+ destination port
+ .BR dport ", " type
+-as number and
++as number,
+ .B code
+-also number.
++also number and
++.BR key
++as dotted-quad or number.
+=20
+ .TP
+ .BI dev " DEV "
+@@ -2556,11 +2564,10 @@ and the other choice is
+ .TP
+ .IR UPSPEC
+ is specified by
+-.BR sport ", "
+-.BR dport ", " type
+-and
+-.B code
+-(NUMBER).
++.BR sport " and " dport " (for UDP/TCP), "
++.BR type " and " code " (for ICMP; as number) or "
++.BR key " (for GRE; as dotted-quad or number)."
++.
+=20
+ .SS ip xfrm monitor - is used for listing all objects or defined group=
+ of them.
+ The
+--=20
+1.7.1
 
-
-
---------------080703020109020809040101
-Content-Type: text/x-diff;
- name="au1000-eth-mac-enable.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename="au1000-eth-mac-enable.patch"
-
-diff --git a/drivers/net/au1000_eth.c b/drivers/net/au1000_eth.c
-index 43489f8..53eff9b 100644
---- a/drivers/net/au1000_eth.c
-+++ b/drivers/net/au1000_eth.c
-@@ -155,10 +155,10 @@ static void au1000_enable_mac(struct net_device *dev, int force_reset)
- 	spin_lock_irqsave(&aup->lock, flags);
- 
- 	if (force_reset || (!aup->mac_enabled)) {
--		writel(MAC_EN_CLOCK_ENABLE, &aup->enable);
-+		writel(MAC_EN_CLOCK_ENABLE, aup->enable);
- 		au_sync_delay(2);
- 		writel((MAC_EN_RESET0 | MAC_EN_RESET1 | MAC_EN_RESET2
--				| MAC_EN_CLOCK_ENABLE), &aup->enable);
-+				| MAC_EN_CLOCK_ENABLE), aup->enable);
- 		au_sync_delay(2);
- 
- 		aup->mac_enabled = 1;
-@@ -503,9 +503,9 @@ static void au1000_reset_mac_unlocked(struct net_device *dev)
- 
- 	au1000_hard_stop(dev);
- 
--	writel(MAC_EN_CLOCK_ENABLE, &aup->enable);
-+	writel(MAC_EN_CLOCK_ENABLE, aup->enable);
- 	au_sync_delay(2);
--	writel(0, &aup->enable);
-+	writel(0, aup->enable);
- 	au_sync_delay(2);
- 
- 	aup->tx_full = 0;
-@@ -1119,7 +1119,7 @@ static int __devinit au1000_probe(struct platform_device *pdev)
- 	/* set a random MAC now in case platform_data doesn't provide one */
- 	random_ether_addr(dev->dev_addr);
- 
--	writel(0, &aup->enable);
-+	writel(0, aup->enable);
- 	aup->mac_enabled = 0;
- 
- 	pd = pdev->dev.platform_data;
-
---------------080703020109020809040101--
