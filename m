@@ -1,154 +1,127 @@
-From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: Re: [PATCH] flexcan: fix NAPI for bus errors
-Date: Tue, 23 Nov 2010 16:39:05 +0100
-Message-ID: <4CEBE019.7070401@pengutronix.de>
-References: <80k4k45csy.fsf@merkur.tec.linutronix.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 4/9] AF_UNIX: find the recipients for multicast messages
+Date: Tue, 23 Nov 2010 17:08:37 +0100
+Message-ID: <1290528517.3046.91.camel@edumazet-laptop>
+References: <20101122183447.124afce5@chocolatine.cbg.collabora.co.uk>
+	 <1290450982-17480-4-git-send-email-alban.crequy@collabora.co.uk>
+	 <20101122.110519.39205345.davem@davemloft.net>
+	 <20101123150315.4e67a139@chocolatine.cbg.collabora.co.uk>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============1671812936922187901=="
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-To: John Ogness <john.ogness-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <80k4k45csy.fsf-l77OnrVvfFAyMciVaGeJ0d53zsg1cpMQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
+	gorcunov@openvz.org, adobriyan@gmail.com, lennart@poettering.net,
+	kay.sievers@vrfy.org, ian.molton@collabora.co.uk,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Alban Crequy <alban.crequy@collabora.co.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20101123150315.4e67a139@chocolatine.cbg.collabora.co.uk>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---===============1671812936922187901==
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig0AD4551CBDA85E0F74DE3C6C"
-
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig0AD4551CBDA85E0F74DE3C6C
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-
-Hello,
-
-On 11/23/2010 03:34 PM, John Ogness wrote:
-> If bus error reporting is disabled and bus errors occur, the flexcan
-> driver will hog the system because it continually re-enables the IRQs
-> (work_done =3D 0). This patch changes the driver to only re-enable the
-> IRQs if some work was actually done. This allows the features of NAPI t=
-o
-> be used for bus errors as well (when bus error reporting is disabled).
-
-Good idea, however the chip has IMHO a bug:
-
-The problem with the error interrupt is, when disabled the can core
-doesn't issue any can bus warning or bus passive interrupts.
-
-Can you ensure that you get both error warning and error passive can
-error messages with disabled BERR and you patch applied?
-
-> This patch is against Linux next-20101123.
+Le mardi 23 novembre 2010 =C3=A0 15:03 +0000, Alban Crequy a =C3=A9crit=
+ :
+> Le Mon, 22 Nov 2010 11:05:19 -0800 (PST),
+> David Miller <davem@davemloft.net> a =C3=A9crit :
 >=20
-> Signed-off-by: John Ogness <john.ogness-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
-> ---
->  drivers/net/can/flexcan.c |    9 ++++++---
->  1 file changed, 6 insertions(+), 3 deletions(-)
+> > From: Alban Crequy <alban.crequy@collabora.co.uk>
+> > Date: Mon, 22 Nov 2010 18:36:17 +0000
+> >=20
+> > > unix_find_multicast_recipients() builds an array of recipients. I=
+t
+> > > can either find the peers of a specific multicast address, or fin=
+d
+> > > all the peers of all multicast group the sender is part of.
+> > >=20
+> > > Signed-off-by: Alban Crequy <alban.crequy@collabora.co.uk>
+> >=20
+> > You really should use RCU to lock this stuff, this way sends run
+> > lockless and have less worries wrt. the memory allocation.  You'll
+> > also only take a spinlock in the write paths which change the
+> > multicast groups, which ought to be rare.
 >=20
-> --- next-20101123-a/drivers/net/can/flexcan.c
-> +++ next-20101123-b/drivers/net/can/flexcan.c
-> @@ -535,9 +535,12 @@ static int flexcan_poll(struct napi_stru
-> =20
->  	if (work_done < quota) {
->  		napi_complete(napi);
-> -		/* enable IRQs */
-> -		writel(FLEXCAN_IFLAG_DEFAULT, &regs->imask1);
-> -		writel(priv->reg_ctrl_default, &regs->ctrl);
-> +
-> +		if (work_done > 0) {
-> +			/* enable IRQs */
-> +			writel(FLEXCAN_IFLAG_DEFAULT, &regs->imask1);
-> +			writel(priv->reg_ctrl_default, &regs->ctrl);
-> +		}
->  	}
-> =20
->  	return work_done;
+> I understand the benefit to use RCU in order to have lockless sends.
+>=20
+> But with RCU I will still have worries about the memory allocation:
+>=20
+> - I cannot allocate inside a rcu_read_lock()-rcu_read_unlock() block.
+>=20
 
-If a bus error occurs and bus error reporting is disabled, work_done
-will stay 0, so both the RX and the ERR interrupt stay disabled (which
-is done in flexcan_irq). I think we should always enable the RX
-interrupt. (However, if the bus is working again the chip can probably
-send messages again, so we get a TX-complete IRQ, but this depends on
-the application.)
+Thats not true.
 
-Having a look at flexcan_irq:
+Sames rules than inside a spin_lock() or write_lock() apply.
 
-> 	/*
-> 	 * schedule NAPI in case of:
-> 	 * - rx IRQ
-> 	 * - state change IRQ
-> 	 * - bus error IRQ and bus error reporting is activated
-> 	 */
+We already allocate memory inside rcu_read_lock() in network stack.
 
-This mean with disabled BERR NAPI should only be scheduled in case of a
-RX or a state change interrupt. Both of these interrupts should generate
-a can_frame in flexcan_poll and this the work_done shoud be > 0, modulo
-out of memory situations.
+> - If I iterate locklessly over the multicast group members with=20
+>   hlist_for_each_entry_rcu(), new members can be added, so the
+>   array can be allocated with the wrong size and I have to try again
+>   ("goto try_again") when this rare case occurs.
 
-> 	if ((reg_iflag1 & FLEXCAN_IFLAG_RX_FIFO_AVAILABLE) ||
-> 	    (reg_esr & FLEXCAN_ESR_ERR_STATE) ||
-> 	    flexcan_has_and_handle_berr(priv, reg_esr)) {
-> 		/*
-> 		 * The error bits are cleared on read,
-> 		 * save them for later use.
-> 		 */
-> 		priv->reg_esr =3D reg_esr & FLEXCAN_ESR_ERR_BUS;
-> 		writel(FLEXCAN_IFLAG_DEFAULT & ~FLEXCAN_IFLAG_RX_FIFO_AVAILABLE,
-> 		       &regs->imask1);
-> 		writel(priv->reg_ctrl_default & ~FLEXCAN_CTRL_ERR_ALL,
-> 		       &regs->ctrl);
-> 		napi_schedule(&priv->napi);
-> 	}
+You are allowed to allocate memory to add stuff while doing your loop
+iteration.
 
-So thinking about the problem I don't see how your patch works. But
-there might be a bug in the driver or my logic.
+Nothing prevents you to use a chain of items, each item holding up to
+128 sockets for example. If full, allocate a new item.
 
-Cheers, Marc
+We have such schem in poll()/select() for example=20
 
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+fs/select.c  function poll_get_entry()
+
+Use a small embedded struct on stack, and allocate extra items if numbe=
+r
+of fd is too big.
+
+(If you cant allocate memory to hold pointers, chance is you wont be
+able to clone skbs anyway. One skb is about 400 bytes.)
+
+If new members are added to the group while you are iterating the list,
+they wont receive a copy of the message.
+
+Or just chain skbs while you clone them, store in skb->sk the socket...
+no need for extra memory allocations.
+
+>=20
+> - Another idea would be to avoid completely the allocation by inlinin=
+g
+>   unix_find_multicast_recipients() inside unix_dgram_sendmsg() and
+>   delivering the messages to the recipients as long as the list is
+>   being iterated locklessly. But I want to provide atomicity of
+>   delivery: the message must be delivered with skb_queue_tail() eithe=
+r
+>   to all the recipients or to none of them in case of interruption or
+>   memory pressure. I don't see how I can achieve that without
+>   iterating several times on the list of recipients, hence the
+>   allocation and the copy in the array. I also want to guarantee the
+>   order of delivery as described in multicast-unix-sockets.txt and fo=
+r
+>   this, I am taking lots of spinlocks anyway. I don't see how to avoi=
+d
+>   that, but I would be happy to be wrong and have a better solution.
+>=20
 
 
---------------enig0AD4551CBDA85E0F74DE3C6C
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+So if one destination has a full receive queue, you want nobody receive
+the message ? That seems a bit risky to me, if someone sends SIGSTOP to
+one of your process...
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
 
-iEYEARECAAYFAkzr4B4ACgkQjTAFq1RaXHMrYgCaA+38rnK0xgof4oKvR6hDNiH6
-9hsAniMkLlbYcKc7ioUkxmpuGfwyKNDy
-=iIWF
------END PGP SIGNATURE-----
 
---------------enig0AD4551CBDA85E0F74DE3C6C--
+>=20
+> To give an idea of the number of members in a multicast group for the
+> D-Bus use case, I have 90 D-Bus connections on my session bus:
+>=20
+> $ dbus-send --print-reply --dest=3Dorg.freedesktop.DBus \
+> /org/freedesktop/DBus org.freedesktop.DBus.ListNames | grep '":'|wc -=
+l
+> 90
+>=20
+> In common cases, there should be only a few real recipients (1 or 2?)
+> after the socket filters eliminate most of them, but
+> unix_find_multicast_recipients() will still allocate an array of
+> about that size.
+>=20
 
---===============1671812936922187901==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Socketcan-core mailing list
-Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-https://lists.berlios.de/mailman/listinfo/socketcan-core
-
---===============1671812936922187901==--
+I am not sure if doing 90 clones of skb and filtering them one by one i=
+s
+going to be fast :-(
