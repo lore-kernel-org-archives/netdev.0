@@ -1,128 +1,103 @@
-From: Andi Kleen <andi-Vw/NltI1exuRpAAqCnN02g@public.gmane.org>
-Subject: Draft manpage for recvmmsg
-Date: Tue, 23 Nov 2010 11:15:51 +0100
-Message-ID: <20101123101551.GA20431@basil.fritz.box>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, acme-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Subject: [PATCH NEXT] qlcnic: avoid using reset_devices as it may become obsolete.
+Date: Tue, 23 Nov 2010 03:25:21 -0800
+Message-ID: <1290511521-5773-1-git-send-email-amit.salecha@qlogic.com>
+Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
+	anirban.chakraborty@qlogic.com,
+	Rajesh Borundia <rajesh.borundia@qlogic.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mvnat01.qlogic.com ([198.186.3.73]:21842 "EHLO unm84.unminc.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752033Ab0KWLZd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Nov 2010 06:25:33 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Rajesh Borundia <rajesh.borundia@qlogic.com>
 
-Here's a draft manpage for recvmmsg(2), which is one 
-of the last undocumented syscalls currently.
-Please review and comment.
+In kdump environment do not depend upon reset_devices parameter
+to reset the pci function as this parameter may become obsolete.
+Instead use an adapter specific mechanism to determine if the pci
+function needs to be reset.
 
--Andi
+Per function refcount is maintained in driver, which is set in probe
+and reset in remove handler of adapter. If the probe detects the count
+as non zero then reset the function.
 
+Signed-off-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
+Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
+---
+ drivers/net/qlcnic/qlcnic.h      |    1 +
+ drivers/net/qlcnic/qlcnic_ctx.c  |    4 +++-
+ drivers/net/qlcnic/qlcnic_hdr.h  |    2 +-
+ drivers/net/qlcnic/qlcnic_main.c |    5 +++++
+ 4 files changed, 10 insertions(+), 2 deletions(-)
 
-.TH RECVMMSG 2 2010-11-23 "Linux" "Linux Programmer's Manual"
-.SH NAME
-recvmmsg \- receive multiple messages on a socket
-.SH SYNOPSIS
-.BI "#include <sys/socket.h>"
-.br
-.BI "int recvmmsg(int " fd ", struct mmsghdr *" mmsghdr \
-", unsigned int " vlen ","
-.br
-.BI "             unsigned int " flags ", struct timespec *" timeout ");" 
-.SH DESCRIPTION
-The 
-.B recvmmsg 
-system call receives multiple messages in a socket.
-It acts similar to 
-.B recvmsg(2),
-but allows to batch multiple receive operations into a single syscall.
-In addition it support an explicit timeout. 
-
-.B fd 
-is the file descriptor of the socket to receive data from. 
-.B mmsghdr
-is a pointer to an array with length
-.B vlen
-of  
-.I mmsghdr
-structures. 
-.I struct mmsg 
-is defined in
-.I sys/socket.h
-as:
-.in +4n
-.nf
-struct mmsghdr {
-    struct msghdr msg_hdr;  /* Message header */
-    unsigned int  msg_len;  /* Number of received bytes for header */
-};
-.fi
-.in
-.PP
-.B msg_hdr 
-is a struct
-.I msghdr
-as described in
-.I recvmsg(2).
-.B msg_len
-is the number of bytes returned for the message in the entry.
-This field has the same value as the return value of a single
-.I recvmsg(2)
-on the header.
-
-.B flags
-contains flags ored together. The flags are the same
-as documented for
-.I recvmsg(2).
-The additional
-.B MSG_WAITFORONE
-turns one 
-.I MSG_DONTWAIT
-after the first message has been received.
-
-.B timeout
-points to a 
-.I struct timespec
-(see 
-.I clock_gettime(2)
-)
-defining a timeout for receiving, or 
-.I NULL 
-for no timeout. When the timeout expires
-.I recvmmsg
-returns.
-.SH RETURN VALUE
-.I recvmmsg
-returns the number of messages received in
-.I mmsghdr
-or 
--1
-when an error occurs. The 
-.I msg_len
-members of 
-.I mmsghdr
-are updated for each received message,
-in addition to other fields in the msg_hdr for each message,
-as described in 
-.I recvmsg(2).
-.SH SEE ALSO
-.B recvmsg(2),
-.B sendmsg(2),
-.B socket(7),
-.B socket(2),
-.B clock_gettime(2)
-.SH VERSIONS
-The
-.I recvmmsg
-syscall was added with kernel 2.6.32.
-Support in glibc was added with 2.6.12.
-On earlier glibcs the function can be called
-manually using 
-.I syscall(2).
-
-
+diff --git a/drivers/net/qlcnic/qlcnic.h b/drivers/net/qlcnic/qlcnic.h
+index 56f54ff..9513a83 100644
+--- a/drivers/net/qlcnic/qlcnic.h
++++ b/drivers/net/qlcnic/qlcnic.h
+@@ -923,6 +923,7 @@ struct qlcnic_ipaddr {
+ #define QLCNIC_MACSPOOF			0x200
+ #define QLCNIC_MAC_OVERRIDE_DISABLED	0x400
+ #define QLCNIC_PROMISC_DISABLED		0x800
++#define QLCNIC_NEED_FLR			0x1000
+ #define QLCNIC_IS_MSI_FAMILY(adapter) \
+ 	((adapter)->flags & (QLCNIC_MSI_ENABLED | QLCNIC_MSIX_ENABLED))
+ 
+diff --git a/drivers/net/qlcnic/qlcnic_ctx.c b/drivers/net/qlcnic/qlcnic_ctx.c
+index 3ad1f3e..29cbc2a 100644
+--- a/drivers/net/qlcnic/qlcnic_ctx.c
++++ b/drivers/net/qlcnic/qlcnic_ctx.c
+@@ -480,8 +480,10 @@ int qlcnic_fw_create_ctx(struct qlcnic_adapter *adapter)
+ {
+ 	int err;
+ 
+-	if (reset_devices)
++	if (adapter->flags & QLCNIC_NEED_FLR) {
+ 		pci_reset_function(adapter->pdev);
++		adapter->flags &= ~QLCNIC_NEED_FLR;
++	}
+ 
+ 	err = qlcnic_fw_cmd_create_rx_ctx(adapter);
+ 	if (err)
+diff --git a/drivers/net/qlcnic/qlcnic_hdr.h b/drivers/net/qlcnic/qlcnic_hdr.h
+index 4290b80..566e0e8 100644
+--- a/drivers/net/qlcnic/qlcnic_hdr.h
++++ b/drivers/net/qlcnic/qlcnic_hdr.h
+@@ -722,7 +722,7 @@ enum {
+ #define QLCNIC_DEV_NPAR_OPER		1 /* NPAR Operational */
+ #define QLCNIC_DEV_NPAR_OPER_TIMEO	30 /* Operational time out */
+ 
+-#define QLC_DEV_CHECK_ACTIVE(VAL, FN)		((VAL) &= (1 << (FN * 4)))
++#define QLC_DEV_CHECK_ACTIVE(VAL, FN)		((VAL) & (1 << (FN * 4)))
+ #define QLC_DEV_SET_REF_CNT(VAL, FN)		((VAL) |= (1 << (FN * 4)))
+ #define QLC_DEV_CLR_REF_CNT(VAL, FN)		((VAL) &= ~(1 << (FN * 4)))
+ #define QLC_DEV_SET_RST_RDY(VAL, FN)		((VAL) |= (1 << (FN * 4)))
+diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
+index a3dcd04..899df5a 100644
+--- a/drivers/net/qlcnic/qlcnic_main.c
++++ b/drivers/net/qlcnic/qlcnic_main.c
+@@ -1485,6 +1485,7 @@ qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	uint8_t revision_id;
+ 	uint8_t pci_using_dac;
+ 	char brd_name[QLCNIC_MAX_BOARD_NAME_LEN];
++	u32 val;
+ 
+ 	err = pci_enable_device(pdev);
+ 	if (err)
+@@ -1546,6 +1547,10 @@ qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	if (err)
+ 		goto err_out_iounmap;
+ 
++	val = QLCRD32(adapter, QLCNIC_CRB_DRV_ACTIVE);
++	if (QLC_DEV_CHECK_ACTIVE(val, adapter->portnum))
++		adapter->flags |= QLCNIC_NEED_FLR;
++
+ 	err = adapter->nic_ops->start_firmware(adapter);
+ 	if (err) {
+ 		dev_err(&pdev->dev, "Loading fw failed.Please Reboot\n");
 -- 
-ak-VuQAYsv1563Yd54FQh9/CA@public.gmane.org -- Speaking for myself only.
---
-To unsubscribe from this list: send the line "unsubscribe linux-man" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+1.7.3.2
+
