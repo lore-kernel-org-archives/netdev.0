@@ -1,75 +1,78 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH 3/3] x25: Move to staging
-Date: Tue, 23 Nov 2010 03:55:28 +0000
-Message-ID: <1290484528.6770.1336.camel@localhost>
+From: Yinghai Lu <yinghai@kernel.org>
+Subject: Re: ixgbe dump
+Date: Mon, 22 Nov 2010 20:15:34 -0800
+Message-ID: <AANLkTi=ceFYmLuqYhWxyoQ2A3Wev6Dw7V2U+sc-D8d9_@mail.gmail.com>
+References: <4CE47FA6.8050600@kernel.org>
+	<29F4ED941D916B48B88B4D2A4F3D1B9C01CBFC68C5@orsmsx509.amr.corp.intel.com>
+	<AANLkTinQ-6CaUY3bYd+SMBCaNvU5YiXL2P+gh7N1tM-x@mail.gmail.com>
+	<1290468133.2603.2.camel@jtkirshe-MOBL1>
+	<AANLkTi=Esp=y2ci=RrCeXYVaxnbrJY3NXpaBgPOBqc7p@mail.gmail.com>
+	<29F4ED941D916B48B88B4D2A4F3D1B9C01CC08FBCF@orsmsx509.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>, devel@driverdev.osuosl.org,
-	Debian kernel maintainers <debian-kernel@lists.debian.org>,
-	linux-x25@vger.kernel.org
-To: Andrew Hendry <andrew.hendry@gmail.com>,
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
 	David Miller <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@suse.de>
+	NetDev <netdev@vger.kernel.org>
+To: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:39750 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751017Ab0KWDzh convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Nov 2010 22:55:37 -0500
+Received: from mail-qy0-f174.google.com ([209.85.216.174]:64375 "EHLO
+	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751350Ab0KWEPf convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Nov 2010 23:15:35 -0500
+Received: by qyk11 with SMTP id 11so1207120qyk.19
+        for <netdev@vger.kernel.org>; Mon, 22 Nov 2010 20:15:34 -0800 (PST)
+In-Reply-To: <29F4ED941D916B48B88B4D2A4F3D1B9C01CC08FBCF@orsmsx509.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Recent review has revealed several bugs in obscure protocol
-implementations that can be exploited by local users for denial of
-service or privilege escalation.
+On Mon, Nov 22, 2010 at 7:31 PM, Skidmore, Donald C
+<donald.c.skidmore@intel.com> wrote:
+>
+> Hi Yinghai,
+>
+> I was hoping we could have had this patch pushed upstream sooner, but=
+ we have quite a few in our internal queue right now.
+>
+> If this doesn't solve your issue please let me know.
+>
+> Thanks,
+> -Don Skidmore <donald.c.skidmore@intel.com>
+>
+>
+>
+>
+> After freeing the rings we were not zeroing out the ring count values=
+=2E
+> This patch now clears these counts correctly.
+>
+> Reported-by: Yinghai Lu <yinghai@kernel.org>
+> Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+> ---
+>
+> =A0drivers/net/ixgbe/ixgbe_main.c | =A0 =A03 +++
+> =A01 files changed, 3 insertions(+), 0 deletions(-)
+>
+> diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe=
+_main.c
+> index fbad4d8..eee0b29 100644
+> --- a/drivers/net/ixgbe/ixgbe_main.c
+> +++ b/drivers/net/ixgbe/ixgbe_main.c
+> @@ -4771,6 +4771,9 @@ void ixgbe_clear_interrupt_scheme(struct ixgbe_=
+adapter *adapter)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0adapter->rx_ring[i] =3D NULL;
+> =A0 =A0 =A0 =A0}
+>
+> + =A0 =A0 =A0 adapter->num_tx_queues =3D 0;
+> + =A0 =A0 =A0 adapter->num_rx_queues =3D 0;
+> +
+> =A0 =A0 =A0 =A0ixgbe_free_q_vectors(adapter);
+> =A0 =A0 =A0 =A0ixgbe_reset_interrupt_capability(adapter);
+> =A0}
 
-The x25 protocol (PF_X25) receives only 'odd fixes'.  There appear to
-be no published applications for it, and it has never progressed
-beyond 'experimental' status.
+OK, that fix the problem.
 
-This protocol generally should not be enabled by distributions, since
-the cost of a security flaw affecting all installed systems presumably
-outweighs the benefit to the few (if any) legitimate users.
+Thanks
 
-Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
----
-I'm somewhat less sure about this one; maybe it's improving?  But there
-is little enough sign of any usefulness after 10 years.
-
-There are several X25 dependencies that presumably should be moved too.
-
-Ben.
-
- drivers/staging/Kconfig |    2 ++
- net/Kconfig             |    1 -
- 2 files changed, 2 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/staging/Kconfig b/drivers/staging/Kconfig
-index a9dd984..1347242 100644
---- a/drivers/staging/Kconfig
-+++ b/drivers/staging/Kconfig
-@@ -179,5 +179,7 @@ source "net/decnet/Kconfig"
- 
- source "net/econet/Kconfig"
- 
-+source "net/x25/Kconfig"
-+
- endif # !STAGING_EXCLUDE_BUILD
- endif # STAGING
-diff --git a/net/Kconfig b/net/Kconfig
-index 059c9f1..1d396ba 100644
---- a/net/Kconfig
-+++ b/net/Kconfig
-@@ -203,7 +203,6 @@ source "net/8021q/Kconfig"
- source "net/llc/Kconfig"
- source "net/ipx/Kconfig"
- source "drivers/net/appletalk/Kconfig"
--source "net/x25/Kconfig"
- source "net/lapb/Kconfig"
- source "net/wanrouter/Kconfig"
- source "net/phonet/Kconfig"
--- 
-1.7.2.3
-
-
+Yinghai
