@@ -1,49 +1,95 @@
-From: Eric Paris <eparis@redhat.com>
-Subject: [PATCH 2/2] SELinux: indicate fatal error in compat netfilter code
-Date: Tue, 23 Nov 2010 11:28:08 -0500
-Message-ID: <20101123162808.3588.18495.stgit@paris.rdu.redhat.com>
-References: <20101123162802.3588.74894.stgit@paris.rdu.redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] bnx2x: Resolving a possible dead-lock
+ situation
+Date: Tue, 23 Nov 2010 17:29:37 +0100
+Message-ID: <1290529777.3046.99.camel@edumazet-laptop>
+References: <1290528912.15453.3.camel@lb-tlvb-vladz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: sds@tycho.nsa.gov, paul.moore@hp.com, davem@davemloft.net
-To: netdev@vger.kernel.org, selinux@tycho.nsa.gov
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Dave Miller <davem@davemloft.net>,
+	Eilon Greenstein <eilong@broadcom.com>,
+	netdev list <netdev@vger.kernel.org>
+To: Vladislav Zolotarov <vladz@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:1029 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755647Ab0KWQ3Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Nov 2010 11:29:24 -0500
-In-Reply-To: <20101123162802.3588.74894.stgit@paris.rdu.redhat.com>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:48107 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755653Ab0KWQ3o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Nov 2010 11:29:44 -0500
+Received: by vws13 with SMTP id 13so4297246vws.19
+        for <netdev@vger.kernel.org>; Tue, 23 Nov 2010 08:29:44 -0800 (PST)
+In-Reply-To: <1290528912.15453.3.camel@lb-tlvb-vladz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The SELinux ip postroute code indicates when policy rejected a packet and
-passes the error back up the stack.  The compat code does not.  This patch
-sends the same kind of error back up the stack in the compat code.
+Le mardi 23 novembre 2010 =C3=A0 18:15 +0200, Vladislav Zolotarov a =C3=
+=A9crit :
+> There is a possible dead-lock situation between sch_direct_xmit()=20
+> (called from soft_IRQ context) and bnx2x_tx_int() when called from=20
+> an ethtool self-test flow (syscall context).
+>=20
+> To prevent a dead-lock, disable bottom-halves on a local CPU when tak=
+ing
+> a tx_lock from bnx2x_tx_int() (use __netif_tx_lock_bh(txq)).
+>=20
+> The flow in the bnx2x_tx_int() where tx_lock is taken should be hit
+> very rarely thus performance penalty of this change should be minimal=
+=2E
+>=20
+> Signed-off-by: Vladislav Zolotarov <vladz@broadcom.com>
+> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+> ---
+>  drivers/net/bnx2x/bnx2x_cmn.c |    4 ++--
+>  1 files changed, 2 insertions(+), 2 deletions(-)
+>=20
+> diff --git a/drivers/net/bnx2x/bnx2x_cmn.c b/drivers/net/bnx2x/bnx2x_=
+cmn.c
+> index 94d5f59..5189788 100644
+> --- a/drivers/net/bnx2x/bnx2x_cmn.c
+> +++ b/drivers/net/bnx2x/bnx2x_cmn.c
+> @@ -144,14 +144,14 @@ int bnx2x_tx_int(struct bnx2x_fastpath *fp)
+>  		 * stops the queue
+>  		 */
+> =20
+> -		__netif_tx_lock(txq, smp_processor_id());
+> +		__netif_tx_lock_bh(txq);
+> =20
+>  		if ((netif_tx_queue_stopped(txq)) &&
+>  		    (bp->state =3D=3D BNX2X_STATE_OPEN) &&
+>  		    (bnx2x_tx_avail(fp) >=3D MAX_SKB_FRAGS + 3))
+>  			netif_tx_wake_queue(txq);
+> =20
+> -		__netif_tx_unlock(txq);
+> +		__netif_tx_unlock_bh(txq);
+>  	}
+>  	return 0;
+>  }
 
-Based-on-patch-by: Paul Moore <paul.moore@hp.com>
-Signed-off-by: Eric Paris <eparis@redhat.com>
----
+That seems strange. Even if performance penalty is not minimal, it
+should be avoided.
 
- security/selinux/hooks.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+If problem comes from ethtool, why not preventing BH in ethtool itself =
+?
 
-diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
-index bd6dc16..dd1690f 100644
---- a/security/selinux/hooks.c
-+++ b/security/selinux/hooks.c
-@@ -4529,11 +4529,11 @@ static unsigned int selinux_ip_postroute_compat(struct sk_buff *skb,
- 	if (selinux_secmark_enabled())
- 		if (avc_has_perm(sksec->sid, skb->secmark,
- 				 SECCLASS_PACKET, PACKET__SEND, &ad))
--			return NF_DROP;
-+			return NF_DROP_ERR(-ECONNREFUSED);
- 
- 	if (selinux_policycap_netpeer)
- 		if (selinux_xfrm_postroute_last(sksec->sid, skb, &ad, proto))
--			return NF_DROP;
-+			return NF_DROP_ERR(-ECONNREFUSED);
- 
- 	return NF_ACCEPT;
- }
+diff --git a/drivers/net/bnx2x/bnx2x_ethtool.c b/drivers/net/bnx2x/bnx2=
+x_ethtool.c
+index d02ffbd..1f7d4e6 100644
+--- a/drivers/net/bnx2x/bnx2x_ethtool.c
++++ b/drivers/net/bnx2x/bnx2x_ethtool.c
+@@ -1499,9 +1499,11 @@ static int bnx2x_run_loopback(struct bnx2x *bp, =
+int loopback_mode, u8 link_up)
+ 	 * updates that have been performed while interrupts were
+ 	 * disabled.
+ 	 */
+-	if (bp->common.int_block =3D=3D INT_BLOCK_IGU)
++	if (bp->common.int_block =3D=3D INT_BLOCK_IGU) {
++		local_bh_disable();
+ 		bnx2x_tx_int(fp_tx);
+-
++		local_bh_enable();
++	}
+ 	rx_idx =3D le16_to_cpu(*fp_rx->rx_cons_sb);
+ 	if (rx_idx !=3D rx_start_idx + num_pkts)
+ 		goto test_loopback_exit;
+
 
