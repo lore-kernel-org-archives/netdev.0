@@ -1,48 +1,69 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 00/62] drivers/net: Use static const
-Date: Tue, 23 Nov 2010 08:28:00 -0800 (PST)
-Message-ID: <20101123.082800.189699339.davem@davemloft.net>
-References: <1290463846.27683.36.camel@Joe-Laptop>
-	<20101122.141939.226774888.davem@davemloft.net>
-	<1290465605.27683.52.camel@Joe-Laptop>
+From: Eric Paris <eparis@redhat.com>
+Subject: [PATCH 1/2] SELinux: Only return netlink error when we know the
+	return is fatal
+Date: Tue, 23 Nov 2010 11:28:02 -0500
+Message-ID: <20101123162802.3588.74894.stgit@paris.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: ath5k-devel-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org, libertas-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	e1000-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	users-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, ath9k-devel-xDcbHBWguxHbcTqmT+pZeQ@public.gmane.org
-To: joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <1290465605.27683.52.camel@Joe-Laptop>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: sds@tycho.nsa.gov, paul.moore@hp.com, davem@davemloft.net
+To: netdev@vger.kernel.org, selinux@tycho.nsa.gov
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:1028 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755123Ab0KWQ3T (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Nov 2010 11:29:19 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Date: Mon, 22 Nov 2010 14:40:05 -0800
+Some of the SELinux netlink code returns a fatal error when the error might
+actually be transient.  This patch just silently drops packets on
+potentially transient errors but continues to return a permanant error
+indicator when the denial was because of policy.
 
-> I'll see who picks up or acks what and send a pull request to
-> you for the remainder of these patches mid December or so.
+Based-on-comments-by: Paul Moore <paul.moore@hp.com>
+Signed-off-by: Eric Paris <eparis@redhat.com>
+---
 
-Thanks.
+ security/selinux/hooks.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
-> Do you want micro patches or a single patch?
+diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
+index a0bc5c0..bd6dc16 100644
+--- a/security/selinux/hooks.c
++++ b/security/selinux/hooks.c
+@@ -4594,7 +4594,7 @@ static unsigned int selinux_ip_postroute(struct sk_buff *skb, int ifindex,
+ 		}
+ 		if (secmark_perm == PACKET__FORWARD_OUT) {
+ 			if (selinux_skb_peerlbl_sid(skb, family, &peer_sid))
+-				return NF_DROP_ERR(-ECONNREFUSED);
++				return NF_DROP;
+ 		} else
+ 			peer_sid = SECINITSID_KERNEL;
+ 	} else {
+@@ -4607,7 +4607,7 @@ static unsigned int selinux_ip_postroute(struct sk_buff *skb, int ifindex,
+ 	ad.u.net.netif = ifindex;
+ 	ad.u.net.family = family;
+ 	if (selinux_parse_skb(skb, &ad, &addrp, 0, NULL))
+-		return NF_DROP_ERR(-ECONNREFUSED);
++		return NF_DROP;
+ 
+ 	if (secmark_active)
+ 		if (avc_has_perm(peer_sid, skb->secmark,
+@@ -4619,13 +4619,13 @@ static unsigned int selinux_ip_postroute(struct sk_buff *skb, int ifindex,
+ 		u32 node_sid;
+ 
+ 		if (sel_netif_sid(ifindex, &if_sid))
+-			return NF_DROP_ERR(-ECONNREFUSED);
++			return NF_DROP;
+ 		if (avc_has_perm(peer_sid, if_sid,
+ 				 SECCLASS_NETIF, NETIF__EGRESS, &ad))
+ 			return NF_DROP_ERR(-ECONNREFUSED);
+ 
+ 		if (sel_netnode_sid(addrp, family, &node_sid))
+-			return NF_DROP_ERR(-ECONNREFUSED);
++			return NF_DROP;
+ 		if (avc_has_perm(peer_sid, node_sid,
+ 				 SECCLASS_NODE, NODE__SENDTO, &ad))
+ 			return NF_DROP_ERR(-ECONNREFUSED);
 
-You can group them by directory or similar if you like.
-
-F.e.:
-
-Patch 1: drivers/net/*.c
-Patch 2: drivers/net/*/*.c (wired drivers)
-Patch 3: drivers/net/wireless/*
-
-Thanks again.
