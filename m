@@ -1,46 +1,86 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: possible kernel oops from user MSS
-Date: Mon, 22 Nov 2010 18:59:59 -0800 (PST)
-Message-ID: <20101122.185959.193707855.davem@davemloft.net>
-References: <4CDDC6EE.2010005@mvista.com>
-	<20101112.152607.193708973.davem@davemloft.net>
-	<4CEB2B8E.3090904@cn.fujitsu.com>
+From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
+Subject: RE: ixgbe dump
+Date: Mon, 22 Nov 2010 19:31:12 -0800
+Message-ID: <29F4ED941D916B48B88B4D2A4F3D1B9C01CC08FBCF@orsmsx509.amr.corp.intel.com>
+References: <4CE47FA6.8050600@kernel.org>
+	<29F4ED941D916B48B88B4D2A4F3D1B9C01CBFC68C5@orsmsx509.amr.corp.intel.com>
+	<AANLkTinQ-6CaUY3bYd+SMBCaNvU5YiXL2P+gh7N1tM-x@mail.gmail.com>
+	<1290468133.2603.2.camel@jtkirshe-MOBL1>
+ <AANLkTi=Esp=y2ci=RrCeXYVaxnbrJY3NXpaBgPOBqc7p@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mzhang@mvista.com, netdev@vger.kernel.org
-To: lyw@cn.fujitsu.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	David Miller <davem@davemloft.net>,
+	NetDev <netdev@vger.kernel.org>
+To: Yinghai Lu <yinghai@kernel.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47176
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751260Ab0KWC7e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Nov 2010 21:59:34 -0500
-In-Reply-To: <4CEB2B8E.3090904@cn.fujitsu.com>
+Received: from mga11.intel.com ([192.55.52.93]:12115 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750756Ab0KWDbO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Nov 2010 22:31:14 -0500
+In-Reply-To: <AANLkTi=Esp=y2ci=RrCeXYVaxnbrJY3NXpaBgPOBqc7p@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Li Yewang <lyw@cn.fujitsu.com>
-Date: Tue, 23 Nov 2010 10:48:46 +0800
 
-> 
-> 
-> At 2010-11-13 7:26, David Miller wrote:
->> From: Min Zhang<mzhang@mvista.com>
->> Date: Fri, 12 Nov 2010 14:59:58 -0800
->>
->>> Regarding commit 7a1abd08d52fdeddb3e9a5a33f2f15cc6a5674d2 ("tcp:
->>> Increase TCP_MAXSEG socket option minimum"). What is the reason
->>> TCP_MAXSEG minimum be 64? Isn't the exact be 40 which is
->>> TCPOLEN_MD5SIG_ALIGNED(20) + TCPOLEN_TSTAMP_ALIGNED(12) + 8?
->>>
->>> Or is it better to use TCP_MIN_MSS from tcp.h:
->>>
->>> /* Minimal accepted MSS. It is (60+60+8) - (20+20). */
->>> #define TCP_MIN_MSS        88U
->>
->> I suppose TCP_MIN_MSS would be better to use, I'll make that
->> change, thanks.
-> 
->   David, do you have plan to fix this bug using TCP_MIN_MSS?
+Hi Yinghai,
 
-I will, it's deep in my backlog and pretty low priority right now.
+I was hoping we could have had this patch pushed upstream sooner, but we have quite a few in our internal queue right now.
+
+If this doesn't solve your issue please let me know.
+
+Thanks,
+-Don Skidmore <donald.c.skidmore@intel.com>
+
+
+
+
+After freeing the rings we were not zeroing out the ring count values.
+This patch now clears these counts correctly.
+
+Reported-by: Yinghai Lu <yinghai@kernel.org>
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+---
+
+ drivers/net/ixgbe/ixgbe_main.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index fbad4d8..eee0b29 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -4771,6 +4771,9 @@ void ixgbe_clear_interrupt_scheme(struct ixgbe_adapter *adapter)
+ 		adapter->rx_ring[i] = NULL;
+ 	}
+ 
++	adapter->num_tx_queues = 0;
++	adapter->num_rx_queues = 0;
++
+ 	ixgbe_free_q_vectors(adapter);
+ 	ixgbe_reset_interrupt_capability(adapter);
+ }
+
+
+>-----Original Message-----
+>From: yhlu.kernel@gmail.com [mailto:yhlu.kernel@gmail.com] On Behalf Of
+>Yinghai Lu
+>Sent: Monday, November 22, 2010 3:28 PM
+>To: Kirsher, Jeffrey T
+>Cc: Skidmore, Donald C; Brandeburg, Jesse; David Miller; NetDev
+>Subject: Re: ixgbe dump
+>
+>On Mon, Nov 22, 2010 at 3:22 PM, Jeff Kirsher
+><jeffrey.t.kirsher@intel.com> wrote:
+>>
+>> It is not posted yet. Don got the patch to our testers and they are
+>> doing a quick validation on the patch before I post it to netdev.
+>>
+>> I can send you the patch, so that you can assist in letting us know if
+>> it resolves the issue.
+>
+>sure. please send that to me.
+>
+>Thanks
