@@ -1,49 +1,76 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 4/9] AF_UNIX: find the recipients for multicast messages
-Date: Tue, 23 Nov 2010 17:56:40 +0100
-Message-ID: <1290531400.3046.117.camel@edumazet-laptop>
-References: <20101122183447.124afce5@chocolatine.cbg.collabora.co.uk>
-	 <1290450982-17480-4-git-send-email-alban.crequy@collabora.co.uk>
-	 <20101122.110519.39205345.davem@davemloft.net>
-	 <20101123150315.4e67a139@chocolatine.cbg.collabora.co.uk>
-	 <1290528517.3046.91.camel@edumazet-laptop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH ethtool] ethtool: Work around old <linux/types.h> without
+ big-endian types
+Date: Tue, 23 Nov 2010 17:15:17 +0000
+Message-ID: <1290532517.6770.1603.camel@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
-	gorcunov@openvz.org, adobriyan@gmail.com, lennart@poettering.net,
-	kay.sievers@vrfy.org, ian.molton@collabora.co.uk,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Alban Crequy <alban.crequy@collabora.co.uk>
+Cc: "Gabor Z. Papp" <gzp@papp.hu>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:51796 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754113Ab0KWQ4r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Nov 2010 11:56:47 -0500
-In-Reply-To: <1290528517.3046.91.camel@edumazet-laptop>
+Received: from exchange.solarflare.com ([216.237.3.220]:36978 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752460Ab0KWRP2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Nov 2010 12:15:28 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Add an autoconf test for whether __be16 and __be32 are defined.
+If not, define them in ethtool-util.h.
 
-Hmm, just thought about lockless again, and we had same multicast
-problem on udp as well.
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+__be16 and __be32 were not included in the userland version of
+<linux/types.h> before Linux 2.6.10.
 
-We are forced to hold a lock (to forbid concurrent deletes), or we might
-going through one 'about to be removed' socket and abort the iteration
-in the middle. Some sockets would not receive a copy of the message.
+Ben.
 
-(UDP sockets using SLAB_DESTROY_BY_RCU, we could even have multiple
-copies sent to some sockets, if the removed socket is re-inserted in
-front of chain because of instant reuse)
+ configure.ac   |    7 +++++++
+ ethtool-util.h |    6 ++++++
+ 2 files changed, 13 insertions(+), 0 deletions(-)
 
-To have a true lockless path, you would need to restart the full scan if
-you notice a delete was done during the iteration, eventually using a
-sequence number per chain. That would be expensive, because you have to
-undo all the socket accumulation (refcount) done during the lookup,
-before restart the thing.
+diff --git a/configure.ac b/configure.ac
+index f2401a4..2e31e3a 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -17,6 +17,13 @@ dnl Checks for header files.
+ AC_CHECK_HEADERS(sys/ioctl.h)
+ 
+ dnl Checks for typedefs, structures, and compiler characteristics.
++AC_MSG_CHECKING([whether <linux/types.h> defines big-endian types])
++AC_TRY_COMPILE([#include <linux/types.h>],
++	       [__be16 foo;__be32 bar;],
++	       [AC_MSG_RESULT(yes)
++		AC_DEFINE([HAVE_BE_TYPES], [1],
++			  [Define to 1 if <linux/types.h> defines big-endian types])],
++	       [AC_MSG_RESULT(no)])
+ 
+ dnl Checks for library functions.
+ AC_HEADER_STDC
+diff --git a/ethtool-util.h b/ethtool-util.h
+index 4ef3a9f..f053028 100644
+--- a/ethtool-util.h
++++ b/ethtool-util.h
+@@ -6,6 +6,12 @@
+ #include <sys/types.h>
+ #include <endian.h>
+ 
++/* ethtool.h expects these to be defined by <linux/types.h> */
++#ifndef HAVE_BE_TYPES
++typedef __uint16_t __be16;
++typedef __uint32_t __be32;
++#endif
++
+ #include "ethtool-copy.h"
+ 
+ typedef unsigned long long u64;
+-- 
+1.5.4
 
-To avoid starvation, getting a lock at the second iteration would be
-good ;)
 
-
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
