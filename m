@@ -1,113 +1,57 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 04/10] tg3: Fix 5719 internal FIFO overflow
- problem
-Date: Wed, 24 Nov 2010 10:31:48 -0800
-Message-ID: <1290623514-18193-5-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH net-next 05/10] tg3: Reorg tg3_napi members
+Date: Wed, 24 Nov 2010 10:31:49 -0800
+Message-ID: <1290623514-18193-6-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, andy@greyhouse.net, mcarlson@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3947 "EHLO mms2.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:4209 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754083Ab0KXScN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Nov 2010 13:32:13 -0500
+	id S1751691Ab0KXScJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Nov 2010 13:32:09 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Under load, there an internal FIFO can overflow on the 5719.  The fix is
-to scale back the PCIe maximum read request size based on the current
-link speed and width.
+This patch reorders and realigns the tg3_napi members for a ~3-4%
+performance improvement on small packet performance tests.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Reviewed-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/tg3.c |   44 +++++++++++++++++++++++++++++++++++++++++---
- drivers/net/tg3.h |    1 +
- 2 files changed, 42 insertions(+), 3 deletions(-)
+ drivers/net/tg3.h |   12 ++++++------
+ 1 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 2624d71..226e60d 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -6985,7 +6985,7 @@ static void tg3_restore_pci_state(struct tg3 *tp)
- 
- 	if (GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5785) {
- 		if (tp->tg3_flags2 & TG3_FLG2_PCI_EXPRESS)
--			pcie_set_readrq(tp->pdev, 4096);
-+			pcie_set_readrq(tp->pdev, tp->pcie_readrq);
- 		else {
- 			pci_write_config_byte(tp->pdev, PCI_CACHE_LINE_SIZE,
- 					      tp->pci_cacheline_sz);
-@@ -7179,7 +7179,7 @@ static int tg3_chip_reset(struct tg3 *tp)
- 				      tp->pcie_cap + PCI_EXP_DEVCTL,
- 				      val16);
- 
--		pcie_set_readrq(tp->pdev, 4096);
-+		pcie_set_readrq(tp->pdev, tp->pcie_readrq);
- 
- 		/* Clear error status */
- 		pci_write_config_word(tp->pdev,
-@@ -13366,7 +13366,45 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
- 
- 		tp->tg3_flags2 |= TG3_FLG2_PCI_EXPRESS;
- 
--		pcie_set_readrq(tp->pdev, 4096);
-+		tp->pcie_readrq = 4096;
-+		if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719) {
-+			u16 word;
-+
-+			pci_read_config_word(tp->pdev,
-+					     tp->pcie_cap + PCI_EXP_LNKSTA,
-+					     &word);
-+			switch (word & PCI_EXP_LNKSTA_CLS) {
-+			case PCI_EXP_LNKSTA_CLS_2_5GB:
-+				word &= PCI_EXP_LNKSTA_NLW;
-+				word >>= PCI_EXP_LNKSTA_NLW_SHIFT;
-+				switch (word) {
-+				case 2:
-+					tp->pcie_readrq = 2048;
-+					break;
-+				case 4:
-+					tp->pcie_readrq = 1024;
-+					break;
-+				}
-+				break;
-+
-+			case PCI_EXP_LNKSTA_CLS_5_0GB:
-+				word &= PCI_EXP_LNKSTA_NLW;
-+				word >>= PCI_EXP_LNKSTA_NLW_SHIFT;
-+				switch (word) {
-+				case 1:
-+					tp->pcie_readrq = 2048;
-+					break;
-+				case 2:
-+					tp->pcie_readrq = 1024;
-+					break;
-+				case 4:
-+					tp->pcie_readrq = 512;
-+					break;
-+				}
-+			}
-+		}
-+
-+		pcie_set_readrq(tp->pdev, tp->pcie_readrq);
- 
- 		pci_read_config_word(tp->pdev,
- 				     tp->pcie_cap + PCI_EXP_LNKCTL,
 diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
-index 06a4e7e..4107036 100644
+index 4107036..2938d18 100644
 --- a/drivers/net/tg3.h
 +++ b/drivers/net/tg3.h
-@@ -2948,6 +2948,7 @@ struct tg3 {
- 	int				pcix_cap;
- 	int				pcie_cap;
- 	};
-+	int				pcie_readrq;
+@@ -2715,17 +2715,17 @@ struct tg3_napi {
+ 	u32				last_irq_tag;
+ 	u32				int_mbox;
+ 	u32				coal_now;
+-	u32				tx_prod;
+-	u32				tx_cons;
+-	u32				tx_pending;
+-	u32				prodmbox;
  
- 	struct mii_bus			*mdio_bus;
- 	int				mdio_irq[PHY_MAX_ADDR];
+-	u32				consmbox;
++	u32				consmbox ____cacheline_aligned;
+ 	u32				rx_rcb_ptr;
+ 	u16				*rx_rcb_prod_idx;
+ 	struct tg3_rx_prodring_set	prodring;
+-
+ 	struct tg3_rx_buffer_desc	*rx_rcb;
++
++	u32				tx_prod	____cacheline_aligned;
++	u32				tx_cons;
++	u32				tx_pending;
++	u32				prodmbox;
+ 	struct tg3_tx_buffer_desc	*tx_ring;
+ 	struct ring_info		*tx_buffers;
+ 
 -- 
 1.7.2.2
 
