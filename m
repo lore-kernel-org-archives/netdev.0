@@ -1,10 +1,11 @@
 From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Subject: Re: [PATCH net-next-2.6 1/17 v2] can: EG20T PCH: Separate
 	Interface Register(IF1/IF2)
-Date: Wed, 24 Nov 2010 08:55:54 -0800 (PST)
-Message-ID: <20101124.085554.193704043.davem@davemloft.net>
+Date: Wed, 24 Nov 2010 08:57:04 -0800 (PST)
+Message-ID: <20101124.085704.226785473.davem@davemloft.net>
 References: <4CECBFE3.8030402@dsn.okisemi.com>
 	<4CECEC85.1050009@pengutronix.de>
+	<20101124.085554.193704043.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -15,7 +16,7 @@ Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, sameo-VuQAYsv
 	yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, chripell-VaTbYqLCNhc@public.gmane.org, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
 To: mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org
 Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4CECEC85.1050009-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+In-Reply-To: <20101124.085554.193704043.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
 	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
 List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
@@ -27,16 +28,22 @@ Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Date: Wed, 24 Nov 2010 11:44:21 +0100
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Date: Wed, 24 Nov 2010 08:55:54 -0800 (PST)
 
-> On 11/24/2010 08:33 AM, Tomoya MORINAGA wrote:
->> Separate interface register from whole of register structure.
->> CAN register of Intel PCH EG20T has 2 sets of interface register.
->> To reduce whole of code size, separate interface register.
->> As a result, the number of function also can be reduced.
+> From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+> Date: Wed, 24 Nov 2010 11:44:21 +0100
 > 
-> I failed to apply your series to david's net-2.6/master. Please resubmit.
+>> On 11/24/2010 08:33 AM, Tomoya MORINAGA wrote:
+>>> Separate interface register from whole of register structure.
+>>> CAN register of Intel PCH EG20T has 2 sets of interface register.
+>>> To reduce whole of code size, separate interface register.
+>>> As a result, the number of function also can be reduced.
+>> 
+>> I failed to apply your series to david's net-2.6/master. Please resubmit.
+> 
+> It applies to net-next-2.6 since that is where I applied his previous
+> two patches.
 
-It applies to net-next-2.6 since that is where I applied his previous
-two patches.
+And geese Marc, I just noticed he even said "net-next-2.6" explicitly
+in the subject lines.... :-/
