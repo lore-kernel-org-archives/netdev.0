@@ -1,255 +1,93 @@
-From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: Re: [PATCH net-next-2.6 10/17 v3] can: EG20T PCH: Fix coding rule
-	violation
-Date: Wed, 24 Nov 2010 14:54:40 +0100
-Message-ID: <4CED1920.60904@pengutronix.de>
-References: <4CED031E.7030403@dsn.okisemi.com>
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============2418144870707113249=="
-Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>, joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-To: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4CED031E.7030403-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jonas Bonn <jonas@southpole.se>
+Subject: [PATCH 7/8] ethoc: rework mdio read/write
+Date: Wed, 24 Nov 2010 14:40:57 +0100
+Message-ID: <1290606058-26703-8-git-send-email-jonas@southpole.se>
+References: <1290606058-26703-1-git-send-email-jonas@southpole.se>
+Cc: Jonas Bonn <jonas@southpole.se>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.southpole.se ([193.12.106.18]:38153 "EHLO
+	mail.southpole.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752369Ab0KXOCt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Nov 2010 09:02:49 -0500
+In-Reply-To: <1290606058-26703-1-git-send-email-jonas@southpole.se>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---===============2418144870707113249==
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig852AA05FABA7749A1B5F875A"
+MDIO read and write were checking whether a timeout had expired to determine
+whether to recheck the result of the MDIO operation.  Under heavy CPU usage,
+however, it was possible for the timeout to expire before the routine got
+around to be able to check a second time even, thus erroneousy returning an
+-EBUSY.
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig852AA05FABA7749A1B5F875A
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+This patch changes the the MDIO IO routines to try up to five times to complete
+the operation before giving up, thus lessening the dependency on CPU load.
 
-On 11/24/2010 01:20 PM, Tomoya MORINAGA wrote:
-> Fix coding rule violation.
->=20
-> Signed-off-by: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+This resolves a problem whereby a ping flood would keep the CPU so busy that
+the above problem would manifest itself; the MDIO command to check link status
+would fail and the interface would erroneously be shut down.
 
-Fix my comment (see online) , check if the lines stay (mostly) <=3D 80
-chars and add my Acked-by.
+Signed-off-by: Jonas Bonn <jonas@southpole.se>
+---
+ drivers/net/ethoc.c |   14 ++++++--------
+ 1 files changed, 6 insertions(+), 8 deletions(-)
 
-cheers, Marc
+diff --git a/drivers/net/ethoc.c b/drivers/net/ethoc.c
+index 70ca2f3..4f7c9ad 100644
+--- a/drivers/net/ethoc.c
++++ b/drivers/net/ethoc.c
+@@ -616,13 +616,13 @@ static int ethoc_poll(struct napi_struct *napi, int budget)
+ 
+ static int ethoc_mdio_read(struct mii_bus *bus, int phy, int reg)
+ {
+-	unsigned long timeout = jiffies + ETHOC_MII_TIMEOUT;
+ 	struct ethoc *priv = bus->priv;
++	int i;
+ 
+ 	ethoc_write(priv, MIIADDRESS, MIIADDRESS_ADDR(phy, reg));
+ 	ethoc_write(priv, MIICOMMAND, MIICOMMAND_READ);
+ 
+-	while (time_before(jiffies, timeout)) {
++	for (i=0; i < 5; i++) {
+ 		u32 status = ethoc_read(priv, MIISTATUS);
+ 		if (!(status & MIISTATUS_BUSY)) {
+ 			u32 data = ethoc_read(priv, MIIRX_DATA);
+@@ -630,8 +630,7 @@ static int ethoc_mdio_read(struct mii_bus *bus, int phy, int reg)
+ 			ethoc_write(priv, MIICOMMAND, 0);
+ 			return data;
+ 		}
+-
+-		schedule();
++		usleep_range(100,200);
+ 	}
+ 
+ 	return -EBUSY;
+@@ -639,22 +638,21 @@ static int ethoc_mdio_read(struct mii_bus *bus, int phy, int reg)
+ 
+ static int ethoc_mdio_write(struct mii_bus *bus, int phy, int reg, u16 val)
+ {
+-	unsigned long timeout = jiffies + ETHOC_MII_TIMEOUT;
+ 	struct ethoc *priv = bus->priv;
++	int i;
+ 
+ 	ethoc_write(priv, MIIADDRESS, MIIADDRESS_ADDR(phy, reg));
+ 	ethoc_write(priv, MIITX_DATA, val);
+ 	ethoc_write(priv, MIICOMMAND, MIICOMMAND_WRITE);
+ 
+-	while (time_before(jiffies, timeout)) {
++	for (i=0; i < 5; i++) {
+ 		u32 stat = ethoc_read(priv, MIISTATUS);
+ 		if (!(stat & MIISTATUS_BUSY)) {
+ 			/* reset MII command register */
+ 			ethoc_write(priv, MIICOMMAND, 0);
+ 			return 0;
+ 		}
+-
+-		schedule();
++		usleep_range(100,200);
+ 	}
+ 
+ 	return -EBUSY;
+-- 
+1.7.1
 
-> ---
->  drivers/net/can/pch_can.c |   48
-> ++++++++++++++++++++------------------------
->  1 files changed, 22 insertions(+), 26 deletions(-)
->=20
-> diff --git a/drivers/net/can/pch_can.c b/drivers/net/can/pch_can.c
-> index e71817d..318eb1f 100644
-> --- a/drivers/net/can/pch_can.c
-> +++ b/drivers/net/can/pch_can.c
-> @@ -89,9 +89,11 @@
->=20
->  #define PCH_CAN_CLK		50000000	/* 50MHz */
->=20
-> -/* Define the number of message object.
-> +/*
-> + * Define the number of message object.
->   * PCH CAN communications are done via Message RAM.
-> - * The Message RAM consists of 32 message objects. */
-> + * The Message RAM consists of 32 message objects.
-> + */
->  #define PCH_RX_OBJ_NUM		26
->  #define PCH_TX_OBJ_NUM		6
->  #define PCH_RX_OBJ_START	1
-> @@ -126,7 +128,7 @@ enum pch_can_mode {
->  	PCH_CAN_ALL,
->  	PCH_CAN_NONE,
->  	PCH_CAN_STOP,
-> -	PCH_CAN_RUN
-> +	PCH_CAN_RUN,
->  };
->=20
->  struct pch_can_if_regs {
-> @@ -290,21 +292,20 @@ static void pch_can_set_rxtx(struct pch_can_priv
-> *priv, u32 buff_num,
->  	else
->  		ie =3D PCH_IF_MCONT_RXIE;
->=20
-> -	/* Reading the receive buffer data from RAM to Interface1 registers *=
-/
-> +	/* Reading the receive buffer data from RAM to Interface1/2 registers=
- */
->  	iowrite32(PCH_CMASK_RX_TX_GET, &priv->regs->ifregs[dir].cmask);
->  	pch_can_rw_msg_obj(&priv->regs->ifregs[dir].creq, buff_num);
->=20
-> -	/* Setting the IF1MASK1 register to access MsgVal and RxIE bits */
-> +	/* Setting the IF1/2MASK1 register to access MsgVal and RxIE bits */
->  	iowrite32(PCH_CMASK_RDWR | PCH_CMASK_ARB | PCH_CMASK_CTRL,
->  		  &priv->regs->ifregs[dir].cmask);
->=20
->  	if (set) {
-> -		/* Setting the MsgVal and RxIE bits */
-> +		/* Setting the MsgVal and RxIE/TxIE bits */
->  		pch_can_bit_set(&priv->regs->ifregs[dir].mcont, ie);
->  		pch_can_bit_set(&priv->regs->ifregs[dir].id2, PCH_ID_MSGVAL);
-> -
->  	} else {
-> -		/* Resetting the MsgVal and RxIE bits */
-> +		/* Clearing the MsgVal and RxIE/TxIE bits */
->  		pch_can_bit_clear(&priv->regs->ifregs[dir].mcont, ie);
->  		pch_can_bit_clear(&priv->regs->ifregs[dir].id2, PCH_ID_MSGVAL);
->  	}
-> @@ -312,7 +313,6 @@ static void pch_can_set_rxtx(struct pch_can_priv
-> *priv, u32 buff_num,
->  	pch_can_rw_msg_obj(&priv->regs->ifregs[dir].creq, buff_num);
->  }
->=20
-> -
->  static void pch_can_set_rx_all(struct pch_can_priv *priv, int set)
->  {
->  	int i;
-> @@ -328,7 +328,7 @@ static void pch_can_set_tx_all(struct pch_can_priv
-> *priv, int set)
->=20
->  	/* Traversing to obtain the object configured as transmit object. */
->  	for (i =3D PCH_TX_OBJ_START; i <=3D PCH_TX_OBJ_END; i++)
-> -		pch_can_set_rxtx(priv, i, set, 1);
-> +		pch_can_set_rxtx(priv, i, set, PCH_TX_IFREG);
-
-this should be folded into the patch 1 (along with the introduction of
-the enums)
-
->  }
->=20
->  static u32 pch_can_int_pending(struct pch_can_priv *priv)
-> @@ -363,8 +363,7 @@ static void pch_can_config_rx_tx_buffers(struct
-> pch_can_priv *priv)
->  	int i;
->=20
->  	for (i =3D PCH_RX_OBJ_START; i <=3D PCH_RX_OBJ_END; i++) {
-> -		iowrite32(PCH_CMASK_RX_TX_GET,
-> -			&priv->regs->ifregs[0].cmask);
-> +		iowrite32(PCH_CMASK_RX_TX_GET, &priv->regs->ifregs[0].cmask);
->  		pch_can_rw_msg_obj(&priv->regs->ifregs[0].creq, i);
->=20
->  		iowrite32(0x0, &priv->regs->ifregs[0].id1);
-> @@ -386,16 +385,14 @@ static void pch_can_config_rx_tx_buffers(struct
-> pch_can_priv *priv)
->  				  0x1fff | PCH_MASK2_MDIR_MXTD);
->=20
->  		/* Setting CMASK for writing */
-> -		iowrite32(PCH_CMASK_RDWR | PCH_CMASK_MASK |
-> -			  PCH_CMASK_ARB | PCH_CMASK_CTRL,
-> -			  &priv->regs->ifregs[0].cmask);
-> +		iowrite32(PCH_CMASK_RDWR | PCH_CMASK_MASK | PCH_CMASK_ARB |
-> +			  PCH_CMASK_CTRL, &priv->regs->ifregs[0].cmask);
->=20
->  		pch_can_rw_msg_obj(&priv->regs->ifregs[0].creq, i);
->  	}
->=20
->  	for (i =3D PCH_TX_OBJ_START; i <=3D PCH_TX_OBJ_END; i++) {
-> -		iowrite32(PCH_CMASK_RX_TX_GET,
-> -			&priv->regs->ifregs[1].cmask);
-> +		iowrite32(PCH_CMASK_RX_TX_GET, &priv->regs->ifregs[1].cmask);
->  		pch_can_rw_msg_obj(&priv->regs->ifregs[1].creq, i);
->=20
->  		/* Resetting DIR bit for reception */
-> @@ -410,9 +407,8 @@ static void pch_can_config_rx_tx_buffers(struct
-> pch_can_priv *priv)
->  		pch_can_bit_clear(&priv->regs->ifregs[1].mask2, 0x1fff);
->=20
->  		/* Setting CMASK for writing */
-> -		iowrite32(PCH_CMASK_RDWR | PCH_CMASK_MASK |
-> -			  PCH_CMASK_ARB | PCH_CMASK_CTRL,
-> -			  &priv->regs->ifregs[1].cmask);
-> +		iowrite32(PCH_CMASK_RDWR | PCH_CMASK_MASK | PCH_CMASK_ARB |
-> +			  PCH_CMASK_CTRL, &priv->regs->ifregs[1].cmask);
->=20
->  		pch_can_rw_msg_obj(&priv->regs->ifregs[1].creq, i);
->  	}
-> @@ -471,8 +467,9 @@ static void pch_can_int_clr(struct pch_can_priv
-> *priv, u32 mask)
->=20
->  		pch_can_rw_msg_obj(&priv->regs->ifregs[0].creq, mask);
->  	} else if ((mask >=3D PCH_TX_OBJ_START) && (mask <=3D PCH_TX_OBJ_END)=
-) {
-> -		/* Setting CMASK for clearing interrupts for
-> -					 frame transmission. */
-> +		/*
-> +		 * Setting CMASK for clearing interrupts for frame transmission.
-> +		 */
->  		iowrite32(PCH_CMASK_RDWR | PCH_CMASK_CTRL | PCH_CMASK_ARB,
->  			  &priv->regs->ifregs[1].cmask);
->=20
-> @@ -600,7 +597,6 @@ static irqreturn_t pch_can_interrupt(int irq, void
-> *dev_id)
->  	struct pch_can_priv *priv =3D netdev_priv(ndev);
->=20
->  	pch_can_set_int_enables(priv, PCH_CAN_NONE);
-> -
->  	napi_schedule(&priv->napi);
->=20
->  	return IRQ_HANDLED;
-> @@ -1048,11 +1044,11 @@ static u32 pch_can_get_rxtx_ir(struct
-> pch_can_priv *priv, u32 buff_num, u32 dir)
->  	pch_can_rw_msg_obj(&priv->regs->ifregs[dir].creq, buff_num);
->=20
->  	if (((ioread32(&priv->regs->ifregs[dir].id2)) & PCH_ID_MSGVAL) &&
-> -			((ioread32(&priv->regs->ifregs[dir].mcont)) & ie)) {
-> +			((ioread32(&priv->regs->ifregs[dir].mcont)) & ie))
->  		enable =3D 1;
-> -	} else {
-> +	else
->  		enable =3D 0;
-> -	}
-> +
->  	return enable;
->  }
->=20
-
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---------------enig852AA05FABA7749A1B5F875A
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEUEARECAAYFAkztGSMACgkQjTAFq1RaXHPfCwCY4gdViZg6NokQeZDfdnet9MkR
-EQCfYOBfiF2jG00mVT8M/HAWeFmR+nA=
-=fpRn
------END PGP SIGNATURE-----
-
---------------enig852AA05FABA7749A1B5F875A--
-
---===============2418144870707113249==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Socketcan-core mailing list
-Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-https://lists.berlios.de/mailman/listinfo/socketcan-core
-
---===============2418144870707113249==--
