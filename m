@@ -1,44 +1,31 @@
-From: Filip Aben <f.aben-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH] hso: fix disable_net
-Date: Wed, 24 Nov 2010 20:35:52 +0100
-Message-ID: <1290627352.1739.19.camel@filip-linux>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 4/8] ethoc: prevent overflow of rx counter
+Date: Wed, 24 Nov 2010 11:36:28 -0800 (PST)
+Message-ID: <20101124.113628.70208708.davem@davemloft.net>
+References: <1290606058-26703-1-git-send-email-jonas@southpole.se>
+	<1290606058-26703-5-git-send-email-jonas@southpole.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	jhovold-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, pki-/L4m51SJ8HhmR6Xm/wNWPw@public.gmane.org, j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: jonas@southpole.se
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33232
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754641Ab0KXTgD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Nov 2010 14:36:03 -0500
+In-Reply-To: <1290606058-26703-5-git-send-email-jonas@southpole.se>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The HSO driver incorrectly creates a serial device instead of a net
-device when disable_net is set. It shouldn't create anything for the
-network interface.
+From: Jonas Bonn <jonas@southpole.se>
+Date: Wed, 24 Nov 2010 14:40:54 +0100
 
-Signed-off-by: Filip Aben <f.aben-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
----
+> Rewind cur_rx to prevent it from overflowing.
+> 
+> Signed-off-by: Jonas Bonn <jonas@southpole.se>
+...
+> +	/* Prevent overflow of priv->cur_rx by rewinding it */	
 
-diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-index b154a94..b05c235 100644
---- a/drivers/net/usb/hso.c
-+++ b/drivers/net/usb/hso.c
-@@ -2994,10 +2994,10 @@ static int hso_probe(struct usb_interface *interface,
- 
- 	case HSO_INTF_BULK:
- 		/* It's a regular bulk interface */
--		if (((port_spec & HSO_PORT_MASK) == HSO_PORT_NETWORK) &&
--		    !disable_net)
-+		if ((port_spec & HSO_PORT_MASK) == HSO_PORT_NETWORK) { 
-+		    if(!disable_net)
- 			hso_dev = hso_create_net_device(interface, port_spec);
--		else
-+		} else
- 			hso_dev =
- 			    hso_create_bulk_serial_device(interface, port_spec);
- 		if (!hso_dev)
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Trailing whitespace, also please integrate the feedback from Ben
+and Eric Dumazet about making this computation less expensive.
