@@ -1,60 +1,113 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 02/10] tg3: Assign correct tx margin for 5719
-Date: Wed, 24 Nov 2010 10:31:46 -0800
-Message-ID: <1290623514-18193-3-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH net-next 04/10] tg3: Fix 5719 internal FIFO overflow
+ problem
+Date: Wed, 24 Nov 2010 10:31:48 -0800
+Message-ID: <1290623514-18193-5-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, andy@greyhouse.net, mcarlson@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3921 "EHLO mms2.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:3947 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753264Ab0KXScN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754083Ab0KXScN (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 24 Nov 2010 13:32:13 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit d309a46e42542223946d3a9e4e239fdc945cb53e, entitled
-"tg3: 5719: Prevent tx data corruption", was supposed to contain the tx
-margin adjustment but it looks like it somehow was omitted.  This patch
-fixes the problem.
+Under load, there an internal FIFO can overflow on the 5719.  The fix is
+to scale back the PCIe maximum read request size based on the current
+link speed and width.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Reviewed-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/tg3.c |    4 ++++
- drivers/net/tg3.h |    2 ++
- 2 files changed, 6 insertions(+), 0 deletions(-)
+ drivers/net/tg3.c |   44 +++++++++++++++++++++++++++++++++++++++++---
+ drivers/net/tg3.h |    1 +
+ 2 files changed, 42 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index ca6b3cb..4dc0756 100644
+index 2624d71..226e60d 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -8206,6 +8206,10 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
- 	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57780 ||
- 	    (tp->tg3_flags3 & TG3_FLG3_5717_PLUS)) {
- 		val = tr32(TG3_RDMA_RSRVCTRL_REG);
+@@ -6985,7 +6985,7 @@ static void tg3_restore_pci_state(struct tg3 *tp)
+ 
+ 	if (GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5785) {
+ 		if (tp->tg3_flags2 & TG3_FLG2_PCI_EXPRESS)
+-			pcie_set_readrq(tp->pdev, 4096);
++			pcie_set_readrq(tp->pdev, tp->pcie_readrq);
+ 		else {
+ 			pci_write_config_byte(tp->pdev, PCI_CACHE_LINE_SIZE,
+ 					      tp->pci_cacheline_sz);
+@@ -7179,7 +7179,7 @@ static int tg3_chip_reset(struct tg3 *tp)
+ 				      tp->pcie_cap + PCI_EXP_DEVCTL,
+ 				      val16);
+ 
+-		pcie_set_readrq(tp->pdev, 4096);
++		pcie_set_readrq(tp->pdev, tp->pcie_readrq);
+ 
+ 		/* Clear error status */
+ 		pci_write_config_word(tp->pdev,
+@@ -13366,7 +13366,45 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
+ 
+ 		tp->tg3_flags2 |= TG3_FLG2_PCI_EXPRESS;
+ 
+-		pcie_set_readrq(tp->pdev, 4096);
++		tp->pcie_readrq = 4096;
 +		if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719) {
-+			val &= ~TG3_RDMA_RSRVCTRL_TXMRGN_MASK;
-+			val |= TG3_RDMA_RSRVCTRL_TXMRGN_320B;
++			u16 word;
++
++			pci_read_config_word(tp->pdev,
++					     tp->pcie_cap + PCI_EXP_LNKSTA,
++					     &word);
++			switch (word & PCI_EXP_LNKSTA_CLS) {
++			case PCI_EXP_LNKSTA_CLS_2_5GB:
++				word &= PCI_EXP_LNKSTA_NLW;
++				word >>= PCI_EXP_LNKSTA_NLW_SHIFT;
++				switch (word) {
++				case 2:
++					tp->pcie_readrq = 2048;
++					break;
++				case 4:
++					tp->pcie_readrq = 1024;
++					break;
++				}
++				break;
++
++			case PCI_EXP_LNKSTA_CLS_5_0GB:
++				word &= PCI_EXP_LNKSTA_NLW;
++				word >>= PCI_EXP_LNKSTA_NLW_SHIFT;
++				switch (word) {
++				case 1:
++					tp->pcie_readrq = 2048;
++					break;
++				case 2:
++					tp->pcie_readrq = 1024;
++					break;
++				case 4:
++					tp->pcie_readrq = 512;
++					break;
++				}
++			}
 +		}
- 		tw32(TG3_RDMA_RSRVCTRL_REG,
- 		     val | TG3_RDMA_RSRVCTRL_FIFO_OFLW_FIX);
- 	}
++
++		pcie_set_readrq(tp->pdev, tp->pcie_readrq);
+ 
+ 		pci_read_config_word(tp->pdev,
+ 				     tp->pcie_cap + PCI_EXP_LNKCTL,
 diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
-index 4a19748..06a4e7e 100644
+index 06a4e7e..4107036 100644
 --- a/drivers/net/tg3.h
 +++ b/drivers/net/tg3.h
-@@ -1327,6 +1327,8 @@
+@@ -2948,6 +2948,7 @@ struct tg3 {
+ 	int				pcix_cap;
+ 	int				pcie_cap;
+ 	};
++	int				pcie_readrq;
  
- #define TG3_RDMA_RSRVCTRL_REG		0x00004900
- #define TG3_RDMA_RSRVCTRL_FIFO_OFLW_FIX	 0x00000004
-+#define TG3_RDMA_RSRVCTRL_TXMRGN_320B	 0x28000000
-+#define TG3_RDMA_RSRVCTRL_TXMRGN_MASK	 0xffe00000
- /* 0x4904 --> 0x4910 unused */
- 
- #define TG3_LSO_RD_DMA_CRPTEN_CTRL	0x00004910
+ 	struct mii_bus			*mdio_bus;
+ 	int				mdio_irq[PHY_MAX_ADDR];
 -- 
 1.7.2.2
 
