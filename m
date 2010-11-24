@@ -1,8 +1,7 @@
 From: Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
-Subject: [PATCH net-next-2.6 12/17 v2] can: EG20T PCH: Fix bit timing calculation
- issue
-Date: Wed, 24 Nov 2010 16:38:16 +0900
-Message-ID: <4CECC0E8.60806__4583.63946895606$1290584452$gmane$org@dsn.okisemi.com>
+Subject: [PATCH net-next-2.6 14/17 v2] can: EG20T PCH: Comment optimization
+Date: Wed, 24 Nov 2010 16:38:36 +0900
+Message-ID: <4CECC0FC.8040103__17008.0541786321$1290584453$gmane$org@dsn.okisemi.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
@@ -15,43 +14,67 @@ To: Wolfgang Grandegger <wg@grandegger.com>,
 	Barry Song <21cnbao@gmail.com>,
 	Samuel Ortiz <sameo@linux.inte
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sm-d311v.smileserver.ne.jp ([203.211.202.206]:11841 "EHLO
+Received: from sm-d311v.smileserver.ne.jp ([203.211.202.206]:31820 "EHLO
 	sm-d311v.smileserver.ne.jp" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751488Ab0KXHim (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Nov 2010 02:38:42 -0500
+	by vger.kernel.org with ESMTP id S1752333Ab0KXHjC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Nov 2010 02:39:02 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix bit timing calculation issue
-Modify like use calculated value directly passed by CAN core module.
+Comment optimization
 
 Signed-off-by: Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
 ---
- drivers/net/can/pch_can.c |    6 ++----
- 1 files changed, 2 insertions(+), 4 deletions(-)
+ drivers/net/can/pch_can.c |   14 +++++++-------
+ 1 files changed, 7 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/can/pch_can.c b/drivers/net/can/pch_can.c
-index 7342030..466f011 100644
+index 610cf3b..df14569 100644
 --- a/drivers/net/can/pch_can.c
 +++ b/drivers/net/can/pch_can.c
-@@ -800,17 +800,15 @@ static int pch_set_bittiming(struct net_device *ndev)
- 	const struct can_bittiming *bt = &priv->can.bittiming;
- 	u32 canbit;
- 	u32 bepe;
--	u32 brp;
-  	/* Setting the CCE bit for accessing the Can Timing register. */
- 	pch_can_bit_set(&priv->regs->cont, PCH_CTRL_CCE);
- -	brp = (bt->tq) / (1000000000/PCH_CAN_CLK) - 1;
--	canbit = brp & PCH_MSK_BITT_BRP;
-+	canbit = (bt->brp - 1) & PCH_MSK_BITT_BRP;
- 	canbit |= (bt->sjw - 1) << PCH_BIT_SJW_SHIFT;
- 	canbit |= (bt->phase_seg1 + bt->prop_seg - 1) << PCH_BIT_TSEG1_SHIFT;
- 	canbit |= (bt->phase_seg2 - 1) << PCH_BIT_TSEG2_SHIFT;
--	bepe = (brp & PCH_MSK_BRPE_BRPE) >> PCH_BIT_BRPE_BRPE_SHIFT;
-+	bepe = ((bt->brp - 1) & PCH_MSK_BRPE_BRPE) >> PCH_BIT_BRPE_BRPE_SHIFT;
- 	iowrite32(canbit, &priv->regs->bitt);
- 	iowrite32(bepe, &priv->regs->brpe);
- 	pch_can_bit_clear(&priv->regs->cont, PCH_CTRL_CCE);
--- 
-1.6.0.6
+@@ -292,7 +292,7 @@ static void pch_can_set_rxtx(struct pch_can_priv
+*priv, u32 buff_num,
+ 	else
+ 		ie = PCH_IF_MCONT_RXIE;
+ -	/* Reading the receive buffer data from RAM to Interface1/2 registers */
++	/* Reading the Msg buffer from Message RAM to IF1/2 registers. */
+ 	iowrite32(PCH_CMASK_RX_TX_GET, &priv->regs->ifregs[dir].cmask);
+ 	pch_can_rw_msg_obj(&priv->regs->ifregs[dir].creq, buff_num);
+ @@ -868,7 +868,7 @@ static int pch_can_open(struct net_device *ndev)
+ 		priv->use_msi = 1;
+ 	}
+ -	/* Regsitering the interrupt. */
++	/* Regstering the interrupt. */
+ 	retval = request_irq(priv->dev->irq, pch_can_interrupt, IRQF_SHARED,
+ 			     ndev->name, ndev);
+ 	if (retval) {
+@@ -972,7 +972,7 @@ static netdev_tx_t pch_xmit(struct sk_buff *skb,
+struct net_device *ndev)
+  	can_put_echo_skb(skb, ndev, tx_obj_no - PCH_RX_OBJ_END - 1);
+ -	/* Updating the size of the data. */
++	/* Set the size of the data. Update if2_mcont */
+ 	iowrite32(cf->can_dlc | PCH_IF_MCONT_NEWDAT | PCH_IF_MCONT_TXRQXT |
+ 		  PCH_IF_MCONT_TXIE, &priv->regs->ifregs[1].mcont);
+ @@ -1072,8 +1072,8 @@ static u32 pch_can_get_rx_buffer_link(struct
+pch_can_priv *priv, u32 buffer_num)
+  static int pch_can_suspend(struct pci_dev *pdev, pm_message_t state)
+ {
+-	int i;			/* Counter variable. */
+-	int retval;		/* Return value. */
++	int i;
++	int retval;
+ 	u32 buf_stat;	/* Variable for reading the transmit buffer status. */
+ 	int counter = PCH_COUNTER_LIMIT;
+ @@ -1130,8 +1130,8 @@ static int pch_can_suspend(struct pci_dev *pdev,
+pm_message_t state)
+  static int pch_can_resume(struct pci_dev *pdev)
+ {
+-	int i;			/* Counter variable. */
+-	int retval;		/* Return variable. */
++	int i;
++	int retval;
+ 	struct net_device *dev = pci_get_drvdata(pdev);
+ 	struct pch_can_priv *priv = netdev_priv(dev);
+ -- 1.6.0.6
+
 
