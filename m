@@ -1,202 +1,60 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 08/10] tg3: use dma_alloc_coherent() instead of
- pci_alloc_consistent()
-Date: Wed, 24 Nov 2010 10:31:52 -0800
-Message-ID: <1290623514-18193-9-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH net-next 02/10] tg3: Assign correct tx margin for 5719
+Date: Wed, 24 Nov 2010 10:31:46 -0800
+Message-ID: <1290623514-18193-3-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andy@greyhouse.net, mcarlson@broadcom.com,
-	"Eric Dumazet" <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org, andy@greyhouse.net, mcarlson@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3976 "EHLO mms2.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:3921 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754426Ab0KXScN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753264Ab0KXScN (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 24 Nov 2010 13:32:13 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Using dma_alloc_coherent() permits to use GFP_KERNEL allocations instead
-of GFP_ATOMIC ones. Its better when a machine is out of memory, because
-this allows driver to sleep to get its memory and succeed its init,
-especially when allocating high order pages.
+Commit d309a46e42542223946d3a9e4e239fdc945cb53e, entitled
+"tg3: 5719: Prevent tx data corruption", was supposed to contain the tx
+margin adjustment but it looks like it somehow was omitted.  This patch
+fixes the problem.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Reviewed-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/tg3.c |   73 +++++++++++++++++++++++++++++-----------------------
- 1 files changed, 41 insertions(+), 32 deletions(-)
+ drivers/net/tg3.c |    4 ++++
+ drivers/net/tg3.h |    2 ++
+ 2 files changed, 6 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 75ebebc..3079e1f 100644
+index ca6b3cb..4dc0756 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -6337,13 +6337,13 @@ static void tg3_rx_prodring_fini(struct tg3 *tp,
- 	kfree(tpr->rx_jmb_buffers);
- 	tpr->rx_jmb_buffers = NULL;
- 	if (tpr->rx_std) {
--		pci_free_consistent(tp->pdev, TG3_RX_STD_RING_BYTES(tp),
--				    tpr->rx_std, tpr->rx_std_mapping);
-+		dma_free_coherent(&tp->pdev->dev, TG3_RX_STD_RING_BYTES(tp),
-+				  tpr->rx_std, tpr->rx_std_mapping);
- 		tpr->rx_std = NULL;
+@@ -8206,6 +8206,10 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
+ 	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57780 ||
+ 	    (tp->tg3_flags3 & TG3_FLG3_5717_PLUS)) {
+ 		val = tr32(TG3_RDMA_RSRVCTRL_REG);
++		if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719) {
++			val &= ~TG3_RDMA_RSRVCTRL_TXMRGN_MASK;
++			val |= TG3_RDMA_RSRVCTRL_TXMRGN_320B;
++		}
+ 		tw32(TG3_RDMA_RSRVCTRL_REG,
+ 		     val | TG3_RDMA_RSRVCTRL_FIFO_OFLW_FIX);
  	}
- 	if (tpr->rx_jmb) {
--		pci_free_consistent(tp->pdev, TG3_RX_JMB_RING_BYTES(tp),
--				    tpr->rx_jmb, tpr->rx_jmb_mapping);
-+		dma_free_coherent(&tp->pdev->dev, TG3_RX_JMB_RING_BYTES(tp),
-+				  tpr->rx_jmb, tpr->rx_jmb_mapping);
- 		tpr->rx_jmb = NULL;
- 	}
- }
-@@ -6356,8 +6356,10 @@ static int tg3_rx_prodring_init(struct tg3 *tp,
- 	if (!tpr->rx_std_buffers)
- 		return -ENOMEM;
+diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
+index 4a19748..06a4e7e 100644
+--- a/drivers/net/tg3.h
++++ b/drivers/net/tg3.h
+@@ -1327,6 +1327,8 @@
  
--	tpr->rx_std = pci_alloc_consistent(tp->pdev, TG3_RX_STD_RING_BYTES(tp),
--					   &tpr->rx_std_mapping);
-+	tpr->rx_std = dma_alloc_coherent(&tp->pdev->dev,
-+					 TG3_RX_STD_RING_BYTES(tp),
-+					 &tpr->rx_std_mapping,
-+					 GFP_KERNEL);
- 	if (!tpr->rx_std)
- 		goto err_out;
+ #define TG3_RDMA_RSRVCTRL_REG		0x00004900
+ #define TG3_RDMA_RSRVCTRL_FIFO_OFLW_FIX	 0x00000004
++#define TG3_RDMA_RSRVCTRL_TXMRGN_320B	 0x28000000
++#define TG3_RDMA_RSRVCTRL_TXMRGN_MASK	 0xffe00000
+ /* 0x4904 --> 0x4910 unused */
  
-@@ -6368,9 +6370,10 @@ static int tg3_rx_prodring_init(struct tg3 *tp,
- 		if (!tpr->rx_jmb_buffers)
- 			goto err_out;
- 
--		tpr->rx_jmb = pci_alloc_consistent(tp->pdev,
--						   TG3_RX_JMB_RING_BYTES(tp),
--						   &tpr->rx_jmb_mapping);
-+		tpr->rx_jmb = dma_alloc_coherent(&tp->pdev->dev,
-+						 TG3_RX_JMB_RING_BYTES(tp),
-+						 &tpr->rx_jmb_mapping,
-+						 GFP_KERNEL);
- 		if (!tpr->rx_jmb)
- 			goto err_out;
- 	}
-@@ -6489,7 +6492,7 @@ static void tg3_free_consistent(struct tg3 *tp)
- 		struct tg3_napi *tnapi = &tp->napi[i];
- 
- 		if (tnapi->tx_ring) {
--			pci_free_consistent(tp->pdev, TG3_TX_RING_BYTES,
-+			dma_free_coherent(&tp->pdev->dev, TG3_TX_RING_BYTES,
- 				tnapi->tx_ring, tnapi->tx_desc_mapping);
- 			tnapi->tx_ring = NULL;
- 		}
-@@ -6498,25 +6501,26 @@ static void tg3_free_consistent(struct tg3 *tp)
- 		tnapi->tx_buffers = NULL;
- 
- 		if (tnapi->rx_rcb) {
--			pci_free_consistent(tp->pdev, TG3_RX_RCB_RING_BYTES(tp),
--					    tnapi->rx_rcb,
--					    tnapi->rx_rcb_mapping);
-+			dma_free_coherent(&tp->pdev->dev,
-+					  TG3_RX_RCB_RING_BYTES(tp),
-+					  tnapi->rx_rcb,
-+					  tnapi->rx_rcb_mapping);
- 			tnapi->rx_rcb = NULL;
- 		}
- 
- 		tg3_rx_prodring_fini(tp, &tnapi->prodring);
- 
- 		if (tnapi->hw_status) {
--			pci_free_consistent(tp->pdev, TG3_HW_STATUS_SIZE,
--					    tnapi->hw_status,
--					    tnapi->status_mapping);
-+			dma_free_coherent(&tp->pdev->dev, TG3_HW_STATUS_SIZE,
-+					  tnapi->hw_status,
-+					  tnapi->status_mapping);
- 			tnapi->hw_status = NULL;
- 		}
- 	}
- 
- 	if (tp->hw_stats) {
--		pci_free_consistent(tp->pdev, sizeof(struct tg3_hw_stats),
--				    tp->hw_stats, tp->stats_mapping);
-+		dma_free_coherent(&tp->pdev->dev, sizeof(struct tg3_hw_stats),
-+				  tp->hw_stats, tp->stats_mapping);
- 		tp->hw_stats = NULL;
- 	}
- }
-@@ -6529,9 +6533,10 @@ static int tg3_alloc_consistent(struct tg3 *tp)
- {
- 	int i;
- 
--	tp->hw_stats = pci_alloc_consistent(tp->pdev,
--					    sizeof(struct tg3_hw_stats),
--					    &tp->stats_mapping);
-+	tp->hw_stats = dma_alloc_coherent(&tp->pdev->dev,
-+					  sizeof(struct tg3_hw_stats),
-+					  &tp->stats_mapping,
-+					  GFP_KERNEL);
- 	if (!tp->hw_stats)
- 		goto err_out;
- 
-@@ -6541,9 +6546,10 @@ static int tg3_alloc_consistent(struct tg3 *tp)
- 		struct tg3_napi *tnapi = &tp->napi[i];
- 		struct tg3_hw_status *sblk;
- 
--		tnapi->hw_status = pci_alloc_consistent(tp->pdev,
--							TG3_HW_STATUS_SIZE,
--							&tnapi->status_mapping);
-+		tnapi->hw_status = dma_alloc_coherent(&tp->pdev->dev,
-+						      TG3_HW_STATUS_SIZE,
-+						      &tnapi->status_mapping,
-+						      GFP_KERNEL);
- 		if (!tnapi->hw_status)
- 			goto err_out;
- 
-@@ -6564,9 +6570,10 @@ static int tg3_alloc_consistent(struct tg3 *tp)
- 			if (!tnapi->tx_buffers)
- 				goto err_out;
- 
--			tnapi->tx_ring = pci_alloc_consistent(tp->pdev,
--							      TG3_TX_RING_BYTES,
--						       &tnapi->tx_desc_mapping);
-+			tnapi->tx_ring = dma_alloc_coherent(&tp->pdev->dev,
-+							    TG3_TX_RING_BYTES,
-+							&tnapi->tx_desc_mapping,
-+							    GFP_KERNEL);
- 			if (!tnapi->tx_ring)
- 				goto err_out;
- 		}
-@@ -6599,9 +6606,10 @@ static int tg3_alloc_consistent(struct tg3 *tp)
- 		if (!i && (tp->tg3_flags3 & TG3_FLG3_ENABLE_RSS))
- 			continue;
- 
--		tnapi->rx_rcb = pci_alloc_consistent(tp->pdev,
--						     TG3_RX_RCB_RING_BYTES(tp),
--						     &tnapi->rx_rcb_mapping);
-+		tnapi->rx_rcb = dma_alloc_coherent(&tp->pdev->dev,
-+						   TG3_RX_RCB_RING_BYTES(tp),
-+						   &tnapi->rx_rcb_mapping,
-+						   GFP_KERNEL);
- 		if (!tnapi->rx_rcb)
- 			goto err_out;
- 
-@@ -14208,7 +14216,8 @@ static int __devinit tg3_test_dma(struct tg3 *tp)
- 	u32 *buf, saved_dma_rwctrl;
- 	int ret = 0;
- 
--	buf = pci_alloc_consistent(tp->pdev, TEST_BUFFER_SIZE, &buf_dma);
-+	buf = dma_alloc_coherent(&tp->pdev->dev, TEST_BUFFER_SIZE,
-+				 &buf_dma, GFP_KERNEL);
- 	if (!buf) {
- 		ret = -ENOMEM;
- 		goto out_nofree;
-@@ -14392,7 +14401,7 @@ static int __devinit tg3_test_dma(struct tg3 *tp)
- 	}
- 
- out:
--	pci_free_consistent(tp->pdev, TEST_BUFFER_SIZE, buf, buf_dma);
-+	dma_free_coherent(&tp->pdev->dev, TEST_BUFFER_SIZE, buf, buf_dma);
- out_nofree:
- 	return ret;
- }
+ #define TG3_LSO_RD_DMA_CRPTEN_CTRL	0x00004910
 -- 
 1.7.2.2
 
