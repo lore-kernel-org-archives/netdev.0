@@ -1,77 +1,68 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 4/8] ethoc: prevent overflow of rx counter
-Date: Wed, 24 Nov 2010 18:34:27 +0100
-Message-ID: <1290620067.3464.80.camel@edumazet-laptop>
-References: <1290606058-26703-1-git-send-email-jonas@southpole.se>
-	 <1290606058-26703-5-git-send-email-jonas@southpole.se>
+From: Greg KH <gregkh@suse.de>
+Subject: Re: [PATCH 2/3] econet: Move to staging
+Date: Wed, 24 Nov 2010 10:04:27 -0800
+Message-ID: <20101124180427.GA9974@suse.de>
+References: <1290484348.6770.1329.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Jonas Bonn <jonas@southpole.se>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, devel@driverdev.osuosl.org,
+	Debian kernel maintainers <debian-kernel@lists.debian.org>
+To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw0-f46.google.com ([74.125.83.46]:65090 "EHLO
-	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754390Ab0KXRec (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Nov 2010 12:34:32 -0500
-Received: by gwj20 with SMTP id 20so934515gwj.19
-        for <netdev@vger.kernel.org>; Wed, 24 Nov 2010 09:34:31 -0800 (PST)
-In-Reply-To: <1290606058-26703-5-git-send-email-jonas@southpole.se>
+Received: from cantor2.suse.de ([195.135.220.15]:40392 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752190Ab0KXSHC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Nov 2010 13:07:02 -0500
+Content-Disposition: inline
+In-Reply-To: <1290484348.6770.1329.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 24 novembre 2010 =C3=A0 14:40 +0100, Jonas Bonn a =C3=A9cri=
-t :
-> Rewind cur_rx to prevent it from overflowing.
->=20
-> Signed-off-by: Jonas Bonn <jonas@southpole.se>
+On Tue, Nov 23, 2010 at 03:52:28AM +0000, Ben Hutchings wrote:
+> Recent review has revealed several bugs in obscure protocol
+> implementations that can be exploited by local users for denial of
+> service or privilege escalation.
+> 
+> The econet protocol (PF_ECONET) is unmaintained.  There appear to be
+> no published applications for it, and it has never progressed beyond
+> 'experimental' status.
+> 
+> This protocol generally should not be enabled by distributions, since
+> the cost of a security flaw affecting all installed systems presumably
+> outweighs the benefit to the few (if any) legitimate users.
+> 
+> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 > ---
->  drivers/net/ethoc.c |    3 +++
->  1 files changed, 3 insertions(+), 0 deletions(-)
->=20
-> diff --git a/drivers/net/ethoc.c b/drivers/net/ethoc.c
-> index 53c03f2..7d1b5d8 100644
-> --- a/drivers/net/ethoc.c
-> +++ b/drivers/net/ethoc.c
-> @@ -408,6 +408,9 @@ static int ethoc_rx(struct net_device *dev, int l=
-imit)
->  	struct ethoc *priv =3D netdev_priv(dev);
->  	int count;
-> =20
-> +	/* Prevent overflow of priv->cur_rx by rewinding it */=09
-> +	priv->cur_rx =3D priv->cur_rx % priv->num_rx;
+>  drivers/staging/Kconfig |    2 ++
+>  net/Kconfig             |    1 -
+>  2 files changed, 2 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/staging/Kconfig b/drivers/staging/Kconfig
+> index dd94cb2..a9dd984 100644
+> --- a/drivers/staging/Kconfig
+> +++ b/drivers/staging/Kconfig
+> @@ -177,5 +177,7 @@ source "drivers/staging/speakup/Kconfig"
+>  
+>  source "net/decnet/Kconfig"
+>  
+> +source "net/econet/Kconfig"
 > +
->  	for (count =3D 0; count < limit; ++count) {
->  		unsigned int entry;
->  		struct ethoc_bd bd;
+>  endif # !STAGING_EXCLUDE_BUILD
+>  endif # STAGING
+> diff --git a/net/Kconfig b/net/Kconfig
+> index 9e4fc29..059c9f1 100644
+> --- a/net/Kconfig
+> +++ b/net/Kconfig
+> @@ -205,7 +205,6 @@ source "net/ipx/Kconfig"
+>  source "drivers/net/appletalk/Kconfig"
+>  source "net/x25/Kconfig"
+>  source "net/lapb/Kconfig"
+> -source "net/econet/Kconfig"
 
+No, please move the code itself to drivers/staging/ so we know to then
+delete it after a few kernel versions.
 
-Hmm... please try following code instead (no divides)
+thanks,
 
-diff --git a/drivers/net/ethoc.c b/drivers/net/ethoc.c
-index c5a2fe0..591b698 100644
---- a/drivers/net/ethoc.c
-+++ b/drivers/net/ethoc.c
-@@ -413,7 +413,7 @@ static int ethoc_rx(struct net_device *dev, int lim=
-it)
- 		unsigned int entry;
- 		struct ethoc_bd bd;
-=20
--		entry =3D priv->num_tx + (priv->cur_rx % priv->num_rx);
-+		entry =3D priv->num_tx + priv->cur_rx;
- 		ethoc_read_bd(priv, entry, &bd);
- 		if (bd.stat & RX_BD_EMPTY)
- 			break;
-@@ -446,7 +446,8 @@ static int ethoc_rx(struct net_device *dev, int lim=
-it)
- 		bd.stat &=3D ~RX_BD_STATS;
- 		bd.stat |=3D  RX_BD_EMPTY;
- 		ethoc_write_bd(priv, entry, &bd);
--		priv->cur_rx++;
-+		if (++priv->cur_rx =3D=3D priv->num_rx)
-+			priv->cur_rx =3D 0;
- 	}
-=20
- 	return count;
-
-
+greg k-h
