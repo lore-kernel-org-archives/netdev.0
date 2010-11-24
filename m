@@ -1,35 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/8] ethoc: Add device tree configuration
-Date: Wed, 24 Nov 2010 11:35:37 -0800 (PST)
-Message-ID: <20101124.113537.245416870.davem@davemloft.net>
-References: <1290606058-26703-1-git-send-email-jonas@southpole.se>
-	<1290606058-26703-2-git-send-email-jonas@southpole.se>
+From: Filip Aben <f.aben-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH] hso: fix disable_net
+Date: Wed, 24 Nov 2010 20:35:52 +0100
+Message-ID: <1290627352.1739.19.camel@filip-linux>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jonas@southpole.se
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58325
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753088Ab0KXTfL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Nov 2010 14:35:11 -0500
-In-Reply-To: <1290606058-26703-2-git-send-email-jonas@southpole.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	jhovold-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, pki-/L4m51SJ8HhmR6Xm/wNWPw@public.gmane.org, j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Jonas Bonn <jonas@southpole.se>
-Date: Wed, 24 Nov 2010 14:40:51 +0100
+The HSO driver incorrectly creates a serial device instead of a net
+device when disable_net is set. It shouldn't create anything for the
+network interface.
 
-> This patch adds the ability to describe ethernet devices via a flattened
-> device tree.  As device tree remains an optional feature, these bits all
-> need to be guarded by CONFIG_OF ifdefs.
-> 
-> MAC address is settable via the device tree parameter "local-mac-address";
-> however, the selection of the phy id is limited to probing, for now.
-> 
-> Signed-off-by: Jonas Bonn <jonas@southpole.se>
- ...
-> +	} 
+Signed-off-by: Filip Aben <f.aben-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+---
 
-Trailing whitespace.
+diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
+index b154a94..b05c235 100644
+--- a/drivers/net/usb/hso.c
++++ b/drivers/net/usb/hso.c
+@@ -2994,10 +2994,10 @@ static int hso_probe(struct usb_interface *interface,
+ 
+ 	case HSO_INTF_BULK:
+ 		/* It's a regular bulk interface */
+-		if (((port_spec & HSO_PORT_MASK) == HSO_PORT_NETWORK) &&
+-		    !disable_net)
++		if ((port_spec & HSO_PORT_MASK) == HSO_PORT_NETWORK) { 
++		    if(!disable_net)
+ 			hso_dev = hso_create_net_device(interface, port_spec);
+-		else
++		} else
+ 			hso_dev =
+ 			    hso_create_bulk_serial_device(interface, port_spec);
+ 		if (!hso_dev)
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
