@@ -1,35 +1,26 @@
-From: Laurent Chavey <chavey@google.com>
-Subject: Re: [PATCH 3/8] ethoc: enable interrupts after napi_complete
-Date: Wed, 24 Nov 2010 10:45:00 -0800
-Message-ID: <AANLkTikF11JbpR3EzfO-gvZ-QdmKT7PBDQL1Mh+TaxUD@mail.gmail.com>
-References: <1290606058-26703-1-git-send-email-jonas@southpole.se> <1290606058-26703-4-git-send-email-jonas@southpole.se>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 00/10] tg3: Bugfixes and enhancements
+Date: Wed, 24 Nov 2010 11:06:41 -0800 (PST)
+Message-ID: <20101124.110641.183038062.davem@davemloft.net>
+References: <1290623514-18193-1-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, Adam Edvardsson <adam.edvardsson@orsoc.se>
-To: Jonas Bonn <jonas@southpole.se>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, andy@greyhouse.net
+To: mcarlson@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.35]:38583 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751650Ab0KXSpX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Nov 2010 13:45:23 -0500
-Received: from kpbe18.cbf.corp.google.com (kpbe18.cbf.corp.google.com [172.25.105.82])
-	by smtp-out.google.com with ESMTP id oAOIjLoK030201
-	for <netdev@vger.kernel.org>; Wed, 24 Nov 2010 10:45:22 -0800
-Received: from gyd12 (gyd12.prod.google.com [10.243.49.204])
-	by kpbe18.cbf.corp.google.com with ESMTP id oAOIhlDH014219
-	for <netdev@vger.kernel.org>; Wed, 24 Nov 2010 10:45:20 -0800
-Received: by gyd12 with SMTP id 12so29861gyd.34
-        for <netdev@vger.kernel.org>; Wed, 24 Nov 2010 10:45:20 -0800 (PST)
-In-Reply-To: <1290606058-26703-4-git-send-email-jonas@southpole.se>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40789
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754587Ab0KXTGQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Nov 2010 14:06:16 -0500
+In-Reply-To: <1290623514-18193-1-git-send-email-mcarlson@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ethoc_rx can return a value == budget
-if work_done == budget, interrupt
-are not re-enabled
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Date: Wed, 24 Nov 2010 10:31:44 -0800
 
-in net_rx_action, the check for budget <= 0 will
-cause the poll loop to not be called, but will removed
-the callback to be removed from the poll_list.
+> This patchset applies some bugfixes and adds a few performance features
+> for the 5719.
 
-could this result in interrupt not being re-enabled ?
+All applied, thanks a lot.
