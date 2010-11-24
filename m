@@ -1,65 +1,59 @@
-From: Anders Franzen <anders.franzen@ericsson.com>
-Subject: [PATCH] Make the ip6_tunnel reflect the true mtu.
-Date: Wed, 24 Nov 2010 16:47:18 +0100
-Message-ID: <1290613638-8700-1-git-send-email-anders.franzen@ericsson.com>
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Subject: Re: [PATCH net-2.6] net, ppp: Report correct error code if unit
+	allocation failed
+Date: Wed, 24 Nov 2010 19:25:18 +0300
+Message-ID: <20101124162518.GA6450@lenovo>
+References: <20101123214344.GB1839@lenovo> <20101124124901.GA9268@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <eric.dumazet@gmail.com>,
-	<davem@davemloft.net>, Anders Franzen <anders.franzen@ericsson.com>
-To: <vnuorval@tcs.hut.fi>, <kozakai@linux-ipv6.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw10.se.ericsson.net ([193.180.251.61]:61114 "EHLO
-	mailgw10.se.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751930Ab0KXPrF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Nov 2010 10:47:05 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: LNML <netdev@vger.kernel.org>, Paul Mackerras <paulus@samba.org>,
+	David Miller <davem@davemloft.net>, linux-ppp@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20101124124901.GA9268@ff.dom.local>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The ip6_tunnel always assumes it consumes 40 bytes (ip6 hdr) of the mtu of the
-underlaying device. So for a normal ethernet bearer, the mtu of the ip6_tunnel is
-1460.
-However, when creating a tunnel the encap limit option is enabled by default, and it
-consumes 8 bytes more, so the true mtu shall be 1452.
+On Wed, Nov 24, 2010 at 12:49:01PM +0000, Jarek Poplawski wrote:
+> On 2010-11-23 22:43, Cyrill Gorcunov wrote:
+> > Allocating unit from ird might return several error codes
+> > not only -EAGAIN, so it should not be changed and returned
+> > precisely. Same time unit release procedure should be invoked
+> > only if device is unregistering.
+> 
+> IMHO this unit release fix should be in a separate patch.
+> 
 
-I dont really know if this breaks some statement in some RFC, so this is a request for
-comments.
+ I thought about it, but still think it should be addressed at
+same patch. Though if a separate would be preferred still --
+I've no problem in making two patches instead.
 
-Signed-off-by: Anders Franzen <anders.franzen@ericsson.com>
----
- net/ipv6/ip6_tunnel.c |    7 +++++++
- 1 files changed, 7 insertions(+), 0 deletions(-)
+> ...
+> > @@ -2668,10 +2668,10 @@ static void ppp_shutdown_interface(struc
+> >  		ppp->closing = 1;
+> >  		ppp_unlock(ppp);
+> >  		unregister_netdev(ppp->dev);
+> > +		unit_put(&pn->units_idr, ppp->file.index);
+> >  	} else
+> >  		ppp_unlock(ppp);
+> >  
+> > -	unit_put(&pn->units_idr, ppp->file.index);
+> >  	ppp->file.dead = 1;
+> >  	ppp->owner = NULL;
+> >  	wake_up_interruptible(&ppp->file.rwait);
+> 
+> Btw, it seems these last 3 lines could be moved similarly.
 
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index 2a59610..df948e8 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -1175,6 +1175,8 @@ static void ip6_tnl_link_config(struct ip6_tnl *t)
- 				sizeof (struct ipv6hdr);
+yup, at least ppp->file.dead and ppp->owner for sure, I wanted
+make this patch 'unit' orientedc and do not touch anything aside,
+it should be a separate change.
+
+> 
+> Jarek P.
+>
+
+Thanks for comments Jarek!
  
- 			dev->mtu = rt->rt6i_dev->mtu - sizeof (struct ipv6hdr);
-+			if (!(t->parms.flags & IP6_TNL_F_IGN_ENCAP_LIMIT))
-+				dev->mtu-=8;
- 
- 			if (dev->mtu < IPV6_MIN_MTU)
- 				dev->mtu = IPV6_MIN_MTU;
-@@ -1363,12 +1365,17 @@ static const struct net_device_ops ip6_tnl_netdev_ops = {
- 
- static void ip6_tnl_dev_setup(struct net_device *dev)
- {
-+	struct ip6_tnl *t = NULL;
-+
- 	dev->netdev_ops = &ip6_tnl_netdev_ops;
- 	dev->destructor = ip6_dev_free;
- 
- 	dev->type = ARPHRD_TUNNEL6;
- 	dev->hard_header_len = LL_MAX_HEADER + sizeof (struct ipv6hdr);
- 	dev->mtu = ETH_DATA_LEN - sizeof (struct ipv6hdr);
-+	t = netdev_priv(dev);
-+	if (!(t->parms.flags & IP6_TNL_F_IGN_ENCAP_LIMIT))
-+		dev->mtu-=8;
- 	dev->flags |= IFF_NOARP;
- 	dev->addr_len = sizeof(struct in6_addr);
- 	dev->features |= NETIF_F_NETNS_LOCAL;
--- 
-1.7.2.3
-
+  Cyrill
