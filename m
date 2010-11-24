@@ -1,8 +1,8 @@
 From: Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
-Subject: [PATCH net-next-2.6 9/17 v2] can: EG20T PCH: Use netdev_dbg instead
- of dev_dbg
-Date: Wed, 24 Nov 2010 16:36:56 +0900
-Message-ID: <4CECC098.5020809__1271.5921424844$1290584318$gmane$org@dsn.okisemi.com>
+Subject: [PATCH net-next-2.6 15/17 v2] can: EG20T PCH: Move MSI processing
+ open/close to probe/remove
+Date: Wed, 24 Nov 2010 16:38:49 +0900
+Message-ID: <4CECC109.4010407__28923.7526980743$1290584418$gmane$org@dsn.okisemi.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
@@ -15,86 +15,99 @@ To: Wolfgang Grandegger <wg@grandegger.com>,
 	Barry Song <21cnbao@gmail.com>,
 	Samuel Ortiz <sameo@linux.inte
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sm-d311v.smileserver.ne.jp ([203.211.202.206]:11479 "EHLO
+Received: from sm-d311v.smileserver.ne.jp ([203.211.202.206]:31955 "EHLO
 	sm-d311v.smileserver.ne.jp" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751488Ab0KXHhX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Nov 2010 02:37:23 -0500
+	by vger.kernel.org with ESMTP id S1752452Ab0KXHjP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Nov 2010 02:39:15 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For easy to readable, use netdev_dbg instead of dev_dbg partly
+Move MSI processing to probe/remove processing.
+Currently, in case this driver is integrated as module, and when this
+module is re-installed, no interrupts is to be occurred.
+For the above issue, move MSI processing to open/release processing.
 
 Signed-off-by: Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
 ---
- drivers/net/can/pch_can.c |   16 ++++++++--------
- 1 files changed, 8 insertions(+), 8 deletions(-)
+ drivers/net/can/pch_can.c |   29 ++++++++++++++---------------
+ 1 files changed, 14 insertions(+), 15 deletions(-)
 
 diff --git a/drivers/net/can/pch_can.c b/drivers/net/can/pch_can.c
-index 3a39786..e71817d 100644
+index df14569..c612a99 100644
 --- a/drivers/net/can/pch_can.c
 +++ b/drivers/net/can/pch_can.c
-@@ -222,7 +222,7 @@ static void pch_can_set_run_mode(struct pch_can_priv
-*priv,
- 		break;
-  	default:
--		dev_err(&priv->ndev->dev, "%s -> Invalid Mode.\n", __func__);
-+		netdev_err(priv->ndev, "%s -> Invalid Mode.\n", __func__);
- 		break;
- 	}
- }
-@@ -275,7 +275,7 @@ static void pch_can_set_int_enables(struct
-pch_can_priv *priv,
- 		break;
-  	default:
--		dev_err(&priv->ndev->dev, "Invalid interrupt number.\n");
-+		netdev_err(priv->ndev, "Invalid interrupt number.\n");
- 		break;
- 	}
- }
-@@ -535,7 +535,7 @@ static void pch_can_error(struct net_device *ndev,
-u32 status)
- 			cf->data[1] |= CAN_ERR_CRTL_RX_WARNING;
- 		if ((errc & PCH_TEC) > 96)
- 			cf->data[1] |= CAN_ERR_CRTL_TX_WARNING;
--		dev_warn(&ndev->dev,
-+		netdev_dbg(ndev,
- 			"%s -> Error Counter is more than 96.\n", __func__);
- 	}
- 	/* Error passive interrupt. */
-@@ -547,7 +547,7 @@ static void pch_can_error(struct net_device *ndev,
-u32 status)
- 			cf->data[1] |= CAN_ERR_CRTL_RX_PASSIVE;
- 		if ((errc & PCH_TEC) > 127)
- 			cf->data[1] |= CAN_ERR_CRTL_TX_PASSIVE;
--		dev_err(&ndev->dev,
-+		netdev_dbg(ndev,
- 			"%s -> CAN controller is ERROR PASSIVE .\n", __func__);
- 	}
- @@ -877,10 +877,10 @@ static int pch_can_open(struct net_device *ndev)
-  	retval = pci_enable_msi(priv->dev);
- 	if (retval) {
--		dev_info(&ndev->dev, "PCH CAN opened without MSI\n");
-+		netdev_err(ndev, "PCH CAN opened without MSI\n");
- 		priv->use_msi = 0;
- 	} else {
--		dev_info(&ndev->dev, "PCH CAN opened with MSI\n");
-+		netdev_err(ndev, "PCH CAN opened with MSI\n");
- 		priv->use_msi = 1;
- 	}
- @@ -888,14 +888,14 @@ static int pch_can_open(struct net_device *ndev)
+@@ -859,15 +859,6 @@ static int pch_can_open(struct net_device *ndev)
+ 	struct pch_can_priv *priv = netdev_priv(ndev);
+ 	int retval;
+ -	retval = pci_enable_msi(priv->dev);
+-	if (retval) {
+-		netdev_err(ndev, "PCH CAN opened without MSI\n");
+-		priv->use_msi = 0;
+-	} else {
+-		netdev_err(ndev, "PCH CAN opened with MSI\n");
+-		priv->use_msi = 1;
+-	}
+-
+ 	/* Regstering the interrupt. */
  	retval = request_irq(priv->dev->irq, pch_can_interrupt, IRQF_SHARED,
  			     ndev->name, ndev);
- 	if (retval) {
--		dev_err(&ndev->dev, "request_irq failed.\n");
-+		netdev_err(ndev, "request_irq failed.\n");
- 		goto req_irq_err;
- 	}
-  	/* Open common can device */
- 	retval = open_candev(ndev);
- 	if (retval) {
--		dev_err(ndev->dev.parent, "open_candev() failed %d\n", retval);
-+		netdev_err(ndev, "open_candev() failed %d\n", retval);
- 		goto err_open_candev;
- 	}
- -- 1.6.0.6
+@@ -893,9 +884,6 @@ static int pch_can_open(struct net_device *ndev)
+ err_open_candev:
+ 	free_irq(priv->dev->irq, ndev);
+ req_irq_err:
+-	if (priv->use_msi)
+-		pci_disable_msi(priv->dev);
+-
+ 	pch_can_release(priv);
+  	return retval;
+@@ -909,8 +897,6 @@ static int pch_close(struct net_device *ndev)
+ 	napi_disable(&priv->napi);
+ 	pch_can_release(priv);
+ 	free_irq(priv->dev->irq, ndev);
+-	if (priv->use_msi)
+-		pci_disable_msi(priv->dev);
+ 	close_candev(ndev);
+ 	priv->can.state = CAN_STATE_STOPPED;
+ 	return 0;
+@@ -993,12 +979,14 @@ static void __devexit pch_can_remove(struct
+pci_dev *pdev)
+ 	struct pch_can_priv *priv = netdev_priv(ndev);
+  	unregister_candev(priv->ndev);
+-	free_candev(priv->ndev);
+ 	pci_iounmap(pdev, priv->regs);
++	if (priv->use_msi)
++		pci_disable_msi(priv->dev);
+ 	pci_release_regions(pdev);
+ 	pci_disable_device(pdev);
+ 	pci_set_drvdata(pdev, NULL);
+ 	pch_can_reset(priv);
++	free_candev(priv->ndev);
+ }
+  #ifdef CONFIG_PM
+@@ -1255,6 +1243,15 @@ static int __devinit pch_can_probe(struct pci_dev
+*pdev,
+  	netif_napi_add(ndev, &priv->napi, pch_can_poll, PCH_RX_OBJ_END);
+ +	rc = pci_enable_msi(priv->dev);
++	if (rc) {
++		netdev_err(ndev, "PCH CAN opened without MSI\n");
++		priv->use_msi = 0;
++	} else {
++		netdev_err(ndev, "PCH CAN opened with MSI\n");
++		priv->use_msi = 1;
++	}
++
+ 	rc = register_candev(ndev);
+ 	if (rc) {
+ 		dev_err(&pdev->dev, "Failed register_candev %d\n", rc);
+@@ -1264,6 +1261,8 @@ static int __devinit pch_can_probe(struct pci_dev
+*pdev,
+ 	return 0;
+  probe_exit_reg_candev:
++	if (priv->use_msi)
++		pci_disable_msi(priv->dev);
+ 	free_candev(ndev);
+ probe_exit_alloc_candev:
+ 	pci_iounmap(pdev, addr);
+-- 
+1.6.0.6
 
