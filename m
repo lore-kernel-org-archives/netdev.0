@@ -1,97 +1,42 @@
-From: Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
-Subject: [PATCH net-next-2.6 17/17 v3] can: EG20T PCH: Optimize "if" condition
- in rx/tx processing
-Date: Wed, 24 Nov 2010 21:25:30 +0900
-Message-ID: <4CED043A.3060907__6147.04174590788$1290601593$gmane$org@dsn.okisemi.com>
+From: "Tomoya MORINAGA" <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6 8/17 v2] can: EG20T PCH: Change Copyright and
+	module description
+Date: Wed, 24 Nov 2010 21:32:33 +0900
+Message-ID: <001001cb8bd3$abd0cfa0$66f8800a@maildom.okisemi.com>
+References: <4CECC07E.40804@dsn.okisemi.com> <4CECEE1E.9030201@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: qi.wang@intel.com, yong.y.wang@intel.com,
-	andrew.chih.howe.khor@intel.com, joel.clark@intel.com,
-	kok.howg.ewe@intel.com, margie.foster@intel.com
-To: Wolfgang Grandegger <wg@grandegger.com>,
-	Wolfram Sang <w.sang@pengutronix.de>,
-	Christian Pellegrin <chripell@fsfe.org>,
-	Barry Song <21cnbao@gmail.com>,
-	Samuel Ortiz <sameo@linux.inte
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sm-d311v.smileserver.ne.jp ([203.211.202.206]:3156 "EHLO
-	sm-d311v.smileserver.ne.jp" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754429Ab0KXMZ5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Nov 2010 07:25:57 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>, joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+To: "Marc Kleine-Budde" <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-For reduce "if" condition, easy to read/understand the code,
-optimize "if" condition in rx/tx processing.
+On Wednesday, November 24, 2010 7:51 PM, Marc Kleine-Budde wrote:
+> Did your mailer spawn some extra spaces here?
+Sorry for in convenience.
+Once saving patch-mail temporary, it seems sometimes mail format is broken.
+I can see the phonemenon.
 
-Signed-off-by: Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
+I sent v3 patch series without temporary savings.
+
 ---
- drivers/net/can/pch_can.c |   26 ++++++++++----------------
- 1 files changed, 10 insertions(+), 16 deletions(-)
+Thanks,
 
-diff --git a/drivers/net/can/pch_can.c b/drivers/net/can/pch_can.c
-index 48f4a2e..0ecb0d5 100644
---- a/drivers/net/can/pch_can.c
-+++ b/drivers/net/can/pch_can.c
-@@ -758,19 +758,16 @@ static int pch_can_poll(struct napi_struct *napi,
-int quota)
-
- 	if (int_stat == PCH_STATUS_INT) {
- 		reg_stat = ioread32(&priv->regs->stat);
--		if (reg_stat & (PCH_BUS_OFF | PCH_LEC_ALL)) {
--			if (reg_stat & PCH_BUS_OFF ||
--			   (reg_stat & PCH_LEC_ALL) != PCH_LEC_ALL) {
--				pch_can_error(ndev, reg_stat);
--				quota--;
--			}
--		}
-
--		if (reg_stat & PCH_TX_OK)
--			pch_can_bit_clear(&priv->regs->stat, PCH_TX_OK);
-+		if ((reg_stat & (PCH_BUS_OFF | PCH_LEC_ALL)) &&
-+		   ((reg_stat & PCH_LEC_ALL) != PCH_LEC_ALL)) {
-+			pch_can_error(ndev, reg_stat);
-+			quota--;
-+		}
-
--		if (reg_stat & PCH_RX_OK)
--			pch_can_bit_clear(&priv->regs->stat, PCH_RX_OK);
-+		if (reg_stat & (PCH_TX_OK | PCH_RX_OK))
-+			pch_can_bit_clear(&priv->regs->stat,
-+					  reg_stat & (PCH_TX_OK | PCH_RX_OK));
-
- 		int_stat = pch_can_int_pending(priv);
- 	}
-@@ -917,14 +914,13 @@ static netdev_tx_t pch_xmit(struct sk_buff *skb,
-struct net_device *ndev)
- 	if (can_dropped_invalid_skb(ndev, skb))
- 		return NETDEV_TX_OK;
-
-+	tx_obj_no = priv->tx_obj;
- 	if (priv->tx_obj == PCH_TX_OBJ_END) {
- 		if (ioread32(&priv->regs->treq2) & PCH_TREQ2_TX_MASK)
- 			netif_stop_queue(ndev);
-
--		tx_obj_no = priv->tx_obj;
- 		priv->tx_obj = PCH_TX_OBJ_START;
- 	} else {
--		tx_obj_no = priv->tx_obj;
- 		priv->tx_obj++;
- 	}
-
-@@ -947,9 +943,7 @@ static netdev_tx_t pch_xmit(struct sk_buff *skb,
-struct net_device *ndev)
- 	id2 |= PCH_ID_MSGVAL;
-
- 	/* If remote frame has to be transmitted.. */
--	if (cf->can_id & CAN_RTR_FLAG)
--		id2 &= ~PCH_ID2_DIR;
--	else
-+	if (!(cf->can_id & CAN_RTR_FLAG))
- 		id2 |= PCH_ID2_DIR;
-
- 	iowrite32(id2, &priv->regs->ifregs[1].id2);
--- 
-1.6.0.6
-
+Tomoya MORINAGA
+OKI SEMICONDUCTOR CO., LTD.
