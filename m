@@ -1,57 +1,57 @@
 From: Jonas Bonn <jonas@southpole.se>
-Subject: [PATCH 8/8] ethoc: fix function return type
-Date: Wed, 24 Nov 2010 14:40:58 +0100
-Message-ID: <1290606058-26703-9-git-send-email-jonas@southpole.se>
+Subject: [PATCH 5/8] ethoc: Double check pending RX packet
+Date: Wed, 24 Nov 2010 14:40:55 +0100
+Message-ID: <1290606058-26703-6-git-send-email-jonas@southpole.se>
 References: <1290606058-26703-1-git-send-email-jonas@southpole.se>
 Cc: Jonas Bonn <jonas@southpole.se>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.southpole.se ([193.12.106.18]:38155 "EHLO
+Received: from mail.southpole.se ([193.12.106.18]:38150 "EHLO
 	mail.southpole.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755279Ab0KXOCu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Nov 2010 09:02:50 -0500
+	with ESMTP id S1752306Ab0KXOCt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Nov 2010 09:02:49 -0500
 In-Reply-To: <1290606058-26703-1-git-send-email-jonas@southpole.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-update_ethoc_tx_stats doesn't need to return anything so make its return
-type void in order to avoid an unnecessary cast when the function is called.
+An interrupt may occur between checking bd.stat and clearing the
+interrupt source register which would result in the packet going totally
+unnoticed as the interrupt will be missed.  Double check bd.stat after
+clearing the interrupt source register to guard against such an
+occurrence.
 
 Signed-off-by: Jonas Bonn <jonas@southpole.se>
 ---
- drivers/net/ethoc.c |    5 ++---
- 1 files changed, 2 insertions(+), 3 deletions(-)
+ drivers/net/ethoc.c |   16 ++++++++++++++--
+ 1 files changed, 14 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethoc.c b/drivers/net/ethoc.c
-index 4f7c9ad..b12c588 100644
+index 7d1b5d8..5afa934 100644
 --- a/drivers/net/ethoc.c
 +++ b/drivers/net/ethoc.c
-@@ -466,7 +466,7 @@ static int ethoc_rx(struct net_device *dev, int limit)
- 	return count;
- }
+@@ -417,8 +417,20 @@ static int ethoc_rx(struct net_device *dev, int limit)
  
--static int ethoc_update_tx_stats(struct ethoc *dev, struct ethoc_bd *bd)
-+static void ethoc_update_tx_stats(struct ethoc *dev, struct ethoc_bd *bd)
- {
- 	struct net_device *netdev = dev->netdev;
+ 		entry = priv->num_tx + (priv->cur_rx % priv->num_rx);
+ 		ethoc_read_bd(priv, entry, &bd);
+-		if (bd.stat & RX_BD_EMPTY)
+-			break;
++		if (bd.stat & RX_BD_EMPTY) {
++			ethoc_ack_irq(priv, INT_MASK_RX);
++			/* If packet (interrupt) came in between checking
++			 * BD_EMTPY and clearing the interrupt source, then we
++			 * risk missing the packet as the RX interrupt won't
++			 * trigger right away when we reenable it; hence, check
++			 * BD_EMTPY here again to make sure there isn't such a
++			 * packet waiting for us...
++			 */
++			ethoc_read_bd(priv, entry, &bd);
++			if (bd.stat & RX_BD_EMPTY) 
++				break;
++
++		}
  
-@@ -496,7 +496,6 @@ static int ethoc_update_tx_stats(struct ethoc *dev, struct ethoc_bd *bd)
- 	netdev->stats.collisions += (bd->stat >> 4) & 0xf;
- 	netdev->stats.tx_bytes += bd->stat >> 16;
- 	netdev->stats.tx_packets++;
--	return 0;
- }
- 
- static int ethoc_tx(struct net_device *dev, int limit)
-@@ -527,7 +526,7 @@ static int ethoc_tx(struct net_device *dev, int limit)
- 				break;
- 		}
- 
--		(void)ethoc_update_tx_stats(priv, &bd);
-+		ethoc_update_tx_stats(priv, &bd);
- 		priv->dty_tx++;
- 	}
- 
+ 		if (ethoc_update_rx_stats(priv, &bd) == 0) {
+ 			int size = bd.stat >> 16;
 -- 
 1.7.1
 
