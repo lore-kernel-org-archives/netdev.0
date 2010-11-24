@@ -1,105 +1,158 @@
-From: =?UTF-8?B?S3J6eXN6dG9mIE9sxJlkemtp?= <ole@ans.pl>
-Subject: Re: tg3 driver not advertising 1000mbit
-Date: Wed, 24 Nov 2010 21:09:52 +0100
-Message-ID: <4CED7110.9030801@ans.pl>
-References: <1244831838.9225.71.camel@HP1> <4A32CDE9.7020602@dupondje.be> <1244844106.9225.92.camel@HP1> <4A32D3DB.30703@dupondje.be> <20090624173608.GA8985@xw6200.broadcom.net> <4A453E8F.3000405@dupondje.be> <20090627022629.GA27439@xw6200.broadcom.net> <4A45ED40.4090408@dupondje.be> <20090629185038.GA29283@xw6200.broadcom.net> <4A49D8ED.5060109@dupondje.be> <20090702164212.GA8430@xw6200.broadcom.net>
+From: Mike Caoco <caoco2002@yahoo.com>
+Subject: Re: Unplug ethernet cable, the route persists.  Why?
+Date: Wed, 24 Nov 2010 12:29:43 -0800 (PST)
+Message-ID: <144174.46619.qm@web63401.mail.re1.yahoo.com>
+References: <20101124121826.39dd6ed1@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jean-Louis Dupond <info@dupondje.be>,
-	Michael Chan <mchan@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Christensen <davidch@broadcom.com>
-To: Matt Carlson <mcarlson@broadcom.com>
+Cc: Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bizon.gios.gov.pl ([195.187.34.71]:35161 "EHLO
-	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756503Ab0KXU2p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Nov 2010 15:28:45 -0500
-In-Reply-To: <20090702164212.GA8430@xw6200.broadcom.net>
+Received: from web63401.mail.re1.yahoo.com ([69.147.97.41]:41201 "HELO
+	web63401.mail.re1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753264Ab0KXU3p convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Nov 2010 15:29:45 -0500
+In-Reply-To: <20101124121826.39dd6ed1@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2009-07-02 18:42, Matt Carlson wrote:
-> On Tue, Jun 30, 2009 at 02:20:45AM -0700, Jean-Louis Dupond wrote:
->> # ethtool -i eth0
->> driver: tg3
->> version: 3.97
->> firmware-version: 5722-v3.08, ASFIPMI v6.02
->> bus-info: 0000:01:00.0
->>
->> Kernel version 2.6.29.4
->
-> Rats.  I mirrored your setup here, but I still can't reproduce the
-> problem.  I still suspect this is a bad driver<=3D>  firmware interac=
-tion.
->
-> Can you apply the following patch and show me the resulting syslog
-> entries?  The patch is just making sure the firmware request to shutd=
-own
-> really goes through.
->
->
-> diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-> index 46a3f86..900e28b 100644
-> --- a/drivers/net/tg3.c
-> +++ b/drivers/net/tg3.c
-> @@ -1124,6 +1124,9 @@ static void tg3_wait_for_event_ack(struct tg3 *=
-tp)
->   			break;
->   		udelay(8);
->   	}
-> +
-> +	if (i =3D=3D delay_cnt)
-> +		printk( KERN_WARNING "Firmware didn't ack driver event!\n" );
->   }
->
->   /* tp->lock is held. */
-> @@ -6330,12 +6333,16 @@ static void tg3_stop_fw(struct tg3 *tp)
->   		/* Wait for RX cpu to ACK the previous event. */
->   		tg3_wait_for_event_ack(tp);
->
-> +		printk( KERN_NOTICE "%s: Stopping firmware.\n", tp->dev->name );
-> +
->   		tg3_write_mem(tp, NIC_SRAM_FW_CMD_MBOX, FWCMD_NICDRV_PAUSE_FW);
->
->   		tg3_generate_fw_event(tp);
->
->   		/* Wait for RX cpu to ACK this event. */
->   		tg3_wait_for_event_ack(tp);
-> +
-> +		printk( KERN_NOTICE "%s: Operation completed.\n", tp->dev->name );
->   	}
->   }
->
-> @@ -7537,6 +7544,8 @@ static void tg3_timer(unsigned long __opaque)
->   		    !(tp->tg3_flags3&  TG3_FLG3_ENABLE_APE)) {
->   			tg3_wait_for_event_ack(tp);
->
-> +			printk( KERN_NOTICE "%s: Sending keepalive event.\n", tp->dev->na=
-me );
-> +
->   			tg3_write_mem(tp, NIC_SRAM_FW_CMD_MBOX,
->   				      FWCMD_NICDRV_ALIVE3);
->   			tg3_write_mem(tp, NIC_SRAM_FW_CMD_LEN_MBOX, 4);
 
-Hello,
+--- On Wed, 11/24/10, Stephen Hemminger <shemminger@vyatta.com> wrote:
 
-Have you been able to solve this issue? I have a similar problem with=20
-Dell PowerEdge R300 servers connected to HP2610 100Mbps switches. The=20
-servers contain two BCM5722 NICs and after a reboot, with probability=20
-about 70%, I end up with 10Mbps HD mainly on the first NIC.
+> From: Stephen Hemminger <shemminger@vyatta.com>
+> Subject: Re: Unplug ethernet cable, the route persists.  Why?
+> To: "Mike Caoco" <caoco2002@yahoo.com>
+> Cc: "Netdev" <netdev@vger.kernel.org>, "LKML" <linux-kernel@vger.kern=
+el.org>
+> Date: Wednesday, November 24, 2010, 12:18 PM
+> On Wed, 24 Nov 2010 11:48:03 -0800
+> (PST)
+> Mike Caoco <caoco2002@yahoo.com>
+> wrote:
+>=20
+> > Hello,
+> >=20
+> > This may have been discussed, but all search engines
+> couldn't give me a good answer...
+> >=20
+> > I notice that when an interface is up/running, a local
+> route is in the routing table:
+> >=20
+> > $ ifconfig eth1
+> > eth1=A0 =A0 =A0 Link encap:Ethernet=A0
+> HWaddr 00:13:20:0e:2f:ed=A0=20
+> >=A0 =A0 =A0 =A0 =A0=A0=A0inet
+> addr:192.168.1.125=A0 Bcast:192.168.1.255=A0
+> Mask:255.255.255.0
+> >=A0 =A0 =A0 =A0 =A0=A0=A0inet6
+> addr: fe80::213:20ff:fe0e:2fed/64 Scope:Link
+> >=A0 =A0 =A0 =A0 =A0=A0=A0UP
+> BROADCAST RUNNING MULTICAST=A0 MTU:1500=A0 Metric:1
+> >=A0 =A0 =A0 =A0 =A0=A0=A0RX
+> packets:35984995 errors:0 dropped:0 overruns:0 frame:0
+> >=A0 =A0 =A0 =A0 =A0=A0=A0TX
+> packets:7409151 errors:0 dropped:0 overruns:0 carrier:0
+> >=A0 =A0 =A0 =A0
+> =A0=A0=A0collisions:0 txqueuelen:1000=20
+> >=A0 =A0 =A0 =A0 =A0=A0=A0RX
+> bytes:3252413825 (3.2 GB)=A0 TX bytes:1340077250 (1.3
+> GB)
+> >=20
+> > $ ip route
+> > 192.168.20.0/24 dev eth0=A0 proto kernel=A0
+> scope link=A0 src 192.168.20.120
+> > 192.168.1.0/24 dev eth1=A0 proto kernel=A0 scope
+> link=A0 src 192.168.1.125=20
+> > default via 192.168.20.254 dev eth1=A0 metric 100=20
+> >=20
+> > After I unplug the cable from eth1, the RUNNING flag
+> disappears, but the route is still there:
+> >=20
+> > $ ifconfig eth1
+> > eth1=A0 =A0 =A0 Link encap:Ethernet=A0
+> HWaddr 00:13:20:0e:2f:ed=A0=20
+> >=A0 =A0 =A0 =A0 =A0=A0=A0inet
+> addr:192.168.1.125=A0 Bcast:192.168.1.255=A0
+> Mask:255.255.255.0
+> >=A0 =A0 =A0 =A0 =A0=A0=A0inet6
+> addr: fe80::213:20ff:fe0e:2fed/64 Scope:Link
+> >=A0 =A0 =A0 =A0 =A0=A0=A0UP
+> BROADCAST MULTICAST=A0 MTU:1500=A0 Metric:1
+> >=A0 =A0 =A0 =A0 =A0=A0=A0RX
+> packets:35985023 errors:0 dropped:0 overruns:0 frame:0
+> >=A0 =A0 =A0 =A0 =A0=A0=A0TX
+> packets:7409151 errors:0 dropped:0 overruns:0 carrier:0
+> >=A0 =A0 =A0 =A0
+> =A0=A0=A0collisions:0 txqueuelen:1000=20
+> >=A0 =A0 =A0 =A0 =A0=A0=A0RX
+> bytes:3252415633 (3.2 GB)=A0 TX bytes:1340077250 (1.3
+> GB)
+> >=20
+> > $ ip route
+> > 192.168.20.0/24 dev eth0=A0 proto kernel=A0
+> scope link=A0 src 192.168.20.120=20
+> > 192.168.1.0/24 dev eth1=A0 proto kernel=A0 scope
+> link=A0 src 192.168.1.125=20
+> > default via 192.168.20.254 dev eth1=A0 metric 100=20
+> >=20
+> > And that *prevents* from using the default route to
+> reach 192.168.1/24 subnet after eth1 is out.
+> >=20
+> > I looked at the code, it seems the IFF_RUNNING flag
+> change is ignored in dev_change_flags():
+> >=20
+> > void __dev_notify_flags(struct net_device *dev,
+> unsigned int old_flags)
+> > {
+> >=A0 =A0 =A0 =A0=A0=A0.....
+> >=A0 =A0 =A0 =A0=A0=A0if
+> (dev->flags & IFF_UP &&
+> >=A0 =A0 =A0 =A0 =A0
+> =A0=A0=A0(changes & ~(IFF_UP | IFF_PROMISC |
+> IFF_ALLMULTI | IFF_VOLATILE)))
+> >=A0 =A0 =A0 =A0 =A0 =A0 =A0
+> =A0=A0=A0call_netdevice_notifiers(NETDEV_CHANGE,
+> dev);
+> > }
+> >=20
+> > I searched in the Internet, and saw some people
+> suggest using an application listener (eg, netplug) to
+> remove the route.=20
+> >=20
+> > My question is why cannot the kernel remove the route
+> automatically when the link becomes down?=A0 Why should
+> this complexity be pushed to the user to find a program to
+> do that?
+> >=20
+>=20
+> Because there is no reason for the kernel to not expect the
+> link to come back.
+> It is up to user space to do routing policy. For
+> desktop/laptop users this is
+> done typically with NetworkManager or Connman; for routers
+> this is done with
+> Quagga; and for servers use other tools.
+>=20
+> If the kernel automatically removed the route, it would
+> cause routing daemons
+> to recompute the route table (and propagate the change)
+> every time a cable
+> got pulled or NIC needed to be reset.
+>=20
 
-I discovered that it is enough to run:
-  /sbin/mii-tool -R eth0
-  /sbin/mii-tool -R eth1
-to trigger renegotiation that brings expected 100Mbps FD. For now, I=20
-added this to my startups scripts as a workaround.
+So if you rely on NetworkManager or Connman or Quagga to remove the rou=
+te, the routing daemons will recompute the route table anyway.  So why =
+cannot this be done in the kernel? =20
 
-This problem exists in 2.6.30-stable, 2.6.31-stable and 2.6.34-stable=20
-which I'm currently running.
+Even when no NetworkManager/Quagga is present, I think it is a legitima=
+te reason to recompute the route when a cable is unplugged, which shoul=
+d not be a frequent event unless when under error conditions.
 
-Best regards,
+Thanks,
 
-			Krzysztof Ol=C4=99dzki
+
+
+     =20
