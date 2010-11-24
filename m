@@ -1,59 +1,42 @@
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: Re: [PATCH net-2.6] net, ppp: Report correct error code if unit
-	allocation failed
-Date: Wed, 24 Nov 2010 19:25:18 +0300
-Message-ID: <20101124162518.GA6450@lenovo>
-References: <20101123214344.GB1839@lenovo> <20101124124901.GA9268@ff.dom.local>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH] af_unix: limit unix_tot_inflight
+Date: Wed, 24 Nov 2010 17:25:48 +0100
+Message-ID: <20101124162548.GA7395@basil.fritz.box>
+References: <AANLkTi=Q967xpX0KLMwX-=_4_1AKO5wjHEuJ1TrNjCj9@mail.gmail.com>
+ <1290553918.2866.80.camel@edumazet-laptop>
+ <1290590335.3464.24.camel@edumazet-laptop>
+ <877hg2g4re.fsf@basil.nowhere.org>
+ <1290611906.3464.66.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: LNML <netdev@vger.kernel.org>, Paul Mackerras <paulus@samba.org>,
-	David Miller <davem@davemloft.net>, linux-ppp@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Andi Kleen <andi@firstfloor.org>,
+	Vegard Nossum <vegard.nossum@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Eugene Teo <eugene@redhat.com>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from one.firstfloor.org ([213.235.205.2]:41890 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755473Ab0KXQZw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Nov 2010 11:25:52 -0500
 Content-Disposition: inline
-In-Reply-To: <20101124124901.GA9268@ff.dom.local>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1290611906.3464.66.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 24, 2010 at 12:49:01PM +0000, Jarek Poplawski wrote:
-> On 2010-11-23 22:43, Cyrill Gorcunov wrote:
-> > Allocating unit from ird might return several error codes
-> > not only -EAGAIN, so it should not be changed and returned
-> > precisely. Same time unit release procedure should be invoked
-> > only if device is unregistering.
+> I knew somebody would suggest this ;)
 > 
-> IMHO this unit release fix should be in a separate patch.
+> Hmm, why bother ?
 > 
+> Do you think 16000 is too big ? Too small ?
 
- I thought about it, but still think it should be addressed at
-same patch. Though if a separate would be preferred still --
-I've no problem in making two patches instead.
+I just don't like static limits. Traditionally even the ones
+that seemed reasonable at some point were hit by someone
+years later.
 
-> ...
-> > @@ -2668,10 +2668,10 @@ static void ppp_shutdown_interface(struc
-> >  		ppp->closing = 1;
-> >  		ppp_unlock(ppp);
-> >  		unregister_netdev(ppp->dev);
-> > +		unit_put(&pn->units_idr, ppp->file.index);
-> >  	} else
-> >  		ppp_unlock(ppp);
-> >  
-> > -	unit_put(&pn->units_idr, ppp->file.index);
-> >  	ppp->file.dead = 1;
-> >  	ppp->owner = NULL;
-> >  	wake_up_interruptible(&ppp->file.rwait);
-> 
-> Btw, it seems these last 3 lines could be moved similarly.
+The latency issue you mention is a valid concern. I guess
+an incremental GC would be overkill here ...
 
-yup, at least ppp->file.dead and ppp->owner for sure, I wanted
-make this patch 'unit' orientedc and do not touch anything aside,
-it should be a separate change.
-
-> 
-> Jarek P.
->
-
-Thanks for comments Jarek!
- 
-  Cyrill
+-Andi
