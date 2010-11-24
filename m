@@ -1,81 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] af_unix: unix_write_space() use keyed wakeups
-Date: Wed, 24 Nov 2010 01:28:11 +0100
-Message-ID: <1290558491.2866.125.camel@edumazet-laptop>
-References: <20101029191857.5f789d56@chocolatine.cbg.collabora.co.uk>
-	 <1288380431.2680.3.camel@edumazet-laptop>
-	 <1288421084.2680.717.camel@edumazet-laptop>
-	 <20101030223609.2faa4eae@chocolatine.cbg.collabora.co.uk>
-	 <1290554876.2158.5.camel@Nokia-N900-51-1>
-	 <20101124002032.572b7292@chocolatine.cbg.collabora.co.uk>
+From: Cypher Wu <cypher.w@gmail.com>
+Subject: Re: [PATCH] arch/tile: fix rwlock so would-be write lockers don't
+ block new readers
+Date: Wed, 24 Nov 2010 10:53:17 +0800
+Message-ID: <AANLkTinx3pcJHGrQq_C-Rgk5g7SxjmpTcD0A50d8d48b@mail.gmail.com>
+References: <AANLkTikvT=x9eBovn2-m6HLqk7wyXSAR3sc9jCQ0C6mL@mail.gmail.com>
+	<1289489007.17691.1310.camel@edumazet-laptop>
+	<AANLkTik93QUQxSDmwd4Qj-gXQiWWPzd68JPAYAHBAsHR@mail.gmail.com>
+	<ZXmP8hjgLHA.4648@exchange1.tad.internal.tilera.com>
+	<4CDF1945.8090101@tilera.com>
+	<AANLkTind92uwcigzmDn8yn9a22exDy7zcreGQ5-6NLV-@mail.gmail.com>
+	<201011151425.oAFEPU3W005682@farm-0010.internal.tilera.com>
+	<AANLkTikGj+zG9OqVJseKh4fGqQNnqnJpHgcaaXOL8nNi@mail.gmail.com>
+	<4CEA71AD.5010606@tilera.com>
+	<AANLkTim1YyujwGZfenU_m52HEJJSFmTg3Wswn2DkqA3a@mail.gmail.com>
+	<4CEC2BE7.4060205@tilera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Pauli Nieminen <pauli.nieminen@collabora.co.uk>,
-	Davide Libenzi <davidel@xmailserver.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Cyrill Gorcunov <gorcunov@openvz.org>,
-	Alexey Dobriyan <adobriyan@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Rainer Weikusat <rweikusat@mssgmbh.com>
-To: Alban Crequy <alban.crequy@collabora.co.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:57922 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755479Ab0KXA2T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Nov 2010 19:28:19 -0500
-In-Reply-To: <20101124002032.572b7292@chocolatine.cbg.collabora.co.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: linux-kernel@vger.kernel.org,
+	=?ISO-8859-1?Q?Am=E9rico_Wang?= <xiyou.wangcong@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: Chris Metcalf <cmetcalf@tilera.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4CEC2BE7.4060205@tilera.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mercredi 24 novembre 2010 =C3=A0 00:20 +0000, Alban Crequy a =C3=A9c=
-rit :
-> Le Wed, 24 Nov 2010 01:27:56 +0200,
-> Pauli Nieminen <pauli.nieminen@collabora.co.uk> a =C3=A9crit :
->=20
-> > ----- Original message -----
-> > > Le Sat, 30 Oct 2010 08:44:44 +0200,
-> > > Eric Dumazet <eric.dumazet@gmail.com> a =C3=A9crit :
-> > >=20
-> > > > We still loop on 800 items, on each
-> > > > wake_up_interruptible_sync_poll() call, so maybe we want to
-> > > > optimize this later, adding a global key, ORing all items keys.=
- I
-> > > > dont think its worth the added complexity, given the biased usa=
-ge
-> > > > of your program (800 'listeners' to one event). Is it a real li=
-fe
-> > > > scenario ?
-> > >=20
-> > > Pauli Nieminen told me about his performance problem in select() =
-so
-> > > I wrote the test program but I don't know what exactly is the rea=
-l
-> > > life scenario.
-> > >=20
-> >=20
-> > Real world scenario is xsever that has tens client connections to
-> > manage. When xserver is happily sleeping at seclect call some clien=
-t
-> > reading events/replies from server triggers in kernel looping over
-> > all xserver fds. xserver isn't waiting for socket to became writeab=
-le
-> > in ussual cases so kernel schedules back to client.
->=20
-> But are they SOCK_STREAM or SOCK_DGRAM sockets? The patches fix
-> performances with SOCK_DGRAM. If the xserver scenario is with
-> SOCK_STREAM sockets, your problem is probably still unfixed.
->=20
+2010/11/24 Chris Metcalf <cmetcalf@tilera.com>:
+> On 11/22/2010 8:36 PM, Cypher Wu wrote:
+>> Say, if core A try to write_lock() rwlock and current_ticket_ is 0 and
+>> it write next_ticket_ to 1, when it processing the lock, core B try to
+>> write_lock() again and write next_ticket_ to 2, then when A
+>> write_unlock() it seen that (current_ticket_+1) is not equal to
+>> next_ticket_, so it increment current_ticket_, and core B get the
+>> lock. If core A try write_lock again before core B write_unlock, it
+>> will increment next_ticket_ to 3. And so on.
+>> This may rarely happened, I've tested it yesterday for several hours
+>> it goes very well under pressure.
+>
+> This should be OK when it happens (other than starving out the readers, but
+> that was the decision made by doing a ticket lock in the first place).
+> Even if we wrap around 255 back to zero on the tickets, the ticket queue
+> will work correctly.  The key is not to need more than 256 concurrent write
+> lock waiters, which we don't.
+>
+> --
+> Chris Metcalf, Tilera Corp.
+> http://www.tilera.com
+>
+>
 
+If we count on that, should we make 'my_ticket_ = (val >>
+WR_NEXT_SHIFT) & WR_MASK;'?
 
-It should not matter ?
-
-commit 67426b756c4d52c51 (af_unix: use keyed wakeups ) makes
-unix_write_space() call wake_up_interruptible_sync_poll() instead of
-wake_up_interruptible_sync().
-
-So it should be fixed for both STREAM/DGRAM sockets ?
-
-
-
+-- 
+Cyberman Wu
+http://www.meganovo.com
