@@ -1,79 +1,85 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] af_unix: limit unix_tot_inflight
-Date: Wed, 24 Nov 2010 16:18:26 +0100
-Message-ID: <1290611906.3464.66.camel@edumazet-laptop>
-References: <AANLkTi=Q967xpX0KLMwX-=_4_1AKO5wjHEuJ1TrNjCj9@mail.gmail.com>
-	 <1290553918.2866.80.camel@edumazet-laptop>
-	 <1290590335.3464.24.camel@edumazet-laptop>
-	 <877hg2g4re.fsf@basil.nowhere.org>
+From: "Vladislav Zolotarov" <vladz@broadcom.com>
+Subject: [PATCH net-next] bnx2x: Do interrupt mode initialization and
+ NAPIs adding before register_netdev()
+Date: Wed, 24 Nov 2010 17:21:18 +0200
+Message-ID: <1290612078.27220.2.camel@lb-tlvb-vladz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Vegard Nossum <vegard.nossum@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Eugene Teo <eugene@redhat.com>, netdev <netdev@vger.kernel.org>
-To: Andi Kleen <andi@firstfloor.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <877hg2g4re.fsf@basil.nowhere.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "Eilon Greenstein" <eilong@broadcom.com>,
+	"netdev list" <netdev@vger.kernel.org>, mchan@broadcom.com
+To: "Dave Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:4193 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750707Ab0KXPVb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Nov 2010 10:21:31 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 24 novembre 2010 =C3=A0 15:44 +0100, Andi Kleen a =C3=A9cri=
-t :
-> Eric Dumazet <eric.dumazet@gmail.com> writes:
-> >
-> > diff --git a/net/unix/garbage.c b/net/unix/garbage.c
-> > index c8df6fd..40df93d 100644
-> > --- a/net/unix/garbage.c
-> > +++ b/net/unix/garbage.c
-> > @@ -259,9 +259,16 @@ static void inc_inflight_move_tail(struct unix=
-_sock *u)
-> >  }
-> > =20
-> >  static bool gc_in_progress =3D false;
-> > +#define UNIX_INFLIGHT_TRIGGER_GC 16000
->=20
-> It would be better to define this as a percentage of
-> lowmem.
->=20
+Move the interrupt mode configuration and NAPIs adding before a
+register_netdev() call to prevent netdev->open() from running
+before these functions are done.
 
-I knew somebody would suggest this ;)
+Advance a driver version number.
 
-Hmm, why bother ?
+Signed-off-by: Vladislav Zolotarov <vladz@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+Reported-by: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/bnx2x/bnx2x.h      |    4 ++--
+ drivers/net/bnx2x/bnx2x_main.c |   12 ++++++------
+ 2 files changed, 8 insertions(+), 8 deletions(-)
 
-Do you think 16000 is too big ? Too small ?
+diff --git a/drivers/net/bnx2x/bnx2x.h b/drivers/net/bnx2x/bnx2x.h
+index 863e73a..342ab58 100644
+--- a/drivers/net/bnx2x/bnx2x.h
++++ b/drivers/net/bnx2x/bnx2x.h
+@@ -20,8 +20,8 @@
+  * (you will need to reboot afterwards) */
+ /* #define BNX2X_STOP_ON_ERROR */
+ 
+-#define DRV_MODULE_VERSION      "1.60.00-4"
+-#define DRV_MODULE_RELDATE      "2010/11/01"
++#define DRV_MODULE_VERSION      "1.60.00-5"
++#define DRV_MODULE_RELDATE      "2010/11/24"
+ #define BNX2X_BC_VER            0x040200
+ 
+ #define BNX2X_MULTI_QUEUE
+diff --git a/drivers/net/bnx2x/bnx2x_main.c b/drivers/net/bnx2x/bnx2x_main.c
+index 92057d7..f53edfd 100644
+--- a/drivers/net/bnx2x/bnx2x_main.c
++++ b/drivers/net/bnx2x/bnx2x_main.c
+@@ -9096,12 +9096,6 @@ static int __devinit bnx2x_init_one(struct pci_dev *pdev,
+ 	/* calc qm_cid_count */
+ 	bp->qm_cid_count = bnx2x_set_qm_cid_count(bp, cid_count);
+ 
+-	rc = register_netdev(dev);
+-	if (rc) {
+-		dev_err(&pdev->dev, "Cannot register net device\n");
+-		goto init_one_exit;
+-	}
+-
+ 	/* Configure interupt mode: try to enable MSI-X/MSI if
+ 	 * needed, set bp->num_queues appropriately.
+ 	 */
+@@ -9110,6 +9104,12 @@ static int __devinit bnx2x_init_one(struct pci_dev *pdev,
+ 	/* Add all NAPI objects */
+ 	bnx2x_add_all_napi(bp);
+ 
++	rc = register_netdev(dev);
++	if (rc) {
++		dev_err(&pdev->dev, "Cannot register net device\n");
++		goto init_one_exit;
++	}
++
+ 	bnx2x_get_pcie_width_speed(bp, &pcie_width, &pcie_speed);
+ 
+ 	netdev_info(dev, "%s (%c%d) PCI-E x%d %s found at mem %lx,"
+-- 
+1.7.0.4
 
-1) What would be the percentage of memory ? 1%, 0.001 % ?
-
-  On a 16TB machine, a percentage will still give huge latencies to the
-poor guy that hit the unix_gc().
-
-With 16000, the max latency I had was 11.5 ms (on an Intel E5540
-@2.53GHz), instead of more than 2000 ms
-
-I guess it would make more sense to limit to the size of cpu cache
-anyway.
 
 
-2) We currently allocate 4096 bytes (on x86_64) to store one file
-pointer, or 2048 bytes on x86_32.
 
-But we can store in it up to 255 files.
-
- I posted a patch to shrink this to 32 or 16 bytes. Should we then
-change the heuristic ?
-
-3) Really who needs more than 16000 inflight unix files ?
-
-  (inflight unix files means : af_unix file descriptors that were sent
-(sendfd()) through af_unix, not yet garbage collected.).
-
-
-4) If we autotune a limit at boot time as a lowmem percentage, some guy=
-s
-then want a /proc/sys/net/core/max_unix_inflight sysctl , just for
-completeness. One extra sysctl...=20
-
-I cant see valid uses but programs designed to stress our stack.
