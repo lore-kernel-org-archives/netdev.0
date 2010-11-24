@@ -1,66 +1,72 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: possible kernel oops from user MSS
-Date: Wed, 24 Nov 2010 11:47:53 -0800 (PST)
-Message-ID: <20101124.114753.242145402.davem@davemloft.net>
-References: <20101110.124119.102563803.davem@davemloft.net>
-	<AANLkTin-gXceUQxKvQeP8Nc8oXZDJnyjoFUjYD5x_g_y@mail.gmail.com>
-	<4CDDC6EE.2010005@mvista.com>
+From: Mike Caoco <caoco2002@yahoo.com>
+Subject: Unplug ethernet cable, the route persists.  Why?
+Date: Wed, 24 Nov 2010 11:48:03 -0800 (PST)
+Message-ID: <242082.99180.qm@web63407.mail.re1.yahoo.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mzhang@mvista.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46943
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755775Ab0KXTr1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Nov 2010 14:47:27 -0500
-In-Reply-To: <4CDDC6EE.2010005@mvista.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: caoco2002@yahoo.com
+To: Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Min Zhang <mzhang@mvista.com>
-Date: Fri, 12 Nov 2010 14:59:58 -0800
+Hello,
 
-> Regarding commit 7a1abd08d52fdeddb3e9a5a33f2f15cc6a5674d2 ("tcp:
-> Increase TCP_MAXSEG socket option minimum"). What is the reason
-> TCP_MAXSEG minimum be 64? Isn't the exact be 40 which is
-> TCPOLEN_MD5SIG_ALIGNED(20) + TCPOLEN_TSTAMP_ALIGNED(12) + 8?
-> 
-> Or is it better to use TCP_MIN_MSS from tcp.h:
-> 
-> /* Minimal accepted MSS. It is (60+60+8) - (20+20). */
-> #define TCP_MIN_MSS        88U
+This may have been discussed, but all search engines couldn't give me a good answer...
 
-Committed to net-2.6:
+I notice that when an interface is up/running, a local route is in the routing table:
 
---------------------
->From c39508d6f118308355468314ff414644115a07f3 Mon Sep 17 00:00:00 2001
-From: David S. Miller <davem@davemloft.net>
-Date: Wed, 24 Nov 2010 11:47:22 -0800
-Subject: [PATCH] tcp: Make TCP_MAXSEG minimum more correct.
+$ ifconfig eth1
+eth1      Link encap:Ethernet  HWaddr 00:13:20:0e:2f:ed  
+          inet addr:192.168.1.125  Bcast:192.168.1.255  Mask:255.255.255.0
+          inet6 addr: fe80::213:20ff:fe0e:2fed/64 Scope:Link
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:35984995 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:7409151 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000 
+          RX bytes:3252413825 (3.2 GB)  TX bytes:1340077250 (1.3 GB)
 
-Use TCP_MIN_MSS instead of constant 64.
+$ ip route
+192.168.20.0/24 dev eth0  proto kernel  scope link  src 192.168.20.120
+192.168.1.0/24 dev eth1  proto kernel  scope link  src 192.168.1.125 
+default via 192.168.20.254 dev eth1  metric 100 
 
-Reported-by: Min Zhang <mzhang@mvista.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/ipv4/tcp.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+After I unplug the cable from eth1, the RUNNING flag disappears, but the route is still there:
 
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 0814199..f15c36a 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2246,7 +2246,7 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
- 		/* Values greater than interface MTU won't take effect. However
- 		 * at the point when this call is done we typically don't yet
- 		 * know which interface is going to be used */
--		if (val < 64 || val > MAX_TCP_WINDOW) {
-+		if (val < TCP_MIN_MSS || val > MAX_TCP_WINDOW) {
- 			err = -EINVAL;
- 			break;
- 		}
--- 
-1.7.3.2
+$ ifconfig eth1
+eth1      Link encap:Ethernet  HWaddr 00:13:20:0e:2f:ed  
+          inet addr:192.168.1.125  Bcast:192.168.1.255  Mask:255.255.255.0
+          inet6 addr: fe80::213:20ff:fe0e:2fed/64 Scope:Link
+          UP BROADCAST MULTICAST  MTU:1500  Metric:1
+          RX packets:35985023 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:7409151 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000 
+          RX bytes:3252415633 (3.2 GB)  TX bytes:1340077250 (1.3 GB)
 
+$ ip route
+192.168.20.0/24 dev eth0  proto kernel  scope link  src 192.168.20.120 
+192.168.1.0/24 dev eth1  proto kernel  scope link  src 192.168.1.125 
+default via 192.168.20.254 dev eth1  metric 100 
+
+And that *prevents* from using the default route to reach 192.168.1/24 subnet after eth1 is out.
+
+I looked at the code, it seems the IFF_RUNNING flag change is ignored in dev_change_flags():
+
+void __dev_notify_flags(struct net_device *dev, unsigned int old_flags)
+{
+        .....
+        if (dev->flags & IFF_UP &&
+            (changes & ~(IFF_UP | IFF_PROMISC | IFF_ALLMULTI | IFF_VOLATILE)))
+                call_netdevice_notifiers(NETDEV_CHANGE, dev);
+}
+
+I searched in the Internet, and saw some people suggest using an application listener (eg, netplug) to remove the route. 
+
+My question is why cannot the kernel remove the route automatically when the link becomes down?  Why should this complexity be pushed to the user to find a program to do that?
+
+Thanks,
+Joe
+
+
+      
