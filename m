@@ -1,89 +1,41 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: Unplug ethernet cable, the route persists.  Why?
-Date: Wed, 24 Nov 2010 12:18:26 -0800
-Message-ID: <20101124121826.39dd6ed1@nehalam>
-References: <242082.99180.qm@web63407.mail.re1.yahoo.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: bonding: propagation of offload settings
+Date: Wed, 24 Nov 2010 12:27:36 -0800 (PST)
+Message-ID: <20101124.122736.200378471.davem@davemloft.net>
+References: <20101030025435.GF12842@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Mike Caoco <caoco2002@yahoo.com>
+Cc: netdev@vger.kernel.org, fubar@us.ibm.com
+To: horms@verge.net.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:35082 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752955Ab0KXUS2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Nov 2010 15:18:28 -0500
-In-Reply-To: <242082.99180.qm@web63407.mail.re1.yahoo.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51208
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756449Ab0KXU1L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Nov 2010 15:27:11 -0500
+In-Reply-To: <20101030025435.GF12842@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 24 Nov 2010 11:48:03 -0800 (PST)
-Mike Caoco <caoco2002@yahoo.com> wrote:
+From: Simon Horman <horms@verge.net.au>
+Date: Sat, 30 Oct 2010 11:54:35 +0900
 
-> Hello,
+> It seems to me that from a user point of view it may make more sense to:
 > 
-> This may have been discussed, but all search engines couldn't give me a good answer...
-> 
-> I notice that when an interface is up/running, a local route is in the routing table:
-> 
-> $ ifconfig eth1
-> eth1      Link encap:Ethernet  HWaddr 00:13:20:0e:2f:ed  
->           inet addr:192.168.1.125  Bcast:192.168.1.255  Mask:255.255.255.0
->           inet6 addr: fe80::213:20ff:fe0e:2fed/64 Scope:Link
->           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
->           RX packets:35984995 errors:0 dropped:0 overruns:0 frame:0
->           TX packets:7409151 errors:0 dropped:0 overruns:0 carrier:0
->           collisions:0 txqueuelen:1000 
->           RX bytes:3252413825 (3.2 GB)  TX bytes:1340077250 (1.3 GB)
-> 
-> $ ip route
-> 192.168.20.0/24 dev eth0  proto kernel  scope link  src 192.168.20.120
-> 192.168.1.0/24 dev eth1  proto kernel  scope link  src 192.168.1.125 
-> default via 192.168.20.254 dev eth1  metric 100 
-> 
-> After I unplug the cable from eth1, the RUNNING flag disappears, but the route is still there:
-> 
-> $ ifconfig eth1
-> eth1      Link encap:Ethernet  HWaddr 00:13:20:0e:2f:ed  
->           inet addr:192.168.1.125  Bcast:192.168.1.255  Mask:255.255.255.0
->           inet6 addr: fe80::213:20ff:fe0e:2fed/64 Scope:Link
->           UP BROADCAST MULTICAST  MTU:1500  Metric:1
->           RX packets:35985023 errors:0 dropped:0 overruns:0 frame:0
->           TX packets:7409151 errors:0 dropped:0 overruns:0 carrier:0
->           collisions:0 txqueuelen:1000 
->           RX bytes:3252415633 (3.2 GB)  TX bytes:1340077250 (1.3 GB)
-> 
-> $ ip route
-> 192.168.20.0/24 dev eth0  proto kernel  scope link  src 192.168.20.120 
-> 192.168.1.0/24 dev eth1  proto kernel  scope link  src 192.168.1.125 
-> default via 192.168.20.254 dev eth1  metric 100 
-> 
-> And that *prevents* from using the default route to reach 192.168.1/24 subnet after eth1 is out.
-> 
-> I looked at the code, it seems the IFF_RUNNING flag change is ignored in dev_change_flags():
-> 
-> void __dev_notify_flags(struct net_device *dev, unsigned int old_flags)
-> {
->         .....
->         if (dev->flags & IFF_UP &&
->             (changes & ~(IFF_UP | IFF_PROMISC | IFF_ALLMULTI | IFF_VOLATILE)))
->                 call_netdevice_notifiers(NETDEV_CHANGE, dev);
-> }
-> 
-> I searched in the Internet, and saw some people suggest using an application listener (eg, netplug) to remove the route. 
-> 
-> My question is why cannot the kernel remove the route automatically when the link becomes down?  Why should this complexity be pushed to the user to find a program to do that?
-> 
+> a) propagate settings from the master to the slaves and;
+> b) possibly disallow setting the slaves directly
 
-Because there is no reason for the kernel to not expect the link to come back.
-It is up to user space to do routing policy. For desktop/laptop users this is
-done typically with NetworkManager or Connman; for routers this is done with
-Quagga; and for servers use other tools.
+Yeah, good question.
 
-If the kernel automatically removed the route, it would cause routing daemons
-to recompute the route table (and propagate the change) every time a cable
-got pulled or NIC needed to be reset.
+Propagation from master to slave(s) would have difficult semantics.
+If any of the slave changes fail (f.e. unsupported feature or memory
+allocation failure) we'd have to unwind all of the slaves which did
+accept the change without error.
 
+What if the unwind operation fails, due to lack of resources?  A lot
+of state would thus need to be tracked to support this reasonably.
 
--- 
+However we pretty much have to respect whatever changes get made
+directly to the slaves, since the master must at all times claim
+support for only the lowest common denominator, feature wise, amongst
+that master's slaves.
