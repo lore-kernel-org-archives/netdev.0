@@ -1,44 +1,118 @@
-From: David Strand <dpstrand@gmail.com>
-Subject: Re: [PATCH] bonding: check for assigned mac before adopting the
- slaves mac address
-Date: Wed, 24 Nov 2010 17:45:42 -0800
-Message-ID: <AANLkTi=-DzUmopboX13V_cd=mZnmD=mBNNCuhQYF0PQQ@mail.gmail.com>
-References: <AANLkTinpO=FmoecfV8epubXU4OrhFsXJ7-Kc68yNhMEs@mail.gmail.com>
-	<31169.1290641617@death>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jay Vosburgh <fubar@us.ibm.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: [PATCH 2/8] IPVS: Split ports[2] into src_port and dst_port
+Date: Thu, 25 Nov 2010 10:46:52 +0900
+Message-ID: <1290649618-18955-3-git-send-email-horms@verge.net.au>
+References: <1290649618-18955-1-git-send-email-horms@verge.net.au>
+Cc: Hans Schillstrom <hans.schillstrom@ericsson.com>,
+	Julian Anastasov <ja@ssi.bg>,
+	Patrick McHardy <kaber@trash.net>,
+	Simon Horman <horms@verge.net.au>
+To: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter@vger.kernel.org, netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:49729 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752555Ab0KYBpn convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Nov 2010 20:45:43 -0500
-In-Reply-To: <31169.1290641617@death>
+Received: from kirsty.vergenet.net ([202.4.237.240]:58415 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752918Ab0KYBrH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Nov 2010 20:47:07 -0500
+In-Reply-To: <1290649618-18955-1-git-send-email-horms@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We have a use case where we assign a mac to the bond device, because
-the slave device configuration may change periodically. With older
-kernels, it honored the assigned mac and everything was fine, with
-2.6.36 it now uses the mac of whatever slave device is first instead
-of our assigned one.
+From: Hans Schillstrom <hans.schillstrom@ericsson.com>
 
-ifenslave code and documentation appears to still support the old way,
-where a bond assigned mac will reign supreme, so this patch restores
-that behavior.
+Avoid sending invalid pointer due to skb_linearize() call.
+This patch prepares for next patch where skb_linearize is a part.
 
-On Wed, Nov 24, 2010 at 3:33 PM, Jay Vosburgh <fubar@us.ibm.com> wrote:
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0How exactly is this a regression? =C2=A0Th=
-e above referenced patch
-> changes the method used to decide if the bonding master needs to have
-> it's MAC address set. =C2=A0The original way was "bonding master's MA=
-C is
-> zero," after the above, it's "adding first slave."
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0Do you have some use case that manually se=
-ts the master's MAC
-> address prior to adding any slaves?
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0-J
+In ip_vs_sched_persist() params the ports ptr will be replaced by
+src and dst port.
+
+Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Acked-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Simon Horman <horms@verge.net.au>
+---
+ net/netfilter/ipvs/ip_vs_core.c |   21 +++++++++++----------
+ 1 files changed, 11 insertions(+), 10 deletions(-)
+
+diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
+index e2bb3cd..9acdd79 100644
+--- a/net/netfilter/ipvs/ip_vs_core.c
++++ b/net/netfilter/ipvs/ip_vs_core.c
+@@ -200,7 +200,7 @@ ip_vs_conn_fill_param_persist(const struct ip_vs_service *svc,
+ static struct ip_vs_conn *
+ ip_vs_sched_persist(struct ip_vs_service *svc,
+ 		    struct sk_buff *skb,
+-		    __be16 ports[2])
++		    __be16 src_port, __be16 dst_port)
+ {
+ 	struct ip_vs_conn *cp = NULL;
+ 	struct ip_vs_iphdr iph;
+@@ -224,8 +224,8 @@ ip_vs_sched_persist(struct ip_vs_service *svc,
+ 
+ 	IP_VS_DBG_BUF(6, "p-schedule: src %s:%u dest %s:%u "
+ 		      "mnet %s\n",
+-		      IP_VS_DBG_ADDR(svc->af, &iph.saddr), ntohs(ports[0]),
+-		      IP_VS_DBG_ADDR(svc->af, &iph.daddr), ntohs(ports[1]),
++		      IP_VS_DBG_ADDR(svc->af, &iph.saddr), ntohs(src_port),
++		      IP_VS_DBG_ADDR(svc->af, &iph.daddr), ntohs(dst_port),
+ 		      IP_VS_DBG_ADDR(svc->af, &snet));
+ 
+ 	/*
+@@ -247,14 +247,14 @@ ip_vs_sched_persist(struct ip_vs_service *svc,
+ 		const union nf_inet_addr fwmark = { .ip = htonl(svc->fwmark) };
+ 		__be16 vport = 0;
+ 
+-		if (ports[1] == svc->port) {
++		if (dst_port == svc->port) {
+ 			/* non-FTP template:
+ 			 * <protocol, caddr, 0, vaddr, vport, daddr, dport>
+ 			 * FTP template:
+ 			 * <protocol, caddr, 0, vaddr, 0, daddr, 0>
+ 			 */
+ 			if (svc->port != FTPPORT)
+-				vport = ports[1];
++				vport = dst_port;
+ 		} else {
+ 			/* Note: persistent fwmark-based services and
+ 			 * persistent port zero service are handled here.
+@@ -285,7 +285,7 @@ ip_vs_sched_persist(struct ip_vs_service *svc,
+ 			return NULL;
+ 		}
+ 
+-		if (ports[1] == svc->port && svc->port != FTPPORT)
++		if (dst_port == svc->port && svc->port != FTPPORT)
+ 			dport = dest->port;
+ 
+ 		/* Create a template
+@@ -306,7 +306,7 @@ ip_vs_sched_persist(struct ip_vs_service *svc,
+ 		kfree(param.pe_data);
+ 	}
+ 
+-	dport = ports[1];
++	dport = dst_port;
+ 	if (dport == svc->port && dest->port)
+ 		dport = dest->port;
+ 
+@@ -317,8 +317,9 @@ ip_vs_sched_persist(struct ip_vs_service *svc,
+ 	/*
+ 	 *    Create a new connection according to the template
+ 	 */
+-	ip_vs_conn_fill_param(svc->af, iph.protocol, &iph.saddr, ports[0],
+-			      &iph.daddr, ports[1], &param);
++	ip_vs_conn_fill_param(svc->af, iph.protocol, &iph.saddr, src_port,
++			      &iph.daddr, dst_port, &param);
++
+ 	cp = ip_vs_conn_new(&param, &dest->addr, dport, flags, dest, skb->mark);
+ 	if (cp == NULL) {
+ 		ip_vs_conn_put(ct);
+@@ -388,7 +389,7 @@ ip_vs_schedule(struct ip_vs_service *svc, struct sk_buff *skb,
+ 	 */
+ 	if (svc->flags & IP_VS_SVC_F_PERSISTENT) {
+ 		*ignored = 0;
+-		return ip_vs_sched_persist(svc, skb, pptr);
++		return ip_vs_sched_persist(svc, skb, pptr[0], pptr[1]);
+ 	}
+ 
+ 	/*
+-- 
+1.7.2.3
+
