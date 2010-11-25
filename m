@@ -1,31 +1,48 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [PATCH 1/2] Prepare the tree for un-inlined jhash.
-Date: Thu, 25 Nov 2010 14:39:49 +0100 (CET)
-Message-ID: <alpine.LNX.2.01.1011251439160.21752@obet.zrqbmnf.qr>
-References: <1290690908-794-1-git-send-email-kadlec@blackhole.kfki.hu> <1290690908-794-2-git-send-email-kadlec@blackhole.kfki.hu>
+From: Filip Aben <f.aben-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCHv2] hso: fix disable_net
+Date: Thu, 25 Nov 2010 14:40:50 +0100
+Message-ID: <1290692450.2112.21.camel@filip-linux>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Linus Torvalds <torvalds@osdl.org>,
-	Rusty Russell <rusty@rustcorp.com.au>
-To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1290690908-794-2-git-send-email-kadlec@blackhole.kfki.hu>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	jhovold-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, pki-/L4m51SJ8HhmR6Xm/wNWPw@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 2010-11-25 14:15, Jozsef Kadlecsik wrote:
+The HSO driver incorrectly creates a serial device instead of a net
+device when disable_net is set. It shouldn't create anything for the
+network interface.
 
->jhash is widely used in the kernel and because the functions
->are inlined, the cost in size is significant. Also, the new jhash
->functions are slightly larger than the previous ones so better un-inline.
->As a preparation step, the calls to the internal macros are replaced
->with the plain jhash function calls.
+Signed-off-by: Filip Aben <f.aben-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+---
+diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
+index b154a94..1b755ae 100644
+--- a/drivers/net/usb/hso.c
++++ b/drivers/net/usb/hso.c
+@@ -2994,12 +2994,14 @@ static int hso_probe(struct usb_interface *interface,
+ 
+ 	case HSO_INTF_BULK:
+ 		/* It's a regular bulk interface */
+-		if (((port_spec & HSO_PORT_MASK) == HSO_PORT_NETWORK) &&
+-		    !disable_net)
+-			hso_dev = hso_create_net_device(interface, port_spec);
+-		else
++		if ((port_spec & HSO_PORT_MASK) == HSO_PORT_NETWORK) { 
++			if(!disable_net)
++				hso_dev =
++				    hso_create_net_device(interface, port_spec);
++		} else {
+ 			hso_dev =
+ 			    hso_create_bulk_serial_device(interface, port_spec);
++		}
+ 		if (!hso_dev)
+ 			goto exit;
+ 		break;
 
-Do you have a non-normative allyesconfig/allmodconfig build whose 
-size(1) you can run on, to show approximately just how much it differs?
-
-
-thanks,
-Jan
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
