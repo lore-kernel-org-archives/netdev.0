@@ -1,51 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: TCP_MAXSEG vs TCP/generic segmentation offload (tso/gso)
-Date: Thu, 25 Nov 2010 16:18:31 +0100
-Message-ID: <1290698312.2858.341.camel@edumazet-laptop>
-References: <nny68hqzzn.fsf@stalhein.lysator.liu.se>
-	 <1290695253.2858.336.camel@edumazet-laptop>
-	 <nnaakxqw1u.fsf@stalhein.lysator.liu.se>
+From: Filip Aben <f.aben-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCHv2] hso: fix disable_net
+Date: Thu, 25 Nov 2010 17:01:06 +0100
+Message-ID: <1290700866.2112.60.camel@filip-linux>
+References: <1290692450.2112.21.camel@filip-linux>
+	 <AANLkTikODWoXB1PmB+SFbFWenYm_-o+RJ+czK9LnaXmn@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Niels =?ISO-8859-1?Q?M=F6ller?= <nisse@lysator.liu.se>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <nnaakxqw1u.fsf@stalhein.lysator.liu.se>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, pki-/L4m51SJ8HhmR6Xm/wNWPw@public.gmane.org
+To: Johan Hovold <jhovold-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <AANLkTikODWoXB1PmB+SFbFWenYm_-o+RJ+czK9LnaXmn-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Le jeudi 25 novembre 2010 =C3=A0 16:09 +0100, Niels M=C3=B6ller a =C3=A9=
-crit :
-> Eric Dumazet <eric.dumazet@gmail.com> writes:
->=20
-> > So... there is no 'bug', unless you trust too much tcpdump output.
->=20
-> I really expected tcpdump -e to display the actual values in the link
-> layer header, including the correct frame size. It's more than a bit
-> confusing if that is not the case...
->=20
-> In the future, I will try to remember to always run tcpdump on a netw=
-ork
-> node which (i) is different from the sending one, and (ii) has GRO
-> disabled (and hence will discard packets if it has trouble processing
-> them all, rather than coalesce them).
->=20
+On Thu, 2010-11-25 at 16:03 +0100, Johan Hovold wrote:
+> On Thu, Nov 25, 2010 at 2:40 PM, Filip Aben <f.aben-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org> wrote:
+> > The HSO driver incorrectly creates a serial device instead of a net
+> > device when disable_net is set. It shouldn't create anything for the
+> > network interface.
+> >
+> > Signed-off-by: Filip Aben <f.aben-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+> 
+> Please add the appropriate Reported-by-tags as well, e.g.
+> 
+> Reported-by: Piotr Isajew <pki-/L4m51SJ8HhmR6Xm/wNWPw@public.gmane.org>
+> Reported-by: Johan Hovold <jhovold-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-Just disable GSO and TSO on sending machine, then tcpdump will show you
-individual frames.
+I would have gladly done so if you included that in your comment on the
+previous patch :)
+
+> 
+> As this patch is meant to fix a driver crash, perhaps it should be marked for
+> stable as well?
+> 
+
+I don't think it's that critical: it only applies to people explicitly
+loading the module with disable_net set. But feel free to queue it up
+for stable.
+
+Thanks,
+
+Filip-
 
 
-> What about the TCP_MAXSEG socket option, should that work? From a qui=
-ck
-> look at driver source code, I could only see the handling of the
-> per-interface MTU, no per-socket segment size.
 
-TCP_MAXSEG is certainly not handled in driver layer, but TCP layer.
-
-/* If user gave his TCP_MAXSEG, record it to clamp */
-if (tp->rx_opt.user_mss)
-	tp->rx_opt.mss_clamp =3D tp->rx_opt.user_mss;
-
-I believe TCP_MAXSEG is working fine, but GRO/GSO dont care at all :
-They coalesce frames whatever their size is.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
