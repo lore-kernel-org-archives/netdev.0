@@ -1,89 +1,53 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 2/2] The new jhash implementation
-Date: Thu, 25 Nov 2010 18:21:09 +0100
-Message-ID: <1290705669.2858.381.camel@edumazet-laptop>
-References: <1290690908-794-1-git-send-email-kadlec@blackhole.kfki.hu>
-	 <1290690908-794-2-git-send-email-kadlec@blackhole.kfki.hu>
-	 <1290690908-794-3-git-send-email-kadlec@blackhole.kfki.hu>
-	 <1290692943.2858.303.camel@edumazet-laptop>
-	 <alpine.DEB.2.00.1011251520270.1198@blackhole.kfki.hu>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Linus Torvalds <torvalds@osdl.org>,
-	Rusty Russell <rusty@rustcorp.com.au>
-To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.00.1011251520270.1198@blackhole.kfki.hu>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: leitao@linux.vnet.ibm.com
+Subject: [PATCH] cxgb3: Removing unused return variable
+Date: Thu, 25 Nov 2010 15:53:55 -0200
+Message-ID: <1290707635-31979-1-git-send-email-leitao@linux.vnet.ibm.com>
+Cc: netdev@vger.kernel.org, Breno Leitao <leitao@linux.vnet.ibm.com>
+To: divy@chelsio.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e24smtp02.br.ibm.com ([32.104.18.86]:54126 "EHLO
+	e24smtp02.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751266Ab0KYRyI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Nov 2010 12:54:08 -0500
+Received: from mailhub1.br.ibm.com (mailhub1.br.ibm.com [9.18.232.109])
+	by e24smtp02.br.ibm.com (8.14.4/8.13.1) with ESMTP id oAPI8FwE009541
+	for <netdev@vger.kernel.org>; Thu, 25 Nov 2010 16:08:15 -0200
+Received: from d24av02.br.ibm.com (d24av02.br.ibm.com [9.8.31.93])
+	by mailhub1.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id oAPI0wpg1208332
+	for <netdev@vger.kernel.org>; Thu, 25 Nov 2010 16:00:58 -0200
+Received: from d24av02.br.ibm.com (loopback [127.0.0.1])
+	by d24av02.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id oAPHrk6o010088
+	for <netdev@vger.kernel.org>; Thu, 25 Nov 2010 15:53:47 -0200
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 25 novembre 2010 =C3=A0 15:41 +0100, Jozsef Kadlecsik a =C3=A9=
-crit :
+Currently the ret variable is not used for anything other than
+receive the value of the t3_adapter_error(), which will always be 0,
+because the reset parameter is 0.
 
-=2E..
+Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
+---
+ drivers/net/cxgb3/cxgb3_main.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
 
-> +/* __jhash_mix -- mix 3 32-bit values reversibly. */
-> +#define __jhash_mix(a, b, c)			\
-> +{						\
-> +	a -=3D c;  a ^=3D rol32(c, 4);  c +=3D b;	\
-> +	b -=3D a;  b ^=3D rol32(a, 6);  a +=3D c;	\
-> +	c -=3D b;  c ^=3D rol32(b, 8);  b +=3D a;	\
-> +	a -=3D c;  a ^=3D rol32(c, 16); c +=3D b;	\
-> +	b -=3D a;  b ^=3D rol32(a, 19); a +=3D c;	\
-> +	c -=3D b;  c ^=3D rol32(b, 4);  b +=3D a;	\
-> +}
-> +
-> +/* __jhash_final - final mixing of 3 32-bit values (a,b,c) into c */
-> +#define __jhash_final(a, b, c)			\
-> +{						\
-> +	c ^=3D b; c -=3D rol32(b, 14);		\
-> +	a ^=3D c; a -=3D rol32(c, 11);		\
-> +	b ^=3D a; b -=3D rol32(a, 25);		\
-> +	c ^=3D b; c -=3D rol32(b, 16);		\
-> +	a ^=3D c; a -=3D rol32(c, 4);		\
-> +	b ^=3D a; b -=3D rol32(a, 14);		\
-> +	c ^=3D b; c -=3D rol32(b, 24);		\
-> +}
-> +
+diff --git a/drivers/net/cxgb3/cxgb3_main.c b/drivers/net/cxgb3/cxgb3_main.c
+index 046d846..3864617 100644
+--- a/drivers/net/cxgb3/cxgb3_main.c
++++ b/drivers/net/cxgb3/cxgb3_main.c
+@@ -3006,12 +3006,11 @@ static pci_ers_result_t t3_io_error_detected(struct pci_dev *pdev,
+ 					     pci_channel_state_t state)
+ {
+ 	struct adapter *adapter = pci_get_drvdata(pdev);
+-	int ret;
+ 
+ 	if (state == pci_channel_io_perm_failure)
+ 		return PCI_ERS_RESULT_DISCONNECT;
+ 
+-	ret = t3_adapter_error(adapter, 0, 0);
++	t3_adapter_error(adapter, 0, 0);
+ 
+ 	/* Request a slot reset. */
+ 	return PCI_ERS_RESULT_NEED_RESET;
+-- 
+1.7.1
 
-So we now have a special __jhash_final(a, b, c) thing for the last
-values.
-
-
-
-> +/* jhash_3words - hash exactly 3, 2 or 1 word(s) */
-> +u32 jhash_3words(u32 a, u32 b, u32 c, u32 initval)
-> +{
-> +	a +=3D JHASH_INITVAL;
-> +	b +=3D JHASH_INITVAL;
-> +	c +=3D initval;
-> +
-> +	__jhash_mix(a, b, c);
-> +
-> +	return c;
-> +}
-> +EXPORT_SYMBOL(jhash_3words);
-
-
-But you dont use it in jhash_3words().
-
-
-I do think jhash_3words() should stay inlined, unless maybe
-CONFIG_CC_OPTIMIZE_FOR_SIZE=3Dy
-
-We hit it several time per packet in network stack in RX path.
-
-Once in skb_get_rxhash() (unless device fills skb->rxhash)
-Once at least in conntrack (if used).
-Once in UDP or TCP stack
-
-
-
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
