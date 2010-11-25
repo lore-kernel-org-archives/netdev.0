@@ -1,45 +1,54 @@
-From: nisse@lysator.liu.se (Niels =?iso-8859-1?Q?M=F6ller?=)
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: TCP_MAXSEG vs TCP/generic segmentation offload (tso/gso)
-Date: Thu, 25 Nov 2010 17:25:42 +0100
-Message-ID: <nn1v69qsjd.fsf@stalhein.lysator.liu.se>
+Date: Thu, 25 Nov 2010 17:44:45 +0100
+Message-ID: <1290703485.2858.360.camel@edumazet-laptop>
 References: <nny68hqzzn.fsf@stalhein.lysator.liu.se>
-	<1290695253.2858.336.camel@edumazet-laptop>
-	<nnaakxqw1u.fsf@stalhein.lysator.liu.se>
-	<1290698312.2858.341.camel@edumazet-laptop>
+	 <1290695253.2858.336.camel@edumazet-laptop>
+	 <nnaakxqw1u.fsf@stalhein.lysator.liu.se>
+	 <1290698312.2858.341.camel@edumazet-laptop>
+	 <nn1v69qsjd.fsf@stalhein.lysator.liu.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Niels =?ISO-8859-1?Q?M=F6ller?= <nisse@lysator.liu.se>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1290698312.2858.341.camel@edumazet-laptop> (Eric Dumazet's
-	message of "Thu, 25 Nov 2010 16:18:31 +0100")
+In-Reply-To: <nn1v69qsjd.fsf@stalhein.lysator.liu.se>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric Dumazet <eric.dumazet@gmail.com> writes:
+Le jeudi 25 novembre 2010 =C3=A0 17:25 +0100, Niels M=C3=B6ller a =C3=A9=
+crit :
 
-> I believe TCP_MAXSEG is working fine, but GRO/GSO dont care at all :
-> They coalesce frames whatever their size is.
 
-I was under the impression that TSO (and maybe GSO) implied more
-cleverness in the network card; that the network card more or less gets
-to decide by itself how to divide a tcp stream into segments. And for
-example in the atl1c driver which I looked a bit into, this was what th=
-e
-REG_MTU register was for. Seems I have gotten this totally wrong.
+>=20
+> I was under the impression that TSO (and maybe GSO) implied more
+> cleverness in the network card; that the network card more or less ge=
+ts
+> to decide by itself how to divide a tcp stream into segments. And for
+> example in the atl1c driver which I looked a bit into, this was what =
+the
+> REG_MTU register was for. Seems I have gotten this totally wrong.
+>=20
 
-Maybe Documentation/networking/netdevices.txt could clarify how it
-works. Currently, it says
+You were not totally wrong, but device does not use its own MTU to
+perform the split : We give it the MSS of the flow.
 
-: Segmentation Offload (GSO, TSO) is an exception to this rule.  The
-: upper layer protocol may pass a large socket buffer to the device
-: transmit routine, and the device will break that up into separate
-: packets based on the current MTU.
+You can have multiple flows in parallel, each with its own MSS, while
+device has a single MTU.
 
-Regards, and thanks for your patience,
-/Niels
+> Maybe Documentation/networking/netdevices.txt could clarify how it
+> works. Currently, it says
+>=20
+> : Segmentation Offload (GSO, TSO) is an exception to this rule.  The
+> : upper layer protocol may pass a large socket buffer to the device
+> : transmit routine, and the device will break that up into separate
+> : packets based on the current MTU.
 
---=20
-Niels M=F6ller. PGP-encrypted email is preferred. Keyid C0B98E26.
-Internet email is subject to wholesale government surveillance.
+
+MTU means : maximum transmission unit. But each layer has its own :)
+
+In this context, TCP protocol, so MSS should be taken into account.
+
+By default, MSS derives from device MTU  (ipv4 without options case :
+MSS =3D MTU - 40), but user can change it with TCP_MAXSEG.
