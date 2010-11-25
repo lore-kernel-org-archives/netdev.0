@@ -1,93 +1,48 @@
-From: Jonas Bonn <jonas@southpole.se>
-Subject: [PATCH 6/8] ethoc: rework mdio read/write
-Date: Thu, 25 Nov 2010 13:30:30 +0100
-Message-ID: <1290688232-25142-7-git-send-email-jonas@southpole.se>
-References: <1290688232-25142-1-git-send-email-jonas@southpole.se>
-Cc: Jonas Bonn <jonas@southpole.se>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.southpole.se ([193.12.106.18]:38974 "EHLO
-	mail.southpole.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752136Ab0KYMag (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Nov 2010 07:30:36 -0500
-In-Reply-To: <1290688232-25142-1-git-send-email-jonas@southpole.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Tomoya MORINAGA" <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6 v3] can: Topcliff: PCH_CAN driver: Add Flow
+	control,
+Date: Thu, 25 Nov 2010 21:34:09 +0900
+Message-ID: <002f01cb8c9d$103f7760$66f8800a@maildom.okisemi.com>
+References: <4CE2434B.5050701@dsn.okisemi.com>	<4CE27796.2000206@pengutronix.de>	<007401cb87b1$a773b3d0$66f8800a@maildom.okisemi.com>	<4CE64167.2030405@pengutronix.de>
+	<003201cb8a02$f05b15e0$66f8800a@maildom.okisemi.com>
+	<4CEA2986.4080607@pengutronix.de>
+	<000b01cb8b6b$d7542a90$66f8800a@maildom.okisemi.com>
+	<4CED0650.7030004@pengutronix.de>
+	<001b01cb8c98$d06aaa00$66f8800a@maildom.okisemi.com>
+	<4CEE51CA.8010402@pengutronix.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>,
+	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+To: "Marc Kleine-Budde" <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-MDIO read and write were checking whether a timeout had expired to determine
-whether to recheck the result of the MDIO operation.  Under heavy CPU usage,
-however, it was possible for the timeout to expire before the routine got
-around to be able to check a second time even, thus erroneousy returning an
--EBUSY.
+On Thursday, November 25, 2010 9:08 PM, Marc Kleine-Budde wrote : 
+> Why do you Read-Modify-Write for TX? Naively speaking you just need to
+> push your Data into a Mail/IF/Whatever and push the send button.
 
-This patch changes the the MDIO IO routines to try up to five times to complete
-the operation before giving up, thus lessening the dependency on CPU load.
+I see.
+I will implement this.
 
-This resolves a problem whereby a ping flood would keep the CPU so busy that
-the above problem would manifest itself; the MDIO command to check link status
-would fail and the interface would erroneously be shut down.
+--
+Thanks,
 
-Signed-off-by: Jonas Bonn <jonas@southpole.se>
----
- drivers/net/ethoc.c |   14 ++++++--------
- 1 files changed, 6 insertions(+), 8 deletions(-)
-
-diff --git a/drivers/net/ethoc.c b/drivers/net/ethoc.c
-index 43431ff..f3048fa 100644
---- a/drivers/net/ethoc.c
-+++ b/drivers/net/ethoc.c
-@@ -611,13 +611,13 @@ static int ethoc_poll(struct napi_struct *napi, int budget)
- 
- static int ethoc_mdio_read(struct mii_bus *bus, int phy, int reg)
- {
--	unsigned long timeout = jiffies + ETHOC_MII_TIMEOUT;
- 	struct ethoc *priv = bus->priv;
-+	int i;
- 
- 	ethoc_write(priv, MIIADDRESS, MIIADDRESS_ADDR(phy, reg));
- 	ethoc_write(priv, MIICOMMAND, MIICOMMAND_READ);
- 
--	while (time_before(jiffies, timeout)) {
-+	for (i=0; i < 5; i++) {
- 		u32 status = ethoc_read(priv, MIISTATUS);
- 		if (!(status & MIISTATUS_BUSY)) {
- 			u32 data = ethoc_read(priv, MIIRX_DATA);
-@@ -625,8 +625,7 @@ static int ethoc_mdio_read(struct mii_bus *bus, int phy, int reg)
- 			ethoc_write(priv, MIICOMMAND, 0);
- 			return data;
- 		}
--
--		schedule();
-+		usleep_range(100,200);
- 	}
- 
- 	return -EBUSY;
-@@ -634,22 +633,21 @@ static int ethoc_mdio_read(struct mii_bus *bus, int phy, int reg)
- 
- static int ethoc_mdio_write(struct mii_bus *bus, int phy, int reg, u16 val)
- {
--	unsigned long timeout = jiffies + ETHOC_MII_TIMEOUT;
- 	struct ethoc *priv = bus->priv;
-+	int i;
- 
- 	ethoc_write(priv, MIIADDRESS, MIIADDRESS_ADDR(phy, reg));
- 	ethoc_write(priv, MIITX_DATA, val);
- 	ethoc_write(priv, MIICOMMAND, MIICOMMAND_WRITE);
- 
--	while (time_before(jiffies, timeout)) {
-+	for (i=0; i < 5; i++) {
- 		u32 stat = ethoc_read(priv, MIISTATUS);
- 		if (!(stat & MIISTATUS_BUSY)) {
- 			/* reset MII command register */
- 			ethoc_write(priv, MIICOMMAND, 0);
- 			return 0;
- 		}
--
--		schedule();
-+		usleep_range(100,200);
- 	}
- 
- 	return -EBUSY;
--- 
-1.7.1
-
+Tomoya MORINAGA
+OKI SEMICONDUCTOR CO., LTD.
