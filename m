@@ -1,69 +1,67 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Simple kernel attack using socketpair. easy, 100%
- reproductiblle, works under guest. no way to protect :(
-Date: Thu, 25 Nov 2010 08:14:02 +0100
-Message-ID: <1290669242.2798.110.camel@edumazet-laptop>
-References: <AANLkTikCeddPFRGojPGuB6oq3xGYgovtm8r4=WhjEDpe@mail.gmail.com>
-	 <1290666501.2798.84.camel@edumazet-laptop>
+From: Shan Wei <shanwei@cn.fujitsu.com>
+Subject: [PATCH]ipv6: kill two unused macro definition
+Date: Thu, 25 Nov 2010 15:47:56 +0800
+Message-ID: <4CEE14AC.7090008@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: =?UTF-8?Q?=D0=9C=D0=B0=D1=80=D0=BA_?=
-	 =?UTF-8?Q?=D0=9A=D0=BE=D1=80=D0=B5=D0=BD=D0=B1=D0=B5=D1=80=D0=B3?=
-	<socketpair@gmail.com>
+Content-Transfer-Encoding: 7bit
+Cc: Network-Maillist <netdev@vger.kernel.org>, adobriyan@sw.ru
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:43603 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752020Ab0KYHOI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Nov 2010 02:14:08 -0500
-In-Reply-To: <1290666501.2798.84.camel@edumazet-laptop>
+Received: from cn.fujitsu.com ([222.73.24.84]:64362 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751054Ab0KYHth (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Nov 2010 02:49:37 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 25 novembre 2010 =C3=A0 07:28 +0100, Eric Dumazet a =C3=A9crit=
- :
+1. IPV6_TLV_TEL_DST_SIZE
+This has not been using for several years since created.
 
->=20
-> Since you obviously read recent mails on this subject yesterday, why
-> dont you Cc netdev ?
->=20
-> There is a very easy way to protect against this actually.
->=20
-> A patch was posted yesterday, and need some adjustements.
->=20
->=20
-> diff --git a/net/unix/garbage.c b/net/unix/garbage.c
-> index c8df6fd..40df93d 100644
-> --- a/net/unix/garbage.c
-> +++ b/net/unix/garbage.c
-> @@ -259,9 +259,16 @@ static void inc_inflight_move_tail(struct unix_s=
-ock *u)
->  }
-> =20
->  static bool gc_in_progress =3D false;
-> +#define UNIX_INFLIGHT_TRIGGER_GC 2000
-> =20
->  void wait_for_unix_gc(void)
->  {
-> +	/*
-> +	 * If number of inflight sockets is insane,
-> +	 * force a garbage collect right now.
-> +	 */
-> +	if (unix_tot_inflight > UNIX_INFLIGHT_TRIGGER_GC && !gc_in_progress=
-)
-> +		unix_gc();
->  	wait_event(unix_gc_wait, gc_in_progress =3D=3D false);
->  }
-> =20
->=20
+2. RT6_INFO_LEN
+commit 33120b30 kill all RT6_INFO_LEN's references, but only this definition remained.
 
-Hmm... it seems its another problem, chains are very long so we hit a
-NMI watchdog.
+commit 33120b30cc3b8665204d4fcde7288638b0dd04d5
+Author: Alexey Dobriyan <adobriyan@sw.ru>
+Date:   Tue Nov 6 05:27:11 2007 -0800
 
-I guess we should limit to a very small number, like 64, or rewrite the
-garbage collector to a better algo.
+    [IPV6]: Convert /proc/net/ipv6_route to seq_file interface
 
 
+Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
+---
+For this cleanup and trival patch, don't split in two.
+---
+ net/ipv6/ip6_tunnel.c |    2 --
+ net/ipv6/route.c      |    2 --
+ 2 files changed, 0 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index 2a59610..b115555 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -58,8 +58,6 @@ MODULE_AUTHOR("Ville Nuorvala");
+ MODULE_DESCRIPTION("IPv6 tunneling device");
+ MODULE_LICENSE("GPL");
+ 
+-#define IPV6_TLV_TEL_DST_SIZE 8
+-
+ #ifdef IP6_TNL_DEBUG
+ #define IP6_TNL_TRACE(x...) printk(KERN_DEBUG "%s:" x "\n", __func__)
+ #else
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 96455ff..e05babe 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -2465,8 +2465,6 @@ static int ip6_route_dev_notify(struct notifier_block *this,
+ 
+ #ifdef CONFIG_PROC_FS
+ 
+-#define RT6_INFO_LEN (32 + 4 + 32 + 4 + 32 + 40 + 5 + 1)
+-
+ struct rt6_proc_arg
+ {
+ 	char *buffer;
+-- 
+1.6.3.3
 
