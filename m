@@ -1,54 +1,68 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: TCP_MAXSEG vs TCP/generic segmentation offload (tso/gso)
-Date: Thu, 25 Nov 2010 17:44:45 +0100
-Message-ID: <1290703485.2858.360.camel@edumazet-laptop>
-References: <nny68hqzzn.fsf@stalhein.lysator.liu.se>
-	 <1290695253.2858.336.camel@edumazet-laptop>
-	 <nnaakxqw1u.fsf@stalhein.lysator.liu.se>
-	 <1290698312.2858.341.camel@edumazet-laptop>
-	 <nn1v69qsjd.fsf@stalhein.lysator.liu.se>
+From: "ZHANG, Le" <r0bertz@gentoo.org>
+Subject: Re: [PATCH] ipv4: mitigate an integer underflow when comparing tcp
+ timestamps
+Date: Fri, 26 Nov 2010 00:55:27 +0800
+Message-ID: <20101125165525.GA4480@adriano>
+References: <1289720156-30118-1-git-send-email-r0bertz@gentoo.org>
+ <1289724745.2743.61.camel@edumazet-laptop>
+ <20101114.115536.71112799.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Niels =?ISO-8859-1?Q?M=F6ller?= <nisse@lysator.liu.se>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="+QahgC5+KEYLbs62"
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kuznet@ms2.inr.ac.ru,
+	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <nn1v69qsjd.fsf@stalhein.lysator.liu.se>
+Content-Disposition: inline
+In-Reply-To: <20101114.115536.71112799.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le jeudi 25 novembre 2010 =C3=A0 17:25 +0100, Niels M=C3=B6ller a =C3=A9=
-crit :
 
+--+QahgC5+KEYLbs62
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
+On 11:55 Sun 14 Nov     , David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Sun, 14 Nov 2010 09:52:25 +0100
 >=20
-> I was under the impression that TSO (and maybe GSO) implied more
-> cleverness in the network card; that the network card more or less ge=
-ts
-> to decide by itself how to divide a tcp stream into segments. And for
-> example in the atl1c driver which I looked a bit into, this was what =
-the
-> REG_MTU register was for. Seems I have gotten this totally wrong.
+> > Really, if you have multiple clients behind a common NAT, you cannot use
+> > this code at all, since NAT doesnt usually change TCP timestamps.
 >=20
-
-You were not totally wrong, but device does not use its own MTU to
-perform the split : We give it the MSS of the flow.
-
-You can have multiple flows in parallel, each with its own MSS, while
-device has a single MTU.
-
-> Maybe Documentation/networking/netdevices.txt could clarify how it
-> works. Currently, it says
+> NAT is %100 incompatible with TW recycling, full stop.
 >=20
-> : Segmentation Offload (GSO, TSO) is an exception to this rule.  The
-> : upper layer protocol may pass a large socket buffer to the device
-> : transmit routine, and the device will break that up into separate
-> : packets based on the current MTU.
+> There is no maybe, or maybe not.
+>=20
+> If you are behind NAT you must not turn this feature on, ever.
 
+Sorry, this question may be OT on this list, but I am just curious:
 
-MTU means : maximum transmission unit. But each layer has its own :)
+Is there any other OS has implemented this feature like Linux?
 
-In this context, TCP protocol, so MSS should be taken into account.
+To be very specific, by this feature, I mean rejecting old duplicates based
+on per-host cache of last timestamp received from any connections.
+As suggested in RFC1323 Appendix B.2 (b).
 
-By default, MSS derives from device MTU  (ipv4 without options case :
-MSS =3D MTU - 40), but user can change it with TCP_MAXSEG.
+Does anyone, by any chance, know the answer? Thanks in advance!
+
+--=20
+ZHANG, Le
+http://zhangle.is-a-geek.org
+0260 C902 B8F8 6506 6586 2B90 BC51 C808 1E4E 2973
+
+--+QahgC5+KEYLbs62
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.16 (GNU/Linux)
+
+iEYEARECAAYFAkzulP0ACgkQvFHICB5OKXOFDwCePUeeQBOqYiZ9rOD431KDYeii
+srgAnjkB94rmiHblPYdghTZcttb/JT4B
+=76O/
+-----END PGP SIGNATURE-----
+
+--+QahgC5+KEYLbs62--
