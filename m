@@ -1,35 +1,25 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [GIT PULL net-2.6] vhost-net: rcu fixup
-Date: Thu, 25 Nov 2010 14:23:01 +0200
-Message-ID: <20101125122301.GA15990@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Jonas Bonn <jonas@southpole.se>
+Subject: ethoc driver changes (version 2)
+Date: Thu, 25 Nov 2010 13:30:24 +0100
+Message-ID: <1290688232-25142-1-git-send-email-jonas@southpole.se>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47485 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751695Ab0KYMXy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Nov 2010 07:23:54 -0500
-Content-Disposition: inline
+Received: from mail.southpole.se ([193.12.106.18]:38968 "EHLO
+	mail.southpole.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751635Ab0KYMaf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Nov 2010 07:30:35 -0500
+Received: from needafix.southpole.se (needafix.southpole.se [192.168.16.197])
+	by mail.southpole.se (Postfix) with ESMTPA id 4F1D2480137
+	for <netdev@vger.kernel.org>; Thu, 25 Nov 2010 13:30:31 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Please merge the following fix for 2.6.36.
-Thanks!
+This series incorporates the changes requested in the review of the original
+set.  The patch to "prevent overflow of cur_rx" has been dropped
+completely and the comments concerning the usage of division in the
+calculation of the BD entry have been incorporated into a new patch, 
+number 8 "remove division from loops"; this new patch should take care of
+the potential overflow issues that existed previously, too.
 
-The following changes since commit a27e13d370415add3487949c60810e36069a23a6:
+/Jonas
 
-  econet: fix CVE-2010-3848 (2010-11-24 11:51:47 -0800)
-
-are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git vhost-net
-
-Michael S. Tsirkin (1):
-      vhost/net: fix rcu check usage
-
- drivers/vhost/net.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
--- 
-MST
