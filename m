@@ -1,53 +1,64 @@
-From: leitao@linux.vnet.ibm.com
-Subject: [PATCH] cxgb3: Removing unused return variable
-Date: Thu, 25 Nov 2010 15:53:55 -0200
-Message-ID: <1290707635-31979-1-git-send-email-leitao@linux.vnet.ibm.com>
-Cc: netdev@vger.kernel.org, Breno Leitao <leitao@linux.vnet.ibm.com>
-To: divy@chelsio.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e24smtp02.br.ibm.com ([32.104.18.86]:54126 "EHLO
-	e24smtp02.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751266Ab0KYRyI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Nov 2010 12:54:08 -0500
-Received: from mailhub1.br.ibm.com (mailhub1.br.ibm.com [9.18.232.109])
-	by e24smtp02.br.ibm.com (8.14.4/8.13.1) with ESMTP id oAPI8FwE009541
-	for <netdev@vger.kernel.org>; Thu, 25 Nov 2010 16:08:15 -0200
-Received: from d24av02.br.ibm.com (d24av02.br.ibm.com [9.8.31.93])
-	by mailhub1.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id oAPI0wpg1208332
-	for <netdev@vger.kernel.org>; Thu, 25 Nov 2010 16:00:58 -0200
-Received: from d24av02.br.ibm.com (loopback [127.0.0.1])
-	by d24av02.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id oAPHrk6o010088
-	for <netdev@vger.kernel.org>; Thu, 25 Nov 2010 15:53:47 -0200
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Hans de Bruin <jmdebruin@xmsnet.nl>
+Subject: Re: Unplug ethernet cable, the route persists.  Why?
+Date: Thu, 25 Nov 2010 20:10:33 +0100
+Message-ID: <4CEEB4A9.3090808@xmsnet.nl>
+References: <242082.99180.qm@web63407.mail.re1.yahoo.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Mike Caoco <caoco2002@yahoo.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <242082.99180.qm@web63407.mail.re1.yahoo.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Currently the ret variable is not used for anything other than
-receive the value of the t3_adapter_error(), which will always be 0,
-because the reset parameter is 0.
+On 11/24/2010 08:48 PM, Mike Caoco wrote:
+> Hello,
+>
+> This may have been discussed, but all search engines couldn't give me a good answer...
+>
+> I notice that when an interface is up/running, a local route is in the routing table:
+>
+> $ ifconfig eth1
+> eth1      Link encap:Ethernet  HWaddr 00:13:20:0e:2f:ed
+>            inet addr:192.168.1.125  Bcast:192.168.1.255  Mask:255.255.255.0
+>            inet6 addr: fe80::213:20ff:fe0e:2fed/64 Scope:Link
+>            UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+>            RX packets:35984995 errors:0 dropped:0 overruns:0 frame:0
+>            TX packets:7409151 errors:0 dropped:0 overruns:0 carrier:0
+>            collisions:0 txqueuelen:1000
+>            RX bytes:3252413825 (3.2 GB)  TX bytes:1340077250 (1.3 GB)
+>
+> $ ip route
+> 192.168.20.0/24 dev eth0  proto kernel  scope link  src 192.168.20.120
+> 192.168.1.0/24 dev eth1  proto kernel  scope link  src 192.168.1.125
+> default via 192.168.20.254 dev eth1  metric 100
+>
+> After I unplug the cable from eth1, the RUNNING flag disappears, but the route is still there:
+>
+> $ ifconfig eth1
+> eth1      Link encap:Ethernet  HWaddr 00:13:20:0e:2f:ed
+>            inet addr:192.168.1.125  Bcast:192.168.1.255  Mask:255.255.255.0
+>            inet6 addr: fe80::213:20ff:fe0e:2fed/64 Scope:Link
+>            UP BROADCAST MULTICAST  MTU:1500  Metric:1
+>            RX packets:35985023 errors:0 dropped:0 overruns:0 frame:0
+>            TX packets:7409151 errors:0 dropped:0 overruns:0 carrier:0
+>            collisions:0 txqueuelen:1000
+>            RX bytes:3252415633 (3.2 GB)  TX bytes:1340077250 (1.3 GB)
+>
+> $ ip route
+> 192.168.20.0/24 dev eth0  proto kernel  scope link  src 192.168.20.120
+> 192.168.1.0/24 dev eth1  proto kernel  scope link  src 192.168.1.125
+> default via 192.168.20.254 dev eth1  metric 100
+>
+> And that *prevents* from using the default route to reach 192.168.1/24 subnet after eth1 is out.
 
-Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
----
- drivers/net/cxgb3/cxgb3_main.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+Well suppose the default route is used, and the source address is of the 
+packets stay 192.168.1.125, then there is no way for the peers to 
+respond to the packets. I do not know wat sets the source address in 
+linux, but on windows it will allway's be the one you do not want.
 
-diff --git a/drivers/net/cxgb3/cxgb3_main.c b/drivers/net/cxgb3/cxgb3_main.c
-index 046d846..3864617 100644
---- a/drivers/net/cxgb3/cxgb3_main.c
-+++ b/drivers/net/cxgb3/cxgb3_main.c
-@@ -3006,12 +3006,11 @@ static pci_ers_result_t t3_io_error_detected(struct pci_dev *pdev,
- 					     pci_channel_state_t state)
- {
- 	struct adapter *adapter = pci_get_drvdata(pdev);
--	int ret;
- 
- 	if (state == pci_channel_io_perm_failure)
- 		return PCI_ERS_RESULT_DISCONNECT;
- 
--	ret = t3_adapter_error(adapter, 0, 0);
-+	t3_adapter_error(adapter, 0, 0);
- 
- 	/* Request a slot reset. */
- 	return PCI_ERS_RESULT_NEED_RESET;
 -- 
-1.7.1
-
+Hans
