@@ -1,42 +1,60 @@
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Subject: Re: [PATCH 1/2] Prepare the tree for un-inlined jhash.
-Date: Thu, 25 Nov 2010 14:57:34 +0100 (CET)
-Message-ID: <alpine.DEB.2.00.1011251454430.996@blackhole.kfki.hu>
-References: <1290690908-794-1-git-send-email-kadlec@blackhole.kfki.hu> <1290690908-794-2-git-send-email-kadlec@blackhole.kfki.hu> <alpine.LNX.2.01.1011251439160.21752@obet.zrqbmnf.qr>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 2/2] The new jhash implementation
+Date: Thu, 25 Nov 2010 15:05:46 +0100
+Message-ID: <1290693946.2858.323.camel@edumazet-laptop>
+References: <1290690908-794-1-git-send-email-kadlec@blackhole.kfki.hu>
+	 <1290690908-794-2-git-send-email-kadlec@blackhole.kfki.hu>
+	 <1290690908-794-3-git-send-email-kadlec@blackhole.kfki.hu>
+	 <1290692943.2858.303.camel@edumazet-laptop>
+	 <AANLkTi=jqRY18Omv2Y2a1XjT-SH8W--wJ7A4y4PV1oT1@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	netfilter-devel@vger.kernel.org,
 	Linus Torvalds <torvalds@osdl.org>,
 	Rusty Russell <rusty@rustcorp.com.au>
-To: Jan Engelhardt <jengelh@medozas.de>
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.01.1011251439160.21752@obet.zrqbmnf.qr>
+In-Reply-To: <AANLkTi=jqRY18Omv2Y2a1XjT-SH8W--wJ7A4y4PV1oT1@mail.gmail.com>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 25 Nov 2010, Jan Engelhardt wrote:
+Le jeudi 25 novembre 2010 =C3=A0 21:55 +0800, Changli Gao a =C3=A9crit =
+:
 
-> On Thursday 2010-11-25 14:15, Jozsef Kadlecsik wrote:
-> 
-> >jhash is widely used in the kernel and because the functions
-> >are inlined, the cost in size is significant. Also, the new jhash
-> >functions are slightly larger than the previous ones so better un-inline.
-> >As a preparation step, the calls to the internal macros are replaced
-> >with the plain jhash function calls.
-> 
-> Do you have a non-normative allyesconfig/allmodconfig build whose 
-> size(1) you can run on, to show approximately just how much it differs?
+> > I suggest :
+> >
+> > #include <linux/unaligned/packed_struct.h>
+> > ...
+> >        a +=3D __get_unaligned_cpu32(k);
+> >        b +=3D __get_unaligned_cpu32(k+4);
+> >        c +=3D __get_unaligned_cpu32(k+8);
+> >
+> > Fits nicely in registers.
+> >
+>=20
+> I think you mean get_unaligned_le32().
+>=20
 
-In the cover mail I referred the link to the message from Ilpo Jarvinen: 
-"I once looked into inlining cost and jhash functions were among the most 
-wasteful (kernel-wide). Multiple jhash bodies were 100+ bytes, and the 
-overall cost was 10k+."
+No, I meant __get_unaligned_cpu32()
 
-Best regards,
-Jozsef
--
-E-mail  : kadlec@blackhole.kfki.hu, kadlec@mail.kfki.hu
-PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
-Address : KFKI Research Institute for Particle and Nuclear Physics
-          H-1525 Budapest 114, POB. 49, Hungary
+We do same thing in jhash2() :
+
+	a +=3D k[0];=20
+	b +=3D k[1];
+	c +=3D k[2];
+
+We dont care of bit order of the 32bit quantity we are adding to a,b or
+c , as long its consistent for the current machine ;)
+
+get_unaligned_le32() would be slow on big endian arches.
+
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
