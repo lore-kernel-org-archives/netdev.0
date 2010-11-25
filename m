@@ -1,44 +1,29 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Unplug ethernet cable, the route persists.  Why?
-Date: Thu, 25 Nov 2010 23:18:35 +0100
-Message-ID: <4CEEE0BB.6020509@gmail.com>
-References: <144174.46619.qm@web63401.mail.re1.yahoo.com> <87bp5df9j9.fsf@gmail.com>
+From: Sergey Lapin <slapin@ossfans.org>
+Subject: Re: [PATCH 1/1] NET: wan/x25_asy, move lapb_unregister to
+ x25_asy_close_tty
+Date: Thu, 25 Nov 2010 17:56:59 -0500
+Message-ID: <20101125225659.GA13807@build.ihdev.net>
+References: <1290642894-4577-1-git-send-email-jslaby@suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Mike Caoco <caoco2002@yahoo.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Ben Gamari <bgamari@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:46524 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752387Ab0KYWSl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Nov 2010 17:18:41 -0500
-In-Reply-To: <87bp5df9j9.fsf@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jirislaby@gmail.com,
+	Andrew Hendry <andrew.hendry@gmail.com>,
+	Mikhail Ulyanov <ulyanov.mikhail@gmail.com>
+To: Jiri Slaby <jslaby@suse.cz>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1290642894-4577-1-git-send-email-jslaby@suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Ben Gamari wrote:
-> On Wed, 24 Nov 2010 12:29:43 -0800 (PST), Mike Caoco <caoco2002@yahoo.com> wrote:
->> So if you rely on NetworkManager or Connman or Quagga to remove the
->> route, the routing daemons will recompute the route table anyway.  So
->> why cannot this be done in the kernel?
+On Thu, Nov 25, 2010 at 12:54:54AM +0100, Jiri Slaby wrote:
+> We register lapb when tty is created, but unregister it only when the
+> device is UP. So move the lapb_unregister to x25_asy_close_tty after
+> the device is down.
 > 
-> This is policy. In the Linux world we generally strive to separate
-> policy from mechanism, leaving the former to userspace. This allows
-> (potentially complex) policy decisions to be made in user-space. The
-> reason for this is two-fold: First, every line of kernel code introduces
-> the potentially for a bug and error handling in the kernel is generally
-> more complex than it is in user-space. Secondly, allowing user-space to
-> handle policy allows users to do things with the kernel that kernel
-> developers did not envision. This flexibility is one reason why the
-> kernel is so suited for running on anything from your cell-phone to 4000
-> processor big iron.
-
-Secondly and a half, if you add a specific route you may really
-mean it, and prefer not to send at all than use default.
-
-Cheers,
-Jarek P.
+> Signed-off-by: Jiri Slaby <jslaby@suse.cz>
+> Reported-by: Sergey Lapin <slapin@ossfans.org>
+> Cc: Andrew Hendry <andrew.hendry@gmail.com>
+Tested-by: Sergey Lapin <slapin@ossfans.org>
+Tested-by: Mikhail Ulyanov <ulyanov.mikhail@gmail.com>
