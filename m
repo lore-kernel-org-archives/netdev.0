@@ -1,68 +1,44 @@
-From: "ZHANG, Le" <r0bertz@gentoo.org>
-Subject: Re: [PATCH] ipv4: mitigate an integer underflow when comparing tcp
- timestamps
-Date: Fri, 26 Nov 2010 00:55:27 +0800
-Message-ID: <20101125165525.GA4480@adriano>
-References: <1289720156-30118-1-git-send-email-r0bertz@gentoo.org>
- <1289724745.2743.61.camel@edumazet-laptop>
- <20101114.115536.71112799.davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 2/2 v7] xps: Transmit Packet Steering
+Date: Thu, 25 Nov 2010 17:12:43 +0000
+Message-ID: <1290705163.4274.12.camel@localhost>
+References: <alpine.DEB.2.00.1011211501430.14906@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="+QahgC5+KEYLbs62"
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kuznet@ms2.inr.ac.ru,
-	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20101114.115536.71112799.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: Tom Herbert <therbert@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.solarflare.com ([216.237.3.220]:26763 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753817Ab0KYRMu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Nov 2010 12:12:50 -0500
+In-Reply-To: <alpine.DEB.2.00.1011211501430.14906@pokey.mtv.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Sun, 2010-11-21 at 15:17 -0800, Tom Herbert wrote:
+[...]
+> Each transmit queue can be associated with a number of CPUs which will
+> use the queue to send packets.  This is configured as a CPU mask on a
+> per queue basis in:
+> 
+> /sys/class/net/eth<n>/queues/tx-<n>/xps_cpus
+> 
+> The mappings are stored per device in an inverted data structure that
+> maps CPUs to queues.  In the netdevice structure this is an array of
+> num_possible_cpu structures where each structure holds and array of
+> queue_indexes for queues which that CPU can use.
+[...]
 
---+QahgC5+KEYLbs62
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+I was thinking we could also use CPU reverse-mapping from IRQ affinity
+to set this up automatically - maybe leaving an option for manual
+override?
 
-On 11:55 Sun 14 Nov     , David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Sun, 14 Nov 2010 09:52:25 +0100
->=20
-> > Really, if you have multiple clients behind a common NAT, you cannot use
-> > this code at all, since NAT doesnt usually change TCP timestamps.
->=20
-> NAT is %100 incompatible with TW recycling, full stop.
->=20
-> There is no maybe, or maybe not.
->=20
-> If you are behind NAT you must not turn this feature on, ever.
+Ben.
 
-Sorry, this question may be OT on this list, but I am just curious:
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
-Is there any other OS has implemented this feature like Linux?
-
-To be very specific, by this feature, I mean rejecting old duplicates based
-on per-host cache of last timestamp received from any connections.
-As suggested in RFC1323 Appendix B.2 (b).
-
-Does anyone, by any chance, know the answer? Thanks in advance!
-
---=20
-ZHANG, Le
-http://zhangle.is-a-geek.org
-0260 C902 B8F8 6506 6586 2B90 BC51 C808 1E4E 2973
-
---+QahgC5+KEYLbs62
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.16 (GNU/Linux)
-
-iEYEARECAAYFAkzulP0ACgkQvFHICB5OKXOFDwCePUeeQBOqYiZ9rOD431KDYeii
-srgAnjkB94rmiHblPYdghTZcttb/JT4B
-=76O/
------END PGP SIGNATURE-----
-
---+QahgC5+KEYLbs62--
