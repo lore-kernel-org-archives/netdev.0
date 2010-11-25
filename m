@@ -1,36 +1,41 @@
-From: Johan Hovold <jhovold@gmail.com>
-Subject: Re: [PATCHv2] hso: fix disable_net
-Date: Thu, 25 Nov 2010 16:03:04 +0100
-Message-ID: <AANLkTikODWoXB1PmB+SFbFWenYm_-o+RJ+czK9LnaXmn@mail.gmail.com>
-References: <1290692450.2112.21.camel@filip-linux>
+From: nisse@lysator.liu.se (Niels =?iso-8859-1?Q?M=F6ller?=)
+Subject: Re: TCP_MAXSEG vs TCP/generic segmentation offload (tso/gso)
+Date: Thu, 25 Nov 2010 16:09:49 +0100
+Message-ID: <nnaakxqw1u.fsf@stalhein.lysator.liu.se>
+References: <nny68hqzzn.fsf@stalhein.lysator.liu.se>
+	<1290695253.2858.336.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: davem@davemloft.net, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org, pki@ex.com.pl
-To: Filip Aben <f.aben@option.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f174.google.com ([209.85.214.174]:45566 "EHLO
-	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751490Ab0KYPDH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Nov 2010 10:03:07 -0500
-In-Reply-To: <1290692450.2112.21.camel@filip-linux>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1290695253.2858.336.camel@edumazet-laptop> (Eric Dumazet's
+	message of "Thu, 25 Nov 2010 15:27:33 +0100")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 25, 2010 at 2:40 PM, Filip Aben <f.aben@option.com> wrote:
-> The HSO driver incorrectly creates a serial device instead of a net
-> device when disable_net is set. It shouldn't create anything for the
-> network interface.
->
-> Signed-off-by: Filip Aben <f.aben@option.com>
+Eric Dumazet <eric.dumazet@gmail.com> writes:
 
-Please add the appropriate Reported-by-tags as well, e.g.
+> So... there is no 'bug', unless you trust too much tcpdump output.
 
-Reported-by: Piotr Isajew <pki@ex.com.pl>
-Reported-by: Johan Hovold <jhovold@gmail.com>
+I really expected tcpdump -e to display the actual values in the link
+layer header, including the correct frame size. It's more than a bit
+confusing if that is not the case...
 
-As this patch is meant to fix a driver crash, perhaps it should be marked for
-stable as well?
+In the future, I will try to remember to always run tcpdump on a networ=
+k
+node which (i) is different from the sending one, and (ii) has GRO
+disabled (and hence will discard packets if it has trouble processing
+them all, rather than coalesce them).
 
-Thanks,
-Johan
+What about the TCP_MAXSEG socket option, should that work? From a quick
+look at driver source code, I could only see the handling of the
+per-interface MTU, no per-socket segment size.
+
+Thanks for the quick reply,
+/Niels
+
+--=20
+Niels M=F6ller. PGP-encrypted email is preferred. Keyid C0B98E26.
+Internet email is subject to wholesale government surveillance.
