@@ -1,18 +1,18 @@
 From: Andrew Hendry <andrew.hendry@gmail.com>
-Subject: [PATCH net-next 4/5] X25 remove bkl from causediag ioctls
-Date: Thu, 25 Nov 2010 23:18:43 +1100
-Message-ID: <1290687523.5053.42.camel@jaunty>
+Subject: [PATCH net-next 5/5] X25 remove bkl in call user data length ioctl
+Date: Thu, 25 Nov 2010 23:18:45 +1100
+Message-ID: <1290687525.5053.43.camel@jaunty>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gy0-f174.google.com ([209.85.160.174]:62246 "EHLO
-	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752237Ab0KYMSg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Nov 2010 07:18:36 -0500
-Received: by mail-gy0-f174.google.com with SMTP id 11so421210gyb.19
-        for <netdev@vger.kernel.org>; Thu, 25 Nov 2010 04:18:36 -0800 (PST)
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:41193 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752918Ab0KYMSm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Nov 2010 07:18:42 -0500
+Received: by ywl5 with SMTP id 5so424671ywl.19
+        for <netdev@vger.kernel.org>; Thu, 25 Nov 2010 04:18:41 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -20,43 +20,38 @@ List-ID: <netdev.vger.kernel.org>
 Signed-off-by: Andrew Hendry <andrew.hendry@gmail.com>
 
 ---
- net/x25/af_x25.c |   15 +++++++--------
- 1 files changed, 7 insertions(+), 8 deletions(-)
+ net/x25/af_x25.c |   11 ++++++-----
+ 1 files changed, 6 insertions(+), 5 deletions(-)
 
 diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
-index e2eea0a..8cfc419 100644
+index 8cfc419..ad96ee9 100644
 --- a/net/x25/af_x25.c
 +++ b/net/x25/af_x25.c
-@@ -1538,23 +1538,22 @@ out_dtefac_release:
- 		}
- 
- 		case SIOCX25GCAUSEDIAG: {
--			struct x25_causediag causediag;
+@@ -1562,19 +1562,20 @@ out_dtefac_release:
+ 		case SIOCX25SCUDMATCHLEN: {
+ 			struct x25_subaddr sub_addr;
+ 			rc = -EINVAL;
 -			lock_kernel();
--			causediag = x25->causediag;
--			rc = copy_to_user(argp, &causediag,
--					  sizeof(causediag)) ? -EFAULT : 0;
--			unlock_kernel();
 +			lock_sock(sk);
-+			rc = copy_to_user(argp, &x25->causediag,
-+					sizeof(x25->causediag))
-+					? -EFAULT : 0;
-+			release_sock(sk);
- 			break;
- 		}
- 
- 		case SIOCX25SCAUSEDIAG: {
- 			struct x25_causediag causediag;
+ 			if(sk->sk_state != TCP_CLOSE)
+-				break;
++				goto out_cud_release;
  			rc = -EFAULT;
--			lock_kernel();
- 			if (copy_from_user(&causediag, argp, sizeof(causediag)))
- 				break;
-+			lock_sock(sk);
- 			x25->causediag = causediag;
+ 			if (copy_from_user(&sub_addr, argp,
+ 					sizeof(sub_addr)))
+-				break;
++				goto out_cud_release;
+ 			rc = -EINVAL;
+ 			if(sub_addr.cudmatchlength > X25_MAX_CUD_LEN)
+-				break;
++				goto out_cud_release;
+ 			x25->cudmatchlength = sub_addr.cudmatchlength;
 -			unlock_kernel();
-+			release_sock(sk);
  			rc = 0;
++out_cud_release:
++			release_sock(sk);
  			break;
+ 		}
  
 -- 
 1.7.1
