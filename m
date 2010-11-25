@@ -1,44 +1,89 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 2/2 v7] xps: Transmit Packet Steering
-Date: Thu, 25 Nov 2010 17:12:43 +0000
-Message-ID: <1290705163.4274.12.camel@localhost>
-References: <alpine.DEB.2.00.1011211501430.14906@pokey.mtv.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 2/2] The new jhash implementation
+Date: Thu, 25 Nov 2010 18:21:09 +0100
+Message-ID: <1290705669.2858.381.camel@edumazet-laptop>
+References: <1290690908-794-1-git-send-email-kadlec@blackhole.kfki.hu>
+	 <1290690908-794-2-git-send-email-kadlec@blackhole.kfki.hu>
+	 <1290690908-794-3-git-send-email-kadlec@blackhole.kfki.hu>
+	 <1290692943.2858.303.camel@edumazet-laptop>
+	 <alpine.DEB.2.00.1011251520270.1198@blackhole.kfki.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: Tom Herbert <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:26763 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753817Ab0KYRMu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Nov 2010 12:12:50 -0500
-In-Reply-To: <alpine.DEB.2.00.1011211501430.14906@pokey.mtv.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Linus Torvalds <torvalds@osdl.org>,
+	Rusty Russell <rusty@rustcorp.com.au>
+To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.00.1011251520270.1198@blackhole.kfki.hu>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2010-11-21 at 15:17 -0800, Tom Herbert wrote:
-[...]
-> Each transmit queue can be associated with a number of CPUs which will
-> use the queue to send packets.  This is configured as a CPU mask on a
-> per queue basis in:
-> 
-> /sys/class/net/eth<n>/queues/tx-<n>/xps_cpus
-> 
-> The mappings are stored per device in an inverted data structure that
-> maps CPUs to queues.  In the netdevice structure this is an array of
-> num_possible_cpu structures where each structure holds and array of
-> queue_indexes for queues which that CPU can use.
-[...]
+Le jeudi 25 novembre 2010 =C3=A0 15:41 +0100, Jozsef Kadlecsik a =C3=A9=
+crit :
 
-I was thinking we could also use CPU reverse-mapping from IRQ affinity
-to set this up automatically - maybe leaving an option for manual
-override?
+=2E..
 
-Ben.
+> +/* __jhash_mix -- mix 3 32-bit values reversibly. */
+> +#define __jhash_mix(a, b, c)			\
+> +{						\
+> +	a -=3D c;  a ^=3D rol32(c, 4);  c +=3D b;	\
+> +	b -=3D a;  b ^=3D rol32(a, 6);  a +=3D c;	\
+> +	c -=3D b;  c ^=3D rol32(b, 8);  b +=3D a;	\
+> +	a -=3D c;  a ^=3D rol32(c, 16); c +=3D b;	\
+> +	b -=3D a;  b ^=3D rol32(a, 19); a +=3D c;	\
+> +	c -=3D b;  c ^=3D rol32(b, 4);  b +=3D a;	\
+> +}
+> +
+> +/* __jhash_final - final mixing of 3 32-bit values (a,b,c) into c */
+> +#define __jhash_final(a, b, c)			\
+> +{						\
+> +	c ^=3D b; c -=3D rol32(b, 14);		\
+> +	a ^=3D c; a -=3D rol32(c, 11);		\
+> +	b ^=3D a; b -=3D rol32(a, 25);		\
+> +	c ^=3D b; c -=3D rol32(b, 16);		\
+> +	a ^=3D c; a -=3D rol32(c, 4);		\
+> +	b ^=3D a; b -=3D rol32(a, 14);		\
+> +	c ^=3D b; c -=3D rol32(b, 24);		\
+> +}
+> +
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+So we now have a special __jhash_final(a, b, c) thing for the last
+values.
 
+
+
+> +/* jhash_3words - hash exactly 3, 2 or 1 word(s) */
+> +u32 jhash_3words(u32 a, u32 b, u32 c, u32 initval)
+> +{
+> +	a +=3D JHASH_INITVAL;
+> +	b +=3D JHASH_INITVAL;
+> +	c +=3D initval;
+> +
+> +	__jhash_mix(a, b, c);
+> +
+> +	return c;
+> +}
+> +EXPORT_SYMBOL(jhash_3words);
+
+
+But you dont use it in jhash_3words().
+
+
+I do think jhash_3words() should stay inlined, unless maybe
+CONFIG_CC_OPTIMIZE_FOR_SIZE=3Dy
+
+We hit it several time per packet in network stack in RX path.
+
+Once in skb_get_rxhash() (unless device fills skb->rxhash)
+Once at least in conntrack (if used).
+Once in UDP or TCP stack
+
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
