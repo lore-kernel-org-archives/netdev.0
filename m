@@ -1,60 +1,53 @@
-From: Andrew Hendry <andrew.hendry@gmail.com>
-Subject: [PATCH net-next 5/5] X25 remove bkl in call user data length ioctl
-Date: Thu, 25 Nov 2010 23:18:45 +1100
-Message-ID: <1290687525.5053.43.camel@jaunty>
+From: Sergei Shtylyov <sshtylyov@mvista.com>
+Subject: Re: [PATCH] hso: fix disable_net
+Date: Thu, 25 Nov 2010 15:17:58 +0300
+Message-ID: <4CEE53F6.8070906@ru.mvista.com>
+References: <1290627352.1739.19.camel@filip-linux>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: davem@davemloft.net, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org, jhovold@gmail.com, pki@ex.com.pl,
+	j.dumon@option.com
+To: Filip Aben <f.aben@option.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:41193 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752918Ab0KYMSm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Nov 2010 07:18:42 -0500
-Received: by ywl5 with SMTP id 5so424671ywl.19
-        for <netdev@vger.kernel.org>; Thu, 25 Nov 2010 04:18:41 -0800 (PST)
+Received: from mail-ew0-f46.google.com ([209.85.215.46]:57787 "EHLO
+	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753139Ab0KYMTu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Nov 2010 07:19:50 -0500
+In-Reply-To: <1290627352.1739.19.camel@filip-linux>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 24-11-2010 22:35, Filip Aben wrote:
 
-Signed-off-by: Andrew Hendry <andrew.hendry@gmail.com>
+> The HSO driver incorrectly creates a serial device instead of a net
+> device when disable_net is set. It shouldn't create anything for the
+> network interface.
 
----
- net/x25/af_x25.c |   11 ++++++-----
- 1 files changed, 6 insertions(+), 5 deletions(-)
+> Signed-off-by: Filip Aben <f.aben@option.com>
+> ---
 
-diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
-index 8cfc419..ad96ee9 100644
---- a/net/x25/af_x25.c
-+++ b/net/x25/af_x25.c
-@@ -1562,19 +1562,20 @@ out_dtefac_release:
- 		case SIOCX25SCUDMATCHLEN: {
- 			struct x25_subaddr sub_addr;
- 			rc = -EINVAL;
--			lock_kernel();
-+			lock_sock(sk);
- 			if(sk->sk_state != TCP_CLOSE)
--				break;
-+				goto out_cud_release;
- 			rc = -EFAULT;
- 			if (copy_from_user(&sub_addr, argp,
- 					sizeof(sub_addr)))
--				break;
-+				goto out_cud_release;
- 			rc = -EINVAL;
- 			if(sub_addr.cudmatchlength > X25_MAX_CUD_LEN)
--				break;
-+				goto out_cud_release;
- 			x25->cudmatchlength = sub_addr.cudmatchlength;
--			unlock_kernel();
- 			rc = 0;
-+out_cud_release:
-+			release_sock(sk);
- 			break;
- 		}
- 
--- 
-1.7.1
+> diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
+> index b154a94..b05c235 100644
+> --- a/drivers/net/usb/hso.c
+> +++ b/drivers/net/usb/hso.c
+> @@ -2994,10 +2994,10 @@ static int hso_probe(struct usb_interface *interface,
+>
+>   	case HSO_INTF_BULK:
+>   		/* It's a regular bulk interface */
+> -		if (((port_spec&  HSO_PORT_MASK) == HSO_PORT_NETWORK)&&
+> -		    !disable_net)
+> +		if ((port_spec&  HSO_PORT_MASK) == HSO_PORT_NETWORK) {
+> +		    if(!disable_net)
+>   			hso_dev = hso_create_net_device(interface, port_spec);
+> -		else
+> +		} else
 
+    There should now be {} on the *else* branch too, according to CodingStyle.
 
+>   			hso_dev =
+>   			    hso_create_bulk_serial_device(interface, port_spec);
+>   		if (!hso_dev)
 
+WBR, Sergei
