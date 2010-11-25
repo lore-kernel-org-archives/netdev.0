@@ -1,55 +1,83 @@
-From: "Tomoya MORINAGA" <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Subject: Re: [PATCH net-next-2.6 6/17 v3] can: EG20T PCH: Fix endianness issue
-Date: Thu, 25 Nov 2010 20:10:53 +0900
-Message-ID: <001c01cb8c91$6e93aef0$66f8800a@maildom.okisemi.com>
-References: <4CED023E.1070009@dsn.okisemi.com>
-	<4CED13B5.5020309@pengutronix.de>
+From: Andrew Hendry <andrew.hendry@gmail.com>
+Subject: Re: [PATCH 1/1] NET: wan/x25_asy, move lapb_unregister to x25_asy_close_tty
+Date: Thu, 25 Nov 2010 22:37:44 +1100
+Message-ID: <AANLkTi=DEHOKkrvzHUBnW+rAkGz-uhizRqZb2PAuh4k-@mail.gmail.com>
+References: <1290642894-4577-1-git-send-email-jslaby@suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>, joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-To: "Marc Kleine-Budde" <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org, slapin@ossfans.org,
+	linux-kernel@vger.kernel.org, jirislaby@gmail.com
+To: Jiri Slaby <jslaby@suse.cz>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1290642894-4577-1-git-send-email-jslaby@suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday, November 24, 2010 10:31 PM,  Marc Kleine-Budde wrote :
+Sorry I haven't used this driver so can't fully test it. Looks
+straightforward and compile tested ok.
 
->> For easy to read, some sub-functions are created.
->>
->>
->> Modify complex "goto" to do~while.
->What about the next_flag in the rx_normal function? Can you get rid of
->it, too?
-Subsequent Patch (11/17 Delete unnecessary ...) deletes "next_flag" in the rx_normal function.
-
----
-Thanks,
-
-Tomoya MORINAGA
-OKI SEMICONDUCTOR CO., LTD.
-
------ Original Message ----- 
-From: "Marc Kleine-Budde" <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-To: "Tomoya MORINAGA" <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Cc: "Wolfgang Grandegger" <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>; "Wolfram Sang" <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>; "Christian Pellegrin"
-<chripell-VaTbYqLCNhc@public.gmane.org>; "Barry Song" <21cnbao-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>; "Samuel Ortiz" <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>;
-<socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>; <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>; <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>; "David S. Miller"
-<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>; <andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>; <qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>; <margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>;
-<yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>; <kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>; <joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Sent: Wednesday, November 24, 2010 10:31 PM
-Subject: Re: [PATCH net-next-2.6 6/17 v3] can: EG20T PCH: Fix endianness issue
+On Thu, Nov 25, 2010 at 10:54 AM, Jiri Slaby <jslaby@suse.cz> wrote:
+> We register lapb when tty is created, but unregister it only when the
+> device is UP. So move the lapb_unregister to x25_asy_close_tty after
+> the device is down.
+>
+> Signed-off-by: Jiri Slaby <jslaby@suse.cz>
+> Reported-by: Sergey Lapin <slapin@ossfans.org>
+> Cc: Andrew Hendry <andrew.hendry@gmail.com>
+> ---
+> =A0drivers/net/wan/x25_asy.c | =A0 11 ++++++-----
+> =A01 files changed, 6 insertions(+), 5 deletions(-)
+>
+> diff --git a/drivers/net/wan/x25_asy.c b/drivers/net/wan/x25_asy.c
+> index 66cda25..24297b2 100644
+> --- a/drivers/net/wan/x25_asy.c
+> +++ b/drivers/net/wan/x25_asy.c
+> @@ -498,7 +498,6 @@ norbuff:
+> =A0static int x25_asy_close(struct net_device *dev)
+> =A0{
+> =A0 =A0 =A0 =A0struct x25_asy *sl =3D netdev_priv(dev);
+> - =A0 =A0 =A0 int err;
+>
+> =A0 =A0 =A0 =A0spin_lock(&sl->lock);
+> =A0 =A0 =A0 =A0if (sl->tty)
+> @@ -507,10 +506,6 @@ static int x25_asy_close(struct net_device *dev)
+> =A0 =A0 =A0 =A0netif_stop_queue(dev);
+> =A0 =A0 =A0 =A0sl->rcount =3D 0;
+> =A0 =A0 =A0 =A0sl->xleft =A0=3D 0;
+> - =A0 =A0 =A0 err =3D lapb_unregister(dev);
+> - =A0 =A0 =A0 if (err !=3D LAPB_OK)
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 printk(KERN_ERR "x25_asy_close: lapb_un=
+register error -%d\n",
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 err);
+> =A0 =A0 =A0 =A0spin_unlock(&sl->lock);
+> =A0 =A0 =A0 =A0return 0;
+> =A0}
+> @@ -595,6 +590,7 @@ static int x25_asy_open_tty(struct tty_struct *tt=
+y)
+> =A0static void x25_asy_close_tty(struct tty_struct *tty)
+> =A0{
+> =A0 =A0 =A0 =A0struct x25_asy *sl =3D tty->disc_data;
+> + =A0 =A0 =A0 int err;
+>
+> =A0 =A0 =A0 =A0/* First make sure we're connected. */
+> =A0 =A0 =A0 =A0if (!sl || sl->magic !=3D X25_ASY_MAGIC)
+> @@ -605,6 +601,11 @@ static void x25_asy_close_tty(struct tty_struct =
+*tty)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0dev_close(sl->dev);
+> =A0 =A0 =A0 =A0rtnl_unlock();
+>
+> + =A0 =A0 =A0 err =3D lapb_unregister(sl->dev);
+> + =A0 =A0 =A0 if (err !=3D LAPB_OK)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 printk(KERN_ERR "x25_asy_close: lapb_un=
+register error -%d\n",
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 err);
+> +
+> =A0 =A0 =A0 =A0tty->disc_data =3D NULL;
+> =A0 =A0 =A0 =A0sl->tty =3D NULL;
+> =A0 =A0 =A0 =A0x25_asy_free(sl);
+> --
+> 1.7.3.1
+>
+>
+>
