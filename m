@@ -1,85 +1,93 @@
 From: Jonas Bonn <jonas@southpole.se>
-Subject: [PATCH 8/8] ethoc: remove division from loops
-Date: Thu, 25 Nov 2010 13:30:32 +0100
-Message-ID: <1290688232-25142-9-git-send-email-jonas@southpole.se>
+Subject: [PATCH 6/8] ethoc: rework mdio read/write
+Date: Thu, 25 Nov 2010 13:30:30 +0100
+Message-ID: <1290688232-25142-7-git-send-email-jonas@southpole.se>
 References: <1290688232-25142-1-git-send-email-jonas@southpole.se>
 Cc: Jonas Bonn <jonas@southpole.se>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.southpole.se ([193.12.106.18]:38976 "EHLO
+Received: from mail.southpole.se ([193.12.106.18]:38974 "EHLO
 	mail.southpole.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753131Ab0KYMag (ORCPT
+	with ESMTP id S1752136Ab0KYMag (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 25 Nov 2010 07:30:36 -0500
 In-Reply-To: <1290688232-25142-1-git-send-email-jonas@southpole.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Calculating the BD entry using a modulus operation isn't optimal, especially
-inside the loop.  This patch removes the modulus operations in favour of:
+MDIO read and write were checking whether a timeout had expired to determine
+whether to recheck the result of the MDIO operation.  Under heavy CPU usage,
+however, it was possible for the timeout to expire before the routine got
+around to be able to check a second time even, thus erroneousy returning an
+-EBUSY.
 
-i)  simply checking for wrapping in the case of cur_rx
-ii) forcing num_tx to be a power of two and using it to mask out the
-    entry from cur_tx
+This patch changes the the MDIO IO routines to try up to five times to complete
+the operation before giving up, thus lessening the dependency on CPU load.
 
-The also prevents possible issues related overflow of the cur_rx and cur_tx
-counters.
+This resolves a problem whereby a ping flood would keep the CPU so busy that
+the above problem would manifest itself; the MDIO command to check link status
+would fail and the interface would erroneously be shut down.
 
 Signed-off-by: Jonas Bonn <jonas@southpole.se>
 ---
- drivers/net/ethoc.c |   17 +++++++++++++----
- 1 files changed, 13 insertions(+), 4 deletions(-)
+ drivers/net/ethoc.c |   14 ++++++--------
+ 1 files changed, 6 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/net/ethoc.c b/drivers/net/ethoc.c
-index 93b50d6..b79d7e1 100644
+index 43431ff..f3048fa 100644
 --- a/drivers/net/ethoc.c
 +++ b/drivers/net/ethoc.c
-@@ -412,7 +412,7 @@ static int ethoc_rx(struct net_device *dev, int limit)
- 		unsigned int entry;
- 		struct ethoc_bd bd;
+@@ -611,13 +611,13 @@ static int ethoc_poll(struct napi_struct *napi, int budget)
  
--		entry = priv->num_tx + (priv->cur_rx % priv->num_rx);
-+		entry = priv->num_tx + priv->cur_rx;
- 		ethoc_read_bd(priv, entry, &bd);
- 		if (bd.stat & RX_BD_EMPTY) {
- 			ethoc_ack_irq(priv, INT_MASK_RX);
-@@ -456,7 +456,8 @@ static int ethoc_rx(struct net_device *dev, int limit)
- 		bd.stat &= ~RX_BD_STATS;
- 		bd.stat |=  RX_BD_EMPTY;
- 		ethoc_write_bd(priv, entry, &bd);
--		priv->cur_rx++;
-+		if (++priv->cur_rx == priv->num_rx)
-+			priv->cur_rx = 0;
+ static int ethoc_mdio_read(struct mii_bus *bus, int phy, int reg)
+ {
+-	unsigned long timeout = jiffies + ETHOC_MII_TIMEOUT;
+ 	struct ethoc *priv = bus->priv;
++	int i;
+ 
+ 	ethoc_write(priv, MIIADDRESS, MIIADDRESS_ADDR(phy, reg));
+ 	ethoc_write(priv, MIICOMMAND, MIICOMMAND_READ);
+ 
+-	while (time_before(jiffies, timeout)) {
++	for (i=0; i < 5; i++) {
+ 		u32 status = ethoc_read(priv, MIISTATUS);
+ 		if (!(status & MIISTATUS_BUSY)) {
+ 			u32 data = ethoc_read(priv, MIIRX_DATA);
+@@ -625,8 +625,7 @@ static int ethoc_mdio_read(struct mii_bus *bus, int phy, int reg)
+ 			ethoc_write(priv, MIICOMMAND, 0);
+ 			return data;
+ 		}
+-
+-		schedule();
++		usleep_range(100,200);
  	}
  
- 	return count;
-@@ -503,7 +504,7 @@ static int ethoc_tx(struct net_device *dev, int limit)
- 	for (count = 0; count < limit; ++count) {
- 		unsigned int entry;
+ 	return -EBUSY;
+@@ -634,22 +633,21 @@ static int ethoc_mdio_read(struct mii_bus *bus, int phy, int reg)
  
--		entry = priv->dty_tx % priv->num_tx;
-+		entry = priv->dty_tx & (priv->num_tx-1);
+ static int ethoc_mdio_write(struct mii_bus *bus, int phy, int reg, u16 val)
+ {
+-	unsigned long timeout = jiffies + ETHOC_MII_TIMEOUT;
+ 	struct ethoc *priv = bus->priv;
++	int i;
  
- 		ethoc_read_bd(priv, entry, &bd);
+ 	ethoc_write(priv, MIIADDRESS, MIIADDRESS_ADDR(phy, reg));
+ 	ethoc_write(priv, MIITX_DATA, val);
+ 	ethoc_write(priv, MIICOMMAND, MIICOMMAND_WRITE);
  
-@@ -1000,9 +1001,17 @@ static int __devinit ethoc_probe(struct platform_device *pdev)
- 	/* calculate the number of TX/RX buffers, maximum 128 supported */
- 	num_bd = min_t(unsigned int,
- 		128, (netdev->mem_end - netdev->mem_start + 1) / ETHOC_BUFSIZ);
--	priv->num_tx = max(2, num_bd / 4);
-+	if (num_bd < 4) {
-+		ret = -ENODEV;
-+		goto error;
-+	}
-+	/* num_tx must be a power of two */
-+	priv->num_tx = rounddown_pow_of_two(num_bd >> 1);
- 	priv->num_rx = num_bd - priv->num_tx;
+-	while (time_before(jiffies, timeout)) {
++	for (i=0; i < 5; i++) {
+ 		u32 stat = ethoc_read(priv, MIISTATUS);
+ 		if (!(stat & MIISTATUS_BUSY)) {
+ 			/* reset MII command register */
+ 			ethoc_write(priv, MIICOMMAND, 0);
+ 			return 0;
+ 		}
+-
+-		schedule();
++		usleep_range(100,200);
+ 	}
  
-+	dev_dbg(&pdev->dev, "ethoc: num_tx: %d num_rx: %d\n",
-+		priv->num_tx, priv->num_rx);
-+
- 	priv->vma = devm_kzalloc(&pdev->dev, num_bd*sizeof(void*), GFP_KERNEL);
- 	if (!priv->vma) {
- 		ret = -ENOMEM;
+ 	return -EBUSY;
 -- 
 1.7.1
 
