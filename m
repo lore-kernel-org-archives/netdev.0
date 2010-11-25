@@ -1,53 +1,35 @@
-From: Sergei Shtylyov <sshtylyov@mvista.com>
-Subject: Re: [PATCH] hso: fix disable_net
-Date: Thu, 25 Nov 2010 15:17:58 +0300
-Message-ID: <4CEE53F6.8070906@ru.mvista.com>
-References: <1290627352.1739.19.camel@filip-linux>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [GIT PULL net-2.6] vhost-net: rcu fixup
+Date: Thu, 25 Nov 2010 14:23:01 +0200
+Message-ID: <20101125122301.GA15990@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org, jhovold@gmail.com, pki@ex.com.pl,
-	j.dumon@option.com
-To: Filip Aben <f.aben@option.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f46.google.com ([209.85.215.46]:57787 "EHLO
-	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753139Ab0KYMTu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Nov 2010 07:19:50 -0500
-In-Reply-To: <1290627352.1739.19.camel@filip-linux>
+Received: from mx1.redhat.com ([209.132.183.28]:47485 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751695Ab0KYMXy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Nov 2010 07:23:54 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 24-11-2010 22:35, Filip Aben wrote:
+Please merge the following fix for 2.6.36.
+Thanks!
 
-> The HSO driver incorrectly creates a serial device instead of a net
-> device when disable_net is set. It shouldn't create anything for the
-> network interface.
+The following changes since commit a27e13d370415add3487949c60810e36069a23a6:
 
-> Signed-off-by: Filip Aben <f.aben@option.com>
-> ---
+  econet: fix CVE-2010-3848 (2010-11-24 11:51:47 -0800)
 
-> diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-> index b154a94..b05c235 100644
-> --- a/drivers/net/usb/hso.c
-> +++ b/drivers/net/usb/hso.c
-> @@ -2994,10 +2994,10 @@ static int hso_probe(struct usb_interface *interface,
->
->   	case HSO_INTF_BULK:
->   		/* It's a regular bulk interface */
-> -		if (((port_spec&  HSO_PORT_MASK) == HSO_PORT_NETWORK)&&
-> -		    !disable_net)
-> +		if ((port_spec&  HSO_PORT_MASK) == HSO_PORT_NETWORK) {
-> +		    if(!disable_net)
->   			hso_dev = hso_create_net_device(interface, port_spec);
-> -		else
-> +		} else
+are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git vhost-net
 
-    There should now be {} on the *else* branch too, according to CodingStyle.
+Michael S. Tsirkin (1):
+      vhost/net: fix rcu check usage
 
->   			hso_dev =
->   			    hso_create_bulk_serial_device(interface, port_spec);
->   		if (!hso_dev)
-
-WBR, Sergei
+ drivers/vhost/net.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
+-- 
+MST
