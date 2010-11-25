@@ -1,38 +1,45 @@
-From: Johan Hovold <jhovold-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCHv2] hso: fix disable_net
-Date: Thu, 25 Nov 2010 17:25:28 +0100
-Message-ID: <AANLkTikUs7aHCP1ZZoxhs+w-a2RTdzHzmFR3tbcxjMHt@mail.gmail.com>
-References: <1290692450.2112.21.camel@filip-linux>
-	<AANLkTikODWoXB1PmB+SFbFWenYm_-o+RJ+czK9LnaXmn@mail.gmail.com>
-	<1290700866.2112.60.camel@filip-linux>
+From: nisse@lysator.liu.se (Niels =?iso-8859-1?Q?M=F6ller?=)
+Subject: Re: TCP_MAXSEG vs TCP/generic segmentation offload (tso/gso)
+Date: Thu, 25 Nov 2010 17:25:42 +0100
+Message-ID: <nn1v69qsjd.fsf@stalhein.lysator.liu.se>
+References: <nny68hqzzn.fsf@stalhein.lysator.liu.se>
+	<1290695253.2858.336.camel@edumazet-laptop>
+	<nnaakxqw1u.fsf@stalhein.lysator.liu.se>
+	<1290698312.2858.341.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, pki-/L4m51SJ8HhmR6Xm/wNWPw@public.gmane.org
-To: Filip Aben <f.aben-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1290700866.2112.60.camel@filip-linux>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1290698312.2858.341.camel@edumazet-laptop> (Eric Dumazet's
+	message of "Thu, 25 Nov 2010 16:18:31 +0100")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 25, 2010 at 5:01 PM, Filip Aben <f.aben-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org> wrote:
-> On Thu, 2010-11-25 at 16:03 +0100, Johan Hovold wrote:
->> Please add the appropriate Reported-by-tags as well, e.g.
->>
->> Reported-by: Piotr Isajew <pki-/L4m51SJ8HhmR6Xm/wNWPw@public.gmane.org>
->> Reported-by: Johan Hovold <jhovold-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->
-> I would have gladly done so if you included that in your comment on the
-> previous patch :)
+Eric Dumazet <eric.dumazet@gmail.com> writes:
 
-What is stopping you from submitting a v3? :)
+> I believe TCP_MAXSEG is working fine, but GRO/GSO dont care at all :
+> They coalesce frames whatever their size is.
 
-But perhaps David can pick those up from the thread. Not sure how this
-is usually dealt with on netdev.
+I was under the impression that TSO (and maybe GSO) implied more
+cleverness in the network card; that the network card more or less gets
+to decide by itself how to divide a tcp stream into segments. And for
+example in the atl1c driver which I looked a bit into, this was what th=
+e
+REG_MTU register was for. Seems I have gotten this totally wrong.
 
-Thanks,
-Johan
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Maybe Documentation/networking/netdevices.txt could clarify how it
+works. Currently, it says
+
+: Segmentation Offload (GSO, TSO) is an exception to this rule.  The
+: upper layer protocol may pass a large socket buffer to the device
+: transmit routine, and the device will break that up into separate
+: packets based on the current MTU.
+
+Regards, and thanks for your patience,
+/Niels
+
+--=20
+Niels M=F6ller. PGP-encrypted email is preferred. Keyid C0B98E26.
+Internet email is subject to wholesale government surveillance.
