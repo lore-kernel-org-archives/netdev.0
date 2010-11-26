@@ -1,90 +1,90 @@
-From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: Re: [PATCH net-next-2.6 01/19 v5] can: EG20T PCH: Separate Interface
-	Register(IF1/IF2)
-Date: Fri, 26 Nov 2010 11:04:59 +0100
-Message-ID: <4CEF864B.6080207@pengutronix.de>
-References: <4CEF150A.7080409@dsn.okisemi.com>
-	<4CEF84BE.7000101@pengutronix.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: Fix __inet_inherit_port() to correctly increment
+ bsockets and num_owners
+Date: Fri, 26 Nov 2010 11:47:57 +0100
+Message-ID: <1290768477.2855.97.camel@edumazet-laptop>
+References: <751926.73238.qm@web53707.mail.re2.yahoo.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============1216622482051945667=="
-Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-To: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4CEF84BE.7000101-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	Evgeniy Polyakov <zbr@ioremap.net>
+To: Nagendra Tomar <tomer_iisc@yahoo.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:43827 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754430Ab0KZKsC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Nov 2010 05:48:02 -0500
+Received: by fxm15 with SMTP id 15so587721fxm.19
+        for <netdev@vger.kernel.org>; Fri, 26 Nov 2010 02:48:00 -0800 (PST)
+In-Reply-To: <751926.73238.qm@web53707.mail.re2.yahoo.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---===============1216622482051945667==
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig806125ABFA58D5ED8C3CC374"
+=46rom: Nagendra Tomar <tomer_iisc@yahoo.com>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig806125ABFA58D5ED8C3CC374
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-
-On 11/26/2010 10:58 AM, Marc Kleine-Budde wrote:
-> On 11/26/2010 03:01 AM, Tomoya MORINAGA wrote:
->> Separate interface register from whole of register structure.
->>  CAN register of Intel PCH EG20T has 2 sets of interface register.
->>  To reduce whole of code size, separate interface register.
->>  As a result, the number of function also can be reduced.
+Le vendredi 26 novembre 2010 =C3=A0 01:40 -0800, Nagendra Tomar a =C3=A9=
+crit :
 >=20
-> nitpick: it's unusual to have leading whitespace in the patch descripti=
-on.
+> --- On Fri, 26/11/10, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>=20
+> >=20
+> > OK so you'll have to make a proof, because current code
+> > seems to work ;)
+> >=20
+> >=20
+>=20
+> ok, so I printed hashinfo->bsockets and tb->num_owners inside
+> __inet_put_port() and I could see both of them to be -ve. All we need
+> to do is establish and terminate a connection. I used netcat for that=
+=2E
+>=20
+> The only place 'bsockets' and 'num_owners' are used is
+> inet_csk_get_port() and the only effect that they might have is on th=
+e
+> choice of the port to be used for binding.=20
+> 'bsockets' is used as a hint to stop searching for a free port (and
+> instead share an already used port) when we know that all the ports
+> could be used up.
+> 'num_owners' is used to find the port which is least shared (to
+> balance the 'owners' list) in case we need to share a port.
+>=20
+> Since both of these are used as optimizations (in the bind path), the=
+y
+> do not affect correctness and hence the code works even with these
+> values not being updated correctly.
 
-maybe it's a problem of your mailer.
+Hmm, thanks for clarification.
 
-Marc
+bsockets / mnum_owners iscount is indeed an 'optimization' problem.
 
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+Problem is your patch is not applicable to current tree.
+
+In order to submit it to stable team, you should first post a patch for
+next/current kernel (net-next-2.6 tree).
+
+David will decide if its net-2.6 material or not.
+
+You could add in your changelog the problem comes from commit=20
+a9d8f9110d7e953c (inet: Allowing more than 64k connections and heavily
+optimize bind(0)), included in 2.6.30, to ease stable team work.
+
+On current tree your patch would be :
+
+diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
+index 1b344f3..3c0369a 100644
+--- a/net/ipv4/inet_hashtables.c
++++ b/net/ipv4/inet_hashtables.c
+@@ -133,8 +133,7 @@ int __inet_inherit_port(struct sock *sk, struct soc=
+k *child)
+ 			}
+ 		}
+ 	}
+-	sk_add_bind_node(child, &tb->owners);
+-	inet_csk(child)->icsk_bind_hash =3D tb;
++	inet_bind_hash(child, tb, port);
+ 	spin_unlock(&head->lock);
+=20
+ 	return 0;
 
 
---------------enig806125ABFA58D5ED8C3CC374
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAkzvhk8ACgkQjTAFq1RaXHPLMQCdHMJoL+mPEOplmIJ3tn2lupau
-9ZEAoJOmg3aMKkP4Q73BjzLa5QOe8JW+
-=cgNV
------END PGP SIGNATURE-----
-
---------------enig806125ABFA58D5ED8C3CC374--
-
---===============1216622482051945667==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Socketcan-core mailing list
-Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-https://lists.berlios.de/mailman/listinfo/socketcan-core
-
---===============1216622482051945667==--
