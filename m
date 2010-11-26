@@ -1,125 +1,39 @@
-From: Stefan Achatz <erazor_de@users.sourceforge.net>
-Subject: [PATCH 1/5] sysfs: Introducing binary attributes for struct class
-Date: Fri, 26 Nov 2010 20:57:29 +0100
-Message-ID: <1290801449.18750.162.camel__7958.00299752063$1290801577$gmane$org@neuromancer>
-Reply-To: erazor_de@users.sourceforge.net
+From: Jan Ceuleers <jan.ceuleers@computer.org>
+Subject: Re: [PATCHv2] hso: fix disable_net
+Date: Fri, 26 Nov 2010 21:18:12 +0100
+Message-ID: <4CF01604.9010401@computer.org>
+References: <1290692450.2112.21.camel@filip-linux>	<AANLkTikODWoXB1PmB+SFbFWenYm_-o+RJ+czK9LnaXmn@mail.gmail.com>	<1290700866.2112.60.camel@filip-linux> <AANLkTikUs7aHCP1ZZoxhs+w-a2RTdzHzmFR3tbcxjMHt@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Randy Dunlap <rdunlap@xenotime.net>,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	Jiri Kosina <jkosina@suse.cz>,
-	Stefan Achatz <erazor_de@users.sourceforge.net>,
-	linux-doc@vger.kernel.org, l
+Cc: Filip Aben <f.aben@option.com>, davem@davemloft.net,
+	linux-usb@vger.kernel.org, netdev@vger.kernel.org, pki@ex.com.pl
+To: Johan Hovold <jhovold@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-in-01.arcor-online.net ([151.189.21.41]:50825 "EHLO
-	mail-in-01.arcor-online.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751005Ab0KZT5c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Nov 2010 14:57:32 -0500
+Received: from mailrelay010.isp.belgacom.be ([195.238.6.177]:33119 "EHLO
+	mailrelay010.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751022Ab0KZUT6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Nov 2010 15:19:58 -0500
+In-Reply-To: <AANLkTikUs7aHCP1ZZoxhs+w-a2RTdzHzmFR3tbcxjMHt@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Added dev_bin_attrs to struct class similar to existing dev_attrs.
+On 25/11/10 17:25, Johan Hovold wrote:
+> On Thu, Nov 25, 2010 at 5:01 PM, Filip Aben<f.aben@option.com>  wrote:
+>> On Thu, 2010-11-25 at 16:03 +0100, Johan Hovold wrote:
+>>> Please add the appropriate Reported-by-tags as well, e.g.
+>>>
+>>> Reported-by: Piotr Isajew<pki@ex.com.pl>
+>>> Reported-by: Johan Hovold<jhovold@gmail.com>
+>>
+>> I would have gladly done so if you included that in your comment on the
+>> previous patch :)
+>
+> What is stopping you from submitting a v3? :)
+>
+> But perhaps David can pick those up from the thread. Not sure how this
+> is usually dealt with on netdev.
 
-Signed-off-by: Stefan Achatz <erazor_de@users.sourceforge.net>
----
- drivers/base/core.c    |   41 +++++++++++++++++++++++++++++++++++++++--
- include/linux/device.h |    1 +
- 2 files changed, 40 insertions(+), 2 deletions(-)
+Automatically taken care of by patchwork:
 
-diff --git a/drivers/base/core.c b/drivers/base/core.c
-index 6ed6454..7613592 100644
---- a/drivers/base/core.c
-+++ b/drivers/base/core.c
-@@ -338,6 +338,35 @@ static void device_remove_attributes(struct device *dev,
- 			device_remove_file(dev, &attrs[i]);
- }
- 
-+static int device_add_bin_attributes(struct device *dev,
-+				     struct bin_attribute *attrs)
-+{
-+	int error = 0;
-+	int i;
-+
-+	if (attrs) {
-+		for (i = 0; attr_name(attrs[i]); i++) {
-+			error = device_create_bin_file(dev, &attrs[i]);
-+			if (error)
-+				break;
-+		}
-+		if (error)
-+			while (--i >= 0)
-+				device_remove_bin_file(dev, &attrs[i]);
-+	}
-+	return error;
-+}
-+
-+static void device_remove_bin_attributes(struct device *dev,
-+					 struct bin_attribute *attrs)
-+{
-+	int i;
-+
-+	if (attrs)
-+		for (i = 0; attr_name(attrs[i]); i++)
-+			device_remove_bin_file(dev, &attrs[i]);
-+}
-+
- static int device_add_groups(struct device *dev,
- 			     const struct attribute_group **groups)
- {
-@@ -378,12 +407,15 @@ static int device_add_attrs(struct device *dev)
- 		error = device_add_attributes(dev, class->dev_attrs);
- 		if (error)
- 			return error;
-+		error = device_add_bin_attributes(dev, class->dev_bin_attrs);
-+		if (error)
-+			goto err_remove_class_attrs;
- 	}
- 
- 	if (type) {
- 		error = device_add_groups(dev, type->groups);
- 		if (error)
--			goto err_remove_class_attrs;
-+			goto err_remove_class_bin_attrs;
- 	}
- 
- 	error = device_add_groups(dev, dev->groups);
-@@ -395,6 +427,9 @@ static int device_add_attrs(struct device *dev)
-  err_remove_type_groups:
- 	if (type)
- 		device_remove_groups(dev, type->groups);
-+ err_remove_class_bin_attrs:
-+	if (class)
-+		device_remove_bin_attributes(dev, class->dev_bin_attrs);
-  err_remove_class_attrs:
- 	if (class)
- 		device_remove_attributes(dev, class->dev_attrs);
-@@ -412,8 +447,10 @@ static void device_remove_attrs(struct device *dev)
- 	if (type)
- 		device_remove_groups(dev, type->groups);
- 
--	if (class)
-+	if (class) {
- 		device_remove_attributes(dev, class->dev_attrs);
-+		device_remove_bin_attributes(dev, class->dev_bin_attrs);
-+	}
- }
- 
- 
-diff --git a/include/linux/device.h b/include/linux/device.h
-index dd48953..032bdb5 100644
---- a/include/linux/device.h
-+++ b/include/linux/device.h
-@@ -197,6 +197,7 @@ struct class {
- 
- 	struct class_attribute		*class_attrs;
- 	struct device_attribute		*dev_attrs;
-+	struct bin_attribute		*dev_bin_attrs;
- 	struct kobject			*dev_kobj;
- 
- 	int (*dev_uevent)(struct device *dev, struct kobj_uevent_env *env);
--- 
-1.7.2.3
-
-
-
+http://patchwork.ozlabs.org/patch/73060/mbox/
