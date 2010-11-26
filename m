@@ -1,97 +1,70 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Fwd: Simple kernel attack using socketpair. easy, 100%
- reproductiblle, works under guest. no way to protect :(
-Date: Fri, 26 Nov 2010 07:23:31 +0100
-Message-ID: <1290752611.2678.3.camel@edumazet-laptop>
-References: <AANLkTikCeddPFRGojPGuB6oq3xGYgovtm8r4=WhjEDpe@mail.gmail.com>
-	 <1290666501.2798.84.camel@edumazet-laptop>
-	 <AANLkTik8Fxmd-KwGw498fMyONfVNteFcfCmz+9-V_QZh@mail.gmail.com>
-	 <1290668246.2798.93.camel@edumazet-laptop>
-	 <AANLkTinQa8BCH-k0m=ndu4u8L-kCiD00jYjKvsvoxK2E@mail.gmail.com>
-	 <AANLkTin3SAdiRR4eda3SDdDV4XfKTqH5Z0a7Pih2O4jZ@mail.gmail.com>
-	 <1290672978.2798.151.camel@edumazet-laptop>
-	 <AANLkTi=NTFXXY42nh+j3xM4n-NTPaz=fWKmAY=MpsHze@mail.gmail.com>
-	 <1290694299.2858.330.camel@edumazet-laptop>
-	 <4CEF39AF.6090605@cn.fujitsu.com>
+Subject: Re: [PATCH] net: Fix __inet_inherit_port() to correctly increment
+ bsockets and num_owners
+Date: Fri, 26 Nov 2010 08:20:31 +0100
+Message-ID: <1290756031.2678.15.camel@edumazet-laptop>
+References: <801098.19711.qm@web53707.mail.re2.yahoo.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?Q?=D0=9C=D0=B0=D1=80=D0=BA_?=
-	 =?UTF-8?Q?=D0=9A=D0=BE=D1=80=D0=B5=D0=BD=D0=B1=D0=B5=D1=80=D0=B3?=
-	<socketpair@gmail.com>, David Miller <davem@davemloft.net>,
-	netdev@vger.kernel.org
-To: Shan Wei <shanwei@cn.fujitsu.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Nagendra Tomar <tomer_iisc@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:45301 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750860Ab0KZGXi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Nov 2010 01:23:38 -0500
-Received: by wwa36 with SMTP id 36so1713829wwa.1
-        for <netdev@vger.kernel.org>; Thu, 25 Nov 2010 22:23:36 -0800 (PST)
-In-Reply-To: <4CEF39AF.6090605@cn.fujitsu.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:44064 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751046Ab0KZHUg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Nov 2010 02:20:36 -0500
+Received: by wyb28 with SMTP id 28so1629970wyb.19
+        for <netdev@vger.kernel.org>; Thu, 25 Nov 2010 23:20:35 -0800 (PST)
+In-Reply-To: <801098.19711.qm@web53707.mail.re2.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 26 novembre 2010 =C3=A0 12:38 +0800, Shan Wei a =C3=A9crit =
-:
-> Eric Dumazet wrote, at 11/25/2010 10:11 PM:
-> > Le jeudi 25 novembre 2010 =C3=A0 13:35 +0500, =D0=9C=D0=B0=D1=80=D0=
-=BA =D0=9A=D0=BE=D1=80=D0=B5=D0=BD=D0=B1=D0=B5=D1=80=D0=B3 a =C3=A9crit=
- :
-> >> quick and dirty fix will be not to allow to pass unix socket insid=
-e
-> >> unix socket. I think it would not break much applications.
-> >=20
-> > Really, if it was not needed, net/unix/garbage.c would not exist at
-> > all...
-> >=20
-> > It is needed by some apps.
-> >=20
-> >=20
-> > [PATCH] af_unix: limit recursion level
-> >=20
-> > Its easy to eat all kernel memory and trigger NMI watchdog, using a=
-n
-> > exploit program that queues unix sockets on top of others.
-> >=20
-> > lkml ref : http://lkml.org/lkml/2010/11/25/8
-> >=20
-> > This mechanism is used in applications, one choice we have is to ha=
-ve a
-> > recursion limit.
-> >=20
-> > Other limits might be needed as well (if we queue other types of fi=
-les),
-> > since the passfd mechanism is currently limited by socket receive q=
-ueue
-> > sizes only.
-> >=20
-> > Add a recursion_level to unix socket, allowing up to 4 levels.
-> >=20
-> > Each time we send an unix socket through sendfd mechanism, we copy =
-its
-> > recursion level (plus one) to receiver. This recursion level is cle=
-ared
-> > when socket receive queue is emptied.
-> >=20
-> > Reported-by: =D0=9C=D0=B0=D1=80=D0=BA =D0=9A=D0=BE=D1=80=D0=B5=D0=BD=
-=D0=B1=D0=B5=D1=80=D0=B3 <socketpair@gmail.com>
-> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Le jeudi 25 novembre 2010 =C3=A0 21:09 -0800, Nagendra Tomar a =C3=A9cr=
+it :
+> inet sockets corresponding to passive connections are added to the bi=
+nd hash
+> using ___inet_inherit_port(). These sockets are later removed from th=
+e bind=20
+> hash using __inet_put_port(). These two functions are not exactly sym=
+metrical.=20
+> __inet_put_port() decrements hashinfo->bsockets and tb->num_owners, w=
+hereas=20
+> ___inet_inherit_port() does not increment them. This results in both =
+of these=20
+> going to -ve values.
 >=20
-> This problem is same as that reported with title "Unix socket local D=
-OS (OOM)", right?
-> After applied this patch, this program can be killed now. but still e=
-at 100% cpu.=20
+> This patch fixes this by calling inet_bind_hash() from ___inet_inheri=
+t_port(),
+> which does the right thing.
+>=20
+> Signed-off-by: Nagendra Singh Tomar <tomer_iisc@yahoo.com>
+>=20
+> ---
+> --- linux-2.6.36.1/net/ipv4/inet_hashtables.c.orig	2010-11-25 14:56:3=
+7.902456597 -0500
+> +++ linux-2.6.36.1/net/ipv4/inet_hashtables.c	2010-11-25 15:44:15.038=
+403317 -0500
+> @@ -107,12 +107,10 @@ void __inet_inherit_port(struct sock *sk
+>  	const int bhash =3D inet_bhashfn(sock_net(sk), inet_sk(child)->inet=
+_num,
+>  			table->bhash_size);
+>  	struct inet_bind_hashbucket *head =3D &table->bhash[bhash];
+> -	struct inet_bind_bucket *tb;
+> =20
+>  	spin_lock(&head->lock);
+> -	tb =3D inet_csk(sk)->icsk_bind_hash;
+> -	sk_add_bind_node(child, &tb->owners);
+> -	inet_csk(child)->icsk_bind_hash =3D tb;
+> +	inet_bind_hash(child, inet_csk(sk)->icsk_bind_hash,=20
+> +			inet_sk(child)->inet_num);
+>  	spin_unlock(&head->lock);
+>  }
+>  EXPORT_SYMBOL_GPL(__inet_inherit_port);
+> ---
 >=20
 
-Not the same problem, but a different one.=20
-
-In this case, we queue files on top of another and never give a chance
-to free them, unless the program dies (and full memory eaten)
-
-And yes, its eating 100% cpu, since it has no sleep inside, like
-
-for (;;) ;
+Interesting, how did you notice it is wrong ?
 
 
 
