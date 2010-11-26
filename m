@@ -1,48 +1,36 @@
-From: Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
-Subject: [PATCH net-next-2.6 19/19 v5] can: EG20T PCH: Replace netif_rx to
- netif_receive_skb
-Date: Fri, 26 Nov 2010 11:27:04 +0900
-Message-ID: <4CEF1AF8.4000908__40839.4022299491$1290738481$gmane$org@dsn.okisemi.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: qi.wang@intel.com, yong.y.wang@intel.com,
-	andrew.chih.howe.khor@intel.com, joel.clark@intel.com,
-	kok.howg.ewe@intel.com, margie.foster@intel.com
-To: Wolfgang Grandegger <wg@grandegger.com>,
-	Wolfram Sang <w.sang@pengutronix.de>,
-	Christian Pellegrin <chripell@fsfe.org>,
-	Barry Song <21cnbao@gmail.com>,
-	Samuel Ortiz <sameo@linux.inte
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH] bonding: check for assigned mac before adopting the slaves mac address
+Date: Thu, 25 Nov 2010 19:26:31 -0800
+Message-ID: <8879.1290741991@death>
+References: <AANLkTinpO=FmoecfV8epubXU4OrhFsXJ7-Kc68yNhMEs@mail.gmail.com> <31169.1290641617@death> <AANLkTi=-DzUmopboX13V_cd=mZnmD=mBNNCuhQYF0PQQ@mail.gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Strand <dpstrand@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sm-d311v.smileserver.ne.jp ([203.211.202.206]:37886 "EHLO
-	sm-d311v.smileserver.ne.jp" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753416Ab0KZC1b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Nov 2010 21:27:31 -0500
+Received: from e3.ny.us.ibm.com ([32.97.182.143]:50691 "EHLO e3.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752346Ab0KZD0g (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Nov 2010 22:26:36 -0500
+In-reply-to: <AANLkTi=-DzUmopboX13V_cd=mZnmD=mBNNCuhQYF0PQQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Replace netif_rx to netif_receive_skb
- Since this driver is implemented as NAPI,
- netif_receive_skb must be used not netif_rx.
+David Strand <dpstrand@gmail.com> wrote:
 
-Signed-off-by: Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
+>We have a use case where we assign a mac to the bond device, because
+>the slave device configuration may change periodically. With older
+>kernels, it honored the assigned mac and everything was fine, with
+>2.6.36 it now uses the mac of whatever slave device is first instead
+>of our assigned one.
+>
+>ifenslave code and documentation appears to still support the old way,
+>where a bond assigned mac will reign supreme, so this patch restores
+>that behavior.
+
+	Ok, fair enough.  If we want to get back to the original
+behavior, however, your patch should only test for zero MAC address
+instead of testing for zero MAC address in addition to first slave.
+
+	-J
+
 ---
- drivers/net/can/pch_can.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/can/pch_can.c b/drivers/net/can/pch_can.c
-index 1c3baca..a7bd18f 100644
---- a/drivers/net/can/pch_can.c
-+++ b/drivers/net/can/pch_can.c
-@@ -578,7 +578,7 @@ static void pch_can_error(struct net_device *ndev, u32 status)
- 	cf->data[7] = (errc & PCH_REC) >> 8;
- 
- 	priv->can.state = state;
--	netif_rx(skb);
-+	netif_receive_skb(skb);
- 
- 	stats->rx_packets++;
- 	stats->rx_bytes += cf->can_dlc;
--- 
-1.6.0.6
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
