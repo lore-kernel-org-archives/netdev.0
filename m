@@ -1,36 +1,72 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH] bonding: check for assigned mac before adopting the slaves mac address
-Date: Thu, 25 Nov 2010 19:26:31 -0800
-Message-ID: <8879.1290741991@death>
-References: <AANLkTinpO=FmoecfV8epubXU4OrhFsXJ7-Kc68yNhMEs@mail.gmail.com> <31169.1290641617@death> <AANLkTi=-DzUmopboX13V_cd=mZnmD=mBNNCuhQYF0PQQ@mail.gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Strand <dpstrand@gmail.com>
+From: Shan Wei <shanwei@cn.fujitsu.com>
+Subject: Re: Fwd: Simple kernel attack using socketpair. easy, 100% reproductiblle,
+ works under guest. no way to protect :(
+Date: Fri, 26 Nov 2010 12:38:07 +0800
+Message-ID: <4CEF39AF.6090605@cn.fujitsu.com>
+References: <AANLkTikCeddPFRGojPGuB6oq3xGYgovtm8r4=WhjEDpe@mail.gmail.com>	 <1290666501.2798.84.camel@edumazet-laptop>	 <AANLkTik8Fxmd-KwGw498fMyONfVNteFcfCmz+9-V_QZh@mail.gmail.com>	 <1290668246.2798.93.camel@edumazet-laptop>	 <AANLkTinQa8BCH-k0m=ndu4u8L-kCiD00jYjKvsvoxK2E@mail.gmail.com>	 <AANLkTin3SAdiRR4eda3SDdDV4XfKTqH5Z0a7Pih2O4jZ@mail.gmail.com>	 <1290672978.2798.151.camel@edumazet-laptop>	 <AANLkTi=NTFXXY42nh+j3xM4n-NTPaz=fWKmAY=MpsHze@mail.gmail.com> <1290694299.2858.330.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?B?0JzQsNGA0Log0JrQvtGA0LXQvdCx0LXRgNCz?=
+	<socketpair@gmail.com>, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e3.ny.us.ibm.com ([32.97.182.143]:50691 "EHLO e3.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752346Ab0KZD0g (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Nov 2010 22:26:36 -0500
-In-reply-to: <AANLkTi=-DzUmopboX13V_cd=mZnmD=mBNNCuhQYF0PQQ@mail.gmail.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:52075 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752686Ab0KZEjy convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Nov 2010 23:39:54 -0500
+In-Reply-To: <1290694299.2858.330.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Strand <dpstrand@gmail.com> wrote:
+Eric Dumazet wrote, at 11/25/2010 10:11 PM:
+> Le jeudi 25 novembre 2010 =C3=A0 13:35 +0500, =D0=9C=D0=B0=D1=80=D0=BA=
+ =D0=9A=D0=BE=D1=80=D0=B5=D0=BD=D0=B1=D0=B5=D1=80=D0=B3 a =C3=A9crit :
+>> quick and dirty fix will be not to allow to pass unix socket inside
+>> unix socket. I think it would not break much applications.
+>=20
+> Really, if it was not needed, net/unix/garbage.c would not exist at
+> all...
+>=20
+> It is needed by some apps.
+>=20
+>=20
+> [PATCH] af_unix: limit recursion level
+>=20
+> Its easy to eat all kernel memory and trigger NMI watchdog, using an
+> exploit program that queues unix sockets on top of others.
+>=20
+> lkml ref : http://lkml.org/lkml/2010/11/25/8
+>=20
+> This mechanism is used in applications, one choice we have is to have=
+ a
+> recursion limit.
+>=20
+> Other limits might be needed as well (if we queue other types of file=
+s),
+> since the passfd mechanism is currently limited by socket receive que=
+ue
+> sizes only.
+>=20
+> Add a recursion_level to unix socket, allowing up to 4 levels.
+>=20
+> Each time we send an unix socket through sendfd mechanism, we copy it=
+s
+> recursion level (plus one) to receiver. This recursion level is clear=
+ed
+> when socket receive queue is emptied.
+>=20
+> Reported-by: =D0=9C=D0=B0=D1=80=D0=BA =D0=9A=D0=BE=D1=80=D0=B5=D0=BD=D0=
+=B1=D0=B5=D1=80=D0=B3 <socketpair@gmail.com>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
->We have a use case where we assign a mac to the bond device, because
->the slave device configuration may change periodically. With older
->kernels, it honored the assigned mac and everything was fine, with
->2.6.36 it now uses the mac of whatever slave device is first instead
->of our assigned one.
->
->ifenslave code and documentation appears to still support the old way,
->where a bond assigned mac will reign supreme, so this patch restores
->that behavior.
+This problem is same as that reported with title "Unix socket local DOS=
+ (OOM)", right?
+After applied this patch, this program can be killed now. but still eat=
+ 100% cpu.=20
 
-	Ok, fair enough.  If we want to get back to the original
-behavior, however, your patch should only test for zero MAC address
-instead of testing for zero MAC address in addition to first slave.
-
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+--=20
+Best Regards
+-----
+Shan Wei
