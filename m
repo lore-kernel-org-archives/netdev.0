@@ -1,67 +1,43 @@
-From: Stanislaw Gruszka <sgruszka@redhat.com>
-Subject: Re: DMA Quirks for skge.c
-Date: Fri, 26 Nov 2010 10:21:02 +0100
-Message-ID: <20101126092059.GA2628@redhat.com>
-References: <4CEF565A.6060803@jumbolotteries.com>
+From: Nagendra Tomar <tomer_iisc@yahoo.com>
+Subject: Re: [PATCH] net: Fix __inet_inherit_port() to correctly increment bsockets and num_owners
+Date: Fri, 26 Nov 2010 01:40:12 -0800 (PST)
+Message-ID: <751926.73238.qm@web53707.mail.re2.yahoo.com>
+References: <1290759801.2855.5.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org
-To: Shannon Wynter <shannonw@jumbolotteries.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40864 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753866Ab0KZJVn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Nov 2010 04:21:43 -0500
-Content-Disposition: inline
-In-Reply-To: <4CEF565A.6060803@jumbolotteries.com>
+Received: from web53707.mail.re2.yahoo.com ([206.190.37.28]:42434 "HELO
+	web53707.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754061Ab0KZJkN convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Nov 2010 04:40:13 -0500
+In-Reply-To: <1290759801.2855.5.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi
 
-(cc Stephen and netdev)
 
-On Fri, Nov 26, 2010 at 04:40:26PM +1000, Shannon Wynter wrote:
-> Hi there.
+--- On Fri, 26/11/10, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+
 > 
-> I truly thank you for resolving the problem with the Gigabyte board
-> as without your fix I never would have been able to pinpoint the
-> issue I was having with my network card after upgrading my memory.
+> OK so you'll have to make a proof, because current code
+> seems to work ;)
 > 
-> I submit to you a patch that adds the ASUS A8N-SLI Premium board to
-> the list of poorly built boards.
 > 
-> I do wonder if it might be an idea to also add a module parameter
-> that forces 32 bit.
 
-Maybe for debug purposes it will be useful, but I dislike situation when
-users have to use module options to make hardware work. Anyway Stephen
-said that he works on better solution for that problem ... 
+ok, so I printed hashinfo->bsockets and tb->num_owners inside __inet_put_port() and I could see both of them to be -ve. All we need to do is establish and terminate a connection. I used netcat for that.
 
-> Kind regards
-> 
-> Shannon
+The only place 'bsockets' and 'num_owners' are used is inet_csk_get_port() and the only effect that they might have is on the choice of the port to be used for binding. 
+'bsockets' is used as a hint to stop searching for a free port (and instead share an already used port) when we know that all the ports could be used up.
+'num_owners' is used to find the port which is least shared (to balance the 'owners' list) in case we need to share a port.
 
-> diff -uNr linux-2.6.37-rc3.old/drivers/net/skge.c linux-2.6.37-rc3.new//drivers/net/skge.c
-> --- linux-2.6.37-rc3.old/drivers/net/skge.c	2010-11-26 08:35:21.000000000 +1000
-> +++ linux-2.6.37-rc3.new//drivers/net/skge.c	2010-11-26 08:58:52.000000000 +1000
-> @@ -4158,6 +4158,13 @@
->  			DMI_MATCH(DMI_BOARD_NAME, "nForce"),
->  		},
->  	},
-> +	{
-> +		.ident = "ASUSTeK A8N-SLI Premium",
-> +		.matches = {
-> +			DMI_MATCH(DMI_BOARD_VENDOR, "ASUSTeK Computer INC."),
-> +			DMI_MATCH(DMI_BOARD_NAME, "A8N-SLI Premium"),
-> +		},
-> +	},
->  	{}
->  };
+Since both of these are used as optimizations (in the bind path), they do not affect correctness and hence the code works even with these values not being updated correctly.
 
-Add Signed-off-by line and repost patch according to MAINTAINERS
-file (to Stephen and netdev).
+Thanks,
+Tomar
 
-Thanks
-Stanislaw
+
+      
