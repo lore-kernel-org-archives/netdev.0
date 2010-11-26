@@ -1,42 +1,73 @@
-From: "Tomoya MORINAGA" <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Subject: Re: [PATCH net-next-2.6 12/17 v3] can: EG20T PCH: Fix bit timing
-	calculation issue
-Date: Fri, 26 Nov 2010 09:06:25 +0900
-Message-ID: <000901cb8cfd$c667d860$66f8800a@maildom.okisemi.com>
-References: <4CED037F.6060306@dsn.okisemi.com>
-	<4CED0BF1.1060305@pengutronix.de>
+From: Shannon Wynter <kernel.org.alias@fremnet.net>
+Subject: skge.c patch to limit DMA for ASUS A8N-SLI Premium board
+Date: Fri, 26 Nov 2010 10:06:41 +1000
+Message-ID: <4CEEFA11.6040205@fremnet.net>
+Reply-To: Shannon Wynter <kernel.org.alias@fremnet.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: multipart/mixed;
+ boundary="------------040904000402030907050105"
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ipmail07.adl2.internode.on.net ([150.101.137.131]:43996 "EHLO
+	ipmail07.adl2.internode.on.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752754Ab0KZALY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Nov 2010 19:11:24 -0500
+Received: from priya.2y.net (localhost [127.0.0.1])
+	by priya.2y.net (Postfix) with ESMTP id CB4661D8398
+	for <netdev@vger.kernel.org>; Fri, 26 Nov 2010 10:06:16 +1000 (EST)
+Received: from [10.0.1.117] (eth2026.qld.adsl.internode.on.net [150.101.176.237])
+	(using TLSv1 with cipher DHE-RSA-CAMELLIA256-SHA (256/256 bits))
+	(No client certificate requested)
+	(Authenticated sender: freman from domain fremnet.net)
+	by priya.2y.net (Postfix) with ESMTPSA id 9511F1D8397
+	for <netdev@vger.kernel.org>; Fri, 26 Nov 2010 10:06:16 +1000 (EST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+This is a multi-part message in MIME format.
+--------------040904000402030907050105
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>, joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-To: "Marc Kleine-Budde" <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
 
-On Wednesday, November 24, 2010 9:58 PM, Marc Kleine-Budde wrote :
-> Masking here shouldn't be necessary but won't hurt, better play safe.
+Hi
 
-EG20T's baud rate pre-scalar register  is divided to 2 register BITT and BRPE.
-Thus, This mask is necessary.
-In fact, deleting this mask, it couldn't communicate correctly.
+I would like to contribute a patch to add ASUS A8N-SLI Premium to the 
+list of boards that require the quirk to limit DMA to 32bit in the 
+skge.c module.
 
----
-Thanks,
+It took 2 hours of fiddling with my machine last night to get the 
+network card working - the lights were on but no-one was at home.
 
-Tomoya MORINAGA
-OKI SEMICONDUCTOR CO., LTD.
+I never would have found it if not for the original bug listed on redhat 
+for the Gigabyte motherboard.
+
+Kind regards
+
+Shannon.
+
+--------------040904000402030907050105
+Content-Type: text/x-patch;
+ name="skge-quirk-for-asus-a8n-sli-DMA.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="skge-quirk-for-asus-a8n-sli-DMA.patch"
+
+diff -uNr linux-2.6.37-rc3.old/drivers/net/skge.c linux-2.6.37-rc3.new//drivers/net/skge.c
+--- linux-2.6.37-rc3.old/drivers/net/skge.c	2010-11-26 08:35:21.000000000 +1000
++++ linux-2.6.37-rc3.new//drivers/net/skge.c	2010-11-26 08:58:52.000000000 +1000
+@@ -4158,6 +4158,13 @@
+ 			DMI_MATCH(DMI_BOARD_NAME, "nForce"),
+ 		},
+ 	},
++	{
++		.ident = "ASUSTeK A8N-SLI Premium",
++		.matches = {
++			DMI_MATCH(DMI_BOARD_VENDOR, "ASUSTeK Computer INC."),
++			DMI_MATCH(DMI_BOARD_NAME, "A8N-SLI Premium"),
++		},
++	},
+ 	{}
+ };
+ 
+
+--------------040904000402030907050105--
