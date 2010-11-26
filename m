@@ -1,88 +1,78 @@
-From: leitao@linux.vnet.ibm.com
-Subject: [PATCH] ehea: Add some info messages and fix an issue
-Date: Fri, 26 Nov 2010 15:26:27 -0200
-Message-ID: <1290792387-12331-1-git-send-email-leitao@linux.vnet.ibm.com>
-References: <1290790908.11971.303.camel@Joe-Laptop>
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Breno Leitao <leitao@linux.vnet.ibm.com>
-To: joe@perches.com
+From: Maxim Levitsky <maximlevitsky@gmail.com>
+Subject: [Q] How to invalidate ARP cache for a network device from within
+ kernel
+Date: Fri, 26 Nov 2010 19:38:19 +0200
+Message-ID: <1290793099.3716.21.camel@maxim-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	linux1394-devel <linux1394-devel@lists.sourceforge.net>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e24smtp04.br.ibm.com ([32.104.18.25]:49845 "EHLO
-	e24smtp04.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751507Ab0KZR0g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Nov 2010 12:26:36 -0500
-Received: from d24relay01.br.ibm.com (d24relay01.br.ibm.com [9.8.31.16])
-	by e24smtp04.br.ibm.com (8.14.4/8.13.1) with ESMTP id oAQHJ0K3018851
-	for <netdev@vger.kernel.org>; Fri, 26 Nov 2010 15:19:00 -0200
-Received: from d24av01.br.ibm.com (d24av01.br.ibm.com [9.8.31.91])
-	by d24relay01.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id oAQHPEF71859704
-	for <netdev@vger.kernel.org>; Fri, 26 Nov 2010 14:25:14 -0300
-Received: from d24av01.br.ibm.com (loopback [127.0.0.1])
-	by d24av01.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id oAQHQJqf009187
-	for <netdev@vger.kernel.org>; Fri, 26 Nov 2010 15:26:20 -0200
-In-Reply-To: <1290790908.11971.303.camel@Joe-Laptop>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:56108 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754710Ab0KZRiZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Nov 2010 12:38:25 -0500
+Received: by bwz15 with SMTP id 15so2021114bwz.19
+        for <netdev@vger.kernel.org>; Fri, 26 Nov 2010 09:38:23 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Breno Leitao <breno@cafe.(none)>
+Hi,
 
-This patch adds some debug information about ehea not being able to
-allocate enough spaces. Also it correctly updates the amount of available
-skb.
+I am currently dealing with one of the last issues present in
+implementation of networking over firewire as described in RFC 2734.
+The driver in question is firewire-net.
 
-Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
----
- drivers/net/ehea/ehea_main.c |   18 ++++++++++++++----
- 1 files changed, 14 insertions(+), 4 deletions(-)
+Here is the description of the problem:
 
-diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.c
-index 182b2a7..3d0af08 100644
---- a/drivers/net/ehea/ehea_main.c
-+++ b/drivers/net/ehea/ehea_main.c
-@@ -400,6 +400,7 @@ static void ehea_refill_rq1(struct ehea_port_res *pr, int index, int nr_of_wqes)
- 			skb_arr_rq1[index] = netdev_alloc_skb(dev,
- 							      EHEA_L_PKT_SIZE);
- 			if (!skb_arr_rq1[index]) {
-+				ehea_info("Unable to allocate enough skb in the array\n");
- 				pr->rq1_skba.os_skbs = fill_wqes - i;
- 				break;
- 			}
-@@ -422,13 +423,20 @@ static void ehea_init_fill_rq1(struct ehea_port_res *pr, int nr_rq1a)
- 	struct net_device *dev = pr->port->netdev;
- 	int i;
- 
--	for (i = 0; i < pr->rq1_skba.len; i++) {
-+	if (nr_rq1a > pr->rq1_skba.len) {
-+		ehea_error("NR_RQ1A bigger than skb array len\n");
-+		return;
-+	}
-+
-+	for (i = 0; i < nr_rq1a; i++) {
- 		skb_arr_rq1[i] = netdev_alloc_skb(dev, EHEA_L_PKT_SIZE);
--		if (!skb_arr_rq1[i])
-+		if (!skb_arr_rq1[i]) {
-+			ehea_info("No enough memory to allocate skb array\n");
- 			break;
-+		}
- 	}
- 	/* Ring doorbell */
--	ehea_update_rq1a(pr->qp, nr_rq1a);
-+	ehea_update_rq1a(pr->qp, i);
- }
- 
- static int ehea_refill_rq_def(struct ehea_port_res *pr,
-@@ -735,8 +743,10 @@ static int ehea_proc_rwqes(struct net_device *dev,
- 
- 					skb = netdev_alloc_skb(dev,
- 							       EHEA_L_PKT_SIZE);
--					if (!skb)
-+					if (!skb) {
-+						ehea_info("Not enough memory to allocate skb\n");
- 						break;
-+					}
- 				}
- 				skb_copy_to_linear_data(skb, ((char *)cqe) + 64,
- 						 cqe->num_bytes_transfered - 4);
--- 
-1.7.1
+To communicate with a remote network node, the sender node must know the
+target node ID and a bus address within its bus address space.
+
+Both things, unlike ethernet MAC, aren't fixed and can change on each
+bus reset that happens every time a device appears/disappers from a bus
+and can happen due to few more reasons.
+
+The nodes on the bus do have a unique permanent label, a GUID, but it
+can't be used for addressing.
+
+Unfortunately, instead of defining a private ARP like broadcast message
+that would map a GUID to nodeID/bus address on every bus reset, the 
+RFC 2734 abuses ARP for that.
+
+Every ARP response in addition to IP, includes all needed information
+about the sending node.
+
+This sort of works as long as firewire-net driver translates between
+hardware specific and standard ARP formats.
+
+However as soon as bus reset happens, the upper layer ARP cache isn't
+invalidated, thus all attempts to send packets to remote node now fail,
+because the additional information (node id and bus address) about
+remote node is now invalid, but ARP core doesn't send ARP requests
+because it has the response in the cache.
+
+Now there are 2 ways to resolve this issue, I can implement ether of
+them, but I need some assistance from you.
+
+
+1. Make firewire-net send ARP requests on its own for all new discovered
+remote nodes.
+
+The easiest solution, but I am not sure if right one.
+Also if such ARP packet won't reach the destination on first try, which
+can happen because bus resets severe the IO for a while, the problem
+will persist.
+
+
+2. Allow firewire-net to discard the ARP cache for its generated
+entries.
+Not sure if that is possible now, but that will solve the problem for
+sure.
+I did look at arp core code, and I didn't find a way to do that yet.
+
+
+Best regards,
+	Maxim Levitsky
 
