@@ -1,54 +1,37 @@
-From: Nagendra Tomar <tomer_iisc@yahoo.com>
-Subject: [PATCH] net: Fix __inet_inherit_port() to correctly increment bsockets and num_owners
-Date: Thu, 25 Nov 2010 21:09:51 -0800 (PST)
-Message-ID: <801098.19711.qm@web53707.mail.re2.yahoo.com>
+From: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCHv2 2/2] USB CDC NCM host driver
+Date: Thu, 25 Nov 2010 21:59:51 -0800
+Message-ID: <20101125215951.5a77e811@nehalam>
+References: <1290694472-2680-1-git-send-email-alexey.orishko@stericsson.com>
+	<1290694472-2680-2-git-send-email-alexey.orishko@stericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from web53707.mail.re2.yahoo.com ([206.190.37.28]:30285 "HELO
-	web53707.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1750803Ab0KZFQd convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Nov 2010 00:16:33 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: gregkh-l3A5Bk7waGM@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org, yauheni.kaliuta-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org, balbi-l0cyMroinI0@public.gmane.org,
+	sjur.brandeland-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org,
+	Alexey Orishko <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
+To: Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1290694472-2680-2-git-send-email-alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On Thu, 25 Nov 2010 15:14:32 +0100
+Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
 
-inet sockets corresponding to passive connections are added to the bind hash
-using ___inet_inherit_port(). These sockets are later removed from the bind 
-hash using __inet_put_port(). These two functions are not exactly symmetrical. 
-__inet_put_port() decrements hashinfo->bsockets and tb->num_owners, whereas 
-___inet_inherit_port() does not increment them. This results in both of these 
-going to -ve values.
+> +/*
+> + * We need to align the beginning of the IP packet (not the Ethernet framing).
+> + * The following macro aligns the given offset to the given remainder
+> + * and modulus, which must be power of two.
+> + */
+> +#define	CDC_NCM_ALIGN(rem, offset, mod)	\
+> +	((long)(((long)(rem)) - ((long)((-(long)(offset)) & (-(long)(mod))))))
 
-This patch fixes this by calling inet_bind_hash() from ___inet_inherit_port(),
-which does the right thing.
+Isn't existing PTR_ALIGN macro sufficient?
 
-Signed-off-by: Nagendra Singh Tomar <tomer_iisc@yahoo.com>
-
----
---- linux-2.6.36.1/net/ipv4/inet_hashtables.c.orig	2010-11-25 14:56:37.902456597 -0500
-+++ linux-2.6.36.1/net/ipv4/inet_hashtables.c	2010-11-25 15:44:15.038403317 -0500
-@@ -107,12 +107,10 @@ void __inet_inherit_port(struct sock *sk
- 	const int bhash = inet_bhashfn(sock_net(sk), inet_sk(child)->inet_num,
- 			table->bhash_size);
- 	struct inet_bind_hashbucket *head = &table->bhash[bhash];
--	struct inet_bind_bucket *tb;
- 
- 	spin_lock(&head->lock);
--	tb = inet_csk(sk)->icsk_bind_hash;
--	sk_add_bind_node(child, &tb->owners);
--	inet_csk(child)->icsk_bind_hash = tb;
-+	inet_bind_hash(child, inet_csk(sk)->icsk_bind_hash, 
-+			inet_sk(child)->inet_num);
- 	spin_unlock(&head->lock);
- }
- EXPORT_SYMBOL_GPL(__inet_inherit_port);
----
-
-
-
-      
+-- 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
