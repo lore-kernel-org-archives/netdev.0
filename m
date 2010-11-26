@@ -1,93 +1,54 @@
-From: Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
-Subject: [PATCH net-next-2.6 04/19 v5] can: EG20T PCH: Add Tx Flow Control
-Date: Fri, 26 Nov 2010 11:08:35 +0900
-Message-ID: <4CEF16A3.2010009__24353.3372217373$1290737378$gmane$org@dsn.okisemi.com>
+From: Matt Domsch <Matt_Domsch@Dell.com>
+Subject: Re: [PATCH 1/1] UDEV - Add 'udevlom' command line param to start_udev
+Date: Thu, 25 Nov 2010 20:09:38 -0600
+Message-ID: <20101126020938.GA31184@auslistsprd01.us.dell.com>
+References: <20101103165505.GA3281@fedora-14-r710.oslab.blr.amer.dell.com> <20101103180500.GA7441@kroah.com> <20101105025848.GA14021@pws490.domsch.com> <20101115164714.GB7030@auslistsprd01.us.dell.com> <1289841399.2586.18.camel@bwh-desktop> <4CE18ACC.3020508@hp.com> <D3F292ADF945FB49B35E96C94C2061B90E4E367E@nsmail.netscout.com> <20101124215608.6b0371b8.billfink@mindspring.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: qi.wang@intel.com, yong.y.wang@intel.com,
-	andrew.chih.howe.khor@intel.com, joel.clark@intel.com,
-	kok.howg.ewe@intel.com, margie.foster@intel.com
-To: Wolfgang Grandegger <wg@grandegger.com>,
-	Wolfram Sang <w.sang@pengutronix.de>,
-	Christian Pellegrin <chripell@fsfe.org>,
-	Barry Song <21cnbao@gmail.com>,
-	Samuel Ortiz <sameo@linux.inte
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sm-d311v.smileserver.ne.jp ([203.211.202.206]:25710 "EHLO
-	sm-d311v.smileserver.ne.jp" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752941Ab0KZCJD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Nov 2010 21:09:03 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Loke, Chetan" <Chetan.Loke@netscout.com>,
+	Rick Jones <rick.jones2@hp.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Greg KH <greg@kroah.com>, "K, Narendra" <Narendra_K@Dell.com>,
+	linux-hotplug@vger.kernel.org, netdev@vger.kernel.org,
+	"Hargrave, Jordan" <Jordan_Hargrave@Dell.com>,
+	"Rose, Charles" <Charles_Rose@Dell.com>
+To: Bill Fink <billfink@mindspring.com>
+Return-path: <linux-hotplug-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20101124215608.6b0371b8.billfink@mindspring.com>
+Sender: linux-hotplug-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add flow control processing.
- Currently, there is no flow control processing.
- Thus, Add flow control processing as
- when there is no empty of tx buffer,
- netif_stop_queue is called.
- When there is empty buffer, netif_wake_queue is called.
+On Wed, Nov 24, 2010 at 09:56:08PM -0500, Bill Fink wrote:
+> On Wed, 24 Nov 2010, Loke, Chetan wrote:
+> 
+> > > Are folks sufficently confident that using anything other than "eth"
+> > > won't cause some unpleasant "our app always ass-u-me-d interfaces
+> > started with
+> > > 'eth'" situations?
+> > 
+> > Good point. I'm sure folks use 'eth' in their regex filters. Please
+> > ignore my obe/obn email.
+> 
+> If the 2 or 3 character name isn't a hard requirement, then
+> ethm for eth(ernet on )m(otherboard) would seem a natural
+> possibility.
 
-Signed-off-by: Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
----
- drivers/net/can/pch_can.c |   27 ++++++++-------------------
- 1 files changed, 8 insertions(+), 19 deletions(-)
+I went with 'em' (embedded or ethernet-on-motherboard) in
+biosdevname.  Git tree at:
 
-diff --git a/drivers/net/can/pch_can.c b/drivers/net/can/pch_can.c
-index 2d4ab0f..8686d93 100644
---- a/drivers/net/can/pch_can.c
-+++ b/drivers/net/can/pch_can.c
-@@ -899,6 +899,8 @@ MSG_OBJ:
- 			dlc = 8;
- 		stats->tx_bytes += dlc;
- 		stats->tx_packets++;
-+		if (int_stat == PCH_TX_OBJ_END)
-+			netif_wake_queue(ndev);
- 	}
- 
- 	int_stat = pch_can_int_pending(priv);
-@@ -1037,18 +1039,6 @@ static int pch_close(struct net_device *ndev)
- 	return 0;
- }
- 
--static int pch_get_msg_obj_sts(struct net_device *ndev, u32 obj_id)
--{
--	u32 buffer_status = 0;
--	struct pch_can_priv *priv = netdev_priv(ndev);
--
--	/* Getting the message object status. */
--	buffer_status = (u32) pch_can_get_buffer_status(priv);
--
--	return buffer_status & obj_id;
--}
--
--
- static netdev_tx_t pch_xmit(struct sk_buff *skb, struct net_device *ndev)
- {
- 	int i, j;
-@@ -1060,17 +1050,16 @@ static netdev_tx_t pch_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	if (can_dropped_invalid_skb(ndev, skb))
- 		return NETDEV_TX_OK;
- 
--	if (priv->tx_obj == PCH_TX_OBJ_END) { /* Point tail Obj */
--		while (pch_get_msg_obj_sts(ndev, (((1 << PCH_TX_OBJ_NUM)-1) <<
--					   PCH_RX_OBJ_NUM)))
--			udelay(500);
-+	if (priv->tx_obj == PCH_TX_OBJ_END) {
-+		if (ioread32(&priv->regs->treq2) & 0xfc00)
-+			netif_stop_queue(ndev);
- 
--		priv->tx_obj = PCH_TX_OBJ_START; /* Point head of Tx Obj ID */
--		tx_buffer_avail = priv->tx_obj; /* Point Tail of Tx Obj */
-+		tx_buffer_avail = priv->tx_obj;
-+		priv->tx_obj = PCH_TX_OBJ_START;
- 	} else {
- 		tx_buffer_avail = priv->tx_obj;
-+		priv->tx_obj++;
- 	}
--	priv->tx_obj++;
- 
- 	/* Attaining the lock. */
- 	spin_lock_irqsave(&priv->msgif_reg_lock, flags);
+http://linux.dell.com/cgi-bin/gitweb/gitweb.cgi?p=biosdevname.git;a=summary
+
+Now I'm just trying to figure out why it seems pciutils libpci is
+unhappy when the device tree is constantly changing underneath it,
+such as when loading ixgbe max_vfs=63 - each new SR-IOV device created
+launches a new udev instance as expected, but the device tree as seen
+from any one of them may not be quite right as it's changing...
+
+Thanks,
+Matt
+
 -- 
-1.6.0.6
+Matt Domsch
+Technology Strategist
+Dell | Office of the CTO
