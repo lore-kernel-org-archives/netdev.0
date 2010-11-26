@@ -1,7 +1,7 @@
 From: Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
-Subject: [PATCH net-next-2.6 3/19 v4] can: EG20T PCH: Enumerate LEC macros
-Date: Fri, 26 Nov 2010 09:33:15 +0900
-Message-ID: <4CEF004B.7050701__18615.7156051651$1290731680$gmane$org@dsn.okisemi.com>
+Subject: [PATCH net-next-2.6 4/19 v4] can: EG20T PCH: Add Tx Flow Control
+Date: Fri, 26 Nov 2010 09:35:53 +0900
+Message-ID: <4CEF00E9.3080809__30412.4221009717$1290731820$gmane$org@dsn.okisemi.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
@@ -14,140 +14,81 @@ To: Wolfgang Grandegger <wg@grandegger.com>,
 	Barry Song <21cnbao@gmail.com>,
 	Samuel Ortiz <sameo@linux.inte
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sm-d311v.smileserver.ne.jp ([203.211.202.206]:10967 "EHLO
+Received: from sm-d311v.smileserver.ne.jp ([203.211.202.206]:11156 "EHLO
 	sm-d311v.smileserver.ne.jp" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752242Ab0KZAdn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Nov 2010 19:33:43 -0500
+	by vger.kernel.org with ESMTP id S1752815Ab0KZAgU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Nov 2010 19:36:20 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Enumerate LEC macros
-
-For easy to readable, LEC is replaced to enums.
+Add flow control processing.
+ Currently, there is no flow control processing.
+ Thus, Add flow control processing as
+ when there is no empty of tx buffer,
+ netif_stop_queue is called.
+ When there is empty buffer, netif_wake_queue is called.
 
 Signed-off-by: Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
 ---
- drivers/net/can/pch_can.c |   77
-++++++++++++++++++++++++---------------------
- 1 files changed, 41 insertions(+), 36 deletions(-)
+ drivers/net/can/pch_can.c |   27 ++++++++-------------------
+ 1 files changed, 8 insertions(+), 19 deletions(-)
 
 diff --git a/drivers/net/can/pch_can.c b/drivers/net/can/pch_can.c
-index 982ff2d..2d4ab0f 100644
+index 2d4ab0f..8686d93 100644
 --- a/drivers/net/can/pch_can.c
 +++ b/drivers/net/can/pch_can.c
-@@ -71,21 +71,12 @@
- #define PCH_REC			0x00007f00
- #define PCH_TEC			0x000000ff
-
-+
- #define PCH_TX_OK		BIT(3)
- #define PCH_RX_OK		BIT(4)
- #define PCH_EPASSIV		BIT(5)
- #define PCH_EWARN		BIT(6)
- #define PCH_BUS_OFF		BIT(7)
--#define PCH_LEC0		BIT(0)
--#define PCH_LEC1		BIT(1)
--#define PCH_LEC2		BIT(2)
--#define PCH_LEC_ALL		(PCH_LEC0 | PCH_LEC1 | PCH_LEC2)
--#define PCH_STUF_ERR		PCH_LEC0
--#define PCH_FORM_ERR		PCH_LEC1
--#define PCH_ACK_ERR		(PCH_LEC0 | PCH_LEC1)
--#define PCH_BIT1_ERR		PCH_LEC2
--#define PCH_BIT0_ERR		(PCH_LEC0 | PCH_LEC2)
--#define PCH_CRC_ERR		(PCH_LEC1 | PCH_LEC2)
-
- /* bit position of certain controller bits. */
- #define PCH_BIT_BRP		0
-@@ -117,6 +108,16 @@ enum pch_ifreg {
- 	PCH_TX_IFREG,
- };
-
-+enum pch_can_err {
-+	PCH_STUF_ERR = 1,
-+	PCH_FORM_ERR,
-+	PCH_ACK_ERR,
-+	PCH_BIT1_ERR,
-+	PCH_BIT0_ERR,
-+	PCH_CRC_ERR,
-+	PCH_LEC_ALL,
-+};
-+
- enum pch_can_mode {
- 	PCH_CAN_ENABLE,
- 	PCH_CAN_DISABLE,
-@@ -620,7 +621,7 @@ static void pch_can_error(struct net_device *ndev,
-u32 status)
- 	struct sk_buff *skb;
- 	struct pch_can_priv *priv = netdev_priv(ndev);
- 	struct can_frame *cf;
--	u32 errc;
-+	u32 errc, lec;
- 	struct net_device_stats *stats = &(priv->ndev->stats);
- 	enum can_state state = priv->can.state;
-
-@@ -665,33 +666,37 @@ static void pch_can_error(struct net_device *ndev,
-u32 status)
- 			"%s -> CAN controller is ERROR PASSIVE .\n", __func__);
+@@ -899,6 +899,8 @@ MSG_OBJ:
+ 			dlc = 8;
+ 		stats->tx_bytes += dlc;
+ 		stats->tx_packets++;
++		if (int_stat == PCH_TX_OBJ_END)
++			netif_wake_queue(ndev);
  	}
 
--	if (status & PCH_LEC_ALL) {
-+	lec = status & PCH_LEC_ALL;
-+	switch (lec) {
-+	case PCH_STUF_ERR:
-+		cf->data[2] |= CAN_ERR_PROT_STUFF;
- 		priv->can.can_stats.bus_error++;
- 		stats->rx_errors++;
--		switch (status & PCH_LEC_ALL) {
--		case PCH_STUF_ERR:
--			cf->data[2] |= CAN_ERR_PROT_STUFF;
--			break;
--		case PCH_FORM_ERR:
--			cf->data[2] |= CAN_ERR_PROT_FORM;
--			break;
--		case PCH_ACK_ERR:
--			cf->data[2] |= CAN_ERR_PROT_LOC_ACK |
--				       CAN_ERR_PROT_LOC_ACK_DEL;
--			break;
--		case PCH_BIT1_ERR:
--		case PCH_BIT0_ERR:
--			cf->data[2] |= CAN_ERR_PROT_BIT;
--			break;
--		case PCH_CRC_ERR:
--			cf->data[2] |= CAN_ERR_PROT_LOC_CRC_SEQ |
--				       CAN_ERR_PROT_LOC_CRC_DEL;
--			break;
--		default:
--			iowrite32(status | PCH_LEC_ALL, &priv->regs->stat);
--			break;
--		}
+ 	int_stat = pch_can_int_pending(priv);
+@@ -1037,18 +1039,6 @@ static int pch_close(struct net_device *ndev)
+ 	return 0;
+ }
+
+-static int pch_get_msg_obj_sts(struct net_device *ndev, u32 obj_id)
+-{
+-	u32 buffer_status = 0;
+-	struct pch_can_priv *priv = netdev_priv(ndev);
 -
-+		break;
-+	case PCH_FORM_ERR:
-+		cf->data[2] |= CAN_ERR_PROT_FORM;
-+		priv->can.can_stats.bus_error++;
-+		stats->rx_errors++;
-+		break;
-+	case PCH_ACK_ERR:
-+		cf->can_id |= CAN_ERR_ACK;
-+		priv->can.can_stats.bus_error++;
-+		stats->rx_errors++;
-+		break;
-+	case PCH_BIT1_ERR:
-+	case PCH_BIT0_ERR:
-+		cf->data[2] |= CAN_ERR_PROT_BIT;
-+		priv->can.can_stats.bus_error++;
-+		stats->rx_errors++;
-+		break;
-+	case PCH_CRC_ERR:
-+		cf->data[2] |= CAN_ERR_PROT_LOC_CRC_SEQ |
-+			       CAN_ERR_PROT_LOC_CRC_DEL;
-+		priv->can.can_stats.bus_error++;
-+		stats->rx_errors++;
-+		break;
-+	case PCH_LEC_ALL: /* Written by CPU. No error status */
-+		break;
- 	}
+-	/* Getting the message object status. */
+-	buffer_status = (u32) pch_can_get_buffer_status(priv);
+-
+-	return buffer_status & obj_id;
+-}
+-
+-
+ static netdev_tx_t pch_xmit(struct sk_buff *skb, struct net_device *ndev)
+ {
+ 	int i, j;
+@@ -1060,17 +1050,16 @@ static netdev_tx_t pch_xmit(struct sk_buff *skb,
+struct net_device *ndev)
+ 	if (can_dropped_invalid_skb(ndev, skb))
+ 		return NETDEV_TX_OK;
 
- 	priv->can.state = state;
+-	if (priv->tx_obj == PCH_TX_OBJ_END) { /* Point tail Obj */
+-		while (pch_get_msg_obj_sts(ndev, (((1 << PCH_TX_OBJ_NUM)-1) <<
+-					   PCH_RX_OBJ_NUM)))
+-			udelay(500);
++	if (priv->tx_obj == PCH_TX_OBJ_END) {
++		if (ioread32(&priv->regs->treq2) & 0xfc00)
++			netif_stop_queue(ndev);
+
+-		priv->tx_obj = PCH_TX_OBJ_START; /* Point head of Tx Obj ID */
+-		tx_buffer_avail = priv->tx_obj; /* Point Tail of Tx Obj */
++		tx_buffer_avail = priv->tx_obj;
++		priv->tx_obj = PCH_TX_OBJ_START;
+ 	} else {
+ 		tx_buffer_avail = priv->tx_obj;
++		priv->tx_obj++;
+ 	}
+-	priv->tx_obj++;
+
+ 	/* Attaining the lock. */
+ 	spin_lock_irqsave(&priv->msgif_reg_lock, flags);
 -- 
 1.6.0.6
