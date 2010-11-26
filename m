@@ -1,90 +1,80 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: Fix __inet_inherit_port() to correctly increment
- bsockets and num_owners
-Date: Fri, 26 Nov 2010 11:47:57 +0100
-Message-ID: <1290768477.2855.97.camel@edumazet-laptop>
-References: <751926.73238.qm@web53707.mail.re2.yahoo.com>
+From: Nagendra Tomar <tomer_iisc@yahoo.com>
+Subject: Re: [PATCH] net: Fix __inet_inherit_port() to correctly increment bsockets and num_owners
+Date: Fri, 26 Nov 2010 03:01:11 -0800 (PST)
+Message-ID: <132707.16762.qm@web53707.mail.re2.yahoo.com>
+References: <1290768477.2855.97.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org, davem@davemloft.net,
 	Evgeniy Polyakov <zbr@ioremap.net>
-To: Nagendra Tomar <tomer_iisc@yahoo.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:43827 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754430Ab0KZKsC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Nov 2010 05:48:02 -0500
-Received: by fxm15 with SMTP id 15so587721fxm.19
-        for <netdev@vger.kernel.org>; Fri, 26 Nov 2010 02:48:00 -0800 (PST)
-In-Reply-To: <751926.73238.qm@web53707.mail.re2.yahoo.com>
+Received: from web53707.mail.re2.yahoo.com ([206.190.37.28]:28665 "HELO
+	web53707.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754454Ab0KZLBM convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Nov 2010 06:01:12 -0500
+In-Reply-To: <1290768477.2855.97.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Nagendra Tomar <tomer_iisc@yahoo.com>
 
-Le vendredi 26 novembre 2010 =C3=A0 01:40 -0800, Nagendra Tomar a =C3=A9=
-crit :
+
+--- On Fri, 26/11/10, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+
 >=20
-> --- On Fri, 26/11/10, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> Problem is your patch is not applicable to current tree.
 >=20
-> >=20
-> > OK so you'll have to make a proof, because current code
-> > seems to work ;)
-> >=20
-> >=20
+> In order to submit it to stable team, you should first post
+> a patch for
+> next/current kernel (net-next-2.6 tree).
 >=20
-> ok, so I printed hashinfo->bsockets and tb->num_owners inside
-> __inet_put_port() and I could see both of them to be -ve. All we need
-> to do is establish and terminate a connection. I used netcat for that=
-=2E
+
+Thanks, Erik.
+I'd made the patch against 2.6.36.1 which is the latest stable kernel p=
+er kernel.org. I thought that was the right kernel version to make a pa=
+tch against.
+I do not use git. Shall I make a patch against linux-next as it appears=
+ in kernel.org.
+
+
+> David will decide if its net-2.6 material or not.
 >=20
-> The only place 'bsockets' and 'num_owners' are used is
-> inet_csk_get_port() and the only effect that they might have is on th=
-e
-> choice of the port to be used for binding.=20
-> 'bsockets' is used as a hint to stop searching for a free port (and
-> instead share an already used port) when we know that all the ports
-> could be used up.
-> 'num_owners' is used to find the port which is least shared (to
-> balance the 'owners' list) in case we need to share a port.
+> You could add in your changelog the problem comes from
+> commit=20
+> a9d8f9110d7e953c (inet: Allowing more than 64k connections
+> and heavily
+> optimize bind(0)), included in 2.6.30, to ease stable team
+> work.
 >=20
-> Since both of these are used as optimizations (in the bind path), the=
-y
-> do not affect correctness and hence the code works even with these
-> values not being updated correctly.
+> On current tree your patch would be :
+>=20
+> diff --git a/net/ipv4/inet_hashtables.c
+> b/net/ipv4/inet_hashtables.c
+> index 1b344f3..3c0369a 100644
+> --- a/net/ipv4/inet_hashtables.c
+> +++ b/net/ipv4/inet_hashtables.c
+> @@ -133,8 +133,7 @@ int __inet_inherit_port(struct sock
+> *sk, struct sock *child)
+>  =A0=A0=A0 =A0=A0=A0 =A0=A0=A0
+> }
+>  =A0=A0=A0 =A0=A0=A0 }
+>  =A0=A0=A0 }
+> -=A0=A0=A0 sk_add_bind_node(child,
+> &tb->owners);
+> -=A0=A0=A0 inet_csk(child)->icsk_bind_hash =3D
+> tb;
+> +=A0=A0=A0 inet_bind_hash(child, tb, port);
+>  =A0=A0=A0 spin_unlock(&head->lock);
+> =20
+>  =A0=A0=A0 return 0;
+>=20
+>=20
+>=20
 
-Hmm, thanks for clarification.
-
-bsockets / mnum_owners iscount is indeed an 'optimization' problem.
-
-Problem is your patch is not applicable to current tree.
-
-In order to submit it to stable team, you should first post a patch for
-next/current kernel (net-next-2.6 tree).
-
-David will decide if its net-2.6 material or not.
-
-You could add in your changelog the problem comes from commit=20
-a9d8f9110d7e953c (inet: Allowing more than 64k connections and heavily
-optimize bind(0)), included in 2.6.30, to ease stable team work.
-
-On current tree your patch would be :
-
-diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
-index 1b344f3..3c0369a 100644
---- a/net/ipv4/inet_hashtables.c
-+++ b/net/ipv4/inet_hashtables.c
-@@ -133,8 +133,7 @@ int __inet_inherit_port(struct sock *sk, struct soc=
-k *child)
- 			}
- 		}
- 	}
--	sk_add_bind_node(child, &tb->owners);
--	inet_csk(child)->icsk_bind_hash =3D tb;
-+	inet_bind_hash(child, tb, port);
- 	spin_unlock(&head->lock);
-=20
- 	return 0;
+Thanks,
+Tomar
 
 
+     =20
