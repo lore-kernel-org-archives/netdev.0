@@ -1,66 +1,45 @@
-From: Hauke Mehrtens <hauke@hauke-m.de>
-Subject: [PATCH RESEND] ssb: fix nvram_get on bcm47xx platform
-Date: Sat, 27 Nov 2010 19:26:32 +0100
-Message-ID: <1290882392-28327-1-git-send-email-hauke@hauke-m.de>
-Cc: mb@bu3sch.de, netdev@vger.kernel.org,
-	Hauke Mehrtens <hauke@hauke-m.de>
-To: ralf@linux-mips.org, linux-mips@linux-mips.org
+From: Szymon Janc <szymon@janc.net.pl>
+Subject: [PATCH 3/6] forcedeth: include <linux/io.h> and <linux/uaccess.h> instead of <asm/io.h> and <asm/uaccess.h> as suggested by checkpatch
+Date: Sat, 27 Nov 2010 19:39:45 +0100
+Message-ID: <1290883188-2078-4-git-send-email-szymon@janc.net.pl>
+References: <1290883188-2078-1-git-send-email-szymon@janc.net.pl>
+Cc: Szymon Janc <szymon@janc.net.pl>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server19320154104.serverpool.info ([193.201.54.104]:35229 "EHLO
-	hauke-m.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753107Ab0K0S0s (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 27 Nov 2010 13:26:48 -0500
+Received: from cox.rootnode.net ([89.248.165.14]:56866 "EHLO cox.rootnode.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753094Ab0K0SvB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 27 Nov 2010 13:51:01 -0500
+Received: from DSPAM-Daemon (localhost [127.0.0.1])
+	by cox.rootnode.net (Postfix) with SMTP id 88EAB801543B
+	for <netdev@vger.kernel.org>; Sat, 27 Nov 2010 19:41:50 +0100 (CET)
+In-Reply-To: <1290883188-2078-1-git-send-email-szymon@janc.net.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The nvram_get function was never in the mainline kernel, it only
-existed in an external OpenWrt patch. Use nvram_getenv function, which
-is in mainline and use an include instead of an extra function
-declaration.
-et0macaddr contains the mac address in text from like
-00:11:22:33:44:55. We have to parse it before adding it into macaddr.
-
-nvram_parse_macaddr will be merged into asm/mach-bcm47xx/nvram.h though
-the MIPS git tree and will be available soon. It will not build now
-without nvram_parse_macaddr, but it haven't done before.
-
-Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
+Signed-off-by: Szymon Janc <szymon@janc.net.pl>
 ---
- include/linux/ssb/ssb_driver_gige.h |   17 +++++++++++------
- 1 files changed, 11 insertions(+), 6 deletions(-)
+ drivers/net/forcedeth.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/ssb/ssb_driver_gige.h b/include/linux/ssb/ssb_driver_gige.h
-index 942e387..eba52a1 100644
---- a/include/linux/ssb/ssb_driver_gige.h
-+++ b/include/linux/ssb/ssb_driver_gige.h
-@@ -96,16 +96,21 @@ static inline bool ssb_gige_must_flush_posted_writes(struct pci_dev *pdev)
- 	return 0;
- }
+diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
+index 81722fb..8deae90 100644
+--- a/drivers/net/forcedeth.c
++++ b/drivers/net/forcedeth.c
+@@ -60,10 +60,10 @@
+ #include <linux/if_vlan.h>
+ #include <linux/dma-mapping.h>
+ #include <linux/slab.h>
++#include <linux/uaccess.h>
++#include  <linux/io.h>
  
--extern char * nvram_get(const char *name);
-+#ifdef CONFIG_BCM47XX
-+#include <asm/mach-bcm47xx/nvram.h>
- /* Get the device MAC address */
- static inline void ssb_gige_get_macaddr(struct pci_dev *pdev, u8 *macaddr)
- {
--#ifdef CONFIG_BCM47XX
--	char *res = nvram_get("et0macaddr");
--	if (res)
--		memcpy(macaddr, res, 6);
--#endif
-+	char buf[20];
-+	if (nvram_getenv("et0macaddr", buf, sizeof(buf)) < 0)
-+		return;
-+	nvram_parse_macaddr(buf, macaddr);
- }
-+#else
-+static inline void ssb_gige_get_macaddr(struct pci_dev *pdev, u8 *macaddr)
-+{
-+}
-+#endif
+ #include <asm/irq.h>
+-#include <asm/io.h>
+-#include <asm/uaccess.h>
+ #include <asm/system.h>
  
- extern int ssb_gige_pcibios_plat_dev_init(struct ssb_device *sdev,
- 					  struct pci_dev *pdev);
+ #if 0
 -- 
-1.7.1
+1.7.2.3
+
 
