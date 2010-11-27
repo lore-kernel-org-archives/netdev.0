@@ -1,53 +1,46 @@
-From: Nagendra Tomar <tomer_iisc@yahoo.com>
-Subject: [PATCH] net-next: Fix __inet_inherit_port() to correctly increment bsockets and num_owners
-Date: Fri, 26 Nov 2010 16:26:27 -0800 (PST)
-Message-ID: <844781.48196.qm@web53701.mail.re2.yahoo.com>
+From: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Subject: Re: [Q] How to invalidate ARP cache for a network device from
+	within kernel
+Date: Sat, 27 Nov 2010 02:18:33 +0100
+Message-ID: <20101127021833.328e8942@stein>
+References: <1290793099.3716.21.camel@maxim-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-Cc: davem@davemloft.net, Evgeniy Polyakov <zbr@ioremap.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from web53701.mail.re2.yahoo.com ([206.190.37.22]:43479 "HELO
-	web53701.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752619Ab0K0A02 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Nov 2010 19:26:28 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux1394-devel <linux1394-devel@lists.sourceforge.net>
+To: Maxim Levitsky <maximlevitsky@gmail.com>
+Return-path: <linux1394-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1290793099.3716.21.camel@maxim-laptop>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
+	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux1394-devel>
+List-Post: <mailto:linux1394-devel@lists.sourceforge.net>
+List-Help: <mailto:linux1394-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
+	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: linux1394-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
+On Nov 26 Maxim Levitsky wrote:
+> However as soon as bus reset happens, the upper layer ARP cache isn't
+> invalidated, thus all attempts to send packets to remote node now fail,
+> because the additional information (node id and bus address) about
+> remote node is now invalid, but ARP core doesn't send ARP requests
+> because it has the response in the cache.
 
-inet sockets corresponding to passive connections are added to the bind hash
-using ___inet_inherit_port(). These sockets are later removed from the bind 
-hash using __inet_put_port(). These two functions are not exactly symmetrical. 
-__inet_put_port() decrements hashinfo->bsockets and tb->num_owners, whereas 
-___inet_inherit_port() does not increment them. This results in both of these 
-going to -ve values.
+When is this a problem?  With nodes which stay on the bus (i.e. are
+present before and after the bus reset)?  Or with nodes which go away
+and come back much later (but before the old ARP cache entry was cleaned
+out)?
+-- 
+Stefan Richter
+-=====-==-=- =-== ==-==
+http://arcgraph.de/sr/
 
-This patch fixes this by calling inet_bind_hash() from ___inet_inherit_port(),
-which does the right thing.
-
-'bsockets' and 'num_owners' were introduced by commit a9d8f9110d7e953c 
-(inet: Allowing more than 64k connections and heavily optimize bind(0))
-
-Signed-off-by: Nagendra Singh Tomar <tomer_iisc@yahoo.com>
-
----
---- linux-2.6.37-rc3/net/ipv4/inet_hashtables.c.orig	2010-11-26 13:28:51.034811940 -0500
-+++ linux-2.6.37-rc3/net/ipv4/inet_hashtables.c	2010-11-26 14:41:41.006268035 -0500
-@@ -133,8 +133,7 @@ int __inet_inherit_port(struct sock *sk,
- 			}
- 		}
- 	}
--	sk_add_bind_node(child, &tb->owners);
--	inet_csk(child)->icsk_bind_hash = tb;
-+	inet_bind_hash(child, tb, port);
- 	spin_unlock(&head->lock);
- 
- 	return 0;
---- 	
-
-
-
-      
+------------------------------------------------------------------------------
+Increase Visibility of Your 3D Game App & Earn a Chance To Win $500!
+Tap into the largest installed PC base & get more eyes on your game by
+optimizing for Intel(R) Graphics Technology. Get started today with the
+Intel(R) Software Partner Program. Five $500 cash prizes are up for grabs.
+http://p.sf.net/sfu/intelisp-dev2dev
