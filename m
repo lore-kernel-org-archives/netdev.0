@@ -1,56 +1,42 @@
-From: "Scott J. Goldman" <scottjg@vmware.com>
-Subject: [PATCH] vmxnet3: fix compilation when RSS is disabled
-Date: Sat, 27 Nov 2010 12:33:55 -0800
-Message-ID: <1290890035-32285-2-git-send-email-scottjg@vmware.com>
-References: <1290890035-32285-1-git-send-email-scottjg@vmware.com>
-Cc: pv-drivers@vmware.com, randy.dunlap@oracle.com,
-	"Scott J. Goldman" <scottjg@vmware.com>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-next@vger.kernel.org
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <1290890035-32285-1-git-send-email-scottjg@vmware.com>
-Sender: linux-next-owner@vger.kernel.org
+From: Mariusz Kozlowski <mk@lab.zgora.pl>
+Subject: Re: linux-next: Tree for November 26
+Date: Sat, 27 Nov 2010 21:55:07 +0100
+Message-ID: <20101127205507.GA3828@mako-laptop>
+References: <20101126132823.7ef94f07.sfr@canb.auug.org.au>
+ <AANLkTinJUT=j_P9FSB=GWTLy4Bkr68iWmB2O=5Q3gcT-@mail.gmail.com>
+ <4CF155CF.5090601@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Zimny Lech <napohybelskurwysynom2010@gmail.com>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	Shreyas Bhatewara <sbhatewara@vmware.com>,
+	"VMware, Inc." <pv-drivers@vmware.com>, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4CF155CF.5090601@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If RSS is disabled, we can ifdef out some RSS specific code. This fixes
-the compile error found by Randy Dunlap.
+On Sat, Nov 27, 2010 at 08:02:39PM +0100, Jarek Poplawski wrote:
+> Zimny Lech wrote:
+> ...=20
+> > --=20
+> > Slawa!
+> > Zimny "=C5=BByj i pozw=C3=B3l umrze=C4=87" Lech z Wawelu
+>=20
+> FYI:
+> http://www.kernel.org/pub/linux/docs/lkml/#s3-12
 
-Signed-off-by: Scott J. Goldman <scottjg@vmware.com>
----
- drivers/net/vmxnet3/vmxnet3_ethtool.c |    5 ++++-
- 1 files changed, 4 insertions(+), 1 deletions(-)
+Also:
+- be brave and use your real name
+- change your email address to something that is not offending to peopl=
+e
+  who can read Polish
 
-diff --git a/drivers/net/vmxnet3/vmxnet3_ethtool.c b/drivers/net/vmxnet3/vmxnet3_ethtool.c
-index 9ddaea6..8e17fc8 100644
---- a/drivers/net/vmxnet3/vmxnet3_ethtool.c
-+++ b/drivers/net/vmxnet3/vmxnet3_ethtool.c
-@@ -553,7 +553,7 @@ vmxnet3_get_rxnfc(struct net_device *netdev, struct ethtool_rxnfc *info,
- 	return -EOPNOTSUPP;
- }
- 
--
-+#ifdef VMXNET3_RSS
- static int
- vmxnet3_get_rss_indir(struct net_device *netdev,
- 		      struct ethtool_rxfh_indir *p)
-@@ -598,6 +598,7 @@ vmxnet3_set_rss_indir(struct net_device *netdev,
- 	return 0;
- 
- }
-+#endif
- 
- static struct ethtool_ops vmxnet3_ethtool_ops = {
- 	.get_settings      = vmxnet3_get_settings,
-@@ -623,8 +624,10 @@ static struct ethtool_ops vmxnet3_ethtool_ops = {
- 	.get_ringparam     = vmxnet3_get_ringparam,
- 	.set_ringparam     = vmxnet3_set_ringparam,
- 	.get_rxnfc         = vmxnet3_get_rxnfc,
-+#ifdef VMXNET3_RSS
- 	.get_rxfh_indir    = vmxnet3_get_rss_indir,
- 	.set_rxfh_indir    = vmxnet3_set_rss_indir,
-+#endif
- };
- 
- void vmxnet3_set_ethtool_ops(struct net_device *netdev)
--- 
-1.7.0.4
+Too bad we have this in git history already.
+
+--=20
+Mariusz Kozlowski
