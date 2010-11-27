@@ -1,31 +1,23 @@
 From: Nagendra Tomar <tomer_iisc@yahoo.com>
-Subject: Re: [PATCH] net-next: Fix __inet_inherit_port() to correctly increment bsockets and num_owners
-Date: Fri, 26 Nov 2010 16:01:25 -0800 (PST)
-Message-ID: <548718.40457.qm@web53706.mail.re2.yahoo.com>
-References: <1290768477.2855.97.camel@edumazet-laptop>
+Subject: [PATCH] net-next: Fix __inet_inherit_port() to correctly increment bsockets and num_owners
+Date: Fri, 26 Nov 2010 16:26:27 -0800 (PST)
+Message-ID: <844781.48196.qm@web53701.mail.re2.yahoo.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Evgeniy Polyakov <zbr@ioremap.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: davem@davemloft.net, Evgeniy Polyakov <zbr@ioremap.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web53706.mail.re2.yahoo.com ([206.190.37.27]:49013 "HELO
-	web53706.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751674Ab0K0AB0 convert rfc822-to-8bit
+Received: from web53701.mail.re2.yahoo.com ([206.190.37.22]:43479 "HELO
+	web53701.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752619Ab0K0A02 convert rfc822-to-8bit
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Nov 2010 19:01:26 -0500
-In-Reply-To: <1290768477.2855.97.camel@edumazet-laptop>
+	Fri, 26 Nov 2010 19:26:28 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ok, here is the patch against net-next.
 
-Thanks,
-Tomar
-
-
----
 inet sockets corresponding to passive connections are added to the bind hash
 using ___inet_inherit_port(). These sockets are later removed from the bind 
 hash using __inet_put_port(). These two functions are not exactly symmetrical. 
@@ -55,8 +47,6 @@ Signed-off-by: Nagendra Singh Tomar <tomer_iisc@yahoo.com>
  
  	return 0;
 --- 	
-
-
 
 
 
