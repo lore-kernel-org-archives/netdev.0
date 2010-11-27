@@ -1,64 +1,65 @@
 From: Hauke Mehrtens <hauke@hauke-m.de>
-Subject: [PATCH] b44: fix workarround for wap54g10
-Date: Sat, 27 Nov 2010 17:47:43 +0100
-Message-ID: <1290876463-4372-1-git-send-email-hauke@hauke-m.de>
+Subject: [PATCH] ssb: fix nvram_get on bcm47xx platform
+Date: Sat, 27 Nov 2010 17:50:12 +0100
+Message-ID: <1290876612-4440-1-git-send-email-hauke@hauke-m.de>
 Cc: netdev@vger.kernel.org, Hauke Mehrtens <hauke@hauke-m.de>
-To: zambrano@broadcom.com
+To: mb@bu3sch.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server19320154104.serverpool.info ([193.201.54.104]:56431 "EHLO
+Received: from server19320154104.serverpool.info ([193.201.54.104]:34308 "EHLO
 	hauke-m.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752944Ab0K0Q4H (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 27 Nov 2010 11:56:07 -0500
+	id S1752824Ab0K0RBH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 27 Nov 2010 12:01:07 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The code for the b44_wap54g10_workaround was never included, because
-the config option was wrong. The nvram_get function was never in
-mainline kernel, only in external OpenWrt patches.
+The nvram_get function was never in the mainline kernel, it only
+existed in an external OpenWrt patch. Use nvram_getenv function, which
+is in mainline and use an include instead of an extra function
+declaration.
+et0macaddr contains the mac address in text from like
+00:11:22:33:44:55. We have to parse it before adding it into macaddr.
 
-The code should be compiled in when CONFIG_BCM47XX is selected and not
-when CONFIG_SSB_DRIVER_MIPS is selected, because nvram_getenv is only
-available on bcm47xx platforms and now in the mainline kernel code.
-Using an include is better than a second function declaration, to fix
-this when the function signature changes.
+nvram_parse_macaddr will be merged into asm/mach-bcm47xx/nvram.h though
+the MIPS git tree and will be available soon. It will not build now
+without nvram_parse_macaddr, but it haven't done before.
 
 Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
 ---
- drivers/net/b44.c |   11 +++++------
- 1 files changed, 5 insertions(+), 6 deletions(-)
+ include/linux/ssb/ssb_driver_gige.h |   17 +++++++++++------
+ 1 files changed, 11 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/b44.c b/drivers/net/b44.c
-index c6e8631..2e2b762 100644
---- a/drivers/net/b44.c
-+++ b/drivers/net/b44.c
-@@ -381,11 +381,11 @@ static void b44_set_flow_ctrl(struct b44 *bp, u32 local, u32 remote)
- 	__b44_set_flow_ctrl(bp, pause_enab);
+diff --git a/include/linux/ssb/ssb_driver_gige.h b/include/linux/ssb/ssb_driver_gige.h
+index 942e387..eba52a1 100644
+--- a/include/linux/ssb/ssb_driver_gige.h
++++ b/include/linux/ssb/ssb_driver_gige.h
+@@ -96,16 +96,21 @@ static inline bool ssb_gige_must_flush_posted_writes(struct pci_dev *pdev)
+ 	return 0;
  }
  
--#ifdef SSB_DRIVER_MIPS
--extern char *nvram_get(char *name);
+-extern char * nvram_get(const char *name);
 +#ifdef CONFIG_BCM47XX
 +#include <asm/mach-bcm47xx/nvram.h>
- static void b44_wap54g10_workaround(struct b44 *bp)
+ /* Get the device MAC address */
+ static inline void ssb_gige_get_macaddr(struct pci_dev *pdev, u8 *macaddr)
  {
--	const char *str;
+-#ifdef CONFIG_BCM47XX
+-	char *res = nvram_get("et0macaddr");
+-	if (res)
+-		memcpy(macaddr, res, 6);
+-#endif
 +	char buf[20];
- 	u32 val;
- 	int err;
++	if (nvram_getenv("et0macaddr", buf, sizeof(buf)) < 0)
++		return;
++	nvram_parse_macaddr(buf, macaddr);
+ }
++#else
++static inline void ssb_gige_get_macaddr(struct pci_dev *pdev, u8 *macaddr)
++{
++}
++#endif
  
-@@ -394,10 +394,9 @@ static void b44_wap54g10_workaround(struct b44 *bp)
- 	 * see https://dev.openwrt.org/ticket/146
- 	 * check and reset bit "isolate"
- 	 */
--	str = nvram_get("boardnum");
--	if (!str)
-+	if (nvram_getenv("boardnum", buf, sizeof(buf)) < 0)
- 		return;
--	if (simple_strtoul(str, NULL, 0) == 2) {
-+	if (simple_strtoul(buf, NULL, 0) == 2) {
- 		err = __b44_readphy(bp, 0, MII_BMCR, &val);
- 		if (err)
- 			goto error;
+ extern int ssb_gige_pcibios_plat_dev_init(struct ssb_device *sdev,
+ 					  struct pci_dev *pdev);
 -- 
 1.7.1
 
