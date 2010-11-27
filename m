@@ -1,28 +1,50 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: linux-next: Tree for November 26
-Date: Sat, 27 Nov 2010 20:02:39 +0100
-Message-ID: <4CF155CF.5090601@gmail.com>
-References: <20101126132823.7ef94f07.sfr@canb.auug.org.au> <AANLkTinJUT=j_P9FSB=GWTLy4Bkr68iWmB2O=5Q3gcT-@mail.gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 5/6] forcedeth: use KERN_ facility level in printk
+Date: Sat, 27 Nov 2010 19:04:01 +0000
+Message-ID: <1290884641.3292.0.camel@localhost>
+References: <1290883188-2078-1-git-send-email-szymon@janc.net.pl>
+	 <1290883188-2078-6-git-send-email-szymon@janc.net.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	Shreyas Bhatewara <sbhatewara@vmware.com>,
-	"VMware, Inc." <pv-drivers@vmware.com>, netdev@vger.kernel.org
-To: Zimny Lech <napohybelskurwysynom2010@gmail.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <AANLkTinJUT=j_P9FSB=GWTLy4Bkr68iWmB2O=5Q3gcT-@mail.gmail.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Szymon Janc <szymon@janc.net.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.solarflare.com ([216.237.3.220]:4014 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752361Ab0K0TEH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Nov 2010 14:04:07 -0500
+In-Reply-To: <1290883188-2078-6-git-send-email-szymon@janc.net.pl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Zimny Lech wrote:
-=2E..=20
-> --=20
-> Slawa!
-> Zimny "=AFyj i pozw=F3l umrze=E6" Lech z Wawelu
+On Sat, 2010-11-27 at 19:39 +0100, Szymon Janc wrote:
+> Signed-off-by: Szymon Janc <szymon@janc.net.pl>
+> ---
+>  drivers/net/forcedeth.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
+> index 2f092d7..a2b6681 100644
+> --- a/drivers/net/forcedeth.c
+> +++ b/drivers/net/forcedeth.c
+> @@ -958,7 +958,7 @@ static int reg_delay(struct net_device *dev, int offset, u32 mask, u32 target,
+>  		delaymax -= delay;
+>  		if (delaymax < 0) {
+>  			if (msg)
+> -				printk("%s", msg);
+> +				printk(KERN_WARNING "%s", msg);
 
-=46YI:
-http://www.kernel.org/pub/linux/docs/lkml/#s3-12
+No, msg already includes a log level.
 
-Jarek P.
+Ben.
+
+>  			return 1;
+>  		}
+>  	} while ((readl(base + offset) & mask) != target);
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
