@@ -1,65 +1,49 @@
-From: Hauke Mehrtens <hauke@hauke-m.de>
-Subject: [PATCH] ssb: fix nvram_get on bcm47xx platform
-Date: Sat, 27 Nov 2010 17:50:12 +0100
-Message-ID: <1290876612-4440-1-git-send-email-hauke@hauke-m.de>
-Cc: netdev@vger.kernel.org, Hauke Mehrtens <hauke@hauke-m.de>
-To: mb@bu3sch.de
+From: David Shwatrz <dshwatrz@gmail.com>
+Subject: [PATCH net-next-2.6] XFRM: remove unused member in xfrm_encap_tmpl.
+Date: Sat, 27 Nov 2010 19:24:57 +0200
+Message-ID: <AANLkTiknTcWaRykGOTbw6JpFZN-ePnRXd3iWz86yYHKi@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary=0016e6dbe8023a5e6b04960c1e2e
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server19320154104.serverpool.info ([193.201.54.104]:34308 "EHLO
-	hauke-m.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752824Ab0K0RBH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 27 Nov 2010 12:01:07 -0500
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:35363 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752818Ab0K0RY7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Nov 2010 12:24:59 -0500
+Received: by wwa36 with SMTP id 36so3180310wwa.1
+        for <netdev@vger.kernel.org>; Sat, 27 Nov 2010 09:24:58 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The nvram_get function was never in the mainline kernel, it only
-existed in an external OpenWrt patch. Use nvram_getenv function, which
-is in mainline and use an include instead of an extra function
-declaration.
-et0macaddr contains the mac address in text from like
-00:11:22:33:44:55. We have to parse it before adding it into macaddr.
+--0016e6dbe8023a5e6b04960c1e2e
+Content-Type: text/plain; charset=ISO-8859-1
 
-nvram_parse_macaddr will be merged into asm/mach-bcm47xx/nvram.h though
-the MIPS git tree and will be available soon. It will not build now
-without nvram_parse_macaddr, but it haven't done before.
+Hi,
+ The patch removes unused member in xfrm_encap_tmpl.
 
-Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
----
- include/linux/ssb/ssb_driver_gige.h |   17 +++++++++++------
- 1 files changed, 11 insertions(+), 6 deletions(-)
+Regards,
+David Shwartz
 
-diff --git a/include/linux/ssb/ssb_driver_gige.h b/include/linux/ssb/ssb_driver_gige.h
-index 942e387..eba52a1 100644
---- a/include/linux/ssb/ssb_driver_gige.h
-+++ b/include/linux/ssb/ssb_driver_gige.h
-@@ -96,16 +96,21 @@ static inline bool ssb_gige_must_flush_posted_writes(struct pci_dev *pdev)
- 	return 0;
- }
- 
--extern char * nvram_get(const char *name);
-+#ifdef CONFIG_BCM47XX
-+#include <asm/mach-bcm47xx/nvram.h>
- /* Get the device MAC address */
- static inline void ssb_gige_get_macaddr(struct pci_dev *pdev, u8 *macaddr)
- {
--#ifdef CONFIG_BCM47XX
--	char *res = nvram_get("et0macaddr");
--	if (res)
--		memcpy(macaddr, res, 6);
--#endif
-+	char buf[20];
-+	if (nvram_getenv("et0macaddr", buf, sizeof(buf)) < 0)
-+		return;
-+	nvram_parse_macaddr(buf, macaddr);
- }
-+#else
-+static inline void ssb_gige_get_macaddr(struct pci_dev *pdev, u8 *macaddr)
-+{
-+}
-+#endif
- 
- extern int ssb_gige_pcibios_plat_dev_init(struct ssb_device *sdev,
- 					  struct pci_dev *pdev);
--- 
-1.7.1
 
+Signed-off-by: David Shwartz <dshwatrz@gmail.com>
+
+--0016e6dbe8023a5e6b04960c1e2e
+Content-Type: text/plain; charset=US-ASCII; name="patch.txt"
+Content-Disposition: attachment; filename="patch.txt"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_gh0rqf5s0
+
+ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbGludXgveGZybS5oIGIvaW5jbHVkZS9saW51eC94ZnJtLmgK
+aW5kZXggYjk3MWUzOC4uNzMxMjcwNyAxMDA2NDQKLS0tIGEvaW5jbHVkZS9saW51eC94ZnJtLmgK
+KysrIGIvaW5jbHVkZS9saW51eC94ZnJtLmgKQEAgLTIzNSw3ICsyMzUsNiBAQCBzdHJ1Y3QgeGZy
+bV9lbmNhcF90bXBsIHsKIAlfX3UxNgkJZW5jYXBfdHlwZTsKIAlfX2JlMTYJCWVuY2FwX3Nwb3J0
+OwogCV9fYmUxNgkJZW5jYXBfZHBvcnQ7Ci0JeGZybV9hZGRyZXNzX3QJZW5jYXBfb2E7CiB9Owog
+CiAvKiBBRVZFTlQgZmxhZ3MgICovCmRpZmYgLS1naXQgYS9uZXQva2V5L2FmX2tleS5jIGIvbmV0
+L2tleS9hZl9rZXkuYwppbmRleCBkODdjMjJkLi40ODUxZGViIDEwMDY0NAotLS0gYS9uZXQva2V5
+L2FmX2tleS5jCisrKyBiL25ldC9rZXkvYWZfa2V5LmMKQEAgLTEyNDUsNyArMTI0NSw2IEBAIHN0
+YXRpYyBzdHJ1Y3QgeGZybV9zdGF0ZSAqIHBma2V5X21zZzJ4ZnJtX3N0YXRlKHN0cnVjdCBuZXQg
+Km5ldCwKIAkJCQlleHRfaGRyc1tTQURCX1hfRVhUX05BVF9UX0RQT1JULTFdOwogCQkJbmF0dC0+
+ZW5jYXBfZHBvcnQgPSBuX3BvcnQtPnNhZGJfeF9uYXRfdF9wb3J0X3BvcnQ7CiAJCX0KLQkJbWVt
+c2V0KCZuYXR0LT5lbmNhcF9vYSwgMCwgc2l6ZW9mKG5hdHQtPmVuY2FwX29hKSk7CiAJfQogCiAJ
+ZXJyID0geGZybV9pbml0X3N0YXRlKHgpOwo=
+--0016e6dbe8023a5e6b04960c1e2e--
