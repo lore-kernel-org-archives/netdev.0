@@ -1,29 +1,35 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 1/3] inetpeer: Support ipv6 addresses.
-Date: Mon, 29 Nov 2010 14:33:57 -0800
-Message-ID: <20101129143357.3dfb2efe@nehalam>
-References: <20101129.134403.179947389.davem@davemloft.net>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH 2/2] The new jhash implementation
+Date: Sat, 27 Nov 2010 14:01:22 +1030
+Message-ID: <201011271401.22773.rusty@rustcorp.com.au>
+References: <1290690908-794-1-git-send-email-kadlec@blackhole.kfki.hu> <1290690908-794-2-git-send-email-kadlec@blackhole.kfki.hu> <1290690908-794-3-git-send-email-kadlec@blackhole.kfki.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:42336 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754709Ab0K2Wd7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Nov 2010 17:33:59 -0500
-In-Reply-To: <20101129.134403.179947389.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, Linus Torvalds <torvalds@osdl.org>
+To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1290690908-794-3-git-send-email-kadlec@blackhole.kfki.hu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 29 Nov 2010 13:44:03 -0800 (PST)
-David Miller <davem@davemloft.net> wrote:
+On Thu, 25 Nov 2010 11:45:08 pm Jozsef Kadlecsik wrote:
+> The current jhash.h implements the lookup2() hash function by Bob Jenkins.
+> However, lookup2() is outdated as Bob wrote a new hash function called
+> lookup3(). The new hash function
 
-> +static inline bool inet_peer_addr_equal(inet_peer_address_t *a, inet_peer_address_t *b)
+Oops, we discussed this ages ago, looks like it fell through the cracks.
 
-Let the compiler decide about inline.
-Should be const inet_peer_address_t *
+Thanks Jozsef!
 
+> +extern u32 jhash(const void *key, u32 length, u32 initval);
+> +extern u32 jhash2(const u32 *k, u32 length, u32 initval);
+> +extern u32 jhash_3words(u32 a, u32 b, u32 c, u32 initval);
 
--- 
+This last one can be marked __attribute__((const)) for a little
+extra compiler help, too.
+
+Cheers,
+Rusty.
