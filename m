@@ -1,56 +1,64 @@
-From: Maxim Levitsky <maximlevitsky@gmail.com>
-Subject: Re: [Q] How to invalidate ARP cache for a network device from
- within kernel
-Date: Sat, 27 Nov 2010 17:44:04 +0200
-Message-ID: <1290872644.15076.1.camel@maxim-laptop>
-References: <1290793099.3716.21.camel@maxim-laptop>
-	 <20101127021833.328e8942@stein> <1290821143.4145.3.camel@maxim-laptop>
-	 <20101127093342.3f1d01ce@stein>  <20101127161907.791a3b7c@stein>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux1394-devel <linux1394-devel@lists.sourceforge.net>
-To: Stefan Richter <stefanr@s5r6.in-berlin.de>
+From: Hauke Mehrtens <hauke@hauke-m.de>
+Subject: [PATCH] b44: fix workarround for wap54g10
+Date: Sat, 27 Nov 2010 17:47:43 +0100
+Message-ID: <1290876463-4372-1-git-send-email-hauke@hauke-m.de>
+Cc: netdev@vger.kernel.org, Hauke Mehrtens <hauke@hauke-m.de>
+To: zambrano@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:37907 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751400Ab0K0PoJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Nov 2010 10:44:09 -0500
-Received: by bwz15 with SMTP id 15so2643674bwz.19
-        for <netdev@vger.kernel.org>; Sat, 27 Nov 2010 07:44:08 -0800 (PST)
-In-Reply-To: <20101127161907.791a3b7c@stein>
+Received: from server19320154104.serverpool.info ([193.201.54.104]:56431 "EHLO
+	hauke-m.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752944Ab0K0Q4H (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 27 Nov 2010 11:56:07 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2010-11-27 at 16:19 +0100, Stefan Richter wrote:
-> On Nov 27 Stefan Richter wrote:
-> > > @@ -1593,10 +1593,15 @@ static void fwnet_update(struct fw_unit
-> > > *unit) {
-> > >  	struct fw_device *device = fw_parent_device(unit);
-> > >  	struct fwnet_peer *peer = dev_get_drvdata(&unit->device);
-> > > +	struct fwnet_device *dev = peer->dev;
-> > >  	int generation;
-> > >  
-> > >  	generation = device->generation;
-> > >  
-> > > +	fw_iso_context_stop(dev->broadcast_rcv_context);
-> > > +	fw_iso_context_start(dev->broadcast_rcv_context, -1, 0,
-> > > +			FW_ISO_CONTEXT_MATCH_ALL_TAGS);
-> [...]
-> > OTOH, is this actually necessary on normal bus resets?  It should only
-> > be necessary after PM resume, right?  If so, perhaps do it only if the
-> > generation increased by more than one.
-> 
-> Actually, shouldn't context restart at resume happen in firewire-ohci
-> rather?  Any other protocol driver which uses isochronous I/O (be it a
-> kernel driver or userspace driver) would have the same issue, I guess.
-Well, the spec says that upon bus reset ISO channels must be allocated
-again.
-This somewhat mimics that, although it can be done better.
+The code for the b44_wap54g10_workaround was never included, because
+the config option was wrong. The nvram_get function was never in
+mainline kernel, only in external OpenWrt patches.
 
-Of course the same true after suspend/resume.
+The code should be compiled in when CONFIG_BCM47XX is selected and not
+when CONFIG_SSB_DRIVER_MIPS is selected, because nvram_getenv is only
+available on bcm47xx platforms and now in the mainline kernel code.
+Using an include is better than a second function declaration, to fix
+this when the function signature changes.
 
-Best regards,
-	Maxim Levitsky
+Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
+---
+ drivers/net/b44.c |   11 +++++------
+ 1 files changed, 5 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/b44.c b/drivers/net/b44.c
+index c6e8631..2e2b762 100644
+--- a/drivers/net/b44.c
++++ b/drivers/net/b44.c
+@@ -381,11 +381,11 @@ static void b44_set_flow_ctrl(struct b44 *bp, u32 local, u32 remote)
+ 	__b44_set_flow_ctrl(bp, pause_enab);
+ }
+ 
+-#ifdef SSB_DRIVER_MIPS
+-extern char *nvram_get(char *name);
++#ifdef CONFIG_BCM47XX
++#include <asm/mach-bcm47xx/nvram.h>
+ static void b44_wap54g10_workaround(struct b44 *bp)
+ {
+-	const char *str;
++	char buf[20];
+ 	u32 val;
+ 	int err;
+ 
+@@ -394,10 +394,9 @@ static void b44_wap54g10_workaround(struct b44 *bp)
+ 	 * see https://dev.openwrt.org/ticket/146
+ 	 * check and reset bit "isolate"
+ 	 */
+-	str = nvram_get("boardnum");
+-	if (!str)
++	if (nvram_getenv("boardnum", buf, sizeof(buf)) < 0)
+ 		return;
+-	if (simple_strtoul(str, NULL, 0) == 2) {
++	if (simple_strtoul(buf, NULL, 0) == 2) {
+ 		err = __b44_readphy(bp, 0, MII_BMCR, &val);
+ 		if (err)
+ 			goto error;
+-- 
+1.7.1
 
