@@ -1,69 +1,77 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net-next: Fix __inet_inherit_port() to correctly
- increment bsockets and num_owners
-Date: Sat, 27 Nov 2010 10:02:03 +0100
-Message-ID: <1290848523.2794.7.camel@edumazet-laptop>
-References: <844781.48196.qm@web53701.mail.re2.yahoo.com>
+Subject: Re: [PATCH net-next] bnx2x: Use skb_is_gso_v6(skb) instead of
+ accessing the skb_shinfo(skb) directly
+Date: Sat, 27 Nov 2010 10:53:45 +0100
+Message-ID: <1290851625.2794.17.camel@edumazet-laptop>
+References: <1290612078.27220.2.camel@lb-tlvb-vladz>
+	 <1290678762.18389.1.camel@lb-tlvb-vladz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Evgeniy Polyakov <zbr@ioremap.net>
-To: Nagendra Tomar <tomer_iisc@yahoo.com>
+Cc: Dave Miller <davem@davemloft.net>,
+	Eilon Greenstein <eilong@broadcom.com>,
+	netdev list <netdev@vger.kernel.org>
+To: Vladislav Zolotarov <vladz@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f194.google.com ([74.125.82.194]:47625 "EHLO
-	mail-wy0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751290Ab0K0JCJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Nov 2010 04:02:09 -0500
-Received: by wyb32 with SMTP id 32so1190183wyb.1
-        for <netdev@vger.kernel.org>; Sat, 27 Nov 2010 01:02:08 -0800 (PST)
-In-Reply-To: <844781.48196.qm@web53701.mail.re2.yahoo.com>
+Received: from mail-ww0-f66.google.com ([74.125.82.66]:60905 "EHLO
+	mail-ww0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752218Ab0K0Jxv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Nov 2010 04:53:51 -0500
+Received: by wwb34 with SMTP id 34so477172wwb.1
+        for <netdev@vger.kernel.org>; Sat, 27 Nov 2010 01:53:50 -0800 (PST)
+In-Reply-To: <1290678762.18389.1.camel@lb-tlvb-vladz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 26 novembre 2010 =C3=A0 16:26 -0800, Nagendra Tomar a =C3=A9=
-crit :
-> inet sockets corresponding to passive connections are added to the bi=
-nd hash
-> using ___inet_inherit_port(). These sockets are later removed from th=
-e bind=20
-> hash using __inet_put_port(). These two functions are not exactly sym=
-metrical.=20
-> __inet_put_port() decrements hashinfo->bsockets and tb->num_owners, w=
-hereas=20
-> ___inet_inherit_port() does not increment them. This results in both =
-of these=20
-> going to -ve values.
->=20
-> This patch fixes this by calling inet_bind_hash() from ___inet_inheri=
-t_port(),
-> which does the right thing.
->=20
-> 'bsockets' and 'num_owners' were introduced by commit a9d8f9110d7e953=
-c=20
-> (inet: Allowing more than 64k connections and heavily optimize bind(0=
-))
->=20
-> Signed-off-by: Nagendra Singh Tomar <tomer_iisc@yahoo.com>
->=20
+Le jeudi 25 novembre 2010 =C3=A0 11:52 +0200, Vladislav Zolotarov a =C3=
+=A9crit :
+> Signed-off-by: Vladislav Zolotarov <vladz@broadcom.com>
+> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 > ---
-> --- linux-2.6.37-rc3/net/ipv4/inet_hashtables.c.orig	2010-11-26 13:28=
-:51.034811940 -0500
-> +++ linux-2.6.37-rc3/net/ipv4/inet_hashtables.c	2010-11-26 14:41:41.0=
-06268035 -0500
-> @@ -133,8 +133,7 @@ int __inet_inherit_port(struct sock *sk,
->  			}
->  		}
->  	}
-> -	sk_add_bind_node(child, &tb->owners);
-> -	inet_csk(child)->icsk_bind_hash =3D tb;
-> +	inet_bind_hash(child, tb, port);
->  	spin_unlock(&head->lock);
+>  drivers/net/bnx2x/bnx2x_cmn.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+>=20
+> diff --git a/drivers/net/bnx2x/bnx2x_cmn.c b/drivers/net/bnx2x/bnx2x_=
+cmn.c
+> index 94d5f59..fa8e9ee 100644
+> --- a/drivers/net/bnx2x/bnx2x_cmn.c
+> +++ b/drivers/net/bnx2x/bnx2x_cmn.c
+> @@ -1695,7 +1695,7 @@ static inline u32 bnx2x_xmit_type(struct bnx2x =
+*bp, struct sk_buff *skb)
+>  	if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4)
+>  		rc |=3D (XMIT_GSO_V4 | XMIT_CSUM_V4 | XMIT_CSUM_TCP);
 > =20
->  	return 0;
+> -	else if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6)
+> +	else if (skb_is_gso_v6(skb))
+>  		rc |=3D (XMIT_GSO_V6 | XMIT_CSUM_TCP | XMIT_CSUM_V6);
+> =20
+>  	return rc;
 
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+May I ask why ?
 
-Thanks !
+This seems not consistent with the previous block.
+
+Either you also add a skb_is_gso_v4(skb) helper, or let the code as is,
+maybe reordering the flags ?
+
+diff --git a/drivers/net/bnx2x/bnx2x_cmn.c b/drivers/net/bnx2x/bnx2x_cm=
+n.c
+index 94d5f59..514aad6 100644
+--- a/drivers/net/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/bnx2x/bnx2x_cmn.c
+@@ -1693,10 +1693,9 @@ static inline u32 bnx2x_xmit_type(struct bnx2x *=
+bp, struct sk_buff *skb)
+ 	}
+=20
+ 	if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4)
+-		rc |=3D (XMIT_GSO_V4 | XMIT_CSUM_V4 | XMIT_CSUM_TCP);
+-
++		rc |=3D XMIT_GSO_V4 | XMIT_CSUM_V4 | XMIT_CSUM_TCP;
+ 	else if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6)
+-		rc |=3D (XMIT_GSO_V6 | XMIT_CSUM_TCP | XMIT_CSUM_V6);
++		rc |=3D XMIT_GSO_V6 | XMIT_CSUM_V6 | XMIT_CSUM_TCP;
+=20
+ 	return rc;
+ }
 
 
