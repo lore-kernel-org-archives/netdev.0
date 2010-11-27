@@ -1,77 +1,66 @@
 From: Hauke Mehrtens <hauke@hauke-m.de>
-Subject: [PATCH] ssb: Add sysfs attributes to ssb devices
-Date: Sat, 27 Nov 2010 18:49:26 +0100
-Message-ID: <1290880166-2092-1-git-send-email-hauke@hauke-m.de>
-Cc: netdev@vger.kernel.org, Hauke Mehrtens <hauke@hauke-m.de>,
-	Bernhard Loos <bernhardloos@googlemail.com>
-To: mb@bu3sch.de
+Subject: [PATCH RESEND] ssb: fix nvram_get on bcm47xx platform
+Date: Sat, 27 Nov 2010 19:26:32 +0100
+Message-ID: <1290882392-28327-1-git-send-email-hauke@hauke-m.de>
+Cc: mb@bu3sch.de, netdev@vger.kernel.org,
+	Hauke Mehrtens <hauke@hauke-m.de>
+To: ralf@linux-mips.org, linux-mips@linux-mips.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server19320154104.serverpool.info ([193.201.54.104]:32782 "EHLO
+Received: from server19320154104.serverpool.info ([193.201.54.104]:35229 "EHLO
 	hauke-m.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752706Ab0K0Rtd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 27 Nov 2010 12:49:33 -0500
+	id S1753107Ab0K0S0s (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 27 Nov 2010 13:26:48 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Make it possible to read out the attributes, till now only show on
-dmesg, through sysfs.
+The nvram_get function was never in the mainline kernel, it only
+existed in an external OpenWrt patch. Use nvram_getenv function, which
+is in mainline and use an include instead of an extra function
+declaration.
+et0macaddr contains the mac address in text from like
+00:11:22:33:44:55. We have to parse it before adding it into macaddr.
 
-This patch was some time in OpenWrt.
+nvram_parse_macaddr will be merged into asm/mach-bcm47xx/nvram.h though
+the MIPS git tree and will be available soon. It will not build now
+without nvram_parse_macaddr, but it haven't done before.
 
-Signed-off-by: Bernhard Loos <bernhardloos@googlemail.com>
 Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
 ---
- drivers/ssb/main.c |   30 ++++++++++++++++++++++++++++++
- 1 files changed, 30 insertions(+), 0 deletions(-)
+ include/linux/ssb/ssb_driver_gige.h |   17 +++++++++++------
+ 1 files changed, 11 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/ssb/main.c b/drivers/ssb/main.c
-index c68b3dc..3918d2c 100644
---- a/drivers/ssb/main.c
-+++ b/drivers/ssb/main.c
-@@ -383,6 +383,35 @@ static int ssb_device_uevent(struct device *dev, struct kobj_uevent_env *env)
- 			     ssb_dev->id.revision);
+diff --git a/include/linux/ssb/ssb_driver_gige.h b/include/linux/ssb/ssb_driver_gige.h
+index 942e387..eba52a1 100644
+--- a/include/linux/ssb/ssb_driver_gige.h
++++ b/include/linux/ssb/ssb_driver_gige.h
+@@ -96,16 +96,21 @@ static inline bool ssb_gige_must_flush_posted_writes(struct pci_dev *pdev)
+ 	return 0;
  }
  
-+#define ssb_config_attr(attrib, field, format_string) \
-+static ssize_t \
-+attrib##_show(struct device *dev, struct device_attribute *attr, char *buf) \
-+{ \
-+	return sprintf(buf, format_string, dev_to_ssb_dev(dev)->field); \
-+}
-+
-+ssb_config_attr(core_num, core_index, "%u\n")
-+ssb_config_attr(coreid, id.coreid, "0x%04x\n")
-+ssb_config_attr(vendor, id.vendor, "0x%04x\n")
-+ssb_config_attr(revision, id.revision, "%u\n")
-+ssb_config_attr(irq, irq, "%u\n")
-+static ssize_t
-+name_show(struct device *dev, struct device_attribute *attr, char *buf)
+-extern char * nvram_get(const char *name);
++#ifdef CONFIG_BCM47XX
++#include <asm/mach-bcm47xx/nvram.h>
+ /* Get the device MAC address */
+ static inline void ssb_gige_get_macaddr(struct pci_dev *pdev, u8 *macaddr)
+ {
+-#ifdef CONFIG_BCM47XX
+-	char *res = nvram_get("et0macaddr");
+-	if (res)
+-		memcpy(macaddr, res, 6);
+-#endif
++	char buf[20];
++	if (nvram_getenv("et0macaddr", buf, sizeof(buf)) < 0)
++		return;
++	nvram_parse_macaddr(buf, macaddr);
+ }
++#else
++static inline void ssb_gige_get_macaddr(struct pci_dev *pdev, u8 *macaddr)
 +{
-+	return sprintf(buf, "%s\n",
-+		       ssb_core_name(dev_to_ssb_dev(dev)->id.coreid));
 +}
-+
-+static struct device_attribute ssb_device_attrs[] = {
-+	__ATTR_RO(name),
-+	__ATTR_RO(core_num),
-+	__ATTR_RO(coreid),
-+	__ATTR_RO(vendor),
-+	__ATTR_RO(revision),
-+	__ATTR_RO(irq),
-+	__ATTR_NULL,
-+};
-+
- static struct bus_type ssb_bustype = {
- 	.name		= "ssb",
- 	.match		= ssb_bus_match,
-@@ -392,6 +421,7 @@ static struct bus_type ssb_bustype = {
- 	.suspend	= ssb_device_suspend,
- 	.resume		= ssb_device_resume,
- 	.uevent		= ssb_device_uevent,
-+	.dev_attrs	= ssb_device_attrs,
- };
++#endif
  
- static void ssb_buses_lock(void)
+ extern int ssb_gige_pcibios_plat_dev_init(struct ssb_device *sdev,
+ 					  struct pci_dev *pdev);
 -- 
 1.7.1
 
