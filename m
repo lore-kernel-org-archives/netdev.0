@@ -1,27 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] DECnet: don't leak uninitialized stack byte
-Date: Sun, 28 Nov 2010 11:32:43 -0800 (PST)
-Message-ID: <20101128.113243.116388416.davem@davemloft.net>
-References: <1290546133.2276.10.camel@dan>
+Subject: Re: [PATCH net-2.6] net, ppp: Report correct error code if unit
+ allocation failed
+Date: Sun, 28 Nov 2010 11:33:43 -0800 (PST)
+Message-ID: <20101128.113343.200360663.davem@davemloft.net>
+References: <20101123214344.GB1839@lenovo>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: drosenberg@vsecurity.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54393
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752077Ab0K1TcR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Nov 2010 14:32:17 -0500
-In-Reply-To: <1290546133.2276.10.camel@dan>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, paulus@samba.org,
+	linux-ppp@vger.kernel.org, linux-kernel@vger.kernel.org
+To: gorcunov@gmail.com
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <20101123214344.GB1839@lenovo>
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Dan Rosenberg <drosenberg@vsecurity.com>
-Date: Tue, 23 Nov 2010 16:02:13 -0500
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Date: Wed, 24 Nov 2010 00:43:44 +0300
 
-> A single uninitialized padding byte is leaked to userspace.
+> Allocating unit from ird might return several error codes
+> not only -EAGAIN, so it should not be changed and returned
+> precisely. Same time unit release procedure should be invoked
+> only if device is unregistering.
 > 
-> Signed-off-by: Dan Rosenberg <drosenberg@vsecurity.com>
+> Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
 
-Applied, thanks Dan.
+Looks good to me, applied, thanks Cyrill.
