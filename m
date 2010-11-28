@@ -1,19 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: jhash ipv6 prepare patch
-Date: Sun, 28 Nov 2010 11:26:48 -0800 (PST)
-Message-ID: <20101128.112648.229762246.davem@davemloft.net>
+Subject: Re: [GIT PULL net-2.6] vhost-net: rcu fixup
+Date: Sun, 28 Nov 2010 11:27:47 -0800 (PST)
+Message-ID: <20101128.112747.35051709.davem@davemloft.net>
+References: <20101125122301.GA15990@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: kadlec@blackhole.kfki.hu
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56227
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751041Ab0K1T0W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Nov 2010 14:26:22 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: mst@redhat.com
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20101125122301.GA15990@redhat.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Thu, 25 Nov 2010 14:23:01 +0200
 
-Just FYI, I've applied that patch to net-next-2.6
+> Please merge the following fix for 2.6.36.
+> Thanks!
+> 
+> The following changes since commit a27e13d370415add3487949c60810e36069a23a6:
+> 
+>   econet: fix CVE-2010-3848 (2010-11-24 11:51:47 -0800)
+> 
+> are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git vhost-net
+> 
+> Michael S. Tsirkin (1):
+>       vhost/net: fix rcu check usage
+> 
+
+Pulled, thanks Michael.
