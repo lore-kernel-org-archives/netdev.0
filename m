@@ -1,51 +1,47 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] xps: NUMA allocations for per cpu data
-Date: Sun, 28 Nov 2010 16:43:24 +0100
-Message-ID: <1290959004.29196.13.camel@edumazet-laptop>
-References: <alpine.DEB.2.00.1011211501430.14906@pokey.mtv.corp.google.com>
-	 <20101124.114534.15255941.davem@davemloft.net>
-	 <AANLkTi=8smjJgTXxe7vj8AHAMceLUr25KurZbm07vP1j@mail.gmail.com>
-	 <1290791866.2855.263.camel@edumazet-laptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ks8842: Fix TX cache flush issue
+Date: Sun, 28 Nov 2010 10:38:14 -0800 (PST)
+Message-ID: <20101128.103814.193728413.davem@davemloft.net>
+References: <1290430257.13971.7.camel@debian>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Tom Herbert <therbert@google.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, ferringb@gmail.com
+To: richard.rojfors@pelagicore.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:49507 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753331Ab0K1Pn3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Nov 2010 10:43:29 -0500
-Received: by wyb28 with SMTP id 28so3553489wyb.19
-        for <netdev@vger.kernel.org>; Sun, 28 Nov 2010 07:43:28 -0800 (PST)
-In-Reply-To: <1290791866.2855.263.camel@edumazet-laptop>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54740
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753795Ab0K1Shs convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 28 Nov 2010 13:37:48 -0500
+In-Reply-To: <1290430257.13971.7.camel@debian>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-store_xps_map() allocates maps that are used by single cpu, it makes
-sense to use NUMA allocations.
+=46rom: Richard R=F6jfors <richard.rojfors@pelagicore.com>
+Date: Mon, 22 Nov 2010 13:50:57 +0100
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Tom Herbert <therbert@google.com>
----
- net/core/net-sysfs.c |    5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+> This patch fixes a cache sync issue found in MeeGo 1.1.
+>=20
+> It was found that bytes after the first 64 of the TX buffer was not
+> flushed from the cache correctly.
+>=20
+> The patch switches out kmalloc/dma_map_single/dma_sync_single_for_dev=
+ice
+> to dma_alloc_coherent.
+>=20
+> Signed-off-by: Richard R=F6jfors <richard.rojfors@pelagicore.com>
 
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index 68dbbfd..35f28b1 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -950,8 +950,9 @@ static ssize_t store_xps_map(struct netdev_queue *queue,
- 			if (map_len >= alloc_len) {
- 				alloc_len = alloc_len ?
- 				    2 * alloc_len : XPS_MIN_MAP_ALLOC;
--				new_map = kzalloc(XPS_MAP_SIZE(alloc_len),
--				    GFP_KERNEL);
-+				new_map = kzalloc_node(XPS_MAP_SIZE(alloc_len),
-+						       GFP_KERNEL,
-+						       cpu_to_node(cpu));
- 				if (!new_map)
- 					goto error;
- 				new_map->alloc_len = alloc_len;
+Why is dma_sync_single_*() not working properly?
 
+Maybe the length arguments are not correct?  Maybe the cache flush
+implementation accidently misses the last cache line when the buffer
+length ends in the middle of a cache line.
+
+Did you even check to see what the actual cause of the problem is?
+
+I'm not applying this patch, not enough justification or explanation
+in the commit message exists yet.  For all we know there could be
+a bug elsewhere, and that would effect other drivers too not just
+ks8842.
 
