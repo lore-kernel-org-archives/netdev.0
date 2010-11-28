@@ -1,40 +1,54 @@
-From: Maxim Levitsky <maximlevitsky@gmail.com>
-Subject: Re: [PATCH 0/5] Firewire networking assorted fixes
-Date: Sun, 28 Nov 2010 05:02:59 +0200
-Message-ID: <1290913379.24325.1.camel@maxim-laptop>
-References: <1290906936-14472-1-git-send-email-maximlevitsky@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] econet: Move to staging; remove from defconfig
+Date: Sat, 27 Nov 2010 22:38:45 -0800 (PST)
+Message-ID: <20101127.223845.189711153.davem@davemloft.net>
+References: <20101128002135.GA4562@suse.de>
+	<20101127.172644.226781076.davem@davemloft.net>
+	<1290909215.3292.230.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Stefan Richter <stefanr@s5r6.in-berlin.de>
-To: linux1394-devel <linux1394-devel@lists.sourceforge.net>
-Return-path: <linux1394-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1290906936-14472-1-git-send-email-maximlevitsky@gmail.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
-	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux1394-devel>
-List-Post: <mailto:linux1394-devel@lists.sourceforge.net>
-List-Help: <mailto:linux1394-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
-	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: linux1394-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: gregkh@suse.de, netdev@vger.kernel.org, devel@driverdev.osuosl.org,
+	linux-arm-kernel@lists.infradead.org,
+	debian-kernel@lists.debian.org
+To: ben@decadent.org.uk
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58682
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750947Ab0K1GiT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Nov 2010 01:38:19 -0500
+In-Reply-To: <1290909215.3292.230.camel@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2010-11-28 at 03:15 +0200, Maxim Levitsky wrote:
-> Here is few patches to fix few annoying problems with firewire networking.
+From: Ben Hutchings <ben@decadent.org.uk>
+Date: Sun, 28 Nov 2010 01:53:35 +0000
+
+> On Sat, 2010-11-27 at 17:26 -0800, David Miller wrote:
+>> From: Greg KH <gregkh@suse.de>
+>> Date: Sat, 27 Nov 2010 16:21:35 -0800
+>> 
+>> > And I need an ack from the networking maintainer to be able to accept
+>> > this also.
+>> 
+>> I'm not applying this, nor do I want anyone else to.
+>> 
+>> If people think this protocol is not maintained adequately
+>> right now, wait until you push it into staging.
+>> 
+>> Furthermore, once Phil Blundell was made aware of security
+>> holes in econet he fixed them within a few days.  Which is
+>> much better than I can say for some of the other protocols
+>> and filesystems in the tree.
 > 
-> I need a feedback on patch #3 from netdev folks.
-> 
-> patch #2 implements initial version of IR/IR resume support.
-Sorry for bad spelling and grammar in the changelogs and here, usually I
-mange much better than that....
+> Those bugs were present for years and would have been obvious to anyone
+> who cared to read the code.  While I very much appreciate Phil's quick
+> response, I don't think this reactive maintenance is enough.
 
+These same arguments could for be made for RDS.  Look at all the
+hellacious awful obvious crap we've discovered in that code recently.
+A simple read would have caught those too, and I don't see it's
+maintainer doing such things.
 
-
-
-------------------------------------------------------------------------------
-Increase Visibility of Your 3D Game App & Earn a Chance To Win $500!
-Tap into the largest installed PC base & get more eyes on your game by
-optimizing for Intel(R) Graphics Technology. Get started today with the
-Intel(R) Software Partner Program. Five $500 cash prizes are up for grabs.
-http://p.sf.net/sfu/intelisp-dev2dev
+So, you're very much still not convincing Ben, but feel free to keep
+trying.
