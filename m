@@ -1,30 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] au1000_eth: fix invalid address accessing the MAC
- enable register
-Date: Sun, 28 Nov 2010 11:31:35 -0800 (PST)
-Message-ID: <20101128.113135.242124850.davem@davemloft.net>
-References: <4CEBEE79.8040507@grandegger.com>
+Subject: Re: [PATCH] DECnet: don't leak uninitialized stack byte
+Date: Sun, 28 Nov 2010 11:32:43 -0800 (PST)
+Message-ID: <20101128.113243.116388416.davem@davemloft.net>
+References: <1290546133.2276.10.camel@dan>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Netdev@vger.kernel.org, linux-mips@linux-mips.org,
-	florian@openwrt.org
-To: wg@grandegger.com
+Cc: netdev@vger.kernel.org
+To: drosenberg@vsecurity.com
 Return-path: <netdev-owner@vger.kernel.org>
-In-Reply-To: <4CEBEE79.8040507@grandegger.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54393
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752077Ab0K1TcR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Nov 2010 14:32:17 -0500
+In-Reply-To: <1290546133.2276.10.camel@dan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wolfgang Grandegger <wg@grandegger.com>
-Date: Tue, 23 Nov 2010 17:40:25 +0100
+From: Dan Rosenberg <drosenberg@vsecurity.com>
+Date: Tue, 23 Nov 2010 16:02:13 -0500
 
-> "aup->enable" holds already the address pointing to the MAC enable
-> register. The bug was introduced by commit d0e7cb:
+> A single uninitialized padding byte is leaked to userspace.
 > 
-> "au1000-eth: remove volatiles, switch to I/O accessors".
-> 
-> CC: Florian Fainelli <florian@openwrt.org>
-> Signed-off-by: Wolfgang Grandegger <wg@denx.de>
-> Acked-by: Florian Fainelli <florian@openwrt.org>
+> Signed-off-by: Dan Rosenberg <drosenberg@vsecurity.com>
 
-Applied, thanks.
+Applied, thanks Dan.
