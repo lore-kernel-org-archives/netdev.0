@@ -1,30 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: ethoc driver changes (version 2)
-Date: Sun, 28 Nov 2010 11:17:41 -0800 (PST)
-Message-ID: <20101128.111741.70196550.davem@davemloft.net>
-References: <1290688232-25142-1-git-send-email-jonas@southpole.se>
+Subject: Re: [PATCH] xfrm: use gre key as flow upper protocol info
+Date: Sun, 28 Nov 2010 11:22:41 -0800 (PST)
+Message-ID: <20101128.112241.232741941.davem@davemloft.net>
+References: <1288795298-323-1-git-send-email-timo.teras@iki.fi>
+	<20101115.104322.212675424.davem@davemloft.net>
+	<4CEBC9C1.8080101@iki.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jonas@southpole.se
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au
+To: timo.teras@iki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48240
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53350
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753866Ab0K1TRP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Nov 2010 14:17:15 -0500
-In-Reply-To: <1290688232-25142-1-git-send-email-jonas@southpole.se>
+	by vger.kernel.org with ESMTP id S1750791Ab0K1TWP convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 28 Nov 2010 14:22:15 -0500
+In-Reply-To: <4CEBC9C1.8080101@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jonas Bonn <jonas@southpole.se>
-Date: Thu, 25 Nov 2010 13:30:24 +0100
+=46rom: Timo Ter=E4s <timo.teras@iki.fi>
+Date: Tue, 23 Nov 2010 16:03:45 +0200
 
-> This series incorporates the changes requested in the review of the original
-> set.  The patch to "prevent overflow of cur_rx" has been dropped
-> completely and the comments concerning the usage of division in the
-> calculation of the BD entry have been incorporated into a new patch, 
-> number 8 "remove division from loops"; this new patch should take care of
-> the potential overflow issues that existed previously, too.
+> So we probably would need to do:
+>=20
+> xfrm: fix gre key endianess
+>=20
+> fl->fl_gre_key is network byte order contrary to fl->fl_icmp_*.
+> Make xfrm_flowi_{s|d}port return network byte order values for gre
+> key too.
+>=20
+> Signed-off-by: Timo Ter=E4s <timo.teras@iki.fi>
 
-All applied, thank you Jonas.
+Ok, applied, thanks Timo.
