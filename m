@@ -1,34 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT PULL net-2.6] vhost-net: rcu fixup
-Date: Sun, 28 Nov 2010 11:27:47 -0800 (PST)
-Message-ID: <20101128.112747.35051709.davem@davemloft.net>
-References: <20101125122301.GA15990@redhat.com>
+Subject: Re: net-2.6 [Patch 1/1][BUG-FIX] dccp: advancing the Ack window
+Date: Sun, 28 Nov 2010 11:29:48 -0800 (PST)
+Message-ID: <20101128.112948.15234568.davem@davemloft.net>
+References: <20101123123656.GB3915@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: mst@redhat.com
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20101125122301.GA15990@redhat.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: gerrit@erg.abdn.ac.uk
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56238
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751644Ab0K1T3W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Nov 2010 14:29:22 -0500
+In-Reply-To: <20101123123656.GB3915@gerrit.erg.abdn.ac.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Thu, 25 Nov 2010 14:23:01 +0200
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Date: Tue, 23 Nov 2010 13:36:56 +0100
 
-> Please merge the following fix for 2.6.36.
-> Thanks!
+> dccp: fix error in updating the GAR
 > 
-> The following changes since commit a27e13d370415add3487949c60810e36069a23a6:
+> This fixes a bug in updating the Greatest Acknowledgment number Received (GAR): 
+> the current implementation does not track the greatest received value -
+> lower values in the range AWL..AWH (RFC 4340, 7.5.1) erase higher ones.
 > 
->   econet: fix CVE-2010-3848 (2010-11-24 11:51:47 -0800)
-> 
-> are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git vhost-net
-> 
-> Michael S. Tsirkin (1):
->       vhost/net: fix rcu check usage
-> 
+> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 
-Pulled, thanks Michael.
+Applied, thanks.
