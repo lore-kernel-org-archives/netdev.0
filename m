@@ -1,36 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] NET: wan/x25_asy, move lapb_unregister to
- x25_asy_close_tty
-Date: Sun, 28 Nov 2010 11:44:22 -0800 (PST)
-Message-ID: <20101128.114422.233714708.davem@davemloft.net>
-References: <1290642894-4577-1-git-send-email-jslaby@suse.cz>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCHv2] hso: fix disable_net
+Date: Sun, 28 Nov 2010 11:45:58 -0800 (PST)
+Message-ID: <20101128.114558.02260882.davem@davemloft.net>
+References: <1290700866.2112.60.camel@filip-linux>
+	<AANLkTikUs7aHCP1ZZoxhs+w-a2RTdzHzmFR3tbcxjMHt@mail.gmail.com>
+	<4CF01604.9010401@computer.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, slapin@ossfans.org,
-	linux-kernel@vger.kernel.org, jirislaby@gmail.com,
-	andrew.hendry@gmail.com
-To: jslaby@suse.cz
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56787
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752513Ab0K1Tn4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Nov 2010 14:43:56 -0500
-In-Reply-To: <1290642894-4577-1-git-send-email-jslaby@suse.cz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jhovold-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, f.aben-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, pki-/L4m51SJ8HhmR6Xm/wNWPw@public.gmane.org
+To: jan.ceuleers-bdq14YP6qtRg9hUCZPvPmw@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4CF01604.9010401-bdq14YP6qtRg9hUCZPvPmw@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Slaby <jslaby@suse.cz>
-Date: Thu, 25 Nov 2010 00:54:54 +0100
+From: Jan Ceuleers <jan.ceuleers-bdq14YP6qtRg9hUCZPvPmw@public.gmane.org>
+Date: Fri, 26 Nov 2010 21:18:12 +0100
 
-> We register lapb when tty is created, but unregister it only when the
-> device is UP. So move the lapb_unregister to x25_asy_close_tty after
-> the device is down.
+> On 25/11/10 17:25, Johan Hovold wrote:
+>> On Thu, Nov 25, 2010 at 5:01 PM, Filip Aben<f.aben-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>  wrote:
+>>> On Thu, 2010-11-25 at 16:03 +0100, Johan Hovold wrote:
+>>>> Please add the appropriate Reported-by-tags as well, e.g.
+>>>>
+>>>> Reported-by: Piotr Isajew<pki-/L4m51SJ8HhmR6Xm/wNWPw@public.gmane.org>
+>>>> Reported-by: Johan Hovold<jhovold-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>>>
+>>> I would have gladly done so if you included that in your comment on
+>>> the
+>>> previous patch :)
+>>
+>> What is stopping you from submitting a v3? :)
+>>
+>> But perhaps David can pick those up from the thread. Not sure how this
+>> is usually dealt with on netdev.
 > 
-> Signed-off-by: Jiri Slaby <jslaby@suse.cz>
-> Reported-by: Sergey Lapin <slapin@ossfans.org>
-> Cc: Andrew Hendry <andrew.hendry@gmail.com>
+> Automatically taken care of by patchwork:
+> 
+> http://patchwork.ozlabs.org/patch/73060/mbox/
 
-Applied with commit message addition you mentioned Jiri.
+Right :-)
 
-Thanks.
+I'll apply this, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
