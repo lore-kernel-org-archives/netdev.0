@@ -1,33 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/2] bnx2: Remove config access to
- non-standard registers
-Date: Sun, 28 Nov 2010 10:49:42 -0800 (PST)
-Message-ID: <20101128.104942.48499452.davem@davemloft.net>
-References: <1290642535-20293-1-git-send-email-mchan@broadcom.com>
-	<1290642535-20293-2-git-send-email-mchan@broadcom.com>
+Subject: Re: [PATCH net-next] bnx2x: Use helpers instead of direct access
+ to the shinfo(skb) fields
+Date: Sun, 28 Nov 2010 11:08:38 -0800 (PST)
+Message-ID: <20101128.110838.260074950.davem@davemloft.net>
+References: <1290678762.18389.1.camel@lb-tlvb-vladz>
+	<1290851625.2794.17.camel@edumazet-laptop>
+	<1290939815.21703.81.camel@lb-tlvb-vladz>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mchan@broadcom.com
+Cc: eilong@broadcom.com, netdev@vger.kernel.org
+To: vladz@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36581
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34157
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753866Ab0K1StP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Nov 2010 13:49:15 -0500
-In-Reply-To: <1290642535-20293-2-git-send-email-mchan@broadcom.com>
+	by vger.kernel.org with ESMTP id S1753429Ab0K1TIM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Nov 2010 14:08:12 -0500
+In-Reply-To: <1290939815.21703.81.camel@lb-tlvb-vladz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Wed, 24 Nov 2010 15:48:55 -0800
+From: "Vladislav Zolotarov" <vladz@broadcom.com>
+Date: Sun, 28 Nov 2010 12:23:35 +0200
 
-> In KVM passthrough mode, the driver may not have config access to
-> non-standard registers.  The BNX2_PCICFG_MISC_CONFIG config register
-> access to setup mailbox swapping can be done using MMIO.
-> 
-> Update version to 2.0.20.
-> 
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> Signed-off-by: Vladislav Zolotarov <vladz@broadcom.com>
+> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 
-Applied.
+Applied, thanks.
