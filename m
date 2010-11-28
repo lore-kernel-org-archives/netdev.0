@@ -1,38 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH]ipv6: kill two unused macro definition
-Date: Sun, 28 Nov 2010 10:49:06 -0800 (PST)
-Message-ID: <20101128.104906.39187120.davem@davemloft.net>
-References: <4CEE14AC.7090008@cn.fujitsu.com>
+Subject: Re: [PATCH 3/6] net: add some KERN_CONT markers to continuation
+ lines
+Date: Sun, 28 Nov 2010 10:48:54 -0800 (PST)
+Message-ID: <20101128.104854.183053726.davem@davemloft.net>
+References: <20101124085645.GW4693@pengutronix.de>
+	<1290589070-854-3-git-send-email-u.kleine-koenig@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, adobriyan@sw.ru
-To: shanwei@cn.fujitsu.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, linux@arm.linux.org.uk,
+	kernel@pengutronix.de, arjan@infradead.org,
+	torvalds@linux-foundation.org, netdev@vger.kernel.org
+To: u.kleine-koenig@pengutronix.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36568
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36564
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754011Ab0K1Ssj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Nov 2010 13:48:39 -0500
-In-Reply-To: <4CEE14AC.7090008@cn.fujitsu.com>
+	by vger.kernel.org with ESMTP id S1753907Ab0K1Ss1 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 28 Nov 2010 13:48:27 -0500
+In-Reply-To: <1290589070-854-3-git-send-email-u.kleine-koenig@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shan Wei <shanwei@cn.fujitsu.com>
-Date: Thu, 25 Nov 2010 15:47:56 +0800
+=46rom: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
+Date: Wed, 24 Nov 2010 09:57:47 +0100
 
-> 1. IPV6_TLV_TEL_DST_SIZE
-> This has not been using for several years since created.
-> 
-> 2. RT6_INFO_LEN
-> commit 33120b30 kill all RT6_INFO_LEN's references, but only this definition remained.
-> 
-> commit 33120b30cc3b8665204d4fcde7288638b0dd04d5
-> Author: Alexey Dobriyan <adobriyan@sw.ru>
-> Date:   Tue Nov 6 05:27:11 2007 -0800
-> 
->     [IPV6]: Convert /proc/net/ipv6_route to seq_file interface
-> 
-> 
-> Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
+> Cc: netdev@vger.kernel.org
+> Signed-off-by: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
 
 Applied.
