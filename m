@@ -1,49 +1,29 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCHv2] hso: fix disable_net
-Date: Sun, 28 Nov 2010 11:45:58 -0800 (PST)
-Message-ID: <20101128.114558.02260882.davem@davemloft.net>
-References: <1290700866.2112.60.camel@filip-linux>
-	<AANLkTikUs7aHCP1ZZoxhs+w-a2RTdzHzmFR3tbcxjMHt@mail.gmail.com>
-	<4CF01604.9010401@computer.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] cxgb3: Removing unused return variable
+Date: Sun, 28 Nov 2010 11:50:33 -0800 (PST)
+Message-ID: <20101128.115033.68119090.davem@davemloft.net>
+References: <1290707635-31979-1-git-send-email-leitao@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jhovold-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, f.aben-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, pki-/L4m51SJ8HhmR6Xm/wNWPw@public.gmane.org
-To: jan.ceuleers-bdq14YP6qtRg9hUCZPvPmw@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4CF01604.9010401-bdq14YP6qtRg9hUCZPvPmw@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: divy@chelsio.com, netdev@vger.kernel.org
+To: leitao@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56332
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751927Ab0K1TuG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Nov 2010 14:50:06 -0500
+In-Reply-To: <1290707635-31979-1-git-send-email-leitao@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jan Ceuleers <jan.ceuleers-bdq14YP6qtRg9hUCZPvPmw@public.gmane.org>
-Date: Fri, 26 Nov 2010 21:18:12 +0100
+From: leitao@linux.vnet.ibm.com
+Date: Thu, 25 Nov 2010 15:53:55 -0200
 
-> On 25/11/10 17:25, Johan Hovold wrote:
->> On Thu, Nov 25, 2010 at 5:01 PM, Filip Aben<f.aben-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>  wrote:
->>> On Thu, 2010-11-25 at 16:03 +0100, Johan Hovold wrote:
->>>> Please add the appropriate Reported-by-tags as well, e.g.
->>>>
->>>> Reported-by: Piotr Isajew<pki-/L4m51SJ8HhmR6Xm/wNWPw@public.gmane.org>
->>>> Reported-by: Johan Hovold<jhovold-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->>>
->>> I would have gladly done so if you included that in your comment on
->>> the
->>> previous patch :)
->>
->> What is stopping you from submitting a v3? :)
->>
->> But perhaps David can pick those up from the thread. Not sure how this
->> is usually dealt with on netdev.
+> Currently the ret variable is not used for anything other than
+> receive the value of the t3_adapter_error(), which will always be 0,
+> because the reset parameter is 0.
 > 
-> Automatically taken care of by patchwork:
-> 
-> http://patchwork.ozlabs.org/patch/73060/mbox/
+> Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
 
-Right :-)
-
-I'll apply this, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied to net-next-2.6, thanks.
