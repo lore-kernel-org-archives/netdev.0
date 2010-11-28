@@ -1,56 +1,78 @@
-From: "Vladislav Zolotarov" <vladz@broadcom.com>
-Subject: [PATCH net-next] bnx2x: Use helpers instead of direct access to
- the shinfo(skb) fields
-Date: Sun, 28 Nov 2010 12:23:35 +0200
-Message-ID: <1290939815.21703.81.camel@lb-tlvb-vladz>
-References: <1290612078.27220.2.camel@lb-tlvb-vladz>
- <1290678762.18389.1.camel@lb-tlvb-vladz>
- <1290851625.2794.17.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "Eilon Greenstein" <eilong@broadcom.com>,
-	"netdev list" <netdev@vger.kernel.org>
-To: "Dave Miller" <davem@davemloft.net>
+From: Hauke Mehrtens <hauke@hauke-m.de>
+Subject: [PATCH] ssb: Add sysfs attributes to ssb devices
+Date: Sun, 28 Nov 2010 12:22:52 +0100
+Message-ID: <1290943372-27749-1-git-send-email-hauke@hauke-m.de>
+Cc: mb@bu3sch.de, netdev@vger.kernel.org,
+	Hauke Mehrtens <hauke@hauke-m.de>,
+	Bernhard Loos <bernhardloos@googlemail.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3328 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752273Ab0K1KXq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 28 Nov 2010 05:23:46 -0500
-In-Reply-To: <1290851625.2794.17.camel@edumazet-laptop>
+Received: from server19320154104.serverpool.info ([193.201.54.104]:37622 "EHLO
+	hauke-m.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751038Ab0K1LXI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 28 Nov 2010 06:23:08 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Vladislav Zolotarov <vladz@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+Make it possible to read out the attributes, till now only show on
+dmesg, through sysfs.
+
+This patch was some time in OpenWrt.
+
+Signed-off-by: Bernhard Loos <bernhardloos@googlemail.com>
+Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
 ---
- drivers/net/bnx2x/bnx2x_cmn.c |    9 ++++-----
- 1 files changed, 4 insertions(+), 5 deletions(-)
+ drivers/ssb/main.c |   30 ++++++++++++++++++++++++++++++
+ 1 files changed, 30 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/bnx2x/bnx2x_cmn.c b/drivers/net/bnx2x/bnx2x_cmn.c
-index 94d5f59..e20b2d3 100644
---- a/drivers/net/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/bnx2x/bnx2x_cmn.c
-@@ -1692,11 +1692,10 @@ static inline u32 bnx2x_xmit_type(struct bnx2x *bp, struct sk_buff *skb)
- 		}
- 	}
- 
--	if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4)
--		rc |= (XMIT_GSO_V4 | XMIT_CSUM_V4 | XMIT_CSUM_TCP);
--
--	else if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6)
--		rc |= (XMIT_GSO_V6 | XMIT_CSUM_TCP | XMIT_CSUM_V6);
-+	if (skb_is_gso_v6(skb))
-+		rc |= XMIT_GSO_V6 | XMIT_CSUM_TCP | XMIT_CSUM_V6;
-+	else if (skb_is_gso(skb))
-+		rc |= XMIT_GSO_V4 | XMIT_CSUM_V4 | XMIT_CSUM_TCP;
- 
- 	return rc;
+diff --git a/drivers/ssb/main.c b/drivers/ssb/main.c
+index c68b3dc..3918d2c 100644
+--- a/drivers/ssb/main.c
++++ b/drivers/ssb/main.c
+@@ -383,6 +383,35 @@ static int ssb_device_uevent(struct device *dev, struct kobj_uevent_env *env)
+ 			     ssb_dev->id.revision);
  }
+ 
++#define ssb_config_attr(attrib, field, format_string) \
++static ssize_t \
++attrib##_show(struct device *dev, struct device_attribute *attr, char *buf) \
++{ \
++	return sprintf(buf, format_string, dev_to_ssb_dev(dev)->field); \
++}
++
++ssb_config_attr(core_num, core_index, "%u\n")
++ssb_config_attr(coreid, id.coreid, "0x%04x\n")
++ssb_config_attr(vendor, id.vendor, "0x%04x\n")
++ssb_config_attr(revision, id.revision, "%u\n")
++ssb_config_attr(irq, irq, "%u\n")
++static ssize_t
++name_show(struct device *dev, struct device_attribute *attr, char *buf)
++{
++	return sprintf(buf, "%s\n",
++		       ssb_core_name(dev_to_ssb_dev(dev)->id.coreid));
++}
++
++static struct device_attribute ssb_device_attrs[] = {
++	__ATTR_RO(name),
++	__ATTR_RO(core_num),
++	__ATTR_RO(coreid),
++	__ATTR_RO(vendor),
++	__ATTR_RO(revision),
++	__ATTR_RO(irq),
++	__ATTR_NULL,
++};
++
+ static struct bus_type ssb_bustype = {
+ 	.name		= "ssb",
+ 	.match		= ssb_bus_match,
+@@ -392,6 +421,7 @@ static struct bus_type ssb_bustype = {
+ 	.suspend	= ssb_device_suspend,
+ 	.resume		= ssb_device_resume,
+ 	.uevent		= ssb_device_uevent,
++	.dev_attrs	= ssb_device_attrs,
+ };
+ 
+ static void ssb_buses_lock(void)
 -- 
-1.7.0.4
-
-
-
+1.7.1
 
