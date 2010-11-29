@@ -1,87 +1,66 @@
-From: David Shwatrz <dshwatrz@gmail.com>
-Subject: Re: [net-next-2.6] XFRM: remove unused member in xfrm_encap_tmpl.
-Date: Mon, 29 Nov 2010 21:15:12 +0200
-Message-ID: <AANLkTinQ1qbp9SyWgw7TdvH=5x_1AA6zqLkaa7c4PBGQ@mail.gmail.com>
-References: <AANLkTiknTcWaRykGOTbw6JpFZN-ePnRXd3iWz86yYHKi@mail.gmail.com>
-	<4CF3EBF2.5060308@iki.fi>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: inet_hash_connect: source port allocation
+Date: Mon, 29 Nov 2010 20:21:27 +0100
+Message-ID: <1291058487.3435.1391.camel@edumazet-laptop>
+References: <4CF3DD02.90906@oracle.com>
+	 <1291051560.3435.1198.camel@edumazet-laptop>  <4CF3F114.2070108@oracle.com>
+	 <1291056363.3435.1338.camel@edumazet-laptop>
+	 <1291057655.3435.1363.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+Cc: NetDev <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: John Haxby <john.haxby@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:40476 "EHLO
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:51976 "EHLO
 	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751359Ab0K2TPP convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Nov 2010 14:15:15 -0500
-Received: by wyb28 with SMTP id 28so4766242wyb.19
-        for <netdev@vger.kernel.org>; Mon, 29 Nov 2010 11:15:14 -0800 (PST)
-In-Reply-To: <4CF3EBF2.5060308@iki.fi>
+	with ESMTP id S1751403Ab0K2TVc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Nov 2010 14:21:32 -0500
+Received: by wyb28 with SMTP id 28so4772546wyb.19
+        for <netdev@vger.kernel.org>; Mon, 29 Nov 2010 11:21:31 -0800 (PST)
+In-Reply-To: <1291057655.3435.1363.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-Thanks, Timo.
+Le lundi 29 novembre 2010 =C3=A0 20:07 +0100, Eric Dumazet a =C3=A9crit=
+ :
+> Le lundi 29 novembre 2010 =C3=A0 19:46 +0100, Eric Dumazet a =C3=A9cr=
+it :
+> > Le lundi 29 novembre 2010 =C3=A0 18:29 +0000, John Haxby a =C3=A9cr=
+it :
+> >=20
+> > > Sorry,  I think I phrased my question badly.
+> > >=20
+> > > inet_csk_get_port() starts its search for a free port with
+> > >=20
+> > >      smallest_rover =3D rover =3D net_random() % remaining + low;
+> > >=20
+> > > whereas __inet_hash_connect() basically misses out that call to=20
+> > > net_random() so you get a predictable port number.
+> > >=20
+> > > Is there any good reason why that is the case?
+> > >=20
+> >=20
+> > It seems random select was done at bind() time only in commit
+> > 6df716340da3a6f ([TCP/DCCP]: Randomize port selection)
+> >=20
+> > It probably should be done in autobind too.
+> >=20
+> >=20
+>=20
+> I'll test following patch :
 
-But isn't something wrong here ?
+Oh well, forget this, there is something about inet_sk_port_offset()
+using secure_ipv4_port_ephemeral()
 
-According to RFC 3948:
-=2E..
-3.1.2.  Transport Mode Decapsulation NAT Procedure
+We want to avoid reusing same port too fast.
 
-When a transport mode has been used to transmit packets, contained
-   TCP or UDP headers will have incorrect checksums due to the change o=
-f
-   parts of the IP header during transit.  This procedure defines how t=
-o
-   fix these checksums
-=2E..
-incrementally recompute the
-       TCP/UDP checksum:
+http://www.tcpipguide.com/free/t_TCPIPClientEphemeralPortsandClientServ=
+erApplicatio-2.htm
 
-       *  Subtract the IP source address in the received packet from th=
-e
-          checksum.
-       *  Add the real IP source address received via IKE to the
-          checksum (obtained from the NAT-OA)
-=2E..
+Port is predictable only for same destination, and if no other
+connections are attempted by other threads.
 
-So where do we pass the NAT-OA, received from IKE messages,  to this
-checksum recalculation process, which should be done in the kernel
-(layer 4 TCP/UDP I suppose) ?
 
-Should'nt this process be done in the kernel ?
 
-Isn't there something missing here ?
-
-Rgs,
-DS
-
-2010/11/29 Timo Ter=E4s <timo.teras@iki.fi>:
-> On 01/-10/-28163 09:59 PM, David Shwatrz wrote:
->> Hi,
->> =A0The patch removes unused member in xfrm_encap_tmpl.
->>
->> Regards,
->> David Shwartz
->>
->>
->> Signed-off-by: David Shwartz <dshwatrz@gmail.com>
->>
->>
->> diff --git a/include/linux/xfrm.h b/include/linux/xfrm.h
->> index b971e38..7312707 100644
->> --- a/include/linux/xfrm.h
->> +++ b/include/linux/xfrm.h
->> @@ -235,7 +235,6 @@ struct xfrm_encap_tmpl {
->> =A0 =A0 =A0 __u16 =A0 =A0 =A0 =A0 =A0 encap_type;
->> =A0 =A0 =A0 __be16 =A0 =A0 =A0 =A0 =A0encap_sport;
->> =A0 =A0 =A0 __be16 =A0 =A0 =A0 =A0 =A0encap_dport;
->> - =A0 =A0 xfrm_address_t =A0encap_oa;
->> =A0};
->>
->> =A0/* AEVENT flags =A0*/
->
-> struct xfrm_encap_tmpl is exposed to userland via netlink. This would
-> break ABI.
->
