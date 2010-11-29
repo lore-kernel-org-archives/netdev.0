@@ -1,45 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] pch_gbe driver: The wrong of initializer entry
-Date: Sun, 28 Nov 2010 21:59:33 -0800 (PST)
-Message-ID: <20101128.215933.48515812.davem@davemloft.net>
-References: <4CEA069D.20009@dsn.okisemi.com>
-	<20101127.174103.104047424.davem@davemloft.net>
-	<001e01cb8f83$31ade9c0$66f8800a@maildom.okisemi.com>
+From: Matt Domsch <Matt_Domsch@dell.com>
+Subject: Re: [PATCH net-next] bnx2x: Add Nic partitioning mode (57712 devices)
+Date: Mon, 29 Nov 2010 00:01:14 -0600
+Message-ID: <20101129060114.GC29904@auslistsprd01.us.dell.com>
+References: <1290982177.6066.3.camel@lb-tlvb-dmitry>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux@treblig.org, randy.dunlap@oracle.com, john.linn@xilinx.com,
-	ralf@linux-mips.org, kristoffer@gaisler.com, mbizon@freebox.fr,
-	gregory.v.rose@intel.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, masa-korg@dsn.okisemi.com,
-	qi.wang@intel.com, yong.y.wang@intel.com,
-	andrew.chih.howe.khor@intel.com, joel.clark@intel.com,
-	margie.foster@intel.com, kok.howg.ewe@intel.com
-To: toshiharu-linux@dsn.okisemi.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <001e01cb8f83$31ade9c0$66f8800a@maildom.okisemi.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Eilon Greenstein <eilong@broadcom.com>, narendra_k@dell.com,
+	jordan_hargrave@dell.com
+To: Dmitry Kravkov <dmitry@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ausxippc101.us.dell.com ([143.166.85.207]:41679 "EHLO
+	ausxippc101.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751732Ab0K2GBV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Nov 2010 01:01:21 -0500
+Content-Disposition: inline
+In-Reply-To: <1290982177.6066.3.camel@lb-tlvb-dmitry>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Toshiharu Okada" <toshiharu-linux@dsn.okisemi.com>
-Date: Mon, 29 Nov 2010 14:06:23 +0900
+On Mon, Nov 29, 2010 at 12:09:37AM +0200, Dmitry Kravkov wrote:
+> NIC partitioning is another flavor of multi function - having few
+> PCI functions share the same physical port. Unlike the currently
+> supported mode of multi-function which depends on the switch
+> configuration and uses outer-VLAN, the NPAR mode is switch independent
+> and uses the MAC addresses to distribute incoming packets to the different
+> functions. This patch adds the specific HW setting of the NPAR mode
+> and some distinctions between switch dependent (SD) and
+> switch independent (SI) multi-function (MF) modes where the configuration
+> is not the same.
 
-> Hi David Miller
-> 
-> 
-> Date: Sat, 27 Nov 2010 17:41:03 -0800 (PST)
-> From: "David Miller" <davem@davemloft.net>
->>
->> > The wrong of initializer entry was modified.
->> >
->> > Signed-off-by: Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>
->>
->> How about you give some credit to David Alan Gilbert who made
->> you aware of this issue?
-> 
-> Credit?
-> Does this mean that I add "Singed of by: Dr. David Alan Gilbert
-> <linux@trebig.org>" ?
-> Is my understanding correct?
+Just as SR-IOV introduced sysfs pointers between VF and PF devices:
+/sys/bus/pci/devices/pci0000:00/0000:00:09.0/0000:05:00.0/virtfn0 ->  ../0000:05:10.0/
+/sys/bus/pci/devices/pci0000:00/0000:00:09.0/0000:05:10.0/physfn ->   ../0000:05:00.0/
 
-You should use "Reported-by: ..."
+I would like to see a similar relationship exposed in sysfs for NPAR
+partitions and their respective ports.  This will let biosdevname
+accurately name NPAR devices according to the scheme:
+
+  pci<slot>#<port>_<virtual function>
+
+just as it does for SR-IOV devices.  Is there one parent partition
+that the child partitions could point back to, or other way to group
+all the partitions of a single port?
+
+Thanks,
+Matt
+
+-- 
+Matt Domsch
+Technology Strategist
+Dell | Office of the CTO
