@@ -1,105 +1,80 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: inet_hash_connect: source port allocation
-Date: Mon, 29 Nov 2010 20:07:35 +0100
-Message-ID: <1291057655.3435.1363.camel@edumazet-laptop>
-References: <4CF3DD02.90906@oracle.com>
-	 <1291051560.3435.1198.camel@edumazet-laptop>  <4CF3F114.2070108@oracle.com>
-	 <1291056363.3435.1338.camel@edumazet-laptop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: Broken TX checksumming offloads
+Date: Mon, 29 Nov 2010 19:13:23 +0000
+Message-ID: <1291058003.20703.16.camel@bwh-desktop>
+References: <20101129181742.GA29192@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: NetDev <netdev@vger.kernel.org>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: John Haxby <john.haxby@oracle.com>
+Cc: netdev@vger.kernel.org,
+	Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>,
+	e1000-devel@lists.sourceforge.net
+To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f46.google.com ([209.85.215.46]:33272 "EHLO
-	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750742Ab0K2THk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Nov 2010 14:07:40 -0500
-Received: by ewy5 with SMTP id 5so2209266ewy.19
-        for <netdev@vger.kernel.org>; Mon, 29 Nov 2010 11:07:39 -0800 (PST)
-In-Reply-To: <1291056363.3435.1338.camel@edumazet-laptop>
+Received: from mail.solarflare.com ([216.237.3.220]:50982 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750977Ab0K2TNa convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Nov 2010 14:13:30 -0500
+In-Reply-To: <20101129181742.GA29192@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 29 novembre 2010 =C3=A0 19:46 +0100, Eric Dumazet a =C3=A9crit=
- :
-> Le lundi 29 novembre 2010 =C3=A0 18:29 +0000, John Haxby a =C3=A9crit=
- :
+On Mon, 2010-11-29 at 19:17 +0100, Micha=C5=82 Miros=C5=82aw wrote:
+> Hi!
 >=20
-> > Sorry,  I think I phrased my question badly.
-> >=20
-> > inet_csk_get_port() starts its search for a free port with
-> >=20
-> >      smallest_rover =3D rover =3D net_random() % remaining + low;
-> >=20
-> > whereas __inet_hash_connect() basically misses out that call to=20
-> > net_random() so you get a predictable port number.
-> >=20
-> > Is there any good reason why that is the case?
-> >=20
+> Unless I'm horribly mistaken, generic HW checksumming works as follow=
+s:
+>  - driver sets netdev->features & NETIF_F_HW_CSUM to indicate support
+>    for generic checksumming; if the flag is not set, networking core
+>    will checksum skb before calling ndo_start_xmit (let's ignore
+>    other checksumming options for now) and not pass skb with
+>    skb->ip_summed =3D=3D CHECKSUM_PARTIAL
+>  - ndo_start_xmit() should use skb->csum_start and skb->csum_offset
+>    (or skb->csum) to update checksum in software or instruct HW to do=
+ so
 >=20
-> It seems random select was done at bind() time only in commit
-> 6df716340da3a6f ([TCP/DCCP]: Randomize port selection)
->=20
-> It probably should be done in autobind too.
->=20
->=20
+> Looking at pch_gbe_xmit_frame() and its callee - pch_gbe_tx_queue() i=
+t
+> looks like the driver should set NETIF_F_IP_CSUM instead of NETIF_F_H=
+W_CSUM
+> feature.
+>
+> Similar thing happens in ixgbe driver: it sets NETIF_F_HW_CSUM and ch=
+ecks
+> for skb->ip_summed =3D=3D CHECKSUM_PARTIAL, but then just warns on pr=
+otocols
+> other that TCP and SCTP (see: ixgbe_psum()).
 
-I'll test following patch :
+AFAIK only {TCP,UDP}/IPv{4,6} use the simple 16-bit checksum algorithm
+that NETIF_F_HW_CSUM implies, so in practice it is equivalent to
+NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM even though it doesn't mean the sam=
+e
+thing.
 
-diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
-index 1b344f3..65c3702 100644
---- a/net/ipv4/inet_hashtables.c
-+++ b/net/ipv4/inet_hashtables.c
-@@ -466,20 +466,18 @@ int __inet_hash_connect(struct inet_timewait_deat=
-h_row *death_row,
- 	int twrefcnt =3D 1;
-=20
- 	if (!snum) {
--		int i, remaining, low, high, port;
--		static u32 hint;
--		u32 offset =3D hint + port_offset;
-+		int remaining, low, high, port;
- 		struct hlist_node *node;
- 		struct inet_timewait_sock *tw =3D NULL;
-=20
- 		inet_get_local_port_range(&low, &high);
- 		remaining =3D (high - low) + 1;
-+		port =3D net_random() % remaining + low;
-=20
- 		local_bh_disable();
--		for (i =3D 1; i <=3D remaining; i++) {
--			port =3D low + (i + offset) % remaining;
-+		do {
- 			if (inet_is_reserved_local_port(port))
--				continue;
-+				goto next_nolock;
- 			head =3D &hinfo->bhash[inet_bhashfn(net, port,
- 					hinfo->bhash_size)];
- 			spin_lock(&head->lock);
-@@ -510,16 +508,17 @@ int __inet_hash_connect(struct inet_timewait_deat=
-h_row *death_row,
- 			tb->fastreuse =3D -1;
- 			goto ok;
-=20
--		next_port:
-+next_port:
- 			spin_unlock(&head->lock);
--		}
-+next_nolock:
-+			if (++port > high)
-+				port =3D low;
-+		} while (--remaining > 0);
- 		local_bh_enable();
-=20
- 		return -EADDRNOTAVAIL;
-=20
- ok:
--		hint +=3D i;
--
- 		/* Head lock still held and bh's disabled */
- 		inet_bind_hash(sk, tb, port);
- 		if (sk_unhashed(sk)) {
+Older kernel versions lacked a definititon of NETIF_F_IPV6_CSUM so
+out-of-tree drivers and in-tree drivers that started out-of-tree are
+likely to use NETIF_F_HW_CSUM as a workaround for that.
 
+Since the minimum size of a {TCP,UDP}/IPv6/Ethernet frame is 62 bytes +
+CRC, the workaround in pch_gbe_tx_queue() may not be needed for IPv6.
+(I'm assuming that the critical length of 64 bytes actually includes th=
+e
+CRC, although the workaround code currently assumes otherwise.)
+
+> This means that these drivers might send packets with broken checksum=
+s
+> when TX checksumming offload is enabled. I haven't checked other driv=
+ers, yet.
+
+They might or they might not; it's hard to tell without access to the
+hardware.  But if the driver never references csum_{start,offset} then
+it is probably valid to replace NETIF_F_HW_CSUM with NETIF_F_IP_CSUM |
+NETIF_F_IPV6_CSUM (and similarly for the ethtool operations).
+
+Ben.
+
+--=20
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
