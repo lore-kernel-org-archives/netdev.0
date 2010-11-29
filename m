@@ -1,49 +1,59 @@
-From: "Toshiharu Okada" <toshiharu-linux@dsn.okisemi.com>
-Subject: Re: [PATCH 2/2] pch_gbe driver: The wrong of initializer entry
-Date: Mon, 29 Nov 2010 14:06:23 +0900
-Message-ID: <001e01cb8f83$31ade9c0$66f8800a@maildom.okisemi.com>
-References: <4CEA069D.20009@dsn.okisemi.com> <20101127.174103.104047424.davem@davemloft.net>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH] vhost: correctly set bits of dirty pages
+Date: Mon, 29 Nov 2010 13:48:20 +0800
+Message-ID: <20101129054819.24923.26439.stgit@dhcp-91-7.nay.redhat.com.englab.nay.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: <linux@treblig.org>, <randy.dunlap@oracle.com>,
-	<john.linn@xilinx.com>, <ralf@linux-mips.org>,
-	<kristoffer@gaisler.com>, <mbizon@freebox.fr>,
-	<gregory.v.rose@intel.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <masa-korg@dsn.okisemi.com>,
-	<qi.wang@intel.com>, <yong.y.wang@intel.com>,
-	<andrew.chih.howe.khor@intel.com>, <joel.clark@intel.com>,
-	<margie.foster@intel.com>, <kok.howg.ewe@intel.com>
-To: "David Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sm-d311v.smileserver.ne.jp ([203.211.202.206]:27088 "EHLO
-	sm-d311v.smileserver.ne.jp" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1749667Ab0K2FGg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Nov 2010 00:06:36 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: virtualization@lists.osdl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kvm@vger.kernel.org, mst@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi David Miller
+When counting pages we should increase it by 1 instead of VHOST_PAGE_SIZE,
+and also make log_write() can correctly process the request across
+pages with write_address not start at page boundary.
 
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+ drivers/vhost/vhost.c |   20 +++++++++-----------
+ 1 files changed, 9 insertions(+), 11 deletions(-)
 
-Date: Sat, 27 Nov 2010 17:41:03 -0800 (PST)
-From: "David Miller" <davem@davemloft.net>
->
-> > The wrong of initializer entry was modified.
-> >
-> > Signed-off-by: Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>
->
-> How about you give some credit to David Alan Gilbert who made
-> you aware of this issue?
-
-Credit?
-Does this mean that I add "Singed of by: Dr. David Alan Gilbert
-<linux@trebig.org>" ?
-Is my understanding correct?
-
-Best regards
-Toshiharu Okada (OKI SEMICONDUCTOR)
-
-
-
+diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+index a29d91c..576300b 100644
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -884,23 +884,21 @@ static int set_bit_to_user(int nr, void __user *addr)
+ static int log_write(void __user *log_base,
+ 		     u64 write_address, u64 write_length)
+ {
+-	int r;
+-	if (!write_length)
+-		return 0;
+-	write_address /= VHOST_PAGE_SIZE;
+-	for (;;) {
++	int r = 0;
++	while (write_length > 0) {
++		u64 l = VHOST_PAGE_SIZE - write_address % VHOST_PAGE_SIZE;
++		u64 write_page = write_address / VHOST_PAGE_SIZE;
+ 		u64 base = (u64)(unsigned long)log_base;
+-		u64 log = base + write_address / 8;
+-		int bit = write_address % 8;
++		u64 log = base + write_page / 8;
++		int bit = write_page % 8;
+ 		if ((u64)(unsigned long)log != log)
+ 			return -EFAULT;
+ 		r = set_bit_to_user(bit, (void __user *)(unsigned long)log);
+ 		if (r < 0)
+ 			return r;
+-		if (write_length <= VHOST_PAGE_SIZE)
+-			break;
+-		write_length -= VHOST_PAGE_SIZE;
+-		write_address += VHOST_PAGE_SIZE;
++		l = min(l, write_length);
++		write_length -= l;
++		write_address += l;
+ 	}
+ 	return r;
+ }
