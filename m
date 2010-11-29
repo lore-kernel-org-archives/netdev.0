@@ -1,48 +1,56 @@
-From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
-Subject: Broken TX checksumming offloads
-Date: Mon, 29 Nov 2010 19:17:42 +0100
-Message-ID: <20101129181742.GA29192@rere.qmqm.pl>
+From: John Haxby <john.haxby@oracle.com>
+Subject: Re: inet_hash_connect: source port allocation
+Date: Mon, 29 Nov 2010 18:29:40 +0000
+Message-ID: <4CF3F114.2070108@oracle.com>
+References: <4CF3DD02.90906@oracle.com> <1291051560.3435.1198.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>,
-	e1000-devel@lists.sourceforge.net
-To: netdev@vger.kernel.org
+Cc: NetDev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:55587 "EHLO rere.qmqm.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754840Ab0K2SRq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Nov 2010 13:17:46 -0500
-Content-Disposition: inline
+Received: from rcsinet10.oracle.com ([148.87.113.121]:22838 "EHLO
+	rcsinet10.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751903Ab0K2ScA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Nov 2010 13:32:00 -0500
+In-Reply-To: <1291051560.3435.1198.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
+On 29/11/10 17:26, Eric Dumazet wrote:
+> Le lundi 29 novembre 2010 =C3=A0 17:04 +0000, John Haxby a =C3=A9crit=
+ :
+>> Hello,
+>>
+>> Please forgive me if this is a stupid question, but is there any
+>> particular reason why the source port allocation in
+>> __inet_hash_connect() shouldn't use the same random allocation that
+>> inet_csk_get_port() uses?  The latter, of course, is used when bind(=
+)
+>> doesn't specify a source port but the implicit "bind" for a connect(=
+)
+>> gets its port allocated by __inet_hash_connect().
+>>
+>> jch
+> autobind vs bind
+>
+> bind() gives more information, like local address (if any)
+>
+> autobind(), we dont know local address, it'll be chose later by routi=
+ng.
 
-Unless I'm horribly mistaken, generic HW checksumming works as follows:
- - driver sets netdev->features & NETIF_F_HW_CSUM to indicate support
-   for generic checksumming; if the flag is not set, networking core
-   will checksum skb before calling ndo_start_xmit (let's ignore
-   other checksumming options for now) and not pass skb with
-   skb->ip_summed =3D=3D CHECKSUM_PARTIAL
- - ndo_start_xmit() should use skb->csum_start and skb->csum_offset
-   (or skb->csum) to update checksum in software or instruct HW to do s=
-o
+Sorry,  I think I phrased my question badly.
 
-Looking at pch_gbe_xmit_frame() and its callee - pch_gbe_tx_queue() it
-looks like the driver should set NETIF_F_IP_CSUM instead of NETIF_F_HW_=
-CSUM
-feature.
+inet_csk_get_port() starts its search for a free port with
 
-Similar thing happens in ixgbe driver: it sets NETIF_F_HW_CSUM and chec=
-ks
-for skb->ip_summed =3D=3D CHECKSUM_PARTIAL, but then just warns on prot=
-ocols
-other that TCP and SCTP (see: ixgbe_psum()).
+     smallest_rover =3D rover =3D net_random() % remaining + low;
 
-This means that these drivers might send packets with broken checksums
-when TX checksumming offload is enabled. I haven't checked other driver=
-s, yet.
+whereas __inet_hash_connect() basically misses out that call to=20
+net_random() so you get a predictable port number.
 
-Best Regards,
-Micha=B3 Miros=B3aw
+Is there any good reason why that is the case?
+
+jch
+
+
