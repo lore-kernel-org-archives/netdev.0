@@ -1,148 +1,213 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 2/3] ipv6: Add infrastructure to bind inet_peer objects to
- routes.
-Date: Mon, 29 Nov 2010 13:44:06 -0800 (PST)
-Message-ID: <20101129.134406.245410194.davem@davemloft.net>
+Subject: [PATCH 3/3] inet: Turn ->remember_stamp into ->get_peer in
+ connection AF ops.
+Date: Mon, 29 Nov 2010 13:44:08 -0800 (PST)
+Message-ID: <20101129.134408.70207257.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51853
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51856
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753083Ab0K2Vnj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Nov 2010 16:43:39 -0500
+	by vger.kernel.org with ESMTP id S1753083Ab0K2Vnm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Nov 2010 16:43:42 -0500
 Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 6FEEA24C088
-	for <netdev@vger.kernel.org>; Mon, 29 Nov 2010 13:44:06 -0800 (PST)
+	by sunset.davemloft.net (Postfix) with ESMTP id EEE0124C088
+	for <netdev@vger.kernel.org>; Mon, 29 Nov 2010 13:44:08 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-They are only allowed on cached ipv6 routes.
+Then we can make a completely generic tcp_remember_stamp()
+that uses ->get_peer() as a helper, minimizing the AF specific
+code and making the eventual code duplication when we implement
+the ipv6 side of TW recycling.
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- include/net/inetpeer.h  |   10 ++++++++++
- include/net/ip6_fib.h   |    2 ++
- include/net/ip6_route.h |    3 +++
- net/ipv4/inetpeer.c     |    2 ++
- net/ipv6/route.c        |   18 ++++++++++++++++++
- 5 files changed, 35 insertions(+), 0 deletions(-)
+ include/net/inet_connection_sock.h |    2 +-
+ include/net/tcp.h                  |    2 +-
+ net/ipv4/tcp_ipv4.c                |   35 ++++++++---------------------------
+ net/ipv4/tcp_minisocks.c           |   31 ++++++++++++++++++++++++++++++-
+ net/ipv6/tcp_ipv6.c                |    8 ++++----
+ 5 files changed, 44 insertions(+), 34 deletions(-)
 
-diff --git a/include/net/inetpeer.h b/include/net/inetpeer.h
-index 834f045..fb8aeb1 100644
---- a/include/net/inetpeer.h
-+++ b/include/net/inetpeer.h
-@@ -11,6 +11,7 @@
- #include <linux/init.h>
- #include <linux/jiffies.h>
- #include <linux/spinlock.h>
-+#include <net/ipv6.h>
- #include <asm/atomic.h>
+diff --git a/include/net/inet_connection_sock.h b/include/net/inet_connection_sock.h
+index e4f494b..6c93a56 100644
+--- a/include/net/inet_connection_sock.h
++++ b/include/net/inet_connection_sock.h
+@@ -43,7 +43,7 @@ struct inet_connection_sock_af_ops {
+ 	struct sock *(*syn_recv_sock)(struct sock *sk, struct sk_buff *skb,
+ 				      struct request_sock *req,
+ 				      struct dst_entry *dst);
+-	int	    (*remember_stamp)(struct sock *sk);
++	struct inet_peer *(*get_peer)(struct sock *sk, bool *release_it);
+ 	u16	    net_header_len;
+ 	u16	    sockaddr_len;
+ 	int	    (*setsockopt)(struct sock *sk, int level, int optname, 
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index e36c874..3e23964 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -312,7 +312,7 @@ extern void tcp_shutdown (struct sock *sk, int how);
  
- typedef struct {
-@@ -61,6 +62,15 @@ static inline struct inet_peer *inet_getpeer_v4(__be32 v4daddr, int create)
- 	return inet_getpeer(&daddr, create);
+ extern int tcp_v4_rcv(struct sk_buff *skb);
+ 
+-extern int tcp_v4_remember_stamp(struct sock *sk);
++extern struct inet_peer *tcp_v4_get_peer(struct sock *sk, bool *release_it);
+ extern int tcp_v4_tw_remember_stamp(struct inet_timewait_sock *tw);
+ extern int tcp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 		       size_t size);
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 00285fc..0ddf819 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1763,44 +1763,25 @@ do_time_wait:
+ 	goto discard_it;
  }
  
-+static inline struct inet_peer *inet_getpeer_v6(struct in6_addr *v6daddr, int create)
-+{
-+	inet_peer_address_t daddr;
-+
-+	ipv6_addr_copy((struct in6_addr *)daddr.a6, v6daddr);
-+	daddr.family = AF_INET6;
-+	return inet_getpeer(&daddr, create);
-+}
-+
- /* can be called from BH context or outside */
- extern void inet_putpeer(struct inet_peer *p);
- 
-diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
-index 062a823..708ff7c 100644
---- a/include/net/ip6_fib.h
-+++ b/include/net/ip6_fib.h
-@@ -21,6 +21,7 @@
- #include <net/dst.h>
- #include <net/flow.h>
- #include <net/netlink.h>
-+#include <net/inetpeer.h>
- 
- #ifdef CONFIG_IPV6_MULTIPLE_TABLES
- #define FIB6_TABLE_HASHSZ 256
-@@ -109,6 +110,7 @@ struct rt6_info {
- 	u32				rt6i_metric;
- 
- 	struct inet6_dev		*rt6i_idev;
-+	struct inet_peer		*rt6i_peer;
- 
- #ifdef CONFIG_XFRM
- 	u32				rt6i_flow_cache_genid;
-diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
-index 278312c..23fed28 100644
---- a/include/net/ip6_route.h
-+++ b/include/net/ip6_route.h
-@@ -56,6 +56,9 @@ static inline unsigned int rt6_flags2srcprefs(int flags)
- 	return (flags >> 3) & 7;
- }
- 
-+extern void			rt6_bind_peer(struct rt6_info *rt,
-+					      int create);
-+
- extern void			ip6_route_input(struct sk_buff *skb);
- 
- extern struct dst_entry *	ip6_route_output(struct net *net,
-diff --git a/net/ipv4/inetpeer.c b/net/ipv4/inetpeer.c
-index 39f18c5..a442e99 100644
---- a/net/ipv4/inetpeer.c
-+++ b/net/ipv4/inetpeer.c
-@@ -533,6 +533,7 @@ struct inet_peer *inet_getpeer(inet_peer_address_t *daddr, int create)
- 
- 	return p;
- }
-+EXPORT_SYMBOL_GPL(inet_getpeer);
- 
- /* Called with local BH disabled. */
- static void peer_check_expire(unsigned long dummy)
-@@ -576,3 +577,4 @@ void inet_putpeer(struct inet_peer *p)
- 
- 	local_bh_enable();
- }
-+EXPORT_SYMBOL_GPL(inet_putpeer);
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index a0c4ad1..026caef 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -188,11 +188,29 @@ static void ip6_dst_destroy(struct dst_entry *dst)
+-/* VJ's idea. Save last timestamp seen from this destination
+- * and hold it at least for normal timewait interval to use for duplicate
+- * segment detection in subsequent connections, before they enter synchronized
+- * state.
+- */
+-
+-int tcp_v4_remember_stamp(struct sock *sk)
++struct inet_peer *tcp_v4_get_peer(struct sock *sk, bool *release_it)
  {
- 	struct rt6_info *rt = (struct rt6_info *)dst;
- 	struct inet6_dev *idev = rt->rt6i_idev;
-+	struct inet_peer *peer = rt->rt6i_peer;
++	struct rtable *rt = (struct rtable *) __sk_dst_get(sk);
+ 	struct inet_sock *inet = inet_sk(sk);
+-	struct tcp_sock *tp = tcp_sk(sk);
+-	struct rtable *rt = (struct rtable *)__sk_dst_get(sk);
+-	struct inet_peer *peer = NULL;
+-	int release_it = 0;
++	struct inet_peer *peer;
  
- 	if (idev != NULL) {
- 		rt->rt6i_idev = NULL;
- 		in6_dev_put(idev);
+ 	if (!rt || rt->rt_dst != inet->inet_daddr) {
+ 		peer = inet_getpeer_v4(inet->inet_daddr, 1);
+-		release_it = 1;
++		*release_it = true;
+ 	} else {
+ 		if (!rt->peer)
+ 			rt_bind_peer(rt, 1);
+ 		peer = rt->peer;
++		*release_it = false;
  	}
+ 
+-	if (peer) {
+-		if ((s32)(peer->tcp_ts - tp->rx_opt.ts_recent) <= 0 ||
+-		    ((u32)get_seconds() - peer->tcp_ts_stamp > TCP_PAWS_MSL &&
+-		     peer->tcp_ts_stamp <= (u32)tp->rx_opt.ts_recent_stamp)) {
+-			peer->tcp_ts_stamp = (u32)tp->rx_opt.ts_recent_stamp;
+-			peer->tcp_ts = tp->rx_opt.ts_recent;
+-		}
+-		if (release_it)
+-			inet_putpeer(peer);
+-		return 1;
+-	}
+-
+-	return 0;
++	return peer;
+ }
+-EXPORT_SYMBOL(tcp_v4_remember_stamp);
++EXPORT_SYMBOL(tcp_v4_get_peer);
+ 
+ int tcp_v4_tw_remember_stamp(struct inet_timewait_sock *tw)
+ {
+@@ -1828,7 +1809,7 @@ const struct inet_connection_sock_af_ops ipv4_specific = {
+ 	.rebuild_header	   = inet_sk_rebuild_header,
+ 	.conn_request	   = tcp_v4_conn_request,
+ 	.syn_recv_sock	   = tcp_v4_syn_recv_sock,
+-	.remember_stamp	   = tcp_v4_remember_stamp,
++	.get_peer	   = tcp_v4_get_peer,
+ 	.net_header_len	   = sizeof(struct iphdr),
+ 	.setsockopt	   = ip_setsockopt,
+ 	.getsockopt	   = ip_getsockopt,
+diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+index 43cf901..059082c 100644
+--- a/net/ipv4/tcp_minisocks.c
++++ b/net/ipv4/tcp_minisocks.c
+@@ -49,6 +49,35 @@ struct inet_timewait_death_row tcp_death_row = {
+ };
+ EXPORT_SYMBOL_GPL(tcp_death_row);
+ 
++/* VJ's idea. Save last timestamp seen from this destination
++ * and hold it at least for normal timewait interval to use for duplicate
++ * segment detection in subsequent connections, before they enter synchronized
++ * state.
++ */
++
++static int tcp_remember_stamp(struct sock *sk)
++{
++	const struct inet_connection_sock *icsk = inet_csk(sk);
++	struct tcp_sock *tp = tcp_sk(sk);
++	struct inet_peer *peer;
++	bool release_it;
++
++	peer = icsk->icsk_af_ops->get_peer(sk, &release_it);
 +	if (peer) {
-+		BUG_ON(!(rt->rt6i_flags & RTF_CACHE));
-+		rt->rt6i_peer = NULL;
-+		inet_putpeer(peer);
++		if ((s32)(peer->tcp_ts - tp->rx_opt.ts_recent) <= 0 ||
++		    ((u32)get_seconds() - peer->tcp_ts_stamp > TCP_PAWS_MSL &&
++		     peer->tcp_ts_stamp <= (u32)tp->rx_opt.ts_recent_stamp)) {
++			peer->tcp_ts_stamp = (u32)tp->rx_opt.ts_recent_stamp;
++			peer->tcp_ts = tp->rx_opt.ts_recent;
++		}
++		if (release_it)
++			inet_putpeer(peer);
++		return 1;
 +	}
++
++	return 0;
 +}
 +
-+void rt6_bind_peer(struct rt6_info *rt, int create)
-+{
-+	struct inet_peer *peer;
-+
-+	if (WARN_ON(!(rt->rt6i_flags & RTF_CACHE)))
-+		return;
-+
-+	peer = inet_getpeer_v6(&rt->rt6i_dst.addr, create);
-+	if (peer && cmpxchg(&rt->rt6i_peer, NULL, peer) != NULL)
-+		inet_putpeer(peer);
+ static __inline__ int tcp_in_window(u32 seq, u32 end_seq, u32 s_win, u32 e_win)
+ {
+ 	if (seq == s_win)
+@@ -274,7 +303,7 @@ void tcp_time_wait(struct sock *sk, int state, int timeo)
+ 	int recycle_ok = 0;
+ 
+ 	if (tcp_death_row.sysctl_tw_recycle && tp->rx_opt.ts_recent_stamp)
+-		recycle_ok = icsk->icsk_af_ops->remember_stamp(sk);
++		recycle_ok = tcp_remember_stamp(sk);
+ 
+ 	if (tcp_death_row.tw_count < tcp_death_row.sysctl_max_tw_buckets)
+ 		tw = inet_twsk_alloc(sk, state);
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 7e41e2c..e394d00 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1818,10 +1818,10 @@ do_time_wait:
+ 	goto discard_it;
  }
  
- static void ip6_dst_ifdown(struct dst_entry *dst, struct net_device *dev,
+-static int tcp_v6_remember_stamp(struct sock *sk)
++struct inet_peer *tcp_v6_get_peer(struct sock *sk, bool *release_it)
+ {
+ 	/* Alas, not yet... */
+-	return 0;
++	return NULL;
+ }
+ 
+ static const struct inet_connection_sock_af_ops ipv6_specific = {
+@@ -1830,7 +1830,7 @@ static const struct inet_connection_sock_af_ops ipv6_specific = {
+ 	.rebuild_header	   = inet6_sk_rebuild_header,
+ 	.conn_request	   = tcp_v6_conn_request,
+ 	.syn_recv_sock	   = tcp_v6_syn_recv_sock,
+-	.remember_stamp	   = tcp_v6_remember_stamp,
++	.get_peer	   = tcp_v6_get_peer,
+ 	.net_header_len	   = sizeof(struct ipv6hdr),
+ 	.setsockopt	   = ipv6_setsockopt,
+ 	.getsockopt	   = ipv6_getsockopt,
+@@ -1862,7 +1862,7 @@ static const struct inet_connection_sock_af_ops ipv6_mapped = {
+ 	.rebuild_header	   = inet_sk_rebuild_header,
+ 	.conn_request	   = tcp_v6_conn_request,
+ 	.syn_recv_sock	   = tcp_v6_syn_recv_sock,
+-	.remember_stamp	   = tcp_v4_remember_stamp,
++	.get_peer	   = tcp_v4_get_peer,
+ 	.net_header_len	   = sizeof(struct iphdr),
+ 	.setsockopt	   = ipv6_setsockopt,
+ 	.getsockopt	   = ipv6_getsockopt,
 -- 
 1.7.3.2
 
