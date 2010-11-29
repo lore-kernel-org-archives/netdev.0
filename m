@@ -1,114 +1,56 @@
 From: Xiong Huang <Xiong.Huang@Atheros.com>
 Subject: RE: atl1e error messages in syslog
-Date: Mon, 29 Nov 2010 08:26:58 +0800
-Message-ID: <0FBC7C9C2640634A8B837C2EFFCFF32F01020383D1@SHEXMB-01.global.atheros.com>
+Date: Mon, 29 Nov 2010 08:32:36 +0800
+Message-ID: <0FBC7C9C2640634A8B837C2EFFCFF32F01020383D3@SHEXMB-01.global.atheros.com>
 References: <AANLkTikKb-B5RpMY0S3gbWrJ0FmzJqKmnQ1SiE+fXTZS@mail.gmail.com>
+	<0FBC7C9C2640634A8B837C2EFFCFF32F01020383D1@SHEXMB-01.global.atheros.com>
+ <AANLkTikQ0MDV76shwu5hVy-U4qF_ryHpx+JVV46Ly24+@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jack Byer <ftn768@gmail.com>,
-	"jcliburn@gmail.com" <jcliburn@gmail.com>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "jcliburn@gmail.com" <jcliburn@gmail.com>,
 	"chris.snook@gmail.com" <chris.snook@gmail.com>,
-	Cloud Ren <Cloud.Ren@Atheros.com>
+	Cloud Ren <Cloud.Ren@Atheros.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jack Byer <ftn768@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shgateway.atheros.com ([203.110.175.210]:4700 "EHLO
+Received: from shgateway.atheros.com ([203.110.175.210]:21005 "EHLO
 	mail.atheros.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754220Ab0K2Aca (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Nov 2010 19:32:30 -0500
-In-Reply-To: <AANLkTikKb-B5RpMY0S3gbWrJ0FmzJqKmnQ1SiE+fXTZS@mail.gmail.com>
+	with ESMTP id S1754334Ab0K2Acj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Nov 2010 19:32:39 -0500
+In-Reply-To: <AANLkTikQ0MDV76shwu5hVy-U4qF_ryHpx+JVV46Ly24+@mail.gmail.com>
 Content-Language: zh-CN
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SXQncyBhYm5vcm1hbC4gQ291bGQgeW91IHRlbGwgdXMgdGhlIGRyaXZlciB2ZXJzaW9uICYgcGNp
-IGRldmljZSBJRD8NCg0KVGhhbmtzDQpYaW9uZw0KDQotLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0t
-LQ0KRnJvbTogbmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZyBbbWFpbHRvOm5ldGRldi1vd25l
-ckB2Z2VyLmtlcm5lbC5vcmddIE9uIEJlaGFsZiBPZiBKYWNrIEJ5ZXINClNlbnQ6IE1vbmRheSwg
-Tm92ZW1iZXIgMjksIDIwMTAgODoyMSBBTQ0KVG86IGpjbGlidXJuQGdtYWlsLmNvbTsgY2hyaXMu
-c25vb2tAZ21haWwuY29tOyBKaWUgWWFuZw0KQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNClN1
-YmplY3Q6IGF0bDFlIGVycm9yIG1lc3NhZ2VzIGluIHN5c2xvZw0KDQpJIGtlZXAgZ2V0dGluZyB0
-aGlzIGluIG15IHN5c2xvZy4gSXMgaXQgc29tZXRoaW5nIEkgc2hvdWxkIGJlDQpjb25jZXJuZWQg
-YWJvdXQgb3IgaXMgaXQgbm9ybWFsPw0KDQrigItOb3YgMjggMTU6MTA6MDggW2tlcm5lbF0gQVRM
-MUUgMDAwMDowMjowMC4wOiBldGgwOiByeCBzZXF1ZW5jZSBudW1iZXINCmVycm9yIChyeD0xMzk3
-OCkgKGV4cGVjdD0xNDUzOSkNCk5vdiAyOCAxNToxMDowOCBba2VybmVsXSBBVEwxRSAwMDAwOjAy
-OjAwLjA6IGV0aDA6IE5JQyBMaW5rIGlzIFVwDQo8MTAwMCBNYnBzIEZ1bGwgRHVwbGV4Pg0KTm92
-IDI4IDE1OjEwOjE0IFtrZXJuZWxdIEFUTDFFIDAwMDA6MDI6MDAuMDogZXRoMDogcnggc2VxdWVu
-Y2UgbnVtYmVyDQplcnJvciAocng9MzY1MykgKGV4cGVjdD00MjE5KQ0KTm92IDI4IDE1OjEwOjE0
-IFtrZXJuZWxdIEFUTDFFIDAwMDA6MDI6MDAuMDogZXRoMDogTklDIExpbmsgaXMgVXANCjwxMDAw
-IE1icHMgRnVsbCBEdXBsZXg+DQpOb3YgMjggMTU6MTE6MTIgW2tlcm5lbF0gQVRMMUUgMDAwMDow
-MjowMC4wOiBldGgwOiByeCBzZXF1ZW5jZSBudW1iZXINCmVycm9yIChyeD00MTQ1MCkgKGV4cGVj
-dD00MjE3NCkNCk5vdiAyOCAxNToxMToxMiBba2VybmVsXSBBVEwxRSAwMDAwOjAyOjAwLjA6IGV0
-aDA6IE5JQyBMaW5rIGlzIFVwDQo8MTAwMCBNYnBzIEZ1bGwgRHVwbGV4Pg0KTm92IDI4IDE1OjEx
-OjM5IFtrZXJuZWxdIEFUTDFFIDAwMDA6MDI6MDAuMDogZXRoMDogcnggc2VxdWVuY2UgbnVtYmVy
-DQplcnJvciAocng9MTQwODYpIChleHBlY3Q9MTQ2NzkpDQpOb3YgMjggMTU6MTE6MzkgW2tlcm5l
-bF0gQVRMMUUgMDAwMDowMjowMC4wOiBldGgwOiBOSUMgTGluayBpcyBVcA0KPDEwMDAgTWJwcyBG
-dWxsIER1cGxleD4NCk5vdiAyOCAxNToxMTo1OSBba2VybmVsXSBBVEwxRSAwMDAwOjAyOjAwLjA6
-IGV0aDA6IHJ4IHNlcXVlbmNlIG51bWJlcg0KZXJyb3IgKHJ4PTk4NTUpIChleHBlY3Q9MTAzNjcp
-DQpOb3YgMjggMTU6MTE6NTkgW2tlcm5lbF0gQVRMMUUgMDAwMDowMjowMC4wOiBldGgwOiBOSUMg
-TGluayBpcyBVcA0KPDEwMDAgTWJwcyBGdWxsIER1cGxleD4NCk5vdiAyOCAxNToxMjoxNSBba2Vy
-bmVsXSBBVEwxRSAwMDAwOjAyOjAwLjA6IGV0aDA6IHJ4IHNlcXVlbmNlIG51bWJlcg0KZXJyb3Ig
-KHJ4PTgyOTIpIChleHBlY3Q9ODkzOSkNCk5vdiAyOCAxNToxMjoxNSBba2VybmVsXSBBVEwxRSAw
-MDAwOjAyOjAwLjA6IGV0aDA6IE5JQyBMaW5rIGlzIFVwDQo8MTAwMCBNYnBzIEZ1bGwgRHVwbGV4
-Pg0KTm92IDI4IDE1OjEyOjE5IFtrZXJuZWxdIEFUTDFFIDAwMDA6MDI6MDAuMDogZXRoMDogcngg
-c2VxdWVuY2UgbnVtYmVyDQplcnJvciAocng9MTA5NykgKGV4cGVjdD0xNzY2KQ0KTm92IDI4IDE1
-OjEyOjE5IFtrZXJuZWxdIEFUTDFFIDAwMDA6MDI6MDAuMDogZXRoMDogTklDIExpbmsgaXMgVXAN
-CjwxMDAwIE1icHMgRnVsbCBEdXBsZXg+DQpOb3YgMjggMTU6MTI6MjEgW2tlcm5lbF0gQVRMMUUg
-MDAwMDowMjowMC4wOiBldGgwOiByeCBzZXF1ZW5jZSBudW1iZXINCmVycm9yIChyeD00NjYpIChl
-eHBlY3Q9MTEwMSkNCk5vdiAyOCAxNToxMjoyMSBba2VybmVsXSBBVEwxRSAwMDAwOjAyOjAwLjA6
-IGV0aDA6IE5JQyBMaW5rIGlzIFVwDQo8MTAwMCBNYnBzIEZ1bGwgRHVwbGV4Pg0KTm92IDI4IDE1
-OjEyOjI1IFtrZXJuZWxdIEFUTDFFIDAwMDA6MDI6MDAuMDogZXRoMDogcnggc2VxdWVuY2UgbnVt
-YmVyDQplcnJvciAocng9MjkxOCkgKGV4cGVjdD0zNDA1KQ0KTm92IDI4IDE1OjEyOjI1IFtrZXJu
-ZWxdIEFUTDFFIDAwMDA6MDI6MDAuMDogZXRoMDogTklDIExpbmsgaXMgVXANCjwxMDAwIE1icHMg
-RnVsbCBEdXBsZXg+DQpOb3YgMjggMTU6MTI6NDkgW2tlcm5lbF0gQVRMMUUgMDAwMDowMjowMC4w
-OiBldGgwOiByeCBzZXF1ZW5jZSBudW1iZXINCmVycm9yIChyeD0xNDE5MykgKGV4cGVjdD0xNDky
-MCkNCk5vdiAyOCAxNToxMjo0OSBba2VybmVsXSBBVEwxRSAwMDAwOjAyOjAwLjA6IGV0aDA6IE5J
-QyBMaW5rIGlzIFVwDQo8MTAwMCBNYnBzIEZ1bGwgRHVwbGV4Pg0KTm92IDI4IDE1OjEyOjU0IFtr
-ZXJuZWxdIEFUTDFFIDAwMDA6MDI6MDAuMDogZXRoMDogcnggc2VxdWVuY2UgbnVtYmVyDQplcnJv
-ciAocng9NTM3NykgKGV4cGVjdD02MDA3KQ0KTm92IDI4IDE1OjEyOjU0IFtrZXJuZWxdIEFUTDFF
-IDAwMDA6MDI6MDAuMDogZXRoMDogTklDIExpbmsgaXMgVXANCjwxMDAwIE1icHMgRnVsbCBEdXBs
-ZXg+DQpOb3YgMjggMTU6MTM6MjUgW2tlcm5lbF0gQVRMMUUgMDAwMDowMjowMC4wOiBldGgwOiBy
-eCBzZXF1ZW5jZSBudW1iZXINCmVycm9yIChyeD0xOTk0OCkgKGV4cGVjdD0yMDQwOSkNCk5vdiAy
-OCAxNToxMzoyNSBba2VybmVsXSBBVEwxRSAwMDAwOjAyOjAwLjA6IGV0aDA6IE5JQyBMaW5rIGlz
-IFVwDQo8MTAwMCBNYnBzIEZ1bGwgRHVwbGV4Pg0KTm92IDI4IDE1OjE1OjAzIFtrZXJuZWxdIEFU
-TDFFIDAwMDA6MDI6MDAuMDogZXRoMDogcnggc2VxdWVuY2UgbnVtYmVyDQplcnJvciAocng9NTk5
-ODkpIChleHBlY3Q9NjA1MTMpDQpOb3YgMjggMTU6MTU6MDMgW2tlcm5lbF0gQVRMMUUgMDAwMDow
-MjowMC4wOiBldGgwOiBOSUMgTGluayBpcyBVcA0KPDEwMDAgTWJwcyBGdWxsIER1cGxleD4NCk5v
-diAyOCAxNToxNTozMCBba2VybmVsXSBBVEwxRSAwMDAwOjAyOjAwLjA6IGV0aDA6IHJ4IHNlcXVl
-bmNlIG51bWJlcg0KZXJyb3IgKHJ4PTE0ODY2KSAoZXhwZWN0PTE1NzAwKQ0KTm92IDI4IDE1OjE1
-OjMwIFtrZXJuZWxdIEFUTDFFIDAwMDA6MDI6MDAuMDogZXRoMDogTklDIExpbmsgaXMgVXANCjwx
-MDAwIE1icHMgRnVsbCBEdXBsZXg+DQpOb3YgMjggMTU6MTY6MDcgW2tlcm5lbF0gQVRMMUUgMDAw
-MDowMjowMC4wOiBldGgwOiByeCBzZXF1ZW5jZSBudW1iZXINCmVycm9yIChyeD0yMTYwNSkgKGV4
-cGVjdD0yMjMwMSkNCk5vdiAyOCAxNToxNjowNyBba2VybmVsXSBBVEwxRSAwMDAwOjAyOjAwLjA6
-IGV0aDA6IE5JQyBMaW5rIGlzIFVwDQo8MTAwMCBNYnBzIEZ1bGwgRHVwbGV4Pg0KTm92IDI4IDE1
-OjE3OjA2IFtrZXJuZWxdIEFUTDFFIDAwMDA6MDI6MDAuMDogZXRoMDogcnggc2VxdWVuY2UgbnVt
-YmVyDQplcnJvciAocng9Mzc5MzYpIChleHBlY3Q9Mzg4MjUpDQpOb3YgMjggMTU6MTc6MDYgW2tl
-cm5lbF0gQVRMMUUgMDAwMDowMjowMC4wOiBldGgwOiBOSUMgTGluayBpcyBVcA0KPDEwMDAgTWJw
-cyBGdWxsIER1cGxleD4NCk5vdiAyOCAxNToxNzoxNyBba2VybmVsXSBBVEwxRSAwMDAwOjAyOjAw
-LjA6IGV0aDA6IHJ4IHNlcXVlbmNlIG51bWJlcg0KZXJyb3IgKHJ4PTgwNzApIChleHBlY3Q9ODUx
-OCkNCk5vdiAyOCAxNToxNzoxNyBba2VybmVsXSBBVEwxRSAwMDAwOjAyOjAwLjA6IGV0aDA6IE5J
-QyBMaW5rIGlzIFVwDQo8MTAwMCBNYnBzIEZ1bGwgRHVwbGV4Pg0KTm92IDI4IDE1OjE3OjU4IFtr
-ZXJuZWxdIEFUTDFFIDAwMDA6MDI6MDAuMDogZXRoMDogcnggc2VxdWVuY2UgbnVtYmVyDQplcnJv
-ciAocng9Mjk5OTApIChleHBlY3Q9MzA0NTgpDQpOb3YgMjggMTU6MTc6NTggW2tlcm5lbF0gQVRM
-MUUgMDAwMDowMjowMC4wOiBldGgwOiBOSUMgTGluayBpcyBVcA0KPDEwMDAgTWJwcyBGdWxsIER1
-cGxleD4NCk5vdiAyOCAxNToxODoxNiBba2VybmVsXSBBVEwxRSAwMDAwOjAyOjAwLjA6IGV0aDA6
-IHJ4IHNlcXVlbmNlIG51bWJlcg0KZXJyb3IgKHJ4PTExMjY2KSAoZXhwZWN0PTExOTg2KQ0KTm92
-IDI4IDE1OjE4OjE2IFtrZXJuZWxdIEFUTDFFIDAwMDA6MDI6MDAuMDogZXRoMDogTklDIExpbmsg
-aXMgVXANCjwxMDAwIE1icHMgRnVsbCBEdXBsZXg+DQpOb3YgMjggMTU6MTg6MjkgW2tlcm5lbF0g
-QVRMMUUgMDAwMDowMjowMC4wOiBldGgwOiByeCBzZXF1ZW5jZSBudW1iZXINCmVycm9yIChyeD02
-MjAzKSAoZXhwZWN0PTY2NTIpDQpOb3YgMjggMTU6MTg6MjkgW2tlcm5lbF0gQVRMMUUgMDAwMDow
-MjowMC4wOiBldGgwOiBOSUMgTGluayBpcyBVcA0KPDEwMDAgTWJwcyBGdWxsIER1cGxleD4NCk5v
-diAyOCAxNToxODo1MSBba2VybmVsXSBBVEwxRSAwMDAwOjAyOjAwLjA6IGV0aDA6IHJ4IHNlcXVl
-bmNlIG51bWJlcg0KZXJyb3IgKHJ4PTE1MjUzKSAoZXhwZWN0PTE1OTE5KQ0KTm92IDI4IDE1OjE4
-OjUxIFtrZXJuZWxdIEFUTDFFIDAwMDA6MDI6MDAuMDogZXRoMDogTklDIExpbmsgaXMgVXANCjwx
-MDAwIE1icHMgRnVsbCBEdXBsZXg+DQpOb3YgMjggMTU6MTk6NTggW2tlcm5lbF0gQVRMMUUgMDAw
-MDowMjowMC4wOiBldGgwOiByeCBzZXF1ZW5jZSBudW1iZXINCmVycm9yIChyeD01MDMyMikgKGV4
-cGVjdD01MDg2MCkNCk5vdiAyOCAxNToxOTo1OCBba2VybmVsXSBBVEwxRSAwMDAwOjAyOjAwLjA6
-IGV0aDA6IE5JQyBMaW5rIGlzIFVwDQo8MTAwMCBNYnBzIEZ1bGwgRHVwbGV4Pg0KTm92IDI4IDE1
-OjE5OjU5IFtrZXJuZWxdIEFUTDFFIDAwMDA6MDI6MDAuMDogZXRoMDogcnggc2VxdWVuY2UgbnVt
-YmVyDQplcnJvciAocng9NDc5KSAoZXhwZWN0PTkyNykNCk5vdiAyOCAxNToxOTo1OSBba2VybmVs
-XSBBVEwxRSAwMDAwOjAyOjAwLjA6IGV0aDA6IE5JQyBMaW5rIGlzIFVwDQo8MTAwMCBNYnBzIEZ1
-bGwgRHVwbGV4Pg0KLS0NClRvIHVuc3Vic2NyaWJlIGZyb20gdGhpcyBsaXN0OiBzZW5kIHRoZSBs
-aW5lICJ1bnN1YnNjcmliZSBuZXRkZXYiIGluDQp0aGUgYm9keSBvZiBhIG1lc3NhZ2UgdG8gbWFq
-b3Jkb21vQHZnZXIua2VybmVsLm9yZw0KTW9yZSBtYWpvcmRvbW8gaW5mbyBhdCAgaHR0cDovL3Zn
-ZXIua2VybmVsLm9yZy9tYWpvcmRvbW8taW5mby5odG1sDQo=
+Sorry, I can't recognize it unless you give me the PCI device ID.
+
+BR.
+Xong
+
+-----Original Message-----
+From: Jack Byer [mailto:ftn768@gmail.com] 
+Sent: Monday, November 29, 2010 8:30 AM
+To: Xiong Huang
+Cc: jcliburn@gmail.com; chris.snook@gmail.com; Cloud Ren; netdev@vger.kernel.org
+Subject: Re: atl1e error messages in syslog
+
+On Sun, Nov 28, 2010 at 6:26 PM, Xiong Huang <Xiong.Huang@atheros.com> wrote:
+> It's abnormal. Could you tell us the driver version & pci device ID?
+>
+I am using kernel version 2.6.36.1
+
+
+02:00.0 Ethernet controller: Attansic Technology Corp. Atheros
+AR8121/AR8113/AR8114 PCI-E Ethernet Controller (rev b0)
+        Subsystem: ASUSTeK Computer Inc. Device 831c
+        Flags: bus master, fast devsel, latency 0, IRQ 42
+        Memory at fe9c0000 (64-bit, non-prefetchable) [size=256K]
+        I/O ports at dc00 [size=128]
+        Capabilities: [40] Power Management version 2
+        Capabilities: [48] MSI: Enable+ Count=1/1 Maskable- 64bit+
+        Capabilities: [58] Express Endpoint, MSI 00
+        Capabilities: [100] Advanced Error Reporting
+        Capabilities: [180] Device Serial Number ff-69-3b-5c-90-e6-ba-ff
+        Kernel driver in use: ATL1E
+        Kernel modules: atl1e
