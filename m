@@ -1,63 +1,88 @@
-From: Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>
-Subject: [PATCH 2/2] pch_gbe driver: The wrong of initializer entry
-Date: Tue, 30 Nov 2010 01:18:07 +0900
-Message-ID: <4CF3D23F.3040003@dsn.okisemi.com>
+From: Peppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: linux-next: build failure after merge of the net tree
+Date: Mon, 29 Nov 2010 08:25:05 +0100
+Message-ID: <4CF35551.40201@st.com>
+References: <20101129110824.639b2659.sfr@canb.auug.org.au>
+ <20101128.181134.104049260.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	John Linn <john.linn@xilinx.com>,
-	Ralf Baechle <ralf@linux-mips.org>,
-	Kristoffer Glembo <kristoffer@gaisler.com>,
-	Maxime Bizon <mbizon@freebox.fr>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	ML netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"Wang, Qi" <qi.wang@intel.com>,
-	"Wang, Yong Y" <yong.y.wang@intel.com>,
-	Andrew <andrew.chih.howe.khor@intel.com>,
-	Intel OTC <joel.clark@intel.com>,
-	"Foster, Margie" <margie.foster@intel.com>,
-	"Ewe, Kok Howg" <kok.howg.ewe@intel.com>
-To: "Dr. David Alan Gilbert" <linux@treblig.org>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "sfr@canb.auug.org.au" <sfr@canb.auug.org.au>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20101128.181134.104049260.davem@davemloft.net>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The wrong of initializer entry was modified.
+On 11/29/2010 3:11 AM, David Miller wrote:
+>
+> From: Stephen Rothwell <sfr@canb.auug.org.au>
+> Date: Mon, 29 Nov 2010 11:08:24 +1100
+>
+> > Hi all,
+> >
+> > After merging the net tree, today's linux-next build (x86_64
+> allmodconfig)
+> > failed like this:
+> >
+> > drivers/net/stmmac/stmmac_main.c: In function 'stmmac_resume':
+> > drivers/net/stmmac/stmmac_main.c:1849: error: 'struct stmmac_priv'
+> has no member named 'shutdown'
+> >
+> > Caused by commit 874bd42d24c2a74f5dbd65e81e175982240fecd8 ("stmmac:
+> > convert to dev_pm_ops").
+> >
+>
 
-Signed-off-by: Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>
-Reported-by: Dr. David Alan Gilbert <linux@treblig.org>
----
- drivers/net/pch_gbe/pch_gbe_param.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+Yes, this was my fault.
 
-diff --git a/drivers/net/pch_gbe/pch_gbe_param.c b/drivers/net/pch_gbe/pch_gbe_param.c
-index 2510146..ef0996a 100644
---- a/drivers/net/pch_gbe/pch_gbe_param.c
-+++ b/drivers/net/pch_gbe/pch_gbe_param.c
-@@ -434,8 +434,8 @@ void pch_gbe_check_options(struct pch_gbe_adapter *adapter)
- 			.err  = "using default of "
- 				__MODULE_STRING(PCH_GBE_DEFAULT_TXD),
- 			.def  = PCH_GBE_DEFAULT_TXD,
--			.arg  = { .r = { .min = PCH_GBE_MIN_TXD } },
--			.arg  = { .r = { .max = PCH_GBE_MAX_TXD } }
-+			.arg  = { .r = { .min = PCH_GBE_MIN_TXD,
-+					 .max = PCH_GBE_MAX_TXD } }
- 		};
- 		struct pch_gbe_tx_ring *tx_ring = adapter->tx_ring;
- 		tx_ring->count = TxDescriptors;
-@@ -450,8 +450,8 @@ void pch_gbe_check_options(struct pch_gbe_adapter *adapter)
- 			.err  = "using default of "
- 				__MODULE_STRING(PCH_GBE_DEFAULT_RXD),
- 			.def  = PCH_GBE_DEFAULT_RXD,
--			.arg  = { .r = { .min = PCH_GBE_MIN_RXD } },
--			.arg  = { .r = { .max = PCH_GBE_MAX_RXD } }
-+			.arg  = { .r = { .min = PCH_GBE_MIN_RXD,
-+					 .max = PCH_GBE_MAX_RXD } }
- 		};
- 		struct pch_gbe_rx_ring *rx_ring = adapter->rx_ring;
- 		rx_ring->count = RxDescriptors;
--- 1.6.2.5 
+> > I have used the net tree from next-20101126 for today.
+>
+> I have pushed the following fix which should cure this:
+>
+> --------------------
+> stmmac: fix stmmac_resume removing not yet used shutdown flag
+>
+
+The patch, David already applied, fixes this problem.
+
+Peppe
+
+> The commit to convert to use the dev_pm_ops struct
+> introduces a bug. The shutdown flag is not yet used
+> because the hibernation on memory is done by using
+> the freeze callback.
+> Thanks to Vlad for having reported it.
+>
+> Reported-by: Vlad Lungu <vlad.lungu@windriver.com>
+> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> ---
+>  drivers/net/stmmac/stmmac_main.c |    7 -------
+>  1 files changed, 0 insertions(+), 7 deletions(-)
+>
+> diff --git a/drivers/net/stmmac/stmmac_main.c
+> b/drivers/net/stmmac/stmmac_main.c
+> index f1dbc18..730a6fd 100644
+> --- a/drivers/net/stmmac/stmmac_main.c
+> +++ b/drivers/net/stmmac/stmmac_main.c
+> @@ -1846,13 +1846,6 @@ static int stmmac_resume(struct device *dev)
+>         if (!netif_running(ndev))
+>                 return 0;
+>
+> -       if (priv->shutdown) {
+> -               /* Re-open the interface and re-init the MAC/DMA
+> -                  and the rings (i.e. on hibernation stage) */
+> -               stmmac_open(dev);
+> -               return 0;
+> -       }
+> -
+>         spin_lock(&priv->lock);
+>
+>         /* Power Down bit, into the PM register, is cleared
+> --
+> 1.7.3.2
+>
