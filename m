@@ -1,29 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] xps: Add CONFIG_XPS
-Date: Sun, 28 Nov 2010 18:24:25 -0800 (PST)
-Message-ID: <20101128.182425.39182533.davem@davemloft.net>
-References: <alpine.DEB.2.00.1011261033070.20580@pokey.mtv.corp.google.com>
+Subject: Re: [PATCH] vmxnet3: fix compilation when RSS is disabled
+Date: Sun, 28 Nov 2010 18:26:35 -0800 (PST)
+Message-ID: <20101128.182635.59677769.davem@davemloft.net>
+References: <1290890035-32285-1-git-send-email-scottjg@vmware.com>
+	<1290890035-32285-2-git-send-email-scottjg@vmware.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: therbert@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51771
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754347Ab0K2CX7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Nov 2010 21:23:59 -0500
-In-Reply-To: <alpine.DEB.2.00.1011261033070.20580@pokey.mtv.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-next@vger.kernel.org, pv-drivers@vmware.com,
+	randy.dunlap@oracle.com
+To: scottjg@vmware.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1290890035-32285-2-git-send-email-scottjg@vmware.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tom Herbert <therbert@google.com>
-Date: Fri, 26 Nov 2010 10:36:09 -0800 (PST)
+From: "Scott J. Goldman" <scottjg@vmware.com>
+Date: Sat, 27 Nov 2010 12:33:55 -0800
 
-> This patch adds XPS_CONFIG option to enable and disable XPS.  This is
-> done in the same manner as RPS_CONFIG.  This is also fixes build
-> failure in XPS code when SMP is not enabled.
+> If RSS is disabled, we can ifdef out some RSS specific code. This fixes
+> the compile error found by Randy Dunlap.
 > 
-> Signed-off-by: Tom Herbert <therbert@google.com>
+> Signed-off-by: Scott J. Goldman <scottjg@vmware.com>
 
-Applied, thanks Tom.
+Applied.
