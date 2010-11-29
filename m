@@ -1,48 +1,41 @@
-From: Vlad Lungu <vlad.lungu@windriver.com>
-Subject: Re: [PATCH] stmmac: fix stmmac_resume removing not yet used shutdown
- flag
-Date: Mon, 29 Nov 2010 12:32:53 +0200
-Message-ID: <4CF38155.3010601@windriver.com>
-References: <1290740072-1341-1-git-send-email-peppe.cavallaro@st.com> <4CEFC14B.70806@st.com>
+From: Michal Hocko <mhocko@suse.cz>
+Subject: Re: [PATCH] af_unix: limit unix_tot_inflight
+Date: Mon, 29 Nov 2010 11:37:34 +0100
+Message-ID: <20101129103734.GA11071@tiehlicka.suse.cz>
+References: <1290553918.2866.80.camel@edumazet-laptop>
+ <1290590335.3464.24.camel@edumazet-laptop>
+ <20101126085000.GA4532@tiehlicka.suse.cz>
+ <20101126.182714.226785459.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Peppe CAVALLARO <peppe.cavallaro@st.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:37596 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753134Ab0K2Kcy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Nov 2010 05:32:54 -0500
-In-Reply-To: <4CEFC14B.70806@st.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: stable@kernel.org, vegard.nossum@gmail.com,
+	linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
+	eugene@redhat.com, netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20101126.182714.226785459.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Peppe CAVALLARO wrote:
-> On 11/26/2010 3:11 PM, Peppe CAVALLARO wrote:
->> The commit to convert to use the dev_pm_ops struct
->> introduces a bug. The shutdown flag is not yet used
->> because the hibernation on memory is done by using
->> the freeze callback.
->> Thanks to Vlad for having reported it.
-> Hi Vlad,
-> as we discussed via email, I'll also look at how to manage the
-> patch that reworked the private structure and that's generating
-> problems on your HW (I'll also try to have it for testing!).
+On Fri 26-11-10 18:27:14, David Miller wrote:
+> From: Michal Hocko <mhocko@suse.cz>
+> Date: Fri, 26 Nov 2010 09:50:00 +0100
 > 
+> > Shouldn't this go to stable?
+> > AFAICS 2.6.32 contains the same code (the patch applies). 
+> > I haven't tried to reproduce the issue yet.
+> 
+> I'll submit it to all the stable branches after this patch (and the
+> other AF_UNIX fixes recently proposed) have sat in Linus's tree for at
+> least half a week or so.
 
-Actually, this is is not a blocking problem. I can kmalloc a platform
-info structure and fill it with the relevant data on probe. It just feels ... wrong.
+OK, thanks!
 
-The way I see it, the platform info is similar to the PNP on an ISA bus or
-the PCI header of a device. Having platform info for a PCI device is kind of
-a hack. You didn't know that there's a PCI device out there and that someone
-wants to submit a patch for it, so it probably made sense at the time to rework
-the structure that particular way.
-
-Regards,
-Vlad
-
-
-
+-- 
+Michal Hocko
+L3 team 
+SUSE LINUX s.r.o.
+Lihovarska 1060/12
+190 00 Praha 9    
+Czech Republic
