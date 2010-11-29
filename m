@@ -1,581 +1,687 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 10/11] forcedeth: Remove netdev_dbg uses
-Date: Mon, 29 Nov 2010 09:42:01 -0800
-Message-ID: <f7c2186e05de1ac8da10f5ae28a3ba34f98aaed1.1291051316.git.joe@perches.com>
+Subject: [PATCH 06/11] forcedeth: Convert pr_<level> to netdev_<level>
+Date: Mon, 29 Nov 2010 09:41:57 -0800
+Message-ID: <14d7a26428c55bac45d07a41bba4d423dbaee883.1291051316.git.joe@perches.com>
 References: <cover.1291051316.git.joe@perches.com>
 Cc: Ben Hutchings <bhutchings@solarflare.com>,
 	Szymon Janc <szymon@janc.net.pl>,
 	=?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirqus@gmail.com>,
 	linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.perches.com ([173.55.12.10]:1957 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755409Ab0K2RmL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Nov 2010 12:42:11 -0500
 In-Reply-To: <cover.1291051316.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-These were probably just for initial driver debugging
-and have not been enabled in builds in git history.
+Use netdev_<level> when a struct net_device * is available.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/forcedeth.c |  133 -----------------------------------------------
- 1 files changed, 0 insertions(+), 133 deletions(-)
+ drivers/net/forcedeth.c |  293 ++++++++++++++++++++++++++---------------------
+ 1 files changed, 161 insertions(+), 132 deletions(-)
 
 diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
-index 60edf01..c2945d6 100644
+index 1c6f4ef9..c3a9783 100644
 --- a/drivers/net/forcedeth.c
 +++ b/drivers/net/forcedeth.c
-@@ -1136,22 +1136,14 @@ static int mii_rw(struct net_device *dev, int addr, int miireg, int value)
- 
- 	if (reg_delay(dev, NvRegMIIControl, NVREG_MIICTL_INUSE, 0,
- 			NV_MIIPHY_DELAY, NV_MIIPHY_DELAYMAX)) {
--		netdev_dbg(dev, "mii_rw of reg %d at PHY %d timed out\n",
--			   miireg, addr);
- 		retval = -1;
- 	} else if (value != MII_READ) {
- 		/* it was a write operation - fewer failures are detectable */
--		netdev_dbg(dev, "mii_rw wrote 0x%x to reg %d at PHY %d\n",
--			   value, miireg, addr);
- 		retval = 0;
- 	} else if (readl(base + NvRegMIIStatus) & NVREG_MIISTAT_ERROR) {
--		netdev_dbg(dev, "mii_rw of reg %d at PHY %d failed\n",
--			   miireg, addr);
- 		retval = -1;
- 	} else {
- 		retval = readl(base + NvRegMIIData);
--		netdev_dbg(dev, "mii_rw read from reg %d at PHY %d: 0x%x\n",
--			   miireg, addr, retval);
- 	}
- 
- 	return retval;
-@@ -1516,7 +1508,6 @@ static void nv_start_rx(struct net_device *dev)
- 	u8 __iomem *base = get_hwbase(dev);
- 	u32 rx_ctrl = readl(base + NvRegReceiverControl);
- 
--	netdev_dbg(dev, "%s\n", __func__);
- 	/* Already running? Stop it. */
- 	if ((readl(base + NvRegReceiverControl) & NVREG_RCVCTL_START) && !np->mac_in_use) {
- 		rx_ctrl &= ~NVREG_RCVCTL_START;
-@@ -1529,8 +1520,6 @@ static void nv_start_rx(struct net_device *dev)
- 	if (np->mac_in_use)
- 		rx_ctrl &= ~NVREG_RCVCTL_RX_PATH_EN;
- 	writel(rx_ctrl, base + NvRegReceiverControl);
--	netdev_dbg(dev, "%s: duplex %d, speed 0x%08x\n",
--		   __func__, np->duplex, np->linkspeed);
- 	pci_push(base);
- }
- 
-@@ -1540,7 +1529,6 @@ static void nv_stop_rx(struct net_device *dev)
- 	u8 __iomem *base = get_hwbase(dev);
- 	u32 rx_ctrl = readl(base + NvRegReceiverControl);
- 
--	netdev_dbg(dev, "%s\n", __func__);
- 	if (!np->mac_in_use)
- 		rx_ctrl &= ~NVREG_RCVCTL_START;
- 	else
-@@ -1562,7 +1550,6 @@ static void nv_start_tx(struct net_device *dev)
- 	u8 __iomem *base = get_hwbase(dev);
- 	u32 tx_ctrl = readl(base + NvRegTransmitterControl);
- 
--	netdev_dbg(dev, "%s\n", __func__);
- 	tx_ctrl |= NVREG_XMITCTL_START;
- 	if (np->mac_in_use)
- 		tx_ctrl &= ~NVREG_XMITCTL_TX_PATH_EN;
-@@ -1576,7 +1563,6 @@ static void nv_stop_tx(struct net_device *dev)
- 	u8 __iomem *base = get_hwbase(dev);
- 	u32 tx_ctrl = readl(base + NvRegTransmitterControl);
- 
--	netdev_dbg(dev, "%s\n", __func__);
- 	if (!np->mac_in_use)
- 		tx_ctrl &= ~NVREG_XMITCTL_START;
- 	else
-@@ -1610,7 +1596,6 @@ static void nv_txrx_reset(struct net_device *dev)
- 	struct fe_priv *np = netdev_priv(dev);
- 	u8 __iomem *base = get_hwbase(dev);
- 
--	netdev_dbg(dev, "%s\n", __func__);
- 	writel(NVREG_TXRXCTL_BIT2 | NVREG_TXRXCTL_RESET | np->txrxctl_bits, base + NvRegTxRxControl);
- 	pci_push(base);
- 	udelay(NV_TXRX_RESET_DELAY);
-@@ -1624,8 +1609,6 @@ static void nv_mac_reset(struct net_device *dev)
- 	u8 __iomem *base = get_hwbase(dev);
- 	u32 temp1, temp2, temp3;
- 
--	netdev_dbg(dev, "%s\n", __func__);
--
- 	writel(NVREG_TXRXCTL_BIT2 | NVREG_TXRXCTL_RESET | np->txrxctl_bits, base + NvRegTxRxControl);
- 	pci_push(base);
- 
-@@ -2202,13 +2185,6 @@ static netdev_tx_t nv_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	spin_unlock_irqrestore(&np->lock, flags);
- 
--	netdev_dbg(dev, "%s: entries %d queued for transmission. tx_flags_extra: %x\n",
--		   __func__, entries, tx_flags_extra);
--#ifdef DEBUG
--	print_hex_dump(KERN_DEBUG, "", DUMP_PREFIX_OFFSET, 16, 1,
--		       skb->data, 64, true);
--#endif
--
- 	writel(NVREG_TXRXCTL_KICK|np->txrxctl_bits, get_hwbase(dev) + NvRegTxRxControl);
- 	return NETDEV_TX_OK;
- }
-@@ -2348,13 +2324,6 @@ static netdev_tx_t nv_start_xmit_optimized(struct sk_buff *skb,
- 
- 	spin_unlock_irqrestore(&np->lock, flags);
- 
--	netdev_dbg(dev, "%s: entries %d queued for transmission. tx_flags_extra: %x\n",
--		   __func__, entries, tx_flags_extra);
--#ifdef DEBUG
--	print_hex_dump(KERN_DEBUG, "", DUMP_PREFIX_OFFSET, 16, 1,
--		       skb->data, 64, true);
--#endif
--
- 	writel(NVREG_TXRXCTL_KICK|np->txrxctl_bits, get_hwbase(dev) + NvRegTxRxControl);
- 	return NETDEV_TX_OK;
- }
-@@ -2393,8 +2362,6 @@ static int nv_tx_done(struct net_device *dev, int limit)
- 	       !((flags = le32_to_cpu(np->get_tx.orig->flaglen)) & NV_TX_VALID) &&
- 	       (tx_work < limit)) {
- 
--		netdev_dbg(dev, "%s: flags 0x%x\n", __func__, flags);
--
- 		nv_unmap_txskb(np, np->get_tx_ctx);
- 
- 		if (np->desc_ver == DESC_VER_1) {
-@@ -2457,8 +2424,6 @@ static int nv_tx_done_optimized(struct net_device *dev, int limit)
- 	       !((flags = le32_to_cpu(np->get_tx.ex->flaglen)) & NV_TX2_VALID) &&
- 	       (tx_work < limit)) {
- 
--		netdev_dbg(dev, "%s: flags 0x%x\n", __func__, flags);
--
- 		nv_unmap_txskb(np, np->get_tx_ctx);
- 
- 		if (flags & NV_TX2_LASTPACKET) {
-@@ -2607,8 +2572,6 @@ static int nv_getlen(struct net_device *dev, void *packet, int datalen)
- 		protolen = ntohs(((struct ethhdr *)packet)->h_proto);
- 		hdrlen = ETH_HLEN;
- 	}
--	netdev_dbg(dev, "%s: datalen %d, protolen %d, hdrlen %d\n",
--		   __func__, datalen, protolen, hdrlen);
- 	if (protolen > ETH_DATA_LEN)
- 		return datalen; /* Value in proto field not a len, no checks possible */
- 
-@@ -2619,25 +2582,18 @@ static int nv_getlen(struct net_device *dev, void *packet, int datalen)
- 			/* more data on wire than in 802 header, trim of
- 			 * additional data.
- 			 */
--			netdev_dbg(dev, "%s: accepting %d bytes\n",
--				   __func__, protolen);
- 			return protolen;
- 		} else {
- 			/* less data on wire than mentioned in header.
- 			 * Discard the packet.
- 			 */
--			netdev_dbg(dev, "%s: discarding long packet\n",
--				   __func__);
- 			return -1;
- 		}
- 	} else {
- 		/* short packet. Accept only if 802 values are also short */
- 		if (protolen > ETH_ZLEN) {
--			netdev_dbg(dev, "%s: discarding short packet\n",
--				   __func__);
- 			return -1;
- 		}
--		netdev_dbg(dev, "%s: accepting %d bytes\n", __func__, datalen);
- 		return datalen;
- 	}
- }
-@@ -2654,8 +2610,6 @@ static int nv_rx_process(struct net_device *dev, int limit)
- 	      !((flags = le32_to_cpu(np->get_rx.orig->flaglen)) & NV_RX_AVAIL) &&
- 		(rx_work < limit)) {
- 
--		netdev_dbg(dev, "%s: flags 0x%x\n", __func__, flags);
--
- 		/*
- 		 * the packet is for us - immediately tear down the pci mapping.
- 		 * TODO: check if a prefetch of the first cacheline improves
-@@ -2667,11 +2621,6 @@ static int nv_rx_process(struct net_device *dev, int limit)
- 		skb = np->get_rx_ctx->skb;
- 		np->get_rx_ctx->skb = NULL;
- 
--			netdev_dbg(dev, "Dumping packet (flags 0x%x)\n", flags);
--#ifdef DEBUG
--			print_hex_dump(KERN_DEBUG, "", DUMP_PREFIX_OFFSET,
--				       16, 1, skb->data, 64, true);
--#endif
- 		/* look at what we actually got: */
- 		if (np->desc_ver == DESC_VER_1) {
- 			if (likely(flags & NV_RX_DESCRIPTORVALID)) {
-@@ -2746,8 +2695,6 @@ static int nv_rx_process(struct net_device *dev, int limit)
- 		/* got a valid packet - forward it to the network core */
- 		skb_put(skb, len);
- 		skb->protocol = eth_type_trans(skb, dev);
--		netdev_dbg(dev, "%s: %d bytes, proto %d accepted\n",
--			   __func__, len, skb->protocol);
- 		napi_gro_receive(&np->napi, skb);
- 		dev->stats.rx_packets++;
- 		dev->stats.rx_bytes += len;
-@@ -2776,8 +2723,6 @@ static int nv_rx_process_optimized(struct net_device *dev, int limit)
- 	      !((flags = le32_to_cpu(np->get_rx.ex->flaglen)) & NV_RX2_AVAIL) &&
- 	      (rx_work < limit)) {
- 
--		netdev_dbg(dev, "%s: flags 0x%x\n", __func__, flags);
--
- 		/*
- 		 * the packet is for us - immediately tear down the pci mapping.
- 		 * TODO: check if a prefetch of the first cacheline improves
-@@ -2789,11 +2734,6 @@ static int nv_rx_process_optimized(struct net_device *dev, int limit)
- 		skb = np->get_rx_ctx->skb;
- 		np->get_rx_ctx->skb = NULL;
- 
--		netdev_dbg(dev, "Dumping packet (flags 0x%x)\n", flags);
--#ifdef DEBUG
--		print_hex_dump(KERN_DEBUG, "", DUMP_PREFIX_OFFSET, 16, 1,
--			       skb->data, 64, true);
--#endif
- 		/* look at what we actually got: */
- 		if (likely(flags & NV_RX2_DESCRIPTORVALID)) {
- 			len = flags & LEN_MASK_V2;
-@@ -2826,9 +2766,6 @@ static int nv_rx_process_optimized(struct net_device *dev, int limit)
- 			skb->protocol = eth_type_trans(skb, dev);
- 			prefetch(skb->data);
- 
--			netdev_dbg(dev, "%s: %d bytes, proto %d accepted\n",
--				   __func__, len, skb->protocol);
--
- 			if (likely(!np->vlangrp)) {
- 				napi_gro_receive(&np->napi, skb);
- 			} else {
-@@ -3044,7 +2981,6 @@ static void nv_set_multicast(struct net_device *dev)
- 	writel(mask[0], base + NvRegMulticastMaskA);
- 	writel(mask[1], base + NvRegMulticastMaskB);
- 	writel(pff, base + NvRegPacketFilterFlags);
--	netdev_dbg(dev, "reconfiguration for multicast lists\n");
- 	nv_start_rx(dev);
- 	spin_unlock_irq(&np->lock);
- }
-@@ -3119,8 +3055,6 @@ static int nv_update_linkspeed(struct net_device *dev)
- 	mii_status = mii_rw(dev, np->phyaddr, MII_BMSR, MII_READ);
- 
- 	if (!(mii_status & BMSR_LSTATUS)) {
--		netdev_dbg(dev,
--			   "no link detected by phy - falling back to 10HD\n");
- 		newls = NVREG_LINKSPEED_FORCE|NVREG_LINKSPEED_10;
- 		newdup = 0;
- 		retval = 0;
-@@ -3128,8 +3062,6 @@ static int nv_update_linkspeed(struct net_device *dev)
- 	}
- 
- 	if (np->autoneg == 0) {
--		netdev_dbg(dev, "%s: autoneg off, PHY set to 0x%04x\n",
--			   __func__, np->fixed_mode);
- 		if (np->fixed_mode & LPA_100FULL) {
- 			newls = NVREG_LINKSPEED_FORCE|NVREG_LINKSPEED_100;
- 			newdup = 1;
-@@ -3152,15 +3084,11 @@ static int nv_update_linkspeed(struct net_device *dev)
- 		newls = NVREG_LINKSPEED_FORCE|NVREG_LINKSPEED_10;
- 		newdup = 0;
- 		retval = 0;
--		netdev_dbg(dev,
--			   "autoneg not completed - falling back to 10HD\n");
- 		goto set_speed;
- 	}
- 
- 	adv = mii_rw(dev, np->phyaddr, MII_ADVERTISE, MII_READ);
- 	lpa = mii_rw(dev, np->phyaddr, MII_LPA, MII_READ);
--	netdev_dbg(dev, "%s: PHY advertises 0x%04x, lpa 0x%04x\n",
--		   __func__, adv, lpa);
- 
- 	retval = 1;
- 	if (np->gigabit == PHY_GIGABIT) {
-@@ -3169,8 +3097,6 @@ static int nv_update_linkspeed(struct net_device *dev)
- 
- 		if ((control_1000 & ADVERTISE_1000FULL) &&
- 			(status_1000 & LPA_1000FULL)) {
--			netdev_dbg(dev, "%s: GBit ethernet detected\n",
--				   __func__);
- 			newls = NVREG_LINKSPEED_FORCE|NVREG_LINKSPEED_1000;
- 			newdup = 1;
- 			goto set_speed;
-@@ -3192,8 +3118,6 @@ static int nv_update_linkspeed(struct net_device *dev)
- 		newls = NVREG_LINKSPEED_FORCE|NVREG_LINKSPEED_10;
- 		newdup = 0;
- 	} else {
--		netdev_dbg(dev, "bad ability %04x - falling back to 10HD\n",
--			   adv_lpa);
- 		newls = NVREG_LINKSPEED_FORCE|NVREG_LINKSPEED_10;
- 		newdup = 0;
- 	}
-@@ -3202,9 +3126,6 @@ set_speed:
- 	if (np->duplex == newdup && np->linkspeed == newls)
- 		return retval;
- 
--	netdev_dbg(dev, "changing link setting from %d/%d to %d/%d\n",
--		   np->linkspeed, np->duplex, newls, newdup);
--
- 	np->duplex = newdup;
- 	np->linkspeed = newls;
- 
-@@ -3346,11 +3267,9 @@ static void nv_link_irq(struct net_device *dev)
- 
- 	miistat = readl(base + NvRegMIIStatus);
- 	writel(NVREG_MIISTAT_LINKCHANGE, base + NvRegMIIStatus);
--	netdev_dbg(dev, "link change irq, status 0x%x\n", miistat);
- 
- 	if (miistat & (NVREG_MIISTAT_LINKCHANGE))
- 		nv_linkchange(dev);
--	netdev_dbg(dev, "link change notification done\n");
- }
- 
- static void nv_msi_workaround(struct fe_priv *np)
-@@ -3401,8 +3320,6 @@ static irqreturn_t nv_nic_irq(int foo, void *data)
- 	struct fe_priv *np = netdev_priv(dev);
- 	u8 __iomem *base = get_hwbase(dev);
- 
--	netdev_dbg(dev, "%s\n", __func__);
--
- 	if (!(np->msi_flags & NV_MSI_X_ENABLED)) {
- 		np->events = readl(base + NvRegIrqStatus);
- 		writel(np->events, base + NvRegIrqStatus);
-@@ -3410,7 +3327,6 @@ static irqreturn_t nv_nic_irq(int foo, void *data)
- 		np->events = readl(base + NvRegMSIXIrqStatus);
- 		writel(np->events, base + NvRegMSIXIrqStatus);
- 	}
--	netdev_dbg(dev, "irq: %08x\n", np->events);
- 	if (!(np->events & np->irqmask))
- 		return IRQ_NONE;
- 
-@@ -3424,8 +3340,6 @@ static irqreturn_t nv_nic_irq(int foo, void *data)
- 		__napi_schedule(&np->napi);
- 	}
- 
--	netdev_dbg(dev, "%s: completed\n", __func__);
--
- 	return IRQ_HANDLED;
- }
- 
-@@ -3440,8 +3354,6 @@ static irqreturn_t nv_nic_irq_optimized(int foo, void *data)
- 	struct fe_priv *np = netdev_priv(dev);
- 	u8 __iomem *base = get_hwbase(dev);
- 
--	netdev_dbg(dev, "%s\n", __func__);
--
- 	if (!(np->msi_flags & NV_MSI_X_ENABLED)) {
- 		np->events = readl(base + NvRegIrqStatus);
- 		writel(np->events, base + NvRegIrqStatus);
-@@ -3449,7 +3361,6 @@ static irqreturn_t nv_nic_irq_optimized(int foo, void *data)
- 		np->events = readl(base + NvRegMSIXIrqStatus);
- 		writel(np->events, base + NvRegMSIXIrqStatus);
- 	}
--	netdev_dbg(dev, "irq: %08x\n", np->events);
- 	if (!(np->events & np->irqmask))
- 		return IRQ_NONE;
- 
-@@ -3462,7 +3373,6 @@ static irqreturn_t nv_nic_irq_optimized(int foo, void *data)
- 		writel(0, base + NvRegIrqMask);
- 		__napi_schedule(&np->napi);
- 	}
--	netdev_dbg(dev, "%s: completed\n", __func__);
- 
- 	return IRQ_HANDLED;
- }
-@@ -3476,12 +3386,9 @@ static irqreturn_t nv_nic_irq_tx(int foo, void *data)
- 	int i;
- 	unsigned long flags;
- 
--	netdev_dbg(dev, "%s\n", __func__);
--
- 	for (i = 0;; i++) {
- 		events = readl(base + NvRegMSIXIrqStatus) & NVREG_IRQ_TX_ALL;
- 		writel(NVREG_IRQ_TX_ALL, base + NvRegMSIXIrqStatus);
--		netdev_dbg(dev, "tx irq: %08x\n", events);
- 		if (!(events & np->irqmask))
- 			break;
- 
-@@ -3505,7 +3412,6 @@ static irqreturn_t nv_nic_irq_tx(int foo, void *data)
- 		}
- 
- 	}
--	netdev_dbg(dev, "%s: completed\n", __func__);
- 
- 	return IRQ_RETVAL(i);
- }
-@@ -3590,12 +3496,9 @@ static irqreturn_t nv_nic_irq_rx(int foo, void *data)
- 	int i;
- 	unsigned long flags;
- 
--	netdev_dbg(dev, "%s\n", __func__);
--
- 	for (i = 0;; i++) {
- 		events = readl(base + NvRegMSIXIrqStatus) & NVREG_IRQ_RX_ALL;
- 		writel(NVREG_IRQ_RX_ALL, base + NvRegMSIXIrqStatus);
--		netdev_dbg(dev, "rx irq: %08x\n", events);
- 		if (!(events & np->irqmask))
- 			break;
- 
-@@ -3623,7 +3526,6 @@ static irqreturn_t nv_nic_irq_rx(int foo, void *data)
- 			break;
+@@ -1192,8 +1192,8 @@ static int phy_init(struct net_device *dev)
+ 		reg = mii_rw(dev, np->phyaddr, MII_NCONFIG, MII_READ);
+ 		reg &= ~PHY_MARVELL_E3016_INITMASK;
+ 		if (mii_rw(dev, np->phyaddr, MII_NCONFIG, reg)) {
+-			pr_info("%s: phy write to errata reg failed\n",
+-				pci_name(np->pci_dev));
++			netdev_info(dev, "%s: phy write to errata reg failed\n",
++				    pci_name(np->pci_dev));
+ 			return PHY_ERROR;
  		}
  	}
--	netdev_dbg(dev, "%s: completed\n", __func__);
- 
- 	return IRQ_RETVAL(i);
- }
-@@ -3637,12 +3539,9 @@ static irqreturn_t nv_nic_irq_other(int foo, void *data)
- 	int i;
- 	unsigned long flags;
- 
--	netdev_dbg(dev, "%s\n", __func__);
--
- 	for (i = 0;; i++) {
- 		events = readl(base + NvRegMSIXIrqStatus) & NVREG_IRQ_OTHER;
- 		writel(NVREG_IRQ_OTHER, base + NvRegMSIXIrqStatus);
--		netdev_dbg(dev, "irq: %08x\n", events);
- 		if (!(events & np->irqmask))
- 			break;
- 
-@@ -3692,7 +3591,6 @@ static irqreturn_t nv_nic_irq_other(int foo, void *data)
+@@ -1201,38 +1201,38 @@ static int phy_init(struct net_device *dev)
+ 		if (np->phy_model == PHY_MODEL_REALTEK_8211 &&
+ 		    np->phy_rev == PHY_REV_REALTEK_8211B) {
+ 			if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG1, PHY_REALTEK_INIT1)) {
+-				pr_info("%s: phy init failed\n",
+-					pci_name(np->pci_dev));
++				netdev_info(dev, "%s: phy init failed\n",
++					    pci_name(np->pci_dev));
+ 				return PHY_ERROR;
+ 			}
+ 			if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG2, PHY_REALTEK_INIT2)) {
+-				pr_info("%s: phy init failed\n",
+-					pci_name(np->pci_dev));
++				netdev_info(dev, "%s: phy init failed\n",
++					    pci_name(np->pci_dev));
+ 				return PHY_ERROR;
+ 			}
+ 			if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG1, PHY_REALTEK_INIT3)) {
+-				pr_info("%s: phy init failed\n",
+-					pci_name(np->pci_dev));
++				netdev_info(dev, "%s: phy init failed\n",
++					    pci_name(np->pci_dev));
+ 				return PHY_ERROR;
+ 			}
+ 			if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG3, PHY_REALTEK_INIT4)) {
+-				pr_info("%s: phy init failed\n",
+-					pci_name(np->pci_dev));
++				netdev_info(dev, "%s: phy init failed\n",
++					    pci_name(np->pci_dev));
+ 				return PHY_ERROR;
+ 			}
+ 			if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG4, PHY_REALTEK_INIT5)) {
+-				pr_info("%s: phy init failed\n",
+-					pci_name(np->pci_dev));
++				netdev_info(dev, "%s: phy init failed\n",
++					    pci_name(np->pci_dev));
+ 				return PHY_ERROR;
+ 			}
+ 			if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG5, PHY_REALTEK_INIT6)) {
+-				pr_info("%s: phy init failed\n",
+-					pci_name(np->pci_dev));
++				netdev_info(dev, "%s: phy init failed\n",
++					    pci_name(np->pci_dev));
+ 				return PHY_ERROR;
+ 			}
+ 			if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG1, PHY_REALTEK_INIT1)) {
+-				pr_info("%s: phy init failed\n",
+-					pci_name(np->pci_dev));
++				netdev_info(dev, "%s: phy init failed\n",
++					    pci_name(np->pci_dev));
+ 				return PHY_ERROR;
+ 			}
  		}
- 
- 	}
--	netdev_dbg(dev, "%s: completed\n", __func__);
- 
- 	return IRQ_RETVAL(i);
- }
-@@ -3704,8 +3602,6 @@ static irqreturn_t nv_nic_irq_test(int foo, void *data)
- 	u8 __iomem *base = get_hwbase(dev);
- 	u32 events;
- 
--	netdev_dbg(dev, "%s\n", __func__);
--
- 	if (!(np->msi_flags & NV_MSI_X_ENABLED)) {
- 		events = readl(base + NvRegIrqStatus) & NVREG_IRQSTAT_MASK;
- 		writel(NVREG_IRQ_TIMER, base + NvRegIrqStatus);
-@@ -3714,7 +3610,6 @@ static irqreturn_t nv_nic_irq_test(int foo, void *data)
- 		writel(NVREG_IRQ_TIMER, base + NvRegMSIXIrqStatus);
- 	}
- 	pci_push(base);
--	netdev_dbg(dev, "irq: %08x\n", events);
- 	if (!(events & NVREG_IRQ_TIMER))
- 		return IRQ_RETVAL(0);
- 
-@@ -3724,8 +3619,6 @@ static irqreturn_t nv_nic_irq_test(int foo, void *data)
- 	np->intr_test = 1;
- 	spin_unlock(&np->lock);
- 
--	netdev_dbg(dev, "%s: completed\n", __func__);
--
- 	return IRQ_RETVAL(1);
- }
- 
-@@ -4868,21 +4761,15 @@ static int nv_loopback_test(struct net_device *dev)
- 	if (ret) {
- 		if (len != pkt_len) {
- 			ret = 0;
--			netdev_dbg(dev, "loopback len mismatch %d vs %d\n",
--				   len, pkt_len);
- 		} else {
- 			rx_skb = np->rx_skb[0].skb;
- 			for (i = 0; i < pkt_len; i++) {
- 				if (rx_skb->data[i] != (u8)(i & 0xff)) {
- 					ret = 0;
--					netdev_dbg(dev, "loopback pattern check failed on byte %d\n",
--						   i);
- 					break;
+@@ -1252,27 +1252,27 @@ static int phy_init(struct net_device *dev)
+ 			reg = mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG6, MII_READ);
+ 			reg |= PHY_REALTEK_INIT9;
+ 			if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG6, reg)) {
+-				pr_info("%s: phy init failed\n",
+-					pci_name(np->pci_dev));
++				netdev_info(dev, "%s: phy init failed\n",
++					    pci_name(np->pci_dev));
+ 				return PHY_ERROR;
+ 			}
+ 			if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG1, PHY_REALTEK_INIT10)) {
+-				pr_info("%s: phy init failed\n",
+-					pci_name(np->pci_dev));
++				netdev_info(dev, "%s: phy init failed\n",
++					    pci_name(np->pci_dev));
+ 				return PHY_ERROR;
+ 			}
+ 			reg = mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG7, MII_READ);
+ 			if (!(reg & PHY_REALTEK_INIT11)) {
+ 				reg |= PHY_REALTEK_INIT11;
+ 				if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG7, reg)) {
+-					pr_info("%s: phy init failed\n",
+-						pci_name(np->pci_dev));
++					netdev_info(dev, "%s: phy init failed\n",
++						    pci_name(np->pci_dev));
+ 					return PHY_ERROR;
  				}
  			}
- 		}
--	} else {
--		netdev_dbg(dev, "loopback - did not receive test packet\n");
- 	}
- 
- 	pci_unmap_single(np->pci_dev, test_dma_addr,
-@@ -5132,8 +5019,6 @@ static int nv_open(struct net_device *dev)
- 	int oom, i;
- 	u32 low;
- 
--	netdev_dbg(dev, "%s\n", __func__);
--
- 	/* power up phy */
- 	mii_rw(dev, np->phyaddr, MII_BMCR,
- 	       mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ) & ~BMCR_PDOWN);
-@@ -5261,7 +5146,6 @@ static int nv_open(struct net_device *dev)
- 		u32 miistat;
- 		miistat = readl(base + NvRegMIIStatus);
- 		writel(NVREG_MIISTAT_MASK_ALL, base + NvRegMIIStatus);
--		netdev_dbg(dev, "startup: got 0x%08x\n", miistat);
- 	}
- 	/* set linkspeed to invalid value, thus force nv_update_linkspeed
- 	 * to init hw */
-@@ -5317,7 +5201,6 @@ static int nv_close(struct net_device *dev)
- 	base = get_hwbase(dev);
- 	nv_disable_hw_interrupts(dev, np->irqmask);
- 	pci_push(base);
--	netdev_dbg(dev, "Irqmask is zero again\n");
- 
- 	spin_unlock_irq(&np->lock);
- 
-@@ -5430,11 +5313,6 @@ static int __devinit nv_probe(struct pci_dev *pci_dev, const struct pci_device_i
- 	err = -EINVAL;
- 	addr = 0;
- 	for (i = 0; i < DEVICE_COUNT_RESOURCE; i++) {
--		netdev_dbg(dev, "%s: resource %d start %p len %lld flags 0x%08lx\n",
--			   pci_name(pci_dev), i,
--			   (void *)(unsigned long)pci_resource_start(pci_dev, i),
--			   (long long)pci_resource_len(pci_dev, i),
--			   pci_resource_flags(pci_dev, i));
- 		if (pci_resource_flags(pci_dev, i) & IORESOURCE_MEM &&
- 				pci_resource_len(pci_dev, i) >= np->register_size) {
- 			addr = pci_resource_start(pci_dev, i);
-@@ -5602,9 +5480,6 @@ static int __devinit nv_probe(struct pci_dev *pci_dev, const struct pci_device_i
- 		random_ether_addr(dev->dev_addr);
- 	}
- 
--	netdev_dbg(dev, "%s: MAC Address %pM\n",
--		   pci_name(pci_dev), dev->dev_addr);
--
- 	/* set mac address */
- 	nv_copy_mac_to_hw(dev);
- 
-@@ -5666,11 +5541,9 @@ static int __devinit nv_probe(struct pci_dev *pci_dev, const struct pci_device_i
- 	if (id->driver_data & DEV_NEED_TIMERIRQ)
- 		np->irqmask |= NVREG_IRQ_TIMER;
- 	if (id->driver_data & DEV_NEED_LINKTIMER) {
--		netdev_dbg(dev, "%s: link timer on\n", pci_name(pci_dev));
- 		np->need_linktimer = 1;
- 		np->link_timeout = jiffies + LINK_TIMEOUT;
- 	} else {
--		netdev_dbg(dev, "%s: link timer off\n", pci_name(pci_dev));
- 		np->need_linktimer = 0;
- 	}
- 
-@@ -5701,16 +5574,12 @@ static int __devinit nv_probe(struct pci_dev *pci_dev, const struct pci_device_i
- 			np->mac_in_use = 1;
- 			if (np->mgmt_version > 0)
- 				np->mac_in_use = readl(base + NvRegMgmtUnitControl) & NVREG_MGMTUNITCONTROL_INUSE;
--			netdev_dbg(dev, "%s: mgmt unit is running. mac in use %x\n",
--				   pci_name(pci_dev), np->mac_in_use);
- 			/* management unit setup the phy already? */
- 			if (np->mac_in_use &&
- 			    ((readl(base + NvRegTransmitterControl) & NVREG_XMITCTL_SYNC_MASK) ==
- 			     NVREG_XMITCTL_SYNC_PHY_INIT)) {
- 				/* phy is inited by mgmt unit */
- 				phyinitialized = 1;
--				netdev_dbg(dev, "%s: Phy already initialized by mgmt unit\n",
--					   pci_name(pci_dev));
- 			} else {
- 				/* we need to init the phy */
+ 			if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG1, PHY_REALTEK_INIT1)) {
+-				pr_info("%s: phy init failed\n",
+-					pci_name(np->pci_dev));
++				netdev_info(dev, "%s: phy init failed\n",
++					    pci_name(np->pci_dev));
+ 				return PHY_ERROR;
  			}
-@@ -5736,8 +5605,6 @@ static int __devinit nv_probe(struct pci_dev *pci_dev, const struct pci_device_i
- 		np->phy_model = id2 & PHYID2_MODEL_MASK;
- 		id1 = (id1 & PHYID1_OUI_MASK) << PHYID1_OUI_SHFT;
- 		id2 = (id2 & PHYID2_OUI_MASK) >> PHYID2_OUI_SHFT;
--		netdev_dbg(dev, "%s: %s: Found PHY %04x:%04x at address %d\n",
--			   pci_name(pci_dev), __func__, id1, id2, phyaddr);
- 		np->phyaddr = phyaddr;
- 		np->phy_oui = id1 | id2;
+ 		}
+@@ -1281,8 +1281,8 @@ static int phy_init(struct net_device *dev)
+ 				phy_reserved = mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG6, MII_READ);
+ 				phy_reserved |= PHY_REALTEK_INIT7;
+ 				if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG6, phy_reserved)) {
+-					pr_info("%s: phy init failed\n",
+-						pci_name(np->pci_dev));
++					netdev_info(dev, "%s: phy init failed\n",
++						    pci_name(np->pci_dev));
+ 					return PHY_ERROR;
+ 				}
+ 			}
+@@ -1293,8 +1293,8 @@ static int phy_init(struct net_device *dev)
+ 	reg = mii_rw(dev, np->phyaddr, MII_ADVERTISE, MII_READ);
+ 	reg |= (ADVERTISE_10HALF|ADVERTISE_10FULL|ADVERTISE_100HALF|ADVERTISE_100FULL|ADVERTISE_PAUSE_ASYM|ADVERTISE_PAUSE_CAP);
+ 	if (mii_rw(dev, np->phyaddr, MII_ADVERTISE, reg)) {
+-		pr_info("%s: phy write to advertise failed\n",
+-			pci_name(np->pci_dev));
++		netdev_info(dev, "%s: phy write to advertise failed\n",
++			    pci_name(np->pci_dev));
+ 		return PHY_ERROR;
+ 	}
  
+@@ -1313,7 +1313,8 @@ static int phy_init(struct net_device *dev)
+ 			mii_control_1000 &= ~ADVERTISE_1000FULL;
+ 
+ 		if (mii_rw(dev, np->phyaddr, MII_CTRL1000, mii_control_1000)) {
+-			pr_info("%s: phy init failed\n", pci_name(np->pci_dev));
++			netdev_info(dev, "%s: phy init failed\n",
++				    pci_name(np->pci_dev));
+ 			return PHY_ERROR;
+ 		}
+ 	} else
+@@ -1328,7 +1329,8 @@ static int phy_init(struct net_device *dev)
+ 		/* start autoneg since we already performed hw reset above */
+ 		mii_control |= BMCR_ANRESTART;
+ 		if (mii_rw(dev, np->phyaddr, MII_BMCR, mii_control)) {
+-			pr_info("%s: phy init failed\n", pci_name(np->pci_dev));
++			netdev_info(dev, "%s: phy init failed\n",
++				    pci_name(np->pci_dev));
+ 			return PHY_ERROR;
+ 		}
+ 	} else {
+@@ -1336,7 +1338,8 @@ static int phy_init(struct net_device *dev)
+ 		 * (certain phys need bmcr to be setup with reset)
+ 		 */
+ 		if (phy_reset(dev, mii_control)) {
+-			pr_info("%s: phy reset failed\n", pci_name(np->pci_dev));
++			netdev_info(dev, "%s: phy reset failed\n",
++				    pci_name(np->pci_dev));
+ 			return PHY_ERROR;
+ 		}
+ 	}
+@@ -1347,13 +1350,15 @@ static int phy_init(struct net_device *dev)
+ 		phy_reserved &= ~(PHY_CICADA_INIT1 | PHY_CICADA_INIT2);
+ 		phy_reserved |= (PHY_CICADA_INIT3 | PHY_CICADA_INIT4);
+ 		if (mii_rw(dev, np->phyaddr, MII_RESV1, phy_reserved)) {
+-			pr_info("%s: phy init failed\n", pci_name(np->pci_dev));
++			netdev_info(dev, "%s: phy init failed\n",
++				    pci_name(np->pci_dev));
+ 			return PHY_ERROR;
+ 		}
+ 		phy_reserved = mii_rw(dev, np->phyaddr, MII_NCONFIG, MII_READ);
+ 		phy_reserved |= PHY_CICADA_INIT5;
+ 		if (mii_rw(dev, np->phyaddr, MII_NCONFIG, phy_reserved)) {
+-			pr_info("%s: phy init failed\n", pci_name(np->pci_dev));
++			netdev_info(dev, "%s: phy init failed\n",
++				    pci_name(np->pci_dev));
+ 			return PHY_ERROR;
+ 		}
+ 	}
+@@ -1361,77 +1366,92 @@ static int phy_init(struct net_device *dev)
+ 		phy_reserved = mii_rw(dev, np->phyaddr, MII_SREVISION, MII_READ);
+ 		phy_reserved |= PHY_CICADA_INIT6;
+ 		if (mii_rw(dev, np->phyaddr, MII_SREVISION, phy_reserved)) {
+-			pr_info("%s: phy init failed\n", pci_name(np->pci_dev));
++			netdev_info(dev, "%s: phy init failed\n",
++				    pci_name(np->pci_dev));
+ 			return PHY_ERROR;
+ 		}
+ 	}
+ 	if (np->phy_oui == PHY_OUI_VITESSE) {
+ 		if (mii_rw(dev, np->phyaddr, PHY_VITESSE_INIT_REG1, PHY_VITESSE_INIT1)) {
+-			pr_info("%s: phy init failed\n", pci_name(np->pci_dev));
++			netdev_info(dev, "%s: phy init failed\n",
++				    pci_name(np->pci_dev));
+ 			return PHY_ERROR;
+ 		}
+ 		if (mii_rw(dev, np->phyaddr, PHY_VITESSE_INIT_REG2, PHY_VITESSE_INIT2)) {
+-			pr_info("%s: phy init failed\n", pci_name(np->pci_dev));
++			netdev_info(dev, "%s: phy init failed\n",
++				    pci_name(np->pci_dev));
+ 			return PHY_ERROR;
+ 		}
+ 		phy_reserved = mii_rw(dev, np->phyaddr, PHY_VITESSE_INIT_REG4, MII_READ);
+ 		if (mii_rw(dev, np->phyaddr, PHY_VITESSE_INIT_REG4, phy_reserved)) {
+-			pr_info("%s: phy init failed\n", pci_name(np->pci_dev));
++			netdev_info(dev, "%s: phy init failed\n",
++				    pci_name(np->pci_dev));
+ 			return PHY_ERROR;
+ 		}
+ 		phy_reserved = mii_rw(dev, np->phyaddr, PHY_VITESSE_INIT_REG3, MII_READ);
+ 		phy_reserved &= ~PHY_VITESSE_INIT_MSK1;
+ 		phy_reserved |= PHY_VITESSE_INIT3;
+ 		if (mii_rw(dev, np->phyaddr, PHY_VITESSE_INIT_REG3, phy_reserved)) {
+-			pr_info("%s: phy init failed\n", pci_name(np->pci_dev));
++			netdev_info(dev, "%s: phy init failed\n",
++				    pci_name(np->pci_dev));
+ 			return PHY_ERROR;
+ 		}
+ 		if (mii_rw(dev, np->phyaddr, PHY_VITESSE_INIT_REG2, PHY_VITESSE_INIT4)) {
+-			pr_info("%s: phy init failed\n", pci_name(np->pci_dev));
++			netdev_info(dev, "%s: phy init failed\n",
++				    pci_name(np->pci_dev));
+ 			return PHY_ERROR;
+ 		}
+ 		if (mii_rw(dev, np->phyaddr, PHY_VITESSE_INIT_REG2, PHY_VITESSE_INIT5)) {
+-			pr_info("%s: phy init failed\n", pci_name(np->pci_dev));
++			netdev_info(dev, "%s: phy init failed\n",
++				    pci_name(np->pci_dev));
+ 			return PHY_ERROR;
+ 		}
+ 		phy_reserved = mii_rw(dev, np->phyaddr, PHY_VITESSE_INIT_REG4, MII_READ);
+ 		phy_reserved &= ~PHY_VITESSE_INIT_MSK1;
+ 		phy_reserved |= PHY_VITESSE_INIT3;
+ 		if (mii_rw(dev, np->phyaddr, PHY_VITESSE_INIT_REG4, phy_reserved)) {
+-			pr_info("%s: phy init failed\n", pci_name(np->pci_dev));
++			netdev_info(dev, "%s: phy init failed\n",
++				    pci_name(np->pci_dev));
+ 			return PHY_ERROR;
+ 		}
+ 		phy_reserved = mii_rw(dev, np->phyaddr, PHY_VITESSE_INIT_REG3, MII_READ);
+ 		if (mii_rw(dev, np->phyaddr, PHY_VITESSE_INIT_REG3, phy_reserved)) {
+-			pr_info("%s: phy init failed\n", pci_name(np->pci_dev));
++			netdev_info(dev, "%s: phy init failed\n",
++				    pci_name(np->pci_dev));
+ 			return PHY_ERROR;
+ 		}
+ 		if (mii_rw(dev, np->phyaddr, PHY_VITESSE_INIT_REG2, PHY_VITESSE_INIT6)) {
+-			pr_info("%s: phy init failed\n", pci_name(np->pci_dev));
++			netdev_info(dev, "%s: phy init failed\n",
++				    pci_name(np->pci_dev));
+ 			return PHY_ERROR;
+ 		}
+ 		if (mii_rw(dev, np->phyaddr, PHY_VITESSE_INIT_REG2, PHY_VITESSE_INIT7)) {
+-			pr_info("%s: phy init failed\n", pci_name(np->pci_dev));
++			netdev_info(dev, "%s: phy init failed\n",
++				    pci_name(np->pci_dev));
+ 			return PHY_ERROR;
+ 		}
+ 		phy_reserved = mii_rw(dev, np->phyaddr, PHY_VITESSE_INIT_REG4, MII_READ);
+ 		if (mii_rw(dev, np->phyaddr, PHY_VITESSE_INIT_REG4, phy_reserved)) {
+-			pr_info("%s: phy init failed\n", pci_name(np->pci_dev));
++			netdev_info(dev, "%s: phy init failed\n",
++				    pci_name(np->pci_dev));
+ 			return PHY_ERROR;
+ 		}
+ 		phy_reserved = mii_rw(dev, np->phyaddr, PHY_VITESSE_INIT_REG3, MII_READ);
+ 		phy_reserved &= ~PHY_VITESSE_INIT_MSK2;
+ 		phy_reserved |= PHY_VITESSE_INIT8;
+ 		if (mii_rw(dev, np->phyaddr, PHY_VITESSE_INIT_REG3, phy_reserved)) {
+-			pr_info("%s: phy init failed\n", pci_name(np->pci_dev));
++			netdev_info(dev, "%s: phy init failed\n",
++				    pci_name(np->pci_dev));
+ 			return PHY_ERROR;
+ 		}
+ 		if (mii_rw(dev, np->phyaddr, PHY_VITESSE_INIT_REG2, PHY_VITESSE_INIT9)) {
+-			pr_info("%s: phy init failed\n", pci_name(np->pci_dev));
++			netdev_info(dev, "%s: phy init failed\n",
++				    pci_name(np->pci_dev));
+ 			return PHY_ERROR;
+ 		}
+ 		if (mii_rw(dev, np->phyaddr, PHY_VITESSE_INIT_REG1, PHY_VITESSE_INIT10)) {
+-			pr_info("%s: phy init failed\n", pci_name(np->pci_dev));
++			netdev_info(dev, "%s: phy init failed\n",
++				    pci_name(np->pci_dev));
+ 			return PHY_ERROR;
+ 		}
+ 	}
+@@ -1440,38 +1460,38 @@ static int phy_init(struct net_device *dev)
+ 		    np->phy_rev == PHY_REV_REALTEK_8211B) {
+ 			/* reset could have cleared these out, set them back */
+ 			if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG1, PHY_REALTEK_INIT1)) {
+-				pr_info("%s: phy init failed\n",
+-					pci_name(np->pci_dev));
++				netdev_info(dev, "%s: phy init failed\n",
++					    pci_name(np->pci_dev));
+ 				return PHY_ERROR;
+ 			}
+ 			if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG2, PHY_REALTEK_INIT2)) {
+-				pr_info("%s: phy init failed\n",
+-					pci_name(np->pci_dev));
++				netdev_info(dev, "%s: phy init failed\n",
++					    pci_name(np->pci_dev));
+ 				return PHY_ERROR;
+ 			}
+ 			if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG1, PHY_REALTEK_INIT3)) {
+-				pr_info("%s: phy init failed\n",
+-					pci_name(np->pci_dev));
++				netdev_info(dev, "%s: phy init failed\n",
++					    pci_name(np->pci_dev));
+ 				return PHY_ERROR;
+ 			}
+ 			if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG3, PHY_REALTEK_INIT4)) {
+-				pr_info("%s: phy init failed\n",
+-					pci_name(np->pci_dev));
++				netdev_info(dev, "%s: phy init failed\n",
++					    pci_name(np->pci_dev));
+ 				return PHY_ERROR;
+ 			}
+ 			if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG4, PHY_REALTEK_INIT5)) {
+-				pr_info("%s: phy init failed\n",
+-					pci_name(np->pci_dev));
++				netdev_info(dev, "%s: phy init failed\n",
++					    pci_name(np->pci_dev));
+ 				return PHY_ERROR;
+ 			}
+ 			if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG5, PHY_REALTEK_INIT6)) {
+-				pr_info("%s: phy init failed\n",
+-					pci_name(np->pci_dev));
++				netdev_info(dev, "%s: phy init failed\n",
++					    pci_name(np->pci_dev));
+ 				return PHY_ERROR;
+ 			}
+ 			if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG1, PHY_REALTEK_INIT1)) {
+-				pr_info("%s: phy init failed\n",
+-					pci_name(np->pci_dev));
++				netdev_info(dev, "%s: phy init failed\n",
++					    pci_name(np->pci_dev));
+ 				return PHY_ERROR;
+ 			}
+ 		}
+@@ -1480,28 +1500,28 @@ static int phy_init(struct net_device *dev)
+ 				phy_reserved = mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG6, MII_READ);
+ 				phy_reserved |= PHY_REALTEK_INIT7;
+ 				if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG6, phy_reserved)) {
+-					pr_info("%s: phy init failed\n",
+-						pci_name(np->pci_dev));
++					netdev_info(dev, "%s: phy init failed\n",
++						    pci_name(np->pci_dev));
+ 					return PHY_ERROR;
+ 				}
+ 			}
+ 			if (phy_cross == NV_CROSSOVER_DETECTION_DISABLED) {
+ 				if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG1, PHY_REALTEK_INIT3)) {
+-					pr_info("%s: phy init failed\n",
+-						pci_name(np->pci_dev));
++					netdev_info(dev, "%s: phy init failed\n",
++						    pci_name(np->pci_dev));
+ 					return PHY_ERROR;
+ 				}
+ 				phy_reserved = mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG2, MII_READ);
+ 				phy_reserved &= ~PHY_REALTEK_INIT_MSK1;
+ 				phy_reserved |= PHY_REALTEK_INIT3;
+ 				if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG2, phy_reserved)) {
+-					pr_info("%s: phy init failed\n",
+-						pci_name(np->pci_dev));
++					netdev_info(dev, "%s: phy init failed\n",
++						    pci_name(np->pci_dev));
+ 					return PHY_ERROR;
+ 				}
+ 				if (mii_rw(dev, np->phyaddr, PHY_REALTEK_INIT_REG1, PHY_REALTEK_INIT1)) {
+-					pr_info("%s: phy init failed\n",
+-						pci_name(np->pci_dev));
++					netdev_info(dev, "%s: phy init failed\n",
++						    pci_name(np->pci_dev));
+ 					return PHY_ERROR;
+ 				}
+ 			}
+@@ -1560,7 +1580,8 @@ static void nv_stop_rx(struct net_device *dev)
+ 	writel(rx_ctrl, base + NvRegReceiverControl);
+ 	if (reg_delay(dev, NvRegReceiverStatus, NVREG_RCVSTAT_BUSY, 0,
+ 		      NV_RXSTOP_DELAY1, NV_RXSTOP_DELAY1MAX))
+-		pr_info("%s: ReceiverStatus remained busy\n", __func__);
++		netdev_info(dev, "%s: ReceiverStatus remained busy\n",
++			    __func__);
+ 
+ 	udelay(NV_RXSTOP_DELAY2);
+ 	if (!np->mac_in_use)
+@@ -1595,7 +1616,8 @@ static void nv_stop_tx(struct net_device *dev)
+ 	writel(tx_ctrl, base + NvRegTransmitterControl);
+ 	if (reg_delay(dev, NvRegTransmitterStatus, NVREG_XMITSTAT_BUSY, 0,
+ 		      NV_TXSTOP_DELAY1, NV_TXSTOP_DELAY1MAX))
+-		pr_info("%s: TransmitterStatus remained busy\n", __func__);
++		netdev_info(dev, "%s: TransmitterStatus remained busy\n",
++			    __func__);
+ 
+ 	udelay(NV_TXSTOP_DELAY2);
+ 	if (!np->mac_in_use)
+@@ -2520,46 +2542,49 @@ static void nv_tx_timeout(struct net_device *dev)
+ 	else
+ 		status = readl(base + NvRegIrqStatus) & NVREG_IRQSTAT_MASK;
+ 
+-	pr_info("%s: Got tx_timeout. irq: %08x\n", dev->name, status);
++	netdev_info(dev, "Got tx_timeout. irq: %08x\n", status);
+ 
+-	pr_info("%s: Ring at %lx\n", dev->name, (unsigned long)np->ring_addr);
+-	pr_info("%s: Dumping tx registers\n", dev->name);
++	netdev_info(dev, "Ring at %lx\n", (unsigned long)np->ring_addr);
++	netdev_info(dev, "Dumping tx registers\n");
+ 	for (i = 0; i <= np->register_size; i += 32) {
+-		pr_info("%3x: %08x %08x %08x %08x %08x %08x %08x %08x\n",
+-			i,
+-			readl(base + i + 0), readl(base + i + 4),
+-			readl(base + i + 8), readl(base + i + 12),
+-			readl(base + i + 16), readl(base + i + 20),
+-			readl(base + i + 24), readl(base + i + 28));
+-	}
+-	pr_info("%s: Dumping tx ring\n", dev->name);
++		netdev_info(dev,
++			    "%3x: %08x %08x %08x %08x %08x %08x %08x %08x\n",
++			    i,
++			    readl(base + i + 0), readl(base + i + 4),
++			    readl(base + i + 8), readl(base + i + 12),
++			    readl(base + i + 16), readl(base + i + 20),
++			    readl(base + i + 24), readl(base + i + 28));
++	}
++	netdev_info(dev, "Dumping tx ring\n");
+ 	for (i = 0; i < np->tx_ring_size; i += 4) {
+ 		if (!nv_optimized(np)) {
+-			pr_info("%03x: %08x %08x // %08x %08x // %08x %08x // %08x %08x\n",
+-				i,
+-				le32_to_cpu(np->tx_ring.orig[i].buf),
+-				le32_to_cpu(np->tx_ring.orig[i].flaglen),
+-				le32_to_cpu(np->tx_ring.orig[i+1].buf),
+-				le32_to_cpu(np->tx_ring.orig[i+1].flaglen),
+-				le32_to_cpu(np->tx_ring.orig[i+2].buf),
+-				le32_to_cpu(np->tx_ring.orig[i+2].flaglen),
+-				le32_to_cpu(np->tx_ring.orig[i+3].buf),
+-				le32_to_cpu(np->tx_ring.orig[i+3].flaglen));
++			netdev_info(dev,
++				    "%03x: %08x %08x // %08x %08x // %08x %08x // %08x %08x\n",
++				    i,
++				    le32_to_cpu(np->tx_ring.orig[i].buf),
++				    le32_to_cpu(np->tx_ring.orig[i].flaglen),
++				    le32_to_cpu(np->tx_ring.orig[i+1].buf),
++				    le32_to_cpu(np->tx_ring.orig[i+1].flaglen),
++				    le32_to_cpu(np->tx_ring.orig[i+2].buf),
++				    le32_to_cpu(np->tx_ring.orig[i+2].flaglen),
++				    le32_to_cpu(np->tx_ring.orig[i+3].buf),
++				    le32_to_cpu(np->tx_ring.orig[i+3].flaglen));
+ 		} else {
+-			pr_info("%03x: %08x %08x %08x // %08x %08x %08x // %08x %08x %08x // %08x %08x %08x\n",
+-				i,
+-				le32_to_cpu(np->tx_ring.ex[i].bufhigh),
+-				le32_to_cpu(np->tx_ring.ex[i].buflow),
+-				le32_to_cpu(np->tx_ring.ex[i].flaglen),
+-				le32_to_cpu(np->tx_ring.ex[i+1].bufhigh),
+-				le32_to_cpu(np->tx_ring.ex[i+1].buflow),
+-				le32_to_cpu(np->tx_ring.ex[i+1].flaglen),
+-				le32_to_cpu(np->tx_ring.ex[i+2].bufhigh),
+-				le32_to_cpu(np->tx_ring.ex[i+2].buflow),
+-				le32_to_cpu(np->tx_ring.ex[i+2].flaglen),
+-				le32_to_cpu(np->tx_ring.ex[i+3].bufhigh),
+-				le32_to_cpu(np->tx_ring.ex[i+3].buflow),
+-				le32_to_cpu(np->tx_ring.ex[i+3].flaglen));
++			netdev_info(dev,
++				    "%03x: %08x %08x %08x // %08x %08x %08x // %08x %08x %08x // %08x %08x %08x\n",
++				    i,
++				    le32_to_cpu(np->tx_ring.ex[i].bufhigh),
++				    le32_to_cpu(np->tx_ring.ex[i].buflow),
++				    le32_to_cpu(np->tx_ring.ex[i].flaglen),
++				    le32_to_cpu(np->tx_ring.ex[i+1].bufhigh),
++				    le32_to_cpu(np->tx_ring.ex[i+1].buflow),
++				    le32_to_cpu(np->tx_ring.ex[i+1].flaglen),
++				    le32_to_cpu(np->tx_ring.ex[i+2].bufhigh),
++				    le32_to_cpu(np->tx_ring.ex[i+2].buflow),
++				    le32_to_cpu(np->tx_ring.ex[i+2].flaglen),
++				    le32_to_cpu(np->tx_ring.ex[i+3].bufhigh),
++				    le32_to_cpu(np->tx_ring.ex[i+3].buflow),
++				    le32_to_cpu(np->tx_ring.ex[i+3].flaglen));
+ 		}
+ 	}
+ 
+@@ -3332,14 +3357,14 @@ static void nv_linkchange(struct net_device *dev)
+ 	if (nv_update_linkspeed(dev)) {
+ 		if (!netif_carrier_ok(dev)) {
+ 			netif_carrier_on(dev);
+-			pr_info("%s: link up\n", dev->name);
++			netdev_info(dev, "link up\n");
+ 			nv_txrx_gate(dev, false);
+ 			nv_start_rx(dev);
+ 		}
+ 	} else {
+ 		if (netif_carrier_ok(dev)) {
+ 			netif_carrier_off(dev);
+-			pr_info("%s: link down\n", dev->name);
++			netdev_info(dev, "link down\n");
+ 			nv_txrx_gate(dev, true);
+ 			nv_stop_rx(dev);
+ 		}
+@@ -3788,8 +3813,9 @@ static int nv_request_irq(struct net_device *dev, int intr_test)
+ 				sprintf(np->name_rx, "%s-rx", dev->name);
+ 				if (request_irq(np->msi_x_entry[NV_MSI_X_VECTOR_RX].vector,
+ 						nv_nic_irq_rx, IRQF_SHARED, np->name_rx, dev) != 0) {
+-					pr_info("request_irq failed for rx %d\n",
+-						ret);
++					netdev_info(dev,
++						    "request_irq failed for rx %d\n",
++						    ret);
+ 					pci_disable_msix(np->pci_dev);
+ 					np->msi_flags &= ~NV_MSI_X_ENABLED;
+ 					goto out_err;
+@@ -3798,8 +3824,9 @@ static int nv_request_irq(struct net_device *dev, int intr_test)
+ 				sprintf(np->name_tx, "%s-tx", dev->name);
+ 				if (request_irq(np->msi_x_entry[NV_MSI_X_VECTOR_TX].vector,
+ 						nv_nic_irq_tx, IRQF_SHARED, np->name_tx, dev) != 0) {
+-					pr_info("request_irq failed for tx %d\n",
+-						ret);
++					netdev_info(dev,
++						    "request_irq failed for tx %d\n",
++						    ret);
+ 					pci_disable_msix(np->pci_dev);
+ 					np->msi_flags &= ~NV_MSI_X_ENABLED;
+ 					goto out_free_rx;
+@@ -3808,8 +3835,9 @@ static int nv_request_irq(struct net_device *dev, int intr_test)
+ 				sprintf(np->name_other, "%s-other", dev->name);
+ 				if (request_irq(np->msi_x_entry[NV_MSI_X_VECTOR_OTHER].vector,
+ 						nv_nic_irq_other, IRQF_SHARED, np->name_other, dev) != 0) {
+-					pr_info("request_irq failed for link %d\n",
+-						ret);
++					netdev_info(dev,
++						    "request_irq failed for link %d\n",
++						    ret);
+ 					pci_disable_msix(np->pci_dev);
+ 					np->msi_flags &= ~NV_MSI_X_ENABLED;
+ 					goto out_free_tx;
+@@ -3823,7 +3851,9 @@ static int nv_request_irq(struct net_device *dev, int intr_test)
+ 			} else {
+ 				/* Request irq for all interrupts */
+ 				if (request_irq(np->msi_x_entry[NV_MSI_X_VECTOR_ALL].vector, handler, IRQF_SHARED, dev->name, dev) != 0) {
+-					pr_info("request_irq failed %d\n", ret);
++					netdev_info(dev,
++						    "request_irq failed %d\n",
++						    ret);
+ 					pci_disable_msix(np->pci_dev);
+ 					np->msi_flags &= ~NV_MSI_X_ENABLED;
+ 					goto out_err;
+@@ -3841,7 +3871,8 @@ static int nv_request_irq(struct net_device *dev, int intr_test)
+ 			np->msi_flags |= NV_MSI_ENABLED;
+ 			dev->irq = np->pci_dev->irq;
+ 			if (request_irq(np->pci_dev->irq, handler, IRQF_SHARED, dev->name, dev) != 0) {
+-				pr_info("request_irq failed %d\n", ret);
++				netdev_info(dev, "request_irq failed %d\n",
++					    ret);
+ 				pci_disable_msi(np->pci_dev);
+ 				np->msi_flags &= ~NV_MSI_ENABLED;
+ 				dev->irq = np->pci_dev->irq;
+@@ -3926,7 +3957,7 @@ static void nv_do_nic_poll(unsigned long data)
+ 
+ 	if (np->recover_error) {
+ 		np->recover_error = 0;
+-		pr_info("%s: MAC in recoverable error state\n", dev->name);
++		netdev_info(dev, "MAC in recoverable error state\n");
+ 		if (netif_running(dev)) {
+ 			netif_tx_lock_bh(dev);
+ 			netif_addr_lock(dev);
+@@ -4222,14 +4253,14 @@ static int nv_set_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
+ 		}
+ 
+ 		if (netif_running(dev))
+-			pr_info("%s: link down\n", dev->name);
++			netdev_info(dev, "link down\n");
+ 		bmcr = mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ);
+ 		if (np->phy_model == PHY_MODEL_MARVELL_E3016) {
+ 			bmcr |= BMCR_ANENABLE;
+ 			/* reset the phy in order for settings to stick,
+ 			 * and cause autoneg to start */
+ 			if (phy_reset(dev, bmcr)) {
+-				pr_info("%s: phy reset failed\n", dev->name);
++				netdev_info(dev, "phy reset failed\n");
+ 				return -EINVAL;
+ 			}
+ 		} else {
+@@ -4278,7 +4309,7 @@ static int nv_set_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
+ 		if (np->phy_oui == PHY_OUI_MARVELL) {
+ 			/* reset the phy in order for forced mode settings to stick */
+ 			if (phy_reset(dev, bmcr)) {
+-				pr_info("%s: phy reset failed\n", dev->name);
++				netdev_info(dev, "phy reset failed\n");
+ 				return -EINVAL;
+ 			}
+ 		} else {
+@@ -4340,7 +4371,7 @@ static int nv_nway_reset(struct net_device *dev)
+ 			spin_unlock(&np->lock);
+ 			netif_addr_unlock(dev);
+ 			netif_tx_unlock_bh(dev);
+-			pr_info("%s: link down\n", dev->name);
++			netdev_info(dev, "link down\n");
+ 		}
+ 
+ 		bmcr = mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ);
+@@ -4348,7 +4379,7 @@ static int nv_nway_reset(struct net_device *dev)
+ 			bmcr |= BMCR_ANENABLE;
+ 			/* reset the phy in order for settings to stick*/
+ 			if (phy_reset(dev, bmcr)) {
+-				pr_info("%s: phy reset failed\n", dev->name);
++				netdev_info(dev, "phy reset failed\n");
+ 				return -EINVAL;
+ 			}
+ 		} else {
+@@ -4521,13 +4552,11 @@ static int nv_set_pauseparam(struct net_device *dev, struct ethtool_pauseparam*
+ 
+ 	if ((!np->autoneg && np->duplex == 0) ||
+ 	    (np->autoneg && !pause->autoneg && np->duplex == 0)) {
+-		pr_info("%s: can not set pause settings when forced link is in half duplex\n",
+-			dev->name);
++		netdev_info(dev, "can not set pause settings when forced link is in half duplex\n");
+ 		return -EINVAL;
+ 	}
+ 	if (pause->tx_pause && !(np->pause_flags & NV_PAUSEFRAME_TX_CAPABLE)) {
+-		pr_info("%s: hardware does not support tx pause frames\n",
+-			dev->name);
++		netdev_info(dev, "hardware does not support tx pause frames\n");
+ 		return -EINVAL;
+ 	}
+ 
+@@ -4562,7 +4591,7 @@ static int nv_set_pauseparam(struct net_device *dev, struct ethtool_pauseparam*
+ 		mii_rw(dev, np->phyaddr, MII_ADVERTISE, adv);
+ 
+ 		if (netif_running(dev))
+-			pr_info("%s: link down\n", dev->name);
++			netdev_info(dev, "link down\n");
+ 		bmcr = mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ);
+ 		bmcr |= (BMCR_ANENABLE | BMCR_ANRESTART);
+ 		mii_rw(dev, np->phyaddr, MII_BMCR, bmcr);
+@@ -4824,8 +4853,7 @@ static int nv_loopback_test(struct net_device *dev)
+ 	pkt_len = ETH_DATA_LEN;
+ 	tx_skb = dev_alloc_skb(pkt_len);
+ 	if (!tx_skb) {
+-		pr_err("dev_alloc_skb() failed during loopback test of %s\n",
+-		       dev->name);
++		netdev_err(dev, "dev_alloc_skb() failed during loopback test\n");
+ 		ret = 0;
+ 		goto out;
+ 	}
+@@ -5188,7 +5216,8 @@ static int nv_open(struct net_device *dev)
+ 	if (reg_delay(dev, NvRegUnknownSetupReg5,
+ 		      NVREG_UNKSETUP5_BIT31, NVREG_UNKSETUP5_BIT31,
+ 		      NV_SETUP5_DELAY, NV_SETUP5_DELAYMAX))
+-		pr_info("%s: SetupReg5, Bit 31 remained off\n", __func__);
++		netdev_info(dev,
++			    "%s: SetupReg5, Bit 31 remained off\n", __func__);
+ 
+ 	writel(0, base + NvRegMIIMask);
+ 	writel(NVREG_IRQSTAT_MASK, base + NvRegIrqStatus);
+@@ -5277,7 +5306,7 @@ static int nv_open(struct net_device *dev)
+ 	if (ret) {
+ 		netif_carrier_on(dev);
+ 	} else {
+-		pr_info("%s: no link during initialization\n", dev->name);
++		netdev_info(dev, "no link during initialization\n");
+ 		netif_carrier_off(dev);
+ 	}
+ 	if (oom)
 -- 
 1.7.3.2.245.g03276.dirty
+
