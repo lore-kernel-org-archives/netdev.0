@@ -1,74 +1,48 @@
-From: Shan Wei <shanwei@cn.fujitsu.com>
-Subject: [PATCH] sctp: kill unused macros in head file
-Date: Mon, 29 Nov 2010 18:14:58 +0800
-Message-ID: <4CF37D22.8090307@cn.fujitsu.com>
+From: Vlad Lungu <vlad.lungu@windriver.com>
+Subject: Re: [PATCH] stmmac: fix stmmac_resume removing not yet used shutdown
+ flag
+Date: Mon, 29 Nov 2010 12:32:53 +0200
+Message-ID: <4CF38155.3010601@windriver.com>
+References: <1290740072-1341-1-git-send-email-peppe.cavallaro@st.com> <4CEFC14B.70806@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Network-Maillist <netdev@vger.kernel.org>,
-	SCTP-Maillist <linux-sctp@vger.kernel.org>,
-	Shan Wei <shanwei@cn.fujitsu.com>
-To: Vlad Yasevich <vladislav.yasevich@hp.com>,
-	David Miller <davem@davemloft.net>,
-	shemminger@linux-foundation.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Peppe CAVALLARO <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:53627 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751074Ab0K2KQn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Nov 2010 05:16:43 -0500
+Received: from mail.windriver.com ([147.11.1.11]:37596 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753134Ab0K2Kcy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Nov 2010 05:32:54 -0500
+In-Reply-To: <4CEFC14B.70806@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Peppe CAVALLARO wrote:
+> On 11/26/2010 3:11 PM, Peppe CAVALLARO wrote:
+>> The commit to convert to use the dev_pm_ops struct
+>> introduces a bug. The shutdown flag is not yet used
+>> because the hibernation on memory is done by using
+>> the freeze callback.
+>> Thanks to Vlad for having reported it.
+> Hi Vlad,
+> as we discussed via email, I'll also look at how to manage the
+> patch that reworked the private structure and that's generating
+> problems on your HW (I'll also try to have it for testing!).
+> 
 
-1. SCTP_CMD_NUM_VERBS,SCTP_CMD_MAX
-These two macros have never been used for several years since v2.6.12-rc2.
+Actually, this is is not a blocking problem. I can kmalloc a platform
+info structure and fill it with the relevant data on probe. It just feels ... wrong.
 
-2.sctp_port_rover,sctp_port_alloc_lock
-The commit 063930 abandoned global variables of port_rover and port_alloc_lock,
-but still keep two macros to refer to them.
-So, remove them now.
+The way I see it, the platform info is similar to the PNP on an ISA bus or
+the PCI header of a device. Having platform info for a PCI device is kind of
+a hack. You didn't know that there's a PCI device out there and that someone
+wants to submit a patch for it, so it probably made sense at the time to rework
+the structure that particular way.
 
-commit 06393009000779b00a558fd2f280882cc7dc2008
-Author: Stephen Hemminger <shemminger@linux-foundation.org>
-Date:   Wed Oct 10 17:30:18 2007 -0700
+Regards,
+Vlad
 
-    [SCTP]: port randomization
-
-
-Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
----
- include/net/sctp/command.h |    3 ---
- include/net/sctp/structs.h |    2 --
- 2 files changed, 0 insertions(+), 5 deletions(-)
-
-diff --git a/include/net/sctp/command.h b/include/net/sctp/command.h
-index 2c55a7e..c01dc99 100644
---- a/include/net/sctp/command.h
-+++ b/include/net/sctp/command.h
-@@ -111,9 +111,6 @@ typedef enum {
- 	SCTP_CMD_LAST
- } sctp_verb_t;
- 
--#define SCTP_CMD_MAX		(SCTP_CMD_LAST - 1)
--#define SCTP_CMD_NUM_VERBS	(SCTP_CMD_MAX + 1)
--
- /* How many commands can you put in an sctp_cmd_seq_t?
-  * This is a rather arbitrary number, ideally derived from a careful
-  * analysis of the state functions, but in reality just taken from
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index 69fef4f..cc9185c 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -261,8 +261,6 @@ extern struct sctp_globals {
- #define sctp_assoc_hashsize		(sctp_globals.assoc_hashsize)
- #define sctp_assoc_hashtable		(sctp_globals.assoc_hashtable)
- #define sctp_port_hashsize		(sctp_globals.port_hashsize)
--#define sctp_port_rover			(sctp_globals.port_rover)
--#define sctp_port_alloc_lock		(sctp_globals.port_alloc_lock)
- #define sctp_port_hashtable		(sctp_globals.port_hashtable)
- #define sctp_local_addr_list		(sctp_globals.local_addr_list)
- #define sctp_local_addr_lock		(sctp_globals.addr_list_lock)
--- 
-1.6.3.3
 
 
