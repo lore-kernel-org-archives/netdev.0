@@ -1,61 +1,34 @@
-From: "Tomoya MORINAGA" <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Subject: Re: [PATCH net-next-2.6 01/19 v5] can: EG20T PCH: Separate Interface
-	Register(IF1/IF2)
-Date: Mon, 29 Nov 2010 10:59:31 +0900
-Message-ID: <002201cb8f69$11d30050$66f8800a@maildom.okisemi.com>
-References: <4CEF150A.7080409@dsn.okisemi.com>
-	<4CEF84BE.7000101@pengutronix.de> <4CEF864B.6080207@pengutronix.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/6] Forcedeth code style cleanup
+Date: Sun, 28 Nov 2010 18:07:22 -0800 (PST)
+Message-ID: <20101128.180722.226778424.davem@davemloft.net>
+References: <1290883188-2078-1-git-send-email-szymon@janc.net.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-To: "Marc Kleine-Budde" <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: szymon@janc.net.pl
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49678
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753283Ab0K2CG4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Nov 2010 21:06:56 -0500
+In-Reply-To: <1290883188-2078-1-git-send-email-szymon@janc.net.pl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday, November 26, 2010 7:04 PM, Marc Kleine-Budde wrote:
+From: Szymon Janc <szymon@janc.net.pl>
+Date: Sat, 27 Nov 2010 19:39:42 +0100
 
->> nitpick: it's unusual to have leading whitespace in the patch description.
+> Hi,
+> 
+> Following patches make checkpatch less unhappy about forcedeth.c.
+> 
+> total: 107 errors, 511 warnings, 6222 lines checked
+> vs
+> total: 12 errors, 467 warnings, 6190 lines checked
+> 
+> Remaining errors are false positives, remaining warnings are all lines over 80
+> characters.
 
-> maybe it's a problem of your mailer.
-I can see the whitespace created patch by "git format-patch"
-I show the head of patch below.
-
->From e53c63a8ff00c76f165e371511604f374451627b Mon Sep 17 00:00:00 2001
-From: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Date: Thu, 18 Nov 2010 09:18:15 +0900
-Subject: [PATCH] CAN : Separate interface register from whole of register structure.
- CAN register of Intel PCH EG20T has 2 sets of interface register.
- To reduce whole of code size, separate interface register.
- As a result, the number of function also can be reduced.
-
-Signed-off-by: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
----
- drivers/net/can/pch_can.c |  445 ++++++++++++++++++++-------------------------
- 1 files changed, 201 insertions(+), 244 deletions(-)
-
-.........
-
-Since I have copied from the patch file directly, whitespace is inserted.
-When next resubmitting, I will delete the whiletespace by hand.
-
----
-Thanks,
-
-Tomoya MORINAGA
-OKI SEMICONDUCTOR CO., LTD.
+I applied all the patches except patch #5 to net-next-2.6, thanks.
