@@ -1,35 +1,52 @@
 From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH 2/2] The new jhash implementation
-Date: Sat, 27 Nov 2010 14:01:22 +1030
-Message-ID: <201011271401.22773.rusty@rustcorp.com.au>
-References: <1290690908-794-1-git-send-email-kadlec@blackhole.kfki.hu> <1290690908-794-2-git-send-email-kadlec@blackhole.kfki.hu> <1290690908-794-3-git-send-email-kadlec@blackhole.kfki.hu>
+Subject: Re: [PATCH v2 0/4] kthread: NUMA aware kthread_create_on_cpu()
+Date: Tue, 30 Nov 2010 10:01:55 +1030
+Message-ID: <201011301001.55968.rusty@rustcorp.com.au>
+References: <20101129090510.GA15763@basil.fritz.box> <20101129.093942.104054089.davem@davemloft.net> <1291053583.3435.1269.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, Linus Torvalds <torvalds@osdl.org>
-To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1290690908-794-3-git-send-email-kadlec@blackhole.kfki.hu>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>, andi@firstfloor.org,
+	linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
+	netdev@vger.kernel.org, tj@kernel.org, tony.luck@intel.com,
+	fenghua.yu@intel.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <1291053583.3435.1269.camel@edumazet-laptop>
+Sender: linux-arch-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 25 Nov 2010 11:45:08 pm Jozsef Kadlecsik wrote:
-> The current jhash.h implements the lookup2() hash function by Bob Jenkins.
-> However, lookup2() is outdated as Bob wrote a new hash function called
-> lookup3(). The new hash function
+On Tue, 30 Nov 2010 04:29:43 am Eric Dumazet wrote:
+> Le lundi 29 novembre 2010 =C3=A0 09:39 -0800, David Miller a =C3=A9cr=
+it :
+> > From: Eric Dumazet <eric.dumazet@gmail.com>
+> > Date: Mon, 29 Nov 2010 16:13:23 +0100
+> >=20
+> > > Note : compiled and tested on x86_32 and x86_64 only, but these p=
+atches
+> > > take care of other arches as well.
+> > >=20
+> > > Cc: linux-arch@vger.kernel.org=20
+> > >=20
+> > > Thanks for your feedback Andi !
+> >=20
+> > I'm fine with these changes:
+> >=20
+> > Acked-by: David S. Miller <davem@davemloft.net>
+> >=20
+> > Since the majority is non-networking it is pretty clear
+> > that someone other than me should integrate these patches.
+> > :-)
+>=20
+> Sure !
+>=20
+> I was thinking Andrew was the guy to carry this patch series, once
+> things settle down of course...
 
-Oops, we discussed this ages ago, looks like it fell through the cracks.
+I'm happy with that.
 
-Thanks Jozsef!
-
-> +extern u32 jhash(const void *key, u32 length, u32 initval);
-> +extern u32 jhash2(const u32 *k, u32 length, u32 initval);
-> +extern u32 jhash_3words(u32 a, u32 b, u32 c, u32 initval);
-
-This last one can be marked __attribute__((const)) for a little
-extra compiler help, too.
+Acked-by: Rusty Russell <rusty@rustcorp.com.au>
 
 Cheers,
 Rusty.
