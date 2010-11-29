@@ -1,45 +1,45 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH] vhost: fix typos in comment
-Date: Mon, 29 Nov 2010 13:48:40 +0800
-Message-ID: <20101129054840.24951.29849.stgit@dhcp-91-7.nay.redhat.com.englab.nay.redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/2] pch_gbe driver: The wrong of initializer entry
+Date: Sun, 28 Nov 2010 21:59:33 -0800 (PST)
+Message-ID: <20101128.215933.48515812.davem@davemloft.net>
+References: <4CEA069D.20009@dsn.okisemi.com>
+	<20101127.174103.104047424.davem@davemloft.net>
+	<001e01cb8f83$31ade9c0$66f8800a@maildom.okisemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: virtualization@lists.osdl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kvm@vger.kernel.org, mst@redhat.com
+Cc: linux@treblig.org, randy.dunlap@oracle.com, john.linn@xilinx.com,
+	ralf@linux-mips.org, kristoffer@gaisler.com, mbizon@freebox.fr,
+	gregory.v.rose@intel.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, masa-korg@dsn.okisemi.com,
+	qi.wang@intel.com, yong.y.wang@intel.com,
+	andrew.chih.howe.khor@intel.com, joel.clark@intel.com,
+	margie.foster@intel.com, kok.howg.ewe@intel.com
+To: toshiharu-linux@dsn.okisemi.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <001e01cb8f83$31ade9c0$66f8800a@maildom.okisemi.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/vhost/net.c   |    2 +-
- drivers/vhost/vhost.h |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+From: "Toshiharu Okada" <toshiharu-linux@dsn.okisemi.com>
+Date: Mon, 29 Nov 2010 14:06:23 +0900
 
-diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index d10da28..14fc189 100644
---- a/drivers/vhost/net.c
-+++ b/drivers/vhost/net.c
-@@ -452,7 +452,7 @@ static void handle_rx_mergeable(struct vhost_net *net)
- 			move_iovec_hdr(vq->iov, vq->hdr, vhost_hlen, in);
- 		else
- 			/* Copy the header for use in VIRTIO_NET_F_MRG_RXBUF:
--			 * needed because sendmsg can modify msg_iov. */
-+			 * needed because recvmsg can modify msg_iov. */
- 			copy_iovec_hdr(vq->iov, vq->hdr, sock_hlen, in);
- 		msg.msg_iovlen = in;
- 		err = sock->ops->recvmsg(NULL, sock, &msg,
-diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
-index 073d06a..2af44b7 100644
---- a/drivers/vhost/vhost.h
-+++ b/drivers/vhost/vhost.h
-@@ -102,7 +102,7 @@ struct vhost_virtqueue {
- 	 * flush the vhost_work instead of synchronize_rcu. Therefore readers do
- 	 * not need to call rcu_read_lock/rcu_read_unlock: the beginning of
- 	 * vhost_work execution acts instead of rcu_read_lock() and the end of
--	 * vhost_work execution acts instead of rcu_read_lock().
-+	 * vhost_work execution acts instead of rcu_read_unlock().
- 	 * Writers use virtqueue mutex. */
- 	void __rcu *private_data;
- 	/* Log write descriptors */
+> Hi David Miller
+> 
+> 
+> Date: Sat, 27 Nov 2010 17:41:03 -0800 (PST)
+> From: "David Miller" <davem@davemloft.net>
+>>
+>> > The wrong of initializer entry was modified.
+>> >
+>> > Signed-off-by: Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>
+>>
+>> How about you give some credit to David Alan Gilbert who made
+>> you aware of this issue?
+> 
+> Credit?
+> Does this mean that I add "Singed of by: Dr. David Alan Gilbert
+> <linux@trebig.org>" ?
+> Is my understanding correct?
+
+You should use "Reported-by: ..."
