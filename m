@@ -1,125 +1,69 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] xps: add __rcu annotations
-Date: Mon, 29 Nov 2010 08:43:02 +0100
-Message-ID: <1291016582.29196.136.camel@edumazet-laptop>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH 1/3] net: kill unused macros in head file
+Date: Mon, 29 Nov 2010 16:42:43 +0900
+Message-ID: <1291016563.7802.2.camel@takos>
+References: <4CF34DEC.6090907@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-2022-JP"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Tom Herbert <therbert@google.com>
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>,
+	Network-Maillist <netdev@vger.kernel.org>, kuznet@ms2.inr.ac.ru,
+	pekkas@netcore.fi, jmorris@namei.org,
+	Patrick McHardy <kaber@trash.net>, yoshfuji@linux-ipv6.org
+To: Shan Wei <shanwei@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:49466 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751562Ab0K2HnJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Nov 2010 02:43:09 -0500
-Received: by wwa36 with SMTP id 36so4375414wwa.1
-        for <netdev@vger.kernel.org>; Sun, 28 Nov 2010 23:43:07 -0800 (PST)
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:34000 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754600Ab0K2Htz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Nov 2010 02:49:55 -0500
+In-Reply-To: <4CF34DEC.6090907@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Avoid sparse warnings : add __rcu annotations and use
-rcu_dereference_protected() where necessary.
+2010-11-29 14:53 +0800, Shan Wei wrote:
+> These macros have been defined for several years since v2.6.12-rc2（tracing by git）,
+> but never be used. So remove them.
+> 
+> 
+> Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
+> ---
+>  include/net/addrconf.h  |    2 --
+>  include/net/ip6_route.h |    1 -
+>  include/net/ndisc.h     |    6 ------
+>  include/net/snmp.h      |    1 -
+>  include/net/sock.h      |    3 ---
+>  include/net/tcp.h       |    6 ------
+>  6 files changed, 0 insertions(+), 19 deletions(-)
+> 
+> diff --git a/include/net/addrconf.h b/include/net/addrconf.h
+> index a944124..23710aa 100644
+> --- a/include/net/addrconf.h
+> +++ b/include/net/addrconf.h
+> @@ -1,8 +1,6 @@
+>  #ifndef _ADDRCONF_H
+>  #define _ADDRCONF_H
+>  
+> -#define RETRANS_TIMER	HZ
+> -
+>  #define MAX_RTR_SOLICITATIONS		3
+>  #define RTR_SOLICITATION_INTERVAL	(4*HZ)
+>  
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Tom Herbert <therbert@google.com>
----
- include/linux/netdevice.h |    4 ++--
- net/core/net-sysfs.c      |   24 +++++++++++++++---------
- 2 files changed, 17 insertions(+), 11 deletions(-)
+I think we should use it in net/ipv6/addrconf.c,
+instead of magic number.
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 9ae4544..4b0c7f3 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -622,7 +622,7 @@ struct xps_map {
-  */
- struct xps_dev_maps {
- 	struct rcu_head rcu;
--	struct xps_map *cpu_map[0];
-+	struct xps_map __rcu *cpu_map[0];
- };
- #define XPS_DEV_MAPS_SIZE (sizeof(struct xps_dev_maps) +		\
-     (nr_cpu_ids * sizeof(struct xps_map *)))
-@@ -1049,7 +1049,7 @@ struct net_device {
- 	spinlock_t		tx_global_lock;
- 
- #ifdef CONFIG_XPS
--	struct xps_dev_maps	*xps_maps;
-+	struct xps_dev_maps __rcu *xps_maps;
- #endif
- 
- 	/* These may be needed for future network-power-down code. */
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index 99c1129..3ba2103 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -899,6 +899,8 @@ static void xps_dev_maps_release(struct rcu_head *rcu)
- }
- 
- static DEFINE_MUTEX(xps_map_mutex);
-+#define xmap_dereference(P)		\
-+	rcu_dereference_protected((P), lockdep_is_held(&xps_map_mutex))
- 
- static ssize_t store_xps_map(struct netdev_queue *queue,
- 		      struct netdev_queue_attribute *attribute,
-@@ -935,11 +937,12 @@ static ssize_t store_xps_map(struct netdev_queue *queue,
- 
- 	mutex_lock(&xps_map_mutex);
- 
--	dev_maps = dev->xps_maps;
-+	dev_maps = xmap_dereference(dev->xps_maps);
- 
- 	for_each_possible_cpu(cpu) {
--		new_map = map = dev_maps ? dev_maps->cpu_map[cpu] : NULL;
--
-+		map = dev_maps ?
-+			xmap_dereference(dev_maps->cpu_map[cpu]) : NULL;
-+		new_map = map;
- 		if (map) {
- 			for (pos = 0; pos < map->len; pos++)
- 				if (map->queues[pos] == index)
-@@ -974,13 +977,14 @@ static ssize_t store_xps_map(struct netdev_queue *queue,
- 			else
- 				new_map = NULL;
- 		}
--		new_dev_maps->cpu_map[cpu] = new_map;
-+		RCU_INIT_POINTER(new_dev_maps->cpu_map[cpu], new_map);
- 	}
- 
- 	/* Cleanup old maps */
- 	for_each_possible_cpu(cpu) {
--		map = dev_maps ? dev_maps->cpu_map[cpu] : NULL;
--		if (map && new_dev_maps->cpu_map[cpu] != map)
-+		map = dev_maps ?
-+			xmap_dereference(dev_maps->cpu_map[cpu]) : NULL;
-+		if (map && xmap_dereference(new_dev_maps->cpu_map[cpu]) != map)
- 			call_rcu(&map->rcu, xps_map_release);
- 		if (new_dev_maps->cpu_map[cpu])
- 			nonempty = 1;
-@@ -1006,7 +1010,9 @@ error:
- 
- 	if (new_dev_maps)
- 		for_each_possible_cpu(i)
--			kfree(new_dev_maps->cpu_map[i]);
-+			kfree(rcu_dereference_protected(
-+				new_dev_maps->cpu_map[i],
-+				1));
- 	kfree(new_dev_maps);
- 	free_cpumask_var(mask);
- 	return -ENOMEM;
-@@ -1032,11 +1038,11 @@ static void netdev_queue_release(struct kobject *kobj)
- 	index = get_netdev_queue_index(queue);
- 
- 	mutex_lock(&xps_map_mutex);
--	dev_maps = dev->xps_maps;
-+	dev_maps = xmap_dereference(dev->xps_maps);
- 
- 	if (dev_maps) {
- 		for_each_possible_cpu(i) {
--			map  = dev_maps->cpu_map[i];
-+			map = xmap_dereference(dev_maps->cpu_map[i]);
- 			if (!map)
- 				continue;
- 
+> diff --git a/include/net/ndisc.h b/include/net/ndisc.h
+> index 895997b..f134987 100644
+> --- a/include/net/ndisc.h
+> +++ b/include/net/ndisc.h
+> @@ -39,12 +39,6 @@ enum {
+>  
+>  #define MAX_RTR_SOLICITATION_DELAY	HZ
+>  
+> -#define ND_REACHABLE_TIME		(30*HZ)
+> -#define ND_RETRANS_TIMER		HZ
 
+ditto (in net/ipv6/ndisc.c)
+
+--yoshfuji
 
