@@ -1,44 +1,74 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH v2] add netdev led trigger
-Date: Mon, 29 Nov 2010 11:15:51 +0100
-Message-ID: <87ipzgl9k8.fsf@basil.nowhere.org>
-References: <1290998056-8310-1-git-send-email-ecc@cmu.edu>
+From: Shan Wei <shanwei@cn.fujitsu.com>
+Subject: [PATCH] sctp: kill unused macros in head file
+Date: Mon, 29 Nov 2010 18:14:58 +0800
+Message-ID: <4CF37D22.8090307@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, linux-doc@vger.kernel.org,
-	Richard Purdie <rpurdie@rpsys.net>,
-	Randy Dunlap <rdunlap@xenotime.net>, netdev@vger.kernel.org
-To: Eric Cooper <ecc@cmu.edu>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1290998056-8310-1-git-send-email-ecc@cmu.edu> (Eric Cooper's
-	message of "Sun, 28 Nov 2010 21:34:16 -0500")
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-Eric Cooper <ecc@cmu.edu> writes:
-
-> Add a netdev LED trigger for all Blinkenlights lovers...
-> Originally taken from https://dev.openwrt.org/ticket/2776
-> Slightly updated for 2.6.24 by Mickey Lauer <mickey@openmoko.org>
-> and for 2.6.36 by Eric Cooper <ecc@cmu.edu>
-
-You should really send this to netdev too.
-
-Some comments:
-
-The timer seems power unfriendly -- it will always tick even if nothing 
-happens.
-
-Using the device name as an identifier is not reliable, they may 
-not be unique.
-
-rwlocks are deprecated.
-
-your store code has a off by one I think, it's possible to put 
-not 0 terminated data in the string.
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Network-Maillist <netdev@vger.kernel.org>,
+	SCTP-Maillist <linux-sctp@vger.kernel.org>,
+	Shan Wei <shanwei@cn.fujitsu.com>
+To: Vlad Yasevich <vladislav.yasevich@hp.com>,
+	David Miller <davem@davemloft.net>,
+	shemminger@linux-foundation.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:53627 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751074Ab0K2KQn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Nov 2010 05:16:43 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
--Andi
+1. SCTP_CMD_NUM_VERBS,SCTP_CMD_MAX
+These two macros have never been used for several years since v2.6.12-rc2.
 
+2.sctp_port_rover,sctp_port_alloc_lock
+The commit 063930 abandoned global variables of port_rover and port_alloc_lock,
+but still keep two macros to refer to them.
+So, remove them now.
+
+commit 06393009000779b00a558fd2f280882cc7dc2008
+Author: Stephen Hemminger <shemminger@linux-foundation.org>
+Date:   Wed Oct 10 17:30:18 2007 -0700
+
+    [SCTP]: port randomization
+
+
+Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
+---
+ include/net/sctp/command.h |    3 ---
+ include/net/sctp/structs.h |    2 --
+ 2 files changed, 0 insertions(+), 5 deletions(-)
+
+diff --git a/include/net/sctp/command.h b/include/net/sctp/command.h
+index 2c55a7e..c01dc99 100644
+--- a/include/net/sctp/command.h
++++ b/include/net/sctp/command.h
+@@ -111,9 +111,6 @@ typedef enum {
+ 	SCTP_CMD_LAST
+ } sctp_verb_t;
+ 
+-#define SCTP_CMD_MAX		(SCTP_CMD_LAST - 1)
+-#define SCTP_CMD_NUM_VERBS	(SCTP_CMD_MAX + 1)
+-
+ /* How many commands can you put in an sctp_cmd_seq_t?
+  * This is a rather arbitrary number, ideally derived from a careful
+  * analysis of the state functions, but in reality just taken from
+diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+index 69fef4f..cc9185c 100644
+--- a/include/net/sctp/structs.h
++++ b/include/net/sctp/structs.h
+@@ -261,8 +261,6 @@ extern struct sctp_globals {
+ #define sctp_assoc_hashsize		(sctp_globals.assoc_hashsize)
+ #define sctp_assoc_hashtable		(sctp_globals.assoc_hashtable)
+ #define sctp_port_hashsize		(sctp_globals.port_hashsize)
+-#define sctp_port_rover			(sctp_globals.port_rover)
+-#define sctp_port_alloc_lock		(sctp_globals.port_alloc_lock)
+ #define sctp_port_hashtable		(sctp_globals.port_hashtable)
+ #define sctp_local_addr_list		(sctp_globals.local_addr_list)
+ #define sctp_local_addr_lock		(sctp_globals.addr_list_lock)
 -- 
-ak@linux.intel.com -- Speaking for myself only.
+1.6.3.3
+
+
