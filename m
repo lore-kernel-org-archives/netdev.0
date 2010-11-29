@@ -1,88 +1,125 @@
-From: Peppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: linux-next: build failure after merge of the net tree
-Date: Mon, 29 Nov 2010 08:25:05 +0100
-Message-ID: <4CF35551.40201@st.com>
-References: <20101129110824.639b2659.sfr@canb.auug.org.au>
- <20101128.181134.104049260.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] xps: add __rcu annotations
+Date: Mon, 29 Nov 2010 08:43:02 +0100
+Message-ID: <1291016582.29196.136.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "sfr@canb.auug.org.au" <sfr@canb.auug.org.au>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Tom Herbert <therbert@google.com>
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20101128.181134.104049260.davem@davemloft.net>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:49466 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751562Ab0K2HnJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Nov 2010 02:43:09 -0500
+Received: by wwa36 with SMTP id 36so4375414wwa.1
+        for <netdev@vger.kernel.org>; Sun, 28 Nov 2010 23:43:07 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/29/2010 3:11 AM, David Miller wrote:
->
-> From: Stephen Rothwell <sfr@canb.auug.org.au>
-> Date: Mon, 29 Nov 2010 11:08:24 +1100
->
-> > Hi all,
-> >
-> > After merging the net tree, today's linux-next build (x86_64
-> allmodconfig)
-> > failed like this:
-> >
-> > drivers/net/stmmac/stmmac_main.c: In function 'stmmac_resume':
-> > drivers/net/stmmac/stmmac_main.c:1849: error: 'struct stmmac_priv'
-> has no member named 'shutdown'
-> >
-> > Caused by commit 874bd42d24c2a74f5dbd65e81e175982240fecd8 ("stmmac:
-> > convert to dev_pm_ops").
-> >
->
+Avoid sparse warnings : add __rcu annotations and use
+rcu_dereference_protected() where necessary.
 
-Yes, this was my fault.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Tom Herbert <therbert@google.com>
+---
+ include/linux/netdevice.h |    4 ++--
+ net/core/net-sysfs.c      |   24 +++++++++++++++---------
+ 2 files changed, 17 insertions(+), 11 deletions(-)
 
-> > I have used the net tree from next-20101126 for today.
->
-> I have pushed the following fix which should cure this:
->
-> --------------------
-> stmmac: fix stmmac_resume removing not yet used shutdown flag
->
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 9ae4544..4b0c7f3 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -622,7 +622,7 @@ struct xps_map {
+  */
+ struct xps_dev_maps {
+ 	struct rcu_head rcu;
+-	struct xps_map *cpu_map[0];
++	struct xps_map __rcu *cpu_map[0];
+ };
+ #define XPS_DEV_MAPS_SIZE (sizeof(struct xps_dev_maps) +		\
+     (nr_cpu_ids * sizeof(struct xps_map *)))
+@@ -1049,7 +1049,7 @@ struct net_device {
+ 	spinlock_t		tx_global_lock;
+ 
+ #ifdef CONFIG_XPS
+-	struct xps_dev_maps	*xps_maps;
++	struct xps_dev_maps __rcu *xps_maps;
+ #endif
+ 
+ 	/* These may be needed for future network-power-down code. */
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index 99c1129..3ba2103 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -899,6 +899,8 @@ static void xps_dev_maps_release(struct rcu_head *rcu)
+ }
+ 
+ static DEFINE_MUTEX(xps_map_mutex);
++#define xmap_dereference(P)		\
++	rcu_dereference_protected((P), lockdep_is_held(&xps_map_mutex))
+ 
+ static ssize_t store_xps_map(struct netdev_queue *queue,
+ 		      struct netdev_queue_attribute *attribute,
+@@ -935,11 +937,12 @@ static ssize_t store_xps_map(struct netdev_queue *queue,
+ 
+ 	mutex_lock(&xps_map_mutex);
+ 
+-	dev_maps = dev->xps_maps;
++	dev_maps = xmap_dereference(dev->xps_maps);
+ 
+ 	for_each_possible_cpu(cpu) {
+-		new_map = map = dev_maps ? dev_maps->cpu_map[cpu] : NULL;
+-
++		map = dev_maps ?
++			xmap_dereference(dev_maps->cpu_map[cpu]) : NULL;
++		new_map = map;
+ 		if (map) {
+ 			for (pos = 0; pos < map->len; pos++)
+ 				if (map->queues[pos] == index)
+@@ -974,13 +977,14 @@ static ssize_t store_xps_map(struct netdev_queue *queue,
+ 			else
+ 				new_map = NULL;
+ 		}
+-		new_dev_maps->cpu_map[cpu] = new_map;
++		RCU_INIT_POINTER(new_dev_maps->cpu_map[cpu], new_map);
+ 	}
+ 
+ 	/* Cleanup old maps */
+ 	for_each_possible_cpu(cpu) {
+-		map = dev_maps ? dev_maps->cpu_map[cpu] : NULL;
+-		if (map && new_dev_maps->cpu_map[cpu] != map)
++		map = dev_maps ?
++			xmap_dereference(dev_maps->cpu_map[cpu]) : NULL;
++		if (map && xmap_dereference(new_dev_maps->cpu_map[cpu]) != map)
+ 			call_rcu(&map->rcu, xps_map_release);
+ 		if (new_dev_maps->cpu_map[cpu])
+ 			nonempty = 1;
+@@ -1006,7 +1010,9 @@ error:
+ 
+ 	if (new_dev_maps)
+ 		for_each_possible_cpu(i)
+-			kfree(new_dev_maps->cpu_map[i]);
++			kfree(rcu_dereference_protected(
++				new_dev_maps->cpu_map[i],
++				1));
+ 	kfree(new_dev_maps);
+ 	free_cpumask_var(mask);
+ 	return -ENOMEM;
+@@ -1032,11 +1038,11 @@ static void netdev_queue_release(struct kobject *kobj)
+ 	index = get_netdev_queue_index(queue);
+ 
+ 	mutex_lock(&xps_map_mutex);
+-	dev_maps = dev->xps_maps;
++	dev_maps = xmap_dereference(dev->xps_maps);
+ 
+ 	if (dev_maps) {
+ 		for_each_possible_cpu(i) {
+-			map  = dev_maps->cpu_map[i];
++			map = xmap_dereference(dev_maps->cpu_map[i]);
+ 			if (!map)
+ 				continue;
+ 
 
-The patch, David already applied, fixes this problem.
 
-Peppe
-
-> The commit to convert to use the dev_pm_ops struct
-> introduces a bug. The shutdown flag is not yet used
-> because the hibernation on memory is done by using
-> the freeze callback.
-> Thanks to Vlad for having reported it.
->
-> Reported-by: Vlad Lungu <vlad.lungu@windriver.com>
-> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> ---
->  drivers/net/stmmac/stmmac_main.c |    7 -------
->  1 files changed, 0 insertions(+), 7 deletions(-)
->
-> diff --git a/drivers/net/stmmac/stmmac_main.c
-> b/drivers/net/stmmac/stmmac_main.c
-> index f1dbc18..730a6fd 100644
-> --- a/drivers/net/stmmac/stmmac_main.c
-> +++ b/drivers/net/stmmac/stmmac_main.c
-> @@ -1846,13 +1846,6 @@ static int stmmac_resume(struct device *dev)
->         if (!netif_running(ndev))
->                 return 0;
->
-> -       if (priv->shutdown) {
-> -               /* Re-open the interface and re-init the MAC/DMA
-> -                  and the rings (i.e. on hibernation stage) */
-> -               stmmac_open(dev);
-> -               return 0;
-> -       }
-> -
->         spin_lock(&priv->lock);
->
->         /* Power Down bit, into the PM register, is cleared
-> --
-> 1.7.3.2
->
