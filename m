@@ -1,103 +1,135 @@
-From: David Brownell <david-b@pacbell.net>
-Subject: B43 on Inspiron 1545 w/Ubuntu
-Date: Sun, 28 Nov 2010 20:27:00 -0800
-Message-ID: <1291004820.2285.33.camel@helium>
+From: Matt Domsch <Matt_Domsch@Dell.com>
+Subject: biosdevname v0.3.1
+Date: Sun, 28 Nov 2010 22:48:04 -0600
+Message-ID: <20101129044804.GB29904@auslistsprd01.us.dell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: linux-hotplug@vger.kernel.org, netdev@vger.kernel.org,
+	"K, Narendra" <Narendra_K@Dell.com>,
+	"Hargrave, Jordan" <Jordan_Hargrave@Dell.com>,
+	"Rose, Charles" <Charles_Rose@Dell.com>,
+	Co
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm21-vm0.bullet.mail.ac4.yahoo.com ([98.139.53.216]:41408 "HELO
-	nm21-vm0.bullet.mail.ac4.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751600Ab0K2E1F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Nov 2010 23:27:05 -0500
+Received: from ausc60pc101.us.dell.com ([143.166.85.206]:6271 "EHLO
+	ausc60pc101.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754809Ab0K2EsI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Nov 2010 23:48:08 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+I've published biosdevname v0.3.1.  This has quite a few changes since
+the 0.2.4 version published over 3 years ago.  Grab it here:
 
-Briefly, it's never worked well and I'm hoping someone can help.
+http://linux.dell.com/files/biosdevname/permalink/biosdevname-0.3.1.tar.gz
+http://linux.dell.com/files/biosdevname/permalink/biosdevname-0.3.1.tar.gz.sign
+GIT: http://linux.dell.com/cgi-bin/gitweb/gitweb.cgi?p=biosdevname.git;a=summary
 
-The OS is currently Ubuntu 10.04.1 ... recent updates included B43
-from wireless-backports, I think; I saw  One positive change,
-but it still doesn't work.  (Yeah, 2.6.32 isn't recent, but I'm not
-much trusting the non-existent account backup here. so an upgrade
-to 10.10.x isn't yet in the cards.  And this is supposed to work
-already, in any case...
+Highlights:
+- uses sysfs index and SMBIOS information if available.
+- The only policies that remain are the new default 'physical' policy
+  that uses sysfs index (SMBIOS), and the historic all_ethN policy
+  that is only usable in non-hotplug environments.
+- works on SR-IOV devices as well as traditional NICs
 
-History:  Didn't work at first, the driver had a DMA bug.  Based
-on a forum post I installed the backports using Ethernet.  After
-more setup and a few days, WLAN began working relatively well ...
-for a period of maybe five days, then completely stopped working
-in the middle of a webpage access (last summer).
-NetworkManager kept saying wireless was disabled (and rejected all
-attempts to re-enable.  10+ months passed (Ethernet works fine).
+The naming policy it suggests are as follows:
 
-	NOTE to "NetworkManager" folk ... please fix it so that
-when you select "enable wireless" it either does so, or says why it
-didn't.  This "Ignore user commands" crap is garbage.  and for
-that matter -- instead of  saying "disabled", try saying why/how;
-I certainly never disabled WLAN. or "Networking" as a whole either,
-so in that sense it's just a bug.  In particular, there was never
-any explicit user "disable" action (to parallel the "enable" menu
-option provided) by NM).
+Embedded devices: em<port>
+Add-in PCI cards: pci<slot>#<port>_<virtual function instance>
 
-To my surprise and pleasure, the WLAN worked for about two
-hours of  web browsing in a hotel lobby, after disconnecting from
-a wired connection; no odd behaviors at all, beyond trying at first
-to connect as wired, when there was no wire available.
-
-Hasn't worked from various coffee shops either.  As if maybe something
-in NetworkManager transferred state from wired to WLAN, sufficient to
-make it work ... but coffee shops wouldn't support such state transfer
-between my home LAN and the coffee WLAN.  (That hotel had one network
-provider for both wired and WLAN/lobby).
+My goal is to get this into Fedora 15, RHEL 6.x (x TBD), Debian, Ubuntu Natty,
+openSUSE, and any other distribution that will have it.
 
 
-The only other time this came close to working was on an airplane,
-where it saw "gogoinflight" but crapped out after a few minutes.
-(Sorry no details on how/why; maybe it would have been happier if
-I'd finished signing up before it crapped out
 
-A recent Ubuntu update changed behavior in a positive way:  when
-I looked at "dmesg" (as few normal users would try to do), it
-changed behavior and complained about a hardware RFKILL button.
+git shortlog:
 
-Let it be noted that there is no such button ... but BIOS F2 is
-probably what it means.  Unfortunately I can't figure out how to
-make that button work ... the manual is not at best weak.  (Suggests
-just press F2, not FN-F2, forums say the latter, but neither one has
-worked for me .  (Plus there is no visual rfkill indication (LED
- or otherwise) as I'm used to on other hardware.  I guess on this
-hardware Dell cheaped out past the point usability was affected.
+Gabriel C (1):
+      add make uninstall target
 
- The undocumented "rfkill" command says WLAN is "hard blocked".
-Puzzling, considering I've never tried to block WLAN access, and
-it appears to have decided to spontaneously off itself.
+Jordan Hargrave (2):
+      fix mmap() return check
+      bump version
 
-I'm moderately hopeful that if I could make F2 work, then I'd
-have WLAN.  Hope does spring eternal, as they say... Can someone
-please offer some hints for me?
+Matt Domsch (72):
+      Fix 'make deb' so it works.
+      add 'make sdeb' for source debian packages for review
+      include pkg/debian/ in tarball
+      rpm specs: manpages are sometimes automatically compressed
+      rpm spec: fix manpage in %files, add udev version requirement for Fedora
+      update Makefile.in
+      add chassis_label field
+      add smbios_names naming policy
+      ensure display buffer is long enough and zeroed before use
+      bug fix: s/sprintf/snprintf/ leading to SEGV
+      dmidecode: get proper chassis label string
+      naming_policy: fix smbios_names reporting
+      exit with error code if --policy=smbios_names but BIOS doesn't have the info
+      make dev->bios_name[] a pointer
+      udev rules: don't rename, create symlinks in net/by-slot-name and net/by-chassis-label instead
+      strip trailing whitespace from SMBIOS strings
+      remove extra spaces in udev rules, to work around udev bug
+      add intermediary program /lib/udev/netdevice to cycle through biosdevname policies
+      finish fixing up configure/Makefiles
+      start netdevnames at 71; make netdevice exectuable
+      s/chassis_label/smbios_label/
+      move sysfs reading function from pcmcia to its own file
+      read sysfs label and index files for PCI devices
+      minor cleanups; dead code removal
+      remove generated files from source control
+      configure: note requires pciutils-devel
+      read label and index from sysfs if present
+      add policy=loms, make it default
+      add .gitignore
+      silently handle running in virtualization, bug fix storing sysfs label
+      better configure messages on missing zlib-devel and pciutils-devel
+      fix buglet in add_interface, with thanks to gcc 4.4.5 -Wall
+      don't use perror() to print meaningless warnings to users
+      don't print error opening /dev/mem, as fails on KVM guests
+      bugfixes in reading sysfs files
+      invoke biosdevname directly from udev rule, --policy=loms
+      remove the netdevice script from install
+      add policy=loms to manpage
+      fix Makefile uninstall-local failure
+      fix udev rules typo
+      finish removing netdevice script
+      update changelogs, bump version
+      rename policy=loms to =embedded, use enX instead of lomX
+      make embedded NIC name configurable, default ='en'
+      add --prefix to manpage
+      Use sysfs to find parent devices and slot
+      add --policy=pony (to be renamed later) naming of PCI devices
+      attach VFs to PFs, unparse the lists when debugging
+      assign names to PCI VFs as pci1#0_2 for slot 1, port 0, VF 2
+      change default embedded prefix to "em"
+      allow all combinations of embedded/add-in, PF or VF, in naming
+      don't use #port nomenclature for embedded devices
+      mark HP embedded NICs as being embedded
+      remove unused function
+      s/pony/physical/
+      fix udev rule policy name
+      change udev rule to set NAME=, so stateful names persistent names aren't written to 70-persistent-net.rules
+      add additional checks and define _GNU_SOURCE in configure.ac
+      get VF index from sysfs
+      fix getting VF indices from sysfs
+      more fixes for SRIOV detection
+      move setting slot_index into pci.c, fixes failures with SR-IOV devices; other cleanups.
+      don't print to stderr on SIOCGIFHWADDR failure
+      note that index_in_slot is only valid for physical slot PF devices
+      POLICY DELETIONS: delete all policies but all_ethN and physical (default)
+      only print Index in slot where it's valid
+      fix manpage for policy deletions
+      clean up manpage and help text
+      fix use of uses_smbios
+      update manpage with the naming policies in use now
+      document return codes in manpage
+      bump version string to 0.3.1
 
-While I'm writing here, I'll just comment that NetworkManager has
-seemed to make this whole thing maximally painful/mysterious.
 
+Thanks,
+Matt
 
-Recent dmesg output below.
-
-
-[  680.493965] b43-phy0: Broadcom 4312 WLAN found (core revision 15)
-[  680.660736] phy0: Selected rate control algorithm 'minstrel'
-[  680.661406] Registered led device: b43-phy0::tx
-[  680.661423] Registered led device: b43-phy0::rx
-[  680.661437] Registered led device: b43-phy0::radio
-[  680.661519] Broadcom 43xx driver loaded [ Features: PMNLS,
-Firmware-ID: FW13 ]
-[  680.960280] b43-phy0: Loading firmware version 410.2160 (2007-05-26
-15:32:10)
-[  681.700410] b43-phy0: Radio hardware status changed to DISABLED
-[  681.730361] b43-phy0: Radio turned on by software
-[  681.730368] b43-phy0: The hardware RF-kill button still turns the
-radio physically off. Press the button to turn it on.
-[  681.731490] ADDRCONF(NETDEV_UP): wlan0: link is not ready
-
-
+-- 
+Matt Domsch
+Technology Strategist
+Dell | Office of the CTO
