@@ -1,8 +1,8 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] vhost: fix typos in comment
-Date: Mon, 29 Nov 2010 10:05:49 +0200
-Message-ID: <20101129080549.GA25496@redhat.com>
-References: <20101129054840.24951.29849.stgit@dhcp-91-7.nay.redhat.com.englab.nay.redhat.com>
+Subject: Re: [PATCH] vhost: correctly set bits of dirty pages
+Date: Mon, 29 Nov 2010 10:18:41 +0200
+Message-ID: <20101129081840.GB25496@redhat.com>
+References: <20101129054819.24923.26439.stgit@dhcp-91-7.nay.redhat.com.englab.nay.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: virtualization@lists.osdl.org, netdev@vger.kernel.org,
@@ -10,43 +10,51 @@ Cc: virtualization@lists.osdl.org, netdev@vger.kernel.org,
 To: Jason Wang <jasowang@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20101129054840.24951.29849.stgit@dhcp-91-7.nay.redhat.com.englab.nay.redhat.com>
+In-Reply-To: <20101129054819.24923.26439.stgit@dhcp-91-7.nay.redhat.com.englab.nay.redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 29, 2010 at 01:48:40PM +0800, Jason Wang wrote:
+On Mon, Nov 29, 2010 at 01:48:20PM +0800, Jason Wang wrote:
+> When counting pages we should increase it by 1 instead of VHOST_PAGE_SIZE,
+> and also make log_write() can correctly process the request across
+> pages with write_address not start at page boundary.
+> 
 > Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-Applied, thanks.
 
-> ---
->  drivers/vhost/net.c   |    2 +-
->  drivers/vhost/vhost.h |    2 +-
->  2 files changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-> index d10da28..14fc189 100644
-> --- a/drivers/vhost/net.c
-> +++ b/drivers/vhost/net.c
-> @@ -452,7 +452,7 @@ static void handle_rx_mergeable(struct vhost_net *net)
->  			move_iovec_hdr(vq->iov, vq->hdr, vhost_hlen, in);
->  		else
->  			/* Copy the header for use in VIRTIO_NET_F_MRG_RXBUF:
-> -			 * needed because sendmsg can modify msg_iov. */
-> +			 * needed because recvmsg can modify msg_iov. */
->  			copy_iovec_hdr(vq->iov, vq->hdr, sock_hlen, in);
->  		msg.msg_iovlen = in;
->  		err = sock->ops->recvmsg(NULL, sock, &msg,
-> diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
-> index 073d06a..2af44b7 100644
-> --- a/drivers/vhost/vhost.h
-> +++ b/drivers/vhost/vhost.h
-> @@ -102,7 +102,7 @@ struct vhost_virtqueue {
->  	 * flush the vhost_work instead of synchronize_rcu. Therefore readers do
->  	 * not need to call rcu_read_lock/rcu_read_unlock: the beginning of
->  	 * vhost_work execution acts instead of rcu_read_lock() and the end of
-> -	 * vhost_work execution acts instead of rcu_read_lock().
-> +	 * vhost_work execution acts instead of rcu_read_unlock().
->  	 * Writers use virtqueue mutex. */
->  	void __rcu *private_data;
->  	/* Log write descriptors */
+Thanks, good catch!
+But let's to it in small steps: first, a small patch to fix the bug:
+I think this is equivalent, right?
+
+Subject: vhost: correctly set bits of dirty pages
+
+When counting pages we should increase address by 1 instead of
+VHOST_PAGE_SIZE, and also make log_write() can correctly process the
+request across pages with write_address not starting at page boundary.
+
+Reported-by: Jason Wang <jasowang@redhat.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+
+---
+
+diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+index 568eb70..d0a3552 100644
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -887,6 +887,7 @@ static int log_write(void __user *log_base,
+ 	int r;
+ 	if (!write_length)
+ 		return 0;
++	write_length += write_address % VHOST_PAGE_SIZE;
+ 	write_address /= VHOST_PAGE_SIZE;
+ 	for (;;) {
+ 		u64 base = (u64)(unsigned long)log_base;
+@@ -900,7 +901,7 @@ static int log_write(void __user *log_base,
+ 		if (write_length <= VHOST_PAGE_SIZE)
+ 			break;
+ 		write_length -= VHOST_PAGE_SIZE;
+-		write_address += VHOST_PAGE_SIZE;
++		write_address += 1;
+ 	}
+ 	return r;
+ }
