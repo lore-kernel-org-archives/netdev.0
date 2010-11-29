@@ -1,85 +1,49 @@
-From: Albert Pretorius <albertpretorius@yahoo.co.uk>
-Subject: IPV6 loopback bound socket succeeds connecting to remote host
-Date: Mon, 29 Nov 2010 10:55:46 +0000 (GMT)
-Message-ID: <328335.88387.qm@web29006.mail.ird.yahoo.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] net-next: Fix __inet_inherit_port() to correctly
+	increment bsockets and num_owners
+Date: Mon, 29 Nov 2010 12:39:09 +0000
+Message-ID: <20101129123909.GA9286@ff.dom.local>
+References: <20101128230041.GA16269@ioremap.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Nagendra Tomar <tomer_iisc@yahoo.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, Eric Dumazet <eric.dumazet@gmail.com>
+To: Evgeniy Polyakov <zbr@ioremap.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm11-vm0.bullet.mail.ird.yahoo.com ([77.238.189.218]:38314 "HELO
-	nm11-vm0.bullet.mail.ird.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751872Ab0K2Kzr convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Nov 2010 05:55:47 -0500
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:42705 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753442Ab0K2MjL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Nov 2010 07:39:11 -0500
+Received: by fxm8 with SMTP id 8so31922fxm.19
+        for <netdev@vger.kernel.org>; Mon, 29 Nov 2010 04:39:10 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20101128230041.GA16269@ioremap.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi
-I found a problem with ipv6 when a UDP socket is bound to loopback (::1) and connecting to a remote address. The same applies to TCP.
-Any data sent ends up on the remote host with a source address of loopback. The expected result of the connect should be EINVAL just like it is for ipv4.
-Here is a possible patch that fixes this problem below. I tested it on 2.6.37-rc3 using a tool I put on http://www.gitorious.org/bindconnect
+On 2010-11-29 00:00, Evgeniy Polyakov wrote:
+> Hi.
+> 
+> On Fri, Nov 26, 2010 at 04:26:27PM -0800, Nagendra Tomar (tomer_iisc@yahoo.com) wrote:
+>> inet sockets corresponding to passive connections are added to the bind hash
+>> using ___inet_inherit_port(). These sockets are later removed from the bind 
+>> hash using __inet_put_port(). These two functions are not exactly symmetrical. 
+>> __inet_put_port() decrements hashinfo->bsockets and tb->num_owners, whereas 
+>> ___inet_inherit_port() does not increment them. This results in both of these 
+>> going to -ve values.
+>>
+>> This patch fixes this by calling inet_bind_hash() from ___inet_inherit_port(),
+>> which does the right thing.
+>>
+>> 'bsockets' and 'num_owners' were introduced by commit a9d8f9110d7e953c 
+>> (inet: Allowing more than 64k connections and heavily optimize bind(0))
+> 
+> Yup, things changed from that simple patch a lot.
+> Thanks for fixing it up.
+> Ack.
 
-----8<----
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 99157b4..a0de66c 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -927,6 +927,7 @@ static int ip6_dst_lookup_tail(struct sock *sk,
- {
-    int err;
-    struct net *net = sock_net(sk);
-+   struct net_device *dev_out;
+Probably I miss something, but since bsockets is increased by each
+passive connection now, it seems it will trigger "hash table is full"
+too early?
 
-    if (*dst == NULL)
-        *dst = ip6_route_output(net, sk, fl);
-@@ -934,6 +935,32 @@ static int ip6_dst_lookup_tail(struct sock *sk,
-    if ((err = (*dst)->error))
-        goto out_err_release;
-
-+   dev_out = ip6_dst_idev(*dst)->dev;
-+   if (dev_out && ipv6_addr_loopback(&fl->fl6_src) &&
-+           !(dev_out->flags & IFF_LOOPBACK)) {
-+       /*
-+        * If socket is bound to loopback address but interface
-+        * is not then it is invalid...
-+        */
-+       struct inet6_ifaddr *ifa;
-+       struct inet6_dev *idev = in6_dev_get(dev_out);
-+       err = -EINVAL;
-+       if (idev) {
-+           list_for_each_entry(ifa, &idev->addr_list, if_list)
-+           {
-+               /*
-+                * ... unless the interface has the same address
-+                */
-+               if (ipv6_addr_equal(&ifa->addr, &fl->fl6_dst))
-+                   err = 0;
-+           }
-+           in6_dev_put(idev);
-+       }
-+
-+       if (err)
-+           goto out_err_release;
-+   }
-+
-    if (ipv6_addr_any(&fl->fl6_src)) {
-        err = ipv6_dev_get_saddr(net, ip6_dst_idev(*dst)->dev,
-                     &fl->fl6_dst,
----->8----
-
-The bindconnect tool is build with just make and run like:
-
-./obj/bindconnect -l ::1 9999 -r nnnn::nnn:nnnn:nnnn:nnnn%eth0 4444 -u
-ERROR: Error occurred during connect() : Invalid argument
-
-without the patch a UDP datagram is sent and TCP sends a SYN.
-
-Please CC me personally as I am not subscribed to the mailing list.
-
-thanks,
-Albert Pretorius
-
-
-
-      
+Jarek P.
