@@ -1,58 +1,52 @@
-From: Shreyas Bhatewara <sbhatewara@vmware.com>
-Subject: RE: linux-next: Tree for November 26
-Date: Mon, 29 Nov 2010 00:03:45 -0800
-Message-ID: <89E2752CFA8EC044846EB8499819134102BD7E186A@EXCH-MBX-4.vmware.com>
-References: <20101126132823.7ef94f07.sfr@canb.auug.org.au>,<AANLkTinJUT=j_P9FSB=GWTLy4Bkr68iWmB2O=5Q3gcT-@mail.gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] vhost: fix typos in comment
+Date: Mon, 29 Nov 2010 10:05:49 +0200
+Message-ID: <20101129080549.GA25496@redhat.com>
+References: <20101129054840.24951.29849.stgit@dhcp-91-7.nay.redhat.com.englab.nay.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"VMware, Inc." <pv-drivers@vmware.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Scott Goldman <scottjg@vmware.com>
-To: Zimny Lech <napohybelskurwysynom2010@gmail.com>,
-	Stephen Rothwell <sfr@canb.auug.org.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: virtualization@lists.osdl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kvm@vger.kernel.org
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTinJUT=j_P9FSB=GWTLy4Bkr68iWmB2O=5Q3gcT-@mail.gmail.com>
-Content-Language: en-US
+Content-Disposition: inline
+In-Reply-To: <20101129054840.24951.29849.stgit@dhcp-91-7.nay.redhat.com.englab.nay.redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thanks for reporting.
-Thanks to Scott, the fix went in net-next tree, commit number : e9248fb=
-d6b6f7ef1917bfffe998654e40dfb4cfd
+On Mon, Nov 29, 2010 at 01:48:40PM +0800, Jason Wang wrote:
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-->Shreyas
+Applied, thanks.
 
-________________________________________
-=46rom: Zimny Lech [napohybelskurwysynom2010@gmail.com]
-Sent: Saturday, November 27, 2010 12:38 AM
-To: Stephen Rothwell
-Cc: linux-next@vger.kernel.org; LKML; Shreyas Bhatewara; VMware, Inc.; =
-netdev@vger.kernel.org
-Subject: Re: linux-next: Tree for November 26
-
-Ave
-
-2010/11/26 Stephen Rothwell <sfr@canb.auug.org.au>:
-> Hi all,
->
-> Changes since 20101125:
-
-
-  CC      drivers/net/vmxnet3/vmxnet3_drv.o
-  CC      drivers/net/vmxnet3/vmxnet3_ethtool.o
-/home/test/linux-2.6/drivers/net/vmxnet3/vmxnet3_ethtool.c: In
-function 'vmxnet3_get_rss_indir':
-/home/test/linux-2.6/drivers/net/vmxnet3/vmxnet3_ethtool.c:562:40:
-error: 'struct vmxnet3_adapter' has no member named 'rss_conf'
-/home/test/linux-2.6/drivers/net/vmxnet3/vmxnet3_ethtool.c: In
-function 'vmxnet3_set_rss_indir':
-/home/test/linux-2.6/drivers/net/vmxnet3/vmxnet3_ethtool.c:578:40:
-error: 'struct vmxnet3_adapter' has no member named 'rss_conf'
-make[4]: *** [drivers/net/vmxnet3/vmxnet3_ethtool.o] Error 1
-make[3]: *** [drivers/net/vmxnet3] Error 2
-make[2]: *** [drivers/net] Error 2
-make[1]: *** [drivers] Error 2
-make: *** [sub-make] Error 2
+> ---
+>  drivers/vhost/net.c   |    2 +-
+>  drivers/vhost/vhost.h |    2 +-
+>  2 files changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+> index d10da28..14fc189 100644
+> --- a/drivers/vhost/net.c
+> +++ b/drivers/vhost/net.c
+> @@ -452,7 +452,7 @@ static void handle_rx_mergeable(struct vhost_net *net)
+>  			move_iovec_hdr(vq->iov, vq->hdr, vhost_hlen, in);
+>  		else
+>  			/* Copy the header for use in VIRTIO_NET_F_MRG_RXBUF:
+> -			 * needed because sendmsg can modify msg_iov. */
+> +			 * needed because recvmsg can modify msg_iov. */
+>  			copy_iovec_hdr(vq->iov, vq->hdr, sock_hlen, in);
+>  		msg.msg_iovlen = in;
+>  		err = sock->ops->recvmsg(NULL, sock, &msg,
+> diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
+> index 073d06a..2af44b7 100644
+> --- a/drivers/vhost/vhost.h
+> +++ b/drivers/vhost/vhost.h
+> @@ -102,7 +102,7 @@ struct vhost_virtqueue {
+>  	 * flush the vhost_work instead of synchronize_rcu. Therefore readers do
+>  	 * not need to call rcu_read_lock/rcu_read_unlock: the beginning of
+>  	 * vhost_work execution acts instead of rcu_read_lock() and the end of
+> -	 * vhost_work execution acts instead of rcu_read_lock().
+> +	 * vhost_work execution acts instead of rcu_read_unlock().
+>  	 * Writers use virtqueue mutex. */
+>  	void __rcu *private_data;
+>  	/* Log write descriptors */
