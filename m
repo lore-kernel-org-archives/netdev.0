@@ -1,53 +1,84 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: [PATCH] net-next: Fix __inet_inherit_port() to correctly
- increment bsockets and num_owners
-Date: Mon, 29 Nov 2010 15:51:02 +0300
-Message-ID: <20101129125102.GA17736@ioremap.net>
-References: <20101128230041.GA16269@ioremap.net>
- <20101129123909.GA9286@ff.dom.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Nagendra Tomar <tomer_iisc@yahoo.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, Eric Dumazet <eric.dumazet@gmail.com>
-To: Jarek Poplawski <jarkao2@gmail.com>
+From: Petr Sabata <psabata@redhat.com>
+Subject: [PATCH] ss(8) improvements by Jiri Popelka <jpopelka@redhat.com>
+Date: Mon, 29 Nov 2010 14:00:37 +0100
+Message-ID: <1291035637-15274-1-git-send-email-psabata@redhat.com>
+To: psabata@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from genesysrack.ru ([195.178.208.66]:60859 "EHLO tservice.net.ru"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752204Ab0K2MvE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Nov 2010 07:51:04 -0500
-Content-Disposition: inline
-In-Reply-To: <20101129123909.GA9286@ff.dom.local>
+Received: from mx1.redhat.com ([209.132.183.28]:10481 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753948Ab0K2NDD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Nov 2010 08:03:03 -0500
+Received: from int-mx11.intmail.prod.int.phx2.redhat.com (int-mx11.intmail.prod.int.phx2.redhat.com [10.5.11.24])
+	by mx1.redhat.com (8.13.8/8.13.8) with ESMTP id oATD32N2016271
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Mon, 29 Nov 2010 08:03:02 -0500
+Received: from beranek.brq.redhat.com (dhcp-24-167.brq.redhat.com [10.34.24.167])
+	by int-mx11.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id oATD2wff031395
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES128-SHA bits=128 verify=NO)
+	for <netdev@vger.kernel.org>; Mon, 29 Nov 2010 08:03:01 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 29, 2010 at 12:39:09PM +0000, Jarek Poplawski (jarkao2@gmail.com) wrote:
-> >> inet sockets corresponding to passive connections are added to the bind hash
-> >> using ___inet_inherit_port(). These sockets are later removed from the bind 
-> >> hash using __inet_put_port(). These two functions are not exactly symmetrical. 
-> >> __inet_put_port() decrements hashinfo->bsockets and tb->num_owners, whereas 
-> >> ___inet_inherit_port() does not increment them. This results in both of these 
-> >> going to -ve values.
-> >>
-> >> This patch fixes this by calling inet_bind_hash() from ___inet_inherit_port(),
-> >> which does the right thing.
-> >>
-> >> 'bsockets' and 'num_owners' were introduced by commit a9d8f9110d7e953c 
-> >> (inet: Allowing more than 64k connections and heavily optimize bind(0))
-> > 
-> > Yup, things changed from that simple patch a lot.
-> > Thanks for fixing it up.
-> > Ack.
-> 
-> Probably I miss something, but since bsockets is increased by each
-> passive connection now, it seems it will trigger "hash table is full"
-> too early?
+---
+ man/man8/ss.8 |   19 +++++++++++--------
+ 1 files changed, 11 insertions(+), 8 deletions(-)
 
-Why would it? bsockets and num_owners are supposed to be increased for each
-new socket added into the table, and are used as a hint to find a bucket with
-the smallest number of sockets in it.
-
-Hash table insertion did not change, only bucket selection algorithm got
-a hint.
-
+diff --git a/man/man8/ss.8 b/man/man8/ss.8
+index 015feb3..f261cf2 100644
+--- a/man/man8/ss.8
++++ b/man/man8/ss.8
+@@ -12,6 +12,9 @@ to
+ It can display more TCP and state informations than other tools.
+ 
+ .SH OPTIONS
++When no option is used ss displays a list of 
++open non-listening TCP sockets that have established connection.
++.TP
+ These programs follow the usual GNU command line syntax, with long
+ options starting with two dashes (`-').
+ A summary of options is included below.
+@@ -29,10 +32,10 @@ Do now try to resolve service names.
+ Try to resolve numeric address/ports.
+ .TP
+ .B \-a, \-\-all
+-Display all sockets.
++Display both listening and non-listening (for TCP this means established connections) sockets.
+ .TP
+ .B \-l, \-\-listening
+-Display listening sockets.
++Display only listening sockets (these are omitted by default).
+ .TP
+ .B \-o, \-\-options
+ Show timer information.
+@@ -61,22 +64,22 @@ Display only IP version 4 sockets (alias for -f inet).
+ Display only IP version 6 sockets (alias for -f inet6).
+ .TP
+ .B \-0, \-\-packet
+-Display PACKET sockets.
++Display PACKET sockets (alias for -f link).
+ .TP
+ .B \-t, \-\-tcp
+-Display only TCP sockets.
++Display TCP sockets.
+ .TP
+ .B \-u, \-\-udp
+-Display only UDP sockets.
++Display UDP sockets.
+ .TP
+ .B \-d, \-\-dccp
+-Display only DCCP sockets.
++Display DCCP sockets.
+ .TP
+ .B \-w, \-\-raw
+-Display only RAW sockets.
++Display RAW sockets.
+ .TP
+ .B \-x, \-\-unix
+-Display only Unix domain sockets.
++Display Unix domain sockets (alias for -f unix).
+ .TP
+ .B \-f FAMILY, \-\-family=FAMILY
+ Display sockets of type FAMILY.
 -- 
-	Evgeniy Polyakov
+1.7.3.2
+
