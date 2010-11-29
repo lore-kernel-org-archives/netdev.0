@@ -1,54 +1,48 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build failure after merge of the net tree
-Date: Mon, 29 Nov 2010 11:08:24 +1100
-Message-ID: <20101129110824.639b2659.sfr@canb.auug.org.au>
+From: "Tomoya MORINAGA" <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6 06/19 v5] can: EG20T PCH: Fix endianness issue
+Date: Mon, 29 Nov 2010 09:19:13 +0900
+Message-ID: <003c01cb8f5b$0f13e8b0$66f8800a@maildom.okisemi.com>
+References: <4CEF178C.2050506@dsn.okisemi.com>
+	<4CEF835C.7000304@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Mon__29_Nov_2010_11_08_24_+1100_EAdUC6t0AXb0tCIi"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>, joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+To: "Marc Kleine-Budde" <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Mon__29_Nov_2010_11_08_24_+1100_EAdUC6t0AXb0tCIi
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On Friday, November 26, 2010 6:52 PM, Marc Kleine-Budde wrote :
 
-Hi all,
+> In an OOM situation the system is under pressure anyway. On low end
+> systems it not good to print a message to the log. AFAICS no other can
+> driver does this.
 
-After merging the net tree, today's linux-next build (x86_64 allmodconfig)
-failed like this:
+Does the above mean it doesn't have to process for returned value of
+pch_can_rx_msg_lost  like below?
+> +   pch_can_rx_msg_lost(ndev, obj_num);
+> +   rcv_pkts++;
+> +   quota--;
 
-drivers/net/stmmac/stmmac_main.c: In function 'stmmac_resume':
-drivers/net/stmmac/stmmac_main.c:1849: error: 'struct stmmac_priv' has no m=
-ember named 'shutdown'
+> AFAICS no other can driver does this.
+I can see ti_hecc.c calls dev_err when alloc_can_err_skb fails.
 
-Caused by commit 874bd42d24c2a74f5dbd65e81e175982240fecd8 ("stmmac:
-convert to dev_pm_ops").
+Thanks,
 
-I have used the net tree from next-20101126 for today.
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
-
---Signature=_Mon__29_Nov_2010_11_08_24_+1100_EAdUC6t0AXb0tCIi
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iQEcBAEBAgAGBQJM8u74AAoJEDMEi1NhKgbsJygH/0/75pGUQg6pDoeSgPaEzFI3
-6BQejrhc7rDFFlMz3tjeLd6CUCupfeBRm9gAbK5PfGtjNPtaIYTb0AnUCQvp2rfq
-nTodeGmkB6nalkZoKjSNEulRxgYGxVFem9Qd3SVoyXYQ0z1/pBvBeMYGZm2++px3
-D3gLloCIiYeo7hbYJ2C4jzm1ueQZPkzbsttu/G9xYJHpeSDydTBYMTQTs+1/T6C0
-CkZIDDvbRFaf703JP5GAq2BcksEmkLOFRJ8blQuKk+7GbV9YFjx4dCbmsVrIob6H
-YdzGNjMM8XP44BcYWI58FELYKHIQptQZgHqNOX6WXrS0zoDAeFZTrgh2e1sAahs=
-=GS1W
------END PGP SIGNATURE-----
-
---Signature=_Mon__29_Nov_2010_11_08_24_+1100_EAdUC6t0AXb0tCIi--
+Tomoya MORINAGA
+OKI SEMICONDUCTOR CO., LTD.
