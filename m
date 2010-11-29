@@ -1,115 +1,43 @@
 From: Jack Byer <ftn768@gmail.com>
-Subject: atl1e error messages in syslog
-Date: Sun, 28 Nov 2010 18:20:40 -0600
-Message-ID: <AANLkTikKb-B5RpMY0S3gbWrJ0FmzJqKmnQ1SiE+fXTZS@mail.gmail.com>
+Subject: Re: atl1e error messages in syslog
+Date: Sun, 28 Nov 2010 18:29:36 -0600
+Message-ID: <AANLkTikQ0MDV76shwu5hVy-U4qF_ryHpx+JVV46Ly24+@mail.gmail.com>
+References: <AANLkTikKb-B5RpMY0S3gbWrJ0FmzJqKmnQ1SiE+fXTZS@mail.gmail.com>
+	<0FBC7C9C2640634A8B837C2EFFCFF32F01020383D1@SHEXMB-01.global.atheros.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: jcliburn@gmail.com, chris.snook@gmail.com, jie.yang@atheros.com
+Cc: "jcliburn@gmail.com" <jcliburn@gmail.com>,
+	"chris.snook@gmail.com" <chris.snook@gmail.com>,
+	Cloud Ren <Cloud.Ren@atheros.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Xiong Huang <Xiong.Huang@atheros.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f181.google.com ([209.85.216.181]:32783 "EHLO
-	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754334Ab0K2AUl convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Nov 2010 19:20:41 -0500
-Received: by qyk12 with SMTP id 12so5638531qyk.19
-        for <netdev@vger.kernel.org>; Sun, 28 Nov 2010 16:20:40 -0800 (PST)
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:49076 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754176Ab0K2A3h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Nov 2010 19:29:37 -0500
+Received: by qwb7 with SMTP id 7so3879410qwb.19
+        for <netdev@vger.kernel.org>; Sun, 28 Nov 2010 16:29:36 -0800 (PST)
+In-Reply-To: <0FBC7C9C2640634A8B837C2EFFCFF32F01020383D1@SHEXMB-01.global.atheros.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I keep getting this in my syslog. Is it something I should be
-concerned about or is it normal?
+On Sun, Nov 28, 2010 at 6:26 PM, Xiong Huang <Xiong.Huang@atheros.com> wrote:
+> It's abnormal. Could you tell us the driver version & pci device ID?
+>
+I am using kernel version 2.6.36.1
 
-=E2=80=8BNov 28 15:10:08 [kernel] ATL1E 0000:02:00.0: eth0: rx sequence=
- number
-error (rx=3D13978) (expect=3D14539)
-Nov 28 15:10:08 [kernel] ATL1E 0000:02:00.0: eth0: NIC Link is Up
-<1000 Mbps Full Duplex>
-Nov 28 15:10:14 [kernel] ATL1E 0000:02:00.0: eth0: rx sequence number
-error (rx=3D3653) (expect=3D4219)
-Nov 28 15:10:14 [kernel] ATL1E 0000:02:00.0: eth0: NIC Link is Up
-<1000 Mbps Full Duplex>
-Nov 28 15:11:12 [kernel] ATL1E 0000:02:00.0: eth0: rx sequence number
-error (rx=3D41450) (expect=3D42174)
-Nov 28 15:11:12 [kernel] ATL1E 0000:02:00.0: eth0: NIC Link is Up
-<1000 Mbps Full Duplex>
-Nov 28 15:11:39 [kernel] ATL1E 0000:02:00.0: eth0: rx sequence number
-error (rx=3D14086) (expect=3D14679)
-Nov 28 15:11:39 [kernel] ATL1E 0000:02:00.0: eth0: NIC Link is Up
-<1000 Mbps Full Duplex>
-Nov 28 15:11:59 [kernel] ATL1E 0000:02:00.0: eth0: rx sequence number
-error (rx=3D9855) (expect=3D10367)
-Nov 28 15:11:59 [kernel] ATL1E 0000:02:00.0: eth0: NIC Link is Up
-<1000 Mbps Full Duplex>
-Nov 28 15:12:15 [kernel] ATL1E 0000:02:00.0: eth0: rx sequence number
-error (rx=3D8292) (expect=3D8939)
-Nov 28 15:12:15 [kernel] ATL1E 0000:02:00.0: eth0: NIC Link is Up
-<1000 Mbps Full Duplex>
-Nov 28 15:12:19 [kernel] ATL1E 0000:02:00.0: eth0: rx sequence number
-error (rx=3D1097) (expect=3D1766)
-Nov 28 15:12:19 [kernel] ATL1E 0000:02:00.0: eth0: NIC Link is Up
-<1000 Mbps Full Duplex>
-Nov 28 15:12:21 [kernel] ATL1E 0000:02:00.0: eth0: rx sequence number
-error (rx=3D466) (expect=3D1101)
-Nov 28 15:12:21 [kernel] ATL1E 0000:02:00.0: eth0: NIC Link is Up
-<1000 Mbps Full Duplex>
-Nov 28 15:12:25 [kernel] ATL1E 0000:02:00.0: eth0: rx sequence number
-error (rx=3D2918) (expect=3D3405)
-Nov 28 15:12:25 [kernel] ATL1E 0000:02:00.0: eth0: NIC Link is Up
-<1000 Mbps Full Duplex>
-Nov 28 15:12:49 [kernel] ATL1E 0000:02:00.0: eth0: rx sequence number
-error (rx=3D14193) (expect=3D14920)
-Nov 28 15:12:49 [kernel] ATL1E 0000:02:00.0: eth0: NIC Link is Up
-<1000 Mbps Full Duplex>
-Nov 28 15:12:54 [kernel] ATL1E 0000:02:00.0: eth0: rx sequence number
-error (rx=3D5377) (expect=3D6007)
-Nov 28 15:12:54 [kernel] ATL1E 0000:02:00.0: eth0: NIC Link is Up
-<1000 Mbps Full Duplex>
-Nov 28 15:13:25 [kernel] ATL1E 0000:02:00.0: eth0: rx sequence number
-error (rx=3D19948) (expect=3D20409)
-Nov 28 15:13:25 [kernel] ATL1E 0000:02:00.0: eth0: NIC Link is Up
-<1000 Mbps Full Duplex>
-Nov 28 15:15:03 [kernel] ATL1E 0000:02:00.0: eth0: rx sequence number
-error (rx=3D59989) (expect=3D60513)
-Nov 28 15:15:03 [kernel] ATL1E 0000:02:00.0: eth0: NIC Link is Up
-<1000 Mbps Full Duplex>
-Nov 28 15:15:30 [kernel] ATL1E 0000:02:00.0: eth0: rx sequence number
-error (rx=3D14866) (expect=3D15700)
-Nov 28 15:15:30 [kernel] ATL1E 0000:02:00.0: eth0: NIC Link is Up
-<1000 Mbps Full Duplex>
-Nov 28 15:16:07 [kernel] ATL1E 0000:02:00.0: eth0: rx sequence number
-error (rx=3D21605) (expect=3D22301)
-Nov 28 15:16:07 [kernel] ATL1E 0000:02:00.0: eth0: NIC Link is Up
-<1000 Mbps Full Duplex>
-Nov 28 15:17:06 [kernel] ATL1E 0000:02:00.0: eth0: rx sequence number
-error (rx=3D37936) (expect=3D38825)
-Nov 28 15:17:06 [kernel] ATL1E 0000:02:00.0: eth0: NIC Link is Up
-<1000 Mbps Full Duplex>
-Nov 28 15:17:17 [kernel] ATL1E 0000:02:00.0: eth0: rx sequence number
-error (rx=3D8070) (expect=3D8518)
-Nov 28 15:17:17 [kernel] ATL1E 0000:02:00.0: eth0: NIC Link is Up
-<1000 Mbps Full Duplex>
-Nov 28 15:17:58 [kernel] ATL1E 0000:02:00.0: eth0: rx sequence number
-error (rx=3D29990) (expect=3D30458)
-Nov 28 15:17:58 [kernel] ATL1E 0000:02:00.0: eth0: NIC Link is Up
-<1000 Mbps Full Duplex>
-Nov 28 15:18:16 [kernel] ATL1E 0000:02:00.0: eth0: rx sequence number
-error (rx=3D11266) (expect=3D11986)
-Nov 28 15:18:16 [kernel] ATL1E 0000:02:00.0: eth0: NIC Link is Up
-<1000 Mbps Full Duplex>
-Nov 28 15:18:29 [kernel] ATL1E 0000:02:00.0: eth0: rx sequence number
-error (rx=3D6203) (expect=3D6652)
-Nov 28 15:18:29 [kernel] ATL1E 0000:02:00.0: eth0: NIC Link is Up
-<1000 Mbps Full Duplex>
-Nov 28 15:18:51 [kernel] ATL1E 0000:02:00.0: eth0: rx sequence number
-error (rx=3D15253) (expect=3D15919)
-Nov 28 15:18:51 [kernel] ATL1E 0000:02:00.0: eth0: NIC Link is Up
-<1000 Mbps Full Duplex>
-Nov 28 15:19:58 [kernel] ATL1E 0000:02:00.0: eth0: rx sequence number
-error (rx=3D50322) (expect=3D50860)
-Nov 28 15:19:58 [kernel] ATL1E 0000:02:00.0: eth0: NIC Link is Up
-<1000 Mbps Full Duplex>
-Nov 28 15:19:59 [kernel] ATL1E 0000:02:00.0: eth0: rx sequence number
-error (rx=3D479) (expect=3D927)
-Nov 28 15:19:59 [kernel] ATL1E 0000:02:00.0: eth0: NIC Link is Up
-<1000 Mbps Full Duplex>
+
+02:00.0 Ethernet controller: Attansic Technology Corp. Atheros
+AR8121/AR8113/AR8114 PCI-E Ethernet Controller (rev b0)
+        Subsystem: ASUSTeK Computer Inc. Device 831c
+        Flags: bus master, fast devsel, latency 0, IRQ 42
+        Memory at fe9c0000 (64-bit, non-prefetchable) [size=256K]
+        I/O ports at dc00 [size=128]
+        Capabilities: [40] Power Management version 2
+        Capabilities: [48] MSI: Enable+ Count=1/1 Maskable- 64bit+
+        Capabilities: [58] Express Endpoint, MSI 00
+        Capabilities: [100] Advanced Error Reporting
+        Capabilities: [180] Device Serial Number ff-69-3b-5c-90-e6-ba-ff
+        Kernel driver in use: ATL1E
+        Kernel modules: atl1e
