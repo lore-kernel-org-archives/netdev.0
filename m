@@ -1,7 +1,7 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH v2 3/4] kthread: NUMA aware kthread_create_on_cpu()
-Date: Mon, 29 Nov 2010 16:14:55 +0100
-Message-ID: <1291043695.3435.980.camel@edumazet-laptop>
+Subject: [PATCH v2 4/4] kthread: use kthread_create_on_cpu()
+Date: Mon, 29 Nov 2010 16:15:19 +0100
+Message-ID: <1291043719.3435.981.camel@edumazet-laptop>
 References: <1290972833.29196.90.camel@edumazet-laptop>
 	 <20101128224024.GA12300@basil.fritz.box>
 	 <1290984712.29196.100.camel@edumazet-laptop>
@@ -17,22 +17,16 @@ Cc: Andrew Morton <akpm@linux-foundation.org>,
 	netdev <netdev@vger.kernel.org>,
 	David Miller <davem@davemloft.net>, Tejun Heo <tj@kernel.org>,
 	Rusty Russell <rusty@rustcorp.com.au>,
-	Tony Luck <tony.luck@intel.com>,
-	Fenghua Yu <fenghua.yu@intel.com>
+	linux-arch@vger.kernel.org
 To: Andi Kleen <andi@firstfloor.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1291023532.3435.29.camel@edumazet-laptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-All kthreads being created from a single helper task, they all use
-memory from a single node for their kernel stack and task struct.
-
-This patch suite creates kthread_create_on_cpu(), adding a 'cpu'
-parameter to parameters already used by kthread_create().
-
-This parameter serves in allocating memory for the new kthread on its
-memory node if possible.
+ksoftirqd, kworker, migration, and pktgend kthreads can be created with
+kthread_create_on_cpu(), to get proper NUMA affinities for their stack
+and task_struct.
 
 Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 Cc: David Miller <davem@davemloft.net>
@@ -41,165 +35,68 @@ Cc: Andrew Morton <akpm@linux-foundation.org>
 Cc: Rusty Russell <rusty@rustcorp.com.au>
 Cc: Tejun Heo <tj@kernel.org>
 Cc: linux-arch@vger.kernel.org
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
 ---
- include/linux/kthread.h |   14 ++++++++++----
- include/linux/sched.h   |    1 +
- kernel/fork.c           |    3 ++-
- kernel/kthread.c        |   32 ++++++++++++++++++++++++++------
- 4 files changed, 39 insertions(+), 11 deletions(-)
+ kernel/softirq.c      |    3 ++-
+ kernel/stop_machine.c |    4 ++--
+ kernel/workqueue.c    |    4 ++--
+ net/core/pktgen.c     |    3 ++-
+ 4 files changed, 8 insertions(+), 6 deletions(-)
 
-diff --git a/include/linux/kthread.h b/include/linux/kthread.h
-index 685ea65..ad753bc 100644
---- a/include/linux/kthread.h
-+++ b/include/linux/kthread.h
-@@ -4,10 +4,15 @@
- #include <linux/err.h>
- #include <linux/sched.h>
+diff --git a/kernel/softirq.c b/kernel/softirq.c
+index 18f4be0..b2b7044 100644
+--- a/kernel/softirq.c
++++ b/kernel/softirq.c
+@@ -831,7 +831,8 @@ static int __cpuinit cpu_callback(struct notifier_block *nfb,
+ 	switch (action) {
+ 	case CPU_UP_PREPARE:
+ 	case CPU_UP_PREPARE_FROZEN:
+-		p = kthread_create(run_ksoftirqd, hcpu, "ksoftirqd/%d", hotcpu);
++		p = kthread_create_on_cpu(run_ksoftirqd, hcpu, hotcpu,
++					  "ksoftirqd/%d", hotcpu);
+ 		if (IS_ERR(p)) {
+ 			printk("ksoftirqd for %i failed\n", hotcpu);
+ 			return notifier_from_errno(PTR_ERR(p));
+diff --git a/kernel/stop_machine.c b/kernel/stop_machine.c
+index 2df820b..7c0f287 100644
+--- a/kernel/stop_machine.c
++++ b/kernel/stop_machine.c
+@@ -301,8 +301,8 @@ static int __cpuinit cpu_stop_cpu_callback(struct notifier_block *nfb,
+ 	case CPU_UP_PREPARE:
+ 		BUG_ON(stopper->thread || stopper->enabled ||
+ 		       !list_empty(&stopper->works));
+-		p = kthread_create(cpu_stopper_thread, stopper, "migration/%d",
+-				   cpu);
++		p = kthread_create_on_cpu(cpu_stopper_thread, stopper, cpu,
++					  "migration/%d", cpu);
+ 		if (IS_ERR(p))
+ 			return notifier_from_errno(PTR_ERR(p));
+ 		get_task_struct(p);
+diff --git a/kernel/workqueue.c b/kernel/workqueue.c
+index 90db1bd..c8feaf4 100644
+--- a/kernel/workqueue.c
++++ b/kernel/workqueue.c
+@@ -1318,8 +1318,8 @@ static struct worker *create_worker(struct global_cwq *gcwq, bool bind)
+ 	worker->id = id;
  
--struct task_struct *kthread_create(int (*threadfn)(void *data),
--				   void *data,
--				   const char namefmt[], ...)
--	__attribute__((format(printf, 3, 4)));
-+struct task_struct *kthread_create_on_cpu(int (*threadfn)(void *data),
-+					  void *data,
-+					  int cpu,
-+					  const char namefmt[], ...)
-+	__attribute__((format(printf, 4, 5)));
-+
-+#define kthread_create(threadfn, data, namefmt, arg...) \
-+	kthread_create_on_cpu(threadfn, data, -1, namefmt, ##arg)
-+
+ 	if (!on_unbound_cpu)
+-		worker->task = kthread_create(worker_thread, worker,
+-					      "kworker/%u:%d", gcwq->cpu, id);
++		worker->task = kthread_create_on_cpu(worker_thread, worker, gcwq->cpu,
++						     "kworker/%u:%d", gcwq->cpu, id);
+ 	else
+ 		worker->task = kthread_create(worker_thread, worker,
+ 					      "kworker/u:%d", id);
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index 33bc382..c921fe9 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -3785,7 +3785,8 @@ static int __init pktgen_create_thread(int cpu)
+ 	list_add_tail(&t->th_list, &pktgen_threads);
+ 	init_completion(&t->start_done);
  
- /**
-  * kthread_run - create and wake a thread.
-@@ -34,6 +39,7 @@ void *kthread_data(struct task_struct *k);
- 
- int kthreadd(void *unused);
- extern struct task_struct *kthreadd_task;
-+extern int tsk_fork_get_node(struct task_struct *tsk);
- 
- /*
-  * Simple work processor based on kthread.
-diff --git a/include/linux/sched.h b/include/linux/sched.h
-index 2c79e92..e212776 100644
---- a/include/linux/sched.h
-+++ b/include/linux/sched.h
-@@ -1456,6 +1456,7 @@ struct task_struct {
- #ifdef CONFIG_NUMA
- 	struct mempolicy *mempolicy;	/* Protected by alloc_lock */
- 	short il_next;
-+	short pref_node_fork;
- #endif
- 	atomic_t fs_excl;	/* holding fs exclusive resources */
- 	struct rcu_head rcu;
-diff --git a/kernel/fork.c b/kernel/fork.c
-index 3ebae16..4355dd4 100644
---- a/kernel/fork.c
-+++ b/kernel/fork.c
-@@ -66,6 +66,7 @@
- #include <linux/posix-timers.h>
- #include <linux/user-return-notifier.h>
- #include <linux/oom.h>
-+#include <linux/kthread.h>
- 
- #include <asm/pgtable.h>
- #include <asm/pgalloc.h>
-@@ -251,7 +252,7 @@ static struct task_struct *dup_task_struct(struct task_struct *orig)
- 	struct task_struct *tsk;
- 	struct thread_info *ti;
- 	unsigned long *stackend;
--	int node = numa_node_id();
-+	int node = tsk_fork_get_node(orig);
- 	int err;
- 
- 	prepare_to_copy(orig);
-diff --git a/kernel/kthread.c b/kernel/kthread.c
-index 2dc3786..4aec26d 100644
---- a/kernel/kthread.c
-+++ b/kernel/kthread.c
-@@ -27,6 +27,7 @@ struct kthread_create_info
- 	/* Information passed to kthread() from kthreadd. */
- 	int (*threadfn)(void *data);
- 	void *data;
-+	int cpu;
- 
- 	/* Result passed back to kthread_create() from kthreadd. */
- 	struct task_struct *result;
-@@ -98,10 +99,24 @@ static int kthread(void *_create)
- 	do_exit(ret);
- }
- 
-+/* called from do_fork() to get node information for about to be created task */
-+int tsk_fork_get_node(struct task_struct *tsk)
-+{
-+#ifdef CONFIG_NUMA
-+	if (tsk == kthreadd_task)
-+		return tsk->pref_node_fork;
-+#endif
-+	return numa_node_id();
-+}
-+
- static void create_kthread(struct kthread_create_info *create)
- {
- 	int pid;
- 
-+#ifdef CONFIG_NUMA
-+	current->pref_node_fork = (create->cpu != -1) ?
-+		cpu_to_node(create->cpu) : -1;
-+#endif
- 	/* We want our own signal handler (we take no signals by default). */
- 	pid = kernel_thread(kthread, create, CLONE_FS | CLONE_FILES | SIGCHLD);
- 	if (pid < 0) {
-@@ -111,15 +126,18 @@ static void create_kthread(struct kthread_create_info *create)
- }
- 
- /**
-- * kthread_create - create a kthread.
-+ * kthread_create_on_cpu - create a kthread.
-  * @threadfn: the function to run until signal_pending(current).
-  * @data: data ptr for @threadfn.
-+ * @cpu: cpu number.
-  * @namefmt: printf-style name for the thread.
-  *
-  * Description: This helper function creates and names a kernel
-  * thread.  The thread will be stopped: use wake_up_process() to start
-  * it.  See also kthread_run().
-  *
-+ * If thread is going to be bound on a particular cpu, give its number
-+ * in @cpu, to get NUMA affinity for kthread stack, or else give -1.
-  * When woken, the thread will run @threadfn() with @data as its
-  * argument. @threadfn() can either call do_exit() directly if it is a
-  * standalone thread for which noone will call kthread_stop(), or
-@@ -129,15 +147,17 @@ static void create_kthread(struct kthread_create_info *create)
-  *
-  * Returns a task_struct or ERR_PTR(-ENOMEM).
-  */
--struct task_struct *kthread_create(int (*threadfn)(void *data),
--				   void *data,
--				   const char namefmt[],
--				   ...)
-+struct task_struct *kthread_create_on_cpu(int (*threadfn)(void *data),
-+					  void *data,
-+					  int cpu,
-+					  const char namefmt[],
-+					  ...)
- {
- 	struct kthread_create_info create;
- 
- 	create.threadfn = threadfn;
- 	create.data = data;
-+	create.cpu = cpu;
- 	init_completion(&create.done);
- 
- 	spin_lock(&kthread_create_lock);
-@@ -164,7 +184,7 @@ struct task_struct *kthread_create(int (*threadfn)(void *data),
- 	}
- 	return create.result;
- }
--EXPORT_SYMBOL(kthread_create);
-+EXPORT_SYMBOL(kthread_create_on_cpu);
- 
- /**
-  * kthread_bind - bind a just-created kthread to a cpu.
+-	p = kthread_create(pktgen_thread_worker, t, "kpktgend_%d", cpu);
++	p = kthread_create_on_cpu(pktgen_thread_worker, t, cpu,
++				  "kpktgend_%d", cpu);
+ 	if (IS_ERR(p)) {
+ 		pr_err("kernel_thread() failed for cpu %d\n", t->cpu);
+ 		list_del(&t->th_list);
