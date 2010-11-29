@@ -1,62 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Simple kernel attack using socketpair. easy, 100%
- reproductiblle, works under guest. no way to protect :(
-Date: Mon, 29 Nov 2010 09:46:28 -0800 (PST)
-Message-ID: <20101129.094628.39176431.davem@davemloft.net>
-References: <1290672978.2798.151.camel@edumazet-laptop>
-	<AANLkTi=NTFXXY42nh+j3xM4n-NTPaz=fWKmAY=MpsHze@mail.gmail.com>
-	<1290694299.2858.330.camel@edumazet-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 0/4] kthread: NUMA aware kthread_create_on_cpu()
+Date: Mon, 29 Nov 2010 18:59:43 +0100
+Message-ID: <1291053583.3435.1269.camel@edumazet-laptop>
+References: <20101129090510.GA15763@basil.fritz.box>
+	 <1291023532.3435.29.camel@edumazet-laptop>
+	 <1291043604.3435.969.camel@edumazet-laptop>
+	 <20101129.093942.104054089.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=koi8-r
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: socketpair@gmail.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50115
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755328Ab0K2RqB convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Nov 2010 12:46:01 -0500
-In-Reply-To: <1290694299.2858.330.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: andi@firstfloor.org, linux-kernel@vger.kernel.org,
+	linux-arch@vger.kernel.org, netdev@vger.kernel.org, tj@kernel.org,
+	rusty@rustcorp.com.au, tony.luck@intel.com, fenghua.yu@intel.com
+To: David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <20101129.093942.104054089.davem@davemloft.net>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 25 Nov 2010 15:11:39 +0100
+Le lundi 29 novembre 2010 =C3=A0 09:39 -0800, David Miller a =C3=A9crit=
+ :
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Mon, 29 Nov 2010 16:13:23 +0100
+>=20
+> > Note : compiled and tested on x86_32 and x86_64 only, but these pat=
+ches
+> > take care of other arches as well.
+> >=20
+> > Cc: linux-arch@vger.kernel.org=20
+> >=20
+> > Thanks for your feedback Andi !
+>=20
+> I'm fine with these changes:
+>=20
+> Acked-by: David S. Miller <davem@davemloft.net>
+>=20
+> Since the majority is non-networking it is pretty clear
+> that someone other than me should integrate these patches.
+> :-)
 
-> [PATCH] af_unix: limit recursion level
->=20
-> Its easy to eat all kernel memory and trigger NMI watchdog, using an
-> exploit program that queues unix sockets on top of others.
->=20
-> lkml ref : http://lkml.org/lkml/2010/11/25/8
->=20
-> This mechanism is used in applications, one choice we have is to have=
- a
-> recursion limit.
->=20
-> Other limits might be needed as well (if we queue other types of file=
-s),
-> since the passfd mechanism is currently limited by socket receive que=
-ue
-> sizes only.
->=20
-> Add a recursion_level to unix socket, allowing up to 4 levels.
->=20
-> Each time we send an unix socket through sendfd mechanism, we copy it=
-s
-> recursion level (plus one) to receiver. This recursion level is clear=
-ed
-> when socket receive queue is emptied.
->=20
-> Reported-by: =ED=C1=D2=CB =EB=CF=D2=C5=CE=C2=C5=D2=C7 <socketpair@gma=
-il.com>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Sure !
 
-Ok, since such deep recursive AF_UNIX fd sends is pretty
-rediculious, it seems this is not likely to hit legitimate
-use cases and thus I've applied this.
+I was thinking Andrew was the guy to carry this patch series, once
+things settle down of course...
 
-Also queued up for -stable.
-
-Thanks!
+Thanks
