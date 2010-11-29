@@ -1,46 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net-next: Fix __inet_inherit_port() to correctly
- increment bsockets and num_owners
-Date: Sun, 28 Nov 2010 18:20:06 -0800 (PST)
-Message-ID: <20101128.182006.183047625.davem@davemloft.net>
-References: <844781.48196.qm@web53701.mail.re2.yahoo.com>
-	<20101128230041.GA16269@ioremap.net>
+Subject: Re: [PATCH] xps: Add CONFIG_XPS
+Date: Sun, 28 Nov 2010 18:24:25 -0800 (PST)
+Message-ID: <20101128.182425.39182533.davem@davemloft.net>
+References: <alpine.DEB.2.00.1011261033070.20580@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tomer_iisc@yahoo.com, netdev@vger.kernel.org,
-	eric.dumazet@gmail.com
-To: zbr@ioremap.net
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51164
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51771
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754246Ab0K2CTk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Nov 2010 21:19:40 -0500
-In-Reply-To: <20101128230041.GA16269@ioremap.net>
+	by vger.kernel.org with ESMTP id S1754347Ab0K2CX7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Nov 2010 21:23:59 -0500
+In-Reply-To: <alpine.DEB.2.00.1011261033070.20580@pokey.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Date: Mon, 29 Nov 2010 02:00:41 +0300
+From: Tom Herbert <therbert@google.com>
+Date: Fri, 26 Nov 2010 10:36:09 -0800 (PST)
 
-> Hi.
+> This patch adds XPS_CONFIG option to enable and disable XPS.  This is
+> done in the same manner as RPS_CONFIG.  This is also fixes build
+> failure in XPS code when SMP is not enabled.
 > 
-> On Fri, Nov 26, 2010 at 04:26:27PM -0800, Nagendra Tomar (tomer_iisc@yahoo.com) wrote:
->> inet sockets corresponding to passive connections are added to the bind hash
->> using ___inet_inherit_port(). These sockets are later removed from the bind 
->> hash using __inet_put_port(). These two functions are not exactly symmetrical. 
->> __inet_put_port() decrements hashinfo->bsockets and tb->num_owners, whereas 
->> ___inet_inherit_port() does not increment them. This results in both of these 
->> going to -ve values.
->> 
->> This patch fixes this by calling inet_bind_hash() from ___inet_inherit_port(),
->> which does the right thing.
->> 
->> 'bsockets' and 'num_owners' were introduced by commit a9d8f9110d7e953c 
->> (inet: Allowing more than 64k connections and heavily optimize bind(0))
-> 
-> Yup, things changed from that simple patch a lot.
-> Thanks for fixing it up.
-> Ack.
+> Signed-off-by: Tom Herbert <therbert@google.com>
 
-I've decided to apply this to net-2.6, thanks everyone.
+Applied, thanks Tom.
