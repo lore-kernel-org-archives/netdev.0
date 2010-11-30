@@ -1,81 +1,46 @@
 From: Jesse Gross <jesse@nicira.com>
-Subject: Re: Broken TX checksumming offloads
-Date: Mon, 29 Nov 2010 18:35:44 -0800
-Message-ID: <AANLkTi=U51Y7rsQXr+_6TreUks_MyRMdRU=TtdxKOG2Z@mail.gmail.com>
-References: <20101129181742.GA29192@rere.qmqm.pl>
-	<1291058003.20703.16.camel@bwh-desktop>
+Subject: Re: 2.6.35 -> 2.6.36 panic when vlan and promisc with tg3
+Date: Mon, 29 Nov 2010 19:10:06 -0800
+Message-ID: <AANLkTi=HHD9KCn8SHDQbbsNJCWDy+iWH8JmzhVUQAvVm@mail.gmail.com>
+References: <20101129201716.1d0257c4@xenia.leun.net>
+	<4CF442FA.4070701@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>,
-	netdev@vger.kernel.org,
-	Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>,
-	e1000-devel@lists.sourceforge.net
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:52475 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751764Ab0K3Cfq convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Nov 2010 21:35:46 -0500
-Received: by fxm8 with SMTP id 8so751470fxm.19
-        for <netdev@vger.kernel.org>; Mon, 29 Nov 2010 18:35:45 -0800 (PST)
-In-Reply-To: <1291058003.20703.16.camel@bwh-desktop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Michael Leun <lkml20101129@newton.leun.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Ben Greear <greearb@candelatech.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4CF442FA.4070701@candelatech.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2010/11/29 Ben Hutchings <bhutchings@solarflare.com>:
-> On Mon, 2010-11-29 at 19:17 +0100, Micha=C5=82 Miros=C5=82aw wrote:
->> Hi!
+On Mon, Nov 29, 2010 at 4:19 PM, Ben Greear <greearb@candelatech.com> wrote:
+> On 11/29/2010 11:17 AM, Michael Leun wrote:
 >>
->> Unless I'm horribly mistaken, generic HW checksumming works as follo=
-ws:
->> =C2=A0- driver sets netdev->features & NETIF_F_HW_CSUM to indicate s=
-upport
->> =C2=A0 =C2=A0for generic checksumming; if the flag is not set, netwo=
-rking core
->> =C2=A0 =C2=A0will checksum skb before calling ndo_start_xmit (let's =
-ignore
->> =C2=A0 =C2=A0other checksumming options for now) and not pass skb wi=
-th
->> =C2=A0 =C2=A0skb->ip_summed =3D=3D CHECKSUM_PARTIAL
->> =C2=A0- ndo_start_xmit() should use skb->csum_start and skb->csum_of=
-fset
->> =C2=A0 =C2=A0(or skb->csum) to update checksum in software or instru=
-ct HW to do so
+>> Hi,
 >>
->> Looking at pch_gbe_xmit_frame() and its callee - pch_gbe_tx_queue() =
-it
->> looks like the driver should set NETIF_F_IP_CSUM instead of NETIF_F_=
-HW_CSUM
->> feature.
+>> only kernel message I was able to capture on serial were:
 >>
->> Similar thing happens in ixgbe driver: it sets NETIF_F_HW_CSUM and c=
-hecks
->> for skb->ip_summed =3D=3D CHECKSUM_PARTIAL, but then just warns on p=
-rotocols
->> other that TCP and SCTP (see: ixgbe_psum()).
+>> UG: unable to handle kernel paging request at 01cc921c
+>> IP: [<c034bfce>] vlan_hwaccel_do_receive+0x59/0xd0
+>> *pdpt = 0000000036a2a001 *pde = 0000000000000000
+>> Oops: 0002 [#1] SMP
+>> last sysfs
+>>
+>> Then machine dead.
+>>
+>> In 2.6.35.x this did not happen (but vlans broken - cannot see vlan
+>> tags with tcpdump),
 >
-> AFAIK only {TCP,UDP}/IPv{4,6} use the simple 16-bit checksum algorith=
-m
-> that NETIF_F_HW_CSUM implies, so in practice it is equivalent to
-> NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM even though it doesn't mean the s=
-ame
-> thing.
+> Try this patch:
+>
+> http://permalink.gmane.org/gmane.linux.network/176566
+>
+> It looks like this hasn't made it into stable yet?
 
-There are a few cases that I can think of where the extra generality
-of NETIF_F_HW_CSUM is useful:
+It didn't make it into 2.6.36.1.
 
-* The checksum in GRE (maybe other protocols as well) uses the same
-algorithm as TCP/UDP.  In theory this means that we could use hardware
-offloading for GRE on cards that have NETIF_F_HW_CSUM.  The one issue
-is that NETIF_F_IP_CSUM really means TCP/UDP checksumming but we only
-test if the protocol is IP.  This means that other IP based protocols
-(like GRE) can't use checksum offloading since there is no software
-fallback path.
-
-* TCP/UDP packets that are deeply encapsulated.  Currently we can
-express that checksum offloading is supported in one level of vlan
-encapsulation through vlan_features.  However, a NIC that exposes
-NETIF_F_HW_CSUM should in theory be able to checksum over a packet
-that has an arbitrary number of vlan tags in front of it, a GRE
-header, or any other type of encapsulation.
+David, I know that you already acked this patch but it sounds like
+Greg would prefer to get it from you directly:
+https://lkml.org/lkml/2010/11/19/685
