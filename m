@@ -1,77 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/3] inetpeer: Support ipv6 addresses.
-Date: Tue, 30 Nov 2010 06:42:16 +0100
-Message-ID: <1291095736.2725.5.camel@edumazet-laptop>
-References: <AANLkTimwo_ok=1dfzOST=rKqQdNS95wUAVdrrZHBMddS@mail.gmail.com>
-	 <20101129.191457.193722052.davem@davemloft.net>
-	 <AANLkTin11AYaFWMArC6fNQnvej2+=WUfOtTVrtX8WLEZ@mail.gmail.com>
-	 <20101129.212222.115953137.davem@davemloft.net>
+From: David McCullough <david_mccullough@mcafee.com>
+Subject: [PATCH] net/ipv6/sit.c: return unhandled skb to tunnel4_rcv
+Date: Tue, 30 Nov 2010 15:32:34 +1000
+Message-ID: <20101130053234.GA28609@mcafee.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: xiaosuo@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:64222 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751341Ab0K3FmW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Nov 2010 00:42:22 -0500
-Received: by wwa36 with SMTP id 36so5652029wwa.1
-        for <netdev@vger.kernel.org>; Mon, 29 Nov 2010 21:42:20 -0800 (PST)
-In-Reply-To: <20101129.212222.115953137.davem@davemloft.net>
+Received: from sncsmrelay2.nai.com ([67.97.80.206]:33282 "EHLO
+	sncsmrelay2.nai.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751387Ab0K3FoE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Nov 2010 00:44:04 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 29 novembre 2010 =C3=A0 21:22 -0800, David Miller a =C3=A9crit=
- :
-> From: Changli Gao <xiaosuo@gmail.com>
-> Date: Tue, 30 Nov 2010 12:51:08 +0800
->=20
-> > On Tue, Nov 30, 2010 at 11:14 AM, David Miller <davem@davemloft.net=
-> wrote:
-> >> From: Changli Gao <xiaosuo@gmail.com>
-> >> Date: Tue, 30 Nov 2010 10:33:49 +0800
-> >>
-> >>> I have thought about converting this AVL tree to rbtree. When I s=
-aw
-> >>> the comment above, I gave it up, because rbtree makes this struct=
-ure
-> >>> bigger. If ipv6 support is added, I think it is time to turn to
-> >>> rbtree. :)
-> >>
-> >> If it takes size over 128 bytes, it is probably still a bad idea.
-> >> Right now it is just under 128.
-> >>
-> >=20
-> > Why 128? The current size of inet_peer is 64 bytes, and after your
-> > ipv6 patch, it is just 80. And, inet_peer is allocated from its own
-> > mem_cache, so the size of the memory for it should not be aligned t=
-o
-> > 2^n.
->=20
-> Sorry, I was taking into the consideration other work I am doing
-> which will move all of the routing metrics into inet_peer as well.
->=20
-> With ipv6 address support, it fits perfectly into 128 bytes on
-> 64-bit.
-> --
 
-Its a bit early in the morning here, I must confess I dont yet
-understand your patch David :)
+Hi all,
 
-As we use a tree, why not using two different trees for ipv4 / ipv6 ?
+I found a problem using an IPv6 over IPv4 tunnel.  When CONFIG_IPV6_SIT
+was enabled, the packets would be rejected as net/ipv6/sit.c was catching
+all IPPROTO_IPV6 packets and returning an ICMP port unreachable error.
 
-I dont understand how computing a 32bit key (sort of hash key) is going
-to help when hash collision happens, with an avl tree.
+I think this patch fixes the problem cleanly.  I believe the code in
+net/ipv4/tunnel4.c:tunnel4_rcv takes care of it properly if none of the
+handlers claim the skb.
 
+Patch is against 2.6.35,  bit still applies to current.
 
-=46or Changli : AVL tree was OK for RCU conversion, I am not sure about
-RBtree yet.
+Cheers,
+Davidm
 
-Either version of tree (AVL/rbtree) will be expensive to use if depth i=
-s
-big (With 2 millions entries, depth is going to be very big). I
-understand you want to get rid of route cache ?
+Signed-off-by: David McCullough <david_mccullough@mcafee.com>
 
+diff -u -r1.1.1.45 sit.c
+--- a/net/ipv6/sit.c	12 Aug 2010 00:16:26 -0000	1.1.1.45
++++ b/net/ipv6/sit.c	30 Nov 2010 05:01:19 -0000
+@@ -575,8 +575,9 @@
+ 		return 0;
+ 	}
+ 
+-	icmp_send(skb, ICMP_DEST_UNREACH, ICMP_PORT_UNREACH, 0);
++	/* no tunnel matched,  let upstream know, ipsec may handle it */
+ 	rcu_read_unlock();
++	return 1;
+ out:
+ 	kfree_skb(skb);
+ 	return 0;
 
-
+-- 
+David McCullough,      david_mccullough@mcafee.com,  Ph:+61 734352815
+McAfee - SnapGear      http://www.mcafee.com         http://www.uCdot.org
