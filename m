@@ -1,59 +1,60 @@
-From: "WEBMASTER SERVICE" <info@webmaster.org>
-Subject: Ensure Your Account
-Date: Mon, 29 Nov 2010 22:45:15 +0100
-Message-ID: <20101129224515.625567wsz7oixyi3__6145.15581769428$1291074476$gmane$org@webmail.rrzn.uni-hannover.de>
-Reply-To: web_master_service@live.co.uk
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] net/r8169: Correct the ram code for RTL8111D(L)
+Date: Mon, 29 Nov 2010 16:13:44 -0800
+Message-ID: <20101129161344.059239d6@nehalam>
+References: <1290772470-23713-1-git-send-email-hayeswang@realtek.com>
+	<1290779458.3051.45.camel@localhost>
+	<20101126224914.GA12266@electric-eye.fr.zoreil.com>
+	<1290813146.3051.58.camel@localhost>
+	<CE0F8B12F31D4E82860F4CE06907E98B@realtek.com.tw>
+	<20101129233334.GA2888@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	DelSp=Yes	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from authsmtp.rrzn.uni-hannover.de ([130.75.2.107]:60484 "EHLO
-	authsmtp.rrzn.uni-hannover.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755810Ab0K2Xrd convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Nov 2010 18:47:33 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: hayeswang <hayeswang@realtek.com>,
+	"'Ben Hutchings'" <benh@debian.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	"'David Miller'" <davem@davemloft.net>, 564628@bugs.debian.org
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20101129233334.GA2888@electric-eye.fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Tue, 30 Nov 2010 00:33:34 +0100
+Francois Romieu <romieu@fr.zoreil.com> wrote:
 
-Ensure Your Account
+> hayeswang <hayeswang@realtek.com> :
+> > Excuse me, I have some questions about the firmware patch.
+> > 
+> > 1. I should convert the data into the binary files (.bin). Is it right?
+> 
+> You may do it.
+> 
+> Fwiw I have cooked something for it in the attached patch #9 this WE. Feel
+> free to take bits from it. I will not do more changes while you work on it.
+> 
+> > 2. Where should I update the firmware files? Is the path the
+> > linux-2.6/firmware?
+> 
+> ! This directory is only here to contain firmware images extracted from old
+> ! device drivers which predate the common use of request_firmware().
+> 
+> It is fine for the existing code.
+> 
+> > However, according to linux-2.6/firmeware/README.AddingFirmware, I
+> > should update they to another repository:
+> > 	
+> > git://git.kernel.org/pub/scm/linux/kernel/git/dwmw2/linux-firmware.git
+> 
+> /me scratches head.
+> 
+> Assuming Realtek does not intend to stand this code / data as GPLable, yes.
+> It will help people staying clear from non-free code, it will help packaging
+> something useful and it will remove some cruft from the code.
+> 
+> So everybody will end happy. Especially after an aspirin.
 
-
-
-  We are currently upgrading our data base and e-mail home center is =20
-managed. Enter your email to delete accounts that are not actively =20
-users.we parents to create more space for new accounts have also =20
-studied the system security audit to improve and enhance our current =20
-security situation.
-
-Continue to use our services are needed to update and
-re-comfirmed your requested information via e-mail below.
-
-To complete the new account confirmation, reply to this email =20
-immediately and enter the account number below to
-
-Username: ................
-User E-mail ..............
-Password: ..................
-Password: ............
-Date of Birth: .................
-
-
-Otherwise, your account will be disabled immediately to the database =20
-and information service is not interrupted and important messages can =20
-be lost in the reduction of the new coordinates comfirmed to us.
-
-We apologize for any inconvenience this causes this season but is =20
-confident that we are here to serve you better and
-providing more technology which revolves around email and internet.
-
-It is also essential to understand that the most important =20
-epr=E9occupation our customers and the security of their files and =20
-data....
-
-
-
-
+The plan is to do away with linux-2.6/firmware entirely.
+Distributions are shipping the firmware from linux-firmware, not the
+kernel files.
