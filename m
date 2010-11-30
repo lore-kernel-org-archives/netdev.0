@@ -1,38 +1,39 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] bonding: add the sysfs interface to see RLB hash table
-Date: Tue, 30 Nov 2010 14:08:35 -0800
-Message-ID: <20101130140835.7320e9e4@nehalam>
-References: <4CF4CB85.4010708@jp.fujitsu.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 0/8] inetpeer for ipv6, take 2
+Date: Tue, 30 Nov 2010 23:17:10 +0100
+Message-ID: <1291155430.2856.33.camel@edumazet-laptop>
+References: <20101130.132152.260110265.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jay Vosburgh <fubar@us.ibm.com>
-To: Taku Izumi <izumi.taku@jp.fujitsu.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:52696 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752400Ab0K3WIi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Nov 2010 17:08:38 -0500
-In-Reply-To: <4CF4CB85.4010708@jp.fujitsu.com>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:58133 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753417Ab0K3WRP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Nov 2010 17:17:15 -0500
+Received: by wwa36 with SMTP id 36so6601882wwa.1
+        for <netdev@vger.kernel.org>; Tue, 30 Nov 2010 14:17:13 -0800 (PST)
+In-Reply-To: <20101130.132152.260110265.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 30 Nov 2010 19:01:41 +0900
-Taku Izumi <izumi.taku@jp.fujitsu.com> wrote:
-
-> # cat /sys/class/net/bond0/bonding/rlb_hash_table
-> 
-> SourceIP        DestinationIP   Destination MAC   DEV
->  10.124.196.205  10.124.196. 81 00:19:99:XX:XX:XX eth3
->  10.124.196.205  10.124.196.222 00:0a:79:XX:XX:XX eth0
->  10.124.196.205  10.124.196. 75 00:15:17:XX:XX:XX eth4
->  10.124.196.205  10.124.196.  1 00:21:d8:XX:XX:XX eth3
->  10.124.196.205  10.124.196.205 ff:ff:ff:ff:ff:ff eth0
-
-This violates the one value per file convention of sysfs.
-It belongs in /proc. Unfortunately there already is a /proc/net/bonding/bond0
-but it is a file not a directory.
+Le mardi 30 novembre 2010 =C3=A0 13:21 -0800, David Miller a =C3=A9crit=
+ :
+> Ok, this time, thanks to feedback from Eric Dumazet and others,
+> I've taken a more systematic approach to these changes.
+>=20
+> Now there are two seperate AVL trees for ipv4 and ipv6.
+>=20
+> Looking further, I've considered a dumping facility for these
+> things as currently there is no real way to monitor these
+> tables and we surely will want to if inetpeer takes on more
+> responsibilities.
 
 
--- 
+I reviewed your patches and they look very good !
+
+Its a bit late here for a compile/boot test...
+
+
