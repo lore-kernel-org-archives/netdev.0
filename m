@@ -1,65 +1,60 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 2/2] af_packet: replace struct pgv with char **
-Date: Tue, 30 Nov 2010 15:16:08 +0100
-Message-ID: <1291126568.2904.85.camel@edumazet-laptop>
-References: <1291125457-14427-1-git-send-email-xiaosuo@gmail.com>
+From: "Alexander V. Lukyanov" <lav@netis.ru>
+Subject: PATCH: fix hang in dmfe driver on sending of big packet
+ (linux-2.6.35)
+Date: Tue, 30 Nov 2010 16:38:04 +0300
+Message-ID: <20101130133804.GA1835@lw.yar.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jiri Pirko <jpirko@redhat.com>,
-	Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
+Content-Type: multipart/mixed; boundary="fUYQa+Pmc3FrFX/N"
+To: netdev@vger.kernel.org, tori@unhappy.mine.nu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:56125 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751289Ab0K3OQN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Nov 2010 09:16:13 -0500
-Received: by wyb28 with SMTP id 28so5737138wyb.19
-        for <netdev@vger.kernel.org>; Tue, 30 Nov 2010 06:16:12 -0800 (PST)
-In-Reply-To: <1291125457-14427-1-git-send-email-xiaosuo@gmail.com>
+Received: from lav-w.yar.ru ([193.233.48.101]:43136 "EHLO
+	localhost.localdomain" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751233Ab0K3OVw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Nov 2010 09:21:52 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 30 novembre 2010 =C3=A0 21:57 +0800, Changli Gao a =C3=A9crit =
-:
-> As we can check if an address is vmalloc address with is_vmalloc_addr=
-(),
-> we can replace struct pgv with char **. Then we may get more pg_vecs.
->=20
-> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-> ---
->  net/packet/af_packet.c |   50 ++++++++++++++++----------------------=
------------
->  1 file changed, 17 insertions(+), 33 deletions(-)
-> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-> index 0171b20..a26f981 100644
-> --- a/net/packet/af_packet.c
-> +++ b/net/packet/af_packet.c
-> @@ -164,14 +164,8 @@ struct packet_mreq_max {
->  static int packet_set_ring(struct sock *sk, struct tpacket_req *req,
->  		int closing, int tx_ring);
-> =20
-> -#define PGV_FROM_VMALLOC 1
-> -struct pgv {
-> -	char *buffer;
-> -	unsigned char flags;
-> -};
-> -
 
-This patch is premature.
+--fUYQa+Pmc3FrFX/N
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Also, keep the struct pgv, even if it has a single field, since having
-types is good to read the sources.
+Hello!
 
-We could have 'void *' or 'char *' everywhere, it is not nice...
+This patch fixes hang in dmfe driver on attempt of sending a big packet.
+Without this patch the code stops the queue and never wakes it again.
 
+-- 
+   Alexander.
 
--       pg_vec =3D kcalloc(block_nr, sizeof(struct pgv), GFP_KERNEL);
-+       pg_vec =3D kcalloc(block_nr, sizeof(char *), GFP_KERNEL);
+--fUYQa+Pmc3FrFX/N
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="dmfe.patch"
 
-I prefer to have :
+--- dmfe.c.1	2010-11-30 16:21:52.758465207 +0300
++++ dmfe.c	2010-11-30 16:24:45.301468601 +0300
+@@ -687,18 +687,18 @@
+ 	unsigned long flags;
+ 
+ 	DMFE_DBUG(0, "dmfe_start_xmit", 0);
+ 
+-	/* Resource flag check */
+-	netif_stop_queue(dev);
+-
+ 	/* Too large packet check */
+ 	if (skb->len > MAX_PACKET_SIZE) {
+ 		pr_err("big packet = %d\n", (u16)skb->len);
+ 		dev_kfree_skb(skb);
+ 		return NETDEV_TX_OK;
+ 	}
+ 
++	/* Resource flag check */
++	netif_stop_queue(dev);
++
+ 	spin_lock_irqsave(&db->lock, flags);
+ 
+ 	/* No Tx resource check, it never happen nromally */
+ 	if (db->tx_queue_cnt >= TX_FREE_DESC_CNT) {
 
-       pg_vec =3D kcalloc(block_nr, sizeof(struct pgv), GFP_KERNEL);
-
-
+--fUYQa+Pmc3FrFX/N--
