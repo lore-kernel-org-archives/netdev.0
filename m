@@ -1,47 +1,32 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] m_xt: stop using xtables_set_revision()
-Date: Tue, 30 Nov 2010 09:49:12 -0800
-Message-ID: <20101130094912.3843e120@nehalam>
-References: <1290374214-26743-1-git-send-email-vapier@gentoo.org>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH 2/2] iproute2: support xfrm upper protocol gre key
+Date: Tue, 30 Nov 2010 09:55:27 -0800
+Message-ID: <20101130095527.0620e395@nehalam>
+References: <20101123105418.65072de8@nehalam>
+	<1290586738-27056-2-git-send-email-timo.teras@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: stephen.hemminger@vyatta.com, netdev@vger.kernel.org
-To: Mike Frysinger <vapier@gentoo.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Timo =?ISO-8859-1?B?VGVy5HM=?= <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:50451 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754466Ab0K3RtT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Nov 2010 12:49:19 -0500
-In-Reply-To: <1290374214-26743-1-git-send-email-vapier@gentoo.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:43195 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755490Ab0K3Rzp convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Nov 2010 12:55:45 -0500
+In-Reply-To: <1290586738-27056-2-git-send-email-timo.teras@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 21 Nov 2010 16:16:54 -0500
-Mike Frysinger <vapier@gentoo.org> wrote:
+On Wed, 24 Nov 2010 10:18:58 +0200
+Timo Ter=E4s <timo.teras@iki.fi> wrote:
 
-> iptables dropped the xtables_set_revision() function around version 1.4.9,
-> so set the rev directly ourselves.  This should be compatible back to the
-> original version m_xt itself is designed for.
-> 
-> Signed-off-by: Mike Frysinger <vapier@gentoo.org>
-> ---
->  tc/m_xt.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/tc/m_xt.c b/tc/m_xt.c
-> index bfc4937..ede9913 100644
-> --- a/tc/m_xt.c
-> +++ b/tc/m_xt.c
-> @@ -88,7 +88,7 @@ build_st(struct xtables_target *target, struct xt_entry_target *t)
->  		target->t = xtables_calloc(1, size);
->  		target->t->u.target_size = size;
->  		strcpy(target->t->u.user.name, target->name);
-> -		xtables_set_revision(target->t->u.user.name, target->revision);
-> +		target->t->u.user.revision = target->revision;
->  
->  		if (target->init != NULL)
->  			target->init(target->t);
+> Similar to tunnel side: accept dotted-quad and number formats.
+> Use regular number for printing the key.
+>=20
+> Signed-off-by: Timo Ter=E4s <timo.teras@iki.fi>
 
+Both applied.
 
-Applied.
+--=20
