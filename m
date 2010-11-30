@@ -1,78 +1,140 @@
-From: Rui <wirelesser@gmail.com>
-Subject: multi bpf filter will impact performance?
-Date: Tue, 30 Nov 2010 17:22:50 +0800
-Message-ID: <AANLkTikx68M43+vv+Rav_HCJMJnuc15TtuBgmbv2xP=U@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+From: Alexey Orishko <alexey.orishko@gmail.com>
+Subject: [PATCHv3 1/2] usbnet: changes for upcoming cdc_ncm driver
+Date: Tue, 30 Nov 2010 12:23:27 +0300
+Message-ID: <1291109008-3613-1-git-send-email-alexey.orishko@stericsson.com>
+Cc: netdev@vger.kernel.org, oliver@neukum.org,
+	yauheni.kaliuta@nokia.com, balbi@ti.com,
+	sjur.brandeland@stericsson.com, alexey.orishko@stericsson.com
+To: gregkh@suse.de, linux-usb@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:58694 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752623Ab0K3JWv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Nov 2010 04:22:51 -0500
-Received: by pwj3 with SMTP id 3so893980pwj.19
-        for <netdev@vger.kernel.org>; Tue, 30 Nov 2010 01:22:50 -0800 (PST)
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:61621 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754709Ab0K3JXp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Nov 2010 04:23:45 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-hi
+Changes:
+include/linux/usb/usbnet.h:
+- a new flag to indicate driver's capability to accumulate IP packets in Tx
+ direction and extract several packets from single skb in Rx direction.
+drivers/net/usb/usbnet.c:
+- the procedure of counting packets in usbnet was updated due to the
+ accumulating of IP packets in the driver
+- no short packets are sent if indicated by the flag in driver_info
+ structure
 
-I did a test with an intel X520 10Gnic, HP DL380 G6,  to see how the
-bpf filter will impact the performance.
+Signed-off-by: Alexey Orishko <alexey.orishko@stericsson.com>
+---
+ drivers/net/usb/usbnet.c   |   45 ++++++++++++++++++++++++++++++-------------
+ include/linux/usb/usbnet.h |    6 +++++
+ 2 files changed, 37 insertions(+), 14 deletions(-)
 
-kernel .2.6.32 SLES11+SP1, original ixgbe driver
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index c04d49e..cff74b8 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -391,14 +391,19 @@ static inline void rx_process (struct usbnet *dev, struct sk_buff *skb)
+ 		goto error;
+ 	// else network stack removes extra byte if we forced a short packet
+ 
+-	if (skb->len)
+-		usbnet_skb_return (dev, skb);
+-	else {
+-		netif_dbg(dev, rx_err, dev->net, "drop\n");
+-error:
+-		dev->net->stats.rx_errors++;
+-		skb_queue_tail (&dev->done, skb);
++	if (skb->len) {
++		/* all data was already cloned from skb inside the driver */
++		if (dev->driver_info->flags & FLAG_MULTI_PACKET)
++			dev_kfree_skb_any(skb);
++		else
++			usbnet_skb_return(dev, skb);
++		return;
+ 	}
++
++	netif_dbg(dev, rx_err, dev->net, "drop\n");
++error:
++	dev->net->stats.rx_errors++;
++	skb_queue_tail(&dev->done, skb);
+ }
+ 
+ /*-------------------------------------------------------------------------*/
+@@ -971,7 +976,8 @@ static void tx_complete (struct urb *urb)
+ 	struct usbnet		*dev = entry->dev;
+ 
+ 	if (urb->status == 0) {
+-		dev->net->stats.tx_packets++;
++		if (!(dev->driver_info->flags & FLAG_MULTI_PACKET))
++			dev->net->stats.tx_packets++;
+ 		dev->net->stats.tx_bytes += entry->length;
+ 	} else {
+ 		dev->net->stats.tx_errors++;
+@@ -1044,8 +1050,13 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
+ 	if (info->tx_fixup) {
+ 		skb = info->tx_fixup (dev, skb, GFP_ATOMIC);
+ 		if (!skb) {
+-			netif_dbg(dev, tx_err, dev->net, "can't tx_fixup skb\n");
+-			goto drop;
++			if (netif_msg_tx_err(dev)) {
++				netif_dbg(dev, tx_err, dev->net, "can't tx_fixup skb\n");
++				goto drop;
++			} else {
++				/* cdc_ncm collected packet; waits for more */
++				goto not_drop;
++			}
+ 		}
+ 	}
+ 	length = skb->len;
+@@ -1067,13 +1078,18 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
+ 	/* don't assume the hardware handles USB_ZERO_PACKET
+ 	 * NOTE:  strictly conforming cdc-ether devices should expect
+ 	 * the ZLP here, but ignore the one-byte packet.
++	 * NOTE2: CDC NCM specification is different from CDC ECM when
++	 * handling ZLP/short packets, so cdc_ncm driver will make short
++	 * packet itself if needed.
+ 	 */
+ 	if (length % dev->maxpacket == 0) {
+ 		if (!(info->flags & FLAG_SEND_ZLP)) {
+-			urb->transfer_buffer_length++;
+-			if (skb_tailroom(skb)) {
+-				skb->data[skb->len] = 0;
+-				__skb_put(skb, 1);
++			if (!(info->flags & FLAG_MULTI_PACKET)) {
++				urb->transfer_buffer_length++;
++				if (skb_tailroom(skb)) {
++					skb->data[skb->len] = 0;
++					__skb_put(skb, 1);
++				}
+ 			}
+ 		} else
+ 			urb->transfer_flags |= URB_ZERO_PACKET;
+@@ -1122,6 +1138,7 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
+ 		netif_dbg(dev, tx_err, dev->net, "drop, code %d\n", retval);
+ drop:
+ 		dev->net->stats.tx_dropped++;
++not_drop:
+ 		if (skb)
+ 			dev_kfree_skb_any (skb);
+ 		usb_free_urb (urb);
+diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
+index 7ae27a4..44842c8 100644
+--- a/include/linux/usb/usbnet.h
++++ b/include/linux/usb/usbnet.h
+@@ -97,6 +97,12 @@ struct driver_info {
+ 
+ #define FLAG_LINK_INTR	0x0800		/* updates link (carrier) status */
+ 
++/*
++ * Indicates to usbnet, that USB driver accumulates multiple IP packets.
++ * Affects statistic (counters) and short packet handling.
++ */
++#define FLAG_MULTI_PACKET	0x1000
++
+ 	/* init device ... can sleep, or cause probe() failure */
+ 	int	(*bind)(struct usbnet *, struct usb_interface *);
+ 
+-- 
+1.7.3.2
 
-step 0:
-launch 4 tcpdump processes,each applied a filter to filter out some
-GTP-U packets. seen with 'tcpdump -d', the bpf code has about 100
-lines.
-
-#!/bin/sh
-PCAP_FRAMES=32000 ./tcpdump_MMAP -i eth4 'udp dst port 2152 and (
-(((ether[48:1]&0x07)>0) and
-(((ether[66:1]+ether[67:1]+ether[68:1]+ether[69:1]+ether[70:1]+ether[71:1]+ether[72:1]+ether[73:1])&0x03)==0))
-or (((ether[48:1]&0x07)==0) and
-(((ether[62:1]+ether[63:1]+ether[64:1]+ether[65:1]+ether[66:1]+ether[67:1]+ether[68:1]+ether[69:1])&0x03)==0))
-) ' -w /dev/null -s 4096 2>f1.log &
-PCAP_FRAMES=32000 ./tcpdump_MMAP -i eth4 'udp dst port 2152 and (
-(((ether[48:1]&0x07)>0) and
-(((ether[66:1]+ether[67:1]+ether[68:1]+ether[69:1]+ether[70:1]+ether[71:1]+ether[72:1]+ether[73:1])&0x03)==1))
-or (((ether[48:1]&0x07)==0) and
-(((ether[62:1]+ether[63:1]+ether[64:1]+ether[65:1]+ether[66:1]+ether[67:1]+ether[68:1]+ether[69:1])&0x03)==1))
-) ' -w /dev/null -s 4096 2>f2.log &
-PCAP_FRAMES=32000 ./tcpdump_MMAP -i eth4 'udp dst port 2152 and (
-(((ether[48:1]&0x07)>0) and
-(((ether[66:1]+ether[67:1]+ether[68:1]+ether[69:1]+ether[70:1]+ether[71:1]+ether[72:1]+ether[73:1])&0x03)==2))
-or (((ether[48:1]&0x07)==0) and
-(((ether[62:1]+ether[63:1]+ether[64:1]+ether[65:1]+ether[66:1]+ether[67:1]+ether[68:1]+ether[69:1])&0x03)==2))
-) ' -w /dev/null -s 4096 2>f3.log &
-PCAP_FRAMES=32000 ./tcpdump_MMAP -i eth4 'udp dst port 2152 and (
-(((ether[48:1]&0x07)>0) and
-(((ether[66:1]+ether[67:1]+ether[68:1]+ether[69:1]+ether[70:1]+ether[71:1]+ether[72:1]+ether[73:1])&0x03)==3))
-or (((ether[48:1]&0x07)==0) and
-(((ether[62:1]+ether[63:1]+ether[64:1]+ether[65:1]+ether[66:1]+ether[67:1]+ether[68:1]+ether[69:1])&0x03)==3))
-) ' -w /dev/null -s 4096 2>f4.log &
-
-
-step1:
-use stress test equipment to generate traffic >1.2Gbps
-
-
-step2:
-type 'ifconfig eth4'
-saw many packets dropped
-
-step3:
-type 'sar -n DEV 1', the incoming throughput limited at 800Mbps
-
-
-my questions:
-
-Q1. the bpf filter is run one by one? will only one filter be executed
-for one sock? (so that the tcpdump corresponding kernel part will run
-filter in parallel?)
-
-Q2. performance is bad? any idea to improve it?
-
-thanks a lot
-rui
