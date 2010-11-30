@@ -1,70 +1,65 @@
-From: Peppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH] stmmac: priv->lock can be used uninitialized
-Date: Tue, 30 Nov 2010 15:12:08 +0100
-Message-ID: <4CF50638.7000203@st.com>
-References: <9345448e435110e2bdff65bb4322060a6f1f6b63.1291106902.git.vlad.lungu@windriver.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 2/2] af_packet: replace struct pgv with char **
+Date: Tue, 30 Nov 2010 15:16:08 +0100
+Message-ID: <1291126568.2904.85.camel@edumazet-laptop>
+References: <1291125457-14427-1-git-send-email-xiaosuo@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: Vlad Lungu <vlad.lungu@windriver.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jiri Pirko <jpirko@redhat.com>,
+	Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog104.obsmtp.com ([207.126.144.117]:50801 "EHLO
-	eu1sys200aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752783Ab0K3OPT convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Nov 2010 09:15:19 -0500
-In-Reply-To: <9345448e435110e2bdff65bb4322060a6f1f6b63.1291106902.git.vlad.lungu@windriver.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:56125 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751289Ab0K3OQN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Nov 2010 09:16:13 -0500
+Received: by wyb28 with SMTP id 28so5737138wyb.19
+        for <netdev@vger.kernel.org>; Tue, 30 Nov 2010 06:16:12 -0800 (PST)
+In-Reply-To: <1291125457-14427-1-git-send-email-xiaosuo@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Vlad.
-
-On 11/30/2010 9:52 AM, Vlad Lungu wrote:
->
-> To reproduce: if connman (http://connman.net/) is started,
-> inserting the stmmac module triggers a "BUG: spinlock bad magic on CPU#0".
->
-> Registering the device in stmmac_probe() sends a notification to connman
-> which brings the interface up before the lock is initialized.
->
-
-I've never tested connman on our ST platforms.
-I've never seen this problems too.
-I've no concerns on it so it could be applied.
-
-Regards
-Peppe
-
-> Signed-off-by: Vlad Lungu <vlad.lungu@windriver.com>
+Le mardi 30 novembre 2010 =C3=A0 21:57 +0800, Changli Gao a =C3=A9crit =
+:
+> As we can check if an address is vmalloc address with is_vmalloc_addr=
+(),
+> we can replace struct pgv with char **. Then we may get more pg_vecs.
+>=20
+> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
 > ---
->  drivers/net/stmmac/stmmac_main.c |    4 ++--
->  1 files changed, 2 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/stmmac/stmmac_main.c
-> b/drivers/net/stmmac/stmmac_main.c
-> index 730a6fd..e960501 100644
-> --- a/drivers/net/stmmac/stmmac_main.c
-> +++ b/drivers/net/stmmac/stmmac_main.c
-> @@ -1516,6 +1516,8 @@ static int stmmac_probe(struct net_device *dev)
->                 pr_warning("\tno valid MAC address;"
->                         "please, use ifconfig or nwhwconfig!\n");
->
-> +       spin_lock_init(&priv->lock);
-> +
->         ret = register_netdev(dev);
->         if (ret) {
->                 pr_err("%s: ERROR %i registering the device\n",
-> @@ -1527,8 +1529,6 @@ static int stmmac_probe(struct net_device *dev)
->             dev->name, (dev->features & NETIF_F_SG) ? "on" : "off",
->             (dev->features & NETIF_F_HW_CSUM) ? "on" : "off");
->
-> -       spin_lock_init(&priv->lock);
+>  net/packet/af_packet.c |   50 ++++++++++++++++----------------------=
+-----------
+>  1 file changed, 17 insertions(+), 33 deletions(-)
+> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+> index 0171b20..a26f981 100644
+> --- a/net/packet/af_packet.c
+> +++ b/net/packet/af_packet.c
+> @@ -164,14 +164,8 @@ struct packet_mreq_max {
+>  static int packet_set_ring(struct sock *sk, struct tpacket_req *req,
+>  		int closing, int tx_ring);
+> =20
+> -#define PGV_FROM_VMALLOC 1
+> -struct pgv {
+> -	char *buffer;
+> -	unsigned char flags;
+> -};
 > -
->         return ret;
->  }
->
-> --
-> 1.6.0.2
->
+
+This patch is premature.
+
+Also, keep the struct pgv, even if it has a single field, since having
+types is good to read the sources.
+
+We could have 'void *' or 'char *' everywhere, it is not nice...
+
+
+-       pg_vec =3D kcalloc(block_nr, sizeof(struct pgv), GFP_KERNEL);
++       pg_vec =3D kcalloc(block_nr, sizeof(char *), GFP_KERNEL);
+
+I prefer to have :
+
+       pg_vec =3D kcalloc(block_nr, sizeof(struct pgv), GFP_KERNEL);
+
+
