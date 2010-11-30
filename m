@@ -1,7 +1,7 @@
 From: Martin Willi <martin@strongswan.org>
-Subject: [PATCH 5/5] xfrm: Add TFC padding option to automatically pad to PMTU
-Date: Tue, 30 Nov 2010 16:49:15 +0100
-Message-ID: <1291132155-31277-6-git-send-email-martin@strongswan.org>
+Subject: [PATCH 1/5] xfrm: Add Traffic Flow Confidentiality padding XFRM attribute
+Date: Tue, 30 Nov 2010 16:49:11 +0100
+Message-ID: <1291132155-31277-2-git-send-email-martin@strongswan.org>
 References: <1291132155-31277-1-git-send-email-martin@strongswan.org>
 Cc: linux-crypto@vger.kernel.org, netdev@vger.kernel.org
 To: Herbert Xu <herbert@gondor.apana.org.au>
@@ -10,79 +10,123 @@ In-Reply-To: <1291132155-31277-1-git-send-email-martin@strongswan.org>
 Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Traffic Flow Confidentiality padding is most effective if all packets
-have exactly the same size. For SAs with mixed traffic, the largest
-packet size is usually the PMTU. Instead of calculating the PMTU
-manually, the XFRM_TFC_PMTU flag automatically pads to the PMTU.
+The XFRMA_TFCPAD attribute for XFRM state installation configures
+Traffic Flow Confidentiality by padding ESP packets to a specified
+length. To use RFC4303 TFC padding and overcome the 255 byte ESP
+padding field limit, the XFRM_TFC_ESPV3 flag must be set.
 
 Signed-off-by: Martin Willi <martin@strongswan.org>
 ---
- include/linux/xfrm.h |    1 +
- net/ipv4/esp4.c      |    7 +++++++
- net/ipv6/esp6.c      |    7 +++++++
- 3 files changed, 15 insertions(+), 0 deletions(-)
+ include/linux/xfrm.h |    7 +++++++
+ include/net/xfrm.h   |    1 +
+ net/xfrm/xfrm_user.c |   16 ++++++++++++++--
+ 3 files changed, 22 insertions(+), 2 deletions(-)
 
 diff --git a/include/linux/xfrm.h b/include/linux/xfrm.h
-index b1e5f8a..2a9f0b4 100644
+index b971e38..b1e5f8a 100644
 --- a/include/linux/xfrm.h
 +++ b/include/linux/xfrm.h
-@@ -298,6 +298,7 @@ struct xfrm_tfc {
- 	__u16		pad;
- 	__u16		flags;
- #define XFRM_TFC_ESPV3	1	/* RFC4303 TFC padding, if possible */
-+#define XFRM_TFC_PMTU	2	/* ignore pad field, pad to PMTU */
+@@ -283,6 +283,7 @@ enum xfrm_attr_type_t {
+ 	XFRMA_KMADDRESS,        /* struct xfrm_user_kmaddress */
+ 	XFRMA_ALG_AUTH_TRUNC,	/* struct xfrm_algo_auth */
+ 	XFRMA_MARK,		/* struct xfrm_mark */
++	XFRMA_TFC,		/* struct xfrm_tfc */
+ 	__XFRMA_MAX
+ 
+ #define XFRMA_MAX (__XFRMA_MAX - 1)
+@@ -293,6 +294,12 @@ struct xfrm_mark {
+ 	__u32           m; /* mask */
  };
  
++struct xfrm_tfc {
++	__u16		pad;
++	__u16		flags;
++#define XFRM_TFC_ESPV3	1	/* RFC4303 TFC padding, if possible */
++};
++
  enum xfrm_sadattr_type_t {
-diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
-index a6adfbc..cfb4992 100644
---- a/net/ipv4/esp4.c
-+++ b/net/ipv4/esp4.c
-@@ -23,6 +23,8 @@ struct esp_skb_cb {
+ 	XFRMA_SAD_UNSPEC,
+ 	XFRMA_SAD_CNT,
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index bcfb6b2..03468c0 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -143,6 +143,7 @@ struct xfrm_state {
+ 	struct xfrm_id		id;
+ 	struct xfrm_selector	sel;
+ 	struct xfrm_mark	mark;
++	struct xfrm_tfc		tfc;
  
- #define ESP_SKB_CB(__skb) ((struct esp_skb_cb *)&((__skb)->cb[0]))
+ 	u32			genid;
  
-+static u32 esp4_get_mtu(struct xfrm_state *x, int mtu);
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index 8bae6b2..0b4ec02 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -148,7 +148,8 @@ static int verify_newsa_info(struct xfrm_usersa_info *p,
+ 		     !attrs[XFRMA_ALG_AUTH_TRUNC]) ||
+ 		    attrs[XFRMA_ALG_AEAD]	||
+ 		    attrs[XFRMA_ALG_CRYPT]	||
+-		    attrs[XFRMA_ALG_COMP])
++		    attrs[XFRMA_ALG_COMP]	||
++		    attrs[XFRMA_TFC])
+ 			goto out;
+ 		break;
+ 
+@@ -172,7 +173,8 @@ static int verify_newsa_info(struct xfrm_usersa_info *p,
+ 		    attrs[XFRMA_ALG_AEAD]	||
+ 		    attrs[XFRMA_ALG_AUTH]	||
+ 		    attrs[XFRMA_ALG_AUTH_TRUNC]	||
+-		    attrs[XFRMA_ALG_CRYPT])
++		    attrs[XFRMA_ALG_CRYPT]	||
++		    attrs[XFRMA_TFC])
+ 			goto out;
+ 		break;
+ 
+@@ -186,6 +188,7 @@ static int verify_newsa_info(struct xfrm_usersa_info *p,
+ 		    attrs[XFRMA_ALG_CRYPT]	||
+ 		    attrs[XFRMA_ENCAP]		||
+ 		    attrs[XFRMA_SEC_CTX]	||
++		    attrs[XFRMA_TFC]		||
+ 		    !attrs[XFRMA_COADDR])
+ 			goto out;
+ 		break;
+@@ -439,6 +442,9 @@ static struct xfrm_state *xfrm_state_construct(struct net *net,
+ 			goto error;
+ 	}
+ 
++	if (attrs[XFRMA_TFC])
++		memcpy(&x->tfc, nla_data(attrs[XFRMA_TFC]), sizeof(x->tfc));
 +
- /*
-  * Allocate an AEAD request structure with extra space for SG and IV.
-  *
-@@ -133,6 +135,11 @@ static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
- 	blksize = ALIGN(crypto_aead_blocksize(aead), 4);
- 	tfclen = 0;
- 	tfcpadto = x->tfc.pad;
-+	if (x->tfc.flags & XFRM_TFC_PMTU) {
-+		struct xfrm_dst *dst = (struct xfrm_dst *)skb_dst(skb);
+ 	if (attrs[XFRMA_COADDR]) {
+ 		x->coaddr = kmemdup(nla_data(attrs[XFRMA_COADDR]),
+ 				    sizeof(*x->coaddr), GFP_KERNEL);
+@@ -688,6 +694,9 @@ static int copy_to_user_state_extra(struct xfrm_state *x,
+ 	if (x->encap)
+ 		NLA_PUT(skb, XFRMA_ENCAP, sizeof(*x->encap), x->encap);
+ 
++	if (x->tfc.pad || x->tfc.flags)
++		NLA_PUT(skb, XFRMA_TFC, sizeof(x->tfc), &x->tfc);
 +
-+		tfcpadto = esp4_get_mtu(x, dst->child_mtu_cached);
-+	}
+ 	if (xfrm_mark_put(skb, &x->mark))
+ 		goto nla_put_failure;
  
- 	if (skb->len >= tfcpadto) {
- 		clen = ALIGN(skb->len + 2, blksize);
-diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
-index 9494cb1..6cb9a02 100644
---- a/net/ipv6/esp6.c
-+++ b/net/ipv6/esp6.c
-@@ -49,6 +49,8 @@ struct esp_skb_cb {
+@@ -2122,6 +2131,7 @@ static const struct nla_policy xfrma_policy[XFRMA_MAX+1] = {
+ 	[XFRMA_MIGRATE]		= { .len = sizeof(struct xfrm_user_migrate) },
+ 	[XFRMA_KMADDRESS]	= { .len = sizeof(struct xfrm_user_kmaddress) },
+ 	[XFRMA_MARK]		= { .len = sizeof(struct xfrm_mark) },
++	[XFRMA_TFC]		= { .len = sizeof(struct xfrm_tfc) },
+ };
  
- #define ESP_SKB_CB(__skb) ((struct esp_skb_cb *)&((__skb)->cb[0]))
- 
-+static u32 esp6_get_mtu(struct xfrm_state *x, int mtu);
-+
- /*
-  * Allocate an AEAD request structure with extra space for SG and IV.
-  *
-@@ -157,6 +159,11 @@ static int esp6_output(struct xfrm_state *x, struct sk_buff *skb)
- 	blksize = ALIGN(crypto_aead_blocksize(aead), 4);
- 	tfclen = 0;
- 	tfcpadto = x->tfc.pad;
-+	if (x->tfc.flags & XFRM_TFC_PMTU) {
-+		struct xfrm_dst *dst = (struct xfrm_dst *)skb_dst(skb);
-+
-+		tfcpadto = esp6_get_mtu(x, dst->child_mtu_cached);
-+	}
- 
- 	if (skb->len >= tfcpadto) {
- 		clen = ALIGN(skb->len + 2, blksize);
+ static struct xfrm_link {
+@@ -2301,6 +2311,8 @@ static inline size_t xfrm_sa_len(struct xfrm_state *x)
+ 		l += nla_total_size(sizeof(*x->calg));
+ 	if (x->encap)
+ 		l += nla_total_size(sizeof(*x->encap));
++	if (x->tfc.pad)
++		l += nla_total_size(sizeof(x->tfc));
+ 	if (x->security)
+ 		l += nla_total_size(sizeof(struct xfrm_user_sec_ctx) +
+ 				    x->security->ctx_len);
 -- 
 1.7.1
