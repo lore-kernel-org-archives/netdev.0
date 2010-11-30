@@ -1,119 +1,109 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH 7/8] ipv6: Add infrastructure to bind inet_peer objects to
- routes.
-Date: Tue, 30 Nov 2010 13:22:16 -0800 (PST)
-Message-ID: <20101130.132216.232767198.davem@davemloft.net>
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: Re: [PATCH] Net-ethtool : Allow ethtool to set interface in loopback mode.
+Date: Tue, 30 Nov 2010 13:22:06 -0800
+Message-ID: <AANLkTik=YkC6w3d2ViOqH5AYcxfRB6eKx3Mk_6=aKXGH@mail.gmail.com>
+References: <AANLkTikVaVv4fkLom+NSQgOUzCd2i3mbHkBNQ6PD4d9Y@mail.gmail.com>
+	<1291129305.21077.9.camel@bwh-desktop>
+	<AANLkTikM4=yOu9L7h0FZUkmMNG-LVdGsdSLOLJmw2+UW@mail.gmail.com>
+	<1291144507.21077.56.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	linux-netdev <netdev@vger.kernel.org>,
+	laurent chavey <chavey@google.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58866
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752066Ab0K3VVt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Nov 2010 16:21:49 -0500
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 56A7324C088
-	for <netdev@vger.kernel.org>; Tue, 30 Nov 2010 13:22:16 -0800 (PST)
+Received: from smtp-out.google.com ([216.239.44.51]:30863 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752066Ab0K3VWJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Nov 2010 16:22:09 -0500
+Received: from wpaz9.hot.corp.google.com (wpaz9.hot.corp.google.com [172.24.198.73])
+	by smtp-out.google.com with ESMTP id oAULM8ie016266
+	for <netdev@vger.kernel.org>; Tue, 30 Nov 2010 13:22:08 -0800
+Received: from bwz13 (bwz13.prod.google.com [10.188.26.13])
+	by wpaz9.hot.corp.google.com with ESMTP id oAULM7of002665
+	for <netdev@vger.kernel.org>; Tue, 30 Nov 2010 13:22:07 -0800
+Received: by bwz13 with SMTP id 13so5657973bwz.29
+        for <netdev@vger.kernel.org>; Tue, 30 Nov 2010 13:22:06 -0800 (PST)
+In-Reply-To: <1291144507.21077.56.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, Nov 30, 2010 at 11:15 AM, Ben Hutchings
+<bhutchings@solarflare.com> wrote:
+> On Tue, 2010-11-30 at 11:05 -0800, Mahesh Bandewar wrote:
+>> On Tue, Nov 30, 2010 at 7:01 AM, Ben Hutchings
+>> <bhutchings@solarflare.com> wrote:
+> [...]
+>> > > diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+>> > > index 6628a50..7523d45 100644
+>> > > --- a/include/linux/ethtool.h
+>> > > +++ b/include/linux/ethtool.h
+>> > > @@ -678,6 +678,8 @@ struct ethtool_ops {
+>> > > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
+=A0 struct ethtool_rxfh_indir *);
+>> > > =A0 =A0 =A0 =A0 int =A0 =A0 (*set_rxfh_indir)(struct net_device =
+*,
+>> > > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
+=A0 const struct ethtool_rxfh_indir *);
+>> > > + =A0 =A0 =A0 int =A0 =A0 (*get_loopback)(struct net_device *, u=
+32 *);
+>> > > + =A0 =A0 =A0 int =A0 =A0 (*set_loopback)(struct net_device *, u=
+32);
+>> > > =A0};
+>> > > =A0#endif /* __KERNEL__ */
+>> > >
+>> > > @@ -741,6 +743,8 @@ struct ethtool_ops {
+>> > > =A0#define ETHTOOL_GSSET_INFO =A0 =A0 0x00000037 /* Get string s=
+et info */
+>> > > =A0#define ETHTOOL_GRXFHINDIR =A0 =A0 0x00000038 /* Get RX flow =
+hash indir'n table */
+>> > > =A0#define ETHTOOL_SRXFHINDIR =A0 =A0 0x00000039 /* Set RX flow =
+hash indir'n table */
+>> > > +#define ETHTOOL_SLOOPBACK =A0 =A0 =A00x0000003a /* Enable / Dis=
+able Loopback */
+>> > [...]
+>> >
+>> > Where should loopback be done, when enabled? =A0As near as possibl=
+e to the
+>> > host, so it only covers the DMA engines, or as far away as possibl=
+e, so
+>> > it covers most of the MAC/PHY hardware?
+>> >
+>> Putting it very close to the HW would stress the maximum soft path a=
+nd
+>> would make it
+>> beneficial to more people / developers. I understand that capabiliti=
+es
+>> offered by different
+>> NIC vendors vary so it's little difficult to draw the line as to whe=
+re
+>> it =A0should be done.
+>
+> Of course, that's why I suggest 'as near/far as possible' rather than
+> trying to specify the exact point at which loopback would be enabled.
+>
+>> So
+>> if the theme to "maximize the soft path" is maintained, we can leave
+>> it to the individual
+>> driver(s) to maximize the value in offering.
+>
+> I think this should be specified, otherwise measurements on different
+> types of NIC will not be comparable. =A0The ethtool API suffers great=
+ly
+> from losse specification and resulting inconsistency between drivers.
+> So please add the comment that loopback should be enabled as near to =
+the
+> host as possible.
+>
 
-They are only allowed on cached ipv6 routes.
+This could be seen more as a stress test tool than a performance tool. =
+Also
+I think having this feature available for developers is more important =
+than
+the place it is done. But I see your point of having more
+inconsistencies, so I will
+add the comment as guidance for implementation.
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- include/net/ip6_fib.h   |    2 ++
- include/net/ip6_route.h |    3 +++
- net/ipv4/inetpeer.c     |    2 ++
- net/ipv6/route.c        |   18 ++++++++++++++++++
- 4 files changed, 25 insertions(+), 0 deletions(-)
-
-diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
-index 062a823..708ff7c 100644
---- a/include/net/ip6_fib.h
-+++ b/include/net/ip6_fib.h
-@@ -21,6 +21,7 @@
- #include <net/dst.h>
- #include <net/flow.h>
- #include <net/netlink.h>
-+#include <net/inetpeer.h>
- 
- #ifdef CONFIG_IPV6_MULTIPLE_TABLES
- #define FIB6_TABLE_HASHSZ 256
-@@ -109,6 +110,7 @@ struct rt6_info {
- 	u32				rt6i_metric;
- 
- 	struct inet6_dev		*rt6i_idev;
-+	struct inet_peer		*rt6i_peer;
- 
- #ifdef CONFIG_XFRM
- 	u32				rt6i_flow_cache_genid;
-diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
-index 278312c..23fed28 100644
---- a/include/net/ip6_route.h
-+++ b/include/net/ip6_route.h
-@@ -56,6 +56,9 @@ static inline unsigned int rt6_flags2srcprefs(int flags)
- 	return (flags >> 3) & 7;
- }
- 
-+extern void			rt6_bind_peer(struct rt6_info *rt,
-+					      int create);
-+
- extern void			ip6_route_input(struct sk_buff *skb);
- 
- extern struct dst_entry *	ip6_route_output(struct net *net,
-diff --git a/net/ipv4/inetpeer.c b/net/ipv4/inetpeer.c
-index 1c1335b..f95b89f 100644
---- a/net/ipv4/inetpeer.c
-+++ b/net/ipv4/inetpeer.c
-@@ -532,6 +532,7 @@ static int compute_total(void)
- {
- 	return v4_peers.total + v6_peers.total;
- }
-+EXPORT_SYMBOL_GPL(inet_getpeer);
- 
- /* Called with local BH disabled. */
- static void peer_check_expire(unsigned long dummy)
-@@ -577,3 +578,4 @@ void inet_putpeer(struct inet_peer *p)
- 
- 	local_bh_enable();
- }
-+EXPORT_SYMBOL_GPL(inet_putpeer);
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index a0c4ad1..026caef 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -188,11 +188,29 @@ static void ip6_dst_destroy(struct dst_entry *dst)
- {
- 	struct rt6_info *rt = (struct rt6_info *)dst;
- 	struct inet6_dev *idev = rt->rt6i_idev;
-+	struct inet_peer *peer = rt->rt6i_peer;
- 
- 	if (idev != NULL) {
- 		rt->rt6i_idev = NULL;
- 		in6_dev_put(idev);
- 	}
-+	if (peer) {
-+		BUG_ON(!(rt->rt6i_flags & RTF_CACHE));
-+		rt->rt6i_peer = NULL;
-+		inet_putpeer(peer);
-+	}
-+}
-+
-+void rt6_bind_peer(struct rt6_info *rt, int create)
-+{
-+	struct inet_peer *peer;
-+
-+	if (WARN_ON(!(rt->rt6i_flags & RTF_CACHE)))
-+		return;
-+
-+	peer = inet_getpeer_v6(&rt->rt6i_dst.addr, create);
-+	if (peer && cmpxchg(&rt->rt6i_peer, NULL, peer) != NULL)
-+		inet_putpeer(peer);
- }
- 
- static void ip6_dst_ifdown(struct dst_entry *dst, struct net_device *dev,
--- 
-1.7.3.2
-
+--mahesh..
