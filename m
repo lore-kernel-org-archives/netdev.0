@@ -1,48 +1,41 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] netfilter:  fix  race in conntrack between dump_table
- and destroy
-Date: Tue, 30 Nov 2010 09:28:03 -0800
-Message-ID: <20101130092803.53fde6af@nehalam>
-References: <20101124222716.437c5547@nehalam>
-	<1290666873.2798.89.camel@edumazet-laptop>
-	<20101124230004.1dc28e5a@nehalam>
-	<1290669214.2798.109.camel@edumazet-laptop>
-	<20101126135101.4e4b97cc@nehalam>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH 3/5] HID: roccat: declaring meaning of pack pragma
+ usage in driver headers
+Date: Tue, 30 Nov 2010 09:40:52 -0800
+Message-ID: <20101130174052.GA19977@kroah.com>
+References: <1290801456.18750.164.camel@neuromancer>
+ <1290804616.3051.52.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Patrick McHardy <kaber@trash.net>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20101126135101.4e4b97cc@nehalam>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: erazor_de@users.sourceforge.net,
+	Randy Dunlap <rdunlap@xenotime.net>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	Jiri Kosina <jkosina@suse.cz>, linux-doc@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-input@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1290804616.3051.52.camel@localhost>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 26 Nov 2010 13:51:01 -0800
-Stephen Hemminger <shemminger@vyatta.com> wrote:
-
-> The netlink interface to dump the connection tracking table has a race
-> when entries are deleted at the same time. A customer reported a crash 
-> and the backtrace showed thatctnetlink_dump_table was running while a 
-> conntrack entry wasbeing destroyed.
-> (see https://bugzilla.vyatta.com/show_bug.cgi?id=6402).
+On Fri, Nov 26, 2010 at 08:50:16PM +0000, Ben Hutchings wrote:
+> On Fri, 2010-11-26 at 20:57 +0100, Stefan Achatz wrote:
+> > Using pack pragma to prevent padding bytes in binary data structures
+> > used for hardware communication. Explanation of these pragmas was requested.
+> [...]
 > 
-> According to RCU documentation, when using hlist_nulls the reader
-> must handle the case of seeing a deleted entry and not proceed
-> further down the linked list.  The old code would continue
-> which caused the scan to walk into the free list. 
-> 
-> This patch uses locking (rather than RCU) for this operation which
-> is guaranteed safe, and no longer requires getting reference while
-> doing dump operation.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> It would be clearer to use the '__packed' macro after each structure
+> definition instead of using this awful Microsoft extension.
 
-This should go in net-2.6 and stable for 2.6.32, 2.6.35, and 2.6.36
+I agree, that's the "normal" Linux way of doing things.
 
+Other than that, this patch set looks good to me.  Jiri, if the packed
+change is made, do you want me to take these through my tree, or do you
+want to take them through yours?  Whatever is easier for you is fine
+with me.
 
+thanks,
 
--- 
+greg k-h
