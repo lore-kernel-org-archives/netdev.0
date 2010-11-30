@@ -1,80 +1,87 @@
-From: =?utf-8?q?Micha=C5=82?= =?utf-8?b?TWlyb3PFgmF3?=
-	<mirq-linux@rere.qmqm.pl>
-Subject: [PATCH] net: Move check of checksum features to netdev_fix_features()
-Date: Tue, 30 Nov 2010 15:23:52 +0100
-Message-ID: <20101130142352.3936.9503.stgit@rechot.qmqm.pl>
-References: <fddashfjkasdhklfjashlkjfs@rechot.qmqm.pl>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] Net-ethtool : Allow ethtool to set interface in
+ loopback mode.
+Date: Tue, 30 Nov 2010 15:01:45 +0000
+Message-ID: <1291129305.21077.9.camel@bwh-desktop>
+References: <AANLkTikVaVv4fkLom+NSQgOUzCd2i3mbHkBNQ6PD4d9Y@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	Jesse Gross <jesse@nicira.com>
-To: netdev@vget.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	linux-netdev <netdev@vger.kernel.org>,
+	laurent chavey <chavey@google.com>
+To: Mahesh Bandewar <maheshb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:59712 "EHLO rere.qmqm.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752174Ab0K3OxX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Nov 2010 09:53:23 -0500
-In-Reply-To: <fddashfjkasdhklfjashlkjfs@rechot.qmqm.pl>
+Received: from exchange.solarflare.com ([216.237.3.220]:52735 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752185Ab0K3PBs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Nov 2010 10:01:48 -0500
+In-Reply-To: <AANLkTikVaVv4fkLom+NSQgOUzCd2i3mbHkBNQ6PD4d9Y@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
+On Tue, 2010-11-30 at 00:00 -0800, Mahesh Bandewar wrote:
+> This patch enables ethtool to set the loopback mode on a given
+> interface. This is the reworked version of earlier submit (which I
+> don't have reference to). By configuring the interface in loopback
+> mode in conjunction with a policy route / rule, a userland application
+> can stress the egress / ingress path exposing the flows of the change
+> in progress and potentially help developer(s) understand the impact of
+> those changes without even sending a packet out on the network.
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 622f85a..c64a848 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5023,6 +5023,23 @@ static void rollback_registered(struct net_devic=
-e *dev)
-=20
- unsigned long netdev_fix_features(unsigned long features, const char *=
-name)
- {
-+	/* Fix illegal checksum combinations */
-+	if ((features & NETIF_F_HW_CSUM) &&
-+	    (features & (NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM))) {
-+		if (name)
-+			printk(KERN_NOTICE "%s: mixed HW and IP checksum settings.\n",
-+				name);
-+		features &=3D ~(NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM);
-+	}
-+
-+	if ((features & NETIF_F_NO_CSUM) &&
-+	    (features & (NETIF_F_HW_CSUM|NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM)))=
- {
-+		if (name)
-+			printk(KERN_NOTICE "%s: mixed no checksumming and other settings.\n=
-",
-+				name);
-+		features &=3D ~(NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM|NETIF_F_HW_CSUM);
-+	}
-+
- 	/* Fix illegal SG+CSUM combinations. */
- 	if ((features & NETIF_F_SG) &&
- 	    !(features & NETIF_F_ALL_CSUM)) {
-@@ -5206,21 +5223,6 @@ int register_netdevice(struct net_device *dev)
- 	if (dev->iflink =3D=3D -1)
- 		dev->iflink =3D dev->ifindex;
-=20
--	/* Fix illegal checksum combinations */
--	if ((dev->features & NETIF_F_HW_CSUM) &&
--	    (dev->features & (NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM))) {
--		printk(KERN_NOTICE "%s: mixed HW and IP checksum settings.\n",
--		       dev->name);
--		dev->features &=3D ~(NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM);
--	}
--
--	if ((dev->features & NETIF_F_NO_CSUM) &&
--	    (dev->features & (NETIF_F_HW_CSUM|NETIF_F_IP_CSUM|NETIF_F_IPV6_CS=
-UM))) {
--		printk(KERN_NOTICE "%s: mixed no checksumming and other settings.\n"=
-,
--		       dev->name);
--		dev->features &=3D ~(NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM|NETIF_F_HW_CS=
-UM);
--	}
--
- 	dev->features =3D netdev_fix_features(dev->features, dev->name);
-=20
- 	/* Enable software GSO if SG is supported. */
+Is the aim to stress the generic egress/ingress code or also to cover
+the specific driver in use?
+
+I note that your colleague Laurent Chavey posted a very similar patch
+back in April <http://article.gmane.org/gmane.linux.network/157489> but
+he emphasised hardware diagnosis.
+
+> Following set of commands illustrates one such example -
+>     a) ifconfig eth1 192.168.1.1
+>     b) ip -4 rule add from all iif eth1 lookup 250
+>     c) ip -4 route add local 0/0 dev lo proto kernel scope host table 250
+>     d) arp -Ds 192.168.1.100 eth1
+>     e) arp -Ds 192.168.1.200 eth1
+>     f) sysctl -w net.ipv4.ip_nonlocal_bind=1
+>     g) sysctl -w net.ipv4.conf.all.accept_local=1
+>     # Assuming that the machine has 8 cores
+>     h) taskset 000f netserver -L 192.168.1.200
+>     i) taskset 00f0 netperf -t TCP_CRR -L 192.168.1.100 -H 192.168.1.200 -l 30
+> 
+> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+> ---
+>  include/linux/ethtool.h |    4 ++++
+>  net/core/ethtool.c      |   39 +++++++++++++++++++++++++++++++++++++++
+>  2 files changed, 43 insertions(+), 0 deletions(-)
+> 
+> diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+> index 6628a50..7523d45 100644
+> --- a/include/linux/ethtool.h
+> +++ b/include/linux/ethtool.h
+> @@ -678,6 +678,8 @@ struct ethtool_ops {
+>                                   struct ethtool_rxfh_indir *);
+>         int     (*set_rxfh_indir)(struct net_device *,
+>                                   const struct ethtool_rxfh_indir *);
+> +       int     (*get_loopback)(struct net_device *, u32 *);
+> +       int     (*set_loopback)(struct net_device *, u32);
+>  };
+>  #endif /* __KERNEL__ */
+> 
+> @@ -741,6 +743,8 @@ struct ethtool_ops {
+>  #define ETHTOOL_GSSET_INFO     0x00000037 /* Get string set info */
+>  #define ETHTOOL_GRXFHINDIR     0x00000038 /* Get RX flow hash indir'n table */
+>  #define ETHTOOL_SRXFHINDIR     0x00000039 /* Set RX flow hash indir'n table */
+> +#define ETHTOOL_SLOOPBACK      0x0000003a /* Enable / Disable Loopback */
+[...]
+
+Where should loopback be done, when enabled?  As near as possible to the
+host, so it only covers the DMA engines, or as far away as possible, so
+it covers most of the MAC/PHY hardware?
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
