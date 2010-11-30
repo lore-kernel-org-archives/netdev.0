@@ -1,75 +1,41 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] Net-ethtool : Allow ethtool to set interface in
- loopback mode.
-Date: Tue, 30 Nov 2010 19:15:07 +0000
-Message-ID: <1291144507.21077.56.camel@bwh-desktop>
-References: <AANLkTikVaVv4fkLom+NSQgOUzCd2i3mbHkBNQ6PD4d9Y@mail.gmail.com>
-	 <1291129305.21077.9.camel@bwh-desktop>
-	 <AANLkTikM4=yOu9L7h0FZUkmMNG-LVdGsdSLOLJmw2+UW@mail.gmail.com>
+Subject: Re: [PATCH net-next-2.6] sched: use xps information for qdisc NUMA
+ affinity
+Date: Tue, 30 Nov 2010 19:19:50 +0000
+Message-ID: <1291144790.21077.59.camel@bwh-desktop>
+References: <1290705163.4274.12.camel@localhost>
+	 <1291054477.3435.1302.camel@edumazet-laptop>
+	 <AANLkTimU+7aY0DZrnBtL=BsP_qGpCsBw0d4TCKOJSzRL@mail.gmail.com>
+	 <20101130.104834.112604433.davem@davemloft.net>
+	 <1291144047.2904.224.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	linux-netdev <netdev@vger.kernel.org>,
-	laurent chavey <chavey@google.com>
-To: Mahesh Bandewar <maheshb@google.com>
+Cc: David Miller <davem@davemloft.net>, therbert@google.com,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:14507 "EHLO
+Received: from exchange.solarflare.com ([216.237.3.220]:14835 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750902Ab0K3TPK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Nov 2010 14:15:10 -0500
-In-Reply-To: <AANLkTikM4=yOu9L7h0FZUkmMNG-LVdGsdSLOLJmw2+UW@mail.gmail.com>
+	with ESMTP id S1755959Ab0K3TTx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Nov 2010 14:19:53 -0500
+In-Reply-To: <1291144047.2904.224.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2010-11-30 at 11:05 -0800, Mahesh Bandewar wrote:
-> On Tue, Nov 30, 2010 at 7:01 AM, Ben Hutchings
-> <bhutchings@solarflare.com> wrote:
+On Tue, 2010-11-30 at 20:07 +0100, Eric Dumazet wrote:
 [...]
-> > > diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-> > > index 6628a50..7523d45 100644
-> > > --- a/include/linux/ethtool.h
-> > > +++ b/include/linux/ethtool.h
-> > > @@ -678,6 +678,8 @@ struct ethtool_ops {
-> > >                                   struct ethtool_rxfh_indir *);
-> > >         int     (*set_rxfh_indir)(struct net_device *,
-> > >                                   const struct ethtool_rxfh_indir *);
-> > > +       int     (*get_loopback)(struct net_device *, u32 *);
-> > > +       int     (*set_loopback)(struct net_device *, u32);
-> > >  };
-> > >  #endif /* __KERNEL__ */
-> > >
-> > > @@ -741,6 +743,8 @@ struct ethtool_ops {
-> > >  #define ETHTOOL_GSSET_INFO     0x00000037 /* Get string set info */
-> > >  #define ETHTOOL_GRXFHINDIR     0x00000038 /* Get RX flow hash indir'n table */
-> > >  #define ETHTOOL_SRXFHINDIR     0x00000039 /* Set RX flow hash indir'n table */
-> > > +#define ETHTOOL_SLOOPBACK      0x0000003a /* Enable / Disable Loopback */
-> > [...]
-> >
-> > Where should loopback be done, when enabled?  As near as possible to the
-> > host, so it only covers the DMA engines, or as far away as possible, so
-> > it covers most of the MAC/PHY hardware?
-> >
-> Putting it very close to the HW would stress the maximum soft path and
-> would make it
-> beneficial to more people / developers. I understand that capabilities
-> offered by different
-> NIC vendors vary so it's little difficult to draw the line as to where
-> it  should be done.
+> Ben, could you remind us what was your ethtool interface ?
+> 
+> Something to setup a NUMA map for RX queues, TX queues ?
+> 
+> I can probably play with bnx2x and custom module param to test how it
+> can help raw performance...
 
-Of course, that's why I suggest 'as near/far as possible' rather than
-trying to specify the exact point at which loopback would be enabled.
+See these patches:
 
-> So
-> if the theme to "maximize the soft path" is maintained, we can leave
-> it to the individual
-> driver(s) to maximize the value in offering.
-
-I think this should be specified, otherwise measurements on different
-types of NIC will not be comparable.  The ethtool API suffers greatly
-from losse specification and resulting inconsistency between drivers.
-So please add the comment that loopback should be enabled as near to the
-host as possible.
+<http://patchwork.ozlabs.org/patch/65201/>
+<http://patchwork.ozlabs.org/patch/65202/>
 
 Ben.
 
