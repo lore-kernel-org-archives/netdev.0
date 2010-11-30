@@ -1,41 +1,47 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH 3/5] HID: roccat: declaring meaning of pack pragma
- usage in driver headers
-Date: Tue, 30 Nov 2010 09:40:52 -0800
-Message-ID: <20101130174052.GA19977@kroah.com>
-References: <1290801456.18750.164.camel@neuromancer>
- <1290804616.3051.52.camel@localhost>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] m_xt: stop using xtables_set_revision()
+Date: Tue, 30 Nov 2010 09:49:12 -0800
+Message-ID: <20101130094912.3843e120@nehalam>
+References: <1290374214-26743-1-git-send-email-vapier@gentoo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: erazor_de@users.sourceforge.net,
-	Randy Dunlap <rdunlap@xenotime.net>,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	Jiri Kosina <jkosina@suse.cz>, linux-doc@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-input@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1290804616.3051.52.camel@localhost>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: stephen.hemminger@vyatta.com, netdev@vger.kernel.org
+To: Mike Frysinger <vapier@gentoo.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:50451 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754466Ab0K3RtT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Nov 2010 12:49:19 -0500
+In-Reply-To: <1290374214-26743-1-git-send-email-vapier@gentoo.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 26, 2010 at 08:50:16PM +0000, Ben Hutchings wrote:
-> On Fri, 2010-11-26 at 20:57 +0100, Stefan Achatz wrote:
-> > Using pack pragma to prevent padding bytes in binary data structures
-> > used for hardware communication. Explanation of these pragmas was requested.
-> [...]
+On Sun, 21 Nov 2010 16:16:54 -0500
+Mike Frysinger <vapier@gentoo.org> wrote:
+
+> iptables dropped the xtables_set_revision() function around version 1.4.9,
+> so set the rev directly ourselves.  This should be compatible back to the
+> original version m_xt itself is designed for.
 > 
-> It would be clearer to use the '__packed' macro after each structure
-> definition instead of using this awful Microsoft extension.
+> Signed-off-by: Mike Frysinger <vapier@gentoo.org>
+> ---
+>  tc/m_xt.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/tc/m_xt.c b/tc/m_xt.c
+> index bfc4937..ede9913 100644
+> --- a/tc/m_xt.c
+> +++ b/tc/m_xt.c
+> @@ -88,7 +88,7 @@ build_st(struct xtables_target *target, struct xt_entry_target *t)
+>  		target->t = xtables_calloc(1, size);
+>  		target->t->u.target_size = size;
+>  		strcpy(target->t->u.user.name, target->name);
+> -		xtables_set_revision(target->t->u.user.name, target->revision);
+> +		target->t->u.user.revision = target->revision;
+>  
+>  		if (target->init != NULL)
+>  			target->init(target->t);
 
-I agree, that's the "normal" Linux way of doing things.
 
-Other than that, this patch set looks good to me.  Jiri, if the packed
-change is made, do you want me to take these through my tree, or do you
-want to take them through yours?  Whatever is easier for you is fine
-with me.
-
-thanks,
-
-greg k-h
+Applied.
