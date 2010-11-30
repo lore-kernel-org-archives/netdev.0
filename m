@@ -1,8 +1,8 @@
 From: Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
-Subject: [PATCH net-next-2.6 v6 12/20] can: EG20T PCH: Delete unnecessary/redundant
- code
-Date: Tue, 30 Nov 2010 13:31:58 +0900
-Message-ID: <4CF47E3E.3000601__6565.88416682116$1291091578$gmane$org@dsn.okisemi.com>
+Subject: [PATCH net-next-2.6 v6 13/20] can: EG20T PCH: Fix bit timing calculation
+ issue
+Date: Tue, 30 Nov 2010 13:34:30 +0900
+Message-ID: <4CF47ED6.8010307__37546.3706594475$1291091740$gmane$org@dsn.okisemi.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
@@ -15,72 +15,44 @@ To: Wolfgang Grandegger <wg@grandegger.com>,
 	Barry Song <21cnbao@gmail.com>,
 	Samuel Ortiz <sameo@linux.inte
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sm-d311v.smileserver.ne.jp ([203.211.202.206]:21575 "EHLO
+Received: from sm-d311v.smileserver.ne.jp ([203.211.202.206]:34295 "EHLO
 	sm-d311v.smileserver.ne.jp" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753034Ab0K3Eca (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Nov 2010 23:32:30 -0500
+	by vger.kernel.org with ESMTP id S1751204Ab0K3EfC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Nov 2010 23:35:02 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Delete unnecessary/redundant code.
+Modify to use calculated value directly passed by CAN core module.
 
 Signed-off-by: Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
+Acked-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- drivers/net/can/pch_can.c |   14 +-------------
- 1 files changed, 1 insertions(+), 13 deletions(-)
+ drivers/net/can/pch_can.c |    6 ++----
+ 1 files changed, 2 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/can/pch_can.c b/drivers/net/can/pch_can.c
-index 8e607ad..9f5241b 100644
+index 9f5241b..b57b505 100644
 --- a/drivers/net/can/pch_can.c
 +++ b/drivers/net/can/pch_can.c
-@@ -447,11 +447,6 @@ static void pch_can_release(struct pch_can_priv *priv)
- /* This function clears interrupt(s) from the CAN device. */
- static void pch_can_int_clr(struct pch_can_priv *priv, u32 mask)
- {
--	if (mask == PCH_STATUS_INT) {
--		ioread32(&priv->regs->stat);
--		return;
--	}
--
- 	/* Clear interrupt for transmit object */
- 	if ((mask >= PCH_RX_OBJ_START) && (mask <= PCH_RX_OBJ_END)) {
- 		/* Setting CMASK for clearing the reception interrupts. */
-@@ -518,8 +513,6 @@ static void pch_can_error(struct net_device *ndev, u32 status)
- 		state = CAN_STATE_BUS_OFF;
- 		cf->can_id |= CAN_ERR_BUSOFF;
- 		can_bus_off(ndev);
--		pch_can_set_run_mode(priv, PCH_CAN_RUN);
--		dev_err(&ndev->dev, "%s -> Bus Off occurres.\n", __func__);
- 	}
+@@ -792,17 +792,15 @@ static int pch_set_bittiming(struct net_device *ndev)
+ 	const struct can_bittiming *bt = &priv->can.bittiming;
+ 	u32 canbit;
+ 	u32 bepe;
+-	u32 brp;
  
- 	errc = ioread32(&priv->regs->errc);
-@@ -753,7 +746,7 @@ static int pch_can_poll(struct napi_struct *napi, int quota)
- 	if (!int_stat)
- 		goto end;
+ 	/* Setting the CCE bit for accessing the Can Timing register. */
+ 	pch_can_bit_set(&priv->regs->cont, PCH_CTRL_CCE);
  
--	if ((int_stat == PCH_STATUS_INT) && (quota > 0)) {
-+	if (int_stat == PCH_STATUS_INT) {
- 		reg_stat = ioread32(&priv->regs->stat);
- 		if (reg_stat & (PCH_BUS_OFF | PCH_LEC_ALL)) {
- 			if (reg_stat & PCH_BUS_OFF ||
-@@ -939,10 +932,6 @@ static netdev_tx_t pch_xmit(struct sk_buff *skb, struct net_device *ndev)
- 		priv->tx_obj++;
- 	}
- 
--	/* Reading the Msg Obj from the Msg RAM to the Interface register. */
--	iowrite32(PCH_CMASK_RX_TX_GET, &priv->regs->ifregs[1].cmask);
--	pch_can_rw_msg_obj(&priv->regs->ifregs[1].creq, tx_obj_no);
--
- 	/* Setting the CMASK register. */
- 	pch_can_bit_set(&priv->regs->ifregs[1].cmask, PCH_CMASK_ALL);
- 
-@@ -1072,7 +1061,6 @@ static u32 pch_can_get_rx_buffer_link(struct pch_can_priv *priv, u32 buffer_num)
- 	return link;
- }
- 
--
- static int pch_can_suspend(struct pci_dev *pdev, pm_message_t state)
- {
- 	int i;			/* Counter variable. */
+-	brp = (bt->tq) / (1000000000/PCH_CAN_CLK) - 1;
+-	canbit = brp & PCH_MSK_BITT_BRP;
++	canbit = (bt->brp - 1) & PCH_MSK_BITT_BRP;
+ 	canbit |= (bt->sjw - 1) << PCH_BIT_SJW_SHIFT;
+ 	canbit |= (bt->phase_seg1 + bt->prop_seg - 1) << PCH_BIT_TSEG1_SHIFT;
+ 	canbit |= (bt->phase_seg2 - 1) << PCH_BIT_TSEG2_SHIFT;
+-	bepe = (brp & PCH_MSK_BRPE_BRPE) >> PCH_BIT_BRPE_BRPE_SHIFT;
++	bepe = ((bt->brp - 1) & PCH_MSK_BRPE_BRPE) >> PCH_BIT_BRPE_BRPE_SHIFT;
+ 	iowrite32(canbit, &priv->regs->bitt);
+ 	iowrite32(bepe, &priv->regs->brpe);
+ 	pch_can_bit_clear(&priv->regs->cont, PCH_CTRL_CCE);
 -- 
 1.6.0.6
