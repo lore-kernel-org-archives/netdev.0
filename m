@@ -1,60 +1,66 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] net/r8169: Correct the ram code for RTL8111D(L)
-Date: Mon, 29 Nov 2010 16:13:44 -0800
-Message-ID: <20101129161344.059239d6@nehalam>
-References: <1290772470-23713-1-git-send-email-hayeswang@realtek.com>
-	<1290779458.3051.45.camel@localhost>
-	<20101126224914.GA12266@electric-eye.fr.zoreil.com>
-	<1290813146.3051.58.camel@localhost>
-	<CE0F8B12F31D4E82860F4CE06907E98B@realtek.com.tw>
-	<20101129233334.GA2888@electric-eye.fr.zoreil.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: 2.6.35 -> 2.6.36 panic when vlan and promisc with tg3
+Date: Mon, 29 Nov 2010 16:19:06 -0800
+Message-ID: <4CF442FA.4070701@candelatech.com>
+References: <20101129201716.1d0257c4@xenia.leun.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: hayeswang <hayeswang@realtek.com>,
-	"'Ben Hutchings'" <benh@debian.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	"'David Miller'" <davem@davemloft.net>, 564628@bugs.debian.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Michael Leun <lkml20101129@newton.leun.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20101129233334.GA2888@electric-eye.fr.zoreil.com>
+In-Reply-To: <20101129201716.1d0257c4@xenia.leun.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 30 Nov 2010 00:33:34 +0100
-Francois Romieu <romieu@fr.zoreil.com> wrote:
+On 11/29/2010 11:17 AM, Michael Leun wrote:
+> Hi,
+>
+> only kernel message I was able to capture on serial were:
+>
+> UG: unable to handle kernel paging request at 01cc921c
+> IP: [<c034bfce>] vlan_hwaccel_do_receive+0x59/0xd0
+> *pdpt = 0000000036a2a001 *pde = 0000000000000000
+> Oops: 0002 [#1] SMP
+> last sysfs
+>
+> Then machine dead.
+>
+> In 2.6.35.x this did not happen (but vlans broken - cannot see vlan
+> tags with tcpdump),
 
-> hayeswang <hayeswang@realtek.com> :
-> > Excuse me, I have some questions about the firmware patch.
-> > 
-> > 1. I should convert the data into the binary files (.bin). Is it right?
-> 
-> You may do it.
-> 
-> Fwiw I have cooked something for it in the attached patch #9 this WE. Feel
-> free to take bits from it. I will not do more changes while you work on it.
-> 
-> > 2. Where should I update the firmware files? Is the path the
-> > linux-2.6/firmware?
-> 
-> ! This directory is only here to contain firmware images extracted from old
-> ! device drivers which predate the common use of request_firmware().
-> 
-> It is fine for the existing code.
-> 
-> > However, according to linux-2.6/firmeware/README.AddingFirmware, I
-> > should update they to another repository:
-> > 	
-> > git://git.kernel.org/pub/scm/linux/kernel/git/dwmw2/linux-firmware.git
-> 
-> /me scratches head.
-> 
-> Assuming Realtek does not intend to stand this code / data as GPLable, yes.
-> It will help people staying clear from non-free code, it will help packaging
-> something useful and it will remove some cruft from the code.
-> 
-> So everybody will end happy. Especially after an aspirin.
+Try this patch:
 
-The plan is to do away with linux-2.6/firmware entirely.
-Distributions are shipping the firmware from linux-firmware, not the
-kernel files.
+http://permalink.gmane.org/gmane.linux.network/176566
+
+It looks like this hasn't made it into stable yet?
+
+Thanks,
+Ben
+
+>
+> To reproduce:
+>
+> ip link set eth0 up
+> vconfig add eth0 2
+> ip link set eth0 promisc on
+>
+> Machines with these ethernet cards I've seen to be affected:
+>
+> Ethernet controller: Broadcom Corporation NetXtreme BCM5714 Gigabit
+> Ethernet (rev a3)
+>
+> Ethernet controller: Broadcom Corporation NetXtreme BCM5752M Gigabit
+> Ethernet PCI Express (rev 02)
+>
+> Machine with this card is NOT affected (no vlan hw accel?):
+>
+> Ethernet controller: Broadcom Corporation NetLink BCM5906M Fast
+> Ethernet PCI Express (rev 02)
+>
+>
+
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
