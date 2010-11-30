@@ -1,47 +1,45 @@
-From: Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
-Subject: [PATCH net-next-2.6 v6 20/20] can: EG20T PCH: Replace netif_rx to
- netif_receive_skb
-Date: Tue, 30 Nov 2010 13:41:10 +0900
-Message-ID: <4CF48066.1040009__41790.6619645239$1291092129$gmane$org@dsn.okisemi.com>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH 1/3] inetpeer: Support ipv6 addresses.
+Date: Tue, 30 Nov 2010 12:51:08 +0800
+Message-ID: <AANLkTin11AYaFWMArC6fNQnvej2+=WUfOtTVrtX8WLEZ@mail.gmail.com>
+References: <20101129.134403.179947389.davem@davemloft.net>
+ <AANLkTimwo_ok=1dfzOST=rKqQdNS95wUAVdrrZHBMddS@mail.gmail.com> <20101129.191457.193722052.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: qi.wang@intel.com, yong.y.wang@intel.com,
-	andrew.chih.howe.khor@intel.com, joel.clark@intel.com,
-	kok.howg.ewe@intel.com, margie.foster@intel.com
-To: Wolfgang Grandegger <wg@grandegger.com>,
-	Wolfram Sang <w.sang@pengutronix.de>,
-	Christian Pellegrin <chripell@fsfe.org>,
-	Barry Song <21cnbao@gmail.com>,
-	Samuel Ortiz <sameo@linux.inte
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sm-d311v.smileserver.ne.jp ([203.211.202.206]:34793 "EHLO
-	sm-d311v.smileserver.ne.jp" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751677Ab0K3Elm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Nov 2010 23:41:42 -0500
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:38877 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751046Ab0K3Ev3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Nov 2010 23:51:29 -0500
+Received: by fxm8 with SMTP id 8so815246fxm.19
+        for <netdev@vger.kernel.org>; Mon, 29 Nov 2010 20:51:28 -0800 (PST)
+In-Reply-To: <20101129.191457.193722052.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since this driver is implemented as NAPI,
-netif_receive_skb must be used not netif_rx.
+On Tue, Nov 30, 2010 at 11:14 AM, David Miller <davem@davemloft.net> wrote:
+> From: Changli Gao <xiaosuo@gmail.com>
+> Date: Tue, 30 Nov 2010 10:33:49 +0800
+>
+>> I have thought about converting this AVL tree to rbtree. When I saw
+>> the comment above, I gave it up, because rbtree makes this structure
+>> bigger. If ipv6 support is added, I think it is time to turn to
+>> rbtree. :)
+>
+> If it takes size over 128 bytes, it is probably still a bad idea.
+> Right now it is just under 128.
+>
 
-Signed-off-by: Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
----
- drivers/net/can/pch_can.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Why 128? The current size of inet_peer is 64 bytes, and after your
+ipv6 patch, it is just 80. And, inet_peer is allocated from its own
+mem_cache, so the size of the memory for it should not be aligned to
+2^n.
 
-diff --git a/drivers/net/can/pch_can.c b/drivers/net/can/pch_can.c
-index 596dc1e..0ee3fc6 100644
---- a/drivers/net/can/pch_can.c
-+++ b/drivers/net/can/pch_can.c
-@@ -578,7 +578,7 @@ static void pch_can_error(struct net_device *ndev, u32 status)
- 	cf->data[7] = (errc & PCH_REC) >> 8;
- 
- 	priv->can.state = state;
--	netif_rx(skb);
-+	netif_receive_skb(skb);
- 
- 	stats->rx_packets++;
- 	stats->rx_bytes += cf->can_dlc;
+If rbtree is used instead, extra 8 bytes will be needed, and the size
+of inet_peer will be 88.
+
 -- 
-1.6.0.6
+Regards,
+Changli Gao(xiaosuo@gmail.com)
