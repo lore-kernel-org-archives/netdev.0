@@ -1,70 +1,116 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Bonding, GRO and tcp_reordering
-Date: Tue, 30 Nov 2010 17:04:33 +0100
-Message-ID: <1291133073.2904.128.camel@edumazet-laptop>
-References: <20101130135549.GA22688@verge.net.au>
-	 <1291131776.21077.27.camel@bwh-desktop>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 3/3] ipip: add module alias for tunl0 tunnel device
+Date: Tue, 30 Nov 2010 08:08:42 -0800
+Message-ID: <20101130080842.685e0b70@nehalam>
+References: <20101129194746.724222156@vyatta.com>
+	<20101129194805.851988995@vyatta.com>
+	<1291101577.2725.41.camel@edumazet-laptop>
+	<AANLkTi=DFN=r5XLYEwb3RYOyTF+u0uTEUa3wX5i2ijJZ@mail.gmail.com>
+	<1291105269.2725.52.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Simon Horman <horms@verge.net.au>, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: Changli Gao <xiaosuo@gmail.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:48442 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754169Ab0K3QEi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Nov 2010 11:04:38 -0500
-Received: by wyb28 with SMTP id 28so5840879wyb.19
-        for <netdev@vger.kernel.org>; Tue, 30 Nov 2010 08:04:37 -0800 (PST)
-In-Reply-To: <1291131776.21077.27.camel@bwh-desktop>
+Received: from mail.vyatta.com ([76.74.103.46]:44436 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751782Ab0K3QIp convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Nov 2010 11:08:45 -0500
+In-Reply-To: <1291105269.2725.52.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 30 novembre 2010 =C3=A0 15:42 +0000, Ben Hutchings a =C3=A9cri=
-t :
-> On Tue, 2010-11-30 at 22:55 +0900, Simon Horman wrote:
+On Tue, 30 Nov 2010 09:21:09 +0100
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-> > The only other parameter that seemed to have significant effect was=
- to
-> > increase the mtu.  In the case of MTU=3D9000, GRO seemed to have a =
-negative
-> > impact on throughput, though a significant positive effect on CPU
-> > utilisation.
-> [...]
+> Le mardi 30 novembre 2010 =E0 15:55 +0800, Changli Gao a =E9crit :
+> > On Tue, Nov 30, 2010 at 3:19 PM, Eric Dumazet <eric.dumazet@gmail.c=
+om> wrote:
+> > > Le lundi 29 novembre 2010 =E0 11:47 -0800, Stephen Hemminger a =E9=
+crit :
+> > >> pi=E8ce jointe document texte brut (ipip-alias.patch)
+> > >> If ipip is built as a module the 'ip tunnel add' command would f=
+ail because
+> > >> the ipip module was not being autoloaded.  Adding an alias for
+> > >> the tunl0 device name cause dev_load() to autoload it when neede=
+d.
+> > >>
+> > >> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> > >>
+> > >> --- a/net/ipv4/ipip.c 2010-11-29 11:40:25.026277890 -0800
+> > >> +++ b/net/ipv4/ipip.c 2010-11-29 11:41:05.790681069 -0800
+> > >> @@ -913,3 +913,4 @@ static void __exit ipip_fini(void)
+> > >>  module_init(ipip_init);
+> > >>  module_exit(ipip_fini);
+> > >>  MODULE_LICENSE("GPL");
+> > >> +MODULE_ALIAS("tunl0");
+> > >
+> > > I am not sure I understand you...
+> > >
+> > > Here, I do have ipip built as a module, and I have no problem :
+> > >
+> > > # lsmod|grep ipip
+> > > # ip tunnel add
+> > > cannot determine tunnel mode (ipip, gre or sit)
+> > > # lsmod|grep ipip
+> > > # ip tunnel add mode ipip
+> > > # lsmod|grep ipip
+> > > ipip                    7692  0
+> > > tunnel4                 2949  1 ipip
+> > > #
+> > >
+> > > What am I missing ?
+> > >
+> > >
+> >=20
+> > localhost linux # lsmod
+> > Module                  Size  Used by
+> > ipv6                  309359  12
+> > localhost linux # ip -V
+> > ip utility, iproute2-ss091226
+> > localhost linux # ip tunnel add mode gre
+> > ioctl: No such device
+> > localhost linux # ip tunnel add mode ipip
+> > ioctl: No such device
+> > localhost linux # modprobe ip_gre
+> > localhost linux # modprobe ipip
+> > localhost linux # ip tunnel add mode ipip
+> > localhost linux # ip tunnel add mode gre
+> > localhost linux # lsmod
+> > Module                  Size  Used by
+> > ipip                    8128  0
+> > tunnel4                 2683  1 ipip
+> > ip_gre                 15055  0
+> > gre                     1967  1 ip_gre
+> > ipv6                  309359  13 ip_gre
+> >=20
+> >=20
 >=20
-> Increasing MTU also increases the interval between packets on a TCP f=
-low
-> using maximum segment size so that it is more likely to exceed the
-> difference in delay.
+> Hmm. I still dont get it, ipv6 as a module ?
 >=20
+> Works well here.
+>=20
+> # lsmod
+> Module                  Size  Used by
+> bonding                89194  0=20
+> ipv6                  232889  29 bonding
+> # ip tunnel add mode ipip
+> # lsmod
+> Module                  Size  Used by
+> ipip                    6221  0=20
+> bonding                89194  0=20
+> ipv6                  232889  29 bonding
+> # ip -V
+> ip utility, iproute2-ss100823
+> #=20
 
-GRO really is operational _if_ we receive in same NAPI run several
-packets for the same flow.
+If you run debian there is a list of aliases in /etc/modprobe.d/aliases=
+=2Econf
+that includes the ipip alias.
 
-As soon as we exit NAPI mode, GRO packets are flushed.
-
-Big MTU --> bigger delays between packets, so big chance that GRO canno=
-t
-trigger at all, since NAPI runs for one packet only.
-
-One possibility with big MTU is to tweak "ethtool -c eth0" params
-rx-usecs: 20
-rx-frames: 5
-rx-usecs-irq: 0
-rx-frames-irq: 5
-so that "rx-usecs" is bigger than the delay between two MTU full sized
-packets.
-
-Gigabit speed means 1 nano second per bit, and MTU=3D9000 means 72 us
-delay between packets.
-
-So try :
-
-ethtool -C eth0 rx-usecs 100
-
-to get chance that several packets are delivered at once by NIC.
-
-Unfortunately, this also add some latency, so it helps bulk transferts,
-and slowdown interactive traffic=20
-
+My patch provides same information from the kernel. In olden times,
+the kernel relied more on user space defined aliases, but in the modern
+era MODULE_ALIAS() is used to provide that information.
 
