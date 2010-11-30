@@ -1,46 +1,30 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: 2.6.35 -> 2.6.36 panic when vlan and promisc with tg3
-Date: Mon, 29 Nov 2010 19:10:06 -0800
-Message-ID: <AANLkTi=HHD9KCn8SHDQbbsNJCWDy+iWH8JmzhVUQAvVm@mail.gmail.com>
-References: <20101129201716.1d0257c4@xenia.leun.net>
-	<4CF442FA.4070701@candelatech.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/3] inetpeer: Support ipv6 addresses.
+Date: Mon, 29 Nov 2010 19:14:57 -0800 (PST)
+Message-ID: <20101129.191457.193722052.davem@davemloft.net>
+References: <20101129.134403.179947389.davem@davemloft.net>
+	<AANLkTimwo_ok=1dfzOST=rKqQdNS95wUAVdrrZHBMddS@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Michael Leun <lkml20101129@newton.leun.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Ben Greear <greearb@candelatech.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4CF442FA.4070701@candelatech.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: xiaosuo@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53990
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750826Ab0K3DOa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Nov 2010 22:14:30 -0500
+In-Reply-To: <AANLkTimwo_ok=1dfzOST=rKqQdNS95wUAVdrrZHBMddS@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 29, 2010 at 4:19 PM, Ben Greear <greearb@candelatech.com> wrote:
-> On 11/29/2010 11:17 AM, Michael Leun wrote:
->>
->> Hi,
->>
->> only kernel message I was able to capture on serial were:
->>
->> UG: unable to handle kernel paging request at 01cc921c
->> IP: [<c034bfce>] vlan_hwaccel_do_receive+0x59/0xd0
->> *pdpt = 0000000036a2a001 *pde = 0000000000000000
->> Oops: 0002 [#1] SMP
->> last sysfs
->>
->> Then machine dead.
->>
->> In 2.6.35.x this did not happen (but vlans broken - cannot see vlan
->> tags with tcpdump),
->
-> Try this patch:
->
-> http://permalink.gmane.org/gmane.linux.network/176566
->
-> It looks like this hasn't made it into stable yet?
+From: Changli Gao <xiaosuo@gmail.com>
+Date: Tue, 30 Nov 2010 10:33:49 +0800
 
-It didn't make it into 2.6.36.1.
+> I have thought about converting this AVL tree to rbtree. When I saw
+> the comment above, I gave it up, because rbtree makes this structure
+> bigger. If ipv6 support is added, I think it is time to turn to
+> rbtree. :)
 
-David, I know that you already acked this patch but it sounds like
-Greg would prefer to get it from you directly:
-https://lkml.org/lkml/2010/11/19/685
+If it takes size over 128 bytes, it is probably still a bad idea.
+Right now it is just under 128.
