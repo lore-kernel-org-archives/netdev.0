@@ -1,39 +1,54 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] iproute2: tc: f_flow: add key rxhash
-Date: Tue, 30 Nov 2010 09:58:28 -0800
-Message-ID: <20101130095828.392ff3f9@nehalam>
-References: <1282408201-3522-1-git-send-email-xiaosuo@gmail.com>
-	<1282426937.3532.6.camel@bigi>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Bonding, GRO and tcp_reordering
+Date: Tue, 30 Nov 2010 19:14:15 +0100
+Message-ID: <1291140855.2904.148.camel@edumazet-laptop>
+References: <20101130135549.GA22688@verge.net.au>  <4CF53AB2.60209@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Changli Gao <xiaosuo@gmail.com>, netdev@vger.kernel.org
-To: hadi@cyberus.ca
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Simon Horman <horms@verge.net.au>, netdev@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:42525 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752233Ab0K3R6d (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Nov 2010 12:58:33 -0500
-In-Reply-To: <1282426937.3532.6.camel@bigi>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:64580 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754732Ab0K3SOU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Nov 2010 13:14:20 -0500
+Received: by wyb28 with SMTP id 28so5968630wyb.19
+        for <netdev@vger.kernel.org>; Tue, 30 Nov 2010 10:14:19 -0800 (PST)
+In-Reply-To: <4CF53AB2.60209@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 21 Aug 2010 17:42:17 -0400
-jamal <hadi@cyberus.ca> wrote:
+Le mardi 30 novembre 2010 =C3=A0 09:56 -0800, Rick Jones a =C3=A9crit :
 
-> On Sun, 2010-08-22 at 00:30 +0800, Changli Gao wrote:
-> > We can use rxhash to classify the traffic into flows. As rxhash maybe
-> > supplied by NIC or RPS, it is cheaper.
-> > 
-> > Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-> 
-> Acked-by: Jamal Hadi Salim <hadi@cyberus.ca>
-> 
-> 
-> cheers,
-> jamal
-> 
+> Short of packet traces, taking snapshots of netstat statistics before=
+ and after=20
+> each netperf run might be goodness - you can look at things like rati=
+o of ACKs=20
+> to data segments/bytes and such.  LRO/GRO can have a non-trivial effe=
+ct on the=20
+> number of ACKs, and ACKs are what matter for fast retransmit.
+>=20
+> netstat -s > before
+> netperf ...
+> netstat -s > after
+> beforeafter before after > delta
+>=20
+> where beforeafter comes (for now, the site will have to go away befor=
+e long as=20
+> the campus on which it is located has been sold)=20
+> ftp://ftp.cup.hp.com/dist/networking/tools/  and will subtract before=
+ from after.
+>=20
+> happy benchmarking,
 
-Applied
+Yes indeed. With fast enough medium (or small MTUS), we can enter in a
+backlog processing problem {filling huge receive queues}, as seen on
+loopback lately...
 
--- 
+netstat -s can show some receive queue overrun in this case.
+
+    TCPBacklogDrop: xxx
+
+
+
