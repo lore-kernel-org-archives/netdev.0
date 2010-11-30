@@ -1,72 +1,109 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: Re: [PATCH net-next-2.6] sched: use xps information for qdisc NUMA
- affinity
-Date: Tue, 30 Nov 2010 12:01:53 -0800 (Pacific Standard Time)
-Message-ID: <alpine.WNT.2.00.1011301152240.10832@jbrandeb-desk1.amr.corp.intel.com>
-References: <AANLkTimU+7aY0DZrnBtL=BsP_qGpCsBw0d4TCKOJSzRL@mail.gmail.com> <20101130.104834.112604433.davem@davemloft.net> <1291144047.2904.224.camel@edumazet-laptop> <20101130.112106.183035811.davem@davemloft.net>
+From: Andreas Mohr <andi@lisas.de>
+Subject: [PATCH -stable] Add USB PID for new MOSCHIP USB ethernet controller
+ MCS7832 variant
+Date: Tue, 30 Nov 2010 21:07:37 +0100
+Message-ID: <20101130200737.GA5185@rhlx01.hs-esslingen.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"therbert@google.com" <therbert@google.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:40354 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755764Ab0K3UBz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Nov 2010 15:01:55 -0500
-In-Reply-To: <20101130.112106.183035811.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: stable@kernel.org, Arnd Bergmann <arnd@arndb.de>,
+	dhollis@davehollis.com, Phil Chang <pchang23@sbcglobal.net>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: gregkh@suse.de, "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+Due to active notification of the new MCS7832 version by the manufacturer
+today (Mr. Milton; thanks!) -- quote: "functionality same as MCS7830",
+I'm now submitting this patch, intended for networking.git and -stable.
+
+ChangeLog:
+- add MCS7832 USB PID to be able to support this new device variant, too
+- add HIF_REG_EEPROM_STATUS definitions, comments
 
 
+Patch created, "semi"-tested (via my existing MCS7830 only) on -rc3,
+checkpatch.pl'd.
+GIT history seems clean, should thus apply easily.
 
-On Tue, 30 Nov 2010, David Miller wrote:
+Thanks!
 
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Tue, 30 Nov 2010 20:07:27 +0100
-> 
-> [ Jesse CC:'d ]
-> 
-> > netdev struct itself is shared by all cpus, so there is no real choice,
-> > unless you know one netdev will be used by a restricted set of
-> > cpus/nodes... Probably very unlikely in practice.
-> 
-> Unfortunately Jesse has found non-trivial gains by NUMA localizing the
-> netdev struct during routing tests in soome configurations.
+Signed-off-by: Andreas Mohr <andi@lisas.de>
 
-Thanks Dave, given the results I can see with current upstream (at least 
-igb) I don't think that netdev access is hurting performance unless the 
-driver is unwisely accessing netdev structs for write on multiple cpus 
-simultaneously.
-
-I think the trick is to have drivers that are concerned with this kind of 
-thing have a "hot path struct" that is used at runtime.  Since the cache 
-on the numa systems will still cache remote node memory for read, if it is 
-not written to, then the read data will be housed on each cpus' L3.
+diff --git a/drivers/net/usb/mcs7830.c b/drivers/net/usb/mcs7830.c
+index a6281e3..3fbcb0d 100644
+--- a/drivers/net/usb/mcs7830.c
++++ b/drivers/net/usb/mcs7830.c
+@@ -1,5 +1,5 @@
+ /*
+- * MOSCHIP MCS7830 based USB 2.0 Ethernet Devices
++ * MOSCHIP MCS7830 based (7730/7830/7832) USB 2.0 Ethernet Devices
+  *
+  * based on usbnet.c, asix.c and the vendor provided mcs7830 driver
+  *
+@@ -11,8 +11,12 @@
+  *
+  * Definitions gathered from MOSCHIP, Data Sheet_7830DA.pdf (thanks!).
+  *
++ * 2010-11-30: add 7832 USB PID ("functionality same as MCS7830"),
++ *             per active notification by manufacturer
++ *
+  * TODO:
+  * - support HIF_REG_CONFIG_SLEEPMODE/HIF_REG_CONFIG_TXENABLE (via autopm?)
++ * - support HIF_REG_FRAME_DROP_COUNTER, for interface statistics
+  * - implement ethtool_ops get_pauseparam/set_pauseparam
+  *   via HIF_REG_PAUSE_THRESHOLD (>= revision C only!)
+  * - implement get_eeprom/[set_eeprom]
+@@ -60,6 +64,7 @@
+ #define MCS7830_MAX_MCAST	64
  
-> > We could change (only on NUMA setups maybe)
-> > 
-> > struct netdev_queue *_tx;
-> > 
-> > to a
-> > 
-> > struct netdev_queue **_tx;
-> > 
-> > and allocate each "struct netdev_queue" on appropriate node, but adding
-> > one indirection level might be overkill...
-
-I agree probably overkill.
-
-> > For very hot small structures, (one or two cache lines), I am not sure
-> > its worth the pain.
-> 
-> Jesse, do you think this would help the case you were testing?
-
-I would be glad to test, but I am currently seeing pretty good results 
-with upstream igb.  I'll retest with latest kernel and with 
-# taskset 1 insmod igb.ko
-echo 2 > /proc/irq/<igb irqs>/smp_affinity
-
-(1 and 2 are different sockets on my machine)
+ #define MCS7830_VENDOR_ID	0x9710
++#define MCS7832_PRODUCT_ID	0x7832
+ #define MCS7830_PRODUCT_ID	0x7830
+ #define MCS7730_PRODUCT_ID	0x7730
+ 
+@@ -97,6 +102,11 @@ enum {
+ 	HIF_REG_FRAME_DROP_COUNTER		= 0x15, /* 0..ff; reset: 0 */
+ 	HIF_REG_PAUSE_THRESHOLD			= 0x16,
+ 	   HIF_REG_PAUSE_THRESHOLD_DEFAULT	= 0,
++	HIF_REG_EEPROM_STATUS			= 0x17,
++	   /* "read in progress": bits 0/1/2 == 0 */
++	   HIF_REG_EEPROM_STATUS_SW_EEPROM_READ	= 0x04,
++	   HIF_REG_EEPROM_STATUS_READ_FAILED	= 0x02, /* ro! */
++	   HIF_REG_EEPROM_STATUS_READ_SUCCEEDED	= 0x01, /* ro! */
+ };
+ 
+ /* Trailing status byte in Ethernet Rx frame */
+@@ -362,6 +372,11 @@ static int mcs7830_get_rev(struct usbnet *dev)
+ {
+ 	u8 dummy[2];
+ 	int ret;
++	/* TODO?: 7832 _might_  have more registers (untested: no hardware).
++	   Might also be a better idea to gather revision from
++	   SEEPROM field "Release Number" (if reliably supported
++	   by all variants).
++	 */
+ 	ret = mcs7830_get_reg(dev, HIF_REG_FRAME_DROP_COUNTER, 2, dummy);
+ 	if (ret > 0)
+ 		return 2; /* Rev C or later */
+@@ -626,7 +641,7 @@ static int mcs7830_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
+ }
+ 
+ static const struct driver_info moschip_info = {
+-	.description	= "MOSCHIP 7830/7730 usb-NET adapter",
++	.description	= "MOSCHIP 7830/7832/7730 usb-NET adapter",
+ 	.bind		= mcs7830_bind,
+ 	.rx_fixup	= mcs7830_rx_fixup,
+ 	.flags		= FLAG_ETHER,
+@@ -645,6 +660,10 @@ static const struct driver_info sitecom_info = {
+ 
+ static const struct usb_device_id products[] = {
+ 	{
++		USB_DEVICE(MCS7830_VENDOR_ID, MCS7832_PRODUCT_ID),
++		.driver_info = (unsigned long) &moschip_info,
++	},
++	{
+ 		USB_DEVICE(MCS7830_VENDOR_ID, MCS7830_PRODUCT_ID),
+ 		.driver_info = (unsigned long) &moschip_info,
+ 	},
