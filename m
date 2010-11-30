@@ -1,132 +1,348 @@
-From: Martin Willi <martin@strongswan.org>
-Subject: [PATCH 1/5] xfrm: Add Traffic Flow Confidentiality padding XFRM attribute
-Date: Tue, 30 Nov 2010 16:49:11 +0100
-Message-ID: <1291132155-31277-2-git-send-email-martin@strongswan.org>
-References: <1291132155-31277-1-git-send-email-martin@strongswan.org>
-Cc: linux-crypto@vger.kernel.org, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <1291132155-31277-1-git-send-email-martin@strongswan.org>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: =?utf-8?q?Micha=C5=82?= =?utf-8?b?TWlyb3PFgmF3?=
+	<mirq-linux@rere.qmqm.pl>
+Subject: [PATCH v2] net: Fix too optimistic NETIF_F_HW_CSUM features
+Date: Tue, 30 Nov 2010 17:38:00 +0100 (CET)
+Message-ID: <20101130163057.29978.92721.stgit@rechot.qmqm.pl>
+References: <20101130142352.3936.51663.stgit@rechot.qmqm.pl>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	Jesse Gross <jesse@nicira.com>, Jon Mason <jon.mason@exar.com>,
+	Ramkrishna Vepa <Ramkrishna.Vepa@exar.com>,
+	Sivakumar Subramani <Sivakumar.Subramani@exar.com>,
+	Sreenivasa Honnur <Sreenivasa.Honnur@exar.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rere.qmqm.pl ([89.167.52.164]:42179 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751164Ab0K3QiB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Nov 2010 11:38:01 -0500
+In-Reply-To: <20101130142352.3936.51663.stgit@rechot.qmqm.pl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The XFRMA_TFCPAD attribute for XFRM state installation configures
-Traffic Flow Confidentiality by padding ESP packets to a specified
-length. To use RFC4303 TFC padding and overcome the 255 byte ESP
-padding field limit, the XFRM_TFC_ESPV3 flag must be set.
+NETIF_F_HW_CSUM is a superset of NETIF_F_IP_CSUM+NETIF_F_IPV6_CSUM, but
+some drivers miss the difference. Fix this and also fix UFO dependency
+on checksumming offload as it makes the same mistake in assumptions.
 
-Signed-off-by: Martin Willi <martin@strongswan.org>
+Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
 ---
- include/linux/xfrm.h |    7 +++++++
- include/net/xfrm.h   |    1 +
- net/xfrm/xfrm_user.c |   16 ++++++++++++++--
- 3 files changed, 22 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/xfrm.h b/include/linux/xfrm.h
-index b971e38..b1e5f8a 100644
---- a/include/linux/xfrm.h
-+++ b/include/linux/xfrm.h
-@@ -283,6 +283,7 @@ enum xfrm_attr_type_t {
- 	XFRMA_KMADDRESS,        /* struct xfrm_user_kmaddress */
- 	XFRMA_ALG_AUTH_TRUNC,	/* struct xfrm_algo_auth */
- 	XFRMA_MARK,		/* struct xfrm_mark */
-+	XFRMA_TFC,		/* struct xfrm_tfc */
- 	__XFRMA_MAX
- 
- #define XFRMA_MAX (__XFRMA_MAX - 1)
-@@ -293,6 +294,12 @@ struct xfrm_mark {
- 	__u32           m; /* mask */
- };
- 
-+struct xfrm_tfc {
-+	__u16		pad;
-+	__u16		flags;
-+#define XFRM_TFC_ESPV3	1	/* RFC4303 TFC padding, if possible */
-+};
-+
- enum xfrm_sadattr_type_t {
- 	XFRMA_SAD_UNSPEC,
- 	XFRMA_SAD_CNT,
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index bcfb6b2..03468c0 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -143,6 +143,7 @@ struct xfrm_state {
- 	struct xfrm_id		id;
- 	struct xfrm_selector	sel;
- 	struct xfrm_mark	mark;
-+	struct xfrm_tfc		tfc;
- 
- 	u32			genid;
- 
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index 8bae6b2..0b4ec02 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -148,7 +148,8 @@ static int verify_newsa_info(struct xfrm_usersa_info *p,
- 		     !attrs[XFRMA_ALG_AUTH_TRUNC]) ||
- 		    attrs[XFRMA_ALG_AEAD]	||
- 		    attrs[XFRMA_ALG_CRYPT]	||
--		    attrs[XFRMA_ALG_COMP])
-+		    attrs[XFRMA_ALG_COMP]	||
-+		    attrs[XFRMA_TFC])
- 			goto out;
- 		break;
- 
-@@ -172,7 +173,8 @@ static int verify_newsa_info(struct xfrm_usersa_info *p,
- 		    attrs[XFRMA_ALG_AEAD]	||
- 		    attrs[XFRMA_ALG_AUTH]	||
- 		    attrs[XFRMA_ALG_AUTH_TRUNC]	||
--		    attrs[XFRMA_ALG_CRYPT])
-+		    attrs[XFRMA_ALG_CRYPT]	||
-+		    attrs[XFRMA_TFC])
- 			goto out;
- 		break;
- 
-@@ -186,6 +188,7 @@ static int verify_newsa_info(struct xfrm_usersa_info *p,
- 		    attrs[XFRMA_ALG_CRYPT]	||
- 		    attrs[XFRMA_ENCAP]		||
- 		    attrs[XFRMA_SEC_CTX]	||
-+		    attrs[XFRMA_TFC]		||
- 		    !attrs[XFRMA_COADDR])
- 			goto out;
- 		break;
-@@ -439,6 +442,9 @@ static struct xfrm_state *xfrm_state_construct(struct net *net,
- 			goto error;
+Changes from v1:
+- fixed compilation of jme driver
+- enable vxge support for IPv6 checksum
+---
+ drivers/net/vxge/vxge-ethtool.c |    2 +-
+ drivers/net/vxge/vxge-main.c    |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
+index 102567e..2754280 100644
+--- a/drivers/net/benet/be_main.c
++++ b/drivers/net/benet/be_main.c
+@@ -2583,10 +2583,12 @@ static void be_netdev_init(struct net_device *n=
+etdev)
+ 	int i;
+=20
+ 	netdev->features |=3D NETIF_F_SG | NETIF_F_HW_VLAN_RX | NETIF_F_TSO |
+-		NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_FILTER | NETIF_F_HW_CSUM |
++		NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_FILTER |
++		NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
+ 		NETIF_F_GRO | NETIF_F_TSO6;
+=20
+-	netdev->vlan_features |=3D NETIF_F_SG | NETIF_F_TSO | NETIF_F_HW_CSUM=
+;
++	netdev->vlan_features |=3D NETIF_F_SG | NETIF_F_TSO |
++		NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
+=20
+ 	if (lancer_chip(adapter))
+ 		netdev->vlan_features |=3D NETIF_F_TSO6;
+diff --git a/drivers/net/bnx2x/bnx2x_main.c b/drivers/net/bnx2x/bnx2x_m=
+ain.c
+index f53edfd..40ce95a 100644
+--- a/drivers/net/bnx2x/bnx2x_main.c
++++ b/drivers/net/bnx2x/bnx2x_main.c
+@@ -8761,7 +8761,7 @@ static int __devinit bnx2x_init_dev(struct pci_de=
+v *pdev,
+ 	dev->netdev_ops =3D &bnx2x_netdev_ops;
+ 	bnx2x_set_ethtool_ops(dev);
+ 	dev->features |=3D NETIF_F_SG;
+-	dev->features |=3D NETIF_F_HW_CSUM;
++	dev->features |=3D NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
+ 	if (bp->flags & USING_DAC_FLAG)
+ 		dev->features |=3D NETIF_F_HIGHDMA;
+ 	dev->features |=3D (NETIF_F_TSO | NETIF_F_TSO_ECN);
+@@ -8769,7 +8769,7 @@ static int __devinit bnx2x_init_dev(struct pci_de=
+v *pdev,
+ 	dev->features |=3D (NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX);
+=20
+ 	dev->vlan_features |=3D NETIF_F_SG;
+-	dev->vlan_features |=3D NETIF_F_HW_CSUM;
++	dev->vlan_features |=3D NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
+ 	if (bp->flags & USING_DAC_FLAG)
+ 		dev->vlan_features |=3D NETIF_F_HIGHDMA;
+ 	dev->vlan_features |=3D (NETIF_F_TSO | NETIF_F_TSO_ECN);
+diff --git a/drivers/net/jme.c b/drivers/net/jme.c
+index c57d9a4..2411e72 100644
+--- a/drivers/net/jme.c
++++ b/drivers/net/jme.c
+@@ -2076,12 +2076,11 @@ jme_change_mtu(struct net_device *netdev, int n=
+ew_mtu)
  	}
- 
-+	if (attrs[XFRMA_TFC])
-+		memcpy(&x->tfc, nla_data(attrs[XFRMA_TFC]), sizeof(x->tfc));
-+
- 	if (attrs[XFRMA_COADDR]) {
- 		x->coaddr = kmemdup(nla_data(attrs[XFRMA_COADDR]),
- 				    sizeof(*x->coaddr), GFP_KERNEL);
-@@ -688,6 +694,9 @@ static int copy_to_user_state_extra(struct xfrm_state *x,
- 	if (x->encap)
- 		NLA_PUT(skb, XFRMA_ENCAP, sizeof(*x->encap), x->encap);
- 
-+	if (x->tfc.pad || x->tfc.flags)
-+		NLA_PUT(skb, XFRMA_TFC, sizeof(x->tfc), &x->tfc);
-+
- 	if (xfrm_mark_put(skb, &x->mark))
- 		goto nla_put_failure;
- 
-@@ -2122,6 +2131,7 @@ static const struct nla_policy xfrma_policy[XFRMA_MAX+1] = {
- 	[XFRMA_MIGRATE]		= { .len = sizeof(struct xfrm_user_migrate) },
- 	[XFRMA_KMADDRESS]	= { .len = sizeof(struct xfrm_user_kmaddress) },
- 	[XFRMA_MARK]		= { .len = sizeof(struct xfrm_mark) },
-+	[XFRMA_TFC]		= { .len = sizeof(struct xfrm_tfc) },
- };
- 
- static struct xfrm_link {
-@@ -2301,6 +2311,8 @@ static inline size_t xfrm_sa_len(struct xfrm_state *x)
- 		l += nla_total_size(sizeof(*x->calg));
- 	if (x->encap)
- 		l += nla_total_size(sizeof(*x->encap));
-+	if (x->tfc.pad)
-+		l += nla_total_size(sizeof(x->tfc));
- 	if (x->security)
- 		l += nla_total_size(sizeof(struct xfrm_user_sec_ctx) +
- 				    x->security->ctx_len);
--- 
-1.7.1
+=20
+ 	if (new_mtu > 1900) {
+-		netdev->features &=3D ~(NETIF_F_HW_CSUM |
+-				NETIF_F_TSO |
+-				NETIF_F_TSO6);
++		netdev->features &=3D ~(NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
++				NETIF_F_TSO | NETIF_F_TSO6);
+ 	} else {
+ 		if (test_bit(JME_FLAG_TXCSUM, &jme->flags))
+-			netdev->features |=3D NETIF_F_HW_CSUM;
++			netdev->features |=3D NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
+ 		if (test_bit(JME_FLAG_TSO, &jme->flags))
+ 			netdev->features |=3D NETIF_F_TSO | NETIF_F_TSO6;
+ 	}
+@@ -2514,10 +2513,12 @@ jme_set_tx_csum(struct net_device *netdev, u32 =
+on)
+ 	if (on) {
+ 		set_bit(JME_FLAG_TXCSUM, &jme->flags);
+ 		if (netdev->mtu <=3D 1900)
+-			netdev->features |=3D NETIF_F_HW_CSUM;
++			netdev->features |=3D
++				NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
+ 	} else {
+ 		clear_bit(JME_FLAG_TXCSUM, &jme->flags);
+-		netdev->features &=3D ~NETIF_F_HW_CSUM;
++		netdev->features &=3D
++				~(NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM);
+ 	}
+=20
+ 	return 0;
+@@ -2797,7 +2798,8 @@ jme_init_one(struct pci_dev *pdev,
+ 	netdev->netdev_ops =3D &jme_netdev_ops;
+ 	netdev->ethtool_ops		=3D &jme_ethtool_ops;
+ 	netdev->watchdog_timeo		=3D TX_TIMEOUT;
+-	netdev->features		=3D	NETIF_F_HW_CSUM |
++	netdev->features		=3D	NETIF_F_IP_CSUM |
++						NETIF_F_IPV6_CSUM |
+ 						NETIF_F_SG |
+ 						NETIF_F_TSO |
+ 						NETIF_F_TSO6 |
+diff --git a/drivers/net/pch_gbe/pch_gbe_ethtool.c b/drivers/net/pch_gb=
+e/pch_gbe_ethtool.c
+index c8cc32c..c8c873b 100644
+--- a/drivers/net/pch_gbe/pch_gbe_ethtool.c
++++ b/drivers/net/pch_gbe/pch_gbe_ethtool.c
+@@ -469,18 +469,6 @@ static int pch_gbe_set_rx_csum(struct net_device *=
+netdev, u32 data)
+ }
+=20
+ /**
+- * pch_gbe_get_tx_csum - Report whether transmit checksums are turned =
+on or off
+- * @netdev:  Network interface device structure
+- * Returns
+- *	true(1):  Checksum On
+- *	false(0): Checksum Off
+- */
+-static u32 pch_gbe_get_tx_csum(struct net_device *netdev)
+-{
+-	return (netdev->features & NETIF_F_HW_CSUM) !=3D 0;
+-}
+-
+-/**
+  * pch_gbe_set_tx_csum - Turn transmit checksums on or off
+  * @netdev: Network interface device structure
+  * @data:   Checksum on[true] or off[false]
+@@ -493,11 +481,7 @@ static int pch_gbe_set_tx_csum(struct net_device *=
+netdev, u32 data)
+ 	struct pch_gbe_adapter *adapter =3D netdev_priv(netdev);
+=20
+ 	adapter->tx_csum =3D data;
+-	if (data)
+-		netdev->features |=3D NETIF_F_HW_CSUM;
+-	else
+-		netdev->features &=3D ~NETIF_F_HW_CSUM;
+-	return 0;
++	return ethtool_op_set_tx_ipv6_csum(netdev, data);
+ }
+=20
+ /**
+@@ -572,7 +556,6 @@ static const struct ethtool_ops pch_gbe_ethtool_ops=
+ =3D {
+ 	.set_pauseparam =3D pch_gbe_set_pauseparam,
+ 	.get_rx_csum =3D pch_gbe_get_rx_csum,
+ 	.set_rx_csum =3D pch_gbe_set_rx_csum,
+-	.get_tx_csum =3D pch_gbe_get_tx_csum,
+ 	.set_tx_csum =3D pch_gbe_set_tx_csum,
+ 	.get_strings =3D pch_gbe_get_strings,
+ 	.get_ethtool_stats =3D pch_gbe_get_ethtool_stats,
+diff --git a/drivers/net/pch_gbe/pch_gbe_main.c b/drivers/net/pch_gbe/p=
+ch_gbe_main.c
+index afb7506..58e7903 100644
+--- a/drivers/net/pch_gbe/pch_gbe_main.c
++++ b/drivers/net/pch_gbe/pch_gbe_main.c
+@@ -2319,7 +2319,7 @@ static int pch_gbe_probe(struct pci_dev *pdev,
+ 	netdev->watchdog_timeo =3D PCH_GBE_WATCHDOG_PERIOD;
+ 	netif_napi_add(netdev, &adapter->napi,
+ 		       pch_gbe_napi_poll, PCH_GBE_RX_WEIGHT);
+-	netdev->features =3D NETIF_F_HW_CSUM | NETIF_F_GRO;
++	netdev->features =3D NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM | NETIF_F_GR=
+O;
+ 	pch_gbe_set_ethtool_ops(netdev);
+=20
+ 	pch_gbe_mac_reset_hw(&adapter->hw);
+@@ -2358,9 +2358,9 @@ static int pch_gbe_probe(struct pci_dev *pdev,
+ 	pch_gbe_check_options(adapter);
+=20
+ 	if (adapter->tx_csum)
+-		netdev->features |=3D NETIF_F_HW_CSUM;
++		netdev->features |=3D NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
+ 	else
+-		netdev->features &=3D ~NETIF_F_HW_CSUM;
++		netdev->features &=3D ~(NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM);
+=20
+ 	/* initialize the wol settings based on the eeprom settings */
+ 	adapter->wake_up_evt =3D PCH_GBE_WL_INIT_SETTING;
+diff --git a/drivers/net/sc92031.c b/drivers/net/sc92031.c
+index 417adf3..76290a8 100644
+--- a/drivers/net/sc92031.c
++++ b/drivers/net/sc92031.c
+@@ -1449,7 +1449,8 @@ static int __devinit sc92031_probe(struct pci_dev=
+ *pdev,
+ 	dev->irq =3D pdev->irq;
+=20
+ 	/* faked with skb_copy_and_csum_dev */
+-	dev->features =3D NETIF_F_SG | NETIF_F_HW_CSUM | NETIF_F_HIGHDMA;
++	dev->features =3D NETIF_F_SG | NETIF_F_HIGHDMA |
++		NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
+=20
+ 	dev->netdev_ops		=3D &sc92031_netdev_ops;
+ 	dev->watchdog_timeo	=3D TX_TIMEOUT;
+diff --git a/drivers/net/stmmac/stmmac_ethtool.c b/drivers/net/stmmac/s=
+tmmac_ethtool.c
+index f2695fd..fd719ed 100644
+--- a/drivers/net/stmmac/stmmac_ethtool.c
++++ b/drivers/net/stmmac/stmmac_ethtool.c
+@@ -197,16 +197,6 @@ static void stmmac_ethtool_gregs(struct net_device=
+ *dev,
+ 	}
+ }
+=20
+-static int stmmac_ethtool_set_tx_csum(struct net_device *netdev, u32 d=
+ata)
+-{
+-	if (data)
+-		netdev->features |=3D NETIF_F_HW_CSUM;
+-	else
+-		netdev->features &=3D ~NETIF_F_HW_CSUM;
+-
+-	return 0;
+-}
+-
+ static u32 stmmac_ethtool_get_rx_csum(struct net_device *dev)
+ {
+ 	struct stmmac_priv *priv =3D netdev_priv(dev);
+@@ -370,7 +360,7 @@ static struct ethtool_ops stmmac_ethtool_ops =3D {
+ 	.get_link =3D ethtool_op_get_link,
+ 	.get_rx_csum =3D stmmac_ethtool_get_rx_csum,
+ 	.get_tx_csum =3D ethtool_op_get_tx_csum,
+-	.set_tx_csum =3D stmmac_ethtool_set_tx_csum,
++	.set_tx_csum =3D ethtool_op_set_tx_ipv6_csum,
+ 	.get_sg =3D ethtool_op_get_sg,
+ 	.set_sg =3D ethtool_op_set_sg,
+ 	.get_pauseparam =3D stmmac_get_pauseparam,
+diff --git a/drivers/net/stmmac/stmmac_main.c b/drivers/net/stmmac/stmm=
+ac_main.c
+index 730a6fd..bfc2d12 100644
+--- a/drivers/net/stmmac/stmmac_main.c
++++ b/drivers/net/stmmac/stmmac_main.c
+@@ -1494,7 +1494,8 @@ static int stmmac_probe(struct net_device *dev)
+ 	dev->netdev_ops =3D &stmmac_netdev_ops;
+ 	stmmac_set_ethtool_ops(dev);
+=20
+-	dev->features |=3D (NETIF_F_SG | NETIF_F_HW_CSUM | NETIF_F_HIGHDMA);
++	dev->features |=3D NETIF_F_SG | NETIF_F_HIGHDMA |
++		NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
+ 	dev->watchdog_timeo =3D msecs_to_jiffies(watchdog);
+ #ifdef STMMAC_VLAN_TAG_USED
+ 	/* Both mac100 and gmac support receive VLAN tag detection */
+@@ -1525,7 +1526,7 @@ static int stmmac_probe(struct net_device *dev)
+=20
+ 	DBG(probe, DEBUG, "%s: Scatter/Gather: %s - HW checksums: %s\n",
+ 	    dev->name, (dev->features & NETIF_F_SG) ? "on" : "off",
+-	    (dev->features & NETIF_F_HW_CSUM) ? "on" : "off");
++	    (dev->features & NETIF_F_IP_CSUM) ? "on" : "off");
+=20
+ 	spin_lock_init(&priv->lock);
+=20
+diff --git a/drivers/net/vxge/vxge-ethtool.c b/drivers/net/vxge/vxge-et=
+htool.c
+index bc9bd10..1dd3a21 100644
+--- a/drivers/net/vxge/vxge-ethtool.c
++++ b/drivers/net/vxge/vxge-ethtool.c
+@@ -1177,7 +1177,7 @@ static const struct ethtool_ops vxge_ethtool_ops =
+=3D {
+ 	.get_rx_csum		=3D vxge_get_rx_csum,
+ 	.set_rx_csum		=3D vxge_set_rx_csum,
+ 	.get_tx_csum		=3D ethtool_op_get_tx_csum,
+-	.set_tx_csum		=3D ethtool_op_set_tx_hw_csum,
++	.set_tx_csum		=3D ethtool_op_set_tx_ipv6_csum,
+ 	.get_sg			=3D ethtool_op_get_sg,
+ 	.set_sg			=3D ethtool_op_set_sg,
+ 	.get_tso		=3D ethtool_op_get_tso,
+diff --git a/drivers/net/vxge/vxge-main.c b/drivers/net/vxge/vxge-main.=
+c
+index a21dae1..d339f5b 100644
+--- a/drivers/net/vxge/vxge-main.c
++++ b/drivers/net/vxge/vxge-main.c
+@@ -3368,7 +3368,7 @@ static int __devinit vxge_device_register(struct =
+__vxge_hw_device *hldev,
+=20
+ 	ndev->features |=3D NETIF_F_SG;
+=20
+-	ndev->features |=3D NETIF_F_HW_CSUM;
++	ndev->features |=3D NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
+ 	vxge_debug_init(vxge_hw_device_trace_level_get(hldev),
+ 		"%s : checksuming enabled", __func__);
+=20
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 3259d2c..622f85a 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5041,10 +5041,13 @@ unsigned long netdev_fix_features(unsigned long=
+ features, const char *name)
+ 	}
+=20
+ 	if (features & NETIF_F_UFO) {
+-		if (!(features & NETIF_F_GEN_CSUM)) {
++		/* maybe split UFO into V4 and V6? */
++		if (!((features & NETIF_F_GEN_CSUM) ||
++		    (features & (NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM))
++			    =3D=3D (NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM))) {
+ 			if (name)
+ 				printk(KERN_ERR "%s: Dropping NETIF_F_UFO "
+-				       "since no NETIF_F_HW_CSUM feature.\n",
++				       "since no checksum offload features.\n",
+ 				       name);
+ 			features &=3D ~NETIF_F_UFO;
+ 		}
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 956a9f4..d5bc2881 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -1171,7 +1171,9 @@ static int ethtool_set_ufo(struct net_device *dev=
+, char __user *useraddr)
+ 		return -EFAULT;
+ 	if (edata.data && !(dev->features & NETIF_F_SG))
+ 		return -EINVAL;
+-	if (edata.data && !(dev->features & NETIF_F_HW_CSUM))
++	if (edata.data && !((dev->features & NETIF_F_GEN_CSUM) ||
++		(dev->features & (NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM))
++			=3D=3D (NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM)))
+ 		return -EINVAL;
+ 	return dev->ethtool_ops->set_ufo(dev, edata.data);
+ }
+
