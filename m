@@ -1,8 +1,8 @@
 From: Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
-Subject: [PATCH net-next-2.6 v6 09/20] can: EG20T PCH: Change Copyright and
- module description
-Date: Tue, 30 Nov 2010 13:26:16 +0900
-Message-ID: <4CF47CE8.3050800__27710.4257875637$1291091241$gmane$org@dsn.okisemi.com>
+Subject: [PATCH net-next-2.6 v6 10/20] can: EG20T PCH: Replace netdev_dbg
+ instead of dev_dbg partly
+Date: Tue, 30 Nov 2010 13:27:42 +0900
+Message-ID: <4CF47D3E.4010304__18571.6714514003$1291091321$gmane$org@dsn.okisemi.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
@@ -15,39 +15,89 @@ To: Wolfgang Grandegger <wg@grandegger.com>,
 	Barry Song <21cnbao@gmail.com>,
 	Samuel Ortiz <sameo@linux.inte
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sm-d311v.smileserver.ne.jp ([203.211.202.206]:32654 "EHLO
+Received: from sm-d311v.smileserver.ne.jp ([203.211.202.206]:21257 "EHLO
 	sm-d311v.smileserver.ne.jp" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753655Ab0K3E0s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Nov 2010 23:26:48 -0500
+	by vger.kernel.org with ESMTP id S1750877Ab0K3E2P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Nov 2010 23:28:15 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, Copyright and module description are not formal.
+For easy to readable, use netdev_dbg instead of dev_dbg partly
 
 Signed-off-by: Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
 ---
- drivers/net/can/pch_can.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/can/pch_can.c |   16 ++++++++--------
+ 1 files changed, 8 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/net/can/pch_can.c b/drivers/net/can/pch_can.c
-index 11492a3..01d4126 100644
+index 01d4126..09d0844 100644
 --- a/drivers/net/can/pch_can.c
 +++ b/drivers/net/can/pch_can.c
-@@ -1,6 +1,6 @@
- /*
-  * Copyright (C) 1999 - 2010 Intel Corporation.
-- * Copyright (C) 2010 OKI SEMICONDUCTOR Co., LTD.
-+ * Copyright (C) 2010 OKI SEMICONDUCTOR CO., LTD.
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License as published by
-@@ -1302,6 +1302,6 @@ static void __exit pch_can_pci_exit(void)
- }
- module_exit(pch_can_pci_exit);
+@@ -222,7 +222,7 @@ static void pch_can_set_run_mode(struct pch_can_priv *priv,
+ 		break;
  
--MODULE_DESCRIPTION("Controller Area Network Driver");
-+MODULE_DESCRIPTION("Intel EG20T PCH CAN(Controller Area Network) Driver");
- MODULE_LICENSE("GPL v2");
- MODULE_VERSION("0.94");
+ 	default:
+-		dev_err(&priv->ndev->dev, "%s -> Invalid Mode.\n", __func__);
++		netdev_err(priv->ndev, "%s -> Invalid Mode.\n", __func__);
+ 		break;
+ 	}
+ }
+@@ -275,7 +275,7 @@ static void pch_can_set_int_enables(struct pch_can_priv *priv,
+ 		break;
+ 
+ 	default:
+-		dev_err(&priv->ndev->dev, "Invalid interrupt number.\n");
++		netdev_err(priv->ndev, "Invalid interrupt number.\n");
+ 		break;
+ 	}
+ }
+@@ -534,7 +534,7 @@ static void pch_can_error(struct net_device *ndev, u32 status)
+ 			cf->data[1] |= CAN_ERR_CRTL_RX_WARNING;
+ 		if ((errc & PCH_TEC) > 96)
+ 			cf->data[1] |= CAN_ERR_CRTL_TX_WARNING;
+-		dev_warn(&ndev->dev,
++		netdev_dbg(ndev,
+ 			"%s -> Error Counter is more than 96.\n", __func__);
+ 	}
+ 	/* Error passive interrupt. */
+@@ -546,7 +546,7 @@ static void pch_can_error(struct net_device *ndev, u32 status)
+ 			cf->data[1] |= CAN_ERR_CRTL_RX_PASSIVE;
+ 		if ((errc & PCH_TEC) > 127)
+ 			cf->data[1] |= CAN_ERR_CRTL_TX_PASSIVE;
+-		dev_err(&ndev->dev,
++		netdev_dbg(ndev,
+ 			"%s -> CAN controller is ERROR PASSIVE .\n", __func__);
+ 	}
+ 
+@@ -865,10 +865,10 @@ static int pch_can_open(struct net_device *ndev)
+ 
+ 	retval = pci_enable_msi(priv->dev);
+ 	if (retval) {
+-		dev_info(&ndev->dev, "PCH CAN opened without MSI\n");
++		netdev_err(ndev, "PCH CAN opened without MSI\n");
+ 		priv->use_msi = 0;
+ 	} else {
+-		dev_info(&ndev->dev, "PCH CAN opened with MSI\n");
++		netdev_err(ndev, "PCH CAN opened with MSI\n");
+ 		priv->use_msi = 1;
+ 	}
+ 
+@@ -876,14 +876,14 @@ static int pch_can_open(struct net_device *ndev)
+ 	retval = request_irq(priv->dev->irq, pch_can_interrupt, IRQF_SHARED,
+ 			     ndev->name, ndev);
+ 	if (retval) {
+-		dev_err(&ndev->dev, "request_irq failed.\n");
++		netdev_err(ndev, "request_irq failed.\n");
+ 		goto req_irq_err;
+ 	}
+ 
+ 	/* Open common can device */
+ 	retval = open_candev(ndev);
+ 	if (retval) {
+-		dev_err(ndev->dev.parent, "open_candev() failed %d\n", retval);
++		netdev_err(ndev, "open_candev() failed %d\n", retval);
+ 		goto err_open_candev;
+ 	}
+ 
 -- 
 1.6.0.6
