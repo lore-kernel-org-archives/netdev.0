@@ -1,8 +1,7 @@
 From: Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
-Subject: [PATCH net-next-2.6 v6 05/20] can: EG20T PCH: Delete unnecessary
- spin_lock
-Date: Tue, 30 Nov 2010 13:19:52 +0900
-Message-ID: <4CF47B68.4050405__2501.56172919578$1291090856$gmane$org@dsn.okisemi.com>
+Subject: [PATCH net-next-2.6 v6 06/20] can: EG20T PCH: Fix endianness issue
+Date: Tue, 30 Nov 2010 13:20:58 +0900
+Message-ID: <4CF47BAA.2090209__27444.5214229219$1291090918$gmane$org@dsn.okisemi.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
@@ -15,217 +14,250 @@ To: Wolfgang Grandegger <wg@grandegger.com>,
 	Barry Song <21cnbao@gmail.com>,
 	Samuel Ortiz <sameo@linux.inte
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sm-d311v.smileserver.ne.jp ([203.211.202.206]:41494 "EHLO
+Received: from sm-d311v.smileserver.ne.jp ([203.211.202.206]:41589 "EHLO
 	sm-d311v.smileserver.ne.jp" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752273Ab0K3EUY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Nov 2010 23:20:24 -0500
+	by vger.kernel.org with ESMTP id S1753397Ab0K3EVa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Nov 2010 23:21:30 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Delete unnecessary spin_lock for accessing Message Object.
-Since all message objects are divided into tx/rx area completely,
-spin_lock processing is unnecessary.
+there is endianness issue both Tx and Rx.
+Currently, data is set like below.
+Register:
+MSB--LSB
+x x D0 D1
+x x D2 D3
+x x D4 D5
+x x D6 D7
+
+But Data to be sent must be set like below.
+Register:
+MSB--LSB
+x x D1 D0
+x x D3 D2
+x x D5 D4
+x x D7 D6  (x means reserved area.)
 
 Signed-off-by: Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
-Acked-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- drivers/net/can/pch_can.c |   34 ----------------------------------
- 1 files changed, 0 insertions(+), 34 deletions(-)
+ drivers/net/can/pch_can.c |  118 +++++++++++++++++++++------------------------
+ 1 files changed, 55 insertions(+), 63 deletions(-)
 
 diff --git a/drivers/net/can/pch_can.c b/drivers/net/can/pch_can.c
-index 8686d93..6437e60 100644
+index 6437e60..98e7e9f 100644
 --- a/drivers/net/can/pch_can.c
 +++ b/drivers/net/can/pch_can.c
-@@ -71,7 +71,6 @@
- #define PCH_REC			0x00007f00
- #define PCH_TEC			0x000000ff
+@@ -134,10 +134,7 @@ struct pch_can_if_regs {
+ 	u32 id1;
+ 	u32 id2;
+ 	u32 mcont;
+-	u32 dataa1;
+-	u32 dataa2;
+-	u32 datab1;
+-	u32 datab2;
++	u32 data[4];
+ 	u32 rsv[13];
+ };
  
--
- #define PCH_TX_OK		BIT(3)
- #define PCH_RX_OK		BIT(4)
- #define PCH_EPASSIV		BIT(5)
-@@ -178,7 +177,6 @@ struct pch_can_priv {
- 	unsigned int int_enables;
- 	unsigned int int_stat;
- 	struct net_device *ndev;
--	spinlock_t msgif_reg_lock; /* Message Interface Registers Access Lock*/
- 	unsigned int msg_obj[PCH_TX_OBJ_END];
- 	struct pch_can_regs __iomem *regs;
- 	struct napi_struct napi;
-@@ -309,7 +307,6 @@ static void pch_can_check_if_busy(u32 __iomem *creq_addr, u32 num)
- static void pch_can_set_rxtx(struct pch_can_priv *priv, u32 buff_num,
- 			     u32 set, enum pch_ifreg dir)
- {
--	unsigned long flags;
- 	u32 ie;
+@@ -420,10 +417,10 @@ static void pch_can_clear_buffers(struct pch_can_priv *priv)
+ 		iowrite32(0x0, &priv->regs->ifregs[0].id1);
+ 		iowrite32(0x0, &priv->regs->ifregs[0].id2);
+ 		iowrite32(0x0, &priv->regs->ifregs[0].mcont);
+-		iowrite32(0x0, &priv->regs->ifregs[0].dataa1);
+-		iowrite32(0x0, &priv->regs->ifregs[0].dataa2);
+-		iowrite32(0x0, &priv->regs->ifregs[0].datab1);
+-		iowrite32(0x0, &priv->regs->ifregs[0].datab2);
++		iowrite32(0x0, &priv->regs->ifregs[0].data[0]);
++		iowrite32(0x0, &priv->regs->ifregs[0].data[1]);
++		iowrite32(0x0, &priv->regs->ifregs[0].data[2]);
++		iowrite32(0x0, &priv->regs->ifregs[0].data[3]);
+ 		iowrite32(PCH_CMASK_RDWR | PCH_CMASK_MASK |
+ 			  PCH_CMASK_ARB | PCH_CMASK_CTRL,
+ 			  &priv->regs->ifregs[0].cmask);
+@@ -437,10 +434,10 @@ static void pch_can_clear_buffers(struct pch_can_priv *priv)
+ 		iowrite32(0x0, &priv->regs->ifregs[1].id1);
+ 		iowrite32(0x0, &priv->regs->ifregs[1].id2);
+ 		iowrite32(0x0, &priv->regs->ifregs[1].mcont);
+-		iowrite32(0x0, &priv->regs->ifregs[1].dataa1);
+-		iowrite32(0x0, &priv->regs->ifregs[1].dataa2);
+-		iowrite32(0x0, &priv->regs->ifregs[1].datab1);
+-		iowrite32(0x0, &priv->regs->ifregs[1].datab2);
++		iowrite32(0x0, &priv->regs->ifregs[1].data[0]);
++		iowrite32(0x0, &priv->regs->ifregs[1].data[1]);
++		iowrite32(0x0, &priv->regs->ifregs[1].data[2]);
++		iowrite32(0x0, &priv->regs->ifregs[1].data[3]);
+ 		iowrite32(PCH_CMASK_RDWR | PCH_CMASK_MASK |
+ 			  PCH_CMASK_ARB | PCH_CMASK_CTRL,
+ 			  &priv->regs->ifregs[1].cmask);
+@@ -703,12 +700,13 @@ static int pch_can_rx_normal(struct net_device *ndev, u32 int_stat)
+ 	canid_t id;
+ 	u32 ide;
+ 	u32 rtr;
+-	int i, j, k;
++	int i, k;
+ 	int rcv_pkts = 0;
+ 	struct sk_buff *skb;
+ 	struct can_frame *cf;
+ 	struct pch_can_priv *priv = netdev_priv(ndev);
+ 	struct net_device_stats *stats = &(priv->ndev->stats);
++	u16 data_reg;
  
- 	if (dir)
-@@ -317,7 +314,6 @@ static void pch_can_set_rxtx(struct pch_can_priv *priv, u32 buff_num,
- 	else
- 		ie = PCH_IF_MCONT_RXIE;
- 
--	spin_lock_irqsave(&priv->msgif_reg_lock, flags);
- 	/* Reading the receive buffer data from RAM to Interface1 registers */
- 	iowrite32(PCH_CMASK_RX_TX_GET, &priv->regs->ifregs[dir].cmask);
- 	pch_can_check_if_busy(&priv->regs->ifregs[dir].creq, buff_num);
-@@ -338,10 +334,8 @@ static void pch_can_set_rxtx(struct pch_can_priv *priv, u32 buff_num,
- 	}
- 
- 	pch_can_check_if_busy(&priv->regs->ifregs[dir].creq, buff_num);
--	spin_unlock_irqrestore(&priv->msgif_reg_lock, flags);
- }
- 
--
- static void pch_can_set_rx_all(struct pch_can_priv *priv, u32 set)
- {
- 	int i;
-@@ -363,7 +357,6 @@ static void pch_can_set_tx_all(struct pch_can_priv *priv, u32 set)
- static u32 pch_can_get_rxtx_ir(struct pch_can_priv *priv, u32 buff_num,
- 			       enum pch_ifreg dir)
- {
--	unsigned long flags;
- 	u32 ie, enable;
- 
- 	if (dir)
-@@ -371,7 +364,6 @@ static u32 pch_can_get_rxtx_ir(struct pch_can_priv *priv, u32 buff_num,
- 	else
- 		ie = PCH_IF_MCONT_TXIE;
- 
--	spin_lock_irqsave(&priv->msgif_reg_lock, flags);
- 	iowrite32(PCH_CMASK_RX_TX_GET, &priv->regs->ifregs[dir].cmask);
- 	pch_can_check_if_busy(&priv->regs->ifregs[dir].creq, buff_num);
- 
-@@ -381,7 +373,6 @@ static u32 pch_can_get_rxtx_ir(struct pch_can_priv *priv, u32 buff_num,
- 	} else {
- 		enable = 0;
- 	}
--	spin_unlock_irqrestore(&priv->msgif_reg_lock, flags);
- 	return enable;
- }
- 
-@@ -393,9 +384,6 @@ static int pch_can_int_pending(struct pch_can_priv *priv)
- static void pch_can_set_rx_buffer_link(struct pch_can_priv *priv,
- 				       u32 buffer_num, u32 set)
- {
--	unsigned long flags;
--
--	spin_lock_irqsave(&priv->msgif_reg_lock, flags);
+ 	/* Reading the messsage object from the Message RAM */
  	iowrite32(PCH_CMASK_RX_TX_GET, &priv->regs->ifregs[0].cmask);
- 	pch_can_check_if_busy(&priv->regs->ifregs[0].creq, buffer_num);
- 	iowrite32(PCH_CMASK_RDWR | PCH_CMASK_CTRL,
-@@ -407,15 +395,11 @@ static void pch_can_set_rx_buffer_link(struct pch_can_priv *priv,
- 		pch_can_bit_set(&priv->regs->ifregs[0].mcont, PCH_IF_MCONT_EOB);
+@@ -774,12 +772,10 @@ static int pch_can_rx_normal(struct net_device *ndev, u32 int_stat)
+ 			      ((ioread32(&priv->regs->ifregs[0].mcont)) & 0x0f);
+ 		}
  
- 	pch_can_check_if_busy(&priv->regs->ifregs[0].creq, buffer_num);
--	spin_unlock_irqrestore(&priv->msgif_reg_lock, flags);
+-		for (i = 0, j = 0; i < cf->can_dlc; j++) {
+-			reg = ioread32(&priv->regs->ifregs[0].dataa1 + j*4);
+-			cf->data[i++] = cpu_to_le32(reg & 0xff);
+-			if (i == cf->can_dlc)
+-				break;
+-			cf->data[i++] = cpu_to_le32((reg >> 8) & 0xff);
++		for (i = 0; i < cf->can_dlc; i += 2) {
++			data_reg = ioread16(&priv->regs->ifregs[0].data[i / 2]);
++			cf->data[i] = data_reg & 0xff;
++			cf->data[i + 1] = data_reg >> 8;
+ 		}
+ 
+ 		netif_receive_skb(skb);
+@@ -815,72 +811,71 @@ RX_NEXT:
+ 
+ 	return rcv_pkts;
  }
- 
- static void pch_can_get_rx_buffer_link(struct pch_can_priv *priv,
- 				       u32 buffer_num, u32 *link)
+-static int pch_can_rx_poll(struct napi_struct *napi, int quota)
++
++static void pch_can_tx_complete(struct net_device *ndev, u32 int_stat)
  {
--	unsigned long flags;
--
--	spin_lock_irqsave(&priv->msgif_reg_lock, flags);
- 	iowrite32(PCH_CMASK_RX_TX_GET, &priv->regs->ifregs[0].cmask);
- 	pch_can_check_if_busy(&priv->regs->ifregs[0].creq, buffer_num);
- 
-@@ -423,7 +407,6 @@ static void pch_can_get_rx_buffer_link(struct pch_can_priv *priv,
- 		*link = PCH_DISABLE;
- 	else
- 		*link = PCH_ENABLE;
--	spin_unlock_irqrestore(&priv->msgif_reg_lock, flags);
- }
- 
- static void pch_can_clear_buffers(struct pch_can_priv *priv)
-@@ -468,9 +451,6 @@ static void pch_can_clear_buffers(struct pch_can_priv *priv)
- static void pch_can_config_rx_tx_buffers(struct pch_can_priv *priv)
- {
- 	int i;
--	unsigned long flags;
--
--	spin_lock_irqsave(&priv->msgif_reg_lock, flags);
- 
- 	for (i = PCH_RX_OBJ_START; i <= PCH_RX_OBJ_END; i++) {
- 		iowrite32(PCH_CMASK_RX_TX_GET,
-@@ -529,7 +509,6 @@ static void pch_can_config_rx_tx_buffers(struct pch_can_priv *priv)
- 
- 		pch_can_check_if_busy(&priv->regs->ifregs[1].creq, i);
- 	}
--	spin_unlock_irqrestore(&priv->msgif_reg_lock, flags);
- }
- 
- static void pch_can_init(struct pch_can_priv *priv)
-@@ -845,7 +824,6 @@ static int pch_can_rx_poll(struct napi_struct *napi, int quota)
+-	struct net_device *ndev = napi->dev;
+ 	struct pch_can_priv *priv = netdev_priv(ndev);
+ 	struct net_device_stats *stats = &(priv->ndev->stats);
+ 	u32 dlc;
++
++	can_get_echo_skb(ndev, int_stat - PCH_RX_OBJ_END - 1);
++	iowrite32(PCH_CMASK_RX_TX_GET | PCH_CMASK_CLRINTPND,
++		  &priv->regs->ifregs[1].cmask);
++	pch_can_check_if_busy(&priv->regs->ifregs[1].creq, int_stat);
++	dlc = get_can_dlc(ioread32(&priv->regs->ifregs[1].mcont) &
++			  PCH_IF_MCONT_DLC);
++	stats->tx_bytes += dlc;
++	stats->tx_packets++;
++	if (int_stat == PCH_TX_OBJ_END)
++		netif_wake_queue(ndev);
++}
++
++static int pch_can_rx_poll(struct napi_struct *napi, int quota)
++{
++	struct net_device *ndev = napi->dev;
++	struct pch_can_priv *priv = netdev_priv(ndev);
  	u32 int_stat;
  	int rcv_pkts = 0;
  	u32 reg_stat;
--	unsigned long flags;
  
  	int_stat = pch_can_int_pending(priv);
  	if (!int_stat)
-@@ -860,12 +838,10 @@ INT_STAT:
+-		return 0;
++		goto end;
+ 
+-INT_STAT:
+-	if (int_stat == PCH_STATUS_INT) {
++	if ((int_stat == PCH_STATUS_INT) && (quota > 0)) {
+ 		reg_stat = ioread32(&priv->regs->stat);
+ 		if (reg_stat & (PCH_BUS_OFF | PCH_LEC_ALL)) {
+-			if ((reg_stat & PCH_LEC_ALL) != PCH_LEC_ALL)
++			if (reg_stat & PCH_BUS_OFF ||
++			   (reg_stat & PCH_LEC_ALL) != PCH_LEC_ALL) {
+ 				pch_can_error(ndev, reg_stat);
++				quota--;
++			}
  		}
  
- 		if (reg_stat & PCH_TX_OK) {
--			spin_lock_irqsave(&priv->msgif_reg_lock, flags);
- 			iowrite32(PCH_CMASK_RX_TX_GET,
- 				  &priv->regs->ifregs[1].cmask);
- 			pch_can_check_if_busy(&priv->regs->ifregs[1].creq,
- 					       ioread32(&priv->regs->intr));
--			spin_unlock_irqrestore(&priv->msgif_reg_lock, flags);
+-		if (reg_stat & PCH_TX_OK) {
+-			iowrite32(PCH_CMASK_RX_TX_GET,
+-				  &priv->regs->ifregs[1].cmask);
+-			pch_can_check_if_busy(&priv->regs->ifregs[1].creq,
+-					       ioread32(&priv->regs->intr));
++		if (reg_stat & PCH_TX_OK)
  			pch_can_bit_clear(&priv->regs->stat, PCH_TX_OK);
- 		}
+-		}
  
-@@ -879,22 +855,18 @@ INT_STAT:
+ 		if (reg_stat & PCH_RX_OK)
+ 			pch_can_bit_clear(&priv->regs->stat, PCH_RX_OK);
  
- MSG_OBJ:
+ 		int_stat = pch_can_int_pending(priv);
+-		if (int_stat == PCH_STATUS_INT)
+-			goto INT_STAT;
+ 	}
+ 
+-MSG_OBJ:
++	if (quota == 0)
++		goto end;
++
  	if ((int_stat >= PCH_RX_OBJ_START) && (int_stat <= PCH_RX_OBJ_END)) {
--		spin_lock_irqsave(&priv->msgif_reg_lock, flags);
- 		rcv_pkts = pch_can_rx_normal(ndev, int_stat);
--		spin_unlock_irqrestore(&priv->msgif_reg_lock, flags);
- 		if (rcv_pkts < 0)
- 			return 0;
+-		rcv_pkts = pch_can_rx_normal(ndev, int_stat);
+-		if (rcv_pkts < 0)
+-			return 0;
++		rcv_pkts += pch_can_rx_normal(ndev, int_stat);
++		quota -= rcv_pkts;
++		if (quota < 0)
++			goto end;
  	} else if ((int_stat >= PCH_TX_OBJ_START) &&
  		   (int_stat <= PCH_TX_OBJ_END)) {
  		/* Handle transmission interrupt */
- 		can_get_echo_skb(ndev, int_stat - PCH_RX_OBJ_END - 1);
--		spin_lock_irqsave(&priv->msgif_reg_lock, flags);
- 		iowrite32(PCH_CMASK_RX_TX_GET | PCH_CMASK_CLRINTPND,
- 			  &priv->regs->ifregs[1].cmask);
- 		dlc = ioread32(&priv->regs->ifregs[1].mcont) &
- 			       PCH_IF_MCONT_DLC;
- 		pch_can_check_if_busy(&priv->regs->ifregs[1].creq, int_stat);
--		spin_unlock_irqrestore(&priv->msgif_reg_lock, flags);
- 		if (dlc > 8)
- 			dlc = 8;
- 		stats->tx_bytes += dlc;
-@@ -1042,7 +1014,6 @@ static int pch_close(struct net_device *ndev)
+-		can_get_echo_skb(ndev, int_stat - PCH_RX_OBJ_END - 1);
+-		iowrite32(PCH_CMASK_RX_TX_GET | PCH_CMASK_CLRINTPND,
+-			  &priv->regs->ifregs[1].cmask);
+-		dlc = ioread32(&priv->regs->ifregs[1].mcont) &
+-			       PCH_IF_MCONT_DLC;
+-		pch_can_check_if_busy(&priv->regs->ifregs[1].creq, int_stat);
+-		if (dlc > 8)
+-			dlc = 8;
+-		stats->tx_bytes += dlc;
+-		stats->tx_packets++;
+-		if (int_stat == PCH_TX_OBJ_END)
+-			netif_wake_queue(ndev);
++		pch_can_tx_complete(ndev, int_stat);
+ 	}
+ 
+-	int_stat = pch_can_int_pending(priv);
+-	if (int_stat == PCH_STATUS_INT)
+-		goto INT_STAT;
+-	else if (int_stat >= 1 && int_stat <= 32)
+-		goto MSG_OBJ;
+-
++end:
+ 	napi_complete(napi);
+ 	pch_can_set_int_enables(priv, PCH_CAN_ALL);
+ 
+@@ -1013,10 +1008,10 @@ static int pch_close(struct net_device *ndev)
+ 
  static netdev_tx_t pch_xmit(struct sk_buff *skb, struct net_device *ndev)
  {
- 	int i, j;
--	unsigned long flags;
+-	int i, j;
  	struct pch_can_priv *priv = netdev_priv(ndev);
  	struct can_frame *cf = (struct can_frame *)skb->data;
  	int tx_buffer_avail = 0;
-@@ -1061,9 +1032,6 @@ static netdev_tx_t pch_xmit(struct sk_buff *skb, struct net_device *ndev)
- 		priv->tx_obj++;
++	int i;
+ 
+ 	if (can_dropped_invalid_skb(ndev, skb))
+ 		return NETDEV_TX_OK;
+@@ -1057,13 +1052,10 @@ static netdev_tx_t pch_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 	if (cf->can_id & CAN_RTR_FLAG)
+ 		pch_can_bit_clear(&priv->regs->ifregs[1].id2, PCH_ID2_DIR);
+ 
+-	for (i = 0, j = 0; i < cf->can_dlc; j++) {
+-		iowrite32(le32_to_cpu(cf->data[i++]),
+-			 (&priv->regs->ifregs[1].dataa1) + j*4);
+-		if (i == cf->can_dlc)
+-			break;
+-		iowrite32(le32_to_cpu(cf->data[i++] << 8),
+-			 (&priv->regs->ifregs[1].dataa1) + j*4);
++	/* Copy data to register */
++	for (i = 0; i < cf->can_dlc; i += 2) {
++		iowrite16(cf->data[i] | (cf->data[i + 1] << 8),
++			  &priv->regs->ifregs[1].data[i / 2]);
  	}
  
--	/* Attaining the lock. */
--	spin_lock_irqsave(&priv->msgif_reg_lock, flags);
--
- 	/* Reading the Msg Obj from the Msg RAM to the Interface register. */
- 	iowrite32(PCH_CMASK_RX_TX_GET, &priv->regs->ifregs[1].cmask);
- 	pch_can_check_if_busy(&priv->regs->ifregs[1].creq, tx_buffer_avail);
-@@ -1115,8 +1083,6 @@ static netdev_tx_t pch_xmit(struct sk_buff *skb, struct net_device *ndev)
- 
- 	pch_can_check_if_busy(&priv->regs->ifregs[1].creq, tx_buffer_avail);
- 
--	spin_unlock_irqrestore(&priv->msgif_reg_lock, flags);
--
- 	return NETDEV_TX_OK;
- }
- 
+ 	can_put_echo_skb(skb, ndev, tx_buffer_avail - PCH_RX_OBJ_END - 1);
 -- 
 1.6.0.6
-
