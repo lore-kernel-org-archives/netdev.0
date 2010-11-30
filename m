@@ -1,99 +1,324 @@
-From: Yinghai Lu <yinghai@kernel.org>
-Subject: qlge warning
-Date: Tue, 30 Nov 2010 15:28:05 -0800
-Message-ID: <AANLkTi=oGgajs5KX9haKUALprJTatctpGs5UNU7LrRGO@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Ingo Molnar <mingo@elte.hu>
-To: David Miller <davem@davemloft.net>, NetDev <netdev@vger.kernel.org>
+From: Jon Mason <jon.mason@exar.com>
+Subject: PCI: make pci_restore_state return void
+Date: Tue, 30 Nov 2010 17:43:26 -0600
+Message-ID: <1291160606-31494-1-git-send-email-jon.mason@exar.com>
+Cc: linux-pci@vger.kernel.org, Jonathan Corbet <corbet@lwn.net>,
+	linux-media@vger.kernel.org, Andrew Gallatin <gallatin@myri.com>,
+	Brice Goglin <brice@myri.com>, netdev@vger.kernel.org,
+	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
+	Steve Hodgson <shodgson@solarflare.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Ivo van Doorn <IvDoorn@gmail.com>,
+	Gertjan van Wingerde <gwingerde@gmail.com>,
+	linux-wireless@vger.kernel.org, Brian King <brking@us.ibm.com>,
+	Anil Ravindranath <anil_ravindranath@pmc-sierra.com>,
+	linux-scsi@vger.kernel.org, Jaya Kumar <jayakumar.alsa@gmail.com>,
+	boyod.yang@siliconmotion.com.cn
+To: Jesse Barnes <jbarnes@virtuousgeek.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f174.google.com ([209.85.216.174]:49917 "EHLO
-	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751955Ab0K3X2G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Nov 2010 18:28:06 -0500
-Received: by qyk11 with SMTP id 11so1844147qyk.19
-        for <netdev@vger.kernel.org>; Tue, 30 Nov 2010 15:28:05 -0800 (PST)
+Received: from mail-gy0-f174.google.com ([209.85.160.174]:61354 "EHLO
+	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752278Ab0K3Xng (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Nov 2010 18:43:36 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[  290.233264] =======================================================
-[  290.251780] [ INFO: possible circular locking dependency detected ]
-[  290.271534] 2.6.37-rc4-tip-yh-05919-geb30094-dirty #308
-[  290.271775] -------------------------------------------------------
-[  290.291512] swapper/1 is trying to acquire lock:
-[  290.291725]  ((&(&qdev->mpi_port_cfg_work)->work)){+.+...}, at:
-[<ffffffff81096419>] wait_on_work+0x0/0xff
-[  290.311643]
-[  290.311644] but task is already holding lock:
-[  290.311915]  (rtnl_mutex){+.+.+.}, at: [<ffffffff81bb094d>]
-rtnl_lock+0x17/0x19
-[  290.331681]
-[  290.331682] which lock already depends on the new lock.
-[  290.331684]
-[  290.351491]
-[  290.351492] the existing dependency chain (in reverse order) is:
-[  290.351830]
-[  290.351831] -> #1 (rtnl_mutex){+.+.+.}:
-[  290.371562]        [<ffffffff810ae6b6>] lock_acquire+0xca/0xf0
-[  290.371824]        [<ffffffff81cdbf5d>] mutex_lock_nested+0x60/0x2b8
-[  290.391539]        [<ffffffff81bb094d>] rtnl_lock+0x17/0x19
-[  290.411250]        [<ffffffff818501ad>] ql_mpi_port_cfg_work+0x1f/0x1ad
-[  290.411606]        [<ffffffff81095189>] process_one_work+0x234/0x3e8
-[  290.431282]        [<ffffffff81095663>] worker_thread+0x17f/0x261
-[  290.431583]        [<ffffffff8109a633>] kthread+0xa0/0xa8
-[  290.451279]        [<ffffffff8103a914>] kernel_thread_helper+0x4/0x10
-[  290.451581]
-[  290.451582] -> #0 ((&(&qdev->mpi_port_cfg_work)->work)){+.+...}:
-[  290.471483]        [<ffffffff810ada85>] __lock_acquire+0x113c/0x1813
-[  290.491177]        [<ffffffff810ae6b6>] lock_acquire+0xca/0xf0
-[  290.491451]        [<ffffffff8109646c>] wait_on_work+0x53/0xff
-[  290.511128]        [<ffffffff810965da>] __cancel_work_timer+0xc2/0x102
-[  290.511434]        [<ffffffff8109662c>] cancel_delayed_work_sync+0x12/0x14
-[  290.531233]        [<ffffffff81847646>] ql_cancel_all_work_sync+0x64/0x68
-[  290.531563]        [<ffffffff818499d5>] ql_adapter_down+0x23/0xf6
-[  290.551298]        [<ffffffff81849ca7>] qlge_close+0x67/0x76
-[  290.571015]        [<ffffffff81ba3853>] __dev_close+0x7b/0x89
-[  290.571297]        [<ffffffff81ba5535>] __dev_change_flags+0xad/0x131
-[  290.590974]        [<ffffffff81ba563a>] dev_change_flags+0x21/0x57
-[  290.591280]        [<ffffffff827de30e>] ic_close_devs+0x2e/0x48
-[  290.610978]        [<ffffffff827df332>] ip_auto_config+0xbc9/0xe84
-[  290.611280]        [<ffffffff810002da>] do_one_initcall+0x57/0x135
-[  290.630977]        [<ffffffff8278ef8a>] kernel_init+0x16c/0x1f6
-[  290.631263]        [<ffffffff8103a914>] kernel_thread_helper+0x4/0x10
-[  290.651000]
-[  290.651001] other info that might help us debug this:
-[  290.651003]
-[  290.670829] 1 lock held by swapper/1:
-[  290.671013]  #0:  (rtnl_mutex){+.+.+.}, at: [<ffffffff81bb094d>]
-rtnl_lock+0x17/0x19
-[  290.690819]
-[  290.690820] stack backtrace:
-[  290.691054] Pid: 1, comm: swapper Not tainted
-2.6.37-rc4-tip-yh-05919-geb30094-dirty #308
-[  290.710805] Call Trace:
-[  290.710938]  [<ffffffff810aa296>] ? print_circular_bug+0xaf/0xbe
-[  290.730683]  [<ffffffff810ada85>] ? __lock_acquire+0x113c/0x1813
-[  290.730955]  [<ffffffff81095d70>] ? wait_on_cpu_work+0xdb/0x114
-[  290.750672]  [<ffffffff81096419>] ? wait_on_work+0x0/0xff
-[  290.750939]  [<ffffffff810ae6b6>] ? lock_acquire+0xca/0xf0
-[  290.770664]  [<ffffffff81096419>] ? wait_on_work+0x0/0xff
-[  290.770920]  [<ffffffff8109646c>] ? wait_on_work+0x53/0xff
-[  290.790575]  [<ffffffff81096419>] ? wait_on_work+0x0/0xff
-[  290.790821]  [<ffffffff810965da>] ? __cancel_work_timer+0xc2/0x102
-[  290.810559]  [<ffffffff8109662c>] ? cancel_delayed_work_sync+0x12/0x14
-[  290.810855]  [<ffffffff81847646>] ? ql_cancel_all_work_sync+0x64/0x68
-[  290.830594]  [<ffffffff818499d5>] ? ql_adapter_down+0x23/0xf6
-[  290.830867]  [<ffffffff81849ca7>] ? qlge_close+0x67/0x76
-[  290.850568]  [<ffffffff81ba3853>] ? __dev_close+0x7b/0x89
-[  290.850829]  [<ffffffff81ba5535>] ? __dev_change_flags+0xad/0x131
-[  290.870540]  [<ffffffff81ba563a>] ? dev_change_flags+0x21/0x57
-[  290.870815]  [<ffffffff827de30e>] ? ic_close_devs+0x2e/0x48
-[  290.890595]  [<ffffffff827df332>] ? ip_auto_config+0xbc9/0xe84
-[  290.910247]  [<ffffffff81cda1e3>] ? printk+0x41/0x43
-[  290.910488]  [<ffffffff827de769>] ? ip_auto_config+0x0/0xe84
-[  290.910747]  [<ffffffff810002da>] ? do_one_initcall+0x57/0x135
-[  290.930455]  [<ffffffff8278ef8a>] ? kernel_init+0x16c/0x1f6
-[  290.930743]  [<ffffffff8103a914>] ? kernel_thread_helper+0x4/0x10
-[  290.950419]  [<ffffffff81cde23c>] ? restore_args+0x0/0x30
-[  290.970152]  [<ffffffff8278ee1e>] ? kernel_init+0x0/0x1f6
-[  290.970398]  [<ffffffff8103a910>] ? kernel_thread_helper+0x0/0x10
+pci_restore_state only ever returns 0, thus there is no benefit in
+having it return any value.  Also, a large majority of the callers do
+not check the return code of pci_restore_state.  Make the
+pci_restore_state a void return and avoid the overhead.
+
+Signed-off-by: Jon Mason <jon.mason@exar.com>
+---
+ drivers/media/video/cafe_ccic.c         |    4 +---
+ drivers/net/myri10ge/myri10ge.c         |    4 +---
+ drivers/net/sfc/falcon.c                |   25 +++++--------------------
+ drivers/net/skge.c                      |    4 +---
+ drivers/net/sky2.c                      |    5 +----
+ drivers/net/wireless/rt2x00/rt2x00pci.c |    4 ++--
+ drivers/pci/pci-driver.c                |    3 ++-
+ drivers/pci/pci.c                       |    7 ++-----
+ drivers/scsi/ipr.c                      |    8 +-------
+ drivers/scsi/pmcraid.c                  |    7 +------
+ drivers/staging/sm7xx/smtcfb.c          |    2 +-
+ include/linux/pci.h                     |    8 +++-----
+ sound/pci/cs5535audio/cs5535audio_pm.c  |    7 +------
+ 13 files changed, 22 insertions(+), 66 deletions(-)
+
+diff --git a/drivers/media/video/cafe_ccic.c b/drivers/media/video/cafe_ccic.c
+index 2934770..3e653f3 100644
+--- a/drivers/media/video/cafe_ccic.c
++++ b/drivers/media/video/cafe_ccic.c
+@@ -2186,9 +2186,7 @@ static int cafe_pci_resume(struct pci_dev *pdev)
+ 	struct cafe_camera *cam = to_cam(v4l2_dev);
+ 	int ret = 0;
+ 
+-	ret = pci_restore_state(pdev);
+-	if (ret)
+-		return ret;
++	pci_restore_state(pdev);
+ 	ret = pci_enable_device(pdev);
+ 
+ 	if (ret) {
+diff --git a/drivers/net/myri10ge/myri10ge.c b/drivers/net/myri10ge/myri10ge.c
+index 8524cc4..d3c4a37 100644
+--- a/drivers/net/myri10ge/myri10ge.c
++++ b/drivers/net/myri10ge/myri10ge.c
+@@ -3403,9 +3403,7 @@ static int myri10ge_resume(struct pci_dev *pdev)
+ 		return -EIO;
+ 	}
+ 
+-	status = pci_restore_state(pdev);
+-	if (status)
+-		return status;
++	pci_restore_state(pdev);
+ 
+ 	status = pci_enable_device(pdev);
+ 	if (status) {
+diff --git a/drivers/net/sfc/falcon.c b/drivers/net/sfc/falcon.c
+index 267019b..1763b9a 100644
+--- a/drivers/net/sfc/falcon.c
++++ b/drivers/net/sfc/falcon.c
+@@ -1066,22 +1066,9 @@ static int falcon_reset_hw(struct efx_nic *efx, enum reset_type method)
+ 
+ 	/* Restore PCI configuration if needed */
+ 	if (method == RESET_TYPE_WORLD) {
+-		if (efx_nic_is_dual_func(efx)) {
+-			rc = pci_restore_state(nic_data->pci_dev2);
+-			if (rc) {
+-				netif_err(efx, drv, efx->net_dev,
+-					  "failed to restore PCI config for "
+-					  "the secondary function\n");
+-				goto fail3;
+-			}
+-		}
+-		rc = pci_restore_state(efx->pci_dev);
+-		if (rc) {
+-			netif_err(efx, drv, efx->net_dev,
+-				  "failed to restore PCI config for the "
+-				  "primary function\n");
+-			goto fail4;
+-		}
++		if (efx_nic_is_dual_func(efx))
++			pci_restore_state(nic_data->pci_dev2);
++		pci_restore_state(efx->pci_dev);
+ 		netif_dbg(efx, drv, efx->net_dev,
+ 			  "successfully restored PCI config\n");
+ 	}
+@@ -1092,7 +1079,7 @@ static int falcon_reset_hw(struct efx_nic *efx, enum reset_type method)
+ 		rc = -ETIMEDOUT;
+ 		netif_err(efx, hw, efx->net_dev,
+ 			  "timed out waiting for hardware reset\n");
+-		goto fail5;
++		goto fail3;
+ 	}
+ 	netif_dbg(efx, hw, efx->net_dev, "hardware reset complete\n");
+ 
+@@ -1100,11 +1087,9 @@ static int falcon_reset_hw(struct efx_nic *efx, enum reset_type method)
+ 
+ 	/* pci_save_state() and pci_restore_state() MUST be called in pairs */
+ fail2:
+-fail3:
+ 	pci_restore_state(efx->pci_dev);
+ fail1:
+-fail4:
+-fail5:
++fail3:
+ 	return rc;
+ }
+ 
+diff --git a/drivers/net/skge.c b/drivers/net/skge.c
+index 220e039..61553af 100644
+--- a/drivers/net/skge.c
++++ b/drivers/net/skge.c
+@@ -4087,9 +4087,7 @@ static int skge_resume(struct pci_dev *pdev)
+ 	if (err)
+ 		goto out;
+ 
+-	err = pci_restore_state(pdev);
+-	if (err)
+-		goto out;
++	pci_restore_state(pdev);
+ 
+ 	err = skge_reset(hw);
+ 	if (err)
+diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
+index d657708..be3aee7 100644
+--- a/drivers/net/sky2.c
++++ b/drivers/net/sky2.c
+@@ -4969,10 +4969,7 @@ static int sky2_resume(struct pci_dev *pdev)
+ 	if (err)
+ 		goto out;
+ 
+-	err = pci_restore_state(pdev);
+-	if (err)
+-		goto out;
+-
++	pci_restore_state(pdev);
+ 	pci_enable_wake(pdev, PCI_D0, 0);
+ 
+ 	/* Re-enable all clocks */
+diff --git a/drivers/net/wireless/rt2x00/rt2x00pci.c b/drivers/net/wireless/rt2x00/rt2x00pci.c
+index 868ca19..5e3c46f 100644
+--- a/drivers/net/wireless/rt2x00/rt2x00pci.c
++++ b/drivers/net/wireless/rt2x00/rt2x00pci.c
+@@ -356,12 +356,12 @@ int rt2x00pci_resume(struct pci_dev *pci_dev)
+ 	struct rt2x00_dev *rt2x00dev = hw->priv;
+ 
+ 	if (pci_set_power_state(pci_dev, PCI_D0) ||
+-	    pci_enable_device(pci_dev) ||
+-	    pci_restore_state(pci_dev)) {
++	    pci_enable_device(pci_dev)) {
+ 		ERROR(rt2x00dev, "Failed to resume device.\n");
+ 		return -EIO;
+ 	}
+ 
++	pci_restore_state(pci_dev);
+ 	return rt2x00lib_resume(rt2x00dev);
+ }
+ EXPORT_SYMBOL_GPL(rt2x00pci_resume);
+diff --git a/drivers/pci/pci-driver.c b/drivers/pci/pci-driver.c
+index 8a6f797..80e551e 100644
+--- a/drivers/pci/pci-driver.c
++++ b/drivers/pci/pci-driver.c
+@@ -449,7 +449,8 @@ static int pci_restore_standard_config(struct pci_dev *pci_dev)
+ 			return error;
+ 	}
+ 
+-	return pci_restore_state(pci_dev);
++	pci_restore_state(pci_dev);
++	return 0;
+ }
+ 
+ static void pci_pm_default_resume_early(struct pci_dev *pci_dev)
+diff --git a/drivers/pci/pci.c b/drivers/pci/pci.c
+index e98c810..c711d1b 100644
+--- a/drivers/pci/pci.c
++++ b/drivers/pci/pci.c
+@@ -937,14 +937,13 @@ pci_save_state(struct pci_dev *dev)
+  * pci_restore_state - Restore the saved state of a PCI device
+  * @dev: - PCI device that we're dealing with
+  */
+-int 
+-pci_restore_state(struct pci_dev *dev)
++void pci_restore_state(struct pci_dev *dev)
+ {
+ 	int i;
+ 	u32 val;
+ 
+ 	if (!dev->state_saved)
+-		return 0;
++		return;
+ 
+ 	/* PCI Express register must be restored first */
+ 	pci_restore_pcie_state(dev);
+@@ -968,8 +967,6 @@ pci_restore_state(struct pci_dev *dev)
+ 	pci_restore_iov_state(dev);
+ 
+ 	dev->state_saved = false;
+-
+-	return 0;
+ }
+ 
+ static int do_pci_enable_device(struct pci_dev *dev, int bars)
+diff --git a/drivers/scsi/ipr.c b/drivers/scsi/ipr.c
+index fa60d7d..1d7dbe6 100644
+--- a/drivers/scsi/ipr.c
++++ b/drivers/scsi/ipr.c
+@@ -7485,16 +7485,10 @@ static int ipr_reset_restore_cfg_space(struct ipr_cmnd *ipr_cmd)
+ {
+ 	struct ipr_ioa_cfg *ioa_cfg = ipr_cmd->ioa_cfg;
+ 	volatile u32 int_reg;
+-	int rc;
+ 
+ 	ENTER;
+ 	ioa_cfg->pdev->state_saved = true;
+-	rc = pci_restore_state(ioa_cfg->pdev);
+-
+-	if (rc != PCIBIOS_SUCCESSFUL) {
+-		ipr_cmd->s.ioasa.hdr.ioasc = cpu_to_be32(IPR_IOASC_PCI_ACCESS_ERROR);
+-		return IPR_RC_JOB_CONTINUE;
+-	}
++	pci_restore_state(ioa_cfg->pdev);
+ 
+ 	if (ipr_set_pcix_cmd_reg(ioa_cfg)) {
+ 		ipr_cmd->s.ioasa.hdr.ioasc = cpu_to_be32(IPR_IOASC_PCI_ACCESS_ERROR);
+diff --git a/drivers/scsi/pmcraid.c b/drivers/scsi/pmcraid.c
+index cf89091..091baf2 100644
+--- a/drivers/scsi/pmcraid.c
++++ b/drivers/scsi/pmcraid.c
+@@ -2227,12 +2227,7 @@ static void pmcraid_ioa_reset(struct pmcraid_cmd *cmd)
+ 		/* Once either bist or pci reset is done, restore PCI config
+ 		 * space. If this fails, proceed with hard reset again
+ 		 */
+-		if (pci_restore_state(pinstance->pdev)) {
+-			pmcraid_info("config-space error resetting again\n");
+-			pinstance->ioa_state = IOA_STATE_IN_RESET_ALERT;
+-			pmcraid_reset_alert(cmd);
+-			break;
+-		}
++		pci_restore_state(pinstance->pdev);
+ 
+ 		/* fail all pending commands */
+ 		pmcraid_fail_outstanding_cmds(pinstance);
+diff --git a/drivers/staging/sm7xx/smtcfb.c b/drivers/staging/sm7xx/smtcfb.c
+index 24f47d6..7162dee 100644
+--- a/drivers/staging/sm7xx/smtcfb.c
++++ b/drivers/staging/sm7xx/smtcfb.c
+@@ -1071,7 +1071,7 @@ static int __maybe_unused smtcfb_resume(struct pci_dev *pdev)
+ 	/* when resuming, restore pci data and fb cursor */
+ 	if (pdev->dev.power.power_state.event != PM_EVENT_FREEZE) {
+ 		retv = pci_set_power_state(pdev, PCI_D0);
+-		retv = pci_restore_state(pdev);
++		pci_restore_state(pdev);
+ 		if (pci_enable_device(pdev))
+ 			return -1;
+ 		pci_set_master(pdev);
+diff --git a/include/linux/pci.h b/include/linux/pci.h
+index 7454408..63cbadc 100644
+--- a/include/linux/pci.h
++++ b/include/linux/pci.h
+@@ -806,7 +806,7 @@ size_t pci_get_rom_size(struct pci_dev *pdev, void __iomem *rom, size_t size);
+ 
+ /* Power management related routines */
+ int pci_save_state(struct pci_dev *dev);
+-int pci_restore_state(struct pci_dev *dev);
++void pci_restore_state(struct pci_dev *dev);
+ int __pci_complete_power_transition(struct pci_dev *dev, pci_power_t state);
+ int pci_set_power_state(struct pci_dev *dev, pci_power_t state);
+ pci_power_t pci_choose_state(struct pci_dev *dev, pm_message_t state);
+@@ -1168,10 +1168,8 @@ static inline int pci_save_state(struct pci_dev *dev)
+ 	return 0;
+ }
+ 
+-static inline int pci_restore_state(struct pci_dev *dev)
+-{
+-	return 0;
+-}
++static inline void pci_restore_state(struct pci_dev *dev)
++{ }
+ 
+ static inline int pci_set_power_state(struct pci_dev *dev, pci_power_t state)
+ {
+diff --git a/sound/pci/cs5535audio/cs5535audio_pm.c b/sound/pci/cs5535audio/cs5535audio_pm.c
+index a3301cc..185b000 100644
+--- a/sound/pci/cs5535audio/cs5535audio_pm.c
++++ b/sound/pci/cs5535audio/cs5535audio_pm.c
+@@ -90,12 +90,7 @@ int snd_cs5535audio_resume(struct pci_dev *pci)
+ 	int i;
+ 
+ 	pci_set_power_state(pci, PCI_D0);
+-	if (pci_restore_state(pci) < 0) {
+-		printk(KERN_ERR "cs5535audio: pci_restore_state failed, "
+-		       "disabling device\n");
+-		snd_card_disconnect(card);
+-		return -EIO;
+-	}
++	pci_restore_state(pci);
+ 	if (pci_enable_device(pci) < 0) {
+ 		printk(KERN_ERR "cs5535audio: pci_enable_device failed, "
+ 		       "disabling device\n");
+-- 
+1.7.0.4
+
