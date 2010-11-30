@@ -1,66 +1,57 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] net: avoid the unnecessary kmalloc
-Date: Tue, 30 Nov 2010 07:52:01 +0100
-Message-ID: <1291099921.2725.28.camel@edumazet-laptop>
-References: <1291077629-6339-1-git-send-email-xiaosuo@gmail.com>
+Subject: Re: [PATCH 3/3] ipip: add module alias for tunl0 tunnel device
+Date: Tue, 30 Nov 2010 08:19:37 +0100
+Message-ID: <1291101577.2725.41.camel@edumazet-laptop>
+References: <20101129194746.724222156@vyatta.com>
+	 <20101129194805.851988995@vyatta.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f42.google.com ([74.125.82.42]:45949 "EHLO
-	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753859Ab0K3GwH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Nov 2010 01:52:07 -0500
-Received: by wwf26 with SMTP id 26so992570wwf.1
-        for <netdev@vger.kernel.org>; Mon, 29 Nov 2010 22:52:05 -0800 (PST)
-In-Reply-To: <1291077629-6339-1-git-send-email-xiaosuo@gmail.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:64667 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753179Ab0K3HTo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Nov 2010 02:19:44 -0500
+Received: by wyb28 with SMTP id 28so5351754wyb.19
+        for <netdev@vger.kernel.org>; Mon, 29 Nov 2010 23:19:43 -0800 (PST)
+In-Reply-To: <20101129194805.851988995@vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 30 novembre 2010 =C3=A0 08:40 +0800, Changli Gao a =C3=A9crit =
-:
-> If the old memory allocated by kmalloc() is larger than the new reque=
-sted,
-> pskb_expand_head() doesn't need to allocate a new one, unless the skb=
-->head
-> is shared.
+Le lundi 29 novembre 2010 =C3=A0 11:47 -0800, Stephen Hemminger a =C3=A9=
+crit :
+> pi=C3=A8ce jointe document texte brut (ipip-alias.patch)
+> If ipip is built as a module the 'ip tunnel add' command would fail b=
+ecause
+> the ipip module was not being autoloaded.  Adding an alias for
+> the tunl0 device name cause dev_load() to autoload it when needed.
 >=20
-> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+>=20
+> --- a/net/ipv4/ipip.c	2010-11-29 11:40:25.026277890 -0800
+> +++ b/net/ipv4/ipip.c	2010-11-29 11:41:05.790681069 -0800
+> @@ -913,3 +913,4 @@ static void __exit ipip_fini(void)
+>  module_init(ipip_init);
+>  module_exit(ipip_fini);
+>  MODULE_LICENSE("GPL");
+> +MODULE_ALIAS("tunl0");
 
-Seems fine to me, but patch title and changelog are a bit uninformative=
-=2E
+I am not sure I understand you...
 
+Here, I do have ipip built as a module, and I have no problem :
 
-skb head being allocated by kmalloc(), it might be larger than what
-actually requested because of discrete kmem caches sizes. Before
-reallocating a new skb head, check if the current one has the needed
-extra size.
+# lsmod|grep ipip
+# ip tunnel add
+cannot determine tunnel mode (ipip, gre or sit)
+# lsmod|grep ipip
+# ip tunnel add mode ipip
+# lsmod|grep ipip
+ipip                    7692  0=20
+tunnel4                 2949  1 ipip
+#=20
 
-Do this check only if skb head is not shared.
-
-
-
-> +
-> +	if (fastpath &&
-> +	    size + sizeof(struct skb_shared_info) <=3D ksize(skb->head)) {
-> +		memmove(skb->head + size, skb_shinfo(skb),
-> +			offsetof(struct skb_shared_info,
-> +				 frags[skb_shinfo(skb)->nr_frags]));
-> +		memmove(skb->head + nhead, skb->head,
-> +			skb_tail_pointer(skb) - skb->head);
-> +		off =3D nhead;
-> +		goto adjust_others;
-> +	}
-> +
-
-I suggest doing the max possible resize at this stage ?
-
-Ie moving skb_shared_info at the edge of memory block.
-
-Maybe its not necessary, and a given skb is not expanded multiple times
-in our stack, I dont really know.
-
+What am I missing ?
 
 
