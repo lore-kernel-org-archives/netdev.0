@@ -1,86 +1,148 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH 3/3] ipip: add module alias for tunl0 tunnel device
-Date: Tue, 30 Nov 2010 15:55:15 +0800
-Message-ID: <AANLkTi=DFN=r5XLYEwb3RYOyTF+u0uTEUa3wX5i2ijJZ@mail.gmail.com>
-References: <20101129194746.724222156@vyatta.com> <20101129194805.851988995@vyatta.com>
- <1291101577.2725.41.camel@edumazet-laptop>
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: [PATCH] Net-ethtool : Allow ethtool to set interface in loopback mode.
+Date: Tue, 30 Nov 2010 00:00:29 -0800
+Message-ID: <AANLkTikVaVv4fkLom+NSQgOUzCd2i3mbHkBNQ6PD4d9Y@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: David Miller <davem@davemloft.net>,
+	linux-netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:63898 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754117Ab0K3Hzh convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Nov 2010 02:55:37 -0500
-Received: by fxm8 with SMTP id 8so900174fxm.19
-        for <netdev@vger.kernel.org>; Mon, 29 Nov 2010 23:55:36 -0800 (PST)
-In-Reply-To: <1291101577.2725.41.camel@edumazet-laptop>
+Received: from smtp-out.google.com ([216.239.44.51]:1889 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753480Ab0K3IAc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Nov 2010 03:00:32 -0500
+Received: from hpaq13.eem.corp.google.com (hpaq13.eem.corp.google.com [172.25.149.13])
+	by smtp-out.google.com with ESMTP id oAU80U8q009477
+	for <netdev@vger.kernel.org>; Tue, 30 Nov 2010 00:00:31 -0800
+Received: from bwz4 (bwz4.prod.google.com [10.188.26.4])
+	by hpaq13.eem.corp.google.com with ESMTP id oAU7xpdH025209
+	for <netdev@vger.kernel.org>; Tue, 30 Nov 2010 00:00:30 -0800
+Received: by bwz4 with SMTP id 4so4710451bwz.11
+        for <netdev@vger.kernel.org>; Tue, 30 Nov 2010 00:00:29 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 30, 2010 at 3:19 PM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
-> Le lundi 29 novembre 2010 =E0 11:47 -0800, Stephen Hemminger a =E9cri=
-t :
->> pi=E8ce jointe document texte brut (ipip-alias.patch)
->> If ipip is built as a module the 'ip tunnel add' command would fail =
-because
->> the ipip module was not being autoloaded. =A0Adding an alias for
->> the tunl0 device name cause dev_load() to autoload it when needed.
->>
->> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
->>
->> --- a/net/ipv4/ipip.c 2010-11-29 11:40:25.026277890 -0800
->> +++ b/net/ipv4/ipip.c 2010-11-29 11:41:05.790681069 -0800
->> @@ -913,3 +913,4 @@ static void __exit ipip_fini(void)
->> =A0module_init(ipip_init);
->> =A0module_exit(ipip_fini);
->> =A0MODULE_LICENSE("GPL");
->> +MODULE_ALIAS("tunl0");
->
-> I am not sure I understand you...
->
-> Here, I do have ipip built as a module, and I have no problem :
->
-> # lsmod|grep ipip
-> # ip tunnel add
-> cannot determine tunnel mode (ipip, gre or sit)
-> # lsmod|grep ipip
-> # ip tunnel add mode ipip
-> # lsmod|grep ipip
-> ipip =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A07692 =A00
-> tunnel4 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 2949 =A01 ipip
-> #
->
-> What am I missing ?
->
->
+This patch enables ethtool to set the loopback mode on a given
+interface. This is the reworked version of earlier submit (which I
+don't have reference to). By configuring the interface in loopback
+mode in conjunction with a policy route / rule, a userland application
+can stress the egress / ingress path exposing the flows of the change
+in progress and potentially help developer(s) understand the impact of
+those changes without even sending a packet out on the network.
 
-localhost linux # lsmod
-Module                  Size  Used by
-ipv6                  309359  12
-localhost linux # ip -V
-ip utility, iproute2-ss091226
-localhost linux # ip tunnel add mode gre
-ioctl: No such device
-localhost linux # ip tunnel add mode ipip
-ioctl: No such device
-localhost linux # modprobe ip_gre
-localhost linux # modprobe ipip
-localhost linux # ip tunnel add mode ipip
-localhost linux # ip tunnel add mode gre
-localhost linux # lsmod
-Module                  Size  Used by
-ipip                    8128  0
-tunnel4                 2683  1 ipip
-ip_gre                 15055  0
-gre                     1967  1 ip_gre
-ipv6                  309359  13 ip_gre
+=46ollowing set of commands illustrates one such example -
+=A0=A0 =A0a)=A0ifconfig eth1 192.168.1.1
+=A0=A0 =A0b)=A0ip -4 rule add from all iif eth1 lookup 250
+=A0=A0 =A0c)=A0ip -4 route add local 0/0 dev lo proto kernel scope host=
+ table 250
+=A0=A0 =A0d) arp -Ds 192.168.1.100 eth1
+=A0=A0 =A0e)=A0arp -Ds 192.168.1.200 eth1
+=A0=A0 =A0f)=A0sysctl -w net.ipv4.ip_nonlocal_bind=3D1
+=A0=A0 =A0g)=A0sysctl -w net.ipv4.conf.all.accept_local=3D1
+=A0=A0 =A0# Assuming that the machine has 8 cores
+=A0=A0 =A0h) taskset 000f netserver -L 192.168.1.200
+=A0=A0 =A0i) taskset 00f0 netperf -t TCP_CRR -L 192.168.1.100 -H 192.16=
+8.1.200 -l 30
 
+Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+---
+=A0include/linux/ethtool.h | =A0 =A04 ++++
+=A0net/core/ethtool.c =A0 =A0 =A0| =A0 39 +++++++++++++++++++++++++++++=
+++++++++++
+=A02 files changed, 43 insertions(+), 0 deletions(-)
 
---=20
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index 6628a50..7523d45 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -678,6 +678,8 @@ struct ethtool_ops {
+=A0=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0s=
+truct ethtool_rxfh_indir *);
+=A0=A0 =A0 =A0 =A0int =A0 =A0 (*set_rxfh_indir)(struct net_device *,
+=A0=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0c=
+onst struct ethtool_rxfh_indir *);
++ =A0 =A0 =A0 int =A0 =A0 (*get_loopback)(struct net_device *, u32 *);
++ =A0 =A0 =A0 int =A0 =A0 (*set_loopback)(struct net_device *, u32);
+=A0};
+=A0#endif /* __KERNEL__ */
+
+@@ -741,6 +743,8 @@ struct ethtool_ops {
+=A0#define ETHTOOL_GSSET_INFO =A0 =A0 0x00000037 /* Get string set info=
+ */
+=A0#define ETHTOOL_GRXFHINDIR =A0 =A0 0x00000038 /* Get RX flow hash in=
+dir'n table */
+=A0#define ETHTOOL_SRXFHINDIR =A0 =A0 0x00000039 /* Set RX flow hash in=
+dir'n table */
++#define ETHTOOL_SLOOPBACK =A0 =A0 =A00x0000003a /* Enable / Disable Lo=
+opback */
++#define ETHTOOL_GLOOPBACK =A0 =A0 =A00x0000003b /* Get Loopback status=
+ */
+
+=A0/* compatibility with older code */
+=A0#define SPARC_ETH_GSET =A0 =A0 =A0 =A0 ETHTOOL_GSET
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 956a9f4..5c87c93 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -1434,6 +1434,39 @@ static noinline_for_stack int ethtool_flash_devi=
+ce(struct
+=A0=A0 =A0 =A0 =A0return dev->ethtool_ops->flash_device(dev, &efl);
+=A0}
+
++static int ethtool_set_loopback(struct net_device *dev, void __user *u=
+seraddr)
++{
++ =A0 =A0 =A0 struct ethtool_value edata;
++ =A0 =A0 =A0 const struct ethtool_ops *ops =3D dev->ethtool_ops;
++
++ =A0 =A0 =A0 if (!ops || !ops->set_loopback)
++ =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -EOPNOTSUPP;
++
++ =A0 =A0 =A0 if (copy_from_user(&edata, useraddr, sizeof(edata)))
++ =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -EFAULT;
++
++ =A0 =A0 =A0 return ops->set_loopback(dev, edata.data);
++}
++
++static int ethtool_get_loopback(struct net_device *dev, void __user *u=
+seraddr)
++{
++ =A0 =A0 =A0 struct ethtool_value edata;
++ =A0 =A0 =A0 const struct ethtool_ops *ops =3D dev->ethtool_ops;
++ =A0 =A0 =A0 int err;
++
++ =A0 =A0 =A0 if (!ops || !ops->get_loopback)
++ =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -EOPNOTSUPP;
++
++ =A0 =A0 =A0 err =3D ops->get_loopback(dev, &edata.data);
++ =A0 =A0 =A0 if (err)
++ =A0 =A0 =A0 =A0 =A0 =A0 =A0 return (err);
++
++ =A0 =A0 =A0 if (copy_to_user(useraddr, &edata, sizeof(edata)))
++ =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -EFAULT;
++
++ =A0 =A0 =A0 return 0;
++}
++
+=A0/* The main entry point in this file. =A0Called from net/core/dev.c =
+*/
+
+=A0int dev_ethtool(struct net *net, struct ifreq *ifr)
+@@ -1678,6 +1711,12 @@ int dev_ethtool(struct net *net, struct ifreq *i=
+fr)
+=A0=A0 =A0 =A0 =A0case ETHTOOL_SRXFHINDIR:
+=A0=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0rc =3D ethtool_set_rxfh_indir(dev, us=
+eraddr);
+=A0=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0break;
++ =A0 =A0 =A0 case ETHTOOL_SLOOPBACK:
++ =A0 =A0 =A0 =A0 =A0 =A0 =A0 rc =3D ethtool_set_loopback(dev, useraddr=
+);
++ =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
++ =A0 =A0 =A0 case ETHTOOL_GLOOPBACK:
++ =A0 =A0 =A0 =A0 =A0 =A0 =A0 rc =3D ethtool_get_loopback(dev, useraddr=
+);
++ =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+=A0=A0 =A0 =A0 =A0default:
+=A0=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0rc =3D -EOPNOTSUPP;
+=A0=A0 =A0 =A0 =A0}
