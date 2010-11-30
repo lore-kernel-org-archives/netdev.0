@@ -1,60 +1,53 @@
-From: Breno Leitao <leitao@linux.vnet.ibm.com>
-Subject: Re: [PATCH] ehea: Use the standard logging functions
-Date: Tue, 30 Nov 2010 15:03:56 -0200
-Message-ID: <4CF52E7C.7010308@linux.vnet.ibm.com>
-References: <1290790908.11971.303.camel@Joe-Laptop> <1290792387-12331-1-git-send-email-leitao@linux.vnet.ibm.com> <1290814046.11971.320.camel@Joe-Laptop>
+From: =?iso-8859-2?Q?Micha=B3Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Subject: Re: [PATCH v2] net: Fix too optimistic NETIF_F_HW_CSUM features
+Date: Tue, 30 Nov 2010 18:07:55 +0100
+Message-ID: <20101130170755.GA1798@rere.qmqm.pl>
+References: <20101130163057.29978.92721.stgit@rechot.qmqm.pl> <1291136026.2904.135.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Ben Hutchings <bhutchings@solarflare.com>,
+	Jesse Gross <jesse@nicira.com>, Jon Mason <jon.mason@exar.com>,
+	Ramkrishna Vepa <Ramkrishna.Vepa@exar.com>,
+	Sivakumar Subramani <Sivakumar.Subramani@exar.com>,
+	Sreenivasa Honnur <Sreenivasa.Honnur@exar.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e24smtp01.br.ibm.com ([32.104.18.85]:35841 "EHLO
-	e24smtp01.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751764Ab0K3REC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Nov 2010 12:04:02 -0500
-Received: from d24relay01.br.ibm.com (d24relay01.br.ibm.com [9.8.31.16])
-	by e24smtp01.br.ibm.com (8.14.4/8.13.1) with ESMTP id oAUHOQ4U021342
-	for <netdev@vger.kernel.org>; Tue, 30 Nov 2010 15:24:26 -0200
-Received: from d24av02.br.ibm.com (d24av02.br.ibm.com [9.8.31.93])
-	by d24relay01.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id oAUH2a4D1892538
-	for <netdev@vger.kernel.org>; Tue, 30 Nov 2010 14:02:38 -0300
-Received: from d24av02.br.ibm.com (loopback [127.0.0.1])
-	by d24av02.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id oAUH3ebI010405
-	for <netdev@vger.kernel.org>; Tue, 30 Nov 2010 15:03:40 -0200
-In-Reply-To: <1290814046.11971.320.camel@Joe-Laptop>
+Received: from rere.qmqm.pl ([89.167.52.164]:39878 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752246Ab0K3RH4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Nov 2010 12:07:56 -0500
+Content-Disposition: inline
+In-Reply-To: <1291136026.2904.135.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Joe,
+On Tue, Nov 30, 2010 at 05:53:46PM +0100, Eric Dumazet wrote:
+> Le mardi 30 novembre 2010 =C3=A0 17:38 +0100, Micha=C5=82Miros=C5=82a=
+w a =C3=A9crit :
+> > NETIF_F_HW_CSUM is a superset of NETIF_F_IP_CSUM+NETIF_F_IPV6_CSUM,=
+ but
+> > some drivers miss the difference. Fix this and also fix UFO depende=
+ncy
+> > on checksumming offload as it makes the same mistake in assumptions=
+=2E
+> >=20
+> > Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
+> > ---
+> >=20
+> > Changes from v1:
+> > - fixed compilation of jme driver
+> > - enable vxge support for IPv6 checksum
+> > ---
+> >  drivers/net/vxge/vxge-ethtool.c |    2 +-
+> >  drivers/net/vxge/vxge-main.c    |    2 +-
+> >  2 files changed, 2 insertions(+), 2 deletions(-)
+> I have no idea how you got this diffstat.
+> Your patch touches more files than that...
 
-Thanks for the patch. Please make sure that it applies over the last 
-Davem's tree. He just committed one patch that will probably conflict 
-with this patch.
+Hmm. Looks like a bug in StGit.
 
-Also, this patch is printing:
+stg refresh didn't fix this. stg repair didn't either. :/
 
-ibmebus port0: foobarmessage
-
-Instead of
-
-ehea: foobarmessage
-
-But this is a driver issue, and your patch just exposed this problem. I 
-will send a patch for this soon.
-
-Thanks
-Breno
-
-On 11/26/2010 09:27 PM, Joe Perches wrote:
-> Remove ehea_error, ehea_info and ehea_debug macros.
-> Use pr_fmt, pr_<level>, netdev_<level>  and netif_<level>  as appropriate.
-> Fix messages to use trailing "\n", some messages had an extra one
-> as the old ehea_<level>  macros added a trailing "\n".
-> Coalesced long format strings.
->
-> Uncompiled/untested.
->
-> Signed-off-by: Joe Perches<joe@perches.com>
-Acked-by: Breno Leitao <leitao@linux.vnet.ibm.com>
-
+Best Regards,
+Micha=C5=82 Miros=C5=82aw
