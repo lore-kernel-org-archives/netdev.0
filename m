@@ -1,52 +1,51 @@
-From: David McCullough <david_mccullough@mcafee.com>
-Subject: [PATCH] net/ipv6/sit.c: return unhandled skb to tunnel4_rcv
-Date: Tue, 30 Nov 2010 15:32:34 +1000
-Message-ID: <20101130053234.GA28609@mcafee.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/3] inetpeer: Support ipv6 addresses.
+Date: Mon, 29 Nov 2010 21:53:03 -0800 (PST)
+Message-ID: <20101129.215303.48488457.davem@davemloft.net>
+References: <AANLkTin11AYaFWMArC6fNQnvej2+=WUfOtTVrtX8WLEZ@mail.gmail.com>
+	<20101129.212222.115953137.davem@davemloft.net>
+	<1291095736.2725.5.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-To: <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: xiaosuo@gmail.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sncsmrelay2.nai.com ([67.97.80.206]:33282 "EHLO
-	sncsmrelay2.nai.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751387Ab0K3FoE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Nov 2010 00:44:04 -0500
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55384
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750949Ab0K3Fwh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Nov 2010 00:52:37 -0500
+In-Reply-To: <1291095736.2725.5.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 30 Nov 2010 06:42:16 +0100
 
-Hi all,
+> Its a bit early in the morning here, I must confess I dont yet
+> understand your patch David :)
+> 
+> As we use a tree, why not using two different trees for ipv4 / ipv6 ?
 
-I found a problem using an IPv6 over IPv4 tunnel.  When CONFIG_IPV6_SIT
-was enabled, the packets would be rejected as net/ipv6/sit.c was catching
-all IPPROTO_IPV6 packets and returning an ICMP port unreachable error.
+The "key" just creates a natural ordering in the tree, it's
+almost arbitrary except that it must distribute well amongst
+the entries.
 
-I think this patch fixes the problem cleanly.  I believe the code in
-net/ipv4/tunnel4.c:tunnel4_rcv takes care of it properly if none of the
-handlers claim the skb.
+I currently don't see any reason to make two trees right now.
 
-Patch is against 2.6.35,  bit still applies to current.
+> I dont understand how computing a 32bit key (sort of hash key) is going
+> to help when hash collision happens, with an avl tree.
+> Either version of tree (AVL/rbtree) will be expensive to use if depth is
+> big (With 2 millions entries, depth is going to be very big). I
+> understand you want to get rid of route cache ?
 
-Cheers,
-Davidm
+Do we plan to talk to 2 million unique destinations and have active
+non-default metrics for each one of them very often?
 
-Signed-off-by: David McCullough <david_mccullough@mcafee.com>
+inet_peer entries will only get created when we need to make
+non-default metric settings for a specific destination address.
 
-diff -u -r1.1.1.45 sit.c
---- a/net/ipv6/sit.c	12 Aug 2010 00:16:26 -0000	1.1.1.45
-+++ b/net/ipv6/sit.c	30 Nov 2010 05:01:19 -0000
-@@ -575,8 +575,9 @@
- 		return 0;
- 	}
- 
--	icmp_send(skb, ICMP_DEST_UNREACH, ICMP_PORT_UNREACH, 0);
-+	/* no tunnel matched,  let upstream know, ipsec may handle it */
- 	rcu_read_unlock();
-+	return 1;
- out:
- 	kfree_skb(skb);
- 	return 0;
+See that's the thing, it's scope is so much smaller than the existing
+routing cache.  It's only going to be used in limited if not
+controlled cases.
 
--- 
-David McCullough,      david_mccullough@mcafee.com,  Ph:+61 734352815
-McAfee - SnapGear      http://www.mcafee.com         http://www.uCdot.org
