@@ -1,107 +1,90 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 3/3] ipip: add module alias for tunl0 tunnel device
-Date: Tue, 30 Nov 2010 09:21:09 +0100
-Message-ID: <1291105269.2725.52.camel@edumazet-laptop>
-References: <20101129194746.724222156@vyatta.com>
-	 <20101129194805.851988995@vyatta.com>
-	 <1291101577.2725.41.camel@edumazet-laptop>
-	 <AANLkTi=DFN=r5XLYEwb3RYOyTF+u0uTEUa3wX5i2ijJZ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH v3] net: don't reallocate skb->head unless the current one hasn't the needed extra size or is shared
+Date: Tue, 30 Nov 2010 16:48:46 +0800
+Message-ID: <1291106926-1898-1-git-send-email-xiaosuo@gmail.com>
+Cc: netdev@vger.kernel.org, Changli Gao <xiaosuo@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:39402 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754108Ab0K3IVP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Nov 2010 03:21:15 -0500
-Received: by wwa36 with SMTP id 36so5768546wwa.1
-        for <netdev@vger.kernel.org>; Tue, 30 Nov 2010 00:21:13 -0800 (PST)
-In-Reply-To: <AANLkTi=DFN=r5XLYEwb3RYOyTF+u0uTEUa3wX5i2ijJZ@mail.gmail.com>
+Received: from mail-gw0-f46.google.com ([74.125.83.46]:63964 "EHLO
+	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753835Ab0K3ItG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Nov 2010 03:49:06 -0500
+Received: by gwj20 with SMTP id 20so2561200gwj.19
+        for <netdev@vger.kernel.org>; Tue, 30 Nov 2010 00:49:04 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 30 novembre 2010 =C3=A0 15:55 +0800, Changli Gao a =C3=A9crit =
-:
-> On Tue, Nov 30, 2010 at 3:19 PM, Eric Dumazet <eric.dumazet@gmail.com=
-> wrote:
-> > Le lundi 29 novembre 2010 =C3=A0 11:47 -0800, Stephen Hemminger a =C3=
-=A9crit :
-> >> pi=C3=A8ce jointe document texte brut (ipip-alias.patch)
-> >> If ipip is built as a module the 'ip tunnel add' command would fai=
-l because
-> >> the ipip module was not being autoloaded.  Adding an alias for
-> >> the tunl0 device name cause dev_load() to autoload it when needed.
-> >>
-> >> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> >>
-> >> --- a/net/ipv4/ipip.c 2010-11-29 11:40:25.026277890 -0800
-> >> +++ b/net/ipv4/ipip.c 2010-11-29 11:41:05.790681069 -0800
-> >> @@ -913,3 +913,4 @@ static void __exit ipip_fini(void)
-> >>  module_init(ipip_init);
-> >>  module_exit(ipip_fini);
-> >>  MODULE_LICENSE("GPL");
-> >> +MODULE_ALIAS("tunl0");
-> >
-> > I am not sure I understand you...
-> >
-> > Here, I do have ipip built as a module, and I have no problem :
-> >
-> > # lsmod|grep ipip
-> > # ip tunnel add
-> > cannot determine tunnel mode (ipip, gre or sit)
-> > # lsmod|grep ipip
-> > # ip tunnel add mode ipip
-> > # lsmod|grep ipip
-> > ipip                    7692  0
-> > tunnel4                 2949  1 ipip
-> > #
-> >
-> > What am I missing ?
-> >
-> >
->=20
-> localhost linux # lsmod
-> Module                  Size  Used by
-> ipv6                  309359  12
-> localhost linux # ip -V
-> ip utility, iproute2-ss091226
-> localhost linux # ip tunnel add mode gre
-> ioctl: No such device
-> localhost linux # ip tunnel add mode ipip
-> ioctl: No such device
-> localhost linux # modprobe ip_gre
-> localhost linux # modprobe ipip
-> localhost linux # ip tunnel add mode ipip
-> localhost linux # ip tunnel add mode gre
-> localhost linux # lsmod
-> Module                  Size  Used by
-> ipip                    8128  0
-> tunnel4                 2683  1 ipip
-> ip_gre                 15055  0
-> gre                     1967  1 ip_gre
-> ipv6                  309359  13 ip_gre
->=20
->=20
+skb head being allocated by kmalloc(), it might be larger than what
+actually requested because of discrete kmem caches sizes. Before
+reallocating a new skb head, check if the current one has the needed
+extra size.
 
-Hmm. I still dont get it, ipv6 as a module ?
+Do this check only if skb head is not shared.
 
-Works well here.
-
-# lsmod
-Module                  Size  Used by
-bonding                89194  0=20
-ipv6                  232889  29 bonding
-# ip tunnel add mode ipip
-# lsmod
-Module                  Size  Used by
-ipip                    6221  0=20
-bonding                89194  0=20
-ipv6                  232889  29 bonding
-# ip -V
-ip utility, iproute2-ss100823
-#=20
-
-
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+---
+V3: update the comment.
+v2: apply this trick for the cloned but not shared skb
+ net/core/skbuff.c |   34 +++++++++++++++++++++++-----------
+ 1 file changed, 23 insertions(+), 11 deletions(-)
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 104f844..8814a9a 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -778,6 +778,28 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
+ 
+ 	size = SKB_DATA_ALIGN(size);
+ 
++	/* Check if we can avoid taking references on fragments if we own
++	 * the last reference on skb->head. (see skb_release_data())
++	 */
++	if (!skb->cloned)
++		fastpath = true;
++	else {
++		int delta = skb->nohdr ? (1 << SKB_DATAREF_SHIFT) + 1 : 1;
++
++		fastpath = atomic_read(&skb_shinfo(skb)->dataref) == delta;
++	}
++
++	if (fastpath &&
++	    size + sizeof(struct skb_shared_info) <= ksize(skb->head)) {
++		memmove(skb->head + size, skb_shinfo(skb),
++			offsetof(struct skb_shared_info,
++				 frags[skb_shinfo(skb)->nr_frags]));
++		memmove(skb->head + nhead, skb->head,
++			skb_tail_pointer(skb) - skb->head);
++		off = nhead;
++		goto adjust_others;
++	}
++
+ 	data = kmalloc(size + sizeof(struct skb_shared_info), gfp_mask);
+ 	if (!data)
+ 		goto nodata;
+@@ -791,17 +813,6 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
+ 	       skb_shinfo(skb),
+ 	       offsetof(struct skb_shared_info, frags[skb_shinfo(skb)->nr_frags]));
+ 
+-	/* Check if we can avoid taking references on fragments if we own
+-	 * the last reference on skb->head. (see skb_release_data())
+-	 */
+-	if (!skb->cloned)
+-		fastpath = true;
+-	else {
+-		int delta = skb->nohdr ? (1 << SKB_DATAREF_SHIFT) + 1 : 1;
+-
+-		fastpath = atomic_read(&skb_shinfo(skb)->dataref) == delta;
+-	}
+-
+ 	if (fastpath) {
+ 		kfree(skb->head);
+ 	} else {
+@@ -816,6 +827,7 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
+ 	off = (data + nhead) - skb->head;
+ 
+ 	skb->head     = data;
++adjust_others:
+ 	skb->data    += off;
+ #ifdef NET_SKBUFF_DATA_USES_OFFSET
+ 	skb->end      = size;
