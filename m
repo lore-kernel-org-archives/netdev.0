@@ -1,37 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] net: Fix too optimistic NETIF_F_HW_CSUM features
-Date: Tue, 30 Nov 2010 18:17:46 +0100
-Message-ID: <1291137466.2904.136.camel@edumazet-laptop>
-References: <20101130163057.29978.92721.stgit@rechot.qmqm.pl>
-	 <1291136026.2904.135.camel@edumazet-laptop>
-	 <20101130170755.GA1798@rere.qmqm.pl>  <20101130171527.GB1798@rere.qmqm.pl>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] netfilter:  fix  race in conntrack between dump_table
+ and destroy
+Date: Tue, 30 Nov 2010 09:28:03 -0800
+Message-ID: <20101130092803.53fde6af@nehalam>
+References: <20101124222716.437c5547@nehalam>
+	<1290666873.2798.89.camel@edumazet-laptop>
+	<20101124230004.1dc28e5a@nehalam>
+	<1290669214.2798.109.camel@edumazet-laptop>
+	<20101126135101.4e4b97cc@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Ben Hutchings <bhutchings@solarflare.com>,
-	Jesse Gross <jesse@nicira.com>, Jon Mason <jon.mason@exar.com>,
-	Ramkrishna Vepa <Ramkrishna.Vepa@exar.com>,
-	Sivakumar Subramani <Sivakumar.Subramani@exar.com>,
-	Sreenivasa Honnur <Sreenivasa.Honnur@exar.com>
-To: =?UTF-8?Q?Micha=C5=82Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:47300 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751739Ab0K3RRw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Nov 2010 12:17:52 -0500
-Received: by wyb28 with SMTP id 28so5912708wyb.19
-        for <netdev@vger.kernel.org>; Tue, 30 Nov 2010 09:17:50 -0800 (PST)
-In-Reply-To: <20101130171527.GB1798@rere.qmqm.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Patrick McHardy <kaber@trash.net>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20101126135101.4e4b97cc@nehalam>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mardi 30 novembre 2010 =C3=A0 18:15 +0100, Micha=C5=82Miros=C5=82aw =
-a =C3=A9crit :
+On Fri, 26 Nov 2010 13:51:01 -0800
+Stephen Hemminger <shemminger@vyatta.com> wrote:
 
-> In case someone is interested: stg rebase fixes this.
->=20
-> Should I resend the patch?
+> The netlink interface to dump the connection tracking table has a race
+> when entries are deleted at the same time. A customer reported a crash 
+> and the backtrace showed thatctnetlink_dump_table was running while a 
+> conntrack entry wasbeing destroyed.
+> (see https://bugzilla.vyatta.com/show_bug.cgi?id=6402).
+> 
+> According to RCU documentation, when using hlist_nulls the reader
+> must handle the case of seeing a deleted entry and not proceed
+> further down the linked list.  The old code would continue
+> which caused the scan to walk into the free list. 
+> 
+> This patch uses locking (rather than RCU) for this operation which
+> is guaranteed safe, and no longer requires getting reference while
+> doing dump operation.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-I guess not ;)
+This should go in net-2.6 and stable for 2.6.32, 2.6.35, and 2.6.36
 
 
+
+-- 
