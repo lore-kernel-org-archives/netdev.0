@@ -1,42 +1,88 @@
 From: Martin Willi <martin@strongswan.org>
-Subject: [PATCH 0/5] xfrm: ESP Traffic Flow Confidentiality padding
-Date: Tue, 30 Nov 2010 16:49:10 +0100
-Message-ID: <1291132155-31277-1-git-send-email-martin@strongswan.org>
+Subject: [PATCH 5/5] xfrm: Add TFC padding option to automatically pad to PMTU
+Date: Tue, 30 Nov 2010 16:49:15 +0100
+Message-ID: <1291132155-31277-6-git-send-email-martin@strongswan.org>
+References: <1291132155-31277-1-git-send-email-martin@strongswan.org>
 Cc: linux-crypto@vger.kernel.org, netdev@vger.kernel.org
 To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <1291132155-31277-1-git-send-email-martin@strongswan.org>
 Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The following patchset adds Traffic Flow Confidentiality padding. The
-first patch introduces a new Netlink XFRM attribute to configure TFC via
-userspace. The second patch removes an existing padlen option in ESP; It
-is not used at all, and I currently don't see the purpose of the field,
-nor how it should interact with TFC padding enabled. Patch three and four
-implement the padding logic in IPv4 and IPv6 ESP.
+Traffic Flow Confidentiality padding is most effective if all packets
+have exactly the same size. For SAs with mixed traffic, the largest
+packet size is usually the PMTU. Instead of calculating the PMTU
+manually, the XFRM_TFC_PMTU flag automatically pads to the PMTU.
 
-Padding is specified with a length to pad the encapsulated data to.
-Support for TFC padding as specified in RFC4303 must be negotiated
-explicitly by the key management protocol, hence the optional flag. The
-fallback with ESP padding field expansion is limited to 255 padding
-bytes. If this is insufficient, padding length is randomized to hide
-the real length as good as possible.
+Signed-off-by: Martin Willi <martin@strongswan.org>
+---
+ include/linux/xfrm.h |    1 +
+ net/ipv4/esp4.c      |    7 +++++++
+ net/ipv6/esp6.c      |    7 +++++++
+ 3 files changed, 15 insertions(+), 0 deletions(-)
 
-The last patch adds an option to pad all packets to the PMTU. It works
-fine for simple scenarios, but I'm not sure if my PMTU lookup works in
-all cases (nested transforms?). Any pointer would be appreciated.
-
-Martin Willi (5):
-      xfrm: Add Traffic Flow Confidentiality padding XFRM attribute
-      xfrm: Remove unused ESP padlen field
-      xfrm: Traffic Flow Confidentiality for IPv4 ESP
-      xfrm: Traffic Flow Confidentiality for IPv6 ESP
-      xfrm: Add TFC padding option to automatically pad to PMTU
-
- include/linux/xfrm.h |    8 +++++++
- include/net/esp.h    |    3 --
- include/net/xfrm.h   |    1 +
- net/ipv4/esp4.c      |   58 +++++++++++++++++++++++++++++++++++--------------
- net/ipv6/esp6.c      |   58 +++++++++++++++++++++++++++++++++++--------------
- net/xfrm/xfrm_user.c |   16 ++++++++++++-
- 6 files changed, 105 insertions(+), 39 deletions(-)
+diff --git a/include/linux/xfrm.h b/include/linux/xfrm.h
+index b1e5f8a..2a9f0b4 100644
+--- a/include/linux/xfrm.h
++++ b/include/linux/xfrm.h
+@@ -298,6 +298,7 @@ struct xfrm_tfc {
+ 	__u16		pad;
+ 	__u16		flags;
+ #define XFRM_TFC_ESPV3	1	/* RFC4303 TFC padding, if possible */
++#define XFRM_TFC_PMTU	2	/* ignore pad field, pad to PMTU */
+ };
+ 
+ enum xfrm_sadattr_type_t {
+diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
+index a6adfbc..cfb4992 100644
+--- a/net/ipv4/esp4.c
++++ b/net/ipv4/esp4.c
+@@ -23,6 +23,8 @@ struct esp_skb_cb {
+ 
+ #define ESP_SKB_CB(__skb) ((struct esp_skb_cb *)&((__skb)->cb[0]))
+ 
++static u32 esp4_get_mtu(struct xfrm_state *x, int mtu);
++
+ /*
+  * Allocate an AEAD request structure with extra space for SG and IV.
+  *
+@@ -133,6 +135,11 @@ static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	blksize = ALIGN(crypto_aead_blocksize(aead), 4);
+ 	tfclen = 0;
+ 	tfcpadto = x->tfc.pad;
++	if (x->tfc.flags & XFRM_TFC_PMTU) {
++		struct xfrm_dst *dst = (struct xfrm_dst *)skb_dst(skb);
++
++		tfcpadto = esp4_get_mtu(x, dst->child_mtu_cached);
++	}
+ 
+ 	if (skb->len >= tfcpadto) {
+ 		clen = ALIGN(skb->len + 2, blksize);
+diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
+index 9494cb1..6cb9a02 100644
+--- a/net/ipv6/esp6.c
++++ b/net/ipv6/esp6.c
+@@ -49,6 +49,8 @@ struct esp_skb_cb {
+ 
+ #define ESP_SKB_CB(__skb) ((struct esp_skb_cb *)&((__skb)->cb[0]))
+ 
++static u32 esp6_get_mtu(struct xfrm_state *x, int mtu);
++
+ /*
+  * Allocate an AEAD request structure with extra space for SG and IV.
+  *
+@@ -157,6 +159,11 @@ static int esp6_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	blksize = ALIGN(crypto_aead_blocksize(aead), 4);
+ 	tfclen = 0;
+ 	tfcpadto = x->tfc.pad;
++	if (x->tfc.flags & XFRM_TFC_PMTU) {
++		struct xfrm_dst *dst = (struct xfrm_dst *)skb_dst(skb);
++
++		tfcpadto = esp6_get_mtu(x, dst->child_mtu_cached);
++	}
+ 
+ 	if (skb->len >= tfcpadto) {
+ 		clen = ALIGN(skb->len + 2, blksize);
+-- 
+1.7.1
