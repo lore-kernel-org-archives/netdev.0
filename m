@@ -1,46 +1,73 @@
 From: xiaohui.xin@intel.com
-Subject: [PATCH v16 09/17] Don't do skb recycle, if device use external buffer.
-Date: Wed,  1 Dec 2010 16:08:20 +0800
-Message-ID: <bdfdfa415111ae265325af3c0e8fc5bfe68618cd.1291187695.git.xiaohui.xin@intel.com>
+Subject: [PATCH v16 07/17]Modify netdev_alloc_page() to get external buffer
+Date: Wed,  1 Dec 2010 16:08:18 +0800
+Message-ID: <1a930880ab6ae317da800e2d43efb2ed1f682481.1291187695.git.xiaohui.xin@intel.com>
 References: <fc6e95d63a2c62aaf77f8ded22fc43ccefcdbbff.1291187695.git.xiaohui.xin@intel.com>
 Cc: Xin Xiaohui <xiaohui.xin@intel.com>
 To: netdev@vger.kernel.org, kvm@vger.kernel.org,
 	linux-kernel@vger.kernel.org, mst@redhat.com, mingo@elte.hu,
 	davem@davemloft.net, herbert@gondor.apana.org.au,
 	jdike@linux.intel.com
-Return-path: <kvm-owner@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <fc6e95d63a2c62aaf77f8ded22fc43ccefcdbbff.1291187695.git.xiaohui.xin@intel.com>
 In-Reply-To: <fc6e95d63a2c62aaf77f8ded22fc43ccefcdbbff.1291187695.git.xiaohui.xin@intel.com>
 References: <fc6e95d63a2c62aaf77f8ded22fc43ccefcdbbff.1291187695.git.xiaohui.xin@intel.com>
-Sender: kvm-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Xin Xiaohui <xiaohui.xin@intel.com>
 
-Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
-Signed-off-by: Zhao Yu <yzhao81new@gmail.com>
-Reviewed-by: Jeff Dike <jdike@linux.intel.com>
+    Currently, it can get external buffers from mp device.
+
+    Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
+    Signed-off-by: Zhao Yu <yzhao81new@gmail.com>
+    Reviewed-by: Jeff Dike <jdike@linux.intel.com>
 ---
- net/core/skbuff.c |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
+ net/core/skbuff.c |   27 +++++++++++++++++++++++++++
+ 1 files changed, 27 insertions(+), 0 deletions(-)
 
 diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index d3ece5c..11833b4 100644
+index c83b421..b9858c7 100644
 --- a/net/core/skbuff.c
 +++ b/net/core/skbuff.c
-@@ -550,6 +550,12 @@ bool skb_recycle_check(struct sk_buff *skb, int skb_size)
- 	if (skb_shared(skb) || skb_cloned(skb))
- 		return false;
+@@ -261,11 +261,38 @@ struct sk_buff *__netdev_alloc_skb(struct net_device *dev,
+ }
+ EXPORT_SYMBOL(__netdev_alloc_skb);
  
-+	/* if the device wants to do mediate passthru, the skb may
-+	 * get external buffer, so don't recycle
-+	 */
-+	if (dev_is_mpassthru(skb->dev))
-+		return 0;
++struct page *netdev_alloc_ext_pages(struct net_device *dev, int npages)
++{
++	struct mp_port *port;
++	struct skb_ext_page *ext_page = NULL;
 +
- 	skb_release_head_state(skb);
++	port = dev->mp_port;
++	if (!port)
++		goto out;
++	ext_page = port->ctor(port, NULL, npages);
++	if (ext_page)
++		return ext_page->page;
++out:
++	return NULL;
++
++}
++EXPORT_SYMBOL(netdev_alloc_ext_pages);
++
++struct page *netdev_alloc_ext_page(struct net_device *dev)
++{
++	return netdev_alloc_ext_pages(dev, 1);
++
++}
++EXPORT_SYMBOL(netdev_alloc_ext_page);
++
+ struct page *__netdev_alloc_page(struct net_device *dev, gfp_t gfp_mask)
+ {
+ 	int node = dev->dev.parent ? dev_to_node(dev->dev.parent) : -1;
+ 	struct page *page;
  
- 	shinfo = skb_shinfo(skb);
++	if (dev_is_mpassthru(dev))
++		return netdev_alloc_ext_page(dev);
++
+ 	page = alloc_pages_node(node, gfp_mask, 0);
+ 	return page;
+ }
 -- 
 1.7.3
-
