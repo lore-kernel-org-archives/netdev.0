@@ -1,42 +1,57 @@
 From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: multi bpf filter will impact performance?
-Date: Wed, 1 Dec 2010 15:59:47 +0800
-Message-ID: <AANLkTinQ9c_C6LzNf5c3BbJXQTVKmbqf6KR9K23tGETw@mail.gmail.com>
+Subject: Re: [PATCH net-next-2.6] filter: add SKF_AD_RXHASH and SKF_AD_CPU
+Date: Wed, 1 Dec 2010 16:03:01 +0800
+Message-ID: <AANLkTi=P98Krp3yp=z76B1245h7bNOwWfBG=H3eGsLkd@mail.gmail.com>
 References: <AANLkTikx68M43+vv+Rav_HCJMJnuc15TtuBgmbv2xP=U@mail.gmail.com>
  <1291109699.2904.11.camel@edumazet-laptop> <AANLkTi=VpmnrXTBNV7McQm6mq9ULT7KTKbM8_hLPoL=2@mail.gmail.com>
  <1291127670.2904.96.camel@edumazet-laptop> <AANLkTi=-iuGJDzELJpu26KtKr77uDx0xNCc8ibEidJ4h@mail.gmail.com>
- <AANLkTimynbhgo2dqFwKOc8NT9TXpkCtCJMvwkySEBORz@mail.gmail.com> <1291189649.2856.478.camel@edumazet-laptop>
+ <1291176215.2856.383.camel@edumazet-laptop> <1291189556.2856.476.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Rui <wirelesser@gmail.com>, netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Rui <wirelesser@gmail.com>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:55465 "EHLO
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:45814 "EHLO
 	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753277Ab0LAIAI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Dec 2010 03:00:08 -0500
-Received: by fxm8 with SMTP id 8so1960614fxm.19
-        for <netdev@vger.kernel.org>; Wed, 01 Dec 2010 00:00:07 -0800 (PST)
-In-Reply-To: <1291189649.2856.478.camel@edumazet-laptop>
+	with ESMTP id S1753078Ab0LAIDW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Dec 2010 03:03:22 -0500
+Received: by fxm8 with SMTP id 8so1962550fxm.19
+        for <netdev@vger.kernel.org>; Wed, 01 Dec 2010 00:03:21 -0800 (PST)
+In-Reply-To: <1291189556.2856.476.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 1, 2010 at 3:47 PM, Eric Dumazet <eric.dumazet@gmail.com> w=
+On Wed, Dec 1, 2010 at 3:45 PM, Eric Dumazet <eric.dumazet@gmail.com> w=
 rote:
-> Le mercredi 01 d=E9cembre 2010 =E0 15:36 +0800, Changli Gao a =E9crit=
- :
+> Add SKF_AD_RXHASH and SKF_AD_CPU to filter ancillary mechanism,
+> to be able to build advanced filters.
 >
-> Oh well, it seems you read over my neck, I was preparing a patch with
-> SKF_AD_RXHASH and SKF_AD_CPU
+> This can help spreading packets on several sockets with a fast
+> selection, after RPS dispatch to N cpus for example, or to catch a
+> percentage of flows in one queue.
 >
+> tcpdump -s 500 "cpu =3D 1" :
 >
+> [0] ld CPU
+> [1] jeq #1 =A0jt 2 =A0jf 3
+> [2] ret #500
+> [3] ret #0
+>
+> # take 12.5 % of flows (average)
+> tcpdump -s 1000 "rxhash & 7 =3D 2" :
+>
+> [0] ld RXHASH
+> [1] and #7
+> [2] jeq #2 =A0jt 3 =A0jf 4
+> [3] ret #1000
+> [4] ret #0
+>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Rui <wirelesser@gmail.com>
 
-Nice to hear it. :)
-
-There are too many filters: bpf, iptables and tc. Maybe an unified one
-such as nft is needed. Then the duplicate code would be reduced. Maybe
-it is just a good dream.
+Acked-by: Changli Gao <xiaosuo@gmail.com>
 
 --=20
 Regards,
