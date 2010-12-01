@@ -1,7 +1,7 @@
 From: xiaohui.xin@intel.com
-Subject: [PATCH v16 10/17] If device is in zero-copy mode first, bonding will fail.
-Date: Wed,  1 Dec 2010 16:08:21 +0800
-Message-ID: <8975fe27df1b0bc2da53c579a05648507153fd85.1291187695.git.xiaohui.xin@intel.com>
+Subject: [PATCH v16 06/17]move member destructor_arg before member dataref
+Date: Wed,  1 Dec 2010 16:08:17 +0800
+Message-ID: <3d6498d772aa4ec1585ff3736ccae63c359448e5.1291187695.git.xiaohui.xin@intel.com>
 References: <fc6e95d63a2c62aaf77f8ded22fc43ccefcdbbff.1291187695.git.xiaohui.xin@intel.com>
 Cc: Xin Xiaohui <xiaohui.xin@intel.com>
 To: netdev@vger.kernel.org, kvm@vger.kernel.org,
@@ -17,33 +17,37 @@ List-Id: netdev.vger.kernel.org
 
 From: Xin Xiaohui <xiaohui.xin@intel.com>
 
-If device is in this zero-copy mode first, we cannot handle this,
-so fail it. This patch is for this.
-
-If bonding is created first, and one of the device will be in zero-copy
-mode, this will be handled by mp device. It will first check if all the
-slaves have the zero-copy capability. If no, fail too. Otherwise make
-all the slaves in zero-copy mode.
+Then we can clear destructor_arg when __alloc_skb().
 
 Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
+Signed-off-by: Zhao Yu <yzhao81new@gmail.com>
+Reviewed-by: Jeff Dike <jdike@linux.intel.com>
 ---
- drivers/net/bonding/bond_main.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+ include/linux/skbuff.h |    7 ++++---
+ 1 files changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 3b16f62..dfb6a2c 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1428,6 +1428,10 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 			   bond_dev->name);
- 	}
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 696e690..6e1e991 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -199,14 +199,15 @@ struct skb_shared_info {
+ 	struct sk_buff	*frag_list;
+ 	struct skb_shared_hwtstamps hwtstamps;
  
-+	/* if the device is in zero-copy mode before bonding, fail it. */
-+	if (dev_is_mpassthru(slave_dev))
-+		return -EBUSY;
++	/* Intermediate layers must ensure that destructor_arg
++	 * remains valid until skb destructor */
++	void *		destructor_arg;
 +
- 	/* already enslaved */
- 	if (slave_dev->flags & IFF_SLAVE) {
- 		pr_debug("Error, Device was already enslaved\n");
+ 	/*
+ 	 * Warning : all fields before dataref are cleared in __alloc_skb()
+ 	 */
+ 	atomic_t	dataref;
+ 
+-	/* Intermediate layers must ensure that destructor_arg
+-	 * remains valid until skb destructor */
+-	void *		destructor_arg;
+ 	/* must be last field, see pskb_expand_head() */
+ 	skb_frag_t	frags[MAX_SKB_FRAGS];
+ };
 -- 
 1.7.3
