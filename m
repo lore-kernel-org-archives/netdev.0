@@ -1,45 +1,60 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH net-next-2.6] net: optimize INET input path further
-Date: Wed, 01 Dec 2010 12:37:55 -0500
-Message-ID: <4CF687F3.7030107@hp.com>
-References: <1291179847.2856.452.camel@edumazet-laptop>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: [PATCH v16 14/17]Add a kconfig entry and make entry for mp
+ device.
+Date: Wed, 1 Dec 2010 09:53:48 -0800
+Message-ID: <20101201095348.07421ee5.randy.dunlap@oracle.com>
+References: <fc6e95d63a2c62aaf77f8ded22fc43ccefcdbbff.1291187695.git.xiaohui.xin@intel.com>
+	<a1c255bc496b7aaca26912790f8bb0162dd1f4bf.1291187695.git.xiaohui.xin@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g6t0187.atlanta.hp.com ([15.193.32.64]:14958 "EHLO
-	g6t0187.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751327Ab0LARs4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Dec 2010 12:48:56 -0500
-In-Reply-To: <1291179847.2856.452.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mst@redhat.com, mingo@elte.hu,
+	davem@davemloft.net, herbert@gondor.hengli.com.au,
+	jdike@linux.intel.com
+To: xiaohui.xin@intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <a1c255bc496b7aaca26912790f8bb0162dd1f4bf.1291187695.git.xiaohui.xin@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/01/2010 12:04 AM, Eric Dumazet wrote:
->  struct sock_common {
-> -	/*
-> -	 * first fields are not copied in sock_copy()
-> +	/* skc_daddr and skc_rcv_saddr must be grouped :
-> +	 * cf INET_MATCH() and INET_TW_MATCH()
->  	 */
-> -	union {
-> -		struct hlist_node	skc_node;
-> -		struct hlist_nulls_node skc_nulls_node;
-> -	};
-> -	atomic_t		skc_refcnt;
-> -	int			skc_tx_queue_mapping;
-> +	__be32			skc_daddr;
-> +	__be32			skc_rcv_saddr;
+On Wed,  1 Dec 2010 16:08:25 +0800 xiaohui.xin@intel.com wrote:
+
+> From: Xin Xiaohui <xiaohui.xin@intel.com>
+> 
+> Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
+> Reviewed-by: Jeff Dike <jdike@linux.intel.com>
+> ---
+>  drivers/vhost/Kconfig  |   10 ++++++++++
+>  drivers/vhost/Makefile |    2 ++
+>  2 files changed, 12 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/vhost/Kconfig b/drivers/vhost/Kconfig
+> index e4e2fd1..a6b8cbf 100644
+> --- a/drivers/vhost/Kconfig
+> +++ b/drivers/vhost/Kconfig
+> @@ -9,3 +9,13 @@ config VHOST_NET
+>  	  To compile this driver as a module, choose M here: the module will
+>  	  be called vhost_net.
 >  
->  	union  {
->  		unsigned int	skc_hash;
+> +config MEDIATE_PASSTHRU
+> +	tristate "mediate passthru network driver (EXPERIMENTAL)"
+> +	depends on VHOST_NET
+> +	---help---
+> +	  zerocopy network I/O support, we call it as mediate passthru to
 
-Putting IPv4 addresses in sock_common doesn't make it so common anymore :)
+	                       support; we call it "mediate passthru" to
 
-Is it possible to make this a union so other address families like IPv6
-can benefit from this as well, or will that blow the whole cache line
-effect you were trying to achieve?
+> +	  be distiguish with hardare passthru.
 
--Brian
+	  distinguish it from hardware passthru.
+
+> +
+> +	  To compile this driver as a module, choose M here: the module will
+> +	  be called mpassthru.
+> +
+
+
+---
+~Randy
+*** Remember to use Documentation/SubmitChecklist when testing your code ***
