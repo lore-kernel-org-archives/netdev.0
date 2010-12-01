@@ -1,43 +1,86 @@
-From: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
-Subject: Re: [PATCHv6] net: Add batman-adv meshing protocol
-Date: Wed, 1 Dec 2010 20:48:46 +0100
-Message-ID: <201012012048.47096.lindner_marek@yahoo.de>
-References: <201012011954.20275.sven.eckelmann@gmx.de>
-	<201012012004.34356.sven.eckelmann@gmx.de>
-	<20101201.111205.28818479.davem@davemloft.net>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: Re: [PATCH] ipv6: slightly simplify keeping IPv6 addresses on link down
+Date: Wed, 01 Dec 2010 11:38:58 -0800
+Message-ID: <AAs7234jas72lda05laWgh1LziatUa+qSHd+6Jj+k_eO=@mail.gmail.com>
+References: <20101201.110157.246534994.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <20101201.111205.28818479.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Lorenzo Colitti <lorenzo@google.com>,
+	David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out.google.com ([216.239.44.51]:62104 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756754Ab0LATyA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Dec 2010 14:54:00 -0500
+In-Reply-To: <20101201.110157.246534994.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+ipv6: slightly simplify keeping IPv6 addresses on link down
 
-David,
+When link goes down, all statically-configured (i.e.,
+permanent and not link-local) IPv6 addresses are kept on
+the interface. Instead of moving addresses to a temporary
+keep list and then splicing that back on to the interface
+address list, use list_for_each_entry_safe and delete the
+ones we don't want.
 
-> Ok, fair enough.
+Tested by configuring two static addresses on an interface
+and verifying that pings from the addresses keep working
+when bringing link down and up again and when disabling and
+re-enabling IPv6 on the interface.
 
-I'm not so sure how to read this - could you please explain ?
-We are very thankful regarding any advice how to improve our code and have 
-followed every single hint to change the code accordingly (including the hash 
-implementation). 
-You named the bit operations - we will look into this. What else do you see ? 
-Could you be more specific than vaguely saying "the code is full of duplicated 
-functionality" ? Have our hash code changes met your expectations ?
+Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
 
-Thanks,
-Marek
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 6dfd5c5..23cc8e1 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -2663,7 +2663,8 @@ static int addrconf_ifdown(struct net_device *dev, int how)
+ {
+ 	struct net *net = dev_net(dev);
+ 	struct inet6_dev *idev;
+-	struct inet6_ifaddr *ifa, *ifn;
++	struct inet6_ifaddr *ifa;
++	LIST_HEAD(keep_list);
+ 	int state;
+ 
+ 	ASSERT_RTNL();
+@@ -2718,7 +2719,9 @@ static int addrconf_ifdown(struct net_device *dev, int how)
+ 	}
+ #endif
+ 
+-	list_for_each_entry_safe(ifa, ifn, &idev->addr_list, if_list) {
++	while (!list_empty(&idev->addr_list)) {
++		ifa = list_first_entry(&idev->addr_list,
++				       struct inet6_ifaddr, if_list);
+ 		addrconf_del_timer(ifa);
+ 
+ 		/* If just doing link down, and address is permanent
+@@ -2726,13 +2729,15 @@ static int addrconf_ifdown(struct net_device *dev, int how)
+ 		if (!how &&
+ 		    (ifa->flags&IFA_F_PERMANENT) &&
+ 		    !(ipv6_addr_type(&ifa->addr) & IPV6_ADDR_LINKLOCAL)) {
++			list_move_tail(&ifa->if_list, &keep_list);
++
+ 			/* If not doing DAD on this address, just keep it. */
+ 			if ((dev->flags&(IFF_NOARP|IFF_LOOPBACK)) ||
+ 			    idev->cnf.accept_dad <= 0 ||
+ 			    (ifa->flags & IFA_F_NODAD))
+ 				continue;
+ 
+-			/* If it was tentative already, don't do anything */
++			/* If it was tentative already, no need to notify */
+ 			if (ifa->flags & IFA_F_TENTATIVE)
+ 				continue;
+ 
+@@ -2764,6 +2769,8 @@ static int addrconf_ifdown(struct net_device *dev, int how)
+ 		}
+ 	}
+ 
++	list_splice(&keep_list, &idev->addr_list);
++
+ 	write_unlock_bh(&idev->lock);
+ 
+ 	/* Step 5: Discard multicast list */
