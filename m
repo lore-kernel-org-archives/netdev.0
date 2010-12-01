@@ -1,58 +1,61 @@
-From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
-Subject: RE: [PATCH 1/2] ixgb: Don't check for vlan group on transmit.
-Date: Wed, 1 Dec 2010 09:40:29 -0800
-Message-ID: <80769D7B14936844A23C0C43D9FBCF0F25BD7864D6@orsmsx501.amr.corp.intel.com>
-References: <1288464591-31528-1-git-send-email-jesse@nicira.com>
-	<1288984304.3091.11.camel@jtkirshe-MOBL1>
-	<AANLkTin62WWL+cnLVNaOYmcvL28rfkUDVCVqiimSPZ=e@mail.gmail.com>
-	<1288987609.3091.16.camel@jtkirshe-MOBL1>
-	<80769D7B14936844A23C0C43D9FBCF0F25BD180E03@orsmsx501.amr.corp.intel.com>
-	<AANLkTin5YMqpq0h-2HQ8XgaheYYDeMUFv8Qo6fZdWhxB@mail.gmail.com>
- <AANLkTik43SPbQiTxOQPTsUq9hu7h3EgbZ1cvxh=nsFPM@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6] net: optimize INET input path further
+Date: Wed, 01 Dec 2010 18:42:38 +0100
+Message-ID: <1291225358.2856.1035.camel@edumazet-laptop>
+References: <1291179847.2856.452.camel@edumazet-laptop>
+	 <4CF687F3.7030107@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=Windows-1252
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-To: Jesse Gross <jesse@nicira.com>
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Brian Haley <brian.haley@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:47398 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755445Ab0LARkd convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Dec 2010 12:40:33 -0500
-In-Reply-To: <AANLkTik43SPbQiTxOQPTsUq9hu7h3EgbZ1cvxh=nsFPM@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:37675 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754972Ab0LARmp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Dec 2010 12:42:45 -0500
+Received: by wyb28 with SMTP id 28so7200380wyb.19
+        for <netdev@vger.kernel.org>; Wed, 01 Dec 2010 09:42:44 -0800 (PST)
+In-Reply-To: <4CF687F3.7030107@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->-----Original Message-----
->From: Jesse Gross [mailto:jesse@nicira.com]
->Sent: Tuesday, November 30, 2010 2:34 PM
->To: Duyck, Alexander H
->Cc: Kirsher, Jeffrey T; David Miller; netdev@vger.kernel.org;
->Brandeburg, Jesse
->Subject: Re: [PATCH 1/2] ixgb: Don't check for vlan group on transmit.
->
->On Mon, Nov 8, 2010 at 11:59 AM, Jesse Gross <jesse@nicira.com> wrote:
->> On Fri, Nov 5, 2010 at 3:30 PM, Duyck, Alexander H
->>> The quick fix for your patch is to move the addition of
->VLAN_TAG_SIZE to the max_frame in igb_change_mtu instead of in the
->set_rlpml call. =A0Otherwise I will see about submitting an updated
->patch in the next few days.
->>
->> I happy to let you take care of it - obviously you know the
->> driver/hardware much better than I.
->
->Alex, did you get a chance to take a look at this?  I was hoping to
->get the fix for this (and also the patch mentioned originally in this
->message for ixgb) into 2.6.37.  I can also respin it along the lines
->that you suggested if that would help.
+Le mercredi 01 d=C3=A9cembre 2010 =C3=A0 12:37 -0500, Brian Haley a =C3=
+=A9crit :
+> On 12/01/2010 12:04 AM, Eric Dumazet wrote:
+> >  struct sock_common {
+> > -	/*
+> > -	 * first fields are not copied in sock_copy()
+> > +	/* skc_daddr and skc_rcv_saddr must be grouped :
+> > +	 * cf INET_MATCH() and INET_TW_MATCH()
+> >  	 */
+> > -	union {
+> > -		struct hlist_node	skc_node;
+> > -		struct hlist_nulls_node skc_nulls_node;
+> > -	};
+> > -	atomic_t		skc_refcnt;
+> > -	int			skc_tx_queue_mapping;
+> > +	__be32			skc_daddr;
+> > +	__be32			skc_rcv_saddr;
+> > =20
+> >  	union  {
+> >  		unsigned int	skc_hash;
+>=20
+> Putting IPv4 addresses in sock_common doesn't make it so common anymo=
+re :)
+>=20
+> Is it possible to make this a union so other address families like IP=
+v6
+> can benefit from this as well, or will that blow the whole cache line
+> effect you were trying to achieve?
 
-I did, and we are currently testing the patch I have generated.  Once i=
-t passes testing Jeff will submit it to netdev.
+This might be OK, depending on cache line size and/or arch.
 
-Thanks,
+On x86_32 for example, that might even be a good thing, because refcnt
+might still be in the first 64bytes of socket.
 
-Alex
+By the way, ipv6 sock includes inet, so includes ipv4 addresses too, I
+only moved them in the 'whole structure'
+
+
+
