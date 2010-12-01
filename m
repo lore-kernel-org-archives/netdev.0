@@ -1,67 +1,45 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] ipv6: slightly simplify keeping IPv6 addresses on link
- down
-Date: Wed, 1 Dec 2010 12:22:53 -0800
-Message-ID: <20101201122253.2a8be2e0@nehalam>
-References: <20101201.110157.246534994.davem@davemloft.net>
-	<AAs7234jas72lda05laWgh1LziatUa+qSHd+6Jj+k_eO=@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/3] net: kill unused macros in head file
+Date: Wed, 01 Dec 2010 12:33:00 -0800 (PST)
+Message-ID: <20101201.123300.35042706.davem@davemloft.net>
+References: <4CF34DEC.6090907@cn.fujitsu.com>
+	<1291016563.7802.2.camel@takos>
+	<4CF3627A.1040401@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Lorenzo Colitti <lorenzo@google.com>
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
+	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	kaber@trash.net
+To: shanwei@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:60710 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755840Ab0LAUWz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Dec 2010 15:22:55 -0500
-In-Reply-To: <AAs7234jas72lda05laWgh1LziatUa+qSHd+6Jj+k_eO=@mail.gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51937
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756914Ab0LAUce (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Dec 2010 15:32:34 -0500
+In-Reply-To: <4CF3627A.1040401@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 01 Dec 2010 11:38:58 -0800
-Lorenzo Colitti <lorenzo@google.com> wrote:
+From: Shan Wei <shanwei@cn.fujitsu.com>
+Date: Mon, 29 Nov 2010 16:21:14 +0800
 
-> ipv6: slightly simplify keeping IPv6 addresses on link down
+> Hi yoshifuji-san:
 > 
-> When link goes down, all statically-configured (i.e.,
-> permanent and not link-local) IPv6 addresses are kept on
-> the interface. Instead of moving addresses to a temporary
-> keep list and then splicing that back on to the interface
-> address list, use list_for_each_entry_safe and delete the
-> ones we don't want.
+> YOSHIFUJI Hideaki wrote, at 11/29/2010 03:42 PM:
+>>>  
+>>> -#define RETRANS_TIMER	HZ
+>>> -
+>>>  #define MAX_RTR_SOLICITATIONS		3
+>>>  #define RTR_SOLICITATION_INTERVAL	(4*HZ)
+>>>  
+>> 
+>> I think we should use it in net/ipv6/addrconf.c,
+>> instead of magic number.
 > 
-> Tested by configuring two static addresses on an interface
-> and verifying that pings from the addresses keep working
-> when bringing link down and up again and when disabling and
-> re-enabling IPv6 on the interface.
+> Do you mean to replace all HZ in net/ipv6/addrconf.c with RETRANS_TIMER?
 > 
-> Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
-> 
-> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-> index 6dfd5c5..23cc8e1 100644
-> --- a/net/ipv6/addrconf.c
-> +++ b/net/ipv6/addrconf.c
-> @@ -2663,7 +2663,8 @@ static int addrconf_ifdown(struct net_device *dev, int how)
->  {
->  	struct net *net = dev_net(dev);
->  	struct inet6_dev *idev;
-> -	struct inet6_ifaddr *ifa, *ifn;
-> +	struct inet6_ifaddr *ifa;
-> +	LIST_HEAD(keep_list);
->  	int state;
+> HZ is also a macro. And I think HZ is more easier to read than RETRANS_TIMER.
 
-Your patch is backwards? The existing code is:
-
-static int addrconf_ifdown(struct net_device *dev, int how)
-{
-	struct net *net = dev_net(dev);
-	struct inet6_dev *idev;
-	struct inet6_ifaddr *ifa;
-	LIST_HEAD(keep_list);
-	int state;
-
-	ASSERT_RTNL();
-
-Also, the addrconf_ifdown can race with other updates to idev->addr_list
-from addrconf timers etc.  Therefore even list_for_each_entry_safe is not safe.
+These things currently say "1 * HZ" and "30 * HZ", so I think Hideaki's
+request is reasonable.
