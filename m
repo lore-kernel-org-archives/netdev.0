@@ -1,55 +1,38 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: Re: [PATCH] ipv6: slightly simplify keeping IPv6 addresses on link down
-Date: Wed, 1 Dec 2010 12:52:42 -0800
-Message-ID: <AANLkTin5f+BZnFEzuc6iPLC8Hp++V0Jam8aAU2jMvxQq@mail.gmail.com>
-References: <20101201.110157.246534994.davem@davemloft.net>
- <AAs7234jas72lda05laWgh1LziatUa+qSHd+6Jj+k_eO=@mail.gmail.com> <20101201122253.2a8be2e0@nehalam>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6] sched: use xps information for qdisc NUMA
+ affinity
+Date: Wed, 01 Dec 2010 21:55:58 +0100
+Message-ID: <1291236958.2856.1058.camel@edumazet-laptop>
+References: <alpine.DEB.2.00.1011211501430.14906@pokey.mtv.corp.google.com>
+	 <1290705163.4274.12.camel@localhost>
+	 <1291054477.3435.1302.camel@edumazet-laptop>
+	 <20101201.124925.200368461.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: therbert@google.com, netdev@vger.kernel.org,
+	bhutchings@solarflare.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.35]:3465 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756914Ab0LAUxH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Dec 2010 15:53:07 -0500
-Received: from wpaz1.hot.corp.google.com (wpaz1.hot.corp.google.com [172.24.198.65])
-	by smtp-out.google.com with ESMTP id oB1Kr5tn022206
-	for <netdev@vger.kernel.org>; Wed, 1 Dec 2010 12:53:05 -0800
-Received: from iwn10 (iwn10.prod.google.com [10.241.68.74])
-	by wpaz1.hot.corp.google.com with ESMTP id oB1KqqNp026381
-	for <netdev@vger.kernel.org>; Wed, 1 Dec 2010 12:53:04 -0800
-Received: by iwn10 with SMTP id 10so464101iwn.30
-        for <netdev@vger.kernel.org>; Wed, 01 Dec 2010 12:53:03 -0800 (PST)
-In-Reply-To: <20101201122253.2a8be2e0@nehalam>
+Received: from mail-ww0-f42.google.com ([74.125.82.42]:49842 "EHLO
+	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755601Ab0LAU4F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Dec 2010 15:56:05 -0500
+Received: by wwb39 with SMTP id 39so218228wwb.1
+        for <netdev@vger.kernel.org>; Wed, 01 Dec 2010 12:56:04 -0800 (PST)
+In-Reply-To: <20101201.124925.200368461.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 1, 2010 at 12:22 PM, Stephen Hemminger
-<shemminger@vyatta.com> wrote:
-> > --- a/net/ipv6/addrconf.c
-> > +++ b/net/ipv6/addrconf.c
-> > @@ -2663,7 +2663,8 @@ static int addrconf_ifdown(struct net_device =
-*dev, int how)
-> > =A0{
-> > =A0 =A0 =A0 struct net *net =3D dev_net(dev);
-> > =A0 =A0 =A0 struct inet6_dev *idev;
-> > - =A0 =A0 struct inet6_ifaddr *ifa, *ifn;
-> > + =A0 =A0 struct inet6_ifaddr *ifa;
-> > + =A0 =A0 LIST_HEAD(keep_list);
-> > =A0 =A0 =A0 int state;
->
-> Your patch is backwards? The existing code is:
+Le mercredi 01 d=C3=A9cembre 2010 =C3=A0 12:49 -0800, David Miller a =C3=
+=A9crit :
 
-Oops, yes. Wrong order of arguments. Another one coming up.
+> I think this is good enough to cook in net-next-2.6
+>=20
+> Please use "net sched: " instead of just plain "sched: " in your
+> commit header lines so that people don't confuse such changes
+> with process scheduler ones :-)
 
-> Also, the addrconf_ifdown can race with other updates to idev->addr_l=
-ist
-> from addrconf timers etc. =A0Therefore even list_for_each_entry_safe =
-is not safe.
+Yes, I'll try to remember next time, thanks !
 
-No, wait... The loop is protected by idev->lock, and the code just
-before it that clears the temporary address list is essentially
-identical (except it looks over tempaddr_list instead). Wouldn't that
-blow up as well?
+
