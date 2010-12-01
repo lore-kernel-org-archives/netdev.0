@@ -1,61 +1,87 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [RFC PATCH v1] iproute2: add IFLA_TC support to 'ip link'
-Date: Wed, 01 Dec 2010 12:57:48 -0800
-Message-ID: <4CF6B6CC.7070204@intel.com>
-References: <20101201182758.3297.34345.stgit@jf-dev1-dcblab> <20101201103802.11464029@nehalam>
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: Re: [PATCH] ipv6: slightly simplify keeping IPv6 addresses on link down
+Date: Wed, 01 Dec 2010 12:54:58 -0800
+Message-ID: <x6292jal238UZk1a8176sxAzj5hpyN+qSHd+6Jj+k_eO=@mail.gmail.com>
+References: <20101201122253.2a8be2e0@nehalam>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"tgraf@infradead.org" <tgraf@infradead.org>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: Lorenzo Colitti <lorenzo@google.com>,
+	David Miller <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:15463 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755616Ab0LAU5t (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Dec 2010 15:57:49 -0500
-In-Reply-To: <20101201103802.11464029@nehalam>
+Received: from smtp-out.google.com ([216.239.44.51]:36651 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755553Ab0LAVAi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Dec 2010 16:00:38 -0500
+In-Reply-To: <20101201122253.2a8be2e0@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/1/2010 10:38 AM, Stephen Hemminger wrote:
-> On Wed, 01 Dec 2010 10:27:58 -0800
-> John Fastabend <john.r.fastabend@intel.com> wrote:
-> 
->> Add support to return IFLA_TC qos settings to the 'ip link'
->> command. The following sets the number of traffic classes
->> supported in HW and builds a priority map.
->>
->> #ip link set eth3 tc num 8 map 0 1 2 3 4 5 6 7 0 0 0 0 0 0 0 0
->>
->> With the output from 'ip link' showing maps for interfaces with
->> the ability to use HW traffic classes.
->>
->> #ip link show
->> 1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN
->>     link/loopback 00:00:00:00:00:00 brd00:00:00:00:00:00
->> 2: eth0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN qlen 1000
->>     link/ether 00:30:48:f0:fc:88 brdff:ff:ff:ff:ff:ff
->> 3: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP qlen 1000
->>     link/ether 00:30:48:f0:fc:89 brdff:ff:ff:ff:ff:ff
->> 6: eth2: <BROADCAST,MULTICAST> mtu 1500 qdisc mq state DOWN qlen 1000
->>     link/ether 00:1b:21:55:23:58 brdff:ff:ff:ff:ff:ff
->>     tc 0:8
->> 7: eth3: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP qlen 1000
->>     link/ether 00:1b:21:55:23:59 brdff:ff:ff:ff:ff:ff
->>     tc 8:8 map: { 0 1 2 3 4 5 6 7 0 0 0 0 0 0 0 0 }
->>     txqs: (0:8) (8:16) (16:24) (24:32) (32:40) (40:48) (48:56) (56:64)
->>
->> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> 
-> Ok. but will not be applied until after 2.6.38 (when kernel support
-> is upstream).
-> 
-> 
+ipv6: slightly simplify keeping IPv6 addresses on link down
 
-Agreed. I wanted to send this out to illustrate the interface. I'll post a non-RFC patch after I get the corresponding kernel support accepted.
+When link goes down, all statically-configured (i.e.,
+permanent and not link-local) IPv6 addresses are kept on
+the interface. Instead of moving addresses to a temporary
+keep list and then splicing that back on to the interface
+address list, use list_for_each_entry_safe and delete the
+ones we don't want.
 
-Thanks,
-John
+Tested by configuring two static addresses on an interface
+and verifying that pings from the addresses keep working
+when bringing link down and up again and when disabling and
+re-enabling IPv6 on the interface.
+
+Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
+
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 23cc8e1..6dfd5c5 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -2663,8 +2663,7 @@ static int addrconf_ifdown(struct net_device *dev, int how)
+ {
+ 	struct net *net = dev_net(dev);
+ 	struct inet6_dev *idev;
+-	struct inet6_ifaddr *ifa;
+-	LIST_HEAD(keep_list);
++	struct inet6_ifaddr *ifa, *ifn;
+ 	int state;
+ 
+ 	ASSERT_RTNL();
+@@ -2719,9 +2718,7 @@ static int addrconf_ifdown(struct net_device *dev, int how)
+ 	}
+ #endif
+ 
+-	while (!list_empty(&idev->addr_list)) {
+-		ifa = list_first_entry(&idev->addr_list,
+-				       struct inet6_ifaddr, if_list);
++	list_for_each_entry_safe(ifa, ifn, &idev->addr_list, if_list) {
+ 		addrconf_del_timer(ifa);
+ 
+ 		/* If just doing link down, and address is permanent
+@@ -2729,15 +2726,13 @@ static int addrconf_ifdown(struct net_device *dev, int how)
+ 		if (!how &&
+ 		    (ifa->flags&IFA_F_PERMANENT) &&
+ 		    !(ipv6_addr_type(&ifa->addr) & IPV6_ADDR_LINKLOCAL)) {
+-			list_move_tail(&ifa->if_list, &keep_list);
+-
+ 			/* If not doing DAD on this address, just keep it. */
+ 			if ((dev->flags&(IFF_NOARP|IFF_LOOPBACK)) ||
+ 			    idev->cnf.accept_dad <= 0 ||
+ 			    (ifa->flags & IFA_F_NODAD))
+ 				continue;
+ 
+-			/* If it was tentative already, no need to notify */
++			/* If it was tentative already, dont do anything */
+ 			if (ifa->flags & IFA_F_TENTATIVE)
+ 				continue;
+ 
+@@ -2769,8 +2764,6 @@ static int addrconf_ifdown(struct net_device *dev, int how)
+ 		}
+ 	}
+ 
+-	list_splice(&keep_list, &idev->addr_list);
+-
+ 	write_unlock_bh(&idev->lock);
+ 
+ 	/* Step 5: Discard multicast list */
