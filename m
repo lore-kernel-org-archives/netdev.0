@@ -1,39 +1,44 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCHv6] net: Add batman-adv meshing protocol
-Date: Wed, 01 Dec 2010 12:18:26 -0800 (PST)
-Message-ID: <20101201.121826.232746256.davem@davemloft.net>
-References: <201012012004.34356.sven.eckelmann@gmx.de>
-	<20101201.111205.28818479.davem@davemloft.net>
-	<201012012048.47096.lindner_marek@yahoo.de>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: multi bpf filter will impact performance?
+Date: Wed, 01 Dec 2010 12:23:12 -0800 (PST)
+Message-ID: <20101201.122312.229751364.davem@davemloft.net>
+References: <1291227893.2856.1039.camel@edumazet-laptop>
+	<20101201.104450.183053379.davem@davemloft.net>
+	<1291232937.2856.1042.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: lindner_marek-LWAfsSFWpa4@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <201012012048.47096.lindner_marek-LWAfsSFWpa4@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: hagen@jauu.net, xiaosuo@gmail.com, wirelesser@gmail.com,
+	netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48820
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755840Ab0LAUWp convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Dec 2010 15:22:45 -0500
+In-Reply-To: <1291232937.2856.1042.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
-Date: Wed, 1 Dec 2010 20:48:46 +0100
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 01 Dec 2010 20:48:57 +0100
 
-> 
-> David,
-> 
->> Ok, fair enough.
-> 
-> I'm not so sure how to read this - could you please explain ?
+> Le mercredi 01 d=E9cembre 2010 =E0 10:44 -0800, David Miller a =E9cri=
+t :
+>> From: Eric Dumazet <eric.dumazet@gmail.com>
+>> Date: Wed, 01 Dec 2010 19:24:53 +0100
+>>=20
+>> > A third work in progress (from my side) is to add a check in
+>> > sk_chk_filter() to remove the memvalid we added lately to protect =
+the
+>> > LOAD M(K).
+>>=20
+>> I understand your idea, but the static checkers are still going to
+>> complain.  So better add a huge comment in sk_run_filter() explainin=
+g
+>> why the checker's complaint should be ignored :-)
+>=20
+> Sure, here is the patch I plan to test ASAP
 
-When I say fair enough it means I agree with you about the hashing
-situation.
+Looks good to me.
