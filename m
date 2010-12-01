@@ -1,44 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: multi bpf filter will impact performance?
-Date: Wed, 01 Dec 2010 12:23:12 -0800 (PST)
-Message-ID: <20101201.122312.229751364.davem@davemloft.net>
-References: <1291227893.2856.1039.camel@edumazet-laptop>
-	<20101201.104450.183053379.davem@davemloft.net>
-	<1291232937.2856.1042.camel@edumazet-laptop>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] ipv6: slightly simplify keeping IPv6 addresses on link
+ down
+Date: Wed, 1 Dec 2010 12:22:53 -0800
+Message-ID: <20101201122253.2a8be2e0@nehalam>
+References: <20101201.110157.246534994.davem@davemloft.net>
+	<AAs7234jas72lda05laWgh1LziatUa+qSHd+6Jj+k_eO=@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: hagen@jauu.net, xiaosuo@gmail.com, wirelesser@gmail.com,
-	netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Lorenzo Colitti <lorenzo@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48820
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755840Ab0LAUWp convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Dec 2010 15:22:45 -0500
-In-Reply-To: <1291232937.2856.1042.camel@edumazet-laptop>
+Received: from mail.vyatta.com ([76.74.103.46]:60710 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755840Ab0LAUWz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Dec 2010 15:22:55 -0500
+In-Reply-To: <AAs7234jas72lda05laWgh1LziatUa+qSHd+6Jj+k_eO=@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 01 Dec 2010 20:48:57 +0100
+On Wed, 01 Dec 2010 11:38:58 -0800
+Lorenzo Colitti <lorenzo@google.com> wrote:
 
-> Le mercredi 01 d=E9cembre 2010 =E0 10:44 -0800, David Miller a =E9cri=
-t :
->> From: Eric Dumazet <eric.dumazet@gmail.com>
->> Date: Wed, 01 Dec 2010 19:24:53 +0100
->>=20
->> > A third work in progress (from my side) is to add a check in
->> > sk_chk_filter() to remove the memvalid we added lately to protect =
-the
->> > LOAD M(K).
->>=20
->> I understand your idea, but the static checkers are still going to
->> complain.  So better add a huge comment in sk_run_filter() explainin=
-g
->> why the checker's complaint should be ignored :-)
->=20
-> Sure, here is the patch I plan to test ASAP
+> ipv6: slightly simplify keeping IPv6 addresses on link down
+> 
+> When link goes down, all statically-configured (i.e.,
+> permanent and not link-local) IPv6 addresses are kept on
+> the interface. Instead of moving addresses to a temporary
+> keep list and then splicing that back on to the interface
+> address list, use list_for_each_entry_safe and delete the
+> ones we don't want.
+> 
+> Tested by configuring two static addresses on an interface
+> and verifying that pings from the addresses keep working
+> when bringing link down and up again and when disabling and
+> re-enabling IPv6 on the interface.
+> 
+> Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
+> 
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index 6dfd5c5..23cc8e1 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -2663,7 +2663,8 @@ static int addrconf_ifdown(struct net_device *dev, int how)
+>  {
+>  	struct net *net = dev_net(dev);
+>  	struct inet6_dev *idev;
+> -	struct inet6_ifaddr *ifa, *ifn;
+> +	struct inet6_ifaddr *ifa;
+> +	LIST_HEAD(keep_list);
+>  	int state;
 
-Looks good to me.
+Your patch is backwards? The existing code is:
+
+static int addrconf_ifdown(struct net_device *dev, int how)
+{
+	struct net *net = dev_net(dev);
+	struct inet6_dev *idev;
+	struct inet6_ifaddr *ifa;
+	LIST_HEAD(keep_list);
+	int state;
+
+	ASSERT_RTNL();
+
+Also, the addrconf_ifdown can race with other updates to idev->addr_list
+from addrconf timers etc.  Therefore even list_for_each_entry_safe is not safe.
