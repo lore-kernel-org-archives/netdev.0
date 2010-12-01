@@ -1,131 +1,100 @@
 From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH v2 1/2] af_packet: use vmalloc_to_page() instead for the addresss returned by vmalloc()
-Date: Wed,  1 Dec 2010 20:52:20 +0800
-Message-ID: <1291207940-17140-1-git-send-email-xiaosuo@gmail.com>
+Subject: [PATCH v2 2/2] af_packet: remove pgv.flags
+Date: Wed,  1 Dec 2010 20:52:57 +0800
+Message-ID: <1291207977-17176-1-git-send-email-xiaosuo@gmail.com>
 Cc: Eric Dumazet <eric.dumazet@gmail.com>,
 	Jiri Pirko <jpirko@redhat.com>,
 	Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
 	Changli Gao <xiaosuo@gmail.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:55243 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755068Ab0LAMwu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Dec 2010 07:52:50 -0500
-Received: by ywl5 with SMTP id 5so3350562ywl.19
-        for <netdev@vger.kernel.org>; Wed, 01 Dec 2010 04:52:50 -0800 (PST)
+Received: from mail-gw0-f46.google.com ([74.125.83.46]:38686 "EHLO
+	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755084Ab0LAMx1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Dec 2010 07:53:27 -0500
+Received: by gwj20 with SMTP id 20so3351878gwj.19
+        for <netdev@vger.kernel.org>; Wed, 01 Dec 2010 04:53:26 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following commit causes the pgv->buffer may point to the memory
-returned by vmalloc(). And we can't use virt_to_page() for the vmalloc
-address.
-
-This patch introduces a new inline function pgv_to_page(), which calls
-vmalloc_to_page() for the vmalloc address, and virt_to_page() for the
-__get_free_pages address.
-
-We used to increase page pointer to get the next page at the next page
-address, after Neil's patch, it is wrong, as the physical address may
-be not continuous. This patch also fixes this issue.
-
-    commit 0e3125c755445664f00ad036e4fc2cd32fd52877
-    Author: Neil Horman <nhorman@tuxdriver.com>
-    Date:   Tue Nov 16 10:26:47 2010 -0800
-
-    packet: Enhance AF_PACKET implementation to not require high order contiguous memory allocation (v4)
+As we can check if an address is vmalloc address with is_vmalloc_addr(),
+we remove pgv.flags. Then we may get more pg_vecs.
 
 Signed-off-by: Changli Gao <xiaosuo@gmail.com>
 ---
-v2: fix the page incremental issue
- net/packet/af_packet.c |   36 +++++++++++++++++++-----------------
- 1 file changed, 19 insertions(+), 17 deletions(-)
+v2: keep struct pgv
+ net/packet/af_packet.c |   20 +++++---------------
+ 1 file changed, 5 insertions(+), 15 deletions(-)
 diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 422705d..26fbeb1 100644
+index 26fbeb1..a11c731 100644
 --- a/net/packet/af_packet.c
 +++ b/net/packet/af_packet.c
-@@ -224,6 +224,13 @@ struct packet_skb_cb {
+@@ -167,7 +167,6 @@ static int packet_set_ring(struct sock *sk, struct tpacket_req *req,
+ #define PGV_FROM_VMALLOC 1
+ struct pgv {
+ 	char *buffer;
+-	unsigned char flags;
+ };
  
- #define PACKET_SKB_CB(__skb)	((struct packet_skb_cb *)((__skb)->cb))
+ struct packet_ring_buffer {
+@@ -2342,7 +2341,7 @@ static void free_pg_vec(struct pgv *pg_vec, unsigned int order,
  
-+static inline struct page *pgv_to_page(void *addr)
-+{
-+	if (is_vmalloc_addr(addr))
-+		return vmalloc_to_page(addr);
-+	return virt_to_page(addr);
-+}
-+
- static void __packet_set_status(struct packet_sock *po, void *frame, int status)
+ 	for (i = 0; i < len; i++) {
+ 		if (likely(pg_vec[i].buffer)) {
+-			if (pg_vec[i].flags & PGV_FROM_VMALLOC)
++			if (is_vmalloc_addr(pg_vec[i].buffer))
+ 				vfree(pg_vec[i].buffer);
+ 			else
+ 				free_pages((unsigned long)pg_vec[i].buffer,
+@@ -2353,8 +2352,7 @@ static void free_pg_vec(struct pgv *pg_vec, unsigned int order,
+ 	kfree(pg_vec);
+ }
+ 
+-static inline char *alloc_one_pg_vec_page(unsigned long order,
+-					  unsigned char *flags)
++static inline char *alloc_one_pg_vec_page(unsigned long order)
  {
- 	union {
-@@ -236,11 +243,11 @@ static void __packet_set_status(struct packet_sock *po, void *frame, int status)
- 	switch (po->tp_version) {
- 	case TPACKET_V1:
- 		h.h1->tp_status = status;
--		flush_dcache_page(virt_to_page(&h.h1->tp_status));
-+		flush_dcache_page(pgv_to_page(&h.h1->tp_status));
- 		break;
- 	case TPACKET_V2:
- 		h.h2->tp_status = status;
--		flush_dcache_page(virt_to_page(&h.h2->tp_status));
-+		flush_dcache_page(pgv_to_page(&h.h2->tp_status));
- 		break;
- 	default:
- 		pr_err("TPACKET version not supported\n");
-@@ -263,10 +270,10 @@ static int __packet_get_status(struct packet_sock *po, void *frame)
- 	h.raw = frame;
- 	switch (po->tp_version) {
- 	case TPACKET_V1:
--		flush_dcache_page(virt_to_page(&h.h1->tp_status));
-+		flush_dcache_page(pgv_to_page(&h.h1->tp_status));
- 		return h.h1->tp_status;
- 	case TPACKET_V2:
--		flush_dcache_page(virt_to_page(&h.h2->tp_status));
-+		flush_dcache_page(pgv_to_page(&h.h2->tp_status));
- 		return h.h2->tp_status;
- 	default:
- 		pr_err("TPACKET version not supported\n");
-@@ -800,15 +807,11 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
- 	__packet_set_status(po, h.raw, status);
- 	smp_mb();
- 	{
--		struct page *p_start, *p_end;
--		u8 *h_end = h.raw + macoff + snaplen - 1;
+ 	char *buffer = NULL;
+ 	gfp_t gfp_flags = GFP_KERNEL | __GFP_COMP |
+@@ -2368,7 +2366,6 @@ static inline char *alloc_one_pg_vec_page(unsigned long order,
+ 	/*
+ 	 * __get_free_pages failed, fall back to vmalloc
+ 	 */
+-	*flags |= PGV_FROM_VMALLOC;
+ 	buffer = vzalloc((1 << order) * PAGE_SIZE);
+ 
+ 	if (buffer)
+@@ -2377,7 +2374,6 @@ static inline char *alloc_one_pg_vec_page(unsigned long order,
+ 	/*
+ 	 * vmalloc failed, lets dig into swap here
+ 	 */
+-	*flags = 0;
+ 	gfp_flags &= ~__GFP_NORETRY;
+ 	buffer = (char *)__get_free_pages(gfp_flags, order);
+ 	if (buffer)
+@@ -2400,8 +2396,7 @@ static struct pgv *alloc_pg_vec(struct tpacket_req *req, int order)
+ 		goto out;
+ 
+ 	for (i = 0; i < block_nr; i++) {
+-		pg_vec[i].buffer = alloc_one_pg_vec_page(order,
+-							 &pg_vec[i].flags);
++		pg_vec[i].buffer = alloc_one_pg_vec_page(order);
+ 		if (unlikely(!pg_vec[i].buffer))
+ 			goto out_free_pgvec;
+ 	}
+@@ -2585,13 +2580,8 @@ static int packet_mmap(struct file *file, struct socket *sock,
+ 			void *kaddr = rb->pg_vec[i].buffer;
+ 			int pg_num;
+ 
+-			for (pg_num = 0; pg_num < rb->pg_vec_pages;
+-					pg_num++) {
+-				if (rb->pg_vec[i].flags & PGV_FROM_VMALLOC)
+-					page = vmalloc_to_page(kaddr);
+-				else
+-					page = virt_to_page(kaddr);
 -
--		p_start = virt_to_page(h.raw);
--		p_end = virt_to_page(h_end);
--		while (p_start <= p_end) {
--			flush_dcache_page(p_start);
--			p_start++;
--		}
-+		u8 *start, *end;
-+
-+		end = (u8 *)PAGE_ALIGN((unsigned long)h.raw + macoff + snaplen);
-+		for (start = h.raw; start < end; start += PAGE_SIZE)
-+			flush_dcache_page(pgv_to_page(start));
- 	}
- 
- 	sk->sk_data_ready(sk, 0);
-@@ -915,7 +918,6 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
- 	}
- 
- 	err = -EFAULT;
--	page = virt_to_page(data);
- 	offset = offset_in_page(data);
- 	len_max = PAGE_SIZE - offset;
- 	len = ((to_write > len_max) ? len_max : to_write);
-@@ -934,11 +936,11 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
- 			return -EFAULT;
- 		}
- 
-+		page = pgv_to_page(data);
-+		data += len;
- 		flush_dcache_page(page);
- 		get_page(page);
--		skb_fill_page_desc(skb,
--				nr_frags,
--				page++, offset, len);
-+		skb_fill_page_desc(skb, nr_frags, page, offset, len);
- 		to_write -= len;
- 		offset = 0;
- 		len_max = PAGE_SIZE;
++			for (pg_num = 0; pg_num < rb->pg_vec_pages; pg_num++) {
++				page = pgv_to_page(kaddr);
+ 				err = vm_insert_page(vma, start, page);
+ 				if (unlikely(err))
+ 					goto out;
