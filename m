@@ -1,32 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: multi bpf filter will impact performance?
-Date: Wed, 01 Dec 2010 10:44:50 -0800 (PST)
-Message-ID: <20101201.104450.183053379.davem@davemloft.net>
-References: <18eaf7d286236427b1632b9af62be513@localhost>
-	<20101201.101809.71122121.davem@davemloft.net>
-	<1291227893.2856.1039.camel@edumazet-laptop>
+Subject: Re: [PATCH] bonding: check for assigned mac before adopting the
+ slaves mac address
+Date: Wed, 01 Dec 2010 10:45:46 -0800 (PST)
+Message-ID: <20101201.104546.39187178.davem@davemloft.net>
+References: <AANLkTi=-DzUmopboX13V_cd=mZnmD=mBNNCuhQYF0PQQ@mail.gmail.com>
+	<8879.1290741991@death>
+	<AANLkTi=+jMkrgNjVQvOOn_zURiJ4rXu5LL9eA4o0T9db@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: hagen@jauu.net, xiaosuo@gmail.com, wirelesser@gmail.com,
-	netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: fubar@us.ibm.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: dpstrand@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50382
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50387
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752882Ab0LASoX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Dec 2010 13:44:23 -0500
-In-Reply-To: <1291227893.2856.1039.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1753052Ab0LASpT convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Dec 2010 13:45:19 -0500
+In-Reply-To: <AANLkTi=+jMkrgNjVQvOOn_zURiJ4rXu5LL9eA4o0T9db@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 01 Dec 2010 19:24:53 +0100
+=46rom: David Strand <dpstrand@gmail.com>
+Date: Wed, 1 Dec 2010 10:25:19 -0800
 
-> A third work in progress (from my side) is to add a check in
-> sk_chk_filter() to remove the memvalid we added lately to protect the
-> LOAD M(K).
+> On Thu, Nov 25, 2010 at 7:26 PM, Jay Vosburgh <fubar@us.ibm.com> wrot=
+e:
+>>
+>> =A0 =A0 =A0 =A0Ok, fair enough. =A0If we want to get back to the ori=
+ginal
+>> behavior, however, your patch should only test for zero MAC address
+>> instead of testing for zero MAC address in addition to first slave.
+>>
+>> =A0 =A0 =A0 =A0-J
+>>
+>> ---
+>> =A0 =A0 =A0 =A0-Jay Vosburgh, IBM Linux Technology Center, fubar@us.=
+ibm.com
+>>
+>=20
+> Understood, that makes sense. The updated patch is below.
 
-I understand your idea, but the static checkers are still going to
-complain.  So better add a huge comment in sk_run_filter() explaining
-why the checker's complaint should be ignored :-)
+You need to provide a fresh posting of your patch, with a full
+commit messag and proper Subject: line, as well as a proper
+"Signed-off-by: " tag.
+
+See Documentation/SubmittingPatches
