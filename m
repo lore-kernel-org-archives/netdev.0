@@ -1,7 +1,7 @@
 From: xiaohui.xin@intel.com
-Subject: [PATCH v16 03/17] Add a ndo_mp_port_prep pointer to net_device_ops.
-Date: Wed,  1 Dec 2010 16:08:14 +0800
-Message-ID: <cd0686f2b8fc16a1d87ced228b2a90b93f008b94.1291187695.git.xiaohui.xin@intel.com>
+Subject: [PATCH v16 10/17] If device is in zero-copy mode first, bonding will fail.
+Date: Wed,  1 Dec 2010 16:08:21 +0800
+Message-ID: <8975fe27df1b0bc2da53c579a05648507153fd85.1291187695.git.xiaohui.xin@intel.com>
 References: <fc6e95d63a2c62aaf77f8ded22fc43ccefcdbbff.1291187695.git.xiaohui.xin@intel.com>
 Cc: Xin Xiaohui <xiaohui.xin@intel.com>
 To: netdev@vger.kernel.org, kvm@vger.kernel.org,
@@ -17,45 +17,33 @@ List-Id: netdev.vger.kernel.org
 
 From: Xin Xiaohui <xiaohui.xin@intel.com>
 
-    If the driver want to allocate external buffers,
-    then it can export it's capability, as the skb
-    buffer header length, the page length can be DMA, etc.
-    The external buffers owner may utilize this.
+If device is in this zero-copy mode first, we cannot handle this,
+so fail it. This patch is for this.
 
-    Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
-    Signed-off-by: Zhao Yu <yzhao81new@gmail.com>
-    Reviewed-by: Jeff Dike <jdike@linux.intel.com>
+If bonding is created first, and one of the device will be in zero-copy
+mode, this will be handled by mp device. It will first check if all the
+slaves have the zero-copy capability. If no, fail too. Otherwise make
+all the slaves in zero-copy mode.
+
+Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
 ---
- include/linux/netdevice.h |   10 ++++++++++
- 1 files changed, 10 insertions(+), 0 deletions(-)
+ drivers/net/bonding/bond_main.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index f6b1870..575777f 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -723,6 +723,12 @@ struct netdev_rx_queue {
-  * int (*ndo_set_vf_port)(struct net_device *dev, int vf,
-  *			  struct nlattr *port[]);
-  * int (*ndo_get_vf_port)(struct net_device *dev, int vf, struct sk_buff *skb);
-+ *
-+ * int (*ndo_mp_port_prep)(struct net_device *dev, struct mp_port *port);
-+ *	If the driver want to allocate external buffers,
-+ *	then it can export it's capability, as the skb
-+ *	buffer header length, the page length can be DMA, etc.
-+ *	The external buffers owner may utilize this.
-  */
- #define HAVE_NET_DEVICE_OPS
- struct net_device_ops {
-@@ -795,6 +801,10 @@ struct net_device_ops {
- 	int			(*ndo_fcoe_get_wwn)(struct net_device *dev,
- 						    u64 *wwn, int type);
- #endif
-+#if defined(CONFIG_MEDIATE_PASSTHRU) || defined(CONFIG_MEDIATE_PASSTHRU_MODULE)
-+	int			(*ndo_mp_port_prep)(struct net_device *dev,
-+						struct mp_port *port);
-+#endif
- };
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 3b16f62..dfb6a2c 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1428,6 +1428,10 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 			   bond_dev->name);
+ 	}
  
- /*
++	/* if the device is in zero-copy mode before bonding, fail it. */
++	if (dev_is_mpassthru(slave_dev))
++		return -EBUSY;
++
+ 	/* already enslaved */
+ 	if (slave_dev->flags & IFF_SLAVE) {
+ 		pr_debug("Error, Device was already enslaved\n");
 -- 
 1.7.3
