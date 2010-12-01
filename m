@@ -1,100 +1,45 @@
 From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH v2 2/2] af_packet: remove pgv.flags
-Date: Wed,  1 Dec 2010 20:52:57 +0800
-Message-ID: <1291207977-17176-1-git-send-email-xiaosuo@gmail.com>
+Subject: Re: [PATCH 1/2] af_packet: use vmalloc_to_page() instead for the
+ addresss returned by vmalloc()
+Date: Wed, 1 Dec 2010 21:05:54 +0800
+Message-ID: <AANLkTim7SSRMkhc_eMz+Bk12kAwfG==j-dH4NOPu-uS2@mail.gmail.com>
+References: <1291125408-14389-1-git-send-email-xiaosuo@gmail.com>
+ <1291126341.2904.82.camel@edumazet-laptop> <20101130143720.GA6017@hmsreliant.think-freely.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Jiri Pirko <jpirko@redhat.com>,
-	Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
-	Changli Gao <xiaosuo@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>
+	"David S. Miller" <davem@davemloft.net>,
+	Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw0-f46.google.com ([74.125.83.46]:38686 "EHLO
-	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755084Ab0LAMx1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Dec 2010 07:53:27 -0500
-Received: by gwj20 with SMTP id 20so3351878gwj.19
-        for <netdev@vger.kernel.org>; Wed, 01 Dec 2010 04:53:26 -0800 (PST)
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:42035 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754182Ab0LANGP convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Dec 2010 08:06:15 -0500
+Received: by fxm20 with SMTP id 20so23066fxm.19
+        for <netdev@vger.kernel.org>; Wed, 01 Dec 2010 05:06:14 -0800 (PST)
+In-Reply-To: <20101130143720.GA6017@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As we can check if an address is vmalloc address with is_vmalloc_addr(),
-we remove pgv.flags. Then we may get more pg_vecs.
+On Tue, Nov 30, 2010 at 10:37 PM, Neil Horman <nhorman@tuxdriver.com> w=
+rote:
+> Off the top of my head, I would think that pgv_to_page could be proto=
+typed such
+> that it could accept addr, offset and struct page ** arguments. =A0Th=
+at way we can
+> track the current page that we're mapped to, lowering the number of c=
+alls to
+> vmalloc_to_page, and we can still use an increment like we do above (=
+as long as
+> its wrapped in a subsequent call to pgv_to_page)
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
----
-v2: keep struct pgv
- net/packet/af_packet.c |   20 +++++---------------
- 1 file changed, 5 insertions(+), 15 deletions(-)
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 26fbeb1..a11c731 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -167,7 +167,6 @@ static int packet_set_ring(struct sock *sk, struct tpacket_req *req,
- #define PGV_FROM_VMALLOC 1
- struct pgv {
- 	char *buffer;
--	unsigned char flags;
- };
- 
- struct packet_ring_buffer {
-@@ -2342,7 +2341,7 @@ static void free_pg_vec(struct pgv *pg_vec, unsigned int order,
- 
- 	for (i = 0; i < len; i++) {
- 		if (likely(pg_vec[i].buffer)) {
--			if (pg_vec[i].flags & PGV_FROM_VMALLOC)
-+			if (is_vmalloc_addr(pg_vec[i].buffer))
- 				vfree(pg_vec[i].buffer);
- 			else
- 				free_pages((unsigned long)pg_vec[i].buffer,
-@@ -2353,8 +2352,7 @@ static void free_pg_vec(struct pgv *pg_vec, unsigned int order,
- 	kfree(pg_vec);
- }
- 
--static inline char *alloc_one_pg_vec_page(unsigned long order,
--					  unsigned char *flags)
-+static inline char *alloc_one_pg_vec_page(unsigned long order)
- {
- 	char *buffer = NULL;
- 	gfp_t gfp_flags = GFP_KERNEL | __GFP_COMP |
-@@ -2368,7 +2366,6 @@ static inline char *alloc_one_pg_vec_page(unsigned long order,
- 	/*
- 	 * __get_free_pages failed, fall back to vmalloc
- 	 */
--	*flags |= PGV_FROM_VMALLOC;
- 	buffer = vzalloc((1 << order) * PAGE_SIZE);
- 
- 	if (buffer)
-@@ -2377,7 +2374,6 @@ static inline char *alloc_one_pg_vec_page(unsigned long order,
- 	/*
- 	 * vmalloc failed, lets dig into swap here
- 	 */
--	*flags = 0;
- 	gfp_flags &= ~__GFP_NORETRY;
- 	buffer = (char *)__get_free_pages(gfp_flags, order);
- 	if (buffer)
-@@ -2400,8 +2396,7 @@ static struct pgv *alloc_pg_vec(struct tpacket_req *req, int order)
- 		goto out;
- 
- 	for (i = 0; i < block_nr; i++) {
--		pg_vec[i].buffer = alloc_one_pg_vec_page(order,
--							 &pg_vec[i].flags);
-+		pg_vec[i].buffer = alloc_one_pg_vec_page(order);
- 		if (unlikely(!pg_vec[i].buffer))
- 			goto out_free_pgvec;
- 	}
-@@ -2585,13 +2580,8 @@ static int packet_mmap(struct file *file, struct socket *sock,
- 			void *kaddr = rb->pg_vec[i].buffer;
- 			int pg_num;
- 
--			for (pg_num = 0; pg_num < rb->pg_vec_pages;
--					pg_num++) {
--				if (rb->pg_vec[i].flags & PGV_FROM_VMALLOC)
--					page = vmalloc_to_page(kaddr);
--				else
--					page = virt_to_page(kaddr);
--
-+			for (pg_num = 0; pg_num < rb->pg_vec_pages; pg_num++) {
-+				page = pgv_to_page(kaddr);
- 				err = vm_insert_page(vma, start, page);
- 				if (unlikely(err))
- 					goto out;
+I'll try to optimize pgv_to_page() after this patch series merged. I
+am planning to call vmalloc_to_page() previously, and cache its result
+in a per pgv array for future use. Thanks.
+
+
+--=20
+Regards,
+Changli Gao(xiaosuo@gmail.com)
