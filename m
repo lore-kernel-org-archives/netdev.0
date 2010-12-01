@@ -1,45 +1,38 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH] net/r8169: Remove the firmware of RTL8111D
-Date: Wed, 1 Dec 2010 17:05:52 +0000
-Message-ID: <20101201170552.GK8695@decadent.org.uk>
-References: <1291180966-3124-1-git-send-email-hayeswang@realtek.com> <20101201080732.GA3234@electric-eye.fr.zoreil.com> <201012011736.59625.s.L-H@gmx.de>
+From: Thomas Graf <tgraf@infradead.org>
+Subject: Re: [Patch] net: kill an RCU warning in inet_fill_link_af()
+Date: Wed, 1 Dec 2010 12:18:01 -0500
+Message-ID: <20101201171801.GA22009@canuck.infradead.org>
+References: <1291202063-6239-1-git-send-email-amwang@redhat.com>
+ <1291219386.2856.924.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	Hayes Wang <hayeswang@realtek.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Stefan Lippers-Hollmann <s.L-H@gmx.de>
+Cc: Amerigo Wang <amwang@redhat.com>, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <201012011736.59625.s.L-H@gmx.de>
+In-Reply-To: <1291219386.2856.924.camel@edumazet-laptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 01, 2010 at 05:36:55PM +0100, Stefan Lippers-Hollmann wrote:
-> Hi
+On Wed, Dec 01, 2010 at 05:03:06PM +0100, Eric Dumazet wrote:
+> [PATCH net-next-2.6] net: kill an RCU warning in inet_fill_link_af()
 > 
-> On Wednesday 01 December 2010, Francois Romieu wrote:
-> > Hayes Wang <hayeswang@realtek.com> :
-> > > Remove the firmware of RTL8111D from the kernel.
-> > > The binary file of firmware would be moved to linux-firmware repository.
-> > 
-> > The driver can not simply go along when request_firmware fails. Though Ben's
-> > code did not take care of it, the driver should imho propagate some return
-> > code. Ben ?
-> [...]
+> commits 9f0f7272 (ipv4: AF_INET link address family) and cf7afbfeb8c
+> (rtnl: make link af-specific updates atomic) used incorrect
+> __in_dev_get_rcu() in RTNL protected contexts, triggering PROVE_RCU
+> warnings.
 > 
-> At least for RTL8111D-1 (rtl8168d_1_hw_phy_config(), phy_reg_init_2[])
-> a missing firmware update doesn't seem to be fatal
-> 	http://bugs.debian.org/561309#45
-[...]
+> Switch to __in_dev_get_rtnl(), wich is more appropriate, since we hold
+> RTNL.
+> 
+> Based on a report and initial patch from Amerigo Wang.
 
-Yes.  Though it does clearly affect operation with some combinations of
-cable and link partner.  There was a recent bug report on this, though
-I can't find it now.
-
-Ben.
-
--- 
-Ben Hutchings
-We get into the habit of living before acquiring the habit of thinking.
-                                                              - Albert Camus
+RTNL is not held while dumping, it is only held for get and set, but we
+still hold rcu readlocks while dumping so there should be no asserts
+triggered. Thanks for fixing this.
