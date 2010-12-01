@@ -1,38 +1,61 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next-2.6] sched: use xps information for qdisc NUMA
- affinity
-Date: Wed, 01 Dec 2010 21:55:58 +0100
-Message-ID: <1291236958.2856.1058.camel@edumazet-laptop>
-References: <alpine.DEB.2.00.1011211501430.14906@pokey.mtv.corp.google.com>
-	 <1290705163.4274.12.camel@localhost>
-	 <1291054477.3435.1302.camel@edumazet-laptop>
-	 <20101201.124925.200368461.davem@davemloft.net>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [RFC PATCH v1] iproute2: add IFLA_TC support to 'ip link'
+Date: Wed, 01 Dec 2010 12:57:48 -0800
+Message-ID: <4CF6B6CC.7070204@intel.com>
+References: <20101201182758.3297.34345.stgit@jf-dev1-dcblab> <20101201103802.11464029@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: therbert@google.com, netdev@vger.kernel.org,
-	bhutchings@solarflare.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"tgraf@infradead.org" <tgraf@infradead.org>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f42.google.com ([74.125.82.42]:49842 "EHLO
-	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755601Ab0LAU4F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Dec 2010 15:56:05 -0500
-Received: by wwb39 with SMTP id 39so218228wwb.1
-        for <netdev@vger.kernel.org>; Wed, 01 Dec 2010 12:56:04 -0800 (PST)
-In-Reply-To: <20101201.124925.200368461.davem@davemloft.net>
+Received: from mga02.intel.com ([134.134.136.20]:15463 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755616Ab0LAU5t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Dec 2010 15:57:49 -0500
+In-Reply-To: <20101201103802.11464029@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 01 d=C3=A9cembre 2010 =C3=A0 12:49 -0800, David Miller a =C3=
-=A9crit :
+On 12/1/2010 10:38 AM, Stephen Hemminger wrote:
+> On Wed, 01 Dec 2010 10:27:58 -0800
+> John Fastabend <john.r.fastabend@intel.com> wrote:
+> 
+>> Add support to return IFLA_TC qos settings to the 'ip link'
+>> command. The following sets the number of traffic classes
+>> supported in HW and builds a priority map.
+>>
+>> #ip link set eth3 tc num 8 map 0 1 2 3 4 5 6 7 0 0 0 0 0 0 0 0
+>>
+>> With the output from 'ip link' showing maps for interfaces with
+>> the ability to use HW traffic classes.
+>>
+>> #ip link show
+>> 1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN
+>>     link/loopback 00:00:00:00:00:00 brd00:00:00:00:00:00
+>> 2: eth0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN qlen 1000
+>>     link/ether 00:30:48:f0:fc:88 brdff:ff:ff:ff:ff:ff
+>> 3: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP qlen 1000
+>>     link/ether 00:30:48:f0:fc:89 brdff:ff:ff:ff:ff:ff
+>> 6: eth2: <BROADCAST,MULTICAST> mtu 1500 qdisc mq state DOWN qlen 1000
+>>     link/ether 00:1b:21:55:23:58 brdff:ff:ff:ff:ff:ff
+>>     tc 0:8
+>> 7: eth3: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP qlen 1000
+>>     link/ether 00:1b:21:55:23:59 brdff:ff:ff:ff:ff:ff
+>>     tc 8:8 map: { 0 1 2 3 4 5 6 7 0 0 0 0 0 0 0 0 }
+>>     txqs: (0:8) (8:16) (16:24) (24:32) (32:40) (40:48) (48:56) (56:64)
+>>
+>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> 
+> Ok. but will not be applied until after 2.6.38 (when kernel support
+> is upstream).
+> 
+> 
 
-> I think this is good enough to cook in net-next-2.6
->=20
-> Please use "net sched: " instead of just plain "sched: " in your
-> commit header lines so that people don't confuse such changes
-> with process scheduler ones :-)
+Agreed. I wanted to send this out to illustrate the interface. I'll post a non-RFC patch after I get the corresponding kernel support accepted.
 
-Yes, I'll try to remember next time, thanks !
-
-
+Thanks,
+John
