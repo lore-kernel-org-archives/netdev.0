@@ -1,62 +1,65 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH 1/2] af_packet: use vmalloc_to_page() instead for the
- addresss returned by vmalloc()
-Date: Wed, 1 Dec 2010 22:16:20 +0800
-Message-ID: <AANLkTinViD=WpwUFUDF6mKbc-Cap_Tg=SXwOjVQ=5u4B@mail.gmail.com>
-References: <1291125408-14389-1-git-send-email-xiaosuo@gmail.com>
- <1291126341.2904.82.camel@edumazet-laptop> <20101130143720.GA6017@hmsreliant.think-freely.org>
- <AANLkTim7SSRMkhc_eMz+Bk12kAwfG==j-dH4NOPu-uS2@mail.gmail.com> <1291210691.2856.740.camel@edumazet-laptop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH v2] Net-ethtool : Allow ethtool to set interface in
+ loopback mode.
+Date: Wed, 01 Dec 2010 14:54:15 +0000
+Message-ID: <1291215255.3170.12.camel@bwh-desktop>
+References: <AANLkTikVaVv4fkLom+NSQgOUzCd2i3mbHkBNQ6PD4d9Y@mail.gmail.com>
+	 <1291129305.21077.9.camel@bwh-desktop>
+	 <AANLkTikM4=yOu9L7h0FZUkmMNG-LVdGsdSLOLJmw2+UW@mail.gmail.com>
+	 <1291144507.21077.56.camel@bwh-desktop>
+	 <AANLkTik=YkC6w3d2ViOqH5AYcxfRB6eKx3Mk_6=aKXGH@mail.gmail.com>
+	 <AANLkTimJJzQ6f06CoWJuofwS0m2Bn3gAcfWTOEiYyjEZ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	linux-netdev <netdev@vger.kernel.org>,
+	laurent chavey <chavey@google.com>
+To: Mahesh Bandewar <maheshb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw0-f46.google.com ([74.125.83.46]:42973 "EHLO
-	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754558Ab0LAOQm convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Dec 2010 09:16:42 -0500
-Received: by gwj20 with SMTP id 20so3398246gwj.19
-        for <netdev@vger.kernel.org>; Wed, 01 Dec 2010 06:16:41 -0800 (PST)
-In-Reply-To: <1291210691.2856.740.camel@edumazet-laptop>
+Received: from exchange.solarflare.com ([216.237.3.220]:12989 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752090Ab0LAOyS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Dec 2010 09:54:18 -0500
+In-Reply-To: <AANLkTimJJzQ6f06CoWJuofwS0m2Bn3gAcfWTOEiYyjEZ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 1, 2010 at 9:38 PM, Eric Dumazet <eric.dumazet@gmail.com> w=
-rote:
-> Le mercredi 01 d=E9cembre 2010 =E0 21:05 +0800, Changli Gao a =E9crit=
- :
->> On Tue, Nov 30, 2010 at 10:37 PM, Neil Horman <nhorman@tuxdriver.com=
-> wrote:
->> > Off the top of my head, I would think that pgv_to_page could be pr=
-ototyped such
->> > that it could accept addr, offset and struct page ** arguments. =A0=
-That way we can
->> > track the current page that we're mapped to, lowering the number o=
-f calls to
->> > vmalloc_to_page, and we can still use an increment like we do abov=
-e (as long as
->> > its wrapped in a subsequent call to pgv_to_page)
->>
->> I'll try to optimize pgv_to_page() after this patch series merged. I
->> am planning to call vmalloc_to_page() previously, and cache its resu=
-lt
->> in a per pgv array for future use. Thanks.
->>
->>
->
-> Hmm... fact is flush_dcache_page() is void on some arches.
->
-> Maybe the only thing to do is avoid pgv_to_page() calls if
-> ARCH_IMPLEMENTS_FLUSH_DCACHE_PAGE is 0
->
+On Tue, 2010-11-30 at 15:57 -0800, Mahesh Bandewar wrote:
+> This patch enables ethtool to set the loopback mode on a given
+> interface. By configuring the interface in loopback mode in conjunction
+> with a policy route / rule, a userland application can stress the egress /
+> ingress path exposing the flows of the change in progress and potentially
+> help developer(s) understand the impact of those changes without even
+> sending a packet out on the network.
+[...]
+> --- a/include/linux/ethtool.h
+> +++ b/include/linux/ethtool.h
+> @@ -616,6 +616,17 @@ void ethtool_ntuple_flush(struct net_device *dev);
+>   *     Should validate the magic field.  Don't need to check len for zero
+>   *     or wraparound.  Update len to the amount written.  Returns an error
+>   *     or zero.
+> + *
+> + * get_loopback:
+> + * set_loopback:
+> +    These are the driver specific get / set methods to report / enable-
+> +       disable loopback mode. The idea is to stress test the ingress / egress
+> +       paths by enabling this mode. There are multiple places this could be
+> +       done and choice of place will most likely be affected by the device
+> +       capabilities. So as a guiding principle; select a place to implement
+> +       loopback mode as close to the host as possible. This would maximize the
+> +       soft-path length and maintain parity in terms of comparison with differe
+> +       set of drivers.
+[...]
 
-Even then, tpacket_fill_skb() is called for every skb, and
-pgv_to_page() is used in it. We have to optimize pgv_to_page().
-Thanks.
+I know this is nitpicking, but the comment should have asterisks (*)
+repeated down the left edge.  Also, a typo: "differe" should be
+"different".
 
---=20
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
