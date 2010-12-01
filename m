@@ -1,43 +1,62 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Bonding, GRO and tcp_reordering
-Date: Wed, 01 Dec 2010 05:47:06 +0100
-Message-ID: <1291178826.2856.434.camel@edumazet-laptop>
-References: <20101130135549.GA22688@verge.net.au>
-	 <1291131776.21077.27.camel@bwh-desktop>
-	 <1291133073.2904.128.camel@edumazet-laptop>
-	 <20101201043445.GC3485@verge.net.au>
+From: Taku Izumi <izumi.taku@jp.fujitsu.com>
+Subject: Re: [PATCH] bonding: add the sysfs interface to see RLB hash table
+Date: Wed, 01 Dec 2010 14:03:35 +0900
+Message-ID: <4CF5D727.3090905@jp.fujitsu.com>
+References: <4CF4CB85.4010708@jp.fujitsu.com> <1291111829.2904.25.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org
-To: Simon Horman <horms@verge.net.au>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jay Vosburgh <fubar@us.ibm.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:49202 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752453Ab0LAErL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Nov 2010 23:47:11 -0500
-Received: by wwa36 with SMTP id 36so6928005wwa.1
-        for <netdev@vger.kernel.org>; Tue, 30 Nov 2010 20:47:10 -0800 (PST)
-In-Reply-To: <20101201043445.GC3485@verge.net.au>
+Received: from fgwmail6.fujitsu.co.jp ([192.51.44.36]:57630 "EHLO
+	fgwmail6.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750735Ab0LAFDx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Dec 2010 00:03:53 -0500
+Received: from m3.gw.fujitsu.co.jp ([10.0.50.73])
+	by fgwmail6.fujitsu.co.jp (Fujitsu Gateway) with ESMTP id oB153m7h003421
+	for <netdev@vger.kernel.org> (envelope-from izumi.taku@jp.fujitsu.com);
+	Wed, 1 Dec 2010 14:03:48 +0900
+Received: from smail (m3 [127.0.0.1])
+	by outgoing.m3.gw.fujitsu.co.jp (Postfix) with ESMTP id 59B6345DE5C
+	for <netdev@vger.kernel.org>; Wed,  1 Dec 2010 14:03:48 +0900 (JST)
+Received: from s3.gw.fujitsu.co.jp (s3.gw.fujitsu.co.jp [10.0.50.93])
+	by m3.gw.fujitsu.co.jp (Postfix) with ESMTP id 41C7445DE5B
+	for <netdev@vger.kernel.org>; Wed,  1 Dec 2010 14:03:48 +0900 (JST)
+Received: from s3.gw.fujitsu.co.jp (localhost.localdomain [127.0.0.1])
+	by s3.gw.fujitsu.co.jp (Postfix) with ESMTP id 2E2B11DB8037
+	for <netdev@vger.kernel.org>; Wed,  1 Dec 2010 14:03:48 +0900 (JST)
+Received: from ml14.s.css.fujitsu.com (ml14.s.css.fujitsu.com [10.249.87.104])
+	by s3.gw.fujitsu.co.jp (Postfix) with ESMTP id EA5C1E08003
+	for <netdev@vger.kernel.org>; Wed,  1 Dec 2010 14:03:47 +0900 (JST)
+In-Reply-To: <1291111829.2904.25.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 01 d=C3=A9cembre 2010 =C3=A0 13:34 +0900, Simon Horman a =C3=
-=A9crit :
 
-> I was tweaking those values recently for some latency tuning
-> but I didn't think of them in relation to last night's tests.
+(2010/11/30 19:10), Eric Dumazet wrote:
+> Le mardi 30 novembre 2010 =C3=A0 19:01 +0900, Taku Izumi a =C3=A9crit=
+ :
+
+>> +	hash_index =3D bond_info->rx_hashtbl_head;
+>> +	for (; hash_index !=3D RLB_NULL_INDEX; hash_index =3D client_info-=
+>next) {
+>> +		client_info =3D&(bond_info->rx_hashtbl[hash_index]);
+>> +
+>> +		count +=3D sprintf(buf + count,
+>> +			"%3d.%3d.%3d.%3d %3d.%3d.%3d.%3d "
+>> +			"%02x:%02x:%02x:%02x:%02x:%02x %s\n",
 >=20
-> In terms of my measurements, its just benchmarking at this stage.
-> So a trade-off between throughput and latency is acceptable, so long
-> as I remember to measure what it is.
 >=20
+> Oh well, I guess you dont read Joe patches on netdev ;)
+>=20
+> Please take a look at %pI4 and %pM
+>=20
+> sprintf(buf + count, "%pI4 %pI4 %pM %s\n", ...)
 
-I was thinking again this morning about GRO and bonding, and dont know
-if it actually works...
+ Thank you for your advice. I've become a little wiser..
 
-Is GRO on on individual eth0/eth1/eth2 you use, or on bonding device
-itself ?
-
-
+Taku Izumi <izumi.taku@jp.fujitsu.com>
 
