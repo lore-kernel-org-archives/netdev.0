@@ -1,61 +1,52 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] ipv6: slightly simplify keeping IPv6 addresses on link
- down
-Date: Wed, 1 Dec 2010 13:04:21 -0800
-Message-ID: <20101201130421.0ac08bcd@nehalam>
-References: <20101201.110157.246534994.davem@davemloft.net>
-	<AAs7234jas72lda05laWgh1LziatUa+qSHd+6Jj+k_eO=@mail.gmail.com>
-	<20101201122253.2a8be2e0@nehalam>
-	<AANLkTin5f+BZnFEzuc6iPLC8Hp++V0Jam8aAU2jMvxQq@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net/ipv6/sit.c: return unhandled skb to tunnel4_rcv
+Date: Wed, 01 Dec 2010 13:19:55 -0800 (PST)
+Message-ID: <20101201.131955.68134278.davem@davemloft.net>
+References: <20101130053234.GA28609@mcafee.com>
+	<1291097564.2725.15.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Lorenzo Colitti <lorenzo@google.com>
+Cc: david_mccullough@mcafee.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:44999 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755600Ab0LAVEY convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Dec 2010 16:04:24 -0500
-In-Reply-To: <AANLkTin5f+BZnFEzuc6iPLC8Hp++V0Jam8aAU2jMvxQq@mail.gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56269
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753155Ab0LAVT2 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Dec 2010 16:19:28 -0500
+In-Reply-To: <1291097564.2725.15.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 1 Dec 2010 12:52:42 -0800
-Lorenzo Colitti <lorenzo@google.com> wrote:
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 30 Nov 2010 07:12:44 +0100
 
-> On Wed, Dec 1, 2010 at 12:22 PM, Stephen Hemminger
-> <shemminger@vyatta.com> wrote:
-> > > --- a/net/ipv6/addrconf.c
-> > > +++ b/net/ipv6/addrconf.c
-> > > @@ -2663,7 +2663,8 @@ static int addrconf_ifdown(struct net_devic=
-e *dev, int how)
-> > > =A0{
-> > > =A0 =A0 =A0 struct net *net =3D dev_net(dev);
-> > > =A0 =A0 =A0 struct inet6_dev *idev;
-> > > - =A0 =A0 struct inet6_ifaddr *ifa, *ifn;
-> > > + =A0 =A0 struct inet6_ifaddr *ifa;
-> > > + =A0 =A0 LIST_HEAD(keep_list);
-> > > =A0 =A0 =A0 int state;
-> >
-> > Your patch is backwards? The existing code is:
+> Le mardi 30 novembre 2010 =E0 15:32 +1000, David McCullough a =E9crit=
+ :
+>> Hi all,
+>>=20
+>> I found a problem using an IPv6 over IPv4 tunnel.  When CONFIG_IPV6_=
+SIT
+>> was enabled, the packets would be rejected as net/ipv6/sit.c was cat=
+ching
+>> all IPPROTO_IPV6 packets and returning an ICMP port unreachable erro=
+r.
+>>=20
+>> I think this patch fixes the problem cleanly.  I believe the code in
+>> net/ipv4/tunnel4.c:tunnel4_rcv takes care of it properly if none of =
+the
+>> handlers claim the skb.
+>>=20
+>> Patch is against 2.6.35,  bit still applies to current.
+>>=20
+>> Cheers,
+>> Davidm
+>>=20
+>> Signed-off-by: David McCullough <david_mccullough@mcafee.com>
+ ...
+> Good catch !
 >=20
-> Oops, yes. Wrong order of arguments. Another one coming up.
->=20
-> > Also, the addrconf_ifdown can race with other updates to idev->addr=
-_list
-> > from addrconf timers etc. =A0Therefore even list_for_each_entry_saf=
-e is not safe.
->=20
-> No, wait... The loop is protected by idev->lock, and the code just
-> before it that clears the temporary address list is essentially
-> identical (except it looks over tempaddr_list instead). Wouldn't that
-> blow up as well?
+> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-The old code walked the list until it was empty. New code could
-get confused if list changed by other changes during the
-period when idev->lock is dropped and notifier is called.
-
-
-
---=20
+Applied, thanks.
