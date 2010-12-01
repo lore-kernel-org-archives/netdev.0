@@ -1,37 +1,54 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [Patch] bonding: clean up netpoll code
-Date: Wed, 1 Dec 2010 17:06:21 +0800
-Message-ID: <20101201090621.GA11366@gondor.apana.org.au>
-References: <20101201075043.5741.29172.sendpatchset@localhost.localdomain> <1291190612.2856.481.camel@edumazet-laptop> <4CF606C7.6020606@redhat.com>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH v16 11/17]Add a hook to intercept external buffers from
+ NIC driver.
+Date: Wed, 1 Dec 2010 17:38:59 +0800
+Message-ID: <AANLkTikiU_diGXRx6yxBx-1k-5JFXsty1MuqZyzXVu2Z@mail.gmail.com>
+References: <fc6e95d63a2c62aaf77f8ded22fc43ccefcdbbff.1291187695.git.xiaohui.xin@intel.com>
+ <c1b20adfd68fc241611845c0ef42fe8fa91ed981.1291187695.git.xiaohui.xin@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-kernel@vger.kernel.org, Jiri Pirko <jpirko@redhat.com>,
-	Neil Horman <nhorman@redhat.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	bonding-devel@lists.sourceforge.net,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: Cong Wang <amwang@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mst@redhat.com, mingo@elte.hu,
+	davem@davemloft.net, herbert@gondor.apana.org.au,
+	jdike@linux.intel.com, Eric Dumazet <eric.dumazet@gmail.com>
+To: xiaohui.xin@intel.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4CF606C7.6020606@redhat.com>
+In-Reply-To: <c1b20adfd68fc241611845c0ef42fe8fa91ed981.1291187695.git.xiaohui.xin@intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 01, 2010 at 04:26:47PM +0800, Cong Wang wrote:
+On Wed, Dec 1, 2010 at 4:08 PM,  <xiaohui.xin@intel.com> wrote:
+> From: Xin Xiaohui <xiaohui.xin@intel.com>
+> @@ -2891,6 +2925,11 @@ static int __netif_receive_skb(struct sk_buff =
+*skb)
+> =A0ncls:
+> =A0#endif
 >
-> Is this necessary?
-> It is just replacing checking IFF_IN_NETPOLL with netpoll_tx_running(),
-> you might need to take a look at the bridge code.
+> + =A0 =A0 =A0 /* To intercept mediate passthru(zero-copy) packets her=
+e */
+> + =A0 =A0 =A0 skb =3D handle_mpassthru(skb, &pt_prev, &ret, orig_dev)=
+;
+> + =A0 =A0 =A0 if (!skb)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto out;
+> +
+> =A0 =A0 =A0 =A0/* Handle special case of bridge or macvlan */
 
-I agree with Eric.  The patch does look pretty scary right now.
+I think it won't work if the skbs is captured by the previous ptype.
+We need to trace the skb pages(skb_shared_info.frags[*].page), but
+currently, there isn't a easy way to do that. skb pages are treated as
+normal pages, and anyone can get it freely. And it is the problem in
+the way to fix the potential data corruption bug.
 
-Each patch should do one thing and one thing only.
+Eric thinks af_packets(mmap) isn't worth fixing. But if this patch
+serial has the same problem. It will be worth.
 
-Thanks,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+My idea is adding a new function dtor pointer  and some other args
+pointers to the struct skb_shared_info. If skb_shared_info.dtor
+exists, the pages in skb_shared_info.frags are private to this
+skb->head. Anyone who wants to get these pages, should copy them
+instead.
+
+--=20
+Regards,
+Changli Gao(xiaosuo@gmail.com)
