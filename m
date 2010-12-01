@@ -1,60 +1,40 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: [PATCH v16 14/17]Add a kconfig entry and make entry for mp
- device.
-Date: Wed, 1 Dec 2010 09:53:48 -0800
-Message-ID: <20101201095348.07421ee5.randy.dunlap@oracle.com>
-References: <fc6e95d63a2c62aaf77f8ded22fc43ccefcdbbff.1291187695.git.xiaohui.xin@intel.com>
-	<a1c255bc496b7aaca26912790f8bb0162dd1f4bf.1291187695.git.xiaohui.xin@intel.com>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [PATCH net-next-2.6] net: optimize INET input path further
+Date: Wed, 01 Dec 2010 13:00:21 -0500
+Message-ID: <4CF68D35.8020701@hp.com>
+References: <1291179847.2856.452.camel@edumazet-laptop>	 <4CF687F3.7030107@hp.com> <1291225358.2856.1035.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mst@redhat.com, mingo@elte.hu,
-	davem@davemloft.net, herbert@gondor.hengli.com.au,
-	jdike@linux.intel.com
-To: xiaohui.xin@intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <a1c255bc496b7aaca26912790f8bb0162dd1f4bf.1291187695.git.xiaohui.xin@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g5t0009.atlanta.hp.com ([15.192.0.46]:12750 "EHLO
+	g5t0009.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753899Ab0LASAY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Dec 2010 13:00:24 -0500
+In-Reply-To: <1291225358.2856.1035.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed,  1 Dec 2010 16:08:25 +0800 xiaohui.xin@intel.com wrote:
-
-> From: Xin Xiaohui <xiaohui.xin@intel.com>
+On 12/01/2010 12:42 PM, Eric Dumazet wrote:
+>> Putting IPv4 addresses in sock_common doesn't make it so common anymore :)
+>>
+>> Is it possible to make this a union so other address families like IPv6
+>> can benefit from this as well, or will that blow the whole cache line
+>> effect you were trying to achieve?
 > 
-> Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
-> Reviewed-by: Jeff Dike <jdike@linux.intel.com>
-> ---
->  drivers/vhost/Kconfig  |   10 ++++++++++
->  drivers/vhost/Makefile |    2 ++
->  2 files changed, 12 insertions(+), 0 deletions(-)
+> This might be OK, depending on cache line size and/or arch.
 > 
-> diff --git a/drivers/vhost/Kconfig b/drivers/vhost/Kconfig
-> index e4e2fd1..a6b8cbf 100644
-> --- a/drivers/vhost/Kconfig
-> +++ b/drivers/vhost/Kconfig
-> @@ -9,3 +9,13 @@ config VHOST_NET
->  	  To compile this driver as a module, choose M here: the module will
->  	  be called vhost_net.
->  
-> +config MEDIATE_PASSTHRU
-> +	tristate "mediate passthru network driver (EXPERIMENTAL)"
-> +	depends on VHOST_NET
-> +	---help---
-> +	  zerocopy network I/O support, we call it as mediate passthru to
+> On x86_32 for example, that might even be a good thing, because refcnt
+> might still be in the first 64bytes of socket.
+> 
+> By the way, ipv6 sock includes inet, so includes ipv4 addresses too, I
+> only moved them in the 'whole structure'
 
-	                       support; we call it "mediate passthru" to
+Yes, all that IPv4 address baggage is still there in an IPv6 sock, even
+if not used.  I haven't even looked close enough to see if it is possible
+to move the IPv6 addresses since I think there are times when both are
+in-use.
 
-> +	  be distiguish with hardare passthru.
-
-	  distinguish it from hardware passthru.
-
-> +
-> +	  To compile this driver as a module, choose M here: the module will
-> +	  be called mpassthru.
-> +
-
-
----
-~Randy
-*** Remember to use Documentation/SubmitChecklist when testing your code ***
+-Brian
