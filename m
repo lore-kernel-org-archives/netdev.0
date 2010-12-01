@@ -1,81 +1,102 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/2] af_packet: use vmalloc_to_page() instead for the
- addresss returned by vmalloc()
-Date: Wed, 01 Dec 2010 16:13:16 +0100
-Message-ID: <1291216396.2856.861.camel@edumazet-laptop>
-References: <1291125408-14389-1-git-send-email-xiaosuo@gmail.com>
-	 <1291126341.2904.82.camel@edumazet-laptop>
-	 <20101130143720.GA6017@hmsreliant.think-freely.org>
-	 <AANLkTim7SSRMkhc_eMz+Bk12kAwfG==j-dH4NOPu-uS2@mail.gmail.com>
-	 <1291210691.2856.740.camel@edumazet-laptop>
-	 <AANLkTinViD=WpwUFUDF6mKbc-Cap_Tg=SXwOjVQ=5u4B@mail.gmail.com>
+Subject: Re: [Patch] net: kill an RCU warning in inet_fill_link_af()
+Date: Wed, 01 Dec 2010 17:03:06 +0100
+Message-ID: <1291219386.2856.924.camel@edumazet-laptop>
+References: <1291202063-6239-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Neil Horman <nhorman@tuxdriver.com>,
+Cc: linux-kernel@vger.kernel.org,
 	"David S. Miller" <davem@davemloft.net>,
-	Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:37317 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751173Ab0LAPNW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Dec 2010 10:13:22 -0500
-Received: by wyb28 with SMTP id 28so7050722wyb.19
-        for <netdev@vger.kernel.org>; Wed, 01 Dec 2010 07:13:21 -0800 (PST)
-In-Reply-To: <AANLkTinViD=WpwUFUDF6mKbc-Cap_Tg=SXwOjVQ=5u4B@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	Thomas Graf <tgraf@infradead.org>
+To: Amerigo Wang <amwang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1291202063-6239-1-git-send-email-amwang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mercredi 01 d=C3=A9cembre 2010 =C3=A0 22:16 +0800, Changli Gao a =C3=
+Le mercredi 01 d=C3=A9cembre 2010 =C3=A0 19:14 +0800, Amerigo Wang a =C3=
 =A9crit :
+> From: WANG Cong <amwang@redhat.com>
+>=20
+> The latest net-next-2.6 triggers an RCU warning during boot,
+> lockdep complains that in inet_fill_link_af() we call rcu_dereference=
+_check()
+> without rcu_read_lock() protection.
+>=20
+> This patch fixes it by replacing __in_dev_get_rcu() with in_dev_get()=
+=2E
 
-> Even then, tpacket_fill_skb() is called for every skb, and
-> pgv_to_page() is used in it. We have to optimize pgv_to_page().
-
-With the __pure trick I gave, pgv_to_page() is _not_ called for the
-typical use case of af_packet : packet sniffing.
-
-Compiler is able to remove the call completely, since
-
-static inline void flush_dcache_page(struct page *page) { }
-
-The only remaining pgv_to_page() call is the one done in mmap packet
-send, since we have to do :
-
-page =3D pgv_to_page(data);
-get_page(page);
-
-I personally dont use this path, its known to be buggy...
-
-Optimize if you want, but make all this
-ARCH_IMPLEMENTS_FLUSH_DCACHE_PAGE conditional.
-
-Its not needed to maintain an array of 'struct page *' if its not neede=
-d
-at all.
-
-# vi +2448 block/blk-core.c
-
-#if ARCH_IMPLEMENTS_FLUSH_DCACHE_PAGE
-/**
- * rq_flush_dcache_pages - Helper function to flush all pages in a requ=
-est
- * @rq: the request to be flushed
- *
- * Description:
- *     Flush all pages in @rq.
- */
-void rq_flush_dcache_pages(struct request *rq)
-{
-        struct req_iterator iter;
-        struct bio_vec *bvec;
-
-        rq_for_each_segment(bvec, rq, iter)
-                flush_dcache_page(bvec->bv_page);
-}
-EXPORT_SYMBOL_GPL(rq_flush_dcache_pages);
-#endif
+Here is a better version, thanks a lot for your report and initial
+patch.
 
 
+[PATCH net-next-2.6] net: kill an RCU warning in inet_fill_link_af()
 
+commits 9f0f7272 (ipv4: AF_INET link address family) and cf7afbfeb8c
+(rtnl: make link af-specific updates atomic) used incorrect
+__in_dev_get_rcu() in RTNL protected contexts, triggering PROVE_RCU
+warnings.
+
+Switch to __in_dev_get_rtnl(), wich is more appropriate, since we hold
+RTNL.
+
+Based on a report and initial patch from Amerigo Wang.
+
+Reported-by: Amerigo Wang <amwang@redhat.com>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Thomas Graf <tgraf@infradead.org>
+---
+ net/ipv4/devinet.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index d9f71ba..3b06770 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -1258,7 +1258,7 @@ errout:
+=20
+ static size_t inet_get_link_af_size(const struct net_device *dev)
+ {
+-	struct in_device *in_dev =3D __in_dev_get_rcu(dev);
++	struct in_device *in_dev =3D __in_dev_get_rtnl(dev);
+=20
+ 	if (!in_dev)
+ 		return 0;
+@@ -1268,7 +1268,7 @@ static size_t inet_get_link_af_size(const struct =
+net_device *dev)
+=20
+ static int inet_fill_link_af(struct sk_buff *skb, const struct net_dev=
+ice *dev)
+ {
+-	struct in_device *in_dev =3D __in_dev_get_rcu(dev);
++	struct in_device *in_dev =3D __in_dev_get_rtnl(dev);
+ 	struct nlattr *nla;
+ 	int i;
+=20
+@@ -1295,7 +1295,7 @@ static int inet_validate_link_af(const struct net=
+_device *dev,
+ 	struct nlattr *a, *tb[IFLA_INET_MAX+1];
+ 	int err, rem;
+=20
+-	if (dev && !__in_dev_get_rcu(dev))
++	if (dev && !__in_dev_get_rtnl(dev))
+ 		return -EAFNOSUPPORT;
+=20
+ 	err =3D nla_parse_nested(tb, IFLA_INET_MAX, nla, inet_af_policy);
+@@ -1319,7 +1319,7 @@ static int inet_validate_link_af(const struct net=
+_device *dev,
+=20
+ static int inet_set_link_af(struct net_device *dev, const struct nlatt=
+r *nla)
+ {
+-	struct in_device *in_dev =3D __in_dev_get_rcu(dev);
++	struct in_device *in_dev =3D __in_dev_get_rtnl(dev);
+ 	struct nlattr *a, *tb[IFLA_INET_MAX+1];
+ 	int rem;
+=20
