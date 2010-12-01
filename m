@@ -1,33 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: bridge netpoll support: mismatch between net core and bridge
- headers
-Date: Wed, 01 Dec 2010 11:42:01 -0800 (PST)
-Message-ID: <20101201.114201.245392768.davem@davemloft.net>
-References: <AANLkTimbf+yfJFU29rNWAc-hXBxj92J=dNaShM04GNZ7@mail.gmail.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: Bonding, GRO and tcp_reordering
+Date: Wed, 01 Dec 2010 11:42:11 -0800
+Message-ID: <4CF6A513.4030400@hp.com>
+References: <20101130135549.GA22688@verge.net.au> <4CF53AB2.60209@hp.com> <20101201043017.GA3485@verge.net.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: vapier.adi@gmail.com
+Cc: netdev@vger.kernel.org
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40966
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751829Ab0LATlf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Dec 2010 14:41:35 -0500
-In-Reply-To: <AANLkTimbf+yfJFU29rNWAc-hXBxj92J=dNaShM04GNZ7@mail.gmail.com>
+Received: from g4t0017.houston.hp.com ([15.201.24.20]:40781 "EHLO
+	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756498Ab0LATmO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Dec 2010 14:42:14 -0500
+In-Reply-To: <20101201043017.GA3485@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mike Frysinger <vapier.adi@gmail.com>
-Date: Sat, 13 Nov 2010 18:26:27 -0500
+>>You are in a maze of twisty heuristics and algorithms, all
+>>interacting :)  If there are only three links in the bond, I suspect
+>>the chances for spurrious fast retransmission are somewhat smaller
+>>than if you had say four, based on just hand-waving on three
+>>duplicate ACKs requires receipt of perhaps four out of order
+>>segments.
+> 
+> 
+> Unfortunately NIC/slot availability only stretches to three links :-(
+> If you think its really worthwhile I can obtain some more dual-port nics.
 
-> so in my randconfig builds, i'm now seeing frequent failures along the lines of:
+Only if you want to increase the chances of reordering that triggers spurrious 
+fast retransmits.
 
-Mike, I cooked up a patch to "fix" this but I can't reproduce it
-in the current tree.
-
-No matter what I do, I can't get CONFIG_NETPOLL and
-CONFIG_NET_POLL_CONTROLLER to have different values.
-
-If I try to force it in my ".config" the subsequent "make oldconfig"
-forces them to be equal.
+rick jones
