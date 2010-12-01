@@ -1,78 +1,98 @@
-From: Simon Schubert <2@0x2c.org>
-Subject: Re: BUG in skb_dequeue (skb->next is NULL)
-Date: Wed, 01 Dec 2010 11:34:36 +0100
-Message-ID: <4CF624BC.8030409@0x2c.org>
-References: <alpine.LNX.2.00.1011071631550.2636@dyndns.pervalidus.net>	 <loom.20101201T095252-592@post.gmane.org> <1291199299.2856.499.camel@edumazet-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH 2.6.36] vlan: Avoid hwaccel vlan packets when vid not used
+Date: Wed, 01 Dec 2010 11:55:14 +0100
+Message-ID: <1291200914.2856.546.camel@edumazet-laptop>
+References: <20101129201716.1d0257c4@xenia.leun.net>
+	 <4CF442FA.4070701@candelatech.com> <20101130095944.41b5f7b6@xenia.leun.net>
+	 <1291108809.2904.3.camel@edumazet-laptop>
+	 <20101201111716.424fb771@xenia.leun.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig64F50417063CB7426BAB8271"
-Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ben Greear <greearb@candelatech.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Jesse Gross <jesse@nicira.com>,
+	stable@kernel.org
+To: Michael Leun <lkml20101129@newton.leun.net>,
+	David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1291199299.2856.499.camel@edumazet-laptop>
+In-Reply-To: <20101201111716.424fb771@xenia.leun.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig64F50417063CB7426BAB8271
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+Le mercredi 01 d=C3=A9cembre 2010 =C3=A0 11:17 +0100, Michael Leun a =C3=
+=A9crit :
 
-On 12/01/2010 11:28 AM, Eric Dumazet wrote:
-> Le mercredi 01 d=C3=A9cembre 2010 =C3=A0 09:02 +0000, Simon Schubert a =
-=C3=A9crit :
->> Fr=C3=A9d=C3=A9ric L. W. Meunier <2 <at> pervalidus.net> writes:
+> Yup, from what I've tested this works (and tcpdump sees broadcast
+> packets even for vlans not configured at the moment including vlan ta=
+g
+> - yipee!).
 >=20
-> CC netdev
->> RIP: 0010:[<ffffffff81459069>]  [<ffffffff81459069>] skb_dequeue+0x59/=
-0x90
->> Call Trace:
->>  [<ffffffff814ef0fa>] unix_stream_recvmsg+0x1aa/0x790
->>  [<ffffffff8145124d>] sock_recvmsg+0xfd/0x130
->>  [<ffffffff81155fd0>] ? pollwake+0x0/0x60
->>  [<ffffffff81452b54>] __sys_recvmsg+0x144/0x2e0
->>  [<ffffffff81155fd0>] ? pollwake+0x0/0x60
->>  [<ffffffff8104d88a>] ? finish_task_switch+0x4a/0xd0
->>  [<ffffffff8154fa91>] ? schedule+0x411/0xa50
->>  [<ffffffff81452f99>] sys_recvmsg+0x49/0x80
->>  [<ffffffff8100b0b2>] system_call_fastpath+0x16/0x1b
->=20
-> Is it reproductible ?
 
-I can't trigger it on purpose, but it happened two nights in a row (I
-don't have the previous backtrace though)
+Thanks Michael !
 
-> On previous kernel (say 2.6.35) you never hit this bug ?
-
-No.
-
-cheers
-  simon
+Here is the revised patch again then for stable team, via David Miller
+agreement.
 
 
---------------enig64F50417063CB7426BAB8271
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+[PATCH v2 2.6.36] vlan: Avoid hwaccel vlan packets when vid not used.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+Normally hardware accelerated vlan packets are quickly dropped if
+there is no corresponding vlan device configured.  The one exception
+is promiscuous mode, where we allow all of these packets through so
+they can be picked up by tcpdump.  However, this behavior causes a
+crash if we actually try to receive these packets.  This fixes that
+crash by ignoring packets with vids not corresponding to a configured
+device in the vlan hwaccel routines and then dropping them before they
+get to consumers in the network stack.
 
-iQIcBAEBAgAGBQJM9iTBAAoJEO/hP/rC6EwxDEEQAKFnCRxGTGTu/WTUBLPiJHoQ
-eID/ft/ZVg0NxFNwjBDQfGhpnuhFsKBGgt17CNvTlWFWZnNkhofjyoETRoqZGON9
-BZrPwGjxEvznMf1L6cmqyP4v4d4dFiDTsgFWKzs9rN2F1YRDyMbX96zTsx75Gbs8
-yrr8pBRJaAeodD7wGLbR0tvc14Dbep3TRaptxAW+I5C2EkxInwrguix6/mx+chab
-Dl3K+jkk8tX3oKRtsu52DTuweR0QciWuXKd1lZJwTRbQEmrqUp422yX/qa8LjKAg
-1O2v5IQr+NDNPtWMnYCxJuGIFRajTPJLRlx52CK/AHx4040BksLjF+rTaa2Cj4GI
-npcZ+TG8mmhWrImMeVhkSWOofdAiYeuNP7LIGqFNZpRByP08w3KzlLaWT6UEF2Tg
-V5BVcnb5UTo8fzSWFe4TcaTb9H1Rrngkmvv89+Rjzy4lMhlSn7wdZHS/jxm2u5WF
-rknmaiUx2F+8NuT67FQa+QJkIU6XBtWlgQpsvqoJvVOJrnbs7j/MW1V2bp9nXDv3
-X+ugmLZiQas1gcr7tmLV13OetXu816RiFsGvKb7PaxkVYx2tI2cBRB55QZfIWWdT
-3whgt1nGm6JBUZlXJNMB1fG+h72fVQC51RXO6ptJe7uQUKwE9rgWjxOhgpoma8PT
-U6BXsgcI6962wV7F+6ZI
-=8BTF
------END PGP SIGNATURE-----
+Reported-by: Ben Greear <greearb@candelatech.com>
+Signed-off-by: Jesse Gross <jesse@nicira.com>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Tested-by: Michael Leun <lkml20101129@newton.leun.net>
+---
+v2: survives to tcpdump :)
 
---------------enig64F50417063CB7426BAB8271--
+ net/core/dev.c        |   10 ++++++++++
+ net/8021q/vlan_core.c |    3 +++
+ 2 files changed, 13 insertions(+)
+
+--- linux-2.6.36/net/core/dev.c.orig
++++ linux-2.6.36/net/core/dev.c
+@@ -2891,6 +2891,15 @@
+ ncls:
+ #endif
+=20
++	/* If we got this far with a hardware accelerated VLAN tag, it means
++	 * that we were put in promiscuous mode but nobody is interested in
++	 * this vid. Drop the packet now to prevent it from getting propagate=
+d
++	 * to other parts of the stack that won't know how to deal with packe=
+ts
++	 * tagged in this manner.
++	 */
++	if (unlikely(vlan_tx_tag_present(skb)))
++		goto bypass;
++
+ 	/* Handle special case of bridge or macvlan */
+ 	rx_handler =3D rcu_dereference(skb->dev->rx_handler);
+ 	if (rx_handler) {
+@@ -2927,6 +2936,7 @@
+ 		}
+ 	}
+=20
++bypass:
+ 	if (pt_prev) {
+ 		ret =3D pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
+ 	} else {
+--- linux-2.6.36/net/8021q/vlan_core.c.orig
++++ linux-2.6.36/net/8021q/vlan_core.c
+@@ -43,6 +43,9 @@
+ 	struct net_device *dev =3D skb->dev;
+ 	struct vlan_rx_stats     *rx_stats;
+=20
++	if (unlikely(!is_vlan_dev(dev)))
++		return 0;
++
+ 	skb->dev =3D vlan_dev_info(dev)->real_dev;
+ 	netif_nit_deliver(skb);
+=20
