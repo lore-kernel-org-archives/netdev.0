@@ -1,68 +1,42 @@
-From: Thomas Graf <tgraf@infradead.org>
-Subject: Re: [RFC PATCH v2 2/3] netlink: implement nla_policy for HW QOS
-Date: Thu, 2 Dec 2010 05:20:37 -0500
-Message-ID: <20101202102037.GB10221@canuck.infradead.org>
-References: <20101201182252.2748.15208.stgit@jf-dev1-dcblab>
- <20101201182258.2748.99569.stgit@jf-dev1-dcblab>
+From: Shan Wei <shanwei@cn.fujitsu.com>
+Subject: Re: [PATCH v2 1/4] net: snmp: fix the wrong ICMP_MIB_MAX value
+Date: Thu, 02 Dec 2010 18:35:50 +0800
+Message-ID: <4CF77686.5010305@cn.fujitsu.com>
+References: <4CF71ADB.5060702@cn.fujitsu.com> <20101202095753.GA10221@canuck.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: John Fastabend <john.r.fastabend@intel.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Network-Maillist <netdev@vger.kernel.org>,
+	Shan Wei <shanwei@cn.fujitsu.com>
+To: tgraf@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canuck.infradead.org ([134.117.69.58]:56102 "EHLO
-	canuck.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751043Ab0LBKUj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Dec 2010 05:20:39 -0500
-Content-Disposition: inline
-In-Reply-To: <20101201182258.2748.99569.stgit@jf-dev1-dcblab>
+Received: from cn.fujitsu.com ([222.73.24.84]:61267 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751043Ab0LBKhb convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Dec 2010 05:37:31 -0500
+In-Reply-To: <20101202095753.GA10221@canuck.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 01, 2010 at 10:22:58AM -0800, John Fastabend wrote:
-> +
-> +		NLA_PUT_U8(skb, IFLA_TC_TXMAX, dev->max_tcs);
-> +		NLA_PUT_U8(skb, IFLA_TC_TXNUM, dev->num_tcs);
-> +
-> +		tc_txq = nla_nest_start(skb, IFLA_TC_TXQS);
+Thomas Graf wrote, at 12/02/2010 05:57 PM:
+>>  /* ICMP */
+>>  #define ICMP_MIB_DUMMY	__ICMP_MIB_MAX
+>> -#define ICMP_MIB_MAX	(__ICMP_MIB_MAX + 1)
+>> -
+>> +#define ICMP_MIB_MAX	__ICMP_MIB_MAX
+>=20
+> Looks like the +1 is there to account for ICMP_MIB_DUMMY. It is
+> unused though but you have to remove it as well if you want to
+> kill that extra +1.
 
-You have to check the return value here.
+I don't know the history about ICMP_MIB_DUMMY before v2.6.12-rc2.=20
+But after that, it is abandoned.
 
-> +		for (i = 0; i < dev->num_tcs; i++) {
-> +			tcq = netdev_get_tc_queue(dev, i);
-> +			ifla_tcq.tc = i;
-> +			ifla_tcq.count = tcq->count;
-> +			ifla_tcq.offset = tcq->offset;
-> +
-> +			NLA_PUT(skb, IFLA_TC_TXQ, sizeof(ifla_tcq), &ifla_tcq);
-> +		}
-> +		nla_nest_end(skb, tc_txq);
-> +
-> +		tc_map = nla_nest_start(skb, IFLA_TC_MAPS);
+ICMP_MIB_DUMMY is killed in patch:
+=EF=BC=BBPATCH v2 4/4] net: kill unused macros from head file
 
-Same here
-
-> +		for (i = 0; i < 16; i++) {
-> +			ifla_map.prio = i;
-> +			ifla_map.tc = netdev_get_prio_tc_map(dev, i);
-> +			NLA_PUT(skb, IFLA_TC_MAP, sizeof(ifla_map), &ifla_map);
-> +		}
->  
-> +
-> +static const struct nla_policy ifla_tc_txq[IFLA_TC_TXQS_MAX+1] = {
-> +	[IFLA_TC_TXQ]		= { .type = NLA_BINARY,
-> +				    .len = sizeof(struct ifla_tc_txq)},
-
-This is probably not what you want. NLA_BINARY only enforces a maximum
-payload length but no minimum payload length.
-
-Omit the .type and let it fall back to NLA_UNSPEC and only specify a
-.len. This enforces that the attribute payload is at least .len in
-length. You should not worry about payload that exceeds your size
-expectations. This allows to extend ifla_tc_txq in the future.
-
-> +static const struct nla_policy ifla_tc_map[IFLA_TC_MAPS_MAX+1] = {
-> +	[IFLA_TC_MAP]		= { .type = NLA_BINARY,
-> +				    .len = sizeof(struct ifla_tc_map)},
-> +};
-
-Same here
+--=20
+Best Regards
+-----
+Shan Wei
