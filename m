@@ -1,37 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: jme: UDP checksum error, and lots of them
-Date: Wed, 01 Dec 2010 21:59:16 -0800 (PST)
-Message-ID: <20101201.215916.104055114.davem@davemloft.net>
-References: <alpine.LNX.2.01.1012020430190.4157@obet.zrqbmnf.qr>
-	<20101201.200935.71110482.davem@davemloft.net>
-	<20101202042820.M98672@cooldavid.org>
+From: Nick Kossifidis <mickflemm@gmail.com>
+Subject: Re: [PATCH 2/2] ath: Fix logging message typos
+Date: Thu, 2 Dec 2010 08:01:26 +0200
+Message-ID: <AANLkTimimyhHT2=xT1T8vJ=3WZB4h85ur=yvEfT2Wv-p@mail.gmail.com>
+References: <276469c602c402565b49f99521ea19757429e81e.1291266731.git.joe@perches.com>
+	<a345e995a816576a4c2c39aec43716c18011475b.1291266731.git.joe@perches.com>
+	<20101202053055.19479.qmail@stuge.se>
+	<1291268087.1761.3.camel@Joe-Laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jengelh@medozas.de, netdev@vger.kernel.org
-To: cooldavid@cooldavid.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43297
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753614Ab0LBF6t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Dec 2010 00:58:49 -0500
-In-Reply-To: <20101202042820.M98672@cooldavid.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: linux-wireless@vger.kernel.org, Jiri Slaby <jirislaby@gmail.com>,
+	netdev@vger.kernel.org, ath5k-devel@lists.ath5k.org,
+	Bob Copeland <me@bobcopeland.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Jouni Malinen <jmalinen@atheros.com>,
+	Senthil Balasubramanian <senthilkumar@atheros.com>,
+	ath9k-devel@lists.ath9k.org,
+	Vasanthakumar Thiagarajan <vasanth@atheros.com>,
+	Peter Stuge <peter@stuge.se>, linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <ath9k-devel-bounces@lists.ath9k.org>
+In-Reply-To: <1291268087.1761.3.camel@Joe-Laptop>
+List-Unsubscribe: <https://lists.ath9k.org/mailman/listinfo/ath9k-devel>,
+	<mailto:ath9k-devel-request@lists.ath9k.org?subject=unsubscribe>
+List-Archive: <http://lists.ath9k.org/pipermail/ath9k-devel>
+List-Post: <mailto:ath9k-devel@lists.ath9k.org>
+List-Help: <mailto:ath9k-devel-request@lists.ath9k.org?subject=help>
+List-Subscribe: <https://lists.ath9k.org/mailman/listinfo/ath9k-devel>,
+	<mailto:ath9k-devel-request@lists.ath9k.org?subject=subscribe>
+Sender: ath9k-devel-bounces@lists.ath9k.org
+Errors-To: ath9k-devel-bounces@lists.ath9k.org
+List-Id: netdev.vger.kernel.org
 
-From: "Guo-Fu Tseng" <cooldavid@cooldavid.org>
-Date: Thu, 2 Dec 2010 12:33:01 +0800
-
-> I suspect that there might be some the HW-Checksum behavior error.
-> ex: Replaced the UDP checksum field while it's all zero(no need to checksum)
-
-I checked the VPNC code and it receives UDP encapsulated traffic using
-a normal UDP socket.  So any bad checksums should show up in the
-statistics and in fact the packets should be dropped by the IPv4
-stack before making it to the vpnc application.
-
-Something isn't right here.  The only thing that makes sense is if
-the tcpdump checksum validation is wrong for some reason.  Because
-only then could we give a reason for the UDP frames to not be
-dropped before vpnc can see them.
-
+MjAxMC8xMi8yIEpvZSBQZXJjaGVzIDxqb2VAcGVyY2hlcy5jb20+Ogo+IE9uIFRodSwgMjAxMC0x
+Mi0wMiBhdCAwNjozMCArMDEwMCwgUGV0ZXIgU3R1Z2Ugd3JvdGU6Cj4+IEpvZSBQZXJjaGVzIHdy
+b3RlOgo+PiA+ICsrKyBiL2RyaXZlcnMvbmV0L3dpcmVsZXNzL2F0aC9hdGg5ay9hcjkwMDJfY2Fs
+aWIuYwo+PiAuLgo+PiA+IEBAIC03MzQsNyArNzM0LDcgQEAgc3RhdGljIGJvb2wgYXI5Mjg1X2h3
+X2NsX2NhbChzdHJ1Y3QgYXRoX2h3ICphaCwgc3RydWN0IGF0aDlrX2NoYW5uZWwgKmNoYW4pCj4+
+ID4gwqAgwqAgaWYgKCFhdGg5a19od193YWl0KGFoLCBBUl9QSFlfQUdDX0NPTlRST0wsIEFSX1BI
+WV9BR0NfQ09OVFJPTF9DQUwsCj4+ID4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
+MCwgQUhfV0FJVF9USU1FT1VUKSkgewo+PiA+IMKgIMKgIMKgIMKgIMKgIMKgIGF0aF9kYmcoY29t
+bW9uLCBBVEhfREJHX0NBTElCUkFURSwKPj4gPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
+ICJvZmZzZXQgY2FsaWJyYXRpb24gZmFpbGVkIHRvIGNvbXBsZXRlIGluIDFtczsgbm9pc3kgPz9c
+biIpOwo+PiA+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgIm9mZnNldCBjYWxpYnJhdGlv
+biBmYWlsZWQgdG8gY29tcGxldGUgaW4gMW1zOyBub2lzeSBlbmZpcm9ubWVudD9cbiIpOwo+Pgo+
+PiBlbmZpcm9ubWVudD8gOikKPgo+IFVtbSwgd2hhdCdzIGEgdHlwbyBmaXggcGF0Y2ggd2l0aG91
+dCBtb3JlIHR5cG9zPwo+IENvcnJlY3Q/IMKgSG93IGR1bGwuLi4KPgo+PiA+IMKgIMKgIGF0aF9k
+YmcoY29tbW9uLCBBVEhfREJHX0FOSSwKPj4gPiAtIMKgIMKgIMKgIMKgIMKgICJHZXR0aW5nIHNw
+dXIgaWR4ICVkIGlzMkdoei4gJWQgdmFsICV4XG4iLAo+PiA+ICsgwqAgwqAgwqAgwqAgwqAgIkdl
+dHRpbmcgc3B1ciBpZHg6JWQgaXMyR2h6OiVkIHZhbDoleFxuIiwKPj4gPiDCoCDCoCDCoCDCoCDC
+oCDCoCBpLCBpczJHSHosIGFoLT5jb25maWcuc3B1cmNoYW5zW2ldW2lzMkdIel0pOwo+Pgo+PiBJ
+cyB0aGlzIHNob3J0IGZvciAic3B1cmlvdXMiID8KPgo+IExpa2VseS4gwqBBbnlvbmUgd2FudCB0
+byBjaGFuZ2UgaXQgdG8gYSB3aG9sZSB3b3JkPwo+Cj4KCk5vcGUgaXQgc3RhbmRzIGZvciBzcHVy
+IG5vaXNlIChoYXJtb25pY3MpCmh0dHA6Ly93d3cucGF0ZW50Z2VuaXVzLmNvbS9wYXRlbnQvNzgz
+NTQ1Ni5odG1sCgooSSBoYXZlIHRvIGFkZCB0aGF0IGxpbmsgdG8gdGhlIGNvbW1lbnRzLCBpdCdz
+IG5ldyA7LSkpCgotLSAKR1BHIElEOiAweEQyMURCMkRCCkFzIHlvdSByZWFkIHRoaXMgcG9zdCBn
+bG9iYWwgZW50cm9weSByaXNlcy4gSGF2ZSBGdW4gOy0pCk5pY2sKX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX18KYXRoOWstZGV2ZWwgbWFpbGluZyBsaXN0CmF0
+aDlrLWRldmVsQGxpc3RzLmF0aDlrLm9yZwpodHRwczovL2xpc3RzLmF0aDlrLm9yZy9tYWlsbWFu
+L2xpc3RpbmZvL2F0aDlrLWRldmVsCg==
