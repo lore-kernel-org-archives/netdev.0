@@ -1,55 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] fix hang in dmfe driver on sending of big packet
- (linux-2.6.35)
-Date: Thu, 02 Dec 2010 13:24:47 -0800 (PST)
-Message-ID: <20101202.132447.232754988.davem@davemloft.net>
-References: <20101130134626.GA1856@lw.yar.ru>
-	<1291125459.2904.75.camel@edumazet-laptop>
+Subject: Re: [PATCH v2 1/4] net: snmp: fix the wrong ICMP_MIB_MAX value
+Date: Thu, 02 Dec 2010 13:27:57 -0800 (PST)
+Message-ID: <20101202.132757.229744703.davem@davemloft.net>
+References: <4CF71ADB.5060702@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: lav@netis.ru, netdev@vger.kernel.org, tori@unhappy.mine.nu
-To: eric.dumazet@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: shanwei@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35086
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45230
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758115Ab0LBVYV convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Dec 2010 16:24:21 -0500
-In-Reply-To: <1291125459.2904.75.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1757995Ab0LBV1a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Dec 2010 16:27:30 -0500
+In-Reply-To: <4CF71ADB.5060702@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 30 Nov 2010 14:57:39 +0100
+From: Shan Wei <shanwei@cn.fujitsu.com>
+Date: Thu, 02 Dec 2010 12:04:43 +0800
 
-> From: Alexander V. Lukyanov <lav@netis.ru>
->=20
-> Le mardi 30 novembre 2010 =E0 16:46 +0300, Alexander V. Lukyanov a =E9=
-crit :
->> Hello!
->>=20
->> This patch fixes hang in dmfe driver on attempt of sending a big pac=
-ket.
->> Without this patch the code stops the queue and never wakes it again=
-=2E
->>=20
->> Signed-off-by: Alexander V. Lukyanov <lav@netis.ru>
->>=20
->=20
-> Nice catch, but your patch is not a "diff -p1" one
->=20
-> I did it for net-2.6 tree :
->=20
-> Thanks
->=20
-> [PATCH] tulip: fix hang in dmfe driver on sending of big packet
->=20
-> This patch fixes hang in dmfe driver on attempt of sending a big pack=
-et.
-> Without this patch the code stops the queue and never wakes it again.
->=20
-> Signed-off-by: Alexander V. Lukyanov <lav@netis.ru>
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+> __ICMP_MIB_MAX is equal to the total number of icmp mib,
+> So no need to add 1. This wastes 4/8 bytes memory.
+> 
+> Change it to be same as ICMP6_MIB_MAX, TCP_MIB_MAX, UDP_MIB_MAX.
+> 
+> 
+> Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
 
 Applied.
