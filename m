@@ -1,52 +1,95 @@
-From: Tobias Klauser <tklauser@distanz.ch>
-Subject: [PATCH] net: am79c961a: Omit private ndo_get_stats function
-Date: Thu,  2 Dec 2010 18:20:05 +0100
-Message-ID: <1291310405-5759-1-git-send-email-tklauser@distanz.ch>
-To: Russell King <linux@arm.linux.org.uk>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
+Subject: RE: [net-next-2.6 PATCH] ixgbe: fix for link failure on SFP+ DA
+ cables
+Date: Thu, 2 Dec 2010 09:28:18 -0800
+Message-ID: <29F4ED941D916B48B88B4D2A4F3D1B9C01CC187446@orsmsx509.amr.corp.intel.com>
+References: <20101202065921.13413.91380.stgit@localhost.localdomain>
+ <1291275701.1761.40.camel@Joe-Laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"bphilips@novell.com" <bphilips@novell.com>
+To: Joe Perches <joe@perches.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.zhaw.ch ([160.85.104.50]:56719 "EHLO mx1.zhaw.ch"
+Received: from mga01.intel.com ([192.55.52.88]:23818 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757413Ab0LBR2L (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Dec 2010 12:28:11 -0500
+	id S1752830Ab0LBR2b convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Dec 2010 12:28:31 -0500
+In-Reply-To: <1291275701.1761.40.camel@Joe-Laptop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-am79c961_getstats() just returns dev->stats so we can leave it out
-alltogether and let dev_get_stats() do the job.
 
-Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
----
- drivers/net/arm/am79c961a.c |    9 ---------
- 1 files changed, 0 insertions(+), 9 deletions(-)
+>-----Original Message-----
+>From: Joe Perches [mailto:joe@perches.com]
+>Sent: Wednesday, December 01, 2010 11:42 PM
+>To: Kirsher, Jeffrey T
+>Cc: davem@davemloft.net; netdev@vger.kernel.org; gospo@redhat.com;
+>bphilips@novell.com; Skidmore, Donald C
+>Subject: Re: [net-next-2.6 PATCH] ixgbe: fix for link failure on SFP+ DA
+>cables
+>
+>On Wed, 2010-12-01 at 22:59 -0800, Jeff Kirsher wrote:
+>> This patch helps prevent FW/SW semaphore collision from leading
+>> to link establishment failure.  The collision might mess up the
+>> PHY registers so we reset the PHY.  However there are SFI/KR areas
+>> in the PHY that are not reset with a Reset_AN so we need to change
+>> LMS to reset it.  Also wait until AN state machine is AN_GOOD
+>[]
+>>  drivers/net/ixgbe/ixgbe_82599.c |   28 +++++++++++++++++++++++++---
+>> diff --git a/drivers/net/ixgbe/ixgbe_82599.c
+>b/drivers/net/ixgbe/ixgbe_82599.c
+>[]
+>> @@ -116,14 +118,34 @@ static s32 ixgbe_setup_sfp_modules_82599(struct
+>ixgbe_hw *hw)
+>>  			IXGBE_WRITE_FLUSH(hw);
+>>  			hw->eeprom.ops.read(hw, ++data_offset, &data_value);
+>>  		}
+>> -		/* Now restart DSP by setting Restart_AN */
+>> -		IXGBE_WRITE_REG(hw, IXGBE_AUTOC,
+>> -		    (IXGBE_READ_REG(hw, IXGBE_AUTOC) |
+>IXGBE_AUTOC_AN_RESTART));
+>>
+>>  		/* Release the semaphore */
+>>  		ixgbe_release_swfw_sync(hw, IXGBE_GSSR_MAC_CSR_SM);
+>>  		/* Delay obtaining semaphore again to allow FW access */
+>>  		msleep(hw->eeprom.semaphore_delay);
+>
+>might these msleeps be usleep_range?
+>
+>[]
+>
+>> +		/* Wait for AN to leave state 0 */
+>> +		for (i = 0; i < 10; i++) {
+>> +			msleep(4);
+>
+>Perhaps usleep_range?
+>
+>Maybe all the msleep uses < 20ms in the intel drivers?
+>
+>$ grep -nPr --include=*.[ch] "msleep\s*\(\s*1?\d\s*\)" drivers/net/ig*
+>drivers/net/ixg* drivers/net/e100* | wc -l
+>123
+>
+>Maybe something like doubling the sleep value
+>for the upper bound range?
+>
+>Here's a little script that does that.
+>
+>$ grep -nPrl --include=*.[ch] "msleep\s*\(\s*1?\d\s*\)" \
+>	drivers/net/ig* drivers/net/ixg* drivers/net/e100* | \
+>xargs perl -p -i -e 's/msleep\s*\(\s*(1?\d)\s*\)/"usleep_range\(${1}000, "
+>. scalar($1) * 2 . "000\)"/ge'
+>
 
-diff --git a/drivers/net/arm/am79c961a.c b/drivers/net/arm/am79c961a.c
-index 62f2110..0c9217f 100644
---- a/drivers/net/arm/am79c961a.c
-+++ b/drivers/net/arm/am79c961a.c
-@@ -340,14 +340,6 @@ am79c961_close(struct net_device *dev)
- 	return 0;
- }
- 
--/*
-- * Get the current statistics.
-- */
--static struct net_device_stats *am79c961_getstats (struct net_device *dev)
--{
--	return &dev->stats;
--}
--
- static void am79c961_mc_hash(char *addr, unsigned short *hash)
- {
- 	if (addr[0] & 0x01) {
-@@ -665,7 +657,6 @@ static const struct net_device_ops am79c961_netdev_ops = {
- 	.ndo_open		= am79c961_open,
- 	.ndo_stop		= am79c961_close,
- 	.ndo_start_xmit		= am79c961_sendpacket,
--	.ndo_get_stats		= am79c961_getstats,
- 	.ndo_set_multicast_list	= am79c961_setmulticastlist,
- 	.ndo_tx_timeout		= am79c961_timeout,
- 	.ndo_validate_addr	= eth_validate_addr,
--- 
-1.7.0.4
+Good point about the msleeps.  We do have a plan to change all the <20 ones to usleep_range I just haven't gotten around to make the patch yet.  I just wasn't positive on what our upper range would need to be for each case and wanted to look at each individually to make sure.  Your suggestion may well end up being what we end up trying (doubling the upper bound). :)
 
+I kept msleeps in this patch as I wanted to be consistent when doing the usleep_range changeover and the longer delay really doesn't hurt here as the sleep value is really only the minimum needed.  I do promises that the other patch is coming soon. :)
+
+Thanks,
+-Don
