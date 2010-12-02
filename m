@@ -1,59 +1,68 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH net-next-2.6] filter: add a security check at install time
-Date: Thu, 2 Dec 2010 18:10:05 +0800
-Message-ID: <AANLkTikkeQNzTMs_AifJFFU3oEKAmMBaCO9PCRWLRTSo@mail.gmail.com>
-References: <1291227893.2856.1039.camel@edumazet-laptop> <20101201.104450.183053379.davem@davemloft.net>
- <1291232937.2856.1042.camel@edumazet-laptop> <20101201.122312.229751364.davem@davemloft.net>
- <1291236342.2856.1057.camel@edumazet-laptop> <AANLkTikK=dy6U0QBjkJxZXeqYXVHwZqjmRhnmYBH-22r@mail.gmail.com>
- <1291272384.2856.1074.camel@edumazet-laptop> <AANLkTim8+9AA61HwcCQp3p7cSjzaTqerdd4Wtm-28kAt@mail.gmail.com>
- <1291280000.2871.16.camel@edumazet-laptop> <1291280402.2871.20.camel@edumazet-laptop>
- <AANLkTikQOY7Nh7XOFT9wXDYpn1faVS9xH2Y-x67hiu7S@mail.gmail.com> <1291283693.2871.48.camel@edumazet-laptop>
+From: Thomas Graf <tgraf@infradead.org>
+Subject: Re: [RFC PATCH v2 2/3] netlink: implement nla_policy for HW QOS
+Date: Thu, 2 Dec 2010 05:20:37 -0500
+Message-ID: <20101202102037.GB10221@canuck.infradead.org>
+References: <20101201182252.2748.15208.stgit@jf-dev1-dcblab>
+ <20101201182258.2748.99569.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, hagen@jauu.net,
-	wirelesser@gmail.com, netdev@vger.kernel.org,
-	Dan Rosenberg <drosenberg@vsecurity.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:44461 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754249Ab0LBKK1 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Dec 2010 05:10:27 -0500
-Received: by fxm20 with SMTP id 20so962219fxm.19
-        for <netdev@vger.kernel.org>; Thu, 02 Dec 2010 02:10:26 -0800 (PST)
-In-Reply-To: <1291283693.2871.48.camel@edumazet-laptop>
+Received: from canuck.infradead.org ([134.117.69.58]:56102 "EHLO
+	canuck.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751043Ab0LBKUj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Dec 2010 05:20:39 -0500
+Content-Disposition: inline
+In-Reply-To: <20101201182258.2748.99569.stgit@jf-dev1-dcblab>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 2, 2010 at 5:54 PM, Eric Dumazet <eric.dumazet@gmail.com> w=
-rote:
-> Le jeudi 02 d=E9cembre 2010 =E0 17:10 +0800, Changli Gao a =E9crit :
->>
->> Oops. We were wrong. The RAM of BPF machine is initialized to 0. So
->> loading from a cell, in which no value is stored before, is valid. S=
-o
->> we can't prevent the following instructions.
->>
->
-> It was not 'initialized to 0', thats the point of previous patches.
->
+On Wed, Dec 01, 2010 at 10:22:58AM -0800, John Fastabend wrote:
+> +
+> +		NLA_PUT_U8(skb, IFLA_TC_TXMAX, dev->max_tcs);
+> +		NLA_PUT_U8(skb, IFLA_TC_TXNUM, dev->num_tcs);
+> +
+> +		tc_txq = nla_nest_start(skb, IFLA_TC_TXQS);
 
-I checked the implementation of bpf in FreeBSD, and found RAM isn't
-initialized to 0. Then it could not be a common 'feature', and no
-application relies on it. Maybe we can drop this 'feature' added by
-accident, and break the 'ABI'.
+You have to check the return value here.
 
-Now, I agree with you totally. Thank for your explaining..
+> +		for (i = 0; i < dev->num_tcs; i++) {
+> +			tcq = netdev_get_tc_queue(dev, i);
+> +			ifla_tcq.tc = i;
+> +			ifla_tcq.count = tcq->count;
+> +			ifla_tcq.offset = tcq->offset;
+> +
+> +			NLA_PUT(skb, IFLA_TC_TXQ, sizeof(ifla_tcq), &ifla_tcq);
+> +		}
+> +		nla_nest_end(skb, tc_txq);
+> +
+> +		tc_map = nla_nest_start(skb, IFLA_TC_MAPS);
 
-Acked-by: Changli Gao <xiaosuo@gmail.com>
+Same here
 
->
-> (By the way, I believe FreeBSD has the security problem Dan reported =
-to us)
+> +		for (i = 0; i < 16; i++) {
+> +			ifla_map.prio = i;
+> +			ifla_map.tc = netdev_get_prio_tc_map(dev, i);
+> +			NLA_PUT(skb, IFLA_TC_MAP, sizeof(ifla_map), &ifla_map);
+> +		}
+>  
+> +
+> +static const struct nla_policy ifla_tc_txq[IFLA_TC_TXQS_MAX+1] = {
+> +	[IFLA_TC_TXQ]		= { .type = NLA_BINARY,
+> +				    .len = sizeof(struct ifla_tc_txq)},
 
-Yes. it doesn't do this check.
+This is probably not what you want. NLA_BINARY only enforces a maximum
+payload length but no minimum payload length.
 
---=20
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+Omit the .type and let it fall back to NLA_UNSPEC and only specify a
+.len. This enforces that the attribute payload is at least .len in
+length. You should not worry about payload that exceeds your size
+expectations. This allows to extend ifla_tc_txq in the future.
+
+> +static const struct nla_policy ifla_tc_map[IFLA_TC_MAPS_MAX+1] = {
+> +	[IFLA_TC_MAP]		= { .type = NLA_BINARY,
+> +				    .len = sizeof(struct ifla_tc_map)},
+> +};
+
+Same here
