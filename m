@@ -1,57 +1,42 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [RFC PATCH v1] iproute2: add IFLA_TC support to 'ip link'
-Date: Thu, 02 Dec 2010 05:40:28 -0500
-Message-ID: <1291286428.2183.494.camel@mojatatu>
-References: <20101201182758.3297.34345.stgit@jf-dev1-dcblab>
-Reply-To: hadi@cyberus.ca
+From: Thomas Graf <tgraf@infradead.org>
+Subject: Re: [PATCH v2 1/4] net: snmp: fix the wrong ICMP_MIB_MAX value
+Date: Thu, 2 Dec 2010 05:42:00 -0500
+Message-ID: <20101202104200.GD10221@canuck.infradead.org>
+References: <4CF71ADB.5060702@cn.fujitsu.com>
+ <20101202095753.GA10221@canuck.infradead.org>
+ <4CF77686.5010305@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org, tgraf@infradead.org,
-	eric.dumazet@gmail.com, davem@davemloft.net
-To: John Fastabend <john.r.fastabend@intel.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Network-Maillist <netdev@vger.kernel.org>
+To: Shan Wei <shanwei@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f174.google.com ([209.85.213.174]:64261 "EHLO
-	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751043Ab0LBKko (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Dec 2010 05:40:44 -0500
-Received: by yxt3 with SMTP id 3so3485976yxt.19
-        for <netdev@vger.kernel.org>; Thu, 02 Dec 2010 02:40:44 -0800 (PST)
-In-Reply-To: <20101201182758.3297.34345.stgit@jf-dev1-dcblab>
+Received: from canuck.infradead.org ([134.117.69.58]:52070 "EHLO
+	canuck.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752838Ab0LBKmC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Dec 2010 05:42:02 -0500
+Content-Disposition: inline
+In-Reply-To: <4CF77686.5010305@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-12-01 at 10:27 -0800, John Fastabend wrote:
-> Add support to return IFLA_TC qos settings to the 'ip link'
-> command. The following sets the number of traffic classes
-> supported in HW and builds a priority map.
-> 
-> #ip link set eth3 tc num 8 map 0 1 2 3 4 5 6 7 0 0 0 0 0 0 0 0
-> 
-> With the output from 'ip link' showing maps for interfaces with
-> the ability to use HW traffic classes.
+On Thu, Dec 02, 2010 at 06:35:50PM +0800, Shan Wei wrote:
+> Thomas Graf wrote, at 12/02/2010 05:57 PM:
+> >>  /* ICMP */
+> >>  #define ICMP_MIB_DUMMY	__ICMP_MIB_MAX
+> >> -#define ICMP_MIB_MAX	(__ICMP_MIB_MAX + 1)
+> >> -
+> >> +#define ICMP_MIB_MAX	__ICMP_MIB_MAX
+> >=20
+> > Looks like the +1 is there to account for ICMP_MIB_DUMMY. It is
+> > unused though but you have to remove it as well if you want to
+> > kill that extra +1.
+>=20
+> I don't know the history about ICMP_MIB_DUMMY before v2.6.12-rc2.=20
+> But after that, it is abandoned.
+>=20
+> ICMP_MIB_DUMMY is killed in patch:
+> =EF=BC=BBPATCH v2 4/4] net: kill unused macros from head file
 
-2 comments apply to the kernel patches as well - but easier to point
-out here.
-
-1) IMO, this looks like the wrong interface to use. 
-Was there any reason not to use tc and instead having it show
-itself embedded within "ip" abstraction? 
-Example, this would suit your intent:
-tc qdisc add dev eth3 hware-kinda-8021q-sched num 8 map blah bleh
-
-You can then modify individual classes of traffic with "tc class".
-
-[There are plenty of other chips (switching chips for example) that
-implement a variety different hardware schedulers, hence the
-"hardware-kinda-8021q-sched" above]
-
-2) How does this mapping in hardware correlate to the software side
-mapping? When packets of class X make it off the hardware and hit
-the stack are they still going to get the same treatment as they
-would have in h/ware?
-
-
-cheers,
-jamal
-
+OK, fair enough. Wasn't obvious while reviewing this patch.
