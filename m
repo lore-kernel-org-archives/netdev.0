@@ -1,57 +1,37 @@
 From: Cong Wang <amwang@redhat.com>
-Subject: Re: [Patch] net: kill an RCU warning in inet_fill_link_af()
-Date: Thu, 02 Dec 2010 11:14:02 +0800
-Message-ID: <4CF70EFA.2070504@redhat.com>
-References: <1291202063-6239-1-git-send-email-amwang@redhat.com> <1291219386.2856.924.camel@edumazet-laptop>
+Subject: Re: [Patch] bonding: clean up netpoll code
+Date: Thu, 02 Dec 2010 11:14:57 +0800
+Message-ID: <4CF70F31.5030204@redhat.com>
+References: <20101201075043.5741.29172.sendpatchset@localhost.localdomain> <20101201081457.23102445@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org,
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, Jiri Pirko <jpirko@redhat.com>,
+	Neil Horman <nhorman@redhat.com>, netdev@vger.kernel.org,
 	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	Thomas Graf <tgraf@infradead.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1291219386.2856.924.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Herbert Xu <herbert@gondor.hengli.com.au>,
+	bonding-devel@lists.sourceforge.net,
+	Jay Vosburgh <fubar@us.ibm.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:28842 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756773Ab0LBDKR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Dec 2010 22:10:17 -0500
+In-Reply-To: <20101201081457.23102445@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/02/10 00:03, Eric Dumazet wrote:
-> Le mercredi 01 d=C3=A9cembre 2010 =C3=A0 19:14 +0800, Amerigo Wang a =
-=C3=A9crit :
->> From: WANG Cong<amwang@redhat.com>
->>
->> The latest net-next-2.6 triggers an RCU warning during boot,
->> lockdep complains that in inet_fill_link_af() we call rcu_dereferenc=
-e_check()
->> without rcu_read_lock() protection.
->>
->> This patch fixes it by replacing __in_dev_get_rcu() with in_dev_get(=
-).
+On 12/02/10 00:14, Stephen Hemminger wrote:
+> On Wed, 1 Dec 2010 02:45:45 -0500
+> Amerigo Wang<amwang@redhat.com>  wrote:
 >
-> Here is a better version, thanks a lot for your report and initial
-> patch.
+>> +	if ((slave_dev->npinfo = bond_netpoll_info(bond))) {
 >
->
-> [PATCH net-next-2.6] net: kill an RCU warning in inet_fill_link_af()
->
-> commits 9f0f7272 (ipv4: AF_INET link address family) and cf7afbfeb8c
-> (rtnl: make link af-specific updates atomic) used incorrect
-> __in_dev_get_rcu() in RTNL protected contexts, triggering PROVE_RCU
-> warnings.
->
-> Switch to __in_dev_get_rtnl(), wich is more appropriate, since we hol=
-d
-> RTNL.
->
-> Based on a report and initial patch from Amerigo Wang.
+> Split assignment and conditional into two lines
 >
 
-Alright, thanks for fixing it.
+Ok, will change this in the next update.
 
-Reviewed-by: WANG Cong <amwang@redhat.com>
+Thanks!
