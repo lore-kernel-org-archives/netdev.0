@@ -1,47 +1,59 @@
-From: Thomas Graf <tgraf@infradead.org>
-Subject: Re: [PATCH v2 1/4] net: snmp: fix the wrong ICMP_MIB_MAX value
-Date: Thu, 2 Dec 2010 04:57:53 -0500
-Message-ID: <20101202095753.GA10221@canuck.infradead.org>
-References: <4CF71ADB.5060702@cn.fujitsu.com>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH net-next-2.6] filter: add a security check at install time
+Date: Thu, 2 Dec 2010 18:10:05 +0800
+Message-ID: <AANLkTikkeQNzTMs_AifJFFU3oEKAmMBaCO9PCRWLRTSo@mail.gmail.com>
+References: <1291227893.2856.1039.camel@edumazet-laptop> <20101201.104450.183053379.davem@davemloft.net>
+ <1291232937.2856.1042.camel@edumazet-laptop> <20101201.122312.229751364.davem@davemloft.net>
+ <1291236342.2856.1057.camel@edumazet-laptop> <AANLkTikK=dy6U0QBjkJxZXeqYXVHwZqjmRhnmYBH-22r@mail.gmail.com>
+ <1291272384.2856.1074.camel@edumazet-laptop> <AANLkTim8+9AA61HwcCQp3p7cSjzaTqerdd4Wtm-28kAt@mail.gmail.com>
+ <1291280000.2871.16.camel@edumazet-laptop> <1291280402.2871.20.camel@edumazet-laptop>
+ <AANLkTikQOY7Nh7XOFT9wXDYpn1faVS9xH2Y-x67hiu7S@mail.gmail.com> <1291283693.2871.48.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Network-Maillist <netdev@vger.kernel.org>
-To: Shan Wei <shanwei@cn.fujitsu.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, hagen@jauu.net,
+	wirelesser@gmail.com, netdev@vger.kernel.org,
+	Dan Rosenberg <drosenberg@vsecurity.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canuck.infradead.org ([134.117.69.58]:37208 "EHLO
-	canuck.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752459Ab0LBJ57 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Dec 2010 04:57:59 -0500
-Content-Disposition: inline
-In-Reply-To: <4CF71ADB.5060702@cn.fujitsu.com>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:44461 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754249Ab0LBKK1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Dec 2010 05:10:27 -0500
+Received: by fxm20 with SMTP id 20so962219fxm.19
+        for <netdev@vger.kernel.org>; Thu, 02 Dec 2010 02:10:26 -0800 (PST)
+In-Reply-To: <1291283693.2871.48.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 02, 2010 at 12:04:43PM +0800, Shan Wei wrote:
-> __ICMP_MIB_MAX is equal to the total number of icmp mib,
-> So no need to add 1. This wastes 4/8 bytes memory.
-> 
-> Change it to be same as ICMP6_MIB_MAX, TCP_MIB_MAX, UDP_MIB_MAX.
-> 
-> 
-> Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
-> ---
->  include/net/snmp.h |    3 +--
->  1 files changed, 1 insertions(+), 2 deletions(-)
-> 
-> diff --git a/include/net/snmp.h b/include/net/snmp.h
-> index a0e6180..aebb553 100644
-> --- a/include/net/snmp.h
-> +++ b/include/net/snmp.h
-> @@ -61,8 +61,7 @@ struct ipstats_mib {
->  
->  /* ICMP */
->  #define ICMP_MIB_DUMMY	__ICMP_MIB_MAX
-> -#define ICMP_MIB_MAX	(__ICMP_MIB_MAX + 1)
-> -
-> +#define ICMP_MIB_MAX	__ICMP_MIB_MAX
+On Thu, Dec 2, 2010 at 5:54 PM, Eric Dumazet <eric.dumazet@gmail.com> w=
+rote:
+> Le jeudi 02 d=E9cembre 2010 =E0 17:10 +0800, Changli Gao a =E9crit :
+>>
+>> Oops. We were wrong. The RAM of BPF machine is initialized to 0. So
+>> loading from a cell, in which no value is stored before, is valid. S=
+o
+>> we can't prevent the following instructions.
+>>
+>
+> It was not 'initialized to 0', thats the point of previous patches.
+>
 
-Looks like the +1 is there to account for ICMP_MIB_DUMMY. It is
-unused though but you have to remove it as well if you want to
-kill that extra +1.
+I checked the implementation of bpf in FreeBSD, and found RAM isn't
+initialized to 0. Then it could not be a common 'feature', and no
+application relies on it. Maybe we can drop this 'feature' added by
+accident, and break the 'ABI'.
+
+Now, I agree with you totally. Thank for your explaining..
+
+Acked-by: Changli Gao <xiaosuo@gmail.com>
+
+>
+> (By the way, I believe FreeBSD has the security problem Dan reported =
+to us)
+
+Yes. it doesn't do this check.
+
+--=20
+Regards,
+Changli Gao(xiaosuo@gmail.com)
