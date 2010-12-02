@@ -1,45 +1,74 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: bridge netpoll support: mismatch between net core and bridge
- headers
-Date: Thu, 02 Dec 2010 09:51:35 -0800 (PST)
-Message-ID: <20101202.095135.226774598.davem@davemloft.net>
-References: <AANLkTi=hq6S_NvPEkTovkceUe9Orcitj_oHN1mVUW7+A@mail.gmail.com>
-	<20101201.163319.193705748.davem@davemloft.net>
-	<AANLkTimO79DLyCb5vXQ04keX6Mjwv32wNQLRZcfyPNF2@mail.gmail.com>
+From: John Heffner <johnwheffner@gmail.com>
+Subject: Re: TCP: big bursts due to undos resulting from reordering
+Date: Thu, 2 Dec 2010 12:55:48 -0500
+Message-ID: <AANLkTi=ptmSAAjiwmFyYx3QmcSXz2aZ7vn_Vf8+cLKW3@mail.gmail.com>
+References: <4CF7BCF1.7000505@nets.rwth-aachen.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: vapier.adi@gmail.com
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	=?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+To: Lennart Schulte <lennart.schulte@nets.rwth-aachen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38651
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753044Ab0LBRvJ convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Dec 2010 12:51:09 -0500
-In-Reply-To: <AANLkTimO79DLyCb5vXQ04keX6Mjwv32wNQLRZcfyPNF2@mail.gmail.com>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:45538 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757971Ab0LBRzu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Dec 2010 12:55:50 -0500
+Received: by eye27 with SMTP id 27so4448657eye.19
+        for <netdev@vger.kernel.org>; Thu, 02 Dec 2010 09:55:48 -0800 (PST)
+In-Reply-To: <4CF7BCF1.7000505@nets.rwth-aachen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Mike Frysinger <vapier.adi@gmail.com>
-Date: Thu, 2 Dec 2010 03:29:17 -0500
+Do you have some tests showing that the larger busts hurt?  The
+problem that occurred, prior to this patch, was that cwnd was not able
+to effectively grow under persistent reordering.
 
-> On Wed, Dec 1, 2010 at 19:33, David Miller wrote:
->> Attached. =A0Also please provide one of the failing ".config" files,
->> and please test if simply going "make oldconfig" unbreaks things.
->> It may be that randconfig allows configurations that the config
->> system normally does not allow.
->=20
-> hrm, so your patch does fix things.  the downside is that it might be
-> caused by kgdboe (which isnt in mainline yet).  that's the only
-> randconfig i can find so far to cause the issue.
+You can see my justification for using the reordering threshold in the
+archives here: <http://marc.info/?l=linux-netdev&m=120835698002118&w=2>.
 
-If that's the case you just need to check and make sure that kgdboe
-handles dependencies properly in it's Kconfig changes.
+Thanks,
+  -John
 
-I suspect that simply adding kgdboe as a new "or" case to the
-"def_bool" statement of NETPOLL in driver/net/Kconfig will fix the
-problem.
 
-If kgdboe is using "select" to handle these dependencies, that's the
-bug.
+On Thu, Dec 2, 2010 at 10:36 AM, Lennart Schulte
+<lennart.schulte@nets.rwth-aachen.de> wrote:
+> Hi John, hi Ilpo,
+>
+> at the moment I look on many TCP plots with reordering. When reordering
+> occurs there are some spurious retransmissions which are later undone by
+> e.g. DSACKs. This undo results in a very big burst of packets when
+> tp->reordering is high, since the function tcp_max_burst() returns
+> tp->reordering.
+>
+> This behavior was introduced because of a bug when using SACK instead of
+> Reno. The thread concerning this fix can be found at [1].
+>
+> Before the patch, which results from this thread, Linux has done a burst
+> of 3 packets and then slow started to the undone ssthresh value, which
+> is a much better way of handling an undo then it is after the patch.
+>
+> Also I patched a kernel to use the old max_burst value of 3 again to see
+> if it has any effect. Then I set up some virtual nodes and emulated a
+> network with netem as it was done in the thread.
+> The settings are:
+> - RTT 40ms
+> - no congestion, application sending rate 20 Mbps
+> - forward path: reordering rate 20%, reordering delay 20ms
+> - timestamps on
+>
+> Until now I have not found any evidence that the problem occurs (perhaps
+> because I don't get the settings right, since in the thread there is no
+> information concerning the settings for reordering and also the ones of
+> the sysctls).
+>
+> My problem is to understand why the patch was necessary and under what
+> circumstances SACK has a lower throughput so that it may be possible for
+> me to find another way of fixing this without introducing and old bug.
+> Since I can't figure it out on my own I hope to get some insights this
+> way :)
+>
+> Thanks,
+> Lennart Schulte
+>
+> [1] http://marc.info/?t=120728958000004&r=2&w=2
+>
