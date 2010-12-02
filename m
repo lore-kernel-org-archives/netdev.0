@@ -1,8 +1,8 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH net-next-2.6] filter: add a security check at install
  time
-Date: Thu, 02 Dec 2010 09:53:20 +0100
-Message-ID: <1291280000.2871.16.camel@edumazet-laptop>
+Date: Thu, 02 Dec 2010 10:00:02 +0100
+Message-ID: <1291280402.2871.20.camel@edumazet-laptop>
 References: <1291227893.2856.1039.camel@edumazet-laptop>
 	 <20101201.104450.183053379.davem@davemloft.net>
 	 <1291232937.2856.1042.camel@edumazet-laptop>
@@ -11,6 +11,7 @@ References: <1291227893.2856.1039.camel@edumazet-laptop>
 	 <AANLkTikK=dy6U0QBjkJxZXeqYXVHwZqjmRhnmYBH-22r@mail.gmail.com>
 	 <1291272384.2856.1074.camel@edumazet-laptop>
 	 <AANLkTim8+9AA61HwcCQp3p7cSjzaTqerdd4Wtm-28kAt@mail.gmail.com>
+	 <1291280000.2871.16.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -19,35 +20,45 @@ Cc: David Miller <davem@davemloft.net>, hagen@jauu.net,
 	Dan Rosenberg <drosenberg@vsecurity.com>
 To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:61410 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751823Ab0LBIxZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Dec 2010 03:53:25 -0500
-Received: by wwa36 with SMTP id 36so8449078wwa.1
-        for <netdev@vger.kernel.org>; Thu, 02 Dec 2010 00:53:24 -0800 (PST)
-In-Reply-To: <AANLkTim8+9AA61HwcCQp3p7cSjzaTqerdd4Wtm-28kAt@mail.gmail.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:35097 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751823Ab0LBJAH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Dec 2010 04:00:07 -0500
+Received: by wyb28 with SMTP id 28so7943277wyb.19
+        for <netdev@vger.kernel.org>; Thu, 02 Dec 2010 01:00:05 -0800 (PST)
+In-Reply-To: <1291280000.2871.16.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 02 d=C3=A9cembre 2010 =C3=A0 16:11 +0800, Changli Gao a =C3=A9=
+Le jeudi 02 d=C3=A9cembre 2010 =C3=A0 09:53 +0100, Eric Dumazet a =C3=A9=
 crit :
-
-> It seems correct to me now.
+> Le jeudi 02 d=C3=A9cembre 2010 =C3=A0 16:11 +0800, Changli Gao a =C3=A9=
+crit :
 >=20
-> Acked-by: Changli Gao <xiaosuo@gmail.com>
+> > It seems correct to me now.
+> >=20
+> > Acked-by: Changli Gao <xiaosuo@gmail.com>
+> >=20
 >=20
+> Thanks for reviewing Changli.
+>=20
+> Now I am thinking about not denying the filter installation, but chan=
+ge
+> the problematic LOAD M(1)  and LOADX M(1)  by LOADI #0 (BPF_S_LD_IMM
+> K=3D0) and LOADIX #0 (BPF_S_LDX_IMM K=3D0)
+>=20
+> (ie pretend the value of memory is 0, not a random value taken from
+> stack)
+>=20
+>=20
+> [PATCH v3 net-next-2.6] filter: add a security check at install time
 
-Thanks for reviewing Changli.
+Doh, I sent a version with old (V1) check_load_and_stores() name, here
+is a V4 with shorter name check_loads() as mentioned in changelog.
 
-Now I am thinking about not denying the filter installation, but change
-the problematic LOAD M(1)  and LOADX M(1)  by LOADI #0 (BPF_S_LD_IMM
-K=3D0) and LOADIX #0 (BPF_S_LDX_IMM K=3D0)
+Sorry for the mess.
 
-(ie pretend the value of memory is 0, not a random value taken from
-stack)
-
-
-[PATCH v3 net-next-2.6] filter: add a security check at install time
+[PATCH v4 net-next-2.6] filter: add a security check at install time
 
 We added some security checks in commit 57fe93b374a6
 (filter: make sure filters dont read uninitialized memory) to close a
@@ -70,6 +81,7 @@ Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 Cc: Dan Rosenberg <drosenberg@vsecurity.com>
 Cc: Changli Gao <xiaosuo@gmail.com>
 ---
+v4: really use check_loads(), not check_load_and_stores()
 v3: replace problematic loads M(K) by load of immediate 0 value,
     dont report an error to user.
 v2: set memvalid to ~0 on JMP instructions
@@ -78,7 +90,7 @@ v2: set memvalid to ~0 on JMP instructions
  1 file changed, 69 insertions(+), 9 deletions(-)
 
 diff --git a/net/core/filter.c b/net/core/filter.c
-index a44d27f..4456a6c 100644
+index a44d27f..2bd7dbc 100644
 --- a/net/core/filter.c
 +++ b/net/core/filter.c
 @@ -166,11 +166,9 @@ unsigned int sk_run_filter(struct sk_buff *skb, co=
@@ -139,7 +151,7 @@ ure
 + * If such malicious (or buggy) read is detected, its replaced by a
 + * load of immediate zero value.
 + */
-+static int check_load_and_stores(struct sock_filter *filter, int flen)
++static int check_loads(struct sock_filter *filter, int flen)
 +{
 +	u16 *masks, memvalid =3D 0; /* one bit per cell, 16 cells */
 +	int pc;
@@ -203,7 +215,7 @@ len)
  	case BPF_S_RET_K:
  	case BPF_S_RET_A:
 -		return 0;
-+		return check_load_and_stores(filter, flen);
++		return check_loads(filter, flen);
  	}
  	return -EINVAL;
  }
