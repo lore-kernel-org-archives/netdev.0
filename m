@@ -1,63 +1,47 @@
-From: Shawn Bohrer <sbohrer@rgmadvisors.com>
-Subject: RFS configuration questions
-Date: Thu, 2 Dec 2010 15:16:02 -0600
-Message-ID: <20101202211602.GA2775@BohrerMBP.rgmadvisors.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6 v6 06/20] can: EG20T PCH: Fix endianness issue
+Date: Thu, 02 Dec 2010 13:17:28 -0800 (PST)
+Message-ID: <20101202.131728.245392719.davem@davemloft.net>
+References: <4CF47BAA.2090209@dsn.okisemi.com>
+	<20101202.131551.179934201.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: therbert@google.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog110.obsmtp.com ([74.125.149.203]:51373 "HELO
-	na3sys009aog110.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754095Ab0LBVQK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Dec 2010 16:16:10 -0500
-Received: by mail-vw0-f46.google.com with SMTP id 16so1379664vws.19
-        for <netdev@vger.kernel.org>; Thu, 02 Dec 2010 13:16:09 -0800 (PST)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
+	margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org, joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, chripell-VaTbYqLCNhc@public.gmane.org, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+To: tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <20101202.131551.179934201.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-I've been playing around with RPS/RFS on my multiqueue 10g Chelsio NIC
-and I've got some questions about configuring RFS.
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Date: Thu, 02 Dec 2010 13:15:51 -0800 (PST)
 
-I've enabled RPS with:
+> 
+> This patch and the rest I cannot apply because they have
+> dependencies upon patch #4 which I've stated is not
+> implemented correctly.
 
-for x in $(seq 0 7); do
-    echo FFFFFFFF,FFFFFFFF > /sys/class/net/vlan816/queues/rx-${x}/rps_cpus
-done
+Also please make sure that you add proper CONFIG_PM checks to your
+driver in order to fix these warnings:
 
-This appears to work when I watch 'mpstat -P ALL 1' as I can see the
-softirq load is now getting distributed across all of the CPUs instead
-of just the four (the card is a two port card and assigns four queues
-per port) original hw receive queues which I have bound to CPUs
-0-3.
+drivers/net/can/pch_can.c:249:13: warning: 'pch_can_set_int_custom' defined but not used
+drivers/net/can/pch_can.c:260:13: warning: 'pch_can_get_int_enables' defined but not used
+drivers/net/can/pch_can.c:363:12: warning: 'pch_can_get_rxtx_ir' defined but not used
+drivers/net/can/pch_can.c:393:13: warning: 'pch_can_set_rx_buffer_link' defined but not used
+drivers/net/can/pch_can.c:413:13: warning: 'pch_can_get_rx_buffer_link' defined but not used
 
-To enable RFS I've run:
-
-echo 16384 > /proc/sys/net/core/rps_sock_flow_entries
-
-Is there any explanation of what this sysctl actually does?  Is this
-the max number of sockets/flows that the kernel can steer?  Is this a
-system wide max, a per interface max, or a per receive queue max?
-
-Next I ran:
-
-for x in $(seq 0 7); do
-    echo 16384 > /sys/class/net/vlan816/queues/rx-${x}/rps_flow_cnt
-done
-
-Is this correct?  Is these the max number of sockets/flows that can be
-steered per receive queue?  Does the sum of these values need to add
-up to rps_sock_flow_entries (I also tried 2048)? Is this all that is
-needed to enable RFS?
-
-With these settings I can watch 'mpstat -P ALL 1' and it doesn't
-appear RFS has changed the softirq load.  To get a better idea if it
-was working I used taskset to bind my receiving processes to a set of
-cores, yet mpstat still shows the softirq load getting distributed
-across all cores, not just the ones where my receiving processes are
-bound.  Is there a better way to determine if RFS is actually working?
-Have I configured RFS incorrectly?
-
-Thanks,
-Shawn
+Thanks.
+d
