@@ -1,382 +1,176 @@
-From: Jon Mason <jon.mason@exar.com>
-Subject: Re: [PATCH v2] net: Fix too optimistic NETIF_F_HW_CSUM features
-Date: Wed, 1 Dec 2010 18:44:57 -0600
-Message-ID: <20101202004457.GE7200@exar.com>
-References: <20101130142352.3936.51663.stgit@rechot.qmqm.pl>
- <20101130163057.29978.92721.stgit@rechot.qmqm.pl>
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: [PATCH] ethtool : Allow ethtool to set interface in loopback mode.
+Date: Wed, 1 Dec 2010 16:57:02 -0800
+Message-ID: <AANLkTikxHDksqrvG4uNJ8JVY5AJgcftQy2F4ihJBV=TE@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Jesse Gross <jesse@nicira.com>,
-	Ramkrishna Vepa <Ramkrishna.Vepa@exar.com>,
-	Sivakumar Subramani <Sivakumar.Subramani@exar.com>,
-	Sreenivasa Honnur <Sreenivasa.Honnur@exar.com>
-To: =?utf-8?Q?Micha=C5=82Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Tom Herbert <therbert@google.com>,
+	David Miller <davem@davemloft.net>
+To: Ben Hutchings <bhutchings@solarflare.com>,
+	linux-netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.exar.com ([204.154.183.83]:57067 "EHLO smtp1.exar.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751660Ab0LBApA convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Dec 2010 19:45:00 -0500
-Content-Disposition: inline
-In-Reply-To: <20101130163057.29978.92721.stgit@rechot.qmqm.pl>
+Received: from smtp-out.google.com ([216.239.44.51]:37363 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755619Ab0LBA5G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Dec 2010 19:57:06 -0500
+Received: from kpbe19.cbf.corp.google.com (kpbe19.cbf.corp.google.com [172.25.105.83])
+	by smtp-out.google.com with ESMTP id oB20v5Yr004656
+	for <netdev@vger.kernel.org>; Wed, 1 Dec 2010 16:57:05 -0800
+Received: from bwz17 (bwz17.prod.google.com [10.188.26.17])
+	by kpbe19.cbf.corp.google.com with ESMTP id oB20v3dI016631
+	for <netdev@vger.kernel.org>; Wed, 1 Dec 2010 16:57:03 -0800
+Received: by bwz17 with SMTP id 17so6821793bwz.9
+        for <netdev@vger.kernel.org>; Wed, 01 Dec 2010 16:57:03 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 30, 2010 at 08:38:00AM -0800, Micha=C5=82Miros=C5=82aw wrot=
-e:
-> NETIF_F_HW_CSUM is a superset of NETIF_F_IP_CSUM+NETIF_F_IPV6_CSUM, b=
-ut
-> some drivers miss the difference. Fix this and also fix UFO dependenc=
-y
-> on checksumming offload as it makes the same mistake in assumptions.
->
-> Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
+This patch adds -L command-line option to enable/disable loopback mode
+and -l option to display current loopback mode on a give interface.
 
-The vxge sections look sane to me.
 
-Acked-by: Jon Mason <jon.mason@exar.com>
-> ---
->
-> Changes from v1:
-> - fixed compilation of jme driver
-> - enable vxge support for IPv6 checksum
-> ---
->  drivers/net/vxge/vxge-ethtool.c |    2 +-
->  drivers/net/vxge/vxge-main.c    |    2 +-
->  2 files changed, 2 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.=
-c
-> index 102567e..2754280 100644
-> --- a/drivers/net/benet/be_main.c
-> +++ b/drivers/net/benet/be_main.c
-> @@ -2583,10 +2583,12 @@ static void be_netdev_init(struct net_device =
-*netdev)
->       int i;
->
->       netdev->features |=3D NETIF_F_SG | NETIF_F_HW_VLAN_RX | NETIF_F=
-_TSO |
-> -             NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_FILTER | NETIF_F_H=
-W_CSUM |
-> +             NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_FILTER |
-> +             NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
->               NETIF_F_GRO | NETIF_F_TSO6;
->
-> -     netdev->vlan_features |=3D NETIF_F_SG | NETIF_F_TSO | NETIF_F_H=
-W_CSUM;
-> +     netdev->vlan_features |=3D NETIF_F_SG | NETIF_F_TSO |
-> +             NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
->
->       if (lancer_chip(adapter))
->               netdev->vlan_features |=3D NETIF_F_TSO6;
-> diff --git a/drivers/net/bnx2x/bnx2x_main.c b/drivers/net/bnx2x/bnx2x=
-_main.c
-> index f53edfd..40ce95a 100644
-> --- a/drivers/net/bnx2x/bnx2x_main.c
-> +++ b/drivers/net/bnx2x/bnx2x_main.c
-> @@ -8761,7 +8761,7 @@ static int __devinit bnx2x_init_dev(struct pci_=
-dev *pdev,
->       dev->netdev_ops =3D &bnx2x_netdev_ops;
->       bnx2x_set_ethtool_ops(dev);
->       dev->features |=3D NETIF_F_SG;
-> -     dev->features |=3D NETIF_F_HW_CSUM;
-> +     dev->features |=3D NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
->       if (bp->flags & USING_DAC_FLAG)
->               dev->features |=3D NETIF_F_HIGHDMA;
->       dev->features |=3D (NETIF_F_TSO | NETIF_F_TSO_ECN);
-> @@ -8769,7 +8769,7 @@ static int __devinit bnx2x_init_dev(struct pci_=
-dev *pdev,
->       dev->features |=3D (NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX);
->
->       dev->vlan_features |=3D NETIF_F_SG;
-> -     dev->vlan_features |=3D NETIF_F_HW_CSUM;
-> +     dev->vlan_features |=3D NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
->       if (bp->flags & USING_DAC_FLAG)
->               dev->vlan_features |=3D NETIF_F_HIGHDMA;
->       dev->vlan_features |=3D (NETIF_F_TSO | NETIF_F_TSO_ECN);
-> diff --git a/drivers/net/jme.c b/drivers/net/jme.c
-> index c57d9a4..2411e72 100644
-> --- a/drivers/net/jme.c
-> +++ b/drivers/net/jme.c
-> @@ -2076,12 +2076,11 @@ jme_change_mtu(struct net_device *netdev, int=
- new_mtu)
->       }
->
->       if (new_mtu > 1900) {
-> -             netdev->features &=3D ~(NETIF_F_HW_CSUM |
-> -                             NETIF_F_TSO |
-> -                             NETIF_F_TSO6);
-> +             netdev->features &=3D ~(NETIF_F_IP_CSUM | NETIF_F_IPV6_=
-CSUM |
-> +                             NETIF_F_TSO | NETIF_F_TSO6);
->       } else {
->               if (test_bit(JME_FLAG_TXCSUM, &jme->flags))
-> -                     netdev->features |=3D NETIF_F_HW_CSUM;
-> +                     netdev->features |=3D NETIF_F_IP_CSUM | NETIF_F=
-_IPV6_CSUM;
->               if (test_bit(JME_FLAG_TSO, &jme->flags))
->                       netdev->features |=3D NETIF_F_TSO | NETIF_F_TSO=
-6;
->       }
-> @@ -2514,10 +2513,12 @@ jme_set_tx_csum(struct net_device *netdev, u3=
-2 on)
->       if (on) {
->               set_bit(JME_FLAG_TXCSUM, &jme->flags);
->               if (netdev->mtu <=3D 1900)
-> -                     netdev->features |=3D NETIF_F_HW_CSUM;
-> +                     netdev->features |=3D
-> +                             NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
->       } else {
->               clear_bit(JME_FLAG_TXCSUM, &jme->flags);
-> -             netdev->features &=3D ~NETIF_F_HW_CSUM;
-> +             netdev->features &=3D
-> +                             ~(NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM);
->       }
->
->       return 0;
-> @@ -2797,7 +2798,8 @@ jme_init_one(struct pci_dev *pdev,
->       netdev->netdev_ops =3D &jme_netdev_ops;
->       netdev->ethtool_ops             =3D &jme_ethtool_ops;
->       netdev->watchdog_timeo          =3D TX_TIMEOUT;
-> -     netdev->features                =3D       NETIF_F_HW_CSUM |
-> +     netdev->features                =3D       NETIF_F_IP_CSUM |
-> +                                             NETIF_F_IPV6_CSUM |
->                                               NETIF_F_SG |
->                                               NETIF_F_TSO |
->                                               NETIF_F_TSO6 |
-> diff --git a/drivers/net/pch_gbe/pch_gbe_ethtool.c b/drivers/net/pch_=
-gbe/pch_gbe_ethtool.c
-> index c8cc32c..c8c873b 100644
-> --- a/drivers/net/pch_gbe/pch_gbe_ethtool.c
-> +++ b/drivers/net/pch_gbe/pch_gbe_ethtool.c
-> @@ -469,18 +469,6 @@ static int pch_gbe_set_rx_csum(struct net_device=
- *netdev, u32 data)
->  }
->
->  /**
-> - * pch_gbe_get_tx_csum - Report whether transmit checksums are turne=
-d on or off
-> - * @netdev:  Network interface device structure
-> - * Returns
-> - *   true(1):  Checksum On
-> - *   false(0): Checksum Off
-> - */
-> -static u32 pch_gbe_get_tx_csum(struct net_device *netdev)
-> -{
-> -     return (netdev->features & NETIF_F_HW_CSUM) !=3D 0;
-> -}
-> -
-> -/**
->   * pch_gbe_set_tx_csum - Turn transmit checksums on or off
->   * @netdev: Network interface device structure
->   * @data:   Checksum on[true] or off[false]
-> @@ -493,11 +481,7 @@ static int pch_gbe_set_tx_csum(struct net_device=
- *netdev, u32 data)
->       struct pch_gbe_adapter *adapter =3D netdev_priv(netdev);
->
->       adapter->tx_csum =3D data;
-> -     if (data)
-> -             netdev->features |=3D NETIF_F_HW_CSUM;
-> -     else
-> -             netdev->features &=3D ~NETIF_F_HW_CSUM;
-> -     return 0;
-> +     return ethtool_op_set_tx_ipv6_csum(netdev, data);
->  }
->
->  /**
-> @@ -572,7 +556,6 @@ static const struct ethtool_ops pch_gbe_ethtool_o=
-ps =3D {
->       .set_pauseparam =3D pch_gbe_set_pauseparam,
->       .get_rx_csum =3D pch_gbe_get_rx_csum,
->       .set_rx_csum =3D pch_gbe_set_rx_csum,
-> -     .get_tx_csum =3D pch_gbe_get_tx_csum,
->       .set_tx_csum =3D pch_gbe_set_tx_csum,
->       .get_strings =3D pch_gbe_get_strings,
->       .get_ethtool_stats =3D pch_gbe_get_ethtool_stats,
-> diff --git a/drivers/net/pch_gbe/pch_gbe_main.c b/drivers/net/pch_gbe=
-/pch_gbe_main.c
-> index afb7506..58e7903 100644
-> --- a/drivers/net/pch_gbe/pch_gbe_main.c
-> +++ b/drivers/net/pch_gbe/pch_gbe_main.c
-> @@ -2319,7 +2319,7 @@ static int pch_gbe_probe(struct pci_dev *pdev,
->       netdev->watchdog_timeo =3D PCH_GBE_WATCHDOG_PERIOD;
->       netif_napi_add(netdev, &adapter->napi,
->                      pch_gbe_napi_poll, PCH_GBE_RX_WEIGHT);
-> -     netdev->features =3D NETIF_F_HW_CSUM | NETIF_F_GRO;
-> +     netdev->features =3D NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM | NETI=
-=46_F_GRO;
->       pch_gbe_set_ethtool_ops(netdev);
->
->       pch_gbe_mac_reset_hw(&adapter->hw);
-> @@ -2358,9 +2358,9 @@ static int pch_gbe_probe(struct pci_dev *pdev,
->       pch_gbe_check_options(adapter);
->
->       if (adapter->tx_csum)
-> -             netdev->features |=3D NETIF_F_HW_CSUM;
-> +             netdev->features |=3D NETIF_F_IP_CSUM | NETIF_F_IPV6_CS=
-UM;
->       else
-> -             netdev->features &=3D ~NETIF_F_HW_CSUM;
-> +             netdev->features &=3D ~(NETIF_F_IP_CSUM | NETIF_F_IPV6_=
-CSUM);
->
->       /* initialize the wol settings based on the eeprom settings */
->       adapter->wake_up_evt =3D PCH_GBE_WL_INIT_SETTING;
-> diff --git a/drivers/net/sc92031.c b/drivers/net/sc92031.c
-> index 417adf3..76290a8 100644
-> --- a/drivers/net/sc92031.c
-> +++ b/drivers/net/sc92031.c
-> @@ -1449,7 +1449,8 @@ static int __devinit sc92031_probe(struct pci_d=
-ev *pdev,
->       dev->irq =3D pdev->irq;
->
->       /* faked with skb_copy_and_csum_dev */
-> -     dev->features =3D NETIF_F_SG | NETIF_F_HW_CSUM | NETIF_F_HIGHDM=
-A;
-> +     dev->features =3D NETIF_F_SG | NETIF_F_HIGHDMA |
-> +             NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
->
->       dev->netdev_ops         =3D &sc92031_netdev_ops;
->       dev->watchdog_timeo     =3D TX_TIMEOUT;
-> diff --git a/drivers/net/stmmac/stmmac_ethtool.c b/drivers/net/stmmac=
-/stmmac_ethtool.c
-> index f2695fd..fd719ed 100644
-> --- a/drivers/net/stmmac/stmmac_ethtool.c
-> +++ b/drivers/net/stmmac/stmmac_ethtool.c
-> @@ -197,16 +197,6 @@ static void stmmac_ethtool_gregs(struct net_devi=
-ce *dev,
->       }
->  }
->
-> -static int stmmac_ethtool_set_tx_csum(struct net_device *netdev, u32=
- data)
-> -{
-> -     if (data)
-> -             netdev->features |=3D NETIF_F_HW_CSUM;
-> -     else
-> -             netdev->features &=3D ~NETIF_F_HW_CSUM;
-> -
-> -     return 0;
-> -}
-> -
->  static u32 stmmac_ethtool_get_rx_csum(struct net_device *dev)
->  {
->       struct stmmac_priv *priv =3D netdev_priv(dev);
-> @@ -370,7 +360,7 @@ static struct ethtool_ops stmmac_ethtool_ops =3D =
-{
->       .get_link =3D ethtool_op_get_link,
->       .get_rx_csum =3D stmmac_ethtool_get_rx_csum,
->       .get_tx_csum =3D ethtool_op_get_tx_csum,
-> -     .set_tx_csum =3D stmmac_ethtool_set_tx_csum,
-> +     .set_tx_csum =3D ethtool_op_set_tx_ipv6_csum,
->       .get_sg =3D ethtool_op_get_sg,
->       .set_sg =3D ethtool_op_set_sg,
->       .get_pauseparam =3D stmmac_get_pauseparam,
-> diff --git a/drivers/net/stmmac/stmmac_main.c b/drivers/net/stmmac/st=
-mmac_main.c
-> index 730a6fd..bfc2d12 100644
-> --- a/drivers/net/stmmac/stmmac_main.c
-> +++ b/drivers/net/stmmac/stmmac_main.c
-> @@ -1494,7 +1494,8 @@ static int stmmac_probe(struct net_device *dev)
->       dev->netdev_ops =3D &stmmac_netdev_ops;
->       stmmac_set_ethtool_ops(dev);
->
-> -     dev->features |=3D (NETIF_F_SG | NETIF_F_HW_CSUM | NETIF_F_HIGH=
-DMA);
-> +     dev->features |=3D NETIF_F_SG | NETIF_F_HIGHDMA |
-> +             NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
->       dev->watchdog_timeo =3D msecs_to_jiffies(watchdog);
->  #ifdef STMMAC_VLAN_TAG_USED
->       /* Both mac100 and gmac support receive VLAN tag detection */
-> @@ -1525,7 +1526,7 @@ static int stmmac_probe(struct net_device *dev)
->
->       DBG(probe, DEBUG, "%s: Scatter/Gather: %s - HW checksums: %s\n"=
-,
->           dev->name, (dev->features & NETIF_F_SG) ? "on" : "off",
-> -         (dev->features & NETIF_F_HW_CSUM) ? "on" : "off");
-> +         (dev->features & NETIF_F_IP_CSUM) ? "on" : "off");
->
->       spin_lock_init(&priv->lock);
->
-> diff --git a/drivers/net/vxge/vxge-ethtool.c b/drivers/net/vxge/vxge-=
-ethtool.c
-> index bc9bd10..1dd3a21 100644
-> --- a/drivers/net/vxge/vxge-ethtool.c
-> +++ b/drivers/net/vxge/vxge-ethtool.c
-> @@ -1177,7 +1177,7 @@ static const struct ethtool_ops vxge_ethtool_op=
-s =3D {
->       .get_rx_csum            =3D vxge_get_rx_csum,
->       .set_rx_csum            =3D vxge_set_rx_csum,
->       .get_tx_csum            =3D ethtool_op_get_tx_csum,
-> -     .set_tx_csum            =3D ethtool_op_set_tx_hw_csum,
-> +     .set_tx_csum            =3D ethtool_op_set_tx_ipv6_csum,
->       .get_sg                 =3D ethtool_op_get_sg,
->       .set_sg                 =3D ethtool_op_set_sg,
->       .get_tso                =3D ethtool_op_get_tso,
-> diff --git a/drivers/net/vxge/vxge-main.c b/drivers/net/vxge/vxge-mai=
-n.c
-> index a21dae1..d339f5b 100644
-> --- a/drivers/net/vxge/vxge-main.c
-> +++ b/drivers/net/vxge/vxge-main.c
-> @@ -3368,7 +3368,7 @@ static int __devinit vxge_device_register(struc=
-t __vxge_hw_device *hldev,
->
->       ndev->features |=3D NETIF_F_SG;
->
-> -     ndev->features |=3D NETIF_F_HW_CSUM;
-> +     ndev->features |=3D NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
->       vxge_debug_init(vxge_hw_device_trace_level_get(hldev),
->               "%s : checksuming enabled", __func__);
->
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 3259d2c..622f85a 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -5041,10 +5041,13 @@ unsigned long netdev_fix_features(unsigned lo=
-ng features, const char *name)
->       }
->
->       if (features & NETIF_F_UFO) {
-> -             if (!(features & NETIF_F_GEN_CSUM)) {
-> +             /* maybe split UFO into V4 and V6? */
-> +             if (!((features & NETIF_F_GEN_CSUM) ||
-> +                 (features & (NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM))
-> +                         =3D=3D (NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM))=
-) {
->                       if (name)
->                               printk(KERN_ERR "%s: Dropping NETIF_F_U=
-=46O "
-> -                                    "since no NETIF_F_HW_CSUM featur=
-e.\n",
-> +                                    "since no checksum offload featu=
-res.\n",
->                                      name);
->                       features &=3D ~NETIF_F_UFO;
->               }
-> diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-> index 956a9f4..d5bc2881 100644
-> --- a/net/core/ethtool.c
-> +++ b/net/core/ethtool.c
-> @@ -1171,7 +1171,9 @@ static int ethtool_set_ufo(struct net_device *d=
-ev, char __user *useraddr)
->               return -EFAULT;
->       if (edata.data && !(dev->features & NETIF_F_SG))
->               return -EINVAL;
-> -     if (edata.data && !(dev->features & NETIF_F_HW_CSUM))
-> +     if (edata.data && !((dev->features & NETIF_F_GEN_CSUM) ||
-> +             (dev->features & (NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM))
-> +                     =3D=3D (NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM)))
->               return -EINVAL;
->       return dev->ethtool_ops->set_ufo(dev, edata.data);
->  }
->
+Signed-off-by Mahesh Bandewar <maheshb@google.com>
 
-The information and any attached documents contained in this message
-may be confidential and/or legally privileged.  The message is
-intended solely for the addressee(s).  If you are not the intended
-recipient, you are hereby notified that any use, dissemination, or
-reproduction is strictly prohibited and may be unlawful.  If you are
-not the intended recipient, please contact the sender immediately by
-return e-mail and destroy all copies of the original message.
+ ethtool-copy.h |    2 +
+ ethtool.c      |   64 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 66 insertions(+), 0 deletions(-)
+
+---
+
+diff --git a/ethtool-copy.h b/ethtool-copy.h
+index 75c3ae7..297a042 100644
+--- a/ethtool-copy.h
++++ b/ethtool-copy.h
+@@ -584,6 +584,8 @@ struct ethtool_flash {
+ #define ETHTOOL_GSSET_INFO 0x00000037 /* Get string set info */
+ #define ETHTOOL_GRXFHINDIR 0x00000038 /* Get RX flow hash indir'n table */
+ #define ETHTOOL_SRXFHINDIR 0x00000039 /* Set RX flow hash indir'n table */
++#define ETHTOOL_SLOOPBACK  0x0000003a /* Enable / Disable loopback. */
++#define ETHTOOL_GLOOPBACK  0x0000003b /* Get loopback status. */
+
+ /* compatibility with older code */
+ #define SPARC_ETH_GSET     ETHTOOL_GSET
+diff --git a/ethtool.c b/ethtool.c
+index 239912b..d3f7ffc 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -114,6 +114,8 @@ static int do_srxntuple(int fd, struct ifreq *ifr);
+ static int do_grxntuple(int fd, struct ifreq *ifr);
+ static int do_flash(int fd, struct ifreq *ifr);
+ static int do_permaddr(int fd, struct ifreq *ifr);
++static int do_sloopback(int fd, struct ifreq *ifr);
++static int do_gloopback(int fd, struct ifreq *ifr);
+
+ static int send_ioctl(int fd, struct ifreq *ifr);
+
+@@ -145,6 +147,8 @@ static enum {
+    MODE_GNTUPLE,
+    MODE_FLASHDEV,
+    MODE_PERMADDR,
++   MODE_SLOOPBACK,
++   MODE_GLOOPBACK,
+ } mode = MODE_GSET;
+
+ static struct option {
+@@ -266,6 +270,9 @@ static struct option {
+        "Get Rx ntuple filters and actions\n" },
+     { "-P", "--show-permaddr", MODE_PERMADDR,
+        "Show permanent hardware address" },
++    { "-L", "--config-loopback", MODE_SLOOPBACK, "{En|Dis}able device
+loopback",
++       "       [ enable | disable ]\n"},
++    { "-l", "--show-loopback", MODE_GLOOPBACK, "Show device loopback mode",},
+     { "-h", "--help", MODE_HELP, "Show this help" },
+     {}
+ };
+@@ -407,6 +414,8 @@ static char *flash_file = NULL;
+ static int flash = -1;
+ static int flash_region = -1;
+
++static int loopback_enable = 0;
++
+ static int msglvl_changed;
+ static u32 msglvl_wanted = 0;
+ static u32 msglvl_mask = 0;
+@@ -841,6 +850,8 @@ static void parse_cmdline(int argc, char **argp)
+                (mode == MODE_GNTUPLE) ||
+                (mode == MODE_PHYS_ID) ||
+                (mode == MODE_FLASHDEV) ||
++               (mode == MODE_SLOOPBACK) ||
++               (mode == MODE_GLOOPBACK) ||
+                (mode == MODE_PERMADDR)) {
+                devname = argp[i];
+                break;
+@@ -1009,6 +1020,16 @@ static void parse_cmdline(int argc, char **argp)
+                }
+                break;
+            }
++           if (mode == MODE_SLOOPBACK) {
++               if (!strcmp(argp[i], "enable"))
++                   loopback_enable = 1;
++               else if (!strcmp(argp[i], "disable"))
++                   loopback_enable = 0;
++               else
++                   show_usage(1);
++               i = argc;
++               break;
++           }
+            if (mode != MODE_SSET)
+                show_usage(1);
+            if (!strcmp(argp[i], "speed")) {
+@@ -2019,6 +2040,10 @@ static int doit(void)
+        return do_flash(fd, &ifr);
+    } else if (mode == MODE_PERMADDR) {
+        return do_permaddr(fd, &ifr);
++   } else if (mode == MODE_SLOOPBACK) {
++       return do_sloopback(fd, &ifr);
++   } else if (mode == MODE_GLOOPBACK) {
++       return do_gloopback(fd, &ifr);
+    }
+
+    return 69;
+@@ -3201,6 +3226,45 @@ static int do_grxntuple(int fd, struct ifreq *ifr)
+    return 0;
+ }
+
++static int do_sloopback(int fd, struct ifreq *ifr)
++{
++   int err;
++   struct ethtool_value edata;
++
++   edata.cmd = ETHTOOL_SLOOPBACK;
++   edata.data = loopback_enable;
++   ifr->ifr_data = (caddr_t)&edata;
++
++   err = send_ioctl(fd, ifr);
++   if (err < 0) {
++       char error[64];
++       sprintf(error, "Cannot %s loopback mode",
++               loopback_enable ? "enable" : "disable");
++       perror(error);
++       return 102;
++   }
++
++   return err;
++}
++
++static int do_gloopback(int fd, struct ifreq *ifr)
++{
++   int err;
++   struct ethtool_value edata;
++
++   edata.cmd = ETHTOOL_GLOOPBACK;
++   ifr->ifr_data = (caddr_t)&edata;
++
++   err = send_ioctl(fd, ifr);
++   if (err < 0) {
++       perror("Cannot get loopback status");
++       return 103;
++   }
++   printf("Loopback is %s\n", edata.data ? "enabled" : "disabled");
++
++   return err;
++}
++
+ static int send_ioctl(int fd, struct ifreq *ifr)
+ {
+    return ioctl(fd, SIOCETHTOOL, ifr);
