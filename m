@@ -1,179 +1,158 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH 1/2] ath: Fix ath_dbg uses missing newlines and access beyond array bound
-Date: Wed,  1 Dec 2010 21:13:32 -0800
-Message-ID: <276469c602c402565b49f99521ea19757429e81e.1291266731.git.joe@perches.com>
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, ath9k-devel@lists.ath9k.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Luis R. Rodriguez" <lrodriguez@atheros.com>,
-	Jouni Malinen <jmalinen@atheros.com>,
-	Vasanthakumar Thiagarajan <vasanth@atheros.com>,
-	Senthil Balasubramanian <senthilkumar@atheros.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:2109 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751646Ab0LBFNh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Dec 2010 00:13:37 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH 2/2] ath: Fix logging message typos
+Date: Wed,  1 Dec 2010 21:13:33 -0800
+Message-ID: <a345e995a816576a4c2c39aec43716c18011475b.1291266731.git.joe@perches.com>
+References: <276469c602c402565b49f99521ea19757429e81e.1291266731.git.joe@perches.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ath5k-devel-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ath9k-devel-xDcbHBWguxHbcTqmT+pZeQ@public.gmane.org
+To: Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Nick Kossifidis <mickflemm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"Luis R. Rodriguez" <lrodriguez-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>,
+	Bob Copeland <me-aXfl/3sk2vNUbtYUoyoikg@public.gmane.org>, Jouni Malinen <jmalinen@athero
+Return-path: <ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org>
+In-Reply-To: <276469c602c402565b49f99521ea19757429e81e.1291266731.git.joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+List-Unsubscribe: <https://lists.ath5k.org/mailman/listinfo/ath5k-devel>,
+	<mailto:ath5k-devel-request-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ath5k.org/pipermail/ath5k-devel>
+List-Post: <mailto:ath5k-devel-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org>
+List-Help: <mailto:ath5k-devel-request-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ath5k.org/mailman/listinfo/ath5k-devel>,
+	<mailto:ath5k-devel-request-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org?subject=subscribe>
+Sender: ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org
+Errors-To: ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Add missing newlines to ath_dbg uses
-ar9300RateSize is not a power of 4, fix to print array line by line.
+Fix immunity misspelling.
+Standardize strings from multiple modules.
+Add spaces between words of concatenated strings.
 
-Signed-off-by: Joe Perches <joe@perches.com>
+Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
 ---
- drivers/net/wireless/ath/ath9k/ar9003_eeprom.c |   29 ++---------------------
- drivers/net/wireless/ath/ath9k/calib.c         |    4 +-
- drivers/net/wireless/ath/ath9k/gpio.c          |    6 ++--
- drivers/net/wireless/ath/ath9k/htc_drv_gpio.c  |    7 ++---
- drivers/net/wireless/ath/ath9k/htc_drv_main.c  |    2 +-
- 5 files changed, 12 insertions(+), 36 deletions(-)
+ drivers/net/wireless/ath/ath5k/ani.c          |    2 +-
+ drivers/net/wireless/ath/ath9k/ar9002_calib.c |    4 ++--
+ drivers/net/wireless/ath/ath9k/eeprom_4k.c    |    4 ++--
+ drivers/net/wireless/ath/ath9k/eeprom_9287.c  |    2 +-
+ drivers/net/wireless/ath/ath9k/eeprom_def.c   |    2 +-
+ drivers/net/wireless/ath/ath9k/htc_hst.c      |    6 +++---
+ 6 files changed, 10 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/wireless/ath/ath9k/ar9003_eeprom.c b/drivers/net/wireless/ath/ath9k/ar9003_eeprom.c
-index e6ae62b..beb3e87 100644
---- a/drivers/net/wireless/ath/ath9k/ar9003_eeprom.c
-+++ b/drivers/net/wireless/ath/ath9k/ar9003_eeprom.c
-@@ -3342,7 +3342,7 @@ static int ar9300_eeprom_restore_internal(struct ath_hw *ah,
- 	goto fail;
- 
- found:
--	ath_dbg(common, ATH_DBG_EEPROM, "Found valid EEPROM data");
-+	ath_dbg(common, ATH_DBG_EEPROM, "Found valid EEPROM data\n");
- 
- 	for (it = 0; it < MSTATE; it++) {
- 		if (!read(ah, cptr, word, COMP_HDR_LEN))
-@@ -4084,22 +4084,9 @@ static void ar9003_hw_set_target_power_eeprom(struct ath_hw *ah, u16 freq,
- 	    ar9003_hw_eeprom_get_ht40_tgt_pwr(ah, HT_TARGET_RATE_23, freq,
- 					      is2GHz) + ht40PowerIncForPdadc;
- 
--	while (i < ar9300RateSize) {
--		ath_dbg(common, ATH_DBG_EEPROM,
--			"TPC[%02d] 0x%08x ", i, targetPowerValT2[i]);
--		i++;
--
--		ath_dbg(common, ATH_DBG_EEPROM,
--			"TPC[%02d] 0x%08x ", i, targetPowerValT2[i]);
--		i++;
--
--		ath_dbg(common, ATH_DBG_EEPROM,
--			"TPC[%02d] 0x%08x ", i, targetPowerValT2[i]);
--		i++;
--
-+	for (i = 0; i < ar9300RateSize; i++) {
- 		ath_dbg(common, ATH_DBG_EEPROM,
- 			"TPC[%02d] 0x%08x\n", i, targetPowerValT2[i]);
--		i++;
+diff --git a/drivers/net/wireless/ath/ath5k/ani.c b/drivers/net/wireless/ath/ath5k/ani.c
+index 6b75b22..9c41881 100644
+--- a/drivers/net/wireless/ath/ath5k/ani.c
++++ b/drivers/net/wireless/ath/ath5k/ani.c
+@@ -74,7 +74,7 @@ ath5k_ani_set_noise_immunity_level(struct ath5k_hw *ah, int level)
+ 	static const s8 fr[] = { -78, -80 };
+ #endif
+ 	if (level < 0 || level >= ARRAY_SIZE(sz)) {
+-		ATH5K_ERR(ah->ah_sc, "noise immuniy level %d out of range",
++		ATH5K_ERR(ah->ah_sc, "noise immunity level %d out of range",
+ 			  level);
+ 		return;
  	}
- }
- 
-@@ -4687,17 +4674,7 @@ static void ath9k_hw_ar9300_set_txpower(struct ath_hw *ah,
- 
- 	for (i = 0; i < ar9300RateSize; i++) {
- 		ath_dbg(common, ATH_DBG_EEPROM,
--			"TPC[%02d] 0x%08x ", i, targetPowerValT2[i]);
--		i++;
--		ath_dbg(common, ATH_DBG_EEPROM,
--			"TPC[%02d] 0x%08x ", i, targetPowerValT2[i]);
--		i++;
--		ath_dbg(common, ATH_DBG_EEPROM,
--			"TPC[%02d] 0x%08x ", i, targetPowerValT2[i]);
--		i++;
--		ath_dbg(common, ATH_DBG_EEPROM,
--			"TPC[%02d] 0x%08x\n\n", i, targetPowerValT2[i]);
--		i++;
-+			"TPC[%02d] 0x%08x\n", i, targetPowerValT2[i]);
+diff --git a/drivers/net/wireless/ath/ath9k/ar9002_calib.c b/drivers/net/wireless/ath/ath9k/ar9002_calib.c
+index a7705e7..199131e 100644
+--- a/drivers/net/wireless/ath/ath9k/ar9002_calib.c
++++ b/drivers/net/wireless/ath/ath9k/ar9002_calib.c
+@@ -720,7 +720,7 @@ static bool ar9285_hw_cl_cal(struct ath_hw *ah, struct ath9k_channel *chan)
+ 		if (!ath9k_hw_wait(ah, AR_PHY_AGC_CONTROL,
+ 				  AR_PHY_AGC_CONTROL_CAL, 0, AH_WAIT_TIMEOUT)) {
+ 			ath_dbg(common, ATH_DBG_CALIBRATE,
+-				"offset calibration failed to complete in 1ms; noisy ??\n");
++				"offset calibration failed to complete in 1ms; noisy environment?\n");
+ 			return false;
+ 		}
+ 		REG_CLR_BIT(ah, AR_PHY_TURBO, AR_PHY_FC_DYN2040_EN);
+@@ -734,7 +734,7 @@ static bool ar9285_hw_cl_cal(struct ath_hw *ah, struct ath9k_channel *chan)
+ 	if (!ath9k_hw_wait(ah, AR_PHY_AGC_CONTROL, AR_PHY_AGC_CONTROL_CAL,
+ 			  0, AH_WAIT_TIMEOUT)) {
+ 		ath_dbg(common, ATH_DBG_CALIBRATE,
+-			"offset calibration failed to complete in 1ms; noisy ??\n");
++			"offset calibration failed to complete in 1ms; noisy enfironment?\n");
+ 		return false;
  	}
  
- 	/*
-diff --git a/drivers/net/wireless/ath/ath9k/calib.c b/drivers/net/wireless/ath/ath9k/calib.c
-index 0b6c623..b68a1ac 100644
---- a/drivers/net/wireless/ath/ath9k/calib.c
-+++ b/drivers/net/wireless/ath/ath9k/calib.c
-@@ -324,12 +324,12 @@ static void ath9k_hw_nf_sanitize(struct ath_hw *ah, s16 *nf)
- 
- 		if (nf[i] > ATH9K_NF_TOO_HIGH) {
- 			ath_dbg(common, ATH_DBG_CALIBRATE,
--				"NF[%d] (%d) > MAX (%d), correcting to MAX",
-+				"NF[%d] (%d) > MAX (%d), correcting to MAX\n",
- 				i, nf[i], ATH9K_NF_TOO_HIGH);
- 			nf[i] = limit->max;
- 		} else if (nf[i] < limit->min) {
- 			ath_dbg(common, ATH_DBG_CALIBRATE,
--				"NF[%d] (%d) < MIN (%d), correcting to NOM",
-+				"NF[%d] (%d) < MIN (%d), correcting to NOM\n",
- 				i, nf[i], limit->min);
- 			nf[i] = limit->nominal;
+diff --git a/drivers/net/wireless/ath/ath9k/eeprom_4k.c b/drivers/net/wireless/ath/ath9k/eeprom_4k.c
+index 35b1a8c..939fc7a 100644
+--- a/drivers/net/wireless/ath/ath9k/eeprom_4k.c
++++ b/drivers/net/wireless/ath/ath9k/eeprom_4k.c
+@@ -90,7 +90,7 @@ static int ath9k_hw_4k_check_eeprom(struct ath_hw *ah)
+ 				}
+ 			} else {
+ 				ath_err(common,
+-					"Invalid EEPROM Magic. endianness mismatch.\n");
++					"Invalid EEPROM Magic. Endianness mismatch.\n");
+ 				return -EINVAL;
+ 			}
  		}
-diff --git a/drivers/net/wireless/ath/ath9k/gpio.c b/drivers/net/wireless/ath/ath9k/gpio.c
-index 60b2fb7..1337640 100644
---- a/drivers/net/wireless/ath/ath9k/gpio.c
-+++ b/drivers/net/wireless/ath/ath9k/gpio.c
-@@ -237,12 +237,12 @@ static void ath_detect_bt_priority(struct ath_softc *sc)
- 		/* Detect if colocated bt started scanning */
- 		if (btcoex->bt_priority_cnt >= ATH_BT_CNT_SCAN_THRESHOLD) {
- 			ath_dbg(ath9k_hw_common(sc->sc_ah), ATH_DBG_BTCOEX,
--				"BT scan detected");
-+				"BT scan detected\n");
- 			sc->sc_flags |= (SC_OP_BT_SCAN |
- 					 SC_OP_BT_PRIORITY_DETECTED);
- 		} else if (btcoex->bt_priority_cnt >= ATH_BT_CNT_THRESHOLD) {
- 			ath_dbg(ath9k_hw_common(sc->sc_ah), ATH_DBG_BTCOEX,
--				"BT priority traffic detected");
-+				"BT priority traffic detected\n");
- 			sc->sc_flags |= SC_OP_BT_PRIORITY_DETECTED;
- 		}
+@@ -1178,7 +1178,7 @@ static u16 ath9k_hw_4k_get_spur_channel(struct ath_hw *ah, u16 i, bool is2GHz)
+ 	u16 spur_val = AR_NO_SPUR;
  
-@@ -379,7 +379,7 @@ void ath9k_btcoex_timer_resume(struct ath_softc *sc)
- 	struct ath_hw *ah = sc->sc_ah;
+ 	ath_dbg(common, ATH_DBG_ANI,
+-		"Getting spur idx %d is2Ghz. %d val %x\n",
++		"Getting spur idx:%d is2Ghz:%d val:%x\n",
+ 		i, is2GHz, ah->config.spurchans[i][is2GHz]);
  
- 	ath_dbg(ath9k_hw_common(ah), ATH_DBG_BTCOEX,
--		"Starting btcoex timers");
-+		"Starting btcoex timers\n");
+ 	switch (ah->config.spurmode) {
+diff --git a/drivers/net/wireless/ath/ath9k/eeprom_9287.c b/drivers/net/wireless/ath/ath9k/eeprom_9287.c
+index 0be5351..9ec4bc8 100644
+--- a/drivers/net/wireless/ath/ath9k/eeprom_9287.c
++++ b/drivers/net/wireless/ath/ath9k/eeprom_9287.c
+@@ -1150,7 +1150,7 @@ static u16 ath9k_hw_ar9287_get_spur_channel(struct ath_hw *ah,
+ 	u16 spur_val = AR_NO_SPUR;
  
- 	/* make sure duty cycle timer is also stopped when resuming */
- 	if (btcoex->hw_timer_enabled)
-diff --git a/drivers/net/wireless/ath/ath9k/htc_drv_gpio.c b/drivers/net/wireless/ath/ath9k/htc_drv_gpio.c
-index d8685f0..283ff97 100644
---- a/drivers/net/wireless/ath/ath9k/htc_drv_gpio.c
-+++ b/drivers/net/wireless/ath/ath9k/htc_drv_gpio.c
-@@ -21,12 +21,12 @@ static void ath_detect_bt_priority(struct ath9k_htc_priv *priv)
- 		/* Detect if colocated bt started scanning */
- 		if (btcoex->bt_priority_cnt >= ATH_BT_CNT_SCAN_THRESHOLD) {
- 			ath_dbg(ath9k_hw_common(ah), ATH_DBG_BTCOEX,
--				"BT scan detected");
-+				"BT scan detected\n");
- 			priv->op_flags |= (OP_BT_SCAN |
- 					 OP_BT_PRIORITY_DETECTED);
- 		} else if (btcoex->bt_priority_cnt >= ATH_BT_CNT_THRESHOLD) {
- 			ath_dbg(ath9k_hw_common(ah), ATH_DBG_BTCOEX,
--				"BT priority traffic detected");
-+				"BT priority traffic detected\n");
- 			priv->op_flags |= OP_BT_PRIORITY_DETECTED;
- 		}
+ 	ath_dbg(common, ATH_DBG_ANI,
+-		"Getting spur idx %d is2Ghz. %d val %x\n",
++		"Getting spur idx:%d is2Ghz:%d val:%x\n",
+ 		i, is2GHz, ah->config.spurchans[i][is2GHz]);
  
-@@ -114,8 +114,7 @@ void ath_htc_resume_btcoex_work(struct ath9k_htc_priv *priv)
- 	struct ath_btcoex *btcoex = &priv->btcoex;
- 	struct ath_hw *ah = priv->ah;
+ 	switch (ah->config.spurmode) {
+diff --git a/drivers/net/wireless/ath/ath9k/eeprom_def.c b/drivers/net/wireless/ath/ath9k/eeprom_def.c
+index 91722fb..9aa31aa 100644
+--- a/drivers/net/wireless/ath/ath9k/eeprom_def.c
++++ b/drivers/net/wireless/ath/ath9k/eeprom_def.c
+@@ -1458,7 +1458,7 @@ static u16 ath9k_hw_def_get_spur_channel(struct ath_hw *ah, u16 i, bool is2GHz)
+ 	u16 spur_val = AR_NO_SPUR;
  
--	ath_dbg(ath9k_hw_common(ah), ATH_DBG_BTCOEX,
--		"Starting btcoex work");
-+	ath_dbg(ath9k_hw_common(ah), ATH_DBG_BTCOEX, "Starting btcoex work\n");
+ 	ath_dbg(common, ATH_DBG_ANI,
+-		"Getting spur idx %d is2Ghz. %d val %x\n",
++		"Getting spur idx:%d is2Ghz:%d val:%x\n",
+ 		i, is2GHz, ah->config.spurchans[i][is2GHz]);
  
- 	btcoex->bt_priority_cnt = 0;
- 	btcoex->bt_priority_time = jiffies;
-diff --git a/drivers/net/wireless/ath/ath9k/htc_drv_main.c b/drivers/net/wireless/ath/ath9k/htc_drv_main.c
-index 1af31b5..87731c2 100644
---- a/drivers/net/wireless/ath/ath9k/htc_drv_main.c
-+++ b/drivers/net/wireless/ath/ath9k/htc_drv_main.c
-@@ -1133,7 +1133,7 @@ static int ath9k_htc_tx(struct ieee80211_hw *hw, struct sk_buff *skb)
- 			spin_unlock_bh(&priv->tx_lock);
- 		} else {
- 			ath_dbg(ath9k_hw_common(priv->ah), ATH_DBG_XMIT,
--				"Tx failed");
-+				"Tx failed\n");
- 		}
- 		goto fail_tx;
+ 	switch (ah->config.spurmode) {
+diff --git a/drivers/net/wireless/ath/ath9k/htc_hst.c b/drivers/net/wireless/ath/ath9k/htc_hst.c
+index c41ab8c..69b6aca 100644
+--- a/drivers/net/wireless/ath/ath9k/htc_hst.c
++++ b/drivers/net/wireless/ath/ath9k/htc_hst.c
+@@ -239,7 +239,7 @@ int htc_connect_service(struct htc_target *target,
+ 	/* Find an available endpoint */
+ 	endpoint = get_next_avail_ep(target->endpoint);
+ 	if (!endpoint) {
+-		dev_err(target->dev, "Endpoint is not available for"
++		dev_err(target->dev, "Endpoint is not available for "
+ 			"service %d\n", service_connreq->service_id);
+ 		return -EINVAL;
+ 	}
+@@ -253,7 +253,7 @@ int htc_connect_service(struct htc_target *target,
+ 	skb = alloc_skb(sizeof(struct htc_conn_svc_msg) +
+ 			    sizeof(struct htc_frame_hdr), GFP_ATOMIC);
+ 	if (!skb) {
+-		dev_err(target->dev, "Failed to allocate buf to send"
++		dev_err(target->dev, "Failed to allocate buf to send "
+ 			"service connect req\n");
+ 		return -ENOMEM;
+ 	}
+@@ -434,7 +434,7 @@ struct htc_target *ath9k_htc_hw_alloc(void *hif_handle,
+ 
+ 	target = kzalloc(sizeof(struct htc_target), GFP_KERNEL);
+ 	if (!target) {
+-		printk(KERN_ERR "Unable to allocate memory for"
++		printk(KERN_ERR "Unable to allocate memory for "
+ 			"target device\n");
+ 		return NULL;
  	}
 -- 
 1.7.3.2.245.g03276.dirty
-
