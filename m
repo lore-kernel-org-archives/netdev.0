@@ -1,31 +1,55 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] stmmac: priv->lock can be used uninitialized
-Date: Thu, 02 Dec 2010 13:19:59 -0800 (PST)
-Message-ID: <20101202.131959.70193435.davem@davemloft.net>
-References: <9345448e435110e2bdff65bb4322060a6f1f6b63.1291106902.git.vlad.lungu@windriver.com>
+Subject: Re: [PATCH] fix hang in dmfe driver on sending of big packet
+ (linux-2.6.35)
+Date: Thu, 02 Dec 2010 13:24:47 -0800 (PST)
+Message-ID: <20101202.132447.232754988.davem@davemloft.net>
+References: <20101130134626.GA1856@lw.yar.ru>
+	<1291125459.2904.75.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, peppe.cavallaro@st.com
-To: vlad.lungu@windriver.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: lav@netis.ru, netdev@vger.kernel.org, tori@unhappy.mine.nu
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51507
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35086
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757178Ab0LBVTc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Dec 2010 16:19:32 -0500
-In-Reply-To: <9345448e435110e2bdff65bb4322060a6f1f6b63.1291106902.git.vlad.lungu@windriver.com>
+	by vger.kernel.org with ESMTP id S1758115Ab0LBVYV convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Dec 2010 16:24:21 -0500
+In-Reply-To: <1291125459.2904.75.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vlad Lungu <vlad.lungu@windriver.com>
-Date: Tue, 30 Nov 2010 10:52:52 +0200
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 30 Nov 2010 14:57:39 +0100
 
-> To reproduce: if connman (http://connman.net/) is started,
-> inserting the stmmac module triggers a "BUG: spinlock bad magic on CPU#0".
-> 
-> Registering the device in stmmac_probe() sends a notification to connman
-> which brings the interface up before the lock is initialized.
-> 
-> Signed-off-by: Vlad Lungu <vlad.lungu@windriver.com>
+> From: Alexander V. Lukyanov <lav@netis.ru>
+>=20
+> Le mardi 30 novembre 2010 =E0 16:46 +0300, Alexander V. Lukyanov a =E9=
+crit :
+>> Hello!
+>>=20
+>> This patch fixes hang in dmfe driver on attempt of sending a big pac=
+ket.
+>> Without this patch the code stops the queue and never wakes it again=
+=2E
+>>=20
+>> Signed-off-by: Alexander V. Lukyanov <lav@netis.ru>
+>>=20
+>=20
+> Nice catch, but your patch is not a "diff -p1" one
+>=20
+> I did it for net-2.6 tree :
+>=20
+> Thanks
+>=20
+> [PATCH] tulip: fix hang in dmfe driver on sending of big packet
+>=20
+> This patch fixes hang in dmfe driver on attempt of sending a big pack=
+et.
+> Without this patch the code stops the queue and never wakes it again.
+>=20
+> Signed-off-by: Alexander V. Lukyanov <lav@netis.ru>
+> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Applied, thanks.
+Applied.
