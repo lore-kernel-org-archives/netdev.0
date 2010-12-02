@@ -1,49 +1,35 @@
-From: Shan Wei <shanwei@cn.fujitsu.com>
-Subject: [PATCH v2 2/4] tcp: use TCP_BASE_MSS to set basic mss value
-Date: Thu, 02 Dec 2010 12:04:50 +0800
-Message-ID: <4CF71AE2.6050406@cn.fujitsu.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: jme: UDP checksum error, and lots of them
+Date: Wed, 01 Dec 2010 20:09:35 -0800 (PST)
+Message-ID: <20101201.200935.71110482.davem@davemloft.net>
+References: <alpine.LNX.2.01.1012020430190.4157@obet.zrqbmnf.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Network-Maillist <netdev@vger.kernel.org>,
-	Shan Wei <shanwei@cn.fujitsu.com>
-To: David Miller <davem@davemloft.net>, jheffner@psc.edu
+Cc: netdev@vger.kernel.org, cooldavid@cooldavid.org
+To: jengelh@medozas.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:59605 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1757043Ab0LBEGg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Dec 2010 23:06:36 -0500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60559
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756879Ab0LBEJI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Dec 2010 23:09:08 -0500
+In-Reply-To: <alpine.LNX.2.01.1012020430190.4157@obet.zrqbmnf.qr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Jan Engelhardt <jengelh@medozas.de>
+Date: Thu, 2 Dec 2010 04:39:34 +0100 (CET)
 
-TCP_BASE_MSS is defined, but not used.
-commit 5d424d5a introduce this macro, so use
-it to initial sysctl_tcp_base_mss.
+> Why does the JME driver care so much about this that it needs to print 
+> this for every packet? It does not look like it has any offloading 
+> features.
 
-commit 5d424d5a674f782d0659a3b66d951f412901faee
-Author: John Heffner <jheffner@psc.edu>
-Date:   Mon Mar 20 17:53:41 2006 -0800
+Well I'm glad it let us know about the bad checksum which would otherwise
+have been unnoticed.
 
-    [TCP]: MTU probing
+Please try to pinpoint why the checksum is bad, because it seems that
+tcpdump agrees with the driver.  Perhaps it's some side effect of how
+vpnc uses TUN/TAP, or something like that.
 
-Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
----
- net/ipv4/tcp_output.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index bb8f547..7f65ce6 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -55,7 +55,7 @@ int sysctl_tcp_workaround_signed_windows __read_mostly = 0;
- int sysctl_tcp_tso_win_divisor __read_mostly = 3;
- 
- int sysctl_tcp_mtu_probing __read_mostly = 0;
--int sysctl_tcp_base_mss __read_mostly = 512;
-+int sysctl_tcp_base_mss __read_mostly = TCP_BASE_MSS;
- 
- /* By default, RFC2861 behavior.  */
- int sysctl_tcp_slow_start_after_idle __read_mostly = 1;
--- 
-1.6.3.3
+Seeing the bad checksum even in tcpdump, and then seeing proper replies
+going back, that is very suspicious and should be looked into.
