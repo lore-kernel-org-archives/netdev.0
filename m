@@ -1,69 +1,45 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [net-next-2.6 PATCH] ixgbe: fix for link failure on SFP+ DA
- cables
-Date: Wed, 01 Dec 2010 23:41:41 -0800
-Message-ID: <1291275701.1761.40.camel@Joe-Laptop>
-References: <20101202065921.13413.91380.stgit@localhost.localdomain>
+From: Albert Pretorius <albertpretorius@yahoo.co.uk>
+Subject: Re: IPV6 loopback bound socket succeeds connecting to remote host
+Date: Thu, 2 Dec 2010 07:45:48 +0000 (GMT)
+Message-ID: <616589.97517.qm@web29017.mail.ird.yahoo.com>
+References: <4CF604DB.8000302@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, gospo@redhat.com,
-	bphilips@novell.com, Don Skidmore <donald.c.skidmore@intel.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org,
+	"yoshfuji@linux-ipv6.org >> YOSHIFUJI Hideaki"
+	<yoshfuji@linux-ipv6.org>, David Miller <davem@davemloft.net>,
+	pekkas@netcore.fi, jmorris@namei.org
+To: Shan Wei <shanwei@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:2138 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751223Ab0LBHlm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Dec 2010 02:41:42 -0500
-In-Reply-To: <20101202065921.13413.91380.stgit@localhost.localdomain>
+Received: from nm18.bullet.mail.ird.yahoo.com ([77.238.189.71]:20485 "HELO
+	nm18.bullet.mail.ird.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752687Ab0LBHpu convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Dec 2010 02:45:50 -0500
+In-Reply-To: <4CF604DB.8000302@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-12-01 at 22:59 -0800, Jeff Kirsher wrote:
-> This patch helps prevent FW/SW semaphore collision from leading
-> to link establishment failure.  The collision might mess up the
-> PHY registers so we reset the PHY.  However there are SFI/KR areas
-> in the PHY that are not reset with a Reset_AN so we need to change
-> LMS to reset it.  Also wait until AN state machine is AN_GOOD
-[]
->  drivers/net/ixgbe/ixgbe_82599.c |   28 +++++++++++++++++++++++++---
-> diff --git a/drivers/net/ixgbe/ixgbe_82599.c b/drivers/net/ixgbe/ixgbe_82599.c
-[]
-> @@ -116,14 +118,34 @@ static s32 ixgbe_setup_sfp_modules_82599(struct ixgbe_hw *hw)
->  			IXGBE_WRITE_FLUSH(hw);
->  			hw->eeprom.ops.read(hw, ++data_offset, &data_value);
->  		}
-> -		/* Now restart DSP by setting Restart_AN */
-> -		IXGBE_WRITE_REG(hw, IXGBE_AUTOC,
-> -		    (IXGBE_READ_REG(hw, IXGBE_AUTOC) | IXGBE_AUTOC_AN_RESTART));
->  
->  		/* Release the semaphore */
->  		ixgbe_release_swfw_sync(hw, IXGBE_GSSR_MAC_CSR_SM);
->  		/* Delay obtaining semaphore again to allow FW access */
->  		msleep(hw->eeprom.semaphore_delay);
+Hi
 
-might these msleeps be usleep_range?
+--- On Wed, 1/12/10, Shan Wei <shanwei@cn.fujitsu.com> wrote:
+> I think it make nonsense to translate data between loopback
+> device and other e.g. eth0 device in same machine.
 
-[]
+I agree, RFC4291 makes it clear for IPV6 that no interface should accept traffic from loopback, I should not have tried to make it behave like IPV4.
+I can not find an equivalent statement for IPV4 though, all I could find is this from RFC3330:
 
-> +		/* Wait for AN to leave state 0 */
-> +		for (i = 0; i < 10; i++) {
-> +			msleep(4);
+   127.0.0.0/8 - This block is assigned for use as the Internet host
+   loopback address.  A datagram sent by a higher level protocol to an
+   address anywhere within this block should loop back inside the host.
+   This is ordinarily implemented using only 127.0.0.1/32 for loopback,
+   but no addresses within this block should ever appear on any network
+   anywhere [RFC1700, page 5].
 
-Perhaps usleep_range?
-
-Maybe all the msleep uses < 20ms in the intel drivers?
-
-$ grep -nPr --include=*.[ch] "msleep\s*\(\s*1?\d\s*\)" drivers/net/ig* drivers/net/ixg* drivers/net/e100* | wc -l
-123
-
-Maybe something like doubling the sleep value
-for the upper bound range?
-
-Here's a little script that does that.
-
-$ grep -nPrl --include=*.[ch] "msleep\s*\(\s*1?\d\s*\)" \
-	drivers/net/ig* drivers/net/ixg* drivers/net/e100* | \
-xargs perl -p -i -e 's/msleep\s*\(\s*(1?\d)\s*\)/"usleep_range\(${1}000, " . scalar($1) * 2 . "000\)"/ge'
+Do you perhaps know?
+thank you,
+Albert Pretorius
 
 
+      
