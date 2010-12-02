@@ -1,52 +1,61 @@
-From: "Guo-Fu Tseng" <cooldavid@cooldavid.org>
-Subject: Re: jme: UDP checksum error, and lots of them
-Date: Thu, 2 Dec 2010 12:33:01 +0800
-Message-ID: <20101202042820.M98672@cooldavid.org>
-References: <alpine.LNX.2.01.1012020430190.4157@obet.zrqbmnf.qr> <20101201.200935.71110482.davem@davemloft.net>
+From: "Tomoya MORINAGA" <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6 v6 06/20] can: EG20T PCH: Fix endianness issue
+Date: Thu, 2 Dec 2010 13:47:10 +0900
+Message-ID: <00a201cb91db$fd36e650$66f8800a@maildom.okisemi.com>
+References: <4CF47BAA.2090209@dsn.okisemi.com>
+	<4CF4E897.7090702@pengutronix.de>
+	<001101cb90e8$e60c76a0$66f8800a@maildom.okisemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=utf-8
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, jengelh@medozas.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cooldavid.org ([114.33.45.68]:48560 "EHLO cooldavid.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756804Ab0LBEdL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Dec 2010 23:33:11 -0500
-In-Reply-To: <20101201.200935.71110482.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>, joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+To: "Marc Kleine-Budde" <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 01 Dec 2010 20:09:35 -0800 (PST), David Miller wrote
-> From: Jan Engelhardt <jengelh@medozas.de>
-> Date: Thu, 2 Dec 2010 04:39:34 +0100 (CET)
-> 
-> > Why does the JME driver care so much about this that it needs to print 
-> > this for every packet? It does not look like it has any offloading 
-> > features.
-> 
-> Well I'm glad it let us know about the bad checksum which would otherwise
-> have been unnoticed.
-> 
-> Please try to pinpoint why the checksum is bad, because it seems that
-> tcpdump agrees with the driver.  Perhaps it's some side effect of how
-> vpnc uses TUN/TAP, or something like that.
-> 
-> Seeing the bad checksum even in tcpdump, and then seeing proper replies
-> going back, that is very suspicious and should be looked into.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Hi Marc,
 
-Indeed... It is suspicious to reply proper response against the packet
-with bad checksum.
+Again, do you have any comments for v6 other patches ?
+If you don't have, please give us your "Acked" for each patch.
 
-Jan: Would you try to turn off the rx-checksum offloading with ethtool
-and see how it goes?
+==Current status of v6 series==
+01/20: Acked
+02/20:
+03/20:
+04/20:
+05/20: Acked
+06/20: I got your comments. Now modifying
+07/20:
+08/20:
+09/20:
+10/20:
+11/20: Acked
+12/20:
+13/20: Acked
+14/20:
+15/20:
+16/20:
+17/20:
+18/20:
+19/20:
+20/20:
 
-I suspect that there might be some the HW-Checksum behavior error.
-ex: Replaced the UDP checksum field while it's all zero(no need to checksum)
-
-Guo-Fu Tseng
-
+Thanks,
+-------
+Tomoya MORINAGA
+OKI SEMICONDUCTOR CO., LTD.
