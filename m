@@ -1,337 +1,116 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Subject: Re: PCI: make pci_restore_state return void
-Date: Thu, 2 Dec 2010 09:15:46 -0700
-Message-ID: <201012020915.50049.bjorn.helgaas@hp.com>
-References: <1291160606-31494-1-git-send-email-jon.mason@exar.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: kernel panic with time-stamping in phy devices (monitor mode)
+Date: Thu, 02 Dec 2010 17:38:04 +0100
+Message-ID: <1291307884.2871.69.camel@edumazet-laptop>
+References: <252997.92320.qm@web111013.mail.gq1.yahoo.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: Jesse Barnes <jbarnes@virtuousgeek.org>, linux-pci@vger.kernel.org,
-	Jonathan Corbet <corbet@lwn.net>, linux-media@vger.kernel.org,
-	Andrew Gallatin <gallatin@myri.com>,
-	Brice Goglin <brice@myri.com>, netdev@vger.kernel.org,
-	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
-	Steve Hodgson <shodgson@solarflare.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Ivo van Doorn <IvDoorn@gmail.com>,
-	Gertjan van Wingerde <gwingerde@gmail.com>,
-	linux-wireless@vger.kernel.org, Brian King <brking@us.ibm.com>,
-	Anil Ravindranath <anil_ravindranath@pmc-sierra.com>,
-	linux-scsi@vger.kernel.org, Jaya Kumar <jayakumar.alsa@gmail.com>,
-	boyod.yang@siliconmotion.com.cn
-To: Jon Mason <jon.mason@exar.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Andrew Watts <akwatts@ymail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0015.houston.hp.com ([15.201.24.18]:48243 "EHLO
-	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757073Ab0LBQP5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Dec 2010 11:15:57 -0500
-In-Reply-To: <1291160606-31494-1-git-send-email-jon.mason@exar.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:39000 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752816Ab0LBQpE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Dec 2010 11:45:04 -0500
+Received: by wyb28 with SMTP id 28so8400314wyb.19
+        for <netdev@vger.kernel.org>; Thu, 02 Dec 2010 08:45:03 -0800 (PST)
+In-Reply-To: <252997.92320.qm@web111013.mail.gq1.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday, November 30, 2010 04:43:26 pm Jon Mason wrote:
-> pci_restore_state only ever returns 0, thus there is no benefit in
-> having it return any value.  Also, a large majority of the callers do
-> not check the return code of pci_restore_state.  Make the
-> pci_restore_state a void return and avoid the overhead.
-> 
-> Signed-off-by: Jon Mason <jon.mason@exar.com>
+Le jeudi 02 d=C3=A9cembre 2010 =C3=A0 08:05 -0800, Andrew Watts a =C3=A9=
+crit :
+> Hi.
+>=20
+> The 'time stamping in phy devices' code introduced in 2.6.36
+> (c1f19b51d1d87f3e3bb7e6648f43f7d57ed2da6b et al.) triggers
+> kernel panics when wireless devices are placed in monitor mode
+> (tested with b43 and ath5k devices on a 32-bit system).
+>=20
+> To reproduce, set CONFIG_NETWORK_PHY_TIMESTAMPING=3Dy and put a
+> wireless device into monitor mode:
+>=20
+>  # ifconfig wlan0 down
+>  # iwconfig wlan0 mode monitor=20
+>  # ifconfig wlan0 up
+>=20
+> ~ Andy
+>=20
+> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+>=20
+>  [<c14455ad>] ? __alloc_skb+0x53/0xf8
+>  [<f92fdd57>] ? b43_dma_rx+0x18a/0x342 [b43]
+>  [<f92e8475>] ? b43_do_interrupt_thread+0x420/0x92e [b43]
+>  [<c1027731>] ? __dequeue_entity+0x31/0x35
+>  [<c1027a44>] ? set_next_entity+0xad/0xbb
+>  [<f92e899b>] ? b43_interrupt_thread_handler+0x18/0x2b [b43]
+>  [<c107c378>] ? irq_thread+0xb6/0x19e
+>  [<c15625a0>] ? schedule+0x254/0x566
+>  [<c107c2c2>] ? irq_thread+0x0/0x19e
+>  [<c10448b1>] ? kthread+0x67/0x69
+>  [<c104484a>] ? kthread+0x0/0x69
+>  [<c100323e>] ? kernel_thread_helper+0x6/0x18
+> Code: 4c 24 14 8b 88 a8 00 00 00 89 4c 24 10 89 54 24 0c 8b
+> 40 50 89 44 24 08 8b 45 04 89 44 24 04 c7 04 24 30 74 7a c1
+> e8 b5 d2 11 00 <0f> 0b eb fe 55 89 e5 56 53 83 ec 24 8b 88
+> a0 00 00 00 8b 58 54
+> EIP: [<c1444ea0>] skb_push+0x7d/0x81 SS:ESP 0068:cee01d78
+> ---[ end trace af1c99818e62b195 ]---
+> Kernel panic - not syncing: Fatal exception in interrupt
+> Pid: 6674, comm: irq/18-b43 Tainted: G     D     2.6.36.1
+> Call Trace:
+>  [<c156217d>] ? printk+0x28/0x2a
+>  [<c156205c>] panic+0x57/0x150
+>  [<c1564adf>] oops_begin+0x0/0x40
+>  [<c1004e36>] die+0x49/0x5d
+>  [<c1564304>] do_trap+0x84/0xad
+>  [<c10037e5>] ? do_invalid_op+0x0/0x93
+>  [<c100386b>] do_invalid_op+0x86/0x93
+>  [<c1444ea0>] ? skb_push+0x7d/0x81
+>  [<c15640b9>] error_code+0x65/0x6c
+>  [<c1444ea0>] ? skb_push+0x7d/0x81
+>  [<c145f721>] ? skb_defer_rx_timestamp+0x12/0x5a
+>  [<c145f721>] skb_defer_rx_timestamp+0x12/0x5a
+>  [<c144d23c>] netif_receive_skb+0x1f/0x47
+>  [<c153a6e8>] ieee80211_rx+0x661/0x8e1
+>  [<f85daca2>] ? ssb_pci_read32+0x19/0x31 [ssb]
+>  [<f92e54cf>] ? b43_tsf_read+0x2a/0x47 [b43]
+>  [<f92f8d42>] b43_rx+0x24c/0x5eb [b43]
+>  [<c14455ad>] ? __alloc_skb+0x53/0xf8
+>  [<f92fdd57>] b43_dma_rx+0x18a/0x342 [b43]
+>  [<f92e8475>] b43_do_interrupt_thread+0x420/0x92e [b43]
+>  [<c1027731>] ? __dequeue_entity+0x31/0x35
+>  [<c1027a44>] ? set_next_entity+0xad/0xbb
+>  [<f92e899b>] b43_interrupt_thread_handler+0x18/0x2b [b43]
+>  [<c107c378>] irq_thread+0xb6/0x19e
+>  [<c15625a0>] ? schedule+0x254/0x566
+>  [<c107c2c2>] ? irq_thread+0x0/0x19e
+>  [<c10448b1>] kthread+0x67/0x69
+>  [<c104484a>] ? kthread+0x0/0x69
+>  [<c100323e>] kernel_thread_helper+0x6/0x18
+>=20
+>=20
 
-Looks reasonable to me, but doesn't appear to be a regression fix or
-anything urgent that needs to be in .37, so I'll wait and let Jesse
-handle this when he returns from vacation.  OK?
+Thanks for the report
 
-Bjorn
+Please try following patch.
 
-> ---
->  drivers/media/video/cafe_ccic.c         |    4 +---
->  drivers/net/myri10ge/myri10ge.c         |    4 +---
->  drivers/net/sfc/falcon.c                |   25 +++++--------------------
->  drivers/net/skge.c                      |    4 +---
->  drivers/net/sky2.c                      |    5 +----
->  drivers/net/wireless/rt2x00/rt2x00pci.c |    4 ++--
->  drivers/pci/pci-driver.c                |    3 ++-
->  drivers/pci/pci.c                       |    7 ++-----
->  drivers/scsi/ipr.c                      |    8 +-------
->  drivers/scsi/pmcraid.c                  |    7 +------
->  drivers/staging/sm7xx/smtcfb.c          |    2 +-
->  include/linux/pci.h                     |    8 +++-----
->  sound/pci/cs5535audio/cs5535audio_pm.c  |    7 +------
->  13 files changed, 22 insertions(+), 66 deletions(-)
-> 
-> diff --git a/drivers/media/video/cafe_ccic.c b/drivers/media/video/cafe_ccic.c
-> index 2934770..3e653f3 100644
-> --- a/drivers/media/video/cafe_ccic.c
-> +++ b/drivers/media/video/cafe_ccic.c
-> @@ -2186,9 +2186,7 @@ static int cafe_pci_resume(struct pci_dev *pdev)
->  	struct cafe_camera *cam = to_cam(v4l2_dev);
->  	int ret = 0;
->  
-> -	ret = pci_restore_state(pdev);
-> -	if (ret)
-> -		return ret;
-> +	pci_restore_state(pdev);
->  	ret = pci_enable_device(pdev);
->  
->  	if (ret) {
-> diff --git a/drivers/net/myri10ge/myri10ge.c b/drivers/net/myri10ge/myri10ge.c
-> index 8524cc4..d3c4a37 100644
-> --- a/drivers/net/myri10ge/myri10ge.c
-> +++ b/drivers/net/myri10ge/myri10ge.c
-> @@ -3403,9 +3403,7 @@ static int myri10ge_resume(struct pci_dev *pdev)
->  		return -EIO;
->  	}
->  
-> -	status = pci_restore_state(pdev);
-> -	if (status)
-> -		return status;
-> +	pci_restore_state(pdev);
->  
->  	status = pci_enable_device(pdev);
->  	if (status) {
-> diff --git a/drivers/net/sfc/falcon.c b/drivers/net/sfc/falcon.c
-> index 267019b..1763b9a 100644
-> --- a/drivers/net/sfc/falcon.c
-> +++ b/drivers/net/sfc/falcon.c
-> @@ -1066,22 +1066,9 @@ static int falcon_reset_hw(struct efx_nic *efx, enum reset_type method)
->  
->  	/* Restore PCI configuration if needed */
->  	if (method == RESET_TYPE_WORLD) {
-> -		if (efx_nic_is_dual_func(efx)) {
-> -			rc = pci_restore_state(nic_data->pci_dev2);
-> -			if (rc) {
-> -				netif_err(efx, drv, efx->net_dev,
-> -					  "failed to restore PCI config for "
-> -					  "the secondary function\n");
-> -				goto fail3;
-> -			}
-> -		}
-> -		rc = pci_restore_state(efx->pci_dev);
-> -		if (rc) {
-> -			netif_err(efx, drv, efx->net_dev,
-> -				  "failed to restore PCI config for the "
-> -				  "primary function\n");
-> -			goto fail4;
-> -		}
-> +		if (efx_nic_is_dual_func(efx))
-> +			pci_restore_state(nic_data->pci_dev2);
-> +		pci_restore_state(efx->pci_dev);
->  		netif_dbg(efx, drv, efx->net_dev,
->  			  "successfully restored PCI config\n");
->  	}
-> @@ -1092,7 +1079,7 @@ static int falcon_reset_hw(struct efx_nic *efx, enum reset_type method)
->  		rc = -ETIMEDOUT;
->  		netif_err(efx, hw, efx->net_dev,
->  			  "timed out waiting for hardware reset\n");
-> -		goto fail5;
-> +		goto fail3;
->  	}
->  	netif_dbg(efx, hw, efx->net_dev, "hardware reset complete\n");
->  
-> @@ -1100,11 +1087,9 @@ static int falcon_reset_hw(struct efx_nic *efx, enum reset_type method)
->  
->  	/* pci_save_state() and pci_restore_state() MUST be called in pairs */
->  fail2:
-> -fail3:
->  	pci_restore_state(efx->pci_dev);
->  fail1:
-> -fail4:
-> -fail5:
-> +fail3:
->  	return rc;
->  }
->  
-> diff --git a/drivers/net/skge.c b/drivers/net/skge.c
-> index 220e039..61553af 100644
-> --- a/drivers/net/skge.c
-> +++ b/drivers/net/skge.c
-> @@ -4087,9 +4087,7 @@ static int skge_resume(struct pci_dev *pdev)
->  	if (err)
->  		goto out;
->  
-> -	err = pci_restore_state(pdev);
-> -	if (err)
-> -		goto out;
-> +	pci_restore_state(pdev);
->  
->  	err = skge_reset(hw);
->  	if (err)
-> diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-> index d657708..be3aee7 100644
-> --- a/drivers/net/sky2.c
-> +++ b/drivers/net/sky2.c
-> @@ -4969,10 +4969,7 @@ static int sky2_resume(struct pci_dev *pdev)
->  	if (err)
->  		goto out;
->  
-> -	err = pci_restore_state(pdev);
-> -	if (err)
-> -		goto out;
-> -
-> +	pci_restore_state(pdev);
->  	pci_enable_wake(pdev, PCI_D0, 0);
->  
->  	/* Re-enable all clocks */
-> diff --git a/drivers/net/wireless/rt2x00/rt2x00pci.c b/drivers/net/wireless/rt2x00/rt2x00pci.c
-> index 868ca19..5e3c46f 100644
-> --- a/drivers/net/wireless/rt2x00/rt2x00pci.c
-> +++ b/drivers/net/wireless/rt2x00/rt2x00pci.c
-> @@ -356,12 +356,12 @@ int rt2x00pci_resume(struct pci_dev *pci_dev)
->  	struct rt2x00_dev *rt2x00dev = hw->priv;
->  
->  	if (pci_set_power_state(pci_dev, PCI_D0) ||
-> -	    pci_enable_device(pci_dev) ||
-> -	    pci_restore_state(pci_dev)) {
-> +	    pci_enable_device(pci_dev)) {
->  		ERROR(rt2x00dev, "Failed to resume device.\n");
->  		return -EIO;
->  	}
->  
-> +	pci_restore_state(pci_dev);
->  	return rt2x00lib_resume(rt2x00dev);
->  }
->  EXPORT_SYMBOL_GPL(rt2x00pci_resume);
-> diff --git a/drivers/pci/pci-driver.c b/drivers/pci/pci-driver.c
-> index 8a6f797..80e551e 100644
-> --- a/drivers/pci/pci-driver.c
-> +++ b/drivers/pci/pci-driver.c
-> @@ -449,7 +449,8 @@ static int pci_restore_standard_config(struct pci_dev *pci_dev)
->  			return error;
->  	}
->  
-> -	return pci_restore_state(pci_dev);
-> +	pci_restore_state(pci_dev);
-> +	return 0;
->  }
->  
->  static void pci_pm_default_resume_early(struct pci_dev *pci_dev)
-> diff --git a/drivers/pci/pci.c b/drivers/pci/pci.c
-> index e98c810..c711d1b 100644
-> --- a/drivers/pci/pci.c
-> +++ b/drivers/pci/pci.c
-> @@ -937,14 +937,13 @@ pci_save_state(struct pci_dev *dev)
->   * pci_restore_state - Restore the saved state of a PCI device
->   * @dev: - PCI device that we're dealing with
->   */
-> -int 
-> -pci_restore_state(struct pci_dev *dev)
-> +void pci_restore_state(struct pci_dev *dev)
->  {
->  	int i;
->  	u32 val;
->  
->  	if (!dev->state_saved)
-> -		return 0;
-> +		return;
->  
->  	/* PCI Express register must be restored first */
->  	pci_restore_pcie_state(dev);
-> @@ -968,8 +967,6 @@ pci_restore_state(struct pci_dev *dev)
->  	pci_restore_iov_state(dev);
->  
->  	dev->state_saved = false;
-> -
-> -	return 0;
->  }
->  
->  static int do_pci_enable_device(struct pci_dev *dev, int bars)
-> diff --git a/drivers/scsi/ipr.c b/drivers/scsi/ipr.c
-> index fa60d7d..1d7dbe6 100644
-> --- a/drivers/scsi/ipr.c
-> +++ b/drivers/scsi/ipr.c
-> @@ -7485,16 +7485,10 @@ static int ipr_reset_restore_cfg_space(struct ipr_cmnd *ipr_cmd)
->  {
->  	struct ipr_ioa_cfg *ioa_cfg = ipr_cmd->ioa_cfg;
->  	volatile u32 int_reg;
-> -	int rc;
->  
->  	ENTER;
->  	ioa_cfg->pdev->state_saved = true;
-> -	rc = pci_restore_state(ioa_cfg->pdev);
-> -
-> -	if (rc != PCIBIOS_SUCCESSFUL) {
-> -		ipr_cmd->s.ioasa.hdr.ioasc = cpu_to_be32(IPR_IOASC_PCI_ACCESS_ERROR);
-> -		return IPR_RC_JOB_CONTINUE;
-> -	}
-> +	pci_restore_state(ioa_cfg->pdev);
->  
->  	if (ipr_set_pcix_cmd_reg(ioa_cfg)) {
->  		ipr_cmd->s.ioasa.hdr.ioasc = cpu_to_be32(IPR_IOASC_PCI_ACCESS_ERROR);
-> diff --git a/drivers/scsi/pmcraid.c b/drivers/scsi/pmcraid.c
-> index cf89091..091baf2 100644
-> --- a/drivers/scsi/pmcraid.c
-> +++ b/drivers/scsi/pmcraid.c
-> @@ -2227,12 +2227,7 @@ static void pmcraid_ioa_reset(struct pmcraid_cmd *cmd)
->  		/* Once either bist or pci reset is done, restore PCI config
->  		 * space. If this fails, proceed with hard reset again
->  		 */
-> -		if (pci_restore_state(pinstance->pdev)) {
-> -			pmcraid_info("config-space error resetting again\n");
-> -			pinstance->ioa_state = IOA_STATE_IN_RESET_ALERT;
-> -			pmcraid_reset_alert(cmd);
-> -			break;
-> -		}
-> +		pci_restore_state(pinstance->pdev);
->  
->  		/* fail all pending commands */
->  		pmcraid_fail_outstanding_cmds(pinstance);
-> diff --git a/drivers/staging/sm7xx/smtcfb.c b/drivers/staging/sm7xx/smtcfb.c
-> index 24f47d6..7162dee 100644
-> --- a/drivers/staging/sm7xx/smtcfb.c
-> +++ b/drivers/staging/sm7xx/smtcfb.c
-> @@ -1071,7 +1071,7 @@ static int __maybe_unused smtcfb_resume(struct pci_dev *pdev)
->  	/* when resuming, restore pci data and fb cursor */
->  	if (pdev->dev.power.power_state.event != PM_EVENT_FREEZE) {
->  		retv = pci_set_power_state(pdev, PCI_D0);
-> -		retv = pci_restore_state(pdev);
-> +		pci_restore_state(pdev);
->  		if (pci_enable_device(pdev))
->  			return -1;
->  		pci_set_master(pdev);
-> diff --git a/include/linux/pci.h b/include/linux/pci.h
-> index 7454408..63cbadc 100644
-> --- a/include/linux/pci.h
-> +++ b/include/linux/pci.h
-> @@ -806,7 +806,7 @@ size_t pci_get_rom_size(struct pci_dev *pdev, void __iomem *rom, size_t size);
->  
->  /* Power management related routines */
->  int pci_save_state(struct pci_dev *dev);
-> -int pci_restore_state(struct pci_dev *dev);
-> +void pci_restore_state(struct pci_dev *dev);
->  int __pci_complete_power_transition(struct pci_dev *dev, pci_power_t state);
->  int pci_set_power_state(struct pci_dev *dev, pci_power_t state);
->  pci_power_t pci_choose_state(struct pci_dev *dev, pm_message_t state);
-> @@ -1168,10 +1168,8 @@ static inline int pci_save_state(struct pci_dev *dev)
->  	return 0;
->  }
->  
-> -static inline int pci_restore_state(struct pci_dev *dev)
-> -{
-> -	return 0;
-> -}
-> +static inline void pci_restore_state(struct pci_dev *dev)
-> +{ }
->  
->  static inline int pci_set_power_state(struct pci_dev *dev, pci_power_t state)
->  {
-> diff --git a/sound/pci/cs5535audio/cs5535audio_pm.c b/sound/pci/cs5535audio/cs5535audio_pm.c
-> index a3301cc..185b000 100644
-> --- a/sound/pci/cs5535audio/cs5535audio_pm.c
-> +++ b/sound/pci/cs5535audio/cs5535audio_pm.c
-> @@ -90,12 +90,7 @@ int snd_cs5535audio_resume(struct pci_dev *pci)
->  	int i;
->  
->  	pci_set_power_state(pci, PCI_D0);
-> -	if (pci_restore_state(pci) < 0) {
-> -		printk(KERN_ERR "cs5535audio: pci_restore_state failed, "
-> -		       "disabling device\n");
-> -		snd_card_disconnect(card);
-> -		return -EIO;
-> -	}
-> +	pci_restore_state(pci);
->  	if (pci_enable_device(pci) < 0) {
->  		printk(KERN_ERR "cs5535audio: pci_enable_device failed, "
->  		       "disabling device\n");
-> 
+diff --git a/net/core/timestamping.c b/net/core/timestamping.c
+index dac7ed6..a710ab0 100644
+--- a/net/core/timestamping.c
++++ b/net/core/timestamping.c
+@@ -96,7 +96,10 @@ bool skb_defer_rx_timestamp(struct sk_buff *skb)
+ 	struct phy_device *phydev;
+ 	unsigned int type;
+=20
+-	skb_push(skb, ETH_HLEN);
++	if (skb->data - ETH_HLEN < skb->head)
++		return false;
++
++	__skb_push(skb, ETH_HLEN);
+=20
+ 	type =3D classify(skb);
+=20
+
+
