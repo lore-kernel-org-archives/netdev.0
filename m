@@ -1,120 +1,53 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next-2.6 17/17] sfc: Store MAC address from NVRAM in
- net_device::perm_addr
-Date: Thu, 02 Dec 2010 23:48:28 +0000
-Message-ID: <1291333708.3259.40.camel@bwh-desktop>
-References: <1291333490.3259.23.camel@bwh-desktop>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: jme: UDP checksum error, and lots of them
+Date: Fri, 3 Dec 2010 00:54:06 +0100 (CET)
+Message-ID: <alpine.LNX.2.01.1012030044440.22334@obet.zrqbmnf.qr>
+References: <alpine.LNX.2.01.1012020430190.4157@obet.zrqbmnf.qr> <20101201.200935.71110482.davem@davemloft.net> <20101202042820.M98672@cooldavid.org> <20101201.215916.104055114.davem@davemloft.net> <20101202231546.GA3507@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: David Miller <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, cooldavid@cooldavid.org,
+	netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:13163 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932171Ab0LBXsb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Dec 2010 18:48:31 -0500
-In-Reply-To: <1291333490.3259.23.camel@bwh-desktop>
+Received: from borg.medozas.de ([188.40.89.202]:39968 "EHLO borg.medozas.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757895Ab0LBXyI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Dec 2010 18:54:08 -0500
+In-Reply-To: <20101202231546.GA3507@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For some reason we failed to make this change when perm_addr was
-introduced.
+On Friday 2010-12-03 00:15, Francois Romieu wrote:
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/sfc/efx.c        |    8 +++++---
- drivers/net/sfc/falcon.c     |    2 +-
- drivers/net/sfc/net_driver.h |    2 --
- drivers/net/sfc/siena.c      |    8 +-------
- 4 files changed, 7 insertions(+), 13 deletions(-)
+>David Miller <davem@davemloft.net> :
+>[...]
+>> Something isn't right here.  The only thing that makes sense is if
+>> the tcpdump checksum validation is wrong for some reason.  Because
+>> only then could we give a reason for the UDP frames to not be
+>> dropped before vpnc can see them.
+>
+>Wild guess : 192.168... is the local address and tcpdump chokes on
+>an outgoing, yet-not-checksummed packet.
 
-diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
-index 7e820d9..f3e4043 100644
---- a/drivers/net/sfc/efx.c
-+++ b/drivers/net/sfc/efx.c
-@@ -909,6 +909,7 @@ static void efx_mac_work(struct work_struct *data)
- 
- static int efx_probe_port(struct efx_nic *efx)
- {
-+	unsigned char *perm_addr;
- 	int rc;
- 
- 	netif_dbg(efx, probe, efx->net_dev, "create port\n");
-@@ -922,11 +923,12 @@ static int efx_probe_port(struct efx_nic *efx)
- 		return rc;
- 
- 	/* Sanity check MAC address */
--	if (is_valid_ether_addr(efx->mac_address)) {
--		memcpy(efx->net_dev->dev_addr, efx->mac_address, ETH_ALEN);
-+	perm_addr = efx->net_dev->perm_addr;
-+	if (is_valid_ether_addr(perm_addr)) {
-+		memcpy(efx->net_dev->dev_addr, perm_addr, ETH_ALEN);
- 	} else {
- 		netif_err(efx, probe, efx->net_dev, "invalid MAC address %pM\n",
--			  efx->mac_address);
-+			  perm_addr);
- 		if (!allow_bad_hwaddr) {
- 			rc = -EINVAL;
- 			goto err;
-diff --git a/drivers/net/sfc/falcon.c b/drivers/net/sfc/falcon.c
-index 07f684e..70e4f7d 100644
---- a/drivers/net/sfc/falcon.c
-+++ b/drivers/net/sfc/falcon.c
-@@ -1297,7 +1297,7 @@ static int falcon_probe_nvconfig(struct efx_nic *efx)
- 	}
- 
- 	/* Read the MAC addresses */
--	memcpy(efx->mac_address, nvconfig->mac_address[0], ETH_ALEN);
-+	memcpy(efx->net_dev->perm_addr, nvconfig->mac_address[0], ETH_ALEN);
- 
- 	netif_dbg(efx, probe, efx->net_dev, "PHY is %d phy_id %d\n",
- 		  efx->phy_type, efx->mdio.prtad);
-diff --git a/drivers/net/sfc/net_driver.h b/drivers/net/sfc/net_driver.h
-index 6dd5e6d..0d19fbf 100644
---- a/drivers/net/sfc/net_driver.h
-+++ b/drivers/net/sfc/net_driver.h
-@@ -678,7 +678,6 @@ struct efx_filter_state;
-  * @stats_buffer: DMA buffer for statistics
-  * @stats_lock: Statistics update lock. Serialises statistics fetches
-  * @mac_op: MAC interface
-- * @mac_address: Permanent MAC address
-  * @phy_type: PHY type
-  * @phy_op: PHY interface
-  * @phy_data: PHY private data (including PHY-specific stats)
-@@ -762,7 +761,6 @@ struct efx_nic {
- 	spinlock_t stats_lock;
- 
- 	struct efx_mac_operations *mac_op;
--	unsigned char mac_address[ETH_ALEN];
- 
- 	unsigned int phy_type;
- 	struct efx_phy_operations *phy_op;
-diff --git a/drivers/net/sfc/siena.c b/drivers/net/sfc/siena.c
-index b315980..bf84561 100644
---- a/drivers/net/sfc/siena.c
-+++ b/drivers/net/sfc/siena.c
-@@ -194,13 +194,7 @@ static int siena_reset_hw(struct efx_nic *efx, enum reset_type method)
- 
- static int siena_probe_nvconfig(struct efx_nic *efx)
- {
--	int rc;
--
--	rc = efx_mcdi_get_board_cfg(efx, efx->mac_address, NULL);
--	if (rc)
--		return rc;
--
--	return 0;
-+	return efx_mcdi_get_board_cfg(efx, efx->net_dev->perm_addr, NULL);
- }
- 
- static int siena_probe_nic(struct efx_nic *efx)
--- 
-1.7.3.2
+Then the checksums of all other packets I am emitting would also be 0000 
+or wrong, which isn't the case.
 
+Also, when I am running vpnc on my desktop machine (unlike the
+laptop, it has sis900 and is i586), tcpdump agrees with the checksum
+it seems.
+So either it's due to x86_64, or it is in fact jme..
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+00:48:10.954007 IP 192.168.13.37.4500 > 134.76.22.1.4500: UDP-encap:
+ESP(spi=0x2224e306,seq=0x225a), length 164
+        0x0000:  4500 00c0 4582 4000 4011 8a90 c0a8 0d25  E...E.@.@......%
+        0x0010:  864c 1601 1194 1194 00ac b0e4 2224 e306  .L.........."$..
+        0x0020:  0000 225a 70d8 8311 d5f4 0936 1a1c 1664  .."Zp......6...d
+        0x0030:  f4b9 9281 a9a3 6b91 41eb 1deb 737e defd  ......k.A...s~..
+        0x0040:  d5cc 9a76 976c 4216 bdf3 4f23 50b7 deda  ...v.lB...O#P...
+        0x0050:  dcf2 489f 223d 9e24 21fb b5f4 5829 ec4c  ..H."=.$!...X).L
+        0x0060:  f90b 25b2 588f 82e1 131c b273 07e0 7234  ..%.X......s..r4
+        0x0070:  957c 69e8 6e56 353c 7ce8 446a 52a2 fe2f  .|i.nV5<|.DjR../
+        0x0080:  ea75 c9ac e7e3 df40 bca5 2ca9 e376 29ea  .u.....@..,..v).
+        0x0090:  080b 2329 c1b7 1111 0e4b 8c13 af98 4d5e  ..#).....K....M^
+        0x00a0:  1708 a911 9962 d023 9dff 4df6 58fd e035  .....b.#..M.X..5
+        0x00b0:  5386 4198 ea07 376d 8c96 3466 394d c7e6  S.A...7m..4f9M..
