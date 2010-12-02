@@ -1,116 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: kernel panic with time-stamping in phy devices (monitor mode)
-Date: Thu, 02 Dec 2010 17:38:04 +0100
-Message-ID: <1291307884.2871.69.camel@edumazet-laptop>
-References: <252997.92320.qm@web111013.mail.gq1.yahoo.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Andrew Watts <akwatts@ymail.com>
+From: Tobias Klauser <tklauser@distanz.ch>
+Subject: [PATCH] net: emaclite: Omit private ndo_get_stats function
+Date: Thu,  2 Dec 2010 18:20:39 +0100
+Message-ID: <1291310439-5813-1-git-send-email-tklauser@distanz.ch>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:39000 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752816Ab0LBQpE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Dec 2010 11:45:04 -0500
-Received: by wyb28 with SMTP id 28so8400314wyb.19
-        for <netdev@vger.kernel.org>; Thu, 02 Dec 2010 08:45:03 -0800 (PST)
-In-Reply-To: <252997.92320.qm@web111013.mail.gq1.yahoo.com>
+Received: from mx1.zhaw.ch ([160.85.104.50]:56718 "EHLO mx1.zhaw.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753133Ab0LBR2L (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Dec 2010 12:28:11 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 02 d=C3=A9cembre 2010 =C3=A0 08:05 -0800, Andrew Watts a =C3=A9=
-crit :
-> Hi.
->=20
-> The 'time stamping in phy devices' code introduced in 2.6.36
-> (c1f19b51d1d87f3e3bb7e6648f43f7d57ed2da6b et al.) triggers
-> kernel panics when wireless devices are placed in monitor mode
-> (tested with b43 and ath5k devices on a 32-bit system).
->=20
-> To reproduce, set CONFIG_NETWORK_PHY_TIMESTAMPING=3Dy and put a
-> wireless device into monitor mode:
->=20
->  # ifconfig wlan0 down
->  # iwconfig wlan0 mode monitor=20
->  # ifconfig wlan0 up
->=20
-> ~ Andy
->=20
-> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
->=20
->  [<c14455ad>] ? __alloc_skb+0x53/0xf8
->  [<f92fdd57>] ? b43_dma_rx+0x18a/0x342 [b43]
->  [<f92e8475>] ? b43_do_interrupt_thread+0x420/0x92e [b43]
->  [<c1027731>] ? __dequeue_entity+0x31/0x35
->  [<c1027a44>] ? set_next_entity+0xad/0xbb
->  [<f92e899b>] ? b43_interrupt_thread_handler+0x18/0x2b [b43]
->  [<c107c378>] ? irq_thread+0xb6/0x19e
->  [<c15625a0>] ? schedule+0x254/0x566
->  [<c107c2c2>] ? irq_thread+0x0/0x19e
->  [<c10448b1>] ? kthread+0x67/0x69
->  [<c104484a>] ? kthread+0x0/0x69
->  [<c100323e>] ? kernel_thread_helper+0x6/0x18
-> Code: 4c 24 14 8b 88 a8 00 00 00 89 4c 24 10 89 54 24 0c 8b
-> 40 50 89 44 24 08 8b 45 04 89 44 24 04 c7 04 24 30 74 7a c1
-> e8 b5 d2 11 00 <0f> 0b eb fe 55 89 e5 56 53 83 ec 24 8b 88
-> a0 00 00 00 8b 58 54
-> EIP: [<c1444ea0>] skb_push+0x7d/0x81 SS:ESP 0068:cee01d78
-> ---[ end trace af1c99818e62b195 ]---
-> Kernel panic - not syncing: Fatal exception in interrupt
-> Pid: 6674, comm: irq/18-b43 Tainted: G     D     2.6.36.1
-> Call Trace:
->  [<c156217d>] ? printk+0x28/0x2a
->  [<c156205c>] panic+0x57/0x150
->  [<c1564adf>] oops_begin+0x0/0x40
->  [<c1004e36>] die+0x49/0x5d
->  [<c1564304>] do_trap+0x84/0xad
->  [<c10037e5>] ? do_invalid_op+0x0/0x93
->  [<c100386b>] do_invalid_op+0x86/0x93
->  [<c1444ea0>] ? skb_push+0x7d/0x81
->  [<c15640b9>] error_code+0x65/0x6c
->  [<c1444ea0>] ? skb_push+0x7d/0x81
->  [<c145f721>] ? skb_defer_rx_timestamp+0x12/0x5a
->  [<c145f721>] skb_defer_rx_timestamp+0x12/0x5a
->  [<c144d23c>] netif_receive_skb+0x1f/0x47
->  [<c153a6e8>] ieee80211_rx+0x661/0x8e1
->  [<f85daca2>] ? ssb_pci_read32+0x19/0x31 [ssb]
->  [<f92e54cf>] ? b43_tsf_read+0x2a/0x47 [b43]
->  [<f92f8d42>] b43_rx+0x24c/0x5eb [b43]
->  [<c14455ad>] ? __alloc_skb+0x53/0xf8
->  [<f92fdd57>] b43_dma_rx+0x18a/0x342 [b43]
->  [<f92e8475>] b43_do_interrupt_thread+0x420/0x92e [b43]
->  [<c1027731>] ? __dequeue_entity+0x31/0x35
->  [<c1027a44>] ? set_next_entity+0xad/0xbb
->  [<f92e899b>] b43_interrupt_thread_handler+0x18/0x2b [b43]
->  [<c107c378>] irq_thread+0xb6/0x19e
->  [<c15625a0>] ? schedule+0x254/0x566
->  [<c107c2c2>] ? irq_thread+0x0/0x19e
->  [<c10448b1>] kthread+0x67/0x69
->  [<c104484a>] ? kthread+0x0/0x69
->  [<c100323e>] kernel_thread_helper+0x6/0x18
->=20
->=20
+xemaclite_get_stats() just returns dev->stats so we can leave it out
+alltogether and let dev_get_stats() do the job.
 
-Thanks for the report
+Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+---
+ drivers/net/xilinx_emaclite.c |   16 ----------------
+ 1 files changed, 0 insertions(+), 16 deletions(-)
 
-Please try following patch.
-
-diff --git a/net/core/timestamping.c b/net/core/timestamping.c
-index dac7ed6..a710ab0 100644
---- a/net/core/timestamping.c
-+++ b/net/core/timestamping.c
-@@ -96,7 +96,10 @@ bool skb_defer_rx_timestamp(struct sk_buff *skb)
- 	struct phy_device *phydev;
- 	unsigned int type;
-=20
--	skb_push(skb, ETH_HLEN);
-+	if (skb->data - ETH_HLEN < skb->head)
-+		return false;
-+
-+	__skb_push(skb, ETH_HLEN);
-=20
- 	type =3D classify(skb);
-=20
-
+diff --git a/drivers/net/xilinx_emaclite.c b/drivers/net/xilinx_emaclite.c
+index 2de52d1..de6c308 100644
+--- a/drivers/net/xilinx_emaclite.c
++++ b/drivers/net/xilinx_emaclite.c
+@@ -1001,21 +1001,6 @@ static int xemaclite_close(struct net_device *dev)
+ }
+ 
+ /**
+- * xemaclite_get_stats - Get the stats for the net_device
+- * @dev:	Pointer to the network device
+- *
+- * This function returns the address of the 'net_device_stats' structure for the
+- * given network device. This structure holds usage statistics for the network
+- * device.
+- *
+- * Return:	Pointer to the net_device_stats structure.
+- */
+-static struct net_device_stats *xemaclite_get_stats(struct net_device *dev)
+-{
+-	return &dev->stats;
+-}
+-
+-/**
+  * xemaclite_send - Transmit a frame
+  * @orig_skb:	Pointer to the socket buffer to be transmitted
+  * @dev:	Pointer to the network device
+@@ -1285,7 +1270,6 @@ static struct net_device_ops xemaclite_netdev_ops = {
+ 	.ndo_start_xmit		= xemaclite_send,
+ 	.ndo_set_mac_address	= xemaclite_set_mac_address,
+ 	.ndo_tx_timeout		= xemaclite_tx_timeout,
+-	.ndo_get_stats		= xemaclite_get_stats,
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller = xemaclite_poll_controller,
+ #endif
+-- 
+1.7.0.4
 
