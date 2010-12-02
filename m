@@ -1,109 +1,59 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH] ixgbe: fix for link failure on SFP+ DA cables
-Date: Wed, 01 Dec 2010 22:59:25 -0800
-Message-ID: <20101202065921.13413.91380.stgit@localhost.localdomain>
+From: Vasanthy Kolluri <vkolluri@cisco.com>
+Subject: [net-next-2.6 PATCH] enic: Bug Fix: Pass napi reference to the isr
+	that services receive queue
+Date: Wed, 01 Dec 2010 23:08:33 -0800
+Message-ID: <20101202070833.4213.8072.stgit@savbu-pc100.cisco.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: netdev@vger.kernel.org, roprabhu@cisco.com, dwang2@cisco.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta11.westchester.pa.mail.comcast.net ([76.96.59.211]:39138
-	"EHLO QMTA11.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753581Ab0LBHFj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Dec 2010 02:05:39 -0500
+Received: from sj-iport-4.cisco.com ([171.68.10.86]:33328 "EHLO
+	sj-iport-4.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753581Ab0LBHId (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Dec 2010 02:08:33 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+From: Vasanthy Kolluri <vkolluri@cisco.com>
 
-This patch helps prevent FW/SW semaphore collision from leading
-to link establishment failure.  The collision might mess up the
-PHY registers so we reset the PHY.  However there are SFI/KR areas
-in the PHY that are not reset with a Reset_AN so we need to change
-LMS to reset it.  Also wait until AN state machine is AN_GOOD
+Pass reference to napi instead of enic device to the isr that services receive queue.
 
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
-Tested-by: Stephen Ko <stephen.s.ko@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: Vasanthy Kolluri <vkolluri@cisco.com>
+Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
+Signed-off-by: David Wang <dwang2@cisco.com>
 ---
+ drivers/net/enic/enic.h      |    2 +-
+ drivers/net/enic/enic_main.c |    3 ++-
+ 2 files changed, 3 insertions(+), 2 deletions(-)
 
- drivers/net/ixgbe/ixgbe_82599.c |   28 +++++++++++++++++++++++++---
- drivers/net/ixgbe/ixgbe_type.h  |    3 +++
- 2 files changed, 28 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_82599.c b/drivers/net/ixgbe/ixgbe_82599.c
-index e34643e..26b8ceb 100644
---- a/drivers/net/ixgbe/ixgbe_82599.c
-+++ b/drivers/net/ixgbe/ixgbe_82599.c
-@@ -90,6 +90,8 @@ static void ixgbe_init_mac_link_ops_82599(struct ixgbe_hw *hw)
- static s32 ixgbe_setup_sfp_modules_82599(struct ixgbe_hw *hw)
- {
- 	s32 ret_val = 0;
-+	u32 reg_anlp1 = 0;
-+	u32 i = 0;
- 	u16 list_offset, data_offset, data_value;
+diff --git a/drivers/net/enic/enic.h b/drivers/net/enic/enic.h
+index 7067254..a930fb9 100644
+--- a/drivers/net/enic/enic.h
++++ b/drivers/net/enic/enic.h
+@@ -32,7 +32,7 @@
  
- 	if (hw->phy.sfp_type != ixgbe_sfp_type_unknown) {
-@@ -116,14 +118,34 @@ static s32 ixgbe_setup_sfp_modules_82599(struct ixgbe_hw *hw)
- 			IXGBE_WRITE_FLUSH(hw);
- 			hw->eeprom.ops.read(hw, ++data_offset, &data_value);
+ #define DRV_NAME		"enic"
+ #define DRV_DESCRIPTION		"Cisco VIC Ethernet NIC Driver"
+-#define DRV_VERSION		"1.4.1.7"
++#define DRV_VERSION		"1.4.1.8"
+ #define DRV_COPYRIGHT		"Copyright 2008-2010 Cisco Systems, Inc"
+ 
+ #define ENIC_BARS_MAX		6
+diff --git a/drivers/net/enic/enic_main.c b/drivers/net/enic/enic_main.c
+index 9f293fa..828a436 100644
+--- a/drivers/net/enic/enic_main.c
++++ b/drivers/net/enic/enic_main.c
+@@ -1962,7 +1962,8 @@ static void enic_poll_controller(struct net_device *netdev)
+ 	case VNIC_DEV_INTR_MODE_MSIX:
+ 		for (i = 0; i < enic->rq_count; i++) {
+ 			intr = enic_msix_rq_intr(enic, i);
+-			enic_isr_msix_rq(enic->msix_entry[intr].vector, enic);
++			enic_isr_msix_rq(enic->msix_entry[intr].vector,
++				&enic->napi[i]);
  		}
--		/* Now restart DSP by setting Restart_AN */
--		IXGBE_WRITE_REG(hw, IXGBE_AUTOC,
--		    (IXGBE_READ_REG(hw, IXGBE_AUTOC) | IXGBE_AUTOC_AN_RESTART));
- 
- 		/* Release the semaphore */
- 		ixgbe_release_swfw_sync(hw, IXGBE_GSSR_MAC_CSR_SM);
- 		/* Delay obtaining semaphore again to allow FW access */
- 		msleep(hw->eeprom.semaphore_delay);
-+
-+		/* Now restart DSP by setting Restart_AN and clearing LMS */
-+		IXGBE_WRITE_REG(hw, IXGBE_AUTOC, ((IXGBE_READ_REG(hw,
-+		                IXGBE_AUTOC) & ~IXGBE_AUTOC_LMS_MASK) |
-+		                IXGBE_AUTOC_AN_RESTART));
-+
-+		/* Wait for AN to leave state 0 */
-+		for (i = 0; i < 10; i++) {
-+			msleep(4);
-+			reg_anlp1 = IXGBE_READ_REG(hw, IXGBE_ANLP1);
-+			if (reg_anlp1 & IXGBE_ANLP1_AN_STATE_MASK)
-+				break;
-+		}
-+		if (!(reg_anlp1 & IXGBE_ANLP1_AN_STATE_MASK)) {
-+			hw_dbg(hw, "sfp module setup not complete\n");
-+			ret_val = IXGBE_ERR_SFP_SETUP_NOT_COMPLETE;
-+			goto setup_sfp_out;
-+		}
-+
-+		/* Restart DSP by setting Restart_AN and return to SFI mode */
-+		IXGBE_WRITE_REG(hw, IXGBE_AUTOC, (IXGBE_READ_REG(hw,
-+		                IXGBE_AUTOC) | IXGBE_AUTOC_LMS_10G_SERIAL |
-+		                IXGBE_AUTOC_AN_RESTART));
- 	}
- 
- setup_sfp_out:
-diff --git a/drivers/net/ixgbe/ixgbe_type.h b/drivers/net/ixgbe/ixgbe_type.h
-index 42c6073..20e1f03 100644
---- a/drivers/net/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ixgbe/ixgbe_type.h
-@@ -1467,6 +1467,8 @@
- #define IXGBE_ANLP1_PAUSE               0x0C00
- #define IXGBE_ANLP1_SYM_PAUSE           0x0400
- #define IXGBE_ANLP1_ASM_PAUSE           0x0800
-+#define IXGBE_ANLP1_AN_STATE_MASK       0x000f0000
-+
- 
- /* SW Semaphore Register bitmasks */
- #define IXGBE_SWSM_SMBI 0x00000001 /* Driver Semaphore bit */
-@@ -2634,6 +2636,7 @@ struct ixgbe_info {
- #define IXGBE_ERR_NO_SPACE                      -25
- #define IXGBE_ERR_OVERTEMP                      -26
- #define IXGBE_ERR_RAR_INDEX                     -27
-+#define IXGBE_ERR_SFP_SETUP_NOT_COMPLETE        -30
- #define IXGBE_NOT_IMPLEMENTED                   0x7FFFFFFF
- 
- #endif /* _IXGBE_TYPE_H_ */
+ 		intr = enic_msix_wq_intr(enic, i);
+ 		enic_isr_msix_wq(enic->msix_entry[intr].vector, enic);
 
