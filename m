@@ -1,60 +1,69 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC] [PATCH 06/11] esp4: Add support for IPsec extended
-	sequence numbers
-Date: Thu, 2 Dec 2010 15:29:47 +0800
-Message-ID: <20101202072947.GA22998@gondor.apana.org.au>
-References: <20101122102455.GC1868@secunet.com> <20101122103014.GI1868@secunet.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [net-next-2.6 PATCH] ixgbe: fix for link failure on SFP+ DA
+ cables
+Date: Wed, 01 Dec 2010 23:41:41 -0800
+Message-ID: <1291275701.1761.40.camel@Joe-Laptop>
+References: <20101202065921.13413.91380.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Andreas Gruenbacher <agruen@suse.de>,
-	Alex Badea <abadea@ixiacom.com>, netdev@vger.kernel.org,
-	linux-crypto@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20101122103014.GI1868@secunet.com>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, gospo@redhat.com,
+	bphilips@novell.com, Don Skidmore <donald.c.skidmore@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.perches.com ([173.55.12.10]:2138 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751223Ab0LBHlm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Dec 2010 02:41:42 -0500
+In-Reply-To: <20101202065921.13413.91380.stgit@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 22, 2010 at 11:30:14AM +0100, Steffen Klassert wrote:
->
-> @@ -205,11 +228,18 @@ static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
->  	skb_to_sgvec(skb, sg,
->  		     esph->enc_data + crypto_aead_ivsize(aead) - skb->data,
->  		     clen + alen);
-> -	sg_init_one(asg, esph, sizeof(*esph));
-> +
-> +	if ((x->props.flags & XFRM_STATE_ESN)) {
-> +		sg_init_table(asg, 2);
-> +		sg_set_buf(asg, esph, sizeof(*esph));
-> +		*seqhi = htonl(XFRM_SKB_CB(skb)->seq.output.hi);
-> +		sg_set_buf(asg + 1, seqhi, seqhilen);
-> +	} else
-> +		sg_init_one(asg, esph, sizeof(*esph));
+On Wed, 2010-12-01 at 22:59 -0800, Jeff Kirsher wrote:
+> This patch helps prevent FW/SW semaphore collision from leading
+> to link establishment failure.  The collision might mess up the
+> PHY registers so we reset the PHY.  However there are SFI/KR areas
+> in the PHY that are not reset with a Reset_AN so we need to change
+> LMS to reset it.  Also wait until AN state machine is AN_GOOD
+[]
+>  drivers/net/ixgbe/ixgbe_82599.c |   28 +++++++++++++++++++++++++---
+> diff --git a/drivers/net/ixgbe/ixgbe_82599.c b/drivers/net/ixgbe/ixgbe_82599.c
+[]
+> @@ -116,14 +118,34 @@ static s32 ixgbe_setup_sfp_modules_82599(struct ixgbe_hw *hw)
+>  			IXGBE_WRITE_FLUSH(hw);
+>  			hw->eeprom.ops.read(hw, ++data_offset, &data_value);
+>  		}
+> -		/* Now restart DSP by setting Restart_AN */
+> -		IXGBE_WRITE_REG(hw, IXGBE_AUTOC,
+> -		    (IXGBE_READ_REG(hw, IXGBE_AUTOC) | IXGBE_AUTOC_AN_RESTART));
+>  
+>  		/* Release the semaphore */
+>  		ixgbe_release_swfw_sync(hw, IXGBE_GSSR_MAC_CSR_SM);
+>  		/* Delay obtaining semaphore again to allow FW access */
+>  		msleep(hw->eeprom.semaphore_delay);
 
-I think this is wrong for AEAD algorithms.  You want the sequence
-number in network byte order for them so the high bits need to be
-inserted into the middle of the ESP header.
+might these msleeps be usleep_range?
 
-The other problem is that you're currently requiring the authencesn
-user to provide two SG entries which is fine for now.  However,
-since this might be exported to user-space in future, authenecesn
-shouldn't really rely on that, or at least it shouldn't BUG.
+[]
 
-So one solution is to do it based on bytes in authencesn.  That is,
-your associated input should always be 12 bytes long, and then you
-simply construct a new SG list for your actual processing with the
-middle 4 bytes taken out.
+> +		/* Wait for AN to leave state 0 */
+> +		for (i = 0; i < 10; i++) {
+> +			msleep(4);
 
-For IPsec it could just provide an SG list with three entries,
-of 4 bytes each.
+Perhaps usleep_range?
 
-Of course for simplicity, you could require this to be the case in
-authencesn and return -EINVAL (not BUG :) if it's not the case.
+Maybe all the msleep uses < 20ms in the intel drivers?
 
-Thanks,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+$ grep -nPr --include=*.[ch] "msleep\s*\(\s*1?\d\s*\)" drivers/net/ig* drivers/net/ixg* drivers/net/e100* | wc -l
+123
+
+Maybe something like doubling the sleep value
+for the upper bound range?
+
+Here's a little script that does that.
+
+$ grep -nPrl --include=*.[ch] "msleep\s*\(\s*1?\d\s*\)" \
+	drivers/net/ig* drivers/net/ixg* drivers/net/e100* | \
+xargs perl -p -i -e 's/msleep\s*\(\s*(1?\d)\s*\)/"usleep_range\(${1}000, " . scalar($1) * 2 . "000\)"/ge'
+
+
