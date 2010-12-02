@@ -1,8 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next-2.6 12/17] sfc: Move Falcon global event handling
- to falcon.c
-Date: Thu, 02 Dec 2010 23:47:45 +0000
-Message-ID: <1291333665.3259.35.camel@bwh-desktop>
+Subject: [PATCH net-next-2.6 17/17] sfc: Store MAC address from NVRAM in
+ net_device::perm_addr
+Date: Thu, 02 Dec 2010 23:48:28 +0000
+Message-ID: <1291333708.3259.40.camel@bwh-desktop>
 References: <1291333490.3259.23.camel@bwh-desktop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -10,177 +10,107 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:13112 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:13163 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932332Ab0LBXrs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Dec 2010 18:47:48 -0500
+	with ESMTP id S932171Ab0LBXsb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Dec 2010 18:48:31 -0500
 In-Reply-To: <1291333490.3259.23.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+For some reason we failed to make this change when perm_addr was
+introduced.
+
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/falcon.c     |   36 +++++++++++++++++++++++++++++++
- drivers/net/sfc/net_driver.h |    2 +
- drivers/net/sfc/nic.c        |   48 ++++-------------------------------------
- 3 files changed, 43 insertions(+), 43 deletions(-)
+ drivers/net/sfc/efx.c        |    8 +++++---
+ drivers/net/sfc/falcon.c     |    2 +-
+ drivers/net/sfc/net_driver.h |    2 --
+ drivers/net/sfc/siena.c      |    8 +-------
+ 4 files changed, 7 insertions(+), 13 deletions(-)
 
+diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
+index 7e820d9..f3e4043 100644
+--- a/drivers/net/sfc/efx.c
++++ b/drivers/net/sfc/efx.c
+@@ -909,6 +909,7 @@ static void efx_mac_work(struct work_struct *data)
+ 
+ static int efx_probe_port(struct efx_nic *efx)
+ {
++	unsigned char *perm_addr;
+ 	int rc;
+ 
+ 	netif_dbg(efx, probe, efx->net_dev, "create port\n");
+@@ -922,11 +923,12 @@ static int efx_probe_port(struct efx_nic *efx)
+ 		return rc;
+ 
+ 	/* Sanity check MAC address */
+-	if (is_valid_ether_addr(efx->mac_address)) {
+-		memcpy(efx->net_dev->dev_addr, efx->mac_address, ETH_ALEN);
++	perm_addr = efx->net_dev->perm_addr;
++	if (is_valid_ether_addr(perm_addr)) {
++		memcpy(efx->net_dev->dev_addr, perm_addr, ETH_ALEN);
+ 	} else {
+ 		netif_err(efx, probe, efx->net_dev, "invalid MAC address %pM\n",
+-			  efx->mac_address);
++			  perm_addr);
+ 		if (!allow_bad_hwaddr) {
+ 			rc = -EINVAL;
+ 			goto err;
 diff --git a/drivers/net/sfc/falcon.c b/drivers/net/sfc/falcon.c
-index af62899..fd5bf0b 100644
+index 07f684e..70e4f7d 100644
 --- a/drivers/net/sfc/falcon.c
 +++ b/drivers/net/sfc/falcon.c
-@@ -881,6 +881,40 @@ static void falcon_remove_port(struct efx_nic *efx)
- 	efx_nic_free_buffer(efx, &efx->stats_buffer);
- }
+@@ -1297,7 +1297,7 @@ static int falcon_probe_nvconfig(struct efx_nic *efx)
+ 	}
  
-+/* Global events are basically PHY events */
-+static bool
-+falcon_handle_global_event(struct efx_channel *channel, efx_qword_t *event)
-+{
-+	struct efx_nic *efx = channel->efx;
-+
-+	if (EFX_QWORD_FIELD(*event, FSF_AB_GLB_EV_G_PHY0_INTR) ||
-+	    EFX_QWORD_FIELD(*event, FSF_AB_GLB_EV_XG_PHY0_INTR) ||
-+	    EFX_QWORD_FIELD(*event, FSF_AB_GLB_EV_XFP_PHY0_INTR))
-+		/* Ignored */
-+		return true;
-+
-+	if ((efx_nic_rev(efx) == EFX_REV_FALCON_B0) &&
-+	    EFX_QWORD_FIELD(*event, FSF_BB_GLB_EV_XG_MGT_INTR)) {
-+		efx->xmac_poll_required = true;
-+		return true;
-+	}
-+
-+	if (efx_nic_rev(efx) <= EFX_REV_FALCON_A1 ?
-+	    EFX_QWORD_FIELD(*event, FSF_AA_GLB_EV_RX_RECOVERY) :
-+	    EFX_QWORD_FIELD(*event, FSF_BB_GLB_EV_RX_RECOVERY)) {
-+		netif_err(efx, rx_err, efx->net_dev,
-+			  "channel %d seen global RX_RESET event. Resetting.\n",
-+			  channel->channel);
-+
-+		atomic_inc(&efx->rx_reset);
-+		efx_schedule_reset(efx, EFX_WORKAROUND_6555(efx) ?
-+				   RESET_TYPE_RX_RECOVERY : RESET_TYPE_DISABLE);
-+		return true;
-+	}
-+
-+	return false;
-+}
-+
- /**************************************************************************
-  *
-  * Falcon test code
-@@ -1702,6 +1736,7 @@ struct efx_nic_type falcon_a1_nic_type = {
- 	.reset = falcon_reset_hw,
- 	.probe_port = falcon_probe_port,
- 	.remove_port = falcon_remove_port,
-+	.handle_global_event = falcon_handle_global_event,
- 	.prepare_flush = falcon_prepare_flush,
- 	.update_stats = falcon_update_nic_stats,
- 	.start_stats = falcon_start_nic_stats,
-@@ -1742,6 +1777,7 @@ struct efx_nic_type falcon_b0_nic_type = {
- 	.reset = falcon_reset_hw,
- 	.probe_port = falcon_probe_port,
- 	.remove_port = falcon_remove_port,
-+	.handle_global_event = falcon_handle_global_event,
- 	.prepare_flush = falcon_prepare_flush,
- 	.update_stats = falcon_update_nic_stats,
- 	.start_stats = falcon_start_nic_stats,
+ 	/* Read the MAC addresses */
+-	memcpy(efx->mac_address, nvconfig->mac_address[0], ETH_ALEN);
++	memcpy(efx->net_dev->perm_addr, nvconfig->mac_address[0], ETH_ALEN);
+ 
+ 	netif_dbg(efx, probe, efx->net_dev, "PHY is %d phy_id %d\n",
+ 		  efx->phy_type, efx->mdio.prtad);
 diff --git a/drivers/net/sfc/net_driver.h b/drivers/net/sfc/net_driver.h
-index 2ffc920..f9d53a0 100644
+index 6dd5e6d..0d19fbf 100644
 --- a/drivers/net/sfc/net_driver.h
 +++ b/drivers/net/sfc/net_driver.h
-@@ -819,6 +819,7 @@ static inline unsigned int efx_port_num(struct efx_nic *efx)
-  *	be called while the controller is uninitialised.
-  * @probe_port: Probe the MAC and PHY
-  * @remove_port: Free resources allocated by probe_port()
-+ * @handle_global_event: Handle a "global" event (may be %NULL)
-  * @prepare_flush: Prepare the hardware for flushing the DMA queues
-  * @update_stats: Update statistics not provided by event handling
-  * @start_stats: Start the regular fetching of statistics
-@@ -863,6 +864,7 @@ struct efx_nic_type {
- 	int (*reset)(struct efx_nic *efx, enum reset_type method);
- 	int (*probe_port)(struct efx_nic *efx);
- 	void (*remove_port)(struct efx_nic *efx);
-+	bool (*handle_global_event)(struct efx_channel *channel, efx_qword_t *);
- 	void (*prepare_flush)(struct efx_nic *efx);
- 	void (*update_stats)(struct efx_nic *efx);
- 	void (*start_stats)(struct efx_nic *efx);
-diff --git a/drivers/net/sfc/nic.c b/drivers/net/sfc/nic.c
-index 41c36b9..9743cff 100644
---- a/drivers/net/sfc/nic.c
-+++ b/drivers/net/sfc/nic.c
-@@ -894,46 +894,6 @@ efx_handle_generated_event(struct efx_channel *channel, efx_qword_t *event)
- 			  channel->channel, EFX_QWORD_VAL(*event));
+@@ -678,7 +678,6 @@ struct efx_filter_state;
+  * @stats_buffer: DMA buffer for statistics
+  * @stats_lock: Statistics update lock. Serialises statistics fetches
+  * @mac_op: MAC interface
+- * @mac_address: Permanent MAC address
+  * @phy_type: PHY type
+  * @phy_op: PHY interface
+  * @phy_data: PHY private data (including PHY-specific stats)
+@@ -762,7 +761,6 @@ struct efx_nic {
+ 	spinlock_t stats_lock;
+ 
+ 	struct efx_mac_operations *mac_op;
+-	unsigned char mac_address[ETH_ALEN];
+ 
+ 	unsigned int phy_type;
+ 	struct efx_phy_operations *phy_op;
+diff --git a/drivers/net/sfc/siena.c b/drivers/net/sfc/siena.c
+index b315980..bf84561 100644
+--- a/drivers/net/sfc/siena.c
++++ b/drivers/net/sfc/siena.c
+@@ -194,13 +194,7 @@ static int siena_reset_hw(struct efx_nic *efx, enum reset_type method)
+ 
+ static int siena_probe_nvconfig(struct efx_nic *efx)
+ {
+-	int rc;
+-
+-	rc = efx_mcdi_get_board_cfg(efx, efx->mac_address, NULL);
+-	if (rc)
+-		return rc;
+-
+-	return 0;
++	return efx_mcdi_get_board_cfg(efx, efx->net_dev->perm_addr, NULL);
  }
  
--/* Global events are basically PHY events */
--static void
--efx_handle_global_event(struct efx_channel *channel, efx_qword_t *event)
--{
--	struct efx_nic *efx = channel->efx;
--	bool handled = false;
--
--	if (EFX_QWORD_FIELD(*event, FSF_AB_GLB_EV_G_PHY0_INTR) ||
--	    EFX_QWORD_FIELD(*event, FSF_AB_GLB_EV_XG_PHY0_INTR) ||
--	    EFX_QWORD_FIELD(*event, FSF_AB_GLB_EV_XFP_PHY0_INTR)) {
--		/* Ignored */
--		handled = true;
--	}
--
--	if ((efx_nic_rev(efx) >= EFX_REV_FALCON_B0) &&
--	    EFX_QWORD_FIELD(*event, FSF_BB_GLB_EV_XG_MGT_INTR)) {
--		efx->xmac_poll_required = true;
--		handled = true;
--	}
--
--	if (efx_nic_rev(efx) <= EFX_REV_FALCON_A1 ?
--	    EFX_QWORD_FIELD(*event, FSF_AA_GLB_EV_RX_RECOVERY) :
--	    EFX_QWORD_FIELD(*event, FSF_BB_GLB_EV_RX_RECOVERY)) {
--		netif_err(efx, rx_err, efx->net_dev,
--			  "channel %d seen global RX_RESET event. Resetting.\n",
--			  channel->channel);
--
--		atomic_inc(&efx->rx_reset);
--		efx_schedule_reset(efx, EFX_WORKAROUND_6555(efx) ?
--				   RESET_TYPE_RX_RECOVERY : RESET_TYPE_DISABLE);
--		handled = true;
--	}
--
--	if (!handled)
--		netif_err(efx, hw, efx->net_dev,
--			  "channel %d unknown global event "
--			  EFX_QWORD_FMT "\n", channel->channel,
--			  EFX_QWORD_VAL(*event));
--}
--
- static void
- efx_handle_driver_event(struct efx_channel *channel, efx_qword_t *event)
- {
-@@ -1050,15 +1010,17 @@ int efx_nic_process_eventq(struct efx_channel *channel, int budget)
- 		case FSE_AZ_EV_CODE_DRV_GEN_EV:
- 			efx_handle_generated_event(channel, &event);
- 			break;
--		case FSE_AZ_EV_CODE_GLOBAL_EV:
--			efx_handle_global_event(channel, &event);
--			break;
- 		case FSE_AZ_EV_CODE_DRIVER_EV:
- 			efx_handle_driver_event(channel, &event);
- 			break;
- 		case FSE_CZ_EV_CODE_MCDI_EV:
- 			efx_mcdi_process_event(channel, &event);
- 			break;
-+		case FSE_AZ_EV_CODE_GLOBAL_EV:
-+			if (efx->type->handle_global_event &&
-+			    efx->type->handle_global_event(channel, &event))
-+				break;
-+			/* else fall through */
- 		default:
- 			netif_err(channel->efx, hw, channel->efx->net_dev,
- 				  "channel %d unknown event type %d (data "
+ static int siena_probe_nic(struct efx_nic *efx)
 -- 
 1.7.3.2
-
 
 
 -- 
