@@ -1,132 +1,79 @@
-From: Taku Izumi <izumi.taku@jp.fujitsu.com>
-Subject: [PATCH 2/2] bonding: add the debugfs interface to see RLB hash table
-Date: Fri, 03 Dec 2010 11:55:16 +0900
-Message-ID: <4CF85C14.5010909@jp.fujitsu.com>
-References: <4CF85B43.2030407@jp.fujitsu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, shemminger@vyatta.com
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fgwmail7.fujitsu.co.jp ([192.51.44.37]:51128 "EHLO
-	fgwmail7.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758416Ab0LCCzZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Dec 2010 21:55:25 -0500
-Received: from m1.gw.fujitsu.co.jp ([10.0.50.71])
-	by fgwmail7.fujitsu.co.jp (Fujitsu Gateway) with ESMTP id oB32tO5D016132
-	for <netdev@vger.kernel.org> (envelope-from izumi.taku@jp.fujitsu.com);
-	Fri, 3 Dec 2010 11:55:24 +0900
-Received: from smail (m1 [127.0.0.1])
-	by outgoing.m1.gw.fujitsu.co.jp (Postfix) with ESMTP id 62B0645DE58
-	for <netdev@vger.kernel.org>; Fri,  3 Dec 2010 11:55:24 +0900 (JST)
-Received: from s1.gw.fujitsu.co.jp (s1.gw.fujitsu.co.jp [10.0.50.91])
-	by m1.gw.fujitsu.co.jp (Postfix) with ESMTP id 43D8945DE55
-	for <netdev@vger.kernel.org>; Fri,  3 Dec 2010 11:55:24 +0900 (JST)
-Received: from s1.gw.fujitsu.co.jp (localhost.localdomain [127.0.0.1])
-	by s1.gw.fujitsu.co.jp (Postfix) with ESMTP id 37B351DB804B
-	for <netdev@vger.kernel.org>; Fri,  3 Dec 2010 11:55:24 +0900 (JST)
-Received: from m106.s.css.fujitsu.com (m106.s.css.fujitsu.com [10.249.87.106])
-	by s1.gw.fujitsu.co.jp (Postfix) with ESMTP id 003F81DB8040
-	for <netdev@vger.kernel.org>; Fri,  3 Dec 2010 11:55:24 +0900 (JST)
-In-Reply-To: <4CF85B43.2030407@jp.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 0/4] ath: logging message conversion
+Date: Thu,  2 Dec 2010 19:12:34 -0800
+Message-ID: <cover.1291333543.git.joe@perches.com>
+References: <20101202190239.GE7399@tux>
+Cc: Peter Stuge <peter@stuge.se>, Felix Fietkau <nbd@openwrt.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: "Luis R. Rodriguez" <lrodriguez@atheros.com>,
+	linux-wireless@vger.kernel.org, ath5k-devel@lists.ath5k.org,
+	ath9k-devel@lists.ath9k.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20101202190239.GE7399@tux>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+ath_print is misleading as it's only used with CONFIG_ATH_DEBUG.
 
-This patch provices the debugfs interface to see RLB hash table
-like the following:
+Add and use the more normal <subsystem>_printk and <subsystem>_<level>
+printk equivalents. (ath_printk and ath_<level>)
 
-# cat /sys/kernel/debug/bonding/bond0/rlb_hash_table
-SourceIP        DestinationIP   Destination MAC   DEV
-10.124.196.205  10.124.196.205  ff:ff:ff:ff:ff:ff eth4
-10.124.196.205  10.124.196.81   00:19:99:XX:XX:XX eth3
-10.124.196.205  10.124.196.1    00:21:d8:XX:XX:XX eth0
+Fix various defects in the current uses of ath_print formats
+and arguments: Unnecessary casts, missing newlines, multiple
+prints, and 1 loop which can exceed array bounds.
 
-This is helpful to check if the receive load balancing works as expected.
+Bundled and integrated the individual patches into a single patch series.
 
-Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
+Joe Perches (4):
+  ath: Add and use ath_printk and ath_<level>
+  ath: Convert ath_print(.., ATH_DBG_FATAL to ath_err
+  ath: Convert ath_print to ath_dbg
+  ath: Fix ath_dbg access beyond array bound
 
----
- drivers/net/bonding/bond_debugfs.c |   51 +++++++++++++++++++++++++++++++++++++
- 1 file changed, 51 insertions(+)
+ drivers/net/wireless/ath/ath.h                  |  103 +++++++++++
+ drivers/net/wireless/ath/ath5k/base.c           |    1 -
+ drivers/net/wireless/ath/ath5k/debug.c          |    1 -
+ drivers/net/wireless/ath/ath9k/ahb.c            |    7 +-
+ drivers/net/wireless/ath/ath9k/ani.c            |   97 +++++------
+ drivers/net/wireless/ath/ath9k/ar5008_phy.c     |  199 +++++++++------------
+ drivers/net/wireless/ath/ath9k/ar9002_calib.c   |  220 +++++++++++------------
+ drivers/net/wireless/ath/ath9k/ar9002_hw.c      |    6 +-
+ drivers/net/wireless/ath/ath9k/ar9002_mac.c     |   20 +-
+ drivers/net/wireless/ath/ath9k/ar9003_calib.c   |  217 +++++++++++-----------
+ drivers/net/wireless/ath/ath9k/ar9003_eeprom.c  |  174 ++++++++-----------
+ drivers/net/wireless/ath/ath9k/ar9003_mac.c     |   16 +-
+ drivers/net/wireless/ath/ath9k/ar9003_phy.c     |  205 ++++++++++-----------
+ drivers/net/wireless/ath/ath9k/beacon.c         |   79 ++++-----
+ drivers/net/wireless/ath/ath9k/calib.c          |   59 +++---
+ drivers/net/wireless/ath/ath9k/common.c         |    4 +-
+ drivers/net/wireless/ath/ath9k/common.h         |    1 -
+ drivers/net/wireless/ath/ath9k/eeprom.c         |    4 +-
+ drivers/net/wireless/ath/ath9k/eeprom_4k.c      |   72 ++++----
+ drivers/net/wireless/ath/ath9k/eeprom_9287.c    |   39 ++---
+ drivers/net/wireless/ath/ath9k/eeprom_def.c     |   67 ++++----
+ drivers/net/wireless/ath/ath9k/gpio.c           |   20 +-
+ drivers/net/wireless/ath/ath9k/htc_drv_beacon.c |   24 ++--
+ drivers/net/wireless/ath/ath9k/htc_drv_gpio.c   |   15 +-
+ drivers/net/wireless/ath/ath9k/htc_drv_init.c   |   63 +++----
+ drivers/net/wireless/ath/ath9k/htc_drv_main.c   |  192 ++++++++++----------
+ drivers/net/wireless/ath/ath9k/htc_drv_txrx.c   |   33 ++--
+ drivers/net/wireless/ath/ath9k/hw.c             |  161 ++++++++---------
+ drivers/net/wireless/ath/ath9k/hw.h             |    1 -
+ drivers/net/wireless/ath/ath9k/init.c           |   28 ++--
+ drivers/net/wireless/ath/ath9k/mac.c            |  117 ++++++-------
+ drivers/net/wireless/ath/ath9k/main.c           |  185 +++++++++----------
+ drivers/net/wireless/ath/ath9k/pci.c            |    7 +-
+ drivers/net/wireless/ath/ath9k/rc.c             |   18 +-
+ drivers/net/wireless/ath/ath9k/recv.c           |   48 +++---
+ drivers/net/wireless/ath/ath9k/virtual.c        |    7 +-
+ drivers/net/wireless/ath/ath9k/wmi.c            |   12 +-
+ drivers/net/wireless/ath/ath9k/xmit.c           |   84 ++++-----
+ drivers/net/wireless/ath/debug.c                |   20 --
+ drivers/net/wireless/ath/debug.h                |   92 ----------
+ drivers/net/wireless/ath/key.c                  |   28 ++--
+ drivers/net/wireless/ath/main.c                 |   20 ++
+ 42 files changed, 1306 insertions(+), 1460 deletions(-)
+ delete mode 100644 drivers/net/wireless/ath/debug.h
 
-Index: net-next/drivers/net/bonding/bond_debugfs.c
-===================================================================
---- net-next.orig/drivers/net/bonding/bond_debugfs.c
-+++ net-next/drivers/net/bonding/bond_debugfs.c
-@@ -4,6 +4,7 @@
- #include <linux/netdevice.h>
-
- #include "bonding.h"
-+#include "bond_alb.h"
-
- #ifdef CONFIG_DEBUG_FS
-
-@@ -12,6 +13,53 @@
-
- static struct dentry *bonding_debug_root;
-
-+/*
-+ *  Show RLB hash table
-+ */
-+#define RLB_NULL_INDEX  0xffffffff
-+static int bond_debug_rlb_hash_show(struct seq_file *m, void *v)
-+{
-+	struct bonding *bond = m->private;
-+	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
-+	struct rlb_client_info *client_info;
-+	u32 hash_index;
-+
-+	if (bond->params.mode != BOND_MODE_ALB)
-+		return 0;
-+
-+	seq_printf(m, "SourceIP        DestinationIP   "
-+			"Destination MAC   DEV\n");
-+
-+	spin_lock_bh(&(BOND_ALB_INFO(bond).rx_hashtbl_lock));
-+
-+	hash_index = bond_info->rx_hashtbl_head;
-+	for (; hash_index != RLB_NULL_INDEX; hash_index = client_info->next) {
-+		client_info = &(bond_info->rx_hashtbl[hash_index]);
-+		seq_printf(m, "%-15pI4 %-15pI4 %-17pM %s\n",
-+			&client_info->ip_src,
-+			&client_info->ip_dst,
-+			&client_info->mac_dst,
-+			client_info->slave->dev->name);
-+	}
-+
-+	spin_unlock_bh(&(BOND_ALB_INFO(bond).rx_hashtbl_lock));
-+
-+	return 0;
-+}
-+
-+static int bond_debug_rlb_hash_open(struct inode *inode, struct file *file)
-+{
-+	return single_open(file, bond_debug_rlb_hash_show, inode->i_private);
-+}
-+
-+static const struct file_operations bond_debug_rlb_hash_fops = {
-+	.owner		= THIS_MODULE,
-+	.open		= bond_debug_rlb_hash_open,
-+	.read		= seq_read,
-+	.llseek		= seq_lseek,
-+	.release	= single_release,
-+};
-+
- void bond_debug_register(struct bonding *bond)
- {
- 	if (!bonding_debug_root)
-@@ -25,6 +73,9 @@ void bond_debug_register(struct bonding
- 			bond->dev->name);
- 		return;
- 	}
-+
-+	debugfs_create_file("rlb_hash_table", 0400, bond->debug_dir,
-+				bond, &bond_debug_rlb_hash_fops);
- }
-
- void bond_debug_unregister(struct bonding *bond)
-
-
+-- 
+1.7.3.2.245.g03276.dirty
