@@ -1,100 +1,270 @@
 From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Subject: [PATCH 0/2] New jhash function
-Date: Fri,  3 Dec 2010 13:38:59 +0100
-Message-ID: <1291379941-31565-1-git-send-email-kadlec@blackhole.kfki.hu>
+Subject: [PATCH 2/2] The new jhash implementation
+Date: Fri,  3 Dec 2010 13:39:01 +0100
+Message-ID: <1291379941-31565-3-git-send-email-kadlec@blackhole.kfki.hu>
 References: <201011271401.22773.rusty@rustcorp.com.au>
+ <1291379941-31565-1-git-send-email-kadlec@blackhole.kfki.hu>
+ <1291379941-31565-2-git-send-email-kadlec@blackhole.kfki.hu>
 Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
 	Linus Torvalds <torvalds@osdl.org>,
 	Rusty Russell <rusty@rustcorp.com.au>,
 	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201011271401.22773.rusty@rustcorp.com.au>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1291379941-31565-2-git-send-email-kadlec@blackhole.kfki.hu>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+The current jhash.h implements the lookup2() hash function by Bob Jenkins.
+However, lookup2() is outdated as Bob wrote a new hash function called
+lookup3(). The patch replaces the lookup2() implementation of the 'jhash*'
+functions with that of lookup3().
 
-The current jhash.h implements the lookup2() hash function by Bob Jenkins. 
-However, lookup2() is outdated as Bob wrote a new hash function called 
-lookup3(). There is a longer comparison of those two and other hash
-functions at http://burtleburtle.net/bob/hash/doobs.html.
+You can read a longer comparison of the two and other hash functions at
+http://burtleburtle.net/bob/hash/doobs.html.
+---
+ include/linux/jhash.h |  183 ++++++++++++++++++++++++++++---------------------
+ 1 files changed, 105 insertions(+), 78 deletions(-)
 
-Please consider applying the following patches.
+diff --git a/include/linux/jhash.h b/include/linux/jhash.h
+index ced1159..47cb09e 100644
+--- a/include/linux/jhash.h
++++ b/include/linux/jhash.h
+@@ -3,129 +3,156 @@
+ 
+ /* jhash.h: Jenkins hash support.
+  *
+- * Copyright (C) 1996 Bob Jenkins (bob_jenkins@burtleburtle.net)
++ * Copyright (C) 2006. Bob Jenkins (bob_jenkins@burtleburtle.net)
+  *
+  * http://burtleburtle.net/bob/hash/
+  *
+  * These are the credits from Bob's sources:
+  *
+- * lookup2.c, by Bob Jenkins, December 1996, Public Domain.
+- * hash(), hash2(), hash3, and mix() are externally useful functions.
+- * Routines to test the hash are included if SELF_TEST is defined.
+- * You can use this free for any purpose.  It has no warranty.
++ * lookup3.c, by Bob Jenkins, May 2006, Public Domain.
+  *
+- * Copyright (C) 2003 David S. Miller (davem@redhat.com)
++ * These are functions for producing 32-bit hashes for hash table lookup.
++ * hashword(), hashlittle(), hashlittle2(), hashbig(), mix(), and final()
++ * are externally useful functions.  Routines to test the hash are included
++ * if SELF_TEST is defined.  You can use this free for any purpose.  It's in
++ * the public domain.  It has no warranty.
++ *
++ * Copyright (C) 2009-2010 Jozsef Kadlecsik (kadlec@blackhole.kfki.hu)
+  *
+  * I've modified Bob's hash to be useful in the Linux kernel, and
+- * any bugs present are surely my fault.  -DaveM
++ * any bugs present are my fault.
++ * Jozsef
+  */
++#include <linux/bitops.h>
++#include <linux/unaligned/packed_struct.h>
++
++/* Best hash sizes are of power of two */
++#define jhash_size(n)   ((u32)1<<(n))
++/* Mask the hash value, i.e (value & jhash_mask(n)) instead of (value % n) */
++#define jhash_mask(n)   (jhash_size(n)-1)
++
++/* __jhash_mix -- mix 3 32-bit values reversibly. */
++#define __jhash_mix(a, b, c)			\
++{						\
++	a -= c;  a ^= rol32(c, 4);  c += b;	\
++	b -= a;  b ^= rol32(a, 6);  a += c;	\
++	c -= b;  c ^= rol32(b, 8);  b += a;	\
++	a -= c;  a ^= rol32(c, 16); c += b;	\
++	b -= a;  b ^= rol32(a, 19); a += c;	\
++	c -= b;  c ^= rol32(b, 4);  b += a;	\
++}
+ 
+-/* NOTE: Arguments are modified. */
+-#define __jhash_mix(a, b, c) \
+-{ \
+-  a -= b; a -= c; a ^= (c>>13); \
+-  b -= c; b -= a; b ^= (a<<8); \
+-  c -= a; c -= b; c ^= (b>>13); \
+-  a -= b; a -= c; a ^= (c>>12);  \
+-  b -= c; b -= a; b ^= (a<<16); \
+-  c -= a; c -= b; c ^= (b>>5); \
+-  a -= b; a -= c; a ^= (c>>3);  \
+-  b -= c; b -= a; b ^= (a<<10); \
+-  c -= a; c -= b; c ^= (b>>15); \
++/* __jhash_final - final mixing of 3 32-bit values (a,b,c) into c */
++#define __jhash_final(a, b, c)			\
++{						\
++	c ^= b; c -= rol32(b, 14);		\
++	a ^= c; a -= rol32(c, 11);		\
++	b ^= a; b -= rol32(a, 25);		\
++	c ^= b; c -= rol32(b, 16);		\
++	a ^= c; a -= rol32(c, 4);		\
++	b ^= a; b -= rol32(a, 14);		\
++	c ^= b; c -= rol32(b, 24);		\
+ }
+ 
+-/* The golden ration: an arbitrary value */
+-#define JHASH_GOLDEN_RATIO	0x9e3779b9
++/* An arbitrary initial parameter */
++#define JHASH_INITVAL		0xdeadbeef
+ 
+-/* The most generic version, hashes an arbitrary sequence
+- * of bytes.  No alignment or length assumptions are made about
+- * the input key.
++/* jhash - hash an arbitrary key
++ * @k: sequence of bytes as key
++ * @length: the length of the key
++ * @initval: the previous hash, or an arbitray value
++ *
++ * The generic version, hashes an arbitrary sequence of bytes.
++ * No alignment or length assumptions are made about the input key.
++ *
++ * Returns the hash value of the key. The result depends on endianness.
+  */
+ static inline u32 jhash(const void *key, u32 length, u32 initval)
+ {
+-	u32 a, b, c, len;
++	u32 a, b, c;
+ 	const u8 *k = key;
+ 
+-	len = length;
+-	a = b = JHASH_GOLDEN_RATIO;
+-	c = initval;
+-
+-	while (len >= 12) {
+-		a += (k[0] +((u32)k[1]<<8) +((u32)k[2]<<16) +((u32)k[3]<<24));
+-		b += (k[4] +((u32)k[5]<<8) +((u32)k[6]<<16) +((u32)k[7]<<24));
+-		c += (k[8] +((u32)k[9]<<8) +((u32)k[10]<<16)+((u32)k[11]<<24));
+-
+-		__jhash_mix(a,b,c);
++	/* Set up the internal state */
++	a = b = c = JHASH_INITVAL + length + initval;
+ 
++	/* All but the last block: affect some 32 bits of (a,b,c) */
++	while (length > 12) {
++		a += __get_unaligned_cpu32(k);
++		b += __get_unaligned_cpu32(k + 4);
++		c += __get_unaligned_cpu32(k + 8);
++		__jhash_mix(a, b, c);
++		length -= 12;
+ 		k += 12;
+-		len -= 12;
+ 	}
+-
+-	c += length;
+-	switch (len) {
+-	case 11: c += ((u32)k[10]<<24);
+-	case 10: c += ((u32)k[9]<<16);
+-	case 9 : c += ((u32)k[8]<<8);
+-	case 8 : b += ((u32)k[7]<<24);
+-	case 7 : b += ((u32)k[6]<<16);
+-	case 6 : b += ((u32)k[5]<<8);
+-	case 5 : b += k[4];
+-	case 4 : a += ((u32)k[3]<<24);
+-	case 3 : a += ((u32)k[2]<<16);
+-	case 2 : a += ((u32)k[1]<<8);
+-	case 1 : a += k[0];
+-	};
+-
+-	__jhash_mix(a,b,c);
++	/* Last block: affect all 32 bits of (c) */
++	/* All the case statements fall through */
++	switch (length) {
++	case 12: c += (u32)k[11]<<24;
++	case 11: c += (u32)k[10]<<16;
++	case 10: c += (u32)k[9]<<8;
++	case 9:  c += k[8];
++	case 8:  b += (u32)k[7]<<24;
++	case 7:  b += (u32)k[6]<<16;
++	case 6:  b += (u32)k[5]<<8;
++	case 5:  b += k[4];
++	case 4:  a += (u32)k[3]<<24;
++	case 3:  a += (u32)k[2]<<16;
++	case 2:  a += (u32)k[1]<<8;
++	case 1:  a += k[0];
++		 __jhash_final(a, b, c);
++	case 0: /* Nothing left to add */
++		break;
++	}
+ 
+ 	return c;
+ }
+ 
+-/* A special optimized version that handles 1 or more of u32s.
+- * The length parameter here is the number of u32s in the key.
++/* jhash2 - hash an array of u32's
++ * @k: the key which must be an array of u32's
++ * @length: the number of u32's in the key
++ * @initval: the previous hash, or an arbitray value
++ *
++ * Returns the hash value of the key.
+  */
+ static inline u32 jhash2(const u32 *k, u32 length, u32 initval)
+ {
+-	u32 a, b, c, len;
++	u32 a, b, c;
+ 
+-	a = b = JHASH_GOLDEN_RATIO;
+-	c = initval;
+-	len = length;
++	/* Set up the internal state */
++	a = b = c = JHASH_INITVAL + (length<<2) + initval;
+ 
+-	while (len >= 3) {
++	/* Handle most of the key */
++	while (length > 3) {
+ 		a += k[0];
+ 		b += k[1];
+ 		c += k[2];
+ 		__jhash_mix(a, b, c);
+-		k += 3; len -= 3;
++		length -= 3;
++		k += 3;
+ 	}
+ 
+-	c += length * 4;
+-
+-	switch (len) {
+-	case 2 : b += k[1];
+-	case 1 : a += k[0];
+-	};
+-
+-	__jhash_mix(a,b,c);
++	/* Handle the last 3 u32's: all the case statements fall through */
++	switch (length) {
++	case 3: c += k[2];
++	case 2: b += k[1];
++	case 1: a += k[0];
++		__jhash_final(a, b, c);
++	case 0:	/* Nothing left to add */
++		break;
++	}
+ 
+ 	return c;
+ }
+ 
+ 
+-/* A special ultra-optimized versions that knows they are hashing exactly
+- * 3, 2 or 1 word(s).
+- *
+- * NOTE: In particular the "c += length; __jhash_mix(a,b,c);" normally
+- *       done at the end is not done here.
+- */
++/* jhash_3words - hash exactly 3, 2 or 1 word(s) */
+ static inline u32 jhash_3words(u32 a, u32 b, u32 c, u32 initval)
+ {
+-	a += JHASH_GOLDEN_RATIO;
+-	b += JHASH_GOLDEN_RATIO;
++	a += JHASH_INITVAL;
++	b += JHASH_INITVAL;
+ 	c += initval;
+ 
+-	__jhash_mix(a, b, c);
++	__jhash_final(a, b, c);
+ 
+ 	return c;
+ }
+-- 
+1.7.0.4
 
-Speed
-
-I wrote a small benchmark program to compare jhash2 and jhash3 (you can
-download it from http://www.kfki.hu/~kadlec/sw/netfilter/jhash23.tgz).
-On a machine with Core2 Duo and compiled with -O2, the ratio of the execution
-time for the byte variants of the hash functions were (in parens the different
-key sizes):
-
-jhash2/jhash3 (4 bytes): 1.587518
-jhash2/jhash3 (8 bytes): 1.282824
-jhash2/jhash3 (12 bytes): 2.349628
-jhash2/jhash3 (16 bytes): 1.466988
-jhash2/jhash3 (32 bytes): 1.501063
-jhash2/jhash3 (64 bytes): 1.587527
-jhash2/jhash3 (128 bytes): 1.628037
-jhash2/jhash3 (256 bytes): 1.648318
-
-Similarly, for the word variants
-
-jhash2/jhash3 (1 words): 1.300904
-jhash2/jhash3 (2 words): 1.316108
-jhash2/jhash3 (3 words): 2.249708
-jhash2/jhash3 (4 words): 1.460192
-jhash2/jhash3 (8 words): 1.501438
-jhash2/jhash3 (16 words): 1.558039
-jhash2/jhash3 (32 words): 1.520082
-jhash2/jhash3 (64 words): 1.528347
-
-Sizes
-
-When compiling just the byte variants the sizes are
-
-   text    data     bss     dec     hex filename
-    661       0       0     661     295 jhashb2.o
-    441       0       0     441     1b9 jhashb3.o
-
-and for the word variants
-
-   text    data     bss     dec     hex filename
-    354       0       0     354     162 jhashw2.o
-    248       0       0     248      f8 jhashw3.o
-
-I compiled the kernel with "allyesconfig", in three variants: jhash2, jhash3 and
-jhash3 un-inlined
-
-   text    data     bss     dec     hex filename
-69297477        11282083        35904032        116483592       6f16608 vmlinux.jhash2
-69293829        11282083        35903728        116479640       6f15698 vmlinux.jhash3
-69288578        11282083        35902336        116472997       6f13ca5 vmlinux.jhash3-uninlined
-
-With jhash3 we can gain 3.6k and un-inlining shrinks the code with an additional
-5.2k. In the patch I left jhash(3) inlined.
-
-Uniformity
-
-According to Bob Jenkins, lookup3() mixes better than lookup2(): it passes
-the check that every input bit changes every output bit 50% of the time, while
-lookup2() failed it. In order to verify it I added jhash3 to the cttest program,
-which tests hash functions with (artifical, worst case) netfilter conntrack data
-and calculates the statistics (chi-square, probability of longest bucket, etc).
-You can find the program and the results here:
-http://www.kfki.hu/~kadlec/sw/netfilter/ct3/ - to sum up, lookup3() produces
-uniform key values and no weakness could be spotted.
-
-Many thanks to Eric Dumazet for his thorough reviewing.
-
-Dave applied the first patch to net-next-2.6.
-
-Jozsef Kadlecsik (2):
-  Remove calls to jhash internals
-  The new jhash implementation
-
- include/linux/jhash.h            |  183 ++++++++++++++++++++++----------------
- net/ipv6/inet6_connection_sock.c |   18 ++--
- net/ipv6/reassembly.c            |   36 ++++----
- 3 files changed, 129 insertions(+), 108 deletions(-)
