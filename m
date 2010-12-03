@@ -1,85 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Question about __alloc_skb() speedup
-Date: Fri, 03 Dec 2010 11:50:29 +0100
-Message-ID: <1291373429.2897.96.camel@edumazet-laptop>
-References: <20101203101450.GA9573@Desktop-Junchang>
+From: Simon Kirby <sim@hostway.ca>
+Subject: TSO/GRO/LRO/somethingO breaks LVS on 2.6.36
+Date: Fri, 3 Dec 2010 02:34:47 -0800
+Message-ID: <20101203103447.GA29714@hostway.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Junchang Wang <junchangwang@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+To: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:58517 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932346Ab0LCKug (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Dec 2010 05:50:36 -0500
-Received: by wwa36 with SMTP id 36so9879932wwa.1
-        for <netdev@vger.kernel.org>; Fri, 03 Dec 2010 02:50:35 -0800 (PST)
-In-Reply-To: <20101203101450.GA9573@Desktop-Junchang>
+Received: from netnation.com ([204.174.223.2]:34344 "EHLO peace.netnation.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S932397Ab0LCKzl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Dec 2010 05:55:41 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 03 d=C3=A9cembre 2010 =C3=A0 18:14 +0800, Junchang Wang a =C3=
-=A9crit :
-> Hi Eric,
->=20
-> I'm reading your patch (ec7d2f2cf3a1 __alloc_skb() speedup),
-> in which you prefetch skb and the shinfo part. I'm very
-> curious why we don't prefetch skb->data. It seems that will
-> help tx path a lot.
->=20
-> I added the following code
->=20
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index 104f844..c60a808 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -222,6 +222,8 @@ struct sk_buff *__alloc_skb(unsigned int size, gf=
-p_t gfp_mask,
-> =20
->  		child->fclone =3D SKB_FCLONE_UNAVAILABLE;
->  	}
-> +	prefetchw(data);
-> +
->  out:
->  	return skb;
->  nodata:
->=20
-> and the pktgen in my server (A Intel SR1625 server with two E5530=20
-> 4-core processors and a single ixgbe-based NIC) goes from 7.6Mpps to
-> 8.4Mpps (64 byte), with 10% performance gain.
->=20
-> For rx path, I did experiments on both ixgbe and igb with pktgen+kute=
-,
-> and there is no change in system performance.
->=20
-> welcome any suggestions and corrections.
->=20
-> Thanks.
+Hello!
 
-This is because __alloc_skb() is generic :
+We upgraded some LVS (DR) servers from 2.6.35 to 2.6.36 on tg3 cards
+(partno(BCM95721) rev 4201) with VLAN tags in use, to think that
+everything looked great, but in fact...
 
-We dont know if the skb->data is going to be used right after or not at
-all.
+LVS was receiving magically-merged TCP packets which it tried to forward
+on to the real server, only to get annoyed at itself for trying to
+forward a packet bigger than the device MTU:
 
-=46or example, NIC drivers call __alloc_skb() to refill their RX ring
-buffer. There is no gain to prefetch data in this case since the data i=
-s
-going to be written by the NIC hardware. The reverse would be needed
-actually : ask to local cpu to evict data from its cache, so that devic=
-e
-can DMA it faster (less bus transactions)
+IP A.47376 > B.529: . 175488:176936(1448) ack 1 win 92 <nop,nop,timestamp 52737308 29656081>
+IP A.47376 > B.529: . 176936:179832(2896) ack 1 win 92 <nop,nop,timestamp 52737325 29656098>
+IP B > A: ICMP B unreachable - need to frag (mtu 1500), length 556
 
-By the way, adding prefetchw() right before the "return skb;" is
-probably not very useful. You can certainly try to add the prefetchw()
-in pktgen itself, since you know for sure you are going to write the
-data.
+This caused packet loss for any merged frames, which caused abysmal
+performance for uploads via the LVS server.  Local performance to or
+from the box is still fine, because the stack doesn't care, only the
+forwarding part of LVS is running into the problem.
 
-I dont understand your 10% speedup because pktgen actually uses
-__netdev_alloc_skb(), so it calls skb_reserve(skb, NET_SKB_PAD) : your
-prefetchw is bringing a cache line that wont be used at all by pktgen.
+Furthermore, disabling _everything_ reported by ethtool -k doesn't seem
+to change the result, even if I down/up the interface after, and even if
+I try on every single interface including the VLANned ones.  This seems
+to be another bug.  Reverting to 2.6.35 makes it all work again.
 
-I would say 10% sounds highly suspect to me...
+Possibly related to commit 7fe876af921d1d2bc8353e0062c10ff35e902653
 
+So how should this be fixed?  Should LVS be taught to fragment, or must
+we disable the merging in this case?  It seems like it would work well if
+the sending side could do the same offload in reverse, but I'm not sure
+if that would be possible.
 
-
+Simon-
