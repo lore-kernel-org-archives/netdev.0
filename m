@@ -1,237 +1,330 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: TSO/GRO/LRO/somethingO breaks LVS on 2.6.36
-Date: Fri, 3 Dec 2010 21:42:14 +0900
-Message-ID: <20101203124214.GB6993@verge.net.au>
-References: <20101203103447.GA29714@hostway.ca>
- <1291375743.2897.141.camel@edumazet-laptop>
- <20101203123617.GA6993@verge.net.au>
+From: Mauro Carvalho Chehab <maurochehab@gmail.com>
+Subject: Re: PCI: make pci_restore_state return void
+Date: Fri, 03 Dec 2010 11:08:18 -0200
+Message-ID: <4CF8EBC2.8010507@gmail.com>
+References: <1291160606-31494-1-git-send-email-jon.mason@exar.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Simon Kirby <sim@hostway.ca>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org, Julian Anastasov <ja@ssi.bg>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20101203123617.GA6993@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Jesse Barnes <jbarnes@virtuousgeek.org>, linux-pci@vger.kernel.org,
+	Jonathan Corbet <corbet@lwn.net>, linux-media@vger.kernel.org,
+	Andrew Gallatin <gallatin@myri.com>,
+	Brice Goglin <brice@myri.com>, netdev@vger.kernel.org,
+	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
+	Steve Hodgson <shodgson@solarflare.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Ivo van Doorn <IvDoorn@gmail.com>,
+	Gertjan van Wingerde <gwingerde@gmail.com>,
+	linux-wireless@vger.kernel.org, Brian King <brking@us.ibm.com>,
+	Anil Ravindranath <anil_ravindranath@pmc-sierra.com>,
+	linux-scsi@vger.kernel.org, Jaya Kumar <jayakumar.alsa@gmail.com>,
+	boyod.yang@siliconmotion.com.cn
+To: Jon Mason <jon.mason@exar.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <1291160606-31494-1-git-send-email-jon.mason@exar.com>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[ CCed lvs-devel, Julian Anastasov and Herbert Xu ]
+Em 30-11-2010 21:43, Jon Mason escreveu:
+> pci_restore_state only ever returns 0, thus there is no benefit in
+> having it return any value.  Also, a large majority of the callers do
+> not check the return code of pci_restore_state.  Make the
+> pci_restore_state a void return and avoid the overhead.
+> 
+> Signed-off-by: Jon Mason <jon.mason@exar.com>
+> ---
+>  drivers/media/video/cafe_ccic.c         |    4 +---
 
-On Fri, Dec 03, 2010 at 09:36:19PM +0900, Simon Horman wrote:
-> On Fri, Dec 03, 2010 at 12:29:03PM +0100, Eric Dumazet wrote:
-> > Le vendredi 03 d=C3=A9cembre 2010 =C3=A0 02:34 -0800, Simon Kirby a=
- =C3=A9crit :
-> > > Hello!
-> > >=20
-> > > We upgraded some LVS (DR) servers from 2.6.35 to 2.6.36 on tg3 ca=
-rds
-> > > (partno(BCM95721) rev 4201) with VLAN tags in use, to think that
-> > > everything looked great, but in fact...
-> > >=20
-> > > LVS was receiving magically-merged TCP packets which it tried to =
-forward
-> > > on to the real server, only to get annoyed at itself for trying t=
-o
-> > > forward a packet bigger than the device MTU:
-> > >=20
-> > > IP A.47376 > B.529: . 175488:176936(1448) ack 1 win 92 <nop,nop,t=
-imestamp 52737308 29656081>
-> > > IP A.47376 > B.529: . 176936:179832(2896) ack 1 win 92 <nop,nop,t=
-imestamp 52737325 29656098>
-> > > IP B > A: ICMP B unreachable - need to frag (mtu 1500), length 55=
-6
-> > >=20
-> >=20
-> > Hi Simon
-> >=20
-> > This is a tcpdump on A ?
-> > Could you take it also on B ?
-> >=20
-> > tcpdump displays large buffers, but they should be split (of course=
-)
-> > when sent on wire.
-> >=20
-> > > This caused packet loss for any merged frames, which caused abysm=
-al
-> > > performance for uploads via the LVS server.  Local performance to=
- or
-> > > from the box is still fine, because the stack doesn't care, only =
-the
-> > > forwarding part of LVS is running into the problem.
-> > >=20
-> > > Furthermore, disabling _everything_ reported by ethtool -k doesn'=
-t seem
-> > > to change the result, even if I down/up the interface after, and =
-even if
-> > > I try on every single interface including the VLANned ones.  This=
- seems
-> > > to be another bug.  Reverting to 2.6.35 makes it all work again.
-> > >=20
-> > > Possibly related to commit 7fe876af921d1d2bc8353e0062c10ff35e9026=
-53
-> > >=20
-> > > So how should this be fixed?  Should LVS be taught to fragment, o=
-r must
-> > > we disable the merging in this case?  It seems like it would work=
- well if
-> > > the sending side could do the same offload in reverse, but I'm no=
-t sure
-> > > if that would be possible.
-> > >=20
-> > > Simon-
-> >=20
-> >=20
-> > I believe Simon Horman has some patches for GRO and LVS.
-> >=20
-> > Please send the results of "ethtool -k eth0" on all your nics / vla=
-ns ?
-> >=20
-> > For TSO, I am not sure why and where it could matter...
->=20
-> There is a patch to teach LVS how to cope with GRO in nf-next-2.6
-> and I expect it to be included in 2.6.38. The patch is "ipvs: allow
-> transmit of GRO aggregated skbs" and perhaps it should be considered
-> for 2.6.37 and stable. In general the work around is to disable GRO.
->=20
-> The patch does not resolve the incompatibility of LVS with LRO.
-> The work around there is to disable LRO. I'm not entirely sure
-> how to teach LVS to disable LRO automatically, or if its desirable.
->=20
-> Simon, you mention that you disabled everything with ethtool, but the
-> tcpdump above shows a 2896 byte packet, which seems that GRO (or LRO?=
-) is
-> active. So perhaps as you speculate that is a bug
->=20
-> I will prepare a backport of the "ipvs: allow transmit of GRO aggrega=
-ted
-> skbs" patch to v2.6.36 and post it shortly.  Testing to see if that
-> resolves the problem that you are seeing would probably be a good sta=
-rt.
+Seems ok to me.
 
-Here is the patch for v2.6.36.
+Acked-by: Mauro Carvalho Chehab <mchehab@redhat.com>
 
-=46rom: Simon Horman <horms@verge.net.au>
-
-ipvs: allow transmit of GRO aggregated skbs
-
-Attempt at allowing LVS to transmit skbs of greater than MTU length tha=
-t
-have been aggregated by GRO and can thus be deaggregated by GSO.
-
-Cc: Julian Anastasov <ja@ssi.bg>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>
-Signed-off-by: Simon Horman <horms@verge.net.au>
-
----
- net/netfilter/ipvs/ip_vs_xmit.c |   25 +++++++++++++++----------
- 1 files changed, 15 insertions(+), 10 deletions(-)
-
-diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs=
-_xmit.c
-index 49df6be..577f502 100644
---- a/net/netfilter/ipvs/ip_vs_xmit.c
-+++ b/net/netfilter/ipvs/ip_vs_xmit.c
-@@ -247,7 +247,8 @@ ip_vs_bypass_xmit(struct sk_buff *skb, struct ip_vs=
-_conn *cp,
-=20
- 	/* MTU checking */
- 	mtu =3D dst_mtu(&rt->dst);
--	if ((skb->len > mtu) && (iph->frag_off & htons(IP_DF))) {
-+	if ((skb->len > mtu) && (iph->frag_off & htons(IP_DF)) &&
-+	    !skb_is_gso(skb)) {
- 		ip_rt_put(rt);
- 		icmp_send(skb, ICMP_DEST_UNREACH,ICMP_FRAG_NEEDED, htonl(mtu));
- 		IP_VS_DBG_RL("%s(): frag needed\n", __func__);
-@@ -311,7 +312,7 @@ ip_vs_bypass_xmit_v6(struct sk_buff *skb, struct ip=
-_vs_conn *cp,
-=20
- 	/* MTU checking */
- 	mtu =3D dst_mtu(&rt->dst);
--	if (skb->len > mtu) {
-+	if (skb->len > mtu && !skb_is_gso(skb)) {
- 		dst_release(&rt->dst);
- 		icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
- 		IP_VS_DBG_RL("%s(): frag needed\n", __func__);
-@@ -408,7 +409,8 @@ ip_vs_nat_xmit(struct sk_buff *skb, struct ip_vs_co=
-nn *cp,
-=20
- 	/* MTU checking */
- 	mtu =3D dst_mtu(&rt->dst);
--	if ((skb->len > mtu) && (iph->frag_off & htons(IP_DF))) {
-+	if ((skb->len > mtu) && (iph->frag_off & htons(IP_DF)) &&
-+	    !skb_is_gso(skb)) {
- 		ip_rt_put(rt);
- 		icmp_send(skb, ICMP_DEST_UNREACH,ICMP_FRAG_NEEDED, htonl(mtu));
- 		IP_VS_DBG_RL_PKT(0, pp, skb, 0, "ip_vs_nat_xmit(): frag needed for")=
-;
-@@ -486,7 +488,7 @@ ip_vs_nat_xmit_v6(struct sk_buff *skb, struct ip_vs=
-_conn *cp,
-=20
- 	/* MTU checking */
- 	mtu =3D dst_mtu(&rt->dst);
--	if (skb->len > mtu) {
-+	if (skb->len > mtu && !skb_is_gso(skb)) {
- 		dst_release(&rt->dst);
- 		icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
- 		IP_VS_DBG_RL_PKT(0, pp, skb, 0,
-@@ -597,8 +599,8 @@ ip_vs_tunnel_xmit(struct sk_buff *skb, struct ip_vs=
-_conn *cp,
-=20
- 	df |=3D (old_iph->frag_off & htons(IP_DF));
-=20
--	if ((old_iph->frag_off & htons(IP_DF))
--	    && mtu < ntohs(old_iph->tot_len)) {
-+	if ((old_iph->frag_off & htons(IP_DF) &&
-+	    mtu < ntohs(old_iph->tot_len) && !skb_is_gso(skb))) {
- 		icmp_send(skb, ICMP_DEST_UNREACH,ICMP_FRAG_NEEDED, htonl(mtu));
- 		ip_rt_put(rt);
- 		IP_VS_DBG_RL("%s(): frag needed\n", __func__);
-@@ -707,7 +709,8 @@ ip_vs_tunnel_xmit_v6(struct sk_buff *skb, struct ip=
-_vs_conn *cp,
- 	if (skb_dst(skb))
- 		skb_dst(skb)->ops->update_pmtu(skb_dst(skb), mtu);
-=20
--	if (mtu < ntohs(old_iph->payload_len) + sizeof(struct ipv6hdr)) {
-+	if (mtu < ntohs(old_iph->payload_len) + sizeof(struct ipv6hdr) &&
-+	    !skb_is_gso(skb)) {
- 		icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
- 		dst_release(&rt->dst);
- 		IP_VS_DBG_RL("%s(): frag needed\n", __func__);
-@@ -796,7 +799,8 @@ ip_vs_dr_xmit(struct sk_buff *skb, struct ip_vs_con=
-n *cp,
-=20
- 	/* MTU checking */
- 	mtu =3D dst_mtu(&rt->dst);
--	if ((iph->frag_off & htons(IP_DF)) && skb->len > mtu) {
-+	if ((iph->frag_off & htons(IP_DF)) && skb->len > mtu &&
-+	    !skb_is_gso(skb)) {
- 		icmp_send(skb, ICMP_DEST_UNREACH,ICMP_FRAG_NEEDED, htonl(mtu));
- 		ip_rt_put(rt);
- 		IP_VS_DBG_RL("%s(): frag needed\n", __func__);
-@@ -924,7 +928,8 @@ ip_vs_icmp_xmit(struct sk_buff *skb, struct ip_vs_c=
-onn *cp,
-=20
- 	/* MTU checking */
- 	mtu =3D dst_mtu(&rt->dst);
--	if ((skb->len > mtu) && (ip_hdr(skb)->frag_off & htons(IP_DF))) {
-+	if ((skb->len > mtu) && (ip_hdr(skb)->frag_off & htons(IP_DF)) &&
-+	    !skb_is_gso(skb)) {
- 		ip_rt_put(rt);
- 		icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED, htonl(mtu));
- 		IP_VS_DBG_RL("%s(): frag needed\n", __func__);
-@@ -999,7 +1004,7 @@ ip_vs_icmp_xmit_v6(struct sk_buff *skb, struct ip_=
-vs_conn *cp,
-=20
- 	/* MTU checking */
- 	mtu =3D dst_mtu(&rt->dst);
--	if (skb->len > mtu) {
-+	if (skb->len > mtu && !skb_is_gso(skb)) {
- 		dst_release(&rt->dst);
- 		icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
- 		IP_VS_DBG_RL("%s(): frag needed\n", __func__);
---=20
-1.7.2.3
+>  drivers/net/myri10ge/myri10ge.c         |    4 +---
+>  drivers/net/sfc/falcon.c                |   25 +++++--------------------
+>  drivers/net/skge.c                      |    4 +---
+>  drivers/net/sky2.c                      |    5 +----
+>  drivers/net/wireless/rt2x00/rt2x00pci.c |    4 ++--
+>  drivers/pci/pci-driver.c                |    3 ++-
+>  drivers/pci/pci.c                       |    7 ++-----
+>  drivers/scsi/ipr.c                      |    8 +-------
+>  drivers/scsi/pmcraid.c                  |    7 +------
+>  drivers/staging/sm7xx/smtcfb.c          |    2 +-
+>  include/linux/pci.h                     |    8 +++-----
+>  sound/pci/cs5535audio/cs5535audio_pm.c  |    7 +------
+>  13 files changed, 22 insertions(+), 66 deletions(-)
+> 
+> diff --git a/drivers/media/video/cafe_ccic.c b/drivers/media/video/cafe_ccic.c
+> index 2934770..3e653f3 100644
+> --- a/drivers/media/video/cafe_ccic.c
+> +++ b/drivers/media/video/cafe_ccic.c
+> @@ -2186,9 +2186,7 @@ static int cafe_pci_resume(struct pci_dev *pdev)
+>  	struct cafe_camera *cam = to_cam(v4l2_dev);
+>  	int ret = 0;
+>  
+> -	ret = pci_restore_state(pdev);
+> -	if (ret)
+> -		return ret;
+> +	pci_restore_state(pdev);
+>  	ret = pci_enable_device(pdev);
+>  
+>  	if (ret) {
+> diff --git a/drivers/net/myri10ge/myri10ge.c b/drivers/net/myri10ge/myri10ge.c
+> index 8524cc4..d3c4a37 100644
+> --- a/drivers/net/myri10ge/myri10ge.c
+> +++ b/drivers/net/myri10ge/myri10ge.c
+> @@ -3403,9 +3403,7 @@ static int myri10ge_resume(struct pci_dev *pdev)
+>  		return -EIO;
+>  	}
+>  
+> -	status = pci_restore_state(pdev);
+> -	if (status)
+> -		return status;
+> +	pci_restore_state(pdev);
+>  
+>  	status = pci_enable_device(pdev);
+>  	if (status) {
+> diff --git a/drivers/net/sfc/falcon.c b/drivers/net/sfc/falcon.c
+> index 267019b..1763b9a 100644
+> --- a/drivers/net/sfc/falcon.c
+> +++ b/drivers/net/sfc/falcon.c
+> @@ -1066,22 +1066,9 @@ static int falcon_reset_hw(struct efx_nic *efx, enum reset_type method)
+>  
+>  	/* Restore PCI configuration if needed */
+>  	if (method == RESET_TYPE_WORLD) {
+> -		if (efx_nic_is_dual_func(efx)) {
+> -			rc = pci_restore_state(nic_data->pci_dev2);
+> -			if (rc) {
+> -				netif_err(efx, drv, efx->net_dev,
+> -					  "failed to restore PCI config for "
+> -					  "the secondary function\n");
+> -				goto fail3;
+> -			}
+> -		}
+> -		rc = pci_restore_state(efx->pci_dev);
+> -		if (rc) {
+> -			netif_err(efx, drv, efx->net_dev,
+> -				  "failed to restore PCI config for the "
+> -				  "primary function\n");
+> -			goto fail4;
+> -		}
+> +		if (efx_nic_is_dual_func(efx))
+> +			pci_restore_state(nic_data->pci_dev2);
+> +		pci_restore_state(efx->pci_dev);
+>  		netif_dbg(efx, drv, efx->net_dev,
+>  			  "successfully restored PCI config\n");
+>  	}
+> @@ -1092,7 +1079,7 @@ static int falcon_reset_hw(struct efx_nic *efx, enum reset_type method)
+>  		rc = -ETIMEDOUT;
+>  		netif_err(efx, hw, efx->net_dev,
+>  			  "timed out waiting for hardware reset\n");
+> -		goto fail5;
+> +		goto fail3;
+>  	}
+>  	netif_dbg(efx, hw, efx->net_dev, "hardware reset complete\n");
+>  
+> @@ -1100,11 +1087,9 @@ static int falcon_reset_hw(struct efx_nic *efx, enum reset_type method)
+>  
+>  	/* pci_save_state() and pci_restore_state() MUST be called in pairs */
+>  fail2:
+> -fail3:
+>  	pci_restore_state(efx->pci_dev);
+>  fail1:
+> -fail4:
+> -fail5:
+> +fail3:
+>  	return rc;
+>  }
+>  
+> diff --git a/drivers/net/skge.c b/drivers/net/skge.c
+> index 220e039..61553af 100644
+> --- a/drivers/net/skge.c
+> +++ b/drivers/net/skge.c
+> @@ -4087,9 +4087,7 @@ static int skge_resume(struct pci_dev *pdev)
+>  	if (err)
+>  		goto out;
+>  
+> -	err = pci_restore_state(pdev);
+> -	if (err)
+> -		goto out;
+> +	pci_restore_state(pdev);
+>  
+>  	err = skge_reset(hw);
+>  	if (err)
+> diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
+> index d657708..be3aee7 100644
+> --- a/drivers/net/sky2.c
+> +++ b/drivers/net/sky2.c
+> @@ -4969,10 +4969,7 @@ static int sky2_resume(struct pci_dev *pdev)
+>  	if (err)
+>  		goto out;
+>  
+> -	err = pci_restore_state(pdev);
+> -	if (err)
+> -		goto out;
+> -
+> +	pci_restore_state(pdev);
+>  	pci_enable_wake(pdev, PCI_D0, 0);
+>  
+>  	/* Re-enable all clocks */
+> diff --git a/drivers/net/wireless/rt2x00/rt2x00pci.c b/drivers/net/wireless/rt2x00/rt2x00pci.c
+> index 868ca19..5e3c46f 100644
+> --- a/drivers/net/wireless/rt2x00/rt2x00pci.c
+> +++ b/drivers/net/wireless/rt2x00/rt2x00pci.c
+> @@ -356,12 +356,12 @@ int rt2x00pci_resume(struct pci_dev *pci_dev)
+>  	struct rt2x00_dev *rt2x00dev = hw->priv;
+>  
+>  	if (pci_set_power_state(pci_dev, PCI_D0) ||
+> -	    pci_enable_device(pci_dev) ||
+> -	    pci_restore_state(pci_dev)) {
+> +	    pci_enable_device(pci_dev)) {
+>  		ERROR(rt2x00dev, "Failed to resume device.\n");
+>  		return -EIO;
+>  	}
+>  
+> +	pci_restore_state(pci_dev);
+>  	return rt2x00lib_resume(rt2x00dev);
+>  }
+>  EXPORT_SYMBOL_GPL(rt2x00pci_resume);
+> diff --git a/drivers/pci/pci-driver.c b/drivers/pci/pci-driver.c
+> index 8a6f797..80e551e 100644
+> --- a/drivers/pci/pci-driver.c
+> +++ b/drivers/pci/pci-driver.c
+> @@ -449,7 +449,8 @@ static int pci_restore_standard_config(struct pci_dev *pci_dev)
+>  			return error;
+>  	}
+>  
+> -	return pci_restore_state(pci_dev);
+> +	pci_restore_state(pci_dev);
+> +	return 0;
+>  }
+>  
+>  static void pci_pm_default_resume_early(struct pci_dev *pci_dev)
+> diff --git a/drivers/pci/pci.c b/drivers/pci/pci.c
+> index e98c810..c711d1b 100644
+> --- a/drivers/pci/pci.c
+> +++ b/drivers/pci/pci.c
+> @@ -937,14 +937,13 @@ pci_save_state(struct pci_dev *dev)
+>   * pci_restore_state - Restore the saved state of a PCI device
+>   * @dev: - PCI device that we're dealing with
+>   */
+> -int 
+> -pci_restore_state(struct pci_dev *dev)
+> +void pci_restore_state(struct pci_dev *dev)
+>  {
+>  	int i;
+>  	u32 val;
+>  
+>  	if (!dev->state_saved)
+> -		return 0;
+> +		return;
+>  
+>  	/* PCI Express register must be restored first */
+>  	pci_restore_pcie_state(dev);
+> @@ -968,8 +967,6 @@ pci_restore_state(struct pci_dev *dev)
+>  	pci_restore_iov_state(dev);
+>  
+>  	dev->state_saved = false;
+> -
+> -	return 0;
+>  }
+>  
+>  static int do_pci_enable_device(struct pci_dev *dev, int bars)
+> diff --git a/drivers/scsi/ipr.c b/drivers/scsi/ipr.c
+> index fa60d7d..1d7dbe6 100644
+> --- a/drivers/scsi/ipr.c
+> +++ b/drivers/scsi/ipr.c
+> @@ -7485,16 +7485,10 @@ static int ipr_reset_restore_cfg_space(struct ipr_cmnd *ipr_cmd)
+>  {
+>  	struct ipr_ioa_cfg *ioa_cfg = ipr_cmd->ioa_cfg;
+>  	volatile u32 int_reg;
+> -	int rc;
+>  
+>  	ENTER;
+>  	ioa_cfg->pdev->state_saved = true;
+> -	rc = pci_restore_state(ioa_cfg->pdev);
+> -
+> -	if (rc != PCIBIOS_SUCCESSFUL) {
+> -		ipr_cmd->s.ioasa.hdr.ioasc = cpu_to_be32(IPR_IOASC_PCI_ACCESS_ERROR);
+> -		return IPR_RC_JOB_CONTINUE;
+> -	}
+> +	pci_restore_state(ioa_cfg->pdev);
+>  
+>  	if (ipr_set_pcix_cmd_reg(ioa_cfg)) {
+>  		ipr_cmd->s.ioasa.hdr.ioasc = cpu_to_be32(IPR_IOASC_PCI_ACCESS_ERROR);
+> diff --git a/drivers/scsi/pmcraid.c b/drivers/scsi/pmcraid.c
+> index cf89091..091baf2 100644
+> --- a/drivers/scsi/pmcraid.c
+> +++ b/drivers/scsi/pmcraid.c
+> @@ -2227,12 +2227,7 @@ static void pmcraid_ioa_reset(struct pmcraid_cmd *cmd)
+>  		/* Once either bist or pci reset is done, restore PCI config
+>  		 * space. If this fails, proceed with hard reset again
+>  		 */
+> -		if (pci_restore_state(pinstance->pdev)) {
+> -			pmcraid_info("config-space error resetting again\n");
+> -			pinstance->ioa_state = IOA_STATE_IN_RESET_ALERT;
+> -			pmcraid_reset_alert(cmd);
+> -			break;
+> -		}
+> +		pci_restore_state(pinstance->pdev);
+>  
+>  		/* fail all pending commands */
+>  		pmcraid_fail_outstanding_cmds(pinstance);
+> diff --git a/drivers/staging/sm7xx/smtcfb.c b/drivers/staging/sm7xx/smtcfb.c
+> index 24f47d6..7162dee 100644
+> --- a/drivers/staging/sm7xx/smtcfb.c
+> +++ b/drivers/staging/sm7xx/smtcfb.c
+> @@ -1071,7 +1071,7 @@ static int __maybe_unused smtcfb_resume(struct pci_dev *pdev)
+>  	/* when resuming, restore pci data and fb cursor */
+>  	if (pdev->dev.power.power_state.event != PM_EVENT_FREEZE) {
+>  		retv = pci_set_power_state(pdev, PCI_D0);
+> -		retv = pci_restore_state(pdev);
+> +		pci_restore_state(pdev);
+>  		if (pci_enable_device(pdev))
+>  			return -1;
+>  		pci_set_master(pdev);
+> diff --git a/include/linux/pci.h b/include/linux/pci.h
+> index 7454408..63cbadc 100644
+> --- a/include/linux/pci.h
+> +++ b/include/linux/pci.h
+> @@ -806,7 +806,7 @@ size_t pci_get_rom_size(struct pci_dev *pdev, void __iomem *rom, size_t size);
+>  
+>  /* Power management related routines */
+>  int pci_save_state(struct pci_dev *dev);
+> -int pci_restore_state(struct pci_dev *dev);
+> +void pci_restore_state(struct pci_dev *dev);
+>  int __pci_complete_power_transition(struct pci_dev *dev, pci_power_t state);
+>  int pci_set_power_state(struct pci_dev *dev, pci_power_t state);
+>  pci_power_t pci_choose_state(struct pci_dev *dev, pm_message_t state);
+> @@ -1168,10 +1168,8 @@ static inline int pci_save_state(struct pci_dev *dev)
+>  	return 0;
+>  }
+>  
+> -static inline int pci_restore_state(struct pci_dev *dev)
+> -{
+> -	return 0;
+> -}
+> +static inline void pci_restore_state(struct pci_dev *dev)
+> +{ }
+>  
+>  static inline int pci_set_power_state(struct pci_dev *dev, pci_power_t state)
+>  {
+> diff --git a/sound/pci/cs5535audio/cs5535audio_pm.c b/sound/pci/cs5535audio/cs5535audio_pm.c
+> index a3301cc..185b000 100644
+> --- a/sound/pci/cs5535audio/cs5535audio_pm.c
+> +++ b/sound/pci/cs5535audio/cs5535audio_pm.c
+> @@ -90,12 +90,7 @@ int snd_cs5535audio_resume(struct pci_dev *pci)
+>  	int i;
+>  
+>  	pci_set_power_state(pci, PCI_D0);
+> -	if (pci_restore_state(pci) < 0) {
+> -		printk(KERN_ERR "cs5535audio: pci_restore_state failed, "
+> -		       "disabling device\n");
+> -		snd_card_disconnect(card);
+> -		return -EIO;
+> -	}
+> +	pci_restore_state(pci);
+>  	if (pci_enable_device(pci) < 0) {
+>  		printk(KERN_ERR "cs5535audio: pci_enable_device failed, "
+>  		       "disabling device\n");
 
