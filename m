@@ -1,66 +1,50 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 2/2] ixgbe: fix enum type mismatch on disable
-	laser
-Date: Fri, 03 Dec 2010 15:24:05 -0800
-Message-ID: <20101203232351.21869.98417.stgit@localhost.localdomain>
-References: <20101203232218.21869.62349.stgit@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Nandita Dukkipati <nanditad@google.com>
+Subject: [PATCH 1/1] TCP: Bug fix in initialization of receive window.
+Date: Fri,  3 Dec 2010 15:33:44 -0800
+Message-ID: <1291419224-20853-1-git-send-email-nanditad@google.com>
+Cc: Laurent Chavey <chavey@google.com>,
+	Yuchung Cheng <ycheng@google.com>, netdev@vger.kernel.org,
+	Nandita Dukkipati <nanditad@google.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta02.westchester.pa.mail.comcast.net ([76.96.62.24]:43028
-	"EHLO qmta02.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754094Ab0LCXY0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Dec 2010 18:24:26 -0500
-In-Reply-To: <20101203232218.21869.62349.stgit@localhost.localdomain>
+Received: from smtp-out.google.com ([216.239.44.51]:39000 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753896Ab0LCXeL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Dec 2010 18:34:11 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+The bug has to do with boundary checks on the initial receive window.
+If the initial receive window falls between init_cwnd and the
+receive window specified by the user, the initial window is incorrectly
+brought down to init_cwnd. The correct behavior is to allow it to
+remain unchanged.
 
-Fixes a recent bug on the patch (c6ecf39a10ceec3e97096e2a8d3eadcecd593422)
-that disabled the laser on ifconfig down.  Compilers were seeing a enum
-mismatch.
-
-Signed-off-by Don Skidmore <donald.c.skidmore@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: Nandita Dukkipati <nanditad@google.com>
 ---
+ net/ipv4/tcp_output.c |    9 ++++-----
+ 1 files changed, 4 insertions(+), 5 deletions(-)
 
- drivers/net/ixgbe/ixgbe_main.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index c5998ca..fdb35d0 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -3800,7 +3800,7 @@ static int ixgbe_up_complete(struct ixgbe_adapter *adapter)
- 	/* enable the optics for both mult-speed fiber and 82599 SFP+ fiber */
- 	if (hw->mac.ops.enable_tx_laser &&
- 	    ((hw->phy.multispeed_fiber) ||
--	     ((hw->phy.type == ixgbe_media_type_fiber) &&
-+	     ((hw->mac.ops.get_media_type(hw) == ixgbe_media_type_fiber) &&
- 	      (hw->mac.type == ixgbe_mac_82599EB))))
- 		hw->mac.ops.enable_tx_laser(hw);
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 749b649..31fd0bd 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -231,11 +231,10 @@ void tcp_select_initial_window(int __space, __u32 mss,
+ 		/* when initializing use the value from init_rcv_wnd
+ 		 * rather than the default from above
+ 		 */
+-		if (init_rcv_wnd &&
+-		    (*rcv_wnd > init_rcv_wnd * mss))
+-			*rcv_wnd = init_rcv_wnd * mss;
+-		else if (*rcv_wnd > init_cwnd * mss)
+-			*rcv_wnd = init_cwnd * mss;
++		if (init_rcv_wnd)
++			*rcv_wnd = min(*rcv_wnd, init_rcv_wnd * mss);
++		else
++			*rcv_wnd = min(*rcv_wnd, init_cwnd * mss);
+ 	}
  
-@@ -4122,7 +4122,7 @@ void ixgbe_down(struct ixgbe_adapter *adapter)
- 	/* power down the optics for multispeed fiber and 82599 SFP+ fiber */
- 	if (hw->mac.ops.disable_tx_laser &&
- 	    ((hw->phy.multispeed_fiber) ||
--	     ((hw->phy.type == ixgbe_media_type_fiber) &&
-+	     ((hw->mac.ops.get_media_type(hw) == ixgbe_media_type_fiber) &&
- 	      (hw->mac.type == ixgbe_mac_82599EB))))
- 		hw->mac.ops.disable_tx_laser(hw);
- 
-@@ -7215,7 +7215,7 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
- 	/* power down the optics for multispeed fiber and 82599 SFP+ fiber */
- 	if (hw->mac.ops.disable_tx_laser &&
- 	    ((hw->phy.multispeed_fiber) ||
--	     ((hw->phy.type == ixgbe_media_type_fiber) &&
-+	     ((hw->mac.ops.get_media_type(hw) == ixgbe_media_type_fiber) &&
- 	      (hw->mac.type == ixgbe_mac_82599EB))))
- 		hw->mac.ops.disable_tx_laser(hw);
- 
+ 	/* Set the clamp no higher than max representable value */
+-- 
+1.7.3.1
 
