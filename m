@@ -1,110 +1,52 @@
-From: Holger Eitzenberger <holger@eitzenberger.org>
-Subject: ctnetlink loop
-Date: Fri, 3 Dec 2010 14:39:03 +0100
-Message-ID: <20101203133903.GG13225@mail.eitzenberger.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: TSO/GRO/LRO/somethingO breaks LVS on 2.6.36
+Date: Fri, 3 Dec 2010 22:39:53 +0900
+Message-ID: <20101203133953.GA28524@verge.net.au>
+References: <20101203103447.GA29714@hostway.ca>
+ <1291375743.2897.141.camel@edumazet-laptop>
+ <20101203123617.GA6993@verge.net.au>
+ <1291382839.8025.40.camel@localhost>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="AhhlLboLdkugWU4S"
-Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
-To: netfilter-devel <netfilter-devel@lists.netfilter.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-
---AhhlLboLdkugWU4S
 Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Simon Kirby <sim@hostway.ca>, netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:51700 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756250Ab0LCNj4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Dec 2010 08:39:56 -0500
 Content-Disposition: inline
+In-Reply-To: <1291382839.8025.40.camel@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Fri, Dec 03, 2010 at 01:27:19PM +0000, Ben Hutchings wrote:
+> On Fri, 2010-12-03 at 21:36 +0900, Simon Horman wrote:
+> > On Fri, Dec 03, 2010 at 12:29:03PM +0100, Eric Dumazet wrote:
+> [...]
+> > > I believe Simon Horman has some patches for GRO and LVS.
+> > > 
+> > > Please send the results of "ethtool -k eth0" on all your nics / vlans ?
+> > > 
+> > > For TSO, I am not sure why and where it could matter...
+> > 
+> > There is a patch to teach LVS how to cope with GRO in nf-next-2.6
+> > and I expect it to be included in 2.6.38. The patch is "ipvs: allow
+> > transmit of GRO aggregated skbs" and perhaps it should be considered
+> > for 2.6.37 and stable. In general the work around is to disable GRO.
+> >
+> > The patch does not resolve the incompatibility of LVS with LRO.
+> > The work around there is to disable LRO. I'm not entirely sure
+> > how to teach LVS to disable LRO automatically, or if its desirable.
+> [...]
+> 
+> I think it is desirable, and we already do it for bridging and
+> forwarding - we call dev_disable_lro() whenever a device is added to a
+> bridge or has forwarding enabled.  For IPVS it looks like you would have
+> to resolve the server IP address to a device first.  Though if the
+> administrator assigns the server address to a different interface later
+> then the failure mode will be very hard to understand.
 
-I see a problem with how ctnetlink GET requests are being
-processed in the kernel (2.6.32.24) under high load.
+Thanks, I'll try and make it so.
 
-Initially I saw this problem on a large performance testing
-system when getting HTTP proxy performance numbers, but lately
-there have been two reports on large customers boxes (both
-many-core with 10G NICs).
-
-The sympton is Netlink looping around nfnetlink_rcv_msg(),
-which is just because netlink_unicast() came back with -EAGAIN
-when trying to write the newly created Netlink skb to the SK
-receive buffer in ctnetlink_get_conntrack().  In this case a
-(possibly) infinit loop is entered.  Mostly infinit in fact in
-case the userland party trying to receive those messages may
-be stuck in the sendmsg() call, being unable to read anything
-if being single threaded.
-
-I tried to reproduce several times, a few times the loop
-disappeared and the box proceeded normally after some time.
-I have no explanation for this.
-
-The attached patch tries to solve it by simple not trying
-again to netlink_unicast() the reply skb and just fail with
--ENOBUFS.  The reasoning is that at the point a Netlink overrun
-is observed it seems counter intuitive to insist on sending
-one more Netlink message.
-
-I checked for possible side effects to other Netlink requests,
-please check.
-
-The patch applies to net-next-2.6.
-
-Feedback appreciated.
-
- /holger
-
-
---AhhlLboLdkugWU4S
-Content-Type: text/x-diff; charset=us-ascii
-Content-Disposition: inline; filename="nfnl-fix.diff"
-
-nfnetlink: avoid unbound loop on busy Netlink socket
-
-I see a problem with how ctnetlink GET requests are being
-processed in the kernel (2.6.32.24) under high load.
-
-The sympton is Netlink looping around nfnetlink_rcv_msg(), which
-is just because netlink_unicast() came back with EAGAIN when
-trying to write the newly created Netlink skb to the SK receive
-buffer in ctnetlink_get_conntrack().  In this case a (possibly)
-infinit loop is entered.  Mostly infinit I think in case the
-userland party trying to receive those messages may be stuck in
-the sendmsg() call, being unable to read anything if being single
-threaded.
-
-I tried to reproduce several times, a few times the loop
-disappeared and the box proceeded normally after some minutes.
-I have no explanation for this.
-
-The attached patch tries to solve it by simple not trying again
-to netlink_unicast() the reply skb and just fail with -ENOBUFS.
-The reasoning is that at the point a Netlink overrun is detected
-it seems counter intuitive to insist on sending one more Netlink
-message.
-
-Signed-off-by: Holger Eitzenberger <holger@eitzenberger.org>
-
-Index: net-next-2.6/net/netfilter/nfnetlink.c
-===================================================================
---- net-next-2.6.orig/net/netfilter/nfnetlink.c	2010-12-03 14:33:32.000000000 +0100
-+++ net-next-2.6/net/netfilter/nfnetlink.c	2010-12-03 14:34:21.000000000 +0100
-@@ -138,7 +138,6 @@
- 		return 0;
- 
- 	type = nlh->nlmsg_type;
--replay:
- 	ss = nfnetlink_get_subsys(type);
- 	if (!ss) {
- #ifdef CONFIG_MODULES
-@@ -169,7 +168,7 @@
- 
- 		err = nc->call(net->nfnl, skb, nlh, (const struct nlattr **)cda);
- 		if (err == -EAGAIN)
--			goto replay;
-+			err = -ENOBUFS;
- 		return err;
- 	}
- }
-
---AhhlLboLdkugWU4S--
