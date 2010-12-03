@@ -1,55 +1,80 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: TSO/GRO/LRO/somethingO breaks LVS on 2.6.36
-Date: Fri, 03 Dec 2010 13:27:19 +0000
-Message-ID: <1291382839.8025.40.camel@localhost>
-References: <20101203103447.GA29714@hostway.ca>
-	 <1291375743.2897.141.camel@edumazet-laptop>
-	 <20101203123617.GA6993@verge.net.au>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 PATCH] ixgbe: add support for 82599 FCoE SKU
+Date: Fri, 03 Dec 2010 05:32:34 -0800
+Message-ID: <20101203133234.21637.21713.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Simon Kirby <sim@hostway.ca>, netdev@vger.kernel.org
-To: Simon Horman <horms@verge.net.au>
+Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:50875 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751669Ab0LCN10 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Dec 2010 08:27:26 -0500
-In-Reply-To: <20101203123617.GA6993@verge.net.au>
+Received: from qmta15.westchester.pa.mail.comcast.net ([76.96.59.228]:41068
+	"EHLO qmta15.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751669Ab0LCNc6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Dec 2010 08:32:58 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2010-12-03 at 21:36 +0900, Simon Horman wrote:
-> On Fri, Dec 03, 2010 at 12:29:03PM +0100, Eric Dumazet wrote:
-[...]
-> > I believe Simon Horman has some patches for GRO and LVS.
-> > 
-> > Please send the results of "ethtool -k eth0" on all your nics / vlans ?
-> > 
-> > For TSO, I am not sure why and where it could matter...
-> 
-> There is a patch to teach LVS how to cope with GRO in nf-next-2.6
-> and I expect it to be included in 2.6.38. The patch is "ipvs: allow
-> transmit of GRO aggregated skbs" and perhaps it should be considered
-> for 2.6.37 and stable. In general the work around is to disable GRO.
->
-> The patch does not resolve the incompatibility of LVS with LRO.
-> The work around there is to disable LRO. I'm not entirely sure
-> how to teach LVS to disable LRO automatically, or if its desirable.
-[...]
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-I think it is desirable, and we already do it for bridging and
-forwarding - we call dev_disable_lro() whenever a device is added to a
-bridge or has forwarding enabled.  For IPVS it looks like you would have
-to resolve the server IP address to a device first.  Though if the
-administrator assigns the server address to a different interface later
-then the failure mode will be very hard to understand.
+Add both NIC and backplane support for FCoE enabled devices IDs.
 
-Ben.
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Tested-by: Stephen Ko <stephen.s.ko@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+ drivers/net/ixgbe/ixgbe_82599.c |    2 ++
+ drivers/net/ixgbe/ixgbe_main.c  |    4 ++++
+ drivers/net/ixgbe/ixgbe_type.h  |    2 ++
+ 3 files changed, 8 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ixgbe/ixgbe_82599.c b/drivers/net/ixgbe/ixgbe_82599.c
+index 743bdec..6827ddd 100644
+--- a/drivers/net/ixgbe/ixgbe_82599.c
++++ b/drivers/net/ixgbe/ixgbe_82599.c
+@@ -341,11 +341,13 @@ static enum ixgbe_media_type ixgbe_get_media_type_82599(struct ixgbe_hw *hw)
+ 	case IXGBE_DEV_ID_82599_KX4_MEZZ:
+ 	case IXGBE_DEV_ID_82599_COMBO_BACKPLANE:
+ 	case IXGBE_DEV_ID_82599_KR:
++	case IXGBE_DEV_ID_82599_BACKPLANE_FCOE:
+ 	case IXGBE_DEV_ID_82599_XAUI_LOM:
+ 		/* Default device ID is mezzanine card KX/KX4 */
+ 		media_type = ixgbe_media_type_backplane;
+ 		break;
+ 	case IXGBE_DEV_ID_82599_SFP:
++	case IXGBE_DEV_ID_82599_SFP_FCOE:
+ 	case IXGBE_DEV_ID_82599_SFP_EM:
+ 		media_type = ixgbe_media_type_fiber;
+ 		break;
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index c876a69..c3338b5 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -109,6 +109,10 @@ static DEFINE_PCI_DEVICE_TABLE(ixgbe_pci_tbl) = {
+ 	 board_82599 },
+ 	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_CX4),
+ 	 board_82599 },
++	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_BACKPLANE_FCOE),
++	 board_82599 },
++	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_SFP_FCOE),
++	 board_82599 },
+ 	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_T3_LOM),
+ 	 board_82599 },
+ 	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_COMBO_BACKPLANE),
+diff --git a/drivers/net/ixgbe/ixgbe_type.h b/drivers/net/ixgbe/ixgbe_type.h
+index bbcfafc..44bcabb 100644
+--- a/drivers/net/ixgbe/ixgbe_type.h
++++ b/drivers/net/ixgbe/ixgbe_type.h
+@@ -54,6 +54,8 @@
+ #define IXGBE_DEV_ID_82599_T3_LOM        0x151C
+ #define IXGBE_DEV_ID_82599_CX4           0x10F9
+ #define IXGBE_DEV_ID_82599_SFP           0x10FB
++#define IXGBE_DEV_ID_82599_BACKPLANE_FCOE       0x152a
++#define IXGBE_DEV_ID_82599_SFP_FCOE      0x1529
+ #define IXGBE_SUBDEV_ID_82599_SFP        0x11A9
+ #define IXGBE_DEV_ID_82599_SFP_EM        0x1507
+ #define IXGBE_DEV_ID_82599_XAUI_LOM      0x10FC
 
