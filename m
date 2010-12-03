@@ -1,240 +1,182 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH] ixgbe: add support for new format of PBA numbers
-Date: Fri, 03 Dec 2010 05:32:58 -0800
-Message-ID: <20101203133258.21637.5904.stgit@localhost.localdomain>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: Bonding, GRO and tcp_reordering
+Date: Fri, 3 Dec 2010 22:38:00 +0900
+Message-ID: <20101203133800.GA26038@verge.net.au>
+References: <20101130135549.GA22688@verge.net.au>
+ <1291131776.21077.27.camel@bwh-desktop>
+ <1291133073.2904.128.camel@edumazet-laptop>
+ <20101201043445.GC3485@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta11.westchester.pa.mail.comcast.net ([76.96.59.211]:35980
-	"EHLO QMTA11.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751669Ab0LCNdZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Dec 2010 08:33:25 -0500
+Received: from kirsty.vergenet.net ([202.4.237.240]:51687 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754898Ab0LCNiF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Dec 2010 08:38:05 -0500
+Content-Disposition: inline
+In-Reply-To: <20101201043445.GC3485@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+On Wed, Dec 01, 2010 at 01:34:45PM +0900, Simon Horman wrote:
+> On Tue, Nov 30, 2010 at 05:04:33PM +0100, Eric Dumazet wrote:
+> > Le mardi 30 novembre 2010 =C3=A0 15:42 +0000, Ben Hutchings a =C3=A9=
+crit :
+> > > On Tue, 2010-11-30 at 22:55 +0900, Simon Horman wrote:
 
-The new PBA format is stored as a string.  This patch allows the
-driver to support both the old and new format.
+To clarify my statement in a previous email that GSO had no effect: I
+re-ran the tests and I still haven't observed any affect of GSO on my
+results. However, I did notice that in order for GRO on the server to h=
+ave
+effect I also need TSO enabled on the client.  I thought that I had
+previously checked that but I was mistaken.
 
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
-Tested-by: Stephen Ko <stephen.s.ko@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+Enabling TSO on the client while leaving GSO disabled on the server
+resulted in increased CPU utilisation on the client, from ~15% to ~20%.
 
- drivers/net/ixgbe/ixgbe_common.c |   94 +++++++++++++++++++++++++++++++++++---
- drivers/net/ixgbe/ixgbe_common.h |    3 +
- drivers/net/ixgbe/ixgbe_main.c   |   18 ++++---
- drivers/net/ixgbe/ixgbe_type.h   |    6 ++
- 4 files changed, 105 insertions(+), 16 deletions(-)
+> > > > The only other parameter that seemed to have significant effect=
+ was to
+> > > > increase the mtu.  In the case of MTU=3D9000, GRO seemed to hav=
+e a negative
+> > > > impact on throughput, though a significant positive effect on C=
+PU
+> > > > utilisation.
+> > > [...]
+> > >=20
+> > > Increasing MTU also increases the interval between packets on a T=
+CP flow
+> > > using maximum segment size so that it is more likely to exceed th=
+e
+> > > difference in delay.
+> > >=20
+> >=20
+> > GRO really is operational _if_ we receive in same NAPI run several
+> > packets for the same flow.
+> >=20
+> > As soon as we exit NAPI mode, GRO packets are flushed.
+> >=20
+> > Big MTU --> bigger delays between packets, so big chance that GRO c=
+annot
+> > trigger at all, since NAPI runs for one packet only.
+> >=20
+> > One possibility with big MTU is to tweak "ethtool -c eth0" params
+> > rx-usecs: 20
+> > rx-frames: 5
+> > rx-usecs-irq: 0
+> > rx-frames-irq: 5
+> > so that "rx-usecs" is bigger than the delay between two MTU full si=
+zed
+> > packets.
+> >=20
+> > Gigabit speed means 1 nano second per bit, and MTU=3D9000 means 72 =
+us
+> > delay between packets.
+> >=20
+> > So try :
+> >=20
+> > ethtool -C eth0 rx-usecs 100
+> >=20
+> > to get chance that several packets are delivered at once by NIC.
+> >=20
+> > Unfortunately, this also add some latency, so it helps bulk transfe=
+rts,
+> > and slowdown interactive traffic=20
+>=20
+> Thanks Eric,
+>=20
+> I was tweaking those values recently for some latency tuning
+> but I didn't think of them in relation to last night's tests.
+>=20
+> In terms of my measurements, its just benchmarking at this stage.
+> So a trade-off between throughput and latency is acceptable, so long
+> as I remember to measure what it is.
 
-diff --git a/drivers/net/ixgbe/ixgbe_common.c b/drivers/net/ixgbe/ixgbe_common.c
-index 5605257..cc11e42 100644
---- a/drivers/net/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ixgbe/ixgbe_common.c
-@@ -196,30 +196,110 @@ s32 ixgbe_clear_hw_cntrs_generic(struct ixgbe_hw *hw)
- }
- 
- /**
-- *  ixgbe_read_pba_num_generic - Reads part number from EEPROM
-+ *  ixgbe_read_pba_string_generic - Reads part number string from EEPROM
-  *  @hw: pointer to hardware structure
-- *  @pba_num: stores the part number from the EEPROM
-+ *  @pba_num: stores the part number string from the EEPROM
-+ *  @pba_num_size: part number string buffer length
-  *
-- *  Reads the part number from the EEPROM.
-+ *  Reads the part number string from the EEPROM.
-  **/
--s32 ixgbe_read_pba_num_generic(struct ixgbe_hw *hw, u32 *pba_num)
-+s32 ixgbe_read_pba_string_generic(struct ixgbe_hw *hw, u8 *pba_num,
-+                                  u32 pba_num_size)
- {
- 	s32 ret_val;
- 	u16 data;
-+	u16 pba_ptr;
-+	u16 offset;
-+	u16 length;
-+
-+	if (pba_num == NULL) {
-+		hw_dbg(hw, "PBA string buffer was null\n");
-+		return IXGBE_ERR_INVALID_ARGUMENT;
-+	}
- 
- 	ret_val = hw->eeprom.ops.read(hw, IXGBE_PBANUM0_PTR, &data);
- 	if (ret_val) {
- 		hw_dbg(hw, "NVM Read Error\n");
- 		return ret_val;
- 	}
--	*pba_num = (u32)(data << 16);
- 
--	ret_val = hw->eeprom.ops.read(hw, IXGBE_PBANUM1_PTR, &data);
-+	ret_val = hw->eeprom.ops.read(hw, IXGBE_PBANUM1_PTR, &pba_ptr);
- 	if (ret_val) {
- 		hw_dbg(hw, "NVM Read Error\n");
- 		return ret_val;
- 	}
--	*pba_num |= data;
-+
-+	/*
-+	 * if data is not ptr guard the PBA must be in legacy format which
-+	 * means pba_ptr is actually our second data word for the PBA number
-+	 * and we can decode it into an ascii string
-+	 */
-+	if (data != IXGBE_PBANUM_PTR_GUARD) {
-+		hw_dbg(hw, "NVM PBA number is not stored as string\n");
-+
-+		/* we will need 11 characters to store the PBA */
-+		if (pba_num_size < 11) {
-+			hw_dbg(hw, "PBA string buffer too small\n");
-+			return IXGBE_ERR_NO_SPACE;
-+		}
-+
-+		/* extract hex string from data and pba_ptr */
-+		pba_num[0] = (data >> 12) & 0xF;
-+		pba_num[1] = (data >> 8) & 0xF;
-+		pba_num[2] = (data >> 4) & 0xF;
-+		pba_num[3] = data & 0xF;
-+		pba_num[4] = (pba_ptr >> 12) & 0xF;
-+		pba_num[5] = (pba_ptr >> 8) & 0xF;
-+		pba_num[6] = '-';
-+		pba_num[7] = 0;
-+		pba_num[8] = (pba_ptr >> 4) & 0xF;
-+		pba_num[9] = pba_ptr & 0xF;
-+
-+		/* put a null character on the end of our string */
-+		pba_num[10] = '\0';
-+
-+		/* switch all the data but the '-' to hex char */
-+		for (offset = 0; offset < 10; offset++) {
-+			if (pba_num[offset] < 0xA)
-+				pba_num[offset] += '0';
-+			else if (pba_num[offset] < 0x10)
-+				pba_num[offset] += 'A' - 0xA;
-+		}
-+
-+		return 0;
-+	}
-+
-+	ret_val = hw->eeprom.ops.read(hw, pba_ptr, &length);
-+	if (ret_val) {
-+		hw_dbg(hw, "NVM Read Error\n");
-+		return ret_val;
-+	}
-+
-+	if (length == 0xFFFF || length == 0) {
-+		hw_dbg(hw, "NVM PBA number section invalid length\n");
-+		return IXGBE_ERR_PBA_SECTION;
-+	}
-+
-+	/* check if pba_num buffer is big enough */
-+	if (pba_num_size  < (((u32)length * 2) - 1)) {
-+		hw_dbg(hw, "PBA string buffer too small\n");
-+		return IXGBE_ERR_NO_SPACE;
-+	}
-+
-+	/* trim pba length from start of string */
-+	pba_ptr++;
-+	length--;
-+
-+	for (offset = 0; offset < length; offset++) {
-+		ret_val = hw->eeprom.ops.read(hw, pba_ptr + offset, &data);
-+		if (ret_val) {
-+			hw_dbg(hw, "NVM Read Error\n");
-+			return ret_val;
-+		}
-+		pba_num[offset * 2] = (u8)(data >> 8);
-+		pba_num[(offset * 2) + 1] = (u8)(data & 0xFF);
-+	}
-+	pba_num[offset * 2] = '\0';
- 
- 	return 0;
- }
-diff --git a/drivers/net/ixgbe/ixgbe_common.h b/drivers/net/ixgbe/ixgbe_common.h
-index 341ca51..e1f980a 100644
---- a/drivers/net/ixgbe/ixgbe_common.h
-+++ b/drivers/net/ixgbe/ixgbe_common.h
-@@ -35,7 +35,8 @@ s32 ixgbe_init_ops_generic(struct ixgbe_hw *hw);
- s32 ixgbe_init_hw_generic(struct ixgbe_hw *hw);
- s32 ixgbe_start_hw_generic(struct ixgbe_hw *hw);
- s32 ixgbe_clear_hw_cntrs_generic(struct ixgbe_hw *hw);
--s32 ixgbe_read_pba_num_generic(struct ixgbe_hw *hw, u32 *pba_num);
-+s32 ixgbe_read_pba_string_generic(struct ixgbe_hw *hw, u8 *pba_num,
-+                                  u32 pba_num_size);
- s32 ixgbe_get_mac_addr_generic(struct ixgbe_hw *hw, u8 *mac_addr);
- s32 ixgbe_get_bus_info_generic(struct ixgbe_hw *hw);
- void ixgbe_set_lan_id_multi_port_pcie(struct ixgbe_hw *hw);
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index c3338b5..c5998ca 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -6955,11 +6955,12 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
- 	const struct ixgbe_info *ii = ixgbe_info_tbl[ent->driver_data];
- 	static int cards_found;
- 	int i, err, pci_using_dac;
-+	u8 part_str[IXGBE_PBANUM_LENGTH];
- 	unsigned int indices = num_possible_cpus();
- #ifdef IXGBE_FCOE
- 	u16 device_caps;
- #endif
--	u32 part_num, eec;
-+	u32 eec;
- 
- 	/* Catch broken hardware that put the wrong VF device ID in
- 	 * the PCIe SR-IOV capability.
-@@ -7265,16 +7266,17 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
- 		    hw->bus.width == ixgbe_bus_width_pcie_x1 ? "Width x1" :
- 		    "Unknown"),
- 		   netdev->dev_addr);
--	ixgbe_read_pba_num_generic(hw, &part_num);
-+
-+	err = ixgbe_read_pba_string_generic(hw, part_str, IXGBE_PBANUM_LENGTH);
-+	if (err)
-+		strcpy(part_str, "Unknown");
- 	if (ixgbe_is_sfp(hw) && hw->phy.sfp_type != ixgbe_sfp_type_not_present)
--		e_dev_info("MAC: %d, PHY: %d, SFP+: %d, "
--			   "PBA No: %06x-%03x\n",
-+		e_dev_info("MAC: %d, PHY: %d, SFP+: %d, PBA No: %s\n",
- 			   hw->mac.type, hw->phy.type, hw->phy.sfp_type,
--			   (part_num >> 8), (part_num & 0xff));
-+		           part_str);
- 	else
--		e_dev_info("MAC: %d, PHY: %d, PBA No: %06x-%03x\n",
--			   hw->mac.type, hw->phy.type,
--			   (part_num >> 8), (part_num & 0xff));
-+		e_dev_info("MAC: %d, PHY: %d, PBA No: %s\n",
-+			   hw->mac.type, hw->phy.type, part_str);
- 
- 	if (hw->bus.width <= ixgbe_bus_width_pcie_x4) {
- 		e_dev_warn("PCI-Express bandwidth available for this card is "
-diff --git a/drivers/net/ixgbe/ixgbe_type.h b/drivers/net/ixgbe/ixgbe_type.h
-index 44bcabb..0f80893 100644
---- a/drivers/net/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ixgbe/ixgbe_type.h
-@@ -1510,7 +1510,11 @@
- #define IXGBE_EEPROM_WORD_SIZE_SHIFT  6
- #define IXGBE_EEPROM_OPCODE_BITS      8
- 
-+/* Part Number String Length */
-+#define IXGBE_PBANUM_LENGTH 11
-+
- /* Checksum and EEPROM pointers */
-+#define IXGBE_PBANUM_PTR_GUARD  0xFAFA
- #define IXGBE_EEPROM_CHECKSUM   0x3F
- #define IXGBE_EEPROM_SUM        0xBABA
- #define IXGBE_PCIE_ANALOG_PTR   0x03
-@@ -2640,6 +2644,8 @@ struct ixgbe_info {
- #define IXGBE_ERR_OVERTEMP                      -26
- #define IXGBE_ERR_RAR_INDEX                     -27
- #define IXGBE_ERR_SFP_SETUP_NOT_COMPLETE        -30
-+#define IXGBE_ERR_PBA_SECTION                   -31
-+#define IXGBE_ERR_INVALID_ARGUMENT              -32
- #define IXGBE_NOT_IMPLEMENTED                   0x7FFFFFFF
- 
- #endif /* _IXGBE_TYPE_H_ */
+Thanks, rx-usecs was set to 3 and changing it to 15 on the server
+did seem increase throughput with 1500 byte packets. Although
+CPU utilisation increased too, disproportionally so on the client.
+
+MTU=3D1500, client,server:tcp_reordering=3D3, client:GSO=3Doff,
+	client:TSO=3Don, server:GRO=3Doff, server:rx-usecs=3D3(default)
+# netperf -c -4 -t TCP_STREAM -H 172.17.60.216
+TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 172.17.60.216 =
+(172.17.60.216) port 0 AF_INET
+Recv   Send    Send                          Utilization       Service =
+Demand
+Socket Socket  Message  Elapsed              Send     Recv     Send    =
+Recv
+Size   Size    Size     Time     Throughput  local    remote   local   =
+remote
+bytes  bytes   bytes    secs.    10^6bits/s  % S      % U      us/KB   =
+us/KB
+
+ 87380  16384  16384    10.00      1591.34   16.35    5.80     1.683   =
+2.390
+
+MTU=3D1500, client,server:tcp_reordering=3D3(default), client:GSO=3Doff=
+,
+	client:TSO=3Don, server:GRO=3Doff server:rx-usecs=3D15
+# netperf -c -4 -t TCP_STREAM -H 172.17.60.216
+TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 172.17.60.216 =
+(172.17.60.216) port 0 AF_INET
+Recv   Send    Send                          Utilization       Service =
+Demand
+Socket Socket  Message  Elapsed              Send     Recv     Send    =
+Recv
+Size   Size    Size     Time     Throughput  local    remote   local   =
+remote
+bytes  bytes   bytes    secs.    10^6bits/s  % S      % U      us/KB   =
+us/KB
+
+ 87380  16384  16384    10.00      1774.38   23.75    7.58     2.193   =
+2.801
+
+I also saw an improvement with GRO enabled on the server and TSO enable=
+d on
+the client.  Although in this case I found rx-usecs=3D45 to be the best
+value.
+
+MTU=3D1500, client,server:tcp_reordering=3D3(default), client:GSO=3Doff=
+,
+	client:TSO=3Don, server:GRO=3Don server:rx-usecs=3D3(default)
+# netperf -c -4 -t TCP_STREAM -H 172.17.60.216
+TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 172.17.60.216 =
+(172.17.60.216) port 0 AF_INET
+Recv   Send    Send                          Utilization       Service =
+Demand
+Socket Socket  Message  Elapsed              Send     Recv     Send    =
+Recv
+Size   Size    Size     Time     Throughput  local    remote   local   =
+remote
+bytes  bytes   bytes    secs.    10^6bits/s  % S      % U      us/KB   =
+us/KB
+
+ 87380  16384  16384    10.00      2553.27   13.31    3.35     0.854   =
+0.860
+
+MTU=3D1500, client,server:tcp_reordering=3D3(default), client:GSO=3Doff=
+,
+	client:TSO=3Don, server:GRO=3Don server:rx-usecs=3D45
+# netperf -c -4 -t TCP_STREAM -H 172.17.60.216
+TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 172.17.60.216 =
+(172.17.60.216) port 0 AF_INET
+Recv   Send    Send                          Utilization       Service =
+Demand
+Socket Socket  Message  Elapsed              Send     Recv     Send    =
+Recv
+Size   Size    Size     Time     Throughput  local    remote   local   =
+remote
+bytes  bytes   bytes    secs.    10^6bits/s  % S      % U      us/KB   =
+us/KB
+
+ 87380  16384  16384    10.00      2727.53   29.45    9.48     1.769   =
+2.278
+
+I did not observe any improvement in throughput when increasing rx-usec=
+s
+from 3 when using mtu=3D9000 although there was a slight increase in CP=
+U
+utilisation (maybe, there is quite a lot of noise in the results).
 
