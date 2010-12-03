@@ -1,105 +1,110 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH] ixgbe: add WOL support for SFP+ subdevice
-Date: Fri, 03 Dec 2010 05:32:13 -0800
-Message-ID: <20101203133212.21637.12387.stgit@localhost.localdomain>
+From: Holger Eitzenberger <holger@eitzenberger.org>
+Subject: ctnetlink loop
+Date: Fri, 3 Dec 2010 14:39:03 +0100
+Message-ID: <20101203133903.GG13225@mail.eitzenberger.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta09.westchester.pa.mail.comcast.net ([76.96.62.96]:38103
-	"EHLO qmta09.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754392Ab0LCNi2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Dec 2010 08:38:28 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed; boundary="AhhlLboLdkugWU4S"
+Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
+To: netfilter-devel <netfilter-devel@lists.netfilter.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
 
-This patch will add wake on LAN support to the dev/sub_dev 10FB 11A9.  This
-will also include ixgbe ethtool support for this device.
+--AhhlLboLdkugWU4S
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
-Tested-by: Stephen Ko <stephen.s.ko@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+Hi,
 
- drivers/net/ixgbe/ixgbe_ethtool.c |   11 +++++++++++
- drivers/net/ixgbe/ixgbe_main.c    |   15 ++++++++++-----
- drivers/net/ixgbe/ixgbe_type.h    |    1 +
- 3 files changed, 22 insertions(+), 5 deletions(-)
+I see a problem with how ctnetlink GET requests are being
+processed in the kernel (2.6.32.24) under high load.
 
-diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
-index f9b5839..ef3f910 100644
---- a/drivers/net/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ixgbe/ixgbe_ethtool.c
-@@ -1879,7 +1879,16 @@ static int ixgbe_wol_exclusion(struct ixgbe_adapter *adapter,
- 	struct ixgbe_hw *hw = &adapter->hw;
- 	int retval = 1;
+Initially I saw this problem on a large performance testing
+system when getting HTTP proxy performance numbers, but lately
+there have been two reports on large customers boxes (both
+many-core with 10G NICs).
+
+The sympton is Netlink looping around nfnetlink_rcv_msg(),
+which is just because netlink_unicast() came back with -EAGAIN
+when trying to write the newly created Netlink skb to the SK
+receive buffer in ctnetlink_get_conntrack().  In this case a
+(possibly) infinit loop is entered.  Mostly infinit in fact in
+case the userland party trying to receive those messages may
+be stuck in the sendmsg() call, being unable to read anything
+if being single threaded.
+
+I tried to reproduce several times, a few times the loop
+disappeared and the box proceeded normally after some time.
+I have no explanation for this.
+
+The attached patch tries to solve it by simple not trying
+again to netlink_unicast() the reply skb and just fail with
+-ENOBUFS.  The reasoning is that at the point a Netlink overrun
+is observed it seems counter intuitive to insist on sending
+one more Netlink message.
+
+I checked for possible side effects to other Netlink requests,
+please check.
+
+The patch applies to net-next-2.6.
+
+Feedback appreciated.
+
+ /holger
+
+
+--AhhlLboLdkugWU4S
+Content-Type: text/x-diff; charset=us-ascii
+Content-Disposition: inline; filename="nfnl-fix.diff"
+
+nfnetlink: avoid unbound loop on busy Netlink socket
+
+I see a problem with how ctnetlink GET requests are being
+processed in the kernel (2.6.32.24) under high load.
+
+The sympton is Netlink looping around nfnetlink_rcv_msg(), which
+is just because netlink_unicast() came back with EAGAIN when
+trying to write the newly created Netlink skb to the SK receive
+buffer in ctnetlink_get_conntrack().  In this case a (possibly)
+infinit loop is entered.  Mostly infinit I think in case the
+userland party trying to receive those messages may be stuck in
+the sendmsg() call, being unable to read anything if being single
+threaded.
+
+I tried to reproduce several times, a few times the loop
+disappeared and the box proceeded normally after some minutes.
+I have no explanation for this.
+
+The attached patch tries to solve it by simple not trying again
+to netlink_unicast() the reply skb and just fail with -ENOBUFS.
+The reasoning is that at the point a Netlink overrun is detected
+it seems counter intuitive to insist on sending one more Netlink
+message.
+
+Signed-off-by: Holger Eitzenberger <holger@eitzenberger.org>
+
+Index: net-next-2.6/net/netfilter/nfnetlink.c
+===================================================================
+--- net-next-2.6.orig/net/netfilter/nfnetlink.c	2010-12-03 14:33:32.000000000 +0100
++++ net-next-2.6/net/netfilter/nfnetlink.c	2010-12-03 14:34:21.000000000 +0100
+@@ -138,7 +138,6 @@
+ 		return 0;
  
-+	/* WOL not supported except for the following */
- 	switch(hw->device_id) {
-+	case IXGBE_DEV_ID_82599_SFP:
-+		/* Only this subdevice supports WOL */
-+		if (hw->subsystem_device_id != IXGBE_SUBDEV_ID_82599_SFP) {
-+			wol->supported = 0;
-+			break;
-+		}
-+		retval = 0;
-+		break;
- 	case IXGBE_DEV_ID_82599_COMBO_BACKPLANE:
- 		/* All except this subdevice support WOL */
- 		if (hw->subsystem_device_id ==
-@@ -1887,6 +1896,8 @@ static int ixgbe_wol_exclusion(struct ixgbe_adapter *adapter,
- 			wol->supported = 0;
- 			break;
- 		}
-+		retval = 0;
-+		break;
- 	case IXGBE_DEV_ID_82599_KX4:
- 		retval = 0;
- 		break;
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index fb81418..c876a69 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -7226,13 +7226,18 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
- 		goto err_sw_init;
+ 	type = nlh->nlmsg_type;
+-replay:
+ 	ss = nfnetlink_get_subsys(type);
+ 	if (!ss) {
+ #ifdef CONFIG_MODULES
+@@ -169,7 +168,7 @@
  
- 	switch (pdev->device) {
-+	case IXGBE_DEV_ID_82599_SFP:
-+		/* Only this subdevice supports WOL */
-+		if (pdev->subsystem_device == IXGBE_SUBDEV_ID_82599_SFP)
-+			adapter->wol = (IXGBE_WUFC_MAG | IXGBE_WUFC_EX |
-+			                IXGBE_WUFC_MC | IXGBE_WUFC_BC);
-+		break;
- 	case IXGBE_DEV_ID_82599_COMBO_BACKPLANE:
- 		/* All except this subdevice support WOL */
--		if (pdev->subsystem_device ==
--		    IXGBE_SUBDEV_ID_82599_KX4_KR_MEZZ) {
--			adapter->wol = 0;
--			break;
--		}
-+		if (pdev->subsystem_device != IXGBE_SUBDEV_ID_82599_KX4_KR_MEZZ)
-+			adapter->wol = (IXGBE_WUFC_MAG | IXGBE_WUFC_EX |
-+			                IXGBE_WUFC_MC | IXGBE_WUFC_BC);
-+		break;
- 	case IXGBE_DEV_ID_82599_KX4:
- 		adapter->wol = (IXGBE_WUFC_MAG | IXGBE_WUFC_EX |
- 				IXGBE_WUFC_MC | IXGBE_WUFC_BC);
-diff --git a/drivers/net/ixgbe/ixgbe_type.h b/drivers/net/ixgbe/ixgbe_type.h
-index 20e1f03..bbcfafc 100644
---- a/drivers/net/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ixgbe/ixgbe_type.h
-@@ -54,6 +54,7 @@
- #define IXGBE_DEV_ID_82599_T3_LOM        0x151C
- #define IXGBE_DEV_ID_82599_CX4           0x10F9
- #define IXGBE_DEV_ID_82599_SFP           0x10FB
-+#define IXGBE_SUBDEV_ID_82599_SFP        0x11A9
- #define IXGBE_DEV_ID_82599_SFP_EM        0x1507
- #define IXGBE_DEV_ID_82599_XAUI_LOM      0x10FC
- #define IXGBE_DEV_ID_82599_COMBO_BACKPLANE 0x10F8
+ 		err = nc->call(net->nfnl, skb, nlh, (const struct nlattr **)cda);
+ 		if (err == -EAGAIN)
+-			goto replay;
++			err = -ENOBUFS;
+ 		return err;
+ 	}
+ }
 
+--AhhlLboLdkugWU4S--
