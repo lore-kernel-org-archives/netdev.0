@@ -1,52 +1,48 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: Martin Willi <martin@strongswan.org>
 Subject: Re: [PATCH 3/5] xfrm: Traffic Flow Confidentiality for IPv4 ESP
-Date: Fri, 3 Dec 2010 15:34:03 +0800
-Message-ID: <20101203073403.GA2292@gondor.apana.org.au>
-References: <1291132155-31277-1-git-send-email-martin@strongswan.org> <1291132155-31277-4-git-send-email-martin@strongswan.org>
+Date: Fri, 03 Dec 2010 09:32:55 +0100
+Message-ID: <1291365175.1997.34.camel@martin>
+References: <1291132155-31277-1-git-send-email-martin@strongswan.org>
+	 <1291132155-31277-4-git-send-email-martin@strongswan.org>
+	 <20101203073403.GA2292@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 Cc: linux-crypto@vger.kernel.org, netdev@vger.kernel.org
-To: Martin Willi <martin@strongswan.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:49458 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751709Ab0LCHeG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Dec 2010 02:34:06 -0500
-Content-Disposition: inline
-In-Reply-To: <1291132155-31277-4-git-send-email-martin@strongswan.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <20101203073403.GA2292@gondor.apana.org.au>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 30, 2010 at 03:49:13PM +0000, Martin Willi wrote:
->
-> +	if (skb->len >= tfcpadto) {
-> +		clen = ALIGN(skb->len + 2, blksize);
-> +	} else if (x->tfc.flags & XFRM_TFC_ESPV3 &&
-> +		   x->props.mode == XFRM_MODE_TUNNEL) {
-> +		/* ESPv3 TFC padding, append bytes to payload */
-> +		tfclen = tfcpadto - skb->len;
-> +		clen = ALIGN(skb->len + 2 + tfclen, blksize);
-> +	} else {
-> +		/* ESPv2 TFC padding. If we exceed the 255 byte maximum, use
-> +		 * random padding to hide payload length as good as possible. */
-> +		clen = ALIGN(skb->len + 2 + tfcpadto - skb->len, blksize);
-> +		if (clen - skb->len - 2 > 255) {
-> +			clen = ALIGN(skb->len + (u8)random32() + 2, blksize);
-> +			if (clen - skb->len - 2 > 255)
-> +				clen -= blksize;
-> +		}
 
-What is the basis of this random length padding?
+> What is the basis of this random length padding?
 
-Also, what happens when padto exceeds the MTU? Doesn't this
-effectively disable PMTU-discovery?
+Let assume a peer does not support ESPv3 padding, but we have to pad a
+small packet with more than 255 bytes. We can't, the ESP padding length
+field is limited to 255.
+We could add 255 fixed bytes, but an eavesdropper could just subtract
+the 255 bytes from all packets smaller than the boundary, rendering our
+TFC efforts useless.
+By inserting a random length padding in the range possible, the
+eavesdropper knows that the packet has a length between "length" and
+"length - 255", but can't estimated its exact size. I'm aware that this
+is not optimal, but probably the best we can do(?).
 
-I know that your last patch allows the padto to be set by PMTU.
-But why would we ever want to use a padto that isn't clamped by
-PMTU?
+> Also, what happens when padto exceeds the MTU? Doesn't this
+> effectively disable PMTU-discovery?
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Yes. An administrator setting a padto value larger than PMTU can
+currently break PMTU discovery.
+
+> I know that your last patch allows the padto to be set by PMTU.
+> But why would we ever want to use a padto that isn't clamped by
+> PMTU?
+
+Probably never, valid point.
+
+I'll add PMTU clamping to the next revision. We probably can drop the
+PMTU flag then and just use USHRT_MAX instead. 
+
+Thanks!
+Martin
