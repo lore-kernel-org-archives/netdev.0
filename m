@@ -1,53 +1,50 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 3/5] xfrm: Traffic Flow Confidentiality for IPv4 ESP
-Date: Fri, 3 Dec 2010 16:39:08 +0800
-Message-ID: <20101203083908.GA2940@gondor.apana.org.au>
-References: <1291132155-31277-1-git-send-email-martin@strongswan.org> <1291132155-31277-4-git-send-email-martin@strongswan.org> <20101203073403.GA2292@gondor.apana.org.au> <1291365175.1997.34.camel@martin>
+From: Junchang Wang <junchangwang@gmail.com>
+Subject: Re: multi bpf filter will impact performance?
+Date: Fri, 3 Dec 2010 17:40:06 +0800
+Message-ID: <AANLkTikzqKHcJFq6V_X=wkwyxBtq1fnNVcYC0Kb_QXqD@mail.gmail.com>
+References: <AANLkTikx68M43+vv+Rav_HCJMJnuc15TtuBgmbv2xP=U@mail.gmail.com>
+	<1291109699.2904.11.camel@edumazet-laptop>
+	<AANLkTi=VpmnrXTBNV7McQm6mq9ULT7KTKbM8_hLPoL=2@mail.gmail.com>
+	<1291127670.2904.96.camel@edumazet-laptop>
+	<AANLkTi=-iuGJDzELJpu26KtKr77uDx0xNCc8ibEidJ4h@mail.gmail.com>
+	<1291176215.2856.383.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-crypto@vger.kernel.org, netdev@vger.kernel.org
-To: Martin Willi <martin@strongswan.org>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1291365175.1997.34.camel@martin>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Rui <wirelesser@gmail.com>, netdev@vger.kernel.org,
+	Fenghua Yu <fyu2000@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:53837 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932280Ab0LCJkH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Dec 2010 04:40:07 -0500
+Received: by bwz15 with SMTP id 15so8134775bwz.19
+        for <netdev@vger.kernel.org>; Fri, 03 Dec 2010 01:40:06 -0800 (PST)
+In-Reply-To: <1291176215.2856.383.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 03, 2010 at 09:32:55AM +0100, Martin Willi wrote:
-> 
-> > What is the basis of this random length padding?
-> 
-> Let assume a peer does not support ESPv3 padding, but we have to pad a
-> small packet with more than 255 bytes. We can't, the ESP padding length
-> field is limited to 255.
-> We could add 255 fixed bytes, but an eavesdropper could just subtract
-> the 255 bytes from all packets smaller than the boundary, rendering our
-> TFC efforts useless.
-> By inserting a random length padding in the range possible, the
-> eavesdropper knows that the packet has a length between "length" and
-> "length - 255", but can't estimated its exact size. I'm aware that this
-> is not optimal, but probably the best we can do(?).
+On Wed, Dec 1, 2010 at 12:03 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>
+> But its rather important for performance that each cpu store packets
+> into its own packet socket or ring buffer, to avoid false sharing
+> slowdowns.
 
-I know why you want to do this, what I'm asking is do you have any
-research behind this with regards to security (e.g., you're using an
-insecure RNG to generate a value that is then used as the basis
-for concealment)?
+Hi Eric,
+But the current situation is that a single socket (AF_PACKET for example)
+can only create a ring buffer, meaning that multiple cores will compete
+for passing data to user-space programs. Right?
 
-Has this scheme been discussed on a public forum somewhere?
+>
+> With such a setup (split packets to four cpus, then make sure one cpu
+> deliver packets to one particular PACKET socket/ring buffer), it should
+> really be fast enough.
+>
 
-> > I know that your last patch allows the padto to be set by PMTU.
-> > But why would we ever want to use a padto that isn't clamped by
-> > PMTU?
-> 
-> Probably never, valid point.
-> 
-> I'll add PMTU clamping to the next revision. We probably can drop the
-> PMTU flag then and just use USHRT_MAX instead. 
+Is there any patch or configuration? I'm preparing such a patch. I wonder
+whether there's conflict.
 
-Sounds good.
 
-Thanks,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Thanks.
+
+--Junchang
