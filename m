@@ -1,7 +1,7 @@
 From: Taku Izumi <izumi.taku@jp.fujitsu.com>
-Subject: [PATCH 2/3] bonding: migrate some macros from bond_alb.c to bond_alb.h
-Date: Fri, 03 Dec 2010 16:22:04 +0900
-Message-ID: <4CF89A9C.8080603@jp.fujitsu.com>
+Subject: [PATCH 3/3] bonding: add the debugfs interface to see RLB hash table
+Date: Fri, 03 Dec 2010 16:22:42 +0900
+Message-ID: <4CF89AC2.6030606@jp.fujitsu.com>
 References: <4CF89A00.8030902@jp.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-2022-JP
@@ -10,136 +10,122 @@ Cc: eric.dumazet@gmail.com, shemminger@vyatta.com
 To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fgwmail5.fujitsu.co.jp ([192.51.44.35]:44131 "EHLO
+Received: from fgwmail5.fujitsu.co.jp ([192.51.44.35]:44152 "EHLO
 	fgwmail5.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756050Ab0LCHWP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Dec 2010 02:22:15 -0500
-Received: from m1.gw.fujitsu.co.jp ([10.0.50.71])
-	by fgwmail5.fujitsu.co.jp (Fujitsu Gateway) with ESMTP id oB37MEF2023836
+	with ESMTP id S1751729Ab0LCHWw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Dec 2010 02:22:52 -0500
+Received: from m3.gw.fujitsu.co.jp ([10.0.50.73])
+	by fgwmail5.fujitsu.co.jp (Fujitsu Gateway) with ESMTP id oB37MpTY023913
 	for <netdev@vger.kernel.org> (envelope-from izumi.taku@jp.fujitsu.com);
-	Fri, 3 Dec 2010 16:22:14 +0900
-Received: from smail (m1 [127.0.0.1])
-	by outgoing.m1.gw.fujitsu.co.jp (Postfix) with ESMTP id 6AEB045DE58
-	for <netdev@vger.kernel.org>; Fri,  3 Dec 2010 16:22:14 +0900 (JST)
-Received: from s1.gw.fujitsu.co.jp (s1.gw.fujitsu.co.jp [10.0.50.91])
-	by m1.gw.fujitsu.co.jp (Postfix) with ESMTP id 390C245DE5A
-	for <netdev@vger.kernel.org>; Fri,  3 Dec 2010 16:22:14 +0900 (JST)
-Received: from s1.gw.fujitsu.co.jp (localhost.localdomain [127.0.0.1])
-	by s1.gw.fujitsu.co.jp (Postfix) with ESMTP id 29A401DB804C
-	for <netdev@vger.kernel.org>; Fri,  3 Dec 2010 16:22:14 +0900 (JST)
-Received: from ml14.s.css.fujitsu.com (ml14.s.css.fujitsu.com [10.249.87.104])
-	by s1.gw.fujitsu.co.jp (Postfix) with ESMTP id DAAB91DB8040
-	for <netdev@vger.kernel.org>; Fri,  3 Dec 2010 16:22:13 +0900 (JST)
+	Fri, 3 Dec 2010 16:22:51 +0900
+Received: from smail (m3 [127.0.0.1])
+	by outgoing.m3.gw.fujitsu.co.jp (Postfix) with ESMTP id 0A97345DE63
+	for <netdev@vger.kernel.org>; Fri,  3 Dec 2010 16:22:51 +0900 (JST)
+Received: from s3.gw.fujitsu.co.jp (s3.gw.fujitsu.co.jp [10.0.50.93])
+	by m3.gw.fujitsu.co.jp (Postfix) with ESMTP id DB22945DE5B
+	for <netdev@vger.kernel.org>; Fri,  3 Dec 2010 16:22:50 +0900 (JST)
+Received: from s3.gw.fujitsu.co.jp (localhost.localdomain [127.0.0.1])
+	by s3.gw.fujitsu.co.jp (Postfix) with ESMTP id 5AF8C1DB803B
+	for <netdev@vger.kernel.org>; Fri,  3 Dec 2010 16:22:50 +0900 (JST)
+Received: from m105.s.css.fujitsu.com (m105.s.css.fujitsu.com [10.249.87.105])
+	by s3.gw.fujitsu.co.jp (Postfix) with ESMTP id 231AAE08002
+	for <netdev@vger.kernel.org>; Fri,  3 Dec 2010 16:22:50 +0900 (JST)
 In-Reply-To: <4CF89A00.8030902@jp.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-This patch simply migrates some macros from bond_alb.c to bond_alb.h.
+This patch provices the debugfs interface to see RLB hash table
+like the following:
 
+# cat /sys/kernel/debug/bonding/bond0/rlb_hash_table
+SourceIP        DestinationIP   Destination MAC   DEV
+10.124.196.205  10.124.196.205  ff:ff:ff:ff:ff:ff eth4
+10.124.196.205  10.124.196.81   00:19:99:XX:XX:XX eth3
+10.124.196.205  10.124.196.1    00:21:d8:XX:XX:XX eth0
+
+This is helpful to check if the receive load balancing works as expected.
 
 Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
 
 ---
- drivers/net/bonding/bond_alb.c |   36 ------------------------------------
- drivers/net/bonding/bond_alb.h |   38 ++++++++++++++++++++++++++++++++++++++
- 2 files changed, 38 insertions(+), 36 deletions(-)
+ drivers/net/bonding/bond_debugfs.c |   50 +++++++++++++++++++++++++++++++++++++
+ 1 file changed, 50 insertions(+)
 
-Index: net-next/drivers/net/bonding/bond_alb.c
+Index: net-next/drivers/net/bonding/bond_debugfs.c
 ===================================================================
---- net-next.orig/drivers/net/bonding/bond_alb.c
-+++ net-next/drivers/net/bonding/bond_alb.c
-@@ -44,42 +44,6 @@
- #include "bond_alb.h"
+--- net-next.orig/drivers/net/bonding/bond_debugfs.c
++++ net-next/drivers/net/bonding/bond_debugfs.c
+@@ -4,6 +4,7 @@
+ #include <linux/netdevice.h>
 
+ #include "bonding.h"
++#include "bond_alb.h"
 
--#define ALB_TIMER_TICKS_PER_SEC	    10	/* should be a divisor of HZ */
--#define BOND_TLB_REBALANCE_INTERVAL 10	/* In seconds, periodic re-balancing.
--					 * Used for division - never set
--					 * to zero !!!
--					 */
--#define BOND_ALB_LP_INTERVAL	    1	/* In seconds, periodic send of
--					 * learning packets to the switch
--					 */
--
--#define BOND_TLB_REBALANCE_TICKS (BOND_TLB_REBALANCE_INTERVAL \
--				  * ALB_TIMER_TICKS_PER_SEC)
--
--#define BOND_ALB_LP_TICKS (BOND_ALB_LP_INTERVAL \
--			   * ALB_TIMER_TICKS_PER_SEC)
--
--#define TLB_HASH_TABLE_SIZE 256	/* The size of the clients hash table.
--				 * Note that this value MUST NOT be smaller
--				 * because the key hash table is BYTE wide !
--				 */
--
--
--#define TLB_NULL_INDEX		0xffffffff
--#define MAX_LP_BURST		3
--
--/* rlb defs */
--#define RLB_HASH_TABLE_SIZE	256
--#define RLB_NULL_INDEX		0xffffffff
--#define RLB_UPDATE_DELAY	2*ALB_TIMER_TICKS_PER_SEC /* 2 seconds */
--#define RLB_ARP_BURST_SIZE	2
--#define RLB_UPDATE_RETRY	3	/* 3-ticks - must be smaller than the rlb
--					 * rebalance interval (5 min).
--					 */
--/* RLB_PROMISC_TIMEOUT = 10 sec equals the time that the current slave is
-- * promiscuous after failover
-- */
--#define RLB_PROMISC_TIMEOUT	10*ALB_TIMER_TICKS_PER_SEC
+ #ifdef CONFIG_DEBUG_FS
 
- #ifndef __long_aligned
- #define __long_aligned __attribute__((aligned((sizeof(long)))))
-Index: net-next/drivers/net/bonding/bond_alb.h
-===================================================================
---- net-next.orig/drivers/net/bonding/bond_alb.h
-+++ net-next/drivers/net/bonding/bond_alb.h
-@@ -31,6 +31,44 @@ struct slave;
- #define BOND_ALB_INFO(bond)   ((bond)->alb_info)
- #define SLAVE_TLB_INFO(slave) ((slave)->tlb_info)
+@@ -12,6 +13,52 @@
 
-+#define ALB_TIMER_TICKS_PER_SEC	    10	/* should be a divisor of HZ */
-+#define BOND_TLB_REBALANCE_INTERVAL 10	/* In seconds, periodic re-balancing.
-+					 * Used for division - never set
-+					 * to zero !!!
-+					 */
-+#define BOND_ALB_LP_INTERVAL	    1	/* In seconds, periodic send of
-+					 * learning packets to the switch
-+					 */
-+
-+#define BOND_TLB_REBALANCE_TICKS (BOND_TLB_REBALANCE_INTERVAL \
-+				  * ALB_TIMER_TICKS_PER_SEC)
-+
-+#define BOND_ALB_LP_TICKS (BOND_ALB_LP_INTERVAL \
-+			   * ALB_TIMER_TICKS_PER_SEC)
-+
-+#define TLB_HASH_TABLE_SIZE 256	/* The size of the clients hash table.
-+				 * Note that this value MUST NOT be smaller
-+				 * because the key hash table is BYTE wide !
-+				 */
-+
-+
-+#define TLB_NULL_INDEX		0xffffffff
-+#define MAX_LP_BURST		3
-+
-+/* rlb defs */
-+#define RLB_HASH_TABLE_SIZE	256
-+#define RLB_NULL_INDEX		0xffffffff
-+#define RLB_UPDATE_DELAY	(2*ALB_TIMER_TICKS_PER_SEC) /* 2 seconds */
-+#define RLB_ARP_BURST_SIZE	2
-+#define RLB_UPDATE_RETRY	3 /* 3-ticks - must be smaller than the rlb
-+				   * rebalance interval (5 min).
-+				   */
-+/* RLB_PROMISC_TIMEOUT = 10 sec equals the time that the current slave is
-+ * promiscuous after failover
+ static struct dentry *bonding_debug_root;
+
++/*
++ *  Show RLB hash table
 + */
-+#define RLB_PROMISC_TIMEOUT	(10*ALB_TIMER_TICKS_PER_SEC)
++static int bond_debug_rlb_hash_show(struct seq_file *m, void *v)
++{
++	struct bonding *bond = m->private;
++	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
++	struct rlb_client_info *client_info;
++	u32 hash_index;
 +
++	if (bond->params.mode != BOND_MODE_ALB)
++		return 0;
 +
- struct tlb_client_info {
- 	struct slave *tx_slave;	/* A pointer to slave used for transmiting
- 				 * packets to a Client that the Hash function
++	seq_printf(m, "SourceIP        DestinationIP   "
++			"Destination MAC   DEV\n");
++
++	spin_lock_bh(&(BOND_ALB_INFO(bond).rx_hashtbl_lock));
++
++	hash_index = bond_info->rx_hashtbl_head;
++	for (; hash_index != RLB_NULL_INDEX; hash_index = client_info->next) {
++		client_info = &(bond_info->rx_hashtbl[hash_index]);
++		seq_printf(m, "%-15pI4 %-15pI4 %-17pM %s\n",
++			&client_info->ip_src,
++			&client_info->ip_dst,
++			&client_info->mac_dst,
++			client_info->slave->dev->name);
++	}
++
++	spin_unlock_bh(&(BOND_ALB_INFO(bond).rx_hashtbl_lock));
++
++	return 0;
++}
++
++static int bond_debug_rlb_hash_open(struct inode *inode, struct file *file)
++{
++	return single_open(file, bond_debug_rlb_hash_show, inode->i_private);
++}
++
++static const struct file_operations bond_debug_rlb_hash_fops = {
++	.owner		= THIS_MODULE,
++	.open		= bond_debug_rlb_hash_open,
++	.read		= seq_read,
++	.llseek		= seq_lseek,
++	.release	= single_release,
++};
++
+ void bond_debug_register(struct bonding *bond)
+ {
+ 	if (!bonding_debug_root)
+@@ -25,6 +72,9 @@ void bond_debug_register(struct bonding
+ 			bond->dev->name);
+ 		return;
+ 	}
++
++	debugfs_create_file("rlb_hash_table", 0400, bond->debug_dir,
++				bond, &bond_debug_rlb_hash_fops);
+ }
+
+ void bond_debug_unregister(struct bonding *bond)
 
 
