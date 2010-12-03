@@ -1,71 +1,64 @@
-From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
-Subject: Re: unable to handle kernel NULL pointer dereference in skb_dequeue
-Date: Sat, 4 Dec 2010 00:16:42 +0200
-Message-ID: <201012040016.42429.nuclearcat@nuclearcat.com>
-References: <0fe401cb92e7$85ba2260$912e6720$@si> <aa43945b38cee751a8231084866b074d@192.168.253.23> <1291387595.2897.350.camel@edumazet-laptop>
+From: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next-2.6 PATCH] ixgbe: fix link behavior for SFP+ when
+ driver is brought down
+Date: Fri, 3 Dec 2010 14:44:23 -0800
+Message-ID: <A78C6259B11833419567082E2DC0C25601D877D4D4@orsmsx508.amr.corp.intel.com>
+References: <20101203133151.21637.52883.stgit@localhost.localdomain>
+ <20101203.094215.229763630.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrej Ota <andrej@ota.si>, linux-kernel@vger.kernel.org,
-	gvs@zemos.net, Rami Rosen <ramirose@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1291387595.2897.350.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed;
+	boundary="_002_A78C6259B11833419567082E2DC0C25601D877D4D4orsmsx508amrc_"
+Cc: "Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"bphilips@novell.com" <bphilips@novell.com>
+To: "davem@davemloft.net" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([143.182.124.21]:43774 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751582Ab0LCWo0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Dec 2010 17:44:26 -0500
+In-Reply-To: <20101203.094215.229763630.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday 03 December 2010 16:46:35 Eric Dumazet wrote:
-> Le vendredi 03 d=C3=A9cembre 2010 =C3=A0 15:37 +0100, Andrej Ota a =C3=
-=A9crit :
-> > >> Patch that works for me is below. Now I only hope I haven't
-> > >> (re)introduced a memory leak...
-> > >=20
-> > > Problem comes from commit 55c95e738da85 (fix return value of
-> > > __pppoe_xmit() method)
-> > >=20
-> > > I am not sure patch is OK
-> >=20
-> > Me neither. That's why I wrote "works for me". All I dare say is th=
-at it
-> > works better than current code and is probably no worse than it was
-> > before above mentioned commit. Apart from that, there is no point i=
-n
-> > having return value for __pppoe_xmit if return value isn't needed.
-> >=20
-> > Easiest way of triggering this BUG is by terminating PPPoE on the s=
-erver
-> > side, which then hits "if (!dev) { goto abort; }". This in turn cal=
-ls
-> > "kfree_skb(skb); return 0;" which returns to pppoe_rcv_core which t=
-hen
-> > goto-s to "abort_put" which again calls "kfree_skb(skb)". Voila the=
- bug.
-> >=20
-> > I don't know how to trigger "if (skb_cow_head(skb, ..." to see if I=
- have
-> > just caused another BUG. However, if I read file comments at the to=
-p, I
-> > see a comment from 19/07/01 stating that I have to delete original =
-skb
-> > if code succeeds and never delete it on failure. About the skb copy
-> > mentioned in the same comment, I don't know. 2001 was many commits =
-ago.
->=20
-> Well, all I wanted to say was that _I_ was not sure, but probably oth=
-er
-> network guys have a better diagnostic.
->=20
-> Rami, could you re-explain the rationale of your patch ?
->=20
-> Thanks
->=20
->=20
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-This patch seems fixed my issue (Re: 2.6.35->2.6.36 regression, vanilla=
- kernel=20
-panic, ppp or hrtimers crashing), tested now.
-=09
+--_002_A78C6259B11833419567082E2DC0C25601D877D4D4orsmsx508amrc_
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+
+T24gRnJpLCAyMDEwLTEyLTAzIGF0IDA5OjQyIC0wODAwLCBEYXZpZCBNaWxsZXIgd3JvdGU6Cj4g
+UGxlYXNlIG51bWJlciB5b3VyIHBhdGNoZXMgc28gSSBrbm93IHVuYW1iaWd1b3VzbHkgaW4gd2hp
+Y2ggb3JkZXIgdG8KPiBhcHBseSB0aGVtLgo+IAo+IFRoZSBsYXN0IHBhdGNoIGRpZG4ndCBhcHBs
+eSBjbGVhbmx5IGJlY2F1c2UgaXhnYmVfdHlwZXMuaCBpbiB5b3VyCj4gdHJlZSBoYXM6Cj4gCj4g
+I2RlZmluZSBJWEdCRV9FUlJfU0ZQX1NFVFVQX05PVF9DT01QTEVURSAgICAgICAgLTMwCj4gCj4g
+YnV0IHRoYXQgZG9lcyBub3QgZXhpc3QgaW4gbmV0LW5leHQtMi42ICBUaGlzIGRvZXNuJ3QgZXhp
+c3QgaW4KPiBuZXQtMi42IGVpdGhlciBzbyBpdCdzIHNvbWV0aGluZyBjb21wbGV0ZWx5IGxvY2Fs
+IHRvIHlvdXIgdHJlZXMuCj4gCj4gSSBmaXhlZCBhbGwgb2YgdGhpcyB1cCBhbmQgYXBwbGllZCBp
+dCBhbGwsIGJ1dCB0aGlzIHNvcnQgb2Ygc3R1ZmYKPiBuZWVkcyB0byBiZSBzb3J0ZWQgb3V0IGJl
+Zm9yZSBJIHNlZSB0aGUgc3VibWlzc2lvbi4gOi0pCgpJIGFwb2xvZ2l6ZSwgdGhlIG1pc3Npbmcg
+ZGVmaW5lIHdhcyBpbiB0aGUgcGF0Y2gKCmh0dHA6Ly9wYXRjaHdvcmsub3psYWJzLm9yZy9wYXRj
+aC83Mzk0Mi8KCndoaWNoIEkgc2VudCBvdXQgZWFybGllciB0aGlzIHdlZWsuICBJIHdhcyBnb2lu
+ZyB0byBzZW5kIHlvdSBvdXQgYQpzdW1tYXJ5IGVtYWlsIGxldHRpbmcgeW91IGtub3cgdGhhdCB0
+aGUgc2l4IHBhdGNoZXMgSSBzdWJtaXR0ZWQgd2VyZSBvbgpteSB0cmVlLiBNeSBmYXVsdCB0aGF0
+IEkgZGlkIG5vdC4K
+
+--_002_A78C6259B11833419567082E2DC0C25601D877D4D4orsmsx508amrc_
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: signature.asc
+Content-Disposition: attachment; filename="signature.asc"; size=491;
+	creation-date="Fri, 03 Dec 2010 14:44:23 GMT";
+	modification-date="Fri, 03 Dec 2010 14:44:23 GMT"
+Content-Transfer-Encoding: base64
+
+LS0tLS1CRUdJTiBQR1AgU0lHTkFUVVJFLS0tLS0KVmVyc2lvbjogR251UEcgdjEuNC4xMSAoR05V
+L0xpbnV4KQoKaVFFY0JBQUJBZ0FHQlFKTStYTEFBQW9KRUNUc0NBRHIvRVdVY0pjSC8wVmRCVVFw
+WHhEUndKaXB1aHpLa29MYwpQZjNQMTlnMytpWllkanQvRXFxU09WdG5uYU9nUWYzK2JXekkwU04z
+NUFWSEphOFVjZGp4NUFzQ0oyWDBPRDJqClQxZ3JJWjlhYjlOOW9aQU4xN0tRRXQvQXRBaUxWR201
+QTlaREx1R05ETmMrZHM3eDg4V0hSTExJQmdLTE5iY3oKSmR2QzlZWVdxNlFsR2g4RzNQdndEazZ6
+MmpLb2VKZG15d1c1Vkh3NS9iSVQ4ajhpNjZuNkY1dmtSSXN4NGZ4eQpvMUIzSmtWREdxbU1vV1lH
+dHlNV2Y2OFVPVkZGL0ExVEhuRytGOEpKZG03UjNOUnlpdmN5dDNGSUpEbm45Wi9jCkkxOWRMNlpO
+TzlrdjNXMFJ5cjFmNHJNbW9ETk1tdU9uYzJxUE00UmRrRkJyUTVoK1ZDZFp3clZ6VGtqWFRJdz0K
+PWRNUkMKLS0tLS1FTkQgUEdQIFNJR05BVFVSRS0tLS0tCgo=
+
+--_002_A78C6259B11833419567082E2DC0C25601D877D4D4orsmsx508amrc_--
