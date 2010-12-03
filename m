@@ -1,270 +1,237 @@
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Subject: [PATCH 2/2] The new jhash implementation
-Date: Fri,  3 Dec 2010 13:39:01 +0100
-Message-ID: <1291379941-31565-3-git-send-email-kadlec@blackhole.kfki.hu>
-References: <201011271401.22773.rusty@rustcorp.com.au>
- <1291379941-31565-1-git-send-email-kadlec@blackhole.kfki.hu>
- <1291379941-31565-2-git-send-email-kadlec@blackhole.kfki.hu>
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Linus Torvalds <torvalds@osdl.org>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-To: linux-kernel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1291379941-31565-2-git-send-email-kadlec@blackhole.kfki.hu>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: TSO/GRO/LRO/somethingO breaks LVS on 2.6.36
+Date: Fri, 3 Dec 2010 21:42:14 +0900
+Message-ID: <20101203124214.GB6993@verge.net.au>
+References: <20101203103447.GA29714@hostway.ca>
+ <1291375743.2897.141.camel@edumazet-laptop>
+ <20101203123617.GA6993@verge.net.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Simon Kirby <sim@hostway.ca>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, Julian Anastasov <ja@ssi.bg>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20101203123617.GA6993@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The current jhash.h implements the lookup2() hash function by Bob Jenkins.
-However, lookup2() is outdated as Bob wrote a new hash function called
-lookup3(). The patch replaces the lookup2() implementation of the 'jhash*'
-functions with that of lookup3().
+[ CCed lvs-devel, Julian Anastasov and Herbert Xu ]
 
-You can read a longer comparison of the two and other hash functions at
-http://burtleburtle.net/bob/hash/doobs.html.
+On Fri, Dec 03, 2010 at 09:36:19PM +0900, Simon Horman wrote:
+> On Fri, Dec 03, 2010 at 12:29:03PM +0100, Eric Dumazet wrote:
+> > Le vendredi 03 d=C3=A9cembre 2010 =C3=A0 02:34 -0800, Simon Kirby a=
+ =C3=A9crit :
+> > > Hello!
+> > >=20
+> > > We upgraded some LVS (DR) servers from 2.6.35 to 2.6.36 on tg3 ca=
+rds
+> > > (partno(BCM95721) rev 4201) with VLAN tags in use, to think that
+> > > everything looked great, but in fact...
+> > >=20
+> > > LVS was receiving magically-merged TCP packets which it tried to =
+forward
+> > > on to the real server, only to get annoyed at itself for trying t=
+o
+> > > forward a packet bigger than the device MTU:
+> > >=20
+> > > IP A.47376 > B.529: . 175488:176936(1448) ack 1 win 92 <nop,nop,t=
+imestamp 52737308 29656081>
+> > > IP A.47376 > B.529: . 176936:179832(2896) ack 1 win 92 <nop,nop,t=
+imestamp 52737325 29656098>
+> > > IP B > A: ICMP B unreachable - need to frag (mtu 1500), length 55=
+6
+> > >=20
+> >=20
+> > Hi Simon
+> >=20
+> > This is a tcpdump on A ?
+> > Could you take it also on B ?
+> >=20
+> > tcpdump displays large buffers, but they should be split (of course=
+)
+> > when sent on wire.
+> >=20
+> > > This caused packet loss for any merged frames, which caused abysm=
+al
+> > > performance for uploads via the LVS server.  Local performance to=
+ or
+> > > from the box is still fine, because the stack doesn't care, only =
+the
+> > > forwarding part of LVS is running into the problem.
+> > >=20
+> > > Furthermore, disabling _everything_ reported by ethtool -k doesn'=
+t seem
+> > > to change the result, even if I down/up the interface after, and =
+even if
+> > > I try on every single interface including the VLANned ones.  This=
+ seems
+> > > to be another bug.  Reverting to 2.6.35 makes it all work again.
+> > >=20
+> > > Possibly related to commit 7fe876af921d1d2bc8353e0062c10ff35e9026=
+53
+> > >=20
+> > > So how should this be fixed?  Should LVS be taught to fragment, o=
+r must
+> > > we disable the merging in this case?  It seems like it would work=
+ well if
+> > > the sending side could do the same offload in reverse, but I'm no=
+t sure
+> > > if that would be possible.
+> > >=20
+> > > Simon-
+> >=20
+> >=20
+> > I believe Simon Horman has some patches for GRO and LVS.
+> >=20
+> > Please send the results of "ethtool -k eth0" on all your nics / vla=
+ns ?
+> >=20
+> > For TSO, I am not sure why and where it could matter...
+>=20
+> There is a patch to teach LVS how to cope with GRO in nf-next-2.6
+> and I expect it to be included in 2.6.38. The patch is "ipvs: allow
+> transmit of GRO aggregated skbs" and perhaps it should be considered
+> for 2.6.37 and stable. In general the work around is to disable GRO.
+>=20
+> The patch does not resolve the incompatibility of LVS with LRO.
+> The work around there is to disable LRO. I'm not entirely sure
+> how to teach LVS to disable LRO automatically, or if its desirable.
+>=20
+> Simon, you mention that you disabled everything with ethtool, but the
+> tcpdump above shows a 2896 byte packet, which seems that GRO (or LRO?=
+) is
+> active. So perhaps as you speculate that is a bug
+>=20
+> I will prepare a backport of the "ipvs: allow transmit of GRO aggrega=
+ted
+> skbs" patch to v2.6.36 and post it shortly.  Testing to see if that
+> resolves the problem that you are seeing would probably be a good sta=
+rt.
+
+Here is the patch for v2.6.36.
+
+=46rom: Simon Horman <horms@verge.net.au>
+
+ipvs: allow transmit of GRO aggregated skbs
+
+Attempt at allowing LVS to transmit skbs of greater than MTU length tha=
+t
+have been aggregated by GRO and can thus be deaggregated by GSO.
+
+Cc: Julian Anastasov <ja@ssi.bg>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>
+Signed-off-by: Simon Horman <horms@verge.net.au>
+
 ---
- include/linux/jhash.h |  183 ++++++++++++++++++++++++++++---------------------
- 1 files changed, 105 insertions(+), 78 deletions(-)
+ net/netfilter/ipvs/ip_vs_xmit.c |   25 +++++++++++++++----------
+ 1 files changed, 15 insertions(+), 10 deletions(-)
 
-diff --git a/include/linux/jhash.h b/include/linux/jhash.h
-index ced1159..47cb09e 100644
---- a/include/linux/jhash.h
-+++ b/include/linux/jhash.h
-@@ -3,129 +3,156 @@
- 
- /* jhash.h: Jenkins hash support.
-  *
-- * Copyright (C) 1996 Bob Jenkins (bob_jenkins@burtleburtle.net)
-+ * Copyright (C) 2006. Bob Jenkins (bob_jenkins@burtleburtle.net)
-  *
-  * http://burtleburtle.net/bob/hash/
-  *
-  * These are the credits from Bob's sources:
-  *
-- * lookup2.c, by Bob Jenkins, December 1996, Public Domain.
-- * hash(), hash2(), hash3, and mix() are externally useful functions.
-- * Routines to test the hash are included if SELF_TEST is defined.
-- * You can use this free for any purpose.  It has no warranty.
-+ * lookup3.c, by Bob Jenkins, May 2006, Public Domain.
-  *
-- * Copyright (C) 2003 David S. Miller (davem@redhat.com)
-+ * These are functions for producing 32-bit hashes for hash table lookup.
-+ * hashword(), hashlittle(), hashlittle2(), hashbig(), mix(), and final()
-+ * are externally useful functions.  Routines to test the hash are included
-+ * if SELF_TEST is defined.  You can use this free for any purpose.  It's in
-+ * the public domain.  It has no warranty.
-+ *
-+ * Copyright (C) 2009-2010 Jozsef Kadlecsik (kadlec@blackhole.kfki.hu)
-  *
-  * I've modified Bob's hash to be useful in the Linux kernel, and
-- * any bugs present are surely my fault.  -DaveM
-+ * any bugs present are my fault.
-+ * Jozsef
-  */
-+#include <linux/bitops.h>
-+#include <linux/unaligned/packed_struct.h>
-+
-+/* Best hash sizes are of power of two */
-+#define jhash_size(n)   ((u32)1<<(n))
-+/* Mask the hash value, i.e (value & jhash_mask(n)) instead of (value % n) */
-+#define jhash_mask(n)   (jhash_size(n)-1)
-+
-+/* __jhash_mix -- mix 3 32-bit values reversibly. */
-+#define __jhash_mix(a, b, c)			\
-+{						\
-+	a -= c;  a ^= rol32(c, 4);  c += b;	\
-+	b -= a;  b ^= rol32(a, 6);  a += c;	\
-+	c -= b;  c ^= rol32(b, 8);  b += a;	\
-+	a -= c;  a ^= rol32(c, 16); c += b;	\
-+	b -= a;  b ^= rol32(a, 19); a += c;	\
-+	c -= b;  c ^= rol32(b, 4);  b += a;	\
-+}
- 
--/* NOTE: Arguments are modified. */
--#define __jhash_mix(a, b, c) \
--{ \
--  a -= b; a -= c; a ^= (c>>13); \
--  b -= c; b -= a; b ^= (a<<8); \
--  c -= a; c -= b; c ^= (b>>13); \
--  a -= b; a -= c; a ^= (c>>12);  \
--  b -= c; b -= a; b ^= (a<<16); \
--  c -= a; c -= b; c ^= (b>>5); \
--  a -= b; a -= c; a ^= (c>>3);  \
--  b -= c; b -= a; b ^= (a<<10); \
--  c -= a; c -= b; c ^= (b>>15); \
-+/* __jhash_final - final mixing of 3 32-bit values (a,b,c) into c */
-+#define __jhash_final(a, b, c)			\
-+{						\
-+	c ^= b; c -= rol32(b, 14);		\
-+	a ^= c; a -= rol32(c, 11);		\
-+	b ^= a; b -= rol32(a, 25);		\
-+	c ^= b; c -= rol32(b, 16);		\
-+	a ^= c; a -= rol32(c, 4);		\
-+	b ^= a; b -= rol32(a, 14);		\
-+	c ^= b; c -= rol32(b, 24);		\
- }
- 
--/* The golden ration: an arbitrary value */
--#define JHASH_GOLDEN_RATIO	0x9e3779b9
-+/* An arbitrary initial parameter */
-+#define JHASH_INITVAL		0xdeadbeef
- 
--/* The most generic version, hashes an arbitrary sequence
-- * of bytes.  No alignment or length assumptions are made about
-- * the input key.
-+/* jhash - hash an arbitrary key
-+ * @k: sequence of bytes as key
-+ * @length: the length of the key
-+ * @initval: the previous hash, or an arbitray value
-+ *
-+ * The generic version, hashes an arbitrary sequence of bytes.
-+ * No alignment or length assumptions are made about the input key.
-+ *
-+ * Returns the hash value of the key. The result depends on endianness.
-  */
- static inline u32 jhash(const void *key, u32 length, u32 initval)
- {
--	u32 a, b, c, len;
-+	u32 a, b, c;
- 	const u8 *k = key;
- 
--	len = length;
--	a = b = JHASH_GOLDEN_RATIO;
--	c = initval;
--
--	while (len >= 12) {
--		a += (k[0] +((u32)k[1]<<8) +((u32)k[2]<<16) +((u32)k[3]<<24));
--		b += (k[4] +((u32)k[5]<<8) +((u32)k[6]<<16) +((u32)k[7]<<24));
--		c += (k[8] +((u32)k[9]<<8) +((u32)k[10]<<16)+((u32)k[11]<<24));
--
--		__jhash_mix(a,b,c);
-+	/* Set up the internal state */
-+	a = b = c = JHASH_INITVAL + length + initval;
- 
-+	/* All but the last block: affect some 32 bits of (a,b,c) */
-+	while (length > 12) {
-+		a += __get_unaligned_cpu32(k);
-+		b += __get_unaligned_cpu32(k + 4);
-+		c += __get_unaligned_cpu32(k + 8);
-+		__jhash_mix(a, b, c);
-+		length -= 12;
- 		k += 12;
--		len -= 12;
- 	}
--
--	c += length;
--	switch (len) {
--	case 11: c += ((u32)k[10]<<24);
--	case 10: c += ((u32)k[9]<<16);
--	case 9 : c += ((u32)k[8]<<8);
--	case 8 : b += ((u32)k[7]<<24);
--	case 7 : b += ((u32)k[6]<<16);
--	case 6 : b += ((u32)k[5]<<8);
--	case 5 : b += k[4];
--	case 4 : a += ((u32)k[3]<<24);
--	case 3 : a += ((u32)k[2]<<16);
--	case 2 : a += ((u32)k[1]<<8);
--	case 1 : a += k[0];
--	};
--
--	__jhash_mix(a,b,c);
-+	/* Last block: affect all 32 bits of (c) */
-+	/* All the case statements fall through */
-+	switch (length) {
-+	case 12: c += (u32)k[11]<<24;
-+	case 11: c += (u32)k[10]<<16;
-+	case 10: c += (u32)k[9]<<8;
-+	case 9:  c += k[8];
-+	case 8:  b += (u32)k[7]<<24;
-+	case 7:  b += (u32)k[6]<<16;
-+	case 6:  b += (u32)k[5]<<8;
-+	case 5:  b += k[4];
-+	case 4:  a += (u32)k[3]<<24;
-+	case 3:  a += (u32)k[2]<<16;
-+	case 2:  a += (u32)k[1]<<8;
-+	case 1:  a += k[0];
-+		 __jhash_final(a, b, c);
-+	case 0: /* Nothing left to add */
-+		break;
-+	}
- 
- 	return c;
- }
- 
--/* A special optimized version that handles 1 or more of u32s.
-- * The length parameter here is the number of u32s in the key.
-+/* jhash2 - hash an array of u32's
-+ * @k: the key which must be an array of u32's
-+ * @length: the number of u32's in the key
-+ * @initval: the previous hash, or an arbitray value
-+ *
-+ * Returns the hash value of the key.
-  */
- static inline u32 jhash2(const u32 *k, u32 length, u32 initval)
- {
--	u32 a, b, c, len;
-+	u32 a, b, c;
- 
--	a = b = JHASH_GOLDEN_RATIO;
--	c = initval;
--	len = length;
-+	/* Set up the internal state */
-+	a = b = c = JHASH_INITVAL + (length<<2) + initval;
- 
--	while (len >= 3) {
-+	/* Handle most of the key */
-+	while (length > 3) {
- 		a += k[0];
- 		b += k[1];
- 		c += k[2];
- 		__jhash_mix(a, b, c);
--		k += 3; len -= 3;
-+		length -= 3;
-+		k += 3;
- 	}
- 
--	c += length * 4;
--
--	switch (len) {
--	case 2 : b += k[1];
--	case 1 : a += k[0];
--	};
--
--	__jhash_mix(a,b,c);
-+	/* Handle the last 3 u32's: all the case statements fall through */
-+	switch (length) {
-+	case 3: c += k[2];
-+	case 2: b += k[1];
-+	case 1: a += k[0];
-+		__jhash_final(a, b, c);
-+	case 0:	/* Nothing left to add */
-+		break;
-+	}
- 
- 	return c;
- }
- 
- 
--/* A special ultra-optimized versions that knows they are hashing exactly
-- * 3, 2 or 1 word(s).
-- *
-- * NOTE: In particular the "c += length; __jhash_mix(a,b,c);" normally
-- *       done at the end is not done here.
-- */
-+/* jhash_3words - hash exactly 3, 2 or 1 word(s) */
- static inline u32 jhash_3words(u32 a, u32 b, u32 c, u32 initval)
- {
--	a += JHASH_GOLDEN_RATIO;
--	b += JHASH_GOLDEN_RATIO;
-+	a += JHASH_INITVAL;
-+	b += JHASH_INITVAL;
- 	c += initval;
- 
--	__jhash_mix(a, b, c);
-+	__jhash_final(a, b, c);
- 
- 	return c;
- }
--- 
-1.7.0.4
+diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs=
+_xmit.c
+index 49df6be..577f502 100644
+--- a/net/netfilter/ipvs/ip_vs_xmit.c
++++ b/net/netfilter/ipvs/ip_vs_xmit.c
+@@ -247,7 +247,8 @@ ip_vs_bypass_xmit(struct sk_buff *skb, struct ip_vs=
+_conn *cp,
+=20
+ 	/* MTU checking */
+ 	mtu =3D dst_mtu(&rt->dst);
+-	if ((skb->len > mtu) && (iph->frag_off & htons(IP_DF))) {
++	if ((skb->len > mtu) && (iph->frag_off & htons(IP_DF)) &&
++	    !skb_is_gso(skb)) {
+ 		ip_rt_put(rt);
+ 		icmp_send(skb, ICMP_DEST_UNREACH,ICMP_FRAG_NEEDED, htonl(mtu));
+ 		IP_VS_DBG_RL("%s(): frag needed\n", __func__);
+@@ -311,7 +312,7 @@ ip_vs_bypass_xmit_v6(struct sk_buff *skb, struct ip=
+_vs_conn *cp,
+=20
+ 	/* MTU checking */
+ 	mtu =3D dst_mtu(&rt->dst);
+-	if (skb->len > mtu) {
++	if (skb->len > mtu && !skb_is_gso(skb)) {
+ 		dst_release(&rt->dst);
+ 		icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
+ 		IP_VS_DBG_RL("%s(): frag needed\n", __func__);
+@@ -408,7 +409,8 @@ ip_vs_nat_xmit(struct sk_buff *skb, struct ip_vs_co=
+nn *cp,
+=20
+ 	/* MTU checking */
+ 	mtu =3D dst_mtu(&rt->dst);
+-	if ((skb->len > mtu) && (iph->frag_off & htons(IP_DF))) {
++	if ((skb->len > mtu) && (iph->frag_off & htons(IP_DF)) &&
++	    !skb_is_gso(skb)) {
+ 		ip_rt_put(rt);
+ 		icmp_send(skb, ICMP_DEST_UNREACH,ICMP_FRAG_NEEDED, htonl(mtu));
+ 		IP_VS_DBG_RL_PKT(0, pp, skb, 0, "ip_vs_nat_xmit(): frag needed for")=
+;
+@@ -486,7 +488,7 @@ ip_vs_nat_xmit_v6(struct sk_buff *skb, struct ip_vs=
+_conn *cp,
+=20
+ 	/* MTU checking */
+ 	mtu =3D dst_mtu(&rt->dst);
+-	if (skb->len > mtu) {
++	if (skb->len > mtu && !skb_is_gso(skb)) {
+ 		dst_release(&rt->dst);
+ 		icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
+ 		IP_VS_DBG_RL_PKT(0, pp, skb, 0,
+@@ -597,8 +599,8 @@ ip_vs_tunnel_xmit(struct sk_buff *skb, struct ip_vs=
+_conn *cp,
+=20
+ 	df |=3D (old_iph->frag_off & htons(IP_DF));
+=20
+-	if ((old_iph->frag_off & htons(IP_DF))
+-	    && mtu < ntohs(old_iph->tot_len)) {
++	if ((old_iph->frag_off & htons(IP_DF) &&
++	    mtu < ntohs(old_iph->tot_len) && !skb_is_gso(skb))) {
+ 		icmp_send(skb, ICMP_DEST_UNREACH,ICMP_FRAG_NEEDED, htonl(mtu));
+ 		ip_rt_put(rt);
+ 		IP_VS_DBG_RL("%s(): frag needed\n", __func__);
+@@ -707,7 +709,8 @@ ip_vs_tunnel_xmit_v6(struct sk_buff *skb, struct ip=
+_vs_conn *cp,
+ 	if (skb_dst(skb))
+ 		skb_dst(skb)->ops->update_pmtu(skb_dst(skb), mtu);
+=20
+-	if (mtu < ntohs(old_iph->payload_len) + sizeof(struct ipv6hdr)) {
++	if (mtu < ntohs(old_iph->payload_len) + sizeof(struct ipv6hdr) &&
++	    !skb_is_gso(skb)) {
+ 		icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
+ 		dst_release(&rt->dst);
+ 		IP_VS_DBG_RL("%s(): frag needed\n", __func__);
+@@ -796,7 +799,8 @@ ip_vs_dr_xmit(struct sk_buff *skb, struct ip_vs_con=
+n *cp,
+=20
+ 	/* MTU checking */
+ 	mtu =3D dst_mtu(&rt->dst);
+-	if ((iph->frag_off & htons(IP_DF)) && skb->len > mtu) {
++	if ((iph->frag_off & htons(IP_DF)) && skb->len > mtu &&
++	    !skb_is_gso(skb)) {
+ 		icmp_send(skb, ICMP_DEST_UNREACH,ICMP_FRAG_NEEDED, htonl(mtu));
+ 		ip_rt_put(rt);
+ 		IP_VS_DBG_RL("%s(): frag needed\n", __func__);
+@@ -924,7 +928,8 @@ ip_vs_icmp_xmit(struct sk_buff *skb, struct ip_vs_c=
+onn *cp,
+=20
+ 	/* MTU checking */
+ 	mtu =3D dst_mtu(&rt->dst);
+-	if ((skb->len > mtu) && (ip_hdr(skb)->frag_off & htons(IP_DF))) {
++	if ((skb->len > mtu) && (ip_hdr(skb)->frag_off & htons(IP_DF)) &&
++	    !skb_is_gso(skb)) {
+ 		ip_rt_put(rt);
+ 		icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED, htonl(mtu));
+ 		IP_VS_DBG_RL("%s(): frag needed\n", __func__);
+@@ -999,7 +1004,7 @@ ip_vs_icmp_xmit_v6(struct sk_buff *skb, struct ip_=
+vs_conn *cp,
+=20
+ 	/* MTU checking */
+ 	mtu =3D dst_mtu(&rt->dst);
+-	if (skb->len > mtu) {
++	if (skb->len > mtu && !skb_is_gso(skb)) {
+ 		dst_release(&rt->dst);
+ 		icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
+ 		IP_VS_DBG_RL("%s(): frag needed\n", __func__);
+--=20
+1.7.2.3
 
