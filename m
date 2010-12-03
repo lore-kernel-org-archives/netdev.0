@@ -1,65 +1,50 @@
-From: "Tomoya MORINAGA" <tomoya-linux@dsn.okisemi.com>
-Subject: Re: [PATCH net-next-2.6 v6 04/20] can: EG20T PCH: Add Tx Flow Control
-Date: Fri, 3 Dec 2010 09:58:59 +0900
-Message-ID: <00c001cb9285$46adc4d0$66f8800a@maildom.okisemi.com>
-References: <4CF47B2C.4010507@dsn.okisemi.com> <20101202.131236.28815617.davem@davemloft.net>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [v2 PATCH 1/2] bonding: sync netpoll code with bridge
+Date: Fri, 03 Dec 2010 10:13:12 +0800
+Message-ID: <4CF85238.7010508@redhat.com>
+References: <20101202134041.6073.5201.sendpatchset@localhost.localdomain> <20101202103650.06647704@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="ISO-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <wg@grandegger.com>, <w.sang@pengutronix.de>, <chripell@fsfe.org>,
-	<21cnbao@gmail.com>, <sameo@linux.intel.com>,
-	<socketcan-core@lists.berlios.de>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <qi.wang@intel.com>,
-	<yong.y.wang@intel.com>, <andrew.chih.howe.khor@intel.com>,
-	<joel.clark@intel.com>, <kok.howg.ewe@intel.com>,
-	<margie.foster@intel.com>
-To: "David Miller" <davem@davemloft.net>
+Cc: linux-kernel@vger.kernel.org, Jiri Pirko <jpirko@redhat.com>,
+	Neil Horman <nhorman@redhat.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Herbert Xu <herbert@gondor.hengli.com.au>,
+	bonding-devel@lists.sourceforge.net,
+	Jay Vosburgh <fubar@us.ibm.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20101202103650.06647704@nehalam>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday, December 03, 2010 6:12 AM, David Miller wrote :
+On 12/03/10 02:36, Stephen Hemminger wrote:
+> On Thu, 2 Dec 2010 08:35:42 -0500
+> Amerigo Wang<amwang@redhat.com>  wrote:
+>
+>>   #ifdef CONFIG_NET_POLL_CONTROLLER
+>> -	if (unlikely(bond->dev->priv_flags&  IFF_IN_NETPOLL)) {
+>> -		struct netpoll *np = bond->dev->npinfo->netpoll;
+>> -		slave_dev->npinfo = bond->dev->npinfo;
+>> +	if (unlikely(netpoll_tx_running(slave_dev))) {
+>>   		slave_dev->priv_flags |= IFF_IN_NETPOLL;
+>> -		netpoll_send_skb_on_dev(np, skb, slave_dev);
+>> +		bond_netpoll_send_skb(bond_get_slave_by_dev(bond, slave_dev), skb);
+>>   		slave_dev->priv_flags&= ~IFF_IN_NETPOLL;
+>>   	} else
+>>   #endif
+>
+> Couldn't you eliminate #ifdef by putting the following into header file.
+>
+> #ifdef CONFIG_NET_POLL_CONTROLLER
+> static inline netpoll_tx_running
+> ...
+> #else
+> #define netpoll_tx_running(dev)  (0)
+> #endif
+>
 
-> 
-> When implementing functionality like this it is better to use other
-> existing well tested network drivers as a guide rather then trying
-> to be unique and clever, as you are doing here.
+Oh, nice idea! Will change this in the next update.
 
-Sure. I will do so.
-
-> 
-> Second of all, checking the state of the device to determine if a
-> stop queue should be performed has two problems:
-> 
-> 1) The test uses a magic constant mask, which is undocumented.
-
-Do you above "magic constant" mean "0xfc00" ?
-If so, this constant is replaced to MACRO in 08/20 patch. 
-
-> 
-> 2) It causes the race you have on the wake queue side
-> 
-> Use pure software state to guide your actions, and let the hardware
-> interrupt trigger the wake queue.
-> 
-> Also, you don't implement this as a true ring buffer, you only
-> consider to stop the queue when you hit the last TX object entry.  But
-> all the previous slots could be available.
-
-We can't use ring buffer.
-Because ring buffer causes issue of tx packet out-of-order.
-
-I show EG20T CAN HW spec below
-According to priority, EG20T CAN HW sends packet from message object.
-The priority is Message object number.
-Lower number is high-priority, Higher is low priority
-
-Thus, I think we can't use ring buffer.
-
-Still, do you think I can use ring buffer ?
-------
-Thanks,
-
-Tomoya MORINAGA
-OKI SEMICONDUCTOR CO., LTD.
+Thanks.
