@@ -1,79 +1,66 @@
-From: Andrew Watts <akwatts@ymail.com>
-Subject: Re: kernel panic with time-stamping in phy devices (monitor mode)
-Date: Sat, 4 Dec 2010 12:46:46 -0800 (PST)
-Message-ID: <906429.41845.qm@web111015.mail.gq1.yahoo.com>
-References: <1291450622.2806.59.camel@edumazet-laptop>
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH] tcp: Replace time wait bucket msg by counter.
+Date: Sat, 4 Dec 2010 13:35:38 -0800 (PST)
+Message-ID: <alpine.DEB.2.00.1012041331220.6278@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Richard Cochran <richardcochran@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm14.bullet.mail.ne1.yahoo.com ([98.138.90.77]:30373 "HELO
-	nm14.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755831Ab0LDUqs convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 4 Dec 2010 15:46:48 -0500
-In-Reply-To: <1291450622.2806.59.camel@edumazet-laptop>
+Received: from smtp-out.google.com ([74.125.121.35]:22103 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755802Ab0LDVfo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Dec 2010 16:35:44 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---- On Sat, 12/4/10, Eric Dumazet wrote:
+Rather than printing the message to the log, use a mib counter to keep
+track of the count of occurences of time wait bucket overflow.  Reduces
+spam in logs.
 
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Subject: Re: kernel panic with time-stamping in phy devices (monitor =
-mode)
-> To: "Richard Cochran" <richardcochran@gmail.com>
-> Cc: "Andrew Watts" <akwatts@ymail.com>, netdev@vger.kernel.org, "Davi=
-d Miller" <davem@davemloft.net>
-> Date: Saturday, December 4, 2010, 8:17 AM
-> Le samedi 04 d=E9cembre 2010 =E0 08:57
-> +0100, Richard Cochran a =E9crit :
-> > Date: Sat, 4 Dec 2010 08:55:04 +0100
-> > From: Richard Cochran <richardcochran@gmail.com>
-> > To: Eric Dumazet <eric.dumazet@gmail.com>
-> > Cc: Andrew Watts <akwatts@ymail.com>,
-> netdev@vger.kernel.org,
-> > =A0=A0=A0 David Miller <davem@davemloft.net>
-> > Subject: Re: kernel panic with time-stamping in phy
-> devices (monitor mode)
-> > Message-ID: <20101204075503.GA3490@riccoc20.at.omicron.at>
-> > References: <252997.92320.qm@web111013.mail.gq1.yahoo.com>
-> >=A0
-> <1291307884.2871.69.camel@edumazet-laptop>
-> > MIME-Version: 1.0
-> > Content-Type: text/plain; charset=3Dus-ascii
-> > Content-Disposition: inline
-> > In-Reply-To:
-> <1291307884.2871.69.camel@edumazet-laptop>
-> > User-Agent: Mutt/1.5.20 (2009-06-14)
-> >=20
-> > Ugh, new kernel code with no users is already causing
-> trouble!
-> >=20
-> > On Thu, Dec 02, 2010 at 05:38:04PM +0100, Eric Dumazet
-> wrote:
-> > > Thanks for the report
-> > >=20
-> > > Please try following patch.
-> >=20
-> > And thank you, Eric, for the quick patch.
-> >=20
-> > Can this fix go into 2.6.37, please?
->=20
-> Sure, I'll submit to David today, thanks !
->=20
+Signed-off-by: Tom Herbert <therbert@google.com>
+---
+ include/linux/snmp.h     |    1 +
+ net/ipv4/proc.c          |    1 +
+ net/ipv4/tcp_minisocks.c |    2 +-
+ 3 files changed, 3 insertions(+), 1 deletions(-)
 
-Eric, I echo the thanks on the lightning patch.
-Impressive turnaround!
+diff --git a/include/linux/snmp.h b/include/linux/snmp.h
+index ebb0c80..12b2b18 100644
+--- a/include/linux/snmp.h
++++ b/include/linux/snmp.h
+@@ -230,6 +230,7 @@ enum
+ 	LINUX_MIB_TCPMINTTLDROP, /* RFC 5082 */
+ 	LINUX_MIB_TCPDEFERACCEPTDROP,
+ 	LINUX_MIB_IPRPFILTER, /* IP Reverse Path Filter (rp_filter) */
++	LINUX_MIB_TCPTIMEWAITOVERFLOW,		/* TCPTimeWaitOverflow */
+ 	__LINUX_MIB_MAX
+ };
+ 
+diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
+index 1b48eb1..b14ec7d 100644
+--- a/net/ipv4/proc.c
++++ b/net/ipv4/proc.c
+@@ -253,6 +253,7 @@ static const struct snmp_mib snmp4_net_list[] = {
+ 	SNMP_MIB_ITEM("TCPMinTTLDrop", LINUX_MIB_TCPMINTTLDROP),
+ 	SNMP_MIB_ITEM("TCPDeferAcceptDrop", LINUX_MIB_TCPDEFERACCEPTDROP),
+ 	SNMP_MIB_ITEM("IPReversePathFilter", LINUX_MIB_IPRPFILTER),
++	SNMP_MIB_ITEM("TCPTimeWaitOverflow", LINUX_MIB_TCPTIMEWAITOVERFLOW),
+ 	SNMP_MIB_SENTINEL
+ };
+ 
+diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+index 43cf901..3052a2b 100644
+--- a/net/ipv4/tcp_minisocks.c
++++ b/net/ipv4/tcp_minisocks.c
+@@ -347,7 +347,7 @@ void tcp_time_wait(struct sock *sk, int state, int timeo)
+ 		 * socket up.  We've got bigger problems than
+ 		 * non-graceful socket closings.
+ 		 */
+-		LIMIT_NETDEBUG(KERN_INFO "TCP: time wait bucket table overflow\n");
++		NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPTIMEWAITOVERFLOW);
+ 	}
+ 
+ 	tcp_update_metrics(sk);
+-- 
+1.7.3.1
 
-There's an open bug report on the kernel's bugzilla
-for 2.6.36 (#24102). What is the best way to tie these
-together?
-
-~ Andy
-
-
-
-     =20
