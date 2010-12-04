@@ -1,52 +1,38 @@
-From: Changli Gao <xiaosuo@gmail.com>
+From: jamal <hadi@cyberus.ca>
 Subject: Re: [PATCH 3/3] ifb: move tq from ifb_private
-Date: Sat, 4 Dec 2010 22:50:03 +0800
-Message-ID: <AANLkTikeECFUf0xiug7G+nd5=Sw7p=4Msz6RQ2gdOBzs@mail.gmail.com>
+Date: Sat, 04 Dec 2010 09:55:04 -0500
+Message-ID: <1291474504.2159.39.camel@mojatatu>
 References: <1291442121-3302-1-git-send-email-xiaosuo@gmail.com>
- <1291442121-3302-3-git-send-email-xiaosuo@gmail.com> <1291472282.2159.8.camel@mojatatu>
- <1291473756.2159.31.camel@mojatatu>
+	 <1291442121-3302-3-git-send-email-xiaosuo@gmail.com>
+	 <4CFA3F01.20109@gmail.com> <1291472889.2159.18.camel@mojatatu>
+	 <AANLkTimy_dK0uDCWqo3AZBKSvod+KnE6Om-CxrbFmPj+@mail.gmail.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: hadi@cyberus.ca
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jarek Poplawski <jarkao2@gmail.com>, netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:43556 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755314Ab0LDOuY convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Dec 2010 09:50:24 -0500
-Received: by fxm20 with SMTP id 20so3053887fxm.19
-        for <netdev@vger.kernel.org>; Sat, 04 Dec 2010 06:50:23 -0800 (PST)
-In-Reply-To: <1291473756.2159.31.camel@mojatatu>
+Received: from mail-gy0-f174.google.com ([209.85.160.174]:45163 "EHLO
+	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754336Ab0LDOzJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Dec 2010 09:55:09 -0500
+Received: by gyb11 with SMTP id 11so5288295gyb.19
+        for <netdev@vger.kernel.org>; Sat, 04 Dec 2010 06:55:09 -0800 (PST)
+In-Reply-To: <AANLkTimy_dK0uDCWqo3AZBKSvod+KnE6Om-CxrbFmPj+@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Dec 4, 2010 at 10:42 PM, jamal <hadi@cyberus.ca> wrote:
-> On Sat, 2010-12-04 at 09:18 -0500, jamal wrote:
->
->> I like the splice idea but this patch makes me twitch
->> a little. What test setup did you use to check it?
->
-> Ok, here's one thing you changed which is important. We do:
->
-> =A0-->XXX-->rq-->tq-->XXX-->
->
-> rq is controlled by queue limit.
-> We only load rq to tq if all of tq is empty. If it is not
-> we dont move things over. Essentially this is a flow
-> control scheme. We dont want many sources to be overwhelming
-> us with packets and every time we grab a txqlen number of packets.
-> For this reason:
-> I would be comfortable if all you did was to add the splice
-> after you skb_peek() - i think that would be a good improvement
-> which is not bound to break anything else.
->
+On Sat, 2010-12-04 at 22:45 +0800, Changli Gao wrote:
 
-Maybe you misread my patch. tq is a stack variable in ri_tasklet, and
-initialized all the time. ri_tasklet() won't exits until tq is
-empty().
+> 
+> If we breaks the loop when there are still skbs in tq and no skb in
+> rq, the skbs will be left in txq until new skbs are enqueued into rq.
+> In rare cases, no new skb is queued, then these skbs will stay in rq
+> forever.
 
+So should we goto resched? 
 
---=20
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+cheers,
+jamal
+
