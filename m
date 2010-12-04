@@ -1,96 +1,153 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH] net: init ingress queue
-Date: Sat,  4 Dec 2010 20:31:41 +0800
-Message-ID: <1291465901-3189-1-git-send-email-xiaosuo@gmail.com>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Tom Herbert <therbert@google.com>,
-	Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
-	Changli Gao <xiaosuo@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH 3/3] ifb: move tq from ifb_private
+Date: Sat, 04 Dec 2010 14:15:45 +0100
+Message-ID: <4CFA3F01.20109@gmail.com>
+References: <1291442121-3302-1-git-send-email-xiaosuo@gmail.com> <1291442121-3302-3-git-send-email-xiaosuo@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: jamal <hadi@cyberus.ca>, netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f174.google.com ([209.85.214.174]:46720 "EHLO
-	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754616Ab0LDMcT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Dec 2010 07:32:19 -0500
-Received: by iwn6 with SMTP id 6so1056328iwn.19
-        for <netdev@vger.kernel.org>; Sat, 04 Dec 2010 04:32:18 -0800 (PST)
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:51134 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754876Ab0LDNPw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Dec 2010 08:15:52 -0500
+Received: by wwa36 with SMTP id 36so11106652wwa.1
+        for <netdev@vger.kernel.org>; Sat, 04 Dec 2010 05:15:50 -0800 (PST)
+In-Reply-To: <1291442121-3302-3-git-send-email-xiaosuo@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The dev field of ingress queue is forgot to initialized, then NULL
-pointer dereference happens in qdisc_alloc().
+Changli Gao wrote:
+> tq is only used in ri_tasklet, so we move it from ifb_private to a
+> stack variable of ri_tasklet.
+> 
+> skb_queue_splice_tail_init() is used instead of the open coded and slow
+> one.
+> 
+> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+> ---
+>  drivers/net/ifb.c |   49 ++++++++++++-------------------------------------
+>  1 file changed, 12 insertions(+), 37 deletions(-)
+> diff --git a/drivers/net/ifb.c b/drivers/net/ifb.c
+> index d1e362a..cd6e90d 100644
+> --- a/drivers/net/ifb.c
+> +++ b/drivers/net/ifb.c
+> @@ -39,9 +39,7 @@
+>  #define TX_Q_LIMIT    32
+>  struct ifb_private {
+>  	struct tasklet_struct   ifb_tasklet;
+> -	int     tasklet_pending;
+>  	struct sk_buff_head     rq;
+> -	struct sk_buff_head     tq;
+>  };
+>  
+>  static int numifbs = 2;
+> @@ -53,27 +51,25 @@ static int ifb_close(struct net_device *dev);
+>  
+>  static void ri_tasklet(unsigned long dev)
+>  {
+> -
+>  	struct net_device *_dev = (struct net_device *)dev;
+>  	struct ifb_private *dp = netdev_priv(_dev);
+>  	struct net_device_stats *stats = &_dev->stats;
+>  	struct netdev_queue *txq;
+>  	struct sk_buff *skb;
+> +	struct sk_buff_head tq;
+>  
+> +	__skb_queue_head_init(&tq);
+>  	txq = netdev_get_tx_queue(_dev, 0);
+> -	if ((skb = skb_peek(&dp->tq)) == NULL) {
+> -		if (__netif_tx_trylock(txq)) {
+> -			while ((skb = skb_dequeue(&dp->rq)) != NULL) {
+> -				skb_queue_tail(&dp->tq, skb);
+> -			}
+> -			__netif_tx_unlock(txq);
+> -		} else {
+> -			/* reschedule */
+> -			goto resched;
+> -		}
+> +	if (!__netif_tx_trylock(txq)) {
+> +		tasklet_schedule(&dp->ifb_tasklet);
+> +		return;
+>  	}
+> +	skb_queue_splice_tail_init(&dp->rq, &tq);
+> +	if (netif_tx_queue_stopped(txq))
+> +		netif_tx_wake_queue(txq);
+> +	__netif_tx_unlock(txq);
+>  
+> -	while ((skb = skb_dequeue(&dp->tq)) != NULL) {
+> +	while ((skb = __skb_dequeue(&tq)) != NULL) {
+>  		u32 from = G_TC_FROM(skb->tc_verd);
+>  
+>  		skb->tc_verd = 0;
+> @@ -87,7 +83,7 @@ static void ri_tasklet(unsigned long dev)
+>  			rcu_read_unlock();
+>  			dev_kfree_skb(skb);
+>  			stats->tx_dropped++;
+> -			break;
+> +			continue;
 
-Move inits of tx queues to netif_alloc_netdev_queues().
+IMHO this line is a bugfix and should be a separate patch (for stable).
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
----
-v2: factorize the two inits in netdev_init_queues() and move inits of
-    tx queues to netif_alloc_netdev_queues().
- net/core/dev.c |   35 +++++++++++++----------------------
- 1 file changed, 13 insertions(+), 22 deletions(-)
-diff --git a/net/core/dev.c b/net/core/dev.c
-index cd24374..4a7fc32 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5109,11 +5109,21 @@ static int netif_alloc_rx_queues(struct net_device *dev)
- }
- #endif
- 
-+static void netdev_init_one_queue(struct net_device *dev,
-+				  struct netdev_queue *queue, void *_unused)
-+{
-+	/* Initialize queue lock */
-+	spin_lock_init(&queue->_xmit_lock);
-+	netdev_set_xmit_lockdep_class(&queue->_xmit_lock, dev->type);
-+	queue->xmit_lock_owner = -1;
-+	netdev_queue_numa_node_write(queue, -1);
-+	queue->dev = dev;
-+}
-+
- static int netif_alloc_netdev_queues(struct net_device *dev)
- {
- 	unsigned int count = dev->num_tx_queues;
- 	struct netdev_queue *tx;
--	int i;
- 
- 	BUG_ON(count < 1);
- 
-@@ -5125,27 +5135,10 @@ static int netif_alloc_netdev_queues(struct net_device *dev)
- 	}
- 	dev->_tx = tx;
- 
--	for (i = 0; i < count; i++) {
--		netdev_queue_numa_node_write(&tx[i], -1);
--		tx[i].dev = dev;
--	}
--	return 0;
--}
--
--static void netdev_init_one_queue(struct net_device *dev,
--				  struct netdev_queue *queue,
--				  void *_unused)
--{
--	/* Initialize queue lock */
--	spin_lock_init(&queue->_xmit_lock);
--	netdev_set_xmit_lockdep_class(&queue->_xmit_lock, dev->type);
--	queue->xmit_lock_owner = -1;
--}
--
--static void netdev_init_queues(struct net_device *dev)
--{
- 	netdev_for_each_tx_queue(dev, netdev_init_one_queue, NULL);
- 	spin_lock_init(&dev->tx_global_lock);
-+
-+	return 0;
- }
- 
- /**
-@@ -5184,8 +5177,6 @@ int register_netdevice(struct net_device *dev)
- 
- 	dev->iflink = -1;
- 
--	netdev_init_queues(dev);
--
- 	/* Init, if this function is available */
- 	if (dev->netdev_ops->ndo_init) {
- 		ret = dev->netdev_ops->ndo_init(dev);
+The rest looks OK to me but you could probably skip locking of dp->rq
+similarly to tq.
+
+Jarek P.
+
+>  		}
+>  		rcu_read_unlock();
+>  		skb->skb_iif = _dev->ifindex;
+> @@ -100,23 +96,6 @@ static void ri_tasklet(unsigned long dev)
+>  		} else
+>  			BUG();
+>  	}
+> -
+> -	if (__netif_tx_trylock(txq)) {
+> -		if ((skb = skb_peek(&dp->rq)) == NULL) {
+> -			dp->tasklet_pending = 0;
+> -			if (netif_queue_stopped(_dev))
+> -				netif_wake_queue(_dev);
+> -		} else {
+> -			__netif_tx_unlock(txq);
+> -			goto resched;
+> -		}
+> -		__netif_tx_unlock(txq);
+> -	} else {
+> -resched:
+> -		dp->tasklet_pending = 1;
+> -		tasklet_schedule(&dp->ifb_tasklet);
+> -	}
+> -
+>  }
+>  
+>  static const struct net_device_ops ifb_netdev_ops = {
+> @@ -162,10 +141,8 @@ static netdev_tx_t ifb_xmit(struct sk_buff *skb, struct net_device *dev)
+>  	}
+>  
+>  	skb_queue_tail(&dp->rq, skb);
+> -	if (!dp->tasklet_pending) {
+> -		dp->tasklet_pending = 1;
+> +	if (skb_queue_len(&dp->rq) == 1)
+>  		tasklet_schedule(&dp->ifb_tasklet);
+> -	}
+>  
+>  	return NETDEV_TX_OK;
+>  }
+> @@ -177,7 +154,6 @@ static int ifb_close(struct net_device *dev)
+>  	tasklet_kill(&dp->ifb_tasklet);
+>  	netif_stop_queue(dev);
+>  	skb_queue_purge(&dp->rq);
+> -	skb_queue_purge(&dp->tq);
+>  	return 0;
+>  }
+>  
+> @@ -187,7 +163,6 @@ static int ifb_open(struct net_device *dev)
+>  
+>  	tasklet_init(&dp->ifb_tasklet, ri_tasklet, (unsigned long)dev);
+>  	skb_queue_head_init(&dp->rq);
+> -	skb_queue_head_init(&dp->tq);
+>  	netif_start_queue(dev);
+>  
+>  	return 0;
