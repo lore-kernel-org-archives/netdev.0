@@ -1,66 +1,56 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH] tcp: Replace time wait bucket msg by counter.
-Date: Sat, 4 Dec 2010 13:35:38 -0800 (PST)
-Message-ID: <alpine.DEB.2.00.1012041331220.6278@pokey.mtv.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] tcp: Replace time wait bucket msg by counter.
+Date: Sat, 04 Dec 2010 22:52:48 +0100
+Message-ID: <1291499568.2806.100.camel@edumazet-laptop>
+References: <alpine.DEB.2.00.1012041331220.6278@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.35]:22103 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755802Ab0LDVfo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Dec 2010 16:35:44 -0500
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:51151 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753491Ab0LDVwx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Dec 2010 16:52:53 -0500
+Received: by wyb28 with SMTP id 28so10739097wyb.19
+        for <netdev@vger.kernel.org>; Sat, 04 Dec 2010 13:52:52 -0800 (PST)
+In-Reply-To: <alpine.DEB.2.00.1012041331220.6278@pokey.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rather than printing the message to the log, use a mib counter to keep
-track of the count of occurences of time wait bucket overflow.  Reduces
-spam in logs.
+Le samedi 04 d=C3=A9cembre 2010 =C3=A0 13:35 -0800, Tom Herbert a =C3=A9=
+crit :
+> Rather than printing the message to the log, use a mib counter to kee=
+p
+> track of the count of occurences of time wait bucket overflow.  Reduc=
+es
+> spam in logs.
+>=20
+> Signed-off-by: Tom Herbert <therbert@google.com>
+> ---
 
-Signed-off-by: Tom Herbert <therbert@google.com>
----
- include/linux/snmp.h     |    1 +
- net/ipv4/proc.c          |    1 +
- net/ipv4/tcp_minisocks.c |    2 +-
- 3 files changed, 3 insertions(+), 1 deletions(-)
+> =20
+> diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+> index 43cf901..3052a2b 100644
+> --- a/net/ipv4/tcp_minisocks.c
+> +++ b/net/ipv4/tcp_minisocks.c
+> @@ -347,7 +347,7 @@ void tcp_time_wait(struct sock *sk, int state, in=
+t timeo)
+>  		 * socket up.  We've got bigger problems than
+>  		 * non-graceful socket closings.
+>  		 */
+> -		LIMIT_NETDEBUG(KERN_INFO "TCP: time wait bucket table overflow\n")=
+;
+> +		NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPTIMEWAITOVERFLOW);
+>  	}
+> =20
+>  	tcp_update_metrics(sk);
 
-diff --git a/include/linux/snmp.h b/include/linux/snmp.h
-index ebb0c80..12b2b18 100644
---- a/include/linux/snmp.h
-+++ b/include/linux/snmp.h
-@@ -230,6 +230,7 @@ enum
- 	LINUX_MIB_TCPMINTTLDROP, /* RFC 5082 */
- 	LINUX_MIB_TCPDEFERACCEPTDROP,
- 	LINUX_MIB_IPRPFILTER, /* IP Reverse Path Filter (rp_filter) */
-+	LINUX_MIB_TCPTIMEWAITOVERFLOW,		/* TCPTimeWaitOverflow */
- 	__LINUX_MIB_MAX
- };
- 
-diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
-index 1b48eb1..b14ec7d 100644
---- a/net/ipv4/proc.c
-+++ b/net/ipv4/proc.c
-@@ -253,6 +253,7 @@ static const struct snmp_mib snmp4_net_list[] = {
- 	SNMP_MIB_ITEM("TCPMinTTLDrop", LINUX_MIB_TCPMINTTLDROP),
- 	SNMP_MIB_ITEM("TCPDeferAcceptDrop", LINUX_MIB_TCPDEFERACCEPTDROP),
- 	SNMP_MIB_ITEM("IPReversePathFilter", LINUX_MIB_IPRPFILTER),
-+	SNMP_MIB_ITEM("TCPTimeWaitOverflow", LINUX_MIB_TCPTIMEWAITOVERFLOW),
- 	SNMP_MIB_SENTINEL
- };
- 
-diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index 43cf901..3052a2b 100644
---- a/net/ipv4/tcp_minisocks.c
-+++ b/net/ipv4/tcp_minisocks.c
-@@ -347,7 +347,7 @@ void tcp_time_wait(struct sock *sk, int state, int timeo)
- 		 * socket up.  We've got bigger problems than
- 		 * non-graceful socket closings.
- 		 */
--		LIMIT_NETDEBUG(KERN_INFO "TCP: time wait bucket table overflow\n");
-+		NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPTIMEWAITOVERFLOW);
- 	}
- 
- 	tcp_update_metrics(sk);
--- 
-1.7.3.1
+NET_INC_STATS_BH() should be more appropriate, since we are in a
+softirq ?
+
+
+
+
 
