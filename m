@@ -1,54 +1,34 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH 3/3] ifb: move tq from ifb_private
-Date: Sat, 4 Dec 2010 17:56:09 +0100
-Message-ID: <20101204165609.GB1981@del.dom.local>
-References: <1291442121-3302-1-git-send-email-xiaosuo@gmail.com>
- <1291442121-3302-3-git-send-email-xiaosuo@gmail.com>
- <4CFA3F01.20109@gmail.com>
- <1291472889.2159.18.camel@mojatatu>
- <1291474127.2159.35.camel@mojatatu>
- <20101204154007.GA1981@del.dom.local>
- <1291478881.2159.70.camel@mojatatu>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 1/2] vsprintf: Add %pMbt, bluetooth mac address
+Date: Sat, 04 Dec 2010 09:48:51 -0800
+Message-ID: <1291484931.31274.21.camel@Joe-Laptop>
+References: <cover.1291419007.git.joe@perches.com>
+	 <a33a0b00eeb29713a08d91156cbb2d816176f990.1291419007.git.joe@perches.com>
+	 <AANLkTi=qh0GKp3BdKO9GX1qmM3iJ6J_F3fLqZ8qNAw5v@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Changli Gao <xiaosuo@gmail.com>, netdev@vger.kernel.org
-To: jamal <hadi@cyberus.ca>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:45461 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750765Ab0LDQ4Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Dec 2010 11:56:16 -0500
-Received: by wwa36 with SMTP id 36so11255785wwa.1
-        for <netdev@vger.kernel.org>; Sat, 04 Dec 2010 08:56:14 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1291478881.2159.70.camel@mojatatu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Marcel Holtmann <marcel@holtmann.org>,
+	"Gustavo F. Padovan" <padovan@profusion.mobi>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirqus@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AANLkTi=qh0GKp3BdKO9GX1qmM3iJ6J_F3fLqZ8qNAw5v@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Dec 04, 2010 at 11:08:01AM -0500, jamal wrote:
-> On Sat, 2010-12-04 at 16:40 +0100, Jarek Poplawski wrote:
-> 
-> > Hmm... But we didn't care until now... ;-) 
-> 
-> Well, if Changli didnt post - there would be no discussion ;->
-> The message was lost in the translation somewhere; events such as
-> patches sometimes serve as good reminders.
-> 
-> > Btw. is it really very
-> > probable (and worth bothering) that this current error of NULL dev
-> > get fixed before we purge this tq queue with deferral one by one?
-> 
-> Indeed - this is working against something buggy. But it has happened
-> often in the past. And the likelihood of there being a few bad ones
-> in the train of packets when this occurs is high. But there are many
-> packets there that wont suffer this sympton - so the only fair scheme is
-> to check all. Note: a BUG() seems unreasonable and the deferring  serves
-> as a throttling scheme.
-> What do you have in mind?
+On Sat, 2010-12-04 at 12:03 +0100, Micha=C5=82 Miros=C5=82aw wrote:
+> 2010/12/4 Joe Perches <joe@perches.com>:
+> > Bluetooth output the MAC address in reverse order.
+> > Adding %pMbt allows the batostr function to be removed.
+> Just a nitpick:
+> You could call it %pMR, as in 'Reverse', so it sounds better when/if
+> some other subsystem uses it. It would also be a hint of what is this
+> doing instead of where it came from.
 
-I'm simply not convinced this kind of (fast) throttling can properly
-fix any of the problems (what about other flows in the queue), while
-Changli's patch makes this tasklet simpler and a bit faster.
+I considered that but believe %pMbt is clearer as most
+likely no other subsystem will be quite so far (out to
+lunch? in left field?  north? :) enough to do that again.
 
-Cheers,
-Jarek P.
+If any maintainer wants it changed, it's not any sort
+of problem to me, say so and I'll resubmit it.
