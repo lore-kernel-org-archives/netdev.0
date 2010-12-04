@@ -1,56 +1,102 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: kernel panic with time-stamping in phy devices (monitor mode)
-Date: Sat, 04 Dec 2010 09:17:02 +0100
-Message-ID: <1291450622.2806.59.camel@edumazet-laptop>
-References: <252997.92320.qm@web111013.mail.gq1.yahoo.com>
-	 <1291307884.2871.69.camel@edumazet-laptop>
-	 <20101204075750.GA3949@riccoc20.at.omicron.at>
+Subject: Re: [PATCH] net: init ingress queue
+Date: Sat, 04 Dec 2010 09:47:07 +0100
+Message-ID: <1291452427.2806.90.camel@edumazet-laptop>
+References: <1291441558-3196-1-git-send-email-xiaosuo@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Watts <akwatts@ymail.com>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>
-To: Richard Cochran <richardcochran@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Tom Herbert <therbert@google.com>,
+	Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:58177 "EHLO
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:43424 "EHLO
 	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754658Ab0LDIRI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Dec 2010 03:17:08 -0500
-Received: by wyb28 with SMTP id 28so10283285wyb.19
-        for <netdev@vger.kernel.org>; Sat, 04 Dec 2010 00:17:06 -0800 (PST)
-In-Reply-To: <20101204075750.GA3949@riccoc20.at.omicron.at>
+	with ESMTP id S1751372Ab0LDIrM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Dec 2010 03:47:12 -0500
+Received: by wyb28 with SMTP id 28so10296526wyb.19
+        for <netdev@vger.kernel.org>; Sat, 04 Dec 2010 00:47:11 -0800 (PST)
+In-Reply-To: <1291441558-3196-1-git-send-email-xiaosuo@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le samedi 04 d=C3=A9cembre 2010 =C3=A0 08:57 +0100, Richard Cochran a =C3=
-=A9crit :
-> Date: Sat, 4 Dec 2010 08:55:04 +0100
-> From: Richard Cochran <richardcochran@gmail.com>
-> To: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: Andrew Watts <akwatts@ymail.com>, netdev@vger.kernel.org,
-> 	David Miller <davem@davemloft.net>
-> Subject: Re: kernel panic with time-stamping in phy devices (monitor =
-mode)
-> Message-ID: <20101204075503.GA3490@riccoc20.at.omicron.at>
-> References: <252997.92320.qm@web111013.mail.gq1.yahoo.com>
->  <1291307884.2871.69.camel@edumazet-laptop>
-> MIME-Version: 1.0
-> Content-Type: text/plain; charset=3Dus-ascii
-> Content-Disposition: inline
-> In-Reply-To: <1291307884.2871.69.camel@edumazet-laptop>
-> User-Agent: Mutt/1.5.20 (2009-06-14)
->=20
-> Ugh, new kernel code with no users is already causing trouble!
->=20
-> On Thu, Dec 02, 2010 at 05:38:04PM +0100, Eric Dumazet wrote:
-> > Thanks for the report
-> >=20
-> > Please try following patch.
->=20
-> And thank you, Eric, for the quick patch.
->=20
-> Can this fix go into 2.6.37, please?
+Le samedi 04 d=C3=A9cembre 2010 =C3=A0 13:45 +0800, Changli Gao a =C3=A9=
+crit :
+> The dev field of ingress queue is forgot to initialized, then NULL
+> pointer dereference happens in qdisc_alloc().
 
-Sure, I'll submit to David today, thanks !
+< deleted oops >
+
+> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+> ---
+>  net/core/dev.c |    2 ++
+>  1 file changed, 2 insertions(+)
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index cd24374..8083c68 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -5577,6 +5577,8 @@ struct netdev_queue *dev_ingress_queue_create(s=
+truct net_device *dev)
+>  	queue =3D kzalloc(sizeof(*queue), GFP_KERNEL);
+>  	if (!queue)
+>  		return NULL;
+> +	netdev_queue_numa_node_write(queue, -1);
+> +	queue->dev =3D dev;
+>  	netdev_init_one_queue(dev, queue, NULL);
+>  	queue->qdisc =3D &noop_qdisc;
+>  	queue->qdisc_sleeping =3D &noop_qdisc;
+
+Hi Changli, thanks for bug report and patch.
+
+IMHO there is no point to include this long Oops report in Changelog fo=
+r
+a net-next-2.6 temporary problem, there wont be any bugzilla report.=20
+
+Instead, you could say it is a followup patch for commits 1d24eb4815d1e=
+0
+and f2cd2d3e9b3ef960. Two or three lines with relevant information.
+
+I suggest you submit following patch instead, as this seems cleaner to
+me ?
+
+(factorize the two inits in netdev_init_one_queue())
+
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index cd24374..36e10b4 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5113,7 +5113,6 @@ static int netif_alloc_netdev_queues(struct net_d=
+evice *dev)
+ {
+ 	unsigned int count =3D dev->num_tx_queues;
+ 	struct netdev_queue *tx;
+-	int i;
+=20
+ 	BUG_ON(count < 1);
+=20
+@@ -5125,10 +5124,6 @@ static int netif_alloc_netdev_queues(struct net_=
+device *dev)
+ 	}
+ 	dev->_tx =3D tx;
+=20
+-	for (i =3D 0; i < count; i++) {
+-		netdev_queue_numa_node_write(&tx[i], -1);
+-		tx[i].dev =3D dev;
+-	}
+ 	return 0;
+ }
+=20
+@@ -5140,6 +5135,8 @@ static void netdev_init_one_queue(struct net_devi=
+ce *dev,
+ 	spin_lock_init(&queue->_xmit_lock);
+ 	netdev_set_xmit_lockdep_class(&queue->_xmit_lock, dev->type);
+ 	queue->xmit_lock_owner =3D -1;
++	netdev_queue_numa_node_write(queue, -1);
++	queue->dev =3D dev;
+ }
+=20
+ static void netdev_init_queues(struct net_device *dev)
 
 
