@@ -1,50 +1,37 @@
-From: Nandita Dukkipati <nanditad@google.com>
-Subject: [PATCH 1/1] TCP: Bug fix in initialization of receive window.
-Date: Fri,  3 Dec 2010 15:33:44 -0800
-Message-ID: <1291419224-20853-1-git-send-email-nanditad@google.com>
-Cc: Laurent Chavey <chavey@google.com>,
-	Yuchung Cheng <ycheng@google.com>, netdev@vger.kernel.org,
-	Nandita Dukkipati <nanditad@google.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:39000 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753896Ab0LCXeL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Dec 2010 18:34:11 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH 0/2] Add and use vsprintf extension %pMbt for bluetooth macs
+Date: Fri,  3 Dec 2010 18:33:02 -0800
+Message-ID: <cover.1291419007.git.joe@perches.com>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+	"Gustavo F. Padovan" <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The bug has to do with boundary checks on the initial receive window.
-If the initial receive window falls between init_cwnd and the
-receive window specified by the user, the initial window is incorrectly
-brought down to init_cwnd. The correct behavior is to allow it to
-remain unchanged.
+Using vsprintf extensions can save text and data.
+Add %pMbt for the byte reversed output for bluetooth addresses.
 
-Signed-off-by: Nandita Dukkipati <nanditad@google.com>
----
- net/ipv4/tcp_output.c |    9 ++++-----
- 1 files changed, 4 insertions(+), 5 deletions(-)
+Joe Perches (2):
+  vsprintf: Add %pMbt, bluetooth mac address
+  bluetooth: Use printf extension %pMbt
 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 749b649..31fd0bd 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -231,11 +231,10 @@ void tcp_select_initial_window(int __space, __u32 mss,
- 		/* when initializing use the value from init_rcv_wnd
- 		 * rather than the default from above
- 		 */
--		if (init_rcv_wnd &&
--		    (*rcv_wnd > init_rcv_wnd * mss))
--			*rcv_wnd = init_rcv_wnd * mss;
--		else if (*rcv_wnd > init_cwnd * mss)
--			*rcv_wnd = init_cwnd * mss;
-+		if (init_rcv_wnd)
-+			*rcv_wnd = min(*rcv_wnd, init_rcv_wnd * mss);
-+		else
-+			*rcv_wnd = min(*rcv_wnd, init_cwnd * mss);
- 	}
- 
- 	/* Set the clamp no higher than max representable value */
+ lib/vsprintf.c              |    6 +++++-
+ net/bluetooth/bnep/core.c   |    3 +--
+ net/bluetooth/cmtp/core.c   |    2 +-
+ net/bluetooth/hci_conn.c    |    6 +++---
+ net/bluetooth/hci_core.c    |    8 ++++----
+ net/bluetooth/hci_event.c   |    6 +++---
+ net/bluetooth/hci_sysfs.c   |   10 +++++-----
+ net/bluetooth/hidp/core.c   |    4 ++--
+ net/bluetooth/l2cap.c       |   19 +++++++++----------
+ net/bluetooth/lib.c         |   14 --------------
+ net/bluetooth/rfcomm/core.c |   16 ++++++++--------
+ net/bluetooth/rfcomm/sock.c |    8 ++++----
+ net/bluetooth/rfcomm/tty.c  |    6 +++---
+ net/bluetooth/sco.c         |   12 ++++++------
+ 14 files changed, 54 insertions(+), 66 deletions(-)
+
 -- 
-1.7.3.1
-
+1.7.3.2.245.g03276.dirty
