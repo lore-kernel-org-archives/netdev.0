@@ -1,43 +1,48 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
+From: jamal <hadi@cyberus.ca>
 Subject: Re: [PATCH 3/3] ifb: move tq from ifb_private
-Date: Sat, 4 Dec 2010 16:40:07 +0100
-Message-ID: <20101204154007.GA1981@del.dom.local>
+Date: Sat, 04 Dec 2010 11:08:01 -0500
+Message-ID: <1291478881.2159.70.camel@mojatatu>
 References: <1291442121-3302-1-git-send-email-xiaosuo@gmail.com>
- <1291442121-3302-3-git-send-email-xiaosuo@gmail.com>
- <4CFA3F01.20109@gmail.com>
- <1291472889.2159.18.camel@mojatatu>
- <1291474127.2159.35.camel@mojatatu>
+	 <1291442121-3302-3-git-send-email-xiaosuo@gmail.com>
+	 <4CFA3F01.20109@gmail.com> <1291472889.2159.18.camel@mojatatu>
+	 <1291474127.2159.35.camel@mojatatu>  <20101204154007.GA1981@del.dom.local>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 Cc: Changli Gao <xiaosuo@gmail.com>, netdev@vger.kernel.org
-To: jamal <hadi@cyberus.ca>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:40128 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755114Ab0LDPkS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Dec 2010 10:40:18 -0500
-Received: by wwa36 with SMTP id 36so11203164wwa.1
-        for <netdev@vger.kernel.org>; Sat, 04 Dec 2010 07:40:16 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1291474127.2159.35.camel@mojatatu>
+Received: from mail-gw0-f42.google.com ([74.125.83.42]:56804 "EHLO
+	mail-gw0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755261Ab0LDQII (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Dec 2010 11:08:08 -0500
+Received: by gwb20 with SMTP id 20so5381967gwb.1
+        for <netdev@vger.kernel.org>; Sat, 04 Dec 2010 08:08:08 -0800 (PST)
+In-Reply-To: <20101204154007.GA1981@del.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Dec 04, 2010 at 09:48:47AM -0500, jamal wrote:
-> On Sat, 2010-12-04 at 09:28 -0500, jamal wrote:
-> 
-> > The idea was to defer processing at the first error. Changli
-> > is changing it to continue despite the error.
-> > The initial goal was to yield whenever possible since we dont maintain
-> > a lot of state.
-> 
-> Changli:
-> Other points we could defer processing is in case of packets
-> being dropped by dev_queue_xmit and netif_rx
+On Sat, 2010-12-04 at 16:40 +0100, Jarek Poplawski wrote:
 
-Hmm... But we didn't care until now... ;-) Btw. is it really very
-probable (and worth bothering) that this current error of NULL dev
-get fixed before we purge this tq queue with deferral one by one?
+> Hmm... But we didn't care until now... ;-) 
 
-Cheers,
-Jarek P.
+Well, if Changli didnt post - there would be no discussion ;->
+The message was lost in the translation somewhere; events such as
+patches sometimes serve as good reminders.
+
+> Btw. is it really very
+> probable (and worth bothering) that this current error of NULL dev
+> get fixed before we purge this tq queue with deferral one by one?
+
+Indeed - this is working against something buggy. But it has happened
+often in the past. And the likelihood of there being a few bad ones
+in the train of packets when this occurs is high. But there are many
+packets there that wont suffer this sympton - so the only fair scheme is
+to check all. Note: a BUG() seems unreasonable and the deferring  serves
+as a throttling scheme.
+What do you have in mind?
+
+cheers,
+jamal
+
