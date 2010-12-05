@@ -1,153 +1,122 @@
-From: Michael Tokarev <mjt@tls.msk.ru>
-Subject: weird network problem - stalls, reload works
-Date: Mon, 06 Dec 2010 01:52:40 +0300
-Message-ID: <4CFC17B8.4050908@msgid.tls.msk.ru>
+From: Ron Mercer <ron.mercer@qlogic.com>
+Subject: Re: qlge warning
+Date: Sun, 5 Dec 2010 14:27:18 -0800
+Message-ID: <20101205222718.GA2609@linux-ox1b.qlogic.org>
+References: <AANLkTi=oGgajs5KX9haKUALprJTatctpGs5UNU7LrRGO@mail.gmail.com> <4CF95995.1070506@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Yinghai Lu <yinghai@kernel.org>,
+	David Miller <davem@davemloft.net>,
+	NetDev <netdev@vger.kernel.org>, Ingo Molnar <mingo@elte.hu>,
+	Linux Driver <Linux-Driver@qlogic.com>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from isrv.corpit.ru ([86.62.121.231]:44048 "EHLO isrv.corpit.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751967Ab0LEWwn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 5 Dec 2010 17:52:43 -0500
+Received: from cain.qlogic.com ([198.70.193.223]:35213 "EHLO cain.qlc.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751149Ab0LEXCq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 5 Dec 2010 18:02:46 -0500
+Content-Disposition: inline
+In-Reply-To: <4CF95995.1070506@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
-
-I've a weird networking problem here, which I'm
-trying to hunt for some time.
-
-Small LAN, just 3 machines and a server, all in
-single small room, all connected to a 100Mbps switch.
-
-Sometimes, network between the (linux) server and
-workstations just stops.  It may happen after
-transferring a few megabytes of data (rare), or
-whole thing may work for several days or even
-weeks in a row, but end result is the same: at
-some point it stalls.
-
-Reloading the interface in question, like this:
-
- ifdown eth0; sleep 2; ifup eth0
-
-restores the network back, till it breaks again.
-Note here that, say, sleep 1 is not sufficient
-to restore the functionality, it has little effect.
-No sleep at all makes almost no difference, ie,
-such reload does not help.
-
-The stalls looks like the server is suffering from
-massive packet loss in receive path.  It does not
-lose all packets, and the amount of lost packets
-increases with time, in a timeframe of several
-minutes.
-
-Doing a data transfer from a client machine to this
-linux box, it goes at full ~10MB/s speed, next when
-the stall is about to happen the speed drops to 6MB/s,
-4, 1MB/s, 600KB/s, till eventually the connection just
-times out.
-
-The interesting data point is that the NIC does not
-generate any interrupts during such stalls, as if
-there's no packets are coming from the network at
-all - even if during that time, the client workstations
-are sending ARP requests (if nothing more).
-
-Here's how ping on the server looks like (pinging one
-of the machine on the LAN):
-
-64 bytes from 192.168.78.20: icmp_seq=1 ttl=128 time=5008 ms
-64 bytes from 192.168.78.20: icmp_seq=2 ttl=128 time=5000 ms
-64 bytes from 192.168.78.20: icmp_seq=3 ttl=128 time=6000 ms
-64 bytes from 192.168.78.20: icmp_seq=4 ttl=128 time=7000 ms
-64 bytes from 192.168.78.20: icmp_seq=5 ttl=128 time=7000 ms
-64 bytes from 192.168.78.20: icmp_seq=6 ttl=128 time=7000 ms
-64 bytes from 192.168.78.20: icmp_seq=7 ttl=128 time=7000 ms
-64 bytes from 192.168.78.20: icmp_seq=8 ttl=128 time=7000 ms
-64 bytes from 192.168.78.20: icmp_seq=9 ttl=128 time=7000 ms
-64 bytes from 192.168.78.20: icmp_seq=10 ttl=128 time=7000 ms
-64 bytes from 192.168.78.20: icmp_seq=11 ttl=128 time=7000 ms
-64 bytes from 192.168.78.20: icmp_seq=12 ttl=128 time=6320 ms
-64 bytes from 192.168.78.20: icmp_seq=13 ttl=128 time=6000 ms
-64 bytes from 192.168.78.20: icmp_seq=14 ttl=128 time=6000 ms
-64 bytes from 192.168.78.20: icmp_seq=15 ttl=128 time=6000 ms
-64 bytes from 192.168.78.20: icmp_seq=16 ttl=128 time=6000 ms
-64 bytes from 192.168.78.20: icmp_seq=17 ttl=128 time=6000 ms
-64 bytes from 192.168.78.20: icmp_seq=18 ttl=128 time=6000 ms
-64 bytes from 192.168.78.20: icmp_seq=19 ttl=128 time=7000 ms
-64 bytes from 192.168.78.20: icmp_seq=20 ttl=128 time=7000 ms
-64 bytes from 192.168.78.20: icmp_seq=21 ttl=128 time=7000 ms
-64 bytes from 192.168.78.20: icmp_seq=22 ttl=128 time=7000 ms
-64 bytes from 192.168.78.20: icmp_seq=23 ttl=128 time=7000 ms
-64 bytes from 192.168.78.20: icmp_seq=24 ttl=128 time=6007 ms
-64 bytes from 192.168.78.20: icmp_seq=25 ttl=128 time=6001 ms
-64 bytes from 192.168.78.20: icmp_seq=26 ttl=128 time=6010 ms
-64 bytes from 192.168.78.20: icmp_seq=27 ttl=128 time=5014 ms
-64 bytes from 192.168.78.20: icmp_seq=28 ttl=128 time=5011 ms
-64 bytes from 192.168.78.20: icmp_seq=29 ttl=128 time=5020 ms
-64 bytes from 192.168.78.20: icmp_seq=30 ttl=128 time=5020 ms
-64 bytes from 192.168.78.20: icmp_seq=31 ttl=128 time=6018 ms
-64 bytes from 192.168.78.20: icmp_seq=32 ttl=128 time=7010 ms
-64 bytes from 192.168.78.20: icmp_seq=33 ttl=128 time=7008 ms
-64 bytes from 192.168.78.20: icmp_seq=34 ttl=128 time=7000 ms
-64 bytes from 192.168.78.20: icmp_seq=35 ttl=128 time=7000 ms
-
-It looks like the NIC does not deliver any packets by its
-own, but notices something arrived when you actually try
-to _send_ sometihng - hence the delays above, almost whole
-seconds (since ping sends data with 1sec intervals).
-
-Here's normal ping output right after "restarting" the interface:
-
-64 bytes from 192.168.78.20: icmp_seq=1 ttl=128 time=0.161 ms
-64 bytes from 192.168.78.20: icmp_seq=2 ttl=128 time=0.119 ms
-64 bytes from 192.168.78.20: icmp_seq=3 ttl=128 time=0.117 ms
-64 bytes from 192.168.78.20: icmp_seq=4 ttl=128 time=0.381 ms
-64 bytes from 192.168.78.20: icmp_seq=5 ttl=128 time=0.131 ms
-64 bytes from 192.168.78.20: icmp_seq=6 ttl=128 time=0.133 ms
-
-And at restart, the following gets printed in dmesg:
-
-[ 3439.360831] forcedeth 0000:00:0a.0: irq 47 for MSI/MSI-X
+OK, I see the point.  We are working on it.
+Thanks
 
 
-So far we tried to replace everything in this network:
-started with the NIC on the server, all wires, the switch,
-and even replaced the client computers (upgraded them from
-some old to current hardware).  Even changing the NIC on
-the server did not help - rtl8139 behaves the same way,
-but it needs a bit more time to trigger the issue.
-
-The problem happens with several different kernels - at
-least 2.6.27 triggers it, 2.6.32 and 2.6.35 all behaves
-the same, 32 or 64bit.
-
-The machine is based on Asus M2N-VM DVI motherboard, which
-is nVidia MCP67-based system.  The NIC is on-board forcedeth
-(and as I mentioned above the same prob happens with rtl8139
-card).
-
-This machine has 2 more NICs inserted (used for WAN link and
-for another tiny LAN segment) - these does not show the issue,
-but they both run at 10Mbps, so maybe it needs 10x more time.
-When the eth0 LAN segment stops working, the rest of the system
-works just fine, including these 2 NICs and hard drives.
-
-I also tried to disable MSI, loading forcedeth with msi=0, -
-this results in usage of IO-APIC-fasteoi for the NIC instead
-of usual PCI-MSI-edge, but does not change the situation.
-
-So I'm quite stuck here, and don't know what to do next.
-My next bet is to try another motherboard, in a hope that
-this is just some broken interrupt controller, but it is
-a bit too unreal...
-
-Any hints on what to try are greatly apprecated...
-
-Thanks!
-
-/mjt
+On Fri, Dec 03, 2010 at 12:56:53PM -0800, Jarek Poplawski wrote:
+> It looks like cancel_delayed_work_sync in ql_adapter_down is illegal.
+> We can't sync works with rtnl_lock while holding it in qlge_close.
+> 
+> Maintainers CC'ed.
+> 
+> Jarek P.
+> 
+> Yinghai Lu wrote:
+> > [  290.233264] =======================================================
+> > [  290.251780] [ INFO: possible circular locking dependency detected ]
+> > [  290.271534] 2.6.37-rc4-tip-yh-05919-geb30094-dirty #308
+> > [  290.271775] -------------------------------------------------------
+> > [  290.291512] swapper/1 is trying to acquire lock:
+> > [  290.291725]  ((&(&qdev->mpi_port_cfg_work)->work)){+.+...}, at:
+> > [<ffffffff81096419>] wait_on_work+0x0/0xff
+> > [  290.311643]
+> > [  290.311644] but task is already holding lock:
+> > [  290.311915]  (rtnl_mutex){+.+.+.}, at: [<ffffffff81bb094d>]
+> > rtnl_lock+0x17/0x19
+> > [  290.331681]
+> > [  290.331682] which lock already depends on the new lock.
+> > [  290.331684]
+> > [  290.351491]
+> > [  290.351492] the existing dependency chain (in reverse order) is:
+> > [  290.351830]
+> > [  290.351831] -> #1 (rtnl_mutex){+.+.+.}:
+> > [  290.371562]        [<ffffffff810ae6b6>] lock_acquire+0xca/0xf0
+> > [  290.371824]        [<ffffffff81cdbf5d>] mutex_lock_nested+0x60/0x2b8
+> > [  290.391539]        [<ffffffff81bb094d>] rtnl_lock+0x17/0x19
+> > [  290.411250]        [<ffffffff818501ad>] ql_mpi_port_cfg_work+0x1f/0x1ad
+> > [  290.411606]        [<ffffffff81095189>] process_one_work+0x234/0x3e8
+> > [  290.431282]        [<ffffffff81095663>] worker_thread+0x17f/0x261
+> > [  290.431583]        [<ffffffff8109a633>] kthread+0xa0/0xa8
+> > [  290.451279]        [<ffffffff8103a914>] kernel_thread_helper+0x4/0x10
+> > [  290.451581]
+> > [  290.451582] -> #0 ((&(&qdev->mpi_port_cfg_work)->work)){+.+...}:
+> > [  290.471483]        [<ffffffff810ada85>] __lock_acquire+0x113c/0x1813
+> > [  290.491177]        [<ffffffff810ae6b6>] lock_acquire+0xca/0xf0
+> > [  290.491451]        [<ffffffff8109646c>] wait_on_work+0x53/0xff
+> > [  290.511128]        [<ffffffff810965da>] __cancel_work_timer+0xc2/0x102
+> > [  290.511434]        [<ffffffff8109662c>] cancel_delayed_work_sync+0x12/0x14
+> > [  290.531233]        [<ffffffff81847646>] ql_cancel_all_work_sync+0x64/0x68
+> > [  290.531563]        [<ffffffff818499d5>] ql_adapter_down+0x23/0xf6
+> > [  290.551298]        [<ffffffff81849ca7>] qlge_close+0x67/0x76
+> > [  290.571015]        [<ffffffff81ba3853>] __dev_close+0x7b/0x89
+> > [  290.571297]        [<ffffffff81ba5535>] __dev_change_flags+0xad/0x131
+> > [  290.590974]        [<ffffffff81ba563a>] dev_change_flags+0x21/0x57
+> > [  290.591280]        [<ffffffff827de30e>] ic_close_devs+0x2e/0x48
+> > [  290.610978]        [<ffffffff827df332>] ip_auto_config+0xbc9/0xe84
+> > [  290.611280]        [<ffffffff810002da>] do_one_initcall+0x57/0x135
+> > [  290.630977]        [<ffffffff8278ef8a>] kernel_init+0x16c/0x1f6
+> > [  290.631263]        [<ffffffff8103a914>] kernel_thread_helper+0x4/0x10
+> > [  290.651000]
+> > [  290.651001] other info that might help us debug this:
+> > [  290.651003]
+> > [  290.670829] 1 lock held by swapper/1:
+> > [  290.671013]  #0:  (rtnl_mutex){+.+.+.}, at: [<ffffffff81bb094d>]
+> > rtnl_lock+0x17/0x19
+> > [  290.690819]
+> > [  290.690820] stack backtrace:
+> > [  290.691054] Pid: 1, comm: swapper Not tainted
+> > 2.6.37-rc4-tip-yh-05919-geb30094-dirty #308
+> > [  290.710805] Call Trace:
+> > [  290.710938]  [<ffffffff810aa296>] ? print_circular_bug+0xaf/0xbe
+> > [  290.730683]  [<ffffffff810ada85>] ? __lock_acquire+0x113c/0x1813
+> > [  290.730955]  [<ffffffff81095d70>] ? wait_on_cpu_work+0xdb/0x114
+> > [  290.750672]  [<ffffffff81096419>] ? wait_on_work+0x0/0xff
+> > [  290.750939]  [<ffffffff810ae6b6>] ? lock_acquire+0xca/0xf0
+> > [  290.770664]  [<ffffffff81096419>] ? wait_on_work+0x0/0xff
+> > [  290.770920]  [<ffffffff8109646c>] ? wait_on_work+0x53/0xff
+> > [  290.790575]  [<ffffffff81096419>] ? wait_on_work+0x0/0xff
+> > [  290.790821]  [<ffffffff810965da>] ? __cancel_work_timer+0xc2/0x102
+> > [  290.810559]  [<ffffffff8109662c>] ? cancel_delayed_work_sync+0x12/0x14
+> > [  290.810855]  [<ffffffff81847646>] ? ql_cancel_all_work_sync+0x64/0x68
+> > [  290.830594]  [<ffffffff818499d5>] ? ql_adapter_down+0x23/0xf6
+> > [  290.830867]  [<ffffffff81849ca7>] ? qlge_close+0x67/0x76
+> > [  290.850568]  [<ffffffff81ba3853>] ? __dev_close+0x7b/0x89
+> > [  290.850829]  [<ffffffff81ba5535>] ? __dev_change_flags+0xad/0x131
+> > [  290.870540]  [<ffffffff81ba563a>] ? dev_change_flags+0x21/0x57
+> > [  290.870815]  [<ffffffff827de30e>] ? ic_close_devs+0x2e/0x48
+> > [  290.890595]  [<ffffffff827df332>] ? ip_auto_config+0xbc9/0xe84
+> > [  290.910247]  [<ffffffff81cda1e3>] ? printk+0x41/0x43
+> > [  290.910488]  [<ffffffff827de769>] ? ip_auto_config+0x0/0xe84
+> > [  290.910747]  [<ffffffff810002da>] ? do_one_initcall+0x57/0x135
+> > [  290.930455]  [<ffffffff8278ef8a>] ? kernel_init+0x16c/0x1f6
+> > [  290.930743]  [<ffffffff8103a914>] ? kernel_thread_helper+0x4/0x10
+> > [  290.950419]  [<ffffffff81cde23c>] ? restore_args+0x0/0x30
+> > [  290.970152]  [<ffffffff8278ee1e>] ? kernel_init+0x0/0x1f6
+> > [  290.970398]  [<ffffffff8103a910>] ? kernel_thread_helper+0x0/0x10
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe netdev" in
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > 
+> 
