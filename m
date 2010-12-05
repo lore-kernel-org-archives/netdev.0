@@ -1,264 +1,116 @@
-From: Roopa Prabhu <roprabhu@cisco.com>
-Subject: [net-next-2.6 PATCH] enic: Add ndo_set_rx_mode support for enic vnics
-Date: Sat, 04 Dec 2010 22:23:36 -0800
-Message-ID: <20101205062336.28056.72156.stgit@savbu-pc100.cisco.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 2.6.36] vlan: Avoid hwaccel vlan packets when
+ vid not used
+Date: Sun, 05 Dec 2010 09:03:53 +0100
+Message-ID: <1291536233.2806.102.camel@edumazet-laptop>
+References: <20101129201716.1d0257c4@xenia.leun.net>
+	<4CF442FA.4070701@candelatech.com>
+	<20101130095944.41b5f7b6@xenia.leun.net>
+	<1291108809.2904.3.camel@edumazet-laptop>
+	<20101201111716.424fb771@xenia.leun.net>
+	<1291200914.2856.546.camel@edumazet-laptop>
+	<20101205030712.36149bc2@xenia.leun.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-3.cisco.com ([171.71.176.72]:11003 "EHLO
-	sj-iport-3.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752135Ab0LEGXh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Dec 2010 01:23:37 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, Jesse Gross <jesse@nicira.com>,
+        linux-kernel@vger.kernel.org, stable@kernel.org,
+        Ben Greear <greearb@candelatech.com>,
+        David Miller <davem@davemloft.net>
+To: Michael Leun <lkml20101129@newton.leun.net>
+Return-path: <stable-bounces@linux.kernel.org>
+In-Reply-To: <20101205030712.36149bc2@xenia.leun.net>
+List-Unsubscribe: <http://linux.kernel.org/mailman/options/stable>,
+	<mailto:stable-request@linux.kernel.org?subject=unsubscribe>
+List-Archive: <http://linux.kernel.org/mailman/private/stable/>
+List-Post: <mailto:stable@linux.kernel.org>
+List-Help: <mailto:stable-request@linux.kernel.org?subject=help>
+List-Subscribe: <http://linux.kernel.org/mailman/listinfo/stable>,
+	<mailto:stable-request@linux.kernel.org?subject=subscribe>
+Sender: stable-bounces@linux.kernel.org
+Errors-To: stable-bounces@linux.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Roopa Prabhu <roprabhu@cisco.com>
-
-Add ndo_set_rx_mode support to register unicast and multicast address filters for enic vnics
-
-Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
-Signed-off-by: Vasanthy Kolluri <vkolluri@cisco.com>
-Signed-off-by: David Wang <dwang2@cisco.com>
-Signed-off-by: Christian Benvenuti <benve@cisco.com>
----
- drivers/net/enic/enic.h      |    4 +
- drivers/net/enic/enic_main.c |  121 ++++++++++++++++++++++++++++++++++--------
- drivers/net/enic/enic_res.h  |    1 
- 3 files changed, 102 insertions(+), 24 deletions(-)
-
-
-diff --git a/drivers/net/enic/enic.h b/drivers/net/enic/enic.h
-index a930fb9..084190e 100644
---- a/drivers/net/enic/enic.h
-+++ b/drivers/net/enic/enic.h
-@@ -32,7 +32,7 @@
- 
- #define DRV_NAME		"enic"
- #define DRV_DESCRIPTION		"Cisco VIC Ethernet NIC Driver"
--#define DRV_VERSION		"1.4.1.8"
-+#define DRV_VERSION		"1.4.1.9"
- #define DRV_COPYRIGHT		"Copyright 2008-2010 Cisco Systems, Inc"
- 
- #define ENIC_BARS_MAX		6
-@@ -78,8 +78,10 @@ struct enic {
- 	spinlock_t devcmd_lock;
- 	u8 mac_addr[ETH_ALEN];
- 	u8 mc_addr[ENIC_MULTICAST_PERFECT_FILTERS][ETH_ALEN];
-+	u8 uc_addr[ENIC_UNICAST_PERFECT_FILTERS][ETH_ALEN];
- 	unsigned int flags;
- 	unsigned int mc_count;
-+	unsigned int uc_count;
- 	int csum_rx_enabled;
- 	u32 port_mtu;
- 	u32 rx_coalesce_usecs;
-diff --git a/drivers/net/enic/enic_main.c b/drivers/net/enic/enic_main.c
-index 075ca5f..de7b25c 100644
---- a/drivers/net/enic/enic_main.c
-+++ b/drivers/net/enic/enic_main.c
-@@ -1002,7 +1002,7 @@ static int enic_dev_packet_filter(struct enic *enic, int directed,
- 	return err;
- }
- 
--static int enic_dev_add_multicast_addr(struct enic *enic, u8 *addr)
-+static int enic_dev_add_addr(struct enic *enic, u8 *addr)
- {
- 	int err;
- 
-@@ -1013,7 +1013,7 @@ static int enic_dev_add_multicast_addr(struct enic *enic, u8 *addr)
- 	return err;
- }
- 
--static int enic_dev_del_multicast_addr(struct enic *enic, u8 *addr)
-+static int enic_dev_del_addr(struct enic *enic, u8 *addr)
- {
- 	int err;
- 
-@@ -1024,29 +1024,19 @@ static int enic_dev_del_multicast_addr(struct enic *enic, u8 *addr)
- 	return err;
- }
- 
--/* netif_tx_lock held, BHs disabled */
--static void enic_set_multicast_list(struct net_device *netdev)
-+static void enic_add_multicast_addr_list(struct enic *enic)
- {
--	struct enic *enic = netdev_priv(netdev);
-+	struct net_device *netdev = enic->netdev;
- 	struct netdev_hw_addr *ha;
--	int directed = 1;
--	int multicast = (netdev->flags & IFF_MULTICAST) ? 1 : 0;
--	int broadcast = (netdev->flags & IFF_BROADCAST) ? 1 : 0;
--	int promisc = (netdev->flags & IFF_PROMISC) ? 1 : 0;
- 	unsigned int mc_count = netdev_mc_count(netdev);
--	int allmulti = (netdev->flags & IFF_ALLMULTI) ||
--		mc_count > ENIC_MULTICAST_PERFECT_FILTERS;
--	unsigned int flags = netdev->flags | (allmulti ? IFF_ALLMULTI : 0);
- 	u8 mc_addr[ENIC_MULTICAST_PERFECT_FILTERS][ETH_ALEN];
- 	unsigned int i, j;
- 
--	if (mc_count > ENIC_MULTICAST_PERFECT_FILTERS)
-+	if (mc_count > ENIC_MULTICAST_PERFECT_FILTERS) {
-+		netdev_warn(netdev, "Registering only %d out of %d "
-+			"multicast addresses\n",
-+			ENIC_MULTICAST_PERFECT_FILTERS, mc_count);
- 		mc_count = ENIC_MULTICAST_PERFECT_FILTERS;
--
--	if (enic->flags != flags) {
--		enic->flags = flags;
--		enic_dev_packet_filter(enic, directed,
--			multicast, broadcast, promisc, allmulti);
- 	}
- 
- 	/* Is there an easier way?  Trying to minimize to
-@@ -1068,7 +1058,7 @@ static void enic_set_multicast_list(struct net_device *netdev)
- 				mc_addr[j]) == 0)
- 				break;
- 		if (j == mc_count)
--			enic_dev_del_multicast_addr(enic, enic->mc_addr[i]);
-+			enic_dev_del_addr(enic, enic->mc_addr[i]);
- 	}
- 
- 	for (i = 0; i < mc_count; i++) {
-@@ -1077,7 +1067,7 @@ static void enic_set_multicast_list(struct net_device *netdev)
- 				enic->mc_addr[j]) == 0)
- 				break;
- 		if (j == enic->mc_count)
--			enic_dev_add_multicast_addr(enic, mc_addr[i]);
-+			enic_dev_add_addr(enic, mc_addr[i]);
- 	}
- 
- 	/* Save the list to compare against next time
-@@ -1089,6 +1079,89 @@ static void enic_set_multicast_list(struct net_device *netdev)
- 	enic->mc_count = mc_count;
- }
- 
-+static void enic_add_unicast_addr_list(struct enic *enic)
-+{
-+	struct net_device *netdev = enic->netdev;
-+	struct netdev_hw_addr *ha;
-+	unsigned int uc_count = netdev_uc_count(netdev);
-+	u8 uc_addr[ENIC_UNICAST_PERFECT_FILTERS][ETH_ALEN];
-+	unsigned int i, j;
-+
-+	if (uc_count > ENIC_UNICAST_PERFECT_FILTERS) {
-+		netdev_warn(netdev, "Registering only %d out of %d "
-+			"unicast addresses\n",
-+			ENIC_UNICAST_PERFECT_FILTERS, uc_count);
-+		uc_count = ENIC_UNICAST_PERFECT_FILTERS;
-+	}
-+
-+	/* Is there an easier way?  Trying to minimize to
-+	 * calls to add/del unicast addrs.  We keep the
-+	 * addrs from the last call in enic->uc_addr and
-+	 * look for changes to add/del.
-+	 */
-+
-+	i = 0;
-+	netdev_for_each_uc_addr(ha, netdev) {
-+		if (i == uc_count)
-+			break;
-+		memcpy(uc_addr[i++], ha->addr, ETH_ALEN);
-+	}
-+
-+	for (i = 0; i < enic->uc_count; i++) {
-+		for (j = 0; j < uc_count; j++)
-+			if (compare_ether_addr(enic->uc_addr[i],
-+				uc_addr[j]) == 0)
-+				break;
-+		if (j == uc_count)
-+			enic_dev_del_addr(enic, enic->uc_addr[i]);
-+	}
-+
-+	for (i = 0; i < uc_count; i++) {
-+		for (j = 0; j < enic->uc_count; j++)
-+			if (compare_ether_addr(uc_addr[i],
-+				enic->uc_addr[j]) == 0)
-+				break;
-+		if (j == enic->uc_count)
-+			enic_dev_add_addr(enic, uc_addr[i]);
-+	}
-+
-+	/* Save the list to compare against next time
-+	 */
-+
-+	for (i = 0; i < uc_count; i++)
-+		memcpy(enic->uc_addr[i], uc_addr[i], ETH_ALEN);
-+
-+	enic->uc_count = uc_count;
-+}
-+
-+/* netif_tx_lock held, BHs disabled */
-+static void enic_set_rx_mode(struct net_device *netdev)
-+{
-+	struct enic *enic = netdev_priv(netdev);
-+	int directed = 1;
-+	int multicast = (netdev->flags & IFF_MULTICAST) ? 1 : 0;
-+	int broadcast = (netdev->flags & IFF_BROADCAST) ? 1 : 0;
-+	int promisc = (netdev->flags & IFF_PROMISC) ||
-+		netdev_uc_count(netdev) > ENIC_UNICAST_PERFECT_FILTERS;
-+	int allmulti = (netdev->flags & IFF_ALLMULTI) ||
-+		netdev_mc_count(netdev) > ENIC_MULTICAST_PERFECT_FILTERS;
-+	unsigned int flags = netdev->flags |
-+		(allmulti ? IFF_ALLMULTI : 0) |
-+		(promisc ? IFF_PROMISC : 0);
-+
-+	if (enic->flags != flags) {
-+		enic->flags = flags;
-+		enic_dev_packet_filter(enic, directed,
-+			multicast, broadcast, promisc, allmulti);
-+	}
-+
-+	if (!promisc) {
-+		enic_add_unicast_addr_list(enic);
-+		if (!allmulti)
-+			enic_add_multicast_addr_list(enic);
-+	}
-+}
-+
- /* rtnl lock is held */
- static void enic_vlan_rx_register(struct net_device *netdev,
- 	struct vlan_group *vlan_group)
-@@ -1852,7 +1925,7 @@ static int enic_open(struct net_device *netdev)
- 		vnic_rq_enable(&enic->rq[i]);
- 
- 	enic_dev_add_station_addr(enic);
--	enic_set_multicast_list(netdev);
-+	enic_set_rx_mode(netdev);
- 
- 	netif_wake_queue(netdev);
- 
-@@ -2328,7 +2401,8 @@ static const struct net_device_ops enic_netdev_dynamic_ops = {
- 	.ndo_start_xmit		= enic_hard_start_xmit,
- 	.ndo_get_stats		= enic_get_stats,
- 	.ndo_validate_addr	= eth_validate_addr,
--	.ndo_set_multicast_list	= enic_set_multicast_list,
-+	.ndo_set_rx_mode	= enic_set_rx_mode,
-+	.ndo_set_multicast_list	= enic_set_rx_mode,
- 	.ndo_set_mac_address	= enic_set_mac_address_dynamic,
- 	.ndo_change_mtu		= enic_change_mtu,
- 	.ndo_vlan_rx_register	= enic_vlan_rx_register,
-@@ -2349,7 +2423,8 @@ static const struct net_device_ops enic_netdev_ops = {
- 	.ndo_get_stats		= enic_get_stats,
- 	.ndo_validate_addr	= eth_validate_addr,
- 	.ndo_set_mac_address	= enic_set_mac_address,
--	.ndo_set_multicast_list	= enic_set_multicast_list,
-+	.ndo_set_rx_mode	= enic_set_rx_mode,
-+	.ndo_set_multicast_list	= enic_set_rx_mode,
- 	.ndo_change_mtu		= enic_change_mtu,
- 	.ndo_vlan_rx_register	= enic_vlan_rx_register,
- 	.ndo_vlan_rx_add_vid	= enic_vlan_rx_add_vid,
-diff --git a/drivers/net/enic/enic_res.h b/drivers/net/enic/enic_res.h
-index 9a103d9..25be273 100644
---- a/drivers/net/enic/enic_res.h
-+++ b/drivers/net/enic/enic_res.h
-@@ -34,6 +34,7 @@
- #define ENIC_MAX_MTU			9000
- 
- #define ENIC_MULTICAST_PERFECT_FILTERS	32
-+#define ENIC_UNICAST_PERFECT_FILTERS	32
- 
- #define ENIC_NON_TSO_MAX_DESC		16
- 
-
+TGUgZGltYW5jaGUgMDUgZMOpY2VtYnJlIDIwMTAgw6AgMDM6MDcgKzAxMDAsIE1pY2hhZWwgTGV1
+biBhIMOpY3JpdCA6Cj4gT24gV2VkLCAwMSBEZWMgMjAxMCAxMTo1NToxNCArMDEwMAo+IEVyaWMg
+RHVtYXpldCA8ZXJpYy5kdW1hemV0QGdtYWlsLmNvbT4gd3JvdGU6Cj4gCj4gPiBMZSBtZXJjcmVk
+aSAwMSBkw6ljZW1icmUgMjAxMCDDoCAxMToxNyArMDEwMCwgTWljaGFlbCBMZXVuIGEgw6ljcml0
+IDoKPiA+IAo+ID4gPiBZdXAsIGZyb20gd2hhdCBJJ3ZlIHRlc3RlZCB0aGlzIHdvcmtzIChhbmQg
+dGNwZHVtcCBzZWVzIGJyb2FkY2FzdAo+ID4gPiBwYWNrZXRzIGV2ZW4gZm9yIHZsYW5zIG5vdCBj
+b25maWd1cmVkIGF0IHRoZSBtb21lbnQgaW5jbHVkaW5nIHZsYW4KPiA+ID4gdGFnCj4gPiA+IC0g
+eWlwZWUhKS4KPiA+ID4KPiAKPiBUaGlzIHdhcyB0ZXN0ZWQgb24gbWFjaGluZSB3aXRoCj4gcm9v
+dEB0cF96NjFtOn4vc3JjL3RjcGR1bXAtNC4xLjEjIGxzcGNpfGdyZXAgRXRoCj4gMDI6MDAuMCBF
+dGhlcm5ldCBjb250cm9sbGVyOiBCcm9hZGNvbSBDb3Jwb3JhdGlvbiBOZXRYdHJlbWUgQkNNNTc1
+Mk0gR2lnYWJpdCBFdGhlcm5ldCBQQ0kgRXhwcmVzcyAocmV2IDAyKQo+IAo+IFRoZXJlIGl0IHdv
+cmtzIGFzIEkgc2FpZC4KPiAKPiBCdXQgb24KPiAKPiBocGRsMzIwZzU6L2hvbWUvbWwgIyBsc3Bj
+aSB8IGdyZXAgRXRoCj4gMDM6MDQuMCBFdGhlcm5ldCBjb250cm9sbGVyOiBCcm9hZGNvbSBDb3Jw
+b3JhdGlvbiBOZXRYdHJlbWUgQkNNNTcxNCBHaWdhYml0IEV0aGVybmV0IChyZXYgYTMpCj4gMDM6
+MDQuMSBFdGhlcm5ldCBjb250cm9sbGVyOiBCcm9hZGNvbSBDb3Jwb3JhdGlvbiBOZXRYdHJlbWUg
+QkNNNTcxNCBHaWdhYml0IEV0aGVybmV0IChyZXYgYTMpCj4gCj4gdGhlIGdvb2QgbWVzc2FnZSBp
+cyB0aGF0IGl0IGFsc28gZG9lcyBub3QgY3Jhc2gsIGJ1dCB3aXRoIHRjcGR1bXAgSSBzZWUKPiB2
+bGFuIHRhZ3Mgd2hlbiBubyB2bGFuIGRldmljZXMgY29uZmlndXJlZCBvbiB0aGUgcmVzcGVjdGl2
+ZSBldGgsIGlmIHNvCj4gSSBkbyBub3Qgc2VlIHRhZ3MgYW55bW9yZSB2bGFuIHRhZ3Mgb24gdGhl
+IHRydW5rIGludGVyZmFjZS4KPiAKCkZvciBhbGwgdGhlc2UgdmVyeSBzcGVjaWZpYyBuZWVkcywg
+eW91J2xsIGhhdmUgdG8gdHJ5IDIuNi4zNyBJIGFtCmFmcmFpZC4gSmVzc2UgZGlkIGh1Z2UgY2hh
+bmdlcyB0byBleGFjdGx5IG1ha2UgdGhpcyB3b3JraW5nLCB3ZSB3b250CmJhY2twb3J0IHRoaXMg
+dG8gMi42LjM2LCBidXQgb25seSBhdm9pZCBjcmFzaGVzLgoKCj4gaHBkbDMyMGc1Oi9ob21lL21s
+ICMgaWZjb25maWcgLWEKPiBbLi4uXQo+IGV0aDEgICAgICBMaW5rIGVuY2FwOkV0aGVybmV0ICBI
+YXJkd2FyZSBBZHJlc3NlIHh4Onh4Onh4Onh4Onh4Onh4ICAKPiAgICAgICAgICAgVVAgQlJPQURD
+QVNUIE1VTFRJQ0FTVCAgTVRVOjE1MDAgIE1ldHJpYzoxCj4gICAgICAgICAgIFJYIHBhY2tldHM6
+MCBlcnJvcnM6MCBkcm9wcGVkOjAgb3ZlcnJ1bnM6MCBmcmFtZTowCj4gICAgICAgICAgIFRYIHBh
+Y2tldHM6MCBlcnJvcnM6MCBkcm9wcGVkOjAgb3ZlcnJ1bnM6MCBjYXJyaWVyOjAKPiAgICAgICAg
+ICAgY29sbGlzaW9uczowIFNlbmRld2FydGVzY2hsYW5nZW5sw6RuZ2U6MTAwMCAKPiAgICAgICAg
+ICAgUlggYnl0ZXM6MCAoMC4wIGIpICBUWCBieXRlczowICgwLjAgYikKPiAgICAgICAgICAgSW50
+ZXJydXB0OjE3IAo+IFsuLi5dCj4gCj4gaHBkbDMyMGc1Oi9ob21lL21sICMgdGNwZHVtcCAtaSBl
+dGgxIC1uIC1lCj4gdGNwZHVtcDogV0FSTklORzogZXRoMTogbm8gSVB2NCBhZGRyZXNzIGFzc2ln
+bmVkCj4gdGNwZHVtcDogdmVyYm9zZSBvdXRwdXQgc3VwcHJlc3NlZCwgdXNlIC12IG9yIC12diBm
+b3IgZnVsbCBwcm90b2NvbCBkZWNvZGUKPiBsaXN0ZW5pbmcgb24gZXRoMSwgbGluay10eXBlIEVO
+MTBNQiAoRXRoZXJuZXQpLCBjYXB0dXJlIHNpemUgOTYgYnl0ZXMKPiBbLi4uXQo+IDAyOjQ1OjU3
+LjU5NzY0MCB4eDp4eDp4eDp4eDp4eDp4eCA+IGZmOmZmOmZmOmZmOmZmOmZmLCBldGhlcnR5cGUg
+ODAyLjFRICgweDgxMDApLCBsZW5ndGggNjQ6IHZsYW4gMTUwNSwgcCAwLCBldGhlcnR5cGUgODAy
+LjFRLCB2bGFuIDk5LCBwIDMsIGV0aGVydHlwZSBBUlAsIGFycCB3aG8taGFzIDEwLjAuMC4xIHRl
+bGwgMTAuMC4wLjIKPiAwMjo0NTo1Ny42MjI2NTQgeHg6eHg6eHg6eHg6eHg6eHggPiBmZjpmZjpm
+ZjpmZjpmZjpmZiwgZXRoZXJ0eXBlIDgwMi4xUSAoMHg4MTAwKSwgbGVuZ3RoIDY0OiB2bGFuIDE1
+MDUsIHAgMCwgZXRoZXJ0eXBlIDgwMi4xUSwgdmxhbiA5OSwgcCAzLCBldGhlcnR5cGUgQVJQLCBh
+cnAgd2hvLWhhcyAxMC4wLjAuMSB0ZWxsIDEwLjAuMC4yCj4gWy4uLl0KPiAKPiBocGRsMzIwZzU6
+L2hvbWUvbWwgIyB2Y29uZmlnIGFkZCBldGgxIDIKPiBXQVJOSU5HOiAgQ291bGQgbm90IG9wZW4g
+L3Byb2MvbmV0L3ZsYW4vY29uZmlnLiAgTWF5YmUgeW91IG5lZWQgdG8gbG9hZCB0aGUgODAyMXEg
+bW9kdWxlLCBvciBtYXliZSB5b3UgYXJlIG5vdCB1c2luZyBQUk9DRlM/Pwo+IEFkZGVkIFZMQU4g
+d2l0aCBWSUQgPT0gMiB0byBJRiAtOmV0aDE6LQo+IGhwZGwzMjBnNTovaG9tZS9tbCAjIGNhdCAv
+cHJvYy9uZXQvdmxhbi9jb25maWcgCj4gVkxBTiBEZXYgbmFtZSAgICB8IFZMQU4gSUQKPiBOYW1l
+LVR5cGU6IFZMQU5fTkFNRV9UWVBFX1JBV19QTFVTX1ZJRF9OT19QQUQKPiBldGgxLjIgICAgICAg
+ICB8IDIgIHwgZXRoMQo+IGhwZGwzMjBnNTovaG9tZS9tbCAjIHRjcGR1bXAgLWkgZXRoMSAtbiAt
+ZQo+IHRjcGR1bXA6IFdBUk5JTkc6IGV0aDE6IG5vIElQdjQgYWRkcmVzcyBhc3NpZ25lZAo+IHRj
+cGR1bXA6IHZlcmJvc2Ugb3V0cHV0IHN1cHByZXNzZWQsIHVzZSAtdiBvciAtdnYgZm9yIGZ1bGwg
+cHJvdG9jb2wgZGVjb2RlCj4gbGlzdGVuaW5nIG9uIGV0aDEsIGxpbmstdHlwZSBFTjEwTUIgKEV0
+aGVybmV0KSwgY2FwdHVyZSBzaXplIDk2IGJ5dGVzCj4gWy4uLl0KPiAwMjo1MDoxOC4wOTU5NTkg
+eHg6eHg6eHg6eHg6eHg6eHggPiBmZjpmZjpmZjpmZjpmZjpmZiwgZXRoZXJ0eXBlIDgwMi4xUSAo
+MHg4MTAwKSwgbGVuZ3RoIDYwOiB2bGFuIDk5LCBwIDMsIGV0aGVydHlwZSBBUlAsIGFycCB3aG8t
+aGFzIDEwLjAuMC4xIHRlbGwgMTAuMC4wLjIKPiAwMjo1MDoxOC4xMjA5ODkgeHg6eHg6eHg6eHg6
+eHg6eHggPiBmZjpmZjpmZjpmZjpmZjpmZiwgZXRoZXJ0eXBlIDgwMi4xUSAoMHg4MTAwKSwgbGVu
+Z3RoIDYwOiB2bGFuIDk5LCBwIDMsIGV0aGVydHlwZSBBUlAsIGFycCB3aG8taGFzIDEwLjAuMC4x
+IHRlbGwgMTAuMC4wLjIKPiBbLi4uXQo+IAo+IFRoZSBzYW1lIHBhY2thZ2VzIHdlIHNhdyBkb3Vi
+bGUgdmxhbiB0YWdnZWQgYSBmZXcgbWludXRlcyBhZ28gbm93IGFwcGVhciBzaW5nbGUgdmxhbiB0
+YWdnZWQgKGFuZCBvZiBjb3Vyc2UsIG90aGVyIHBhY2tldHMgdGhhdCB3ZXJlIHNob3duIHNpbmds
+ZSB2bGFuIHRhZ2dlZCBiZWZvcmUgYXJlIG5vdyBzaG93biB3aXRob3V0IHZsYW4gdGFnIC8gZXRo
+IHR5cGUgMHgwODAwKS4KPiAKPiAKPiBPbiB0aGUgb3RoZXIgbWFjaGluZToKPiAKPiByb290QHRw
+X3o2MW06fiMgY2F0IC9wcm9jL25ldC92bGFuL2NvbmZpZyAKPiBWTEFOIERldiBuYW1lICAgIHwg
+VkxBTiBJRAo+IE5hbWUtVHlwZTogVkxBTl9OQU1FX1RZUEVfUkFXX1BMVVNfVklEX05PX1BBRAo+
+IGV0aDAuNzQxICAgICAgIHwgNzQxICB8IGV0aDAKPiBldGgwLjIgICAgICAgICB8IDIgIHwgZXRo
+MAo+IHJvb3RAdHBfejYxbTp+L3NyYy90Y3BkdW1wLTQuMS4xIyAuL3RjcGR1bXAgLWkgZXRoMCAt
+biAtZSBub3QgcG9ydCAyMgo+IHRjcGR1bXA6IFdBUk5JTkc6IGV0aDA6IG5vIElQdjQgYWRkcmVz
+cyBhc3NpZ25lZAo+IHRjcGR1bXA6IHZlcmJvc2Ugb3V0cHV0IHN1cHByZXNzZWQsIHVzZSAtdiBv
+ciAtdnYgZm9yIGZ1bGwgcHJvdG9jb2wgZGVjb2RlCj4gbGlzdGVuaW5nIG9uIGV0aDAsIGxpbmst
+dHlwZSBFTjEwTUIgKEV0aGVybmV0KSwgY2FwdHVyZSBzaXplIDY1NTM1IGJ5dGVzCj4gMDM6MDY6
+NTEuODU5MDE2IHh4Onh4Onh4Onh4Onh4Onh4ID4gZmY6ZmY6ZmY6ZmY6ZmY6ZmYsIGV0aGVydHlw
+ZSA4MDIuMVEgKDB4ODEwMCksIGxlbmd0aCA2NDogdmxhbiAxNTA1LCBwIDAsIGV0aGVydHlwZSA4
+MDIuMVEsIHZsYW4gOTksIHAgMywgZXRoZXJ0eXBlIEFSUCwgUmVxdWVzdCB3aG8taGFzIDEwLjAu
+MC4xIHRlbGwgMTAuMC4wLjIsIGxlbmd0aCA0Mgo+IDAzOjA2OjUxLjg4Mzk1NiB4eDp4eDp4eDp4
+eDp4eDp4eCA+IGZmOmZmOmZmOmZmOmZmOmZmLCBldGhlcnR5cGUgODAyLjFRICgweDgxMDApLCBs
+ZW5ndGggNjQ6IHZsYW4gMTUwNSwgcCAwLCBldGhlcnR5cGUgODAyLjFRLCB2bGFuIDk5LCBwIDMs
+IGV0aGVydHlwZSBBUlAsIFJlcXVlc3Qgd2hvLWhhcyAxMC4wLjAuMSB0ZWxsIDEwLjAuMC4yLCBs
+ZW5ndGggNDIKPiAKPiAKPiAKPiBbLi4uXQo+ID4gSGVyZSBpcyB0aGUgcmV2aXNlZCBwYXRjaCBh
+Z2FpbiB0aGVuIGZvciBzdGFibGUgdGVhbSwgdmlhIERhdmlkIE1pbGxlcgo+ID4gYWdyZWVtZW50
+Lgo+IFsuLi5dCj4gCgoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX18Kc3RhYmxlIG1haWxpbmcgbGlzdApzdGFibGVAbGludXgua2VybmVsLm9yZwpodHRwOi8v
+bGludXgua2VybmVsLm9yZy9tYWlsbWFuL2xpc3RpbmZvL3N0YWJsZQo=
