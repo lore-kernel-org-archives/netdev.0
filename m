@@ -1,73 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: kernel panic with time-stamping in phy devices (monitor mode)
-Date: Sun, 05 Dec 2010 13:24:39 +0100
-Message-ID: <1291551879.2806.253.camel@edumazet-laptop>
-References: <906429.41845.qm@web111015.mail.gq1.yahoo.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH net-2.6] ifb: goto resched directly if error happens
+ and dp->tq isn't empty
+Date: Sun, 05 Dec 2010 09:25:44 -0500
+Message-ID: <1291559144.2159.682.camel@mojatatu>
+References: <1291507748-4958-1-git-send-email-xiaosuo@gmail.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Richard Cochran <richardcochran@gmail.com>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>, stable@kernel.org
-To: Andrew Watts <akwatts@ymail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jarek Poplawski <jarkao2@gmail.com>, netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:37981 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755178Ab0LEMYr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Dec 2010 07:24:47 -0500
-Received: by wwa36 with SMTP id 36so11807915wwa.1
-        for <netdev@vger.kernel.org>; Sun, 05 Dec 2010 04:24:46 -0800 (PST)
-In-Reply-To: <906429.41845.qm@web111015.mail.gq1.yahoo.com>
+Received: from mail-gy0-f174.google.com ([209.85.160.174]:33262 "EHLO
+	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755285Ab0LEO0A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Dec 2010 09:26:00 -0500
+Received: by gyb11 with SMTP id 11so5570790gyb.19
+        for <netdev@vger.kernel.org>; Sun, 05 Dec 2010 06:25:59 -0800 (PST)
+In-Reply-To: <1291507748-4958-1-git-send-email-xiaosuo@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le samedi 04 d=C3=A9cembre 2010 =C3=A0 12:46 -0800, Andrew Watts a =C3=A9=
-crit :
+On Sun, 2010-12-05 at 08:09 +0800, Changli Gao wrote:
+> If we break the loop when there are still skbs in tq and no skb in
+> rq, the skbs will be left in txq until new skbs are enqueued into rq.
+> In rare cases, no new skb is queued, then these skbs will stay in rq
+> forever.
+> 
+> After this patch, if tq isn't empty when we break the loop, we goto
+> resched directly.
+> 
+> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
 
-> Eric, I echo the thanks on the lightning patch.
-> Impressive turnaround!
->=20
-> There's an open bug report on the kernel's bugzilla
-> for 2.6.36 (#24102). What is the best way to tie these
-> together?
+Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
 
-Thanks Andy, here is the official patch submission I am going to make.
+Dave, this goes to stable as well.
 
-[PATCH net-2.6] net: fix skb_defer_rx_timestamp()
-
-After commit c1f19b51d1d8 (net: support time stamping in phy devices.),
-kernel might crash if CONFIG_NETWORK_PHY_TIMESTAMPING=3Dy and
-skb_defer_rx_timestamp() handles a packet without an ethernet header.
-
-=46ixes kernel bugzilla #24102
-
-Reference: https://bugzilla.kernel.org/show_bug.cgi?id=3D24102
-Reported-and-tested-by: Andrew Watts <akwatts@ymail.com>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Richard Cochran <richardcochran@gmail.com>
-Cc: stable@kernel.org
----
- net/core/timestamping.c |    6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/net/core/timestamping.c b/net/core/timestamping.c
-index 0ae6c22..c4fbf85 100644
---- a/net/core/timestamping.c
-+++ b/net/core/timestamping.c
-@@ -96,11 +96,13 @@ bool skb_defer_rx_timestamp(struct sk_buff *skb)
- 	struct phy_device *phydev;
- 	unsigned int type;
-=20
--	skb_push(skb, ETH_HLEN);
-+	if (skb->data - ETH_HLEN < skb->head)
-+		return false;
-+	__skb_push(skb, ETH_HLEN);
-=20
- 	type =3D classify(skb);
-=20
--	skb_pull(skb, ETH_HLEN);
-+	__skb_pull(skb, ETH_HLEN);
-=20
- 	switch (type) {
- 	case PTP_CLASS_V1_IPV4:
-
+cheers,
+jamal
 
