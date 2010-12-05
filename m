@@ -1,109 +1,41 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: PATCH] filter: fix sk_filter rcu handling
-Date: Sun, 05 Dec 2010 21:53:52 +0100
-Message-ID: <1291582432.2806.300.camel@edumazet-laptop>
-References: <AANLkTin6d=t6U28A-r=FznqE+5QuGXwg1tStOw-JXabg@mail.gmail.com>
-	<1291192967.2856.492.camel@edumazet-laptop>
-	<18eaf7d286236427b1632b9af62be513@localhost>
-	<20101201.101809.71122121.davem@davemloft.net>
-	<1291357953.2854.46.camel@edumazet-laptop>
+Subject: Re: [PATCH] net: init ingress queue
+Date: Sun, 05 Dec 2010 22:05:14 +0100
+Message-ID: <1291583114.2806.302.camel@edumazet-laptop>
+References: <1291465901-3189-1-git-send-email-xiaosuo@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, hagen@jauu.net, xiaosuo@gmail.com,
-        wirelesser@gmail.com, "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-        stable@kernel.org, Pavel Emelyanov <xemul@openvz.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <stable-bounces@linux.kernel.org>
-In-Reply-To: <1291357953.2854.46.camel@edumazet-laptop>
-List-Unsubscribe: <http://linux.kernel.org/mailman/options/stable>,
-	<mailto:stable-request@linux.kernel.org?subject=unsubscribe>
-List-Archive: <http://linux.kernel.org/mailman/private/stable/>
-List-Post: <mailto:stable@linux.kernel.org>
-List-Help: <mailto:stable-request@linux.kernel.org?subject=help>
-List-Subscribe: <http://linux.kernel.org/mailman/listinfo/stable>,
-	<mailto:stable-request@linux.kernel.org?subject=subscribe>
-Sender: stable-bounces@linux.kernel.org
-Errors-To: stable-bounces@linux.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Tom Herbert <therbert@google.com>,
+	Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:44396 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753896Ab0LEVFX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Dec 2010 16:05:23 -0500
+Received: by wwa36 with SMTP id 36so12128489wwa.1
+        for <netdev@vger.kernel.org>; Sun, 05 Dec 2010 13:05:22 -0800 (PST)
+In-Reply-To: <1291465901-3189-1-git-send-email-xiaosuo@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-TGUgdmVuZHJlZGkgMDMgZMOpY2VtYnJlIDIwMTAgw6AgMDc6MzIgKzAxMDAsIEVyaWMgRHVtYXpl
-dCBhIMOpY3JpdCA6Cj4gTGUgbWVyY3JlZGkgMDEgZMOpY2VtYnJlIDIwMTAgw6AgMTA6MTggLTA4
-MDAsIERhdmlkIE1pbGxlciBhIMOpY3JpdCA6Cj4gCj4gPiBIb3dldmVyLCBJIHRoaW5rIGl0J3Mg
-c3RpbGwgdmFsdWFibGUgdG8gd3JpdGUgYSBmZXcgSklUIGNvbXBpbGVycyBmb3IKPiA+IHRoZSBl
-eGlzdGluZyBCUEYgc3R1ZmYuICBJIGNvbnNpZGVyZWQgd29ya2luZyBvbiBhIHNwYXJjNjQgSklU
-IGp1c3QgdG8KPiA+IHNlZSB3aGF0IGl0IHdvdWxkIGxvb2sgbGlrZS4KPiA+IAo+ID4gSWYgcGVv
-cGxlIHdvcmsgb24gdGhlIEJQRiBvcHRpbWl6ZXIgYW5kIEJQRiBKSVRzIGluIHBhcmFsbGVsLCB3
-ZSdsbCBoYXZlCj4gPiBib3RoIHJlYWR5IGF0IHRoZSBzYW1lIHRpbWUuICB3aW4rKwo+IAo+IEkg
-YmVnYW4gd29yayBvbiBpbXBsZW1lbnRpbmcgYSBCUEYgSklUIGZvciB4ODZfNjQKPiAKPiBNeSBw
-bGFuIGlzIHRvIHVzZSBleHRlcm5hbCBoZWxwZXJzIHRvIGxvYWQgc2tiIGRhdGEvbWV0YWRhdGEs
-IHRvIGtlZXAKPiBCUEYgcHJvZ3JhbSB2ZXJ5IHNob3J0IGFuZCBoYXZlIG5vIGRlcGVuZGVuY2ll
-cyBhZ2FpbnN0IHN0cnVjdCBsYXlvdXRzLgo+IAo+IFRoZXNlIGhlbHBlcnMgd291bGQgYmUgdGhl
-IHRocmVlIGxvYWRfd29yZCwgbG9hZF9oYWxmLCBsb2FkX2J5dGUuCj4gCj4gSW4gY2FzZSB0aGUg
-Yml0cyBhcmUgaW4gc2tiIGhlYWQsIHRoZXNlIGhlbHBlcnMgc2hvdWxkIGJlIGZhc3QuCj4gCj4g
-Rm9yIHByYWN0aWNhbCByZWFzb25zLCB0aGV5IHdvdWxkIGJlIGluIEFTTSBmb3IgdGhlaXIgZmFz
-dCBwYXRoLCBhbmQgQwo+IGZvciB0aGUgc2xvdyBwYXRoLiBUaGV5IGFyZSBBU00gYmVjYXVzZSB0
-aGV5IGFyZSBhYmxlIHRvIHBlcmZvcm0gdGhlCj4gc2hvcnRjdXQgKGluIGNhc2Ugb2YgZXJyb3Is
-IGRvaW5nIHRoZSBzdGFjayB1bndpbmQgdG8gcGVyZm9ybSB0aGUKPiAicmV0dXJuIDA7Iikgc28g
-dGhhdCB3ZSBkb250IGhhdmUgdG8gdGVzdCB0aGVpciByZXR1cm4gZnJvbSB0aGUgSklUCj4gcHJv
-Z3JhbS4KPiAKPiAKCldoaWxlIHdvcmtpbmcgb24gdGhpcywgSSBmb3VuZCBhbiBhbm5veWluZyBw
-cm9ibGVtIHdpdGggY3VycmVudCBjb2RlLgoKVGhpcyBwYXRjaCBpcyBhIHN0YWJsZSBjYW5kaWRh
-dGUuCgpUaGFua3MKCgpbUEFUQ0hdIGZpbHRlcjogZml4IHNrX2ZpbHRlciByY3UgaGFuZGxpbmcK
-ClBhdmVsIEVtZWx5YW5vdiB0cmllZCB0byBmaXggYSByYWNlIGJldHdlZW4gc2tfZmlsdGVyXyhk
-ZXxhdCl0YWNoIGFuZApza19jbG9uZSgpIGluIGNvbW1pdCA0N2U5NThlYWMyODBjMjYzMzk3CgpQ
-cm9ibGVtIGlzIHdlIGNhbiBoYXZlIHNldmVyYWwgY2xvbmVzIHNoYXJpbmcgYSBjb21tb24gc2tf
-ZmlsdGVyLCBhbmQKdGhlc2UgY2xvbmVzIG1pZ2h0IHdhbnQgdG8gc2tfZmlsdGVyX2F0dGFjaCgp
-IHRoZWlyIG93biBmaWx0ZXJzIGF0IHRoZQpzYW1lIHRpbWUsIGFuZCBjYW4gb3ZlcndyaXRlIG9s
-ZF9maWx0ZXItPnJjdSwgY29ycnVwdGluZyBSQ1UgcXVldWVzLgoKV2UgY2FuIG5vdCB1c2UgZmls
-dGVyLT5yY3Ugd2l0aG91dCBiZWluZyBzdXJlIG5vIG90aGVyIHRocmVhZCBjb3VsZCBkbwp0aGUg
-c2FtZSB0aGluZy4KClN3aXRjaCBjb2RlIHRvIGEgbW9yZSBjb252ZW50aW9uYWwgcmVmLWNvdW50
-aW5nIHRlY2huaXF1ZSA6IERvIHRoZQphdG9taWMgZGVjcmVtZW50IGltbWVkaWF0ZWx5IGFuZCBx
-dWV1ZSBvbmUgcmN1IGNhbGwgYmFjayB3aGVuIGxhc3QKcmVmZXJlbmNlIGlzIHJlbGVhc2VkLgoK
-U2lnbmVkLW9mZi1ieTogRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPgpDYzog
-UGF2ZWwgRW1lbHlhbm92IDx4ZW11bEBvcGVudnoub3JnPgpDYzogUGF1bCBFLiBNY0tlbm5leSA8
-cGF1bG1ja0BsaW51eC52bmV0LmlibS5jb20+CkNjOiBzdGFibGVAa2VybmVsLm9yZwotLS0KIGlu
-Y2x1ZGUvbmV0L3NvY2suaCB8ICAgIDQgKysrLQogbmV0L2NvcmUvZmlsdGVyLmMgIHwgICAxOSAr
-KysrKystLS0tLS0tLS0tLS0tCiAyIGZpbGVzIGNoYW5nZWQsIDkgaW5zZXJ0aW9ucygrKSwgMTQg
-ZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvaW5jbHVkZS9uZXQvc29jay5oIGIvaW5jbHVkZS9u
-ZXQvc29jay5oCmluZGV4IGE2MzM4ZDAuLjQzMDhhZjcgMTAwNjQ0Ci0tLSBhL2luY2x1ZGUvbmV0
-L3NvY2suaAorKysgYi9pbmNsdWRlL25ldC9zb2NrLmgKQEAgLTExNTUsNiArMTE1NSw4IEBAIGV4
-dGVybiB2b2lkIHNrX2NvbW1vbl9yZWxlYXNlKHN0cnVjdCBzb2NrICpzayk7CiAvKiBJbml0aWFs
-aXNlIGNvcmUgc29ja2V0IHZhcmlhYmxlcyAqLwogZXh0ZXJuIHZvaWQgc29ja19pbml0X2RhdGEo
-c3RydWN0IHNvY2tldCAqc29jaywgc3RydWN0IHNvY2sgKnNrKTsKIAorZXh0ZXJuIHZvaWQgc2tf
-ZmlsdGVyX3JlbGVhc2VfcmN1KHN0cnVjdCByY3VfaGVhZCAqcmN1KTsKKwogLyoqCiAgKglza19m
-aWx0ZXJfcmVsZWFzZSAtIHJlbGVhc2UgYSBzb2NrZXQgZmlsdGVyCiAgKglAZnA6IGZpbHRlciB0
-byByZW1vdmUKQEAgLTExNjUsNyArMTE2Nyw3IEBAIGV4dGVybiB2b2lkIHNvY2tfaW5pdF9kYXRh
-KHN0cnVjdCBzb2NrZXQgKnNvY2ssIHN0cnVjdCBzb2NrICpzayk7CiBzdGF0aWMgaW5saW5lIHZv
-aWQgc2tfZmlsdGVyX3JlbGVhc2Uoc3RydWN0IHNrX2ZpbHRlciAqZnApCiB7CiAJaWYgKGF0b21p
-Y19kZWNfYW5kX3Rlc3QoJmZwLT5yZWZjbnQpKQotCQlrZnJlZShmcCk7CisJCWNhbGxfcmN1X2Jo
-KCZmcC0+cmN1LCBza19maWx0ZXJfcmVsZWFzZV9yY3UpOwogfQogCiBzdGF0aWMgaW5saW5lIHZv
-aWQgc2tfZmlsdGVyX3VuY2hhcmdlKHN0cnVjdCBzb2NrICpzaywgc3RydWN0IHNrX2ZpbHRlciAq
-ZnApCmRpZmYgLS1naXQgYS9uZXQvY29yZS9maWx0ZXIuYyBiL25ldC9jb3JlL2ZpbHRlci5jCmlu
-ZGV4IGMxZWU4MDAuLmFlMjFhMGQgMTAwNjQ0Ci0tLSBhL25ldC9jb3JlL2ZpbHRlci5jCisrKyBi
-L25ldC9jb3JlL2ZpbHRlci5jCkBAIC01ODksMjMgKzU4OSwxNiBAQCBpbnQgc2tfY2hrX2ZpbHRl
-cihzdHJ1Y3Qgc29ja19maWx0ZXIgKmZpbHRlciwgaW50IGZsZW4pCiBFWFBPUlRfU1lNQk9MKHNr
-X2Noa19maWx0ZXIpOwogCiAvKioKLSAqIAlza19maWx0ZXJfcmN1X3JlbGVhc2UgLSBSZWxlYXNl
-IGEgc29ja2V0IGZpbHRlciBieSByY3VfaGVhZAorICogCXNrX2ZpbHRlcl9yZWxlYXNlX3JjdSAt
-IFJlbGVhc2UgYSBzb2NrZXQgZmlsdGVyIGJ5IHJjdV9oZWFkCiAgKglAcmN1OiByY3VfaGVhZCB0
-aGF0IGNvbnRhaW5zIHRoZSBza19maWx0ZXIgdG8gZnJlZQogICovCi1zdGF0aWMgdm9pZCBza19m
-aWx0ZXJfcmN1X3JlbGVhc2Uoc3RydWN0IHJjdV9oZWFkICpyY3UpCit2b2lkIHNrX2ZpbHRlcl9y
-ZWxlYXNlX3JjdShzdHJ1Y3QgcmN1X2hlYWQgKnJjdSkKIHsKIAlzdHJ1Y3Qgc2tfZmlsdGVyICpm
-cCA9IGNvbnRhaW5lcl9vZihyY3UsIHN0cnVjdCBza19maWx0ZXIsIHJjdSk7CiAKLQlza19maWx0
-ZXJfcmVsZWFzZShmcCk7Ci19Ci0KLXN0YXRpYyB2b2lkIHNrX2ZpbHRlcl9kZWxheWVkX3VuY2hh
-cmdlKHN0cnVjdCBzb2NrICpzaywgc3RydWN0IHNrX2ZpbHRlciAqZnApCi17Ci0JdW5zaWduZWQg
-aW50IHNpemUgPSBza19maWx0ZXJfbGVuKGZwKTsKLQotCWF0b21pY19zdWIoc2l6ZSwgJnNrLT5z
-a19vbWVtX2FsbG9jKTsKLQljYWxsX3JjdV9iaCgmZnAtPnJjdSwgc2tfZmlsdGVyX3JjdV9yZWxl
-YXNlKTsKKwlrZnJlZShmcCk7CiB9CitFWFBPUlRfU1lNQk9MKHNrX2ZpbHRlcl9yZWxlYXNlX3Jj
-dSk7CiAKIC8qKgogICoJc2tfYXR0YWNoX2ZpbHRlciAtIGF0dGFjaCBhIHNvY2tldCBmaWx0ZXIK
-QEAgLTY0OSw3ICs2NDIsNyBAQCBpbnQgc2tfYXR0YWNoX2ZpbHRlcihzdHJ1Y3Qgc29ja19mcHJv
-ZyAqZnByb2csIHN0cnVjdCBzb2NrICpzaykKIAlyY3VfYXNzaWduX3BvaW50ZXIoc2stPnNrX2Zp
-bHRlciwgZnApOwogCiAJaWYgKG9sZF9mcCkKLQkJc2tfZmlsdGVyX2RlbGF5ZWRfdW5jaGFyZ2Uo
-c2ssIG9sZF9mcCk7CisJCXNrX2ZpbHRlcl91bmNoYXJnZShzaywgb2xkX2ZwKTsKIAlyZXR1cm4g
-MDsKIH0KIEVYUE9SVF9TWU1CT0xfR1BMKHNrX2F0dGFjaF9maWx0ZXIpOwpAQCAtNjYzLDcgKzY1
-Niw3IEBAIGludCBza19kZXRhY2hfZmlsdGVyKHN0cnVjdCBzb2NrICpzaykKIAkJCQkJICAgc29j
-a19vd25lZF9ieV91c2VyKHNrKSk7CiAJaWYgKGZpbHRlcikgewogCQlyY3VfYXNzaWduX3BvaW50
-ZXIoc2stPnNrX2ZpbHRlciwgTlVMTCk7Ci0JCXNrX2ZpbHRlcl9kZWxheWVkX3VuY2hhcmdlKHNr
-LCBmaWx0ZXIpOworCQlza19maWx0ZXJfdW5jaGFyZ2Uoc2ssIGZpbHRlcik7CiAJCXJldCA9IDA7
-CiAJfQogCXJldHVybiByZXQ7CgoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX18Kc3RhYmxlIG1haWxpbmcgbGlzdApzdGFibGVAbGludXgua2VybmVsLm9yZwpo
-dHRwOi8vbGludXgua2VybmVsLm9yZy9tYWlsbWFuL2xpc3RpbmZvL3N0YWJsZQo=
+Le samedi 04 d=C3=A9cembre 2010 =C3=A0 20:31 +0800, Changli Gao a =C3=A9=
+crit :
+> The dev field of ingress queue is forgot to initialized, then NULL
+> pointer dereference happens in qdisc_alloc().
+>=20
+> Move inits of tx queues to netif_alloc_netdev_queues().
+>=20
+> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+> ---
+> v2: factorize the two inits in netdev_init_queues() and move inits of
+>     tx queues to netif_alloc_netdev_queues().
+
+This is a net-next-2.6 patch, you forgot to mention it.
+
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+
+
+
