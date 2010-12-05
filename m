@@ -1,79 +1,85 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH 3/3] ifb: move tq from ifb_private
-Date: Sun, 5 Dec 2010 23:16:53 +0800
-Message-ID: <AANLkTi=Gav7J+jL0-Jw72XtJHXQ9dxZ5iqZW0oMMjPcb@mail.gmail.com>
-References: <1291442121-3302-1-git-send-email-xiaosuo@gmail.com>
- <1291442121-3302-3-git-send-email-xiaosuo@gmail.com> <4CFA3F01.20109@gmail.com>
- <1291472889.2159.18.camel@mojatatu> <1291474127.2159.35.camel@mojatatu>
- <20101204154007.GA1981@del.dom.local> <1291478881.2159.70.camel@mojatatu>
- <20101204165609.GB1981@del.dom.local> <AANLkTimnejoONxGqusiYVWOKbcy2yqbpFH-XyzgG0=87@mail.gmail.com>
- <AANLkTimMvb187gOFzZZgWuzWJkk_Z3AOZaoc6M76H-e=@mail.gmail.com>
- <1291559402.2159.687.camel@mojatatu> <AANLkTimXDTTNcrFPngzEuoDGVgojtBxUZQPOMiSA7yNw@mail.gmail.com>
- <1291562016.2806.257.camel@edumazet-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Question about __alloc_skb() speedup
+Date: Sun, 05 Dec 2010 17:49:16 +0100
+Message-ID: <1291567756.2806.258.camel@edumazet-laptop>
+References: <20101203101450.GA9573@Desktop-Junchang>
+	 <1291373429.2897.96.camel@edumazet-laptop>
+	 <20101204141826.GA5830@Desktop-Junchang>
+	 <1291474058.2806.96.camel@edumazet-laptop>
+	 <20101205105616.GA4770@Desktop-Junchang>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: hadi@cyberus.ca, Jarek Poplawski <jarkao2@gmail.com>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org
+To: Junchang Wang <junchangwang@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:42346 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755282Ab0LEPRO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Dec 2010 10:17:14 -0500
-Received: by fxm20 with SMTP id 20so3543111fxm.19
-        for <netdev@vger.kernel.org>; Sun, 05 Dec 2010 07:17:13 -0800 (PST)
-In-Reply-To: <1291562016.2806.257.camel@edumazet-laptop>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:45773 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756174Ab0LEQtY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Dec 2010 11:49:24 -0500
+Received: by wyb28 with SMTP id 28so11228565wyb.19
+        for <netdev@vger.kernel.org>; Sun, 05 Dec 2010 08:49:23 -0800 (PST)
+In-Reply-To: <20101205105616.GA4770@Desktop-Junchang>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Dec 5, 2010 at 11:13 PM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
-> Le dimanche 05 d=E9cembre 2010 =E0 22:40 +0800, Changli Gao a =E9crit=
- :
->> On Sun, Dec 5, 2010 at 10:30 PM, jamal <hadi@cyberus.ca> wrote:
->> > On Sun, 2010-12-05 at 09:13 +0800, Changli Gao wrote:
->> >
->> >> BTW: My ultimate goal is making ifb a multi-queue NIC, and the nu=
-mber
->> >> of queues is equal to the number of the possible CPUs.
->> >
->> >
->> > My view is this is going to be tricky because:
->> > - we use tasklets. When we =A0reschedule we can end up on a differ=
-rent
->> > cpu.
->>
->> The tasklets always been scheduled to the current CPU unless it has
->> been schedule already on the other CPU.
->>
->> > -I dont see any point in having a separate softIRQ
->> > - and if you do use other mechanisms it would require a lot more
->> > testing since there are quiet a few use cases of ifb
->> >
->>
->> I keep using tasklet. The attachment is the alpha version.
->>
->
-> =A0 =A0 =A0 =A0for_each_possible_cpu(cpu) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0q =3D per_cpu_ptr(p->q, cpu);
-> ...
->
-> =A0 =A0 =A0 =A0dev_ifb =3D alloc_netdev_mq(sizeof(struct ifb_private)=
-, "ifb%d",
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if=
-b_setup, num_possible_cpus());
->
-> This is a very usual error.
->
-> You can have machines with 2 possibles cpus, numbered 0 and 8
->
-> Therere, you must use nr_cpu_ids here instead of num_possible_cpus()
->
-
-Thanks.
+Le dimanche 05 d=C3=A9cembre 2010 =C3=A0 18:56 +0800, Junchang Wang a =C3=
+=A9crit :
+> On Sat, Dec 04, 2010 at 03:47:38PM +0100, Eric Dumazet wrote:
+> >
+> >Yes I believe so, pktgen being very specific, but I have few questio=
+ns :
+> >
+> >Is it with SLUB or SLAB ?
+> I had read your discussion about "net: allocate skbs on local node" i=
+n
+> the list, so SLUB was used.
 
 
---=20
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+>=20
+> BTW, what I observed is that network subsystem scales well on NUMA
+> systems equipped with a single processor(up to six cores), but the
+> performance didn't scale very well if there are two processors.=20
+>=20
+> I have noticed there are a number of discussions in the list. Are=20
+> there any suggestions? I'm very pleasant to do test.
+>=20
+> >
+> >How many buffers in TX ring on you nic (ethtool -g eth0) ?
+> >
+> Pre-set maximums:
+> RX:             4096
+> RX Mini:        0
+> RX Jumbo:       0
+> TX:             4096
+> Current hardware settings:
+> RX:             512
+> RX Mini:        0
+> RX Jumbo:       0
+> TX:             512
+>=20
+> >What is the datalen value here ? (you prefetch, then advance skb->da=
+ta)
+> >
+> 16. But the following skb_push will drawback 14 bytes.
+>=20
+> >32 or 64bit kernel ?
+> >
+> This is a CentOS 5.5 - 64bit distribution with the latest net-next.
+>=20
+> >How many pps do you get before and after patch ?
+> >
+> A Intel SR1625 server with two E5530 quad-core processors and a singl=
+e
+> ixgbe-based NIC.
+> Without prefetch: 8.63 Mpps
+> With prefetch: 9.03 Mpps
+> Improvement: 4.6%
+>=20
+>=20
+
+Thanks Junchang, please submit your pktgen patch with the two added
+prefetchw(), I'll Ack it :)
+
+
+
