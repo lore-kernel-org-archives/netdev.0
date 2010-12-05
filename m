@@ -1,259 +1,268 @@
-From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH] atm: correct sysfs 'device' link creation and parent
- relationships
-Date: Sun, 05 Dec 2010 16:17:59 -0600
-Message-ID: <1291587480.17538.12.camel@dcbw.foobar.com>
+From: Joy Latten <latten@austin.ibm.com>
+Subject: IPsecv6  tunnel mode fragmentation
+Date: Sun, 05 Dec 2010 16:18:40 -0600
+Message-ID: <1291587520.11224.38.camel@faith.austin.ibm.com>
+Reply-To: latten@austin.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: multipart/mixed; boundary="=-WZWkKaF26AK7u+Vq/J5A"
+Cc: samudrala@us.ibm.com, rashmin@us.ibm.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e1.ny.us.ibm.com ([32.97.182.141]:40543 "EHLO e1.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752454Ab0LEWph (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 5 Dec 2010 17:45:37 -0500
+Received: from d01dlp02.pok.ibm.com (d01dlp02.pok.ibm.com [9.56.224.85])
+	by e1.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id oB5MbUID029753
+	for <netdev@vger.kernel.org>; Sun, 5 Dec 2010 17:37:30 -0500
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by d01dlp02.pok.ibm.com (Postfix) with ESMTP id 0D5614DE803B
+	for <netdev@vger.kernel.org>; Sun,  5 Dec 2010 17:43:49 -0500 (EST)
+Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id oB5MjZ9h195256
+	for <netdev@vger.kernel.org>; Sun, 5 Dec 2010 17:45:35 -0500
+Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av04.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id oB5MjZh9009784
+	for <netdev@vger.kernel.org>; Sun, 5 Dec 2010 15:45:35 -0700
+Received: from austin.ibm.com (netmail2.austin.ibm.com [9.41.248.176])
+	by d03av04.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVin) with ESMTP id oB5MjYMJ009763
+	for <netdev@vger.kernel.org>; Sun, 5 Dec 2010 15:45:35 -0700
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+
+--=-WZWkKaF26AK7u+Vq/J5A
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Duncan Sands <duncan.sands-GANU6spQydw@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Chas Williams <chas-vT06rRrALxcmhCb6mdbn6A@public.gmane.org>,
-	Kay Sievers <kay.sievers-tD+1rO4QERM@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
 
-The ATM subsystem was incorrectly creating the 'device' link for ATM
-nodes in sysfs.  This led to incorrect device/parent relationships
-exposed by sysfs and udev.  Instead of rolling the 'device' link by hand
-in the generic ATM code, pass each ATM driver's bus device down to the
-sysfs code and let sysfs do this stuff correctly.
+We have come across an ipsec problem that I think was
+noted a while back in the following link.
+http://www.mail-archive.com/netdev@vger.kernel.org/msg61659.html
 
-Signed-off-by: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+When an icmpv6 pkt-too-big message for a destination
+is received, it is processed and the route's mtu is adjusted.
 
----
-Note: I preserved original formatting for style consistency instead of
-fixing up checkpatch.pl errors for "space required before XXXX".
+Transport mode uses "adjusted" mtu and works ok, but tunnel-mode
+which has inner and outer iphdrs has problems.
 
-diff --git a/drivers/atm/atmtcp.c b/drivers/atm/atmtcp.c
-index b910181..2b464b6 100644
---- a/drivers/atm/atmtcp.c
-+++ b/drivers/atm/atmtcp.c
-@@ -366,7 +366,7 @@ static int atmtcp_create(int itf,int persist,struct atm_dev **result)
- 	if (!dev_data)
- 		return -ENOMEM;
- 
--	dev = atm_dev_register(DEV_LABEL,&atmtcp_v_dev_ops,itf,NULL);
-+	dev = atm_dev_register(DEV_LABEL,NULL,&atmtcp_v_dev_ops,itf,NULL);
- 	if (!dev) {
- 		kfree(dev_data);
- 		return itf == -1 ? -ENOMEM : -EBUSY;
-diff --git a/drivers/atm/eni.c b/drivers/atm/eni.c
-index 97c5898..c495fae 100644
---- a/drivers/atm/eni.c
-+++ b/drivers/atm/eni.c
-@@ -2244,7 +2244,7 @@ static int __devinit eni_init_one(struct pci_dev *pci_dev,
- 		    &zeroes);
- 		if (!cpu_zeroes) goto out1;
- 	}
--	dev = atm_dev_register(DEV_LABEL,&ops,-1,NULL);
-+	dev = atm_dev_register(DEV_LABEL, &pci_dev->dev, &ops, -1, NULL);
- 	if (!dev) goto out2;
- 	pci_set_drvdata(pci_dev, dev);
- 	eni_dev->pci_dev = pci_dev;
-diff --git a/drivers/atm/firestream.c b/drivers/atm/firestream.c
-index 5d86bb8..7d912ba 100644
---- a/drivers/atm/firestream.c
-+++ b/drivers/atm/firestream.c
-@@ -1911,7 +1911,7 @@ static int __devinit firestream_init_one (struct pci_dev *pci_dev,
- 		    fs_dev, sizeof (struct fs_dev));
- 	if (!fs_dev)
- 		goto err_out;
--	atm_dev = atm_dev_register("fs", &ops, -1, NULL);
-+	atm_dev = atm_dev_register("fs", &pci_dev->dev, &ops, -1, NULL);
- 	if (!atm_dev)
- 		goto err_out_free_fs_dev;
-   
-diff --git a/drivers/atm/he.c b/drivers/atm/he.c
-index 801e8b6..6cf59bf 100644
---- a/drivers/atm/he.c
-+++ b/drivers/atm/he.c
-@@ -366,7 +366,7 @@ he_init_one(struct pci_dev *pci_dev, const struct pci_device_id *pci_ent)
- 		goto init_one_failure;
- 	}
- 
--	atm_dev = atm_dev_register(DEV_LABEL, &he_ops, -1, NULL);
-+	atm_dev = atm_dev_register(DEV_LABEL, &pci_dev->dev, &he_ops, -1, NULL);
- 	if (!atm_dev) {
- 		err = -ENODEV;
- 		goto init_one_failure;
-diff --git a/drivers/atm/nicstar.c b/drivers/atm/nicstar.c
-index 2f3516b..af37a5f 100644
---- a/drivers/atm/nicstar.c
-+++ b/drivers/atm/nicstar.c
-@@ -771,7 +771,7 @@ static int __devinit ns_init_card(int i, struct pci_dev *pcidev)
- 	}
- 
- 	/* Register device */
--	card->atmdev = atm_dev_register("nicstar", &atm_ops, -1, NULL);
-+	card->atmdev = atm_dev_register("nicstar", &card->pcidev->dev, &atm_ops, -1, NULL);
- 	if (card->atmdev == NULL) {
- 		printk("nicstar%d: can't register device.\n", i);
- 		error = 17;
-diff --git a/drivers/atm/solos-pci.c b/drivers/atm/solos-pci.c
-index 2e08c99..73fb1c4 100644
---- a/drivers/atm/solos-pci.c
-+++ b/drivers/atm/solos-pci.c
-@@ -166,7 +166,7 @@ static irqreturn_t solos_irq(int irq, void *dev_id);
- static struct atm_vcc* find_vcc(struct atm_dev *dev, short vpi, int vci);
- static int list_vccs(int vci);
- static void release_vccs(struct atm_dev *dev);
--static int atm_init(struct solos_card *);
-+static int atm_init(struct solos_card *, struct device *);
- static void atm_remove(struct solos_card *);
- static int send_command(struct solos_card *card, int dev, const char *buf, size_t size);
- static void solos_bh(unsigned long);
-@@ -1210,7 +1210,7 @@ static int fpga_probe(struct pci_dev *dev, const struct pci_device_id *id)
- 	if (db_firmware_upgrade)
- 		flash_upgrade(card, 3);
- 
--	err = atm_init(card);
-+	err = atm_init(card, &dev->dev);
- 	if (err)
- 		goto out_free_irq;
- 
-@@ -1233,7 +1233,7 @@ static int fpga_probe(struct pci_dev *dev, const struct pci_device_id *id)
- 	return err;
- }
- 
--static int atm_init(struct solos_card *card)
-+static int atm_init(struct solos_card *card, struct device *parent)
- {
- 	int i;
- 
-@@ -1244,7 +1244,7 @@ static int atm_init(struct solos_card *card)
- 		skb_queue_head_init(&card->tx_queue[i]);
- 		skb_queue_head_init(&card->cli_queue[i]);
- 
--		card->atmdev[i] = atm_dev_register("solos-pci", &fpga_ops, -1, NULL);
-+		card->atmdev[i] = atm_dev_register("solos-pci", parent, &fpga_ops, -1, NULL);
- 		if (!card->atmdev[i]) {
- 			dev_err(&card->dev->dev, "Could not register ATM device %d\n", i);
- 			atm_remove(card);
-diff --git a/drivers/usb/atm/usbatm.c b/drivers/usb/atm/usbatm.c
-index 05bf5a2..989e16e 100644
---- a/drivers/usb/atm/usbatm.c
-+++ b/drivers/usb/atm/usbatm.c
-@@ -951,7 +951,9 @@ static int usbatm_atm_init(struct usbatm_data *instance)
- 	 * condition: callbacks we register can be executed at once, before we have
- 	 * initialized the struct atm_dev.  To protect against this, all callbacks
- 	 * abort if atm_dev->dev_data is NULL. */
--	atm_dev = atm_dev_register(instance->driver_name, &usbatm_atm_devops, -1, NULL);
-+	atm_dev = atm_dev_register(instance->driver_name,
-+				   &instance->usb_intf->dev, &usbatm_atm_devops,
-+				   -1, NULL);
- 	if (!atm_dev) {
- 		usb_err(instance, "%s: failed to register ATM device!\n", __func__);
- 		return -1;
-@@ -966,14 +968,6 @@ static int usbatm_atm_init(struct usbatm_data *instance)
- 	/* temp init ATM device, set to 128kbit */
- 	atm_dev->link_rate = 128 * 1000 / 424;
- 
--	ret = sysfs_create_link(&atm_dev->class_dev.kobj,
--				&instance->usb_intf->dev.kobj, "device");
--	if (ret) {
--		atm_err(instance, "%s: sysfs_create_link failed: %d\n",
--					__func__, ret);
--		goto fail_sysfs;
--	}
--
- 	if (instance->driver->atm_start && ((ret = instance->driver->atm_start(instance, atm_dev)) < 0)) {
- 		atm_err(instance, "%s: atm_start failed: %d!\n", __func__, ret);
- 		goto fail;
-@@ -992,8 +986,6 @@ static int usbatm_atm_init(struct usbatm_data *instance)
- 	return 0;
- 
-  fail:
--	sysfs_remove_link(&atm_dev->class_dev.kobj, "device");
-- fail_sysfs:
- 	instance->atm_dev = NULL;
- 	atm_dev_deregister(atm_dev); /* usbatm_atm_dev_close will eventually be called */
- 	return ret;
-@@ -1329,7 +1321,6 @@ void usbatm_usb_disconnect(struct usb_interface *intf)
- 
- 	/* ATM finalize */
- 	if (instance->atm_dev) {
--		sysfs_remove_link(&instance->atm_dev->class_dev.kobj, "device");
- 		atm_dev_deregister(instance->atm_dev);
- 		instance->atm_dev = NULL;
- 	}
-diff --git a/include/linux/atmdev.h b/include/linux/atmdev.h
-index a8e4e83..475f8c4 100644
---- a/include/linux/atmdev.h
-+++ b/include/linux/atmdev.h
-@@ -427,8 +427,10 @@ extern rwlock_t vcc_sklist_lock;
- 
- #define ATM_SKB(skb) (((struct atm_skb_data *) (skb)->cb))
- 
--struct atm_dev *atm_dev_register(const char *type,const struct atmdev_ops *ops,
--    int number,unsigned long *flags); /* number == -1: pick first available */
-+struct atm_dev *atm_dev_register(const char *type, struct device *parent,
-+				 const struct atmdev_ops *ops,
-+				 int number, /* -1 == pick first available */
-+				 unsigned long *flags);
- struct atm_dev *atm_dev_lookup(int number);
- void atm_dev_deregister(struct atm_dev *dev);
- 
-diff --git a/net/atm/atm_sysfs.c b/net/atm/atm_sysfs.c
-index 799c631..f7fa67c 100644
---- a/net/atm/atm_sysfs.c
-+++ b/net/atm/atm_sysfs.c
-@@ -143,12 +143,13 @@ static struct class atm_class = {
- 	.dev_uevent		= atm_uevent,
- };
- 
--int atm_register_sysfs(struct atm_dev *adev)
-+int atm_register_sysfs(struct atm_dev *adev, struct device *parent)
- {
- 	struct device *cdev = &adev->class_dev;
- 	int i, j, err;
- 
- 	cdev->class = &atm_class;
-+	cdev->parent = parent;
- 	dev_set_drvdata(cdev, adev);
- 
- 	dev_set_name(cdev, "%s%d", adev->type, adev->number);
-diff --git a/net/atm/resources.c b/net/atm/resources.c
-index d29e582..23f45ce 100644
---- a/net/atm/resources.c
-+++ b/net/atm/resources.c
-@@ -74,8 +74,9 @@ struct atm_dev *atm_dev_lookup(int number)
- }
- EXPORT_SYMBOL(atm_dev_lookup);
- 
--struct atm_dev *atm_dev_register(const char *type, const struct atmdev_ops *ops,
--				 int number, unsigned long *flags)
-+struct atm_dev *atm_dev_register(const char *type, struct device *parent,
-+				 const struct atmdev_ops *ops, int number,
-+				 unsigned long *flags)
- {
- 	struct atm_dev *dev, *inuse;
- 
-@@ -115,7 +116,7 @@ struct atm_dev *atm_dev_register(const char *type, const struct atmdev_ops *ops,
- 		goto out_fail;
- 	}
- 
--	if (atm_register_sysfs(dev) < 0) {
-+	if (atm_register_sysfs(dev, parent) < 0) {
- 		pr_err("atm_register_sysfs failed for dev %s\n", type);
- 		atm_proc_dev_deregister(dev);
- 		goto out_fail;
-diff --git a/net/atm/resources.h b/net/atm/resources.h
-index 126fb18..521431e 100644
---- a/net/atm/resources.h
-+++ b/net/atm/resources.h
-@@ -42,6 +42,6 @@ static inline void atm_proc_dev_deregister(struct atm_dev *dev)
- 
- #endif /* CONFIG_PROC_FS */
- 
--int atm_register_sysfs(struct atm_dev *adev);
-+int atm_register_sysfs(struct atm_dev *adev, struct device *parent);
- void atm_unregister_sysfs(struct atm_dev *adev);
- #endif
+ah and esp leave it to the ipv6 layer to fragment.
+So, it seems esp/ah tunnel mode can produce an outgoing ipsec tunnel
+mode pkt whose inner pkthdr has the dst with the adjusted mtu,
+but inner pkt size larger than the adjusted mtu.
+
+The outer pkthdr has tunnel's dst mtu  which has not been 
+adjusted, since the pkt-too-big message was not for it.
+So, ipv6 layer will use outer mtu to decide whether to fragment or not.
+It doesn't appear to use the inner, "adjusted" mtu.
+In the tcpdump attached below, since outer mtu is larger than the
+outgoing pkt's size, it is not fragmented.
+
+Thus lies the problem. So when the link with the "adjusted" mtu
+gets the decrypted packet, the decrypted pkt may be too large for the
+link's mtu. The "adjusted" mtu was never regarded when creating the pkt.
+
+Hopefully, I have explained this clearly, if not
+let me know. Should esp/ah pre-fragment... or should mtu of 
+inner pkt's dst be used for outer pkt? What's the best way to approach
+this? Thanks for any info.
+
+regards,
+Joy 
+
+ipsec config:
+
+target <-------> Secuity gateway <-----> host
+        (tunnel)
+
+attachment is tcpdump from target.
 
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--=-WZWkKaF26AK7u+Vq/J5A
+Content-Disposition: attachment; filename="target.bin"
+Content-Type: application/octet-stream; name="target.bin"
+Content-Transfer-Encoding: base64
+
+1MOyoQIABAAAAAAAAAAAAOgDAAABAAAAyw37TAa2BQBWAAAAVgAAADMz/wAgCgARJT6KfobdYAAA
+AAAgOv/+gAAAAAAAAAIRJf/+Pop+/wIAAAAAAAAAAAAB/wAgCocA/LsAAAAA/oAAAAAAAADQMRD/
+/gAgCgEBABElPop+zA37TIW2BQBWAAAAVgAAADMz/wAgCgARJT6KfobdYAAAAAAgOv/+gAAAAAAA
+AAIRJf/+Pop+/wIAAAAAAAAAAAAB/wAgCocA/LsAAAAA/oAAAAAAAADQMRD//gAgCgEBABElPop+
+zQ37TJ+2BQBWAAAAVgAAADMz/wAgCgARJT6KfobdYAAAAAAgOv/+gAAAAAAAAAIRJf/+Pop+/wIA
+AAAAAAAAAAAB/wAgCocA/LsAAAAA/oAAAAAAAADQMRD//gAgCgEBABElPop+1A37THKGDgBWAAAA
+VgAAADMz/wASNA6U4ACABIbdYAAAAAAgOv8gAQ24AAEAAQAAAAAAAABW/wIAAAAAAAAAAAAB/wAS
+NIcAitEAAAAAIAENuAABAAEAAAAAAAASNAEBDpTgAIAE1A37TNaGDgBWAAAAVgAAAA6U4ACABAAU
+Xm0L4obdYAAAAAAgOv8gAQ24AAEAAQAAAAAAABI0IAENuAABAAEAAAAAAAAAVogA/VBgAAAAIAEN
+uAABAAEAAAAAAAASNAIBABRebQvi1A37TCGIDgDeAwAATgUAAAAUXm0L4g6U4ACABIbdYAAAAAUY
+M/8gAQ24AAEAAQAAAAAAAABWIAENuAABAAEAAAAAAAASNCkEAAAAACAAAAAAAT1tIPAfjdhO2wMb
+aWAAAAAE2Cw/IDMAAQACAAMCCQa/D+YAlSABDbgAAQABAAAAAAAAEjQ6AAABAAABBIAAbXEmbQAA
+TPsLwwABBQ0ICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4
+OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3Bx
+cnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmq
+q6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj
+5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/wABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhsc
+HR4fICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj9AQUJDREVGR0hJSktMTU5PUFFSU1RV
+VldYWVpbXF1eX2BhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5ent8fX5/gIGCg4SFhoeIiYqLjI2O
+j5CRkpOUlZaXmJmam5ydnp+goaKjpKWmp6ipqqusra6vsLGys7S1tre4ubq7vL2+v8DBwsPExcbH
+yMnKy8zNzs/Q0dLT1NXW19jZ2tvc3d7f4OHi4+Tl5ufo6err7O3u7/Dx8vP09fb3+Pn6+/z9/v8A
+AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhIiMkJSYnKCkqKywtLi8wMTIzNDU2Nzg5
+Ojs8PT4/QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl9gYWJjZGVmZ2hpamtsbW5vcHFy
+c3R1dnd4eXp7fH1+f4CBgoOEhYaHiImKi4yNjo+QkZKTlJWWl5iZmpucnZ6foKGio6Slpqeoqaqr
+rK2ur7CxsrO0tba3uLm6u7y9vr/AwcLDxMXGx8jJysvMzc7P0NHS09TV1tfY2drb3N3e3+Dh4uPk
+5ebn6Onq6+zt7u/w8fLz9PX29/j5+vv8/f7/AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwd
+Hh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVW
+V9QN+0xYiA4AygAAAMoAAAAAFF5tC+IOlOAAgASG3WAAAAAAlDP/IAENuAABAAEAAAAAAAAAViAB
+DbgAAQABAAAAAAAAEjQpBAAAAAAgAAAAAAIU8a2QvbffwnhJVNxgAAAAAFQsPyAzAAEAAgADAgkG
+vw/mAJUgAQ24AAEAAQAAAAAAABI0OgAE0AAAAQTIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj
+5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/wABAgMEBQYHCAkKCwwNDg8QERIT1A37TGSIDgDe
+AwAADgUAAAAUXm0L4g6U4ACABIbdYAAAAATYLD8gMwABAAIAAwIJBr8P5gCVIAENuAABAAEAAAAA
+AAASNDoAAAEAAAEEgABtcSZtAABM+wvDAAEFDQgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhIiMk
+JSYnKCkqKywtLi8wMTIzNDU2Nzg5Ojs8PT4/QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xd
+Xl9gYWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXp7fH1+f4CBgoOEhYaHiImKi4yNjo+QkZKTlJWW
+l5iZmpucnZ6foKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr/AwcLDxMXGx8jJysvMzc7P
+0NHS09TV1tfY2drb3N3e3+Dh4uPk5ebn6Onq6+zt7u/w8fLz9PX29/j5+vv8/f7/AAECAwQFBgcI
+CQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BB
+QkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6
+e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKz
+tLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs
+7e7v8PHy8/T19vf4+fr7/P3+/wABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fICEiIyQl
+JicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj9AQUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVpbXF1e
+X2BhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5ent8fX5/gIGCg4SFhoeIiYqLjI2Oj5CRkpOUlZaX
+mJmam5ydnp+goaKjpKWmp6ipqqusra6vsLGys7S1tre4ubq7vL2+v8DBwsPExcbHyMnKy8zNzs/Q
+0dLT1NXW19jZ2tvc3d7f4OHi4+Tl5ufo6err7O3u7/Dx8vP09fb3+Pn6+/z9/v8AAQIDBAUGBwgJ
+CgsMDQ4PEBESExQVFhcYGRobHB0eHyAhIiMkJSYnKCkqKywtLi8wMTIzNDU2Nzg5Ojs8PT4/QEFC
+Q0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl9gYWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXp7
+fH1+f4CBgoOEhYaHiImKi4yNjo+QkZKTlJWWl9QN+0xuiA4AigAAAIoAAAAAFF5tC+IOlOAAgASG
+3WAAAAAAVCw/IDMAAQACAAMCCQa/D+YAlSABDbgAAQABAAAAAAAAEjQ6AATQAAABBMjJysvMzc7P
+0NHS09TV1tfY2drb3N3e3+Dh4uPk5ebn6Onq6+zt7u/w8fLz9PX29/j5+vv8/f7/AAECAwQFBgcI
+CQoLDA0ODxAREhPUDftMxogOAN4DAACSBQAADpTgAIAEABRebQviht1gAAAABVwz/yABDbgAAQAB
+AAAAAAAAEjQgAQ24AAEAAQAAAAAAAABWKQQAAAAAEAAAAAABZFFxsLNXbaeGzdiKYAAAAAUcOkAg
+AQ24AAEAAQAAAAAAABI0IDMAAQACAAMCCQa/D+YAlYEAbHEmbQAATPsLwwABBQ0ICQoLDA0ODxAR
+EhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElK
+S0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKD
+hIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8
+vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T1
+9vf4+fr7/P3+/wABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fICEiIyQlJicoKSorLC0u
+LzAxMjM0NTY3ODk6Ozw9Pj9AQUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVpbXF1eX2BhYmNkZWZn
+aGlqa2xtbm9wcXJzdHV2d3h5ent8fX5/gIGCg4SFhoeIiYqLjI2Oj5CRkpOUlZaXmJmam5ydnp+g
+oaKjpKWmp6ipqqusra6vsLGys7S1tre4ubq7vL2+v8DBwsPExcbHyMnKy8zNzs/Q0dLT1NXW19jZ
+2tvc3d7f4OHi4+Tl5ufo6err7O3u7/Dx8vP09fb3+Pn6+/z9/v8AAQIDBAUGBwgJCgsMDQ4PEBES
+ExQVFhcYGRobHB0eHyAhIiMkJSYnKCkqKywtLi8wMTIzNDU2Nzg5Ojs8PT4/QEFCQ0RFRkdISUpL
+TE1OT1BRUlNUVVZXWFlaW1xdXl9gYWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXp7fH1+f4CBgoOE
+hYaHiImKi4yNjo+QkZKTlJWWl5iZmpucnZ6foKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9
+vr/AwcLDxMXGx8jJysvMzc7P0NHS09TV1tfY2drb3N3e3+Dh4uPk5ebn6Onq6+zt7u/w8fLz9PX2
+9/j5+vv8/f7/AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4v
+MDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5f1A37THGKDgDe
+AwAADgUAAAAUXm0L4g6U4ACABIbdYAAAAATYOkAgAQ24AAEAAQAAAAAAAABWIAENuAABAAEAAAAA
+AAASNAIAPWwAAAUGYAAAAAUcOkAgAQ24AAEAAQAAAAAAABI0IDMAAQACAAMCCQa/D+YAlYEAbHEm
+bQAATPsLwwABBQ0ICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1
+Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1u
+b3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaan
+qKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g
+4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/wABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZ
+GhscHR4fICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj9AQUJDREVGR0hJSktMTU5PUFFS
+U1RVVldYWVpbXF1eX2BhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5ent8fX5/gIGCg4SFhoeIiYqL
+jI2Oj5CRkpOUlZaXmJmam5ydnp+goaKjpKWmp6ipqqusra6vsLGys7S1tre4ubq7vL2+v8DBwsPE
+xcbHyMnKy8zNzs/Q0dLT1NXW19jZ2tvc3d7f4OHi4+Tl5ufo6err7O3u7/Dx8vP09fb3+Pn6+/z9
+/v8AAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhIiMkJSYnKCkqKywtLi8wMTIzNDU2
+Nzg5Ojs8PT4/QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl9gYWJjZGVmZ2hpamtsbW5v
+cHFyc3R1dnd4eXp7fH1+f4CBgoOEhYaHiImKi4yNjo+QkZKTlJWWl5iZmpucnZ6foKGio6Slpqeo
+qaqrrK2ur7CxsrO0tba3uLm6u7y9vr/AwcLDxMXGx8jJysvMzc7P0NHS09TV1tfY2drb3N3e3+Dh
+4uPk5ebn6Onq6+zt7u/w8fLz9PX29/j5+vv8/f7/AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBka
+GxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJT
+VFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub9UN+0weeA4A3gMAAE4FAAAAFF5tC+IOlOAAgASG
+3WAAAAAFGDP/IAENuAABAAEAAAAAAAAAViABDbgAAQABAAAAAAAAEjQpBAAAAAAgAAAAAAM+Iofg
+q9CXwALsI/RgAAAABNgsPyAzAAEAAgADAgkGvw/mAJUgAQ24AAEAAQAAAAAAABI0OgAAAQAAAQWA
+AGtzJm0AAUz7C8QAAQcJCAkKCwwNDg8QERITFBUWFxgZGhscHR4fICEiIyQlJicoKSorLC0uLzAx
+MjM0NTY3ODk6Ozw9Pj9AQUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVpbXF1eX2BhYmNkZWZnaGlq
+a2xtbm9wcXJzdHV2d3h5ent8fX5/gIGCg4SFhoeIiYqLjI2Oj5CRkpOUlZaXmJmam5ydnp+goaKj
+pKWmp6ipqqusra6vsLGys7S1tre4ubq7vL2+v8DBwsPExcbHyMnKy8zNzs/Q0dLT1NXW19jZ2tvc
+3d7f4OHi4+Tl5ufo6err7O3u7/Dx8vP09fb3+Pn6+/z9/v8AAQIDBAUGBwgJCgsMDQ4PEBESExQV
+FhcYGRobHB0eHyAhIiMkJSYnKCkqKywtLi8wMTIzNDU2Nzg5Ojs8PT4/QEFCQ0RFRkdISUpLTE1O
+T1BRUlNUVVZXWFlaW1xdXl9gYWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXp7fH1+f4CBgoOEhYaH
+iImKi4yNjo+QkZKTlJWWl5iZmpucnZ6foKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr/A
+wcLDxMXGx8jJysvMzc7P0NHS09TV1tfY2drb3N3e3+Dh4uPk5ebn6Onq6+zt7u/w8fLz9PX29/j5
++vv8/f7/AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEy
+MzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWpr
+bG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOk
+paanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd
+3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/wABAgMEBQYHCAkKCwwNDg8QERITFBUW
+FxgZGhscHR4fICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj9AQUJDREVGR0hJSktMTU5P
+UFFSU1RVVlfVDftMS3gOAMoAAADKAAAAABRebQviDpTgAIAEht1gAAAAAJQz/yABDbgAAQABAAAA
+AAAAAFYgAQ24AAEAAQAAAAAAABI0KQQAAAAAIAAAAAAE93TkWyei4YdDcNN7YAAAAABULD8gMwAB
+AAIAAwIJBr8P5gCVIAENuAABAAEAAAAAAAASNDoABNAAAAEFyMnKy8zNzs/Q0dLT1NXW19jZ2tvc
+3d7f4OHi4+Tl5ufo6err7O3u7/Dx8vP09fb3+Pn6+/z9/v8AAQIDBAUGBwgJCgsMDQ4PEBESE9UN
++0xXeA4A3gMAAA4FAAAAFF5tC+IOlOAAgASG3WAAAAAE2Cw/IDMAAQACAAMCCQa/D+YAlSABDbgA
+AQABAAAAAAAAEjQ6AAABAAABBYAAa3MmbQABTPsLxAABBwkICQoLDA0ODxAREhMUFRYXGBkaGxwd
+Hh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVW
+V1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6P
+kJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfI
+ycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/wAB
+AgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6
+Ozw9Pj9AQUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVpbXF1eX2BhYmNkZWZnaGlqa2xtbm9wcXJz
+dHV2d3h5ent8fX5/gIGCg4SFhoeIiYqLjI2Oj5CRkpOUlZaXmJmam5ydnp+goaKjpKWmp6ipqqus
+ra6vsLGys7S1tre4ubq7vL2+v8DBwsPExcbHyMnKy8zNzs/Q0dLT1NXW19jZ2tvc3d7f4OHi4+Tl
+5ufo6err7O3u7/Dx8vP09fb3+Pn6+/z9/v8AAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0e
+HyAhIiMkJSYnKCkqKywtLi8wMTIzNDU2Nzg5Ojs8PT4/QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZX
+WFlaW1xdXl9gYWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXp7fH1+f4CBgoOEhYaHiImKi4yNjo+Q
+kZKTlJWWl5iZmpucnZ6foKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr/AwcLDxMXGx8jJ
+ysvMzc7P0NHS09TV1tfY2drb3N3e3+Dh4uPk5ebn6Onq6+zt7u/w8fLz9PX29/j5+vv8/f7/AAEC
+AwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7
+PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0
+dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpfVDftMYHgOAIoAAACKAAAAABRebQvi
+DpTgAIAEht1gAAAAAFQsPyAzAAEAAgADAgkGvw/mAJUgAQ24AAEAAQAAAAAAABI0OgAE0AAAAQXI
+ycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/wAB
+AgMEBQYHCAkKCwwNDg8QERIT1Q37TLx4DgDeAwAAkgUAAA6U4ACABAAUXm0L4obdYAAAAAVcM/8g
+AQ24AAEAAQAAAAAAABI0IAENuAABAAEAAAAAAAAAVikEAAAAABAAAAAAAr1//EtIrl2IfQHkmmAA
+AAAFHDpAIAENuAABAAEAAAAAAAASNCAzAAEAAgADAgkGvw/mAJWBAGpzJm0AAUz7C8QAAQcJCAkK
+CwwNDg8QERITFBUWFxgZGhscHR4fICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj9AQUJD
+REVGR0hJSktMTU5PUFFSU1RVVldYWVpbXF1eX2BhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5ent8
+fX5/gIGCg4SFhoeIiYqLjI2Oj5CRkpOUlZaXmJmam5ydnp+goaKjpKWmp6ipqqusra6vsLGys7S1
+tre4ubq7vL2+v8DBwsPExcbHyMnKy8zNzs/Q0dLT1NXW19jZ2tvc3d7f4OHi4+Tl5ufo6err7O3u
+7/Dx8vP09fb3+Pn6+/z9/v8AAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhIiMkJSYn
+KCkqKywtLi8wMTIzNDU2Nzg5Ojs8PT4/QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl9g
+YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXp7fH1+f4CBgoOEhYaHiImKi4yNjo+QkZKTlJWWl5iZ
+mpucnZ6foKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr/AwcLDxMXGx8jJysvMzc7P0NHS
+09TV1tfY2drb3N3e3+Dh4uPk5ebn6Onq6+zt7u/w8fLz9PX29/j5+vv8/f7/AAECAwQFBgcICQoL
+DA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNE
+RUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9
+fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2
+t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v
+8PHy8/T19vf4+fr7/P3+/wABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fICEiIyQlJico
+KSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj9AQUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVpbXF1eX9UN
++0xoeg4A3gMAAA4FAAAAFF5tC+IOlOAAgASG3WAAAAAE2DpAIAENuAABAAEAAAAAAAAAViABDbgA
+AQABAAAAAAAAEjQCAD1sAAAFBmAAAAAFHDpAIAENuAABAAEAAAAAAAASNCAzAAEAAgADAgkGvw/m
+AJWBAGpzJm0AAUz7C8QAAQcJCAkKCwwNDg8QERITFBUWFxgZGhscHR4fICEiIyQlJicoKSorLC0u
+LzAxMjM0NTY3ODk6Ozw9Pj9AQUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVpbXF1eX2BhYmNkZWZn
+aGlqa2xtbm9wcXJzdHV2d3h5ent8fX5/gIGCg4SFhoeIiYqLjI2Oj5CRkpOUlZaXmJmam5ydnp+g
+oaKjpKWmp6ipqqusra6vsLGys7S1tre4ubq7vL2+v8DBwsPExcbHyMnKy8zNzs/Q0dLT1NXW19jZ
+2tvc3d7f4OHi4+Tl5ufo6err7O3u7/Dx8vP09fb3+Pn6+/z9/v8AAQIDBAUGBwgJCgsMDQ4PEBES
+ExQVFhcYGRobHB0eHyAhIiMkJSYnKCkqKywtLi8wMTIzNDU2Nzg5Ojs8PT4/QEFCQ0RFRkdISUpL
+TE1OT1BRUlNUVVZXWFlaW1xdXl9gYWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXp7fH1+f4CBgoOE
+hYaHiImKi4yNjo+QkZKTlJWWl5iZmpucnZ6foKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9
+vr/AwcLDxMXGx8jJysvMzc7P0NHS09TV1tfY2drb3N3e3+Dh4uPk5ebn6Onq6+zt7u/w8fLz9PX2
+9/j5+vv8/f7/AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4v
+MDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdo
+aWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6Ch
+oqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna
+29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/wABAgMEBQYHCAkKCwwNDg8QERIT
+FBUWFxgZGhscHR4fICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj9AQUJDREVGR0hJSktM
+TU5PUFFSU1RVVldYWVpbXF1eX2BhYmNkZWZnaGlqa2xtbm/ZDftMO6YOAFYAAABWAAAADpTgAIAE
+ABRebQviht1gAAAAACA6//6AAAAAAAAAAhRe//5tC+IgAQ24AAEAAQAAAAAAAABWhwBHOgAAAAAg
+AQ24AAEAAQAAAAAAAABWAQEAFF5tC+LZDftMTKcOAE4AAABOAAAAABRebQviDpTgAIAEht1gAAAA
+ABg6/yABDbgAAQABAAAAAAAAAFb+gAAAAAAAAAIUXv/+bQviiADxpcAAAAAgAQ24AAEAAQAAAAAA
+AABW3w37TF3cAgBWAAAAVgAAADMz/z6TJgANYNSaGIbdYAAAAAAgOv/+gAAAAAAAAAINYP/+1JoY
+/wIAAAAAAAAAAAAB/z6TJocAOM8AAAAA/oAAAAAAAAACESX//j6TJgEBAA1g1JoY3w37TK3pAgBW
+AAAAVgAAADMz/z6TJgANYNTEyIbdYAAAAAAgOv/+gAAAAAAAAAINYP/+1MTI/wIAAAAAAAAAAAAB
+/z6TJocA424AAAAA/oAAAAAAAAACESX//j6TJgEBAA1g1MTI3w37TD/yAgBWAAAAVgAAADMz/z6T
+JgANYBxTGIbdYAAAAAAgOv/+gAAAAAAAAAINYP/+HFMY/wIAAAAAAAAAAAAB/z6TJocAyD8AAAAA
+/oAAAAAAAAACESX//j6TJgEBAA1gHFMY4w37TISkCQBWAAAAVgAAADMz/wAgCgARJT6KfobdYAAA
+AAAgOv/+gAAAAAAAAAIRJf/+Pop+/wIAAAAAAAAAAAAB/wAgCocA/LsAAAAA/oAAAAAAAADQMRD/
+/gAgCgEBABElPop+5A37TAGlCQBWAAAAVgAAADMz/wAgCgARJT6KfobdYAAAAAAgOv/+gAAAAAAA
+AAIRJf/+Pop+/wIAAAAAAAAAAAAB/wAgCocA/LsAAAAA/oAAAAAAAADQMRD//gAgCgEBABElPop+
+5Q37TEKlCQBWAAAAVgAAADMz/wAgCgARJT6KfobdYAAAAAAgOv/+gAAAAAAAAAIRJf/+Pop+/wIA
+AAAAAAAAAAAB/wAgCocA/LsAAAAA/oAAAAAAAADQMRD//gAgCgEBABElPop+7Q37TFQDBgBWAAAA
+VgAAADMz/6PDxwAaZJcJrIbdYAAAAAAgOv/+gAAAAAAAAAIaZP/+lwms/wIAAAAAAAAAAAAB/6PD
+x4cAqgMAAAAA/oAAAAAAAAACCWv//qPDxwEBABpklwms
+
+
+--=-WZWkKaF26AK7u+Vq/J5A--
+
