@@ -1,140 +1,264 @@
-From: Michael Leun <lkml20101129@newton.leun.net>
-Subject: Re: [PATCH 2.6.36] vlan: Avoid hwaccel vlan packets when vid not
- used
-Date: Sun, 5 Dec 2010 03:07:12 +0100
-Message-ID: <20101205030712.36149bc2@xenia.leun.net>
-References: <20101129201716.1d0257c4@xenia.leun.net>
-	<4CF442FA.4070701@candelatech.com>
-	<20101130095944.41b5f7b6@xenia.leun.net>
-	<1291108809.2904.3.camel@edumazet-laptop>
-	<20101201111716.424fb771@xenia.leun.net>
-	<1291200914.2856.546.camel@edumazet-laptop>
+From: Roopa Prabhu <roprabhu@cisco.com>
+Subject: [net-next-2.6 PATCH] enic: Add ndo_set_rx_mode support for enic vnics
+Date: Sat, 04 Dec 2010 22:23:36 -0800
+Message-ID: <20101205062336.28056.72156.stgit@savbu-pc100.cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Ben Greear <greearb@candelatech.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Jesse Gross <jesse@nicira.com>, stable@kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1291200914.2856.546.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sj-iport-3.cisco.com ([171.71.176.72]:11003 "EHLO
+	sj-iport-3.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752135Ab0LEGXh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Dec 2010 01:23:37 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 01 Dec 2010 11:55:14 +0100
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+From: Roopa Prabhu <roprabhu@cisco.com>
 
-> Le mercredi 01 d=E9cembre 2010 =E0 11:17 +0100, Michael Leun a =E9cri=
-t :
->=20
-> > Yup, from what I've tested this works (and tcpdump sees broadcast
-> > packets even for vlans not configured at the moment including vlan
-> > tag
-> > - yipee!).
-> >
+Add ndo_set_rx_mode support to register unicast and multicast address filters for enic vnics
 
-This was tested on machine with
-root@tp_z61m:~/src/tcpdump-4.1.1# lspci|grep Eth
-02:00.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5752M Gi=
-gabit Ethernet PCI Express (rev 02)
-
-There it works as I said.
-
-But on
-
-hpdl320g5:/home/ml # lspci | grep Eth
-03:04.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5714 Gig=
-abit Ethernet (rev a3)
-03:04.1 Ethernet controller: Broadcom Corporation NetXtreme BCM5714 Gig=
-abit Ethernet (rev a3)
-
-the good message is that it also does not crash, but with tcpdump I see
-vlan tags when no vlan devices configured on the respective eth, if so
-I do not see tags anymore vlan tags on the trunk interface.
-
-hpdl320g5:/home/ml # ifconfig -a
-[...]
-eth1      Link encap:Ethernet  Hardware Adresse xx:xx:xx:xx:xx:xx =20
-          UP BROADCAST MULTICAST  MTU:1500  Metric:1
-          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 Sendewarteschlangenl=E4nge:1000=20
-          RX bytes:0 (0.0 b)  TX bytes:0 (0.0 b)
-          Interrupt:17=20
-[...]
-
-hpdl320g5:/home/ml # tcpdump -i eth1 -n -e
-tcpdump: WARNING: eth1: no IPv4 address assigned
-tcpdump: verbose output suppressed, use -v or -vv for full protocol dec=
-ode
-listening on eth1, link-type EN10MB (Ethernet), capture size 96 bytes
-[...]
-02:45:57.597640 xx:xx:xx:xx:xx:xx > ff:ff:ff:ff:ff:ff, ethertype 802.1Q=
- (0x8100), length 64: vlan 1505, p 0, ethertype 802.1Q, vlan 99, p 3, e=
-thertype ARP, arp who-has 10.0.0.1 tell 10.0.0.2
-02:45:57.622654 xx:xx:xx:xx:xx:xx > ff:ff:ff:ff:ff:ff, ethertype 802.1Q=
- (0x8100), length 64: vlan 1505, p 0, ethertype 802.1Q, vlan 99, p 3, e=
-thertype ARP, arp who-has 10.0.0.1 tell 10.0.0.2
-[...]
-
-hpdl320g5:/home/ml # vconfig add eth1 2
-WARNING:  Could not open /proc/net/vlan/config.  Maybe you need to load=
- the 8021q module, or maybe you are not using PROCFS??
-Added VLAN with VID =3D=3D 2 to IF -:eth1:-
-hpdl320g5:/home/ml # cat /proc/net/vlan/config=20
-VLAN Dev name    | VLAN ID
-Name-Type: VLAN_NAME_TYPE_RAW_PLUS_VID_NO_PAD
-eth1.2         | 2  | eth1
-hpdl320g5:/home/ml # tcpdump -i eth1 -n -e
-tcpdump: WARNING: eth1: no IPv4 address assigned
-tcpdump: verbose output suppressed, use -v or -vv for full protocol dec=
-ode
-listening on eth1, link-type EN10MB (Ethernet), capture size 96 bytes
-[...]
-02:50:18.095959 xx:xx:xx:xx:xx:xx > ff:ff:ff:ff:ff:ff, ethertype 802.1Q=
- (0x8100), length 60: vlan 99, p 3, ethertype ARP, arp who-has 10.0.0.1=
- tell 10.0.0.2
-02:50:18.120989 xx:xx:xx:xx:xx:xx > ff:ff:ff:ff:ff:ff, ethertype 802.1Q=
- (0x8100), length 60: vlan 99, p 3, ethertype ARP, arp who-has 10.0.0.1=
- tell 10.0.0.2
-[...]
-
-The same packages we saw double vlan tagged a few minutes ago now appea=
-r single vlan tagged (and of course, other packets that were shown sing=
-le vlan tagged before are now shown without vlan tag / eth type 0x0800)=
-=2E
+Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
+Signed-off-by: Vasanthy Kolluri <vkolluri@cisco.com>
+Signed-off-by: David Wang <dwang2@cisco.com>
+Signed-off-by: Christian Benvenuti <benve@cisco.com>
+---
+ drivers/net/enic/enic.h      |    4 +
+ drivers/net/enic/enic_main.c |  121 ++++++++++++++++++++++++++++++++++--------
+ drivers/net/enic/enic_res.h  |    1 
+ 3 files changed, 102 insertions(+), 24 deletions(-)
 
 
-On the other machine:
+diff --git a/drivers/net/enic/enic.h b/drivers/net/enic/enic.h
+index a930fb9..084190e 100644
+--- a/drivers/net/enic/enic.h
++++ b/drivers/net/enic/enic.h
+@@ -32,7 +32,7 @@
+ 
+ #define DRV_NAME		"enic"
+ #define DRV_DESCRIPTION		"Cisco VIC Ethernet NIC Driver"
+-#define DRV_VERSION		"1.4.1.8"
++#define DRV_VERSION		"1.4.1.9"
+ #define DRV_COPYRIGHT		"Copyright 2008-2010 Cisco Systems, Inc"
+ 
+ #define ENIC_BARS_MAX		6
+@@ -78,8 +78,10 @@ struct enic {
+ 	spinlock_t devcmd_lock;
+ 	u8 mac_addr[ETH_ALEN];
+ 	u8 mc_addr[ENIC_MULTICAST_PERFECT_FILTERS][ETH_ALEN];
++	u8 uc_addr[ENIC_UNICAST_PERFECT_FILTERS][ETH_ALEN];
+ 	unsigned int flags;
+ 	unsigned int mc_count;
++	unsigned int uc_count;
+ 	int csum_rx_enabled;
+ 	u32 port_mtu;
+ 	u32 rx_coalesce_usecs;
+diff --git a/drivers/net/enic/enic_main.c b/drivers/net/enic/enic_main.c
+index 075ca5f..de7b25c 100644
+--- a/drivers/net/enic/enic_main.c
++++ b/drivers/net/enic/enic_main.c
+@@ -1002,7 +1002,7 @@ static int enic_dev_packet_filter(struct enic *enic, int directed,
+ 	return err;
+ }
+ 
+-static int enic_dev_add_multicast_addr(struct enic *enic, u8 *addr)
++static int enic_dev_add_addr(struct enic *enic, u8 *addr)
+ {
+ 	int err;
+ 
+@@ -1013,7 +1013,7 @@ static int enic_dev_add_multicast_addr(struct enic *enic, u8 *addr)
+ 	return err;
+ }
+ 
+-static int enic_dev_del_multicast_addr(struct enic *enic, u8 *addr)
++static int enic_dev_del_addr(struct enic *enic, u8 *addr)
+ {
+ 	int err;
+ 
+@@ -1024,29 +1024,19 @@ static int enic_dev_del_multicast_addr(struct enic *enic, u8 *addr)
+ 	return err;
+ }
+ 
+-/* netif_tx_lock held, BHs disabled */
+-static void enic_set_multicast_list(struct net_device *netdev)
++static void enic_add_multicast_addr_list(struct enic *enic)
+ {
+-	struct enic *enic = netdev_priv(netdev);
++	struct net_device *netdev = enic->netdev;
+ 	struct netdev_hw_addr *ha;
+-	int directed = 1;
+-	int multicast = (netdev->flags & IFF_MULTICAST) ? 1 : 0;
+-	int broadcast = (netdev->flags & IFF_BROADCAST) ? 1 : 0;
+-	int promisc = (netdev->flags & IFF_PROMISC) ? 1 : 0;
+ 	unsigned int mc_count = netdev_mc_count(netdev);
+-	int allmulti = (netdev->flags & IFF_ALLMULTI) ||
+-		mc_count > ENIC_MULTICAST_PERFECT_FILTERS;
+-	unsigned int flags = netdev->flags | (allmulti ? IFF_ALLMULTI : 0);
+ 	u8 mc_addr[ENIC_MULTICAST_PERFECT_FILTERS][ETH_ALEN];
+ 	unsigned int i, j;
+ 
+-	if (mc_count > ENIC_MULTICAST_PERFECT_FILTERS)
++	if (mc_count > ENIC_MULTICAST_PERFECT_FILTERS) {
++		netdev_warn(netdev, "Registering only %d out of %d "
++			"multicast addresses\n",
++			ENIC_MULTICAST_PERFECT_FILTERS, mc_count);
+ 		mc_count = ENIC_MULTICAST_PERFECT_FILTERS;
+-
+-	if (enic->flags != flags) {
+-		enic->flags = flags;
+-		enic_dev_packet_filter(enic, directed,
+-			multicast, broadcast, promisc, allmulti);
+ 	}
+ 
+ 	/* Is there an easier way?  Trying to minimize to
+@@ -1068,7 +1058,7 @@ static void enic_set_multicast_list(struct net_device *netdev)
+ 				mc_addr[j]) == 0)
+ 				break;
+ 		if (j == mc_count)
+-			enic_dev_del_multicast_addr(enic, enic->mc_addr[i]);
++			enic_dev_del_addr(enic, enic->mc_addr[i]);
+ 	}
+ 
+ 	for (i = 0; i < mc_count; i++) {
+@@ -1077,7 +1067,7 @@ static void enic_set_multicast_list(struct net_device *netdev)
+ 				enic->mc_addr[j]) == 0)
+ 				break;
+ 		if (j == enic->mc_count)
+-			enic_dev_add_multicast_addr(enic, mc_addr[i]);
++			enic_dev_add_addr(enic, mc_addr[i]);
+ 	}
+ 
+ 	/* Save the list to compare against next time
+@@ -1089,6 +1079,89 @@ static void enic_set_multicast_list(struct net_device *netdev)
+ 	enic->mc_count = mc_count;
+ }
+ 
++static void enic_add_unicast_addr_list(struct enic *enic)
++{
++	struct net_device *netdev = enic->netdev;
++	struct netdev_hw_addr *ha;
++	unsigned int uc_count = netdev_uc_count(netdev);
++	u8 uc_addr[ENIC_UNICAST_PERFECT_FILTERS][ETH_ALEN];
++	unsigned int i, j;
++
++	if (uc_count > ENIC_UNICAST_PERFECT_FILTERS) {
++		netdev_warn(netdev, "Registering only %d out of %d "
++			"unicast addresses\n",
++			ENIC_UNICAST_PERFECT_FILTERS, uc_count);
++		uc_count = ENIC_UNICAST_PERFECT_FILTERS;
++	}
++
++	/* Is there an easier way?  Trying to minimize to
++	 * calls to add/del unicast addrs.  We keep the
++	 * addrs from the last call in enic->uc_addr and
++	 * look for changes to add/del.
++	 */
++
++	i = 0;
++	netdev_for_each_uc_addr(ha, netdev) {
++		if (i == uc_count)
++			break;
++		memcpy(uc_addr[i++], ha->addr, ETH_ALEN);
++	}
++
++	for (i = 0; i < enic->uc_count; i++) {
++		for (j = 0; j < uc_count; j++)
++			if (compare_ether_addr(enic->uc_addr[i],
++				uc_addr[j]) == 0)
++				break;
++		if (j == uc_count)
++			enic_dev_del_addr(enic, enic->uc_addr[i]);
++	}
++
++	for (i = 0; i < uc_count; i++) {
++		for (j = 0; j < enic->uc_count; j++)
++			if (compare_ether_addr(uc_addr[i],
++				enic->uc_addr[j]) == 0)
++				break;
++		if (j == enic->uc_count)
++			enic_dev_add_addr(enic, uc_addr[i]);
++	}
++
++	/* Save the list to compare against next time
++	 */
++
++	for (i = 0; i < uc_count; i++)
++		memcpy(enic->uc_addr[i], uc_addr[i], ETH_ALEN);
++
++	enic->uc_count = uc_count;
++}
++
++/* netif_tx_lock held, BHs disabled */
++static void enic_set_rx_mode(struct net_device *netdev)
++{
++	struct enic *enic = netdev_priv(netdev);
++	int directed = 1;
++	int multicast = (netdev->flags & IFF_MULTICAST) ? 1 : 0;
++	int broadcast = (netdev->flags & IFF_BROADCAST) ? 1 : 0;
++	int promisc = (netdev->flags & IFF_PROMISC) ||
++		netdev_uc_count(netdev) > ENIC_UNICAST_PERFECT_FILTERS;
++	int allmulti = (netdev->flags & IFF_ALLMULTI) ||
++		netdev_mc_count(netdev) > ENIC_MULTICAST_PERFECT_FILTERS;
++	unsigned int flags = netdev->flags |
++		(allmulti ? IFF_ALLMULTI : 0) |
++		(promisc ? IFF_PROMISC : 0);
++
++	if (enic->flags != flags) {
++		enic->flags = flags;
++		enic_dev_packet_filter(enic, directed,
++			multicast, broadcast, promisc, allmulti);
++	}
++
++	if (!promisc) {
++		enic_add_unicast_addr_list(enic);
++		if (!allmulti)
++			enic_add_multicast_addr_list(enic);
++	}
++}
++
+ /* rtnl lock is held */
+ static void enic_vlan_rx_register(struct net_device *netdev,
+ 	struct vlan_group *vlan_group)
+@@ -1852,7 +1925,7 @@ static int enic_open(struct net_device *netdev)
+ 		vnic_rq_enable(&enic->rq[i]);
+ 
+ 	enic_dev_add_station_addr(enic);
+-	enic_set_multicast_list(netdev);
++	enic_set_rx_mode(netdev);
+ 
+ 	netif_wake_queue(netdev);
+ 
+@@ -2328,7 +2401,8 @@ static const struct net_device_ops enic_netdev_dynamic_ops = {
+ 	.ndo_start_xmit		= enic_hard_start_xmit,
+ 	.ndo_get_stats		= enic_get_stats,
+ 	.ndo_validate_addr	= eth_validate_addr,
+-	.ndo_set_multicast_list	= enic_set_multicast_list,
++	.ndo_set_rx_mode	= enic_set_rx_mode,
++	.ndo_set_multicast_list	= enic_set_rx_mode,
+ 	.ndo_set_mac_address	= enic_set_mac_address_dynamic,
+ 	.ndo_change_mtu		= enic_change_mtu,
+ 	.ndo_vlan_rx_register	= enic_vlan_rx_register,
+@@ -2349,7 +2423,8 @@ static const struct net_device_ops enic_netdev_ops = {
+ 	.ndo_get_stats		= enic_get_stats,
+ 	.ndo_validate_addr	= eth_validate_addr,
+ 	.ndo_set_mac_address	= enic_set_mac_address,
+-	.ndo_set_multicast_list	= enic_set_multicast_list,
++	.ndo_set_rx_mode	= enic_set_rx_mode,
++	.ndo_set_multicast_list	= enic_set_rx_mode,
+ 	.ndo_change_mtu		= enic_change_mtu,
+ 	.ndo_vlan_rx_register	= enic_vlan_rx_register,
+ 	.ndo_vlan_rx_add_vid	= enic_vlan_rx_add_vid,
+diff --git a/drivers/net/enic/enic_res.h b/drivers/net/enic/enic_res.h
+index 9a103d9..25be273 100644
+--- a/drivers/net/enic/enic_res.h
++++ b/drivers/net/enic/enic_res.h
+@@ -34,6 +34,7 @@
+ #define ENIC_MAX_MTU			9000
+ 
+ #define ENIC_MULTICAST_PERFECT_FILTERS	32
++#define ENIC_UNICAST_PERFECT_FILTERS	32
+ 
+ #define ENIC_NON_TSO_MAX_DESC		16
+ 
 
-root@tp_z61m:~# cat /proc/net/vlan/config=20
-VLAN Dev name    | VLAN ID
-Name-Type: VLAN_NAME_TYPE_RAW_PLUS_VID_NO_PAD
-eth0.741       | 741  | eth0
-eth0.2         | 2  | eth0
-root@tp_z61m:~/src/tcpdump-4.1.1# ./tcpdump -i eth0 -n -e not port 22
-tcpdump: WARNING: eth0: no IPv4 address assigned
-tcpdump: verbose output suppressed, use -v or -vv for full protocol dec=
-ode
-listening on eth0, link-type EN10MB (Ethernet), capture size 65535 byte=
-s
-03:06:51.859016 xx:xx:xx:xx:xx:xx > ff:ff:ff:ff:ff:ff, ethertype 802.1Q=
- (0x8100), length 64: vlan 1505, p 0, ethertype 802.1Q, vlan 99, p 3, e=
-thertype ARP, Request who-has 10.0.0.1 tell 10.0.0.2, length 42
-03:06:51.883956 xx:xx:xx:xx:xx:xx > ff:ff:ff:ff:ff:ff, ethertype 802.1Q=
- (0x8100), length 64: vlan 1505, p 0, ethertype 802.1Q, vlan 99, p 3, e=
-thertype ARP, Request who-has 10.0.0.1 tell 10.0.0.2, length 42
-
-
-
-[...]
-> Here is the revised patch again then for stable team, via David Mille=
-r
-> agreement.
-[...]
-
---=20
-MfG,
-
-Michael Leun
