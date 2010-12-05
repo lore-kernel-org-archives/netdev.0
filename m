@@ -1,7 +1,7 @@
-From: jamal <hadi@cyberus.ca>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH 3/3] ifb: move tq from ifb_private
-Date: Sun, 05 Dec 2010 10:31:33 -0500
-Message-ID: <1291563093.2159.694.camel@mojatatu>
+Date: Sun, 05 Dec 2010 16:13:36 +0100
+Message-ID: <1291562016.2806.257.camel@edumazet-laptop>
 References: <1291442121-3302-1-git-send-email-xiaosuo@gmail.com>
 	 <1291442121-3302-3-git-send-email-xiaosuo@gmail.com>
 	 <4CFA3F01.20109@gmail.com> <1291472889.2159.18.camel@mojatatu>
@@ -11,35 +11,62 @@ References: <1291442121-3302-1-git-send-email-xiaosuo@gmail.com>
 	 <AANLkTimMvb187gOFzZZgWuzWJkk_Z3AOZaoc6M76H-e=@mail.gmail.com>
 	 <1291559402.2159.687.camel@mojatatu>
 	 <AANLkTimXDTTNcrFPngzEuoDGVgojtBxUZQPOMiSA7yNw@mail.gmail.com>
-	 <1291562028.2159.692.camel@mojatatu>
-	 <AANLkTimLd=d94Cnh8dsX8HFFeYM4mBGH1gpK+p3YT-hm@mail.gmail.com>
-Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jarek Poplawski <jarkao2@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: hadi@cyberus.ca, Jarek Poplawski <jarkao2@gmail.com>,
+	netdev@vger.kernel.org
 To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f180.google.com ([209.85.161.180]:44831 "EHLO
-	mail-gx0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755155Ab0LEPbu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Dec 2010 10:31:50 -0500
-Received: by gxk19 with SMTP id 19so6097673gxk.11
-        for <netdev@vger.kernel.org>; Sun, 05 Dec 2010 07:31:49 -0800 (PST)
-In-Reply-To: <AANLkTimLd=d94Cnh8dsX8HFFeYM4mBGH1gpK+p3YT-hm@mail.gmail.com>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:47188 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755155Ab0LEPNo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Dec 2010 10:13:44 -0500
+Received: by wwa36 with SMTP id 36so11906658wwa.1
+        for <netdev@vger.kernel.org>; Sun, 05 Dec 2010 07:13:43 -0800 (PST)
+In-Reply-To: <AANLkTimXDTTNcrFPngzEuoDGVgojtBxUZQPOMiSA7yNw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2010-12-05 at 23:22 +0800, Changli Gao wrote:
+Le dimanche 05 d=C3=A9cembre 2010 =C3=A0 22:40 +0800, Changli Gao a =C3=
+=A9crit :
+> On Sun, Dec 5, 2010 at 10:30 PM, jamal <hadi@cyberus.ca> wrote:
+> > On Sun, 2010-12-05 at 09:13 +0800, Changli Gao wrote:
+> >
+> >> BTW: My ultimate goal is making ifb a multi-queue NIC, and the num=
+ber
+> >> of queues is equal to the number of the possible CPUs.
+> >
+> >
+> > My view is this is going to be tricky because:
+> > - we use tasklets. When we  reschedule we can end up on a differren=
+t
+> > cpu.
+>=20
+> The tasklets always been scheduled to the current CPU unless it has
+> been schedule already on the other CPU.
+>=20
+> > -I dont see any point in having a separate softIRQ
+> > - and if you do use other mechanisms it would require a lot more
+> > testing since there are quiet a few use cases of ifb
+> >
+>=20
+> I keep using tasklet. The attachment is the alpha version.
+>=20
 
-> The current implementation can guarantee it. However, I can't find
-> documentation about this 'feature', but I think this behavior should
-> not be changed in future since maybe some call sites relay on it.
+        for_each_possible_cpu(cpu) {
+                q =3D per_cpu_ptr(p->q, cpu);
+=2E..
 
-When you think you are in good shape - please add some debug hooks
-so we can verify this especially under a huge traffic input and
-I will test it (thats what end of year holidays are for).
+        dev_ifb =3D alloc_netdev_mq(sizeof(struct ifb_private), "ifb%d"=
+,
+                                  ifb_setup, num_possible_cpus());
 
-cheers,
-jamal
+This is a very usual error.
+
+You can have machines with 2 possibles cpus, numbered 0 and 8
+
+Therere, you must use nr_cpu_ids here instead of num_possible_cpus()
+
+
 
