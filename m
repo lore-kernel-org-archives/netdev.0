@@ -1,116 +1,145 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 2.6.36] vlan: Avoid hwaccel vlan packets when
- vid not used
-Date: Sun, 05 Dec 2010 09:03:53 +0100
-Message-ID: <1291536233.2806.102.camel@edumazet-laptop>
-References: <20101129201716.1d0257c4@xenia.leun.net>
-	<4CF442FA.4070701@candelatech.com>
-	<20101130095944.41b5f7b6@xenia.leun.net>
-	<1291108809.2904.3.camel@edumazet-laptop>
-	<20101201111716.424fb771@xenia.leun.net>
-	<1291200914.2856.546.camel@edumazet-laptop>
-	<20101205030712.36149bc2@xenia.leun.net>
+Subject: Re: [PATCH 3/5] NET: IPV4: ARP: allow to invalidate specific ARP
+ entries
+Date: Sun, 05 Dec 2010 09:19:21 +0100
+Message-ID: <1291537161.2806.109.camel@edumazet-laptop>
+References: <1290996593-32416-1-git-send-email-maximlevitsky@gmail.com>
+	 <1290996593-32416-4-git-send-email-maximlevitsky@gmail.com>
+	 <1291504514.1874.92.camel@maxim-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, Jesse Gross <jesse@nicira.com>,
-        linux-kernel@vger.kernel.org, stable@kernel.org,
-        Ben Greear <greearb@candelatech.com>,
-        David Miller <davem@davemloft.net>
-To: Michael Leun <lkml20101129@newton.leun.net>
-Return-path: <stable-bounces@linux.kernel.org>
-In-Reply-To: <20101205030712.36149bc2@xenia.leun.net>
-List-Unsubscribe: <http://linux.kernel.org/mailman/options/stable>,
-	<mailto:stable-request@linux.kernel.org?subject=unsubscribe>
-List-Archive: <http://linux.kernel.org/mailman/private/stable/>
-List-Post: <mailto:stable@linux.kernel.org>
-List-Help: <mailto:stable-request@linux.kernel.org?subject=help>
-List-Subscribe: <http://linux.kernel.org/mailman/listinfo/stable>,
-	<mailto:stable-request@linux.kernel.org?subject=subscribe>
-Sender: stable-bounces@linux.kernel.org
-Errors-To: stable-bounces@linux.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux1394-devel <linux1394-devel@lists.sourceforge.net>,
+	Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Maxim Levitsky <maximlevitsky@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:65033 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753961Ab0LEIT2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Dec 2010 03:19:28 -0500
+Received: by wwa36 with SMTP id 36so11691573wwa.1
+        for <netdev@vger.kernel.org>; Sun, 05 Dec 2010 00:19:26 -0800 (PST)
+In-Reply-To: <1291504514.1874.92.camel@maxim-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-TGUgZGltYW5jaGUgMDUgZMOpY2VtYnJlIDIwMTAgw6AgMDM6MDcgKzAxMDAsIE1pY2hhZWwgTGV1
-biBhIMOpY3JpdCA6Cj4gT24gV2VkLCAwMSBEZWMgMjAxMCAxMTo1NToxNCArMDEwMAo+IEVyaWMg
-RHVtYXpldCA8ZXJpYy5kdW1hemV0QGdtYWlsLmNvbT4gd3JvdGU6Cj4gCj4gPiBMZSBtZXJjcmVk
-aSAwMSBkw6ljZW1icmUgMjAxMCDDoCAxMToxNyArMDEwMCwgTWljaGFlbCBMZXVuIGEgw6ljcml0
-IDoKPiA+IAo+ID4gPiBZdXAsIGZyb20gd2hhdCBJJ3ZlIHRlc3RlZCB0aGlzIHdvcmtzIChhbmQg
-dGNwZHVtcCBzZWVzIGJyb2FkY2FzdAo+ID4gPiBwYWNrZXRzIGV2ZW4gZm9yIHZsYW5zIG5vdCBj
-b25maWd1cmVkIGF0IHRoZSBtb21lbnQgaW5jbHVkaW5nIHZsYW4KPiA+ID4gdGFnCj4gPiA+IC0g
-eWlwZWUhKS4KPiA+ID4KPiAKPiBUaGlzIHdhcyB0ZXN0ZWQgb24gbWFjaGluZSB3aXRoCj4gcm9v
-dEB0cF96NjFtOn4vc3JjL3RjcGR1bXAtNC4xLjEjIGxzcGNpfGdyZXAgRXRoCj4gMDI6MDAuMCBF
-dGhlcm5ldCBjb250cm9sbGVyOiBCcm9hZGNvbSBDb3Jwb3JhdGlvbiBOZXRYdHJlbWUgQkNNNTc1
-Mk0gR2lnYWJpdCBFdGhlcm5ldCBQQ0kgRXhwcmVzcyAocmV2IDAyKQo+IAo+IFRoZXJlIGl0IHdv
-cmtzIGFzIEkgc2FpZC4KPiAKPiBCdXQgb24KPiAKPiBocGRsMzIwZzU6L2hvbWUvbWwgIyBsc3Bj
-aSB8IGdyZXAgRXRoCj4gMDM6MDQuMCBFdGhlcm5ldCBjb250cm9sbGVyOiBCcm9hZGNvbSBDb3Jw
-b3JhdGlvbiBOZXRYdHJlbWUgQkNNNTcxNCBHaWdhYml0IEV0aGVybmV0IChyZXYgYTMpCj4gMDM6
-MDQuMSBFdGhlcm5ldCBjb250cm9sbGVyOiBCcm9hZGNvbSBDb3Jwb3JhdGlvbiBOZXRYdHJlbWUg
-QkNNNTcxNCBHaWdhYml0IEV0aGVybmV0IChyZXYgYTMpCj4gCj4gdGhlIGdvb2QgbWVzc2FnZSBp
-cyB0aGF0IGl0IGFsc28gZG9lcyBub3QgY3Jhc2gsIGJ1dCB3aXRoIHRjcGR1bXAgSSBzZWUKPiB2
-bGFuIHRhZ3Mgd2hlbiBubyB2bGFuIGRldmljZXMgY29uZmlndXJlZCBvbiB0aGUgcmVzcGVjdGl2
-ZSBldGgsIGlmIHNvCj4gSSBkbyBub3Qgc2VlIHRhZ3MgYW55bW9yZSB2bGFuIHRhZ3Mgb24gdGhl
-IHRydW5rIGludGVyZmFjZS4KPiAKCkZvciBhbGwgdGhlc2UgdmVyeSBzcGVjaWZpYyBuZWVkcywg
-eW91J2xsIGhhdmUgdG8gdHJ5IDIuNi4zNyBJIGFtCmFmcmFpZC4gSmVzc2UgZGlkIGh1Z2UgY2hh
-bmdlcyB0byBleGFjdGx5IG1ha2UgdGhpcyB3b3JraW5nLCB3ZSB3b250CmJhY2twb3J0IHRoaXMg
-dG8gMi42LjM2LCBidXQgb25seSBhdm9pZCBjcmFzaGVzLgoKCj4gaHBkbDMyMGc1Oi9ob21lL21s
-ICMgaWZjb25maWcgLWEKPiBbLi4uXQo+IGV0aDEgICAgICBMaW5rIGVuY2FwOkV0aGVybmV0ICBI
-YXJkd2FyZSBBZHJlc3NlIHh4Onh4Onh4Onh4Onh4Onh4ICAKPiAgICAgICAgICAgVVAgQlJPQURD
-QVNUIE1VTFRJQ0FTVCAgTVRVOjE1MDAgIE1ldHJpYzoxCj4gICAgICAgICAgIFJYIHBhY2tldHM6
-MCBlcnJvcnM6MCBkcm9wcGVkOjAgb3ZlcnJ1bnM6MCBmcmFtZTowCj4gICAgICAgICAgIFRYIHBh
-Y2tldHM6MCBlcnJvcnM6MCBkcm9wcGVkOjAgb3ZlcnJ1bnM6MCBjYXJyaWVyOjAKPiAgICAgICAg
-ICAgY29sbGlzaW9uczowIFNlbmRld2FydGVzY2hsYW5nZW5sw6RuZ2U6MTAwMCAKPiAgICAgICAg
-ICAgUlggYnl0ZXM6MCAoMC4wIGIpICBUWCBieXRlczowICgwLjAgYikKPiAgICAgICAgICAgSW50
-ZXJydXB0OjE3IAo+IFsuLi5dCj4gCj4gaHBkbDMyMGc1Oi9ob21lL21sICMgdGNwZHVtcCAtaSBl
-dGgxIC1uIC1lCj4gdGNwZHVtcDogV0FSTklORzogZXRoMTogbm8gSVB2NCBhZGRyZXNzIGFzc2ln
-bmVkCj4gdGNwZHVtcDogdmVyYm9zZSBvdXRwdXQgc3VwcHJlc3NlZCwgdXNlIC12IG9yIC12diBm
-b3IgZnVsbCBwcm90b2NvbCBkZWNvZGUKPiBsaXN0ZW5pbmcgb24gZXRoMSwgbGluay10eXBlIEVO
-MTBNQiAoRXRoZXJuZXQpLCBjYXB0dXJlIHNpemUgOTYgYnl0ZXMKPiBbLi4uXQo+IDAyOjQ1OjU3
-LjU5NzY0MCB4eDp4eDp4eDp4eDp4eDp4eCA+IGZmOmZmOmZmOmZmOmZmOmZmLCBldGhlcnR5cGUg
-ODAyLjFRICgweDgxMDApLCBsZW5ndGggNjQ6IHZsYW4gMTUwNSwgcCAwLCBldGhlcnR5cGUgODAy
-LjFRLCB2bGFuIDk5LCBwIDMsIGV0aGVydHlwZSBBUlAsIGFycCB3aG8taGFzIDEwLjAuMC4xIHRl
-bGwgMTAuMC4wLjIKPiAwMjo0NTo1Ny42MjI2NTQgeHg6eHg6eHg6eHg6eHg6eHggPiBmZjpmZjpm
-ZjpmZjpmZjpmZiwgZXRoZXJ0eXBlIDgwMi4xUSAoMHg4MTAwKSwgbGVuZ3RoIDY0OiB2bGFuIDE1
-MDUsIHAgMCwgZXRoZXJ0eXBlIDgwMi4xUSwgdmxhbiA5OSwgcCAzLCBldGhlcnR5cGUgQVJQLCBh
-cnAgd2hvLWhhcyAxMC4wLjAuMSB0ZWxsIDEwLjAuMC4yCj4gWy4uLl0KPiAKPiBocGRsMzIwZzU6
-L2hvbWUvbWwgIyB2Y29uZmlnIGFkZCBldGgxIDIKPiBXQVJOSU5HOiAgQ291bGQgbm90IG9wZW4g
-L3Byb2MvbmV0L3ZsYW4vY29uZmlnLiAgTWF5YmUgeW91IG5lZWQgdG8gbG9hZCB0aGUgODAyMXEg
-bW9kdWxlLCBvciBtYXliZSB5b3UgYXJlIG5vdCB1c2luZyBQUk9DRlM/Pwo+IEFkZGVkIFZMQU4g
-d2l0aCBWSUQgPT0gMiB0byBJRiAtOmV0aDE6LQo+IGhwZGwzMjBnNTovaG9tZS9tbCAjIGNhdCAv
-cHJvYy9uZXQvdmxhbi9jb25maWcgCj4gVkxBTiBEZXYgbmFtZSAgICB8IFZMQU4gSUQKPiBOYW1l
-LVR5cGU6IFZMQU5fTkFNRV9UWVBFX1JBV19QTFVTX1ZJRF9OT19QQUQKPiBldGgxLjIgICAgICAg
-ICB8IDIgIHwgZXRoMQo+IGhwZGwzMjBnNTovaG9tZS9tbCAjIHRjcGR1bXAgLWkgZXRoMSAtbiAt
-ZQo+IHRjcGR1bXA6IFdBUk5JTkc6IGV0aDE6IG5vIElQdjQgYWRkcmVzcyBhc3NpZ25lZAo+IHRj
-cGR1bXA6IHZlcmJvc2Ugb3V0cHV0IHN1cHByZXNzZWQsIHVzZSAtdiBvciAtdnYgZm9yIGZ1bGwg
-cHJvdG9jb2wgZGVjb2RlCj4gbGlzdGVuaW5nIG9uIGV0aDEsIGxpbmstdHlwZSBFTjEwTUIgKEV0
-aGVybmV0KSwgY2FwdHVyZSBzaXplIDk2IGJ5dGVzCj4gWy4uLl0KPiAwMjo1MDoxOC4wOTU5NTkg
-eHg6eHg6eHg6eHg6eHg6eHggPiBmZjpmZjpmZjpmZjpmZjpmZiwgZXRoZXJ0eXBlIDgwMi4xUSAo
-MHg4MTAwKSwgbGVuZ3RoIDYwOiB2bGFuIDk5LCBwIDMsIGV0aGVydHlwZSBBUlAsIGFycCB3aG8t
-aGFzIDEwLjAuMC4xIHRlbGwgMTAuMC4wLjIKPiAwMjo1MDoxOC4xMjA5ODkgeHg6eHg6eHg6eHg6
-eHg6eHggPiBmZjpmZjpmZjpmZjpmZjpmZiwgZXRoZXJ0eXBlIDgwMi4xUSAoMHg4MTAwKSwgbGVu
-Z3RoIDYwOiB2bGFuIDk5LCBwIDMsIGV0aGVydHlwZSBBUlAsIGFycCB3aG8taGFzIDEwLjAuMC4x
-IHRlbGwgMTAuMC4wLjIKPiBbLi4uXQo+IAo+IFRoZSBzYW1lIHBhY2thZ2VzIHdlIHNhdyBkb3Vi
-bGUgdmxhbiB0YWdnZWQgYSBmZXcgbWludXRlcyBhZ28gbm93IGFwcGVhciBzaW5nbGUgdmxhbiB0
-YWdnZWQgKGFuZCBvZiBjb3Vyc2UsIG90aGVyIHBhY2tldHMgdGhhdCB3ZXJlIHNob3duIHNpbmds
-ZSB2bGFuIHRhZ2dlZCBiZWZvcmUgYXJlIG5vdyBzaG93biB3aXRob3V0IHZsYW4gdGFnIC8gZXRo
-IHR5cGUgMHgwODAwKS4KPiAKPiAKPiBPbiB0aGUgb3RoZXIgbWFjaGluZToKPiAKPiByb290QHRw
-X3o2MW06fiMgY2F0IC9wcm9jL25ldC92bGFuL2NvbmZpZyAKPiBWTEFOIERldiBuYW1lICAgIHwg
-VkxBTiBJRAo+IE5hbWUtVHlwZTogVkxBTl9OQU1FX1RZUEVfUkFXX1BMVVNfVklEX05PX1BBRAo+
-IGV0aDAuNzQxICAgICAgIHwgNzQxICB8IGV0aDAKPiBldGgwLjIgICAgICAgICB8IDIgIHwgZXRo
-MAo+IHJvb3RAdHBfejYxbTp+L3NyYy90Y3BkdW1wLTQuMS4xIyAuL3RjcGR1bXAgLWkgZXRoMCAt
-biAtZSBub3QgcG9ydCAyMgo+IHRjcGR1bXA6IFdBUk5JTkc6IGV0aDA6IG5vIElQdjQgYWRkcmVz
-cyBhc3NpZ25lZAo+IHRjcGR1bXA6IHZlcmJvc2Ugb3V0cHV0IHN1cHByZXNzZWQsIHVzZSAtdiBv
-ciAtdnYgZm9yIGZ1bGwgcHJvdG9jb2wgZGVjb2RlCj4gbGlzdGVuaW5nIG9uIGV0aDAsIGxpbmst
-dHlwZSBFTjEwTUIgKEV0aGVybmV0KSwgY2FwdHVyZSBzaXplIDY1NTM1IGJ5dGVzCj4gMDM6MDY6
-NTEuODU5MDE2IHh4Onh4Onh4Onh4Onh4Onh4ID4gZmY6ZmY6ZmY6ZmY6ZmY6ZmYsIGV0aGVydHlw
-ZSA4MDIuMVEgKDB4ODEwMCksIGxlbmd0aCA2NDogdmxhbiAxNTA1LCBwIDAsIGV0aGVydHlwZSA4
-MDIuMVEsIHZsYW4gOTksIHAgMywgZXRoZXJ0eXBlIEFSUCwgUmVxdWVzdCB3aG8taGFzIDEwLjAu
-MC4xIHRlbGwgMTAuMC4wLjIsIGxlbmd0aCA0Mgo+IDAzOjA2OjUxLjg4Mzk1NiB4eDp4eDp4eDp4
-eDp4eDp4eCA+IGZmOmZmOmZmOmZmOmZmOmZmLCBldGhlcnR5cGUgODAyLjFRICgweDgxMDApLCBs
-ZW5ndGggNjQ6IHZsYW4gMTUwNSwgcCAwLCBldGhlcnR5cGUgODAyLjFRLCB2bGFuIDk5LCBwIDMs
-IGV0aGVydHlwZSBBUlAsIFJlcXVlc3Qgd2hvLWhhcyAxMC4wLjAuMSB0ZWxsIDEwLjAuMC4yLCBs
-ZW5ndGggNDIKPiAKPiAKPiAKPiBbLi4uXQo+ID4gSGVyZSBpcyB0aGUgcmV2aXNlZCBwYXRjaCBh
-Z2FpbiB0aGVuIGZvciBzdGFibGUgdGVhbSwgdmlhIERhdmlkIE1pbGxlcgo+ID4gYWdyZWVtZW50
-Lgo+IFsuLi5dCj4gCgoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX18Kc3RhYmxlIG1haWxpbmcgbGlzdApzdGFibGVAbGludXgua2VybmVsLm9yZwpodHRwOi8v
-bGludXgua2VybmVsLm9yZy9tYWlsbWFuL2xpc3RpbmZvL3N0YWJsZQo=
+Le dimanche 05 d=C3=A9cembre 2010 =C3=A0 01:15 +0200, Maxim Levitsky a =
+=C3=A9crit :
+> On Mon, 2010-11-29 at 04:09 +0200, Maxim Levitsky wrote:
+> > IPv4 over firewire needs to be able to remove ARP entries
+> > from the ARP cache that belong to nodes that are removed, because
+> > IPv4 over firewire uses ARP packets for private information
+> > about nodes.
+> >=20
+> > This information becomes invalid as soon as node drops
+> > off the bus and when it reconnects, its only possible
+> > to start takling to is after it responded to an ARP packet.
+> > But ARP cache prevents such packets from being sent.
+> >=20
+> > CC: netdev@vger.kernel.org
+> > CC: "David S. Miller" <davem@davemloft.net>
+> > CC: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+> > CC: James Morris <jmorris@namei.org>
+> > CC: Patrick McHardy <kaber@trash.net>
+>=20
+> Anybody?
+>=20
+> Best regards,
+> 	Maxim Levitsky
+> >=20
+> >=20
+> > Signed-off-by: Maxim Levitsky <maximlevitsky@gmail.com>
+> > ---
+> >  include/net/arp.h |    1 +
+> >  net/ipv4/arp.c    |   29 ++++++++++++++++++-----------
+> >  2 files changed, 19 insertions(+), 11 deletions(-)
+> >=20
+> > diff --git a/include/net/arp.h b/include/net/arp.h
+> > index f4cf6ce..91f0568 100644
+> > --- a/include/net/arp.h
+> > +++ b/include/net/arp.h
+> > @@ -25,5 +25,6 @@ extern struct sk_buff *arp_create(int type, int p=
+type, __be32 dest_ip,
+> >  				  const unsigned char *src_hw,
+> >  				  const unsigned char *target_hw);
+> >  extern void arp_xmit(struct sk_buff *skb);
+> > +int arp_invalidate(struct net_device *dev, __be32 ip);
+> > =20
+> >  #endif	/* _ARP_H */
+> > diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+> > index d8e540c..35b1272 100644
+> > --- a/net/ipv4/arp.c
+> > +++ b/net/ipv4/arp.c
+> > @@ -1142,6 +1142,23 @@ static int arp_req_get(struct arpreq *r, str=
+uct net_device *dev)
+> >  	return err;
+> >  }
+> > =20
+> > +int arp_invalidate(struct net_device *dev, __be32 ip)
+> > +{
+> > +	int err =3D -ENXIO;
+> > +	struct neighbour *neigh =3D neigh_lookup(&arp_tbl, &ip, dev);
+> > +
+> > +	if (neigh) {
+> > +		if (neigh->nud_state & ~NUD_NOARP)
+> > +			err =3D neigh_update(neigh, NULL, NUD_FAILED,
+> > +					   NEIGH_UPDATE_F_OVERRIDE|
+> > +					   NEIGH_UPDATE_F_ADMIN);
+> > +		neigh_release(neigh);
+> > +	}
+> > +
+> > +	return err;
+> > +}
+> > +EXPORT_SYMBOL(arp_invalidate);
+> > +
+> >  static int arp_req_delete_public(struct net *net, struct arpreq *r=
+,
+> >  		struct net_device *dev)
+> >  {
+> > @@ -1162,7 +1179,6 @@ static int arp_req_delete(struct net *net, st=
+ruct arpreq *r,
+> >  {
+> >  	int err;
+> >  	__be32 ip;
+> > -	struct neighbour *neigh;
+> > =20
+> >  	if (r->arp_flags & ATF_PUBL)
+> >  		return arp_req_delete_public(net, r, dev);
+> > @@ -1180,16 +1196,7 @@ static int arp_req_delete(struct net *net, s=
+truct arpreq *r,
+> >  		if (!dev)
+> >  			return -EINVAL;
+> >  	}
+> > -	err =3D -ENXIO;
+> > -	neigh =3D neigh_lookup(&arp_tbl, &ip, dev);
+> > -	if (neigh) {
+> > -		if (neigh->nud_state & ~NUD_NOARP)
+> > -			err =3D neigh_update(neigh, NULL, NUD_FAILED,
+> > -					   NEIGH_UPDATE_F_OVERRIDE|
+> > -					   NEIGH_UPDATE_F_ADMIN);
+> > -		neigh_release(neigh);
+> > -	}
+> > -	return err;
+> > +	return arp_invalidate(dev, ip);
+> >  }
+> > =20
+> >  /*
+>=20
+
+Hmm..
+
+If somebody can explain why RTNL is held in arp_ioctl() (and therefore
+in arp_req_delete()), we might first remove RTNL use in arp_ioctl() so
+that your patch can be applied.
+
+Right now it is not good, because RTNL wont be necessarly held when you
+are going to call arp_invalidate() ?
+
+
+
+
+
