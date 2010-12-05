@@ -1,63 +1,72 @@
-From: Michael Leun <lkml20101129@newton.leun.net>
-Subject: Re: [PATCH 2.6.36] vlan: Avoid hwaccel vlan packets when vid not
- used
-Date: Sun, 5 Dec 2010 10:55:28 +0100
-Message-ID: <20101205105528.49fa9a9f@xenia.leun.net>
-References: <20101129201716.1d0257c4@xenia.leun.net>
-	<4CF442FA.4070701@candelatech.com>
-	<20101130095944.41b5f7b6@xenia.leun.net>
-	<1291108809.2904.3.camel@edumazet-laptop>
-	<20101201111716.424fb771@xenia.leun.net>
-	<1291200914.2856.546.camel@edumazet-laptop>
-	<20101205030712.36149bc2@xenia.leun.net>
-	<1291536233.2806.102.camel@edumazet-laptop>
+From: Junchang Wang <junchangwang@gmail.com>
+Subject: Re: Question about __alloc_skb() speedup
+Date: Sun, 5 Dec 2010 18:56:24 +0800
+Message-ID: <20101205105616.GA4770@Desktop-Junchang>
+References: <20101203101450.GA9573@Desktop-Junchang>
+ <1291373429.2897.96.camel@edumazet-laptop>
+ <20101204141826.GA5830@Desktop-Junchang>
+ <1291474058.2806.96.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Ben Greear <greearb@candelatech.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Jesse Gross <jesse@nicira.com>, stable@kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1291536233.2806.102.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pz0-f46.google.com ([209.85.210.46]:58772 "EHLO
+	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752734Ab0LEK4k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Dec 2010 05:56:40 -0500
+Received: by pzk6 with SMTP id 6so1683516pzk.19
+        for <netdev@vger.kernel.org>; Sun, 05 Dec 2010 02:56:39 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1291474058.2806.96.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 05 Dec 2010 09:03:53 +0100
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Sat, Dec 04, 2010 at 03:47:38PM +0100, Eric Dumazet wrote:
+>
+>Yes I believe so, pktgen being very specific, but I have few questions :
+>
+>Is it with SLUB or SLAB ?
+I had read your discussion about "net: allocate skbs on local node" in
+the list, so SLUB was used.
 
-> > But on
-> > 
-> > hpdl320g5:/home/ml # lspci | grep Eth
-> > 03:04.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5714
-> > Gigabit Ethernet (rev a3) 03:04.1 Ethernet controller: Broadcom
-> > Corporation NetXtreme BCM5714 Gigabit Ethernet (rev a3)
-> > 
-> > the good message is that it also does not crash, but with tcpdump I
-> > see vlan tags when no vlan devices configured on the respective
-> > eth, if so I do not see tags anymore vlan tags on the trunk
-> > interface.
-> > 
-> 
-> For all these very specific needs, you'll have to try 2.6.37 I am
-> afraid. Jesse did huge changes to exactly make this working, we wont
-> backport this to 2.6.36, but only avoid crashes.
+BTW, what I observed is that network subsystem scales well on NUMA
+systems equipped with a single processor(up to six cores), but the
+performance didn't scale very well if there are two processors. 
 
-OK, I'm perfectly fine with that, of course, actually nice to hear that
-the issue already is addressed.
+I have noticed there are a number of discussions in the list. Are 
+there any suggestions? I'm very pleasant to do test.
 
-Likely I'll give some rc an shot on this machine (maybe over christmas),
-but it is an production machine (acutally testing other devices is the
-"product" produced on this machine), so unfortunately I'm not that free
-in when and what I can do (but the possibility to, for example, bridge
-the trunk interface would make testing easier, that justifies
-something...).
+>
+>How many buffers in TX ring on you nic (ethtool -g eth0) ?
+>
+Pre-set maximums:
+RX:             4096
+RX Mini:        0
+RX Jumbo:       0
+TX:             4096
+Current hardware settings:
+RX:             512
+RX Mini:        0
+RX Jumbo:       0
+TX:             512
 
-Thank you all very much for your work.
+>What is the datalen value here ? (you prefetch, then advance skb->data)
+>
+16. But the following skb_push will drawback 14 bytes.
+
+>32 or 64bit kernel ?
+>
+This is a CentOS 5.5 - 64bit distribution with the latest net-next.
+
+>How many pps do you get before and after patch ?
+>
+A Intel SR1625 server with two E5530 quad-core processors and a single
+ixgbe-based NIC.
+Without prefetch: 8.63 Mpps
+With prefetch: 9.03 Mpps
+Improvement: 4.6%
 
 
--- 
-MfG,
-
-Michael Leun
+Thanks.
+--Junchang
