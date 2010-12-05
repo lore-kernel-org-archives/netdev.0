@@ -1,268 +1,45 @@
-From: Joy Latten <latten@austin.ibm.com>
-Subject: IPsecv6  tunnel mode fragmentation
-Date: Sun, 05 Dec 2010 16:18:40 -0600
-Message-ID: <1291587520.11224.38.camel@faith.austin.ibm.com>
-Reply-To: latten@austin.ibm.com
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-WZWkKaF26AK7u+Vq/J5A"
-Cc: samudrala@us.ibm.com, rashmin@us.ibm.com
-To: netdev@vger.kernel.org
+From: Nelson Elhage <nelhage@ksplice.com>
+Subject: [PATCH] econet: Do the correct cleanup after an unprivileged SIOCSIFADDR.
+Date: Sun,  5 Dec 2010 17:45:52 -0500
+Message-ID: <1291589152-4640-1-git-send-email-nelhage@ksplice.com>
+Cc: netdev@vger.kernel.org, Nelson Elhage <nelhage@ksplice.com>,
+	stable@kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Phil Blundell <philb@gnu.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e1.ny.us.ibm.com ([32.97.182.141]:40543 "EHLO e1.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752454Ab0LEWph (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 5 Dec 2010 17:45:37 -0500
-Received: from d01dlp02.pok.ibm.com (d01dlp02.pok.ibm.com [9.56.224.85])
-	by e1.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id oB5MbUID029753
-	for <netdev@vger.kernel.org>; Sun, 5 Dec 2010 17:37:30 -0500
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by d01dlp02.pok.ibm.com (Postfix) with ESMTP id 0D5614DE803B
-	for <netdev@vger.kernel.org>; Sun,  5 Dec 2010 17:43:49 -0500 (EST)
-Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id oB5MjZ9h195256
-	for <netdev@vger.kernel.org>; Sun, 5 Dec 2010 17:45:35 -0500
-Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av04.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id oB5MjZh9009784
-	for <netdev@vger.kernel.org>; Sun, 5 Dec 2010 15:45:35 -0700
-Received: from austin.ibm.com (netmail2.austin.ibm.com [9.41.248.176])
-	by d03av04.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVin) with ESMTP id oB5MjYMJ009763
-	for <netdev@vger.kernel.org>; Sun, 5 Dec 2010 15:45:35 -0700
+Received: from DMZ-MAILSEC-SCANNER-6.MIT.EDU ([18.7.68.35]:51376 "EHLO
+	dmz-mailsec-scanner-6.mit.edu" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753074Ab0LEWqG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Dec 2010 17:46:06 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+We need to drop the mutex and do a dev_put, so set an error code and break like
+the other paths, instead of returning directly.
 
---=-WZWkKaF26AK7u+Vq/J5A
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Cc: stable@kernel.org
+Signed-off-by: Nelson Elhage <nelhage@ksplice.com>
+---
+ net/econet/af_econet.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
 
-We have come across an ipsec problem that I think was
-noted a while back in the following link.
-http://www.mail-archive.com/netdev@vger.kernel.org/msg61659.html
-
-When an icmpv6 pkt-too-big message for a destination
-is received, it is processed and the route's mtu is adjusted.
-
-Transport mode uses "adjusted" mtu and works ok, but tunnel-mode
-which has inner and outer iphdrs has problems.
-
-ah and esp leave it to the ipv6 layer to fragment.
-So, it seems esp/ah tunnel mode can produce an outgoing ipsec tunnel
-mode pkt whose inner pkthdr has the dst with the adjusted mtu,
-but inner pkt size larger than the adjusted mtu.
-
-The outer pkthdr has tunnel's dst mtu  which has not been 
-adjusted, since the pkt-too-big message was not for it.
-So, ipv6 layer will use outer mtu to decide whether to fragment or not.
-It doesn't appear to use the inner, "adjusted" mtu.
-In the tcpdump attached below, since outer mtu is larger than the
-outgoing pkt's size, it is not fragmented.
-
-Thus lies the problem. So when the link with the "adjusted" mtu
-gets the decrypted packet, the decrypted pkt may be too large for the
-link's mtu. The "adjusted" mtu was never regarded when creating the pkt.
-
-Hopefully, I have explained this clearly, if not
-let me know. Should esp/ah pre-fragment... or should mtu of 
-inner pkt's dst be used for outer pkt? What's the best way to approach
-this? Thanks for any info.
-
-regards,
-Joy 
-
-ipsec config:
-
-target <-------> Secuity gateway <-----> host
-        (tunnel)
-
-attachment is tcpdump from target.
-
-
---=-WZWkKaF26AK7u+Vq/J5A
-Content-Disposition: attachment; filename="target.bin"
-Content-Type: application/octet-stream; name="target.bin"
-Content-Transfer-Encoding: base64
-
-1MOyoQIABAAAAAAAAAAAAOgDAAABAAAAyw37TAa2BQBWAAAAVgAAADMz/wAgCgARJT6KfobdYAAA
-AAAgOv/+gAAAAAAAAAIRJf/+Pop+/wIAAAAAAAAAAAAB/wAgCocA/LsAAAAA/oAAAAAAAADQMRD/
-/gAgCgEBABElPop+zA37TIW2BQBWAAAAVgAAADMz/wAgCgARJT6KfobdYAAAAAAgOv/+gAAAAAAA
-AAIRJf/+Pop+/wIAAAAAAAAAAAAB/wAgCocA/LsAAAAA/oAAAAAAAADQMRD//gAgCgEBABElPop+
-zQ37TJ+2BQBWAAAAVgAAADMz/wAgCgARJT6KfobdYAAAAAAgOv/+gAAAAAAAAAIRJf/+Pop+/wIA
-AAAAAAAAAAAB/wAgCocA/LsAAAAA/oAAAAAAAADQMRD//gAgCgEBABElPop+1A37THKGDgBWAAAA
-VgAAADMz/wASNA6U4ACABIbdYAAAAAAgOv8gAQ24AAEAAQAAAAAAAABW/wIAAAAAAAAAAAAB/wAS
-NIcAitEAAAAAIAENuAABAAEAAAAAAAASNAEBDpTgAIAE1A37TNaGDgBWAAAAVgAAAA6U4ACABAAU
-Xm0L4obdYAAAAAAgOv8gAQ24AAEAAQAAAAAAABI0IAENuAABAAEAAAAAAAAAVogA/VBgAAAAIAEN
-uAABAAEAAAAAAAASNAIBABRebQvi1A37TCGIDgDeAwAATgUAAAAUXm0L4g6U4ACABIbdYAAAAAUY
-M/8gAQ24AAEAAQAAAAAAAABWIAENuAABAAEAAAAAAAASNCkEAAAAACAAAAAAAT1tIPAfjdhO2wMb
-aWAAAAAE2Cw/IDMAAQACAAMCCQa/D+YAlSABDbgAAQABAAAAAAAAEjQ6AAABAAABBIAAbXEmbQAA
-TPsLwwABBQ0ICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4
-OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3Bx
-cnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmq
-q6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj
-5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/wABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhsc
-HR4fICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj9AQUJDREVGR0hJSktMTU5PUFFSU1RV
-VldYWVpbXF1eX2BhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5ent8fX5/gIGCg4SFhoeIiYqLjI2O
-j5CRkpOUlZaXmJmam5ydnp+goaKjpKWmp6ipqqusra6vsLGys7S1tre4ubq7vL2+v8DBwsPExcbH
-yMnKy8zNzs/Q0dLT1NXW19jZ2tvc3d7f4OHi4+Tl5ufo6err7O3u7/Dx8vP09fb3+Pn6+/z9/v8A
-AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhIiMkJSYnKCkqKywtLi8wMTIzNDU2Nzg5
-Ojs8PT4/QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl9gYWJjZGVmZ2hpamtsbW5vcHFy
-c3R1dnd4eXp7fH1+f4CBgoOEhYaHiImKi4yNjo+QkZKTlJWWl5iZmpucnZ6foKGio6Slpqeoqaqr
-rK2ur7CxsrO0tba3uLm6u7y9vr/AwcLDxMXGx8jJysvMzc7P0NHS09TV1tfY2drb3N3e3+Dh4uPk
-5ebn6Onq6+zt7u/w8fLz9PX29/j5+vv8/f7/AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwd
-Hh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVW
-V9QN+0xYiA4AygAAAMoAAAAAFF5tC+IOlOAAgASG3WAAAAAAlDP/IAENuAABAAEAAAAAAAAAViAB
-DbgAAQABAAAAAAAAEjQpBAAAAAAgAAAAAAIU8a2QvbffwnhJVNxgAAAAAFQsPyAzAAEAAgADAgkG
-vw/mAJUgAQ24AAEAAQAAAAAAABI0OgAE0AAAAQTIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj
-5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/wABAgMEBQYHCAkKCwwNDg8QERIT1A37TGSIDgDe
-AwAADgUAAAAUXm0L4g6U4ACABIbdYAAAAATYLD8gMwABAAIAAwIJBr8P5gCVIAENuAABAAEAAAAA
-AAASNDoAAAEAAAEEgABtcSZtAABM+wvDAAEFDQgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhIiMk
-JSYnKCkqKywtLi8wMTIzNDU2Nzg5Ojs8PT4/QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xd
-Xl9gYWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXp7fH1+f4CBgoOEhYaHiImKi4yNjo+QkZKTlJWW
-l5iZmpucnZ6foKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr/AwcLDxMXGx8jJysvMzc7P
-0NHS09TV1tfY2drb3N3e3+Dh4uPk5ebn6Onq6+zt7u/w8fLz9PX29/j5+vv8/f7/AAECAwQFBgcI
-CQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BB
-QkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6
-e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKz
-tLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs
-7e7v8PHy8/T19vf4+fr7/P3+/wABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fICEiIyQl
-JicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj9AQUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVpbXF1e
-X2BhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5ent8fX5/gIGCg4SFhoeIiYqLjI2Oj5CRkpOUlZaX
-mJmam5ydnp+goaKjpKWmp6ipqqusra6vsLGys7S1tre4ubq7vL2+v8DBwsPExcbHyMnKy8zNzs/Q
-0dLT1NXW19jZ2tvc3d7f4OHi4+Tl5ufo6err7O3u7/Dx8vP09fb3+Pn6+/z9/v8AAQIDBAUGBwgJ
-CgsMDQ4PEBESExQVFhcYGRobHB0eHyAhIiMkJSYnKCkqKywtLi8wMTIzNDU2Nzg5Ojs8PT4/QEFC
-Q0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl9gYWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXp7
-fH1+f4CBgoOEhYaHiImKi4yNjo+QkZKTlJWWl9QN+0xuiA4AigAAAIoAAAAAFF5tC+IOlOAAgASG
-3WAAAAAAVCw/IDMAAQACAAMCCQa/D+YAlSABDbgAAQABAAAAAAAAEjQ6AATQAAABBMjJysvMzc7P
-0NHS09TV1tfY2drb3N3e3+Dh4uPk5ebn6Onq6+zt7u/w8fLz9PX29/j5+vv8/f7/AAECAwQFBgcI
-CQoLDA0ODxAREhPUDftMxogOAN4DAACSBQAADpTgAIAEABRebQviht1gAAAABVwz/yABDbgAAQAB
-AAAAAAAAEjQgAQ24AAEAAQAAAAAAAABWKQQAAAAAEAAAAAABZFFxsLNXbaeGzdiKYAAAAAUcOkAg
-AQ24AAEAAQAAAAAAABI0IDMAAQACAAMCCQa/D+YAlYEAbHEmbQAATPsLwwABBQ0ICQoLDA0ODxAR
-EhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElK
-S0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKD
-hIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8
-vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T1
-9vf4+fr7/P3+/wABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fICEiIyQlJicoKSorLC0u
-LzAxMjM0NTY3ODk6Ozw9Pj9AQUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVpbXF1eX2BhYmNkZWZn
-aGlqa2xtbm9wcXJzdHV2d3h5ent8fX5/gIGCg4SFhoeIiYqLjI2Oj5CRkpOUlZaXmJmam5ydnp+g
-oaKjpKWmp6ipqqusra6vsLGys7S1tre4ubq7vL2+v8DBwsPExcbHyMnKy8zNzs/Q0dLT1NXW19jZ
-2tvc3d7f4OHi4+Tl5ufo6err7O3u7/Dx8vP09fb3+Pn6+/z9/v8AAQIDBAUGBwgJCgsMDQ4PEBES
-ExQVFhcYGRobHB0eHyAhIiMkJSYnKCkqKywtLi8wMTIzNDU2Nzg5Ojs8PT4/QEFCQ0RFRkdISUpL
-TE1OT1BRUlNUVVZXWFlaW1xdXl9gYWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXp7fH1+f4CBgoOE
-hYaHiImKi4yNjo+QkZKTlJWWl5iZmpucnZ6foKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9
-vr/AwcLDxMXGx8jJysvMzc7P0NHS09TV1tfY2drb3N3e3+Dh4uPk5ebn6Onq6+zt7u/w8fLz9PX2
-9/j5+vv8/f7/AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4v
-MDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5f1A37THGKDgDe
-AwAADgUAAAAUXm0L4g6U4ACABIbdYAAAAATYOkAgAQ24AAEAAQAAAAAAAABWIAENuAABAAEAAAAA
-AAASNAIAPWwAAAUGYAAAAAUcOkAgAQ24AAEAAQAAAAAAABI0IDMAAQACAAMCCQa/D+YAlYEAbHEm
-bQAATPsLwwABBQ0ICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1
-Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1u
-b3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaan
-qKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g
-4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/wABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZ
-GhscHR4fICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj9AQUJDREVGR0hJSktMTU5PUFFS
-U1RVVldYWVpbXF1eX2BhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5ent8fX5/gIGCg4SFhoeIiYqL
-jI2Oj5CRkpOUlZaXmJmam5ydnp+goaKjpKWmp6ipqqusra6vsLGys7S1tre4ubq7vL2+v8DBwsPE
-xcbHyMnKy8zNzs/Q0dLT1NXW19jZ2tvc3d7f4OHi4+Tl5ufo6err7O3u7/Dx8vP09fb3+Pn6+/z9
-/v8AAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhIiMkJSYnKCkqKywtLi8wMTIzNDU2
-Nzg5Ojs8PT4/QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl9gYWJjZGVmZ2hpamtsbW5v
-cHFyc3R1dnd4eXp7fH1+f4CBgoOEhYaHiImKi4yNjo+QkZKTlJWWl5iZmpucnZ6foKGio6Slpqeo
-qaqrrK2ur7CxsrO0tba3uLm6u7y9vr/AwcLDxMXGx8jJysvMzc7P0NHS09TV1tfY2drb3N3e3+Dh
-4uPk5ebn6Onq6+zt7u/w8fLz9PX29/j5+vv8/f7/AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBka
-GxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJT
-VFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub9UN+0weeA4A3gMAAE4FAAAAFF5tC+IOlOAAgASG
-3WAAAAAFGDP/IAENuAABAAEAAAAAAAAAViABDbgAAQABAAAAAAAAEjQpBAAAAAAgAAAAAAM+Iofg
-q9CXwALsI/RgAAAABNgsPyAzAAEAAgADAgkGvw/mAJUgAQ24AAEAAQAAAAAAABI0OgAAAQAAAQWA
-AGtzJm0AAUz7C8QAAQcJCAkKCwwNDg8QERITFBUWFxgZGhscHR4fICEiIyQlJicoKSorLC0uLzAx
-MjM0NTY3ODk6Ozw9Pj9AQUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVpbXF1eX2BhYmNkZWZnaGlq
-a2xtbm9wcXJzdHV2d3h5ent8fX5/gIGCg4SFhoeIiYqLjI2Oj5CRkpOUlZaXmJmam5ydnp+goaKj
-pKWmp6ipqqusra6vsLGys7S1tre4ubq7vL2+v8DBwsPExcbHyMnKy8zNzs/Q0dLT1NXW19jZ2tvc
-3d7f4OHi4+Tl5ufo6err7O3u7/Dx8vP09fb3+Pn6+/z9/v8AAQIDBAUGBwgJCgsMDQ4PEBESExQV
-FhcYGRobHB0eHyAhIiMkJSYnKCkqKywtLi8wMTIzNDU2Nzg5Ojs8PT4/QEFCQ0RFRkdISUpLTE1O
-T1BRUlNUVVZXWFlaW1xdXl9gYWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXp7fH1+f4CBgoOEhYaH
-iImKi4yNjo+QkZKTlJWWl5iZmpucnZ6foKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr/A
-wcLDxMXGx8jJysvMzc7P0NHS09TV1tfY2drb3N3e3+Dh4uPk5ebn6Onq6+zt7u/w8fLz9PX29/j5
-+vv8/f7/AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEy
-MzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWpr
-bG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOk
-paanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd
-3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/wABAgMEBQYHCAkKCwwNDg8QERITFBUW
-FxgZGhscHR4fICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj9AQUJDREVGR0hJSktMTU5P
-UFFSU1RVVlfVDftMS3gOAMoAAADKAAAAABRebQviDpTgAIAEht1gAAAAAJQz/yABDbgAAQABAAAA
-AAAAAFYgAQ24AAEAAQAAAAAAABI0KQQAAAAAIAAAAAAE93TkWyei4YdDcNN7YAAAAABULD8gMwAB
-AAIAAwIJBr8P5gCVIAENuAABAAEAAAAAAAASNDoABNAAAAEFyMnKy8zNzs/Q0dLT1NXW19jZ2tvc
-3d7f4OHi4+Tl5ufo6err7O3u7/Dx8vP09fb3+Pn6+/z9/v8AAQIDBAUGBwgJCgsMDQ4PEBESE9UN
-+0xXeA4A3gMAAA4FAAAAFF5tC+IOlOAAgASG3WAAAAAE2Cw/IDMAAQACAAMCCQa/D+YAlSABDbgA
-AQABAAAAAAAAEjQ6AAABAAABBYAAa3MmbQABTPsLxAABBwkICQoLDA0ODxAREhMUFRYXGBkaGxwd
-Hh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVW
-V1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6P
-kJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfI
-ycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/wAB
-AgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6
-Ozw9Pj9AQUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVpbXF1eX2BhYmNkZWZnaGlqa2xtbm9wcXJz
-dHV2d3h5ent8fX5/gIGCg4SFhoeIiYqLjI2Oj5CRkpOUlZaXmJmam5ydnp+goaKjpKWmp6ipqqus
-ra6vsLGys7S1tre4ubq7vL2+v8DBwsPExcbHyMnKy8zNzs/Q0dLT1NXW19jZ2tvc3d7f4OHi4+Tl
-5ufo6err7O3u7/Dx8vP09fb3+Pn6+/z9/v8AAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0e
-HyAhIiMkJSYnKCkqKywtLi8wMTIzNDU2Nzg5Ojs8PT4/QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZX
-WFlaW1xdXl9gYWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXp7fH1+f4CBgoOEhYaHiImKi4yNjo+Q
-kZKTlJWWl5iZmpucnZ6foKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr/AwcLDxMXGx8jJ
-ysvMzc7P0NHS09TV1tfY2drb3N3e3+Dh4uPk5ebn6Onq6+zt7u/w8fLz9PX29/j5+vv8/f7/AAEC
-AwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7
-PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0
-dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpfVDftMYHgOAIoAAACKAAAAABRebQvi
-DpTgAIAEht1gAAAAAFQsPyAzAAEAAgADAgkGvw/mAJUgAQ24AAEAAQAAAAAAABI0OgAE0AAAAQXI
-ycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/wAB
-AgMEBQYHCAkKCwwNDg8QERIT1Q37TLx4DgDeAwAAkgUAAA6U4ACABAAUXm0L4obdYAAAAAVcM/8g
-AQ24AAEAAQAAAAAAABI0IAENuAABAAEAAAAAAAAAVikEAAAAABAAAAAAAr1//EtIrl2IfQHkmmAA
-AAAFHDpAIAENuAABAAEAAAAAAAASNCAzAAEAAgADAgkGvw/mAJWBAGpzJm0AAUz7C8QAAQcJCAkK
-CwwNDg8QERITFBUWFxgZGhscHR4fICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj9AQUJD
-REVGR0hJSktMTU5PUFFSU1RVVldYWVpbXF1eX2BhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5ent8
-fX5/gIGCg4SFhoeIiYqLjI2Oj5CRkpOUlZaXmJmam5ydnp+goaKjpKWmp6ipqqusra6vsLGys7S1
-tre4ubq7vL2+v8DBwsPExcbHyMnKy8zNzs/Q0dLT1NXW19jZ2tvc3d7f4OHi4+Tl5ufo6err7O3u
-7/Dx8vP09fb3+Pn6+/z9/v8AAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhIiMkJSYn
-KCkqKywtLi8wMTIzNDU2Nzg5Ojs8PT4/QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl9g
-YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXp7fH1+f4CBgoOEhYaHiImKi4yNjo+QkZKTlJWWl5iZ
-mpucnZ6foKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr/AwcLDxMXGx8jJysvMzc7P0NHS
-09TV1tfY2drb3N3e3+Dh4uPk5ebn6Onq6+zt7u/w8fLz9PX29/j5+vv8/f7/AAECAwQFBgcICQoL
-DA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNE
-RUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9
-fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2
-t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v
-8PHy8/T19vf4+fr7/P3+/wABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fICEiIyQlJico
-KSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj9AQUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVpbXF1eX9UN
-+0xoeg4A3gMAAA4FAAAAFF5tC+IOlOAAgASG3WAAAAAE2DpAIAENuAABAAEAAAAAAAAAViABDbgA
-AQABAAAAAAAAEjQCAD1sAAAFBmAAAAAFHDpAIAENuAABAAEAAAAAAAASNCAzAAEAAgADAgkGvw/m
-AJWBAGpzJm0AAUz7C8QAAQcJCAkKCwwNDg8QERITFBUWFxgZGhscHR4fICEiIyQlJicoKSorLC0u
-LzAxMjM0NTY3ODk6Ozw9Pj9AQUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVpbXF1eX2BhYmNkZWZn
-aGlqa2xtbm9wcXJzdHV2d3h5ent8fX5/gIGCg4SFhoeIiYqLjI2Oj5CRkpOUlZaXmJmam5ydnp+g
-oaKjpKWmp6ipqqusra6vsLGys7S1tre4ubq7vL2+v8DBwsPExcbHyMnKy8zNzs/Q0dLT1NXW19jZ
-2tvc3d7f4OHi4+Tl5ufo6err7O3u7/Dx8vP09fb3+Pn6+/z9/v8AAQIDBAUGBwgJCgsMDQ4PEBES
-ExQVFhcYGRobHB0eHyAhIiMkJSYnKCkqKywtLi8wMTIzNDU2Nzg5Ojs8PT4/QEFCQ0RFRkdISUpL
-TE1OT1BRUlNUVVZXWFlaW1xdXl9gYWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXp7fH1+f4CBgoOE
-hYaHiImKi4yNjo+QkZKTlJWWl5iZmpucnZ6foKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9
-vr/AwcLDxMXGx8jJysvMzc7P0NHS09TV1tfY2drb3N3e3+Dh4uPk5ebn6Onq6+zt7u/w8fLz9PX2
-9/j5+vv8/f7/AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4v
-MDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdo
-aWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6Ch
-oqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna
-29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/wABAgMEBQYHCAkKCwwNDg8QERIT
-FBUWFxgZGhscHR4fICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj9AQUJDREVGR0hJSktM
-TU5PUFFSU1RVVldYWVpbXF1eX2BhYmNkZWZnaGlqa2xtbm/ZDftMO6YOAFYAAABWAAAADpTgAIAE
-ABRebQviht1gAAAAACA6//6AAAAAAAAAAhRe//5tC+IgAQ24AAEAAQAAAAAAAABWhwBHOgAAAAAg
-AQ24AAEAAQAAAAAAAABWAQEAFF5tC+LZDftMTKcOAE4AAABOAAAAABRebQviDpTgAIAEht1gAAAA
-ABg6/yABDbgAAQABAAAAAAAAAFb+gAAAAAAAAAIUXv/+bQviiADxpcAAAAAgAQ24AAEAAQAAAAAA
-AABW3w37TF3cAgBWAAAAVgAAADMz/z6TJgANYNSaGIbdYAAAAAAgOv/+gAAAAAAAAAINYP/+1JoY
-/wIAAAAAAAAAAAAB/z6TJocAOM8AAAAA/oAAAAAAAAACESX//j6TJgEBAA1g1JoY3w37TK3pAgBW
-AAAAVgAAADMz/z6TJgANYNTEyIbdYAAAAAAgOv/+gAAAAAAAAAINYP/+1MTI/wIAAAAAAAAAAAAB
-/z6TJocA424AAAAA/oAAAAAAAAACESX//j6TJgEBAA1g1MTI3w37TD/yAgBWAAAAVgAAADMz/z6T
-JgANYBxTGIbdYAAAAAAgOv/+gAAAAAAAAAINYP/+HFMY/wIAAAAAAAAAAAAB/z6TJocAyD8AAAAA
-/oAAAAAAAAACESX//j6TJgEBAA1gHFMY4w37TISkCQBWAAAAVgAAADMz/wAgCgARJT6KfobdYAAA
-AAAgOv/+gAAAAAAAAAIRJf/+Pop+/wIAAAAAAAAAAAAB/wAgCocA/LsAAAAA/oAAAAAAAADQMRD/
-/gAgCgEBABElPop+5A37TAGlCQBWAAAAVgAAADMz/wAgCgARJT6KfobdYAAAAAAgOv/+gAAAAAAA
-AAIRJf/+Pop+/wIAAAAAAAAAAAAB/wAgCocA/LsAAAAA/oAAAAAAAADQMRD//gAgCgEBABElPop+
-5Q37TEKlCQBWAAAAVgAAADMz/wAgCgARJT6KfobdYAAAAAAgOv/+gAAAAAAAAAIRJf/+Pop+/wIA
-AAAAAAAAAAAB/wAgCocA/LsAAAAA/oAAAAAAAADQMRD//gAgCgEBABElPop+7Q37TFQDBgBWAAAA
-VgAAADMz/6PDxwAaZJcJrIbdYAAAAAAgOv/+gAAAAAAAAAIaZP/+lwms/wIAAAAAAAAAAAAB/6PD
-x4cAqgMAAAAA/oAAAAAAAAACCWv//qPDxwEBABpklwms
-
-
---=-WZWkKaF26AK7u+Vq/J5A--
+diff --git a/net/econet/af_econet.c b/net/econet/af_econet.c
+index 13992e1..f180371 100644
+--- a/net/econet/af_econet.c
++++ b/net/econet/af_econet.c
+@@ -661,8 +661,10 @@ static int ec_dev_ioctl(struct socket *sock, unsigned int cmd, void __user *arg)
+ 	err = 0;
+ 	switch (cmd) {
+ 	case SIOCSIFADDR:
+-		if (!capable(CAP_NET_ADMIN))
+-			return -EPERM;
++		if (!capable(CAP_NET_ADMIN)) {
++			err = -EPERM;
++			break;
++		}
+ 
+ 		edev = dev->ec_ptr;
+ 		if (edev == NULL) {
+-- 
+1.7.1.31.g6297e
 
