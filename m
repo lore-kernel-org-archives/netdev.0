@@ -1,49 +1,77 @@
-From: Breno Leitao <leitao@linux.vnet.ibm.com>
-Subject: Re: [PATCH] ehea: add the correct LRO status at dev->features
-Date: Mon, 06 Dec 2010 14:57:26 -0200
-Message-ID: <4CFD15F6.7040609@linux.vnet.ibm.com>
-References: <1291653582-14177-1-git-send-email-leitao@linux.vnet.ibm.com> <20101206084824.637d6b29@nehalam>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [RFC] mark devices with broken LRO implementation
+Date: Mon, 6 Dec 2010 09:10:10 -0800
+Message-ID: <20101206091010.036cd78b@nehalam>
+References: <1291653582-14177-1-git-send-email-leitao@linux.vnet.ibm.com>
+	<20101206084824.637d6b29@nehalam>
+	<4CFD15F6.7040609@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+To: Breno Leitao <leitao@linux.vnet.ibm.com>,
+	Olof Johansson <olof@lixom.net>,
+	Eli Cohen <eli@dev.mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e24smtp01.br.ibm.com ([32.104.18.85]:56764 "EHLO
-	e24smtp01.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751955Ab0LFQ5i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Dec 2010 11:57:38 -0500
-Received: from mailhub3.br.ibm.com (mailhub3.br.ibm.com [9.18.232.110])
-	by e24smtp01.br.ibm.com (8.14.4/8.13.1) with ESMTP id oB6HIoMU031109
-	for <netdev@vger.kernel.org>; Mon, 6 Dec 2010 15:18:50 -0200
-Received: from d24av04.br.ibm.com (d24av04.br.ibm.com [9.8.31.97])
-	by mailhub3.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id oB6H4erI3141834
-	for <netdev@vger.kernel.org>; Mon, 6 Dec 2010 15:04:44 -0200
-Received: from d24av04.br.ibm.com (loopback [127.0.0.1])
-	by d24av04.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id oB6GvVT3028329
-	for <netdev@vger.kernel.org>; Mon, 6 Dec 2010 14:57:31 -0200
-In-Reply-To: <20101206084824.637d6b29@nehalam>
+Received: from mail.vyatta.com ([76.74.103.46]:46412 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752986Ab0LFRKN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Dec 2010 12:10:13 -0500
+In-Reply-To: <4CFD15F6.7040609@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/06/2010 02:48 PM, Stephen Hemminger wrote:
-> On Mon,  6 Dec 2010 14:39:42 -0200
-> leitao@linux.vnet.ibm.com wrote:
->
->> Currently ehea is not setting NETIF_F_LRO, and it is not providing
->> a callback for get_flags on ethtool. This patch fixes it.
->>
->> Signed-off-by: Breno Leitao<leitao@linux.vnet.ibm.com>
->
-> More importantly, ehea does not support set_flags to disable LRO.
-Correct, currently LRO is a module parameter. I have an item in my TODO 
-list to implement set_flags, and thus, the LRO scheme.
+The kernel uses dev_disable_lro to disable Large Receive Offload
+for cases where it is inappropriate. But several drivers do not implement
+the required hook.  This is a "penalty box" patch to encourage those
+drivers to add support for the necessary ethtool set_flags.
 
-So, if you prefer I can send this patch with the future set_flags ones. 
-But, for now, this patch allows the user to check when LRO is enabled. 
-As it is today, it shows that LRO is disabled all the time.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+---
+I only found three drivers that are broken. Normally, I would just fix
+them; but since changing state in the device is hardware specific, and
+I don't have the hardware or specs to do anything useful to fix it.
 
-Anyway, you choose what is the best option.
-
-Thanks,
-Breno
+--- a/drivers/net/Kconfig	2010-12-06 08:52:30.376926696 -0800
++++ b/drivers/net/Kconfig	2010-12-06 09:02:02.013224592 -0800
+@@ -28,6 +28,13 @@ menuconfig NETDEVICES
+ # that for each of the symbols.
+ if NETDEVICES
+ 
++config BROKEN_LRO
++       bool
++       ---help---
++         Allow drivers with partial Large Receive Offload support. These drivers
++	 do not implement the necessary feature of disabling LRO support via
++	 the ethtool set_flags operation.
++
+ config IFB
+ 	tristate "Intermediate Functional Block support"
+ 	depends on NET_CLS_ACT
+@@ -2675,7 +2682,7 @@ config CHELSIO_T4VF
+ 
+ config EHEA
+ 	tristate "eHEA Ethernet support"
+-	depends on IBMEBUS && INET && SPARSEMEM
++	depends on IBMEBUS && INET && SPARSEMEM && BROKEN_LRO
+ 	select INET_LRO
+ 	---help---
+ 	  This driver supports the IBM pSeries eHEA ethernet adapter.
+@@ -2848,7 +2855,7 @@ config NIU
+ 
+ config PASEMI_MAC
+ 	tristate "PA Semi 1/10Gbit MAC"
+-	depends on PPC_PASEMI && PCI && INET
++	depends on PPC_PASEMI && PCI && INET && BROKEN_LRO
+ 	select PHYLIB
+ 	select INET_LRO
+ 	help
+@@ -2857,7 +2864,7 @@ config PASEMI_MAC
+ 
+ config MLX4_EN
+ 	tristate "Mellanox Technologies 10Gbit Ethernet support"
+-	depends on PCI && INET
++	depends on PCI && INET && BROKEN_LRO
+ 	select MLX4_CORE
+ 	select INET_LRO
+ 	help
