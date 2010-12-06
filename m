@@ -1,38 +1,92 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next 2/6] tg3: Move EEE definitions into mdio.h
-Date: Mon, 06 Dec 2010 19:30:35 +0000
-Message-ID: <1291663835.3443.4.camel@bwh-desktop>
-References: <1291660134-3801-3-git-send-email-mcarlson@broadcom.com>
+From: Michael Leun <lkml20101129@newton.leun.net>
+Subject: Re: [PATCH 2.6.36] vlan: Avoid hwaccel vlan packets when vid not
+ used
+Date: Mon, 6 Dec 2010 20:34:37 +0100
+Message-ID: <20101206203437.54b550e0@xenia.leun.net>
+References: <20101129201716.1d0257c4@xenia.leun.net>
+	<4CF442FA.4070701@candelatech.com>
+	<20101130095944.41b5f7b6@xenia.leun.net>
+	<1291108809.2904.3.camel@edumazet-laptop>
+	<20101201111716.424fb771@xenia.leun.net>
+	<1291200914.2856.546.camel@edumazet-laptop>
+	<20101205030712.36149bc2@xenia.leun.net>
+	<1291536233.2806.102.camel@edumazet-laptop>
+	<20101205105528.49fa9a9f@xenia.leun.net>
+	<20101205114404.7c0cddc2@xenia.leun.net>
+	<AANLkTikrDTCDxsyOG4m0XcrOY=3pTRwWqnPGsio9cBFj@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, andy@greyhouse.net
-To: Matt Carlson <mcarlson@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:13405 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751135Ab0LFTaj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Dec 2010 14:30:39 -0500
-In-Reply-To: <1291660134-3801-3-git-send-email-mcarlson@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Ben Greear <greearb@candelatech.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Jesse Gross <jesse@nicira.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AANLkTikrDTCDxsyOG4m0XcrOY=3pTRwWqnPGsio9cBFj@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2010-12-06 at 10:28 -0800, Matt Carlson wrote:
-> In commit 52b02d04c801fff51ca49ad033210846d1713253 entitled "tg3: Add
-> EEE support", Ben Hutchings had commented that the EEE advertisement
-> register will be in a standard location.  This patch moves that
-> definition into mdio.h and changes the code to use it.
+On Mon, 6 Dec 2010 10:14:55 -0800
+Jesse Gross <jesse@nicira.com> wrote:
+
+> On Sun, Dec 5, 2010 at 2:44 AM, Michael Leun
+> <lkml20101129@newton.leun.net> wrote:
+> > Hi Jesse,
+> >
+> > On Sun, 5 Dec 2010 10:55:28 +0100
+> > Michael Leun <lkml20101129@newton.leun.net> wrote:
+> >
+> >> On Sun, 05 Dec 2010 09:03:53 +0100
+> >> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> >>
+> >> > > But on
+> >> > >
+> >> > > hpdl320g5:/home/ml # lspci | grep Eth
+> >> > > 03:04.0 Ethernet controller: Broadcom Corporation NetXtreme
+> >> > > BCM5714 Gigabit Ethernet (rev a3) 03:04.1 Ethernet controller:
+> >> > > Broadcom Corporation NetXtreme BCM5714 Gigabit Ethernet (rev
+> >> > > a3)
+> >> > >
+> >> > > the good message is that it also does not crash, but with
+> >> > > tcpdump I see vlan tags when no vlan devices configured on the
+> >> > > respective eth, if so I do not see tags anymore vlan tags on
+> >> > > the trunk interface.
+> >> > >
+> >> >
+> >> > For all these very specific needs, you'll have to try 2.6.37 I am
+> >> > afraid. Jesse did huge changes to exactly make this working, we
+> >> > wont backport this to 2.6.36, but only avoid crashes.
+> >>
+> >> OK, I'm perfectly fine with that, of course, actually nice to hear
+> >> that the issue already is addressed.
+> >>
+> >> Likely I'll give some rc an shot on this machine (maybe over
+> >> christmas), but it is an production machine (acutally testing other
+> >> devices is the "product" produced on this machine), so
+> >> unfortunately I'm not that free in when and what I can do (but the
+> >> possibility to, for example, bridge the trunk interface would make
+> >> testing easier, that justifies something...).
+> >>
+> >> Thank you all very much for your work.
+> >
+> > Are these changes already in 2.6.37-rc4? Or, if not are they
+> > somewhere publically available already?
+> >
+> > I looked into various changelogs but have some difficulties to
+> > identify them...
+> >
+> > Maybe I have some time next days to give them an try...
 > 
-> Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
-> Reviewed-by: Benjamin Li <benli@broadcom.com>
-[...]
+> Yes, all of the existing vlan changes are in 2.6.37-rc4.  There were a
+> number of patches but the main one was
+> 3701e51382a026cba10c60b03efabe534fba4ca4
 
-Thanks, Matt.
-
-Ben.
+Then, I'm afraid, this (seeing vlan tags even if vlan interfaces are
+configured) does not work on HP DL320G5 (for exact description and
+examples please see my mail a few days ago).
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+MfG,
 
+Michael Leun
