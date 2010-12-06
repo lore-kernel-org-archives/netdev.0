@@ -1,8 +1,8 @@
 From: "Jan Beulich" <JBeulich@novell.com>
 Subject: [PATCH] use total_highpages when calculating lowmem-only
-	 allocation sizes (netfilter)
-Date: Mon, 06 Dec 2010 16:43:18 +0000
-Message-ID: <4CFD20B60200007800026281@vpn.id2.novell.com>
+	 allocation sizes (netlink)
+Date: Mon, 06 Dec 2010 16:43:35 +0000
+Message-ID: <4CFD20C70200007800026284@vpn.id2.novell.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 8BIT
@@ -19,34 +19,34 @@ total amount of memory shouldn't really matter.
 Signed-off-by: Jan Beulich <jbeulich@novell.com>
 
 ---
- net/netfilter/nf_conntrack_core.c |    7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
+ net/netlink/af_netlink.c          |    8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
 
---- linux-2.6.37-rc4/net/netfilter/nf_conntrack_core.c
-+++ 2.6.37-rc4-use-totalhigh_pages/net/netfilter/nf_conntrack_core.c
-@@ -17,6 +17,7 @@
+--- linux-2.6.37-rc4/net/netlink/af_netlink.c
++++ 2.6.37-rc4-use-totalhigh_pages/net/netlink/af_netlink.c
+@@ -30,6 +30,7 @@
  #include <linux/sched.h>
- #include <linux/skbuff.h>
- #include <linux/proc_fs.h>
+ #include <linux/errno.h>
+ #include <linux/string.h>
 +#include <linux/highmem.h>
- #include <linux/vmalloc.h>
- #include <linux/stddef.h>
- #include <linux/slab.h>
-@@ -1398,10 +1399,12 @@ static int nf_conntrack_init_init_net(vo
- 	/* Idea from tcp.c: use 1/16384 of memory.  On i386: 32MB
- 	 * machine has 512 buckets. >= 1GB machines have 16384 buckets. */
- 	if (!nf_conntrack_htable_size) {
-+		unsigned long nr_pages = totalram_pages - totalhigh_pages;
-+
- 		nf_conntrack_htable_size
--			= (((totalram_pages << PAGE_SHIFT) / 16384)
-+			= (((nr_pages << PAGE_SHIFT) / 16384)
- 			   / sizeof(struct hlist_head));
--		if (totalram_pages > (1024 * 1024 * 1024 / PAGE_SIZE))
-+		if (nr_pages > (1024 * 1024 * 1024 / PAGE_SIZE))
- 			nf_conntrack_htable_size = 16384;
- 		if (nf_conntrack_htable_size < 32)
- 			nf_conntrack_htable_size = 32;
+ #include <linux/stat.h>
+ #include <linux/socket.h>
+ #include <linux/un.h>
+@@ -2127,10 +2128,11 @@ static int __init netlink_proto_init(voi
+ 	if (!nl_table)
+ 		goto panic;
+ 
+-	if (totalram_pages >= (128 * 1024))
+-		limit = totalram_pages >> (21 - PAGE_SHIFT);
++	limit = totalram_pages - totalhigh_pages;
++	if (limit >= (128 * 1024))
++		limit >>= 21 - PAGE_SHIFT;
+ 	else
+-		limit = totalram_pages >> (23 - PAGE_SHIFT);
++		limit >>= 23 - PAGE_SHIFT;
+ 
+ 	order = get_bitmask_order(limit) - 1 + PAGE_SHIFT;
+ 	limit = (1UL << order) / sizeof(struct hlist_head);
 
 
 
