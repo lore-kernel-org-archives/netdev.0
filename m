@@ -1,55 +1,61 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: echo > 0 .../disable_ipv6 broken in 2.6.37-rc4
-Date: Mon, 06 Dec 2010 11:10:24 -0500
-Message-ID: <4CFD0AF0.9090809@hp.com>
-References: <m17hfnlpe1.fsf@fess.ebiederm.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Mahesh Kelkar <maheshkelkar@gmail.com>,
-	Lorenzo Colitti <lorenzo@google.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+From: leitao@linux.vnet.ibm.com
+Subject: [PATCH] ehea: add the correct LRO status at dev->features
+Date: Mon,  6 Dec 2010 14:39:42 -0200
+Message-ID: <1291653582-14177-1-git-send-email-leitao@linux.vnet.ibm.com>
+Cc: netdev@vger.kernel.org, Breno Leitao <leitao@linux.vnet.ibm.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0008.atlanta.hp.com ([15.192.0.45]:4499 "EHLO
-	g5t0008.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751120Ab0LFQK1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Dec 2010 11:10:27 -0500
-In-Reply-To: <m17hfnlpe1.fsf@fess.ebiederm.org>
+Received: from e24smtp01.br.ibm.com ([32.104.18.85]:52998 "EHLO
+	e24smtp01.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750837Ab0LFQj5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Dec 2010 11:39:57 -0500
+Received: from mailhub1.br.ibm.com (mailhub1.br.ibm.com [9.18.232.109])
+	by e24smtp01.br.ibm.com (8.14.4/8.13.1) with ESMTP id oB6H18rq002990
+	for <netdev@vger.kernel.org>; Mon, 6 Dec 2010 15:01:08 -0200
+Received: from d24av05.br.ibm.com (d24av05.br.ibm.com [9.18.232.44])
+	by mailhub1.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id oB6GkwVc864380
+	for <netdev@vger.kernel.org>; Mon, 6 Dec 2010 14:46:58 -0200
+Received: from d24av05.br.ibm.com (loopback [127.0.0.1])
+	by d24av05.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id oB6Gdqc8003272
+	for <netdev@vger.kernel.org>; Mon, 6 Dec 2010 14:39:53 -0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/05/2010 07:24 PM, Eric W. Biederman wrote:
-> 
-> In 2.6.37-rc4 ipv6 can be disabled not enabled.
-> The last kernel I have tested and know this works on is 2.6.33.
-> 
-> To reproduce:
->    ~ # ip link set lo up
->    ~ # ping6 ::1
->    PING ::1(::1) 56 data bytes
->    64 bytes from ::1: icmp_seq=1 ttl=64 time=0.026 ms
->    ^C
->    --- ::1 ping statistics ---
->    1 packets transmitted, 1 received, 0% packet loss, time 782ms
->    rtt min/avg/max/mdev = 0.026/0.026/0.026/0.000 ms
->    ~ # echo 1 > /proc/sys/net/ipv6/conf/lo/disable_ipv6 
->    ~ # ping6 ::1
->    connect: Network is unreachable
->    ~ # echo 0 > /proc/sys/net/ipv6/conf/lo/disable_ipv6 
->    ~ # ping6 ::1
->    connect: Network is unreachable
-> 
-> 
-> I intend to poke at this a little more but at the moment
-> I am drawing a blank at what is going on.
+Currently ehea is not setting NETIF_F_LRO, and it is not providing
+a callback for get_flags on ethtool. This patch fixes it.
 
-It should just be calling addrconf_notify() with either NETDEV_UP
-or NETDEV_DOWN.  Does the address not come back?  Or the route?
+Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
+---
+ drivers/net/ehea/ehea_ethtool.c |    1 +
+ drivers/net/ehea/ehea_main.c    |    3 +++
+ 2 files changed, 4 insertions(+), 0 deletions(-)
 
-> I intend to keep poking at this but if anyone can figure this out
-> before I do I would be greatly appreciative.
+diff --git a/drivers/net/ehea/ehea_ethtool.c b/drivers/net/ehea/ehea_ethtool.c
+index 75b099c..b0892b0 100644
+--- a/drivers/net/ehea/ehea_ethtool.c
++++ b/drivers/net/ehea/ehea_ethtool.c
+@@ -273,6 +273,7 @@ const struct ethtool_ops ehea_ethtool_ops = {
+ 	.get_ethtool_stats = ehea_get_ethtool_stats,
+ 	.get_rx_csum = ehea_get_rx_csum,
+ 	.set_settings = ehea_set_settings,
++	.get_flags = ethtool_op_get_flags,
+ 	.nway_reset = ehea_nway_reset,		/* Restart autonegotiation */
+ };
+ 
+diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.c
+index a84c389..da75846 100644
+--- a/drivers/net/ehea/ehea_main.c
++++ b/drivers/net/ehea/ehea_main.c
+@@ -3266,6 +3266,9 @@ struct ehea_port *ehea_setup_single_port(struct ehea_adapter *adapter,
+ 		      | NETIF_F_LLTX;
+ 	dev->watchdog_timeo = EHEA_WATCH_DOG_TIMEOUT;
+ 
++	if (use_lro)
++		dev->features |= NETIF_F_LRO;
++
+ 	INIT_WORK(&port->reset_task, ehea_reset_port);
+ 
+ 	ret = register_netdev(dev);
+-- 
+1.7.3.2
 
-I'm pulling the latest tree now, my 2.6.32.24 system is running fine, so
-it's something after that.
-
--Brian
