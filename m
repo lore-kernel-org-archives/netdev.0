@@ -1,123 +1,963 @@
-From: Michael Leun <lkml20101129@newton.leun.net>
-Subject: Re: [PATCH 2.6.36] vlan: Avoid hwaccel vlan packets when vid not
- used
-Date: Mon, 6 Dec 2010 22:27:03 +0100
-Message-ID: <20101206222703.32fbe852@xenia.leun.net>
-References: <20101129201716.1d0257c4@xenia.leun.net>
-	<4CF442FA.4070701@candelatech.com>
-	<20101130095944.41b5f7b6@xenia.leun.net>
-	<1291108809.2904.3.camel@edumazet-laptop>
-	<20101201111716.424fb771@xenia.leun.net>
-	<1291200914.2856.546.camel@edumazet-laptop>
-	<20101205030712.36149bc2@xenia.leun.net>
-	<1291536233.2806.102.camel@edumazet-laptop>
-	<20101205105528.49fa9a9f@xenia.leun.net>
-	<20101205114404.7c0cddc2@xenia.leun.net>
-	<AANLkTikrDTCDxsyOG4m0XcrOY=3pTRwWqnPGsio9cBFj@mail.gmail.com>
-	<20101206203437.54b550e0@xenia.leun.net>
-	<AANLkTikKkAesHc4Fi4SwAkV0e65D0TQRztrRYoDNu3MP@mail.gmail.com>
+From: Maxim Levitsky <maximlevitsky@gmail.com>
+Subject: Re: [PATCH v2] net/r8169: Remove the firmware of RTL8111D
+Date: Mon, 06 Dec 2010 23:38:14 +0200
+Message-ID: <1291671494.30050.19.camel@maxim-laptop>
+References: <1291619474-3244-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Ben Greear <greearb@candelatech.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Jesse Gross <jesse@nicira.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Hayes Wang <hayeswang@realtek.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTikKkAesHc4Fi4SwAkV0e65D0TQRztrRYoDNu3MP@mail.gmail.com>
+In-Reply-To: <1291619474-3244-1-git-send-email-hayeswang@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 6 Dec 2010 12:04:48 -0800
-Jesse Gross <jesse@nicira.com> wrote:
+On Mon, 2010-12-06 at 15:11 +0800, Hayes Wang wrote:
+> Remove the firmware of RTL8111D from the kernel.
+> The binary file of firmware would be moved to linux-firmware repository.
+> The firmwares are rtl_nic/rtl8168d-1.fw and rtl_nic/rtl8168d-2.fw.
+> The driver would load the firmware through request_firmware. The driver
+> would just go along if the firmware couldn't be found. However, it is
+> suggested to be done with the suitable firmware.
+> 
+> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+Good day.
 
-> On Mon, Dec 6, 2010 at 11:34 AM, Michael Leun
-> <lkml20101129@newton.leun.net> wrote:
-> > On Mon, 6 Dec 2010 10:14:55 -0800
-> > Jesse Gross <jesse@nicira.com> wrote:
-> >
-> >> On Sun, Dec 5, 2010 at 2:44 AM, Michael Leun
-> >> <lkml20101129@newton.leun.net> wrote:
-> >> > Hi Jesse,
-> >> >
-> >> > On Sun, 5 Dec 2010 10:55:28 +0100
-> >> > Michael Leun <lkml20101129@newton.leun.net> wrote:
-> >> >
-> >> >> On Sun, 05 Dec 2010 09:03:53 +0100
-> >> >> Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> >> >>
-> >> >> > > But on
-> >> >> > >
-> >> >> > > hpdl320g5:/home/ml # lspci | grep Eth
-> >> >> > > 03:04.0 Ethernet controller: Broadcom Corporation NetXtreme
-> >> >> > > BCM5714 Gigabit Ethernet (rev a3) 03:04.1 Ethernet
-> >> >> > > controller: Broadcom Corporation NetXtreme BCM5714 Gigabit
-> >> >> > > Ethernet (rev a3)
-> >> >> > >
-> >> >> > > the good message is that it also does not crash, but with
-> >> >> > > tcpdump I see vlan tags when no vlan devices configured on
-> >> >> > > the respective eth, if so I do not see tags anymore vlan
-> >> >> > > tags on the trunk interface.
-> >> >> > >
-> >> >> >
-> >> >> > For all these very specific needs, you'll have to try 2.6.37
-> >> >> > I am afraid. Jesse did huge changes to exactly make this
-> >> >> > working, we wont backport this to 2.6.36, but only avoid
-> >> >> > crashes.
-> >> >>
-> >> >> OK, I'm perfectly fine with that, of course, actually nice to
-> >> >> hear that the issue already is addressed.
-> >> >>
-> >> >> Likely I'll give some rc an shot on this machine (maybe over
-> >> >> christmas), but it is an production machine (acutally testing
-> >> >> other devices is the "product" produced on this machine), so
-> >> >> unfortunately I'm not that free in when and what I can do (but
-> >> >> the possibility to, for example, bridge the trunk interface
-> >> >> would make testing easier, that justifies something...).
-> >> >>
-> >> >> Thank you all very much for your work.
-> >> >
-> >> > Are these changes already in 2.6.37-rc4? Or, if not are they
-> >> > somewhere publically available already?
-> >> >
-> >> > I looked into various changelogs but have some difficulties to
-> >> > identify them...
-> >> >
-> >> > Maybe I have some time next days to give them an try...
-> >>
-> >> Yes, all of the existing vlan changes are in 2.6.37-rc4. =A0There
-> >> were a number of patches but the main one was
-> >> 3701e51382a026cba10c60b03efabe534fba4ca4
-> >
-> > Then, I'm afraid, this (seeing vlan tags even if vlan interfaces ar=
-e
-> > configured) does not work on HP DL320G5 (for exact description and
-> > examples please see my mail a few days ago).
->=20
-> What driver are you using?  Is it tg3?
->=20
-> The vlan changes that I made unfortunately require updating drivers t=
-o
-> get the full benefit.  I've been busy lately so tg3 hasn't yet been
-> updated.
->=20
-> I know that tg3 does some things differently depending on whether a
-> vlan group is configured, so that would likely be the cause of what
-> you are seeing.  I'd have to look at it in more detail to be sure
-> though.
->=20
-> You said that everything works on the other Broadcom NIC that you
-> tested?  Maybe it uses bnx2 instead?
->=20
+Hayes Wang, maybe you know who is responsible for DVB division in your
+company?
+I recently bought a RTL2832 based DVB-T stick and I like to make it
+supportable in linux out of box.
 
-Both machines use tg3 / 2.6.36.1 - one is opensuse, one ubuntu (but
-this should not matter, I think).
+I think I have enough knowledge/experience to do that.
 
-If I can do anything to support your investigations / work (most
-likely testing / providing information) please let me know.
+(I currently use your company's driver and it works just fine)
 
---=20
-MfG,
 
-Michael Leun
+What I miss is datasheets on the device (I can manage without them using
+your driver source as a reference, but datasheets will help me a lot
+simplifying things, and reduce bugs).
+
+And I need a official statement that driver you released is
+GPL-compatible.
+
+I found few versions of it in few unofficial locations in the web, and
+it contains the 'MODULE_VERSION("GPL")', but files miss the GPL header,
+and in few places the code comments state that source in the file was
+taken from sources provided by other companies (e.g. Microtune).
+
+
+Thanks in advance,
+	Maxim Levitsky
+
+
+> ---
+>  drivers/net/r8169.c |  796 ++++++++-------------------------------------------
+>  1 files changed, 117 insertions(+), 679 deletions(-)
+>  mode change 100644 => 100755 drivers/net/r8169.c
+> 
+> diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+> old mode 100644
+> new mode 100755
+> index 7d33ef4..e0df607
+> --- a/drivers/net/r8169.c
+> +++ b/drivers/net/r8169.c
+> @@ -24,6 +24,7 @@
+>  #include <linux/init.h>
+>  #include <linux/dma-mapping.h>
+>  #include <linux/pm_runtime.h>
+> +#include <linux/firmware.h>
+>  
+>  #include <asm/system.h>
+>  #include <asm/io.h>
+> @@ -1383,6 +1384,50 @@ static void rtl_phy_write(void __iomem *ioaddr, const struct phy_reg *regs, int
+>  	}
+>  }
+>  
+> +#define PHY_READ		0x00000000
+> +#define PHY_DATA_OR		0x10000000
+> +#define PHY_DATA_AND		0x20000000
+> +#define PHY_BJMPN		0x30000000
+> +#define PHY_READ_EFUSE		0x40000000
+> +#define PHY_READ_MAC_BYTE	0x50000000
+> +#define PHY_WRITE_MAC_BYTE	0x60000000
+> +#define PHY_CLEAR_READCOUNT	0x70000000
+> +#define PHY_WRITE		0x80000000
+> +#define PHY_READCOUNT_EQ_SKIP	0x90000000
+> +#define PHY_COMP_EQ_SKIPN	0xA0000000
+> +#define PHY_COMP_NEQ_SKIPN	0xB0000000
+> +#define PHY_WRITE_PREVIOUS	0xC0000000
+> +#define PHY_SKIPN		0xD0000000
+> +#define PHY_DELAY_MS		0xE0000000
+> +#define PHY_WRITE_ERI_WORD	0xF0000000
+> +
+> +static void
+> +rtl_phy_write_fw(struct rtl8169_private *tp, const struct firmware *fw)
+> +{
+> +	void __iomem *ioaddr = tp->mmio_addr;
+> +	u32 *phytable = (u32 *)fw->data;
+> +	u32 action;
+> +	size_t len = fw->size / sizeof(*phytable);
+> +	u32 regno, data;
+> +
+> +	while (len-- > 0 && *phytable != 0) {
+> +		action = le32_to_cpu(*phytable);
+> +		regno = (action & 0x0FFF0000) >> 16;
+> +		data = action & 0x0000FFFF;
+> +
+> +		switch(action & 0xF0000000) {
+> +		case PHY_WRITE:
+> +			mdio_write(ioaddr, regno, data);
+> +			phytable++;
+> +			break;
+> +		default:
+> +			netif_err(tp, probe, tp->dev,
+> +				  "Unknown action 0x%08x\n", action);
+> +			return;
+> +		}
+> +	}
+> +}
+> +
+>  static void rtl8169s_hw_phy_config(void __iomem *ioaddr)
+>  {
+>  	static const struct phy_reg phy_reg_init[] = {
+> @@ -1715,9 +1760,10 @@ static void rtl8168c_4_hw_phy_config(void __iomem *ioaddr)
+>  	rtl8168c_3_hw_phy_config(ioaddr);
+>  }
+>  
+> -static void rtl8168d_1_hw_phy_config(void __iomem *ioaddr)
+> +static void rtl8168d_1_hw_phy_config(struct rtl8169_private *tp)
+>  {
+>  	static const struct phy_reg phy_reg_init_0[] = {
+> +		/* Channel Estimation */
+>  		{ 0x1f, 0x0001 },
+>  		{ 0x06, 0x4064 },
+>  		{ 0x07, 0x2863 },
+> @@ -1734,379 +1780,41 @@ static void rtl8168d_1_hw_phy_config(void __iomem *ioaddr)
+>  		{ 0x12, 0xf49f },
+>  		{ 0x13, 0x070b },
+>  		{ 0x1a, 0x05ad },
+> -		{ 0x14, 0x94c0 }
+> -	};
+> -	static const struct phy_reg phy_reg_init_1[] = {
+> +		{ 0x14, 0x94c0 },
+> +
+> +		/*
+> +		 * Tx Error Issue
+> +		 * enhance line driver power
+> +		 */
+>  		{ 0x1f, 0x0002 },
+>  		{ 0x06, 0x5561 },
+>  		{ 0x1f, 0x0005 },
+>  		{ 0x05, 0x8332 },
+> -		{ 0x06, 0x5561 }
+> -	};
+> -	static const struct phy_reg phy_reg_init_2[] = {
+> -		{ 0x1f, 0x0005 },
+> -		{ 0x05, 0xffc2 },
+> -		{ 0x1f, 0x0005 },
+> -		{ 0x05, 0x8000 },
+> -		{ 0x06, 0xf8f9 },
+> -		{ 0x06, 0xfaef },
+> -		{ 0x06, 0x59ee },
+> -		{ 0x06, 0xf8ea },
+> -		{ 0x06, 0x00ee },
+> -		{ 0x06, 0xf8eb },
+> -		{ 0x06, 0x00e0 },
+> -		{ 0x06, 0xf87c },
+> -		{ 0x06, 0xe1f8 },
+> -		{ 0x06, 0x7d59 },
+> -		{ 0x06, 0x0fef },
+> -		{ 0x06, 0x0139 },
+> -		{ 0x06, 0x029e },
+> -		{ 0x06, 0x06ef },
+> -		{ 0x06, 0x1039 },
+> -		{ 0x06, 0x089f },
+> -		{ 0x06, 0x2aee },
+> -		{ 0x06, 0xf8ea },
+> -		{ 0x06, 0x00ee },
+> -		{ 0x06, 0xf8eb },
+> -		{ 0x06, 0x01e0 },
+> -		{ 0x06, 0xf87c },
+> -		{ 0x06, 0xe1f8 },
+> -		{ 0x06, 0x7d58 },
+> -		{ 0x06, 0x409e },
+> -		{ 0x06, 0x0f39 },
+> -		{ 0x06, 0x46aa },
+> -		{ 0x06, 0x0bbf },
+> -		{ 0x06, 0x8290 },
+> -		{ 0x06, 0xd682 },
+> -		{ 0x06, 0x9802 },
+> -		{ 0x06, 0x014f },
+> -		{ 0x06, 0xae09 },
+> -		{ 0x06, 0xbf82 },
+> -		{ 0x06, 0x98d6 },
+> -		{ 0x06, 0x82a0 },
+> -		{ 0x06, 0x0201 },
+> -		{ 0x06, 0x4fef },
+> -		{ 0x06, 0x95fe },
+> -		{ 0x06, 0xfdfc },
+> -		{ 0x06, 0x05f8 },
+> -		{ 0x06, 0xf9fa },
+> -		{ 0x06, 0xeef8 },
+> -		{ 0x06, 0xea00 },
+> -		{ 0x06, 0xeef8 },
+> -		{ 0x06, 0xeb00 },
+> -		{ 0x06, 0xe2f8 },
+> -		{ 0x06, 0x7ce3 },
+> -		{ 0x06, 0xf87d },
+> -		{ 0x06, 0xa511 },
+> -		{ 0x06, 0x1112 },
+> -		{ 0x06, 0xd240 },
+> -		{ 0x06, 0xd644 },
+> -		{ 0x06, 0x4402 },
+> -		{ 0x06, 0x8217 },
+> -		{ 0x06, 0xd2a0 },
+> -		{ 0x06, 0xd6aa },
+> -		{ 0x06, 0xaa02 },
+> -		{ 0x06, 0x8217 },
+> -		{ 0x06, 0xae0f },
+> -		{ 0x06, 0xa544 },
+> -		{ 0x06, 0x4402 },
+> -		{ 0x06, 0xae4d },
+> -		{ 0x06, 0xa5aa },
+> -		{ 0x06, 0xaa02 },
+> -		{ 0x06, 0xae47 },
+> -		{ 0x06, 0xaf82 },
+> -		{ 0x06, 0x13ee },
+> -		{ 0x06, 0x834e },
+> -		{ 0x06, 0x00ee },
+> -		{ 0x06, 0x834d },
+> -		{ 0x06, 0x0fee },
+> -		{ 0x06, 0x834c },
+> -		{ 0x06, 0x0fee },
+> -		{ 0x06, 0x834f },
+> -		{ 0x06, 0x00ee },
+> -		{ 0x06, 0x8351 },
+> -		{ 0x06, 0x00ee },
+> -		{ 0x06, 0x834a },
+> -		{ 0x06, 0xffee },
+> -		{ 0x06, 0x834b },
+> -		{ 0x06, 0xffe0 },
+> -		{ 0x06, 0x8330 },
+> -		{ 0x06, 0xe183 },
+> -		{ 0x06, 0x3158 },
+> -		{ 0x06, 0xfee4 },
+> -		{ 0x06, 0xf88a },
+> -		{ 0x06, 0xe5f8 },
+> -		{ 0x06, 0x8be0 },
+> -		{ 0x06, 0x8332 },
+> -		{ 0x06, 0xe183 },
+> -		{ 0x06, 0x3359 },
+> -		{ 0x06, 0x0fe2 },
+> -		{ 0x06, 0x834d },
+> -		{ 0x06, 0x0c24 },
+> -		{ 0x06, 0x5af0 },
+> -		{ 0x06, 0x1e12 },
+> -		{ 0x06, 0xe4f8 },
+> -		{ 0x06, 0x8ce5 },
+> -		{ 0x06, 0xf88d },
+> -		{ 0x06, 0xaf82 },
+> -		{ 0x06, 0x13e0 },
+> -		{ 0x06, 0x834f },
+> -		{ 0x06, 0x10e4 },
+> -		{ 0x06, 0x834f },
+> -		{ 0x06, 0xe083 },
+> -		{ 0x06, 0x4e78 },
+> -		{ 0x06, 0x009f },
+> -		{ 0x06, 0x0ae0 },
+> -		{ 0x06, 0x834f },
+> -		{ 0x06, 0xa010 },
+> -		{ 0x06, 0xa5ee },
+> -		{ 0x06, 0x834e },
+> -		{ 0x06, 0x01e0 },
+> -		{ 0x06, 0x834e },
+> -		{ 0x06, 0x7805 },
+> -		{ 0x06, 0x9e9a },
+> -		{ 0x06, 0xe083 },
+> -		{ 0x06, 0x4e78 },
+> -		{ 0x06, 0x049e },
+> -		{ 0x06, 0x10e0 },
+> -		{ 0x06, 0x834e },
+> -		{ 0x06, 0x7803 },
+> -		{ 0x06, 0x9e0f },
+> -		{ 0x06, 0xe083 },
+> -		{ 0x06, 0x4e78 },
+> -		{ 0x06, 0x019e },
+> -		{ 0x06, 0x05ae },
+> -		{ 0x06, 0x0caf },
+> -		{ 0x06, 0x81f8 },
+> -		{ 0x06, 0xaf81 },
+> -		{ 0x06, 0xa3af },
+> -		{ 0x06, 0x81dc },
+> -		{ 0x06, 0xaf82 },
+> -		{ 0x06, 0x13ee },
+> -		{ 0x06, 0x8348 },
+> -		{ 0x06, 0x00ee },
+> -		{ 0x06, 0x8349 },
+> -		{ 0x06, 0x00e0 },
+> -		{ 0x06, 0x8351 },
+> -		{ 0x06, 0x10e4 },
+> -		{ 0x06, 0x8351 },
+> -		{ 0x06, 0x5801 },
+> -		{ 0x06, 0x9fea },
+> -		{ 0x06, 0xd000 },
+> -		{ 0x06, 0xd180 },
+> -		{ 0x06, 0x1f66 },
+> -		{ 0x06, 0xe2f8 },
+> -		{ 0x06, 0xeae3 },
+> -		{ 0x06, 0xf8eb },
+> -		{ 0x06, 0x5af8 },
+> -		{ 0x06, 0x1e20 },
+> -		{ 0x06, 0xe6f8 },
+> -		{ 0x06, 0xeae5 },
+> -		{ 0x06, 0xf8eb },
+> -		{ 0x06, 0xd302 },
+> -		{ 0x06, 0xb3fe },
+> -		{ 0x06, 0xe2f8 },
+> -		{ 0x06, 0x7cef },
+> -		{ 0x06, 0x325b },
+> -		{ 0x06, 0x80e3 },
+> -		{ 0x06, 0xf87d },
+> -		{ 0x06, 0x9e03 },
+> -		{ 0x06, 0x7dff },
+> -		{ 0x06, 0xff0d },
+> -		{ 0x06, 0x581c },
+> -		{ 0x06, 0x551a },
+> -		{ 0x06, 0x6511 },
+> -		{ 0x06, 0xa190 },
+> -		{ 0x06, 0xd3e2 },
+> -		{ 0x06, 0x8348 },
+> -		{ 0x06, 0xe383 },
+> -		{ 0x06, 0x491b },
+> -		{ 0x06, 0x56ab },
+> -		{ 0x06, 0x08ef },
+> -		{ 0x06, 0x56e6 },
+> -		{ 0x06, 0x8348 },
+> -		{ 0x06, 0xe783 },
+> -		{ 0x06, 0x4910 },
+> -		{ 0x06, 0xd180 },
+> -		{ 0x06, 0x1f66 },
+> -		{ 0x06, 0xa004 },
+> -		{ 0x06, 0xb9e2 },
+> -		{ 0x06, 0x8348 },
+> -		{ 0x06, 0xe383 },
+> -		{ 0x06, 0x49ef },
+> -		{ 0x06, 0x65e2 },
+> -		{ 0x06, 0x834a },
+> -		{ 0x06, 0xe383 },
+> -		{ 0x06, 0x4b1b },
+> -		{ 0x06, 0x56aa },
+> -		{ 0x06, 0x0eef },
+> -		{ 0x06, 0x56e6 },
+> -		{ 0x06, 0x834a },
+> -		{ 0x06, 0xe783 },
+> -		{ 0x06, 0x4be2 },
+> -		{ 0x06, 0x834d },
+> -		{ 0x06, 0xe683 },
+> -		{ 0x06, 0x4ce0 },
+> -		{ 0x06, 0x834d },
+> -		{ 0x06, 0xa000 },
+> -		{ 0x06, 0x0caf },
+> -		{ 0x06, 0x81dc },
+> -		{ 0x06, 0xe083 },
+> -		{ 0x06, 0x4d10 },
+> -		{ 0x06, 0xe483 },
+> -		{ 0x06, 0x4dae },
+> -		{ 0x06, 0x0480 },
+> -		{ 0x06, 0xe483 },
+> -		{ 0x06, 0x4de0 },
+> -		{ 0x06, 0x834e },
+> -		{ 0x06, 0x7803 },
+> -		{ 0x06, 0x9e0b },
+> -		{ 0x06, 0xe083 },
+> -		{ 0x06, 0x4e78 },
+> -		{ 0x06, 0x049e },
+> -		{ 0x06, 0x04ee },
+> -		{ 0x06, 0x834e },
+> -		{ 0x06, 0x02e0 },
+> -		{ 0x06, 0x8332 },
+> -		{ 0x06, 0xe183 },
+> -		{ 0x06, 0x3359 },
+> -		{ 0x06, 0x0fe2 },
+> -		{ 0x06, 0x834d },
+> -		{ 0x06, 0x0c24 },
+> -		{ 0x06, 0x5af0 },
+> -		{ 0x06, 0x1e12 },
+> -		{ 0x06, 0xe4f8 },
+> -		{ 0x06, 0x8ce5 },
+> -		{ 0x06, 0xf88d },
+> -		{ 0x06, 0xe083 },
+> -		{ 0x06, 0x30e1 },
+> -		{ 0x06, 0x8331 },
+> -		{ 0x06, 0x6801 },
+> -		{ 0x06, 0xe4f8 },
+> -		{ 0x06, 0x8ae5 },
+> -		{ 0x06, 0xf88b },
+> -		{ 0x06, 0xae37 },
+> -		{ 0x06, 0xee83 },
+> -		{ 0x06, 0x4e03 },
+> -		{ 0x06, 0xe083 },
+> -		{ 0x06, 0x4ce1 },
+> -		{ 0x06, 0x834d },
+> -		{ 0x06, 0x1b01 },
+> -		{ 0x06, 0x9e04 },
+> -		{ 0x06, 0xaaa1 },
+> -		{ 0x06, 0xaea8 },
+> -		{ 0x06, 0xee83 },
+> -		{ 0x06, 0x4e04 },
+> -		{ 0x06, 0xee83 },
+> -		{ 0x06, 0x4f00 },
+> -		{ 0x06, 0xaeab },
+> -		{ 0x06, 0xe083 },
+> -		{ 0x06, 0x4f78 },
+> -		{ 0x06, 0x039f },
+> -		{ 0x06, 0x14ee },
+> -		{ 0x06, 0x834e },
+> -		{ 0x06, 0x05d2 },
+> -		{ 0x06, 0x40d6 },
+> -		{ 0x06, 0x5554 },
+> -		{ 0x06, 0x0282 },
+> -		{ 0x06, 0x17d2 },
+> -		{ 0x06, 0xa0d6 },
+> -		{ 0x06, 0xba00 },
+> -		{ 0x06, 0x0282 },
+> -		{ 0x06, 0x17fe },
+> -		{ 0x06, 0xfdfc },
+> -		{ 0x06, 0x05f8 },
+> -		{ 0x06, 0xe0f8 },
+> -		{ 0x06, 0x60e1 },
+> -		{ 0x06, 0xf861 },
+> -		{ 0x06, 0x6802 },
+> -		{ 0x06, 0xe4f8 },
+> -		{ 0x06, 0x60e5 },
+> -		{ 0x06, 0xf861 },
+> -		{ 0x06, 0xe0f8 },
+> -		{ 0x06, 0x48e1 },
+> -		{ 0x06, 0xf849 },
+> -		{ 0x06, 0x580f },
+> -		{ 0x06, 0x1e02 },
+> -		{ 0x06, 0xe4f8 },
+> -		{ 0x06, 0x48e5 },
+> -		{ 0x06, 0xf849 },
+> -		{ 0x06, 0xd000 },
+> -		{ 0x06, 0x0282 },
+> -		{ 0x06, 0x5bbf },
+> -		{ 0x06, 0x8350 },
+> -		{ 0x06, 0xef46 },
+> -		{ 0x06, 0xdc19 },
+> -		{ 0x06, 0xddd0 },
+> -		{ 0x06, 0x0102 },
+> -		{ 0x06, 0x825b },
+> -		{ 0x06, 0x0282 },
+> -		{ 0x06, 0x77e0 },
+> -		{ 0x06, 0xf860 },
+> -		{ 0x06, 0xe1f8 },
+> -		{ 0x06, 0x6158 },
+> -		{ 0x06, 0xfde4 },
+> -		{ 0x06, 0xf860 },
+> -		{ 0x06, 0xe5f8 },
+> -		{ 0x06, 0x61fc },
+> -		{ 0x06, 0x04f9 },
+> -		{ 0x06, 0xfafb },
+> -		{ 0x06, 0xc6bf },
+> -		{ 0x06, 0xf840 },
+> -		{ 0x06, 0xbe83 },
+> -		{ 0x06, 0x50a0 },
+> -		{ 0x06, 0x0101 },
+> -		{ 0x06, 0x071b },
+> -		{ 0x06, 0x89cf },
+> -		{ 0x06, 0xd208 },
+> -		{ 0x06, 0xebdb },
+> -		{ 0x06, 0x19b2 },
+> -		{ 0x06, 0xfbff },
+> -		{ 0x06, 0xfefd },
+> -		{ 0x06, 0x04f8 },
+> -		{ 0x06, 0xe0f8 },
+> -		{ 0x06, 0x48e1 },
+> -		{ 0x06, 0xf849 },
+> -		{ 0x06, 0x6808 },
+> -		{ 0x06, 0xe4f8 },
+> -		{ 0x06, 0x48e5 },
+> -		{ 0x06, 0xf849 },
+> -		{ 0x06, 0x58f7 },
+> -		{ 0x06, 0xe4f8 },
+> -		{ 0x06, 0x48e5 },
+> -		{ 0x06, 0xf849 },
+> -		{ 0x06, 0xfc04 },
+> -		{ 0x06, 0x4d20 },
+> -		{ 0x06, 0x0002 },
+> -		{ 0x06, 0x4e22 },
+> -		{ 0x06, 0x0002 },
+> -		{ 0x06, 0x4ddf },
+> -		{ 0x06, 0xff01 },
+> -		{ 0x06, 0x4edd },
+> -		{ 0x06, 0xff01 },
+> -		{ 0x05, 0x83d4 },
+> -		{ 0x06, 0x8000 },
+> -		{ 0x05, 0x83d8 },
+> -		{ 0x06, 0x8051 },
+> -		{ 0x02, 0x6010 },
+> -		{ 0x03, 0xdc00 },
+> -		{ 0x05, 0xfff6 },
+> -		{ 0x06, 0x00fc },
+> -		{ 0x1f, 0x0000 },
+> +		{ 0x06, 0x5561 },
+> +
+> +		/*
+> +		 * Can not link to 1Gbps with bad cable
+> +		 * Decrease SNR threshold form 21.07dB to 19.04dB
+> +		 */
+> +		{ 0x1f, 0x0001 },
+> +		{ 0x17, 0x0cc0 },
+>  
+>  		{ 0x1f, 0x0000 },
+> -		{ 0x0d, 0xf880 },
+> -		{ 0x1f, 0x0000 }
+> +		{ 0x0d, 0xf880 }
+>  	};
+> +	void __iomem *ioaddr = tp->mmio_addr;
+> +	const struct firmware *fw;
+>  
+>  	rtl_phy_write(ioaddr, phy_reg_init_0, ARRAY_SIZE(phy_reg_init_0));
+>  
+> +	/*
+> +	 * Rx Error Issue
+> +	 * Fine Tune Switching regulator parameter
+> +	 */
+>  	mdio_write(ioaddr, 0x1f, 0x0002);
+>  	mdio_plus_minus(ioaddr, 0x0b, 0x0010, 0x00ef);
+>  	mdio_plus_minus(ioaddr, 0x0c, 0xa200, 0x5d00);
+>  
+> -	rtl_phy_write(ioaddr, phy_reg_init_1, ARRAY_SIZE(phy_reg_init_1));
+> -
+>  	if (rtl8168d_efuse_read(ioaddr, 0x01) == 0xb1) {
+>  		static const struct phy_reg phy_reg_init[] = {
+>  			{ 0x1f, 0x0002 },
+> @@ -2147,20 +1855,35 @@ static void rtl8168d_1_hw_phy_config(void __iomem *ioaddr)
+>  		rtl_phy_write(ioaddr, phy_reg_init, ARRAY_SIZE(phy_reg_init));
+>  	}
+>  
+> +	/* RSET couple improve */
+>  	mdio_write(ioaddr, 0x1f, 0x0002);
+>  	mdio_patch(ioaddr, 0x0d, 0x0300);
+>  	mdio_patch(ioaddr, 0x0f, 0x0010);
+>  
+> +	/* Fine tune PLL performance */
+>  	mdio_write(ioaddr, 0x1f, 0x0002);
+>  	mdio_plus_minus(ioaddr, 0x02, 0x0100, 0x0600);
+>  	mdio_plus_minus(ioaddr, 0x03, 0x0000, 0xe000);
+>  
+> -	rtl_phy_write(ioaddr, phy_reg_init_2, ARRAY_SIZE(phy_reg_init_2));
+> +	mdio_write(ioaddr, 0x1F, 0x0005);
+> +	mdio_write(ioaddr, 0x05, 0x001B);
+> +	if (mdio_read(ioaddr, 0x06) == 0xBF00 &&
+> +	    request_firmware(&fw, "rtl_nic/rtl8168d-1.fw", &tp->pci_dev->dev) == 0) {
+> +		rtl_phy_write_fw(tp, fw);
+> +		release_firmware(fw);
+> +	} else {
+> +		netif_warn(tp, probe, tp->dev, "unable to apply firmware patch\n");
+> +	}
+> +
+> +	mdio_write(ioaddr, 0x1f, 0x0000);
+>  }
+>  
+> -static void rtl8168d_2_hw_phy_config(void __iomem *ioaddr)
+> +MODULE_FIRMWARE("rtl_nic/rtl8168d-1.fw");
+> +
+> +static void rtl8168d_2_hw_phy_config(struct rtl8169_private *tp)
+>  {
+>  	static const struct phy_reg phy_reg_init_0[] = {
+> +		/* Channel Estimation */
+>  		{ 0x1f, 0x0001 },
+>  		{ 0x06, 0x4064 },
+>  		{ 0x07, 0x2863 },
+> @@ -2179,324 +1902,28 @@ static void rtl8168d_2_hw_phy_config(void __iomem *ioaddr)
+>  		{ 0x1a, 0x05ad },
+>  		{ 0x14, 0x94c0 },
+>  
+> +		/*
+> +		 * Tx Error Issue
+> +		 * enhance line driver power
+> +		 */
+>  		{ 0x1f, 0x0002 },
+>  		{ 0x06, 0x5561 },
+>  		{ 0x1f, 0x0005 },
+>  		{ 0x05, 0x8332 },
+> -		{ 0x06, 0x5561 }
+> -	};
+> -	static const struct phy_reg phy_reg_init_1[] = {
+> -		{ 0x1f, 0x0005 },
+> -		{ 0x05, 0xffc2 },
+> -		{ 0x1f, 0x0005 },
+> -		{ 0x05, 0x8000 },
+> -		{ 0x06, 0xf8f9 },
+> -		{ 0x06, 0xfaee },
+> -		{ 0x06, 0xf8ea },
+> -		{ 0x06, 0x00ee },
+> -		{ 0x06, 0xf8eb },
+> -		{ 0x06, 0x00e2 },
+> -		{ 0x06, 0xf87c },
+> -		{ 0x06, 0xe3f8 },
+> -		{ 0x06, 0x7da5 },
+> -		{ 0x06, 0x1111 },
+> -		{ 0x06, 0x12d2 },
+> -		{ 0x06, 0x40d6 },
+> -		{ 0x06, 0x4444 },
+> -		{ 0x06, 0x0281 },
+> -		{ 0x06, 0xc6d2 },
+> -		{ 0x06, 0xa0d6 },
+> -		{ 0x06, 0xaaaa },
+> -		{ 0x06, 0x0281 },
+> -		{ 0x06, 0xc6ae },
+> -		{ 0x06, 0x0fa5 },
+> -		{ 0x06, 0x4444 },
+> -		{ 0x06, 0x02ae },
+> -		{ 0x06, 0x4da5 },
+> -		{ 0x06, 0xaaaa },
+> -		{ 0x06, 0x02ae },
+> -		{ 0x06, 0x47af },
+> -		{ 0x06, 0x81c2 },
+> -		{ 0x06, 0xee83 },
+> -		{ 0x06, 0x4e00 },
+> -		{ 0x06, 0xee83 },
+> -		{ 0x06, 0x4d0f },
+> -		{ 0x06, 0xee83 },
+> -		{ 0x06, 0x4c0f },
+> -		{ 0x06, 0xee83 },
+> -		{ 0x06, 0x4f00 },
+> -		{ 0x06, 0xee83 },
+> -		{ 0x06, 0x5100 },
+> -		{ 0x06, 0xee83 },
+> -		{ 0x06, 0x4aff },
+> -		{ 0x06, 0xee83 },
+> -		{ 0x06, 0x4bff },
+> -		{ 0x06, 0xe083 },
+> -		{ 0x06, 0x30e1 },
+> -		{ 0x06, 0x8331 },
+> -		{ 0x06, 0x58fe },
+> -		{ 0x06, 0xe4f8 },
+> -		{ 0x06, 0x8ae5 },
+> -		{ 0x06, 0xf88b },
+> -		{ 0x06, 0xe083 },
+> -		{ 0x06, 0x32e1 },
+> -		{ 0x06, 0x8333 },
+> -		{ 0x06, 0x590f },
+> -		{ 0x06, 0xe283 },
+> -		{ 0x06, 0x4d0c },
+> -		{ 0x06, 0x245a },
+> -		{ 0x06, 0xf01e },
+> -		{ 0x06, 0x12e4 },
+> -		{ 0x06, 0xf88c },
+> -		{ 0x06, 0xe5f8 },
+> -		{ 0x06, 0x8daf },
+> -		{ 0x06, 0x81c2 },
+> -		{ 0x06, 0xe083 },
+> -		{ 0x06, 0x4f10 },
+> -		{ 0x06, 0xe483 },
+> -		{ 0x06, 0x4fe0 },
+> -		{ 0x06, 0x834e },
+> -		{ 0x06, 0x7800 },
+> -		{ 0x06, 0x9f0a },
+> -		{ 0x06, 0xe083 },
+> -		{ 0x06, 0x4fa0 },
+> -		{ 0x06, 0x10a5 },
+> -		{ 0x06, 0xee83 },
+> -		{ 0x06, 0x4e01 },
+> -		{ 0x06, 0xe083 },
+> -		{ 0x06, 0x4e78 },
+> -		{ 0x06, 0x059e },
+> -		{ 0x06, 0x9ae0 },
+> -		{ 0x06, 0x834e },
+> -		{ 0x06, 0x7804 },
+> -		{ 0x06, 0x9e10 },
+> -		{ 0x06, 0xe083 },
+> -		{ 0x06, 0x4e78 },
+> -		{ 0x06, 0x039e },
+> -		{ 0x06, 0x0fe0 },
+> -		{ 0x06, 0x834e },
+> -		{ 0x06, 0x7801 },
+> -		{ 0x06, 0x9e05 },
+> -		{ 0x06, 0xae0c },
+> -		{ 0x06, 0xaf81 },
+> -		{ 0x06, 0xa7af },
+> -		{ 0x06, 0x8152 },
+> -		{ 0x06, 0xaf81 },
+> -		{ 0x06, 0x8baf },
+> -		{ 0x06, 0x81c2 },
+> -		{ 0x06, 0xee83 },
+> -		{ 0x06, 0x4800 },
+> -		{ 0x06, 0xee83 },
+> -		{ 0x06, 0x4900 },
+> -		{ 0x06, 0xe083 },
+> -		{ 0x06, 0x5110 },
+> -		{ 0x06, 0xe483 },
+> -		{ 0x06, 0x5158 },
+> -		{ 0x06, 0x019f },
+> -		{ 0x06, 0xead0 },
+> -		{ 0x06, 0x00d1 },
+> -		{ 0x06, 0x801f },
+> -		{ 0x06, 0x66e2 },
+> -		{ 0x06, 0xf8ea },
+> -		{ 0x06, 0xe3f8 },
+> -		{ 0x06, 0xeb5a },
+> -		{ 0x06, 0xf81e },
+> -		{ 0x06, 0x20e6 },
+> -		{ 0x06, 0xf8ea },
+> -		{ 0x06, 0xe5f8 },
+> -		{ 0x06, 0xebd3 },
+> -		{ 0x06, 0x02b3 },
+> -		{ 0x06, 0xfee2 },
+> -		{ 0x06, 0xf87c },
+> -		{ 0x06, 0xef32 },
+> -		{ 0x06, 0x5b80 },
+> -		{ 0x06, 0xe3f8 },
+> -		{ 0x06, 0x7d9e },
+> -		{ 0x06, 0x037d },
+> -		{ 0x06, 0xffff },
+> -		{ 0x06, 0x0d58 },
+> -		{ 0x06, 0x1c55 },
+> -		{ 0x06, 0x1a65 },
+> -		{ 0x06, 0x11a1 },
+> -		{ 0x06, 0x90d3 },
+> -		{ 0x06, 0xe283 },
+> -		{ 0x06, 0x48e3 },
+> -		{ 0x06, 0x8349 },
+> -		{ 0x06, 0x1b56 },
+> -		{ 0x06, 0xab08 },
+> -		{ 0x06, 0xef56 },
+> -		{ 0x06, 0xe683 },
+> -		{ 0x06, 0x48e7 },
+> -		{ 0x06, 0x8349 },
+> -		{ 0x06, 0x10d1 },
+> -		{ 0x06, 0x801f },
+> -		{ 0x06, 0x66a0 },
+> -		{ 0x06, 0x04b9 },
+> -		{ 0x06, 0xe283 },
+> -		{ 0x06, 0x48e3 },
+> -		{ 0x06, 0x8349 },
+> -		{ 0x06, 0xef65 },
+> -		{ 0x06, 0xe283 },
+> -		{ 0x06, 0x4ae3 },
+> -		{ 0x06, 0x834b },
+> -		{ 0x06, 0x1b56 },
+> -		{ 0x06, 0xaa0e },
+> -		{ 0x06, 0xef56 },
+> -		{ 0x06, 0xe683 },
+> -		{ 0x06, 0x4ae7 },
+> -		{ 0x06, 0x834b },
+> -		{ 0x06, 0xe283 },
+> -		{ 0x06, 0x4de6 },
+> -		{ 0x06, 0x834c },
+> -		{ 0x06, 0xe083 },
+> -		{ 0x06, 0x4da0 },
+> -		{ 0x06, 0x000c },
+> -		{ 0x06, 0xaf81 },
+> -		{ 0x06, 0x8be0 },
+> -		{ 0x06, 0x834d },
+> -		{ 0x06, 0x10e4 },
+> -		{ 0x06, 0x834d },
+> -		{ 0x06, 0xae04 },
+> -		{ 0x06, 0x80e4 },
+> -		{ 0x06, 0x834d },
+> -		{ 0x06, 0xe083 },
+> -		{ 0x06, 0x4e78 },
+> -		{ 0x06, 0x039e },
+> -		{ 0x06, 0x0be0 },
+> -		{ 0x06, 0x834e },
+> -		{ 0x06, 0x7804 },
+> -		{ 0x06, 0x9e04 },
+> -		{ 0x06, 0xee83 },
+> -		{ 0x06, 0x4e02 },
+> -		{ 0x06, 0xe083 },
+> -		{ 0x06, 0x32e1 },
+> -		{ 0x06, 0x8333 },
+> -		{ 0x06, 0x590f },
+> -		{ 0x06, 0xe283 },
+> -		{ 0x06, 0x4d0c },
+> -		{ 0x06, 0x245a },
+> -		{ 0x06, 0xf01e },
+> -		{ 0x06, 0x12e4 },
+> -		{ 0x06, 0xf88c },
+> -		{ 0x06, 0xe5f8 },
+> -		{ 0x06, 0x8de0 },
+> -		{ 0x06, 0x8330 },
+> -		{ 0x06, 0xe183 },
+> -		{ 0x06, 0x3168 },
+> -		{ 0x06, 0x01e4 },
+> -		{ 0x06, 0xf88a },
+> -		{ 0x06, 0xe5f8 },
+> -		{ 0x06, 0x8bae },
+> -		{ 0x06, 0x37ee },
+> -		{ 0x06, 0x834e },
+> -		{ 0x06, 0x03e0 },
+> -		{ 0x06, 0x834c },
+> -		{ 0x06, 0xe183 },
+> -		{ 0x06, 0x4d1b },
+> -		{ 0x06, 0x019e },
+> -		{ 0x06, 0x04aa },
+> -		{ 0x06, 0xa1ae },
+> -		{ 0x06, 0xa8ee },
+> -		{ 0x06, 0x834e },
+> -		{ 0x06, 0x04ee },
+> -		{ 0x06, 0x834f },
+> -		{ 0x06, 0x00ae },
+> -		{ 0x06, 0xabe0 },
+> -		{ 0x06, 0x834f },
+> -		{ 0x06, 0x7803 },
+> -		{ 0x06, 0x9f14 },
+> -		{ 0x06, 0xee83 },
+> -		{ 0x06, 0x4e05 },
+> -		{ 0x06, 0xd240 },
+> -		{ 0x06, 0xd655 },
+> -		{ 0x06, 0x5402 },
+> -		{ 0x06, 0x81c6 },
+> -		{ 0x06, 0xd2a0 },
+> -		{ 0x06, 0xd6ba },
+> -		{ 0x06, 0x0002 },
+> -		{ 0x06, 0x81c6 },
+> -		{ 0x06, 0xfefd },
+> -		{ 0x06, 0xfc05 },
+> -		{ 0x06, 0xf8e0 },
+> -		{ 0x06, 0xf860 },
+> -		{ 0x06, 0xe1f8 },
+> -		{ 0x06, 0x6168 },
+> -		{ 0x06, 0x02e4 },
+> -		{ 0x06, 0xf860 },
+> -		{ 0x06, 0xe5f8 },
+> -		{ 0x06, 0x61e0 },
+> -		{ 0x06, 0xf848 },
+> -		{ 0x06, 0xe1f8 },
+> -		{ 0x06, 0x4958 },
+> -		{ 0x06, 0x0f1e },
+> -		{ 0x06, 0x02e4 },
+> -		{ 0x06, 0xf848 },
+> -		{ 0x06, 0xe5f8 },
+> -		{ 0x06, 0x49d0 },
+> -		{ 0x06, 0x0002 },
+> -		{ 0x06, 0x820a },
+> -		{ 0x06, 0xbf83 },
+> -		{ 0x06, 0x50ef },
+> -		{ 0x06, 0x46dc },
+> -		{ 0x06, 0x19dd },
+> -		{ 0x06, 0xd001 },
+> -		{ 0x06, 0x0282 },
+> -		{ 0x06, 0x0a02 },
+> -		{ 0x06, 0x8226 },
+> -		{ 0x06, 0xe0f8 },
+> -		{ 0x06, 0x60e1 },
+> -		{ 0x06, 0xf861 },
+> -		{ 0x06, 0x58fd },
+> -		{ 0x06, 0xe4f8 },
+> -		{ 0x06, 0x60e5 },
+> -		{ 0x06, 0xf861 },
+> -		{ 0x06, 0xfc04 },
+> -		{ 0x06, 0xf9fa },
+> -		{ 0x06, 0xfbc6 },
+> -		{ 0x06, 0xbff8 },
+> -		{ 0x06, 0x40be },
+> -		{ 0x06, 0x8350 },
+> -		{ 0x06, 0xa001 },
+> -		{ 0x06, 0x0107 },
+> -		{ 0x06, 0x1b89 },
+> -		{ 0x06, 0xcfd2 },
+> -		{ 0x06, 0x08eb },
+> -		{ 0x06, 0xdb19 },
+> -		{ 0x06, 0xb2fb },
+> -		{ 0x06, 0xfffe },
+> -		{ 0x06, 0xfd04 },
+> -		{ 0x06, 0xf8e0 },
+> -		{ 0x06, 0xf848 },
+> -		{ 0x06, 0xe1f8 },
+> -		{ 0x06, 0x4968 },
+> -		{ 0x06, 0x08e4 },
+> -		{ 0x06, 0xf848 },
+> -		{ 0x06, 0xe5f8 },
+> -		{ 0x06, 0x4958 },
+> -		{ 0x06, 0xf7e4 },
+> -		{ 0x06, 0xf848 },
+> -		{ 0x06, 0xe5f8 },
+> -		{ 0x06, 0x49fc },
+> -		{ 0x06, 0x044d },
+> -		{ 0x06, 0x2000 },
+> -		{ 0x06, 0x024e },
+> -		{ 0x06, 0x2200 },
+> -		{ 0x06, 0x024d },
+> -		{ 0x06, 0xdfff },
+> -		{ 0x06, 0x014e },
+> -		{ 0x06, 0xddff },
+> -		{ 0x06, 0x0100 },
+> -		{ 0x05, 0x83d8 },
+> -		{ 0x06, 0x8000 },
+> -		{ 0x03, 0xdc00 },
+> -		{ 0x05, 0xfff6 },
+> -		{ 0x06, 0x00fc },
+> -		{ 0x1f, 0x0000 },
+> +		{ 0x06, 0x5561 },
+> +
+> +		/*
+> +		 * Can not link to 1Gbps with bad cable
+> +		 * Decrease SNR threshold form 21.07dB to 19.04dB
+> +		 */
+> +		{ 0x1f, 0x0001 },
+> +		{ 0x17, 0x0cc0 },
+>  
+>  		{ 0x1f, 0x0000 },
+> -		{ 0x0d, 0xf880 },
+> -		{ 0x1f, 0x0000 }
+> +		{ 0x0d, 0xf880 }
+>  	};
+> +	void __iomem *ioaddr = tp->mmio_addr;
+> +	const struct firmware *fw;
+>  
+>  	rtl_phy_write(ioaddr, phy_reg_init_0, ARRAY_SIZE(phy_reg_init_0));
+>  
+> @@ -2540,19 +1967,30 @@ static void rtl8168d_2_hw_phy_config(void __iomem *ioaddr)
+>  		rtl_phy_write(ioaddr, phy_reg_init, ARRAY_SIZE(phy_reg_init));
+>  	}
+>  
+> +	/* Fine tune PLL performance */
+>  	mdio_write(ioaddr, 0x1f, 0x0002);
+>  	mdio_plus_minus(ioaddr, 0x02, 0x0100, 0x0600);
+>  	mdio_plus_minus(ioaddr, 0x03, 0x0000, 0xe000);
+>  
+> -	mdio_write(ioaddr, 0x1f, 0x0001);
+> -	mdio_write(ioaddr, 0x17, 0x0cc0);
+> -
+> +	/* Switching regulator Slew rate */
+>  	mdio_write(ioaddr, 0x1f, 0x0002);
+>  	mdio_patch(ioaddr, 0x0f, 0x0017);
+>  
+> -	rtl_phy_write(ioaddr, phy_reg_init_1, ARRAY_SIZE(phy_reg_init_1));
+> +	mdio_write(ioaddr, 0x1F, 0x0005);
+> +	mdio_write(ioaddr, 0x05, 0x001B);
+> +	if (mdio_read(ioaddr, 0x06) == 0xB300 &&
+> +	    request_firmware(&fw, "rtl_nic/rtl8168d-2.fw", &tp->pci_dev->dev) == 0) {
+> +		rtl_phy_write_fw(tp, fw);
+> +		release_firmware(fw);
+> +	} else {
+> +		netif_warn(tp, probe, tp->dev, "unable to apply firmware patch\n");
+> +	}
+> +
+> +	mdio_write(ioaddr, 0x1f, 0x0000);
+>  }
+>  
+> +MODULE_FIRMWARE("rtl_nic/rtl8168d-2.fw");
+> +
+>  static void rtl8168d_3_hw_phy_config(void __iomem *ioaddr)
+>  {
+>  	static const struct phy_reg phy_reg_init[] = {
+> @@ -2688,10 +2126,10 @@ static void rtl_hw_phy_config(struct net_device *dev)
+>  		rtl8168cp_2_hw_phy_config(ioaddr);
+>  		break;
+>  	case RTL_GIGA_MAC_VER_25:
+> -		rtl8168d_1_hw_phy_config(ioaddr);
+> +		rtl8168d_1_hw_phy_config(tp);
+>  		break;
+>  	case RTL_GIGA_MAC_VER_26:
+> -		rtl8168d_2_hw_phy_config(ioaddr);
+> +		rtl8168d_2_hw_phy_config(tp);
+>  		break;
+>  	case RTL_GIGA_MAC_VER_27:
+>  		rtl8168d_3_hw_phy_config(ioaddr);
