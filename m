@@ -1,36 +1,51 @@
-From: Michal Marek <mmarek@suse.cz>
-Subject: [PATCH] l2tp: Fix modalias of l2tp_ip
-Date: Mon,  6 Dec 2010 13:39:12 +0100
-Message-ID: <1291639152-26608-1-git-send-email-mmarek@suse.cz>
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: James Chapman <jchapman@katalix.com>
+From: Joe Jin <joe.jin@oracle.com>
+Subject: [patch 1/1] driver/net/benet: fix be_cmd_multicast_set() memcpy bug
+Date: Mon, 6 Dec 2010 21:00:59 +0800
+Message-ID: <20101206130059.GA19448@joejin-pc.cn.oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	greg.marsden@oracle.com, guru.anbalagane@oracle.com,
+	joe.jin@oracle.com
+To: sathyap@serverengines.com, subbus@serverengines.com,
+	sarveshwarb@serverengines.com, ajitk@serverengines.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Using the SOCK_DGRAM enum results in
-"net-pf-2-proto-SOCK_DGRAM-type-115", so use the numeric value like it
-is done in net/dccp.
+Hi, 
 
-Signed-off-by: Michal Marek <mmarek@suse.cz>
+Regarding  benet be_cmd_multicast_set() function, now using
+netdev_for_each_mc_addr() helper for mac address copy, but
+when copying to req->mac[] did not increase of the index.
+
+Cc: Sathya Perla <sathyap@serverengines.com>
+Cc: Subbu Seetharaman <subbus@serverengines.com>
+Cc: Sarveshwar Bandi <sarveshwarb@serverengines.com>
+Cc: Ajit Khaparde <ajitk@serverengines.com>
+Signed-off-by: Joe Jin <joe.jin@oracle.com>
+
 ---
- net/l2tp/l2tp_ip.c |    6 +++++-
- 1 files changed, 5 insertions(+), 1 deletions(-)
+ be_cmds.c |    2 +-
 
-diff --git a/net/l2tp/l2tp_ip.c b/net/l2tp/l2tp_ip.c
-index 0bf6a59..522e219 100644
---- a/net/l2tp/l2tp_ip.c
-+++ b/net/l2tp/l2tp_ip.c
-@@ -674,4 +674,8 @@ MODULE_LICENSE("GPL");
- MODULE_AUTHOR("James Chapman <jchapman@katalix.com>");
- MODULE_DESCRIPTION("L2TP over IP");
- MODULE_VERSION("1.0");
--MODULE_ALIAS_NET_PF_PROTO_TYPE(PF_INET, SOCK_DGRAM, IPPROTO_L2TP);
-+
-+/* Use the value of SOCK_DGRAM (2) directory, because __stringify does't like
-+ * enums
-+ */
-+MODULE_ALIAS_NET_PF_PROTO_TYPE(PF_INET, 2, IPPROTO_L2TP);
+diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/benet/be_cmds.c
+index 36eca1c..e4465d2 100644
+--- a/drivers/net/benet/be_cmds.c
++++ b/drivers/net/benet/be_cmds.c
+@@ -1235,7 +1235,7 @@ int be_cmd_multicast_set(struct be_adapter *adapter, u32 if_id,
+ 
+ 		i = 0;
+ 		netdev_for_each_mc_addr(ha, netdev)
+-			memcpy(req->mac[i].byte, ha->addr, ETH_ALEN);
++			memcpy(req->mac[i++].byte, ha->addr, ETH_ALEN);
+ 	} else {
+ 		req->promiscuous = 1;
+ 	}
+
+
 -- 
-1.7.3.1
+Oracle <http://www.oracle.com>
+Joe Jin | Team Leader, Software Development | +8610.8278.6295
+ORACLE | Linux and Virtualization
+Incubator Building 2-A ZPark | Beijing China, 100094
