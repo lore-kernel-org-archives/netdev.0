@@ -1,65 +1,42 @@
-From: Matt Domsch <Matt_Domsch@Dell.com>
-Subject: biosdevname v0.3.2
-Date: Mon, 6 Dec 2010 08:06:50 -0600
-Message-ID: <20101206140649.GA13628@auslistsprd01.us.dell.com>
+From: Martin Willi <martin@strongswan.org>
+Subject: Re: [PATCH 3/5] xfrm: Traffic Flow Confidentiality for IPv4 ESP
+Date: Mon, 06 Dec 2010 16:10:25 +0100
+Message-ID: <1291648225.1954.179.camel@martin>
+References: <1291132155-31277-1-git-send-email-martin@strongswan.org>
+	 <1291132155-31277-4-git-send-email-martin@strongswan.org>
+	 <20101203073403.GA2292@gondor.apana.org.au>
+	 <1291365175.1997.34.camel@martin>
+	 <20101203083908.GA2940@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: linux-hotplug@vger.kernel.org, netdev@vger.kernel.org,
-	"K, Narendra" <Narendra_K@Dell.com>,
-	"Hargrave, Jordan" <Jordan_Hargrave@Dell.com>,
-	"Rose, Charles" <Charles_Rose@Dell.com>,
-	Co
-Return-path: <linux-hotplug-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-hotplug-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-crypto@vger.kernel.org, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <20101203083908.GA2940@gondor.apana.org.au>
+Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Bugfix update to biosdevname, now version 0.3.2.
+Hi Herbert,
 
-The legacy code for reading the PCI IRQ Routing Table ($PIR) and the
-PCMCIA information has been removed.  This means biosdevname will only
-report BIOS-provided names if your system has SMBIOS 2.6 or higher and
-has the information in Type 9 or Type 41.  This is in preparation for
-widespread use, and will keep biosdevname from suggesting names on
-systems that are well into or beyond their useful lifetime and
-introducing an unexpected change of behavior on them.  Dell PowerEdge
-10G and newer, HP ProLiant G6 and newer are known to have SMBIOS 2.6,
-as do a number of desktop, laptop, and netbook-class systems as
-reported on the fedora-devel mailing list.
+> I know why you want to do this, what I'm asking is do you have any
+> research behind this with regards to security 
+> 
+> Has this scheme been discussed on a public forum somewhere?
 
-This release also provides correct names for Intel and Broadcom
-quad-port GigE cards that I've tried.  Format is pci<slot>#<port>.
+No, sorry, I haven't found much valuable discussion about TFC padding.
+Nothing at all how to overcome the ESPv2 padding limit.
 
-Grab it here:
-http://linux.dell.com/files/biosdevname/permalink/biosdevname-0.3.2.tar.gz
-http://linux.dell.com/files/biosdevname/permalink/biosdevname-0.3.2.tar.gz.sign
-git://linux.dell.com/biosdevname.git
+> using an insecure RNG to generate a value that is then used as the
+> basis for concealment
 
-This is already built in Fedora rawhide (will be 15), and I encourage
-other distributions to pick it up as well.
+Using get_random_bytes() adds another ~10% processing overhead due to
+the underlying sha_transform. But this is probably negligible, we add
+much more with the additional padding to encrypt/MAC.
 
-On a related note, I've submitted a patch to dracut upstream to
-include calls to biosdevname via udev.  This will let us use
-BIOS-suggested names for network functionality during initramfs time,
-such as finding your root file system on NFS or iSCSI.
+I'll re-spin the patchset with get_random_bytes(). Even if the ESPv2
+padding fallback makes TFC in this case less efficient, it shouldn't
+harm. Or do you see this differently?
 
-
-Shortlog:
-
-Matt Domsch (7):
-      only match on smbios_type Ethernet, ignore sysfs index file for now
-      PIRQ-ectomy, add pci_access pointer to state, pci_dev pointer instead of struct in pci_device
-      PCMCIA-ectomy
-      copy SMBIOS slot info to all matching domain/bus/device/functions
-      skip bridges when setting index_in_slot
-      fix RPM spec URL
-      bump version
-
-
-Thanks,
-Matt
-
--- 
-Matt Domsch
-Technology Strategist
-Dell | Office of the CTO
+Regards
+Martin
