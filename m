@@ -1,40 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] net: dummy: add auto_up module parameter
-Date: Mon, 06 Dec 2010 12:36:46 -0800 (PST)
-Message-ID: <20101206.123646.183042768.davem@davemloft.net>
-References: <1291132647-15018-1-git-send-email-opurdila@ixiacom.com>
+Subject: Re: [PATCHv3 1/2] usbnet: changes for upcoming cdc_ncm driver
+Date: Mon, 06 Dec 2010 12:59:23 -0800 (PST)
+Message-ID: <20101206.125923.39169615.davem@davemloft.net>
+References: <1291109008-3613-1-git-send-email-alexey.orishko@stericsson.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ddvlad@rosedu.org,
-	lucian.grijincu@gmail.com
-To: opurdila@ixiacom.com
+Cc: gregkh@suse.de, linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	oliver@neukum.org, yauheni.kaliuta@nokia.com, balbi@ti.com,
+	sjur.brandeland@stericsson.com, alexey.orishko@stericsson.com
+To: alexey.orishko@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54041
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44495
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753172Ab0LFUgU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Dec 2010 15:36:20 -0500
-In-Reply-To: <1291132647-15018-1-git-send-email-opurdila@ixiacom.com>
+	by vger.kernel.org with ESMTP id S1752388Ab0LFU64 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Dec 2010 15:58:56 -0500
+In-Reply-To: <1291109008-3613-1-git-send-email-alexey.orishko@stericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Octavian Purdila <opurdila@ixiacom.com>
-Date: Tue, 30 Nov 2010 17:57:27 +0200
+From: Alexey Orishko <alexey.orishko@gmail.com>
+Date: Tue, 30 Nov 2010 12:23:27 +0300
 
-> Add auto_up module parameter to automatically bring up the created
-> devices. This is useful when using the dummy driver for testing net
-> device register / unregister performance.
+> Changes:
+> include/linux/usb/usbnet.h:
+> - a new flag to indicate driver's capability to accumulate IP packets in Tx
+>  direction and extract several packets from single skb in Rx direction.
+> drivers/net/usb/usbnet.c:
+> - the procedure of counting packets in usbnet was updated due to the
+>  accumulating of IP packets in the driver
+> - no short packets are sent if indicated by the flag in driver_info
+>  structure
 > 
-> Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
+> Signed-off-by: Alexey Orishko <alexey.orishko@stericsson.com>
 
-Registering a new netdevice with IFF_UP set is an error.  You can't
-set IFF_UP without also doing all of the other work, callbacks, and
-state changes which are made by dev_open()'s code paths.
-
-If, as you say, your interests are in testing register/unregister
-performance, you can do that by making the appropriate calls in a loop
-from userspace.
-
-I honestly don't see what you hope to gain with this change, and
-anyways since the registration state is basically illegal you'll need
-to find another way to do this.
+Applied.
