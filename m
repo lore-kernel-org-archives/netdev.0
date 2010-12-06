@@ -1,45 +1,40 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: Misuse of LRO, how widespread
-Date: Mon, 06 Dec 2010 20:30:08 +0000
-Message-ID: <1291667408.3443.10.camel@bwh-desktop>
-References: <20101206121829.5b8c852e@nehalam>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6] net: dummy: add auto_up module parameter
+Date: Mon, 06 Dec 2010 12:36:46 -0800 (PST)
+Message-ID: <20101206.123646.183042768.davem@davemloft.net>
+References: <1291132647-15018-1-git-send-email-opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Olof Johansson <olof@lixom.net>,
-	Divy Le Ray <divy@chelsio.com>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: netdev@vger.kernel.org, ddvlad@rosedu.org,
+	lucian.grijincu@gmail.com
+To: opurdila@ixiacom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:17985 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754467Ab0LFUaL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Dec 2010 15:30:11 -0500
-In-Reply-To: <20101206121829.5b8c852e@nehalam>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54041
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753172Ab0LFUgU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Dec 2010 15:36:20 -0500
+In-Reply-To: <1291132647-15018-1-git-send-email-opurdila@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2010-12-06 at 12:18 -0800, Stephen Hemminger wrote:
-> I inspected all drivers in net-next to see which drivers are using
-> LRO and which ones are broken. Most concerning is that Chelsio
-> and Solarflare drivers ignore ETH_FLAG_LRO.
+From: Octavian Purdila <opurdila@ixiacom.com>
+Date: Tue, 30 Nov 2010 17:57:27 +0200
+
+> Add auto_up module parameter to automatically bring up the created
+> devices. This is useful when using the dummy driver for testing net
+> device register / unregister performance.
 > 
-> The ones that are using LRO but allow disabling it:
->   qlcnic, netxen, mv643, s2io, myi10ge, bnx2x, ixgbe, vmxnet3
-> 
-> One driver seems confused about LRO vs GRO:
->   mlx4 - comments about LRO and depends on LRO but driver is using GRO
+> Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
 
-sfc is also in this category.  (And it's not confused, it was using
-inet_lro before being converted to GRO.)
+Registering a new netdevice with IFF_UP set is an error.  You can't
+set IFF_UP without also doing all of the other work, callbacks, and
+state changes which are made by dev_open()'s code paths.
 
-> Drivers with not using ethtool interface to disable LRO:
->   pasemi_mac, sfc, ehea, cxgb3, cxgb4
+If, as you say, your interests are in testing register/unregister
+performance, you can do that by making the appropriate calls in a loop
+from userspace.
 
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+I honestly don't see what you hope to gain with this change, and
+anyways since the registration state is basically illegal you'll need
+to find another way to do this.
