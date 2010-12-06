@@ -1,29 +1,56 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 2/2] af_packet: remove pgv.flags
-Date: Mon, 06 Dec 2010 13:01:11 -0800 (PST)
-Message-ID: <20101206.130111.102564065.davem@davemloft.net>
-References: <1291207977-17176-1-git-send-email-xiaosuo@gmail.com>
+Subject: Re: [Patch] net: kill an RCU warning in inet_fill_link_af()
+Date: Mon, 06 Dec 2010 13:01:27 -0800 (PST)
+Message-ID: <20101206.130127.179948200.davem@davemloft.net>
+References: <1291202063-6239-1-git-send-email-amwang@redhat.com>
+	<1291219386.2856.924.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, jpirko@redhat.com, nhorman@tuxdriver.com,
-	netdev@vger.kernel.org
-To: xiaosuo@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57656
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753373Ab0LFVAn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Dec 2010 16:00:43 -0500
-In-Reply-To: <1291207977-17176-1-git-send-email-xiaosuo@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: amwang@redhat.com, linux-kernel@vger.kernel.org,
+	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
+	tgraf@infradead.org
+To: eric.dumazet@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1291219386.2856.924.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Changli Gao <xiaosuo@gmail.com>
-Date: Wed,  1 Dec 2010 20:52:57 +0800
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 01 Dec 2010 17:03:06 +0100
 
-> As we can check if an address is vmalloc address with is_vmalloc_addr(),
-> we remove pgv.flags. Then we may get more pg_vecs.
-> 
-> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+> Le mercredi 01 d=E9cembre 2010 =E0 19:14 +0800, Amerigo Wang a =E9cri=
+t :
+>> From: WANG Cong <amwang@redhat.com>
+>>=20
+>> The latest net-next-2.6 triggers an RCU warning during boot,
+>> lockdep complains that in inet_fill_link_af() we call rcu_dereferenc=
+e_check()
+>> without rcu_read_lock() protection.
+>>=20
+>> This patch fixes it by replacing __in_dev_get_rcu() with in_dev_get(=
+).
+>=20
+> Here is a better version, thanks a lot for your report and initial
+> patch.
+>=20
+>=20
+> [PATCH net-next-2.6] net: kill an RCU warning in inet_fill_link_af()
+>=20
+> commits 9f0f7272 (ipv4: AF_INET link address family) and cf7afbfeb8c
+> (rtnl: make link af-specific updates atomic) used incorrect
+> __in_dev_get_rcu() in RTNL protected contexts, triggering PROVE_RCU
+> warnings.
+>=20
+> Switch to __in_dev_get_rtnl(), wich is more appropriate, since we hol=
+d
+> RTNL.
+>=20
+> Based on a report and initial patch from Amerigo Wang.
+>=20
+> Reported-by: Amerigo Wang <amwang@redhat.com>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Thomas Graf <tgraf@infradead.org>
 
 Applied.
