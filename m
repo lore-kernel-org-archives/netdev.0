@@ -1,42 +1,33 @@
-From: "Gustavo F. Padovan" <padovan@profusion.mobi>
-Subject: Re: [PATCH 2/2] bluetooth: Use printf extension %pMbt
-Date: Mon, 6 Dec 2010 18:07:51 -0200
-Message-ID: <20101206200751.GF883@vigoh>
-References: <cover.1291419007.git.joe@perches.com>
- <b966e9510dec12556a3d1313b026cb2c8281e4d6.1291419007.git.joe@perches.com>
- <20101206181507.GC883@vigoh>
- <1291661413.17494.219.camel@Joe-Laptop>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Misuse of LRO, how widespread
+Date: Mon, 6 Dec 2010 12:18:29 -0800
+Message-ID: <20101206121829.5b8c852e@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>,
-	Marcel Holtmann <marcel@holtmann.org>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-bluetooth@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1291661413.17494.219.camel@Joe-Laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+	Olof Johansson <olof@lixom.net>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Divy Le Ray <divy@chelsio.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:40940 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752841Ab0LFUSl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Dec 2010 15:18:41 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Joe,
+I inspected all drivers in net-next to see which drivers are using
+LRO and which ones are broken. Most concerning is that Chelsio
+and Solarflare drivers ignore ETH_FLAG_LRO.
 
-* Joe Perches <joe@perches.com> [2010-12-06 10:50:13 -0800]:
+The ones that are using LRO but allow disabling it:
+  qlcnic, netxen, mv643, s2io, myi10ge, bnx2x, ixgbe, vmxnet3
 
-> On Mon, 2010-12-06 at 16:15 -0200, Gustavo F. Padovan wrote:
-> > This patch doesn't apply to the bluetooth-next-2.6 tree.
-> > Can you please rebase it against the bluetooth-next-2.6 tree?
->=20
-> No worries, it was done against next-20101202.
->=20
-> Do you care about using %pMR vs %pMbt as Micha=C5=82 suggested in
-> https://lkml.org/lkml/2010/12/4/21 ?
+One driver seems confused about LRO vs GRO:
+  mlx4 - comments about LRO and depends on LRO but driver is using GRO
 
-I'm fine either way. It depends more if another subsystem will want to =
-use
-%pMR or not as you said.
+Drivers with not using ethtool interface to disable LRO:
+  pasemi_mac, sfc, ehea, cxgb3, cxgb4
 
---=20
-Gustavo F. Padovan
-http://profusion.mobi
