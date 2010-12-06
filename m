@@ -1,53 +1,114 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 1/6] tg3: Raise the jumbo frame BD flag
- threshold
-Date: Mon, 6 Dec 2010 10:28:49 -0800
-Message-ID: <1291660134-3801-2-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH net-next 2/6] tg3: Move EEE definitions into mdio.h
+Date: Mon, 6 Dec 2010 10:28:50 -0800
+Message-ID: <1291660134-3801-3-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, andy@greyhouse.net, mcarlson@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4202 "EHLO mms2.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:4146 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754409Ab0LFS3Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Dec 2010 13:29:16 -0500
+	id S1754369Ab0LFS3L (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Dec 2010 13:29:11 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The current transmit routines set the jumbo frame BD flag too
-aggressively.  This can reduce performance for common cases.  This patch
-raises the jumbo flag threshold to 1518, up from 1500.
+In commit 52b02d04c801fff51ca49ad033210846d1713253 entitled "tg3: Add
+EEE support", Ben Hutchings had commented that the EEE advertisement
+register will be in a standard location.  This patch moves that
+definition into mdio.h and changes the code to use it.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Reviewed-by: Benjamin Li <benli@broadcom.com>
 ---
- drivers/net/tg3.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/tg3.c    |   16 ++++++++--------
+ drivers/net/tg3.h    |    3 ---
+ include/linux/mdio.h |    5 +++++
+ 3 files changed, 13 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index afb79db..b8ae5e1 100644
+index b8ae5e1..1e7a135 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -5761,7 +5761,7 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb,
- 	dma_unmap_addr_set(&tnapi->tx_buffers[entry], mapping, mapping);
+@@ -32,6 +32,7 @@
+ #include <linux/etherdevice.h>
+ #include <linux/skbuff.h>
+ #include <linux/ethtool.h>
++#include <linux/mdio.h>
+ #include <linux/mii.h>
+ #include <linux/phy.h>
+ #include <linux/brcmphy.h>
+@@ -1781,7 +1782,8 @@ static void tg3_phy_eee_adjust(struct tg3 *tp, u32 current_link_up)
  
- 	if ((tp->tg3_flags3 & TG3_FLG3_USE_JUMBO_BDFLAG) &&
--	    !mss && skb->len > ETH_DATA_LEN)
-+	    !mss && skb->len > VLAN_ETH_FRAME_LEN)
- 		base_flags |= TXD_FLAG_JMB_PKT;
+ 		tw32(TG3_CPMU_EEE_CTRL, eeectl);
  
- 	tg3_set_txd(tnapi, entry, mapping, len, base_flags,
-@@ -5995,7 +5995,7 @@ static netdev_tx_t tg3_start_xmit_dma_bug(struct sk_buff *skb,
- #endif
+-		tg3_phy_cl45_read(tp, 0x7, TG3_CL45_D7_EEERES_STAT, &val);
++		tg3_phy_cl45_read(tp, MDIO_MMD_AN,
++				  TG3_CL45_D7_EEERES_STAT, &val);
  
- 	if ((tp->tg3_flags3 & TG3_FLG3_USE_JUMBO_BDFLAG) &&
--	    !mss && skb->len > ETH_DATA_LEN)
-+	    !mss && skb->len > VLAN_ETH_FRAME_LEN)
- 		base_flags |= TXD_FLAG_JMB_PKT;
+ 		if (val == TG3_CL45_D7_EEERES_STAT_LP_1000T ||
+ 		    val == TG3_CL45_D7_EEERES_STAT_LP_100TX)
+@@ -2987,16 +2989,14 @@ static void tg3_phy_copper_begin(struct tg3 *tp)
+ 		if (tp->link_config.autoneg == AUTONEG_ENABLE) {
+ 			/* Advertise 100-BaseTX EEE ability */
+ 			if (tp->link_config.advertising &
+-			    (ADVERTISED_100baseT_Half |
+-			     ADVERTISED_100baseT_Full))
+-				val |= TG3_CL45_D7_EEEADV_CAP_100TX;
++			    ADVERTISED_100baseT_Full)
++				val |= MDIO_AN_EEE_ADV_100TX;
+ 			/* Advertise 1000-BaseT EEE ability */
+ 			if (tp->link_config.advertising &
+-			    (ADVERTISED_1000baseT_Half |
+-			     ADVERTISED_1000baseT_Full))
+-				val |= TG3_CL45_D7_EEEADV_CAP_1000T;
++			    ADVERTISED_1000baseT_Full)
++				val |= MDIO_AN_EEE_ADV_1000T;
+ 		}
+-		tg3_phy_cl45_write(tp, 0x7, TG3_CL45_D7_EEEADV_CAP, val);
++		tg3_phy_cl45_write(tp, MDIO_MMD_AN, MDIO_AN_EEE_ADV, val);
  
- 	len = skb_headlen(skb);
+ 		/* Turn off SM_DSP clock. */
+ 		val = MII_TG3_AUXCTL_SHDWSEL_AUXCTL |
+diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
+index 59b0e09..6e72c6b 100644
+--- a/drivers/net/tg3.h
++++ b/drivers/net/tg3.h
+@@ -2172,9 +2172,6 @@
+ #define MII_TG3_TEST1_CRC_EN		0x8000
+ 
+ /* Clause 45 expansion registers */
+-#define TG3_CL45_D7_EEEADV_CAP		0x003c
+-#define TG3_CL45_D7_EEEADV_CAP_100TX	0x0002
+-#define TG3_CL45_D7_EEEADV_CAP_1000T	0x0004
+ #define TG3_CL45_D7_EEERES_STAT		0x803e
+ #define TG3_CL45_D7_EEERES_STAT_LP_100TX	0x0002
+ #define TG3_CL45_D7_EEERES_STAT_LP_1000T	0x0004
+diff --git a/include/linux/mdio.h b/include/linux/mdio.h
+index c779b49..b1494ac 100644
+--- a/include/linux/mdio.h
++++ b/include/linux/mdio.h
+@@ -55,6 +55,7 @@
+ #define MDIO_PCS_10GBRT_STAT2	33	/* 10GBASE-R/-T PCS status 2 */
+ #define MDIO_AN_10GBT_CTRL	32	/* 10GBASE-T auto-negotiation control */
+ #define MDIO_AN_10GBT_STAT	33	/* 10GBASE-T auto-negotiation status */
++#define MDIO_AN_EEE_ADV		60	/* EEE advertisement */
+ 
+ /* LASI (Link Alarm Status Interrupt) registers, defined by XENPAK MSA. */
+ #define MDIO_PMA_LASI_RXCTRL	0x9000	/* RX_ALARM control */
+@@ -235,6 +236,10 @@
+ #define MDIO_AN_10GBT_STAT_MS		0x4000	/* Master/slave config */
+ #define MDIO_AN_10GBT_STAT_MSFLT	0x8000	/* Master/slave config fault */
+ 
++/* AN EEE Advertisement register. */
++#define MDIO_AN_EEE_ADV_100TX		0x0002	/* Advertise 100TX EEE cap */
++#define MDIO_AN_EEE_ADV_1000T		0x0004	/* Advertise 1000T EEE cap */
++
+ /* LASI RX_ALARM control/status registers. */
+ #define MDIO_PMA_LASI_RX_PHYXSLFLT	0x0001	/* PHY XS RX local fault */
+ #define MDIO_PMA_LASI_RX_PCSLFLT	0x0008	/* PCS RX local fault */
 -- 
 1.7.2.2
 
