@@ -1,7 +1,7 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 5/6] tg3: Relax EEE thresholds
-Date: Mon, 6 Dec 2010 10:28:53 -0800
-Message-ID: <1291660134-3801-6-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH net-next 4/6] tg3: Minor EEE code tweaks
+Date: Mon, 6 Dec 2010 10:28:52 -0800
+Message-ID: <1291660134-3801-5-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -10,89 +10,81 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mms2.broadcom.com ([216.31.210.18]:4142 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754368Ab0LFS3L (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Dec 2010 13:29:11 -0500
+	id S1754368Ab0LFS3Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Dec 2010 13:29:16 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The hardware defaults to fairly aggressive EEE thresholds.  While there
-appear to be no ill effects, this patch relaxes them, just as a
-precaution.
+The first hunk of this patch makes sure that the driver checks for the
+appropriate preconditions before checking if EEE negotiation succeeded.
+More specifically the link needs to be full duplex for EEE to be
+enabled.
+
+The second and third hunks of this patch fix a bug where the eee
+advertisement register would be programmed with extra bits set.
+
+The fourth hunk of this patch makes sure the EEE capability flag is not
+set for 5718 A0 devices and that the device is not a serdes device.
+
+None of these modifications are strictly necessary.  The driver /
+hardware still does the right thing.  They are submitted primarily for
+correctness.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Reviewed-by: Benjamin Li <benli@broadcom.com>
 ---
- drivers/net/tg3.c |   25 ++++++++++++++++++++-----
- drivers/net/tg3.h |   20 +++++++++++++-------
- 2 files changed, 33 insertions(+), 12 deletions(-)
+ drivers/net/tg3.c |   17 ++++++++++-------
+ 1 files changed, 10 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 81dafc2..bb95c6e 100644
+index e4efb52..81dafc2 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -7819,11 +7819,26 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
- 		tw32_f(TG3_CPMU_EEE_CTRL,
- 		       TG3_CPMU_EEE_CTRL_EXIT_20_1_US);
+@@ -1770,9 +1770,9 @@ static void tg3_phy_eee_adjust(struct tg3 *tp, u32 current_link_up)
  
--		tw32_f(TG3_CPMU_EEE_MODE,
--		       TG3_CPMU_EEEMD_ERLY_L1_XIT_DET |
--		       TG3_CPMU_EEEMD_LPI_IN_TX |
--		       TG3_CPMU_EEEMD_LPI_IN_RX |
--		       TG3_CPMU_EEEMD_EEE_ENABLE);
-+		val = TG3_CPMU_EEEMD_ERLY_L1_XIT_DET |
-+		      TG3_CPMU_EEEMD_LPI_IN_TX |
-+		      TG3_CPMU_EEEMD_LPI_IN_RX |
-+		      TG3_CPMU_EEEMD_EEE_ENABLE;
-+
-+		if (GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5717)
-+			val |= TG3_CPMU_EEEMD_SND_IDX_DET_EN;
-+
-+		if (tp->tg3_flags3 & TG3_FLG3_ENABLE_APE)
-+			val |= TG3_CPMU_EEEMD_APE_TX_DET_EN;
-+
-+		tw32_f(TG3_CPMU_EEE_MODE, val);
-+
-+		tw32_f(TG3_CPMU_EEE_DBTMR1,
-+		       TG3_CPMU_DBTMR1_PCIEXIT_2047US |
-+		       TG3_CPMU_DBTMR1_LNKIDLE_2047US);
-+
-+		tw32_f(TG3_CPMU_EEE_DBTMR2,
-+		       TG3_CPMU_DBTMR1_APE_TX_2047US |
-+		       TG3_CPMU_DBTMR2_TXIDXEQ_2047US);
+ 	if (tp->link_config.autoneg == AUTONEG_ENABLE &&
+ 	    current_link_up == 1 &&
+-	    (tp->link_config.active_speed == SPEED_1000 ||
+-	     (tp->link_config.active_speed == SPEED_100 &&
+-	      tp->link_config.active_duplex == DUPLEX_FULL))) {
++	    tp->link_config.active_duplex == DUPLEX_FULL &&
++	    (tp->link_config.active_speed == SPEED_100 ||
++	     tp->link_config.active_speed == SPEED_1000)) {
+ 		u32 eeectl;
+ 
+ 		if (tp->link_config.active_speed == SPEED_1000)
+@@ -2969,7 +2969,7 @@ static void tg3_phy_copper_begin(struct tg3 *tp)
  	}
  
- 	if (reset_phy)
-diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
-index 6e72c6b..d62c8d9 100644
---- a/drivers/net/tg3.h
-+++ b/drivers/net/tg3.h
-@@ -1094,13 +1094,19 @@
- /* 0x3664 --> 0x36b0 unused */
+ 	if (tp->phy_flags & TG3_PHYFLG_EEE_CAP) {
+-		u32 val = 0;
++		u32 val;
  
- #define TG3_CPMU_EEE_MODE		0x000036b0
--#define TG3_CPMU_EEEMD_ERLY_L1_XIT_DET	 0x00000008
--#define TG3_CPMU_EEEMD_LPI_ENABLE	 0x00000080
--#define TG3_CPMU_EEEMD_LPI_IN_TX	 0x00000100
--#define TG3_CPMU_EEEMD_LPI_IN_RX	 0x00000200
--#define TG3_CPMU_EEEMD_EEE_ENABLE	 0x00100000
--/* 0x36b4 --> 0x36b8 unused */
--
-+#define  TG3_CPMU_EEEMD_APE_TX_DET_EN	 0x00000004
-+#define  TG3_CPMU_EEEMD_ERLY_L1_XIT_DET	 0x00000008
-+#define  TG3_CPMU_EEEMD_SND_IDX_DET_EN	 0x00000040
-+#define  TG3_CPMU_EEEMD_LPI_ENABLE	 0x00000080
-+#define  TG3_CPMU_EEEMD_LPI_IN_TX	 0x00000100
-+#define  TG3_CPMU_EEEMD_LPI_IN_RX	 0x00000200
-+#define  TG3_CPMU_EEEMD_EEE_ENABLE	 0x00100000
-+#define TG3_CPMU_EEE_DBTMR1		0x000036b4
-+#define  TG3_CPMU_DBTMR1_PCIEXIT_2047US	 0x07ff0000
-+#define  TG3_CPMU_DBTMR1_LNKIDLE_2047US	 0x000070ff
-+#define TG3_CPMU_EEE_DBTMR2		0x000036b8
-+#define  TG3_CPMU_DBTMR1_APE_TX_2047US	 0x07ff0000
-+#define  TG3_CPMU_DBTMR2_TXIDXEQ_2047US	 0x000070ff
- #define TG3_CPMU_EEE_LNKIDL_CTRL	0x000036bc
- #define  TG3_CPMU_EEE_LNKIDL_PCIE_NL0	 0x01000000
- #define  TG3_CPMU_EEE_LNKIDL_UART_IDL	 0x00000004
+ 		tw32(TG3_CPMU_EEE_MODE,
+ 		     tr32(TG3_CPMU_EEE_MODE) & ~TG3_CPMU_EEEMD_LPI_ENABLE);
+@@ -2986,6 +2986,7 @@ static void tg3_phy_copper_begin(struct tg3 *tp)
+ 			tg3_phydsp_write(tp, MII_TG3_DSP_CH34TP2,
+ 					 val | MII_TG3_DSP_CH34TP2_HIBW01);
+ 
++		val = 0;
+ 		if (tp->link_config.autoneg == AUTONEG_ENABLE) {
+ 			/* Advertise 100-BaseTX EEE ability */
+ 			if (tp->link_config.advertising &
+@@ -12569,9 +12570,11 @@ static int __devinit tg3_phy_probe(struct tg3 *tp)
+ 		}
+ 	}
+ 
+-	if (tp->pdev->device == TG3PCI_DEVICE_TIGON3_5718 ||
+-	    (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57765 &&
+-	     tp->pci_chip_rev_id != CHIPREV_ID_57765_A0))
++	if (!(tp->phy_flags & TG3_PHYFLG_ANY_SERDES) &&
++	    ((tp->pdev->device == TG3PCI_DEVICE_TIGON3_5718 &&
++	      tp->pci_chip_rev_id != CHIPREV_ID_5717_A0) ||
++	     (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57765 &&
++	      tp->pci_chip_rev_id != CHIPREV_ID_57765_A0)))
+ 		tp->phy_flags |= TG3_PHYFLG_EEE_CAP;
+ 
+ 	if (!(tp->phy_flags & TG3_PHYFLG_ANY_SERDES) &&
 -- 
 1.7.2.2
 
