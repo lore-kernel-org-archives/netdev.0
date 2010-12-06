@@ -1,90 +1,53 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 4/6] tg3: Minor EEE code tweaks
-Date: Mon, 6 Dec 2010 10:28:52 -0800
-Message-ID: <1291660134-3801-5-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH net-next 1/6] tg3: Raise the jumbo frame BD flag
+ threshold
+Date: Mon, 6 Dec 2010 10:28:49 -0800
+Message-ID: <1291660134-3801-2-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, andy@greyhouse.net, mcarlson@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4142 "EHLO mms2.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:4202 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754368Ab0LFS3Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754409Ab0LFS3Q (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 6 Dec 2010 13:29:16 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The first hunk of this patch makes sure that the driver checks for the
-appropriate preconditions before checking if EEE negotiation succeeded.
-More specifically the link needs to be full duplex for EEE to be
-enabled.
-
-The second and third hunks of this patch fix a bug where the eee
-advertisement register would be programmed with extra bits set.
-
-The fourth hunk of this patch makes sure the EEE capability flag is not
-set for 5718 A0 devices and that the device is not a serdes device.
-
-None of these modifications are strictly necessary.  The driver /
-hardware still does the right thing.  They are submitted primarily for
-correctness.
+The current transmit routines set the jumbo frame BD flag too
+aggressively.  This can reduce performance for common cases.  This patch
+raises the jumbo flag threshold to 1518, up from 1500.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Reviewed-by: Benjamin Li <benli@broadcom.com>
 ---
- drivers/net/tg3.c |   17 ++++++++++-------
- 1 files changed, 10 insertions(+), 7 deletions(-)
+ drivers/net/tg3.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index e4efb52..81dafc2 100644
+index afb79db..b8ae5e1 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -1770,9 +1770,9 @@ static void tg3_phy_eee_adjust(struct tg3 *tp, u32 current_link_up)
+@@ -5761,7 +5761,7 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb,
+ 	dma_unmap_addr_set(&tnapi->tx_buffers[entry], mapping, mapping);
  
- 	if (tp->link_config.autoneg == AUTONEG_ENABLE &&
- 	    current_link_up == 1 &&
--	    (tp->link_config.active_speed == SPEED_1000 ||
--	     (tp->link_config.active_speed == SPEED_100 &&
--	      tp->link_config.active_duplex == DUPLEX_FULL))) {
-+	    tp->link_config.active_duplex == DUPLEX_FULL &&
-+	    (tp->link_config.active_speed == SPEED_100 ||
-+	     tp->link_config.active_speed == SPEED_1000)) {
- 		u32 eeectl;
+ 	if ((tp->tg3_flags3 & TG3_FLG3_USE_JUMBO_BDFLAG) &&
+-	    !mss && skb->len > ETH_DATA_LEN)
++	    !mss && skb->len > VLAN_ETH_FRAME_LEN)
+ 		base_flags |= TXD_FLAG_JMB_PKT;
  
- 		if (tp->link_config.active_speed == SPEED_1000)
-@@ -2969,7 +2969,7 @@ static void tg3_phy_copper_begin(struct tg3 *tp)
- 	}
+ 	tg3_set_txd(tnapi, entry, mapping, len, base_flags,
+@@ -5995,7 +5995,7 @@ static netdev_tx_t tg3_start_xmit_dma_bug(struct sk_buff *skb,
+ #endif
  
- 	if (tp->phy_flags & TG3_PHYFLG_EEE_CAP) {
--		u32 val = 0;
-+		u32 val;
+ 	if ((tp->tg3_flags3 & TG3_FLG3_USE_JUMBO_BDFLAG) &&
+-	    !mss && skb->len > ETH_DATA_LEN)
++	    !mss && skb->len > VLAN_ETH_FRAME_LEN)
+ 		base_flags |= TXD_FLAG_JMB_PKT;
  
- 		tw32(TG3_CPMU_EEE_MODE,
- 		     tr32(TG3_CPMU_EEE_MODE) & ~TG3_CPMU_EEEMD_LPI_ENABLE);
-@@ -2986,6 +2986,7 @@ static void tg3_phy_copper_begin(struct tg3 *tp)
- 			tg3_phydsp_write(tp, MII_TG3_DSP_CH34TP2,
- 					 val | MII_TG3_DSP_CH34TP2_HIBW01);
- 
-+		val = 0;
- 		if (tp->link_config.autoneg == AUTONEG_ENABLE) {
- 			/* Advertise 100-BaseTX EEE ability */
- 			if (tp->link_config.advertising &
-@@ -12569,9 +12570,11 @@ static int __devinit tg3_phy_probe(struct tg3 *tp)
- 		}
- 	}
- 
--	if (tp->pdev->device == TG3PCI_DEVICE_TIGON3_5718 ||
--	    (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57765 &&
--	     tp->pci_chip_rev_id != CHIPREV_ID_57765_A0))
-+	if (!(tp->phy_flags & TG3_PHYFLG_ANY_SERDES) &&
-+	    ((tp->pdev->device == TG3PCI_DEVICE_TIGON3_5718 &&
-+	      tp->pci_chip_rev_id != CHIPREV_ID_5717_A0) ||
-+	     (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57765 &&
-+	      tp->pci_chip_rev_id != CHIPREV_ID_57765_A0)))
- 		tp->phy_flags |= TG3_PHYFLG_EEE_CAP;
- 
- 	if (!(tp->phy_flags & TG3_PHYFLG_ANY_SERDES) &&
+ 	len = skb_headlen(skb);
 -- 
 1.7.2.2
 
