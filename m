@@ -1,31 +1,25 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 2/2] bluetooth: Use printf extension %pMbt
-Date: Mon, 06 Dec 2010 10:50:13 -0800
-Message-ID: <1291661413.17494.219.camel@Joe-Laptop>
-References: <cover.1291419007.git.joe@perches.com>
-	 <b966e9510dec12556a3d1313b026cb2c8281e4d6.1291419007.git.joe@perches.com>
-	 <20101206181507.GC883@vigoh>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/6] tg3: Bugfix and EEE updates
+Date: Mon, 06 Dec 2010 11:04:25 -0800 (PST)
+Message-ID: <20101206.110425.112600828.davem@davemloft.net>
+References: <1291660134-3801-1-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Marcel Holtmann <marcel@holtmann.org>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-bluetooth@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Gustavo F. Padovan" <padovan@profusion.mobi>,
-	=?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirqus@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20101206181507.GC883@vigoh>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, andy@greyhouse.net
+To: mcarlson@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44335
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753853Ab0LFTD6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Dec 2010 14:03:58 -0500
+In-Reply-To: <1291660134-3801-1-git-send-email-mcarlson@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2010-12-06 at 16:15 -0200, Gustavo F. Padovan wrote:
-> This patch doesn't apply to the bluetooth-next-2.6 tree.
-> Can you please rebase it against the bluetooth-next-2.6 tree?
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Date: Mon, 6 Dec 2010 10:28:48 -0800
 
-No worries, it was done against next-20101202.
+> This patch integrates a jumbo frame bd flag bugfix and a few EEE refinements.
 
-Do you care about using %pMR vs %pMbt as Micha=C5=82 suggested in
-https://lkml.org/lkml/2010/12/4/21 ?
-
-I think %pMbt more specific, Micha=C5=82 %pMR more generic.
-Doesn't matter much to me.  Do tell, I'll resubmit either way.
+All applied, thanks Matt.
