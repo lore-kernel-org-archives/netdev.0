@@ -1,38 +1,47 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] xfrm: Fix xfrm_state_migrate leak
-Date: Tue, 7 Dec 2010 17:31:57 +0800
-Message-ID: <20101207093157.GA4845@gondor.apana.org.au>
-References: <20101207092856.GL4639@secunet.com>
+From: "Tomoya MORINAGA" <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6 8/17 v2] can: EG20T PCH: Change Copyright and
+	module description
+Date: Tue, 7 Dec 2010 18:50:37 +0900
+Message-ID: <175BA60FBA444BE6B858D42E7B602A40@hacdom.okisemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Thomas Egerer <thomas.egerer@secunet.com>,
-	netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:60105 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755036Ab0LGJcE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Dec 2010 04:32:04 -0500
-Content-Disposition: inline
-In-Reply-To: <20101207092856.GL4639@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+To: "Marc Kleine-Budde" <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 07, 2010 at 10:28:56AM +0100, Steffen Klassert wrote:
-> From: Thomas Egerer <thomas.egerer@secunet.com>
-> 
-> xfrm_state_migrate calls kfree instead of xfrm_state_put to free
-> a failed state. According to git commit 553f9118 this can cause
-> memory leaks.
-> 
-> Signed-off-by: Thomas Egerer <thomas.egerer@secunet.com>
-> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+> In case single destination address is OK, but in case multiple address is 
+> set,
+> I can see the following error.
+> Relay access denied
 
-Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+The above was not true.
+It seems in case destination mail domain is external, (except 
+"@okisemi.com"),
+this error is occurred.
+In fact, in case multiple address with internal domain,
+it is success to send patch.
 
-Good catch.  Thanks!
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Our smtp server may have restriction of something.
+
+It seems I must use mailer "thunderbird" again.
+
+Thanks,
+
+/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_
+Tomoya Morinaga
+OKI SEMICONDUCTOR CO., LTD. 
