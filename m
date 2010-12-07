@@ -1,65 +1,46 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build failure after merge of the net tree
-Date: Tue, 7 Dec 2010 12:00:39 +1100
-Message-ID: <20101207120039.6ea1491e.sfr@canb.auug.org.au>
+From: David Brownell <david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>
+Subject: Re: [PATCH] Dot not insert RX urbs if EVENT_DEV_ASLEEP flag is set.
+Date: Mon, 06 Dec 2010 18:49:48 -0800
+Message-ID: <1291690188.2285.221.camel@helium>
+References: <1291631047-23766-1-git-send-email-Indrek.Peri@Ericsson.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Tue__7_Dec_2010_12_00_39_+1100_wKWHfWrMxxKJQ3v_"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Joe Perches <joe@perches.com>,
-	Breno Leitao <leitao@linux.vnet.ibm.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Indrek Peri <Indrek.Peri-rMwOiwQz3sZWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1291631047-23766-1-git-send-email-Indrek.Peri-rMwOiwQz3sZWk0Htik3J/w@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Tue__7_Dec_2010_12_00_39_+1100_wKWHfWrMxxKJQ3v_
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+I realize it's not all your doing, but that's an EVENT not a state flag,
 
-Hi all,
+But you're treating it as a state flag.  (Like the original somewhat
+goofy 69ee472f2706371ca639de49b06df91615c07d8d from Oliver).  Even as
+a flag, its semantics seem fuzzy... like they should be covered by
+other state in the network and/or power management stacks.
 
-After merging the net tree, today's linux-next build (powerpc
-ppc64_defconfig) failed like this:
+I'd like to see this botch fixed, not worsened.  Maybe you and Oliver
+could collaborate on fixing it, and getting other state flags out ofthe
+word used to track and signal events?  If you've ever worked with
+hardware
+that makes that kind of mistake, you know how error-prone it is ...
 
-drivers/net/ehea/ehea_main.c: In function 'ehea_refill_rq1':
-drivers/net/ehea/ehea_main.c:405: error: implicit declaration of function '=
-ehea_info'
-drivers/net/ehea/ehea_main.c: In function 'ehea_init_fill_rq1':
-drivers/net/ehea/ehea_main.c:429: error: implicit declaration of function '=
-ehea_error'
-drivers/net/ehea/ehea_main.c: In function 'ehea_neq_tasklet':
-drivers/net/ehea/ehea_main.c:1306: warning: format '%lx' expects type 'long=
- unsigned int', but argument 2 has type 'u64'
+Meanwhile, NAK.
 
-Caused by commit 539995d18649023199986424d140f1d620372ce5 ("ehea: Use the
-standard logging functions") interacting with commit
-5c7e57f7cddb83d81d83fefa5822dfe80891130e ("ehea: Add some info messages
-and fix an issue") which went into Linus' tree before 2.6.37-rc4.
+ISTR related Comments came up when a previous incarnation of this patch
+circulated, from at least Alan Stern.  What happened to that?
 
-Presumably a merge of net-current into the net tree will need a fixup patch.
+Events trigger state transitions and similar actions.  So
+A "leave sleep state" event" might be a place to trigger RX urb
+insertion as part of wake-up processing.  (Ideally, there'd be
+no need to set an event bit to trigger it as deferred work ... the
+reason to have a word of event bits for some other events.
 
-I have used the net tree from next-20101206 for today.
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
 
---Signature=_Tue__7_Dec_2010_12_00_39_+1100_wKWHfWrMxxKJQ3v_
-Content-Type: application/pgp-signature
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
 
-iQEcBAEBAgAGBQJM/Yc3AAoJEDMEi1NhKgbskQAH/A1Oco8rh1BwBvmKpGU0tfCX
-DfIozyA7lkhMOggpZptCnpCgjgPHwC0OjV1vkfF6tSnnUUqPPq4xrsVE17Az0p+C
-K8PfqtfnYGJg0gJeqoxiQFfFOXKJBgrqk0No6f0lh+oFpGtDamBVFiGFoos83Dil
-NinJ8C9i5EbkDdlLYwrzS6v/+q0ev88BwpcX0AcIlVhvvzTzT8do8VS7JpYcSFdr
-BE72PJ9F28FBwIrpFprXQNrOohDFM/f1PEmWVYtSo2f74gUeNVcgl/Nm3FxK+yVP
-gDZDWkZnmo7EOfAo7eCnSKZIoQWFzMBXCW22T5x2DouYRyNcxwKWgs7vJAaMG8Y=
-=SrfO
------END PGP SIGNATURE-----
-
---Signature=_Tue__7_Dec_2010_12_00_39_+1100_wKWHfWrMxxKJQ3v_--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
