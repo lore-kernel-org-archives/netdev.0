@@ -1,7 +1,7 @@
 From: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Subject: [PATCH net-next-2.6 v8 03/20] CAN : Fix endianness issue.
-Date: Tue, 07 Dec 2010 20:03:37 +0900
-Message-ID: <4CFE1489.4030808@dsn.okisemi.com>
+Subject: [PATCH net-next-2.6 v8 04/20] CAN : Improve rx processing.
+Date: Tue, 07 Dec 2010 20:04:21 +0900
+Message-ID: <4CFE14B5.4040308@dsn.okisemi.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -22,135 +22,229 @@ Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-there is endianness issue both Tx and Rx.
-Currently, data is set like below.
-Register:
-MSB--LSB
-x x D0 D1
-x x D2 D3
-x x D4 D5
-x x D6 D7
-
-But Data to be sent must be set like below.
-Register:
-MSB--LSB
-x x D1 D0
-x x D3 D2
-x x D5 D4
-x x D7 D6  (x means reserved area.)
+Replace complex "goto" to "do~while".
+For easy to read/understand, it divides a rx function into some functions.
 
 Signed-off-by: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
 ---
- drivers/net/can/pch_can.c |   47 +++++++++++++++++++-------------------------
- 1 files changed, 20 insertions(+), 27 deletions(-)
+ drivers/net/can/pch_can.c |  160 +++++++++++++++++++++++----------------------
+ 1 files changed, 83 insertions(+), 77 deletions(-)
 
 diff --git a/drivers/net/can/pch_can.c b/drivers/net/can/pch_can.c
-index 0b6d4f4..b17ca0c 100644
+index b17ca0c..d646fbc 100644
 --- a/drivers/net/can/pch_can.c
 +++ b/drivers/net/can/pch_can.c
-@@ -138,10 +138,7 @@ struct pch_can_if_regs {
- 	u32 id1;
- 	u32 id2;
- 	u32 mcont;
--	u32 dataa1;
--	u32 dataa2;
--	u32 datab1;
--	u32 datab2;
-+	u32 data[4];
- 	u32 rsv[13];
- };
+@@ -698,120 +698,126 @@ static irqreturn_t pch_can_interrupt(int irq, void *dev_id)
+ 	return IRQ_HANDLED;
+ }
  
-@@ -424,10 +421,10 @@ static void pch_can_clear_buffers(struct pch_can_priv *priv)
- 		iowrite32(0x0, &priv->regs->ifregs[0].id1);
- 		iowrite32(0x0, &priv->regs->ifregs[0].id2);
- 		iowrite32(0x0, &priv->regs->ifregs[0].mcont);
--		iowrite32(0x0, &priv->regs->ifregs[0].dataa1);
--		iowrite32(0x0, &priv->regs->ifregs[0].dataa2);
--		iowrite32(0x0, &priv->regs->ifregs[0].datab1);
--		iowrite32(0x0, &priv->regs->ifregs[0].datab2);
-+		iowrite32(0x0, &priv->regs->ifregs[0].data[0]);
-+		iowrite32(0x0, &priv->regs->ifregs[0].data[1]);
-+		iowrite32(0x0, &priv->regs->ifregs[0].data[2]);
-+		iowrite32(0x0, &priv->regs->ifregs[0].data[3]);
- 		iowrite32(PCH_CMASK_RDWR | PCH_CMASK_MASK |
- 			  PCH_CMASK_ARB | PCH_CMASK_CTRL,
- 			  &priv->regs->ifregs[0].cmask);
-@@ -441,10 +438,10 @@ static void pch_can_clear_buffers(struct pch_can_priv *priv)
- 		iowrite32(0x0, &priv->regs->ifregs[1].id1);
- 		iowrite32(0x0, &priv->regs->ifregs[1].id2);
- 		iowrite32(0x0, &priv->regs->ifregs[1].mcont);
--		iowrite32(0x0, &priv->regs->ifregs[1].dataa1);
--		iowrite32(0x0, &priv->regs->ifregs[1].dataa2);
--		iowrite32(0x0, &priv->regs->ifregs[1].datab1);
--		iowrite32(0x0, &priv->regs->ifregs[1].datab2);
-+		iowrite32(0x0, &priv->regs->ifregs[1].data[0]);
-+		iowrite32(0x0, &priv->regs->ifregs[1].data[1]);
-+		iowrite32(0x0, &priv->regs->ifregs[1].data[2]);
-+		iowrite32(0x0, &priv->regs->ifregs[1].data[3]);
- 		iowrite32(PCH_CMASK_RDWR | PCH_CMASK_MASK |
- 			  PCH_CMASK_ARB | PCH_CMASK_CTRL,
- 			  &priv->regs->ifregs[1].cmask);
-@@ -707,12 +704,13 @@ static int pch_can_rx_normal(struct net_device *ndev, u32 int_stat)
+-static int pch_can_rx_normal(struct net_device *ndev, u32 int_stat)
++static void pch_fifo_thresh(struct pch_can_priv *priv, int obj_id)
++{
++	if (obj_id < PCH_FIFO_THRESH) {
++		iowrite32(PCH_CMASK_RDWR | PCH_CMASK_CTRL |
++			  PCH_CMASK_ARB, &priv->regs->ifregs[0].cmask);
++
++		/* Clearing the Dir bit. */
++		pch_can_bit_clear(&priv->regs->ifregs[0].id2, PCH_ID2_DIR);
++
++		/* Clearing NewDat & IntPnd */
++		pch_can_bit_clear(&priv->regs->ifregs[0].mcont,
++				  PCH_IF_MCONT_INTPND);
++		pch_can_check_if_busy(&priv->regs->ifregs[0].creq, obj_id);
++	} else if (obj_id > PCH_FIFO_THRESH) {
++		pch_can_int_clr(priv, obj_id);
++	} else if (obj_id == PCH_FIFO_THRESH) {
++		int cnt;
++		for (cnt = 0; cnt < PCH_FIFO_THRESH; cnt++)
++			pch_can_int_clr(priv, cnt + 1);
++	}
++}
++
++static void pch_can_rx_msg_lost(struct net_device *ndev, int obj_id)
++{
++	struct pch_can_priv *priv = netdev_priv(ndev);
++	struct net_device_stats *stats = &(priv->ndev->stats);
++	struct sk_buff *skb;
++	struct can_frame *cf;
++
++	netdev_dbg(priv->ndev, "Msg Obj is overwritten.\n");
++	pch_can_bit_clear(&priv->regs->ifregs[0].mcont,
++			  PCH_IF_MCONT_MSGLOST);
++	iowrite32(PCH_CMASK_RDWR | PCH_CMASK_CTRL,
++		  &priv->regs->ifregs[0].cmask);
++	pch_can_check_if_busy(&priv->regs->ifregs[0].creq, obj_id);
++
++	skb = alloc_can_err_skb(ndev, &cf);
++	if (!skb)
++		return;
++
++	cf->can_id |= CAN_ERR_CRTL;
++	cf->data[1] = CAN_ERR_CRTL_RX_OVERFLOW;
++	stats->rx_over_errors++;
++	stats->rx_errors++;
++
++	netif_receive_skb(skb);
++}
++
++static int pch_can_rx_normal(struct net_device *ndev, u32 obj_num, int quota)
+ {
+ 	u32 reg;
  	canid_t id;
- 	u32 ide;
- 	u32 rtr;
--	int i, j, k;
-+	int i, k;
+-	u32 ide;
+-	u32 rtr;
+-	int i, k;
  	int rcv_pkts = 0;
  	struct sk_buff *skb;
  	struct can_frame *cf;
  	struct pch_can_priv *priv = netdev_priv(ndev);
  	struct net_device_stats *stats = &(priv->ndev->stats);
-+	u16 data_reg;
++	int i;
++	u32 id2;
+ 	u16 data_reg;
  
- 	/* Reading the messsage object from the Message RAM */
- 	iowrite32(PCH_CMASK_RX_TX_GET, &priv->regs->ifregs[0].cmask);
-@@ -778,12 +776,10 @@ static int pch_can_rx_normal(struct net_device *ndev, u32 int_stat)
- 			      ((ioread32(&priv->regs->ifregs[0].mcont)) & 0x0f);
+-	/* Reading the messsage object from the Message RAM */
+-	iowrite32(PCH_CMASK_RX_TX_GET, &priv->regs->ifregs[0].cmask);
+-	pch_can_check_if_busy(&priv->regs->ifregs[0].creq, int_stat);
++	do {
++		/* Reading the messsage object from the Message RAM */
++		iowrite32(PCH_CMASK_RX_TX_GET, &priv->regs->ifregs[0].cmask);
++		pch_can_check_if_busy(&priv->regs->ifregs[0].creq, obj_num);
+ 
+-	/* Reading the MCONT register. */
+-	reg = ioread32(&priv->regs->ifregs[0].mcont);
+-	reg &= 0xffff;
++		/* Reading the MCONT register. */
++		reg = ioread32(&priv->regs->ifregs[0].mcont);
++
++		if (reg & PCH_IF_MCONT_EOB)
++			break;
+ 
+-	for (k = int_stat; !(reg & PCH_IF_MCONT_EOB); k++) {
+ 		/* If MsgLost bit set. */
+ 		if (reg & PCH_IF_MCONT_MSGLOST) {
+-			dev_err(&priv->ndev->dev, "Msg Obj is overwritten.\n");
+-			pch_can_bit_clear(&priv->regs->ifregs[0].mcont,
+-					  PCH_IF_MCONT_MSGLOST);
+-			iowrite32(PCH_CMASK_RDWR | PCH_CMASK_CTRL,
+-				  &priv->regs->ifregs[0].cmask);
+-			pch_can_check_if_busy(&priv->regs->ifregs[0].creq, k);
+-
+-			skb = alloc_can_err_skb(ndev, &cf);
+-			if (!skb)
+-				return -ENOMEM;
+-
+-			priv->can.can_stats.error_passive++;
+-			priv->can.state = CAN_STATE_ERROR_PASSIVE;
+-			cf->can_id |= CAN_ERR_CRTL;
+-			cf->data[1] |= CAN_ERR_CRTL_RX_OVERFLOW;
+-			cf->data[2] |= CAN_ERR_PROT_OVERLOAD;
+-			stats->rx_packets++;
+-			stats->rx_bytes += cf->can_dlc;
+-
+-			netif_receive_skb(skb);
++			pch_can_rx_msg_lost(ndev, obj_num);
+ 			rcv_pkts++;
+-			goto RX_NEXT;
++			quota--;
++			obj_num++;
++			continue;
++		} else if (!(reg & PCH_IF_MCONT_NEWDAT)) {
++			obj_num++;
++			continue;
+ 		}
+-		if (!(reg & PCH_IF_MCONT_NEWDAT))
+-			goto RX_NEXT;
+ 
+ 		skb = alloc_can_skb(priv->ndev, &cf);
+ 		if (!skb)
+ 			return -ENOMEM;
+ 
+ 		/* Get Received data */
+-		ide = ((ioread32(&priv->regs->ifregs[0].id2)) & PCH_ID2_XTD) >>
+-									     14;
+-		if (ide) {
++		id2 = ioread32(&priv->regs->ifregs[0].id2);
++		if (id2 & PCH_ID2_XTD) {
+ 			id = (ioread32(&priv->regs->ifregs[0].id1) & 0xffff);
+-			id |= (((ioread32(&priv->regs->ifregs[0].id2)) &
+-					    0x1fff) << 16);
+-			cf->can_id = (id & CAN_EFF_MASK) | CAN_EFF_FLAG;
++			id |= (((id2) & 0x1fff) << 16);
++			cf->can_id = id | CAN_EFF_FLAG;
+ 		} else {
+-			id = (((ioread32(&priv->regs->ifregs[0].id2)) &
+-						     (CAN_SFF_MASK << 2)) >> 2);
+-			cf->can_id = (id & CAN_SFF_MASK);
++			id = (id2 >> 2) & CAN_SFF_MASK;
++			cf->can_id = id;
  		}
  
--		for (i = 0, j = 0; i < cf->can_dlc; j++) {
--			reg = ioread32(&priv->regs->ifregs[0].dataa1 + j*4);
--			cf->data[i++] = cpu_to_le32(reg & 0xff);
--			if (i == cf->can_dlc)
--				break;
--			cf->data[i++] = cpu_to_le32((reg >> 8) & 0xff);
-+		for (i = 0; i < cf->can_dlc; i += 2) {
-+			data_reg = ioread16(&priv->regs->ifregs[0].data[i / 2]);
-+			cf->data[i] = data_reg & 0xff;
-+			cf->data[i + 1] = data_reg >> 8;
+-		rtr = (ioread32(&priv->regs->ifregs[0].id2) &  PCH_ID2_DIR);
+-		if (rtr) {
+-			cf->can_dlc = 0;
++		if (id2 & PCH_ID2_DIR)
+ 			cf->can_id |= CAN_RTR_FLAG;
+-		} else {
+-			cf->can_dlc =
+-			      ((ioread32(&priv->regs->ifregs[0].mcont)) & 0x0f);
+-		}
++
++		cf->can_dlc = get_can_dlc((ioread32(&priv->regs->
++						    ifregs[0].mcont)) & 0xF);
+ 
+ 		for (i = 0; i < cf->can_dlc; i += 2) {
+ 			data_reg = ioread16(&priv->regs->ifregs[0].data[i / 2]);
+-			cf->data[i] = data_reg & 0xff;
++			cf->data[i] = data_reg;
+ 			cf->data[i + 1] = data_reg >> 8;
  		}
  
  		netif_receive_skb(skb);
-@@ -1016,10 +1012,10 @@ static int pch_close(struct net_device *ndev)
+ 		rcv_pkts++;
+ 		stats->rx_packets++;
++		quota--;
+ 		stats->rx_bytes += cf->can_dlc;
  
- static netdev_tx_t pch_xmit(struct sk_buff *skb, struct net_device *ndev)
- {
--	int i, j;
- 	struct pch_can_priv *priv = netdev_priv(ndev);
- 	struct can_frame *cf = (struct can_frame *)skb->data;
- 	int tx_buffer_avail = 0;
-+	int i;
+-		if (k < PCH_FIFO_THRESH) {
+-			iowrite32(PCH_CMASK_RDWR | PCH_CMASK_CTRL |
+-				  PCH_CMASK_ARB, &priv->regs->ifregs[0].cmask);
+-
+-			/* Clearing the Dir bit. */
+-			pch_can_bit_clear(&priv->regs->ifregs[0].id2,
+-					  PCH_ID2_DIR);
+-
+-			/* Clearing NewDat & IntPnd */
+-			pch_can_bit_clear(&priv->regs->ifregs[0].mcont,
+-					  PCH_IF_MCONT_INTPND);
+-			pch_can_check_if_busy(&priv->regs->ifregs[0].creq, k);
+-		} else if (k > PCH_FIFO_THRESH) {
+-			pch_can_int_clr(priv, k);
+-		} else if (k == PCH_FIFO_THRESH) {
+-			int cnt;
+-			for (cnt = 0; cnt < PCH_FIFO_THRESH; cnt++)
+-				pch_can_int_clr(priv, cnt+1);
+-		}
+-RX_NEXT:
+-		/* Reading the messsage object from the Message RAM */
+-		iowrite32(PCH_CMASK_RX_TX_GET, &priv->regs->ifregs[0].cmask);
+-		pch_can_check_if_busy(&priv->regs->ifregs[0].creq, k);
+-		reg = ioread32(&priv->regs->ifregs[0].mcont);
+-	}
++		pch_fifo_thresh(priv, obj_num);
++		obj_num++;
++	} while (quota > 0);
  
- 	if (can_dropped_invalid_skb(ndev, skb))
- 		return NETDEV_TX_OK;
-@@ -1060,13 +1056,10 @@ static netdev_tx_t pch_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	if (cf->can_id & CAN_RTR_FLAG)
- 		pch_can_bit_clear(&priv->regs->ifregs[1].id2, PCH_ID2_DIR);
+ 	return rcv_pkts;
+ }
+@@ -869,7 +875,7 @@ static int pch_can_rx_poll(struct napi_struct *napi, int quota)
+ 		goto end;
  
--	for (i = 0, j = 0; i < cf->can_dlc; j++) {
--		iowrite32(le32_to_cpu(cf->data[i++]),
--			 (&priv->regs->ifregs[1].dataa1) + j*4);
--		if (i == cf->can_dlc)
--			break;
--		iowrite32(le32_to_cpu(cf->data[i++] << 8),
--			 (&priv->regs->ifregs[1].dataa1) + j*4);
-+	/* Copy data to register */
-+	for (i = 0; i < cf->can_dlc; i += 2) {
-+		iowrite16(cf->data[i] | (cf->data[i + 1] << 8),
-+			  &priv->regs->ifregs[1].data[i / 2]);
- 	}
- 
- 	can_put_echo_skb(skb, ndev, tx_buffer_avail - PCH_RX_OBJ_END - 1);
+ 	if ((int_stat >= PCH_RX_OBJ_START) && (int_stat <= PCH_RX_OBJ_END)) {
+-		rcv_pkts += pch_can_rx_normal(ndev, int_stat);
++		rcv_pkts += pch_can_rx_normal(ndev, int_stat, quota);
+ 		quota -= rcv_pkts;
+ 		if (quota < 0)
+ 			goto end;
 -- 
 1.6.0.6
