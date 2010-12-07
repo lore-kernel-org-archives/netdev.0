@@ -1,49 +1,43 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: [PATCH 0/4] ath: logging message conversion
-Date: Tue, 7 Dec 2010 14:05:28 -0500
-Message-ID: <20101207190528.GD2700@tuxdriver.com>
-References: <20101202190239.GE7399@tux>
- <cover.1291333543.git.joe@perches.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: weird network problem - stalls, reload works
+Date: Tue, 07 Dec 2010 20:20:57 +0100
+Message-ID: <4CFE8919.3030000@gmail.com>
+References: <4CFC17B8.4050908@msgid.tls.msk.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Luis R. Rodriguez" <lrodriguez-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ath5k-devel-juf53994utBLZpfksSYvnA@public.gmane.org,
-	ath9k-devel-juf53994utBLZpfksSYvnA@public.gmane.org, Peter Stuge <peter-Y+HMSxxDrH8@public.gmane.org>,
-	Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <cover.1291333543.git.joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Michael Tokarev <mjt@tls.msk.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f42.google.com ([74.125.82.42]:36441 "EHLO
+	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752796Ab0LGTVF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Dec 2010 14:21:05 -0500
+Received: by wwi17 with SMTP id 17so1267848wwi.1
+        for <netdev@vger.kernel.org>; Tue, 07 Dec 2010 11:21:03 -0800 (PST)
+In-Reply-To: <4CFC17B8.4050908@msgid.tls.msk.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 02, 2010 at 07:12:34PM -0800, Joe Perches wrote:
-> ath_print is misleading as it's only used with CONFIG_ATH_DEBUG.
+Michael Tokarev wrote:
+> Hello.
+Hi,
 > 
-> Add and use the more normal <subsystem>_printk and <subsystem>_<level>
-> printk equivalents. (ath_printk and ath_<level>)
+> I've a weird networking problem here, which I'm
+> trying to hunt for some time.
+...
+> So I'm quite stuck here, and don't know what to do next.
+> My next bet is to try another motherboard, in a hope that
+> this is just some broken interrupt controller, but it is
+> a bit too unreal...
 > 
-> Fix various defects in the current uses of ath_print formats
-> and arguments: Unnecessary casts, missing newlines, multiple
-> prints, and 1 loop which can exceed array bounds.
-> 
-> Bundled and integrated the individual patches into a single patch series.
-> 
-> Joe Perches (4):
->   ath: Add and use ath_printk and ath_<level>
->   ath: Convert ath_print(.., ATH_DBG_FATAL to ath_err
->   ath: Convert ath_print to ath_dbg
->   ath: Fix ath_dbg access beyond array bound
+> Any hints on what to try are greatly apprecated...
 
-Is the Atheros crew happy with this series?  They didn't seem to like
-the original patches very much...
+You might try the usual stuff like in linux-2.6/REPORTING-BUGS ;-)
+Plus maybe some debugging turned on in the config (DMA?) and
+driver (s/#if 0/#if 1/ around line 69 in forcedeth.c). Btw, it
+seems there should be some watchdog traces in logs around those
+stalled pings.
 
-John
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Cheers,
+Jarek P.
