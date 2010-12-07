@@ -1,7 +1,8 @@
 From: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Subject: [PATCH net-next-2.6 v8 08/20] CAN : Reduce register access
-Date: Tue, 07 Dec 2010 20:07:11 +0900
-Message-ID: <4CFE155F.1010802@dsn.okisemi.com>
+Subject: [PATCH net-next-2.6 v8 09/20] CAN : Change Copyright and module
+	description
+Date: Tue, 07 Dec 2010 20:07:35 +0900
+Message-ID: <4CFE1577.7040106@dsn.okisemi.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -22,141 +23,32 @@ Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-For improve tx/rx speed, reduce register access.
+Currently, Copyright and module description are not formal.
 
 Signed-off-by: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
 ---
- drivers/net/can/pch_can.c |   55 +++++++++++++++++---------------------------
- 1 files changed, 21 insertions(+), 34 deletions(-)
+ drivers/net/can/pch_can.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/can/pch_can.c b/drivers/net/can/pch_can.c
-index c6c0842..0acc877 100644
+index 0acc877..293be51 100644
 --- a/drivers/net/can/pch_can.c
 +++ b/drivers/net/can/pch_can.c
-@@ -372,9 +372,6 @@ static void pch_can_config_rx_tx_buffers(struct pch_can_priv *priv)
- 		pch_can_bit_set(&priv->regs->ifregs[0].mcont,
- 				PCH_IF_MCONT_UMASK);
- 
--		/* Set FIFO mode set to 0 except last Rx Obj*/
--		pch_can_bit_clear(&priv->regs->ifregs[0].mcont,
--				  PCH_IF_MCONT_EOB);
- 		/* In case FIFO mode, Last EoB of Rx Obj must be 1 */
- 		if (i == PCH_RX_OBJ_END)
- 			pch_can_bit_set(&priv->regs->ifregs[0].mcont,
-@@ -402,14 +399,11 @@ static void pch_can_config_rx_tx_buffers(struct pch_can_priv *priv)
- 
- 		/* Resetting DIR bit for reception */
- 		iowrite32(0x0, &priv->regs->ifregs[1].id1);
--		iowrite32(0x0, &priv->regs->ifregs[1].id2);
--		pch_can_bit_set(&priv->regs->ifregs[1].id2, PCH_ID2_DIR);
-+		iowrite32(PCH_ID2_DIR, &priv->regs->ifregs[1].id2);
- 
- 		/* Setting EOB bit for transmitter */
--		iowrite32(PCH_IF_MCONT_EOB, &priv->regs->ifregs[1].mcont);
--
--		pch_can_bit_set(&priv->regs->ifregs[1].mcont,
--				PCH_IF_MCONT_UMASK);
-+		iowrite32(PCH_IF_MCONT_EOB | PCH_IF_MCONT_UMASK,
-+			  &priv->regs->ifregs[1].mcont);
- 
- 		iowrite32(0, &priv->regs->ifregs[1].mask1);
- 		pch_can_bit_clear(&priv->regs->ifregs[1].mask2, 0x1fff);
-@@ -524,12 +518,12 @@ static void pch_can_error(struct net_device *ndev, u32 status)
- 		dev_err(&ndev->dev, "%s -> Bus Off occurres.\n", __func__);
- 	}
- 
-+	errc = ioread32(&priv->regs->errc);
- 	/* Warning interrupt. */
- 	if (status & PCH_EWARN) {
- 		state = CAN_STATE_ERROR_WARNING;
- 		priv->can.can_stats.error_warning++;
- 		cf->can_id |= CAN_ERR_CRTL;
--		errc = ioread32(&priv->regs->errc);
- 		if (((errc & PCH_REC) >> 8) > 96)
- 			cf->data[1] |= CAN_ERR_CRTL_RX_WARNING;
- 		if ((errc & PCH_TEC) > 96)
-@@ -542,7 +536,6 @@ static void pch_can_error(struct net_device *ndev, u32 status)
- 		priv->can.can_stats.error_passive++;
- 		state = CAN_STATE_ERROR_PASSIVE;
- 		cf->can_id |= CAN_ERR_CRTL;
--		errc = ioread32(&priv->regs->errc);
- 		if (((errc & PCH_REC) >> 8) > 127)
- 			cf->data[1] |= CAN_ERR_CRTL_RX_PASSIVE;
- 		if ((errc & PCH_TEC) > 127)
-@@ -927,6 +920,7 @@ static netdev_tx_t pch_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	struct can_frame *cf = (struct can_frame *)skb->data;
- 	int tx_obj_no;
- 	int i;
-+	u32 id2;
- 
- 	if (can_dropped_invalid_skb(ndev, skb))
- 		return NETDEV_TX_OK;
-@@ -950,22 +944,23 @@ static netdev_tx_t pch_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	pch_can_bit_set(&priv->regs->ifregs[1].cmask, PCH_CMASK_ALL);
- 
- 	/* If ID extended is set. */
--	pch_can_bit_clear(&priv->regs->ifregs[1].id1, 0xffff);
--	pch_can_bit_clear(&priv->regs->ifregs[1].id2, 0x1fff | PCH_ID2_XTD);
- 	if (cf->can_id & CAN_EFF_FLAG) {
--		pch_can_bit_set(&priv->regs->ifregs[1].id1,
--				cf->can_id & 0xffff);
--		pch_can_bit_set(&priv->regs->ifregs[1].id2,
--				((cf->can_id >> 16) & 0x1fff) | PCH_ID2_XTD);
-+		iowrite32(cf->can_id & 0xffff, &priv->regs->ifregs[1].id1);
-+		id2 = ((cf->can_id >> 16) & 0x1fff) | PCH_ID2_XTD;
- 	} else {
--		pch_can_bit_set(&priv->regs->ifregs[1].id1, 0);
--		pch_can_bit_set(&priv->regs->ifregs[1].id2,
--				(cf->can_id & CAN_SFF_MASK) << 2);
-+		iowrite32(0, &priv->regs->ifregs[1].id1);
-+		id2 = (cf->can_id & CAN_SFF_MASK) << 2;
- 	}
- 
-+	id2 |= PCH_ID_MSGVAL;
-+
- 	/* If remote frame has to be transmitted.. */
- 	if (cf->can_id & CAN_RTR_FLAG)
--		pch_can_bit_clear(&priv->regs->ifregs[1].id2, PCH_ID2_DIR);
-+		id2 &= ~PCH_ID2_DIR;
-+	else
-+		id2 |= PCH_ID2_DIR;
-+
-+	iowrite32(id2, &priv->regs->ifregs[1].id2);
- 
- 	/* Copy data to register */
- 	for (i = 0; i < cf->can_dlc; i += 2) {
-@@ -976,17 +971,8 @@ static netdev_tx_t pch_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	can_put_echo_skb(skb, ndev, tx_obj_no - PCH_RX_OBJ_END - 1);
- 
- 	/* Updating the size of the data. */
--	pch_can_bit_clear(&priv->regs->ifregs[1].mcont, 0x0f);
--	pch_can_bit_set(&priv->regs->ifregs[1].mcont, cf->can_dlc);
--
--	/* Clearing IntPend, NewDat & TxRqst */
--	pch_can_bit_clear(&priv->regs->ifregs[1].mcont,
--			  PCH_IF_MCONT_NEWDAT | PCH_IF_MCONT_INTPND |
--			  PCH_IF_MCONT_TXRQXT);
--
--	/* Setting NewDat, TxRqst bits */
--	pch_can_bit_set(&priv->regs->ifregs[1].mcont,
--			PCH_IF_MCONT_NEWDAT | PCH_IF_MCONT_TXRQXT);
-+	iowrite32(cf->can_dlc | PCH_IF_MCONT_NEWDAT | PCH_IF_MCONT_TXRQXT |
-+		  PCH_IF_MCONT_TXIE, &priv->regs->ifregs[1].mcont);
- 
- 	pch_can_rw_msg_obj(&priv->regs->ifregs[1].creq, tx_obj_no);
- 
-@@ -1211,9 +1197,10 @@ static int pch_can_get_berr_counter(const struct net_device *dev,
- 				    struct can_berr_counter *bec)
- {
- 	struct pch_can_priv *priv = netdev_priv(dev);
-+	u32 errc = ioread32(&priv->regs->errc);
- 
--	bec->txerr = ioread32(&priv->regs->errc) & PCH_TEC;
--	bec->rxerr = (ioread32(&priv->regs->errc) & PCH_REC) >> 8;
-+	bec->txerr = errc & PCH_TEC;
-+	bec->rxerr = (errc & PCH_REC) >> 8;
- 
- 	return 0;
+@@ -1,6 +1,6 @@
+ /*
+  * Copyright (C) 1999 - 2010 Intel Corporation.
+- * Copyright (C) 2010 OKI SEMICONDUCTOR Co., LTD.
++ * Copyright (C) 2010 OKI SEMICONDUCTOR CO., LTD.
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+@@ -1301,6 +1301,6 @@ static void __exit pch_can_pci_exit(void)
  }
+ module_exit(pch_can_pci_exit);
+ 
+-MODULE_DESCRIPTION("Controller Area Network Driver");
++MODULE_DESCRIPTION("Intel EG20T PCH CAN(Controller Area Network) Driver");
+ MODULE_LICENSE("GPL v2");
+ MODULE_VERSION("0.94");
 -- 
 1.6.0.6
