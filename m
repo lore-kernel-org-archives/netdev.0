@@ -1,69 +1,93 @@
-From: Ilya Loginov <isloginov@gmail.com>
-Subject: WARNING at local_bh_enable while tcp_retransmit
-Date: Tue, 7 Dec 2010 18:23:08 +0300
-Message-ID: <20101207182308.664e171d.isloginov@gmail.com>
+From: Neil Jones <neiljay@gmail.com>
+Subject: Fwd: usbnet: Recursive Locking bug ?
+Date: Tue, 7 Dec 2010 16:15:38 +0000
+Message-ID: <AANLkTi=VB0Kt=2c1C1b-Ps8x_zA5Tnf+tfHjvO8gWgm8@mail.gmail.com>
+References: <AANLkTikBjxZEvWu+322qP2v0MU9xFQrgJmq2xA-Zdo32@mail.gmail.com>
+	<201012071554.37519.oneukum@suse.de>
+	<AANLkTi=Dzc37qxXC0oK48pnuWss9gHJE3ARDEUGfi7QA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org, linux-usb@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f45.google.com ([209.85.215.45]:41538 "EHLO
-	mail-ew0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754338Ab0LGPUh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Dec 2010 10:20:37 -0500
-Received: by ewy10 with SMTP id 10so22407ewy.4
-        for <netdev@vger.kernel.org>; Tue, 07 Dec 2010 07:20:36 -0800 (PST)
+Received: from mail-gw0-f42.google.com ([74.125.83.42]:50240 "EHLO
+	mail-gw0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753008Ab0LGQPj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Dec 2010 11:15:39 -0500
+In-Reply-To: <AANLkTi=Dzc37qxXC0oK48pnuWss9gHJE3ARDEUGfi7QA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-	Hi, I am working on some network drivers.
-	First one is raw netdevice for RapidIO packets. Second one is
-Ethernet network device that encapsulates Ethernet traffic into RapidIO
-messages.
-	Ethernet device changes skb->dev to RapidIO device, calls
-RapidIO create_header and calls dev_queue_xmit on skb.
-	All works well for linear skb's but I have trouble with
-multi-fragment skb's when frags have bad alignment. In that case my
-controller RapidIO fails to transmit packets. While a bit internal tx
-queue with descriptors of underlying RapidIO device overflows and it
-returns NETDEV_TX_BUSY in start_xmit.
-	TCP stack retransmits packets after timeout and I gets this:
+> But what makes sure that the URB unlinked in unlink_urbs() stays a va=
+lid pointer?
+> The bottom half may run and free the URB.
 
-------------[ cut here ]------------
-WARNING: at kernel/softirq.c:143 local_bh_enable+0x150/0x158()
-Modules linked in: rioth rsmp k128 [last unloaded: k128]
-Call Trace:
-[<ffffffff80022170>] dump_stack+0x8/0x48
-[<ffffffff800518e8>] warn_slowpath_common+0x90/0xb8
-[<ffffffff80059ca0>] local_bh_enable+0x150/0x158
-[<ffffffff80303f04>] dev_queue_xmit+0x55c/0x730
-[<c0000000000591b0>] rio_send+0x1b0/0x380 [rsmp]	<- Stack over RapidIO device (similar to can)
-[<c000000000068364>] rioth_start_xmit+0x74/0x88 [rioth] <- Ethernet over RapidIO
-[<ffffffff80303620>] dev_hard_start_xmit+0x350/0x578
-[<ffffffff8031cff4>] sch_direct_xmit+0x214/0x3a8
-[<ffffffff80303e20>] dev_queue_xmit+0x478/0x730
-[<ffffffff80332ba8>] ip_finish_output+0x168/0x408
-[<ffffffff803312ec>] ip_local_out+0x3c/0x58
-[<ffffffff80331bf0>] ip_queue_xmit+0x230/0x4a0
-[<ffffffff8034bce0>] tcp_transmit_skb+0x4a8/0xaa0
-[<ffffffff8034dfb8>] tcp_retransmit_skb+0x260/0x698
-[<ffffffff803504d8>] tcp_retransmit_timer+0x110/0x700
-[<ffffffff80350cf0>] tcp_write_timer+0x228/0x278
-[<ffffffff80062584>] run_timer_softirq+0x174/0x398
-[<ffffffff80059804>] __do_softirq+0x174/0x270
-[<ffffffff800599c8>] do_softirq+0xc8/0xf8
-[<ffffffff80059d7c>] irq_exit+0x7c/0x88
-[<ffffffff80001400>] ret_from_irq+0x0/0x4
-[<ffffffff8001ed4c>] cpu_idle+0x1c/0xa0
-[<ffffffff8049bc80>] start_kernel+0x518/0x628
+I think it may be safe to remove the lock as we are walking a list of
+SKBs not URBs,
+the BH can remove SKB's from the list but we are doing a safe list walk=
+=2E
++ the BH takse the list lock when it does the remove.
 
----[ end trace cc7486cd1e47e9db ]---
+I could be wrong though?
 
-	I watched bonding, but I could not realize why it didn't get
-same warning. It use very similar scheme of work.
 
-	Do you have any ideas?
-
--- 
-Ilya Loginov <isloginov@gmail.com>
+On Tue, Dec 7, 2010 at 2:54 PM, Oliver Neukum <oneukum@suse.de> wrote:
+> Am Dienstag, 7. Dezember 2010, 15:08:43 schrieb Neil Jones:
+>> I think this is due to unlink_urbs():
+>
+> Definitely.
+>
+>> static int unlink_urbs (struct usbnet *dev, struct sk_buff_head *q)
+>> {
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 unsigned long =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 flags;
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 struct sk_buff =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0*skb, *skbnext;
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 int =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 count =3D 0;
+>>
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 spin_lock_irqsave (&q->lock, flags);
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 skb_queue_walk_safe(q, skb, skbnext) {
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 struct skb_d=
+ata =C2=A0 =C2=A0 =C2=A0 =C2=A0 *entry;
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 struct urb =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0*urb;
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 int =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 retval;
+>>
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 entry =3D (s=
+truct skb_data *) skb->cb;
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 urb =3D entr=
+y->urb;
+>>
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 // during so=
+me PM-driven resume scenarios,
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 // these (as=
+ync) unlinks complete immediately
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 retval =3D u=
+sb_unlink_urb (urb);
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (retval !=
+=3D -EINPROGRESS && retval !=3D 0)
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 netdev_dbg(dev->net, "unlink urb err, %d\n", retval);
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 else
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 count++;
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 }
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 spin_unlock_irqrestore (&q->lock, flags)=
+;
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 return count;
+>> }
+>>
+>> I dont think this should hold the list lock when calling usb_unlink_=
+urb (urb).
+>> The completion for the URBs takes the lock as required in its bottom=
+ half:
+>
+> But what makes sure that the URB unlinked in unlink_urbs() stays a va=
+lid pointer?
+> The bottom half may run and free the URB.
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0Regards
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0Oliver
+>
