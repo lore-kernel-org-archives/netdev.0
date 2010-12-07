@@ -1,104 +1,138 @@
-From: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Subject: [PATCH net-next-2.6 v8 01/20] CAN : Add flow control processing.
-Date: Tue, 07 Dec 2010 20:00:52 +0900
-Message-ID: <4CFE13E4.2020707@dsn.okisemi.com>
+From: Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
+Subject: [PATCH net-next-2.6 v8 02/20] CAN : Divide poll function
+Date: Tue, 07 Dec 2010 20:03:15 +0900
+Message-ID: <4CFE1473.2020107@dsn.okisemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
-	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: qi.wang@intel.com, yong.y.wang@intel.com,
+	andrew.chih.howe.khor@intel.com, joel.clark@intel.com,
+	kok.howg.ewe@intel.com, margie.foster@intel.com
+To: Wolfgang Grandegger <wg@grandegger.com>,
+	socketcan-core@lists.berlios.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Currently, there is no flow control processing.
-Thus, Add flow control processing as
-when there is no empty of tx buffer,
-netif_stop_queue is called.
-When there is empty buffer, netif_wake_queue is called.
+To easy to read/understand, divide poll function into two sub-functions.
 
-Signed-off-by: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Signed-off-by: Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
 ---
- drivers/net/can/pch_can.c |   31 ++++++++++++-------------------
- 1 files changed, 12 insertions(+), 19 deletions(-)
+ drivers/net/can/pch_can.c |   71 ++++++++++++++++++++++-----------------------
+ 1 files changed, 35 insertions(+), 36 deletions(-)
 
 diff --git a/drivers/net/can/pch_can.c b/drivers/net/can/pch_can.c
-index a9b6a65..f0f1404 100644
+index f0f1404..0b6d4f4 100644
 --- a/drivers/net/can/pch_can.c
 +++ b/drivers/net/can/pch_can.c
-@@ -102,6 +102,10 @@
+@@ -819,72 +819,71 @@ RX_NEXT:
  
- #define PCH_FIFO_THRESH		16
- 
-+/* TxRqst2 show status of MsgObjNo.17~32 */
-+#define PCH_TREQ2_TX_MASK	(((1 << PCH_TX_OBJ_NUM) - 1) <<\
-+							(PCH_RX_OBJ_END - 16))
+ 	return rcv_pkts;
+ }
+-static int pch_can_rx_poll(struct napi_struct *napi, int quota)
 +
- enum pch_ifreg {
- 	PCH_RX_IFREG,
- 	PCH_TX_IFREG,
-@@ -871,6 +875,8 @@ MSG_OBJ:
- 			dlc = 8;
- 		stats->tx_bytes += dlc;
- 		stats->tx_packets++;
-+		if (int_stat == PCH_TX_OBJ_END)
-+			netif_wake_queue(ndev);
- 	}
++static void pch_can_tx_complete(struct net_device *ndev, u32 int_stat)
+ {
+-	struct net_device *ndev = napi->dev;
+ 	struct pch_can_priv *priv = netdev_priv(ndev);
+ 	struct net_device_stats *stats = &(priv->ndev->stats);
+ 	u32 dlc;
++
++	can_get_echo_skb(ndev, int_stat - PCH_RX_OBJ_END - 1);
++	iowrite32(PCH_CMASK_RX_TX_GET | PCH_CMASK_CLRINTPND,
++		  &priv->regs->ifregs[1].cmask);
++	pch_can_check_if_busy(&priv->regs->ifregs[1].creq, int_stat);
++	dlc = get_can_dlc(ioread32(&priv->regs->ifregs[1].mcont) &
++			  PCH_IF_MCONT_DLC);
++	stats->tx_bytes += dlc;
++	stats->tx_packets++;
++	if (int_stat == PCH_TX_OBJ_END)
++		netif_wake_queue(ndev);
++}
++
++static int pch_can_rx_poll(struct napi_struct *napi, int quota)
++{
++	struct net_device *ndev = napi->dev;
++	struct pch_can_priv *priv = netdev_priv(ndev);
+ 	u32 int_stat;
+ 	int rcv_pkts = 0;
+ 	u32 reg_stat;
  
  	int_stat = pch_can_int_pending(priv);
-@@ -1009,18 +1015,6 @@ static int pch_close(struct net_device *ndev)
- 	return 0;
- }
+ 	if (!int_stat)
+-		return 0;
++		goto end;
  
--static int pch_get_msg_obj_sts(struct net_device *ndev, u32 obj_id)
--{
--	u32 buffer_status = 0;
--	struct pch_can_priv *priv = netdev_priv(ndev);
--
--	/* Getting the message object status. */
--	buffer_status = (u32) pch_can_get_buffer_status(priv);
--
--	return buffer_status & obj_id;
--}
--
--
- static netdev_tx_t pch_xmit(struct sk_buff *skb, struct net_device *ndev)
- {
- 	int i, j;
-@@ -1031,17 +1025,16 @@ static netdev_tx_t pch_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	if (can_dropped_invalid_skb(ndev, skb))
- 		return NETDEV_TX_OK;
+-INT_STAT:
+-	if (int_stat == PCH_STATUS_INT) {
++	if ((int_stat == PCH_STATUS_INT) && (quota > 0)) {
+ 		reg_stat = ioread32(&priv->regs->stat);
+ 		if (reg_stat & (PCH_BUS_OFF | PCH_LEC_ALL)) {
+-			if ((reg_stat & PCH_LEC_ALL) != PCH_LEC_ALL)
++			if (reg_stat & PCH_BUS_OFF ||
++			   (reg_stat & PCH_LEC_ALL) != PCH_LEC_ALL) {
+ 				pch_can_error(ndev, reg_stat);
++				quota--;
++			}
+ 		}
  
--	if (priv->tx_obj == PCH_TX_OBJ_END) { /* Point tail Obj */
--		while (pch_get_msg_obj_sts(ndev, (((1 << PCH_TX_OBJ_NUM)-1) <<
--					   PCH_RX_OBJ_NUM)))
--			udelay(500);
-+	if (priv->tx_obj == PCH_TX_OBJ_END) {
-+		if (ioread32(&priv->regs->treq2) & PCH_TREQ2_TX_MASK)
-+			netif_stop_queue(ndev);
+-		if (reg_stat & PCH_TX_OK) {
+-			iowrite32(PCH_CMASK_RX_TX_GET,
+-				  &priv->regs->ifregs[1].cmask);
+-			pch_can_check_if_busy(&priv->regs->ifregs[1].creq,
+-					       ioread32(&priv->regs->intr));
++		if (reg_stat & PCH_TX_OK)
+ 			pch_can_bit_clear(&priv->regs->stat, PCH_TX_OK);
+-		}
  
--		priv->tx_obj = PCH_TX_OBJ_START; /* Point head of Tx Obj ID */
--		tx_buffer_avail = priv->tx_obj; /* Point Tail of Tx Obj */
-+		tx_buffer_avail = priv->tx_obj;
-+		priv->tx_obj = PCH_TX_OBJ_START;
- 	} else {
- 		tx_buffer_avail = priv->tx_obj;
-+		priv->tx_obj++;
+ 		if (reg_stat & PCH_RX_OK)
+ 			pch_can_bit_clear(&priv->regs->stat, PCH_RX_OK);
+ 
+ 		int_stat = pch_can_int_pending(priv);
+-		if (int_stat == PCH_STATUS_INT)
+-			goto INT_STAT;
  	}
--	priv->tx_obj++;
  
- 	/* Reading the Msg Obj from the Msg RAM to the Interface register. */
- 	iowrite32(PCH_CMASK_RX_TX_GET, &priv->regs->ifregs[1].cmask);
+-MSG_OBJ:
++	if (quota == 0)
++		goto end;
++
+ 	if ((int_stat >= PCH_RX_OBJ_START) && (int_stat <= PCH_RX_OBJ_END)) {
+-		rcv_pkts = pch_can_rx_normal(ndev, int_stat);
+-		if (rcv_pkts < 0)
+-			return 0;
++		rcv_pkts += pch_can_rx_normal(ndev, int_stat);
++		quota -= rcv_pkts;
++		if (quota < 0)
++			goto end;
+ 	} else if ((int_stat >= PCH_TX_OBJ_START) &&
+ 		   (int_stat <= PCH_TX_OBJ_END)) {
+ 		/* Handle transmission interrupt */
+-		can_get_echo_skb(ndev, int_stat - PCH_RX_OBJ_END - 1);
+-		iowrite32(PCH_CMASK_RX_TX_GET | PCH_CMASK_CLRINTPND,
+-			  &priv->regs->ifregs[1].cmask);
+-		dlc = ioread32(&priv->regs->ifregs[1].mcont) &
+-			       PCH_IF_MCONT_DLC;
+-		pch_can_check_if_busy(&priv->regs->ifregs[1].creq, int_stat);
+-		if (dlc > 8)
+-			dlc = 8;
+-		stats->tx_bytes += dlc;
+-		stats->tx_packets++;
+-		if (int_stat == PCH_TX_OBJ_END)
+-			netif_wake_queue(ndev);
++		pch_can_tx_complete(ndev, int_stat);
+ 	}
+ 
+-	int_stat = pch_can_int_pending(priv);
+-	if (int_stat == PCH_STATUS_INT)
+-		goto INT_STAT;
+-	else if (int_stat >= 1 && int_stat <= 32)
+-		goto MSG_OBJ;
+-
++end:
+ 	napi_complete(napi);
+ 	pch_can_set_int_enables(priv, PCH_CAN_ALL);
+ 
 -- 
 1.6.0.6
