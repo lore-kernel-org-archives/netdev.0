@@ -1,8 +1,8 @@
 From: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Subject: [PATCH net-next-2.6 v8 18/20] CAN : Optimize "if" condition in rx/tx
+Subject: [PATCH net-next-2.6 v8 19/20] CAN : Add setting TEC/REC statistics
 	processing
-Date: Tue, 07 Dec 2010 20:11:41 +0900
-Message-ID: <4CFE166D.8040805@dsn.okisemi.com>
+Date: Tue, 07 Dec 2010 20:12:05 +0900
+Message-ID: <4CFE1685.5090208@dsn.okisemi.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -23,72 +23,26 @@ Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-For reduce "if" condition, easy to read/understand the code,
-optimize "if" condition in rx/tx processing.
+Add setting TEC/REC statistics processing.
 
 Signed-off-by: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
 ---
- drivers/net/can/pch_can.c |   26 ++++++++++----------------
- 1 files changed, 10 insertions(+), 16 deletions(-)
+ drivers/net/can/pch_can.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/can/pch_can.c b/drivers/net/can/pch_can.c
-index 8efbe35..dcd8f00 100644
+index dcd8f00..4697b1c 100644
 --- a/drivers/net/can/pch_can.c
 +++ b/drivers/net/can/pch_can.c
-@@ -746,19 +746,16 @@ static int pch_can_poll(struct napi_struct *napi, int quota)
- 
- 	if (int_stat == PCH_STATUS_INT) {
- 		reg_stat = ioread32(&priv->regs->stat);
--		if (reg_stat & (PCH_BUS_OFF | PCH_LEC_ALL)) {
--			if (reg_stat & PCH_BUS_OFF ||
--			   (reg_stat & PCH_LEC_ALL) != PCH_LEC_ALL) {
--				pch_can_error(ndev, reg_stat);
--				quota--;
--			}
--		}
- 
--		if (reg_stat & PCH_TX_OK)
--			pch_can_bit_clear(&priv->regs->stat, PCH_TX_OK);
-+		if ((reg_stat & (PCH_BUS_OFF | PCH_LEC_ALL)) &&
-+		   ((reg_stat & PCH_LEC_ALL) != PCH_LEC_ALL)) {
-+			pch_can_error(ndev, reg_stat);
-+			quota--;
-+		}
- 
--		if (reg_stat & PCH_RX_OK)
--			pch_can_bit_clear(&priv->regs->stat, PCH_RX_OK);
-+		if (reg_stat & (PCH_TX_OK | PCH_RX_OK))
-+			pch_can_bit_clear(&priv->regs->stat,
-+					  reg_stat & (PCH_TX_OK | PCH_RX_OK));
- 
- 		int_stat = pch_can_int_pending(priv);
- 	}
-@@ -900,14 +897,13 @@ static netdev_tx_t pch_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	if (can_dropped_invalid_skb(ndev, skb))
- 		return NETDEV_TX_OK;
- 
-+	tx_obj_no = priv->tx_obj;
- 	if (priv->tx_obj == PCH_TX_OBJ_END) {
- 		if (ioread32(&priv->regs->treq2) & PCH_TREQ2_TX_MASK)
- 			netif_stop_queue(ndev);
- 
--		tx_obj_no = priv->tx_obj;
- 		priv->tx_obj = PCH_TX_OBJ_START;
- 	} else {
--		tx_obj_no = priv->tx_obj;
- 		priv->tx_obj++;
+@@ -568,6 +568,9 @@ static void pch_can_error(struct net_device *ndev, u32 status)
+ 		break;
  	}
  
-@@ -926,9 +922,7 @@ static netdev_tx_t pch_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	id2 |= PCH_ID_MSGVAL;
++	cf->data[6] = errc & PCH_TEC;
++	cf->data[7] = (errc & PCH_REC) >> 8;
++
+ 	priv->can.state = state;
+ 	netif_rx(skb);
  
- 	/* If remote frame has to be transmitted.. */
--	if (cf->can_id & CAN_RTR_FLAG)
--		id2 &= ~PCH_ID2_DIR;
--	else
-+	if (!(cf->can_id & CAN_RTR_FLAG))
- 		id2 |= PCH_ID2_DIR;
- 
- 	iowrite32(id2, &priv->regs->ifregs[1].id2);
 -- 
 1.6.0.6
