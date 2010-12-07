@@ -1,56 +1,65 @@
-From: "Tomoya MORINAGA" <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Subject: Re: [PATCH net-next-2.6 8/17 v2] can: EG20T PCH: Change Copyright and
-	module description
-Date: Tue, 7 Dec 2010 09:46:42 +0900
-Message-ID: <EA73672426864370BC8119DE78037132@hacdom.okisemi.com>
-References: <4CECC07E.40804@dsn.okisemi.com> <4CECEE1E.9030201@pengutronix.de>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the net tree
+Date: Tue, 7 Dec 2010 12:00:39 +1100
+Message-ID: <20101207120039.6ea1491e.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>, joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-To: "Marc Kleine-Budde" <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Tue__7_Dec_2010_12_00_39_+1100_wKWHfWrMxxKJQ3v_"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Joe Perches <joe@perches.com>,
+	Breno Leitao <leitao@linux.vnet.ibm.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday, November 24, 2010 7:51 PM, Marc Kleine-Budde wrote:
-> Did your mailer spawn some extra spaces here? The header of your mail
-> tells me:
-> "User-Agent: Mozilla/5.0 (X11; U; Linux i686; ja; rv:1.9.1.15)
-> Gecko/20101027 Thunderbird/3.0.10"
-> I strongly suggest to use git send-email.
+--Signature=_Tue__7_Dec_2010_12_00_39_+1100_wKWHfWrMxxKJQ3v_
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-At last, I can use "git send-email".
-However, I have faced issue.
-In case single destination address is OK, but in case multiple address is 
-set,
-I can see the following error.
+Hi all,
 
-Relay access denied
+After merging the net tree, today's linux-next build (powerpc
+ppc64_defconfig) failed like this:
 
-I show my failure command.
-git send-email --smtp-server xxx.com --smtp-server-port yyy --smtp-ssl -to 
-aaa.com -to bbb.com -to ccc.com
- -cc ccc.com -cc ddd.com -cc eee.com -bcc fff.com -bcc ggg.com *.patch
+drivers/net/ehea/ehea_main.c: In function 'ehea_refill_rq1':
+drivers/net/ehea/ehea_main.c:405: error: implicit declaration of function '=
+ehea_info'
+drivers/net/ehea/ehea_main.c: In function 'ehea_init_fill_rq1':
+drivers/net/ehea/ehea_main.c:429: error: implicit declaration of function '=
+ehea_error'
+drivers/net/ehea/ehea_main.c: In function 'ehea_neq_tasklet':
+drivers/net/ehea/ehea_main.c:1306: warning: format '%lx' expects type 'long=
+ unsigned int', but argument 2 has type 'u64'
 
-Do you have any information about the issue ?
+Caused by commit 539995d18649023199986424d140f1d620372ce5 ("ehea: Use the
+standard logging functions") interacting with commit
+5c7e57f7cddb83d81d83fefa5822dfe80891130e ("ehea: Add some info messages
+and fix an issue") which went into Linus' tree before 2.6.37-rc4.
 
-Thanks
+Presumably a merge of net-current into the net tree will need a fixup patch.
 
-/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_
-Tomoya Morinaga
-OKI SEMICONDUCTOR CO., LTD. 
+I have used the net tree from next-20101206 for today.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Tue__7_Dec_2010_12_00_39_+1100_wKWHfWrMxxKJQ3v_
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iQEcBAEBAgAGBQJM/Yc3AAoJEDMEi1NhKgbskQAH/A1Oco8rh1BwBvmKpGU0tfCX
+DfIozyA7lkhMOggpZptCnpCgjgPHwC0OjV1vkfF6tSnnUUqPPq4xrsVE17Az0p+C
+K8PfqtfnYGJg0gJeqoxiQFfFOXKJBgrqk0No6f0lh+oFpGtDamBVFiGFoos83Dil
+NinJ8C9i5EbkDdlLYwrzS6v/+q0ev88BwpcX0AcIlVhvvzTzT8do8VS7JpYcSFdr
+BE72PJ9F28FBwIrpFprXQNrOohDFM/f1PEmWVYtSo2f74gUeNVcgl/Nm3FxK+yVP
+gDZDWkZnmo7EOfAo7eCnSKZIoQWFzMBXCW22T5x2DouYRyNcxwKWgs7vJAaMG8Y=
+=SrfO
+-----END PGP SIGNATURE-----
+
+--Signature=_Tue__7_Dec_2010_12_00_39_+1100_wKWHfWrMxxKJQ3v_--
