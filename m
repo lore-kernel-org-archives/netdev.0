@@ -1,59 +1,56 @@
-From: Dimitris Michailidis <dm@chelsio.com>
-Subject: Re: Misuse of LRO, how widespread
-Date: Mon, 06 Dec 2010 15:36:38 -0800
-Message-ID: <4CFD7386.5030906@chelsio.com>
-References: <20101206121829.5b8c852e@nehalam>	<4CFD527E.7000706@chelsio.com>	 <20101206142715.0d296b25@nehalam>  <4CFD6C2B.9020201@chelsio.com> <1291677755.5405.29.camel@bwh-desktop>
+From: "Tomoya MORINAGA" <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6 8/17 v2] can: EG20T PCH: Change Copyright and
+	module description
+Date: Tue, 7 Dec 2010 09:46:42 +0900
+Message-ID: <EA73672426864370BC8119DE78037132@hacdom.okisemi.com>
+References: <4CECC07E.40804@dsn.okisemi.com> <4CECEE1E.9030201@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>,
-	Olof Johansson <olof@lixom.net>,
-	Divy Le Ray <divy@chelsio.com>, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:27195 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752347Ab0LFXgq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Dec 2010 18:36:46 -0500
-In-Reply-To: <1291677755.5405.29.camel@bwh-desktop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>, joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+To: "Marc Kleine-Budde" <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Ben Hutchings wrote:
-> On Mon, 2010-12-06 at 15:05 -0800, Dimitris Michailidis wrote:
->> Stephen Hemminger wrote:
->>> On Mon, 06 Dec 2010 13:15:42 -0800
->>> Dimitris Michailidis <dm@chelsio.com> wrote:
->>>
->>>> Stephen Hemminger wrote:
->>>>> I inspected all drivers in net-next to see which drivers are using
->>>>> LRO and which ones are broken. Most concerning is that Chelsio
->>>>> and Solarflare drivers ignore ETH_FLAG_LRO.
->>>>>
->>>>> The ones that are using LRO but allow disabling it:
->>>>>   qlcnic, netxen, mv643, s2io, myi10ge, bnx2x, ixgbe, vmxnet3
->>>>>
->>>>> One driver seems confused about LRO vs GRO:
->>>>>   mlx4 - comments about LRO and depends on LRO but driver is using GRO
->>>>>
->>>>> Drivers with not using ethtool interface to disable LRO:
->>>>>   pasemi_mac, sfc, ehea, cxgb3, cxgb4
->>>> cxgb4 uses GRO, not LRO.
->>> Ok. but cxgb3 still uses LRO (or it least calls it lro).
->>>
->> cxgb3 was the driver Herbert implemented GRO on I think, and he converted it 
->> to GRO.  It possibly has leftover LRO references as it was using LRO before.
-> 
-> There's a fair amount of code setting LRO flags in various structures,
-> so either the driver still enables LRO in hardware/firmware or this is
-> dead code.
+On Wednesday, November 24, 2010 7:51 PM, Marc Kleine-Budde wrote:
+> Did your mailer spawn some extra spaces here? The header of your mail
+> tells me:
+> "User-Agent: Mozilla/5.0 (X11; U; Linux i686; ja; rv:1.9.1.15)
+> Gecko/20101027 Thunderbird/3.0.10"
+> I strongly suggest to use git send-email.
 
- From a quick look it appears to have a per queue lro flag.  HW/FW are not 
-aware of LRO, whatever flags that driver has are for SW.  I'd say it's 
-obsolete but probably not dead code.
+At last, I can use "git send-email".
+However, I have faced issue.
+In case single destination address is OK, but in case multiple address is 
+set,
+I can see the following error.
 
-> 
-> Ben.
-> 
+Relay access denied
 
+I show my failure command.
+git send-email --smtp-server xxx.com --smtp-server-port yyy --smtp-ssl -to 
+aaa.com -to bbb.com -to ccc.com
+ -cc ccc.com -cc ddd.com -cc eee.com -bcc fff.com -bcc ggg.com *.patch
+
+Do you have any information about the issue ?
+
+Thanks
+
+/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_
+Tomoya Morinaga
+OKI SEMICONDUCTOR CO., LTD. 
