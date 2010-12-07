@@ -1,74 +1,55 @@
-From: Neil Jones <neiljay-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: usbnet: Recursive Locking bug ?
-Date: Tue, 7 Dec 2010 14:08:43 +0000
-Message-ID: <AANLkTikBjxZEvWu+322qP2v0MU9xFQrgJmq2xA-Zdo32@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH] af_packet: eliminate pgv_to_page on some arches
+Date: Tue,  7 Dec 2010 22:26:16 +0800
+Message-ID: <1291731976-15793-1-git-send-email-xiaosuo@gmail.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Jiri Pirko <jpirko@redhat.com>,
+	Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
+	Changli Gao <xiaosuo@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gx0-f180.google.com ([209.85.161.180]:48965 "EHLO
+	mail-gx0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752505Ab0LGO0d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Dec 2010 09:26:33 -0500
+Received: by gxk19 with SMTP id 19so7592971gxk.11
+        for <netdev@vger.kernel.org>; Tue, 07 Dec 2010 06:26:33 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Some arches don't need flush_dcache_page(), and don't implement it, so
+we can eliminate pgv_to_page() calls on those arches.
 
-I get a recursice lock warning from usbnet (asix adapter) with lockdep
-checking on:
-
-=============================================
-[ INFO: possible recursive locking detected ]
-2.6.37-rc4+ #1695
----------------------------------------------
-ifconfig/536 is trying to acquire lock:
- (&(&list->lock)->rlock#2){-.-...}, at: [<401a63bc>] _defer_bh+0x24/0x124
-
-but task is already holding lock:
- (&(&list->lock)->rlock#2){-.-...}, at: [<401a5f28>] _unlink_urbs+0x1c/0xa8
-
-other info that might help us debug this:
-2 locks held by ifconfig/536:
- #0:  (rtnl_mutex){+.+.+.}, at: [<4026b4f8>] _rtnl_lock+0x1c/0x2c
- #1:  (&(&list->lock)->rlock#2){-.-...}, at: [<401a5f28>] _unlink_urbs+0x1c/0xa8
-
-this occurs on bring the interface down.
-
-I think this is due to unlink_urbs():
-
-static int unlink_urbs (struct usbnet *dev, struct sk_buff_head *q)
-{
-	unsigned long		flags;
-	struct sk_buff		*skb, *skbnext;
-	int			count = 0;
-
-	spin_lock_irqsave (&q->lock, flags);
-	skb_queue_walk_safe(q, skb, skbnext) {
-		struct skb_data		*entry;
-		struct urb		*urb;
-		int			retval;
-
-		entry = (struct skb_data *) skb->cb;
-		urb = entry->urb;
-
-		// during some PM-driven resume scenarios,
-		// these (async) unlinks complete immediately
-		retval = usb_unlink_urb (urb);
-		if (retval != -EINPROGRESS && retval != 0)
-			netdev_dbg(dev->net, "unlink urb err, %d\n", retval);
-		else
-			count++;
-	}
-	spin_unlock_irqrestore (&q->lock, flags);
-	return count;
-}
-
-I dont think this should hold the list lock when calling usb_unlink_urb (urb).
-The completion for the URBs takes the lock as required in its bottom half:
-
-If people agree I will submit a patch.
-
-Cheers
-
-Neil
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+---
+ net/packet/af_packet.c |    4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index a11c731..0e152b1 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -223,7 +223,7 @@ struct packet_skb_cb {
+ 
+ #define PACKET_SKB_CB(__skb)	((struct packet_skb_cb *)((__skb)->cb))
+ 
+-static inline struct page *pgv_to_page(void *addr)
++static inline __pure struct page *pgv_to_page(void *addr)
+ {
+ 	if (is_vmalloc_addr(addr))
+ 		return vmalloc_to_page(addr);
+@@ -805,6 +805,7 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
+ 
+ 	__packet_set_status(po, h.raw, status);
+ 	smp_mb();
++#if ARCH_IMPLEMENTS_FLUSH_DCACHE_PAGE == 1
+ 	{
+ 		u8 *start, *end;
+ 
+@@ -812,6 +813,7 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
+ 		for (start = h.raw; start < end; start += PAGE_SIZE)
+ 			flush_dcache_page(pgv_to_page(start));
+ 	}
++#endif
+ 
+ 	sk->sk_data_ready(sk, 0);
+ 
