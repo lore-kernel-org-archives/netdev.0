@@ -1,8 +1,8 @@
 From: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Subject: [PATCH net-next-2.6 v8 19/20] CAN : Add setting TEC/REC statistics
-	processing
-Date: Tue, 07 Dec 2010 20:12:05 +0900
-Message-ID: <4CFE1685.5090208@dsn.okisemi.com>
+Subject: [PATCH net-next-2.6 v8 20/20] CAN : Replace netif_rx to
+	netif_receive_skb
+Date: Tue, 07 Dec 2010 20:12:35 +0900
+Message-ID: <4CFE16A3.6070903@dsn.okisemi.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -23,26 +23,26 @@ Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Add setting TEC/REC statistics processing.
+Since this driver is implemented as NAPI,
+netif_receive_skb must be used not netif_rx.
 
 Signed-off-by: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
 ---
- drivers/net/can/pch_can.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+ drivers/net/can/pch_can.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/can/pch_can.c b/drivers/net/can/pch_can.c
-index dcd8f00..4697b1c 100644
+index 4697b1c..8d45fdd 100644
 --- a/drivers/net/can/pch_can.c
 +++ b/drivers/net/can/pch_can.c
-@@ -568,6 +568,9 @@ static void pch_can_error(struct net_device *ndev, u32 status)
- 		break;
- 	}
+@@ -572,7 +572,7 @@ static void pch_can_error(struct net_device *ndev, u32 status)
+ 	cf->data[7] = (errc & PCH_REC) >> 8;
  
-+	cf->data[6] = errc & PCH_TEC;
-+	cf->data[7] = (errc & PCH_REC) >> 8;
-+
  	priv->can.state = state;
- 	netif_rx(skb);
+-	netif_rx(skb);
++	netif_receive_skb(skb);
  
+ 	stats->rx_packets++;
+ 	stats->rx_bytes += cf->can_dlc;
 -- 
 1.6.0.6
