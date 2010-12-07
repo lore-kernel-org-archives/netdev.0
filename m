@@ -1,8 +1,7 @@
 From: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Subject: [PATCH net-next-2.6 v8 16/20] CAN : Move MSI processing to
-	probe/remove processing.
-Date: Tue, 07 Dec 2010 20:10:38 +0900
-Message-ID: <4CFE162E.9080002@dsn.okisemi.com>
+Subject: [PATCH net-next-2.6 v8 17/20] CAN : Fix incorrect return processing
+Date: Tue, 07 Dec 2010 20:11:13 +0900
+Message-ID: <4CFE1651.9040405@dsn.okisemi.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -23,94 +22,73 @@ Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Currently, in case this driver is integrated as module, and when this
-module is re-installed, no interrupts is to be occurred.
-For the above issue, move MSI processing to open/release processing.
+Fix incorrect return processing.
 
 Signed-off-by: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
 ---
- drivers/net/can/pch_can.c |   29 ++++++++++++++---------------
- 1 files changed, 14 insertions(+), 15 deletions(-)
+ drivers/net/can/pch_can.c |   19 ++++++++++---------
+ 1 files changed, 10 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/can/pch_can.c b/drivers/net/can/pch_can.c
-index a1fd3be..ace1fe7 100644
+index ace1fe7..8efbe35 100644
 --- a/drivers/net/can/pch_can.c
 +++ b/drivers/net/can/pch_can.c
-@@ -845,15 +845,6 @@ static int pch_can_open(struct net_device *ndev)
- 	struct pch_can_priv *priv = netdev_priv(ndev);
- 	int retval;
- 
--	retval = pci_enable_msi(priv->dev);
--	if (retval) {
--		netdev_err(ndev, "PCH CAN opened without MSI\n");
--		priv->use_msi = 0;
--	} else {
--		netdev_err(ndev, "PCH CAN opened with MSI\n");
--		priv->use_msi = 1;
--	}
--
- 	/* Regstering the interrupt. */
- 	retval = request_irq(priv->dev->irq, pch_can_interrupt, IRQF_SHARED,
- 			     ndev->name, ndev);
-@@ -879,9 +870,6 @@ static int pch_can_open(struct net_device *ndev)
- err_open_candev:
- 	free_irq(priv->dev->irq, ndev);
- req_irq_err:
--	if (priv->use_msi)
--		pci_disable_msi(priv->dev);
--
- 	pch_can_release(priv);
- 
- 	return retval;
-@@ -895,8 +883,6 @@ static int pch_close(struct net_device *ndev)
- 	napi_disable(&priv->napi);
- 	pch_can_release(priv);
- 	free_irq(priv->dev->irq, ndev);
--	if (priv->use_msi)
--		pci_disable_msi(priv->dev);
- 	close_candev(ndev);
- 	priv->can.state = CAN_STATE_STOPPED;
- 	return 0;
-@@ -975,12 +961,14 @@ static void __devexit pch_can_remove(struct pci_dev *pdev)
+@@ -580,9 +580,11 @@ static irqreturn_t pch_can_interrupt(int irq, void *dev_id)
+ 	struct net_device *ndev = (struct net_device *)dev_id;
  	struct pch_can_priv *priv = netdev_priv(ndev);
  
- 	unregister_candev(priv->ndev);
--	free_candev(priv->ndev);
- 	pci_iounmap(pdev, priv->regs);
-+	if (priv->use_msi)
-+		pci_disable_msi(priv->dev);
- 	pci_release_regions(pdev);
- 	pci_disable_device(pdev);
- 	pci_set_drvdata(pdev, NULL);
- 	pch_can_reset(priv);
-+	free_candev(priv->ndev);
++	if (!pch_can_int_pending(priv))
++		return IRQ_NONE;
++
+ 	pch_can_set_int_enables(priv, PCH_CAN_NONE);
+ 	napi_schedule(&priv->napi);
+-
+ 	return IRQ_HANDLED;
  }
  
- #ifdef CONFIG_PM
-@@ -1244,6 +1232,15 @@ static int __devinit pch_can_probe(struct pci_dev *pdev,
+@@ -671,8 +673,10 @@ static int pch_can_rx_normal(struct net_device *ndev, u32 obj_num, int quota)
+ 		}
  
- 	netif_napi_add(ndev, &priv->napi, pch_can_poll, PCH_RX_OBJ_END);
+ 		skb = alloc_can_skb(priv->ndev, &cf);
+-		if (!skb)
+-			return -ENOMEM;
++		if (!skb) {
++			netdev_err(ndev, "alloc_can_skb Failed\n");
++			return rcv_pkts;
++		}
  
-+	rc = pci_enable_msi(priv->dev);
-+	if (rc) {
-+		netdev_err(ndev, "PCH CAN opened without MSI\n");
-+		priv->use_msi = 0;
-+	} else {
-+		netdev_err(ndev, "PCH CAN opened with MSI\n");
-+		priv->use_msi = 1;
-+	}
-+
- 	rc = register_candev(ndev);
- 	if (rc) {
- 		dev_err(&pdev->dev, "Failed register_candev %d\n", rc);
-@@ -1253,6 +1250,8 @@ static int __devinit pch_can_probe(struct pci_dev *pdev,
- 	return 0;
+ 		/* Get Received data */
+ 		id2 = ioread32(&priv->regs->ifregs[0].id2);
+@@ -733,8 +737,8 @@ static int pch_can_poll(struct napi_struct *napi, int quota)
+ 	struct net_device *ndev = napi->dev;
+ 	struct pch_can_priv *priv = netdev_priv(ndev);
+ 	u32 int_stat;
+-	int rcv_pkts = 0;
+ 	u32 reg_stat;
++	int quota_save = quota;
  
- probe_exit_reg_candev:
-+	if (priv->use_msi)
-+		pci_disable_msi(priv->dev);
- 	free_candev(ndev);
- probe_exit_alloc_candev:
- 	pci_iounmap(pdev, addr);
+ 	int_stat = pch_can_int_pending(priv);
+ 	if (!int_stat)
+@@ -763,10 +767,7 @@ static int pch_can_poll(struct napi_struct *napi, int quota)
+ 		goto end;
+ 
+ 	if ((int_stat >= PCH_RX_OBJ_START) && (int_stat <= PCH_RX_OBJ_END)) {
+-		rcv_pkts += pch_can_rx_normal(ndev, int_stat, quota);
+-		quota -= rcv_pkts;
+-		if (quota < 0)
+-			goto end;
++		quota -= pch_can_rx_normal(ndev, int_stat, quota);
+ 	} else if ((int_stat >= PCH_TX_OBJ_START) &&
+ 		   (int_stat <= PCH_TX_OBJ_END)) {
+ 		/* Handle transmission interrupt */
+@@ -777,7 +778,7 @@ end:
+ 	napi_complete(napi);
+ 	pch_can_set_int_enables(priv, PCH_CAN_ALL);
+ 
+-	return rcv_pkts;
++	return quota_save - quota;
+ }
+ 
+ static int pch_set_bittiming(struct net_device *ndev)
 -- 
 1.6.0.6
