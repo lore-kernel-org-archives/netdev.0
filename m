@@ -1,7 +1,7 @@
 From: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Subject: [PATCH net-next-2.6 v8 11/20] CAN : Fix coding rule violation
-Date: Tue, 07 Dec 2010 20:08:42 +0900
-Message-ID: <4CFE15BA.7070100@dsn.okisemi.com>
+Subject: [PATCH net-next-2.6 v8 12/20] CAN : Delete unnecessary/redundant code
+Date: Tue, 07 Dec 2010 20:09:04 +0900
+Message-ID: <4CFE15D0.2020407@dsn.okisemi.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -22,143 +22,57 @@ Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Fix coding rule violation.
+Delete unnecessary/redundant code
 
 Signed-off-by: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Acked-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
 ---
- drivers/net/can/pch_can.c |   45 +++++++++++++++++++++------------------------
- 1 files changed, 21 insertions(+), 24 deletions(-)
+ drivers/net/can/pch_can.c |   13 +------------
+ 1 files changed, 1 insertions(+), 12 deletions(-)
 
 diff --git a/drivers/net/can/pch_can.c b/drivers/net/can/pch_can.c
-index 0093a01..da8d37b 100644
+index da8d37b..3540978 100644
 --- a/drivers/net/can/pch_can.c
 +++ b/drivers/net/can/pch_can.c
-@@ -89,9 +89,11 @@
- 
- #define PCH_CAN_CLK		50000000	/* 50MHz */
- 
--/* Define the number of message object.
-+/*
-+ * Define the number of message object.
-  * PCH CAN communications are done via Message RAM.
-- * The Message RAM consists of 32 message objects. */
-+ * The Message RAM consists of 32 message objects.
-+ */
- #define PCH_RX_OBJ_NUM		26
- #define PCH_TX_OBJ_NUM		6
- #define PCH_RX_OBJ_START	1
-@@ -126,7 +128,7 @@ enum pch_can_mode {
- 	PCH_CAN_ALL,
- 	PCH_CAN_NONE,
- 	PCH_CAN_STOP,
--	PCH_CAN_RUN
-+	PCH_CAN_RUN,
- };
- 
- struct pch_can_if_regs {
-@@ -290,21 +292,20 @@ static void pch_can_set_rxtx(struct pch_can_priv *priv, u32 buff_num,
- 	else
- 		ie = PCH_IF_MCONT_RXIE;
- 
--	/* Reading the receive buffer data from RAM to Interface1 registers */
-+	/* Reading the receive buffer data from RAM to Interface1/2 registers */
- 	iowrite32(PCH_CMASK_RX_TX_GET, &priv->regs->ifregs[dir].cmask);
- 	pch_can_rw_msg_obj(&priv->regs->ifregs[dir].creq, buff_num);
- 
--	/* Setting the IF1MASK1 register to access MsgVal and RxIE bits */
-+	/* Setting the IF1/2MASK1 register to access MsgVal and RxIE bits */
- 	iowrite32(PCH_CMASK_RDWR | PCH_CMASK_ARB | PCH_CMASK_CTRL,
- 		  &priv->regs->ifregs[dir].cmask);
- 
- 	if (set) {
--		/* Setting the MsgVal and RxIE bits */
-+		/* Setting the MsgVal and RxIE/TxIE bits */
- 		pch_can_bit_set(&priv->regs->ifregs[dir].mcont, ie);
- 		pch_can_bit_set(&priv->regs->ifregs[dir].id2, PCH_ID_MSGVAL);
--
- 	} else {
--		/* Resetting the MsgVal and RxIE bits */
-+		/* Clearing the MsgVal and RxIE/TxIE bits */
- 		pch_can_bit_clear(&priv->regs->ifregs[dir].mcont, ie);
- 		pch_can_bit_clear(&priv->regs->ifregs[dir].id2, PCH_ID_MSGVAL);
- 	}
-@@ -362,8 +363,7 @@ static void pch_can_config_rx_tx_buffers(struct pch_can_priv *priv)
- 	int i;
- 
- 	for (i = PCH_RX_OBJ_START; i <= PCH_RX_OBJ_END; i++) {
--		iowrite32(PCH_CMASK_RX_TX_GET,
--			&priv->regs->ifregs[0].cmask);
-+		iowrite32(PCH_CMASK_RX_TX_GET, &priv->regs->ifregs[0].cmask);
- 		pch_can_rw_msg_obj(&priv->regs->ifregs[0].creq, i);
- 
- 		iowrite32(0x0, &priv->regs->ifregs[0].id1);
-@@ -385,16 +385,14 @@ static void pch_can_config_rx_tx_buffers(struct pch_can_priv *priv)
- 				  0x1fff | PCH_MASK2_MDIR_MXTD);
- 
- 		/* Setting CMASK for writing */
--		iowrite32(PCH_CMASK_RDWR | PCH_CMASK_MASK |
--			  PCH_CMASK_ARB | PCH_CMASK_CTRL,
--			  &priv->regs->ifregs[0].cmask);
-+		iowrite32(PCH_CMASK_RDWR | PCH_CMASK_MASK | PCH_CMASK_ARB |
-+			  PCH_CMASK_CTRL, &priv->regs->ifregs[0].cmask);
- 
- 		pch_can_rw_msg_obj(&priv->regs->ifregs[0].creq, i);
- 	}
- 
- 	for (i = PCH_TX_OBJ_START; i <= PCH_TX_OBJ_END; i++) {
--		iowrite32(PCH_CMASK_RX_TX_GET,
--			&priv->regs->ifregs[1].cmask);
-+		iowrite32(PCH_CMASK_RX_TX_GET, &priv->regs->ifregs[1].cmask);
- 		pch_can_rw_msg_obj(&priv->regs->ifregs[1].creq, i);
- 
- 		/* Resetting DIR bit for reception */
-@@ -409,9 +407,8 @@ static void pch_can_config_rx_tx_buffers(struct pch_can_priv *priv)
- 		pch_can_bit_clear(&priv->regs->ifregs[1].mask2, 0x1fff);
- 
- 		/* Setting CMASK for writing */
--		iowrite32(PCH_CMASK_RDWR | PCH_CMASK_MASK |
--			  PCH_CMASK_ARB | PCH_CMASK_CTRL,
--			  &priv->regs->ifregs[1].cmask);
-+		iowrite32(PCH_CMASK_RDWR | PCH_CMASK_MASK | PCH_CMASK_ARB |
-+			  PCH_CMASK_CTRL, &priv->regs->ifregs[1].cmask);
- 
- 		pch_can_rw_msg_obj(&priv->regs->ifregs[1].creq, i);
- 	}
-@@ -470,8 +467,9 @@ static void pch_can_int_clr(struct pch_can_priv *priv, u32 mask)
- 
- 		pch_can_rw_msg_obj(&priv->regs->ifregs[0].creq, mask);
- 	} else if ((mask >= PCH_TX_OBJ_START) && (mask <= PCH_TX_OBJ_END)) {
--		/* Setting CMASK for clearing interrupts for
--					 frame transmission. */
-+		/*
-+		 * Setting CMASK for clearing interrupts for frame transmission.
-+		 */
- 		iowrite32(PCH_CMASK_RDWR | PCH_CMASK_CTRL | PCH_CMASK_ARB,
- 			  &priv->regs->ifregs[1].cmask);
- 
-@@ -590,7 +588,6 @@ static irqreturn_t pch_can_interrupt(int irq, void *dev_id)
- 	struct pch_can_priv *priv = netdev_priv(ndev);
- 
- 	pch_can_set_int_enables(priv, PCH_CAN_NONE);
--
- 	napi_schedule(&priv->napi);
- 
- 	return IRQ_HANDLED;
-@@ -1031,11 +1028,11 @@ static u32 pch_can_get_rxtx_ir(struct pch_can_priv *priv, u32 buff_num,
- 	pch_can_rw_msg_obj(&priv->regs->ifregs[dir].creq, buff_num);
- 
- 	if (((ioread32(&priv->regs->ifregs[dir].id2)) & PCH_ID_MSGVAL) &&
--			((ioread32(&priv->regs->ifregs[dir].mcont)) & ie)) {
-+			((ioread32(&priv->regs->ifregs[dir].mcont)) & ie))
- 		enable = 1;
--	} else {
-+	else
- 		enable = 0;
+@@ -447,11 +447,6 @@ static void pch_can_release(struct pch_can_priv *priv)
+ /* This function clears interrupt(s) from the CAN device. */
+ static void pch_can_int_clr(struct pch_can_priv *priv, u32 mask)
+ {
+-	if (mask == PCH_STATUS_INT) {
+-		ioread32(&priv->regs->stat);
+-		return;
 -	}
-+
- 	return enable;
- }
+-
+ 	/* Clear interrupt for transmit object */
+ 	if ((mask >= PCH_RX_OBJ_START) && (mask <= PCH_RX_OBJ_END)) {
+ 		/* Setting CMASK for clearing the reception interrupts. */
+@@ -512,8 +507,6 @@ static void pch_can_error(struct net_device *ndev, u32 status)
+ 		state = CAN_STATE_BUS_OFF;
+ 		cf->can_id |= CAN_ERR_BUSOFF;
+ 		can_bus_off(ndev);
+-		pch_can_set_run_mode(priv, PCH_CAN_RUN);
+-		dev_err(&ndev->dev, "%s -> Bus Off occurres.\n", __func__);
+ 	}
+ 
+ 	errc = ioread32(&priv->regs->errc);
+@@ -747,7 +740,7 @@ static int pch_can_poll(struct napi_struct *napi, int quota)
+ 	if (!int_stat)
+ 		goto end;
+ 
+-	if ((int_stat == PCH_STATUS_INT) && (quota > 0)) {
++	if (int_stat == PCH_STATUS_INT) {
+ 		reg_stat = ioread32(&priv->regs->stat);
+ 		if (reg_stat & (PCH_BUS_OFF | PCH_LEC_ALL)) {
+ 			if (reg_stat & PCH_BUS_OFF ||
+@@ -933,10 +926,6 @@ static netdev_tx_t pch_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 		priv->tx_obj++;
+ 	}
+ 
+-	/* Reading the Msg Obj from the Msg RAM to the Interface register. */
+-	iowrite32(PCH_CMASK_RX_TX_GET, &priv->regs->ifregs[1].cmask);
+-	pch_can_rw_msg_obj(&priv->regs->ifregs[1].creq, tx_obj_no);
+-
+ 	/* Setting the CMASK register. */
+ 	pch_can_bit_set(&priv->regs->ifregs[1].cmask, PCH_CMASK_ALL);
  
 -- 
 1.6.0.6
