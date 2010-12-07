@@ -1,41 +1,47 @@
-From: "Tomoya MORINAGA" <tomoya-linux@dsn.okisemi.com>
-Subject: Re: [PATCH net-next-2.6 8/17 v2] can: EG20T PCH: Change Copyright and module description
-Date: Tue, 7 Dec 2010 17:32:29 +0900
-Message-ID: <91B241E635AE460E9B671E3C8EE8239B@hacdom.okisemi.com>
-References: <4CECC07E.40804@dsn.okisemi.com> <4CECEE1E.9030201@pengutronix.de> <EA73672426864370BC8119DE78037132@hacdom.okisemi.com> <4CFDEA1A.6020806@pengutronix.de>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: [PATCH] xfrm: Fix xfrm_state_migrate leak
+Date: Tue, 7 Dec 2010 10:28:56 +0100
+Message-ID: <20101207092856.GL4639@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	format=flowed;
-	charset="iso-2022-jp";
-	reply-type=original
-Content-Transfer-Encoding: 7bit
-Cc: "Wolfgang Grandegger" <wg@grandegger.com>,
-	"Wolfram Sang" <w.sang@pengutronix.de>,
-	"Christian Pellegrin" <chripell@fsfe.org>,
-	"Barry Song" <21cnbao@gmail.com>,
-	"Samuel Ortiz" <sameo@linux.intel.com>,
-	<socketcan-core@lists.berlios.de>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, <qi.wang@intel.com>,
-	<yong.y.wang@intel.com>, <andrew.chih.howe.khor@intel.com>,
-	<joel.clark@intel.com>, <kok.howg.ewe@intel.com>,
-	<margie.foster@intel.com>
-To: "Marc Kleine-Budde" <mkl@pengutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Thomas Egerer <thomas.egerer@secunet.com>,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:51369 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754985Ab0LGJ26 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Dec 2010 04:28:58 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday, December 07, 2010 5:02 PM, Marc Kleine-Budde wrote:
+From: Thomas Egerer <thomas.egerer@secunet.com>
 
-> According to my man page it's:
+xfrm_state_migrate calls kfree instead of xfrm_state_put to free
+a failed state. According to git commit 553f9118 this can cause
+memory leaks.
 
-> --cc=<address>
-> --to=<address>
+Signed-off-by: Thomas Egerer <thomas.egerer@secunet.com>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ net/xfrm/xfrm_state.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-As to the above, I had already done.
-But, issue remains to be seen.
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index eb96ce5..220ebc0 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -1268,7 +1268,7 @@ struct xfrm_state * xfrm_state_migrate(struct xfrm_state *x,
+ 
+ 	return xc;
+ error:
+-	kfree(xc);
++	xfrm_state_put(xc);
+ 	return NULL;
+ }
+ EXPORT_SYMBOL(xfrm_state_migrate);
+-- 
+1.7.0.4
 
-Thanks
-/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_
-Tomoya Morinaga
-OKI SEMICONDUCTOR CO., LTD.
