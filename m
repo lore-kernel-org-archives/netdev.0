@@ -1,24 +1,53 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] atm: lanai: use kernel's '%pM' format option to
- print MAC
-Date: Wed, 08 Dec 2010 08:53:54 -0800 (PST)
-Message-ID: <20101208.085354.183036026.davem@davemloft.net>
-References: <1291293908-29180-1-git-send-email-andy.shevchenko@gmail.com>
-	<1291293908-29180-2-git-send-email-andy.shevchenko@gmail.com>
+Subject: Re: [PATCH 1/1] arcvmac submit #4a.
+Date: Wed, 08 Dec 2010 09:00:40 -0800 (PST)
+Message-ID: <20101208.090040.39174008.davem@davemloft.net>
+References: <20101202131027.GA27443@biggy>
+	<1291296112-27784-1-git-send-email-andreas.fenkart@streamunlimited.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	chas@cmf.nrl.navy.mil, linux-atm-general@lists.sourceforge.net
-To: andy.shevchenko@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1291293908-29180-2-git-send-email-andy.shevchenko@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org
+To: andreas.fenkart@streamunlimited.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56827
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750933Ab0LHRAN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 12:00:13 -0500
+In-Reply-To: <1291296112-27784-1-git-send-email-andreas.fenkart@streamunlimited.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Andy Shevchenko <andy.shevchenko@gmail.com>
-Date: Thu,  2 Dec 2010 14:45:08 +0200
-
-> Signed-off-by: Andy Shevchenko <andy.shevchenko@gmail.com>
-
-Applied, thanks.
+RnJvbTogQW5kcmVhcyBGZW5rYXJ0IDxhbmRyZWFzLmZlbmthcnRAc3RyZWFtdW5saW1pdGVkLmNv
+bT4NCkRhdGU6IFRodSwgIDIgRGVjIDIwMTAgMTQ6MjE6NTIgKzAxMDANCg0KPiANCj4gU2lnbmVk
+LW9mZi1ieTogQW5kcmVhcyBGZW5rYXJ0IDxhbmRyZWFzLmZlbmthcnRAc3RyZWFtdW5saW1pdGVk
+LmNvbT4NCg0KR2VuZXJhdGVzIG1hbnkgd2FybmluZ3Mgb24gNjQtYml0IHBsYXRmb3JtcywgYWxz
+byBkb2Vzbid0IGJ1aWxkIG9uIGFueQ0KcGxhdGZvcm0gYmVjYXVzZSBpdCB1c2VzIGludGVyZmFj
+ZXMgd2UgcmVtb3ZlZCBhIGxvbmcgdGltZSBhZ28NCihtdWx0aWNhc3QgY291bnQgYW5kIGxpc3Qp
+Lg0KDQpJZiB5b3Ugd2FudCBhbnlvbmUgdG8gdGFrZSB5b3VyIHN1Ym1pc3Npb24gc2VyaW91c2x5
+LCBhdCB0aGUgdmVyeQ0KbGVhc3QgeW91IHNob3VsZCBhdCBsZWFzdCB0ZXN0IHRoZSBidWlsZCBh
+Z2FpbnN0IGN1cnJlbnQgc291cmNlcw0KYmVmb3JlIHN1Ym1pdHRpbmcuDQoNCmRyaXZlcnMvbmV0
+L2FyY3ZtYWMuYzogSW4gZnVuY3Rpb24goXZtYWNfaW9jdGyiOg0KZHJpdmVycy9uZXQvYXJjdm1h
+Yy5jOjMzMzogd2FybmluZzogcGFzc2luZyBhcmd1bWVudCAyIG9mIKFwaHlfbWlpX2lvY3RsoiBm
+cm9tIGluY29tcGF0aWJsZSBwb2ludGVyIHR5cGUNCmluY2x1ZGUvbGludXgvcGh5Lmg6NTExOiBu
+b3RlOiBleHBlY3RlZCChc3RydWN0IGlmcmVxICqiIGJ1dCBhcmd1bWVudCBpcyBvZiB0eXBlIKFz
+dHJ1Y3QgbWlpX2lvY3RsX2RhdGEgKqINCmRyaXZlcnMvbmV0L2FyY3ZtYWMuYzogSW4gZnVuY3Rp
+b24goXZtYWNldGhlcl9nZXRfZHJ2aW5mb6I6DQpkcml2ZXJzL25ldC9hcmN2bWFjLmM6MzQ0OiB3
+YXJuaW5nOiBmb3JtYXQgoSV4oiBleHBlY3RzIHR5cGUgoXVuc2lnbmVkIGludKIsIGJ1dCBhcmd1
+bWVudCA0IGhhcyB0eXBlIKFyZXNvdXJjZV9zaXplX3SiDQpkcml2ZXJzL25ldC9hcmN2bWFjLmM6
+IEluIGZ1bmN0aW9uIKFhbGxvY19idWZmZXJzX3VubG9ja2VkojoNCmRyaXZlcnMvbmV0L2FyY3Zt
+YWMuYzo5NjY6IHdhcm5pbmc6IGNhc3QgZnJvbSBwb2ludGVyIHRvIGludGVnZXIgb2YgZGlmZmVy
+ZW50IHNpemUNCmRyaXZlcnMvbmV0L2FyY3ZtYWMuYzo5NjY6IHdhcm5pbmc6IGNhc3QgZnJvbSBw
+b2ludGVyIHRvIGludGVnZXIgb2YgZGlmZmVyZW50IHNpemUNCmRyaXZlcnMvbmV0L2FyY3ZtYWMu
+YzogSW4gZnVuY3Rpb24goWNyZWF0ZV9tdWx0aWNhc3RfZmlsdGVyojoNCmRyaXZlcnMvbmV0L2Fy
+Y3ZtYWMuYzoxMjYwOiBlcnJvcjogoXN0cnVjdCBuZXRfZGV2aWNloiBoYXMgbm8gbWVtYmVyIG5h
+bWVkIKFtY19jb3VudKINCmRyaXZlcnMvbmV0L2FyY3ZtYWMuYzoxMjY0OiBlcnJvcjogoXN0cnVj
+dCBuZXRfZGV2aWNloiBoYXMgbm8gbWVtYmVyIG5hbWVkIKFtY19saXN0og0KZHJpdmVycy9uZXQv
+YXJjdm1hYy5jOjEyNjQ6IGVycm9yOiBkZXJlZmVyZW5jaW5nIHBvaW50ZXIgdG8gaW5jb21wbGV0
+ZSB0eXBlDQpkcml2ZXJzL25ldC9hcmN2bWFjLmM6MTI2NTogZXJyb3I6IGRlcmVmZXJlbmNpbmcg
+cG9pbnRlciB0byBpbmNvbXBsZXRlIHR5cGUNCmRyaXZlcnMvbmV0L2FyY3ZtYWMuYzogSW4gZnVu
+Y3Rpb24goXZtYWNfc2V0X211bHRpY2FzdF9saXN0ojoNCmRyaXZlcnMvbmV0L2FyY3ZtYWMuYzox
+MjkzOiBlcnJvcjogoXN0cnVjdCBuZXRfZGV2aWNloiBoYXMgbm8gbWVtYmVyIG5hbWVkIKFtY19j
+b3VudKINCmRyaXZlcnMvbmV0L2FyY3ZtYWMuYzogSW4gZnVuY3Rpb24goXZtYWNfcHJvYmWiOg0K
+ZHJpdmVycy9uZXQvYXJjdm1hYy5jOjE0Mzg6IHdhcm5pbmc6IGZvcm1hdCChJTA4eKIgZXhwZWN0
+cyB0eXBlIKF1bnNpZ25lZCBpbnSiLCBidQ0K
