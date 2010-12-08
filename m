@@ -1,33 +1,39 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [v3 PATCH 2/2] netpoll: remove IFF_IN_NETPOLL flag
-Date: Wed, 08 Dec 2010 16:36:13 +0800
-Message-ID: <4CFF437D.1060904@redhat.com>
-References: <20101208075208.5792.45247.sendpatchset@localhost.localdomain> <20101208075218.5792.64791.sendpatchset@localhost.localdomain> <AANLkTindQMNKhC2aowUyjm=uO8gFKqOOPa9HXSU1q7Gh@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 2/3] xfrm: Traffic Flow Confidentiality for IPv4 ESP
+Date: Wed, 8 Dec 2010 16:49:54 +0800
+Message-ID: <20101208084954.GA15252@gondor.apana.org.au>
+References: <1291717744-30111-1-git-send-email-martin@strongswan.org> <1291717744-30111-3-git-send-email-martin@strongswan.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Jiri Pirko <jpirko@redhat.com>,
-	Neil Horman <nhorman@redhat.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Herbert Xu <herbert@gondor.hengli.com.au>,
-	bonding-devel@lists.sourceforge.net,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: Changli Gao <xiaosuo@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTindQMNKhC2aowUyjm=uO8gFKqOOPa9HXSU1q7Gh@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-crypto@vger.kernel.org, netdev@vger.kernel.org
+To: Martin Willi <martin@strongswan.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.apana.org.au ([209.40.204.226]:60451 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753271Ab0LHIt5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 03:49:57 -0500
+Content-Disposition: inline
+In-Reply-To: <1291717744-30111-3-git-send-email-martin@strongswan.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/08/10 16:16, Changli Gao wrote:
->
-> You can't change the values of these macros or delete some of them,
-> because they are exported to user space and are parts of ABI.
->
+On Tue, Dec 07, 2010 at 11:29:03AM +0100, Martin Willi wrote:
+> Add TFC padding to all packets smaller than the boundary configured
+> on the xfrm state. If the boundary is larger than the PMTU, limit
+> padding to the PMTU.
 
-A few lines above that code said:
+Thanks for the update Martin.
 
-/* Private (from user) interface flags (netdevice->priv_flags). */
+However, I still think it's more complicated than it needs be.
+In particular, why would we need a boundary at all? Setting it to
+anything other than the PMTU would seem to defeat the purpose of
+TFC for packets between the boundary and the PMTU.
 
-unless this comment is wrong, we don't need to worry.
+If we can get rid of tfc.pad, we can simplify the user-interface
+change to just adding an xfrm_state flag.
+
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
