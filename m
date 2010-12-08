@@ -1,38 +1,57 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [34/44] Limit sysctl_tcp_mem and sysctl_udp_mem initializers to
- prevent integer overflows.
-Date: Tue, 7 Dec 2010 17:22:34 -0800
-Message-ID: <AANLkTimTw3O-OM-5Cgv0ELNj8SmMjaaeMHMd2NNezxi7@mail.gmail.com>
-References: <20101208003205.GA4286@kroah.com> <20101208000642.975564500@clark.site>
+From: Wei Yongjun <yjwei@cn.fujitsu.com>
+Subject: [PATCH] SCTP: Fix SCTP_SET_PEER_PRIMARY_ADDR to accpet v4mapped address
+Date: Wed, 08 Dec 2010 11:11:09 +0800
+Message-ID: <4CFEF74D.7020704@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: linux-kernel@vger.kernel.org, stable@kernel.org,
-	"David S. Miller" <davem@davemloft.net>, stable-review@kernel.org,
-	akpm@linux-foundation.org, alan@lxorguk.ukuu.org.uk,
-	Robin Holt <holt@sgi.com>, Willy Tarreau <w@1wt.eu>,
-	netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Vlad Yasevich <vladislav.yasevich@hp.com>,
-	Sridhar Samudrala <sri@us.ibm.com>
-To: Greg KH <gregkh@suse.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20101208000642.975564500@clark.site>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: 7bit
+Cc: linux-sctp@vger.kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Vlad Yasevich <vladislav.yasevich@hp.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:62492 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1753216Ab0LHDLl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Dec 2010 22:11:41 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 7, 2010 at 4:04 PM, Greg KH <gregkh@suse.de> wrote:
->
-> From: Robin Holt <holt@sgi.com>
->
-> [ Problem was fixed differently upstream. -DaveM ]
+SCTP_SET_PEER_PRIMARY_ADDR does not accpet v4mapped address, using
+v4mapped address in SCTP_SET_PEER_PRIMARY_ADDR socket option will
+get -EADDRNOTAVAIL error if v4map is enabled. This patch try to
+fix it by mapping v4mapped address to v4 address if allowed.
 
-Gaah. I'd really like to see more of a description for things like
-this. A commit ID for the alternate fix, or at least a few words about
-the different fix or reason why upstream doesn't need the stable
-commit.
+Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
+---
+ net/sctp/socket.c |    8 ++++++++
+ 1 files changed, 8 insertions(+), 0 deletions(-)
 
-                  Linus
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 6bd5543..0b9ee34 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -2932,6 +2932,7 @@ static int sctp_setsockopt_peer_primary_addr(struct sock *sk, char __user *optva
+ 	struct sctp_association	*asoc = NULL;
+ 	struct sctp_setpeerprim	prim;
+ 	struct sctp_chunk	*chunk;
++	struct sctp_af		*af;
+ 	int 			err;
+ 
+ 	sp = sctp_sk(sk);
+@@ -2959,6 +2960,13 @@ static int sctp_setsockopt_peer_primary_addr(struct sock *sk, char __user *optva
+ 	if (!sctp_state(asoc, ESTABLISHED))
+ 		return -ENOTCONN;
+ 
++	af = sctp_get_af_specific(prim.sspp_addr.ss_family);
++	if (!af)
++		return -EINVAL;
++
++	if (!af->addr_valid((union sctp_addr *)&prim.sspp_addr, sp, NULL))
++		return -EADDRNOTAVAIL;
++
+ 	if (!sctp_assoc_lookup_laddr(asoc, (union sctp_addr *)&prim.sspp_addr))
+ 		return -EADDRNOTAVAIL;
+ 
+
+
