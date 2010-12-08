@@ -1,74 +1,39 @@
-From: =?UTF-8?B?UGF3ZcWCIFN0YXN6ZXdza2k=?= <pstaszewski@itcare.pl>
-Subject: Re: [Bugme-new] [Bug 24472] New: Kernel panic - not syncing: Fatal
- Exception
-Date: Wed, 08 Dec 2010 21:30:57 +0100
-Message-ID: <4CFFEB01.7040700@itcare.pl>
-References: <bug-24472-10286@https.bugzilla.kernel.org/> <20101208122233.835a4997.akpm@linux-foundation.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/2] via-velocity: fix the WOL bug on 1000M full duplex
+ forced mode
+Date: Wed, 08 Dec 2010 12:56:19 -0800 (PST)
+Message-ID: <20101208.125619.200379037.davem@davemloft.net>
+References: <AANLkTi=+r4cjE-3RJgrsrVaPBz0Ok_7XqZ+dxZgFCCUg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Paul Mackerras <paulus@samba.org>,
-	bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, pstaszewski@artcom.pl
-To: Andrew Morton <akpm@linux-foundation.org>
+Cc: netdev@vger.kernel.org, romieu@fr.zoreil.com,
+	DavidLv@viatech.com.cn, ShirleyHu@viatech.com.cn,
+	AndersMa@viatech.com.cn
+To: davidlv.linux@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.iq.pl ([86.111.241.19]:53062 "EHLO smtp.iq.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756383Ab0LHUh1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Dec 2010 15:37:27 -0500
-In-Reply-To: <20101208122233.835a4997.akpm@linux-foundation.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41307
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751773Ab0LHUzx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 15:55:53 -0500
+In-Reply-To: <AANLkTi=+r4cjE-3RJgrsrVaPBz0Ok_7XqZ+dxZgFCCUg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-W dniu 2010-12-08 21:22, Andrew Morton pisze:
-> (switched to email.  Please respond via emailed reply-to-all, not via the
-> bugzilla web interface).
->
-> On Wed, 8 Dec 2010 20:14:45 GMT
-> bugzilla-daemon@bugzilla.kernel.org wrote:
->
->> https://bugzilla.kernel.org/show_bug.cgi?id=24472
->>
->>             Summary: Kernel panic - not syncing: Fatal Exception
->>             Product: Drivers
->>             Version: 2.5
->>      Kernel Version: 2.6.36.1
->>            Platform: All
->>          OS/Version: Linux
->>                Tree: Mainline
->>              Status: NEW
->>            Severity: normal
->>            Priority: P1
->>           Component: Network
->>          AssignedTo: drivers_network@kernel-bugs.osdl.org
->>          ReportedBy: pstaszewski@artcom.pl
->>          Regression: No
->>
->>
->> Created an attachment (id=39332)
->>   -->  (https://bugzilla.kernel.org/attachment.cgi?id=39332)
->> Kernel Panic
->>
->> Hello i have problems with ppp driver and pppoe
->> I have random kernel panics
->>
->> In attached image is Call Trace from panic.
->>
->>
-> ppp_unregister_channel() appears to be using a bad pointer.
-> --
+From: David Lv <davidlv.linux@gmail.com>
+Date: Wed, 8 Dec 2010 13:47:19 +0800
 
-Yes.
-I see kernel panics when connection is terminated - but this happend 
-randomly
-Sometimes to reproduce i need to connect->disconnect 50 - 60 times 
-before kernel panic.
+> The VIA velocity card can't be waken up by WOL tool on 1000M full
+> duplex forced mode.
+> This patch fixes the bug.
+> Thanks!
+> 
+> Signed-off-by: David Lv <DavidLv@viatech.com.cn>
+> Acked-by: Francois Romieu <romieu@fr.zoreil.com>
+ ...
+> 
+> -			MII_REG_BITS_OFF(ADVERTISE_1000FULL | ADVERTISE_1000HALF,
+> MII_CTRL1000, vptr->mac_regs);
 
-
-
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
->
-
+Your email client has corrupted the patch by chopping up long lines
+etc., please correct this and resubmit your patch.
