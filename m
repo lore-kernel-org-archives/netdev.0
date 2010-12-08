@@ -1,45 +1,31 @@
 From: frank.blaschka@de.ibm.com
-Subject: [patch 2/4] [PATCH] qeth: support VIPA add/del in offline mode
-Date: Wed, 08 Dec 2010 13:57:59 +0100
-Message-ID: <20101208125844.490694187@de.ibm.com>
-References: <20101208125757.726629855@de.ibm.com>
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	Einar Lueck <elelueck@de.ibm.com>
+Subject: [patch 0/4] s390: qeth patches for net-next
+Date: Wed, 08 Dec 2010 13:57:57 +0100
+Message-ID: <20101208125757.726629855@de.ibm.com>
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate6.uk.ibm.com ([194.196.100.166]:51179 "EHLO
-	mtagate6.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754408Ab0LHM6q (ORCPT
+Received: from mtagate1.uk.ibm.com ([194.196.100.161]:58352 "EHLO
+	mtagate1.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753544Ab0LHM6q (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 07:58:46 -0500
-Content-Disposition: inline; filename=605-qeth-vipa-offline.diff
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Einar Lueck <elelueck@de.ibm.com>
+Hi Dave,
 
-Only work through the IP adddress to do list if the card is UP or
-SOFTSETUP. Enables to configure VIPA add/del in offline mode.
+here is another patch set for net-next.
 
-Signed-off-by: Einar Lueck <elelueck@de.ibm.com>
-Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
----
+shortlog:
+Jan Glauber (1)
+qeth: buffer count imbalance
 
- drivers/s390/net/qeth_l3_main.c |    5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+Einar Lueck (2)
+qeth: support ipv6 query arp cache for HiperSockets
+qeth: support VIPA add/del in offline mode
 
---- a/drivers/s390/net/qeth_l3_main.c
-+++ b/drivers/s390/net/qeth_l3_main.c
-@@ -456,8 +456,11 @@ static void qeth_l3_set_ip_addr_list(str
- 	QETH_CARD_TEXT(card, 2, "sdiplist");
- 	QETH_CARD_HEX(card, 2, &card, sizeof(void *));
- 
--	if (card->options.sniffer)
-+	if ((card->state != CARD_STATE_UP &&
-+	     card->state != CARD_STATE_SOFTSETUP) || card->options.sniffer) {
- 		return;
-+	}
-+
- 	spin_lock_irqsave(&card->ip_lock, flags);
- 	tbd_list = card->ip_tbd_list;
- 	card->ip_tbd_list = kmalloc(sizeof(struct list_head), GFP_ATOMIC);
+Frank Blaschka (1)
+qeth: l3 add vlan hdr in passthru frames
 
+Thanks,
+        Frank
