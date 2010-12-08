@@ -1,125 +1,132 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [v3 PATCH 2/2] netpoll: remove IFF_IN_NETPOLL flag
-Date: Wed, 8 Dec 2010 16:16:22 +0800
-Message-ID: <AANLkTindQMNKhC2aowUyjm=uO8gFKqOOPa9HXSU1q7Gh@mail.gmail.com>
-References: <20101208075208.5792.45247.sendpatchset@localhost.localdomain> <20101208075218.5792.64791.sendpatchset@localhost.localdomain>
+From: Martin Steigerwald <Martin@lichtvoll.de>
+Subject: Re: [PATCH] tcp: avoid a possible divide by zero
+Date: Wed, 8 Dec 2010 09:23:25 +0100
+Message-ID: <201012080923.36086.Martin@lichtvoll.de>
+References: <201012071639.58884.Martin@lichtvoll.de> <1291757563.21627.15.camel@bwh-desktop> <1291759435.5324.25.camel@edumazet-laptop> (sfid-20101208_091329_309252_DAE30076)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, Jiri Pirko <jpirko@redhat.com>,
-	Neil Horman <nhorman@redhat.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Herbert Xu <herbert@gondor.hengli.com.au>,
-	bonding-devel@lists.sourceforge.net,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: Amerigo Wang <amwang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20101208075218.5792.64791.sendpatchset@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed;
+  boundary="nextPart6142528.P4nJRnzZX2";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mondschein.lichtvoll.de ([194.150.191.11]:57497 "EHLO
+	mail.lichtvoll.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754301Ab0LHIXj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 03:23:39 -0500
+In-Reply-To: <1291759435.5324.25.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 8, 2010 at 3:52 PM, Amerigo Wang <amwang@redhat.com> wrote:
-> From: Amerigo Wang <amwang@redhat.com>
-> Date: Thu, 2 Dec 2010 21:34:44 +0800
-> Subject: [v3 PATCH 2/2] netpoll: remove IFF_IN_NETPOLL flag
->
-> This patch removes the flag IFF_IN_NETPOLL, we don't need it any more=
- since
-> we have netpoll_tx_running() now.
->
-> Signed-off-by: WANG Cong <amwang@redhat.com>
-> Cc: Neil Horman <nhorman@redhat.com>
-> Cc: Herbert Xu <herbert@gondor.apana.org.au>
-> Cc: Jay Vosburgh <fubar@us.ibm.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: Stephen Hemminger <shemminger@vyatta.com>
-> Cc: Jiri Pirko <jpirko@redhat.com>
-> Cc: "Eric W. Biederman" <ebiederm@xmission.com>
->
+--nextPart6142528.P4nJRnzZX2
+Content-Type: Text/Plain;
+  charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+
+Am Dienstag 07 Dezember 2010 schrieb Eric Dumazet:
+> Le mardi 07 d=C3=A9cembre 2010 =C3=A0 21:32 +0000, Ben Hutchings a =C3=A9=
+crit :
+> > On Tue, 2010-12-07 at 22:28 +0100, Eric Dumazet wrote:
+> > [...]
+> >=20
+> > > Thanks
+> > >=20
+> > > Great, I feel we are going to fix all sysctls, one by one then :(
+
+Are there so many sysctls which are likely to freeze the kernel when fed=20
+with wrong value? Once could argue for sysctls where invalid values don't=20
+cause any serious harm, its not so important to fix it. I probably could=20
+have next weeks training members a go at poking creative values in other=20
+controls as well to see what happens.
+
+> > > lkml removed from Cc
+> > >=20
+> > >=20
+> > > [PATCH] tcp: avoid a possible divide by zero
+> > >=20
+> > > sysctl_tcp_tso_win_divisor might be set to zero while one cpu runs
+> > > in tcp_tso_should_defer(). Make sure we dont allow a divide by
+> > > zero by reading sysctl_tcp_tso_win_divisor once.
+> > >=20
+> > > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> > > ---
+[...]
+> > > +	win_divisor =3D sysctl_tcp_tso_win_divisor;
+> >=20
+> > You need to use ACCESS_ONCE(sysctl_tcp_tso_win_divisor).  Otherwise
+> > the compiler may eliminate the local variable and read the global
+> > twice.
+>=20
+> Yes, I knew that, of course :)
+>=20
+> I wonder how many bugs like that we have in sysctls
+>=20
+> Thanks
+>=20
+> [PATCH v2] tcp: avoid a possible divide by zero
+>=20
+> sysctl_tcp_tso_win_divisor might be set to zero while one cpu runs in
+> tcp_tso_should_defer(). Make sure we dont allow a divide by zero by
+> reading sysctl_tcp_tso_win_divisor exactly once.
+>=20
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 > ---
->
-> =A0drivers/net/bonding/bond_main.c | =A0 =A06 ++----
-> =A0drivers/net/bonding/bonding.h =A0 | =A0 =A02 +-
-> =A0include/linux/if.h =A0 =A0 =A0 =A0 =A0 =A0 =A0| =A0 =A09 ++++-----
-> =A0net/core/netpoll.c =A0 =A0 =A0 =A0 =A0 =A0 =A0| =A0 =A02 --
-> =A04 files changed, 7 insertions(+), 12 deletions(-)
->
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bo=
-nd_main.c
-> index 7fafe06..21ac08b 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -448,11 +448,9 @@ int bond_dev_queue_xmit(struct bonding *bond, st=
-ruct sk_buff *skb,
-> =A0 =A0 =A0 =A0}
->
-> =A0 =A0 =A0 =A0skb->priority =3D 1;
-> - =A0 =A0 =A0 if (unlikely(netpoll_tx_running(slave_dev))) {
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 slave_dev->priv_flags |=3D IFF_IN_NETPO=
-LL;
-> + =A0 =A0 =A0 if (unlikely(netpoll_tx_running(slave_dev)))
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0bond_netpoll_send_skb(bond_get_slave_b=
-y_dev(bond, slave_dev), skb);
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 slave_dev->priv_flags &=3D ~IFF_IN_NETP=
-OLL;
-> - =A0 =A0 =A0 } else
-> + =A0 =A0 =A0 else
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0dev_queue_xmit(skb);
->
-> =A0 =A0 =A0 =A0return 0;
-> diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bond=
-ing.h
-> index c4f6a94..493e645 100644
-> --- a/drivers/net/bonding/bonding.h
-> +++ b/drivers/net/bonding/bonding.h
-> @@ -138,7 +138,7 @@ static inline void unblock_netpoll_tx(void)
->
-> =A0static inline int is_netpoll_tx_blocked(struct net_device *dev)
-> =A0{
-> - =A0 =A0 =A0 if (unlikely(dev->priv_flags & IFF_IN_NETPOLL))
-> + =A0 =A0 =A0 if (unlikely(netpoll_tx_running(dev)))
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return cpumask_test_cpu(smp_processor_=
-id(), netpoll_block_tx);
-> =A0 =A0 =A0 =A0return 0;
-> =A0}
-> diff --git a/include/linux/if.h b/include/linux/if.h
-> index 1239599..3bc63e6 100644
-> --- a/include/linux/if.h
-> +++ b/include/linux/if.h
-> @@ -71,11 +71,10 @@
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 * release skb->dst
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 */
-> =A0#define IFF_DONT_BRIDGE 0x800 =A0 =A0 =A0 =A0 =A0/* disallow bridg=
-ing this ether dev */
-> -#define IFF_IN_NETPOLL 0x1000 =A0 =A0 =A0 =A0 =A0/* whether we are p=
-rocessing netpoll */
-> -#define IFF_DISABLE_NETPOLL =A0 =A00x2000 =A0/* disable netpoll at r=
-un-time */
-> -#define IFF_MACVLAN_PORT =A0 =A0 =A0 0x4000 =A0/* device used as mac=
-vlan port */
-> -#define IFF_BRIDGE_PORT =A0 =A0 =A0 =A00x8000 =A0 =A0 =A0 =A0 =A0/* =
-device used as bridge port */
-> -#define IFF_OVS_DATAPATH =A0 =A0 =A0 0x10000 /* device used as Open =
-vSwitch
-> +#define IFF_DISABLE_NETPOLL =A0 =A00x1000 =A0/* disable netpoll at r=
-un-time */
-> +#define IFF_MACVLAN_PORT =A0 =A0 =A0 0x2000 =A0/* device used as mac=
-vlan port */
-> +#define IFF_BRIDGE_PORT =A0 =A0 =A0 =A00x4000 =A0 =A0 =A0 =A0 =A0/* =
-device used as bridge port */
-> +#define IFF_OVS_DATAPATH =A0 =A0 =A0 0x8000 =A0/* device used as Ope=
-n vSwitch
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 * datapath port */
->
+> v2: Use ACCESS_ONCE() as Ben suggested
+>=20
+>  net/ipv4/tcp_output.c |    6 ++++--
+>  1 file changed, 4 insertions(+), 2 deletions(-)
+>=20
+> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+> index 05b1ecf..0464d70 100644
+> --- a/net/ipv4/tcp_output.c
+> +++ b/net/ipv4/tcp_output.c
+> @@ -1513,6 +1513,7 @@ static int tcp_tso_should_defer(struct sock *sk,
+> struct sk_buff *skb) struct tcp_sock *tp =3D tcp_sk(sk);
+>  	const struct inet_connection_sock *icsk =3D inet_csk(sk);
+>  	u32 send_win, cong_win, limit, in_flight;
+> +	int win_divisor;
+[...]
+> -	if (sysctl_tcp_tso_win_divisor) {
+> +	win_divisor =3D ACCESS_ONCE(sysctl_tcp_tso_win_divisor);
+> +	if (win_divisor) {
+>  		u32 chunk =3D min(tp->snd_wnd, tp->snd_cwnd * tp->mss_cache);
+>=20
+>  		/* If at least some fraction of a window is available,
+>  		 * just use it.
+>  		 */
+> -		chunk /=3D sysctl_tcp_tso_win_divisor;
+> +		chunk /=3D win_divisor;
+>  		if (limit >=3D chunk)
+>  			goto send_now;
+>  	} else {
 
-You can't change the values of these macros or delete some of them,
-because they are exported to user space and are parts of ABI.
+So this patch helps other cases as well? Or is it, as I think just a=20
+different approach, to fix the issue my training member brought up, by its=
+=20
+cause instead of or additional to limiting its range?
 
---=20
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+Want to check whether I basically understood the patch. Do you want me to=20
+test it?=20
+
+Thanks,
+=2D-=20
+Martin 'Helios' Steigerwald - http://www.Lichtvoll.de
+GPG: 03B0 0D6C 0040 0710 4AFA  B82F 991B EAAC A599 84C7
+
+--nextPart6142528.P4nJRnzZX2
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iEYEABECAAYFAkz/QH8ACgkQmRvqrKWZhMfM4wCgssfa/H3HbmLMovBB+d6Y24ln
+kU8AnRMrmyV0E8JdBrYsvYAbMj4yxVRt
+=JIA1
+-----END PGP SIGNATURE-----
+
+--nextPart6142528.P4nJRnzZX2--
