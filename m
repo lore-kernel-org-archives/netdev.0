@@ -1,72 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Polling on sockets in kernel space and struct file
-Date: Wed, 08 Dec 2010 16:02:53 +0100
-Message-ID: <1291820573.2883.56.camel@edumazet-laptop>
-References: <4CFF9757.3070100@250bpm.com>
+From: Neil Jones <neiljay-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: rndis gadget: Inconsistent locking
+Date: Wed, 8 Dec 2010 15:03:45 +0000
+Message-ID: <AANLkTik=Uui7Xk9ZfFvQQKj94ZJUJ_n+bZbTQXbe+08i@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Martin Lucina <mato@kotelna.sk>
-To: Martin Sustrik <sustrik@250bpm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f171.google.com ([209.85.215.171]:49569 "EHLO
-	mail-ey0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752604Ab0LHPDC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 10:03:02 -0500
-Received: by eyg5 with SMTP id 5so930187eyg.2
-        for <netdev@vger.kernel.org>; Wed, 08 Dec 2010 07:03:00 -0800 (PST)
-In-Reply-To: <4CFF9757.3070100@250bpm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le mercredi 08 d=C3=A9cembre 2010 =C3=A0 15:33 +0100, Martin Sustrik a =
-=C3=A9crit :
-> Hi all,
->=20
-> As part of implementing a new experimental protocol family, we are=20
-> trying to create a socket in kernel. This seems to be easy, just use=20
-> sock_create_kern(). However, the socket returned by this function doe=
-s=20
-> not have associated file structure; thus it cannot be polled on using=
-=20
-> poll_initwait() and friends.
->=20
-> We have tried to create the appropriate struct file using sock_map_fd=
-(),=20
-> but this has two problems:
->=20
-> 1) We do not want our internal socket to be visible in the process=20
-> context, i.e. it should not have a file descriptor.
+Hi,
 
+Im getting another lockdep warning when using the RNDIS gadget:
 
+ WARNING: at kernel/softirq.c:98 ___local_bh_disable+0xc4/0xd0()
+ Modules linked in: g_ether
 
->=20
-> 2) During process exit, we get a kernel BUG from iput() in fs/inode.c=
-:1260.
->=20
+ Call trace:
+ [<40003bf8>] _show_stack+0x68/0x7c
+ [<40003c20>] _dump_stack+0x14/0x28
+ [<40013c3c>] _warn_slowpath_common+0x5c/0x7c
+ [<40013c74>] _warn_slowpath_null+0x18/0x2c
+ [<4001b17c>] ___local_bh_disable+0xc0/0xd0
+ [<4001b1a0>] _local_bh_disable+0x14/0x28
+ [<402e57f8>] __raw_spin_lock_bh+0x18/0x54
+ [<40257f4c>] _dev_txq_stats_fold+0x7c/0x13c
+ [<402580c4>] _dev_get_stats+0xb8/0xc0
+ [<781d4e60>] _rndis_msg_parser+0x288/0xa04 [g_ether]
+ [<781d5600>] _rndis_command_complete+0x24/0x70 [g_ether]
+ [<401d66fc>] _dwc_otg_request_done+0xd8/0x220
+ [<401d928c>] _ep0_complete_request+0x3f4/0x578
+ [<401d95bc>] _handle_ep0+0x1ac/0x146c
+ [<401daf7c>] _dwc_otg_pcd_handle_in_ep_intr+0x1c0/0x8bc
+ [<401db8dc>] _dwc_otg_pcd_handle_intr+0x264/0x294
+ [<401d6288>] _dwc_otg_pcd_irq+0x10/0x30
+ [<40054cf4>] _handle_IRQ_event+0x4c/0x184
+ [<40057b4c>] _handle_level_irq+0xac/0x15c
+ [<4000b204>] _metag_soc_irq_demux+0xac/0xb4
+ [<40002dd4>] _do_IRQ+0x4c/0x78
+ [<40004000>] _trigger_handler+0x38/0xac
+ [<40000b18>] ___TBIBoingVec+0xc/0x10
+ [<40003588>] _cpu_idle+0x54/0x78
 
-you could call sock_map_fd() then :
+ no locks held by swapper/0.
+ ---[ end trace 77ac3cfee0ae5b25 ]---
 
-
-	int fd =3D sock_map_fd(sock, flags);
-	struct file *file =3D NULL;
-
-	if (fd !=3D -1) {
-		file =3D fget(fd);
-		sys_close(fd);  /* still racy */
-	}
-
-	if (file) ...
-
-Take a look at net/9p/trans_fd.c
-
-> We then tried another approach using anon_inode_getfile() to get a=20
-> struct file, but this still produces the problem 2) above.
->=20
-> Any help/advice on how to proceed would be appreciated; for reference=
-=20
-> our work in progress can be seen at
->=20
-> http://github.com/sustrik/linux-2.6/blob/sp-v2.6.36/net/sp/af_sp.c
-
-
+It
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
