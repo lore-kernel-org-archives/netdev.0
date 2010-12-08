@@ -1,40 +1,42 @@
-From: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
-Subject: [PATCH] IP checksuming doesn't work on GE0301 option cards
-Date: Wed,  8 Dec 2010 09:21:52 +0100 (CET)
-Message-ID: <20101208082152.407022397DD@solo.franken.de>
-To: netdev@vger.kernel.org, j.dumon@option.com
+From: Ilya Loginov <isloginov@gmail.com>
+Subject: Re: WARNING at local_bh_enable while tcp_retransmit
+Date: Wed, 8 Dec 2010 12:36:45 +0300
+Message-ID: <20101208123645.84091844.isloginov@gmail.com>
+References: <20101207182308.664e171d.isloginov@gmail.com>
+	<4CFE9F73.1040203@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elvis.franken.de ([193.175.24.41]:39256 "EHLO elvis.franken.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751132Ab0LHJdc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Dec 2010 04:33:32 -0500
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:62103 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753008Ab0LHJeQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 04:34:16 -0500
+Received: by wyb28 with SMTP id 28so874248wyb.19
+        for <netdev@vger.kernel.org>; Wed, 08 Dec 2010 01:34:15 -0800 (PST)
+In-Reply-To: <4CFE9F73.1040203@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is definitly a problem, that some option cards send up broken
-IP pakets leading to corrupted IP packets. These corruptions aren't
-detected, because the driver claims that the packets are already
-checksummed. This change removes the CHECKSUM_UNNECESSARY option
-and let IP detect broken data.
+On Tue, 07 Dec 2010 21:56:19 +0100
+Jarek Poplawski <jarkao2@gmail.com> wrote:
 
-Signed-off-by: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
----
+> Hi, isn't any of your drivers disabling irqs on this path?
 
- drivers/net/usb/hso.c |    4 ----
- 1 files changed, 0 insertions(+), 4 deletions(-)
+No. But we are in soft_irq because tcp_retransmit. So, may be,
+interrupts were really disabled.
 
-diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-index b154a94..1f94f92 100644
---- a/drivers/net/usb/hso.c
-+++ b/drivers/net/usb/hso.c
-@@ -958,10 +958,6 @@ static void packetizeRx(struct hso_net *odev, unsigned char *ip_pkt,
- 				/* Packet is complete. Inject into stack. */
- 				/* We have IP packet here */
- 				odev->skb_rx_buf->protocol = cpu_to_be16(ETH_P_IP);
--				/* don't check it */
--				odev->skb_rx_buf->ip_summed =
--					CHECKSUM_UNNECESSARY;
--
- 				skb_reset_mac_header(odev->skb_rx_buf);
- 
- 				/* Ship it off to the kernel */
+> (If no, what is the kernel version?)
+> 
+> Jarek P.
+
+2.6.34. But this does not matter.
+
+I am afraid of this is common problem in all network drivers using
+dev_queue_xmit (for example bonding). I didn't see this problem before,
+while I have no retransmits.
+
+-- 
+Ilya Loginov <isloginov@gmail.com>
