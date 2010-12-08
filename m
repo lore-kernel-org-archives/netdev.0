@@ -1,26 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: CWND/rcache/multiq slides...
-Date: Tue, 07 Dec 2010 17:17:43 -0800 (PST)
-Message-ID: <20101207.171743.71131559.davem@davemloft.net>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [34/44] Limit sysctl_tcp_mem and sysctl_udp_mem initializers to
+ prevent integer overflows.
+Date: Tue, 7 Dec 2010 17:22:34 -0800
+Message-ID: <AANLkTimTw3O-OM-5Cgv0ELNj8SmMjaaeMHMd2NNezxi7@mail.gmail.com>
+References: <20101208003205.GA4286@kroah.com> <20101208000642.975564500@clark.site>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35289
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757512Ab0LHBRP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Dec 2010 20:17:15 -0500
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id A140624C089
-	for <netdev@vger.kernel.org>; Tue,  7 Dec 2010 17:17:43 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: linux-kernel@vger.kernel.org, stable@kernel.org,
+	"David S. Miller" <davem@davemloft.net>, stable-review@kernel.org,
+	akpm@linux-foundation.org, alan@lxorguk.ukuu.org.uk,
+	Robin Holt <holt@sgi.com>, Willy Tarreau <w@1wt.eu>,
+	netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Vlad Yasevich <vladislav.yasevich@hp.com>,
+	Sridhar Samudrala <sri@us.ibm.com>
+To: Greg KH <gregkh@suse.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20101208000642.975564500@clark.site>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Tue, Dec 7, 2010 at 4:04 PM, Greg KH <gregkh@suse.de> wrote:
+>
+> From: Robin Holt <holt@sgi.com>
+>
+> [ Problem was fixed differently upstream. -DaveM ]
 
-For those that don't follow me on twitter (http://twitter.com/davemloft)
-I posted my slides from my presentation today at IBM Watson Research Labs:
+Gaah. I'd really like to see more of a description for things like
+this. A commit ID for the alternate fix, or at least a few words about
+the different fix or reason why upstream doesn't need the stable
+commit.
 
-http://vger.kernel.org/~davem/davem_ibm2010.pdf
-
-Enjoy.
+                  Linus
