@@ -1,69 +1,84 @@
-From: Alban Crequy <alban.crequy@collabora.co.uk>
-Subject: refcounting on dgram Unix sockets for poll(POLLOUT)
-Date: Wed, 8 Dec 2010 21:01:00 +0000
-Message-ID: <20101208210100.46c894dd@chocolatine.cbg.collabora.co.uk>
+From: Jeremy Fitzhardinge <jeremy@goop.org>
+Subject: 2.6.37-rc5: NULL pointer oops in selinux_socket_unix_stream_connect
+Date: Wed, 08 Dec 2010 13:09:07 -0800
+Message-ID: <4CFFF3F3.90100@goop.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bhuna.collabora.co.uk ([93.93.128.226]:41368 "EHLO
-	bhuna.collabora.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755887Ab0LHVC7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 16:02:59 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: NetDev <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: James Morris <jmorris@namei.org>,
+	Stephen Smalley <sds@tycho.nsa.gov>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+I just got this oops in a freshly booted 2.6.37-rc5 Xen domain, while
+sitting idle at the login prompt:
 
-When a connected datagram Unix socket is polled for POLLOUT events, the
-poller is added in the wait_queue_head_t of the "server" socket:
+BUG: unable to handle kernel NULL pointer dereference at 0000000000000210
+IP: [<ffffffff811d55d4>] selinux_socket_unix_stream_connect+0x29/0xa0
+PGD 1c99d067 PUD 1cb03067 PMD 0 
+Oops: 0000 [#1] SMP 
+last sysfs file: /sys/devices/system/cpu/sched_mc_power_savings
+CPU 0 
+Modules linked in: sunrpc dm_mirror dm_region_hash dm_log [last unloaded: scsi_wait_scan]
 
-net/unix/af_unix.c::unix_dgram_poll()
-  other = unix_peer_get(sk);
-  if (other) {
-    if (unix_peer(other) != sk) {
-      sock_poll_wait(file, &unix_sk(other)->peer_wait,
-                     wait);
-      ...
+Pid: 2297, comm: at-spi-registry Not tainted 2.6.37-rc5+ #293 /
+RIP: e030:[<ffffffff811d55d4>]  [<ffffffff811d55d4>] selinux_socket_unix_stream_connect+0x29/0xa0
+RSP: e02b:ffff880006e7dd68  EFLAGS: 00010292
+RAX: ffff88001d1ed8c0 RBX: ffff88001d06d9a0 RCX: 0000000000000022
+RDX: ffff88001d1ed580 RSI: 0000000000000000 RDI: ffff88001b7d6ac0
+RBP: ffff880006e7de18 R08: 00000000ffff0201 R09: ffff88001e78c968
+R10: 000000001f47e9c2 R11: ffff88001fbf4400 R12: ffff88001d1ed8c0
+R13: ffff88001d1ed580 R14: ffff88001ca00cc0 R15: 0000000000000000
+FS:  00007fa643031920(0000) GS:ffff88001ff85000(0000) knlGS:0000000000000000
+CS:  e033 DS: 0000 ES: 0000 CR0: 000000008005003b
+CR2: 0000000000000210 CR3: 000000001d78a000 CR4: 0000000000002660
+DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+Process at-spi-registry (pid: 2297, threadinfo ffff880006e7c000, task ffff88001cdd1140)
+Stack:
+ ffff88001d4c0bc0 000000004cffecc5 ffff880006e7ddc8 ffffffff81028dc5
+ ffff8800ffffffff 0001628b2ec3fe22 ffff880006e7dde8 ffff88001d1edb80
+ 0000000000000001 0000936a4da34099 0000000000000000 00000000000000fa
+Call Trace:
+ [<ffffffff81028dc5>] ? pvclock_clocksource_read+0x48/0xb1
+ [<ffffffff810074ab>] ? xen_clocksource_read+0x20/0x22
+ [<ffffffff81008fd9>] ? xen_spin_lock+0xc6/0xd9
+ [<ffffffff811d1d1e>] security_unix_stream_connect+0x16/0x18
+ [<ffffffff81484366>] unix_stream_connect+0x215/0x3ff
+ [<ffffffff813f351d>] sys_connect+0x7a/0xa0
+ [<ffffffff8108cd9d>] ? audit_syscall_entry+0x1c2/0x1ee
+ [<ffffffff8100bb42>] system_call_fastpath+0x16/0x1b
+Code: c9 c3 55 48 89 e5 41 55 41 54 53 48 81 ec 98 00 00 00 0f 1f 44 00 00 b9 22 00 00 00 48 8b 47 20 48 8b 76 20 48 8b 98 10 02 00 00 <4c> 8b a6 10 02 00 00 31 c0 4c 8b aa 10 02 00 00 4c 8d 85 50 ff 
+RIP  [<ffffffff811d55d4>] selinux_socket_unix_stream_connect+0x29/0xa0
+ RSP <ffff880006e7dd68>
+CR2: 0000000000000210
+---[ end trace 50030b578c1ee27e ]---
 
-I wonder what prevent the "server" socket ("other") to be released
-while the poller is still waiting for POLLOUT events.
+This corresponds to:
 
-There is a reference taken on the "server" socket when the client
-connects:
-net/unix/af_unix.c::unix_dgram_connect()
-  other = unix_find_other(net, sunaddr, alen, sock->type,
-            hash, &err);
+(gdb) list *0xffffffff811d55d4
+0xffffffff811d55d4 is in selinux_socket_unix_stream_connect (/home/jeremy/git/upstream/security/selinux/hooks.c:3929).
+3924	static int selinux_socket_unix_stream_connect(struct socket *sock,
+3925						      struct socket *other,
+3926						      struct sock *newsk)
+3927	{
+3928		struct sk_security_struct *sksec_sock = sock->sk->sk_security;
+3929		struct sk_security_struct *sksec_other = other->sk->sk_security;
+3930		struct sk_security_struct *sksec_new = newsk->sk_security;
+3931		struct common_audit_data ad;
+3932		int err;
+3933	
 
-But that reference could be released when the client socket
-disconnects from another thread in one of the 3 possible locations:
 
-1. unix_dgram_connect() when connecting to a different socket
-     if (other != old_peer)
-       unix_dgram_disconnected(sk, old_peer);
-     sock_put(old_peer);
+The system is a somewhat out of date Fedora 13 with
+selinux-policy-3.7.19-73.fc13.noarch and
+selinux-policy-targeted-3.7.19-73.fc13.noarch installed.
 
-2. unix_dgram_sendmsg() when the server socket is SOCK_DEAD:
-     unix_dgram_disconnected(sk, other);
-     sock_put(other);
+I'm not sure what at-spi-registry is or what it is trying to do here.
+The crash seems non-deterministic; I rebooted the domain without any issues.
 
-3. unix_release_sock() when the client socket is released:
-     skpair = unix_peer(sk);
-     if (skpair != NULL) {
-       sock_put(skpair); /* It may now die */
-
-I tried to release all the references to server_sockfd with
-close(server_sockfd) on the server thread and with
-connect(client_sockfd) to a different socket while client_sockfd is
-being polled for POLLOUT events in a different thread, hoping to crash
-the poller with the stack:
-free_poll_entry()->remove_wait_queue()->spin_lock_irqsave()
-But I didn't manage to crash the kernel.
-
-Am I missing something? Is there another reference taken on
-server_sockfd to protect the kernel from this scenario?
-
-And btw, what is the test (unix_peer(other) != sk) in unix_dgram_poll()?
-
-Alban
+Thanks,
+    J
