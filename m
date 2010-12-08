@@ -1,39 +1,74 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: IPsecv6 tunnel mode fragmentation
-Date: Wed, 08 Dec 2010 12:37:59 -0800 (PST)
-Message-ID: <20101208.123759.116371401.davem@davemloft.net>
-References: <1291587520.11224.38.camel@faith.austin.ibm.com>
-	<20101208071109.GA14537@gondor.apana.org.au>
+From: =?UTF-8?B?UGF3ZcWCIFN0YXN6ZXdza2k=?= <pstaszewski@itcare.pl>
+Subject: Re: [Bugme-new] [Bug 24472] New: Kernel panic - not syncing: Fatal
+ Exception
+Date: Wed, 08 Dec 2010 21:30:57 +0100
+Message-ID: <4CFFEB01.7040700@itcare.pl>
+References: <bug-24472-10286@https.bugzilla.kernel.org/> <20101208122233.835a4997.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: latten@austin.ibm.com, netdev@vger.kernel.org,
-	samudrala@us.ibm.com, rashmin@us.ibm.com
-To: herbert@gondor.apana.org.au
+Cc: netdev@vger.kernel.org, Paul Mackerras <paulus@samba.org>,
+	bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, pstaszewski@artcom.pl
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34023
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756576Ab0LHUhb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 15:37:31 -0500
-In-Reply-To: <20101208071109.GA14537@gondor.apana.org.au>
+Received: from smtp.iq.pl ([86.111.241.19]:53062 "EHLO smtp.iq.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756383Ab0LHUh1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Dec 2010 15:37:27 -0500
+In-Reply-To: <20101208122233.835a4997.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Wed, 8 Dec 2010 15:11:09 +0800
+W dniu 2010-12-08 21:22, Andrew Morton pisze:
+> (switched to email.  Please respond via emailed reply-to-all, not via the
+> bugzilla web interface).
+>
+> On Wed, 8 Dec 2010 20:14:45 GMT
+> bugzilla-daemon@bugzilla.kernel.org wrote:
+>
+>> https://bugzilla.kernel.org/show_bug.cgi?id=24472
+>>
+>>             Summary: Kernel panic - not syncing: Fatal Exception
+>>             Product: Drivers
+>>             Version: 2.5
+>>      Kernel Version: 2.6.36.1
+>>            Platform: All
+>>          OS/Version: Linux
+>>                Tree: Mainline
+>>              Status: NEW
+>>            Severity: normal
+>>            Priority: P1
+>>           Component: Network
+>>          AssignedTo: drivers_network@kernel-bugs.osdl.org
+>>          ReportedBy: pstaszewski@artcom.pl
+>>          Regression: No
+>>
+>>
+>> Created an attachment (id=39332)
+>>   -->  (https://bugzilla.kernel.org/attachment.cgi?id=39332)
+>> Kernel Panic
+>>
+>> Hello i have problems with ppp driver and pppoe
+>> I have random kernel panics
+>>
+>> In attached image is Call Trace from panic.
+>>
+>>
+> ppp_unregister_channel() appears to be using a bad pointer.
+> --
 
-> Joy Latten <latten@austin.ibm.com> wrote:
->> 
->> We have come across an ipsec problem that I think was
->> noted a while back in the following link.
->> http://www.mail-archive.com/netdev@vger.kernel.org/msg61659.html
-> 
-> Looks like a configuration issue to me.  One end is using the
-> same IP address (*::1234) both within and outside the tunnel.
-> Thus when the ICMP error message is sent it ends up outside the
-> tunnel causing it to be discarded by the other side.
-> 
-> So if you're using tunnel mode you really should use distinct
-> IP addresses.
+Yes.
+I see kernel panics when connection is terminated - but this happend 
+randomly
+Sometimes to reproduce i need to connect->disconnect 50 - 60 times 
+before kernel panic.
 
-Agreed.
+
+
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>
+
