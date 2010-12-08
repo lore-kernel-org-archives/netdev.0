@@ -1,45 +1,36 @@
-From: Vasanthy Kolluri <vkolluri@cisco.com>
-Subject: [net-2.6 PATCH] enic: Bug Fix: Pass napi reference to the isr that
-	services receive queue
-Date: Wed, 08 Dec 2010 15:05:45 -0800
-Message-ID: <20101208230545.24082.48614.stgit@savbu-pc100.cisco.com>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [stable] [PATCH 2.6.36] vlan: Avoid hwaccel vlan packets when
+ vid not used
+Date: Wed, 8 Dec 2010 15:06:01 -0800
+Message-ID: <20101208230601.GB8062@kroah.com>
+References: <1291108809.2904.3.camel@edumazet-laptop>
+ <20101201111716.424fb771@xenia.leun.net>
+ <1291200914.2856.546.camel@edumazet-laptop>
+ <20101208.084731.189716071.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roprabhu@cisco.com, dwang2@cisco.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-5.cisco.com ([171.68.10.87]:11652 "EHLO
-	sj-iport-5.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756369Ab0LHXFq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 18:05:46 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: eric.dumazet@gmail.com, lkml20101129@newton.leun.net,
+	netdev@vger.kernel.org, jesse@nicira.com,
+	linux-kernel@vger.kernel.org, greearb@candelatech.com,
+	stable@kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20101208.084731.189716071.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Vasanthy Kolluri <vkolluri@cisco.com>
+On Wed, Dec 08, 2010 at 08:47:31AM -0800, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Wed, 01 Dec 2010 11:55:14 +0100
+> 
+> 
+> Greg/-stable, please integrate this patch from Eric into 2.6.36 if you
+> haven't already done so.
 
-Pass reference to napi instead of enic device to the isr that services receive queue.
+It looks like I took a different, older version, I'll update it to this
+one now.
 
-Signed-off-by: Vasanthy Kolluri <vkolluri@cisco.com>
-Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
-Signed-off-by: David Wang <dwang2@cisco.com>
----
- drivers/net/enic/enic_main.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+thanks,
 
-
-diff --git a/drivers/net/enic/enic_main.c b/drivers/net/enic/enic_main.c
-index a466ef9..aa28b27 100644
---- a/drivers/net/enic/enic_main.c
-+++ b/drivers/net/enic/enic_main.c
-@@ -1962,7 +1962,8 @@ static void enic_poll_controller(struct net_device *netdev)
- 	case VNIC_DEV_INTR_MODE_MSIX:
- 		for (i = 0; i < enic->rq_count; i++) {
- 			intr = enic_msix_rq_intr(enic, i);
--			enic_isr_msix_rq(enic->msix_entry[intr].vector, enic);
-+			enic_isr_msix_rq(enic->msix_entry[intr].vector,
-+				&enic->napi[i]);
- 		}
- 		intr = enic_msix_wq_intr(enic, i);
- 		enic_isr_msix_wq(enic->msix_entry[intr].vector, enic);
-
+greg k-h
