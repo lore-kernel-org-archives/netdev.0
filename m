@@ -1,31 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ehea: Fixing LRO configuration
-Date: Wed, 08 Dec 2010 12:19:24 -0800 (PST)
-Message-ID: <20101208.121924.35033302.davem@davemloft.net>
-References: <1291833849.2560.26.camel@bwh-desktop>
-	<1291834280-30787-1-git-send-email-leitao@linux.vnet.ibm.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: WARNING at local_bh_enable while tcp_retransmit
+Date: Wed, 08 Dec 2010 21:20:31 +0100
+Message-ID: <4CFFE88F.3060200@gmail.com>
+References: <20101207182308.664e171d.isloginov@gmail.com>	<4CFE9F73.1040203@gmail.com> <20101208123645.84091844.isloginov@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, shemminger@vyatta.com,
-	netdev@vger.kernel.org
-To: leitao@linux.vnet.ibm.com
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Ilya Loginov <isloginov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45469
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754171Ab0LHUS5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 15:18:57 -0500
-In-Reply-To: <1291834280-30787-1-git-send-email-leitao@linux.vnet.ibm.com>
+Received: from mail-ew0-f45.google.com ([209.85.215.45]:54669 "EHLO
+	mail-ew0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754171Ab0LHUUj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 15:20:39 -0500
+Received: by ewy10 with SMTP id 10so1217029ewy.4
+        for <netdev@vger.kernel.org>; Wed, 08 Dec 2010 12:20:38 -0800 (PST)
+In-Reply-To: <20101208123645.84091844.isloginov@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: leitao@linux.vnet.ibm.com
-Date: Wed,  8 Dec 2010 16:51:20 -0200
-
-> In order to set LRO on ehea, the user must set a module parameter, which
-> is not the standard way to do so. This patch adds a way to set LRO using
-> the ethtool tool.
+Ilya Loginov wrote:
+> On Tue, 07 Dec 2010 21:56:19 +0100
+> Jarek Poplawski <jarkao2@gmail.com> wrote:
 > 
-> Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
+>> Hi, isn't any of your drivers disabling irqs on this path?
+> 
+> No. But we are in soft_irq because tcp_retransmit. So, may be,
+> interrupts were really disabled.
 
-Applied, thanks Breno.
+Should be easy to check by copying this WARN_ON_ONCE from 
+kernel/softirq.c:143 local_bh_enable to the beginning of
+your rioth_start_xmit.
+
+Jarek P.
