@@ -1,47 +1,62 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [Bugme-new] [Bug 24472] New: Kernel panic - not syncing: Fatal
- Exception
-Date: Wed, 08 Dec 2010 23:01:41 +0100
-Message-ID: <4D000045.3040102@gmail.com>
-References: <bug-24472-10286@https.bugzilla.kernel.org/> <20101208122233.835a4997.akpm@linux-foundation.org> <4CFFEB01.7040700@itcare.pl>
+From: "avagin@gmail.com" <avagin@gmail.com>
+Subject: Re: [STABLE 2.6.32 PATCH] net: release dst entry while cache-hot
+ for GSO case too
+Date: Thu, 09 Dec 2010 01:47:41 +0300
+Message-ID: <4D000B0D.2060101@gmail.com>
+References: <20101011.085952.193718228.davem@davemloft.net>	<4CB33907.5060803@gmail.com>	<1286814652.2737.41.camel@edumazet-laptop> <20101026.115434.241921999.davem@davemloft.net>
+Reply-To: avagin@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	Paul Mackerras <paulus@samba.org>,
-	bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, pstaszewski@artcom.pl
-To: =?UTF-8?B?UGF3ZcWCIFN0YXN6ZXdza2k=?= <pstaszewski@itcare.pl>
+Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
+	mjt@tls.msk.ru, avagin@openvz.org, stable@kernel.org,
+	netdev@vger.kernel.org, krkumar2@in.ibm.com
+To: Greg Kroah-Hartman <gregkh@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:53125 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752985Ab0LHWBr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 17:01:47 -0500
-Received: by wyb28 with SMTP id 28so1573925wyb.19
-        for <netdev@vger.kernel.org>; Wed, 08 Dec 2010 14:01:46 -0800 (PST)
-In-Reply-To: <4CFFEB01.7040700@itcare.pl>
+Received: from mail-ey0-f171.google.com ([209.85.215.171]:58249 "EHLO
+	mail-ey0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756548Ab0LHWrn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 17:47:43 -0500
+Received: by eyg5 with SMTP id 5so1394179eyg.2
+        for <netdev@vger.kernel.org>; Wed, 08 Dec 2010 14:47:42 -0800 (PST)
+In-Reply-To: <20101026.115434.241921999.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pawe=C5=82 Staszewski wrote:
-> W dniu 2010-12-08 21:22, Andrew Morton pisze:
->> (switched to email.  Please respond via emailed reply-to-all, not vi=
-a the
->> bugzilla web interface).
->>
->> On Wed, 8 Dec 2010 20:14:45 GMT
->> bugzilla-daemon@bugzilla.kernel.org wrote:
->>
->>> https://bugzilla.kernel.org/show_bug.cgi?id=3D24472
+Hi Greg,
+
+This patch is acked by David S. Miller. Greg, maybe you can commit it?
+
+On 10/26/2010 10:54 PM, David Miller wrote:
+> From: Eric Dumazet<eric.dumazet@gmail.com>
+> Date: Mon, 11 Oct 2010 18:30:52 +0200
+>
+>> Le lundi 11 octobre 2010 =E0 20:19 +0400, Andrew Vagin a =E9crit :
+>>> On 10/11/2010 07:59 PM, David Miller wrote:
+>>>> From: Eric Dumazet<eric.dumazet@gmail.com>
+>>>> Date: Mon, 11 Oct 2010 17:46:49 +0200
+>>>>
+>>>>> This patch was an optimization, not a bug fix.
+>>>> Right, this has no business going into 2.6.32-stable at all.
+>>> This is bug fix. Now nobody drops dst in case gso and veth, because=
+ the
+>>> commit 60df914e295a21a223e43a7ee01e0c73c64dd111 deletes skb_dst_dro=
+p
+>>> from the veth.c. We should commit my patch or revert commit 60df914=
+e.
 >>>
->>>             Summary: Kernel panic - not syncing: Fatal Exception
->>>             Product: Drivers
->>>             Version: 2.5
->>>      Kernel Version: 2.6.36.1
+>>> We have two bug reports:
+>>>
+>>> http://www.spinics.net/lists/netdev/msg142104.html
+>>>
+>>> http://bugzilla.openvz.org/show_bug.cgi?id=3D1634
+>>>
+>>> Taylan verified that the patch really fix his bug.
+>>
+>> Now that makes sense ;)
+>
+> In case there is any doubt about this -stable patch submission:
+>
+> Acked-by: David S. Miller<davem@davemloft.net>
 
-Hi,
-Could you try to revert this patch?:
-http://git.kernel.org/?p=3Dlinux/kernel/git/stable/linux-2.6.36.y.git;a=
-=3Dcommitdiff;h=3D55c95e738da85373965cb03b4f975d0fd559865b
-
-Jarek P.
