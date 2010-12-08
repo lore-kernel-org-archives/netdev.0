@@ -1,63 +1,65 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] filter: use size of fetched data in
- __load_pointer()
-Date: Wed, 08 Dec 2010 09:26:15 +0100
-Message-ID: <1291796775.2883.21.camel@edumazet-laptop>
+Subject: Re: [PATCH] tcp: avoid a possible divide by zero
+Date: Wed, 08 Dec 2010 09:33:13 +0100
+Message-ID: <1291797193.2883.28.camel@edumazet-laptop>
+References: <201012071639.58884.Martin@lichtvoll.de>
+	 <1291757563.21627.15.camel@bwh-desktop>
+	 <1291759435.5324.25.camel@edumazet-laptop>
+	 (sfid-20101208_091329_309252_DAE30076)  <201012080923.36086.Martin@lichtvoll.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Martin Steigerwald <Martin@lichtvoll.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:32964 "EHLO
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:56694 "EHLO
 	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753335Ab0LHI0S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 03:26:18 -0500
-Received: by wwa36 with SMTP id 36so891105wwa.1
-        for <netdev@vger.kernel.org>; Wed, 08 Dec 2010 00:26:17 -0800 (PST)
+	with ESMTP id S1751446Ab0LHIdS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 03:33:18 -0500
+Received: by wwa36 with SMTP id 36so896494wwa.1
+        for <netdev@vger.kernel.org>; Wed, 08 Dec 2010 00:33:17 -0800 (PST)
+In-Reply-To: <201012080923.36086.Martin@lichtvoll.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-__load_pointer() checks data we fetch from skb is included in head
-portion, but assumes we fetch one byte, instead of up to four.
+Le mercredi 08 d=C3=A9cembre 2010 =C3=A0 09:23 +0100, Martin Steigerwal=
+d a =C3=A9crit :
 
-This wont crash because we have extra bytes (struct skb_shared_info)
-after head, but this can read uninitialized bytes.
+> Are there so many sysctls which are likely to freeze the kernel when =
+fed=20
+> with wrong value? Once could argue for sysctls where invalid values d=
+on't=20
+> cause any serious harm, its not so important to fix it. I probably co=
+uld=20
+> have next weeks training members a go at poking creative values in ot=
+her=20
+> controls as well to see what happens.
+>=20
 
-Fix this using size of the data (1, 2, 4 bytes) in the test.
+We have many sysctls that can lead to non working machine.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 25500f1..a57991e 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -88,7 +88,7 @@ enum {
- };
- 
- /* No hurry in this branch */
--static void *__load_pointer(const struct sk_buff *skb, int k)
-+static void *__load_pointer(const struct sk_buff *skb, int k, unsigned int size)
- {
- 	u8 *ptr = NULL;
- 
-@@ -97,7 +97,7 @@ static void *__load_pointer(const struct sk_buff *skb, int k)
- 	else if (k >= SKF_LL_OFF)
- 		ptr = skb_mac_header(skb) + k - SKF_LL_OFF;
- 
--	if (ptr >= skb->head && ptr < skb_tail_pointer(skb))
-+	if (ptr >= skb->head && ptr + size <= skb_tail_pointer(skb))
- 		return ptr;
- 	return NULL;
- }
-@@ -110,7 +110,7 @@ static inline void *load_pointer(const struct sk_buff *skb, int k,
- 	else {
- 		if (k >= SKF_AD_OFF)
- 			return NULL;
--		return __load_pointer(skb, k);
-+		return __load_pointer(skb, k, size);
- 	}
- }
- 
+Any kind of limits actually. Just set them to 0 (or maybe a negative
+number :( )
+
+0 socket, 0 file descriptor, 0 memory, 0 speed limit, 0 lengthes ...
+
+
+
+> So this patch helps other cases as well? Or is it, as I think just a=20
+> different approach, to fix the issue my training member brought up, b=
+y its=20
+> cause instead of or additional to limiting its range?
+>=20
+> Want to check whether I basically understood the patch. Do you want m=
+e to=20
+> test it?=20
+
+It has nothing to do with the issue you raised, and is a completely
+different subject. I got it while spending 5 minutes yesterday night
+grep-ing some sysctls in network tree. 0 value is one of expected value
+for this sysctl, but the test was not safe.
+
 
 
