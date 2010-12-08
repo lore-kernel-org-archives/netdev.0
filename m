@@ -1,45 +1,39 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] ss: Change "do now" to "do not" in ss(8), -n option
-Date: Wed, 8 Dec 2010 07:55:48 -0800
-Message-ID: <20101208075548.78d9a8ad@nehalam>
-References: <1291816149-15782-1-git-send-email-psabata@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: wireless-2.6 2010-12-03
+Date: Wed, 08 Dec 2010 08:14:29 -0800 (PST)
+Message-ID: <20101208.081429.193694468.davem@davemloft.net>
+References: <20101203201602.GE2348@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Petr Sabata <psabata@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:57060 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755986Ab0LHPzu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Dec 2010 10:55:50 -0500
-In-Reply-To: <1291816149-15782-1-git-send-email-psabata@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org
+To: linville@tuxdriver.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20101203201602.GE2348@tuxdriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed,  8 Dec 2010 14:49:09 +0100
-Petr Sabata <psabata@redhat.com> wrote:
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Fri, 3 Dec 2010 15:16:02 -0500
 
-> A small typo fix.
+> This is a batch of fixes intended for 2.6.37.  There are a number of
+> small fixes that speak for themselves.  Also included are a small patch
+> for ar9170 to advertise Wi-Fi Peer-to-peer capability -- not truly a
+> fix, but helpful for those developing the related userland bits and
+> harmless to everyone else.  There are also some endian related patches
+> for ath9k from Felix that are a bit large, but they mostly just refactor
+> some tables in order to fix an endian problem that can result in invalid
+> regulatory settings on some boxes.
 > 
-> ---
->  man/man8/ss.8 |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
+> Also includes are some Bluetooth patches via Gustavo Padovan:
 > 
-> diff --git a/man/man8/ss.8 b/man/man8/ss.8
-> index f261cf2..b309df2 100644
-> --- a/man/man8/ss.8
-> +++ b/man/man8/ss.8
-> @@ -26,7 +26,7 @@ Show summary of options.
->  Output version information.
->  .TP
->  .B \-n, \-\-numeric
-> -Do now try to resolve service names.
-> +Do not try to resolve service names.
->  .TP
->  .B \-r, \-\-resolve
->  Try to resolve numeric address/ports.
+> "Here goes 3 simple patches intended to 2.6.37. First one is from myself
+> and fix some trivial return values. Then we also have a fix from Stefan
+> Seyfried on btusb to avoid emitting an err when we USB is autosupended.
+> Last, a patch from Bala Shanmugam that fix the firmware loading process
+> for the ath3k driver."
+> 
+> Please let me know if there are problems!
 
-applied
-
--- 
+Pulled, thanks John.
