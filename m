@@ -1,37 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-next-2.6 2010-12-08
-Date: Wed, 08 Dec 2010 13:25:10 -0800 (PST)
-Message-ID: <20101208.132510.258115664.davem@davemloft.net>
-References: <20101208210432.GH2423@tuxdriver.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: echo > 0 .../disable_ipv6 broken in 2.6.37-rc4
+Date: Wed, 08 Dec 2010 13:29:52 -0800
+Message-ID: <m14oaoeywf.fsf@fess.ebiederm.org>
+References: <m17hfnlpe1.fsf@fess.ebiederm.org> <4CFD0AF0.9090809@hp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: linville@tuxdriver.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Mahesh Kelkar <maheshkelkar@gmail.com>,
+	Lorenzo Colitti <lorenzo@google.com>
+To: Brian Haley <brian.haley@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50688
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756713Ab0LHVYo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 16:24:44 -0500
-In-Reply-To: <20101208210432.GH2423@tuxdriver.com>
+Received: from out01.mta.xmission.com ([166.70.13.231]:58732 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751676Ab0LHV35 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 16:29:57 -0500
+In-Reply-To: <4CFD0AF0.9090809@hp.com> (Brian Haley's message of "Mon, 06 Dec
+	2010 11:10:24 -0500")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Wed, 8 Dec 2010 16:04:32 -0500
+Brian Haley <brian.haley@hp.com> writes:
 
-> Here is the latest batch of updates intended for 2.6.38.  It also
-> includes my last wireless-2.6 pull request that you just added
-> to net-2.6.
-> 
-> This includes the usual batch of drivers updates, with ath9k and
-> iwlwifi as the usual standouts.  This also includes some mac80211
-> documentation updates from Johannes, and a flurry of ath5k updates
-> from Nick.  This also includes a collection of bluetooth updates by
-> way of Gustavo, a couple of libertas updates, some more work on b43
-> N-phy support, and a variety of other patches.
-> 
-> Please let me know if there are problems!
+> On 12/05/2010 07:24 PM, Eric W. Biederman wrote:
+>> 
+>> In 2.6.37-rc4 ipv6 can be disabled not enabled.
+>> The last kernel I have tested and know this works on is 2.6.33.
+>> 
+>> To reproduce:
+>>    ~ # ip link set lo up
+>>    ~ # ping6 ::1
+>>    PING ::1(::1) 56 data bytes
+>>    64 bytes from ::1: icmp_seq=1 ttl=64 time=0.026 ms
+>>    ^C
+>>    --- ::1 ping statistics ---
+>>    1 packets transmitted, 1 received, 0% packet loss, time 782ms
+>>    rtt min/avg/max/mdev = 0.026/0.026/0.026/0.000 ms
+>>    ~ # echo 1 > /proc/sys/net/ipv6/conf/lo/disable_ipv6 
+>>    ~ # ping6 ::1
+>>    connect: Network is unreachable
+>>    ~ # echo 0 > /proc/sys/net/ipv6/conf/lo/disable_ipv6 
+>>    ~ # ping6 ::1
+>>    connect: Network is unreachable
+>> 
+>> 
+>> I intend to poke at this a little more but at the moment
+>> I am drawing a blank at what is going on.
+>
+> It should just be calling addrconf_notify() with either NETDEV_UP
+> or NETDEV_DOWN.  Does the address not come back?  Or the route?
 
-Ok, I'll suck this in later tonight, thanks John.  I'm working
-on the net-2.6 --> net-next-2.6 merge at the moment.
+The address never went away, and I don't think we have a route to ::1.
+
+Playing with this a little more if I delete the address and then bounce
+the interface ping ::1 works again.  So something is just not getting
+reinitialized.
+
+Unfortunately I don't see anything obvious.  I'm still scratching my
+head.
+
+>> I intend to keep poking at this but if anyone can figure this out
+>> before I do I would be greatly appreciative.
+>
+> I'm pulling the latest tree now, my 2.6.32.24 system is running fine, so
+> it's something after that.
+
+Agreed.  I don't have problems on 2.6.33 either, but because of overload
+I haven't been doing regular testing of the kernels inbetween.
+
+Eric
