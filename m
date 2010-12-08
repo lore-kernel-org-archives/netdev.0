@@ -1,52 +1,36 @@
-From: Neil Jones <neiljay-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: rndis gadget: Inconsistent locking
-Date: Wed, 8 Dec 2010 15:03:45 +0000
-Message-ID: <AANLkTik=Uui7Xk9ZfFvQQKj94ZJUJ_n+bZbTQXbe+08i@mail.gmail.com>
+From: Greg KH <gregkh@suse.de>
+Subject: Re: [PATCH 1/5] sysfs: Introducing binary attributes for struct
+ class
+Date: Wed, 8 Dec 2010 07:06:42 -0800
+Message-ID: <20101208150642.GA5669@suse.de>
+References: <1290801449.18750.162.camel@neuromancer>
+ <alpine.LNX.2.00.1012081432230.14806@pobox.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Stefan Achatz <erazor_de@users.sourceforge.net>,
+	Randy Dunlap <rdunlap@xenotime.net>, linux-doc@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-input@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Jiri Kosina <jkosina@suse.cz>
+Return-path: <linux-doc-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LNX.2.00.1012081432230.14806@pobox.suse.cz>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Wed, Dec 08, 2010 at 02:33:14PM +0100, Jiri Kosina wrote:
+> On Fri, 26 Nov 2010, Stefan Achatz wrote:
+> 
+> > Added dev_bin_attrs to struct class similar to existing dev_attrs.
+> > 
+> > Signed-off-by: Stefan Achatz <erazor_de@users.sourceforge.net>
+> 
+> Greg, just to make sure (as you have stated your Ack in a thread belonging 
+> to different thread) -- I can add your Acked-by: to this patch and take it 
+> through my tree with the rest of the roccat patchset, is that correct?
 
-Im getting another lockdep warning when using the RNDIS gadget:
+Yes you can.
 
- WARNING: at kernel/softirq.c:98 ___local_bh_disable+0xc4/0xd0()
- Modules linked in: g_ether
+thanks,
 
- Call trace:
- [<40003bf8>] _show_stack+0x68/0x7c
- [<40003c20>] _dump_stack+0x14/0x28
- [<40013c3c>] _warn_slowpath_common+0x5c/0x7c
- [<40013c74>] _warn_slowpath_null+0x18/0x2c
- [<4001b17c>] ___local_bh_disable+0xc0/0xd0
- [<4001b1a0>] _local_bh_disable+0x14/0x28
- [<402e57f8>] __raw_spin_lock_bh+0x18/0x54
- [<40257f4c>] _dev_txq_stats_fold+0x7c/0x13c
- [<402580c4>] _dev_get_stats+0xb8/0xc0
- [<781d4e60>] _rndis_msg_parser+0x288/0xa04 [g_ether]
- [<781d5600>] _rndis_command_complete+0x24/0x70 [g_ether]
- [<401d66fc>] _dwc_otg_request_done+0xd8/0x220
- [<401d928c>] _ep0_complete_request+0x3f4/0x578
- [<401d95bc>] _handle_ep0+0x1ac/0x146c
- [<401daf7c>] _dwc_otg_pcd_handle_in_ep_intr+0x1c0/0x8bc
- [<401db8dc>] _dwc_otg_pcd_handle_intr+0x264/0x294
- [<401d6288>] _dwc_otg_pcd_irq+0x10/0x30
- [<40054cf4>] _handle_IRQ_event+0x4c/0x184
- [<40057b4c>] _handle_level_irq+0xac/0x15c
- [<4000b204>] _metag_soc_irq_demux+0xac/0xb4
- [<40002dd4>] _do_IRQ+0x4c/0x78
- [<40004000>] _trigger_handler+0x38/0xac
- [<40000b18>] ___TBIBoingVec+0xc/0x10
- [<40003588>] _cpu_idle+0x54/0x78
-
- no locks held by swapper/0.
- ---[ end trace 77ac3cfee0ae5b25 ]---
-
-It
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+greg k-h
