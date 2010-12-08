@@ -1,67 +1,56 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH v2] net-tcp: Replace time wait bucket msg by counter
-Date: Wed, 8 Dec 2010 11:42:38 -0800 (PST)
-Message-ID: <alpine.DEB.2.00.1012081139180.2652@pokey.mtv.corp.google.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] atm: correct sysfs 'device' link creation and parent
+ relationships
+Date: Wed, 08 Dec 2010 12:15:32 -0800 (PST)
+Message-ID: <20101208.121532.232745367.davem@davemloft.net>
+References: <1291587480.17538.12.camel@dcbw.foobar.com>
+	<AANLkTikhkVPcibAH8cSRvZSLop=Ew19Tn=KtY7prkKUn@mail.gmail.com>
+	<20101208.101121.71114237.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: eric.dumazet@gmail.com
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.35]:47289 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756079Ab0LHTmq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 14:42:46 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, duncan.sands-GANU6spQydw@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, chas-vT06rRrALxcmhCb6mdbn6A@public.gmane.org
+To: kay.sievers-tD+1rO4QERM@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20101208.101121.71114237.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Rather than printing the message to the log, use a mib counter to keep
-track of the count of occurences of time wait bucket overflow.  Reduces
-spam in logs.
+=46rom: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Date: Wed, 08 Dec 2010 10:11:21 -0800 (PST)
 
-Signed-off-by: Tom Herbert <therbert@google.com>
----
- include/linux/snmp.h     |    1 +
- net/ipv4/proc.c          |    1 +
- net/ipv4/tcp_minisocks.c |    2 +-
- 3 files changed, 3 insertions(+), 1 deletions(-)
+> From: Kay Sievers <kay.sievers-tD+1rO4QERM@public.gmane.org>
+> Date: Tue, 7 Dec 2010 08:35:53 +0100
+>=20
+>> On Sun, Dec 5, 2010 at 23:17, Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+>>> The ATM subsystem was incorrectly creating the 'device' link for AT=
+M
+>>> nodes in sysfs. =A0This led to incorrect device/parent relationship=
+s
+>>> exposed by sysfs and udev. =A0Instead of rolling the 'device' link =
+by hand
+>>> in the generic ATM code, pass each ATM driver's bus device down to =
+the
+>>> sysfs code and let sysfs do this stuff correctly.
+>>=20
+>> Looks good to me.
+>=20
+> I've applied this to net-2.6, thanks Dan.
 
-diff --git a/include/linux/snmp.h b/include/linux/snmp.h
-index ebb0c80..12b2b18 100644
---- a/include/linux/snmp.h
-+++ b/include/linux/snmp.h
-@@ -230,6 +230,7 @@ enum
- 	LINUX_MIB_TCPMINTTLDROP, /* RFC 5082 */
- 	LINUX_MIB_TCPDEFERACCEPTDROP,
- 	LINUX_MIB_IPRPFILTER, /* IP Reverse Path Filter (rp_filter) */
-+	LINUX_MIB_TCPTIMEWAITOVERFLOW,		/* TCPTimeWaitOverflow */
- 	__LINUX_MIB_MAX
- };
- 
-diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
-index 1b48eb1..b14ec7d 100644
---- a/net/ipv4/proc.c
-+++ b/net/ipv4/proc.c
-@@ -253,6 +253,7 @@ static const struct snmp_mib snmp4_net_list[] = {
- 	SNMP_MIB_ITEM("TCPMinTTLDrop", LINUX_MIB_TCPMINTTLDROP),
- 	SNMP_MIB_ITEM("TCPDeferAcceptDrop", LINUX_MIB_TCPDEFERACCEPTDROP),
- 	SNMP_MIB_ITEM("IPReversePathFilter", LINUX_MIB_IPRPFILTER),
-+	SNMP_MIB_ITEM("TCPTimeWaitOverflow", LINUX_MIB_TCPTIMEWAITOVERFLOW),
- 	SNMP_MIB_SENTINEL
- };
- 
-diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index 43cf901..a66735f 100644
---- a/net/ipv4/tcp_minisocks.c
-+++ b/net/ipv4/tcp_minisocks.c
-@@ -347,7 +347,7 @@ void tcp_time_wait(struct sock *sk, int state, int timeo)
- 		 * socket up.  We've got bigger problems than
- 		 * non-graceful socket closings.
- 		 */
--		LIMIT_NETDEBUG(KERN_INFO "TCP: time wait bucket table overflow\n");
-+		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPTIMEWAITOVERFLOW);
- 	}
- 
- 	tcp_update_metrics(sk);
--- 
-1.7.3.1
+Actually I'm reverting, it breaks the build.
 
+Did you even grep for "atm_dev_register()" after changning the number
+of arguments, or were you depending upon build failures to guide you?
+
+Please never do the latter, as it always leads to things like this.
+
+drivers/atm/fore200e.c:2577:7: error: too few arguments to function 'at=
+m_dev_register'
+drivers/atm/iphase.c:3175:2: error: too few arguments to function 'atm_=
+dev_register'
+=2E..
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
