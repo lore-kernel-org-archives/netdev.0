@@ -1,110 +1,50 @@
-From: Greg KH <gregkh@suse.de>
-Subject: [34/44] Limit sysctl_tcp_mem and sysctl_udp_mem initializers to prevent integer overflows.
-Date: Tue, 07 Dec 2010 16:04:33 -0800
-Message-ID: <20101208000642.975564500@clark.site>
-References: <20101208003205.GA4286@kroah.com>
-Cc: stable-review@kernel.org, torvalds@linux-foundation.org,
-	akpm@linux-foundation.org, alan@lxorguk.ukuu.org.uk,
-	Robin Holt <holt@sgi.com>, Willy Tarreau <w@1wt.eu>,
-	netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Vlad Yasevich <vladislav.yasevich@hp.com>,
-	Sridhar Samudrala <sri@us.ibm.com>
-To: linux-kernel@vger.kernel.org, stable@kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20101208003205.GA4286@kroah.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] use total_highpages when calculating lowmem-only
+ allocation sizes (dccp)
+Date: Tue, 07 Dec 2010 16:49:51 -0800 (PST)
+Message-ID: <20101207.164951.193734247.davem@davemloft.net>
+References: <4CFD2096020000780002627B@vpn.id2.novell.com>
+	<20101206.093630.104060994.davem@davemloft.net>
+	<4CFE54ED02000078000266AD@vpn.id2.novell.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org
+To: JBeulich@novell.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49384
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756444Ab0LHAtY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Dec 2010 19:49:24 -0500
+In-Reply-To: <4CFE54ED02000078000266AD@vpn.id2.novell.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2.6.27-stable review patch.  If anyone has any objections, please let us know.
+From: "Jan Beulich" <JBeulich@novell.com>
+Date: Tue, 07 Dec 2010 14:38:21 +0000
 
-------------------
+>>>> On 06.12.10 at 18:36, David Miller <davem@davemloft.net> wrote:
+>> From: "Jan Beulich" <JBeulich@novell.com>
+>> Date: Mon, 06 Dec 2010 16:42:46 +0000
+>> 
+>>> For those (large) table allocations that come only from lowmem, the
+>>> total amount of memory shouldn't really matter.
+>>> 
+>>> Signed-off-by: Jan Beulich <jbeulich@novell.com>
+>> 
+>> Instead of continually tweaking the bits in these code paths,
+>> we should be converting them over to using a central routine
+>> such as alloc_large_system_hash() where the logic is consolidated
+>> _AND_ the code knows to use vmalloc() and NUMA aware allocations
+>> when warranted.
+> 
+> Hmm, not sure. For one, alloc_large_system_hash() is (and imo
+> ought to remain) an __init function. Second, looking at the one
+> non-modular case (netlink_proto_init()), I don't think using this
+> function would be the intention here.
 
-From: Robin Holt <holt@sgi.com>
+I think the one and only reason DCCP and friends do not use this
+interface is exactly because it's not available to modules.
 
-[ Problem was fixed differently upstream. -DaveM ]
-
-On a 16TB x86_64 machine, sysctl_tcp_mem[2], sysctl_udp_mem[2], and
-sysctl_sctp_mem[2] can integer overflow.  Set limit such that they are
-maximized without overflowing.
-
-Signed-off-by: Robin Holt <holt@sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-Cc: Willy Tarreau <w@1wt.eu>
-Cc: linux-kernel@vger.kernel.org
-Cc: netdev@vger.kernel.org
-Cc: linux-sctp@vger.kernel.org
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Cc: "Pekka Savola (ipv6)" <pekkas@netcore.fi>
-Cc: James Morris <jmorris@namei.org>
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: Vlad Yasevich <vladislav.yasevich@hp.com>
-Cc: Sridhar Samudrala <sri@us.ibm.com>
-Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
----
- net/ipv4/tcp.c      |    4 +++-
- net/ipv4/udp.c      |    4 +++-
- net/sctp/protocol.c |    4 +++-
- 3 files changed, 9 insertions(+), 3 deletions(-)
-
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2754,12 +2754,14 @@ void __init tcp_init(void)
- 
- 	/* Set the pressure threshold to be a fraction of global memory that
- 	 * is up to 1/2 at 256 MB, decreasing toward zero with the amount of
--	 * memory, with a floor of 128 pages.
-+	 * memory, with a floor of 128 pages, and a ceiling that prevents an
-+	 * integer overflow.
- 	 */
- 	nr_pages = totalram_pages - totalhigh_pages;
- 	limit = min(nr_pages, 1UL<<(28-PAGE_SHIFT)) >> (20-PAGE_SHIFT);
- 	limit = (limit * (nr_pages >> (20-PAGE_SHIFT))) >> (PAGE_SHIFT-11);
- 	limit = max(limit, 128UL);
-+	limit = min(limit, INT_MAX * 4UL / 3 / 2);
- 	sysctl_tcp_mem[0] = limit / 4 * 3;
- 	sysctl_tcp_mem[1] = limit;
- 	sysctl_tcp_mem[2] = sysctl_tcp_mem[0] * 2;
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1722,11 +1722,13 @@ void __init udp_init(void)
- 
- 	/* Set the pressure threshold up by the same strategy of TCP. It is a
- 	 * fraction of global memory that is up to 1/2 at 256 MB, decreasing
--	 * toward zero with the amount of memory, with a floor of 128 pages.
-+	 * toward zero with the amount of memory, with a floor of 128 pages,
-+	 * and a ceiling that prevents an integer overflow.
- 	 */
- 	limit = min(nr_all_pages, 1UL<<(28-PAGE_SHIFT)) >> (20-PAGE_SHIFT);
- 	limit = (limit * (nr_all_pages >> (20-PAGE_SHIFT))) >> (PAGE_SHIFT-11);
- 	limit = max(limit, 128UL);
-+	limit = min(limit, INT_MAX * 4UL / 3 / 2);
- 	sysctl_udp_mem[0] = limit / 4 * 3;
- 	sysctl_udp_mem[1] = limit;
- 	sysctl_udp_mem[2] = sysctl_udp_mem[0] * 2;
---- a/net/sctp/protocol.c
-+++ b/net/sctp/protocol.c
-@@ -1179,7 +1179,8 @@ SCTP_STATIC __init int sctp_init(void)
- 
- 	/* Set the pressure threshold to be a fraction of global memory that
- 	 * is up to 1/2 at 256 MB, decreasing toward zero with the amount of
--	 * memory, with a floor of 128 pages.
-+	 * memory, with a floor of 128 pages, and a ceiling that prevents an
-+	 * integer overflow.
- 	 * Note this initalizes the data in sctpv6_prot too
- 	 * Unabashedly stolen from tcp_init
- 	 */
-@@ -1187,6 +1188,7 @@ SCTP_STATIC __init int sctp_init(void)
- 	limit = min(nr_pages, 1UL<<(28-PAGE_SHIFT)) >> (20-PAGE_SHIFT);
- 	limit = (limit * (nr_pages >> (20-PAGE_SHIFT))) >> (PAGE_SHIFT-11);
- 	limit = max(limit, 128UL);
-+	limit = min(limit, INT_MAX * 4UL / 3 / 2);
- 	sysctl_sctp_mem[0] = limit / 4 * 3;
- 	sysctl_sctp_mem[1] = limit;
- 	sysctl_sctp_mem[2] = sysctl_sctp_mem[0] * 2;
+So much (partially incorrect, as you found) code would be removed
+if this common routine were exported and utilized.
