@@ -1,70 +1,67 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: (Lack of) specification for RX n-tuple filtering
-Date: Wed, 08 Dec 2010 19:39:06 +0000
-Message-ID: <1291837146.2560.56.camel@bwh-desktop>
-References: <1279832544.2104.63.camel@achroite.uk.solarflarecom.com>
-	 <4C48BD1A.4060409@chelsio.com>
-	 <1283870637.2270.10.camel@achroite.uk.solarflarecom.com>
-	 <1291825443.31064.193.camel@lb-tlvb-vladz>
-	 <1291828940.2560.17.camel@bwh-desktop>
-	 <1291833578.17102.69.camel@lb-tlvb-vladz>
-	 <1291834931.2560.42.camel@bwh-desktop>
-	 <1291835453.24019.13.camel@lb-tlvb-vladz>
-	 <1291835681.2560.53.camel@bwh-desktop>
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH v2] net-tcp: Replace time wait bucket msg by counter
+Date: Wed, 8 Dec 2010 11:42:38 -0800 (PST)
+Message-ID: <alpine.DEB.2.00.1012081139180.2652@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Dimitris Michailidis <dm@chelsio.com>,
-	Peter Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Vladislav Zolotarov <vladz@broadcom.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: eric.dumazet@gmail.com
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:51666 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753318Ab0LHTjK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 14:39:10 -0500
-In-Reply-To: <1291835681.2560.53.camel@bwh-desktop>
+Received: from smtp-out.google.com ([74.125.121.35]:47289 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756079Ab0LHTmq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 14:42:46 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-12-08 at 19:14 +0000, Ben Hutchings wrote:
-> On Wed, 2010-12-08 at 21:10 +0200, Vladislav Zolotarov wrote:
-> > > The implementation of the -U
-> > > option could potentially be made to fallback to ETHTOOL_SRXCLSRLINS if
-> > > vlan_tag and user_def are not specified.
-> > > 
-> > 
-> > Having said that, don't u think that it could be more user friendly to
-> > extend the ETHTOOL_SRXCLSRLINS interface to handle the lan_tag and
-> > user_def and drop the n-tuple interface at all?
-> 
-> No, we can't remove userland interfaces.
+Rather than printing the message to the log, use a mib counter to keep
+track of the count of occurences of time wait bucket overflow.  Reduces
+spam in logs.
 
-Having said that, this particular interface is fairly broken...
+Signed-off-by: Tom Herbert <therbert@google.com>
+---
+ include/linux/snmp.h     |    1 +
+ net/ipv4/proc.c          |    1 +
+ net/ipv4/tcp_minisocks.c |    2 +-
+ 3 files changed, 3 insertions(+), 1 deletions(-)
 
-$ cat test.c
-#include <stddef.h>
-#include <stdio.h>
-
-#include <linux/ethtool.h>
-
-int main(void)
-{
-    printf("%zd\n", offsetof(struct ethtool_rx_flow_spec, ring_cookie));
-    return 0;
-}
-$ cc -m64 -Wall test.c
-$ ./a.out 
-152
-$ cc -m32 -Wall test.c
-$ ./a.out 
-148
-
-Ben.
-
+diff --git a/include/linux/snmp.h b/include/linux/snmp.h
+index ebb0c80..12b2b18 100644
+--- a/include/linux/snmp.h
++++ b/include/linux/snmp.h
+@@ -230,6 +230,7 @@ enum
+ 	LINUX_MIB_TCPMINTTLDROP, /* RFC 5082 */
+ 	LINUX_MIB_TCPDEFERACCEPTDROP,
+ 	LINUX_MIB_IPRPFILTER, /* IP Reverse Path Filter (rp_filter) */
++	LINUX_MIB_TCPTIMEWAITOVERFLOW,		/* TCPTimeWaitOverflow */
+ 	__LINUX_MIB_MAX
+ };
+ 
+diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
+index 1b48eb1..b14ec7d 100644
+--- a/net/ipv4/proc.c
++++ b/net/ipv4/proc.c
+@@ -253,6 +253,7 @@ static const struct snmp_mib snmp4_net_list[] = {
+ 	SNMP_MIB_ITEM("TCPMinTTLDrop", LINUX_MIB_TCPMINTTLDROP),
+ 	SNMP_MIB_ITEM("TCPDeferAcceptDrop", LINUX_MIB_TCPDEFERACCEPTDROP),
+ 	SNMP_MIB_ITEM("IPReversePathFilter", LINUX_MIB_IPRPFILTER),
++	SNMP_MIB_ITEM("TCPTimeWaitOverflow", LINUX_MIB_TCPTIMEWAITOVERFLOW),
+ 	SNMP_MIB_SENTINEL
+ };
+ 
+diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+index 43cf901..a66735f 100644
+--- a/net/ipv4/tcp_minisocks.c
++++ b/net/ipv4/tcp_minisocks.c
+@@ -347,7 +347,7 @@ void tcp_time_wait(struct sock *sk, int state, int timeo)
+ 		 * socket up.  We've got bigger problems than
+ 		 * non-graceful socket closings.
+ 		 */
+-		LIMIT_NETDEBUG(KERN_INFO "TCP: time wait bucket table overflow\n");
++		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPTIMEWAITOVERFLOW);
+ 	}
+ 
+ 	tcp_update_metrics(sk);
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.3.1
 
