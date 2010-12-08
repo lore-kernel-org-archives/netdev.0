@@ -1,30 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] econet: Do the correct cleanup after an unprivileged
- SIOCSIFADDR.
-Date: Wed, 08 Dec 2010 10:14:05 -0800 (PST)
-Message-ID: <20101208.101405.104050937.davem@davemloft.net>
-References: <1291589152-4640-1-git-send-email-nelhage@ksplice.com>
+Subject: Re: [patch] econet: unlock on -EPERM path
+Date: Wed, 08 Dec 2010 10:14:24 -0800 (PST)
+Message-ID: <20101208.101424.189706549.davem@davemloft.net>
+References: <20101207110138.GM10623@bicker>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: philb@gnu.org, netdev@vger.kernel.org, stable@kernel.org
-To: nelhage@ksplice.com
+Cc: netdev@vger.kernel.org, philb@gnu.org, eric.dumazet@gmail.com,
+	kernel-janitors@vger.kernel.org
+To: error27@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58532
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58539
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754870Ab0LHSNi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 13:13:38 -0500
-In-Reply-To: <1291589152-4640-1-git-send-email-nelhage@ksplice.com>
+	by vger.kernel.org with ESMTP id S1752464Ab0LHSN4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 13:13:56 -0500
+In-Reply-To: <20101207110138.GM10623@bicker>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nelson Elhage <nelhage@ksplice.com>
-Date: Sun,  5 Dec 2010 17:45:52 -0500
+From: Dan Carpenter <error27@gmail.com>
+Date: Tue, 7 Dec 2010 14:01:38 +0300
 
-> We need to drop the mutex and do a dev_put, so set an error code and break like
-> the other paths, instead of returning directly.
+> We need to do a mutex_unlock() and a put_dev() before returning.
 > 
-> Cc: stable@kernel.org
-> Signed-off-by: Nelson Elhage <nelhage@ksplice.com>
+> Signed-off-by: Dan Carpenter <error27@gmail.com>
 
-Applied, thanks Nelson.
+Nelson Elhage beat you to this one, so I integrates his version.
+
+Thanks.
