@@ -1,71 +1,118 @@
-From: =?utf-8?B?TWljaGHFgiBOYXphcmV3aWN6?= <m.nazarewicz@samsung.com>
-Subject: Re: rndis gadget: Inconsistent locking
-Date: Wed, 08 Dec 2010 18:15:57 +0100
-Message-ID: <op.vnenkvz67p4s8u@pikus>
-References: <AANLkTik=Uui7Xk9ZfFvQQKj94ZJUJ_n+bZbTQXbe+08i@mail.gmail.com>
- <AANLkTi==UqNNzokLcLWDpjM0cqM6aXjppsi4p6ogMAqX@mail.gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: (Lack of) specification for RX n-tuple filtering
+Date: Wed, 08 Dec 2010 17:22:20 +0000
+Message-ID: <1291828940.2560.17.camel@bwh-desktop>
+References: <1279832544.2104.63.camel@achroite.uk.solarflarecom.com>
+	 <4C48BD1A.4060409@chelsio.com>
+	 <1283870637.2270.10.camel@achroite.uk.solarflarecom.com>
+	 <1291825443.31064.193.camel@lb-tlvb-vladz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed	delsp=yes
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	Neil Jones <neiljay@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Dimitris Michailidis <dm@chelsio.com>,
+	Peter Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Vladislav Zolotarov <vladz@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout4.w1.samsung.com ([210.118.77.14]:15427 "EHLO
-	mailout4.w1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755193Ab0LHRQA convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 12:16:00 -0500
-In-reply-to: <AANLkTi==UqNNzokLcLWDpjM0cqM6aXjppsi4p6ogMAqX@mail.gmail.com>
+Received: from mail.solarflare.com ([216.237.3.220]:39859 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755257Ab0LHRWX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 12:22:23 -0500
+In-Reply-To: <1291825443.31064.193.camel@lb-tlvb-vladz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 08 Dec 2010 16:11:30 +0100, Neil Jones <neiljay@gmail.com> wrot=
-e:
-> Im getting another lockdep warning when using the RNDIS gadget:
->
->  WARNING: at kernel/softirq.c:98 ___local_bh_disable+0xc4/0xd0()
->  Modules linked in: g_ether
->
->  Call trace:
->  [<40003bf8>] _show_stack+0x68/0x7c
->  [<40003c20>] _dump_stack+0x14/0x28
->  [<40013c3c>] _warn_slowpath_common+0x5c/0x7c
->  [<40013c74>] _warn_slowpath_null+0x18/0x2c
->  [<4001b17c>] ___local_bh_disable+0xc0/0xd0
->  [<4001b1a0>] _local_bh_disable+0x14/0x28
->  [<402e57f8>] __raw_spin_lock_bh+0x18/0x54
->  [<40257f4c>] _dev_txq_stats_fold+0x7c/0x13c
->  [<402580c4>] _dev_get_stats+0xb8/0xc0
->  [<781d4e60>] _rndis_msg_parser+0x288/0xa04 [g_ether]
->  [<781d5600>] _rndis_command_complete+0x24/0x70 [g_ether]
->  [<401d66fc>] _dwc_otg_request_done+0xd8/0x220
->  [<401d928c>] _ep0_complete_request+0x3f4/0x578
->  [<401d95bc>] _handle_ep0+0x1ac/0x146c
->  [<401daf7c>] _dwc_otg_pcd_handle_in_ep_intr+0x1c0/0x8bc
->  [<401db8dc>] _dwc_otg_pcd_handle_intr+0x264/0x294
->  [<401d6288>] _dwc_otg_pcd_irq+0x10/0x30
->  [<40054cf4>] _handle_IRQ_event+0x4c/0x184
->  [<40057b4c>] _handle_level_irq+0xac/0x15c
->  [<4000b204>] _metag_soc_irq_demux+0xac/0xb4
->  [<40002dd4>] _do_IRQ+0x4c/0x78
->  [<40004000>] _trigger_handler+0x38/0xac
->  [<40000b18>] ___TBIBoingVec+0xc/0x10
->  [<40003588>] _cpu_idle+0x54/0x78
->
->  no locks held by swapper/0.
->  ---[ end trace 77ac3cfee0ae5b25 ]---
+On Wed, 2010-12-08 at 18:24 +0200, Vladislav Zolotarov wrote:
+> > > It's a bit worse than that.  Currently one can only append filters, not
+> > > insert at a given position, as ethtool_rx_ntuple doesn't have an index
+> > > field.  For devices that use TCAMs, where position matters, it's quite an
+> > > obstacle.  It also means one cannot modify an existing filter by specifying
+> > > a new filter for the same index.
+> > 
+> > It looks like drivers for devices that use TCAMs should implement the
+> > RXNFC interface instead.
+> > 
+> 
+> Ben, from ethtool manpage it sounds like RXNFC option defines the way
+> the RSS hash should be calculated, while SRXNTUPLE is meant to control
+> the destination Rx queue for a stream specified by a filter/filters.
 
-Known problem.
+By 'RXNFC interface' I mean ETHTOOL_{G,S}RXCLS* and not
+ETHTOOL_{G,S}RXFH which wrongly share (part of) the same structure..
 
-> It looks like we are calling spin_lock_bh in the completion function
-> which is running in hard_irq, I think the driver should defer handlin=
-g
-> this msg (and maybe all requests) to a workqueue?
+> The
+> semantics for a specification of the steam is also quite different. For
+> instance, how do u define a rule to drop all packets with source IP
+> address 192.168.10.200 by means of RXNFC?
 
-Does this help: <https://patchwork.kernel.org/patch/195562/>?
+Something like this, I think:
 
---=20
-Best regards,                                        _     _
-| Humble Liege of Serenely Enlightened Majesty of  o' \,=3D./ `o
-| Computer Science,  Micha=C5=82 "mina86" Nazarewicz       (o o)
-+----[mina86*mina86.com]---[mina86*jabber.org]----ooO--(_)--Ooo--
+struct ethtool_rxnfc insert_rule = {
+	.cmd = ETHTOOL_SRXCLSRLINS,
+	.flow_type = IP_USER_SPEC,
+	.fs = {
+		.flow_type = IP_USER_SPEC,
+		.h_u.usr_ip4_spec = {
+			.ip4src = inet_aton("192.168.10.200"),
+			.ip_ver = ETH_RX_NFC_IP4
+		},
+		.m_u.usr_ip4_spec = {
+			.ip4dst = 0xffffffff,
+			.l4_4_bytes = 0xffffffff,
+			.tos = 0xff,
+			.proto = 0xff
+		},
+		.ring_cookie = RX_CLS_FLOW_DISC,
+		.location = 0,
+	}
+};
+
+[...]
+> I also agree with Dimitris: what we have here is an offload of some
+> Netfilter functionality to HW. Regardless the HW implementation (TCAM or
+> not) if it's allowed to configure more than one rule for the same
+> protocol the ordering of filtering rules is important: for instance if u
+> change the order of applying the rules in the example below the result
+> of the filtering for the traffic with both VLAN 4 and destination port
+> 3000 will be different.
+
+Our hardware (and, I suspect, the ixgbe hardware) has hash tables for
+specific types of matching.  There is some control of precedence between
+different types of match, but that's all.
+
+> ethtool -U ethX flow-type tcp4 vlan 4 action 0
+> ethtool -U ethX flow-type tcp4 dst-port 3000 action 3
+> 
+> By the way it's also unclear from the ethtool man page if it's allowed
+> to configure more than one rule for the same protocol. If it's not then
+> the above example is void... ;)
+
+It's allowed, but precedence is unspecified.
+
+> However, if we want to define a proper
+> filtering interface I think we shouldn't restrict the driver
+> implementation from defining a set of rules for the same protocol,
+> allowing not to though.
+> 
+> So, I think that attaching an index to each rule could be a good idea -
+> this would allow us both inserting rules at the desired positions in the
+> filtering rule table and editing the existing rules.
+
+This really sounds like the RXNFC interface.
+
+> It's also unclear what is the relation between RXNFC and SRXNTUPLE. The
+> last in general may override the decision made based on the hash result.
+> So, it sounds like applying rules of SRXNTUPLE should come before
+> applying the RSS logic and only if there was no match RSS should be
+> applied to that frame. Do I get it right?
+
+That's right.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
