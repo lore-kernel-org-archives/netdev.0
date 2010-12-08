@@ -1,39 +1,30 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: RCU conversion of dev_getbyhwaddr() and
- arp_ioctl()
-Date: Wed, 08 Dec 2010 19:11:41 +0100
-Message-ID: <1291831901.2883.67.camel@edumazet-laptop>
-References: <1291548233.2806.212.camel@edumazet-laptop>
-	 <20101208.100528.193703457.davem@davemloft.net>
-	 <1291831654.2883.66.camel@edumazet-laptop>
-	 <20101208.101035.226775926.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] econet: Do the correct cleanup after an unprivileged
+ SIOCSIFADDR.
+Date: Wed, 08 Dec 2010 10:14:05 -0800 (PST)
+Message-ID: <20101208.101405.104050937.davem@davemloft.net>
+References: <1291589152-4640-1-git-send-email-nelhage@ksplice.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: maximlevitsky@gmail.com, linux1394-devel@lists.sourceforge.net,
-	stefanr@s5r6.in-berlin.de, netdev@vger.kernel.org,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: philb@gnu.org, netdev@vger.kernel.org, stable@kernel.org
+To: nelhage@ksplice.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:45052 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755801Ab0LHSLq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 13:11:46 -0500
-Received: by wwa36 with SMTP id 36so1460358wwa.1
-        for <netdev@vger.kernel.org>; Wed, 08 Dec 2010 10:11:45 -0800 (PST)
-In-Reply-To: <20101208.101035.226775926.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58532
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754870Ab0LHSNi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 13:13:38 -0500
+In-Reply-To: <1291589152-4640-1-git-send-email-nelhage@ksplice.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 08 d=C3=A9cembre 2010 =C3=A0 10:10 -0800, David Miller a =C3=
-=A9crit :
+From: Nelson Elhage <nelhage@ksplice.com>
+Date: Sun,  5 Dec 2010 17:45:52 -0500
 
-> I know about the conflict and will resolve it when I do a merge in
-> the next hour or so.
->=20
-> Don't worry about this.
+> We need to drop the mutex and do a dev_put, so set an error code and break like
+> the other paths, instead of returning directly.
+> 
+> Cc: stable@kernel.org
+> Signed-off-by: Nelson Elhage <nelhage@ksplice.com>
 
-Ah thats great, thanks !
-
-
-
+Applied, thanks Nelson.
