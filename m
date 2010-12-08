@@ -1,45 +1,110 @@
-From: wisalsami <wisalsami@yahoo.co.uk>
-Subject: Re: [PATCH 44/44] [XFRM] IPV6: Support Mobile IPv6 extension
- headers sorting.
-Date: Tue, 7 Dec 2010 23:31:30 -0800 (PST)
-Message-ID: <30403215.post@talk.nabble.com>
-References: <11563453651167-git-send-email-yoshfuji@linux-ipv6.org> <11563453651533-git-send-email-yoshfuji@linux-ipv6.org> <11563453653169-git-send-email-yoshfuji@linux-ipv6.org> <1156345365325-git-send-email-yoshfuji@linux-ipv6.org> <11563453653851-git-send-email-yoshfuji@linux-ipv6.org> <11563453653575-git-send-email-yoshfuji@linux-ipv6.org> <1156345365651-git-send-email-yoshfuji@linux-ipv6.org> <1156345365264-git-send-email-yoshfuji@linux-ipv6.org> <1156345365312-git-send-email-yoshfuji@linux-ipv6.org> <11563453652646-git-send-email-yoshfuji@linux-ipv6.org> <1156345365315-git-send-email-yoshfuji@linux-ipv6.org> <11563453651452-git-send-email-yoshfuji@linux-ipv6.org> <1156345366288-git-send-email-yoshfuji@linux-ipv6.org> <1156345366857-git-send-email-yoshfuji@linux-ipv6.org> <1156345366
- 3761-git-send-email-yoshfuji@linux-ipv6.org> <11563453662321-git-send-email-yoshfuji@linux-ipv6.org> <11563453661892-git-send-email-yoshfuji@linux-ipv6.org> <11563453661207-git-send-email-yoshfuji@linux-ipv6.org> <11563453663743-git-send-email-yoshfuji@linux-ipv6.org> <1156345366676-git-send-email-yoshfuji@linux-ipv6.org> <11563453662840-git-send-email-yoshfuji@linux-ipv6.org> <11563453662913-git-send-email-yoshfuji@linux-ipv6.org> <11563453663400-git-send-email-yoshfuji@linux-ipv6.org> <1156345366549-git-send-email-yoshfuji@linux-ipv6.org> <11563453662956-git-send-email-yoshfuji@linux-ipv6.org> <11563453661764-git-send-email-yoshfuji@linux-ipv6.org> <11563453663275-git-send-email-yoshfuji@linux-ipv6.org> <11563453671174-git-send-email-yoshfuji@linux-ipv6.org> <11563453674049-git-send-em
- ail-yoshfuji@linux-ipv6.org> <11563453673517-git-send-email-yoshfuji@linux-ipv6.org> <11563453674137-git-send-email-yoshfuji@linux-ipv6.org> <11563453671944-git-send-email-yoshfuji@linux-ipv6.org> <11563453671187-git-send-email-yoshfuji@linux-ipv6.org> <11563453672959-git-send-email-yoshfuji@linux-ipv6.org> <1156345367208-git-send-email-yoshfuji@linux-ipv6.org> <11563453673786-git-send-email-yoshfuji@linux-ipv6.org> <11563453672531-git-send-email-yoshfuji@linux-ipv6.org> <11563453674194-git-send-email-yoshfuji@linux-ipv6.org> <11563453671463-git-send-email-yoshfuji@linux-ipv6.org> <11563453672872-git-send-email-yoshfuji@linux-ipv6.org> <11563453671273-git-send-email-yoshfuji@linux-ipv6.org> <11563453674024-git-send-email-yoshfuji@linux-ipv6.org> <11563453673854-git-send-email-yoshfuji@li
- nux-ipv6.org> <11563453681815-git-send-email-yoshfuji@linux-ipv6.org> <11563453682841-git-send-email-yoshfuji@linux-ipv6.org> <20060823.225706.03601250.davem@davemloft.net> <20060824.150442.44820672.yoshfuji@linux-ipv6.org> <20060823.235404.108743952.davem@davemloft.net> <44ED4FC3.9060005@linux-ipv6.org> <20060824.045850.74749237.davem@davemloft.net> <44EE4ABC.6050604@linux-ipv6.org> <44EECBB0.7070001@linux-ipv6.org> <20060825.031651.88475974.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kuber.nabble.com ([216.139.236.158]:40001 "EHLO
-	kuber.nabble.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752842Ab0LHHbb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 02:31:31 -0500
-Received: from isper.nabble.com ([192.168.236.156])
-	by kuber.nabble.com with esmtp (Exim 4.63)
-	(envelope-from <lists@nabble.com>)
-	id 1PQEUs-00022w-G9
-	for netdev@vger.kernel.org; Tue, 07 Dec 2010 23:31:30 -0800
-In-Reply-To: <20060825.031651.88475974.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Amerigo Wang <amwang@redhat.com>
+Subject: [v3 PATCH 2/2] netpoll: remove IFF_IN_NETPOLL flag
+Date: Wed, 8 Dec 2010 02:52:19 -0500
+Message-ID: <20101208075218.5792.64791.sendpatchset@localhost.localdomain>
+References: <20101208075208.5792.45247.sendpatchset@localhost.localdomain>
+Cc: Jiri Pirko <jpirko@redhat.com>, Neil Horman <nhorman@redhat.com>,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Amerigo Wang <amwang@redhat.com>,
+	Herbert Xu <herbert@gondor.hengli.com.au>,
+	bonding-devel@lists.sourceforge.net,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20101208075208.5792.45247.sendpatchset@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Amerigo Wang <amwang@redhat.com>
+Date: Thu, 2 Dec 2010 21:34:44 +0800
+Subject: [v3 PATCH 2/2] netpoll: remove IFF_IN_NETPOLL flag
 
-Hi,
-I m started working on vertical handover, and also got the patch
-(NIST_Mobility) working on ns-2.29 (but it doesn't matter its not 2.29). But
-i m new to this subject, so i need some help, that how should i implement
-MIPL on ns-2. or have you worked on NIST_Mobility patch on ns, that whether
-nist_mobility patch support mipl and mipv6 or not.
-because i found a header file name as "mip6.h"
+This patch removes the flag IFF_IN_NETPOLL, we don't need it any more since
+we have netpoll_tx_running() now.
 
-could you help me in this topic, if not, then if you direct me to someone.
+Signed-off-by: WANG Cong <amwang@redhat.com>
+Cc: Neil Horman <nhorman@redhat.com>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: Jay Vosburgh <fubar@us.ibm.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Stephen Hemminger <shemminger@vyatta.com>
+Cc: Jiri Pirko <jpirko@redhat.com>
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>
 
-reards
-Wisal Sami
-wisalsami@yahoo.co.uk
+---
+
+ drivers/net/bonding/bond_main.c |    6 ++----
+ drivers/net/bonding/bonding.h   |    2 +-
+ include/linux/if.h              |    9 ++++-----
+ net/core/netpoll.c              |    2 --
+ 4 files changed, 7 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 7fafe06..21ac08b 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -448,11 +448,9 @@ int bond_dev_queue_xmit(struct bonding *bond, struct sk_buff *skb,
+ 	}
+ 
+ 	skb->priority = 1;
+-	if (unlikely(netpoll_tx_running(slave_dev))) {
+-		slave_dev->priv_flags |= IFF_IN_NETPOLL;
++	if (unlikely(netpoll_tx_running(slave_dev)))
+ 		bond_netpoll_send_skb(bond_get_slave_by_dev(bond, slave_dev), skb);
+-		slave_dev->priv_flags &= ~IFF_IN_NETPOLL;
+-	} else
++	else
+ 		dev_queue_xmit(skb);
+ 
+ 	return 0;
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index c4f6a94..493e645 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -138,7 +138,7 @@ static inline void unblock_netpoll_tx(void)
+ 
+ static inline int is_netpoll_tx_blocked(struct net_device *dev)
+ {
+-	if (unlikely(dev->priv_flags & IFF_IN_NETPOLL))
++	if (unlikely(netpoll_tx_running(dev)))
+ 		return cpumask_test_cpu(smp_processor_id(), netpoll_block_tx);
+ 	return 0;
+ }
+diff --git a/include/linux/if.h b/include/linux/if.h
+index 1239599..3bc63e6 100644
+--- a/include/linux/if.h
++++ b/include/linux/if.h
+@@ -71,11 +71,10 @@
+ 					 * release skb->dst
+ 					 */
+ #define IFF_DONT_BRIDGE 0x800		/* disallow bridging this ether dev */
+-#define IFF_IN_NETPOLL	0x1000		/* whether we are processing netpoll */
+-#define IFF_DISABLE_NETPOLL	0x2000	/* disable netpoll at run-time */
+-#define IFF_MACVLAN_PORT	0x4000	/* device used as macvlan port */
+-#define IFF_BRIDGE_PORT	0x8000		/* device used as bridge port */
+-#define IFF_OVS_DATAPATH	0x10000	/* device used as Open vSwitch
++#define IFF_DISABLE_NETPOLL	0x1000	/* disable netpoll at run-time */
++#define IFF_MACVLAN_PORT	0x2000	/* device used as macvlan port */
++#define IFF_BRIDGE_PORT	0x4000		/* device used as bridge port */
++#define IFF_OVS_DATAPATH	0x8000	/* device used as Open vSwitch
+ 					 * datapath port */
+ 
+ #define IF_GET_IFACE	0x0001		/* for querying only */
+diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+index ee38acb..8a5c1c9 100644
+--- a/net/core/netpoll.c
++++ b/net/core/netpoll.c
+@@ -314,9 +314,7 @@ void netpoll_send_skb_on_dev(struct netpoll *np, struct sk_buff *skb,
+ 		     tries > 0; --tries) {
+ 			if (__netif_tx_trylock(txq)) {
+ 				if (!netif_tx_queue_stopped(txq)) {
+-					dev->priv_flags |= IFF_IN_NETPOLL;
+ 					status = ops->ndo_start_xmit(skb, dev);
+-					dev->priv_flags &= ~IFF_IN_NETPOLL;
+ 					if (status == NETDEV_TX_OK)
+ 						txq_trans_update(txq);
+ 				}
 -- 
-View this message in context: http://old.nabble.com/-PATCH-0-44--Mobile-IPv6-Platform%2C-Take-2-%28for-net-2.6.19%29-tp5946388p30403215.html
-Sent from the netdev mailing list archive at Nabble.com.
-
+1.7.1
