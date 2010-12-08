@@ -1,46 +1,65 @@
-From: Greg KH <gregkh@suse.de>
-Subject: Re: [34/44] Limit sysctl_tcp_mem and sysctl_udp_mem initializers
- to prevent integer overflows.
-Date: Tue, 7 Dec 2010 20:16:56 -0800
-Message-ID: <20101208041656.GA2291@suse.de>
-References: <20101208003205.GA4286@kroah.com>
- <20101208000642.975564500@clark.site>
- <AANLkTimTw3O-OM-5Cgv0ELNj8SmMjaaeMHMd2NNezxi7@mail.gmail.com>
+From: David Lv <davidlv.linux@gmail.com>
+Subject: [PATCH 2/2] via-velocity: fix the WOL bug on 1000M full duplex forced mode
+Date: Wed, 8 Dec 2010 13:47:19 +0800
+Message-ID: <AANLkTi=+r4cjE-3RJgrsrVaPBz0Ok_7XqZ+dxZgFCCUg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, stable@kernel.org,
-	"David S. Miller" <davem@davemloft.net>, stable-review@kernel.org,
-	akpm@linux-foundation.org, alan@lxorguk.ukuu.org.uk,
-	Robin Holt <holt@sgi.com>, Willy Tarreau <w@1wt.eu>,
-	netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Vlad Yasevich <vladislav.yasevich@hp.com>,
-	Sridhar Samudrala <sri@us.ibm.com>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <AANLkTimTw3O-OM-5Cgv0ELNj8SmMjaaeMHMd2NNezxi7@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org, romieu@fr.zoreil.com,
+	DavidLv@viatech.com.cn, ShirleyHu@viatech.com.cn,
+	AndersMa@viatech.com.cn
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:55564 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751792Ab0LHFrU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 00:47:20 -0500
+Received: by wyb28 with SMTP id 28so726361wyb.19
+        for <netdev@vger.kernel.org>; Tue, 07 Dec 2010 21:47:19 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 07, 2010 at 05:22:34PM -0800, Linus Torvalds wrote:
-> On Tue, Dec 7, 2010 at 4:04 PM, Greg KH <gregkh@suse.de> wrote:
-> >
-> > From: Robin Holt <holt@sgi.com>
-> >
-> > [ Problem was fixed differently upstream. -DaveM ]
-> 
-> Gaah. I'd really like to see more of a description for things like
-> this. A commit ID for the alternate fix, or at least a few words about
-> the different fix or reason why upstream doesn't need the stable
-> commit.
+The VIA velocity card can't be waken up by WOL tool on 1000M full
+duplex forced mode.
+This patch fixes the bug.
+Thanks!
 
-I'll let David confirm this, he's the one who sent it to me :)
+Signed-off-by: David Lv <DavidLv@viatech.com.cn>
+Acked-by: Francois Romieu <romieu@fr.zoreil.com>
+---
+ drivers/net/via-velocity.c |   18 ++++++++++--------
+ 1 files changed, 10 insertions(+), 8 deletions(-)
 
-thanks,
+diff --git a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
+index 95accb9..052b344 100644
+--- a/drivers/net/via-velocity.c
++++ b/drivers/net/via-velocity.c
+@@ -3001,16 +3001,18 @@ static int velocity_set_wol(struct velocity_info *vptr)
 
-greg k-h
+ 		MII_REG_BITS_ON(BMCR_ANRESTART, MII_BMCR, vptr->mac_regs);
+
+-	} else {
+-		if (vptr->mii_status & VELOCITY_AUTONEG_ENABLE) {
+-			if (PHYID_GET_PHY_ID(vptr->phy_id) == PHYID_CICADA_CS8201)
+-				MII_REG_BITS_ON(AUXCR_MDPPS, MII_NCONFIG, vptr->mac_regs);
++	} else if (SPD_DPX_1000_FULL != vptr->options.spd_dpx) {
++		if (SPD_DPX_AUTO == vptr->options.spd_dpx) {
++			if (vptr->mii_status & VELOCITY_AUTONEG_ENABLE) {
++				if (PHYID_GET_PHY_ID(vptr->phy_id) == PHYID_CICADA_CS8201)
++					MII_REG_BITS_ON(AUXCR_MDPPS, MII_NCONFIG, vptr->mac_regs);
+
+-			MII_REG_BITS_OFF(ADVERTISE_1000FULL | ADVERTISE_1000HALF,
+MII_CTRL1000, vptr->mac_regs);
+-		}
++				MII_REG_BITS_OFF(ADVERTISE_1000FULL | ADVERTISE_1000HALF,
+MII_CTRL1000, vptr->mac_regs);
++			}
+
+-		if (vptr->mii_status & VELOCITY_SPEED_1000)
+-			MII_REG_BITS_ON(BMCR_ANRESTART, MII_BMCR, vptr->mac_regs);
++			if (vptr->mii_status & VELOCITY_SPEED_1000)
++				MII_REG_BITS_ON(BMCR_ANRESTART, MII_BMCR, vptr->mac_regs);
++		}
+
+ 		BYTE_REG_BITS_ON(CHIPGCR_FCMODE, &regs->CHIPGCR);
+
+-- 
+1.7.3.2
