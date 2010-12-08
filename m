@@ -1,35 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH] enic: Add ndo_set_rx_mode support for
- enic vnics
-Date: Wed, 08 Dec 2010 10:02:47 -0800 (PST)
-Message-ID: <20101208.100247.15255147.davem@davemloft.net>
-References: <20101205062336.28056.72156.stgit@savbu-pc100.cisco.com>
+Subject: Re: [PATCH] net: RCU conversion of dev_getbyhwaddr() and
+ arp_ioctl()
+Date: Wed, 08 Dec 2010 10:05:28 -0800 (PST)
+Message-ID: <20101208.100528.193703457.davem@davemloft.net>
+References: <1291504514.1874.92.camel@maxim-laptop>
+	<1291537161.2806.109.camel@edumazet-laptop>
+	<1291548233.2806.212.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: roprabhu@cisco.com
+Cc: maximlevitsky@gmail.com, linux1394-devel@lists.sourceforge.net,
+	stefanr@s5r6.in-berlin.de, netdev@vger.kernel.org,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60106
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60116
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755095Ab0LHSCT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 13:02:19 -0500
-In-Reply-To: <20101205062336.28056.72156.stgit@savbu-pc100.cisco.com>
+	by vger.kernel.org with ESMTP id S1750960Ab0LHSFA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 13:05:00 -0500
+In-Reply-To: <1291548233.2806.212.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roopa Prabhu <roprabhu@cisco.com>
-Date: Sat, 04 Dec 2010 22:23:36 -0800
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sun, 05 Dec 2010 12:23:53 +0100
 
-> From: Roopa Prabhu <roprabhu@cisco.com>
+> [PATCH] net: RCU conversion of dev_getbyhwaddr() and arp_ioctl()
 > 
-> Add ndo_set_rx_mode support to register unicast and multicast address filters for enic vnics
+> dev_getbyhwaddr() was called under RTNL.
 > 
-> Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
-> Signed-off-by: Vasanthy Kolluri <vkolluri@cisco.com>
-> Signed-off-by: David Wang <dwang2@cisco.com>
-> Signed-off-by: Christian Benvenuti <benve@cisco.com>
+> Rename it to dev_getbyhwaddr_rcu() and change all its caller to now use
+> RCU locking instead of RTNL.
+> 
+> Change arp_ioctl() to use RCU instead of RTNL locking.
+> 
+> Note: this fix a dev refcount bug in llc
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-This patch does not apply to net-next-2.6, please respin this.
-
-Thanks.
+Applied, thanks Eric.
