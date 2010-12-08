@@ -1,265 +1,69 @@
-From: Roopa Prabhu <roprabhu@cisco.com>
-Subject: [net-next-2.6 PATCH] enic: Add ndo_set_rx_mode support for enic vnics
-Date: Wed, 08 Dec 2010 15:19:58 -0800
-Message-ID: <20101208231958.24293.72420.stgit@savbu-pc100.cisco.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: echo > 0 .../disable_ipv6 broken in 2.6.37-rc4
+Date: Wed, 8 Dec 2010 15:49:32 -0800
+Message-ID: <20101208154932.5bc4b254@nehalam>
+References: <m17hfnlpe1.fsf@fess.ebiederm.org>
+	<4CFD0AF0.9090809@hp.com>
+	<m14oaoeywf.fsf@fess.ebiederm.org>
+	<4D000B6D.1060708@hp.com>
+	<m1tyineu3p.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Cc: Brian Haley <brian.haley@hp.com>, netdev@vger.kernel.org,
+	Mahesh Kelkar <maheshkelkar@gmail.com>,
+	Lorenzo Colitti <lorenzo@google.com>
+To: ebiederm@xmission.com (Eric W. Biederman)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-1.cisco.com ([171.71.176.70]:11623 "EHLO
-	sj-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932114Ab0LHXT6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 18:19:58 -0500
+Received: from mail.vyatta.com ([76.74.103.46]:56422 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751209Ab0LHXte (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Dec 2010 18:49:34 -0500
+In-Reply-To: <m1tyineu3p.fsf@fess.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roopa Prabhu <roprabhu@cisco.com>
+On Wed, 08 Dec 2010 15:13:30 -0800
+ebiederm@xmission.com (Eric W. Biederman) wrote:
 
-Add ndo_set_rx_mode support to register unicast and multicast
-address filters for enic devices
+> Brian Haley <brian.haley@hp.com> writes:
+> 
+> > This got broken in 2.6.34-rc1, and the most obvious culprit is this,
+> > although I haven't bisected it:
+> >
+> > commit dc2b99f71ef477a31020511876ab4403fb7c4420
+> > Author: stephen hemminger <shemminger@vyatta.com>
+> > Date:   Mon Feb 8 19:48:05 2010 +0000
+> >
+> >     IPv6: keep permanent addresses on admin down
+> >
+> >     Permanent IPV6 addresses should not be removed when the link is
+> >     set to admin down, only when device is removed.
+> >
+> >     When link is lost permanent addresses should be marked as tentative
+> >     so that when link comes back they are subject to duplicate address
+> >     detection (if DAD was enabled for that address).
+> >
+> >     Other routing systems keep manually configured IPv6 addresses
+> >     when link is set down.
+> >
+> > Even though there was a bugfix update, it didn't help.
+> >
+> > I unfortunately won't be able to look at this more until at least Friday,
+> > I couldn't come up with a quick patch just looking quickly at
+> > addrconf_ifdown().
+> 
+> This is almost certainly it.
+> ip link set lo down
+> ip link set lo up
+> 
+> Is enough to break ping6 ::1.
+> 
+> I get the feeling the loopback address was not actually tested and
+> there is something different about it.
 
-Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
-Signed-off-by: Vasanthy Kolluri <vkolluri@cisco.com>
-Signed-off-by: David Wang <dwang2@cisco.com>
-Signed-off-by: Christian Benvenuti <benve@cisco.com>
----
- drivers/net/enic/enic.h      |    4 +
- drivers/net/enic/enic_main.c |  121 ++++++++++++++++++++++++++++++++++--------
- drivers/net/enic/enic_res.h  |    1 
- 3 files changed, 102 insertions(+), 24 deletions(-)
+Loopback is already handled as special case in addrconf. Look at IFF_LOOPBACK
+perhaps there is a logic error there.
 
 
-diff --git a/drivers/net/enic/enic.h b/drivers/net/enic/enic.h
-index 7067254..8f374c1 100644
---- a/drivers/net/enic/enic.h
-+++ b/drivers/net/enic/enic.h
-@@ -32,7 +32,7 @@
- 
- #define DRV_NAME		"enic"
- #define DRV_DESCRIPTION		"Cisco VIC Ethernet NIC Driver"
--#define DRV_VERSION		"1.4.1.7"
-+#define DRV_VERSION		"1.4.1.8"
- #define DRV_COPYRIGHT		"Copyright 2008-2010 Cisco Systems, Inc"
- 
- #define ENIC_BARS_MAX		6
-@@ -78,8 +78,10 @@ struct enic {
- 	spinlock_t devcmd_lock;
- 	u8 mac_addr[ETH_ALEN];
- 	u8 mc_addr[ENIC_MULTICAST_PERFECT_FILTERS][ETH_ALEN];
-+	u8 uc_addr[ENIC_UNICAST_PERFECT_FILTERS][ETH_ALEN];
- 	unsigned int flags;
- 	unsigned int mc_count;
-+	unsigned int uc_count;
- 	int csum_rx_enabled;
- 	u32 port_mtu;
- 	u32 rx_coalesce_usecs;
-diff --git a/drivers/net/enic/enic_main.c b/drivers/net/enic/enic_main.c
-index 9f293fa..1931f15 100644
---- a/drivers/net/enic/enic_main.c
-+++ b/drivers/net/enic/enic_main.c
-@@ -1002,7 +1002,7 @@ static int enic_dev_packet_filter(struct enic *enic, int directed,
- 	return err;
- }
- 
--static int enic_dev_add_multicast_addr(struct enic *enic, u8 *addr)
-+static int enic_dev_add_addr(struct enic *enic, u8 *addr)
- {
- 	int err;
- 
-@@ -1013,7 +1013,7 @@ static int enic_dev_add_multicast_addr(struct enic *enic, u8 *addr)
- 	return err;
- }
- 
--static int enic_dev_del_multicast_addr(struct enic *enic, u8 *addr)
-+static int enic_dev_del_addr(struct enic *enic, u8 *addr)
- {
- 	int err;
- 
-@@ -1024,29 +1024,19 @@ static int enic_dev_del_multicast_addr(struct enic *enic, u8 *addr)
- 	return err;
- }
- 
--/* netif_tx_lock held, BHs disabled */
--static void enic_set_multicast_list(struct net_device *netdev)
-+static void enic_add_multicast_addr_list(struct enic *enic)
- {
--	struct enic *enic = netdev_priv(netdev);
-+	struct net_device *netdev = enic->netdev;
- 	struct netdev_hw_addr *ha;
--	int directed = 1;
--	int multicast = (netdev->flags & IFF_MULTICAST) ? 1 : 0;
--	int broadcast = (netdev->flags & IFF_BROADCAST) ? 1 : 0;
--	int promisc = (netdev->flags & IFF_PROMISC) ? 1 : 0;
- 	unsigned int mc_count = netdev_mc_count(netdev);
--	int allmulti = (netdev->flags & IFF_ALLMULTI) ||
--		mc_count > ENIC_MULTICAST_PERFECT_FILTERS;
--	unsigned int flags = netdev->flags | (allmulti ? IFF_ALLMULTI : 0);
- 	u8 mc_addr[ENIC_MULTICAST_PERFECT_FILTERS][ETH_ALEN];
- 	unsigned int i, j;
- 
--	if (mc_count > ENIC_MULTICAST_PERFECT_FILTERS)
-+	if (mc_count > ENIC_MULTICAST_PERFECT_FILTERS) {
-+		netdev_warn(netdev, "Registering only %d out of %d "
-+			"multicast addresses\n",
-+			ENIC_MULTICAST_PERFECT_FILTERS, mc_count);
- 		mc_count = ENIC_MULTICAST_PERFECT_FILTERS;
--
--	if (enic->flags != flags) {
--		enic->flags = flags;
--		enic_dev_packet_filter(enic, directed,
--			multicast, broadcast, promisc, allmulti);
- 	}
- 
- 	/* Is there an easier way?  Trying to minimize to
-@@ -1068,7 +1058,7 @@ static void enic_set_multicast_list(struct net_device *netdev)
- 				mc_addr[j]) == 0)
- 				break;
- 		if (j == mc_count)
--			enic_dev_del_multicast_addr(enic, enic->mc_addr[i]);
-+			enic_dev_del_addr(enic, enic->mc_addr[i]);
- 	}
- 
- 	for (i = 0; i < mc_count; i++) {
-@@ -1077,7 +1067,7 @@ static void enic_set_multicast_list(struct net_device *netdev)
- 				enic->mc_addr[j]) == 0)
- 				break;
- 		if (j == enic->mc_count)
--			enic_dev_add_multicast_addr(enic, mc_addr[i]);
-+			enic_dev_add_addr(enic, mc_addr[i]);
- 	}
- 
- 	/* Save the list to compare against next time
-@@ -1089,6 +1079,89 @@ static void enic_set_multicast_list(struct net_device *netdev)
- 	enic->mc_count = mc_count;
- }
- 
-+static void enic_add_unicast_addr_list(struct enic *enic)
-+{
-+	struct net_device *netdev = enic->netdev;
-+	struct netdev_hw_addr *ha;
-+	unsigned int uc_count = netdev_uc_count(netdev);
-+	u8 uc_addr[ENIC_UNICAST_PERFECT_FILTERS][ETH_ALEN];
-+	unsigned int i, j;
-+
-+	if (uc_count > ENIC_UNICAST_PERFECT_FILTERS) {
-+		netdev_warn(netdev, "Registering only %d out of %d "
-+			"unicast addresses\n",
-+			ENIC_UNICAST_PERFECT_FILTERS, uc_count);
-+		uc_count = ENIC_UNICAST_PERFECT_FILTERS;
-+	}
-+
-+	/* Is there an easier way?  Trying to minimize to
-+	 * calls to add/del unicast addrs.  We keep the
-+	 * addrs from the last call in enic->uc_addr and
-+	 * look for changes to add/del.
-+	 */
-+
-+	i = 0;
-+	netdev_for_each_uc_addr(ha, netdev) {
-+		if (i == uc_count)
-+			break;
-+		memcpy(uc_addr[i++], ha->addr, ETH_ALEN);
-+	}
-+
-+	for (i = 0; i < enic->uc_count; i++) {
-+		for (j = 0; j < uc_count; j++)
-+			if (compare_ether_addr(enic->uc_addr[i],
-+				uc_addr[j]) == 0)
-+				break;
-+		if (j == uc_count)
-+			enic_dev_del_addr(enic, enic->uc_addr[i]);
-+	}
-+
-+	for (i = 0; i < uc_count; i++) {
-+		for (j = 0; j < enic->uc_count; j++)
-+			if (compare_ether_addr(uc_addr[i],
-+				enic->uc_addr[j]) == 0)
-+				break;
-+		if (j == enic->uc_count)
-+			enic_dev_add_addr(enic, uc_addr[i]);
-+	}
-+
-+	/* Save the list to compare against next time
-+	 */
-+
-+	for (i = 0; i < uc_count; i++)
-+		memcpy(enic->uc_addr[i], uc_addr[i], ETH_ALEN);
-+
-+	enic->uc_count = uc_count;
-+}
-+
-+/* netif_tx_lock held, BHs disabled */
-+static void enic_set_rx_mode(struct net_device *netdev)
-+{
-+	struct enic *enic = netdev_priv(netdev);
-+	int directed = 1;
-+	int multicast = (netdev->flags & IFF_MULTICAST) ? 1 : 0;
-+	int broadcast = (netdev->flags & IFF_BROADCAST) ? 1 : 0;
-+	int promisc = (netdev->flags & IFF_PROMISC) ||
-+		netdev_uc_count(netdev) > ENIC_UNICAST_PERFECT_FILTERS;
-+	int allmulti = (netdev->flags & IFF_ALLMULTI) ||
-+		netdev_mc_count(netdev) > ENIC_MULTICAST_PERFECT_FILTERS;
-+	unsigned int flags = netdev->flags |
-+		(allmulti ? IFF_ALLMULTI : 0) |
-+		(promisc ? IFF_PROMISC : 0);
-+
-+	if (enic->flags != flags) {
-+		enic->flags = flags;
-+		enic_dev_packet_filter(enic, directed,
-+			multicast, broadcast, promisc, allmulti);
-+	}
-+
-+	if (!promisc) {
-+		enic_add_unicast_addr_list(enic);
-+		if (!allmulti)
-+			enic_add_multicast_addr_list(enic);
-+	}
-+}
-+
- /* rtnl lock is held */
- static void enic_vlan_rx_register(struct net_device *netdev,
- 	struct vlan_group *vlan_group)
-@@ -1852,7 +1925,7 @@ static int enic_open(struct net_device *netdev)
- 		vnic_rq_enable(&enic->rq[i]);
- 
- 	enic_dev_add_station_addr(enic);
--	enic_set_multicast_list(netdev);
-+	enic_set_rx_mode(netdev);
- 
- 	netif_wake_queue(netdev);
- 
-@@ -2328,7 +2401,8 @@ static const struct net_device_ops enic_netdev_dynamic_ops = {
- 	.ndo_start_xmit		= enic_hard_start_xmit,
- 	.ndo_get_stats		= enic_get_stats,
- 	.ndo_validate_addr	= eth_validate_addr,
--	.ndo_set_multicast_list	= enic_set_multicast_list,
-+	.ndo_set_rx_mode	= enic_set_rx_mode,
-+	.ndo_set_multicast_list	= enic_set_rx_mode,
- 	.ndo_set_mac_address	= enic_set_mac_address_dynamic,
- 	.ndo_change_mtu		= enic_change_mtu,
- 	.ndo_vlan_rx_register	= enic_vlan_rx_register,
-@@ -2349,7 +2423,8 @@ static const struct net_device_ops enic_netdev_ops = {
- 	.ndo_get_stats		= enic_get_stats,
- 	.ndo_validate_addr	= eth_validate_addr,
- 	.ndo_set_mac_address	= enic_set_mac_address,
--	.ndo_set_multicast_list	= enic_set_multicast_list,
-+	.ndo_set_rx_mode	= enic_set_rx_mode,
-+	.ndo_set_multicast_list	= enic_set_rx_mode,
- 	.ndo_change_mtu		= enic_change_mtu,
- 	.ndo_vlan_rx_register	= enic_vlan_rx_register,
- 	.ndo_vlan_rx_add_vid	= enic_vlan_rx_add_vid,
-diff --git a/drivers/net/enic/enic_res.h b/drivers/net/enic/enic_res.h
-index 9a103d9..25be273 100644
---- a/drivers/net/enic/enic_res.h
-+++ b/drivers/net/enic/enic_res.h
-@@ -34,6 +34,7 @@
- #define ENIC_MAX_MTU			9000
- 
- #define ENIC_MULTICAST_PERFECT_FILTERS	32
-+#define ENIC_UNICAST_PERFECT_FILTERS	32
- 
- #define ENIC_NON_TSO_MAX_DESC		16
- 
-
+-- 
