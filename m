@@ -1,38 +1,37 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH 0/2] New jhash function
-Date: Thu, 9 Dec 2010 07:53:45 +1030
-Message-ID: <201012090753.46050.rusty@rustcorp.com.au>
-References: <201011271401.22773.rusty@rustcorp.com.au> <1291379941-31565-1-git-send-email-kadlec@blackhole.kfki.hu> <20101208.090954.115924303.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: wireless-next-2.6 2010-12-08
+Date: Wed, 08 Dec 2010 13:25:10 -0800 (PST)
+Message-ID: <20101208.132510.258115664.davem@davemloft.net>
+References: <20101208210432.GH2423@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kadlec@blackhole.kfki.hu, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	torvalds@osdl.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20101208.090954.115924303.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: linville@tuxdriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50688
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756713Ab0LHVYo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 16:24:44 -0500
+In-Reply-To: <20101208210432.GH2423@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 9 Dec 2010 03:39:54 am David Miller wrote:
-> From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-> Date: Fri,  3 Dec 2010 13:38:59 +0100
-> 
-> > The current jhash.h implements the lookup2() hash function by Bob Jenkins. 
-> > However, lookup2() is outdated as Bob wrote a new hash function called 
-> > lookup3(). There is a longer comparison of those two and other hash
-> > functions at http://burtleburtle.net/bob/hash/doobs.html.
-> > 
-> > Please consider applying the following patches.
-> 
-> Patch #1 is already in the net-next-2.6 tree, and as long as there are
-> no major objections to the general crowd (including Rusty et al.) I am
-> happy to put patch #2 into my tree as well.
-> 
-> Rusty, does the current version of patch #2 look good to you?
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Wed, 8 Dec 2010 16:04:32 -0500
 
-Yes, 2/2 good.  Thanks Jozsef!
+> Here is the latest batch of updates intended for 2.6.38.  It also
+> includes my last wireless-2.6 pull request that you just added
+> to net-2.6.
+> 
+> This includes the usual batch of drivers updates, with ath9k and
+> iwlwifi as the usual standouts.  This also includes some mac80211
+> documentation updates from Johannes, and a flurry of ath5k updates
+> from Nick.  This also includes a collection of bluetooth updates by
+> way of Gustavo, a couple of libertas updates, some more work on b43
+> N-phy support, and a variety of other patches.
+> 
+> Please let me know if there are problems!
 
-Acked-by: Rusty Russell <rusty@rustcorp.com.au>
+Ok, I'll suck this in later tonight, thanks John.  I'm working
+on the net-2.6 --> net-next-2.6 merge at the moment.
