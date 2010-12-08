@@ -1,113 +1,63 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
 Subject: Re: (Lack of) specification for RX n-tuple filtering
-Date: Wed, 08 Dec 2010 17:22:20 +0000
-Message-ID: <1291828940.2560.17.camel@bwh-desktop>
-References: <1279832544.2104.63.camel@achroite.uk.solarflarecom.com>
-	 <4C48BD1A.4060409@chelsio.com>
+Date: Wed, 08 Dec 2010 17:29:24 +0000
+Message-ID: <1291829364.2560.24.camel@bwh-desktop>
+References: <4C48BD1A.4060409@chelsio.com>
 	 <1283870637.2270.10.camel@achroite.uk.solarflarecom.com>
 	 <1291825443.31064.193.camel@lb-tlvb-vladz>
+	 <20101208.083921.71108761.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Dimitris Michailidis <dm@chelsio.com>,
-	Peter Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Vladislav Zolotarov <vladz@broadcom.com>
+Cc: vladz@broadcom.com, dm@chelsio.com,
+	peter.p.waskiewicz.jr@intel.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:39859 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:40390 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755257Ab0LHRWX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 12:22:23 -0500
-In-Reply-To: <1291825443.31064.193.camel@lb-tlvb-vladz>
+	with ESMTP id S1755130Ab0LHR31 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 12:29:27 -0500
+In-Reply-To: <20101208.083921.71108761.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-12-08 at 18:24 +0200, Vladislav Zolotarov wrote:
-> > > It's a bit worse than that.  Currently one can only append filters, not
-> > > insert at a given position, as ethtool_rx_ntuple doesn't have an index
-> > > field.  For devices that use TCAMs, where position matters, it's quite an
-> > > obstacle.  It also means one cannot modify an existing filter by specifying
-> > > a new filter for the same index.
-> > 
-> > It looks like drivers for devices that use TCAMs should implement the
-> > RXNFC interface instead.
-> > 
+On Wed, 2010-12-08 at 08:39 -0800, David Miller wrote:
+> From: "Vladislav Zolotarov" <vladz@broadcom.com>
+> Date: Wed, 8 Dec 2010 18:24:03 +0200
 > 
-> Ben, from ethtool manpage it sounds like RXNFC option defines the way
-> the RSS hash should be calculated, while SRXNTUPLE is meant to control
-> the destination Rx queue for a stream specified by a filter/filters.
-
-By 'RXNFC interface' I mean ETHTOOL_{G,S}RXCLS* and not
-ETHTOOL_{G,S}RXFH which wrongly share (part of) the same structure..
-
-> The
-> semantics for a specification of the steam is also quite different. For
-> instance, how do u define a rule to drop all packets with source IP
-> address 192.168.10.200 by means of RXNFC?
-
-Something like this, I think:
-
-struct ethtool_rxnfc insert_rule = {
-	.cmd = ETHTOOL_SRXCLSRLINS,
-	.flow_type = IP_USER_SPEC,
-	.fs = {
-		.flow_type = IP_USER_SPEC,
-		.h_u.usr_ip4_spec = {
-			.ip4src = inet_aton("192.168.10.200"),
-			.ip_ver = ETH_RX_NFC_IP4
-		},
-		.m_u.usr_ip4_spec = {
-			.ip4dst = 0xffffffff,
-			.l4_4_bytes = 0xffffffff,
-			.tos = 0xff,
-			.proto = 0xff
-		},
-		.ring_cookie = RX_CLS_FLOW_DISC,
-		.location = 0,
-	}
-};
-
-[...]
-> I also agree with Dimitris: what we have here is an offload of some
-> Netfilter functionality to HW. Regardless the HW implementation (TCAM or
-> not) if it's allowed to configure more than one rule for the same
-> protocol the ordering of filtering rules is important: for instance if u
-> change the order of applying the rules in the example below the result
-> of the filtering for the traffic with both VLAN 4 and destination port
-> 3000 will be different.
-
-Our hardware (and, I suspect, the ixgbe hardware) has hash tables for
-specific types of matching.  There is some control of precedence between
-different types of match, but that's all.
-
-> ethtool -U ethX flow-type tcp4 vlan 4 action 0
-> ethtool -U ethX flow-type tcp4 dst-port 3000 action 3
+> > I also agree with Dimitris: what we have here is an offload of some
+> > Netfilter functionality to HW. Regardless the HW implementation (TCAM or
+> > not) if it's allowed to configure more than one rule for the same
+> > protocol the ordering of filtering rules is important: for instance if u
+> > change the order of applying the rules in the example below the result
+> > of the filtering for the traffic with both VLAN 4 and destination port
+> > 3000 will be different.
 > 
-> By the way it's also unclear from the ethtool man page if it's allowed
-> to configure more than one rule for the same protocol. If it's not then
-> the above example is void... ;)
-
-It's allowed, but precedence is unspecified.
-
-> However, if we want to define a proper
-> filtering interface I think we shouldn't restrict the driver
-> implementation from defining a set of rules for the same protocol,
-> allowing not to though.
+> It's not the same, this whole ordering thing you expect in netfilter
+> land is simply not present in these hardware implementations.
 > 
-> So, I think that attaching an index to each rule could be a good idea -
-> this would allow us both inserting rules at the desired positions in the
-> filtering rule table and editing the existing rules.
+> The hardware does a parallel TCAM match lookup, and whatever matches
+> is used.
 
-This really sounds like the RXNFC interface.
+I think the match with the lowest index wins, which is why it's possible
+to specify the rule's index (location) with ETHTOOL_SRXCLSRLINS and why
+Peter defined new commands without that for use with the ixgbe driver.
 
-> It's also unclear what is the relation between RXNFC and SRXNTUPLE. The
-> last in general may override the decision made based on the hash result.
-> So, it sounds like applying rules of SRXNTUPLE should come before
-> applying the RSS logic and only if there was no match RSS should be
-> applied to that frame. Do I get it right?
+> Some hardware does link-level protocol lookups first, then L3/L4 later
+> in the RX path right before computing the hash and selecting an RX
+> queue.
+>
+> There really is no ordering available, so let's not pretend it can be
+> used "just like" netfilter rules.
+> 
+> As per the difference between the various ethtool facilities, this
+> just represents the fact that whats available to offload differs
+> per device.  The best we can do is encapsulate commonality as best
+> as we can, but each interface essentially represents what one
+> major chipset provides.
 
-That's right.
+I think the interfaces are actually somewhat more flexible than any of
+the current implementations.
 
 Ben.
 
