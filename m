@@ -1,105 +1,76 @@
-From: Neil Jones <neiljay@gmail.com>
-Subject: Re: rndis gadget: Inconsistent locking
-Date: Wed, 8 Dec 2010 15:11:30 +0000
-Message-ID: <AANLkTi==UqNNzokLcLWDpjM0cqM6aXjppsi4p6ogMAqX@mail.gmail.com>
-References: <AANLkTik=Uui7Xk9ZfFvQQKj94ZJUJ_n+bZbTQXbe+08i@mail.gmail.com>
+From: Martin Lucina <mato@kotelna.sk>
+Subject: Re: Polling on sockets in kernel space and struct file
+Date: Wed, 8 Dec 2010 16:16:29 +0100
+Message-ID: <20101208151628.GE13666@dezo.moloch.sk>
+References: <4CFF9757.3070100@250bpm.com> <1291820573.2883.56.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: linux-usb@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Martin Sustrik <sustrik@250bpm.com>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f174.google.com ([209.85.213.174]:59780 "EHLO
-	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753526Ab0LHPLb convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 10:11:31 -0500
-In-Reply-To: <AANLkTik=Uui7Xk9ZfFvQQKj94ZJUJ_n+bZbTQXbe+08i@mail.gmail.com>
+Received: from chrocht.moloch.sk ([62.176.169.44]:33364 "EHLO mail.moloch.sk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752147Ab0LHP0n (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Dec 2010 10:26:43 -0500
+Content-Disposition: inline
+In-Reply-To: <1291820573.2883.56.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sorry, stupid gmail...
+Hi Eric,
 
-Hi,
+oddly enough our BUG at fs/inode.c seems to have gone away; may be a race
+of some sort...
 
-Im getting another lockdep warning when using the RNDIS gadget:
+> you could call sock_map_fd() then :
+> 
+> 
+> 	int fd = sock_map_fd(sock, flags);
+> 	struct file *file = NULL;
+> 
+> 	if (fd != -1) {
+> 		file = fget(fd);
+> 		sys_close(fd);  /* still racy */
+> 	}
+> 
+> 	if (file) ...
+> 
+> Take a look at net/9p/trans_fd.c
 
- WARNING: at kernel/softirq.c:98 ___local_bh_disable+0xc4/0xd0()
- Modules linked in: g_ether
+Interesting approach. 
 
- Call trace:
- [<40003bf8>] _show_stack+0x68/0x7c
- [<40003c20>] _dump_stack+0x14/0x28
- [<40013c3c>] _warn_slowpath_common+0x5c/0x7c
- [<40013c74>] _warn_slowpath_null+0x18/0x2c
- [<4001b17c>] ___local_bh_disable+0xc0/0xd0
- [<4001b1a0>] _local_bh_disable+0x14/0x28
- [<402e57f8>] __raw_spin_lock_bh+0x18/0x54
- [<40257f4c>] _dev_txq_stats_fold+0x7c/0x13c
- [<402580c4>] _dev_get_stats+0xb8/0xc0
- [<781d4e60>] _rndis_msg_parser+0x288/0xa04 [g_ether]
- [<781d5600>] _rndis_command_complete+0x24/0x70 [g_ether]
- [<401d66fc>] _dwc_otg_request_done+0xd8/0x220
- [<401d928c>] _ep0_complete_request+0x3f4/0x578
- [<401d95bc>] _handle_ep0+0x1ac/0x146c
- [<401daf7c>] _dwc_otg_pcd_handle_in_ep_intr+0x1c0/0x8bc
- [<401db8dc>] _dwc_otg_pcd_handle_intr+0x264/0x294
- [<401d6288>] _dwc_otg_pcd_irq+0x10/0x30
- [<40054cf4>] _handle_IRQ_event+0x4c/0x184
- [<40057b4c>] _handle_level_irq+0xac/0x15c
- [<4000b204>] _metag_soc_irq_demux+0xac/0xb4
- [<40002dd4>] _do_IRQ+0x4c/0x78
- [<40004000>] _trigger_handler+0x38/0xac
- [<40000b18>] ___TBIBoingVec+0xc/0x10
- [<40003588>] _cpu_idle+0x54/0x78
+We're currently doing the following -- we add this function to
+net/socket.c:
 
- no locks held by swapper/0.
- ---[ end trace 77ac3cfee0ae5b25 ]---
+int sock_map_anon(struct socket *sock, const char *name, int flags)
+{
+	struct file *newfile;
+	
+	newfile = anon_inode_getfile(name, &socket_file_ops, sock, flags);
+	sock->file = newfile;
+	return 0;
+}
 
-It looks like we are calling spin_lock_bh in the completion function
-which is running in hard_irq, I think the driver should defer handling
-this msg (and maybe all requests) to a workqueue?
+and then call it instead of sock_map_fd() from our sock_create():
 
-Cheers
+	/* Create peer socket and associated file structure */
+	rc = sock_create_kern(PF_INET, SOCK_STREAM, IPPROTO_TCP, &sp->peer);
+	if (rc < 0)
+		goto out;
+	rc = sock_map_anon(sp->peer, "[sp]", 0);
+	if (rc < 0)
+		goto out_release;
 
-Neil
+Is this a valid approach to achieve the same thing?
 
+It's not clear what, if anything special we need to do to correctly release
+the anonymous inode when we are releasing our socket...  is
+sock_release(sp->peer) sufficient?
 
+Also, I see in 9p/trans_fd.c that it's using get_file() to increment the
+file refcount; do we need to do this for all sockets/files we create in
+kernel space or is this only for the sys_close() hack?
 
-On Wed, Dec 8, 2010 at 3:03 PM, Neil Jones <neiljay@gmail.com> wrote:
-> Hi,
->
-> Im getting another lockdep warning when using the RNDIS gadget:
->
-> =C2=A0WARNING: at kernel/softirq.c:98 ___local_bh_disable+0xc4/0xd0()
-> =C2=A0Modules linked in: g_ether
->
-> =C2=A0Call trace:
-> =C2=A0[<40003bf8>] _show_stack+0x68/0x7c
-> =C2=A0[<40003c20>] _dump_stack+0x14/0x28
-> =C2=A0[<40013c3c>] _warn_slowpath_common+0x5c/0x7c
-> =C2=A0[<40013c74>] _warn_slowpath_null+0x18/0x2c
-> =C2=A0[<4001b17c>] ___local_bh_disable+0xc0/0xd0
-> =C2=A0[<4001b1a0>] _local_bh_disable+0x14/0x28
-> =C2=A0[<402e57f8>] __raw_spin_lock_bh+0x18/0x54
-> =C2=A0[<40257f4c>] _dev_txq_stats_fold+0x7c/0x13c
-> =C2=A0[<402580c4>] _dev_get_stats+0xb8/0xc0
-> =C2=A0[<781d4e60>] _rndis_msg_parser+0x288/0xa04 [g_ether]
-> =C2=A0[<781d5600>] _rndis_command_complete+0x24/0x70 [g_ether]
-> =C2=A0[<401d66fc>] _dwc_otg_request_done+0xd8/0x220
-> =C2=A0[<401d928c>] _ep0_complete_request+0x3f4/0x578
-> =C2=A0[<401d95bc>] _handle_ep0+0x1ac/0x146c
-> =C2=A0[<401daf7c>] _dwc_otg_pcd_handle_in_ep_intr+0x1c0/0x8bc
-> =C2=A0[<401db8dc>] _dwc_otg_pcd_handle_intr+0x264/0x294
-> =C2=A0[<401d6288>] _dwc_otg_pcd_irq+0x10/0x30
-> =C2=A0[<40054cf4>] _handle_IRQ_event+0x4c/0x184
-> =C2=A0[<40057b4c>] _handle_level_irq+0xac/0x15c
-> =C2=A0[<4000b204>] _metag_soc_irq_demux+0xac/0xb4
-> =C2=A0[<40002dd4>] _do_IRQ+0x4c/0x78
-> =C2=A0[<40004000>] _trigger_handler+0x38/0xac
-> =C2=A0[<40000b18>] ___TBIBoingVec+0xc/0x10
-> =C2=A0[<40003588>] _cpu_idle+0x54/0x78
->
-> =C2=A0no locks held by swapper/0.
-> =C2=A0---[ end trace 77ac3cfee0ae5b25 ]---
->
-> It
->
+Thanks,
+
+-mato
