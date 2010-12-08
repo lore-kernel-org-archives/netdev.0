@@ -1,35 +1,58 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: WARNING at local_bh_enable while tcp_retransmit
-Date: Wed, 08 Dec 2010 21:20:31 +0100
-Message-ID: <4CFFE88F.3060200@gmail.com>
-References: <20101207182308.664e171d.isloginov@gmail.com>	<4CFE9F73.1040203@gmail.com> <20101208123645.84091844.isloginov@gmail.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 24472] New: Kernel panic - not syncing: Fatal
+ Exception
+Date: Wed, 8 Dec 2010 12:22:33 -0800
+Message-ID: <20101208122233.835a4997.akpm@linux-foundation.org>
+References: <bug-24472-10286@https.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Ilya Loginov <isloginov@gmail.com>
+Cc: bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, pstaszewski@artcom.pl
+To: netdev@vger.kernel.org, Paul Mackerras <paulus@samba.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f45.google.com ([209.85.215.45]:54669 "EHLO
-	mail-ew0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754171Ab0LHUUj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 15:20:39 -0500
-Received: by ewy10 with SMTP id 10so1217029ewy.4
-        for <netdev@vger.kernel.org>; Wed, 08 Dec 2010 12:20:38 -0800 (PST)
-In-Reply-To: <20101208123645.84091844.isloginov@gmail.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:47771 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755395Ab0LHUX1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 15:23:27 -0500
+In-Reply-To: <bug-24472-10286@https.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ilya Loginov wrote:
-> On Tue, 07 Dec 2010 21:56:19 +0100
-> Jarek Poplawski <jarkao2@gmail.com> wrote:
-> 
->> Hi, isn't any of your drivers disabling irqs on this path?
-> 
-> No. But we are in soft_irq because tcp_retransmit. So, may be,
-> interrupts were really disabled.
 
-Should be easy to check by copying this WARN_ON_ONCE from 
-kernel/softirq.c:143 local_bh_enable to the beginning of
-your rioth_start_xmit.
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
 
-Jarek P.
+On Wed, 8 Dec 2010 20:14:45 GMT
+bugzilla-daemon@bugzilla.kernel.org wrote:
+
+> https://bugzilla.kernel.org/show_bug.cgi?id=24472
+> 
+>            Summary: Kernel panic - not syncing: Fatal Exception
+>            Product: Drivers
+>            Version: 2.5
+>     Kernel Version: 2.6.36.1
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Network
+>         AssignedTo: drivers_network@kernel-bugs.osdl.org
+>         ReportedBy: pstaszewski@artcom.pl
+>         Regression: No
+> 
+> 
+> Created an attachment (id=39332)
+>  --> (https://bugzilla.kernel.org/attachment.cgi?id=39332)
+> Kernel Panic
+> 
+> Hello i have problems with ppp driver and pppoe
+> I have random kernel panics
+> 
+> In attached image is Call Trace from panic.
+> 
+> 
+
+ppp_unregister_channel() appears to be using a bad pointer.
