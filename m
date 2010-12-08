@@ -1,38 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] atm: correct sysfs 'device' link creation and parent
- relationships
-Date: Wed, 08 Dec 2010 10:11:21 -0800 (PST)
-Message-ID: <20101208.101121.71114237.davem@davemloft.net>
-References: <1291587480.17538.12.camel@dcbw.foobar.com>
-	<AANLkTikhkVPcibAH8cSRvZSLop=Ew19Tn=KtY7prkKUn@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: RCU conversion of dev_getbyhwaddr() and
+ arp_ioctl()
+Date: Wed, 08 Dec 2010 19:11:41 +0100
+Message-ID: <1291831901.2883.67.camel@edumazet-laptop>
+References: <1291548233.2806.212.camel@edumazet-laptop>
+	 <20101208.100528.193703457.davem@davemloft.net>
+	 <1291831654.2883.66.camel@edumazet-laptop>
+	 <20101208.101035.226775926.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: dcbw@redhat.com, netdev@vger.kernel.org, duncan.sands@free.fr,
-	linux-usb@vger.kernel.org, chas@cmf.nrl.navy.mil
-To: kay.sievers@vrfy.org
+Cc: maximlevitsky@gmail.com, linux1394-devel@lists.sourceforge.net,
+	stefanr@s5r6.in-berlin.de, netdev@vger.kernel.org,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58525
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755801Ab0LHSKy convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Dec 2010 13:10:54 -0500
-In-Reply-To: <AANLkTikhkVPcibAH8cSRvZSLop=Ew19Tn=KtY7prkKUn@mail.gmail.com>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:45052 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755801Ab0LHSLq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 13:11:46 -0500
+Received: by wwa36 with SMTP id 36so1460358wwa.1
+        for <netdev@vger.kernel.org>; Wed, 08 Dec 2010 10:11:45 -0800 (PST)
+In-Reply-To: <20101208.101035.226775926.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Kay Sievers <kay.sievers@vrfy.org>
-Date: Tue, 7 Dec 2010 08:35:53 +0100
+Le mercredi 08 d=C3=A9cembre 2010 =C3=A0 10:10 -0800, David Miller a =C3=
+=A9crit :
 
-> On Sun, Dec 5, 2010 at 23:17, Dan Williams <dcbw@redhat.com> wrote:
->> The ATM subsystem was incorrectly creating the 'device' link for ATM
->> nodes in sysfs. =A0This led to incorrect device/parent relationships
->> exposed by sysfs and udev. =A0Instead of rolling the 'device' link b=
-y hand
->> in the generic ATM code, pass each ATM driver's bus device down to t=
-he
->> sysfs code and let sysfs do this stuff correctly.
+> I know about the conflict and will resolve it when I do a merge in
+> the next hour or so.
 >=20
-> Looks good to me.
+> Don't worry about this.
 
-I've applied this to net-2.6, thanks Dan.
+Ah thats great, thanks !
+
+
+
