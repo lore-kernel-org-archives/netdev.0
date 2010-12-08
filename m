@@ -1,58 +1,51 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 24472] New: Kernel panic - not syncing: Fatal
- Exception
-Date: Wed, 8 Dec 2010 12:22:33 -0800
-Message-ID: <20101208122233.835a4997.akpm@linux-foundation.org>
-References: <bug-24472-10286@https.bugzilla.kernel.org/>
+From: Holger Eitzenberger <holger@eitzenberger.org>
+Subject: Re: ctnetlink loop
+Date: Wed, 8 Dec 2010 21:31:21 +0100
+Message-ID: <20101208203121.GB23668@mail.eitzenberger.org>
+References: <20101208.095020.245408999.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, pstaszewski@artcom.pl
-To: netdev@vger.kernel.org, Paul Mackerras <paulus@samba.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:47771 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755395Ab0LHUX1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 15:23:27 -0500
-In-Reply-To: <bug-24472-10286@https.bugzilla.kernel.org/>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: pablo@netfilter.org,
+	netfilter-devel <netfilter-devel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20101208.095020.245408999.davem@davemloft.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Hi,
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
+> Holger, this replay -EAGAIN loop in nfnetlink processing was added by
+> Pablo to handle module loading properly, I think.  So it might not be
+> safe to just unilaterally remove it.
 
-On Wed, 8 Dec 2010 20:14:45 GMT
-bugzilla-daemon@bugzilla.kernel.org wrote:
+thanks for your reply!
 
-> https://bugzilla.kernel.org/show_bug.cgi?id=24472
-> 
->            Summary: Kernel panic - not syncing: Fatal Exception
->            Product: Drivers
->            Version: 2.5
->     Kernel Version: 2.6.36.1
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: Network
->         AssignedTo: drivers_network@kernel-bugs.osdl.org
->         ReportedBy: pstaszewski@artcom.pl
->         Regression: No
-> 
-> 
-> Created an attachment (id=39332)
->  --> (https://bugzilla.kernel.org/attachment.cgi?id=39332)
-> Kernel Panic
-> 
-> Hello i have problems with ppp driver and pppoe
-> I have random kernel panics
-> 
-> In attached image is Call Trace from panic.
-> 
-> 
+Pablo, do we really need the replay loop really?  I now have several
+boxes with problems due to this replay.  'perf report' always gives me
+something like:
 
-ppp_unregister_channel() appears to be using a bad pointer.
+      18.88%            ulogd  [kernel]
+  [k] __nla_put
+      10.73%            ulogd  [kernel]
+  [k] nla_parse
+       8.72%            ulogd  [kernel]
+  [k] __nla_reserve
+       6.64%            ulogd  [kernel]
+  [k] nla_put
+       5.14%            ulogd  [kernel]
+  [k] validate_nla
+       5.03%            ulogd  [kernel]
+  [k] pskb_expand_head
+       4.92%            ulogd  [kernel]
+  [k] ctnetlink_fill_info [nf_conntrack_netlink]
+       3.07%            ulogd  [kernel]
+  [k] skb_put
+       3.03%            ulogd  [kernel]
+  [k] ctnetlink_dump_counters [nf_conntrack
+
+And 'strace' shows me that ulogd is stuck in its 'select' call.
+
+ /holger
