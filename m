@@ -1,48 +1,40 @@
-From: Grant Grundler <grundler@parisc-linux.org>
-Subject: Re: [PATCH] MAINTAINERS: remove me from tulip
-Date: Thu, 9 Dec 2010 14:33:40 -0700
-Message-ID: <20101209213340.GB26182@lackof.org>
-References: <20101209195008.GV25668@bombadil.infradead.org>
+From: Greg KH <gregkh@suse.de>
+Subject: Re: brcm80211 hangs when disabling wireless
+Date: Thu, 9 Dec 2010 13:43:47 -0800
+Message-ID: <20101209214347.GA15172@suse.de>
+References: <1291930010.7960.30.camel@nimitz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@redhat.com, grundler@parisc-linux.org
-To: Kyle McMartin <kyle@mcmartin.ca>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from complete.lackof.org ([198.49.126.79]:42300 "EHLO
-	complete.lackof.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754145Ab0LIVmL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Dec 2010 16:42:11 -0500
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Brett Rudley <brudley@broadcom.com>,
+	Henry Ptasinski <henryp@broadcom.com>,
+	Nohee Ko <noheek@broadcom.com>,
+	Jason Cooper <jason@lakedaemon.net>,
+	Mike Rapoport <mike.rapoport@gmail.com>,
+	Andy Shevchenko <andy.shevchenko@gmail.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	devel@driverdev.osuosl.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Dave Hansen <dave@sr71.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20101209195008.GV25668@bombadil.infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1291930010.7960.30.camel@nimitz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 09, 2010 at 02:50:08PM -0500, Kyle McMartin wrote:
-> It was a nice idea, but -ENOTIME and -ENOHW. I never got around to doing
-> a lot of the clean up that I intended to.
-> 
-> Signed-off-by: Kyle McMartin <kyle@mcmartin.ca>
+On Thu, Dec 09, 2010 at 01:26:50PM -0800, Dave Hansen wrote:
+> I've been getting hard hangs when I toggle the wireless on a Lenovo
+> S10-3.  It happens both with the physical switch and the Fn-F5 key
+> combo.  It's quite repeatable.  The system is quite stable when I'm not
+> trying to disable the wireless, though.
 
-Yeah, I can understand. I basically just review incoming patches and
-haven't done any work on the outstanding bugs over the past year or so.
+What kernel version is this?
 
-Acked-by: Grant Grundler <grundler@parisc-linux.org>
-
-Dave, please apply.
+Linus's latest tree has a known bug when the wireless is suspended and
+then resumed.  Broadcom is working on it but no patch is forthcoming
+yet.  Perhaps this is the same issue.
 
 thanks,
-grant
 
-> ---
-> diff --git a/MAINTAINERS b/MAINTAINERS
-> index 1a1c27b..a54a738 100644
-> --- a/MAINTAINERS
-> +++ b/MAINTAINERS
-> @@ -5932,7 +5932,6 @@ F:	include/linux/tty.h
->  
->  TULIP NETWORK DRIVERS
->  M:	Grant Grundler <grundler@parisc-linux.org>
-> -M:	Kyle McMartin <kyle@mcmartin.ca>
->  L:	netdev@vger.kernel.org
->  S:	Maintained
->  F:	drivers/net/tulip/
+greg k-h
