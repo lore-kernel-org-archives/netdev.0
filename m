@@ -1,14 +1,14 @@
 From: Asbjoern Sloth Toennesen <asbjorn@asbjorn.biz>
-Subject: [PATCH 6/7] e1000e: cleanup: swap arguments to avoid checkpatch errors
-Date: Thu,  9 Dec 2010 02:40:56 +0000
-Message-ID: <1291862457-16671-7-git-send-email-asbjorn__6403.35979774154$1291863040$gmane$org@asbjorn.biz>
+Subject: [PATCH 7/7] e1000e: cleanup: fix copyright notices to preferred style
+Date: Thu,  9 Dec 2010 02:40:57 +0000
+Message-ID: <1291862457-16671-8-git-send-email-asbjorn__25341.9042019688$1291863042$gmane$org@asbjorn.biz>
 References: <1291862457-16671-1-git-send-email-asbjorn@asbjorn.biz>
 Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.asbjorn.biz ([217.195.185.3]:55185 "EHLO mail.asbjorn.biz"
+Received: from mail.asbjorn.biz ([217.195.185.3]:59525 "EHLO mail.asbjorn.biz"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756826Ab0LICu1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1756721Ab0LICu1 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 8 Dec 2010 21:50:27 -0500
 To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 In-Reply-To: <1291862457-16671-1-git-send-email-asbjorn@asbjorn.biz>
@@ -16,48 +16,698 @@ To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Swap argument order in order to avoid checkpatch treating it as an
-unary operation, instead of an binary one, and obtain consistency
-with the 3 other similar assignments in netdev.c (tdlen & rdlen).
+Reformat the copyright notices in e1001e, to follow the preferred style
+for multi-line comments, as outlined in Documentation/CodingStyle.
 
-This patch fixes 3 checkpatch errors.
+Prior to 0c73b4e, the current style generated an "Missing space after"
+warning per line.
 
 Signed-off-by: Asbjoern Sloth Toennesen <asbjorn@asbjorn.biz>
 ---
- drivers/net/e1000e/netdev.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/e1000e/82571.c   |   52 +++++++++++++++++++++---------------------
+ drivers/net/e1000e/defines.h |   52 +++++++++++++++++++++---------------------
+ drivers/net/e1000e/e1000.h   |   52 +++++++++++++++++++++---------------------
+ drivers/net/e1000e/es2lan.c  |   52 +++++++++++++++++++++---------------------
+ drivers/net/e1000e/ethtool.c |   52 +++++++++++++++++++++---------------------
+ drivers/net/e1000e/hw.h      |   52 +++++++++++++++++++++---------------------
+ drivers/net/e1000e/ich8lan.c |   52 +++++++++++++++++++++---------------------
+ drivers/net/e1000e/lib.c     |   52 +++++++++++++++++++++---------------------
+ drivers/net/e1000e/netdev.c  |   52 +++++++++++++++++++++---------------------
+ drivers/net/e1000e/param.c   |   52 +++++++++++++++++++++---------------------
+ drivers/net/e1000e/phy.c     |   52 +++++++++++++++++++++---------------------
+ 11 files changed, 286 insertions(+), 286 deletions(-)
 
+diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
+index bbc73ce..2b36af4 100644
+--- a/drivers/net/e1000e/82571.c
++++ b/drivers/net/e1000e/82571.c
+@@ -1,30 +1,30 @@
+ /*******************************************************************************
+-
+-  Intel PRO/1000 Linux driver
+-  Copyright(c) 1999 - 2010 Intel Corporation.
+-
+-  This program is free software; you can redistribute it and/or modify it
+-  under the terms and conditions of the GNU General Public License,
+-  version 2, as published by the Free Software Foundation.
+-
+-  This program is distributed in the hope it will be useful, but WITHOUT
+-  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+-  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+-  more details.
+-
+-  You should have received a copy of the GNU General Public License along with
+-  this program; if not, write to the Free Software Foundation, Inc.,
+-  51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
+-
+-  The full GNU General Public License is included in this distribution in
+-  the file called "COPYING".
+-
+-  Contact Information:
+-  Linux NICS <linux.nics@intel.com>
+-  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
+-  Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
+-
+-*******************************************************************************/
++ *
++ * Intel PRO/1000 Linux driver
++ * Copyright(c) 1999 - 2010 Intel Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
++ *
++ * You should have received a copy of the GNU General Public License along with
++ * this program; if not, write to the Free Software Foundation, Inc.,
++ * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * The full GNU General Public License is included in this distribution in
++ * the file called "COPYING".
++ *
++ * Contact Information:
++ * Linux NICS <linux.nics@intel.com>
++ * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
++ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
++ *
++ ******************************************************************************/
+ 
+ /*
+  * 82571EB Gigabit Ethernet Controller
+diff --git a/drivers/net/e1000e/defines.h b/drivers/net/e1000e/defines.h
+index f1260fc..4035598 100644
+--- a/drivers/net/e1000e/defines.h
++++ b/drivers/net/e1000e/defines.h
+@@ -1,30 +1,30 @@
+ /*******************************************************************************
+-
+-  Intel PRO/1000 Linux driver
+-  Copyright(c) 1999 - 2010 Intel Corporation.
+-
+-  This program is free software; you can redistribute it and/or modify it
+-  under the terms and conditions of the GNU General Public License,
+-  version 2, as published by the Free Software Foundation.
+-
+-  This program is distributed in the hope it will be useful, but WITHOUT
+-  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+-  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+-  more details.
+-
+-  You should have received a copy of the GNU General Public License along with
+-  this program; if not, write to the Free Software Foundation, Inc.,
+-  51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
+-
+-  The full GNU General Public License is included in this distribution in
+-  the file called "COPYING".
+-
+-  Contact Information:
+-  Linux NICS <linux.nics@intel.com>
+-  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
+-  Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
+-
+-*******************************************************************************/
++ *
++ * Intel PRO/1000 Linux driver
++ * Copyright(c) 1999 - 2010 Intel Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE. * See the GNU General Public License for
++ * more details.
++ *
++ * You should have received a copy of the GNU General Public License along with
++ * this program; if not, write to the Free Software Foundation, Inc.,
++ * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * The full GNU General Public License is included in this distribution in
++ * the file called "COPYING".
++ *
++ * Contact Information:
++ * Linux NICS <linux.nics@intel.com>
++ * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
++ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
++ *
++ ******************************************************************************/
+ 
+ #ifndef _E1000_DEFINES_H_
+ #define _E1000_DEFINES_H_
+diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
+index 97fa58a..f2bea0f 100644
+--- a/drivers/net/e1000e/e1000.h
++++ b/drivers/net/e1000e/e1000.h
+@@ -1,30 +1,30 @@
+ /*******************************************************************************
+-
+-  Intel PRO/1000 Linux driver
+-  Copyright(c) 1999 - 2010 Intel Corporation.
+-
+-  This program is free software; you can redistribute it and/or modify it
+-  under the terms and conditions of the GNU General Public License,
+-  version 2, as published by the Free Software Foundation.
+-
+-  This program is distributed in the hope it will be useful, but WITHOUT
+-  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+-  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+-  more details.
+-
+-  You should have received a copy of the GNU General Public License along with
+-  this program; if not, write to the Free Software Foundation, Inc.,
+-  51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
+-
+-  The full GNU General Public License is included in this distribution in
+-  the file called "COPYING".
+-
+-  Contact Information:
+-  Linux NICS <linux.nics@intel.com>
+-  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
+-  Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
+-
+-*******************************************************************************/
++ *
++ * Intel PRO/1000 Linux driver
++ * Copyright(c) 1999 - 2010 Intel Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
++ *
++ * You should have received a copy of the GNU General Public License along with
++ * this program; if not, write to the Free Software Foundation, Inc.,
++ * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * The full GNU General Public License is included in this distribution in
++ * the file called "COPYING".
++ *
++ * Contact Information:
++ * Linux NICS <linux.nics@intel.com>
++ * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
++ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
++ *
++ ******************************************************************************/
+ 
+ /* Linux PRO/1000 Ethernet Driver main header file */
+ 
+diff --git a/drivers/net/e1000e/es2lan.c b/drivers/net/e1000e/es2lan.c
+index 56a1321..3bc9df7 100644
+--- a/drivers/net/e1000e/es2lan.c
++++ b/drivers/net/e1000e/es2lan.c
+@@ -1,30 +1,30 @@
+ /*******************************************************************************
+-
+-  Intel PRO/1000 Linux driver
+-  Copyright(c) 1999 - 2010 Intel Corporation.
+-
+-  This program is free software; you can redistribute it and/or modify it
+-  under the terms and conditions of the GNU General Public License,
+-  version 2, as published by the Free Software Foundation.
+-
+-  This program is distributed in the hope it will be useful, but WITHOUT
+-  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+-  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+-  more details.
+-
+-  You should have received a copy of the GNU General Public License along with
+-  this program; if not, write to the Free Software Foundation, Inc.,
+-  51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
+-
+-  The full GNU General Public License is included in this distribution in
+-  the file called "COPYING".
+-
+-  Contact Information:
+-  Linux NICS <linux.nics@intel.com>
+-  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
+-  Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
+-
+-*******************************************************************************/
++ *
++ * Intel PRO/1000 Linux driver
++ * Copyright(c) 1999 - 2010 Intel Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE. * See the GNU General Public License for
++ * more details.
++ *
++ * You should have received a copy of the GNU General Public License along with
++ * this program; if not, write to the Free Software Foundation, Inc.,
++ * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * The full GNU General Public License is included in this distribution in
++ * the file called "COPYING".
++ *
++ * Contact Information:
++ * Linux NICS <linux.nics@intel.com>
++ * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
++ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
++ *
++ ******************************************************************************/
+ 
+ /*
+  * 80003ES2LAN Gigabit Ethernet Controller (Copper)
+diff --git a/drivers/net/e1000e/ethtool.c b/drivers/net/e1000e/ethtool.c
+index 4fee336..3096bbd 100644
+--- a/drivers/net/e1000e/ethtool.c
++++ b/drivers/net/e1000e/ethtool.c
+@@ -1,30 +1,30 @@
+ /*******************************************************************************
+-
+-  Intel PRO/1000 Linux driver
+-  Copyright(c) 1999 - 2010 Intel Corporation.
+-
+-  This program is free software; you can redistribute it and/or modify it
+-  under the terms and conditions of the GNU General Public License,
+-  version 2, as published by the Free Software Foundation.
+-
+-  This program is distributed in the hope it will be useful, but WITHOUT
+-  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+-  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+-  more details.
+-
+-  You should have received a copy of the GNU General Public License along with
+-  this program; if not, write to the Free Software Foundation, Inc.,
+-  51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
+-
+-  The full GNU General Public License is included in this distribution in
+-  the file called "COPYING".
+-
+-  Contact Information:
+-  Linux NICS <linux.nics@intel.com>
+-  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
+-  Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
+-
+-*******************************************************************************/
++ *
++ * Intel PRO/1000 Linux driver
++ * Copyright(c) 1999 - 2010 Intel Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE. * See the GNU General Public License for
++ * more details.
++ *
++ * You should have received a copy of the GNU General Public License along with
++ * this program; if not, write to the Free Software Foundation, Inc.,
++ * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * The full GNU General Public License is included in this distribution in
++ * the file called "COPYING".
++ *
++ * Contact Information:
++ * Linux NICS <linux.nics@intel.com>
++ * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
++ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
++ *
++ ******************************************************************************/
+ 
+ /* ethtool support for e1000 */
+ 
+diff --git a/drivers/net/e1000e/hw.h b/drivers/net/e1000e/hw.h
+index f009dd5..3911717 100644
+--- a/drivers/net/e1000e/hw.h
++++ b/drivers/net/e1000e/hw.h
+@@ -1,30 +1,30 @@
+ /*******************************************************************************
+-
+-  Intel PRO/1000 Linux driver
+-  Copyright(c) 1999 - 2010 Intel Corporation.
+-
+-  This program is free software; you can redistribute it and/or modify it
+-  under the terms and conditions of the GNU General Public License,
+-  version 2, as published by the Free Software Foundation.
+-
+-  This program is distributed in the hope it will be useful, but WITHOUT
+-  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+-  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+-  more details.
+-
+-  You should have received a copy of the GNU General Public License along with
+-  this program; if not, write to the Free Software Foundation, Inc.,
+-  51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
+-
+-  The full GNU General Public License is included in this distribution in
+-  the file called "COPYING".
+-
+-  Contact Information:
+-  Linux NICS <linux.nics@intel.com>
+-  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
+-  Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
+-
+-*******************************************************************************/
++ *
++ * Intel PRO/1000 Linux driver
++ * Copyright(c) 1999 - 2010 Intel Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE. * See the GNU General Public License for
++ * more details.
++ *
++ * You should have received a copy of the GNU General Public License along with
++ * this program; if not, write to the Free Software Foundation, Inc.,
++ * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * The full GNU General Public License is included in this distribution in
++ * the file called "COPYING".
++ *
++ * Contact Information:
++ * Linux NICS <linux.nics@intel.com>
++ * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
++ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
++ *
++ ******************************************************************************/
+ 
+ #ifndef _E1000_HW_H_
+ #define _E1000_HW_H_
+diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
+index a1dec6c..b90f5b1 100644
+--- a/drivers/net/e1000e/ich8lan.c
++++ b/drivers/net/e1000e/ich8lan.c
+@@ -1,30 +1,30 @@
+ /*******************************************************************************
+-
+-  Intel PRO/1000 Linux driver
+-  Copyright(c) 1999 - 2010 Intel Corporation.
+-
+-  This program is free software; you can redistribute it and/or modify it
+-  under the terms and conditions of the GNU General Public License,
+-  version 2, as published by the Free Software Foundation.
+-
+-  This program is distributed in the hope it will be useful, but WITHOUT
+-  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+-  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+-  more details.
+-
+-  You should have received a copy of the GNU General Public License along with
+-  this program; if not, write to the Free Software Foundation, Inc.,
+-  51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
+-
+-  The full GNU General Public License is included in this distribution in
+-  the file called "COPYING".
+-
+-  Contact Information:
+-  Linux NICS <linux.nics@intel.com>
+-  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
+-  Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
+-
+-*******************************************************************************/
++ *
++ * Intel PRO/1000 Linux driver
++ * Copyright(c) 1999 - 2010 Intel Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE. * See the GNU General Public License for
++ * more details.
++ *
++ * You should have received a copy of the GNU General Public License along with
++ * this program; if not, write to the Free Software Foundation, Inc.,
++ * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * The full GNU General Public License is included in this distribution in
++ * the file called "COPYING".
++ *
++ * Contact Information:
++ * Linux NICS <linux.nics@intel.com>
++ * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
++ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
++ *
++ ******************************************************************************/
+ 
+ /*
+  * 82562G 10/100 Network Connection
+diff --git a/drivers/net/e1000e/lib.c b/drivers/net/e1000e/lib.c
+index b950db3..5e85855 100644
+--- a/drivers/net/e1000e/lib.c
++++ b/drivers/net/e1000e/lib.c
+@@ -1,30 +1,30 @@
+ /*******************************************************************************
+-
+-  Intel PRO/1000 Linux driver
+-  Copyright(c) 1999 - 2010 Intel Corporation.
+-
+-  This program is free software; you can redistribute it and/or modify it
+-  under the terms and conditions of the GNU General Public License,
+-  version 2, as published by the Free Software Foundation.
+-
+-  This program is distributed in the hope it will be useful, but WITHOUT
+-  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+-  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+-  more details.
+-
+-  You should have received a copy of the GNU General Public License along with
+-  this program; if not, write to the Free Software Foundation, Inc.,
+-  51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
+-
+-  The full GNU General Public License is included in this distribution in
+-  the file called "COPYING".
+-
+-  Contact Information:
+-  Linux NICS <linux.nics@intel.com>
+-  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
+-  Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
+-
+-*******************************************************************************/
++ *
++ * Intel PRO/1000 Linux driver
++ * Copyright(c) 1999 - 2010 Intel Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE. * See the GNU General Public License for
++ * more details.
++ *
++ * You should have received a copy of the GNU General Public License along with
++ * this program; if not, write to the Free Software Foundation, Inc.,
++ * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * The full GNU General Public License is included in this distribution in
++ * the file called "COPYING".
++ *
++ * Contact Information:
++ * Linux NICS <linux.nics@intel.com>
++ * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
++ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
++ *
++ ******************************************************************************/
+ 
+ #include "e1000.h"
+ 
 diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index bb6a1f5..bdd3774 100644
+index bdd3774..c0803cb 100644
 --- a/drivers/net/e1000e/netdev.c
 +++ b/drivers/net/e1000e/netdev.c
-@@ -2059,7 +2059,7 @@ int e1000e_setup_tx_resources(struct e1000_adapter *adapter)
- 	struct e1000_ring *tx_ring = adapter->tx_ring;
- 	int err = -ENOMEM, size;
+@@ -1,30 +1,30 @@
+ /*******************************************************************************
+-
+-  Intel PRO/1000 Linux driver
+-  Copyright(c) 1999 - 2010 Intel Corporation.
+-
+-  This program is free software; you can redistribute it and/or modify it
+-  under the terms and conditions of the GNU General Public License,
+-  version 2, as published by the Free Software Foundation.
+-
+-  This program is distributed in the hope it will be useful, but WITHOUT
+-  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+-  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+-  more details.
+-
+-  You should have received a copy of the GNU General Public License along with
+-  this program; if not, write to the Free Software Foundation, Inc.,
+-  51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
+-
+-  The full GNU General Public License is included in this distribution in
+-  the file called "COPYING".
+-
+-  Contact Information:
+-  Linux NICS <linux.nics@intel.com>
+-  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
+-  Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
+-
+-*******************************************************************************/
++ *
++ * Intel PRO/1000 Linux driver
++ * Copyright(c) 1999 - 2010 Intel Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE. * See the GNU General Public License for
++ * more details.
++ *
++ * You should have received a copy of the GNU General Public License along with
++ * this program; if not, write to the Free Software Foundation, Inc.,
++ * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * The full GNU General Public License is included in this distribution in
++ * the file called "COPYING".
++ *
++ * Contact Information:
++ * Linux NICS <linux.nics@intel.com>
++ * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
++ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
++ *
++ ******************************************************************************/
  
--	size = sizeof(struct e1000_buffer) * tx_ring->count;
-+	size = tx_ring->count * sizeof(struct e1000_buffer);
- 	tx_ring->buffer_info = vzalloc(size);
- 	if (!tx_ring->buffer_info)
- 		goto err;
-@@ -2094,7 +2094,7 @@ int e1000e_setup_rx_resources(struct e1000_adapter *adapter)
- 	struct e1000_buffer *buffer_info;
- 	int i, size, desc_len, err = -ENOMEM;
+ #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
  
--	size = sizeof(struct e1000_buffer) * rx_ring->count;
-+	size = rx_ring->count * sizeof(struct e1000_buffer);
- 	rx_ring->buffer_info = vzalloc(size);
- 	if (!rx_ring->buffer_info)
- 		goto err;
-@@ -2151,7 +2151,7 @@ static void e1000_clean_tx_ring(struct e1000_adapter *adapter)
- 		e1000_put_txbuf(adapter, buffer_info);
- 	}
+diff --git a/drivers/net/e1000e/param.c b/drivers/net/e1000e/param.c
+index 992be2b..f069021 100644
+--- a/drivers/net/e1000e/param.c
++++ b/drivers/net/e1000e/param.c
+@@ -1,30 +1,30 @@
+ /*******************************************************************************
+-
+-  Intel PRO/1000 Linux driver
+-  Copyright(c) 1999 - 2010 Intel Corporation.
+-
+-  This program is free software; you can redistribute it and/or modify it
+-  under the terms and conditions of the GNU General Public License,
+-  version 2, as published by the Free Software Foundation.
+-
+-  This program is distributed in the hope it will be useful, but WITHOUT
+-  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+-  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+-  more details.
+-
+-  You should have received a copy of the GNU General Public License along with
+-  this program; if not, write to the Free Software Foundation, Inc.,
+-  51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
+-
+-  The full GNU General Public License is included in this distribution in
+-  the file called "COPYING".
+-
+-  Contact Information:
+-  Linux NICS <linux.nics@intel.com>
+-  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
+-  Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
+-
+-*******************************************************************************/
++ *
++ * Intel PRO/1000 Linux driver
++ * Copyright(c) 1999 - 2010 Intel Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE. * See the GNU General Public License for
++ * more details.
++ *
++ * You should have received a copy of the GNU General Public License along with
++ * this program; if not, write to the Free Software Foundation, Inc.,
++ * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * The full GNU General Public License is included in this distribution in
++ * the file called "COPYING".
++ *
++ * Contact Information:
++ * Linux NICS <linux.nics@intel.com>
++ * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
++ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
++ *
++ ******************************************************************************/
  
--	size = sizeof(struct e1000_buffer) * tx_ring->count;
-+	size = tx_ring->count * sizeof(struct e1000_buffer);
- 	memset(tx_ring->buffer_info, 0, size);
+ #include <linux/netdevice.h>
+ #include <linux/pci.h>
+diff --git a/drivers/net/e1000e/phy.c b/drivers/net/e1000e/phy.c
+index 23b1e48..45111c1 100644
+--- a/drivers/net/e1000e/phy.c
++++ b/drivers/net/e1000e/phy.c
+@@ -1,30 +1,30 @@
+ /*******************************************************************************
+-
+-  Intel PRO/1000 Linux driver
+-  Copyright(c) 1999 - 2010 Intel Corporation.
+-
+-  This program is free software; you can redistribute it and/or modify it
+-  under the terms and conditions of the GNU General Public License,
+-  version 2, as published by the Free Software Foundation.
+-
+-  This program is distributed in the hope it will be useful, but WITHOUT
+-  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+-  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+-  more details.
+-
+-  You should have received a copy of the GNU General Public License along with
+-  this program; if not, write to the Free Software Foundation, Inc.,
+-  51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
+-
+-  The full GNU General Public License is included in this distribution in
+-  the file called "COPYING".
+-
+-  Contact Information:
+-  Linux NICS <linux.nics@intel.com>
+-  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
+-  Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
+-
+-*******************************************************************************/
++ *
++ * Intel PRO/1000 Linux driver
++ * Copyright(c) 1999 - 2010 Intel Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE. * See the GNU General Public License for
++ * more details.
++ *
++ * You should have received a copy of the GNU General Public License along with
++ * this program; if not, write to the Free Software Foundation, Inc.,
++ * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * The full GNU General Public License is included in this distribution in
++ * the file called "COPYING".
++ *
++ * Contact Information:
++ * Linux NICS <linux.nics@intel.com>
++ * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
++ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
++ *
++ ******************************************************************************/
  
- 	memset(tx_ring->desc, 0, tx_ring->size);
+ #include <linux/delay.h>
+ 
 -- 
 1.7.2.3
 
