@@ -1,47 +1,43 @@
-From: Tobias Klauser <tklauser@distanz.ch>
-Subject: [PATCH] bridge: Fix return value of br_multicast_add_group()
-Date: Thu,  9 Dec 2010 15:02:36 +0100
-Message-ID: <1291903356-30618-1-git-send-email-tklauser@distanz.ch>
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>,
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: [PATCH] netfilter: don't need to initialize instance_table
+Date: Thu, 9 Dec 2010 15:03:08 +0100 (CET)
+Message-ID: <alpine.LNX.2.01.1012091501270.21049@obet.zrqbmnf.qr>
+References: <1291889421-10794-1-git-send-email-xiaosuo@gmail.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Patrick McHardy <kaber@trash.net>,
 	"David S. Miller" <davem@davemloft.net>,
-	bridge@lists.linux-foundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.zhaw.ch ([160.85.104.50]:57477 "EHLO mx1.zhaw.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756642Ab0LIOCi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Dec 2010 09:02:38 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1291889421-10794-1-git-send-email-xiaosuo@gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If br_multicast_new_group returns NULL, we would return 0 (no error) to
-the caller, which is not what we want. Instead we should return -ENOMEM
-in this case.
+On Thursday 2010-12-09 11:10, Changli Gao wrote:
 
-Also replace IS_ERR(x) || !x by IS_ERR_OR_NULL(x)
+>Since instance_table is a static array, and has been zeroed already, we
+>don't need to take CPU cycles to initialize it.
+>
+>Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+>---
+> net/netfilter/nfnetlink_queue.c |    3 ---
+> 1 file changed, 3 deletions(-)
+>diff --git a/net/netfilter/nfnetlink_queue.c b/net/netfilter/nfnetlink_queue.c
+>index 68e67d1..9c80d6f 100644
+>--- a/net/netfilter/nfnetlink_queue.c
+>+++ b/net/netfilter/nfnetlink_queue.c
+>@@ -893,9 +893,6 @@ static int __init nfnetlink_queue_init(void)
+> {
+> 	int i, status = -ENOMEM;
+> 
+>-	for (i = 0; i < INSTANCE_BUCKETS; i++)
+>-		INIT_HLIST_HEAD(&instance_table[i]);
+>-
+> 	netlink_register_notifier(&nfqnl_rtnl_notifier);
+> 	status = nfnetlink_subsys_register(&nfqnl_subsys);
+> 	if (status < 0) {
 
-Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
----
- net/bridge/br_multicast.c |    5 ++++-
- 1 files changed, 4 insertions(+), 1 deletions(-)
-
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index 326e599..d4e1e81 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -713,8 +713,11 @@ static int br_multicast_add_group(struct net_bridge *br,
- 
- 	mp = br_multicast_new_group(br, port, group);
- 	err = PTR_ERR(mp);
--	if (unlikely(IS_ERR(mp) || !mp))
-+	if (IS_ERR_OR_NULL(mp)) {
-+		if (!mp)
-+			err = -ENOMEM;
- 		goto err;
-+	}
- 
- 	if (!port) {
- 		hlist_add_head(&mp->mglist, &br->mglist);
--- 
-1.7.0.4
-
+This is here for correctness and documentation. If the hlist 
+implementation changed, one would have a hard time figuring out the 
+callsites which then need to add the initialization back.
