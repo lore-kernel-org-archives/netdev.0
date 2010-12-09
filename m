@@ -1,25 +1,46 @@
-From: Casey Leedom <leedom@chelsio.com>
-Subject: Re: [PATCH net-next-26] cxgb4vf: Ingress Queue Entry Size needs to be 64 bytes
-Date: Thu, 9 Dec 2010 13:52:40 -0800
-Message-ID: <201012091352.40821.leedom@chelsio.com>
-References: <1291923504-3589-1-git-send-email-leedom@chelsio.com>
+From: Dave Hansen <dave@sr71.net>
+Subject: Re: brcm80211 hangs when disabling wireless
+Date: Thu, 09 Dec 2010 13:54:38 -0800
+Message-ID: <1291931678.7960.32.camel@nimitz>
+References: <1291930010.7960.30.camel@nimitz>
+	 <20101209214347.GA15172@suse.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
+Content-Type: text/plain; charset="ANSI_X3.4-1968"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:28415 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754919Ab0LIVwn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Dec 2010 16:52:43 -0500
-In-Reply-To: <1291923504-3589-1-git-send-email-leedom@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Brett Rudley <brudley@broadcom.com>,
+	Henry Ptasinski <henryp@broadcom.com>,
+	Nohee Ko <noheek@broadcom.com>,
+	Jason Cooper <jason@lakedaemon.net>,
+	Mike Rapoport <mike.rapoport@gmail.com>,
+	Andy Shevchenko <andy.shevchenko@gmail.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	devel@driverdev.osuosl.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Greg KH <gregkh@suse.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20101209214347.GA15172@suse.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-  Urk.  Sorry about that: the subject prefix should have read "net-26" since 
-this is a fairly critical bug fix.  Let me know if you'd like me to resubmit the 
-patch.
+On Thu, 2010-12-09 at 13:43 -0800, Greg KH wrote:
+> On Thu, Dec 09, 2010 at 01:26:50PM -0800, Dave Hansen wrote:
+> > I've been getting hard hangs when I toggle the wireless on a Lenovo
+> > S10-3.  It happens both with the physical switch and the Fn-F5 key
+> > combo.  It's quite repeatable.  The system is quite stable when I'm not
+> > trying to disable the wireless, though.
+> 
+> What kernel version is this?
+> 
+> Linus's latest tree has a known bug when the wireless is suspended and
+> then resumed.  Broadcom is working on it but no patch is forthcoming
+> yet.  Perhaps this is the same issue.
 
-Casey
+Yeah, it's 2.6.37-rc5 plus a pull from:
+
+	http://kernel.ubuntu.com/git?p=ikepanhc/ideapad-laptop.git;a=summary
+
+That could easily be it.  Thanks, Greg.
+
+-- Dave
