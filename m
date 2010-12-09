@@ -1,100 +1,63 @@
-From: Joy Latten <latten@austin.ibm.com>
-Subject: Re: IPsecv6  tunnel mode fragmentation
-Date: Wed, 08 Dec 2010 20:20:42 -0600
-Message-ID: <1291861242.11224.265.camel@faith.austin.ibm.com>
-References: <20101208071109.GA14537@gondor.apana.org.au>
-Reply-To: latten@austin.ibm.com
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, samudrala@us.ibm.com, rashmin@us.ibm.com,
-	davem@davemloft.net, dlstevens@us.ibm.com
-To: Herbert Xu <herbert@gondor.hengli.com.au>
+From: Asbjoern Sloth Toennesen <asbjorn@asbjorn.biz>
+Subject: [PATCH 6/7] e1000e: cleanup: swap arguments to avoid checkpatch errors
+Date: Thu,  9 Dec 2010 02:40:56 +0000
+Message-ID: <1291862457-16671-7-git-send-email-asbjorn__6403.35979774154$1291863040$gmane$org@asbjorn.biz>
+References: <1291862457-16671-1-git-send-email-asbjorn@asbjorn.biz>
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e39.co.us.ibm.com ([32.97.110.160]:51945 "EHLO
-	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753862Ab0LICrp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 21:47:45 -0500
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e39.co.us.ibm.com (8.14.4/8.13.1) with ESMTP id oB92a3nB013836
-	for <netdev@vger.kernel.org>; Wed, 8 Dec 2010 19:36:03 -0700
-Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id oB92lcVb157226
-	for <netdev@vger.kernel.org>; Wed, 8 Dec 2010 19:47:38 -0700
-Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av02.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id oB92lcUb022276
-	for <netdev@vger.kernel.org>; Wed, 8 Dec 2010 19:47:38 -0700
-In-Reply-To: <20101208071109.GA14537@gondor.apana.org.au>
+Received: from mail.asbjorn.biz ([217.195.185.3]:55185 "EHLO mail.asbjorn.biz"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756826Ab0LICu1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Dec 2010 21:50:27 -0500
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+In-Reply-To: <1291862457-16671-1-git-send-email-asbjorn@asbjorn.biz>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Herbert,
+Swap argument order in order to avoid checkpatch treating it as an
+unary operation, instead of an binary one, and obtain consistency
+with the 3 other similar assignments in netdev.c (tdlen & rdlen).
 
-On Wed, 2010-12-08 at 15:11 +0800, Herbert Xu wrote:
-> Joy Latten <latten@austin.ibm.com> wrote:
-> > 
-> > We have come across an ipsec problem that I think was
-> > noted a while back in the following link.
-> > http://www.mail-archive.com/netdev@vger.kernel.org/msg61659.html
-> 
-> Looks like a configuration issue to me.  One end is using the
-> same IP address (*::1234) both within and outside the tunnel.
-> Thus when the ICMP error message is sent it ends up outside the
-> tunnel causing it to be discarded by the other side.
-> 
-> So if you're using tunnel mode you really should use distinct
-> IP addresses.
-> 
+This patch fixes 3 checkpatch errors.
 
-Do you mean the tunnel mode packet has (*::1234) for both the 
-inner and outer headers?
+Signed-off-by: Asbjoern Sloth Toennesen <asbjorn@asbjorn.biz>
+---
+ drivers/net/e1000e/netdev.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-I was actually attempting testcase 5.3.11 from
-http://w3.antd.nist.gov/usgv6/TSTs/tests/Phase2_IPsec_Interoperability_v1.1.pdf
-
-My net config varied a little though...
-
-2001:db8:1:1::1234       2001:db8:1:1::56    2033:1:...:35  2033:1:...95
-TARGET(eth0) <--ipsectnl--> (eth1)SecurityGateway(eth0) <---> (eth0)HOST
-       1500                     1500                 1280        1280
-
-To me the test seems a host-to-securitygateway tunnel mode scenario.
-
-In the 5.3.11 testcase, the tunnel endpoint (eth0 of TARGET) is also
-endpoint for the pkt.
-
-i.e. SPD entry from 5.3.11 testcase using above config:
-
-Security Policy Database (SPD) for HOST1_SA-1
-tunnel source address           SGW_eth1
-tunnel destination address      TGT_eth0
-source address                  HOST_eth0
-destination address             TGT_eth0
-upperspec                       any
-direction                       in
-protocol                        ESP
-mode                            tunnel 
-
-We did attempt to debug in kernel to see whether the pkt-too-big 
-was being discarded... from what we saw, it did not seem to be. 
-Also, an "ip -6  r l c" on TARGET showed the adjusted mtu for the route 
-to HOST, which the pkt-too-big was for. tunnel's mtu is untouched.
-
-2001:db8:1:1::56 via 2001:db8:1:1::56 dev eth0  metric 0 
-    cache  mtu 1500 advmss 1440 hoplimit 4294967295
-2033:1:2:3:209:6bf:fe6:95 via 2001:db8:1:1::56 dev eth0  metric 0 
-    cache  expires 592sec mtu 1280 advmss 1440 hoplimit 4294967295
-
-Thus why I reached my original conclusion, that perhaps 
-esp/ah disregard inner hdr mtu since does not fragment.
-Thus inner pkt will be too big when it reaches link for 
-inner/original pkt to be sent on.
-
-If I have misunderstood your response, my apologies. 
-Please let me know.
-
-regards,
-Joy 
-
-
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index bb6a1f5..bdd3774 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -2059,7 +2059,7 @@ int e1000e_setup_tx_resources(struct e1000_adapter *adapter)
+ 	struct e1000_ring *tx_ring = adapter->tx_ring;
+ 	int err = -ENOMEM, size;
+ 
+-	size = sizeof(struct e1000_buffer) * tx_ring->count;
++	size = tx_ring->count * sizeof(struct e1000_buffer);
+ 	tx_ring->buffer_info = vzalloc(size);
+ 	if (!tx_ring->buffer_info)
+ 		goto err;
+@@ -2094,7 +2094,7 @@ int e1000e_setup_rx_resources(struct e1000_adapter *adapter)
+ 	struct e1000_buffer *buffer_info;
+ 	int i, size, desc_len, err = -ENOMEM;
+ 
+-	size = sizeof(struct e1000_buffer) * rx_ring->count;
++	size = rx_ring->count * sizeof(struct e1000_buffer);
+ 	rx_ring->buffer_info = vzalloc(size);
+ 	if (!rx_ring->buffer_info)
+ 		goto err;
+@@ -2151,7 +2151,7 @@ static void e1000_clean_tx_ring(struct e1000_adapter *adapter)
+ 		e1000_put_txbuf(adapter, buffer_info);
+ 	}
+ 
+-	size = sizeof(struct e1000_buffer) * tx_ring->count;
++	size = tx_ring->count * sizeof(struct e1000_buffer);
+ 	memset(tx_ring->buffer_info, 0, size);
+ 
+ 	memset(tx_ring->desc, 0, tx_ring->size);
+-- 
+1.7.2.3
 
