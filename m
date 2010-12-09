@@ -1,33 +1,33 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Does any person or organize enage in optimizing the tcp
- protocol stack ?
-Date: Thu, 09 Dec 2010 10:45:49 +0100
-Message-ID: <1291887949.4063.0.camel@edumazet-laptop>
-References: <AANLkTi=YGHSG_BWoTyyDJLSKhgWAp8OVz7f01DGbgESe@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: tingwei liu <tingw.liu@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:51261 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750839Ab0LIJpy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Dec 2010 04:45:54 -0500
-Received: by wyb28 with SMTP id 28so2066455wyb.19
-        for <netdev@vger.kernel.org>; Thu, 09 Dec 2010 01:45:53 -0800 (PST)
-In-Reply-To: <AANLkTi=YGHSG_BWoTyyDJLSKhgWAp8OVz7f01DGbgESe@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH] netfilter: don't need to initialize instance_table
+Date: Thu,  9 Dec 2010 18:10:21 +0800
+Message-ID: <1291889421-10794-1-git-send-email-xiaosuo@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	Changli Gao <xiaosuo@gmail.com>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le jeudi 09 d=C3=A9cembre 2010 =C3=A0 16:58 +0800, tingwei liu a =C3=A9=
-crit :
-> Does any person or organize enage in optimizing the tcp protocol stac=
-k ?
->=20
+Since instance_table is a static array, and has been zeroed already, we
+don't need to take CPU cycles to initialize it.
 
-Basically everybody reading this list is involved into optimizing
-things, tcp stack for example.
-
-
-
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+---
+ net/netfilter/nfnetlink_queue.c |    3 ---
+ 1 file changed, 3 deletions(-)
+diff --git a/net/netfilter/nfnetlink_queue.c b/net/netfilter/nfnetlink_queue.c
+index 68e67d1..9c80d6f 100644
+--- a/net/netfilter/nfnetlink_queue.c
++++ b/net/netfilter/nfnetlink_queue.c
+@@ -893,9 +893,6 @@ static int __init nfnetlink_queue_init(void)
+ {
+ 	int i, status = -ENOMEM;
+ 
+-	for (i = 0; i < INSTANCE_BUCKETS; i++)
+-		INIT_HLIST_HEAD(&instance_table[i]);
+-
+ 	netlink_register_notifier(&nfqnl_rtnl_notifier);
+ 	status = nfnetlink_subsys_register(&nfqnl_subsys);
+ 	if (status < 0) {
