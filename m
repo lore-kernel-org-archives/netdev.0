@@ -1,76 +1,244 @@
-From: =?UTF-8?B?UGF3ZcWCIFN0YXN6ZXdza2k=?= <pstaszewski@itcare.pl>
-Subject: Re: [Bugme-new] [Bug 24472] New: Kernel panic - not syncing: Fatal
- Exception
-Date: Thu, 09 Dec 2010 20:59:11 +0100
-Message-ID: <4D01350F.7060402@itcare.pl>
-References: <bug-24472-10286@https.bugzilla.kernel.org/> <20101208122233.835a4997.akpm@linux-foundation.org> <4CFFEB01.7040700@itcare.pl> <4D000045.3040102@gmail.com> <4D00CE33.8040006@itcare.pl> <4D011813.1090200@gmail.com>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: [RFC PATCH 1/4] net: implement mechanism for HW based QOS
+Date: Thu, 09 Dec 2010 11:59:57 -0800
+Message-ID: <20101209195956.3554.49511.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	Paul Mackerras <paulus@samba.org>,
-	bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, pstaszewski@artcom.pl,
-	Andrej Ota <andrej@ota.si>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, hadi@cyberus.ca, shemminger@vyatta.com,
+	tgraf@infradead.org, eric.dumazet@gmail.com,
+	john.r.fastabend@intel.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.iq.pl ([86.111.241.19]:51182 "EHLO smtp.iq.pl"
+Received: from mga14.intel.com ([143.182.124.37]:44367 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756636Ab0LIT7A (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Dec 2010 14:59:00 -0500
-In-Reply-To: <4D011813.1090200@gmail.com>
+	id S1756766Ab0LIUCC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Dec 2010 15:02:02 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-W dniu 2010-12-09 18:55, Jarek Poplawski pisze:
-> Pawe=C5=82 Staszewski wrote:
->> W dniu 2010-12-08 23:01, Jarek Poplawski pisze:
->>> Pawe=C5=82 Staszewski wrote:
->>>> W dniu 2010-12-08 21:22, Andrew Morton pisze:
->>>>> (switched to email.  Please respond via emailed reply-to-all, not
->>>>> via the
->>>>> bugzilla web interface).
->>>>>
->>>>> On Wed, 8 Dec 2010 20:14:45 GMT
->>>>> bugzilla-daemon@bugzilla.kernel.org wrote:
->>>>>
->>>>>> https://bugzilla.kernel.org/show_bug.cgi?id=3D24472
->>>>>>
->>>>>>               Summary: Kernel panic - not syncing: Fatal Excepti=
-on
->>>>>>               Product: Drivers
->>>>>>               Version: 2.5
->>>>>>        Kernel Version: 2.6.36.1
->>> Hi,
->>> Could you try to revert this patch?:
->>> http://git.kernel.org/?p=3Dlinux/kernel/git/stable/linux-2.6.36.y.g=
-it;a=3Dcommitdiff;h=3D55c95e738da85373965cb03b4f975d0fd559865b
->>>
->>>
->> After reverting this patch all is working
->> 200 connects-disconnects and no kernel panic
->>
->> I will make more session and test more.
-> OK. I CC Andrej and Eric, who diagnosed it in this thread:
-> http://lkml.org/lkml/2010/12/3/116
-> [unable to handle kernel NULL pointer dereference in skb_dequeue]
->
-> This should be also interesting:
-> http://git.kernel.org/?p=3Dlinux/kernel/git/torvalds/linux-2.6.git;a=3D=
-commitdiff;h=3Ddb7bf6d97c6956b7eb0f22131cb5c37bd41f33c0
->
-> Thanks for testing,
-> Jarek P.
->
->
-After 10 hours of testing all is working.
+This patch provides a mechanism for lower layer devices to
+steer traffic using skb->priority to tx queues. This allows
+for hardware based QOS schemes to use the default qdisc without
+incurring the penalties related to global state and the qdisc
+lock. While reliably receiving skbs on the correct tx ring
+to avoid head of line blocking resulting from shuffling in
+the LLD. Finally, all the goodness from txq caching and xps/rps
+can still be leveraged.
 
-I can't reproduce kernel panic now with houndreds of pppoe sessions tha=
-t=20
-connects-disconnects.
+Many drivers and hardware exist with the ability to implement
+QOS schemes in the hardware but currently these drivers tend
+to rely on firmware to reroute specific traffic, a driver
+specific select_queue or the queue_mapping action in the
+qdisc.
 
+By using select_queue for this drivers need to be updated for
+each and every traffic type and we lose the goodness of much
+of the upstream work. Firmware solutions are inherently
+inflexible. And finally if admins are expected to build a
+qdisc and filter rules to steer traffic this requires knowledge
+of how the hardware is currently configured. The number of tx
+queues and the queue offsets may change depending on resources.
+Also this approach incurs all the overhead of a qdisc with filters.
 
-Thanks
-Pawe=C5=82
+With the mechanism in this patch users can set skb priority using
+expected methods ie setsockopt() or the stack can set the priority
+directly. Then the skb will be steered to the correct tx queues
+aligned with hardware QOS traffic classes. In the normal case with
+a single traffic class and all queues in this class everything
+works as is until the LLD enables multiple tcs.
+
+To steer the skb we mask out the lower 4 bits of the priority
+and allow the hardware to configure upto 15 distinct classes
+of traffic. This is expected to be sufficient for most applications
+at any rate it is more then the 8021Q spec designates and is
+equal to the number of prio bands currently implemented in
+the default qdisc.
+
+This in conjunction with a userspace application such as
+lldpad can be used to implement 8021Q transmission selection
+algorithms one of these algorithms being the extended transmission
+selection algorithm currently being used for DCB.
+
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+---
+
+ include/linux/netdevice.h |   65 +++++++++++++++++++++++++++++++++++++++++++++
+ net/core/dev.c            |   39 ++++++++++++++++++++++++++-
+ 2 files changed, 103 insertions(+), 1 deletions(-)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index a9ac5dc..c0d4fb1 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -646,6 +646,12 @@ struct xps_dev_maps {
+     (nr_cpu_ids * sizeof(struct xps_map *)))
+ #endif /* CONFIG_XPS */
+ 
++/* HW offloaded queuing disciplines txq count and offset maps */
++struct netdev_tc_txq {
++	u16 count;
++	u16 offset;
++};
++
+ /*
+  * This structure defines the management hooks for network devices.
+  * The following hooks can be defined; unless noted otherwise, they are
+@@ -1146,6 +1152,10 @@ struct net_device {
+ 	/* Data Center Bridging netlink ops */
+ 	const struct dcbnl_rtnl_ops *dcbnl_ops;
+ #endif
++	u8 max_tc;
++	u8 num_tc;
++	struct netdev_tc_txq *_tc_to_txq;
++	u8 prio_tc_map[16];
+ 
+ #if defined(CONFIG_FCOE) || defined(CONFIG_FCOE_MODULE)
+ 	/* max exchange id for FCoE LRO by ddp */
+@@ -1162,6 +1172,58 @@ struct net_device {
+ #define	NETDEV_ALIGN		32
+ 
+ static inline
++int netdev_get_prio_tc_map(const struct net_device *dev, u32 prio)
++{
++	return dev->prio_tc_map[prio & 15];
++}
++
++static inline
++int netdev_set_prio_tc_map(struct net_device *dev, u8 prio, u8 tc)
++{
++	if (tc >= dev->num_tc)
++		return -EINVAL;
++
++	dev->prio_tc_map[prio & 15] = tc & 15;
++	return 0;
++}
++
++static inline
++int netdev_set_tc_queue(struct net_device *dev, u8 tc, u16 count, u16 offset)
++{
++	struct netdev_tc_txq *tcp;
++
++	if (tc >= dev->num_tc)
++		return -EINVAL;
++
++	tcp = &dev->_tc_to_txq[tc];
++	tcp->count = count;
++	tcp->offset = offset;
++	return 0;
++}
++
++static inline
++struct netdev_tc_txq *netdev_get_tc_queue(const struct net_device *dev, u8 tc)
++{
++	return &dev->_tc_to_txq[tc];
++}
++
++static inline
++int netdev_set_num_tc(struct net_device *dev, u8 num_tc)
++{
++	if (num_tc > dev->max_tc)
++		return -EINVAL;
++
++	dev->num_tc = num_tc;
++	return 0;
++}
++
++static inline
++u8 netdev_get_num_tc(const struct net_device *dev)
++{
++	return dev->num_tc;
++}
++
++static inline
+ struct netdev_queue *netdev_get_tx_queue(const struct net_device *dev,
+ 					 unsigned int index)
+ {
+@@ -1386,6 +1448,9 @@ static inline void unregister_netdevice(struct net_device *dev)
+ 	unregister_netdevice_queue(dev, NULL);
+ }
+ 
++extern int		netdev_alloc_max_tc(struct net_device *dev, u8 tc);
++extern void		netdev_free_tc(struct net_device *dev);
++
+ extern int 		netdev_refcnt_read(const struct net_device *dev);
+ extern void		free_netdev(struct net_device *dev);
+ extern void		synchronize_net(void);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 55ff66f..cc00e66 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2118,6 +2118,8 @@ static u32 hashrnd __read_mostly;
+ u16 skb_tx_hash(const struct net_device *dev, const struct sk_buff *skb)
+ {
+ 	u32 hash;
++	u16 qoffset = 0;
++	u16 qcount = dev->real_num_tx_queues;
+ 
+ 	if (skb_rx_queue_recorded(skb)) {
+ 		hash = skb_get_rx_queue(skb);
+@@ -2126,13 +2128,20 @@ u16 skb_tx_hash(const struct net_device *dev, const struct sk_buff *skb)
+ 		return hash;
+ 	}
+ 
++	if (dev->num_tc) {
++		u8 tc = netdev_get_prio_tc_map(dev, skb->priority);
++		struct netdev_tc_txq *tcp = netdev_get_tc_queue(dev, tc);
++		qoffset = tcp->offset;
++		qcount = tcp->count;
++	}
++
+ 	if (skb->sk && skb->sk->sk_hash)
+ 		hash = skb->sk->sk_hash;
+ 	else
+ 		hash = (__force u16) skb->protocol ^ skb->rxhash;
+ 	hash = jhash_1word(hash, hashrnd);
+ 
+-	return (u16) (((u64) hash * dev->real_num_tx_queues) >> 32);
++	return (u16) ((((u64) hash * qcount)) >> 32) + qoffset;
+ }
+ EXPORT_SYMBOL(skb_tx_hash);
+ 
+@@ -5091,6 +5100,33 @@ void netif_stacked_transfer_operstate(const struct net_device *rootdev,
+ }
+ EXPORT_SYMBOL(netif_stacked_transfer_operstate);
+ 
++int netdev_alloc_max_tc(struct net_device *dev, u8 tcs)
++{
++	struct netdev_tc_txq *tcp;
++
++	if (tcs > 16)
++		return -EINVAL;
++
++	tcp = kcalloc(tcs, sizeof(*tcp), GFP_KERNEL);
++	if (!tcp)
++		return -ENOMEM;
++
++	dev->_tc_to_txq = tcp;
++	dev->max_tc = tcs;
++	return 0;
++}
++EXPORT_SYMBOL(netdev_alloc_max_tc);
++
++void netdev_free_tc(struct net_device *dev)
++{
++	dev->max_tc = 0;
++	dev->num_tc = 0;
++	memset(dev->prio_tc_map, 0, sizeof(dev->prio_tc_map));
++	kfree(dev->_tc_to_txq);
++	dev->_tc_to_txq = NULL;
++}
++EXPORT_SYMBOL(netdev_free_tc);
++
+ #ifdef CONFIG_RPS
+ static int netif_alloc_rx_queues(struct net_device *dev)
+ {
+@@ -5699,6 +5735,7 @@ void free_netdev(struct net_device *dev)
+ #ifdef CONFIG_RPS
+ 	kfree(dev->_rx);
+ #endif
++	netdev_free_tc(dev);
+ 
+ 	kfree(rcu_dereference_raw(dev->ingress_queue));
+ 
+
