@@ -1,66 +1,41 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [PATCH net-2.6] net/ipv6/udp.c: fix typo in flush_stack()
-Date: Thu, 9 Dec 2010 15:28:52 +0100
-Message-ID: <20101209142851.GC2820@psychotron.brq.redhat.com>
-References: <20101209134029.GB2820@psychotron.brq.redhat.com>
- <1291902488.4063.28.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Tobias Klauser <tklauser@distanz.ch>
+Subject: [PATCH] inet6: Remove redundant unlikely()
+Date: Thu,  9 Dec 2010 15:37:48 +0100
+Message-ID: <1291905468-32174-1-git-send-email-tklauser@distanz.ch>
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yosh
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:62370 "EHLO mx1.redhat.com"
+Received: from mx1.zhaw.ch ([160.85.104.50]:61149 "EHLO mx1.zhaw.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753056Ab0LIO24 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Dec 2010 09:28:56 -0500
-Content-Disposition: inline
-In-Reply-To: <1291902488.4063.28.camel@edumazet-laptop>
+	id S1754232Ab0LIOhu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Dec 2010 09:37:50 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Dec 09, 2010 at 02:48:08PM CET, eric.dumazet@gmail.com wrote:
->Le jeudi 09 d=E9cembre 2010 =E0 14:40 +0100, Jiri Pirko a =E9crit :
->> skb1 should be passed as parameter to sk_rcvqueues_full() here.
->>=20
->> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
->>=20
->> diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
->> index 91def93..d2b268e 100644
->> --- a/net/ipv6/udp.c
->> +++ b/net/ipv6/udp.c
->> @@ -602,7 +602,7 @@ static void flush_stack(struct sock **stack, uns=
-igned int count,
->> =20
->>  		sk =3D stack[i];
->>  		if (skb1) {
->> -			if (sk_rcvqueues_full(sk, skb)) {
->> +			if (sk_rcvqueues_full(sk, skb1)) {
->>  				kfree_skb(skb1);
->>  				goto drop;
->>  			}
->
->net-2.6 ? Its the same truesize anyway...
+IS_ERR() already implies unlikely(), so it can be omitted here.
 
-I know it is.
+Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+---
+ net/ipv6/af_inet6.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
->
->So it's not a bug, but a cosmetic change.
->(I am ok with it, but for net-next-2.6)
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index 54e8e42..059a3de 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -810,7 +810,7 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb, int features)
+ 	}
+ 	rcu_read_unlock();
+ 
+-	if (unlikely(IS_ERR(segs)))
++	if (IS_ERR(segs))
+ 		goto out;
+ 
+ 	for (skb = segs; skb; skb = skb->next) {
+-- 
+1.7.0.4
 
-Anything you like.
-
->
->/*
-> * Take into account size of receive queue and backlog queue
-> */
->static inline bool sk_rcvqueues_full(const struct sock *sk, const stru=
-ct sk_buff *skb)
->{
->        unsigned int qsize =3D sk->sk_backlog.len + atomic_read(&sk->s=
-k_rmem_alloc);
->
->        return qsize + skb->truesize > sk->sk_rcvbuf;
->}
->
->
