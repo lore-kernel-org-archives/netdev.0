@@ -1,62 +1,86 @@
-From: =?utf-8?Q?Am=C3=A9rico?= Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [regression, 2.6.37-rc1] 'ip link tap0 up' stuck in do_exit()
-Date: Fri, 10 Dec 2010 00:47:48 +0800
-Message-ID: <20101209164748.GA3218@hack>
-References: <20101103062609.GB31163@dastard> <1288768402.2467.665.camel@edumazet-laptop> <20101103103448.GA9169@dastard> <20101103112936.GB9169@dastard> <20101104002140.GA13830@dastard> <20101104054718.GC5210@cr0.nay.redhat.com> <20101208100245.01cf23c5@schatten.dmk.lab> <20101208134116.GA16923@redhat.com> <20101208134712.GB16923@redhat.com> <20101208140822.GA18681@redhat.com>
+From: Neil Jones <neiljay@gmail.com>
+Subject: Re: rndis gadget: Inconsistent locking
+Date: Thu, 9 Dec 2010 17:00:55 +0000
+Message-ID: <AANLkTinE1srqkpib0+8Q63XjnhRYEWaaDsX70tc_OeUm@mail.gmail.com>
+References: <AANLkTik=Uui7Xk9ZfFvQQKj94ZJUJ_n+bZbTQXbe+08i@mail.gmail.com>
+	<AANLkTi==UqNNzokLcLWDpjM0cqM6aXjppsi4p6ogMAqX@mail.gmail.com>
+	<op.vnenkvz67p4s8u@pikus>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Mickler <florian@mickler.org>, Ingo Molnar <mingo@elte.hu>,
-	=?utf-8?Q?Am=C3=A9rico?= Wang <xiyou.wangcong@gmail.com>,
-	Dave Chinner <david@fromorbit.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Oleg Nesterov <oleg@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20101208140822.GA18681@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org
+To: =?UTF-8?Q?Micha=C5=82_Nazarewicz?= <m.nazarewicz@samsung.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gx0-f180.google.com ([209.85.161.180]:50758 "EHLO
+	mail-gx0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754739Ab0LIRA4 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Dec 2010 12:00:56 -0500
+In-Reply-To: <op.vnenkvz67p4s8u@pikus>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 08, 2010 at 03:08:22PM +0100, Oleg Nesterov wrote:
->On 12/08, Oleg Nesterov wrote:
->>
->> On 12/08, Oleg Nesterov wrote:
->> >
->> > On 12/08, Florian Mickler wrote:
->> > >
->> > > [ ccing Ingo and Oleg ] as suggested
->> >
->> > Well. Of course I can't explain this bug. But, looking at this email
->> > I do not see amything strange in exit/schedule/etc.
->> >
->> > > > >> > > > This is resulting in the command 'ip link set tap0 up' hanging as a zombie:
->> > > > >> > > >
->> > > > >> > > > root      3005     1  0 16:53 pts/3    00:00:00 /bin/sh /vm-images/qemu-ifup tap0
->> > > > >> > > > root      3011  3005  0 16:53 pts/3    00:00:00 /usr/bin/sudo /sbin/ip link set tap0 up
->> > > > >> > > > root      3012  3011  0 16:53 pts/3    00:00:00 [ip] <defunct>
->> >
->> > That is. ip is a zombie.
->>
->> And. I do not know if this matters or not, but "the command 'ip link
->> set tap0 up' hanging as a zombie" does not look right.
->>
->> This was spawned by
->>
->> > >> > > > if [ -n "$1" ];then
->> > >> > > >         /usr/bin/sudo /sbin/ip link set $1 up
->> > >> > > >         sleep 0.5s
->> > >> > > >         /usr/bin/sudo /usr/sbin/brctl addif $switch $1
->> > >> > > >      exit 0
->> > >> > > > fi
->>
->> The command does not hang. But it forks the child with pid == 3012,
->> this child exits.
->
->Damn, sorry for noise, forgot to mention...
->
->The parent's trace (pid == 3011) can be more useful. Say, if it
->hangs in do_wait(), then the kernel is obviously wrong.
->
+> Does this help: <https://patchwork.kernel.org/patch/195562/>?
 
-Yeah, there is no point that a zombie can trigger a BUG_ON in kenrel.
-But it is still interesting to know why it becomes a zombie...
+Yes cheers, warning gone and driver seems fine so far.
+
+has this been accepted upstream ?
+
+Neil
+
+2010/12/8 Micha=C5=82 Nazarewicz <m.nazarewicz@samsung.com>:
+> On Wed, 08 Dec 2010 16:11:30 +0100, Neil Jones <neiljay@gmail.com> wr=
+ote:
+>>
+>> Im getting another lockdep warning when using the RNDIS gadget:
+>>
+>> =C2=A0WARNING: at kernel/softirq.c:98 ___local_bh_disable+0xc4/0xd0(=
+)
+>> =C2=A0Modules linked in: g_ether
+>>
+>> =C2=A0Call trace:
+>> =C2=A0[<40003bf8>] _show_stack+0x68/0x7c
+>> =C2=A0[<40003c20>] _dump_stack+0x14/0x28
+>> =C2=A0[<40013c3c>] _warn_slowpath_common+0x5c/0x7c
+>> =C2=A0[<40013c74>] _warn_slowpath_null+0x18/0x2c
+>> =C2=A0[<4001b17c>] ___local_bh_disable+0xc0/0xd0
+>> =C2=A0[<4001b1a0>] _local_bh_disable+0x14/0x28
+>> =C2=A0[<402e57f8>] __raw_spin_lock_bh+0x18/0x54
+>> =C2=A0[<40257f4c>] _dev_txq_stats_fold+0x7c/0x13c
+>> =C2=A0[<402580c4>] _dev_get_stats+0xb8/0xc0
+>> =C2=A0[<781d4e60>] _rndis_msg_parser+0x288/0xa04 [g_ether]
+>> =C2=A0[<781d5600>] _rndis_command_complete+0x24/0x70 [g_ether]
+>> =C2=A0[<401d66fc>] _dwc_otg_request_done+0xd8/0x220
+>> =C2=A0[<401d928c>] _ep0_complete_request+0x3f4/0x578
+>> =C2=A0[<401d95bc>] _handle_ep0+0x1ac/0x146c
+>> =C2=A0[<401daf7c>] _dwc_otg_pcd_handle_in_ep_intr+0x1c0/0x8bc
+>> =C2=A0[<401db8dc>] _dwc_otg_pcd_handle_intr+0x264/0x294
+>> =C2=A0[<401d6288>] _dwc_otg_pcd_irq+0x10/0x30
+>> =C2=A0[<40054cf4>] _handle_IRQ_event+0x4c/0x184
+>> =C2=A0[<40057b4c>] _handle_level_irq+0xac/0x15c
+>> =C2=A0[<4000b204>] _metag_soc_irq_demux+0xac/0xb4
+>> =C2=A0[<40002dd4>] _do_IRQ+0x4c/0x78
+>> =C2=A0[<40004000>] _trigger_handler+0x38/0xac
+>> =C2=A0[<40000b18>] ___TBIBoingVec+0xc/0x10
+>> =C2=A0[<40003588>] _cpu_idle+0x54/0x78
+>>
+>> =C2=A0no locks held by swapper/0.
+>> =C2=A0---[ end trace 77ac3cfee0ae5b25 ]---
+>
+> Known problem.
+>
+>> It looks like we are calling spin_lock_bh in the completion function
+>> which is running in hard_irq, I think the driver should defer handli=
+ng
+>> this msg (and maybe all requests) to a workqueue?
+>
+> Does this help: <https://patchwork.kernel.org/patch/195562/>?
+>
+> --
+> Best regards, =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
+=C2=A0 =C2=A0_ =C2=A0 =C2=A0 _
+> | Humble Liege of Serenely Enlightened Majesty of =C2=A0o' \,=3D./ `o
+> | Computer Science, =C2=A0Micha=C5=82 "mina86" Nazarewicz =C2=A0 =C2=A0=
+ =C2=A0 (o o)
+> +----[mina86*mina86.com]---[mina86*jabber.org]----ooO--(_)--Ooo--
+>
