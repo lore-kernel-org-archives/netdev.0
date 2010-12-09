@@ -1,65 +1,86 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [Bugme-new] [Bug 24472] New: Kernel panic - not syncing: Fatal
- Exception
-Date: Thu, 09 Dec 2010 18:55:31 +0100
-Message-ID: <4D011813.1090200@gmail.com>
-References: <bug-24472-10286@https.bugzilla.kernel.org/> <20101208122233.835a4997.akpm@linux-foundation.org> <4CFFEB01.7040700@itcare.pl> <4D000045.3040102@gmail.com> <4D00CE33.8040006@itcare.pl>
+From: Jim Bos <jim876@xs4all.nl>
+Subject: Re: [regression, 2.6.37-rc1] 'ip link tap0 up' stuck in do_exit()
+Date: Thu, 09 Dec 2010 18:59:48 +0100
+Message-ID: <4D011914.3000301@xs4all.nl>
+References: <20101103062609.GB31163@dastard> <1288768402.2467.665.camel@edumazet-laptop> <20101103103448.GA9169@dastard> <20101103112936.GB9169@dastard> <20101104002140.GA13830@dastard> <20101104054718.GC5210@cr0.nay.redhat.com> <20101208100245.01cf23c5@schatten.dmk.lab> <20101208134116.GA16923@redhat.com> <20101208134712.GB16923@redhat.com> <20101208140822.GA18681@redhat.com> <20101209164748.GA3218@hack>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	Paul Mackerras <paulus@samba.org>,
-	bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, pstaszewski@artcom.pl,
-	Andrej Ota <andrej@ota.si>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: =?UTF-8?B?UGF3ZcWCIFN0YXN6ZXdza2k=?= <pstaszewski@itcare.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:64550 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756124Ab0LIRzj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Dec 2010 12:55:39 -0500
-Received: by wyb28 with SMTP id 28so2533134wyb.19
-        for <netdev@vger.kernel.org>; Thu, 09 Dec 2010 09:55:37 -0800 (PST)
-In-Reply-To: <4D00CE33.8040006@itcare.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Oleg Nesterov <oleg@redhat.com>,
+	Florian Mickler <florian@mickler.org>,
+	Ingo Molnar <mingo@elte.hu>,
+	Dave Chinner <david@fromorbit.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: =?ISO-8859-1?Q?Am=E9rico_Wang?= <xiyou.wangcong@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20101209164748.GA3218@hack>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Pawe=C5=82 Staszewski wrote:
-> W dniu 2010-12-08 23:01, Jarek Poplawski pisze:
->> Pawe=C5=82 Staszewski wrote:
->>> W dniu 2010-12-08 21:22, Andrew Morton pisze:
->>>> (switched to email.  Please respond via emailed reply-to-all, not
->>>> via the
->>>> bugzilla web interface).
+On 12/09/2010 05:47 PM, Am=E9rico Wang wrote:
+> On Wed, Dec 08, 2010 at 03:08:22PM +0100, Oleg Nesterov wrote:
+>> On 12/08, Oleg Nesterov wrote:
+>>>
+>>> On 12/08, Oleg Nesterov wrote:
 >>>>
->>>> On Wed, 8 Dec 2010 20:14:45 GMT
->>>> bugzilla-daemon@bugzilla.kernel.org wrote:
->>>>
->>>>> https://bugzilla.kernel.org/show_bug.cgi?id=3D24472
+>>>> On 12/08, Florian Mickler wrote:
 >>>>>
->>>>>              Summary: Kernel panic - not syncing: Fatal Exception
->>>>>              Product: Drivers
->>>>>              Version: 2.5
->>>>>       Kernel Version: 2.6.36.1
->> Hi,
->> Could you try to revert this patch?:
->> http://git.kernel.org/?p=3Dlinux/kernel/git/stable/linux-2.6.36.y.gi=
-t;a=3Dcommitdiff;h=3D55c95e738da85373965cb03b4f975d0fd559865b
+>>>>> [ ccing Ingo and Oleg ] as suggested
+>>>>
+>>>> Well. Of course I can't explain this bug. But, looking at this ema=
+il
+>>>> I do not see amything strange in exit/schedule/etc.
+>>>>
+>>>>>>>>>>> This is resulting in the command 'ip link set tap0 up' hang=
+ing as a zombie:
+>>>>>>>>>>>
+>>>>>>>>>>> root      3005     1  0 16:53 pts/3    00:00:00 /bin/sh /vm=
+-images/qemu-ifup tap0
+>>>>>>>>>>> root      3011  3005  0 16:53 pts/3    00:00:00 /usr/bin/su=
+do /sbin/ip link set tap0 up
+>>>>>>>>>>> root      3012  3011  0 16:53 pts/3    00:00:00 [ip] <defun=
+ct>
+>>>>
+>>>> That is. ip is a zombie.
+>>>
+>>> And. I do not know if this matters or not, but "the command 'ip lin=
+k
+>>> set tap0 up' hanging as a zombie" does not look right.
+>>>
+>>> This was spawned by
+>>>
+>>>>>>>>> if [ -n "$1" ];then
+>>>>>>>>>         /usr/bin/sudo /sbin/ip link set $1 up
+>>>>>>>>>         sleep 0.5s
+>>>>>>>>>         /usr/bin/sudo /usr/sbin/brctl addif $switch $1
+>>>>>>>>>      exit 0
+>>>>>>>>> fi
+>>>
+>>> The command does not hang. But it forks the child with pid =3D=3D 3=
+012,
+>>> this child exits.
 >>
+>> Damn, sorry for noise, forgot to mention...
 >>
-> After reverting this patch all is working
-> 200 connects-disconnects and no kernel panic
+>> The parent's trace (pid =3D=3D 3011) can be more useful. Say, if it
+>> hangs in do_wait(), then the kernel is obviously wrong.
+>>
 >=20
-> I will make more session and test more.
+> Yeah, there is no point that a zombie can trigger a BUG_ON in kenrel.
+> But it is still interesting to know why it becomes a zombie...
+>=20
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kerne=
+l" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
 
-OK. I CC Andrej and Eric, who diagnosed it in this thread:
-http://lkml.org/lkml/2010/12/3/116
-[unable to handle kernel NULL pointer dereference in skb_dequeue]
+ip link tap0 up not working might be this issue:
 
-This should be also interesting:
-http://git.kernel.org/?p=3Dlinux/kernel/git/torvalds/linux-2.6.git;a=3D=
-commitdiff;h=3Ddb7bf6d97c6956b7eb0f22131cb5c37bd41f33c0
-=20
-Thanks for testing,
-Jarek P.
+   http://marc.info/?l=3Dlinux-netdev&m=3D128783852132311&w=3D2
+
+( Latest Virtualbox 3.2.12 works around this issue )
+
+Jim
