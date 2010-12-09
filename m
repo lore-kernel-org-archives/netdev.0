@@ -1,93 +1,100 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: refcounting on dgram Unix sockets for poll(POLLOUT)
-Date: Thu, 09 Dec 2010 03:47:01 +0100
-Message-ID: <1291862821.2795.27.camel@edumazet-laptop>
-References: <20101208210100.46c894dd@chocolatine.cbg.collabora.co.uk>
+From: Joy Latten <latten@austin.ibm.com>
+Subject: Re: IPsecv6  tunnel mode fragmentation
+Date: Wed, 08 Dec 2010 20:20:42 -0600
+Message-ID: <1291861242.11224.265.camel@faith.austin.ibm.com>
+References: <20101208071109.GA14537@gondor.apana.org.au>
+Reply-To: latten@austin.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Alban Crequy <alban.crequy@collabora.co.uk>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, samudrala@us.ibm.com, rashmin@us.ibm.com,
+	davem@davemloft.net, dlstevens@us.ibm.com
+To: Herbert Xu <herbert@gondor.hengli.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:42762 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932200Ab0LICrG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 21:47:06 -0500
-Received: by wyb28 with SMTP id 28so1789324wyb.19
-        for <netdev@vger.kernel.org>; Wed, 08 Dec 2010 18:47:05 -0800 (PST)
-In-Reply-To: <20101208210100.46c894dd@chocolatine.cbg.collabora.co.uk>
+Received: from e39.co.us.ibm.com ([32.97.110.160]:51945 "EHLO
+	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753862Ab0LICrp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 21:47:45 -0500
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e39.co.us.ibm.com (8.14.4/8.13.1) with ESMTP id oB92a3nB013836
+	for <netdev@vger.kernel.org>; Wed, 8 Dec 2010 19:36:03 -0700
+Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id oB92lcVb157226
+	for <netdev@vger.kernel.org>; Wed, 8 Dec 2010 19:47:38 -0700
+Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av02.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id oB92lcUb022276
+	for <netdev@vger.kernel.org>; Wed, 8 Dec 2010 19:47:38 -0700
+In-Reply-To: <20101208071109.GA14537@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 08 d=C3=A9cembre 2010 =C3=A0 21:01 +0000, Alban Crequy a =C3=
-=A9crit :
-> Hi,
->=20
-> When a connected datagram Unix socket is polled for POLLOUT events, t=
-he
-> poller is added in the wait_queue_head_t of the "server" socket:
->=20
-> net/unix/af_unix.c::unix_dgram_poll()
->   other =3D unix_peer_get(sk);
->   if (other) {
->     if (unix_peer(other) !=3D sk) {
->       sock_poll_wait(file, &unix_sk(other)->peer_wait,
->                      wait);
->       ...
->=20
-> I wonder what prevent the "server" socket ("other") to be released
-> while the poller is still waiting for POLLOUT events.
->=20
-> There is a reference taken on the "server" socket when the client
-> connects:
-> net/unix/af_unix.c::unix_dgram_connect()
->   other =3D unix_find_other(net, sunaddr, alen, sock->type,
->             hash, &err);
->=20
-> But that reference could be released when the client socket
-> disconnects from another thread in one of the 3 possible locations:
->=20
-> 1. unix_dgram_connect() when connecting to a different socket
->      if (other !=3D old_peer)
->        unix_dgram_disconnected(sk, old_peer);
->      sock_put(old_peer);
->=20
-> 2. unix_dgram_sendmsg() when the server socket is SOCK_DEAD:
->      unix_dgram_disconnected(sk, other);
->      sock_put(other);
->=20
-> 3. unix_release_sock() when the client socket is released:
->      skpair =3D unix_peer(sk);
->      if (skpair !=3D NULL) {
->        sock_put(skpair); /* It may now die */
->=20
-> I tried to release all the references to server_sockfd with
-> close(server_sockfd) on the server thread and with
-> connect(client_sockfd) to a different socket while client_sockfd is
-> being polled for POLLOUT events in a different thread, hoping to cras=
-h
-> the poller with the stack:
-> free_poll_entry()->remove_wait_queue()->spin_lock_irqsave()
-> But I didn't manage to crash the kernel.
->=20
+Hi Herbert,
 
-Maybe you need to add some options to detect/trigger this ?
+On Wed, 2010-12-08 at 15:11 +0800, Herbert Xu wrote:
+> Joy Latten <latten@austin.ibm.com> wrote:
+> > 
+> > We have come across an ipsec problem that I think was
+> > noted a while back in the following link.
+> > http://www.mail-archive.com/netdev@vger.kernel.org/msg61659.html
+> 
+> Looks like a configuration issue to me.  One end is using the
+> same IP address (*::1234) both within and outside the tunnel.
+> Thus when the ICMP error message is sent it ends up outside the
+> tunnel causing it to be discarded by the other side.
+> 
+> So if you're using tunnel mode you really should use distinct
+> IP addresses.
+> 
 
-CONFIG_DEBUG_LOCK_ALLOC
+Do you mean the tunnel mode packet has (*::1234) for both the 
+inner and outer headers?
 
-and
+I was actually attempting testcase 5.3.11 from
+http://w3.antd.nist.gov/usgv6/TSTs/tests/Phase2_IPsec_Interoperability_v1.1.pdf
 
-slub_debug=3DFZP
-cf Documentation/vm/slub.txt
+My net config varied a little though...
 
-to force slub to overwrite data when freeing master socket.
+2001:db8:1:1::1234       2001:db8:1:1::56    2033:1:...:35  2033:1:...95
+TARGET(eth0) <--ipsectnl--> (eth1)SecurityGateway(eth0) <---> (eth0)HOST
+       1500                     1500                 1280        1280
 
-> Am I missing something? Is there another reference taken on
-> server_sockfd to protect the kernel from this scenario?
->=20
-> And btw, what is the test (unix_peer(other) !=3D sk) in unix_dgram_po=
-ll()?
->=20
-> Alban
+To me the test seems a host-to-securitygateway tunnel mode scenario.
+
+In the 5.3.11 testcase, the tunnel endpoint (eth0 of TARGET) is also
+endpoint for the pkt.
+
+i.e. SPD entry from 5.3.11 testcase using above config:
+
+Security Policy Database (SPD) for HOST1_SA-1
+tunnel source address           SGW_eth1
+tunnel destination address      TGT_eth0
+source address                  HOST_eth0
+destination address             TGT_eth0
+upperspec                       any
+direction                       in
+protocol                        ESP
+mode                            tunnel 
+
+We did attempt to debug in kernel to see whether the pkt-too-big 
+was being discarded... from what we saw, it did not seem to be. 
+Also, an "ip -6  r l c" on TARGET showed the adjusted mtu for the route 
+to HOST, which the pkt-too-big was for. tunnel's mtu is untouched.
+
+2001:db8:1:1::56 via 2001:db8:1:1::56 dev eth0  metric 0 
+    cache  mtu 1500 advmss 1440 hoplimit 4294967295
+2033:1:2:3:209:6bf:fe6:95 via 2001:db8:1:1::56 dev eth0  metric 0 
+    cache  expires 592sec mtu 1280 advmss 1440 hoplimit 4294967295
+
+Thus why I reached my original conclusion, that perhaps 
+esp/ah disregard inner hdr mtu since does not fragment.
+Thus inner pkt will be too big when it reaches link for 
+inner/original pkt to be sent on.
+
+If I have misunderstood your response, my apologies. 
+Please let me know.
+
+regards,
+Joy 
+
 
 
