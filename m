@@ -1,243 +1,122 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH 1/4] net: implement mechanism for HW based QOS
-Date: Thu, 09 Dec 2010 21:46:31 +0100
-Message-ID: <1291927591.2803.14.camel@edumazet-laptop>
-References: <20101209195956.3554.49511.stgit@jf-dev1-dcblab>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: 2.6.37-rc5: NULL pointer oops in
+ selinux_socket_unix_stream_connect
+Date: Thu, 09 Dec 2010 15:49:47 -0500
+Message-ID: <1291927787.5339.33.camel@sifl>
+References: <4CFFF3F3.90100@goop.org>  <1291923746.5339.20.camel@sifl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org, hadi@cyberus.ca,
-	shemminger@vyatta.com, tgraf@infradead.org
-To: John Fastabend <john.r.fastabend@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f45.google.com ([209.85.215.45]:38136 "EHLO
-	mail-ew0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756655Ab0LIUqh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Dec 2010 15:46:37 -0500
-Received: by ewy10 with SMTP id 10so2114161ewy.4
-        for <netdev@vger.kernel.org>; Thu, 09 Dec 2010 12:46:35 -0800 (PST)
-In-Reply-To: <20101209195956.3554.49511.stgit@jf-dev1-dcblab>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: James Morris <jmorris@namei.org>,
+	Stephen Smalley <sds@tycho.nsa.gov>,
+	NetDev <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Jeremy Fitzhardinge <jeremy@goop.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1291923746.5339.20.camel@sifl>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le jeudi 09 d=C3=A9cembre 2010 =C3=A0 11:59 -0800, John Fastabend a =C3=
-=A9crit :
-> This patch provides a mechanism for lower layer devices to
-> steer traffic using skb->priority to tx queues. This allows
-> for hardware based QOS schemes to use the default qdisc without
-> incurring the penalties related to global state and the qdisc
-> lock. While reliably receiving skbs on the correct tx ring
-> to avoid head of line blocking resulting from shuffling in
-> the LLD. Finally, all the goodness from txq caching and xps/rps
-> can still be leveraged.
->=20
-> Many drivers and hardware exist with the ability to implement
-> QOS schemes in the hardware but currently these drivers tend
-> to rely on firmware to reroute specific traffic, a driver
-> specific select_queue or the queue_mapping action in the
-> qdisc.
->=20
-> By using select_queue for this drivers need to be updated for
-> each and every traffic type and we lose the goodness of much
-> of the upstream work. Firmware solutions are inherently
-> inflexible. And finally if admins are expected to build a
-> qdisc and filter rules to steer traffic this requires knowledge
-> of how the hardware is currently configured. The number of tx
-> queues and the queue offsets may change depending on resources.
-> Also this approach incurs all the overhead of a qdisc with filters.
->=20
-> With the mechanism in this patch users can set skb priority using
-> expected methods ie setsockopt() or the stack can set the priority
-> directly. Then the skb will be steered to the correct tx queues
-> aligned with hardware QOS traffic classes. In the normal case with
-> a single traffic class and all queues in this class everything
-> works as is until the LLD enables multiple tcs.
->=20
-> To steer the skb we mask out the lower 4 bits of the priority
-> and allow the hardware to configure upto 15 distinct classes
-> of traffic. This is expected to be sufficient for most applications
-> at any rate it is more then the 8021Q spec designates and is
-> equal to the number of prio bands currently implemented in
-> the default qdisc.
->=20
-> This in conjunction with a userspace application such as
-> lldpad can be used to implement 8021Q transmission selection
-> algorithms one of these algorithms being the extended transmission
-> selection algorithm currently being used for DCB.
->=20
+On Thu, 2010-12-09 at 14:42 -0500, Paul Moore wrote:
+> On Wed, 2010-12-08 at 13:09 -0800, Jeremy Fitzhardinge wrote:
+> > I just got this oops in a freshly booted 2.6.37-rc5 Xen domain, while
+> > sitting idle at the login prompt:
+> > 
+> > BUG: unable to handle kernel NULL pointer dereference at 0000000000000210
+> > IP: [<ffffffff811d55d4>] selinux_socket_unix_stream_connect+0x29/0xa0
+> > PGD 1c99d067 PUD 1cb03067 PMD 0 
+> > Oops: 0000 [#1] SMP 
+> > last sysfs file: /sys/devices/system/cpu/sched_mc_power_savings
+> > CPU 0 
+> > Modules linked in: sunrpc dm_mirror dm_region_hash dm_log [last unloaded: scsi_wait_scan]
+> > 
+> > Pid: 2297, comm: at-spi-registry Not tainted 2.6.37-rc5+ #293 /
+> > RIP: e030:[<ffffffff811d55d4>]  [<ffffffff811d55d4>] selinux_socket_unix_stream_connect+0x29/0xa0
+> > RSP: e02b:ffff880006e7dd68  EFLAGS: 00010292
+> > RAX: ffff88001d1ed8c0 RBX: ffff88001d06d9a0 RCX: 0000000000000022
+> > RDX: ffff88001d1ed580 RSI: 0000000000000000 RDI: ffff88001b7d6ac0
+> > RBP: ffff880006e7de18 R08: 00000000ffff0201 R09: ffff88001e78c968
+> > R10: 000000001f47e9c2 R11: ffff88001fbf4400 R12: ffff88001d1ed8c0
+> > R13: ffff88001d1ed580 R14: ffff88001ca00cc0 R15: 0000000000000000
+> > FS:  00007fa643031920(0000) GS:ffff88001ff85000(0000) knlGS:0000000000000000
+> > CS:  e033 DS: 0000 ES: 0000 CR0: 000000008005003b
+> > CR2: 0000000000000210 CR3: 000000001d78a000 CR4: 0000000000002660
+> > DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+> > DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+> > Process at-spi-registry (pid: 2297, threadinfo ffff880006e7c000, task ffff88001cdd1140)
+> > Stack:
+> >  ffff88001d4c0bc0 000000004cffecc5 ffff880006e7ddc8 ffffffff81028dc5
+> >  ffff8800ffffffff 0001628b2ec3fe22 ffff880006e7dde8 ffff88001d1edb80
+> >  0000000000000001 0000936a4da34099 0000000000000000 00000000000000fa
+> > Call Trace:
+> >  [<ffffffff81028dc5>] ? pvclock_clocksource_read+0x48/0xb1
+> >  [<ffffffff810074ab>] ? xen_clocksource_read+0x20/0x22
+> >  [<ffffffff81008fd9>] ? xen_spin_lock+0xc6/0xd9
+> >  [<ffffffff811d1d1e>] security_unix_stream_connect+0x16/0x18
+> >  [<ffffffff81484366>] unix_stream_connect+0x215/0x3ff
+> >  [<ffffffff813f351d>] sys_connect+0x7a/0xa0
+> >  [<ffffffff8108cd9d>] ? audit_syscall_entry+0x1c2/0x1ee
+> >  [<ffffffff8100bb42>] system_call_fastpath+0x16/0x1b
+> > Code: c9 c3 55 48 89 e5 41 55 41 54 53 48 81 ec 98 00 00 00 0f 1f 44 00 00 b9 22 00 00 00 48 8b 47 20 48 8b 76 20 48 8b 98 10 02 00 00 <4c> 8b a6 10 02 00 00 31 c0 4c 8b aa 10 02 00 00 4c 8d 85 50 ff 
+> > RIP  [<ffffffff811d55d4>] selinux_socket_unix_stream_connect+0x29/0xa0
+> >  RSP <ffff880006e7dd68>
+> > CR2: 0000000000000210
+> > ---[ end trace 50030b578c1ee27e ]---
+> > 
+> > This corresponds to:
+> > 
+> > (gdb) list *0xffffffff811d55d4
+> > 0xffffffff811d55d4 is in selinux_socket_unix_stream_connect (/home/jeremy/git/upstream/security/selinux/hooks.c:3929).
+> > 3924	static int selinux_socket_unix_stream_connect(struct socket *sock,
+> > 3925						      struct socket *other,
+> > 3926						      struct sock *newsk)
+> > 3927	{
+> > 3928		struct sk_security_struct *sksec_sock = sock->sk->sk_security;
+> > 3929		struct sk_security_struct *sksec_other = other->sk->sk_security;
+> > 3930		struct sk_security_struct *sksec_new = newsk->sk_security;
+> > 3931		struct common_audit_data ad;
+> > 3932		int err;
+> > 3933	
+> > 
+> > 
+> > The system is a somewhat out of date Fedora 13 with
+> > selinux-policy-3.7.19-73.fc13.noarch and
+> > selinux-policy-targeted-3.7.19-73.fc13.noarch installed.
+> > 
+> > I'm not sure what at-spi-registry is or what it is trying to do here.
+> > The crash seems non-deterministic; I rebooted the domain without any issues.
+> > 
+> > Thanks,
+> >     J
+> 
+> Thanks for the report.
+> 
+> Unfortunately I don't have any great ideas off the top of my head but it
+> has been a couple of months since I've played with that code; I'll take
+> a look and see if anything jumps out at me.
+> 
+> For what it's worth, a quick Google makes me think that at-spi-registry
+> is part of Gnome's assistive technology functionality.  That said, I
+> have no idea what it does exactly, but evidently it does it over a UNIX
+> domain socket ...
+> 
+> If you're ever able to recreate the problem or if you can think of
+> anything else that might be useful please let me know.
+> 
+> Thanks.
 
-Very nice Changelog !
+There were some concerns that this may be due to the other end of a UNIX
+socket going away during connect() and causing sk_free() to be called
+which could result in sk_security being NULL/garbage in line 3929 above.
+However, I just walked through the relevant bits in net/unix/af_unix.c
+and it would appear that the sock_hold() and sock_put()s are all in the
+right spots.  I suppose there is the possibility that sk_security is not
+being initialized correctly in the first place but that seems odd to me
+as I would expect massive failures elsewhere if that was the case.
 
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> ---
->=20
->  include/linux/netdevice.h |   65 +++++++++++++++++++++++++++++++++++=
-++++++++++
->  net/core/dev.c            |   39 ++++++++++++++++++++++++++-
->  2 files changed, 103 insertions(+), 1 deletions(-)
->=20
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index a9ac5dc..c0d4fb1 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -646,6 +646,12 @@ struct xps_dev_maps {
->      (nr_cpu_ids * sizeof(struct xps_map *)))
->  #endif /* CONFIG_XPS */
-> =20
-> +/* HW offloaded queuing disciplines txq count and offset maps */
-> +struct netdev_tc_txq {
-> +	u16 count;
-> +	u16 offset;
-> +};
-> +
->  /*
->   * This structure defines the management hooks for network devices.
->   * The following hooks can be defined; unless noted otherwise, they =
-are
-> @@ -1146,6 +1152,10 @@ struct net_device {
->  	/* Data Center Bridging netlink ops */
->  	const struct dcbnl_rtnl_ops *dcbnl_ops;
->  #endif
-> +	u8 max_tc;
-> +	u8 num_tc;
-> +	struct netdev_tc_txq *_tc_to_txq;
+I'm hesitant to bring this up, but is there any chance you're having
+memory corruption issues on the system?  Maybe Xen?
 
-Given that this is up to 16*4 bytes (64), shouldnt we embed this in
-net_device struct to avoid one dereference ?
-
-
-> +	u8 prio_tc_map[16];
-> =20
->  #if defined(CONFIG_FCOE) || defined(CONFIG_FCOE_MODULE)
->  	/* max exchange id for FCoE LRO by ddp */
-> @@ -1162,6 +1172,58 @@ struct net_device {
->  #define	NETDEV_ALIGN		32
-> =20
->  static inline
-> +int netdev_get_prio_tc_map(const struct net_device *dev, u32 prio)
-> +{
-> +	return dev->prio_tc_map[prio & 15];
-> +}
-> +
-> +static inline
-> +int netdev_set_prio_tc_map(struct net_device *dev, u8 prio, u8 tc)
-> +{
-> +	if (tc >=3D dev->num_tc)
-> +		return -EINVAL;
-> +
-> +	dev->prio_tc_map[prio & 15] =3D tc & 15;
-> +	return 0;
-> +}
-> +
-> +static inline
-> +int netdev_set_tc_queue(struct net_device *dev, u8 tc, u16 count, u1=
-6 offset)
-> +{
-> +	struct netdev_tc_txq *tcp;
-> +
-> +	if (tc >=3D dev->num_tc)
-> +		return -EINVAL;
-> +
-> +	tcp =3D &dev->_tc_to_txq[tc];
-> +	tcp->count =3D count;
-> +	tcp->offset =3D offset;
-> +	return 0;
-> +}
-> +
-> +static inline
-> +struct netdev_tc_txq *netdev_get_tc_queue(const struct net_device *d=
-ev, u8 tc)
-> +{
-> +	return &dev->_tc_to_txq[tc];
-> +}
-> +
-> +static inline
-> +int netdev_set_num_tc(struct net_device *dev, u8 num_tc)
-> +{
-> +	if (num_tc > dev->max_tc)
-> +		return -EINVAL;
-> +
-> +	dev->num_tc =3D num_tc;
-> +	return 0;
-> +}
-> +
-> +static inline
-> +u8 netdev_get_num_tc(const struct net_device *dev)
-> +{
-> +	return dev->num_tc;
-> +}
-> +
-> +static inline
->  struct netdev_queue *netdev_get_tx_queue(const struct net_device *de=
-v,
->  					 unsigned int index)
->  {
-> @@ -1386,6 +1448,9 @@ static inline void unregister_netdevice(struct =
-net_device *dev)
->  	unregister_netdevice_queue(dev, NULL);
->  }
-> =20
-> +extern int		netdev_alloc_max_tc(struct net_device *dev, u8 tc);
-> +extern void		netdev_free_tc(struct net_device *dev);
-> +
->  extern int 		netdev_refcnt_read(const struct net_device *dev);
->  extern void		free_netdev(struct net_device *dev);
->  extern void		synchronize_net(void);
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 55ff66f..cc00e66 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -2118,6 +2118,8 @@ static u32 hashrnd __read_mostly;
->  u16 skb_tx_hash(const struct net_device *dev, const struct sk_buff *=
-skb)
->  {
->  	u32 hash;
-> +	u16 qoffset =3D 0;
-> +	u16 qcount =3D dev->real_num_tx_queues;
-> =20
->  	if (skb_rx_queue_recorded(skb)) {
->  		hash =3D skb_get_rx_queue(skb);
-> @@ -2126,13 +2128,20 @@ u16 skb_tx_hash(const struct net_device *dev,=
- const struct sk_buff *skb)
->  		return hash;
->  	}
-> =20
-> +	if (dev->num_tc) {
-> +		u8 tc =3D netdev_get_prio_tc_map(dev, skb->priority);
-> +		struct netdev_tc_txq *tcp =3D netdev_get_tc_queue(dev, tc);
-> +		qoffset =3D tcp->offset;
-> +		qcount =3D tcp->count;
-> +	}
-> +
->  	if (skb->sk && skb->sk->sk_hash)
->  		hash =3D skb->sk->sk_hash;
->  	else
->  		hash =3D (__force u16) skb->protocol ^ skb->rxhash;
->  	hash =3D jhash_1word(hash, hashrnd);
-> =20
-> -	return (u16) (((u64) hash * dev->real_num_tx_queues) >> 32);
-> +	return (u16) ((((u64) hash * qcount)) >> 32) + qoffset;
->  }
->  EXPORT_SYMBOL(skb_tx_hash);
-> =20
-> @@ -5091,6 +5100,33 @@ void netif_stacked_transfer_operstate(const st=
-ruct net_device *rootdev,
->  }
->  EXPORT_SYMBOL(netif_stacked_transfer_operstate);
-> =20
-> +int netdev_alloc_max_tc(struct net_device *dev, u8 tcs)
-> +{
-> +	struct netdev_tc_txq *tcp;
-> +
-> +	if (tcs > 16)
-> +		return -EINVAL;
-> +
-> +	tcp =3D kcalloc(tcs, sizeof(*tcp), GFP_KERNEL);
-
-common risk : allocating less than one cache line, and this possibly ca=
-n
-have false sharing.
-
-I would just embed the thing.
-
-
+-- 
+paul moore
+linux @ hp
