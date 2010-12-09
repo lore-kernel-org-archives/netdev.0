@@ -1,35 +1,66 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH] netfilter: don't need to initialize instance_table
-Date: Thu, 9 Dec 2010 22:27:24 +0800
-Message-ID: <AANLkTin6u9ZkSNAoxR7az5yBW-WM0RebPcCrOMOYgFrP@mail.gmail.com>
-References: <1291889421-10794-1-git-send-email-xiaosuo@gmail.com> <alpine.LNX.2.01.1012091501270.21049@obet.zrqbmnf.qr>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [PATCH net-2.6] net/ipv6/udp.c: fix typo in flush_stack()
+Date: Thu, 9 Dec 2010 15:28:52 +0100
+Message-ID: <20101209142851.GC2820@psychotron.brq.redhat.com>
+References: <20101209134029.GB2820@psychotron.brq.redhat.com>
+ <1291902488.4063.28.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.01.1012091501270.21049@obet.zrqbmnf.qr>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:62370 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753056Ab0LIO24 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Dec 2010 09:28:56 -0500
+Content-Disposition: inline
+In-Reply-To: <1291902488.4063.28.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 9, 2010 at 10:03 PM, Jan Engelhardt <jengelh@medozas.de> wrote:
+Thu, Dec 09, 2010 at 02:48:08PM CET, eric.dumazet@gmail.com wrote:
+>Le jeudi 09 d=E9cembre 2010 =E0 14:40 +0100, Jiri Pirko a =E9crit :
+>> skb1 should be passed as parameter to sk_rcvqueues_full() here.
+>>=20
+>> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+>>=20
+>> diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+>> index 91def93..d2b268e 100644
+>> --- a/net/ipv6/udp.c
+>> +++ b/net/ipv6/udp.c
+>> @@ -602,7 +602,7 @@ static void flush_stack(struct sock **stack, uns=
+igned int count,
+>> =20
+>>  		sk =3D stack[i];
+>>  		if (skb1) {
+>> -			if (sk_rcvqueues_full(sk, skb)) {
+>> +			if (sk_rcvqueues_full(sk, skb1)) {
+>>  				kfree_skb(skb1);
+>>  				goto drop;
+>>  			}
 >
-> This is here for correctness and documentation. If the hlist
-> implementation changed, one would have a hard time figuring out the
-> callsites which then need to add the initialization back.
+>net-2.6 ? Its the same truesize anyway...
+
+I know it is.
+
 >
+>So it's not a bug, but a cosmetic change.
+>(I am ok with it, but for net-next-2.6)
 
-I am quite sure there are other users rely on this assumption. So who
-wants to change the macro INIT_HLIST_HEAD() has to review all the
-code. It is a huge task, but can't be avoided.
+Anything you like.
 
-For now, calling INIT_HLIST_HEAD() has no benefit, but wastes CPU
-cycles and increases the image size.
-
-Thanks.
-
--- 
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+>
+>/*
+> * Take into account size of receive queue and backlog queue
+> */
+>static inline bool sk_rcvqueues_full(const struct sock *sk, const stru=
+ct sk_buff *skb)
+>{
+>        unsigned int qsize =3D sk->sk_backlog.len + atomic_read(&sk->s=
+k_rmem_alloc);
+>
+>        return qsize + skb->truesize > sk->sk_rcvbuf;
+>}
+>
+>
