@@ -1,80 +1,56 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] Fix 2.6.34-rc1 regression in  disable_ipv6 support
-Date: Thu, 9 Dec 2010 08:27:03 -0800
-Message-ID: <20101209082703.6e5519e7@nehalam>
-References: <m17hfnlpe1.fsf@fess.ebiederm.org>
-	<4CFD0AF0.9090809@hp.com>
-	<m14oaoeywf.fsf@fess.ebiederm.org>
-	<4D000B6D.1060708@hp.com>
-	<m1tyineu3p.fsf@fess.ebiederm.org>
-	<20101208154932.5bc4b254@nehalam>
-	<m11v5rekg3.fsf@fess.ebiederm.org>
-	<m1ipz3d46m.fsf@fess.ebiederm.org>
-	<m1mxofa8dg.fsf_-_@fess.ebiederm.org>
-	<4D00F58A.2050307@hp.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] bridge: Fix return value of br_multicast_add_group()
+Date: Thu, 9 Dec 2010 08:29:24 -0800
+Message-ID: <20101209082924.6d797871@nehalam>
+References: <1291903356-30618-1-git-send-email-tklauser@distanz.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Mahesh Kelkar <maheshkelkar@gmail.com>,
-	Lorenzo Colitti <lorenzo@google.com>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, stable@kernel.org
-To: Brian Haley <brian.haley@hp.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	bridge@lists.linux-foundation.org, netdev@vger.kernel.org
+To: Tobias Klauser <tklauser@distanz.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:46906 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750972Ab0LIQ1H (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Dec 2010 11:27:07 -0500
-In-Reply-To: <4D00F58A.2050307@hp.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:36944 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750933Ab0LIQ3b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Dec 2010 11:29:31 -0500
+In-Reply-To: <1291903356-30618-1-git-send-email-tklauser@distanz.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 09 Dec 2010 10:28:10 -0500
-Brian Haley <brian.haley@hp.com> wrote:
+On Thu,  9 Dec 2010 15:02:36 +0100
+Tobias Klauser <tklauser@distanz.ch> wrote:
 
-> On 12/08/2010 11:16 PM, Eric W. Biederman wrote:
-> > Finding the real bug is beyond me right now, but fixing the regression
-> > in disable_ipv6 is simple.  We can just delete ::1 when we bring down
-> > the loopback interface, and it will be restored automatically when we
-> > bring the loopback interface back up.
+> If br_multicast_new_group returns NULL, we would return 0 (no error) to
+> the caller, which is not what we want. Instead we should return -ENOMEM
+> in this case.
 > 
-> Hi Eric,
+> Also replace IS_ERR(x) || !x by IS_ERR_OR_NULL(x)
 > 
-> This would work as well, same check, different way.
+> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+> ---
+>  net/bridge/br_multicast.c |    5 ++++-
+>  1 files changed, 4 insertions(+), 1 deletions(-)
 > 
-> Signed-off-by: Brian Haley <brian.haley@hp.com>
-> 
-> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-> index 23cc8e1..5d16a9d 100644
-> --- a/net/ipv6/addrconf.c
-> +++ b/net/ipv6/addrconf.c
-> @@ -2728,7 +2728,8 @@ static int addrconf_ifdown(struct net_device *dev, int how)
->  		   and not link-local, then retain it. */
->  		if (!how &&
->  		    (ifa->flags&IFA_F_PERMANENT) &&
-> -		    !(ipv6_addr_type(&ifa->addr) & IPV6_ADDR_LINKLOCAL)) {
-> +		    !(ipv6_addr_type(&ifa->addr) &
-> +		      (IPV6_ADDR_LINKLOCAL|IPV6_ADDR_LOOPBACK))) {
->  			list_move_tail(&ifa->if_list, &keep_list);
+> diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+> index 326e599..d4e1e81 100644
+> --- a/net/bridge/br_multicast.c
+> +++ b/net/bridge/br_multicast.c
+> @@ -713,8 +713,11 @@ static int br_multicast_add_group(struct net_bridge *br,
 >  
->  			/* If not doing DAD on this address, just keep it. */
+>  	mp = br_multicast_new_group(br, port, group);
+>  	err = PTR_ERR(mp);
+> -	if (unlikely(IS_ERR(mp) || !mp))
+> +	if (IS_ERR_OR_NULL(mp)) {
+> +		if (!mp)
+> +			err = -ENOMEM;
+>  		goto err;
+> +	}
+>  
+>  	if (!port) {
+>  		hlist_add_head(&mp->mglist, &br->mglist);
 
-Checking the address type is incorrect. Any type of address can be applied to
-loopback interface. If you look a couple lines there is a special case for
-loopback which keeps the address.
+I would rather fix br_multicast_new_group so it never returns
+NULL. Instead return PTR_ERR(-ENOMEM) on out of memory.
 
-> 		/* If just doing link down, and address is permanent
-> 		   and not link-local, then retain it. */
-> 		if (!how &&
-> 		    (ifa->flags&IFA_F_PERMANENT) &&
-> 		    !(ipv6_addr_type(&ifa->addr) & IPV6_ADDR_LINKLOCAL)) {
-> 			list_move_tail(&ifa->if_list, &keep_list);
-> 
-> 			/* If not doing DAD on this address, just keep it. */
-> 			if ((dev->flags&(IFF_NOARP|IFF_LOOPBACK)) ||
-> 			    idev->cnf.accept_dad <= 0 ||
-> 			    (ifa->flags & IFA_F_NODAD))
-
-I think the problem is on coming back up, not on the down step.
-
+-- 
