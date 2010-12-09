@@ -1,34 +1,50 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: [PATCH net-2.6] net/ipv6/udp.c: fix typo in flush_stack()
-Date: Thu, 9 Dec 2010 14:40:30 +0100
-Message-ID: <20101209134029.GB2820@psychotron.brq.redhat.com>
+From: Stefan Achatz <erazor_de@users.sourceforge.net>
+Subject: Aw: Re: [PATCH 0/5] HID: roccat: Achieve userspace notification on
+ sysfs attribute creation
+Date: Thu, 9 Dec 2010 14:44:06 +0100 (CET)
+Message-ID: <2069123096.22885.1291902246397.JavaMail.ngmail@webmail07.arcor-online.net>
+References: <alpine.LNX.2.00.1012091430130.508@pobox.suse.cz> <1290801444.18750.161.camel@neuromancer>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, eric.dumazet@gmail.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:12457 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750747Ab0LINke (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Dec 2010 08:40:34 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: rdunlap@xenotime.net, gregkh@suse.de, linux-doc@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-input@vger.kernel.org,
+	netdev@vger.kernel.org
+To: jkosina@suse.cz, erazor_de@users.sourceforge.net
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.00.1012091430130.508@pobox.suse.cz>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-skb1 should be passed as parameter to sk_rcvqueues_full() here.
-
-Signed-off-by: Jiri Pirko <jpirko@redhat.com>
-
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 91def93..d2b268e 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -602,7 +602,7 @@ static void flush_stack(struct sock **stack, unsigned int count,
  
- 		sk = stack[i];
- 		if (skb1) {
--			if (sk_rcvqueues_full(sk, skb)) {
-+			if (sk_rcvqueues_full(sk, skb1)) {
- 				kfree_skb(skb1);
- 				goto drop;
- 			}
+
+
+----- Original Nachricht ----
+Von:     Jiri Kosina <jkosina@suse.cz>
+An:      Stefan Achatz <erazor_de@users.sourceforge.net>
+Datum:   09.12.2010 14:30
+Betreff: Re: [PATCH 0/5] HID: roccat: Achieve userspace notification on sysfs
+ attribute creation
+
+> On Fri, 26 Nov 2010, Stefan Achatz wrote:
+> 
+> > Adding sysfs attributes to an already created device raises no userland
+> > notification.
+> > 
+> > Instead of fiddling around in the depths of busses and devices I reuse
+> the
+> > event char device (module hid-roccat). This device gets now created with
+> > a hardware specific class that contains the device attributes.
+> 
+> Hi Stefan,
+> 
+> I have applied the series, and removed the #pragma pack ugliness. Thanks,
+
+Hello Jiri,
+Using my patch replacing the #pragma pack with the __packed macro would have saved you some time:
+https://lkml.org/lkml/2010/11/27/14
+
+Just for the future: Whats better using the verbose version __attribute__ ((__packed__)) or the macro
+__packed as I did?
+
+Thanks, Stefan
