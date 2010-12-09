@@ -1,70 +1,40 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: build failure after merge of the net tree
-Date: Thu, 9 Dec 2010 14:02:07 +1100
-Message-ID: <20101209140207.967a5ad5.sfr@canb.auug.org.au>
-References: <20101209132836.6f6acfb8.sfr@canb.auug.org.au>
-	<20101208.183942.226776000.davem@davemloft.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: echo > 0 .../disable_ipv6 broken in 2.6.37-rc4
+Date: Wed, 08 Dec 2010 19:18:41 -0800
+Message-ID: <m1ipz3d46m.fsf@fess.ebiederm.org>
+References: <m17hfnlpe1.fsf@fess.ebiederm.org> <4CFD0AF0.9090809@hp.com>
+	<m14oaoeywf.fsf@fess.ebiederm.org> <4D000B6D.1060708@hp.com>
+	<m1tyineu3p.fsf@fess.ebiederm.org> <20101208154932.5bc4b254@nehalam>
+	<m11v5rekg3.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Thu__9_Dec_2010_14_02_07_+1100_ywj4ePD4lablXUF7"
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, socketcan@hartkopp.net
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20101208.183942.226776000.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Brian Haley <brian.haley@hp.com>, netdev@vger.kernel.org,
+	Mahesh Kelkar <maheshkelkar@gmail.com>,
+	Lorenzo Colitti <lorenzo@google.com>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out01.mta.xmission.com ([166.70.13.231]:53293 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756829Ab0LIDSq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 22:18:46 -0500
+In-Reply-To: <m11v5rekg3.fsf@fess.ebiederm.org> (Eric W. Biederman's message
+	of "Wed, 08 Dec 2010 18:42:04 -0800")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Thu__9_Dec_2010_14_02_07_+1100_ywj4ePD4lablXUF7
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+ebiederm@xmission.com (Eric W. Biederman) writes:
 
-Hi Dave,
-
-On Wed, 08 Dec 2010 18:39:42 -0800 (PST) David Miller <davem@davemloft.net>=
- wrote:
+> Playing with this some more I have come up with a totally evil testcase.
 >
-> From: Stephen Rothwell <sfr@canb.auug.org.au>
-> Date: Thu, 9 Dec 2010 13:28:36 +1100
->=20
-> > After merging the net tree, today's linux-next build (x86_64 allmodconf=
-ig)
-> > failed like this:
-> >=20
-> > drivers/net/can/slcan.c: In function 'slcan_open':
-> > drivers/net/can/slcan.c:568: error: dereferencing pointer to incomplete=
- type
->=20
-> That's amazing that with all the header files this driver includes,
-> powerpc somehow doesn't get the task_struct definition :-)
+> If I bring lo down, and back up again I cannot talk to local addresses
+> through the loopback device, that I could before.
 
-It was an x86_64 allmodconfig build ... but yeah (I assume you still test
-build on Sparc ;-)).
+I just tested 2.6.32.23 and I cannot ping local ipv6 addresses after
+the loopback interface is brought administratively down and back up.
 
-> I'll add the obvious linux/sched.h include to fix this, thanks!
+So it looks like we have some old bugs getting in the way an recent
+changes that are reasonable.  I don't expect that it is by design
+that bouncing the loopback interface breaks the ipv6 stack.
 
-Thanks.
-
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
-
---Signature=_Thu__9_Dec_2010_14_02_07_+1100_ywj4ePD4lablXUF7
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iQEcBAEBAgAGBQJNAEavAAoJEDMEi1NhKgbsQswH/293MTG1DbrF+SME8Y/I3NUu
-5dtJh9A6B6adgE+4V2GQmVzLEm7IF25jUcsi8yErCmtMyzeSr4BaoXGTZrm15bGc
-i2eA+DNF2SgzxxpAOxUYXILy63WYYmPO1tvWx9Ae+gqhdmtRyIBkpZHQZ1DaBE8V
-+xyVJnb38L07fTXSR0eiZz/lUxrBUGw+ABaGIDmUfKg9XBWd8k2v7E7h+zqvqnrW
-cT9MXNOQqdZOwePgVd93pPMZX69fY18mq/In2+QC3x9gyKtwyssW7SpAfhpiWATE
-b4GpDKk+UJha1xnw24JCO6pcumCRvTZKlZFJxatJm+pgyRigzy1gEHE00/U6TMk=
-=d43p
------END PGP SIGNATURE-----
-
---Signature=_Thu__9_Dec_2010_14_02_07_+1100_ywj4ePD4lablXUF7--
+Eric
