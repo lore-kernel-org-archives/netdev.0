@@ -1,93 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: NULL dereference in econet AUN-over-UDP receive
-Date: Wed, 08 Dec 2010 18:02:15 -0800 (PST)
-Message-ID: <20101208.180215.193709862.davem@davemloft.net>
-References: <20101209003015.GA27906@ksplice.com>
-	<1291858667.2795.16.camel@edumazet-laptop>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the net tree
+Date: Thu, 9 Dec 2010 13:28:36 +1100
+Message-ID: <20101209132836.6f6acfb8.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: nelhage@ksplice.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45641
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753412Ab0LICBs convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Dec 2010 21:01:48 -0500
-In-Reply-To: <1291858667.2795.16.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Thu__9_Dec_2010_13_28_36_+1100_bmZIZ7Jhhn313u.z"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Oliver Hartkopp <socketcan@hartkopp.net>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 09 Dec 2010 02:37:47 +0100
+--Signature=_Thu__9_Dec_2010_13_28_36_+1100_bmZIZ7Jhhn313u.z
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> Le mercredi 08 d=E9cembre 2010 =E0 19:30 -0500, Nelson Elhage a =E9cr=
-it :
->> While testing one of my econet reproducers on a patched kernel, I tr=
-iggered a
->> NULL pointer dereference in the econet AUN-over-UDP receive path. Up=
-on further
->> investigation, I now suspect that this code path hasn't worked at al=
-l in years.
->>=20
->> A copy of the oops is below for your reference, but here's my analys=
-is:
->>=20
->> When aun_data_available receives a data packet (ah->code =3D=3D 2), =
-it calls
->> aun_incoming to process the skb. The start of aun_incoming looks lik=
-e:
->>=20
->> static void aun_incoming(struct sk_buff *skb, struct aunhdr *ah, siz=
-e_t len)
->> {
->> 	struct iphdr *ip =3D ip_hdr(skb);
->> 	unsigned char stn =3D ntohl(ip->saddr) & 0xff;
->> 	struct sock *sk =3D NULL;
->> 	struct sk_buff *newskb;
->> ---> 	struct ec_device *edev =3D skb->dev->ec_ptr;   =20
->>=20
->=20
-> This can be changed to use skb_dst(skb)->dev instead
->=20
-> struct dst *dst =3D skb_dst(skb);
->=20
-> if (dst) {
-> 	dev =3D dst->dev;
-> 	...
-> }
+Hi all,
 
-Nelson please test if this patch fixes your crash:
+After merging the net tree, today's linux-next build (x86_64 allmodconfig)
+failed like this:
 
-econet: Fix crash in aun_incoming().
+drivers/net/can/slcan.c: In function 'slcan_open':
+drivers/net/can/slcan.c:568: error: dereferencing pointer to incomplete type
 
-Unconditional use of skb->dev won't work here,
-try to fetch the econet device via skb_dst()->dev
-instead.
+Caused by commit a1044e36e457fb6dbdf90ce756d578b251d99b5e ("can: add
+slcan driver for serial/USB-serial CAN adapters").
 
-Suggested by Eric Dumazet.
+I have used the net tree from next-20101208 for today.
 
-Reported-by: Nelson Elhage <nelhage@ksplice.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
 
-diff --git a/net/econet/af_econet.c b/net/econet/af_econet.c
-index f180371..15dcc1a 100644
---- a/net/econet/af_econet.c
-+++ b/net/econet/af_econet.c
-@@ -851,9 +851,13 @@ static void aun_incoming(struct sk_buff *skb, stru=
-ct aunhdr *ah, size_t len)
- {
- 	struct iphdr *ip =3D ip_hdr(skb);
- 	unsigned char stn =3D ntohl(ip->saddr) & 0xff;
-+	struct dst_entry *dst =3D skb_dst(skb);
-+	struct ec_device *edev =3D NULL;
- 	struct sock *sk =3D NULL;
- 	struct sk_buff *newskb;
--	struct ec_device *edev =3D skb->dev->ec_ptr;
-+
-+	if (dst)
-+		edev =3D dst->dev->ec_ptr;
-=20
- 	if (! edev)
- 		goto bad;
+--Signature=_Thu__9_Dec_2010_13_28_36_+1100_bmZIZ7Jhhn313u.z
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iQEcBAEBAgAGBQJNAD7UAAoJEDMEi1NhKgbs+3IH/31QM+5BxzK6PBjlfv8oGflv
+n7dzMxKIuFm2GjmdycMyYnI5RNv93elUU3nBgqUr+HMQWGyh+G/IKTmbLE8Z0YVN
+UJtOxwObJhDGiNRx8upKSzMOtNc7Z1bSSuNmdKXQxTkosk2kiRLq9JaBBvKWwlF4
+u73cwweDa5CmE9nha9GtjUGdi3dleVyurU/UOaM4im/YQf4bdptA2d8mDLNiPm3d
+g8YDykZtE3PYKl4DLKEdlXhTUe5rOs/XobXQTBbIhI6CxB3W9huhOsuWtkuQrPQA
+5krXxhCUWFOvXmQnUI8piZ7PByJRaKwBVxi/OAPozhbSlh+2OD7OzY+zYHBll5o=
+=sKqE
+-----END PGP SIGNATURE-----
+
+--Signature=_Thu__9_Dec_2010_13_28_36_+1100_bmZIZ7Jhhn313u.z--
