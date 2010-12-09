@@ -1,70 +1,70 @@
-From: Junchang Wang <junchangwang@gmail.com>
-Subject: [PATCH net-next-2.6] pktgen: adding prefetchw() call
-Date: Thu, 9 Dec 2010 10:55:16 +0800
-Message-ID: <20101209025511.GC5379@Desktop-Junchang>
-References: <20101206063349.GA6147@Desktop-Junchang>
- <20101208.101743.112598404.davem@davemloft.net>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: build failure after merge of the net tree
+Date: Thu, 9 Dec 2010 14:02:07 +1100
+Message-ID: <20101209140207.967a5ad5.sfr@canb.auug.org.au>
+References: <20101209132836.6f6acfb8.sfr@canb.auug.org.au>
+	<20101208.183942.226776000.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com, robert.olsson@its.uu.se,
-	john.r.fastabend@intel.com, andy.shevchenko@gmail.com,
-	netdev@vger.kernel.org, wangjc@mail.ustc.edu.cn
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Thu__9_Dec_2010_14_02_07_+1100_ywj4ePD4lablXUF7"
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, socketcan@hartkopp.net
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pv0-f174.google.com ([74.125.83.174]:36735 "EHLO
-	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756721Ab0LIDAs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 22:00:48 -0500
-Received: by pva4 with SMTP id 4so409422pva.19
-        for <netdev@vger.kernel.org>; Wed, 08 Dec 2010 19:00:47 -0800 (PST)
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20101208.183942.226776000.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+--Signature=_Thu__9_Dec_2010_14_02_07_+1100_ywj4ePD4lablXUF7
+Content-Type: text/plain; charset=US-ASCII
 Content-Disposition: inline
-In-Reply-To: <20101208.101743.112598404.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: quoted-printable
 
-On Wed, Dec 08, 2010 at 10:17:43AM -0800, David Miller wrote:
->Your patch was corrupted by your email client, please fix this up
->and resubmit.
-Sorry. I'll avoid this next time.  Here's a new version, and I had tested it.
-Thanks David and Eric.
+Hi Dave,
 
+On Wed, 08 Dec 2010 18:39:42 -0800 (PST) David Miller <davem@davemloft.net>=
+ wrote:
+>
+> From: Stephen Rothwell <sfr@canb.auug.org.au>
+> Date: Thu, 9 Dec 2010 13:28:36 +1100
+>=20
+> > After merging the net tree, today's linux-next build (x86_64 allmodconf=
+ig)
+> > failed like this:
+> >=20
+> > drivers/net/can/slcan.c: In function 'slcan_open':
+> > drivers/net/can/slcan.c:568: error: dereferencing pointer to incomplete=
+ type
+>=20
+> That's amazing that with all the header files this driver includes,
+> powerpc somehow doesn't get the task_struct definition :-)
 
-We know for sure pktgen is going to write skb->data right after
-*_alloc_skb, causing unnecessary cache misses.
+It was an x86_64 allmodconfig build ... but yeah (I assume you still test
+build on Sparc ;-)).
 
-Idea is to add a prefetchw() call to prefetch the first cache line
-indicated by skb->data. On systems with Adjacent Cache Line Prefetch,
-it's probably two cache lines are prefetched.
+> I'll add the obvious linux/sched.h include to fix this, thanks!
 
-With this patch, pktgen on Intel SR1625 server with two E5530 
-quad-core processors and a single ixgbe-based NIC went from 8.63Mpps
-to 9.03Mpps, with 4.6% improvement.
+Thanks.
 
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
 
-Signed-off-by: Junchang Wang <junchangwang@gmail.com>
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/core/pktgen.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+--Signature=_Thu__9_Dec_2010_14_02_07_+1100_ywj4ePD4lablXUF7
+Content-Type: application/pgp-signature
 
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 2953b2a..18fe20d 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -2660,6 +2660,7 @@ static struct sk_buff *fill_packet_ipv4(struct net_device *odev,
- 		sprintf(pkt_dev->result, "No memory");
- 		return NULL;
- 	}
-+	prefetchw(skb->data);
- 
- 	skb_reserve(skb, datalen);
- 
-@@ -3007,6 +3008,7 @@ static struct sk_buff *fill_packet_ipv6(struct net_device *odev,
- 		sprintf(pkt_dev->result, "No memory");
- 		return NULL;
- 	}
-+	prefetchw(skb->data);
- 
- 	skb_reserve(skb, 16);
- 
---
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iQEcBAEBAgAGBQJNAEavAAoJEDMEi1NhKgbsQswH/293MTG1DbrF+SME8Y/I3NUu
+5dtJh9A6B6adgE+4V2GQmVzLEm7IF25jUcsi8yErCmtMyzeSr4BaoXGTZrm15bGc
+i2eA+DNF2SgzxxpAOxUYXILy63WYYmPO1tvWx9Ae+gqhdmtRyIBkpZHQZ1DaBE8V
++xyVJnb38L07fTXSR0eiZz/lUxrBUGw+ABaGIDmUfKg9XBWd8k2v7E7h+zqvqnrW
+cT9MXNOQqdZOwePgVd93pPMZX69fY18mq/In2+QC3x9gyKtwyssW7SpAfhpiWATE
+b4GpDKk+UJha1xnw24JCO6pcumCRvTZKlZFJxatJm+pgyRigzy1gEHE00/U6TMk=
+=d43p
+-----END PGP SIGNATURE-----
+
+--Signature=_Thu__9_Dec_2010_14_02_07_+1100_ywj4ePD4lablXUF7--
