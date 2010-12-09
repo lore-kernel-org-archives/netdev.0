@@ -1,41 +1,54 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH 15/15] ipv6: Remove duplicate unlikely from IS_ERR
-Date: Thu,  9 Dec 2010 12:04:08 -0800
-Message-ID: <ee5d2f9776ec2076b41c2abb23cdde76248602b2.1291923889.git.joe@perches.com>
-References: <1291906801-1389-2-git-send-email-tklauser@distanz.ch>
-Cc: Jiri Kosina <trivial@kernel.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yosh
+From: Greg KH <greg@kroah.com>
+Subject: Re: [stable] [PATCH 2.6.36] vlan: Avoid hwaccel vlan packets when
+ vid not used
+Date: Thu, 9 Dec 2010 12:13:35 -0800
+Message-ID: <20101209201335.GB28159@kroah.com>
+References: <1291108809.2904.3.camel@edumazet-laptop>
+ <20101201111716.424fb771@xenia.leun.net>
+ <1291200914.2856.546.camel@edumazet-laptop>
+ <20101208.084731.189716071.davem@davemloft.net>
+ <20101208231624.GA8992@kroah.com>
+ <1291857933.2795.7.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, lkml20101129@newton.leun.net,
+	netdev@vger.kernel.org, jesse@nicira.com,
+	linux-kernel@vger.kernel.org, greearb@candelatech.com,
+	stable@kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1291906801-1389-2-git-send-email-tklauser@distanz.ch>
-In-Reply-To: <cover.1291923888.git.joe@perches.com>
-References: <cover.1291923888.git.joe@perches.com>
+Content-Disposition: inline
+In-Reply-To: <1291857933.2795.7.camel@edumazet-laptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-IS_ERR already uses unlikely, remove unlikely from the call sites.
+On Thu, Dec 09, 2010 at 02:25:33AM +0100, Eric Dumazet wrote:
+> Le mercredi 08 d=E9cembre 2010 =E0 15:16 -0800, Greg KH a =E9crit :
+> > On Wed, Dec 08, 2010 at 08:47:31AM -0800, David Miller wrote:
+> > > From: Eric Dumazet <eric.dumazet@gmail.com>
+> > > Date: Wed, 01 Dec 2010 11:55:14 +0100
+> > >=20
+> > >=20
+> > > Greg/-stable, please integrate this patch from Eric into 2.6.36 i=
+f you
+> > > haven't already done so.
+> >=20
+> > I've updated the version in the .36-stable queue with this one, tha=
+nks.
+> >=20
+>=20
+> Thanks.
+>=20
+> By the way, all credits given to Jesse, I only made a change to his
+> patch, so I left him as the author.
+>=20
+> Ah I see I forgot the "From: Jesse Gross <jesse@nicira.com>" header w=
+hen
+> I sent it, my bad, sorry !
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- net/ipv6/af_inet6.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+No problem, I have that in the patch header already :)
 
-diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-index 54e8e42..059a3de 100644
---- a/net/ipv6/af_inet6.c
-+++ b/net/ipv6/af_inet6.c
-@@ -810,7 +810,7 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb, int features)
- 	}
- 	rcu_read_unlock();
- 
--	if (unlikely(IS_ERR(segs)))
-+	if (IS_ERR(segs))
- 		goto out;
- 
- 	for (skb = segs; skb; skb = skb->next) {
--- 
-1.7.3.3.464.gf80b6
+thanks,
+
+greg k-h
