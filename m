@@ -1,40 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netfilter: don't need to initialize instance_table
-Date: Thu, 09 Dec 2010 12:05:43 -0800 (PST)
-Message-ID: <20101209.120543.112596810.davem@davemloft.net>
-References: <1291889421-10794-1-git-send-email-xiaosuo@gmail.com>
-	<alpine.LNX.2.01.1012091501270.21049@obet.zrqbmnf.qr>
-	<AANLkTin6u9ZkSNAoxR7az5yBW-WM0RebPcCrOMOYgFrP@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jengelh@medozas.de, kaber@trash.net,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: xiaosuo@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47956
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757013Ab0LIUFP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Dec 2010 15:05:15 -0500
-In-Reply-To: <AANLkTin6u9ZkSNAoxR7az5yBW-WM0RebPcCrOMOYgFrP@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 15/15] ipv6: Remove duplicate unlikely from IS_ERR
+Date: Thu,  9 Dec 2010 12:04:08 -0800
+Message-ID: <ee5d2f9776ec2076b41c2abb23cdde76248602b2.1291923889.git.joe@perches.com>
+References: <1291906801-1389-2-git-send-email-tklauser@distanz.ch>
+Cc: Jiri Kosina <trivial@kernel.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yosh
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1291906801-1389-2-git-send-email-tklauser@distanz.ch>
+In-Reply-To: <cover.1291923888.git.joe@perches.com>
+References: <cover.1291923888.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Changli Gao <xiaosuo@gmail.com>
-Date: Thu, 9 Dec 2010 22:27:24 +0800
+IS_ERR already uses unlikely, remove unlikely from the call sites.
 
-> On Thu, Dec 9, 2010 at 10:03 PM, Jan Engelhardt <jengelh@medozas.de> wrote:
->>
->> This is here for correctness and documentation. If the hlist
->> implementation changed, one would have a hard time figuring out the
->> callsites which then need to add the initialization back.
->>
-> 
-> I am quite sure there are other users rely on this assumption. So who
-> wants to change the macro INIT_HLIST_HEAD() has to review all the
-> code. It is a huge task, but can't be avoided.
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ net/ipv6/af_inet6.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Wrong.  Adding debugging facilities to the hlist head would just
-require changing this macro.
-
-That is, unless we apply patches like your's, which we won't.
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index 54e8e42..059a3de 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -810,7 +810,7 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb, int features)
+ 	}
+ 	rcu_read_unlock();
+ 
+-	if (unlikely(IS_ERR(segs)))
++	if (IS_ERR(segs))
+ 		goto out;
+ 
+ 	for (skb = segs; skb; skb = skb->next) {
+-- 
+1.7.3.3.464.gf80b6
