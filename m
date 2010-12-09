@@ -1,60 +1,52 @@
-From: Tobias Klauser <tklauser@distanz.ch>
-Subject: Re: [PATCH] bridge: Fix return value of br_multicast_add_group()
-Date: Thu, 9 Dec 2010 19:53:20 +0100
-Message-ID: <20101209185320.GH10190@distanz.ch>
-References: <1291903356-30618-1-git-send-email-tklauser@distanz.ch> <20101209082924.6d797871@nehalam>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH] Fix 2.6.34-rc1 regression in  disable_ipv6 support
+Date: Thu, 09 Dec 2010 11:09:34 -0800
+Message-ID: <m139q6ahld.fsf@fess.ebiederm.org>
+References: <m17hfnlpe1.fsf@fess.ebiederm.org> <4CFD0AF0.9090809@hp.com>
+	<m14oaoeywf.fsf@fess.ebiederm.org> <4D000B6D.1060708@hp.com>
+	<m1tyineu3p.fsf@fess.ebiederm.org> <20101208154932.5bc4b254@nehalam>
+	<m11v5rekg3.fsf@fess.ebiederm.org> <m1ipz3d46m.fsf@fess.ebiederm.org>
+	<m1mxofa8dg.fsf_-_@fess.ebiederm.org> <4D00F58A.2050307@hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	bridge@lists.linux-foundation.org, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Mahesh Kelkar <maheshkelkar@gmail.com>,
+	Lorenzo Colitti <lorenzo@google.com>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	Stephen Hemminger <shemminger@vyatta.com>, stable@kernel.org
+To: Brian Haley <brian.haley@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from symlink.to.noone.org ([85.10.207.172]:36241 "EHLO sym.noone.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755972Ab0LITC3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Dec 2010 14:02:29 -0500
-Content-Disposition: inline
-In-Reply-To: <20101209082924.6d797871@nehalam>
+Received: from out02.mta.xmission.com ([166.70.13.232]:41932 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756580Ab0LITJo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Dec 2010 14:09:44 -0500
+In-Reply-To: <4D00F58A.2050307@hp.com> (Brian Haley's message of "Thu, 09 Dec
+	2010 10:28:10 -0500")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2010-12-09 at 17:29:24 +0100, Stephen Hemminger <shemminger@linux-foundation.org> wrote:
-> On Thu,  9 Dec 2010 15:02:36 +0100
-> Tobias Klauser <tklauser@distanz.ch> wrote:
-> 
-> > If br_multicast_new_group returns NULL, we would return 0 (no error) to
-> > the caller, which is not what we want. Instead we should return -ENOMEM
-> > in this case.
-> > 
-> > Also replace IS_ERR(x) || !x by IS_ERR_OR_NULL(x)
-> > 
-> > Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
-> > ---
-> >  net/bridge/br_multicast.c |    5 ++++-
-> >  1 files changed, 4 insertions(+), 1 deletions(-)
-> > 
-> > diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-> > index 326e599..d4e1e81 100644
-> > --- a/net/bridge/br_multicast.c
-> > +++ b/net/bridge/br_multicast.c
-> > @@ -713,8 +713,11 @@ static int br_multicast_add_group(struct net_bridge *br,
-> >  
-> >  	mp = br_multicast_new_group(br, port, group);
-> >  	err = PTR_ERR(mp);
-> > -	if (unlikely(IS_ERR(mp) || !mp))
-> > +	if (IS_ERR_OR_NULL(mp)) {
-> > +		if (!mp)
-> > +			err = -ENOMEM;
-> >  		goto err;
-> > +	}
-> >  
-> >  	if (!port) {
-> >  		hlist_add_head(&mp->mglist, &br->mglist);
-> 
-> I would rather fix br_multicast_new_group so it never returns
-> NULL. Instead return PTR_ERR(-ENOMEM) on out of memory.
+Brian Haley <brian.haley@hp.com> writes:
 
-Ok, I'll change that and send an updated patch.
+> On 12/08/2010 11:16 PM, Eric W. Biederman wrote:
+>> Finding the real bug is beyond me right now, but fixing the regression
+>> in disable_ipv6 is simple.  We can just delete ::1 when we bring down
+>> the loopback interface, and it will be restored automatically when we
+>> bring the loopback interface back up.
+>
+> Hi Eric,
+>
+> This would work as well, same check, different way.
 
-Thanks a lot
-Tobias
+But that looks like less of an obvious magic exception.  The only
+address it is safe to ignore on is ::1, because we always restore it
+when we bring the loopback interface up.
+
+Long term we really do want to keep the loopback address.  But
+that actually requires finding and fixing what is broken in
+ipv6.
+
+So let's please keep this a line that we can easily remove.  It isn't
+like interfaces coming up and down are a fast path where every cycle
+counts.  We just need to be reasonably efficient.
+
+Eric
