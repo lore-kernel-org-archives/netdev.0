@@ -1,50 +1,60 @@
-From: Stefan Achatz <erazor_de@users.sourceforge.net>
-Subject: Aw: Re: [PATCH 0/5] HID: roccat: Achieve userspace notification on
- sysfs attribute creation
-Date: Thu, 9 Dec 2010 14:44:06 +0100 (CET)
-Message-ID: <2069123096.22885.1291902246397.JavaMail.ngmail@webmail07.arcor-online.net>
-References: <alpine.LNX.2.00.1012091430130.508@pobox.suse.cz> <1290801444.18750.161.camel@neuromancer>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-2.6] net/ipv6/udp.c: fix typo in flush_stack()
+Date: Thu, 09 Dec 2010 14:48:08 +0100
+Message-ID: <1291902488.4063.28.camel@edumazet-laptop>
+References: <20101209134029.GB2820@psychotron.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: rdunlap@xenotime.net, gregkh@suse.de, linux-doc@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-input@vger.kernel.org,
-	netdev@vger.kernel.org
-To: jkosina@suse.cz, erazor_de@users.sourceforge.net
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.00.1012091430130.508@pobox.suse.cz>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Jiri Pirko <jpirko@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:58112 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755065Ab0LINsM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Dec 2010 08:48:12 -0500
+Received: by wyb28 with SMTP id 28so2293786wyb.19
+        for <netdev@vger.kernel.org>; Thu, 09 Dec 2010 05:48:11 -0800 (PST)
+In-Reply-To: <20101209134029.GB2820@psychotron.brq.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
- 
+Le jeudi 09 d=C3=A9cembre 2010 =C3=A0 14:40 +0100, Jiri Pirko a =C3=A9c=
+rit :
+> skb1 should be passed as parameter to sk_rcvqueues_full() here.
+>=20
+> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+>=20
+> diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+> index 91def93..d2b268e 100644
+> --- a/net/ipv6/udp.c
+> +++ b/net/ipv6/udp.c
+> @@ -602,7 +602,7 @@ static void flush_stack(struct sock **stack, unsi=
+gned int count,
+> =20
+>  		sk =3D stack[i];
+>  		if (skb1) {
+> -			if (sk_rcvqueues_full(sk, skb)) {
+> +			if (sk_rcvqueues_full(sk, skb1)) {
+>  				kfree_skb(skb1);
+>  				goto drop;
+>  			}
+
+net-2.6 ? Its the same truesize anyway...
+
+So it's not a bug, but a cosmetic change.
+(I am ok with it, but for net-next-2.6)
+
+/*
+ * Take into account size of receive queue and backlog queue
+ */
+static inline bool sk_rcvqueues_full(const struct sock *sk, const struc=
+t sk_buff *skb)
+{
+        unsigned int qsize =3D sk->sk_backlog.len + atomic_read(&sk->sk=
+_rmem_alloc);
+
+        return qsize + skb->truesize > sk->sk_rcvbuf;
+}
 
 
------ Original Nachricht ----
-Von:     Jiri Kosina <jkosina@suse.cz>
-An:      Stefan Achatz <erazor_de@users.sourceforge.net>
-Datum:   09.12.2010 14:30
-Betreff: Re: [PATCH 0/5] HID: roccat: Achieve userspace notification on sysfs
- attribute creation
-
-> On Fri, 26 Nov 2010, Stefan Achatz wrote:
-> 
-> > Adding sysfs attributes to an already created device raises no userland
-> > notification.
-> > 
-> > Instead of fiddling around in the depths of busses and devices I reuse
-> the
-> > event char device (module hid-roccat). This device gets now created with
-> > a hardware specific class that contains the device attributes.
-> 
-> Hi Stefan,
-> 
-> I have applied the series, and removed the #pragma pack ugliness. Thanks,
-
-Hello Jiri,
-Using my patch replacing the #pragma pack with the __packed macro would have saved you some time:
-https://lkml.org/lkml/2010/11/27/14
-
-Just for the future: Whats better using the verbose version __attribute__ ((__packed__)) or the macro
-__packed as I did?
-
-Thanks, Stefan
