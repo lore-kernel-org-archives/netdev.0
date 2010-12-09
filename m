@@ -1,53 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] kptr_restrict for hiding kernel pointers from
- unprivileged users
-Date: Thu, 09 Dec 2010 14:30:20 +0100
-Message-ID: <1291901420.4063.24.camel@edumazet-laptop>
-References: <1291863926.2965.1.camel@Dan>
-	 <1291865039.2795.46.camel@edumazet-laptop>  <1291895472.2965.4.camel@Dan>
-	 <1291898801.2965.6.camel@Dan>
+From: Jiri Kosina <jkosina@suse.cz>
+Subject: Re: [PATCH 0/5] HID: roccat: Achieve userspace notification on sysfs
+ attribute creation
+Date: Thu, 9 Dec 2010 14:30:40 +0100 (CET)
+Message-ID: <alpine.LNX.2.00.1012091430130.508@pobox.suse.cz>
+References: <1290801444.18750.161.camel@neuromancer>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org,
-	linux-security-module@vger.kernel.org,
-	netdev <netdev@vger.kernel.org>
-To: Dan Rosenberg <drosenberg@vsecurity.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <1291898801.2965.6.camel@Dan>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Randy Dunlap <rdunlap@xenotime.net>,
+	Greg Kroah-Hartman <gregkh@suse.de>, linux-doc@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-input@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Stefan Achatz <erazor_de@users.sourceforge.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:60062 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752041Ab0LINan (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Dec 2010 08:30:43 -0500
+In-Reply-To: <1290801444.18750.161.camel@neuromancer>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 09 d=C3=A9cembre 2010 =C3=A0 07:46 -0500, Dan Rosenberg a =C3=A9=
-crit :
-> > > So caller can not block BH ?
-> > >=20
-> > > This seems wrong to me, please consider :
-> > >=20
-> > > normal process context :
-> > >=20
-> > > spin_lock_bh() ...
-> > >=20
-> > > for (...) =20
-> > > 	{xxx}printf( ...   "%pK"   ...)
-> > >=20
-> > > spin_unlock_bh();
-> > >=20
-> >=20
-> > I will think about this and address it.
->=20
-> Would you be happier if I omitted the in_interrupt() check entirely?
->=20
+On Fri, 26 Nov 2010, Stefan Achatz wrote:
 
-Well, it seems difficult to make a check here, its a generic function
-that happens to be used from different contexts.
+> Adding sysfs attributes to an already created device raises no userland
+> notification.
+> 
+> Instead of fiddling around in the depths of busses and devices I reuse the
+> event char device (module hid-roccat). This device gets now created with
+> a hardware specific class that contains the device attributes.
 
-Even using in_irq() might be a problem.
+Hi Stefan,
 
+I have applied the series, and removed the #pragma pack ugliness. Thanks,
 
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-securit=
-y-module" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+Jiri Kosina
+SUSE Labs, Novell Inc.
