@@ -1,59 +1,97 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Adding Support for SG,GSO,GRO
-Date: Thu, 09 Dec 2010 11:50:16 +0100
-Message-ID: <1291891816.4063.5.camel@edumazet-laptop>
-References: <FCCFB4CDC6E5564B9182F639FC356087035F21D9F9@dbde02.ent.ti.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: ctnetlink loop
+Date: Thu, 09 Dec 2010 11:56:13 +0100
+Message-ID: <4D00B5CD.3050406@netfilter.org>
+References: <20101203133903.GG13225@mail.eitzenberger.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Govindarajan, Sriramakrishnan" <srk@ti.com>
+Content-Type: multipart/mixed;
+ boundary="------------000904020006080003040508"
+Cc: "David S. Miller" <davem@davemloft.net>
+To: netfilter-devel <netfilter-devel@lists.netfilter.org>,
+	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:33504 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755932Ab0LIKuV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Dec 2010 05:50:21 -0500
-Received: by wwa36 with SMTP id 36so2296377wwa.1
-        for <netdev@vger.kernel.org>; Thu, 09 Dec 2010 02:50:20 -0800 (PST)
-In-Reply-To: <FCCFB4CDC6E5564B9182F639FC356087035F21D9F9@dbde02.ent.ti.com>
+Received: from mail.us.es ([193.147.175.20]:36069 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756225Ab0LIK4S (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Dec 2010 05:56:18 -0500
+In-Reply-To: <20101203133903.GG13225@mail.eitzenberger.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 09 d=C3=A9cembre 2010 =C3=A0 16:03 +0530, Govindarajan, Sriram=
-akrishnan a
-=C3=A9crit :
-> Hi
-> We have a NAPI compliant driver(net/drivers/davinci_emac.c), that doe=
-s well at 10/100Mbps loads. Now the same controller/driver is used for =
-1000Mbps
-> mode as well, where the CPU gets saturated easily
->=20
-> Internally the module supports scatter gather DMA(which is currently =
-not
-> exercised) but there is no HW checksum support.
->=20
-> To specifically implement GRO, GSO support would it be sufficient to =
-add
-> SG support to the driver? Are there other means of increasing the thr=
-oughput
-> and decreasing the CPU loading?
->=20
-> Any pointers to reference implementation for adding SG/GRO/GSO suppor=
-t will be helpful.
+This is a multi-part message in MIME format.
+--------------000904020006080003040508
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 
-Adding GRO is pretty easy, since you already are NAPI.
+Sorry, I finally found your email reporting this:
 
-call=20
-	napi_gro_receive(&adapter->napi, skb)=20
-instead of=20
-	netif_receive_skb(skb);
+> nfnetlink: avoid unbound loop on busy Netlink socket
+> 
+> I see a problem with how ctnetlink GET requests are being
+> processed in the kernel (2.6.32.24) under high load.
+> 
+> The sympton is Netlink looping around nfnetlink_rcv_msg(), which
+> is just because netlink_unicast() came back with EAGAIN when
+> trying to write the newly created Netlink skb to the SK receive
+> buffer in ctnetlink_get_conntrack().  In this case a (possibly)
+> infinit loop is entered.  Mostly infinit I think in case the
+> userland party trying to receive those messages may be stuck in
+> the sendmsg() call, being unable to read anything if being single
+> threaded.
+> 
+> I tried to reproduce several times, a few times the loop
+> disappeared and the box proceeded normally after some minutes.
+> I have no explanation for this.
+> 
+> The attached patch tries to solve it by simple not trying again
+> to netlink_unicast() the reply skb and just fail with -ENOBUFS.
+> The reasoning is that at the point a Netlink overrun is detected
+> it seems counter intuitive to insist on sending one more Netlink
+> message.
 
-(
+We still need EAGAIN, and it doesn't necessarily means ENOBUFS for the
+general case in nfnetlink.
 
-Take commit 6a08d194ee4080 as an example of such conversion
+The following patch covers the case that you're reporting.
 
-http://git.kernel.org/?p=3Dlinux/kernel/git/davem/net-next-2.6.git;a=3D=
-commitdiff;h=3D6a08d194ee40806e0ccd5f36ed768e64cbfc979f
+--------------000904020006080003040508
+Content-Type: text/x-patch;
+ name="f.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="f.patch"
 
+netfilter: ctnetlink: fix loop in ctnetlink_get_conntrack()
 
+From: Pablo Neira Ayuso <pablo@netfilter.org>
 
+This patch fixes a loop in ctnetlink_get_conntrack() that can be
+triggered if you use the same socket to receive events and to
+perform a GET operation. Under heavy load, netlink_unicast()
+may return -EAGAIN, this error code is reserved in nfnetlink for
+the module load-on-demand. Instead, we return -ENOBUFS which is
+the appropriate error code that has to be propagated to
+user-space.
+
+Reported-by: Holger Eitzenberger <holger@eitzenberger.org>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/netfilter/nf_conntrack_netlink.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
+index b729ace..a84fa6f 100644
+--- a/net/netfilter/nf_conntrack_netlink.c
++++ b/net/netfilter/nf_conntrack_netlink.c
+@@ -973,7 +973,8 @@ ctnetlink_get_conntrack(struct sock *ctnl, struct sk_buff *skb,
+ free:
+ 	kfree_skb(skb2);
+ out:
+-	return err;
++	/* this avoids a loop in nfnetlink. */
++	return err == -EAGAIN ? -ENOBUFS : err;
+ }
+ 
+ #ifdef CONFIG_NF_NAT_NEEDED
+
+--------------000904020006080003040508--
