@@ -1,47 +1,39 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: IPsecv6  tunnel mode fragmentation
-Date: Thu, 9 Dec 2010 20:44:29 +0800
-Message-ID: <20101209124429.GA27083@gondor.apana.org.au>
-References: <20101208071109.GA14537@gondor.apana.org.au> <1291861242.11224.265.camel@faith.austin.ibm.com>
+From: Dan Rosenberg <drosenberg@vsecurity.com>
+Subject: Re: [PATCH] kptr_restrict for hiding kernel pointers from
+ unprivileged users
+Date: Thu, 09 Dec 2010 07:46:41 -0500
+Message-ID: <1291898801.2965.6.camel@Dan>
+References: <1291863926.2965.1.camel@Dan>
+	 <1291865039.2795.46.camel@edumazet-laptop>  <1291895472.2965.4.camel@Dan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, samudrala@us.ibm.com, rashmin@us.ibm.com,
-	davem@davemloft.net, dlstevens@us.ibm.com
-To: Joy Latten <latten@austin.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:42056 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755411Ab0LIMoe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Dec 2010 07:44:34 -0500
-Content-Disposition: inline
-In-Reply-To: <1291861242.11224.265.camel@faith.austin.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org,
+	linux-security-module@vger.kernel.org,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1291895472.2965.4.camel@Dan>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 08, 2010 at 08:20:42PM -0600, Joy Latten wrote:
->
-> We did attempt to debug in kernel to see whether the pkt-too-big 
-> was being discarded... from what we saw, it did not seem to be. 
-> Also, an "ip -6  r l c" on TARGET showed the adjusted mtu for the route 
-> to HOST, which the pkt-too-big was for. tunnel's mtu is untouched.
 
-Oh I see what you're saying.  Sorry I misunderstood the issue
-earlier.
+> > So caller can not block BH ?
+> > 
+> > This seems wrong to me, please consider :
+> > 
+> > normal process context :
+> > 
+> > spin_lock_bh() ...
+> > 
+> > for (...)  
+> > 	{xxx}printf( ...   "%pK"   ...)
+> > 
+> > spin_unlock_bh();
+> > 
+> 
+> I will think about this and address it.
 
-> Thus why I reached my original conclusion, that perhaps 
-> esp/ah disregard inner hdr mtu since does not fragment.
-> Thus inner pkt will be too big when it reaches link for 
-> inner/original pkt to be sent on.
+Would you be happier if I omitted the in_interrupt() check entirely?
 
-Indeed we don't have any fragmentation capbility at all on the
-IPsec output path inside the tunnel.  For IPv4 this isn't an issue
-because the other end can perform fragmentation.  This is clearly
-not an option with IPv6.
-
-I'll look into this.
-
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+-Dan
