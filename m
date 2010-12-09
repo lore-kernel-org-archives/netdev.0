@@ -1,86 +1,65 @@
-From: Jim Bos <jim876@xs4all.nl>
-Subject: Re: [regression, 2.6.37-rc1] 'ip link tap0 up' stuck in do_exit()
-Date: Thu, 09 Dec 2010 18:59:48 +0100
-Message-ID: <4D011914.3000301@xs4all.nl>
-References: <20101103062609.GB31163@dastard> <1288768402.2467.665.camel@edumazet-laptop> <20101103103448.GA9169@dastard> <20101103112936.GB9169@dastard> <20101104002140.GA13830@dastard> <20101104054718.GC5210@cr0.nay.redhat.com> <20101208100245.01cf23c5@schatten.dmk.lab> <20101208134116.GA16923@redhat.com> <20101208134712.GB16923@redhat.com> <20101208140822.GA18681@redhat.com> <20101209164748.GA3218@hack>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: Behaviour of ETHTOOL_GLINK for an interface that's down
+Date: Thu, 09 Dec 2010 18:05:39 +0000
+Message-ID: <1291917939.2647.10.camel@bwh-desktop>
+References: <1291672786.5405.23.camel@bwh-desktop>
+	 <1291873629.24551.7.camel@dcbw.foobar.com>
+	 <1291874559.24551.10.camel@dcbw.foobar.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Oleg Nesterov <oleg@redhat.com>,
-	Florian Mickler <florian@mickler.org>,
-	Ingo Molnar <mingo@elte.hu>,
-	Dave Chinner <david@fromorbit.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: =?ISO-8859-1?Q?Am=E9rico_Wang?= <xiyou.wangcong@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20101209164748.GA3218@hack>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	sf-linux-drivers <linux-net-drivers@solarflare.com>
+To: Dan Williams <dcbw@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:6703 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752888Ab0LISFm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Dec 2010 13:05:42 -0500
+In-Reply-To: <1291874559.24551.10.camel@dcbw.foobar.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/09/2010 05:47 PM, Am=E9rico Wang wrote:
-> On Wed, Dec 08, 2010 at 03:08:22PM +0100, Oleg Nesterov wrote:
->> On 12/08, Oleg Nesterov wrote:
->>>
->>> On 12/08, Oleg Nesterov wrote:
->>>>
->>>> On 12/08, Florian Mickler wrote:
->>>>>
->>>>> [ ccing Ingo and Oleg ] as suggested
->>>>
->>>> Well. Of course I can't explain this bug. But, looking at this ema=
-il
->>>> I do not see amything strange in exit/schedule/etc.
->>>>
->>>>>>>>>>> This is resulting in the command 'ip link set tap0 up' hang=
-ing as a zombie:
->>>>>>>>>>>
->>>>>>>>>>> root      3005     1  0 16:53 pts/3    00:00:00 /bin/sh /vm=
--images/qemu-ifup tap0
->>>>>>>>>>> root      3011  3005  0 16:53 pts/3    00:00:00 /usr/bin/su=
-do /sbin/ip link set tap0 up
->>>>>>>>>>> root      3012  3011  0 16:53 pts/3    00:00:00 [ip] <defun=
-ct>
->>>>
->>>> That is. ip is a zombie.
->>>
->>> And. I do not know if this matters or not, but "the command 'ip lin=
-k
->>> set tap0 up' hanging as a zombie" does not look right.
->>>
->>> This was spawned by
->>>
->>>>>>>>> if [ -n "$1" ];then
->>>>>>>>>         /usr/bin/sudo /sbin/ip link set $1 up
->>>>>>>>>         sleep 0.5s
->>>>>>>>>         /usr/bin/sudo /usr/sbin/brctl addif $switch $1
->>>>>>>>>      exit 0
->>>>>>>>> fi
->>>
->>> The command does not hang. But it forks the child with pid =3D=3D 3=
-012,
->>> this child exits.
->>
->> Damn, sorry for noise, forgot to mention...
->>
->> The parent's trace (pid =3D=3D 3011) can be more useful. Say, if it
->> hangs in do_wait(), then the kernel is obviously wrong.
->>
->=20
-> Yeah, there is no point that a zombie can trigger a BUG_ON in kenrel.
-> But it is still interesting to know why it becomes a zombie...
->=20
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kerne=
-l" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+On Thu, 2010-12-09 at 00:02 -0600, Dan Williams wrote:
+> On Wed, 2010-12-08 at 23:47 -0600, Dan Williams wrote:
+> > On Mon, 2010-12-06 at 21:59 +0000, Ben Hutchings wrote:
+> > > ETHTOOL_GLINK is yet another ethtool operation that has unclear
+> > > semantics that results in differing behaviour when the interface is
+> > > down.
+[...]
+> > > DaveM said that Network Manager may require (2), although I don't think
+> > > this is correct.  At least the current version brings all managed
+> > > interfaces up whether or not they have link-up already.
+> > 
+> > NM has used netlink + IFF_RUNNING (not ethtool) for a few years for
+> > actual carrier detection.  Ethtool (and MII ioctls) are called as a
+> > "best effort" method of determining that the device actually *has*
+> > carrier detection at all, since if the device has gone to the trouble to
+> > implement either MII or ethtool, it probably also has carrier detection.
+> > 
+> > But ethtool isn't actually used to determine carrier status in NM.  It's
+> > netlink all the way down.
+> 
+> And as a follow-on, yes, NM does bring all devices it is allowed to
+> manager IFF_UP because that's the only way (at this point) that we can
+> guarantee functional carrier detect from the card.  I'd love it if that
+> weren't the case, and if we could have some indicator that the driver
+> could do carrier detect while in a lower-power state and !IFF_UP, but we
+> don't have that yet.
 
-ip link tap0 up not working might be this issue:
+Thanks for the information, Dan.  Presumably it would actually be
+sufficient for NM's requirements to implement 'energy detect' which some
+PHYs can do even in a low power state?  (Though I wonder whether that
+works between two PHYs both in a low power state.)  You could then use
+this as a trigger to bring the interface up, while still relying on the
+existing link change notification to trigger interface configuration.
+But this clearly has to be separate from ETHTOOL_GLINK, not least
+because you want notification rather than having to poll.
 
-   http://marc.info/?l=3Dlinux-netdev&m=3D128783852132311&w=3D2
+Ben.
 
-( Latest Virtualbox 3.2.12 works around this issue )
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
-Jim
