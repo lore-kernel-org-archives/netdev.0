@@ -1,42 +1,64 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: [PATCH] connector: add module alias
-Date: Thu, 9 Dec 2010 21:47:46 +0300
-Message-ID: <20101209184746.GA2476@ioremap.net>
-References: <20101209093646.1b5a6abb@nehalam>
+From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Subject: Re: Adding Support for SG,GSO,GRO
+Date: Thu, 9 Dec 2010 19:47:57 +0100
+Message-ID: <AANLkTi=8zWMYWG0DU147B08nN7xcvwaB9Bpq9fE8_fBe@mail.gmail.com>
+References: <FCCFB4CDC6E5564B9182F639FC356087035F21D9F9@dbde02.ent.ti.com>
+	<1291906948.19763.16.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Govindarajan, Sriramakrishnan" <srk@ti.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from corega.com.ru ([195.178.208.66]:41122 "EHLO tservice.net.ru"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751720Ab0LISrx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Dec 2010 13:47:53 -0500
-Content-Disposition: inline
-In-Reply-To: <20101209093646.1b5a6abb@nehalam>
+Received: from mail-qy0-f174.google.com ([209.85.216.174]:46913 "EHLO
+	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751513Ab0LISr6 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Dec 2010 13:47:58 -0500
+Received: by qyj19 with SMTP id 19so74958qyj.19
+        for <netdev@vger.kernel.org>; Thu, 09 Dec 2010 10:47:58 -0800 (PST)
+In-Reply-To: <1291906948.19763.16.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 09, 2010 at 09:36:46AM -0800, Stephen Hemminger (shemminger@vyatta.com) wrote:
-> Since connector can be built as a module and uses netlink socket
-> to communicate. The module should have an alias to autoload when socket
-> of NETLINK_CONNECTOR type is requested.
+2010/12/9 Ben Hutchings <bhutchings@solarflare.com>:
+> On Thu, 2010-12-09 at 16:03 +0530, Govindarajan, Sriramakrishnan wrot=
+e:
+>> Hi
+>> We have a NAPI compliant driver(net/drivers/davinci_emac.c), that do=
+es
+>> well at 10/100Mbps loads. Now the same controller/driver is used for
+>> 1000Mbps
+>> mode as well, where the CPU gets saturated easily
+>>
+>> Internally the module supports scatter gather DMA(which is currently=
+ not
+>> exercised) but there is no HW checksum support.
+>>
+>> To specifically implement GRO, GSO support would it be sufficient to=
+ add
+>> SG support to the driver? Are there other means of increasing the th=
+roughput
+>> and decreasing the CPU loading?
+[...]
+> On the TX side, NETIF_F_SG means that the stack may include data in t=
+he
+> skb by reference to arbitrary pages *even if their contents are still
+> being changed* (think sendfile()), which means it depends on hardware
+> checksum generation.
 
-Ack, thank you.
-David, please apply.
+Isn't that condition too broad? If the data could change after packet
+is submitted to the driver then results would be unpredictable and
+allow sending wrong data with correct (because hw-calculated)
+checksum.
 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> 
-> --- a/drivers/connector/connector.c	2010-12-09 09:19:05.549120343 -0800
-> +++ b/drivers/connector/connector.c	2010-12-09 09:19:52.795051458 -0800
-> @@ -36,6 +36,7 @@
->  MODULE_LICENSE("GPL");
->  MODULE_AUTHOR("Evgeniy Polyakov <zbr@ioremap.net>");
->  MODULE_DESCRIPTION("Generic userspace <-> kernelspace connector.");
-> +MODULE_ALIAS_NET_PF_PROTO(PF_NETLINK, NETLINK_CONNECTOR);
->  
->  static struct cn_dev cdev;
->  
+Right now NETIF_F_SG is removed from dev->features by
+netdev_fix_features() if no checksum offloads are enabled.
 
--- 
-	Evgeniy Polyakov
+Just an idea: would driver with NETIF_F_SG|NETIF_F_HW_CSUM using
+skb_checksum_help() in xmit path work? This would allow to use DMA
+scatter-gather without hardware checksumming (and avoid copying the
+packet's data before sending).
+
+Best Regards,
+Micha=B3 Miros=B3aw
