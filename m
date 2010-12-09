@@ -1,39 +1,47 @@
-From: Jiri Kosina <jkosina@suse.cz>
-Subject: Re: Aw: Re: [PATCH 0/5] HID: roccat: Achieve userspace notification
- on sysfs attribute creation
-Date: Thu, 9 Dec 2010 14:52:24 +0100 (CET)
-Message-ID: <alpine.LNX.2.00.1012091451400.508@pobox.suse.cz>
-References: <alpine.LNX.2.00.1012091430130.508@pobox.suse.cz> <1290801444.18750.161.camel@neuromancer> <2069123096.22885.1291902246397.JavaMail.ngmail@webmail07.arcor-online.net>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: rdunlap@xenotime.net, gregkh@suse.de, linux-doc@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-input@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Stefan Achatz <erazor_de@users.sourceforge.net>
-Return-path: <linux-input-owner@vger.kernel.org>
-In-Reply-To: <2069123096.22885.1291902246397.JavaMail.ngmail@webmail07.arcor-online.net>
-Sender: linux-input-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tobias Klauser <tklauser@distanz.ch>
+Subject: [PATCH] bridge: Fix return value of br_multicast_add_group()
+Date: Thu,  9 Dec 2010 15:02:36 +0100
+Message-ID: <1291903356-30618-1-git-send-email-tklauser@distanz.ch>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	bridge@lists.linux-foundation.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.zhaw.ch ([160.85.104.50]:57477 "EHLO mx1.zhaw.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756642Ab0LIOCi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Dec 2010 09:02:38 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 9 Dec 2010, Stefan Achatz wrote:
+If br_multicast_new_group returns NULL, we would return 0 (no error) to
+the caller, which is not what we want. Instead we should return -ENOMEM
+in this case.
 
-> > I have applied the series, and removed the #pragma pack ugliness. Thanks,
-> 
+Also replace IS_ERR(x) || !x by IS_ERR_OR_NULL(x)
 
-> Hello Jiri,
-> Using my patch replacing the #pragma pack with the __packed macro would 
-> have saved you some time: https://lkml.org/lkml/2010/11/27/14
+Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+---
+ net/bridge/br_multicast.c |    5 ++++-
+ 1 files changed, 4 insertions(+), 1 deletions(-)
 
-Ah, missed that. Never mind.
-
-> Just for the future: Whats better using the verbose version 
-> __attribute__ ((__packed__)) or the macro __packed as I did?
-
-I don't think I really care deeply here.
-
-For some rationale why these shortcuts exist, please see commit 
-82ddcb0405704.
-
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index 326e599..d4e1e81 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -713,8 +713,11 @@ static int br_multicast_add_group(struct net_bridge *br,
+ 
+ 	mp = br_multicast_new_group(br, port, group);
+ 	err = PTR_ERR(mp);
+-	if (unlikely(IS_ERR(mp) || !mp))
++	if (IS_ERR_OR_NULL(mp)) {
++		if (!mp)
++			err = -ENOMEM;
+ 		goto err;
++	}
+ 
+ 	if (!port) {
+ 		hlist_add_head(&mp->mglist, &br->mglist);
 -- 
-Jiri Kosina
-SUSE Labs, Novell Inc.
+1.7.0.4
+
