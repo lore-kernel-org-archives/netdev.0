@@ -1,94 +1,81 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: TSO/GRO/LRO/somethingO breaks LVS on 2.6.36
-Date: Thu, 09 Dec 2010 03:51:59 +0100
-Message-ID: <1291863119.2795.29.camel@edumazet-laptop>
-References: <20101203103447.GA29714@hostway.ca>
-	 <1291375743.2897.141.camel@edumazet-laptop>
-	 <20101203123617.GA6993@verge.net.au>  <20101209023509.GA21216@hostway.ca>
+From: Asbjoern Sloth Toennesen <asbjorn@asbjorn.biz>
+Subject: [PATCH 6/7] e1000e: cleanup: swap arguments to avoid
+	checkpatch errors
+Date: Thu,  9 Dec 2010 02:40:56 +0000
+Message-ID: <1291862457-16671-7-git-send-email-asbjorn__17894.4934196354$1291863648$gmane$org@asbjorn.biz>
+References: <1291862457-16671-1-git-send-email-asbjorn@asbjorn.biz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Simon Horman <horms@verge.net.au>, netdev@vger.kernel.org
-To: Simon Kirby <sim@hostway.ca>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:56421 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754955Ab0LICwD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 21:52:03 -0500
-Received: by wyb28 with SMTP id 28so1792667wyb.19
-        for <netdev@vger.kernel.org>; Wed, 08 Dec 2010 18:52:02 -0800 (PST)
-In-Reply-To: <20101209023509.GA21216@hostway.ca>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+In-Reply-To: <1291862457-16671-1-git-send-email-asbjorn@asbjorn.biz>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Le mercredi 08 d=C3=A9cembre 2010 =C3=A0 18:35 -0800, Simon Kirby a =C3=
-=A9crit :
+Swap argument order in order to avoid checkpatch treating it as an
+unary operation, instead of an binary one, and obtain consistency
+with the 3 other similar assignments in netdev.c (tdlen & rdlen).
 
-> Right.  So, on 2.6.35, ethtool shows:
->=20
-> # ethtool -k eth1
-> Offload parameters for eth1:
-> rx-checksumming: on
-> tx-checksumming: on
-> scatter-gather: on
-> tcp segmentation offload: on
-> udp fragmentation offload: off
-> generic segmentation offload: on
-> large receive offload: off
->=20
-> # ethtool -k eth1.39
-> Offload parameters for eth1.39:
-> rx-checksumming: on
-> tx-checksumming: off
-> scatter-gather: off
-> tcp segmentation offload: off
-> udp fragmentation offload: off
-> generic segmentation offload: off
-> large receive offload: off
->=20
-> On 2.6.36, ethtool shows:
->=20
-> # ethtool -k eth1
-> Offload parameters for eth1:
-> rx-checksumming: on
-> tx-checksumming: on
-> scatter-gather: on
-> tcp segmentation offload: on
-> udp fragmentation offload: off
-> generic segmentation offload: on
-> large receive offload: off
->=20
-> # ethtool -k eth1.39
-> Offload parameters for eth1.39:
-> rx-checksumming: on
-> tx-checksumming: on
-> scatter-gather: on
-> tcp segmentation offload: on
-> udp fragmentation offload: off
-> generic segmentation offload: on
-> large receive offload: off
->=20
-> And if I set it with ethtool -K eth1.39 gso off; ethtool -K eth1 gso =
-off,
-> it says "off", but I still see merged frames, as verified with an nc =
-<
-> /dev/zero and tcpdump -i any -n 'length > 1500'.
->=20
+This patch fixes 3 checkpatch errors.
+
+Signed-off-by: Asbjoern Sloth Toennesen <asbjorn@asbjorn.biz>
+---
+ drivers/net/e1000e/netdev.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index bb6a1f5..bdd3774 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -2059,7 +2059,7 @@ int e1000e_setup_tx_resources(struct e1000_adapter *adapter)
+ 	struct e1000_ring *tx_ring = adapter->tx_ring;
+ 	int err = -ENOMEM, size;
+ 
+-	size = sizeof(struct e1000_buffer) * tx_ring->count;
++	size = tx_ring->count * sizeof(struct e1000_buffer);
+ 	tx_ring->buffer_info = vzalloc(size);
+ 	if (!tx_ring->buffer_info)
+ 		goto err;
+@@ -2094,7 +2094,7 @@ int e1000e_setup_rx_resources(struct e1000_adapter *adapter)
+ 	struct e1000_buffer *buffer_info;
+ 	int i, size, desc_len, err = -ENOMEM;
+ 
+-	size = sizeof(struct e1000_buffer) * rx_ring->count;
++	size = rx_ring->count * sizeof(struct e1000_buffer);
+ 	rx_ring->buffer_info = vzalloc(size);
+ 	if (!rx_ring->buffer_info)
+ 		goto err;
+@@ -2151,7 +2151,7 @@ static void e1000_clean_tx_ring(struct e1000_adapter *adapter)
+ 		e1000_put_txbuf(adapter, buffer_info);
+ 	}
+ 
+-	size = sizeof(struct e1000_buffer) * tx_ring->count;
++	size = tx_ring->count * sizeof(struct e1000_buffer);
+ 	memset(tx_ring->buffer_info, 0, size);
+ 
+ 	memset(tx_ring->desc, 0, tx_ring->size);
+-- 
+1.7.2.3
 
 
-Yep, but you also have "tso on" by default on 2.6.36 and eth1.39 (vlan)
+------------------------------------------------------------------------------
+This SF Dev2Dev email is sponsored by:
 
-> > I will prepare a backport of the "ipvs: allow transmit of GRO aggre=
-gated
-> > skbs" patch to v2.6.36 and post it shortly.  Testing to see if that
-> > resolves the problem that you are seeing would probably be a good s=
-tart.
->=20
-> I can test this in our case, and it should specifically work on the
-> servers we were seeing the problem on, but it still needs some
-> complicated logic to be safe for all cases (like when LVS decides to
-> route out an interface without GRO).  Anyway, thanks!
->=20
-> Simon-
-
-
+WikiLeaks The End of the Free Internet
+http://p.sf.net/sfu/therealnews-com
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
