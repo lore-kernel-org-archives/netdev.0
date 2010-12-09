@@ -1,87 +1,102 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH] Fix 2.6.34-rc1 regression in  disable_ipv6 support
-Date: Wed, 08 Dec 2010 20:16:27 -0800
-Message-ID: <m1mxofa8dg.fsf_-_@fess.ebiederm.org>
-References: <m17hfnlpe1.fsf@fess.ebiederm.org> <4CFD0AF0.9090809@hp.com>
-	<m14oaoeywf.fsf@fess.ebiederm.org> <4D000B6D.1060708@hp.com>
-	<m1tyineu3p.fsf@fess.ebiederm.org> <20101208154932.5bc4b254@nehalam>
-	<m11v5rekg3.fsf@fess.ebiederm.org> <m1ipz3d46m.fsf@fess.ebiederm.org>
+From: Nelson Elhage <nelhage@ksplice.com>
+Subject: Re: NULL dereference in econet AUN-over-UDP receive
+Date: Wed, 8 Dec 2010 23:18:22 -0500
+Message-ID: <AANLkTimdN2LkEpyWV0bsdfVVvnsQOaLGYmm_0ostrjFM@mail.gmail.com>
+References: <20101209003015.GA27906@ksplice.com>
+	<1291858667.2795.16.camel@edumazet-laptop>
+	<20101208.180215.193709862.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Brian Haley <brian.haley@hp.com>, netdev@vger.kernel.org,
-	Mahesh Kelkar <maheshkelkar@gmail.com>,
-	Lorenzo Colitti <lorenzo@google.com>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:47066 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752168Ab0LIEQe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 23:16:34 -0500
-Cc: stable@kernel.org
-In-Reply-To: <m1ipz3d46m.fsf@fess.ebiederm.org> (Eric W. Biederman's message
-	of "Wed, 08 Dec 2010 19:18:41 -0800")
+Received: from mail-bw0-f45.google.com ([209.85.214.45]:62628 "EHLO
+	mail-bw0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753631Ab0LIESY convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 23:18:24 -0500
+Received: by bwz16 with SMTP id 16so2196932bwz.4
+        for <netdev@vger.kernel.org>; Wed, 08 Dec 2010 20:18:22 -0800 (PST)
+In-Reply-To: <20101208.180215.193709862.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Yep, that fixes the crash.
 
-In a number of instances it is desirable to have systems that run with
-ipv6 disabled, but where enabling ipv6 remains an option.  This
-has been broken since 2.6.34-rc1.
+Tested-by: Nelson Elhage <nelhage@ksplice.com>
 
-The problem is failure mode is that after
-# ip link set lo up
-# echo 1 > /proc/sys/net/ipv6/conf/lo/disable_ipv6
-# echo 0 > /proc/sys/net/ipv6/conf/lo/disable_ipv6
-# ping6 ::1
-
-The ping and anything similar operations that use the
-ipv6 loopback address fail with network not reachable.
-
-This failure mode appears to start with:
-   commit dc2b99f71ef477a31020511876ab4403fb7c4420
-   Author: stephen hemminger <shemminger@vyatta.com>
-   Date:   Mon Feb 8 19:48:05 2010 +0000
-   
-       IPv6: keep permanent addresses on admin down
-       
-       Permanent IPV6 addresses should not be removed when the link is
-       set to admin down, only when device is removed.
-       
-       When link is lost permanent addresses should be marked as tentative
-       so that when link comes back they are subject to duplicate address
-       detection (if DAD was enabled for that address).
-       
-       Other routing systems keep manually configured IPv6 addresses
-       when link is set down.
-       
-       Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-       Signed-off-by: David S. Miller <davem@davemloft.net>
-
-Keeping ipv6 addresses on network interfaces when we bring those
-interfaces down is not the fundamental problem.  The real problem is
-that there is something about routes and route-caches that make local
-ipv6 address unreachable after the loopback interface is brought down,
-and then brought up again, and it has been that way since at least
-2.6.32.
-
-Finding the real bug is beyond me right now, but fixing the regression
-in disable_ipv6 is simple.  We can just delete ::1 when we bring down
-the loopback interface, and it will be restored automatically when we
-bring the loopback interface back up.
-
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
----
-Index: linux-2.6.37-rc5.x86_64/net/ipv6/addrconf.c
-===================================================================
---- linux-2.6.37-rc5.x86_64.orig/net/ipv6/addrconf.c
-+++ linux-2.6.37-rc5.x86_64/net/ipv6/addrconf.c
-@@ -2727,6 +2727,7 @@ static int addrconf_ifdown(struct net_de
- 		/* If just doing link down, and address is permanent
- 		   and not link-local, then retain it. */
- 		if (!how &&
-+		    !ipv6_addr_loopback(&ifa->addr) &&
- 		    (ifa->flags&IFA_F_PERMANENT) &&
- 		    !(ipv6_addr_type(&ifa->addr) & IPV6_ADDR_LINKLOCAL)) {
- 			list_move_tail(&ifa->if_list, &keep_list);
+On Wed, Dec 8, 2010 at 9:02 PM, David Miller <davem@davemloft.net> wrot=
+e:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Thu, 09 Dec 2010 02:37:47 +0100
+>
+>> Le mercredi 08 d=E9cembre 2010 =E0 19:30 -0500, Nelson Elhage a =E9c=
+rit :
+>>> While testing one of my econet reproducers on a patched kernel, I t=
+riggered a
+>>> NULL pointer dereference in the econet AUN-over-UDP receive path. U=
+pon further
+>>> investigation, I now suspect that this code path hasn't worked at a=
+ll in years.
+>>>
+>>> A copy of the oops is below for your reference, but here's my analy=
+sis:
+>>>
+>>> When aun_data_available receives a data packet (ah->code =3D=3D 2),=
+ it calls
+>>> aun_incoming to process the skb. The start of aun_incoming looks li=
+ke:
+>>>
+>>> static void aun_incoming(struct sk_buff *skb, struct aunhdr *ah, si=
+ze_t len)
+>>> {
+>>> =A0 =A0 =A0struct iphdr *ip =3D ip_hdr(skb);
+>>> =A0 =A0 =A0unsigned char stn =3D ntohl(ip->saddr) & 0xff;
+>>> =A0 =A0 =A0struct sock *sk =3D NULL;
+>>> =A0 =A0 =A0struct sk_buff *newskb;
+>>> ---> =A0 =A0 =A0 =A0 struct ec_device *edev =3D skb->dev->ec_ptr;
+>>>
+>>
+>> This can be changed to use skb_dst(skb)->dev instead
+>>
+>> struct dst *dst =3D skb_dst(skb);
+>>
+>> if (dst) {
+>> =A0 =A0 =A0 dev =3D dst->dev;
+>> =A0 =A0 =A0 ...
+>> }
+>
+> Nelson please test if this patch fixes your crash:
+>
+> econet: Fix crash in aun_incoming().
+>
+> Unconditional use of skb->dev won't work here,
+> try to fetch the econet device via skb_dst()->dev
+> instead.
+>
+> Suggested by Eric Dumazet.
+>
+> Reported-by: Nelson Elhage <nelhage@ksplice.com>
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+>
+> diff --git a/net/econet/af_econet.c b/net/econet/af_econet.c
+> index f180371..15dcc1a 100644
+> --- a/net/econet/af_econet.c
+> +++ b/net/econet/af_econet.c
+> @@ -851,9 +851,13 @@ static void aun_incoming(struct sk_buff *skb, st=
+ruct aunhdr *ah, size_t len)
+> =A0{
+> =A0 =A0 =A0 =A0struct iphdr *ip =3D ip_hdr(skb);
+> =A0 =A0 =A0 =A0unsigned char stn =3D ntohl(ip->saddr) & 0xff;
+> + =A0 =A0 =A0 struct dst_entry *dst =3D skb_dst(skb);
+> + =A0 =A0 =A0 struct ec_device *edev =3D NULL;
+> =A0 =A0 =A0 =A0struct sock *sk =3D NULL;
+> =A0 =A0 =A0 =A0struct sk_buff *newskb;
+> - =A0 =A0 =A0 struct ec_device *edev =3D skb->dev->ec_ptr;
+> +
+> + =A0 =A0 =A0 if (dst)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 edev =3D dst->dev->ec_ptr;
+>
+> =A0 =A0 =A0 =A0if (! edev)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0goto bad;
+>
