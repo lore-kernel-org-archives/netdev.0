@@ -1,37 +1,40 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH 02/15] stmmac: Remove duplicate unlikely from IS_ERR
-Date: Thu,  9 Dec 2010 12:03:55 -0800
-Message-ID: <6ab3aedcd80e5c5b3c67194975082183b6c9bda3.1291923889.git.joe@perches.com>
-References: <1291906801-1389-2-git-send-email-tklauser@distanz.ch>
-Cc: Jiri Kosina <trivial@kernel.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1291906801-1389-2-git-send-email-tklauser@distanz.ch>
-In-Reply-To: <cover.1291923888.git.joe@perches.com>
-References: <cover.1291923888.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] netfilter: don't need to initialize instance_table
+Date: Thu, 09 Dec 2010 12:05:43 -0800 (PST)
+Message-ID: <20101209.120543.112596810.davem@davemloft.net>
+References: <1291889421-10794-1-git-send-email-xiaosuo@gmail.com>
+	<alpine.LNX.2.01.1012091501270.21049@obet.zrqbmnf.qr>
+	<AANLkTin6u9ZkSNAoxR7az5yBW-WM0RebPcCrOMOYgFrP@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jengelh@medozas.de, kaber@trash.net,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: xiaosuo@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47956
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757013Ab0LIUFP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Dec 2010 15:05:15 -0500
+In-Reply-To: <AANLkTin6u9ZkSNAoxR7az5yBW-WM0RebPcCrOMOYgFrP@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-IS_ERR already uses unlikely, remove unlikely from the call sites.
+From: Changli Gao <xiaosuo@gmail.com>
+Date: Thu, 9 Dec 2010 22:27:24 +0800
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- drivers/net/stmmac/stmmac_main.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+> On Thu, Dec 9, 2010 at 10:03 PM, Jan Engelhardt <jengelh@medozas.de> wrote:
+>>
+>> This is here for correctness and documentation. If the hlist
+>> implementation changed, one would have a hard time figuring out the
+>> callsites which then need to add the initialization back.
+>>
+> 
+> I am quite sure there are other users rely on this assumption. So who
+> wants to change the macro INIT_HLIST_HEAD() has to review all the
+> code. It is a huge task, but can't be avoided.
 
-diff --git a/drivers/net/stmmac/stmmac_main.c b/drivers/net/stmmac/stmmac_main.c
-index c0dc785..20f803d 100644
---- a/drivers/net/stmmac/stmmac_main.c
-+++ b/drivers/net/stmmac/stmmac_main.c
-@@ -949,7 +949,7 @@ static int stmmac_sw_tso(struct stmmac_priv *priv, struct sk_buff *skb)
- 	       skb, skb->len);
- 
- 	segs = skb_gso_segment(skb, priv->dev->features & ~NETIF_F_TSO);
--	if (unlikely(IS_ERR(segs)))
-+	if (IS_ERR(segs))
- 		goto sw_tso_end;
- 
- 	do {
--- 
-1.7.3.3.464.gf80b6
+Wrong.  Adding debugging facilities to the hlist head would just
+require changing this macro.
+
+That is, unless we apply patches like your's, which we won't.
