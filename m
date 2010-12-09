@@ -1,217 +1,394 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: NULL dereference in econet AUN-over-UDP receive
-Date: Thu, 09 Dec 2010 02:37:47 +0100
-Message-ID: <1291858667.2795.16.camel@edumazet-laptop>
-References: <20101209003015.GA27906@ksplice.com>
+From: Maxim Levitsky <maximlevitsky@gmail.com>
+Subject: Re: [PATCH 0/5 V2] Firewire networking assorted fixes
+Date: Thu, 09 Dec 2010 03:42:41 +0200
+Message-ID: <1291858961.3331.4.camel@maxim-laptop>
+References: <1290996593-32416-1-git-send-email-maximlevitsky@gmail.com>
+	 <1291779177.32420.8.camel@maxim-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Nelson Elhage <nelhage@ksplice.com>
+Content-Type: multipart/mixed; boundary="=-+5PvVgGuBnxMkfPpY39/"
+Cc: Stefan Richter <stefanr@s5r6.in-berlin.de>, netdev@vger.kernel.org
+To: linux1394-devel <linux1394-devel@lists.sourceforge.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:40127 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752701Ab0LIBhv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 20:37:51 -0500
-Received: by mail-ww0-f44.google.com with SMTP id 36so1878391wwa.1
-        for <netdev@vger.kernel.org>; Wed, 08 Dec 2010 17:37:50 -0800 (PST)
-In-Reply-To: <20101209003015.GA27906@ksplice.com>
+Received: from mail-bw0-f45.google.com ([209.85.214.45]:56047 "EHLO
+	mail-bw0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754794Ab0LIBmt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Dec 2010 20:42:49 -0500
+Received: by bwz16 with SMTP id 16so2076098bwz.4
+        for <netdev@vger.kernel.org>; Wed, 08 Dec 2010 17:42:47 -0800 (PST)
+In-Reply-To: <1291779177.32420.8.camel@maxim-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 08 d=C3=A9cembre 2010 =C3=A0 19:30 -0500, Nelson Elhage a =C3=
-=A9crit :
-> While testing one of my econet reproducers on a patched kernel, I tri=
-ggered a
-> NULL pointer dereference in the econet AUN-over-UDP receive path. Upo=
-n further
-> investigation, I now suspect that this code path hasn't worked at all=
- in years.
->=20
-> A copy of the oops is below for your reference, but here's my analysi=
-s:
->=20
-> When aun_data_available receives a data packet (ah->code =3D=3D 2), i=
-t calls
-> aun_incoming to process the skb. The start of aun_incoming looks like=
-:
->=20
-> static void aun_incoming(struct sk_buff *skb, struct aunhdr *ah, size=
-_t len)
-> {
-> 	struct iphdr *ip =3D ip_hdr(skb);
-> 	unsigned char stn =3D ntohl(ip->saddr) & 0xff;
-> 	struct sock *sk =3D NULL;
-> 	struct sk_buff *newskb;
-> ---> 	struct ec_device *edev =3D skb->dev->ec_ptr;   =20
->=20
 
-This can be changed to use skb_dst(skb)->dev instead
+--=-+5PvVgGuBnxMkfPpY39/
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 
-struct dst *dst =3D skb_dst(skb);
+On Wed, 2010-12-08 at 05:32 +0200, Maxim Levitsky wrote:
+> On Mon, 2010-11-29 at 04:09 +0200, Maxim Levitsky wrote:
+> > Hi,
+> > 
+> > This is updated version of the patches.
+> > I updated the changelogs, addressed comments on patch #2
+> > 
+> > Best regards,
+> > 	Maxim Levitsky
+> > 
+> 
+> Today I have achieved the ultimate goal,
+> full support of firewire networking via NetworkManager.
+> 
+> Currently it is patched with few hacks but much less that I expected.
+> 
+> I also had to patch dhclient as it unfortunately sends raw packets
+> together with hardware header (ethernet of course...)
+> 
+> I will soon clean up these hacks to turn them into patches and send to
+> developers.
+> 
+> The kernel side needs only the attached patch.
+> It adds the link state detection to firewire-net
+> 
+> Just for fun, this is screenshot that proves that NM works:
+> http://img210.imageshack.us/img210/6019/screenshotdjk.png
 
-if (dst) {
-	dev =3D dst->dev;
-	...
-}
+And cleaned up patches that add the support attached.
+Will send these to NM and dhcp ML soon.
 
->=20
-> However, as far as I can tell, skb->dev is always NULL, meaning that =
-that last
-> line will fault immediately before this function can do any real work=
-=2E
->=20
-> In particular, 'skb' comes from "skb =3D skb_recv_datagram(sk, 0, 1, =
-&err)" in
-> aun_data_available. skb_recv_datagram() pulls skb's off of sk->sk_rec=
-eive_queue,
-> and (unless I'm missing something), the only way things get on that q=
-ueue is via
-> sock_queue_rcv_skbsock_queue_rcv_skb, which explicitly sets skb->dev =
-=3D NULL.
->=20
-> So, if I understand this all correctly, receiving AUN-over-UDP just p=
-lain hasn't
-> worked at all for a long time -- I can reproduce this crash on 2.6.12=
-, which is
-> the earliest I've tested, and from reading code I suspect it's been b=
-roken at
-> least since 2.6.0.
->=20
-> I am not an expert in the networking subsystem, though, so if I am mi=
-ssing some
-> way that this code does actually work, please feel to correct me.
->=20
-> If, on the other hand, this code really hasn't worked in years, and n=
-o one
-> noticed, I wonder if we should reconsider moving this code into stagi=
-ng and
-> eventually out entirely, at least unless any real users step forward.
->=20
-> - Nelson
->=20
->=20
-> ---- snip here ----
->=20
-> BUG: unable to handle kernel NULL pointer dereference at 000000000000=
-0240
-> IP: [<ffffffff813a303e>] aun_data_available+0xb3/0x28d
-> PGD e818067 PUD e819067 PMD 0=20
-> Oops: 0000 [#1] SMP=20
-> last sysfs file: /sys/devices/virtual/net/lo/operstate
-> CPU 0=20
-> Modules linked in:
->=20
-> Pid: 0, comm: swapper Not tainted 2.6.37-rc3 #39 /Bochs
-> RIP: 0010:[<ffffffff813a303e>]  [<ffffffff813a303e>] aun_data_availab=
-le+0xb3/0x28d
-> RSP: 0018:ffff88000fc03b00  EFLAGS: 00010246
-> RAX: 0000000000000000 RBX: ffff88000fc03b3c RCX: ffff88000e808800
-> RDX: 0000000000000002 RSI: 0000000000000286 RDI: ffff88000e8060d4
-> RBP: ffff88000fc03b70 R08: 0000000000000003 R09: 0000000000000002
-> R10: ffff88000e69ac00 R11: 00000000ffffffff R12: ffff88000e80886a
-> R13: ffff88000e439500 R14: ffff88000e8060d4 R15: ffff88000e80884e
-> FS:  0000000000000000(0000) GS:ffff88000fc00000(0000) knlGS:000000000=
-0000000
-> CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-> CR2: 0000000000000240 CR3: 000000000e813000 CR4: 00000000000006f0
-> DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-> DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-> Process swapper (pid: 0, threadinfo ffffffff81600000, task ffffffff81=
-62b020)
-> Stack:
->  ffff88000fc03ba0 ffffffff8131d614 ffff880000000010 ffff88000e806000
->  0200000100000000 0202000a00000000 ffffc90000086d48 0000000000000246
->  ffff88000fc03b70 ffff88000e806000 ffff88000e439500 0000000000000000
-> Call Trace:
->  <IRQ>=20
->  [<ffffffff8131d614>] ? rt_intern_hash+0x5de/0x606
->  [<ffffffff812f7839>] sock_queue_rcv_skb+0x168/0x187
->  [<ffffffff81325641>] ip_queue_rcv_skb+0x45/0x4c
->  [<ffffffff81031aa0>] ? try_to_wake_up+0x265/0x277
->  [<ffffffff8133ee23>] __udp_queue_rcv_skb+0x50/0xb9
->  [<ffffffff813403b0>] udp_queue_rcv_skb+0x1ad/0x26e
->  [<ffffffff81340b67>] __udp4_lib_rcv+0x30a/0x50d
->  [<ffffffff81340d7f>] udp_rcv+0x15/0x17
->  [<ffffffff813206b1>] ip_local_deliver+0x12d/0x1d0
->  [<ffffffff81320546>] ip_rcv+0x4f2/0x530
->  [<ffffffff81300fb3>] __netif_receive_skb+0x34d/0x377
->  [<ffffffff81301c1d>] netif_receive_skb+0x67/0x6e
->  [<ffffffff812fb763>] ? __netdev_alloc_skb+0x1d/0x3a
->  [<ffffffff8129a189>] cp_rx_poll+0x2e8/0x3ab
->  [<ffffffff81007414>] ? nommu_map_page+0x0/0xa0
->  [<ffffffff81302308>] net_rx_action+0xa7/0x215
->  [<ffffffff8103c0f9>] __do_softirq+0xcd/0x18c
->  [<ffffffff81002e4c>] call_softirq+0x1c/0x28
->  [<ffffffff810042c3>] do_softirq+0x33/0x68
->  [<ffffffff8103bc61>] irq_exit+0x36/0x38
->  [<ffffffff810039a8>] do_IRQ+0xa3/0xba
->  [<ffffffff813be8d3>] ret_from_intr+0x0/0xa
->  <EOI>=20
->  [<ffffffff810089a1>] ? default_idle+0x62/0x7a
->  [<ffffffff813c1882>] ? atomic_notifier_call_chain+0x13/0x15
->  [<ffffffff81001321>] cpu_idle+0x54/0xbe
->  [<ffffffff813a3d49>] rest_init+0x6d/0x6f
->  [<ffffffff8169cc85>] start_kernel+0x332/0x33d
->  [<ffffffff8169c2a8>] x86_64_start_reservations+0xb8/0xbc
->  [<ffffffff8169c39e>] x86_64_start_kernel+0xf2/0xf9
-> Code: 00 80 fa 04 0f 84 bb 01 00 00 80 fa 02 0f 85 c3 01 00 00 45 8b =
-bd a0 00 00 00 4e 8d 3c 39 41 8b 47 0c 0f c8 88 45 b7 49 8b 45 20 <4c> =
-8b b0 40 02 00 00 4d 85 f6 0f 84 4f 01 00 00 41 8a 46 01 48=20
-> RIP  [<ffffffff813a303e>] aun_data_available+0xb3/0x28d
->  RSP <ffff88000fc03b00>
-> CR2: 0000000000000240
-> ---[ end trace 8e7c904f0da8a9a0 ]---
-> Kernel panic - not syncing: Fatal exception in interrupt
-> Pid: 0, comm: swapper Tainted: G      D     2.6.37-rc3 #39
-> Call Trace:
->  <IRQ>  [<ffffffff813bc1b4>] panic+0x8c/0x18d
->  [<ffffffff810374ff>] ? kmsg_dump+0x115/0x12f
->  [<ffffffff813bf5a2>] oops_end+0x81/0x8e
->  [<ffffffff81020b01>] no_context+0x1f7/0x206
->  [<ffffffff81067af6>] ? handle_IRQ_event+0x52/0x117
->  [<ffffffff81020c92>] __bad_area_nosemaphore+0x182/0x1a5
->  [<ffffffff81069aa5>] ? handle_fasteoi_irq+0xd5/0xe0
->  [<ffffffff81020cc3>] bad_area_nosemaphore+0xe/0x10
->  [<ffffffff813c160a>] do_page_fault+0x1e3/0x3db
->  [<ffffffff810039a8>] ? do_IRQ+0xa3/0xba
->  [<ffffffff813be8d3>] ? ret_from_intr+0x0/0xa
->  [<ffffffff8102c35c>] ? enqueue_task_fair+0x156/0x162
->  [<ffffffff812fcb99>] ? __skb_recv_datagram+0x116/0x258
->  [<ffffffff813beadf>] page_fault+0x1f/0x30
->  [<ffffffff813a303e>] ? aun_data_available+0xb3/0x28d
->  [<ffffffff8131d614>] ? rt_intern_hash+0x5de/0x606
->  [<ffffffff812f7839>] sock_queue_rcv_skb+0x168/0x187
->  [<ffffffff81325641>] ip_queue_rcv_skb+0x45/0x4c
->  [<ffffffff81031aa0>] ? try_to_wake_up+0x265/0x277
->  [<ffffffff8133ee23>] __udp_queue_rcv_skb+0x50/0xb9
->  [<ffffffff813403b0>] udp_queue_rcv_skb+0x1ad/0x26e
->  [<ffffffff81340b67>] __udp4_lib_rcv+0x30a/0x50d
->  [<ffffffff81340d7f>] udp_rcv+0x15/0x17
->  [<ffffffff813206b1>] ip_local_deliver+0x12d/0x1d0
->  [<ffffffff81320546>] ip_rcv+0x4f2/0x530
->  [<ffffffff81300fb3>] __netif_receive_skb+0x34d/0x377
->  [<ffffffff81301c1d>] netif_receive_skb+0x67/0x6e
->  [<ffffffff812fb763>] ? __netdev_alloc_skb+0x1d/0x3a
->  [<ffffffff8129a189>] cp_rx_poll+0x2e8/0x3ab
->  [<ffffffff81007414>] ? nommu_map_page+0x0/0xa0
->  [<ffffffff81302308>] net_rx_action+0xa7/0x215
->  [<ffffffff8103c0f9>] __do_softirq+0xcd/0x18c
->  [<ffffffff81002e4c>] call_softirq+0x1c/0x28
->  [<ffffffff810042c3>] do_softirq+0x33/0x68
->  [<ffffffff8103bc61>] irq_exit+0x36/0x38
->  [<ffffffff810039a8>] do_IRQ+0xa3/0xba
->  [<ffffffff813be8d3>] ret_from_intr+0x0/0xa
->  <EOI>  [<ffffffff810089a1>] ? default_idle+0x62/0x7a
->  [<ffffffff813c1882>] ? atomic_notifier_call_chain+0x13/0x15
->  [<ffffffff81001321>] cpu_idle+0x54/0xbe
->  [<ffffffff813a3d49>] rest_init+0x6d/0x6f
->  [<ffffffff8169cc85>] start_kernel+0x332/0x33d
->  [<ffffffff8169c2a8>] x86_64_start_reservations+0xb8/0xbc
->  [<ffffffff8169c39e>] x86_64_start_kernel+0xf2/0xf9
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Best regards,
+	Maxim Levitsky
 
+
+--=-+5PvVgGuBnxMkfPpY39/
+Content-Disposition: attachment; filename="0001-Add-support-for-RFC2855-DHCP-over-IEEE1394.patch"
+Content-Type: text/x-patch; name="0001-Add-support-for-RFC2855-DHCP-over-IEEE1394.patch"; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+
+>From 09750594f8c861d58762969d4fe1f1b3b81b0b5f Mon Sep 17 00:00:00 2001
+From: Maxim Levitsky <maximlevitsky@gmail.com>
+Date: Thu, 9 Dec 2010 02:49:23 +0200
+Subject: [PATCH] Add support for RFC2855, DHCP over IEEE1394
+
+---
+ client/dhclient.c    |   18 ++++++++++
+ common/Makefile.dist |    6 ++-
+ common/discover.c    |   15 ++++++--
+ common/firewire.c    |   90 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ common/lpf.c         |    9 ++++-
+ common/packet.c      |   13 +++++++
+ includes/dhcpd.h     |    7 ++++
+ 7 files changed, 151 insertions(+), 7 deletions(-)
+ create mode 100644 common/firewire.c
+
+diff --git a/client/dhclient.c b/client/dhclient.c
+index a9a0993..5f079b3 100644
+--- a/client/dhclient.c
++++ b/client/dhclient.c
+@@ -1890,6 +1890,24 @@ void make_client_options (client, lease, type, sid, rip, prl, op)
+ 		client -> requested_address.len = 0;
+ 	}
+ 
++#ifdef HAVE_ARPHRD_IEEE1394
++	/* Per RFC2855, send hardware address inside client identifier
++		by default*/
++	if (client -> interface -> hw_address.hbuf [0] == ARPHRD_IEEE1394) {
++		i = DHO_DHCP_CLIENT_IDENTIFIER;
++		if (!(option_code_hash_lookup(&option, dhcp_universe.code_hash,
++						&i, 0, MDL) &&
++			make_const_option_cache(&oc, NULL,
++				&client -> interface -> hw_address.hbuf [1], 8,
++						option, MDL)))
++			log_error ("can't make requested address cache.");
++		else {
++			save_option (&dhcp_universe, *op, oc);
++			option_cache_dereference (&oc, MDL);
++		}
++		option_dereference(&option, MDL);
++	}
++#endif
+ 	i = DHO_DHCP_MESSAGE_TYPE;
+ 	if (!(option_code_hash_lookup(&option, dhcp_universe.code_hash, &i, 0,
+ 				      MDL) &&
+diff --git a/common/Makefile.dist b/common/Makefile.dist
+index 2b9faee..52f280b 100644
+--- a/common/Makefile.dist
++++ b/common/Makefile.dist
+@@ -23,11 +23,13 @@
+ CATMANPAGES = dhcp-options.cat5 dhcp-eval.cat5
+ SEDMANPAGES = dhcp-options.man5 dhcp-eval.man5
+ SRC    = raw.c parse.c nit.c icmp.c dispatch.c conflex.c upf.c bpf.c socket.c \
+-	 lpf.c dlpi.c packet.c tr.c ethernet.c memory.c print.c options.c \
++	 lpf.c dlpi.c packet.c tr.c ethernet.c firewire.c \
++	 memory.c print.c options.c \
+ 	 inet.c tree.c tables.c alloc.c fddi.c ctrace.c dns.c resolv.c \
+ 	 execute.c discover.c comapi.c
+ OBJ    = raw.o parse.o nit.o icmp.o dispatch.o conflex.o upf.o bpf.o socket.o \
+-	 lpf.o dlpi.o packet.o tr.o ethernet.o memory.o print.o options.o \
++	 lpf.o dlpi.o packet.o tr.o ethernet.o firewire.o \
++	 memory.o print.o options.o \
+ 	 inet.o tree.o tables.o alloc.o fddi.o ctrace.o dns.o resolv.o \
+ 	 execute.o discover.o comapi.o
+ MAN    = dhcp-options.5 dhcp-eval.5
+diff --git a/common/discover.c b/common/discover.c
+index 69d23b1..979b1c4 100644
+--- a/common/discover.c
++++ b/common/discover.c
+@@ -471,15 +471,22 @@ void discover_interfaces (state)
+ 		     case ARPHRD_SIT:
+ 			/* ignore IPv6-in-IPv4 interfaces. */
+ #endif
+-#ifdef HAVE_ARPHRD_IEEE1394
+-		     case ARPHRD_IEEE1394:
+-			/* ignore IEEE1394 interfaces. */
+-#endif
+ #ifdef HAVE_ARPHRD_LOOPBACK
+ 		      case ARPHRD_LOOPBACK:
+ 			/* ignore loopback interface */
+ 			break;
+ #endif
++#ifdef HAVE_ARPHRD_IEEE1394
++		     case ARPHRD_IEEE1394:
++			/* According to RFC2855, we set hlen to 0,
++			but store hardware address in the client ID,
++			so store hardware address but set len to 0 */
++			tmp -> hw_address.hlen = 1;
++			tmp -> hw_address.hbuf [0] = ARPHRD_IEEE1394;
++			memcpy (&tmp -> hw_address.hbuf [1], sa.sa_data, 8);
++			break;
++#endif
++
+ 
+ 		      case ARPHRD_ETHER:
+ 			tmp -> hw_address.hlen = 7;
+diff --git a/common/firewire.c b/common/firewire.c
+new file mode 100644
+index 0000000..f11efd2
+--- /dev/null
++++ b/common/firewire.c
+@@ -0,0 +1,90 @@
++/* firewire.c
++
++Based on ethernet.c
++
++/*
++ * Copyright (c) 2004 by Internet Systems Consortium, Inc. ("ISC")
++ * Copyright (c) 1996-2003 by Internet Software Consortium
++ *
++ * Permission to use, copy, modify, and distribute this software for any
++ * purpose with or without fee is hereby granted, provided that the above
++ * copyright notice and this permission notice appear in all copies.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS" AND ISC DISCLAIMS ALL WARRANTIES
++ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
++ * MERCHANTABILITY AND FITNESS.  IN NO EVENT SHALL ISC BE LIABLE FOR
++ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
++ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
++ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT
++ * OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
++ *
++ *   Internet Systems Consortium, Inc.
++ *   950 Charter Street
++ *   Redwood City, CA 94063
++ *   <info@isc.org>
++ *   https://www.isc.org/
++ *
++ * This software has been written for Internet Systems Consortium
++ * by Ted Lemon in cooperation with Vixie Enterprises and Nominum, Inc.
++ * To learn more about Internet Systems Consortium, see
++ * ``https://www.isc.org/''.  To learn more about Vixie Enterprises,
++ * see ``http://www.vix.com''.   To learn more about Nominum, Inc., see
++ * ``http://www.nominum.com''.
++ */
++
++#ifndef lint
++static char copyright[] =
++"$Id: firewire.c,v 1.8.140.1 2009/07/23 21:43:33 sar Exp $ Copyright (c) 2004 Internet Systems Consortium.  All rights reserved.\n";
++#endif /* not lint */
++
++#include "dhcpd.h"
++
++#if defined (PACKET_ASSEMBLY) || defined (PACKET_DECODING)
++#include "includes/netinet/if_ether.h"
++#endif /* PACKET_ASSEMBLY || PACKET_DECODING */
++
++#define FWNET_ALEN 8
++struct fwnet_header {
++	unsigned char h_dest[FWNET_ALEN];	/* destination address */
++	uint16_t h_proto;		/* packet type ID field */
++} __attribute__((packed));
++
++#if defined (PACKET_ASSEMBLY)
++/* Assemble an hardware header... */
++
++void assemble_fw_header (struct interface_info *interface,
++			unsigned char *buf,
++			unsigned *bufix,
++			struct hardware *to)
++{
++  struct fwnet_header hdr;
++  memset(hdr.h_dest, 0xFF, FWNET_ALEN);
++  hdr.h_proto = htons (ETHERTYPE_IP);
++  memcpy (&buf [*bufix], &hdr, sizeof(hdr));
++  *bufix += sizeof(hdr);
++}
++
++#endif /* PACKET_ASSEMBLY */
++
++#ifdef PACKET_DECODING
++/* Decode a hardware header... */
++
++ssize_t decode_fw_header(struct interface_info *interface,
++				unsigned char *buf,
++				unsigned bufix,
++				struct hardware *from)
++{
++  struct fwnet_header hdr;
++  memcpy(&hdr, buf + bufix, sizeof(hdr));
++
++#ifdef USERLAND_FILTER
++  if (ntohs (hdr.h_proto) != ETHERTYPE_IP)
++	  return -1;
++#endif
++
++  memcpy(&from->hbuf[1], hdr.h_dest, FWNET_ALEN);
++  from->hlen = FWNET_ALEN + 1;
++  return sizeof(hdr);
++}
++
++#endif /* PACKET_DECODING */
+diff --git a/common/lpf.c b/common/lpf.c
+index 5922660..a3fafef 100644
+--- a/common/lpf.c
++++ b/common/lpf.c
+@@ -181,6 +181,13 @@ void if_register_receive (info)
+ 		lpf_tr_filter_setup (info);
+ 	else
+ #endif
++#if defined (HAVE_ARPHRD_IEEE1394)
++	/* FIXME: this currently piggybacks on TR no-op filter, as
++		generic filter don't work for FW */
++	if (info -> hw_address.hbuf[0] == ARPHRD_IEEE1394)
++		lpf_tr_filter_setup (info);
++	else
++#endif
+ 		lpf_gen_filter_setup (info);
+ 
+ 	if (!quiet_interface_discovery)
+@@ -245,7 +252,7 @@ static void lpf_gen_filter_setup (info)
+ 	}
+ }
+ 
+-#if defined (HAVE_TR_SUPPORT)
++#if defined (HAVE_TR_SUPPORT) || defined (HAVE_ARPHRD_IEEE1394)
+ static void lpf_tr_filter_setup (info)
+ 	struct interface_info *info;
+ {
+diff --git a/common/packet.c b/common/packet.c
+index 4c878a6..378114e 100644
+--- a/common/packet.c
++++ b/common/packet.c
+@@ -111,6 +111,8 @@ void assemble_hw_header (interface, buf, bufix, to)
+ 	unsigned *bufix;
+ 	struct hardware *to;
+ {
++
++
+ #if defined (HAVE_TR_SUPPORT)
+ 	if (interface -> hw_address.hbuf [0] == HTYPE_IEEE802)
+ 		assemble_tr_header (interface, buf, bufix, to);
+@@ -121,6 +123,11 @@ void assemble_hw_header (interface, buf, bufix, to)
+ 		     assemble_fddi_header (interface, buf, bufix, to);
+ 	else
+ #endif
++#if defined (HAVE_ARPHRD_IEEE1394)
++	     if (interface -> hw_address.hbuf [0] == ARPHRD_IEEE1394)
++		     assemble_fw_header(interface, buf, bufix, to);
++#endif
++	else
+ 		assemble_ethernet_header (interface, buf, bufix, to);
+ 
+ }
+@@ -198,6 +205,7 @@ ssize_t decode_hw_header (interface, buf, bufix, from)
+      unsigned bufix;
+      struct hardware *from;
+ {
++
+ #if defined (HAVE_TR_SUPPORT)
+ 	if (interface -> hw_address.hbuf [0] == HTYPE_IEEE802)
+ 		return decode_tr_header (interface, buf, bufix, from);
+@@ -208,6 +216,11 @@ ssize_t decode_hw_header (interface, buf, bufix, from)
+ 		     return decode_fddi_header (interface, buf, bufix, from);
+ 	else
+ #endif
++#if defined (HAVE_ARPHRD_IEEE1394)
++	     if (interface -> hw_address.hbuf [0] == ARPHRD_IEEE1394)
++		     return decode_fw_header (interface, buf, bufix, from);
++#endif
++	else
+ 		return decode_ethernet_header (interface, buf, bufix, from);
+ }
+ 
+diff --git a/includes/dhcpd.h b/includes/dhcpd.h
+index 50b899c..95b119a 100644
+--- a/includes/dhcpd.h
++++ b/includes/dhcpd.h
+@@ -2135,6 +2135,13 @@ ssize_t decode_tr_header PROTO ((struct interface_info *,
+ 				 unsigned char *,
+ 				 unsigned, struct hardware *));
+ 
++/* firewire.c */
++void assemble_fw_header PROTO ((struct interface_info *, unsigned char *,
++				unsigned *, struct hardware *));
++ssize_t decode_fw_header PROTO ((struct interface_info *,
++				 unsigned char *,
++				 unsigned, struct hardware *));
++
+ /* dhxpxlt.c */
+ void convert_statement PROTO ((struct parse *));
+ void convert_host_statement PROTO ((struct parse *, jrefproto));
+-- 
+1.7.1
+
+
+--=-+5PvVgGuBnxMkfPpY39/
+Content-Disposition: attachment; filename="0001-NM-allow-use-of-IPV4-over-firewire.patch"
+Content-Type: text/x-patch; name="0001-NM-allow-use-of-IPV4-over-firewire.patch"; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+
+>From 93129738ca8450899e416420f630aee17c8301d5 Mon Sep 17 00:00:00 2001
+From: Maxim Levitsky <maximlevitsky@gmail.com>
+Date: Thu, 9 Dec 2010 00:30:55 +0200
+Subject: [PATCH] NM: allow use of IPV4 over firewire
+
+Don't ignore these devices since NM
+works just fine with them iff the dhclient
+works.
+Patches are posted to make it work with
+firewire networking link
+
+Signed-off-by: Maxim Levitsky <maximlevitsky@gmail.com>
+---
+ src/nm-udev-manager.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
+
+diff --git a/src/nm-udev-manager.c b/src/nm-udev-manager.c
+index ff0ef68..3cd2970 100644
+--- a/src/nm-udev-manager.c
++++ b/src/nm-udev-manager.c
+@@ -408,7 +408,9 @@ net_add (NMUdevManager *self, GUdevDevice *device)
+ 	g_return_if_fail (device != NULL);
+ 
+ 	etype = g_udev_device_get_sysfs_attr_as_int (device, "type");
+-	if (etype != 1) {
++
++	/* firewire devices are similiar to ethernet, so allow them too */
++	if (etype != 1 && etype != 24) {
+ 		nm_log_dbg (LOGD_HW, "ignoring interface with type %d", etype);
+ 		return; /* Not using ethernet encapsulation, don't care */
+ 	}
+-- 
+1.7.1
+
+
+--=-+5PvVgGuBnxMkfPpY39/--
 
