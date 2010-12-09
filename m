@@ -1,44 +1,39 @@
-From: Florian Mickler <florian@mickler.org>
-Subject: Re: [PATCH 6/7] e1000e: cleanup: swap arguments to avoid checkpatch
- errors
-Date: Thu, 9 Dec 2010 11:34:16 +0100
-Message-ID: <20101209113416.66baf7ac@schatten.dmk.lab>
-References: <1291862457-16671-1-git-send-email-asbjorn@asbjorn.biz>
-	<1291862457-16671-7-git-send-email-asbjorn@asbjorn.biz>
-	<1291865548.19763.1.camel@localhost>
+From: "Govindarajan, Sriramakrishnan" <srk@ti.com>
+Subject: Adding Support for SG,GSO,GRO
+Date: Thu, 9 Dec 2010 16:03:29 +0530
+Message-ID: <FCCFB4CDC6E5564B9182F639FC356087035F21D9F9@dbde02.ent.ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Asbjoern Sloth Toennesen <asbjorn@asbjorn.biz>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	linux-kernel@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1291865548.19763.1.camel@localhost>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bear.ext.ti.com ([192.94.94.41]:59857 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756109Ab0LIKiR convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Dec 2010 05:38:17 -0500
+Received: from dbdp20.itg.ti.com ([172.24.170.38])
+	by bear.ext.ti.com (8.13.7/8.13.7) with ESMTP id oB9AcDsC025876
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Thu, 9 Dec 2010 04:38:16 -0600
+Received: from dbde70.ent.ti.com (localhost [127.0.0.1])
+	by dbdp20.itg.ti.com (8.13.8/8.13.8) with ESMTP id oB9AcDQi024068
+	for <netdev@vger.kernel.org>; Thu, 9 Dec 2010 16:08:13 +0530 (IST)
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 09 Dec 2010 03:32:28 +0000
-Ben Hutchings <bhutchings@solarflare.com> wrote:
+Hi
+We have a NAPI compliant driver(net/drivers/davinci_emac.c), that does well at 10/100Mbps loads. Now the same controller/driver is used for 1000Mbps
+mode as well, where the CPU gets saturated easily
 
-> On Thu, 2010-12-09 at 02:40 +0000, Asbjoern Sloth Toennesen wrote:
-> > Swap argument order in order to avoid checkpatch treating it as an
-> > unary operation, instead of an binary one, and obtain consistency
-> > with the 3 other similar assignments in netdev.c (tdlen & rdlen).
-> > 
-> > This patch fixes 3 checkpatch errors.
-> 
-> You have got to be kidding.  If the checkpatch warning offends you, fix
-> the bug in checkpatch instead of changing perfectly good code.
-> 
-> Ben.
+Internally the module supports scatter gather DMA(which is currently not
+exercised) but there is no HW checksum support.
 
-That bug is fixed already:
- https://patchwork.kernel.org/patch/299172/
+To specifically implement GRO, GSO support would it be sufficient to add
+SG support to the driver? Are there other means of increasing the throughput
+and decreasing the CPU loading?
 
-Andrew picked it up.
+Any pointers to reference implementation for adding SG/GRO/GSO support will be helpful.
 
-Regards,
-Flo
+Regards
+Sriram
