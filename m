@@ -1,39 +1,35 @@
-From: Dan Rosenberg <drosenberg@vsecurity.com>
-Subject: Re: [PATCH] kptr_restrict for hiding kernel pointers from
- unprivileged users
-Date: Thu, 09 Dec 2010 07:46:41 -0500
-Message-ID: <1291898801.2965.6.camel@Dan>
-References: <1291863926.2965.1.camel@Dan>
-	 <1291865039.2795.46.camel@edumazet-laptop>  <1291895472.2965.4.camel@Dan>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 0/3] xfrm: ESP Traffic Flow Confidentiality padding (v3)
+Date: Thu, 9 Dec 2010 20:47:32 +0800
+Message-ID: <20101209124732.GA28931@gondor.apana.org.au>
+References: <1291819071-17538-1-git-send-email-martin@strongswan.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	linux-security-module@vger.kernel.org,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1291895472.2965.4.camel@Dan>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-crypto@vger.kernel.org, netdev@vger.kernel.org
+To: Martin Willi <martin@strongswan.org>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1291819071-17538-1-git-send-email-martin@strongswan.org>
+Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-> > So caller can not block BH ?
-> > 
-> > This seems wrong to me, please consider :
-> > 
-> > normal process context :
-> > 
-> > spin_lock_bh() ...
-> > 
-> > for (...)  
-> > 	{xxx}printf( ...   "%pK"   ...)
-> > 
-> > spin_unlock_bh();
-> > 
+On Wed, Dec 08, 2010 at 03:37:48PM +0100, Martin Willi wrote:
+> The following patchset adds Traffic Flow Confidentiality padding. The
+> first patch introduces a new Netlink XFRM attribute to configure TFC via
+> userspace. Patch two and three implement the padding logic in IPv4 and
+> IPv6 ESP. Padding is always done using the RFC4303 format an is clamped
+> to the PMTU.
 > 
-> I will think about this and address it.
+> Changes from v2:
+>   - Remove unused flag field in attribute, use a plain u32 as attribute payload
+>   - Reject installation of TFC padding on non-tunnel SAs
 
-Would you be happier if I omitted the in_interrupt() check entirely?
+Looks good to me.  Thanks for the hard work Martin!
 
--Dan
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
