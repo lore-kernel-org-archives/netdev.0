@@ -1,56 +1,25 @@
-From: Matt Domsch <Matt_Domsch@Dell.com>
-Subject: biosdevname v0.3.3
-Date: Thu, 9 Dec 2010 15:51:14 -0600
-Message-ID: <20101209215114.GA30075@auslistsprd01.us.dell.com>
+From: Casey Leedom <leedom@chelsio.com>
+Subject: Re: [PATCH net-next-26] cxgb4vf: Ingress Queue Entry Size needs to be 64 bytes
+Date: Thu, 9 Dec 2010 13:52:40 -0800
+Message-ID: <201012091352.40821.leedom@chelsio.com>
+References: <1291923504-3589-1-git-send-email-leedom@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: linux-hotplug@vger.kernel.org, netdev@vger.kernel.org,
-	"K, Narendra" <Narendra_K@Dell.com>,
-	"Hargrave, Jordan" <Jordan_Hargrave@Dell.com>,
-	"Rose, Charles" <Charles_Rose@Dell.com>,
-	Co
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausc60pc101.us.dell.com ([143.166.85.206]:58259 "EHLO
-	ausc60pc101.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757418Ab0LIVvR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Dec 2010 16:51:17 -0500
-Content-Disposition: inline
+Received: from stargate.chelsio.com ([67.207.112.58]:28415 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754919Ab0LIVwn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Dec 2010 16:52:43 -0500
+In-Reply-To: <1291923504-3589-1-git-send-email-leedom@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-biosdevname, now version 0.3.3.
+  Urk.  Sorry about that: the subject prefix should have read "net-26" since 
+this is a fairly critical bug fix.  Let me know if you'd like me to resubmit the 
+patch.
 
-I re-added the PCI IRQ Routing Table lookup code.  This is used as a
-fallback, in the event system BIOS doesn't provide index and label
-information in a way we can get at via sysfs, or via reading SMBIOS
-directly.  This is necessary as quite a few systems I want to
-have this feature on do not yet expose this info via SMBIOS, yet the
-values in $PIR are perfectly usable for this purpose.
-
-
-Grab it here:
-http://linux.dell.com/files/biosdevname/permalink/biosdevname-0.3.3.tar.gz
-http://linux.dell.com/files/biosdevname/permalink/biosdevname-0.3.3.tar.gz.sign
-git://linux.dell.com/biosdevname.git
-
-I built this today for Fedora rawhide (will be 15), and I encourage
-other distributions to pick it up as well.
-
-shortlog:
-
-Matt Domsch (5):
-      add back in PCI IRQ Routing Table lookups, as a fallback
-      add in the pirq.[ch] files too
-      sort PCI device list, set embedded_index better, use PIRQ info
-      as a last resort
-      remove Dell-specific code from make_release.sh
-      bump version
-
-
-Thanks,
-Matt
-
--- 
-Matt Domsch
-Technology Strategist
-Dell | Office of the CTO
+Casey
