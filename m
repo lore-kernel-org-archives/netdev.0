@@ -1,61 +1,47 @@
-From: =?UTF-8?B?UGF3ZcWCIFN0YXN6ZXdza2k=?= <pstaszewski@itcare.pl>
-Subject: Re: [Bugme-new] [Bug 24472] New: Kernel panic - not syncing: Fatal
- Exception
-Date: Thu, 09 Dec 2010 13:40:19 +0100
-Message-ID: <4D00CE33.8040006@itcare.pl>
-References: <bug-24472-10286@https.bugzilla.kernel.org/> <20101208122233.835a4997.akpm@linux-foundation.org> <4CFFEB01.7040700@itcare.pl> <4D000045.3040102@gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: IPsecv6  tunnel mode fragmentation
+Date: Thu, 9 Dec 2010 20:44:29 +0800
+Message-ID: <20101209124429.GA27083@gondor.apana.org.au>
+References: <20101208071109.GA14537@gondor.apana.org.au> <1291861242.11224.265.camel@faith.austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	Paul Mackerras <paulus@samba.org>,
-	bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, pstaszewski@artcom.pl
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, samudrala@us.ibm.com, rashmin@us.ibm.com,
+	davem@davemloft.net, dlstevens@us.ibm.com
+To: Joy Latten <latten@austin.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.iq.pl ([86.111.241.19]:37968 "EHLO smtp.iq.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754944Ab0LIMkI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Dec 2010 07:40:08 -0500
-In-Reply-To: <4D000045.3040102@gmail.com>
+Received: from helcar.apana.org.au ([209.40.204.226]:42056 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755411Ab0LIMoe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Dec 2010 07:44:34 -0500
+Content-Disposition: inline
+In-Reply-To: <1291861242.11224.265.camel@faith.austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-W dniu 2010-12-08 23:01, Jarek Poplawski pisze:
-> Pawe=C5=82 Staszewski wrote:
->> W dniu 2010-12-08 21:22, Andrew Morton pisze:
->>> (switched to email.  Please respond via emailed reply-to-all, not v=
-ia the
->>> bugzilla web interface).
->>>
->>> On Wed, 8 Dec 2010 20:14:45 GMT
->>> bugzilla-daemon@bugzilla.kernel.org wrote:
->>>
->>>> https://bugzilla.kernel.org/show_bug.cgi?id=3D24472
->>>>
->>>>              Summary: Kernel panic - not syncing: Fatal Exception
->>>>              Product: Drivers
->>>>              Version: 2.5
->>>>       Kernel Version: 2.6.36.1
-> Hi,
-> Could you try to revert this patch?:
-> http://git.kernel.org/?p=3Dlinux/kernel/git/stable/linux-2.6.36.y.git=
-;a=3Dcommitdiff;h=3D55c95e738da85373965cb03b4f975d0fd559865b
+On Wed, Dec 08, 2010 at 08:20:42PM -0600, Joy Latten wrote:
 >
-After reverting this patch all is working
-200 connects-disconnects and no kernel panic
+> We did attempt to debug in kernel to see whether the pkt-too-big 
+> was being discarded... from what we saw, it did not seem to be. 
+> Also, an "ip -6  r l c" on TARGET showed the adjusted mtu for the route 
+> to HOST, which the pkt-too-big was for. tunnel's mtu is untouched.
 
-I will make more session and test more.
+Oh I see what you're saying.  Sorry I misunderstood the issue
+earlier.
 
+> Thus why I reached my original conclusion, that perhaps 
+> esp/ah disregard inner hdr mtu since does not fragment.
+> Thus inner pkt will be too big when it reaches link for 
+> inner/original pkt to be sent on.
 
-Thanks
-Pawel
-> Jarek P.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
->
+Indeed we don't have any fragmentation capbility at all on the
+IPsec output path inside the tunnel.  For IPv4 this isn't an issue
+because the other end can perform fragmentation.  This is clearly
+not an option with IPv6.
 
+I'll look into this.
+
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
