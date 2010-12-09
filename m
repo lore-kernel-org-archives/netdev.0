@@ -1,39 +1,56 @@
-From: "Govindarajan, Sriramakrishnan" <srk@ti.com>
-Subject: Adding Support for SG,GSO,GRO
-Date: Thu, 9 Dec 2010 16:03:29 +0530
-Message-ID: <FCCFB4CDC6E5564B9182F639FC356087035F21D9F9@dbde02.ent.ti.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: ctnetlink loop
+Date: Thu, 09 Dec 2010 11:39:56 +0100
+Message-ID: <4D00B1FC.60801@netfilter.org>
+References: <20101208.095020.245408999.davem@davemloft.net> <20101208203121.GB23668@mail.eitzenberger.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bear.ext.ti.com ([192.94.94.41]:59857 "EHLO bear.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756109Ab0LIKiR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Dec 2010 05:38:17 -0500
-Received: from dbdp20.itg.ti.com ([172.24.170.38])
-	by bear.ext.ti.com (8.13.7/8.13.7) with ESMTP id oB9AcDsC025876
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Thu, 9 Dec 2010 04:38:16 -0600
-Received: from dbde70.ent.ti.com (localhost [127.0.0.1])
-	by dbdp20.itg.ti.com (8.13.8/8.13.8) with ESMTP id oB9AcDQi024068
-	for <netdev@vger.kernel.org>; Thu, 9 Dec 2010 16:08:13 +0530 (IST)
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: David Miller <davem@davemloft.net>,
+	netfilter-devel <netfilter-devel@vger.kernel.org>,
+	netdev@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20101208203121.GB23668@mail.eitzenberger.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi
-We have a NAPI compliant driver(net/drivers/davinci_emac.c), that does well at 10/100Mbps loads. Now the same controller/driver is used for 1000Mbps
-mode as well, where the CPU gets saturated easily
+On 08/12/10 21:31, Holger Eitzenberger wrote:
+> Hi,
+> 
+>> Holger, this replay -EAGAIN loop in nfnetlink processing was added by
+>> Pablo to handle module loading properly, I think.  So it might not be
+>> safe to just unilaterally remove it.
+> 
+> thanks for your reply!
+> 
+> Pablo, do we really need the replay loop really?
 
-Internally the module supports scatter gather DMA(which is currently not
-exercised) but there is no HW checksum support.
+Yes, we need it for the on-demand module loading.
 
-To specifically implement GRO, GSO support would it be sufficient to add
-SG support to the driver? Are there other means of increasing the throughput
-and decreasing the CPU loading?
+> I now have several
+> boxes with problems due to this replay.  'perf report' always gives me
+> something like:
+> 
+>       18.88%            ulogd  [kernel]
+>   [k] __nla_put
+>       10.73%            ulogd  [kernel]
+>   [k] nla_parse
+>        8.72%            ulogd  [kernel]
+>   [k] __nla_reserve
+>        6.64%            ulogd  [kernel]
+>   [k] nla_put
+>        5.14%            ulogd  [kernel]
+>   [k] validate_nla
+>        5.03%            ulogd  [kernel]
+>   [k] pskb_expand_head
+>        4.92%            ulogd  [kernel]
+>   [k] ctnetlink_fill_info [nf_conntrack_netlink]
+>        3.07%            ulogd  [kernel]
+>   [k] skb_put
+>        3.03%            ulogd  [kernel]
+>   [k] ctnetlink_dump_counters [nf_conntrack
+> 
+> And 'strace' shows me that ulogd is stuck in its 'select' call.
 
-Any pointers to reference implementation for adding SG/GRO/GSO support will be helpful.
-
-Regards
-Sriram
+Sorry, I missed your previous emails. Why do you think that this related
+to -EAGAIN in nfnetlink?
