@@ -1,28 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Adding Support for SG,GSO,GRO
-Date: Thu, 09 Dec 2010 10:29:14 -0800 (PST)
-Message-ID: <20101209.102914.193709247.davem@davemloft.net>
-References: <FCCFB4CDC6E5564B9182F639FC356087035F21D9F9@dbde02.ent.ti.com>
-	<1291906948.19763.16.camel@localhost>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: Behaviour of ETHTOOL_GLINK for an interface that's down
+Date: Thu, 09 Dec 2010 12:29:44 -0600
+Message-ID: <1291919385.11613.8.camel@dcbw.foobar.com>
+References: <1291672786.5405.23.camel@bwh-desktop>
+	 <1291873629.24551.7.camel@dcbw.foobar.com>
+	 <1291874559.24551.10.camel@dcbw.foobar.com>
+	 <1291917939.2647.10.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: srk@ti.com, netdev@vger.kernel.org
-To: bhutchings@solarflare.com
+Cc: netdev <netdev@vger.kernel.org>,
+	sf-linux-drivers <linux-net-drivers@solarflare.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58491
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752901Ab0LIS2q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Dec 2010 13:28:46 -0500
-In-Reply-To: <1291906948.19763.16.camel@localhost>
+Received: from mx1.redhat.com ([209.132.183.28]:49292 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756912Ab0LISaC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Dec 2010 13:30:02 -0500
+In-Reply-To: <1291917939.2647.10.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Thu, 09 Dec 2010 15:02:28 +0000
+On Thu, 2010-12-09 at 18:05 +0000, Ben Hutchings wrote:
+> On Thu, 2010-12-09 at 00:02 -0600, Dan Williams wrote:
+> > On Wed, 2010-12-08 at 23:47 -0600, Dan Williams wrote:
+> > > On Mon, 2010-12-06 at 21:59 +0000, Ben Hutchings wrote:
+> > > > ETHTOOL_GLINK is yet another ethtool operation that has unclear
+> > > > semantics that results in differing behaviour when the interface is
+> > > > down.
+> [...]
+> > > > DaveM said that Network Manager may require (2), although I don't think
+> > > > this is correct.  At least the current version brings all managed
+> > > > interfaces up whether or not they have link-up already.
+> > > 
+> > > NM has used netlink + IFF_RUNNING (not ethtool) for a few years for
+> > > actual carrier detection.  Ethtool (and MII ioctls) are called as a
+> > > "best effort" method of determining that the device actually *has*
+> > > carrier detection at all, since if the device has gone to the trouble to
+> > > implement either MII or ethtool, it probably also has carrier detection.
+> > > 
+> > > But ethtool isn't actually used to determine carrier status in NM.  It's
+> > > netlink all the way down.
+> > 
+> > And as a follow-on, yes, NM does bring all devices it is allowed to
+> > manager IFF_UP because that's the only way (at this point) that we can
+> > guarantee functional carrier detect from the card.  I'd love it if that
+> > weren't the case, and if we could have some indicator that the driver
+> > could do carrier detect while in a lower-power state and !IFF_UP, but we
+> > don't have that yet.
+> 
+> Thanks for the information, Dan.  Presumably it would actually be
+> sufficient for NM's requirements to implement 'energy detect' which some
+> PHYs can do even in a low power state?  (Though I wonder whether that
+> works between two PHYs both in a low power state.)  You could then use
+> this as a trigger to bring the interface up, while still relying on the
+> existing link change notification to trigger interface configuration.
+> But this clearly has to be separate from ETHTOOL_GLINK, not least
+> because you want notification rather than having to poll.
 
-> So you really have no choice - you must implement hardware checksum
-> offload if you want any of the others.
++1 to all of that.  If that showed up, I'd love to use it for NM.
 
-Right, advertising SG support is entirely pointless if you aren't
-also advertising HW checksumming support.
+Dan
+
+
