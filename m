@@ -1,35 +1,28 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [stable] [STABLE 2.6.32 PATCH] net: release dst entry while
- cache-hot for GSO case too
-Date: Thu, 9 Dec 2010 10:19:37 -0800
-Message-ID: <20101209181937.GA24175@kroah.com>
-References: <20101011.085952.193718228.davem@davemloft.net>
- <4CB33907.5060803@gmail.com>
- <1286814652.2737.41.camel@edumazet-laptop>
- <20101026.115434.241921999.davem@davemloft.net>
- <4D000B0D.2060101@gmail.com>
- <20101208230536.GA8062@kroah.com>
- <4D007A77.8050102@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Adding Support for SG,GSO,GRO
+Date: Thu, 09 Dec 2010 10:29:14 -0800 (PST)
+Message-ID: <20101209.102914.193709247.davem@davemloft.net>
+References: <FCCFB4CDC6E5564B9182F639FC356087035F21D9F9@dbde02.ent.ti.com>
+	<1291906948.19763.16.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Greg Kroah-Hartman <gregkh@suse.de>, krkumar2@in.ibm.com,
-	avagin@openvz.org, eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	mjt@tls.msk.ru, David Miller <davem@davemloft.net>,
-	stable@kernel.org
-To: "avagin@gmail.com" <avagin@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: srk@ti.com, netdev@vger.kernel.org
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kroah.org ([198.145.64.141]:32809 "EHLO coco.kroah.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752309Ab0LISZy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Dec 2010 13:25:54 -0500
-Content-Disposition: inline
-In-Reply-To: <4D007A77.8050102@gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58491
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752901Ab0LIS2q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Dec 2010 13:28:46 -0500
+In-Reply-To: <1291906948.19763.16.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 09, 2010 at 09:43:03AM +0300, avagin@gmail.com wrote:
-> I add the patch in attachments
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Thu, 09 Dec 2010 15:02:28 +0000
 
-Ok, thanks, I'll queue it up for the next .32 release after this one.
+> So you really have no choice - you must implement hardware checksum
+> offload if you want any of the others.
 
-greg k-h
+Right, advertising SG support is entirely pointless if you aren't
+also advertising HW checksumming support.
