@@ -1,61 +1,31 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH] Fix 2.6.34-rc1 regression in disable_ipv6 support
-Date: Thu, 09 Dec 2010 12:20:33 -0800 (PST)
-Message-ID: <20101209.122033.183046393.davem@davemloft.net>
-References: <4D00F58A.2050307@hp.com>
-	<m139q6ahld.fsf@fess.ebiederm.org>
+Date: Thu, 09 Dec 2010 12:20:52 -0800 (PST)
+Message-ID: <20101209.122052.39177935.davem@davemloft.net>
+References: <m139q6ahld.fsf@fess.ebiederm.org>
 	<20101209111611.1d2e6e2b@nehalam>
+	<m1y67y3fqf.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, brian.haley@hp.com, netdev@vger.kernel.org,
+Cc: shemminger@vyatta.com, brian.haley@hp.com, netdev@vger.kernel.org,
 	maheshkelkar@gmail.com, lorenzo@google.com,
 	yoshfuji@linux-ipv6.org, stable@kernel.org
-To: shemminger@vyatta.com
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42994
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43004
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753721Ab0LIUUF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Dec 2010 15:20:05 -0500
-In-Reply-To: <20101209111611.1d2e6e2b@nehalam>
+	by vger.kernel.org with ESMTP id S1754145Ab0LIUUZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Dec 2010 15:20:25 -0500
+In-Reply-To: <m1y67y3fqf.fsf@fess.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Thu, 9 Dec 2010 11:16:11 -0800
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Thu, 09 Dec 2010 11:31:36 -0800
 
-> No but since removing address propagates up to user space daemons
-> like Quagga please analyze and fix the problem, don't just look
-> for band aid.
+> You fix the problem.  You introduced the regression, and you didn't test
+> that keeping addresses actually worked.  This is not the first patch
+> that has been applied to fix regressions in this area.
 
-Stephen, we lived with the previous behavior for 12+ years.
-
-You broke stuff that did work before your change.
-
-Putting the onus on Eric to fix it exactly how you want it to
-be fixed is therefore not appropriate.
-
-You seem to be putting exactly zero effort into trying to reproduce
-the problem yourself and fixing a bug you introduced.  And hey we
-have a standard way to deal with a regression when the guilty party
-is uncooperative, revert.
-
-There are therefore three choices:
-
-1) Revert.  And this is the one I'm favoring because of how you are
-   handling this issue.  The responsibility to resolve this regression
-   is your's not Eric's.
-
-   Frankly, Eric is being incredibly nice by working on trying to fix
-   a bug which you introduced.
-
-2) Accept Eric's proposed fix.
-
-3) Figure out the real bug yourself and fix the problem the way you
-   find acceptable in a reasonable, short, amount of time.
-
-Loopback has always been special, especially on ipv6.  When we don't
-have a device to point something at, we point it at loopback.
-
-Also destination cache entries which still have references when they
-get zapped get pointed at loopback.
+Exactly, I fully agree with Eric.
