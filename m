@@ -1,41 +1,49 @@
-From: Tobias Klauser <tklauser@distanz.ch>
-Subject: [PATCH] inet6: Remove redundant unlikely()
-Date: Thu,  9 Dec 2010 15:37:48 +0100
-Message-ID: <1291905468-32174-1-git-send-email-tklauser@distanz.ch>
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yosh
+From: "Govindarajan, Sriramakrishnan" <srk@ti.com>
+Subject: RE: Adding Support for SG,GSO,GRO
+Date: Thu, 9 Dec 2010 20:19:22 +0530
+Message-ID: <FCCFB4CDC6E5564B9182F639FC356087035F21DBA0@dbde02.ent.ti.com>
+References: <FCCFB4CDC6E5564B9182F639FC356087035F21D9F9@dbde02.ent.ti.com>
+ <1291891816.4063.5.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.zhaw.ch ([160.85.104.50]:61149 "EHLO mx1.zhaw.ch"
+Received: from bear.ext.ti.com ([192.94.94.41]:45783 "EHLO bear.ext.ti.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754232Ab0LIOhu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Dec 2010 09:37:50 -0500
+	id S1751210Ab0LIOt1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Dec 2010 09:49:27 -0500
+In-Reply-To: <1291891816.4063.5.camel@edumazet-laptop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-IS_ERR() already implies unlikely(), so it can be omitted here.
+Hi Eric,
+> > Internally the module supports scatter gather DMA(which is currently not
+> > exercised) but there is no HW checksum support.
+> >
+> > To specifically implement GRO, GSO support would it be sufficient to add
+> > SG support to the driver? Are there other means of increasing the
+> throughput
+> > and decreasing the CPU loading?
+> >
+> > Any pointers to reference implementation for adding SG/GRO/GSO support
+> will be helpful.
+> 
+> Adding GRO is pretty easy, since you already are NAPI.
+> 
+> call
+> 	napi_gro_receive(&adapter->napi, skb)
+> instead of
+> 	netif_receive_skb(skb);
+> 
 
-Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
----
- net/ipv6/af_inet6.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+[Sriram] I have tried this, but didn't see any improvement in performance.
+For GRO and GSO, will adding SG capability alone suffice or the real gains
+are realized only if HW checksum is also supported.
 
-diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-index 54e8e42..059a3de 100644
---- a/net/ipv6/af_inet6.c
-+++ b/net/ipv6/af_inet6.c
-@@ -810,7 +810,7 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb, int features)
- 	}
- 	rcu_read_unlock();
- 
--	if (unlikely(IS_ERR(segs)))
-+	if (IS_ERR(segs))
- 		goto out;
- 
- 	for (skb = segs; skb; skb = skb->next) {
--- 
-1.7.0.4
+Can adding SG support alone yield any improvement?
 
+Regards
+Sriram
