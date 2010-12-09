@@ -1,47 +1,79 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Adding Support for SG,GSO,GRO
-Date: Thu, 09 Dec 2010 11:38:06 -0800 (PST)
-Message-ID: <20101209.113806.71114756.davem@davemloft.net>
-References: <FCCFB4CDC6E5564B9182F639FC356087035F21D9F9@dbde02.ent.ti.com>
-	<1291906948.19763.16.camel@localhost>
-	<AANLkTi=8zWMYWG0DU147B08nN7xcvwaB9Bpq9fE8_fBe@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: bhutchings@solarflare.com, srk@ti.com, netdev@vger.kernel.org
-To: mirqus@gmail.com
+From: Casey Leedom <leedom@chelsio.com>
+Subject: [PATCH net-next-26] cxgb4vf: Ingress Queue Entry Size needs to be 64 bytes
+Date: Thu,  9 Dec 2010 11:38:24 -0800
+Message-ID: <1291923504-3589-1-git-send-email-leedom@chelsio.com>
+Cc: davem@davemloft.net, Casey Leedom <leedom@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60489
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753288Ab0LIThi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Dec 2010 14:37:38 -0500
-In-Reply-To: <AANLkTi=8zWMYWG0DU147B08nN7xcvwaB9Bpq9fE8_fBe@mail.gmail.com>
+Received: from stargate.chelsio.com ([67.207.112.58]:30055 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752936Ab0LITi2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Dec 2010 14:38:28 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Micha=A9=A9 Miros=A9=A9aw <mirqus@gmail.com>
-Date: Thu, 9 Dec 2010 19:47:57 +0100
+Was using L1_CACHE_BYTES for the Ingress Queue Entry Size but it really
+needs to be 64 bytes in order to support the largest message sizes.
 
-> Isn't that condition too broad? If the data could change after packet
-> is submitted to the driver then results would be unpredictable and
-> allow sending wrong data with correct (because hw-calculated)
-> checksum.
+Signed-off-by: Casey Leedom <leedom@chelsio.com>
+---
+ drivers/net/cxgb4vf/cxgb4vf_main.c |   15 +++++++++++----
+ 1 files changed, 11 insertions(+), 4 deletions(-)
 
-They are intentionally like that, without question.
+diff --git a/drivers/net/cxgb4vf/cxgb4vf_main.c b/drivers/net/cxgb4vf/cxgb4vf_main.c
+index d887a76..6bf464a 100644
+--- a/drivers/net/cxgb4vf/cxgb4vf_main.c
++++ b/drivers/net/cxgb4vf/cxgb4vf_main.c
+@@ -2269,6 +2269,7 @@ static void __devinit cfg_queues(struct adapter *adapter)
+ {
+ 	struct sge *s = &adapter->sge;
+ 	int q10g, n10g, qidx, pidx, qs;
++	size_t iqe_size;
+ 
+ 	/*
+ 	 * We should not be called till we know how many Queue Sets we can
+@@ -2313,6 +2314,13 @@ static void __devinit cfg_queues(struct adapter *adapter)
+ 	s->ethqsets = qidx;
+ 
+ 	/*
++	 * The Ingress Queue Entry Size for our various Response Queues needs
++	 * to be big enough to accommodate the largest message we can receive
++	 * from the chip/firmware; which is 64 bytes ...
++	 */
++	iqe_size = 64;
++
++	/*
+ 	 * Set up default Queue Set parameters ...  Start off with the
+ 	 * shortest interrupt holdoff timer.
+ 	 */
+@@ -2320,7 +2328,7 @@ static void __devinit cfg_queues(struct adapter *adapter)
+ 		struct sge_eth_rxq *rxq = &s->ethrxq[qs];
+ 		struct sge_eth_txq *txq = &s->ethtxq[qs];
+ 
+-		init_rspq(&rxq->rspq, 0, 0, 1024, L1_CACHE_BYTES);
++		init_rspq(&rxq->rspq, 0, 0, 1024, iqe_size);
+ 		rxq->fl.size = 72;
+ 		txq->q.size = 1024;
+ 	}
+@@ -2329,8 +2337,7 @@ static void __devinit cfg_queues(struct adapter *adapter)
+ 	 * The firmware event queue is used for link state changes and
+ 	 * notifications of TX DMA completions.
+ 	 */
+-	init_rspq(&s->fw_evtq, SGE_TIMER_RSTRT_CNTR, 0, 512,
+-		  L1_CACHE_BYTES);
++	init_rspq(&s->fw_evtq, SGE_TIMER_RSTRT_CNTR, 0, 512, iqe_size);
+ 
+ 	/*
+ 	 * The forwarded interrupt queue is used when we're in MSI interrupt
+@@ -2346,7 +2353,7 @@ static void __devinit cfg_queues(struct adapter *adapter)
+ 	 * any time ...
+ 	 */
+ 	init_rspq(&s->intrq, SGE_TIMER_RSTRT_CNTR, 0, MSIX_ENTRIES + 1,
+-		  L1_CACHE_BYTES);
++		  iqe_size);
+ }
+ 
+ /*
+-- 
+1.7.0.4
 
-Otherwise we'd need to interlock with all application mapped,
-filesystem, and other page writes while sending any page over the
-network.
-
-We absolutely do not want to have to freeze every page we try to send
-via sendfile() or similar, the cost is just too high.
-
-If the application or networked filesystem needs such synchronization,
-it provides it for itself.
-
-=46or example, SAMBA only uses sendfile() when the file has an op-lock
-held on it.
-
-The checksum requirement for using SG is not going away, so continuing
-to discuss along the lines of removing that requirement is not a good
-use of your time I don't think.
