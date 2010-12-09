@@ -1,40 +1,56 @@
-From: Greg KH <gregkh@suse.de>
-Subject: Re: brcm80211 hangs when disabling wireless
-Date: Thu, 9 Dec 2010 13:43:47 -0800
-Message-ID: <20101209214347.GA15172@suse.de>
-References: <1291930010.7960.30.camel@nimitz>
+From: Matt Domsch <Matt_Domsch@Dell.com>
+Subject: biosdevname v0.3.3
+Date: Thu, 9 Dec 2010 15:51:14 -0600
+Message-ID: <20101209215114.GA30075@auslistsprd01.us.dell.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Brett Rudley <brudley@broadcom.com>,
-	Henry Ptasinski <henryp@broadcom.com>,
-	Nohee Ko <noheek@broadcom.com>,
-	Jason Cooper <jason@lakedaemon.net>,
-	Mike Rapoport <mike.rapoport@gmail.com>,
-	Andy Shevchenko <andy.shevchenko@gmail.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	devel@driverdev.osuosl.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Dave Hansen <dave@sr71.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+To: linux-hotplug@vger.kernel.org, netdev@vger.kernel.org,
+	"K, Narendra" <Narendra_K@Dell.com>,
+	"Hargrave, Jordan" <Jordan_Hargrave@Dell.com>,
+	"Rose, Charles" <Charles_Rose@Dell.com>,
+	Co
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ausc60pc101.us.dell.com ([143.166.85.206]:58259 "EHLO
+	ausc60pc101.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757418Ab0LIVvR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Dec 2010 16:51:17 -0500
 Content-Disposition: inline
-In-Reply-To: <1291930010.7960.30.camel@nimitz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 09, 2010 at 01:26:50PM -0800, Dave Hansen wrote:
-> I've been getting hard hangs when I toggle the wireless on a Lenovo
-> S10-3.  It happens both with the physical switch and the Fn-F5 key
-> combo.  It's quite repeatable.  The system is quite stable when I'm not
-> trying to disable the wireless, though.
+biosdevname, now version 0.3.3.
 
-What kernel version is this?
+I re-added the PCI IRQ Routing Table lookup code.  This is used as a
+fallback, in the event system BIOS doesn't provide index and label
+information in a way we can get at via sysfs, or via reading SMBIOS
+directly.  This is necessary as quite a few systems I want to
+have this feature on do not yet expose this info via SMBIOS, yet the
+values in $PIR are perfectly usable for this purpose.
 
-Linus's latest tree has a known bug when the wireless is suspended and
-then resumed.  Broadcom is working on it but no patch is forthcoming
-yet.  Perhaps this is the same issue.
 
-thanks,
+Grab it here:
+http://linux.dell.com/files/biosdevname/permalink/biosdevname-0.3.3.tar.gz
+http://linux.dell.com/files/biosdevname/permalink/biosdevname-0.3.3.tar.gz.sign
+git://linux.dell.com/biosdevname.git
 
-greg k-h
+I built this today for Fedora rawhide (will be 15), and I encourage
+other distributions to pick it up as well.
+
+shortlog:
+
+Matt Domsch (5):
+      add back in PCI IRQ Routing Table lookups, as a fallback
+      add in the pirq.[ch] files too
+      sort PCI device list, set embedded_index better, use PIRQ info
+      as a last resort
+      remove Dell-specific code from make_release.sh
+      bump version
+
+
+Thanks,
+Matt
+
+-- 
+Matt Domsch
+Technology Strategist
+Dell | Office of the CTO
