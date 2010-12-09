@@ -1,37 +1,53 @@
-From: Tobias Klauser <tklauser@distanz.ch>
-Subject: [PATCH] stmmac: Remove redundant unlikely()
-Date: Thu,  9 Dec 2010 15:50:22 +0100
-Message-ID: <1291906222-575-1-git-send-email-tklauser@distanz.ch>
-Cc: kernel-janitors@vger.kernel.org
-To: Giuseppe Cavallaro <peppe.cavallaro@st.com>, netdev@vger.kernel.org
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: Adding Support for SG,GSO,GRO
+Date: Thu, 09 Dec 2010 15:02:28 +0000
+Message-ID: <1291906948.19763.16.camel@localhost>
+References: <FCCFB4CDC6E5564B9182F639FC356087035F21D9F9@dbde02.ent.ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Govindarajan, Sriramakrishnan" <srk@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.zhaw.ch ([160.85.104.50]:62803 "EHLO mx1.zhaw.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751474Ab0LIOuY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Dec 2010 09:50:24 -0500
+Received: from exchange.solarflare.com ([216.237.3.220]:51455 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751474Ab0LIPCb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Dec 2010 10:02:31 -0500
+In-Reply-To: <FCCFB4CDC6E5564B9182F639FC356087035F21D9F9@dbde02.ent.ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-IS_ERR() already implies unlikely(), so it can be omitted here.
+On Thu, 2010-12-09 at 16:03 +0530, Govindarajan, Sriramakrishnan wrote:
+> Hi
+> We have a NAPI compliant driver(net/drivers/davinci_emac.c), that does
+> well at 10/100Mbps loads. Now the same controller/driver is used for
+> 1000Mbps
+> mode as well, where the CPU gets saturated easily
+> 
+> Internally the module supports scatter gather DMA(which is currently not
+> exercised) but there is no HW checksum support.
+> 
+> To specifically implement GRO, GSO support would it be sufficient to add
+> SG support to the driver? Are there other means of increasing the throughput
+> and decreasing the CPU loading?
+[...]
 
-Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
----
- drivers/net/stmmac/stmmac_main.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+On the RX side, the driver is allocating buffers and the stack doesn't
+actually care whether you can do DMA scatter.  However GRO depends on
+hardware checksum validation.
 
-diff --git a/drivers/net/stmmac/stmmac_main.c b/drivers/net/stmmac/stmmac_main.c
-index c0dc785..20f803d 100644
---- a/drivers/net/stmmac/stmmac_main.c
-+++ b/drivers/net/stmmac/stmmac_main.c
-@@ -949,7 +949,7 @@ static int stmmac_sw_tso(struct stmmac_priv *priv, struct sk_buff *skb)
- 	       skb, skb->len);
- 
- 	segs = skb_gso_segment(skb, priv->dev->features & ~NETIF_F_TSO);
--	if (unlikely(IS_ERR(segs)))
-+	if (IS_ERR(segs))
- 		goto sw_tso_end;
- 
- 	do {
+On the TX side, NETIF_F_SG means that the stack may include data in the
+skb by reference to arbitrary pages *even if their contents are still
+being changed* (think sendfile()), which means it depends on hardware
+checksum generation.
+
+So you really have no choice - you must implement hardware checksum
+offload if you want any of the others.
+
+Ben.
+
 -- 
-1.7.0.4
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
