@@ -1,31 +1,86 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 25/27] e1000e: static analysis tools complain of
- a possible null ptr p dereference
-Date: Fri, 10 Dec 2010 12:16:24 -0800 (PST)
-Message-ID: <20101210.121624.245389962.davem@davemloft.net>
-References: <1291975585-30576-2-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1291985090.24978.17.camel@Joe-Laptop>
-	<EA929A9653AAE14F841771FB1DE5A136602D54FD2F@rrsmsx501.amr.corp.intel.com>
+Subject: Re: unable to handle kernel NULL pointer dereference in skb_dequeue
+Date: Fri, 10 Dec 2010 12:18:45 -0800 (PST)
+Message-ID: <20101210.121845.70177370.davem@davemloft.net>
+References: <aa43945b38cee751a8231084866b074d@192.168.253.23>
+	<1291387595.2897.350.camel@edumazet-laptop>
+	<201012102151.04983.nuclearcat@nuclearcat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, jeffrey.t.kirsher@intel.com, davem@davemleft.org,
-	bruce.w.allan@intel.com, netdev@vger.kernel.org, gospo@redhat.com,
-	bphilips@novell.com
-To: emil.s.tantilov@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50219
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754368Ab0LJUP5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 15:15:57 -0500
-In-Reply-To: <EA929A9653AAE14F841771FB1DE5A136602D54FD2F@rrsmsx501.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: eric.dumazet@gmail.com, andrej@ota.si,
+	linux-kernel@vger.kernel.org, gvs@zemos.net, ramirose@gmail.com,
+	netdev@vger.kernel.org
+To: nuclearcat@nuclearcat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201012102151.04983.nuclearcat@nuclearcat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Date: Fri, 10 Dec 2010 12:35:45 -0700
+=46rom: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+Date: Fri, 10 Dec 2010 21:51:04 +0200
 
-> Dave, unless this is infringing on some coding style rule, I would request that the patch be applied as is.
+> On Friday 03 December 2010 16:46:35 Eric Dumazet wrote:
+>> Le vendredi 03 d=E9cembre 2010 =E0 15:37 +0100, Andrej Ota a =E9crit=
+ :
+>> > >> Patch that works for me is below. Now I only hope I haven't
+>> > >> (re)introduced a memory leak...
+>> > >=20
+>> > > Problem comes from commit 55c95e738da85 (fix return value of
+>> > > __pppoe_xmit() method)
+>> > >=20
+>> > > I am not sure patch is OK
+>> >=20
+>> > Me neither. That's why I wrote "works for me". All I dare say is t=
+hat it
+>> > works better than current code and is probably no worse than it wa=
+s
+>> > before above mentioned commit. Apart from that, there is no point =
+in
+>> > having return value for __pppoe_xmit if return value isn't needed.
+>> >=20
+>> > Easiest way of triggering this BUG is by terminating PPPoE on the =
+server
+>> > side, which then hits "if (!dev) { goto abort; }". This in turn ca=
+lls
+>> > "kfree_skb(skb); return 0;" which returns to pppoe_rcv_core which =
+then
+>> > goto-s to "abort_put" which again calls "kfree_skb(skb)". Voila th=
+e bug.
+>> >=20
+>> > I don't know how to trigger "if (skb_cow_head(skb, ..." to see if =
+I have
+>> > just caused another BUG. However, if I read file comments at the t=
+op, I
+>> > see a comment from 19/07/01 stating that I have to delete original=
+ skb
+>> > if code succeeds and never delete it on failure. About the skb cop=
+y
+>> > mentioned in the same comment, I don't know. 2001 was many commits=
+ ago.
+>>=20
+>> Well, all I wanted to say was that _I_ was not sure, but probably ot=
+her
+>> network guys have a better diagnostic.
+>>=20
+>> Rami, could you re-explain the rationale of your patch ?
+>>=20
+>> Thanks
+>>=20
+>>=20
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Is there any plans to queue any patch to stable?
+> pppoe is almost dead in 2.6.36.*
 
-I think Ben's request is more than reasonable.  Please make his requested
-change.  "continue; break;" looks quite silly to me too.
+I'll deal with it for -stable once I evaluate this patch for upstream,
+which I haven't even gotten to yet.
+
+When people bark about -stable this and -stable that, it just takes
+more time away from me actually getting through all the patches.  If
+it causes a crash, I know it should go to stable and I'll take care of
+it.  So there is no need to make an explicit note or query about it.
+
+Thanks.
