@@ -1,65 +1,60 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: Re: [PATCH] iproute2: ip: add wilcard support for device matching
-Date: Fri, 10 Dec 2010 19:32:59 +0200
-Message-ID: <201012101932.59352.opurdila@ixiacom.com>
-References: <1291993092-8675-1-git-send-email-opurdila@ixiacom.com> <20101210081846.58b67f09@nehalam> <1291998740.3580.162.camel@edumazet-laptop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: pull request: sfc-next-2.6 2010-12-10
+Date: Fri, 10 Dec 2010 17:35:27 +0000
+Message-ID: <1292002527.11673.14.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
-	"Lucian Adrian Grijincu" <lucian.grijincu@gmail.com>,
-	Vlad Dogaru <ddvlad@rosedu.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	sf-linux-drivers <linux-net-drivers@solarflare.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:9122 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752977Ab0LJRdC convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 12:33:02 -0500
-In-Reply-To: <1291998740.3580.162.camel@edumazet-laptop>
+Received: from exchange.solarflare.com ([216.237.3.220]:26569 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751197Ab0LJRfa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 12:35:30 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Friday 10 December 2010, 18:32:20
+The following changes since commit defb3519a64141608725e2dac5a5aa9a3c644bae:
 
-> Le vendredi 10 d=E9cembre 2010 =E0 08:18 -0800, Stephen Hemminger a =E9=
-crit :
-> > On Fri, 10 Dec 2010 16:58:12 +0200
-> >=20
-> > Octavian Purdila <opurdila@ixiacom.com> wrote:
-> > > Allow the users to specify a wildcard when selecting a device:
-> > >=20
-> > > $ ip set link dev dummy* up
-> > >=20
-> > > We do this by expanding the original command line in multiple lin=
-es
-> > > which we then feed via a pipe to a forked ip processed run in bat=
-ch
-> > > mode.
-> >=20
-> > Seems like feature creep. Can't you do this with bash completion
-> > script instead.
+  net: Abstract away all dst_entry metrics accesses. (2010-12-09 10:46:36 -0800)
 
-This feature would make my life easier so to me its just a nice feature=
-  :)=20
-Sure I can do it as a bash completion script but:
+are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next-2.6.git for-davem
 
-- bash does not run everywhere
+These changes include the 'TX push' feature I mentioned at netconf.
+When an TX queue is empty this feature allows the driver to write the
+next DMA descriptor directly to the NIC, reducing latency by about 0.5
+us (dependent on the system).
 
-- having it in iproute would make it available to everyone
+Ben.
 
-- its userspace so the price to pay for a few more lines of code for us=
-ability=20
-seems reasonable
+Ben Hutchings (10):
+      sfc: Reorder struct efx_nic to separate fields by volatility
+      sfc: Use ACCESS_ONCE when copying efx_tx_queue::read_count
+      sfc: Expand/correct comments on collector behaviour and function usage
+      sfc: Remove redundant memory barriers between MMIOs
+      sfc: Add compile-time checks for correctness of paged register writes
+      sfc: Remove locking from implementation of efx_writeo_paged()
+      sfc: Use TX push whenever adding descriptors to an empty queue
+      sfc: Log start and end of ethtool self-test at INFO level
+      sfc: Remove filter table IDs from filter functions
+      sfc: Generalise filter spec initialisation
 
-- I don't know how scalable you can make the bash completion script
+ drivers/net/sfc/efx.h        |    5 +-
+ drivers/net/sfc/ethtool.c    |   99 ++++++++---------
+ drivers/net/sfc/filter.c     |  252 ++++++++++++++++++++++++++++++++++--------
+ drivers/net/sfc/filter.h     |  149 ++++++-------------------
+ drivers/net/sfc/io.h         |  153 +++++++++++++++-----------
+ drivers/net/sfc/net_driver.h |   57 +++++++---
+ drivers/net/sfc/nic.c        |   42 +++++++-
+ drivers/net/sfc/tx.c         |   17 +++-
+ 8 files changed, 468 insertions(+), 306 deletions(-)
 
-> furthermore, "*" is allowed in a device name
->=20
-> ip link add link bond0 "vlan*" txqueuelen 100 type vlan id 999
->=20
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
-Would allowing escaping it fix the issue? Like:
-
-ip link add link bond0 "vlan\*" txqueuelen 100 type vlan id 999
 
