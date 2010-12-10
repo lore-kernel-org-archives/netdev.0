@@ -1,80 +1,55 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH v2 3/4] kthread: NUMA aware kthread_create_on_cpu()
-Date: Thu, 9 Dec 2010 16:44:38 -0800
-Message-ID: <20101209164438.fae1ba4c.akpm@linux-foundation.org>
-References: <1290972833.29196.90.camel@edumazet-laptop>
-	<20101128224024.GA12300@basil.fritz.box>
-	<1290984712.29196.100.camel@edumazet-laptop>
-	<20101128230146.GB12300@basil.fritz.box>
-	<1290987424.29196.128.camel@edumazet-laptop>
-	<20101129090510.GA15763@basil.fritz.box>
-	<1291023532.3435.29.camel@edumazet-laptop>
-	<1291043695.3435.980.camel@edumazet-laptop>
+From: =?UTF-8?q?Diego=20Elio=20Petten=C3=B2?= <flameeyes@gmail.com>
+Subject: [PATCH] Link directly to the archive files rather than using search paths.
+Date: Fri, 10 Dec 2010 01:56:12 +0100
+Message-ID: <1291942572-12653-1-git-send-email-flameeyes@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <andi@firstfloor.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, Tejun Heo <tj@kernel.org>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	Tony Luck <tony.luck@intel.com>,
-	Fenghua Yu <fenghua.yu@intel.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1291043695.3435.980.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Daniel Kurtz <djkurtz@google.com>,
+	Mike Frysinger <vapier@gentoo.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:48951 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752502Ab0LJA42 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Dec 2010 19:56:28 -0500
+Received: by wwa36 with SMTP id 36so3131602wwa.1
+        for <netdev@vger.kernel.org>; Thu, 09 Dec 2010 16:56:27 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 29 Nov 2010 16:14:55 +0100
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+While the previous code was supposed to work nonetheless, it could be
+messed up if further -L were used in LDFLAGS to list the path where gli=
+bc's
+libutil was to be found.
 
-> All kthreads being created from a single helper task, they all use
-> memory from a single node for their kernel stack and task struct.
-> 
-> This patch suite creates kthread_create_on_cpu(), adding a 'cpu'
-> parameter to parameters already used by kthread_create().
-> 
-> This parameter serves in allocating memory for the new kthread on its
-> memory node if possible.
+References: https://bugs.gentoo.org/347489
 
-The name "kthread_create_on_cpu" is pretty misleading.
+CC: Daniel Kurtz <djkurtz@google.com>
+CC: Mike Frysinger <vapier@gentoo.org>
+Signed-off-by: Diego Elio Petten=C3=B2 <flameeyes@gmail.com>
+---
+ Makefile |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
 
-One would expect such a function to create a kthread which is bound to
-that CPU.  But what it in fact does is to create a kthread which is
-bound to all CPUs and whose stack, task_struct and thread_info were
-allocated from the node which contains `cpu'.
+diff --git a/Makefile b/Makefile
+index c03d74c..d1ace1f 100644
+--- a/Makefile
++++ b/Makefile
+@@ -33,11 +33,10 @@ CCOPTS =3D -D_GNU_SOURCE -O2 -Wstrict-prototypes -W=
+all
+ CFLAGS =3D $(CCOPTS) -I../include $(DEFINES)
+ YACCFLAGS =3D -d -t -v
+=20
+-LDLIBS +=3D -L../lib -lnetlink -lutil
+-
+ SUBDIRS=3Dlib ip tc misc netem genl
+=20
+ LIBNETLINK=3D../lib/libnetlink.a ../lib/libutil.a
++LDLIBS +=3D $(LIBNETLINK)
+=20
+ all: Config
+ 	@set -e; \
+--=20
+1.7.3.3
 
-Also, a saner interface would be one which takes the numa_node_id, not
-the cpu number.
-
->
-> ...
->
->  /**
-> - * kthread_create - create a kthread.
-> + * kthread_create_on_cpu - create a kthread.
->   * @threadfn: the function to run until signal_pending(current).
->   * @data: data ptr for @threadfn.
-> + * @cpu: cpu number.
->   * @namefmt: printf-style name for the thread.
->   *
->   * Description: This helper function creates and names a kernel
->   * thread.  The thread will be stopped: use wake_up_process() to start
->   * it.  See also kthread_run().
->   *
-> + * If thread is going to be bound on a particular cpu, give its number
-> + * in @cpu, to get NUMA affinity for kthread stack, or else give -1.
-
-This is a bit presumptuous.  The caller might wish to later bind this
-thread to some or all of the CPUs on the node, rather than to a single
-CPU (eg, kswapd()).
-
-
-So what to do?  Maybe add a new kthread_create_node() which prepares a
-kthread whose memory is bound to that node, then add a
-kthread_create_cpu() convenience wrapper around that?
-
->
-> ...
->
