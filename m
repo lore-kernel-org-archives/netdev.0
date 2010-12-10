@@ -1,31 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] IP checksuming doesn't work on GE0301 option cards
-Date: Thu, 09 Dec 2010 20:43:00 -0800 (PST)
-Message-ID: <20101209.204300.183050064.davem@davemloft.net>
-References: <20101208082152.407022397DD@solo.franken.de>
+Subject: Re: [PATCH net-next-2.6] filter: use size of fetched data in
+ __load_pointer()
+Date: Thu, 09 Dec 2010 20:46:32 -0800 (PST)
+Message-ID: <20101209.204632.39180440.davem@davemloft.net>
+References: <1291796775.2883.21.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, j.dumon@option.com
-To: tsbogend@alpha.franken.de
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58031
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46488
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755273Ab0LJEmc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Dec 2010 23:42:32 -0500
-In-Reply-To: <20101208082152.407022397DD@solo.franken.de>
+	by vger.kernel.org with ESMTP id S1756109Ab0LJEqF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Dec 2010 23:46:05 -0500
+In-Reply-To: <1291796775.2883.21.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
-Date: Wed,  8 Dec 2010 09:21:52 +0100 (CET)
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 08 Dec 2010 09:26:15 +0100
 
-> There is definitly a problem, that some option cards send up broken
-> IP pakets leading to corrupted IP packets. These corruptions aren't
-> detected, because the driver claims that the packets are already
-> checksummed. This change removes the CHECKSUM_UNNECESSARY option
-> and let IP detect broken data.
+> __load_pointer() checks data we fetch from skb is included in head
+> portion, but assumes we fetch one byte, instead of up to four.
 > 
-> Signed-off-by: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
+> This wont crash because we have extra bytes (struct skb_shared_info)
+> after head, but this can read uninitialized bytes.
+> 
+> Fix this using size of the data (1, 2, 4 bytes) in the test.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Applied, thank you.
+I'll apply this, thanks Eric.
