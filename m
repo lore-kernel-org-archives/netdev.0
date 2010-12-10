@@ -1,49 +1,38 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] Fix build system and configure script to use for cross
- build. Optional IPv6.
-Date: Fri, 10 Dec 2010 10:55:31 -0800
-Message-ID: <20101210105531.47e9884a@nehalam>
-References: <1291995271-9912-1-git-send-email-serj.kalichev@gmail.com>
-	<20101210081452.360e2689@nehalam>
-	<AANLkTikFHoMWybK8LWoSKzPhWjVEk1TUSypVsNxEq7nd@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH, post-2.6.36 regression fix] r8169: Fix runtime power
+ management
+Date: Fri, 10 Dec 2010 11:09:46 -0800 (PST)
+Message-ID: <20101210.110946.260074147.davem@davemloft.net>
+References: <201012090232.14375.rjw@sisk.pl>
+	<20101209092804.GA4113@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Pkun <serj.kalichev@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:33421 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753613Ab0LJSzn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 13:55:43 -0500
-In-Reply-To: <AANLkTikFHoMWybK8LWoSKzPhWjVEk1TUSypVsNxEq7nd@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: rjw@sisk.pl, mjg@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-pm@lists.linux-foundation.org
+To: romieu@fr.zoreil.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20101209092804.GA4113@electric-eye.fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 10 Dec 2010 21:13:28 +0300
-Pkun <serj.kalichev@gmail.com> wrote:
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Thu, 9 Dec 2010 10:28:04 +0100
 
-> 2010/12/10 Stephen Hemminger <shemminger@linux-foundation.org>:
-> > On Fri, 10 Dec 2010 18:34:31 +0300
-> > Serj Kalichev <serj.kalichev@gmail.com> wrote:
-> >
-> >> The Makefiles and configure script understand the external variables like
-> >> CC, CFLAGS, LDFLAGS etc. So it can be used for cross build easily. The
-> >> configure script use CC instead hardcoded gcc and search for the xtables
-> >> within specified SYSROOT but not on the host. Two checks were added. The
-> >> check for the IPv6 support and check for the Berkeley DB availability.
-> >> The iproute2 can be build without IPv6 now.
-> >>
-> >> Signed-off-by: Serj Kalichev <serj.kalichev@gmail.com>
-> >
-> > IPv6 support should not be optional.
-> >
-> >
-> > --
-> >
+> Rafael J. Wysocki <rjw@sisk.pl> :
+> [...]
+>> I noticed that one of the post-2.6.36 patches broke runtime PM of the
+>> r8169 on my MSI Wind test machine in such a way that the link was not
+>> brought up after reconnecting the network cable.
+>> 
+>> In the process of debugging the issue I realized that we only should
+>> invoke the runtime PM functions in rtl8169_check_link_status() when
+>> link change is reported and if we do so, the problem goes away.
+>> Moreover, this allows rtl8169_runtime_idle() to be simplified quite
+>> a bit.
+>> 
+>> Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
 > 
-> Why? I don't need an IPv6. Who need it - will switch it on. No problem
-> 
+> Acked-by: Francois Romieu <romieu@fr.zoreil.com>
 
-Because I want iproute to be a complete tool, not a user configurable
-nightmare. Just look at busybox to see what over configuration is.
+Applied, thanks.
