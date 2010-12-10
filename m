@@ -1,44 +1,52 @@
-From: Pkun <serj.kalichev@gmail.com>
-Subject: Re: [PATCH] Fix build system and configure script to use for cross
- build. Optional IPv6.
-Date: Fri, 10 Dec 2010 21:13:28 +0300
-Message-ID: <AANLkTikFHoMWybK8LWoSKzPhWjVEk1TUSypVsNxEq7nd@mail.gmail.com>
-References: <1291995271-9912-1-git-send-email-serj.kalichev@gmail.com>
-	<20101210081452.360e2689@nehalam>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: pull request: wireless-next-2.6 2010-12-08
+Date: Fri, 10 Dec 2010 13:20:46 -0500
+Message-ID: <20101210182045.GD4296@tuxdriver.com>
+References: <20101208210432.GH2423@tuxdriver.com>
+ <20101210.100141.183065894.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f179.google.com ([209.85.212.179]:35702 "EHLO
-	mail-px0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756849Ab0LJSN3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 13:13:29 -0500
-Received: by pxi20 with SMTP id 20so1089737pxi.10
-        for <netdev@vger.kernel.org>; Fri, 10 Dec 2010 10:13:29 -0800 (PST)
-In-Reply-To: <20101210081452.360e2689@nehalam>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:54168 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751365Ab0LJSaG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 13:30:06 -0500
+Content-Disposition: inline
+In-Reply-To: <20101210.100141.183065894.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2010/12/10 Stephen Hemminger <shemminger@linux-foundation.org>:
-> On Fri, 10 Dec 2010 18:34:31 +0300
-> Serj Kalichev <serj.kalichev@gmail.com> wrote:
->
->> The Makefiles and configure script understand the external variables like
->> CC, CFLAGS, LDFLAGS etc. So it can be used for cross build easily. The
->> configure script use CC instead hardcoded gcc and search for the xtables
->> within specified SYSROOT but not on the host. Two checks were added. The
->> check for the IPv6 support and check for the Berkeley DB availability.
->> The iproute2 can be build without IPv6 now.
->>
->> Signed-off-by: Serj Kalichev <serj.kalichev@gmail.com>
->
-> IPv6 support should not be optional.
->
->
-> --
->
+On Fri, Dec 10, 2010 at 10:01:41AM -0800, David Miller wrote:
+> From: "John W. Linville" <linville@tuxdriver.com>
+> Date: Wed, 8 Dec 2010 16:04:32 -0500
+> 
+> > Here is the latest batch of updates intended for 2.6.38.  It also
+> > includes my last wireless-2.6 pull request that you just added
+> > to net-2.6.
+> > 
+> > This includes the usual batch of drivers updates, with ath9k and
+> > iwlwifi as the usual standouts.  This also includes some mac80211
+> > documentation updates from Johannes, and a flurry of ath5k updates
+> > from Nick.  This also includes a collection of bluetooth updates by
+> > way of Gustavo, a couple of libertas updates, some more work on b43
+> > N-phy support, and a variety of other patches.
+> 
+> So I pulled this in.
+> 
+> Since I did the net-2.6 --> net-next-2.6 merge first, I ended up having
+> to deal with the ar9003_eeprom.c conflicts in the ath9k driver even
+> though you took care of that as well in this tree of your's.
+> 
+> But it was a good gut check since we both resolved the conflict pretty
+> much the same way, so I have confidence in the merge resolution :-)
+> 
+> Anyways, please take a look at net-next-2.6 and double-check what I
+> did.
 
-Why? I don't need an IPv6. Who need it - will switch it on. No problem
+Looks good to me...thanks!
 
-Sorry for duplication. I have subscribed to netdev list.
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
