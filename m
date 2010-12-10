@@ -1,35 +1,44 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: [PATCH] connector: add module alias
-Date: Fri, 10 Dec 2010 23:44:51 +0300
-Message-ID: <20101210204450.GA10790@ioremap.net>
-References: <20101209093646.1b5a6abb@nehalam>
- <20101209184746.GA2476@ioremap.net>
- <20101210.122813.229758283.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] via-velocity: set sleep speed to 10Mbps for
+ powersaving.
+Date: Fri, 10 Dec 2010 12:47:42 -0800 (PST)
+Message-ID: <20101210.124742.116394707.davem@davemloft.net>
+References: <20101209092656.GA4064@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, DavidLv@viatech.com.cn,
+	ShirleyHu@viatech.com.cn, AndersMa@viatech.com.cn
+To: romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tservice.ru ([195.178.208.66]:51821 "EHLO tservice.net.ru"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757099Ab0LJUox (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Dec 2010 15:44:53 -0500
-Content-Disposition: inline
-In-Reply-To: <20101210.122813.229758283.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52305
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756855Ab0LJUrO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 15:47:14 -0500
+In-Reply-To: <20101209092656.GA4064@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 10, 2010 at 12:28:13PM -0800, David Miller (davem@davemloft.net) wrote:
-> >> Since connector can be built as a module and uses netlink socket
-> >> to communicate. The module should have an alias to autoload when socket
-> >> of NETLINK_CONNECTOR type is requested.
-> > 
-> > Ack, thank you.
-> 
-> Please use formalized "Acked-by: " tags so that the automated tools do
-> all the work for me and I don't have to type it in by hand.
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Thu, 9 Dec 2010 10:26:56 +0100
 
-Will do, thanks.
+> Signed-off-by: David Lv <DavidLv@viatech.com.cn>
+> Acked-by: Francois Romieu <romieu@fr.zoreil.com>
 
--- 
-	Evgeniy Polyakov
+Please, no new module parameters that only have obscure meanings
+on specific device types.
+
+This is terrible for users.
+
+I'm not applying these two patches, sorry.
+
+I know it already has the 1000M one, and if I was handling driver patches
+directly when that got in I apologize for not catching it, it's wrong too.
+
+There is nothing that prevents adding ethtool facilities for this issue.
+
+In fact looking at the via velocity driver options, many of them
+completely duplicate existing ethtool mechanisms.  It's beyond a mess.
+
+So I'm putting the line in the sand and will not allow new such options
+to be added, sorry.
