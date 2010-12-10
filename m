@@ -1,108 +1,119 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/27][pull-request] Intel Wired LAN Driver Updates
-Date: Fri, 10 Dec 2010 01:50:40 -0800
-Message-ID: <1291974667-30254-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 02/27] Documentation/networking/e1000e.txt: Update documentation
+Date: Fri, 10 Dec 2010 01:50:42 -0800
+Message-ID: <1291974667-30254-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1291974667-30254-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, bphilips@novell.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta08.emeryville.ca.mail.comcast.net ([76.96.30.80]:42532 "EHLO
-	qmta08.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751198Ab0LJJvS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 04:51:18 -0500
+Received: from qmta09.emeryville.ca.mail.comcast.net ([76.96.30.96]:41117 "EHLO
+	qmta09.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752586Ab0LJJvT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 04:51:19 -0500
 To: davem@davemloft.net
+In-Reply-To: <1291974667-30254-1-git-send-email-jeffrey.t.kirsher@intel.com>
 To: davem@davemleft.org
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Here are a batch of fixes and cleanups intended for 2.6.38.
-The following changes since commit:
+Update Intel Wired LAN e1000e documentation.
 
-commit defb3519a64141608725e2dac5a5aa9a3c644bae
-Author: David S. Miller <davem@davemloft.net>
-Date:   Wed Dec 8 21:16:57 2010 -0800
-  net: Abstract away all dst_entry metrics accesses
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ Documentation/networking/e1000e.txt |   40 +++++++++++++++++++---------------
+ 1 files changed, 22 insertions(+), 18 deletions(-)
 
-are available in the git repository at:
-
-  master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-next-2.6.git master
-
-Bruce Allan (11):
-  e1000e: 82571-based mezzanine card can fail ethtool link test
-  e1000e: 82574/82583 performance improvement
-  e1000e: 82577/8 must acquire h/w semaphore before workaround
-  e1000e: 82571 Serdes can fail to get link
-  e1000e: 82577/8/9 mis-configured OEM bits during S0->Sx
-  e1000e: 82579 PHY incorrectly identified during init
-  e1000e: support new PBA format from EEPROM
-  e1000e: prevent null ptr dereference in e1000_tx_queue()
-  e1000e: minor error message corrections
-  e1000e: static analysis tools complain of a possible null ptr p
-    dereference
-  e1000e: increment the driver version
-
-Carolyn Wyborny (1):
-  igb: Add new function to read part number from EEPROM in string
-    format
-
-Dean Nelson (1):
-  e1000: fix return value not set on error
-
-Don Skidmore (3):
-  ixgbe: fix X540 phy id to correct value
-  ixgbe: fix X540 to use it's own info struct
-  ixgbe: cleanup string function calls to use bound checking versions.
-
-Emil Tantilov (2):
-  ixgb: Don't check for vlan group on transmit
-  ixgbe: fix ntuple support
-
-Holger Eitzenberger (1):
-  e1000e: fix double initialization in blink path
-
-Jeff Kirsher (8):
-  Documentation/networking/e1000.txt: Update documentation
-  Documentation/networking/e1000e.txt: Update documentation
-  Documentation/networking/igb.txt: update documentation
-  Documentation/networking/igbvf.txt: Update documentation
-  Documentation/networking/ixgbe.txt: Update ixgbe documentation
-  Documentation/networking/ixgbevf.txt: Update documentation
-  MAINTAINERS: Update Intel Wired LAN info
-  Intel Wired LAN drivers: Use static const
-
- Documentation/networking/e1000.txt   |   10 +-
- Documentation/networking/e1000e.txt  |   40 ++++---
- Documentation/networking/igb.txt     |   22 +++-
- Documentation/networking/igbvf.txt   |    4 +-
- Documentation/networking/ixgbe.txt   |  211 ++++++++++++++++++++++------------
- Documentation/networking/ixgbevf.txt |    4 -
- MAINTAINERS                          |    2 +
- drivers/net/e1000/e1000_hw.c         |   20 ++--
- drivers/net/e1000/e1000_main.c       |   10 +-
- drivers/net/e1000/e1000_param.c      |   13 +-
- drivers/net/e1000e/82571.c           |   46 ++++++--
- drivers/net/e1000e/defines.h         |    8 +-
- drivers/net/e1000e/e1000.h           |    4 +-
- drivers/net/e1000e/ethtool.c         |   14 ++-
- drivers/net/e1000e/ich8lan.c         |   18 ++-
- drivers/net/e1000e/lib.c             |  135 ++++++++++++++++++----
- drivers/net/e1000e/netdev.c          |   21 ++--
- drivers/net/e1000e/param.c           |    2 +-
- drivers/net/e1000e/phy.c             |   25 +++-
- drivers/net/igb/e1000_defines.h      |    7 +
- drivers/net/igb/e1000_nvm.c          |   93 ++++++++++++++-
- drivers/net/igb/e1000_nvm.h          |    2 +
- drivers/net/igb/e1000_phy.c          |   11 +-
- drivers/net/igb/igb_main.c           |   11 +-
- drivers/net/ixgb/ixgb_main.c         |   51 +++++----
- drivers/net/ixgb/ixgb_param.c        |   21 ++--
- drivers/net/ixgbe/ixgbe_ethtool.c    |   31 +++--
- drivers/net/ixgbe/ixgbe_main.c       |   32 +++---
- drivers/net/ixgbe/ixgbe_phy.c        |    2 +-
- drivers/net/ixgbe/ixgbe_type.h       |    2 +-
- drivers/net/ixgbe/ixgbe_x540.c       |    4 +-
- drivers/net/ixgbevf/ethtool.c        |   18 ++-
- 32 files changed, 624 insertions(+), 270 deletions(-)
-
+diff --git a/Documentation/networking/e1000e.txt b/Documentation/networking/e1000e.txt
+index 6aa048b..81a66e6 100644
+--- a/Documentation/networking/e1000e.txt
++++ b/Documentation/networking/e1000e.txt
+@@ -1,5 +1,5 @@
+ Linux* Driver for Intel(R) Network Connection
+-===============================================================
++=============================================
+ 
+ Intel Gigabit Linux driver.
+ Copyright(c) 1999 - 2010 Intel Corporation.
+@@ -61,6 +61,12 @@ per second, even if more packets have come in. This reduces interrupt
+ load on the system and can lower CPU utilization under heavy load,
+ but will increase latency as packets are not processed as quickly.
+ 
++The default behaviour of the driver previously assumed a static
++InterruptThrottleRate value of 8000, providing a good fallback value for
++all traffic types, but lacking in small packet performance and latency.
++The hardware can handle many more small packets per second however, and
++for this reason an adaptive interrupt moderation algorithm was implemented.
++
+ The driver has two adaptive modes (setting 1 or 3) in which
+ it dynamically adjusts the InterruptThrottleRate value based on the traffic
+ that it receives. After determining the type of incoming traffic in the last
+@@ -86,8 +92,8 @@ InterruptThrottleRate is set to mode 1. In this mode, which operates
+ the same as mode 3, the InterruptThrottleRate will be increased stepwise to
+ 70000 for traffic in class "Lowest latency".
+ 
+-In simplified mode the interrupt rate is based on the ratio of Tx and
+-Rx traffic.  If the bytes per second rate is approximately equal the
++In simplified mode the interrupt rate is based on the ratio of TX and
++RX traffic.  If the bytes per second rate is approximately equal, the
+ interrupt rate will drop as low as 2000 interrupts per second.  If the
+ traffic is mostly transmit or mostly receive, the interrupt rate could
+ be as high as 8000.
+@@ -177,7 +183,7 @@ Copybreak
+ Valid Range:   0-xxxxxxx (0=off)
+ Default Value: 256
+ 
+-Driver copies all packets below or equaling this size to a fresh Rx
++Driver copies all packets below or equaling this size to a fresh RX
+ buffer before handing it up the stack.
+ 
+ This parameter is different than other parameters, in that it is a
+@@ -223,17 +229,17 @@ loading or enabling the driver, try disabling this feature.
+ 
+ WriteProtectNVM
+ ---------------
+-Valid Range: 0-1
+-Default Value: 1 (enabled)
+-
+-Set the hardware to ignore all write/erase cycles to the GbE region in the
+-ICHx NVM (non-volatile memory).  This feature can be disabled by the
+-WriteProtectNVM module parameter (enabled by default) only after a hardware
+-reset, but the machine must be power cycled before trying to enable writes.
+-
+-Note: the kernel boot option iomem=relaxed may need to be set if the kernel
+-config option CONFIG_STRICT_DEVMEM=y, if the root user wants to write the
+-NVM from user space via ethtool.
++Valid Range: 0,1
++Default Value: 1
++
++If set to 1, configure the hardware to ignore all write/erase cycles to the
++GbE region in the ICHx NVM (in order to prevent accidental corruption of the
++NVM). This feature can be disabled by setting the parameter to 0 during initial
++driver load.
++NOTE: The machine must be power cycled (full off/on) when enabling NVM writes
++via setting the parameter to zero. Once the NVM has been locked (via the
++parameter at 1 when the driver loads) it cannot be unlocked except via power
++cycle.
+ 
+ Additional Configurations
+ =========================
+@@ -259,7 +265,6 @@ Additional Configurations
+   - Some adapters limit Jumbo Frames sized packets to a maximum of
+     4096 bytes and some adapters do not support Jumbo Frames.
+ 
+-
+   Ethtool
+   -------
+   The driver utilizes the ethtool interface for driver configuration and
+@@ -283,8 +288,7 @@ Additional Configurations
+   loaded when shutting down or rebooting the system.
+ 
+   In most cases Wake On LAN is only supported on port A for multiple port
+-  adapters. To verify if a port supports Wake on LAN run ethtool eth<X>.
+-
++  adapters. To verify if a port supports Wake on Lan run Ethtool eth<X>.
+ 
+ Support
+ =======
 -- 
 1.7.3.2
 
