@@ -1,43 +1,29 @@
-From: Tobias Klauser <tklauser@distanz.ch>
-Subject: Re: [PATCH v2] bridge: Fix return values of
-	br_multicast_add_group/br_multicast_new_group
-Date: Fri, 10 Dec 2010 23:52:27 +0100
-Message-ID: <20101210225226.GL10190@distanz.ch>
-References: <20101209082924.6d797871@nehalam> <1291903356-30618-1-git-send-email-tklauser@distanz.ch> <1291987084-27302-1-git-send-email-tklauser@distanz.ch> <20101210.130125.233714141.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] inet6: Remove redundant unlikely()
+Date: Fri, 10 Dec 2010 14:57:44 -0800 (PST)
+Message-ID: <20101210.145744.13732812.davem@davemloft.net>
+References: <1291905468-32174-1-git-send-email-tklauser@distanz.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@linux-foundation.org, bridge@lists.linux-foundation.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: tklauser@distanz.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from symlink.to.noone.org ([85.10.207.172]:55422 "EHLO sym.noone.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751321Ab0LJWw2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Dec 2010 17:52:28 -0500
-Content-Disposition: inline
-In-Reply-To: <20101210.130125.233714141.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36410
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751570Ab0LJW5R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 17:57:17 -0500
+In-Reply-To: <1291905468-32174-1-git-send-email-tklauser@distanz.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2010-12-10 at 22:01:25 +0100, David Miller <davem@davemloft.net> wrote:
-> From: Tobias Klauser <tklauser@distanz.ch>
-> Date: Fri, 10 Dec 2010 14:18:04 +0100
-> 
-> > If br_multicast_new_group returns NULL, we would return 0 (no error) to
-> > the caller of br_multicast_add_group, which is not what we want. Instead
-> > br_multicast_new_group should return ERR_PTR(-ENOMEM) in this case.
-> > Also propagate the error number returned by br_mdb_rehash properly.
-> > 
-> > Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
-> 
-> Looks good, applied to net-next-2.6
-> 
-> Please in the future make is clear, in your subject line, which
-> tree this patch is meant for.
-> 
-> I had to figure it out by trial and error, because this patch
-> does not apply properly to net-2.6
+From: Tobias Klauser <tklauser@distanz.ch>
+Date: Thu,  9 Dec 2010 15:37:48 +0100
 
-Sorry about that. I'll do so in the future.
+> IS_ERR() already implies unlikely(), so it can be omitted here.
+> 
+> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
 
-Thanks
+Applied.
