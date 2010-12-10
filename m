@@ -1,42 +1,45 @@
-From: Jesse Barnes <jbarnes@virtuousgeek.org>
-Subject: Re: PCI: make pci_restore_state return void
-Date: Fri, 10 Dec 2010 13:07:30 -0800
-Message-ID: <20101210130730.29d07c2d@jbarnes-desktop>
-References: <1291160606-31494-1-git-send-email-jon.mason@exar.com>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH net-next-2.6] ipv6: Fix 'release_it' logic in
+ tcp_v6_get_peer()
+Date: Fri, 10 Dec 2010 13:17:16 -0800 (PST)
+Message-ID: <20101210.131716.02263228.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-pci@vger.kernel.org, Jonathan Corbet <corbet@lwn.net>,
-	linux-media@vger.kernel.org, Andrew Gallatin <gallatin@myri.com>,
-	Brice Goglin <brice@myri.com>, netdev@vger.kernel.org,
-	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
-	Steve Hodgson <shodgson@solarflare.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Ivo van Doorn <IvDoorn@gmail.com>,
-	Gertjan van Wingerde <gwingerde@gmail.com>,
-	linux-wireless@vger.kernel.org, Brian King <brking@us.ibm.com>,
-	Anil Ravindranath <anil_ravindranath@pmc-sierra.com>,
-	linux-scsi@vger.kernel.org, Jaya Kumar <jayakumar.alsa@gmail.com>,
-	boyod.yang@siliconmotion.com.cn
-To: Jon Mason <jon.mason@exar.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <1291160606-31494-1-git-send-email-jon.mason@exar.com>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46752
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752796Ab0LJVQs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 16:16:48 -0500
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id CF71824C08A
+	for <netdev@vger.kernel.org>; Fri, 10 Dec 2010 13:17:16 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 30 Nov 2010 17:43:26 -0600
-Jon Mason <jon.mason@exar.com> wrote:
 
-> pci_restore_state only ever returns 0, thus there is no benefit in
-> having it return any value.  Also, a large majority of the callers do
-> not check the return code of pci_restore_state.  Make the
-> pci_restore_state a void return and avoid the overhead.
-> 
-> Signed-off-by: Jon Mason <jon.mason@exar.com>
-> ---
+We accidently set it to "true" for the case where we
+are using a route bound peer.
 
-Applied to linux-next, thanks.
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/ipv6/tcp_ipv6.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 3194585..fee0768 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1877,7 +1877,7 @@ static struct inet_peer *tcp_v6_get_peer(struct sock *sk, bool *release_it)
+ 		if (!rt->rt6i_peer)
+ 			rt6_bind_peer(rt, 1);
+ 		peer = rt->rt6i_peer;
+-		*release_it = true;
++		*release_it = false;
+ 	}
+ 
+ 	return peer;
 -- 
-Jesse Barnes, Intel Open Source Technology Center
+1.7.3.2
+
