@@ -1,68 +1,62 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+From: David Lamparter <equinox@diac24.net>
 Subject: Re: Adding Support for SG,GSO,GRO
-Date: Fri, 10 Dec 2010 15:18:11 +0100
-Message-ID: <AANLkTi=7NLkHW6c88gUcyW8i0Wwmf2Cw4NdmRiGci4kE@mail.gmail.com>
+Date: Fri, 10 Dec 2010 15:31:40 +0100
+Message-ID: <20101210143140.GD3536057@jupiter.n2.diac24.net>
 References: <FCCFB4CDC6E5564B9182F639FC356087035F21D9F9@dbde02.ent.ti.com>
-	<1291906948.19763.16.camel@localhost>
-	<AANLkTi=8zWMYWG0DU147B08nN7xcvwaB9Bpq9fE8_fBe@mail.gmail.com>
-	<20101209.113806.71114756.davem@davemloft.net>
+ <1291906948.19763.16.camel@localhost>
+ <AANLkTi=8zWMYWG0DU147B08nN7xcvwaB9Bpq9fE8_fBe@mail.gmail.com>
+ <20101209.113806.71114756.davem@davemloft.net>
+ <AANLkTi=7NLkHW6c88gUcyW8i0Wwmf2Cw4NdmRiGci4kE@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: bhutchings@solarflare.com, srk@ti.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, bhutchings@solarflare.com,
+	srk@ti.com, netdev@vger.kernel.org
+To: =?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:62254 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754126Ab0LJOSN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 09:18:13 -0500
-Received: by vws16 with SMTP id 16so2224208vws.19
-        for <netdev@vger.kernel.org>; Fri, 10 Dec 2010 06:18:12 -0800 (PST)
-In-Reply-To: <20101209.113806.71114756.davem@davemloft.net>
+Received: from spaceboyz.net ([87.106.131.203]:41961 "EHLO spaceboyz.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750983Ab0LJObu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Dec 2010 09:31:50 -0500
+Content-Disposition: inline
+In-Reply-To: <AANLkTi=7NLkHW6c88gUcyW8i0Wwmf2Cw4NdmRiGci4kE@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2010/12/9 David Miller <davem@davemloft.net>:
-> From: Micha=B3 Miros=B3aw <mirqus@gmail.com>
-> Date: Thu, 9 Dec 2010 19:47:57 +0100
->> Isn't that condition too broad? If the data could change after packe=
-t
->> is submitted to the driver then results would be unpredictable and
->> allow sending wrong data with correct (because hw-calculated)
->> checksum.
-> They are intentionally like that, without question.
->
-> Otherwise we'd need to interlock with all application mapped,
-> filesystem, and other page writes while sending any page over the
-> network.
->
-> We absolutely do not want to have to freeze every page we try to send
-> via sendfile() or similar, the cost is just too high.
->
-> If the application or networked filesystem needs such synchronization=
-,
-> it provides it for itself.
->
-> For example, SAMBA only uses sendfile() when the file has an op-lock
-> held on it.
->
-> The checksum requirement for using SG is not going away, so continuin=
-g
-> to discuss along the lines of removing that requirement is not a good
-> use of your time I don't think.
+On Fri, Dec 10, 2010 at 03:18:11PM +0100, Micha=C5=82 Miros=C5=82aw wro=
+te:
+> I'm trying to understand the dependency because it looks artificial f=
+or me.
 
-I'm trying to understand the dependency because it looks artificial for=
- me.
+You have the data you want to send in the RAM, somewhere, possibly
+scattered. The application calls sendfile(). The kernel puts the
+transmission in the network card's queue, which might already have lots
+of entries.
 
-Unless I totally misunderstood, you say that we accept bogus data to
-being sent using sendfile(). If yes, then we might as well allow
-broken checksum (CPU calculated, before data changed and then was sent
-to network).
+A millisecond later - an eternity for the CPU - the card decides to do
+the transmission.
 
-If the splice/sendfile is taken out of the picture, are there any
-other scenarios, when data pages could be changed after
-ndo_start_xmit() entry and before TX DMA completion (between dma_map
-=2E. dma_unmap)? And is it really what can happen with splice/sendfile?
+However, the data might have changed in the meantime.
 
-Best Regards,
-Micha=B3 Miros=B3aw
+sendfile() is defined so that it works asynchronously, that means if yo=
+u
+change the data while it is in the queue, you get unpredictable results=
+=2E
+
+But, what you should NOT get is packets with an invalid checksum.
+Whatever data you are sending, it needs to have a correct checksum.
+
+Now, if the card does the checksum itself, everything is fine. But what
+are you supposed to do if the card can't checksum? Call back the kernel
+at the point where the card does the TX? That's pointless (and racy).
+Pre-calculate the Checksum at submission time? Doesn't work, you would
+have to make a copy of the data, so it doesn't change anymore, so the
+checksum stays correct. But not copying the data is the whole point of
+sendfile().
+
+
+You see why SG without HW checksum is useless here?
+
+
+-David
+
