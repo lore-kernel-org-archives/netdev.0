@@ -1,47 +1,64 @@
-From: Taku Izumi <izumi.taku@jp.fujitsu.com>
-Subject: Re: [PATCH v2 0/3] bonding: add the debugfs interface to see RLB
- hash table
-Date: Fri, 10 Dec 2010 10:24:48 +0900
-Message-ID: <4D018160.1070604@jp.fujitsu.com>
-References: <4CF89A00.8030902@jp.fujitsu.com> <3778.1291840382@death>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] Link directly to the archive files rather than using
+ search paths.
+Date: Thu, 9 Dec 2010 17:56:44 -0800
+Message-ID: <20101209175644.00feca1d@nehalam>
+References: <1291942572-12653-1-git-send-email-flameeyes@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	eric.dumazet@gmail.com, shemminger@vyatta.com
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Daniel Kurtz <djkurtz@google.com>,
+	Mike Frysinger <vapier@gentoo.org>
+To: Diego Elio =?ISO-8859-1?B?UGV0dGVu8g==?= <flameeyes@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fgwmail7.fujitsu.co.jp ([192.51.44.37]:45629 "EHLO
-	fgwmail7.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757729Ab0LJBY4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Dec 2010 20:24:56 -0500
-Received: from m1.gw.fujitsu.co.jp ([10.0.50.71])
-	by fgwmail7.fujitsu.co.jp (Fujitsu Gateway) with ESMTP id oBA1OsCb016726
-	for <netdev@vger.kernel.org> (envelope-from izumi.taku@jp.fujitsu.com);
-	Fri, 10 Dec 2010 10:24:55 +0900
-Received: from smail (m1 [127.0.0.1])
-	by outgoing.m1.gw.fujitsu.co.jp (Postfix) with ESMTP id B99B345DE56
-	for <netdev@vger.kernel.org>; Fri, 10 Dec 2010 10:24:54 +0900 (JST)
-Received: from s1.gw.fujitsu.co.jp (s1.gw.fujitsu.co.jp [10.0.50.91])
-	by m1.gw.fujitsu.co.jp (Postfix) with ESMTP id 9277845DE5B
-	for <netdev@vger.kernel.org>; Fri, 10 Dec 2010 10:24:54 +0900 (JST)
-Received: from s1.gw.fujitsu.co.jp (localhost.localdomain [127.0.0.1])
-	by s1.gw.fujitsu.co.jp (Postfix) with ESMTP id 831901DB8046
-	for <netdev@vger.kernel.org>; Fri, 10 Dec 2010 10:24:54 +0900 (JST)
-Received: from m106.s.css.fujitsu.com (m106.s.css.fujitsu.com [10.249.87.106])
-	by s1.gw.fujitsu.co.jp (Postfix) with ESMTP id 4C881E08002
-	for <netdev@vger.kernel.org>; Fri, 10 Dec 2010 10:24:54 +0900 (JST)
-In-Reply-To: <3778.1291840382@death>
+Received: from mail.vyatta.com ([76.74.103.46]:36565 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752288Ab0LJB4r convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Dec 2010 20:56:47 -0500
+In-Reply-To: <1291942572-12653-1-git-send-email-flameeyes@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jay,
+On Fri, 10 Dec 2010 01:56:12 +0100
+Diego Elio Petten=F2 <flameeyes@gmail.com> wrote:
 
- I updated the patch 1/3. The problem seems to be fixed.
- The problem is not reproduced at least in my test by applying my new patch.
- Could you test again?
+> While the previous code was supposed to work nonetheless, it could be
+> messed up if further -L were used in LDFLAGS to list the path where g=
+libc's
+> libutil was to be found.
+>=20
+> References: https://bugs.gentoo.org/347489
+>=20
+> CC: Daniel Kurtz <djkurtz@google.com>
+> CC: Mike Frysinger <vapier@gentoo.org>
+> Signed-off-by: Diego Elio Petten=F2 <flameeyes@gmail.com>
+> ---
+>  Makefile |    3 +--
+>  1 files changed, 1 insertions(+), 2 deletions(-)
+>=20
+> diff --git a/Makefile b/Makefile
+> index c03d74c..d1ace1f 100644
+> --- a/Makefile
+> +++ b/Makefile
+> @@ -33,11 +33,10 @@ CCOPTS =3D -D_GNU_SOURCE -O2 -Wstrict-prototypes =
+-Wall
+>  CFLAGS =3D $(CCOPTS) -I../include $(DEFINES)
+>  YACCFLAGS =3D -d -t -v
+> =20
+> -LDLIBS +=3D -L../lib -lnetlink -lutil
+> -
+>  SUBDIRS=3Dlib ip tc misc netem genl
+> =20
+>  LIBNETLINK=3D../lib/libnetlink.a ../lib/libutil.a
+> +LDLIBS +=3D $(LIBNETLINK)
+> =20
+>  all: Config
+>  	@set -e; \
 
-Best regards,
-Taku Izumi
+Please be more clear in your subject, yes I can tell this is for
+iproute utilities but others may not.
 
+When refering to "previous code" either reply to the original
+message thread or provide a link to the changes.
 
+--=20
