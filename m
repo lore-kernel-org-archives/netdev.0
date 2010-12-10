@@ -1,60 +1,131 @@
-From: Andrej Ota <andrej@ota.si>
-Subject: [PATCH] [Bug 24472] Kernel panic - not syncing: Fatal Exception
-Date: Fri, 10 Dec 2010 15:49:08 +0100
-Message-ID: <4D023DE4.8000400@ota.si>
-References: <20101210091505.GA7868@ff.dom.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: =?UTF-8?B?UGF3ZcWCIFN0YXN6ZXdza2k=?= <pstaszewski@itcare.pl>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, Paul Mackerras <paulus@samba.org>,
-	bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, pstaszewski@artcom.pl,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>
-To: Jarek Poplawski <jarkao2@gmail.com>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: [PATCH] iproute2: ip: add wilcard support for device matching
+Date: Fri, 10 Dec 2010 16:58:12 +0200
+Message-ID: <1291993092-8675-1-git-send-email-opurdila@ixiacom.com>
+Cc: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>,
+	Vlad Dogaru <ddvlad@rosedu.org>,
+	Octavian Purdila <opurdila@ixiacom.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta.toshio.org ([193.189.180.35]:34417 "EHLO mta.toshio.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754832Ab0LJOtV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Dec 2010 09:49:21 -0500
-In-Reply-To: <20101210091505.GA7868@ff.dom.local>
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:9101 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755564Ab0LJO7L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 09:59:11 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move kfree_skb which was causing memory corruption to new location, while still keeping appropriate return value for function __pppoe_xmit. Prevents memory corruption and consequent kernel panic when PPPoE peer terminates the link.
+Allow the users to specify a wildcard when selecting a device:
 
-Signed-off-by: Andrej Ota [andrej@ota.si]
-Reported-by: Pawel Staszewski [pstaszewski@artcom.pl]
+$ ip set link dev dummy* up
+
+We do this by expanding the original command line in multiple lines
+which we then feed via a pipe to a forked ip processed run in batch
+mode.
+
+Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
 ---
- drivers/net/pppoe.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+ ip/ip.c |   70 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 70 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/pppoe.c b/drivers/net/pppoe.c
-index d72fb05..1a21dce 100644
---- a/drivers/net/pppoe.c
-+++ b/drivers/net/pppoe.c
-@@ -924,8 +924,10 @@ static int __pppoe_xmit(struct sock *sk, struct sk_buff *skb)
- 	/* Copy the data if there is no space for the header or if it's
- 	 * read-only.
- 	 */
--	if (skb_cow_head(skb, sizeof(*ph) + dev->hard_header_len))
-+	if (skb_cow_head(skb, sizeof(*ph) + dev->hard_header_len)) {
-+		kfree_skb(skb);
- 		goto abort;
-+	}
-
- 	__skb_push(skb, sizeof(*ph));
- 	skb_reset_network_header(skb);
-@@ -947,7 +949,6 @@ static int __pppoe_xmit(struct sock *sk, struct sk_buff *skb)
- 	return 1;
-
- abort:
--	kfree_skb(skb);
- 	return 0;
+diff --git a/ip/ip.c b/ip/ip.c
+index b127d57..2e26488 100644
+--- a/ip/ip.c
++++ b/ip/ip.c
+@@ -18,6 +18,8 @@
+ #include <netinet/in.h>
+ #include <string.h>
+ #include <errno.h>
++#include <sys/types.h>
++#include <sys/wait.h>
+ 
+ #include "SNAPSHOT.h"
+ #include "utils.h"
+@@ -139,10 +141,72 @@ static int batch(const char *name)
+ 	return ret;
  }
+ 
++int main(int argc, char **argv);
++
++int expand_dev_pattern(int argc, char **argv, int pos)
++{
++	FILE *proc;
++	size_t n, dev_no;
++	char scanf_pattern[64], *line = NULL, *dev_base = argv[pos];
++	int p[2], i;
++	pid_t pid;
++
++	*strchr(dev_base, '*') = 0;
++	snprintf(scanf_pattern, sizeof(scanf_pattern), " %s%%d:", dev_base);
++
++	if (pipe(p) < 0) {
++		fprintf(stderr, "pipe() failed: %s\n", strerror(errno));
++		return -1;
++	}
++
++	pid = fork();
++	switch (pid) {
++	case -1:
++		fprintf(stderr, "fork failed: %s\n", strerror(errno));
++		return -1;
++	case 0:
++	{
++		char *nargv[] = { argv[0], "-b", "-" };
++		int ret;
++
++		dup2(p[0], 0); close(p[0]); close(p[1]);
++		ret = main(3, nargv);
++		exit(ret);
++	}
++	default:
++		dup2(p[1], 1); close(p[0]); close(p[1]);
++	}
++
++	proc = fopen("/proc/net/dev", "r");
++	if (!proc) {
++		fprintf(stderr, "can't open /proc/net/dev\n");
++		return -1;
++	}
++
++	while (getline(&line, &n, proc) > 0) {
++		if (sscanf(line, scanf_pattern, &dev_no) == 1) {
++			for (i = 1; i < argc; i++)
++				if (i != pos)
++					printf("%s ", argv[i]);
++				else
++					printf("%s%d ", dev_base, dev_no);
++			printf("\n");
++		}
++	}
++	free(line);
++
++	fflush(stdout); close(1);
++
++	waitpid(pid, NULL, 0);
++
++	return 0;
++}
+ 
+ int main(int argc, char **argv)
+ {
+ 	char *basename;
++	int i = 0;
++
+ 
+ 	basename = strrchr(argv[0], '/');
+ 	if (basename == NULL)
+@@ -150,6 +214,12 @@ int main(int argc, char **argv)
+ 	else
+ 		basename++;
+ 
++	for (i = 1; i < argc - 1; i++) {
++		if (matches(argv[i], "dev") == 0 && strchr(argv[i+1], '*')) {
++			return expand_dev_pattern(argc, argv, i+1);
++		}
++	}
++
+ 	while (argc > 1) {
+ 		char *opt = argv[1];
+ 		if (strcmp(opt,"--") == 0) {
+-- 
+1.7.1
 
----
-
-Andrej Ota.
