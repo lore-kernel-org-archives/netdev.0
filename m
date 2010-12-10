@@ -1,33 +1,118 @@
-From: Dan Rosenberg <drosenberg@vsecurity.com>
-Subject: Re: [PATCH] kptr_restrict for hiding kernel pointers from
- unprivileged users
-Date: Thu, 09 Dec 2010 21:45:18 -0500
-Message-ID: <1291949118.1877.2.camel@dan>
-References: <1291863926.2965.1.camel@Dan>
-	 <1291865039.2795.46.camel@edumazet-laptop>  <1291895472.2965.4.camel@Dan>
-	 <1291898801.2965.6.camel@Dan>  <1291901420.4063.24.camel@edumazet-laptop>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: bridge: Use consistent NF_DROP returns in nf_pre_routing
+Date: Fri, 10 Dec 2010 11:38:11 +0800
+Message-ID: <20101210033811.GA4803@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	linux-security-module@vger.kernel.org,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <1291901420.4063.24.camel@edumazet-laptop>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.apana.org.au ([209.40.204.226]:44512 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754389Ab0LJDiN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Dec 2010 22:38:13 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hi:
 
-> 
-> Well, it seems difficult to make a check here, its a generic function
-> that happens to be used from different contexts.
-> 
-> Even using in_irq() might be a problem.
+bridge: Use consistent NF_DROP returns in nf_pre_routing
 
-I agree it seems difficult - my only goal was to prevent subsequent
-breakage with the capability check.  Does anyone have any suggestions
-for a better approach here?
+The nf_pre_routing functions in bridging have collected two
+distinct ways of returning NF_DROP over the years, inline and
+via goto.  There is no reason for preferring either one.
 
--Dan
+So this patch arbitrarily picks the inline variant and converts
+the all the gotos.
 
+Also removes a redundant comment.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
+index 865fd76..3fb35fb 100644
+--- a/net/bridge/br_netfilter.c
++++ b/net/bridge/br_netfilter.c
+@@ -566,26 +566,26 @@ static unsigned int br_nf_pre_routing_ipv6(unsigned int hook,
+ 	u32 pkt_len;
+ 
+ 	if (skb->len < sizeof(struct ipv6hdr))
+-		goto inhdr_error;
++		return NF_DROP;
+ 
+ 	if (!pskb_may_pull(skb, sizeof(struct ipv6hdr)))
+-		goto inhdr_error;
++		return NF_DROP;
+ 
+ 	hdr = ipv6_hdr(skb);
+ 
+ 	if (hdr->version != 6)
+-		goto inhdr_error;
++		return NF_DROP;
+ 
+ 	pkt_len = ntohs(hdr->payload_len);
+ 
+ 	if (pkt_len || hdr->nexthdr != NEXTHDR_HOP) {
+ 		if (pkt_len + sizeof(struct ipv6hdr) > skb->len)
+-			goto inhdr_error;
++			return NF_DROP;
+ 		if (pskb_trim_rcsum(skb, pkt_len + sizeof(struct ipv6hdr)))
+-			goto inhdr_error;
++			return NF_DROP;
+ 	}
+ 	if (hdr->nexthdr == NEXTHDR_HOP && check_hbh_len(skb))
+-		goto inhdr_error;
++		return NF_DROP;
+ 
+ 	nf_bridge_put(skb->nf_bridge);
+ 	if (!nf_bridge_alloc(skb))
+@@ -598,9 +598,6 @@ static unsigned int br_nf_pre_routing_ipv6(unsigned int hook,
+ 		br_nf_pre_routing_finish_ipv6);
+ 
+ 	return NF_STOLEN;
+-
+-inhdr_error:
+-	return NF_DROP;
+ }
+ 
+ /* Direct IPv6 traffic to br_nf_pre_routing_ipv6.
+@@ -619,11 +616,11 @@ static unsigned int br_nf_pre_routing(unsigned int hook, struct sk_buff *skb,
+ 	__u32 len = nf_bridge_encap_header_len(skb);
+ 
+ 	if (unlikely(!pskb_may_pull(skb, len)))
+-		goto out;
++		return NF_DROP;
+ 
+ 	p = br_port_get_rcu(in);
+ 	if (p == NULL)
+-		goto out;
++		return NF_DROP;
+ 	br = p->br;
+ 
+ 	if (skb->protocol == htons(ETH_P_IPV6) || IS_VLAN_IPV6(skb) ||
+@@ -645,8 +642,7 @@ static unsigned int br_nf_pre_routing(unsigned int hook, struct sk_buff *skb,
+ 	nf_bridge_pull_encap_header_rcsum(skb);
+ 
+ 	if (br_parse_ip_options(skb))
+-		/* Drop invalid packet */
+-		goto out;
++		return NF_DROP;
+ 
+ 	nf_bridge_put(skb->nf_bridge);
+ 	if (!nf_bridge_alloc(skb))
+@@ -660,9 +656,6 @@ static unsigned int br_nf_pre_routing(unsigned int hook, struct sk_buff *skb,
+ 		br_nf_pre_routing_finish);
+ 
+ 	return NF_STOLEN;
+-
+-out:
+-	return NF_DROP;
+ }
+ 
+ 
+
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
