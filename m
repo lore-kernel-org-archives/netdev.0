@@ -1,42 +1,53 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] net: optimize INET input path further
-Date: Thu, 09 Dec 2010 20:07:58 -0800 (PST)
-Message-ID: <20101209.200758.226778071.davem@davemloft.net>
-References: <1291179847.2856.452.camel@edumazet-laptop>
+Subject: Re: [PATCH v3] Net-ethtool : Allow ethtool to set interface in
+ loopback mode.
+Date: Thu, 09 Dec 2010 20:11:42 -0800 (PST)
+Message-ID: <20101209.201142.71115585.davem@davemloft.net>
+References: <1291215255.3170.12.camel@bwh-desktop>
+	<AANLkTikW24AcLEAioYtCwuQOoVnTrqVoAaZw3sksZ_jU@mail.gmail.com>
+	<1291234623.3170.17.camel@bwh-desktop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: maheshb@google.com, netdev@vger.kernel.org, chavey@google.com
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39974
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45790
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754127Ab0LJEHa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Dec 2010 23:07:30 -0500
-In-Reply-To: <1291179847.2856.452.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1754838Ab0LJELO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Dec 2010 23:11:14 -0500
+In-Reply-To: <1291234623.3170.17.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 01 Dec 2010 06:04:07 +0100
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Wed, 01 Dec 2010 20:17:03 +0000
 
-> Followup of commit b178bb3dfc30 (net: reorder struct sock fields)
-> 
-> Optimize INET input path a bit further, by :
-> 
-> 1) moving sk_refcnt close to sk_lock.
-> 
-> This reduces number of dirtied cache lines by one on 64bit arches (and
-> 64 bytes cache line size).
-> 
-> 2) moving inet_daddr & inet_rcv_saddr at the beginning of sk
-> 
-> (same cache line than hash / family / bound_dev_if / nulls_node)
-> 
-> This reduces number of accessed cache lines in lookups by one, and dont
-> increase size of inet and timewait socks.
-> inet and tw sockets now share same place-holder for these fields. 
- ...
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> On Wed, 2010-12-01 at 12:14 -0800, Mahesh Bandewar wrote:
+>> This patch enables ethtool to set the loopback mode on a given
+>> interface. By configuring the interface in loopback mode in conjunction
+>> with a policy route / rule, a userland application can stress the egress /
+>> ingress path exposing the flows of the change in progress and potentially
+>> help developer(s) understand the impact of those changes without even
+>> sending a packet out on the network.
+>> 
+>> Following set of commands illustrates one such example -
+>>    a) ip -4 addr add 192.168.1.1/24 dev eth1
+>>    b) ip -4 rule add from all iif eth1 lookup 250
+>>    c) ip -4 route add local 0/0 dev lo proto kernel scope host table 250
+>>    d) arp -Ds 192.168.1.100 eth1
+>>    e) arp -Ds 192.168.1.200 eth1
+>>    f) sysctl -w net.ipv4.ip_nonlocal_bind=1
+>>    g) sysctl -w net.ipv4.conf.all.accept_local=1
+>>    # Assuming that the machine has 8 cores
+>>    h) taskset 000f netserver -L 192.168.1.200
+>>    i) taskset 00f0 netperf -t TCP_CRR -L 192.168.1.100 -H 192.168.1.200 -l 30
+>> 
+>> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+> [...]
+> Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
 
-Applied, thanks Eric.
+This patch doesn't apply, it has been corrupted by Mahesh's email
+client.
+
+Mahesh, please correct this problem and resubmit.
