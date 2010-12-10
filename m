@@ -1,45 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] fix hostap registration order
-Date: Fri, 10 Dec 2010 09:47:47 -0800 (PST)
-Message-ID: <20101210.094747.193727608.davem@davemloft.net>
-References: <alpine.SOC.1.00.1012100020110.26229@math.ut.ee>
-	<20101209.195315.193716225.davem@davemloft.net>
-	<alpine.SOC.1.00.1012100918300.15996@math.ut.ee>
+Subject: Re: pull request: wireless-next-2.6 2010-12-08
+Date: Fri, 10 Dec 2010 10:01:41 -0800 (PST)
+Message-ID: <20101210.100141.183065894.davem@davemloft.net>
+References: <20101208210432.GH2423@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: j@w1.fi, netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: mroos@linux.ee
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36881
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45807
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754150Ab0LJRrU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 12:47:20 -0500
-In-Reply-To: <alpine.SOC.1.00.1012100918300.15996@math.ut.ee>
+	by vger.kernel.org with ESMTP id S1755146Ab0LJSBO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 13:01:14 -0500
+In-Reply-To: <20101208210432.GH2423@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Meelis Roos <mroos@linux.ee>
-Date: Fri, 10 Dec 2010 09:19:51 +0200 (EET)
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Wed, 8 Dec 2010 16:04:32 -0500
 
->> > In 2.6.37-rc4, hostap_pci init gives a WARNING with backtrace telling 
->> > that netif_stop_queue is called before register_netdev. Fix it by moving 
->> > this call after register_netdev. Removes the warning and seems to work, 
->> > but why is the call to netif_stop_queue needed at all after 
->> > register_netdev?
->> 
->> It should simply not touch the queue state at all at this point.
->> 
->> Your change would add a race.  At the moment the device is registered
->> it can be brought up, and then your code will eroneously modify
->> the queue state.
+> Here is the latest batch of updates intended for 2.6.38.  It also
+> includes my last wireless-2.6 pull request that you just added
+> to net-2.6.
 > 
-> OK, I can make a simpler patch for that but I would like to understand 
-> the original reasons for having netif_stop_queue there. Just a relict or 
-> still somehow important?
+> This includes the usual batch of drivers updates, with ath9k and
+> iwlwifi as the usual standouts.  This also includes some mac80211
+> documentation updates from Johannes, and a flurry of ath5k updates
+> from Nick.  This also includes a collection of bluetooth updates by
+> way of Gustavo, a couple of libertas updates, some more work on b43
+> N-phy support, and a variety of other patches.
 
-I think it was neither.
+So I pulled this in.
 
-The queue state is "don't care" at this point, and always has been,
-and a lot of drivers had this unnecessary netif_stop_queue() call
-there.
+Since I did the net-2.6 --> net-next-2.6 merge first, I ended up having
+to deal with the ar9003_eeprom.c conflicts in the ath9k driver even
+though you took care of that as well in this tree of your's.
+
+But it was a good gut check since we both resolved the conflict pretty
+much the same way, so I have confidence in the merge resolution :-)
+
+Anyways, please take a look at net-next-2.6 and double-check what I
+did.
+
+Thanks!
