@@ -1,40 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3] xfrm: ESP Traffic Flow Confidentiality padding (v3)
-Date: Fri, 10 Dec 2010 14:44:22 -0800 (PST)
-Message-ID: <20101210.144422.52203130.davem@davemloft.net>
-References: <1291819071-17538-1-git-send-email-martin@strongswan.org>
-	<20101209124732.GA28931@gondor.apana.org.au>
+From: Tobias Klauser <tklauser@distanz.ch>
+Subject: Re: [PATCH v2] bridge: Fix return values of
+	br_multicast_add_group/br_multicast_new_group
+Date: Fri, 10 Dec 2010 23:52:27 +0100
+Message-ID: <20101210225226.GL10190@distanz.ch>
+References: <20101209082924.6d797871@nehalam> <1291903356-30618-1-git-send-email-tklauser@distanz.ch> <1291987084-27302-1-git-send-email-tklauser@distanz.ch> <20101210.130125.233714141.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: martin@strongswan.org, linux-crypto@vger.kernel.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: shemminger@linux-foundation.org, bridge@lists.linux-foundation.org,
 	netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58114
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751559Ab0LJWny (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 17:43:54 -0500
-In-Reply-To: <20101209124732.GA28931@gondor.apana.org.au>
+Received: from symlink.to.noone.org ([85.10.207.172]:55422 "EHLO sym.noone.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751321Ab0LJWw2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Dec 2010 17:52:28 -0500
+Content-Disposition: inline
+In-Reply-To: <20101210.130125.233714141.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Thu, 9 Dec 2010 20:47:32 +0800
-
-> On Wed, Dec 08, 2010 at 03:37:48PM +0100, Martin Willi wrote:
->> The following patchset adds Traffic Flow Confidentiality padding. The
->> first patch introduces a new Netlink XFRM attribute to configure TFC via
->> userspace. Patch two and three implement the padding logic in IPv4 and
->> IPv6 ESP. Padding is always done using the RFC4303 format an is clamped
->> to the PMTU.
->> 
->> Changes from v2:
->>   - Remove unused flag field in attribute, use a plain u32 as attribute payload
->>   - Reject installation of TFC padding on non-tunnel SAs
+On 2010-12-10 at 22:01:25 +0100, David Miller <davem@davemloft.net> wrote:
+> From: Tobias Klauser <tklauser@distanz.ch>
+> Date: Fri, 10 Dec 2010 14:18:04 +0100
 > 
-> Looks good to me.  Thanks for the hard work Martin!
+> > If br_multicast_new_group returns NULL, we would return 0 (no error) to
+> > the caller of br_multicast_add_group, which is not what we want. Instead
+> > br_multicast_new_group should return ERR_PTR(-ENOMEM) in this case.
+> > Also propagate the error number returned by br_mdb_rehash properly.
+> > 
+> > Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
 > 
-> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+> Looks good, applied to net-next-2.6
+> 
+> Please in the future make is clear, in your subject line, which
+> tree this patch is meant for.
+> 
+> I had to figure it out by trial and error, because this patch
+> does not apply properly to net-2.6
 
-All applied, thanks everyone!
+Sorry about that. I'll do so in the future.
+
+Thanks
