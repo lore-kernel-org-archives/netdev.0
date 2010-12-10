@@ -1,153 +1,255 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: ip rule and/or route problem in 2.6.37-rc5+
-Date: Thu, 09 Dec 2010 17:06:21 -0800
-Message-ID: <4D017D0D.50907@candelatech.com>
+From: Taku Izumi <izumi.taku@jp.fujitsu.com>
+Subject: Re: [PATCH 1/3] bonding: add the debugfs facility to the bonding
+ driver
+Date: Fri, 10 Dec 2010 10:17:13 +0900
+Message-ID: <4D017F99.2040706@jp.fujitsu.com>
+References: <4CF89A00.8030902@jp.fujitsu.com> <4CF89A6E.4090303@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-To: NetDev <netdev@vger.kernel.org>
+Cc: eric.dumazet@gmail.com, shemminger@vyatta.com
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:53460 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757451Ab0LJBGW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Dec 2010 20:06:22 -0500
-Received: from [192.168.100.195] (firewall.candelatech.com [70.89.124.249])
-	(authenticated bits=0)
-	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id oBA16Lcn006360
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Thu, 9 Dec 2010 17:06:22 -0800
+Received: from fgwmail6.fujitsu.co.jp ([192.51.44.36]:45499 "EHLO
+	fgwmail6.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757451Ab0LJBSD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Dec 2010 20:18:03 -0500
+Received: from m1.gw.fujitsu.co.jp ([10.0.50.71])
+	by fgwmail6.fujitsu.co.jp (Fujitsu Gateway) with ESMTP id oBA1I2sH014886
+	for <netdev@vger.kernel.org> (envelope-from izumi.taku@jp.fujitsu.com);
+	Fri, 10 Dec 2010 10:18:02 +0900
+Received: from smail (m1 [127.0.0.1])
+	by outgoing.m1.gw.fujitsu.co.jp (Postfix) with ESMTP id 6E32645DE53
+	for <netdev@vger.kernel.org>; Fri, 10 Dec 2010 10:18:02 +0900 (JST)
+Received: from s1.gw.fujitsu.co.jp (s1.gw.fujitsu.co.jp [10.0.50.91])
+	by m1.gw.fujitsu.co.jp (Postfix) with ESMTP id 2D50F45DE5B
+	for <netdev@vger.kernel.org>; Fri, 10 Dec 2010 10:18:02 +0900 (JST)
+Received: from s1.gw.fujitsu.co.jp (localhost.localdomain [127.0.0.1])
+	by s1.gw.fujitsu.co.jp (Postfix) with ESMTP id 216DEE08003
+	for <netdev@vger.kernel.org>; Fri, 10 Dec 2010 10:18:02 +0900 (JST)
+Received: from ml14.s.css.fujitsu.com (ml14.s.css.fujitsu.com [10.249.87.104])
+	by s1.gw.fujitsu.co.jp (Postfix) with ESMTP id D7A6B1DB8044
+	for <netdev@vger.kernel.org>; Fri, 10 Dec 2010 10:18:01 +0900 (JST)
+In-Reply-To: <4CF89A6E.4090303@jp.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-This problem appears to have happened between 2.6.36.1 and 2.6.37-rc2.
-We haven't fully bisected the problem yet.
+This patch provides the debugfs facility to the bonding driver.
+The "bonding" directory is created in the debugfs root and directories of
+each bonding interface (like bond0, bond1...) are created in that.
 
+ # mount -t debugfs none /sys/kernel/debug
 
-The basic test:
+ # ls /sys/kernel/debug/bonding
+ bond0  bond1
 
-* one normal interface using DHCP
-* A second interface specified to use it's own routing table.
-* 'ip rules' to determine behaviour.
+Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
 
-After running these commands abelow, the system can no longer
-route out it's normal interface.  It appears that the final line
-is the one that messes things up.  If you flush table 10001 after
-that, things start working again.
+---
+ drivers/net/bonding/Makefile       |    2
+ drivers/net/bonding/bond_debugfs.c |   96 +++++++++++++++++++++++++++++++++++++
+ drivers/net/bonding/bond_main.c    |   10 +++
+ drivers/net/bonding/bonding.h      |    9 +++
+ 4 files changed, 115 insertions(+), 2 deletions(-)
 
-The 'pref 20' rule is also important.  It should not have
-any affect on this ping, but it appears that it does, somehow.
-If you remove it, the problem also goes away, regardless of
-the routes in table 10001.
+Index: net-next/drivers/net/bonding/bond_main.c
+===================================================================
+--- net-next.orig/drivers/net/bonding/bond_main.c
++++ net-next/drivers/net/bonding/bond_main.c
+@@ -3507,6 +3507,8 @@ static int bond_event_changename(struct
+ 	bond_remove_proc_entry(bond);
+ 	bond_create_proc_entry(bond);
 
++	bond_debug_reregister(bond);
++
+ 	return NOTIFY_DONE;
+ }
 
-ip rule add pref 512 lookup local
-ip rule del pref 0 lookup local
-ip link set eth2 up
-ip -4 addr add 172.16.0.102/24 broadcast 172.16.0.255 dev eth2
-ip rule add to 172.16.0.102 iif eth2 lookup local pref 10
-ip rule add iif eth2 lookup 10001 pref 20
-ip route add 172.16.0.0/24 dev eth2 table 10001
-ip route add unreachable 0/0 table 10001
+@@ -4789,6 +4791,8 @@ static void bond_uninit(struct net_devic
 
+ 	bond_remove_proc_entry(bond);
 
++	bond_debug_unregister(bond);
++
+ 	__hw_addr_flush(&bond->mc_list);
 
+ 	list_for_each_entry_safe(vlan, tmp, &bond->vlan_list, vlan_list) {
+@@ -5191,6 +5195,8 @@ static int bond_init(struct net_device *
 
-[root@ct503-60 ~]# ping 192.168.100.1
-PING 192.168.100.1 (192.168.100.1) 56(84) bytes of data.
-64 bytes from 192.168.100.1: icmp_seq=1 ttl=64 time=0.257 ms
-64 bytes from 192.168.100.1: icmp_seq=2 ttl=64 time=0.285 ms
-
---- 192.168.100.1 ping statistics ---
-2 packets transmitted, 2 received, 0% packet loss, time 1290ms
-rtt min/avg/max/mdev = 0.257/0.271/0.285/0.014 ms
-[root@ct503-60 ~]# ifconfig
-eth0      Link encap:Ethernet  HWaddr 00:30:48:DA:60:1C
-           inet addr:192.168.100.173  Bcast:192.168.100.255  Mask:255.255.255.0
-           inet6 addr: fe80::230:48ff:feda:601c/64 Scope:Link
-           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-           RX packets:99 errors:0 dropped:0 overruns:0 frame:0
-           TX packets:97 errors:0 dropped:0 overruns:0 carrier:0
-           collisions:0 txqueuelen:1000
-           RX bytes:10562 (10.3 KiB)  TX bytes:9634 (9.4 KiB)
-           Memory:fa7e0000-fa800000
+ 	bond_prepare_sysfs_group(bond);
 
-lo        Link encap:Local Loopback
-           inet addr:127.0.0.1  Mask:255.0.0.0
-           inet6 addr: ::1/128 Scope:Host
-           UP LOOPBACK RUNNING  MTU:16436  Metric:1
-           RX packets:54 errors:0 dropped:0 overruns:0 frame:0
-           TX packets:54 errors:0 dropped:0 overruns:0 carrier:0
-           collisions:0 txqueuelen:0
-           RX bytes:5280 (5.1 KiB)  TX bytes:5280 (5.1 KiB)
++	bond_debug_register(bond);
++
+ 	__hw_addr_init(&bond->mc_list);
+ 	return 0;
+ }
+@@ -5312,6 +5318,8 @@ static int __init bonding_init(void)
+ 	if (res)
+ 		goto err_link;
 
-[root@ct503-60 ~]# ip rule add pref 512 lookup local
-  local[root@ct503-60 ~]# ip rule del pref 0 lookup local
-[root@ct503-60 ~]# ping 192.168.100.1
-PING 192.168.100.1 (192.168.100.1) 56(84) bytes of data.
-64 bytes from 192.168.100.1: icmp_seq=1 ttl=64 time=0.266 ms
-64 bytes from 192.168.100.1: icmp_seq=2 ttl=64 time=0.238 ms
-
---- 192.168.100.1 ping statistics ---
-2 packets transmitted, 2 received, 0% packet loss, time 1101ms
-rtt min/avg/max/mdev = 0.238/0.252/0.266/0.014 ms
-[root@ct503-60 ~]# ip link set eth2 up
-adcast 172.16.0.255 dev eth2Dec 10 11:50:01 localhost kernel: e1000e 0000:08:00.0: irq 49 for MSI/MSI-X
-Dec 10 11:50:01 localhost kernel: e1000e 0000:08:00.0: irq 49 for MSI/MSI-X
-Dec 10 11:50:01 localhost kernel: ADDRCONF(NETDEV_UP): eth2: link is not ready
-2root@ct503-60 ~]# ping 192.168.100.1
-PING 192.168.100.1 (192.168.100.1) 56(84) bytes of data.
-64 bytes from 192.168.100.1: icmp_seq=1 ttl=64 time=0.247 ms
-Dec 10 11:50:04 localhost kernel: e1000e: eth2 NIC Link is Up 1000 Mbps Full Duplex, Flow Control: RX/TX
-Dec 10 11:50:04 localhost kernel: ADDRCONF(NETDEV_CHANGE): eth2: link becomes ready
-64 bytes from 192.168.100.1: icmp_seq=2 ttl=64 time=0.271 ms
-64 bytes from 192.168.100.1: icmp_seq=3 ttl=64 time=0.263 ms
-
---- 192.168.100.1 ping statistics ---
-3 packets transmitted, 3 received, 0% packet loss, time 2317ms
-rtt min/avg/max/mdev = 0.247/0.260/0.271/0.016 ms
-[root@ct503-60 ~]# ip rule add to 172.16.0.102 iif eth2 lookup local pref 10
-001 pref 20[root@ct503-60 ~]# ip rule add iif eth2 lookup 10001 pref 20
-[root@ct503-60 ~]# ping 192.168.100.1
-PING 192.168.100.1 (192.168.100.1) 56(84) bytes of data.
-64 bytes from 192.168.100.1: icmp_seq=1 ttl=64 time=0.346 ms
-Dec 10 11:50:14 localhost kernel: eth2: no IPv6 routers present
-64 bytes from 192.168.100.1: icmp_seq=2 ttl=64 time=0.251 ms
-
---- 192.168.100.1 ping statistics ---
-2 packets transmitted, 2 received, 0% packet loss, time 1245ms
-rtt min/avg/max/mdev = 0.251/0.298/0.346/0.050 ms
-[root@ct503-60 ~]# ip route add 172.16.0.0/24 dev eth2 table 10001
-  10001[root@ct503-60 ~]# ip route add unreachable 0/0 table 10001
-[root@ct503-60 ~]# ping 192.168.100.1
-connect: Invalid argument
-[root@ct503-60 ~]# ip route show
-192.168.100.0/24 dev eth0  proto kernel  scope link  src 192.168.100.173
-172.16.0.0/24 dev eth2  proto kernel  scope link  src 172.16.0.102
-169.254.0.0/16 dev eth0  scope link  metric 1003
-default via 192.168.100.1 dev eth0
-You have new mail in /var/spool/mail/root
-[root@ct503-60 ~]# ip route show table 10001
-172.16.0.0/24 dev eth2  scope link
-unreachable default
-[root@ct503-60 ~]#
++	bond_create_debugfs();
++
+ 	for (i = 0; i < max_bonds; i++) {
+ 		res = bond_create(&init_net, NULL);
+ 		if (res)
+@@ -5322,7 +5330,6 @@ static int __init bonding_init(void)
+ 	if (res)
+ 		goto err;
 
-[root@ct503-60 ~]# ip route flush table 10001
-[root@ct503-60 ~]# ping 192.168.100.1
-PING 192.168.100.1 (192.168.100.1) 56(84) bytes of data.
-64 bytes from 192.168.100.1: icmp_seq=1 ttl=64 time=4.10 ms
-64 bytes from 192.168.100.1: icmp_seq=2 ttl=64 time=0.260 ms
-
---- 192.168.100.1 ping statistics ---
-2 packets transmitted, 2 received, 0% packet loss, time 1300ms
-rtt min/avg/max/mdev = 0.260/2.181/4.102/1.921 ms
-[root@ct503-60 ~]#
+-
+ 	register_netdevice_notifier(&bond_netdev_notifier);
+ 	register_inetaddr_notifier(&bond_inetaddr_notifier);
+ 	bond_register_ipv6_notifier();
+@@ -5346,6 +5353,7 @@ static void __exit bonding_exit(void)
+ 	bond_unregister_ipv6_notifier();
 
+ 	bond_destroy_sysfs();
++	bond_destroy_debugfs();
 
-Thanks,
-Ben
+ 	rtnl_link_unregister(&bond_link_ops);
+ 	unregister_pernet_subsys(&bond_net_ops);
+Index: net-next/drivers/net/bonding/Makefile
+===================================================================
+--- net-next.orig/drivers/net/bonding/Makefile
++++ net-next/drivers/net/bonding/Makefile
+@@ -4,7 +4,7 @@
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+ obj-$(CONFIG_BONDING) += bonding.o
+
+-bonding-objs := bond_main.o bond_3ad.o bond_alb.o bond_sysfs.o
++bonding-objs := bond_main.o bond_3ad.o bond_alb.o bond_sysfs.o bond_debugfs.o
+
+ ipv6-$(subst m,y,$(CONFIG_IPV6)) += bond_ipv6.o
+ bonding-objs += $(ipv6-y)
+Index: net-next/drivers/net/bonding/bond_debugfs.c
+===================================================================
+--- /dev/null
++++ net-next/drivers/net/bonding/bond_debugfs.c
+@@ -0,0 +1,96 @@
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/device.h>
++#include <linux/netdevice.h>
++
++#include "bonding.h"
++
++#ifdef CONFIG_DEBUG_FS
++
++#include <linux/debugfs.h>
++#include <linux/seq_file.h>
++
++static struct dentry *bonding_debug_root;
++
++void bond_debug_register(struct bonding *bond)
++{
++	if (!bonding_debug_root)
++		return;
++
++	bond->debug_dir =
++		debugfs_create_dir(bond->dev->name, bonding_debug_root);
++
++	if (!bond->debug_dir) {
++		pr_warning("%s: Warning: failed to register to debugfs\n",
++			bond->dev->name);
++		return;
++	}
++}
++
++void bond_debug_unregister(struct bonding *bond)
++{
++	if (!bonding_debug_root)
++		return;
++
++	debugfs_remove_recursive(bond->debug_dir);
++}
++
++void bond_debug_reregister(struct bonding *bond)
++{
++	struct dentry *d;
++
++	if (!bonding_debug_root)
++		return;
++
++	d = debugfs_rename(bonding_debug_root, bond->debug_dir,
++			   bonding_debug_root, bond->dev->name);
++	if (d) {
++		bond->debug_dir = d;
++	} else {
++		pr_warning("%s: Warning: failed to reregister, "
++				"so just unregister old one\n",
++				bond->dev->name);
++		bond_debug_unregister(bond);
++	}
++}
++
++void bond_create_debugfs(void)
++{
++	bonding_debug_root = debugfs_create_dir("bonding", NULL);
++
++	if (!bonding_debug_root) {
++		pr_warning("Warning: Cannot create bonding directory"
++				" in debugfs\n");
++	}
++}
++
++void bond_destroy_debugfs(void)
++{
++	debugfs_remove_recursive(bonding_debug_root);
++	bonding_debug_root = NULL;
++}
++
++
++#else /* !CONFIG_DEBUG_FS */
++
++void bond_debug_register(struct bonding *bond)
++{
++}
++
++void bond_debug_unregister(struct bonding *bond)
++{
++}
++
++void bond_debug_reregister(struct bonding *bond)
++{
++}
++
++void bond_create_debugfs(void)
++{
++}
++
++void bond_destroy_debugfs(void)
++{
++}
++
++#endif /* CONFIG_DEBUG_FS */
+Index: net-next/drivers/net/bonding/bonding.h
+===================================================================
+--- net-next.orig/drivers/net/bonding/bonding.h
++++ net-next/drivers/net/bonding/bonding.h
+@@ -259,6 +259,10 @@ struct bonding {
+ #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+ 	struct   in6_addr master_ipv6;
+ #endif
++#ifdef CONFIG_DEBUG_FS
++	/* debugging suport via debugfs */
++	struct	 dentry *debug_dir;
++#endif /* CONFIG_DEBUG_FS */
+ };
+
+ /**
+@@ -380,6 +384,11 @@ void bond_select_active_slave(struct bon
+ void bond_change_active_slave(struct bonding *bond, struct slave *new_active);
+ void bond_register_arp(struct bonding *);
+ void bond_unregister_arp(struct bonding *);
++void bond_create_debugfs(void);
++void bond_destroy_debugfs(void);
++void bond_debug_register(struct bonding *bond);
++void bond_debug_unregister(struct bonding *bond);
++void bond_debug_reregister(struct bonding *bond);
+
+ struct bond_net {
+ 	struct net *		net;	/* Associated network namespace */
+
 
