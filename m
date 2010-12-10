@@ -1,237 +1,188 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 27/27] igb: Add new function to read part number from EEPROM in string format
-Date: Fri, 10 Dec 2010 02:06:25 -0800
-Message-ID: <1291975585-30576-4-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1291975585-30576-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta09.emeryville.ca.mail.comcast.net ([76.96.30.96]:56066 "EHLO
-	qmta09.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753733Ab0LJKGj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 05:06:39 -0500
-To: davem@davemloft.net
-In-Reply-To: <1291975585-30576-1-git-send-email-jeffrey.t.kirsher@intel.com>
-To: davem@davemleft.org
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: [RFC PATCH V2 4/5] Add vhost zero copy callback to release guest
+ kernel buffers
+Date: Fri, 10 Dec 2010 02:08:27 -0800
+Message-ID: <1291975707.2167.43.camel@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: xiaohui.xin@intel.com, netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
+	mst@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+This patch uses msg_control to pass vhost callback to macvtap (any better
+idea to pass this in a simple way?). vhost doesn't notify guest to release
+buffers until the underlying lower device DMA has done for these buffers.
+This vq can not be reset if any outstanding reference.
 
-New adapters will have part numbers stored in string format rather than
-simple hex format. This function will read part number formats in either
-hex or string.
-
-Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: Shirley Ma <xma@us.ibm.com>
 ---
- drivers/net/igb/e1000_defines.h |    7 +++
- drivers/net/igb/e1000_nvm.c     |   93 ++++++++++++++++++++++++++++++++++++---
- drivers/net/igb/e1000_nvm.h     |    2 +
- drivers/net/igb/igb_main.c      |   11 +++--
- 4 files changed, 102 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/igb/e1000_defines.h b/drivers/net/igb/e1000_defines.h
-index 6222279..6319ed9 100644
---- a/drivers/net/igb/e1000_defines.h
-+++ b/drivers/net/igb/e1000_defines.h
-@@ -419,6 +419,9 @@
- #define E1000_ERR_SWFW_SYNC 13
- #define E1000_NOT_IMPLEMENTED 14
- #define E1000_ERR_MBX      15
-+#define E1000_ERR_INVALID_ARGUMENT  16
-+#define E1000_ERR_NO_SPACE          17
-+#define E1000_ERR_NVM_PBA_SECTION   18
+ drivers/vhost/net.c   |   13 ++++++++++-
+ drivers/vhost/vhost.c |   56 +++++++++++++++++++++++++++++++++++++++++++++++++
+ drivers/vhost/vhost.h |    7 ++++++
+ 3 files changed, 75 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+index f442668..6779a1c 100644
+--- a/drivers/vhost/net.c
++++ b/drivers/vhost/net.c
+@@ -128,6 +128,7 @@ static void handle_tx(struct vhost_net *net)
+ 	int err, wmem;
+ 	size_t hdr_size;
+ 	struct socket *sock;
++	struct skb_ubuf_info pend;
  
- /* Loop limit on how long we wait for auto-negotiation to complete */
- #define COPPER_LINK_UP_LIMIT              10
-@@ -580,11 +583,15 @@
- 
- /* Mask bits for fields in Word 0x1a of the NVM */
- 
-+/* length of string needed to store part num */
-+#define E1000_PBANUM_LENGTH         11
-+
- /* For checksumming, the sum of all words in the NVM should equal 0xBABA. */
- #define NVM_SUM                    0xBABA
- 
- #define NVM_PBA_OFFSET_0           8
- #define NVM_PBA_OFFSET_1           9
-+#define NVM_PBA_PTR_GUARD          0xFAFA
- #define NVM_WORD_SIZE_BASE_SHIFT   6
- 
- /* NVM Commands - Microwire */
-diff --git a/drivers/net/igb/e1000_nvm.c b/drivers/net/igb/e1000_nvm.c
-index d83b77fa..6b5cc2c 100644
---- a/drivers/net/igb/e1000_nvm.c
-+++ b/drivers/net/igb/e1000_nvm.c
-@@ -445,31 +445,112 @@ out:
+ 	/* TODO: check that we are running from vhost_worker?
+ 	 * Not sure it's worth it, it's straight-forward enough. */
+@@ -189,6 +190,13 @@ static void handle_tx(struct vhost_net *net)
+ 			       iov_length(vq->hdr, s), hdr_size);
+ 			break;
+ 		}
++		/* use msg_control to pass vhost zerocopy ubuf info here */
++		if (sock_flag(sock->sk, SOCK_ZEROCOPY)) {
++			pend.callback = vq->callback;
++			pend.desc = head;
++			msg.msg_control = &pend;
++			msg.msg_controllen = sizeof(pend);
++		}
+ 		/* TODO: Check specific error and bomb out unless ENOBUFS? */
+ 		err = sock->ops->sendmsg(NULL, sock, &msg, len);
+ 		if (unlikely(err < 0)) {
+@@ -199,7 +207,10 @@ static void handle_tx(struct vhost_net *net)
+ 		if (err != len)
+ 			pr_debug("Truncated TX packet: "
+ 				 " len %d != %zd\n", err, len);
+-		vhost_add_used_and_signal(&net->dev, vq, head, 0);
++		if (sock_flag(sock->sk, SOCK_ZEROCOPY))
++			vhost_zerocopy_add_used_and_signal(vq);
++		else
++			vhost_add_used_and_signal(&net->dev, vq, head, 0);
+ 		total_len += len;
+ 		if (unlikely(total_len >= VHOST_NET_WEIGHT)) {
+ 			vhost_poll_queue(&vq->poll);
+diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+index 94701ff..b0074bc 100644
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -170,6 +170,8 @@ static void vhost_vq_reset(struct vhost_dev *dev,
+ 	vq->call_ctx = NULL;
+ 	vq->call = NULL;
+ 	vq->log_ctx = NULL;
++	atomic_set(&vq->refcnt, 0);
++	vq->upend_cnt = 0;
  }
  
- /**
-- *  igb_read_part_num - Read device part number
-+ *  igb_read_part_string - Read device part number
-  *  @hw: pointer to the HW structure
-  *  @part_num: pointer to device part number
-+ *  @part_num_size: size of part number buffer
-  *
-  *  Reads the product board assembly (PBA) number from the EEPROM and stores
-  *  the value in part_num.
-  **/
--s32 igb_read_part_num(struct e1000_hw *hw, u32 *part_num)
-+s32 igb_read_part_string(struct e1000_hw *hw, u8 *part_num, u32 part_num_size)
- {
--	s32  ret_val;
-+	s32 ret_val;
- 	u16 nvm_data;
-+	u16 pointer;
-+	u16 offset;
-+	u16 length;
-+
-+	if (part_num == NULL) {
-+		hw_dbg("PBA string buffer was null\n");
-+		ret_val = E1000_ERR_INVALID_ARGUMENT;
-+		goto out;
-+	}
+ static int vhost_worker(void *data)
+@@ -273,6 +275,9 @@ long vhost_dev_init(struct vhost_dev *dev,
+ 		dev->vqs[i].heads = NULL;
+ 		dev->vqs[i].dev = dev;
+ 		mutex_init(&dev->vqs[i].mutex);
++		spin_lock_init(&dev->vqs[i].zerocopy_lock);
++		dev->vqs[i].upend_cnt = 0;
++		atomic_set(&dev->vqs[i].refcnt, 0);
+ 		vhost_vq_reset(dev, dev->vqs + i);
+ 		if (dev->vqs[i].handle_kick)
+ 			vhost_poll_init(&dev->vqs[i].poll,
+@@ -370,10 +375,37 @@ long vhost_dev_reset_owner(struct vhost_dev *dev)
+ 	return 0;
+ }
  
- 	ret_val = hw->nvm.ops.read(hw, NVM_PBA_OFFSET_0, 1, &nvm_data);
- 	if (ret_val) {
- 		hw_dbg("NVM Read Error\n");
- 		goto out;
- 	}
--	*part_num = (u32)(nvm_data << 16);
- 
--	ret_val = hw->nvm.ops.read(hw, NVM_PBA_OFFSET_1, 1, &nvm_data);
-+	ret_val = hw->nvm.ops.read(hw, NVM_PBA_OFFSET_1, 1, &pointer);
-+	if (ret_val) {
-+		hw_dbg("NVM Read Error\n");
-+		goto out;
-+	}
++void vhost_zerocopy_add_used_and_signal(struct vhost_virtqueue *vq)
++{
++	struct vring_used_elem heads[64];
++	int count, left, mod;
++	unsigned long flags;
 +
-+	/*
-+	 * if nvm_data is not ptr guard the PBA must be in legacy format which
-+	 * means pointer is actually our second data word for the PBA number
-+	 * and we can decode it into an ascii string
++	count = (vq->num > 64) ? 64 : vq->num;
++	mod = vq->ubuf_cnt / count;
++	/* notify guest when number of descriptors greater than count */
++	if (mod == 0)
++		return;
++	/* 
++	 * avoid holding spin lock by notifying guest x64 buffers first
 +	 */
-+	if (nvm_data != NVM_PBA_PTR_GUARD) {
-+		hw_dbg("NVM PBA number is not stored as string\n");
-+
-+		/* we will need 11 characters to store the PBA */
-+		if (part_num_size < 11) {
-+			hw_dbg("PBA string buffer too small\n");
-+			return E1000_ERR_NO_SPACE;
-+		}
-+
-+		/* extract hex string from data and pointer */
-+		part_num[0] = (nvm_data >> 12) & 0xF;
-+		part_num[1] = (nvm_data >> 8) & 0xF;
-+		part_num[2] = (nvm_data >> 4) & 0xF;
-+		part_num[3] = nvm_data & 0xF;
-+		part_num[4] = (pointer >> 12) & 0xF;
-+		part_num[5] = (pointer >> 8) & 0xF;
-+		part_num[6] = '-';
-+		part_num[7] = 0;
-+		part_num[8] = (pointer >> 4) & 0xF;
-+		part_num[9] = pointer & 0xF;
-+
-+		/* put a null character on the end of our string */
-+		part_num[10] = '\0';
-+
-+		/* switch all the data but the '-' to hex char */
-+		for (offset = 0; offset < 10; offset++) {
-+			if (part_num[offset] < 0xA)
-+				part_num[offset] += '0';
-+			else if (part_num[offset] < 0x10)
-+				part_num[offset] += 'A' - 0xA;
-+		}
-+
-+		goto out;
++	vhost_add_used_and_signal_n(vq->dev, vq, vq->heads, count * mod);
++	/* reset the counter when notifying guest the rest*/
++	left = vq->ubuf_cnt - mod * count;
++	if (left > 0) {
++		spin_lock_irqsave(&vq->zerocopy_lock, flags);
++		memcpy(heads, &vq->heads[mod * count], left * sizeof *vq->heads);
++		vq->ubuf_cnt = 0;
++		spin_unlock_irqrestore(&vq->zerocopy_lock, flags);
++		vhost_add_used_and_signal_n(vq->dev, vq, heads, left);
 +	}
++}
 +
-+	ret_val = hw->nvm.ops.read(hw, pointer, 1, &length);
- 	if (ret_val) {
- 		hw_dbg("NVM Read Error\n");
- 		goto out;
+ /* Caller should have device mutex */
+ void vhost_dev_cleanup(struct vhost_dev *dev)
+ {
+ 	int i;
++	unsigned long begin = jiffies;
+ 	for (i = 0; i < dev->nvqs; ++i) {
+ 		if (dev->vqs[i].kick && dev->vqs[i].handle_kick) {
+ 			vhost_poll_stop(&dev->vqs[i].poll);
+@@ -389,6 +421,12 @@ void vhost_dev_cleanup(struct vhost_dev *dev)
+ 			eventfd_ctx_put(dev->vqs[i].call_ctx);
+ 		if (dev->vqs[i].call)
+ 			fput(dev->vqs[i].call);
++		/* wait for all lower device DMAs done, then notify guest */
++		if (atomic_read(&dev->vqs[i].refcnt)) {
++			if (time_after(jiffies, begin + 5 * HZ))
++				vhost_zerocopy_add_used_and_signal(&dev->vqs[i]);
++		}
++
+ 		vhost_vq_reset(dev, dev->vqs + i);
  	}
--	*part_num |= nvm_data;
+ 	vhost_dev_free_iovecs(dev);
+@@ -1389,3 +1427,21 @@ void vhost_disable_notify(struct vhost_virtqueue *vq)
+ 		vq_err(vq, "Failed to enable notification at %p: %d\n",
+ 		       &vq->used->flags, r);
+ }
 +
-+	if (length == 0xFFFF || length == 0) {
-+		hw_dbg("NVM PBA number section invalid length\n");
-+		ret_val = E1000_ERR_NVM_PBA_SECTION;
-+		goto out;
-+	}
-+	/* check if part_num buffer is big enough */
-+	if (part_num_size < (((u32)length * 2) - 1)) {
-+		hw_dbg("PBA string buffer too small\n");
-+		ret_val = E1000_ERR_NO_SPACE;
-+		goto out;
-+	}
++void vhost_zerocopy_callback(struct sk_buff *skb)
++{
++	unsigned long flags;
++	size_t head = skb_shinfo(skb)->ubuf.desc;
++	struct vhost_virtqueue *vq;
 +
-+	/* trim pba length from start of string */
-+	pointer++;
-+	length--;
-+
-+	for (offset = 0; offset < length; offset++) {
-+		ret_val = hw->nvm.ops.read(hw, pointer + offset, 1, &nvm_data);
-+		if (ret_val) {
-+			hw_dbg("NVM Read Error\n");
-+			goto out;
-+		}
-+		part_num[offset * 2] = (u8)(nvm_data >> 8);
-+		part_num[(offset * 2) + 1] = (u8)(nvm_data & 0xFF);
++	vq = (struct vhost_virtqueue *)container_of(
++					skb_shinfo(skb)->ubuf.callback,
++					struct vhost_virtqueue, callback);
++	if (vq) {
++		spin_lock_irqsave(&vq->zerocopy_lock, flags);
++		vq->heads[vq->upend_cnt].id = head;
++		++vq->upend_cnt;
++		spin_unlock_irqrestore(&vq->zerocopy_lock, flags);
++		atomic_dec(&vq->refcnt);
 +	}
-+	part_num[offset * 2] = '\0';
++}
+diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
+index 073d06a..42d283a 100644
+--- a/drivers/vhost/vhost.h
++++ b/drivers/vhost/vhost.h
+@@ -108,6 +108,11 @@ struct vhost_virtqueue {
+ 	/* Log write descriptors */
+ 	void __user *log_base;
+ 	struct vhost_log *log;
++	/* vhost zerocopy */
++	atomic_t refcnt; /* num of outstanding DMAs */
++	spinlock_t zerocopy_lock;
++	int upend_cnt; /* num of buffers DMA has done, not notify guest yet */
++	void (*callback)(struct sk_buff *skb); /* notify guest DMA done */
+ };
  
- out:
- 	return ret_val;
-diff --git a/drivers/net/igb/e1000_nvm.h b/drivers/net/igb/e1000_nvm.h
-index 1041c34..29c956a 100644
---- a/drivers/net/igb/e1000_nvm.h
-+++ b/drivers/net/igb/e1000_nvm.h
-@@ -32,6 +32,8 @@ s32  igb_acquire_nvm(struct e1000_hw *hw);
- void igb_release_nvm(struct e1000_hw *hw);
- s32  igb_read_mac_addr(struct e1000_hw *hw);
- s32  igb_read_part_num(struct e1000_hw *hw, u32 *part_num);
-+s32  igb_read_part_string(struct e1000_hw *hw, u8 *part_num,
-+                          u32 part_num_size);
- s32  igb_read_nvm_eerd(struct e1000_hw *hw, u16 offset, u16 words, u16 *data);
- s32  igb_write_nvm_spi(struct e1000_hw *hw, u16 offset, u16 words, u16 *data);
- s32  igb_validate_nvm_checksum(struct e1000_hw *hw);
-diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index 67ea262..041f8e6 100644
---- a/drivers/net/igb/igb_main.c
-+++ b/drivers/net/igb/igb_main.c
-@@ -1729,12 +1729,13 @@ static int __devinit igb_probe(struct pci_dev *pdev,
- 	struct igb_adapter *adapter;
- 	struct e1000_hw *hw;
- 	u16 eeprom_data = 0;
-+	s32 ret_val;
- 	static int global_quad_port_a; /* global quad port a indication */
- 	const struct e1000_info *ei = igb_info_tbl[ent->driver_data];
- 	unsigned long mmio_start, mmio_len;
- 	int err, pci_using_dac;
- 	u16 eeprom_apme_mask = IGB_EEPROM_APME;
--	u32 part_num;
-+	u8 part_str[E1000_PBANUM_LENGTH];
+ struct vhost_dev {
+@@ -154,6 +159,8 @@ bool vhost_enable_notify(struct vhost_virtqueue *);
  
- 	/* Catch broken hardware that put the wrong VF device ID in
- 	 * the PCIe SR-IOV capability.
-@@ -2000,10 +2001,10 @@ static int __devinit igb_probe(struct pci_dev *pdev,
- 		   "unknown"),
- 		 netdev->dev_addr);
+ int vhost_log_write(struct vhost_virtqueue *vq, struct vhost_log *log,
+ 		    unsigned int log_num, u64 len);
++void vhost_zerocopy_callback(struct sk_buff *skb);
++void vhost_zerocopy_add_used_and_signal(struct vhost_virtqueue *vq);
  
--	igb_read_part_num(hw, &part_num);
--	dev_info(&pdev->dev, "%s: PBA No: %06x-%03x\n", netdev->name,
--		(part_num >> 8), (part_num & 0xff));
--
-+	ret_val = igb_read_part_string(hw, part_str, E1000_PBANUM_LENGTH);
-+	if (ret_val)
-+		strcpy(part_str, "Unknown");
-+	dev_info(&pdev->dev, "%s: PBA No: %s\n", netdev->name, part_str);
- 	dev_info(&pdev->dev,
- 		"Using %s interrupts. %d rx queue(s), %d tx queue(s)\n",
- 		adapter->msix_entries ? "MSI-X" :
--- 
-1.7.3.2
-
+ #define vq_err(vq, fmt, ...) do {                                  \
+ 		pr_debug(pr_fmt(fmt), ##__VA_ARGS__);       \
