@@ -1,38 +1,31 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next-2.6 v8 01/20] CAN : Add flow control processing.
-Date: Fri, 10 Dec 2010 11:17:00 -0800 (PST)
-Message-ID: <20101210.111700.28826066.davem@davemloft.net>
-References: <4CFE13E4.2020707@dsn.okisemi.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: net-next-2.6 [Patch 1/1] dccp: dead code elimination
+Date: Fri, 10 Dec 2010 11:23:02 -0800 (PST)
+Message-ID: <20101210.112302.179924365.davem@davemloft.net>
+References: <4D01FBBE.2030705@cn.fujitsu.com>
+	<1291982371-5666-1-git-send-email-gerrit@erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org
-To: tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4CFE13E4.2020707-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: gerrit@erg.abdn.ac.uk
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43406
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752853Ab0LJTWe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 14:22:34 -0500
+In-Reply-To: <1291982371-5666-1-git-send-email-gerrit@erg.abdn.ac.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Date: Fri, 10 Dec 2010 12:59:30 +0100
 
-Your subject lines need to be fixed.
+> Dave,
+> 
+> can you please consider the attached patch - it removes indeed dead code.
+> I have also placed this in into a fresh (today's) copy of net-next-2.6, on
+> 
+>     git://eden-feed.erg.abdn.ac.uk/net-next-2.6        [subtree 'dccp']
 
-You are not making changes to the CAN subsystem, you are making
-changes to the "pch_can" device driver.
-
-Also you should not put a space before the ":" character.  So
-something like 
-
-[PATCH net-next-2.6 v8 01/20] pch_can: Add flow control processing
-
-Thanks.
+Pulled, thanks!
