@@ -1,37 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] atm: correct sysfs 'device' link creation and
- parent relationships
-Date: Fri, 10 Dec 2010 15:45:33 -0800 (PST)
-Message-ID: <20101210.154533.124001355.davem@davemloft.net>
-References: <20101208.121532.232745367.davem@davemloft.net>
-	<1291854831.16839.12.camel@dcbw.foobar.com>
-	<1291873251.24551.4.camel@dcbw.foobar.com>
+Subject: Re: [PATCH] phy: add the IC+ IP1001 driver
+Date: Fri, 10 Dec 2010 15:47:41 -0800 (PST)
+Message-ID: <20101210.154741.173841125.davem@davemloft.net>
+References: <1291885513-32766-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kay.sievers@vrfy.org, netdev@vger.kernel.org, duncan.sands@free.fr,
-	linux-usb@vger.kernel.org, chas@cmf.nrl.navy.mil
-To: dcbw@redhat.com
+Cc: netdev@vger.kernel.org
+To: peppe.cavallaro@st.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59406
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33002
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751916Ab0LJXpG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 18:45:06 -0500
-In-Reply-To: <1291873251.24551.4.camel@dcbw.foobar.com>
+	by vger.kernel.org with ESMTP id S1751522Ab0LJXrN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 18:47:13 -0500
+In-Reply-To: <1291885513-32766-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Williams <dcbw@redhat.com>
-Date: Wed, 08 Dec 2010 23:40:47 -0600
+From: Peppe CAVALLARO <peppe.cavallaro@st.com>
+Date: Thu, 9 Dec 2010 10:05:13 +0100
 
-> The ATM subsystem was incorrectly creating the 'device' link for ATM
-> nodes in sysfs.  This led to incorrect device/parent relationships
-> exposed by sysfs and udev.  Instead of rolling the 'device' link by hand
-> in the generic ATM code, pass each ATM driver's bus device down to the
-> sysfs code and let sysfs do this stuff correctly.
+> This patch adds the IC+ IP1001 (Gigabit Ethernet Transceiver) driver.
+> I've had to add an additional delay (2ns) to adjust RX clock phase at
+> GMII/ RGMII interface (according to the PHY data-sheet). This helps to
+> have the RGMII working on some ST platforms.
 > 
-> Signed-off-by: Dan Williams <dcbw@redhat.com>
+> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 
-Applied and being compile tested :-)
+You forgot to update the icplus_tbl module device table with a
+new 0x02430d90 entry.
 
-Thanks!
+Please fix this and resubmit.
