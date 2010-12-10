@@ -1,46 +1,58 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: Adding Support for SG,GSO,GRO
-Date: Fri, 10 Dec 2010 16:20:28 +0000
-Message-ID: <1291998028.11673.6.camel@bwh-desktop>
-References: <FCCFB4CDC6E5564B9182F639FC356087035F21D9F9@dbde02.ent.ti.com>
-	 <1291906948.19763.16.camel@localhost>
-	 <AANLkTi=8zWMYWG0DU147B08nN7xcvwaB9Bpq9fE8_fBe@mail.gmail.com>
-	 <20101209.113806.71114756.davem@davemloft.net>
-	 <AANLkTi=7NLkHW6c88gUcyW8i0Wwmf2Cw4NdmRiGci4kE@mail.gmail.com>
-	 <20101210143140.GD3536057@jupiter.n2.diac24.net>
-	 <AANLkTi=cVufUAHn6LRs_vG-cW2cY87SdP9MOE7i5Ru09@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] iproute2: add dynamic index and name hashes
+Date: Fri, 10 Dec 2010 08:20:40 -0800
+Message-ID: <20101210082040.230a2832@nehalam>
+References: <1291993164-8793-1-git-send-email-opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Lamparter <equinox@diac24.net>,
-	David Miller <davem@davemloft.net>, srk@ti.com,
-	netdev@vger.kernel.org, Jens Axboe <axboe@kernel.dk>
-To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirqus@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	Lucian Adrian Grijincu <lucian.grijincu@gmail.com>,
+	Vlad Dogaru <ddvlad@rosedu.org>
+To: Octavian Purdila <opurdila@ixiacom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:20973 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756170Ab0LJQUc convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 11:20:32 -0500
-In-Reply-To: <AANLkTi=cVufUAHn6LRs_vG-cW2cY87SdP9MOE7i5Ru09@mail.gmail.com>
+Received: from mail.vyatta.com ([76.74.103.46]:45357 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756379Ab0LJQUm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Dec 2010 11:20:42 -0500
+In-Reply-To: <1291993164-8793-1-git-send-email-opurdila@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2010-12-10 at 17:01 +0100, Micha=C5=82 Miros=C5=82aw wrote:
-[...]
-> The question is do we really want good checksum for bogus data?
-[...]
+On Fri, 10 Dec 2010 16:59:24 +0200
+Octavian Purdila <opurdila@ixiacom.com> wrote:
 
-It's not bogus data.  It's a snapshot of the file contents at some
-arbitrary point in time.
+> The hashes sizes start with 16 entries and grow up to 2^20
+> entries. The hashes double when the entries in the LL map is greater
+> then the hash size.
+> 
+> Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
+> ---
+>  lib/ll_map.c |  125 +++++++++++++++++++++++++++++++++++++++++++++++----------
+>  1 files changed, 103 insertions(+), 22 deletions(-)
+> 
+> diff --git a/lib/ll_map.c b/lib/ll_map.c
+> index b8b49aa..9831322 100644
+> --- a/lib/ll_map.c
+> +++ b/lib/ll_map.c
+> @@ -26,7 +26,8 @@ extern unsigned int if_nametoindex (const char *);
+>  
+>  struct idxmap
+>  {
+> -	struct idxmap * next;
+> +	struct idxmap *idx_next;
+> +	struct idxmap *name_next;
+>  	unsigned	index;
+>  	int		type;
+>  	int		alen;
+> @@ -35,31 +36,100 @@ struct idxmap
+>  	char		name[16];
+>  };
+>  
+> -static struct idxmap *idxmap[16];
 
-Now please stop wasting your own time and that of the networking
-maintainers, and remember to check for checksum offload next time you
-need to select a network controller.
+This is user space, and memory space is realtively cheap. Why not just
+make initial idxmap much bigger and be done with it.
 
-Ben.
 
---=20
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+-- 
