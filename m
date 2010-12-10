@@ -1,39 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] xfrm: Fix xfrm_state_migrate leak
-Date: Thu, 09 Dec 2010 20:36:01 -0800 (PST)
-Message-ID: <20101209.203601.112597520.davem@davemloft.net>
-References: <20101207092856.GL4639@secunet.com>
-	<20101207093157.GA4845@gondor.apana.org.au>
+Subject: Re: [PATCH] IP checksuming doesn't work on GE0301 option cards
+Date: Thu, 09 Dec 2010 20:43:00 -0800 (PST)
+Message-ID: <20101209.204300.183050064.davem@davemloft.net>
+References: <20101208082152.407022397DD@solo.franken.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: steffen.klassert@secunet.com, thomas.egerer@secunet.com,
-	netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Cc: netdev@vger.kernel.org, j.dumon@option.com
+To: tsbogend@alpha.franken.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54618
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58031
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755718Ab0LJEfd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Dec 2010 23:35:33 -0500
-In-Reply-To: <20101207093157.GA4845@gondor.apana.org.au>
+	by vger.kernel.org with ESMTP id S1755273Ab0LJEmc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Dec 2010 23:42:32 -0500
+In-Reply-To: <20101208082152.407022397DD@solo.franken.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Tue, 7 Dec 2010 17:31:57 +0800
+From: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
+Date: Wed,  8 Dec 2010 09:21:52 +0100 (CET)
 
-> On Tue, Dec 07, 2010 at 10:28:56AM +0100, Steffen Klassert wrote:
->> From: Thomas Egerer <thomas.egerer@secunet.com>
->> 
->> xfrm_state_migrate calls kfree instead of xfrm_state_put to free
->> a failed state. According to git commit 553f9118 this can cause
->> memory leaks.
->> 
->> Signed-off-by: Thomas Egerer <thomas.egerer@secunet.com>
->> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+> There is definitly a problem, that some option cards send up broken
+> IP pakets leading to corrupted IP packets. These corruptions aren't
+> detected, because the driver claims that the packets are already
+> checksummed. This change removes the CHECKSUM_UNNECESSARY option
+> and let IP detect broken data.
 > 
-> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
-> 
-> Good catch.  Thanks!
+> Signed-off-by: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
 
-Applied, thanks.
+Applied, thank you.
